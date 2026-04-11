@@ -101,9 +101,26 @@ yumyums-pwa/
     icon-512.png
 ```
 
-Deploy options ranked by speed:
+### Digital Ocean App Platform (current)
 
-1. **Cloudflare Pages drag-and-drop** — 2 min, free, real HTTPS, instant `*.pages.dev` URL. Best for the mock phase.
+Live at: https://yumyums-purchase-orders-4iuwf.ondigitalocean.app
+
+App ID: `0cc791e5-1626-4d7d-9a5b-f647f34c172e`
+
+**Auto-deploy is enabled** — pushing to `main` triggers a deploy automatically.
+
+**Pushing an update:**
+
+1. Bump the service worker cache version in `sw.js` (e.g. `yumyums-v2` → `yumyums-v3`). Without this, the old cached HTML will keep being served.
+2. Commit and push to `main`.
+3. Check deploy status: `doctl apps list-deployments 0cc791e5-1626-4d7d-9a5b-f647f34c172e` — Phase shows `ACTIVE` when done.
+4. On your phone, hard-refresh or close/reopen the app to pick up the new service worker.
+
+App spec lives in `.do/app.yaml`.
+
+### Other deploy options
+
+1. **Cloudflare Pages drag-and-drop** — 2 min, free, real HTTPS, instant `*.pages.dev` URL.
 2. **Hetzner + Caddy** — `scp` to `/var/www/yumyums-mock`, add a Caddy block, reload. Worth doing now if DNS is ready since this is the eventual production path.
 3. **Local `python3 -m http.server`** — sanity check only; iOS won't enable PWA features over plain HTTP on a LAN address.
 
