@@ -1,0 +1,11 @@
+name: yumyums-purchase-orders
+region: nyc
+static_sites:
+  - name: purchase-orders
+    github:
+      repo: jiaming2012/yumyums-purchase-orders
+      branch: main
+      deploy_on_push: true
+    source_dir: /
+    index_document: index.html
+    error_document: index.html
