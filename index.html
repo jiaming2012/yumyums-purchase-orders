@@ -78,6 +78,7 @@ const CATS=[['Proteins',[['Salmon fillet','lb','par 6',3],['Lump crab','lb','par
 const lst=document.getElementById('lst');
 CATS.forEach(([cat,items])=>{const h=document.createElement('div');h.className='cat';h.textContent=cat;lst.appendChild(h);items.forEach(([n,u,p,q])=>{const r=document.createElement('div');r.className='row';r.innerHTML=`<div><div class="nm">${n}</div><div class="mt">${u} · ${p}</div></div><div class="stp"><button>−</button><span>${q}</span><button>+</button></div>`;const[m,s,pl]=r.querySelectorAll('.stp button,.stp span,.stp button');const sp=r.querySelector('.stp span');const btns=r.querySelectorAll('.stp button');btns[0].onclick=()=>{let v=+sp.textContent;if(v>0)sp.textContent=v-1};btns[1].onclick=()=>{sp.textContent=+sp.textContent+1};lst.appendChild(r)})});
 function show(n){[1,2,3].forEach(i=>{document.getElementById('s'+i).style.display=i==n?'block':'none';document.getElementById('t'+i).className=i==n?'on':''})}
+document.addEventListener('dblclick',e=>e.preventDefault());
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');
 </script>
 </body>
