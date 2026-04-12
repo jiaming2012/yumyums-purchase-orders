@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0c447c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Yumyums">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<title>Yumyums Purchasing</title>
+<style>
+:root{--bg:#f5f5f3;--card:#fff;--txt:#1a1a1a;--mut:#6b6b6b;--brd:rgba(0,0,0,0.08);--info-bg:#e6f1fb;--info-tx:#0c447c;--warn-bg:#faeeda;--warn-tx:#854f0b}
+@media(prefers-color-scheme:dark){:root{--bg:#1a1a1a;--card:#262626;--txt:#f0f0f0;--mut:#999;--brd:rgba(255,255,255,0.1);--info-bg:#0c447c;--info-tx:#b5d4f4;--warn-bg:#633806;--warn-tx:#fac775}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg);color:var(--txt);padding:env(safe-area-inset-top) 12px env(safe-area-inset-bottom)}
+.app{max-width:480px;margin:0 auto;padding-top:12px}
+.back{display:flex;align-items:center;gap:6px;margin-bottom:12px;color:var(--info-tx);font-size:14px;font-weight:500;text-decoration:none;-webkit-tap-highlight-color:transparent}
+.back::before{content:'‹';font-size:20px;line-height:1;margin-top:-1px}
+.tabs{display:flex;gap:4px;background:var(--card);border-radius:10px;padding:4px;margin-bottom:12px}
+.tabs button{flex:1;border:none;padding:10px;font-size:13px;border-radius:7px;background:transparent;color:var(--txt);font-weight:500}
+.tabs button.on{background:var(--info-bg);color:var(--info-tx)}
+.card{background:var(--card);border-radius:12px;overflow:hidden;margin-bottom:8px}
+.hd{padding:14px 16px;border-bottom:0.5px solid var(--brd)}
+.hd h1{font-size:15px;font-weight:500;margin:0}
+.sub{font-size:12px;color:var(--mut);margin-top:4px;display:flex;justify-content:space-between;align-items:center}
+.pill{font-size:11px;padding:3px 8px;border-radius:10px;background:var(--warn-bg);color:var(--warn-tx)}
+.pill.lk{background:var(--brd);color:var(--mut)}
+.list{max-height:60vh;overflow-y:auto}
+.cat{position:sticky;top:0;background:var(--bg);padding:6px 16px;font-size:11px;font-weight:500;color:var(--mut);text-transform:uppercase;letter-spacing:0.5px;z-index:1}
+.row{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:0.5px solid var(--brd)}
+.row .nm{font-size:14px}
+.row .mt{font-size:11px;color:var(--mut)}
+.stp{display:flex;align-items:center;gap:10px}
+.stp button{width:32px;height:32px;border-radius:50%;border:0.5px solid var(--brd);background:transparent;font-size:16px;color:var(--txt);font-weight:500}
+.stp button:active{background:var(--info-bg)}
+.stp span{min-width:18px;text-align:center;font-size:14px;font-weight:500}
+.ft{padding:12px 16px;border-top:0.5px solid var(--brd)}
+.ft button{width:100%;padding:12px;background:var(--info-bg);color:var(--info-tx);border:none;border-radius:8px;font-size:14px;font-weight:500}
+.lk-row{display:flex;justify-content:space-between;padding:10px 16px;border-bottom:0.5px solid var(--brd);font-size:13px}
+.lk-row span:last-child{color:var(--mut)}
+.po{padding:14px 16px}
+.po-h{display:flex;justify-content:space-between;font-size:14px;font-weight:500;margin-bottom:8px}
+.po-l{display:flex;justify-content:space-between;font-size:12px;color:var(--mut);line-height:2}
+.tot{display:flex;justify-content:space-between;padding:14px 16px;font-size:14px;font-weight:500}
+</style>
+</head>
+<body>
+<div class="app">
+<a class="back" href="index.html">HQ</a>
+<div class="tabs"><button id="t1" class="on" onclick="show(1)">Form</button><button id="t2" onclick="show(2)">Locked</button><button id="t3" onclick="show(3)">PO</button></div>
+
+<div id="s1" class="card">
+<div class="hd"><h1>Week of Apr 13</h1><div class="sub"><span>Jamal · 7 items added</span><span class="pill">Cutoff Sun 6pm</span></div></div>
+<div class="list" id="lst"></div>
+<div class="ft"><button>Submit additions</button></div>
+</div>
+
+<div id="s2" class="card" style="display:none">
+<div class="hd"><h1>Week of Apr 13</h1><div class="sub"><span>3 contributors · 14 items</span><span class="pill lk">LOCKED</span></div></div>
+<div class="lk-row"><span>Salmon fillet</span><span>5 lb · JM MK</span></div>
+<div class="lk-row"><span>Shrimp 16/20</span><span>8 lb · JM</span></div>
+<div class="lk-row"><span>Lemons</span><span>3 case · MK TR</span></div>
+<div class="lk-row"><span>Boats 6oz</span><span>6 case · JM TR</span></div>
+</div>
+
+<div id="s3" style="display:none">
+<div class="card po"><div class="po-h"><span>Restaurant Depot</span><span>$412.80</span></div>
+<div class="po-l"><span>Salmon fillet · 5 lb</span><span>$74.50</span></div>
+<div class="po-l"><span>Shrimp 16/20 · 8 lb</span><span>$96.00</span></div>
+<div class="po-l"><span>Lemons · 3 case</span><span>$87.30</span></div>
+<div class="po-l"><span>Boats 6oz · 6 case</span><span>$155.00</span></div></div>
+<div class="card po"><div class="po-h"><span>Sysco</span><span>$186.20</span></div></div>
+<div class="card tot"><span>Total</span><span>$599.00</span></div>
+</div>
+</div>
+
+<script>
+const CATS=[['Proteins',[['Salmon fillet','lb','par 6',3],['Lump crab','lb','par 8',0],['Shrimp 16/20','lb','par 10',2]]],['Produce',[['Lemons','case','par 2',1],['Romaine','case','par 1',0]]],['Packaging',[['Boats 6oz','case','par 5',4],['Napkins','case','par 3',0]]]];
+const lst=document.getElementById('lst');
+CATS.forEach(([cat,items])=>{const h=document.createElement('div');h.className='cat';h.textContent=cat;lst.appendChild(h);items.forEach(([n,u,p,q])=>{const r=document.createElement('div');r.className='row';r.innerHTML=`<div><div class="nm">${n}</div><div class="mt">${u} · ${p}</div></div><div class="stp"><button>−</button><span>${q}</span><button>+</button></div>`;const[m,s,pl]=r.querySelectorAll('.stp button,.stp span,.stp button');const sp=r.querySelector('.stp span');const btns=r.querySelectorAll('.stp button');btns[0].onclick=()=>{let v=+sp.textContent;if(v>0)sp.textContent=v-1};btns[1].onclick=()=>{sp.textContent=+sp.textContent+1};lst.appendChild(r)})});
+function show(n){[1,2,3].forEach(i=>{document.getElementById('s'+i).style.display=i==n?'block':'none';document.getElementById('t'+i).className=i==n?'on':''})}
+document.addEventListener('dblclick',e=>e.preventDefault());
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');
+</script>
+</body>
+</html>
