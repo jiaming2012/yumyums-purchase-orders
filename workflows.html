@@ -1184,7 +1184,7 @@ function renderApprovals() {
           '<textarea class="reject-item-input" data-reject-fld="' + fld.id + '" placeholder="Comment for crew\u2026" rows="2">' + escapeHtml(entry._rejectedItems[fld.id].comment || '') + '</textarea>' +
           '<label class="require-photo-toggle"><input type="checkbox" data-reject-photo-fld="' + fld.id + '" ' + (entry._rejectedItems[fld.id].requirePhoto ? 'checked' : '') + '> Require photo evidence</label></div>' : '';
         return '<div class="review-item">' +
-          '<span class="review-check">' + (answered ? '✓' : '○') + '</span>' +
+          '<span class="review-check" style="' + (answered ? '' : 'color:#c0392b') + '">' + (answered ? '✓' : '✗') + '</span>' +
           '<span class="review-label">' + escapeHtml(fld.label || fld.type) + '</span>' +
           '<button class="review-reject-btn ' + (isRejected ? 'selected' : '') + '" data-action="toggle-reject-item" data-tpl-id="' + tplId + '" data-fld-id="' + fld.id + '">' + (isRejected ? 'Flagged' : 'Flag') + '</button>' +
           '</div>' + rejectForm;
@@ -1255,11 +1255,11 @@ function renderRunner() {
   const sectionsHtml = tpl.sections.map(sec => renderRunnerSection(sec)).join('');
   const isSubmitted = !!SUBMITTED_TEMPLATES[tpl.id];
   const isPending = !!PENDING_APPROVALS[tpl.id];
-  const unsubmitBtn = `<button data-action="unsubmit" data-tpl-id="${tpl.id}" style="width:100%;padding:12px;margin-top:8px;background:transparent;color:var(--mut);border:0.5px solid var(--brd);border-radius:8px;font-size:13px;font-weight:500;font-family:inherit;cursor:pointer">Unsubmit</button>`;
+  const unsubmitBtn = `<button data-action="unsubmit" data-tpl-id="${tpl.id}" style="width:100%;padding:14px;margin:16px 0 0;background:#c0392b;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:500;font-family:inherit;cursor:pointer">Unsubmit</button>`;
   const submitHtml = isSubmitted
-    ? `<button class="btn-primary" data-action="submit" data-tpl-id="${tpl.id}" style="width:100%;padding:14px;margin:16px 0 0;background:var(--info-tx);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:500;opacity:0.5;pointer-events:none">Submit checklist</button><div class="submit-confirm">Checklist submitted. Thanks, ${CURRENT_USER.initials}!</div>${unsubmitBtn}`
+    ? `<div class="submit-confirm" style="margin-top:16px">Checklist submitted. Thanks, ${CURRENT_USER.initials}!</div>${unsubmitBtn}`
     : isPending
-      ? `<button class="btn-primary" data-action="submit" data-tpl-id="${tpl.id}" style="width:100%;padding:14px;margin:16px 0 0;background:var(--info-tx);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:500;opacity:0.5;pointer-events:none">Submit checklist</button><div class="submit-confirm">Submitted for approval. Waiting for manager review.</div>${unsubmitBtn}`
+      ? `<div class="submit-confirm" style="margin-top:16px">Submitted for approval. Waiting for manager review.</div>${unsubmitBtn}`
       : `<button class="btn-primary" id="submit-btn" data-action="submit" data-tpl-id="${tpl.id}" style="margin-top:8px">Submit checklist</button>`;
   return `<button class="editor-back" id="fill-back">Checklists</button>
 <div style="padding:10px 16px 0" class="progress-line">
@@ -1732,8 +1732,54 @@ document.getElementById('approvals-body').addEventListener('click', function(e) 
     var tplId = actionEl.dataset.tplId;
     var entry = PENDING_APPROVALS[tplId];
     if (!entry) return;
+    // Check if there are incomplete items
+    var tpl = MOCK_TEMPLATES.find(function(t){return t.id===tplId});
+    var hasIncomplete = tpl && tpl.sections.some(function(sec) {
+      return sec.fields.some(function(fld) { return entry.responses[fld.id] === undefined; });
+    });
+    if (hasIncomplete) {
+      var card = actionEl.closest('.approval-card');
+      var actions = card.querySelector('.approval-actions');
+      if (!actions.querySelector('.approve-reason')) {
+        var ta = document.createElement('textarea');
+        ta.className = 'rejection-reason approve-reason';
+        ta.rows = 3; ta.placeholder = 'Reason for approving with incomplete items\u2026'; ta.style.marginTop = '8px';
+        var confirmBtn = document.createElement('button');
+        confirmBtn.className = 'btn-approve';
+        confirmBtn.style.marginTop = '8px';
+        confirmBtn.textContent = 'Confirm approval';
+        confirmBtn.dataset.action = 'approve-confirm';
+        confirmBtn.dataset.tplId = tplId;
+        actions.insertBefore(confirmBtn, actions.querySelector('.btn-reject'));
+        actions.insertBefore(ta, confirmBtn);
+        ta.focus();
+        return;
+      }
+    }
     APPROVED_SUBMISSIONS[tplId] = Object.assign({}, entry, {
       approvedBy: MOCK_CURRENT_USER.name, approvedAt: new Date().toISOString()
+    });
+    delete PENDING_APPROVALS[tplId];
+    SUBMITTED_TEMPLATES[tplId] = true;
+    showToast('Approved ✓');
+    renderApprovals();
+    renderFillOut();
+    return;
+  }
+
+  if (action === 'approve-confirm') {
+    var tplId = actionEl.dataset.tplId;
+    var card = actionEl.closest('.approval-card');
+    var reason = card.querySelector('.approve-reason').value.trim();
+    if (!reason) {
+      card.querySelector('.approve-reason').style.borderColor = '#c0392b';
+      return;
+    }
+    var entry = PENDING_APPROVALS[tplId];
+    if (!entry) return;
+    APPROVED_SUBMISSIONS[tplId] = Object.assign({}, entry, {
+      approvedBy: MOCK_CURRENT_USER.name, approvedAt: new Date().toISOString(),
+      approveReason: reason
     });
     delete PENDING_APPROVALS[tplId];
     SUBMITTED_TEMPLATES[tplId] = true;

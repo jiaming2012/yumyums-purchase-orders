@@ -314,6 +314,11 @@ test.describe('Approval flow', () => {
     await submitSetupForApproval(page);
     await page.click('#t2');
     await page.click('[data-action="approve"]');
+    // Photo is incomplete, so comment is required
+    if (await page.locator('.approve-reason').isVisible()) {
+      await page.locator('.approve-reason').fill('Photo not needed');
+      await page.click('[data-action="approve-confirm"]');
+    }
     await expect(page.locator('#toast')).toContainText('Approved');
     // Card moves to APPROVED section with green badge and unapprove button
     await expect(page.locator('#approvals-body').getByText('Approved ✓')).toBeVisible();
@@ -324,6 +329,11 @@ test.describe('Approval flow', () => {
     await submitSetupForApproval(page);
     await page.click('#t2');
     await page.click('[data-action="approve"]');
+    // Handle incomplete approval comment if needed
+    if (await page.locator('.approve-reason').isVisible()) {
+      await page.locator('.approve-reason').fill('Photo not needed');
+      await page.click('[data-action="approve-confirm"]');
+    }
     await page.waitForTimeout(300);
     // Tap unapprove
     await page.click('[data-action="unapprove"]');
@@ -371,6 +381,87 @@ test.describe('Approval flow', () => {
     await page.click('#t1');
     await page.click('[data-fill-template-id="tpl_setup"]');
     await expect(page.locator('.correction-banner').first()).toContainText('Rejected');
+  });
+});
+
+// ─── Incomplete Submission Approval ──────────────────────────────────────────
+
+test.describe('Incomplete submission approval', () => {
+  async function submitSetupPartial(page) {
+    await page.goto('/workflows.html');
+    await page.click('[data-fill-template-id="tpl_setup"]');
+    // Only complete one field, leave others incomplete
+    const yesButtons = page.locator('[data-action="set-yes"]');
+    if (await yesButtons.count() > 0) await yesButtons.first().click();
+    await page.click('[data-action="submit"]');
+    await page.waitForTimeout(500);
+  }
+
+  test('incomplete items show red X in approvals tab', async ({ page }) => {
+    await submitSetupPartial(page);
+    await page.click('#t2');
+    // At least one red ✗ should be visible (incomplete items)
+    const redX = page.locator('.review-check', { hasText: '✗' });
+    expect(await redX.count()).toBeGreaterThan(0);
+    // At least one green ✓ (completed item)
+    const greenCheck = page.locator('.review-check', { hasText: '✓' });
+    expect(await greenCheck.count()).toBeGreaterThan(0);
+  });
+
+  test('approving with incomplete items requires a comment', async ({ page }) => {
+    await submitSetupPartial(page);
+    await page.click('#t2');
+    await page.click('[data-action="approve"]');
+    // Should show comment textarea, not approve immediately
+    await expect(page.locator('.approve-reason')).toBeVisible();
+    // Empty confirm does nothing
+    await page.click('[data-action="approve-confirm"]');
+    await expect(page.locator('.approve-reason')).toBeVisible();
+    // Add reason and confirm
+    await page.locator('.approve-reason').fill('Photo not needed today — indoor event');
+    await page.click('[data-action="approve-confirm"]');
+    await expect(page.locator('#toast')).toContainText('Approved');
+  });
+
+  test('approving with incomplete items shows comment form, completing it approves', async ({ page }) => {
+    await submitSetupPartial(page);
+    await page.click('#t2');
+    await page.click('[data-action="approve"]');
+    // Comment form should be visible (incomplete items)
+    await expect(page.locator('.approve-reason')).toBeVisible();
+    await page.locator('.approve-reason').fill('Acceptable for today');
+    await page.click('[data-action="approve-confirm"]');
+    await expect(page.locator('#toast')).toContainText('Approved');
+    await expect(page.locator('#approvals-body').getByText('Approved ✓')).toBeVisible();
+  });
+});
+
+// ─── Unsubmit ───────────────────────────────────────────────────────────────
+
+test.describe('Unsubmit', () => {
+  test('unsubmit button appears as red button after submitting', async ({ page }) => {
+    await page.goto('/workflows.html');
+    await page.click('[data-fill-template-id="tpl_setup"]');
+    await page.locator('[data-action="set-yes"]').first().click();
+    await page.click('[data-action="submit"]');
+    await page.waitForTimeout(500);
+    await page.click('[data-fill-template-id="tpl_setup"]');
+    const unsubmitBtn = page.locator('[data-action="unsubmit"]');
+    await expect(unsubmitBtn).toBeVisible();
+    await expect(unsubmitBtn).toContainText('Unsubmit');
+  });
+
+  test('unsubmit returns checklist to editable state', async ({ page }) => {
+    await page.goto('/workflows.html');
+    await page.click('[data-fill-template-id="tpl_setup"]');
+    await page.locator('[data-action="set-yes"]').first().click();
+    await page.click('[data-action="submit"]');
+    await page.waitForTimeout(500);
+    await page.click('[data-fill-template-id="tpl_setup"]');
+    await page.click('[data-action="unsubmit"]');
+    await expect(page.locator('#toast')).toContainText('unsubmitted');
+    // Should show submit button again (not unsubmit)
+    await expect(page.locator('[data-action="submit"]')).toBeVisible();
   });
 });
 

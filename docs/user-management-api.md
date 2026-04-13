@@ -608,7 +608,19 @@ Response 200:
 
 ##### POST /api/v1/checklists/approvals/:submission_id/approve
 
-One-tap approval.
+Approval. If all items are complete, no reason is required. If any items are incomplete, a reason is required explaining why the checklist is being approved despite incomplete items.
+
+Request (optional — required when incomplete items exist):
+```json
+{
+  "reason": "Photo not needed today — indoor event"
+}
+```
+
+Response 400 (when incomplete items and no reason):
+```json
+{ "error": "reason_required", "message": "Checklist has incomplete items — provide a reason for approval" }
+```
 
 Response 200:
 ```json
