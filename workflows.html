@@ -87,6 +87,20 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .yn-btn.yn-no{background:var(--warn-bg);color:var(--warn-tx);border-color:var(--warn-tx)}
 .fill-textarea{width:100%;padding:10px 12px;background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;font-size:14px;color:var(--txt);font-family:inherit;outline:none;resize:none;-webkit-appearance:none}
 .fill-textarea:focus{border-color:var(--info-tx)}
+.fail-card{background:rgba(192,57,43,0.08);border-radius:8px;padding:12px 16px;margin:4px 16px 8px}
+@media(prefers-color-scheme:dark){.fail-card{background:rgba(192,57,43,0.15)}}
+.yn-pills{display:flex;gap:8px;padding:4px 16px 8px}
+.yn-pill{padding:8px 16px;border-radius:8px;border:0.5px solid var(--brd);background:transparent;color:var(--txt);font-size:14px;cursor:pointer;min-width:60px;text-align:center;font-family:inherit}
+.yn-pill.on{background:var(--info-bg);color:var(--info-tx);border-color:var(--info-tx)}
+.severity-pills{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+.severity-pill{padding:8px 16px;border-radius:8px;border:0.5px solid var(--brd);background:transparent;color:var(--txt);font-size:12px;font-weight:500;cursor:pointer;font-family:inherit}
+.severity-pill.on{background:var(--info-bg);color:var(--info-tx);border-color:var(--info-tx)}
+.temp-warn{font-size:12px;color:var(--warn-tx);margin:4px 16px 0;display:block}
+.temp-input-row{display:flex;align-items:center;gap:4px;padding:4px 16px 8px}
+.photo-stub-btn{padding:8px 12px;background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;font-size:14px;opacity:0.6;cursor:not-allowed;font-family:inherit}
+.submit-confirm{display:block;text-align:center;font-size:14px;color:var(--mut);margin-top:8px}
+.fail-note-input{width:100%;padding:10px 12px;background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;font-size:14px;color:var(--txt);font-family:inherit;outline:none;resize:none;-webkit-appearance:none;margin-top:8px}
+.fail-note-input:focus{border-color:var(--info-tx)}
 </style>
 <script src="https://unpkg.com/sortablejs@1.15.7/Sortable.min.js"></script>
 </head>
@@ -877,7 +891,67 @@ document.getElementById('builder-body').addEventListener('change', function(e) {
 
 // ─── Fill-out Tab ────────────────────────────────────────────────────────────
 
-const MOCK_RESPONSES = {}; // { [fieldId]: { value: any, answeredBy: string } }
+const CURRENT_USER = { name: MOCK_CURRENT_USER.name, initials: 'JM' };
+const MOCK_RESPONSES = {}; // { [fieldId]: { value: any, answeredBy: string, answeredAt: Date } }
+const FAIL_NOTES = {}; // { [fieldId]: { note: string, severity: string } }
+const SUBMITTED_TEMPLATES = {}; // { [tplId]: true }
+
+// Named mutation helpers (used inline in event handlers and referenced by name for traceability)
+function setYesNo(fldId, value) {
+  MOCK_RESPONSES[fldId] = { value: value, answeredBy: CURRENT_USER.name, answeredAt: new Date() };
+  if (!value) { if (!FAIL_NOTES[fldId]) FAIL_NOTES[fldId] = { note: '', severity: '' }; }
+  else { if (FAIL_NOTES[fldId]) delete FAIL_NOTES[fldId]; }
+}
+function setTextAnswer(fldId, value) {
+  // text-input handler — no re-render (cursor jump prevention)
+  if (value.trim()) MOCK_RESPONSES[fldId] = { value: value.trim(), answeredBy: CURRENT_USER.name, answeredAt: new Date() };
+  else delete MOCK_RESPONSES[fldId];
+}
+function setFailNote(fldId, patch) {
+  if (!FAIL_NOTES[fldId]) FAIL_NOTES[fldId] = { note: '', severity: '' };
+  Object.assign(FAIL_NOTES[fldId], patch);
+}
+function setSeverity(fldId, severity) {
+  if (!FAIL_NOTES[fldId]) FAIL_NOTES[fldId] = { note: '', severity: '' };
+  FAIL_NOTES[fldId].severity = severity;
+}
+function submitChecklist(tplId) {
+  SUBMITTED_TEMPLATES[tplId] = true;
+  renderFillOut();
+}
+
+function evaluateFailTrigger(fail_trigger, value) {
+  if (!fail_trigger) return false;
+  if (value === null || value === undefined || value === '') return false;
+  if (fail_trigger.type === 'out_of_range') {
+    var num = parseFloat(value);
+    if (isNaN(num)) return false;
+    var hasMin = fail_trigger.min !== undefined && fail_trigger.min !== null;
+    var hasMax = fail_trigger.max !== undefined && fail_trigger.max !== null;
+    if (hasMin && hasMax) return num < fail_trigger.min || num > fail_trigger.max;
+    if (hasMin) return num < fail_trigger.min;
+    if (hasMax) return num > fail_trigger.max;
+  }
+  return false;
+}
+
+function renderFailCard(fld, failNote) {
+  var note = failNote ? failNote.note || '' : '';
+  var severity = failNote ? failNote.severity || '' : '';
+  var severities = ['minor', 'major', 'critical'];
+  var pillsHtml = severities.map(function(s) {
+    return '<button class="severity-pill' + (severity === s ? ' on' : '') + '" data-action="set-severity" data-severity="' + s + '" data-fld-id="' + fld.id + '">' + s.charAt(0).toUpperCase() + s.slice(1) + '</button>';
+  }).join('');
+  return '<div class="fail-card">' +
+    '<div style="font-size:12px;font-weight:500;color:#c0392b;margin-bottom:8px">Corrective action required</div>' +
+    '<textarea class="fail-note-input" rows="3" placeholder="Describe what you did\u2026" data-action="fail-note-input" data-fld-id="' + fld.id + '">' + escapeHtml(note) + '</textarea>' +
+    '<div style="margin-top:8px;display:flex;align-items:center;gap:8px">' +
+      '<button class="photo-stub-btn" disabled>📷 Add photo</button>' +
+      '<span style="font-size:12px;color:var(--mut)">Coming in Phase 3</span>' +
+    '</div>' +
+    '<div class="severity-pills">' + pillsHtml + '</div>' +
+  '</div>';
+}
 
 let fillState = {
   view: 'list',
@@ -933,13 +1007,17 @@ function renderRunner() {
   const allFields = tpl.sections.flatMap(s => s.fields);
   const answered = allFields.filter(f => MOCK_RESPONSES[f.id] !== undefined).length;
   const sectionsHtml = tpl.sections.map(sec => renderRunnerSection(sec)).join('');
+  const isSubmitted = !!SUBMITTED_TEMPLATES[tpl.id];
+  const submitHtml = isSubmitted
+    ? `<button class="btn-primary" data-action="submit" data-tpl-id="${tpl.id}" style="width:100%;padding:14px;margin:16px 0;background:var(--info-tx);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:500;opacity:0.5;pointer-events:none">Submit checklist</button><span class="submit-confirm">Checklist submitted. Thanks, ${CURRENT_USER.initials}!</span>`
+    : `<button class="btn-primary" id="submit-btn" data-action="submit" data-tpl-id="${tpl.id}" style="margin-top:8px">Submit checklist</button>`;
   return `<button class="editor-back" id="fill-back">Checklists</button>
 <div style="padding:10px 16px 0" class="progress-line">
   <div style="height:6px;background:var(--brd);border-radius:3px;overflow:hidden;margin-bottom:6px"><div style="height:100%;background:#27ae60;border-radius:3px;width:${allFields.length?Math.round(answered/allFields.length*100):0}%;transition:width .3s"></div></div>
   <div style="font-size:13px;color:var(--mut)">${answered} of ${allFields.length} items complete</div>
 </div>
 ${sectionsHtml}
-<button class="btn-primary" id="submit-btn" style="margin-top:8px">Submit checklist</button>`;
+${submitHtml}`;
 }
 
 function renderRunnerSection(sec) {
@@ -965,33 +1043,41 @@ function renderRunnerField(fld) {
   if (fld.type === 'yes_no') {
     const isYes = answered && resp.value === true;
     const isNo = answered && resp.value === false;
+    const failCard = isNo ? renderFailCard(fld, FAIL_NOTES[fld.id] || null) : '';
     return `<div class="fill-field" data-field-id="${fld.id}">
   <div class="fill-field-label">${escapeHtml(fld.label)}</div>
-  <div class="yes-no-row">
-    <button class="yn-btn ${isYes ? 'yn-yes' : ''}" data-field-id="${fld.id}" data-value="true">Yes</button>
-    <button class="yn-btn ${isNo ? 'yn-no' : ''}" data-field-id="${fld.id}" data-value="false">No</button>
+  <div class="yn-pills">
+    <button class="yn-pill${isYes ? ' on' : ''}" data-action="set-yes" data-fld-id="${fld.id}">Yes</button>
+    <button class="yn-pill${isNo ? ' on' : ''}" data-action="set-no" data-fld-id="${fld.id}">No</button>
   </div>
   ${attribution}
-</div>`;
+</div>${failCard}`;
   }
 
   if (fld.type === 'text') {
     return `<div class="fill-field" data-field-id="${fld.id}">
   <label class="fill-field-label" for="txt-${fld.id}">${escapeHtml(fld.label)}</label>
-  <textarea id="txt-${fld.id}" class="fill-textarea" data-field-id="${fld.id}" rows="3" placeholder="Enter notes...">${answered ? escapeHtml(resp.value) : ''}</textarea>
+  <textarea id="txt-${fld.id}" class="fill-textarea" data-action="text-input" data-fld-id="${fld.id}" data-field-id="${fld.id}" rows="3" placeholder="Enter notes...">${answered ? escapeHtml(resp.value) : ''}</textarea>
   ${attribution}
 </div>`;
   }
 
   if (fld.type === 'temperature') {
+    const tempVal = answered ? resp.value : '';
+    const isFail = evaluateFailTrigger(fld.fail_trigger, tempVal);
+    const warnLabel = isFail && fld.fail_trigger
+      ? `<span class="temp-warn">Out of range (${fld.fail_trigger.min}\u2013${fld.fail_trigger.max}\u00b0F)</span>`
+      : '';
+    const failCard = isFail ? renderFailCard(fld, FAIL_NOTES[fld.id] || null) : '';
     return `<div class="fill-field" data-field-id="${fld.id}">
   <label class="fill-field-label" for="temp-${fld.id}">${escapeHtml(fld.label)}</label>
-  <div style="display:flex;align-items:center;gap:8px">
-    <input type="number" id="temp-${fld.id}" class="fill-temp-input" data-field-id="${fld.id}" value="${answered ? resp.value : ''}" placeholder="0" style="flex:1;padding:11px 12px;background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;font-size:18px;color:var(--txt);font-family:inherit;outline:none;-webkit-appearance:none">
-    <span style="font-size:16px;color:var(--mut)">°F</span>
+  <div class="temp-input-row" style="padding-left:0;padding-right:0">
+    <input type="number" id="temp-${fld.id}" class="fill-temp-input" data-action="temp-input" data-fld-id="${fld.id}" data-field-id="${fld.id}" value="${tempVal}" placeholder="0" style="width:80px;padding:10px 12px;background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;font-size:18px;color:var(--txt);font-family:inherit;outline:none;-webkit-appearance:none">
+    <span class="temp-unit" style="font-size:14px;color:var(--mut);margin-left:4px">°F</span>
   </div>
+  ${warnLabel}
   ${attribution}
-</div>`;
+</div>${failCard}`;
   }
 
   if (fld.type === 'photo') {
@@ -1005,22 +1091,19 @@ function renderRunnerField(fld) {
 }
 
 function attachRunnerListeners() {
+  // Text textarea: save on blur, no re-render
   document.querySelectorAll('.fill-textarea').forEach(el => {
     el.addEventListener('blur', function() {
+      const fldId = this.dataset.fieldId;
       if (this.value.trim()) {
-        MOCK_RESPONSES[this.dataset.fieldId] = { value: this.value.trim(), answeredBy: MOCK_CURRENT_USER.name, answeredAt: new Date() };
-        updateProgress();
+        MOCK_RESPONSES[fldId] = { value: this.value.trim(), answeredBy: CURRENT_USER.name, answeredAt: new Date() };
+      } else {
+        delete MOCK_RESPONSES[fldId];
       }
+      updateProgress();
     });
   });
-  document.querySelectorAll('.fill-temp-input').forEach(el => {
-    el.addEventListener('blur', function() {
-      if (this.value !== '') {
-        MOCK_RESPONSES[this.dataset.fieldId] = { value: +this.value, answeredBy: MOCK_CURRENT_USER.name, answeredAt: new Date() };
-        updateProgress();
-      }
-    });
-  });
+  // Temperature: handled by input delegation — no blur listener needed
 }
 
 function updateProgress() {
@@ -1064,7 +1147,7 @@ document.getElementById('fill-body').addEventListener('click', function(e) {
     if (MOCK_RESPONSES[fldId]) {
       delete MOCK_RESPONSES[fldId];
     } else {
-      MOCK_RESPONSES[fldId] = { value: true, answeredBy: MOCK_CURRENT_USER.name, answeredAt: new Date() };
+      MOCK_RESPONSES[fldId] = { value: true, answeredBy: CURRENT_USER.name, answeredAt: new Date() };
     }
     const fieldDiv = document.querySelector(`.fill-field[data-field-id="${fldId}"]`);
     const tplField = fillState.activeTemplate.sections.flatMap(s => s.fields).find(f => f.id === fldId);
@@ -1073,12 +1156,83 @@ document.getElementById('fill-body').addEventListener('click', function(e) {
     return;
   }
 
-  // Yes/No button
+  // data-action routing
+  const actionEl = e.target.closest('[data-action]');
+  if (actionEl) {
+    const action = actionEl.dataset.action;
+    const fldId = actionEl.dataset.fldId;
+
+    if (action === 'set-yes') {
+      MOCK_RESPONSES[fldId] = { value: true, answeredBy: CURRENT_USER.name, answeredAt: new Date() };
+      if (FAIL_NOTES[fldId]) delete FAIL_NOTES[fldId];
+      const fieldDiv = document.querySelector(`.fill-field[data-field-id="${fldId}"]`);
+      const tplField = fillState.activeTemplate.sections.flatMap(s => s.fields).find(f => f.id === fldId);
+      if (fieldDiv && tplField) {
+        // replace field AND any adjacent fail-card
+        var next = fieldDiv.nextElementSibling;
+        if (next && next.classList.contains('fail-card')) next.remove();
+        fieldDiv.outerHTML = renderRunnerField(tplField);
+      }
+      updateProgress();
+      return;
+    }
+
+    if (action === 'set-no') {
+      MOCK_RESPONSES[fldId] = { value: false, answeredBy: CURRENT_USER.name, answeredAt: new Date() };
+      if (!FAIL_NOTES[fldId]) FAIL_NOTES[fldId] = { note: '', severity: '' };
+      const fieldDiv = document.querySelector(`.fill-field[data-field-id="${fldId}"]`);
+      const tplField = fillState.activeTemplate.sections.flatMap(s => s.fields).find(f => f.id === fldId);
+      if (fieldDiv && tplField) {
+        var next = fieldDiv.nextElementSibling;
+        if (next && next.classList.contains('fail-card')) next.remove();
+        fieldDiv.outerHTML = renderRunnerField(tplField);
+      }
+      updateProgress();
+      return;
+    }
+
+    if (action === 'set-severity') {
+      const severity = actionEl.dataset.severity;
+      if (!FAIL_NOTES[fldId]) FAIL_NOTES[fldId] = { note: '', severity: '' };
+      FAIL_NOTES[fldId].severity = severity;
+      // Re-render just the fail card
+      const failCard = e.target.closest('.fail-card');
+      if (failCard) {
+        const tplField = fillState.activeTemplate.sections.flatMap(s => s.fields).find(f => f.id === fldId);
+        if (tplField) {
+          const tmp = document.createElement('div');
+          tmp.innerHTML = renderFailCard(tplField, FAIL_NOTES[fldId]);
+          failCard.replaceWith(tmp.firstChild);
+        }
+      }
+      return;
+    }
+
+    if (action === 'submit') {
+      const tplId = actionEl.dataset.tplId;
+      if (SUBMITTED_TEMPLATES[tplId]) return;
+      var allFlds = fillState.activeTemplate.sections.flatMap(function(s){return s.fields});
+      var allDone = allFlds.every(function(f){return MOCK_RESPONSES[f.id] !== undefined});
+      if (allDone) {
+        SUBMITTED_TEMPLATES[tplId] = true;
+        fireworks();
+        renderFillOut();
+        setTimeout(function(){ showToast('Checklist submitted \u2713'); }, 200);
+      } else {
+        SUBMITTED_TEMPLATES[tplId] = true;
+        renderFillOut();
+        showToast('Checklist submitted \u2713');
+      }
+      return;
+    }
+  }
+
+  // Legacy yes/no buttons (yn-btn class — keep for backward compat if any remain)
   const ynBtn = e.target.closest('.yn-btn');
   if (ynBtn) {
     const fldId = ynBtn.dataset.fieldId;
     const val = ynBtn.dataset.value === 'true';
-    MOCK_RESPONSES[fldId] = { value: val, answeredBy: MOCK_CURRENT_USER.name, answeredAt: new Date() };
+    MOCK_RESPONSES[fldId] = { value: val, answeredBy: CURRENT_USER.name, answeredAt: new Date() };
     const fieldDiv = document.querySelector(`.fill-field[data-field-id="${fldId}"]`);
     const tplField = fillState.activeTemplate.sections.flatMap(s => s.fields).find(f => f.id === fldId);
     if (fieldDiv && tplField) fieldDiv.outerHTML = renderRunnerField(tplField);
@@ -1086,26 +1240,63 @@ document.getElementById('fill-body').addEventListener('click', function(e) {
     return;
   }
 
-  // Submit button
-  if (e.target.closest('#submit-btn')) {
-    var allFlds = fillState.activeTemplate.sections.flatMap(function(s){return s.fields});
-    var allDone = allFlds.every(function(f){return MOCK_RESPONSES[f.id] !== undefined});
-    if (allDone) {
+  // Legacy submit button
+  if (e.target.closest('#submit-btn') && !e.target.closest('[data-action]')) {
+    var allFlds2 = fillState.activeTemplate.sections.flatMap(function(s){return s.fields});
+    var allDone2 = allFlds2.every(function(f){return MOCK_RESPONSES[f.id] !== undefined});
+    if (allDone2) {
       fireworks();
       setTimeout(function(){
-        showToast('Checklist submitted ✓');
+        showToast('Checklist submitted \u2713');
         fillState.view = 'list';
         fillState.activeTemplate = null;
         location.hash = '';
         renderFillOut();
       }, 2500);
     } else {
-      showToast('Checklist submitted ✓');
+      showToast('Checklist submitted \u2713');
       fillState.view = 'list';
       fillState.activeTemplate = null;
       location.hash = '';
       renderFillOut();
     }
+    return;
+  }
+});
+
+// Fill-body input delegation
+document.getElementById('fill-body').addEventListener('input', function(e) {
+  const actionEl = e.target.closest('[data-action]');
+  if (!actionEl) return;
+  const action = actionEl.dataset.action;
+  const fldId = actionEl.dataset.fldId || actionEl.dataset.fieldId;
+
+  if (action === 'text-input') {
+    setTextAnswer(fldId, e.target.value); // NO re-render
+    updateProgress();
+    return;
+  }
+
+  if (action === 'temp-input') {
+    // Update state without re-render first
+    const val = e.target.value;
+    if (val !== '') {
+      MOCK_RESPONSES[fldId] = { value: +val, answeredBy: CURRENT_USER.name, answeredAt: new Date() };
+    } else {
+      delete MOCK_RESPONSES[fldId];
+    }
+    // Re-render to show/hide fail card and warn label
+    const pos = e.target.selectionStart;
+    renderFillOut();
+    // Restore focus + cursor
+    const el = document.querySelector('[data-action="temp-input"][data-fld-id="' + fldId + '"]');
+    if (el) { el.focus(); try { el.setSelectionRange(pos, pos); } catch(x){} }
+    updateProgress();
+    return;
+  }
+
+  if (action === 'fail-note-input') {
+    setFailNote(fldId, { note: e.target.value }); // NO re-render — cursor jump prevention
     return;
   }
 });
