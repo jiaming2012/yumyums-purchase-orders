@@ -1,3 +1,13 @@
+// Auto-reload when a new service worker takes over (ensures deploys reach all devices)
+if('serviceWorker' in navigator){
+  var refreshing=false;
+  navigator.serviceWorker.addEventListener('controllerchange',function(){
+    if(refreshing)return;
+    refreshing=true;
+    location.reload();
+  });
+}
+
 // Pull-to-refresh for iOS standalone PWA (Android handles it natively)
 (function(){
   if(!navigator.standalone&&!window.matchMedia('(display-mode:standalone)').matches)return;
