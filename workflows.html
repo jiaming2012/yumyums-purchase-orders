@@ -931,44 +931,28 @@ function submitChecklist(tplId) {
 function handlePhotoCaptureClick(fldId) {
   openCamera(function(file) {
     var objectURL = URL.createObjectURL(file);
-    showPhotoPreview(objectURL,
-      function(url) {
-        var old = MOCK_RESPONSES[fldId];
-        if (old && old.value && typeof old.value === 'string' && old.value.startsWith('blob:') && old.value !== url) URL.revokeObjectURL(old.value);
-        MOCK_RESPONSES[fldId] = { value: url, answeredBy: CURRENT_USER.name, answeredAt: new Date() };
-        renderFillOut();
-        updateProgress();
-      },
-      function() {
-        URL.revokeObjectURL(objectURL);
-        handlePhotoCaptureClick(fldId);
-      }
-    );
+    var old = MOCK_RESPONSES[fldId];
+    if (old && old.value && typeof old.value === 'string' && old.value.startsWith('blob:') && old.value !== objectURL) URL.revokeObjectURL(old.value);
+    MOCK_RESPONSES[fldId] = { value: objectURL, answeredBy: CURRENT_USER.name, answeredAt: new Date() };
+    renderFillOut();
+    updateProgress();
   });
 }
 
 function handleFailPhotoCaptureClick(fldId) {
   openCamera(function(file) {
     var objectURL = URL.createObjectURL(file);
-    showPhotoPreview(objectURL,
-      function(url) {
-        if (!FAIL_NOTES[fldId]) FAIL_NOTES[fldId] = { note: '', severity: '' };
-        var oldPhoto = FAIL_NOTES[fldId].photo;
-        if (oldPhoto && oldPhoto.startsWith('blob:') && oldPhoto !== url) URL.revokeObjectURL(oldPhoto);
-        FAIL_NOTES[fldId].photo = url;
-        var failCard = document.querySelector('.fail-card[data-fld-id="' + fldId + '"]');
-        var tplField = fillState.activeTemplate.sections.flatMap(function(s){return s.fields}).find(function(f){return f.id===fldId});
-        if (failCard && tplField) {
-          var tmp = document.createElement('div');
-          tmp.innerHTML = renderFailCard(tplField, FAIL_NOTES[fldId]);
-          failCard.replaceWith(tmp.firstChild);
-        }
-      },
-      function() {
-        URL.revokeObjectURL(objectURL);
-        handleFailPhotoCaptureClick(fldId);
-      }
-    );
+    if (!FAIL_NOTES[fldId]) FAIL_NOTES[fldId] = { note: '', severity: '' };
+    var oldPhoto = FAIL_NOTES[fldId].photo;
+    if (oldPhoto && oldPhoto.startsWith('blob:') && oldPhoto !== objectURL) URL.revokeObjectURL(oldPhoto);
+    FAIL_NOTES[fldId].photo = objectURL;
+    var failCard = document.querySelector('.fail-card[data-fld-id="' + fldId + '"]');
+    var tplField = fillState.activeTemplate.sections.flatMap(function(s){return s.fields}).find(function(f){return f.id===fldId});
+    if (failCard && tplField) {
+      var tmp = document.createElement('div');
+      tmp.innerHTML = renderFailCard(tplField, FAIL_NOTES[fldId]);
+      failCard.replaceWith(tmp.firstChild);
+    }
   });
 }
 
