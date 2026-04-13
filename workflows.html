@@ -119,11 +119,11 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .rejection-reason{width:100%;padding:10px 12px;background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;font-size:14px;color:var(--txt);font-family:inherit;outline:none;resize:none;-webkit-appearance:none}
 .rejection-reason:focus{border-color:var(--info-tx)}
 .photo-strip{display:flex;gap:8px;overflow-x:auto;padding:8px 16px}
-.review-item{display:flex;align-items:flex-start;gap:8px;padding:10px 16px;border-bottom:0.5px solid var(--brd)}
+.review-item{display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:0.5px solid var(--brd)}
 .review-item:last-child{border-bottom:none}
 .review-check{color:#27ae60;font-size:14px;flex-shrink:0;margin-top:1px}
 .review-label{font-size:14px;flex:1}
-.review-reject-btn{font-size:12px;color:#c0392b;background:none;border:0.5px solid #c0392b;border-radius:6px;padding:4px 8px;cursor:pointer;flex-shrink:0}
+.review-reject-btn{font-size:12px;color:#c0392b;background:none;border:0.5px solid #c0392b;border-radius:6px;padding:4px 10px;cursor:pointer;flex-shrink:0;white-space:nowrap}
 .review-reject-btn.selected{background:#c0392b;color:#fff}
 .reject-item-form{padding:8px 16px 12px 38px;background:rgba(192,57,43,0.06)}
 @media(prefers-color-scheme:dark){.reject-item-form{background:rgba(192,57,43,0.12)}}
@@ -1070,7 +1070,7 @@ function renderApprovals() {
       '<div class="hd"><h1>' + escapeHtml(entry.tplName) + '</h1>' +
       '<div class="sub">' + escapeHtml(entry.submittedBy) + ' · ' + formatTime(new Date(entry.submittedAt)) + '</div></div>' +
       itemsHtml +
-      '<div class="approval-actions" style="padding:12px 16px">' +
+      '<div class="approval-actions" style="padding:16px;margin-top:8px;border-top:0.5px solid var(--brd)">' +
       '<button class="btn-approve" data-action="approve" data-tpl-id="' + tplId + '">Approve</button>' +
       '<button class="btn-reject" data-action="reject-submit" data-tpl-id="' + tplId + '" style="margin-top:8px">' + (rejCount > 0 ? 'Reject ' + rejCount + ' item' + (rejCount > 1 ? 's' : '') : 'Reject') + '</button>' +
       '</div></div>';
