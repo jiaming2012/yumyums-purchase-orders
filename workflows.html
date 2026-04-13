@@ -119,6 +119,20 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .rejection-reason{width:100%;padding:10px 12px;background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;font-size:14px;color:var(--txt);font-family:inherit;outline:none;resize:none;-webkit-appearance:none}
 .rejection-reason:focus{border-color:var(--info-tx)}
 .photo-strip{display:flex;gap:8px;overflow-x:auto;padding:8px 16px}
+.review-item{display:flex;align-items:flex-start;gap:8px;padding:10px 16px;border-bottom:0.5px solid var(--brd)}
+.review-item:last-child{border-bottom:none}
+.review-check{color:#27ae60;font-size:14px;flex-shrink:0;margin-top:1px}
+.review-label{font-size:14px;flex:1}
+.review-reject-btn{font-size:12px;color:#c0392b;background:none;border:0.5px solid #c0392b;border-radius:6px;padding:4px 8px;cursor:pointer;flex-shrink:0}
+.review-reject-btn.selected{background:#c0392b;color:#fff}
+.reject-item-form{padding:8px 16px 12px 38px;background:rgba(192,57,43,0.06)}
+@media(prefers-color-scheme:dark){.reject-item-form{background:rgba(192,57,43,0.12)}}
+.reject-item-input{width:100%;padding:8px 10px;background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;font-size:13px;color:var(--txt);font-family:inherit;outline:none;resize:none;margin-bottom:6px}
+.reject-item-input:focus{border-color:#c0392b}
+.require-photo-toggle{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--mut);cursor:pointer}
+.require-photo-toggle input{width:16px;height:16px}
+.correction-banner{padding:10px 16px;background:rgba(192,57,43,0.08);border:0.5px solid rgba(192,57,43,0.2);border-radius:8px;margin-bottom:8px;font-size:13px;color:#c0392b}
+@media(prefers-color-scheme:dark){.correction-banner{background:rgba(192,57,43,0.15)}}
 </style>
 <script src="https://unpkg.com/sortablejs@1.15.7/Sortable.min.js"></script>
 </head>
@@ -885,12 +899,16 @@ const CURRENT_USER = { name: MOCK_CURRENT_USER.name, initials: 'JM' };
 const MOCK_RESPONSES = {}; // { [fieldId]: { value: any, answeredBy: string, answeredAt: Date } }
 const FAIL_NOTES = {}; // { [fieldId]: { note: string, severity: string } }
 const SUBMITTED_TEMPLATES = {}; // { [tplId]: true }
-const PENDING_APPROVALS = {}; // { [tplId]: { tplId, tplName, submittedBy, ... } }
+const PENDING_APPROVALS = {}; // { [tplId]: { tplId, tplName, submittedBy, responses, failNotes, ... } }
 const APPROVED_SUBMISSIONS = {}; // { [tplId]: { ...entry, approvedBy, approvedAt } }
-const REJECTED_SUBMISSIONS = {}; // { [tplId]: { ...entry, rejectedBy, rejectedAt, reason } }
+const REJECTED_SUBMISSIONS = {}; // { [tplId]: { ...entry, rejectedBy, rejectedAt, rejectedItems } }
+const REJECTION_FLAGS = {}; // { [fldId]: { comment, requirePhoto } } — flags on the live checklist
 
 // Named mutation helpers (used inline in event handlers and referenced by name for traceability)
+function clearRejectionFlag(fldId) { if (REJECTION_FLAGS[fldId]) delete REJECTION_FLAGS[fldId]; }
+
 function setYesNo(fldId, value) {
+  clearRejectionFlag(fldId);
   MOCK_RESPONSES[fldId] = { value: value, answeredBy: CURRENT_USER.name, answeredAt: new Date() };
   if (!value) { if (!FAIL_NOTES[fldId]) FAIL_NOTES[fldId] = { note: '', severity: '' }; }
   else { if (FAIL_NOTES[fldId]) delete FAIL_NOTES[fldId]; }
@@ -931,6 +949,7 @@ function submitChecklist(tplId) {
 function handlePhotoCaptureClick(fldId) {
   openCamera(function(file) {
     var objectURL = URL.createObjectURL(file);
+    clearRejectionFlag(fldId);
     var old = MOCK_RESPONSES[fldId];
     if (old && old.value && typeof old.value === 'string' && old.value.startsWith('blob:') && old.value !== objectURL) URL.revokeObjectURL(old.value);
     MOCK_RESPONSES[fldId] = { value: objectURL, answeredBy: CURRENT_USER.name, answeredAt: new Date() };
@@ -1026,22 +1045,34 @@ function renderApprovals() {
   }
   body.innerHTML = keys.map(function(tplId) {
     var entry = PENDING_APPROVALS[tplId];
-    var pct = entry.totalFields ? Math.round(entry.answeredCount / entry.totalFields * 100) : 0;
-    var photoStrip = '';
-    if (entry.photoCount > 0 && entry.responses) {
-      var photoHtml = Object.values(entry.responses)
-        .filter(function(r) { return r && r.value && typeof r.value === 'string' && r.value.startsWith('blob:'); })
-        .map(function(r) { return '<img class="photo-thumb" src="' + r.value + '" alt="Photo">'; }).join('');
-      if (photoHtml) photoStrip = '<div class="photo-strip">' + photoHtml + '</div>';
-    }
+    var tpl = MOCK_TEMPLATES.find(function(t){return t.id===tplId});
+    if (!tpl) return '';
+    // Build item list from template fields
+    var itemsHtml = tpl.sections.map(function(sec) {
+      var secItems = sec.fields.map(function(fld) {
+        var resp = entry.responses[fld.id];
+        var answered = resp !== undefined;
+        var isRejected = entry._rejectedItems && entry._rejectedItems[fld.id];
+        var rejectForm = isRejected ?
+          '<div class="reject-item-form">' +
+          '<textarea class="reject-item-input" data-reject-fld="' + fld.id + '" placeholder="Comment for crew\u2026" rows="2">' + escapeHtml(entry._rejectedItems[fld.id].comment || '') + '</textarea>' +
+          '<label class="require-photo-toggle"><input type="checkbox" data-reject-photo-fld="' + fld.id + '" ' + (entry._rejectedItems[fld.id].requirePhoto ? 'checked' : '') + '> Require photo evidence</label></div>' : '';
+        return '<div class="review-item">' +
+          '<span class="review-check">' + (answered ? '✓' : '○') + '</span>' +
+          '<span class="review-label">' + escapeHtml(fld.label || fld.type) + '</span>' +
+          '<button class="review-reject-btn ' + (isRejected ? 'selected' : '') + '" data-action="toggle-reject-item" data-tpl-id="' + tplId + '" data-fld-id="' + fld.id + '">' + (isRejected ? 'Flagged' : 'Flag') + '</button>' +
+          '</div>' + rejectForm;
+      }).join('');
+      return '<div class="cat" style="font-size:11px;padding:6px 16px">' + escapeHtml(sec.title) + '</div>' + secItems;
+    }).join('');
+    var rejCount = entry._rejectedItems ? Object.keys(entry._rejectedItems).length : 0;
     return '<div class="approval-card card" data-tpl-id="' + tplId + '">' +
       '<div class="hd"><h1>' + escapeHtml(entry.tplName) + '</h1>' +
-      '<div class="sub">' + escapeHtml(entry.submittedBy) + ' \u00b7 ' + formatTime(new Date(entry.submittedAt)) + '</div>' +
-      '<div class="sub">' + entry.answeredCount + ' of ' + entry.totalFields + ' complete \u00b7 ' + entry.failCount + ' fail trigger(s) \u00b7 ' + entry.photoCount + ' photo(s)</div></div>' +
-      photoStrip +
+      '<div class="sub">' + escapeHtml(entry.submittedBy) + ' · ' + formatTime(new Date(entry.submittedAt)) + '</div></div>' +
+      itemsHtml +
       '<div class="approval-actions" style="padding:12px 16px">' +
       '<button class="btn-approve" data-action="approve" data-tpl-id="' + tplId + '">Approve</button>' +
-      '<button class="btn-reject" data-action="reject" data-tpl-id="' + tplId + '" style="margin-top:8px">Reject</button>' +
+      '<button class="btn-reject" data-action="reject-submit" data-tpl-id="' + tplId + '" style="margin-top:8px">' + (rejCount > 0 ? 'Reject ' + rejCount + ' item' + (rejCount > 1 ? 's' : '') : 'Reject') + '</button>' +
       '</div></div>';
   }).join('');
 }
@@ -1142,9 +1173,12 @@ function renderRunnerField(fld) {
   const answered = MOCK_RESPONSES[fld.id] !== undefined;
   const resp = answered ? MOCK_RESPONSES[fld.id] : null;
   const attribution = answered ? `<div class="fill-attribution">${escapeHtml(resp.answeredBy)} · ${formatTime(resp.answeredAt)}</div>` : '';
+  const rejFlag = REJECTION_FLAGS[fld.id];
+  const correctionBanner = rejFlag ? `<div class="correction-banner">⚠ Rejected: ${escapeHtml(rejFlag.comment)}${rejFlag.requirePhoto ? ' · Photo required' : ''}</div>` : '';
 
   if (fld.type === 'checkbox') {
     return `<div class="fill-field" data-field-id="${fld.id}">
+  ${correctionBanner}
   <div class="fill-field-row">
     <div class="fill-field-label" style="margin-bottom:0">${escapeHtml(fld.label)}</div>
     <button class="check-btn ${answered ? 'checked' : ''}" data-field-id="${fld.id}" aria-label="Toggle checkbox">${answered ? '✓' : ''}</button>
@@ -1158,6 +1192,7 @@ function renderRunnerField(fld) {
     const isNo = answered && resp.value === false;
     const failCard = isNo ? renderFailCard(fld, FAIL_NOTES[fld.id] || null) : '';
     return `<div class="fill-field" data-field-id="${fld.id}">
+  ${correctionBanner}
   <div class="fill-field-label">${escapeHtml(fld.label)}</div>
   <div class="yn-pills">
     <button class="yn-pill${isYes ? ' on' : ''}" data-action="set-yes" data-fld-id="${fld.id}">Yes</button>
@@ -1169,6 +1204,7 @@ function renderRunnerField(fld) {
 
   if (fld.type === 'text') {
     return `<div class="fill-field" data-field-id="${fld.id}">
+  ${correctionBanner}
   <label class="fill-field-label" for="txt-${fld.id}">${escapeHtml(fld.label)}</label>
   <textarea id="txt-${fld.id}" class="fill-textarea" data-action="text-input" data-fld-id="${fld.id}" data-field-id="${fld.id}" rows="3" placeholder="Enter notes...">${answered ? escapeHtml(resp.value) : ''}</textarea>
   ${attribution}
@@ -1183,6 +1219,7 @@ function renderRunnerField(fld) {
       : '';
     const failCard = isFail ? renderFailCard(fld, FAIL_NOTES[fld.id] || null) : '';
     return `<div class="fill-field" data-field-id="${fld.id}">
+  ${correctionBanner}
   <label class="fill-field-label" for="temp-${fld.id}">${escapeHtml(fld.label)}</label>
   <div class="temp-input-row" style="padding-left:0;padding-right:0">
     <input type="number" id="temp-${fld.id}" class="fill-temp-input" data-action="temp-input" data-fld-id="${fld.id}" data-field-id="${fld.id}" value="${tempVal}" placeholder="0" style="width:80px;padding:10px 12px;background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;font-size:18px;color:var(--txt);font-family:inherit;outline:none;-webkit-appearance:none">
@@ -1199,6 +1236,7 @@ function renderRunnerField(fld) {
     const photoAttribution = photoResp ? `<div class="fill-attribution">${escapeHtml(photoResp.answeredBy)} \u00b7 ${formatTime(photoResp.answeredAt)}</div>` : '';
     if (photoUrl) {
       return `<div class="fill-field" data-field-id="${fld.id}">
+  ${correctionBanner}
   <div class="fill-field-label">${escapeHtml(fld.label)}</div>
   <div class="fill-field-row" style="gap:12px;margin-top:4px">
     <img class="photo-thumb" src="${photoUrl}" alt="Photo">
@@ -1208,6 +1246,7 @@ function renderRunnerField(fld) {
 </div>`;
     }
     return `<div class="fill-field" data-field-id="${fld.id}">
+  ${correctionBanner}
   <div class="fill-field-label">${escapeHtml(fld.label)}</div>
   <button class="photo-capture-btn" data-action="photo-capture" data-fld-id="${fld.id}" style="margin-top:4px">\ud83d\udcf7 Tap to take photo</button>
   <div style="font-size:12px;color:var(--mut);margin-top:4px">Tap to take photo</div>
@@ -1274,6 +1313,7 @@ document.getElementById('fill-body').addEventListener('click', function(e) {
     if (MOCK_RESPONSES[fldId]) {
       delete MOCK_RESPONSES[fldId];
     } else {
+      clearRejectionFlag(fldId);
       MOCK_RESPONSES[fldId] = { value: true, answeredBy: CURRENT_USER.name, answeredAt: new Date() };
     }
     const fieldDiv = document.querySelector(`.fill-field[data-field-id="${fldId}"]`);
@@ -1290,6 +1330,7 @@ document.getElementById('fill-body').addEventListener('click', function(e) {
     const fldId = actionEl.dataset.fldId;
 
     if (action === 'set-yes') {
+      clearRejectionFlag(fldId);
       MOCK_RESPONSES[fldId] = { value: true, answeredBy: CURRENT_USER.name, answeredAt: new Date() };
       if (FAIL_NOTES[fldId]) delete FAIL_NOTES[fldId];
       const fieldDiv = document.querySelector(`.fill-field[data-field-id="${fldId}"]`);
@@ -1305,6 +1346,7 @@ document.getElementById('fill-body').addEventListener('click', function(e) {
     }
 
     if (action === 'set-no') {
+      clearRejectionFlag(fldId);
       MOCK_RESPONSES[fldId] = { value: false, answeredBy: CURRENT_USER.name, answeredAt: new Date() };
       if (!FAIL_NOTES[fldId]) FAIL_NOTES[fldId] = { note: '', severity: '' };
       const fieldDiv = document.querySelector(`.fill-field[data-field-id="${fldId}"]`);
@@ -1465,47 +1507,68 @@ document.getElementById('approvals-body').addEventListener('click', function(e) 
     });
     delete PENDING_APPROVALS[tplId];
     SUBMITTED_TEMPLATES[tplId] = true;
-    showToast('Approved \u2713');
+    showToast('Approved ✓');
     renderApprovals();
     renderFillOut();
     return;
   }
 
-  if (action === 'reject') {
-    var card = actionEl.closest('.approval-card');
-    var actions = card.querySelector('.approval-actions');
-    if (!actions.querySelector('.rejection-reason')) {
-      var ta = document.createElement('textarea');
-      ta.className = 'rejection-reason';
-      ta.rows = 3; ta.placeholder = 'Reason for rejection\u2026'; ta.style.marginTop = '8px';
-      var confirmBtn = document.createElement('button');
-      confirmBtn.className = 'btn-reject-confirm';
-      confirmBtn.style.marginTop = '8px';
-      confirmBtn.textContent = 'Confirm rejection';
-      confirmBtn.dataset.action = 'reject-confirm';
-      confirmBtn.dataset.tplId = actionEl.dataset.tplId;
-      actions.appendChild(ta); actions.appendChild(confirmBtn);
-      ta.focus();
+  if (action === 'toggle-reject-item') {
+    var tplId = actionEl.dataset.tplId;
+    var fldId = actionEl.dataset.fldId;
+    var entry = PENDING_APPROVALS[tplId];
+    if (!entry) return;
+    if (!entry._rejectedItems) entry._rejectedItems = {};
+    if (entry._rejectedItems[fldId]) {
+      delete entry._rejectedItems[fldId];
+    } else {
+      entry._rejectedItems[fldId] = { comment: '', requirePhoto: false };
     }
+    renderApprovals();
     return;
   }
 
-  if (action === 'reject-confirm') {
+  if (action === 'reject-submit') {
     var tplId = actionEl.dataset.tplId;
-    var card = actionEl.closest('.approval-card');
-    var reason = card.querySelector('.rejection-reason').value.trim();
-    if (!reason) {
-      card.querySelector('.rejection-reason').style.borderColor = '#c0392b';
+    var entry = PENDING_APPROVALS[tplId];
+    if (!entry || !entry._rejectedItems || Object.keys(entry._rejectedItems).length === 0) {
+      showToast('Flag at least one item to reject');
       return;
     }
-    var entry = PENDING_APPROVALS[tplId];
-    if (!entry) return;
-    REJECTED_SUBMISSIONS[tplId] = Object.assign({}, entry, {
-      rejectedBy: MOCK_CURRENT_USER.name, rejectedAt: new Date().toISOString(), reason: reason
+    // Collect comments from textareas
+    var card = actionEl.closest('.approval-card');
+    card.querySelectorAll('.reject-item-input').forEach(function(ta) {
+      var fid = ta.dataset.rejectFld;
+      if (entry._rejectedItems[fid]) entry._rejectedItems[fid].comment = ta.value.trim();
+    });
+    card.querySelectorAll('[data-reject-photo-fld]').forEach(function(cb) {
+      var fid = cb.dataset.rejectPhotoFld;
+      if (entry._rejectedItems[fid]) entry._rejectedItems[fid].requirePhoto = cb.checked;
+    });
+    // Check all flagged items have a comment
+    var missing = Object.keys(entry._rejectedItems).filter(function(fid) {
+      return !entry._rejectedItems[fid].comment;
+    });
+    if (missing.length > 0) {
+      missing.forEach(function(fid) {
+        var ta = card.querySelector('[data-reject-fld="' + fid + '"]');
+        if (ta) ta.style.borderColor = '#c0392b';
+      });
+      showToast('Add a comment for each flagged item');
+      return;
+    }
+    // Apply rejection: uncheck flagged items, set correction flags
+    Object.keys(entry._rejectedItems).forEach(function(fid) {
+      var rej = entry._rejectedItems[fid];
+      delete MOCK_RESPONSES[fid];
+      delete FAIL_NOTES[fid];
+      REJECTION_FLAGS[fid] = { comment: rej.comment, requirePhoto: rej.requirePhoto };
     });
     delete PENDING_APPROVALS[tplId];
-    showToast('Rejected');
+    delete SUBMITTED_TEMPLATES[tplId];
+    showToast('Rejected — crew must fix ' + Object.keys(entry._rejectedItems).length + ' item(s)');
     renderApprovals();
+    renderFillOut();
     return;
   }
 });
