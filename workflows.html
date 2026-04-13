@@ -864,12 +864,24 @@ function renderChecklistList() {
   if (today.length === 0) {
     return `<div class="empty-state"><h2>No checklists today</h2><p>Check back tomorrow or contact your manager.</p></div>`;
   }
+  var totalFields = 0, totalAnswered = 0;
   const rows = today.map(tpl => {
     const secCount = tpl.sections.length;
-    const fieldCount = tpl.sections.reduce((sum, s) => sum + s.fields.length, 0);
-    return `<div class="row" data-fill-template-id="${tpl.id}" style="cursor:pointer"><div><div class="nm">${escapeHtml(tpl.name)}</div><div class="mt">${secCount} section${secCount !== 1 ? 's' : ''} · ${fieldCount} item${fieldCount !== 1 ? 's' : ''}</div></div></div>`;
+    const fields = tpl.sections.flatMap(s => s.fields);
+    const fieldCount = fields.length;
+    const answeredCount = fields.filter(f => MOCK_RESPONSES[f.id] !== undefined).length;
+    totalFields += fieldCount;
+    totalAnswered += answeredCount;
+    const pct = fieldCount ? Math.round(answeredCount / fieldCount * 100) : 0;
+    return `<div class="row" data-fill-template-id="${tpl.id}" style="cursor:pointer"><div style="flex:1"><div class="nm">${escapeHtml(tpl.name)}</div><div class="mt">${secCount} section${secCount !== 1 ? 's' : ''} · ${answeredCount}/${fieldCount} items</div><div style="height:4px;background:var(--brd);border-radius:2px;margin-top:6px;overflow:hidden"><div style="height:100%;background:#27ae60;border-radius:2px;width:${pct}%"></div></div></div></div>`;
   }).join('');
-  return `<div class="cat">TODAY'S CHECKLISTS</div><div class="card">${rows}</div>`;
+  const aggPct = totalFields ? Math.round(totalAnswered / totalFields * 100) : 0;
+  return `<div class="cat">TODAY'S CHECKLISTS</div>
+<div style="padding:8px 16px 12px">
+  <div style="height:8px;background:var(--brd);border-radius:4px;overflow:hidden"><div style="height:100%;background:#27ae60;border-radius:4px;width:${aggPct}%;transition:width .3s"></div></div>
+  <div style="font-size:12px;color:var(--mut);margin-top:4px">${totalAnswered} of ${totalFields} items complete across ${today.length} checklist${today.length !== 1 ? 's' : ''}</div>
+</div>
+<div class="card">${rows}</div>`;
 }
 
 function renderRunner() {
