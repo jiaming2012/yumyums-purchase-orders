@@ -12,76 +12,101 @@ A workflow engine that lets the owner build checklist templates and have crew me
 
 ### Validated
 
-- ✓ PWA shell with launcher grid — existing (`index.html`)
-- ✓ Purchasing mockup with weekly order form, locked view, PO view — existing (`purchasing.html`)
-- ✓ User management mockup with roles, invitations, app access control — existing (`users.html`)
-- ✓ Login screen mockup — existing (`login.html`)
-- ✓ Pull-to-refresh on iOS standalone — existing (`ptr.js`)
+- ✓ PWA shell with launcher grid — `index.html`
+- ✓ Purchasing mockup — `purchasing.html`
+- ✓ User management with roles, invitations, app access control — `users.html`
+- ✓ Login screen mockup — `login.html`
+- ✓ Pull-to-refresh on iOS standalone + auto-reload on deploy — `ptr.js`
+- ✓ Template builder with sections, 5 field types (checkbox, yes/no, text, temperature, photo) — Phase 1
+- ✓ Drag-to-reorder fields via SortableJS — Phase 1
+- ✓ Day-of-week conditions on sections and fields — Phase 1
+- ✓ Skip logic (show/hide based on prior answer) — Phase 1
+- ✓ Temperature min/max thresholds with fail triggers — Phase 1
+- ✓ Sub-steps for checkbox fields (recursive checklists) — post-Phase 3
+- ✓ Assignable checklists (role/user pickers for assignees and approvers) — post-Phase 3
+- ✓ Fill-out runner with day-filtered checklist list — Phase 2
+- ✓ Checkbox, yes/no, text, temperature field completion — Phase 2
+- ✓ User attribution (initials + timestamp) on completed items — Phase 2
+- ✓ Progress tracking (per-checklist + aggregate) — Phase 2
+- ✓ Inline corrective action cards on fail triggers (text + photo + severity) — Phase 2
+- ✓ Conditional logic runtime (skip logic + day-of-week filtering) — Phase 2
+- ✓ Photo capture via native camera with inline thumbnails — Phase 3
+- ✓ Manager approval flow with 3-tab layout (My Checklists / Approvals / Builder) — Phase 3
+- ✓ Item-level rejection with comments and optional photo requirements — post-Phase 3
+- ✓ Approve-with-comment for incomplete checklists — post-Phase 3
+- ✓ Unapprove with required reason — post-Phase 3
+- ✓ Unsubmit functionality — post-Phase 3
+- ✓ Correction loop (rejected items unchecked, crew re-completes with corrective action) — post-Phase 3
+- ✓ Fireworks animation on fully completed submit — Phase 2
+- ✓ Green checkmark animation on reapproval submit — post-Phase 3
+- ✓ 2 pre-built templates (Setup Checklist, Closing Checklist) — Phase 3
+- ✓ 54 Playwright E2E tests — post-Phase 3
 
 ### Active
 
-- [ ] Workflow fill-out view — crew sees assigned checklists, checks off items, notes who completed each item
-- [ ] Workflow template builder — create/edit templates with sections, field types, and conditional logic
-- [ ] Field types: checkboxes, text notes, yes/no, temperature input, photo capture, timestamps
-- [ ] Conditional logic: fail triggers (out-of-range → corrective action), skip logic, day-of-week conditions
-- [ ] Section grouping — items organized under headers (Equipment, Food Prep, Cleaning, etc.)
-- [ ] Role-based access — fill-out tab visible to all roles, builder tab restricted via User Management permissions
+(None — v1.0 milestone complete)
 
 ### Out of Scope
 
-- Backend / API implementation — UI mocks only for now, backend design docs exist but no server code
+- Backend / API implementation — UI mocks only, backend design docs exist at `docs/user-management-api.md`
 - Real authentication — login.html is a mockup, no session management
 - Offline sync / IndexedDB — future concern, not needed for mocks
 - Multi-location support — single food truck operation
 - Reporting / analytics dashboard — may come later as a BI tool
-- Replacing the existing purchasing app — purchasing stays separate, workflows handle other operations
+- Replacing the existing purchasing app — purchasing stays separate
 
 ## Context
 
 - **Business type:** Food truck / mobile food operation
 - **Team size:** 1-5 people (owner + small crew)
-- **Existing codebase:** Static HTML/CSS/JS PWA, no build step, no framework, deployed on Digital Ocean App Platform
+- **Codebase:** Static HTML/CSS/JS PWA + Playwright tests, deployed on Digital Ocean App Platform
 - **Design system:** CSS variables with dark mode, mobile-first (480px max), inline styles, system font stack
-- **Inspiration:** Lumiform (lumiformapp.com/product) — form/checklist builder with templates, assignments, and mobile completion
-- **Two-tab architecture:** Tab 1 is the fill-out view (all roles), Tab 2 is the template builder (restricted roles)
-- **User management integration:** Access to the builder tab is controlled via the existing Users app permissions system (role-based + individual grants)
-- **Backend design exists:** `docs/user-management-api.md` has data model and API contracts for future Go + Postgres backend
+- **Inspiration:** Lumiform — form/checklist builder with templates, assignments, and mobile completion
+- **Three-tab architecture:** My Checklists (all roles) / Approvals (manager+) / Builder (restricted roles)
+- **User management integration:** Access controlled via Users app permissions (role-based + individual grants)
+- **Backend design:** `docs/user-management-api.md` — 7 tables (users, sessions, templates, submissions, responses, rejections, audit log), full REST API contracts, Go + Postgres planned
 
 ## Constraints
 
-- **Static only:** No build step, no framework — plain HTML, CSS, vanilla JS (matches existing convention)
+- **Static only:** No build step, no framework — plain HTML, CSS, vanilla JS
 - **PWA:** Must work as installed app on iOS and Android, offline-capable via service worker
 - **Mobile-first:** All UI designed for 480px max-width, touch-optimized
-- **Design consistency:** Must use existing CSS variables and dark mode support from other HQ pages
+- **Design consistency:** Shared CSS variables and dark mode across all pages
 - **Mocks only:** All data is hardcoded JavaScript arrays — no localStorage, no API calls
+- **Testing:** Playwright E2E tests run via `npm test`
 
 ## Key Decisions
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| UI mocks only (no backend) | Owner wants to validate the UX before investing in backend | — Pending |
-| Keep purchasing separate | Purchasing app works well as-is, no need to force it into the workflow engine | — Pending |
-| Two-tab layout (fill-out + builder) | Matches mental model — most users just fill out, few need to build templates | — Pending |
-| Lumiform-style template builder | Proven pattern for field ops checklists, familiar UX | — Pending |
-| Day-of-week conditions | Food truck has different procedures per day (deep clean Monday, inventory Friday) | — Pending |
-| Fail triggers with corrective actions | Food safety requires documenting what you did when something fails | — Pending |
+| UI mocks only (no backend) | Validate UX before investing in backend | ✓ Good — full workflow validated |
+| Keep purchasing separate | Purchasing works well as-is | ✓ Good |
+| Three-tab layout | My Checklists / Approvals / Builder maps to crew → manager → owner | ✓ Good |
+| Lumiform-style template builder | Proven pattern for field ops checklists | ✓ Good |
+| Day-of-week conditions | Different procedures per day | ✓ Good |
+| Fail triggers with corrective actions | Food safety documentation | ✓ Good |
+| Sub-steps for checkboxes | Recipes with sub-tasks (e.g., sauce = sugar + ketchup + soy) | ✓ Good |
+| Assignable checklists by role/user | Different checklists for different roles | ✓ Good |
+| Item-level rejection (not whole-checklist) | Managers flag specific items for correction | ✓ Good |
+| SortableJS via CDN | Only external dependency, touch-native drag | ✓ Good |
+| Playwright for E2E tests | 54 tests, catches regressions, free/open source | ✓ Good |
 
 ## Evolution
 
 This document evolves at phase transitions and milestone boundaries.
 
-**After each phase transition** (via `/gsd:transition`):
+**After each phase transition:**
 1. Requirements invalidated? → Move to Out of Scope with reason
 2. Requirements validated? → Move to Validated with phase reference
 3. New requirements emerged? → Add to Active
 4. Decisions to log? → Add to Key Decisions
 5. "What This Is" still accurate? → Update if drifted
 
-**After each milestone** (via `/gsd:complete-milestone`):
+**After each milestone:**
 1. Full review of all sections
 2. Core Value check — still the right priority?
 3. Audit Out of Scope — reasons still valid?
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-13 after initialization*
+*Last updated: 2026-04-13 after v1.0 milestone completion*

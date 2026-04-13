@@ -1,15 +1,16 @@
 ## Project
 
-**Yumyums HQ — Internal Ops Console**
+**Yumyums HQ — Operations Console**
 
-A single PWA shell that serves as the launcher for all Yumyums operational tools. Instead of one PWA per workflow, HQ is one app with a home screen grid that links to each tool. One icon on the phone, one auth session, one place to add the next workflow.
+A mobile-first PWA operations console for a food truck business. One app shell with a launcher grid linking to independent workflow tools. Each tool is a standalone HTML page inside a shared PWA, designed for a small crew (1-5 people) to use on their phones.
 
-**Pattern:** Internal tools portal / ops console (similar to Retool, Linear, Notion). The PWA shell stays tiny — a grid of tiles — and each tool is built independently as its own page/route.
+**Core Value:** A workflow engine that lets the owner build checklist templates and have crew members fill them out on mobile — with accountability and smart conditions.
 
 ### Current Tools
 
 | Tool | Status | Route |
 |------|--------|-------|
+| Operations | Complete (v1.0) | workflows.html |
 | Purchasing | Mockup | purchasing.html |
 | Users | Mockup | users.html |
 | Login | Screen | login.html |
@@ -21,16 +22,30 @@ A single PWA shell that serves as the launcher for all Yumyums operational tools
 ### Architecture
 
 - **Shell:** `index.html` — launcher grid with emoji tiles, links to tool pages
-- **Tools:** Each tool is a standalone HTML page (e.g., `purchasing.html`) with a back link to HQ
-- **PWA:** Single service worker (`sw.js`) caches all pages for offline use
+- **Tools:** Each tool is a standalone HTML page with a back link to HQ
+- **Workflows:** `workflows.html` — 3-tab layout (My Checklists / Approvals / Builder), ~1500 lines vanilla JS
+- **PWA:** Single service worker (`sw.js`, cache version `yumyums-v39`) caches all pages
+- **Auto-reload:** `ptr.js` listens for `controllerchange` to reload on new SW deploy
 - **Manifest:** `manifest.json` — "Yumyums HQ", standalone display, portrait orientation
-- **Styling:** Shared CSS variables with automatic dark mode (`prefers-color-scheme`), mobile-first layout (max-width 480px)
+- **Styling:** Shared CSS variables with automatic dark mode, mobile-first (max-width 480px)
+- **Testing:** 54 Playwright E2E tests in `tests/workflows.spec.js`
+- **Backend design:** `docs/user-management-api.md` — 7 tables, REST API contracts, Go + Postgres
+
+### workflows.html Key Concepts
+
+- **State-first rendering:** Mutate JS state → call render function → DOM updates from state
+- **Event delegation:** ONE click + ONE input listener per container div, routes via `data-action` attributes
+- **MOCK_TEMPLATES:** Array of template objects with sections, fields, conditions, sub-steps
+- **MOCK_RESPONSES:** Flat dict of field responses keyed by field ID
+- **FAIL_NOTES / REJECTION_FLAGS / PENDING_APPROVALS / APPROVED_SUBMISSIONS:** In-memory state dicts
+- **SortableJS 1.15.7:** Only external dependency, loaded via CDN for drag-to-reorder
 
 ### Adding a New Tool
 
 1. Create `toolname.html` with the shared CSS variables and a back link to `index.html`
 2. Add a tile to the grid in `index.html` (change `tile soon` to `tile active` with an `<a>` tag)
 3. Add the new file to the `ASSETS` array in `sw.js` and bump the cache version
+4. Run `npm test` to verify no regressions
 
 ## Conventions
 
@@ -39,6 +54,10 @@ A single PWA shell that serves as the launcher for all Yumyums operational tools
 - Dark mode via CSS variables and `prefers-color-scheme` media query
 - Double-tap zoom prevention via `dblclick` event listener
 - Service worker uses cache-first strategy with offline fallback to index.html
+- **SW cache must be bumped before every deploy and human-verify checkpoint**
+- Event delegation in workflows.html (not inline onclick on dynamic elements)
+- `SCREAMING_SNAKE_CASE` for constants, `camelCase` for functions
+- Playwright E2E tests: `npm test` (headless) or `npm run test:headed`
 
 <!-- GSD:project-start source:PROJECT.md -->
 ## Project
