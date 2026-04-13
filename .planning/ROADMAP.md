@@ -31,8 +31,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 3 plans
 
 Plans:
-- [ ] 01-01-PLAN.md — Page scaffold, data model, template list, editor view, section CRUD
-- [ ] 01-02-PLAN.md — Field type picker, field CRUD, expand/collapse settings, temperature min/max, photo required
+- [x] 01-01-PLAN.md — Page scaffold, data model, template list, editor view, section CRUD
+- [x] 01-02-PLAN.md — Field type picker, field CRUD, expand/collapse settings, temperature min/max, photo required
 - [ ] 01-03-PLAN.md — SortableJS drag-to-reorder, day-of-week chips, skip logic editor, sw.js update
 
 **UI hint**: yes
@@ -70,6 +70,6 @@ Phases execute in numeric order: 1 → 2 → 3
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Template Builder | 0/3 | Planning complete | - |
+| 1. Template Builder | 2/3 | In Progress|  |
 | 2. Fill-Out and Conditional Logic | 0/TBD | Not started | - |
 | 3. Photo, Approval, and Integration | 0/TBD | Not started | - |
