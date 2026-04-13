@@ -308,6 +308,16 @@ ${sectionsHtml}
 <button class="btn-primary" id="save-btn">Save template</button>`;
 }
 
+function renderFieldTypePicker(secId) {
+  return `<div class="field-type-picker">
+    <div class="row" data-type="checkbox" data-section-id="${secId}"><span class="nm">Checkbox</span></div>
+    <div class="row" data-type="yes_no" data-section-id="${secId}"><span class="nm">Yes / No</span></div>
+    <div class="row" data-type="text" data-section-id="${secId}"><span class="nm">Text note</span></div>
+    <div class="row" data-type="temperature" data-section-id="${secId}"><span class="nm">Temperature (°F)</span></div>
+    <div class="row" data-type="photo" data-section-id="${secId}"><span class="nm">Photo</span></div>
+  </div>`;
+}
+
 function renderSection(sec) {
   const fieldsHtml = sec.fields.map(f => renderField(f, sec.id)).join('');
   return `<div class="sec-hd" data-section-id="${sec.id}">
@@ -316,11 +326,98 @@ function renderSection(sec) {
 </div>
 <div class="field-list" data-section-id="${sec.id}">${fieldsHtml}</div>
 <button class="add-field-btn" data-section-id="${sec.id}">+ Add field</button>
+${state.fieldPickerSection === sec.id ? renderFieldTypePicker(sec.id) : ''}
 <div class="section-divider"></div>`;
 }
 
+function renderFieldExpanded(fld, secId) {
+  let typeControls = '';
+  if (fld.type === 'temperature') {
+    typeControls = `<div style="display:flex;gap:8px;margin-top:12px">
+      <div class="field" style="flex:1">
+        <label>MIN (°F)</label>
+        <input type="number" class="fld-temp-min" value="${fld.config.min}"
+               data-field-id="${fld.id}" data-section-id="${secId}">
+      </div>
+      <div class="field" style="flex:1">
+        <label>MAX (°F)</label>
+        <input type="number" class="fld-temp-max" value="${fld.config.max}"
+               data-field-id="${fld.id}" data-section-id="${secId}">
+      </div>
+    </div>`;
+  } else if (fld.type === 'photo') {
+    typeControls = `<div class="toggle-row" style="padding:10px 0;border:none">
+      <div>
+        <div class="lbl">Required</div>
+        <div class="sub">Crew must upload a photo before submitting</div>
+      </div>
+      <label class="toggle">
+        <input type="checkbox" class="fld-photo-required"
+               ${fld.required ? 'checked' : ''}
+               data-field-id="${fld.id}" data-section-id="${secId}">
+        <span class="slider"></span>
+      </label>
+    </div>`;
+  }
+  // checkbox, yes_no, text: no type-specific controls beyond the label input
+  return `<div class="field-settings">
+    <div class="field">
+      <label>LABEL</label>
+      <input type="text" class="fld-label" value="${escapeAttr(fld.label)}"
+             data-field-id="${fld.id}" data-section-id="${secId}"
+             placeholder="Enter field label">
+    </div>
+    ${typeControls}
+    <!-- day chips and skip logic added in Plan 03 -->
+  </div>`;
+}
+
 function renderField(fld, secId) {
-  return `<div class="field-row" data-field-id="${fld.id}" data-section-id="${secId}"><span class="drag-handle" aria-label="Drag to reorder">☰</span><span class="field-row-tap">${escapeHtml(fld.label || fld.type)}</span><span class="field-type-pill">${fld.type}</span><button class="field-delete" aria-label="Delete field" data-field-id="${fld.id}" data-section-id="${secId}">✕</button></div>`;
+  const isExpanded = state.expandedField === fld.id;
+  return `<div class="field-row ${isExpanded ? 'expanded' : ''}" data-field-id="${fld.id}" data-section-id="${secId}">
+    <span class="drag-handle" aria-label="Drag to reorder">☰</span>
+    <span class="field-row-tap">${escapeHtml(fld.label || fld.type)}</span>
+    <span class="field-type-pill">${fld.type.replace('_',' ')}</span>
+    <button class="field-delete" aria-label="Delete field" data-field-id="${fld.id}" data-section-id="${secId}">✕</button>
+    ${isExpanded ? renderFieldExpanded(fld, secId) : ''}
+  </div>`;
+}
+
+function toggleFieldExpanded(fldId) {
+  state.expandedField = state.expandedField === fldId ? null : fldId;
+  renderBuilder();
+}
+
+function toggleFieldPicker(secId) {
+  state.fieldPickerSection = state.fieldPickerSection === secId ? null : secId;
+  renderBuilder();
+}
+
+function addField(secId, type) {
+  const sec = state.activeTemplate.sections.find(s => s.id === secId);
+  if (!sec) return;
+  const field = createNewField(type);
+  field.order = sec.fields.length;
+  sec.fields.push(field);
+  state.fieldPickerSection = null;
+  renderBuilder();
+}
+
+function deleteField(secId, fldId) {
+  const sec = state.activeTemplate.sections.find(s => s.id === secId);
+  if (!sec) return;
+  sec.fields = sec.fields.filter(f => f.id !== fldId);
+  sec.fields.forEach((f, i) => { f.order = i; });
+  if (state.expandedField === fldId) state.expandedField = null;
+  renderBuilder();
+}
+
+function updateField(secId, fldId, patch) {
+  const sec = state.activeTemplate.sections.find(s => s.id === secId);
+  const fld = sec.fields.find(f => f.id === fldId);
+  Object.assign(fld, patch);
+  // Do NOT call renderBuilder() for text input changes (causes cursor jump)
+  // Only re-render for toggle changes
 }
 
 function escapeHtml(str) {
@@ -402,20 +499,33 @@ document.getElementById('builder-body').addEventListener('click', function(e) {
     return;
   }
 
-  // Add field (stub — Plan 02 implements)
-  if (e.target.closest('.add-field-btn')) {
+  // Add field — toggle field type picker
+  const addFieldBtn = e.target.closest('.add-field-btn');
+  if (addFieldBtn) {
+    toggleFieldPicker(addFieldBtn.dataset.sectionId);
+    return;
+  }
+
+  // Field type picker row — add field of selected type
+  const pickerRow = e.target.closest('.field-type-picker .row');
+  if (pickerRow) {
+    addField(pickerRow.dataset.sectionId, pickerRow.dataset.type);
     return;
   }
 
   // Delete field
   const fieldDelete = e.target.closest('.field-delete');
   if (fieldDelete) {
-    const secId = fieldDelete.dataset.sectionId;
-    const fldId = fieldDelete.dataset.fieldId;
-    const sec = state.activeTemplate && state.activeTemplate.sections.find(s => s.id === secId);
-    if (sec) {
-      sec.fields = sec.fields.filter(f => f.id !== fldId);
-      renderBuilder();
+    deleteField(fieldDelete.dataset.sectionId, fieldDelete.dataset.fieldId);
+    return;
+  }
+
+  // Tap field row to expand/collapse settings
+  const fieldRowTap = e.target.closest('.field-row-tap');
+  if (fieldRowTap) {
+    const fieldRow = e.target.closest('.field-row');
+    if (fieldRow) {
+      toggleFieldExpanded(fieldRow.dataset.fieldId);
     }
     return;
   }
@@ -432,6 +542,42 @@ document.getElementById('builder-body').addEventListener('click', function(e) {
   }
 });
 
+// Input delegation — real-time field text updates without cursor jump
+document.getElementById('builder-body').addEventListener('input', function(e) {
+  const secId = e.target.dataset.sectionId;
+  const fldId = e.target.dataset.fieldId;
+  if (!secId || !fldId) return;
+
+  if (e.target.classList.contains('fld-label')) {
+    updateField(secId, fldId, { label: e.target.value });
+    return;
+  }
+
+  if (e.target.classList.contains('fld-temp-min')) {
+    const sec = state.activeTemplate.sections.find(s => s.id === secId);
+    const fld = sec && sec.fields.find(f => f.id === fldId);
+    if (fld) {
+      updateField(secId, fldId, {
+        config: Object.assign({}, fld.config, { min: +e.target.value }),
+        fail_trigger: fld.fail_trigger ? Object.assign({}, fld.fail_trigger, { min: +e.target.value }) : fld.fail_trigger
+      });
+    }
+    return;
+  }
+
+  if (e.target.classList.contains('fld-temp-max')) {
+    const sec = state.activeTemplate.sections.find(s => s.id === secId);
+    const fld = sec && sec.fields.find(f => f.id === fldId);
+    if (fld) {
+      updateField(secId, fldId, {
+        config: Object.assign({}, fld.config, { max: +e.target.value }),
+        fail_trigger: fld.fail_trigger ? Object.assign({}, fld.fail_trigger, { max: +e.target.value }) : fld.fail_trigger
+      });
+    }
+    return;
+  }
+});
+
 // Change delegation — attached ONCE
 document.getElementById('builder-body').addEventListener('change', function(e) {
   // Template name input
@@ -443,6 +589,17 @@ document.getElementById('builder-body').addEventListener('change', function(e) {
   // Requires approval toggle
   if (e.target.id === 'approval-toggle') {
     toggleApproval();
+    return;
+  }
+
+  // Photo required toggle
+  if (e.target.classList.contains('fld-photo-required')) {
+    const secId = e.target.dataset.sectionId;
+    const fldId = e.target.dataset.fieldId;
+    if (secId && fldId) {
+      updateField(secId, fldId, { required: e.target.checked });
+      renderBuilder();
+    }
     return;
   }
 });
