@@ -1,0 +1,34 @@
+version: '3'
+
+tasks:
+  deploy:
+    desc: Push to main and wait for Digital Ocean deployment to complete
+    cmds:
+      - git push origin main
+      - echo "Pushed to main. Waiting for Digital Ocean deployment..."
+      - |
+        APP_ID=$(doctl apps list --format ID,Spec.Name --no-header | grep yumyums-purchase-orders | awk '{print $1}')
+        if [ -z "$APP_ID" ]; then
+          echo "Error: Could not find app 'yumyums-purchase-orders' in doctl apps list"
+          exit 1
+        fi
+        echo "App ID: $APP_ID"
+
+        # Get the latest deployment
+        DEPLOY_ID=""
+        for i in $(seq 1 60); do
+          DEPLOY_ID=$(doctl apps list-deployments "$APP_ID" --format ID,Phase,Progress --no-header | head -1)
+          PHASE=$(echo "$DEPLOY_ID" | awk '{print $2}')
+          PROGRESS=$(echo "$DEPLOY_ID" | awk '{print $3}')
+
+          if [ "$PHASE" = "ACTIVE" ]; then
+            echo "Deployment is ACTIVE. Done!"
+            exit 0
+          fi
+
+          echo "[$i/60] Phase: $PHASE  Progress: $PROGRESS — waiting 10s..."
+          sleep 10
+        done
+
+        echo "Timed out after 10 minutes waiting for deployment."
+        exit 1
