@@ -63,7 +63,7 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 03-01-PLAN.md — Photo capture: CSS, openCamera utility, photo preview modal, standalone field + corrective action card photo
+- [x] 03-01-PLAN.md — Photo capture: CSS, openCamera utility, photo preview modal, standalone field + corrective action card photo
 - [ ] 03-02-PLAN.md — Three-tab navigation, approval flow, pre-built templates, INTG verification, sw.js bump, human-verify
 
 **UI hint**: yes
@@ -77,4 +77,4 @@ Phases execute in numeric order: 1 → 2 → 3
 |-------|----------------|--------|-----------|
 | 1. Template Builder | 2/3 | In Progress|  |
 | 2. Fill-Out and Conditional Logic | 2/2 | Complete   | 2026-04-13 |
-| 3. Photo, Approval, and Integration | 0/2 | Not started | - |
+| 3. Photo, Approval, and Integration | 1/2 | In Progress|  |

@@ -14,7 +14,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **FILL-03**: Crew member can check off checkbox / yes-no items with large touch targets
 - [x] **FILL-04**: Crew member can enter text notes on any item
 - [x] **FILL-05**: Crew member can enter temperature readings with unit display (°F)
-- [ ] **FILL-06**: Crew member can capture a photo using the device camera for a photo field
+- [x] **FILL-06**: Crew member can capture a photo using the device camera for a photo field
 - [x] **FILL-07**: Each completed item shows who checked it (user attribution)
 - [x] **FILL-08**: Crew member can see completion progress (e.g., "7 of 12 items complete")
 
@@ -110,7 +110,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | COND-02 | Phase 2 | Complete |
 | COND-03 | Phase 2 | Pending |
 | COND-04 | Phase 2 | Pending |
-| FILL-06 | Phase 3 | Pending |
+| FILL-06 | Phase 3 | Complete |
 | APRV-01 | Phase 3 | Pending |
 | APRV-02 | Phase 3 | Pending |
 | APRV-03 | Phase 3 | Pending |
