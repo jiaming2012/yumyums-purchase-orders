@@ -200,6 +200,17 @@ function fireworks(){
   animate();
 }
 
+function showSuccessCheck(){
+  var overlay=document.createElement('div');
+  overlay.style.cssText='position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.6);z-index:10000;display:flex;align-items:center;justify-content:center';
+  overlay.innerHTML='<div style="width:120px;height:120px;border-radius:60px;background:#27ae60;display:flex;align-items:center;justify-content:center;animation:checkPop .4s ease-out"><span style="font-size:64px;color:#fff">✓</span></div>';
+  var style=document.createElement('style');
+  style.textContent='@keyframes checkPop{0%{transform:scale(0);opacity:0}60%{transform:scale(1.2)}100%{transform:scale(1);opacity:1}}';
+  document.head.appendChild(style);
+  document.body.appendChild(overlay);
+  setTimeout(function(){overlay.style.opacity='0';overlay.style.transition='opacity .3s';setTimeout(function(){overlay.remove();style.remove()},300)},1500);
+}
+
 function showToast(msg){var t=document.getElementById('toast');t.textContent=msg;t.style.display='block';requestAnimationFrame(function(){t.style.opacity='1'});setTimeout(function(){t.style.opacity='0';setTimeout(function(){t.style.display='none'},300)},2000)}
 
 function formatTime(d){if(!d)return'';var h=d.getHours(),m=d.getMinutes(),ap=h>=12?'p':'a';h=h%12||12;return h+':'+(m<10?'0':'')+m+ap}
@@ -1406,13 +1417,23 @@ document.getElementById('fill-body').addEventListener('click', function(e) {
       var allFlds = fillState.activeTemplate.sections.filter(function(s){return isSectionVisible(s)}).flatMap(function(s){return s.fields.filter(function(f){return isFieldVisible(f)})});
       var allDone = allFlds.every(function(f){return MOCK_RESPONSES[f.id] !== undefined});
       var isApproval = tplForSubmit && tplForSubmit.requires_approval;
+      var isReapproval = Object.keys(REJECTION_FLAGS).length > 0;
+      // Clear rejection flags on submit
+      Object.keys(REJECTION_FLAGS).forEach(function(k){ delete REJECTION_FLAGS[k]; });
       if (isApproval) {
         submitChecklist(tplId);
       } else {
         SUBMITTED_TEMPLATES[tplId] = true;
       }
       var toastMsg = isApproval ? 'Submitted for approval' : 'Checklist submitted. Thanks, ' + CURRENT_USER.initials + '!';
-      if (allDone) {
+      if (allDone && isReapproval) {
+        showSuccessCheck();
+        setTimeout(function(){
+          showToast(toastMsg);
+          fillState.view = 'list'; fillState.activeTemplate = null; location.hash = '';
+          renderFillOut();
+        }, 2000);
+      } else if (allDone) {
         fireworks();
         setTimeout(function(){
           showToast(toastMsg);

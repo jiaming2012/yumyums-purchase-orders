@@ -1,0 +1,19 @@
+{
+  "name": "hq",
+  "version": "1.0.0",
+  "description": "Weekly collaborative purchasing workflow for Yumyums. Team members add items to a shared weekly requisition throughout the week; a Sunday cutoff locks the list and generates per-vendor purchase orders.",
+  "main": "ptr.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "npx playwright test",
+    "test:headed": "npx playwright test --headed"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@playwright/test": "^1.59.1"
+  }
+}
