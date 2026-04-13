@@ -33,7 +33,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 Plans:
 - [x] 01-01-PLAN.md — Page scaffold, data model, template list, editor view, section CRUD
 - [x] 01-02-PLAN.md — Field type picker, field CRUD, expand/collapse settings, temperature min/max, photo required
-- [ ] 01-03-PLAN.md — SortableJS drag-to-reorder, day-of-week chips, skip logic editor, sw.js update
+- [x] 01-03-PLAN.md — SortableJS drag-to-reorder, day-of-week chips, skip logic editor, sw.js update
 
 **UI hint**: yes
 

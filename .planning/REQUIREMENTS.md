@@ -29,12 +29,12 @@ Requirements for initial release. Each maps to roadmap phases.
 
 - [x] **BLDR-01**: Owner/manager can create a new workflow template with a name and sections
 - [x] **BLDR-02**: Owner/manager can add field types to a section: checkbox, yes/no, text, temperature, photo
-- [ ] **BLDR-03**: Owner/manager can reorder fields within a section via drag
+- [x] **BLDR-03**: Owner/manager can reorder fields within a section via drag
 - [x] **BLDR-04**: Owner/manager can delete fields from a template
 - [x] **BLDR-05**: Owner/manager can set temperature range thresholds (min/max) for fail trigger
 - [x] **BLDR-08**: Owner/manager can mark a photo field as required (must upload before submission)
-- [ ] **BLDR-06**: Owner/manager can configure day-of-week conditions on sections or fields
-- [ ] **BLDR-07**: Owner/manager can configure skip logic rules (if field X = Y, show/hide field Z)
+- [x] **BLDR-06**: Owner/manager can configure day-of-week conditions on sections or fields
+- [x] **BLDR-07**: Owner/manager can configure skip logic rules (if field X = Y, show/hide field Z)
 
 ### Approval
 
@@ -93,11 +93,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 |-------------|-------|--------|
 | BLDR-01 | Phase 1 | Pending |
 | BLDR-02 | Phase 1 | Complete |
-| BLDR-03 | Phase 1 | Pending |
+| BLDR-03 | Phase 1 | Complete |
 | BLDR-04 | Phase 1 | Complete |
 | BLDR-05 | Phase 1 | Complete |
-| BLDR-06 | Phase 1 | Pending |
-| BLDR-07 | Phase 1 | Pending |
+| BLDR-06 | Phase 1 | Complete |
+| BLDR-07 | Phase 1 | Complete |
 | BLDR-08 | Phase 1 | Complete |
 | FILL-01 | Phase 2 | Pending |
 | FILL-02 | Phase 2 | Pending |
