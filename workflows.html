@@ -77,6 +77,11 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .fill-field{padding:12px 16px;border-bottom:0.5px solid var(--brd)}
 .fill-field:last-child{border-bottom:none}
 .fill-field-row{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.sub-step-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 16px 8px 40px;border-bottom:0.5px solid var(--brd)}
+.sub-step-row:last-child{border-bottom:none}
+.sub-step-label-text{font-size:13px;flex:1}
+.sub-step-check{width:20px;height:20px;border-radius:4px;border:1.5px solid var(--brd);display:flex;align-items:center;justify-content:center;font-size:12px;color:#27ae60;flex-shrink:0;cursor:pointer}
+.sub-step-check.done{background:#27ae60;border-color:#27ae60;color:#fff}
 .fill-field-label{font-size:14px;font-weight:500;margin-bottom:6px}
 .fill-attribution{font-size:11px;color:var(--mut);margin-top:4px}
 .check-btn{width:44px;height:44px;border-radius:10px;border:1.5px solid var(--brd);background:transparent;color:var(--info-tx);font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
@@ -289,7 +294,12 @@ const MOCK_TEMPLATES = [
       {
         id: 'sec_close_secure', title: 'Secure', order: 1, condition: null,
         fields: [
-          { id: 'fld_close_locked', type: 'checkbox', label: 'Truck locked and secured', required: true, order: 0, config: {}, fail_trigger: null, corrective_action: null, condition: null }
+          { id: 'fld_close_locked', type: 'checkbox', label: 'Truck locked and secured', required: true, order: 0, config: {}, fail_trigger: null, corrective_action: null, condition: null },
+          { id: 'fld_close_sauce', type: 'checkbox', label: 'Prep sauce for tomorrow', required: false, order: 1, config: {}, fail_trigger: null, corrective_action: null, condition: null, sub_steps: [
+            { id: 'sub_sugar', label: 'Add sugar' },
+            { id: 'sub_ketchup', label: 'Add ketchup' },
+            { id: 'sub_soy', label: 'Add soy sauce' }
+          ] }
         ]
       }
     ]
@@ -455,7 +465,18 @@ function renderFieldExpanded(fld, secId) {
       </label>
     </div>`;
   }
-  // checkbox, yes_no, text: no type-specific controls beyond the label input
+  if (fld.type === 'checkbox') {
+    var subs = fld.sub_steps || [];
+    var subsHtml = subs.map(function(s, i) {
+      return '<div style="display:flex;gap:8px;align-items:center;margin-top:6px">' +
+        '<input type="text" class="sub-step-label" value="' + escapeAttr(s.label) + '" data-field-id="' + fld.id + '" data-section-id="' + secId + '" data-sub-idx="' + i + '" placeholder="Sub-step label" style="flex:1;padding:8px 10px;background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;font-size:13px;color:var(--txt);font-family:inherit;outline:none">' +
+        '<button class="field-delete" data-action="delete-sub-step" data-field-id="' + fld.id + '" data-section-id="' + secId + '" data-sub-idx="' + i + '" aria-label="Remove sub-step" style="font-size:14px">✕</button></div>';
+    }).join('');
+    typeControls = '<div style="margin-top:12px"><label style="display:block;font-size:12px;font-weight:500;color:var(--mut);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.4px">SUB-STEPS</label>' +
+      (subs.length > 0 ? subsHtml : '<div style="font-size:13px;color:var(--mut);margin-bottom:4px">No sub-steps</div>') +
+      '<button data-action="add-sub-step" data-field-id="' + fld.id + '" data-section-id="' + secId + '" style="margin-top:8px;padding:6px 12px;background:var(--info-bg);color:var(--info-tx);border:none;border-radius:8px;font-size:12px;font-weight:500;cursor:pointer">+ Add sub-step</button></div>';
+  }
+  // yes_no, text: no type-specific controls beyond the label input
   return `<div class="field-settings">
     <div class="field">
       <label>LABEL</label>
@@ -704,6 +725,25 @@ document.getElementById('builder-body').addEventListener('click', function(e) {
     return;
   }
 
+  // Sub-step actions (must be before generic field-delete)
+  var subAction = e.target.closest('[data-action="add-sub-step"]') || e.target.closest('[data-action="delete-sub-step"]');
+  if (subAction) {
+    var fldId = subAction.dataset.fieldId;
+    var secId = subAction.dataset.sectionId;
+    var sec = state.activeTemplate.sections.find(function(s){return s.id===secId});
+    var fld = sec ? sec.fields.find(function(f){return f.id===fldId}) : null;
+    if (fld) {
+      if (!fld.sub_steps) fld.sub_steps = [];
+      if (subAction.dataset.action === 'add-sub-step') {
+        fld.sub_steps.push({ id: generateId('sub'), label: '' });
+      } else {
+        fld.sub_steps.splice(+subAction.dataset.subIdx, 1);
+      }
+      renderBuilder();
+    }
+    return;
+  }
+
   // Delete field
   const fieldDelete = e.target.closest('.field-delete');
   if (fieldDelete) {
@@ -813,6 +853,15 @@ document.getElementById('builder-body').addEventListener('input', function(e) {
 
   if (e.target.classList.contains('fld-label')) {
     updateField(secId, fldId, { label: e.target.value });
+    return;
+  }
+
+  if (e.target.classList.contains('sub-step-label')) {
+    var sec = state.activeTemplate.sections.find(function(s){return s.id===secId});
+    var fld = sec && sec.fields.find(function(f){return f.id===fldId});
+    if (fld && fld.sub_steps && e.target.dataset.subIdx !== undefined) {
+      fld.sub_steps[+e.target.dataset.subIdx].label = e.target.value;
+    }
     return;
   }
 
@@ -1207,6 +1256,28 @@ function renderRunnerField(fld) {
   const correctionBanner = rejFlag ? `<div class="correction-banner">⚠ Rejected: ${escapeHtml(rejFlag.comment)}${photoNeeded ? ' · 📷 Photo required before resubmit' : rejFlag.requirePhoto ? ' · ✓ Photo uploaded' : ''}</div>` : '';
 
   if (fld.type === 'checkbox') {
+    var subs = fld.sub_steps && fld.sub_steps.length > 0 ? fld.sub_steps : null;
+    var subStepsHtml = '';
+    if (subs) {
+      var subState = (resp && resp.sub_steps) ? resp.sub_steps : {};
+      var allSubsDone = subs.every(function(s) { return !!subState[s.id]; });
+      subStepsHtml = subs.map(function(s) {
+        var done = !!subState[s.id];
+        return '<div class="sub-step-row"><span class="sub-step-label-text' + (done ? ' style="text-decoration:line-through;color:var(--mut)"' : '') + '">' + escapeHtml(s.label) + '</span>' +
+          '<button class="sub-step-check ' + (done ? 'done' : '') + '" data-action="toggle-sub-step" data-field-id="' + fld.id + '" data-sub-id="' + s.id + '">' + (done ? '✓' : '') + '</button></div>';
+      }).join('');
+      // For sub-step checkboxes, parent is auto-checked when all subs done
+      var parentChecked = allSubsDone;
+      return '<div class="fill-field" data-field-id="' + fld.id + '">' +
+        correctionBanner +
+        '<div class="fill-field-row">' +
+        '<div class="fill-field-label" style="margin-bottom:0">' + escapeHtml(fld.label) + '</div>' +
+        '<button class="check-btn ' + (parentChecked ? 'checked' : '') + '" data-field-id="' + fld.id + '" data-has-subs="true" aria-label="Toggle checkbox">' + (parentChecked ? '✓' : '') + '</button>' +
+        '</div>' +
+        (parentChecked ? attribution : '') +
+        subStepsHtml +
+        '</div>';
+    }
     return `<div class="fill-field" data-field-id="${fld.id}">
   ${correctionBanner}
   <div class="fill-field-row">
@@ -1340,7 +1411,13 @@ document.getElementById('fill-body').addEventListener('click', function(e) {
   const checkBtn = e.target.closest('.check-btn');
   if (checkBtn) {
     const fldId = checkBtn.dataset.fieldId;
-    if (MOCK_RESPONSES[fldId]) {
+    const hasSubs = checkBtn.dataset.hasSubs === 'true';
+    if (hasSubs) {
+      // Parent with sub-steps: unchecking clears all sub-steps; can't directly check parent
+      if (MOCK_RESPONSES[fldId]) {
+        delete MOCK_RESPONSES[fldId]; // clears parent + sub_steps state
+      }
+    } else if (MOCK_RESPONSES[fldId]) {
       delete MOCK_RESPONSES[fldId];
     } else {
       clearRejectionFlag(fldId);
@@ -1358,6 +1435,33 @@ document.getElementById('fill-body').addEventListener('click', function(e) {
   if (actionEl) {
     const action = actionEl.dataset.action;
     const fldId = actionEl.dataset.fldId;
+
+    if (action === 'toggle-sub-step') {
+      var parentFldId = actionEl.dataset.fieldId;
+      var subId = actionEl.dataset.subId;
+      var tplField = fillState.activeTemplate.sections.flatMap(function(s){return s.fields}).find(function(f){return f.id===parentFldId});
+      if (!tplField || !tplField.sub_steps) return;
+      // Get or create response with sub_steps map
+      if (!MOCK_RESPONSES[parentFldId]) {
+        MOCK_RESPONSES[parentFldId] = { value: false, answeredBy: CURRENT_USER.name, answeredAt: new Date(), sub_steps: {} };
+      }
+      var resp = MOCK_RESPONSES[parentFldId];
+      if (!resp.sub_steps) resp.sub_steps = {};
+      // Toggle
+      if (resp.sub_steps[subId]) {
+        delete resp.sub_steps[subId];
+      } else {
+        resp.sub_steps[subId] = true;
+      }
+      // Auto-check parent if all subs done
+      var allDone = tplField.sub_steps.every(function(s){ return !!resp.sub_steps[s.id]; });
+      resp.value = allDone;
+      if (allDone) { resp.answeredAt = new Date(); clearRejectionFlag(parentFldId); }
+      var fieldDiv = document.querySelector('.fill-field[data-field-id="' + parentFldId + '"]');
+      if (fieldDiv) fieldDiv.outerHTML = renderRunnerField(tplField);
+      updateProgress();
+      return;
+    }
 
     if (action === 'set-yes') {
       clearRejectionFlag(fldId);

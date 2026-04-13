@@ -167,6 +167,51 @@ test.describe('Corrective action', () => {
 
 // ─── Progress Tracking ──────────────────────────────────────────────────────
 
+// ─── Sub-Steps ──────────────────────────────────────────────────────────────
+
+test.describe('Sub-steps', () => {
+  test('checkbox with sub-steps shows sub-step items', async ({ page }) => {
+    await page.goto('/workflows.html');
+    await page.click('[data-fill-template-id="tpl_closing"]');
+    // "Prep sauce for tomorrow" has 3 sub-steps
+    await expect(page.locator('.sub-step-row')).toHaveCount(3);
+    await expect(page.locator('.sub-step-label-text', { hasText: 'Add sugar' })).toBeVisible();
+    await expect(page.locator('.sub-step-label-text', { hasText: 'Add ketchup' })).toBeVisible();
+    await expect(page.locator('.sub-step-label-text', { hasText: 'Add soy sauce' })).toBeVisible();
+  });
+
+  test('completing all sub-steps auto-checks parent', async ({ page }) => {
+    await page.goto('/workflows.html');
+    await page.click('[data-fill-template-id="tpl_closing"]');
+    // Parent should not be checked yet
+    const parentBtn = page.locator('.check-btn[data-has-subs="true"]');
+    await expect(parentBtn).not.toHaveClass(/checked/);
+    // Check all 3 sub-steps
+    const subChecks = page.locator('.sub-step-check');
+    await subChecks.nth(0).click();
+    await subChecks.nth(1).click();
+    await subChecks.nth(2).click();
+    // Parent should now be checked
+    await expect(page.locator('.check-btn[data-has-subs="true"]')).toHaveClass(/checked/);
+  });
+
+  test('unchecking parent clears all sub-steps', async ({ page }) => {
+    await page.goto('/workflows.html');
+    await page.click('[data-fill-template-id="tpl_closing"]');
+    // Complete all sub-steps
+    const subChecks = page.locator('.sub-step-check');
+    await subChecks.nth(0).click();
+    await subChecks.nth(1).click();
+    await subChecks.nth(2).click();
+    // Uncheck parent
+    await page.locator('.check-btn[data-has-subs="true"]').click();
+    // All sub-steps should be unchecked
+    await expect(page.locator('.sub-step-check.done')).toHaveCount(0);
+  });
+});
+
+// ─── Progress Tracking ──────────────────────────────────────────────────────
+
 test.describe('Progress', () => {
   test('progress counter updates as items are completed', async ({ page }) => {
     await page.goto('/workflows.html');

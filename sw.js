@@ -1,4 +1,4 @@
-const CACHE = 'yumyums-v32';
+const CACHE = 'yumyums-v33';
 const ASSETS = ['./', './index.html', './purchasing.html', './users.html', './login.html', './workflows.html', './ptr.js', './manifest.json'];
 
 self.addEventListener('install', e => {
