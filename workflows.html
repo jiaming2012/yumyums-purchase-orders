@@ -374,7 +374,7 @@ function renderFieldExpanded(fld, secId) {
     </div>
     ${typeControls}
     ${renderDayChips(fld.condition && fld.condition.days ? fld.condition.days : null, fld.id, 'field')}
-    <!-- skip logic added below -->
+    ${renderSkipLogic(fld, secId)}
   </div>`;
 }
 
@@ -470,6 +470,55 @@ function renderDayChips(activeDays, targetId, targetType) {
                   data-target-type="${targetType}">${label}</button>
         `).join('')}
       </div>
+    </div>`;
+}
+
+function getPrecedingFields(template, sectionId, fieldId) {
+  const fields = [];
+  for (const sec of template.sections) {
+    for (const fld of sec.fields) {
+      if (sec.id === sectionId && fld.id === fieldId) return fields;
+      fields.push({ id: fld.id, label: fld.label || fld.type, type: fld.type, sectionTitle: sec.title });
+    }
+  }
+  return fields;
+}
+
+function getValuesForFieldType(type) {
+  if (type === 'checkbox') return [{value: true, label: 'Checked'}, {value: false, label: 'Unchecked'}];
+  if (type === 'yes_no') return [{value: true, label: 'Yes'}, {value: false, label: 'No'}];
+  if (type === 'text') return [{value: '', label: 'Empty'}, {value: '_notempty', label: 'Not empty'}];
+  if (type === 'temperature') return [{value: '_in_range', label: 'In range'}, {value: '_out_of_range', label: 'Out of range'}];
+  if (type === 'photo') return [{value: true, label: 'Uploaded'}, {value: false, label: 'Not uploaded'}];
+  return [];
+}
+
+function renderSkipLogic(fld, secId) {
+  const preceding = getPrecedingFields(state.activeTemplate, secId, fld.id);
+  if (preceding.length === 0) return '';
+
+  const selectedFieldId = fld.condition && fld.condition.field_id ? fld.condition.field_id : '';
+  const selectedValue = fld.condition && fld.condition.value !== undefined ? fld.condition.value : '';
+
+  const selectedField = preceding.find(f => f.id === selectedFieldId);
+  const valueOptions = selectedField ? getValuesForFieldType(selectedField.type) : [];
+
+  return `
+    <div class="skip-logic-row">
+      <label style="display:block;font-size:12px;font-weight:500;color:var(--mut);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.4px">SHOW THIS FIELD ONLY WHEN</label>
+      <select class="skip-field-select" data-field-id="${fld.id}" data-section-id="${secId}"
+              style="width:100%;padding:11px 12px;background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;font-size:14px;color:var(--txt);margin-bottom:8px">
+        <option value="">select a field...</option>
+        ${preceding.map(f => `<option value="${f.id}" ${f.id === selectedFieldId ? 'selected' : ''}>${escapeHtml(f.sectionTitle)}: ${escapeHtml(f.label)}</option>`).join('')}
+      </select>
+      ${selectedFieldId ? `
+        <select class="skip-value-select" data-field-id="${fld.id}" data-section-id="${secId}"
+                style="width:100%;padding:11px 12px;background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;font-size:14px;color:var(--txt)">
+          <option value="">select a value...</option>
+          ${valueOptions.map(v => `<option value="${JSON.stringify(v.value).replace(/"/g, '&quot;')}" ${JSON.stringify(v.value) === JSON.stringify(selectedValue) ? 'selected' : ''}>${v.label}</option>`).join('')}
+        </select>
+      ` : ''}
+      ${selectedFieldId ? `<button class="skip-clear" data-field-id="${fld.id}" data-section-id="${secId}" style="margin-top:8px;background:none;border:none;color:#c0392b;font-size:12px;cursor:pointer;padding:4px 0">Remove condition</button>` : ''}
     </div>`;
 }
 
@@ -572,6 +621,23 @@ document.getElementById('builder-body').addEventListener('click', function(e) {
     if (fieldRow) {
       toggleFieldExpanded(fieldRow.dataset.fieldId);
     }
+    return;
+  }
+
+  // Skip logic — clear condition
+  if (e.target.closest('.skip-clear')) {
+    const btn = e.target.closest('.skip-clear');
+    const fldId = btn.dataset.fieldId;
+    const secId = btn.dataset.sectionId;
+    const sec = state.activeTemplate.sections.find(s => s.id === secId);
+    const fld = sec.fields.find(f => f.id === fldId);
+    if (fld.condition) {
+      delete fld.condition.field_id;
+      delete fld.condition.operator;
+      delete fld.condition.value;
+      if (!fld.condition.days) fld.condition = null;
+    }
+    renderBuilder();
     return;
   }
 
@@ -679,6 +745,43 @@ document.getElementById('builder-body').addEventListener('change', function(e) {
       updateField(secId, fldId, { required: e.target.checked });
       renderBuilder();
     }
+    return;
+  }
+
+  // Skip logic — field selector
+  if (e.target.classList.contains('skip-field-select')) {
+    const select = e.target;
+    const fldId = select.dataset.fieldId;
+    const secId = select.dataset.sectionId;
+    const sec = state.activeTemplate.sections.find(s => s.id === secId);
+    const fld = sec.fields.find(f => f.id === fldId);
+    if (select.value) {
+      if (!fld.condition) fld.condition = {};
+      fld.condition.field_id = select.value;
+      fld.condition.operator = 'equals';
+      delete fld.condition.value; // Reset value when field changes
+    } else {
+      // Clear skip logic but preserve days
+      if (fld.condition) {
+        delete fld.condition.field_id;
+        delete fld.condition.operator;
+        delete fld.condition.value;
+        if (!fld.condition.days) fld.condition = null;
+      }
+    }
+    renderBuilder();
+    return;
+  }
+
+  // Skip logic — value selector
+  if (e.target.classList.contains('skip-value-select')) {
+    const select = e.target;
+    const fldId = select.dataset.fieldId;
+    const secId = select.dataset.sectionId;
+    const sec = state.activeTemplate.sections.find(s => s.id === secId);
+    const fld = sec.fields.find(f => f.id === fldId);
+    fld.condition.value = JSON.parse(select.value);
+    // No re-render needed — just state update
     return;
   }
 });
