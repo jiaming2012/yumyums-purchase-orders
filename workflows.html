@@ -1211,17 +1211,20 @@ document.getElementById('fill-body').addEventListener('click', function(e) {
     if (action === 'submit') {
       const tplId = actionEl.dataset.tplId;
       if (SUBMITTED_TEMPLATES[tplId]) return;
+      SUBMITTED_TEMPLATES[tplId] = true;
       var allFlds = fillState.activeTemplate.sections.flatMap(function(s){return s.fields});
       var allDone = allFlds.every(function(f){return MOCK_RESPONSES[f.id] !== undefined});
       if (allDone) {
-        SUBMITTED_TEMPLATES[tplId] = true;
         fireworks();
-        renderFillOut();
-        setTimeout(function(){ showToast('Checklist submitted \u2713'); }, 200);
+        setTimeout(function(){
+          showToast('Checklist submitted ✓');
+          fillState.view = 'list'; fillState.activeTemplate = null; location.hash = '';
+          renderFillOut();
+        }, 2500);
       } else {
-        SUBMITTED_TEMPLATES[tplId] = true;
+        showToast('Checklist submitted ✓');
+        fillState.view = 'list'; fillState.activeTemplate = null; location.hash = '';
         renderFillOut();
-        showToast('Checklist submitted \u2713');
       }
       return;
     }
