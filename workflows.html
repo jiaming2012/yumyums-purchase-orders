@@ -1174,7 +1174,8 @@ function renderRunnerField(fld) {
   const resp = answered ? MOCK_RESPONSES[fld.id] : null;
   const attribution = answered ? `<div class="fill-attribution">${escapeHtml(resp.answeredBy)} · ${formatTime(resp.answeredAt)}</div>` : '';
   const rejFlag = REJECTION_FLAGS[fld.id];
-  const correctionBanner = rejFlag ? `<div class="correction-banner">⚠ Rejected: ${escapeHtml(rejFlag.comment)}${rejFlag.requirePhoto ? ' · Photo required' : ''}</div>` : '';
+  const photoNeeded = rejFlag && rejFlag.requirePhoto && (!resp || !resp.value || typeof resp.value !== 'string' || !resp.value.startsWith('blob:'));
+  const correctionBanner = rejFlag ? `<div class="correction-banner">⚠ Rejected: ${escapeHtml(rejFlag.comment)}${photoNeeded ? ' · 📷 Photo required before resubmit' : rejFlag.requirePhoto ? ' · ✓ Photo uploaded' : ''}</div>` : '';
 
   if (fld.type === 'checkbox') {
     return `<div class="fill-field" data-field-id="${fld.id}">
@@ -1390,6 +1391,17 @@ document.getElementById('fill-body').addEventListener('click', function(e) {
     if (action === 'submit') {
       const tplId = actionEl.dataset.tplId;
       if (SUBMITTED_TEMPLATES[tplId] || PENDING_APPROVALS[tplId]) return;
+      // Enforce required photos from rejection flags
+      var missingPhotos = Object.keys(REJECTION_FLAGS).filter(function(fid) {
+        var flag = REJECTION_FLAGS[fid];
+        if (!flag.requirePhoto) return false;
+        var resp = MOCK_RESPONSES[fid];
+        return !resp || !resp.value || typeof resp.value !== 'string' || !resp.value.startsWith('blob:');
+      });
+      if (missingPhotos.length > 0) {
+        showToast('Photo required for ' + missingPhotos.length + ' flagged item(s)');
+        return;
+      }
       var tplForSubmit = MOCK_TEMPLATES.find(function(t){return t.id===tplId});
       if (tplForSubmit && tplForSubmit.requires_approval) {
         submitChecklist(tplId);
