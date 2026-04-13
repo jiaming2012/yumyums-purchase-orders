@@ -107,6 +107,8 @@ const MOCK_CURRENT_USER = {
   permissions: ['workflow_fill', 'workflow_builder']
 };
 
+function formatTime(d){if(!d)return'';var h=d.getHours(),m=d.getMinutes(),ap=h>=12?'p':'a';h=h%12||12;return h+':'+(m<10?'0':'')+m+ap}
+
 const MOCK_TEMPLATES = [
   {
     id: 'tpl_morning_open',
@@ -885,7 +887,7 @@ function renderRunnerSection(sec) {
 function renderRunnerField(fld) {
   const answered = MOCK_RESPONSES[fld.id] !== undefined;
   const resp = answered ? MOCK_RESPONSES[fld.id] : null;
-  const attribution = answered ? `<div class="fill-attribution">${escapeHtml(resp.answeredBy)}</div>` : '';
+  const attribution = answered ? `<div class="fill-attribution">${escapeHtml(resp.answeredBy)} · ${formatTime(resp.answeredAt)}</div>` : '';
 
   if (fld.type === 'checkbox') {
     return `<div class="fill-field" data-field-id="${fld.id}">
@@ -943,7 +945,7 @@ function attachRunnerListeners() {
   document.querySelectorAll('.fill-textarea').forEach(el => {
     el.addEventListener('blur', function() {
       if (this.value.trim()) {
-        MOCK_RESPONSES[this.dataset.fieldId] = { value: this.value.trim(), answeredBy: MOCK_CURRENT_USER.name };
+        MOCK_RESPONSES[this.dataset.fieldId] = { value: this.value.trim(), answeredBy: MOCK_CURRENT_USER.name, answeredAt: new Date() };
         updateProgress();
       }
     });
@@ -951,7 +953,7 @@ function attachRunnerListeners() {
   document.querySelectorAll('.fill-temp-input').forEach(el => {
     el.addEventListener('blur', function() {
       if (this.value !== '') {
-        MOCK_RESPONSES[this.dataset.fieldId] = { value: +this.value, answeredBy: MOCK_CURRENT_USER.name };
+        MOCK_RESPONSES[this.dataset.fieldId] = { value: +this.value, answeredBy: MOCK_CURRENT_USER.name, answeredAt: new Date() };
         updateProgress();
       }
     });
@@ -994,7 +996,7 @@ document.getElementById('fill-body').addEventListener('click', function(e) {
     if (MOCK_RESPONSES[fldId]) {
       delete MOCK_RESPONSES[fldId];
     } else {
-      MOCK_RESPONSES[fldId] = { value: true, answeredBy: MOCK_CURRENT_USER.name };
+      MOCK_RESPONSES[fldId] = { value: true, answeredBy: MOCK_CURRENT_USER.name, answeredAt: new Date() };
     }
     const fieldDiv = document.querySelector(`.fill-field[data-field-id="${fldId}"]`);
     const tplField = fillState.activeTemplate.sections.flatMap(s => s.fields).find(f => f.id === fldId);
@@ -1008,7 +1010,7 @@ document.getElementById('fill-body').addEventListener('click', function(e) {
   if (ynBtn) {
     const fldId = ynBtn.dataset.fieldId;
     const val = ynBtn.dataset.value === 'true';
-    MOCK_RESPONSES[fldId] = { value: val, answeredBy: MOCK_CURRENT_USER.name };
+    MOCK_RESPONSES[fldId] = { value: val, answeredBy: MOCK_CURRENT_USER.name, answeredAt: new Date() };
     const fieldDiv = document.querySelector(`.fill-field[data-field-id="${fldId}"]`);
     const tplField = fillState.activeTemplate.sections.flatMap(s => s.fields).find(f => f.id === fldId);
     if (fieldDiv && tplField) fieldDiv.outerHTML = renderRunnerField(tplField);
