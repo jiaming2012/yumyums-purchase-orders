@@ -99,6 +99,12 @@ None - plan executed exactly as written.
 - All field types have correct data shapes in state (`config`, `fail_trigger`, `condition` fields) ready for skip logic wiring
 - Event delegation on `#builder-body` remains one click + one input + one change listener — Plan 03 adds cases, not new listeners
 
+## Self-Check: PASSED
+
+- workflows.html: FOUND
+- 01-02-SUMMARY.md: FOUND
+- Commit 11d9fad: FOUND
+
 ---
 *Phase: 01-template-builder*
 *Completed: 2026-04-13*
