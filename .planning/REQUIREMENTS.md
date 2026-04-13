@@ -91,13 +91,38 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| — | — | Pending |
+| BLDR-01 | Phase 1 | Pending |
+| BLDR-02 | Phase 1 | Pending |
+| BLDR-03 | Phase 1 | Pending |
+| BLDR-04 | Phase 1 | Pending |
+| BLDR-05 | Phase 1 | Pending |
+| BLDR-06 | Phase 1 | Pending |
+| BLDR-07 | Phase 1 | Pending |
+| BLDR-08 | Phase 1 | Pending |
+| FILL-01 | Phase 2 | Pending |
+| FILL-02 | Phase 2 | Pending |
+| FILL-03 | Phase 2 | Pending |
+| FILL-04 | Phase 2 | Pending |
+| FILL-05 | Phase 2 | Pending |
+| FILL-07 | Phase 2 | Pending |
+| FILL-08 | Phase 2 | Pending |
+| COND-01 | Phase 2 | Pending |
+| COND-02 | Phase 2 | Pending |
+| COND-03 | Phase 2 | Pending |
+| COND-04 | Phase 2 | Pending |
+| FILL-06 | Phase 3 | Pending |
+| APRV-01 | Phase 3 | Pending |
+| APRV-02 | Phase 3 | Pending |
+| APRV-03 | Phase 3 | Pending |
+| INTG-01 | Phase 3 | Pending |
+| INTG-02 | Phase 3 | Pending |
+| INTG-03 | Phase 3 | Pending |
 
 **Coverage:**
 - v1 requirements: 26 total
-- Mapped to phases: 0
-- Unmapped: 26 ⚠️
+- Mapped to phases: 26
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-04-13*
-*Last updated: 2026-04-13 after initial definition*
+*Last updated: 2026-04-13 after roadmap creation*
