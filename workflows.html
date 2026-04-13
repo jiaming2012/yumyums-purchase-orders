@@ -94,11 +94,12 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 <div class="app">
 <a class="back" href="index.html">HQ</a>
 <div class="tabs">
-  <button id="t1" class="on" onclick="show(1)">Fill Out</button>
+  <button id="t1" class="on" onclick="show(1)">My Checklists</button>
   <button id="t2" onclick="show(2)">Builder</button>
 </div>
 <div id="s1"><div id="fill-body"></div></div>
 <div id="s2" style="display:none"><div id="builder-body"></div></div>
+<div id="toast" style="display:none;position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--info-tx);color:#fff;padding:12px 24px;border-radius:10px;font-size:14px;font-weight:500;z-index:9999;transition:opacity .3s;opacity:0"></div>
 </div>
 
 <script>
@@ -106,6 +107,8 @@ const MOCK_CURRENT_USER = {
   id: 'usr_jamal', name: 'Jamal', role: 'admin',
   permissions: ['workflow_fill', 'workflow_builder']
 };
+
+function showToast(msg){var t=document.getElementById('toast');t.textContent=msg;t.style.display='block';requestAnimationFrame(function(){t.style.opacity='1'});setTimeout(function(){t.style.opacity='0';setTimeout(function(){t.style.display='none'},300)},2000)}
 
 function formatTime(d){if(!d)return'';var h=d.getHours(),m=d.getMinutes(),ap=h>=12?'p':'a';h=h%12||12;return h+':'+(m<10?'0':'')+m+ap}
 
@@ -716,8 +719,9 @@ document.getElementById('builder-body').addEventListener('click', function(e) {
     return;
   }
 
-  // Save template (in-memory only, no-op per D-11)
+  // Save template (in-memory only per D-11)
   if (e.target.closest('#save-btn')) {
+    showToast('Checklist saved ✓');
     return;
   }
 
@@ -874,7 +878,10 @@ function renderRunner() {
   const answered = allFields.filter(f => MOCK_RESPONSES[f.id] !== undefined).length;
   const sectionsHtml = tpl.sections.map(sec => renderRunnerSection(sec)).join('');
   return `<button class="editor-back" id="fill-back">Checklists</button>
-<div style="padding:10px 16px 0;font-size:13px;color:var(--mut)" class="progress-line">${answered} of ${allFields.length} items complete</div>
+<div style="padding:10px 16px 0" class="progress-line">
+  <div style="height:6px;background:var(--brd);border-radius:3px;overflow:hidden;margin-bottom:6px"><div style="height:100%;background:#27ae60;border-radius:3px;width:${allFields.length?Math.round(answered/allFields.length*100):0}%;transition:width .3s"></div></div>
+  <div style="font-size:13px;color:var(--mut)">${answered} of ${allFields.length} items complete</div>
+</div>
 ${sectionsHtml}
 <button class="btn-primary" id="submit-btn" style="margin-top:8px">Submit checklist</button>`;
 }
@@ -965,7 +972,10 @@ function updateProgress() {
   const allFields = fillState.activeTemplate.sections.flatMap(s => s.fields);
   const answered = allFields.filter(f => MOCK_RESPONSES[f.id] !== undefined).length;
   const el = document.querySelector('#fill-body .progress-line');
-  if (el) el.textContent = answered + ' of ' + allFields.length + ' items complete';
+  if (el) {
+    var pct = allFields.length ? Math.round(answered / allFields.length * 100) : 0;
+    el.innerHTML = '<div style="height:6px;background:var(--brd);border-radius:3px;overflow:hidden;margin-bottom:6px"><div style="height:100%;background:#27ae60;border-radius:3px;width:' + pct + '%;transition:width .3s"></div></div><div style="font-size:13px;color:var(--mut)">' + answered + ' of ' + allFields.length + ' items complete</div>';
+  }
 }
 
 document.getElementById('fill-body').addEventListener('click', function(e) {
@@ -1020,7 +1030,7 @@ document.getElementById('fill-body').addEventListener('click', function(e) {
 
   // Submit button
   if (e.target.closest('#submit-btn')) {
-    alert('Checklist submitted! (mock — no persistence)');
+    showToast('Checklist submitted ✓');
     fillState.view = 'list';
     fillState.activeTemplate = null;
     renderFillOut();
