@@ -275,28 +275,28 @@ function renderBuilder() {
 
 function renderTemplateList() {
   if (MOCK_TEMPLATES.length === 0) {
-    return `<div class="empty-state"><h2>No templates yet</h2><p>Create your first checklist template to get started.</p></div>
-<div style="padding:0 0 8px"><button class="btn-primary">+ New template</button></div>`;
+    return `<div class="empty-state"><h2>No checklists yet</h2><p>Create your first checklist to get started.</p></div>
+<div style="padding:0 0 8px"><button class="btn-primary">+ New checklist</button></div>`;
   }
   const rows = MOCK_TEMPLATES.map(tpl => {
     const secCount = tpl.sections.length;
     const secLabel = secCount === 1 ? '1 section' : secCount + ' sections';
     return `<div class="row" data-template-id="${tpl.id}" style="cursor:pointer"><div><div class="nm">${tpl.name || '(Untitled)'}</div><div class="mt">${secLabel}</div></div></div>`;
   }).join('');
-  return `<div class="cat">Templates</div>
+  return `<div class="cat">Checklists</div>
 <div class="card">${rows}</div>
-<button class="btn-primary">+ New template</button>`;
+<button class="btn-primary">+ New checklist</button>`;
 }
 
 function renderEditor() {
   const tpl = state.activeTemplate;
   const approvalChecked = tpl.requires_approval ? 'checked' : '';
   const sectionsHtml = tpl.sections.map(sec => renderSection(sec)).join('');
-  return `<button class="editor-back">Templates</button>
+  return `<button class="editor-back">Checklists</button>
 <div class="meta-card">
   <div class="hd">
     <div class="field" style="margin-bottom:0">
-      <label>Template name</label>
+      <label>Checklist name</label>
       <input type="text" id="tpl-name-input" value="${escapeAttr(tpl.name)}" placeholder="e.g. Morning Opening Checklist">
     </div>
   </div>
@@ -307,7 +307,7 @@ function renderEditor() {
 </div>
 ${sectionsHtml}
 <button class="add-section-btn">+ Add section</button>
-<button class="btn-primary" id="save-btn">Save template</button>`;
+<button class="btn-primary" id="save-btn">Save checklist</button>`;
 }
 
 function renderFieldTypePicker(secId) {
