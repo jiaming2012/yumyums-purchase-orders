@@ -67,6 +67,10 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .chip-rm{background:none;border:none;color:var(--info-tx);font-size:14px;line-height:1;padding:0;cursor:pointer;margin-left:2px;font-weight:700}
 .chips-empty{padding:10px 16px;font-size:13px;color:var(--mut)}
 .section-note{padding:6px 16px 12px;font-size:12px;color:var(--mut)}
+.add-grant{display:flex;gap:6px;padding:8px 16px 12px;align-items:center}
+.add-grant select{flex:1;padding:8px 10px;background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;font-size:13px;color:var(--txt);font-family:inherit;-webkit-appearance:none}
+.add-grant button{padding:8px 14px;background:var(--info-bg);color:var(--info-tx);border:none;border-radius:8px;font-size:13px;font-weight:600;font-family:inherit;white-space:nowrap}
+.add-grant button:active{opacity:0.8}
 </style>
 </head>
 <body>
@@ -152,7 +156,7 @@ const DEFAULT_PERMS={
 
 // Individual user grants per app (user ids)
 const USER_GRANTS={
-  purchasing:[],payroll:[],scheduling:[],hiring:[],bi:[],users:[]
+  purchasing:[],payroll:[3],scheduling:[],hiring:[],bi:[4],users:[]
 };
 
 function pillClass(role,status){
@@ -199,16 +203,29 @@ function buildAccess(){
     let chipsHtml=grantedUsers.length
       ?`<div class="chips">${grantedUsers.map(u=>`<span class="chip">${u.name}<button class="chip-rm" onclick="removeGrant('${app.slug}',${u.id})">×</button></span>`).join('')}</div>`
       :`<div class="chips-empty">No individual grants</div>`;
+    // Build user picker — exclude superadmin and already-granted users
+    const available=USERS.filter(u=>u.status!=='config'&&!grants.includes(u.id));
+    const pickerHtml=available.length
+      ?`<div class="add-grant"><select id="pick-${app.slug}">${available.map(u=>`<option value="${u.id}">${u.name} (${u.role})</option>`).join('')}</select><button onclick="addGrant('${app.slug}')">+ Add</button></div>`
+      :`<div class="section-note">All users already have access</div>`;
     const card=document.createElement('div');
     card.className='access-card';
     card.id='access-'+app.slug;
-    card.innerHTML=`<div class="access-hd"><span class="ico">${app.icon}</span>${app.name}</div>${togglesHtml}<div class="toggle-row" style="border-top:0.5px solid var(--brd)"><div><div class="lbl">Specific users</div><div class="sub">Individual access grants</div></div></div>${chipsHtml}`;
+    card.innerHTML=`<div class="access-hd"><span class="ico">${app.icon}</span>${app.name}</div>${togglesHtml}<div class="toggle-row" style="border-top:0.5px solid var(--brd)"><div><div class="lbl">Specific users</div><div class="sub">Grant access to individual people beyond their role</div></div></div>${chipsHtml}${pickerHtml}`;
     s3.appendChild(card);
   });
 }
 buildAccess();
 
 function togglePerm(slug,role,val){DEFAULT_PERMS[slug][role]=val}
+
+function addGrant(slug){
+  const sel=document.getElementById('pick-'+slug);
+  if(!sel)return;
+  const uid=parseInt(sel.value);
+  if(!USER_GRANTS[slug].includes(uid)){USER_GRANTS[slug].push(uid)}
+  buildAccess();
+}
 
 function removeGrant(slug,uid){
   USER_GRANTS[slug]=USER_GRANTS[slug].filter(id=>id!==uid);
