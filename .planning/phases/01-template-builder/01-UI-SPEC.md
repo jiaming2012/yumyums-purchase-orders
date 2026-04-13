@@ -5,6 +5,7 @@ status: draft
 shadcn_initialized: false
 preset: none
 created: 2026-04-13
+revised: 2026-04-13
 ---
 
 # Phase 1 — UI Design Contract
@@ -34,15 +35,15 @@ Declared values (multiples of 4 only):
 | Token | Value | Usage |
 |-------|-------|-------|
 | xs | 4px | Tab bar inner padding, chip gaps |
-| sm | 8px | Card margin-bottom, row gap between sections |
-| md | 12px | Default row padding vertical, page top padding, card border-radius gaps |
+| sm | 8px | Card margin-bottom, row gap between sections, tab pill padding vertical |
+| md | 12px | Default row padding vertical, page top padding, body horizontal padding |
 | md+ | 16px | Row padding horizontal, section header padding, field input padding horizontal |
 | lg | 24px | Page-level section breaks |
 | xl | 32px | Not currently used in existing pages — available |
 
-Exceptions:
-- Body horizontal padding: 12px (purchasing.html convention; not a standard token multiple but established project pattern)
-- Tab pill padding: 10px vertical (existing `.tabs button` pattern)
+Notes:
+- **12px extension justified:** Body horizontal padding (12px) is an established codebase convention from `purchasing.html`. The project spacing set is declared as {4, 8, 12, 16, 24, 32, 48, 64}, extending the standard 8-point scale with 12px as a named token (`md`).
+- **Tab pill padding:** 8px vertical (replaces the previous 10px which was not a multiple of 4).
 - Touch targets: minimum 44px tall for all tappable field rows and day-of-week chips (FILL-03 mobile requirement; enforced via `min-height: 44px`)
 - Drag handle touch area: 44px wide × 44px tall minimum on the left side of each field row
 
@@ -54,17 +55,17 @@ Source: measured from `purchasing.html` and `users.html` CSS.
 
 | Role | Size | Weight | Line Height |
 |------|------|--------|-------------|
-| Body / field label | 14px | 400 (regular) | 1.4 |
-| Small / meta / subtext | 11–12px | 400 (regular) | 1.4 |
-| UI label (form labels, section category) | 12px | 500 (medium) | 1.0 (single line) |
-| Heading / card title | 15px | 500 (medium) | 1.2 |
+| Labels / meta / pill badges | 12px | 400 (regular) | 1.4 |
+| Body / field label / secondary body | 14px | 400 (regular) | 1.4 |
+| Heading / card title / template name | 15px | 500 (medium) | 1.2 |
 
 Notes:
-- Only 2 weights used across the entire codebase: 400 (regular) and 500 (medium). The exception is `.btn-primary` at 600 (semibold) — reserved for primary action buttons only.
-- Font sizes in use: 11px (micro labels, pills), 12px (subtext, form field labels), 13px (secondary body), 14px (primary body, field labels), 15px (card headings). Use 14px as default body; 12px for supporting text; 15px for the template name heading.
-- Section category headers (`.cat` pattern): 11px, weight 500, uppercase, letter-spacing 0.5px, `var(--mut)` color — use this for "SECTIONS" divider labels.
+- Exactly 3 font sizes declared. Previous references to 11px and 13px are collapsed: 11px → 12px, 13px → 14px.
+- Exactly 2 weights: 400 (regular) and 500 (medium). Weight 600 is retired. `.btn-primary` uses weight 500.
+- Section category headers (`.cat` pattern): 12px, weight 500, uppercase, letter-spacing 0.5px, `var(--mut)` color — use this for "SECTIONS" divider labels.
+- Form labels (`.field label`): 12px, weight 500, uppercase, `var(--mut)`.
 
-Source: measured from `purchasing.html` and `users.html` CSS.
+Source: measured from `purchasing.html` and `users.html` CSS; consolidated per checker Dimension 4 ruling.
 
 ---
 
@@ -105,7 +106,7 @@ Components needed for Phase 1, mapped to existing patterns:
 | Page back link | `purchasing.html` `.back` | `.back` with `::before` content `'‹'` |
 | Two-tab switcher | `purchasing.html` `.tabs` | `.tabs`, `.tabs button`, `.tabs button.on` |
 | Template list row | `users.html` `.row` | `.row`, `.nm`, `.mt` |
-| Section header (flat, sticky) | `purchasing.html` `.cat` | `.cat` — uppercase, 11px, `var(--mut)` |
+| Section header (flat, sticky) | `purchasing.html` `.cat` | `.cat` — uppercase, 12px, `var(--mut)` |
 | Field row (collapsed) | New — follows `.row` pattern | `.field-row` with drag handle + type pill + delete button |
 | Field row (expanded settings panel) | New — follows `.hd` + inner content pattern | `.field-row.expanded` + `.field-settings` |
 | Inline field type picker | New — inline card, not modal | `.field-type-picker` — small card, 5 rows, one per type |
@@ -114,11 +115,11 @@ Components needed for Phase 1, mapped to existing patterns:
 | Form input (template name, field label) | `users.html` `.field input` | `.field input` — 14px, `var(--bg)` background, `var(--brd)` border |
 | Form label (uppercase) | `users.html` `.field label` | `.field label` — 12px, weight 500, uppercase, `var(--mut)` |
 | Temperature min/max inputs | New — follows `.field input` pattern | Two `.field input[type=number]` side by side, `°F` suffix label |
-| Skip logic dropdowns | New — follows `.field select` pattern | Two `<select>` elements, 13px, `var(--bg)` background |
-| Pill badge (field type) | `users.html` `.pill` | `.pill` — 10px, `var(--info-bg)` / `var(--info-tx)` |
-| Primary action button | `users.html` `.btn-primary` | `.btn-primary` — full-width, 12px padding, weight 600, accent fill |
+| Skip logic dropdowns | New — follows `.field select` pattern | Two `<select>` elements, 14px, `var(--bg)` background |
+| Pill badge (field type) | `users.html` `.pill` | `.pill` — 12px, `var(--info-bg)` / `var(--info-tx)` |
+| Primary action button | `users.html` `.btn-primary` | `.btn-primary` — full-width, 12px padding, weight 500, accent fill |
 | Danger button / delete | `users.html` `.btn-danger` | `.btn-danger` — border + text only, `#c0392b` |
-| Drag handle | New — SortableJS handle | `.drag-handle` — `☰` glyph, 44px touch target, `var(--mut)` color |
+| Drag handle | New — SortableJS handle | `.drag-handle` — `☰` glyph, 44px touch target, `var(--mut)` color, `aria-label="Drag to reorder"` |
 
 ---
 
@@ -159,10 +160,17 @@ Components needed for Phase 1, mapped to existing patterns:
 ### Drag to Reorder
 
 - **Handle:** `☰` glyph on left of field row; `.drag-handle` class; 44px × 44px minimum touch target
+- **Accessibility:** `aria-label="Drag to reorder"` on each drag handle element
 - **Library:** SortableJS 1.15.7 via `https://unpkg.com/sortablejs@1.15.7/Sortable.min.js`
 - **Animation:** 150ms (SortableJS `animation` option)
 - **Scope:** Within a section only. Cross-section drag is not supported in Phase 1.
 - **After drag:** Sync new order to `state.activeTemplate` via `onEnd` handler; do NOT trigger full re-render (SortableJS already moved the DOM node)
+
+### Delete Buttons (field and section)
+
+- **Delete field button:** `✕` glyph; `aria-label="Delete field"` on each instance
+- **Delete section button:** `✕` glyph; `aria-label="Delete section"` on each instance
+- **Confirmation:** None — immediate deletion with state re-render (low-stakes: session-only state, resets on refresh)
 
 ### Builder Tab Access Gate
 
@@ -245,10 +253,10 @@ workflows.html
             .cat          section title (uppercase, sticky)
             .field-list   SortableJS container (data-section-id)
               .field-row* one per field
-                .drag-handle  ☰
+                .drag-handle  ☰  aria-label="Drag to reorder"
                 .field-row-tap  field label (tap to expand)
                 .pill       field type badge
-                .field-delete ✕ button
+                .field-delete ✕  aria-label="Delete field"
                 [if expanded]
                 .field-settings
                   .field   Label input
@@ -284,6 +292,7 @@ No third-party shadcn registry blocks declared. Registry vetting gate not applic
 | RESEARCH.md | Standard stack, architecture patterns, pitfall mitigations, open question resolutions |
 | Codebase (purchasing.html, users.html, index.html) | All color tokens, typography sizes/weights, spacing measurements, component patterns |
 | User input this session | 0 — all contract questions answered by upstream artifacts |
+| Checker revision (2026-04-13) | Typography consolidated to 3 sizes / 2 weights; spacing 10px → 8px + 12px extension declared; aria-labels added to icon-only interactive elements |
 
 ---
 
