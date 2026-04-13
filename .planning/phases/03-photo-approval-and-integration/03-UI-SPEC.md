@@ -42,6 +42,7 @@ Declared values (inherited from Phases 1 and 2, unchanged):
 | xl | 32px | Empty-state padding vertical |
 
 Exceptions:
+- **12px (`md` token):** Not in the standard 8-point set {4, 8, 16, 24, 32, 48, 64}. Approved as a project exception — this is a project-adopted mid-step between 8px and 16px, established as a codebase convention in `purchasing.html` and all existing pages. Retained for visual density on mobile. Same exception carried forward from Phase 1 and Phase 2.
 - Photo preview modal: full-screen overlay (width 100vw, height 100vh). Backdrop `rgba(0,0,0,0.85)`. Action buttons (checkmark + retake) centered at bottom with 32px bottom inset.
 - Photo thumbnail: 72px × 72px fixed square with `border-radius: 8px` and `object-fit: cover`. Sits inline in the field row after capture is confirmed.
 - Touch targets: minimum 44px tall on all tappable rows — inherited from Phase 2 (no change).
@@ -62,6 +63,7 @@ Inherited from Phases 1 and 2. No new sizes or weights added.
 | Heading / card title / checklist name / section header | 15px | 500 (medium) | 1.2 |
 
 Notes:
+- **14px/15px gap:** The 1px size difference between body and heading is an inherited characteristic from Phases 1 and 2. Heading distinction is carried primarily by **weight 500**, not size alone. This is intentional — both sizes read at near-identical scale on mobile but the medium weight creates sufficient visual hierarchy without increasing the heading size further.
 - Photo thumbnail retake link: 12px, weight 400, `color: var(--info-tx)` — styled as a text link, no underline.
 - Approval status badge ("Pending Approval"): 12px, weight 500, `var(--warn-bg)` / `var(--warn-tx)` — reuses the Phase 2 "Requires approval" pill color.
 - Approval card meta line (who submitted, when, completion %): 12px, weight 400, `color: var(--mut)`.
@@ -117,7 +119,7 @@ New components for Phase 3, mapped to inherited or new patterns:
 | Photo retake button (modal) | New — secondary text action | `.photo-retake-btn` — `↻ Retake` label, 14px, `var(--info-tx)` color, no background fill |
 | Photo thumbnail (confirmed capture) | New — inline in field row | `.photo-thumb` — 72×72px, `border-radius: 8px`, `object-fit: cover`; adjacent `.photo-retake-link` text link "Retake" at 12px `var(--info-tx)` |
 | Corrective action photo button (functional) | Replaces Phase 2 `.photo-stub-btn` | Same `.photo-stub-btn` class — remove `disabled` and `opacity:0.6`; same two-step preview flow as standalone photo fields |
-| Approvals tab container | New — follows `#s1`/`#s2` pattern | `#s3` — visible only to manager+ roles |
+| Approvals tab container | New — follows `#s1`/`#s2` pattern | `#s2` — visible only to manager+ roles |
 | Approval queue card | New — follows `.card` + `.hd` + `.row` pattern | `.approval-card` — card with checklist name, submitter meta, completion %, fail count, photo count, approve/reject buttons |
 | Pending approval status badge | New — reuses Phase 2 warn colors | `.approval-badge` — 12px weight 500, `var(--warn-bg)` bg, `var(--warn-tx)` text, inline-block with 4px × 8px padding |
 | Approve button | New — primary action | `.btn-approve` — full-width, `var(--info-bg)` background, `var(--info-tx)` text, 44px min-height, weight 500 |
@@ -226,8 +228,8 @@ New components for Phase 3, mapped to inherited or new patterns:
 | Submit confirmation (no approval path) | "Checklist submitted. Thanks, {initials}!" — inherited from Phase 2 |
 | Approve toast | "Approved ✓" |
 | Reject toast | "Rejected" |
-| Reject button | "Reject" |
-| Approve button | "Approve" |
+| Reject button | "Reject" — implicit object is the checklist submission shown in the card header. Full form is "Reject Submission"; shortened to "Reject" for mobile touch target width. If space permits, use "Reject Submission". |
+| Approve button | "Approve" — implicit object is the checklist submission shown in the card header. Full form is "Approve Submission"; shortened to "Approve" for mobile touch target width. If space permits, use "Approve Submission". |
 | Rejection reason textarea placeholder | "Reason for rejection…" |
 | Rejection confirm button | "Confirm rejection" |
 | Approvals empty state heading | "No pending approvals." |
