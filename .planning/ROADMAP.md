@@ -47,7 +47,12 @@ Plans:
   3. When a temperature is out of range or a yes/no is answered "No", an inline corrective action prompt appears below the field without blocking form progression
   4. Fields and sections hidden by skip logic or day-of-week conditions are not visible; hidden field answers are cleared from state
   5. Each checked item shows the name of who checked it, and a progress indicator shows "X of Y items complete"
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 02-01-PLAN.md — Fill-out state, pure functions, list view, runner shell, checkbox fields, progress, conditions
+- [ ] 02-02-PLAN.md — Yes/no, text, temperature fields, fail triggers, corrective action cards, submit
+
 **UI hint**: yes
 
 ### Phase 3: Photo, Approval, and Integration
@@ -71,5 +76,5 @@ Phases execute in numeric order: 1 → 2 → 3
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Template Builder | 2/3 | In Progress|  |
-| 2. Fill-Out and Conditional Logic | 0/TBD | Not started | - |
+| 2. Fill-Out and Conditional Logic | 0/2 | Planned | - |
 | 3. Photo, Approval, and Integration | 0/TBD | Not started | - |
