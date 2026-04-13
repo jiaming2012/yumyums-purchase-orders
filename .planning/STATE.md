@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 2 UI-SPEC approved
-last_updated: "2026-04-13T09:54:21.115Z"
+stopped_at: Completed 02-02-PLAN.md — awaiting human-verify checkpoint Task 2
+last_updated: "2026-04-13T15:00:09.451Z"
 last_activity: 2026-04-13 -- Phase 02 execution started
 progress:
   total_phases: 3
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 5
-  completed_plans: 3
+  completed_plans: 5
   percent: 33
 ---
 
@@ -54,6 +54,7 @@ Progress: [███░░░░░░░] 33%
 *Updated after each plan completion*
 | Phase 01-template-builder P02 | 3 | 2 tasks | 1 files |
 | Phase 01-template-builder P03 | 5min | 2 tasks | 1 files |
+| Phase 02 P02 | 8min | 1 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -72,6 +73,9 @@ Recent decisions affecting current work:
 - [Phase 01-template-builder]: deleteField recalculates field.order on remaining fields to keep order array contiguous
 - [Phase 01-template-builder]: DAY_INDICES [1,2,3,4,5,6,0] maps Mon-first display order to JS Date.getDay() values for correct day condition evaluation in Phase 2
 - [Phase 01-template-builder]: skip-value-select uses JSON.stringify/JSON.parse round-trip for option value attributes to handle boolean and special string values
+- [Phase 02-fill-out-and-conditional-logic]: Kept MOCK_RESPONSES flat dict + added FAIL_NOTES dict alongside — no restructure of existing fill state needed
+- [Phase 02-fill-out-and-conditional-logic]: evaluateFailTrigger guards empty/null values to prevent false positive fail cards on initial field focus (Pitfall 7)
+- [Phase 02-fill-out-and-conditional-logic]: text-input and fail-note-input handlers do NOT re-render to prevent cursor jump (Pitfall 2)
 
 ### Pending Todos
 
@@ -84,6 +88,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-13T09:34:54.960Z
-Stopped at: Phase 2 UI-SPEC approved
-Resume file: .planning/phases/02-fill-out-and-conditional-logic/02-UI-SPEC.md
+Last session: 2026-04-13T14:59:48.241Z
+Stopped at: Completed 02-02-PLAN.md — awaiting human-verify checkpoint Task 2
+Resume file: None

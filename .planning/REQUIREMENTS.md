@@ -20,8 +20,8 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Conditional Logic
 
-- [ ] **COND-01**: When a temperature reading is out of the defined range, an inline corrective action prompt appears (fail trigger)
-- [ ] **COND-02**: When an item is answered "No", an inline corrective action prompt appears requiring notes
+- [x] **COND-01**: When a temperature reading is out of the defined range, an inline corrective action prompt appears (fail trigger)
+- [x] **COND-02**: When an item is answered "No", an inline corrective action prompt appears requiring notes
 - [ ] **COND-03**: Sections or items can be configured to only appear on certain days of the week
 - [ ] **COND-04**: Items can be conditionally shown/hidden based on a prior answer (skip logic)
 
@@ -106,8 +106,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FILL-05 | Phase 2 | Complete |
 | FILL-07 | Phase 2 | Complete |
 | FILL-08 | Phase 2 | Complete |
-| COND-01 | Phase 2 | Pending |
-| COND-02 | Phase 2 | Pending |
+| COND-01 | Phase 2 | Complete |
+| COND-02 | Phase 2 | Complete |
 | COND-03 | Phase 2 | Pending |
 | COND-04 | Phase 2 | Pending |
 | FILL-06 | Phase 3 | Pending |
