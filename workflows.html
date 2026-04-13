@@ -109,7 +109,7 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .submit-confirm{display:block;text-align:center;font-size:14px;color:var(--mut);margin-top:8px}
 .fail-note-input{width:100%;padding:10px 12px;background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;font-size:14px;color:var(--txt);font-family:inherit;outline:none;resize:none;-webkit-appearance:none;margin-top:8px}
 .fail-note-input:focus{border-color:var(--info-tx)}
-.approval-card{background:var(--card);border-radius:12px;overflow:hidden;margin-bottom:8px}
+.approval-card{background:var(--card);border-radius:12px;margin-bottom:8px}
 .approval-badge{display:inline-block;padding:4px 8px;border-radius:10px;background:var(--warn-bg);color:var(--warn-tx);font-size:12px;font-weight:500;margin-top:4px}
 .btn-approve{width:100%;padding:12px;background:var(--info-bg);color:var(--info-tx);border:none;border-radius:8px;font-size:14px;font-weight:500;font-family:inherit;cursor:pointer;min-height:44px}
 .btn-approve:active{opacity:0.8}
@@ -1070,7 +1070,7 @@ function renderApprovals() {
       '<div class="hd"><h1>' + escapeHtml(entry.tplName) + '</h1>' +
       '<div class="sub">' + escapeHtml(entry.submittedBy) + ' · ' + formatTime(new Date(entry.submittedAt)) + '</div></div>' +
       itemsHtml +
-      '<div class="approval-actions" style="padding:16px;margin-top:8px;border-top:0.5px solid var(--brd)">' +
+      '<div class="approval-actions" style="padding:16px;margin-top:16px;background:var(--bg);border-radius:0 0 12px 12px">' +
       '<button class="btn-approve" data-action="approve" data-tpl-id="' + tplId + '">Approve</button>' +
       '<button class="btn-reject" data-action="reject-submit" data-tpl-id="' + tplId + '" style="margin-top:8px">' + (rejCount > 0 ? 'Reject ' + rejCount + ' item' + (rejCount > 1 ? 's' : '') : 'Reject') + '</button>' +
       '</div></div>';
