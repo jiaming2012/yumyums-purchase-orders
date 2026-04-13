@@ -1004,8 +1004,10 @@ function renderChecklistList() {
 
 function renderRunner() {
   const tpl = fillState.activeTemplate;
-  const allFields = tpl.sections.flatMap(s => s.fields);
-  const answered = allFields.filter(f => MOCK_RESPONSES[f.id] !== undefined).length;
+  clearHiddenFieldAnswers();
+  const visibleFields = tpl.sections.filter(s => isSectionVisible(s)).flatMap(s => s.fields.filter(f => isFieldVisible(f)));
+  const answered = visibleFields.filter(f => MOCK_RESPONSES[f.id] !== undefined).length;
+  const allFields = visibleFields;
   const sectionsHtml = tpl.sections.map(sec => renderRunnerSection(sec)).join('');
   const isSubmitted = !!SUBMITTED_TEMPLATES[tpl.id];
   const submitHtml = isSubmitted
@@ -1020,8 +1022,45 @@ ${sectionsHtml}
 ${submitHtml}`;
 }
 
+function isSectionVisible(sec) {
+  if (!sec.condition || !sec.condition.days || sec.condition.days.length === 0) return true;
+  return sec.condition.days.includes(new Date().getDay());
+}
+
+function isFieldVisible(fld) {
+  // Day-of-week check
+  if (fld.condition && fld.condition.days && fld.condition.days.length > 0) {
+    if (!fld.condition.days.includes(new Date().getDay())) return false;
+  }
+  // Skip logic check
+  if (fld.condition && fld.condition.field_id) {
+    var depResp = MOCK_RESPONSES[fld.condition.field_id];
+    if (!depResp) return false; // dependent field not answered yet — hide
+    var depVal = String(depResp.value);
+    var expected = String(fld.condition.value);
+    if (fld.condition.operator === 'equals' && depVal !== expected) return false;
+    if (fld.condition.operator === 'not_equals' && depVal === expected) return false;
+  }
+  return true;
+}
+
+function clearHiddenFieldAnswers() {
+  if (!fillState.activeTemplate) return;
+  fillState.activeTemplate.sections.forEach(function(sec) {
+    if (!isSectionVisible(sec)) {
+      sec.fields.forEach(function(f) { delete MOCK_RESPONSES[f.id]; delete FAIL_NOTES[f.id]; });
+    } else {
+      sec.fields.forEach(function(f) {
+        if (!isFieldVisible(f)) { delete MOCK_RESPONSES[f.id]; delete FAIL_NOTES[f.id]; }
+      });
+    }
+  });
+}
+
 function renderRunnerSection(sec) {
-  const fieldsHtml = sec.fields.map(f => renderRunnerField(f)).join('');
+  if (!isSectionVisible(sec)) return '';
+  const fieldsHtml = sec.fields.map(f => isFieldVisible(f) ? renderRunnerField(f) : '').join('');
+  if (!fieldsHtml) return '';
   return `<div class="sec-hd"><span>${escapeHtml(sec.title)}</span></div><div class="card">${fieldsHtml}</div>`;
 }
 
@@ -1108,7 +1147,7 @@ function attachRunnerListeners() {
 
 function updateProgress() {
   if (!fillState.activeTemplate) return;
-  const allFields = fillState.activeTemplate.sections.flatMap(s => s.fields);
+  const allFields = fillState.activeTemplate.sections.filter(s => isSectionVisible(s)).flatMap(s => s.fields.filter(f => isFieldVisible(f)));
   const answered = allFields.filter(f => MOCK_RESPONSES[f.id] !== undefined).length;
   const el = document.querySelector('#fill-body .progress-line');
   if (el) {
