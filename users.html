@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0c447c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Yumyums">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<title>Yumyums Users</title>
+<style>
+:root{--bg:#f5f5f3;--card:#fff;--txt:#1a1a1a;--mut:#6b6b6b;--brd:rgba(0,0,0,0.08);--info-bg:#e6f1fb;--info-tx:#0c447c;--warn-bg:#faeeda;--warn-tx:#854f0b}
+@media(prefers-color-scheme:dark){:root{--bg:#1a1a1a;--card:#262626;--txt:#f0f0f0;--mut:#999;--brd:rgba(255,255,255,0.1);--info-bg:#0c447c;--info-tx:#b5d4f4;--warn-bg:#633806;--warn-tx:#fac775}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg);color:var(--txt);padding:env(safe-area-inset-top) 12px env(safe-area-inset-bottom)}
+.app{max-width:480px;margin:0 auto;padding-top:12px}
+.back{display:flex;align-items:center;gap:6px;margin-bottom:12px;color:var(--info-tx);font-size:14px;font-weight:500;text-decoration:none;-webkit-tap-highlight-color:transparent}
+.back::before{content:'‹';font-size:20px;line-height:1;margin-top:-1px}
+.tabs{display:flex;gap:4px;background:var(--card);border-radius:10px;padding:4px;margin-bottom:12px}
+.tabs button{flex:1;border:none;padding:10px;font-size:13px;border-radius:7px;background:transparent;color:var(--txt);font-weight:500}
+.tabs button.on{background:var(--info-bg);color:var(--info-tx)}
+.card{background:var(--card);border-radius:12px;overflow:hidden;margin-bottom:8px}
+.hd{padding:14px 16px;border-bottom:0.5px solid var(--brd)}
+.hd h1{font-size:15px;font-weight:500;margin:0}
+.hd p{font-size:12px;color:var(--mut);margin:4px 0 0}
+.row{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:0.5px solid var(--brd)}
+.row:last-child{border-bottom:none}
+.row-info .nm{font-size:14px;font-weight:500}
+.row-info .em{font-size:11px;color:var(--mut);margin-top:2px}
+.pill{display:inline-block;font-size:10px;font-weight:600;padding:3px 7px;border-radius:6px;letter-spacing:0.3px}
+.pill-config{background:#e8e8e8;color:#555}
+@media(prefers-color-scheme:dark){.pill-config{background:#3a3a3a;color:#aaa}}
+.pill-invited{background:var(--warn-bg);color:var(--warn-tx)}
+.pill-admin{background:var(--info-bg);color:var(--info-tx)}
+.pill-manager{background:#eef6ee;color:#2d6a2d}
+@media(prefers-color-scheme:dark){.pill-manager{background:#1a3a1a;color:#7ec87e}}
+.pill-member{background:var(--bg);color:var(--mut);border:0.5px solid var(--brd)}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:12px;font-weight:500;color:var(--mut);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.4px}
+.field input,.field select{width:100%;padding:11px 12px;background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;font-size:14px;color:var(--txt);font-family:inherit;outline:none;-webkit-appearance:none}
+.field input:focus,.field select:focus{border-color:var(--info-tx)}
+.field input[readonly]{opacity:0.6;cursor:default}
+.form-wrap{padding:16px}
+.btn-primary{width:100%;padding:12px;background:var(--info-bg);color:var(--info-tx);border:none;border-radius:8px;font-size:14px;font-weight:600;font-family:inherit;margin-bottom:10px}
+.btn-primary:active{opacity:0.8}
+.btn-secondary{width:100%;padding:11px;background:transparent;color:var(--mut);border:0.5px solid var(--brd);border-radius:8px;font-size:13px;font-weight:500;font-family:inherit;margin-bottom:8px}
+.btn-danger{width:100%;padding:11px;background:transparent;color:#c0392b;border:0.5px solid #c0392b;border-radius:8px;font-size:13px;font-weight:500;font-family:inherit}
+.extern-msg{padding:14px 16px;font-size:13px;color:var(--mut);font-style:italic;background:var(--bg);border-radius:8px;text-align:center;margin:8px 0}
+.access-card{background:var(--card);border-radius:12px;overflow:hidden;margin-bottom:8px}
+.access-hd{padding:12px 16px;border-bottom:0.5px solid var(--brd);font-size:14px;font-weight:600;display:flex;align-items:center;gap:8px}
+.access-hd .ico{font-size:18px}
+.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:0.5px solid var(--brd)}
+.toggle-row:last-child{border-bottom:none}
+.toggle-row .lbl{font-size:13px;font-weight:500}
+.toggle-row .sub{font-size:11px;color:var(--mut);margin-top:1px}
+/* Toggle switch */
+.toggle{position:relative;width:42px;height:24px;flex-shrink:0}
+.toggle input{opacity:0;width:0;height:0;position:absolute}
+.slider{position:absolute;cursor:pointer;inset:0;background:var(--brd);border-radius:24px;transition:background .2s}
+.slider::before{content:'';position:absolute;width:18px;height:18px;left:3px;top:3px;background:#fff;border-radius:50%;transition:transform .2s}
+.toggle input:checked+.slider{background:var(--info-tx)}
+.toggle input:checked+.slider::before{transform:translateX(18px)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;padding:10px 16px}
+.chip{display:inline-flex;align-items:center;gap:5px;padding:5px 10px;background:var(--info-bg);color:var(--info-tx);border-radius:20px;font-size:12px;font-weight:500}
+.chip-rm{background:none;border:none;color:var(--info-tx);font-size:14px;line-height:1;padding:0;cursor:pointer;margin-left:2px;font-weight:700}
+.chips-empty{padding:10px 16px;font-size:13px;color:var(--mut)}
+.section-note{padding:6px 16px 12px;font-size:12px;color:var(--mut)}
+</style>
+</head>
+<body>
+<div class="app">
+<a class="back" href="index.html">HQ</a>
+<div class="tabs">
+  <button id="t1" class="on" onclick="show(1)">Users</button>
+  <button id="t2" onclick="show(2)">Edit</button>
+  <button id="t3" onclick="show(3)">Access</button>
+</div>
+
+<!-- TAB 1: USERS LIST -->
+<div id="s1">
+  <div class="card">
+    <div class="hd"><h1>Team members</h1><p>6 users · 2 pending</p></div>
+    <div id="user-list"></div>
+  </div>
+</div>
+
+<!-- TAB 2: EDIT / ADD -->
+<div id="s2" style="display:none">
+  <div id="add-card" class="card">
+    <div class="hd"><h1 id="edit-title">Invite new user</h1></div>
+    <div class="form-wrap">
+      <div id="extern-notice" class="extern-msg" style="display:none">This account is configured externally and cannot be edited here.</div>
+      <div id="edit-fields">
+        <div class="field">
+          <label>Email</label>
+          <input id="f-email" type="email" placeholder="user@yumyums.com">
+        </div>
+        <div class="field">
+          <label>Role</label>
+          <select id="f-role">
+            <option value="admin">admin</option>
+            <option value="manager">manager</option>
+            <option value="team_member" selected>team_member</option>
+          </select>
+        </div>
+        <button id="btn-invite" class="btn-primary" onclick="sendInvite()">Send Invite</button>
+        <button id="btn-reset" class="btn-secondary" style="display:none" onclick="resetPw()">Reset Password</button>
+        <button id="btn-delete" class="btn-danger" style="display:none" onclick="deleteUser()">Delete User</button>
+      </div>
+    </div>
+  </div>
+  <div id="back-hint" style="display:none;text-align:center;padding:4px 0">
+    <a href="#" style="font-size:13px;color:var(--info-tx)" onclick="clearEdit();return false">+ Invite new user instead</a>
+  </div>
+</div>
+
+<!-- TAB 3: ACCESS -->
+<div id="s3" style="display:none"></div>
+
+</div>
+
+<script>
+const USERS=[
+  {id:1,name:'Jamal M.',email:'jamal@yumyums.com',role:'superadmin',status:'config'},
+  {id:2,name:'Sarah K.',email:'sarah@yumyums.com',role:'admin',status:'active'},
+  {id:3,name:'Mike R.',email:'mike@yumyums.com',role:'manager',status:'active'},
+  {id:4,name:'Tina L.',email:'tina@yumyums.com',role:'team_member',status:'active'},
+  {id:5,name:'Dev P.',email:'dev@yumyums.com',role:'team_member',status:'invited',invitedDate:'Apr 10'},
+  {id:6,name:'Alex W.',email:'alex@yumyums.com',role:'manager',status:'invited',invitedDate:'Apr 11'}
+];
+
+const APPS=[
+  {slug:'purchasing',name:'Purchasing',icon:'🛒'},
+  {slug:'payroll',name:'Payroll',icon:'💰'},
+  {slug:'scheduling',name:'Scheduling',icon:'📅'},
+  {slug:'hiring',name:'Hiring',icon:'👥'},
+  {slug:'bi',name:'BI',icon:'📊'},
+  {slug:'users',name:'Users',icon:'🔐'}
+];
+
+// Default role toggles: admin has all, manager has some, team_member has basics
+const DEFAULT_PERMS={
+  purchasing:{admin:true,manager:true,team_member:true},
+  payroll:{admin:true,manager:false,team_member:false},
+  scheduling:{admin:true,manager:true,team_member:true},
+  hiring:{admin:true,manager:false,team_member:false},
+  bi:{admin:true,manager:true,team_member:false},
+  users:{admin:true,manager:false,team_member:false}
+};
+
+// Individual user grants per app (user ids)
+const USER_GRANTS={
+  purchasing:[],payroll:[],scheduling:[],hiring:[],bi:[],users:[]
+};
+
+function pillClass(role,status){
+  if(status==='config')return'pill pill-config';
+  if(status==='invited')return'pill pill-invited';
+  if(role==='admin')return'pill pill-admin';
+  if(role==='manager')return'pill pill-manager';
+  return'pill pill-member';
+}
+
+function pillText(user){
+  if(user.status==='config')return'CONFIG';
+  if(user.status==='invited')return'INVITED';
+  return user.role;
+}
+
+// Build user list
+const ul=document.getElementById('user-list');
+USERS.forEach(u=>{
+  const d=document.createElement('div');
+  d.className='row';
+  d.style.cursor=u.status==='config'?'default':'pointer';
+  d.innerHTML=`<div class="row-info"><div class="nm">${u.name}</div><div class="em">${u.email}${u.invitedDate?' · invited '+u.invitedDate:''}</div></div><span class="${pillClass(u.role,u.status)}">${pillText(u)}</span>`;
+  if(u.status!=='config'){
+    d.onclick=()=>editUser(u);
+  }
+  ul.appendChild(d);
+});
+
+// Build access tab
+function buildAccess(){
+  const s3=document.getElementById('s3');
+  s3.innerHTML='';
+  APPS.forEach(app=>{
+    const perms=DEFAULT_PERMS[app.slug];
+    const grants=USER_GRANTS[app.slug];
+    const grantedUsers=USERS.filter(u=>grants.includes(u.id)&&u.status!=='config');
+    const roles=['admin','manager','team_member'];
+    let togglesHtml=roles.map(role=>`
+      <div class="toggle-row">
+        <div><div class="lbl">${role}</div></div>
+        <label class="toggle"><input type="checkbox" ${perms[role]?'checked':''} onchange="togglePerm('${app.slug}','${role}',this.checked)"><span class="slider"></span></label>
+      </div>`).join('');
+    let chipsHtml=grantedUsers.length
+      ?`<div class="chips">${grantedUsers.map(u=>`<span class="chip">${u.name}<button class="chip-rm" onclick="removeGrant('${app.slug}',${u.id})">×</button></span>`).join('')}</div>`
+      :`<div class="chips-empty">No individual grants</div>`;
+    const card=document.createElement('div');
+    card.className='access-card';
+    card.id='access-'+app.slug;
+    card.innerHTML=`<div class="access-hd"><span class="ico">${app.icon}</span>${app.name}</div>${togglesHtml}<div class="toggle-row" style="border-top:0.5px solid var(--brd)"><div><div class="lbl">Specific users</div><div class="sub">Individual access grants</div></div></div>${chipsHtml}`;
+    s3.appendChild(card);
+  });
+}
+buildAccess();
+
+function togglePerm(slug,role,val){DEFAULT_PERMS[slug][role]=val}
+
+function removeGrant(slug,uid){
+  USER_GRANTS[slug]=USER_GRANTS[slug].filter(id=>id!==uid);
+  buildAccess();
+}
+
+let editingUser=null;
+
+function editUser(u){
+  editingUser=u;
+  document.getElementById('edit-title').textContent='Edit user';
+  const fe=document.getElementById('f-email');
+  fe.value=u.email;
+  fe.readOnly=true;
+  document.getElementById('f-role').value=u.role;
+  document.getElementById('btn-invite').style.display='none';
+  document.getElementById('btn-reset').style.display='block';
+  document.getElementById('btn-delete').style.display='block';
+  document.getElementById('back-hint').style.display='block';
+  show(2);
+}
+
+function clearEdit(){
+  editingUser=null;
+  document.getElementById('edit-title').textContent='Invite new user';
+  const fe=document.getElementById('f-email');
+  fe.value='';
+  fe.readOnly=false;
+  document.getElementById('f-role').value='team_member';
+  document.getElementById('btn-invite').style.display='block';
+  document.getElementById('btn-reset').style.display='none';
+  document.getElementById('btn-delete').style.display='none';
+  document.getElementById('back-hint').style.display='none';
+  document.getElementById('extern-notice').style.display='none';
+  document.getElementById('edit-fields').style.display='block';
+}
+
+function sendInvite(){
+  const email=document.getElementById('f-email').value.trim();
+  if(!email)return;
+  alert('Invite sent to '+email+' (mockup)');
+  clearEdit();
+  show(1);
+}
+
+function resetPw(){
+  if(editingUser)alert('Password reset email sent to '+editingUser.email+' (mockup)');
+}
+
+function deleteUser(){
+  if(editingUser&&confirm('Delete '+editingUser.name+'?')){
+    alert('User deleted (mockup)');
+    clearEdit();
+    show(1);
+  }
+}
+
+function show(n){
+  [1,2,3].forEach(i=>{
+    document.getElementById('s'+i).style.display=i===n?'block':'none';
+    document.getElementById('t'+i).className=i===n?'on':'';
+  });
+  if(n!==2)clearEdit();
+}
+
+document.addEventListener('dblclick',e=>e.preventDefault());
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');
+</script>
+</body>
+</html>
