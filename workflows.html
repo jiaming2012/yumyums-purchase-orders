@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0c447c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Yumyums">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<title>Yumyums Workflows</title>
+<style>
+:root{--bg:#f5f5f3;--card:#fff;--txt:#1a1a1a;--mut:#6b6b6b;--brd:rgba(0,0,0,0.08);--info-bg:#e6f1fb;--info-tx:#0c447c;--warn-bg:#faeeda;--warn-tx:#854f0b}
+@media(prefers-color-scheme:dark){:root{--bg:#1a1a1a;--card:#262626;--txt:#f0f0f0;--mut:#999;--brd:rgba(255,255,255,0.1);--info-bg:#0c447c;--info-tx:#b5d4f4;--warn-bg:#633806;--warn-tx:#fac775}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg);color:var(--txt);padding:env(safe-area-inset-top) 12px env(safe-area-inset-bottom)}
+.app{max-width:480px;margin:0 auto;padding-top:12px}
+.back{display:flex;align-items:center;gap:6px;margin-bottom:12px;color:var(--info-tx);font-size:14px;font-weight:500;text-decoration:none;-webkit-tap-highlight-color:transparent}
+.back::before{content:'‹';font-size:20px;line-height:1;margin-top:-1px}
+.tabs{display:flex;gap:4px;background:var(--card);border-radius:10px;padding:4px;margin-bottom:12px}
+.tabs button{flex:1;border:none;padding:10px;font-size:13px;border-radius:7px;background:transparent;color:var(--txt);font-weight:500}
+.tabs button.on{background:var(--info-bg);color:var(--info-tx)}
+.card{background:var(--card);border-radius:12px;overflow:hidden;margin-bottom:8px}
+.hd{padding:14px 16px;border-bottom:0.5px solid var(--brd)}
+.hd h1{font-size:15px;font-weight:500;margin:0}
+.sub{font-size:12px;color:var(--mut);margin-top:4px;display:flex;justify-content:space-between;align-items:center}
+.cat{position:sticky;top:0;background:var(--bg);padding:6px 16px;font-size:12px;font-weight:500;color:var(--mut);text-transform:uppercase;letter-spacing:0.5px;z-index:1}
+.row{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:0.5px solid var(--brd)}
+.row:last-child{border-bottom:none}
+.row .nm{font-size:14px}
+.row .mt{font-size:12px;color:var(--mut)}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:12px;font-weight:500;color:var(--mut);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.4px}
+.field input,.field select{width:100%;padding:11px 12px;background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;font-size:14px;color:var(--txt);font-family:inherit;outline:none;-webkit-appearance:none}
+.field input:focus,.field select:focus{border-color:var(--info-tx)}
+.btn-primary{width:100%;padding:12px;background:var(--info-bg);color:var(--info-tx);border:none;border-radius:8px;font-size:14px;font-weight:500;font-family:inherit;margin-bottom:10px;cursor:pointer}
+.btn-primary:active{opacity:0.8}
+.btn-secondary{width:100%;padding:11px;background:transparent;color:var(--mut);border:0.5px solid var(--brd);border-radius:8px;font-size:13px;font-weight:500;font-family:inherit;margin-bottom:8px;cursor:pointer}
+.btn-danger{width:100%;padding:11px;background:transparent;color:#c0392b;border:0.5px solid #c0392b;border-radius:8px;font-size:13px;font-weight:500;font-family:inherit;cursor:pointer}
+.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:0.5px solid var(--brd)}
+.toggle-row:last-child{border-bottom:none}
+.toggle-row .lbl{font-size:13px;font-weight:500}
+.toggle-row .sub{font-size:11px;color:var(--mut);margin-top:1px}
+.toggle{position:relative;width:42px;height:24px;flex-shrink:0}
+.toggle input{opacity:0;width:0;height:0;position:absolute}
+.slider{position:absolute;cursor:pointer;inset:0;background:var(--brd);border-radius:24px;transition:background .2s}
+.slider::before{content:'';position:absolute;width:18px;height:18px;left:3px;top:3px;background:#fff;border-radius:50%;transition:transform .2s}
+.toggle input:checked+.slider{background:var(--info-tx)}
+.toggle input:checked+.slider::before{transform:translateX(18px)}
+.sec-hd{display:flex;align-items:center;justify-content:space-between;padding:8px 16px;background:var(--bg);font-size:12px;font-weight:500;color:var(--mut);text-transform:uppercase;letter-spacing:0.5px}
+.sec-delete{background:none;border:none;color:#c0392b;font-size:16px;padding:4px 8px;cursor:pointer}
+.field-list{min-height:8px}
+.field-row{display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:0.5px solid var(--brd);min-height:44px;flex-wrap:wrap}
+.drag-handle{color:var(--mut);font-size:18px;cursor:grab;min-width:44px;min-height:44px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.field-row-tap{flex:1;font-size:14px;cursor:pointer}
+.field-type-pill{font-size:12px;padding:3px 8px;border-radius:10px;background:var(--info-bg);color:var(--info-tx)}
+.field-delete{background:none;border:none;color:#c0392b;font-size:16px;padding:4px 8px;cursor:pointer}
+.field-settings{width:100%;padding:12px 16px;background:var(--card);border-top:0.5px solid var(--brd)}
+.add-field-btn{display:block;width:100%;padding:10px 16px;background:transparent;border:none;color:var(--info-tx);font-size:13px;font-weight:500;text-align:left;cursor:pointer}
+.field-type-picker{background:var(--card);border-radius:12px;overflow:hidden;margin:4px 0 8px}
+.field-type-picker .row{cursor:pointer}
+.section-divider{height:0.5px;background:var(--brd);margin:8px 0}
+.add-section-btn{width:100%;padding:12px;background:transparent;color:var(--mut);border:0.5px solid var(--brd);border-radius:8px;font-size:13px;font-weight:500;margin:8px 0;cursor:pointer}
+.day-chip{display:inline-flex;align-items:center;justify-content:center;min-width:36px;min-height:36px;border-radius:18px;border:0.5px solid var(--brd);background:transparent;color:var(--txt);font-size:12px;font-weight:500;cursor:pointer}
+.day-chip.on{background:var(--info-bg);color:var(--info-tx);border-color:var(--info-tx)}
+.day-chips-row{display:flex;gap:4px;flex-wrap:wrap;margin-top:8px}
+.skip-logic-row{margin-top:12px}
+.skip-logic-row select{width:100%;padding:11px 12px;background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;font-size:14px;color:var(--txt);font-family:inherit;outline:none;-webkit-appearance:none;margin-top:4px}
+.skip-logic-row select:focus{border-color:var(--info-tx)}
+.meta-card{background:var(--card);border-radius:12px;overflow:hidden;margin-bottom:12px}
+.editor-back{display:flex;align-items:center;gap:6px;margin-bottom:12px;color:var(--info-tx);font-size:14px;font-weight:500;text-decoration:none;cursor:pointer;-webkit-tap-highlight-color:transparent;background:none;border:none;padding:0;font-family:inherit}
+.editor-back::before{content:'‹';font-size:20px;line-height:1;margin-top:-1px}
+.empty-state{text-align:center;padding:32px 16px;color:var(--mut)}
+.empty-state h2{font-size:15px;font-weight:500;color:var(--txt);margin:0 0 8px}
+.empty-state p{font-size:14px;margin:0}
+</style>
+</head>
+<body>
+<div class="app">
+<a class="back" href="index.html">HQ</a>
+<div class="tabs">
+  <button id="t1" class="on" onclick="show(1)">Fill Out</button>
+  <button id="t2" onclick="show(2)">Builder</button>
+</div>
+<div id="s1"><p style="padding:16px;color:var(--mut)">Fill-out view coming in Phase 2.</p></div>
+<div id="s2" style="display:none"><div id="builder-body"></div></div>
+</div>
+
+<script>
+const MOCK_CURRENT_USER = {
+  id: 'usr_jamal', name: 'Jamal', role: 'admin',
+  permissions: ['workflow_fill', 'workflow_builder']
+};
+
+const MOCK_TEMPLATES = [
+  {
+    id: 'tpl_morning_open',
+    name: 'Morning Opening Checklist',
+    active_days: [1, 2, 3, 4, 5],
+    requires_approval: false,
+    assignable_to: ['admin', 'manager', 'team_member'],
+    sections: [
+      {
+        id: 'sec_equipment',
+        title: 'Equipment Check',
+        order: 0,
+        condition: null,
+        fields: [
+          {
+            id: 'fld_grill_temp',
+            type: 'temperature',
+            label: 'Grill surface temperature',
+            required: true,
+            order: 0,
+            config: { unit: '°F', min: 350, max: 500 },
+            fail_trigger: { type: 'out_of_range', min: 350, max: 500 },
+            corrective_action: { label: 'Corrective action taken', type: 'text', required: true },
+            condition: null
+          },
+          {
+            id: 'fld_grill_clean',
+            type: 'checkbox',
+            label: 'Grill grates cleaned',
+            required: true,
+            order: 1,
+            config: {},
+            fail_trigger: null,
+            corrective_action: null,
+            condition: null
+          }
+        ]
+      },
+      {
+        id: 'sec_food_prep',
+        title: 'Food Prep',
+        order: 1,
+        condition: null,
+        fields: [
+          {
+            id: 'fld_prep_sanitized',
+            type: 'yes_no',
+            label: 'Prep area sanitized',
+            required: true,
+            order: 0,
+            config: {},
+            fail_trigger: null,
+            corrective_action: null,
+            condition: null
+          },
+          {
+            id: 'fld_prep_notes',
+            type: 'text',
+            label: 'Notes',
+            required: false,
+            order: 1,
+            config: {},
+            fail_trigger: null,
+            corrective_action: null,
+            condition: null
+          }
+        ]
+      }
+    ]
+  },
+  {
+    id: 'tpl_closing',
+    name: 'Closing Checklist',
+    active_days: [1, 2, 3, 4, 5, 6],
+    requires_approval: true,
+    assignable_to: ['admin', 'manager', 'team_member'],
+    sections: [
+      {
+        id: 'sec_shutdown',
+        title: 'Shutdown',
+        order: 0,
+        condition: null,
+        fields: [
+          {
+            id: 'fld_gas_off',
+            type: 'checkbox',
+            label: 'Gas lines off',
+            required: true,
+            order: 0,
+            config: {},
+            fail_trigger: null,
+            corrective_action: null,
+            condition: null
+          },
+          {
+            id: 'fld_equip_photo',
+            type: 'photo',
+            label: 'Equipment photo',
+            required: true,
+            order: 1,
+            config: {},
+            fail_trigger: null,
+            corrective_action: null,
+            condition: null
+          }
+        ]
+      }
+    ]
+  }
+];
+
+let state = {
+  view: 'list',
+  activeTemplate: null,
+  expandedField: null,
+  fieldPickerSection: null
+};
+
+function generateId(prefix) {
+  return prefix + '_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+}
+
+function getDefaultConfig(type) {
+  if (type === 'temperature') return { unit: '°F', min: 0, max: 500 };
+  if (type === 'photo') return {};
+  return {};
+}
+
+function createNewTemplate() {
+  return {
+    id: generateId('tpl'),
+    name: '',
+    active_days: null,
+    requires_approval: false,
+    assignable_to: ['admin', 'manager', 'team_member'],
+    sections: []
+  };
+}
+
+function createNewSection(title) {
+  return {
+    id: generateId('sec'),
+    title: title,
+    order: state.activeTemplate ? state.activeTemplate.sections.length : 0,
+    condition: null,
+    fields: []
+  };
+}
+
+function createNewField(type) {
+  const field = {
+    id: generateId('fld'),
+    type: type,
+    label: '',
+    required: false,
+    order: 0,
+    config: getDefaultConfig(type),
+    fail_trigger: null,
+    corrective_action: null,
+    condition: null
+  };
+  if (type === 'temperature') {
+    field.fail_trigger = { type: 'out_of_range', min: 0, max: 500 };
+    field.corrective_action = { label: 'Corrective action taken', type: 'text', required: true };
+  }
+  return field;
+}
+
+function renderBuilder() {
+  const body = document.getElementById('builder-body');
+  if (!body) return;
+  if (state.view === 'list') {
+    body.innerHTML = renderTemplateList();
+  } else {
+    body.innerHTML = renderEditor();
+  }
+}
+
+function renderTemplateList() {
+  if (MOCK_TEMPLATES.length === 0) {
+    return `<div class="empty-state"><h2>No templates yet</h2><p>Create your first checklist template to get started.</p></div>
+<div style="padding:0 0 8px"><button class="btn-primary">+ New template</button></div>`;
+  }
+  const rows = MOCK_TEMPLATES.map(tpl => {
+    const secCount = tpl.sections.length;
+    const secLabel = secCount === 1 ? '1 section' : secCount + ' sections';
+    return `<div class="row" data-template-id="${tpl.id}" style="cursor:pointer"><div><div class="nm">${tpl.name || '(Untitled)'}</div><div class="mt">${secLabel}</div></div></div>`;
+  }).join('');
+  return `<div class="cat">Templates</div>
+<div class="card">${rows}</div>
+<button class="btn-primary">+ New template</button>`;
+}
+
+function renderEditor() {
+  const tpl = state.activeTemplate;
+  const approvalChecked = tpl.requires_approval ? 'checked' : '';
+  const sectionsHtml = tpl.sections.map(sec => renderSection(sec)).join('');
+  return `<button class="editor-back">Templates</button>
+<div class="meta-card">
+  <div class="hd">
+    <div class="field" style="margin-bottom:0">
+      <label>Template name</label>
+      <input type="text" id="tpl-name-input" value="${escapeAttr(tpl.name)}" placeholder="e.g. Morning Opening Checklist">
+    </div>
+  </div>
+  <div class="toggle-row">
+    <div><div class="lbl">Requires approval</div><div class="sub">Manager must approve before checklist is considered complete</div></div>
+    <label class="toggle"><input type="checkbox" id="approval-toggle" ${approvalChecked}><span class="slider"></span></label>
+  </div>
+</div>
+${sectionsHtml}
+<button class="add-section-btn">+ Add section</button>
+<button class="btn-primary" id="save-btn">Save template</button>`;
+}
+
+function renderSection(sec) {
+  const fieldsHtml = sec.fields.map(f => renderField(f, sec.id)).join('');
+  return `<div class="sec-hd" data-section-id="${sec.id}">
+  <span>${escapeHtml(sec.title)}</span>
+  <button class="sec-delete" data-section-id="${sec.id}" aria-label="Delete section">✕</button>
+</div>
+<div class="field-list" data-section-id="${sec.id}">${fieldsHtml}</div>
+<button class="add-field-btn" data-section-id="${sec.id}">+ Add field</button>
+<div class="section-divider"></div>`;
+}
+
+function renderField(fld, secId) {
+  return `<div class="field-row" data-field-id="${fld.id}" data-section-id="${secId}"><span class="drag-handle" aria-label="Drag to reorder">☰</span><span class="field-row-tap">${escapeHtml(fld.label || fld.type)}</span><span class="field-type-pill">${fld.type}</span><button class="field-delete" aria-label="Delete field" data-field-id="${fld.id}" data-section-id="${secId}">✕</button></div>`;
+}
+
+function escapeHtml(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function escapeAttr(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function openEditor(tplId) {
+  if (tplId) {
+    state.activeTemplate = MOCK_TEMPLATES.find(t => t.id === tplId) || null;
+    if (!state.activeTemplate) return;
+  } else {
+    const newTpl = createNewTemplate();
+    MOCK_TEMPLATES.push(newTpl);
+    state.activeTemplate = newTpl;
+  }
+  state.view = 'editor';
+  renderBuilder();
+}
+
+function backToList() {
+  state.view = 'list';
+  state.activeTemplate = null;
+  state.expandedField = null;
+  state.fieldPickerSection = null;
+  renderBuilder();
+}
+
+function addSection() {
+  const title = prompt('Section name:');
+  if (title && title.trim()) {
+    const sec = createNewSection(title.trim());
+    state.activeTemplate.sections.push(sec);
+    renderBuilder();
+  }
+}
+
+function deleteSection(secId) {
+  state.activeTemplate.sections = state.activeTemplate.sections.filter(s => s.id !== secId);
+  renderBuilder();
+}
+
+function updateTemplateName(name) {
+  state.activeTemplate.name = name;
+}
+
+function toggleApproval() {
+  state.activeTemplate.requires_approval = !state.activeTemplate.requires_approval;
+}
+
+// Event delegation — attached ONCE, not inside render
+document.getElementById('builder-body').addEventListener('click', function(e) {
+  // Template row -> open editor
+  const tplRow = e.target.closest('[data-template-id]');
+  if (tplRow && !e.target.closest('.sec-delete') && !e.target.closest('.field-delete')) {
+    openEditor(tplRow.dataset.templateId);
+    return;
+  }
+
+  // Editor back button
+  if (e.target.closest('.editor-back')) {
+    backToList();
+    return;
+  }
+
+  // Delete section
+  const secDelete = e.target.closest('.sec-delete');
+  if (secDelete) {
+    deleteSection(secDelete.dataset.sectionId);
+    return;
+  }
+
+  // Add section
+  if (e.target.closest('.add-section-btn')) {
+    addSection();
+    return;
+  }
+
+  // Add field (stub — Plan 02 implements)
+  if (e.target.closest('.add-field-btn')) {
+    return;
+  }
+
+  // Delete field
+  const fieldDelete = e.target.closest('.field-delete');
+  if (fieldDelete) {
+    const secId = fieldDelete.dataset.sectionId;
+    const fldId = fieldDelete.dataset.fieldId;
+    const sec = state.activeTemplate && state.activeTemplate.sections.find(s => s.id === secId);
+    if (sec) {
+      sec.fields = sec.fields.filter(f => f.id !== fldId);
+      renderBuilder();
+    }
+    return;
+  }
+
+  // Save template (in-memory only, no-op per D-11)
+  if (e.target.closest('#save-btn')) {
+    return;
+  }
+
+  // New template button
+  if (e.target.closest('.btn-primary') && state.view === 'list') {
+    openEditor(null);
+    return;
+  }
+});
+
+// Change delegation — attached ONCE
+document.getElementById('builder-body').addEventListener('change', function(e) {
+  // Template name input
+  if (e.target.id === 'tpl-name-input') {
+    updateTemplateName(e.target.value);
+    return;
+  }
+
+  // Requires approval toggle
+  if (e.target.id === 'approval-toggle') {
+    toggleApproval();
+    return;
+  }
+});
+
+function show(n) {
+  [1, 2].forEach(i => {
+    document.getElementById('s' + i).style.display = i == n ? 'block' : 'none';
+    document.getElementById('t' + i).className = i == n ? 'on' : '';
+  });
+}
+
+function checkBuilderAccess() {
+  if (!MOCK_CURRENT_USER.permissions.includes('workflow_builder')) {
+    document.getElementById('t2').style.display = 'none';
+  }
+}
+
+checkBuilderAccess();
+renderBuilder();
+document.addEventListener('dblclick', e => e.preventDefault());
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+</script>
+<script src="ptr.js"></script>
+</body>
+</html>
