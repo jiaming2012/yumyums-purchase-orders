@@ -307,7 +307,7 @@ function createNewTemplate() {
     id: generateId('tpl'),
     name: '',
     active_days: null,
-    requires_approval: false,
+    requires_approval: true,
     assignable_to: ['admin', 'manager', 'team_member'],
     sections: []
   };
@@ -1403,27 +1403,26 @@ document.getElementById('fill-body').addEventListener('click', function(e) {
         return;
       }
       var tplForSubmit = MOCK_TEMPLATES.find(function(t){return t.id===tplId});
-      if (tplForSubmit && tplForSubmit.requires_approval) {
+      var allFlds = fillState.activeTemplate.sections.filter(function(s){return isSectionVisible(s)}).flatMap(function(s){return s.fields.filter(function(f){return isFieldVisible(f)})});
+      var allDone = allFlds.every(function(f){return MOCK_RESPONSES[f.id] !== undefined});
+      var isApproval = tplForSubmit && tplForSubmit.requires_approval;
+      if (isApproval) {
         submitChecklist(tplId);
-        fillState.view = 'list'; fillState.activeTemplate = null; location.hash = '';
-        renderFillOut();
-        showToast('Submitted for approval');
       } else {
         SUBMITTED_TEMPLATES[tplId] = true;
-        var allFlds = fillState.activeTemplate.sections.filter(function(s){return isSectionVisible(s)}).flatMap(function(s){return s.fields.filter(function(f){return isFieldVisible(f)})});
-        var allDone = allFlds.every(function(f){return MOCK_RESPONSES[f.id] !== undefined});
-        if (allDone) {
-          fireworks();
-          setTimeout(function(){
-            showToast('Checklist submitted. Thanks, ' + CURRENT_USER.initials + '!');
-            fillState.view = 'list'; fillState.activeTemplate = null; location.hash = '';
-            renderFillOut();
-          }, 2500);
-        } else {
-          showToast('Checklist submitted. Thanks, ' + CURRENT_USER.initials + '!');
+      }
+      var toastMsg = isApproval ? 'Submitted for approval' : 'Checklist submitted. Thanks, ' + CURRENT_USER.initials + '!';
+      if (allDone) {
+        fireworks();
+        setTimeout(function(){
+          showToast(toastMsg);
           fillState.view = 'list'; fillState.activeTemplate = null; location.hash = '';
           renderFillOut();
-        }
+        }, 2500);
+      } else {
+        showToast(toastMsg);
+        fillState.view = 'list'; fillState.activeTemplate = null; location.hash = '';
+        renderFillOut();
       }
       return;
     }
