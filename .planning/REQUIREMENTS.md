@@ -38,15 +38,15 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Approval
 
-- [ ] **APRV-01**: Owner/manager can mark a template as requiring manager approval before it's considered complete
-- [ ] **APRV-02**: When a checklist requires approval, the completed submission shows a "Pending Approval" status
-- [ ] **APRV-03**: Manager can approve or reject a completed checklist with optional notes
+- [x] **APRV-01**: Owner/manager can mark a template as requiring manager approval before it's considered complete
+- [x] **APRV-02**: When a checklist requires approval, the completed submission shows a "Pending Approval" status
+- [x] **APRV-03**: Manager can approve or reject a completed checklist with optional notes
 
 ### Integration
 
-- [ ] **INTG-01**: Workflows app appears as an active tile on the HQ launcher (index.html)
-- [ ] **INTG-02**: Fill-out tab is visible to all roles; builder tab is restricted by User Management permissions
-- [ ] **INTG-03**: Mock includes 2-3 pre-built food truck templates (Opening Checklist, HACCP Temp Log, Closing Checklist)
+- [x] **INTG-01**: Workflows app appears as an active tile on the HQ launcher (index.html)
+- [x] **INTG-02**: Fill-out tab is visible to all roles; builder tab is restricted by User Management permissions
+- [x] **INTG-03**: Mock includes 2-3 pre-built food truck templates (Opening Checklist, HACCP Temp Log, Closing Checklist)
 
 ## v2 Requirements
 
@@ -111,12 +111,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 | COND-03 | Phase 2 | Pending |
 | COND-04 | Phase 2 | Pending |
 | FILL-06 | Phase 3 | Complete |
-| APRV-01 | Phase 3 | Pending |
-| APRV-02 | Phase 3 | Pending |
-| APRV-03 | Phase 3 | Pending |
-| INTG-01 | Phase 3 | Pending |
-| INTG-02 | Phase 3 | Pending |
-| INTG-03 | Phase 3 | Pending |
+| APRV-01 | Phase 3 | Complete |
+| APRV-02 | Phase 3 | Complete |
+| APRV-03 | Phase 3 | Complete |
+| INTG-01 | Phase 3 | Complete |
+| INTG-02 | Phase 3 | Complete |
+| INTG-03 | Phase 3 | Complete |
 
 **Coverage:**
 - v1 requirements: 26 total

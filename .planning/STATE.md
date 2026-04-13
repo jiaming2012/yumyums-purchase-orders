@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: Completed 03-photo-approval-and-integration/03-01-PLAN.md
-last_updated: "2026-04-13T16:25:01.387Z"
+status: verifying
+stopped_at: "Checkpoint: Task 3 human-verify pending for 03-02-PLAN.md"
+last_updated: "2026-04-13T16:35:57.049Z"
 last_activity: 2026-04-13
 progress:
   total_phases: 3
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 7
-  completed_plans: 6
+  completed_plans: 7
   percent: 33
 ---
 
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-04-13)
 
 Phase: 03 (photo-approval-and-integration) — EXECUTING
 Plan: 2 of 2
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-04-13
 
 Progress: [███░░░░░░░] 33%
@@ -56,6 +56,7 @@ Progress: [███░░░░░░░] 33%
 | Phase 01-template-builder P03 | 5min | 2 tasks | 1 files |
 | Phase 02 P02 | 8min | 1 tasks | 2 files |
 | Phase 03-photo-approval-and-integration P01 | 2min | 1 tasks | 2 files |
+| Phase 03-photo-approval-and-integration P02 | 8min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -79,6 +80,9 @@ Recent decisions affecting current work:
 - [Phase 02-fill-out-and-conditional-logic]: text-input and fail-note-input handlers do NOT re-render to prevent cursor jump (Pitfall 2)
 - [Phase 03-photo-approval-and-integration]: Fresh <input> element per capture (not reused) to avoid iOS single-use stall bug (Pitfall 9)
 - [Phase 03-photo-approval-and-integration]: Blob URL lifecycle: URL.revokeObjectURL called on retake to prevent memory leaks
+- [Phase 03-photo-approval-and-integration]: PENDING_APPROVALS stores snapshot of responses/failNotes at submit time for accurate approval card display
+- [Phase 03-photo-approval-and-integration]: Approve action sets SUBMITTED_TEMPLATES[tplId]=true so My Checklists shows Submitted badge after approval
+- [Phase 03-photo-approval-and-integration]: sw.js bumped v20 to v21: Plan 01 used v20, Plan 02 changes require another cache bust
 
 ### Pending Todos
 
@@ -91,6 +95,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-13T16:25:01.374Z
-Stopped at: Completed 03-photo-approval-and-integration/03-01-PLAN.md
+Last session: 2026-04-13T16:35:57.041Z
+Stopped at: Checkpoint: Task 3 human-verify pending for 03-02-PLAN.md
 Resume file: None

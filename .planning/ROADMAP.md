@@ -14,7 +14,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [ ] **Phase 1: Template Builder** - Lock the data model and build the owner/manager template editor with section grouping, all field types, drag-to-reorder, and day-of-week + skip logic conditions
 - [x] **Phase 2: Fill-Out and Conditional Logic** - Build the crew fill-out experience end-to-end: checklist runner, all non-photo field types, fail triggers, inline corrective actions, and completion tracking (completed 2026-04-13)
-- [ ] **Phase 3: Photo, Approval, and Integration** - Add photo capture (isolated iOS testing), manager approval flow, and wire the app into the HQ launcher with pre-built food truck templates
+- [x] **Phase 3: Photo, Approval, and Integration** - Add photo capture (isolated iOS testing), manager approval flow, and wire the app into the HQ launcher with pre-built food truck templates (completed 2026-04-13)
 
 ## Phase Details
 
@@ -64,7 +64,7 @@ Plans:
 
 Plans:
 - [x] 03-01-PLAN.md — Photo capture: CSS, openCamera utility, photo preview modal, standalone field + corrective action card photo
-- [ ] 03-02-PLAN.md — Three-tab navigation, approval flow, pre-built templates, INTG verification, sw.js bump, human-verify
+- [x] 03-02-PLAN.md — Three-tab navigation, approval flow, pre-built templates, INTG verification, sw.js bump, human-verify
 
 **UI hint**: yes
 
@@ -77,4 +77,4 @@ Phases execute in numeric order: 1 → 2 → 3
 |-------|----------------|--------|-----------|
 | 1. Template Builder | 2/3 | In Progress|  |
 | 2. Fill-Out and Conditional Logic | 2/2 | Complete   | 2026-04-13 |
-| 3. Photo, Approval, and Integration | 1/2 | In Progress|  |
+| 3. Photo, Approval, and Integration | 2/2 | Complete   | 2026-04-13 |
