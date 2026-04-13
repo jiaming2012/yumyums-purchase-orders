@@ -75,6 +75,7 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .empty-state h2{font-size:15px;font-weight:500;color:var(--txt);margin:0 0 8px}
 .empty-state p{font-size:14px;margin:0}
 </style>
+<script src="https://unpkg.com/sortablejs@1.15.7/Sortable.min.js"></script>
 </head>
 <body>
 <div class="app">
@@ -269,6 +270,7 @@ function renderBuilder() {
   } else {
     body.innerHTML = renderEditor();
   }
+  if (state.view === 'editor') initSortable();
 }
 
 function renderTemplateList() {
@@ -324,6 +326,9 @@ function renderSection(sec) {
   <span>${escapeHtml(sec.title)}</span>
   <button class="sec-delete" data-section-id="${sec.id}" aria-label="Delete section">✕</button>
 </div>
+<div style="padding:0 16px 8px">
+  ${renderDayChips(sec.condition ? sec.condition.days : null, sec.id, 'section')}
+</div>
 <div class="field-list" data-section-id="${sec.id}">${fieldsHtml}</div>
 <button class="add-field-btn" data-section-id="${sec.id}">+ Add field</button>
 ${state.fieldPickerSection === sec.id ? renderFieldTypePicker(sec.id) : ''}
@@ -368,7 +373,8 @@ function renderFieldExpanded(fld, secId) {
              placeholder="Enter field label">
     </div>
     ${typeControls}
-    <!-- day chips and skip logic added in Plan 03 -->
+    ${renderDayChips(fld.condition && fld.condition.days ? fld.condition.days : null, fld.id, 'field')}
+    <!-- skip logic added below -->
   </div>`;
 }
 
@@ -449,6 +455,45 @@ function backToList() {
   renderBuilder();
 }
 
+const DAYS = ['M','T','W','T','F','Sa','Su'];
+const DAY_INDICES = [1, 2, 3, 4, 5, 6, 0]; // Mon=1, Tue=2, ..., Sat=6, Sun=0
+
+function renderDayChips(activeDays, targetId, targetType) {
+  const days = activeDays || [];
+  return `
+    <div class="field" style="margin-top:12px">
+      <label>SHOW ON DAYS</label>
+      <div class="day-chips-row">
+        ${DAYS.map((label, i) => `
+          <button class="day-chip ${days.includes(DAY_INDICES[i]) ? 'on' : ''}"
+                  data-day="${DAY_INDICES[i]}" data-target-id="${targetId}"
+                  data-target-type="${targetType}">${label}</button>
+        `).join('')}
+      </div>
+    </div>`;
+}
+
+let sortableInstances = [];
+
+function initSortable() {
+  sortableInstances.forEach(s => s.destroy());
+  sortableInstances = [];
+  document.querySelectorAll('.field-list').forEach(el => {
+    const secId = el.dataset.sectionId;
+    sortableInstances.push(Sortable.create(el, {
+      handle: '.drag-handle',
+      animation: 150,
+      onEnd(evt) {
+        const sec = state.activeTemplate.sections.find(s => s.id === secId);
+        const moved = sec.fields.splice(evt.oldIndex, 1)[0];
+        sec.fields.splice(evt.newIndex, 0, moved);
+        sec.fields.forEach((f, i) => f.order = i);
+        // No re-render — SortableJS already moved the DOM node
+      }
+    }));
+  });
+}
+
 function addSection() {
   const title = prompt('Section name:');
   if (title && title.trim()) {
@@ -527,6 +572,40 @@ document.getElementById('builder-body').addEventListener('click', function(e) {
     if (fieldRow) {
       toggleFieldExpanded(fieldRow.dataset.fieldId);
     }
+    return;
+  }
+
+  // Day chip toggle
+  if (e.target.closest('.day-chip')) {
+    const chip = e.target.closest('.day-chip');
+    const dayIndex = +chip.dataset.day;
+    const targetId = chip.dataset.targetId;
+    const targetType = chip.dataset.targetType;
+
+    if (targetType === 'section') {
+      const sec = state.activeTemplate.sections.find(s => s.id === targetId);
+      if (!sec.condition) sec.condition = { days: [] };
+      const idx = sec.condition.days.indexOf(dayIndex);
+      if (idx === -1) sec.condition.days.push(dayIndex);
+      else sec.condition.days.splice(idx, 1);
+      if (sec.condition.days.length === 0) sec.condition = null;
+    } else {
+      const sec = state.activeTemplate.sections.find(s =>
+        s.fields.some(f => f.id === targetId));
+      const fld = sec.fields.find(f => f.id === targetId);
+      if (!fld.condition) fld.condition = { days: [] };
+      else if (fld.condition.field_id) {
+        // Already has skip logic — add days alongside
+        if (!fld.condition.days) fld.condition.days = [];
+      }
+      const days = fld.condition.days || (fld.condition.days = []);
+      const idx = days.indexOf(dayIndex);
+      if (idx === -1) days.push(dayIndex);
+      else days.splice(idx, 1);
+      if (days.length === 0) delete fld.condition.days;
+      if (!fld.condition.days && !fld.condition.field_id) fld.condition = null;
+    }
+    renderBuilder();
     return;
   }
 
