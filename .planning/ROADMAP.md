@@ -60,7 +60,12 @@ Plans:
   3. Manager can open a pending submission and approve or reject it with optional notes
   4. Workflows tile appears on the HQ launcher (index.html) and links to workflows.html
   5. Opening workflows.html shows 2-3 pre-built food truck templates (e.g., Opening Checklist, HACCP Temp Log, Closing Checklist) ready to fill out
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 03-01-PLAN.md — Photo capture: CSS, openCamera utility, photo preview modal, standalone field + corrective action card photo
+- [ ] 03-02-PLAN.md — Three-tab navigation, approval flow, pre-built templates, INTG verification, sw.js bump, human-verify
+
 **UI hint**: yes
 
 ## Progress
@@ -72,4 +77,4 @@ Phases execute in numeric order: 1 → 2 → 3
 |-------|----------------|--------|-----------|
 | 1. Template Builder | 2/3 | In Progress|  |
 | 2. Fill-Out and Conditional Logic | 2/2 | Complete   | 2026-04-13 |
-| 3. Photo, Approval, and Integration | 0/TBD | Not started | - |
+| 3. Photo, Approval, and Integration | 0/2 | Not started | - |
