@@ -13,7 +13,7 @@ Three phases deliver a complete Lumiform-style checklist engine as a vanilla JS 
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [ ] **Phase 1: Template Builder** - Lock the data model and build the owner/manager template editor with section grouping, all field types, drag-to-reorder, and day-of-week + skip logic conditions
-- [ ] **Phase 2: Fill-Out and Conditional Logic** - Build the crew fill-out experience end-to-end: checklist runner, all non-photo field types, fail triggers, inline corrective actions, and completion tracking
+- [x] **Phase 2: Fill-Out and Conditional Logic** - Build the crew fill-out experience end-to-end: checklist runner, all non-photo field types, fail triggers, inline corrective actions, and completion tracking (completed 2026-04-13)
 - [ ] **Phase 3: Photo, Approval, and Integration** - Add photo capture (isolated iOS testing), manager approval flow, and wire the app into the HQ launcher with pre-built food truck templates
 
 ## Phase Details
@@ -71,5 +71,5 @@ Phases execute in numeric order: 1 → 2 → 3
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Template Builder | 2/3 | In Progress|  |
-| 2. Fill-Out and Conditional Logic | 0/TBD | Not started | - |
+| 2. Fill-Out and Conditional Logic | 1/1 | Complete   | 2026-04-13 |
 | 3. Photo, Approval, and Integration | 0/TBD | Not started | - |

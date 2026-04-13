@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: verifying
-stopped_at: Completed 01-03-PLAN.md (Tasks 1-2; Task 3 awaiting human verification)
-last_updated: "2026-04-13T08:30:13.562Z"
+stopped_at: Completed 02-01-PLAN.md (Task 1 complete; Task 2 awaiting human verification)
+last_updated: "2026-04-13T10:02:08.522Z"
 last_activity: 2026-04-13
 progress:
   total_phases: 3
-  completed_phases: 1
-  total_plans: 3
-  completed_plans: 3
+  completed_phases: 2
+  total_plans: 4
+  completed_plans: 4
   percent: 33
 ---
 
@@ -54,6 +54,7 @@ Progress: [███░░░░░░░] 33%
 *Updated after each plan completion*
 | Phase 01-template-builder P02 | 3 | 2 tasks | 1 files |
 | Phase 01-template-builder P03 | 5min | 2 tasks | 1 files |
+| Phase 02-fill-out-and-conditional-logic P01 | 8 | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -72,6 +73,9 @@ Recent decisions affecting current work:
 - [Phase 01-template-builder]: deleteField recalculates field.order on remaining fields to keep order array contiguous
 - [Phase 01-template-builder]: DAY_INDICES [1,2,3,4,5,6,0] maps Mon-first display order to JS Date.getDay() values for correct day condition evaluation in Phase 2
 - [Phase 01-template-builder]: skip-value-select uses JSON.stringify/JSON.parse round-trip for option value attributes to handle boolean and special string values
+- [Phase 02-fill-out-and-conditional-logic]: Checkbox/yes-no use targeted outerHTML replacement for instant feedback without full re-render
+- [Phase 02-fill-out-and-conditional-logic]: MOCK_RESPONSES keyed by stable field ID at module level — persists across template openings in a session
+- [Phase 02-fill-out-and-conditional-logic]: Day-of-week filter evaluated at fill-out render time using Date.getDay(), never mutating template data (Pitfall 7)
 
 ### Pending Todos
 
@@ -84,6 +88,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-13T08:30:13.556Z
-Stopped at: Completed 01-03-PLAN.md (Tasks 1-2; Task 3 awaiting human verification)
+Last session: 2026-04-13T10:02:08.515Z
+Stopped at: Completed 02-01-PLAN.md (Task 1 complete; Task 2 awaiting human verification)
 Resume file: None
