@@ -914,6 +914,7 @@ const PENDING_APPROVALS = {}; // { [tplId]: { tplId, tplName, submittedBy, respo
 const APPROVED_SUBMISSIONS = {}; // { [tplId]: { ...entry, approvedBy, approvedAt } }
 const REJECTED_SUBMISSIONS = {}; // { [tplId]: { ...entry, rejectedBy, rejectedAt, rejectedItems } }
 const REJECTION_FLAGS = {}; // { [fldId]: { comment, requirePhoto } } — flags on the live checklist
+const WAS_REJECTED = {};    // { [tplId]: true } — tracks if a checklist was ever rejected (survives flag clearing)
 
 // Named mutation helpers (used inline in event handlers and referenced by name for traceability)
 function clearRejectionFlag(fldId) { if (REJECTION_FLAGS[fldId]) delete REJECTION_FLAGS[fldId]; }
@@ -1417,8 +1418,9 @@ document.getElementById('fill-body').addEventListener('click', function(e) {
       var allFlds = fillState.activeTemplate.sections.filter(function(s){return isSectionVisible(s)}).flatMap(function(s){return s.fields.filter(function(f){return isFieldVisible(f)})});
       var allDone = allFlds.every(function(f){return MOCK_RESPONSES[f.id] !== undefined});
       var isApproval = tplForSubmit && tplForSubmit.requires_approval;
-      var isReapproval = Object.keys(REJECTION_FLAGS).length > 0;
-      // Clear rejection flags on submit
+      var isReapproval = !!WAS_REJECTED[tplId];
+      // Clear rejection tracking on submit
+      delete WAS_REJECTED[tplId];
       Object.keys(REJECTION_FLAGS).forEach(function(k){ delete REJECTION_FLAGS[k]; });
       if (isApproval) {
         submitChecklist(tplId);
@@ -1596,6 +1598,7 @@ document.getElementById('approvals-body').addEventListener('click', function(e) 
       delete FAIL_NOTES[fid];
       REJECTION_FLAGS[fid] = { comment: rej.comment, requirePhoto: rej.requirePhoto };
     });
+    WAS_REJECTED[tplId] = true;
     delete PENDING_APPROVALS[tplId];
     delete SUBMITTED_TEMPLATES[tplId];
     showToast('Rejected — crew must fix ' + Object.keys(entry._rejectedItems).length + ' item(s)');
