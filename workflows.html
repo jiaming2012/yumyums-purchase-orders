@@ -109,6 +109,16 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .submit-confirm{display:block;text-align:center;font-size:14px;color:var(--mut);margin-top:8px}
 .fail-note-input{width:100%;padding:10px 12px;background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;font-size:14px;color:var(--txt);font-family:inherit;outline:none;resize:none;-webkit-appearance:none;margin-top:8px}
 .fail-note-input:focus{border-color:var(--info-tx)}
+.approval-card{background:var(--card);border-radius:12px;overflow:hidden;margin-bottom:8px}
+.approval-badge{display:inline-block;padding:4px 8px;border-radius:10px;background:var(--warn-bg);color:var(--warn-tx);font-size:12px;font-weight:500;margin-top:4px}
+.btn-approve{width:100%;padding:12px;background:var(--info-bg);color:var(--info-tx);border:none;border-radius:8px;font-size:14px;font-weight:500;font-family:inherit;cursor:pointer;min-height:44px}
+.btn-approve:active{opacity:0.8}
+.btn-reject{width:100%;padding:12px;background:transparent;color:#c0392b;border:0.5px solid #c0392b;border-radius:8px;font-size:14px;font-weight:500;font-family:inherit;cursor:pointer;min-height:44px}
+.btn-reject:active{opacity:0.8}
+.btn-reject-confirm{width:100%;padding:12px;background:#c0392b;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:500;font-family:inherit;cursor:pointer;min-height:44px}
+.rejection-reason{width:100%;padding:10px 12px;background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;font-size:14px;color:var(--txt);font-family:inherit;outline:none;resize:none;-webkit-appearance:none}
+.rejection-reason:focus{border-color:var(--info-tx)}
+.photo-strip{display:flex;gap:8px;overflow-x:auto;padding:8px 16px}
 </style>
 <script src="https://unpkg.com/sortablejs@1.15.7/Sortable.min.js"></script>
 </head>
@@ -117,10 +127,12 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 <a class="back" href="index.html">HQ</a>
 <div class="tabs">
   <button id="t1" class="on" onclick="show(1)">My Checklists</button>
-  <button id="t2" onclick="show(2)">Builder</button>
+  <button id="t2" onclick="show(2)">Approvals</button>
+  <button id="t3" onclick="show(3)">Builder</button>
 </div>
 <div id="s1"><div id="fill-body"></div></div>
-<div id="s2" style="display:none"><div id="builder-body"></div></div>
+<div id="s2" style="display:none"><div id="approvals-body"></div></div>
+<div id="s3" style="display:none"><div id="builder-body"></div></div>
 <div id="toast" style="display:none;position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--info-tx);color:#fff;padding:12px 24px;border-radius:10px;font-size:14px;font-weight:500;z-index:9999;transition:opacity .3s;opacity:0"></div>
 </div>
 
@@ -214,70 +226,23 @@ function showPhotoPreview(objectURL, onConfirm, onRetake) {
 
 const MOCK_TEMPLATES = [
   {
-    id: 'tpl_morning_open',
-    name: 'Morning Opening Checklist',
-    active_days: [1, 2, 3, 4, 5],
-    requires_approval: false,
+    id: 'tpl_setup',
+    name: 'Setup Checklist',
+    active_days: [1,2,3,4,5,6,0],
+    requires_approval: true,
     assignable_to: ['admin', 'manager', 'team_member'],
     sections: [
       {
-        id: 'sec_equipment',
-        title: 'Equipment Check',
-        order: 0,
-        condition: null,
+        id: 'sec_setup_equip', title: 'Equipment', order: 0, condition: null,
         fields: [
-          {
-            id: 'fld_grill_temp',
-            type: 'temperature',
-            label: 'Grill surface temperature',
-            required: true,
-            order: 0,
-            config: { unit: '°F', min: 350, max: 500 },
-            fail_trigger: { type: 'out_of_range', min: 350, max: 500 },
-            corrective_action: { label: 'Corrective action taken', type: 'text', required: true },
-            condition: null
-          },
-          {
-            id: 'fld_grill_clean',
-            type: 'checkbox',
-            label: 'Grill grates cleaned',
-            required: true,
-            order: 1,
-            config: {},
-            fail_trigger: null,
-            corrective_action: null,
-            condition: null
-          }
+          { id: 'fld_setup_power', type: 'yes_no', label: 'All equipment powered on?', required: true, order: 0, config: {}, fail_trigger: null, corrective_action: null, condition: null },
+          { id: 'fld_setup_photo', type: 'photo', label: 'Setup station photo', required: false, order: 1, config: {}, fail_trigger: null, corrective_action: null, condition: null }
         ]
       },
       {
-        id: 'sec_food_prep',
-        title: 'Food Prep',
-        order: 1,
-        condition: null,
+        id: 'sec_setup_temp', title: 'Temperature Check', order: 1, condition: null,
         fields: [
-          {
-            id: 'fld_prep_sanitized',
-            type: 'yes_no',
-            label: 'Prep area sanitized',
-            required: true,
-            order: 0,
-            config: {},
-            fail_trigger: null,
-            corrective_action: null,
-            condition: null
-          },
-          {
-            id: 'fld_prep_notes',
-            type: 'text',
-            label: 'Notes',
-            required: false,
-            order: 1,
-            config: {},
-            fail_trigger: null,
-            corrective_action: null,
-            condition: null
-          }
+          { id: 'fld_setup_grill', type: 'temperature', label: 'Grill temperature', required: true, order: 0, config: { unit: '\u00b0F', min: 300, max: 500 }, fail_trigger: { type: 'out_of_range', min: 300, max: 500 }, corrective_action: { label: 'Action taken', type: 'text', required: true }, condition: null }
         ]
       }
     ]
@@ -285,38 +250,21 @@ const MOCK_TEMPLATES = [
   {
     id: 'tpl_closing',
     name: 'Closing Checklist',
-    active_days: [1, 2, 3, 4, 5, 6],
-    requires_approval: true,
+    active_days: [1,2,3,4,5,6,0],
+    requires_approval: false,
     assignable_to: ['admin', 'manager', 'team_member'],
     sections: [
       {
-        id: 'sec_shutdown',
-        title: 'Shutdown',
-        order: 0,
-        condition: null,
+        id: 'sec_close_clean', title: 'Cleaning', order: 0, condition: null,
         fields: [
-          {
-            id: 'fld_gas_off',
-            type: 'checkbox',
-            label: 'Gas lines off',
-            required: true,
-            order: 0,
-            config: {},
-            fail_trigger: null,
-            corrective_action: null,
-            condition: null
-          },
-          {
-            id: 'fld_equip_photo',
-            type: 'photo',
-            label: 'Equipment photo',
-            required: true,
-            order: 1,
-            config: {},
-            fail_trigger: null,
-            corrective_action: null,
-            condition: null
-          }
+          { id: 'fld_close_surfaces', type: 'yes_no', label: 'All surfaces wiped down?', required: true, order: 0, config: {}, fail_trigger: null, corrective_action: null, condition: null },
+          { id: 'fld_close_photo', type: 'photo', label: 'Clean station photo', required: false, order: 1, config: {}, fail_trigger: null, corrective_action: null, condition: null }
+        ]
+      },
+      {
+        id: 'sec_close_secure', title: 'Secure', order: 1, condition: null,
+        fields: [
+          { id: 'fld_close_locked', type: 'checkbox', label: 'Truck locked and secured', required: true, order: 0, config: {}, fail_trigger: null, corrective_action: null, condition: null }
         ]
       }
     ]
@@ -937,6 +885,9 @@ const CURRENT_USER = { name: MOCK_CURRENT_USER.name, initials: 'JM' };
 const MOCK_RESPONSES = {}; // { [fieldId]: { value: any, answeredBy: string, answeredAt: Date } }
 const FAIL_NOTES = {}; // { [fieldId]: { note: string, severity: string } }
 const SUBMITTED_TEMPLATES = {}; // { [tplId]: true }
+const PENDING_APPROVALS = {}; // { [tplId]: { tplId, tplName, submittedBy, ... } }
+const APPROVED_SUBMISSIONS = {}; // { [tplId]: { ...entry, approvedBy, approvedAt } }
+const REJECTED_SUBMISSIONS = {}; // { [tplId]: { ...entry, rejectedBy, rejectedAt, reason } }
 
 // Named mutation helpers (used inline in event handlers and referenced by name for traceability)
 function setYesNo(fldId, value) {
@@ -958,8 +909,23 @@ function setSeverity(fldId, severity) {
   FAIL_NOTES[fldId].severity = severity;
 }
 function submitChecklist(tplId) {
-  SUBMITTED_TEMPLATES[tplId] = true;
-  renderFillOut();
+  var tpl = MOCK_TEMPLATES.find(function(t) { return t.id === tplId; });
+  if (tpl && tpl.requires_approval) {
+    var allFields = tpl.sections.flatMap(function(s) { return s.fields; });
+    var answeredCount = allFields.filter(function(f) { return MOCK_RESPONSES[f.id] !== undefined; }).length;
+    var photoCount = allFields.filter(function(f) { return f.type === 'photo' && MOCK_RESPONSES[f.id]; }).length;
+    var failCount = Object.keys(FAIL_NOTES).filter(function(k) { return allFields.some(function(f) { return f.id === k; }); }).length;
+    PENDING_APPROVALS[tplId] = {
+      tplId: tplId, tplName: tpl.name,
+      submittedBy: CURRENT_USER.name, submittedAt: new Date().toISOString(),
+      totalFields: allFields.length, answeredCount: answeredCount,
+      failCount: failCount, photoCount: photoCount,
+      responses: Object.assign({}, MOCK_RESPONSES),
+      failNotes: Object.assign({}, FAIL_NOTES)
+    };
+  } else {
+    SUBMITTED_TEMPLATES[tplId] = true;
+  }
 }
 
 function handlePhotoCaptureClick(fldId) {
@@ -1066,6 +1032,36 @@ function renderFillOut() {
   }
 }
 
+function renderApprovals() {
+  var body = document.getElementById('approvals-body');
+  if (!body) return;
+  var keys = Object.keys(PENDING_APPROVALS);
+  if (keys.length === 0) {
+    body.innerHTML = '<div class="empty-state"><h2>No pending approvals.</h2><p>All submitted checklists have been reviewed.</p></div>';
+    return;
+  }
+  body.innerHTML = keys.map(function(tplId) {
+    var entry = PENDING_APPROVALS[tplId];
+    var pct = entry.totalFields ? Math.round(entry.answeredCount / entry.totalFields * 100) : 0;
+    var photoStrip = '';
+    if (entry.photoCount > 0 && entry.responses) {
+      var photoHtml = Object.values(entry.responses)
+        .filter(function(r) { return r && r.value && typeof r.value === 'string' && r.value.startsWith('blob:'); })
+        .map(function(r) { return '<img class="photo-thumb" src="' + r.value + '" alt="Photo">'; }).join('');
+      if (photoHtml) photoStrip = '<div class="photo-strip">' + photoHtml + '</div>';
+    }
+    return '<div class="approval-card card" data-tpl-id="' + tplId + '">' +
+      '<div class="hd"><h1>' + escapeHtml(entry.tplName) + '</h1>' +
+      '<div class="sub">' + escapeHtml(entry.submittedBy) + ' \u00b7 ' + formatTime(new Date(entry.submittedAt)) + '</div>' +
+      '<div class="sub">' + entry.answeredCount + ' of ' + entry.totalFields + ' complete \u00b7 ' + entry.failCount + ' fail trigger(s) \u00b7 ' + entry.photoCount + ' photo(s)</div></div>' +
+      photoStrip +
+      '<div class="approval-actions" style="padding:12px 16px">' +
+      '<button class="btn-approve" data-action="approve" data-tpl-id="' + tplId + '">Approve</button>' +
+      '<button class="btn-reject" data-action="reject" data-tpl-id="' + tplId + '" style="margin-top:8px">Reject</button>' +
+      '</div></div>';
+  }).join('');
+}
+
 function renderChecklistList() {
   const today = getTodayTemplates();
   if (today.length === 0) {
@@ -1080,7 +1076,9 @@ function renderChecklistList() {
     totalFields += fieldCount;
     totalAnswered += answeredCount;
     const pct = fieldCount ? Math.round(answeredCount / fieldCount * 100) : 0;
-    return `<div class="row" data-fill-template-id="${tpl.id}" style="cursor:pointer"><div style="flex:1"><div class="nm">${escapeHtml(tpl.name)}</div><div class="mt">${secCount} section${secCount !== 1 ? 's' : ''} · ${answeredCount}/${fieldCount} items</div><div style="height:4px;background:var(--brd);border-radius:2px;margin-top:6px;overflow:hidden"><div style="height:100%;background:#27ae60;border-radius:2px;width:${pct}%"></div></div></div></div>`;
+    const pendingBadge = PENDING_APPROVALS[tpl.id] ? '<div class="approval-badge">Pending Approval</div>' : '';
+    const submittedBadge = SUBMITTED_TEMPLATES[tpl.id] ? '<div style="font-size:12px;color:#27ae60;margin-top:4px;font-weight:500">Submitted \u2713</div>' : '';
+    return `<div class="row" data-fill-template-id="${tpl.id}" style="cursor:pointer"><div style="flex:1"><div class="nm">${escapeHtml(tpl.name)}</div><div class="mt">${secCount} section${secCount !== 1 ? 's' : ''} · ${answeredCount}/${fieldCount} items</div><div style="height:4px;background:var(--brd);border-radius:2px;margin-top:6px;overflow:hidden"><div style="height:100%;background:#27ae60;border-radius:2px;width:${pct}%"></div></div>${pendingBadge}${submittedBadge}</div></div>`;
   }).join('');
   const aggPct = totalFields ? Math.round(totalAnswered / totalFields * 100) : 0;
   return `<div class="cat">TODAY'S CHECKLISTS</div>
@@ -1099,9 +1097,12 @@ function renderRunner() {
   const allFields = visibleFields;
   const sectionsHtml = tpl.sections.map(sec => renderRunnerSection(sec)).join('');
   const isSubmitted = !!SUBMITTED_TEMPLATES[tpl.id];
+  const isPending = !!PENDING_APPROVALS[tpl.id];
   const submitHtml = isSubmitted
     ? `<button class="btn-primary" data-action="submit" data-tpl-id="${tpl.id}" style="width:100%;padding:14px;margin:16px 0;background:var(--info-tx);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:500;opacity:0.5;pointer-events:none">Submit checklist</button><span class="submit-confirm">Checklist submitted. Thanks, ${CURRENT_USER.initials}!</span>`
-    : `<button class="btn-primary" id="submit-btn" data-action="submit" data-tpl-id="${tpl.id}" style="margin-top:8px">Submit checklist</button>`;
+    : isPending
+      ? `<button class="btn-primary" data-action="submit" data-tpl-id="${tpl.id}" style="width:100%;padding:14px;margin:16px 0;background:var(--info-tx);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:500;opacity:0.5;pointer-events:none">Submit checklist</button><span class="submit-confirm">Submitted for approval. Waiting for manager review.</span>`
+      : `<button class="btn-primary" id="submit-btn" data-action="submit" data-tpl-id="${tpl.id}" style="margin-top:8px">Submit checklist</button>`;
   return `<button class="editor-back" id="fill-back">Checklists</button>
 <div style="padding:10px 16px 0" class="progress-line">
   <div style="height:6px;background:var(--brd);border-radius:3px;overflow:hidden;margin-bottom:6px"><div style="height:100%;background:#27ae60;border-radius:3px;width:${allFields.length?Math.round(answered/allFields.length*100):0}%;transition:width .3s"></div></div>
@@ -1362,21 +1363,29 @@ document.getElementById('fill-body').addEventListener('click', function(e) {
 
     if (action === 'submit') {
       const tplId = actionEl.dataset.tplId;
-      if (SUBMITTED_TEMPLATES[tplId]) return;
-      SUBMITTED_TEMPLATES[tplId] = true;
-      var allFlds = fillState.activeTemplate.sections.flatMap(function(s){return s.fields});
-      var allDone = allFlds.every(function(f){return MOCK_RESPONSES[f.id] !== undefined});
-      if (allDone) {
-        fireworks();
-        setTimeout(function(){
-          showToast('Checklist submitted ✓');
-          fillState.view = 'list'; fillState.activeTemplate = null; location.hash = '';
-          renderFillOut();
-        }, 2500);
-      } else {
-        showToast('Checklist submitted ✓');
+      if (SUBMITTED_TEMPLATES[tplId] || PENDING_APPROVALS[tplId]) return;
+      var tplForSubmit = MOCK_TEMPLATES.find(function(t){return t.id===tplId});
+      if (tplForSubmit && tplForSubmit.requires_approval) {
+        submitChecklist(tplId);
         fillState.view = 'list'; fillState.activeTemplate = null; location.hash = '';
         renderFillOut();
+        showToast('Submitted for approval');
+      } else {
+        SUBMITTED_TEMPLATES[tplId] = true;
+        var allFlds = fillState.activeTemplate.sections.filter(function(s){return isSectionVisible(s)}).flatMap(function(s){return s.fields.filter(function(f){return isFieldVisible(f)})});
+        var allDone = allFlds.every(function(f){return MOCK_RESPONSES[f.id] !== undefined});
+        if (allDone) {
+          fireworks();
+          setTimeout(function(){
+            showToast('Checklist submitted. Thanks, ' + CURRENT_USER.initials + '!');
+            fillState.view = 'list'; fillState.activeTemplate = null; location.hash = '';
+            renderFillOut();
+          }, 2500);
+        } else {
+          showToast('Checklist submitted. Thanks, ' + CURRENT_USER.initials + '!');
+          fillState.view = 'list'; fillState.activeTemplate = null; location.hash = '';
+          renderFillOut();
+        }
       }
       return;
     }
@@ -1456,23 +1465,94 @@ document.getElementById('fill-body').addEventListener('input', function(e) {
   }
 });
 
+// ─── Approvals Tab ────────────────────────────────────────────────────────────
+
+document.getElementById('approvals-body').addEventListener('click', function(e) {
+  var actionEl = e.target.closest('[data-action]');
+  if (!actionEl) return;
+  var action = actionEl.dataset.action;
+
+  if (action === 'approve') {
+    var tplId = actionEl.dataset.tplId;
+    var entry = PENDING_APPROVALS[tplId];
+    if (!entry) return;
+    APPROVED_SUBMISSIONS[tplId] = Object.assign({}, entry, {
+      approvedBy: MOCK_CURRENT_USER.name, approvedAt: new Date().toISOString()
+    });
+    delete PENDING_APPROVALS[tplId];
+    SUBMITTED_TEMPLATES[tplId] = true;
+    showToast('Approved \u2713');
+    renderApprovals();
+    renderFillOut();
+    return;
+  }
+
+  if (action === 'reject') {
+    var card = actionEl.closest('.approval-card');
+    var actions = card.querySelector('.approval-actions');
+    if (!actions.querySelector('.rejection-reason')) {
+      var ta = document.createElement('textarea');
+      ta.className = 'rejection-reason';
+      ta.rows = 3; ta.placeholder = 'Reason for rejection\u2026'; ta.style.marginTop = '8px';
+      var confirmBtn = document.createElement('button');
+      confirmBtn.className = 'btn-reject-confirm';
+      confirmBtn.style.marginTop = '8px';
+      confirmBtn.textContent = 'Confirm rejection';
+      confirmBtn.dataset.action = 'reject-confirm';
+      confirmBtn.dataset.tplId = actionEl.dataset.tplId;
+      actions.appendChild(ta); actions.appendChild(confirmBtn);
+      ta.focus();
+    }
+    return;
+  }
+
+  if (action === 'reject-confirm') {
+    var tplId = actionEl.dataset.tplId;
+    var card = actionEl.closest('.approval-card');
+    var reason = card.querySelector('.rejection-reason').value.trim();
+    if (!reason) {
+      card.querySelector('.rejection-reason').style.borderColor = '#c0392b';
+      return;
+    }
+    var entry = PENDING_APPROVALS[tplId];
+    if (!entry) return;
+    REJECTED_SUBMISSIONS[tplId] = Object.assign({}, entry, {
+      rejectedBy: MOCK_CURRENT_USER.name, rejectedAt: new Date().toISOString(), reason: reason
+    });
+    delete PENDING_APPROVALS[tplId];
+    showToast('Rejected');
+    renderApprovals();
+    return;
+  }
+});
+
 // ─── Tab switching ────────────────────────────────────────────────────────────
 
 function show(n) {
-  [1, 2].forEach(i => {
-    document.getElementById('s' + i).style.display = i == n ? 'block' : 'none';
-    document.getElementById('t' + i).className = i == n ? 'on' : '';
+  [1, 2, 3].forEach(function(i) {
+    var sec = document.getElementById('s' + i);
+    if (sec) sec.style.display = i === n ? 'block' : 'none';
+    var btn = document.getElementById('t' + i);
+    if (btn) btn.classList.toggle('on', i === n);
   });
+  if (n === 2) renderApprovals();
 }
 
 function checkBuilderAccess() {
+  var isManagerPlus = MOCK_CURRENT_USER.role === 'admin' || MOCK_CURRENT_USER.role === 'manager';
   if (!MOCK_CURRENT_USER.permissions.includes('workflow_builder')) {
-    document.getElementById('t2').style.display = 'none';
+    var t3 = document.getElementById('t3');
+    if (t3) t3.style.display = 'none';
+  }
+  if (!isManagerPlus) {
+    var t2 = document.getElementById('t2');
+    if (t2) t2.style.display = 'none';
   }
 }
 
 checkBuilderAccess();
 renderBuilder();
+renderApprovals();
 // Restore active checklist from URL hash on page load
 (function(){var h=location.hash.match(/checklist=([^&]+)/);if(h){var tpl=MOCK_TEMPLATES.find(function(t){return t.id===h[1]});if(tpl){fillState.activeTemplate=tpl;fillState.view='runner'}}})();
 renderFillOut();
