@@ -265,12 +265,33 @@ test.describe('Approval flow', () => {
     expect(await items.count()).toBeGreaterThan(0);
   });
 
-  test('approve removes card and shows toast', async ({ page }) => {
+  test('approve shows approved status with unapprove option', async ({ page }) => {
     await submitSetupForApproval(page);
     await page.click('#t2');
     await page.click('[data-action="approve"]');
     await expect(page.locator('#toast')).toContainText('Approved');
-    await expect(page.locator('.approval-card')).toHaveCount(0);
+    // Card moves to APPROVED section with green badge and unapprove button
+    await expect(page.locator('#approvals-body').getByText('Approved ✓')).toBeVisible();
+    await expect(page.locator('[data-action="unapprove"]')).toBeVisible();
+  });
+
+  test('unapprove requires reason and returns to pending', async ({ page }) => {
+    await submitSetupForApproval(page);
+    await page.click('#t2');
+    await page.click('[data-action="approve"]');
+    await page.waitForTimeout(300);
+    // Tap unapprove
+    await page.click('[data-action="unapprove"]');
+    await expect(page.locator('.unapprove-reason')).toBeVisible();
+    // Empty confirm does nothing
+    await page.click('[data-action="unapprove-confirm"]');
+    await expect(page.locator('.unapprove-reason')).toBeVisible();
+    // Add reason and confirm
+    await page.locator('.unapprove-reason').fill('Approved by accident');
+    await page.click('[data-action="unapprove-confirm"]');
+    await expect(page.locator('#toast')).toContainText('Unapproved');
+    // Card should be back in PENDING section with approve/reject buttons
+    await expect(page.locator('[data-action="approve"]')).toBeVisible();
   });
 
   test('reject requires flagging at least one item', async ({ page }) => {

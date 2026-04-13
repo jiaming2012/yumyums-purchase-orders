@@ -607,6 +607,56 @@ Response 200:
 { "status": "approved", "reviewed_by": "Sarah K.", "reviewed_at": "2026-04-13T14:20:00Z" }
 ```
 
+##### POST /api/v1/checklists/approvals/:submission_id/unapprove
+
+Revoke a previous approval. Requires a reason. Returns the submission to `pending` status.
+
+Request:
+```json
+{
+  "reason": "Approved by accident — need to review temperature readings"
+}
+```
+
+Response 200:
+```json
+{ "status": "pending", "unapproved_by": "Sarah K.", "unapproved_at": "2026-04-13T14:25:00Z" }
+```
+
+Response 400: `{ "error": "reason_required" }` — reason cannot be empty.
+Response 404: Submission not found or not in `approved` status.
+
+---
+
+##### Audit Trail
+
+All approval actions (approve, reject, unapprove) are recorded in a `submission_audit_log` table for compliance:
+
+```sql
+CREATE TABLE submission_audit_log (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  submission_id UUID NOT NULL REFERENCES checklist_submissions(id) ON DELETE CASCADE,
+  action        TEXT NOT NULL CHECK (action IN ('approved', 'rejected', 'unapproved')),
+  performed_by  UUID NOT NULL REFERENCES users(id),
+  performed_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  reason        TEXT,                          -- required for reject and unapprove; NULL for approve
+  details       JSONB                          -- rejected_items array for reject; NULL for approve/unapprove
+);
+
+CREATE INDEX audit_log_submission_idx ON submission_audit_log(submission_id);
+CREATE INDEX audit_log_action_idx ON submission_audit_log(action);
+```
+
+**Query example — full audit trail for a submission:**
+```sql
+SELECT action, performed_by, performed_at, reason
+FROM submission_audit_log
+WHERE submission_id = $1
+ORDER BY performed_at ASC;
+```
+
+---
+
 ##### POST /api/v1/checklists/approvals/:submission_id/reject
 
 Item-level rejection. Manager flags specific items with comments and optional photo requirements.

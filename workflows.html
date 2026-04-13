@@ -1051,11 +1051,12 @@ function renderApprovals() {
   var body = document.getElementById('approvals-body');
   if (!body) return;
   var keys = Object.keys(PENDING_APPROVALS);
-  if (keys.length === 0) {
+  var approvedKeys = Object.keys(APPROVED_SUBMISSIONS);
+  if (keys.length === 0 && approvedKeys.length === 0) {
     body.innerHTML = '<div class="empty-state"><h2>No pending approvals.</h2><p>All submitted checklists have been reviewed.</p></div>';
     return;
   }
-  body.innerHTML = keys.map(function(tplId) {
+  var pendingHtml = keys.map(function(tplId) {
     var entry = PENDING_APPROVALS[tplId];
     var tpl = MOCK_TEMPLATES.find(function(t){return t.id===tplId});
     if (!tpl) return '';
@@ -1087,6 +1088,22 @@ function renderApprovals() {
       '<button class="btn-reject" data-action="reject-submit" data-tpl-id="' + tplId + '" style="margin-top:8px">' + (rejCount > 0 ? 'Reject ' + rejCount + ' item' + (rejCount > 1 ? 's' : '') : 'Reject') + '</button>' +
       '</div></div>';
   }).join('');
+  // Approved submissions
+  var approvedHtml = approvedKeys.map(function(tplId) {
+    var entry = APPROVED_SUBMISSIONS[tplId];
+    return '<div class="approval-card card" data-tpl-id="' + tplId + '" style="opacity:0.85">' +
+      '<div class="hd"><h1>' + escapeHtml(entry.tplName) + '</h1>' +
+      '<div class="sub">' + escapeHtml(entry.submittedBy) + ' · ' + formatTime(new Date(entry.submittedAt)) + '</div>' +
+      '<div style="margin-top:6px"><span style="display:inline-block;padding:4px 10px;border-radius:10px;background:#27ae60;color:#fff;font-size:12px;font-weight:500">Approved ✓</span>' +
+      '<span style="font-size:12px;color:var(--mut);margin-left:8px">by ' + escapeHtml(entry.approvedBy) + ' · ' + formatTime(new Date(entry.approvedAt)) + '</span></div></div>' +
+      '<div class="approval-actions" style="padding:16px;margin-top:8px;background:var(--bg);border-radius:0 0 12px 12px">' +
+      '<button class="btn-reject" data-action="unapprove" data-tpl-id="' + tplId + '">Unapprove</button>' +
+      '</div></div>';
+  }).join('');
+  var html = '';
+  if (pendingHtml) html += '<div class="cat">PENDING</div>' + pendingHtml;
+  if (approvedHtml) html += '<div class="cat" style="margin-top:12px">APPROVED</div>' + approvedHtml;
+  body.innerHTML = html;
 }
 
 function renderChecklistList() {
@@ -1542,6 +1559,48 @@ document.getElementById('approvals-body').addEventListener('click', function(e) 
     delete PENDING_APPROVALS[tplId];
     SUBMITTED_TEMPLATES[tplId] = true;
     showToast('Approved ✓');
+    renderApprovals();
+    renderFillOut();
+    return;
+  }
+
+  if (action === 'unapprove') {
+    var tplId = actionEl.dataset.tplId;
+    var card = actionEl.closest('.approval-card');
+    var actions = card.querySelector('.approval-actions');
+    if (!actions.querySelector('.unapprove-reason')) {
+      var ta = document.createElement('textarea');
+      ta.className = 'rejection-reason unapprove-reason';
+      ta.rows = 3; ta.placeholder = 'Reason for unapproving\u2026'; ta.style.marginTop = '8px';
+      var confirmBtn = document.createElement('button');
+      confirmBtn.className = 'btn-reject-confirm';
+      confirmBtn.style.marginTop = '8px';
+      confirmBtn.textContent = 'Confirm unapproval';
+      confirmBtn.dataset.action = 'unapprove-confirm';
+      confirmBtn.dataset.tplId = tplId;
+      actions.appendChild(ta); actions.appendChild(confirmBtn);
+      ta.focus();
+    }
+    return;
+  }
+
+  if (action === 'unapprove-confirm') {
+    var tplId = actionEl.dataset.tplId;
+    var card = actionEl.closest('.approval-card');
+    var reason = card.querySelector('.unapprove-reason').value.trim();
+    if (!reason) {
+      card.querySelector('.unapprove-reason').style.borderColor = '#c0392b';
+      return;
+    }
+    var entry = APPROVED_SUBMISSIONS[tplId];
+    if (!entry) return;
+    // Move back to pending
+    PENDING_APPROVALS[tplId] = Object.assign({}, entry);
+    delete PENDING_APPROVALS[tplId].approvedBy;
+    delete PENDING_APPROVALS[tplId].approvedAt;
+    delete APPROVED_SUBMISSIONS[tplId];
+    delete SUBMITTED_TEMPLATES[tplId];
+    showToast('Unapproved — returned to pending');
     renderApprovals();
     renderFillOut();
     return;
