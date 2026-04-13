@@ -9,14 +9,14 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Fill-Out View
 
-- [ ] **FILL-01**: Crew member can see a list of available workflow checklists to complete
-- [ ] **FILL-02**: Crew member can open a checklist and see items grouped by sections (e.g., Equipment, Food Prep, Cleaning)
-- [ ] **FILL-03**: Crew member can check off checkbox / yes-no items with large touch targets
-- [ ] **FILL-04**: Crew member can enter text notes on any item
-- [ ] **FILL-05**: Crew member can enter temperature readings with unit display (°F)
+- [x] **FILL-01**: Crew member can see a list of available workflow checklists to complete
+- [x] **FILL-02**: Crew member can open a checklist and see items grouped by sections (e.g., Equipment, Food Prep, Cleaning)
+- [x] **FILL-03**: Crew member can check off checkbox / yes-no items with large touch targets
+- [x] **FILL-04**: Crew member can enter text notes on any item
+- [x] **FILL-05**: Crew member can enter temperature readings with unit display (°F)
 - [ ] **FILL-06**: Crew member can capture a photo using the device camera for a photo field
-- [ ] **FILL-07**: Each completed item shows who checked it (user attribution)
-- [ ] **FILL-08**: Crew member can see completion progress (e.g., "7 of 12 items complete")
+- [x] **FILL-07**: Each completed item shows who checked it (user attribution)
+- [x] **FILL-08**: Crew member can see completion progress (e.g., "7 of 12 items complete")
 
 ### Conditional Logic
 
@@ -99,13 +99,13 @@ Which phases cover which requirements. Updated during roadmap creation.
 | BLDR-06 | Phase 1 | Complete |
 | BLDR-07 | Phase 1 | Complete |
 | BLDR-08 | Phase 1 | Complete |
-| FILL-01 | Phase 2 | Pending |
-| FILL-02 | Phase 2 | Pending |
-| FILL-03 | Phase 2 | Pending |
-| FILL-04 | Phase 2 | Pending |
-| FILL-05 | Phase 2 | Pending |
-| FILL-07 | Phase 2 | Pending |
-| FILL-08 | Phase 2 | Pending |
+| FILL-01 | Phase 2 | Complete |
+| FILL-02 | Phase 2 | Complete |
+| FILL-03 | Phase 2 | Complete |
+| FILL-04 | Phase 2 | Complete |
+| FILL-05 | Phase 2 | Complete |
+| FILL-07 | Phase 2 | Complete |
+| FILL-08 | Phase 2 | Complete |
 | COND-01 | Phase 2 | Pending |
 | COND-02 | Phase 2 | Pending |
 | COND-03 | Phase 2 | Pending |

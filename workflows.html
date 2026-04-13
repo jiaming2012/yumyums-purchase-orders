@@ -74,6 +74,19 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .empty-state{text-align:center;padding:32px 16px;color:var(--mut)}
 .empty-state h2{font-size:15px;font-weight:500;color:var(--txt);margin:0 0 8px}
 .empty-state p{font-size:14px;margin:0}
+.fill-field{padding:12px 16px;border-bottom:0.5px solid var(--brd)}
+.fill-field:last-child{border-bottom:none}
+.fill-field-row{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.fill-field-label{font-size:14px;font-weight:500;margin-bottom:6px}
+.fill-attribution{font-size:11px;color:var(--mut);margin-top:4px}
+.check-btn{width:44px;height:44px;border-radius:10px;border:1.5px solid var(--brd);background:transparent;color:var(--info-tx);font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.check-btn.checked{background:var(--info-bg);border-color:var(--info-tx)}
+.yes-no-row{display:flex;gap:8px;margin-top:6px}
+.yn-btn{flex:1;padding:12px;border-radius:8px;border:0.5px solid var(--brd);background:transparent;color:var(--txt);font-size:14px;font-weight:500;cursor:pointer}
+.yn-btn.yn-yes{background:var(--info-bg);color:var(--info-tx);border-color:var(--info-tx)}
+.yn-btn.yn-no{background:var(--warn-bg);color:var(--warn-tx);border-color:var(--warn-tx)}
+.fill-textarea{width:100%;padding:10px 12px;background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;font-size:14px;color:var(--txt);font-family:inherit;outline:none;resize:none;-webkit-appearance:none}
+.fill-textarea:focus{border-color:var(--info-tx)}
 </style>
 <script src="https://unpkg.com/sortablejs@1.15.7/Sortable.min.js"></script>
 </head>
@@ -84,7 +97,7 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
   <button id="t1" class="on" onclick="show(1)">Fill Out</button>
   <button id="t2" onclick="show(2)">Builder</button>
 </div>
-<div id="s1"><p style="padding:16px;color:var(--mut)">Fill-out view coming in Phase 2.</p></div>
+<div id="s1"><div id="fill-body"></div></div>
 <div id="s2" style="display:none"><div id="builder-body"></div></div>
 </div>
 
@@ -812,6 +825,209 @@ document.getElementById('builder-body').addEventListener('change', function(e) {
   }
 });
 
+// ─── Fill-out Tab ────────────────────────────────────────────────────────────
+
+const MOCK_RESPONSES = {}; // { [fieldId]: { value: any, answeredBy: string } }
+
+let fillState = {
+  view: 'list',
+  activeTemplate: null
+};
+
+function getTodayTemplates() {
+  const today = new Date().getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+  return MOCK_TEMPLATES.filter(tpl => {
+    if (!tpl.active_days || tpl.active_days.length === 0) return true;
+    return tpl.active_days.includes(today);
+  });
+}
+
+function renderFillOut() {
+  const body = document.getElementById('fill-body');
+  if (!body) return;
+  if (fillState.view === 'list') {
+    body.innerHTML = renderChecklistList();
+  } else {
+    body.innerHTML = renderRunner();
+    attachRunnerListeners();
+  }
+}
+
+function renderChecklistList() {
+  const today = getTodayTemplates();
+  if (today.length === 0) {
+    return `<div class="empty-state"><h2>No checklists today</h2><p>Check back tomorrow or contact your manager.</p></div>`;
+  }
+  const rows = today.map(tpl => {
+    const secCount = tpl.sections.length;
+    const fieldCount = tpl.sections.reduce((sum, s) => sum + s.fields.length, 0);
+    return `<div class="row" data-fill-template-id="${tpl.id}" style="cursor:pointer"><div><div class="nm">${escapeHtml(tpl.name)}</div><div class="mt">${secCount} section${secCount !== 1 ? 's' : ''} · ${fieldCount} item${fieldCount !== 1 ? 's' : ''}</div></div></div>`;
+  }).join('');
+  return `<div class="cat">TODAY'S CHECKLISTS</div><div class="card">${rows}</div>`;
+}
+
+function renderRunner() {
+  const tpl = fillState.activeTemplate;
+  const allFields = tpl.sections.flatMap(s => s.fields);
+  const answered = allFields.filter(f => MOCK_RESPONSES[f.id] !== undefined).length;
+  const sectionsHtml = tpl.sections.map(sec => renderRunnerSection(sec)).join('');
+  return `<button class="editor-back" id="fill-back">Checklists</button>
+<div style="padding:10px 16px 0;font-size:13px;color:var(--mut)" class="progress-line">${answered} of ${allFields.length} items complete</div>
+${sectionsHtml}
+<button class="btn-primary" id="submit-btn" style="margin-top:8px">Submit checklist</button>`;
+}
+
+function renderRunnerSection(sec) {
+  const fieldsHtml = sec.fields.map(f => renderRunnerField(f)).join('');
+  return `<div class="sec-hd"><span>${escapeHtml(sec.title)}</span></div><div class="card">${fieldsHtml}</div>`;
+}
+
+function renderRunnerField(fld) {
+  const answered = MOCK_RESPONSES[fld.id] !== undefined;
+  const resp = answered ? MOCK_RESPONSES[fld.id] : null;
+  const attribution = answered ? `<div class="fill-attribution">${escapeHtml(resp.answeredBy)}</div>` : '';
+
+  if (fld.type === 'checkbox') {
+    return `<div class="fill-field" data-field-id="${fld.id}">
+  <div class="fill-field-row">
+    <div class="fill-field-label" style="margin-bottom:0">${escapeHtml(fld.label)}</div>
+    <button class="check-btn ${answered ? 'checked' : ''}" data-field-id="${fld.id}" aria-label="Toggle checkbox">${answered ? '✓' : ''}</button>
+  </div>
+  ${attribution}
+</div>`;
+  }
+
+  if (fld.type === 'yes_no') {
+    const isYes = answered && resp.value === true;
+    const isNo = answered && resp.value === false;
+    return `<div class="fill-field" data-field-id="${fld.id}">
+  <div class="fill-field-label">${escapeHtml(fld.label)}</div>
+  <div class="yes-no-row">
+    <button class="yn-btn ${isYes ? 'yn-yes' : ''}" data-field-id="${fld.id}" data-value="true">Yes</button>
+    <button class="yn-btn ${isNo ? 'yn-no' : ''}" data-field-id="${fld.id}" data-value="false">No</button>
+  </div>
+  ${attribution}
+</div>`;
+  }
+
+  if (fld.type === 'text') {
+    return `<div class="fill-field" data-field-id="${fld.id}">
+  <label class="fill-field-label" for="txt-${fld.id}">${escapeHtml(fld.label)}</label>
+  <textarea id="txt-${fld.id}" class="fill-textarea" data-field-id="${fld.id}" rows="3" placeholder="Enter notes...">${answered ? escapeHtml(resp.value) : ''}</textarea>
+  ${attribution}
+</div>`;
+  }
+
+  if (fld.type === 'temperature') {
+    return `<div class="fill-field" data-field-id="${fld.id}">
+  <label class="fill-field-label" for="temp-${fld.id}">${escapeHtml(fld.label)}</label>
+  <div style="display:flex;align-items:center;gap:8px">
+    <input type="number" id="temp-${fld.id}" class="fill-temp-input" data-field-id="${fld.id}" value="${answered ? resp.value : ''}" placeholder="0" style="flex:1;padding:11px 12px;background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;font-size:18px;color:var(--txt);font-family:inherit;outline:none;-webkit-appearance:none">
+    <span style="font-size:16px;color:var(--mut)">°F</span>
+  </div>
+  ${attribution}
+</div>`;
+  }
+
+  if (fld.type === 'photo') {
+    return `<div class="fill-field" data-field-id="${fld.id}">
+  <div class="fill-field-label">${escapeHtml(fld.label)}</div>
+  <div style="padding:8px 0;color:var(--mut);font-size:13px">Photo capture coming in Phase 3</div>
+</div>`;
+  }
+
+  return `<div class="fill-field" data-field-id="${fld.id}"><div class="fill-field-label">${escapeHtml(fld.label)}</div></div>`;
+}
+
+function attachRunnerListeners() {
+  document.querySelectorAll('.fill-textarea').forEach(el => {
+    el.addEventListener('blur', function() {
+      if (this.value.trim()) {
+        MOCK_RESPONSES[this.dataset.fieldId] = { value: this.value.trim(), answeredBy: MOCK_CURRENT_USER.name };
+        updateProgress();
+      }
+    });
+  });
+  document.querySelectorAll('.fill-temp-input').forEach(el => {
+    el.addEventListener('blur', function() {
+      if (this.value !== '') {
+        MOCK_RESPONSES[this.dataset.fieldId] = { value: +this.value, answeredBy: MOCK_CURRENT_USER.name };
+        updateProgress();
+      }
+    });
+  });
+}
+
+function updateProgress() {
+  if (!fillState.activeTemplate) return;
+  const allFields = fillState.activeTemplate.sections.flatMap(s => s.fields);
+  const answered = allFields.filter(f => MOCK_RESPONSES[f.id] !== undefined).length;
+  const el = document.querySelector('#fill-body .progress-line');
+  if (el) el.textContent = answered + ' of ' + allFields.length + ' items complete';
+}
+
+document.getElementById('fill-body').addEventListener('click', function(e) {
+  // Checklist list row → open runner
+  const fillRow = e.target.closest('[data-fill-template-id]');
+  if (fillRow) {
+    const tpl = MOCK_TEMPLATES.find(t => t.id === fillRow.dataset.fillTemplateId);
+    if (tpl) {
+      fillState.activeTemplate = tpl;
+      fillState.view = 'runner';
+      renderFillOut();
+    }
+    return;
+  }
+
+  // Back button in runner
+  if (e.target.closest('#fill-back')) {
+    fillState.view = 'list';
+    fillState.activeTemplate = null;
+    renderFillOut();
+    return;
+  }
+
+  // Checkbox button
+  const checkBtn = e.target.closest('.check-btn');
+  if (checkBtn) {
+    const fldId = checkBtn.dataset.fieldId;
+    if (MOCK_RESPONSES[fldId]) {
+      delete MOCK_RESPONSES[fldId];
+    } else {
+      MOCK_RESPONSES[fldId] = { value: true, answeredBy: MOCK_CURRENT_USER.name };
+    }
+    const fieldDiv = document.querySelector(`.fill-field[data-field-id="${fldId}"]`);
+    const tplField = fillState.activeTemplate.sections.flatMap(s => s.fields).find(f => f.id === fldId);
+    if (fieldDiv && tplField) fieldDiv.outerHTML = renderRunnerField(tplField);
+    updateProgress();
+    return;
+  }
+
+  // Yes/No button
+  const ynBtn = e.target.closest('.yn-btn');
+  if (ynBtn) {
+    const fldId = ynBtn.dataset.fieldId;
+    const val = ynBtn.dataset.value === 'true';
+    MOCK_RESPONSES[fldId] = { value: val, answeredBy: MOCK_CURRENT_USER.name };
+    const fieldDiv = document.querySelector(`.fill-field[data-field-id="${fldId}"]`);
+    const tplField = fillState.activeTemplate.sections.flatMap(s => s.fields).find(f => f.id === fldId);
+    if (fieldDiv && tplField) fieldDiv.outerHTML = renderRunnerField(tplField);
+    updateProgress();
+    return;
+  }
+
+  // Submit button
+  if (e.target.closest('#submit-btn')) {
+    alert('Checklist submitted! (mock — no persistence)');
+    fillState.view = 'list';
+    fillState.activeTemplate = null;
+    renderFillOut();
+    return;
+  }
+});
+
+// ─── Tab switching ────────────────────────────────────────────────────────────
+
 function show(n) {
   [1, 2].forEach(i => {
     document.getElementById('s' + i).style.display = i == n ? 'block' : 'none';
@@ -827,6 +1043,7 @@ function checkBuilderAccess() {
 
 checkBuilderAccess();
 renderBuilder();
+renderFillOut();
 document.addEventListener('dblclick', e => e.preventDefault());
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
 </script>
