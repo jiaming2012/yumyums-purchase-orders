@@ -202,8 +202,8 @@ function fireworks(){
 
 function showSuccessCheck(){
   var overlay=document.createElement('div');
-  overlay.style.cssText='position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.6);z-index:10000;display:flex;align-items:center;justify-content:center';
-  overlay.innerHTML='<div style="width:120px;height:120px;border-radius:60px;background:#27ae60;display:flex;align-items:center;justify-content:center;animation:checkPop .4s ease-out"><span style="font-size:64px;color:#fff">✓</span></div>';
+  overlay.style.cssText='position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.6);z-index:10000;display:flex;align-items:center;justify-content:center;padding-bottom:15vh';
+  overlay.innerHTML='<div style="width:160px;height:160px;border-radius:80px;background:#27ae60;display:flex;align-items:center;justify-content:center;animation:checkPop .4s ease-out"><span style="font-size:88px;color:#fff">✓</span></div>';
   var style=document.createElement('style');
   style.textContent='@keyframes checkPop{0%{transform:scale(0);opacity:0}60%{transform:scale(1.2)}100%{transform:scale(1);opacity:1}}';
   document.head.appendChild(style);
