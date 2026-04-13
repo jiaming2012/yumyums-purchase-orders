@@ -515,3 +515,222 @@ test.describe('URL hash persistence', () => {
     expect(page.url()).not.toContain('#checklist');
   });
 });
+
+// ─── Photo Capture UI ───────────────────────────────────────────────────────
+
+test.describe('Photo capture UI', () => {
+  test('photo field shows capture button', async ({ page }) => {
+    await page.goto('/workflows.html');
+    await page.click('[data-fill-template-id="tpl_setup"]');
+    await expect(page.locator('[data-action="photo-capture"]')).toBeVisible();
+  });
+
+  test('corrective action card has functional photo button', async ({ page }) => {
+    await page.goto('/workflows.html');
+    await page.click('[data-fill-template-id="tpl_setup"]');
+    // Trigger a fail card via No answer
+    await page.locator('[data-action="set-no"]').first().click();
+    const failCard = page.locator('.fail-card').first();
+    await expect(failCard.locator('[data-action="fail-photo-capture"]')).toBeVisible();
+    // Should NOT say "Coming in Phase 3"
+    await expect(failCard).not.toContainText('Coming in Phase 3');
+  });
+});
+
+// ─── Assignable Checklists (Builder) ────────────────────────────────────────
+
+test.describe('Assignable checklists', () => {
+  test('builder editor shows Assigned To and Approver pickers', async ({ page }) => {
+    await page.goto('/workflows.html');
+    await page.click('#t3');
+    // Open Setup Checklist (has requires_approval: true)
+    await page.locator('[data-template-id="tpl_setup"]').click();
+    await expect(page.getByText('Assigned to')).toBeVisible();
+    await expect(page.getByText('Approver', { exact: true })).toBeVisible();
+  });
+
+  test('assigned-to role chips toggle', async ({ page }) => {
+    await page.goto('/workflows.html');
+    await page.click('#t3');
+    await page.locator('[data-template-id="tpl_setup"]').click();
+    // team_member should be on by default
+    const tmChip = page.locator('[data-action="toggle-assign-role"][data-role="team_member"]');
+    await expect(tmChip).toHaveClass(/on/);
+    // Toggle admin on
+    const adminChip = page.locator('[data-action="toggle-assign-role"][data-role="admin"]');
+    await adminChip.click();
+    await expect(adminChip).toHaveClass(/on/);
+    // Toggle it off
+    await adminChip.click();
+    await expect(adminChip).not.toHaveClass(/on/);
+  });
+
+  test('approver user chips toggle', async ({ page }) => {
+    await page.goto('/workflows.html');
+    await page.click('#t3');
+    await page.locator('[data-template-id="tpl_setup"]').click();
+    const userChip = page.locator('[data-action="toggle-approver-user"]').first();
+    await userChip.click();
+    await expect(userChip).toHaveClass(/on/);
+    await userChip.click();
+    await expect(userChip).not.toHaveClass(/on/);
+  });
+
+  test('approver section hidden when requires_approval unchecked', async ({ page }) => {
+    await page.goto('/workflows.html');
+    await page.click('#t3');
+    // Open Closing Checklist (requires_approval: false)
+    await page.locator('[data-template-id="tpl_closing"]').click();
+    await expect(page.getByText('Assigned to')).toBeVisible();
+    // Approver label should not exist (requires_approval is false)
+    await expect(page.getByText('Approver', { exact: true })).toHaveCount(0);
+  });
+});
+
+// ─── Rejection with Required Photo ──────────────────────────────────────────
+
+test.describe('Rejection with required photo', () => {
+  async function submitAndRejectWithPhoto(page) {
+    await page.goto('/workflows.html');
+    await page.click('[data-fill-template-id="tpl_setup"]');
+    await page.locator('[data-action="set-yes"]').first().click();
+    await page.click('[data-action="submit"]');
+    await page.waitForTimeout(500);
+    await page.click('#t2');
+    // Flag first item with require photo
+    await page.locator('[data-action="toggle-reject-item"]').first().click();
+    await page.locator('.reject-item-input').first().fill('Retake photo');
+    await page.locator('[data-reject-photo-fld]').first().check();
+    await page.click('[data-action="reject-submit"]');
+    await page.waitForTimeout(300);
+  }
+
+  test('rejected item with required photo shows photo requirement in banner', async ({ page }) => {
+    await submitAndRejectWithPhoto(page);
+    await page.click('#t1');
+    await page.click('[data-fill-template-id="tpl_setup"]');
+    const banner = page.locator('.correction-banner').first();
+    await expect(banner).toContainText('Photo required');
+  });
+
+  test('submit blocked when required photo missing', async ({ page }) => {
+    await submitAndRejectWithPhoto(page);
+    await page.click('#t1');
+    await page.click('[data-fill-template-id="tpl_setup"]');
+    // Re-answer the flagged item (the yes/no that was rejected)
+    const yesBtn = page.locator('[data-action="set-yes"]').first();
+    if (await yesBtn.isVisible()) await yesBtn.click();
+    // Try to submit without providing the required photo
+    const submitBtn = page.locator('[data-action="submit"]');
+    if (await submitBtn.isVisible()) {
+      await submitBtn.click();
+      await expect(page.locator('#toast')).toContainText('Photo required');
+    }
+  });
+});
+
+// ─── Builder: Field Type Picker ─────────────────────────────────────────────
+
+test.describe('Builder field management', () => {
+  test('field type picker shows all 5 types', async ({ page }) => {
+    await page.goto('/workflows.html');
+    await page.click('#t3');
+    await page.click('text=+ New checklist');
+    page.on('dialog', dialog => dialog.accept('Test Section'));
+    await page.click('text=+ Add section');
+    await page.click('text=+ Add field');
+    await expect(page.locator('.field-type-picker .row')).toHaveCount(5);
+  });
+
+  test('adding a checkbox field shows it in the section', async ({ page }) => {
+    await page.goto('/workflows.html');
+    await page.click('#t3');
+    await page.click('text=+ New checklist');
+    page.on('dialog', dialog => dialog.accept('My Section'));
+    await page.click('text=+ Add section');
+    await page.click('text=+ Add field');
+    await page.locator('.field-type-picker .row', { hasText: 'Checkbox' }).click();
+    await expect(page.locator('.field-row')).toHaveCount(1);
+    await expect(page.locator('.field-type-pill')).toContainText('checkbox');
+  });
+
+  test('deleting a field removes it', async ({ page }) => {
+    await page.goto('/workflows.html');
+    await page.click('#t3');
+    await page.click('text=+ New checklist');
+    page.on('dialog', dialog => dialog.accept('My Section'));
+    await page.click('text=+ Add section');
+    await page.click('text=+ Add field');
+    await page.locator('.field-type-picker .row', { hasText: 'Checkbox' }).click();
+    await expect(page.locator('.field-row')).toHaveCount(1);
+    await page.locator('.field-delete').first().click();
+    await expect(page.locator('.field-row')).toHaveCount(0);
+  });
+});
+
+// ─── Builder: Sub-Step Management ───────────────────────────────────────────
+
+test.describe('Builder sub-step management', () => {
+  test('expanding a checkbox field shows sub-step controls', async ({ page }) => {
+    await page.goto('/workflows.html');
+    await page.click('#t3');
+    await page.click('text=+ New checklist');
+    page.on('dialog', dialog => dialog.accept('Section'));
+    await page.click('text=+ Add section');
+    await page.click('text=+ Add field');
+    await page.locator('.field-type-picker .row', { hasText: 'Checkbox' }).click();
+    // Tap field to expand
+    await page.locator('.field-row-tap').first().click();
+    await expect(page.getByText('SUB-STEPS', { exact: true })).toBeVisible();
+    await expect(page.locator('[data-action="add-sub-step"]')).toBeVisible();
+  });
+
+  test('adding and removing sub-steps', async ({ page }) => {
+    await page.goto('/workflows.html');
+    await page.click('#t3');
+    await page.click('text=+ New checklist');
+    page.on('dialog', dialog => dialog.accept('Section'));
+    await page.click('text=+ Add section');
+    await page.click('text=+ Add field');
+    await page.locator('.field-type-picker .row', { hasText: 'Checkbox' }).click();
+    await page.locator('.field-row-tap').first().click();
+    // Add 2 sub-steps
+    await page.click('[data-action="add-sub-step"]');
+    await page.click('[data-action="add-sub-step"]');
+    await expect(page.locator('.sub-step-label')).toHaveCount(2);
+    // Delete one
+    await page.locator('[data-action="delete-sub-step"]').first().click();
+    await expect(page.locator('.sub-step-label')).toHaveCount(1);
+  });
+});
+
+// ─── Builder: Day-of-Week Chips ─────────────────────────────────────────────
+
+test.describe('Builder day-of-week chips', () => {
+  test('section day chips toggle', async ({ page }) => {
+    await page.goto('/workflows.html');
+    await page.click('#t3');
+    await page.locator('[data-template-id="tpl_setup"]').click();
+    // Find a day chip on a section
+    const chip = page.locator('.day-chip[data-target-type="section"]').first();
+    const wasOn = await chip.evaluate(el => el.classList.contains('on'));
+    await chip.click();
+    const isOn = await chip.evaluate(el => el.classList.contains('on'));
+    expect(isOn).not.toBe(wasOn);
+  });
+});
+
+// ─── Builder: Temperature Settings ──────────────────────────────────────────
+
+test.describe('Builder temperature settings', () => {
+  test('temperature field shows min/max inputs when expanded', async ({ page }) => {
+    await page.goto('/workflows.html');
+    await page.click('#t3');
+    await page.locator('[data-template-id="tpl_setup"]').click();
+    // Find and tap the temperature field
+    const tempRow = page.locator('.field-row', { hasText: 'temperature' });
+    await tempRow.locator('.field-row-tap').click();
+    await expect(page.locator('.fld-temp-min')).toBeVisible();
+    await expect(page.locator('.fld-temp-max')).toBeVisible();
+  });
+});

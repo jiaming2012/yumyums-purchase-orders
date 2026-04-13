@@ -1030,7 +1030,16 @@ const REJECTION_FLAGS = {}; // { [fldId]: { comment, requirePhoto } } — flags 
 const WAS_REJECTED = {};    // { [tplId]: true } — tracks if a checklist was ever rejected (survives flag clearing)
 
 // Named mutation helpers (used inline in event handlers and referenced by name for traceability)
-function clearRejectionFlag(fldId) { if (REJECTION_FLAGS[fldId]) delete REJECTION_FLAGS[fldId]; }
+function clearRejectionFlag(fldId) {
+  if (!REJECTION_FLAGS[fldId]) return;
+  // Keep the flag if photo is required but not yet provided
+  if (REJECTION_FLAGS[fldId].requirePhoto) {
+    var resp = MOCK_RESPONSES[fldId];
+    var hasPhoto = resp && resp.value && typeof resp.value === 'string' && resp.value.startsWith('blob:');
+    if (!hasPhoto) return; // keep flag — photo still needed
+  }
+  delete REJECTION_FLAGS[fldId];
+}
 
 function setYesNo(fldId, value) {
   clearRejectionFlag(fldId);
