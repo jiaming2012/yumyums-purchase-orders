@@ -97,7 +97,15 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .severity-pill.on{background:var(--info-bg);color:var(--info-tx);border-color:var(--info-tx)}
 .temp-warn{font-size:12px;color:var(--warn-tx);margin:4px 16px 0;display:block}
 .temp-input-row{display:flex;align-items:center;gap:4px;padding:4px 16px 8px}
-.photo-stub-btn{padding:8px 12px;background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;font-size:14px;opacity:0.6;cursor:not-allowed;font-family:inherit}
+.photo-stub-btn{padding:8px 12px;background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;font-size:14px;cursor:pointer;font-family:inherit}
+.photo-modal{position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.85);z-index:1000;display:flex;align-items:center;justify-content:center;flex-direction:column}
+.photo-preview{max-width:100%;max-height:70vh;object-fit:contain}
+.photo-modal-actions{position:fixed;bottom:32px;left:0;right:0;display:flex;justify-content:center;gap:16px;align-items:center}
+.photo-confirm-btn{min-width:56px;min-height:56px;border-radius:28px;background:var(--info-bg);color:var(--info-tx);border:none;font-size:24px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.photo-retake-btn{padding:12px 16px;background:transparent;color:var(--info-tx);border:none;font-size:14px;font-weight:500;cursor:pointer;min-height:44px;font-family:inherit}
+.photo-thumb{width:72px;height:72px;border-radius:8px;object-fit:cover;border:0.5px solid var(--brd)}
+.photo-capture-btn{padding:8px 12px;background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;font-size:14px;cursor:pointer;font-family:inherit;color:var(--txt)}
+.photo-retake-link{background:none;border:none;color:var(--info-tx);font-size:12px;cursor:pointer;padding:0;font-family:inherit}
 .submit-confirm{display:block;text-align:center;font-size:14px;color:var(--mut);margin-top:8px}
 .fail-note-input{width:100%;padding:10px 12px;background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;font-size:14px;color:var(--txt);font-family:inherit;outline:none;resize:none;-webkit-appearance:none;margin-top:8px}
 .fail-note-input:focus{border-color:var(--info-tx)}
@@ -169,6 +177,40 @@ function fireworks(){
 function showToast(msg){var t=document.getElementById('toast');t.textContent=msg;t.style.display='block';requestAnimationFrame(function(){t.style.opacity='1'});setTimeout(function(){t.style.opacity='0';setTimeout(function(){t.style.display='none'},300)},2000)}
 
 function formatTime(d){if(!d)return'';var h=d.getHours(),m=d.getMinutes(),ap=h>=12?'p':'a';h=h%12||12;return h+':'+(m<10?'0':'')+m+ap}
+
+function openCamera(onCapture) {
+  var inp = document.createElement('input');
+  inp.type = 'file';
+  inp.accept = 'image/*';
+  inp.capture = 'environment';
+  inp.style.cssText = 'position:fixed;top:-100px;left:-100px;opacity:0;pointer-events:none';
+  document.body.appendChild(inp);
+  var cleanup = setTimeout(function() { if (inp.parentNode) inp.parentNode.removeChild(inp); }, 30000);
+  inp.addEventListener('change', function() {
+    clearTimeout(cleanup);
+    var file = inp.files && inp.files[0];
+    if (inp.parentNode) inp.parentNode.removeChild(inp);
+    if (file) onCapture(file);
+  });
+  inp.click();
+}
+
+function showPhotoPreview(objectURL, onConfirm, onRetake) {
+  var modal = document.createElement('div');
+  modal.className = 'photo-modal';
+  modal.innerHTML = '<img class="photo-preview" src="' + objectURL + '">' +
+    '<div class="photo-modal-actions">' +
+    '<button class="photo-confirm-btn" aria-label="Confirm photo">\u2713</button>' +
+    '<button class="photo-retake-btn">\u21bb Retake</button>' +
+    '</div>';
+  document.body.appendChild(modal);
+  modal.querySelector('.photo-confirm-btn').onclick = function() {
+    modal.remove(); onConfirm(objectURL);
+  };
+  modal.querySelector('.photo-retake-btn').onclick = function() {
+    modal.remove(); onRetake();
+  };
+}
 
 const MOCK_TEMPLATES = [
   {
@@ -920,6 +962,50 @@ function submitChecklist(tplId) {
   renderFillOut();
 }
 
+function handlePhotoCaptureClick(fldId) {
+  openCamera(function(file) {
+    var objectURL = URL.createObjectURL(file);
+    showPhotoPreview(objectURL,
+      function(url) {
+        var old = MOCK_RESPONSES[fldId];
+        if (old && old.value && typeof old.value === 'string' && old.value.startsWith('blob:') && old.value !== url) URL.revokeObjectURL(old.value);
+        MOCK_RESPONSES[fldId] = { value: url, answeredBy: CURRENT_USER.name, answeredAt: new Date() };
+        renderFillOut();
+        updateProgress();
+      },
+      function() {
+        URL.revokeObjectURL(objectURL);
+        handlePhotoCaptureClick(fldId);
+      }
+    );
+  });
+}
+
+function handleFailPhotoCaptureClick(fldId) {
+  openCamera(function(file) {
+    var objectURL = URL.createObjectURL(file);
+    showPhotoPreview(objectURL,
+      function(url) {
+        if (!FAIL_NOTES[fldId]) FAIL_NOTES[fldId] = { note: '', severity: '' };
+        var oldPhoto = FAIL_NOTES[fldId].photo;
+        if (oldPhoto && oldPhoto.startsWith('blob:') && oldPhoto !== url) URL.revokeObjectURL(oldPhoto);
+        FAIL_NOTES[fldId].photo = url;
+        var failCard = document.querySelector('.fail-card[data-fld-id="' + fldId + '"]');
+        var tplField = fillState.activeTemplate.sections.flatMap(function(s){return s.fields}).find(function(f){return f.id===fldId});
+        if (failCard && tplField) {
+          var tmp = document.createElement('div');
+          tmp.innerHTML = renderFailCard(tplField, FAIL_NOTES[fldId]);
+          failCard.replaceWith(tmp.firstChild);
+        }
+      },
+      function() {
+        URL.revokeObjectURL(objectURL);
+        handleFailPhotoCaptureClick(fldId);
+      }
+    );
+  });
+}
+
 function evaluateFailTrigger(fail_trigger, value) {
   if (!fail_trigger) return false;
   if (value === null || value === undefined || value === '') return false;
@@ -942,12 +1028,15 @@ function renderFailCard(fld, failNote) {
   var pillsHtml = severities.map(function(s) {
     return '<button class="severity-pill' + (severity === s ? ' on' : '') + '" data-action="set-severity" data-severity="' + s + '" data-fld-id="' + fld.id + '">' + s.charAt(0).toUpperCase() + s.slice(1) + '</button>';
   }).join('');
-  return '<div class="fail-card">' +
+  var failPhoto = (FAIL_NOTES[fld.id] && FAIL_NOTES[fld.id].photo) ? FAIL_NOTES[fld.id].photo : null;
+  var photoHtml = failPhoto
+    ? '<img class="photo-thumb" src="' + failPhoto + '" alt="Evidence photo"><button class="photo-retake-link" data-action="fail-photo-retake" data-fld-id="' + fld.id + '">Retake</button>'
+    : '<button class="photo-stub-btn" data-action="fail-photo-capture" data-fld-id="' + fld.id + '">\ud83d\udcf7 Add photo</button>';
+  return '<div class="fail-card" data-fld-id="' + fld.id + '">' +
     '<div style="font-size:12px;font-weight:500;color:#c0392b;margin-bottom:8px">Corrective action required</div>' +
     '<textarea class="fail-note-input" rows="3" placeholder="Describe what you did\u2026" data-action="fail-note-input" data-fld-id="' + fld.id + '">' + escapeHtml(note) + '</textarea>' +
     '<div style="margin-top:8px;display:flex;align-items:center;gap:8px">' +
-      '<button class="photo-stub-btn" disabled>📷 Add photo</button>' +
-      '<span style="font-size:12px;color:var(--mut)">Coming in Phase 3</span>' +
+      photoHtml +
     '</div>' +
     '<div class="severity-pills">' + pillsHtml + '</div>' +
   '</div>';
@@ -1120,9 +1209,23 @@ function renderRunnerField(fld) {
   }
 
   if (fld.type === 'photo') {
+    const photoResp = MOCK_RESPONSES[fld.id];
+    const photoUrl = photoResp ? photoResp.value : null;
+    const photoAttribution = photoResp ? `<div class="fill-attribution">${escapeHtml(photoResp.answeredBy)} \u00b7 ${formatTime(photoResp.answeredAt)}</div>` : '';
+    if (photoUrl) {
+      return `<div class="fill-field" data-field-id="${fld.id}">
+  <div class="fill-field-label">${escapeHtml(fld.label)}</div>
+  <div class="fill-field-row" style="gap:12px;margin-top:4px">
+    <img class="photo-thumb" src="${photoUrl}" alt="Photo">
+    <button class="photo-retake-link" data-action="photo-retake" data-fld-id="${fld.id}">Retake</button>
+  </div>
+  ${photoAttribution}
+</div>`;
+    }
     return `<div class="fill-field" data-field-id="${fld.id}">
   <div class="fill-field-label">${escapeHtml(fld.label)}</div>
-  <div style="padding:8px 0;color:var(--mut);font-size:13px">Photo capture coming in Phase 3</div>
+  <button class="photo-capture-btn" data-action="photo-capture" data-fld-id="${fld.id}" style="margin-top:4px">\ud83d\udcf7 Tap to take photo</button>
+  <div style="font-size:12px;color:var(--mut);margin-top:4px">Tap to take photo</div>
 </div>`;
   }
 
@@ -1244,6 +1347,16 @@ document.getElementById('fill-body').addEventListener('click', function(e) {
           failCard.replaceWith(tmp.firstChild);
         }
       }
+      return;
+    }
+
+    if (action === 'photo-capture' || action === 'photo-retake') {
+      handlePhotoCaptureClick(fldId);
+      return;
+    }
+
+    if (action === 'fail-photo-capture' || action === 'fail-photo-retake') {
+      handleFailPhotoCaptureClick(fldId);
       return;
     }
 
