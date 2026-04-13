@@ -32,3 +32,18 @@ tasks:
 
         echo "Timed out after 10 minutes waiting for deployment."
         exit 1
+
+  test:
+    desc: Run Playwright E2E tests (headless)
+    cmds:
+      - npx playwright test
+
+  test:headed:
+    desc: Run Playwright E2E tests (visible browser)
+    cmds:
+      - npx playwright test --headed
+
+  test:ui:
+    desc: Open Playwright UI mode for interactive debugging
+    cmds:
+      - npx playwright test --ui
