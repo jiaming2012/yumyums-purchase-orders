@@ -161,6 +161,15 @@ const MOCK_CURRENT_USER = {
   permissions: ['workflow_fill', 'workflow_builder']
 };
 
+const MOCK_USERS = [
+  { id: 'usr_jamal', name: 'Jamal M.', role: 'admin' },
+  { id: 'usr_sarah', name: 'Sarah K.', role: 'admin' },
+  { id: 'usr_mike', name: 'Mike R.', role: 'manager' },
+  { id: 'usr_tina', name: 'Tina L.', role: 'team_member' },
+  { id: 'usr_dev', name: 'Dev P.', role: 'team_member' }
+];
+const ALL_ROLES = ['admin', 'manager', 'team_member'];
+
 function fireworks(){
   var canvas=document.createElement('canvas');
   canvas.style.cssText='position:fixed;top:0;left:0;width:100%;height:100%;z-index:10000;pointer-events:none';
@@ -260,7 +269,8 @@ const MOCK_TEMPLATES = [
     name: 'Setup Checklist',
     active_days: [1,2,3,4,5,6,0],
     requires_approval: true,
-    assignable_to: ['admin', 'manager', 'team_member'],
+    assigned_to: { roles: ['team_member'], users: [] },
+    approver: { roles: ['manager'], users: [] },
     sections: [
       {
         id: 'sec_setup_equip', title: 'Equipment', order: 0, condition: null,
@@ -282,7 +292,8 @@ const MOCK_TEMPLATES = [
     name: 'Closing Checklist',
     active_days: [1,2,3,4,5,6,0],
     requires_approval: false,
-    assignable_to: ['admin', 'manager', 'team_member'],
+    assigned_to: { roles: ['team_member'], users: [] },
+    approver: { roles: ['manager'], users: [] },
     sections: [
       {
         id: 'sec_close_clean', title: 'Cleaning', order: 0, condition: null,
@@ -329,7 +340,8 @@ function createNewTemplate() {
     name: '',
     active_days: null,
     requires_approval: true,
-    assignable_to: ['admin', 'manager', 'team_member'],
+    assigned_to: { roles: ['team_member'], users: [] },
+    approver: { roles: ['manager'], users: [] },
     sections: []
   };
 }
@@ -382,11 +394,30 @@ function renderTemplateList() {
   const rows = MOCK_TEMPLATES.map(tpl => {
     const secCount = tpl.sections.length;
     const secLabel = secCount === 1 ? '1 section' : secCount + ' sections';
-    return `<div class="row" data-template-id="${tpl.id}" style="cursor:pointer"><div><div class="nm">${tpl.name || '(Untitled)'}</div><div class="mt">${secLabel}</div></div></div>`;
+    var assignLabel = tpl.assigned_to ? (tpl.assigned_to.roles.join(', ') + (tpl.assigned_to.users.length ? ' + ' + tpl.assigned_to.users.length + ' user(s)' : '')) : 'everyone';
+    return `<div class="row" data-template-id="${tpl.id}" style="cursor:pointer"><div><div class="nm">${tpl.name || '(Untitled)'}</div><div class="mt">${secLabel} · assigned: ${assignLabel}</div></div></div>`;
   }).join('');
   return `<div class="cat">Checklists</div>
 <div class="card">${rows}</div>
 <button class="btn-primary">+ New checklist</button>`;
+}
+
+function renderAssignmentPicker(assignment, prefix, label) {
+  if (!assignment) assignment = { roles: [], users: [] };
+  var rolesHtml = ALL_ROLES.map(function(r) {
+    var on = assignment.roles.includes(r);
+    return '<button class="day-chip ' + (on ? 'on' : '') + '" data-action="toggle-' + prefix + '-role" data-role="' + r + '">' + r + '</button>';
+  }).join('');
+  var usersHtml = MOCK_USERS.map(function(u) {
+    var on = assignment.users.includes(u.id);
+    return '<button class="day-chip ' + (on ? 'on' : '') + '" data-action="toggle-' + prefix + '-user" data-user-id="' + u.id + '" style="font-size:11px">' + escapeHtml(u.name) + '</button>';
+  }).join('');
+  return '<div style="padding:10px 16px;border-bottom:0.5px solid var(--brd)">' +
+    '<div class="lbl">' + label + '</div>' +
+    '<div class="sub" style="margin-bottom:6px">By role</div>' +
+    '<div class="day-chips-row">' + rolesHtml + '</div>' +
+    '<div class="sub" style="margin-top:8px;margin-bottom:6px">Or specific users</div>' +
+    '<div class="day-chips-row">' + usersHtml + '</div></div>';
 }
 
 function renderEditor() {
@@ -402,9 +433,11 @@ function renderEditor() {
     </div>
   </div>
   <div class="toggle-row">
-    <div><div class="lbl">Requires approval</div><div class="sub">Manager must approve before checklist is considered complete</div></div>
+    <div><div class="lbl">Requires approval</div><div class="sub">Approver must approve before checklist is considered complete</div></div>
     <label class="toggle"><input type="checkbox" id="approval-toggle" ${approvalChecked}><span class="slider"></span></label>
   </div>
+  ${renderAssignmentPicker(tpl.assigned_to, 'assign', 'Assigned to')}
+  ${tpl.requires_approval ? renderAssignmentPicker(tpl.approver, 'approver', 'Approver') : ''}
 </div>
 ${sectionsHtml}
 <button class="add-section-btn">+ Add section</button>
@@ -681,6 +714,7 @@ function updateTemplateName(name) {
 
 function toggleApproval() {
   state.activeTemplate.requires_approval = !state.activeTemplate.requires_approval;
+  renderBuilder();
 }
 
 // Event delegation — attached ONCE, not inside render
@@ -722,6 +756,36 @@ document.getElementById('builder-body').addEventListener('click', function(e) {
   const pickerRow = e.target.closest('.field-type-picker .row');
   if (pickerRow) {
     addField(pickerRow.dataset.sectionId, pickerRow.dataset.type);
+    return;
+  }
+
+  // Assignment toggle actions
+  var assignAction = e.target.closest('[data-action^="toggle-assign-"]') || e.target.closest('[data-action^="toggle-approver-"]');
+  if (assignAction && state.activeTemplate) {
+    var act = assignAction.dataset.action;
+    var tpl = state.activeTemplate;
+    if (act === 'toggle-assign-role') {
+      if (!tpl.assigned_to) tpl.assigned_to = { roles: [], users: [] };
+      var role = assignAction.dataset.role;
+      var idx = tpl.assigned_to.roles.indexOf(role);
+      if (idx === -1) tpl.assigned_to.roles.push(role); else tpl.assigned_to.roles.splice(idx, 1);
+    } else if (act === 'toggle-assign-user') {
+      if (!tpl.assigned_to) tpl.assigned_to = { roles: [], users: [] };
+      var uid = assignAction.dataset.userId;
+      var idx = tpl.assigned_to.users.indexOf(uid);
+      if (idx === -1) tpl.assigned_to.users.push(uid); else tpl.assigned_to.users.splice(idx, 1);
+    } else if (act === 'toggle-approver-role') {
+      if (!tpl.approver) tpl.approver = { roles: [], users: [] };
+      var role = assignAction.dataset.role;
+      var idx = tpl.approver.roles.indexOf(role);
+      if (idx === -1) tpl.approver.roles.push(role); else tpl.approver.roles.splice(idx, 1);
+    } else if (act === 'toggle-approver-user') {
+      if (!tpl.approver) tpl.approver = { roles: [], users: [] };
+      var uid = assignAction.dataset.userId;
+      var idx = tpl.approver.users.indexOf(uid);
+      if (idx === -1) tpl.approver.users.push(uid); else tpl.approver.users.splice(idx, 1);
+    }
+    renderBuilder();
     return;
   }
 

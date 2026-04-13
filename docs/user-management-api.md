@@ -362,6 +362,10 @@ CREATE TABLE checklist_templates (
   name             TEXT NOT NULL,
   active_days      INTEGER[],           -- JS Date.getDay() values (0=Sun, 1=Mon, ..., 6=Sat); NULL = every day
   requires_approval BOOLEAN NOT NULL DEFAULT false,
+  assigned_to_roles TEXT[] DEFAULT '{team_member}',    -- roles who see this in My Checklists
+  assigned_to_users UUID[],                             -- specific users (in addition to roles)
+  approver_roles    TEXT[] DEFAULT '{manager}',          -- roles who can approve (when requires_approval)
+  approver_users    UUID[],                              -- specific approver users
   created_by       UUID REFERENCES users(id),
   created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -502,7 +506,11 @@ Response 204: No content.
 
 ##### GET /api/v1/checklists/today
 
-Returns templates active today for the current user (filtered by `active_days` and role-based access).
+Returns templates active today for the current user. Filtered by:
+1. `active_days` includes today's day-of-week
+2. User's role is in `assigned_to_roles` OR user's ID is in `assigned_to_users`
+
+Similarly, `GET /api/v1/checklists/approvals` filters by `approver_roles` and `approver_users` — a manager only sees submissions for checklists where their role or ID is in the approver list.
 
 Response 200:
 ```json
