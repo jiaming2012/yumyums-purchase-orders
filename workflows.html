@@ -986,6 +986,7 @@ document.getElementById('fill-body').addEventListener('click', function(e) {
     if (tpl) {
       fillState.activeTemplate = tpl;
       fillState.view = 'runner';
+      location.hash = 'checklist=' + tpl.id;
       renderFillOut();
     }
     return;
@@ -995,6 +996,7 @@ document.getElementById('fill-body').addEventListener('click', function(e) {
   if (e.target.closest('#fill-back')) {
     fillState.view = 'list';
     fillState.activeTemplate = null;
+    location.hash = '';
     renderFillOut();
     return;
   }
@@ -1033,6 +1035,7 @@ document.getElementById('fill-body').addEventListener('click', function(e) {
     showToast('Checklist submitted ✓');
     fillState.view = 'list';
     fillState.activeTemplate = null;
+    location.hash = '';
     renderFillOut();
     return;
   }
@@ -1055,6 +1058,8 @@ function checkBuilderAccess() {
 
 checkBuilderAccess();
 renderBuilder();
+// Restore active checklist from URL hash on page load
+(function(){var h=location.hash.match(/checklist=([^&]+)/);if(h){var tpl=MOCK_TEMPLATES.find(function(t){return t.id===h[1]});if(tpl){fillState.activeTemplate=tpl;fillState.view='runner'}}})();
 renderFillOut();
 document.addEventListener('dblclick', e => e.preventDefault());
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
