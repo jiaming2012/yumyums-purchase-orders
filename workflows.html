@@ -1255,10 +1255,11 @@ function renderRunner() {
   const sectionsHtml = tpl.sections.map(sec => renderRunnerSection(sec)).join('');
   const isSubmitted = !!SUBMITTED_TEMPLATES[tpl.id];
   const isPending = !!PENDING_APPROVALS[tpl.id];
+  const unsubmitBtn = `<button data-action="unsubmit" data-tpl-id="${tpl.id}" style="width:100%;padding:12px;margin-top:8px;background:transparent;color:var(--mut);border:0.5px solid var(--brd);border-radius:8px;font-size:13px;font-weight:500;font-family:inherit;cursor:pointer">Unsubmit</button>`;
   const submitHtml = isSubmitted
-    ? `<button class="btn-primary" data-action="submit" data-tpl-id="${tpl.id}" style="width:100%;padding:14px;margin:16px 0;background:var(--info-tx);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:500;opacity:0.5;pointer-events:none">Submit checklist</button><span class="submit-confirm">Checklist submitted. Thanks, ${CURRENT_USER.initials}!</span>`
+    ? `<button class="btn-primary" data-action="submit" data-tpl-id="${tpl.id}" style="width:100%;padding:14px;margin:16px 0 0;background:var(--info-tx);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:500;opacity:0.5;pointer-events:none">Submit checklist</button><div class="submit-confirm">Checklist submitted. Thanks, ${CURRENT_USER.initials}!</div>${unsubmitBtn}`
     : isPending
-      ? `<button class="btn-primary" data-action="submit" data-tpl-id="${tpl.id}" style="width:100%;padding:14px;margin:16px 0;background:var(--info-tx);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:500;opacity:0.5;pointer-events:none">Submit checklist</button><span class="submit-confirm">Submitted for approval. Waiting for manager review.</span>`
+      ? `<button class="btn-primary" data-action="submit" data-tpl-id="${tpl.id}" style="width:100%;padding:14px;margin:16px 0 0;background:var(--info-tx);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:500;opacity:0.5;pointer-events:none">Submit checklist</button><div class="submit-confirm">Submitted for approval. Waiting for manager review.</div>${unsubmitBtn}`
       : `<button class="btn-primary" id="submit-btn" data-action="submit" data-tpl-id="${tpl.id}" style="margin-top:8px">Submit checklist</button>`;
   return `<button class="editor-back" id="fill-back">Checklists</button>
 <div style="padding:10px 16px 0" class="progress-line">
@@ -1582,6 +1583,16 @@ document.getElementById('fill-body').addEventListener('click', function(e) {
 
     if (action === 'fail-photo-capture' || action === 'fail-photo-retake') {
       handleFailPhotoCaptureClick(fldId);
+      return;
+    }
+
+    if (action === 'unsubmit') {
+      var tplId = actionEl.dataset.tplId;
+      delete SUBMITTED_TEMPLATES[tplId];
+      delete PENDING_APPROVALS[tplId];
+      showToast('Checklist unsubmitted');
+      renderFillOut();
+      renderApprovals();
       return;
     }
 
