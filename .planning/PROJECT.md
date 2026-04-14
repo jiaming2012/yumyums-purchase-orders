@@ -41,10 +41,11 @@ A workflow engine that lets the owner build checklist templates and have crew me
 - ✓ Green checkmark animation on reapproval submit — post-Phase 3
 - ✓ 2 pre-built templates (Setup Checklist, Closing Checklist) — Phase 3
 - ✓ 54 Playwright E2E tests — post-Phase 3
+- ✓ Onboarding app with role-based views, video training, sequential sections, FAQ gate, manager sign-off — Phase 4
 
 ### Active
 
-(None — v1.0 milestone complete)
+(None — Phase 4 complete)
 
 ### Out of Scope
 
@@ -109,4 +110,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-13 after v1.0 milestone completion*
+*Last updated: 2026-04-14 after Phase 4 (Onboarding App) completion*

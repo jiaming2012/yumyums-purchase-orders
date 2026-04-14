@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: "Checkpoint: 05-02 Task 3 human-verify"
-last_updated: "2026-04-14T07:19:34.719Z"
+status: verifying
+stopped_at: Completed 05-02-PLAN.md — Phase 05 onboarding-builder complete
+last_updated: "2026-04-14T08:33:04.165Z"
 last_activity: 2026-04-14
 progress:
   total_phases: 5
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-04-13)
 
 Phase: 05 (onboarding-builder) — EXECUTING
 Plan: 2 of 2
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-04-14
 
 Progress: [███░░░░░░░] 33%
@@ -61,6 +61,7 @@ Progress: [███░░░░░░░] 33%
 | Phase 04-onboarding-app P03 | 5min | 2 tasks | 3 files |
 | Phase 05-onboarding-builder P01 | 7min | 1 tasks | 2 files |
 | Phase 05-onboarding-builder P02 | 15min | 2 tasks | 1 files |
+| Phase 05-onboarding-builder P02 | 45min | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -94,6 +95,9 @@ Recent decisions affecting current work:
 - [Phase 05-onboarding-builder]: Section placeholder bodies document Plan 02 scope clearly — items and Q&A managed in next plan
 - [Phase 05-onboarding-builder]: initOBSortable() targets .ob-field-list class shared by both item lists and FAQ Q&A lists for unified drag-to-reorder
 - [Phase 05-onboarding-builder]: No template duplication feature per D-17 — scope kept tight for Plan 02
+- [Phase 05-onboarding-builder]: initOBSortable() targets .ob-field-list class shared by both item lists and FAQ Q&A lists — unified drag-to-reorder with one querySelectorAll
+- [Phase 05-onboarding-builder]: show() re-renders all tabs on switch to fix stale builder state bug found during human verification; obState.view reset to null on tab switch
+- [Phase 05-onboarding-builder]: No template duplication feature per D-17 — scope kept tight for Plan 02
 
 ### Pending Todos
 
@@ -111,6 +115,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-14T07:19:18.277Z
-Stopped at: Checkpoint: 05-02 Task 3 human-verify
+Last session: 2026-04-14T08:33:04.159Z
+Stopped at: Completed 05-02-PLAN.md — Phase 05 onboarding-builder complete
 Resume file: None
