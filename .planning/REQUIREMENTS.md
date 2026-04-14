@@ -16,10 +16,10 @@ Requirements for the Inventory App milestone. Each maps to roadmap phases.
 
 ### Spending Trends
 
-- [ ] **TRND-01**: User can see a bar chart of spending by tag category (Beef, Produce, Supplies, etc.) for a selected time range
-- [ ] **TRND-02**: User can see a pie/doughnut chart showing spending proportion by tag
-- [ ] **TRND-03**: User can see spending over time (weekly or monthly bar/line chart)
-- [ ] **TRND-04**: User can filter trends by specific tags to drill into one category
+- [x] **TRND-01**: User can see a bar chart of spending by tag category (Beef, Produce, Supplies, etc.) for a selected time range
+- [x] **TRND-02**: User can see a pie/doughnut chart showing spending proportion by tag
+- [x] **TRND-03**: User can see spending over time (weekly or monthly bar/line chart)
+- [x] **TRND-04**: User can filter trends by specific tags to drill into one category
 
 ### Stock & Reorder
 
@@ -29,14 +29,14 @@ Requirements for the Inventory App milestone. Each maps to roadmap phases.
 
 ### Food Cost Intelligence
 
-- [ ] **COST-01**: User can see estimated cost per menu item (e.g., Cheesesteak = $X) with ingredient proportion table — mock data, real calculation by backend later
-- [ ] **COST-02**: For a menu item, user can see which purchase items contribute (beef, rolls, onions) with proportions
-- [ ] **COST-03**: For a purchase item, user can see which menu items use it — relative percentages showing cost, revenue, and return on purchase
+- [x] **COST-01**: User can see estimated cost per menu item (e.g., Cheesesteak = $X) with ingredient proportion table — mock data, real calculation by backend later
+- [x] **COST-02**: For a menu item, user can see which purchase items contribute (beef, rolls, onions) with proportions
+- [x] **COST-03**: For a purchase item, user can see which menu items use it — relative percentages showing cost, revenue, and return on purchase
 
 ### Integration
 
 - [x] **INTG-01**: Each section is its own tab (4 tabs: History / Trends / Stock / Cost) for future RBAC gating
-- [ ] **INTG-02**: Architecture supports future replacement of Trends/Cost tabs with embedded Metabase reports
+- [x] **INTG-02**: Architecture supports future replacement of Trends/Cost tabs with embedded Metabase reports
 
 ## Future Requirements
 
@@ -81,14 +81,14 @@ Which phases cover which requirements. Updated during roadmap creation.
 | STCK-01 | Phase 7 | Complete |
 | STCK-02 | Phase 7 | Complete |
 | STCK-03 | Phase 7 | Complete |
-| TRND-01 | Phase 8 | Pending |
-| TRND-02 | Phase 8 | Pending |
-| TRND-03 | Phase 8 | Pending |
-| TRND-04 | Phase 8 | Pending |
-| COST-01 | Phase 8 | Pending |
-| COST-02 | Phase 8 | Pending |
-| COST-03 | Phase 8 | Pending |
-| INTG-02 | Phase 8 | Pending |
+| TRND-01 | Phase 8 | Complete |
+| TRND-02 | Phase 8 | Complete |
+| TRND-03 | Phase 8 | Complete |
+| TRND-04 | Phase 8 | Complete |
+| COST-01 | Phase 8 | Complete |
+| COST-02 | Phase 8 | Complete |
+| COST-03 | Phase 8 | Complete |
+| INTG-02 | Phase 8 | Complete |
 
 **Coverage:**
 - v1.1 requirements: 16 total

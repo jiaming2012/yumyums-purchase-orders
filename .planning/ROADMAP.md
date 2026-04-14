@@ -24,7 +24,7 @@
 
 - [x] **Phase 6: Foundation and History Tab** - inventory.html shell with Chart.js loaded locally, mock data layer, HQ integration, and fully functional Purchase History tab (completed 2026-04-14)
 - [x] **Phase 7: Stock and Reorder Tab** - Low/Medium/High stock badges per item group via purchase-frequency heuristic, reorder suggestions list, manual override (completed 2026-04-14)
-- [ ] **Phase 8: Trends and Cost Intelligence Tabs** - Chart.js spending charts and food cost per menu item, architected for future Metabase iframe replacement
+- [x] **Phase 8: Trends and Cost Intelligence Tabs** - Chart.js spending charts and food cost per menu item, architected for future Metabase iframe replacement (completed 2026-04-14)
 
 ## Phase Details
 
@@ -68,10 +68,10 @@ Plans:
   3. User can see a monthly trend line chart showing spend over time, and tap a tag chip to filter it to one category
   4. User can tap a menu item (e.g., Cheesesteak) and see an estimated cost with an ingredient proportion table
   5. User can tap a purchase item (e.g., beef) and see which menu items use it with relative percentages
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 Plans:
 - [x] 08-01-PLAN.md — Trends tab: Chart.js bar/doughnut/line charts with tag filter chips and sub-tabs
-- [ ] 08-02-PLAN.md — Cost tab: menu item cost breakdown, ingredient reverse-lookup, Playwright tests, SW cache bump
+- [x] 08-02-PLAN.md — Cost tab: menu item cost breakdown, ingredient reverse-lookup, Playwright tests, SW cache bump
 **UI hint**: yes
 
 ## Progress
@@ -85,4 +85,4 @@ Plans:
 | 5. Onboarding Builder | v1.0 | 2/2 | Complete | 2026-04-14 |
 | 6. Foundation and History Tab | v1.1 | 2/2 | Complete   | 2026-04-14 |
 | 7. Stock and Reorder Tab | v1.1 | 2/2 | Complete   | 2026-04-14 |
-| 8. Trends and Cost Intelligence Tabs | v1.1 | 1/2 | In Progress|  |
+| 8. Trends and Cost Intelligence Tabs | v1.1 | 2/2 | Complete   | 2026-04-14 |
