@@ -100,16 +100,16 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 2. Fill-Out and Conditional Logic | 2/2 | Complete   | 2026-04-13 |
 | 3. Photo, Approval, and Integration | 2/2 | Complete   | 2026-04-13 |
 | 4. Onboarding App | 3/3 | Complete   | 2026-04-14 |
-| 5. Onboarding Builder | 0/2 | Not Started |  |
+| 5. Onboarding Builder | 1/2 | In Progress|  |
 
 ### Phase 5: Onboarding Builder
 **Goal:** Add a Builder tab to onboarding.html for creating and editing onboarding training templates — sections, checkbox items (with sub-items), video series (title, description, URL per part), FAQ Q&A pairs, per-section sign-off toggle, and drag-to-reorder. Reuses the simpler data model from Phase 4.
 **Requirements**: D-01, D-02, D-03, D-04, D-05, D-06, D-07, D-08, D-09, D-10, D-11, D-12, D-13, D-14, D-15, D-16, D-17, D-18, D-19
 **Depends on:** Phase 4
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 
 Plans:
-- [ ] 05-01-PLAN.md — Builder tab scaffold, template list CRUD, editor with section management and toggles
+- [x] 05-01-PLAN.md — Builder tab scaffold, template list CRUD, editor with section management and toggles
 - [ ] 05-02-PLAN.md — Item types (checkbox + sub-items, video series + parts), FAQ Q&A editor, SortableJS drag-to-reorder, sw.js bump, human-verify
 
 **UI hint**: yes

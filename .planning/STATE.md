@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 04-03-PLAN.md — Phase 04 onboarding-app fully complete
-last_updated: "2026-04-14T03:24:24.695Z"
+stopped_at: Completed 05-01-PLAN.md
+last_updated: "2026-04-14T07:11:15.928Z"
 last_activity: 2026-04-14
 progress:
-  total_phases: 4
+  total_phases: 5
   completed_phases: 4
-  total_plans: 10
-  completed_plans: 10
+  total_plans: 12
+  completed_plans: 11
   percent: 33
 ---
 
@@ -21,12 +21,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-13)
 
 **Core value:** A workflow engine that lets the owner build checklist templates and have crew members fill them out on mobile — with accountability and smart conditions.
-**Current focus:** Phase 04 — onboarding-app
+**Current focus:** Phase 05 — onboarding-builder
 
 ## Current Position
 
-Phase: 04
-Plan: Not started
+Phase: 05 (onboarding-builder) — EXECUTING
+Plan: 2 of 2
 Status: Ready to execute
 Last activity: 2026-04-14
 
@@ -59,6 +59,7 @@ Progress: [███░░░░░░░] 33%
 | Phase 03-photo-approval-and-integration P02 | 8min | 2 tasks | 2 files |
 | Phase 04-onboarding-app P02 | 3min | 1 tasks | 2 files |
 | Phase 04-onboarding-app P03 | 5min | 2 tasks | 3 files |
+| Phase 05-onboarding-builder P01 | 7min | 1 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -88,6 +89,8 @@ Recent decisions affecting current work:
 - [Phase 04-onboarding-app]: renderRunnerContent() is shared between crew and manager views via readOnly flag — avoids code duplication while preventing manager from editing crew progress
 - [Phase 04-onboarding-app]: assign-training patches SECTION_STATES directly (no delete+reinit) to preserve existing section progress when adding a new template
 - [Phase 04-onboarding-app]: Hiring tile converted to Onboarding tile (graduation cap emoji, same grid slot); SW v39→v40; onboarding added to APPS permission array
+- [Phase 05-onboarding-builder]: Builder tab uses separate obBuilderState to avoid collision with existing obState/mgrState view machines
+- [Phase 05-onboarding-builder]: Section placeholder bodies document Plan 02 scope clearly — items and Q&A managed in next plan
 
 ### Pending Todos
 
@@ -96,6 +99,7 @@ None yet.
 ### Roadmap Evolution
 
 - Phase 4 added: Onboarding app — standalone HTML tool for new crew member onboarding (checklist per new hire, training progress, owner sign-off)
+- Phase 5 added: Onboarding Builder — Builder tab for creating/editing onboarding training templates
 
 ### Blockers/Concerns
 
@@ -104,6 +108,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-14T03:17:31.842Z
-Stopped at: Completed 04-03-PLAN.md — Phase 04 onboarding-app fully complete
+Last session: 2026-04-14T07:11:15.894Z
+Stopped at: Completed 05-01-PLAN.md
 Resume file: None
