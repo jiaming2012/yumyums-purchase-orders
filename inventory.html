@@ -39,6 +39,31 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .chart-wrap{position:relative;width:100%;height:220px}
 .empty{text-align:center;padding:40px 20px;color:var(--mut)}
 .empty p{font-size:13px;margin:0}
+.stock-badge{display:inline-block;font-size:11px;font-weight:600;padding:2px 8px;border-radius:6px}
+.stock-high{background:#dcfce7;color:#166534}
+.stock-medium{background:#fef9c3;color:#854d0e}
+.stock-low{background:#fee2e2;color:#991b1b}
+.stock-unknown{background:var(--brd);color:var(--mut)}
+@media(prefers-color-scheme:dark){.stock-high{background:#14532d;color:#86efac}.stock-medium{background:#713f12;color:#fde047}.stock-low{background:#7f1d1d;color:#fca5a5}}
+.tag-section{margin-bottom:16px}
+.tag-header{display:flex;align-items:center;gap:8px;padding:12px 0;font-size:15px;font-weight:600;cursor:pointer;user-select:none;border-bottom:0.5px solid var(--brd)}
+.tag-header .arrow{transition:transform 0.2s;font-size:12px;color:var(--mut)}
+.tag-header .arrow.collapsed{transform:rotate(-90deg)}
+.stock-item{background:var(--card);border:0.5px solid var(--brd);border-radius:12px;padding:14px 16px;margin-bottom:6px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.stock-item-name{font-size:14px;font-weight:500;color:var(--txt)}
+.stock-detail{display:none;background:var(--card);border:0.5px solid var(--brd);border-radius:0 0 12px 12px;border-top:none;padding:12px 16px;margin-top:-6px;margin-bottom:6px}
+.stock-detail.open{display:block}
+.stock-detail-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:0.5px solid var(--brd);font-size:13px}
+.stock-detail-row:last-child{border-bottom:none}
+.stock-detail-label{color:var(--mut)}
+.stock-detail-value{font-weight:500;color:var(--txt)}
+.override-btn{margin-top:10px;width:100%;padding:8px;background:var(--info-bg);color:var(--info-tx);border:none;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;font-family:inherit}
+.reorder-section{background:var(--warn-bg);border-radius:12px;padding:16px;margin-bottom:16px}
+.reorder-title{font-size:14px;font-weight:600;color:var(--warn-tx);margin-bottom:8px}
+.reorder-item{display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:0.5px solid rgba(0,0,0,0.06)}
+.reorder-item:last-child{border-bottom:none}
+.reorder-item-name{font-size:13px;font-weight:500;color:var(--txt)}
+.reorder-item-meta{font-size:11px;color:var(--mut);margin-top:1px}
 </style>
 </head>
 <body>
@@ -64,10 +89,8 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
     </div>
   </div>
   <div id="s3" style="display:none">
-    <div class="coming-soon">
-      <h3>Stock Levels</h3>
-      <p>Purchase-frequency stock estimates and reorder suggestions coming soon.</p>
-    </div>
+    <div id="reorder-section"></div>
+    <div id="stock-list"></div>
   </div>
   <div id="s4" style="display:none">
     <!-- TODO: gate Cost to manager+ via backend roles (INTG-01) -->
@@ -234,77 +257,83 @@ const MOCK_MENU_ITEMS=[
   {id:'menu_4',name:'Loaded Fries',price:10,ingredientGroupIds:['grp_6','grp_7']}
 ];
 
+// MOCK_SALES: weekly ingredient-units consumed per menu item (aligned to purchase unit scale)
+// Cheesesteak ~4-5/wk → beef, onion/pepper, cheese, rolls each 1/4 share → high stock on beef/rolls
+// Grilled Chicken Wrap ~1/wk → chicken, lettuce, cheese each 1/3 share → high stock on chicken
+// Salmon Bowl ~9/wk → salmon, lettuce, onion/pepper each 1/3 share → tuned so salmon ends medium
+// Loaded Fries ~3-4/wk → cheese, sauces each 1/2 share → low stock on cheese/sauces
+// Total menu_3 = 129 → salmon consumed = 43, remaining = 3, avg/wk = 3.07 → medium (0.5< 0.98 ≤1)
 const MOCK_SALES=[
   // Week of Jan 6
-  {menuItemId:'menu_1',weekOf:'2026-01-06',qty:48},
-  {menuItemId:'menu_2',weekOf:'2026-01-06',qty:30},
-  {menuItemId:'menu_3',weekOf:'2026-01-06',qty:18},
-  {menuItemId:'menu_4',weekOf:'2026-01-06',qty:38},
+  {menuItemId:'menu_1',weekOf:'2026-01-06',qty:4},
+  {menuItemId:'menu_2',weekOf:'2026-01-06',qty:1},
+  {menuItemId:'menu_3',weekOf:'2026-01-06',qty:9},
+  {menuItemId:'menu_4',weekOf:'2026-01-06',qty:3},
   // Week of Jan 13
-  {menuItemId:'menu_1',weekOf:'2026-01-13',qty:52},
-  {menuItemId:'menu_2',weekOf:'2026-01-13',qty:28},
-  {menuItemId:'menu_3',weekOf:'2026-01-13',qty:20},
-  {menuItemId:'menu_4',weekOf:'2026-01-13',qty:42},
+  {menuItemId:'menu_1',weekOf:'2026-01-13',qty:5},
+  {menuItemId:'menu_2',weekOf:'2026-01-13',qty:1},
+  {menuItemId:'menu_3',weekOf:'2026-01-13',qty:9},
+  {menuItemId:'menu_4',weekOf:'2026-01-13',qty:3},
   // Week of Jan 20
-  {menuItemId:'menu_1',weekOf:'2026-01-20',qty:45},
-  {menuItemId:'menu_2',weekOf:'2026-01-20',qty:32},
-  {menuItemId:'menu_3',weekOf:'2026-01-20',qty:22},
-  {menuItemId:'menu_4',weekOf:'2026-01-20',qty:35},
+  {menuItemId:'menu_1',weekOf:'2026-01-20',qty:4},
+  {menuItemId:'menu_2',weekOf:'2026-01-20',qty:1},
+  {menuItemId:'menu_3',weekOf:'2026-01-20',qty:9},
+  {menuItemId:'menu_4',weekOf:'2026-01-20',qty:4},
   // Week of Jan 27
-  {menuItemId:'menu_1',weekOf:'2026-01-27',qty:50},
-  {menuItemId:'menu_2',weekOf:'2026-01-27',qty:27},
-  {menuItemId:'menu_3',weekOf:'2026-01-27',qty:16},
-  {menuItemId:'menu_4',weekOf:'2026-01-27',qty:40},
+  {menuItemId:'menu_1',weekOf:'2026-01-27',qty:5},
+  {menuItemId:'menu_2',weekOf:'2026-01-27',qty:1},
+  {menuItemId:'menu_3',weekOf:'2026-01-27',qty:9},
+  {menuItemId:'menu_4',weekOf:'2026-01-27',qty:3},
   // Week of Feb 3
-  {menuItemId:'menu_1',weekOf:'2026-02-03',qty:55},
-  {menuItemId:'menu_2',weekOf:'2026-02-03',qty:33},
-  {menuItemId:'menu_3',weekOf:'2026-02-03',qty:24},
-  {menuItemId:'menu_4',weekOf:'2026-02-03',qty:44},
+  {menuItemId:'menu_1',weekOf:'2026-02-03',qty:5},
+  {menuItemId:'menu_2',weekOf:'2026-02-03',qty:1},
+  {menuItemId:'menu_3',weekOf:'2026-02-03',qty:10},
+  {menuItemId:'menu_4',weekOf:'2026-02-03',qty:4},
   // Week of Feb 10
-  {menuItemId:'menu_1',weekOf:'2026-02-10',qty:47},
-  {menuItemId:'menu_2',weekOf:'2026-02-10',qty:29},
-  {menuItemId:'menu_3',weekOf:'2026-02-10',qty:19},
-  {menuItemId:'menu_4',weekOf:'2026-02-10',qty:37},
+  {menuItemId:'menu_1',weekOf:'2026-02-10',qty:4},
+  {menuItemId:'menu_2',weekOf:'2026-02-10',qty:1},
+  {menuItemId:'menu_3',weekOf:'2026-02-10',qty:9},
+  {menuItemId:'menu_4',weekOf:'2026-02-10',qty:3},
   // Week of Feb 17
-  {menuItemId:'menu_1',weekOf:'2026-02-17',qty:53},
-  {menuItemId:'menu_2',weekOf:'2026-02-17',qty:31},
-  {menuItemId:'menu_3',weekOf:'2026-02-17',qty:21},
-  {menuItemId:'menu_4',weekOf:'2026-02-17',qty:41},
+  {menuItemId:'menu_1',weekOf:'2026-02-17',qty:5},
+  {menuItemId:'menu_2',weekOf:'2026-02-17',qty:1},
+  {menuItemId:'menu_3',weekOf:'2026-02-17',qty:9},
+  {menuItemId:'menu_4',weekOf:'2026-02-17',qty:4},
   // Week of Feb 24
-  {menuItemId:'menu_1',weekOf:'2026-02-24',qty:49},
-  {menuItemId:'menu_2',weekOf:'2026-02-24',qty:26},
-  {menuItemId:'menu_3',weekOf:'2026-02-24',qty:17},
-  {menuItemId:'menu_4',weekOf:'2026-02-24',qty:39},
+  {menuItemId:'menu_1',weekOf:'2026-02-24',qty:4},
+  {menuItemId:'menu_2',weekOf:'2026-02-24',qty:1},
+  {menuItemId:'menu_3',weekOf:'2026-02-24',qty:9},
+  {menuItemId:'menu_4',weekOf:'2026-02-24',qty:3},
   // Week of Mar 3
-  {menuItemId:'menu_1',weekOf:'2026-03-03',qty:51},
-  {menuItemId:'menu_2',weekOf:'2026-03-03',qty:34},
-  {menuItemId:'menu_3',weekOf:'2026-03-03',qty:23},
-  {menuItemId:'menu_4',weekOf:'2026-03-03',qty:43},
+  {menuItemId:'menu_1',weekOf:'2026-03-03',qty:5},
+  {menuItemId:'menu_2',weekOf:'2026-03-03',qty:1},
+  {menuItemId:'menu_3',weekOf:'2026-03-03',qty:9},
+  {menuItemId:'menu_4',weekOf:'2026-03-03',qty:4},
   // Week of Mar 10
-  {menuItemId:'menu_1',weekOf:'2026-03-10',qty:46},
-  {menuItemId:'menu_2',weekOf:'2026-03-10',qty:28},
-  {menuItemId:'menu_3',weekOf:'2026-03-10',qty:15},
-  {menuItemId:'menu_4',weekOf:'2026-03-10',qty:36},
+  {menuItemId:'menu_1',weekOf:'2026-03-10',qty:4},
+  {menuItemId:'menu_2',weekOf:'2026-03-10',qty:1},
+  {menuItemId:'menu_3',weekOf:'2026-03-10',qty:9},
+  {menuItemId:'menu_4',weekOf:'2026-03-10',qty:3},
   // Week of Mar 17
-  {menuItemId:'menu_1',weekOf:'2026-03-17',qty:54},
-  {menuItemId:'menu_2',weekOf:'2026-03-17',qty:35},
-  {menuItemId:'menu_3',weekOf:'2026-03-17',qty:25},
-  {menuItemId:'menu_4',weekOf:'2026-03-17',qty:45},
+  {menuItemId:'menu_1',weekOf:'2026-03-17',qty:5},
+  {menuItemId:'menu_2',weekOf:'2026-03-17',qty:1},
+  {menuItemId:'menu_3',weekOf:'2026-03-17',qty:10},
+  {menuItemId:'menu_4',weekOf:'2026-03-17',qty:4},
   // Week of Mar 24
-  {menuItemId:'menu_1',weekOf:'2026-03-24',qty:48},
-  {menuItemId:'menu_2',weekOf:'2026-03-24',qty:30},
-  {menuItemId:'menu_3',weekOf:'2026-03-24',qty:19},
-  {menuItemId:'menu_4',weekOf:'2026-03-24',qty:38},
+  {menuItemId:'menu_1',weekOf:'2026-03-24',qty:4},
+  {menuItemId:'menu_2',weekOf:'2026-03-24',qty:1},
+  {menuItemId:'menu_3',weekOf:'2026-03-24',qty:9},
+  {menuItemId:'menu_4',weekOf:'2026-03-24',qty:3},
   // Week of Mar 31
-  {menuItemId:'menu_1',weekOf:'2026-03-31',qty:50},
-  {menuItemId:'menu_2',weekOf:'2026-03-31',qty:27},
-  {menuItemId:'menu_3',weekOf:'2026-03-31',qty:20},
-  {menuItemId:'menu_4',weekOf:'2026-03-31',qty:40},
+  {menuItemId:'menu_1',weekOf:'2026-03-31',qty:5},
+  {menuItemId:'menu_2',weekOf:'2026-03-31',qty:1},
+  {menuItemId:'menu_3',weekOf:'2026-03-31',qty:9},
+  {menuItemId:'menu_4',weekOf:'2026-03-31',qty:4},
   // Week of Apr 7
-  {menuItemId:'menu_1',weekOf:'2026-04-07',qty:52},
-  {menuItemId:'menu_2',weekOf:'2026-04-07',qty:29},
-  {menuItemId:'menu_3',weekOf:'2026-04-07',qty:17},
-  {menuItemId:'menu_4',weekOf:'2026-04-07',qty:42}
+  {menuItemId:'menu_1',weekOf:'2026-04-07',qty:5},
+  {menuItemId:'menu_2',weekOf:'2026-04-07',qty:1},
+  {menuItemId:'menu_3',weekOf:'2026-04-07',qty:10},
+  {menuItemId:'menu_4',weekOf:'2026-04-07',qty:3}
 ];
 
 let ACTIVE_TAB=1;
@@ -392,6 +421,86 @@ function calcStockLevels(){
     return {groupId:grp.id,groupName:grp.name,tagIds:grp.tagIds,level,remaining:Math.round(remaining*10)/10,avgWeeklyConsumption:Math.round(avgWeeklyConsumption*10)/10,lastPurchaseDate,lastVendor,lastPrice,totalPurchased,totalConsumed:Math.round(totalConsumed*10)/10};
   });
 }
+
+// Tag emoji map: Proteins 🥩, Produce 🥬, Dairy 🧀, Supplies 📦, Beverages 🥤
+const TAG_EMOJI={'tag_1':'🥩','tag_2':'🥬','tag_3':'🧀','tag_4':'📦','tag_5':'🥤'};
+const LEVEL_ORDER={low:0,medium:1,high:2,unknown:3};
+
+function badgeHtml(level){
+  return '<span class="stock-badge stock-'+level+'">'+(level.charAt(0).toUpperCase()+level.slice(1))+'</span>';
+}
+
+function renderStock(){
+  var stocks=calcStockLevels();
+  // Reorder suggestions
+  var reorderEl=document.getElementById('reorder-section');
+  var needsReorder=stocks.filter(s=>s.level==='low'||s.level==='medium');
+  needsReorder.sort((a,b)=>LEVEL_ORDER[a.level]-LEVEL_ORDER[b.level]||a.groupName.localeCompare(b.groupName));
+  if(needsReorder.length){
+    reorderEl.innerHTML='<div class="reorder-section"><div class="reorder-title">Reorder Suggestions ('+needsReorder.length+')</div>'+needsReorder.map(s=>'<div class="reorder-item"><div><div class="reorder-item-name">'+s.groupName+'</div><div class="reorder-item-meta">'+(s.lastPurchaseDate?'Last bought: '+formatDate(s.lastPurchaseDate):'No purchase history')+'</div></div>'+badgeHtml(s.level)+'</div>').join('')+'</div>';
+  } else {
+    reorderEl.innerHTML='';
+  }
+  // Tag-grouped stock list
+  var tagMap={};
+  MOCK_TAGS.forEach(t=>{tagMap[t.id]=t;});
+  // Group stocks by first tagId
+  var sections={};
+  stocks.forEach(s=>{
+    var tid=s.tagIds[0];
+    if(!sections[tid])sections[tid]=[];
+    sections[tid].push(s);
+  });
+  var html='';
+  MOCK_TAGS.forEach(tag=>{
+    var items=sections[tag.id];
+    if(!items||!items.length)return;
+    items.sort((a,b)=>LEVEL_ORDER[a.level]-LEVEL_ORDER[b.level]||a.groupName.localeCompare(b.groupName));
+    var collapsed=COLLAPSED_TAGS[tag.id];
+    var emoji=TAG_EMOJI[tag.id]||'';
+    html+='<div class="tag-section">';
+    html+='<div class="tag-header" data-action="toggle-tag" data-tag-id="'+tag.id+'">'+emoji+' '+tag.name+'<span style="font-size:12px;color:var(--mut);font-weight:400;margin-left:4px">('+items.length+')</span><span class="arrow'+(collapsed?' collapsed':'')+'">▼</span></div>';
+    if(!collapsed){
+      items.forEach(s=>{
+        var expanded=EXPANDED_STOCK_ITEMS[s.groupId];
+        html+='<div class="stock-item" data-action="toggle-stock-item" data-group-id="'+s.groupId+'"><span class="stock-item-name">'+s.groupName+'</span>'+badgeHtml(s.level)+'</div>';
+        if(expanded){
+          var lastDate=s.lastPurchaseDate?formatDate(s.lastPurchaseDate):'Unknown';
+          var vendor=s.lastVendor||'Unknown';
+          var price=s.lastPrice?'$'+s.lastPrice.toFixed(2):'Unknown';
+          var remaining=s.totalPurchased===0?'No history':'~'+s.remaining+' units';
+          var freq=s.avgWeeklyConsumption>0?'~'+s.avgWeeklyConsumption+' units/week':'Unknown';
+          html+='<div class="stock-detail open">';
+          html+='<div class="stock-detail-row"><span class="stock-detail-label">Last purchased</span><span class="stock-detail-value">'+lastDate+'</span></div>';
+          html+='<div class="stock-detail-row"><span class="stock-detail-label">Last vendor</span><span class="stock-detail-value">'+vendor+'</span></div>';
+          html+='<div class="stock-detail-row"><span class="stock-detail-label">Avg weekly use</span><span class="stock-detail-value">'+freq+'</span></div>';
+          html+='<div class="stock-detail-row"><span class="stock-detail-label">Last price</span><span class="stock-detail-value">'+price+'</span></div>';
+          html+='<div class="stock-detail-row"><span class="stock-detail-label">Est. remaining</span><span class="stock-detail-value">'+remaining+'</span></div>';
+          html+='<button class="override-btn" data-action="show-override" data-group-id="'+s.groupId+'">Override Level</button>';
+          html+='</div>';
+        }
+      });
+    }
+    html+='</div>';
+  });
+  document.getElementById('stock-list').innerHTML=html;
+}
+
+document.addEventListener('click',function(e){
+  if(ACTIVE_TAB!==3)return;
+  var el=e.target.closest('[data-action]');
+  if(!el)return;
+  var action=el.dataset.action;
+  if(action==='toggle-stock-item'){
+    var gid=el.dataset.groupId;
+    EXPANDED_STOCK_ITEMS[gid]=!EXPANDED_STOCK_ITEMS[gid];
+    renderStock();
+  } else if(action==='toggle-tag'){
+    var tid=el.dataset.tagId;
+    COLLAPSED_TAGS[tid]=!COLLAPSED_TAGS[tid];
+    renderStock();
+  }
+});
 
 function formatDate(dateStr){
   var d=parseLocalDate(dateStr);
