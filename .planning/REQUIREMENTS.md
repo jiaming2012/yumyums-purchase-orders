@@ -25,7 +25,7 @@ Requirements for the Inventory App milestone. Each maps to roadmap phases.
 
 - [x] **STCK-01**: User can see low/medium/high stock level indicators per item group based on purchase recency
 - [x] **STCK-02**: Items at low/medium stock are flagged as "recommended for next PO" (display only)
-- [ ] **STCK-03**: User can manually override a stock level with a reason (mock journal entry for backend later)
+- [x] **STCK-03**: User can manually override a stock level with a reason (mock journal entry for backend later)
 
 ### Food Cost Intelligence
 
@@ -80,7 +80,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | INTG-01 | Phase 6 | Complete |
 | STCK-01 | Phase 7 | Complete |
 | STCK-02 | Phase 7 | Complete |
-| STCK-03 | Phase 7 | Pending |
+| STCK-03 | Phase 7 | Complete |
 | TRND-01 | Phase 8 | Pending |
 | TRND-02 | Phase 8 | Pending |
 | TRND-03 | Phase 8 | Pending |

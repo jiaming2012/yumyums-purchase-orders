@@ -23,7 +23,7 @@
 **Milestone Goal:** Standalone inventory tool showing purchase history, category spending trends, stock level estimates, and food cost intelligence — all derived from mock Baserow purchase data, no backend required.
 
 - [x] **Phase 6: Foundation and History Tab** - inventory.html shell with Chart.js loaded locally, mock data layer, HQ integration, and fully functional Purchase History tab (completed 2026-04-14)
-- [ ] **Phase 7: Stock and Reorder Tab** - Low/Medium/High stock badges per item group via purchase-frequency heuristic, reorder suggestions list, manual override
+- [x] **Phase 7: Stock and Reorder Tab** - Low/Medium/High stock badges per item group via purchase-frequency heuristic, reorder suggestions list, manual override (completed 2026-04-14)
 - [ ] **Phase 8: Trends and Cost Intelligence Tabs** - Chart.js spending charts and food cost per menu item, architected for future Metabase iframe replacement
 
 ## Phase Details
@@ -52,10 +52,10 @@ Plans:
   1. User can see every item group with a Low, Medium, or High badge derived from purchase recency (not manual entry)
   2. User can see a Reorder Suggestions section listing only Low and Medium items, sorted by urgency
   3. User can tap an item's stock badge and override it with a different level and a reason, and see the override reflected immediately
-**Plans:** 2 plans
+**Plans:** 2/2 plans complete
 Plans:
-- [ ] 07-01-PLAN.md — Stock estimation algorithm, MOCK_SALES data, tag-grouped Stock tab UI with badges and reorder suggestions
-- [ ] 07-02-PLAN.md — Manual override flow, Playwright E2E tests, SW cache bump
+- [x] 07-01-PLAN.md — Stock estimation algorithm, MOCK_SALES data, tag-grouped Stock tab UI with badges and reorder suggestions
+- [x] 07-02-PLAN.md — Manual override flow, Playwright E2E tests, SW cache bump
 **UI hint**: yes
 
 ### Phase 8: Trends and Cost Intelligence Tabs
@@ -84,5 +84,5 @@ Plans:
 | 4. Onboarding App | v1.0 | 3/3 | Complete | 2026-04-14 |
 | 5. Onboarding Builder | v1.0 | 2/2 | Complete | 2026-04-14 |
 | 6. Foundation and History Tab | v1.1 | 2/2 | Complete   | 2026-04-14 |
-| 7. Stock and Reorder Tab | v1.1 | 0/2 | Planning complete | - |
+| 7. Stock and Reorder Tab | v1.1 | 2/2 | Complete   | 2026-04-14 |
 | 8. Trends and Cost Intelligence Tabs | v1.1 | 0/? | Not started | - |
