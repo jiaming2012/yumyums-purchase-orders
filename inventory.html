@@ -51,8 +51,8 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
     <button id="t4" onclick="show(4)">Cost</button>
   </div>
   <div id="s1">
-    <select id="vendor-filter" class="filter-select" onchange="VENDOR_FILTER=this.value;renderHistory()">
-      <option value="">All vendors</option>
+    <select id="vendor-filter" class="filter-select">
+      <option value="">All Vendors</option>
     </select>
     <div id="history-list"></div>
   </div>
@@ -255,25 +255,40 @@ function render(){
   // if(ACTIVE_TAB===4)renderCost();   // Phase 8
 }
 
+function formatDate(dateStr){
+  var d=parseLocalDate(dateStr);
+  return new Intl.DateTimeFormat('en-US',{month:'short',day:'numeric',year:'numeric'}).format(d);
+}
+
+function renderLineItems(eventId){
+  var items=MOCK_PURCHASES.filter(p=>p.purchaseEventId===eventId);
+  return '<div class="event-detail" style="display:block">'+items.map(p=>'<div class="line-item"><div style="flex:1"><div style="font-size:13px;font-weight:500">'+p.name+'</div><div style="font-size:12px;color:var(--mut);margin-top:2px">Qty: '+p.qty+(p.isCase?' <span class="case-badge">CASE</span>':'')+'</div></div><div style="font-size:14px;font-weight:500">$'+p.price.toFixed(2)+'</div></div>').join('')+'</div>';
+}
+
 function renderHistory(){
+  var sel=document.getElementById('vendor-filter');
+  var vendors=[...MOCK_VENDORS].sort((a,b)=>a.name.localeCompare(b.name));
+  sel.innerHTML='<option value="">All Vendors</option>'+vendors.map(v=>'<option value="'+v.id+'">'+v.name+'</option>').join('');
+  sel.value=VENDOR_FILTER;
   var list=document.getElementById('history-list');
   var filtered=VENDOR_FILTER
     ?MOCK_PURCHASE_EVENTS.filter(e=>e.vendorId===VENDOR_FILTER)
     :MOCK_PURCHASE_EVENTS;
-  var sorted=filtered.slice().sort((a,b)=>parseLocalDate(b.date)-parseLocalDate(a.date));
+  var sorted=filtered.slice().sort((a,b)=>b.date.localeCompare(a.date));
   if(!sorted.length){
-    list.innerHTML='<div class="empty"><p>No purchases found.</p></div>';
+    list.innerHTML='<div class="coming-soon"><h3>No purchases found</h3><p>No purchase events match the selected filter.</p></div>';
     return;
   }
   list.innerHTML=sorted.map(evt=>{
-    var d=parseLocalDate(evt.date);
-    var dateStr=d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
-    var items=MOCK_PURCHASES.filter(p=>p.purchaseEventId===evt.id);
     var expanded=EXPANDED_EVENTS[evt.id];
-    var detail=expanded?'<div class="event-detail open">'+items.map(p=>'<div class="line-item"><span class="line-item-name">'+p.name+(p.isCase?'<span class="case-badge">case</span>':'')+'</span><span class="line-item-qty">x'+p.qty+'</span><span class="line-item-price">$'+p.price.toFixed(2)+'</span></div>').join('')+'</div>':'<div class="event-detail"></div>';
-    return '<div class="event-card" data-action="toggle-event" data-id="'+evt.id+'"><div class="event-header"><div><div class="event-vendor">'+evt.vendorName+'</div><div class="event-meta">'+dateStr+' &middot; '+items.length+' items</div></div><div class="event-total">$'+evt.total.toFixed(2)+'</div></div>'+detail+'</div>';
+    return '<div class="event-card" data-action="toggle-event" data-id="'+evt.id+'"><div class="event-header"><div><div class="event-vendor">'+evt.vendorName+'</div><div class="event-meta">'+formatDate(evt.date)+'</div></div><div class="event-total">$'+evt.total.toFixed(2)+'</div></div>'+(expanded?renderLineItems(evt.id):'')+'</div>';
   }).join('');
 }
+
+document.getElementById('vendor-filter').addEventListener('change',function(e){
+  VENDOR_FILTER=e.target.value;
+  renderHistory();
+});
 
 document.getElementById('history-list').addEventListener('click',function(e){
   var el=e.target.closest('[data-action]');
@@ -287,17 +302,6 @@ function toggleEventDetail(eventId){
   EXPANDED_EVENTS[eventId]=!EXPANDED_EVENTS[eventId];
   renderHistory();
 }
-
-// Populate vendor filter dropdown
-(function(){
-  var sel=document.getElementById('vendor-filter');
-  MOCK_VENDORS.forEach(v=>{
-    var opt=document.createElement('option');
-    opt.value=v.id;
-    opt.textContent=v.name;
-    sel.appendChild(opt);
-  });
-})();
 
 if(typeof Chart==='undefined')console.error('Chart.js failed to load');
 
