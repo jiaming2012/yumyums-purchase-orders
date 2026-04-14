@@ -15,6 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 1: Template Builder** - Lock the data model and build the owner/manager template editor with section grouping, all field types, drag-to-reorder, and day-of-week + skip logic conditions
 - [x] **Phase 2: Fill-Out and Conditional Logic** - Build the crew fill-out experience end-to-end: checklist runner, all non-photo field types, fail triggers, inline corrective actions, and completion tracking (completed 2026-04-13)
 - [x] **Phase 3: Photo, Approval, and Integration** - Add photo capture (isolated iOS testing), manager approval flow, and wire the app into the HQ launcher with pre-built food truck templates (completed 2026-04-13)
+- [ ] **Phase 4: Onboarding App** - Standalone onboarding tool for new crew member onboarding: checklist per new hire, training progress tracking, owner sign-off
 
 ## Phase Details
 
@@ -68,13 +69,33 @@ Plans:
 
 **UI hint**: yes
 
+### Phase 4: Onboarding App
+**Goal:** Standalone onboarding tool (onboarding.html) with role-based views, video-based training checklists, sequential section progression with manager sign-off, and FAQ gate. Mock data only.
+**Depends on:** Phase 3
+**Requirements**: D-01, D-02, D-03, D-04, D-05, D-06, D-07, D-08, D-09, D-10, D-11, D-12, D-13, D-14, D-15, D-16
+**Success Criteria** (what must be TRUE):
+  1. Crew member sees assigned onboarding checklists with progress and can complete sections sequentially
+  2. Video training items link to external videos; crew checks off parts after watching
+  3. FAQ section must be viewed before checklist is considered complete
+  4. Manager can view hire progress, approve/send-back section sign-offs, and assign additional trainings
+  5. Onboarding tile is active on HQ launcher and page is cached by service worker
+**Plans**: 3 plans
+
+Plans:
+- [ ] 04-01-PLAN.md — Page scaffold, data model, My Trainings tab with checklist runner, section lock, video items, FAQ gate
+- [ ] 04-02-PLAN.md — Manager tab with hire cards, read-only drill-down, sign-off approve/send-back, assign training
+- [ ] 04-03-PLAN.md — HQ integration (index.html tile, sw.js cache, users.html APPS) + human-verify checkpoint
+
+**UI hint**: yes
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3
+Phases execute in numeric order: 1 → 2 → 3 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Template Builder | 2/3 | In Progress|  |
 | 2. Fill-Out and Conditional Logic | 2/2 | Complete   | 2026-04-13 |
 | 3. Photo, Approval, and Integration | 2/2 | Complete   | 2026-04-13 |
+| 4. Onboarding App | 0/3 | Not Started |  |
