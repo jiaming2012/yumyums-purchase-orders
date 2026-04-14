@@ -81,6 +81,20 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .chip-bar{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
 .chip{padding:6px 12px;border-radius:16px;border:0.5px solid var(--brd);background:var(--card);color:var(--mut);font-size:12px;font-weight:500;cursor:pointer;user-select:none}
 .chip.on{background:var(--info-bg);color:var(--info-tx);border-color:var(--info-tx)}
+.menu-card{background:var(--card);border:0.5px solid var(--brd);border-radius:12px;padding:16px;margin-bottom:8px;cursor:pointer}
+.menu-card-header{display:flex;align-items:center;justify-content:space-between}
+.menu-card-name{font-size:15px;font-weight:600;color:var(--txt)}
+.menu-card-cost{font-size:15px;font-weight:600;color:var(--info-tx)}
+.menu-card-detail{display:none;margin-top:12px;border-top:0.5px solid var(--brd);padding-top:12px}
+.menu-card-detail.open{display:block}
+.ingredient-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:0.5px solid var(--brd);font-size:13px}
+.ingredient-row:last-child{border-bottom:none}
+.ingredient-name{color:var(--txt);flex:1}
+.ingredient-pct{color:var(--mut);margin-right:12px;font-size:12px}
+.ingredient-cost{font-weight:500;color:var(--txt);white-space:nowrap}
+.revenue-row{display:flex;justify-content:space-between;padding:8px 0;font-size:13px;margin-top:8px;border-top:0.5px solid var(--brd)}
+.revenue-label{color:var(--mut)}
+.revenue-value{font-weight:500}
 </style>
 </head>
 <body>
@@ -365,6 +379,9 @@ let ACTIVE_CHIPS=new Set();
 let trendBarChart=null;
 let trendDoughnutChart=null;
 let trendLineChart=null;
+let COST_SUB_TAB=1;
+let EXPANDED_MENU_ITEMS={};
+let EXPANDED_INGREDIENTS={};
 
 function show(n){
   [1,2,3,4].forEach(i=>{
@@ -380,7 +397,7 @@ function render(){
   if(ACTIVE_TAB===1)renderHistory();
   if(ACTIVE_TAB===2)renderTrends();
   if(ACTIVE_TAB===3)renderStock();
-  // if(ACTIVE_TAB===4)renderCost();   // Phase 8
+  if(ACTIVE_TAB===4)renderCost();
 }
 
 function calcStockLevels(){
@@ -539,6 +556,94 @@ function renderTrends(){
     trendLineChart=new Chart(document.getElementById('trend-line'),{type:'line',data:{labels:monthData.labels,datasets:[{label:'Monthly Spend',data:monthData.data,borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,0.1)',fill:true,tension:0.3,pointRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>'$'+ctx.raw.toFixed(2)}}},scales:{x:{ticks:{color:colors.mut},grid:{color:colors.brd}},y:{ticks:{color:colors.mut,callback:v=>'$'+v},grid:{color:colors.brd}}}}});
   }
 }
+
+function calcAvgUnitPrice(groupId){
+  var piIds=MOCK_PURCHASE_ITEMS.filter(pi=>pi.groupId===groupId).map(pi=>pi.id);
+  var relevant=MOCK_PURCHASES.filter(p=>piIds.includes(p.purchaseItemId));
+  var totalQty=relevant.reduce((s,p)=>s+p.qty,0);
+  if(!totalQty)return 0;
+  var totalCost=relevant.reduce((s,p)=>s+p.price*p.qty,0);
+  return totalCost/totalQty;
+}
+
+function calcMenuItemCost(menuItem){
+  var n=menuItem.ingredientGroupIds.length||1;
+  var ingredients=menuItem.ingredientGroupIds.map(gid=>{
+    var grp=MOCK_ITEM_GROUPS.find(g=>g.id===gid)||{name:gid};
+    var avg=calcAvgUnitPrice(gid);
+    var proportion=1/n;
+    return {name:grp.name,groupId:gid,proportion,avgUnitPrice:avg,lineCost:avg*proportion};
+  });
+  var totalCost=ingredients.reduce((s,i)=>s+i.lineCost,0);
+  return {totalCost,ingredients};
+}
+
+function calcIngredientUsage(groupId){
+  var avgPrice=calcAvgUnitPrice(groupId);
+  var salesTotals={};
+  MOCK_SALES.forEach(s=>{salesTotals[s.menuItemId]=(salesTotals[s.menuItemId]||0)+s.qty;});
+  var usages=MOCK_MENU_ITEMS.filter(mi=>mi.ingredientGroupIds.includes(groupId)).map(mi=>{
+    var proportion=1/mi.ingredientGroupIds.length;
+    var costContribution=avgPrice*proportion;
+    var totalSalesQty=salesTotals[mi.id]||0;
+    var revenue=totalSalesQty*mi.price;
+    var returnOnPurchase=costContribution>0?revenue/costContribution:0;
+    return {menuItemName:mi.name,costContribution,revenue,returnOnPurchase};
+  });
+  var totalContrib=usages.reduce((s,u)=>s+u.costContribution,0);
+  usages.forEach(u=>{u.pct=totalContrib>0?(u.costContribution/totalContrib*100):0;});
+  return usages;
+}
+
+function renderCost(){
+  // TODO(INTG-02): Replace cost rendering below with Metabase iframe: <iframe src="METABASE_URL/dashboard/cost" ...>
+  var subBtns='<div class="sub-tabs"><button class="'+(COST_SUB_TAB===1?'on':'')+'" data-action="cost-subtab" data-sub="1">Menu Items</button><button class="'+(COST_SUB_TAB===2?'on':'')+'" data-action="cost-subtab" data-sub="2">Ingredients</button></div>';
+  var html=subBtns;
+  if(COST_SUB_TAB===1){
+    html+=MOCK_MENU_ITEMS.map(mi=>{
+      var calc=calcMenuItemCost(mi);
+      var expanded=EXPANDED_MENU_ITEMS[mi.id];
+      var detail='';
+      if(expanded){
+        var rows=calc.ingredients.map(ing=>'<div class="ingredient-row"><span class="ingredient-name">'+ing.name+'</span><span class="ingredient-pct">'+Math.round(ing.proportion*100)+'%</span><span class="ingredient-cost">$'+ing.lineCost.toFixed(2)+'</span></div>').join('');
+        var margin=mi.price-calc.totalCost;
+        detail='<div class="menu-card-detail open">'+rows+'<div class="revenue-row"><span class="revenue-label">Sale price</span><span class="revenue-value">$'+mi.price.toFixed(2)+'</span></div><div class="revenue-row"><span class="revenue-label">Est. margin</span><span class="revenue-value">$'+margin.toFixed(2)+'</span></div></div>';
+      }
+      return '<div class="menu-card" data-action="toggle-menu-item" data-menu-id="'+mi.id+'"><div class="menu-card-header"><span class="menu-card-name">'+mi.name+'</span><span class="menu-card-cost">$'+calc.totalCost.toFixed(2)+'</span></div>'+detail+'</div>';
+    }).join('');
+  } else {
+    html+=MOCK_ITEM_GROUPS.map(grp=>{
+      var avg=calcAvgUnitPrice(grp.id);
+      var expanded=EXPANDED_INGREDIENTS[grp.id];
+      var detail='';
+      if(expanded){
+        var usages=calcIngredientUsage(grp.id);
+        var rows=usages.length?usages.map(u=>'<div class="ingredient-row"><span class="ingredient-name">'+u.menuItemName+'</span><span class="ingredient-pct">$'+u.costContribution.toFixed(2)+' cost</span><span class="ingredient-cost">'+u.returnOnPurchase.toFixed(1)+'x return</span></div>').join(''):'<div class="ingredient-row"><span class="ingredient-name" style="color:var(--mut)">Not used in any menu item</span></div>';
+        detail='<div class="menu-card-detail open">'+rows+'</div>';
+      }
+      return '<div class="menu-card" data-action="toggle-ingredient" data-group-id="'+grp.id+'"><div class="menu-card-header"><span class="menu-card-name">'+grp.name+'</span><span class="menu-card-cost">$'+avg.toFixed(2)+' avg/unit</span></div>'+detail+'</div>';
+    }).join('');
+  }
+  document.getElementById('cost-container').innerHTML=html;
+}
+
+document.getElementById('s4').addEventListener('click',function(e){
+  var el=e.target.closest('[data-action]');
+  if(!el)return;
+  var action=el.dataset.action;
+  if(action==='cost-subtab'){
+    COST_SUB_TAB=Number(el.dataset.sub);
+    renderCost();
+  } else if(action==='toggle-menu-item'){
+    var mid=el.dataset.menuId;
+    EXPANDED_MENU_ITEMS[mid]=!EXPANDED_MENU_ITEMS[mid];
+    renderCost();
+  } else if(action==='toggle-ingredient'){
+    var gid=el.dataset.groupId;
+    EXPANDED_INGREDIENTS[gid]=!EXPANDED_INGREDIENTS[gid];
+    renderCost();
+  }
+});
 
 // Tag emoji map: Proteins 🥩, Produce 🥬, Dairy 🧀, Supplies 📦, Beverages 🥤
 const TAG_EMOJI={'tag_1':'🥩','tag_2':'🥬','tag_3':'🧀','tag_4':'📦','tag_5':'🥤'};
