@@ -47,7 +47,11 @@ Operational tools that let the owner manage crew workflows and training from one
 
 ### Active
 
-(None — v1.0 milestone shipped)
+- [ ] Purchase history view — browse past purchases by date/vendor with line items
+- [ ] Category spending trends — chart spending over time by tag (Beef, Produce, Supplies, etc.)
+- [ ] Inventory estimates — low/medium/high stock levels per item group based on purchase frequency
+- [ ] Reorder suggestions — low/medium items flagged for next PO (display only)
+- [ ] HQ integration — launcher tile, SW cache, Users permissions
 
 ### Out of Scope
 
@@ -55,8 +59,20 @@ Operational tools that let the owner manage crew workflows and training from one
 - Real authentication — login.html is a mockup, no session management
 - Offline sync / IndexedDB — future concern, not needed for mocks
 - Multi-location support — single food truck operation
-- Reporting / analytics dashboard — may come later as a BI tool
+- Actual ordering from inventory — future backend integration with Purchasing app
+- Real-time stock counting / barcode scanning — too complex for mock stage
 - Replacing the existing purchasing app — purchasing stays separate
+
+## Current Milestone: v1.1 Inventory App
+
+**Goal:** Standalone inventory tool showing purchase history, category spending trends, and stock level estimates (low/medium/high) to inform future purchase orders.
+
+**Target features:**
+- Purchase history view (PurchaseEvents with line items)
+- Category spending trends (Tag-based breakdown over time)
+- Inventory estimates (low/medium/high per PurchaseItemGroup)
+- Reorder suggestions (items at low/medium flagged for next PO)
+- HQ integration (launcher tile, SW cache, permissions)
 
 ## Context
 
@@ -118,4 +134,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-14 after v1.0 milestone*
+*Last updated: 2026-04-14 after v1.1 milestone start*

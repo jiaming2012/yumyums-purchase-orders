@@ -1,9 +1,9 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: milestone
-status: verifying
-stopped_at: Completed 05-02-PLAN.md — Phase 05 onboarding-builder complete
+milestone: v1.1
+milestone_name: Inventory App
+status: planning
+stopped_at: Milestone v1.1 started — defining requirements
 last_updated: "2026-04-14T08:49:35.353Z"
 last_activity: 2026-04-14
 progress:
@@ -18,16 +18,17 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-04-13)
+See: .planning/PROJECT.md (updated 2026-04-14)
 
-**Core value:** A workflow engine that lets the owner build checklist templates and have crew members fill them out on mobile — with accountability and smart conditions.
-**Current focus:** Phase 05 — onboarding-builder
+**Core value:** Operational tools that let the owner manage crew workflows and training from one mobile app.
+**Current focus:** v1.1 Inventory App — defining requirements
 
 ## Current Position
 
-Phase: 05
-Plan: Not started
-Status: Phase complete — ready for verification
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-04-14 — Milestone v1.1 started
 Last activity: 2026-04-14
 
 Progress: [███░░░░░░░] 33%
