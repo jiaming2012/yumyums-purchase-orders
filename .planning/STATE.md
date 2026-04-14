@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Inventory App
-status: executing
-stopped_at: Completed 08-02-PLAN.md checkpoint — Tasks 1+2 done, awaiting Task 3 human-verify
-last_updated: "2026-04-14T19:26:51.837Z"
+status: verifying
+stopped_at: Completed 08-02-PLAN.md — Phase 08 fully complete
+last_updated: "2026-04-14T20:31:41.659Z"
 last_activity: 2026-04-14
 progress:
   total_phases: 3
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-04-14)
 
 Phase: 08 (trends-and-cost-intelligence-tabs) — EXECUTING
 Plan: 2 of 2
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-04-14
 
 Progress: [█████░░░░░] 50%
@@ -62,6 +62,7 @@ Progress: [█████░░░░░] 50%
 | Phase 07-stock-and-reorder-tab P02 | 3min | 2 tasks | 3 files |
 | Phase 08 P01 | 12 | 1 tasks | 2 files |
 | Phase 08 P02 | 15min | 2 tasks | 3 files |
+| Phase 08-trends-and-cost-intelligence-tabs P02 | 30min | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -89,6 +90,7 @@ Recent decisions affecting current work:
 - [Phase 08]: Empty ACTIVE_CHIPS Set means all-selected; auto-clear when all 5 chips individually selected
 - [Phase 08]: Trends event delegation scoped to #s2 element to avoid conflict with Stock tabs document-level click handler
 - [Phase 08-trends-and-cost-intelligence-tabs]: Equal ingredient proportion (1/n) for Cost tab mock calculations — simple and intuitive without needing external weighting data
+- [Phase 08-trends-and-cost-intelligence-tabs]: Category drill-down on Trends tab shows purchase line items per tag; shared buildTimeFilterHtml() and buildChipBarHtml() helpers reduce duplication between Trends and Cost tab filters
 
 ### Pending Todos
 
@@ -101,6 +103,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-14T19:26:36.367Z
-Stopped at: Completed 08-02-PLAN.md checkpoint — Tasks 1+2 done, awaiting Task 3 human-verify
+Last session: 2026-04-14T20:31:41.596Z
+Stopped at: Completed 08-02-PLAN.md — Phase 08 fully complete
 Resume file: None

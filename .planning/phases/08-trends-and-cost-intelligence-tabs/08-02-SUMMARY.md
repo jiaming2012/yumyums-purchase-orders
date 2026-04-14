@@ -13,6 +13,11 @@ provides:
   - calcAvgUnitPrice(), calcMenuItemCost(), calcIngredientUsage() helpers
   - Expandable menu item cards showing ingredient proportion tables and margin
   - Ingredient reverse-lookup cards showing which menu items use each ingredient
+  - Category drill-down on Trends tab (purchase line items per tag with name, vendor, qty, case badge)
+  - Time filter dropdown on Trends and Cost tabs (All Time, Last Week, 1/3/6 Months, Last Year)
+  - Tag chip filter and time filter on Cost tab (mirrors Trends)
+  - Chart.js click handler on bar/doughnut charts for drill-down
+  - Shared buildTimeFilterHtml() and buildChipBarHtml() helpers
   - Playwright E2E tests: TRND-01, TRND-02, TRND-03, TRND-04, COST-01, COST-02, COST-03, INTG-02
   - SW cache bumped to yumyums-v46
 affects: [09-future-phases, metabase-integration]
@@ -55,10 +60,10 @@ completed: 2026-04-14
 
 ## Performance
 
-- **Duration:** 15 min
+- **Duration:** ~30 min (including human-verify and post-approval enhancements)
 - **Started:** 2026-04-14T19:10:00Z
-- **Completed:** 2026-04-14T19:25:40Z
-- **Tasks:** 2 (Task 3 is checkpoint - awaiting human-verify)
+- **Completed:** 2026-04-14T20:26:31Z
+- **Tasks:** 3 (all complete including human-verify checkpoint)
 - **Files modified:** 3
 
 ## Accomplishments
@@ -66,6 +71,8 @@ completed: 2026-04-14
 - Cost calculation helpers: calcAvgUnitPrice (weighted avg from purchases), calcMenuItemCost (equal proportion model), calcIngredientUsage (reverse-lookup with return ratio)
 - 8 new Playwright tests (TRND-01 through INTG-02) — all passing; replaced old "Coming Soon" test with COST-01
 - SW cache bumped from v45 to v46 for deployment
+- Human-verify checkpoint approved by user
+- Post-approval enhancements: category drill-down on Trends, time filter dropdown (All Time, Last Week, 1/3/6 Months, Last Year) on both Trends and Cost tabs, tag chip filter added to Cost tab, Chart.js click-to-drill-down on bar/doughnut charts, shared buildTimeFilterHtml() and buildChipBarHtml() helper functions
 
 ## Task Commits
 
@@ -73,6 +80,7 @@ Each task was committed atomically:
 
 1. **Task 1: Cost Intelligence tab** - `38137ea` (feat)
 2. **Task 2: Playwright tests + SW bump** - `d276eea` (feat)
+3. **Task 3: Human-verify approved + post-approval enhancements** - `b35bb9c` (feat)
 
 ## Files Created/Modified
 - `inventory.html` - Added CSS for menu-card/ingredient-row/revenue-row, state vars COST_SUB_TAB/EXPANDED_MENU_ITEMS/EXPANDED_INGREDIENTS, calcAvgUnitPrice/calcMenuItemCost/calcIngredientUsage helpers, renderCost() function, #s4 event delegation
@@ -98,9 +106,10 @@ None - no external service configuration required.
 
 ## Next Phase Readiness
 
-- Cost tab and Trends tab are fully functional with mock data
-- Human visual verification (Task 3 checkpoint) needed before deployment
-- After checkpoint approval, both Trends and Cost tabs ready for deployment
+- Cost tab and Trends tab are fully functional with mock data, drill-down, time filters, and chip filters
+- Human visual verification (Task 3 checkpoint) completed and approved
+- Both Trends and Cost tabs ready for deployment
+- Phase 08 complete — all plans (08-01, 08-02) executed successfully
 
 ---
 *Phase: 08-trends-and-cost-intelligence-tabs*
