@@ -234,8 +234,83 @@ const MOCK_MENU_ITEMS=[
   {id:'menu_4',name:'Loaded Fries',price:10,ingredientGroupIds:['grp_6','grp_7']}
 ];
 
+const MOCK_SALES=[
+  // Week of Jan 6
+  {menuItemId:'menu_1',weekOf:'2026-01-06',qty:48},
+  {menuItemId:'menu_2',weekOf:'2026-01-06',qty:30},
+  {menuItemId:'menu_3',weekOf:'2026-01-06',qty:18},
+  {menuItemId:'menu_4',weekOf:'2026-01-06',qty:38},
+  // Week of Jan 13
+  {menuItemId:'menu_1',weekOf:'2026-01-13',qty:52},
+  {menuItemId:'menu_2',weekOf:'2026-01-13',qty:28},
+  {menuItemId:'menu_3',weekOf:'2026-01-13',qty:20},
+  {menuItemId:'menu_4',weekOf:'2026-01-13',qty:42},
+  // Week of Jan 20
+  {menuItemId:'menu_1',weekOf:'2026-01-20',qty:45},
+  {menuItemId:'menu_2',weekOf:'2026-01-20',qty:32},
+  {menuItemId:'menu_3',weekOf:'2026-01-20',qty:22},
+  {menuItemId:'menu_4',weekOf:'2026-01-20',qty:35},
+  // Week of Jan 27
+  {menuItemId:'menu_1',weekOf:'2026-01-27',qty:50},
+  {menuItemId:'menu_2',weekOf:'2026-01-27',qty:27},
+  {menuItemId:'menu_3',weekOf:'2026-01-27',qty:16},
+  {menuItemId:'menu_4',weekOf:'2026-01-27',qty:40},
+  // Week of Feb 3
+  {menuItemId:'menu_1',weekOf:'2026-02-03',qty:55},
+  {menuItemId:'menu_2',weekOf:'2026-02-03',qty:33},
+  {menuItemId:'menu_3',weekOf:'2026-02-03',qty:24},
+  {menuItemId:'menu_4',weekOf:'2026-02-03',qty:44},
+  // Week of Feb 10
+  {menuItemId:'menu_1',weekOf:'2026-02-10',qty:47},
+  {menuItemId:'menu_2',weekOf:'2026-02-10',qty:29},
+  {menuItemId:'menu_3',weekOf:'2026-02-10',qty:19},
+  {menuItemId:'menu_4',weekOf:'2026-02-10',qty:37},
+  // Week of Feb 17
+  {menuItemId:'menu_1',weekOf:'2026-02-17',qty:53},
+  {menuItemId:'menu_2',weekOf:'2026-02-17',qty:31},
+  {menuItemId:'menu_3',weekOf:'2026-02-17',qty:21},
+  {menuItemId:'menu_4',weekOf:'2026-02-17',qty:41},
+  // Week of Feb 24
+  {menuItemId:'menu_1',weekOf:'2026-02-24',qty:49},
+  {menuItemId:'menu_2',weekOf:'2026-02-24',qty:26},
+  {menuItemId:'menu_3',weekOf:'2026-02-24',qty:17},
+  {menuItemId:'menu_4',weekOf:'2026-02-24',qty:39},
+  // Week of Mar 3
+  {menuItemId:'menu_1',weekOf:'2026-03-03',qty:51},
+  {menuItemId:'menu_2',weekOf:'2026-03-03',qty:34},
+  {menuItemId:'menu_3',weekOf:'2026-03-03',qty:23},
+  {menuItemId:'menu_4',weekOf:'2026-03-03',qty:43},
+  // Week of Mar 10
+  {menuItemId:'menu_1',weekOf:'2026-03-10',qty:46},
+  {menuItemId:'menu_2',weekOf:'2026-03-10',qty:28},
+  {menuItemId:'menu_3',weekOf:'2026-03-10',qty:15},
+  {menuItemId:'menu_4',weekOf:'2026-03-10',qty:36},
+  // Week of Mar 17
+  {menuItemId:'menu_1',weekOf:'2026-03-17',qty:54},
+  {menuItemId:'menu_2',weekOf:'2026-03-17',qty:35},
+  {menuItemId:'menu_3',weekOf:'2026-03-17',qty:25},
+  {menuItemId:'menu_4',weekOf:'2026-03-17',qty:45},
+  // Week of Mar 24
+  {menuItemId:'menu_1',weekOf:'2026-03-24',qty:48},
+  {menuItemId:'menu_2',weekOf:'2026-03-24',qty:30},
+  {menuItemId:'menu_3',weekOf:'2026-03-24',qty:19},
+  {menuItemId:'menu_4',weekOf:'2026-03-24',qty:38},
+  // Week of Mar 31
+  {menuItemId:'menu_1',weekOf:'2026-03-31',qty:50},
+  {menuItemId:'menu_2',weekOf:'2026-03-31',qty:27},
+  {menuItemId:'menu_3',weekOf:'2026-03-31',qty:20},
+  {menuItemId:'menu_4',weekOf:'2026-03-31',qty:40},
+  // Week of Apr 7
+  {menuItemId:'menu_1',weekOf:'2026-04-07',qty:52},
+  {menuItemId:'menu_2',weekOf:'2026-04-07',qty:29},
+  {menuItemId:'menu_3',weekOf:'2026-04-07',qty:17},
+  {menuItemId:'menu_4',weekOf:'2026-04-07',qty:42}
+];
+
 let ACTIVE_TAB=1;
 let EXPANDED_EVENTS={};
+let EXPANDED_STOCK_ITEMS={};
+let COLLAPSED_TAGS={};
 let VENDOR_FILTER='';
 
 function show(n){
@@ -251,8 +326,71 @@ function show(n){
 function render(){
   if(ACTIVE_TAB===1)renderHistory();
   // if(ACTIVE_TAB===2)renderTrends(); // Phase 8
-  // if(ACTIVE_TAB===3)renderStock();  // Phase 7
+  if(ACTIVE_TAB===3)renderStock();
   // if(ACTIVE_TAB===4)renderCost();   // Phase 8
+}
+
+function calcStockLevels(){
+  // Build lookup: purchaseItemId -> groupId
+  var piToGroup={};
+  MOCK_PURCHASE_ITEMS.forEach(pi=>{piToGroup[pi.id]=pi.groupId;});
+  // Build lookup: groupId -> list of purchase events with date/vendor/price
+  var groupPurchases={};
+  MOCK_PURCHASES.forEach(p=>{
+    var gid=piToGroup[p.purchaseItemId];
+    if(!gid)return;
+    if(!groupPurchases[gid])groupPurchases[gid]=[];
+    groupPurchases[gid].push(p);
+  });
+  // Get event map for date/vendor lookup
+  var eventMap={};
+  MOCK_PURCHASE_EVENTS.forEach(e=>{eventMap[e.id]=e;});
+  // Count weeks in sales data
+  var weekSet=new Set(MOCK_SALES.map(s=>s.weekOf));
+  var numWeeks=weekSet.size||1;
+  // Build sales totals per menuItemId
+  var salesTotals={};
+  MOCK_SALES.forEach(s=>{
+    salesTotals[s.menuItemId]=(salesTotals[s.menuItemId]||0)+s.qty;
+  });
+  return MOCK_ITEM_GROUPS.map(grp=>{
+    var purchases=groupPurchases[grp.id]||[];
+    var totalPurchased=purchases.reduce((sum,p)=>sum+p.qty,0);
+    // Calculate totalConsumed via sales * ingredient ratio
+    var totalConsumed=0;
+    MOCK_MENU_ITEMS.forEach(mi=>{
+      if(!mi.ingredientGroupIds.includes(grp.id))return;
+      var salesQty=salesTotals[mi.id]||0;
+      var ratio=1/mi.ingredientGroupIds.length;
+      totalConsumed+=salesQty*ratio;
+    });
+    var remaining=Math.max(0,totalPurchased-totalConsumed);
+    var avgWeeklyConsumption=totalConsumed/numWeeks;
+    // Determine level
+    var level;
+    if(totalPurchased===0){
+      level='unknown';
+    } else if(remaining>avgWeeklyConsumption*1){
+      level='high';
+    } else if(remaining>avgWeeklyConsumption*0.5){
+      level='medium';
+    } else {
+      level='low';
+    }
+    // Find last purchase info
+    var lastPurchaseDate='',lastVendor='',lastPrice=0;
+    if(purchases.length){
+      var withDates=purchases.map(p=>{
+        var evt=eventMap[p.purchaseEventId]||{};
+        return {p,date:evt.date||'',vendorName:evt.vendorName||'',price:p.price};
+      });
+      withDates.sort((a,b)=>b.date.localeCompare(a.date));
+      lastPurchaseDate=withDates[0].date;
+      lastVendor=withDates[0].vendorName;
+      lastPrice=withDates[0].price;
+    }
+    return {groupId:grp.id,groupName:grp.name,tagIds:grp.tagIds,level,remaining:Math.round(remaining*10)/10,avgWeeklyConsumption:Math.round(avgWeeklyConsumption*10)/10,lastPurchaseDate,lastVendor,lastPrice,totalPurchased,totalConsumed:Math.round(totalConsumed*10)/10};
+  });
 }
 
 function formatDate(dateStr){
