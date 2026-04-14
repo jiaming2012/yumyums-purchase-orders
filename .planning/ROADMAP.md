@@ -38,7 +38,10 @@
   3. User can tap a purchase event row to expand it and see line items with name, quantity, price, and case flag
   4. User can tap a vendor filter chip to narrow the event list to that vendor only
   5. inventory.html loads and renders charts correctly when the device is offline (Chart.js served from SW cache, not CDN)
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 06-01-PLAN.md — Foundation: inventory.html shell, Chart.js local asset, mock data, HQ integration
+- [ ] 06-02-PLAN.md — History tab rendering, vendor filter, Playwright E2E tests
 **UI hint**: yes
 
 ### Phase 7: Stock and Reorder Tab
@@ -74,6 +77,6 @@
 | 3. Photo, Approval, and Integration | v1.0 | 2/2 | Complete | 2026-04-13 |
 | 4. Onboarding App | v1.0 | 3/3 | Complete | 2026-04-14 |
 | 5. Onboarding Builder | v1.0 | 2/2 | Complete | 2026-04-14 |
-| 6. Foundation and History Tab | v1.1 | 0/? | Not started | - |
+| 6. Foundation and History Tab | v1.1 | 0/2 | Not started | - |
 | 7. Stock and Reorder Tab | v1.1 | 0/? | Not started | - |
 | 8. Trends and Cost Intelligence Tabs | v1.1 | 0/? | Not started | - |

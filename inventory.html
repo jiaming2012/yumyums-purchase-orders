@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0c447c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.json">
+<title>Inventory - Yumyums HQ</title>
+<style>
+:root{--bg:#f5f5f3;--card:#fff;--txt:#1a1a1a;--mut:#6b6b6b;--brd:rgba(0,0,0,0.08);--info-bg:#e6f1fb;--info-tx:#0c447c;--warn-bg:#faeeda;--warn-tx:#854f0b}
+@media(prefers-color-scheme:dark){:root{--bg:#1a1a1a;--card:#262626;--txt:#f0f0f0;--mut:#999;--brd:rgba(255,255,255,0.1);--info-bg:#0c447c;--info-tx:#b5d4f4;--warn-bg:#633806;--warn-tx:#fac775}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg);color:var(--txt);padding:env(safe-area-inset-top) 16px env(safe-area-inset-bottom)}
+.app{max-width:480px;margin:0 auto;padding-top:20px}
+.back{display:inline-flex;align-items:center;gap:4px;color:var(--info-tx);text-decoration:none;font-size:14px;font-weight:500;margin-bottom:16px;cursor:pointer}
+.tabs{display:flex;gap:0;background:var(--card);border-radius:10px;padding:3px;border:0.5px solid var(--brd);margin-bottom:16px}
+.tabs button{flex:1;border:none;background:transparent;padding:12px 0;font-size:14px;font-weight:500;color:var(--mut);border-radius:8px;cursor:pointer}
+.tabs button.on{background:var(--info-bg);color:var(--info-tx)}
+.card{background:var(--card);border:0.5px solid var(--brd);border-radius:12px;padding:16px;margin-bottom:8px}
+.event-card{background:var(--card);border:0.5px solid var(--brd);border-radius:12px;padding:16px;margin-bottom:8px;cursor:pointer}
+.event-header{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.event-vendor{font-size:15px;font-weight:600;color:var(--txt)}
+.event-meta{font-size:12px;color:var(--mut);margin-top:2px}
+.event-total{font-size:15px;font-weight:600;color:var(--info-tx);white-space:nowrap}
+.event-detail{display:none;margin-top:12px;border-top:0.5px solid var(--brd);padding-top:12px}
+.event-detail.open{display:block}
+.line-item{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:0.5px solid var(--brd)}
+.line-item:last-child{border-bottom:none}
+.line-item-name{font-size:13px;color:var(--txt);flex:1}
+.line-item-qty{font-size:12px;color:var(--mut);white-space:nowrap}
+.line-item-price{font-size:13px;font-weight:500;color:var(--txt);white-space:nowrap}
+.case-badge{font-size:10px;background:var(--warn-bg);color:var(--warn-tx);padding:1px 6px;border-radius:4px;margin-left:4px;vertical-align:middle}
+.filter-select{width:100%;padding:10px 12px;background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;font-size:14px;color:var(--txt);margin-bottom:12px;font-family:inherit;appearance:none;-webkit-appearance:none}
+.coming-soon{text-align:center;padding:60px 20px;color:var(--mut)}
+.coming-soon h3{font-size:16px;font-weight:500;color:var(--txt);margin:0 0 8px}
+.coming-soon p{font-size:13px;margin:0;line-height:1.5}
+.chart-wrap{position:relative;width:100%;height:220px}
+.empty{text-align:center;padding:40px 20px;color:var(--mut)}
+.empty p{font-size:13px;margin:0}
+</style>
+</head>
+<body>
+<div class="app">
+  <a class="back" href="index.html">&#8249; HQ</a>
+  <div class="tabs">
+    <button id="t1" class="on" onclick="show(1)">History</button>
+    <button id="t2" onclick="show(2)">Trends</button>
+    <button id="t3" onclick="show(3)">Stock</button>
+    <button id="t4" onclick="show(4)">Cost</button>
+  </div>
+  <div id="s1">
+    <select id="vendor-filter" class="filter-select" onchange="VENDOR_FILTER=this.value;renderHistory()">
+      <option value="">All vendors</option>
+    </select>
+    <div id="history-list"></div>
+  </div>
+  <div id="s2" style="display:none">
+    <!-- TODO: gate Trends to manager+ via backend roles (INTG-01) -->
+    <div id="trends-container" class="coming-soon">
+      <h3>Spending Trends</h3>
+      <p>Category breakdown and monthly spending charts coming soon.</p>
+    </div>
+  </div>
+  <div id="s3" style="display:none">
+    <div class="coming-soon">
+      <h3>Stock Levels</h3>
+      <p>Purchase-frequency stock estimates and reorder suggestions coming soon.</p>
+    </div>
+  </div>
+  <div id="s4" style="display:none">
+    <!-- TODO: gate Cost to manager+ via backend roles (INTG-01) -->
+    <div id="cost-container" class="coming-soon">
+      <h3>Food Cost Intelligence</h3>
+      <p>Menu item cost estimates and ingredient analysis coming soon.</p>
+    </div>
+  </div>
+</div>
+<script src="lib/chart.umd.min.js"></script>
+<script>
+function parseLocalDate(str){
+  const [y,m,d]=str.split('-').map(Number);
+  return new Date(y,m-1,d);
+}
+
+const MOCK_TAGS=[
+  {id:'tag_1',name:'Proteins'},
+  {id:'tag_2',name:'Produce'},
+  {id:'tag_3',name:'Dairy'},
+  {id:'tag_4',name:'Supplies'},
+  {id:'tag_5',name:'Beverages'}
+];
+
+const MOCK_VENDORS=[
+  {id:'v_1',name:'Sysco',address:'123 Distribution Dr'},
+  {id:'v_2',name:'US Foods',address:'456 Supply Ave'},
+  {id:'v_3',name:'Restaurant Depot',address:'789 Wholesale Blvd'},
+  {id:'v_4',name:'Baldor Specialty Foods',address:'321 Fresh St'}
+];
+
+const MOCK_ITEM_GROUPS=[
+  {id:'grp_1',name:'Beef',tagIds:['tag_1'],parDays:7},
+  {id:'grp_2',name:'Chicken',tagIds:['tag_1'],parDays:7},
+  {id:'grp_3',name:'Salmon',tagIds:['tag_1'],parDays:14},
+  {id:'grp_4',name:'Lettuce & Greens',tagIds:['tag_2'],parDays:5},
+  {id:'grp_5',name:'Onions & Peppers',tagIds:['tag_2'],parDays:7},
+  {id:'grp_6',name:'Cheese',tagIds:['tag_3'],parDays:10},
+  {id:'grp_7',name:'Sauces & Condiments',tagIds:['tag_4'],parDays:30},
+  {id:'grp_8',name:'To-Go Containers',tagIds:['tag_4'],parDays:21},
+  {id:'grp_9',name:'Soft Drinks',tagIds:['tag_5'],parDays:7},
+  {id:'grp_10',name:'Rolls & Buns',tagIds:['tag_1','tag_4'],parDays:5}
+];
+
+const MOCK_PURCHASE_ITEMS=[
+  {id:'pi_1',description:'Ground Beef 80/20 5lb',groupId:'grp_1'},
+  {id:'pi_2',description:'Ribeye Steak 10oz',groupId:'grp_1'},
+  {id:'pi_3',description:'Chicken Breast 40lb case',groupId:'grp_2'},
+  {id:'pi_4',description:'Salmon Fillet 8oz',groupId:'grp_3'},
+  {id:'pi_5',description:'Romaine Hearts 3-pack',groupId:'grp_4'},
+  {id:'pi_6',description:'Yellow Onions 50lb',groupId:'grp_5'},
+  {id:'pi_7',description:'Green Peppers 25lb',groupId:'grp_5'},
+  {id:'pi_8',description:'American Cheese Slices 5lb',groupId:'grp_6'},
+  {id:'pi_9',description:'Provolone Slices 3lb',groupId:'grp_6'},
+  {id:'pi_10',description:'Ketchup Heinz #10',groupId:'grp_7'},
+  {id:'pi_11',description:'Mayo Hellmanns Gallon',groupId:'grp_7'},
+  {id:'pi_12',description:'Clamshell Containers 9x6 200ct',groupId:'grp_8'},
+  {id:'pi_13',description:'Coca-Cola 2L 6-pack',groupId:'grp_9'},
+  {id:'pi_14',description:'Hoagie Rolls 6-pack',groupId:'grp_10'}
+];
+
+const MOCK_PURCHASE_EVENTS=[
+  {id:'evt_1',date:'2026-01-06',vendorId:'v_1',vendorName:'Sysco',tax:18.40,total:248.40},
+  {id:'evt_2',date:'2026-01-13',vendorId:'v_2',vendorName:'US Foods',tax:12.60,total:192.60},
+  {id:'evt_3',date:'2026-01-20',vendorId:'v_1',vendorName:'Sysco',tax:22.10,total:307.10},
+  {id:'evt_4',date:'2026-01-27',vendorId:'v_3',vendorName:'Restaurant Depot',tax:15.80,total:218.80},
+  {id:'evt_5',date:'2026-02-03',vendorId:'v_1',vendorName:'Sysco',tax:19.50,total:264.50},
+  {id:'evt_6',date:'2026-02-10',vendorId:'v_4',vendorName:'Baldor Specialty Foods',tax:28.90,total:428.90},
+  {id:'evt_7',date:'2026-02-17',vendorId:'v_2',vendorName:'US Foods',tax:14.20,total:213.20},
+  {id:'evt_8',date:'2026-02-24',vendorId:'v_1',vendorName:'Sysco',tax:21.30,total:291.30},
+  {id:'evt_9',date:'2026-03-03',vendorId:'v_3',vendorName:'Restaurant Depot',tax:16.70,total:234.70},
+  {id:'evt_10',date:'2026-03-10',vendorId:'v_1',vendorName:'Sysco',tax:24.50,total:344.50},
+  {id:'evt_11',date:'2026-03-17',vendorId:'v_4',vendorName:'Baldor Specialty Foods',tax:31.20,total:481.20},
+  {id:'evt_12',date:'2026-03-24',vendorId:'v_2',vendorName:'US Foods',tax:13.80,total:208.80},
+  {id:'evt_13',date:'2026-03-28',vendorId:'v_1',vendorName:'Sysco',tax:17.60,total:247.60},
+  {id:'evt_14',date:'2026-04-07',vendorId:'v_3',vendorName:'Restaurant Depot',tax:19.10,total:271.10}
+];
+
+const MOCK_PURCHASES=[
+  // evt_1 (Sysco, Jan 6)
+  {id:'p_1',name:'Ground Beef 80/20 5lb',qty:4,isCase:false,price:34.99,purchaseItemId:'pi_1',purchaseEventId:'evt_1'},
+  {id:'p_2',name:'Chicken Breast 40lb case',qty:1,isCase:true,price:89.99,purchaseItemId:'pi_3',purchaseEventId:'evt_1'},
+  {id:'p_3',name:'Romaine Hearts 3-pack',qty:3,isCase:false,price:11.99,purchaseItemId:'pi_5',purchaseEventId:'evt_1'},
+  {id:'p_4',name:'American Cheese Slices 5lb',qty:2,isCase:false,price:28.99,purchaseItemId:'pi_8',purchaseEventId:'evt_1'},
+  {id:'p_5',name:'Hoagie Rolls 6-pack',qty:4,isCase:false,price:9.99,purchaseItemId:'pi_14',purchaseEventId:'evt_1'},
+  // evt_2 (US Foods, Jan 13)
+  {id:'p_6',name:'Ground Beef 80/20 5lb',qty:3,isCase:false,price:34.99,purchaseItemId:'pi_1',purchaseEventId:'evt_2'},
+  {id:'p_7',name:'Yellow Onions 50lb',qty:1,isCase:false,price:38.50,purchaseItemId:'pi_6',purchaseEventId:'evt_2'},
+  {id:'p_8',name:'Green Peppers 25lb',qty:1,isCase:false,price:42.00,purchaseItemId:'pi_7',purchaseEventId:'evt_2'},
+  {id:'p_9',name:'Coca-Cola 2L 6-pack',qty:2,isCase:false,price:18.99,purchaseItemId:'pi_13',purchaseEventId:'evt_2'},
+  // evt_3 (Sysco, Jan 20)
+  {id:'p_10',name:'Ground Beef 80/20 5lb',qty:5,isCase:false,price:34.99,purchaseItemId:'pi_1',purchaseEventId:'evt_3'},
+  {id:'p_11',name:'Chicken Breast 40lb case',qty:1,isCase:true,price:89.99,purchaseItemId:'pi_3',purchaseEventId:'evt_3'},
+  {id:'p_12',name:'Salmon Fillet 8oz',qty:10,isCase:false,price:14.99,purchaseItemId:'pi_4',purchaseEventId:'evt_3'},
+  {id:'p_13',name:'Provolone Slices 3lb',qty:2,isCase:false,price:22.50,purchaseItemId:'pi_9',purchaseEventId:'evt_3'},
+  {id:'p_14',name:'Hoagie Rolls 6-pack',qty:5,isCase:false,price:9.99,purchaseItemId:'pi_14',purchaseEventId:'evt_3'},
+  // evt_4 (Restaurant Depot, Jan 27)
+  {id:'p_15',name:'Ground Beef 80/20 5lb',qty:4,isCase:false,price:33.49,purchaseItemId:'pi_1',purchaseEventId:'evt_4'},
+  {id:'p_16',name:'Clamshell Containers 9x6 200ct',qty:2,isCase:true,price:42.99,purchaseItemId:'pi_12',purchaseEventId:'evt_4'},
+  {id:'p_17',name:'Ketchup Heinz #10',qty:2,isCase:false,price:19.99,purchaseItemId:'pi_10',purchaseEventId:'evt_4'},
+  {id:'p_18',name:'Romaine Hearts 3-pack',qty:4,isCase:false,price:11.49,purchaseItemId:'pi_5',purchaseEventId:'evt_4'},
+  // evt_5 (Sysco, Feb 3)
+  {id:'p_19',name:'Ground Beef 80/20 5lb',qty:4,isCase:false,price:35.99,purchaseItemId:'pi_1',purchaseEventId:'evt_5'},
+  {id:'p_20',name:'Chicken Breast 40lb case',qty:1,isCase:true,price:92.50,purchaseItemId:'pi_3',purchaseEventId:'evt_5'},
+  {id:'p_21',name:'American Cheese Slices 5lb',qty:2,isCase:false,price:29.50,purchaseItemId:'pi_8',purchaseEventId:'evt_5'},
+  {id:'p_22',name:'Hoagie Rolls 6-pack',qty:4,isCase:false,price:9.99,purchaseItemId:'pi_14',purchaseEventId:'evt_5'},
+  {id:'p_23',name:'Coca-Cola 2L 6-pack',qty:2,isCase:false,price:18.99,purchaseItemId:'pi_13',purchaseEventId:'evt_5'},
+  // evt_6 (Baldor, Feb 10)
+  {id:'p_24',name:'Salmon Fillet 8oz',qty:12,isCase:false,price:15.49,purchaseItemId:'pi_4',purchaseEventId:'evt_6'},
+  {id:'p_25',name:'Ribeye Steak 10oz',qty:8,isCase:false,price:22.99,purchaseItemId:'pi_2',purchaseEventId:'evt_6'},
+  {id:'p_26',name:'Romaine Hearts 3-pack',qty:5,isCase:false,price:12.25,purchaseItemId:'pi_5',purchaseEventId:'evt_6'},
+  {id:'p_27',name:'Yellow Onions 50lb',qty:1,isCase:false,price:39.99,purchaseItemId:'pi_6',purchaseEventId:'evt_6'},
+  {id:'p_28',name:'Mayo Hellmanns Gallon',qty:2,isCase:false,price:28.50,purchaseItemId:'pi_11',purchaseEventId:'evt_6'},
+  // evt_7 (US Foods, Feb 17)
+  {id:'p_29',name:'Ground Beef 80/20 5lb',qty:3,isCase:false,price:34.99,purchaseItemId:'pi_1',purchaseEventId:'evt_7'},
+  {id:'p_30',name:'Chicken Breast 40lb case',qty:1,isCase:true,price:89.99,purchaseItemId:'pi_3',purchaseEventId:'evt_7'},
+  {id:'p_31',name:'Green Peppers 25lb',qty:1,isCase:false,price:44.00,purchaseItemId:'pi_7',purchaseEventId:'evt_7'},
+  {id:'p_32',name:'Hoagie Rolls 6-pack',qty:3,isCase:false,price:9.99,purchaseItemId:'pi_14',purchaseEventId:'evt_7'},
+  // evt_8 (Sysco, Feb 24)
+  {id:'p_33',name:'Ground Beef 80/20 5lb',qty:4,isCase:false,price:35.99,purchaseItemId:'pi_1',purchaseEventId:'evt_8'},
+  {id:'p_34',name:'American Cheese Slices 5lb',qty:3,isCase:false,price:29.50,purchaseItemId:'pi_8',purchaseEventId:'evt_8'},
+  {id:'p_35',name:'Provolone Slices 3lb',qty:2,isCase:false,price:23.00,purchaseItemId:'pi_9',purchaseEventId:'evt_8'},
+  {id:'p_36',name:'Romaine Hearts 3-pack',qty:3,isCase:false,price:11.99,purchaseItemId:'pi_5',purchaseEventId:'evt_8'},
+  {id:'p_37',name:'Hoagie Rolls 6-pack',qty:4,isCase:false,price:9.99,purchaseItemId:'pi_14',purchaseEventId:'evt_8'},
+  // evt_9 (Restaurant Depot, Mar 3)
+  {id:'p_38',name:'Ground Beef 80/20 5lb',qty:4,isCase:false,price:33.99,purchaseItemId:'pi_1',purchaseEventId:'evt_9'},
+  {id:'p_39',name:'Clamshell Containers 9x6 200ct',qty:2,isCase:true,price:43.50,purchaseItemId:'pi_12',purchaseEventId:'evt_9'},
+  {id:'p_40',name:'Yellow Onions 50lb',qty:1,isCase:false,price:38.50,purchaseItemId:'pi_6',purchaseEventId:'evt_9'},
+  {id:'p_41',name:'Coca-Cola 2L 6-pack',qty:3,isCase:false,price:18.99,purchaseItemId:'pi_13',purchaseEventId:'evt_9'},
+  // evt_10 (Sysco, Mar 10)
+  {id:'p_42',name:'Ground Beef 80/20 5lb',qty:5,isCase:false,price:36.50,purchaseItemId:'pi_1',purchaseEventId:'evt_10'},
+  {id:'p_43',name:'Chicken Breast 40lb case',qty:1,isCase:true,price:93.00,purchaseItemId:'pi_3',purchaseEventId:'evt_10'},
+  {id:'p_44',name:'Salmon Fillet 8oz',qty:10,isCase:false,price:15.99,purchaseItemId:'pi_4',purchaseEventId:'evt_10'},
+  {id:'p_45',name:'American Cheese Slices 5lb',qty:2,isCase:false,price:29.50,purchaseItemId:'pi_8',purchaseEventId:'evt_10'},
+  {id:'p_46',name:'Hoagie Rolls 6-pack',qty:5,isCase:false,price:9.99,purchaseItemId:'pi_14',purchaseEventId:'evt_10'},
+  // evt_11 (Baldor, Mar 17)
+  {id:'p_47',name:'Ribeye Steak 10oz',qty:10,isCase:false,price:23.50,purchaseItemId:'pi_2',purchaseEventId:'evt_11'},
+  {id:'p_48',name:'Salmon Fillet 8oz',qty:14,isCase:false,price:15.99,purchaseItemId:'pi_4',purchaseEventId:'evt_11'},
+  {id:'p_49',name:'Romaine Hearts 3-pack',qty:6,isCase:false,price:12.25,purchaseItemId:'pi_5',purchaseEventId:'evt_11'},
+  {id:'p_50',name:'Green Peppers 25lb',qty:1,isCase:false,price:45.00,purchaseItemId:'pi_7',purchaseEventId:'evt_11'},
+  {id:'p_51',name:'Ketchup Heinz #10',qty:1,isCase:false,price:19.99,purchaseItemId:'pi_10',purchaseEventId:'evt_11'},
+  {id:'p_52',name:'Mayo Hellmanns Gallon',qty:2,isCase:false,price:29.00,purchaseItemId:'pi_11',purchaseEventId:'evt_11'},
+  // evt_12 (US Foods, Mar 24)
+  {id:'p_53',name:'Ground Beef 80/20 5lb',qty:3,isCase:false,price:35.99,purchaseItemId:'pi_1',purchaseEventId:'evt_12'},
+  {id:'p_54',name:'Chicken Breast 40lb case',qty:1,isCase:true,price:91.00,purchaseItemId:'pi_3',purchaseEventId:'evt_12'},
+  {id:'p_55',name:'Provolone Slices 3lb',qty:2,isCase:false,price:23.50,purchaseItemId:'pi_9',purchaseEventId:'evt_12'},
+  {id:'p_56',name:'Hoagie Rolls 6-pack',qty:3,isCase:false,price:9.99,purchaseItemId:'pi_14',purchaseEventId:'evt_12'},
+  // evt_13 (Sysco, Mar 28)
+  {id:'p_57',name:'Ground Beef 80/20 5lb',qty:4,isCase:false,price:36.50,purchaseItemId:'pi_1',purchaseEventId:'evt_13'},
+  {id:'p_58',name:'American Cheese Slices 5lb',qty:2,isCase:false,price:30.00,purchaseItemId:'pi_8',purchaseEventId:'evt_13'},
+  {id:'p_59',name:'Romaine Hearts 3-pack',qty:4,isCase:false,price:12.50,purchaseItemId:'pi_5',purchaseEventId:'evt_13'},
+  {id:'p_60',name:'Hoagie Rolls 6-pack',qty:4,isCase:false,price:9.99,purchaseItemId:'pi_14',purchaseEventId:'evt_13'},
+  // evt_14 (Restaurant Depot, Apr 7)
+  {id:'p_61',name:'Ground Beef 80/20 5lb',qty:4,isCase:false,price:34.99,purchaseItemId:'pi_1',purchaseEventId:'evt_14'},
+  {id:'p_62',name:'Clamshell Containers 9x6 200ct',qty:3,isCase:true,price:43.50,purchaseItemId:'pi_12',purchaseEventId:'evt_14'},
+  {id:'p_63',name:'Yellow Onions 50lb',qty:1,isCase:false,price:40.00,purchaseItemId:'pi_6',purchaseEventId:'evt_14'},
+  {id:'p_64',name:'Coca-Cola 2L 6-pack',qty:2,isCase:false,price:19.99,purchaseItemId:'pi_13',purchaseEventId:'evt_14'}
+];
+
+const MOCK_MENU_ITEMS=[
+  {id:'menu_1',name:'Cheesesteak',price:14,ingredientGroupIds:['grp_1','grp_5','grp_6','grp_10']},
+  {id:'menu_2',name:'Grilled Chicken Wrap',price:12,ingredientGroupIds:['grp_2','grp_4','grp_6']},
+  {id:'menu_3',name:'Salmon Bowl',price:16,ingredientGroupIds:['grp_3','grp_4','grp_5']},
+  {id:'menu_4',name:'Loaded Fries',price:10,ingredientGroupIds:['grp_6','grp_7']}
+];
+
+let ACTIVE_TAB=1;
+let EXPANDED_EVENTS={};
+let VENDOR_FILTER='';
+
+function show(n){
+  [1,2,3,4].forEach(i=>{
+    document.getElementById('s'+i).style.display=i===n?'':'none';
+    var btn=document.getElementById('t'+i);
+    if(btn)btn.className=i===n?'on':'';
+  });
+  ACTIVE_TAB=n;
+  render();
+}
+
+function render(){
+  if(ACTIVE_TAB===1)renderHistory();
+  // if(ACTIVE_TAB===2)renderTrends(); // Phase 8
+  // if(ACTIVE_TAB===3)renderStock();  // Phase 7
+  // if(ACTIVE_TAB===4)renderCost();   // Phase 8
+}
+
+function renderHistory(){
+  var list=document.getElementById('history-list');
+  var filtered=VENDOR_FILTER
+    ?MOCK_PURCHASE_EVENTS.filter(e=>e.vendorId===VENDOR_FILTER)
+    :MOCK_PURCHASE_EVENTS;
+  var sorted=filtered.slice().sort((a,b)=>parseLocalDate(b.date)-parseLocalDate(a.date));
+  if(!sorted.length){
+    list.innerHTML='<div class="empty"><p>No purchases found.</p></div>';
+    return;
+  }
+  list.innerHTML=sorted.map(evt=>{
+    var d=parseLocalDate(evt.date);
+    var dateStr=d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+    var items=MOCK_PURCHASES.filter(p=>p.purchaseEventId===evt.id);
+    var expanded=EXPANDED_EVENTS[evt.id];
+    var detail=expanded?'<div class="event-detail open">'+items.map(p=>'<div class="line-item"><span class="line-item-name">'+p.name+(p.isCase?'<span class="case-badge">case</span>':'')+'</span><span class="line-item-qty">x'+p.qty+'</span><span class="line-item-price">$'+p.price.toFixed(2)+'</span></div>').join('')+'</div>':'<div class="event-detail"></div>';
+    return '<div class="event-card" data-action="toggle-event" data-id="'+evt.id+'"><div class="event-header"><div><div class="event-vendor">'+evt.vendorName+'</div><div class="event-meta">'+dateStr+' &middot; '+items.length+' items</div></div><div class="event-total">$'+evt.total.toFixed(2)+'</div></div>'+detail+'</div>';
+  }).join('');
+}
+
+document.getElementById('history-list').addEventListener('click',function(e){
+  var el=e.target.closest('[data-action]');
+  if(!el)return;
+  var action=el.dataset.action;
+  var id=el.dataset.id;
+  if(action==='toggle-event')toggleEventDetail(id);
+});
+
+function toggleEventDetail(eventId){
+  EXPANDED_EVENTS[eventId]=!EXPANDED_EVENTS[eventId];
+  renderHistory();
+}
+
+// Populate vendor filter dropdown
+(function(){
+  var sel=document.getElementById('vendor-filter');
+  MOCK_VENDORS.forEach(v=>{
+    var opt=document.createElement('option');
+    opt.value=v.id;
+    opt.textContent=v.name;
+    sel.appendChild(opt);
+  });
+})();
+
+if(typeof Chart==='undefined')console.error('Chart.js failed to load');
+
+document.addEventListener('dblclick',e=>e.preventDefault());
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');
+
+show(1);
+</script>
+<script src="ptr.js"></script>
+</body>
+</html>
