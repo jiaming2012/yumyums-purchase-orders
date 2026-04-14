@@ -82,8 +82,8 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 04-01-PLAN.md — Page scaffold, data model, My Trainings tab with checklist runner, section lock, video items, FAQ gate
-- [ ] 04-02-PLAN.md — Manager tab with hire cards, read-only drill-down, sign-off approve/send-back, assign training
+- [x] 04-01-PLAN.md — Page scaffold, data model, My Trainings tab with checklist runner, section lock, video items, FAQ gate
+- [x] 04-02-PLAN.md — Manager tab with hire cards, read-only drill-down, sign-off approve/send-back, assign training
 - [ ] 04-03-PLAN.md — HQ integration (index.html tile, sw.js cache, users.html APPS) + human-verify checkpoint
 
 **UI hint**: yes
@@ -98,4 +98,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | 1. Template Builder | 2/3 | In Progress|  |
 | 2. Fill-Out and Conditional Logic | 2/2 | Complete   | 2026-04-13 |
 | 3. Photo, Approval, and Integration | 2/2 | Complete   | 2026-04-13 |
-| 4. Onboarding App | 0/3 | Not Started |  |
+| 4. Onboarding App | 2/3 | In Progress|  |

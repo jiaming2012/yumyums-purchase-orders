@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 4 UI-SPEC approved
-last_updated: "2026-04-14T02:51:30.819Z"
-last_activity: 2026-04-14 -- Phase 04 execution started
+stopped_at: Completed 04-02-PLAN.md
+last_updated: "2026-04-14T03:04:38.940Z"
+last_activity: 2026-04-14
 progress:
   total_phases: 4
   completed_phases: 3
   total_plans: 10
-  completed_plans: 7
+  completed_plans: 9
   percent: 33
 ---
 
@@ -26,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-04-13)
 ## Current Position
 
 Phase: 04 (onboarding-app) — EXECUTING
-Plan: 1 of 3
-Status: Executing Phase 04
-Last activity: 2026-04-14 -- Phase 04 execution started
+Plan: 2 of 3
+Status: Ready to execute
+Last activity: 2026-04-14
 
 Progress: [███░░░░░░░] 33%
 
@@ -57,6 +57,7 @@ Progress: [███░░░░░░░] 33%
 | Phase 02 P02 | 8min | 1 tasks | 2 files |
 | Phase 03-photo-approval-and-integration P01 | 2min | 1 tasks | 2 files |
 | Phase 03-photo-approval-and-integration P02 | 8min | 2 tasks | 2 files |
+| Phase 04-onboarding-app P02 | 3min | 1 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -83,6 +84,8 @@ Recent decisions affecting current work:
 - [Phase 03-photo-approval-and-integration]: PENDING_APPROVALS stores snapshot of responses/failNotes at submit time for accurate approval card display
 - [Phase 03-photo-approval-and-integration]: Approve action sets SUBMITTED_TEMPLATES[tplId]=true so My Checklists shows Submitted badge after approval
 - [Phase 03-photo-approval-and-integration]: sw.js bumped v20 to v21: Plan 01 used v20, Plan 02 changes require another cache bust
+- [Phase 04-onboarding-app]: renderRunnerContent() is shared between crew and manager views via readOnly flag — avoids code duplication while preventing manager from editing crew progress
+- [Phase 04-onboarding-app]: assign-training patches SECTION_STATES directly (no delete+reinit) to preserve existing section progress when adding a new template
 
 ### Pending Todos
 
@@ -99,6 +102,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-14T02:25:41.556Z
-Stopped at: Phase 4 UI-SPEC approved
-Resume file: .planning/phases/04-onboarding-app/04-UI-SPEC.md
+Last session: 2026-04-14T03:04:38.933Z
+Stopped at: Completed 04-02-PLAN.md
+Resume file: None
