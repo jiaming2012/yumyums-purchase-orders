@@ -11,8 +11,8 @@ Requirements for the Inventory App milestone. Each maps to roadmap phases.
 
 - [ ] **HIST-01**: User can browse purchase events sorted by date, expandable to see line items (name, qty, price, case flag)
 - [ ] **HIST-02**: User can filter purchase events by vendor
-- [ ] **HIST-03**: Inventory tile appears on HQ launcher and links to inventory.html
-- [ ] **HIST-04**: Inventory page is cached by service worker for offline PWA use
+- [x] **HIST-03**: Inventory tile appears on HQ launcher and links to inventory.html
+- [x] **HIST-04**: Inventory page is cached by service worker for offline PWA use
 
 ### Spending Trends
 
@@ -35,7 +35,7 @@ Requirements for the Inventory App milestone. Each maps to roadmap phases.
 
 ### Integration
 
-- [ ] **INTG-01**: Each section is its own tab (4 tabs: History / Trends / Stock / Cost) for future RBAC gating
+- [x] **INTG-01**: Each section is its own tab (4 tabs: History / Trends / Stock / Cost) for future RBAC gating
 - [ ] **INTG-02**: Architecture supports future replacement of Trends/Cost tabs with embedded Metabase reports
 
 ## Future Requirements
@@ -75,9 +75,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 |-------------|-------|--------|
 | HIST-01 | Phase 6 | Pending |
 | HIST-02 | Phase 6 | Pending |
-| HIST-03 | Phase 6 | Pending |
-| HIST-04 | Phase 6 | Pending |
-| INTG-01 | Phase 6 | Pending |
+| HIST-03 | Phase 6 | Complete |
+| HIST-04 | Phase 6 | Complete |
+| INTG-01 | Phase 6 | Complete |
 | STCK-01 | Phase 7 | Pending |
 | STCK-02 | Phase 7 | Pending |
 | STCK-03 | Phase 7 | Pending |
