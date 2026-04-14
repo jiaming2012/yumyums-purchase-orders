@@ -28,12 +28,13 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .tile-desc{font-size:12px;color:var(--mut);line-height:1.4}
 .tile.soon .tile-title{color:var(--mut)}
 .badge{position:absolute;top:10px;right:10px;font-size:10px;font-weight:500;padding:2px 7px;border-radius:8px;background:var(--brd);color:var(--mut);letter-spacing:0.2px}
+.badge-warn{background:var(--warn-bg);color:var(--warn-tx)}
 </style>
 </head>
 <body>
 <div class="app">
   <div class="wordmark">Yumyums HQ</div>
-  <div class="tagline">Operations console</div>
+  <div class="tagline">Great Food Starts with Great Operations.</div>
 
   <div class="grid">
     <a class="tile active" href="purchasing.html">
@@ -56,8 +57,8 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
       <div class="tile-desc">Shifts and coverage</div>
     </div>
 
-    <a class="tile active" href="onboarding.html">
-      <div class="tile-icon">🎓</div>
+    <a class="tile active" href="onboarding.html" id="tile-onboarding">
+      <div class="tile-icon">🏃🏾</div>
       <div class="tile-title">Onboarding</div>
       <div class="tile-desc">New hire training checklists</div>
     </a>
@@ -86,6 +87,19 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 <script>
 document.addEventListener('dblclick',e=>e.preventDefault());
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');
+// Mock: current user has incomplete onboarding trainings
+(function(){
+  var hasIncomplete = true; // In production, this would check the backend
+  if(hasIncomplete){
+    var tile = document.getElementById('tile-onboarding');
+    if(tile){
+      var badge = document.createElement('div');
+      badge.className = 'badge badge-warn';
+      badge.textContent = 'Needs Attention';
+      tile.appendChild(badge);
+    }
+  }
+})();
 </script>
 <script src="ptr.js"></script>
 </body>
