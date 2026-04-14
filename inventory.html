@@ -376,10 +376,13 @@ let STOCK_OVERRIDES={};
 let OVERRIDE_FORM_OPEN=null;
 let TRENDS_SUB_TAB=1;
 let ACTIVE_CHIPS=new Set();
+let TRENDS_TIME_FILTER='all';
 let trendBarChart=null;
 let trendDoughnutChart=null;
 let trendLineChart=null;
 let COST_SUB_TAB=1;
+let COST_ACTIVE_CHIPS=new Set();
+let COST_TIME_FILTER='all';
 let EXPANDED_MENU_ITEMS={};
 let EXPANDED_INGREDIENTS={};
 
@@ -474,30 +477,60 @@ function getChartColors(){
   };
 }
 
-function spendByTag(chips){
+function getTimeFilterCutoff(filter){
+  if(filter==='all')return null;
+  var now=new Date();
+  if(filter==='1w')return new Date(now.getFullYear(),now.getMonth(),now.getDate()-7);
+  if(filter==='1m')return new Date(now.getFullYear(),now.getMonth()-1,now.getDate());
+  if(filter==='3m')return new Date(now.getFullYear(),now.getMonth()-3,now.getDate());
+  if(filter==='6m')return new Date(now.getFullYear(),now.getMonth()-6,now.getDate());
+  if(filter==='1y')return new Date(now.getFullYear()-1,now.getMonth(),now.getDate());
+  return null;
+}
+function buildTimeFilterHtml(currentValue,actionName){
+  return '<div style="margin-bottom:8px"><select data-action="'+actionName+'" style="width:100%;padding:8px 10px;background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;font-size:13px;color:var(--txt);font-family:inherit"><option value="all"'+(currentValue==='all'?' selected':'')+'>All Time</option><option value="1w"'+(currentValue==='1w'?' selected':'')+'>Last Week</option><option value="1m"'+(currentValue==='1m'?' selected':'')+'>Last Month</option><option value="3m"'+(currentValue==='3m'?' selected':'')+'>Last 3 Months</option><option value="6m"'+(currentValue==='6m'?' selected':'')+'>Last 6 Months</option><option value="1y"'+(currentValue==='1y'?' selected':'')+'>Last Year</option></select></div>';
+}
+function buildChipBarHtml(activeChips,actionName){
+  var allChip='<span class="chip'+(activeChips.size===0?' on':'')+'" data-action="'+actionName+'" data-tag-id="">All</span>';
+  var tagChips=MOCK_TAGS.map(t=>'<span class="chip'+(activeChips.has(t.id)?' on':'')+'" data-action="'+actionName+'" data-tag-id="'+t.id+'">'+(TAG_EMOJI[t.id]||'')+' '+t.name+'</span>').join('');
+  return '<div class="chip-bar">'+allChip+tagChips+'</div>';
+}
+function spendByTag(chips,timeFilter){
+  var cutoff=getTimeFilterCutoff(timeFilter||'all');
+  var eventMap={};
+  MOCK_PURCHASE_EVENTS.forEach(e=>{eventMap[e.id]=e;});
   var piToGroup={};
   MOCK_PURCHASE_ITEMS.forEach(pi=>{piToGroup[pi.id]=pi.groupId;});
   var groupToTags={};
   MOCK_ITEM_GROUPS.forEach(g=>{groupToTags[g.id]=g.tagIds;});
   var totals={};
+  var itemDetails={};
   MOCK_PURCHASES.forEach(p=>{
+    if(cutoff){var evt=eventMap[p.purchaseEventId];if(evt&&parseLocalDate(evt.date)<cutoff)return;}
     var gid=piToGroup[p.purchaseItemId];
     if(!gid)return;
     var tagIds=groupToTags[gid]||[];
     var primaryTag=tagIds[0];
     if(!primaryTag)return;
     if(chips.size>0&&!chips.has(primaryTag))return;
-    totals[primaryTag]=(totals[primaryTag]||0)+p.price*p.qty;
+    var lineTotal=p.price*p.qty;
+    totals[primaryTag]=(totals[primaryTag]||0)+lineTotal;
+    if(!itemDetails[primaryTag])itemDetails[primaryTag]=[];
+    var evt=eventMap[p.purchaseEventId];
+    var vendor=evt?MOCK_VENDORS.find(v=>v.id===evt.vendorId):null;
+    itemDetails[primaryTag].push({name:p.name,qty:p.qty,isCase:p.isCase,price:p.price,total:lineTotal,vendor:vendor?vendor.name:'Unknown',date:evt?evt.date:''});
   });
-  var labels=[],data=[],colors=[];
+  Object.keys(itemDetails).forEach(tid=>{itemDetails[tid].sort((a,b)=>b.total-a.total);});
+  var labels=[],data=[],colors=[],tagIds=[];
   var palette=['#ef4444','#22c55e','#f59e0b','#3b82f6','#8b5cf6'];
   MOCK_TAGS.forEach((t,i)=>{
     if(chips.size>0&&!chips.has(t.id))return;
     labels.push((TAG_EMOJI[t.id]||'')+' '+t.name);
     data.push(Math.round((totals[t.id]||0)*100)/100);
     colors.push(palette[i%palette.length]);
+    tagIds.push(t.id);
   });
-  return {labels,data,colors};
+  return {labels,data,colors,tagIds,itemDetails};
 }
 
 function spendByMonth(chips){
@@ -536,41 +569,74 @@ function renderTrends(){
   if(trendBarChart){trendBarChart.destroy();trendBarChart=null;}
   if(trendDoughnutChart){trendDoughnutChart.destroy();trendDoughnutChart=null;}
   if(trendLineChart){trendLineChart.destroy();trendLineChart=null;}
-  var allChip='<span class="chip'+(ACTIVE_CHIPS.size===0?' on':'')+'" data-action="toggle-chip" data-tag-id="">All</span>';
-  var tagChips=MOCK_TAGS.map(t=>'<span class="chip'+(ACTIVE_CHIPS.has(t.id)?' on':'')+'" data-action="toggle-chip" data-tag-id="'+t.id+'">'+(TAG_EMOJI[t.id]||'')+' '+t.name+'</span>').join('');
+  var chipBar=buildChipBarHtml(ACTIVE_CHIPS,'toggle-chip');
   var subBtns='<div class="sub-tabs"><button class="'+(TRENDS_SUB_TAB===1?'on':'')+'" data-action="trends-subtab" data-sub="1">By Category</button><button class="'+(TRENDS_SUB_TAB===2?'on':'')+'" data-action="trends-subtab" data-sub="2">Over Time</button></div>';
   var chartHtml='';
+  var timeFilterHtml='';
   if(TRENDS_SUB_TAB===1){
-    chartHtml='<div class="chart-wrap"><canvas id="trend-bar"></canvas></div><div class="chart-wrap" style="margin-top:12px"><canvas id="trend-doughnut"></canvas></div>';
+    timeFilterHtml=buildTimeFilterHtml(TRENDS_TIME_FILTER,'trends-time-filter');
+    chartHtml='<div class="chart-wrap"><canvas id="trend-bar"></canvas></div><div class="chart-wrap" style="margin-top:12px"><canvas id="trend-doughnut"></canvas></div><div id="trends-drilldown"></div>';
   } else {
     chartHtml='<div class="chart-wrap"><canvas id="trend-line"></canvas></div>';
   }
-  document.getElementById('trends-container').innerHTML='<div class="chip-bar">'+allChip+tagChips+'</div>'+subBtns+chartHtml;
+  document.getElementById('trends-container').innerHTML=chipBar+subBtns+timeFilterHtml+chartHtml;
   var colors=getChartColors();
   if(TRENDS_SUB_TAB===1){
-    var tagData=spendByTag(ACTIVE_CHIPS);
-    trendBarChart=new Chart(document.getElementById('trend-bar'),{type:'bar',data:{labels:tagData.labels,datasets:[{data:tagData.data,backgroundColor:tagData.colors,borderRadius:4}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>'$'+ctx.raw.toFixed(2)}}},scales:{x:{ticks:{color:colors.mut,callback:v=>'$'+v},grid:{color:colors.brd}},y:{ticks:{color:colors.txt},grid:{display:false}}}}});
-    trendDoughnutChart=new Chart(document.getElementById('trend-doughnut'),{type:'doughnut',data:{labels:tagData.labels,datasets:[{data:tagData.data,backgroundColor:tagData.colors}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{color:colors.txt,padding:12,boxWidth:12}}}}});
+    var tagData=spendByTag(ACTIVE_CHIPS,TRENDS_TIME_FILTER);
+    var chartClickHandler=function(evt,elements){
+      if(!elements.length)return;
+      var idx=elements[0].index;
+      var tid=tagData.tagIds[idx];
+      if(!tid)return;
+      ACTIVE_CHIPS.clear();
+      ACTIVE_CHIPS.add(tid);
+      renderTrends();
+    };
+    trendBarChart=new Chart(document.getElementById('trend-bar'),{type:'bar',data:{labels:tagData.labels,datasets:[{data:tagData.data,backgroundColor:tagData.colors,borderRadius:4}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,onClick:chartClickHandler,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>'$'+ctx.raw.toFixed(2)}}},scales:{x:{ticks:{color:colors.mut,callback:v=>'$'+v},grid:{color:colors.brd}},y:{ticks:{color:colors.txt},grid:{display:false}}}}});
+    trendDoughnutChart=new Chart(document.getElementById('trend-doughnut'),{type:'doughnut',data:{labels:tagData.labels,datasets:[{data:tagData.data,backgroundColor:tagData.colors}]},options:{responsive:true,maintainAspectRatio:false,onClick:chartClickHandler,plugins:{legend:{position:'bottom',labels:{color:colors.txt,padding:12,boxWidth:12}}}}});
+    var drillEl=document.getElementById('trends-drilldown');
+    if(ACTIVE_CHIPS.size>0&&drillEl){
+      var drillHtml='<div style="margin-top:16px">';
+      ACTIVE_CHIPS.forEach(function(tid){
+        var tag=MOCK_TAGS.find(t=>t.id===tid);
+        var items=tagData.itemDetails[tid]||[];
+        if(!items.length)return;
+        drillHtml+='<div style="margin-bottom:12px"><div style="font-size:12px;font-weight:500;text-transform:uppercase;letter-spacing:0.5px;color:var(--mut);margin-bottom:6px">'+(TAG_EMOJI[tid]||'')+' '+(tag?tag.name:'')+'</div>';
+        items.forEach(function(item){
+          drillHtml+='<div class="card" style="padding:8px 12px;margin-bottom:4px"><div style="display:flex;justify-content:space-between;align-items:center"><div style="flex:1"><div style="font-size:13px;font-weight:500">'+item.name+(item.isCase?' <span class="case-badge">CASE</span>':'')+'</div><div style="font-size:11px;color:var(--mut)">'+item.vendor+' · Qty: '+item.qty+'</div></div><div style="font-size:13px;font-weight:500">$'+(item.total).toFixed(2)+'</div></div></div>';
+        });
+        drillHtml+='</div>';
+      });
+      drillHtml+='</div>';
+      drillEl.innerHTML=drillHtml;
+    }
   } else {
     var monthData=spendByMonth(ACTIVE_CHIPS);
     trendLineChart=new Chart(document.getElementById('trend-line'),{type:'line',data:{labels:monthData.labels,datasets:[{label:'Monthly Spend',data:monthData.data,borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,0.1)',fill:true,tension:0.3,pointRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>'$'+ctx.raw.toFixed(2)}}},scales:{x:{ticks:{color:colors.mut},grid:{color:colors.brd}},y:{ticks:{color:colors.mut,callback:v=>'$'+v},grid:{color:colors.brd}}}}});
   }
 }
 
-function calcAvgUnitPrice(groupId){
+function calcAvgUnitPrice(groupId,timeFilter){
+  var cutoff=getTimeFilterCutoff(timeFilter||'all');
+  var eventMap={};
+  if(cutoff)MOCK_PURCHASE_EVENTS.forEach(e=>{eventMap[e.id]=e;});
   var piIds=MOCK_PURCHASE_ITEMS.filter(pi=>pi.groupId===groupId).map(pi=>pi.id);
-  var relevant=MOCK_PURCHASES.filter(p=>piIds.includes(p.purchaseItemId));
+  var relevant=MOCK_PURCHASES.filter(p=>{
+    if(!piIds.includes(p.purchaseItemId))return false;
+    if(cutoff){var evt=eventMap[p.purchaseEventId];if(evt&&parseLocalDate(evt.date)<cutoff)return false;}
+    return true;
+  });
   var totalQty=relevant.reduce((s,p)=>s+p.qty,0);
   if(!totalQty)return 0;
   var totalCost=relevant.reduce((s,p)=>s+p.price*p.qty,0);
   return totalCost/totalQty;
 }
 
-function calcMenuItemCost(menuItem){
+function calcMenuItemCost(menuItem,timeFilter){
   var n=menuItem.ingredientGroupIds.length||1;
   var ingredients=menuItem.ingredientGroupIds.map(gid=>{
     var grp=MOCK_ITEM_GROUPS.find(g=>g.id===gid)||{name:gid};
-    var avg=calcAvgUnitPrice(gid);
+    var avg=calcAvgUnitPrice(gid,timeFilter);
     var proportion=1/n;
     return {name:grp.name,groupId:gid,proportion,avgUnitPrice:avg,lineCost:avg*proportion};
   });
@@ -578,8 +644,8 @@ function calcMenuItemCost(menuItem){
   return {totalCost,ingredients};
 }
 
-function calcIngredientUsage(groupId){
-  var avgPrice=calcAvgUnitPrice(groupId);
+function calcIngredientUsage(groupId,timeFilter){
+  var avgPrice=calcAvgUnitPrice(groupId,timeFilter);
   var salesTotals={};
   MOCK_SALES.forEach(s=>{salesTotals[s.menuItemId]=(salesTotals[s.menuItemId]||0)+s.qty;});
   var usages=MOCK_MENU_ITEMS.filter(mi=>mi.ingredientGroupIds.includes(groupId)).map(mi=>{
@@ -597,11 +663,20 @@ function calcIngredientUsage(groupId){
 
 function renderCost(){
   // TODO(INTG-02): Replace cost rendering below with Metabase iframe: <iframe src="METABASE_URL/dashboard/cost" ...>
+  var chipBar=buildChipBarHtml(COST_ACTIVE_CHIPS,'toggle-cost-chip');
+  var timeFilterHtml=buildTimeFilterHtml(COST_TIME_FILTER,'cost-time-filter');
   var subBtns='<div class="sub-tabs"><button class="'+(COST_SUB_TAB===1?'on':'')+'" data-action="cost-subtab" data-sub="1">Menu Items</button><button class="'+(COST_SUB_TAB===2?'on':'')+'" data-action="cost-subtab" data-sub="2">Ingredients</button></div>';
-  var html=subBtns;
+  var html=chipBar+timeFilterHtml+subBtns;
+  var groupToTags={};
+  MOCK_ITEM_GROUPS.forEach(g=>{groupToTags[g.id]=g.tagIds;});
+  function matchesChipFilter(groupIds){
+    if(COST_ACTIVE_CHIPS.size===0)return true;
+    return groupIds.some(gid=>{var tagIds=groupToTags[gid]||[];return tagIds.some(tid=>COST_ACTIVE_CHIPS.has(tid));});
+  }
   if(COST_SUB_TAB===1){
-    html+=MOCK_MENU_ITEMS.map(mi=>{
-      var calc=calcMenuItemCost(mi);
+    var filtered=MOCK_MENU_ITEMS.filter(mi=>matchesChipFilter(mi.ingredientGroupIds));
+    html+=filtered.map(mi=>{
+      var calc=calcMenuItemCost(mi,COST_TIME_FILTER);
       var expanded=EXPANDED_MENU_ITEMS[mi.id];
       var detail='';
       if(expanded){
@@ -611,18 +686,21 @@ function renderCost(){
       }
       return '<div class="menu-card" data-action="toggle-menu-item" data-menu-id="'+mi.id+'"><div class="menu-card-header"><span class="menu-card-name">'+mi.name+'</span><span class="menu-card-cost">$'+calc.totalCost.toFixed(2)+'</span></div>'+detail+'</div>';
     }).join('');
+    if(!filtered.length)html+='<div class="empty"><p>No menu items match the selected categories.</p></div>';
   } else {
-    html+=MOCK_ITEM_GROUPS.map(grp=>{
-      var avg=calcAvgUnitPrice(grp.id);
+    var filtered=MOCK_ITEM_GROUPS.filter(grp=>{if(COST_ACTIVE_CHIPS.size===0)return true;var tagIds=grp.tagIds||[];return tagIds.some(tid=>COST_ACTIVE_CHIPS.has(tid));});
+    html+=filtered.map(grp=>{
+      var avg=calcAvgUnitPrice(grp.id,COST_TIME_FILTER);
       var expanded=EXPANDED_INGREDIENTS[grp.id];
       var detail='';
       if(expanded){
-        var usages=calcIngredientUsage(grp.id);
+        var usages=calcIngredientUsage(grp.id,COST_TIME_FILTER);
         var rows=usages.length?usages.map(u=>'<div class="ingredient-row"><span class="ingredient-name">'+u.menuItemName+'</span><span class="ingredient-pct">$'+u.costContribution.toFixed(2)+' cost</span><span class="ingredient-cost">'+u.returnOnPurchase.toFixed(1)+'x return</span></div>').join(''):'<div class="ingredient-row"><span class="ingredient-name" style="color:var(--mut)">Not used in any menu item</span></div>';
         detail='<div class="menu-card-detail open">'+rows+'</div>';
       }
       return '<div class="menu-card" data-action="toggle-ingredient" data-group-id="'+grp.id+'"><div class="menu-card-header"><span class="menu-card-name">'+grp.name+'</span><span class="menu-card-cost">$'+avg.toFixed(2)+' avg/unit</span></div>'+detail+'</div>';
     }).join('');
+    if(!filtered.length)html+='<div class="empty"><p>No ingredients match the selected categories.</p></div>';
   }
   document.getElementById('cost-container').innerHTML=html;
 }
@@ -633,6 +711,12 @@ document.getElementById('s4').addEventListener('click',function(e){
   var action=el.dataset.action;
   if(action==='cost-subtab'){
     COST_SUB_TAB=Number(el.dataset.sub);
+    renderCost();
+  } else if(action==='toggle-cost-chip'){
+    var tid=el.dataset.tagId;
+    if(!tid){COST_ACTIVE_CHIPS.clear();}
+    else if(COST_ACTIVE_CHIPS.has(tid)){COST_ACTIVE_CHIPS.delete(tid);}
+    else{COST_ACTIVE_CHIPS.add(tid);if(COST_ACTIVE_CHIPS.size===MOCK_TAGS.length)COST_ACTIVE_CHIPS.clear();}
     renderCost();
   } else if(action==='toggle-menu-item'){
     var mid=el.dataset.menuId;
@@ -745,6 +829,14 @@ document.getElementById('s2').addEventListener('click',function(e){
     TRENDS_SUB_TAB=Number(el.dataset.sub);
     renderTrends();
   }
+});
+document.getElementById('s2').addEventListener('change',function(e){
+  var el=e.target.closest('[data-action="trends-time-filter"]');
+  if(el){TRENDS_TIME_FILTER=el.value;renderTrends();}
+});
+document.getElementById('s4').addEventListener('change',function(e){
+  var el=e.target.closest('[data-action="cost-time-filter"]');
+  if(el){COST_TIME_FILTER=el.value;renderCost();}
 });
 
 document.addEventListener('click',function(e){
