@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: verifying
-stopped_at: "Checkpoint: Task 3 human-verify pending for 03-02-PLAN.md"
-last_updated: "2026-04-13T16:35:57.049Z"
-last_activity: 2026-04-13
+stopped_at: Completed 04-onboarding-app/04-01-PLAN.md
+last_updated: "2026-04-14T02:57:42.928Z"
+last_activity: 2026-04-14
 progress:
   total_phases: 3
   completed_phases: 3
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-04-13)
 Phase: 03 (photo-approval-and-integration) — EXECUTING
 Plan: 2 of 2
 Status: Phase complete — ready for verification
-Last activity: 2026-04-13
+Last activity: 2026-04-14
 
 Progress: [███░░░░░░░] 33%
 
@@ -57,6 +57,7 @@ Progress: [███░░░░░░░] 33%
 | Phase 02 P02 | 8min | 1 tasks | 2 files |
 | Phase 03-photo-approval-and-integration P01 | 2min | 1 tasks | 2 files |
 | Phase 03-photo-approval-and-integration P02 | 8min | 2 tasks | 2 files |
+| Phase 04-onboarding-app P01 | 4min | 1 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -83,6 +84,9 @@ Recent decisions affecting current work:
 - [Phase 03-photo-approval-and-integration]: PENDING_APPROVALS stores snapshot of responses/failNotes at submit time for accurate approval card display
 - [Phase 03-photo-approval-and-integration]: Approve action sets SUBMITTED_TEMPLATES[tplId]=true so My Checklists shows Submitted badge after approval
 - [Phase 03-photo-approval-and-integration]: sw.js bumped v20 to v21: Plan 01 used v20, Plan 02 changes require another cache bust
+- [Phase 04-onboarding-app]: Manager tab (#mgr-body) intentionally left empty — Plan 02 adds Manager tab logic on top of this scaffold
+- [Phase 04-onboarding-app]: SECTION_STATES[hireId][sectionId] state machine established for sequential section unlocking in onboarding
+- [Phase 04-onboarding-app]: sw.js bumped v39->v40: onboarding.html added to ASSETS cache; Onboarding tile replaces Hiring Soon tile in index.html
 
 ### Pending Todos
 
@@ -95,6 +99,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-13T16:35:57.041Z
-Stopped at: Checkpoint: Task 3 human-verify pending for 03-02-PLAN.md
+Last session: 2026-04-14T02:57:42.920Z
+Stopped at: Completed 04-onboarding-app/04-01-PLAN.md
 Resume file: None
