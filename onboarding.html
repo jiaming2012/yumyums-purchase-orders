@@ -41,6 +41,13 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .sec-items{background:var(--card);border:0.5px solid var(--brd);border-radius:10px;margin-bottom:4px;overflow:hidden}
 .sec-items .item-row:last-child{border-bottom:none}
 .sec-actions{padding:12px 16px}
+.sub-tabs{display:flex;gap:0;margin-bottom:12px}
+.sub-tabs button{flex:1;border:none;background:transparent;padding:8px 0;font-size:12px;font-weight:500;color:var(--mut);border-bottom:2px solid transparent;cursor:pointer}
+.sub-tabs button.on{color:var(--info-tx);border-bottom-color:var(--info-tx)}
+.hire-role{font-size:12px;color:var(--mut);text-transform:capitalize}
+.assign-picker{background:var(--card);border:0.5px solid var(--brd);border-radius:12px;padding:8px;margin-top:8px}
+.assign-row{padding:10px 12px;cursor:pointer;border-radius:8px;font-size:14px;min-height:44px;display:flex;align-items:center}
+.assign-row:active{background:var(--brd)}
 </style>
 </head>
 <body>
@@ -228,6 +235,8 @@ const FAQ_VIEWED = {};
 const EXPANDED_SECTIONS = {};
 const EXPANDED_FAQS = {};
 let obState = { view: 'list', activeHireId: null, activeTemplateIdx: 0 };
+let mgrState = { view: 'list', subView: 'active', activeHireId: null, activeTemplateIdx: 0 };
+let assignPickerOpen = null;
 function isManager() {
   return ['admin','manager','superadmin'].includes(MOCK_CURRENT_USER.role);
 }
@@ -349,14 +358,13 @@ function renderMyList() {
   });
   el.innerHTML = html;
 }
-function renderRunner() {
-  var hire = MOCK_HIRES.find(h => h.id === obState.activeHireId);
-  if (!hire) { renderMyList(); return; }
-  var tplId = hire.assignedTemplates[obState.activeTemplateIdx];
-  var tpl = MOCK_OB_TEMPLATES.find(t => t.id === tplId);
-  if (!tpl) { renderMyList(); return; }
+function renderRunnerContent(hireId, tplIdx, readOnly) {
+  var hire = MOCK_HIRES.find(function(h) { return h.id === hireId; });
+  if (!hire) return '';
+  var tplId = hire.assignedTemplates[tplIdx];
+  var tpl = MOCK_OB_TEMPLATES.find(function(t) { return t.id === tplId; });
+  if (!tpl) return '';
   var html = '';
-  html += '<span class="back" data-action="back-to-list" style="display:inline-flex;align-items:center;gap:4px;color:var(--info-tx);font-size:14px;font-weight:500;margin-bottom:16px;cursor:pointer">&#8249; My Trainings</span>';
   html += '<div style="font-size:14px;font-weight:600;color:var(--txt);margin-bottom:16px">'+tpl.name+'</div>';
   tpl.sections.forEach(function(sec) {
     var state = SECTION_STATES[hire.id] ? SECTION_STATES[hire.id][sec.id] : 'locked';
@@ -392,7 +400,7 @@ function renderRunner() {
         html += '<div class="sec-items">';
         sec.items.forEach(function(faqItem) {
           var isOpen = EXPANDED_FAQS[faqItem.id];
-          html += '<div class="faq-q" data-action="toggle-faq" data-faq-id="'+faqItem.id+'">'+faqItem.question+'<span>'+(isOpen ? '&#9650;' : '&#9660;')+'</span></div>';
+          html += '<div class="faq-q" data-action="toggle-faq" data-faq-id="'+faqItem.id+'" data-hire-id="'+hire.id+'" data-tpl-id="'+tplId+'">'+faqItem.question+'<span>'+(isOpen ? '&#9650;' : '&#9660;')+'</span></div>';
           if (isOpen) {
             html += '<div class="faq-a">'+faqItem.answer+'</div>';
           }
@@ -404,9 +412,10 @@ function renderRunner() {
           if (item.type === 'checkbox') {
             var checked = OB_CHECKS[item.id];
             var checkClass = 'ob-check' + (checked ? ' checked' : '');
-            var checkable = (state === 'active') ? ' data-action="toggle-item" data-item-id="'+item.id+'" data-hire-id="'+hire.id+'" data-tpl-id="'+tplId+'"' : '';
+            var checkable = (!readOnly && state === 'active') ? ' data-action="toggle-item" data-item-id="'+item.id+'" data-hire-id="'+hire.id+'" data-tpl-id="'+tplId+'"' : '';
+            var checkStyle = readOnly ? ' style="cursor:default"' : '';
             html += '<div class="item-row">';
-            html += '<div class="'+checkClass+'"'+checkable+'>'+(checked ? '&#10003;' : '')+'</div>';
+            html += '<div class="'+checkClass+'"'+checkable+checkStyle+'>'+(checked ? '&#10003;' : '')+'</div>';
             html += '<div style="flex:1"><div style="font-size:14px;font-weight:500">'+item.label+'</div>';
             if (checked) {
               html += '<div class="attribution">Checked by '+CURRENT_USER.name+'</div>';
@@ -419,9 +428,10 @@ function renderRunner() {
             item.parts.forEach(function(part) {
               var partChecked = OB_CHECKS[part.id];
               var partCheckClass = 'ob-check' + (partChecked ? ' checked' : '');
-              var partCheckable = (state === 'active') ? ' data-action="toggle-video-part" data-item-id="'+part.id+'" data-hire-id="'+hire.id+'" data-tpl-id="'+tplId+'"' : '';
+              var partCheckable = (!readOnly && state === 'active') ? ' data-action="toggle-video-part" data-item-id="'+part.id+'" data-hire-id="'+hire.id+'" data-tpl-id="'+tplId+'"' : '';
+              var partCheckStyle = readOnly ? ' style="cursor:default"' : '';
               html += '<div class="item-row">';
-              html += '<div class="'+partCheckClass+'"'+partCheckable+'>'+(partChecked ? '&#10003;' : '')+'</div>';
+              html += '<div class="'+partCheckClass+'"'+partCheckable+partCheckStyle+'>'+(partChecked ? '&#10003;' : '')+'</div>';
               html += '<div style="flex:1">';
               html += '<div style="font-size:14px;font-weight:500">'+part.title+'</div>';
               html += '<div style="font-size:12px;color:var(--mut);margin-top:2px">'+part.desc+'</div>';
@@ -435,16 +445,122 @@ function renderRunner() {
           }
         });
         html += '</div>';
-        if (sec.requiresSignOff && state === 'active') {
+        if (!readOnly && sec.requiresSignOff && state === 'active') {
           var allChecked = isSectionComplete(hire.id, sec);
           if (allChecked) {
             html += '<div class="sec-actions"><button class="btn-primary" data-action="request-signoff" data-sec-id="'+sec.id+'" data-hire-id="'+hire.id+'" data-tpl-id="'+tplId+'">Request Sign-Off</button></div>';
           }
         }
+        if (readOnly && state === 'pending_signoff') {
+          html += '<div class="sec-actions">';
+          html += '<button class="btn-approve" data-action="approve-signoff" data-hire-id="'+hire.id+'" data-section-id="'+sec.id+'" data-tpl-id="'+tplId+'">Approve Section</button>';
+          html += '<button class="btn-danger" data-action="send-back" data-hire-id="'+hire.id+'" data-section-id="'+sec.id+'" data-tpl-id="'+tplId+'">Send Back</button>';
+          html += '</div>';
+        }
       }
     }
   });
+  return html;
+}
+function renderRunner() {
+  var hire = MOCK_HIRES.find(function(h) { return h.id === obState.activeHireId; });
+  if (!hire) { renderMyList(); return; }
+  var content = renderRunnerContent(obState.activeHireId, obState.activeTemplateIdx, false);
+  if (!content) { renderMyList(); return; }
+  var html = '';
+  html += '<span class="back" data-action="back-to-list" style="display:inline-flex;align-items:center;gap:4px;color:var(--info-tx);font-size:14px;font-weight:500;margin-bottom:16px;cursor:pointer">&#8249; My Trainings</span>';
+  html += content;
   document.getElementById('my-body').innerHTML = html;
+}
+function renderManager() {
+  if (mgrState.view === 'list') {
+    var subTabsHtml = '<div class="sub-tabs">';
+    subTabsHtml += '<button class="'+(mgrState.subView==='active'?'on':'')+'" data-action="switch-sub" data-sub="active">Active</button>';
+    subTabsHtml += '<button class="'+(mgrState.subView==='completed'?'on':'')+'" data-action="switch-sub" data-sub="completed">Completed</button>';
+    subTabsHtml += '</div>';
+    document.getElementById('mgr-body').innerHTML = subTabsHtml + renderMgrList();
+  } else {
+    renderMgrRunner();
+  }
+}
+function isHireComplete(hire) {
+  var allTemplatesComplete = hire.assignedTemplates.every(function(tplId) {
+    var tpl = MOCK_OB_TEMPLATES.find(function(t) { return t.id === tplId; });
+    if (!tpl) return true;
+    return tpl.sections.every(function(sec) {
+      var state = SECTION_STATES[hire.id] ? SECTION_STATES[hire.id][sec.id] : 'locked';
+      if (sec.isFaq) return FAQ_VIEWED[hire.id] === true;
+      if (sec.requiresSignOff) return state === 'signed_off';
+      return isSectionComplete(hire.id, sec);
+    });
+  });
+  return allTemplatesComplete;
+}
+function renderMgrList() {
+  var html = '';
+  var filteredHires = MOCK_HIRES.filter(function(h) {
+    var complete = isHireComplete(h);
+    return mgrState.subView === 'active' ? !complete : complete;
+  });
+  if (filteredHires.length === 0) {
+    if (mgrState.subView === 'active') {
+      html += '<div class="empty"><h3>No active onboarding.</h3><p>New hires will appear here when added to the system.</p></div>';
+    } else {
+      html += '<div class="empty"><h3>No completed onboardings yet.</h3><p>Finished onboardings will show here after all sections are signed off.</p></div>';
+    }
+    return html;
+  }
+  filteredHires.forEach(function(hire) {
+    var roleLabel = hire.role ? hire.role.replace(/_/g, ' ') : 'crew';
+    var startDate = new Date(hire.startDate);
+    var startFmt = startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    html += '<div class="card" style="cursor:pointer" data-action="open-hire" data-hire-id="'+hire.id+'" data-tpl-idx="0">';
+    html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">';
+    html += '<span style="font-size:14px;font-weight:500">'+hire.name+'</span>';
+    html += '<span class="pill" style="background:var(--info-bg);color:var(--info-tx)">'+roleLabel+'</span>';
+    html += '</div>';
+    html += '<div style="font-size:12px;color:var(--mut);margin-bottom:8px">Started '+startFmt+'</div>';
+    hire.assignedTemplates.forEach(function(tplId) {
+      var tpl = MOCK_OB_TEMPLATES.find(function(t) { return t.id === tplId; });
+      if (!tpl) return;
+      var prog = getProgress(hire.id, tpl);
+      html += '<div style="font-size:12px;color:var(--mut);margin-bottom:4px">'+tpl.name+'</div>';
+      html += '<div style="height:4px;background:var(--brd);border-radius:2px;margin-bottom:4px;overflow:hidden"><div style="height:100%;background:#27ae60;border-radius:2px;width:'+prog.pct+'%"></div></div>';
+      html += '<div style="font-size:12px;color:var(--mut);margin-bottom:8px">'+prog.pct+'% &mdash; '+prog.checked+'/'+prog.total+' tasks</div>';
+    });
+    html += '</div>';
+    if (mgrState.subView === 'active') {
+      var pickerOpen = assignPickerOpen === hire.id;
+      html += '<div style="text-align:center;margin-bottom:8px">';
+      html += '<span style="font-size:14px;font-weight:500;color:var(--info-tx);cursor:pointer" data-action="show-assign" data-hire-id="'+hire.id+'">+ Assign Training</span>';
+      html += '</div>';
+      if (pickerOpen) {
+        var unassigned = MOCK_OB_TEMPLATES.filter(function(tpl) {
+          return !hire.assignedTemplates.includes(tpl.id);
+        });
+        html += '<div class="assign-picker">';
+        if (unassigned.length === 0) {
+          html += '<div style="font-size:14px;color:var(--mut);padding:8px 12px">No additional trainings available.</div>';
+        } else {
+          unassigned.forEach(function(tpl) {
+            html += '<div class="assign-row" data-action="assign-training" data-hire-id="'+hire.id+'" data-tpl-id="'+tpl.id+'">'+tpl.name+'</div>';
+          });
+        }
+        html += '</div>';
+      }
+    }
+  });
+  return html;
+}
+function renderMgrRunner() {
+  var hire = MOCK_HIRES.find(function(h) { return h.id === mgrState.activeHireId; });
+  if (!hire) { mgrState.view = 'list'; renderManager(); return; }
+  var content = renderRunnerContent(mgrState.activeHireId, mgrState.activeTemplateIdx, true);
+  if (!content) { mgrState.view = 'list'; renderManager(); return; }
+  var html = '';
+  html += '<span class="back" data-action="back-to-hires" style="display:inline-flex;align-items:center;gap:4px;color:var(--info-tx);font-size:14px;font-weight:500;margin-bottom:16px;cursor:pointer">&#8249; All Hires</span>';
+  html += content;
+  document.getElementById('mgr-body').innerHTML = html;
 }
 document.getElementById('my-body').addEventListener('click', function(e) {
   var btn = e.target.closest('[data-action]');
@@ -519,6 +635,85 @@ document.getElementById('my-body').addEventListener('click', function(e) {
     renderMyTrainings();
   }
 });
+document.getElementById('mgr-body').addEventListener('click', function(e) {
+  var btn = e.target.closest('[data-action]');
+  if (!btn) return;
+  var action = btn.dataset.action;
+  if (action === 'switch-sub') {
+    mgrState.subView = btn.dataset.sub;
+    assignPickerOpen = null;
+    renderManager();
+  } else if (action === 'open-hire') {
+    mgrState = { view: 'runner', subView: mgrState.subView, activeHireId: btn.dataset.hireId, activeTemplateIdx: +(btn.dataset.tplIdx || 0) };
+    renderManager();
+  } else if (action === 'back-to-hires') {
+    mgrState = { view: 'list', subView: mgrState.subView, activeHireId: null, activeTemplateIdx: 0 };
+    assignPickerOpen = null;
+    renderManager();
+  } else if (action === 'approve-signoff') {
+    var hireId = btn.dataset.hireId;
+    var secId = btn.dataset.sectionId;
+    var tplId = btn.dataset.tplId;
+    if (SECTION_STATES[hireId]) SECTION_STATES[hireId][secId] = 'signed_off';
+    tryAdvanceSections(hireId, tplId);
+    renderManager();
+  } else if (action === 'send-back') {
+    var hireId = btn.dataset.hireId;
+    var secId = btn.dataset.sectionId;
+    if (SECTION_STATES[hireId]) SECTION_STATES[hireId][secId] = 'active';
+    renderManager();
+  } else if (action === 'show-assign') {
+    var hireId = btn.dataset.hireId;
+    assignPickerOpen = assignPickerOpen === hireId ? null : hireId;
+    renderManager();
+  } else if (action === 'assign-training') {
+    var hireId = btn.dataset.hireId;
+    var tplId = btn.dataset.tplId;
+    var hire = MOCK_HIRES.find(function(h) { return h.id === hireId; });
+    if (hire && !hire.assignedTemplates.includes(tplId)) {
+      hire.assignedTemplates.push(tplId);
+      var newTpl = MOCK_OB_TEMPLATES.find(function(t) { return t.id === tplId; });
+      if (newTpl && SECTION_STATES[hire.id]) {
+        newTpl.sections.forEach(function(sec, idx) {
+          if (!SECTION_STATES[hire.id][sec.id]) {
+            SECTION_STATES[hire.id][sec.id] = idx === 0 ? 'active' : 'locked';
+          }
+        });
+      } else {
+        initSectionStates(hire);
+      }
+    }
+    assignPickerOpen = null;
+    renderManager();
+  } else if (action === 'toggle-section') {
+    var secId = btn.dataset.secId;
+    var hireId = btn.dataset.hireId;
+    var tplId = btn.dataset.tplId;
+    var tpl = MOCK_OB_TEMPLATES.find(function(t) { return t.id === tplId; });
+    var sec = tpl ? tpl.sections.find(function(s) { return s.id === secId; }) : null;
+    if (EXPANDED_SECTIONS[secId]) {
+      delete EXPANDED_SECTIONS[secId];
+    } else {
+      EXPANDED_SECTIONS[secId] = true;
+      if (sec && sec.isFaq) {
+        FAQ_VIEWED[hireId] = true;
+        tryAdvanceSections(hireId, tplId);
+      }
+    }
+    renderManager();
+  } else if (action === 'toggle-faq') {
+    var faqId = btn.dataset.faqId;
+    if (EXPANDED_FAQS[faqId]) {
+      delete EXPANDED_FAQS[faqId];
+    } else {
+      EXPANDED_FAQS[faqId] = true;
+    }
+    renderManager();
+  } else if (action === 'watch-video') {
+    e.preventDefault();
+    window.open(btn.dataset.url, '_blank');
+  }
+});
 if (!isManager()) {
   document.getElementById('t2').style.display = 'none';
 }
@@ -526,6 +721,7 @@ var myHire = getMyHire();
 if (myHire) initSectionStates(myHire);
 MOCK_HIRES.forEach(function(h) { initSectionStates(h); });
 renderMyTrainings();
+renderManager();
 document.addEventListener('dblclick', function(e) { e.preventDefault(); });
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
 </script>
