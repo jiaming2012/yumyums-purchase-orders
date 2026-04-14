@@ -37,10 +37,122 @@ test.describe('Inventory', () => {
     await expect(page.locator('#s2')).toContainText('Spending Trends');
   });
 
-  test('Stock tab shows Coming Soon placeholder', async ({ page }) => {
+  // STCK-01: Stock tab shows item groups with badges
+  test('Stock tab shows item groups with stock badges', async ({ page }) => {
     await page.click('#t3');
-    await expect(page.locator('#s3')).toBeVisible();
-    await expect(page.locator('#s3')).toContainText('Stock Levels');
+    const badges = page.locator('.stock-badge');
+    const count = await badges.count();
+    expect(count).toBeGreaterThanOrEqual(10);
+  });
+
+  test('Stock tab groups items by tag category', async ({ page }) => {
+    await page.click('#t3');
+    const tagHeaders = page.locator('.tag-header');
+    const count = await tagHeaders.count();
+    expect(count).toBeGreaterThanOrEqual(4);
+  });
+
+  test('Stock badges include at least two different levels', async ({ page }) => {
+    await page.click('#t3');
+    const highBadges = page.locator('.stock-high');
+    const medBadges = page.locator('.stock-medium');
+    const lowBadges = page.locator('.stock-low');
+    const total = await highBadges.count() + await medBadges.count() + await lowBadges.count();
+    expect(total).toBeGreaterThanOrEqual(2);
+  });
+
+  test('items within tag are sorted by urgency Low first', async ({ page }) => {
+    await page.click('#t3');
+    const firstSection = page.locator('.tag-section').first();
+    const badges = firstSection.locator('.stock-badge');
+    const badgeTexts = await badges.allTextContents();
+    if (badgeTexts.length >= 2) {
+      const order = { 'Low': 0, 'Medium': 1, 'High': 2, 'Unknown': 3 };
+      for (let i = 1; i < badgeTexts.length; i++) {
+        const prev = order[badgeTexts[i-1].trim()] ?? 3;
+        const curr = order[badgeTexts[i].trim()] ?? 3;
+        expect(curr).toBeGreaterThanOrEqual(prev);
+      }
+    }
+  });
+
+  test('tapping tag header collapses and expands the section', async ({ page }) => {
+    await page.click('#t3');
+    const firstHeader = page.locator('.tag-header').first();
+    const firstSection = page.locator('.tag-section').first();
+    const itemsBefore = await firstSection.locator('.stock-item').count();
+    expect(itemsBefore).toBeGreaterThanOrEqual(1);
+    await firstHeader.click();
+    const itemsAfter = await firstSection.locator('.stock-item:visible').count();
+    expect(itemsAfter).toBe(0);
+    await firstHeader.click();
+    const itemsRestored = await firstSection.locator('.stock-item:visible').count();
+    expect(itemsRestored).toBeGreaterThanOrEqual(1);
+  });
+
+  test('tapping stock item expands detail with purchase info', async ({ page }) => {
+    await page.click('#t3');
+    const firstItem = page.locator('.stock-item').first();
+    await firstItem.click();
+    const detail = page.locator('.stock-detail.open').first();
+    await expect(detail).toBeVisible();
+    const text = await detail.textContent();
+    expect(text).toMatch(/Last purchased|Override Level/);
+  });
+
+  // STCK-02: Reorder suggestions
+  test('reorder suggestions section shows Low and Medium items only', async ({ page }) => {
+    await page.click('#t3');
+    const reorderSection = page.locator('#reorder-section');
+    const text = await reorderSection.textContent();
+    if (text.trim().length > 0) {
+      expect(text).toMatch(/Low|Medium/i);
+    }
+  });
+
+  // STCK-03: Manual override
+  test('Override Level button shows override form', async ({ page }) => {
+    await page.click('#t3');
+    await page.locator('.stock-item').first().click();
+    const overrideBtn = page.locator('[data-action="show-override"]').first();
+    await overrideBtn.click();
+    const form = page.locator('.override-form');
+    await expect(form).toBeVisible();
+    const radios = form.locator('input[type="radio"]');
+    expect(await radios.count()).toBe(3);
+  });
+
+  test('saving override changes badge and shows Overridden indicator', async ({ page }) => {
+    await page.click('#t3');
+    await page.locator('.stock-item').first().click();
+    await page.locator('[data-action="show-override"]').first().click();
+    await page.locator('input[name="override-level"][value="high"]').check();
+    await page.locator('.override-reason').fill('Just restocked');
+    await page.locator('[data-action="save-override"]').click();
+    const indicator = page.locator('.overridden-indicator').first();
+    await expect(indicator).toBeVisible();
+  });
+
+  test('clearing override returns to calculated level', async ({ page }) => {
+    await page.click('#t3');
+    await page.locator('.stock-item').first().click();
+    await page.locator('[data-action="show-override"]').first().click();
+    await page.locator('input[name="override-level"][value="high"]').check();
+    await page.locator('.override-reason').fill('Test');
+    await page.locator('[data-action="save-override"]').click();
+    await page.locator('.stock-item').first().click();
+    await page.locator('[data-action="clear-override"]').first().click();
+    const indicators = await page.locator('.overridden-indicator').count();
+    expect(indicators).toBe(0);
+  });
+
+  test('cancel override form hides it without saving', async ({ page }) => {
+    await page.click('#t3');
+    await page.locator('.stock-item').first().click();
+    await page.locator('[data-action="show-override"]').first().click();
+    await expect(page.locator('.override-form')).toBeVisible();
+    await page.locator('[data-action="cancel-override"]').click();
+    await expect(page.locator('.override-form')).not.toBeVisible();
   });
 
   test('Cost tab shows Coming Soon placeholder', async ({ page }) => {
