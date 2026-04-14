@@ -2,11 +2,11 @@
 
 ## What This Is
 
-A mobile-first PWA operations console for a food truck business. One app shell with a launcher grid that links to independent workflow tools — purchasing, user management, and a workflow/checklist engine inspired by Lumiform. Each tool is a standalone HTML page inside a shared PWA, designed for a small crew (1-5 people) to use on their phones.
+A mobile-first PWA operations console for a food truck business. One app shell with a launcher grid linking to independent workflow tools — purchasing, user management, a workflow/checklist engine (Lumiform-style), and a crew onboarding/training system. Each tool is a standalone HTML page inside a shared PWA, designed for a small crew (1-5 people) to use on their phones. Shipped v1.0 with 3,695 LOC across 8 HTML/JS files, 89 E2E tests, and full dark mode support.
 
 ## Core Value
 
-A workflow engine that lets the owner build checklist templates and have crew members fill them out on mobile — with accountability (who checked what) and smart conditions (day-of-week, fail triggers, skip logic).
+Operational tools that let the owner manage crew workflows and training from one mobile app — with accountability (who checked what), smart conditions (day-of-week, fail triggers), and structured onboarding (video training, sequential sign-off).
 
 ## Requirements
 
@@ -42,10 +42,12 @@ A workflow engine that lets the owner build checklist templates and have crew me
 - ✓ 2 pre-built templates (Setup Checklist, Closing Checklist) — Phase 3
 - ✓ 54 Playwright E2E tests — post-Phase 3
 - ✓ Onboarding app with role-based views, video training, sequential sections, FAQ gate, manager sign-off — Phase 4
+- ✓ Onboarding builder with template CRUD, checkbox/sub-items, video series parts, FAQ Q&A editor, SortableJS drag-to-reorder — Phase 5
+- ✓ 89 Playwright E2E tests (54 workflows + 35 onboarding) — Phase 5
 
 ### Active
 
-(None — Phase 4 complete)
+(None — v1.0 milestone shipped)
 
 ### Out of Scope
 
@@ -63,9 +65,11 @@ A workflow engine that lets the owner build checklist templates and have crew me
 - **Codebase:** Static HTML/CSS/JS PWA + Playwright tests, deployed on Digital Ocean App Platform
 - **Design system:** CSS variables with dark mode, mobile-first (480px max), inline styles, system font stack
 - **Inspiration:** Lumiform — form/checklist builder with templates, assignments, and mobile completion
-- **Three-tab architecture:** My Checklists (all roles) / Approvals (manager+) / Builder (restricted roles)
+- **Workflows architecture:** My Checklists (all roles) / Approvals (manager+) / Builder (restricted roles)
+- **Onboarding architecture:** My Trainings (crew) / Manager (manager+) / Builder (manager+) — video-based, sequential sections, per-section sign-off
 - **User management integration:** Access controlled via Users app permissions (role-based + individual grants)
 - **Backend design:** `docs/user-management-api.md` — 7 tables (users, sessions, templates, submissions, responses, rejections, audit log), full REST API contracts, Go + Postgres planned
+- **v1.0 shipped:** 2026-04-14 — 5 phases, 12 plans, 89 E2E tests, 3,695 LOC
 
 ## Constraints
 
@@ -90,7 +94,11 @@ A workflow engine that lets the owner build checklist templates and have crew me
 | Assignable checklists by role/user | Different checklists for different roles | ✓ Good |
 | Item-level rejection (not whole-checklist) | Managers flag specific items for correction | ✓ Good |
 | SortableJS via CDN | Only external dependency, touch-native drag | ✓ Good |
-| Playwright for E2E tests | 54 tests, catches regressions, free/open source | ✓ Good |
+| Playwright for E2E tests | 89 tests, catches regressions, free/open source | ✓ Good |
+| Standalone onboarding tool | Separate from workflows — different UX for training vs daily checklists | ✓ Good |
+| Video-based training with sequential sections | Crew watches video series, manager signs off per section | ✓ Good |
+| Onboarding builder mirrors workflows builder | Same flat-section pattern, SortableJS — consistent UX | ✓ Good |
+| Tab switch re-renders fresh | Prevents stale state between tabs (bug found during verification) | ✓ Good |
 
 ## Evolution
 
@@ -110,4 +118,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-14 after Phase 4 (Onboarding App) completion*
+*Last updated: 2026-04-14 after v1.0 milestone*
