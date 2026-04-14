@@ -75,6 +75,12 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .btn-cancel{background:var(--bg);color:var(--mut)}
 .btn-clear-override{background:transparent;color:var(--mut);border:none;font-size:12px;cursor:pointer;text-decoration:underline;padding:4px 0}
 .overridden-indicator{font-size:10px;color:var(--mut);font-style:italic;margin-left:6px}
+.sub-tabs{display:flex;gap:0;background:var(--bg);border-radius:8px;padding:2px;margin-bottom:12px}
+.sub-tabs button{flex:1;border:none;background:transparent;padding:10px 0;font-size:13px;font-weight:500;color:var(--mut);border-radius:6px;cursor:pointer}
+.sub-tabs button.on{background:var(--card);color:var(--info-tx)}
+.chip-bar{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.chip{padding:6px 12px;border-radius:16px;border:0.5px solid var(--brd);background:var(--card);color:var(--mut);font-size:12px;font-weight:500;cursor:pointer;user-select:none}
+.chip.on{background:var(--info-bg);color:var(--info-tx);border-color:var(--info-tx)}
 </style>
 </head>
 <body>
@@ -354,6 +360,11 @@ let COLLAPSED_TAGS={};
 let VENDOR_FILTER='';
 let STOCK_OVERRIDES={};
 let OVERRIDE_FORM_OPEN=null;
+let TRENDS_SUB_TAB=1;
+let ACTIVE_CHIPS=new Set();
+let trendBarChart=null;
+let trendDoughnutChart=null;
+let trendLineChart=null;
 
 function show(n){
   [1,2,3,4].forEach(i=>{
@@ -367,7 +378,7 @@ function show(n){
 
 function render(){
   if(ACTIVE_TAB===1)renderHistory();
-  // if(ACTIVE_TAB===2)renderTrends(); // Phase 8
+  if(ACTIVE_TAB===2)renderTrends();
   if(ACTIVE_TAB===3)renderStock();
   // if(ACTIVE_TAB===4)renderCost();   // Phase 8
 }
@@ -433,6 +444,100 @@ function calcStockLevels(){
     }
     return {groupId:grp.id,groupName:grp.name,tagIds:grp.tagIds,level,remaining:Math.round(remaining*10)/10,avgWeeklyConsumption:Math.round(avgWeeklyConsumption*10)/10,lastPurchaseDate,lastVendor,lastPrice,totalPurchased,totalConsumed:Math.round(totalConsumed*10)/10};
   });
+}
+
+function getChartColors(){
+  var s=getComputedStyle(document.documentElement);
+  return {
+    txt:s.getPropertyValue('--txt').trim(),
+    mut:s.getPropertyValue('--mut').trim(),
+    card:s.getPropertyValue('--card').trim(),
+    brd:s.getPropertyValue('--brd').trim(),
+    palette:['#ef4444','#22c55e','#f59e0b','#3b82f6','#8b5cf6']
+  };
+}
+
+function spendByTag(chips){
+  var piToGroup={};
+  MOCK_PURCHASE_ITEMS.forEach(pi=>{piToGroup[pi.id]=pi.groupId;});
+  var groupToTags={};
+  MOCK_ITEM_GROUPS.forEach(g=>{groupToTags[g.id]=g.tagIds;});
+  var totals={};
+  MOCK_PURCHASES.forEach(p=>{
+    var gid=piToGroup[p.purchaseItemId];
+    if(!gid)return;
+    var tagIds=groupToTags[gid]||[];
+    var primaryTag=tagIds[0];
+    if(!primaryTag)return;
+    if(chips.size>0&&!chips.has(primaryTag))return;
+    totals[primaryTag]=(totals[primaryTag]||0)+p.price*p.qty;
+  });
+  var labels=[],data=[],colors=[];
+  var palette=['#ef4444','#22c55e','#f59e0b','#3b82f6','#8b5cf6'];
+  MOCK_TAGS.forEach((t,i)=>{
+    if(chips.size>0&&!chips.has(t.id))return;
+    labels.push((TAG_EMOJI[t.id]||'')+' '+t.name);
+    data.push(Math.round((totals[t.id]||0)*100)/100);
+    colors.push(palette[i%palette.length]);
+  });
+  return {labels,data,colors};
+}
+
+function spendByMonth(chips){
+  var piToGroup={};
+  MOCK_PURCHASE_ITEMS.forEach(pi=>{piToGroup[pi.id]=pi.groupId;});
+  var groupToTags={};
+  MOCK_ITEM_GROUPS.forEach(g=>{groupToTags[g.id]=g.tagIds;});
+  var eventMap={};
+  MOCK_PURCHASE_EVENTS.forEach(e=>{eventMap[e.id]=e;});
+  var monthTotals={};
+  MOCK_PURCHASES.forEach(p=>{
+    var evt=eventMap[p.purchaseEventId];
+    if(!evt)return;
+    if(chips.size>0){
+      var gid=piToGroup[p.purchaseItemId];
+      var tagIds=gid?(groupToTags[gid]||[]):[];
+      var hasMatch=tagIds.some(tid=>chips.has(tid));
+      if(!hasMatch)return;
+    }
+    var d=parseLocalDate(evt.date);
+    var key=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+    monthTotals[key]=(monthTotals[key]||0)+p.price*p.qty;
+  });
+  var keys=Object.keys(monthTotals).sort();
+  var labels=keys.map(k=>{
+    var parts=k.split('-');
+    var d=new Date(Number(parts[0]),Number(parts[1])-1,1);
+    return new Intl.DateTimeFormat('en-US',{month:'short',year:'numeric'}).format(d);
+  });
+  var data=keys.map(k=>Math.round(monthTotals[k]*100)/100);
+  return {labels,data};
+}
+
+function renderTrends(){
+  // TODO(INTG-02): Replace chart rendering below with Metabase iframe: <iframe src="METABASE_URL/dashboard/trends" ...>
+  if(trendBarChart){trendBarChart.destroy();trendBarChart=null;}
+  if(trendDoughnutChart){trendDoughnutChart.destroy();trendDoughnutChart=null;}
+  if(trendLineChart){trendLineChart.destroy();trendLineChart=null;}
+  var allChip='<span class="chip'+(ACTIVE_CHIPS.size===0?' on':'')+'" data-action="toggle-chip" data-tag-id="">All</span>';
+  var tagChips=MOCK_TAGS.map(t=>'<span class="chip'+(ACTIVE_CHIPS.has(t.id)?' on':'')+'" data-action="toggle-chip" data-tag-id="'+t.id+'">'+(TAG_EMOJI[t.id]||'')+' '+t.name+'</span>').join('');
+  var subBtns='<div class="sub-tabs"><button class="'+(TRENDS_SUB_TAB===1?'on':'')+'" data-action="trends-subtab" data-sub="1">By Category</button><button class="'+(TRENDS_SUB_TAB===2?'on':'')+'" data-action="trends-subtab" data-sub="2">Over Time</button></div>';
+  var chartHtml='';
+  if(TRENDS_SUB_TAB===1){
+    chartHtml='<div class="chart-wrap"><canvas id="trend-bar"></canvas></div><div class="chart-wrap" style="margin-top:12px"><canvas id="trend-doughnut"></canvas></div>';
+  } else {
+    chartHtml='<div class="chart-wrap"><canvas id="trend-line"></canvas></div>';
+  }
+  document.getElementById('trends-container').innerHTML='<div class="chip-bar">'+allChip+tagChips+'</div>'+subBtns+chartHtml;
+  var colors=getChartColors();
+  if(TRENDS_SUB_TAB===1){
+    var tagData=spendByTag(ACTIVE_CHIPS);
+    trendBarChart=new Chart(document.getElementById('trend-bar'),{type:'bar',data:{labels:tagData.labels,datasets:[{data:tagData.data,backgroundColor:tagData.colors,borderRadius:4}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>'$'+ctx.raw.toFixed(2)}}},scales:{x:{ticks:{color:colors.mut,callback:v=>'$'+v},grid:{color:colors.brd}},y:{ticks:{color:colors.txt},grid:{display:false}}}}});
+    trendDoughnutChart=new Chart(document.getElementById('trend-doughnut'),{type:'doughnut',data:{labels:tagData.labels,datasets:[{data:tagData.data,backgroundColor:tagData.colors}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{color:colors.txt,padding:12,boxWidth:12}}}}});
+  } else {
+    var monthData=spendByMonth(ACTIVE_CHIPS);
+    trendLineChart=new Chart(document.getElementById('trend-line'),{type:'line',data:{labels:monthData.labels,datasets:[{label:'Monthly Spend',data:monthData.data,borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,0.1)',fill:true,tension:0.3,pointRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>'$'+ctx.raw.toFixed(2)}}},scales:{x:{ticks:{color:colors.mut},grid:{color:colors.brd}},y:{ticks:{color:colors.mut,callback:v=>'$'+v},grid:{color:colors.brd}}}}});
+  }
 }
 
 // Tag emoji map: Proteins 🥩, Produce 🥬, Dairy 🧀, Supplies 📦, Beverages 🥤
@@ -515,6 +620,27 @@ function renderStock(){
   });
   document.getElementById('stock-list').innerHTML=html;
 }
+
+document.getElementById('s2').addEventListener('click',function(e){
+  var el=e.target.closest('[data-action]');
+  if(!el)return;
+  var action=el.dataset.action;
+  if(action==='toggle-chip'){
+    var tid=el.dataset.tagId;
+    if(!tid){
+      ACTIVE_CHIPS.clear();
+    } else if(ACTIVE_CHIPS.has(tid)){
+      ACTIVE_CHIPS.delete(tid);
+    } else {
+      ACTIVE_CHIPS.add(tid);
+      if(ACTIVE_CHIPS.size===MOCK_TAGS.length)ACTIVE_CHIPS.clear();
+    }
+    renderTrends();
+  } else if(action==='trends-subtab'){
+    TRENDS_SUB_TAB=Number(el.dataset.sub);
+    renderTrends();
+  }
+});
 
 document.addEventListener('click',function(e){
   if(ACTIVE_TAB!==3)return;

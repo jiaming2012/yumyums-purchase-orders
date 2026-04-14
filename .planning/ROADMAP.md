@@ -70,8 +70,8 @@ Plans:
   5. User can tap a purchase item (e.g., beef) and see which menu items use it with relative percentages
 **Plans:** 2 plans
 Plans:
-- [ ] 07-01-PLAN.md — Stock estimation algorithm, MOCK_SALES data, tag-grouped Stock tab UI with badges and reorder suggestions
-- [ ] 07-02-PLAN.md — Manual override flow, Playwright E2E tests, SW cache bump
+- [ ] 08-01-PLAN.md — Trends tab: Chart.js bar/doughnut/line charts with tag filter chips and sub-tabs
+- [ ] 08-02-PLAN.md — Cost tab: menu item cost breakdown, ingredient reverse-lookup, Playwright tests, SW cache bump
 **UI hint**: yes
 
 ## Progress
@@ -85,4 +85,4 @@ Plans:
 | 5. Onboarding Builder | v1.0 | 2/2 | Complete | 2026-04-14 |
 | 6. Foundation and History Tab | v1.1 | 2/2 | Complete   | 2026-04-14 |
 | 7. Stock and Reorder Tab | v1.1 | 2/2 | Complete   | 2026-04-14 |
-| 8. Trends and Cost Intelligence Tabs | v1.1 | 0/? | Not started | - |
+| 8. Trends and Cost Intelligence Tabs | v1.1 | 0/2 | Planning | - |

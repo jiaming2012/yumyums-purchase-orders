@@ -31,10 +31,35 @@ test.describe('Inventory', () => {
     await expect(page.locator('#s2')).not.toBeVisible();
   });
 
-  test('Trends tab shows Coming Soon placeholder', async ({ page }) => {
+  // TRND-01/02/03: Trends tab shows charts
+  test('Trends tab shows By Category sub-tab with chip bar', async ({ page }) => {
     await page.click('#t2');
     await expect(page.locator('#s2')).toBeVisible();
-    await expect(page.locator('#s2')).toContainText('Spending Trends');
+    await expect(page.locator('#s2 .chip-bar')).toBeVisible();
+    await expect(page.locator('#s2 .sub-tabs')).toBeVisible();
+    await expect(page.locator('#trend-bar')).toBeVisible();
+  });
+
+  test('Trends tab Over Time sub-tab shows line chart canvas', async ({ page }) => {
+    await page.click('#t2');
+    await page.locator('[data-action="trends-subtab"][data-sub="2"]').click();
+    await expect(page.locator('#trend-line')).toBeVisible();
+    await expect(page.locator('#trend-bar')).not.toBeVisible();
+  });
+
+  test('Trends chip filter: tapping a tag chip activates it', async ({ page }) => {
+    await page.click('#t2');
+    const firstTagChip = page.locator('.chip-bar .chip[data-tag-id="tag_1"]');
+    await firstTagChip.click();
+    await expect(firstTagChip).toHaveClass(/on/);
+  });
+
+  test('Trends chip filter: tapping All chip deactivates individual chips', async ({ page }) => {
+    await page.click('#t2');
+    await page.locator('.chip[data-tag-id="tag_1"]').click();
+    const allChip = page.locator('.chip[data-tag-id=""]');
+    await allChip.click();
+    await expect(allChip).toHaveClass(/on/);
   });
 
   // STCK-01: Stock tab shows item groups with badges
