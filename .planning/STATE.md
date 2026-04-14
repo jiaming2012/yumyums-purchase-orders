@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Inventory App
-status: executing
-stopped_at: "Checkpoint: Task 3 human-verify for 06-02-PLAN.md"
-last_updated: "2026-04-14T16:38:23.955Z"
+status: verifying
+stopped_at: Completed 06-02-PLAN.md — Phase 06 complete
+last_updated: "2026-04-14T16:54:41.247Z"
 last_activity: 2026-04-14
 progress:
   total_phases: 3
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-04-14)
 
 Phase: 06 (foundation-and-history-tab) — EXECUTING
 Plan: 2 of 2
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-04-14
 
 Progress: [█████░░░░░] 50%
@@ -58,6 +58,7 @@ Progress: [█████░░░░░] 50%
 *Updated after each plan completion*
 | Phase 06 P01 | 15 | 2 tasks | 5 files |
 | Phase 06 P02 | 20min | 2 tasks | 3 files |
+| Phase 06-foundation-and-history-tab P02 | 25min | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -76,6 +77,9 @@ Recent decisions affecting current work:
 - [Phase 06-foundation-and-history-tab]: renderHistory() repopulates vendor filter select on each call — ensures VENDOR_FILTER state preserved after re-render
 - [Phase 06-foundation-and-history-tab]: b.date.localeCompare(a.date) for ISO date sort — correct lexicographic order without Date parsing
 - [Phase 06-foundation-and-history-tab]: Playwright waitForLoadState('networkidle') in beforeEach prevents service worker controllerchange reload race in inventory tests
+- [Phase 06-foundation-and-history-tab]: renderHistory() repopulates vendor filter select on each call — ensures VENDOR_FILTER state is preserved after re-render
+- [Phase 06-foundation-and-history-tab]: b.date.localeCompare(a.date) for ISO date sort — lexicographic comparison is correct for YYYY-MM-DD without Date parsing
+- [Phase 06-foundation-and-history-tab]: Playwright waitForLoadState('networkidle') in beforeEach prevents service worker controllerchange reload race in inventory tests
 
 ### Pending Todos
 
@@ -88,6 +92,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-14T16:38:06.613Z
-Stopped at: Checkpoint: Task 3 human-verify for 06-02-PLAN.md
+Last session: 2026-04-14T16:54:41.239Z
+Stopped at: Completed 06-02-PLAN.md — Phase 06 complete
 Resume file: None

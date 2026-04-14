@@ -50,7 +50,7 @@ completed: 2026-04-14
 - **Duration:** ~20 min
 - **Started:** 2026-04-14T16:17:00Z
 - **Completed:** 2026-04-14T16:37:02Z
-- **Tasks:** 2 complete (Task 3 pending human-verify)
+- **Tasks:** 3 complete (Task 3 human-verify: APPROVED)
 - **Files modified:** 3
 
 ## Accomplishments
@@ -111,12 +111,27 @@ completed: 2026-04-14
 
 - `renderTrends()`, `renderStock()`, `renderCost()` — intentional stubs (commented out in render()). Trends/Stock/Cost tabs show Coming Soon placeholders as designed. Will be implemented in Phases 7-8.
 
+## Human Verification
+
+**Task 3 checkpoint: APPROVED** — User confirmed all 15 visual verification steps passed:
+- Inventory tile navigates from HQ launcher
+- 4 tabs visible (History / Trends / Stock / Cost)
+- History tab active by default with event cards sorted newest-first
+- Event expand/collapse with line items (name, qty, price)
+- CASE badge visible
+- Vendor filter narrows and resets correctly
+- Trends/Stock/Cost tabs show Coming Soon placeholders
+- `typeof Chart` returns "function" in console
+- `MOCK_PURCHASE_EVENTS.length` returns 14+ in console
+- Back link returns to index.html
+- Dark mode works
+
 ## Next Phase Readiness
 
-- History tab fully functional — ready for human visual verification
+- History tab fully functional — human-verified and approved
 - Playwright test suite established for inventory page (18 tests)
-- SW at v44 — ready for deploy
-- Phase 7 (Stock tab) can build on the `#s3` section and the mock data layer
+- SW at v44 — deployed
+- Phase 7 (Stock tab or Trends) can build on the `#s3`/`#s2` sections and the mock data layer
 
 ---
 *Phase: 06-foundation-and-history-tab*

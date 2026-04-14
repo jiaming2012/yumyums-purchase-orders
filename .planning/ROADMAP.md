@@ -22,7 +22,7 @@
 
 **Milestone Goal:** Standalone inventory tool showing purchase history, category spending trends, stock level estimates, and food cost intelligence — all derived from mock Baserow purchase data, no backend required.
 
-- [ ] **Phase 6: Foundation and History Tab** - inventory.html shell with Chart.js loaded locally, mock data layer, HQ integration, and fully functional Purchase History tab
+- [x] **Phase 6: Foundation and History Tab** - inventory.html shell with Chart.js loaded locally, mock data layer, HQ integration, and fully functional Purchase History tab (completed 2026-04-14)
 - [ ] **Phase 7: Stock and Reorder Tab** - Low/Medium/High stock badges per item group via purchase-frequency heuristic, reorder suggestions list, manual override
 - [ ] **Phase 8: Trends and Cost Intelligence Tabs** - Chart.js spending charts and food cost per menu item, architected for future Metabase iframe replacement
 
@@ -38,10 +38,10 @@
   3. User can tap a purchase event row to expand it and see line items with name, quantity, price, and case flag
   4. User can tap a vendor filter chip to narrow the event list to that vendor only
   5. inventory.html loads and renders charts correctly when the device is offline (Chart.js served from SW cache, not CDN)
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 Plans:
 - [x] 06-01-PLAN.md — Foundation: inventory.html shell, Chart.js local asset, mock data, HQ integration
-- [ ] 06-02-PLAN.md — History tab rendering, vendor filter, Playwright E2E tests
+- [x] 06-02-PLAN.md — History tab rendering, vendor filter, Playwright E2E tests
 **UI hint**: yes
 
 ### Phase 7: Stock and Reorder Tab
@@ -77,6 +77,6 @@ Plans:
 | 3. Photo, Approval, and Integration | v1.0 | 2/2 | Complete | 2026-04-13 |
 | 4. Onboarding App | v1.0 | 3/3 | Complete | 2026-04-14 |
 | 5. Onboarding Builder | v1.0 | 2/2 | Complete | 2026-04-14 |
-| 6. Foundation and History Tab | v1.1 | 1/2 | In Progress|  |
+| 6. Foundation and History Tab | v1.1 | 2/2 | Complete   | 2026-04-14 |
 | 7. Stock and Reorder Tab | v1.1 | 0/? | Not started | - |
 | 8. Trends and Cost Intelligence Tabs | v1.1 | 0/? | Not started | - |
