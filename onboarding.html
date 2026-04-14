@@ -346,6 +346,8 @@ function show(n) {
     document.getElementById('s'+i).style.display = i===n ? '' : 'none';
     document.getElementById('t'+i).classList.toggle('on', i===n);
   });
+  if (n === 1) { obState.view = 'list'; renderMyTrainings(); }
+  if (n === 2) { mgrState.view = 'list'; renderManager(); }
   if (n === 3) renderOBBuilder();
 }
 function generateOBId(prefix) {
@@ -486,7 +488,7 @@ function renderOBSection(sec) {
   html += '<span style="font-size:12px;font-weight:500;text-transform:uppercase;letter-spacing:0.5px;color:var(--mut)">'+escapeOBAttr(sec.title)+'</span>';
   html += '</div>';
   html += '<div style="display:flex;gap:4px;align-items:center">';
-  html += '<button class="pill'+(sec.requiresSignOff?' pill-ok':'')+'" data-action="toggle-signoff" data-sec-id="'+sec.id+'" style="cursor:pointer;border:none;font-size:11px;padding:2px 8px;border-radius:8px;'+soStyle+'">SO</button>';
+  html += '<button class="pill'+(sec.requiresSignOff?' pill-ok':'')+'" data-action="toggle-signoff" data-sec-id="'+sec.id+'" style="cursor:pointer;border:none;font-size:11px;padding:2px 8px;border-radius:8px;'+soStyle+'">Require Sign-off</button>';
   html += '<button class="pill'+(sec.isFaq?' pill-ok':'')+'" data-action="toggle-faq-mode" data-sec-id="'+sec.id+'" style="cursor:pointer;border:none;font-size:11px;padding:2px 8px;border-radius:8px;'+faqStyle+'">FAQ</button>';
   html += '<span data-action="delete-ob-section" data-sec-id="'+sec.id+'" style="color:#c0392b;cursor:pointer;font-size:14px;margin-left:8px">&#10005;</span>';
   html += '</div>';
@@ -501,7 +503,7 @@ function renderOBSection(sec) {
         '<input type="text" value="'+escapeOBAttr(faqItem.question)+'" data-action="faq-q-input" data-sec-id="'+sec.id+'" data-faq-idx="'+idx+'" placeholder="Question" style="flex:1;padding:6px 8px;background:var(--card);border:0.5px solid var(--brd);border-radius:6px;font-size:13px;color:var(--txt);font-family:inherit;outline:none">'+
         '<span data-action="delete-faq-item" data-sec-id="'+sec.id+'" data-faq-idx="'+idx+'" style="color:#c0392b;cursor:pointer;font-size:14px">&#10005;</span>'+
         '</div>'+
-        '<textarea data-action="faq-a-input" data-sec-id="'+sec.id+'" data-faq-idx="'+idx+'" placeholder="Answer" rows="2" style="width:100%;padding:6px 8px;background:var(--card);border:0.5px solid var(--brd);border-radius:6px;font-size:13px;color:var(--txt);font-family:inherit;outline:none;resize:vertical;margin-left:28px;box-sizing:border-box">'+escapeOBAttr(faqItem.answer)+'</textarea>'+
+        '<textarea data-action="faq-a-input" data-sec-id="'+sec.id+'" data-faq-idx="'+idx+'" placeholder="Answer" rows="2" style="width:calc(100% - 28px);padding:6px 8px;background:var(--card);border:0.5px solid var(--brd);border-radius:6px;font-size:13px;color:var(--txt);font-family:inherit;outline:none;resize:vertical;margin-left:28px;box-sizing:border-box">'+escapeOBAttr(faqItem.answer)+'</textarea>'+
         '</div>';
     });
     faqHtml += '</div>';
@@ -732,6 +734,15 @@ function renderMgrList() {
     html += '<span style="font-size:14px;font-weight:500">'+hire.name+'</span>';
     html += '<span class="pill" style="background:var(--info-bg);color:var(--info-tx)">'+roleLabel+'</span>';
     html += '</div>';
+    var pendingCount = 0;
+    if (SECTION_STATES[hire.id]) {
+      Object.keys(SECTION_STATES[hire.id]).forEach(function(secId) {
+        if (SECTION_STATES[hire.id][secId] === 'pending_signoff') pendingCount++;
+      });
+    }
+    if (pendingCount > 0) {
+      html += '<div style="background:#faeeda;color:#854f0b;font-size:12px;font-weight:500;padding:4px 8px;border-radius:6px;margin-bottom:6px;display:inline-block">⏳ '+pendingCount+' section'+(pendingCount>1?'s':'')+' awaiting sign-off</div>';
+    }
     html += '<div style="font-size:12px;color:var(--mut);margin-bottom:8px">Started '+startFmt+'</div>';
     hire.assignedTemplates.forEach(function(tplId) {
       var tpl = MOCK_OB_TEMPLATES.find(function(t) { return t.id === tplId; });
@@ -869,11 +880,13 @@ document.getElementById('mgr-body').addEventListener('click', function(e) {
     var tplId = btn.dataset.tplId;
     if (SECTION_STATES[hireId]) SECTION_STATES[hireId][secId] = 'signed_off';
     tryAdvanceSections(hireId, tplId);
+    EXPANDED_SECTIONS[secId] = true;
     renderManager();
   } else if (action === 'send-back') {
     var hireId = btn.dataset.hireId;
     var secId = btn.dataset.sectionId;
     if (SECTION_STATES[hireId]) SECTION_STATES[hireId][secId] = 'active';
+    EXPANDED_SECTIONS[secId] = true;
     renderManager();
   } else if (action === 'show-assign') {
     var hireId = btn.dataset.hireId;
