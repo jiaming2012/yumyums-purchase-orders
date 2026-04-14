@@ -23,8 +23,8 @@ Requirements for the Inventory App milestone. Each maps to roadmap phases.
 
 ### Stock & Reorder
 
-- [ ] **STCK-01**: User can see low/medium/high stock level indicators per item group based on purchase recency
-- [ ] **STCK-02**: Items at low/medium stock are flagged as "recommended for next PO" (display only)
+- [x] **STCK-01**: User can see low/medium/high stock level indicators per item group based on purchase recency
+- [x] **STCK-02**: Items at low/medium stock are flagged as "recommended for next PO" (display only)
 - [ ] **STCK-03**: User can manually override a stock level with a reason (mock journal entry for backend later)
 
 ### Food Cost Intelligence
@@ -78,8 +78,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | HIST-03 | Phase 6 | Complete |
 | HIST-04 | Phase 6 | Complete |
 | INTG-01 | Phase 6 | Complete |
-| STCK-01 | Phase 7 | Pending |
-| STCK-02 | Phase 7 | Pending |
+| STCK-01 | Phase 7 | Complete |
+| STCK-02 | Phase 7 | Complete |
 | STCK-03 | Phase 7 | Pending |
 | TRND-01 | Phase 8 | Pending |
 | TRND-02 | Phase 8 | Pending |
