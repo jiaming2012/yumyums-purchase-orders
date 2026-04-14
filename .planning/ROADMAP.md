@@ -52,7 +52,10 @@ Plans:
   1. User can see every item group with a Low, Medium, or High badge derived from purchase recency (not manual entry)
   2. User can see a Reorder Suggestions section listing only Low and Medium items, sorted by urgency
   3. User can tap an item's stock badge and override it with a different level and a reason, and see the override reflected immediately
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 07-01-PLAN.md — Stock estimation algorithm, MOCK_SALES data, tag-grouped Stock tab UI with badges and reorder suggestions
+- [ ] 07-02-PLAN.md — Manual override flow, Playwright E2E tests, SW cache bump
 **UI hint**: yes
 
 ### Phase 8: Trends and Cost Intelligence Tabs
@@ -65,7 +68,10 @@ Plans:
   3. User can see a monthly trend line chart showing spend over time, and tap a tag chip to filter it to one category
   4. User can tap a menu item (e.g., Cheesesteak) and see an estimated cost with an ingredient proportion table
   5. User can tap a purchase item (e.g., beef) and see which menu items use it with relative percentages
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 07-01-PLAN.md — Stock estimation algorithm, MOCK_SALES data, tag-grouped Stock tab UI with badges and reorder suggestions
+- [ ] 07-02-PLAN.md — Manual override flow, Playwright E2E tests, SW cache bump
 **UI hint**: yes
 
 ## Progress
@@ -78,5 +84,5 @@ Plans:
 | 4. Onboarding App | v1.0 | 3/3 | Complete | 2026-04-14 |
 | 5. Onboarding Builder | v1.0 | 2/2 | Complete | 2026-04-14 |
 | 6. Foundation and History Tab | v1.1 | 2/2 | Complete   | 2026-04-14 |
-| 7. Stock and Reorder Tab | v1.1 | 0/? | Not started | - |
+| 7. Stock and Reorder Tab | v1.1 | 0/2 | Planning complete | - |
 | 8. Trends and Cost Intelligence Tabs | v1.1 | 0/? | Not started | - |

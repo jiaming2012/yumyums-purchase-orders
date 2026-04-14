@@ -1,151 +1,181 @@
-# Domain Pitfalls
+# Pitfalls Research
 
-**Domain:** Mobile-first workflow/checklist builder PWA — vanilla JS, no framework, no build step
-**Researched:** 2026-04-12
-**Scope:** Conditional logic engines, form builder data models, vanilla JS state management, iOS PWA quirks, food-service checklist UX
+**Domain:** Inventory tracking, spending charts, and stock estimation — added to existing vanilla JS PWA (no build step, no framework)
+**Researched:** 2026-04-14
+**Confidence:** HIGH (charting pitfalls verified via official Chart.js docs + GitHub issues; date pitfalls verified via MDN + community; SW/CDN pitfalls verified via web.dev + MDN)
 
 ---
 
 ## Critical Pitfalls
 
-Mistakes that cause rewrites or major issues.
+---
+
+### Pitfall 1: Chart.js ESM Build Used Instead of UMD Build
+
+**What goes wrong:**
+Chart.js v4 ships its primary bundle as an ES module (`chart.js`, `helpers.js`). When you load the wrong CDN path in a `<script>` tag, you get either a silent failure (the global `Chart` variable is never defined) or a CORS/module import error. The app appears to load but the canvas stays blank with no visible error unless the console is open.
+
+**Why it happens:**
+The CDN directory listing for Chart.js v4 shows many files. Developers pick `chart.min.js` expecting it to be the browser build, but that's the CJS/ESM entry. The UMD build is specifically named `chart.umd.min.js` — a different file.
+
+**How to avoid:**
+Use the explicit UMD path:
+```html
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
+```
+Pin to a specific version (not `@latest`) so the app does not break when Chart.js releases a new major. After loading, `Chart` must be defined as a global — verify with a one-line console check before wiring up any canvas.
+
+**Warning signs:**
+- Canvas element exists in the DOM but stays blank
+- `Chart is not defined` error in console
+- Using `<script src=".../chart.min.js">` (CJS) instead of `chart.umd.min.js`
+- Using `<script type="module">` in an otherwise non-module codebase
+
+**Phase to address:** Phase 1 (chart infrastructure setup) — validate the CDN script loads correctly before writing any chart logic.
 
 ---
 
-### Pitfall 1: DOM as Source of Truth
+### Pitfall 2: Canvas Sizing Breaks on 480px Mobile Viewport
 
-**What goes wrong:** Vanilla JS code reads field values directly from the DOM — `document.querySelector('#field-3').value` — rather than maintaining a separate in-memory state object. The DOM becomes the only record of what's in the form.
+**What goes wrong:**
+Chart.js reads canvas dimensions from its parent container, not from CSS applied directly to the canvas. Common mistakes: setting `width`/`height` attributes on the `<canvas>` element using viewport units (`80vw`, `40vh`), or applying `margin: auto` directly to the canvas. The result is a chart that is either the wrong size, blurry (render resolution mismatched from display size), or that continuously shrinks as Chart.js repeatedly recalculates its container.
 
-**Why it happens:** It feels like the obvious shortcut when there's no framework. No boilerplate, just grab the value.
+A documented bug in Chart.js: if the container uses `%`-based width without explicit overflow control, the chart canvas grows indefinitely on resize.
 
-**Consequences:** When you need to evaluate conditional logic ("show section B if field 3 is 'Fail'"), you end up querying the DOM inside logic evaluators. Reordering, hiding, or re-rendering any element breaks evaluation. Adding drag-to-reorder or section collapse requires a full rewrite of the logic layer. Debugging becomes impossible because state is implicit.
+**Why it happens:**
+Developers apply CSS sizing to the `<canvas>` tag directly (natural instinct), but Chart.js sizes the canvas from the parent element's dimensions. CSS on the canvas and Chart.js's internal sizing fight each other.
 
-**Prevention:**
-- Maintain a single plain JS object as the canonical state: `{ templateId, sections: [...], responses: {...} }`
-- The DOM is a rendering artifact — always derive it from state, never read back from it
-- For the fill-out view: `responses[fieldId] = value` on every input event; never query `.value` inside business logic
-- For the builder: `template.sections[i].fields[j]` is the field definition; DOM reflects it, doesn't own it
+**How to avoid:**
+Always wrap each canvas in a dedicated container div and size the container, not the canvas:
+```html
+<div style="position:relative;width:100%;max-width:480px;height:220px">
+  <canvas id="spend-chart"></canvas>
+</div>
+```
+Set `maintainAspectRatio: false` in Chart.js options when you need to control height independently of width. Never apply `margin`, `width`, or `height` styles directly to the `<canvas>` element.
+
+For the 480px max-width constraint: set the container to `width: 100%` (not a fixed pixel value) so it inherits the `.app` container's max-width naturally.
 
 **Warning signs:**
-- Any function that calls `document.querySelector` and then passes the result into a condition evaluator
-- Any function that re-reads the form DOM to figure out "current state"
+- Chart renders correctly in Chrome DevTools device emulation but is wrong size on a real phone
+- Chart grows slightly larger on each window resize event
+- Blurry/pixelated chart lines on Retina/high-DPI screens
 
-**Phase:** Template builder (Phase 1) and fill-out view (Phase 2) — establish the state model before writing any conditional logic
+**Phase to address:** Phase 1 (chart infrastructure) — establish the container pattern once and reuse it for all charts.
 
 ---
 
-### Pitfall 2: Conditional Logic Without a Dependency Graph
+### Pitfall 3: Chart Instance Not Destroyed Before Re-Render (Memory Leak + Visual Glitch)
 
-**What goes wrong:** Conditional rules are evaluated naively — on every change, scan all fields and re-evaluate all conditions. Works until a condition references a field that is itself conditionally shown/hidden. Then you get: Field A shows B, B shows C, C hides A → infinite evaluation loop. Or: A hides B, but B's value is still in `responses` and still affects other conditions downstream.
+**What goes wrong:**
+The app uses the `show(n)` tab-switching pattern from `purchasing.html` and `workflows.html` — tabs toggle `display:none`/`display:block`. When the trends tab is shown again after being hidden, code re-runs to build the chart. If the previous Chart.js instance was not destroyed, two chart instances share the same canvas context. The result: tooltip jitter (both instances respond to hover), double-rendered data points, and a growing memory leak with each tab switch.
 
-**Why it happens:** Simple condition evaluation is easy. Dependency tracking is not. The problem only manifests once you have 5+ fields with overlapping logic.
+**Why it happens:**
+Chart.js attaches event listeners and stores a reference to the canvas context internally. When a new `new Chart(ctx, config)` call is made on a canvas that already has a Chart.js instance, Chart.js v4 throws a warning and exhibits undefined behavior — sometimes silently rendering both, sometimes only rendering one.
 
-**Consequences:** Infinite loops that freeze the UI, or worse — silent incorrect behavior where hidden fields still influence shown fields. Both are catastrophic for a food safety checklist where a wrong corrective action trigger has real consequences.
+**How to avoid:**
+Keep a module-level reference to each chart instance. Destroy before recreating:
+```js
+let spendChart = null;
 
-**Prevention:**
-- Model conditions as a directed graph: each field lists which other fields it depends on
-- Topologically sort the evaluation order so dependencies resolve before dependents
-- When a field is hidden by a condition, clear its value from `responses` immediately — hidden fields must not influence logic
-- Set a maximum re-evaluation depth (e.g., 3 passes) and log a warning if it's hit
-- For this project's scope (skip logic + fail triggers + day-of-week), conditions are field-level and rule-based. Do not add cross-section logic until the simple cases are proven stable.
+function renderSpendChart(data) {
+  if (spendChart) { spendChart.destroy(); spendChart = null; }
+  const ctx = document.getElementById('spend-chart');
+  spendChart = new Chart(ctx, { ... });
+}
+```
+Call `renderSpendChart` from the tab-show logic, not from page init. Do not call `new Chart()` at page load if the tab starts hidden — a hidden canvas has zero dimensions and Chart.js will render with incorrect sizes.
 
 **Warning signs:**
-- A condition evaluator that calls itself recursively without a depth counter
-- Hiding a field but leaving its value in state
-- Any `while(changed)` loop in the condition evaluation code
+- Chart tooltips flicker or show duplicate values on hover
+- `Canvas is already in use. Chart with ID X must be destroyed before the canvas with ID Y can be reused` warning in console
+- Memory usage grows each time the Trends tab is visited
 
-**Phase:** Conditional logic engine — must be addressed before building the builder UI around it
+**Phase to address:** Phase 1 (chart rendering) — establish destroy/recreate pattern in the first chart implementation.
 
 ---
 
-### Pitfall 3: Schema Mismatch Between Template Definition and Fill Responses
+### Pitfall 4: Date Grouping Shifts by One Day Due to UTC Parsing
 
-**What goes wrong:** A template is defined once (builder) and filled many times (crew). When the template changes — a field is renamed, a section reordered, a new field inserted — existing in-progress or completed fill responses no longer map correctly to the template schema.
+**What goes wrong:**
+Purchase history records have date strings like `"2026-04-14"`. When you do `new Date("2026-04-14")`, JavaScript parses it as midnight UTC — not midnight local time. On devices in UTC-4 (Eastern) or UTC-5 (Central), this date becomes April 13 at 8pm or 7pm local time. Weekly and monthly grouping logic that calls `.getMonth()` or `.getDay()` on the result then assigns the event to the wrong week or month.
 
-**Why it happens:** Early implementations store field references by position (`section[0].field[2]`) or by display label. Both break silently when the template is edited.
+For a food truck in the US, purchase history grouped by "week of April 14" will silently show as "week of April 13" for all US timezones. Monthly spend totals will be off by one day at month boundaries.
 
-**Consequences:** Completed checklists display wrong values. Corrective actions appear attached to the wrong items. The entire fill history becomes untrustworthy.
+**Why it happens:**
+ISO 8601 date-only strings (`YYYY-MM-DD`) are parsed as UTC per spec. ISO date-time strings with a time component are parsed as local time. This asymmetry is a well-documented JavaScript footgun.
 
-**Prevention:**
-- Every field in every template gets a stable, unique ID generated at creation time (e.g., `field_` + `Date.now()` or a short UUID). Never use array index as an identifier.
-- Responses are keyed by field ID, not position: `responses["field_abc123"] = "Pass"`
-- When a template is edited after submissions exist, treat it as a new version — store `templateVersion` on each filled response
-- For mock phase: use hardcoded field IDs in your mock data. Don't use array indices.
+**How to avoid:**
+Parse date-only strings by splitting manually rather than using `new Date()`:
+```js
+function parseLocalDate(str) {
+  const [y, m, d] = str.split('-').map(Number);
+  return new Date(y, m - 1, d); // local midnight, no UTC shift
+}
+```
+Never pass `YYYY-MM-DD` strings directly to `new Date()` in grouping or comparison logic. Use this parser everywhere in the inventory module.
 
 **Warning signs:**
-- Any code that references fields as `template.sections[i].fields[j]` outside of rendering loops
-- Mock data with responses stored as arrays (`["Pass", "Fail", "N/A"]`) rather than objects keyed by field ID
-- A rename of a field label that also changes how responses are looked up
+- Weekly spending totals are off by one event at the week boundary
+- Events dated on the 1st of the month appearing in the previous month's totals
+- Any code with `new Date(dateString)` where `dateString` is `YYYY-MM-DD` format
 
-**Phase:** Data model design — must be settled in Phase 1 (template builder) before building fill-out view
+**Phase to address:** Phase 1 (mock data + date utilities) — define `parseLocalDate` as a shared utility before any grouping logic is written.
 
 ---
 
-### Pitfall 4: Event Listener Accumulation on Dynamic UI
+### Pitfall 5: CDN Script Not Cached by Service Worker — Blank Charts Offline
 
-**What goes wrong:** The builder lets users add, reorder, and delete fields. Each time a field is re-rendered (e.g., after a drag-drop reorder), new event listeners are attached to the new DOM nodes — but the old ones are not removed if stale nodes linger, or new ones stack on nodes that were re-used.
+**What goes wrong:**
+The existing service worker uses a cache-first strategy for a hardcoded `ASSETS` list. Chart.js is loaded from a CDN (`cdn.jsdelivr.net`). The CDN URL is not in the precache list. When the device is offline (the PWA use case), the Chart.js script fails to load, `Chart` is undefined, and the Inventory tab shows blank canvases with no error message to the user.
 
-**Why it happens:** In vanilla JS without a VDOM, re-rendering a list means removing and recreating DOM nodes, or mutating them in place. Both approaches have listener lifecycle traps.
+Cross-origin `cache.addAll()` calls also fail silently if the CDN returns a non-2xx response — because CDN responses are "opaque," failures in one URL can cause the entire precache to be discarded.
 
-**Consequences:** A button fires its handler 3x instead of 1x. A delete operation deletes the wrong field because the closure captured a stale index. Input events fire on fields the user didn't touch.
+**Why it happens:**
+The current SW pattern works fine for same-origin assets. Adding a CDN dependency breaks the offline assumption without any visible warning — everything works on WiFi and breaks offline.
 
-**Prevention:**
-- Use event delegation: attach a single listener to the parent container (`#field-list`), inspect `event.target` with `.closest('[data-field-id]')` to identify which field was acted on. Never attach listeners to individual field rows.
-- If you must attach per-element listeners, always call `removeEventListener` before re-attaching, or use `{ once: true }` for single-fire actions
-- Never capture array index in closures — capture field ID (the stable identifier from Pitfall 3). The index can change; the ID cannot.
-- When deleting a field row from the DOM, also delete its entry from state in the same operation
+**How to avoid:**
+Two options — pick one:
+1. **Download Chart.js and serve it as a local asset.** Copy `chart.umd.min.js` into the repo (e.g., `/lib/chart.umd.min.js`), add it to `ASSETS` in `sw.js`, reference it with a relative path. This is the correct approach for this project given the no-build-step constraint and offline requirement.
+2. If CDN is kept: add Chart.js to a runtime cache with a stale-while-revalidate strategy and explicitly handle the offline fallback case in JS (check `typeof Chart !== 'undefined'` before rendering, show a "Charts unavailable offline" message otherwise).
+
+Option 1 is strongly preferred. It also eliminates the CDN availability risk and removes a third-party dependency from the critical path.
 
 **Warning signs:**
-- `addEventListener` calls inside a loop that also creates DOM nodes
-- A delete button that fires once on first load, twice after adding a field, three times after adding two fields
-- Any closure that captures `i` or `index` from a `forEach`
+- Chart.js loaded via CDN `<script>` tag but not added to `ASSETS` in `sw.js`
+- Inventory page tested only with WiFi, never with DevTools "Offline" mode enabled
+- No fallback UI for when the charting library fails to load
 
-**Phase:** Template builder (Phase 1) — establish delegation pattern before the first field list is built
+**Phase to address:** Phase 1 (chart integration) — decide local-vs-CDN at the start, add to SW cache immediately.
 
 ---
 
-### Pitfall 5: iOS Safari Keyboard and Viewport Breakage in Standalone Mode
+### Pitfall 6: Insufficient Mock Data Volume — Trends Look Meaningless
 
-**What goes wrong:** On iOS, when a user taps a text input or temperature field in a PWA installed to the home screen (standalone mode), the virtual keyboard opens but Safari does not resize the viewport. Instead, it pushes the layout up. Elements positioned with `100vh`, `position: fixed`, or `bottom: 0` overlap the keyboard or scroll off screen.
+**What goes wrong:**
+Three to four purchase history entries are created for the mock. The spending trends chart shows two or three data points on a line chart that looks like a straight line or a V-shape. The inventory estimates show one item as "low" and everything else as "high." The feature looks done but conveys no information — and the design decisions made against sparse data (color choices, label density, chart type) will not hold up when real data arrives.
 
-**Why it happens:** Safari's standalone PWA mode has a known long-standing bug where `window.innerHeight` does not update when the keyboard appears. `100vh` also includes the Safari bottom bar, causing layout calculation errors.
+**Why it happens:**
+Developers add just enough data to render the chart without error. Sparse mock data does not stress the layout, the axis label formatting, the category color assignment, or the grouping logic.
 
-**Consequences:** The submit button or action bar is hidden behind the keyboard. Users on iOS (the primary device for food truck crew) cannot complete checklist items. The app feels broken.
+**How to avoid:**
+The minimum viable mock dataset for this feature:
+- At least 12 purchase events (one per week for 3 months)
+- At least 3-4 vendors appearing with varying frequency
+- At least 4-5 category tags (Proteins, Produce, Supplies, Dairy, Packaging)
+- At least 8-10 distinct line items, each appearing in multiple events
+- Data that spans two calendar months so the monthly grouping logic is exercised
+- At least one item with declining frequency (to show "Low" stock estimate) and one with consistent weekly purchases (to show "High")
 
-**Prevention:**
-- Never use `100vh` for full-screen layout. Use `-webkit-fill-available` as the height value, with `100vh` as a fallback: `height: -webkit-fill-available`
-- Keep action bars (`position: fixed; bottom: 0`) minimal. Test with keyboard open on a real iOS device.
-- Ensure all critical actions (submit, save, next item) are reachable by scrolling, not only visible in a fixed footer
-- For temperature inputs and text notes, make sure the focused field scrolls into view with `el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })`
-- Add `meta viewport` with `viewport-fit=cover` and use `env(safe-area-inset-bottom)` for bottom padding
-
-**Warning signs:**
-- Any fixed-position bottom bar tested only in a browser tab, never as an installed PWA
-- Layout that passes desktop and Chrome mobile emulation but breaks on iPhone with Safari
-
-**Phase:** Fill-out view (Phase 2) — test on a real device before declaring a field type complete
-
----
-
-### Pitfall 6: Fail Trigger / Corrective Action UX That Interrupts Flow
-
-**What goes wrong:** A fail trigger fires (e.g., temperature out of range), and the app immediately opens a modal or redirects to a corrective action screen. The crew member loses their place in the checklist, cannot see what item triggered it, and abandons the corrective action.
-
-**Why it happens:** Copying desktop UX patterns (modal dialogs, full-page redirects) onto a mobile checklist that is designed for fast sequential completion.
-
-**Consequences:** Corrective actions are skipped or filled in after the fact. The accountability value of the feature — documenting who did what when — is lost. Crew members learn to avoid the fields that trigger the interruption.
-
-**Prevention:**
-- Inline expansion, not modals: when a fail is detected, expand a corrective action sub-form inline below the triggering item. The checklist continues above it; the action is anchored to the item that triggered it.
-- Never block checklist progression — corrective action should be completable immediately or flagged for follow-up, not a gate
-- Show a persistent visual indicator (e.g., badge count) on the section header for uncompleted corrective actions, so crew can return to them
-- The corrective action fields (what was done, who did it) must be as simple as possible — a single text field + timestamp is better than a 5-field sub-form
+Structure the mock as an array of `PurchaseEvent` objects, each with a `date`, `vendor`, and `lineItems` array. Write the grouping logic against this structure — the schema you choose for mock data will directly inform the backend data model.
 
 **Warning signs:**
-- Corrective action implemented as a `window.location` redirect or a `display:block` overlay that covers the checklist
-- A corrective action that requires more than 2 inputs from mobile keyboard
+- Trends chart with fewer than 6 data points
+- All inventory items showing the same stock level ("High")
+- A chart that looks the same regardless of which category filter is applied
+- Date range that does not cross a month boundary
 
-**Phase:** Conditional logic / fill-out view integration — address during the fail-trigger implementation sprint
+**Phase to address:** Phase 1 (mock data design) — define the full dataset before writing any rendering code.
 
 ---
 
@@ -153,138 +183,175 @@ Mistakes that cause rewrites or major issues.
 
 ---
 
-### Pitfall 7: Day-of-Week Logic Implemented in the Wrong Layer
+### Pitfall 7: Stock Estimation Algorithm With No Defined Edge Cases
 
-**What goes wrong:** Day-of-week conditions (`show Section C only on Mondays`) are evaluated in the template builder (where the condition is configured) rather than in the fill-out view (where the condition is evaluated at runtime). Or, the current day is read at page load rather than rechecked when a checklist is submitted.
+**What goes wrong:**
+The stock estimation (Low/Medium/High) is derived from purchase frequency. But "frequency" is undefined: frequency compared to what? If an item was bought 3 times in 12 weeks, is that low or high? If an item was not bought at all in the mock data, does it appear as "Low" or is it omitted? If two items have the same category tag, do they share an estimate or get individual estimates?
 
-**Why it happens:** It's tempting to embed "active today" logic into the template data itself, rather than separating condition definition from condition evaluation.
+Without defined edge cases, the algorithm produces inconsistent outputs — some items appear to never go Low, others flicker between states as the mock data is adjusted.
 
-**Prevention:**
-- Condition definitions live in the template: `{ type: "day-of-week", days: ["Monday", "Wednesday"] }`
-- Condition evaluation happens in the fill-out view at render time, using `new Date().getDay()`
-- Never mutate the template definition based on the current day — templates are immutable definitions, not runtime state
-- For mock purposes, add a `__debugDay` override variable to test Monday vs Friday behavior without waiting for the actual day
+**How to avoid:**
+Define the algorithm explicitly before writing code:
+- **Frequency baseline:** Compare actual purchase count to expected purchase count. If expected weekly (`par` × number of weeks), an item bought less than 50% of expected = Low, 50-80% = Medium, 80%+ = High.
+- **Items with zero purchases:** Always Low. Always shown in the suggestions list.
+- **Per-item, not per-category:** Estimates apply to `PurchaseItemGroup` (e.g., "Salmon fillet"), not to the category tag ("Proteins"). Multiple items in Proteins can have different levels.
+- **Estimate period:** Fixed window (last 4 weeks) not all-time, so the estimate reflects current behavior.
 
-**Warning signs:**
-- Template JSON that contains `"active": true/false` fields that are set at save time
-- Any reference to `new Date()` inside the template builder code
-
-**Phase:** Template builder data model (Phase 1), enforced during fill-out view (Phase 2)
-
----
-
-### Pitfall 8: Skip Logic That Doesn't Account for Skipped Values in Completion Tracking
-
-**What goes wrong:** A section has 10 items. 3 are skipped due to skip logic conditions (e.g., "skip if previous answer is N/A"). The completion tracker shows "7/10 items completed" and flags the checklist as incomplete, even though the 3 skipped items were correctly skipped.
-
-**Prevention:**
-- Completion percentage denominator must be: all required items minus currently-skipped items
-- Skipped items must be recorded in responses as `{ value: null, skipped: true, reason: "condition:field_abc123" }` — not absent
-- "Submit" button enablement is based on: `requiredItems.every(id => responses[id]?.value !== undefined || responses[id]?.skipped === true)`
+Document this algorithm in a code comment before implementation. The UX copy ("Low stock — consider ordering") depends on these rules being stable.
 
 **Warning signs:**
-- Completion logic counts total fields rather than required+applicable fields
-- Skipped fields are simply absent from the responses object (indistinguishable from unanswered)
+- Stock level derivation logic spread across multiple functions with no single source of truth
+- `par` value from the purchasing mock not being reused as the frequency baseline
+- Mock data designed to make every item show "Medium" to avoid deciding the edge cases
 
-**Phase:** Fill-out view completion logic (Phase 2)
+**Phase to address:** Phase 2 (inventory estimates) — define algorithm as a spec comment before writing the estimation function.
 
 ---
 
-### Pitfall 9: Photo Capture Field Stalls on iOS After One Use
+### Pitfall 8: Weekly vs. Monthly Grouping Keys Collide Across Years
 
-**What goes wrong:** `<input type="file" accept="image/*" capture="environment">` works once. If the user dismisses the camera without taking a photo, or takes a photo and then tries to re-capture, the input does not open the camera again. This is a documented iOS 12+ WebKit bug that persists into recent iOS versions for installed PWAs.
+**What goes wrong:**
+Spending trend data is grouped by week or month. A common shortcut: use `"${month}-${year}"` or just `month` as the grouping key. If mock data spans a year boundary (December to January), `month = 12` and `month = 1` are not adjacent without the year qualifier. If the key is just the month number, January data from two different years merges into one bucket.
 
-**Prevention:**
-- Do not rely on `capture="environment"` for re-triggering. Instead, use `accept="image/*"` without `capture` — this opens the iOS share sheet which lets users choose camera or photo library and is more reliable for re-use
-- After a successful capture, reset the input's value (`el.value = ''`) so the `change` event fires again next time
-- Test photo re-capture on a real device, not emulator — this bug does not appear in Chrome DevTools device mode
+**Why it happens:**
+Mock data that stays within one calendar year never surfaces this bug. It only appears when the date range crosses January.
+
+**How to avoid:**
+Always use composite keys that include the year:
+- Monthly: `"${year}-${String(month).padStart(2, '0')}"` — produces `"2026-01"`, `"2026-02"`, which sort correctly as strings
+- Weekly: Use ISO week number with year: derive as `"${year}-W${weekNumber}"` using a manual ISO week calculation (do not use `toLocaleDateString('en', {week: 'narrow'})` — output format varies by locale)
+
+Sort grouped keys alphabetically after grouping — this produces correct chronological order for YYYY-MM keys without needing a date sort.
 
 **Warning signs:**
-- Camera input tested only once per page load
-- `capture="environment"` used without a reset strategy
+- Group key is a bare month number (`1`, `2`, ..., `12`)
+- Mock data that never crosses a year boundary (artificially safe)
+- Trend chart with a non-monotonic time axis (data points out of order)
 
-**Phase:** Photo field implementation within fill-out view (Phase 2)
+**Phase to address:** Phase 1 (date grouping utilities) — write and test grouping keys before building chart data pipelines.
 
 ---
 
-### Pitfall 10: Service Worker Caching Serving Stale App After Updates
+### Pitfall 9: Reorder Suggestions List Rendered for All Low Items Without a Useful Order
 
-**What goes wrong:** The existing PWA has a service worker. When the workflow pages are added, crew phones that installed the PWA earlier continue serving the old cached version — sometimes for days — because the service worker intercepts all fetches and returns stale assets. Crew members are unknowingly using an outdated checklist UI while the owner has deployed a fixed template builder.
+**What goes wrong:**
+The reorder suggestions feature flags Low and Medium items for the next PO. If the list is rendered in insertion order from the mock data array, items appear in an arbitrary sequence. For a food truck, the owner needs to see the most critical items (out of stock, daily-use proteins) at the top, not in data entry order.
 
-**Prevention:**
-- The existing `sw.js` cache key must be incremented on every deploy that changes the workflow pages (already partly addressed per git history — `ptr.js` references cache busting)
-- Add the new workflow HTML files (`workflow.html`, `builder.html`) to the service worker's precache list explicitly
-- Expose a visible app version string in the UI — even a build date in the footer — so crew can confirm they have the latest
-- Consider a "new version available — tap to refresh" notification pattern using the service worker `waiting` state
+Additionally, if Low and Medium items are mixed without visual distinction, the urgency signal is lost — the owner cannot quickly scan for "must-order today" vs. "order when convenient."
+
+**How to avoid:**
+Sort the suggestions list: Low stock before Medium, then by category (Proteins first — highest daily use and perishability), then alphabetically within category. Use a fixed category priority array to define sort order rather than inferring it. Display Low and Medium with distinct visual treatments (different pill colors, not just label text).
 
 **Warning signs:**
-- Deploying a template builder fix and crew still seeing the old UI 24 hours later
-- Service worker precache list hardcoded without workflow page filenames
+- Suggestions list rendered with `ITEMS.filter(i => i.level !== 'High')` without any subsequent sort
+- Low and Medium items shown with the same visual treatment, differentiated only by label text
+- Proteins appearing below Packaging in the suggestions list
 
-**Phase:** Any phase that introduces new HTML pages — update sw.js cache list as part of the page delivery checklist
-
----
-
-## Minor Pitfalls
+**Phase to address:** Phase 2 (reorder suggestions UI) — define sort order and visual hierarchy before writing the render function.
 
 ---
 
-### Pitfall 11: Multi-Column Layouts in the Builder That Break on Mobile
+## Technical Debt Patterns
 
-**What goes wrong:** The template builder shows field configuration options in a two-column layout (field type on left, options on right). On a 375px iPhone screen, columns either overflow or collapse in a way that makes tap targets unreachable.
-
-**Prevention:** The existing project convention is single-column, 480px max-width, mobile-first. Apply it to the builder UI too. All builder controls go in a single-column stacked layout. Avoid side-by-side panels.
-
-**Phase:** Template builder UI (Phase 1)
-
----
-
-### Pitfall 12: Dropdown Menus for Field Type Selection on Mobile
-
-**What goes wrong:** `<select>` elements for choosing field type (checkbox vs. yes/no vs. temperature) are technically functional but provide poor mobile UX — small hit targets, OS-native styling that clashes with the existing dark-mode design, and no icon support.
-
-**Prevention:** Use a tappable card grid or segmented button row for field type selection in the builder. Reserve `<select>` only for options with more than ~6 choices. Match the interaction patterns already used in `purchasing.html`.
-
-**Phase:** Template builder UI (Phase 1)
+| Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
+|----------|-------------------|----------------|-----------------|
+| Hardcoded category tags in the estimation function | Avoids a config object | Adding a new category requires touching the algorithm, not just the mock data | MVP only — extract to a `CATEGORIES` constant in the same phase |
+| Using `new Date(dateStr)` directly | One less utility function | UTC-shift bugs in all US timezones for date-only strings | Never — use `parseLocalDate()` |
+| Loading Chart.js from CDN | No file to commit | Charts blank offline; CDN outage or version float breaks the app | Never for this PWA — copy the file locally |
+| Rendering all purchase history rows on page load | Simple code | History with 200+ events causes a slow paint on low-end phones | Acceptable for mock phase; add pagination before real data |
+| Single chart instance per canvas at module level | Avoids destroy/recreate complexity | Multiple tabs with charts all share one variable — wrong chart gets destroyed | Never — use one variable per canvas, named clearly |
 
 ---
 
-### Pitfall 13: Role-Based Tab Visibility Implemented Only in CSS
+## Integration Gotchas
 
-**What goes wrong:** The builder tab is restricted to certain roles. If visibility is controlled only with `display: none` (CSS), any user can open DevTools and remove the class to access the builder. On a food truck this is low risk, but it sets a bad precedent for the mock that will mislead the future backend implementation.
-
-**Prevention:** For the mock, gate builder tab access with a JS check against the mock user object (`if (!currentUser.permissions.includes('workflow_builder')) return`). Use CSS to reflect the state, not enforce it. This trains the correct pattern for when real auth is added.
-
-**Phase:** Template builder access gating (Phase 1)
+| Integration | Common Mistake | Correct Approach |
+|-------------|----------------|------------------|
+| Chart.js + `show(n)` tab pattern | Initializing chart at page load while the canvas is `display:none` — produces a 0-width chart | Initialize chart inside the `show()` call for the tab that contains the canvas, after setting `display:block` |
+| Chart.js + dark mode CSS vars | Using CSS `var(--txt)` directly in Chart.js config — JS cannot resolve CSS custom properties | Read the computed color: `getComputedStyle(document.documentElement).getPropertyValue('--txt').trim()` and pass the resolved hex value to Chart.js |
+| Chart.js + service worker | CDN script not in SW precache list | Copy `chart.umd.min.js` locally, add to `ASSETS` array in `sw.js`, bump cache version |
+| Mock date strings + grouping | Parsing `"2026-04-01"` with `new Date()` applies UTC shift | Use the `parseLocalDate(str)` split-parse utility for all date-only strings |
+| Spending trends + category filter | Re-creating the chart dataset on every filter tap without destroying the previous instance | Call `chart.destroy()` before `new Chart()`, or update `chart.data` in-place and call `chart.update()` |
 
 ---
 
-## Phase-Specific Warnings
+## Performance Traps
 
-| Phase Topic | Likely Pitfall | Mitigation |
-|-------------|---------------|------------|
-| Template builder data model | Schema mismatch (Pitfall 3), DOM as source of truth (Pitfall 1) | Define field ID scheme and state shape before writing any UI |
-| Conditional logic engine | Infinite evaluation loop (Pitfall 2), hidden fields keeping stale values | Build a condition evaluator with topological sort and value-clear-on-hide before wiring to UI |
-| Fail trigger UX | Modal/redirect interruption (Pitfall 6) | Prototype inline expansion on mobile before committing to the interaction pattern |
-| Fill-out view | Keyboard/viewport breakage (Pitfall 5), completion tracking (Pitfall 8) | Real iOS device test after every field type added |
-| Photo capture field | Single-use input bug (Pitfall 9) | Test re-capture on a real iPhone in standalone mode specifically |
-| Day-of-week conditions | Logic in wrong layer (Pitfall 7) | Enforce: template stores definition, fill-out view evaluates at render time |
-| New HTML page deploy | Stale service worker cache (Pitfall 10) | Update sw.js cache key and precache list on every page-adding PR |
-| Builder tab access | CSS-only gating (Pitfall 13) | JS permission check required, CSS reflects it |
+| Trap | Symptoms | Prevention | When It Breaks |
+|------|----------|------------|----------------|
+| Rendering all purchase history rows into the DOM at once | Page load pause; scroll jank on low-end Android | Render only the most recent 20 events; add "load more" button | At ~100 events in the mock array |
+| Recalculating stock estimates on every render pass | UI stutter when switching between inventory items | Calculate estimates once on page load, cache in a derived object, re-render from cache | Negligible for mock scale; matters when real data arrives |
+| Chart.js on a hidden canvas (display:none) | Chart renders at 0×0 or throws a sizing error | Always show the canvas container before calling `new Chart()` | Every tab switch if initialization order is wrong |
+| Large inline JS data constant parsed at page load | 50-100ms parse delay on low-end phones | Keep mock data to a reasonable volume (12-24 events); structure as compact objects | At ~500 purchase event objects in the inline constant |
+
+---
+
+## UX Pitfalls
+
+| Pitfall | User Impact | Better Approach |
+|---------|-------------|-----------------|
+| Bar chart for spending trends instead of line chart | Harder to see trend direction over time; bars work better for category comparison | Use a line chart for time-series spending; use a horizontal bar chart for category breakdown (two different chart types, two different views) |
+| Chart legend with full category names on 480px width | Legend text wraps or overflows, obscuring the chart | Use colored dots/pills below the chart instead of Chart.js's built-in legend; or limit to 4 categories max with short labels |
+| Stock level badges using only color (red = Low, yellow = Medium) | Invisible for color-blind users | Pair color with a text label: "LOW", "MED", "HIGH" — never use color as the only signal |
+| Showing all purchase history in a flat list sorted by date descending | Most recent purchase visible; vendor/category context requires scanning | Group by week with a week header, showing vendor and total per week — matches mental model of "what did I buy this week" |
+| Reorder suggestions with no action affordance | User sees what to order but cannot act on it from this screen | Add a "Start PO" button that links back to purchasing.html — even if it's just a link, it closes the loop |
+
+---
+
+## "Looks Done But Isn't" Checklist
+
+- [ ] **Chart dark mode:** Chart renders with correct colors in dark mode — verify on a device with system dark mode enabled, not just in browser with DevTools dark mode simulation
+- [ ] **Chart offline:** Inventory page loads and charts render with device in airplane mode — confirms Chart.js is in SW cache
+- [ ] **Date grouping:** Weekly totals are correct for events at the week boundary (Sunday/Monday) — check with mock data that has events on both sides of a week boundary
+- [ ] **Stock level logic:** At least one item shows "Low" and one shows "High" in the mock — if all items are the same level, the algorithm is not exercised
+- [ ] **Reorder suggestions:** Items at "Low" stock actually appear in the suggestions list — verify the filter is checking the correct field name
+- [ ] **Tab switch cleanup:** Switch to Trends tab, switch away, switch back — chart should render correctly on the second visit without doubling data points
+- [ ] **SW cache bump:** `sw.js` cache version is incremented and `inventory.html` (and any local JS/CSS files) are in the `ASSETS` array before the first deploy
+
+---
+
+## Recovery Strategies
+
+| Pitfall | Recovery Cost | Recovery Steps |
+|---------|---------------|----------------|
+| ESM build loaded instead of UMD | LOW | Swap the CDN script URL to the `chart.umd.min.js` path; test; done |
+| Canvas sizing broken on mobile | MEDIUM | Wrap all canvases in container divs, add `position:relative` and explicit height, set `maintainAspectRatio:false`; test on real device |
+| Chart instance leak discovered late | MEDIUM | Audit every `new Chart()` call; add `if (chartRef) chartRef.destroy()` before each; extract to a `createChart(id, config)` helper that handles cleanup |
+| Date grouping UTC shift discovered after mock review | MEDIUM | Replace all `new Date(str)` calls with `parseLocalDate(str)`; recheck all grouping outputs; update mock data if boundary events shifted |
+| CDN Chart.js not cached by SW (discovered at demo time) | LOW | Download `chart.umd.min.js`, commit as `/lib/chart.umd.min.js`, update script src, add to `ASSETS`, bump SW cache version |
+| Mock data too sparse (discovered during design review) | LOW | Add more `PurchaseEvent` objects to the inline array — no structural changes required if data schema was defined correctly upfront |
+
+---
+
+## Pitfall-to-Phase Mapping
+
+| Pitfall | Prevention Phase | Verification |
+|---------|------------------|--------------|
+| ESM vs UMD CDN build (Pitfall 1) | Phase 1: Chart infrastructure | `typeof Chart !== 'undefined'` check after script load; visible chart renders |
+| Canvas sizing on mobile (Pitfall 2) | Phase 1: Chart infrastructure | Test on 375px-wide real device or accurate emulator |
+| Chart instance not destroyed (Pitfall 3) | Phase 1: Chart rendering | Switch Trends tab 3x; verify no console warnings, no doubling |
+| UTC date shift in grouping (Pitfall 4) | Phase 1: Mock data + date utilities | Unit-verify `parseLocalDate` output equals midnight local time |
+| CDN not in SW cache (Pitfall 5) | Phase 1: Service worker integration | Load page in DevTools Offline mode; charts must still render |
+| Insufficient mock data (Pitfall 6) | Phase 1: Mock data design | Chart must show at least 8 data points spanning 2 calendar months |
+| Stock algorithm edge cases (Pitfall 7) | Phase 2: Inventory estimates | At least one item at each level (Low/Medium/High) visible in mock |
+| Year-boundary group key collision (Pitfall 8) | Phase 1: Date grouping utilities | Verify composite `YYYY-MM` key format is used consistently |
+| Suggestions list sort order (Pitfall 9) | Phase 2: Reorder suggestions UI | Proteins appear before Packaging; Low before Medium in the list |
 
 ---
 
 ## Sources
 
-- [JotForm: Conditional logic not triggering when value changed from JS](https://www.jotform.com/answers/12198181-conditional-logic-not-triggering-when-value-changes-from-javascript)
-- [Form.io: Form JSON Schema vs Submission — separation of definition from data](https://form.io/form-json-schema-vs-submission/)
-- [Form.io versioning: versioning against submissions](https://github.com/formio/formio/issues/123)
-- [LogRocket: Dynamically creating JS elements with event handlers — delegation pattern](https://blog.logrocket.com/dynamically-create-javascript-elements-event-handlers/)
-- [PWA bugs: iOS input type file camera issue (iOS 12.2+)](https://github.com/PWA-POLICE/pwa-bugs/issues/12)
-- [MagicBell: PWA iOS Limitations and Safari Support 2026](https://www.magicbell.com/blog/pwa-ios-limitations-safari-support-complete-guide)
-- [Martijn Hols: How to detect on-screen keyboard in iOS Safari](https://martijnhols.nl/blog/how-to-detect-the-on-screen-keyboard-in-ios-safari)
-- [Fixing Safari mobile resizing bug — viewport height issues](https://medium.com/@krutilin.sergey.ks/fixing-the-safari-mobile-resizing-bug-a-developers-guide-6568f933cde0)
-- [Namastedev: State management strategies without frameworks](https://namastedev.com/blog/state-management-strategies-without-frameworks-vanilla-patterns-that-scale/)
-- [web.dev: Capturing images from the user — input type file patterns](https://web.dev/media-capturing-images/)
-- [MyFieldAudits: Food safety checklist design — complexity and corrective action](https://www.myfieldaudits.com/blog/food-safety-management-system-audit-checklist)
-- [FormsonFire: 13 mobile form design best practices](https://www.formsonfire.com/blog/mobile-form-design)
+- [Chart.js Responsive Charts docs — container sizing requirements](https://www.chartjs.org/docs/latest/configuration/responsive.html)
+- [Chart.js API docs — destroy() method](https://www.chartjs.org/docs/latest/developers/api.html)
+- [Chart.js GitHub Issue #5805 — canvas grows indefinitely in %-width container](https://github.com/chartjs/Chart.js/issues/5805)
+- [Chart.js GitHub Issue #11592 — ESM-only CDN version cannot be imported in vanilla JS](https://github.com/chartjs/Chart.js/issues/11592)
+- [Chart.js jsDelivr dist directory — UMD build filename confirmed as chart.umd.min.js, v4.5.1](https://cdn.jsdelivr.net/npm/chart.js@latest/dist/)
+- [DEV: The JavaScript Date Time Zone Gotcha That Trips Up Everyone](https://dev.to/davo_man/the-javascript-date-time-zone-gotcha-that-trips-up-everyone-20lf)
+- [MDN: Intl.DateTimeFormat — correct date formatting and timezone handling](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/DateTimeFormat)
+- [web.dev: Caching — CDN opaque responses and cache.addAll() failure behavior](https://web.dev/learn/pwa/caching)
+- [MDN: Service Worker caching strategies](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/Guides/Caching)
+- [MagicBell: Offline-First PWAs — CDN caching pitfalls](https://www.magicbell.com/blog/offline-first-pwas-service-worker-caching-strategies)
+
+---
+*Pitfalls research for: inventory tracking + spending charts + stock estimation added to vanilla JS PWA*
+*Researched: 2026-04-14*

@@ -1,262 +1,223 @@
-# Technology Stack
+# Stack Research
 
-**Project:** Yumyums HQ — Workflow/Checklist Engine
-**Researched:** 2026-04-12
-**Scope:** Frontend (current milestone) + future Go + Postgres backend
+**Domain:** Mobile-first vanilla JS PWA — Inventory / Spending Trends / Stock Estimation
+**Researched:** 2026-04-14
+**Scope:** NEW additions only for v1.1 Inventory milestone. Existing stack (vanilla JS, CSS custom properties, SortableJS, Playwright) is validated and not re-researched here.
+**Confidence:** HIGH for Chart.js; HIGH for date handling; HIGH for stock estimation approach
 
 ---
 
-## Context and Constraints
+## What This Milestone Needs (and What It Does Not)
 
-The existing app is plain HTML/CSS/vanilla JS with no build step. This milestone adds a two-tab
-workflow feature (fill-out + template builder) to that same codebase. No framework can be
-introduced. All recommendations here must work as either:
+The v1.1 inventory app requires:
 
-- a CDN `<script>` tag, or
-- a hand-rolled vanilla JS module
+1. **Charting** — spend-over-time line charts and category breakdown bar charts (read-only, not interactive drill-down)
+2. **Date handling** — grouping purchase events by week/month, formatting date labels on chart axes
+3. **Stock estimation logic** — classify items as low/medium/high based on purchase frequency relative to a configurable par level (pure computation, no library needed)
 
-The future backend is a separate project (Go + Postgres, already API-designed in
-`docs/user-management-api.md`). The backend stack is included here to inform roadmap sequencing.
+It does NOT need:
+- A new drag-and-drop library (inventory view is read-only)
+- Any new form handling (no builder in this milestone)
+- Real-time or WebSocket updates (all data is hardcoded mock arrays)
+- A new router (this is a standalone `inventory.html` page like all other tools)
 
 ---
 
 ## Recommended Stack
 
-### Frontend — Core (No Build Step)
+### Core Technologies
 
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| Vanilla JS (ES2020+) | native | All interactivity | Matches existing codebase; no framework allowed |
-| CSS custom properties | native | Theming and dark mode | Already established in the app; extend, don't replace |
-| HTML5 file input (`capture="camera"`) | native | Photo capture field type | Works on iOS and Android in installed PWA mode without getUserMedia complexity |
-| Service Worker (existing) | native | PWA offline shell | Already in repo via `ptr.js` patterns; extend for new pages |
+| Technology | Version | Purpose | Why Recommended |
+|------------|---------|---------|-----------------|
+| Vanilla JS (ES2020+) | native | Data computation, rendering, state | Existing convention; no exception for this milestone |
+| CSS custom properties | native | Dark mode, chart theming | `getComputedStyle(root).getPropertyValue('--text')` pattern lets Chart.js read existing CSS variables at render time — no separate theme config needed |
+| Chart.js | **4.5.1** | Bar and line charts | Only library that is (a) CDN-loadable via UMD bundle, (b) genuinely mobile-responsive via canvas auto-resize, (c) has a trivial vanilla JS API (`new Chart(ctx, config)`), and (d) weighs ~60KB min+gzip — acceptable for a single-page tool. v4.x is the current major; last release Oct 2024. |
 
-**Confidence:** HIGH — these are the existing conventions, not new choices.
+### Supporting Libraries
 
-### Frontend — Drag-and-Drop Reorder (Template Builder)
+| Library | Version | Purpose | When to Use |
+|---------|---------|---------|-------------|
+| None (Intl.DateTimeFormat) | native browser API | Date label formatting | `Intl.DateTimeFormat` covers all formatting needed: `"Apr 2026"`, `"Week of Apr 7"`, month grouping. No external library required — ships in every modern browser including iOS Safari 10+. |
+| None (custom grouping logic) | hand-rolled | Weekly/monthly spend aggregation | Group an array of `PurchaseEvent` objects by month key (`YYYY-MM`) using `reduce()`. ~15 lines of JS. No library improves on this for the use case. |
+| None (par-level heuristic) | hand-rolled | Low/medium/high stock classification | Compare days-since-last-purchase against per-item par level thresholds. Pure JS arithmetic. See Stock Estimation Logic section below. |
 
-| Technology | Version | CDN Available | Why |
-|------------|---------|--------------|-----|
-| SortableJS | 1.15.7 | Yes (unpkg, cdnjs) | Framework-agnostic, no jQuery, touch-native, 3,358+ dependent packages on npm, actively maintained. Handles reordering checklist items and sections in the builder. |
+### Development Tools
 
-**Why not FormKit Drag and Drop:** ~5kb but requires npm/bundler setup. Defeats the no-build-step constraint.
+| Tool | Purpose | Notes |
+|------|---------|-------|
+| Playwright (existing) | E2E regression tests | Add `inventory.spec.js` following the pattern in `tests/workflows.spec.js`. Test chart canvas presence by asserting `canvas` element exists, not chart internals. |
+| python3 -m http.server | Local dev server | Unchanged from existing workflow |
 
-**Why not Formeo:** Opinionated full form-builder with its own data model and UI chrome — too heavy for a custom builder that needs to match the existing HQ design system.
+---
 
-**Why not native HTML5 Drag and Drop API:** Does not handle touch events on iOS without a polyfill. SortableJS wraps this correctly.
+## Installation
 
-**Confidence:** HIGH — SortableJS is the canonical answer for touch-friendly drag reorder in vanilla JS.
+No npm packages required for this milestone. Chart.js loads from CDN.
 
-CDN:
 ```html
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.7/Sortable.min.js"></script>
+<!-- Add to inventory.html, before closing </body> -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
 ```
 
-### Frontend — Conditional Logic Engine
+**Pin to 4.5.1 explicitly.** Do not use `@latest` — floating tags break after cache busts and make debugging version mismatches harder. 4.5.1 is the current release as of Oct 2024.
 
-| Technology | Version | Size | Why |
-|------------|---------|------|-----|
-| JsonLogic (JS) | latest (npm) / CDN | ~2kb min+gzip | Stores conditional rules as JSON, evaluable on both frontend and future Go backend. Language-portable: JS and Go implementations exist. Perfect for "if temperature > 40 then show corrective action" patterns. |
-
-**Why JsonLogic over custom logic:** Conditional rules must be stored in the template definition
-(JSON in Postgres). A custom evaluator would need to be rebuilt identically in Go when the backend
-arrives. JsonLogic rules are data — they serialize, store, and travel between frontend and backend
-without translation.
-
-**Why not a full rules engine (json-rules-engine, Drools):** Overkill. JsonLogic covers:
-- Field value comparisons (`>`, `<`, `==`, `!=`)
-- Boolean combinations (`and`, `or`, `!`)
-- Conditional branching (`if`)
-
-That covers 100% of the required use cases: fail triggers, skip logic, day-of-week conditions.
-
-**Confidence:** MEDIUM — JsonLogic is widely used but the specific CDN version was not verified.
-Verify at https://cdnjs.com/libraries/json-logic-js before embedding.
-
-### Frontend — No Additional Libraries Needed
-
-| Rejected Library | Why Rejected |
-|-----------------|-------------|
-| SurveyJS | 900kb+ bundle, React/Angular/Vue only for its builder, would require a bundler |
-| Form.io | React-coupled, complex infrastructure for a 4-person food truck team |
-| Alpine.js | Tempting but introduces a framework pattern inconsistent with the existing codebase |
-| Any CSS framework (Bootstrap, Tailwind) | Existing design system uses CSS custom properties; adding a utility framework creates conflicts |
+The UMD bundle exposes `Chart` as a global, usable directly in a `<script>` block without `import`.
 
 ---
 
-## Template Data Structure
+## Integration Points
 
-This is the central design decision for the workflow engine. Based on research into Lumiform-style
-apps, food safety checklist platforms (GoAudits, BuildArray, Forms On Fire), and the project's
-own requirements.
+### Chart.js + CSS Variables (Dark Mode)
 
-### Template Schema (stored as JSON in Postgres `jsonb` column)
+Chart.js uses canvas, which does not inherit CSS variables automatically. Read variables at render time:
 
-```json
-{
-  "id": "uuid",
-  "version": 1,
-  "name": "Opening Checklist",
-  "conditions": {
-    "days_of_week": ["mon", "tue", "wed", "thu", "fri"]
-  },
-  "sections": [
-    {
-      "id": "section-uuid",
-      "title": "Equipment",
-      "order": 0,
-      "items": [
-        {
-          "id": "item-uuid",
-          "type": "checkbox",
-          "label": "Fryer temperature checked",
-          "required": true,
-          "order": 0,
-          "conditional_show": null,
-          "on_fail": null
-        },
-        {
-          "id": "item-uuid-2",
-          "type": "temperature",
-          "label": "Walk-in cooler temp (°F)",
-          "required": true,
-          "order": 1,
-          "validation": { "min": 32, "max": 40 },
-          "conditional_show": null,
-          "on_fail": {
-            "action": "show_corrective",
-            "corrective_item_id": "item-uuid-3"
-          }
-        },
-        {
-          "id": "item-uuid-3",
-          "type": "text",
-          "label": "Describe corrective action taken",
-          "required": false,
-          "order": 2,
-          "conditional_show": {
-            "rule": { "if": [{ ">": [{"var": "item-uuid-2"}, 40] }, true, false] }
-          }
-        }
-      ]
+```javascript
+const root = document.documentElement;
+const style = getComputedStyle(root);
+const textColor = style.getPropertyValue('--text').trim();
+const mutedColor = style.getPropertyValue('--mut').trim();
+const cardColor = style.getPropertyValue('--card').trim();
+
+const chart = new Chart(ctx, {
+  type: 'bar',
+  data: { ... },
+  options: {
+    color: textColor,
+    plugins: {
+      legend: { labels: { color: textColor } }
+    },
+    scales: {
+      x: { ticks: { color: mutedColor }, grid: { color: cardColor } },
+      y: { ticks: { color: mutedColor }, grid: { color: cardColor } }
     }
-  ]
-}
-```
-
-**Field types to implement:** `checkbox`, `text`, `yes_no`, `temperature`, `photo`, `timestamp`
-
-**Key design decisions:**
-1. `conditional_show.rule` stores a JsonLogic expression — evaluable identically on frontend and backend
-2. `on_fail` is a first-class property, not a conditional — fail triggers are separate from skip logic
-3. `version` on the template is an integer monotone counter; completed responses store a snapshot of `template_version` so historical submissions stay readable even after template edits
-4. Day-of-week conditions live at the template level (which days this template is active), not the item level
-
-### Completion Record Schema
-
-```json
-{
-  "id": "uuid",
-  "template_id": "uuid",
-  "template_version": 1,
-  "completed_by": "user_id",
-  "started_at": "ISO8601",
-  "submitted_at": "ISO8601",
-  "responses": {
-    "item-uuid": { "value": true, "completed_by": "user_id", "at": "ISO8601" },
-    "item-uuid-2": { "value": 38.5, "completed_by": "user_id", "at": "ISO8601" }
   }
+});
+```
+
+This pattern works with the existing `prefers-color-scheme` dark mode setup because CSS variables are already resolved to the correct dark/light value by the time JS runs.
+
+If the user switches color scheme mid-session (rare on mobile), destroy and recreate the chart. Chart.js v4 exposes `chart.destroy()` for cleanup.
+
+### Chart.js + Mobile Responsiveness
+
+Chart.js resizes to fill its container by default (`responsive: true`). Wrap each canvas in a fixed-height container div to prevent vertical stretching on narrow screens:
+
+```html
+<div style="position:relative;height:220px">
+  <canvas id="spend-chart"></canvas>
+</div>
+```
+
+220px is the recommended height for a phone-width chart (fits well at 480px max-width without scrolling past the fold).
+
+### Stock Estimation Logic (No Library)
+
+Classification is a simple time-since-last-purchase heuristic:
+
+```javascript
+// Returns 'low' | 'medium' | 'high'
+function stockLevel(item) {
+  const daysSinceLastPurchase = (Date.now() - item.lastPurchasedAt) / 86400000;
+  if (daysSinceLastPurchase > item.parDays * 1.5) return 'low';
+  if (daysSinceLastPurchase > item.parDays * 0.75) return 'medium';
+  return 'high';
 }
 ```
 
-**Immutability principle:** Completed responses are write-once. Once submitted, a completion record
-is never mutated — corrections require a new completion. This mirrors food safety audit best
-practices and makes the audit log trustworthy.
+Where `parDays` is the expected repurchase interval stored on each `PurchaseItemGroup` in the mock data. This requires no library — only `Date.now()` and arithmetic.
 
----
+### Date Grouping (No Library)
 
-## Future Backend Stack (Go + Postgres)
+Group `PurchaseEvent[]` by month for trend charts:
 
-These are design-ready choices for when the backend is built. The API contract already exists in
-`docs/user-management-api.md`.
+```javascript
+// Returns { 'Jan 2026': 420.50, 'Feb 2026': 310.00, ... }
+function groupByMonth(events) {
+  return events.reduce((acc, e) => {
+    const label = new Intl.DateTimeFormat('en-US', { month: 'short', year: 'numeric' })
+      .format(new Date(e.date));
+    acc[label] = (acc[label] || 0) + e.totalCost;
+    return acc;
+  }, {});
+}
+```
 
-### Core Services
-
-| Technology | Version | Purpose | Why |
-|------------|---------|---------|-----|
-| Go | 1.22+ | API server | Already chosen; consistent with Temporal infrastructure in `infra/` repo |
-| go-chi/chi | v5.2.5 | HTTP router | Zero dependencies (stdlib only), idiomatic Go, active (Feb 2025 release), no magic. Chosen over Gin: Gin adds middleware overhead and magic that isn't needed for a small API |
-| jackc/pgx | v5.9.1 | Postgres driver | Fastest Go Postgres driver (300% faster than sqlx in bulk ops), native pgx interface preferred over database/sql for JSONB queries, active (Mar 2026 release) |
-| sqlc | 1.30.0 | Type-safe query generation | Write SQL, get Go functions. No ORM magic. Works with pgx/v5. Enforces query correctness at compile time — critical for JSONB template queries |
-| golang-migrate/migrate | v4 | Schema migrations | SQL-file based migrations, sequential versioning, CLI + programmatic API, standard choice in the Go ecosystem |
-| PostgreSQL | 16 | Persistence | Chosen for `infra/` Temporal stack already; JSONB column for template definitions, standard tables for completions and users |
-
-### Why Not GORM
-
-GORM hides SQL complexity but the workflow data model has JSONB columns and needs precise control
-over how template definitions are queried and updated. sqlc + pgx gives full SQL control with
-type safety. GORM's JSONB support requires workarounds and the abstractions leak.
-
-### API Design Principles (for future implementation)
-
-- Templates: `GET /templates`, `POST /templates`, `GET /templates/:id`, `PUT /templates/:id`
-- Completions: `POST /completions`, `GET /completions?template_id=&date=`
-- Template versions are immutable once a completion references them — edits create a new version number
-- JSONB `template_snapshot` in the completions table preserves the exact template used at submission time
-
-### Photo Storage
-
-For the photo field type: store photos as uploads to Digital Ocean Spaces (S3-compatible). The
-completion record stores the Spaces object URL, not the blob. Do not store images in Postgres.
-
-**Confidence for backend stack:** MEDIUM — versions verified but no backend code exists yet;
-implementation may surface pgx/sqlc integration quirks that require adjustment.
-
----
-
-## PWA Considerations
-
-### Photo Capture (current milestone, mocks only)
-
-Use `<input type="file" accept="image/*" capture="environment">` — this opens the rear camera
-directly on iOS and Android in installed PWA mode. No getUserMedia needed for basic capture.
-For advanced use (real-time preview, annotations), getUserMedia is the upgrade path but adds
-significant complexity.
-
-### Offline Behavior (out of scope now, future)
-
-When offline sync is needed: IndexedDB as the write-ahead log, Background Sync API for queuing
-(note: Firefox and Safari do not support Background Sync as of 2025). The fallback for
-non-Chromium browsers is polling on reconnect. Last Write Wins (timestamp-based) is sufficient
-conflict resolution for single-user checklist data.
+`Intl.DateTimeFormat` is available in all iOS Safari versions since 10 (2016) and all Android Chrome. No polyfill needed.
 
 ---
 
 ## Alternatives Considered
 
-| Category | Recommended | Alternative | Why Not |
-|----------|-------------|-------------|---------|
-| Drag reorder | SortableJS 1.15.7 | Native HTML5 DnD | Broken on iOS touch without polyfill |
-| Conditional logic | JsonLogic | Custom evaluator | Custom evaluator must be reimplemented in Go; JsonLogic has Go port |
-| Conditional logic | JsonLogic | json-rules-engine | Heavier, npm-only, no Go equivalent |
-| Photo capture | `<input capture>` | getUserMedia | capture input is simpler, matches mobile idiom, no JS required |
-| Go router | chi v5 | Gin | Gin adds magic/overhead; chi is stdlib-compatible |
-| Go DB layer | sqlc + pgx/v5 | GORM | GORM hides JSONB control; sqlc enforces SQL correctness at build |
-| Migrations | golang-migrate | Atlas, Flyway | golang-migrate is Go-native, no JVM dependency, standard ecosystem choice |
+| Recommended | Alternative | When to Use Alternative |
+|-------------|-------------|-------------------------|
+| Chart.js 4.5.1 via CDN UMD | ApexCharts | ApexCharts has better SVG quality and annotation support — choose it if interactive drill-down, zoom, or click-to-filter are needed. For read-only summary charts, Chart.js is simpler to integrate with no build step. |
+| Chart.js 4.5.1 via CDN UMD | Recharts / Victory | Both require React — not compatible with this codebase. Eliminated immediately. |
+| Chart.js 4.5.1 via CDN UMD | D3.js | D3 is a low-level toolkit, not a chart library. Appropriate when you need custom chart geometries. For bar + line charts, Chart.js requires 80% less code. |
+| Chart.js 4.5.1 via CDN UMD | ECharts (Apache) | ECharts has a larger bundle (~750KB min) and a more complex options API. Better for enterprise dashboards with many chart types. Overkill here. |
+| Chart.js 4.5.1 via CDN UMD | Chartist.js | Chartist is effectively unmaintained (last release 2019). Do not use. |
+| Native Intl.DateTimeFormat | date-fns | date-fns v2+ no longer ships a UMD bundle and requires a bundler or ES module setup. Not compatible with the no-build-step constraint. Intl covers all date formatting needed here. |
+| Hand-rolled stock heuristic | Any inventory forecasting library | No inventory library exists as a CDN script. All are npm packages targeting Node.js or React apps. The heuristic is 10 lines of JS. |
+
+---
+
+## What NOT to Use
+
+| Avoid | Why | Use Instead |
+|-------|-----|-------------|
+| `chart.js@latest` CDN tag | Floating version; cache busting after a Chart.js release causes unexpected behavior in offline-cached PWA | Pin to `chart.js@4.5.1` |
+| `temporalio/web` (old UI image) | Unrelated, but mentioned in project CLAUDE.md — do not confuse with UI library | N/A |
+| Recharts, Victory, Nivo | All React-dependent, require npm + bundler | Chart.js UMD |
+| date-fns v2+ via CDN | No UMD bundle ships in v2+; ESM import requires `type="module"` which conflicts with existing inline script pattern | `Intl.DateTimeFormat` (native) |
+| Chartist.js | Last release 2019; unmaintained | Chart.js 4.5.1 |
+| D3.js for basic charts | 80KB+ for a problem Chart.js solves in 5 lines | Chart.js 4.5.1 |
+| ECharts | ~750KB bundle; complex API for simple bar/line use case | Chart.js 4.5.1 |
+
+---
+
+## Stack Patterns by Variant
+
+**If only category breakdown (no time-series) is needed:**
+- Use `type: 'bar'` with horizontal orientation — better for long category names (Beef, Produce, etc.) on narrow mobile screens
+- `indexAxis: 'y'` in Chart.js 4.x flips to horizontal
+
+**If time-series spending trends are needed (current milestone):**
+- Use `type: 'line'` with `tension: 0.3` for a smooth curve
+- Group data by month using the `groupByMonth()` helper above
+- Limit to last 6 months to keep the chart readable at 480px width
+
+**If multiple categories on one chart are needed:**
+- Use `type: 'bar'` with `datasets` array, one dataset per category
+- Use `stacked: true` on both axes for a stacked bar view — easier to read total spend at a glance
+
+**If dark mode chart theming is unreliable:**
+- Listen for `prefers-color-scheme` media query change and call `chart.destroy()` then re-init
+- This is a rare edge case; most mobile users don't switch mid-session
+
+---
+
+## Version Compatibility
+
+| Package | Compatible With | Notes |
+|---------|-----------------|-------|
+| chart.js@4.5.1 | Modern browsers (Chrome 88+, Safari 14+, Firefox 85+) | Canvas API required; all installed PWA targets support this |
+| chart.js@4.5.1 | iOS Safari 14+ | PWA install requires iOS 14.5+ anyway; no conflict |
+| chart.js@4.5.1 | SortableJS 1.15.7 | No conflict; they operate on different DOM elements |
+| Intl.DateTimeFormat | iOS Safari 10+ / Chrome 24+ | Universal; no polyfill needed |
 
 ---
 
 ## Sources
 
-- [SortableJS npm — v1.15.7, last published 2 months ago](https://www.npmjs.com/package/sortablejs)
-- [SortableJS GitHub — no jQuery, touch devices, modern browsers](https://github.com/SortableJS/Sortable)
-- [JsonLogic — framework-agnostic, Go + JS implementations](https://jsonlogic.com/)
-- [go-chi/chi v5.2.5 — Feb 5, 2025 release](https://github.com/go-chi/chi/releases)
-- [jackc/pgx v5.9.1 — Mar 22, 2026](https://github.com/jackc/pgx/tags)
-- [sqlc 1.30.0 — pgx/v5 support confirmed](https://docs.sqlc.dev/en/stable/reference/changelog.html)
-- [golang-migrate/migrate v4 — active, Postgres support](https://github.com/golang-migrate/migrate)
-- [HTML5 camera input for PWA — capture="environment" pattern](https://simicart.com/blog/pwa-camera-access/)
-- [IndexedDB + Background Sync offline patterns 2025](https://blog.logrocket.com/offline-first-frontend-apps-2025-indexeddb-sqlite/)
-- [pgx vs sqlx performance — 300% faster in bulk inserts](https://dasroot.net/posts/2025/12/go-database-patterns-gorm-sqlx-pgx-compared/)
-- [Food safety checklist structure — fail triggers, corrective actions](https://goaudits.com/food/)
-- [JsonLogic rules as JSON data — storable + shareable between front/back](https://jsonlogic.com/)
+- [Chart.js GitHub releases — v4.5.1, Oct 13 2024](https://github.com/chartjs/Chart.js/releases)
+- [Chart.js Installation docs — UMD bundle, CDN options](https://www.chartjs.org/docs/latest/getting-started/installation.html)
+- [Chart.js Integration docs — vanilla JS script tag usage](https://www.chartjs.org/docs/latest/getting-started/integration.html)
+- [jsDelivr chart.js@4.5.1/dist/ — UMD bundle confirmed](https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/)
+- [cdnjs Chart.js — 4.5.0 latest on cdnjs (jsDelivr has 4.5.1)](https://cdnjs.com/libraries/Chart.js/)
+- [date-fns CDN discussion — v2+ no UMD, CDN difficult](https://github.com/orgs/date-fns/discussions/2193) — MEDIUM confidence (GitHub discussion, not official docs)
+- [Chart.js dark mode discussion — CSS variables + canvas approach](https://github.com/chartjs/Chart.js/discussions/9214)
+- [Intl.DateTimeFormat MDN compatibility — iOS Safari 10+](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/DateTimeFormat) — HIGH confidence
+
+---
+
+*Stack research for: Yumyums HQ v1.1 Inventory App — charting and stock estimation additions*
+*Researched: 2026-04-14*

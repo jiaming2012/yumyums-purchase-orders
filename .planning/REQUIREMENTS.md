@@ -9,8 +9,8 @@ Requirements for the Inventory App milestone. Each maps to roadmap phases.
 
 ### Purchase History
 
-- [ ] **HIST-01**: User can browse purchase events sorted by date, expandable to see line items (name, qty, price, case flag)
-- [ ] **HIST-02**: User can filter purchase events by vendor
+- [x] **HIST-01**: User can browse purchase events sorted by date, expandable to see line items (name, qty, price, case flag)
+- [x] **HIST-02**: User can filter purchase events by vendor
 - [x] **HIST-03**: Inventory tile appears on HQ launcher and links to inventory.html
 - [x] **HIST-04**: Inventory page is cached by service worker for offline PWA use
 
@@ -73,8 +73,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| HIST-01 | Phase 6 | Pending |
-| HIST-02 | Phase 6 | Pending |
+| HIST-01 | Phase 6 | Complete |
+| HIST-02 | Phase 6 | Complete |
 | HIST-03 | Phase 6 | Complete |
 | HIST-04 | Phase 6 | Complete |
 | INTG-01 | Phase 6 | Complete |
