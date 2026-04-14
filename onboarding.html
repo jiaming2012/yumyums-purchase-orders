@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0c447c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.json">
+<title>Onboarding - Yumyums HQ</title>
+<style>
+:root{--bg:#f5f5f3;--card:#fff;--txt:#1a1a1a;--mut:#6b6b6b;--brd:rgba(0,0,0,0.08);--info-bg:#e6f1fb;--info-tx:#0c447c;--warn-bg:#faeeda;--warn-tx:#854f0b}
+@media(prefers-color-scheme:dark){:root{--bg:#1a1a1a;--card:#262626;--txt:#f0f0f0;--mut:#999;--brd:rgba(255,255,255,0.1);--info-bg:#0c447c;--info-tx:#b5d4f4;--warn-bg:#633806;--warn-tx:#fac775}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg);color:var(--txt);padding:env(safe-area-inset-top) 16px env(safe-area-inset-bottom)}
+.app{max-width:480px;margin:0 auto;padding-top:20px}
+.back{display:inline-flex;align-items:center;gap:4px;color:var(--info-tx);text-decoration:none;font-size:14px;font-weight:500;margin-bottom:16px;cursor:pointer}
+.tabs{display:flex;gap:0;background:var(--card);border-radius:10px;padding:3px;border:0.5px solid var(--brd);margin-bottom:16px}
+.tabs button{flex:1;border:none;background:transparent;padding:12px 0;font-size:14px;font-weight:500;color:var(--mut);border-radius:8px;cursor:pointer}
+.tabs button.on{background:var(--info-bg);color:var(--info-tx)}
+.card{background:var(--card);border:0.5px solid var(--brd);border-radius:12px;padding:16px;margin-bottom:8px}
+.cat{font-size:12px;font-weight:500;text-transform:uppercase;letter-spacing:0.5px;color:var(--mut);padding:16px 0 8px}
+.sec-header{display:flex;align-items:center;justify-content:space-between;min-height:44px;padding:12px 16px;cursor:pointer;background:var(--card);border-radius:10px;margin-bottom:4px;border:0.5px solid var(--brd)}
+.sec-header.locked{cursor:default;opacity:0.5}
+.pill{display:inline-block;font-size:11px;font-weight:500;padding:2px 8px;border-radius:8px}
+.pill-warn{background:var(--warn-bg);color:var(--warn-tx)}
+.pill-ok{background:rgba(39,174,96,0.12);color:#27ae60}
+.item-row{display:flex;align-items:flex-start;gap:8px;padding:12px 16px;border-bottom:0.5px solid var(--brd);min-height:44px}
+.ob-check{width:22px;height:22px;border-radius:6px;border:1.5px solid var(--brd);background:transparent;flex-shrink:0;display:flex;align-items:center;justify-content:center;cursor:pointer;margin-top:2px}
+.ob-check.checked{background:rgba(39,174,96,0.12);border-color:#27ae60;color:#27ae60}
+.btn-primary{width:100%;padding:12px;background:var(--info-bg);color:var(--info-tx);border:none;border-radius:8px;font-size:14px;font-weight:500;cursor:pointer;margin-top:12px}
+.btn-danger{width:100%;padding:12px;background:transparent;color:#c0392b;border:0.5px solid #c0392b;border-radius:8px;font-size:14px;font-weight:500;cursor:pointer;margin-top:8px}
+.btn-approve{width:100%;padding:12px;background:rgba(39,174,96,0.12);color:#27ae60;border:0.5px solid #27ae60;border-radius:8px;font-size:14px;font-weight:500;cursor:pointer;margin-top:12px}
+.empty{text-align:center;padding:40px 20px;color:var(--mut)}
+.empty h3{font-size:14px;font-weight:500;color:var(--txt);margin:0 0 8px}
+.empty p{font-size:12px;margin:0}
+.video-link{color:var(--info-tx);font-size:14px;font-weight:500;text-decoration:none;white-space:nowrap}
+.faq-q{font-size:14px;font-weight:500;padding:12px 16px;cursor:pointer;min-height:44px;display:flex;align-items:center;justify-content:space-between;border-bottom:0.5px solid var(--brd)}
+.faq-a{font-size:13px;color:var(--mut);padding:8px 16px 16px;line-height:1.5}
+.attribution{font-size:11px;color:var(--mut);margin-top:2px}
+.sec-items{background:var(--card);border:0.5px solid var(--brd);border-radius:10px;margin-bottom:4px;overflow:hidden}
+.sec-items .item-row:last-child{border-bottom:none}
+.sec-actions{padding:12px 16px}
+</style>
+</head>
+<body>
+<div class="app">
+  <a class="back" href="index.html">&#8249; HQ</a>
+  <div class="tabs">
+    <button id="t1" class="on" onclick="show(1)">My Trainings</button>
+    <button id="t2" onclick="show(2)">Manager</button>
+  </div>
+  <div id="s1"><div id="my-body"></div></div>
+  <div id="s2" style="display:none"><div id="mgr-body"></div></div>
+</div>
+<script>
+const MOCK_CURRENT_USER = { id: 'usr_jamal', name: 'Jamal', role: 'admin' };
+const CURRENT_USER = { name: MOCK_CURRENT_USER.name };
+const MOCK_HIRES = [
+  { id: 'hire_1', userId: 'usr_tina', name: 'Tina L.', role: 'line_cook', startDate: '2026-04-01', assignedTemplates: ['tpl_line_cook'] },
+  { id: 'hire_2', userId: 'usr_dev', name: 'Dev P.', role: 'cashier', startDate: '2026-04-10', assignedTemplates: ['tpl_cashier', 'tpl_food_safety'] },
+  { id: 'hire_3', userId: 'usr_jamal', name: 'Jamal M.', role: 'admin', startDate: '2026-03-15', assignedTemplates: ['tpl_line_cook'] },
+];
+const MOCK_OB_TEMPLATES = [
+  {
+    id: 'tpl_line_cook',
+    name: 'Line Cook Onboarding',
+    role: 'line_cook',
+    sections: [
+      {
+        id: 'sec_lc_paperwork',
+        title: 'Paperwork',
+        requiresSignOff: true,
+        isFaq: false,
+        items: [
+          { id: 'itm_lc_w4', type: 'checkbox', label: 'W-4 tax form signed' },
+          { id: 'itm_lc_id', type: 'checkbox', label: 'ID photocopied and filed' },
+          { id: 'itm_lc_dd', type: 'checkbox', label: 'Direct deposit form completed' },
+        ]
+      },
+      {
+        id: 'sec_lc_safety',
+        title: 'Kitchen Safety Training',
+        requiresSignOff: true,
+        isFaq: false,
+        items: [
+          {
+            id: 'vs_lc_cleanup',
+            type: 'video_series',
+            label: 'Kitchen Cleanup',
+            parts: [
+              { id: 'vp_lc_cleanup_1', title: 'Part 1: Surfaces and Equipment', desc: 'Proper cleaning of all cooking surfaces and equipment', url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
+              { id: 'vp_lc_cleanup_2', title: 'Part 2: Deep Clean Protocol', desc: 'Step-by-step deep cleaning procedures', url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
+              { id: 'vp_lc_cleanup_3', title: 'Part 3: Waste Disposal', desc: 'Safe and compliant waste handling', url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
+            ]
+          },
+          {
+            id: 'vs_lc_food_safety',
+            type: 'video_series',
+            label: 'Food Safety Basics',
+            parts: [
+              { id: 'vp_lc_fs_1', title: 'Part 1: Temperature Danger Zone', desc: 'Understanding safe food temperature ranges', url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
+              { id: 'vp_lc_fs_2', title: 'Part 2: Cross-Contamination Prevention', desc: 'How to prevent cross-contamination in the kitchen', url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
+            ]
+          },
+        ]
+      },
+      {
+        id: 'sec_lc_equipment',
+        title: 'Equipment Orientation',
+        requiresSignOff: false,
+        isFaq: false,
+        items: [
+          { id: 'itm_lc_grill', type: 'checkbox', label: 'Grill operation walkthrough' },
+          { id: 'itm_lc_fryer', type: 'checkbox', label: 'Fryer safety demo completed' },
+          { id: 'itm_lc_knife', type: 'checkbox', label: 'Knife skills assessment' },
+        ]
+      },
+      {
+        id: 'sec_lc_faq',
+        title: 'FAQ',
+        requiresSignOff: false,
+        isFaq: true,
+        items: [
+          { id: 'faq_lc_1', question: 'Where do I find supplies?', answer: 'All supplies are stored in the back storage room. Ask your supervisor for the key on your first day.' },
+          { id: 'faq_lc_2', question: 'What is the dress code?', answer: 'Non-slip shoes, clean black pants, and the provided Yumyums shirt. Hair must be tied back and a hat or hairnet worn at all times in the kitchen.' },
+          { id: 'faq_lc_3', question: 'When are breaks?', answer: 'Breaks are scheduled by your shift supervisor. For shifts over 5 hours, you are entitled to a 30-minute unpaid break.' },
+          { id: 'faq_lc_4', question: 'How do I report an issue?', answer: 'For urgent issues, speak directly with your shift supervisor. For non-urgent concerns, use the Yumyums HQ app to submit a report.' },
+        ]
+      },
+    ]
+  },
+  {
+    id: 'tpl_cashier',
+    name: 'Cashier Onboarding',
+    role: 'cashier',
+    sections: [
+      {
+        id: 'sec_ca_paperwork',
+        title: 'Paperwork',
+        requiresSignOff: true,
+        isFaq: false,
+        items: [
+          { id: 'itm_ca_w4', type: 'checkbox', label: 'W-4 tax form signed' },
+          { id: 'itm_ca_id', type: 'checkbox', label: 'ID photocopied and filed' },
+          { id: 'itm_ca_dd', type: 'checkbox', label: 'Direct deposit form completed' },
+        ]
+      },
+      {
+        id: 'sec_ca_pos',
+        title: 'POS Training',
+        requiresSignOff: true,
+        isFaq: false,
+        items: [
+          {
+            id: 'vs_ca_register',
+            type: 'video_series',
+            label: 'Register Operations',
+            parts: [
+              { id: 'vp_ca_reg_1', title: 'Part 1: Order Entry', desc: 'How to enter orders accurately in the POS system', url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
+              { id: 'vp_ca_reg_2', title: 'Part 2: Payment Processing', desc: 'Handling cash and card payments', url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
+            ]
+          },
+        ]
+      },
+      {
+        id: 'sec_ca_service',
+        title: 'Customer Service',
+        requiresSignOff: false,
+        isFaq: false,
+        items: [
+          { id: 'itm_ca_greet', type: 'checkbox', label: 'Greeting protocol reviewed' },
+          { id: 'itm_ca_complaint', type: 'checkbox', label: 'Complaint handling reviewed' },
+        ]
+      },
+      {
+        id: 'sec_ca_faq',
+        title: 'FAQ',
+        requiresSignOff: false,
+        isFaq: true,
+        items: [
+          { id: 'faq_ca_1', question: 'What do I do if the system goes down?', answer: 'Switch to manual order slips stored under the register. Notify your supervisor immediately.' },
+          { id: 'faq_ca_2', question: 'How do I handle a refund?', answer: 'Refunds must be approved by a supervisor. Do not process a refund without manager authorization.' },
+          { id: 'faq_ca_3', question: 'What if a customer complains about their order?', answer: 'Listen actively, apologize for the experience, and offer a replacement or speak with your supervisor for a refund decision.' },
+        ]
+      },
+    ]
+  },
+  {
+    id: 'tpl_food_safety',
+    name: 'Food Safety Certification',
+    role: null,
+    sections: [
+      {
+        id: 'sec_fs_videos',
+        title: 'Video Modules',
+        requiresSignOff: true,
+        isFaq: false,
+        items: [
+          {
+            id: 'vs_fs_servsafe',
+            type: 'video_series',
+            label: 'ServSafe Overview',
+            parts: [
+              { id: 'vp_fs_sv_1', title: 'Part 1: Personal Hygiene', desc: 'Handwashing, illness policies, and personal cleanliness', url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
+              { id: 'vp_fs_sv_2', title: 'Part 2: Safe Food Handling', desc: 'Receiving, storing, and preparing food safely', url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
+              { id: 'vp_fs_sv_3', title: 'Part 3: Cleaning and Sanitation', desc: 'Cleaning schedules and sanitizer concentration', url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
+            ]
+          },
+        ]
+      },
+      {
+        id: 'sec_fs_faq',
+        title: 'FAQ',
+        requiresSignOff: false,
+        isFaq: true,
+        items: [
+          { id: 'faq_fs_1', question: 'Do I need a food handler card?', answer: 'Yes. You must obtain a valid food handler card within 30 days of your start date. Keep a copy on file with HR.' },
+          { id: 'faq_fs_2', question: 'Who do I contact with food safety concerns?', answer: 'Report any food safety concerns immediately to your shift supervisor or the owner directly via the Yumyums HQ app.' },
+        ]
+      },
+    ]
+  },
+];
+const SECTION_STATES = {};
+const OB_CHECKS = {};
+const FAQ_VIEWED = {};
+const EXPANDED_SECTIONS = {};
+const EXPANDED_FAQS = {};
+let obState = { view: 'list', activeHireId: null, activeTemplateIdx: 0 };
+function isManager() {
+  return ['admin','manager','superadmin'].includes(MOCK_CURRENT_USER.role);
+}
+function getMyHire() {
+  return MOCK_HIRES.find(h => h.userId === MOCK_CURRENT_USER.id);
+}
+function initSectionStates(hire) {
+  if (!hire) return;
+  if (SECTION_STATES[hire.id]) return;
+  SECTION_STATES[hire.id] = {};
+  hire.assignedTemplates.forEach(tplId => {
+    var tpl = MOCK_OB_TEMPLATES.find(t => t.id === tplId);
+    if (!tpl) return;
+    tpl.sections.forEach((sec, idx) => {
+      SECTION_STATES[hire.id][sec.id] = idx === 0 ? 'active' : 'locked';
+    });
+  });
+}
+function isSectionComplete(hireId, section) {
+  if (section.isFaq) return FAQ_VIEWED[hireId] === true;
+  for (var i = 0; i < section.items.length; i++) {
+    var item = section.items[i];
+    if (item.type === 'checkbox') {
+      if (!OB_CHECKS[item.id]) return false;
+    } else if (item.type === 'video_series') {
+      for (var j = 0; j < item.parts.length; j++) {
+        if (!OB_CHECKS[item.parts[j].id]) return false;
+      }
+    }
+  }
+  return true;
+}
+function canUnlockNext(hireId, sections, currentIndex) {
+  var sec = sections[currentIndex];
+  var state = SECTION_STATES[hireId][sec.id];
+  if (!isSectionComplete(hireId, sec)) return false;
+  if (sec.requiresSignOff && state !== 'signed_off') return false;
+  return true;
+}
+function tryAdvanceSections(hireId, tplId) {
+  var tpl = MOCK_OB_TEMPLATES.find(t => t.id === tplId);
+  if (!tpl) return;
+  var sections = tpl.sections;
+  for (var i = 0; i < sections.length - 1; i++) {
+    var sec = sections[i];
+    var nextSec = sections[i + 1];
+    var nextState = SECTION_STATES[hireId][nextSec.id];
+    if (canUnlockNext(hireId, sections, i) && nextState === 'locked') {
+      SECTION_STATES[hireId][nextSec.id] = 'active';
+    }
+  }
+}
+function getSectionItemCount(section) {
+  var total = 0;
+  section.items.forEach(function(item) {
+    if (item.type === 'checkbox') total++;
+    else if (item.type === 'video_series') total += item.parts.length;
+  });
+  return total;
+}
+function getSectionCheckedCount(section) {
+  var checked = 0;
+  section.items.forEach(function(item) {
+    if (item.type === 'checkbox') {
+      if (OB_CHECKS[item.id]) checked++;
+    } else if (item.type === 'video_series') {
+      item.parts.forEach(function(p) {
+        if (OB_CHECKS[p.id]) checked++;
+      });
+    }
+  });
+  return checked;
+}
+function getProgress(hireId, template) {
+  var total = 0, checked = 0;
+  template.sections.forEach(function(sec) {
+    if (sec.isFaq) return;
+    sec.items.forEach(function(item) {
+      if (item.type === 'checkbox') {
+        total++;
+        if (OB_CHECKS[item.id]) checked++;
+      } else if (item.type === 'video_series') {
+        item.parts.forEach(function(p) {
+          total++;
+          if (OB_CHECKS[p.id]) checked++;
+        });
+      }
+    });
+  });
+  return { checked: checked, total: total, pct: total > 0 ? Math.round((checked / total) * 100) : 0 };
+}
+function show(n) {
+  [1,2].forEach(function(i) {
+    document.getElementById('s'+i).style.display = i===n ? '' : 'none';
+    document.getElementById('t'+i).classList.toggle('on', i===n);
+  });
+}
+function renderMyTrainings() {
+  if (obState.view === 'list') renderMyList();
+  else renderRunner();
+}
+function renderMyList() {
+  var hire = getMyHire();
+  var el = document.getElementById('my-body');
+  if (!hire) {
+    el.innerHTML = '<div class="empty"><h3>No trainings yet.</h3><p>Your onboarding checklist will appear here once assigned by your manager.</p></div>';
+    return;
+  }
+  var html = '';
+  hire.assignedTemplates.forEach(function(tplId, idx) {
+    var tpl = MOCK_OB_TEMPLATES.find(t => t.id === tplId);
+    if (!tpl) return;
+    var prog = getProgress(hire.id, tpl);
+    html += '<div class="card" style="cursor:pointer" data-action="open-checklist" data-tpl-idx="'+idx+'">';
+    html += '<div style="font-size:14px;font-weight:500;color:var(--txt);margin-bottom:8px">'+tpl.name+'</div>';
+    html += '<div style="height:4px;background:var(--brd);border-radius:2px;margin-bottom:6px;overflow:hidden"><div style="height:100%;background:#27ae60;border-radius:2px;width:'+prog.pct+'%"></div></div>';
+    html += '<div style="font-size:12px;color:var(--mut)">'+prog.checked+' of '+prog.total+' tasks complete</div>';
+    html += '</div>';
+  });
+  el.innerHTML = html;
+}
+function renderRunner() {
+  var hire = MOCK_HIRES.find(h => h.id === obState.activeHireId);
+  if (!hire) { renderMyList(); return; }
+  var tplId = hire.assignedTemplates[obState.activeTemplateIdx];
+  var tpl = MOCK_OB_TEMPLATES.find(t => t.id === tplId);
+  if (!tpl) { renderMyList(); return; }
+  var html = '';
+  html += '<span class="back" data-action="back-to-list" style="display:inline-flex;align-items:center;gap:4px;color:var(--info-tx);font-size:14px;font-weight:500;margin-bottom:16px;cursor:pointer">&#8249; My Trainings</span>';
+  html += '<div style="font-size:14px;font-weight:600;color:var(--txt);margin-bottom:16px">'+tpl.name+'</div>';
+  tpl.sections.forEach(function(sec) {
+    var state = SECTION_STATES[hire.id] ? SECTION_STATES[hire.id][sec.id] : 'locked';
+    var isLocked = state === 'locked';
+    var isExpanded = !isLocked && EXPANDED_SECTIONS[sec.id];
+    var totalItems = sec.isFaq ? 0 : getSectionItemCount(sec);
+    var checkedItems = sec.isFaq ? 0 : getSectionCheckedCount(sec);
+    var headerClass = 'sec-header' + (isLocked ? ' locked' : '');
+    var stateHtml = '';
+    if (isLocked) {
+      stateHtml = '<span style="font-size:12px;color:var(--mut)">&#128274; Locked</span>';
+    } else if (state === 'pending_signoff') {
+      stateHtml = '<span class="pill pill-warn">Pending Sign-Off</span>';
+    } else if (state === 'signed_off') {
+      stateHtml = '<span style="font-size:12px;color:#27ae60;font-weight:500">&#10003; Signed Off</span>';
+    } else if (sec.isFaq) {
+      if (FAQ_VIEWED[hire.id]) {
+        stateHtml = '<span style="font-size:12px;color:#27ae60;font-weight:500">Viewed &#10003;</span>';
+      } else {
+        stateHtml = '<span class="pill pill-warn">View Required</span>';
+      }
+    } else {
+      stateHtml = '<span style="font-size:12px;color:var(--mut)">'+checkedItems+'/'+totalItems+'</span>';
+    }
+    var chevron = isLocked ? '' : '<span style="font-size:12px;color:var(--mut);margin-left:4px">'+(isExpanded ? '&#9650;' : '&#9660;')+'</span>';
+    var actionAttr = isLocked ? '' : ' data-action="toggle-section" data-sec-id="'+sec.id+'" data-hire-id="'+hire.id+'" data-tpl-id="'+tplId+'"';
+    html += '<div class="'+headerClass+'"'+actionAttr+'>';
+    html += '<div style="display:flex;align-items:center;gap:6px"><span style="font-size:12px;font-weight:500;text-transform:uppercase;letter-spacing:0.5px">'+sec.title+'</span>'+chevron+'</div>';
+    html += stateHtml;
+    html += '</div>';
+    if (isExpanded) {
+      if (sec.isFaq) {
+        html += '<div class="sec-items">';
+        sec.items.forEach(function(faqItem) {
+          var isOpen = EXPANDED_FAQS[faqItem.id];
+          html += '<div class="faq-q" data-action="toggle-faq" data-faq-id="'+faqItem.id+'">'+faqItem.question+'<span>'+(isOpen ? '&#9650;' : '&#9660;')+'</span></div>';
+          if (isOpen) {
+            html += '<div class="faq-a">'+faqItem.answer+'</div>';
+          }
+        });
+        html += '</div>';
+      } else {
+        html += '<div class="sec-items">';
+        sec.items.forEach(function(item) {
+          if (item.type === 'checkbox') {
+            var checked = OB_CHECKS[item.id];
+            var checkClass = 'ob-check' + (checked ? ' checked' : '');
+            var checkable = (state === 'active') ? ' data-action="toggle-item" data-item-id="'+item.id+'" data-hire-id="'+hire.id+'" data-tpl-id="'+tplId+'"' : '';
+            html += '<div class="item-row">';
+            html += '<div class="'+checkClass+'"'+checkable+'>'+(checked ? '&#10003;' : '')+'</div>';
+            html += '<div style="flex:1"><div style="font-size:14px;font-weight:500">'+item.label+'</div>';
+            if (checked) {
+              html += '<div class="attribution">Checked by '+CURRENT_USER.name+'</div>';
+            }
+            html += '</div></div>';
+          } else if (item.type === 'video_series') {
+            html += '<div class="item-row" style="flex-direction:column;gap:4px;padding-bottom:4px">';
+            html += '<div style="font-size:12px;font-weight:500;text-transform:uppercase;letter-spacing:0.5px;color:var(--mut);padding-bottom:4px">'+item.label+'</div>';
+            html += '</div>';
+            item.parts.forEach(function(part) {
+              var partChecked = OB_CHECKS[part.id];
+              var partCheckClass = 'ob-check' + (partChecked ? ' checked' : '');
+              var partCheckable = (state === 'active') ? ' data-action="toggle-video-part" data-item-id="'+part.id+'" data-hire-id="'+hire.id+'" data-tpl-id="'+tplId+'"' : '';
+              html += '<div class="item-row">';
+              html += '<div class="'+partCheckClass+'"'+partCheckable+'>'+(partChecked ? '&#10003;' : '')+'</div>';
+              html += '<div style="flex:1">';
+              html += '<div style="font-size:14px;font-weight:500">'+part.title+'</div>';
+              html += '<div style="font-size:12px;color:var(--mut);margin-top:2px">'+part.desc+'</div>';
+              if (partChecked) {
+                html += '<div class="attribution">Checked by '+CURRENT_USER.name+'</div>';
+              }
+              html += '</div>';
+              html += '<a class="video-link" data-action="watch-video" data-url="'+part.url+'" href="#">Watch Video</a>';
+              html += '</div>';
+            });
+          }
+        });
+        html += '</div>';
+        if (sec.requiresSignOff && state === 'active') {
+          var allChecked = isSectionComplete(hire.id, sec);
+          if (allChecked) {
+            html += '<div class="sec-actions"><button class="btn-primary" data-action="request-signoff" data-sec-id="'+sec.id+'" data-hire-id="'+hire.id+'" data-tpl-id="'+tplId+'">Request Sign-Off</button></div>';
+          }
+        }
+      }
+    }
+  });
+  document.getElementById('my-body').innerHTML = html;
+}
+document.getElementById('my-body').addEventListener('click', function(e) {
+  var btn = e.target.closest('[data-action]');
+  if (!btn) return;
+  var action = btn.dataset.action;
+  if (action === 'open-checklist') {
+    var hire = getMyHire();
+    if (!hire) return;
+    obState = { view: 'runner', activeHireId: hire.id, activeTemplateIdx: +(btn.dataset.tplIdx || 0) };
+    initSectionStates(hire);
+    renderMyTrainings();
+  } else if (action === 'back-to-list') {
+    obState = { view: 'list', activeHireId: null, activeTemplateIdx: 0 };
+    renderMyTrainings();
+  } else if (action === 'toggle-section') {
+    var secId = btn.dataset.secId;
+    var hireId = btn.dataset.hireId;
+    var tplId = btn.dataset.tplId;
+    var tpl = MOCK_OB_TEMPLATES.find(t => t.id === tplId);
+    var sec = tpl ? tpl.sections.find(s => s.id === secId) : null;
+    if (EXPANDED_SECTIONS[secId]) {
+      delete EXPANDED_SECTIONS[secId];
+    } else {
+      EXPANDED_SECTIONS[secId] = true;
+      if (sec && sec.isFaq) {
+        FAQ_VIEWED[hireId] = true;
+        tryAdvanceSections(hireId, tplId);
+      }
+    }
+    renderMyTrainings();
+  } else if (action === 'toggle-item') {
+    var itemId = btn.dataset.itemId;
+    var hireId = btn.dataset.hireId;
+    var tplId = btn.dataset.tplId;
+    if (OB_CHECKS[itemId]) {
+      delete OB_CHECKS[itemId];
+    } else {
+      OB_CHECKS[itemId] = { checked: true, checkedBy: CURRENT_USER.name, checkedAt: new Date() };
+    }
+    tryAdvanceSections(hireId, tplId);
+    renderMyTrainings();
+  } else if (action === 'toggle-video-part') {
+    var itemId = btn.dataset.itemId;
+    var hireId = btn.dataset.hireId;
+    var tplId = btn.dataset.tplId;
+    if (OB_CHECKS[itemId]) {
+      delete OB_CHECKS[itemId];
+    } else {
+      OB_CHECKS[itemId] = { checked: true, checkedBy: CURRENT_USER.name, checkedAt: new Date() };
+    }
+    tryAdvanceSections(hireId, tplId);
+    renderMyTrainings();
+  } else if (action === 'watch-video') {
+    e.preventDefault();
+    window.open(btn.dataset.url, '_blank');
+  } else if (action === 'request-signoff') {
+    var secId = btn.dataset.secId;
+    var hireId = btn.dataset.hireId;
+    var tplId = btn.dataset.tplId;
+    if (SECTION_STATES[hireId]) {
+      SECTION_STATES[hireId][secId] = 'pending_signoff';
+    }
+    tryAdvanceSections(hireId, tplId);
+    renderMyTrainings();
+  } else if (action === 'toggle-faq') {
+    var faqId = btn.dataset.faqId;
+    if (EXPANDED_FAQS[faqId]) {
+      delete EXPANDED_FAQS[faqId];
+    } else {
+      EXPANDED_FAQS[faqId] = true;
+    }
+    renderMyTrainings();
+  }
+});
+if (!isManager()) {
+  document.getElementById('t2').style.display = 'none';
+}
+var myHire = getMyHire();
+if (myHire) initSectionStates(myHire);
+MOCK_HIRES.forEach(function(h) { initSectionStates(h); });
+renderMyTrainings();
+document.addEventListener('dblclick', function(e) { e.preventDefault(); });
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+</script>
+<script src="ptr.js"></script>
+</body>
+</html>

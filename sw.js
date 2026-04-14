@@ -1,5 +1,5 @@
-const CACHE = 'yumyums-v39';
-const ASSETS = ['./', './index.html', './purchasing.html', './users.html', './login.html', './workflows.html', './ptr.js', './manifest.json'];
+const CACHE = 'yumyums-v40';
+const ASSETS = ['./', './index.html', './purchasing.html', './users.html', './login.html', './workflows.html', './onboarding.html', './ptr.js', './manifest.json'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));
