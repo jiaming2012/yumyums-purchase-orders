@@ -16,6 +16,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 2: Fill-Out and Conditional Logic** - Build the crew fill-out experience end-to-end: checklist runner, all non-photo field types, fail triggers, inline corrective actions, and completion tracking (completed 2026-04-13)
 - [x] **Phase 3: Photo, Approval, and Integration** - Add photo capture (isolated iOS testing), manager approval flow, and wire the app into the HQ launcher with pre-built food truck templates (completed 2026-04-13)
 - [x] **Phase 4: Onboarding App** - Standalone onboarding tool for new crew member onboarding: checklist per new hire, training progress tracking, owner sign-off (completed 2026-04-14)
+- [ ] **Phase 5: Onboarding Builder** - Builder tab for creating/editing onboarding training templates with sections, video series, FAQ, and sign-off config
 
 ## Phase Details
 
@@ -91,7 +92,7 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4
+Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -99,3 +100,16 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | 2. Fill-Out and Conditional Logic | 2/2 | Complete   | 2026-04-13 |
 | 3. Photo, Approval, and Integration | 2/2 | Complete   | 2026-04-13 |
 | 4. Onboarding App | 3/3 | Complete   | 2026-04-14 |
+| 5. Onboarding Builder | 0/2 | Not Started |  |
+
+### Phase 5: Onboarding Builder
+**Goal:** Add a Builder tab to onboarding.html for creating and editing onboarding training templates — sections, checkbox items (with sub-items), video series (title, description, URL per part), FAQ Q&A pairs, per-section sign-off toggle, and drag-to-reorder. Reuses the simpler data model from Phase 4.
+**Requirements**: D-01, D-02, D-03, D-04, D-05, D-06, D-07, D-08, D-09, D-10, D-11, D-12, D-13, D-14, D-15, D-16, D-17, D-18, D-19
+**Depends on:** Phase 4
+**Plans:** 2 plans
+
+Plans:
+- [ ] 05-01-PLAN.md — Builder tab scaffold, template list CRUD, editor with section management and toggles
+- [ ] 05-02-PLAN.md — Item types (checkbox + sub-items, video series + parts), FAQ Q&A editor, SortableJS drag-to-reorder, sw.js bump, human-verify
+
+**UI hint**: yes

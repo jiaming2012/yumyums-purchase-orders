@@ -56,9 +56,11 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
   <div class="tabs">
     <button id="t1" class="on" onclick="show(1)">My Trainings</button>
     <button id="t2" onclick="show(2)">Manager</button>
+    <button id="t3" onclick="show(3)">Builder</button>
   </div>
   <div id="s1"><div id="my-body"></div></div>
   <div id="s2" style="display:none"><div id="mgr-body"></div></div>
+  <div id="s3" style="display:none"><div id="builder-body"></div></div>
 </div>
 <script>
 const MOCK_CURRENT_USER = { id: 'usr_jamal', name: 'Jamal', role: 'admin' };
@@ -237,6 +239,7 @@ const EXPANDED_FAQS = {};
 let obState = { view: 'list', activeHireId: null, activeTemplateIdx: 0 };
 let mgrState = { view: 'list', subView: 'active', activeHireId: null, activeTemplateIdx: 0 };
 let assignPickerOpen = null;
+let obBuilderState = { view: 'list', activeTemplate: null };
 function isManager() {
   return ['admin','manager','superadmin'].includes(MOCK_CURRENT_USER.role);
 }
@@ -329,10 +332,90 @@ function getProgress(hireId, template) {
   return { checked: checked, total: total, pct: total > 0 ? Math.round((checked / total) * 100) : 0 };
 }
 function show(n) {
-  [1,2].forEach(function(i) {
+  [1,2,3].forEach(function(i) {
     document.getElementById('s'+i).style.display = i===n ? '' : 'none';
     document.getElementById('t'+i).classList.toggle('on', i===n);
   });
+  if (n === 3) renderOBBuilder();
+}
+function generateOBId(prefix) {
+  return prefix + '_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+}
+function createNewOBTemplate(name, role) {
+  return { id: generateOBId('tpl'), name: name, role: role, sections: [] };
+}
+function createNewOBSection(title) {
+  return { id: generateOBId('sec'), title: title, requiresSignOff: false, isFaq: false, items: [] };
+}
+function escapeOBAttr(str) {
+  return String(str || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function renderOBBuilder() {
+  var body = document.getElementById('builder-body');
+  if (!body) return;
+  if (obBuilderState.view === 'list') {
+    body.innerHTML = renderOBTemplateList();
+  } else {
+    body.innerHTML = renderOBEditor();
+  }
+}
+function renderOBTemplateList() {
+  var html = '';
+  if (MOCK_OB_TEMPLATES.length === 0) {
+    html += '<div class="empty"><h3>No templates yet.</h3><p>Create your first onboarding template to get started.</p></div>';
+  } else {
+    MOCK_OB_TEMPLATES.forEach(function(tpl) {
+      var roleLabel = tpl.role ? tpl.role.replace(/_/g,' ') : 'All roles';
+      var secCount = tpl.sections.length;
+      html += '<div class="card" style="cursor:pointer" data-action="open-template" data-tpl-id="'+tpl.id+'">';
+      html += '<div style="font-size:14px;font-weight:500;margin-bottom:4px">'+escapeOBAttr(tpl.name)+'</div>';
+      html += '<div style="font-size:12px;color:var(--mut);text-transform:capitalize">'+escapeOBAttr(roleLabel)+'</div>';
+      html += '<div style="font-size:12px;color:var(--mut)">'+secCount+' section'+(secCount!==1?'s':'')+'</div>';
+      html += '</div>';
+    });
+  }
+  html += '<button class="btn-primary" data-action="new-template">+ New Template</button>';
+  return html;
+}
+function renderOBSection(sec) {
+  var soStyle = sec.requiresSignOff ? 'background:rgba(39,174,96,0.12);color:#27ae60' : 'background:var(--brd);color:var(--mut)';
+  var faqStyle = sec.isFaq ? 'background:rgba(39,174,96,0.12);color:#27ae60' : 'background:var(--brd);color:var(--mut)';
+  var html = '<div class="card" style="margin-bottom:8px">';
+  html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">';
+  html += '<span style="font-size:12px;font-weight:500;text-transform:uppercase;letter-spacing:0.5px;color:var(--mut)">'+escapeOBAttr(sec.title)+'</span>';
+  html += '<div style="display:flex;gap:4px;align-items:center">';
+  html += '<button class="pill'+(sec.requiresSignOff?' pill-ok':'')+'" data-action="toggle-signoff" data-sec-id="'+sec.id+'" style="cursor:pointer;border:none;font-size:11px;padding:2px 8px;border-radius:8px;'+soStyle+'">SO</button>';
+  html += '<button class="pill'+(sec.isFaq?' pill-ok':'')+'" data-action="toggle-faq-mode" data-sec-id="'+sec.id+'" style="cursor:pointer;border:none;font-size:11px;padding:2px 8px;border-radius:8px;'+faqStyle+'">FAQ</button>';
+  html += '<span data-action="delete-ob-section" data-sec-id="'+sec.id+'" style="color:#c0392b;cursor:pointer;font-size:14px;margin-left:8px">&#10005;</span>';
+  html += '</div>';
+  html += '</div>';
+  html += '<input type="text" value="'+escapeOBAttr(sec.title)+'" data-action="sec-title-input" data-sec-id="'+sec.id+'" placeholder="Section title" style="width:100%;padding:8px 10px;background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;font-size:13px;color:var(--txt);font-family:inherit;outline:none;margin-bottom:8px">';
+  if (sec.isFaq) {
+    html += '<div style="font-size:12px;color:var(--mut);padding:8px 0">Q&amp;A items &mdash; managed in Plan 02</div>';
+  } else {
+    html += '<div style="font-size:12px;color:var(--mut);padding:8px 0">Items &mdash; managed in Plan 02</div>';
+  }
+  html += '</div>';
+  return html;
+}
+function renderOBEditor() {
+  var tpl = obBuilderState.activeTemplate;
+  if (!tpl) return '';
+  var html = '';
+  html += '<span class="back" data-action="back-to-templates" style="display:inline-flex;align-items:center;gap:4px;font-size:14px;font-weight:500;margin-bottom:16px;cursor:pointer">&#8249; Templates</span>';
+  html += '<input type="text" value="'+escapeOBAttr(tpl.name)+'" data-action="tpl-name-input" placeholder="Template name" style="width:100%;padding:10px 12px;background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;font-size:14px;color:var(--txt);font-family:inherit;outline:none;margin-bottom:8px">';
+  html += '<select data-action="tpl-role-select" style="width:100%;padding:10px 12px;background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;font-size:14px;color:var(--txt);font-family:inherit;outline:none;margin-bottom:16px">';
+  html += '<option value=""'+(tpl.role===null?' selected':'')+'>All roles</option>';
+  ['line_cook','cashier','manager','admin'].forEach(function(r) {
+    html += '<option value="'+r+'"'+(tpl.role===r?' selected':'')+'>'+r.replace(/_/g,' ')+'</option>';
+  });
+  html += '</select>';
+  tpl.sections.forEach(function(sec) {
+    html += renderOBSection(sec);
+  });
+  html += '<button class="btn-primary" data-action="add-ob-section" style="margin-top:8px">+ Add Section</button>';
+  html += '<button style="width:100%;padding:12px;background:transparent;color:#c0392b;border:0.5px solid #c0392b;border-radius:8px;font-size:14px;font-weight:500;cursor:pointer;margin-top:24px" data-action="delete-template">Delete Template</button>';
+  return html;
 }
 function renderMyTrainings() {
   if (obState.view === 'list') renderMyList();
@@ -714,14 +797,75 @@ document.getElementById('mgr-body').addEventListener('click', function(e) {
     window.open(btn.dataset.url, '_blank');
   }
 });
+document.getElementById('builder-body').addEventListener('click', function(e) {
+  var btn = e.target.closest('[data-action]');
+  if (!btn) return;
+  var action = btn.dataset.action;
+  if (action === 'new-template') {
+    var name = prompt('Template name:');
+    if (name && name.trim()) {
+      var tpl = createNewOBTemplate(name.trim(), null);
+      MOCK_OB_TEMPLATES.push(tpl);
+      obBuilderState = { view: 'editor', activeTemplate: tpl };
+      renderOBBuilder();
+    }
+  } else if (action === 'open-template') {
+    var tpl = MOCK_OB_TEMPLATES.find(function(t) { return t.id === btn.dataset.tplId; });
+    if (tpl) {
+      obBuilderState = { view: 'editor', activeTemplate: tpl };
+      renderOBBuilder();
+    }
+  } else if (action === 'back-to-templates') {
+    obBuilderState = { view: 'list', activeTemplate: null };
+    renderOBBuilder();
+  } else if (action === 'delete-template') {
+    if (confirm('Delete this template? This cannot be undone.')) {
+      var idx = MOCK_OB_TEMPLATES.findIndex(function(t) { return t.id === obBuilderState.activeTemplate.id; });
+      if (idx !== -1) MOCK_OB_TEMPLATES.splice(idx, 1);
+      obBuilderState = { view: 'list', activeTemplate: null };
+      renderOBBuilder();
+    }
+  } else if (action === 'add-ob-section') {
+    var title = prompt('Section name:');
+    if (title && title.trim()) {
+      obBuilderState.activeTemplate.sections.push(createNewOBSection(title.trim()));
+      renderOBBuilder();
+    }
+  } else if (action === 'delete-ob-section') {
+    obBuilderState.activeTemplate.sections = obBuilderState.activeTemplate.sections.filter(function(s) { return s.id !== btn.dataset.secId; });
+    renderOBBuilder();
+  } else if (action === 'toggle-signoff') {
+    var sec = obBuilderState.activeTemplate.sections.find(function(s) { return s.id === btn.dataset.secId; });
+    if (sec) { sec.requiresSignOff = !sec.requiresSignOff; renderOBBuilder(); }
+  } else if (action === 'toggle-faq-mode') {
+    var sec = obBuilderState.activeTemplate.sections.find(function(s) { return s.id === btn.dataset.secId; });
+    if (sec) { sec.isFaq = !sec.isFaq; renderOBBuilder(); }
+  }
+});
+document.getElementById('builder-body').addEventListener('input', function(e) {
+  if (e.target.dataset.action === 'tpl-name-input') {
+    obBuilderState.activeTemplate.name = e.target.value;
+  } else if (e.target.dataset.action === 'sec-title-input') {
+    var sec = obBuilderState.activeTemplate.sections.find(function(s) { return s.id === e.target.dataset.secId; });
+    if (sec) sec.title = e.target.value;
+  }
+});
+document.getElementById('builder-body').addEventListener('change', function(e) {
+  if (e.target.dataset.action === 'tpl-role-select') {
+    obBuilderState.activeTemplate.role = e.target.value || null;
+    renderOBBuilder();
+  }
+});
 if (!isManager()) {
   document.getElementById('t2').style.display = 'none';
+  document.getElementById('t3').style.display = 'none';
 }
 var myHire = getMyHire();
 if (myHire) initSectionStates(myHire);
 MOCK_HIRES.forEach(function(h) { initSectionStates(h); });
 renderMyTrainings();
 renderManager();
+renderOBBuilder();
 document.addEventListener('dblclick', function(e) { e.preventDefault(); });
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
 </script>
