@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Inventory App
 status: executing
-stopped_at: Completed 06-01-PLAN.md
-last_updated: "2026-04-14T16:26:24.044Z"
+stopped_at: "Checkpoint: Task 3 human-verify for 06-02-PLAN.md"
+last_updated: "2026-04-14T16:38:23.955Z"
 last_activity: 2026-04-14
 progress:
   total_phases: 3
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 2
-  completed_plans: 1
+  completed_plans: 2
   percent: 50
 ---
 
@@ -57,6 +57,7 @@ Progress: [█████░░░░░] 50%
 
 *Updated after each plan completion*
 | Phase 06 P01 | 15 | 2 tasks | 5 files |
+| Phase 06 P02 | 20min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -72,6 +73,9 @@ Recent decisions affecting current work:
 - [v1.1 roadmap]: Mock data requires minimum 12 purchase events across 2+ calendar months, 3-4 vendors, 5 tags, 8-10 item groups with varying purchase frequency to exercise all stock level heuristics
 - [Phase 06]: Chart.js 4.5.1 UMD served as local file at lib/chart.umd.min.js — never CDN (SW cache-first strategy cannot cache opaque CDN responses)
 - [Phase 06]: parseLocalDate() splits YYYY-MM-DD string to prevent UTC midnight = previous day shift in US timezones
+- [Phase 06-foundation-and-history-tab]: renderHistory() repopulates vendor filter select on each call — ensures VENDOR_FILTER state preserved after re-render
+- [Phase 06-foundation-and-history-tab]: b.date.localeCompare(a.date) for ISO date sort — correct lexicographic order without Date parsing
+- [Phase 06-foundation-and-history-tab]: Playwright waitForLoadState('networkidle') in beforeEach prevents service worker controllerchange reload race in inventory tests
 
 ### Pending Todos
 
@@ -84,6 +88,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-14T16:26:24.036Z
-Stopped at: Completed 06-01-PLAN.md
+Last session: 2026-04-14T16:38:06.613Z
+Stopped at: Checkpoint: Task 3 human-verify for 06-02-PLAN.md
 Resume file: None
