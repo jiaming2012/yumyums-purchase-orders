@@ -142,6 +142,7 @@ const APPS=[
   {slug:'hiring',name:'Hiring',icon:'👥'},
   {slug:'bi',name:'BI',icon:'📊'},
   {slug:'onboarding',name:'Onboarding',icon:'🏃🏾'},
+  {slug:'inventory',name:'Inventory',icon:'📦'},
   {slug:'users',name:'Users',icon:'🔐'}
 ];
 
@@ -152,12 +153,14 @@ const DEFAULT_PERMS={
   scheduling:{admin:true,manager:true,team_member:true},
   hiring:{admin:true,manager:false,team_member:false},
   bi:{admin:true,manager:true,team_member:false},
+  onboarding:{admin:true,manager:true,team_member:true},
+  inventory:{admin:true,manager:true,team_member:false},
   users:{admin:true,manager:false,team_member:false}
 };
 
 // Individual user grants per app (user ids)
 const USER_GRANTS={
-  purchasing:[],payroll:[3],scheduling:[],hiring:[],bi:[4],users:[]
+  purchasing:[],payroll:[3],scheduling:[],hiring:[],bi:[4],onboarding:[],inventory:[],users:[]
 };
 
 function pillClass(role,status){
