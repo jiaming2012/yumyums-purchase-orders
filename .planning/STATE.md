@@ -3,11 +3,11 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Inventory App
 status: planning
-stopped_at: Milestone v1.1 started — defining requirements
-last_updated: "2026-04-14T08:49:35.353Z"
+stopped_at: Roadmap created — v1.1 phases 6-8 defined, ready to plan Phase 6
+last_updated: "2026-04-14T00:00:00.000Z"
 last_activity: 2026-04-14
 progress:
-  total_phases: 5
+  total_phases: 8
   completed_phases: 5
   total_plans: 12
   completed_plans: 12
@@ -21,48 +21,40 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-14)
 
 **Core value:** Operational tools that let the owner manage crew workflows and training from one mobile app.
-**Current focus:** v1.1 Inventory App — defining requirements
+**Current focus:** v1.1 Inventory App — Phase 6 ready to plan
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-04-14 — Milestone v1.1 started
-Last activity: 2026-04-14
+Phase: 6 of 8 (Foundation and History Tab)
+Plan: — of — in current phase
+Status: Ready to plan
+Last activity: 2026-04-14 — v1.1 roadmap created, 3 phases (6-8) defined
 
-Progress: [███░░░░░░░] 33%
+Progress: [█████░░░░░] 50%
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 1
-- Average duration: 3 min
-- Total execution time: 0.05 hours
+- Total plans completed: 12
+- Average duration: ~9 min
+- Total execution time: ~1.8 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 01-template-builder | 1/3 | 3 min | 3 min |
+| 01-template-builder | 3/3 | ~11 min | ~4 min |
+| 02-fill-out | 2/2 | ~16 min | ~8 min |
+| 03-photo-approval | 2/2 | ~10 min | ~5 min |
+| 04-onboarding-app | 3/3 | ~8 min | ~3 min |
+| 05-onboarding-builder | 2/2 | ~62 min | ~31 min |
 
 **Recent Trend:**
-
-- Last 5 plans: 3 min
-- Trend: —
+- Last 5 plans: 3, 5, 7, 15, 45 min
+- Trend: Variable (builder phases take longer)
 
 *Updated after each plan completion*
-| Phase 01-template-builder P02 | 3 | 2 tasks | 1 files |
-| Phase 01-template-builder P03 | 5min | 2 tasks | 1 files |
-| Phase 02 P02 | 8min | 1 tasks | 2 files |
-| Phase 03-photo-approval-and-integration P01 | 2min | 1 tasks | 2 files |
-| Phase 03-photo-approval-and-integration P02 | 8min | 2 tasks | 2 files |
-| Phase 04-onboarding-app P02 | 3min | 1 tasks | 2 files |
-| Phase 04-onboarding-app P03 | 5min | 2 tasks | 3 files |
-| Phase 05-onboarding-builder P01 | 7min | 1 tasks | 2 files |
-| Phase 05-onboarding-builder P02 | 15min | 2 tasks | 1 files |
-| Phase 05-onboarding-builder P02 | 45min | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -71,51 +63,23 @@ Progress: [███░░░░░░░] 33%
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
-- Init: Builder-first phase order — fill-out correctness depends on stable field IDs being frozen in Phase 1 before Phase 2 builds on top of them
-- Init: Photo capture isolated to Phase 3 — iOS single-use input bug requires dedicated real-device testing, separate from core fill-out flow
-- Init: JsonLogic CDN availability needs verification at cdnjs.com before Phase 1 embed (5-minute check, not a blocker)
-- 01-01: renderField() implemented as stub — full settings panel deferred to Plan 02
-- 01-01: sw.js bumped to v6 and workflows.html added to ASSETS cache list (Pitfall 10 prevention)
-- 01-01: event delegation pattern established — ONE click + ONE change listener on #builder-body, never inside render functions
-- [Phase 01-template-builder]: input event used for label/temp text fields (not change) to prevent cursor jump on re-render
-- [Phase 01-template-builder]: deleteField recalculates field.order on remaining fields to keep order array contiguous
-- [Phase 01-template-builder]: DAY_INDICES [1,2,3,4,5,6,0] maps Mon-first display order to JS Date.getDay() values for correct day condition evaluation in Phase 2
-- [Phase 01-template-builder]: skip-value-select uses JSON.stringify/JSON.parse round-trip for option value attributes to handle boolean and special string values
-- [Phase 02-fill-out-and-conditional-logic]: Kept MOCK_RESPONSES flat dict + added FAIL_NOTES dict alongside — no restructure of existing fill state needed
-- [Phase 02-fill-out-and-conditional-logic]: evaluateFailTrigger guards empty/null values to prevent false positive fail cards on initial field focus (Pitfall 7)
-- [Phase 02-fill-out-and-conditional-logic]: text-input and fail-note-input handlers do NOT re-render to prevent cursor jump (Pitfall 2)
-- [Phase 03-photo-approval-and-integration]: Fresh <input> element per capture (not reused) to avoid iOS single-use stall bug (Pitfall 9)
-- [Phase 03-photo-approval-and-integration]: Blob URL lifecycle: URL.revokeObjectURL called on retake to prevent memory leaks
-- [Phase 03-photo-approval-and-integration]: PENDING_APPROVALS stores snapshot of responses/failNotes at submit time for accurate approval card display
-- [Phase 03-photo-approval-and-integration]: Approve action sets SUBMITTED_TEMPLATES[tplId]=true so My Checklists shows Submitted badge after approval
-- [Phase 03-photo-approval-and-integration]: sw.js bumped v20 to v21: Plan 01 used v20, Plan 02 changes require another cache bust
-- [Phase 04-onboarding-app]: renderRunnerContent() is shared between crew and manager views via readOnly flag — avoids code duplication while preventing manager from editing crew progress
-- [Phase 04-onboarding-app]: assign-training patches SECTION_STATES directly (no delete+reinit) to preserve existing section progress when adding a new template
-- [Phase 04-onboarding-app]: Hiring tile converted to Onboarding tile (graduation cap emoji, same grid slot); SW v39→v40; onboarding added to APPS permission array
-- [Phase 05-onboarding-builder]: Builder tab uses separate obBuilderState to avoid collision with existing obState/mgrState view machines
-- [Phase 05-onboarding-builder]: Section placeholder bodies document Plan 02 scope clearly — items and Q&A managed in next plan
-- [Phase 05-onboarding-builder]: initOBSortable() targets .ob-field-list class shared by both item lists and FAQ Q&A lists for unified drag-to-reorder
-- [Phase 05-onboarding-builder]: No template duplication feature per D-17 — scope kept tight for Plan 02
-- [Phase 05-onboarding-builder]: initOBSortable() targets .ob-field-list class shared by both item lists and FAQ Q&A lists — unified drag-to-reorder with one querySelectorAll
-- [Phase 05-onboarding-builder]: show() re-renders all tabs on switch to fix stale builder state bug found during human verification; obState.view reset to null on tab switch
-- [Phase 05-onboarding-builder]: No template duplication feature per D-17 — scope kept tight for Plan 02
+- [v1.1 roadmap]: Chart.js 4.5.1 UMD served as local asset at /lib/chart.umd.min.js — never load from CDN (SW precache cannot cache CDN opaque responses)
+- [v1.1 roadmap]: 4-tab layout (History / Trends / Stock / Cost) established in Phase 6 shell; each tab is a future RBAC gate point per INTG-01
+- [v1.1 roadmap]: Trends and Cost tabs architected with swappable container pattern per INTG-02 — a `<div id="trends-container">` wrapper allows drop-in Metabase iframe replacement without touching History or Stock tabs
+- [v1.1 roadmap]: parseLocalDate() utility must be defined in Phase 6 before any date grouping logic — prevents UTC shift bug (new Date("YYYY-MM-DD") parses as midnight UTC = previous day in US timezones)
+- [v1.1 roadmap]: Mock data requires minimum 12 purchase events across 2+ calendar months, 3-4 vendors, 5 tags, 8-10 item groups with varying purchase frequency to exercise all stock level heuristics
 
 ### Pending Todos
 
 None yet.
 
-### Roadmap Evolution
-
-- Phase 4 added: Onboarding app — standalone HTML tool for new crew member onboarding (checklist per new hire, training progress, owner sign-off)
-- Phase 5 added: Onboarding Builder — Builder tab for creating/editing onboarding training templates
-
 ### Blockers/Concerns
 
-- iOS device required for Phase 2 testing (Pitfalls 5, 9) — confirm real iPhone in standalone PWA mode is available before starting Phase 2
-- JsonLogic CDN version needs verification at https://cdnjs.com/libraries/json-logic-js before Phase 1 begins
+- Chart.js UMD build must be downloaded to /lib/chart.umd.min.js before Phase 6 execution — confirm file exists or download step is first task
+- iOS device required for offline PWA testing (SW cache + Chart.js offline) — confirm real device available before Phase 6 human-verify checkpoint
 
 ## Session Continuity
 
-Last session: 2026-04-14T08:33:04.159Z
-Stopped at: Completed 05-02-PLAN.md — Phase 05 onboarding-builder complete
+Last session: 2026-04-14
+Stopped at: v1.1 roadmap written — ROADMAP.md, STATE.md, REQUIREMENTS.md traceability updated
 Resume file: None
