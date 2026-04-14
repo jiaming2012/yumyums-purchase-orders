@@ -64,6 +64,17 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .reorder-item:last-child{border-bottom:none}
 .reorder-item-name{font-size:13px;font-weight:500;color:var(--txt)}
 .reorder-item-meta{font-size:11px;color:var(--mut);margin-top:1px}
+.override-form{background:var(--bg);border-radius:8px;padding:12px;margin-top:8px}
+.override-radios{display:flex;gap:12px;margin-bottom:8px}
+.override-radios label{display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer}
+.override-radios input[type=radio]{accent-color:var(--info-tx)}
+.override-reason{width:100%;padding:8px;background:var(--card);border:0.5px solid var(--brd);border-radius:6px;font-size:13px;color:var(--txt);font-family:inherit}
+.override-actions{display:flex;gap:8px;margin-top:8px}
+.btn-override{padding:8px 16px;border-radius:8px;border:none;font-size:13px;font-weight:500;cursor:pointer;font-family:inherit}
+.btn-save{background:var(--info-bg);color:var(--info-tx)}
+.btn-cancel{background:var(--bg);color:var(--mut)}
+.btn-clear-override{background:transparent;color:var(--mut);border:none;font-size:12px;cursor:pointer;text-decoration:underline;padding:4px 0}
+.overridden-indicator{font-size:10px;color:var(--mut);font-style:italic;margin-left:6px}
 </style>
 </head>
 <body>
@@ -341,6 +352,8 @@ let EXPANDED_EVENTS={};
 let EXPANDED_STOCK_ITEMS={};
 let COLLAPSED_TAGS={};
 let VENDOR_FILTER='';
+let STOCK_OVERRIDES={};
+let OVERRIDE_FORM_OPEN=null;
 
 function show(n){
   [1,2,3,4].forEach(i=>{
@@ -432,7 +445,11 @@ function badgeHtml(level){
 
 function renderStock(){
   var stocks=calcStockLevels();
-  // Reorder suggestions
+  // Apply overrides to stock levels
+  stocks.forEach(s=>{
+    if(STOCK_OVERRIDES[s.groupId])s.level=STOCK_OVERRIDES[s.groupId].level;
+  });
+  // Reorder suggestions (use override-adjusted levels)
   var reorderEl=document.getElementById('reorder-section');
   var needsReorder=stocks.filter(s=>s.level==='low'||s.level==='medium');
   needsReorder.sort((a,b)=>LEVEL_ORDER[a.level]-LEVEL_ORDER[b.level]||a.groupName.localeCompare(b.groupName));
@@ -463,7 +480,9 @@ function renderStock(){
     if(!collapsed){
       items.forEach(s=>{
         var expanded=EXPANDED_STOCK_ITEMS[s.groupId];
-        html+='<div class="stock-item" data-action="toggle-stock-item" data-group-id="'+s.groupId+'"><span class="stock-item-name">'+s.groupName+'</span>'+badgeHtml(s.level)+'</div>';
+        var ovr=STOCK_OVERRIDES[s.groupId];
+        var badgeAndIndicator=badgeHtml(s.level)+(ovr?'<span class="overridden-indicator">Overridden</span>':'');
+        html+='<div class="stock-item" data-action="toggle-stock-item" data-group-id="'+s.groupId+'"><span class="stock-item-name">'+s.groupName+'</span>'+badgeAndIndicator+'</div>';
         if(expanded){
           var lastDate=s.lastPurchaseDate?formatDate(s.lastPurchaseDate):'Unknown';
           var vendor=s.lastVendor||'Unknown';
@@ -476,7 +495,18 @@ function renderStock(){
           html+='<div class="stock-detail-row"><span class="stock-detail-label">Avg weekly use</span><span class="stock-detail-value">'+freq+'</span></div>';
           html+='<div class="stock-detail-row"><span class="stock-detail-label">Last price</span><span class="stock-detail-value">'+price+'</span></div>';
           html+='<div class="stock-detail-row"><span class="stock-detail-label">Est. remaining</span><span class="stock-detail-value">'+remaining+'</span></div>';
-          html+='<button class="override-btn" data-action="show-override" data-group-id="'+s.groupId+'">Override Level</button>';
+          if(ovr){
+            html+='<div class="stock-detail-row"><span class="stock-detail-label">Override reason</span><span class="stock-detail-value">'+ovr.reason+'</span></div>';
+            html+='<button class="btn-clear-override" data-action="clear-override" data-group-id="'+s.groupId+'">Clear Override</button>';
+          } else if(OVERRIDE_FORM_OPEN===s.groupId){
+            html+='<div class="override-form">';
+            html+='<div class="override-radios"><label><input type="radio" name="override-level" value="low"> Low</label><label><input type="radio" name="override-level" value="medium"> Medium</label><label><input type="radio" name="override-level" value="high"> High</label></div>';
+            html+='<input class="override-reason" placeholder="Reason for override..." data-group-id="'+s.groupId+'">';
+            html+='<div class="override-actions"><button class="btn-override btn-save" data-action="save-override" data-group-id="'+s.groupId+'">Save Override</button><button class="btn-override btn-cancel" data-action="cancel-override">Cancel</button></div>';
+            html+='</div>';
+          } else {
+            html+='<button class="override-btn" data-action="show-override" data-group-id="'+s.groupId+'">Override Level</button>';
+          }
           html+='</div>';
         }
       });
@@ -498,6 +528,24 @@ document.addEventListener('click',function(e){
   } else if(action==='toggle-tag'){
     var tid=el.dataset.tagId;
     COLLAPSED_TAGS[tid]=!COLLAPSED_TAGS[tid];
+    renderStock();
+  } else if(action==='show-override'){
+    OVERRIDE_FORM_OPEN=el.dataset.groupId;
+    renderStock();
+  } else if(action==='save-override'){
+    var gid=el.dataset.groupId;
+    var radio=document.querySelector('input[name="override-level"]:checked');
+    if(!radio)return;
+    var reason=(document.querySelector('.override-reason')||{}).value||'';
+    STOCK_OVERRIDES[gid]={level:radio.value,reason:reason,timestamp:new Date()};
+    OVERRIDE_FORM_OPEN=null;
+    renderStock();
+  } else if(action==='cancel-override'){
+    OVERRIDE_FORM_OPEN=null;
+    renderStock();
+  } else if(action==='clear-override'){
+    var gid=el.dataset.groupId;
+    delete STOCK_OVERRIDES[gid];
     renderStock();
   }
 });
