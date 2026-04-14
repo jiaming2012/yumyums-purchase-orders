@@ -48,6 +48,16 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .assign-picker{background:var(--card);border:0.5px solid var(--brd);border-radius:12px;padding:8px;margin-top:8px}
 .assign-row{padding:10px 12px;cursor:pointer;border-radius:8px;font-size:14px;min-height:44px;display:flex;align-items:center}
 .assign-row:active{background:var(--brd)}
+.drag-handle{cursor:grab;padding:0 4px;color:var(--mut);font-size:16px;flex-shrink:0;user-select:none}
+.ob-item-card{background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;padding:10px 12px;margin-bottom:6px}
+.ob-item-header{display:flex;align-items:center;gap:6px;min-height:36px}
+.ob-item-body{padding:8px 0 0 28px}
+.ob-part-row{display:flex;align-items:flex-start;gap:6px;padding:6px 0;border-bottom:0.5px solid var(--brd)}
+.ob-part-row:last-child{border-bottom:none}
+.ob-qna-row{padding:8px 0;border-bottom:0.5px solid var(--brd)}
+.ob-qna-row:last-child{border-bottom:none}
+.ob-field-list{min-height:20px}
+.ob-section-list{min-height:20px}
 </style>
 </head>
 <body>
@@ -347,8 +357,50 @@ function createNewOBTemplate(name, role) {
 function createNewOBSection(title) {
   return { id: generateOBId('sec'), title: title, requiresSignOff: false, isFaq: false, items: [] };
 }
+function createNewOBCheckbox(label) {
+  return { id: generateOBId('itm'), type: 'checkbox', label: label || '', subItems: [] };
+}
+function createNewOBVideoSeries(label) {
+  return { id: generateOBId('vs'), type: 'video_series', label: label || '', parts: [] };
+}
+function createNewOBVideoPart() {
+  return { id: generateOBId('vp'), title: '', desc: '', url: '' };
+}
+function createNewOBFaqItem() {
+  return { id: generateOBId('faq'), question: '', answer: '' };
+}
 function escapeOBAttr(str) {
   return String(str || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+var obSortableInstances = [];
+function initOBSortable() {
+  obSortableInstances.forEach(function(s) { s.destroy(); });
+  obSortableInstances = [];
+  document.querySelectorAll('.ob-field-list').forEach(function(el) {
+    var secId = el.dataset.sectionId;
+    obSortableInstances.push(Sortable.create(el, {
+      handle: '.drag-handle',
+      animation: 150,
+      onEnd: function(evt) {
+        var sec = obBuilderState.activeTemplate.sections.find(function(s) { return s.id === secId; });
+        if (sec) {
+          var moved = sec.items.splice(evt.oldIndex, 1)[0];
+          sec.items.splice(evt.newIndex, 0, moved);
+        }
+      }
+    }));
+  });
+  var secList = document.querySelector('.ob-section-list');
+  if (secList) {
+    obSortableInstances.push(Sortable.create(secList, {
+      handle: '.ob-sec-drag',
+      animation: 150,
+      onEnd: function(evt) {
+        var moved = obBuilderState.activeTemplate.sections.splice(evt.oldIndex, 1)[0];
+        obBuilderState.activeTemplate.sections.splice(evt.newIndex, 0, moved);
+      }
+    }));
+  }
 }
 function renderOBBuilder() {
   var body = document.getElementById('builder-body');
@@ -358,6 +410,7 @@ function renderOBBuilder() {
   } else {
     body.innerHTML = renderOBEditor();
   }
+  if (obBuilderState.view === 'editor') initOBSortable();
 }
 function renderOBTemplateList() {
   var html = '';
@@ -377,12 +430,61 @@ function renderOBTemplateList() {
   html += '<button class="btn-primary" data-action="new-template">+ New Template</button>';
   return html;
 }
+function renderOBCheckboxItem(item, secId, idx) {
+  var html = '<div class="ob-item-card" data-item-id="'+item.id+'">';
+  html += '<div class="ob-item-header">';
+  html += '<span class="drag-handle">&#9776;</span>';
+  html += '<input type="text" value="'+escapeOBAttr(item.label)+'" data-action="item-label-input" data-sec-id="'+secId+'" data-item-idx="'+idx+'" placeholder="Checkbox label" style="flex:1;padding:6px 8px;background:var(--card);border:0.5px solid var(--brd);border-radius:6px;font-size:13px;color:var(--txt);font-family:inherit;outline:none">';
+  html += '<span style="font-size:11px;color:var(--mut);white-space:nowrap">Checkbox</span>';
+  html += '<span data-action="delete-ob-item" data-sec-id="'+secId+'" data-item-idx="'+idx+'" style="color:#c0392b;cursor:pointer;font-size:14px">&#10005;</span>';
+  html += '</div>';
+  var subItems = item.subItems || [];
+  html += '<div class="ob-item-body">';
+  subItems.forEach(function(sub, subIdx) {
+    html += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">';
+    html += '<input type="text" value="'+escapeOBAttr(sub.label)+'" data-action="sub-item-label-input" data-sec-id="'+secId+'" data-item-idx="'+idx+'" data-sub-idx="'+subIdx+'" placeholder="Sub-item label" style="flex:1;padding:4px 8px;background:var(--card);border:0.5px solid var(--brd);border-radius:6px;font-size:12px;color:var(--txt);font-family:inherit;outline:none">';
+    html += '<span data-action="delete-sub-item" data-sec-id="'+secId+'" data-item-idx="'+idx+'" data-sub-idx="'+subIdx+'" style="color:#c0392b;cursor:pointer;font-size:12px">&#10005;</span>';
+    html += '</div>';
+  });
+  html += '<button data-action="add-sub-item" data-sec-id="'+secId+'" data-item-idx="'+idx+'" style="padding:4px 10px;background:var(--info-bg);color:var(--info-tx);border:none;border-radius:6px;font-size:11px;font-weight:500;cursor:pointer;margin-top:2px">+ Sub-item</button>';
+  html += '</div>';
+  html += '</div>';
+  return html;
+}
+function renderOBVideoItem(item, secId, idx) {
+  var html = '<div class="ob-item-card" data-item-id="'+item.id+'">';
+  html += '<div class="ob-item-header">';
+  html += '<span class="drag-handle">&#9776;</span>';
+  html += '<input type="text" value="'+escapeOBAttr(item.label)+'" data-action="item-label-input" data-sec-id="'+secId+'" data-item-idx="'+idx+'" placeholder="Video series title" style="flex:1;padding:6px 8px;background:var(--card);border:0.5px solid var(--brd);border-radius:6px;font-size:13px;color:var(--txt);font-family:inherit;outline:none">';
+  html += '<span style="font-size:11px;color:var(--mut);white-space:nowrap">Video</span>';
+  html += '<span data-action="delete-ob-item" data-sec-id="'+secId+'" data-item-idx="'+idx+'" style="color:#c0392b;cursor:pointer;font-size:14px">&#10005;</span>';
+  html += '</div>';
+  html += '<div class="ob-item-body">';
+  var parts = item.parts || [];
+  parts.forEach(function(part, pIdx) {
+    html += '<div class="ob-part-row">';
+    html += '<div style="flex:1">';
+    html += '<input type="text" value="'+escapeOBAttr(part.title)+'" data-action="part-title-input" data-sec-id="'+secId+'" data-item-idx="'+idx+'" data-part-idx="'+pIdx+'" placeholder="Part title" style="width:100%;padding:4px 8px;background:var(--card);border:0.5px solid var(--brd);border-radius:6px;font-size:13px;color:var(--txt);font-family:inherit;outline:none;margin-bottom:4px">';
+    html += '<input type="text" value="'+escapeOBAttr(part.desc)+'" data-action="part-desc-input" data-sec-id="'+secId+'" data-item-idx="'+idx+'" data-part-idx="'+pIdx+'" placeholder="Description" style="width:100%;padding:4px 8px;background:var(--card);border:0.5px solid var(--brd);border-radius:6px;font-size:12px;color:var(--txt);font-family:inherit;outline:none;margin-bottom:4px">';
+    html += '<input type="text" value="'+escapeOBAttr(part.url)+'" data-action="part-url-input" data-sec-id="'+secId+'" data-item-idx="'+idx+'" data-part-idx="'+pIdx+'" placeholder="Video URL" style="width:100%;padding:4px 8px;background:var(--card);border:0.5px solid var(--brd);border-radius:6px;font-size:12px;color:var(--txt);font-family:inherit;outline:none">';
+    html += '</div>';
+    html += '<span data-action="delete-video-part" data-sec-id="'+secId+'" data-item-idx="'+idx+'" data-part-idx="'+pIdx+'" style="color:#c0392b;cursor:pointer;font-size:12px;padding-top:4px">&#10005;</span>';
+    html += '</div>';
+  });
+  html += '<button data-action="add-video-part" data-sec-id="'+secId+'" data-item-idx="'+idx+'" style="padding:4px 10px;background:var(--info-bg);color:var(--info-tx);border:none;border-radius:6px;font-size:11px;font-weight:500;cursor:pointer;margin-top:4px">+ Add Part</button>';
+  html += '</div>';
+  html += '</div>';
+  return html;
+}
 function renderOBSection(sec) {
   var soStyle = sec.requiresSignOff ? 'background:rgba(39,174,96,0.12);color:#27ae60' : 'background:var(--brd);color:var(--mut)';
   var faqStyle = sec.isFaq ? 'background:rgba(39,174,96,0.12);color:#27ae60' : 'background:var(--brd);color:var(--mut)';
-  var html = '<div class="card" style="margin-bottom:8px">';
+  var html = '<div class="card" style="margin-bottom:8px" data-sec-id="'+sec.id+'">';
   html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">';
+  html += '<div style="display:flex;align-items:center;gap:6px">';
+  html += '<span class="ob-sec-drag drag-handle">&#9776;</span>';
   html += '<span style="font-size:12px;font-weight:500;text-transform:uppercase;letter-spacing:0.5px;color:var(--mut)">'+escapeOBAttr(sec.title)+'</span>';
+  html += '</div>';
   html += '<div style="display:flex;gap:4px;align-items:center">';
   html += '<button class="pill'+(sec.requiresSignOff?' pill-ok':'')+'" data-action="toggle-signoff" data-sec-id="'+sec.id+'" style="cursor:pointer;border:none;font-size:11px;padding:2px 8px;border-radius:8px;'+soStyle+'">SO</button>';
   html += '<button class="pill'+(sec.isFaq?' pill-ok':'')+'" data-action="toggle-faq-mode" data-sec-id="'+sec.id+'" style="cursor:pointer;border:none;font-size:11px;padding:2px 8px;border-radius:8px;'+faqStyle+'">FAQ</button>';
@@ -391,9 +493,35 @@ function renderOBSection(sec) {
   html += '</div>';
   html += '<input type="text" value="'+escapeOBAttr(sec.title)+'" data-action="sec-title-input" data-sec-id="'+sec.id+'" placeholder="Section title" style="width:100%;padding:8px 10px;background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;font-size:13px;color:var(--txt);font-family:inherit;outline:none;margin-bottom:8px">';
   if (sec.isFaq) {
-    html += '<div style="font-size:12px;color:var(--mut);padding:8px 0">Q&amp;A items &mdash; managed in Plan 02</div>';
+    var faqHtml = '<div class="ob-field-list" data-section-id="'+sec.id+'">';
+    sec.items.forEach(function(faqItem, idx) {
+      faqHtml += '<div class="ob-qna-row" data-item-id="'+faqItem.id+'">'+
+        '<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">'+
+        '<span class="drag-handle">&#9776;</span>'+
+        '<input type="text" value="'+escapeOBAttr(faqItem.question)+'" data-action="faq-q-input" data-sec-id="'+sec.id+'" data-faq-idx="'+idx+'" placeholder="Question" style="flex:1;padding:6px 8px;background:var(--card);border:0.5px solid var(--brd);border-radius:6px;font-size:13px;color:var(--txt);font-family:inherit;outline:none">'+
+        '<span data-action="delete-faq-item" data-sec-id="'+sec.id+'" data-faq-idx="'+idx+'" style="color:#c0392b;cursor:pointer;font-size:14px">&#10005;</span>'+
+        '</div>'+
+        '<textarea data-action="faq-a-input" data-sec-id="'+sec.id+'" data-faq-idx="'+idx+'" placeholder="Answer" rows="2" style="width:100%;padding:6px 8px;background:var(--card);border:0.5px solid var(--brd);border-radius:6px;font-size:13px;color:var(--txt);font-family:inherit;outline:none;resize:vertical;margin-left:28px;box-sizing:border-box">'+escapeOBAttr(faqItem.answer)+'</textarea>'+
+        '</div>';
+    });
+    faqHtml += '</div>';
+    faqHtml += '<button data-action="add-faq-item" data-sec-id="'+sec.id+'" style="margin-top:6px;padding:6px 12px;background:var(--info-bg);color:var(--info-tx);border:none;border-radius:8px;font-size:12px;font-weight:500;cursor:pointer">+ Add Q&amp;A</button>';
+    html += faqHtml;
   } else {
-    html += '<div style="font-size:12px;color:var(--mut);padding:8px 0">Items &mdash; managed in Plan 02</div>';
+    var itemsHtml = '<div class="ob-field-list" data-section-id="'+sec.id+'">';
+    sec.items.forEach(function(item, idx) {
+      if (item.type === 'checkbox') {
+        itemsHtml += renderOBCheckboxItem(item, sec.id, idx);
+      } else if (item.type === 'video_series') {
+        itemsHtml += renderOBVideoItem(item, sec.id, idx);
+      }
+    });
+    itemsHtml += '</div>';
+    itemsHtml += '<div style="display:flex;gap:6px;margin-top:6px">'+
+      '<button data-action="add-ob-item" data-sec-id="'+sec.id+'" data-item-type="checkbox" style="padding:6px 12px;background:var(--info-bg);color:var(--info-tx);border:none;border-radius:8px;font-size:12px;font-weight:500;cursor:pointer">+ Checkbox</button>'+
+      '<button data-action="add-ob-item" data-sec-id="'+sec.id+'" data-item-type="video_series" style="padding:6px 12px;background:var(--info-bg);color:var(--info-tx);border:none;border-radius:8px;font-size:12px;font-weight:500;cursor:pointer">+ Video Series</button>'+
+      '</div>';
+    html += itemsHtml;
   }
   html += '</div>';
   return html;
@@ -410,9 +538,11 @@ function renderOBEditor() {
     html += '<option value="'+r+'"'+(tpl.role===r?' selected':'')+'>'+r.replace(/_/g,' ')+'</option>';
   });
   html += '</select>';
+  html += '<div class="ob-section-list">';
   tpl.sections.forEach(function(sec) {
     html += renderOBSection(sec);
   });
+  html += '</div>';
   html += '<button class="btn-primary" data-action="add-ob-section" style="margin-top:8px">+ Add Section</button>';
   html += '<button style="width:100%;padding:12px;background:transparent;color:#c0392b;border:0.5px solid #c0392b;border-radius:8px;font-size:14px;font-weight:500;cursor:pointer;margin-top:24px" data-action="delete-template">Delete Template</button>';
   return html;
@@ -840,6 +970,73 @@ document.getElementById('builder-body').addEventListener('click', function(e) {
   } else if (action === 'toggle-faq-mode') {
     var sec = obBuilderState.activeTemplate.sections.find(function(s) { return s.id === btn.dataset.secId; });
     if (sec) { sec.isFaq = !sec.isFaq; renderOBBuilder(); }
+  } else if (action === 'add-ob-item') {
+    var sec = obBuilderState.activeTemplate.sections.find(function(s) { return s.id === btn.dataset.secId; });
+    if (sec) {
+      var itemType = btn.dataset.itemType;
+      if (itemType === 'checkbox') {
+        sec.items.push(createNewOBCheckbox(''));
+      } else if (itemType === 'video_series') {
+        sec.items.push(createNewOBVideoSeries(''));
+      }
+      renderOBBuilder();
+    }
+  } else if (action === 'delete-ob-item') {
+    var sec = obBuilderState.activeTemplate.sections.find(function(s) { return s.id === btn.dataset.secId; });
+    if (sec) {
+      sec.items.splice(+btn.dataset.itemIdx, 1);
+      renderOBBuilder();
+    }
+  } else if (action === 'add-sub-item') {
+    var sec = obBuilderState.activeTemplate.sections.find(function(s) { return s.id === btn.dataset.secId; });
+    if (sec) {
+      var item = sec.items[+btn.dataset.itemIdx];
+      if (item) {
+        if (!item.subItems) item.subItems = [];
+        item.subItems.push({ id: generateOBId('sub'), label: '' });
+        renderOBBuilder();
+      }
+    }
+  } else if (action === 'delete-sub-item') {
+    var sec = obBuilderState.activeTemplate.sections.find(function(s) { return s.id === btn.dataset.secId; });
+    if (sec) {
+      var item = sec.items[+btn.dataset.itemIdx];
+      if (item && item.subItems) {
+        item.subItems.splice(+btn.dataset.subIdx, 1);
+        renderOBBuilder();
+      }
+    }
+  } else if (action === 'add-video-part') {
+    var sec = obBuilderState.activeTemplate.sections.find(function(s) { return s.id === btn.dataset.secId; });
+    if (sec) {
+      var item = sec.items[+btn.dataset.itemIdx];
+      if (item) {
+        if (!item.parts) item.parts = [];
+        item.parts.push(createNewOBVideoPart());
+        renderOBBuilder();
+      }
+    }
+  } else if (action === 'delete-video-part') {
+    var sec = obBuilderState.activeTemplate.sections.find(function(s) { return s.id === btn.dataset.secId; });
+    if (sec) {
+      var item = sec.items[+btn.dataset.itemIdx];
+      if (item && item.parts) {
+        item.parts.splice(+btn.dataset.partIdx, 1);
+        renderOBBuilder();
+      }
+    }
+  } else if (action === 'add-faq-item') {
+    var sec = obBuilderState.activeTemplate.sections.find(function(s) { return s.id === btn.dataset.secId; });
+    if (sec) {
+      sec.items.push(createNewOBFaqItem());
+      renderOBBuilder();
+    }
+  } else if (action === 'delete-faq-item') {
+    var sec = obBuilderState.activeTemplate.sections.find(function(s) { return s.id === btn.dataset.secId; });
+    if (sec) {
+      sec.items.splice(+btn.dataset.faqIdx, 1);
+      renderOBBuilder();
+    }
   }
 });
 document.getElementById('builder-body').addEventListener('input', function(e) {
@@ -848,6 +1045,42 @@ document.getElementById('builder-body').addEventListener('input', function(e) {
   } else if (e.target.dataset.action === 'sec-title-input') {
     var sec = obBuilderState.activeTemplate.sections.find(function(s) { return s.id === e.target.dataset.secId; });
     if (sec) sec.title = e.target.value;
+  } else if (e.target.dataset.action === 'item-label-input') {
+    var sec = obBuilderState.activeTemplate.sections.find(function(s) { return s.id === e.target.dataset.secId; });
+    if (sec) {
+      var item = sec.items[+e.target.dataset.itemIdx];
+      if (item) item.label = e.target.value;
+    }
+  } else if (e.target.dataset.action === 'sub-item-label-input') {
+    var sec = obBuilderState.activeTemplate.sections.find(function(s) { return s.id === e.target.dataset.secId; });
+    if (sec) {
+      var item = sec.items[+e.target.dataset.itemIdx];
+      if (item && item.subItems) item.subItems[+e.target.dataset.subIdx].label = e.target.value;
+    }
+  } else if (e.target.dataset.action === 'part-title-input') {
+    var sec = obBuilderState.activeTemplate.sections.find(function(s) { return s.id === e.target.dataset.secId; });
+    if (sec) {
+      var item = sec.items[+e.target.dataset.itemIdx];
+      if (item && item.parts) item.parts[+e.target.dataset.partIdx].title = e.target.value;
+    }
+  } else if (e.target.dataset.action === 'part-desc-input') {
+    var sec = obBuilderState.activeTemplate.sections.find(function(s) { return s.id === e.target.dataset.secId; });
+    if (sec) {
+      var item = sec.items[+e.target.dataset.itemIdx];
+      if (item && item.parts) item.parts[+e.target.dataset.partIdx].desc = e.target.value;
+    }
+  } else if (e.target.dataset.action === 'part-url-input') {
+    var sec = obBuilderState.activeTemplate.sections.find(function(s) { return s.id === e.target.dataset.secId; });
+    if (sec) {
+      var item = sec.items[+e.target.dataset.itemIdx];
+      if (item && item.parts) item.parts[+e.target.dataset.partIdx].url = e.target.value;
+    }
+  } else if (e.target.dataset.action === 'faq-q-input') {
+    var sec = obBuilderState.activeTemplate.sections.find(function(s) { return s.id === e.target.dataset.secId; });
+    if (sec && sec.items[+e.target.dataset.faqIdx]) sec.items[+e.target.dataset.faqIdx].question = e.target.value;
+  } else if (e.target.dataset.action === 'faq-a-input') {
+    var sec = obBuilderState.activeTemplate.sections.find(function(s) { return s.id === e.target.dataset.secId; });
+    if (sec && sec.items[+e.target.dataset.faqIdx]) sec.items[+e.target.dataset.faqIdx].answer = e.target.value;
   }
 });
 document.getElementById('builder-body').addEventListener('change', function(e) {
@@ -869,6 +1102,7 @@ renderOBBuilder();
 document.addEventListener('dblclick', function(e) { e.preventDefault(); });
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
 </script>
+<script src="https://unpkg.com/sortablejs@1.15.7/Sortable.min.js"></script>
 <script src="ptr.js"></script>
 </body>
 </html>
