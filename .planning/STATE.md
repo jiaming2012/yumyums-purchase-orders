@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 04-02-PLAN.md
-last_updated: "2026-04-14T03:04:38.940Z"
+stopped_at: Completed 04-03-PLAN.md — Phase 04 onboarding-app fully complete
+last_updated: "2026-04-14T03:24:24.695Z"
 last_activity: 2026-04-14
 progress:
   total_phases: 4
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 10
-  completed_plans: 9
+  completed_plans: 10
   percent: 33
 ---
 
@@ -25,8 +25,8 @@ See: .planning/PROJECT.md (updated 2026-04-13)
 
 ## Current Position
 
-Phase: 04 (onboarding-app) — EXECUTING
-Plan: 2 of 3
+Phase: 04
+Plan: Not started
 Status: Ready to execute
 Last activity: 2026-04-14
 
@@ -58,6 +58,7 @@ Progress: [███░░░░░░░] 33%
 | Phase 03-photo-approval-and-integration P01 | 2min | 1 tasks | 2 files |
 | Phase 03-photo-approval-and-integration P02 | 8min | 2 tasks | 2 files |
 | Phase 04-onboarding-app P02 | 3min | 1 tasks | 2 files |
+| Phase 04-onboarding-app P03 | 5min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -86,6 +87,7 @@ Recent decisions affecting current work:
 - [Phase 03-photo-approval-and-integration]: sw.js bumped v20 to v21: Plan 01 used v20, Plan 02 changes require another cache bust
 - [Phase 04-onboarding-app]: renderRunnerContent() is shared between crew and manager views via readOnly flag — avoids code duplication while preventing manager from editing crew progress
 - [Phase 04-onboarding-app]: assign-training patches SECTION_STATES directly (no delete+reinit) to preserve existing section progress when adding a new template
+- [Phase 04-onboarding-app]: Hiring tile converted to Onboarding tile (graduation cap emoji, same grid slot); SW v39→v40; onboarding added to APPS permission array
 
 ### Pending Todos
 
@@ -102,6 +104,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-14T03:04:38.933Z
-Stopped at: Completed 04-02-PLAN.md
+Last session: 2026-04-14T03:17:31.842Z
+Stopped at: Completed 04-03-PLAN.md — Phase 04 onboarding-app fully complete
 Resume file: None

@@ -15,7 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 1: Template Builder** - Lock the data model and build the owner/manager template editor with section grouping, all field types, drag-to-reorder, and day-of-week + skip logic conditions
 - [x] **Phase 2: Fill-Out and Conditional Logic** - Build the crew fill-out experience end-to-end: checklist runner, all non-photo field types, fail triggers, inline corrective actions, and completion tracking (completed 2026-04-13)
 - [x] **Phase 3: Photo, Approval, and Integration** - Add photo capture (isolated iOS testing), manager approval flow, and wire the app into the HQ launcher with pre-built food truck templates (completed 2026-04-13)
-- [ ] **Phase 4: Onboarding App** - Standalone onboarding tool for new crew member onboarding: checklist per new hire, training progress tracking, owner sign-off
+- [x] **Phase 4: Onboarding App** - Standalone onboarding tool for new crew member onboarding: checklist per new hire, training progress tracking, owner sign-off (completed 2026-04-14)
 
 ## Phase Details
 
@@ -84,7 +84,7 @@ Plans:
 Plans:
 - [x] 04-01-PLAN.md — Page scaffold, data model, My Trainings tab with checklist runner, section lock, video items, FAQ gate
 - [x] 04-02-PLAN.md — Manager tab with hire cards, read-only drill-down, sign-off approve/send-back, assign training
-- [ ] 04-03-PLAN.md — HQ integration (index.html tile, sw.js cache, users.html APPS) + human-verify checkpoint
+- [x] 04-03-PLAN.md — HQ integration (index.html tile, sw.js cache, users.html APPS) + human-verify checkpoint
 
 **UI hint**: yes
 
@@ -98,4 +98,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | 1. Template Builder | 2/3 | In Progress|  |
 | 2. Fill-Out and Conditional Logic | 2/2 | Complete   | 2026-04-13 |
 | 3. Photo, Approval, and Integration | 2/2 | Complete   | 2026-04-13 |
-| 4. Onboarding App | 2/3 | In Progress|  |
+| 4. Onboarding App | 3/3 | Complete   | 2026-04-14 |
