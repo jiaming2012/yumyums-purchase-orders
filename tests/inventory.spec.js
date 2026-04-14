@@ -180,10 +180,12 @@ test.describe('Inventory', () => {
     await expect(page.locator('.override-form')).not.toBeVisible();
   });
 
-  test('Cost tab shows Coming Soon placeholder', async ({ page }) => {
+  // COST-01: Cost tab shows menu item cost cards
+  test('Cost tab shows menu item cost cards', async ({ page }) => {
     await page.click('#t4');
     await expect(page.locator('#s4')).toBeVisible();
-    await expect(page.locator('#s4')).toContainText('Food Cost Intelligence');
+    await expect(page.locator('#cost-container')).toContainText('Cheesesteak');
+    await expect(page.locator('#cost-container')).toContainText('Salmon Bowl');
   });
 
   // Chart.js loaded (HIST-04 prerequisite)
@@ -284,6 +286,85 @@ test.describe('Inventory', () => {
     const backLink = page.locator('a.back');
     await expect(backLink).toBeVisible();
     await expect(backLink).toHaveAttribute('href', 'index.html');
+  });
+
+  // TRND-01: Bar chart of spending by tag category
+  test('Trends tab shows bar chart by category', async ({ page }) => {
+    await page.click('#t2');
+    await expect(page.locator('#s2')).toBeVisible();
+    const barCanvas = page.locator('#trend-bar');
+    await expect(barCanvas).toBeVisible();
+    const box = await barCanvas.boundingBox();
+    expect(box.width).toBeGreaterThan(0);
+    expect(box.height).toBeGreaterThan(0);
+  });
+
+  // TRND-02: Doughnut chart of spending proportions
+  test('Trends tab shows doughnut chart', async ({ page }) => {
+    await page.click('#t2');
+    const doughnutCanvas = page.locator('#trend-doughnut');
+    await expect(doughnutCanvas).toBeVisible();
+    const box = await doughnutCanvas.boundingBox();
+    expect(box.width).toBeGreaterThan(0);
+    expect(box.height).toBeGreaterThan(0);
+  });
+
+  // TRND-03: Monthly trend line chart
+  test('Trends Over Time sub-tab shows line chart', async ({ page }) => {
+    await page.click('#t2');
+    await page.click('[data-action="trends-subtab"][data-sub="2"]');
+    const lineCanvas = page.locator('#trend-line');
+    await expect(lineCanvas).toBeVisible();
+    const box = await lineCanvas.boundingBox();
+    expect(box.width).toBeGreaterThan(0);
+    expect(box.height).toBeGreaterThan(0);
+  });
+
+  // TRND-04: Tag filter chips narrow charts
+  test('Trends tag chips filter charts', async ({ page }) => {
+    await page.click('#t2');
+    const chips = page.locator('.chip');
+    await expect(chips.first()).toBeVisible();
+    await page.click('.chip[data-tag-id="tag_1"]');
+    await expect(page.locator('.chip[data-tag-id="tag_1"]')).toHaveClass(/on/);
+    await expect(page.locator('#trend-bar')).toBeVisible();
+  });
+
+  // Tab switching does not break charts (Pitfall 3)
+  test('Trends charts render correctly after tab round-trip', async ({ page }) => {
+    await page.click('#t2');
+    await expect(page.locator('#trend-bar')).toBeVisible();
+    await page.click('#t1');
+    await page.click('#t2');
+    await expect(page.locator('#trend-bar')).toBeVisible();
+    const logs = [];
+    page.on('console', msg => { if(msg.type() === 'error') logs.push(msg.text()); });
+    await page.click('#t1');
+    await page.click('#t2');
+    expect(logs.filter(l => l.includes('Canvas'))).toHaveLength(0);
+  });
+
+  // COST-02: Menu item expands to show ingredient table
+  test('Cost tab menu item expands to show ingredients', async ({ page }) => {
+    await page.click('#t4');
+    await page.click('[data-action="toggle-menu-item"][data-menu-id="menu_1"]');
+    await expect(page.locator('#cost-container')).toContainText('Beef');
+    await expect(page.locator('#cost-container')).toContainText('Cheese');
+  });
+
+  // COST-03: Ingredient reverse-lookup
+  test('Cost tab Ingredients sub-tab shows reverse lookup', async ({ page }) => {
+    await page.click('#t4');
+    await page.click('[data-action="cost-subtab"][data-sub="2"]');
+    await expect(page.locator('#cost-container')).toContainText('Beef');
+    await page.click('[data-action="toggle-ingredient"][data-group-id="grp_1"]');
+    await expect(page.locator('#cost-container')).toContainText('Cheesesteak');
+  });
+
+  // INTG-02: Metabase swap architecture
+  test('Trends and Cost containers have wrapper divs for Metabase swap', async ({ page }) => {
+    await expect(page.locator('#trends-container')).toHaveCount(1);
+    await expect(page.locator('#cost-container')).toHaveCount(1);
   });
 
 });
