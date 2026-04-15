@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 04-03-PLAN.md — Phase 04 onboarding-app fully complete
-last_updated: "2026-04-14T03:24:24.695Z"
+stopped_at: Completed 09-01-PLAN.md
+last_updated: "2026-04-15T02:53:00.757Z"
 last_activity: 2026-04-14
 progress:
   total_phases: 4
-  completed_phases: 4
-  total_plans: 10
-  completed_plans: 10
+  completed_phases: 3
+  total_plans: 7
+  completed_plans: 8
   percent: 33
 ---
 
@@ -59,6 +59,7 @@ Progress: [███░░░░░░░] 33%
 | Phase 03-photo-approval-and-integration P02 | 8min | 2 tasks | 2 files |
 | Phase 04-onboarding-app P02 | 3min | 1 tasks | 2 files |
 | Phase 04-onboarding-app P03 | 5min | 2 tasks | 3 files |
+| Phase 09-foundation-auth P01 | 12 | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -88,6 +89,8 @@ Recent decisions affecting current work:
 - [Phase 04-onboarding-app]: renderRunnerContent() is shared between crew and manager views via readOnly flag — avoids code duplication while preventing manager from editing crew progress
 - [Phase 04-onboarding-app]: assign-training patches SECTION_STATES directly (no delete+reinit) to preserve existing section progress when adding a new template
 - [Phase 04-onboarding-app]: Hiring tile converted to Onboarding tile (graduation cap emoji, same grid slot); SW v39→v40; onboarding added to APPS permission array
+- [Phase 09-foundation-auth]: embed.FS public/ dir must be relative to source file (cmd/server/public/), not module root
+- [Phase 09-foundation-auth]: Go embed respects .gitignore — removed gitignore from public/ dir to allow embed to work
 
 ### Pending Todos
 
@@ -104,6 +107,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-14T03:17:31.842Z
-Stopped at: Completed 04-03-PLAN.md — Phase 04 onboarding-app fully complete
+Last session: 2026-04-15T02:53:00.750Z
+Stopped at: Completed 09-01-PLAN.md
 Resume file: None
