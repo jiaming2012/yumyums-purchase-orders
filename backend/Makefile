@@ -2,7 +2,7 @@ DB_URL ?= postgres://yumyums:yumyums@localhost:5432/yumyums?sslmode=disable
 PORT ?= 8080
 STATIC_DIR ?= ..
 
-.PHONY: dev build db-start db-stop db-reset db-seed
+.PHONY: dev build db-start db-stop db-reset db-seed seed
 
 dev:
 	STATIC_DIR=$(STATIC_DIR) PORT=$(PORT) DB_URL=$(DB_URL) SUPERADMIN_CONFIG=config/superadmins.yaml go run ./cmd/server
@@ -29,6 +29,9 @@ db-stop:
 db-reset: db-stop
 	docker volume rm yumyums-pgdata
 	$(MAKE) db-start
+
+seed:
+	DB_URL=$(DB_URL) go run ./cmd/seed
 
 db-seed:
 	@echo "Seeding hq_apps..."
