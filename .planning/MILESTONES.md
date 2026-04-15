@@ -1,5 +1,19 @@
 # Milestones
 
+## v1.1 Inventory App (Shipped: 2026-04-15)
+
+**Phases completed:** 3 phases, 6 plans, 13 tasks
+
+**Key accomplishments:**
+
+- One-liner:
+- renderHistory() with event cards sorted newest-first, expandable line items showing name/qty/price/CASE badge, vendor dropdown filter, and 18 Playwright E2E tests covering all features
+- 1. [Rule 1 - Bug] MOCK_SALES quantities scaled to ingredient-unit purchase scale
+- Chart.js horizontal bar, doughnut, and monthly line charts with multi-select tag filter chips across two sub-tabs (By Category / Over Time) replacing the Trends Coming Soon placeholder
+- Cost Intelligence tab with menu item cost breakdown (ingredient proportions + margin) and ingredient reverse-lookup (usage by menu item with ROI), plus full Playwright test coverage for TRND-01 through COST-03
+
+---
+
 ## v1.0 Operations Console MVP (Shipped: 2026-04-14)
 
 **Phases completed:** 5 phases, 12 plans, 17 tasks

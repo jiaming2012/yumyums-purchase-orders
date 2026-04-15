@@ -45,13 +45,12 @@ Operational tools that let the owner manage crew workflows and training from one
 - ✓ Onboarding builder with template CRUD, checkbox/sub-items, video series parts, FAQ Q&A editor, SortableJS drag-to-reorder — Phase 5
 - ✓ 89 Playwright E2E tests (54 workflows + 35 onboarding) — Phase 5
 
+- ✓ Inventory app with purchase history, vendor filter, Chart.js spending charts, stock estimation, food cost intelligence — v1.1
+- ✓ 128+ Playwright E2E tests (54 workflows + 35 onboarding + 39 inventory) — v1.1
+
 ### Active
 
-- [ ] Purchase history view — browse past purchases by date/vendor with line items
-- [ ] Category spending trends — chart spending over time by tag (Beef, Produce, Supplies, etc.)
-- [ ] Inventory estimates — low/medium/high stock levels per item group based on purchase frequency
-- [ ] Reorder suggestions — low/medium items flagged for next PO (display only)
-- [ ] HQ integration — launcher tile, SW cache, Users permissions
+(None — v1.1 milestone shipped)
 
 ### Out of Scope
 
@@ -63,14 +62,10 @@ Operational tools that let the owner manage crew workflows and training from one
 - Real-time stock counting / barcode scanning — too complex for mock stage
 - Replacing the existing purchasing app — purchasing stays separate
 
-## Current Milestone: v1.1 Inventory App
+## Shipped Milestones
 
-**Goal:** Standalone inventory tool showing purchase history, category spending trends, and stock level estimates (low/medium/high) to inform future purchase orders.
-
-**Target features:**
-- Purchase history view (PurchaseEvents with line items)
-- Category spending trends (Tag-based breakdown over time)
-- Inventory estimates (low/medium/high per PurchaseItemGroup)
+- **v1.0** Operations Console MVP (2026-04-14) — Workflows engine + Onboarding app
+- **v1.1** Inventory App (2026-04-14) — Purchase history, spending trends, stock estimation, food cost intelligence
 - Reorder suggestions (items at low/medium flagged for next PO)
 - HQ integration (launcher tile, SW cache, permissions)
 
@@ -134,4 +129,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-14 after v1.1 milestone start*
+*Last updated: 2026-04-14 after v1.1 milestone*
