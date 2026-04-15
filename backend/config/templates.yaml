@@ -1,0 +1,48 @@
+templates:
+  - name: "Setup Checklist"
+    requires_approval: true
+    schedules:
+      - active_days: [1, 2, 3, 4, 5]
+    assignments:
+      - assignee_type: "role"
+        assignee_id: "member"
+        assignment_role: "assignee"
+      - assignee_type: "role"
+        assignee_id: "admin"
+        assignment_role: "approver"
+    sections:
+      - title: "Equipment Check"
+        order: 0
+        fields:
+          - type: "checkbox"
+            label: "Generator started and running"
+            required: true
+            order: 0
+          - type: "temperature"
+            label: "Grill surface temperature"
+            required: true
+            order: 1
+            config: {"unit": "F", "min": 300, "max": 500}
+            fail_trigger: {"type": "out_of_range", "min": 300, "max": 500}
+          - type: "yes_no"
+            label: "Fire extinguisher accessible"
+            required: true
+            order: 2
+      - title: "Inventory"
+        order: 1
+        fields:
+          - type: "checkbox"
+            label: "Protein stock verified"
+            required: true
+            order: 0
+            sub_steps:
+              - type: "checkbox"
+                label: "Salmon portions counted"
+                order: 0
+              - type: "checkbox"
+                label: "Chicken portions counted"
+                order: 1
+          - type: "text"
+            label: "Notes"
+            required: false
+            order: 1
