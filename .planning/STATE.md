@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Backend
 status: executing
-stopped_at: Completed 10-workflows-api/10-01-PLAN.md
-last_updated: "2026-04-15T16:04:06.143Z"
+stopped_at: Completed 10-workflows-api/10-02-PLAN.md
+last_updated: "2026-04-15T16:09:33.904Z"
 last_activity: 2026-04-15
 progress:
   total_phases: 4
   completed_phases: 1
   total_plans: 9
-  completed_plans: 5
+  completed_plans: 6
   percent: 0
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-15)
 ## Current Position
 
 Phase: 10 (workflows-api) — EXECUTING
-Plan: 2 of 5
+Plan: 3 of 5
 Status: Ready to execute
 Last activity: 2026-04-15
 
@@ -57,6 +57,7 @@ Progress: [░░░░░░░░░░] 0% (v2.0 milestone)
 *Updated after each plan completion*
 | Phase 09-foundation-auth P02 | 3 | 2 tasks | 10 files |
 | Phase 10-workflows-api P01 | 3 | 3 tasks | 12 files |
+| Phase 10-workflows-api P02 | 5 | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -77,6 +78,8 @@ Recent decisions affecting current work:
 - [Phase 09]: SW version bumped to v48 from v42 (plan assumed v47 as prior state but actual was v42; target v48 correct)
 - [Phase 10-workflows-api]: JSONB for conditions/config/fail_trigger/template_snapshot — flexible schema without migrations per new field type
 - [Phase 10-workflows-api]: SeedTemplates idempotent on template name — safe to run on every startup; insertField recursive for arbitrary sub-step depth
+- [Phase 10-workflows-api]: errors.Is(err, os.ErrNotExist) for wrapped error detection from LoadTemplateConfig
+- [Phase 10-workflows-api]: cleanupOldDrafts fired as fire-and-forget goroutine in MyChecklistsHandler to avoid blocking the response
 
 ### Pending Todos
 
@@ -97,6 +100,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-15T16:04:06.136Z
-Stopped at: Completed 10-workflows-api/10-01-PLAN.md
+Last session: 2026-04-15T16:09:33.898Z
+Stopped at: Completed 10-workflows-api/10-02-PLAN.md
 Resume file: None
