@@ -68,7 +68,14 @@ Plans:
   2. Crew member submits a filled checklist and it appears in the manager's Approvals tab with field responses and user attribution
   3. Manager can approve or reject individual items; rejection causes the checklist to reappear for the crew member with flagged items
   4. Filling out a checklist while offline queues the submission; going back online syncs it and the pending indicator clears
-**Plans**: TBD
+**Plans**: 5 plans
+
+Plans:
+- [ ] 10-01-PLAN.md — Migrations + Go model structs + template seed
+- [ ] 10-02-PLAN.md — Repository + handlers + route wiring
+- [ ] 10-03-PLAN.md — Frontend big-bang mock swap + skeleton/error UI
+- [ ] 10-04-PLAN.md — Offline sync (IndexedDB + banner + drain)
+- [ ] 10-05-PLAN.md — Playwright E2E rewrite + phone verification
 
 ### Phase 11: Onboarding + Users Admin
 **Goal**: New hire training progress persists across sessions, manager sign-offs are recorded, and the admin can invite crew members and manage permissions through a real API
@@ -108,6 +115,6 @@ Phases execute in numeric order: 9 → 10 → 11 → 12
 | 7. Stock and Reorder Tab | v1.1 | 2/2 | Complete | 2026-04-14 |
 | 8. Trends and Cost Intelligence Tabs | v1.1 | 2/2 | Complete | 2026-04-14 |
 | 9. Foundation + Auth | v2.0 | 2/4 | In Progress|  |
-| 10. Workflows API | v2.0 | 0/? | Not started | - |
+| 10. Workflows API | v2.0 | 0/5 | Not started | - |
 | 11. Onboarding + Users Admin | v2.0 | 0/? | Not started | - |
 | 12. Inventory + Photos | v2.0 | 0/? | Not started | - |
