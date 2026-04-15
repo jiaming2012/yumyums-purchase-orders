@@ -71,7 +71,7 @@ Plans:
 **Plans**: 5 plans
 
 Plans:
-- [ ] 10-01-PLAN.md — Migrations + Go model structs + template seed
+- [x] 10-01-PLAN.md — Migrations + Go model structs + template seed
 - [ ] 10-02-PLAN.md — Repository + handlers + route wiring
 - [ ] 10-03-PLAN.md — Frontend big-bang mock swap + skeleton/error UI
 - [ ] 10-04-PLAN.md — Offline sync (IndexedDB + banner + drain)
@@ -115,6 +115,6 @@ Phases execute in numeric order: 9 → 10 → 11 → 12
 | 7. Stock and Reorder Tab | v1.1 | 2/2 | Complete | 2026-04-14 |
 | 8. Trends and Cost Intelligence Tabs | v1.1 | 2/2 | Complete | 2026-04-14 |
 | 9. Foundation + Auth | v2.0 | 2/4 | In Progress|  |
-| 10. Workflows API | v2.0 | 0/5 | Not started | - |
+| 10. Workflows API | v2.0 | 1/5 | In Progress|  |
 | 11. Onboarding + Users Admin | v2.0 | 0/? | Not started | - |
 | 12. Inventory + Photos | v2.0 | 0/? | Not started | - |

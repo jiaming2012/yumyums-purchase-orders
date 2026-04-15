@@ -21,7 +21,7 @@
 
 ### Workflows Persistence
 
-- [ ] **WKFL-01**: Templates, sections, and fields persisted to Postgres (replacing MOCK_TEMPLATES)
+- [x] **WKFL-01**: Templates, sections, and fields persisted to Postgres (replacing MOCK_TEMPLATES)
 - [ ] **WKFL-02**: Checklist submissions saved with field responses, user attribution, and timestamps
 - [ ] **WKFL-03**: Approval flow persisted — pending, approved, rejected states with manager notes
 - [ ] **WKFL-04**: workflows.html fetches data from API instead of hardcoded JS arrays
@@ -92,7 +92,7 @@ Deferred to future milestones.
 | AUTH-02 | Phase 9 | Pending |
 | AUTH-03 | Phase 9 | Pending |
 | AUTH-04 | Phase 9 | Pending |
-| WKFL-01 | Phase 10 | Pending |
+| WKFL-01 | Phase 10 | Complete |
 | WKFL-02 | Phase 10 | Pending |
 | WKFL-03 | Phase 10 | Pending |
 | WKFL-04 | Phase 10 | Pending |

@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Backend
 status: executing
-stopped_at: Completed 260415-axs quick task
-last_updated: "2026-04-15T11:56:45.454Z"
+stopped_at: Completed 10-workflows-api/10-01-PLAN.md
+last_updated: "2026-04-15T16:04:06.143Z"
 last_activity: 2026-04-15
 progress:
   total_phases: 4
   completed_phases: 1
-  total_plans: 4
-  completed_plans: 4
+  total_plans: 9
+  completed_plans: 5
   percent: 0
 ---
 
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-15)
 
 **Core value:** Operational tools that let the owner manage crew workflows and training from one mobile app — with accountability and smart conditions.
-**Current focus:** Phase 09 — foundation-auth
+**Current focus:** Phase 10 — workflows-api
 
 ## Current Position
 
-Phase: 09 (foundation-auth) — EXECUTING
-Plan: 2 of 4
+Phase: 10 (workflows-api) — EXECUTING
+Plan: 2 of 5
 Status: Ready to execute
-Last activity: 2026-04-15 - Completed quick task 260415-axs: Convert backend/Makefile to backend/Taskfile.yml
+Last activity: 2026-04-15
 
 Progress: [░░░░░░░░░░] 0% (v2.0 milestone)
 
@@ -56,6 +56,7 @@ Progress: [░░░░░░░░░░] 0% (v2.0 milestone)
 
 *Updated after each plan completion*
 | Phase 09-foundation-auth P02 | 3 | 2 tasks | 10 files |
+| Phase 10-workflows-api P01 | 3 | 3 tasks | 12 files |
 
 ## Accumulated Context
 
@@ -74,6 +75,8 @@ Recent decisions affecting current work:
 - [Phase 09-foundation-auth]: 0004_hq_apps.sql schema only, no seed data (D-10) — db-seed Makefile target seeds 7 hq_apps rows separately
 - [Phase 09-foundation-auth]: stdlib.OpenDBFromPool bridges pgxpool.Pool to *sql.DB for goose migration runner compatibility
 - [Phase 09]: SW version bumped to v48 from v42 (plan assumed v47 as prior state but actual was v42; target v48 correct)
+- [Phase 10-workflows-api]: JSONB for conditions/config/fail_trigger/template_snapshot — flexible schema without migrations per new field type
+- [Phase 10-workflows-api]: SeedTemplates idempotent on template name — safe to run on every startup; insertField recursive for arbitrary sub-step depth
 
 ### Pending Todos
 
@@ -94,6 +97,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-15T11:56:45.420Z
-Stopped at: Completed 260415-axs quick task
+Last session: 2026-04-15T16:04:06.136Z
+Stopped at: Completed 10-workflows-api/10-01-PLAN.md
 Resume file: None
