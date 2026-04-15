@@ -187,6 +187,104 @@ async function api(method, path, body) {
   return res.json();
 }
 
+// ─── IndexedDB Offline Queue ──────────────────────────────────────────────────
+
+const HQ_DB = 'hq_offline_v1';
+let _dbPromise = null;
+
+function getDB() {
+  if (!_dbPromise) _dbPromise = new Promise((resolve, reject) => {
+    const req = indexedDB.open(HQ_DB, 1);
+    req.onupgradeneeded = e => {
+      e.target.result.createObjectStore('submitQueue', { keyPath: 'id' });
+    };
+    req.onsuccess = e => resolve(e.target.result);
+    req.onerror = e => reject(e.target.error);
+  });
+  return _dbPromise;
+}
+
+function idbGetAll(db, store) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(store, 'readonly');
+    const req = tx.objectStore(store).getAll();
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = e => reject(e.target.error);
+  });
+}
+
+function idbPut(db, store, item) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(store, 'readwrite');
+    tx.objectStore(store).put(item);
+    tx.oncomplete = resolve;
+    tx.onerror = e => reject(e.target.error);
+  });
+}
+
+function idbDelete(db, store, key) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(store, 'readwrite');
+    tx.objectStore(store).delete(key);
+    tx.oncomplete = resolve;
+    tx.onerror = e => reject(e.target.error);
+  });
+}
+
+async function enqueueSubmission(payload) {
+  const db = await getDB();
+  await idbPut(db, 'submitQueue', {
+    ...payload,
+    queuedAt: new Date().toISOString()
+  });
+  renderSyncBanner();
+}
+
+let _draining = false;
+
+async function drainQueue() {
+  if (_draining || !navigator.onLine) return;
+  _draining = true;
+  try {
+    const db = await getDB();
+    const entries = await idbGetAll(db, 'submitQueue');
+    for (const entry of entries) {
+      try {
+        await api('POST', 'submitChecklist', entry);
+        await idbDelete(db, 'submitQueue', entry.id);
+        renderSyncBanner();
+      } catch (err) {
+        if (err && err.error === 'duplicate_submission') {
+          await idbDelete(db, 'submitQueue', entry.id);
+          renderSyncBanner();
+        } else if (err && err.status === 409) {
+          showConflictError(entry);
+          await idbDelete(db, 'submitQueue', entry.id);
+          renderSyncBanner();
+        } else {
+          break;
+        }
+      }
+    }
+  } finally {
+    _draining = false;
+    renderSyncBanner();
+  }
+}
+
+window.addEventListener('online', drainQueue);
+
+function showConflictError(entry) {
+  const container = document.getElementById('checklist-list');
+  if (!container) return;
+  const card = document.createElement('div');
+  card.className = 'inline-error';
+  card.style.cssText = 'margin:8px 0;padding:12px 16px;background:var(--card);border:1px solid #c0392b;border-radius:8px;flex-direction:column;align-items:flex-start';
+  card.innerHTML = 'This checklist was archived while you were offline. Your responses have not been submitted. <button class="retry-btn" style="margin-top:8px" aria-label="Dismiss">Dismiss</button>';
+  card.querySelector('.retry-btn').onclick = () => card.remove();
+  container.prepend(card);
+}
+
 const SAVE_DEBOUNCE = {};
 function autoSaveField(fieldId, value) {
   clearTimeout(SAVE_DEBOUNCE[fieldId]);
@@ -1216,14 +1314,24 @@ async function submitChecklistToAPI(tplId, allFlds, isReapproval) {
       fail_severity: failNote ? failNote.severity : null
     };
   }).filter(function(r) { return r.value !== null; });
-  return await api('POST', 'submitChecklist', {
+  var submitPayload = {
+    id: crypto.randomUUID(),
     template_id: tplId,
     idempotency_key: crypto.randomUUID(),
     responses: responses,
     fail_notes: Object.keys(FAIL_NOTES).map(function(fid) {
       return { field_id: fid, note: FAIL_NOTES[fid].note, severity: FAIL_NOTES[fid].severity };
     })
-  });
+  };
+  try {
+    return await api('POST', 'submitChecklist', submitPayload);
+  } catch (err) {
+    if (!navigator.onLine) {
+      await enqueueSubmission(submitPayload);
+      throw { offline: true };
+    }
+    throw err;
+  }
 }
 
 function handlePhotoCaptureClick(fldId) {
@@ -1804,7 +1912,12 @@ document.getElementById('fill-body').addEventListener('click', function(e) {
         }
       }).catch(function(err) {
         if (btn) { btn.textContent = 'Submit checklist'; btn.disabled = false; }
-        if (err && err.status === 409) {
+        if (err && err.offline) {
+          showToast('Queued for sync when back online');
+          fillState.view = 'list'; fillState.activeTemplate = null; location.hash = '';
+          renderFillOut();
+          renderSyncBanner();
+        } else if (err && err.status === 409) {
           var errDiv = document.createElement('div');
           errDiv.className = 'inline-error';
           errDiv.style.margin = '8px 0';
@@ -2017,6 +2130,9 @@ function checkBuilderAccess() {
   renderBuilder();
   // Load My Checklists tab (initial tab)
   loadMyChecklists();
+  // Drain any offline queue from previous sessions
+  renderSyncBanner();
+  drainQueue();
 })();
 
 document.addEventListener('dblclick', e => e.preventDefault());
