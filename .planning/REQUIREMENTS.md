@@ -22,9 +22,9 @@
 ### Workflows Persistence
 
 - [x] **WKFL-01**: Templates, sections, and fields persisted to Postgres (replacing MOCK_TEMPLATES)
-- [ ] **WKFL-02**: Checklist submissions saved with field responses, user attribution, and timestamps
-- [ ] **WKFL-03**: Approval flow persisted — pending, approved, rejected states with manager notes
-- [ ] **WKFL-04**: workflows.html fetches data from API instead of hardcoded JS arrays
+- [x] **WKFL-02**: Checklist submissions saved with field responses, user attribution, and timestamps
+- [x] **WKFL-03**: Approval flow persisted — pending, approved, rejected states with manager notes
+- [x] **WKFL-04**: workflows.html fetches data from API instead of hardcoded JS arrays
 
 ### Onboarding Persistence
 
@@ -41,9 +41,9 @@
 
 ### Offline Sync
 
-- [ ] **SYNC-01**: Checklist completions queued in IndexedDB when offline
-- [ ] **SYNC-02**: Queue replays on `online` event with idempotency keys preventing duplicates
-- [ ] **SYNC-03**: User sees visual indicator of pending offline submissions
+- [x] **SYNC-01**: Checklist completions queued in IndexedDB when offline
+- [x] **SYNC-02**: Queue replays on `online` event with idempotency keys preventing duplicates
+- [x] **SYNC-03**: User sees visual indicator of pending offline submissions
 
 ### Users Admin
 
@@ -93,12 +93,12 @@ Deferred to future milestones.
 | AUTH-03 | Phase 9 | Pending |
 | AUTH-04 | Phase 9 | Pending |
 | WKFL-01 | Phase 10 | Complete |
-| WKFL-02 | Phase 10 | Pending |
-| WKFL-03 | Phase 10 | Pending |
-| WKFL-04 | Phase 10 | Pending |
-| SYNC-01 | Phase 10 | Pending |
-| SYNC-02 | Phase 10 | Pending |
-| SYNC-03 | Phase 10 | Pending |
+| WKFL-02 | Phase 10 | Complete |
+| WKFL-03 | Phase 10 | Complete |
+| WKFL-04 | Phase 10 | Complete |
+| SYNC-01 | Phase 10 | Complete |
+| SYNC-02 | Phase 10 | Complete |
+| SYNC-03 | Phase 10 | Complete |
 | ONBD-01 | Phase 11 | Pending |
 | ONBD-02 | Phase 11 | Pending |
 | ONBD-03 | Phase 11 | Pending |
