@@ -1,9 +1,9 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.1
-milestone_name: Inventory App
-status: verifying
-stopped_at: Completed 08-02-PLAN.md — Phase 08 fully complete
+milestone: v2.0
+milestone_name: Backend
+status: planning
+stopped_at: Milestone v2.0 started — defining requirements
 last_updated: "2026-04-15T00:03:07.554Z"
 last_activity: 2026-04-15
 progress:
@@ -18,16 +18,17 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-04-14)
+See: .planning/PROJECT.md (updated 2026-04-15)
 
 **Core value:** Operational tools that let the owner manage crew workflows and training from one mobile app.
-**Current focus:** Phase 08 — trends-and-cost-intelligence-tabs
+**Current focus:** v2.0 Backend — defining requirements
 
 ## Current Position
 
-Phase: 08
-Plan: Not started
-Status: Phase complete — ready for verification
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-04-15 — Milestone v2.0 started
 Last activity: 2026-04-15
 
 Progress: [█████░░░░░] 50%

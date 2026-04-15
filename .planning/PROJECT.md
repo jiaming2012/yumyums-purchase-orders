@@ -50,17 +50,36 @@ Operational tools that let the owner manage crew workflows and training from one
 
 ### Active
 
-(None — v1.1 milestone shipped)
+- [ ] Go backend with Postgres — REST API replacing all mock data
+- [ ] User auth + sessions — bearer tokens, login.html wired to real auth
+- [ ] Workflows persistence — save completions, approvals, audit trail
+- [ ] Onboarding persistence — training progress, sign-off journal entries
+- [ ] Inventory/Purchasing data pipeline — receipt ingestion, real purchase events
+- [ ] Food cost calculations — ingredient ratio derivation (potentially AI-assisted)
+- [ ] PWA offline mode — service worker sync, IndexedDB for offline queuing
+- [ ] Dev deployment via Tailscale
 
 ### Out of Scope
 
-- Backend / API implementation — UI mocks only, backend design docs exist at `docs/user-management-api.md`
-- Real authentication — login.html is a mockup, no session management
-- Offline sync / IndexedDB — future concern, not needed for mocks
 - Multi-location support — single food truck operation
-- Actual ordering from inventory — future backend integration with Purchasing app
-- Real-time stock counting / barcode scanning — too complex for mock stage
+- Real-time stock counting / barcode scanning — too complex for this milestone
 - Replacing the existing purchasing app — purchasing stays separate
+- HTMX frontend migration — may come in a future milestone
+
+## Shipped Milestones
+
+## Current Milestone: v2.0 Backend
+
+**Goal:** Go backend with Postgres, replacing all mock data with real persistence — auth, workflows, onboarding, inventory, and food cost calculations. PWA offline mode. Tailscale dev deployment.
+
+**Target features:**
+- User auth + sessions (Go API, bearer tokens)
+- Workflows persistence (completions, approvals, audit trail)
+- Onboarding persistence (training progress, sign-off journal)
+- Inventory/Purchasing data pipeline (receipt ingestion, real purchase events)
+- Food cost calculations (ingredient ratio derivation)
+- PWA offline mode (IndexedDB + SW sync)
+- Dev deployment via Tailscale
 
 ## Shipped Milestones
 
@@ -129,4 +148,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-14 after v1.1 milestone*
+*Last updated: 2026-04-15 after v2.0 milestone start*
