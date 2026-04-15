@@ -150,6 +150,8 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .save-indicator{font-size:12px;color:var(--mut);margin-left:4px}
 .save-indicator.saved{color:#27ae60}
 .photo-placeholder{padding:16px;background:var(--card);border-radius:8px;border:0.5px solid var(--brd);text-align:center;color:var(--mut);font-size:13px}
+.sync-banner{background:var(--warn-bg);color:var(--warn-tx);font-size:13px;font-weight:500;padding:8px 16px;text-align:center;border-radius:8px;margin-bottom:8px}
+.sync-badge{display:inline-block;padding:2px 8px;border-radius:10px;background:var(--warn-bg);color:var(--warn-tx);font-size:12px;font-weight:500;margin-left:8px}
 </style>
 <script src="https://unpkg.com/sortablejs@1.15.7/Sortable.min.js"></script>
 </head>
@@ -161,7 +163,7 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
   <button id="t2" onclick="show(2)">Approvals</button>
   <button id="t3" onclick="show(3)">Builder</button>
 </div>
-<div id="s1"><div id="fill-body"><div id="checklist-list"></div></div></div>
+<div id="s1"><div id="sync-banner" class="sync-banner" style="display:none"></div><div id="fill-body"><div id="checklist-list"></div></div></div>
 <div id="s2" style="display:none"><div id="approvals-body"><div id="approvals-list"></div></div></div>
 <div id="s3" style="display:none"><div id="builder-body"><div id="builder-list"></div></div></div>
 <div id="toast" style="display:none;position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--info-tx);color:#fff;padding:12px 24px;border-radius:10px;font-size:14px;font-weight:500;z-index:9999;transition:opacity .3s;opacity:0"></div>
@@ -283,6 +285,38 @@ function showConflictError(entry) {
   card.innerHTML = 'This checklist was archived while you were offline. Your responses have not been submitted. <button class="retry-btn" style="margin-top:8px" aria-label="Dismiss">Dismiss</button>';
   card.querySelector('.retry-btn').onclick = () => card.remove();
   container.prepend(card);
+}
+
+async function renderSyncBanner() {
+  try {
+    const db = await getDB();
+    const entries = await idbGetAll(db, 'submitQueue');
+    const banner = document.getElementById('sync-banner');
+    if (!banner) return;
+    if (entries.length === 0) {
+      banner.style.display = 'none';
+      document.querySelectorAll('.sync-badge').forEach(b => b.remove());
+      return;
+    }
+    banner.style.display = 'block';
+    banner.textContent = entries.length + ' submission' + (entries.length > 1 ? 's' : '') + ' pending sync';
+    const queuedIds = new Set(entries.map(e => e.template_id));
+    document.querySelectorAll('[data-template-id]').forEach(row => {
+      const existing = row.querySelector('.sync-badge');
+      if (queuedIds.has(row.dataset.templateId)) {
+        if (!existing) {
+          const badge = document.createElement('span');
+          badge.className = 'sync-badge';
+          badge.textContent = 'Pending sync';
+          row.appendChild(badge);
+        }
+      } else if (existing) {
+        existing.remove();
+      }
+    });
+  } catch (e) {
+    // IndexedDB not available — ignore
+  }
 }
 
 const SAVE_DEBOUNCE = {};
@@ -1419,6 +1453,7 @@ function renderMyChecklists() {
   if (!container) return;
   const today = getTodayTemplates();
   container.innerHTML = renderChecklistList(today);
+  renderSyncBanner();
 }
 
 function renderApprovals() {
@@ -1484,7 +1519,7 @@ function renderChecklistList(today) {
     var submission = MY_SUBMISSIONS ? MY_SUBMISSIONS.find(function(s) { return s.template_id === tpl.id; }) : null;
     var pendingBadge = submission && submission.status === 'pending_approval' ? '<div class="approval-badge">Pending Approval</div>' : '';
     var submittedBadge = submission && (submission.status === 'submitted' || submission.status === 'approved') ? '<div style="font-size:12px;color:#27ae60;margin-top:4px;font-weight:500">Submitted \u2713</div>' : '';
-    return `<div class="row" data-fill-template-id="${tpl.id}" style="cursor:pointer"><div style="flex:1"><div class="nm">${escapeHtml(tpl.name)}</div><div class="mt">${secCount} section${secCount !== 1 ? 's' : ''} \u00b7 ${answeredCount}/${fieldCount} items</div><div style="height:4px;background:var(--brd);border-radius:2px;margin-top:6px;overflow:hidden"><div style="height:100%;background:#27ae60;border-radius:2px;width:${pct}%"></div></div>${pendingBadge}${submittedBadge}</div></div>`;
+    return `<div class="row" data-fill-template-id="${tpl.id}" data-template-id="${tpl.id}" style="cursor:pointer"><div style="flex:1"><div class="nm">${escapeHtml(tpl.name)}</div><div class="mt">${secCount} section${secCount !== 1 ? 's' : ''} \u00b7 ${answeredCount}/${fieldCount} items</div><div style="height:4px;background:var(--brd);border-radius:2px;margin-top:6px;overflow:hidden"><div style="height:100%;background:#27ae60;border-radius:2px;width:${pct}%"></div></div>${pendingBadge}${submittedBadge}</div></div>`;
   }).join('');
   const aggPct = totalFields ? Math.round(totalAnswered / totalFields * 100) : 0;
   return `<div class="cat">TODAY'S CHECKLISTS</div>
