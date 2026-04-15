@@ -49,15 +49,26 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 </div>
 
 <script>
-function signIn(){
+async function signIn(){
   const email=document.getElementById('email').value.trim();
   const pw=document.getElementById('pw').value;
   const err=document.getElementById('err');
-  // Mock: any non-empty email/password combination that does NOT match invalid pattern
-  // In production this will POST to /api/v1/auth/login
+  err.classList.remove('show');
   if(!email||!pw){err.classList.add('show');return}
-  // Simulate auth failure for demo (toggle error state)
-  err.classList.add('show');
+  try{
+    const res=await fetch('/api/v1/auth/login',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({email:email,password:pw})
+    });
+    if(res.ok){
+      window.location.href='/index.html';
+    }else{
+      err.classList.add('show');
+    }
+  }catch(e){
+    err.classList.add('show');
+  }
 }
 document.addEventListener('dblclick',e=>e.preventDefault());
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');

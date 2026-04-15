@@ -91,6 +91,15 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 </div>
 
 <script>
+async function checkAuth(){
+  try{
+    const res=await fetch('/api/v1/me');
+    if(res.status===401){window.location.href='/login.html';return}
+  }catch(e){
+    // Network error -- allow offline access with cached page
+  }
+}
+checkAuth();
 document.addEventListener('dblclick',e=>e.preventDefault());
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');
 // Mock: current user has incomplete onboarding trainings
