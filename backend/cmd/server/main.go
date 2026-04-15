@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"embed"
 	"io/fs"
 	"log"
@@ -9,6 +10,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/yumyums/hq/internal/config"
+	"github.com/yumyums/hq/internal/db"
 )
 
 //go:embed all:public
@@ -35,11 +38,33 @@ func main() {
 		port = "8080"
 	}
 
+	// Load superadmin config
+	superadminPath := os.Getenv("SUPERADMIN_CONFIG")
+	if superadminPath == "" {
+		superadminPath = "config/superadmins.yaml"
+	}
+	superadmins, err := config.LoadSuperadmins(superadminPath)
+	if err != nil {
+		log.Fatalf("Failed to load superadmins: %v", err)
+	}
+	log.Printf("Loaded %d superadmin(s)", len(superadmins))
+
+	// Connect to database
 	dbURL := os.Getenv("DB_URL")
-	if dbURL != "" {
-		log.Printf("DB_URL is set: %s", dbURL)
-	} else {
-		log.Println("DB_URL is not set — database not connected")
+	if dbURL == "" {
+		log.Fatal("DB_URL environment variable is required")
+	}
+	ctx := context.Background()
+	pool, err := db.NewPool(ctx, dbURL)
+	if err != nil {
+		log.Fatalf("Failed to connect to database: %v", err)
+	}
+	defer pool.Close()
+	log.Println("Connected to database")
+
+	// Run migrations
+	if err := db.Migrate(pool); err != nil {
+		log.Fatalf("Failed to run migrations: %v", err)
 	}
 
 	r := chi.NewRouter()

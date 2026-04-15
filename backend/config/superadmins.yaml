@@ -1,0 +1,7 @@
+# Superadmins are bootstrapped on server startup from this file.
+# They cannot be assigned or revoked via the API.
+# Add or remove emails here and restart the server to update.
+
+superadmins:
+  - email: jamal@yumyums.com
+    display_name: Jamal M.
