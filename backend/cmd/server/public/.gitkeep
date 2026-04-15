@@ -1,0 +1,3 @@
+# This directory is populated by `make build` before compiling.
+# Files here are build-time copies of frontend assets for embed.FS production builds.
+# In development, use `make dev` (STATIC_DIR mode) — this directory is not used.
