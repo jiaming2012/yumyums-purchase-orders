@@ -10,8 +10,10 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/yumyums/hq/internal/auth"
 	"github.com/yumyums/hq/internal/config"
 	"github.com/yumyums/hq/internal/db"
+	"github.com/yumyums/hq/internal/me"
 )
 
 //go:embed all:public
@@ -67,18 +69,34 @@ func main() {
 		log.Fatalf("Failed to run migrations: %v", err)
 	}
 
+	// Upsert superadmins to users table on startup
+	if err := auth.UpsertSuperadmins(ctx, pool, superadmins); err != nil {
+		log.Fatalf("Failed to upsert superadmins: %v", err)
+	}
+
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 
-	r.Get("/api/v1/health", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status":"ok"}`))
+	r.Route("/api/v1", func(r chi.Router) {
+		// Unauthenticated
+		r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"status":"ok"}`))
+		})
+		r.Post("/auth/login", auth.LoginHandler(pool, superadmins))
+
+		// Protected — auth middleware applied to this group
+		r.Group(func(r chi.Router) {
+			r.Use(auth.Middleware(pool, superadmins))
+			r.Post("/auth/logout", auth.LogoutHandler(pool))
+			r.Get("/me", me.MeHandler())
+			r.Get("/me/apps", me.MeAppsHandler(pool))
+		})
 	})
 
-	fileServer := http.FileServerFS(staticFS)
-	r.Handle("/*", fileServer)
+	r.Handle("/*", http.FileServerFS(staticFS))
 
 	log.Printf("Yumyums HQ server listening on :%s", port)
 	if err := http.ListenAndServe(":"+port, r); err != nil {
