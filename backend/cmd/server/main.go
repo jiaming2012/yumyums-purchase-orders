@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"embed"
+	"errors"
 	"io/fs"
 	"log"
 	"net/http"
@@ -14,6 +15,7 @@ import (
 	"github.com/yumyums/hq/internal/config"
 	"github.com/yumyums/hq/internal/db"
 	"github.com/yumyums/hq/internal/me"
+	"github.com/yumyums/hq/internal/workflow"
 )
 
 //go:embed all:public
@@ -51,6 +53,19 @@ func main() {
 	}
 	log.Printf("Loaded %d superadmin(s)", len(superadmins))
 
+	// Load template seed config (optional — skip if file missing)
+	templatePath := os.Getenv("TEMPLATE_CONFIG")
+	if templatePath == "" {
+		templatePath = "config/templates.yaml"
+	}
+	templateInputs, err := workflow.LoadTemplateConfig(templatePath)
+	if err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			log.Fatalf("Failed to load template config: %v", err)
+		}
+		log.Println("No template seed config found — skipping")
+	}
+
 	// Connect to database
 	dbURL := os.Getenv("DB_URL")
 	if dbURL == "" {
@@ -74,9 +89,35 @@ func main() {
 		log.Fatalf("Failed to upsert superadmins: %v", err)
 	}
 
+	// Seed hq_apps if empty
+	if err := db.SeedHQApps(ctx, pool); err != nil {
+		log.Fatalf("Failed to seed hq_apps: %v", err)
+	}
+
+	// Seed templates if config was loaded
+	if len(templateInputs) > 0 {
+		// Use first superadmin as template creator
+		var creatorID string
+		for _, sa := range superadmins {
+			err := pool.QueryRow(ctx, "SELECT id FROM users WHERE email = $1", sa.Email).Scan(&creatorID)
+			if err == nil {
+				break
+			}
+		}
+		if creatorID != "" {
+			if err := workflow.SeedTemplates(ctx, pool, templateInputs, creatorID); err != nil {
+				log.Fatalf("Failed to seed templates: %v", err)
+			}
+			log.Printf("Seeded %d template(s)", len(templateInputs))
+		}
+	}
+
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
+
+	// Secure cookies require HTTPS — disable for local dev
+	secureCookie := os.Getenv("STATIC_DIR") == ""
 
 	r.Route("/api/v1", func(r chi.Router) {
 		// Unauthenticated
@@ -85,7 +126,7 @@ func main() {
 			w.WriteHeader(http.StatusOK)
 			w.Write([]byte(`{"status":"ok"}`))
 		})
-		r.Post("/auth/login", auth.LoginHandler(pool, superadmins))
+		r.Post("/auth/login", auth.LoginHandler(pool, superadmins, secureCookie))
 
 		// Protected — auth middleware applied to this group
 		r.Group(func(r chi.Router) {
@@ -93,6 +134,21 @@ func main() {
 			r.Post("/auth/logout", auth.LogoutHandler(pool))
 			r.Get("/me", me.MeHandler())
 			r.Get("/me/apps", me.MeAppsHandler(pool))
+
+			// Workflow endpoints — all authenticated
+			r.Route("/workflow", func(r chi.Router) {
+				r.Get("/templates", workflow.ListTemplatesHandler(pool))
+				r.Post("/createTemplate", workflow.CreateTemplateHandler(pool))
+				r.Put("/updateTemplate/{id}", workflow.UpdateTemplateHandler(pool))
+				r.Delete("/archiveTemplate/{id}", workflow.ArchiveTemplateHandler(pool))
+				r.Get("/myChecklists", workflow.MyChecklistsHandler(pool))
+				r.Get("/myHistory", workflow.MyHistoryHandler(pool))
+				r.Post("/saveResponse", workflow.SaveResponseHandler(pool))
+				r.Post("/submitChecklist", workflow.SubmitChecklistHandler(pool))
+				r.Get("/pendingApprovals", workflow.PendingApprovalsHandler(pool))
+				r.Post("/approveSubmission", workflow.ApproveSubmissionHandler(pool))
+				r.Post("/rejectItem", workflow.RejectItemHandler(pool))
+			})
 		})
 	})
 
