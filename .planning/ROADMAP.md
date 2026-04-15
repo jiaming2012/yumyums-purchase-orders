@@ -33,7 +33,7 @@
 **Milestone Goal:** Replace all mock data with a real Go + Postgres backend — auth, workflows persistence, onboarding persistence, inventory, offline sync, and photo storage — so the crew can use the app for real operations on their phones.
 
 - [ ] **Phase 9: Foundation + Auth** — Go server shell, Postgres, Tailscale HTTPS dev access, SW partition, and working login/logout
-- [ ] **Phase 10: Workflows API** — Checklist templates, submissions, approval flow, correction loop, and offline sync wired to workflows.html
+- [x] **Phase 10: Workflows API** — Checklist templates, submissions, approval flow, correction loop, and offline sync wired to workflows.html (completed 2026-04-15)
 - [ ] **Phase 11: Onboarding + Users Admin** — Onboarding persistence, user CRUD, role management, and app permissions wired to their respective HTML pages
 - [ ] **Phase 12: Inventory + Photos** — Purchase events, vendor data, receipt ingestion, and presigned photo upload wired to inventory.html and workflows.html
 
@@ -75,7 +75,7 @@ Plans:
 - [x] 10-02-PLAN.md — Repository + handlers + route wiring
 - [x] 10-03-PLAN.md — Frontend big-bang mock swap + skeleton/error UI
 - [x] 10-04-PLAN.md — Offline sync (IndexedDB + banner + drain)
-- [ ] 10-05-PLAN.md — Playwright E2E rewrite + phone verification
+- [x] 10-05-PLAN.md — Playwright E2E rewrite + phone verification
 
 ### Phase 11: Onboarding + Users Admin
 **Goal**: New hire training progress persists across sessions, manager sign-offs are recorded, and the admin can invite crew members and manage permissions through a real API
@@ -115,6 +115,6 @@ Phases execute in numeric order: 9 → 10 → 11 → 12
 | 7. Stock and Reorder Tab | v1.1 | 2/2 | Complete | 2026-04-14 |
 | 8. Trends and Cost Intelligence Tabs | v1.1 | 2/2 | Complete | 2026-04-14 |
 | 9. Foundation + Auth | v2.0 | 2/4 | In Progress|  |
-| 10. Workflows API | v2.0 | 4/5 | In Progress|  |
+| 10. Workflows API | v2.0 | 5/5 | Complete   | 2026-04-15 |
 | 11. Onboarding + Users Admin | v2.0 | 0/? | Not started | - |
 | 12. Inventory + Photos | v2.0 | 0/? | Not started | - |
