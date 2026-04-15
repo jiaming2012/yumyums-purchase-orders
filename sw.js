@@ -1,4 +1,4 @@
-const CACHE = 'yumyums-v41';
+const CACHE = 'yumyums-v42';
 const ASSETS = ['./', './index.html', './purchasing.html', './users.html', './login.html', './workflows.html', './onboarding.html', './ptr.js', './manifest.json'];
 
 self.addEventListener('install', e => {
@@ -16,6 +16,16 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
+  const url = new URL(e.request.url);
+  if (url.pathname.startsWith('/api/')) {
+    // Network-first: API calls always go to network; no caching
+    e.respondWith(fetch(e.request).catch(() => new Response('{"error":"offline"}', {
+      status: 503,
+      headers: {'Content-Type':'application/json'}
+    })));
+    return;
+  }
+  // Cache-first: static assets served from cache; fallback to network
   e.respondWith(
     caches.match(e.request).then(r => r || fetch(e.request).catch(() => caches.match('./index.html')))
   );
