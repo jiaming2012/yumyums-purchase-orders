@@ -1,100 +1,121 @@
-# Requirements: Yumyums HQ — Inventory App
+# Requirements: Yumyums HQ — Backend
 
-**Defined:** 2026-04-14
-**Core Value:** Food cost intelligence through purchase analytics — estimate costs from purchase frequency and ingredient proportions without manual inventory counting.
+**Defined:** 2026-04-15
+**Core Value:** Replace all mock data with a real Go + Postgres backend — auth, persistence, offline sync, and receipt ingestion — so the crew can use the app for real operations.
 
-## v1.1 Requirements
+## v2.0 Requirements
 
-Requirements for the Inventory App milestone. Each maps to roadmap phases.
+### Foundation & Infrastructure
 
-### Purchase History
+- [ ] **INFRA-01**: Go binary serves PWA static files via embed.FS and API via chi router from same origin
+- [ ] **INFRA-02**: Postgres 16 database with goose migrations for schema management
+- [ ] **INFRA-03**: Tailscale Serve provides HTTPS dev access for mobile device testing
+- [ ] **INFRA-04**: Service worker fetch handler partitioned — network-first for `/api/*`, cache-first for static files
 
-- [x] **HIST-01**: User can browse purchase events sorted by date, expandable to see line items (name, qty, price, case flag)
-- [x] **HIST-02**: User can filter purchase events by vendor
-- [x] **HIST-03**: Inventory tile appears on HQ launcher and links to inventory.html
-- [x] **HIST-04**: Inventory page is cached by service worker for offline PWA use
+### Auth & Sessions
 
-### Spending Trends
+- [ ] **AUTH-01**: User can log in with email + password via POST `/api/v1/auth/login` and receive httpOnly session cookie
+- [ ] **AUTH-02**: User can log out via POST `/api/v1/auth/logout` which invalidates the session
+- [ ] **AUTH-03**: Protected API endpoints reject unauthenticated requests with 401
+- [ ] **AUTH-04**: login.html wired to real auth API (replacing mock `alert()`)
 
-- [x] **TRND-01**: User can see a bar chart of spending by tag category (Beef, Produce, Supplies, etc.) for a selected time range
-- [x] **TRND-02**: User can see a pie/doughnut chart showing spending proportion by tag
-- [x] **TRND-03**: User can see spending over time (weekly or monthly bar/line chart)
-- [x] **TRND-04**: User can filter trends by specific tags to drill into one category
+### Workflows Persistence
 
-### Stock & Reorder
+- [ ] **WKFL-01**: Templates, sections, and fields persisted to Postgres (replacing MOCK_TEMPLATES)
+- [ ] **WKFL-02**: Checklist submissions saved with field responses, user attribution, and timestamps
+- [ ] **WKFL-03**: Approval flow persisted — pending, approved, rejected states with manager notes
+- [ ] **WKFL-04**: workflows.html fetches data from API instead of hardcoded JS arrays
 
-- [x] **STCK-01**: User can see low/medium/high stock level indicators per item group based on purchase recency
-- [x] **STCK-02**: Items at low/medium stock are flagged as "recommended for next PO" (display only)
-- [x] **STCK-03**: User can manually override a stock level with a reason (mock journal entry for backend later)
+### Onboarding Persistence
 
-### Food Cost Intelligence
+- [ ] **ONBD-01**: Onboarding templates, sections, items, FAQ Q&A persisted to Postgres
+- [ ] **ONBD-02**: Training progress (checked items, video parts watched) saved per hire
+- [ ] **ONBD-03**: Section sign-off journal entries persisted with manager, reason, timestamp
+- [ ] **ONBD-04**: onboarding.html fetches data from API instead of hardcoded JS arrays
 
-- [x] **COST-01**: User can see estimated cost per menu item (e.g., Cheesesteak = $X) with ingredient proportion table — mock data, real calculation by backend later
-- [x] **COST-02**: For a menu item, user can see which purchase items contribute (beef, rolls, onions) with proportions
-- [x] **COST-03**: For a purchase item, user can see which menu items use it — relative percentages showing cost, revenue, and return on purchase
+### Inventory Persistence
 
-### Integration
+- [ ] **INVT-01**: Vendors, purchase events, and line items persisted to Postgres (replacing mock data)
+- [ ] **INVT-02**: inventory.html fetches purchase data from API for History, Stock, Trends, and Cost tabs
+- [ ] **INVT-03**: Receipt ingestion pipeline — upload receipt image, OCR, map to purchase items, human review
 
-- [x] **INTG-01**: Each section is its own tab (4 tabs: History / Trends / Stock / Cost) for future RBAC gating
-- [x] **INTG-02**: Architecture supports future replacement of Trends/Cost tabs with embedded Metabase reports
+### Offline Sync
+
+- [ ] **SYNC-01**: Checklist completions queued in IndexedDB when offline
+- [ ] **SYNC-02**: Queue replays on `online` event with idempotency keys preventing duplicates
+- [ ] **SYNC-03**: User sees visual indicator of pending offline submissions
+
+### Users Admin
+
+- [ ] **USER-01**: Admin can invite new users via API (email invite flow)
+- [ ] **USER-02**: Admin can manage user roles and app permissions via API
+- [ ] **USER-03**: users.html wired to real admin API (replacing mock data)
+
+### Photos
+
+- [ ] **PHOT-01**: Photo upload via presigned URLs (evaluate Zoho Stratus vs DO Spaces for cost)
+- [ ] **PHOT-02**: Photos stored and retrievable for checklist evidence and corrective action documentation
 
 ## Future Requirements
 
-Deferred to future milestones. Tracked but not in current roadmap.
+Deferred to future milestones.
 
-### Backend Integration
-- **BEND-01**: Purchase events synced from backend (replace mock data)
-- **BEND-02**: Stock level overrides create journal entries in backend
-- **BEND-03**: Food cost calculations performed by backend (potentially AI-assisted)
-- **BEND-04**: Reorder suggestions integrated with Purchasing app
-
-### Analytics
-- **ANLT-01**: Embedded Metabase reports for Trends and Cost tabs (replace native charts)
-- **ANLT-02**: Sales data integration for revenue/margin calculations
+### Food Cost Intelligence
+- **COST-01**: Server-side ingredient ratio derivation from purchase + sales data
+- **COST-02**: AI-assisted cost estimation pipeline
+- **COST-03**: Revenue data integration for true food cost percentage
 
 ### Advanced
-- **ADVN-01**: Recipe/BOM (bill of materials) editor for menu items
-- **ADVN-02**: Waste tracking and variance reporting
+- **ADVN-01**: Push notifications when checklists are due
+- **ADVN-02**: HTMX frontend migration (replace vanilla fetch calls)
+- **ADVN-03**: Metabase iframe embedding for Trends/Cost tabs
 
 ## Out of Scope
 
 | Feature | Reason |
 |---------|--------|
+| Food cost calculations | Deferred to future milestone — needs more data |
+| Multi-location support | Single food truck operation |
+| Real-time collaboration | 1 person per checklist, last-write-wins acceptable |
+| HTMX migration | Future milestone — vanilla JS works for now |
 | Barcode scanning | Hardware dependency, overkill for food truck scale |
-| Physical inventory counts | Too much staff effort — purchase frequency estimation is the core approach |
-| Real-time stock sync | No backend yet; mock data only |
-| Actual ordering from inventory | Future backend integration with Purchasing app |
-| Recipe costing engine | Backend computation, potentially AI-assisted — UI schema designed but not calculated |
-| Multi-location inventory | Single food truck operation |
 
 ## Traceability
 
-Which phases cover which requirements. Updated during roadmap creation.
-
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| HIST-01 | Phase 6 | Complete |
-| HIST-02 | Phase 6 | Complete |
-| HIST-03 | Phase 6 | Complete |
-| HIST-04 | Phase 6 | Complete |
-| INTG-01 | Phase 6 | Complete |
-| STCK-01 | Phase 7 | Complete |
-| STCK-02 | Phase 7 | Complete |
-| STCK-03 | Phase 7 | Complete |
-| TRND-01 | Phase 8 | Complete |
-| TRND-02 | Phase 8 | Complete |
-| TRND-03 | Phase 8 | Complete |
-| TRND-04 | Phase 8 | Complete |
-| COST-01 | Phase 8 | Complete |
-| COST-02 | Phase 8 | Complete |
-| COST-03 | Phase 8 | Complete |
-| INTG-02 | Phase 8 | Complete |
+| INFRA-01 | Phase 9 | Pending |
+| INFRA-02 | Phase 9 | Pending |
+| INFRA-03 | Phase 9 | Pending |
+| INFRA-04 | Phase 9 | Pending |
+| AUTH-01 | Phase 9 | Pending |
+| AUTH-02 | Phase 9 | Pending |
+| AUTH-03 | Phase 9 | Pending |
+| AUTH-04 | Phase 9 | Pending |
+| WKFL-01 | Phase 10 | Pending |
+| WKFL-02 | Phase 10 | Pending |
+| WKFL-03 | Phase 10 | Pending |
+| WKFL-04 | Phase 10 | Pending |
+| SYNC-01 | Phase 10 | Pending |
+| SYNC-02 | Phase 10 | Pending |
+| SYNC-03 | Phase 10 | Pending |
+| ONBD-01 | Phase 11 | Pending |
+| ONBD-02 | Phase 11 | Pending |
+| ONBD-03 | Phase 11 | Pending |
+| ONBD-04 | Phase 11 | Pending |
+| USER-01 | Phase 11 | Pending |
+| USER-02 | Phase 11 | Pending |
+| USER-03 | Phase 11 | Pending |
+| INVT-01 | Phase 12 | Pending |
+| INVT-02 | Phase 12 | Pending |
+| INVT-03 | Phase 12 | Pending |
+| PHOT-01 | Phase 12 | Pending |
+| PHOT-02 | Phase 12 | Pending |
 
 **Coverage:**
-- v1.1 requirements: 16 total
-- Mapped to phases: 16
+- v2.0 requirements: 27 total
+- Mapped to phases: 27
 - Unmapped: 0
 
 ---
-*Requirements defined: 2026-04-14*
-*Last updated: 2026-04-14 — traceability mapped to phases 6-8*
+*Requirements defined: 2026-04-15*

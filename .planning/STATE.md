@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Backend
 status: planning
-stopped_at: Milestone v2.0 started — defining requirements
-last_updated: "2026-04-15T00:03:07.554Z"
+stopped_at: Roadmap created — Phase 9 ready to plan
+last_updated: "2026-04-15"
 last_activity: 2026-04-15
 progress:
-  total_phases: 3
-  completed_phases: 3
-  total_plans: 6
-  completed_plans: 6
-  percent: 50
+  total_phases: 4
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -20,50 +20,39 @@ progress:
 
 See: .planning/PROJECT.md (updated 2026-04-15)
 
-**Core value:** Operational tools that let the owner manage crew workflows and training from one mobile app.
-**Current focus:** v2.0 Backend — defining requirements
+**Core value:** Operational tools that let the owner manage crew workflows and training from one mobile app — with accountability and smart conditions.
+**Current focus:** v2.0 Backend — Phase 9: Foundation + Auth
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-04-15 — Milestone v2.0 started
-Last activity: 2026-04-15
+Phase: 9 of 12 (Foundation + Auth)
+Plan: — (not yet planned)
+Status: Ready to plan
+Last activity: 2026-04-15 — v2.0 roadmap created, Phase 9 ready
 
-Progress: [█████░░░░░] 50%
+Progress: [░░░░░░░░░░] 0% (v2.0 milestone)
 
 ## Performance Metrics
 
 **Velocity:**
+- Total plans completed: 18 (v1.0 + v1.1)
+- Average duration: ~12 min
+- Total execution time: ~3.6 hours
 
-- Total plans completed: 12
-- Average duration: ~9 min
-- Total execution time: ~1.8 hours
-
-**By Phase:**
+**By Phase (v2.0):**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 01-template-builder | 3/3 | ~11 min | ~4 min |
-| 02-fill-out | 2/2 | ~16 min | ~8 min |
-| 03-photo-approval | 2/2 | ~10 min | ~5 min |
-| 04-onboarding-app | 3/3 | ~8 min | ~3 min |
-| 05-onboarding-builder | 2/2 | ~62 min | ~31 min |
+| 09-foundation-auth | TBD | - | - |
+| 10-workflows-api | TBD | - | - |
+| 11-onboarding-users-admin | TBD | - | - |
+| 12-inventory-photos | TBD | - | - |
 
 **Recent Trend:**
-
-- Last 5 plans: 3, 5, 7, 15, 45 min
-- Trend: Variable (builder phases take longer)
+- Last 5 plans (v1.1): 5, 20, 25, 3, 30 min
+- Trend: Variable
 
 *Updated after each plan completion*
-| Phase 06 P01 | 15 | 2 tasks | 5 files |
-| Phase 06 P02 | 20min | 2 tasks | 3 files |
-| Phase 06-foundation-and-history-tab P02 | 25min | 3 tasks | 3 files |
-| Phase 07-stock-and-reorder-tab P02 | 3min | 2 tasks | 3 files |
-| Phase 08 P01 | 12 | 1 tasks | 2 files |
-| Phase 08 P02 | 15min | 2 tasks | 3 files |
-| Phase 08-trends-and-cost-intelligence-tabs P02 | 30min | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -72,26 +61,12 @@ Progress: [█████░░░░░] 50%
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
-- [v1.1 roadmap]: Chart.js 4.5.1 UMD served as local asset at /lib/chart.umd.min.js — never load from CDN (SW precache cannot cache CDN opaque responses)
-- [v1.1 roadmap]: 4-tab layout (History / Trends / Stock / Cost) established in Phase 6 shell; each tab is a future RBAC gate point per INTG-01
-- [v1.1 roadmap]: Trends and Cost tabs architected with swappable container pattern per INTG-02 — a `<div id="trends-container">` wrapper allows drop-in Metabase iframe replacement without touching History or Stock tabs
-- [v1.1 roadmap]: parseLocalDate() utility must be defined in Phase 6 before any date grouping logic — prevents UTC shift bug (new Date("YYYY-MM-DD") parses as midnight UTC = previous day in US timezones)
-- [v1.1 roadmap]: Mock data requires minimum 12 purchase events across 2+ calendar months, 3-4 vendors, 5 tags, 8-10 item groups with varying purchase frequency to exercise all stock level heuristics
-- [Phase 06]: Chart.js 4.5.1 UMD served as local file at lib/chart.umd.min.js — never CDN (SW cache-first strategy cannot cache opaque CDN responses)
-- [Phase 06]: parseLocalDate() splits YYYY-MM-DD string to prevent UTC midnight = previous day shift in US timezones
-- [Phase 06-foundation-and-history-tab]: renderHistory() repopulates vendor filter select on each call — ensures VENDOR_FILTER state preserved after re-render
-- [Phase 06-foundation-and-history-tab]: b.date.localeCompare(a.date) for ISO date sort — correct lexicographic order without Date parsing
-- [Phase 06-foundation-and-history-tab]: Playwright waitForLoadState('networkidle') in beforeEach prevents service worker controllerchange reload race in inventory tests
-- [Phase 06-foundation-and-history-tab]: renderHistory() repopulates vendor filter select on each call — ensures VENDOR_FILTER state is preserved after re-render
-- [Phase 06-foundation-and-history-tab]: b.date.localeCompare(a.date) for ISO date sort — lexicographic comparison is correct for YYYY-MM-DD without Date parsing
-- [Phase 06-foundation-and-history-tab]: Playwright waitForLoadState('networkidle') in beforeEach prevents service worker controllerchange reload race in inventory tests
-- [Phase 07-stock-and-reorder-tab]: STOCK_OVERRIDES applied before reorder suggestions so override-adjusted levels appear in both badge and reorder panel
-- [Phase 07-stock-and-reorder-tab]: OVERRIDE_FORM_OPEN tracks one open form at a time - opening a new item's form closes any prior form
-- [Phase 08]: Chart.js colors read from getComputedStyle at render time for dark/light mode auto-switch without page reload
-- [Phase 08]: Empty ACTIVE_CHIPS Set means all-selected; auto-clear when all 5 chips individually selected
-- [Phase 08]: Trends event delegation scoped to #s2 element to avoid conflict with Stock tabs document-level click handler
-- [Phase 08-trends-and-cost-intelligence-tabs]: Equal ingredient proportion (1/n) for Cost tab mock calculations — simple and intuitive without needing external weighting data
-- [Phase 08-trends-and-cost-intelligence-tabs]: Category drill-down on Trends tab shows purchase line items per tag; shared buildTimeFilterHtml() and buildChipBarHtml() helpers reduce duplication between Trends and Cost tab filters
+- [v2.0 roadmap]: httpOnly, Secure, SameSite=Strict cookies — NOT localStorage — for session tokens (XSS risk; iOS standalone partition breaks localStorage anyway)
+- [v2.0 roadmap]: Same-origin serving — Go binary embeds frontend via embed.FS, serves both `/api/v1/*` and static files from same host — eliminates CORS entirely
+- [v2.0 roadmap]: IndexedDB + `online` event for offline queue — NOT Background Sync API (zero iOS Safari support)
+- [v2.0 roadmap]: SW fetch handler must be partitioned before first API call — network-first for `/api/*`, cache-first for static (SW cache-first would corrupt API responses)
+- [v2.0 roadmap]: DO Spaces presigned PUT URLs for photos — Go server generates URL, browser uploads directly; server never touches file bytes
+- [v2.0 roadmap]: goose migrations — one logical change per numbered file, each in BEGIN/COMMIT — prevents dirty state on startup
 
 ### Pending Todos
 
@@ -99,11 +74,13 @@ None yet.
 
 ### Blockers/Concerns
 
-- Chart.js UMD build must be downloaded to /lib/chart.umd.min.js before Phase 6 execution — confirm file exists or download step is first task
-- iOS device required for offline PWA testing (SW cache + Chart.js offline) — confirm real device available before Phase 6 human-verify checkpoint
+- Email provider must be chosen before Phase 9 planning — Resend vs Postmark vs net/smtp (affects invite flow in Phase 9)
+- Onboarding schema not in docs/user-management-api.md — must be designed at Phase 11 planning by inspecting onboarding.html data structures
+- DO Spaces bucket CORS policy for direct browser PUT uploads must be verified during Phase 12 planning
+- Auth must be tested on a physical iPhone in standalone mode before Phase 9 is declared done — not in Safari or Chrome DevTools
 
 ## Session Continuity
 
-Last session: 2026-04-14T20:31:41.596Z
-Stopped at: Completed 08-02-PLAN.md — Phase 08 fully complete
+Last session: 2026-04-15
+Stopped at: Roadmap created — 4 phases, 27/27 requirements mapped
 Resume file: None
