@@ -52,8 +52,8 @@
 **Plans**: 4 plans
 
 Plans:
-- [ ] 09-01-PLAN.md — Go server shell with chi router + SW fetch partition
-- [ ] 09-02-PLAN.md — Postgres with goose migrations + superadmin config
+- [x] 09-01-PLAN.md — Go server shell with chi router + SW fetch partition
+- [x] 09-02-PLAN.md — Postgres with goose migrations + superadmin config
 - [ ] 09-03-PLAN.md — Auth service, middleware, login/logout/me handlers
 - [ ] 09-04-PLAN.md — Wire login.html to real API + Tailscale phone verify
 
@@ -107,7 +107,7 @@ Phases execute in numeric order: 9 → 10 → 11 → 12
 | 6. Foundation and History Tab | v1.1 | 2/2 | Complete | 2026-04-14 |
 | 7. Stock and Reorder Tab | v1.1 | 2/2 | Complete | 2026-04-14 |
 | 8. Trends and Cost Intelligence Tabs | v1.1 | 2/2 | Complete | 2026-04-14 |
-| 9. Foundation + Auth | v2.0 | 0/4 | Not started | - |
+| 9. Foundation + Auth | v2.0 | 2/4 | In Progress|  |
 | 10. Workflows API | v2.0 | 0/? | Not started | - |
 | 11. Onboarding + Users Admin | v2.0 | 0/? | Not started | - |
 | 12. Inventory + Photos | v2.0 | 0/? | Not started | - |

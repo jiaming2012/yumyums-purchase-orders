@@ -8,7 +8,7 @@
 ### Foundation & Infrastructure
 
 - [ ] **INFRA-01**: Go binary serves PWA static files via embed.FS and API via chi router from same origin
-- [ ] **INFRA-02**: Postgres 16 database with goose migrations for schema management
+- [x] **INFRA-02**: Postgres 16 database with goose migrations for schema management
 - [ ] **INFRA-03**: Tailscale Serve provides HTTPS dev access for mobile device testing
 - [ ] **INFRA-04**: Service worker fetch handler partitioned — network-first for `/api/*`, cache-first for static files
 
@@ -85,7 +85,7 @@ Deferred to future milestones.
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | INFRA-01 | Phase 9 | Pending |
-| INFRA-02 | Phase 9 | Pending |
+| INFRA-02 | Phase 9 | Complete |
 | INFRA-03 | Phase 9 | Pending |
 | INFRA-04 | Phase 9 | Pending |
 | AUTH-01 | Phase 9 | Pending |
