@@ -45,3 +45,28 @@ func Migrate(pool *pgxpool.Pool) error {
 	log.Println("Database migrations applied successfully")
 	return nil
 }
+
+func SeedHQApps(ctx context.Context, pool *pgxpool.Pool) error {
+	var count int
+	if err := pool.QueryRow(ctx, "SELECT COUNT(*) FROM hq_apps").Scan(&count); err != nil {
+		return fmt.Errorf("count hq_apps: %w", err)
+	}
+	if count > 0 {
+		return nil
+	}
+	_, err := pool.Exec(ctx, `
+		INSERT INTO hq_apps (slug, name, icon) VALUES
+		  ('purchasing', 'Purchasing', '🛒'),
+		  ('payroll', 'Payroll', '💰'),
+		  ('scheduling', 'Scheduling', '📅'),
+		  ('hiring', 'Hiring', '👥'),
+		  ('bi', 'BI', '📊'),
+		  ('users', 'Users', '🔐'),
+		  ('operations', 'Operations', '📋')
+		ON CONFLICT (slug) DO NOTHING`)
+	if err != nil {
+		return fmt.Errorf("seed hq_apps: %w", err)
+	}
+	log.Println("Seeded 7 hq_apps rows")
+	return nil
+}

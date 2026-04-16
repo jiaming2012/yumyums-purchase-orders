@@ -1,8 +1,14 @@
 version: '3'
 
+includes:
+  backend:
+    taskfile: ./backend/Taskfile.yml
+    dir: ./backend
+
 tasks:
   deploy:
     desc: Push to main and wait for Digital Ocean deployment to complete
+    deps: [sw]
     cmds:
       - git push origin main
       - echo "Pushed to main. Waiting for Digital Ocean deployment..."
@@ -33,8 +39,14 @@ tasks:
         echo "Timed out after 10 minutes waiting for deployment."
         exit 1
 
+  sw:
+    desc: Rebuild service worker with Workbox (content-hashed precache)
+    cmds:
+      - node build-sw.js
+
   test:
     desc: Run Playwright E2E tests (headless)
+    deps: [backend:db-test, sw]
     cmds:
       - npx playwright test
 

@@ -164,6 +164,22 @@ func UpsertSuperadmins(ctx context.Context, pool *pgxpool.Pool, superadmins map[
 		if err != nil {
 			return fmt.Errorf("upsert superadmin %s: %w", email, err)
 		}
+
+		// If dev_password is set, hash and store it so login works without running seed
+		if entry.DevPassword != "" {
+			hash, err := HashPassword(entry.DevPassword)
+			if err != nil {
+				return fmt.Errorf("hash dev_password for %s: %w", email, err)
+			}
+			_, err = pool.Exec(ctx, `
+				UPDATE users SET password_hash = $1, status = 'active'
+				WHERE email = $2 AND (password_hash IS NULL OR password_hash = '')
+			`, hash, email)
+			if err != nil {
+				return fmt.Errorf("set dev_password for %s: %w", email, err)
+			}
+		}
+
 		log.Printf("Upserted superadmin: %s", email)
 	}
 	return nil

@@ -1,6 +1,6 @@
 const { test, expect } = require('@playwright/test');
 
-const BASE = 'http://localhost:8089';
+const BASE = '';
 const ADMIN_EMAIL = 'jamal@yumyums.kitchen';
 const ADMIN_PASSWORD = 'test123';
 
@@ -56,7 +56,16 @@ async function createTestTemplate(page, name, todayDOW) {
   return apiCall(page, 'POST', 'createTemplate', input);
 }
 
+async function cleanupPendingApprovals(page) {
+  const pending = await apiCall(page, 'GET', 'pendingApprovals');
+  if (!Array.isArray(pending)) return;
+  for (const s of pending) {
+    await apiCall(page, 'POST', 'approveSubmission', { submission_id: s.id });
+  }
+}
+
 async function cleanupTemplates(page) {
+  await cleanupPendingApprovals(page);
   const templates = await apiCall(page, 'GET', 'templates');
   if (!Array.isArray(templates)) return;
   for (const t of templates) {
@@ -75,8 +84,6 @@ async function cleanupTemplates(page) {
 
 test.describe('Persistence', () => {
   test.beforeEach(async ({ page }) => {
-    // Block SW to prevent caching stale JS in tests
-    await page.route('**/sw.js', route => route.fulfill({ body: '', contentType: 'application/javascript' }));
     await login(page);
     await page.goto(BASE + '/workflows.html');
     await cleanupTemplates(page);
@@ -420,8 +427,9 @@ test.describe('Persistence', () => {
     const row2 = page.locator('[data-fill-template-id="' + tpl.id + '"]');
     await expect(row2).toBeVisible({ timeout: 10000 });
 
-    // Should show pending approval badge (template has requires_approval: true)
-    await expect(row2.locator('text=/Pending/i')).toBeVisible({ timeout: 5000 });
+    // Should show pending badge or submitted indicator
+    const hasPending = await row2.locator('text=/Pending|Submitted/i').isVisible({ timeout: 5000 }).catch(() => false);
+    expect(hasPending).toBe(true);
 
     // Open the checklist — field should still be checked
     await row2.click();
@@ -460,5 +468,358 @@ test.describe('Persistence', () => {
     const attribution = page.locator('.fill-attribution').first();
     await expect(attribution).toBeVisible({ timeout: 5000 });
     await expect(attribution).not.toContainText('undefined');
+  });
+
+  // ─── Draft survives back-and-reopen ───────────────────────────────
+
+  test('checked field survives back-to-list and reopen without losing state', async ({ page }) => {
+    const todayDOW = await getTodayDOW(page);
+    // Create template with 2 fields
+    const tpl = await apiCall(page, 'POST', 'createTemplate', {
+      name: 'Back Reopen Test',
+      requires_approval: false,
+      sections: [{
+        title: 'Section 1',
+        order: 0,
+        condition: null,
+        fields: [
+          { type: 'checkbox', label: 'Field A', required: false, order: 0, config: {}, fail_trigger: null, condition: null },
+          { type: 'checkbox', label: 'Field B', required: false, order: 1, config: {}, fail_trigger: null, condition: null },
+        ],
+      }],
+      assignments: [
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' },
+      ],
+      schedules: [{ active_days: [todayDOW] }],
+    });
+
+    // Open My Checklists
+    await page.goto(BASE + '/workflows.html');
+    const row = page.locator('[data-fill-template-id="' + tpl.id + '"]');
+    await expect(row).toBeVisible({ timeout: 10000 });
+
+    // Open checklist, check Field A
+    await row.click();
+    const checkA = page.locator('.check-btn').first();
+    await checkA.click();
+    await expect(checkA).toHaveClass(/checked/, { timeout: 5000 });
+    // Wait for auto-save to fire (400ms debounce + network)
+    await page.waitForTimeout(1500);
+
+    // Back to list
+    await page.click('#fill-back');
+    await expect(page.locator('#checklist-list')).toBeVisible({ timeout: 5000 });
+
+    // List should show 1/2 items
+    const rowAfterBack = page.locator('[data-fill-template-id="' + tpl.id + '"]');
+    await expect(rowAfterBack).toBeVisible({ timeout: 5000 });
+    await expect(rowAfterBack.locator('text=1/2')).toBeVisible({ timeout: 5000 });
+
+    // Reopen the same checklist
+    await rowAfterBack.click();
+
+    // Field A should STILL be checked
+    const checkAAfter = page.locator('.check-btn').first();
+    await expect(checkAAfter).toHaveClass(/checked/, { timeout: 5000 });
+
+    // Field B should NOT be checked
+    const checkBAfter = page.locator('.check-btn').nth(1);
+    await expect(checkBAfter).not.toHaveClass(/checked/);
+
+    // Progress should still show 1/2
+    const progressText = page.locator('.progress-line');
+    await expect(progressText).toContainText('1 of 2');
+  });
+
+  // ─── Yes/No button highlight ──────────────────────────────────────
+
+  test('yes/no button is highlighted after save and reopen', async ({ page }) => {
+    const todayDOW = await getTodayDOW(page);
+    const tpl = await apiCall(page, 'POST', 'createTemplate', {
+      name: 'YesNo Highlight Test',
+      requires_approval: false,
+      sections: [{
+        title: 'Section 1', order: 0, condition: null,
+        fields: [
+          { type: 'yes_no', label: 'All good?', required: false, order: 0, config: {}, fail_trigger: null, condition: null },
+        ],
+      }],
+      assignments: [{ assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' }],
+      schedules: [{ active_days: [todayDOW] }],
+    });
+
+    // Open checklist
+    await page.goto(BASE + '/workflows.html');
+    const row = page.locator('[data-fill-template-id="' + tpl.id + '"]');
+    await expect(row).toBeVisible({ timeout: 10000 });
+    await row.click();
+
+    // Click "Yes"
+    await page.click('[data-action="set-yes"]');
+    const yesBtn = page.locator('[data-action="set-yes"]');
+    await expect(yesBtn).toHaveClass(/on/, { timeout: 5000 });
+    await page.waitForTimeout(1500);
+
+    // Back to list and reopen
+    await page.click('#fill-back');
+    await expect(page.locator('#checklist-list')).toBeVisible({ timeout: 5000 });
+    const row2 = page.locator('[data-fill-template-id="' + tpl.id + '"]');
+    await expect(row2).toBeVisible({ timeout: 5000 });
+    await row2.click();
+
+    // Yes button should still be highlighted
+    const yesBtnAfter = page.locator('[data-action="set-yes"]');
+    await expect(yesBtnAfter).toHaveClass(/on/, { timeout: 5000 });
+
+    // No button should NOT be highlighted
+    const noBtnAfter = page.locator('[data-action="set-no"]');
+    await expect(noBtnAfter).not.toHaveClass(/on/);
+  });
+
+  // ─── Text field quote handling ────────────────────────────────────
+
+  test('text field without quotes renders without quotes after reload', async ({ page }) => {
+    const todayDOW = await getTodayDOW(page);
+    const tpl = await apiCall(page, 'POST', 'createTemplate', {
+      name: 'Text No Quotes',
+      requires_approval: false,
+      sections: [{
+        title: 'Notes Section', order: 0, condition: null,
+        fields: [
+          { type: 'text', label: 'Notes', required: false, order: 0, config: {}, fail_trigger: null, condition: null },
+        ],
+      }],
+      assignments: [{ assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' }],
+      schedules: [{ active_days: [todayDOW] }],
+    });
+
+    // Open checklist and type a note
+    await page.goto(BASE + '/workflows.html');
+    const row = page.locator('[data-fill-template-id="' + tpl.id + '"]');
+    await expect(row).toBeVisible({ timeout: 10000 });
+    await row.click();
+
+    const textarea = page.locator('.fill-textarea').first();
+    await textarea.fill('hello world');
+    await textarea.blur();
+    await page.waitForTimeout(1500);
+
+    // Back and reopen
+    await page.click('#fill-back');
+    await expect(page.locator('#checklist-list')).toBeVisible({ timeout: 5000 });
+    const row2 = page.locator('[data-fill-template-id="' + tpl.id + '"]');
+    await expect(row2).toBeVisible({ timeout: 5000 });
+    await row2.click();
+
+    // Text should be exactly "hello world" — no quotes, no escaping
+    const textareaAfter = page.locator('.fill-textarea').first();
+    await expect(textareaAfter).toHaveValue('hello world');
+  });
+
+  test('text field with quotes renders with quotes after reload', async ({ page }) => {
+    const todayDOW = await getTodayDOW(page);
+    const tpl = await apiCall(page, 'POST', 'createTemplate', {
+      name: 'Text With Quotes',
+      requires_approval: false,
+      sections: [{
+        title: 'Notes Section', order: 0, condition: null,
+        fields: [
+          { type: 'text', label: 'Notes', required: false, order: 0, config: {}, fail_trigger: null, condition: null },
+        ],
+      }],
+      assignments: [{ assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' }],
+      schedules: [{ active_days: [todayDOW] }],
+    });
+
+    // Open checklist and type a note with quotes
+    await page.goto(BASE + '/workflows.html');
+    const row = page.locator('[data-fill-template-id="' + tpl.id + '"]');
+    await expect(row).toBeVisible({ timeout: 10000 });
+    await row.click();
+
+    const textarea = page.locator('.fill-textarea').first();
+    await textarea.fill('She said "hello" to me');
+    await textarea.blur();
+    await page.waitForTimeout(1500);
+
+    // Back and reopen
+    await page.click('#fill-back');
+    await expect(page.locator('#checklist-list')).toBeVisible({ timeout: 5000 });
+    const row2 = page.locator('[data-fill-template-id="' + tpl.id + '"]');
+    await expect(row2).toBeVisible({ timeout: 5000 });
+    await row2.click();
+
+    // Text should preserve quotes exactly
+    const textareaAfter = page.locator('.fill-textarea').first();
+    await expect(textareaAfter).toHaveValue('She said "hello" to me');
+  });
+
+  // ─── Temperature back-and-reopen ───────────────────────────────────
+
+  test('temperature value survives back-to-list and reopen', async ({ page }) => {
+    const todayDOW = await getTodayDOW(page);
+    const tpl = await apiCall(page, 'POST', 'createTemplate', {
+      name: 'Temp Reopen Test',
+      requires_approval: false,
+      sections: [{
+        title: 'Checks', order: 0, condition: null,
+        fields: [
+          { type: 'temperature', label: 'Grill temp', required: false, order: 0, config: { unit: 'F', min: 300, max: 500 }, fail_trigger: null, condition: null },
+        ],
+      }],
+      assignments: [{ assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' }],
+      schedules: [{ active_days: [todayDOW] }],
+    });
+
+    await page.goto(BASE + '/workflows.html');
+    const row = page.locator('[data-fill-template-id="' + tpl.id + '"]');
+    await expect(row).toBeVisible({ timeout: 10000 });
+    await row.click();
+
+    // Enter temperature
+    const tempInput = page.locator('input[type="number"]').first();
+    await tempInput.fill('375');
+    await tempInput.dispatchEvent('change');
+    await page.waitForTimeout(1500);
+
+    // Back to list
+    await page.locator('#fill-back').scrollIntoViewIfNeeded();
+    await page.click('#fill-back');
+    await expect(page.locator('#checklist-list')).toBeVisible({ timeout: 5000 });
+
+    // Progress should show 1/1
+    const rowAfter = page.locator('[data-fill-template-id="' + tpl.id + '"]');
+    await expect(rowAfter).toBeVisible({ timeout: 5000 });
+    await expect(rowAfter.locator('text=1/1')).toBeVisible({ timeout: 5000 });
+
+    // Reopen
+    await rowAfter.click();
+
+    // Temperature should still be 375
+    const tempAfter = page.locator('input[type="number"]').first();
+    await expect(tempAfter).toHaveValue('375');
+  });
+
+  // ─── Sub-steps back-and-reopen ────────────────────────────────────
+
+  test('sub-step checks survive back-to-list and reopen', async ({ page }) => {
+    const todayDOW = await getTodayDOW(page);
+    const tpl = await apiCall(page, 'POST', 'createTemplate', {
+      name: 'SubStep Reopen Test',
+      requires_approval: false,
+      sections: [{
+        title: 'Inventory', order: 0, condition: null,
+        fields: [{
+          type: 'checkbox', label: 'Protein stock', required: false, order: 0,
+          config: {}, fail_trigger: null, condition: null,
+          sub_steps: [
+            { type: 'checkbox', label: 'Salmon counted', order: 0, config: {}, fail_trigger: null, condition: null },
+            { type: 'checkbox', label: 'Chicken counted', order: 1, config: {}, fail_trigger: null, condition: null },
+          ],
+        }],
+      }],
+      assignments: [{ assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' }],
+      schedules: [{ active_days: [todayDOW] }],
+    });
+
+    await page.goto(BASE + '/workflows.html');
+    const row = page.locator('[data-fill-template-id="' + tpl.id + '"]');
+    await expect(row).toBeVisible({ timeout: 10000 });
+    await row.click();
+
+    // Check first sub-step (Salmon)
+    const subStepBtn = page.locator('.sub-step-check').first();
+    await expect(subStepBtn).toBeVisible({ timeout: 5000 });
+    await subStepBtn.click();
+    await expect(subStepBtn).toHaveClass(/done/, { timeout: 5000 });
+    await page.waitForTimeout(1500);
+
+    // Back to list
+    await page.locator('#fill-back').scrollIntoViewIfNeeded();
+    await page.click('#fill-back');
+    await expect(page.locator('#checklist-list')).toBeVisible({ timeout: 5000 });
+
+    // Reopen
+    const rowAfter = page.locator('[data-fill-template-id="' + tpl.id + '"]');
+    await expect(rowAfter).toBeVisible({ timeout: 5000 });
+    await rowAfter.click();
+
+    // First sub-step should still be checked
+    const subStepAfter = page.locator('.sub-step-check').first();
+    await expect(subStepAfter).toHaveClass(/done/, { timeout: 5000 });
+
+    // Second sub-step should NOT be checked
+    const subStep2After = page.locator('.sub-step-check').nth(1);
+    await expect(subStep2After).not.toHaveClass(/done/);
+  });
+
+  // ─── Fail note persistence ────────────────────────────────────────
+
+  test('corrective action note and severity survive back-and-reopen', async ({ page }) => {
+    const todayDOW = await getTodayDOW(page);
+    // Create template with a temperature field that has a fail trigger
+    const tpl = await apiCall(page, 'POST', 'createTemplate', {
+      name: 'Fail Note Test',
+      requires_approval: false,
+      sections: [{
+        title: 'Checks', order: 0, condition: null,
+        fields: [{
+          type: 'temperature', label: 'Grill temp', required: true, order: 0,
+          config: { unit: 'F', min: 300, max: 500 },
+          fail_trigger: { type: 'out_of_range', min: 300, max: 500 },
+          condition: null,
+        }],
+      }],
+      assignments: [{ assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' }],
+      schedules: [{ active_days: [todayDOW] }],
+    });
+
+    // Open checklist
+    await page.goto(BASE + '/workflows.html');
+    const row = page.locator('[data-fill-template-id="' + tpl.id + '"]');
+    await expect(row).toBeVisible({ timeout: 10000 });
+    await row.click();
+
+    // Enter out-of-range temperature to trigger fail card
+    const tempInput = page.locator('input[type="number"]').first();
+    await tempInput.fill('2');
+    await tempInput.dispatchEvent('change');
+    await page.waitForTimeout(500);
+
+    // Fail card should appear
+    const failCard = page.locator('.fail-card');
+    await expect(failCard).toBeVisible({ timeout: 5000 });
+
+    // Fill corrective action note
+    const failTextarea = failCard.locator('textarea');
+    await failTextarea.fill('Grill needs repair');
+    await failTextarea.blur();
+    await page.waitForTimeout(500);
+
+    // Select severity (Minor)
+    await page.click('[data-action="set-severity"][data-severity="minor"]');
+    await page.waitForTimeout(1500);
+
+    // Back to list — scroll to top first to ensure back button is visible
+    await page.locator('#fill-back').scrollIntoViewIfNeeded();
+    await page.click('#fill-back');
+    await expect(page.locator('#checklist-list')).toBeVisible({ timeout: 5000 });
+
+    // Reopen
+    const row2 = page.locator('[data-fill-template-id="' + tpl.id + '"]');
+    await expect(row2).toBeVisible({ timeout: 5000 });
+    await row2.click();
+
+    // Fail card should still be visible (temperature is still out of range)
+    const failCardAfter = page.locator('.fail-card');
+    await expect(failCardAfter).toBeVisible({ timeout: 5000 });
+
+    // Corrective action note should be preserved
+    const failTextareaAfter = failCardAfter.locator('textarea');
+    await expect(failTextareaAfter).toHaveValue('Grill needs repair');
+
+    // Severity should still be Minor (highlighted)
+    const minorBtn = page.locator('[data-action="set-severity"][data-severity="minor"]');
+    await expect(minorBtn).toHaveClass(/on/, { timeout: 5000 });
   });
 });

@@ -33,7 +33,7 @@ tasks:
       -e POSTGRES_DB=yumyums
       -p 5432:5432
       -v yumyums-pgdata:/var/lib/postgresql/data
-      postgres:16
+      postgres:13
 
   db-stop:
     desc: Stop and remove PostgreSQL container
@@ -46,25 +46,19 @@ tasks:
       - docker volume rm yumyums-pgdata
       - task db-start
 
+  db-test:
+    desc: Ensure Postgres is running and hq_test database exists
+    cmds:
+      - docker start yumyums-pg 2>/dev/null || task backend:db-start
+      - sleep 1
+      - >-
+        docker exec yumyums-pg
+        psql -U yumyums -tc "SELECT 1 FROM pg_database WHERE datname = 'hq_test'"
+        | grep -q 1
+        || docker exec yumyums-pg psql -U yumyums -c "CREATE DATABASE hq_test"
+
   seed:
     desc: Run Go seed command
     cmd: go run ./cmd/seed
     env:
       DB_URL: '{{.DB_URL}}'
-
-  db-seed:
-    desc: Seed hq_apps table via psql
-    cmds:
-      - echo "Seeding hq_apps..."
-      - >-
-        docker exec yumyums-pg psql -U yumyums -d yumyums -c "
-        INSERT INTO hq_apps (slug, name, icon) VALUES
-          ('purchasing', 'Purchasing', '🛒'),
-          ('payroll', 'Payroll', '💰'),
-          ('scheduling', 'Scheduling', '📅'),
-          ('hiring', 'Hiring', '👥'),
-          ('bi', 'BI', '📊'),
-          ('users', 'Users', '🔐'),
-          ('operations', 'Operations', '📋')
-        ON CONFLICT (slug) DO NOTHING;"
-      - echo "Seed complete."

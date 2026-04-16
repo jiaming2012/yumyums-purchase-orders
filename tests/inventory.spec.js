@@ -9,6 +9,11 @@ test.describe('Inventory', () => {
 
   // HIST-03: Reachable from HQ
   test('HQ launcher has Inventory tile linking to inventory.html', async ({ page }) => {
+    await page.goto('/login.html');
+    await page.fill('input[type="email"]', 'jamal@yumyums.kitchen');
+    await page.fill('input[type="password"]', 'test123');
+    await page.click('button.btn');
+    await page.waitForURL(url => !url.pathname.includes('login'));
     await page.goto('/index.html');
     const tile = page.locator('a.tile[href="inventory.html"]');
     await expect(tile).toBeVisible();

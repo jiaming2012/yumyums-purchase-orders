@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -13,6 +14,16 @@ import (
 // isAdmin returns true if the user has admin or superadmin privileges (D-11).
 func isAdmin(user *auth.User) bool {
 	return user.Role == "admin" || user.IsSuperadmin
+}
+
+// hasApprover returns true if at least one assignment has role "approver".
+func hasApprover(assignments []AssignmentInput) bool {
+	for _, a := range assignments {
+		if a.AssignmentRole == "approver" {
+			return true
+		}
+	}
+	return false
 }
 
 // writeJSON sets Content-Type and encodes v as JSON.
@@ -73,6 +84,10 @@ func CreateTemplateHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			writeError(w, http.StatusBadRequest, "invalid_body")
 			return
 		}
+		if input.RequiresApproval && !hasApprover(input.Assignments) {
+			writeError(w, http.StatusBadRequest, "requires_approver")
+			return
+		}
 
 		id, err := insertTemplate(r.Context(), pool, input, user.ID)
 		if err != nil {
@@ -107,6 +122,10 @@ func UpdateTemplateHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		var input TemplateInput
 		if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid_body")
+			return
+		}
+		if input.RequiresApproval && !hasApprover(input.Assignments) {
+			writeError(w, http.StatusBadRequest, "requires_approver")
 			return
 		}
 
@@ -166,9 +185,22 @@ func MyChecklistsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			}
 		}()
 
-		templates, submissions, err := myChecklists(r.Context(), pool, user.ID)
+		// Accept optional ?dow= from client to handle timezone differences
+		var clientDOW *int
+		if dowStr := r.URL.Query().Get("dow"); dowStr != "" {
+			if v, err := strconv.Atoi(dowStr); err == nil && v >= 0 && v <= 6 {
+				clientDOW = &v
+			}
+		}
+		templates, submissions, err := myChecklists(r.Context(), pool, user.ID, clientDOW)
 		if err != nil {
 			log.Printf("myChecklists error: %v", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		drafts, err := myDrafts(r.Context(), pool, user.ID)
+		if err != nil {
+			log.Printf("myDrafts error: %v", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -178,9 +210,13 @@ func MyChecklistsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		if submissions == nil {
 			submissions = []Submission{}
 		}
+		if drafts == nil {
+			drafts = []FieldResponse{}
+		}
 		writeJSON(w, http.StatusOK, map[string]any{
 			"templates":   templates,
 			"submissions": submissions,
+			"drafts":      drafts,
 		})
 	}
 }

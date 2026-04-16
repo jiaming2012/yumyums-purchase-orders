@@ -2,7 +2,6 @@ package workflow
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -169,9 +168,9 @@ func insertField(ctx context.Context, tx pgx.Tx, sectionID string, parentFieldID
 
 // marshalNullableJSON returns nil if the input is empty/null, otherwise
 // returns the raw bytes for use as a JSONB parameter.
-func marshalNullableJSON(raw json.RawMessage) (interface{}, error) {
+func marshalNullableJSON(raw []byte) (interface{}, error) {
 	if len(raw) == 0 || string(raw) == "null" {
 		return nil, nil
 	}
-	return []byte(raw), nil
+	return raw, nil
 }

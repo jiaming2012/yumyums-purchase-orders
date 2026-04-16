@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io/fs"
 	"log"
+	"net"
 	"net/http"
 	"os"
 
@@ -155,6 +156,13 @@ func main() {
 	r.Handle("/*", http.FileServerFS(staticFS))
 
 	log.Printf("Yumyums HQ server listening on :%s", port)
+	if addrs, err := net.InterfaceAddrs(); err == nil {
+		for _, a := range addrs {
+			if ipnet, ok := a.(*net.IPNet); ok && !ipnet.IP.IsLoopback() && ipnet.IP.To4() != nil {
+				log.Printf("  → http://%s:%s", ipnet.IP, port)
+			}
+		}
+	}
 	if err := http.ListenAndServe(":"+port, r); err != nil {
 		log.Fatalf("Server failed: %v", err)
 	}

@@ -12,7 +12,7 @@ import (
 // LoginHandler handles POST /api/v1/auth/login.
 // On valid credentials, creates a session and sets an httpOnly cookie.
 // Returns 401 with {"error":"invalid_credentials"} on bad credentials.
-func LoginHandler(pool *pgxpool.Pool, superadmins map[string]config.SuperadminEntry) http.HandlerFunc {
+func LoginHandler(pool *pgxpool.Pool, superadmins map[string]config.SuperadminEntry, secureCookie bool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
 			Email    string `json:"email"`
@@ -50,13 +50,17 @@ func LoginHandler(pool *pgxpool.Pool, superadmins map[string]config.SuperadminEn
 		}
 
 		// Set httpOnly cookie — token never exposed in response body
+		sameSite := http.SameSiteStrictMode
+		if !secureCookie {
+			sameSite = http.SameSiteLaxMode
+		}
 		http.SetCookie(w, &http.Cookie{
 			Name:     "hq_session",
 			Value:    rawToken,
 			Path:     "/",
 			HttpOnly: true,
-			Secure:   true,
-			SameSite: http.SameSiteStrictMode,
+			Secure:   secureCookie,
+			SameSite: sameSite,
 			// No MaxAge or Expires — indefinite session per D-03
 		})
 

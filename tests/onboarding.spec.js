@@ -4,6 +4,11 @@ const { test, expect } = require('@playwright/test');
 
 test.describe('Onboarding Navigation', () => {
   test('HQ launcher has Onboarding tile linking to onboarding.html', async ({ page }) => {
+    await page.goto('/login.html');
+    await page.fill('input[type="email"]', 'jamal@yumyums.kitchen');
+    await page.fill('input[type="password"]', 'test123');
+    await page.click('button.btn');
+    await page.waitForURL(url => !url.pathname.includes('login'));
     await page.goto('/index.html');
     const tile = page.locator('a[href="onboarding.html"]');
     await expect(tile).toBeVisible();

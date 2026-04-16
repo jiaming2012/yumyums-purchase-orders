@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/yumyums/hq/internal/config"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -16,6 +17,15 @@ func main() {
 		log.Fatal("DB_URL environment variable is required")
 	}
 
+	superadminPath := os.Getenv("SUPERADMIN_CONFIG")
+	if superadminPath == "" {
+		superadminPath = "config/superadmins.yaml"
+	}
+	superadmins, err := config.LoadSuperadmins(superadminPath)
+	if err != nil {
+		log.Fatalf("Failed to load superadmins config: %v", err)
+	}
+
 	ctx := context.Background()
 	pool, err := pgxpool.New(ctx, dbURL)
 	if err != nil {
@@ -23,22 +33,32 @@ func main() {
 	}
 	defer pool.Close()
 
-	// Hash the test password "test123"
-	hash, err := bcrypt.GenerateFromPassword([]byte("test123"), bcrypt.DefaultCost)
-	if err != nil {
-		log.Fatalf("Failed to hash password: %v", err)
-	}
+	// Seed each superadmin that has a dev_password set
+	seeded := 0
+	for email, entry := range superadmins {
+		if entry.DevPassword == "" {
+			log.Printf("Skipping %s (no dev_password set)", email)
+			continue
+		}
 
-	// Update superadmin user with password and active status
-	tag, err := pool.Exec(ctx,
-		`UPDATE users SET password_hash = $1, status = 'active', accepted_at = now()
-         WHERE email = 'jamal@yumyums.com'`,
-		string(hash))
-	if err != nil {
-		log.Fatalf("Failed to update superadmin: %v", err)
-	}
-	if tag.RowsAffected() == 0 {
-		log.Fatal("No user found with email jamal@yumyums.com -- did you run the server first (to trigger UpsertSuperadmins)?")
+		hash, err := bcrypt.GenerateFromPassword([]byte(entry.DevPassword), bcrypt.DefaultCost)
+		if err != nil {
+			log.Fatalf("Failed to hash password for %s: %v", email, err)
+		}
+
+		tag, err := pool.Exec(ctx,
+			`UPDATE users SET password_hash = $1, status = 'active', accepted_at = now()
+			 WHERE email = $2`,
+			string(hash), email)
+		if err != nil {
+			log.Fatalf("Failed to update %s: %v", email, err)
+		}
+		if tag.RowsAffected() == 0 {
+			log.Printf("Warning: no user found for %s -- did you run the server first?", email)
+		} else {
+			log.Printf("Seeded %s with dev password", email)
+			seeded++
+		}
 	}
 
 	// Seed hq_apps if empty
@@ -66,5 +86,5 @@ func main() {
 		fmt.Printf("hq_apps already has %d rows, skipping seed\n", appCount)
 	}
 
-	fmt.Println("Superadmin jamal@yumyums.com seeded with password: test123")
+	fmt.Printf("Done. Seeded %d superadmin(s).\n", seeded)
 }

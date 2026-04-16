@@ -10,6 +10,7 @@ import (
 type SuperadminEntry struct {
 	Email       string `yaml:"email"`
 	DisplayName string `yaml:"display_name"`
+	DevPassword string `yaml:"dev_password,omitempty"`
 }
 
 type SuperadminsConfig struct {

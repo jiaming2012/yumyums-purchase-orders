@@ -151,6 +151,9 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .save-indicator.saved{color:#27ae60}
 .photo-placeholder{padding:16px;background:var(--card);border-radius:8px;border:0.5px solid var(--brd);text-align:center;color:var(--mut);font-size:13px}
 .sync-banner{background:var(--warn-bg);color:var(--warn-tx);font-size:13px;font-weight:500;padding:8px 16px;text-align:center;border-radius:8px;margin-bottom:8px}
+#save-status{font-size:12px;font-weight:500;text-align:center;padding:6px 0;transition:opacity .3s}
+#save-status.pending{color:var(--warn-tx)}
+#save-status.synced{color:#27ae60}
 .sync-badge{display:inline-block;padding:2px 8px;border-radius:10px;background:var(--warn-bg);color:var(--warn-tx);font-size:12px;font-weight:500;margin-left:8px}
 </style>
 <script src="https://unpkg.com/sortablejs@1.15.7/Sortable.min.js"></script>
@@ -158,6 +161,7 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 <body>
 <div class="app">
 <a class="back" href="index.html">HQ</a>
+<div id="save-status" style="display:none"></div>
 <div class="tabs">
   <button id="t1" class="on" onclick="show(1)">My Checklists</button>
   <button id="t2" onclick="show(2)">Approvals</button>
@@ -320,17 +324,58 @@ async function renderSyncBanner() {
 }
 
 const SAVE_DEBOUNCE = {};
+let _pendingSaves = 0;
+let _syncedTimer = null;
+
+function updateSaveStatus(delta) {
+  _pendingSaves = Math.max(0, _pendingSaves + delta);
+  const el = document.getElementById('save-status');
+  if (!el) return;
+  clearTimeout(_syncedTimer);
+  if (_pendingSaves > 0) {
+    el.textContent = 'Saving\u2026';
+    el.className = 'pending';
+    el.style.display = 'block';
+    el.style.opacity = '1';
+  } else {
+    el.textContent = 'Synced \u2713';
+    el.className = 'synced';
+    el.style.display = 'block';
+    el.style.opacity = '1';
+    _syncedTimer = setTimeout(function() {
+      el.style.opacity = '0';
+      setTimeout(function() { el.style.display = 'none'; }, 300);
+    }, 3000);
+  }
+}
+
 function autoSaveField(fieldId, value) {
   clearTimeout(SAVE_DEBOUNCE[fieldId]);
+  updateSaveStatus(1);
   SAVE_DEBOUNCE[fieldId] = setTimeout(async () => {
     const indicator = document.querySelector(`[data-field-id="${fieldId}"] .save-indicator`);
     try {
-      await api('POST', 'saveResponse', { field_id: fieldId, value: JSON.stringify(value) });
+      // Bundle fail note with value if one exists
+      var saveValue = value;
+      var fn = FAIL_NOTES[fieldId];
+      if (fn && (fn.note || fn.severity)) {
+        saveValue = { _v: value, _fail_note: { note: fn.note, severity: fn.severity } };
+      }
+      await api('POST', 'saveResponse', { field_id: fieldId, value: saveValue });
+      // Update DRAFT_RESPONSES so reopening the checklist restores this value
+      var existing = DRAFT_RESPONSES.find(function(d) { return d.field_id === fieldId; });
+      if (existing) {
+        existing.value = saveValue;
+        existing.answered_at = new Date().toISOString();
+      } else {
+        DRAFT_RESPONSES.push({ field_id: fieldId, value: saveValue, answered_at: new Date().toISOString() });
+      }
       if (indicator) { indicator.textContent = 'Saved'; indicator.className = 'save-indicator saved'; setTimeout(() => { indicator.textContent = ''; indicator.className = 'save-indicator'; }, 800); }
       clearFieldError(fieldId);
     } catch (e) {
       showFieldError(fieldId);
     }
+    updateSaveStatus(-1);
   }, 400);
 }
 
@@ -1187,7 +1232,9 @@ document.getElementById('builder-body').addEventListener('click', function(e) {
     var isNew = !TEMPLATES.find(function(t){return t.id===tpl.id});
     var endpoint = isNew ? 'createTemplate' : ('updateTemplate/' + tpl.id);
     var method = isNew ? 'POST' : 'PUT';
+    updateSaveStatus(1);
     api(method, endpoint, toApiTemplate(tpl)).then(function(result) {
+      updateSaveStatus(-1);
       if (isNew && result && result.id) tpl.id = result.id;
       showToast('Checklist saved \u2713');
       state.view = 'list';
@@ -1197,6 +1244,7 @@ document.getElementById('builder-body').addEventListener('click', function(e) {
       renderBuilder();
       loadTemplates();
     }).catch(function(err) {
+      updateSaveStatus(-1);
       btn.textContent = 'Save checklist';
       btn.disabled = false;
       if (err && err.status === 403) {
@@ -1213,10 +1261,13 @@ document.getElementById('builder-body').addEventListener('click', function(e) {
   // Archive template (inline confirm)
   if (e.target.closest('[data-action="archive-confirm"]')) {
     var tplId = e.target.closest('[data-action="archive-confirm"]').dataset.tplId;
+    updateSaveStatus(1);
     api('DELETE', 'archiveTemplate/' + tplId).then(function() {
+      updateSaveStatus(-1);
       showToast('Template archived');
       loadTemplates();
     }).catch(function() {
+      updateSaveStatus(-1);
       showToast('Archive failed. Try again.');
     });
     return;
@@ -1365,31 +1416,67 @@ document.getElementById('builder-body').addEventListener('change', function(e) {
 
 // Runtime fill state (replaces all mock dicts — transient in-memory, backed by API)
 const FIELD_RESPONSES = {}; // { [fieldId]: { value: any, answeredBy: string, answeredAt: Date } } — local optimistic state
-// hydrateFieldState rebuilds FIELD_RESPONSES from all server sources.
+// Unwrap values that were double-stringified by the old autoSaveField bug.
+// e.g. '"true"' → true, '"\"hey\""' → 'hey', '400' → 400
+function unwrapValue(v) {
+  if (typeof v !== 'string') return v;
+  try {
+    var parsed = JSON.parse(v);
+    // If parsing a string produced another string, that's a double-wrapped value — unwrap it
+    if (typeof parsed === 'string') return parsed;
+    return parsed;
+  } catch (e) {
+    return v;
+  }
+}
+
+// hydrateFieldState rebuilds FIELD_RESPONSES and FAIL_NOTES from all server sources.
 // Priority: submission responses > draft responses.
 // Called once after loadMyChecklists and when opening a checklist runner.
 function hydrateFieldState(filterFieldIds) {
   // Clear existing state
   Object.keys(FIELD_RESPONSES).forEach(function(k) { delete FIELD_RESPONSES[k]; });
+  Object.keys(FAIL_NOTES).forEach(function(k) { delete FAIL_NOTES[k]; });
   // 1. Draft responses (in-progress, not yet submitted)
   (DRAFT_RESPONSES || []).forEach(function(d) {
     if (!filterFieldIds || filterFieldIds.has(d.field_id)) {
-      FIELD_RESPONSES[d.field_id] = { value: d.value, answeredBy: getUserName(), answeredAt: new Date(d.answered_at) };
+      var val = unwrapValue(d.value);
+      var subSteps = null;
+      // Unpack bundled fail note if present
+      if (val && typeof val === 'object' && val._v !== undefined) {
+        if (val._fail_note) FAIL_NOTES[d.field_id] = { note: val._fail_note.note || '', severity: val._fail_note.severity || '' };
+        val = val._v;
+      }
+      // Unpack sub-step objects: { value: bool, sub_steps: {...} }
+      if (val && typeof val === 'object' && val.sub_steps !== undefined) {
+        subSteps = val.sub_steps;
+        val = val.value;
+      }
+      var entry = { value: val, answeredBy: getUserName(), answeredAt: new Date(d.answered_at) };
+      if (subSteps) entry.sub_steps = subSteps;
+      FIELD_RESPONSES[d.field_id] = entry;
     }
   });
   // 2. Submitted responses (highest priority — overwrites drafts)
   (MY_SUBMISSIONS || []).forEach(function(sub) {
     (sub.responses || []).forEach(function(r) {
       if (!filterFieldIds || filterFieldIds.has(r.field_id)) {
-        FIELD_RESPONSES[r.field_id] = { value: r.value, answeredBy: getUserName(), answeredAt: new Date(r.answered_at) };
+        var val = unwrapValue(r.value);
+        var subSteps = null;
+        if (val && typeof val === 'object' && val.sub_steps !== undefined) {
+          subSteps = val.sub_steps;
+          val = val.value;
+        }
+        var entry = { value: val, answeredBy: getUserName(), answeredAt: new Date(r.answered_at) };
+        if (subSteps) entry.sub_steps = subSteps;
+        FIELD_RESPONSES[r.field_id] = entry;
       }
     });
   });
 }
 
 const FAIL_NOTES = {}; // { [fieldId]: { note: string, severity: string } } — local only
-const REJECTION_FLAGS = {}; // { [fldId]: { comment, requirePhoto } } — loaded from server on open
-const WAS_REJECTED = {}; // { [tplId]: true } — tracks if a checklist was ever rejected
+const REJECTION_FLAGS = {}; // { [fldId]: { comment, requirePhoto } } — TODO: load from submission.rejections[] on checklist open
 
 // Named mutation helpers (used inline in event handlers and referenced by name for traceability)
 function clearRejectionFlag(fldId) {
@@ -1429,9 +1516,19 @@ function setTextAnswer(fldId, value) {
     delete FIELD_RESPONSES[fldId];
   }
 }
+var FAIL_NOTE_DEBOUNCE = {};
+function autoSaveFailNote(fldId) {
+  clearTimeout(FAIL_NOTE_DEBOUNCE[fldId]);
+  FAIL_NOTE_DEBOUNCE[fldId] = setTimeout(function() {
+    var resp = FIELD_RESPONSES[fldId];
+    if (resp) autoSaveField(fldId, resp.value);
+  }, 800);
+}
+
 function setFailNote(fldId, patch) {
   if (!FAIL_NOTES[fldId]) FAIL_NOTES[fldId] = { note: '', severity: '' };
   Object.assign(FAIL_NOTES[fldId], patch);
+  autoSaveFailNote(fldId);
 }
 function setSeverity(fldId, severity) {
   if (!FAIL_NOTES[fldId]) FAIL_NOTES[fldId] = { note: '', severity: '' };
@@ -1741,8 +1838,8 @@ function renderRunnerField(fld) {
   }
 
   if (fld.type === 'yes_no') {
-    const isYes = answered && resp.value === true;
-    const isNo = answered && resp.value === false;
+    const isYes = answered && (resp.value === true || resp.value === 'true');
+    const isNo = answered && (resp.value === false || resp.value === 'false');
     const failCard = isNo ? renderFailCard(fld, FAIL_NOTES[fld.id] || null) : '';
     return `<div class="fill-field" data-field-id="${fld.id}">
   ${correctionBanner}
@@ -1832,8 +1929,7 @@ document.getElementById('fill-body').addEventListener('click', function(e) {
       fillState.activeTemplate = tpl;
       fillState.view = 'runner';
       location.hash = 'checklist=' + tpl.id;
-      // Restore field state for this template's fields
-      Object.keys(FAIL_NOTES).forEach(function(k) { delete FAIL_NOTES[k]; });
+      // Restore field state (including fail notes) for this template's fields
       var tplFieldIds = new Set((tpl.sections || []).flatMap(function(s) { return (s.fields || []).map(function(f) { return f.id; }); }));
       hydrateFieldState(tplFieldIds);
       renderFillOut();
@@ -1976,6 +2072,7 @@ document.getElementById('fill-body').addEventListener('click', function(e) {
       const severity = actionEl.dataset.severity;
       if (!FAIL_NOTES[fldId]) FAIL_NOTES[fldId] = { note: '', severity: '' };
       FAIL_NOTES[fldId].severity = severity;
+      autoSaveFailNote(fldId);
       // Re-render just the fail card
       const failCard = e.target.closest('.fail-card');
       if (failCard) {
@@ -2011,11 +2108,12 @@ document.getElementById('fill-body').addEventListener('click', function(e) {
       if (btn) { btn.textContent = 'Submitting\u2026'; btn.disabled = true; }
       var allFlds = fillState.activeTemplate.sections.filter(function(s){return isSectionVisible(s)}).flatMap(function(s){return s.fields.filter(function(f){return isFieldVisible(f)})});
       var allDone = allFlds.every(function(f){return FIELD_RESPONSES[f.id] !== undefined});
-      var isReapproval = !!WAS_REJECTED[tplId];
-      // Clear rejection tracking on submit
-      delete WAS_REJECTED[tplId];
+      var prevSubmission = MY_SUBMISSIONS ? MY_SUBMISSIONS.find(function(s){return s.template_id===tplId}) : null;
+      var isReapproval = prevSubmission && prevSubmission.status === 'rejected';
       Object.keys(REJECTION_FLAGS).forEach(function(k){ delete REJECTION_FLAGS[k]; });
+      updateSaveStatus(1);
       submitChecklistToAPI(tplId, allFlds, isReapproval).then(function(result) {
+        updateSaveStatus(-1);
         var submissionId = result && result.id;
         // Update MY_SUBMISSIONS optimistically
         var existing = MY_SUBMISSIONS ? MY_SUBMISSIONS.find(function(s){return s.template_id===tplId}) : null;
@@ -2047,6 +2145,7 @@ document.getElementById('fill-body').addEventListener('click', function(e) {
           renderFillOut();
         }
       }).catch(function(err) {
+        updateSaveStatus(-1);
         if (btn) { btn.textContent = 'Submit checklist'; btn.disabled = false; }
         if (err && err.offline) {
           showToast('Queued for sync when back online');
@@ -2132,13 +2231,15 @@ document.getElementById('approvals-body').addEventListener('click', function(e) 
     if (!submissionId) return;
     var btn = actionEl;
     btn.textContent = 'Approving\u2026'; btn.disabled = true;
+    updateSaveStatus(1);
     api('POST', 'approveSubmission', { submission_id: submissionId }).then(function() {
+      updateSaveStatus(-1);
       showToast('Approved \u2713');
-      // Remove from PENDING
       PENDING = PENDING.filter(function(s) { return s.id !== submissionId; });
       renderApprovals();
       loadMyChecklists();
     }).catch(function() {
+      updateSaveStatus(-1);
       btn.textContent = 'Approve submission'; btn.disabled = false;
       showToast('Approval failed. Try again.');
     });
@@ -2204,11 +2305,14 @@ document.getElementById('approvals-body').addEventListener('click', function(e) 
         require_photo: !!f._rejectRequirePhoto
       });
     });
+    updateSaveStatus(1);
     Promise.all(rejectPromises).then(function() {
+      updateSaveStatus(-1);
       showToast('Rejected \u2014 crew must fix ' + rejectedFields.length + ' item(s)');
       PENDING = PENDING.filter(function(s) { return s.id !== submissionId; });
       renderApprovals();
     }).catch(function() {
+      updateSaveStatus(-1);
       btn.textContent = 'Send rejection'; btn.disabled = false;
       showToast('Rejection failed. Try again.');
     });

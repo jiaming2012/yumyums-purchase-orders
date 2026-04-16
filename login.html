@@ -36,6 +36,7 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 
   <div class="card">
     <div id="err" class="error">Invalid credentials. Please try again.</div>
+    <form onsubmit="signIn();return false">
     <div class="field">
       <label>Email</label>
       <input id="email" type="email" placeholder="you@yumyums.com" autocomplete="username">
@@ -44,7 +45,8 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
       <label>Password</label>
       <input id="pw" type="password" placeholder="Password" autocomplete="current-password">
     </div>
-    <button class="btn" onclick="signIn()">Sign In</button>
+    <button class="btn" type="submit">Sign In</button>
+    </form>
   </div>
 </div>
 
@@ -62,7 +64,7 @@ async function signIn(){
       body:JSON.stringify({email:email,password:pw})
     });
     if(res.ok){
-      window.location.href='/index.html';
+      window.location.href='/';
     }else{
       err.classList.add('show');
     }

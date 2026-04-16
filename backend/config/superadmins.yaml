@@ -3,5 +3,6 @@
 # Add or remove emails here and restart the server to update.
 
 superadmins:
-  - email: jamal@yumyums.com
-    display_name: Jamal M.
+  - email: jamal@yumyums.kitchen
+    display_name: Jamal C.
+    dev_password: test123

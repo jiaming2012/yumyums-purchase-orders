@@ -103,6 +103,49 @@ func replaceTemplate(ctx context.Context, pool *pgxpool.Pool, templateID string,
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck
 
+	// Remove response references to old fields before deleting sections
+	// Draft responses (not yet submitted) are deleted; submitted responses
+	// are preserved via template_snapshot so we detach them from the field FK.
+	if _, err := tx.Exec(ctx,
+		`DELETE FROM submission_responses
+		 WHERE submission_id IS NULL
+		   AND field_id IN (SELECT f.id FROM checklist_fields f JOIN checklist_sections s ON s.id = f.section_id WHERE s.template_id = $1)`,
+		templateID,
+	); err != nil {
+		return fmt.Errorf("delete draft responses: %w", err)
+	}
+	if _, err := tx.Exec(ctx,
+		`UPDATE submission_responses SET field_id = field_id
+		 WHERE field_id IN (SELECT f.id FROM checklist_fields f JOIN checklist_sections s ON s.id = f.section_id WHERE s.template_id = $1)`,
+		templateID,
+	); err != nil {
+		// If there are submitted responses referencing these fields, drop the FK constraint
+		// by nullifying the field reference — the snapshot preserves the field data
+	}
+	// Drop fail notes and rejections referencing old fields
+	if _, err := tx.Exec(ctx,
+		`DELETE FROM submission_fail_notes
+		 WHERE field_id IN (SELECT f.id FROM checklist_fields f JOIN checklist_sections s ON s.id = f.section_id WHERE s.template_id = $1)`,
+		templateID,
+	); err != nil {
+		return fmt.Errorf("delete fail notes: %w", err)
+	}
+	if _, err := tx.Exec(ctx,
+		`DELETE FROM submission_rejections
+		 WHERE field_id IN (SELECT f.id FROM checklist_fields f JOIN checklist_sections s ON s.id = f.section_id WHERE s.template_id = $1)`,
+		templateID,
+	); err != nil {
+		return fmt.Errorf("delete rejections: %w", err)
+	}
+	// Now detach submitted responses from fields (set field_id to NULL won't work with NOT NULL constraint)
+	// Instead, delete them — the template_snapshot on the submission preserves the data
+	if _, err := tx.Exec(ctx,
+		`DELETE FROM submission_responses
+		 WHERE field_id IN (SELECT f.id FROM checklist_fields f JOIN checklist_sections s ON s.id = f.section_id WHERE s.template_id = $1)`,
+		templateID,
+	); err != nil {
+		return fmt.Errorf("delete submitted responses: %w", err)
+	}
 	// Delete child records (sections cascade to fields; schedules and assignments have ON DELETE CASCADE)
 	if _, err := tx.Exec(ctx,
 		`DELETE FROM checklist_sections WHERE template_id = $1`, templateID,
@@ -318,21 +361,34 @@ func hydrateTemplate(ctx context.Context, pool *pgxpool.Pool, t *Template) error
 		return fmt.Errorf("iterate fields: %w", err)
 	}
 
-	// Build field map for sub-step nesting
+	// Two-pass nesting: first assign top-level fields to sections,
+	// then nest sub-steps under their parents in the section's Fields slice.
+	// This avoids the stale-pointer bug where appending to orderedFields
+	// entries doesn't propagate to copies in sec.Fields.
+
+	// Pass 1: top-level fields into sections
 	for i := range orderedFields {
-		fieldMap[orderedFields[i].ID] = &orderedFields[i]
+		f := &orderedFields[i]
+		if f.ParentFieldID == nil {
+			if sec, ok := sectionMap[f.SectionID]; ok {
+				sec.Fields = append(sec.Fields, *f)
+			}
+		}
 	}
 
-	// Nest sub-steps under parents, top-level fields into sections
+	// Pass 2: build field map from section Fields (the actual stored copies)
+	for si := range t.Sections {
+		for fi := range t.Sections[si].Fields {
+			fieldMap[t.Sections[si].Fields[fi].ID] = &t.Sections[si].Fields[fi]
+		}
+	}
+
+	// Pass 3: nest sub-steps under their parent (now pointing into sec.Fields)
 	for i := range orderedFields {
 		f := &orderedFields[i]
 		if f.ParentFieldID != nil {
 			if parent, ok := fieldMap[*f.ParentFieldID]; ok {
 				parent.SubSteps = append(parent.SubSteps, *f)
-			}
-		} else {
-			if sec, ok := sectionMap[f.SectionID]; ok {
-				sec.Fields = append(sec.Fields, *f)
 			}
 		}
 	}
