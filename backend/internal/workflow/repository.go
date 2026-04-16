@@ -265,7 +265,6 @@ func hydrateTemplate(ctx context.Context, pool *pgxpool.Pool, t *Template) error
 	}
 	defer secRows.Close()
 
-	sectionMap := map[string]*Section{}
 	for secRows.Next() {
 		var s Section
 		var condRaw []byte
@@ -274,10 +273,14 @@ func hydrateTemplate(ctx context.Context, pool *pgxpool.Pool, t *Template) error
 		}
 		s.Condition = json.RawMessage(condRaw)
 		t.Sections = append(t.Sections, s)
-		sectionMap[s.ID] = &t.Sections[len(t.Sections)-1]
 	}
 	if err := secRows.Err(); err != nil {
 		return fmt.Errorf("iterate sections: %w", err)
+	}
+	// Build map AFTER all appends — slice reallocation would invalidate earlier pointers
+	sectionMap := map[string]*Section{}
+	for i := range t.Sections {
+		sectionMap[t.Sections[i].ID] = &t.Sections[i]
 	}
 
 	// Load all fields for this template (top-level and sub-steps)
@@ -473,7 +476,7 @@ func saveResponse(ctx context.Context, pool *pgxpool.Pool, fieldID string, value
 	_, err = pool.Exec(ctx,
 		`INSERT INTO submission_responses (field_id, value, answered_by)
 		 VALUES ($1, $2, $3)
-		 ON CONFLICT ON CONSTRAINT submission_responses_draft_idx
+		 ON CONFLICT (field_id, answered_by) WHERE submission_id IS NULL
 		 DO UPDATE SET value = EXCLUDED.value, answered_at = now()`,
 		fieldID, valJSON, userID,
 	)
@@ -483,14 +486,45 @@ func saveResponse(ctx context.Context, pool *pgxpool.Pool, fieldID string, value
 	return nil
 }
 
+// myDrafts returns draft responses (submission_id IS NULL) for the given user.
+func myDrafts(ctx context.Context, pool *pgxpool.Pool, userID string) ([]FieldResponse, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT id, field_id, value, answered_by, answered_at
+		 FROM submission_responses
+		 WHERE submission_id IS NULL AND answered_by = $1
+		 ORDER BY answered_at DESC`,
+		userID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list drafts: %w", err)
+	}
+	defer rows.Close()
+
+	var drafts []FieldResponse
+	for rows.Next() {
+		var r FieldResponse
+		var valueRaw []byte
+		if err := rows.Scan(&r.ID, &r.FieldID, &valueRaw, &r.AnsweredBy, &r.AnsweredAt); err != nil {
+			return nil, fmt.Errorf("scan draft: %w", err)
+		}
+		r.Value = json.RawMessage(valueRaw)
+		drafts = append(drafts, r)
+	}
+	return drafts, rows.Err()
+}
+
 // myChecklists returns the templates assigned to the user today and their
 // submissions for today (D-22).
-func myChecklists(ctx context.Context, pool *pgxpool.Pool, userID string) ([]Template, []Submission, error) {
-	// Get today's day-of-week (0=Sunday .. 6=Saturday)
-	todayDOWQuery := `SELECT EXTRACT(DOW FROM now())::int`
+func myChecklists(ctx context.Context, pool *pgxpool.Pool, userID string, clientDOW *int) ([]Template, []Submission, error) {
+	// Use client-provided DOW if available (handles timezone differences),
+	// otherwise fall back to server time
 	var todayDOW int
-	if err := pool.QueryRow(ctx, todayDOWQuery).Scan(&todayDOW); err != nil {
-		return nil, nil, fmt.Errorf("get today DOW: %w", err)
+	if clientDOW != nil {
+		todayDOW = *clientDOW
+	} else {
+		if err := pool.QueryRow(ctx, `SELECT EXTRACT(DOW FROM now())::int`).Scan(&todayDOW); err != nil {
+			return nil, nil, fmt.Errorf("get today DOW: %w", err)
+		}
 	}
 
 	// Get user role for role-based assignments
@@ -512,6 +546,7 @@ func myChecklists(ctx context.Context, pool *pgxpool.Pool, userID string) ([]Tem
 		   AND (
 		         (ta.assignee_type = 'user' AND ta.assignee_id = $1)
 		         OR (ta.assignee_type = 'role' AND ta.assignee_id = $2)
+		         OR ($2 IN ('admin', 'superadmin'))
 		       )
 		   AND $3 = ANY(cs.active_days)
 		 ORDER BY t.created_at DESC`,
@@ -574,6 +609,13 @@ func myChecklists(ctx context.Context, pool *pgxpool.Pool, userID string) ([]Tem
 		return nil, nil, fmt.Errorf("iterate submissions: %w", err)
 	}
 
+	// Load responses for each submission so hydrateFieldState can restore UI state
+	for i := range submissions {
+		if err := hydrateSubmission(ctx, pool, &submissions[i]); err != nil {
+			return nil, nil, err
+		}
+	}
+
 	return templates, submissions, nil
 }
 
@@ -623,10 +665,12 @@ func pendingApprovals(ctx context.Context, pool *pgxpool.Pool, userID string) ([
 
 	rows, err := pool.Query(ctx,
 		`SELECT DISTINCT s.id, s.template_id, t.name, s.template_snapshot, s.submitted_by,
+		        u.display_name,
 		        s.submitted_at, s.status, s.reviewed_by, s.reviewed_at, s.idempotency_key
 		 FROM checklist_submissions s
 		 JOIN checklist_templates t ON t.id = s.template_id
 		 JOIN template_assignments ta ON ta.template_id = s.template_id
+		 LEFT JOIN users u ON u.id = s.submitted_by
 		 WHERE s.status = 'pending'
 		   AND ta.assignment_role = 'approver'
 		   AND (
@@ -645,14 +689,19 @@ func pendingApprovals(ctx context.Context, pool *pgxpool.Pool, userID string) ([
 	for rows.Next() {
 		var sub Submission
 		var snapshotRaw []byte
+		var displayName *string
 		if err := rows.Scan(
 			&sub.ID, &sub.TemplateID, &sub.TemplateName, &snapshotRaw,
-			&sub.SubmittedBy, &sub.SubmittedAt, &sub.Status,
+			&sub.SubmittedBy, &displayName,
+			&sub.SubmittedAt, &sub.Status,
 			&sub.ReviewedBy, &sub.ReviewedAt, &sub.IdempotencyKey,
 		); err != nil {
 			return nil, fmt.Errorf("scan submission: %w", err)
 		}
 		sub.TemplateSnapshot = json.RawMessage(snapshotRaw)
+		if displayName != nil {
+			sub.SubmittedByName = *displayName
+		}
 		submissions = append(submissions, sub)
 	}
 	if err := rows.Err(); err != nil {

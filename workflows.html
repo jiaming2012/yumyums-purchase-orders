@@ -369,6 +369,7 @@ function renderError(container, message, retryFn) {
 let TEMPLATES = [];
 let MY_CHECKLISTS = [];
 let MY_SUBMISSIONS = [];
+let DRAFT_RESPONSES = [];
 let PENDING = [];
 let CURRENT_USER = null;
 
@@ -386,7 +387,7 @@ async function loadTemplates() {
   if (!container) return;
   renderSkeletons(container, 3);
   try {
-    TEMPLATES = await api('GET', 'templates');
+    TEMPLATES = (await api('GET', 'templates')).map(fromApiTemplate);
     renderBuilderList();
   } catch (e) {
     container.innerHTML = '';
@@ -399,11 +400,18 @@ async function loadMyChecklists() {
   if (!container) return;
   renderSkeletons(container, 3);
   try {
-    const data = await api('GET', 'myChecklists');
-    MY_CHECKLISTS = data.templates || [];
+    const data = await api('GET', 'myChecklists?dow=' + new Date().getDay());
+    MY_CHECKLISTS = (data.templates || []).map(function(t) {
+      if (!t.sections) t.sections = [];
+      t.sections.forEach(function(s) { if (!s.fields) s.fields = []; });
+      return t;
+    });
     MY_SUBMISSIONS = data.submissions || [];
+    DRAFT_RESPONSES = data.drafts || [];
+    hydrateFieldState();
     renderMyChecklists();
   } catch (e) {
+    console.error('loadMyChecklists error:', e);
     container.innerHTML = '';
     renderError(container, "Couldn't load checklists.", () => loadMyChecklists());
   }
@@ -547,12 +555,52 @@ function createNewTemplate() {
   };
 }
 
+// Transform frontend template shape to backend API shape for save
+function toApiTemplate(tpl) {
+  var out = { name: tpl.name, requires_approval: !!tpl.requires_approval, sections: tpl.sections };
+  var assignments = [];
+  if (tpl.assigned_to) {
+    (tpl.assigned_to.roles || []).forEach(function(r){ assignments.push({ assignee_type: 'role', assignee_id: r, assignment_role: 'assignee' }); });
+    (tpl.assigned_to.users || []).forEach(function(u){ assignments.push({ assignee_type: 'user', assignee_id: u, assignment_role: 'assignee' }); });
+  }
+  if (tpl.approver) {
+    (tpl.approver.roles || []).forEach(function(r){ assignments.push({ assignee_type: 'role', assignee_id: r, assignment_role: 'approver' }); });
+    (tpl.approver.users || []).forEach(function(u){ assignments.push({ assignee_type: 'user', assignee_id: u, assignment_role: 'approver' }); });
+  }
+  out.assignments = assignments;
+  if (tpl.active_days && tpl.active_days.length) {
+    out.schedules = [{ active_days: tpl.active_days }];
+  }
+  return out;
+}
+
+// Transform backend API template to frontend shape after load
+function fromApiTemplate(t) {
+  if (!t.sections) t.sections = [];
+  t.sections.forEach(function(s) { if (!s.fields) s.fields = []; });
+  t.assigned_to = { roles: [], users: [] };
+  t.approver = { roles: [], users: [] };
+  (t.assignments || []).forEach(function(a) {
+    var bucket = a.assignment_role === 'approver' ? t.approver : t.assigned_to;
+    var list = a.assignee_type === 'role' ? bucket.roles : bucket.users;
+    if (list.indexOf(a.assignee_id) === -1) list.push(a.assignee_id);
+  });
+  t.active_days = null;
+  if (t.schedules && t.schedules.length) {
+    t.active_days = t.schedules[0].active_days || null;
+  }
+  return t;
+}
+
 function createNewSection(title) {
+  var days = state.activeTemplate && state.activeTemplate.active_days && state.activeTemplate.active_days.length
+    ? state.activeTemplate.active_days.slice()
+    : null;
   return {
     id: generateId('sec'),
     title: title,
     order: state.activeTemplate ? state.activeTemplate.sections.length : 0,
-    condition: null,
+    condition: days ? { days: days } : null,
     fields: []
   };
 }
@@ -630,7 +678,7 @@ function renderAssignmentPicker(assignment, prefix, label) {
 function renderEditor() {
   const tpl = state.activeTemplate;
   const approvalChecked = tpl.requires_approval ? 'checked' : '';
-  const sectionsHtml = tpl.sections.map(sec => renderSection(sec)).join('');
+  const sectionsHtml = (tpl.sections || []).map(sec => renderSection(sec)).join('');
   return `<button class="editor-back">Checklists</button>
 <div class="meta-card">
   <div class="hd">
@@ -645,10 +693,24 @@ function renderEditor() {
   </div>
   ${renderAssignmentPicker(tpl.assigned_to, 'assign', 'Assigned to')}
   ${tpl.requires_approval ? renderAssignmentPicker(tpl.approver, 'approver', 'Approver') : ''}
+  ${renderDayPicker(tpl.active_days)}
 </div>
 ${sectionsHtml}
 <button class="add-section-btn">+ Add section</button>
 <button class="btn-primary" id="save-btn">Save checklist</button>`;
+}
+
+function renderDayPicker(activeDays) {
+  var days = activeDays || [];
+  var labels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  var chips = labels.map(function(label, i) {
+    var on = days.indexOf(i) !== -1;
+    return '<button class="day-chip ' + (on ? 'on' : '') + '" data-action="toggle-day" data-day="' + i + '">' + label + '</button>';
+  }).join('');
+  return '<div style="padding:12px 16px;border-top:1px solid var(--brd)">' +
+    '<div class="lbl">Schedule</div>' +
+    '<div class="sub" style="margin-bottom:8px">Days this checklist appears in My Checklists</div>' +
+    '<div class="day-chips-row">' + chips + '</div></div>';
 }
 
 function renderFieldTypePicker(secId) {
@@ -662,7 +724,7 @@ function renderFieldTypePicker(secId) {
 }
 
 function renderSection(sec) {
-  const fieldsHtml = sec.fields.map(f => renderField(f, sec.id)).join('');
+  const fieldsHtml = (sec.fields || []).map(f => renderField(f, sec.id)).join('');
   return `<div class="sec-hd" data-section-id="${sec.id}">
   <span>${escapeHtml(sec.title)}</span>
   <button class="sec-delete" data-section-id="${sec.id}" aria-label="Delete section">✕</button>
@@ -758,6 +820,7 @@ function addField(secId, type) {
   field.order = sec.fields.length;
   sec.fields.push(field);
   state.fieldPickerSection = null;
+  state.expandedField = field.id;
   renderBuilder();
 }
 
@@ -996,6 +1059,17 @@ document.getElementById('builder-body').addEventListener('click', function(e) {
     return;
   }
 
+  // Day schedule toggle
+  var dayToggle = e.target.closest('[data-action="toggle-day"]');
+  if (dayToggle && state.activeTemplate) {
+    var day = parseInt(dayToggle.dataset.day, 10);
+    if (!state.activeTemplate.active_days) state.activeTemplate.active_days = [];
+    var idx = state.activeTemplate.active_days.indexOf(day);
+    if (idx === -1) state.activeTemplate.active_days.push(day); else state.activeTemplate.active_days.splice(idx, 1);
+    renderBuilder();
+    return;
+  }
+
   // Sub-step actions (must be before generic field-delete)
   var subAction = e.target.closest('[data-action="add-sub-step"]') || e.target.closest('[data-action="delete-sub-step"]');
   if (subAction) {
@@ -1113,19 +1187,22 @@ document.getElementById('builder-body').addEventListener('click', function(e) {
     var isNew = !TEMPLATES.find(function(t){return t.id===tpl.id});
     var endpoint = isNew ? 'createTemplate' : ('updateTemplate/' + tpl.id);
     var method = isNew ? 'POST' : 'PUT';
-    api(method, endpoint, tpl).then(function(result) {
+    api(method, endpoint, toApiTemplate(tpl)).then(function(result) {
       if (isNew && result && result.id) tpl.id = result.id;
       showToast('Checklist saved \u2713');
       state.view = 'list';
       state.activeTemplate = null;
       state.expandedField = null;
       state.fieldPickerSection = null;
+      renderBuilder();
       loadTemplates();
     }).catch(function(err) {
       btn.textContent = 'Save checklist';
       btn.disabled = false;
       if (err && err.status === 403) {
         showToast(ADMIN_RESTRICTED);
+      } else if (err && err.error === 'requires_approver') {
+        showToast('Select at least one approver when approval is required.');
       } else {
         showToast('Save failed. Check your connection.');
       }
@@ -1288,6 +1365,28 @@ document.getElementById('builder-body').addEventListener('change', function(e) {
 
 // Runtime fill state (replaces all mock dicts — transient in-memory, backed by API)
 const FIELD_RESPONSES = {}; // { [fieldId]: { value: any, answeredBy: string, answeredAt: Date } } — local optimistic state
+// hydrateFieldState rebuilds FIELD_RESPONSES from all server sources.
+// Priority: submission responses > draft responses.
+// Called once after loadMyChecklists and when opening a checklist runner.
+function hydrateFieldState(filterFieldIds) {
+  // Clear existing state
+  Object.keys(FIELD_RESPONSES).forEach(function(k) { delete FIELD_RESPONSES[k]; });
+  // 1. Draft responses (in-progress, not yet submitted)
+  (DRAFT_RESPONSES || []).forEach(function(d) {
+    if (!filterFieldIds || filterFieldIds.has(d.field_id)) {
+      FIELD_RESPONSES[d.field_id] = { value: d.value, answeredBy: getUserName(), answeredAt: new Date(d.answered_at) };
+    }
+  });
+  // 2. Submitted responses (highest priority — overwrites drafts)
+  (MY_SUBMISSIONS || []).forEach(function(sub) {
+    (sub.responses || []).forEach(function(r) {
+      if (!filterFieldIds || filterFieldIds.has(r.field_id)) {
+        FIELD_RESPONSES[r.field_id] = { value: r.value, answeredBy: getUserName(), answeredAt: new Date(r.answered_at) };
+      }
+    });
+  });
+}
+
 const FAIL_NOTES = {}; // { [fieldId]: { note: string, severity: string } } — local only
 const REJECTION_FLAGS = {}; // { [fldId]: { comment, requirePhoto } } — loaded from server on open
 const WAS_REJECTED = {}; // { [tplId]: true } — tracks if a checklist was ever rejected
@@ -1305,12 +1404,13 @@ function clearRejectionFlag(fldId) {
 }
 
 function getUserName() {
-  return CURRENT_USER ? CURRENT_USER.name : 'User';
+  return CURRENT_USER ? (CURRENT_USER.display_name || CURRENT_USER.name || 'User') : 'User';
 }
 function getUserInitials() {
   if (!CURRENT_USER) return '?';
   if (CURRENT_USER.initials) return CURRENT_USER.initials;
-  return CURRENT_USER.name ? CURRENT_USER.name.split(' ').map(function(p){return p[0]}).join('').toUpperCase().slice(0,2) : '?';
+  var n = CURRENT_USER.display_name || CURRENT_USER.name;
+  return n ? n.split(' ').map(function(p){return p[0]}).join('').toUpperCase().slice(0,2) : '?';
 }
 
 function setYesNo(fldId, value) {
@@ -1509,7 +1609,7 @@ function renderChecklistList(today) {
   var totalFields = 0, totalAnswered = 0;
   const rows = today.map(tpl => {
     const secCount = tpl.sections ? tpl.sections.length : 0;
-    const fields = tpl.sections ? tpl.sections.flatMap(s => s.fields) : [];
+    const fields = tpl.sections ? tpl.sections.flatMap(s => s.fields || []) : [];
     const fieldCount = fields.length;
     const answeredCount = fields.filter(f => FIELD_RESPONSES[f.id] !== undefined).length;
     totalFields += fieldCount;
@@ -1517,7 +1617,7 @@ function renderChecklistList(today) {
     const pct = fieldCount ? Math.round(answeredCount / fieldCount * 100) : 0;
     // Check if already submitted in MY_SUBMISSIONS
     var submission = MY_SUBMISSIONS ? MY_SUBMISSIONS.find(function(s) { return s.template_id === tpl.id; }) : null;
-    var pendingBadge = submission && submission.status === 'pending_approval' ? '<div class="approval-badge">Pending Approval</div>' : '';
+    var pendingBadge = submission && (submission.status === 'pending_approval' || submission.status === 'pending') ? '<div class="approval-badge">Pending Approval</div>' : '';
     var submittedBadge = submission && (submission.status === 'submitted' || submission.status === 'approved') ? '<div style="font-size:12px;color:#27ae60;margin-top:4px;font-weight:500">Submitted \u2713</div>' : '';
     return `<div class="row" data-fill-template-id="${tpl.id}" data-template-id="${tpl.id}" style="cursor:pointer"><div style="flex:1"><div class="nm">${escapeHtml(tpl.name)}</div><div class="mt">${secCount} section${secCount !== 1 ? 's' : ''} \u00b7 ${answeredCount}/${fieldCount} items</div><div style="height:4px;background:var(--brd);border-radius:2px;margin-top:6px;overflow:hidden"><div style="height:100%;background:#27ae60;border-radius:2px;width:${pct}%"></div></div>${pendingBadge}${submittedBadge}</div></div>`;
   }).join('');
@@ -1534,14 +1634,14 @@ function renderChecklistList(today) {
 function renderRunner() {
   const tpl = fillState.activeTemplate;
   clearHiddenFieldAnswers();
-  const visibleFields = tpl.sections.filter(s => isSectionVisible(s)).flatMap(s => s.fields.filter(f => isFieldVisible(f)));
+  const visibleFields = (tpl.sections || []).filter(s => isSectionVisible(s)).flatMap(s => (s.fields || []).filter(f => isFieldVisible(f)));
   const answered = visibleFields.filter(f => FIELD_RESPONSES[f.id] !== undefined).length;
   const allFields = visibleFields;
-  const sectionsHtml = tpl.sections.map(sec => renderRunnerSection(sec)).join('');
+  const sectionsHtml = (tpl.sections || []).map(sec => renderRunnerSection(sec)).join('');
   // Check submission status from MY_SUBMISSIONS
   var submission = MY_SUBMISSIONS ? MY_SUBMISSIONS.find(function(s) { return s.template_id === tpl.id; }) : null;
   var isSubmitted = submission && (submission.status === 'submitted');
-  var isPending = submission && submission.status === 'pending_approval';
+  var isPending = submission && (submission.status === 'pending_approval' || submission.status === 'pending');
   const unsubmitBtn = `<button data-action="unsubmit" data-tpl-id="${tpl.id}" data-submission-id="${submission ? submission.id : ''}" style="width:100%;padding:14px;margin:16px 0 0;background:#c0392b;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:500;font-family:inherit;cursor:pointer">Unsubmit</button>`;
   const submitHtml = isSubmitted
     ? `<div class="submit-confirm" style="margin-top:16px">Checklist submitted. Thanks, ${getUserInitials()}!</div>${unsubmitBtn}`
@@ -1594,7 +1694,7 @@ function clearHiddenFieldAnswers() {
 
 function renderRunnerSection(sec) {
   if (!isSectionVisible(sec)) return '';
-  const fieldsHtml = sec.fields.map(f => isFieldVisible(f) ? renderRunnerField(f) : '').join('');
+  const fieldsHtml = (sec.fields || []).map(f => isFieldVisible(f) ? renderRunnerField(f) : '').join('');
   if (!fieldsHtml) return '';
   return `<div class="sec-hd"><span>${escapeHtml(sec.title)}</span></div><div class="card">${fieldsHtml}</div>`;
 }
@@ -1732,9 +1832,10 @@ document.getElementById('fill-body').addEventListener('click', function(e) {
       fillState.activeTemplate = tpl;
       fillState.view = 'runner';
       location.hash = 'checklist=' + tpl.id;
-      // Clear previous field responses when opening a new checklist
-      Object.keys(FIELD_RESPONSES).forEach(function(k) { delete FIELD_RESPONSES[k]; });
+      // Restore field state for this template's fields
       Object.keys(FAIL_NOTES).forEach(function(k) { delete FAIL_NOTES[k]; });
+      var tplFieldIds = new Set((tpl.sections || []).flatMap(function(s) { return (s.fields || []).map(function(f) { return f.id; }); }));
+      hydrateFieldState(tplFieldIds);
       renderFillOut();
     }
     return;
