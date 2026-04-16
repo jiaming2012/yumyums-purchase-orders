@@ -431,10 +431,11 @@ test.describe('Persistence', () => {
     const hasPending = await row2.locator('text=/Pending|Submitted/i').isVisible({ timeout: 5000 }).catch(() => false);
     expect(hasPending).toBe(true);
 
-    // Open the checklist — field should still be checked
+    // Open the checklist — should show read-only with checkmark
     await row2.click();
-    const checkAfter = page.locator('.check-btn').first();
-    await expect(checkAfter).toHaveClass(/checked/, { timeout: 5000 });
+    await expect(page.locator('.submit-confirm')).toBeVisible({ timeout: 5000 });
+    // In readonly mode, the checked field shows ✓ text instead of check-btn
+    await expect(page.locator('text=✓')).toBeVisible({ timeout: 5000 });
   });
 
   test('submitted checklist fields are not blank after reload', async ({ page }) => {
@@ -461,8 +462,9 @@ test.describe('Persistence', () => {
     await expect(row).toBeVisible({ timeout: 10000 });
     await row.click();
 
-    const checkBtn = page.locator('.check-btn').first();
-    await expect(checkBtn).toHaveClass(/checked/, { timeout: 5000 });
+    // In readonly mode (submitted), field shows ✓ text instead of interactive check-btn
+    await expect(page.locator('.submit-confirm')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('text=✓')).toBeVisible({ timeout: 5000 });
 
     // Attribution should not show "undefined"
     const attribution = page.locator('.fill-attribution').first();

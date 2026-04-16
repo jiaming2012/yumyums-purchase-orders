@@ -1,7 +1,9 @@
 package workflow
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
@@ -10,6 +12,76 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/yumyums/hq/internal/auth"
 )
+
+// validateFailNotes checks that every response with a triggered fail condition
+// has a corresponding fail note with a non-empty description and severity.
+func validateFailNotes(ctx context.Context, pool *pgxpool.Pool, input SubmitChecklistInput) error {
+	tmpl, err := getTemplateByID(ctx, pool, input.TemplateID)
+	if err != nil || tmpl == nil {
+		return nil // template validation handled elsewhere
+	}
+
+	// Build field map from template
+	fieldMap := map[string]Field{}
+	for _, sec := range tmpl.Sections {
+		for _, f := range sec.Fields {
+			fieldMap[f.ID] = f
+		}
+	}
+
+	// Build fail note map from input
+	failNoteMap := map[string]bool{}
+	for _, fn := range input.FailNotes {
+		if fn.Note != "" && fn.Severity != nil && *fn.Severity != "" {
+			failNoteMap[fn.FieldID] = true
+		}
+	}
+
+	// Check each response: if the field has a fail_trigger and the value triggers it,
+	// there must be a fail note
+	for _, resp := range input.Responses {
+		f, ok := fieldMap[resp.FieldID]
+		if !ok || len(f.FailTrigger) == 0 || string(f.FailTrigger) == "null" {
+			continue
+		}
+
+		if evaluateFailTrigger(f.FailTrigger, resp.Value) && !failNoteMap[resp.FieldID] {
+			return fmt.Errorf("corrective_action_required")
+		}
+	}
+	return nil
+}
+
+// evaluateFailTrigger checks if a value triggers a fail condition.
+func evaluateFailTrigger(trigger json.RawMessage, value json.RawMessage) bool {
+	var ft struct {
+		Type string   `json:"type"`
+		Min  *float64 `json:"min"`
+		Max  *float64 `json:"max"`
+	}
+	if err := json.Unmarshal(trigger, &ft); err != nil {
+		return false
+	}
+	if ft.Type != "out_of_range" {
+		return false
+	}
+
+	var num float64
+	if err := json.Unmarshal(value, &num); err != nil {
+		return false
+	}
+
+	if ft.Min != nil && ft.Max != nil {
+		return num < *ft.Min || num > *ft.Max
+	}
+	if ft.Min != nil {
+		return num < *ft.Min
+	}
+	if ft.Max != nil {
+		return num > *ft.Max
+	}
+	return false
+}
 
 // isAdmin returns true if the user has admin or superadmin privileges (D-11).
 func isAdmin(user *auth.User) bool {
@@ -283,6 +355,12 @@ func SubmitChecklistHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		var input SubmitChecklistInput
 		if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid_body")
+			return
+		}
+
+		// Validate: fields with triggered fail conditions must have a corrective action
+		if err := validateFailNotes(r.Context(), pool, input); err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
 

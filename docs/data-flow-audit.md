@@ -42,6 +42,20 @@ User action
 - **#9 REJECTION_FLAGS**: Manager rejections are persisted server-side but never loaded back into the crew member's UI on reload. The crew member sees the rejection only in the current session. Needs: load `submission.rejections[]` into `REJECTION_FLAGS` in `hydrateFieldState`.
 - **#10 WAS_REJECTED**: Dead code — should be derived from `MY_SUBMISSIONS[].status === 'rejected'`.
 
+## Submission Validation Rules
+
+Every validation must be enforced on BOTH client and server.
+
+| # | Rule | Client enforcement | Server enforcement |
+|---|------|-------------------|-------------------|
+| 1 | Template with `requires_approval` must have at least one approver assignment | Toast: "Select at least one approver" | 400 `requires_approver` |
+| 2 | Fields with triggered `fail_trigger` must have a corrective action (note + severity) | Toast: "Corrective action required for N field(s)" | 400 `corrective_action_required` |
+
+When adding a new validation rule:
+1. Add client-side check before the submit API call
+2. Add server-side check in the handler before calling the repository function
+3. Write TWO regression tests: one for client rejection, one for server rejection
+
 ## Total Count
 
 - **7 user-entered states** flow through the save path (items 1-7)

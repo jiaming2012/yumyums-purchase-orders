@@ -1734,11 +1734,12 @@ function renderRunner() {
   const visibleFields = (tpl.sections || []).filter(s => isSectionVisible(s)).flatMap(s => (s.fields || []).filter(f => isFieldVisible(f)));
   const answered = visibleFields.filter(f => FIELD_RESPONSES[f.id] !== undefined).length;
   const allFields = visibleFields;
-  const sectionsHtml = (tpl.sections || []).map(sec => renderRunnerSection(sec)).join('');
-  // Check submission status from MY_SUBMISSIONS
+  // Check submission status BEFORE rendering sections
   var submission = MY_SUBMISSIONS ? MY_SUBMISSIONS.find(function(s) { return s.template_id === tpl.id; }) : null;
   var isSubmitted = submission && (submission.status === 'submitted');
   var isPending = submission && (submission.status === 'pending_approval' || submission.status === 'pending');
+  fillState.readonly = isSubmitted || isPending;
+  const sectionsHtml = (tpl.sections || []).map(sec => renderRunnerSection(sec)).join('');
   const unsubmitBtn = `<button data-action="unsubmit" data-tpl-id="${tpl.id}" data-submission-id="${submission ? submission.id : ''}" style="width:100%;padding:14px;margin:16px 0 0;background:#c0392b;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:500;font-family:inherit;cursor:pointer">Unsubmit</button>`;
   const submitHtml = isSubmitted
     ? `<div class="submit-confirm" style="margin-top:16px">Checklist submitted. Thanks, ${getUserInitials()}!</div>${unsubmitBtn}`
@@ -1800,6 +1801,33 @@ function renderRunnerField(fld) {
   const answered = FIELD_RESPONSES[fld.id] !== undefined;
   const resp = answered ? FIELD_RESPONSES[fld.id] : null;
   const attribution = answered ? `<div class="fill-attribution">${escapeHtml(resp.answeredBy)} · ${formatTime(resp.answeredAt)}</div>` : '';
+
+  // Read-only mode: show values without interactive controls
+  if (fillState.readonly) {
+    var displayVal = '';
+    if (fld.type === 'checkbox') {
+      displayVal = answered ? '✓' : '—';
+    } else if (fld.type === 'yes_no') {
+      displayVal = !answered ? '—' : (resp.value === true || resp.value === 'true') ? 'Yes' : 'No';
+    } else if (fld.type === 'temperature') {
+      var unit = fld.config && fld.config.unit ? fld.config.unit : 'F';
+      displayVal = answered ? resp.value + '°' + unit : '—';
+    } else if (fld.type === 'text') {
+      displayVal = answered ? escapeHtml(String(resp.value)) : '—';
+    } else {
+      displayVal = answered ? String(resp.value) : '—';
+    }
+    var failNote = FAIL_NOTES[fld.id];
+    var failHtml = failNote && failNote.note ? `<div style="margin-top:4px;font-size:12px;color:var(--warn-tx)">Corrective action: ${escapeHtml(failNote.note)} (${escapeHtml(failNote.severity || '')})</div>` : '';
+    return `<div class="fill-field" data-field-id="${fld.id}">
+  <div class="fill-field-row">
+    <div class="fill-field-label" style="margin-bottom:0">${escapeHtml(fld.label)}</div>
+    <span style="font-weight:500">${displayVal}</span>
+  </div>
+  ${attribution}${failHtml}
+</div>`;
+  }
+
   const rejFlag = REJECTION_FLAGS[fld.id];
   const photoNeeded = rejFlag && rejFlag.requirePhoto && (!resp || !resp.value || typeof resp.value !== 'string' || !resp.value.startsWith('blob:'));
   const correctionBanner = rejFlag ? `<div class="correction-banner">⚠ Rejected: ${escapeHtml(rejFlag.comment)}${photoNeeded ? ' · 📷 Photo required before resubmit' : rejFlag.requirePhoto ? ' · ✓ Photo uploaded' : ''}</div>` : '';
@@ -1970,6 +1998,7 @@ document.getElementById('fill-body').addEventListener('click', function(e) {
   if (e.target.closest('#fill-back')) {
     fillState.view = 'list';
     fillState.activeTemplate = null;
+    fillState.readonly = false;
     location.hash = '';
     renderFillOut();
     return;
@@ -2105,8 +2134,26 @@ document.getElementById('fill-body').addEventListener('click', function(e) {
     if (action === 'submit') {
       const tplId = actionEl.dataset.tplId;
       var btn = document.getElementById('submit-btn');
-      if (btn) { btn.textContent = 'Submitting\u2026'; btn.disabled = true; }
       var allFlds = fillState.activeTemplate.sections.filter(function(s){return isSectionVisible(s)}).flatMap(function(s){return s.fields.filter(function(f){return isFieldVisible(f)})});
+
+      // Validate: fields with triggered fail conditions must have a corrective action
+      var missingCorrective = allFlds.filter(function(f) {
+        var resp = FIELD_RESPONSES[f.id];
+        if (!resp || !f.fail_trigger) return false;
+        var triggered = evaluateFailTrigger(f.fail_trigger, resp.value);
+        if (!triggered) return false;
+        var fn = FAIL_NOTES[f.id];
+        return !fn || !fn.note || !fn.note.trim() || !fn.severity;
+      });
+      if (missingCorrective.length > 0) {
+        showToast('Corrective action required for ' + missingCorrective.length + ' out-of-range field(s)');
+        // Scroll to first missing fail card
+        var firstFld = document.querySelector('[data-field-id="' + missingCorrective[0].id + '"]');
+        if (firstFld) firstFld.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+      }
+
+      if (btn) { btn.textContent = 'Submitting\u2026'; btn.disabled = true; }
       var allDone = allFlds.every(function(f){return FIELD_RESPONSES[f.id] !== undefined});
       var prevSubmission = MY_SUBMISSIONS ? MY_SUBMISSIONS.find(function(s){return s.template_id===tplId}) : null;
       var isReapproval = prevSubmission && prevSubmission.status === 'rejected';

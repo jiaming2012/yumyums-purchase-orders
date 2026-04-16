@@ -470,7 +470,165 @@ test.describe('Access control', () => {
   });
 });
 
-// ─── F. Loading states ───────────────────────────────────────────────────────
+// ─── F. Validation ──────────────────────────────────────────────────────────
+
+test.describe('Validation', () => {
+  test('submit is blocked when fail trigger fires but corrective action is empty', async ({ page }) => {
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await cleanupTemplates(page);
+
+    const todayDOW = await getTodayDOW(page);
+    // Create template with temperature field + fail trigger
+    const tpl = await apiCall(page, 'POST', 'createTemplate', {
+      name: 'Fail Validation Test',
+      requires_approval: false,
+      sections: [{
+        title: 'Checks', order: 0, condition: null,
+        fields: [{
+          type: 'temperature', label: 'Grill temp', required: true, order: 0,
+          config: { unit: 'F', min: 300, max: 500 },
+          fail_trigger: { type: 'out_of_range', min: 300, max: 500 },
+          condition: null,
+        }],
+      }],
+      assignments: [{ assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' }],
+      schedules: [{ active_days: [todayDOW] }],
+    });
+
+    // Open the checklist
+    await page.goto(BASE + '/workflows.html');
+    const row = page.locator('[data-fill-template-id="' + tpl.id + '"]');
+    await expect(row).toBeVisible({ timeout: 10000 });
+    await row.click();
+
+    // Enter out-of-range temperature to trigger fail
+    const tempInput = page.locator('input[type="number"]').first();
+    await tempInput.fill('2');
+    await tempInput.dispatchEvent('change');
+    await page.waitForTimeout(500);
+
+    // Fail card should appear
+    await expect(page.locator('.fail-card')).toBeVisible({ timeout: 5000 });
+
+    // Do NOT fill corrective action — leave it empty
+    // Try to submit
+    await page.click('[data-action="submit"]');
+
+    // Should show error toast about corrective action, NOT submit successfully
+    const toast = page.locator('#toast');
+    await expect(toast).toBeVisible({ timeout: 5000 });
+    await expect(toast).toContainText(/corrective|action|required/i);
+
+    // Submit button should still be enabled (submission was blocked)
+    const submitBtn = page.locator('#submit-btn');
+    await expect(submitBtn).toBeVisible();
+    await expect(submitBtn).toBeEnabled();
+  });
+
+  test('server rejects submission with triggered fail but no corrective action', async ({ page }) => {
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await cleanupTemplates(page);
+
+    const todayDOW = await getTodayDOW(page);
+    const tpl = await apiCall(page, 'POST', 'createTemplate', {
+      name: 'Server Fail Validation',
+      requires_approval: false,
+      sections: [{
+        title: 'Checks', order: 0, condition: null,
+        fields: [{
+          type: 'temperature', label: 'Grill temp', required: true, order: 0,
+          config: { unit: 'F', min: 300, max: 500 },
+          fail_trigger: { type: 'out_of_range', min: 300, max: 500 },
+          condition: null,
+        }],
+      }],
+      assignments: [{ assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' }],
+      schedules: [{ active_days: [todayDOW] }],
+    });
+
+    // Get the field ID
+    const templates = await apiCall(page, 'GET', 'templates');
+    const found = templates.find(t => t.id === tpl.id);
+    const fieldId = found.sections[0].fields[0].id;
+
+    // Submit via API with out-of-range temperature but no fail note
+    const result = await page.evaluate(async ([templateId, fId]) => {
+      const res = await fetch('/api/v1/workflow/submitChecklist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          template_id: templateId,
+          idempotency_key: crypto.randomUUID(),
+          responses: [{ field_id: fId, value: 2 }],
+          fail_notes: [],
+        }),
+      });
+      return { status: res.status, body: await res.json() };
+    }, [tpl.id, fieldId]);
+
+    // Server should reject with 400
+    expect(result.status).toBe(400);
+    expect(result.body.error).toContain('corrective');
+  });
+});
+
+// ─── G. Read-only after submit ────────────────────────────────────────────────
+
+test.describe('Read-only after submit', () => {
+  test('submitted checklist fields are not interactive', async ({ page }) => {
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await cleanupTemplates(page);
+
+    const todayDOW = await getTodayDOW(page);
+    const tpl = await createTestTemplate(page, 'Readonly Test', todayDOW);
+
+    // Open and submit via UI
+    await page.goto(BASE + '/workflows.html');
+    const row = page.locator('[data-fill-template-id="' + tpl.id + '"]');
+    await expect(row).toBeVisible({ timeout: 10000 });
+    await row.click();
+
+    // Check the checkbox
+    const checkBtn = page.locator('.check-btn').first();
+    await checkBtn.click();
+    await expect(checkBtn).toHaveClass(/checked/, { timeout: 5000 });
+    await page.waitForTimeout(1000);
+
+    // Submit — this navigates back to the list automatically
+    await page.click('[data-action="submit"]');
+    await expect(page.locator('#toast')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('#checklist-list')).toBeVisible({ timeout: 10000 });
+
+    // Reopen the submitted checklist
+    const row2 = page.locator('[data-fill-template-id="' + tpl.id + '"]');
+    await expect(row2).toBeVisible({ timeout: 5000 });
+    await row2.click();
+
+    await page.waitForTimeout(1000);
+    const fillView = await page.evaluate(() => fillState ? fillState.view : 'N/A');
+    const hasActive = await page.evaluate(() => fillState && fillState.activeTemplate ? 'yes' : 'no');
+    const secCount = await page.evaluate(() => fillState && fillState.activeTemplate ? (fillState.activeTemplate.sections || []).length : 0);
+    const fields = await page.evaluate(() => {
+      if (!fillState || !fillState.activeTemplate) return [];
+      return fillState.activeTemplate.sections.flatMap(s => (s.fields || []).map(f => ({ id: f.id, label: f.label, type: f.type })));
+    });
+    console.log('fillView:', fillView, 'hasActive:', hasActive, 'sections:', secCount, 'fields:', JSON.stringify(fields));
+    const fillHtml = await page.locator('#fill-body').innerHTML();
+    console.log('FILL HTML:', fillHtml.substring(0, 500));
+    // Should show submitted/pending state
+    await expect(page.locator('.submit-confirm')).toBeVisible({ timeout: 5000 });
+
+    // Checkbox should NOT be clickable (no check-btn visible, or disabled)
+    const checkBtns = page.locator('.check-btn');
+    const count = await checkBtns.count();
+    expect(count).toBe(0);
+  });
+});
+
+// ─── H. Loading states ───────────────────────────────────────────────────────
 
 test.describe('Loading states', () => {
   test('skeleton screens show during load', async ({ page }) => {
