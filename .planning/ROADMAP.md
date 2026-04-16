@@ -28,12 +28,13 @@
 
 </details>
 
-### 🚧 v2.0 Backend (In Progress)
+### v2.0 Backend (In Progress)
 
 **Milestone Goal:** Replace all mock data with a real Go + Postgres backend — auth, workflows persistence, onboarding persistence, inventory, offline sync, and photo storage — so the crew can use the app for real operations on their phones.
 
-- [ ] **Phase 9: Foundation + Auth** — Go server shell, Postgres, Tailscale HTTPS dev access, SW partition, and working login/logout
+- [x] **Phase 9: Foundation + Auth** — Go server shell, Postgres, Tailscale HTTPS dev access, SW partition, and working login/logout (completed 2026-04-15)
 - [x] **Phase 10: Workflows API** — Checklist templates, submissions, approval flow, correction loop, and offline sync wired to workflows.html (completed 2026-04-15)
+- [ ] **Phase 10.1: Cross-Device State Sync** — Op-log, WebSocket hub, real-time fan-out, Lamport clocks, conflict resolution, sync UX
 - [ ] **Phase 11: Onboarding + Users Admin** — Onboarding persistence, user CRUD, role management, and app permissions wired to their respective HTML pages
 - [ ] **Phase 12: Inventory + Photos** — Purchase events, vendor data, receipt ingestion, and presigned photo upload wired to inventory.html and workflows.html
 
@@ -54,8 +55,8 @@
 Plans:
 - [x] 09-01-PLAN.md — Go server shell with chi router + SW fetch partition
 - [x] 09-02-PLAN.md — Postgres with goose migrations + superadmin config
-- [ ] 09-03-PLAN.md — Auth service, middleware, login/logout/me handlers
-- [ ] 09-04-PLAN.md — Wire login.html to real API + Tailscale phone verify
+- [x] 09-03-PLAN.md — Auth service, middleware, login/logout/me handlers
+- [x] 09-04-PLAN.md — Wire login.html to real API + Tailscale phone verify
 
 **UI hint**: yes
 
@@ -76,6 +77,27 @@ Plans:
 - [x] 10-03-PLAN.md — Frontend big-bang mock swap + skeleton/error UI
 - [x] 10-04-PLAN.md — Offline sync (IndexedDB + banner + drain)
 - [x] 10-05-PLAN.md — Playwright E2E rewrite + phone verification
+
+### Phase 10.1: Cross-Device State Sync (INSERTED)
+
+**Goal:** Real-time cross-user/cross-device state sync via op-log + WebSocket fan-out, with LWW conflict resolution and visual sync indicators
+**Depends on:** Phase 10
+**Requirements**: SYNC-10.1-01, SYNC-10.1-02, SYNC-10.1-03, SYNC-10.1-04, SYNC-10.1-05, SYNC-10.1-06, SYNC-10.1-07, SYNC-10.1-08, SYNC-10.1-09, SYNC-10.1-10, SYNC-10.1-11, SYNC-10.1-12, SYNC-10.1-13, SYNC-10.1-14
+**Success Criteria** (what must be TRUE):
+  1. A field change on one device appears on another device in real time with a blue flash highlight
+  2. A checklist submission on one device refreshes the approvals tab on the manager's device
+  3. Closing and reopening the app catches up on missed ops without data loss
+  4. Conflicting field edits resolve deterministically (higher lamport_ts wins) with visual feedback
+**Plans**: 5 plans
+
+Plans:
+- [ ] 10.1-01-PLAN.md — DB migrations (ops table + lamport_ts) + sync/ops.go package
+- [ ] 10.1-02-PLAN.md — WebSocket hub + Postgres LISTEN/NOTIFY listener + route wiring
+- [ ] 10.1-03-PLAN.md — Wire EmitOp into all 7 workflow handlers
+- [ ] 10.1-04-PLAN.md — Frontend LamportClock + WebSocket client + applyOp + 409 handling
+- [ ] 10.1-05-PLAN.md — Sync UX (blue flash + grouped toast) + device verification
+
+**UI hint**: yes
 
 ### Phase 11: Onboarding + Users Admin
 **Goal**: New hire training progress persists across sessions, manager sign-offs are recorded, and the admin can invite crew members and manage permissions through a real API
@@ -102,7 +124,7 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 9 → 10 → 11 → 12
+Phases execute in numeric order: 9 → 10 → 10.1 → 11 → 12
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -114,7 +136,8 @@ Phases execute in numeric order: 9 → 10 → 11 → 12
 | 6. Foundation and History Tab | v1.1 | 2/2 | Complete | 2026-04-14 |
 | 7. Stock and Reorder Tab | v1.1 | 2/2 | Complete | 2026-04-14 |
 | 8. Trends and Cost Intelligence Tabs | v1.1 | 2/2 | Complete | 2026-04-14 |
-| 9. Foundation + Auth | v2.0 | 2/4 | In Progress|  |
+| 9. Foundation + Auth | v2.0 | 4/4 | Complete   | 2026-04-15 |
 | 10. Workflows API | v2.0 | 5/5 | Complete   | 2026-04-15 |
+| 10.1 Cross-Device State Sync | v2.0 | 0/5 | Planning | - |
 | 11. Onboarding + Users Admin | v2.0 | 0/? | Not started | - |
 | 12. Inventory + Photos | v2.0 | 0/? | Not started | - |
