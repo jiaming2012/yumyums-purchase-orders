@@ -35,6 +35,7 @@
 - [x] **Phase 9: Foundation + Auth** — Go server shell, Postgres, Tailscale HTTPS dev access, SW partition, and working login/logout (completed 2026-04-15)
 - [x] **Phase 10: Workflows API** — Checklist templates, submissions, approval flow, correction loop, and offline sync wired to workflows.html (completed 2026-04-15)
 - [x] **Phase 10.1: Cross-Device State Sync** — Op-log, WebSocket hub, real-time fan-out, Lamport clocks, conflict resolution, sync UX (completed 2026-04-17)
+- [ ] **Phase 10.2: Reactive Sync Framework** — Shared Store with collection-level subscriptions, single write channel (POST /ops), shared JS modules for all tools
 - [ ] **Phase 11: Onboarding + Users Admin** — Onboarding persistence, user CRUD, role management, and app permissions wired to their respective HTML pages
 - [ ] **Phase 12: Inventory + Photos** — Purchase events, vendor data, receipt ingestion, and presigned photo upload wired to inventory.html and workflows.html
 
@@ -99,6 +100,24 @@ Plans:
 
 **UI hint**: yes
 
+### Phase 10.2: Reactive Sync Framework (INSERTED)
+
+**Goal:** Extract shared Store with collection-level subscriptions + single write channel (POST /ops). All mutations flow through submitOp → server → entity tables + ops + notify → all clients. Optimistic updates preserved. Store, sync client, and applyOp become shared JS modules reusable by onboarding/inventory/users.
+**Depends on:** Phase 10.1
+**Requirements**: RSYNC-01, RSYNC-02, RSYNC-03, RSYNC-04, RSYNC-05, RSYNC-06, RSYNC-07
+**Success Criteria** (what must be TRUE):
+  1. sync.js is a shared module loaded by workflows.html providing Store, LamportClock, WS client, submitOp
+  2. All workflow state (checklists, submissions, drafts, responses) lives in the reactive Store with collection-level subscribers
+  3. All mutations flow through submitOp → POST /ops → server business logic + InsertOpAndNotify → WebSocket fan-out
+  4. Self-echo suppression works via real device_id (no _recentSaves timing hack)
+  5. All 166 existing tests pass at each migration step boundary
+**Plans**: 3 plans
+
+Plans:
+- [ ] 10.2-01-PLAN.md — Create sync.js (Store + LamportClock + WS + IndexedDB + api + submitOp) + Workbox precache
+- [ ] 10.2-02-PLAN.md — Wire workflows.html to sync.js (Store collections + subscribers + debouncedSaveField)
+- [ ] 10.2-03-PLAN.md — Backend POST /ops endpoint + switch submitOp to POST /ops + eliminate _recentSaves
+
 ### Phase 11: Onboarding + Users Admin
 **Goal**: New hire training progress persists across sessions, manager sign-offs are recorded, and the admin can invite crew members and manage permissions through a real API
 **Depends on**: Phase 9
@@ -124,7 +143,7 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 9 → 10 → 10.1 → 11 → 12
+Phases execute in numeric order: 9 → 10 → 10.1 → 10.2 → 11 → 12
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -139,5 +158,6 @@ Phases execute in numeric order: 9 → 10 → 10.1 → 11 → 12
 | 9. Foundation + Auth | v2.0 | 4/4 | Complete   | 2026-04-15 |
 | 10. Workflows API | v2.0 | 5/5 | Complete   | 2026-04-15 |
 | 10.1 Cross-Device State Sync | v2.0 | 5/5 | Complete   | 2026-04-17 |
+| 10.2 Reactive Sync Framework | v2.0 | 0/3 | Not started | - |
 | 11. Onboarding + Users Admin | v2.0 | 0/? | Not started | - |
 | 12. Inventory + Photos | v2.0 | 0/? | Not started | - |
