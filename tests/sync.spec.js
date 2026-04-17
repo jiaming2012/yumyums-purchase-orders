@@ -505,6 +505,54 @@ test.describe('Cross-device: regressions', () => {
     expect(val).toBe('400');
   });
 
+  test('generateUUID works when crypto.randomUUID is unavailable', async ({ page }) => {
+    const dow = await getTodayDOW(page);
+    await createTestTemplate(page, 'UUID Fallback', dow);
+    await page.reload();
+
+    // Simulate non-secure context by removing crypto.randomUUID
+    const uuid = await page.evaluate(() => {
+      const orig = crypto.randomUUID;
+      crypto.randomUUID = undefined;
+      try {
+        return generateUUID();
+      } finally {
+        crypto.randomUUID = orig;
+      }
+    });
+    // Should return a valid UUID v4 format
+    expect(uuid).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+  });
+
+  test('two tabs on same origin have different device_ids for sync', async ({ context, page }) => {
+    const dow = await getTodayDOW(page);
+    await createTestTemplate(page, 'DeviceID Test', dow);
+    await page.reload();
+    await expect(page.locator('#s1').getByText('DeviceID Test')).toBeVisible({ timeout: 10000 });
+
+    // Tab A: open checklist
+    await page.click('[data-fill-template-id]');
+    await page.waitForSelector('.check-btn', { timeout: 5000 });
+
+    // Tab B: SAME context (shares IndexedDB, cookies — simulates second tab)
+    const pageB = await context.newPage();
+    await pageB.goto(BASE + '/workflows.html');
+    await expect(pageB.locator('#s1').getByText('DeviceID Test')).toBeVisible({ timeout: 10000 });
+    await pageB.click('[data-fill-template-id]');
+    await pageB.waitForSelector('.check-btn', { timeout: 5000 });
+
+    // Get device IDs from both tabs
+    const deviceA = await page.evaluate(() => window.LAMPORT_CLOCK ? window.LAMPORT_CLOCK.deviceId : null);
+    const deviceB = await pageB.evaluate(() => window.LAMPORT_CLOCK ? window.LAMPORT_CLOCK.deviceId : null);
+
+    expect(deviceA).not.toBeNull();
+    expect(deviceB).not.toBeNull();
+    // Must be DIFFERENT — otherwise self-echo suppression blocks cross-tab sync
+    expect(deviceA).not.toBe(deviceB);
+
+    await pageB.close();
+  });
+
   test('list page progress updates when another device completes a field', async ({ browser, page }) => {
     const dow = await getTodayDOW(page);
     await createTestTemplate(page, 'Progress Sync', dow);
