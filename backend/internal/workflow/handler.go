@@ -11,6 +11,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/yumyums/hq/internal/auth"
+	opsync "github.com/yumyums/hq/internal/sync"
 )
 
 // validateFailNotes checks that every response with a triggered fail condition
@@ -167,6 +168,19 @@ func CreateTemplateHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
+		if payload, merr := json.Marshal(map[string]any{"template_id": id, "name": input.Name}); merr == nil {
+			opsync.EmitOp(pool, opsync.OpInput{
+				DeviceID:   "server",
+				UserID:     user.ID,
+				EntityID:   id,
+				EntityType: "template",
+				OpType:     opsync.OpSaveTemplate,
+				Payload:    json.RawMessage(payload),
+				LamportTS:  0,
+			})
+		} else {
+			log.Printf("CreateTemplateHandler: failed to marshal op payload: %v", merr)
+		}
 		writeJSON(w, http.StatusCreated, map[string]string{"id": id})
 	}
 }
@@ -206,6 +220,19 @@ func UpdateTemplateHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
+		if payload, merr := json.Marshal(map[string]any{"template_id": templateID}); merr == nil {
+			opsync.EmitOp(pool, opsync.OpInput{
+				DeviceID:   "server",
+				UserID:     user.ID,
+				EntityID:   templateID,
+				EntityType: "template",
+				OpType:     opsync.OpSaveTemplate,
+				Payload:    json.RawMessage(payload),
+				LamportTS:  0,
+			})
+		} else {
+			log.Printf("UpdateTemplateHandler: failed to marshal op payload: %v", merr)
+		}
 		writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 	}
 }
@@ -234,6 +261,19 @@ func ArchiveTemplateHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			log.Printf("archiveTemplate error: %v", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
+		}
+		if payload, merr := json.Marshal(map[string]any{"template_id": templateID}); merr == nil {
+			opsync.EmitOp(pool, opsync.OpInput{
+				DeviceID:   "server",
+				UserID:     user.ID,
+				EntityID:   templateID,
+				EntityType: "template",
+				OpType:     opsync.OpArchiveTemplate,
+				Payload:    json.RawMessage(payload),
+				LamportTS:  0,
+			})
+		} else {
+			log.Printf("ArchiveTemplateHandler: failed to marshal op payload: %v", merr)
 		}
 		writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 	}
@@ -337,6 +377,19 @@ func SaveResponseHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
+		if payload, merr := json.Marshal(map[string]any{"field_id": input.FieldID, "value": input.Value}); merr == nil {
+			opsync.EmitOp(pool, opsync.OpInput{
+				DeviceID:   "server",
+				UserID:     user.ID,
+				EntityID:   input.FieldID,
+				EntityType: "field_response",
+				OpType:     opsync.OpSetField,
+				Payload:    json.RawMessage(payload),
+				LamportTS:  0,
+			})
+		} else {
+			log.Printf("SaveResponseHandler: failed to marshal op payload: %v", merr)
+		}
 		w.WriteHeader(http.StatusNoContent)
 	}
 }
@@ -373,6 +426,19 @@ func SubmitChecklistHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			log.Printf("submitChecklist error: %v", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
+		}
+		if payload, merr := json.Marshal(map[string]any{"submission_id": id, "template_id": input.TemplateID}); merr == nil {
+			opsync.EmitOp(pool, opsync.OpInput{
+				DeviceID:   "server",
+				UserID:     user.ID,
+				EntityID:   id,
+				EntityType: "submission",
+				OpType:     opsync.OpSubmitChecklist,
+				Payload:    json.RawMessage(payload),
+				LamportTS:  0,
+			})
+		} else {
+			log.Printf("SubmitChecklistHandler: failed to marshal op payload: %v", merr)
 		}
 		writeJSON(w, http.StatusCreated, map[string]string{"id": id})
 	}
@@ -424,6 +490,19 @@ func ApproveSubmissionHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
+		if payload, merr := json.Marshal(map[string]any{"submission_id": body.SubmissionID}); merr == nil {
+			opsync.EmitOp(pool, opsync.OpInput{
+				DeviceID:   "server",
+				UserID:     user.ID,
+				EntityID:   body.SubmissionID,
+				EntityType: "submission",
+				OpType:     opsync.OpApproveItem,
+				Payload:    json.RawMessage(payload),
+				LamportTS:  0,
+			})
+		} else {
+			log.Printf("ApproveSubmissionHandler: failed to marshal op payload: %v", merr)
+		}
 		writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 	}
 }
@@ -448,6 +527,19 @@ func RejectItemHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			log.Printf("rejectItem error: %v", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
+		}
+		if payload, merr := json.Marshal(map[string]any{"submission_id": input.SubmissionID, "field_id": input.FieldID, "note": input.Comment}); merr == nil {
+			opsync.EmitOp(pool, opsync.OpInput{
+				DeviceID:   "server",
+				UserID:     user.ID,
+				EntityID:   input.SubmissionID,
+				EntityType: "submission",
+				OpType:     opsync.OpRejectItem,
+				Payload:    json.RawMessage(payload),
+				LamportTS:  0,
+			})
+		} else {
+			log.Printf("RejectItemHandler: failed to marshal op payload: %v", merr)
 		}
 		writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 	}
