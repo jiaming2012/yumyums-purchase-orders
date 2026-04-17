@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"embed"
+	"encoding/json"
 	"errors"
 	"io/fs"
 	"log"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/yumyums/hq/internal/auth"
 	"github.com/yumyums/hq/internal/config"
 	"github.com/yumyums/hq/internal/db"
@@ -19,6 +21,110 @@ import (
 	opsync "github.com/yumyums/hq/internal/sync"
 	"github.com/yumyums/hq/internal/workflow"
 )
+
+// workflowOpRouter implements opsync.OpRouter by routing ops to existing
+// workflow business logic. Defined here to avoid a circular import between
+// the sync and workflow packages.
+func workflowOpRouter(pool *pgxpool.Pool) opsync.OpRouter {
+	return func(ctx context.Context, userID string, req opsync.OpRequest) (*opsync.RouteOpResult, error) {
+		routerErr := func(status int, msg string) error {
+			return &opsync.OpRouterError{Status: status, Message: msg}
+		}
+
+		switch req.OpType {
+		case opsync.OpSetField:
+			var p struct {
+				FieldID string          `json:"field_id"`
+				Value   json.RawMessage `json:"value"`
+			}
+			if err := json.Unmarshal(req.Payload, &p); err != nil {
+				return nil, routerErr(http.StatusBadRequest, "invalid_payload")
+			}
+			if err := workflow.SaveResponseFunc(ctx, pool, p.FieldID, p.Value, userID); err != nil {
+				log.Printf("OpRouter SET_FIELD error: %v", err)
+				return nil, routerErr(http.StatusInternalServerError, "internal_error")
+			}
+
+		case opsync.OpSubmitChecklist:
+			var input workflow.SubmitChecklistInput
+			if err := json.Unmarshal(req.Payload, &input); err != nil {
+				return nil, routerErr(http.StatusBadRequest, "invalid_payload")
+			}
+			if err := workflow.ValidateFailNotesFunc(ctx, pool, input); err != nil {
+				return nil, routerErr(http.StatusBadRequest, err.Error())
+			}
+			id, err := workflow.SubmitChecklistFunc(ctx, pool, input, userID)
+			if err != nil {
+				if errors.Is(err, workflow.ErrTemplateArchived) {
+					return nil, routerErr(http.StatusConflict, "template_archived")
+				}
+				log.Printf("OpRouter SUBMIT_CHECKLIST error: %v", err)
+				return nil, routerErr(http.StatusInternalServerError, "internal_error")
+			}
+			return &opsync.RouteOpResult{EntityID: id}, nil
+
+		case opsync.OpApproveItem:
+			var body struct {
+				SubmissionID string `json:"submission_id"`
+			}
+			if err := json.Unmarshal(req.Payload, &body); err != nil || body.SubmissionID == "" {
+				return nil, routerErr(http.StatusBadRequest, "invalid_payload")
+			}
+			if err := workflow.ApproveSubmissionFunc(ctx, pool, body.SubmissionID, userID); err != nil {
+				log.Printf("OpRouter APPROVE_ITEM error: %v", err)
+				return nil, routerErr(http.StatusInternalServerError, "internal_error")
+			}
+
+		case opsync.OpRejectItem:
+			var input workflow.RejectItemInput
+			if err := json.Unmarshal(req.Payload, &input); err != nil {
+				return nil, routerErr(http.StatusBadRequest, "invalid_payload")
+			}
+			if err := workflow.RejectItemFunc(ctx, pool, input, userID); err != nil {
+				log.Printf("OpRouter REJECT_ITEM error: %v", err)
+				return nil, routerErr(http.StatusInternalServerError, "internal_error")
+			}
+
+		case opsync.OpSaveTemplate:
+			var peek struct {
+				ID string `json:"id"`
+			}
+			json.Unmarshal(req.Payload, &peek) //nolint:errcheck
+			if peek.ID != "" {
+				var input workflow.TemplateInput
+				if err := json.Unmarshal(req.Payload, &input); err != nil {
+					return nil, routerErr(http.StatusBadRequest, "invalid_payload")
+				}
+				if err := workflow.UpdateTemplateFunc(ctx, pool, peek.ID, input); err != nil {
+					log.Printf("OpRouter SAVE_TEMPLATE update error: %v", err)
+					return nil, routerErr(http.StatusInternalServerError, "internal_error")
+				}
+			} else {
+				var input workflow.TemplateInput
+				if err := json.Unmarshal(req.Payload, &input); err != nil {
+					return nil, routerErr(http.StatusBadRequest, "invalid_payload")
+				}
+				id, err := workflow.CreateTemplateFunc(ctx, pool, input, userID)
+				if err != nil {
+					log.Printf("OpRouter SAVE_TEMPLATE create error: %v", err)
+					return nil, routerErr(http.StatusInternalServerError, "internal_error")
+				}
+				return &opsync.RouteOpResult{EntityID: id}, nil
+			}
+
+		case opsync.OpArchiveTemplate:
+			if err := workflow.ArchiveTemplateFunc(ctx, pool, req.EntityID); err != nil {
+				log.Printf("OpRouter ARCHIVE_TEMPLATE error: %v", err)
+				return nil, routerErr(http.StatusInternalServerError, "internal_error")
+			}
+
+		default:
+			return nil, routerErr(http.StatusBadRequest, "unknown_op_type")
+		}
+
+		return nil, nil
+	}
+}
 
 //go:embed all:public
 var embeddedFS embed.FS
@@ -162,6 +268,7 @@ func main() {
 				r.Post("/approveSubmission", workflow.ApproveSubmissionHandler(pool))
 				r.Post("/rejectItem", workflow.RejectItemHandler(pool))
 				r.Get("/ops/since", opsync.OpsSinceHandler(pool))
+				r.Post("/ops", opsync.OpHandler(pool, workflowOpRouter(pool)))
 			})
 		})
 	})

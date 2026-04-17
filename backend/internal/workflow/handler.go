@@ -14,6 +14,34 @@ import (
 	opsync "github.com/yumyums/hq/internal/sync"
 )
 
+// Exported function aliases for cross-package use (e.g., sync.OpHandler).
+// These delegate to the unexported business logic functions so the OpHandler
+// can route ops to existing workflow logic without duplicating it.
+
+// SaveResponseFunc is the exported alias for saveResponse.
+var SaveResponseFunc = saveResponse
+
+// SubmitChecklistFunc is the exported alias for submitChecklist.
+var SubmitChecklistFunc = submitChecklist
+
+// ValidateFailNotesFunc is the exported alias for validateFailNotes.
+var ValidateFailNotesFunc = validateFailNotes
+
+// ApproveSubmissionFunc is the exported alias for approveSubmission.
+var ApproveSubmissionFunc = approveSubmission
+
+// RejectItemFunc is the exported alias for rejectItem.
+var RejectItemFunc = rejectItem
+
+// CreateTemplateFunc is the exported alias for insertTemplate.
+var CreateTemplateFunc = insertTemplate
+
+// UpdateTemplateFunc is the exported alias for replaceTemplate.
+var UpdateTemplateFunc = replaceTemplate
+
+// ArchiveTemplateFunc is the exported alias for archiveTemplate.
+var ArchiveTemplateFunc = archiveTemplate
+
 // validateFailNotes checks that every response with a triggered fail condition
 // has a corresponding fail note with a non-empty description and severity.
 func validateFailNotes(ctx context.Context, pool *pgxpool.Pool, input SubmitChecklistInput) error {
