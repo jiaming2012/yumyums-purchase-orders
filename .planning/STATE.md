@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Backend
 status: executing
-stopped_at: Completed 10.1-02-PLAN.md
-last_updated: "2026-04-17T05:08:26.364Z"
+stopped_at: Completed 10.1-04-PLAN.md
+last_updated: "2026-04-17T05:14:04.887Z"
 last_activity: 2026-04-17
 progress:
   total_phases: 5
   completed_phases: 2
   total_plans: 14
-  completed_plans: 12
+  completed_plans: 13
   percent: 0
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-15)
 ## Current Position
 
 Phase: 10.1 (cross-device-state-sync) — EXECUTING
-Plan: 4 of 5
+Plan: 5 of 5
 Status: Ready to execute
 Last activity: 2026-04-17
 
@@ -64,6 +64,7 @@ Progress: [░░░░░░░░░░] 0% (v2.0 milestone)
 | Phase 10.1-cross-device-state-sync P01 | 2 | 2 tasks | 3 files |
 | Phase 10.1-cross-device-state-sync P02 | 515585 | 2 tasks | 5 files |
 | Phase 10.1 P03 | 3 | 1 tasks | 1 files |
+| Phase 10.1-cross-device-state-sync P04 | 515643 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -103,6 +104,9 @@ Recent decisions affecting current work:
 - [Phase 10.1-cross-device-state-sync]: WebSocket hub uses channel-based concurrency (no mutex), single goroutine owns client map
 - [Phase 10.1]: RejectItemHandler uses input.Comment (not body.Note) — actual field name in RejectItemInput struct
 - [Phase 10.1-cross-device-state-sync]: /ws mounted at top-level router in its own auth group (not inside /api/v1) to avoid chi prefix collision
+- [Phase 10.1-04]: flashField uses CSS background transition (info-bg) for 600ms to indicate incoming remote change
+- [Phase 10.1-04]: drainQueue() in wsConnect.onopen called without db arg — function already calls getDB() internally
+- [Phase 10.1-04]: LAMPORT_CLOCK guarded with null checks in wsConnect/wsCatchUp in case IndexedDB init fails
 
 ### Pending Todos
 
@@ -123,6 +127,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-17T05:08:26.354Z
-Stopped at: Completed 10.1-02-PLAN.md
+Last session: 2026-04-17T05:14:04.869Z
+Stopped at: Completed 10.1-04-PLAN.md
 Resume file: None
