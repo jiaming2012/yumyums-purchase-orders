@@ -525,6 +525,18 @@ func submitChecklist(ctx context.Context, pool *pgxpool.Pool, input SubmitCheckl
 
 // saveResponse upserts a draft response (submission_id IS NULL) for auto-save (D-21).
 func saveResponse(ctx context.Context, pool *pgxpool.Pool, fieldID string, value json.RawMessage, userID string) error {
+	// Null value means "unchecked" — delete the draft response row.
+	if value == nil || string(value) == "null" {
+		_, err := pool.Exec(ctx,
+			`DELETE FROM submission_responses
+			 WHERE field_id = $1 AND answered_by = $2 AND submission_id IS NULL`,
+			fieldID, userID,
+		)
+		if err != nil {
+			return fmt.Errorf("delete response: %w", err)
+		}
+		return nil
+	}
 	valJSON, err := marshalNullableJSON(value)
 	if err != nil {
 		return fmt.Errorf("marshal value: %w", err)

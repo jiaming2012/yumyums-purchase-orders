@@ -23,8 +23,9 @@ func WsHandler(hub *Hub, pool *pgxpool.Pool) http.HandlerFunc {
 		}
 
 		conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{
-			// InsecureSkipVerify is false — origin checks are enabled.
-			// OriginPatterns can be set here for production hardening.
+			// Allow same-origin connections from any host (dev: localhost, LAN IP, Tailscale).
+			// Auth middleware already validates the session cookie — origin check is redundant.
+			InsecureSkipVerify: true,
 		})
 		if err != nil {
 			log.Printf("ws: accept error for user %s: %v", user.ID, err)

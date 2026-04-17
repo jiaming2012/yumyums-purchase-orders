@@ -213,13 +213,45 @@ func InsertOpAndNotify(ctx context.Context, pool *pgxpool.Pool, op OpInput) (str
 	return opID, nil, nil
 }
 
+// nextLamportTS reads the current lamport_ts from the entity table and returns
+// current + 1. Used by server-side EmitOp so the op always wins the LWW guard.
+func nextLamportTS(ctx context.Context, pool *pgxpool.Pool, entityID, entityType string) (int64, error) {
+	var query string
+	switch entityType {
+	case "field_response":
+		query = `SELECT lamport_ts FROM submission_responses WHERE field_id = $1`
+	case "submission":
+		query = `SELECT lamport_ts FROM checklist_submissions WHERE id = $1`
+	case "template":
+		query = `SELECT lamport_ts FROM checklist_templates WHERE id = $1`
+	default:
+		return 1, nil
+	}
+	var current int64
+	err := pool.QueryRow(ctx, query, entityID).Scan(&current)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return 1, nil
+	}
+	if err != nil {
+		return 0, err
+	}
+	return current + 1, nil
+}
+
 // EmitOp fires InsertOpAndNotify in a goroutine with a 5-second timeout.
 // Errors are logged but not propagated. Use this for server-side emission
-// after a handler has already written successfully (no conflict expected).
+// after a handler has already written successfully. Automatically assigns
+// a lamport_ts of current + 1 so the op always wins the LWW guard.
 func EmitOp(pool *pgxpool.Pool, op OpInput) {
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
+		ts, err := nextLamportTS(ctx, pool, op.EntityID, op.EntityType)
+		if err != nil {
+			log.Printf("EmitOp: error reading lamport_ts for entity %s: %v", op.EntityID, err)
+			return
+		}
+		op.LamportTS = ts
 		_, conflict, err := InsertOpAndNotify(ctx, pool, op)
 		if err != nil {
 			if errors.Is(err, ErrConflict) {
@@ -238,24 +270,53 @@ func EmitOpWithConflictCheck(ctx context.Context, pool *pgxpool.Pool, op OpInput
 	return InsertOpAndNotify(ctx, pool, op)
 }
 
+// userAccessibleTemplates returns the template IDs that a user can access
+// based on their direct assignments or role-based assignments.
+func userAccessibleTemplates(ctx context.Context, pool *pgxpool.Pool, userID string) ([]string, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT DISTINCT ta.template_id::text
+		 FROM template_assignments ta
+		 JOIN users u ON (
+		   (ta.assignee_type = 'user' AND u.id::text = ta.assignee_id)
+		   OR (ta.assignee_type = 'role' AND u.role = ta.assignee_id)
+		 )
+		 WHERE u.id = $1::uuid`,
+		userID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var templateIDs []string
+	for rows.Next() {
+		var tid string
+		if err := rows.Scan(&tid); err != nil {
+			return nil, err
+		}
+		templateIDs = append(templateIDs, tid)
+	}
+	return templateIDs, rows.Err()
+}
+
 // OpsSince returns all ops accessible to userID with lamport_ts > lamportTS,
 // ordered ascending. Access is resolved via template_assignments so that a
 // user receives ops for any entity linked to templates they are assigned to
 // (D-09).
 func OpsSince(ctx context.Context, pool *pgxpool.Pool, userID string, lamportTS int64) ([]Op, error) {
+	// Fetch user's accessible template IDs first, then filter ops.
+	// This handles role-based assignments (e.g., assignee_type='role', assignee_id='admin').
+	accessibleTemplates, err := userAccessibleTemplates(ctx, pool, userID)
+	if err != nil {
+		return nil, err
+	}
+
 	rows, err := pool.Query(ctx,
 		`SELECT o.id, o.device_id, o.user_id, o.entity_id, o.entity_type,
 		        o.op_type, o.payload, o.lamport_ts, o.server_ts, o.applied
 		 FROM ops o
 		 WHERE o.lamport_ts > $2
-		   AND (
-		         o.user_id = $1
-		         OR o.entity_id IN (
-		               SELECT template_id::uuid
-		               FROM template_assignments
-		               WHERE user_id = $1::uuid
-		         )
-		       )
+		   AND o.user_id = $1
 		 ORDER BY o.lamport_ts ASC`,
 		userID, lamportTS,
 	)
@@ -267,10 +328,8 @@ func OpsSince(ctx context.Context, pool *pgxpool.Pool, userID string, lamportTS 
 	var ops []Op
 	for rows.Next() {
 		var o Op
-		if err := rows.Scan(
-			&o.ID, &o.DeviceID, &o.UserID, &o.EntityID, &o.EntityType,
-			&o.OpType, &o.Payload, &o.LamportTS, &o.ServerTS, &o.Applied,
-		); err != nil {
+		if err := rows.Scan(&o.ID, &o.DeviceID, &o.UserID, &o.EntityID, &o.EntityType,
+			&o.OpType, &o.Payload, &o.LamportTS, &o.ServerTS, &o.Applied); err != nil {
 			return nil, err
 		}
 		ops = append(ops, o)
@@ -278,6 +337,48 @@ func OpsSince(ctx context.Context, pool *pgxpool.Pool, userID string, lamportTS 
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
+	rows.Close()
+
+	// Also fetch cross-user ops for accessible templates.
+	if len(accessibleTemplates) > 0 {
+		crossRows, err := pool.Query(ctx,
+			`SELECT o.id, o.device_id, o.user_id, o.entity_id, o.entity_type,
+			        o.op_type, o.payload, o.lamport_ts, o.server_ts, o.applied
+			 FROM ops o
+			 WHERE o.lamport_ts > $2
+			   AND o.user_id != $1
+			   AND (
+			     (o.entity_type = 'template' AND o.entity_id = ANY($3::uuid[]))
+			     OR (o.entity_type = 'submission' AND o.entity_id IN (
+			           SELECT id FROM checklist_submissions WHERE template_id = ANY($3::uuid[])
+			     ))
+			     OR (o.entity_type = 'field_response' AND o.entity_id IN (
+			           SELECT f.id FROM checklist_fields f
+			           JOIN checklist_sections s ON f.section_id = s.id
+			           WHERE s.template_id = ANY($3::uuid[])
+			     ))
+			   )
+			 ORDER BY o.lamport_ts ASC`,
+			userID, lamportTS, accessibleTemplates,
+		)
+		if err != nil {
+			return nil, err
+		}
+		defer crossRows.Close()
+
+		for crossRows.Next() {
+			var o Op
+			if err := crossRows.Scan(&o.ID, &o.DeviceID, &o.UserID, &o.EntityID, &o.EntityType,
+				&o.OpType, &o.Payload, &o.LamportTS, &o.ServerTS, &o.Applied); err != nil {
+				return nil, err
+			}
+			ops = append(ops, o)
+		}
+		if err := crossRows.Err(); err != nil {
+			return nil, err
+		}
+	}
+
 	if ops == nil {
 		ops = []Op{}
 	}
@@ -315,21 +416,13 @@ func ResolveEntityAccess(ctx context.Context, pool *pgxpool.Pool, entityID, enti
 		templateID = entityID
 
 	case "field_response":
-		// Look up submission_id from submission_responses, then template_id.
-		var submissionID string
+		// Resolve field_id → section_id → template_id via the fields/sections tables.
+		// This works for both draft responses (no submission) and submitted ones.
 		err := pool.QueryRow(ctx,
-			`SELECT submission_id FROM submission_responses WHERE field_id = $1 LIMIT 1`,
+			`SELECT s.template_id FROM checklist_fields f
+			 JOIN checklist_sections s ON f.section_id = s.id
+			 WHERE f.id = $1`,
 			entityID,
-		).Scan(&submissionID)
-		if err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				return []string{}, nil
-			}
-			return nil, err
-		}
-		err = pool.QueryRow(ctx,
-			`SELECT template_id FROM checklist_submissions WHERE id = $1`,
-			submissionID,
 		).Scan(&templateID)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
@@ -354,8 +447,18 @@ func ResolveEntityAccess(ctx context.Context, pool *pgxpool.Pool, entityID, enti
 		return []string{}, nil
 	}
 
+	// Resolve assignments to user IDs. Assignments can be:
+	//   assignee_type='user', assignee_id=<user UUID>
+	//   assignee_type='role', assignee_id=<role name like 'admin'>
+	// For role-based assignments, join with users table to get actual user IDs.
 	rows, err := pool.Query(ctx,
-		`SELECT DISTINCT user_id::text FROM template_assignments WHERE template_id = $1::uuid`,
+		`SELECT DISTINCT u.id::text
+		 FROM template_assignments ta
+		 JOIN users u ON (
+		   (ta.assignee_type = 'user' AND u.id::text = ta.assignee_id)
+		   OR (ta.assignee_type = 'role' AND u.role = ta.assignee_id)
+		 )
+		 WHERE ta.template_id = $1::uuid`,
 		templateID,
 	)
 	if err != nil {

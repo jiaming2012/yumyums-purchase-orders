@@ -377,7 +377,7 @@ func SaveResponseHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
-		if payload, merr := json.Marshal(map[string]any{"field_id": input.FieldID, "value": input.Value}); merr == nil {
+		if payload, merr := json.Marshal(map[string]any{"field_id": input.FieldID, "value": input.Value, "user_name": user.DisplayName}); merr == nil {
 			opsync.EmitOp(pool, opsync.OpInput{
 				DeviceID:   "server",
 				UserID:     user.ID,

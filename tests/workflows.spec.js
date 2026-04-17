@@ -518,7 +518,7 @@ test.describe('Validation', () => {
     // Should show error toast about corrective action, NOT submit successfully
     const toast = page.locator('#toast');
     await expect(toast).toBeVisible({ timeout: 5000 });
-    await expect(toast).toContainText(/corrective|action|required/i);
+    await expect(toast).toContainText('Grill temp');
 
     // Submit button should still be enabled (submission was blocked)
     const submitBtn = page.locator('#submit-btn');

@@ -426,16 +426,36 @@ function applyOp(op) {
   if (LAMPORT_CLOCK && op.device_id === LAMPORT_CLOCK.deviceId) return;
 
   if (op.op_type === 'SET_FIELD') {
-    const { field_id, value } = op.payload;
-    FIELD_RESPONSES[field_id] = typeof value === 'object' && value !== null ? value : { value };
-    const existing = DRAFT_RESPONSES.find(d => d.field_id === field_id);
-    if (existing) { existing.value = value; existing.answered_at = op.server_ts; }
-    else DRAFT_RESPONSES.push({ field_id, value, answered_at: op.server_ts });
+    const { field_id, value, user_name } = op.payload;
+    // Skip echo of our own save (server emits ops with device_id="server", not our client ID)
+    if (_recentSaves[field_id]) return;
+    const displayName = user_name || 'Someone';
+    if (value === null || value === undefined) {
+      // Uncheck — remove from state
+      delete FIELD_RESPONSES[field_id];
+      const draftIdx = DRAFT_RESPONSES.findIndex(d => d.field_id === field_id);
+      if (draftIdx !== -1) DRAFT_RESPONSES.splice(draftIdx, 1);
+    } else {
+      const entry = { answeredBy: displayName, answeredAt: new Date(op.server_ts) };
+      if (typeof value === 'object' && value !== null && value.value !== undefined) {
+        entry.value = value.value;
+        if (value.sub_steps) entry.sub_steps = value.sub_steps;
+      } else {
+        entry.value = value;
+      }
+      FIELD_RESPONSES[field_id] = entry;
+      const existing = DRAFT_RESPONSES.find(d => d.field_id === field_id);
+      if (existing) { existing.value = value; existing.answered_at = op.server_ts; }
+      else DRAFT_RESPONSES.push({ field_id, value, answered_at: op.server_ts });
+    }
     renderFieldResponse(field_id);
     flashField(field_id);
-    enqueueSyncToast(op.user_id, op.payload.user_name || 'Someone', [field_id]);
+    enqueueSyncToast(op.user_id, displayName, [field_id]);
+    // Update progress: runner bar if inside checklist, list page if on checklist list
+    if (fillState.activeTemplate) { updateProgress(); }
+    else if (typeof renderMyChecklists === 'function') { renderMyChecklists(); }
   } else if (op.op_type === 'SUBMIT_CHECKLIST') {
-    if (typeof loadMyChecklists === 'function') loadMyChecklists();
+    loadMyChecklists(); // re-fetches data + re-renders runner if open
   } else if (op.op_type === 'APPROVE_ITEM' || op.op_type === 'REJECT_ITEM') {
     if (typeof loadPendingApprovals === 'function') loadPendingApprovals();
   } else if (op.op_type === 'SAVE_TEMPLATE' || op.op_type === 'ARCHIVE_TEMPLATE') {
@@ -530,6 +550,7 @@ async function renderSyncBanner() {
 }
 
 const SAVE_DEBOUNCE = {};
+const _recentSaves = {}; // { fieldId: timestamp } — fields saved locally within last 3s
 let _pendingSaves = 0;
 let _syncedTimer = null;
 
@@ -556,9 +577,10 @@ function updateSaveStatus(delta) {
 }
 
 function autoSaveField(fieldId, value) {
-  clearTimeout(SAVE_DEBOUNCE[fieldId]);
+  if (SAVE_DEBOUNCE[fieldId]) { clearTimeout(SAVE_DEBOUNCE[fieldId]); updateSaveStatus(-1); }
   updateSaveStatus(1);
   SAVE_DEBOUNCE[fieldId] = setTimeout(async () => {
+    SAVE_DEBOUNCE[fieldId] = null;
     const indicator = document.querySelector(`[data-field-id="${fieldId}"] .save-indicator`);
     try {
       // Bundle fail note with value if one exists
@@ -579,14 +601,23 @@ function autoSaveField(fieldId, value) {
         return;
       }
       // Update DRAFT_RESPONSES so reopening the checklist restores this value
-      var existing = DRAFT_RESPONSES.find(function(d) { return d.field_id === fieldId; });
-      if (existing) {
-        existing.value = saveValue;
-        existing.answered_at = new Date().toISOString();
+      if (saveValue === null || saveValue === undefined) {
+        // Uncheck — remove draft entry (server deleted the row)
+        var idx = DRAFT_RESPONSES.findIndex(function(d) { return d.field_id === fieldId; });
+        if (idx !== -1) DRAFT_RESPONSES.splice(idx, 1);
       } else {
-        DRAFT_RESPONSES.push({ field_id: fieldId, value: saveValue, answered_at: new Date().toISOString() });
+        var existing = DRAFT_RESPONSES.find(function(d) { return d.field_id === fieldId; });
+        if (existing) {
+          existing.value = saveValue;
+          existing.answered_at = new Date().toISOString();
+        } else {
+          DRAFT_RESPONSES.push({ field_id: fieldId, value: saveValue, answered_at: new Date().toISOString() });
+        }
       }
       if (indicator) { indicator.textContent = 'Saved'; indicator.className = 'save-indicator saved'; setTimeout(() => { indicator.textContent = ''; indicator.className = 'save-indicator'; }, 800); }
+      // Mark as recently saved so incoming WS echo is suppressed
+      _recentSaves[fieldId] = Date.now();
+      setTimeout(() => { delete _recentSaves[fieldId]; }, 3000);
       clearFieldError(fieldId);
     } catch (e) {
       showFieldError(fieldId);
@@ -658,8 +689,7 @@ async function loadTemplates() {
 
 async function loadMyChecklists() {
   const container = document.getElementById('checklist-list');
-  if (!container) return;
-  renderSkeletons(container, 3);
+  if (container) renderSkeletons(container, 3);
   try {
     const data = await api('GET', 'myChecklists?dow=' + new Date().getDay());
     MY_CHECKLISTS = (data.templates || []).map(function(t) {
@@ -670,11 +700,19 @@ async function loadMyChecklists() {
     MY_SUBMISSIONS = data.submissions || [];
     DRAFT_RESPONSES = data.drafts || [];
     hydrateFieldState();
-    renderMyChecklists();
+    if (container) renderMyChecklists();
+    // If runner is open, update the stale activeTemplate reference and re-render
+    if (fillState.activeTemplate) {
+      var updated = MY_CHECKLISTS.find(function(t) { return t.id === fillState.activeTemplate.id; });
+      if (updated) fillState.activeTemplate = updated;
+      var tplFieldIds = new Set((fillState.activeTemplate.sections || []).flatMap(function(s) { return (s.fields || []).map(function(f) { return f.id; }); }));
+      hydrateFieldState(tplFieldIds);
+      var fillBody = document.getElementById('fill-body');
+      if (fillBody) fillBody.innerHTML = renderRunner();
+    }
   } catch (e) {
     console.error('loadMyChecklists error:', e);
-    container.innerHTML = '';
-    renderError(container, "Couldn't load checklists.", () => loadMyChecklists());
+    if (container) { container.innerHTML = ''; renderError(container, "Couldn't load checklists.", () => loadMyChecklists()); }
   }
 }
 
@@ -1656,6 +1694,7 @@ function hydrateFieldState(filterFieldIds) {
   // 1. Draft responses (in-progress, not yet submitted)
   (DRAFT_RESPONSES || []).forEach(function(d) {
     if (!filterFieldIds || filterFieldIds.has(d.field_id)) {
+      if (d.value === null || d.value === undefined) return; // unchecked — no entry
       var val = unwrapValue(d.value);
       var subSteps = null;
       // Unpack bundled fail note if present
@@ -2465,7 +2504,6 @@ document.getElementById('fill-body').addEventListener('input', function(e) {
   }
 
   if (action === 'temp-input') {
-    // Update state without re-render first
     const val = e.target.value;
     if (val !== '') {
       FIELD_RESPONSES[fldId] = { value: +val, answeredBy: getUserName(), answeredAt: new Date() };
@@ -2473,12 +2511,29 @@ document.getElementById('fill-body').addEventListener('input', function(e) {
     } else {
       delete FIELD_RESPONSES[fldId];
     }
-    // Re-render to show/hide fail card and warn label
-    const pos = e.target.selectionStart;
-    renderFillOut();
-    // Restore focus + cursor
-    const el = document.querySelector('[data-action="temp-input"][data-fld-id="' + fldId + '"]');
-    if (el) { el.focus(); try { el.setSelectionRange(pos, pos); } catch(x){} }
+    // Update fail card and warn label in-place (no full re-render — preserves cursor)
+    const fieldDiv = e.target.closest('.fill-field');
+    if (fieldDiv) {
+      const tplField = fillState.activeTemplate.sections.flatMap(s => s.fields).find(f => f.id === fldId);
+      if (tplField) {
+        const isFail = typeof evaluateFailTrigger === 'function' && evaluateFailTrigger(tplField.fail_trigger, val !== '' ? +val : '');
+        // Toggle warn label
+        var warnEl = fieldDiv.querySelector('.temp-warn');
+        if (isFail && tplField.fail_trigger) {
+          if (!warnEl) { warnEl = document.createElement('span'); warnEl.className = 'temp-warn'; fieldDiv.appendChild(warnEl); }
+          warnEl.textContent = 'Out of range (' + tplField.fail_trigger.min + '\u2013' + tplField.fail_trigger.max + '\u00b0F)';
+        } else if (warnEl) { warnEl.remove(); }
+        // Toggle fail card
+        var failCard = fieldDiv.nextElementSibling;
+        if (isFail) {
+          if (!failCard || !failCard.classList.contains('fail-card')) {
+            var tmp = document.createElement('div');
+            tmp.innerHTML = typeof renderFailCard === 'function' ? renderFailCard(tplField, FAIL_NOTES[fldId] || null) : '';
+            if (tmp.firstElementChild) fieldDiv.after(tmp.firstElementChild);
+          }
+        } else if (failCard && failCard.classList.contains('fail-card')) { failCard.remove(); }
+      }
+    }
     updateProgress();
     return;
   }

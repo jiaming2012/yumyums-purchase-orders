@@ -50,6 +50,12 @@ tasks:
     cmds:
       - npx playwright test
 
+  test:sync:
+    desc: Run cross-device sync tests only
+    deps: [backend:db-test, sw]
+    cmds:
+      - npx playwright test tests/sync.spec.js
+
   test:headed:
     desc: Run Playwright E2E tests (visible browser)
     cmds:

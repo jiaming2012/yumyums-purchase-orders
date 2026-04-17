@@ -107,6 +107,7 @@ Add this test to `tests/persistence.spec.js` under the "Draft response persisten
 - Tests block service workers (`serviceWorkers: 'block'` in Playwright config)
 - **Persistence rule:** Every user-entered value → `autoSaveField` → `DRAFT_RESPONSES` → `hydrateFieldState` (see docs/data-flow-audit.md)
 - **Required test:** Every new field type or data entry feature MUST have a back-and-reopen test in `tests/persistence.spec.js` — enter data → back → reopen → data still there. Feature is not complete without this test.
+- **Bug fix protocol (approval phase):** When a bug is found during human verification, write the regression test FIRST — before applying the fix. The test must fail (proving it captures the bug), then apply the fix, then verify the test passes. Only run the new test(s) during iteration, not the full suite: `npx playwright test tests/<file>.spec.js -g "<test name>"`. This ensures the test actually guards against the regression, not just passing by coincidence.
 
 <!-- GSD:project-start source:PROJECT.md -->
 ## Project
