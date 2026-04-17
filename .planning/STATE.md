@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Backend
 status: executing
-stopped_at: Completed 10.1-01-PLAN.md
-last_updated: "2026-04-17T05:02:47.020Z"
+stopped_at: Completed 10.1-02-PLAN.md
+last_updated: "2026-04-17T05:08:26.364Z"
 last_activity: 2026-04-17
 progress:
   total_phases: 5
   completed_phases: 2
   total_plans: 14
-  completed_plans: 10
+  completed_plans: 12
   percent: 0
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-15)
 ## Current Position
 
 Phase: 10.1 (cross-device-state-sync) — EXECUTING
-Plan: 2 of 5
+Plan: 4 of 5
 Status: Ready to execute
 Last activity: 2026-04-17
 
@@ -62,6 +62,8 @@ Progress: [░░░░░░░░░░] 0% (v2.0 milestone)
 | Phase 10-workflows-api P04 | 3 | 2 tasks | 2 files |
 | Phase 10-workflows-api P05 | 2 | 1 tasks | 2 files |
 | Phase 10.1-cross-device-state-sync P01 | 2 | 2 tasks | 3 files |
+| Phase 10.1-cross-device-state-sync P02 | 515585 | 2 tasks | 5 files |
+| Phase 10.1 P03 | 3 | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -97,6 +99,10 @@ Recent decisions affecting current work:
 - [Phase 10.1-cross-device-state-sync]: CheckLWW uses device_id lexicographic tiebreaker when lamport_ts values are equal (D-10)
 - [Phase 10.1-cross-device-state-sync]: OpsSince resolves access via template_assignments subquery so assignees receive ops from other devices (D-09)
 - [Phase 10.1-cross-device-state-sync]: EmitOp is fire-and-forget with 5-second timeout; ErrConflict from EmitOp is logged not propagated
+- [Phase 10.1-cross-device-state-sync]: pgconn import path is github.com/jackc/pgx/v5/pgconn (not standalone) for pgx v5 compatibility
+- [Phase 10.1-cross-device-state-sync]: WebSocket hub uses channel-based concurrency (no mutex), single goroutine owns client map
+- [Phase 10.1]: RejectItemHandler uses input.Comment (not body.Note) — actual field name in RejectItemInput struct
+- [Phase 10.1-cross-device-state-sync]: /ws mounted at top-level router in its own auth group (not inside /api/v1) to avoid chi prefix collision
 
 ### Pending Todos
 
@@ -117,6 +123,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-17T05:02:47.015Z
-Stopped at: Completed 10.1-01-PLAN.md
+Last session: 2026-04-17T05:08:26.354Z
+Stopped at: Completed 10.1-02-PLAN.md
 Resume file: None

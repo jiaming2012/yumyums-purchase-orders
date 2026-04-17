@@ -92,8 +92,8 @@ Plans:
 
 Plans:
 - [x] 10.1-01-PLAN.md — DB migrations (ops table + lamport_ts) + sync/ops.go package
-- [ ] 10.1-02-PLAN.md — WebSocket hub + Postgres LISTEN/NOTIFY listener + route wiring
-- [ ] 10.1-03-PLAN.md — Wire EmitOp into all 7 workflow handlers
+- [x] 10.1-02-PLAN.md — WebSocket hub + Postgres LISTEN/NOTIFY listener + route wiring
+- [x] 10.1-03-PLAN.md — Wire EmitOp into all 7 workflow handlers
 - [ ] 10.1-04-PLAN.md — Frontend LamportClock + WebSocket client + applyOp + 409 handling
 - [ ] 10.1-05-PLAN.md — Sync UX (blue flash + grouped toast) + device verification
 
@@ -138,6 +138,6 @@ Phases execute in numeric order: 9 → 10 → 10.1 → 11 → 12
 | 8. Trends and Cost Intelligence Tabs | v1.1 | 2/2 | Complete | 2026-04-14 |
 | 9. Foundation + Auth | v2.0 | 4/4 | Complete   | 2026-04-15 |
 | 10. Workflows API | v2.0 | 5/5 | Complete   | 2026-04-15 |
-| 10.1 Cross-Device State Sync | v2.0 | 1/5 | In Progress|  |
+| 10.1 Cross-Device State Sync | v2.0 | 3/5 | In Progress|  |
 | 11. Onboarding + Users Admin | v2.0 | 0/? | Not started | - |
 | 12. Inventory + Photos | v2.0 | 0/? | Not started | - |
