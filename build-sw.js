@@ -7,6 +7,7 @@ async function build() {
     globPatterns: [
       '*.html',
       'ptr.js',
+      'sync.js',
       'manifest.json',
       'icons/**/*.png',
     ],
