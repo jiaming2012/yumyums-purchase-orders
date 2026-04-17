@@ -291,6 +291,126 @@ class LamportClock {
   get deviceId() { return this._deviceId; }
 }
 
+// ─── WebSocket Sync Client ────────────────────────────────────────────────────
+
+const WS_MAX_BACKOFF = 30000;
+const WS_MAX_ATTEMPTS = 15;
+let _ws = null, _wsBackoff = 500, _wsAttempts = 0;
+
+function wsConnect() {
+  if (_wsAttempts >= WS_MAX_ATTEMPTS) return;
+  const proto = location.protocol === 'https:' ? 'wss://' : 'ws://';
+  _ws = new WebSocket(proto + location.host + '/ws');
+
+  _ws.onopen = async () => {
+    _wsBackoff = 500;
+    _wsAttempts = 0;
+    // Per D-15: drain offline queue BEFORE catch-up to avoid stale state
+    try {
+      await drainQueue();
+    } catch(e) { console.error('drain error on ws open:', e); }
+    wsCatchUp();
+  };
+
+  _ws.onmessage = (evt) => {
+    try {
+      const op = JSON.parse(evt.data);
+      if (LAMPORT_CLOCK) LAMPORT_CLOCK.receive(op.lamport_ts);
+      applyOp(op);
+    } catch(e) { console.error('ws msg parse error:', e); }
+  };
+
+  _ws.onclose = () => {
+    const jitter = Math.random() * 1000;
+    const delay = Math.min(_wsBackoff + jitter, WS_MAX_BACKOFF);
+    _wsBackoff = Math.min(_wsBackoff * 2, WS_MAX_BACKOFF);
+    _wsAttempts++;
+    setTimeout(wsConnect, delay);
+  };
+}
+
+document.addEventListener('visibilitychange', async () => {
+  if (document.visibilityState === 'visible') {
+    if (!_ws || _ws.readyState === WebSocket.CLOSED || _ws.readyState === WebSocket.CLOSING) {
+      _wsAttempts = 0;
+      wsConnect(); // onopen will drain then catch up
+    } else if (_ws.readyState === WebSocket.OPEN) {
+      // Already connected — drain then catch up
+      try {
+        await drainQueue();
+      } catch(e) { console.error('drain error on visibility:', e); }
+      wsCatchUp();
+    }
+  }
+});
+
+async function wsCatchUp() {
+  if (!LAMPORT_CLOCK) return;
+  try {
+    const ts = LAMPORT_CLOCK.ts;
+    const ops = await api('GET', 'ops/since?lamport_ts=' + ts, null);
+    if (!Array.isArray(ops)) return;
+    ops.sort((a, b) => a.lamport_ts - b.lamport_ts);
+    for (const op of ops) {
+      await LAMPORT_CLOCK.receive(op.lamport_ts);
+      applyOp(op);
+    }
+  } catch(e) { console.error('catch-up error:', e); }
+}
+
+function flashField(fieldId) {
+  const el = document.querySelector('[data-field-id="' + fieldId + '"]');
+  if (!el) return;
+  el.style.transition = 'background 0.2s';
+  el.style.background = 'var(--info-bg)';
+  setTimeout(() => { el.style.background = ''; }, 600);
+}
+
+function enqueueSyncToast(userId, userName, fieldIds) {
+  showToast(userName + ' updated ' + fieldIds.length + ' field' + (fieldIds.length > 1 ? 's' : ''));
+}
+
+function renderFieldResponse(fieldId) {
+  const el = document.querySelector('[data-field-id="' + fieldId + '"]');
+  if (!el) return; // field not visible in current view
+  // Find the field definition from the current checklist's sections
+  let fld = null;
+  if (fillState.activeTemplate && fillState.activeTemplate.sections) {
+    for (const sec of fillState.activeTemplate.sections) {
+      fld = (sec.fields || []).find(f => f.id === fieldId);
+      if (fld) break;
+    }
+  }
+  if (!fld) return;
+  // Re-render the field row using the existing renderRunnerField function
+  const tmp = document.createElement('div');
+  tmp.innerHTML = renderRunnerField(fld);
+  const newEl = tmp.firstElementChild;
+  if (newEl) el.replaceWith(newEl);
+}
+
+function applyOp(op) {
+  // Skip self-originated ops (already applied optimistically)
+  if (LAMPORT_CLOCK && op.device_id === LAMPORT_CLOCK.deviceId) return;
+
+  if (op.op_type === 'SET_FIELD') {
+    const { field_id, value } = op.payload;
+    FIELD_RESPONSES[field_id] = typeof value === 'object' && value !== null ? value : { value };
+    const existing = DRAFT_RESPONSES.find(d => d.field_id === field_id);
+    if (existing) { existing.value = value; existing.answered_at = op.server_ts; }
+    else DRAFT_RESPONSES.push({ field_id, value, answered_at: op.server_ts });
+    renderFieldResponse(field_id);
+    flashField(field_id);
+    enqueueSyncToast(op.user_id, op.payload.user_name || 'Someone', [field_id]);
+  } else if (op.op_type === 'SUBMIT_CHECKLIST') {
+    if (typeof loadMyChecklists === 'function') loadMyChecklists();
+  } else if (op.op_type === 'APPROVE_ITEM' || op.op_type === 'REJECT_ITEM') {
+    if (typeof loadPendingApprovals === 'function') loadPendingApprovals();
+  } else if (op.op_type === 'SAVE_TEMPLATE' || op.op_type === 'ARCHIVE_TEMPLATE') {
+    if (typeof loadTemplates === 'function') loadTemplates();
+  }
+}
+
 async function enqueueSubmission(payload) {
   const db = await getDB();
   await idbPut(db, 'submitQueue', {
@@ -415,7 +535,17 @@ function autoSaveField(fieldId, value) {
       if (fn && (fn.note || fn.severity)) {
         saveValue = { _v: value, _fail_note: { note: fn.note, severity: fn.severity } };
       }
-      await api('POST', 'saveResponse', { field_id: fieldId, value: saveValue });
+      const result = await api('POST', 'saveResponse', { field_id: fieldId, value: saveValue });
+      // Handle 409 conflict — revert to winner value per D-14
+      if (result && result._conflict) {
+        const winner = result.winner;
+        FIELD_RESPONSES[fieldId] = { value: winner.value };
+        renderFieldResponse(fieldId);
+        flashField(fieldId);
+        enqueueSyncToast(null, 'Conflict resolved', [fieldId]);
+        updateSaveStatus(-1);
+        return;
+      }
       // Update DRAFT_RESPONSES so reopening the checklist restores this value
       var existing = DRAFT_RESPONSES.find(function(d) { return d.field_id === fieldId; });
       if (existing) {
