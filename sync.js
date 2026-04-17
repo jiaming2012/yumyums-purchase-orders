@@ -3,6 +3,9 @@
 // Exposes all sync primitives on window.* (no ES modules — same pattern as ptr.js).
 // Plan 01 of Phase 10.2: extract from workflows.html without modifying it.
 
+// Fallback device ID for when IndexedDB/LamportClock fails (e.g. iOS Safari private browsing)
+var _fallbackDeviceId = crypto.randomUUID();
+
 // ─── API Wrapper ─────────────────────────────────────────────────────────────
 
 async function api(method, path, body) {
@@ -562,15 +565,19 @@ window.updateSaveStatus = updateSaveStatus;
 // the old _recentSaves timing hack.
 
 async function submitOp(opType, entityId, entityType, payload) {
-  if (!LAMPORT_CLOCK) throw new Error('LamportClock not initialized');
-  const ts = await LAMPORT_CLOCK.tick();
+  var ts = 0;
+  var deviceId = _fallbackDeviceId;
+  if (LAMPORT_CLOCK) {
+    try { ts = await LAMPORT_CLOCK.tick(); } catch(e) { console.warn('LamportClock tick failed:', e); }
+    deviceId = LAMPORT_CLOCK.deviceId || deviceId;
+  }
   const result = await api('POST', 'ops', {
     op_type: opType,
     entity_id: entityId,
     entity_type: entityType,
     payload: payload,
     lamport_ts: ts,
-    device_id: LAMPORT_CLOCK.deviceId,
+    device_id: deviceId,
   });
   return result;
 }
