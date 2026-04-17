@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Backend
 status: executing
-stopped_at: Completed 10.2-01-PLAN.md
-last_updated: "2026-04-17T14:25:25.323Z"
+stopped_at: Completed 10.2-02-PLAN.md
+last_updated: "2026-04-17T15:03:33.890Z"
 last_activity: 2026-04-17
 progress:
   total_phases: 6
   completed_phases: 3
   total_plans: 17
-  completed_plans: 15
+  completed_plans: 16
   percent: 0
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-15)
 ## Current Position
 
 Phase: 10.2 (reactive-sync-framework) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 Status: Ready to execute
 Last activity: 2026-04-17
 
@@ -67,6 +67,7 @@ Progress: [░░░░░░░░░░] 0% (v2.0 milestone)
 | Phase 10.1-cross-device-state-sync P04 | 515643 | 2 tasks | 3 files |
 | Phase 10.1-cross-device-state-sync P05 | 8 | 1 tasks | 3 files |
 | Phase 10.2-reactive-sync-framework P01 | 3 | 2 tasks | 3 files |
+| Phase 10.2-reactive-sync-framework P02 | 30 | 1 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -114,6 +115,8 @@ Recent decisions affecting current work:
 - [Phase 10.1-05]: flashField uses CSS class animation with offsetWidth reflow trick — restart-safe, declarative, no inline style conflicts
 - [Phase 10.2-reactive-sync-framework]: sync.js Store uses typeof guards for page globals (FIELD_RESPONSES, DRAFT_RESPONSES) — safe to load before page script initializes those globals
 - [Phase 10.2-reactive-sync-framework]: submitOp routes to existing HTTP endpoints in Plan 01 — Plan 03 switches to POST /ops with optimistic apply and rollback per D-08
+- [Phase 10.2-reactive-sync-framework]: debouncedSaveField uses _recentSaves (exposed on window) to suppress WS echo — LAMPORT_CLOCK device_id check alone insufficient when clock not yet initialized
+- [Phase 10.2-reactive-sync-framework]: Kept explicit renderMyChecklists() after hydrateFieldState in loadMyChecklists — store subscriber fires before hydration, causing stale FIELD_RESPONSES
 
 ### Pending Todos
 
@@ -134,6 +137,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-17T14:25:25.316Z
-Stopped at: Completed 10.2-01-PLAN.md
+Last session: 2026-04-17T15:03:33.883Z
+Stopped at: Completed 10.2-02-PLAN.md
 Resume file: None
