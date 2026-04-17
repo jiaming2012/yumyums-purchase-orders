@@ -1420,9 +1420,9 @@ async function submitChecklistToAPI(tplId, allFlds, isReapproval) {
     };
   }).filter(function(r) { return r.value !== null; });
   var submitPayload = {
-    id: crypto.randomUUID(),
+    id: generateUUID(),
     template_id: tplId,
-    idempotency_key: crypto.randomUUID(),
+    idempotency_key: generateUUID(),
     responses: responses,
     fail_notes: Object.keys(FAIL_NOTES).map(function(fid) {
       return { field_id: fid, note: FAIL_NOTES[fid].note, severity: FAIL_NOTES[fid].severity };

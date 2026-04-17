@@ -3,11 +3,15 @@
 // Exposes all sync primitives on window.* (no ES modules — same pattern as ptr.js).
 // Plan 01 of Phase 10.2: extract from workflows.html without modifying it.
 
-// Fallback device ID for when IndexedDB/LamportClock fails (e.g. iOS Safari private browsing)
-// crypto.randomUUID() requires secure context (HTTPS) — fallback to manual UUID on HTTP
-var _fallbackDeviceId = (typeof crypto !== 'undefined' && crypto.randomUUID)
-  ? crypto.randomUUID()
-  : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) { var r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16); });
+// Safe UUID v4 generator — crypto.randomUUID() requires HTTPS (secure context).
+// On HTTP origins (e.g. Tailscale dev), falls back to Math.random-based UUID.
+function generateUUID() {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) { var r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16); });
+}
+window.generateUUID = generateUUID;
+
+var _fallbackDeviceId = generateUUID();
 
 // ─── API Wrapper ─────────────────────────────────────────────────────────────
 
@@ -108,9 +112,7 @@ class LamportClock {
     const clock = new LamportClock(db);
     // device_id is per-tab (not shared via IndexedDB) so two tabs on the same
     // origin don't suppress each other's ops as self-echoes.
-    clock._deviceId = (typeof crypto !== 'undefined' && crypto.randomUUID)
-      ? crypto.randomUUID()
-      : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) { var r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16); });
+    clock._deviceId = generateUUID();
     const meta = await idbGet(db, 'syncMeta', 'clock');
     if (meta) {
       clock._ts = meta.lamport_ts;
