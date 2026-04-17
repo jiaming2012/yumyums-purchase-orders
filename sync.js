@@ -388,15 +388,16 @@ function applyOp(op) {
 
   if (op.op_type === 'SET_FIELD') {
     const { field_id, value, user_name } = op.payload;
-    // Skip echo of our own save (server emits ops with device_id="server", not our client ID)
-    if (typeof _recentSaves !== 'undefined' && _recentSaves[field_id]) return;
+    // Skip echo of our own save (suppress for 3s after local save)
+    if (_recentSaves[field_id]) return;
     const displayName = user_name || 'Someone';
     if (value === null || value === undefined) {
-      // Uncheck — remove from state
-      if (typeof FIELD_RESPONSES !== 'undefined') delete FIELD_RESPONSES[field_id];
-      if (typeof DRAFT_RESPONSES !== 'undefined') {
-        const draftIdx = DRAFT_RESPONSES.findIndex(d => d.field_id === field_id);
-        if (draftIdx !== -1) DRAFT_RESPONSES.splice(draftIdx, 1);
+      // Uncheck — remove from state via store
+      store.delete('fieldResponses', field_id);
+      var drafts = store.get('draftResponses');
+      if (Array.isArray(drafts)) {
+        const draftIdx = drafts.findIndex(d => d.field_id === field_id);
+        if (draftIdx !== -1) { drafts.splice(draftIdx, 1); store._notify('draftResponses'); }
       }
     } else {
       const entry = { answeredBy: displayName, answeredAt: new Date(op.server_ts) };
@@ -406,11 +407,13 @@ function applyOp(op) {
       } else {
         entry.value = value;
       }
-      if (typeof FIELD_RESPONSES !== 'undefined') FIELD_RESPONSES[field_id] = entry;
-      if (typeof DRAFT_RESPONSES !== 'undefined') {
-        const existing = DRAFT_RESPONSES.find(d => d.field_id === field_id);
+      store.set('fieldResponses', field_id, entry);
+      var drafts2 = store.get('draftResponses');
+      if (Array.isArray(drafts2)) {
+        const existing = drafts2.find(d => d.field_id === field_id);
         if (existing) { existing.value = value; existing.answered_at = op.server_ts; }
-        else DRAFT_RESPONSES.push({ field_id, value, answered_at: op.server_ts });
+        else drafts2.push({ field_id, value, answered_at: op.server_ts });
+        store._notify('draftResponses');
       }
     }
     renderFieldResponse(field_id);
@@ -607,6 +610,7 @@ function autoSaveField(fieldId, value) {
 }
 
 window.SAVE_DEBOUNCE = SAVE_DEBOUNCE;
+window._recentSaves = _recentSaves;
 window.updateSaveStatus = updateSaveStatus;
 window.autoSaveField = autoSaveField;
 

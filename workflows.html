@@ -161,6 +161,7 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .sync-toast.show{opacity:1}
 </style>
 <script src="https://unpkg.com/sortablejs@1.15.7/Sortable.min.js"></script>
+<script src="sync.js"></script>
 </head>
 <body>
 <div class="app">
@@ -178,446 +179,46 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 </div>
 
 <script>
-// ─── API Infrastructure ───────────────────────────────────────────────────────
+// ─── Per-field debounced save using submitOp (D-08) ──────────────────────────
 
-async function api(method, path, body) {
-  const opts = { method, headers: {} };
-  if (body) {
-    opts.headers['Content-Type'] = 'application/json';
-    opts.body = JSON.stringify(body);
-  }
-  const res = await fetch('/api/v1/workflow/' + path, opts);
-  if (res.status === 401) { window.location = '/login.html'; return null; }
-  if (res.status === 409) {
-    const winner = await res.json().catch(() => ({}));
-    return { _conflict: true, winner };
-  }
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: 'unknown' }));
-    err.status = res.status;
-    throw err;
-  }
-  if (res.status === 204) return null;
-  return res.json();
-}
+const FIELD_DEBOUNCE = {};
 
-// ─── IndexedDB Offline Queue ──────────────────────────────────────────────────
-
-const HQ_DB = 'hq_offline_v1';
-let _dbPromise = null;
-
-function getDB() {
-  if (!_dbPromise) _dbPromise = new Promise((resolve, reject) => {
-    const req = indexedDB.open(HQ_DB, 2);
-    req.onupgradeneeded = e => {
-      const db = e.target.result;
-      if (!db.objectStoreNames.contains('submitQueue')) {
-        db.createObjectStore('submitQueue', { keyPath: 'id' });
-      }
-      if (!db.objectStoreNames.contains('syncMeta')) {
-        db.createObjectStore('syncMeta', { keyPath: 'id' });
-      }
-    };
-    req.onsuccess = e => resolve(e.target.result);
-    req.onerror = e => reject(e.target.error);
-  });
-  return _dbPromise;
-}
-
-function idbGetAll(db, store) {
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(store, 'readonly');
-    const req = tx.objectStore(store).getAll();
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = e => reject(e.target.error);
-  });
-}
-
-function idbGet(db, store, key) {
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(store, 'readonly');
-    const req = tx.objectStore(store).get(key);
-    req.onsuccess = () => resolve(req.result || null);
-    req.onerror = () => reject(req.error);
-  });
-}
-
-function idbPut(db, store, item) {
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(store, 'readwrite');
-    tx.objectStore(store).put(item);
-    tx.oncomplete = resolve;
-    tx.onerror = e => reject(e.target.error);
-  });
-}
-
-function idbDelete(db, store, key) {
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(store, 'readwrite');
-    tx.objectStore(store).delete(key);
-    tx.oncomplete = resolve;
-    tx.onerror = e => reject(e.target.error);
-  });
-}
-
-// ─── LamportClock ─────────────────────────────────────────────────────────────
-
-let LAMPORT_CLOCK = null;
-
-class LamportClock {
-  constructor(db) { this._db = db; this._ts = 0; this._deviceId = null; }
-
-  static async init(db) {
-    const clock = new LamportClock(db);
-    const meta = await idbGet(db, 'syncMeta', 'clock');
-    if (meta) {
-      clock._ts = meta.lamport_ts;
-      clock._deviceId = meta.device_id;
-    } else {
-      clock._deviceId = crypto.randomUUID();
-      await idbPut(db, 'syncMeta', { id: 'clock', lamport_ts: 0, device_id: clock._deviceId });
-    }
-    return clock;
-  }
-
-  async tick() {
-    this._ts += 1;
-    await idbPut(this._db, 'syncMeta', { id: 'clock', lamport_ts: this._ts, device_id: this._deviceId });
-    return this._ts;
-  }
-
-  async receive(remoteTs) {
-    this._ts = Math.max(this._ts, remoteTs) + 1;
-    await idbPut(this._db, 'syncMeta', { id: 'clock', lamport_ts: this._ts, device_id: this._deviceId });
-  }
-
-  get ts() { return this._ts; }
-  get deviceId() { return this._deviceId; }
-}
-
-// ─── WebSocket Sync Client ────────────────────────────────────────────────────
-
-const WS_MAX_BACKOFF = 30000;
-const WS_MAX_ATTEMPTS = 15;
-let _ws = null, _wsBackoff = 500, _wsAttempts = 0;
-
-function wsConnect() {
-  if (_wsAttempts >= WS_MAX_ATTEMPTS) return;
-  const proto = location.protocol === 'https:' ? 'wss://' : 'ws://';
-  _ws = new WebSocket(proto + location.host + '/ws');
-
-  _ws.onopen = async () => {
-    _wsBackoff = 500;
-    _wsAttempts = 0;
-    // Per D-15: drain offline queue BEFORE catch-up to avoid stale state
-    try {
-      await drainQueue();
-    } catch(e) { console.error('drain error on ws open:', e); }
-    wsCatchUp();
-  };
-
-  _ws.onmessage = (evt) => {
-    try {
-      const op = JSON.parse(evt.data);
-      if (LAMPORT_CLOCK) LAMPORT_CLOCK.receive(op.lamport_ts);
-      applyOp(op);
-    } catch(e) { console.error('ws msg parse error:', e); }
-  };
-
-  _ws.onclose = () => {
-    const jitter = Math.random() * 1000;
-    const delay = Math.min(_wsBackoff + jitter, WS_MAX_BACKOFF);
-    _wsBackoff = Math.min(_wsBackoff * 2, WS_MAX_BACKOFF);
-    _wsAttempts++;
-    setTimeout(wsConnect, delay);
-  };
-}
-
-document.addEventListener('visibilitychange', async () => {
-  if (document.visibilityState === 'visible') {
-    if (!_ws || _ws.readyState === WebSocket.CLOSED || _ws.readyState === WebSocket.CLOSING) {
-      _wsAttempts = 0;
-      wsConnect(); // onopen will drain then catch up
-    } else if (_ws.readyState === WebSocket.OPEN) {
-      // Already connected — drain then catch up
-      try {
-        await drainQueue();
-      } catch(e) { console.error('drain error on visibility:', e); }
-      wsCatchUp();
-    }
-  }
-});
-
-async function wsCatchUp() {
-  if (!LAMPORT_CLOCK) return;
-  try {
-    const ts = LAMPORT_CLOCK.ts;
-    const ops = await api('GET', 'ops/since?lamport_ts=' + ts, null);
-    if (!Array.isArray(ops)) return;
-    ops.sort((a, b) => a.lamport_ts - b.lamport_ts);
-    for (const op of ops) {
-      await LAMPORT_CLOCK.receive(op.lamport_ts);
-      applyOp(op);
-    }
-  } catch(e) { console.error('catch-up error:', e); }
-}
-
-function flashField(fieldId) {
-  const row = document.querySelector('[data-field-id="' + fieldId + '"]');
-  if (!row) return;
-  row.classList.remove('sync-flash');
-  void row.offsetWidth; // force reflow to restart animation
-  row.classList.add('sync-flash');
-  setTimeout(() => row.classList.remove('sync-flash'), 2000);
-}
-
-let _toastQueue = {}, _toastTimer = null;
-
-function enqueueSyncToast(userId, userName, fieldIds) {
-  const key = userId || '_conflict';
-  if (!_toastQueue[key]) _toastQueue[key] = { name: userName, count: 0 };
-  _toastQueue[key].count += fieldIds.length;
-  clearTimeout(_toastTimer);
-  _toastTimer = setTimeout(flushSyncToast, 500);
-}
-
-function flushSyncToast() {
-  const entries = Object.values(_toastQueue);
-  if (!entries.length) return;
-  const msg = entries.map(e => e.count + ' field' + (e.count > 1 ? 's' : '') + ' updated by ' + e.name).join(', ');
-  showSyncToast(msg);
-  _toastQueue = {};
-}
-
-function showSyncToast(msg) {
-  let el = document.getElementById('sync-toast');
-  if (!el) {
-    el = document.createElement('div');
-    el.id = 'sync-toast';
-    el.className = 'sync-toast';
-    document.body.appendChild(el);
-  }
-  el.textContent = msg;
-  el.classList.add('show');
-  setTimeout(() => el.classList.remove('show'), 3000);
-}
-
-function renderFieldResponse(fieldId) {
-  const el = document.querySelector('[data-field-id="' + fieldId + '"]');
-  if (!el) return; // field not visible in current view
-  // Find the field definition from the current checklist's sections
-  let fld = null;
-  if (fillState.activeTemplate && fillState.activeTemplate.sections) {
-    for (const sec of fillState.activeTemplate.sections) {
-      fld = (sec.fields || []).find(f => f.id === fieldId);
-      if (fld) break;
-    }
-  }
-  if (!fld) return;
-  // Re-render the field row using the existing renderRunnerField function
-  const tmp = document.createElement('div');
-  tmp.innerHTML = renderRunnerField(fld);
-  const newEl = tmp.firstElementChild;
-  if (newEl) el.replaceWith(newEl);
-}
-
-function applyOp(op) {
-  // Skip self-originated ops (already applied optimistically)
-  if (LAMPORT_CLOCK && op.device_id === LAMPORT_CLOCK.deviceId) return;
-
-  if (op.op_type === 'SET_FIELD') {
-    const { field_id, value, user_name } = op.payload;
-    // Skip echo of our own save (server emits ops with device_id="server", not our client ID)
-    if (_recentSaves[field_id]) return;
-    const displayName = user_name || 'Someone';
-    if (value === null || value === undefined) {
-      // Uncheck — remove from state
-      delete FIELD_RESPONSES[field_id];
-      const draftIdx = DRAFT_RESPONSES.findIndex(d => d.field_id === field_id);
-      if (draftIdx !== -1) DRAFT_RESPONSES.splice(draftIdx, 1);
-    } else {
-      const entry = { answeredBy: displayName, answeredAt: new Date(op.server_ts) };
-      if (typeof value === 'object' && value !== null && value.value !== undefined) {
-        entry.value = value.value;
-        if (value.sub_steps) entry.sub_steps = value.sub_steps;
-      } else {
-        entry.value = value;
-      }
-      FIELD_RESPONSES[field_id] = entry;
-      const existing = DRAFT_RESPONSES.find(d => d.field_id === field_id);
-      if (existing) { existing.value = value; existing.answered_at = op.server_ts; }
-      else DRAFT_RESPONSES.push({ field_id, value, answered_at: op.server_ts });
-    }
-    renderFieldResponse(field_id);
-    flashField(field_id);
-    enqueueSyncToast(op.user_id, displayName, [field_id]);
-    // Update progress: runner bar if inside checklist, list page if on checklist list
-    if (fillState.activeTemplate) { updateProgress(); }
-    else if (typeof renderMyChecklists === 'function') { renderMyChecklists(); }
-  } else if (op.op_type === 'SUBMIT_CHECKLIST') {
-    loadMyChecklists(); // re-fetches data + re-renders runner if open
-  } else if (op.op_type === 'APPROVE_ITEM' || op.op_type === 'REJECT_ITEM') {
-    if (typeof loadPendingApprovals === 'function') loadPendingApprovals();
-  } else if (op.op_type === 'SAVE_TEMPLATE' || op.op_type === 'ARCHIVE_TEMPLATE') {
-    if (typeof loadTemplates === 'function') loadTemplates();
-  }
-}
-
-async function enqueueSubmission(payload) {
-  const db = await getDB();
-  await idbPut(db, 'submitQueue', {
-    ...payload,
-    queuedAt: new Date().toISOString()
-  });
-  renderSyncBanner();
-}
-
-let _draining = false;
-
-async function drainQueue() {
-  if (_draining || !navigator.onLine) return;
-  _draining = true;
-  try {
-    const db = await getDB();
-    const entries = await idbGetAll(db, 'submitQueue');
-    for (const entry of entries) {
-      try {
-        await api('POST', 'submitChecklist', entry);
-        await idbDelete(db, 'submitQueue', entry.id);
-        renderSyncBanner();
-      } catch (err) {
-        if (err && err.error === 'duplicate_submission') {
-          await idbDelete(db, 'submitQueue', entry.id);
-          renderSyncBanner();
-        } else if (err && err.status === 409) {
-          showConflictError(entry);
-          await idbDelete(db, 'submitQueue', entry.id);
-          renderSyncBanner();
-        } else {
-          break;
-        }
-      }
-    }
-  } finally {
-    _draining = false;
-    renderSyncBanner();
-  }
-}
-
-window.addEventListener('online', drainQueue);
-
-function showConflictError(entry) {
-  const container = document.getElementById('checklist-list');
-  if (!container) return;
-  const card = document.createElement('div');
-  card.className = 'inline-error';
-  card.style.cssText = 'margin:8px 0;padding:12px 16px;background:var(--card);border:1px solid #c0392b;border-radius:8px;flex-direction:column;align-items:flex-start';
-  card.innerHTML = 'This checklist was archived while you were offline. Your responses have not been submitted. <button class="retry-btn" style="margin-top:8px" aria-label="Dismiss">Dismiss</button>';
-  card.querySelector('.retry-btn').onclick = () => card.remove();
-  container.prepend(card);
-}
-
-async function renderSyncBanner() {
-  try {
-    const db = await getDB();
-    const entries = await idbGetAll(db, 'submitQueue');
-    const banner = document.getElementById('sync-banner');
-    if (!banner) return;
-    if (entries.length === 0) {
-      banner.style.display = 'none';
-      document.querySelectorAll('.sync-badge').forEach(b => b.remove());
-      return;
-    }
-    banner.style.display = 'block';
-    banner.textContent = entries.length + ' submission' + (entries.length > 1 ? 's' : '') + ' pending sync';
-    const queuedIds = new Set(entries.map(e => e.template_id));
-    document.querySelectorAll('[data-template-id]').forEach(row => {
-      const existing = row.querySelector('.sync-badge');
-      if (queuedIds.has(row.dataset.templateId)) {
-        if (!existing) {
-          const badge = document.createElement('span');
-          badge.className = 'sync-badge';
-          badge.textContent = 'Pending sync';
-          row.appendChild(badge);
-        }
-      } else if (existing) {
-        existing.remove();
-      }
-    });
-  } catch (e) {
-    // IndexedDB not available — ignore
-  }
-}
-
-const SAVE_DEBOUNCE = {};
-const _recentSaves = {}; // { fieldId: timestamp } — fields saved locally within last 3s
-let _pendingSaves = 0;
-let _syncedTimer = null;
-
-function updateSaveStatus(delta) {
-  _pendingSaves = Math.max(0, _pendingSaves + delta);
-  const el = document.getElementById('save-status');
-  if (!el) return;
-  clearTimeout(_syncedTimer);
-  if (_pendingSaves > 0) {
-    el.textContent = 'Saving\u2026';
-    el.className = 'pending';
-    el.style.display = 'block';
-    el.style.opacity = '1';
-  } else {
-    el.textContent = 'Synced \u2713';
-    el.className = 'synced';
-    el.style.display = 'block';
-    el.style.opacity = '1';
-    _syncedTimer = setTimeout(function() {
-      el.style.opacity = '0';
-      setTimeout(function() { el.style.display = 'none'; }, 300);
-    }, 3000);
-  }
-}
-
-function autoSaveField(fieldId, value) {
-  if (SAVE_DEBOUNCE[fieldId]) { clearTimeout(SAVE_DEBOUNCE[fieldId]); updateSaveStatus(-1); }
+function debouncedSaveField(fieldId, value) {
+  if (FIELD_DEBOUNCE[fieldId]) { clearTimeout(FIELD_DEBOUNCE[fieldId]); updateSaveStatus(-1); }
   updateSaveStatus(1);
-  SAVE_DEBOUNCE[fieldId] = setTimeout(async () => {
-    SAVE_DEBOUNCE[fieldId] = null;
+  FIELD_DEBOUNCE[fieldId] = setTimeout(async () => {
+    FIELD_DEBOUNCE[fieldId] = null;
     const indicator = document.querySelector(`[data-field-id="${fieldId}"] .save-indicator`);
     try {
-      // Bundle fail note with value if one exists
       var saveValue = value;
-      var fn = FAIL_NOTES[fieldId];
+      var fn = store.get('failNotes', fieldId);
       if (fn && (fn.note || fn.severity)) {
         saveValue = { _v: value, _fail_note: { note: fn.note, severity: fn.severity } };
       }
-      const result = await api('POST', 'saveResponse', { field_id: fieldId, value: saveValue });
-      // Handle 409 conflict — revert to winner value per D-14
+      const result = await submitOp('SET_FIELD', fieldId, 'field_response', { value: saveValue, field_id: fieldId });
       if (result && result._conflict) {
         const winner = result.winner;
-        FIELD_RESPONSES[fieldId] = { value: winner.value };
+        store.set('fieldResponses', fieldId, { value: winner.value });
         renderFieldResponse(fieldId);
         flashField(fieldId);
         enqueueSyncToast(null, 'Conflict resolved', [fieldId]);
         updateSaveStatus(-1);
         return;
       }
-      // Update DRAFT_RESPONSES so reopening the checklist restores this value
+      var drafts = store.get('draftResponses');
       if (saveValue === null || saveValue === undefined) {
-        // Uncheck — remove draft entry (server deleted the row)
-        var idx = DRAFT_RESPONSES.findIndex(function(d) { return d.field_id === fieldId; });
-        if (idx !== -1) DRAFT_RESPONSES.splice(idx, 1);
+        var idx = drafts.findIndex(function(d) { return d.field_id === fieldId; });
+        if (idx !== -1) drafts.splice(idx, 1);
       } else {
-        var existing = DRAFT_RESPONSES.find(function(d) { return d.field_id === fieldId; });
-        if (existing) {
-          existing.value = saveValue;
-          existing.answered_at = new Date().toISOString();
-        } else {
-          DRAFT_RESPONSES.push({ field_id: fieldId, value: saveValue, answered_at: new Date().toISOString() });
-        }
+        var existing = drafts.find(function(d) { return d.field_id === fieldId; });
+        if (existing) { existing.value = saveValue; existing.answered_at = new Date().toISOString(); }
+        else drafts.push({ field_id: fieldId, value: saveValue, answered_at: new Date().toISOString() });
       }
+      store._notify('draftResponses');
       if (indicator) { indicator.textContent = 'Saved'; indicator.className = 'save-indicator saved'; setTimeout(() => { indicator.textContent = ''; indicator.className = 'save-indicator'; }, 800); }
       // Mark as recently saved so incoming WS echo is suppressed
       _recentSaves[fieldId] = Date.now();
-      setTimeout(() => { delete _recentSaves[fieldId]; }, 3000);
+      setTimeout(function() { delete _recentSaves[fieldId]; }, 3000);
       clearFieldError(fieldId);
     } catch (e) {
       showFieldError(fieldId);
@@ -630,7 +231,7 @@ function showFieldError(fieldId) {
   const row = document.querySelector(`[data-field-id="${fieldId}"]`);
   if (!row) return;
   let dot = row.querySelector('.save-error-dot');
-  if (!dot) { dot = document.createElement('span'); dot.className = 'save-error-dot'; dot.onclick = () => { const val = row.dataset.lastValue; if (val !== undefined) autoSaveField(fieldId, JSON.parse(val)); }; row.appendChild(dot); }
+  if (!dot) { dot = document.createElement('span'); dot.className = 'save-error-dot'; dot.onclick = () => { const val = row.dataset.lastValue; if (val !== undefined) debouncedSaveField(fieldId, JSON.parse(val)); }; row.appendChild(dot); }
 }
 
 function clearFieldError(fieldId) {
@@ -658,11 +259,25 @@ function renderError(container, message, retryFn) {
 
 // ─── Module-level API state ───────────────────────────────────────────────────
 
-let TEMPLATES = [];
-let MY_CHECKLISTS = [];
-let MY_SUBMISSIONS = [];
-let DRAFT_RESPONSES = [];
-let PENDING = [];
+// Register all workflow state collections in the reactive store
+store.register({
+  myChecklists: [],
+  mySubmissions: [],
+  draftResponses: [],
+  fieldResponses: {},
+  failNotes: {},
+  pending: [],
+  templates: [],
+});
+
+// Convenience aliases — reads from store, keeps existing code working
+let MY_CHECKLISTS = store.get('myChecklists');
+let MY_SUBMISSIONS = store.get('mySubmissions');
+let DRAFT_RESPONSES = store.get('draftResponses');
+const FIELD_RESPONSES = store.get('fieldResponses');
+const FAIL_NOTES = store.get('failNotes');
+let PENDING = store.get('pending');
+let TEMPLATES = store.get('templates');
 let CURRENT_USER = null;
 
 // ─── Empty state copy constants ───────────────────────────────────────────────
@@ -679,8 +294,9 @@ async function loadTemplates() {
   if (!container) return;
   renderSkeletons(container, 3);
   try {
-    TEMPLATES = (await api('GET', 'templates')).map(fromApiTemplate);
-    renderBuilderList();
+    store.setAll('templates', (await api('GET', 'templates')).map(fromApiTemplate));
+    TEMPLATES = store.get('templates');
+    // subscriber handles renderBuilderList
   } catch (e) {
     container.innerHTML = '';
     renderError(container, "Couldn't load templates.", () => loadTemplates());
@@ -692,15 +308,21 @@ async function loadMyChecklists() {
   if (container) renderSkeletons(container, 3);
   try {
     const data = await api('GET', 'myChecklists?dow=' + new Date().getDay());
-    MY_CHECKLISTS = (data.templates || []).map(function(t) {
-      if (!t.sections) t.sections = [];
-      t.sections.forEach(function(s) { if (!s.fields) s.fields = []; });
-      return t;
+    store.batch(function() {
+      store.setAll('myChecklists', (data.templates || []).map(function(t) {
+        if (!t.sections) t.sections = [];
+        t.sections.forEach(function(s) { if (!s.fields) s.fields = []; });
+        return t;
+      }));
+      store.setAll('mySubmissions', data.submissions || []);
+      store.setAll('draftResponses', data.drafts || []);
     });
-    MY_SUBMISSIONS = data.submissions || [];
-    DRAFT_RESPONSES = data.drafts || [];
+    MY_CHECKLISTS = store.get('myChecklists');
+    MY_SUBMISSIONS = store.get('mySubmissions');
+    DRAFT_RESPONSES = store.get('draftResponses');
     hydrateFieldState();
-    if (container) renderMyChecklists();
+    // Re-render with fresh MY_SUBMISSIONS data (subscriber fires before hydrateFieldState)
+    if (!fillState.activeTemplate && container) renderMyChecklists();
     // If runner is open, update the stale activeTemplate reference and re-render
     if (fillState.activeTemplate) {
       var updated = MY_CHECKLISTS.find(function(t) { return t.id === fillState.activeTemplate.id; });
@@ -721,8 +343,9 @@ async function loadPendingApprovals() {
   if (!container) return;
   renderSkeletons(container, 3);
   try {
-    PENDING = await api('GET', 'pendingApprovals');
-    renderApprovals();
+    store.setAll('pending', await api('GET', 'pendingApprovals'));
+    PENDING = store.get('pending');
+    // subscriber handles renderApprovals
   } catch (e) {
     container.innerHTML = '';
     renderError(container, "Couldn't load approvals.", () => loadPendingApprovals());
@@ -1668,9 +1291,8 @@ document.getElementById('builder-body').addEventListener('change', function(e) {
 
 // ─── Fill-out Tab ────────────────────────────────────────────────────────────
 
-// Runtime fill state (replaces all mock dicts — transient in-memory, backed by API)
-const FIELD_RESPONSES = {}; // { [fieldId]: { value: any, answeredBy: string, answeredAt: Date } } — local optimistic state
-// Unwrap values that were double-stringified by the old autoSaveField bug.
+// FIELD_RESPONSES and FAIL_NOTES are registered in store above and aliased at the top.
+// Unwrap values that were double-stringified by an old bug.
 // e.g. '"true"' → true, '"\"hey\""' → 'hey', '400' → 400
 function unwrapValue(v) {
   if (typeof v !== 'string') return v;
@@ -1730,7 +1352,7 @@ function hydrateFieldState(filterFieldIds) {
   });
 }
 
-const FAIL_NOTES = {}; // { [fieldId]: { note: string, severity: string } } — local only
+// FAIL_NOTES is registered in store above and aliased at the top.
 const REJECTION_FLAGS = {}; // { [fldId]: { comment, requirePhoto } } — TODO: load from submission.rejections[] on checklist open
 
 // Named mutation helpers (used inline in event handlers and referenced by name for traceability)
@@ -1758,7 +1380,7 @@ function getUserInitials() {
 function setYesNo(fldId, value) {
   clearRejectionFlag(fldId);
   FIELD_RESPONSES[fldId] = { value: value, answeredBy: getUserName(), answeredAt: new Date() };
-  autoSaveField(fldId, value);
+  debouncedSaveField(fldId, value);
   if (!value) { if (!FAIL_NOTES[fldId]) FAIL_NOTES[fldId] = { note: '', severity: '' }; }
   else { if (FAIL_NOTES[fldId]) delete FAIL_NOTES[fldId]; }
 }
@@ -1766,7 +1388,7 @@ function setTextAnswer(fldId, value) {
   // text-input handler — no re-render (cursor jump prevention)
   if (value.trim()) {
     FIELD_RESPONSES[fldId] = { value: value.trim(), answeredBy: getUserName(), answeredAt: new Date() };
-    autoSaveField(fldId, value.trim());
+    debouncedSaveField(fldId, value.trim());
   } else {
     delete FIELD_RESPONSES[fldId];
   }
@@ -1776,7 +1398,7 @@ function autoSaveFailNote(fldId) {
   clearTimeout(FAIL_NOTE_DEBOUNCE[fldId]);
   FAIL_NOTE_DEBOUNCE[fldId] = setTimeout(function() {
     var resp = FIELD_RESPONSES[fldId];
-    if (resp) autoSaveField(fldId, resp.value);
+    if (resp) debouncedSaveField(fldId, resp.value);
   }, 800);
 }
 
@@ -2182,7 +1804,7 @@ function attachRunnerListeners() {
       const fldId = this.dataset.fieldId;
       if (this.value.trim()) {
         FIELD_RESPONSES[fldId] = { value: this.value.trim(), answeredBy: getUserName(), answeredAt: new Date() };
-        autoSaveField(fldId, this.value.trim());
+        debouncedSaveField(fldId, this.value.trim());
       } else {
         delete FIELD_RESPONSES[fldId];
       }
@@ -2268,15 +1890,15 @@ document.getElementById('fill-body').addEventListener('click', function(e) {
       // Parent with sub-steps: unchecking clears all sub-steps; can't directly check parent
       if (FIELD_RESPONSES[fldId]) {
         delete FIELD_RESPONSES[fldId]; // clears parent + sub_steps state
-        autoSaveField(fldId, null);
+        debouncedSaveField(fldId, null);
       }
     } else if (FIELD_RESPONSES[fldId]) {
       delete FIELD_RESPONSES[fldId];
-      autoSaveField(fldId, null);
+      debouncedSaveField(fldId, null);
     } else {
       clearRejectionFlag(fldId);
       FIELD_RESPONSES[fldId] = { value: true, answeredBy: getUserName(), answeredAt: new Date() };
-      autoSaveField(fldId, true);
+      debouncedSaveField(fldId, true);
     }
     const fieldDiv = document.querySelector(`.fill-field[data-field-id="${fldId}"]`);
     const tplField = fillState.activeTemplate.sections.flatMap(s => s.fields).find(f => f.id === fldId);
@@ -2312,7 +1934,7 @@ document.getElementById('fill-body').addEventListener('click', function(e) {
       var allDone = tplField.sub_steps.every(function(s){ return !!resp.sub_steps[s.id]; });
       resp.value = allDone;
       if (allDone) { resp.answeredAt = new Date(); clearRejectionFlag(parentFldId); }
-      autoSaveField(parentFldId, { value: resp.value, sub_steps: resp.sub_steps });
+      debouncedSaveField(parentFldId, { value: resp.value, sub_steps: resp.sub_steps });
       var fieldDiv = document.querySelector('.fill-field[data-field-id="' + parentFldId + '"]');
       if (fieldDiv) fieldDiv.outerHTML = renderRunnerField(tplField);
       updateProgress();
@@ -2322,7 +1944,7 @@ document.getElementById('fill-body').addEventListener('click', function(e) {
     if (action === 'set-yes') {
       clearRejectionFlag(fldId);
       FIELD_RESPONSES[fldId] = { value: true, answeredBy: getUserName(), answeredAt: new Date() };
-      autoSaveField(fldId, true);
+      debouncedSaveField(fldId, true);
       if (FAIL_NOTES[fldId]) delete FAIL_NOTES[fldId];
       const fieldDiv = document.querySelector(`.fill-field[data-field-id="${fldId}"]`);
       const tplField = fillState.activeTemplate.sections.flatMap(s => s.fields).find(f => f.id === fldId);
@@ -2339,7 +1961,7 @@ document.getElementById('fill-body').addEventListener('click', function(e) {
     if (action === 'set-no') {
       clearRejectionFlag(fldId);
       FIELD_RESPONSES[fldId] = { value: false, answeredBy: getUserName(), answeredAt: new Date() };
-      autoSaveField(fldId, false);
+      debouncedSaveField(fldId, false);
       if (!FAIL_NOTES[fldId]) FAIL_NOTES[fldId] = { note: '', severity: '' };
       const fieldDiv = document.querySelector(`.fill-field[data-field-id="${fldId}"]`);
       const tplField = fillState.activeTemplate.sections.flatMap(s => s.fields).find(f => f.id === fldId);
@@ -2481,7 +2103,7 @@ document.getElementById('fill-body').addEventListener('click', function(e) {
     const fldId = ynBtn.dataset.fieldId;
     const val = ynBtn.dataset.value === 'true';
     FIELD_RESPONSES[fldId] = { value: val, answeredBy: getUserName(), answeredAt: new Date() };
-    autoSaveField(fldId, val);
+    debouncedSaveField(fldId, val);
     const fieldDiv = document.querySelector(`.fill-field[data-field-id="${fldId}"]`);
     const tplField = fillState.activeTemplate.sections.flatMap(s => s.fields).find(f => f.id === fldId);
     if (fieldDiv && tplField) fieldDiv.outerHTML = renderRunnerField(tplField);
@@ -2507,7 +2129,7 @@ document.getElementById('fill-body').addEventListener('input', function(e) {
     const val = e.target.value;
     if (val !== '') {
       FIELD_RESPONSES[fldId] = { value: +val, answeredBy: getUserName(), answeredAt: new Date() };
-      autoSaveField(fldId, +val);
+      debouncedSaveField(fldId, +val);
     } else {
       delete FIELD_RESPONSES[fldId];
     }
@@ -2560,7 +2182,8 @@ document.getElementById('approvals-body').addEventListener('click', function(e) 
     api('POST', 'approveSubmission', { submission_id: submissionId }).then(function() {
       updateSaveStatus(-1);
       showToast('Approved \u2713');
-      PENDING = PENDING.filter(function(s) { return s.id !== submissionId; });
+      store.setAll('pending', PENDING.filter(function(s) { return s.id !== submissionId; }));
+      PENDING = store.get('pending');
       renderApprovals();
       loadMyChecklists();
     }).catch(function() {
@@ -2634,7 +2257,8 @@ document.getElementById('approvals-body').addEventListener('click', function(e) 
     Promise.all(rejectPromises).then(function() {
       updateSaveStatus(-1);
       showToast('Rejected \u2014 crew must fix ' + rejectedFields.length + ' item(s)');
-      PENDING = PENDING.filter(function(s) { return s.id !== submissionId; });
+      store.setAll('pending', PENDING.filter(function(s) { return s.id !== submissionId; }));
+      PENDING = store.get('pending');
       renderApprovals();
     }).catch(function() {
       updateSaveStatus(-1);
@@ -2680,6 +2304,31 @@ function checkBuilderAccess() {
     if (t2) t2.style.display = 'none';
   }
 }
+
+// ─── Reactive subscribers (per D-15) — re-render when store collections change ──
+
+store.on('myChecklists', function() {
+  MY_CHECKLISTS = store.get('myChecklists');
+  if (fillState.view === 'list') renderMyChecklists();
+});
+
+store.on('mySubmissions', function() {
+  MY_SUBMISSIONS = store.get('mySubmissions');
+});
+
+store.on('draftResponses', function() {
+  DRAFT_RESPONSES = store.get('draftResponses');
+});
+
+store.on('pending', function() {
+  PENDING = store.get('pending');
+  renderApprovals();
+});
+
+store.on('templates', function() {
+  TEMPLATES = store.get('templates');
+  renderBuilderList();
+});
 
 // Initialize: load current user from /api/v1/me, then load tab data
 (async function init() {
