@@ -35,7 +35,7 @@
 - [x] **Phase 9: Foundation + Auth** — Go server shell, Postgres, Tailscale HTTPS dev access, SW partition, and working login/logout (completed 2026-04-15)
 - [x] **Phase 10: Workflows API** — Checklist templates, submissions, approval flow, correction loop, and offline sync wired to workflows.html (completed 2026-04-15)
 - [x] **Phase 10.1: Cross-Device State Sync** — Op-log, WebSocket hub, real-time fan-out, Lamport clocks, conflict resolution, sync UX (completed 2026-04-17)
-- [ ] **Phase 10.2: Reactive Sync Framework** — Shared Store with collection-level subscriptions, single write channel (POST /ops), shared JS modules for all tools
+- [x] **Phase 10.2: Reactive Sync Framework** — Shared Store with collection-level subscriptions, single write channel (POST /ops), shared JS modules for all tools (completed 2026-04-17)
 - [ ] **Phase 11: Onboarding + Users Admin** — Onboarding persistence, user CRUD, role management, and app permissions wired to their respective HTML pages
 - [ ] **Phase 12: Inventory + Photos** — Purchase events, vendor data, receipt ingestion, and presigned photo upload wired to inventory.html and workflows.html
 
@@ -116,7 +116,7 @@ Plans:
 Plans:
 - [x] 10.2-01-PLAN.md — Create sync.js (Store + LamportClock + WS + IndexedDB + api + submitOp) + Workbox precache
 - [x] 10.2-02-PLAN.md — Wire workflows.html to sync.js (Store collections + subscribers + debouncedSaveField)
-- [ ] 10.2-03-PLAN.md — Backend POST /ops endpoint + switch submitOp to POST /ops + eliminate _recentSaves
+- [x] 10.2-03-PLAN.md — Backend POST /ops endpoint + switch submitOp to POST /ops + eliminate _recentSaves
 
 ### Phase 11: Onboarding + Users Admin
 **Goal**: New hire training progress persists across sessions, manager sign-offs are recorded, and the admin can invite crew members and manage permissions through a real API
@@ -158,6 +158,6 @@ Phases execute in numeric order: 9 → 10 → 10.1 → 10.2 → 11 → 12
 | 9. Foundation + Auth | v2.0 | 4/4 | Complete   | 2026-04-15 |
 | 10. Workflows API | v2.0 | 5/5 | Complete   | 2026-04-15 |
 | 10.1 Cross-Device State Sync | v2.0 | 5/5 | Complete   | 2026-04-17 |
-| 10.2 Reactive Sync Framework | v2.0 | 2/3 | In Progress|  |
+| 10.2 Reactive Sync Framework | v2.0 | 3/3 | Complete   | 2026-04-17 |
 | 11. Onboarding + Users Admin | v2.0 | 0/? | Not started | - |
 | 12. Inventory + Photos | v2.0 | 0/? | Not started | - |
