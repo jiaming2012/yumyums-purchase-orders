@@ -114,7 +114,7 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 10.2-01-PLAN.md — Create sync.js (Store + LamportClock + WS + IndexedDB + api + submitOp) + Workbox precache
+- [x] 10.2-01-PLAN.md — Create sync.js (Store + LamportClock + WS + IndexedDB + api + submitOp) + Workbox precache
 - [ ] 10.2-02-PLAN.md — Wire workflows.html to sync.js (Store collections + subscribers + debouncedSaveField)
 - [ ] 10.2-03-PLAN.md — Backend POST /ops endpoint + switch submitOp to POST /ops + eliminate _recentSaves
 
@@ -158,6 +158,6 @@ Phases execute in numeric order: 9 → 10 → 10.1 → 10.2 → 11 → 12
 | 9. Foundation + Auth | v2.0 | 4/4 | Complete   | 2026-04-15 |
 | 10. Workflows API | v2.0 | 5/5 | Complete   | 2026-04-15 |
 | 10.1 Cross-Device State Sync | v2.0 | 5/5 | Complete   | 2026-04-17 |
-| 10.2 Reactive Sync Framework | v2.0 | 0/3 | Not started | - |
+| 10.2 Reactive Sync Framework | v2.0 | 1/3 | In Progress|  |
 | 11. Onboarding + Users Admin | v2.0 | 0/? | Not started | - |
 | 12. Inventory + Photos | v2.0 | 0/? | Not started | - |
