@@ -663,12 +663,12 @@ function renderFieldExpanded(fld, secId) {
     typeControls = `<div style="display:flex;gap:8px;margin-top:12px">
       <div class="field" style="flex:1">
         <label>MIN (°F)</label>
-        <input type="number" class="fld-temp-min" value="${fld.config.min}"
+        <input type="number" class="fld-temp-min" name="temp-min-${fld.id}" value="${fld.config.min}"
                data-field-id="${fld.id}" data-section-id="${secId}">
       </div>
       <div class="field" style="flex:1">
         <label>MAX (°F)</label>
-        <input type="number" class="fld-temp-max" value="${fld.config.max}"
+        <input type="number" class="fld-temp-max" name="temp-max-${fld.id}" value="${fld.config.max}"
                data-field-id="${fld.id}" data-section-id="${secId}">
       </div>
     </div>`;
@@ -679,7 +679,7 @@ function renderFieldExpanded(fld, secId) {
         <div class="sub">Crew must upload a photo before submitting</div>
       </div>
       <label class="toggle">
-        <input type="checkbox" class="fld-photo-required"
+        <input type="checkbox" class="fld-photo-required" name="photo-req-${fld.id}"
                ${fld.required ? 'checked' : ''}
                data-field-id="${fld.id}" data-section-id="${secId}">
         <span class="slider"></span>
@@ -690,7 +690,7 @@ function renderFieldExpanded(fld, secId) {
     var subs = fld.sub_steps || [];
     var subsHtml = subs.map(function(s, i) {
       return '<div style="display:flex;gap:8px;align-items:center;margin-top:6px">' +
-        '<input type="text" class="sub-step-label" value="' + escapeAttr(s.label) + '" data-field-id="' + fld.id + '" data-section-id="' + secId + '" data-sub-idx="' + i + '" placeholder="Sub-step label" style="flex:1;padding:8px 10px;background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;font-size:13px;color:var(--txt);font-family:inherit;outline:none">' +
+        '<input type="text" class="sub-step-label" name="sub-' + fld.id + '-' + i + '" value="' + escapeAttr(s.label) + '" data-field-id="' + fld.id + '" data-section-id="' + secId + '" data-sub-idx="' + i + '" placeholder="Sub-step label" style="flex:1;padding:8px 10px;background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;font-size:13px;color:var(--txt);font-family:inherit;outline:none">' +
         '<button class="field-delete" data-action="delete-sub-step" data-field-id="' + fld.id + '" data-section-id="' + secId + '" data-sub-idx="' + i + '" aria-label="Remove sub-step" style="font-size:14px">✕</button></div>';
     }).join('');
     typeControls = '<div style="margin-top:12px"><label style="display:block;font-size:12px;font-weight:500;color:var(--mut);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.4px">SUB-STEPS</label>' +
@@ -701,7 +701,7 @@ function renderFieldExpanded(fld, secId) {
   return `<div class="field-settings">
     <div class="field">
       <label>LABEL</label>
-      <input type="text" class="fld-label" value="${escapeAttr(fld.label)}"
+      <input type="text" class="fld-label" name="fld-label-${fld.id}" value="${escapeAttr(fld.label)}"
              data-field-id="${fld.id}" data-section-id="${secId}"
              placeholder="Enter field label">
     </div>
@@ -1489,7 +1489,7 @@ function renderFailCard(fld, failNote) {
     : '<button class="photo-stub-btn" data-action="fail-photo-capture" data-fld-id="' + fld.id + '">\ud83d\udcf7 Add photo</button>';
   return '<div class="fail-card" data-fld-id="' + fld.id + '">' +
     '<div style="font-size:12px;font-weight:500;color:#c0392b;margin-bottom:8px">Corrective action required</div>' +
-    '<textarea class="fail-note-input" rows="3" placeholder="Describe what you did\u2026" data-action="fail-note-input" data-fld-id="' + fld.id + '">' + escapeHtml(note) + '</textarea>' +
+    '<textarea class="fail-note-input" name="fail-note-' + fld.id + '" rows="3" placeholder="Describe what you did\u2026" data-action="fail-note-input" data-fld-id="' + fld.id + '">' + escapeHtml(note) + '</textarea>' +
     '<div style="margin-top:8px;display:flex;align-items:center;gap:8px">' +
       photoHtml +
     '</div>' +
@@ -1551,8 +1551,8 @@ function renderApprovals() {
       var isRejected = fld._pendingReject;
       var rejectForm = isRejected ?
         '<div class="reject-item-form">' +
-        '<textarea class="reject-item-input" data-reject-fld="' + fld.id + '" placeholder="Comment for crew\u2026" rows="2">' + escapeHtml(fld._rejectComment || '') + '</textarea>' +
-        '<label class="require-photo-toggle"><input type="checkbox" data-reject-photo-fld="' + fld.id + '" ' + (fld._rejectRequirePhoto ? 'checked' : '') + '> Require photo evidence</label></div>' : '';
+        '<textarea class="reject-item-input" name="reject-' + fld.id + '" data-reject-fld="' + fld.id + '" placeholder="Comment for crew\u2026" rows="2">' + escapeHtml(fld._rejectComment || '') + '</textarea>' +
+        '<label class="require-photo-toggle"><input type="checkbox" name="reject-photo-' + fld.id + '" data-reject-photo-fld="' + fld.id + '" ' + (fld._rejectRequirePhoto ? 'checked' : '') + '> Require photo evidence</label></div>' : '';
       return '<div class="review-item">' +
         '<span class="review-check" style="' + (answered ? '' : 'color:#c0392b') + '">' + (answered ? '✓' : '✗') + '</span>' +
         '<span class="review-label">' + escapeHtml(fld.label || fld.type || fld.field_label || '') + '</span>' +
