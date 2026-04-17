@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Backend
 status: executing
-stopped_at: Checkpoint at 10-workflows-api/10-05-PLAN.md Task 2 (human-verify)
-last_updated: "2026-04-15T16:29:43.589Z"
-last_activity: 2026-04-15
+stopped_at: Completed 10.1-01-PLAN.md
+last_updated: "2026-04-17T05:02:47.020Z"
+last_activity: 2026-04-17
 progress:
-  total_phases: 4
+  total_phases: 5
   completed_phases: 2
-  total_plans: 9
-  completed_plans: 9
+  total_plans: 14
+  completed_plans: 10
   percent: 0
 ---
 
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-15)
 
 **Core value:** Operational tools that let the owner manage crew workflows and training from one mobile app — with accountability and smart conditions.
-**Current focus:** Phase 10 — workflows-api
+**Current focus:** Phase 10.1 — cross-device-state-sync
 
 ## Current Position
 
-Phase: 10 (workflows-api) — EXECUTING
-Plan: 5 of 5
+Phase: 10.1 (cross-device-state-sync) — EXECUTING
+Plan: 2 of 5
 Status: Ready to execute
-Last activity: 2026-04-15
+Last activity: 2026-04-17
 
 Progress: [░░░░░░░░░░] 0% (v2.0 milestone)
 
@@ -61,8 +61,13 @@ Progress: [░░░░░░░░░░] 0% (v2.0 milestone)
 | Phase 10 P03 | 8 | 2 tasks | 2 files |
 | Phase 10-workflows-api P04 | 3 | 2 tasks | 2 files |
 | Phase 10-workflows-api P05 | 2 | 1 tasks | 2 files |
+| Phase 10.1-cross-device-state-sync P01 | 2 | 2 tasks | 3 files |
 
 ## Accumulated Context
+
+### Roadmap Evolution
+
+- Phase 10.1 inserted after Phase 10: Cross-Device State Sync (URGENT)
 
 ### Decisions
 
@@ -89,6 +94,9 @@ Recent decisions affecting current work:
 - [Phase 10-workflows-api]: IndexedDB hq_offline_v1 submitQueue: payload.id as keyPath = same UUID as idempotency_key, queuedAt added on enqueue
 - [Phase 10-workflows-api]: _draining flag guards drainQueue() against concurrent invocations — window.addEventListener('online', drainQueue) auto-drains on reconnect
 - [Phase 10-workflows-api]: Admin email in E2E tests corrected to jamal@yumyums.kitchen per superadmins.yaml
+- [Phase 10.1-cross-device-state-sync]: CheckLWW uses device_id lexicographic tiebreaker when lamport_ts values are equal (D-10)
+- [Phase 10.1-cross-device-state-sync]: OpsSince resolves access via template_assignments subquery so assignees receive ops from other devices (D-09)
+- [Phase 10.1-cross-device-state-sync]: EmitOp is fire-and-forget with 5-second timeout; ErrConflict from EmitOp is logged not propagated
 
 ### Pending Todos
 
@@ -109,6 +117,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-15T16:29:36.742Z
-Stopped at: Checkpoint at 10-workflows-api/10-05-PLAN.md Task 2 (human-verify)
+Last session: 2026-04-17T05:02:47.015Z
+Stopped at: Completed 10.1-01-PLAN.md
 Resume file: None
