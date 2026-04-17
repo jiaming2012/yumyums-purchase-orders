@@ -4,7 +4,10 @@
 // Plan 01 of Phase 10.2: extract from workflows.html without modifying it.
 
 // Fallback device ID for when IndexedDB/LamportClock fails (e.g. iOS Safari private browsing)
-var _fallbackDeviceId = crypto.randomUUID();
+// crypto.randomUUID() requires secure context (HTTPS) — fallback to manual UUID on HTTP
+var _fallbackDeviceId = (typeof crypto !== 'undefined' && crypto.randomUUID)
+  ? crypto.randomUUID()
+  : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) { var r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16); });
 
 // ─── API Wrapper ─────────────────────────────────────────────────────────────
 
@@ -105,7 +108,9 @@ class LamportClock {
     const clock = new LamportClock(db);
     // device_id is per-tab (not shared via IndexedDB) so two tabs on the same
     // origin don't suppress each other's ops as self-echoes.
-    clock._deviceId = crypto.randomUUID();
+    clock._deviceId = (typeof crypto !== 'undefined' && crypto.randomUUID)
+      ? crypto.randomUUID()
+      : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) { var r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16); });
     const meta = await idbGet(db, 'syncMeta', 'clock');
     if (meta) {
       clock._ts = meta.lamport_ts;
