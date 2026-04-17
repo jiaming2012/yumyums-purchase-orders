@@ -16,6 +16,7 @@ import (
 	"github.com/yumyums/hq/internal/config"
 	"github.com/yumyums/hq/internal/db"
 	"github.com/yumyums/hq/internal/me"
+	opsync "github.com/yumyums/hq/internal/sync"
 	"github.com/yumyums/hq/internal/workflow"
 )
 
@@ -113,12 +114,23 @@ func main() {
 		}
 	}
 
+	// Start WebSocket hub and Postgres LISTEN/NOTIFY pipeline
+	hub := opsync.NewHub()
+	go hub.Run()
+	opsync.StartListener(ctx, dbURL, hub, pool)
+
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 
 	// Secure cookies require HTTPS — disable for local dev
 	secureCookie := os.Getenv("STATIC_DIR") == ""
+
+	// WebSocket endpoint at /ws — behind auth middleware, outside /api/v1 prefix
+	r.Group(func(r chi.Router) {
+		r.Use(auth.Middleware(pool, superadmins))
+		r.Get("/ws", opsync.WsHandler(hub, pool))
+	})
 
 	r.Route("/api/v1", func(r chi.Router) {
 		// Unauthenticated
@@ -149,6 +161,7 @@ func main() {
 				r.Get("/pendingApprovals", workflow.PendingApprovalsHandler(pool))
 				r.Post("/approveSubmission", workflow.ApproveSubmissionHandler(pool))
 				r.Post("/rejectItem", workflow.RejectItemHandler(pool))
+				r.Get("/ops/since", opsync.OpsSinceHandler(pool))
 			})
 		})
 	})
