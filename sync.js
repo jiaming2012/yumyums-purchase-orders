@@ -100,14 +100,14 @@ class LamportClock {
 
   static async init(db) {
     const clock = new LamportClock(db);
+    // device_id is per-tab (not shared via IndexedDB) so two tabs on the same
+    // origin don't suppress each other's ops as self-echoes.
+    clock._deviceId = crypto.randomUUID();
     const meta = await idbGet(db, 'syncMeta', 'clock');
     if (meta) {
       clock._ts = meta.lamport_ts;
-      clock._deviceId = meta.device_id;
-    } else {
-      clock._deviceId = crypto.randomUUID();
-      await idbPut(db, 'syncMeta', { id: 'clock', lamport_ts: 0, device_id: clock._deviceId });
     }
+    await idbPut(db, 'syncMeta', { id: 'clock', lamport_ts: clock._ts, device_id: clock._deviceId });
     return clock;
   }
 
