@@ -216,9 +216,6 @@ function debouncedSaveField(fieldId, value) {
       }
       store._notify('draftResponses');
       if (indicator) { indicator.textContent = 'Saved'; indicator.className = 'save-indicator saved'; setTimeout(() => { indicator.textContent = ''; indicator.className = 'save-indicator'; }, 800); }
-      // Mark as recently saved so incoming WS echo is suppressed
-      _recentSaves[fieldId] = Date.now();
-      setTimeout(function() { delete _recentSaves[fieldId]; }, 3000);
       clearFieldError(fieldId);
     } catch (e) {
       showFieldError(fieldId);

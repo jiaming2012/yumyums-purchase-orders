@@ -380,7 +380,7 @@ window.renderFieldResponse = renderFieldResponse;
 // ─── applyOp ─────────────────────────────────────────────────────────────────
 // Applies an incoming op from the server. References globals from workflows.html
 // (FIELD_RESPONSES, DRAFT_RESPONSES, FAIL_NOTES, fillState, etc.).
-// In Plan 02 these become store references. _recentSaves check removed in Plan 03.
+// In Plan 02 these become store references. Self-echo via device_id (Plan 03).
 
 function applyOp(op) {
   // Skip self-originated ops (already applied optimistically)
@@ -388,8 +388,6 @@ function applyOp(op) {
 
   if (op.op_type === 'SET_FIELD') {
     const { field_id, value, user_name } = op.payload;
-    // Skip echo of our own save (suppress for 3s after local save)
-    if (_recentSaves[field_id]) return;
     const displayName = user_name || 'Someone';
     if (value === null || value === undefined) {
       // Uncheck — remove from state via store
@@ -526,12 +524,10 @@ window.enqueueSubmission = enqueueSubmission;
 window.drainQueue = drainQueue;
 window.renderSyncBanner = renderSyncBanner;
 
-// ─── Save Debounce + autoSaveField ───────────────────────────────────────────
-// Kept for backward compatibility — workflows.html still uses these directly.
-// In Plan 02, autoSaveField is replaced by submitOp + per-field debounce wrapper.
+// ─── Save Status Utilities ────────────────────────────────────────────────────
+// updateSaveStatus and SAVE_DEBOUNCE are used by debouncedSaveField in workflows.html.
 
 const SAVE_DEBOUNCE = {};
-const _recentSaves = {}; // { fieldId: timestamp } — fields saved locally within last 3s
 let _pendingSaves = 0;
 let _syncedTimer = null;
 
@@ -557,86 +553,26 @@ function updateSaveStatus(delta) {
   }
 }
 
-function autoSaveField(fieldId, value) {
-  if (SAVE_DEBOUNCE[fieldId]) { clearTimeout(SAVE_DEBOUNCE[fieldId]); updateSaveStatus(-1); }
-  updateSaveStatus(1);
-  SAVE_DEBOUNCE[fieldId] = setTimeout(async () => {
-    SAVE_DEBOUNCE[fieldId] = null;
-    const indicator = document.querySelector(`[data-field-id="${fieldId}"] .save-indicator`);
-    try {
-      // Bundle fail note with value if one exists
-      var saveValue = value;
-      var fn = (typeof FAIL_NOTES !== 'undefined') ? FAIL_NOTES[fieldId] : null;
-      if (fn && (fn.note || fn.severity)) {
-        saveValue = { _v: value, _fail_note: { note: fn.note, severity: fn.severity } };
-      }
-      const result = await api('POST', 'saveResponse', { field_id: fieldId, value: saveValue });
-      // Handle 409 conflict — revert to winner value per D-14
-      if (result && result._conflict) {
-        const winner = result.winner;
-        if (typeof FIELD_RESPONSES !== 'undefined') FIELD_RESPONSES[fieldId] = { value: winner.value };
-        renderFieldResponse(fieldId);
-        flashField(fieldId);
-        enqueueSyncToast(null, 'Conflict resolved', [fieldId]);
-        updateSaveStatus(-1);
-        return;
-      }
-      // Update DRAFT_RESPONSES so reopening the checklist restores this value
-      if (typeof DRAFT_RESPONSES !== 'undefined') {
-        if (saveValue === null || saveValue === undefined) {
-          // Uncheck — remove draft entry (server deleted the row)
-          var idx = DRAFT_RESPONSES.findIndex(function(d) { return d.field_id === fieldId; });
-          if (idx !== -1) DRAFT_RESPONSES.splice(idx, 1);
-        } else {
-          var existing = DRAFT_RESPONSES.find(function(d) { return d.field_id === fieldId; });
-          if (existing) {
-            existing.value = saveValue;
-            existing.answered_at = new Date().toISOString();
-          } else {
-            DRAFT_RESPONSES.push({ field_id: fieldId, value: saveValue, answered_at: new Date().toISOString() });
-          }
-        }
-      }
-      if (indicator) { indicator.textContent = 'Saved'; indicator.className = 'save-indicator saved'; setTimeout(() => { indicator.textContent = ''; indicator.className = 'save-indicator'; }, 800); }
-      // Mark as recently saved so incoming WS echo is suppressed
-      _recentSaves[fieldId] = Date.now();
-      setTimeout(() => { delete _recentSaves[fieldId]; }, 3000);
-      if (typeof clearFieldError === 'function') clearFieldError(fieldId);
-    } catch (e) {
-      if (typeof showFieldError === 'function') showFieldError(fieldId);
-    }
-    updateSaveStatus(-1);
-  }, 400);
-}
-
 window.SAVE_DEBOUNCE = SAVE_DEBOUNCE;
-window._recentSaves = _recentSaves;
 window.updateSaveStatus = updateSaveStatus;
-window.autoSaveField = autoSaveField;
 
 // ─── submitOp — Single Write Channel (D-08) ──────────────────────────────────
-// The single client-side write function. Initially routes to existing endpoints.
-// Plan 03 switches this to POST /ops with optimistic apply + rollback on failure.
+// Sends ops through POST /ops with real device_id + lamport_ts (Plan 03 D-09).
+// Self-echo suppression via op.device_id === LAMPORT_CLOCK.deviceId replaces
+// the old _recentSaves timing hack.
 
 async function submitOp(opType, entityId, entityType, payload) {
-  // Route to existing endpoints based on opType
-  switch (opType) {
-    case 'SET_FIELD':
-      return api('POST', 'saveResponse', { field_id: entityId, value: payload.value });
-    case 'SUBMIT_CHECKLIST':
-      return api('POST', 'submitChecklist', payload);
-    case 'APPROVE_ITEM':
-      return api('POST', 'approveSubmission', payload);
-    case 'REJECT_ITEM':
-      return api('POST', 'rejectItem', payload);
-    case 'SAVE_TEMPLATE':
-      if (payload.id) return api('PUT', 'updateTemplate/' + payload.id, payload);
-      return api('POST', 'createTemplate', payload);
-    case 'ARCHIVE_TEMPLATE':
-      return api('DELETE', 'archiveTemplate/' + entityId);
-    default:
-      throw new Error('Unknown op type: ' + opType);
-  }
+  if (!LAMPORT_CLOCK) throw new Error('LamportClock not initialized');
+  const ts = await LAMPORT_CLOCK.tick();
+  const result = await api('POST', 'ops', {
+    op_type: opType,
+    entity_id: entityId,
+    entity_type: entityType,
+    payload: payload,
+    lamport_ts: ts,
+    device_id: LAMPORT_CLOCK.deviceId,
+  });
+  return result;
 }
 
 window.submitOp = submitOp;
