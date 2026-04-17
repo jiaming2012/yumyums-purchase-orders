@@ -184,6 +184,10 @@ async function api(method, path, body) {
   }
   const res = await fetch('/api/v1/workflow/' + path, opts);
   if (res.status === 401) { window.location = '/login.html'; return null; }
+  if (res.status === 409) {
+    const winner = await res.json().catch(() => ({}));
+    return { _conflict: true, winner };
+  }
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: 'unknown' }));
     err.status = res.status;
@@ -200,9 +204,15 @@ let _dbPromise = null;
 
 function getDB() {
   if (!_dbPromise) _dbPromise = new Promise((resolve, reject) => {
-    const req = indexedDB.open(HQ_DB, 1);
+    const req = indexedDB.open(HQ_DB, 2);
     req.onupgradeneeded = e => {
-      e.target.result.createObjectStore('submitQueue', { keyPath: 'id' });
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains('submitQueue')) {
+        db.createObjectStore('submitQueue', { keyPath: 'id' });
+      }
+      if (!db.objectStoreNames.contains('syncMeta')) {
+        db.createObjectStore('syncMeta', { keyPath: 'id' });
+      }
     };
     req.onsuccess = e => resolve(e.target.result);
     req.onerror = e => reject(e.target.error);
@@ -216,6 +226,15 @@ function idbGetAll(db, store) {
     const req = tx.objectStore(store).getAll();
     req.onsuccess = () => resolve(req.result);
     req.onerror = e => reject(e.target.error);
+  });
+}
+
+function idbGet(db, store, key) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(store, 'readonly');
+    const req = tx.objectStore(store).get(key);
+    req.onsuccess = () => resolve(req.result || null);
+    req.onerror = () => reject(req.error);
   });
 }
 
@@ -235,6 +254,41 @@ function idbDelete(db, store, key) {
     tx.oncomplete = resolve;
     tx.onerror = e => reject(e.target.error);
   });
+}
+
+// ─── LamportClock ─────────────────────────────────────────────────────────────
+
+let LAMPORT_CLOCK = null;
+
+class LamportClock {
+  constructor(db) { this._db = db; this._ts = 0; this._deviceId = null; }
+
+  static async init(db) {
+    const clock = new LamportClock(db);
+    const meta = await idbGet(db, 'syncMeta', 'clock');
+    if (meta) {
+      clock._ts = meta.lamport_ts;
+      clock._deviceId = meta.device_id;
+    } else {
+      clock._deviceId = crypto.randomUUID();
+      await idbPut(db, 'syncMeta', { id: 'clock', lamport_ts: 0, device_id: clock._deviceId });
+    }
+    return clock;
+  }
+
+  async tick() {
+    this._ts += 1;
+    await idbPut(this._db, 'syncMeta', { id: 'clock', lamport_ts: this._ts, device_id: this._deviceId });
+    return this._ts;
+  }
+
+  async receive(remoteTs) {
+    this._ts = Math.max(this._ts, remoteTs) + 1;
+    await idbPut(this._db, 'syncMeta', { id: 'clock', lamport_ts: this._ts, device_id: this._deviceId });
+  }
+
+  get ts() { return this._ts; }
+  get deviceId() { return this._deviceId; }
 }
 
 async function enqueueSubmission(payload) {
@@ -2146,13 +2200,20 @@ document.getElementById('fill-body').addEventListener('click', function(e) {
         return !fn || !fn.note || !fn.note.trim() || !fn.severity;
       });
       if (missingCorrective.length > 0) {
-        showToast('Corrective action required for ' + missingCorrective.length + ' out-of-range field(s)');
+        var fieldNames = missingCorrective.map(function(f) { return f.label; }).join(', ');
+        showToast('Select severity for: ' + fieldNames);
         // Scroll to first missing fail card
         var firstFld = document.querySelector('[data-field-id="' + missingCorrective[0].id + '"]');
         if (firstFld) firstFld.scrollIntoView({ behavior: 'smooth', block: 'center' });
         return;
       }
 
+      // Cancel any pending auto-saves — their drafts will be moved by submitChecklist
+      Object.keys(SAVE_DEBOUNCE).forEach(function(k) { clearTimeout(SAVE_DEBOUNCE[k]); delete SAVE_DEBOUNCE[k]; });
+      Object.keys(FAIL_NOTE_DEBOUNCE).forEach(function(k) { clearTimeout(FAIL_NOTE_DEBOUNCE[k]); delete FAIL_NOTE_DEBOUNCE[k]; });
+      _pendingSaves = 0;
+      var statusEl = document.getElementById('save-status');
+      if (statusEl) { statusEl.style.display = 'none'; statusEl.style.opacity = '0'; }
       if (btn) { btn.textContent = 'Submitting\u2026'; btn.disabled = true; }
       var allDone = allFlds.every(function(f){return FIELD_RESPONSES[f.id] !== undefined});
       var prevSubmission = MY_SUBMISSIONS ? MY_SUBMISSIONS.find(function(s){return s.template_id===tplId}) : null;
@@ -2413,6 +2474,13 @@ function checkBuilderAccess() {
   } catch(e) {
     CURRENT_USER = null;
   }
+  // Initialize LamportClock from IndexedDB (persistent device_id)
+  try {
+    const db = await getDB();
+    LAMPORT_CLOCK = await LamportClock.init(db);
+  } catch(e) {
+    console.error('LamportClock init error:', e);
+  }
   checkBuilderAccess();
   renderBuilder();
   // Load My Checklists tab (initial tab)
@@ -2420,6 +2488,8 @@ function checkBuilderAccess() {
   // Drain any offline queue from previous sessions
   renderSyncBanner();
   drainQueue();
+  // Connect WebSocket for real-time sync
+  wsConnect();
 })();
 
 document.addEventListener('dblclick', e => e.preventDefault());
