@@ -150,6 +150,19 @@ func OpHandler(pool *pgxpool.Pool, router OpRouter) http.HandlerFunc {
 			req.EntityID = result.EntityID
 		}
 
+		// Inject user_name into payload so other clients see who made the change.
+		var enrichedPayload json.RawMessage
+		if len(req.Payload) > 0 && req.Payload[0] == '{' {
+			var payloadMap map[string]any
+			if err := json.Unmarshal(req.Payload, &payloadMap); err == nil {
+				payloadMap["user_name"] = user.DisplayName
+				enrichedPayload, _ = json.Marshal(payloadMap)
+			}
+		}
+		if enrichedPayload == nil {
+			enrichedPayload = req.Payload
+		}
+
 		// Record op and notify (D-11) — use client's device_id and lamport_ts.
 		opInput := OpInput{
 			DeviceID:   req.DeviceID,
@@ -157,7 +170,7 @@ func OpHandler(pool *pgxpool.Pool, router OpRouter) http.HandlerFunc {
 			EntityID:   req.EntityID,
 			EntityType: req.EntityType,
 			OpType:     req.OpType,
-			Payload:    req.Payload,
+			Payload:    enrichedPayload,
 			LamportTS:  req.LamportTS,
 		}
 
