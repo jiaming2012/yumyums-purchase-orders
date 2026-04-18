@@ -127,8 +127,16 @@ Plans:
   2. Manager signs off on a training section; the sign-off appears in the hire's journal with the manager's name and timestamp
   3. Admin sends an email invite to a new crew member; the invite recipient can set a password and log in
   4. Admin changes a user's role or app permissions in users.html and the change takes effect on next login without a code deploy
-**Plans**: TBD
+**Plans**: 6 plans
 **UI hint**: yes
+
+Plans:
+- [ ] 11-01-PLAN.md — DB migrations (users naming + ob_* tables) + auth service update
+- [ ] 11-02-PLAN.md — Users admin backend (handlers + route wiring)
+- [ ] 11-03-PLAN.md — users.html big-bang API swap + login.html accept-invite mode
+- [ ] 11-04-PLAN.md — Onboarding backend (handlers + seed + route wiring)
+- [ ] 11-05-PLAN.md — onboarding.html big-bang API swap + SW rebuild
+- [ ] 11-06-PLAN.md — E2E test rewrite (onboarding + users)
 
 ### Phase 12: Inventory + Photos
 **Goal**: Purchase history and vendor data come from Postgres, receipt photos can be uploaded and parsed into purchase events, and checklist photos are stored in object storage
@@ -158,6 +166,6 @@ Phases execute in numeric order: 9 → 10 → 10.1 → 10.2 → 11 → 12
 | 9. Foundation + Auth | v2.0 | 4/4 | Complete   | 2026-04-15 |
 | 10. Workflows API | v2.0 | 5/5 | Complete   | 2026-04-15 |
 | 10.1 Cross-Device State Sync | v2.0 | 5/5 | Complete   | 2026-04-17 |
-| 10.2 Reactive Sync Framework | v2.0 | 3/3 | Complete   | 2026-04-17 |
-| 11. Onboarding + Users Admin | v2.0 | 0/? | Not started | - |
+| 10.2 Reactive Sync Framework | v2.0 | 3/3 | Complete    | 2026-04-17 |
+| 11. Onboarding + Users Admin | v2.0 | 0/6 | Not started | - |
 | 12. Inventory + Photos | v2.0 | 0/? | Not started | - |
