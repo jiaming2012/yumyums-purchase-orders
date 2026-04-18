@@ -31,7 +31,7 @@
 - [x] **ONBD-01**: Onboarding templates, sections, items, FAQ Q&A persisted to Postgres
 - [x] **ONBD-02**: Training progress (checked items, video parts watched) saved per hire
 - [x] **ONBD-03**: Section sign-off journal entries persisted with manager, reason, timestamp
-- [ ] **ONBD-04**: onboarding.html fetches data from API instead of hardcoded JS arrays
+- [x] **ONBD-04**: onboarding.html fetches data from API instead of hardcoded JS arrays
 
 ### Inventory Persistence
 
@@ -102,7 +102,7 @@ Deferred to future milestones.
 | ONBD-01 | Phase 11 | Complete |
 | ONBD-02 | Phase 11 | Complete |
 | ONBD-03 | Phase 11 | Complete |
-| ONBD-04 | Phase 11 | Pending |
+| ONBD-04 | Phase 11 | Complete |
 | USER-01 | Phase 11 | Complete |
 | USER-02 | Phase 11 | Complete |
 | USER-03 | Phase 11 | Complete |

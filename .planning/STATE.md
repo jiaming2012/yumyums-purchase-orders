@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Backend
 status: executing
-stopped_at: Completed 11-03-PLAN.md
-last_updated: "2026-04-18T01:19:01.816Z"
+stopped_at: Completed 11-05-PLAN.md
+last_updated: "2026-04-18T01:20:46.245Z"
 last_activity: 2026-04-18
 progress:
   total_phases: 6
   completed_phases: 4
   total_plans: 23
-  completed_plans: 21
+  completed_plans: 22
   percent: 0
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-15)
 ## Current Position
 
 Phase: 11 (onboarding-users-admin) — EXECUTING
-Plan: 5 of 6
+Plan: 6 of 6
 Status: Ready to execute
 Last activity: 2026-04-18
 
@@ -73,6 +73,7 @@ Progress: [░░░░░░░░░░] 0% (v2.0 milestone)
 | Phase 11-onboarding-users-admin P02 | 12 | 2 tasks | 3 files |
 | Phase 11-onboarding-users-admin P04 | 420 | 2 tasks | 4 files |
 | Phase 11-onboarding-users-admin P03 | 4 | 2 tasks | 3 files |
+| Phase 11-onboarding-users-admin P05 | 327 | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -132,6 +133,8 @@ Recent decisions affecting current work:
 - [Phase 11-onboarding-users-admin]: GetHireTraining computes section state server-side: signed_off → complete → active → locked; isSectionComplete returns true for is_faq sections
 - [Phase 11-onboarding-users-admin]: users.html event delegation via data-action attributes replaces old inline onclick handlers — consistent with workflows.html pattern
 - [Phase 11-onboarding-users-admin]: login.html dual-mode: normal login when no token param, accept-invite set-password form when ?token= present
+- [Phase 11-onboarding-users-admin]: localCopy pattern in Builder editor — deep-copy template before editing; Save calls PUT/POST API, Discard reverts without re-fetch
+- [Phase 11-onboarding-users-admin]: SIGNOFF_FORM keyed by hireId_sectionId — supports concurrent sign-offs on multiple sections
 
 ### Pending Todos
 
@@ -152,6 +155,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-18T01:19:01.778Z
-Stopped at: Completed 11-03-PLAN.md
+Last session: 2026-04-18T01:20:46.241Z
+Stopped at: Completed 11-05-PLAN.md
 Resume file: None
