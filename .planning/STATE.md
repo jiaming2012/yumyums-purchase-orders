@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Backend
 status: executing
-stopped_at: Completed 11-01-PLAN.md
-last_updated: "2026-04-18T01:03:01.725Z"
+stopped_at: Completed 11-02-PLAN.md
+last_updated: "2026-04-18T01:09:10.263Z"
 last_activity: 2026-04-18
 progress:
   total_phases: 6
   completed_phases: 4
   total_plans: 23
-  completed_plans: 18
+  completed_plans: 19
   percent: 0
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-15)
 ## Current Position
 
 Phase: 11 (onboarding-users-admin) — EXECUTING
-Plan: 2 of 6
+Plan: 3 of 6
 Status: Ready to execute
 Last activity: 2026-04-18
 
@@ -70,6 +70,7 @@ Progress: [░░░░░░░░░░] 0% (v2.0 milestone)
 | Phase 10.2-reactive-sync-framework P02 | 30 | 1 tasks | 3 files |
 | Phase 10.2-reactive-sync-framework P03 | 58 | 2 tasks | 6 files |
 | Phase 11-onboarding-users-admin P01 | 126 | 2 tasks | 7 files |
+| Phase 11-onboarding-users-admin P02 | 12 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -123,6 +124,8 @@ Recent decisions affecting current work:
 - [Phase 10.2-reactive-sync-framework]: _recentSaves timing hack fully eliminated; self-echo via op.device_id === LAMPORT_CLOCK.deviceId
 - [Phase 11-01]: displayNameExpr constant used in all SELECT queries — single source of truth for derived display_name from first_name/last_name/nickname
 - [Phase 11-01]: ob_progress uses discriminator column (progress_type) rather than FK constraint to support both item and video_part progress in one table
+- [Phase 11-onboarding-users-admin]: Nickname collision checks both u.nickname and derived display_name via COALESCE — prevents either form from being silently shadowed
+- [Phase 11-onboarding-users-admin]: ClaimInviteToken uses atomic UPDATE RETURNING to prevent double-claim race without application-level locking
 
 ### Pending Todos
 
@@ -143,6 +146,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-18T01:03:01.638Z
-Stopped at: Completed 11-01-PLAN.md
+Last session: 2026-04-18T01:09:10.195Z
+Stopped at: Completed 11-02-PLAN.md
 Resume file: None
