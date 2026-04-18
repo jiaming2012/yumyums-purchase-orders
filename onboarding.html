@@ -73,13 +73,14 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .rating-group{display:flex;gap:6px}
 .rating-btn{flex:1;padding:8px 4px;background:transparent;border:0.5px solid var(--brd);border-radius:8px;font-size:12px;font-weight:500;color:var(--mut);cursor:pointer;text-align:center}
 .rating-btn.on{background:var(--info-bg);color:var(--info-tx);border-color:var(--info-tx)}
-.role-checks{display:flex;flex-direction:column;gap:6px}
-.role-checks label{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--txt)}
+.role-chips{display:flex;gap:4px;flex-wrap:wrap}
+.role-chip{display:inline-flex;align-items:center;justify-content:center;min-width:36px;min-height:36px;padding:0 12px;border-radius:18px;border:0.5px solid var(--brd);background:transparent;color:var(--txt);font-size:12px;font-weight:500;cursor:pointer}
+.role-chip.on{background:var(--info-bg);color:var(--info-tx);border-color:var(--info-tx)}
 </style>
 </head>
 <body>
 <div class="app">
-  <a class="back" href="index.html">&#8249; HQ</a>
+  <a class="back" href="index.html" id="hq-back">&#8249; HQ &nbsp;&#183;&nbsp; Onboarding</a>
   <div class="tabs">
     <button id="t1" class="on" onclick="show(1)">My Trainings</button>
     <button id="t2" onclick="show(2)">Manager</button>
@@ -102,6 +103,11 @@ let obState = { view: 'list', activeTrainingId: null, activeTemplateId: null };
 let mgrState = { view: 'list', subView: 'active', activeHireId: null, activeHireName: null, activeTemplateId: null };
 let obBuilderState = { view: 'list', activeTemplate: null, localCopy: null };
 let assignPickerOpen = null;
+function obBuilderHasUnsavedChanges() {
+  if (!obBuilderState.localCopy) return false;
+  if (!obBuilderState.activeTemplate) return true; // new unsaved template
+  return JSON.stringify(obBuilderState.localCopy) !== JSON.stringify(obBuilderState.activeTemplate);
+}
 // Track save-retry counts per item
 let SAVE_RETRY = {};
 // Track pending sign-off form state per section
@@ -160,26 +166,36 @@ function formatDate(dateStr) {
 }
 
 // === Tab switching ===
+var _activeTab = 1;
 function show(n) {
+  if (obBuilderHasUnsavedChanges() && !confirm('You have unsaved changes. Leave without saving?')) return;
+  _activeTab = n;
+  // Reset state for the target tab
+  if (n === 1) { obState = { view: 'list', activeTrainingId: null, activeTemplateId: null }; }
+  if (n === 2) { mgrState = { view: 'list', subView: 'active', activeHireId: null, activeHireName: null, activeTemplateId: null }; }
+  if (n === 3) { obBuilderState = { view: 'list', activeTemplate: null, localCopy: null }; }
+  // Switch tabs — content stays as-is (no flash)
   [1,2,3].forEach(function(i) {
     document.getElementById('s'+i).style.display = i===n ? '' : 'none';
     document.getElementById('t'+i).classList.toggle('on', i===n);
   });
-  if (n === 1) { obState = { view: 'list', activeTrainingId: null, activeTemplateId: null }; loadMyTrainings(); }
-  if (n === 2) { mgrState = { view: 'list', subView: 'active', activeHireId: null, activeHireName: null, activeTemplateId: null }; loadManagerHires(); }
-  if (n === 3) { obBuilderState = { view: 'list', activeTemplate: null, localCopy: null }; loadTemplates(); }
+  // Background refresh from API (renders when data arrives)
+  if (n === 1) loadMyTrainings();
+  if (n === 2) loadManagerHires();
+  if (n === 3) loadTemplates();
 }
 
 // ==============================
 // TAB 1 — My Trainings
 // ==============================
 async function loadMyTrainings() {
-  renderSkeletons('my-body', 3);
+  if (MY_TRAININGS.length > 0) { renderMyList(); }
+  else { renderSkeletons('my-body', 3); }
   try {
     MY_TRAININGS = await api('GET', '/api/v1/onboarding/myTrainings');
     renderMyList();
   } catch(e) {
-    document.getElementById('my-body').innerHTML = '<div class="empty"><h3>Something went wrong.</h3><p>Check your connection and try again.</p></div>';
+    if (MY_TRAININGS.length === 0) document.getElementById('my-body').innerHTML = '<div class="empty"><h3>Something went wrong.</h3><p>Check your connection and try again.</p></div>';
   }
 }
 
@@ -382,12 +398,13 @@ function recomputeSectionState(sec) {
 // TAB 2 — Manager
 // ==============================
 async function loadManagerHires() {
-  renderSkeletons('mgr-body', 3);
+  if (MANAGER_HIRES.length > 0) { renderManagerList(); }
+  else { renderSkeletons('mgr-body', 3); }
   try {
     MANAGER_HIRES = await api('GET', '/api/v1/onboarding/managerHires');
     renderManagerList();
   } catch(e) {
-    document.getElementById('mgr-body').innerHTML = '<div class="empty"><h3>Something went wrong.</h3><p>Check your connection and try again.</p></div>';
+    if (MANAGER_HIRES.length === 0) document.getElementById('mgr-body').innerHTML = '<div class="empty"><h3>Something went wrong.</h3><p>Check your connection and try again.</p></div>';
   }
 }
 
@@ -473,12 +490,13 @@ function renderSignOffForm(sec, hireId) {
 // TAB 3 — Builder
 // ==============================
 async function loadTemplates() {
-  renderSkeletons('builder-body', 3);
+  if (TEMPLATES.length > 0) { renderOBBuilder(); }
+  else { renderSkeletons('builder-body', 3); }
   try {
     TEMPLATES = await api('GET', '/api/v1/onboarding/templates');
     renderOBBuilder();
   } catch(e) {
-    document.getElementById('builder-body').innerHTML = '<div class="empty"><h3>Something went wrong.</h3><p>Check your connection and try again.</p></div>';
+    if (TEMPLATES.length === 0) document.getElementById('builder-body').innerHTML = '<div class="empty"><h3>Something went wrong.</h3><p>Check your connection and try again.</p></div>';
   }
 }
 
@@ -499,7 +517,7 @@ function renderOBTemplateList() {
     html += '<div class="empty"><h3>No templates yet.</h3><p>Create your first onboarding template to get started.</p></div>';
   } else {
     TEMPLATES.forEach(function(tpl) {
-      var roleLabel = (tpl.roles&&tpl.roles.length) ? tpl.roles.map(function(r){return r.replace(/_/g,' ')}).join(', ') : 'All roles';
+      var roleLabel = (tpl.roles&&tpl.roles.length) ? tpl.roles.map(function(r){return r.replace(/_/g,' ')}).join(', ') : 'No roles assigned';
       var secCount = (tpl.sections||[]).length;
       html += '<div class="card" style="cursor:pointer" data-action="open-template" data-tpl-id="'+tpl.id+'">';
       html += '<div style="font-size:14px;font-weight:500;margin-bottom:4px">'+escapeOBAttr(tpl.name)+'</div>';
@@ -618,12 +636,13 @@ function renderOBEditor() {
   html += '<span class="back" data-action="back-to-templates" style="display:inline-flex;align-items:center;gap:4px;font-size:14px;font-weight:500;margin-bottom:16px;cursor:pointer">&#8249; Templates</span>';
   html += '<input type="text" value="'+escapeOBAttr(tpl.name)+'" data-action="tpl-name-input" placeholder="Template name" style="width:100%;padding:10px 12px;background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;font-size:14px;color:var(--txt);font-family:inherit;outline:none;margin-bottom:8px">';
   var tplRoles = tpl.roles||[];
-  html += '<div class="role-checks" style="margin-bottom:16px">';
-  html += '<div style="font-size:12px;color:var(--mut);margin-bottom:6px">Target Roles (leave unchecked for all roles)</div>';
-  ['line_cook','cashier','manager','admin'].forEach(function(r) {
-    html += '<label><input type="checkbox" data-action="tpl-role-check" value="'+r+'"'+(tplRoles.includes(r)?' checked':'')+'>'+r.replace(/_/g,' ')+'</label>';
+  html += '<div style="margin-bottom:16px">';
+  html += '<div style="font-size:12px;color:var(--mut);margin-bottom:6px">Target Roles</div>';
+  html += '<div class="role-chips">';
+  ['team_member','manager','admin'].forEach(function(r) {
+    html += '<button type="button" class="role-chip'+(tplRoles.includes(r)?' on':'')+'" data-action="tpl-role-chip" data-role="'+r+'">'+r.replace(/_/g,' ')+'</button>';
   });
-  html += '</div>';
+  html += '</div></div>';
   html += '<div class="ob-section-list">';
   (tpl.sections||[]).forEach(function(sec) {
     html += renderOBSection(sec);
@@ -889,6 +908,13 @@ document.getElementById('builder-body').addEventListener('click', async function
   var btn = e.target.closest('[data-action]');
   if (!btn) return;
   var action = btn.dataset.action;
+  if (action === 'tpl-role-chip' && obBuilderState.localCopy) {
+    btn.classList.toggle('on');
+    var chips = document.querySelectorAll('[data-action="tpl-role-chip"].on');
+    var roles = Array.from(chips).map(function(c) { return c.dataset.role; });
+    obBuilderState.localCopy.roles = roles;
+    return;
+  }
   if (action === 'new-template') {
     var name = prompt('Template name:');
     if (name && name.trim()) {
@@ -904,6 +930,7 @@ document.getElementById('builder-body').addEventListener('click', async function
       renderOBBuilder();
     }
   } else if (action === 'back-to-templates') {
+    if (obBuilderHasUnsavedChanges() && !confirm('You have unsaved changes. Leave without saving?')) return;
     obBuilderState = { view: 'list', activeTemplate: null, localCopy: null };
     await loadTemplates();
   } else if (action === 'save-template') {
@@ -913,12 +940,12 @@ document.getElementById('builder-body').addEventListener('click', async function
     btn.textContent = 'Saving…';
     try {
       if (tpl.id) {
-        await api('PUT', '/api/v1/onboarding/updateTemplate/'+tpl.id, { name: tpl.name, roles: tpl.roles || null, sections: tpl.sections });
+        await api('PUT', '/api/v1/onboarding/updateTemplate/'+tpl.id, { name: tpl.name, roles: tpl.roles || [], sections: tpl.sections });
         var idx = (TEMPLATES||[]).findIndex(function(t) { return t.id === tpl.id; });
         if (idx !== -1) TEMPLATES[idx] = JSON.parse(JSON.stringify(tpl));
         obBuilderState.activeTemplate = TEMPLATES[idx];
       } else {
-        var created = await api('POST', '/api/v1/onboarding/createTemplate', { name: tpl.name, roles: tpl.roles || null, sections: tpl.sections });
+        var created = await api('POST', '/api/v1/onboarding/createTemplate', { name: tpl.name, roles: tpl.roles || [], sections: tpl.sections });
         tpl.id = created.id;
         TEMPLATES.push(JSON.parse(JSON.stringify(tpl)));
         obBuilderState.activeTemplate = TEMPLATES[TEMPLATES.length - 1];
@@ -1049,14 +1076,7 @@ document.getElementById('builder-body').addEventListener('input', function(e) {
   }
 });
 
-document.getElementById('builder-body').addEventListener('change', function(e) {
-  if (e.target.dataset.action === 'tpl-role-check' && obBuilderState.localCopy) {
-    var checks = document.querySelectorAll('[data-action="tpl-role-check"]:checked');
-    var roles = Array.from(checks).map(function(c) { return c.value; });
-    obBuilderState.localCopy.roles = roles.length > 0 ? roles : null;
-    renderOBBuilder();
-  }
-});
+// Role chip toggle is handled in the click handler below via data-action="tpl-role-chip"
 
 // ==============================
 // INIT
@@ -1077,6 +1097,17 @@ document.getElementById('builder-body').addEventListener('change', function(e) {
     loadManagerHires();
     loadTemplates();
   }
+  window.addEventListener('beforeunload', function(e) {
+    if (obBuilderHasUnsavedChanges()) { e.preventDefault(); e.returnValue = ''; }
+  });
+  document.getElementById('hq-back').addEventListener('click', function(e) {
+    if (obBuilderHasUnsavedChanges()) {
+      e.preventDefault();
+      if (confirm('You have unsaved changes. Leave without saving?')) {
+        window.location.href = 'index.html';
+      }
+    }
+  });
 })();
 
 document.addEventListener('dblclick', function(e) { e.preventDefault(); });

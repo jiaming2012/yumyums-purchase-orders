@@ -165,7 +165,7 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 </head>
 <body>
 <div class="app">
-<a class="back" href="index.html">HQ</a>
+<a class="back" href="index.html" id="hq-back">&#8249; HQ &nbsp;&#183;&nbsp; Operations</a>
 <div id="save-status" style="display:none"></div>
 <div class="tabs">
   <button id="t1" class="on" onclick="show(1)">My Checklists</button>
@@ -289,7 +289,7 @@ const ADMIN_RESTRICTED = 'Template editing is restricted to admins.';
 async function loadTemplates() {
   const container = document.getElementById('builder-list');
   if (!container) return;
-  renderSkeletons(container, 3);
+  if (!TEMPLATES || TEMPLATES.length === 0) renderSkeletons(container, 3);
   try {
     store.setAll('templates', (await api('GET', 'templates')).map(fromApiTemplate));
     TEMPLATES = store.get('templates');
@@ -302,7 +302,7 @@ async function loadTemplates() {
 
 async function loadMyChecklists() {
   const container = document.getElementById('checklist-list');
-  if (container) renderSkeletons(container, 3);
+  if (container && (!MY_CHECKLISTS || MY_CHECKLISTS.length === 0)) renderSkeletons(container, 3);
   try {
     const data = await api('GET', 'myChecklists?dow=' + new Date().getDay());
     store.batch(function() {
@@ -338,7 +338,7 @@ async function loadMyChecklists() {
 async function loadPendingApprovals() {
   const container = document.getElementById('approvals-list');
   if (!container) return;
-  renderSkeletons(container, 3);
+  if (!PENDING || PENDING.length === 0) renderSkeletons(container, 3);
   try {
     store.setAll('pending', await api('GET', 'pendingApprovals'));
     PENDING = store.get('pending');
@@ -448,9 +448,15 @@ function showPhotoPreview(objectURL, onConfirm, onRetake) {
 let state = {
   view: 'list',
   activeTemplate: null,
+  originalTemplate: null,
   expandedField: null,
   fieldPickerSection: null
 };
+function wfBuilderHasUnsavedChanges() {
+  if (!state.activeTemplate) return false;
+  if (!state.originalTemplate) return true;
+  return JSON.stringify(state.activeTemplate) !== JSON.stringify(state.originalTemplate);
+}
 
 function generateId(prefix) {
   return prefix + '_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
@@ -616,7 +622,7 @@ function renderEditor() {
 </div>
 ${sectionsHtml}
 <button class="add-section-btn">+ Add section</button>
-<button class="btn-primary" id="save-btn">Save checklist</button>`;
+<button class="btn-primary" id="save-btn" style="background:#27ae60;color:#fff">Save checklist</button>`;
 }
 
 function renderDayPicker(activeDays) {
@@ -774,16 +780,20 @@ function openEditor(tplId) {
     if (!state.activeTemplate) return;
     // Deep copy to avoid mutating the source array while editing
     state.activeTemplate = JSON.parse(JSON.stringify(state.activeTemplate));
+    state.originalTemplate = JSON.parse(JSON.stringify(state.activeTemplate));
   } else {
     state.activeTemplate = createNewTemplate();
+    state.originalTemplate = null;
   }
   state.view = 'editor';
   renderBuilder();
 }
 
 function backToList() {
+  if (wfBuilderHasUnsavedChanges() && !confirm('You have unsaved changes. Leave without saving?')) return;
   state.view = 'list';
   state.activeTemplate = null;
+  state.originalTemplate = null;
   state.expandedField = null;
   state.fieldPickerSection = null;
   renderBuilder();
@@ -1113,6 +1123,7 @@ document.getElementById('builder-body').addEventListener('click', function(e) {
       showToast('Checklist saved \u2713');
       state.view = 'list';
       state.activeTemplate = null;
+      state.originalTemplate = null;
       state.expandedField = null;
       state.fieldPickerSection = null;
       renderBuilder();
@@ -2269,6 +2280,7 @@ document.getElementById('approvals-body').addEventListener('click', function(e) 
 // ─── Tab switching ────────────────────────────────────────────────────────────
 
 function show(n) {
+  if (wfBuilderHasUnsavedChanges() && !confirm('You have unsaved changes. Leave without saving?')) return;
   [1, 2, 3].forEach(function(i) {
     var sec = document.getElementById('s' + i);
     if (sec) sec.style.display = i === n ? 'block' : 'none';
@@ -2288,7 +2300,7 @@ function show(n) {
   if (n === 3) {
     state.view = 'list';
     state.activeTemplate = null;
-    renderBuilder();
+    state.originalTemplate = null;
     loadTemplates();
   }
 }
@@ -2353,6 +2365,17 @@ store.on('templates', function() {
   drainQueue();
   // Connect WebSocket for real-time sync
   wsConnect();
+  window.addEventListener('beforeunload', function(e) {
+    if (wfBuilderHasUnsavedChanges()) { e.preventDefault(); e.returnValue = ''; }
+  });
+  document.getElementById('hq-back').addEventListener('click', function(e) {
+    if (wfBuilderHasUnsavedChanges()) {
+      e.preventDefault();
+      if (confirm('You have unsaved changes. Leave without saving?')) {
+        window.location.href = 'index.html';
+      }
+    }
+  });
 })();
 
 document.addEventListener('dblclick', e => e.preventDefault());

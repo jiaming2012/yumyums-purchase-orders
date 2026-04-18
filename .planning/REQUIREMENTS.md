@@ -56,6 +56,10 @@
 - [ ] **PHOT-01**: Photo upload via presigned URLs (evaluate Zoho Stratus vs DO Spaces for cost)
 - [ ] **PHOT-02**: Photos stored and retrievable for checklist evidence and corrective action documentation
 
+### Tile Permissions
+
+- [ ] **TILE-01**: index.html launcher grid filtered by GET /api/v1/me/apps — users only see tiles for apps they have permission to access
+
 ## Future Requirements
 
 Deferred to future milestones.
@@ -111,9 +115,10 @@ Deferred to future milestones.
 | INVT-03 | Phase 12 | Pending |
 | PHOT-01 | Phase 12 | Pending |
 | PHOT-02 | Phase 12 | Pending |
+| TILE-01 | Phase 12 | Pending |
 
 **Coverage:**
-- v2.0 requirements: 27 total
+- v2.0 requirements: 28 total
 - Mapped to phases: 27
 - Unmapped: 0
 

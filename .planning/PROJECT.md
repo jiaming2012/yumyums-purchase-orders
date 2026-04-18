@@ -53,7 +53,7 @@ Operational tools that let the owner manage crew workflows and training from one
 - [ ] Go backend with Postgres — REST API replacing all mock data
 - [ ] User auth + sessions — bearer tokens, login.html wired to real auth
 - [ ] Workflows persistence — save completions, approvals, audit trail
-- [ ] Onboarding persistence — training progress, sign-off journal entries
+- [x] Onboarding persistence — training progress, sign-off journal entries (Phase 11)
 - [ ] Inventory/Purchasing data pipeline — receipt ingestion, real purchase events
 - [ ] Food cost calculations — ingredient ratio derivation (potentially AI-assisted)
 - [ ] PWA offline mode — service worker sync, IndexedDB for offline queuing

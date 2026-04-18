@@ -596,6 +596,35 @@ test.describe('Builder tab', () => {
     await expect(page.locator('#builder-body')).toContainText('Kitchen Basics Training');
   });
 
+  test('HQ back link prompts when builder has unsaved changes', async ({ page }) => {
+    await login(page);
+    await page.goto('/onboarding.html');
+    await waitForBuilderTab(page);
+    await page.click('#t3');
+    await waitForBuilderList(page);
+
+    // Open an existing template to edit
+    await page.locator('#builder-body .card').first().click();
+    await expect(page.locator('[data-action="back-to-templates"]')).toBeVisible();
+
+    // Make a change — modify the template name
+    const nameInput = page.locator('[data-action="tpl-name-input"]');
+    await nameInput.fill('Modified Name');
+
+    // Click the HQ back link — should trigger confirm dialog
+    let dialogFired = false;
+    page.once('dialog', async dialog => {
+      dialogFired = true;
+      expect(dialog.message()).toContain('unsaved changes');
+      await dialog.dismiss(); // cancel — stay on page
+    });
+    await page.locator('a.back').click();
+
+    // Should still be on onboarding page (dialog was dismissed)
+    expect(dialogFired).toBe(true);
+    await expect(page).toHaveURL(/onboarding\.html/);
+  });
+
   test('can create a new template via Builder', async ({ page }) => {
     await login(page);
     await page.goto('/onboarding.html');

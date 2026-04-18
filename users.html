@@ -53,8 +53,9 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .empty{text-align:center;padding:48px 24px}
 .empty h3{font-size:15px;font-weight:600;margin:0 0 8px}
 .empty p{font-size:14px;color:var(--mut);margin:0}
-.role-checks{display:flex;flex-direction:column;gap:6px}
-.role-checks label{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--txt)}
+.role-chips{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px}
+.role-chip{display:inline-flex;align-items:center;justify-content:center;min-width:36px;min-height:36px;padding:0 12px;border-radius:18px;border:0.5px solid var(--brd);background:transparent;color:var(--txt);font-size:12px;font-weight:500;cursor:pointer}
+.role-chip.on{background:var(--info-bg);color:var(--info-tx);border-color:var(--info-tx)}
 .invite-link-panel{padding:16px}
 .invite-link-panel h2{font-size:15px;font-weight:600;margin:0 0 12px}
 .invite-url{width:100%;padding:10px 12px;background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;font-size:13px;color:var(--mut);font-family:inherit;word-break:break-all;margin-bottom:10px;cursor:text;resize:none;outline:none}
@@ -91,7 +92,7 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 </head>
 <body>
 <div class="app">
-<a class="back" href="index.html">HQ</a>
+<a class="back" href="index.html">&#8249; HQ &nbsp;&#183;&nbsp; Users</a>
 <div class="tabs">
   <button id="t1" class="on" data-action="tab-switch" data-tab="1">Users</button>
   <button id="t2" data-action="tab-switch" data-tab="2">Edit</button>
@@ -217,10 +218,10 @@ function showInviteForm(){
     <div class="form-wrap">
       <div class="field">
         <label>Roles</label>
-        <div id="f-roles" class="role-checks">
-          <label><input type="checkbox" value="admin"> Admin</label>
-          <label><input type="checkbox" value="manager"> Manager</label>
-          <label><input type="checkbox" value="team_member" checked> Team Member</label>
+        <div id="f-roles" class="role-chips">
+          <button type="button" class="role-chip" data-role="admin">Admin</button>
+          <button type="button" class="role-chip" data-role="manager">Manager</button>
+          <button type="button" class="role-chip on" data-role="team_member">Team Member</button>
         </div>
       </div>
       <div class="field">
@@ -236,7 +237,7 @@ function showInviteForm(){
         <input id="f-email" type="email" placeholder="user@yumyums.com" autocomplete="email">
       </div>
       <div id="invite-err" class="field-err"></div>
-      <button class="btn-primary" data-action="submit-invite">Create &amp; Get Invite Link</button>
+      <button class="btn-primary" data-action="submit-invite" style="background:#27ae60;color:#fff">Invite</button>
     </div>`;
   show(2);
 }
@@ -245,7 +246,7 @@ async function submitInvite(){
   const first=document.getElementById('f-first').value.trim();
   const last=document.getElementById('f-last').value.trim();
   const email=document.getElementById('f-email').value.trim();
-  const roles=Array.from(document.querySelectorAll('#f-roles input:checked')).map(c=>c.value);
+  const roles=Array.from(document.querySelectorAll('#f-roles .role-chip.on')).map(c=>c.dataset.role);
   const errEl=document.getElementById('invite-err');
   errEl.classList.remove('show');
   if(!first||!last||!email){errEl.textContent='All fields are required.';errEl.classList.add('show');return}
@@ -257,7 +258,7 @@ async function submitInvite(){
     showInviteLinkPanel('Invite Link',url,'invite-done');
     await loadUsers();
   }catch(e){
-    if(btn)btn.textContent='Create & Get Invite Link';
+    if(btn)btn.textContent='Invite';
     errEl.textContent=(e&&e.message)||'Could not send invite. Try again.';
     errEl.classList.add('show');
   }
@@ -285,10 +286,10 @@ async function editUser(id){
     <div class="form-wrap">
       <div class="field">
         <label>Roles</label>
-        <div id="f-roles" class="role-checks">
-          <label><input type="checkbox" value="admin"${roles.includes('admin')?' checked':''}> Admin</label>
-          <label><input type="checkbox" value="manager"${roles.includes('manager')?' checked':''}> Manager</label>
-          <label><input type="checkbox" value="team_member"${roles.includes('team_member')?' checked':''}> Team Member</label>
+        <div id="f-roles" class="role-chips">
+          <button type="button" class="role-chip${roles.includes('admin')?' on':''}" data-role="admin">Admin</button>
+          <button type="button" class="role-chip${roles.includes('manager')?' on':''}" data-role="manager">Manager</button>
+          <button type="button" class="role-chip${roles.includes('team_member')?' on':''}" data-role="team_member">Team Member</button>
         </div>
       </div>
       <div class="field">
@@ -325,7 +326,7 @@ async function saveUser(){
   const first=document.getElementById('f-first').value.trim();
   const last=document.getElementById('f-last').value.trim();
   const nick=document.getElementById('f-nick').value.trim();
-  const roles=Array.from(document.querySelectorAll('#f-roles input:checked')).map(c=>c.value);
+  const roles=Array.from(document.querySelectorAll('#f-roles .role-chip.on')).map(c=>c.dataset.role);
   const nickErr=document.getElementById('nick-err');
   if(nickErr)nickErr.classList.remove('show');
   const btn=document.querySelector('[data-action="save-user"]');
@@ -452,6 +453,8 @@ function show(n){
 
 // Event delegation
 document.querySelector('.app').addEventListener('click',async function(e){
+  const chip=e.target.closest('.role-chip');
+  if(chip){chip.classList.toggle('on');return}
   const el=e.target.closest('[data-action]');
   if(!el)return;
   const action=el.dataset.action;

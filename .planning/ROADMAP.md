@@ -37,7 +37,7 @@
 - [x] **Phase 10.1: Cross-Device State Sync** — Op-log, WebSocket hub, real-time fan-out, Lamport clocks, conflict resolution, sync UX (completed 2026-04-17)
 - [x] **Phase 10.2: Reactive Sync Framework** — Shared Store with collection-level subscriptions, single write channel (POST /ops), shared JS modules for all tools (completed 2026-04-17)
 - [x] **Phase 11: Onboarding + Users Admin** — Onboarding persistence, user CRUD, role management, and app permissions wired to their respective HTML pages (completed 2026-04-18)
-- [ ] **Phase 12: Inventory + Photos** — Purchase events, vendor data, receipt ingestion, and presigned photo upload wired to inventory.html and workflows.html
+- [ ] **Phase 12: Inventory + Photos + Tile Permissions** — Purchase events, vendor data, receipt ingestion, presigned photo upload, and permission-based tile filtering on index.html
 
 ## Phase Details
 
@@ -138,14 +138,15 @@ Plans:
 - [x] 11-05-PLAN.md — onboarding.html big-bang API swap + SW rebuild
 - [x] 11-06-PLAN.md — E2E test rewrite (onboarding + users)
 
-### Phase 12: Inventory + Photos
-**Goal**: Purchase history and vendor data come from Postgres, receipt photos can be uploaded and parsed into purchase events, and checklist photos are stored in object storage
+### Phase 12: Inventory + Photos + Tile Permissions
+**Goal**: Purchase history and vendor data come from Postgres, receipt photos can be uploaded and parsed into purchase events, checklist photos are stored in object storage, and the HQ launcher only shows tiles the user has permission to access
 **Depends on**: Phase 9
-**Requirements**: INVT-01, INVT-02, INVT-03, PHOT-01, PHOT-02
+**Requirements**: INVT-01, INVT-02, INVT-03, PHOT-01, PHOT-02, TILE-01
 **Success Criteria** (what must be TRUE):
   1. A purchase event entered via the app appears in the History tab after a page reload with correct vendor, line items, and totals
   2. Uploading a receipt photo triggers OCR parsing and pre-fills a purchase event form for human review before saving
   3. A photo taken during checklist completion (fail note or photo field) is retrievable by the manager in the Approvals tab after the submission is made
+  4. A team_member without Users app permission does not see the Users tile on index.html after logging in
 **Plans**: TBD
 
 ## Progress
@@ -167,5 +168,5 @@ Phases execute in numeric order: 9 → 10 → 10.1 → 10.2 → 11 → 12
 | 10. Workflows API | v2.0 | 5/5 | Complete   | 2026-04-15 |
 | 10.1 Cross-Device State Sync | v2.0 | 5/5 | Complete   | 2026-04-17 |
 | 10.2 Reactive Sync Framework | v2.0 | 3/3 | Complete    | 2026-04-17 |
-| 11. Onboarding + Users Admin | v2.0 | 6/6 | Complete   | 2026-04-18 |
+| 11. Onboarding + Users Admin | v2.0 | 6/6 | Complete    | 2026-04-18 |
 | 12. Inventory + Photos | v2.0 | 0/? | Not started | - |
