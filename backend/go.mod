@@ -3,6 +3,8 @@ module github.com/yumyums/hq
 go 1.25.5
 
 require (
+	github.com/anthropics/anthropic-sdk-go v1.37.0 // indirect
+	github.com/antzucaro/matchr v0.0.0-20221106193745-7bed6ef61ef9 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.41.6 // indirect
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.9 // indirect
 	github.com/aws/aws-sdk-go-v2/config v1.32.16 // indirect
@@ -35,6 +37,10 @@ require (
 	github.com/mfridman/interpolate v0.0.2 // indirect
 	github.com/pressly/goose/v3 v3.27.0 // indirect
 	github.com/sethvargo/go-retry v0.3.0 // indirect
+	github.com/tidwall/gjson v1.18.0 // indirect
+	github.com/tidwall/match v1.1.1 // indirect
+	github.com/tidwall/pretty v1.2.1 // indirect
+	github.com/tidwall/sjson v1.2.5 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/crypto v0.50.0 // indirect
 	golang.org/x/sync v0.20.0 // indirect
