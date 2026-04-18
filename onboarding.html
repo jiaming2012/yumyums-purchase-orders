@@ -29,6 +29,8 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .ob-check{width:22px;height:22px;border-radius:6px;border:1.5px solid var(--brd);background:transparent;flex-shrink:0;display:flex;align-items:center;justify-content:center;cursor:pointer;margin-top:2px}
 .ob-check.checked{background:rgba(39,174,96,0.12);border-color:#27ae60;color:#27ae60}
 .btn-primary{width:100%;padding:12px;background:var(--info-bg);color:var(--info-tx);border:none;border-radius:8px;font-size:14px;font-weight:500;cursor:pointer;margin-top:12px}
+.btn-primary:disabled{opacity:0.5;cursor:not-allowed}
+.btn-secondary{width:100%;padding:12px;background:transparent;color:var(--mut);border:0.5px solid var(--brd);border-radius:8px;font-size:14px;font-weight:500;cursor:pointer;margin-top:8px}
 .btn-danger{width:100%;padding:12px;background:transparent;color:#c0392b;border:0.5px solid #c0392b;border-radius:8px;font-size:14px;font-weight:500;cursor:pointer;margin-top:8px}
 .btn-approve{width:100%;padding:12px;background:rgba(39,174,96,0.12);color:#27ae60;border:0.5px solid #27ae60;border-radius:8px;font-size:14px;font-weight:500;cursor:pointer;margin-top:12px}
 .empty{text-align:center;padding:40px 20px;color:var(--mut)}
@@ -58,6 +60,19 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .ob-qna-row:last-child{border-bottom:none}
 .ob-field-list{min-height:20px}
 .ob-section-list{min-height:20px}
+.skeleton-row{background:var(--brd);border-radius:8px;margin-bottom:8px;overflow:hidden;position:relative}
+.skeleton-row::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent 0%,rgba(255,255,255,0.3) 50%,transparent 100%);animation:skeleton-pulse 1.4s ease-in-out infinite}
+@media(prefers-color-scheme:dark){.skeleton-row::after{background:linear-gradient(90deg,transparent 0%,rgba(255,255,255,0.08) 50%,transparent 100%)}}
+@keyframes skeleton-pulse{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+.field-err{font-size:12px;color:#c0392b;margin-top:4px;display:block}
+.signoff-form{background:var(--card);border:0.5px solid var(--brd);border-radius:10px;padding:16px;margin-bottom:4px}
+.signoff-form .field{margin-bottom:12px}
+.signoff-form .field label{display:block;font-size:12px;font-weight:600;color:var(--mut);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.4px}
+.signoff-form textarea{width:100%;padding:10px 12px;background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;font-size:14px;color:var(--txt);font-family:inherit;outline:none;resize:vertical}
+.signoff-form textarea:focus{border-color:var(--info-tx)}
+.rating-group{display:flex;gap:6px}
+.rating-btn{flex:1;padding:8px 4px;background:transparent;border:0.5px solid var(--brd);border-radius:8px;font-size:12px;font-weight:500;color:var(--mut);cursor:pointer;text-align:center}
+.rating-btn.on{background:var(--info-bg);color:var(--info-tx);border-color:var(--info-tx)}
 </style>
 </head>
 <body>
@@ -73,294 +88,59 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
   <div id="s3" style="display:none"><div id="builder-body"></div></div>
 </div>
 <script>
-const MOCK_CURRENT_USER = { id: 'usr_jamal', name: 'Jamal', role: 'admin' };
-const CURRENT_USER = { name: MOCK_CURRENT_USER.name };
-const MOCK_HIRES = [
-  { id: 'hire_1', userId: 'usr_tina', name: 'Tina L.', role: 'line_cook', startDate: '2026-04-01', assignedTemplates: ['tpl_line_cook'] },
-  { id: 'hire_2', userId: 'usr_dev', name: 'Dev P.', role: 'cashier', startDate: '2026-04-10', assignedTemplates: ['tpl_cashier', 'tpl_food_safety'] },
-  { id: 'hire_3', userId: 'usr_jamal', name: 'Jamal M.', role: 'admin', startDate: '2026-03-15', assignedTemplates: ['tpl_line_cook'] },
-];
-const MOCK_OB_TEMPLATES = [
-  {
-    id: 'tpl_line_cook',
-    name: 'Line Cook Onboarding',
-    role: 'line_cook',
-    sections: [
-      {
-        id: 'sec_lc_paperwork',
-        title: 'Paperwork',
-        requiresSignOff: true,
-        isFaq: false,
-        items: [
-          { id: 'itm_lc_w4', type: 'checkbox', label: 'W-4 tax form signed' },
-          { id: 'itm_lc_id', type: 'checkbox', label: 'ID photocopied and filed' },
-          { id: 'itm_lc_dd', type: 'checkbox', label: 'Direct deposit form completed' },
-        ]
-      },
-      {
-        id: 'sec_lc_safety',
-        title: 'Kitchen Safety Training',
-        requiresSignOff: true,
-        isFaq: false,
-        items: [
-          {
-            id: 'vs_lc_cleanup',
-            type: 'video_series',
-            label: 'Kitchen Cleanup',
-            parts: [
-              { id: 'vp_lc_cleanup_1', title: 'Part 1: Surfaces and Equipment', desc: 'Proper cleaning of all cooking surfaces and equipment', url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
-              { id: 'vp_lc_cleanup_2', title: 'Part 2: Deep Clean Protocol', desc: 'Step-by-step deep cleaning procedures', url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
-              { id: 'vp_lc_cleanup_3', title: 'Part 3: Waste Disposal', desc: 'Safe and compliant waste handling', url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
-            ]
-          },
-          {
-            id: 'vs_lc_food_safety',
-            type: 'video_series',
-            label: 'Food Safety Basics',
-            parts: [
-              { id: 'vp_lc_fs_1', title: 'Part 1: Temperature Danger Zone', desc: 'Understanding safe food temperature ranges', url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
-              { id: 'vp_lc_fs_2', title: 'Part 2: Cross-Contamination Prevention', desc: 'How to prevent cross-contamination in the kitchen', url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
-            ]
-          },
-        ]
-      },
-      {
-        id: 'sec_lc_equipment',
-        title: 'Equipment Orientation',
-        requiresSignOff: false,
-        isFaq: false,
-        items: [
-          { id: 'itm_lc_grill', type: 'checkbox', label: 'Grill operation walkthrough' },
-          { id: 'itm_lc_fryer', type: 'checkbox', label: 'Fryer safety demo completed' },
-          { id: 'itm_lc_knife', type: 'checkbox', label: 'Knife skills assessment' },
-        ]
-      },
-      {
-        id: 'sec_lc_faq',
-        title: 'FAQ',
-        requiresSignOff: false,
-        isFaq: true,
-        items: [
-          { id: 'faq_lc_1', question: 'Where do I find supplies?', answer: 'All supplies are stored in the back storage room. Ask your supervisor for the key on your first day.' },
-          { id: 'faq_lc_2', question: 'What is the dress code?', answer: 'Non-slip shoes, clean black pants, and the provided Yumyums shirt. Hair must be tied back and a hat or hairnet worn at all times in the kitchen.' },
-          { id: 'faq_lc_3', question: 'When are breaks?', answer: 'Breaks are scheduled by your shift supervisor. For shifts over 5 hours, you are entitled to a 30-minute unpaid break.' },
-          { id: 'faq_lc_4', question: 'How do I report an issue?', answer: 'For urgent issues, speak directly with your shift supervisor. For non-urgent concerns, use the Yumyums HQ app to submit a report.' },
-        ]
-      },
-    ]
-  },
-  {
-    id: 'tpl_cashier',
-    name: 'Cashier Onboarding',
-    role: 'cashier',
-    sections: [
-      {
-        id: 'sec_ca_paperwork',
-        title: 'Paperwork',
-        requiresSignOff: true,
-        isFaq: false,
-        items: [
-          { id: 'itm_ca_w4', type: 'checkbox', label: 'W-4 tax form signed' },
-          { id: 'itm_ca_id', type: 'checkbox', label: 'ID photocopied and filed' },
-          { id: 'itm_ca_dd', type: 'checkbox', label: 'Direct deposit form completed' },
-        ]
-      },
-      {
-        id: 'sec_ca_pos',
-        title: 'POS Training',
-        requiresSignOff: true,
-        isFaq: false,
-        items: [
-          {
-            id: 'vs_ca_register',
-            type: 'video_series',
-            label: 'Register Operations',
-            parts: [
-              { id: 'vp_ca_reg_1', title: 'Part 1: Order Entry', desc: 'How to enter orders accurately in the POS system', url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
-              { id: 'vp_ca_reg_2', title: 'Part 2: Payment Processing', desc: 'Handling cash and card payments', url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
-            ]
-          },
-        ]
-      },
-      {
-        id: 'sec_ca_service',
-        title: 'Customer Service',
-        requiresSignOff: false,
-        isFaq: false,
-        items: [
-          { id: 'itm_ca_greet', type: 'checkbox', label: 'Greeting protocol reviewed' },
-          { id: 'itm_ca_complaint', type: 'checkbox', label: 'Complaint handling reviewed' },
-        ]
-      },
-      {
-        id: 'sec_ca_faq',
-        title: 'FAQ',
-        requiresSignOff: false,
-        isFaq: true,
-        items: [
-          { id: 'faq_ca_1', question: 'What do I do if the system goes down?', answer: 'Switch to manual order slips stored under the register. Notify your supervisor immediately.' },
-          { id: 'faq_ca_2', question: 'How do I handle a refund?', answer: 'Refunds must be approved by a supervisor. Do not process a refund without manager authorization.' },
-          { id: 'faq_ca_3', question: 'What if a customer complains about their order?', answer: 'Listen actively, apologize for the experience, and offer a replacement or speak with your supervisor for a refund decision.' },
-        ]
-      },
-    ]
-  },
-  {
-    id: 'tpl_food_safety',
-    name: 'Food Safety Certification',
-    role: null,
-    sections: [
-      {
-        id: 'sec_fs_videos',
-        title: 'Video Modules',
-        requiresSignOff: true,
-        isFaq: false,
-        items: [
-          {
-            id: 'vs_fs_servsafe',
-            type: 'video_series',
-            label: 'ServSafe Overview',
-            parts: [
-              { id: 'vp_fs_sv_1', title: 'Part 1: Personal Hygiene', desc: 'Handwashing, illness policies, and personal cleanliness', url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
-              { id: 'vp_fs_sv_2', title: 'Part 2: Safe Food Handling', desc: 'Receiving, storing, and preparing food safely', url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
-              { id: 'vp_fs_sv_3', title: 'Part 3: Cleaning and Sanitation', desc: 'Cleaning schedules and sanitizer concentration', url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
-            ]
-          },
-        ]
-      },
-      {
-        id: 'sec_fs_faq',
-        title: 'FAQ',
-        requiresSignOff: false,
-        isFaq: true,
-        items: [
-          { id: 'faq_fs_1', question: 'Do I need a food handler card?', answer: 'Yes. You must obtain a valid food handler card within 30 days of your start date. Keep a copy on file with HR.' },
-          { id: 'faq_fs_2', question: 'Who do I contact with food safety concerns?', answer: 'Report any food safety concerns immediately to your shift supervisor or the owner directly via the Yumyums HQ app.' },
-        ]
-      },
-    ]
-  },
-];
-const SECTION_STATES = {};
-const OB_CHECKS = {};
-const FAQ_VIEWED = {};
-const EXPANDED_SECTIONS = {};
-const EXPANDED_FAQS = {};
-let obState = { view: 'list', activeHireId: null, activeTemplateIdx: 0 };
-let mgrState = { view: 'list', subView: 'active', activeHireId: null, activeTemplateIdx: 0 };
+// === State ===
+let CURRENT_USER = null;
+let MY_TRAININGS = [];
+let CURRENT_TRAINING = null;
+let MANAGER_HIRES = [];
+let TEMPLATES = [];
+let EXPANDED_SECTIONS = {};
+let EXPANDED_FAQS = {};
+let obState = { view: 'list', activeTrainingId: null, activeTemplateId: null };
+let mgrState = { view: 'list', subView: 'active', activeHireId: null, activeHireName: null, activeTemplateId: null };
+let obBuilderState = { view: 'list', activeTemplate: null, localCopy: null };
 let assignPickerOpen = null;
-let obBuilderState = { view: 'list', activeTemplate: null };
-function isManager() {
-  return ['admin','manager','superadmin'].includes(MOCK_CURRENT_USER.role);
+// Track save-retry counts per item
+let SAVE_RETRY = {};
+// Track pending sign-off form state per section
+let SIGNOFF_FORM = {};
+
+// === API wrapper ===
+async function api(method, path, body) {
+  var opts = { method: method, headers: { 'Content-Type': 'application/json' } };
+  if (body) opts.body = JSON.stringify(body);
+  var res = await fetch(path, opts);
+  if (res.status === 401) { window.location.href = '/login.html'; throw new Error('unauthorized'); }
+  if (res.status === 204) return null;
+  var data = await res.json();
+  if (!res.ok) throw data;
+  return data;
 }
-function getMyHire() {
-  return MOCK_HIRES.find(h => h.userId === MOCK_CURRENT_USER.id);
+
+// === Helpers ===
+function escapeOBAttr(str) {
+  return String(str || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
-function initSectionStates(hire) {
-  if (!hire) return;
-  if (SECTION_STATES[hire.id]) return;
-  SECTION_STATES[hire.id] = {};
-  hire.assignedTemplates.forEach(tplId => {
-    var tpl = MOCK_OB_TEMPLATES.find(t => t.id === tplId);
-    if (!tpl) return;
-    tpl.sections.forEach((sec, idx) => {
-      SECTION_STATES[hire.id][sec.id] = idx === 0 ? 'active' : 'locked';
-    });
-  });
-}
-function isSectionComplete(hireId, section) {
-  if (section.isFaq) return FAQ_VIEWED[hireId] === true;
-  for (var i = 0; i < section.items.length; i++) {
-    var item = section.items[i];
-    if (item.type === 'checkbox') {
-      if (!OB_CHECKS[item.id]) return false;
-    } else if (item.type === 'video_series') {
-      for (var j = 0; j < item.parts.length; j++) {
-        if (!OB_CHECKS[item.parts[j].id]) return false;
-      }
-    }
+function renderSkeletons(containerId, count) {
+  var el = document.getElementById(containerId);
+  if (!el) return;
+  var html = '';
+  for (var i = 0; i < count; i++) {
+    html += '<div class="skeleton-row" style="height:70px;margin-bottom:8px"></div>';
   }
-  return true;
-}
-function canUnlockNext(hireId, sections, currentIndex) {
-  var sec = sections[currentIndex];
-  var state = SECTION_STATES[hireId][sec.id];
-  if (!isSectionComplete(hireId, sec)) return false;
-  if (sec.requiresSignOff && state !== 'signed_off') return false;
-  return true;
-}
-function tryAdvanceSections(hireId, tplId) {
-  var tpl = MOCK_OB_TEMPLATES.find(t => t.id === tplId);
-  if (!tpl) return;
-  var sections = tpl.sections;
-  for (var i = 0; i < sections.length - 1; i++) {
-    var sec = sections[i];
-    var nextSec = sections[i + 1];
-    var nextState = SECTION_STATES[hireId][nextSec.id];
-    if (canUnlockNext(hireId, sections, i) && nextState === 'locked') {
-      SECTION_STATES[hireId][nextSec.id] = 'active';
-    }
-  }
-}
-function getSectionItemCount(section) {
-  var total = 0;
-  section.items.forEach(function(item) {
-    if (item.type === 'checkbox') total++;
-    else if (item.type === 'video_series') total += item.parts.length;
-  });
-  return total;
-}
-function getSectionCheckedCount(section) {
-  var checked = 0;
-  section.items.forEach(function(item) {
-    if (item.type === 'checkbox') {
-      if (OB_CHECKS[item.id]) checked++;
-    } else if (item.type === 'video_series') {
-      item.parts.forEach(function(p) {
-        if (OB_CHECKS[p.id]) checked++;
-      });
-    }
-  });
-  return checked;
-}
-function getProgress(hireId, template) {
-  var total = 0, checked = 0;
-  template.sections.forEach(function(sec) {
-    if (sec.isFaq) return;
-    sec.items.forEach(function(item) {
-      if (item.type === 'checkbox') {
-        total++;
-        if (OB_CHECKS[item.id]) checked++;
-      } else if (item.type === 'video_series') {
-        item.parts.forEach(function(p) {
-          total++;
-          if (OB_CHECKS[p.id]) checked++;
-        });
-      }
-    });
-  });
-  return { checked: checked, total: total, pct: total > 0 ? Math.round((checked / total) * 100) : 0 };
-}
-function show(n) {
-  [1,2,3].forEach(function(i) {
-    document.getElementById('s'+i).style.display = i===n ? '' : 'none';
-    document.getElementById('t'+i).classList.toggle('on', i===n);
-  });
-  if (n === 1) { obState.view = 'list'; renderMyTrainings(); }
-  if (n === 2) { mgrState.view = 'list'; renderManager(); }
-  if (n === 3) renderOBBuilder();
+  el.innerHTML = html;
 }
 function generateOBId(prefix) {
   return prefix + '_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
 }
 function createNewOBTemplate(name, role) {
-  return { id: generateOBId('tpl'), name: name, role: role, sections: [] };
+  return { id: null, name: name, role: role, sections: [] };
 }
 function createNewOBSection(title) {
-  return { id: generateOBId('sec'), title: title, requiresSignOff: false, isFaq: false, items: [] };
+  return { id: generateOBId('sec'), title: title, requires_sign_off: false, is_faq: false, items: [] };
 }
 function createNewOBCheckbox(label) {
-  return { id: generateOBId('itm'), type: 'checkbox', label: label || '', subItems: [] };
+  return { id: generateOBId('itm'), type: 'checkbox', label: label || '', sub_items: [] };
 }
 function createNewOBVideoSeries(label) {
   return { id: generateOBId('vs'), type: 'video_series', label: label || '', parts: [] };
@@ -371,39 +151,335 @@ function createNewOBVideoPart() {
 function createNewOBFaqItem() {
   return { id: generateOBId('faq'), question: '', answer: '' };
 }
-function escapeOBAttr(str) {
-  return String(str || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+function formatDate(dateStr) {
+  if (!dateStr) return '';
+  var d = new Date(dateStr);
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
-var obSortableInstances = [];
-function initOBSortable() {
-  obSortableInstances.forEach(function(s) { s.destroy(); });
-  obSortableInstances = [];
-  document.querySelectorAll('.ob-field-list').forEach(function(el) {
-    var secId = el.dataset.sectionId;
-    obSortableInstances.push(Sortable.create(el, {
-      handle: '.drag-handle',
-      animation: 150,
-      onEnd: function(evt) {
-        var sec = obBuilderState.activeTemplate.sections.find(function(s) { return s.id === secId; });
-        if (sec) {
-          var moved = sec.items.splice(evt.oldIndex, 1)[0];
-          sec.items.splice(evt.newIndex, 0, moved);
-        }
-      }
-    }));
+
+// === Tab switching ===
+function show(n) {
+  [1,2,3].forEach(function(i) {
+    document.getElementById('s'+i).style.display = i===n ? '' : 'none';
+    document.getElementById('t'+i).classList.toggle('on', i===n);
   });
-  var secList = document.querySelector('.ob-section-list');
-  if (secList) {
-    obSortableInstances.push(Sortable.create(secList, {
-      handle: '.ob-sec-drag',
-      animation: 150,
-      onEnd: function(evt) {
-        var moved = obBuilderState.activeTemplate.sections.splice(evt.oldIndex, 1)[0];
-        obBuilderState.activeTemplate.sections.splice(evt.newIndex, 0, moved);
-      }
-    }));
+  if (n === 1) { obState = { view: 'list', activeTrainingId: null, activeTemplateId: null }; loadMyTrainings(); }
+  if (n === 2) { mgrState = { view: 'list', subView: 'active', activeHireId: null, activeHireName: null, activeTemplateId: null }; loadManagerHires(); }
+  if (n === 3) { obBuilderState = { view: 'list', activeTemplate: null, localCopy: null }; loadTemplates(); }
+}
+
+// ==============================
+// TAB 1 — My Trainings
+// ==============================
+async function loadMyTrainings() {
+  renderSkeletons('my-body', 3);
+  try {
+    MY_TRAININGS = await api('GET', '/api/v1/onboarding/myTrainings');
+    renderMyList();
+  } catch(e) {
+    document.getElementById('my-body').innerHTML = '<div class="empty"><h3>Something went wrong.</h3><p>Check your connection and try again.</p></div>';
   }
 }
+
+function renderMyList() {
+  var el = document.getElementById('my-body');
+  if (!MY_TRAININGS || MY_TRAININGS.length === 0) {
+    el.innerHTML = '<div class="empty"><h3>No trainings assigned</h3><p>Your manager will assign training when you\'re ready.</p></div>';
+    return;
+  }
+  var html = '';
+  MY_TRAININGS.forEach(function(t) {
+    var pct = t.progress_pct || 0;
+    html += '<div class="card" style="cursor:pointer" data-action="open-my-training" data-template-id="'+t.template_id+'" data-training-id="'+escapeOBAttr(t.template_id)+'">';
+    html += '<div style="font-size:14px;font-weight:500;color:var(--txt);margin-bottom:8px">'+escapeOBAttr(t.template_name)+'</div>';
+    html += '<div style="height:4px;background:var(--brd);border-radius:2px;margin-bottom:6px;overflow:hidden"><div style="height:100%;background:#27ae60;border-radius:2px;width:'+pct+'%"></div></div>';
+    html += '<div style="font-size:12px;color:var(--mut)">'+t.sections_complete+' of '+t.sections_total+' sections complete</div>';
+    html += '</div>';
+  });
+  el.innerHTML = html;
+}
+
+async function openMyTraining(templateId) {
+  obState = { view: 'runner', activeTrainingId: CURRENT_USER.user_id, activeTemplateId: templateId };
+  renderSkeletons('my-body', 4);
+  try {
+    CURRENT_TRAINING = await api('GET', '/api/v1/onboarding/hireTraining/'+CURRENT_USER.user_id+'?templateId='+templateId);
+    renderMyRunner();
+  } catch(e) {
+    document.getElementById('my-body').innerHTML = '<div class="empty"><h3>Something went wrong.</h3><p>Check your connection and try again.</p></div>';
+  }
+}
+
+function renderMyRunner() {
+  if (!CURRENT_TRAINING) { loadMyTrainings(); return; }
+  var html = '';
+  html += '<span class="back" data-action="back-to-my-list" style="display:inline-flex;align-items:center;gap:4px;color:var(--info-tx);font-size:14px;font-weight:500;margin-bottom:16px;cursor:pointer">&#8249; My Trainings</span>';
+  html += '<div style="font-size:14px;font-weight:600;color:var(--txt);margin-bottom:16px">'+escapeOBAttr(CURRENT_TRAINING.template.name)+'</div>';
+  html += renderSections(CURRENT_TRAINING.sections, CURRENT_USER.user_id, false);
+  document.getElementById('my-body').innerHTML = html;
+}
+
+function renderSections(sections, hireId, readOnly) {
+  var html = '';
+  sections.forEach(function(sec) {
+    var state = sec.state || 'locked';
+    var isLocked = state === 'locked';
+    var isExpanded = !isLocked && EXPANDED_SECTIONS[sec.id];
+    var headerClass = 'sec-header' + (isLocked ? ' locked' : '');
+    var stateHtml = '';
+    if (isLocked) {
+      stateHtml = '<span style="font-size:12px;color:var(--mut)">&#128274; Locked</span>';
+    } else if (state === 'signed_off') {
+      var attr = sec.signoff ? 'Signed off by '+escapeOBAttr(sec.signoff.manager_name)+' &mdash; '+formatDate(sec.signoff.signed_off_at) : 'Signed off';
+      stateHtml = '<div style="text-align:right"><span style="font-size:12px;color:#27ae60;font-weight:500">&#10003; Signed Off</span><div class="attribution">'+attr+'</div></div>';
+    } else if (state === 'complete') {
+      if (sec.requires_sign_off) {
+        stateHtml = '<span class="pill pill-warn">Waiting for Sign-Off</span>';
+      } else {
+        stateHtml = '<span style="font-size:12px;color:#27ae60;font-weight:500">&#10003; Complete</span>';
+      }
+    } else {
+      // active
+      var totalItems = countSectionItems(sec);
+      var checkedItems = countCheckedItems(sec);
+      if (sec.is_faq) {
+        stateHtml = '<span style="font-size:12px;color:var(--mut)">FAQ</span>';
+      } else {
+        stateHtml = '<span style="font-size:12px;color:var(--mut)">'+checkedItems+'/'+totalItems+'</span>';
+      }
+    }
+    var chevron = isLocked ? '' : '<span style="font-size:12px;color:var(--mut);margin-left:4px">'+(isExpanded ? '&#9650;' : '&#9660;')+'</span>';
+    var actionAttr = isLocked ? '' : ' data-action="toggle-section" data-sec-id="'+sec.id+'" data-hire-id="'+hireId+'" data-read-only="'+(readOnly?'1':'0')+'"';
+    html += '<div class="'+headerClass+'"'+actionAttr+'>';
+    html += '<div style="display:flex;align-items:center;gap:6px"><span style="font-size:12px;font-weight:500;text-transform:uppercase;letter-spacing:0.5px">'+escapeOBAttr(sec.title)+'</span>'+chevron+'</div>';
+    html += stateHtml;
+    html += '</div>';
+    if (isExpanded) {
+      if (sec.is_faq) {
+        html += '<div class="sec-items">';
+        (sec.items || []).forEach(function(faqItem) {
+          var isOpen = EXPANDED_FAQS[faqItem.id];
+          html += '<div class="faq-q" data-action="toggle-faq" data-faq-id="'+faqItem.id+'">'+escapeOBAttr(faqItem.question)+'<span>'+(isOpen?'&#9650;':'&#9660;')+'</span></div>';
+          if (isOpen) html += '<div class="faq-a">'+escapeOBAttr(faqItem.answer)+'</div>';
+        });
+        html += '</div>';
+      } else {
+        html += '<div class="sec-items">';
+        (sec.items || []).forEach(function(item) {
+          if (item.type === 'checkbox') {
+            var checked = item.checked === true;
+            var checkClass = 'ob-check' + (checked ? ' checked' : '');
+            var canInteract = !readOnly && state === 'active';
+            var checkable = canInteract ? ' data-action="toggle-item" data-item-id="'+item.id+'" data-sec-id="'+sec.id+'" data-hire-id="'+hireId+'"' : '';
+            html += '<div class="item-row">';
+            html += '<div class="'+checkClass+'"'+checkable+(readOnly?' style="cursor:default"':'')+'>'+(checked?'&#10003;':'')+'</div>';
+            html += '<div style="flex:1"><div style="font-size:14px;font-weight:500">'+escapeOBAttr(item.label)+'</div>';
+            if (checked && item.checked_by) html += '<div class="attribution">Checked by '+escapeOBAttr(item.checked_by)+'</div>';
+            if (item._saveErr) html += '<span class="field-err">'+escapeOBAttr(item._saveErr)+' <span data-action="retry-item" data-item-id="'+item.id+'" data-sec-id="'+sec.id+'" data-hire-id="'+hireId+'" style="cursor:pointer;text-decoration:underline">Tap to retry.</span></span>';
+            html += '</div></div>';
+          } else if (item.type === 'video_series') {
+            html += '<div class="item-row" style="flex-direction:column;gap:4px;padding-bottom:4px">';
+            html += '<div style="font-size:12px;font-weight:500;text-transform:uppercase;letter-spacing:0.5px;color:var(--mut);padding-bottom:4px">'+escapeOBAttr(item.label)+'</div>';
+            html += '</div>';
+            (item.parts || []).forEach(function(part) {
+              var partChecked = part.checked === true;
+              var partCheckClass = 'ob-check' + (partChecked ? ' checked' : '');
+              var canInteract = !readOnly && state === 'active';
+              var partCheckable = canInteract ? ' data-action="toggle-video-part" data-item-id="'+part.id+'" data-sec-id="'+sec.id+'" data-hire-id="'+hireId+'"' : '';
+              html += '<div class="item-row">';
+              html += '<div class="'+partCheckClass+'"'+partCheckable+(readOnly?' style="cursor:default"':'')+'>'+(partChecked?'&#10003;':'')+'</div>';
+              html += '<div style="flex:1">';
+              html += '<div style="font-size:14px;font-weight:500">'+escapeOBAttr(part.title)+'</div>';
+              html += '<div style="font-size:12px;color:var(--mut);margin-top:2px">'+escapeOBAttr(part.desc)+'</div>';
+              if (partChecked && part.checked_by) html += '<div class="attribution">Checked by '+escapeOBAttr(part.checked_by)+'</div>';
+              if (part._saveErr) html += '<span class="field-err">'+escapeOBAttr(part._saveErr)+' <span data-action="retry-part" data-item-id="'+part.id+'" data-sec-id="'+sec.id+'" data-hire-id="'+hireId+'" style="cursor:pointer;text-decoration:underline">Tap to retry.</span></span>';
+              html += '</div>';
+              html += '<a class="video-link" data-action="watch-video" data-url="'+escapeOBAttr(part.url)+'" href="#">Watch Video</a>';
+              html += '</div>';
+            });
+          }
+        });
+        html += '</div>';
+        // Sign-off actions
+        if (readOnly && state !== 'signed_off' && sec.requires_sign_off && (state === 'complete' || state === 'active')) {
+          var sfKey = hireId + '_' + sec.id;
+          if (SIGNOFF_FORM[sfKey]) {
+            html += renderSignOffForm(sec, hireId);
+          } else {
+            if (state === 'complete') {
+              html += '<div class="sec-actions"><button class="btn-approve" data-action="show-signoff-form" data-sec-id="'+sec.id+'" data-hire-id="'+hireId+'">Sign Off Section</button></div>';
+            }
+          }
+        }
+      }
+    }
+  });
+  return html;
+}
+
+function countSectionItems(sec) {
+  var total = 0;
+  (sec.items || []).forEach(function(item) {
+    if (item.type === 'checkbox') total++;
+    else if (item.type === 'video_series') total += (item.parts || []).length;
+  });
+  return total;
+}
+
+function countCheckedItems(sec) {
+  var checked = 0;
+  (sec.items || []).forEach(function(item) {
+    if (item.type === 'checkbox' && item.checked) checked++;
+    else if (item.type === 'video_series') (item.parts || []).forEach(function(p) { if (p.checked) checked++; });
+  });
+  return checked;
+}
+
+function findItemInTraining(training, itemId, isSec) {
+  if (!training) return null;
+  for (var s = 0; s < training.sections.length; s++) {
+    var sec = training.sections[s];
+    if (isSec && sec.id === itemId) return sec;
+    for (var i = 0; i < (sec.items||[]).length; i++) {
+      var item = sec.items[i];
+      if (!isSec && item.id === itemId) return item;
+      if (item.type === 'video_series') {
+        for (var p = 0; p < (item.parts||[]).length; p++) {
+          if (!isSec && item.parts[p].id === itemId) return item.parts[p];
+        }
+      }
+    }
+  }
+  return null;
+}
+
+async function saveProgress(itemId, progressType, checked, sections, hireId) {
+  try {
+    await api('POST', '/api/v1/onboarding/saveProgress', { item_id: itemId, progress_type: progressType, checked: checked });
+    SAVE_RETRY[itemId] = 0;
+    return true;
+  } catch(e) {
+    SAVE_RETRY[itemId] = (SAVE_RETRY[itemId] || 0) + 1;
+    return false;
+  }
+}
+
+function recomputeSectionState(sec) {
+  // Re-check if section complete based on local item states
+  if (sec.is_faq) return;
+  var total = countSectionItems(sec);
+  var checked = countCheckedItems(sec);
+  if (total > 0 && checked === total) {
+    if (sec.state === 'active') sec.state = 'complete';
+  } else {
+    if (sec.state === 'complete') sec.state = 'active';
+  }
+}
+
+// ==============================
+// TAB 2 — Manager
+// ==============================
+async function loadManagerHires() {
+  renderSkeletons('mgr-body', 3);
+  try {
+    MANAGER_HIRES = await api('GET', '/api/v1/onboarding/managerHires');
+    renderManagerList();
+  } catch(e) {
+    document.getElementById('mgr-body').innerHTML = '<div class="empty"><h3>Something went wrong.</h3><p>Check your connection and try again.</p></div>';
+  }
+}
+
+function renderManagerList() {
+  var subTabsHtml = '<div class="sub-tabs">';
+  subTabsHtml += '<button class="'+(mgrState.subView==='active'?'on':'')+'" data-action="switch-sub" data-sub="active">Active</button>';
+  subTabsHtml += '<button class="'+(mgrState.subView==='completed'?'on':'')+'" data-action="switch-sub" data-sub="completed">Completed</button>';
+  subTabsHtml += '</div>';
+  var hires = MANAGER_HIRES || [];
+  // Filter by completion: a hire is complete if all their templates are at 100%
+  var filtered = hires.filter(function(h) {
+    var allDone = (h.assigned_templates||[]).length > 0 && (h.assigned_templates||[]).every(function(t) { return t.progress_pct >= 100; });
+    return mgrState.subView === 'completed' ? allDone : !allDone;
+  });
+  var listHtml = '';
+  if (filtered.length === 0) {
+    if (mgrState.subView === 'active') {
+      listHtml = '<div class="empty"><h3>No active hires</h3><p>Add a crew member in Users to get started.</p></div>';
+    } else {
+      listHtml = '<div class="empty"><h3>No completed onboardings yet.</h3><p>Finished onboardings will show here after all sections are signed off.</p></div>';
+    }
+  } else {
+    filtered.forEach(function(hire) {
+      listHtml += '<div class="card" style="cursor:pointer" data-action="open-hire" data-hire-id="'+hire.user_id+'" data-hire-name="'+escapeOBAttr(hire.display_name)+'">';
+      listHtml += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">';
+      listHtml += '<span style="font-size:14px;font-weight:500">'+escapeOBAttr(hire.display_name)+'</span>';
+      listHtml += '</div>';
+      (hire.assigned_templates||[]).forEach(function(t) {
+        var pct = t.progress_pct || 0;
+        listHtml += '<div style="font-size:12px;color:var(--mut);margin-bottom:4px">'+escapeOBAttr(t.template_name)+'</div>';
+        listHtml += '<div style="height:4px;background:var(--brd);border-radius:2px;margin-bottom:4px;overflow:hidden"><div style="height:100%;background:#27ae60;border-radius:2px;width:'+pct+'%"></div></div>';
+        listHtml += '<div style="font-size:12px;color:var(--mut);margin-bottom:8px">'+pct+'%</div>';
+      });
+      listHtml += '</div>';
+    });
+  }
+  document.getElementById('mgr-body').innerHTML = subTabsHtml + listHtml;
+}
+
+async function openHireTraining(hireId, hireName, templateId) {
+  mgrState = { view: 'runner', subView: mgrState.subView, activeHireId: hireId, activeHireName: hireName, activeTemplateId: templateId };
+  renderSkeletons('mgr-body', 4);
+  try {
+    CURRENT_TRAINING = await api('GET', '/api/v1/onboarding/hireTraining/'+hireId+'?templateId='+templateId);
+    renderMgrRunner();
+  } catch(e) {
+    document.getElementById('mgr-body').innerHTML = '<div class="empty"><h3>Something went wrong.</h3><p>Check your connection and try again.</p></div>';
+  }
+}
+
+function renderMgrRunner() {
+  if (!CURRENT_TRAINING) { loadManagerHires(); return; }
+  var html = '';
+  html += '<span class="back" data-action="back-to-hires" style="display:inline-flex;align-items:center;gap:4px;color:var(--info-tx);font-size:14px;font-weight:500;margin-bottom:16px;cursor:pointer">&#8249; All Hires</span>';
+  html += '<div style="font-size:14px;font-weight:600;color:var(--txt);margin-bottom:16px">'+escapeOBAttr(mgrState.activeHireName)+' &mdash; '+escapeOBAttr(CURRENT_TRAINING.template.name)+'</div>';
+  html += renderSections(CURRENT_TRAINING.sections, mgrState.activeHireId, true);
+  document.getElementById('mgr-body').innerHTML = html;
+}
+
+function renderSignOffForm(sec, hireId) {
+  var sfKey = hireId + '_' + sec.id;
+  var formState = SIGNOFF_FORM[sfKey] || { notes: '', rating: '' };
+  var canConfirm = formState.notes && formState.notes.trim() && formState.rating;
+  var html = '<div class="signoff-form" data-sec-id="'+sec.id+'" data-hire-id="'+hireId+'">';
+  html += '<div style="font-size:14px;font-weight:600;margin-bottom:12px">Sign Off: '+escapeOBAttr(sec.title)+'</div>';
+  html += '<div class="field"><label>Notes</label>';
+  html += '<textarea data-action="signoff-notes" data-sec-id="'+sec.id+'" data-hire-id="'+hireId+'" placeholder="What went well? Any concerns?" rows="3">'+escapeOBAttr(formState.notes)+'</textarea></div>';
+  html += '<div class="field"><label>Readiness</label>';
+  html += '<div class="rating-group">';
+  ['Ready','Needs Practice','Struggling'].forEach(function(r) {
+    var isOn = formState.rating === r;
+    html += '<button class="rating-btn'+(isOn?' on':'')+'" data-action="signoff-rating" data-sec-id="'+sec.id+'" data-hire-id="'+hireId+'" data-rating="'+r+'">'+r+'</button>';
+  });
+  html += '</div></div>';
+  if (formState.err) html += '<span class="field-err">'+escapeOBAttr(formState.err)+'</span>';
+  html += '<button class="btn-approve" '+(canConfirm?'':'disabled')+'data-action="confirm-signoff" data-sec-id="'+sec.id+'" data-hire-id="'+hireId+'">Confirm Sign-Off</button>';
+  html += '<button class="btn-secondary" data-action="cancel-signoff" data-sec-id="'+sec.id+'" data-hire-id="'+hireId+'">Never Mind</button>';
+  html += '</div>';
+  return html;
+}
+
+// ==============================
+// TAB 3 — Builder
+// ==============================
+async function loadTemplates() {
+  renderSkeletons('builder-body', 3);
+  try {
+    TEMPLATES = await api('GET', '/api/v1/onboarding/templates');
+    renderOBBuilder();
+  } catch(e) {
+    document.getElementById('builder-body').innerHTML = '<div class="empty"><h3>Something went wrong.</h3><p>Check your connection and try again.</p></div>';
+  }
+}
+
 function renderOBBuilder() {
   var body = document.getElementById('builder-body');
   if (!body) return;
@@ -411,17 +487,18 @@ function renderOBBuilder() {
     body.innerHTML = renderOBTemplateList();
   } else {
     body.innerHTML = renderOBEditor();
+    initOBSortable();
   }
-  if (obBuilderState.view === 'editor') initOBSortable();
 }
+
 function renderOBTemplateList() {
   var html = '';
-  if (MOCK_OB_TEMPLATES.length === 0) {
+  if (!TEMPLATES || TEMPLATES.length === 0) {
     html += '<div class="empty"><h3>No templates yet.</h3><p>Create your first onboarding template to get started.</p></div>';
   } else {
-    MOCK_OB_TEMPLATES.forEach(function(tpl) {
+    TEMPLATES.forEach(function(tpl) {
       var roleLabel = tpl.role ? tpl.role.replace(/_/g,' ') : 'All roles';
-      var secCount = tpl.sections.length;
+      var secCount = (tpl.sections||[]).length;
       html += '<div class="card" style="cursor:pointer" data-action="open-template" data-tpl-id="'+tpl.id+'">';
       html += '<div style="font-size:14px;font-weight:500;margin-bottom:4px">'+escapeOBAttr(tpl.name)+'</div>';
       html += '<div style="font-size:12px;color:var(--mut);text-transform:capitalize">'+escapeOBAttr(roleLabel)+'</div>';
@@ -432,6 +509,7 @@ function renderOBTemplateList() {
   html += '<button class="btn-primary" data-action="new-template">+ New Template</button>';
   return html;
 }
+
 function renderOBCheckboxItem(item, secId, idx) {
   var html = '<div class="ob-item-card" data-item-id="'+item.id+'">';
   html += '<div class="ob-item-header">';
@@ -440,7 +518,7 @@ function renderOBCheckboxItem(item, secId, idx) {
   html += '<span style="font-size:11px;color:var(--mut);white-space:nowrap">Checkbox</span>';
   html += '<span data-action="delete-ob-item" data-sec-id="'+secId+'" data-item-idx="'+idx+'" style="color:#c0392b;cursor:pointer;font-size:14px">&#10005;</span>';
   html += '</div>';
-  var subItems = item.subItems || [];
+  var subItems = item.sub_items || item.subItems || [];
   html += '<div class="ob-item-body">';
   subItems.forEach(function(sub, subIdx) {
     html += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">';
@@ -453,6 +531,7 @@ function renderOBCheckboxItem(item, secId, idx) {
   html += '</div>';
   return html;
 }
+
 function renderOBVideoItem(item, secId, idx) {
   var html = '<div class="ob-item-card" data-item-id="'+item.id+'">';
   html += '<div class="ob-item-header">';
@@ -478,9 +557,10 @@ function renderOBVideoItem(item, secId, idx) {
   html += '</div>';
   return html;
 }
+
 function renderOBSection(sec) {
-  var soStyle = sec.requiresSignOff ? 'background:rgba(39,174,96,0.12);color:#27ae60' : 'background:var(--brd);color:var(--mut)';
-  var faqStyle = sec.isFaq ? 'background:rgba(39,174,96,0.12);color:#27ae60' : 'background:var(--brd);color:var(--mut)';
+  var soStyle = sec.requires_sign_off ? 'background:rgba(39,174,96,0.12);color:#27ae60' : 'background:var(--brd);color:var(--mut)';
+  var faqStyle = sec.is_faq ? 'background:rgba(39,174,96,0.12);color:#27ae60' : 'background:var(--brd);color:var(--mut)';
   var html = '<div class="card" style="margin-bottom:8px" data-sec-id="'+sec.id+'">';
   html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">';
   html += '<div style="display:flex;align-items:center;gap:6px">';
@@ -488,15 +568,15 @@ function renderOBSection(sec) {
   html += '<span style="font-size:12px;font-weight:500;text-transform:uppercase;letter-spacing:0.5px;color:var(--mut)">'+escapeOBAttr(sec.title)+'</span>';
   html += '</div>';
   html += '<div style="display:flex;gap:4px;align-items:center">';
-  html += '<button class="pill'+(sec.requiresSignOff?' pill-ok':'')+'" data-action="toggle-signoff" data-sec-id="'+sec.id+'" style="cursor:pointer;border:none;font-size:11px;padding:2px 8px;border-radius:8px;'+soStyle+'">Require Sign-off</button>';
-  html += '<button class="pill'+(sec.isFaq?' pill-ok':'')+'" data-action="toggle-faq-mode" data-sec-id="'+sec.id+'" style="cursor:pointer;border:none;font-size:11px;padding:2px 8px;border-radius:8px;'+faqStyle+'">FAQ</button>';
+  html += '<button class="pill'+(sec.requires_sign_off?' pill-ok':'')+'" data-action="toggle-signoff" data-sec-id="'+sec.id+'" style="cursor:pointer;border:none;font-size:11px;padding:2px 8px;border-radius:8px;'+soStyle+'">Require Sign-off</button>';
+  html += '<button class="pill'+(sec.is_faq?' pill-ok':'')+'" data-action="toggle-faq-mode" data-sec-id="'+sec.id+'" style="cursor:pointer;border:none;font-size:11px;padding:2px 8px;border-radius:8px;'+faqStyle+'">FAQ</button>';
   html += '<span data-action="delete-ob-section" data-sec-id="'+sec.id+'" style="color:#c0392b;cursor:pointer;font-size:14px;margin-left:8px">&#10005;</span>';
   html += '</div>';
   html += '</div>';
   html += '<input type="text" value="'+escapeOBAttr(sec.title)+'" data-action="sec-title-input" data-sec-id="'+sec.id+'" placeholder="Section title" style="width:100%;padding:8px 10px;background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;font-size:13px;color:var(--txt);font-family:inherit;outline:none;margin-bottom:8px">';
-  if (sec.isFaq) {
+  if (sec.is_faq) {
     var faqHtml = '<div class="ob-field-list" data-section-id="'+sec.id+'">';
-    sec.items.forEach(function(faqItem, idx) {
+    (sec.items || []).forEach(function(faqItem, idx) {
       faqHtml += '<div class="ob-qna-row" data-item-id="'+faqItem.id+'">'+
         '<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">'+
         '<span class="drag-handle">&#9776;</span>'+
@@ -511,7 +591,7 @@ function renderOBSection(sec) {
     html += faqHtml;
   } else {
     var itemsHtml = '<div class="ob-field-list" data-section-id="'+sec.id+'">';
-    sec.items.forEach(function(item, idx) {
+    (sec.items || []).forEach(function(item, idx) {
       if (item.type === 'checkbox') {
         itemsHtml += renderOBCheckboxItem(item, sec.id, idx);
       } else if (item.type === 'video_series') {
@@ -528,327 +608,88 @@ function renderOBSection(sec) {
   html += '</div>';
   return html;
 }
+
 function renderOBEditor() {
-  var tpl = obBuilderState.activeTemplate;
+  var tpl = obBuilderState.localCopy;
   if (!tpl) return '';
   var html = '';
   html += '<span class="back" data-action="back-to-templates" style="display:inline-flex;align-items:center;gap:4px;font-size:14px;font-weight:500;margin-bottom:16px;cursor:pointer">&#8249; Templates</span>';
+  html += '<div style="display:flex;gap:8px;margin-bottom:12px">';
+  html += '<button class="btn-primary" data-action="save-template" style="margin-top:0;flex:1">Save</button>';
+  html += '<button class="btn-secondary" data-action="discard-template" style="margin-top:0;flex:1">Discard</button>';
+  html += '</div>';
   html += '<input type="text" value="'+escapeOBAttr(tpl.name)+'" data-action="tpl-name-input" placeholder="Template name" style="width:100%;padding:10px 12px;background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;font-size:14px;color:var(--txt);font-family:inherit;outline:none;margin-bottom:8px">';
   html += '<select data-action="tpl-role-select" style="width:100%;padding:10px 12px;background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;font-size:14px;color:var(--txt);font-family:inherit;outline:none;margin-bottom:16px">';
-  html += '<option value=""'+(tpl.role===null?' selected':'')+'>All roles</option>';
+  html += '<option value=""'+(tpl.role===null||tpl.role===''?' selected':'')+'>All roles</option>';
   ['line_cook','cashier','manager','admin'].forEach(function(r) {
     html += '<option value="'+r+'"'+(tpl.role===r?' selected':'')+'>'+r.replace(/_/g,' ')+'</option>';
   });
   html += '</select>';
   html += '<div class="ob-section-list">';
-  tpl.sections.forEach(function(sec) {
+  (tpl.sections||[]).forEach(function(sec) {
     html += renderOBSection(sec);
   });
   html += '</div>';
   html += '<button class="btn-primary" data-action="add-ob-section" style="margin-top:8px">+ Add Section</button>';
-  html += '<button style="width:100%;padding:12px;background:transparent;color:#c0392b;border:0.5px solid #c0392b;border-radius:8px;font-size:14px;font-weight:500;cursor:pointer;margin-top:24px" data-action="delete-template">Delete Template</button>';
+  if (tpl.id) {
+    html += '<button style="width:100%;padding:12px;background:transparent;color:#c0392b;border:0.5px solid #c0392b;border-radius:8px;font-size:14px;font-weight:500;cursor:pointer;margin-top:24px" data-action="delete-template">Delete Template</button>';
+  }
   return html;
 }
-function renderMyTrainings() {
-  if (obState.view === 'list') renderMyList();
-  else renderRunner();
-}
-function renderMyList() {
-  var hire = getMyHire();
-  var el = document.getElementById('my-body');
-  if (!hire) {
-    el.innerHTML = '<div class="empty"><h3>No trainings yet.</h3><p>Your onboarding checklist will appear here once assigned by your manager.</p></div>';
-    return;
-  }
-  var html = '';
-  hire.assignedTemplates.forEach(function(tplId, idx) {
-    var tpl = MOCK_OB_TEMPLATES.find(t => t.id === tplId);
-    if (!tpl) return;
-    var prog = getProgress(hire.id, tpl);
-    html += '<div class="card" style="cursor:pointer" data-action="open-checklist" data-tpl-idx="'+idx+'">';
-    html += '<div style="font-size:14px;font-weight:500;color:var(--txt);margin-bottom:8px">'+tpl.name+'</div>';
-    html += '<div style="height:4px;background:var(--brd);border-radius:2px;margin-bottom:6px;overflow:hidden"><div style="height:100%;background:#27ae60;border-radius:2px;width:'+prog.pct+'%"></div></div>';
-    html += '<div style="font-size:12px;color:var(--mut)">'+prog.checked+' of '+prog.total+' tasks complete</div>';
-    html += '</div>';
-  });
-  el.innerHTML = html;
-}
-function renderRunnerContent(hireId, tplIdx, readOnly) {
-  var hire = MOCK_HIRES.find(function(h) { return h.id === hireId; });
-  if (!hire) return '';
-  var tplId = hire.assignedTemplates[tplIdx];
-  var tpl = MOCK_OB_TEMPLATES.find(function(t) { return t.id === tplId; });
-  if (!tpl) return '';
-  var html = '';
-  html += '<div style="font-size:14px;font-weight:600;color:var(--txt);margin-bottom:16px">'+tpl.name+'</div>';
-  tpl.sections.forEach(function(sec) {
-    var state = SECTION_STATES[hire.id] ? SECTION_STATES[hire.id][sec.id] : 'locked';
-    var isLocked = state === 'locked';
-    var isExpanded = !isLocked && EXPANDED_SECTIONS[sec.id];
-    var totalItems = sec.isFaq ? 0 : getSectionItemCount(sec);
-    var checkedItems = sec.isFaq ? 0 : getSectionCheckedCount(sec);
-    var headerClass = 'sec-header' + (isLocked ? ' locked' : '');
-    var stateHtml = '';
-    if (isLocked) {
-      stateHtml = '<span style="font-size:12px;color:var(--mut)">&#128274; Locked</span>';
-    } else if (state === 'pending_signoff') {
-      stateHtml = '<span class="pill pill-warn">Pending Sign-Off</span>';
-    } else if (state === 'signed_off') {
-      stateHtml = '<span style="font-size:12px;color:#27ae60;font-weight:500">&#10003; Signed Off</span>';
-    } else if (sec.isFaq) {
-      if (FAQ_VIEWED[hire.id]) {
-        stateHtml = '<span style="font-size:12px;color:#27ae60;font-weight:500">Viewed &#10003;</span>';
-      } else {
-        stateHtml = '<span class="pill pill-warn">View Required</span>';
-      }
-    } else {
-      stateHtml = '<span style="font-size:12px;color:var(--mut)">'+checkedItems+'/'+totalItems+'</span>';
-    }
-    var chevron = isLocked ? '' : '<span style="font-size:12px;color:var(--mut);margin-left:4px">'+(isExpanded ? '&#9650;' : '&#9660;')+'</span>';
-    var actionAttr = isLocked ? '' : ' data-action="toggle-section" data-sec-id="'+sec.id+'" data-hire-id="'+hire.id+'" data-tpl-id="'+tplId+'"';
-    html += '<div class="'+headerClass+'"'+actionAttr+'>';
-    html += '<div style="display:flex;align-items:center;gap:6px"><span style="font-size:12px;font-weight:500;text-transform:uppercase;letter-spacing:0.5px">'+sec.title+'</span>'+chevron+'</div>';
-    html += stateHtml;
-    html += '</div>';
-    if (isExpanded) {
-      if (sec.isFaq) {
-        html += '<div class="sec-items">';
-        sec.items.forEach(function(faqItem) {
-          var isOpen = EXPANDED_FAQS[faqItem.id];
-          html += '<div class="faq-q" data-action="toggle-faq" data-faq-id="'+faqItem.id+'" data-hire-id="'+hire.id+'" data-tpl-id="'+tplId+'">'+faqItem.question+'<span>'+(isOpen ? '&#9650;' : '&#9660;')+'</span></div>';
-          if (isOpen) {
-            html += '<div class="faq-a">'+faqItem.answer+'</div>';
-          }
-        });
-        html += '</div>';
-      } else {
-        html += '<div class="sec-items">';
-        sec.items.forEach(function(item) {
-          if (item.type === 'checkbox') {
-            var checked = OB_CHECKS[item.id];
-            var checkClass = 'ob-check' + (checked ? ' checked' : '');
-            var checkable = (!readOnly && state === 'active') ? ' data-action="toggle-item" data-item-id="'+item.id+'" data-hire-id="'+hire.id+'" data-tpl-id="'+tplId+'"' : '';
-            var checkStyle = readOnly ? ' style="cursor:default"' : '';
-            html += '<div class="item-row">';
-            html += '<div class="'+checkClass+'"'+checkable+checkStyle+'>'+(checked ? '&#10003;' : '')+'</div>';
-            html += '<div style="flex:1"><div style="font-size:14px;font-weight:500">'+item.label+'</div>';
-            if (checked) {
-              html += '<div class="attribution">Checked by '+CURRENT_USER.name+'</div>';
-            }
-            html += '</div></div>';
-          } else if (item.type === 'video_series') {
-            html += '<div class="item-row" style="flex-direction:column;gap:4px;padding-bottom:4px">';
-            html += '<div style="font-size:12px;font-weight:500;text-transform:uppercase;letter-spacing:0.5px;color:var(--mut);padding-bottom:4px">'+item.label+'</div>';
-            html += '</div>';
-            item.parts.forEach(function(part) {
-              var partChecked = OB_CHECKS[part.id];
-              var partCheckClass = 'ob-check' + (partChecked ? ' checked' : '');
-              var partCheckable = (!readOnly && state === 'active') ? ' data-action="toggle-video-part" data-item-id="'+part.id+'" data-hire-id="'+hire.id+'" data-tpl-id="'+tplId+'"' : '';
-              var partCheckStyle = readOnly ? ' style="cursor:default"' : '';
-              html += '<div class="item-row">';
-              html += '<div class="'+partCheckClass+'"'+partCheckable+partCheckStyle+'>'+(partChecked ? '&#10003;' : '')+'</div>';
-              html += '<div style="flex:1">';
-              html += '<div style="font-size:14px;font-weight:500">'+part.title+'</div>';
-              html += '<div style="font-size:12px;color:var(--mut);margin-top:2px">'+part.desc+'</div>';
-              if (partChecked) {
-                html += '<div class="attribution">Checked by '+CURRENT_USER.name+'</div>';
-              }
-              html += '</div>';
-              html += '<a class="video-link" data-action="watch-video" data-url="'+part.url+'" href="#">Watch Video</a>';
-              html += '</div>';
-            });
-          }
-        });
-        html += '</div>';
-        if (!readOnly && sec.requiresSignOff && state === 'active') {
-          var allChecked = isSectionComplete(hire.id, sec);
-          if (allChecked) {
-            html += '<div class="sec-actions"><button class="btn-primary" data-action="request-signoff" data-sec-id="'+sec.id+'" data-hire-id="'+hire.id+'" data-tpl-id="'+tplId+'">Request Sign-Off</button></div>';
-          }
-        }
-        if (readOnly && state === 'pending_signoff') {
-          html += '<div class="sec-actions">';
-          html += '<button class="btn-approve" data-action="approve-signoff" data-hire-id="'+hire.id+'" data-section-id="'+sec.id+'" data-tpl-id="'+tplId+'">Approve Section</button>';
-          html += '<button class="btn-danger" data-action="send-back" data-hire-id="'+hire.id+'" data-section-id="'+sec.id+'" data-tpl-id="'+tplId+'">Send Back</button>';
-          html += '</div>';
+
+var obSortableInstances = [];
+function initOBSortable() {
+  obSortableInstances.forEach(function(s) { s.destroy(); });
+  obSortableInstances = [];
+  document.querySelectorAll('.ob-field-list').forEach(function(el) {
+    var secId = el.dataset.sectionId;
+    obSortableInstances.push(Sortable.create(el, {
+      handle: '.drag-handle',
+      animation: 150,
+      onEnd: function(evt) {
+        var sec = (obBuilderState.localCopy.sections||[]).find(function(s) { return s.id === secId; });
+        if (sec) {
+          var moved = sec.items.splice(evt.oldIndex, 1)[0];
+          sec.items.splice(evt.newIndex, 0, moved);
         }
       }
-    }
+    }));
   });
-  return html;
-}
-function renderRunner() {
-  var hire = MOCK_HIRES.find(function(h) { return h.id === obState.activeHireId; });
-  if (!hire) { renderMyList(); return; }
-  var content = renderRunnerContent(obState.activeHireId, obState.activeTemplateIdx, false);
-  if (!content) { renderMyList(); return; }
-  var html = '';
-  html += '<span class="back" data-action="back-to-list" style="display:inline-flex;align-items:center;gap:4px;color:var(--info-tx);font-size:14px;font-weight:500;margin-bottom:16px;cursor:pointer">&#8249; My Trainings</span>';
-  html += content;
-  document.getElementById('my-body').innerHTML = html;
-}
-function renderManager() {
-  if (mgrState.view === 'list') {
-    var subTabsHtml = '<div class="sub-tabs">';
-    subTabsHtml += '<button class="'+(mgrState.subView==='active'?'on':'')+'" data-action="switch-sub" data-sub="active">Active</button>';
-    subTabsHtml += '<button class="'+(mgrState.subView==='completed'?'on':'')+'" data-action="switch-sub" data-sub="completed">Completed</button>';
-    subTabsHtml += '</div>';
-    document.getElementById('mgr-body').innerHTML = subTabsHtml + renderMgrList();
-  } else {
-    renderMgrRunner();
-  }
-}
-function isHireComplete(hire) {
-  var allTemplatesComplete = hire.assignedTemplates.every(function(tplId) {
-    var tpl = MOCK_OB_TEMPLATES.find(function(t) { return t.id === tplId; });
-    if (!tpl) return true;
-    return tpl.sections.every(function(sec) {
-      var state = SECTION_STATES[hire.id] ? SECTION_STATES[hire.id][sec.id] : 'locked';
-      if (sec.isFaq) return FAQ_VIEWED[hire.id] === true;
-      if (sec.requiresSignOff) return state === 'signed_off';
-      return isSectionComplete(hire.id, sec);
-    });
-  });
-  return allTemplatesComplete;
-}
-function renderMgrList() {
-  var html = '';
-  var filteredHires = MOCK_HIRES.filter(function(h) {
-    var complete = isHireComplete(h);
-    return mgrState.subView === 'active' ? !complete : complete;
-  });
-  if (filteredHires.length === 0) {
-    if (mgrState.subView === 'active') {
-      html += '<div class="empty"><h3>No active onboarding.</h3><p>New hires will appear here when added to the system.</p></div>';
-    } else {
-      html += '<div class="empty"><h3>No completed onboardings yet.</h3><p>Finished onboardings will show here after all sections are signed off.</p></div>';
-    }
-    return html;
-  }
-  filteredHires.forEach(function(hire) {
-    var roleLabel = hire.role ? hire.role.replace(/_/g, ' ') : 'crew';
-    var startDate = new Date(hire.startDate);
-    var startFmt = startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    html += '<div class="card" style="cursor:pointer" data-action="open-hire" data-hire-id="'+hire.id+'" data-tpl-idx="0">';
-    html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">';
-    html += '<span style="font-size:14px;font-weight:500">'+hire.name+'</span>';
-    html += '<span class="pill" style="background:var(--info-bg);color:var(--info-tx)">'+roleLabel+'</span>';
-    html += '</div>';
-    var pendingCount = 0;
-    if (SECTION_STATES[hire.id]) {
-      Object.keys(SECTION_STATES[hire.id]).forEach(function(secId) {
-        if (SECTION_STATES[hire.id][secId] === 'pending_signoff') pendingCount++;
-      });
-    }
-    if (pendingCount > 0) {
-      html += '<div style="background:#faeeda;color:#854f0b;font-size:12px;font-weight:500;padding:4px 8px;border-radius:6px;margin-bottom:6px;display:inline-block">⏳ '+pendingCount+' section'+(pendingCount>1?'s':'')+' awaiting sign-off</div>';
-    }
-    html += '<div style="font-size:12px;color:var(--mut);margin-bottom:8px">Started '+startFmt+'</div>';
-    hire.assignedTemplates.forEach(function(tplId) {
-      var tpl = MOCK_OB_TEMPLATES.find(function(t) { return t.id === tplId; });
-      if (!tpl) return;
-      var prog = getProgress(hire.id, tpl);
-      html += '<div style="font-size:12px;color:var(--mut);margin-bottom:4px">'+tpl.name+'</div>';
-      html += '<div style="height:4px;background:var(--brd);border-radius:2px;margin-bottom:4px;overflow:hidden"><div style="height:100%;background:#27ae60;border-radius:2px;width:'+prog.pct+'%"></div></div>';
-      html += '<div style="font-size:12px;color:var(--mut);margin-bottom:8px">'+prog.pct+'% &mdash; '+prog.checked+'/'+prog.total+' tasks</div>';
-    });
-    html += '</div>';
-    if (mgrState.subView === 'active') {
-      var pickerOpen = assignPickerOpen === hire.id;
-      html += '<div style="text-align:center;margin-bottom:8px">';
-      html += '<span style="font-size:14px;font-weight:500;color:var(--info-tx);cursor:pointer" data-action="show-assign" data-hire-id="'+hire.id+'">+ Assign Training</span>';
-      html += '</div>';
-      if (pickerOpen) {
-        var unassigned = MOCK_OB_TEMPLATES.filter(function(tpl) {
-          return !hire.assignedTemplates.includes(tpl.id);
-        });
-        html += '<div class="assign-picker">';
-        if (unassigned.length === 0) {
-          html += '<div style="font-size:14px;color:var(--mut);padding:8px 12px">No additional trainings available.</div>';
-        } else {
-          unassigned.forEach(function(tpl) {
-            html += '<div class="assign-row" data-action="assign-training" data-hire-id="'+hire.id+'" data-tpl-id="'+tpl.id+'">'+tpl.name+'</div>';
-          });
-        }
-        html += '</div>';
+  var secList = document.querySelector('.ob-section-list');
+  if (secList) {
+    obSortableInstances.push(Sortable.create(secList, {
+      handle: '.ob-sec-drag',
+      animation: 150,
+      onEnd: function(evt) {
+        var moved = obBuilderState.localCopy.sections.splice(evt.oldIndex, 1)[0];
+        obBuilderState.localCopy.sections.splice(evt.newIndex, 0, moved);
       }
-    }
-  });
-  return html;
+    }));
+  }
 }
-function renderMgrRunner() {
-  var hire = MOCK_HIRES.find(function(h) { return h.id === mgrState.activeHireId; });
-  if (!hire) { mgrState.view = 'list'; renderManager(); return; }
-  var content = renderRunnerContent(mgrState.activeHireId, mgrState.activeTemplateIdx, true);
-  if (!content) { mgrState.view = 'list'; renderManager(); return; }
-  var html = '';
-  html += '<span class="back" data-action="back-to-hires" style="display:inline-flex;align-items:center;gap:4px;color:var(--info-tx);font-size:14px;font-weight:500;margin-bottom:16px;cursor:pointer">&#8249; All Hires</span>';
-  html += content;
-  document.getElementById('mgr-body').innerHTML = html;
-}
-document.getElementById('my-body').addEventListener('click', function(e) {
+
+// ==============================
+// EVENT DELEGATION — my-body
+// ==============================
+document.getElementById('my-body').addEventListener('click', async function(e) {
   var btn = e.target.closest('[data-action]');
   if (!btn) return;
   var action = btn.dataset.action;
-  if (action === 'open-checklist') {
-    var hire = getMyHire();
-    if (!hire) return;
-    obState = { view: 'runner', activeHireId: hire.id, activeTemplateIdx: +(btn.dataset.tplIdx || 0) };
-    initSectionStates(hire);
-    renderMyTrainings();
-  } else if (action === 'back-to-list') {
-    obState = { view: 'list', activeHireId: null, activeTemplateIdx: 0 };
-    renderMyTrainings();
+  if (action === 'open-my-training') {
+    var templateId = btn.dataset.templateId;
+    await openMyTraining(templateId);
+  } else if (action === 'back-to-my-list') {
+    obState = { view: 'list', activeTrainingId: null, activeTemplateId: null };
+    CURRENT_TRAINING = null;
+    await loadMyTrainings();
   } else if (action === 'toggle-section') {
     var secId = btn.dataset.secId;
-    var hireId = btn.dataset.hireId;
-    var tplId = btn.dataset.tplId;
-    var tpl = MOCK_OB_TEMPLATES.find(t => t.id === tplId);
-    var sec = tpl ? tpl.sections.find(s => s.id === secId) : null;
     if (EXPANDED_SECTIONS[secId]) {
       delete EXPANDED_SECTIONS[secId];
     } else {
       EXPANDED_SECTIONS[secId] = true;
-      if (sec && sec.isFaq) {
-        FAQ_VIEWED[hireId] = true;
-        tryAdvanceSections(hireId, tplId);
-      }
     }
-    renderMyTrainings();
-  } else if (action === 'toggle-item') {
-    var itemId = btn.dataset.itemId;
-    var hireId = btn.dataset.hireId;
-    var tplId = btn.dataset.tplId;
-    if (OB_CHECKS[itemId]) {
-      delete OB_CHECKS[itemId];
-    } else {
-      OB_CHECKS[itemId] = { checked: true, checkedBy: CURRENT_USER.name, checkedAt: new Date() };
-    }
-    tryAdvanceSections(hireId, tplId);
-    renderMyTrainings();
-  } else if (action === 'toggle-video-part') {
-    var itemId = btn.dataset.itemId;
-    var hireId = btn.dataset.hireId;
-    var tplId = btn.dataset.tplId;
-    if (OB_CHECKS[itemId]) {
-      delete OB_CHECKS[itemId];
-    } else {
-      OB_CHECKS[itemId] = { checked: true, checkedBy: CURRENT_USER.name, checkedAt: new Date() };
-    }
-    tryAdvanceSections(hireId, tplId);
-    renderMyTrainings();
-  } else if (action === 'watch-video') {
-    e.preventDefault();
-    window.open(btn.dataset.url, '_blank');
-  } else if (action === 'request-signoff') {
-    var secId = btn.dataset.secId;
-    var hireId = btn.dataset.hireId;
-    var tplId = btn.dataset.tplId;
-    if (SECTION_STATES[hireId]) {
-      SECTION_STATES[hireId][secId] = 'pending_signoff';
-    }
-    tryAdvanceSections(hireId, tplId);
-    renderMyTrainings();
+    renderMyRunner();
   } else if (action === 'toggle-faq') {
     var faqId = btn.dataset.faqId;
     if (EXPANDED_FAQS[faqId]) {
@@ -856,77 +697,115 @@ document.getElementById('my-body').addEventListener('click', function(e) {
     } else {
       EXPANDED_FAQS[faqId] = true;
     }
-    renderMyTrainings();
+    renderMyRunner();
+  } else if (action === 'toggle-item') {
+    var itemId = btn.dataset.itemId;
+    var secId = btn.dataset.secId;
+    var hireId = btn.dataset.hireId;
+    var item = findItemInTraining(CURRENT_TRAINING, itemId, false);
+    var sec = findItemInTraining(CURRENT_TRAINING, secId, true);
+    if (!item || !sec) return;
+    var newChecked = !item.checked;
+    item.checked = newChecked;
+    recomputeSectionState(sec);
+    renderMyRunner();
+    var ok = await saveProgress(itemId, 'item', newChecked, CURRENT_TRAINING.sections, hireId);
+    if (!ok) {
+      var retries = SAVE_RETRY[itemId] || 0;
+      if (retries >= 2) {
+        // revert
+        item.checked = !newChecked;
+        recomputeSectionState(sec);
+      }
+      item._saveErr = "Couldn't save.";
+      renderMyRunner();
+    } else {
+      item._saveErr = null;
+      renderMyRunner();
+    }
+  } else if (action === 'toggle-video-part') {
+    var partId = btn.dataset.itemId;
+    var secId = btn.dataset.secId;
+    var hireId = btn.dataset.hireId;
+    var part = findItemInTraining(CURRENT_TRAINING, partId, false);
+    var sec = findItemInTraining(CURRENT_TRAINING, secId, true);
+    if (!part || !sec) return;
+    var newChecked = !part.checked;
+    part.checked = newChecked;
+    recomputeSectionState(sec);
+    renderMyRunner();
+    var ok = await saveProgress(partId, 'video_part', newChecked, CURRENT_TRAINING.sections, hireId);
+    if (!ok) {
+      var retries = SAVE_RETRY[partId] || 0;
+      if (retries >= 2) {
+        part.checked = !newChecked;
+        recomputeSectionState(sec);
+      }
+      part._saveErr = "Couldn't save.";
+      renderMyRunner();
+    } else {
+      part._saveErr = null;
+      renderMyRunner();
+    }
+  } else if (action === 'retry-item') {
+    // trigger same as toggle-item
+    var itemId = btn.dataset.itemId;
+    var secId = btn.dataset.secId;
+    var hireId = btn.dataset.hireId;
+    var item = findItemInTraining(CURRENT_TRAINING, itemId, false);
+    var sec = findItemInTraining(CURRENT_TRAINING, secId, true);
+    if (!item || !sec) return;
+    SAVE_RETRY[itemId] = 0;
+    var ok = await saveProgress(itemId, 'item', item.checked, CURRENT_TRAINING.sections, hireId);
+    if (ok) { item._saveErr = null; }
+    else { item._saveErr = "Couldn't save."; }
+    renderMyRunner();
+  } else if (action === 'retry-part') {
+    var partId = btn.dataset.itemId;
+    var secId = btn.dataset.secId;
+    var hireId = btn.dataset.hireId;
+    var part = findItemInTraining(CURRENT_TRAINING, partId, false);
+    if (!part) return;
+    SAVE_RETRY[partId] = 0;
+    var ok = await saveProgress(partId, 'video_part', part.checked, CURRENT_TRAINING.sections, hireId);
+    if (ok) { part._saveErr = null; }
+    else { part._saveErr = "Couldn't save."; }
+    renderMyRunner();
+  } else if (action === 'watch-video') {
+    e.preventDefault();
+    window.open(btn.dataset.url, '_blank');
   }
 });
-document.getElementById('mgr-body').addEventListener('click', function(e) {
+
+// ==============================
+// EVENT DELEGATION — mgr-body
+// ==============================
+document.getElementById('mgr-body').addEventListener('click', async function(e) {
   var btn = e.target.closest('[data-action]');
   if (!btn) return;
   var action = btn.dataset.action;
   if (action === 'switch-sub') {
     mgrState.subView = btn.dataset.sub;
-    assignPickerOpen = null;
-    renderManager();
+    renderManagerList();
   } else if (action === 'open-hire') {
-    mgrState = { view: 'runner', subView: mgrState.subView, activeHireId: btn.dataset.hireId, activeTemplateIdx: +(btn.dataset.tplIdx || 0) };
-    renderManager();
+    var hireId = btn.dataset.hireId;
+    var hireName = btn.dataset.hireName;
+    var hire = (MANAGER_HIRES||[]).find(function(h) { return h.user_id === hireId; });
+    var firstTemplate = hire && hire.assigned_templates && hire.assigned_templates[0];
+    if (!firstTemplate) return;
+    await openHireTraining(hireId, hireName, firstTemplate.template_id);
   } else if (action === 'back-to-hires') {
-    mgrState = { view: 'list', subView: mgrState.subView, activeHireId: null, activeTemplateIdx: 0 };
-    assignPickerOpen = null;
-    renderManager();
-  } else if (action === 'approve-signoff') {
-    var hireId = btn.dataset.hireId;
-    var secId = btn.dataset.sectionId;
-    var tplId = btn.dataset.tplId;
-    if (SECTION_STATES[hireId]) SECTION_STATES[hireId][secId] = 'signed_off';
-    tryAdvanceSections(hireId, tplId);
-    EXPANDED_SECTIONS[secId] = true;
-    renderManager();
-  } else if (action === 'send-back') {
-    var hireId = btn.dataset.hireId;
-    var secId = btn.dataset.sectionId;
-    if (SECTION_STATES[hireId]) SECTION_STATES[hireId][secId] = 'active';
-    EXPANDED_SECTIONS[secId] = true;
-    renderManager();
-  } else if (action === 'show-assign') {
-    var hireId = btn.dataset.hireId;
-    assignPickerOpen = assignPickerOpen === hireId ? null : hireId;
-    renderManager();
-  } else if (action === 'assign-training') {
-    var hireId = btn.dataset.hireId;
-    var tplId = btn.dataset.tplId;
-    var hire = MOCK_HIRES.find(function(h) { return h.id === hireId; });
-    if (hire && !hire.assignedTemplates.includes(tplId)) {
-      hire.assignedTemplates.push(tplId);
-      var newTpl = MOCK_OB_TEMPLATES.find(function(t) { return t.id === tplId; });
-      if (newTpl && SECTION_STATES[hire.id]) {
-        newTpl.sections.forEach(function(sec, idx) {
-          if (!SECTION_STATES[hire.id][sec.id]) {
-            SECTION_STATES[hire.id][sec.id] = idx === 0 ? 'active' : 'locked';
-          }
-        });
-      } else {
-        initSectionStates(hire);
-      }
-    }
-    assignPickerOpen = null;
-    renderManager();
+    mgrState = { view: 'list', subView: mgrState.subView, activeHireId: null, activeHireName: null, activeTemplateId: null };
+    CURRENT_TRAINING = null;
+    renderManagerList();
   } else if (action === 'toggle-section') {
     var secId = btn.dataset.secId;
-    var hireId = btn.dataset.hireId;
-    var tplId = btn.dataset.tplId;
-    var tpl = MOCK_OB_TEMPLATES.find(function(t) { return t.id === tplId; });
-    var sec = tpl ? tpl.sections.find(function(s) { return s.id === secId; }) : null;
     if (EXPANDED_SECTIONS[secId]) {
       delete EXPANDED_SECTIONS[secId];
     } else {
       EXPANDED_SECTIONS[secId] = true;
-      if (sec && sec.isFaq) {
-        FAQ_VIEWED[hireId] = true;
-        tryAdvanceSections(hireId, tplId);
-      }
     }
-    renderManager();
+    renderMgrRunner();
   } else if (action === 'toggle-faq') {
     var faqId = btn.dataset.faqId;
     if (EXPANDED_FAQS[faqId]) {
@@ -934,13 +813,76 @@ document.getElementById('mgr-body').addEventListener('click', function(e) {
     } else {
       EXPANDED_FAQS[faqId] = true;
     }
-    renderManager();
+    renderMgrRunner();
   } else if (action === 'watch-video') {
     e.preventDefault();
     window.open(btn.dataset.url, '_blank');
+  } else if (action === 'show-signoff-form') {
+    var secId = btn.dataset.secId;
+    var hireId = btn.dataset.hireId;
+    var sfKey = hireId + '_' + secId;
+    SIGNOFF_FORM[sfKey] = { notes: '', rating: '' };
+    renderMgrRunner();
+  } else if (action === 'signoff-rating') {
+    var secId = btn.dataset.secId;
+    var hireId = btn.dataset.hireId;
+    var sfKey = hireId + '_' + secId;
+    if (!SIGNOFF_FORM[sfKey]) SIGNOFF_FORM[sfKey] = { notes: '', rating: '' };
+    SIGNOFF_FORM[sfKey].rating = btn.dataset.rating;
+    renderMgrRunner();
+  } else if (action === 'cancel-signoff') {
+    var secId = btn.dataset.secId;
+    var hireId = btn.dataset.hireId;
+    var sfKey = hireId + '_' + secId;
+    delete SIGNOFF_FORM[sfKey];
+    renderMgrRunner();
+  } else if (action === 'confirm-signoff') {
+    var secId = btn.dataset.secId;
+    var hireId = btn.dataset.hireId;
+    var sfKey = hireId + '_' + secId;
+    var formState = SIGNOFF_FORM[sfKey];
+    if (!formState || !formState.notes || !formState.notes.trim() || !formState.rating) return;
+    btn.disabled = true;
+    try {
+      await api('POST', '/api/v1/onboarding/signOff', { section_id: secId, hire_id: hireId, notes: formState.notes.trim(), rating: formState.rating });
+      delete SIGNOFF_FORM[sfKey];
+      // Update local state
+      if (CURRENT_TRAINING) {
+        var sec = findItemInTraining(CURRENT_TRAINING, secId, true);
+        if (sec) {
+          sec.state = 'signed_off';
+          sec.signoff = { manager_name: CURRENT_USER ? (CURRENT_USER.display_name || CURRENT_USER.first_name) : 'Manager', signed_off_at: new Date().toISOString() };
+        }
+      }
+      renderMgrRunner();
+    } catch(ex) {
+      if (!SIGNOFF_FORM[sfKey]) SIGNOFF_FORM[sfKey] = formState;
+      SIGNOFF_FORM[sfKey].err = 'Something went wrong. Try again.';
+      renderMgrRunner();
+    }
   }
 });
-document.getElementById('builder-body').addEventListener('click', function(e) {
+
+document.getElementById('mgr-body').addEventListener('input', function(e) {
+  if (e.target.dataset.action === 'signoff-notes') {
+    var secId = e.target.dataset.secId;
+    var hireId = e.target.dataset.hireId;
+    var sfKey = hireId + '_' + secId;
+    if (!SIGNOFF_FORM[sfKey]) SIGNOFF_FORM[sfKey] = { notes: '', rating: '' };
+    SIGNOFF_FORM[sfKey].notes = e.target.value;
+    // Update confirm button state inline without full re-render
+    var confirmBtn = document.querySelector('[data-action="confirm-signoff"][data-sec-id="'+secId+'"][data-hire-id="'+hireId+'"]');
+    if (confirmBtn) {
+      var canConfirm = SIGNOFF_FORM[sfKey].notes.trim() && SIGNOFF_FORM[sfKey].rating;
+      confirmBtn.disabled = !canConfirm;
+    }
+  }
+});
+
+// ==============================
+// EVENT DELEGATION — builder-body
+// ==============================
+document.getElementById('builder-body').addEventListener('click', async function(e) {
   var btn = e.target.closest('[data-action]');
   if (!btn) return;
   var action = btn.dataset.action;
@@ -948,79 +890,108 @@ document.getElementById('builder-body').addEventListener('click', function(e) {
     var name = prompt('Template name:');
     if (name && name.trim()) {
       var tpl = createNewOBTemplate(name.trim(), null);
-      MOCK_OB_TEMPLATES.push(tpl);
-      obBuilderState = { view: 'editor', activeTemplate: tpl };
+      obBuilderState = { view: 'editor', activeTemplate: null, localCopy: tpl };
       renderOBBuilder();
     }
   } else if (action === 'open-template') {
-    var tpl = MOCK_OB_TEMPLATES.find(function(t) { return t.id === btn.dataset.tplId; });
+    var tplId = btn.dataset.tplId;
+    var tpl = (TEMPLATES||[]).find(function(t) { return String(t.id) === String(tplId); });
     if (tpl) {
-      obBuilderState = { view: 'editor', activeTemplate: tpl };
+      obBuilderState = { view: 'editor', activeTemplate: tpl, localCopy: JSON.parse(JSON.stringify(tpl)) };
       renderOBBuilder();
     }
   } else if (action === 'back-to-templates') {
-    obBuilderState = { view: 'list', activeTemplate: null };
+    obBuilderState = { view: 'list', activeTemplate: null, localCopy: null };
+    await loadTemplates();
+  } else if (action === 'save-template') {
+    var tpl = obBuilderState.localCopy;
+    if (!tpl) return;
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+    try {
+      if (tpl.id) {
+        await api('PUT', '/api/v1/onboarding/updateTemplate/'+tpl.id, { name: tpl.name, role: tpl.role || null, sections: tpl.sections });
+        var idx = (TEMPLATES||[]).findIndex(function(t) { return t.id === tpl.id; });
+        if (idx !== -1) TEMPLATES[idx] = JSON.parse(JSON.stringify(tpl));
+        obBuilderState.activeTemplate = TEMPLATES[idx];
+      } else {
+        var created = await api('POST', '/api/v1/onboarding/createTemplate', { name: tpl.name, role: tpl.role || null, sections: tpl.sections });
+        tpl.id = created.id;
+        TEMPLATES.push(JSON.parse(JSON.stringify(tpl)));
+        obBuilderState.activeTemplate = TEMPLATES[TEMPLATES.length - 1];
+      }
+      obBuilderState.localCopy = JSON.parse(JSON.stringify(obBuilderState.activeTemplate));
+      obBuilderState.view = 'list';
+      renderOBBuilder();
+    } catch(ex) {
+      btn.disabled = false;
+      btn.textContent = 'Save';
+      alert('Save failed. Please try again.');
+    }
+  } else if (action === 'discard-template') {
+    if (obBuilderState.activeTemplate) {
+      obBuilderState.localCopy = JSON.parse(JSON.stringify(obBuilderState.activeTemplate));
+    } else {
+      obBuilderState = { view: 'list', activeTemplate: null, localCopy: null };
+      await loadTemplates();
+      return;
+    }
     renderOBBuilder();
   } else if (action === 'delete-template') {
+    var tpl = obBuilderState.localCopy;
+    if (!tpl || !tpl.id) return;
     if (confirm('Delete this template? This cannot be undone.')) {
-      var idx = MOCK_OB_TEMPLATES.findIndex(function(t) { return t.id === obBuilderState.activeTemplate.id; });
-      if (idx !== -1) MOCK_OB_TEMPLATES.splice(idx, 1);
-      obBuilderState = { view: 'list', activeTemplate: null };
+      try {
+        await api('PUT', '/api/v1/onboarding/updateTemplate/'+tpl.id+'/delete', {});
+      } catch(ex) { /* best effort */ }
+      TEMPLATES = (TEMPLATES||[]).filter(function(t) { return t.id !== tpl.id; });
+      obBuilderState = { view: 'list', activeTemplate: null, localCopy: null };
       renderOBBuilder();
     }
   } else if (action === 'add-ob-section') {
     var title = prompt('Section name:');
     if (title && title.trim()) {
-      obBuilderState.activeTemplate.sections.push(createNewOBSection(title.trim()));
+      obBuilderState.localCopy.sections.push(createNewOBSection(title.trim()));
       renderOBBuilder();
     }
   } else if (action === 'delete-ob-section') {
-    obBuilderState.activeTemplate.sections = obBuilderState.activeTemplate.sections.filter(function(s) { return s.id !== btn.dataset.secId; });
+    obBuilderState.localCopy.sections = obBuilderState.localCopy.sections.filter(function(s) { return s.id !== btn.dataset.secId; });
     renderOBBuilder();
   } else if (action === 'toggle-signoff') {
-    var sec = obBuilderState.activeTemplate.sections.find(function(s) { return s.id === btn.dataset.secId; });
-    if (sec) { sec.requiresSignOff = !sec.requiresSignOff; renderOBBuilder(); }
+    var sec = (obBuilderState.localCopy.sections||[]).find(function(s) { return s.id === btn.dataset.secId; });
+    if (sec) { sec.requires_sign_off = !sec.requires_sign_off; renderOBBuilder(); }
   } else if (action === 'toggle-faq-mode') {
-    var sec = obBuilderState.activeTemplate.sections.find(function(s) { return s.id === btn.dataset.secId; });
-    if (sec) { sec.isFaq = !sec.isFaq; renderOBBuilder(); }
+    var sec = (obBuilderState.localCopy.sections||[]).find(function(s) { return s.id === btn.dataset.secId; });
+    if (sec) { sec.is_faq = !sec.is_faq; renderOBBuilder(); }
   } else if (action === 'add-ob-item') {
-    var sec = obBuilderState.activeTemplate.sections.find(function(s) { return s.id === btn.dataset.secId; });
+    var sec = (obBuilderState.localCopy.sections||[]).find(function(s) { return s.id === btn.dataset.secId; });
     if (sec) {
       var itemType = btn.dataset.itemType;
-      if (itemType === 'checkbox') {
-        sec.items.push(createNewOBCheckbox(''));
-      } else if (itemType === 'video_series') {
-        sec.items.push(createNewOBVideoSeries(''));
-      }
+      if (itemType === 'checkbox') sec.items.push(createNewOBCheckbox(''));
+      else if (itemType === 'video_series') sec.items.push(createNewOBVideoSeries(''));
       renderOBBuilder();
     }
   } else if (action === 'delete-ob-item') {
-    var sec = obBuilderState.activeTemplate.sections.find(function(s) { return s.id === btn.dataset.secId; });
-    if (sec) {
-      sec.items.splice(+btn.dataset.itemIdx, 1);
-      renderOBBuilder();
-    }
+    var sec = (obBuilderState.localCopy.sections||[]).find(function(s) { return s.id === btn.dataset.secId; });
+    if (sec) { sec.items.splice(+btn.dataset.itemIdx, 1); renderOBBuilder(); }
   } else if (action === 'add-sub-item') {
-    var sec = obBuilderState.activeTemplate.sections.find(function(s) { return s.id === btn.dataset.secId; });
+    var sec = (obBuilderState.localCopy.sections||[]).find(function(s) { return s.id === btn.dataset.secId; });
     if (sec) {
       var item = sec.items[+btn.dataset.itemIdx];
       if (item) {
-        if (!item.subItems) item.subItems = [];
-        item.subItems.push({ id: generateOBId('sub'), label: '' });
+        if (!item.sub_items) item.sub_items = [];
+        item.sub_items.push({ id: generateOBId('sub'), label: '' });
         renderOBBuilder();
       }
     }
   } else if (action === 'delete-sub-item') {
-    var sec = obBuilderState.activeTemplate.sections.find(function(s) { return s.id === btn.dataset.secId; });
+    var sec = (obBuilderState.localCopy.sections||[]).find(function(s) { return s.id === btn.dataset.secId; });
     if (sec) {
       var item = sec.items[+btn.dataset.itemIdx];
-      if (item && item.subItems) {
-        item.subItems.splice(+btn.dataset.subIdx, 1);
-        renderOBBuilder();
-      }
+      if (item && item.sub_items) { item.sub_items.splice(+btn.dataset.subIdx, 1); renderOBBuilder(); }
     }
   } else if (action === 'add-video-part') {
-    var sec = obBuilderState.activeTemplate.sections.find(function(s) { return s.id === btn.dataset.secId; });
+    var sec = (obBuilderState.localCopy.sections||[]).find(function(s) { return s.id === btn.dataset.secId; });
     if (sec) {
       var item = sec.items[+btn.dataset.itemIdx];
       if (item) {
@@ -1030,88 +1001,79 @@ document.getElementById('builder-body').addEventListener('click', function(e) {
       }
     }
   } else if (action === 'delete-video-part') {
-    var sec = obBuilderState.activeTemplate.sections.find(function(s) { return s.id === btn.dataset.secId; });
+    var sec = (obBuilderState.localCopy.sections||[]).find(function(s) { return s.id === btn.dataset.secId; });
     if (sec) {
       var item = sec.items[+btn.dataset.itemIdx];
-      if (item && item.parts) {
-        item.parts.splice(+btn.dataset.partIdx, 1);
-        renderOBBuilder();
-      }
+      if (item && item.parts) { item.parts.splice(+btn.dataset.partIdx, 1); renderOBBuilder(); }
     }
   } else if (action === 'add-faq-item') {
-    var sec = obBuilderState.activeTemplate.sections.find(function(s) { return s.id === btn.dataset.secId; });
-    if (sec) {
-      sec.items.push(createNewOBFaqItem());
-      renderOBBuilder();
-    }
+    var sec = (obBuilderState.localCopy.sections||[]).find(function(s) { return s.id === btn.dataset.secId; });
+    if (sec) { sec.items.push(createNewOBFaqItem()); renderOBBuilder(); }
   } else if (action === 'delete-faq-item') {
-    var sec = obBuilderState.activeTemplate.sections.find(function(s) { return s.id === btn.dataset.secId; });
-    if (sec) {
-      sec.items.splice(+btn.dataset.faqIdx, 1);
-      renderOBBuilder();
-    }
+    var sec = (obBuilderState.localCopy.sections||[]).find(function(s) { return s.id === btn.dataset.secId; });
+    if (sec) { sec.items.splice(+btn.dataset.faqIdx, 1); renderOBBuilder(); }
   }
 });
+
 document.getElementById('builder-body').addEventListener('input', function(e) {
+  if (!obBuilderState.localCopy) return;
   if (e.target.dataset.action === 'tpl-name-input') {
-    obBuilderState.activeTemplate.name = e.target.value;
+    obBuilderState.localCopy.name = e.target.value;
   } else if (e.target.dataset.action === 'sec-title-input') {
-    var sec = obBuilderState.activeTemplate.sections.find(function(s) { return s.id === e.target.dataset.secId; });
+    var sec = (obBuilderState.localCopy.sections||[]).find(function(s) { return s.id === e.target.dataset.secId; });
     if (sec) sec.title = e.target.value;
   } else if (e.target.dataset.action === 'item-label-input') {
-    var sec = obBuilderState.activeTemplate.sections.find(function(s) { return s.id === e.target.dataset.secId; });
-    if (sec) {
-      var item = sec.items[+e.target.dataset.itemIdx];
-      if (item) item.label = e.target.value;
-    }
+    var sec = (obBuilderState.localCopy.sections||[]).find(function(s) { return s.id === e.target.dataset.secId; });
+    if (sec) { var item = sec.items[+e.target.dataset.itemIdx]; if (item) item.label = e.target.value; }
   } else if (e.target.dataset.action === 'sub-item-label-input') {
-    var sec = obBuilderState.activeTemplate.sections.find(function(s) { return s.id === e.target.dataset.secId; });
-    if (sec) {
-      var item = sec.items[+e.target.dataset.itemIdx];
-      if (item && item.subItems) item.subItems[+e.target.dataset.subIdx].label = e.target.value;
-    }
+    var sec = (obBuilderState.localCopy.sections||[]).find(function(s) { return s.id === e.target.dataset.secId; });
+    if (sec) { var item = sec.items[+e.target.dataset.itemIdx]; if (item && item.sub_items) item.sub_items[+e.target.dataset.subIdx].label = e.target.value; }
   } else if (e.target.dataset.action === 'part-title-input') {
-    var sec = obBuilderState.activeTemplate.sections.find(function(s) { return s.id === e.target.dataset.secId; });
-    if (sec) {
-      var item = sec.items[+e.target.dataset.itemIdx];
-      if (item && item.parts) item.parts[+e.target.dataset.partIdx].title = e.target.value;
-    }
+    var sec = (obBuilderState.localCopy.sections||[]).find(function(s) { return s.id === e.target.dataset.secId; });
+    if (sec) { var item = sec.items[+e.target.dataset.itemIdx]; if (item && item.parts) item.parts[+e.target.dataset.partIdx].title = e.target.value; }
   } else if (e.target.dataset.action === 'part-desc-input') {
-    var sec = obBuilderState.activeTemplate.sections.find(function(s) { return s.id === e.target.dataset.secId; });
-    if (sec) {
-      var item = sec.items[+e.target.dataset.itemIdx];
-      if (item && item.parts) item.parts[+e.target.dataset.partIdx].desc = e.target.value;
-    }
+    var sec = (obBuilderState.localCopy.sections||[]).find(function(s) { return s.id === e.target.dataset.secId; });
+    if (sec) { var item = sec.items[+e.target.dataset.itemIdx]; if (item && item.parts) item.parts[+e.target.dataset.partIdx].desc = e.target.value; }
   } else if (e.target.dataset.action === 'part-url-input') {
-    var sec = obBuilderState.activeTemplate.sections.find(function(s) { return s.id === e.target.dataset.secId; });
-    if (sec) {
-      var item = sec.items[+e.target.dataset.itemIdx];
-      if (item && item.parts) item.parts[+e.target.dataset.partIdx].url = e.target.value;
-    }
+    var sec = (obBuilderState.localCopy.sections||[]).find(function(s) { return s.id === e.target.dataset.secId; });
+    if (sec) { var item = sec.items[+e.target.dataset.itemIdx]; if (item && item.parts) item.parts[+e.target.dataset.partIdx].url = e.target.value; }
   } else if (e.target.dataset.action === 'faq-q-input') {
-    var sec = obBuilderState.activeTemplate.sections.find(function(s) { return s.id === e.target.dataset.secId; });
+    var sec = (obBuilderState.localCopy.sections||[]).find(function(s) { return s.id === e.target.dataset.secId; });
     if (sec && sec.items[+e.target.dataset.faqIdx]) sec.items[+e.target.dataset.faqIdx].question = e.target.value;
   } else if (e.target.dataset.action === 'faq-a-input') {
-    var sec = obBuilderState.activeTemplate.sections.find(function(s) { return s.id === e.target.dataset.secId; });
+    var sec = (obBuilderState.localCopy.sections||[]).find(function(s) { return s.id === e.target.dataset.secId; });
     if (sec && sec.items[+e.target.dataset.faqIdx]) sec.items[+e.target.dataset.faqIdx].answer = e.target.value;
   }
 });
+
 document.getElementById('builder-body').addEventListener('change', function(e) {
-  if (e.target.dataset.action === 'tpl-role-select') {
-    obBuilderState.activeTemplate.role = e.target.value || null;
+  if (e.target.dataset.action === 'tpl-role-select' && obBuilderState.localCopy) {
+    obBuilderState.localCopy.role = e.target.value || null;
     renderOBBuilder();
   }
 });
-if (!isManager()) {
-  document.getElementById('t2').style.display = 'none';
-  document.getElementById('t3').style.display = 'none';
-}
-var myHire = getMyHire();
-if (myHire) initSectionStates(myHire);
-MOCK_HIRES.forEach(function(h) { initSectionStates(h); });
-renderMyTrainings();
-renderManager();
-renderOBBuilder();
+
+// ==============================
+// INIT
+// ==============================
+(async function init() {
+  try {
+    CURRENT_USER = await api('GET', '/api/v1/me');
+  } catch(e) {
+    return;
+  }
+  var isManager = CURRENT_USER.role === 'admin' || CURRENT_USER.role === 'manager' || CURRENT_USER.is_superadmin;
+  if (!isManager) {
+    document.getElementById('t2').style.display = 'none';
+    document.getElementById('t3').style.display = 'none';
+  }
+  loadMyTrainings();
+  if (isManager) {
+    loadManagerHires();
+    loadTemplates();
+  }
+})();
+
 document.addEventListener('dblclick', function(e) { e.preventDefault(); });
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
 </script>
