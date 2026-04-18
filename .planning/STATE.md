@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Backend
 status: executing
-stopped_at: Completed 12-01-PLAN.md
-last_updated: "2026-04-18T11:43:32.171Z"
+stopped_at: Completed 12-02-PLAN.md
+last_updated: "2026-04-18T11:46:48.339Z"
 last_activity: 2026-04-18
 progress:
   total_phases: 6
   completed_phases: 5
   total_plans: 29
-  completed_plans: 25
+  completed_plans: 26
   percent: 0
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-15)
 ## Current Position
 
 Phase: 12 (inventory-photos-tile-permissions) — EXECUTING
-Plan: 3 of 6
+Plan: 4 of 6
 Status: Ready to execute
 Last activity: 2026-04-18
 
@@ -77,6 +77,7 @@ Progress: [░░░░░░░░░░] 0% (v2.0 milestone)
 | Phase 11-onboarding-users-admin P06 | 120 | 2 tasks | 4 files |
 | Phase 12-inventory-photos-tile-permissions P03 | 1 | 2 tasks | 2 files |
 | Phase 12-inventory-photos-tile-permissions P01 | 3 | 2 tasks | 8 files |
+| Phase 12-inventory-photos-tile-permissions P02 | 5 | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -142,6 +143,9 @@ Recent decisions affecting current work:
 - [Phase 12-03]: Cache-then-network pattern for tile permissions: apply cached from localStorage immediately, refresh from /me/apps in background
 - [Phase 12-03]: tile.remove() used instead of display:none — grid reflows naturally with no gaps
 - [Phase 12-inventory-photos-tile-permissions]: Go embed requires fixtures inside package dir — inventory fixtures at internal/inventory/fixtures/ not config/fixtures/
+- [Phase 12-02]: Used s3.Options.BaseEndpoint instead of deprecated EndpointResolverWithOptions for DO Spaces custom endpoint (SDK v2 v1.99.1 removed old field)
+- [Phase 12-02]: Photos presign route inside authenticated group — no unauthenticated upload URL generation
+- [Phase 12-02]: workflows.html uses fetch() directly for /api/v1/photos/presign — api() helper prepends /api/v1/workflow/ which would create wrong path
 
 ### Pending Todos
 
@@ -164,6 +168,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-18T11:43:32.166Z
-Stopped at: Completed 12-01-PLAN.md
+Last session: 2026-04-18T11:46:48.334Z
+Stopped at: Completed 12-02-PLAN.md
 Resume file: None

@@ -151,7 +151,7 @@ Plans:
 
 Plans:
 - [x] 12-01-PLAN.md — DB migrations + inventory CRUD API + YAML seed data
-- [ ] 12-02-PLAN.md — DO Spaces presigned upload + checklist photo wiring
+- [x] 12-02-PLAN.md — DO Spaces presigned upload + checklist photo wiring
 - [x] 12-03-PLAN.md — Tile permission filtering on index.html
 - [ ] 12-04-PLAN.md — inventory.html big-bang API swap
 - [ ] 12-05-PLAN.md — Receipt ingestion pipeline (Mercury + Claude Haiku + validation)
@@ -177,4 +177,4 @@ Phases execute in numeric order: 9 → 10 → 10.1 → 10.2 → 11 → 12
 | 10.1 Cross-Device State Sync | v2.0 | 5/5 | Complete   | 2026-04-17 |
 | 10.2 Reactive Sync Framework | v2.0 | 3/3 | Complete    | 2026-04-17 |
 | 11. Onboarding + Users Admin | v2.0 | 6/6 | Complete    | 2026-04-18 |
-| 12. Inventory + Photos + Tile Permissions | v2.0 | 2/6 | In Progress|  |
+| 12. Inventory + Photos + Tile Permissions | v2.0 | 3/6 | In Progress|  |

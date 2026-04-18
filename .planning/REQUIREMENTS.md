@@ -35,7 +35,7 @@
 
 ### Inventory Persistence
 
-- [ ] **INVT-01**: Vendors, purchase events, and line items persisted to Postgres (replacing mock data)
+- [x] **INVT-01**: Vendors, purchase events, and line items persisted to Postgres (replacing mock data)
 - [ ] **INVT-02**: inventory.html fetches purchase data from API for History, Stock, Trends, and Cost tabs
 - [ ] **INVT-03**: Receipt ingestion pipeline — upload receipt image, OCR, map to purchase items, human review
 
@@ -53,12 +53,12 @@
 
 ### Photos
 
-- [ ] **PHOT-01**: Photo upload via presigned URLs (evaluate Zoho Stratus vs DO Spaces for cost)
-- [ ] **PHOT-02**: Photos stored and retrievable for checklist evidence and corrective action documentation
+- [x] **PHOT-01**: Photo upload via presigned URLs (evaluate Zoho Stratus vs DO Spaces for cost)
+- [x] **PHOT-02**: Photos stored and retrievable for checklist evidence and corrective action documentation
 
 ### Tile Permissions
 
-- [ ] **TILE-01**: index.html launcher grid filtered by GET /api/v1/me/apps — users only see tiles for apps they have permission to access
+- [x] **TILE-01**: index.html launcher grid filtered by GET /api/v1/me/apps — users only see tiles for apps they have permission to access
 
 ## Future Requirements
 
@@ -110,12 +110,12 @@ Deferred to future milestones.
 | USER-01 | Phase 11 | Complete |
 | USER-02 | Phase 11 | Complete |
 | USER-03 | Phase 11 | Complete |
-| INVT-01 | Phase 12 | Pending |
+| INVT-01 | Phase 12 | Complete |
 | INVT-02 | Phase 12 | Pending |
 | INVT-03 | Phase 12 | Pending |
-| PHOT-01 | Phase 12 | Pending |
-| PHOT-02 | Phase 12 | Pending |
-| TILE-01 | Phase 12 | Pending |
+| PHOT-01 | Phase 12 | Complete |
+| PHOT-02 | Phase 12 | Complete |
+| TILE-01 | Phase 12 | Complete |
 
 **Coverage:**
 - v2.0 requirements: 28 total
