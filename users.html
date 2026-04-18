@@ -16,20 +16,19 @@
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
 body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg);color:var(--txt);padding:env(safe-area-inset-top) 12px env(safe-area-inset-bottom)}
 .app{max-width:480px;margin:0 auto;padding-top:12px}
-.back{display:flex;align-items:center;gap:6px;margin-bottom:12px;color:var(--info-tx);font-size:14px;font-weight:500;text-decoration:none;-webkit-tap-highlight-color:transparent}
+.back{display:flex;align-items:center;gap:6px;margin-bottom:12px;color:var(--info-tx);font-size:14px;font-weight:600;text-decoration:none;-webkit-tap-highlight-color:transparent}
 .back::before{content:'‹';font-size:20px;line-height:1;margin-top:-1px}
 .tabs{display:flex;gap:4px;background:var(--card);border-radius:10px;padding:4px;margin-bottom:12px}
-.tabs button{flex:1;border:none;padding:10px;font-size:13px;border-radius:7px;background:transparent;color:var(--txt);font-weight:500}
+.tabs button{flex:1;border:none;padding:10px;font-size:14px;border-radius:7px;background:transparent;color:var(--txt);font-weight:600}
 .tabs button.on{background:var(--info-bg);color:var(--info-tx)}
 .card{background:var(--card);border-radius:12px;overflow:hidden;margin-bottom:8px}
 .hd{padding:14px 16px;border-bottom:0.5px solid var(--brd)}
-.hd h1{font-size:15px;font-weight:500;margin:0}
+.hd h1{font-size:15px;font-weight:600;margin:0}
 .hd p{font-size:12px;color:var(--mut);margin:4px 0 0}
-.row{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:0.5px solid var(--brd)}
+.row{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:0.5px solid var(--brd);cursor:pointer;min-height:44px}
 .row:last-child{border-bottom:none}
-.row-info .nm{font-size:14px;font-weight:500}
-.row-info .em{font-size:11px;color:var(--mut);margin-top:2px}
-.pill{display:inline-block;font-size:10px;font-weight:600;padding:3px 7px;border-radius:6px;letter-spacing:0.3px}
+.row .nm{font-size:14px;font-weight:600}
+.pill{display:inline-block;font-size:12px;font-weight:600;padding:3px 7px;border-radius:6px;letter-spacing:0.3px}
 .pill-config{background:#e8e8e8;color:#555}
 @media(prefers-color-scheme:dark){.pill-config{background:#3a3a3a;color:#aaa}}
 .pill-invited{background:var(--warn-bg);color:var(--warn-tx)}
@@ -38,24 +37,33 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 @media(prefers-color-scheme:dark){.pill-manager{background:#1a3a1a;color:#7ec87e}}
 .pill-member{background:var(--bg);color:var(--mut);border:0.5px solid var(--brd)}
 .field{margin-bottom:14px}
-.field label{display:block;font-size:12px;font-weight:500;color:var(--mut);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.4px}
+.field label{display:block;font-size:12px;font-weight:600;color:var(--mut);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.4px}
 .field input,.field select{width:100%;padding:11px 12px;background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;font-size:14px;color:var(--txt);font-family:inherit;outline:none;-webkit-appearance:none}
 .field input:focus,.field select:focus{border-color:var(--info-tx)}
 .field input[readonly]{opacity:0.6;cursor:default}
+.field-hint{font-size:12px;color:var(--mut);margin-top:4px}
+.field-err{font-size:12px;color:#c0392b;margin-top:4px;display:none}
+.field-err.show{display:block}
 .form-wrap{padding:16px}
-.btn-primary{width:100%;padding:12px;background:var(--info-bg);color:var(--info-tx);border:none;border-radius:8px;font-size:14px;font-weight:600;font-family:inherit;margin-bottom:10px}
+.btn-primary{width:100%;padding:12px;background:var(--info-bg);color:var(--info-tx);border:none;border-radius:8px;font-size:14px;font-weight:600;font-family:inherit;margin-bottom:10px;cursor:pointer}
 .btn-primary:active{opacity:0.8}
-.btn-secondary{width:100%;padding:11px;background:transparent;color:var(--mut);border:0.5px solid var(--brd);border-radius:8px;font-size:13px;font-weight:500;font-family:inherit;margin-bottom:8px}
-.btn-danger{width:100%;padding:11px;background:transparent;color:#c0392b;border:0.5px solid #c0392b;border-radius:8px;font-size:13px;font-weight:500;font-family:inherit}
-.extern-msg{padding:14px 16px;font-size:13px;color:var(--mut);font-style:italic;background:var(--bg);border-radius:8px;text-align:center;margin:8px 0}
+.btn-secondary{width:100%;padding:11px;background:transparent;color:var(--mut);border:0.5px solid var(--brd);border-radius:8px;font-size:14px;font-weight:600;font-family:inherit;margin-bottom:8px;cursor:pointer}
+.btn-danger{width:100%;padding:11px;background:transparent;color:#c0392b;border:0.5px solid #c0392b;border-radius:8px;font-size:14px;font-weight:600;font-family:inherit;cursor:pointer}
+.sep{margin-top:16px;border-top:0.5px solid var(--brd);padding-top:8px}
+.empty{text-align:center;padding:48px 24px}
+.empty h3{font-size:15px;font-weight:600;margin:0 0 8px}
+.empty p{font-size:14px;color:var(--mut);margin:0}
+.invite-link-panel{padding:16px}
+.invite-link-panel h2{font-size:15px;font-weight:600;margin:0 0 12px}
+.invite-url{width:100%;padding:10px 12px;background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;font-size:13px;color:var(--mut);font-family:inherit;word-break:break-all;margin-bottom:10px;cursor:text;resize:none;outline:none}
+.invite-note{font-size:12px;color:var(--mut);text-align:center;margin-bottom:12px}
 .access-card{background:var(--card);border-radius:12px;overflow:hidden;margin-bottom:8px}
-.access-hd{padding:12px 16px;border-bottom:0.5px solid var(--brd);font-size:14px;font-weight:600;display:flex;align-items:center;gap:8px}
+.access-hd{padding:12px 16px;border-bottom:0.5px solid var(--brd);font-size:15px;font-weight:600;display:flex;align-items:center;gap:8px}
 .access-hd .ico{font-size:18px}
-.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:0.5px solid var(--brd)}
+.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:0.5px solid var(--brd);min-height:44px}
 .toggle-row:last-child{border-bottom:none}
-.toggle-row .lbl{font-size:13px;font-weight:500}
-.toggle-row .sub{font-size:11px;color:var(--mut);margin-top:1px}
-/* Toggle switch */
+.toggle-row .lbl{font-size:14px;font-weight:600}
+.toggle-row .sub{font-size:12px;color:var(--mut);margin-top:1px}
 .toggle{position:relative;width:42px;height:24px;flex-shrink:0}
 .toggle input{opacity:0;width:0;height:0;position:absolute}
 .slider{position:absolute;cursor:pointer;inset:0;background:var(--brd);border-radius:24px;transition:background .2s}
@@ -63,61 +71,42 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .toggle input:checked+.slider{background:var(--info-tx)}
 .toggle input:checked+.slider::before{transform:translateX(18px)}
 .chips{display:flex;flex-wrap:wrap;gap:6px;padding:10px 16px}
-.chip{display:inline-flex;align-items:center;gap:5px;padding:5px 10px;background:var(--info-bg);color:var(--info-tx);border-radius:20px;font-size:12px;font-weight:500}
+.chip{display:inline-flex;align-items:center;gap:5px;padding:5px 10px;background:var(--info-bg);color:var(--info-tx);border-radius:20px;font-size:12px;font-weight:600}
 .chip-rm{background:none;border:none;color:var(--info-tx);font-size:14px;line-height:1;padding:0;cursor:pointer;margin-left:2px;font-weight:700}
-.chips-empty{padding:10px 16px;font-size:13px;color:var(--mut)}
+.chips-empty{padding:10px 16px;font-size:14px;color:var(--mut)}
 .section-note{padding:6px 16px 12px;font-size:12px;color:var(--mut)}
 .add-grant{display:flex;gap:6px;padding:8px 16px 12px;align-items:center}
-.add-grant select{flex:1;padding:8px 10px;background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;font-size:13px;color:var(--txt);font-family:inherit;-webkit-appearance:none}
-.add-grant button{padding:8px 14px;background:var(--info-bg);color:var(--info-tx);border:none;border-radius:8px;font-size:13px;font-weight:600;font-family:inherit;white-space:nowrap}
+.add-grant select{flex:1;padding:8px 10px;background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;font-size:14px;color:var(--txt);font-family:inherit;-webkit-appearance:none}
+.add-grant button{padding:8px 14px;background:var(--info-bg);color:var(--info-tx);border:none;border-radius:8px;font-size:14px;font-weight:600;font-family:inherit;white-space:nowrap;cursor:pointer}
 .add-grant button:active{opacity:0.8}
+.skeleton-row{height:44px;background:var(--brd);border-radius:8px;margin-bottom:8px;animation:pulse 1.2s infinite}
+@keyframes pulse{0%,100%{opacity:0.4}50%{opacity:0.8}}
+.error-msg{padding:14px 16px;font-size:14px;color:#c0392b;text-align:center}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--txt);color:var(--bg);padding:10px 20px;border-radius:20px;font-size:14px;font-weight:600;opacity:0;transition:opacity 0.2s;pointer-events:none;z-index:999;white-space:nowrap}
+.toast.show{opacity:1}
+.access-header{padding:12px 16px 4px;font-size:15px;font-weight:600;color:var(--txt)}
 </style>
 </head>
 <body>
 <div class="app">
 <a class="back" href="index.html">HQ</a>
 <div class="tabs">
-  <button id="t1" class="on" onclick="show(1)">Users</button>
-  <button id="t2" onclick="show(2)">Edit</button>
-  <button id="t3" onclick="show(3)">Access</button>
+  <button id="t1" class="on" data-action="tab-switch" data-tab="1">Users</button>
+  <button id="t2" data-action="tab-switch" data-tab="2">Edit</button>
+  <button id="t3" data-action="tab-switch" data-tab="3">Access</button>
 </div>
 
 <!-- TAB 1: USERS LIST -->
 <div id="s1">
   <div class="card">
-    <div class="hd"><h1>Team members</h1><p>6 users · 2 pending</p></div>
+    <div class="hd"><h1>Team</h1></div>
     <div id="user-list"></div>
   </div>
 </div>
 
-<!-- TAB 2: EDIT / ADD -->
+<!-- TAB 2: EDIT / INVITE -->
 <div id="s2" style="display:none">
-  <div id="add-card" class="card">
-    <div class="hd"><h1 id="edit-title">Invite new user</h1></div>
-    <div class="form-wrap">
-      <div id="extern-notice" class="extern-msg" style="display:none">This account is configured externally and cannot be edited here.</div>
-      <div id="edit-fields">
-        <div class="field">
-          <label>Email</label>
-          <input id="f-email" type="email" placeholder="user@yumyums.com">
-        </div>
-        <div class="field">
-          <label>Role</label>
-          <select id="f-role">
-            <option value="admin">admin</option>
-            <option value="manager">manager</option>
-            <option value="team_member" selected>team_member</option>
-          </select>
-        </div>
-        <button id="btn-invite" class="btn-primary" onclick="sendInvite()">Send Invite</button>
-        <button id="btn-reset" class="btn-secondary" style="display:none" onclick="resetPw()">Reset Password</button>
-        <button id="btn-delete" class="btn-danger" style="display:none" onclick="deleteUser()">Delete User</button>
-      </div>
-    </div>
-  </div>
-  <div id="back-hint" style="display:none;text-align:center;padding:4px 0">
-    <a href="#" style="font-size:13px;color:var(--info-tx)" onclick="clearEdit();return false">+ Invite new user instead</a>
-  </div>
+  <div id="edit-card" class="card"></div>
 </div>
 
 <!-- TAB 3: ACCESS -->
@@ -125,175 +114,411 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 
 </div>
 
+<div id="toast" class="toast"></div>
+
 <script>
-const USERS=[
-  {id:1,name:'Jamal M.',email:'jamal@yumyums.com',role:'superadmin',status:'config'},
-  {id:2,name:'Sarah K.',email:'sarah@yumyums.com',role:'admin',status:'active'},
-  {id:3,name:'Mike R.',email:'mike@yumyums.com',role:'manager',status:'active'},
-  {id:4,name:'Tina L.',email:'tina@yumyums.com',role:'team_member',status:'active'},
-  {id:5,name:'Dev P.',email:'dev@yumyums.com',role:'team_member',status:'invited',invitedDate:'Apr 10'},
-  {id:6,name:'Alex W.',email:'alex@yumyums.com',role:'manager',status:'invited',invitedDate:'Apr 11'}
-];
+let USERS=[];
+let APPS_PERMS=[];
+let editingUser=null;
+let CURRENT_USER=null;
 
-const APPS=[
-  {slug:'purchasing',name:'Purchasing',icon:'🛒'},
-  {slug:'payroll',name:'Payroll',icon:'💰'},
-  {slug:'scheduling',name:'Scheduling',icon:'📅'},
-  {slug:'hiring',name:'Hiring',icon:'👥'},
-  {slug:'bi',name:'BI',icon:'📊'},
-  {slug:'onboarding',name:'Onboarding',icon:'🏃🏾'},
-  {slug:'inventory',name:'Inventory',icon:'📦'},
-  {slug:'users',name:'Users',icon:'🔐'}
-];
+async function api(method,path,body){
+  const opts={method,headers:{'Content-Type':'application/json'}};
+  if(body)opts.body=JSON.stringify(body);
+  const res=await fetch(path,opts);
+  if(res.status===401){window.location.href='/login.html';throw new Error('unauthorized')}
+  if(res.status===204)return null;
+  const data=await res.json();
+  if(!res.ok)throw data;
+  return data;
+}
 
-// Default role toggles: admin has all, manager has some, team_member has basics
-const DEFAULT_PERMS={
-  purchasing:{admin:true,manager:true,team_member:true},
-  payroll:{admin:true,manager:false,team_member:false},
-  scheduling:{admin:true,manager:true,team_member:true},
-  hiring:{admin:true,manager:false,team_member:false},
-  bi:{admin:true,manager:true,team_member:false},
-  onboarding:{admin:true,manager:true,team_member:true},
-  inventory:{admin:true,manager:true,team_member:false},
-  users:{admin:true,manager:false,team_member:false}
-};
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2200);
+}
 
-// Individual user grants per app (user ids)
-const USER_GRANTS={
-  purchasing:[],payroll:[3],scheduling:[],hiring:[],bi:[4],onboarding:[],inventory:[],users:[]
-};
+function renderSkeletons(containerId,count){
+  const el=document.getElementById(containerId);
+  if(!el)return;
+  el.innerHTML=Array(count).fill('<div class="skeleton-row"></div>').join('');
+}
 
-function pillClass(role,status){
-  if(status==='config')return'pill pill-config';
-  if(status==='invited')return'pill pill-invited';
-  if(role==='admin')return'pill pill-admin';
-  if(role==='manager')return'pill pill-manager';
+function renderError(containerId,msg){
+  const el=document.getElementById(containerId);
+  if(!el)return;
+  el.innerHTML=`<div class="error-msg">${msg}</div>`;
+}
+
+function pillClass(u){
+  if(u.status==='invited')return'pill pill-invited';
+  if(u.role==='admin'||u.role==='superadmin')return'pill pill-admin';
+  if(u.role==='manager')return'pill pill-manager';
   return'pill pill-member';
 }
 
-function pillText(user){
-  if(user.status==='config')return'CONFIG';
-  if(user.status==='invited')return'INVITED';
-  return user.role;
+function pillText(u){
+  if(u.status==='invited')return'Invited';
+  if(u.role==='admin'||u.role==='superadmin')return'Admin';
+  if(u.role==='manager')return'Manager';
+  return'Member';
 }
 
-// Build user list
-const ul=document.getElementById('user-list');
-USERS.forEach(u=>{
-  const d=document.createElement('div');
-  d.className='row';
-  d.style.cursor=u.status==='config'?'default':'pointer';
-  d.innerHTML=`<div class="row-info"><div class="nm">${u.name}</div><div class="em">${u.email}${u.invitedDate?' · invited '+u.invitedDate:''}</div></div><span class="${pillClass(u.role,u.status)}">${pillText(u)}</span>`;
-  if(u.status!=='config'){
-    d.onclick=()=>editUser(u);
-  }
-  ul.appendChild(d);
-});
+function displayName(u){
+  if(u.display_name)return u.display_name;
+  if(u.nickname)return u.nickname;
+  const last=u.last_name?u.last_name.charAt(0)+'.':'';
+  return u.first_name+(last?' '+last:'');
+}
 
-// Build access tab
-function buildAccess(){
+function renderUsers(){
+  const el=document.getElementById('user-list');
+  if(!el)return;
+  if(!USERS.length){
+    el.innerHTML='<div class="empty"><h3>No team members yet</h3><p>Invite your crew to get started.</p></div>';
+    return;
+  }
+  el.innerHTML=USERS.map(u=>{
+    const dn=displayName(u);
+    const pill=`<span class="${pillClass(u)}">${pillText(u)}</span>`;
+    const invitedPill=u.status==='invited'?'':'';
+    return`<div class="row" data-action="edit-user" data-user-id="${u.id}"><span class="nm">${dn}</span><span style="display:flex;align-items:center;gap:6px">${pill}</span></div>`;
+  }).join('')+`<div style="padding:12px 16px"><button class="btn-primary" data-action="show-invite">Add Crew Member</button></div>`;
+}
+
+async function loadUsers(){
+  renderSkeletons('user-list',3);
+  try{
+    USERS=await api('GET','/api/v1/users');
+    renderUsers();
+  }catch(e){
+    renderError('user-list','Could not load team.');
+  }
+}
+
+async function loadAppsPermissions(){
+  try{
+    APPS_PERMS=await api('GET','/api/v1/apps/permissions');
+  }catch(e){}
+}
+
+function showInviteForm(){
+  editingUser=null;
+  document.getElementById('edit-card').innerHTML=`
+    <div class="hd"><h1>New Crew Member</h1></div>
+    <div class="form-wrap">
+      <div class="field">
+        <label>Role</label>
+        <select id="f-role">
+          <option value="admin">Admin</option>
+          <option value="manager">Manager</option>
+          <option value="team_member" selected>Member</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>First Name</label>
+        <input id="f-first" type="text" placeholder="First name" autocomplete="given-name">
+      </div>
+      <div class="field">
+        <label>Last Name</label>
+        <input id="f-last" type="text" placeholder="Last name" autocomplete="family-name">
+      </div>
+      <div class="field">
+        <label>Email</label>
+        <input id="f-email" type="email" placeholder="user@yumyums.com" autocomplete="email">
+      </div>
+      <div id="invite-err" class="field-err"></div>
+      <button class="btn-primary" data-action="submit-invite">Create &amp; Get Invite Link</button>
+    </div>`;
+  show(2);
+}
+
+async function submitInvite(){
+  const first=document.getElementById('f-first').value.trim();
+  const last=document.getElementById('f-last').value.trim();
+  const email=document.getElementById('f-email').value.trim();
+  const role=document.getElementById('f-role').value;
+  const errEl=document.getElementById('invite-err');
+  errEl.classList.remove('show');
+  if(!first||!last||!email){errEl.textContent='All fields are required.';errEl.classList.add('show');return}
+  const btn=document.querySelector('[data-action="submit-invite"]');
+  if(btn)btn.textContent='Creating...';
+  try{
+    const result=await api('POST','/api/v1/users/invite',{first_name:first,last_name:last,email,role});
+    const url=window.location.origin+result.invite_path;
+    showInviteLinkPanel('Invite Link',url,'invite-done');
+    await loadUsers();
+  }catch(e){
+    if(btn)btn.textContent='Create & Get Invite Link';
+    errEl.textContent=(e&&e.message)||'Could not send invite. Try again.';
+    errEl.classList.add('show');
+  }
+}
+
+function showInviteLinkPanel(heading,url,doneAction){
+  document.getElementById('edit-card').innerHTML=`
+    <div class="invite-link-panel">
+      <h2>${heading}</h2>
+      <textarea class="invite-url" readonly rows="3">${url}</textarea>
+      <button class="btn-primary" data-action="copy-link" data-url="${url}">Copy Link</button>
+      <div class="invite-note">An email has been sent.</div>
+      <button class="btn-secondary" data-action="${doneAction}">Done</button>
+    </div>`;
+}
+
+async function editUser(id){
+  const u=USERS.find(u=>u.id===id||u.id===String(id));
+  if(!u)return;
+  editingUser=u;
+  const dn=displayName(u);
+  document.getElementById('edit-card').innerHTML=`
+    <div class="hd"><h1>Edit ${dn}</h1></div>
+    <div class="form-wrap">
+      <div class="field">
+        <label>Role</label>
+        <select id="f-role">
+          <option value="admin"${u.role==='admin'?' selected':''}>Admin</option>
+          <option value="manager"${u.role==='manager'?' selected':''}>Manager</option>
+          <option value="team_member"${u.role==='team_member'?' selected':''}>Member</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>First Name</label>
+        <input id="f-first" type="text" value="${u.first_name||''}" autocomplete="given-name">
+      </div>
+      <div class="field">
+        <label>Last Name</label>
+        <input id="f-last" type="text" value="${u.last_name||''}" autocomplete="family-name">
+      </div>
+      <div class="field">
+        <label>Nickname (optional)</label>
+        <input id="f-nick" type="text" value="${u.nickname||''}" placeholder="e.g. Jay">
+        <div class="field-hint">How they appear in the app</div>
+        <div id="nick-err" class="field-err"></div>
+      </div>
+      <div class="field">
+        <label>Email</label>
+        <input id="f-email" type="email" value="${u.email||''}" readonly>
+        <div class="field-hint">Email cannot be changed</div>
+      </div>
+      <button class="btn-primary" data-action="save-user">Update Profile</button>
+      <div class="sep">
+        <button class="btn-secondary" data-action="reset-password">Reset Password</button>
+        <button class="btn-secondary" data-action="force-logout">Force Logout</button>
+        <button class="btn-danger" data-action="delete-user">Delete ${dn}</button>
+      </div>
+    </div>`;
+  show(2);
+}
+
+async function saveUser(){
+  if(!editingUser)return;
+  const first=document.getElementById('f-first').value.trim();
+  const last=document.getElementById('f-last').value.trim();
+  const nick=document.getElementById('f-nick').value.trim();
+  const role=document.getElementById('f-role').value;
+  const nickErr=document.getElementById('nick-err');
+  if(nickErr)nickErr.classList.remove('show');
+  const btn=document.querySelector('[data-action="save-user"]');
+  if(btn)btn.textContent='Saving...';
+  try{
+    const result=await api('PATCH',`/api/v1/users/${editingUser.id}`,{first_name:first,last_name:last,nickname:nick,role});
+    const idx=USERS.findIndex(u=>u.id===editingUser.id);
+    if(idx>=0)USERS[idx]=result.user||result;
+    showToast('Profile updated');
+    show(1);
+    renderUsers();
+  }catch(e){
+    if(btn)btn.textContent='Update Profile';
+    if(e&&e.error==='nickname_taken'){
+      if(nickErr){nickErr.textContent=e.message||'Nickname already taken.';nickErr.classList.add('show')}
+    }else{
+      showToast('Could not save. Try again.');
+    }
+  }
+}
+
+async function resetPassword(){
+  if(!editingUser)return;
+  const btn=document.querySelector('[data-action="reset-password"]');
+  if(btn)btn.textContent='Generating...';
+  try{
+    const result=await api('POST',`/api/v1/users/${editingUser.id}/reset-password`);
+    const url=window.location.origin+result.reset_path;
+    showInviteLinkPanel('Password Reset Link',url,'back-to-edit');
+  }catch(e){
+    if(btn)btn.textContent='Reset Password';
+    showToast('Could not generate reset link.');
+  }
+}
+
+async function forceLogout(){
+  if(!editingUser)return;
+  const dn=displayName(editingUser);
+  if(!confirm(`Force logout ${dn}? They will need to log in again.`))return;
+  try{
+    await api('POST',`/api/v1/users/${editingUser.id}/revoke`);
+    show(1);
+    showToast('Session revoked');
+  }catch(e){
+    showToast('Could not revoke session.');
+  }
+}
+
+async function deleteUser(){
+  if(!editingUser)return;
+  const dn=displayName(editingUser);
+  if(!confirm(`Delete ${dn}? This cannot be undone.`))return;
+  try{
+    await api('DELETE',`/api/v1/users/${editingUser.id}`);
+    USERS=USERS.filter(u=>u.id!==editingUser.id);
+    editingUser=null;
+    renderUsers();
+    show(1);
+  }catch(e){
+    showToast('Could not delete user.');
+  }
+}
+
+function renderAccess(userId){
   const s3=document.getElementById('s3');
-  s3.innerHTML='';
-  APPS.forEach(app=>{
-    const perms=DEFAULT_PERMS[app.slug];
-    const grants=USER_GRANTS[app.slug];
-    const grantedUsers=USERS.filter(u=>grants.includes(u.id)&&u.status!=='config');
+  const u=USERS.find(u=>u.id===userId||u.id===String(userId));
+  const dn=u?displayName(u):'User';
+  s3.innerHTML=`<div class="access-header">${dn}'s Access</div>`;
+  if(!APPS_PERMS.length){
+    s3.innerHTML+=`<div class="error-msg">Could not load permissions.</div>`;
+    return;
+  }
+  APPS_PERMS.forEach(app=>{
+    const roleGrants=app.role_grants||[];
+    const userGrants=app.user_grants||[];
     const roles=['admin','manager','team_member'];
+    const roleLabels={admin:'Admin',manager:'Manager',team_member:'Member'};
     let togglesHtml=roles.map(role=>`
       <div class="toggle-row">
-        <div><div class="lbl">${role}</div></div>
-        <label class="toggle"><input type="checkbox" ${perms[role]?'checked':''} onchange="togglePerm('${app.slug}','${role}',this.checked)"><span class="slider"></span></label>
+        <div class="lbl">${roleLabels[role]}</div>
+        <label class="toggle"><input type="checkbox" ${roleGrants.includes(role)?'checked':''} data-action="toggle-perm" data-slug="${app.slug}" data-role="${role}"><span class="slider"></span></label>
       </div>`).join('');
+    const grantedUsers=USERS.filter(u=>userGrants.includes(u.id)||userGrants.includes(String(u.id)));
     let chipsHtml=grantedUsers.length
-      ?`<div class="chips">${grantedUsers.map(u=>`<span class="chip">${u.name}<button class="chip-rm" onclick="removeGrant('${app.slug}',${u.id})">×</button></span>`).join('')}</div>`
-      :`<div class="chips-empty">No individual grants</div>`;
-    // Build user picker — exclude superadmin and already-granted users
-    const available=USERS.filter(u=>u.status!=='config'&&!grants.includes(u.id));
+      ?`<div class="chips">${grantedUsers.map(u=>`<span class="chip">${displayName(u)}<button class="chip-rm" data-action="remove-grant" data-slug="${app.slug}" data-uid="${u.id}">×</button></span>`).join('')}</div>`
+      :`<div class="chips-empty">No individual access grants.</div>`;
+    const available=USERS.filter(u=>!userGrants.includes(u.id)&&!userGrants.includes(String(u.id)));
     const pickerHtml=available.length
-      ?`<div class="add-grant"><select id="pick-${app.slug}">${available.map(u=>`<option value="${u.id}">${u.name} (${u.role})</option>`).join('')}</select><button onclick="addGrant('${app.slug}')">+ Add</button></div>`
+      ?`<div class="add-grant"><select id="pick-${app.slug}">${available.map(u=>`<option value="${u.id}">${displayName(u)}</option>`).join('')}</select><button data-action="add-grant" data-slug="${app.slug}">Add</button></div>`
       :`<div class="section-note">All users already have access</div>`;
     const card=document.createElement('div');
     card.className='access-card';
     card.id='access-'+app.slug;
-    card.innerHTML=`<div class="access-hd"><span class="ico">${app.icon}</span>${app.name}</div>${togglesHtml}<div class="toggle-row" style="border-top:0.5px solid var(--brd)"><div><div class="lbl">Specific users</div><div class="sub">Grant access to individual people beyond their role</div></div></div>${chipsHtml}${pickerHtml}`;
+    card.innerHTML=`<div class="access-hd"><span class="ico">${app.icon||''}</span>${app.name}</div>${togglesHtml}<div class="toggle-row" style="border-top:0.5px solid var(--brd)"><div><div class="lbl">Specific users</div><div class="sub">Grant access beyond their role</div></div></div>${chipsHtml}${pickerHtml}`;
     s3.appendChild(card);
   });
 }
-buildAccess();
 
-function togglePerm(slug,role,val){DEFAULT_PERMS[slug][role]=val}
-
-function addGrant(slug){
-  const sel=document.getElementById('pick-'+slug);
-  if(!sel)return;
-  const uid=parseInt(sel.value);
-  if(!USER_GRANTS[slug].includes(uid)){USER_GRANTS[slug].push(uid)}
-  buildAccess();
-}
-
-function removeGrant(slug,uid){
-  USER_GRANTS[slug]=USER_GRANTS[slug].filter(id=>id!==uid);
-  buildAccess();
-}
-
-let editingUser=null;
-
-function editUser(u){
-  editingUser=u;
-  document.getElementById('edit-title').textContent='Edit user';
-  const fe=document.getElementById('f-email');
-  fe.value=u.email;
-  fe.readOnly=true;
-  document.getElementById('f-role').value=u.role;
-  document.getElementById('btn-invite').style.display='none';
-  document.getElementById('btn-reset').style.display='block';
-  document.getElementById('btn-delete').style.display='block';
-  document.getElementById('back-hint').style.display='block';
-  show(2);
-}
-
-function clearEdit(){
-  editingUser=null;
-  document.getElementById('edit-title').textContent='Invite new user';
-  const fe=document.getElementById('f-email');
-  fe.value='';
-  fe.readOnly=false;
-  document.getElementById('f-role').value='team_member';
-  document.getElementById('btn-invite').style.display='block';
-  document.getElementById('btn-reset').style.display='none';
-  document.getElementById('btn-delete').style.display='none';
-  document.getElementById('back-hint').style.display='none';
-  document.getElementById('extern-notice').style.display='none';
-  document.getElementById('edit-fields').style.display='block';
-}
-
-function sendInvite(){
-  const email=document.getElementById('f-email').value.trim();
-  if(!email)return;
-  alert('Invite sent to '+email+' (mockup)');
-  clearEdit();
-  show(1);
-}
-
-function resetPw(){
-  if(editingUser)alert('Password reset email sent to '+editingUser.email+' (mockup)');
-}
-
-function deleteUser(){
-  if(editingUser&&confirm('Delete '+editingUser.name+'?')){
-    alert('User deleted (mockup)');
-    clearEdit();
-    show(1);
+async function savePermissions(slug){
+  const app=APPS_PERMS.find(a=>a.slug===slug);
+  if(!app)return;
+  try{
+    await api('PUT',`/api/v1/apps/${slug}/permissions`,{role_grants:app.role_grants||[],user_grants:app.user_grants||[]});
+  }catch(e){
+    showToast('Could not save permissions.');
   }
 }
 
 function show(n){
   [1,2,3].forEach(i=>{
     document.getElementById('s'+i).style.display=i===n?'block':'none';
-    document.getElementById('t'+i).className=i===n?'on':'';
+    const btn=document.getElementById('t'+i);
+    if(btn)btn.className=i===n?'on':'';
   });
-  if(n!==2)clearEdit();
+  if(n===3&&editingUser){
+    renderAccess(editingUser.id);
+  }else if(n===3&&!editingUser){
+    document.getElementById('s3').innerHTML='<div class="empty"><h3>Select a user first</h3><p>Open a user from the Users tab to manage their access.</p></div>';
+  }
+  if(n===1){
+    editingUser=null;
+  }
 }
+
+// Event delegation
+document.querySelector('.app').addEventListener('click',async function(e){
+  const el=e.target.closest('[data-action]');
+  if(!el)return;
+  const action=el.dataset.action;
+  if(action==='tab-switch'){
+    show(parseInt(el.dataset.tab));
+  }else if(action==='edit-user'){
+    const id=el.dataset.userId;
+    const uid=parseInt(id)||id;
+    await editUser(uid);
+  }else if(action==='show-invite'){
+    showInviteForm();
+  }else if(action==='submit-invite'){
+    await submitInvite();
+  }else if(action==='copy-link'){
+    const url=el.dataset.url;
+    try{
+      await navigator.clipboard.writeText(url);
+      el.textContent='Copied!';
+      setTimeout(()=>el.textContent='Copy Link',2000);
+    }catch(err){
+      const ta=document.querySelector('.invite-url');
+      if(ta){ta.select();document.execCommand('copy');el.textContent='Copied!';setTimeout(()=>el.textContent='Copy Link',2000)}
+    }
+  }else if(action==='invite-done'){
+    show(1);
+  }else if(action==='back-to-edit'){
+    if(editingUser)await editUser(editingUser.id);
+    else show(1);
+  }else if(action==='save-user'){
+    await saveUser();
+  }else if(action==='reset-password'){
+    await resetPassword();
+  }else if(action==='force-logout'){
+    await forceLogout();
+  }else if(action==='delete-user'){
+    await deleteUser();
+  }else if(action==='toggle-perm'){
+    const slug=el.dataset.slug;
+    const role=el.dataset.role;
+    const checked=el.checked;
+    const app=APPS_PERMS.find(a=>a.slug===slug);
+    if(app){
+      if(checked){if(!app.role_grants.includes(role))app.role_grants.push(role)}
+      else{app.role_grants=app.role_grants.filter(r=>r!==role)}
+      await savePermissions(slug);
+    }
+  }else if(action==='add-grant'){
+    const slug=el.dataset.slug;
+    const sel=document.getElementById('pick-'+slug);
+    if(!sel)return;
+    const uid=sel.value;
+    const app=APPS_PERMS.find(a=>a.slug===slug);
+    if(app&&!app.user_grants.includes(uid)&&!app.user_grants.includes(parseInt(uid))){
+      app.user_grants.push(uid);
+      await savePermissions(slug);
+      if(editingUser)renderAccess(editingUser.id);
+    }
+  }else if(action==='remove-grant'){
+    const slug=el.dataset.slug;
+    const uid=el.dataset.uid;
+    const app=APPS_PERMS.find(a=>a.slug===slug);
+    if(app){
+      app.user_grants=app.user_grants.filter(id=>id!==uid&&id!==parseInt(uid));
+      await savePermissions(slug);
+      if(editingUser)renderAccess(editingUser.id);
+    }
+  }
+});
+
+(async function init(){
+  try{CURRENT_USER=await api('GET','/api/v1/me')}catch(e){return}
+  loadUsers();
+  loadAppsPermissions();
+})();
 
 document.addEventListener('dblclick',e=>e.preventDefault());
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');
