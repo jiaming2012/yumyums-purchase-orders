@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Backend
-status: executing
-stopped_at: Completed 12-04-PLAN.md
-last_updated: "2026-04-18T11:54:01.017Z"
+status: verifying
+stopped_at: Completed 12-06-PLAN.md
+last_updated: "2026-04-18T12:00:48.450Z"
 last_activity: 2026-04-18
 progress:
   total_phases: 6
-  completed_phases: 5
+  completed_phases: 6
   total_plans: 29
-  completed_plans: 28
+  completed_plans: 29
   percent: 0
 ---
 
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-04-15)
 
 Phase: 12 (inventory-photos-tile-permissions) — EXECUTING
 Plan: 6 of 6
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-04-18
 
 Progress: [░░░░░░░░░░] 0% (v2.0 milestone)
@@ -80,6 +80,7 @@ Progress: [░░░░░░░░░░] 0% (v2.0 milestone)
 | Phase 12-inventory-photos-tile-permissions P02 | 5 | 2 tasks | 5 files |
 | Phase 12-inventory-photos-tile-permissions P05 | 4 | 2 tasks | 7 files |
 | Phase 12 P04 | 4 | 2 tasks | 2 files |
+| Phase 12 P06 | 4 | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -151,6 +152,8 @@ Recent decisions affecting current work:
 - [Phase 12-inventory-photos-tile-permissions]: Receipt worker uses claude-haiku-4-5 via anthropic-sdk-go; Jaro-Winkler 0.85 threshold for purchase item fuzzy matching; worker gracefully skips on missing API keys; bank_tx_id idempotency check across purchase_events and pending_purchases
 - [Phase 12]: renderHistoryList used for in-memory re-renders; loadHistory fetches fresh data — avoids double-fetch on tab switch
 - [Phase 12]: Chart.js removed from inventory.html — Trends/Cost are coming-soon stubs, sales data deferred per D-13
+- [Phase 12]: renderPendingCard separates pending from confirmed event rendering to avoid nested conditional logic in renderPurchaseEvent
+- [Phase 12]: Fixed 0024_inventory.sql migration: is_active -> enabled (hq_apps column mismatch caused server startup failure)
 
 ### Pending Todos
 
@@ -173,6 +176,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-18T11:54:01.012Z
-Stopped at: Completed 12-04-PLAN.md
+Last session: 2026-04-18T12:00:48.445Z
+Stopped at: Completed 12-06-PLAN.md
 Resume file: None

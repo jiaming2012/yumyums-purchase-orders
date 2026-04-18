@@ -37,7 +37,7 @@
 - [x] **Phase 10.1: Cross-Device State Sync** ��� Op-log, WebSocket hub, real-time fan-out, Lamport clocks, conflict resolution, sync UX (completed 2026-04-17)
 - [x] **Phase 10.2: Reactive Sync Framework** — Shared Store with collection-level subscriptions, single write channel (POST /ops), shared JS modules for all tools (completed 2026-04-17)
 - [x] **Phase 11: Onboarding + Users Admin** — Onboarding persistence, user CRUD, role management, and app permissions wired to their respective HTML pages (completed 2026-04-18)
-- [ ] **Phase 12: Inventory + Photos + Tile Permissions** — Purchase events, vendor data, receipt ingestion, presigned photo upload, and permission-based tile filtering on index.html
+- [x] **Phase 12: Inventory + Photos + Tile Permissions** — Purchase events, vendor data, receipt ingestion, presigned photo upload, and permission-based tile filtering on index.html (completed 2026-04-18)
 
 ## Phase Details
 
@@ -155,7 +155,7 @@ Plans:
 - [x] 12-03-PLAN.md — Tile permission filtering on index.html
 - [x] 12-04-PLAN.md — inventory.html big-bang API swap
 - [x] 12-05-PLAN.md — Receipt ingestion pipeline (Mercury + Claude Haiku + validation)
-- [ ] 12-06-PLAN.md — Receipt review queue UI + E2E tests
+- [x] 12-06-PLAN.md — Receipt review queue UI + E2E tests
 
 ## Progress
 
@@ -177,4 +177,4 @@ Phases execute in numeric order: 9 → 10 → 10.1 → 10.2 → 11 → 12
 | 10.1 Cross-Device State Sync | v2.0 | 5/5 | Complete   | 2026-04-17 |
 | 10.2 Reactive Sync Framework | v2.0 | 3/3 | Complete    | 2026-04-17 |
 | 11. Onboarding + Users Admin | v2.0 | 6/6 | Complete    | 2026-04-18 |
-| 12. Inventory + Photos + Tile Permissions | v2.0 | 5/6 | In Progress|  |
+| 12. Inventory + Photos + Tile Permissions | v2.0 | 6/6 | Complete   | 2026-04-18 |
