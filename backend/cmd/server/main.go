@@ -10,6 +10,8 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strconv"
+	"time"
 
 	s3 "github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/go-chi/chi/v5"
@@ -22,6 +24,7 @@ import (
 	"github.com/yumyums/hq/internal/me"
 	"github.com/yumyums/hq/internal/onboarding"
 	"github.com/yumyums/hq/internal/photos"
+	"github.com/yumyums/hq/internal/receipt"
 	opsync "github.com/yumyums/hq/internal/sync"
 	"github.com/yumyums/hq/internal/users"
 	"github.com/yumyums/hq/internal/workflow"
@@ -366,6 +369,39 @@ func main() {
 	})
 
 	r.Handle("/*", http.FileServerFS(staticFS))
+
+	// Start receipt ingestion background worker
+	// Gracefully skips if MERCURY_API_KEY or ANTHROPIC_API_KEY is not set.
+	{
+		workerInterval := 6 * time.Hour
+		if intervalStr := os.Getenv("RECEIPT_WORKER_INTERVAL"); intervalStr != "" {
+			if d, err := time.ParseDuration(intervalStr); err == nil {
+				workerInterval = d
+			} else {
+				log.Printf("WARNING: invalid RECEIPT_WORKER_INTERVAL %q — using 6h default", intervalStr)
+			}
+		}
+
+		lookbackDays := 14
+		if lbStr := os.Getenv("MERCURY_LOOKBACK_DAYS"); lbStr != "" {
+			if n, err := strconv.Atoi(lbStr); err == nil && n > 0 {
+				lookbackDays = n
+			} else {
+				log.Printf("WARNING: invalid MERCURY_LOOKBACK_DAYS %q — using 14 default", lbStr)
+			}
+		}
+
+		receiptCfg := receipt.WorkerConfig{
+			MercuryAPIKey:   os.Getenv("MERCURY_API_KEY"),
+			AnthropicAPIKey: os.Getenv("ANTHROPIC_API_KEY"),
+			Pool:            pool,
+			SpacesPresigner: spacesEndpoint,
+			SpacesBucket:    spacesBucket,
+			Interval:        workerInterval,
+			LookbackDays:    lookbackDays,
+		}
+		receipt.StartWorker(ctx, receiptCfg)
+	}
 
 	log.Printf("Yumyums HQ server listening on :%s", port)
 	if addrs, err := net.InterfaceAddrs(); err == nil {
