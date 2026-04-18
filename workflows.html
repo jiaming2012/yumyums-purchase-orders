@@ -150,6 +150,13 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .save-indicator{font-size:12px;color:var(--mut);margin-left:4px}
 .save-indicator.saved{color:#27ae60}
 .photo-placeholder{padding:16px;background:var(--card);border-radius:8px;border:0.5px solid var(--brd);text-align:center;color:var(--mut);font-size:13px}
+.photo-uploading{display:flex;align-items:center;gap:10px;padding:8px 0;font-size:13px;color:var(--mut)}
+.photo-spinner{width:18px;height:18px;border:2px solid var(--brd);border-top-color:var(--info-tx);border-radius:50%;animation:photo-spin 0.8s linear infinite;flex-shrink:0}
+@keyframes photo-spin{to{transform:rotate(360deg)}}
+.photo-field-error{font-size:13px;color:#c0392b;padding:4px 0;cursor:pointer}
+.photo-thumb-wrap{display:flex;flex-direction:column;gap:4px;align-items:flex-start;padding:6px 0}
+.photo-thumb-link{display:block;cursor:pointer}
+.approvals-photo-thumb{width:72px;height:72px;border-radius:8px;object-fit:cover;border:0.5px solid var(--brd);display:block}
 .sync-banner{background:var(--warn-bg);color:var(--warn-tx);font-size:13px;font-weight:500;padding:8px 16px;text-align:center;border-radius:8px;margin-bottom:8px}
 #save-status{font-size:12px;font-weight:500;text-align:center;padding:6px 0;transition:opacity .3s}
 #save-status.pending{color:var(--warn-tx)}
@@ -1369,7 +1376,7 @@ function clearRejectionFlag(fldId) {
   // Keep the flag if photo is required but not yet provided
   if (REJECTION_FLAGS[fldId].requirePhoto) {
     var resp = FIELD_RESPONSES[fldId];
-    var hasPhoto = resp && resp.value && typeof resp.value === 'string' && resp.value.startsWith('blob:');
+    var hasPhoto = resp && resp.value && typeof resp.value === 'string' && resp.value.startsWith('https://');
     if (!hasPhoto) return; // keep flag — photo still needed
   }
   delete REJECTION_FLAGS[fldId];
@@ -1451,8 +1458,68 @@ async function submitChecklistToAPI(tplId, allFlds, isReapproval) {
 }
 
 function handlePhotoCaptureClick(fldId) {
-  // Photo upload deferred to Phase 12 — show placeholder
-  return;
+  openCamera(function(file) {
+    var objectURL = URL.createObjectURL(file);
+    showPhotoPreview(objectURL, function() {
+      // User confirmed — upload via presigned PUT URL
+      var fieldRow = document.querySelector('.fill-field[data-field-id="' + fldId + '"]');
+      var captureArea = fieldRow ? fieldRow.querySelector('.photo-capture-area') : null;
+      if (captureArea) {
+        captureArea.innerHTML = '<div class="photo-uploading"><div class="photo-spinner"></div>Uploading...</div>';
+      }
+      var tpl = fillState.activeTemplate;
+      var tplId = tpl ? tpl.id : 'unknown';
+      var filename = fldId + '.jpg';
+      fetch('/api/v1/photos/presign', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path_prefix: 'checklists', id: tplId, filename: filename })
+      }).then(function(r) {
+        if (r.status === 401) { location.href = 'login.html'; throw new Error('unauthorized'); }
+        if (!r.ok) throw new Error('presign failed: ' + r.status);
+        return r.json();
+      })
+        .then(function(presignResp) {
+          return fetch(presignResp.url, {
+            method: 'PUT',
+            body: file,
+            headers: { 'Content-Type': 'image/jpeg' }
+          }).then(function(putResp) {
+            if (!putResp.ok) throw new Error('PUT failed: ' + putResp.status);
+            return presignResp.public_url;
+          });
+        })
+        .then(function(publicUrl) {
+          URL.revokeObjectURL(objectURL);
+          FIELD_RESPONSES[fldId] = { value: publicUrl, answeredBy: getUserName(), answeredAt: new Date() };
+          debouncedSaveField(fldId, publicUrl);
+          if (captureArea) {
+            captureArea.innerHTML =
+              '<div class="photo-thumb-wrap">' +
+              '<a class="photo-thumb-link" href="' + publicUrl + '" target="_blank">' +
+              '<img class="photo-thumb" src="' + publicUrl + '" alt="Captured photo">' +
+              '</a>' +
+              '<button class="photo-retake-link" data-action="photo-retake" data-fld-id="' + fldId + '">Retake</button>' +
+              '</div>';
+          }
+          updateProgress();
+        })
+        .catch(function(err) {
+          console.error('Photo upload failed:', err);
+          URL.revokeObjectURL(objectURL);
+          if (captureArea) {
+            captureArea.innerHTML =
+              '<button class="photo-capture-btn" data-action="photo-capture" data-fld-id="' + fldId + '">📷 Take Photo</button>' +
+              '<div class="photo-field-error" data-action="photo-capture" data-fld-id="' + fldId + '">Upload failed. Tap to retry.</div>';
+          }
+        });
+    }, function() {
+      // User retook — revoke old blob and re-open camera
+      URL.revokeObjectURL(objectURL);
+      handlePhotoCaptureClick(fldId);
+    });
+  });
 }
 
 function handleFailPhotoCaptureClick(fldId) {
@@ -1564,10 +1631,16 @@ function renderApprovals() {
         '<div class="reject-item-form">' +
         '<textarea class="reject-item-input" name="reject-' + fld.id + '" data-reject-fld="' + fld.id + '" placeholder="Comment for crew\u2026" rows="2">' + escapeHtml(fld._rejectComment || '') + '</textarea>' +
         '<label class="require-photo-toggle"><input type="checkbox" name="reject-photo-' + fld.id + '" data-reject-photo-fld="' + fld.id + '" ' + (fld._rejectRequirePhoto ? 'checked' : '') + '> Require photo evidence</label></div>' : '';
-      return '<div class="review-item">' +
+      // Show photo thumbnail inline if the field value is a Spaces URL
+      var photoThumb = '';
+      if (answered && typeof fld.value === 'string' && fld.value.startsWith('https://')) {
+        photoThumb = '<a class="photo-thumb-link" href="' + fld.value + '" target="_blank" style="display:block;margin:6px 0 0 0"><img class="approvals-photo-thumb" src="' + fld.value + '" alt="Photo evidence"></a>';
+      }
+      return '<div class="review-item" style="flex-wrap:wrap">' +
         '<span class="review-check" style="' + (answered ? '' : 'color:#c0392b') + '">' + (answered ? '✓' : '✗') + '</span>' +
         '<span class="review-label">' + escapeHtml(fld.label || fld.type || fld.field_label || '') + '</span>' +
         '<button class="review-reject-btn ' + (isRejected ? 'selected' : '') + '" data-action="toggle-reject-item" data-submission-id="' + submissionId + '" data-fld-id="' + fld.id + '">' + (isRejected ? 'Flagged' : 'Flag') + '</button>' +
+        (photoThumb ? '<div style="width:100%;padding-left:24px">' + photoThumb + '</div>' : '') +
         '</div>' + rejectForm;
     }).join('');
     var rejCount = fields.filter(function(f) { return f._pendingReject; }).length;
@@ -1714,7 +1787,7 @@ function renderRunnerField(fld) {
   }
 
   const rejFlag = REJECTION_FLAGS[fld.id];
-  const photoNeeded = rejFlag && rejFlag.requirePhoto && (!resp || !resp.value || typeof resp.value !== 'string' || !resp.value.startsWith('blob:'));
+  const photoNeeded = rejFlag && rejFlag.requirePhoto && (!resp || !resp.value || typeof resp.value !== 'string' || !resp.value.startsWith('https://'));
   const correctionBanner = rejFlag ? `<div class="correction-banner">⚠ Rejected: ${escapeHtml(rejFlag.comment)}${photoNeeded ? ' · 📷 Photo required before resubmit' : rejFlag.requirePhoto ? ' · ✓ Photo uploaded' : ''}</div>` : '';
 
   if (fld.type === 'checkbox') {
@@ -1794,12 +1867,21 @@ function renderRunnerField(fld) {
   }
 
   if (fld.type === 'photo') {
-    // Photo upload deferred to Phase 12 (D-26)
-    return `<div class="fill-field" data-field-id="${fld.id}">
-  ${correctionBanner}
-  <div class="fill-field-label">${escapeHtml(fld.label)}</div>
-  <div class="photo-placeholder" style="margin-top:6px">Photo upload coming soon</div>
-</div>`;
+    var photoUrl = answered && resp && typeof resp.value === 'string' && resp.value.startsWith('https://') ? resp.value : null;
+    var captureAreaHtml = photoUrl
+      ? '<div class="photo-thumb-wrap">' +
+        '<a class="photo-thumb-link" href="' + photoUrl + '" target="_blank">' +
+        '<img class="photo-thumb" src="' + photoUrl + '" alt="Captured photo">' +
+        '</a>' +
+        '<button class="photo-retake-link" data-action="photo-retake" data-fld-id="' + fld.id + '">Retake</button>' +
+        '</div>'
+      : '<button class="photo-capture-btn" data-action="photo-capture" data-fld-id="' + fld.id + '">📷 Take Photo</button>';
+    return '<div class="fill-field" data-field-id="' + fld.id + '">' +
+      correctionBanner +
+      '<div class="fill-field-label">' + escapeHtml(fld.label) + '</div>' +
+      '<div class="photo-capture-area" style="margin-top:6px">' + captureAreaHtml + '</div>' +
+      attribution +
+      '</div>';
   }
 
   return `<div class="fill-field" data-field-id="${fld.id}"><div class="fill-field-label">${escapeHtml(fld.label)}</div></div>`;
