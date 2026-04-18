@@ -19,6 +19,7 @@ import (
 	"github.com/yumyums/hq/internal/db"
 	"github.com/yumyums/hq/internal/me"
 	opsync "github.com/yumyums/hq/internal/sync"
+	"github.com/yumyums/hq/internal/users"
 	"github.com/yumyums/hq/internal/workflow"
 )
 
@@ -246,6 +247,8 @@ func main() {
 			w.Write([]byte(`{"status":"ok"}`))
 		})
 		r.Post("/auth/login", auth.LoginHandler(pool, superadmins, secureCookie))
+		r.Get("/auth/invite-info", users.InviteInfoHandler(pool))
+		r.Post("/auth/accept-invite", users.AcceptInviteHandler(pool, secureCookie))
 
 		// Protected — auth middleware applied to this group
 		r.Group(func(r chi.Router) {
@@ -253,6 +256,22 @@ func main() {
 			r.Post("/auth/logout", auth.LogoutHandler(pool))
 			r.Get("/me", me.MeHandler())
 			r.Get("/me/apps", me.MeAppsHandler(pool))
+
+			// User admin endpoints — admin only
+			r.Route("/users", func(r chi.Router) {
+				r.Get("/", users.ListUsersHandler(pool))
+				r.Post("/invite", users.InviteHandler(pool))
+				r.Patch("/{id}", users.UpdateUserHandler(pool))
+				r.Post("/{id}/reset-password", users.ResetPasswordHandler(pool))
+				r.Post("/{id}/revoke", users.RevokeHandler(pool))
+				r.Delete("/{id}", users.DeleteUserHandler(pool))
+			})
+
+			// App permissions endpoints — admin only
+			r.Route("/apps", func(r chi.Router) {
+				r.Get("/permissions", users.GetAppPermissionsHandler(pool))
+				r.Put("/{slug}/permissions", users.SetAppPermissionsHandler(pool))
+			})
 
 			// Workflow endpoints — all authenticated
 			r.Route("/workflow", func(r chi.Router) {
