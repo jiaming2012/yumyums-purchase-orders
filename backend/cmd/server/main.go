@@ -18,6 +18,7 @@ import (
 	"github.com/yumyums/hq/internal/config"
 	"github.com/yumyums/hq/internal/db"
 	"github.com/yumyums/hq/internal/me"
+	"github.com/yumyums/hq/internal/onboarding"
 	opsync "github.com/yumyums/hq/internal/sync"
 	"github.com/yumyums/hq/internal/users"
 	"github.com/yumyums/hq/internal/workflow"
@@ -221,6 +222,11 @@ func main() {
 		}
 	}
 
+	// Seed onboarding templates
+	if err := onboarding.SeedOnboardingTemplates(ctx, pool); err != nil {
+		log.Fatalf("Failed to seed onboarding templates: %v", err)
+	}
+
 	// Start WebSocket hub and Postgres LISTEN/NOTIFY pipeline
 	hub := opsync.NewHub()
 	go hub.Run()
@@ -288,6 +294,21 @@ func main() {
 				r.Post("/rejectItem", workflow.RejectItemHandler(pool))
 				r.Get("/ops/since", opsync.OpsSinceHandler(pool))
 				r.Post("/ops", opsync.OpHandler(pool, workflowOpRouter(pool)))
+			})
+
+			// Onboarding endpoints — all authenticated
+			r.Route("/onboarding", func(r chi.Router) {
+				r.Get("/templates", onboarding.ListTemplatesHandler(pool))
+				r.Get("/templates/{id}", onboarding.GetTemplateHandler(pool))
+				r.Get("/myTrainings", onboarding.MyTrainingsHandler(pool))
+				r.Get("/hireTraining/{hireId}", onboarding.HireTrainingHandler(pool))
+				r.Get("/managerHires", onboarding.ManagerHiresHandler(pool))
+				r.Post("/saveProgress", onboarding.SaveProgressHandler(pool))
+				r.Post("/signOff", onboarding.SignOffHandler(pool))
+				r.Post("/createTemplate", onboarding.CreateTemplateHandler(pool))
+				r.Put("/updateTemplate/{id}", onboarding.UpdateTemplateHandler(pool))
+				r.Post("/assignTemplate", onboarding.AssignTemplateHandler(pool))
+				r.Post("/unassignTemplate", onboarding.UnassignTemplateHandler(pool))
 			})
 		})
 	})
