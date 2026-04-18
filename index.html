@@ -95,6 +95,8 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 </div>
 
 <script>
+const TILE_SLUGS={'purchasing.html':'purchasing','workflows.html':'operations','users.html':'users','inventory.html':'inventory','onboarding.html':'onboarding'};
+const APPS_CACHE_KEY='hq_apps';
 function renderUserHeader(name){
   var bar=document.createElement('div');
   bar.className='user-bar';
@@ -111,6 +113,16 @@ function renderUserHeader(name){
   var grid=document.querySelector('.app .grid');
   grid.parentNode.insertBefore(bar,grid);
 }
+function filterTilesByPermissions(apps){
+  var allowed=new Set(apps.map(function(a){return a.slug;}));
+  document.querySelectorAll('.grid .tile').forEach(function(tile){
+    var href=tile.getAttribute('href');
+    if(!href)return;
+    var file=href.split('/').pop();
+    var slug=TILE_SLUGS[file];
+    if(slug&&!allowed.has(slug))tile.remove();
+  });
+}
 async function logout(){
   if(!confirm('Are you sure you want to log out?'))return;
   try{await fetch('/api/v1/auth/logout',{method:'POST'})}catch(e){}
@@ -126,6 +138,18 @@ async function checkAuth(){
     }
   }catch(e){
     // Network error -- allow offline access with cached page
+  }
+  var cached=localStorage.getItem(APPS_CACHE_KEY);
+  if(cached){try{filterTilesByPermissions(JSON.parse(cached));}catch(e){}}
+  try{
+    const appsRes=await fetch('/api/v1/me/apps');
+    if(appsRes.ok){
+      const apps=await appsRes.json();
+      localStorage.setItem(APPS_CACHE_KEY,JSON.stringify(apps));
+      filterTilesByPermissions(apps);
+    }
+  }catch(e){
+    // Network error -- keep cached tiles shown
   }
 }
 checkAuth();
