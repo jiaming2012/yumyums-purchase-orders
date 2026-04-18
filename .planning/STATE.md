@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Backend
-status: verifying
-stopped_at: Completed 11-06-PLAN.md
-last_updated: "2026-04-18T03:26:28.002Z"
+status: executing
+stopped_at: Completed 12-03-PLAN.md
+last_updated: "2026-04-18T11:40:55.593Z"
 last_activity: 2026-04-18
 progress:
   total_phases: 6
   completed_phases: 5
-  total_plans: 23
-  completed_plans: 23
+  total_plans: 29
+  completed_plans: 24
   percent: 0
 ---
 
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-15)
 
 **Core value:** Operational tools that let the owner manage crew workflows and training from one mobile app — with accountability and smart conditions.
-**Current focus:** Phase 11 — onboarding-users-admin
+**Current focus:** Phase 12 — inventory-photos-tile-permissions
 
 ## Current Position
 
-Phase: 12
-Plan: Not started
-Status: Phase complete — ready for verification
-Last activity: 2026-04-18 - Completed quick task 260417-x0g: Add user display name and logout button to index.html
+Phase: 12 (inventory-photos-tile-permissions) — EXECUTING
+Plan: 2 of 6
+Status: Ready to execute
+Last activity: 2026-04-18
 
 Progress: [░░░░░░░░░░] 0% (v2.0 milestone)
 
@@ -75,6 +75,7 @@ Progress: [░░░░░░░░░░] 0% (v2.0 milestone)
 | Phase 11-onboarding-users-admin P03 | 4 | 2 tasks | 3 files |
 | Phase 11-onboarding-users-admin P05 | 327 | 2 tasks | 2 files |
 | Phase 11-onboarding-users-admin P06 | 120 | 2 tasks | 4 files |
+| Phase 12-inventory-photos-tile-permissions P03 | 1 | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -137,6 +138,8 @@ Recent decisions affecting current work:
 - [Phase 11-onboarding-users-admin]: localCopy pattern in Builder editor — deep-copy template before editing; Save calls PUT/POST API, Discard reverts without re-fetch
 - [Phase 11-onboarding-users-admin]: SIGNOFF_FORM keyed by hireId_sectionId — supports concurrent sign-offs on multiple sections
 - [Phase 11-onboarding-users-admin]: parseInt(uuid)||uuid removed from users.html click handler — UUIDs starting with hex digits that are valid decimal integers (e.g. '209c6b34') parse as integers via parseInt, causing editUser(209) to fail USERS.find() since IDs are UUID strings
+- [Phase 12-03]: Cache-then-network pattern for tile permissions: apply cached from localStorage immediately, refresh from /me/apps in background
+- [Phase 12-03]: tile.remove() used instead of display:none — grid reflows naturally with no gaps
 
 ### Pending Todos
 
@@ -159,6 +162,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-18T04:46:45Z
-Stopped at: Completed quick/260418-0tz
+Last session: 2026-04-18T11:40:55.588Z
+Stopped at: Completed 12-03-PLAN.md
 Resume file: None

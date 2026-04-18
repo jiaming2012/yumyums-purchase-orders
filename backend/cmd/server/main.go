@@ -11,14 +11,17 @@ import (
 	"net/http"
 	"os"
 
+	s3 "github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/yumyums/hq/internal/auth"
 	"github.com/yumyums/hq/internal/config"
 	"github.com/yumyums/hq/internal/db"
+	"github.com/yumyums/hq/internal/inventory"
 	"github.com/yumyums/hq/internal/me"
 	"github.com/yumyums/hq/internal/onboarding"
+	"github.com/yumyums/hq/internal/photos"
 	opsync "github.com/yumyums/hq/internal/sync"
 	"github.com/yumyums/hq/internal/users"
 	"github.com/yumyums/hq/internal/workflow"
@@ -227,6 +230,38 @@ func main() {
 		log.Fatalf("Failed to seed onboarding templates: %v", err)
 	}
 
+	// Seed inventory fixtures (vendors, item groups, tags, purchase items)
+	if err := inventory.SeedInventoryFixtures(ctx, pool); err != nil {
+		log.Fatalf("Failed to seed inventory fixtures: %v", err)
+	}
+
+	// Initialize DO Spaces presigner (optional — graceful degradation if env vars missing)
+	var spacesPresigner *s3.PresignClient
+	spacesEndpoint := os.Getenv("DO_SPACES_ENDPOINT")
+	spacesBucket := os.Getenv("DO_SPACES_BUCKET")
+	spacesRegion := os.Getenv("DO_SPACES_REGION")
+	if spacesEndpoint == "" && spacesRegion != "" {
+		spacesEndpoint = "https://" + spacesRegion + ".digitaloceanspaces.com"
+	}
+	if os.Getenv("DO_SPACES_KEY") != "" && os.Getenv("DO_SPACES_SECRET") != "" && spacesBucket != "" && spacesEndpoint != "" {
+		spacesCfg := photos.SpacesConfig{
+			AccessKey: os.Getenv("DO_SPACES_KEY"),
+			SecretKey: os.Getenv("DO_SPACES_SECRET"),
+			Endpoint:  spacesEndpoint,
+			Region:    spacesRegion,
+			Bucket:    spacesBucket,
+		}
+		p, err := photos.NewSpacesPresigner(spacesCfg)
+		if err != nil {
+			log.Printf("WARNING: Failed to initialize DO Spaces presigner: %v — photo endpoints will return 503", err)
+		} else {
+			spacesPresigner = p
+			log.Printf("DO Spaces presigner initialized (bucket: %s, endpoint: %s)", spacesBucket, spacesEndpoint)
+		}
+	} else {
+		log.Println("DO Spaces env vars not set — photo upload endpoints will return 503")
+	}
+
 	// Start WebSocket hub and Postgres LISTEN/NOTIFY pipeline
 	hub := opsync.NewHub()
 	go hub.Run()
@@ -294,6 +329,23 @@ func main() {
 				r.Post("/rejectItem", workflow.RejectItemHandler(pool))
 				r.Get("/ops/since", opsync.OpsSinceHandler(pool))
 				r.Post("/ops", opsync.OpHandler(pool, workflowOpRouter(pool)))
+			})
+
+			// Photos endpoints — presigned URL generation for DO Spaces
+			r.Route("/photos", func(r chi.Router) {
+				r.Post("/presign", photos.PresignUploadHandler(spacesPresigner, spacesBucket, spacesEndpoint))
+				r.Get("/presign", photos.PresignGetHandler(spacesPresigner, spacesBucket))
+			})
+
+			// Inventory endpoints — all authenticated
+			r.Route("/inventory", func(r chi.Router) {
+				r.Get("/vendors", inventory.ListVendorsHandler(pool))
+				r.Get("/purchases", inventory.ListPurchaseEventsHandler(pool))
+				r.Post("/purchases", inventory.CreatePurchaseEventHandler(pool))
+				r.Get("/purchases/pending", inventory.ListPendingPurchasesHandler(pool))
+				r.Post("/purchases/confirm", inventory.ConfirmPendingPurchaseHandler(pool))
+				r.Post("/purchases/discard", inventory.DiscardPendingPurchaseHandler(pool))
+				r.Get("/stock", inventory.GetStockHandler(pool))
 			})
 
 			// Onboarding endpoints — all authenticated
