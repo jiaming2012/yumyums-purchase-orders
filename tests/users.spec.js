@@ -406,3 +406,53 @@ test.describe('Password Reset', () => {
     await expect(page.locator('.invite-url')).toContainText('/login.html?token=');
   });
 });
+
+// ─── Access tab ──────────────────────────────────────────────────────────────
+
+test.describe('Access tab', () => {
+  test('shows all apps without needing to select a user', async ({ page }) => {
+    await login(page);
+    await page.goto('/users.html');
+    await waitForUserList(page);
+    // Click Access tab directly — no user selected
+    await page.click('#t3');
+    await page.waitForFunction(() => {
+      const s3 = document.getElementById('s3');
+      return s3 && s3.querySelector('.access-card');
+    });
+    // Should show "App Permissions" header, not "Select a user first"
+    await expect(page.locator('#s3')).toContainText('App Permissions');
+    await expect(page.locator('#s3')).not.toContainText('Select a user first');
+    // Should have at least one app card with role toggles
+    const cards = await page.locator('.access-card').count();
+    expect(cards).toBeGreaterThanOrEqual(1);
+    // Each card should have role toggle checkboxes
+    const toggles = await page.locator('[data-action="toggle-perm"]').count();
+    expect(toggles).toBeGreaterThanOrEqual(3); // at least 3 roles per app
+  });
+
+  test('can toggle a role permission on an app', async ({ page }) => {
+    await login(page);
+    await page.goto('/users.html');
+    await waitForUserList(page);
+    await page.click('#t3');
+    await page.waitForFunction(() => {
+      const s3 = document.getElementById('s3');
+      return s3 && s3.querySelector('.access-card');
+    });
+    // Find the first toggle checkbox and get its initial state
+    const firstToggle = page.locator('[data-action="toggle-perm"]').first();
+    const wasChecked = await firstToggle.isChecked();
+    // Toggle it via its parent label (toggle switch)
+    await firstToggle.evaluate(el => el.click());
+    await page.waitForTimeout(300);
+    // Verify it changed
+    const isNowChecked = await firstToggle.isChecked();
+    expect(isNowChecked).toBe(!wasChecked);
+    // Toggle it back to restore state
+    await firstToggle.evaluate(el => el.click());
+    await page.waitForTimeout(300);
+    const restoredState = await firstToggle.isChecked();
+    expect(restoredState).toBe(wasChecked);
+  });
+});

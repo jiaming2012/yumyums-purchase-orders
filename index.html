@@ -40,7 +40,7 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
   <div class="wordmark">Yumyums HQ</div>
   <div class="tagline">Great Food Starts with Great Operations.</div>
 
-  <div class="grid">
+  <div class="grid" style="visibility:hidden">
     <a class="tile active" href="purchasing.html">
       <div class="tile-icon">🛒</div>
       <div class="tile-title">Purchasing</div>
@@ -115,13 +115,24 @@ function renderUserHeader(name){
 }
 function filterTilesByPermissions(apps){
   var allowed=new Set(apps.map(function(a){return a.slug;}));
-  document.querySelectorAll('.grid .tile').forEach(function(tile){
+  var grid=document.querySelector('.grid');
+  var tiles=Array.from(grid.querySelectorAll('.tile'));
+  tiles.forEach(function(tile){
     var href=tile.getAttribute('href');
-    if(!href)return;
+    if(!href){tile.style.display='';return;}
     var file=href.split('/').pop();
     var slug=TILE_SLUGS[file];
-    if(slug&&!allowed.has(slug))tile.remove();
+    tile.style.display=(slug&&!allowed.has(slug))?'none':'';
   });
+  // Sort visible tiles alphabetically by title
+  var remaining=Array.from(grid.querySelectorAll('.tile')).filter(function(t){return t.style.display!=='none';});
+  remaining.sort(function(a,b){
+    var aName=(a.querySelector('.tile-title')||{}).textContent||'';
+    var bName=(b.querySelector('.tile-title')||{}).textContent||'';
+    return aName.localeCompare(bName);
+  });
+  remaining.forEach(function(tile){grid.appendChild(tile);});
+  grid.style.visibility='';
 }
 async function logout(){
   if(!confirm('Are you sure you want to log out?'))return;
@@ -144,9 +155,11 @@ async function checkAuth(){
   try{
     const appsRes=await fetch('/api/v1/me/apps');
     if(appsRes.ok){
-      const apps=await appsRes.json();
-      localStorage.setItem(APPS_CACHE_KEY,JSON.stringify(apps));
-      filterTilesByPermissions(apps);
+      var fresh=JSON.stringify(await appsRes.json());
+      if(fresh!==cached){
+        localStorage.setItem(APPS_CACHE_KEY,fresh);
+        filterTilesByPermissions(JSON.parse(fresh));
+      }
     }
   }catch(e){
     // Network error -- keep cached tiles shown

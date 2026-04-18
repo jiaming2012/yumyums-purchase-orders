@@ -158,7 +158,8 @@ function renderError(containerId,msg){
 function pillClass(u){
   var roles=u.roles||[];
   if(u.status==='invited')return'pill pill-invited';
-  if(roles.includes('admin')||roles.includes('superadmin'))return'pill pill-admin';
+  if(roles.includes('superadmin'))return'pill pill-admin';
+  if(roles.includes('admin'))return'pill pill-admin';
   if(roles.includes('manager'))return'pill pill-manager';
   return'pill pill-member';
 }
@@ -167,7 +168,8 @@ function pillText(u){
   var roles=u.roles||[];
   if(u.status==='invited')return'Invited';
   var parts=[];
-  if(roles.includes('admin')||roles.includes('superadmin'))parts.push('Admin');
+  if(roles.includes('superadmin'))parts.push('Super Admin');
+  else if(roles.includes('admin'))parts.push('Admin');
   else if(roles.includes('manager'))parts.push('Manager');
   if(roles.includes('team_member')&&!roles.includes('admin'))parts.push('Team Member');
   return parts.length?parts.join(' / '):'Member';
@@ -390,11 +392,9 @@ async function deleteUser(){
   }
 }
 
-function renderAccess(userId){
+function renderAccess(){
   const s3=document.getElementById('s3');
-  const u=USERS.find(u=>u.id===userId||u.id===String(userId));
-  const dn=u?displayName(u):'User';
-  s3.innerHTML=`<div class="access-header">${dn}'s Access</div>`;
+  s3.innerHTML=`<div class="access-header">App Permissions</div>`;
   if(!APPS_PERMS.length){
     s3.innerHTML+=`<div class="error-msg">Could not load permissions.</div>`;
     return;
@@ -441,10 +441,8 @@ function show(n){
     const btn=document.getElementById('t'+i);
     if(btn)btn.className=i===n?'on':'';
   });
-  if(n===3&&editingUser){
-    renderAccess(editingUser.id);
-  }else if(n===3&&!editingUser){
-    document.getElementById('s3').innerHTML='<div class="empty"><h3>Select a user first</h3><p>Open a user from the Users tab to manage their access.</p></div>';
+  if(n===3){
+    renderAccess();
   }
   if(n===1){
     editingUser=null;
@@ -509,7 +507,7 @@ document.querySelector('.app').addEventListener('click',async function(e){
     if(app&&!app.user_grants.includes(uid)&&!app.user_grants.includes(parseInt(uid))){
       app.user_grants.push(uid);
       await savePermissions(slug);
-      if(editingUser)renderAccess(editingUser.id);
+      renderAccess();
     }
   }else if(action==='remove-grant'){
     const slug=el.dataset.slug;
@@ -518,7 +516,7 @@ document.querySelector('.app').addEventListener('click',async function(e){
     if(app){
       app.user_grants=app.user_grants.filter(id=>id!==uid&&id!==parseInt(uid));
       await savePermissions(slug);
-      if(editingUser)renderAccess(editingUser.id);
+      renderAccess();
     }
   }
 });

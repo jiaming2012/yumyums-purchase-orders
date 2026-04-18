@@ -595,11 +595,11 @@ func myChecklists(ctx context.Context, pool *pgxpool.Pool, userID string, client
 		}
 	}
 
-	// Get user role for role-based assignments
-	var userRole string
+	// Get user roles for role-based assignments
+	var userRoles []string
 	if err := pool.QueryRow(ctx,
-		`SELECT role FROM users WHERE id = $1`, userID,
-	).Scan(&userRole); err != nil {
+		`SELECT roles FROM users WHERE id = $1`, userID,
+	).Scan(&userRoles); err != nil {
 		return nil, nil, fmt.Errorf("get user role: %w", err)
 	}
 
@@ -613,12 +613,12 @@ func myChecklists(ctx context.Context, pool *pgxpool.Pool, userID string, client
 		   AND ta.assignment_role = 'assignee'
 		   AND (
 		         (ta.assignee_type = 'user' AND ta.assignee_id = $1)
-		         OR (ta.assignee_type = 'role' AND ta.assignee_id = $2)
-		         OR ($2 IN ('admin', 'superadmin'))
+		         OR (ta.assignee_type = 'role' AND ta.assignee_id = ANY($2))
+		         OR ($2 && ARRAY['admin', 'superadmin'])
 		       )
 		   AND $3 = ANY(cs.active_days)
 		 ORDER BY t.created_at DESC`,
-		userID, userRole, todayDOW,
+		userID, userRoles, todayDOW,
 	)
 	if err != nil {
 		return nil, nil, fmt.Errorf("list assigned templates: %w", err)
@@ -723,17 +723,17 @@ func myHistory(ctx context.Context, pool *pgxpool.Pool, userID string) ([]Submis
 
 // pendingApprovals returns submissions pending approval where the user is assigned as approver (D-23).
 func pendingApprovals(ctx context.Context, pool *pgxpool.Pool, userID string) ([]Submission, error) {
-	// Get user role
-	var userRole string
+	// Get user roles
+	var userRoles []string
 	if err := pool.QueryRow(ctx,
-		`SELECT role FROM users WHERE id = $1`, userID,
-	).Scan(&userRole); err != nil {
+		`SELECT roles FROM users WHERE id = $1`, userID,
+	).Scan(&userRoles); err != nil {
 		return nil, fmt.Errorf("get user role: %w", err)
 	}
 
 	rows, err := pool.Query(ctx,
 		`SELECT DISTINCT s.id, s.template_id, t.name, s.template_snapshot, s.submitted_by,
-		        u.display_name,
+		        COALESCE(NULLIF(u.nickname, ''), u.first_name || ' ' || LEFT(u.last_name, 1) || '.') AS display_name,
 		        s.submitted_at, s.status, s.reviewed_by, s.reviewed_at, s.idempotency_key
 		 FROM checklist_submissions s
 		 JOIN checklist_templates t ON t.id = s.template_id
@@ -743,10 +743,10 @@ func pendingApprovals(ctx context.Context, pool *pgxpool.Pool, userID string) ([
 		   AND ta.assignment_role = 'approver'
 		   AND (
 		         (ta.assignee_type = 'user' AND ta.assignee_id = $1)
-		         OR (ta.assignee_type = 'role' AND ta.assignee_id = $2)
+		         OR (ta.assignee_type = 'role' AND ta.assignee_id = ANY($2))
 		       )
 		 ORDER BY s.template_id, s.submitted_at`,
-		userID, userRole,
+		userID, userRoles,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("list pending approvals: %w", err)

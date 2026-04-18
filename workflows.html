@@ -296,7 +296,8 @@ const ADMIN_RESTRICTED = 'Template editing is restricted to admins.';
 async function loadTemplates() {
   const container = document.getElementById('builder-list');
   if (!container) return;
-  if (!TEMPLATES || TEMPLATES.length === 0) renderSkeletons(container, 3);
+  if (TEMPLATES && TEMPLATES.length > 0) renderBuilderList();
+  else renderSkeletons(container, 3);
   try {
     store.setAll('templates', (await api('GET', 'templates')).map(fromApiTemplate));
     TEMPLATES = store.get('templates');
@@ -309,7 +310,8 @@ async function loadTemplates() {
 
 async function loadMyChecklists() {
   const container = document.getElementById('checklist-list');
-  if (container && (!MY_CHECKLISTS || MY_CHECKLISTS.length === 0)) renderSkeletons(container, 3);
+  if (MY_CHECKLISTS && MY_CHECKLISTS.length > 0) { if (!fillState.activeTemplate && container) renderMyChecklists(); }
+  else if (container) renderSkeletons(container, 3);
   try {
     const data = await api('GET', 'myChecklists?dow=' + new Date().getDay());
     store.batch(function() {
@@ -345,7 +347,8 @@ async function loadMyChecklists() {
 async function loadPendingApprovals() {
   const container = document.getElementById('approvals-list');
   if (!container) return;
-  if (!PENDING || PENDING.length === 0) renderSkeletons(container, 3);
+  if (PENDING && PENDING.length > 0) renderApprovals();
+  else renderSkeletons(container, 3);
   try {
     store.setAll('pending', await api('GET', 'pendingApprovals'));
     PENDING = store.get('pending');

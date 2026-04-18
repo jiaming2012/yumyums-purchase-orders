@@ -278,7 +278,7 @@ func userAccessibleTemplates(ctx context.Context, pool *pgxpool.Pool, userID str
 		 FROM template_assignments ta
 		 JOIN users u ON (
 		   (ta.assignee_type = 'user' AND u.id::text = ta.assignee_id)
-		   OR (ta.assignee_type = 'role' AND u.role = ta.assignee_id)
+		   OR (ta.assignee_type = 'role' AND ta.assignee_id = ANY(u.roles))
 		 )
 		 WHERE u.id = $1::uuid`,
 		userID,
@@ -456,7 +456,7 @@ func ResolveEntityAccess(ctx context.Context, pool *pgxpool.Pool, entityID, enti
 		 FROM template_assignments ta
 		 JOIN users u ON (
 		   (ta.assignee_type = 'user' AND u.id::text = ta.assignee_id)
-		   OR (ta.assignee_type = 'role' AND u.role = ta.assignee_id)
+		   OR (ta.assignee_type = 'role' AND ta.assignee_id = ANY(u.roles))
 		 )
 		 WHERE ta.template_id = $1::uuid`,
 		templateID,
