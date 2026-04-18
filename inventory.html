@@ -95,6 +95,7 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .revenue-row{display:flex;justify-content:space-between;padding:8px 0;font-size:13px;margin-top:8px;border-top:0.5px solid var(--brd)}
 .revenue-label{color:var(--mut)}
 .revenue-value{font-weight:500}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
 </style>
 </head>
 <body>
@@ -131,241 +132,27 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
     </div>
   </div>
 </div>
-<script src="lib/chart.umd.min.js"></script>
 <script>
 function parseLocalDate(str){
   const [y,m,d]=str.split('-').map(Number);
   return new Date(y,m-1,d);
 }
 
-const MOCK_TAGS=[
-  {id:'tag_1',name:'Proteins'},
-  {id:'tag_2',name:'Produce'},
-  {id:'tag_3',name:'Dairy'},
-  {id:'tag_4',name:'Supplies'},
-  {id:'tag_5',name:'Beverages'}
-];
+async function api(path,opts){
+  const res=await fetch(path,opts);
+  if(res.status===401){window.location.href='/login.html';throw new Error('unauthorized');}
+  if(res.status===204)return null;
+  const data=await res.json();
+  if(!res.ok)throw Object.assign(new Error(data.error||'api_error'),{status:res.status,data});
+  return data;
+}
 
-const MOCK_VENDORS=[
-  {id:'v_1',name:'Sysco',address:'123 Distribution Dr'},
-  {id:'v_2',name:'US Foods',address:'456 Supply Ave'},
-  {id:'v_3',name:'Restaurant Depot',address:'789 Wholesale Blvd'},
-  {id:'v_4',name:'Baldor Specialty Foods',address:'321 Fresh St'}
-];
 
-const MOCK_ITEM_GROUPS=[
-  {id:'grp_1',name:'Beef',tagIds:['tag_1'],parDays:7},
-  {id:'grp_2',name:'Chicken',tagIds:['tag_1'],parDays:7},
-  {id:'grp_3',name:'Salmon',tagIds:['tag_1'],parDays:14},
-  {id:'grp_4',name:'Lettuce & Greens',tagIds:['tag_2'],parDays:5},
-  {id:'grp_5',name:'Onions & Peppers',tagIds:['tag_2'],parDays:7},
-  {id:'grp_6',name:'Cheese',tagIds:['tag_3'],parDays:10},
-  {id:'grp_7',name:'Sauces & Condiments',tagIds:['tag_4'],parDays:30},
-  {id:'grp_8',name:'To-Go Containers',tagIds:['tag_4'],parDays:21},
-  {id:'grp_9',name:'Soft Drinks',tagIds:['tag_5'],parDays:7},
-  {id:'grp_10',name:'Rolls & Buns',tagIds:['tag_1','tag_4'],parDays:5}
-];
 
-const MOCK_PURCHASE_ITEMS=[
-  {id:'pi_1',description:'Ground Beef 80/20 5lb',groupId:'grp_1'},
-  {id:'pi_2',description:'Ribeye Steak 10oz',groupId:'grp_1'},
-  {id:'pi_3',description:'Chicken Breast 40lb case',groupId:'grp_2'},
-  {id:'pi_4',description:'Salmon Fillet 8oz',groupId:'grp_3'},
-  {id:'pi_5',description:'Romaine Hearts 3-pack',groupId:'grp_4'},
-  {id:'pi_6',description:'Yellow Onions 50lb',groupId:'grp_5'},
-  {id:'pi_7',description:'Green Peppers 25lb',groupId:'grp_5'},
-  {id:'pi_8',description:'American Cheese Slices 5lb',groupId:'grp_6'},
-  {id:'pi_9',description:'Provolone Slices 3lb',groupId:'grp_6'},
-  {id:'pi_10',description:'Ketchup Heinz #10',groupId:'grp_7'},
-  {id:'pi_11',description:'Mayo Hellmanns Gallon',groupId:'grp_7'},
-  {id:'pi_12',description:'Clamshell Containers 9x6 200ct',groupId:'grp_8'},
-  {id:'pi_13',description:'Coca-Cola 2L 6-pack',groupId:'grp_9'},
-  {id:'pi_14',description:'Hoagie Rolls 6-pack',groupId:'grp_10'}
-];
 
-const MOCK_PURCHASE_EVENTS=[
-  {id:'evt_1',date:'2026-01-06',vendorId:'v_1',vendorName:'Sysco',tax:18.40,total:248.40},
-  {id:'evt_2',date:'2026-01-13',vendorId:'v_2',vendorName:'US Foods',tax:12.60,total:192.60},
-  {id:'evt_3',date:'2026-01-20',vendorId:'v_1',vendorName:'Sysco',tax:22.10,total:307.10},
-  {id:'evt_4',date:'2026-01-27',vendorId:'v_3',vendorName:'Restaurant Depot',tax:15.80,total:218.80},
-  {id:'evt_5',date:'2026-02-03',vendorId:'v_1',vendorName:'Sysco',tax:19.50,total:264.50},
-  {id:'evt_6',date:'2026-02-10',vendorId:'v_4',vendorName:'Baldor Specialty Foods',tax:28.90,total:428.90},
-  {id:'evt_7',date:'2026-02-17',vendorId:'v_2',vendorName:'US Foods',tax:14.20,total:213.20},
-  {id:'evt_8',date:'2026-02-24',vendorId:'v_1',vendorName:'Sysco',tax:21.30,total:291.30},
-  {id:'evt_9',date:'2026-03-03',vendorId:'v_3',vendorName:'Restaurant Depot',tax:16.70,total:234.70},
-  {id:'evt_10',date:'2026-03-10',vendorId:'v_1',vendorName:'Sysco',tax:24.50,total:344.50},
-  {id:'evt_11',date:'2026-03-17',vendorId:'v_4',vendorName:'Baldor Specialty Foods',tax:31.20,total:481.20},
-  {id:'evt_12',date:'2026-03-24',vendorId:'v_2',vendorName:'US Foods',tax:13.80,total:208.80},
-  {id:'evt_13',date:'2026-03-28',vendorId:'v_1',vendorName:'Sysco',tax:17.60,total:247.60},
-  {id:'evt_14',date:'2026-04-07',vendorId:'v_3',vendorName:'Restaurant Depot',tax:19.10,total:271.10}
-];
 
-const MOCK_PURCHASES=[
-  // evt_1 (Sysco, Jan 6)
-  {id:'p_1',name:'Ground Beef 80/20 5lb',qty:4,isCase:false,price:34.99,purchaseItemId:'pi_1',purchaseEventId:'evt_1'},
-  {id:'p_2',name:'Chicken Breast 40lb case',qty:1,isCase:true,price:89.99,purchaseItemId:'pi_3',purchaseEventId:'evt_1'},
-  {id:'p_3',name:'Romaine Hearts 3-pack',qty:3,isCase:false,price:11.99,purchaseItemId:'pi_5',purchaseEventId:'evt_1'},
-  {id:'p_4',name:'American Cheese Slices 5lb',qty:2,isCase:false,price:28.99,purchaseItemId:'pi_8',purchaseEventId:'evt_1'},
-  {id:'p_5',name:'Hoagie Rolls 6-pack',qty:4,isCase:false,price:9.99,purchaseItemId:'pi_14',purchaseEventId:'evt_1'},
-  // evt_2 (US Foods, Jan 13)
-  {id:'p_6',name:'Ground Beef 80/20 5lb',qty:3,isCase:false,price:34.99,purchaseItemId:'pi_1',purchaseEventId:'evt_2'},
-  {id:'p_7',name:'Yellow Onions 50lb',qty:1,isCase:false,price:38.50,purchaseItemId:'pi_6',purchaseEventId:'evt_2'},
-  {id:'p_8',name:'Green Peppers 25lb',qty:1,isCase:false,price:42.00,purchaseItemId:'pi_7',purchaseEventId:'evt_2'},
-  {id:'p_9',name:'Coca-Cola 2L 6-pack',qty:2,isCase:false,price:18.99,purchaseItemId:'pi_13',purchaseEventId:'evt_2'},
-  // evt_3 (Sysco, Jan 20)
-  {id:'p_10',name:'Ground Beef 80/20 5lb',qty:5,isCase:false,price:34.99,purchaseItemId:'pi_1',purchaseEventId:'evt_3'},
-  {id:'p_11',name:'Chicken Breast 40lb case',qty:1,isCase:true,price:89.99,purchaseItemId:'pi_3',purchaseEventId:'evt_3'},
-  {id:'p_12',name:'Salmon Fillet 8oz',qty:10,isCase:false,price:14.99,purchaseItemId:'pi_4',purchaseEventId:'evt_3'},
-  {id:'p_13',name:'Provolone Slices 3lb',qty:2,isCase:false,price:22.50,purchaseItemId:'pi_9',purchaseEventId:'evt_3'},
-  {id:'p_14',name:'Hoagie Rolls 6-pack',qty:5,isCase:false,price:9.99,purchaseItemId:'pi_14',purchaseEventId:'evt_3'},
-  // evt_4 (Restaurant Depot, Jan 27)
-  {id:'p_15',name:'Ground Beef 80/20 5lb',qty:4,isCase:false,price:33.49,purchaseItemId:'pi_1',purchaseEventId:'evt_4'},
-  {id:'p_16',name:'Clamshell Containers 9x6 200ct',qty:2,isCase:true,price:42.99,purchaseItemId:'pi_12',purchaseEventId:'evt_4'},
-  {id:'p_17',name:'Ketchup Heinz #10',qty:2,isCase:false,price:19.99,purchaseItemId:'pi_10',purchaseEventId:'evt_4'},
-  {id:'p_18',name:'Romaine Hearts 3-pack',qty:4,isCase:false,price:11.49,purchaseItemId:'pi_5',purchaseEventId:'evt_4'},
-  // evt_5 (Sysco, Feb 3)
-  {id:'p_19',name:'Ground Beef 80/20 5lb',qty:4,isCase:false,price:35.99,purchaseItemId:'pi_1',purchaseEventId:'evt_5'},
-  {id:'p_20',name:'Chicken Breast 40lb case',qty:1,isCase:true,price:92.50,purchaseItemId:'pi_3',purchaseEventId:'evt_5'},
-  {id:'p_21',name:'American Cheese Slices 5lb',qty:2,isCase:false,price:29.50,purchaseItemId:'pi_8',purchaseEventId:'evt_5'},
-  {id:'p_22',name:'Hoagie Rolls 6-pack',qty:4,isCase:false,price:9.99,purchaseItemId:'pi_14',purchaseEventId:'evt_5'},
-  {id:'p_23',name:'Coca-Cola 2L 6-pack',qty:2,isCase:false,price:18.99,purchaseItemId:'pi_13',purchaseEventId:'evt_5'},
-  // evt_6 (Baldor, Feb 10)
-  {id:'p_24',name:'Salmon Fillet 8oz',qty:12,isCase:false,price:15.49,purchaseItemId:'pi_4',purchaseEventId:'evt_6'},
-  {id:'p_25',name:'Ribeye Steak 10oz',qty:8,isCase:false,price:22.99,purchaseItemId:'pi_2',purchaseEventId:'evt_6'},
-  {id:'p_26',name:'Romaine Hearts 3-pack',qty:5,isCase:false,price:12.25,purchaseItemId:'pi_5',purchaseEventId:'evt_6'},
-  {id:'p_27',name:'Yellow Onions 50lb',qty:1,isCase:false,price:39.99,purchaseItemId:'pi_6',purchaseEventId:'evt_6'},
-  {id:'p_28',name:'Mayo Hellmanns Gallon',qty:2,isCase:false,price:28.50,purchaseItemId:'pi_11',purchaseEventId:'evt_6'},
-  // evt_7 (US Foods, Feb 17)
-  {id:'p_29',name:'Ground Beef 80/20 5lb',qty:3,isCase:false,price:34.99,purchaseItemId:'pi_1',purchaseEventId:'evt_7'},
-  {id:'p_30',name:'Chicken Breast 40lb case',qty:1,isCase:true,price:89.99,purchaseItemId:'pi_3',purchaseEventId:'evt_7'},
-  {id:'p_31',name:'Green Peppers 25lb',qty:1,isCase:false,price:44.00,purchaseItemId:'pi_7',purchaseEventId:'evt_7'},
-  {id:'p_32',name:'Hoagie Rolls 6-pack',qty:3,isCase:false,price:9.99,purchaseItemId:'pi_14',purchaseEventId:'evt_7'},
-  // evt_8 (Sysco, Feb 24)
-  {id:'p_33',name:'Ground Beef 80/20 5lb',qty:4,isCase:false,price:35.99,purchaseItemId:'pi_1',purchaseEventId:'evt_8'},
-  {id:'p_34',name:'American Cheese Slices 5lb',qty:3,isCase:false,price:29.50,purchaseItemId:'pi_8',purchaseEventId:'evt_8'},
-  {id:'p_35',name:'Provolone Slices 3lb',qty:2,isCase:false,price:23.00,purchaseItemId:'pi_9',purchaseEventId:'evt_8'},
-  {id:'p_36',name:'Romaine Hearts 3-pack',qty:3,isCase:false,price:11.99,purchaseItemId:'pi_5',purchaseEventId:'evt_8'},
-  {id:'p_37',name:'Hoagie Rolls 6-pack',qty:4,isCase:false,price:9.99,purchaseItemId:'pi_14',purchaseEventId:'evt_8'},
-  // evt_9 (Restaurant Depot, Mar 3)
-  {id:'p_38',name:'Ground Beef 80/20 5lb',qty:4,isCase:false,price:33.99,purchaseItemId:'pi_1',purchaseEventId:'evt_9'},
-  {id:'p_39',name:'Clamshell Containers 9x6 200ct',qty:2,isCase:true,price:43.50,purchaseItemId:'pi_12',purchaseEventId:'evt_9'},
-  {id:'p_40',name:'Yellow Onions 50lb',qty:1,isCase:false,price:38.50,purchaseItemId:'pi_6',purchaseEventId:'evt_9'},
-  {id:'p_41',name:'Coca-Cola 2L 6-pack',qty:3,isCase:false,price:18.99,purchaseItemId:'pi_13',purchaseEventId:'evt_9'},
-  // evt_10 (Sysco, Mar 10)
-  {id:'p_42',name:'Ground Beef 80/20 5lb',qty:5,isCase:false,price:36.50,purchaseItemId:'pi_1',purchaseEventId:'evt_10'},
-  {id:'p_43',name:'Chicken Breast 40lb case',qty:1,isCase:true,price:93.00,purchaseItemId:'pi_3',purchaseEventId:'evt_10'},
-  {id:'p_44',name:'Salmon Fillet 8oz',qty:10,isCase:false,price:15.99,purchaseItemId:'pi_4',purchaseEventId:'evt_10'},
-  {id:'p_45',name:'American Cheese Slices 5lb',qty:2,isCase:false,price:29.50,purchaseItemId:'pi_8',purchaseEventId:'evt_10'},
-  {id:'p_46',name:'Hoagie Rolls 6-pack',qty:5,isCase:false,price:9.99,purchaseItemId:'pi_14',purchaseEventId:'evt_10'},
-  // evt_11 (Baldor, Mar 17)
-  {id:'p_47',name:'Ribeye Steak 10oz',qty:10,isCase:false,price:23.50,purchaseItemId:'pi_2',purchaseEventId:'evt_11'},
-  {id:'p_48',name:'Salmon Fillet 8oz',qty:14,isCase:false,price:15.99,purchaseItemId:'pi_4',purchaseEventId:'evt_11'},
-  {id:'p_49',name:'Romaine Hearts 3-pack',qty:6,isCase:false,price:12.25,purchaseItemId:'pi_5',purchaseEventId:'evt_11'},
-  {id:'p_50',name:'Green Peppers 25lb',qty:1,isCase:false,price:45.00,purchaseItemId:'pi_7',purchaseEventId:'evt_11'},
-  {id:'p_51',name:'Ketchup Heinz #10',qty:1,isCase:false,price:19.99,purchaseItemId:'pi_10',purchaseEventId:'evt_11'},
-  {id:'p_52',name:'Mayo Hellmanns Gallon',qty:2,isCase:false,price:29.00,purchaseItemId:'pi_11',purchaseEventId:'evt_11'},
-  // evt_12 (US Foods, Mar 24)
-  {id:'p_53',name:'Ground Beef 80/20 5lb',qty:3,isCase:false,price:35.99,purchaseItemId:'pi_1',purchaseEventId:'evt_12'},
-  {id:'p_54',name:'Chicken Breast 40lb case',qty:1,isCase:true,price:91.00,purchaseItemId:'pi_3',purchaseEventId:'evt_12'},
-  {id:'p_55',name:'Provolone Slices 3lb',qty:2,isCase:false,price:23.50,purchaseItemId:'pi_9',purchaseEventId:'evt_12'},
-  {id:'p_56',name:'Hoagie Rolls 6-pack',qty:3,isCase:false,price:9.99,purchaseItemId:'pi_14',purchaseEventId:'evt_12'},
-  // evt_13 (Sysco, Mar 28)
-  {id:'p_57',name:'Ground Beef 80/20 5lb',qty:4,isCase:false,price:36.50,purchaseItemId:'pi_1',purchaseEventId:'evt_13'},
-  {id:'p_58',name:'American Cheese Slices 5lb',qty:2,isCase:false,price:30.00,purchaseItemId:'pi_8',purchaseEventId:'evt_13'},
-  {id:'p_59',name:'Romaine Hearts 3-pack',qty:4,isCase:false,price:12.50,purchaseItemId:'pi_5',purchaseEventId:'evt_13'},
-  {id:'p_60',name:'Hoagie Rolls 6-pack',qty:4,isCase:false,price:9.99,purchaseItemId:'pi_14',purchaseEventId:'evt_13'},
-  // evt_14 (Restaurant Depot, Apr 7)
-  {id:'p_61',name:'Ground Beef 80/20 5lb',qty:4,isCase:false,price:34.99,purchaseItemId:'pi_1',purchaseEventId:'evt_14'},
-  {id:'p_62',name:'Clamshell Containers 9x6 200ct',qty:3,isCase:true,price:43.50,purchaseItemId:'pi_12',purchaseEventId:'evt_14'},
-  {id:'p_63',name:'Yellow Onions 50lb',qty:1,isCase:false,price:40.00,purchaseItemId:'pi_6',purchaseEventId:'evt_14'},
-  {id:'p_64',name:'Coca-Cola 2L 6-pack',qty:2,isCase:false,price:19.99,purchaseItemId:'pi_13',purchaseEventId:'evt_14'}
-];
 
-const MOCK_MENU_ITEMS=[
-  {id:'menu_1',name:'Cheesesteak',price:14,ingredientGroupIds:['grp_1','grp_5','grp_6','grp_10']},
-  {id:'menu_2',name:'Grilled Chicken Wrap',price:12,ingredientGroupIds:['grp_2','grp_4','grp_6']},
-  {id:'menu_3',name:'Salmon Bowl',price:16,ingredientGroupIds:['grp_3','grp_4','grp_5']},
-  {id:'menu_4',name:'Loaded Fries',price:10,ingredientGroupIds:['grp_6','grp_7']}
-];
 
-// MOCK_SALES: weekly ingredient-units consumed per menu item (aligned to purchase unit scale)
-// Cheesesteak ~4-5/wk → beef, onion/pepper, cheese, rolls each 1/4 share → high stock on beef/rolls
-// Grilled Chicken Wrap ~1/wk → chicken, lettuce, cheese each 1/3 share → high stock on chicken
-// Salmon Bowl ~9/wk → salmon, lettuce, onion/pepper each 1/3 share → tuned so salmon ends medium
-// Loaded Fries ~3-4/wk → cheese, sauces each 1/2 share → low stock on cheese/sauces
-// Total menu_3 = 129 → salmon consumed = 43, remaining = 3, avg/wk = 3.07 → medium (0.5< 0.98 ≤1)
-const MOCK_SALES=[
-  // Week of Jan 6
-  {menuItemId:'menu_1',weekOf:'2026-01-06',qty:4},
-  {menuItemId:'menu_2',weekOf:'2026-01-06',qty:1},
-  {menuItemId:'menu_3',weekOf:'2026-01-06',qty:9},
-  {menuItemId:'menu_4',weekOf:'2026-01-06',qty:3},
-  // Week of Jan 13
-  {menuItemId:'menu_1',weekOf:'2026-01-13',qty:5},
-  {menuItemId:'menu_2',weekOf:'2026-01-13',qty:1},
-  {menuItemId:'menu_3',weekOf:'2026-01-13',qty:9},
-  {menuItemId:'menu_4',weekOf:'2026-01-13',qty:3},
-  // Week of Jan 20
-  {menuItemId:'menu_1',weekOf:'2026-01-20',qty:4},
-  {menuItemId:'menu_2',weekOf:'2026-01-20',qty:1},
-  {menuItemId:'menu_3',weekOf:'2026-01-20',qty:9},
-  {menuItemId:'menu_4',weekOf:'2026-01-20',qty:4},
-  // Week of Jan 27
-  {menuItemId:'menu_1',weekOf:'2026-01-27',qty:5},
-  {menuItemId:'menu_2',weekOf:'2026-01-27',qty:1},
-  {menuItemId:'menu_3',weekOf:'2026-01-27',qty:9},
-  {menuItemId:'menu_4',weekOf:'2026-01-27',qty:3},
-  // Week of Feb 3
-  {menuItemId:'menu_1',weekOf:'2026-02-03',qty:5},
-  {menuItemId:'menu_2',weekOf:'2026-02-03',qty:1},
-  {menuItemId:'menu_3',weekOf:'2026-02-03',qty:10},
-  {menuItemId:'menu_4',weekOf:'2026-02-03',qty:4},
-  // Week of Feb 10
-  {menuItemId:'menu_1',weekOf:'2026-02-10',qty:4},
-  {menuItemId:'menu_2',weekOf:'2026-02-10',qty:1},
-  {menuItemId:'menu_3',weekOf:'2026-02-10',qty:9},
-  {menuItemId:'menu_4',weekOf:'2026-02-10',qty:3},
-  // Week of Feb 17
-  {menuItemId:'menu_1',weekOf:'2026-02-17',qty:5},
-  {menuItemId:'menu_2',weekOf:'2026-02-17',qty:1},
-  {menuItemId:'menu_3',weekOf:'2026-02-17',qty:9},
-  {menuItemId:'menu_4',weekOf:'2026-02-17',qty:4},
-  // Week of Feb 24
-  {menuItemId:'menu_1',weekOf:'2026-02-24',qty:4},
-  {menuItemId:'menu_2',weekOf:'2026-02-24',qty:1},
-  {menuItemId:'menu_3',weekOf:'2026-02-24',qty:9},
-  {menuItemId:'menu_4',weekOf:'2026-02-24',qty:3},
-  // Week of Mar 3
-  {menuItemId:'menu_1',weekOf:'2026-03-03',qty:5},
-  {menuItemId:'menu_2',weekOf:'2026-03-03',qty:1},
-  {menuItemId:'menu_3',weekOf:'2026-03-03',qty:9},
-  {menuItemId:'menu_4',weekOf:'2026-03-03',qty:4},
-  // Week of Mar 10
-  {menuItemId:'menu_1',weekOf:'2026-03-10',qty:4},
-  {menuItemId:'menu_2',weekOf:'2026-03-10',qty:1},
-  {menuItemId:'menu_3',weekOf:'2026-03-10',qty:9},
-  {menuItemId:'menu_4',weekOf:'2026-03-10',qty:3},
-  // Week of Mar 17
-  {menuItemId:'menu_1',weekOf:'2026-03-17',qty:5},
-  {menuItemId:'menu_2',weekOf:'2026-03-17',qty:1},
-  {menuItemId:'menu_3',weekOf:'2026-03-17',qty:10},
-  {menuItemId:'menu_4',weekOf:'2026-03-17',qty:4},
-  // Week of Mar 24
-  {menuItemId:'menu_1',weekOf:'2026-03-24',qty:4},
-  {menuItemId:'menu_2',weekOf:'2026-03-24',qty:1},
-  {menuItemId:'menu_3',weekOf:'2026-03-24',qty:9},
-  {menuItemId:'menu_4',weekOf:'2026-03-24',qty:3},
-  // Week of Mar 31
-  {menuItemId:'menu_1',weekOf:'2026-03-31',qty:5},
-  {menuItemId:'menu_2',weekOf:'2026-03-31',qty:1},
-  {menuItemId:'menu_3',weekOf:'2026-03-31',qty:9},
-  {menuItemId:'menu_4',weekOf:'2026-03-31',qty:4},
-  // Week of Apr 7
-  {menuItemId:'menu_1',weekOf:'2026-04-07',qty:5},
-  {menuItemId:'menu_2',weekOf:'2026-04-07',qty:1},
-  {menuItemId:'menu_3',weekOf:'2026-04-07',qty:10},
-  {menuItemId:'menu_4',weekOf:'2026-04-07',qty:3}
-];
 
 let ACTIVE_TAB=1;
 let EXPANDED_EVENTS={};
@@ -374,17 +161,6 @@ let COLLAPSED_TAGS={};
 let VENDOR_FILTER='';
 let STOCK_OVERRIDES={};
 let OVERRIDE_FORM_OPEN=null;
-let TRENDS_SUB_TAB=1;
-let ACTIVE_CHIPS=new Set();
-let TRENDS_TIME_FILTER='all';
-let trendBarChart=null;
-let trendDoughnutChart=null;
-let trendLineChart=null;
-let COST_SUB_TAB=1;
-let COST_ACTIVE_CHIPS=new Set();
-let COST_TIME_FILTER='all';
-let EXPANDED_MENU_ITEMS={};
-let EXPANDED_INGREDIENTS={};
 
 function show(n){
   [1,2,3,4].forEach(i=>{
@@ -397,409 +173,209 @@ function show(n){
 }
 
 function render(){
-  if(ACTIVE_TAB===1)renderHistory();
+  if(ACTIVE_TAB===1)renderHistoryList();
   if(ACTIVE_TAB===2)renderTrends();
   if(ACTIVE_TAB===3)renderStock();
   if(ACTIVE_TAB===4)renderCost();
 }
 
-function calcStockLevels(){
-  // Build lookup: purchaseItemId -> groupId
-  var piToGroup={};
-  MOCK_PURCHASE_ITEMS.forEach(pi=>{piToGroup[pi.id]=pi.groupId;});
-  // Build lookup: groupId -> list of purchase events with date/vendor/price
-  var groupPurchases={};
-  MOCK_PURCHASES.forEach(p=>{
-    var gid=piToGroup[p.purchaseItemId];
-    if(!gid)return;
-    if(!groupPurchases[gid])groupPurchases[gid]=[];
-    groupPurchases[gid].push(p);
-  });
-  // Get event map for date/vendor lookup
-  var eventMap={};
-  MOCK_PURCHASE_EVENTS.forEach(e=>{eventMap[e.id]=e;});
-  // Count weeks in sales data
-  var weekSet=new Set(MOCK_SALES.map(s=>s.weekOf));
-  var numWeeks=weekSet.size||1;
-  // Build sales totals per menuItemId
-  var salesTotals={};
-  MOCK_SALES.forEach(s=>{
-    salesTotals[s.menuItemId]=(salesTotals[s.menuItemId]||0)+s.qty;
-  });
-  return MOCK_ITEM_GROUPS.map(grp=>{
-    var purchases=groupPurchases[grp.id]||[];
-    var totalPurchased=purchases.reduce((sum,p)=>sum+p.qty,0);
-    // Calculate totalConsumed via sales * ingredient ratio
-    var totalConsumed=0;
-    MOCK_MENU_ITEMS.forEach(mi=>{
-      if(!mi.ingredientGroupIds.includes(grp.id))return;
-      var salesQty=salesTotals[mi.id]||0;
-      var ratio=1/mi.ingredientGroupIds.length;
-      totalConsumed+=salesQty*ratio;
-    });
-    var remaining=Math.max(0,totalPurchased-totalConsumed);
-    var avgWeeklyConsumption=totalConsumed/numWeeks;
-    // Determine level
-    var level;
-    if(totalPurchased===0){
-      level='unknown';
-    } else if(remaining>avgWeeklyConsumption*1){
-      level='high';
-    } else if(remaining>avgWeeklyConsumption*0.5){
-      level='medium';
-    } else {
-      level='low';
-    }
-    // Find last purchase info
-    var lastPurchaseDate='',lastVendor='',lastPrice=0;
-    if(purchases.length){
-      var withDates=purchases.map(p=>{
-        var evt=eventMap[p.purchaseEventId]||{};
-        return {p,date:evt.date||'',vendorName:evt.vendorName||'',price:p.price};
-      });
-      withDates.sort((a,b)=>b.date.localeCompare(a.date));
-      lastPurchaseDate=withDates[0].date;
-      lastVendor=withDates[0].vendorName;
-      lastPrice=withDates[0].price;
-    }
-    return {groupId:grp.id,groupName:grp.name,tagIds:grp.tagIds,level,remaining:Math.round(remaining*10)/10,avgWeeklyConsumption:Math.round(avgWeeklyConsumption*10)/10,lastPurchaseDate,lastVendor,lastPrice,totalPurchased,totalConsumed:Math.round(totalConsumed*10)/10};
-  });
-}
+let PURCHASES=[];
+let STOCK_DATA=[];
+let PENDING_PURCHASES=[];
+let VENDORS=[];
+let HISTORY_PAGE=1;
+let HISTORY_LOADING=false;
+let HISTORY_HAS_MORE=true;
 
-function getChartColors(){
-  var s=getComputedStyle(document.documentElement);
-  return {
-    txt:s.getPropertyValue('--txt').trim(),
-    mut:s.getPropertyValue('--mut').trim(),
-    card:s.getPropertyValue('--card').trim(),
-    brd:s.getPropertyValue('--brd').trim(),
-    palette:['#ef4444','#22c55e','#f59e0b','#3b82f6','#8b5cf6']
-  };
-}
-
-function getTimeFilterCutoff(filter){
-  if(filter==='all')return null;
-  var now=new Date();
-  if(filter==='1w')return new Date(now.getFullYear(),now.getMonth(),now.getDate()-7);
-  if(filter==='1m')return new Date(now.getFullYear(),now.getMonth()-1,now.getDate());
-  if(filter==='3m')return new Date(now.getFullYear(),now.getMonth()-3,now.getDate());
-  if(filter==='6m')return new Date(now.getFullYear(),now.getMonth()-6,now.getDate());
-  if(filter==='1y')return new Date(now.getFullYear()-1,now.getMonth(),now.getDate());
-  return null;
-}
-function buildTimeFilterHtml(currentValue,actionName){
-  return '<div style="margin-bottom:8px"><select data-action="'+actionName+'" style="width:100%;padding:8px 10px;background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;font-size:13px;color:var(--txt);font-family:inherit"><option value="all"'+(currentValue==='all'?' selected':'')+'>All Time</option><option value="1w"'+(currentValue==='1w'?' selected':'')+'>Last Week</option><option value="1m"'+(currentValue==='1m'?' selected':'')+'>Last Month</option><option value="3m"'+(currentValue==='3m'?' selected':'')+'>Last 3 Months</option><option value="6m"'+(currentValue==='6m'?' selected':'')+'>Last 6 Months</option><option value="1y"'+(currentValue==='1y'?' selected':'')+'>Last Year</option></select></div>';
-}
-function buildChipBarHtml(activeChips,actionName){
-  var allChip='<span class="chip'+(activeChips.size===0?' on':'')+'" data-action="'+actionName+'" data-tag-id="">All</span>';
-  var tagChips=MOCK_TAGS.map(t=>'<span class="chip'+(activeChips.has(t.id)?' on':'')+'" data-action="'+actionName+'" data-tag-id="'+t.id+'">'+(TAG_EMOJI[t.id]||'')+' '+t.name+'</span>').join('');
-  return '<div class="chip-bar">'+allChip+tagChips+'</div>';
-}
-function spendByTag(chips,timeFilter){
-  var cutoff=getTimeFilterCutoff(timeFilter||'all');
-  var eventMap={};
-  MOCK_PURCHASE_EVENTS.forEach(e=>{eventMap[e.id]=e;});
-  var piToGroup={};
-  MOCK_PURCHASE_ITEMS.forEach(pi=>{piToGroup[pi.id]=pi.groupId;});
-  var groupToTags={};
-  MOCK_ITEM_GROUPS.forEach(g=>{groupToTags[g.id]=g.tagIds;});
-  var totals={};
-  var itemDetails={};
-  MOCK_PURCHASES.forEach(p=>{
-    if(cutoff){var evt=eventMap[p.purchaseEventId];if(evt&&parseLocalDate(evt.date)<cutoff)return;}
-    var gid=piToGroup[p.purchaseItemId];
-    if(!gid)return;
-    var tagIds=groupToTags[gid]||[];
-    var primaryTag=tagIds[0];
-    if(!primaryTag)return;
-    if(chips.size>0&&!chips.has(primaryTag))return;
-    var lineTotal=p.price*p.qty;
-    totals[primaryTag]=(totals[primaryTag]||0)+lineTotal;
-    if(!itemDetails[primaryTag])itemDetails[primaryTag]=[];
-    var evt=eventMap[p.purchaseEventId];
-    var vendor=evt?MOCK_VENDORS.find(v=>v.id===evt.vendorId):null;
-    itemDetails[primaryTag].push({name:p.name,qty:p.qty,isCase:p.isCase,price:p.price,total:lineTotal,vendor:vendor?vendor.name:'Unknown',date:evt?evt.date:''});
-  });
-  Object.keys(itemDetails).forEach(tid=>{itemDetails[tid].sort((a,b)=>b.total-a.total);});
-  var labels=[],data=[],colors=[],tagIds=[];
-  var palette=['#ef4444','#22c55e','#f59e0b','#3b82f6','#8b5cf6'];
-  MOCK_TAGS.forEach((t,i)=>{
-    if(chips.size>0&&!chips.has(t.id))return;
-    labels.push((TAG_EMOJI[t.id]||'')+' '+t.name);
-    data.push(Math.round((totals[t.id]||0)*100)/100);
-    colors.push(palette[i%palette.length]);
-    tagIds.push(t.id);
-  });
-  return {labels,data,colors,tagIds,itemDetails};
-}
-
-function spendByMonth(chips){
-  var piToGroup={};
-  MOCK_PURCHASE_ITEMS.forEach(pi=>{piToGroup[pi.id]=pi.groupId;});
-  var groupToTags={};
-  MOCK_ITEM_GROUPS.forEach(g=>{groupToTags[g.id]=g.tagIds;});
-  var eventMap={};
-  MOCK_PURCHASE_EVENTS.forEach(e=>{eventMap[e.id]=e;});
-  var monthTotals={};
-  MOCK_PURCHASES.forEach(p=>{
-    var evt=eventMap[p.purchaseEventId];
-    if(!evt)return;
-    if(chips.size>0){
-      var gid=piToGroup[p.purchaseItemId];
-      var tagIds=gid?(groupToTags[gid]||[]):[];
-      var hasMatch=tagIds.some(tid=>chips.has(tid));
-      if(!hasMatch)return;
-    }
-    var d=parseLocalDate(evt.date);
-    var key=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
-    monthTotals[key]=(monthTotals[key]||0)+p.price*p.qty;
-  });
-  var keys=Object.keys(monthTotals).sort();
-  var labels=keys.map(k=>{
-    var parts=k.split('-');
-    var d=new Date(Number(parts[0]),Number(parts[1])-1,1);
-    return new Intl.DateTimeFormat('en-US',{month:'short',year:'numeric'}).format(d);
-  });
-  var data=keys.map(k=>Math.round(monthTotals[k]*100)/100);
-  return {labels,data};
-}
-
-function renderTrends(){
-  // TODO(INTG-02): Replace chart rendering below with Metabase iframe: <iframe src="METABASE_URL/dashboard/trends" ...>
-  if(trendBarChart){trendBarChart.destroy();trendBarChart=null;}
-  if(trendDoughnutChart){trendDoughnutChart.destroy();trendDoughnutChart=null;}
-  if(trendLineChart){trendLineChart.destroy();trendLineChart=null;}
-  var chipBar=buildChipBarHtml(ACTIVE_CHIPS,'toggle-chip');
-  var subBtns='<div class="sub-tabs"><button class="'+(TRENDS_SUB_TAB===1?'on':'')+'" data-action="trends-subtab" data-sub="1">By Category</button><button class="'+(TRENDS_SUB_TAB===2?'on':'')+'" data-action="trends-subtab" data-sub="2">Over Time</button></div>';
-  var chartHtml='';
-  var timeFilterHtml='';
-  if(TRENDS_SUB_TAB===1){
-    timeFilterHtml=buildTimeFilterHtml(TRENDS_TIME_FILTER,'trends-time-filter');
-    chartHtml='<div class="chart-wrap"><canvas id="trend-bar"></canvas></div><div class="chart-wrap" style="margin-top:12px"><canvas id="trend-doughnut"></canvas></div><div id="trends-drilldown"></div>';
-  } else {
-    chartHtml='<div class="chart-wrap"><canvas id="trend-line"></canvas></div>';
-  }
-  document.getElementById('trends-container').innerHTML=chipBar+subBtns+timeFilterHtml+chartHtml;
-  var colors=getChartColors();
-  if(TRENDS_SUB_TAB===1){
-    var tagData=spendByTag(ACTIVE_CHIPS,TRENDS_TIME_FILTER);
-    var chartClickHandler=function(evt,elements){
-      if(!elements.length)return;
-      var idx=elements[0].index;
-      var tid=tagData.tagIds[idx];
-      if(!tid)return;
-      ACTIVE_CHIPS.clear();
-      ACTIVE_CHIPS.add(tid);
-      renderTrends();
-    };
-    trendBarChart=new Chart(document.getElementById('trend-bar'),{type:'bar',data:{labels:tagData.labels,datasets:[{data:tagData.data,backgroundColor:tagData.colors,borderRadius:4}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,onClick:chartClickHandler,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>'$'+ctx.raw.toFixed(2)}}},scales:{x:{ticks:{color:colors.mut,callback:v=>'$'+v},grid:{color:colors.brd}},y:{ticks:{color:colors.txt},grid:{display:false}}}}});
-    trendDoughnutChart=new Chart(document.getElementById('trend-doughnut'),{type:'doughnut',data:{labels:tagData.labels,datasets:[{data:tagData.data,backgroundColor:tagData.colors}]},options:{responsive:true,maintainAspectRatio:false,onClick:chartClickHandler,plugins:{legend:{position:'bottom',labels:{color:colors.txt,padding:12,boxWidth:12}}}}});
-    var drillEl=document.getElementById('trends-drilldown');
-    if(ACTIVE_CHIPS.size>0&&drillEl){
-      var drillHtml='<div style="margin-top:16px">';
-      ACTIVE_CHIPS.forEach(function(tid){
-        var tag=MOCK_TAGS.find(t=>t.id===tid);
-        var items=tagData.itemDetails[tid]||[];
-        if(!items.length)return;
-        drillHtml+='<div style="margin-bottom:12px"><div style="font-size:12px;font-weight:500;text-transform:uppercase;letter-spacing:0.5px;color:var(--mut);margin-bottom:6px">'+(TAG_EMOJI[tid]||'')+' '+(tag?tag.name:'')+'</div>';
-        items.forEach(function(item){
-          drillHtml+='<div class="card" style="padding:8px 12px;margin-bottom:4px"><div style="display:flex;justify-content:space-between;align-items:center"><div style="flex:1"><div style="font-size:13px;font-weight:500">'+item.name+(item.isCase?' <span class="case-badge">CASE</span>':'')+'</div><div style="font-size:11px;color:var(--mut)">'+item.vendor+' · Qty: '+item.qty+'</div></div><div style="font-size:13px;font-weight:500">$'+(item.total).toFixed(2)+'</div></div></div>';
-        });
-        drillHtml+='</div>';
-      });
-      drillHtml+='</div>';
-      drillEl.innerHTML=drillHtml;
-    }
-  } else {
-    var monthData=spendByMonth(ACTIVE_CHIPS);
-    trendLineChart=new Chart(document.getElementById('trend-line'),{type:'line',data:{labels:monthData.labels,datasets:[{label:'Monthly Spend',data:monthData.data,borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,0.1)',fill:true,tension:0.3,pointRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>'$'+ctx.raw.toFixed(2)}}},scales:{x:{ticks:{color:colors.mut},grid:{color:colors.brd}},y:{ticks:{color:colors.mut,callback:v=>'$'+v},grid:{color:colors.brd}}}}});
-  }
-}
-
-function calcAvgUnitPrice(groupId,timeFilter){
-  var cutoff=getTimeFilterCutoff(timeFilter||'all');
-  var eventMap={};
-  if(cutoff)MOCK_PURCHASE_EVENTS.forEach(e=>{eventMap[e.id]=e;});
-  var piIds=MOCK_PURCHASE_ITEMS.filter(pi=>pi.groupId===groupId).map(pi=>pi.id);
-  var relevant=MOCK_PURCHASES.filter(p=>{
-    if(!piIds.includes(p.purchaseItemId))return false;
-    if(cutoff){var evt=eventMap[p.purchaseEventId];if(evt&&parseLocalDate(evt.date)<cutoff)return false;}
-    return true;
-  });
-  var totalQty=relevant.reduce((s,p)=>s+p.qty,0);
-  if(!totalQty)return 0;
-  var totalCost=relevant.reduce((s,p)=>s+p.price*p.qty,0);
-  return totalCost/totalQty;
-}
-
-function calcMenuItemCost(menuItem,timeFilter){
-  var n=menuItem.ingredientGroupIds.length||1;
-  var ingredients=menuItem.ingredientGroupIds.map(gid=>{
-    var grp=MOCK_ITEM_GROUPS.find(g=>g.id===gid)||{name:gid};
-    var avg=calcAvgUnitPrice(gid,timeFilter);
-    var proportion=1/n;
-    return {name:grp.name,groupId:gid,proportion,avgUnitPrice:avg,lineCost:avg*proportion};
-  });
-  var totalCost=ingredients.reduce((s,i)=>s+i.lineCost,0);
-  return {totalCost,ingredients};
-}
-
-function calcIngredientUsage(groupId,timeFilter){
-  var avgPrice=calcAvgUnitPrice(groupId,timeFilter);
-  var salesTotals={};
-  MOCK_SALES.forEach(s=>{salesTotals[s.menuItemId]=(salesTotals[s.menuItemId]||0)+s.qty;});
-  var usages=MOCK_MENU_ITEMS.filter(mi=>mi.ingredientGroupIds.includes(groupId)).map(mi=>{
-    var proportion=1/mi.ingredientGroupIds.length;
-    var costContribution=avgPrice*proportion;
-    var totalSalesQty=salesTotals[mi.id]||0;
-    var revenue=totalSalesQty*mi.price;
-    var returnOnPurchase=costContribution>0?revenue/costContribution:0;
-    return {menuItemName:mi.name,costContribution,revenue,returnOnPurchase};
-  });
-  var totalContrib=usages.reduce((s,u)=>s+u.costContribution,0);
-  usages.forEach(u=>{u.pct=totalContrib>0?(u.costContribution/totalContrib*100):0;});
-  return usages;
-}
-
-function renderCost(){
-  // TODO(INTG-02): Replace cost rendering below with Metabase iframe: <iframe src="METABASE_URL/dashboard/cost" ...>
-  var chipBar=buildChipBarHtml(COST_ACTIVE_CHIPS,'toggle-cost-chip');
-  var timeFilterHtml=buildTimeFilterHtml(COST_TIME_FILTER,'cost-time-filter');
-  var subBtns='<div class="sub-tabs"><button class="'+(COST_SUB_TAB===1?'on':'')+'" data-action="cost-subtab" data-sub="1">Menu Items</button><button class="'+(COST_SUB_TAB===2?'on':'')+'" data-action="cost-subtab" data-sub="2">Ingredients</button></div>';
-  var html=chipBar+timeFilterHtml+subBtns;
-  var groupToTags={};
-  MOCK_ITEM_GROUPS.forEach(g=>{groupToTags[g.id]=g.tagIds;});
-  function matchesChipFilter(groupIds){
-    if(COST_ACTIVE_CHIPS.size===0)return true;
-    return groupIds.some(gid=>{var tagIds=groupToTags[gid]||[];return tagIds.some(tid=>COST_ACTIVE_CHIPS.has(tid));});
-  }
-  if(COST_SUB_TAB===1){
-    var filtered=MOCK_MENU_ITEMS.filter(mi=>matchesChipFilter(mi.ingredientGroupIds));
-    html+=filtered.map(mi=>{
-      var calc=calcMenuItemCost(mi,COST_TIME_FILTER);
-      var expanded=EXPANDED_MENU_ITEMS[mi.id];
-      var detail='';
-      if(expanded){
-        var rows=calc.ingredients.map(ing=>'<div class="ingredient-row"><span class="ingredient-name">'+ing.name+'</span><span class="ingredient-pct">'+Math.round(ing.proportion*100)+'%</span><span class="ingredient-cost">$'+ing.lineCost.toFixed(2)+'</span></div>').join('');
-        var margin=mi.price-calc.totalCost;
-        detail='<div class="menu-card-detail open">'+rows+'<div class="revenue-row"><span class="revenue-label">Sale price</span><span class="revenue-value">$'+mi.price.toFixed(2)+'</span></div><div class="revenue-row"><span class="revenue-label">Est. margin</span><span class="revenue-value">$'+margin.toFixed(2)+'</span></div></div>';
-      }
-      return '<div class="menu-card" data-action="toggle-menu-item" data-menu-id="'+mi.id+'"><div class="menu-card-header"><span class="menu-card-name">'+mi.name+'</span><span class="menu-card-cost">$'+calc.totalCost.toFixed(2)+'</span></div>'+detail+'</div>';
-    }).join('');
-    if(!filtered.length)html+='<div class="empty"><p>No menu items match the selected categories.</p></div>';
-  } else {
-    var filtered=MOCK_ITEM_GROUPS.filter(grp=>{if(COST_ACTIVE_CHIPS.size===0)return true;var tagIds=grp.tagIds||[];return tagIds.some(tid=>COST_ACTIVE_CHIPS.has(tid));});
-    html+=filtered.map(grp=>{
-      var avg=calcAvgUnitPrice(grp.id,COST_TIME_FILTER);
-      var expanded=EXPANDED_INGREDIENTS[grp.id];
-      var detail='';
-      if(expanded){
-        var usages=calcIngredientUsage(grp.id,COST_TIME_FILTER);
-        var rows=usages.length?usages.map(u=>'<div class="ingredient-row"><span class="ingredient-name">'+u.menuItemName+'</span><span class="ingredient-pct">$'+u.costContribution.toFixed(2)+' cost</span><span class="ingredient-cost">'+u.returnOnPurchase.toFixed(1)+'x return</span></div>').join(''):'<div class="ingredient-row"><span class="ingredient-name" style="color:var(--mut)">Not used in any menu item</span></div>';
-        detail='<div class="menu-card-detail open">'+rows+'</div>';
-      }
-      return '<div class="menu-card" data-action="toggle-ingredient" data-group-id="'+grp.id+'"><div class="menu-card-header"><span class="menu-card-name">'+grp.name+'</span><span class="menu-card-cost">$'+avg.toFixed(2)+' avg/unit</span></div>'+detail+'</div>';
-    }).join('');
-    if(!filtered.length)html+='<div class="empty"><p>No ingredients match the selected categories.</p></div>';
-  }
-  document.getElementById('cost-container').innerHTML=html;
-}
-
-document.getElementById('s4').addEventListener('click',function(e){
-  var el=e.target.closest('[data-action]');
-  if(!el)return;
-  var action=el.dataset.action;
-  if(action==='cost-subtab'){
-    COST_SUB_TAB=Number(el.dataset.sub);
-    renderCost();
-  } else if(action==='toggle-cost-chip'){
-    var tid=el.dataset.tagId;
-    if(!tid){COST_ACTIVE_CHIPS.clear();}
-    else if(COST_ACTIVE_CHIPS.has(tid)){COST_ACTIVE_CHIPS.delete(tid);}
-    else{COST_ACTIVE_CHIPS.add(tid);if(COST_ACTIVE_CHIPS.size===MOCK_TAGS.length)COST_ACTIVE_CHIPS.clear();}
-    renderCost();
-  } else if(action==='toggle-menu-item'){
-    var mid=el.dataset.menuId;
-    EXPANDED_MENU_ITEMS[mid]=!EXPANDED_MENU_ITEMS[mid];
-    renderCost();
-  } else if(action==='toggle-ingredient'){
-    var gid=el.dataset.groupId;
-    EXPANDED_INGREDIENTS[gid]=!EXPANDED_INGREDIENTS[gid];
-    renderCost();
-  }
-});
-
-// Tag emoji map: Proteins 🥩, Produce 🥬, Dairy 🧀, Supplies 📦, Beverages 🥤
-const TAG_EMOJI={'tag_1':'🥩','tag_2':'🥬','tag_3':'🧀','tag_4':'📦','tag_5':'🥤'};
 const LEVEL_ORDER={low:0,medium:1,high:2,unknown:3};
 
 function badgeHtml(level){
-  return '<span class="stock-badge stock-'+level+'">'+(level.charAt(0).toUpperCase()+level.slice(1))+'</span>';
+  return '<span class="stock-badge stock-'+level+'">'+( level.charAt(0).toUpperCase()+level.slice(1))+'</span>';
+}
+
+function formatDate(dateStr){
+  if(!dateStr)return 'Unknown';
+  var d=parseLocalDate(dateStr);
+  return new Intl.DateTimeFormat('en-US',{month:'short',day:'numeric',year:'numeric'}).format(d);
+}
+
+function showSkeleton(containerId){
+  document.getElementById(containerId).innerHTML='<div class="skeleton" style="background:var(--brd);border-radius:8px;height:64px;margin-bottom:8px;animation:pulse 1.2s infinite"></div>'.repeat(3);
+}
+
+function showInlineError(containerId,msg,retryFn){
+  document.getElementById(containerId).innerHTML='<div class="card" style="text-align:center;padding:20px"><p style="color:var(--mut);font-size:13px;margin:0 0 10px">'+msg+'</p><button onclick="('+retryFn+')" style="padding:8px 16px;background:var(--info-bg);color:var(--info-tx);border:none;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer">Retry</button></div>';
+}
+
+async function loadVendors(){
+  try{
+    var data=await api('/api/v1/inventory/vendors');
+    VENDORS=data||[];
+    var sel=document.getElementById('vendor-filter');
+    var sorted=[...VENDORS].sort((a,b)=>a.name.localeCompare(b.name));
+    sel.innerHTML='<option value="">All Vendors</option>'+sorted.map(v=>'<option value="'+v.id+'">'+v.name+'</option>').join('');
+  }catch(e){if(e.message!=='unauthorized')console.error('loadVendors',e);}
+}
+
+function renderPurchaseEvent(evt){
+  var expanded=EXPANDED_EVENTS[evt.id];
+  var detail='';
+  if(expanded&&evt.line_items&&evt.line_items.length){
+    detail='<div class="event-detail" style="display:block">'+evt.line_items.map(p=>{
+      var desc=p.description||p.name||'';
+      return '<div class="line-item"><div style="flex:1"><div style="font-size:13px;font-weight:500">'+desc+(p.is_case?' <span class="case-badge">CASE</span>':'')+'</div><div style="font-size:12px;color:var(--mut);margin-top:2px">Qty: '+p.quantity+'</div></div><div style="font-size:14px;font-weight:500">$'+Number(p.price).toFixed(2)+'</div></div>';
+    }).join('')+'</div>';
+  }
+  var badge=evt.needs_review?'<span class="stock-badge" style="background:var(--warn-bg);color:var(--warn-tx);margin-left:6px">Needs Review</span>':'';' '
+  return '<div class="event-card" data-action="toggle-event" data-id="'+evt.id+'"><div class="event-header"><div><div class="event-vendor">'+evt.vendor_name+badge+'</div><div class="event-meta">'+formatDate(evt.event_date)+'</div></div><div class="event-total">$'+Number(evt.total).toFixed(2)+'</div></div>'+detail+'</div>';
+}
+
+async function loadHistory(append){
+  if(HISTORY_LOADING)return;
+  HISTORY_LOADING=true;
+  var list=document.getElementById('history-list');
+  if(!append){
+    HISTORY_PAGE=1;
+    HISTORY_HAS_MORE=true;
+    showSkeleton('history-list');
+    PURCHASES=[];
+  }
+  try{
+    var url='/api/v1/inventory/purchases?page='+HISTORY_PAGE;
+    if(VENDOR_FILTER)url+='&vendor_id='+encodeURIComponent(VENDOR_FILTER);
+    var data=await api(url);
+    var items=data||[];
+    if(items.length<20)HISTORY_HAS_MORE=false;
+    PURCHASES=append?PURCHASES.concat(items):items;
+    // Also fetch pending for first page
+    if(!append){
+      try{
+        var pending=await api('/api/v1/inventory/purchases/pending');
+        PENDING_PURCHASES=pending||[];
+      }catch(pe){if(pe.message!=='unauthorized')PENDING_PURCHASES=[];}
+    }
+    renderHistoryList();
+  }catch(e){
+    if(e.message==='unauthorized')return;
+    if(!append)showInlineError('history-list','Couldn\u2019t load purchases.','loadHistory()');
+  } finally{HISTORY_LOADING=false;}
+}
+
+function renderHistoryList(){
+  var list=document.getElementById('history-list');
+  var allItems=[...PENDING_PURCHASES.map(p=>Object.assign({},p,{needs_review:true})),...PURCHASES];
+  if(!allItems.length){
+    list.innerHTML='<div class="empty"><h3 style="font-size:15px;font-weight:500;margin:0 0 6px">No purchases yet</h3><p>Purchase events will appear here once the receipt pipeline syncs.</p></div>';
+    return;
+  }
+  var html=allItems.map(evt=>renderPurchaseEvent(evt)).join('');
+  if(HISTORY_HAS_MORE){
+    html+='<button id="load-more-btn" onclick="loadMore()" style="width:100%;padding:12px;background:var(--card);border:0.5px solid var(--brd);border-radius:8px;font-size:13px;color:var(--info-tx);font-weight:500;cursor:pointer;margin-top:4px">Load more</button>';
+  }
+  list.innerHTML=html;
+  updateHistoryTabLabel();
+}
+
+function updateHistoryTabLabel(){
+  var btn=document.getElementById('t1');
+  if(!btn)return;
+  var n=PENDING_PURCHASES.length;
+  btn.textContent=n>0?'History ('+n+')':'History';
+  btn.style.color=n>0?'var(--warn-tx)':'';' '
+}
+
+function loadMore(){
+  if(!HISTORY_HAS_MORE||HISTORY_LOADING)return;
+  HISTORY_PAGE++;
+  loadHistory(true);
+}
+
+async function loadStock(){
+  showSkeleton('stock-list');
+  document.getElementById('reorder-section').innerHTML='';
+  try{
+    var data=await api('/api/v1/inventory/stock');
+    STOCK_DATA=data||[];
+    renderStock();
+  }catch(e){
+    if(e.message==='unauthorized')return;
+    showInlineError('stock-list','Couldn\u2019t load stock levels.','loadStock()');
+  }
 }
 
 function renderStock(){
-  var stocks=calcStockLevels();
-  // Apply overrides to stock levels
+  var stocks=[...STOCK_DATA];
+  // Apply overrides
   stocks.forEach(s=>{
-    if(STOCK_OVERRIDES[s.groupId])s.level=STOCK_OVERRIDES[s.groupId].level;
+    if(STOCK_OVERRIDES[s.group_name])s.level=STOCK_OVERRIDES[s.group_name].level;
   });
-  // Reorder suggestions (use override-adjusted levels)
+  // Determine level from API data if not set
+  stocks.forEach(s=>{
+    if(!s.level){
+      var tq=s.total_quantity||0;
+      var ap=s.avg_price||0;
+      s.level=tq===0?'unknown':tq>10?'high':tq>3?'medium':'low';
+    }
+  });
+  // Reorder suggestions
   var reorderEl=document.getElementById('reorder-section');
   var needsReorder=stocks.filter(s=>s.level==='low'||s.level==='medium');
-  needsReorder.sort((a,b)=>LEVEL_ORDER[a.level]-LEVEL_ORDER[b.level]||a.groupName.localeCompare(b.groupName));
+  needsReorder.sort((a,b)=>LEVEL_ORDER[a.level]-LEVEL_ORDER[b.level]||(a.group_name||a.description).localeCompare(b.group_name||b.description));
   if(needsReorder.length){
-    reorderEl.innerHTML='<div class="reorder-section"><div class="reorder-title">Reorder Suggestions ('+needsReorder.length+')</div>'+needsReorder.map(s=>'<div class="reorder-item"><div><div class="reorder-item-name">'+s.groupName+'</div><div class="reorder-item-meta">'+(s.lastPurchaseDate?'Last bought: '+formatDate(s.lastPurchaseDate):'No purchase history')+'</div></div>'+badgeHtml(s.level)+'</div>').join('')+'</div>';
+    reorderEl.innerHTML='<div class="reorder-section"><div class="reorder-title">Reorder Suggestions ('+needsReorder.length+')</div>'+needsReorder.map(s=>{
+      var name=s.group_name||s.description;
+      var lastDate=s.last_purchase_date?'Last bought: '+formatDate(s.last_purchase_date):'No purchase history';
+      return '<div class="reorder-item"><div><div class="reorder-item-name">'+name+'</div><div class="reorder-item-meta">'+lastDate+'</div></div>'+badgeHtml(s.level)+'</div>';
+    }).join('')+'</div>';
   } else {
     reorderEl.innerHTML='';
   }
-  // Tag-grouped stock list
-  var tagMap={};
-  MOCK_TAGS.forEach(t=>{tagMap[t.id]=t;});
-  // Group stocks by first tagId
-  var sections={};
+  if(!stocks.length){
+    document.getElementById('stock-list').innerHTML='<div class="empty"><h3 style="font-size:15px;font-weight:500;margin:0 0 6px">No stock data</h3><p>Stock levels are computed from purchase history. Add purchase events to see stock.</p></div>';
+    return;
+  }
+  // Group by group_name for display
+  var groups={};
   stocks.forEach(s=>{
-    var tid=s.tagIds[0];
-    if(!sections[tid])sections[tid]=[];
-    sections[tid].push(s);
+    var name=s.group_name||'Other';
+    if(!groups[name])groups[name]=[];
+    groups[name].push(s);
   });
   var html='';
-  MOCK_TAGS.forEach(tag=>{
-    var items=sections[tag.id];
-    if(!items||!items.length)return;
-    items.sort((a,b)=>LEVEL_ORDER[a.level]-LEVEL_ORDER[b.level]||a.groupName.localeCompare(b.groupName));
-    var collapsed=COLLAPSED_TAGS[tag.id];
-    var emoji=TAG_EMOJI[tag.id]||'';
+  Object.keys(groups).sort().forEach(groupName=>{
+    var items=groups[groupName];
+    items.sort((a,b)=>LEVEL_ORDER[a.level]-LEVEL_ORDER[b.level]||(a.description||''). localeCompare(b.description||'')); 
+    var collapsed=COLLAPSED_TAGS[groupName];
     html+='<div class="tag-section">';
-    html+='<div class="tag-header" data-action="toggle-tag" data-tag-id="'+tag.id+'">'+emoji+' '+tag.name+'<span style="font-size:12px;color:var(--mut);font-weight:400;margin-left:4px">('+items.length+')</span><span class="arrow'+(collapsed?' collapsed':'')+'">▼</span></div>';
+    html+='<div class="tag-header" data-action="toggle-tag" data-tag-id="'+groupName+'">'+groupName+'<span style="font-size:12px;color:var(--mut);font-weight:400;margin-left:4px">('+items.length+')</span><span class="arrow'+( collapsed?' collapsed':'')+'">▼</span></div>';
     if(!collapsed){
       items.forEach(s=>{
-        var expanded=EXPANDED_STOCK_ITEMS[s.groupId];
-        var ovr=STOCK_OVERRIDES[s.groupId];
-        var badgeAndIndicator=badgeHtml(s.level)+(ovr?'<span class="overridden-indicator">Overridden</span>':'');
-        html+='<div class="stock-item" data-action="toggle-stock-item" data-group-id="'+s.groupId+'"><span class="stock-item-name">'+s.groupName+'</span>'+badgeAndIndicator+'</div>';
+        var id=s.description||groupName;
+        var expanded=EXPANDED_STOCK_ITEMS[id];
+        var ovr=STOCK_OVERRIDES[id];
+        var badgeAndIndicator=badgeHtml(s.level)+(ovr?'<span class="overridden-indicator">Overridden</span>':'')+' ';
+        html+='<div class="stock-item" data-action="toggle-stock-item" data-group-id="'+id+'"><span class="stock-item-name">'+id+'</span>'+badgeAndIndicator+'</div>';
         if(expanded){
-          var lastDate=s.lastPurchaseDate?formatDate(s.lastPurchaseDate):'Unknown';
-          var vendor=s.lastVendor||'Unknown';
-          var price=s.lastPrice?'$'+s.lastPrice.toFixed(2):'Unknown';
-          var remaining=s.totalPurchased===0?'No history':'~'+s.remaining+' units';
-          var freq=s.avgWeeklyConsumption>0?'~'+s.avgWeeklyConsumption+' units/week':'Unknown';
+          var lastDate=s.last_purchase_date?formatDate(s.last_purchase_date):'Unknown';
+          var qty=s.total_quantity!==undefined?'~'+s.total_quantity+' units':'No history';
+          var spend=s.total_spend?'$'+Number(s.total_spend).toFixed(2):'Unknown';
+          var avgPrice=s.avg_price?'$'+Number(s.avg_price).toFixed(2):'Unknown';
           html+='<div class="stock-detail open">';
           html+='<div class="stock-detail-row"><span class="stock-detail-label">Last purchased</span><span class="stock-detail-value">'+lastDate+'</span></div>';
-          html+='<div class="stock-detail-row"><span class="stock-detail-label">Last vendor</span><span class="stock-detail-value">'+vendor+'</span></div>';
-          html+='<div class="stock-detail-row"><span class="stock-detail-label">Avg weekly use</span><span class="stock-detail-value">'+freq+'</span></div>';
-          html+='<div class="stock-detail-row"><span class="stock-detail-label">Last price</span><span class="stock-detail-value">'+price+'</span></div>';
-          html+='<div class="stock-detail-row"><span class="stock-detail-label">Est. remaining</span><span class="stock-detail-value">'+remaining+'</span></div>';
+          html+='<div class="stock-detail-row"><span class="stock-detail-label">Est. remaining</span><span class="stock-detail-value">'+qty+'</span></div>';
+          html+='<div class="stock-detail-row"><span class="stock-detail-label">Avg unit price</span><span class="stock-detail-value">'+avgPrice+'</span></div>';
+          html+='<div class="stock-detail-row"><span class="stock-detail-label">Total spend</span><span class="stock-detail-value">'+spend+'</span></div>';
           if(ovr){
             html+='<div class="stock-detail-row"><span class="stock-detail-label">Override reason</span><span class="stock-detail-value">'+ovr.reason+'</span></div>';
-            html+='<button class="btn-clear-override" data-action="clear-override" data-group-id="'+s.groupId+'">Clear Override</button>';
-          } else if(OVERRIDE_FORM_OPEN===s.groupId){
+            html+='<button class="btn-clear-override" data-action="clear-override" data-group-id="'+id+'">Clear Override</button>';
+          } else if(OVERRIDE_FORM_OPEN===id){
             html+='<div class="override-form">';
             html+='<div class="override-radios"><label><input type="radio" name="override-level" value="low"> Low</label><label><input type="radio" name="override-level" value="medium"> Medium</label><label><input type="radio" name="override-level" value="high"> High</label></div>';
-            html+='<input class="override-reason" placeholder="Reason for override..." data-group-id="'+s.groupId+'">';
-            html+='<div class="override-actions"><button class="btn-override btn-save" data-action="save-override" data-group-id="'+s.groupId+'">Save Override</button><button class="btn-override btn-cancel" data-action="cancel-override">Cancel</button></div>';
+            html+='<input class="override-reason" placeholder="Reason for override..." data-group-id="'+id+'">';
+            html+='<div class="override-actions"><button class="btn-override btn-save" data-action="save-override" data-group-id="'+id+'">Save Override</button><button class="btn-override btn-cancel" data-action="cancel-override">Cancel</button></div>';
             html+='</div>';
           } else {
-            html+='<button class="override-btn" data-action="show-override" data-group-id="'+s.groupId+'">Override Level</button>';
+            html+='<button class="override-btn" data-action="show-override" data-group-id="'+id+'">Override Level</button>';
           }
           html+='</div>';
         }
@@ -810,33 +386,28 @@ function renderStock(){
   document.getElementById('stock-list').innerHTML=html;
 }
 
-document.getElementById('s2').addEventListener('click',function(e){
+function renderTrends(){
+  document.getElementById('trends-container').innerHTML='<div class="coming-soon"><h3>Spending Trends</h3><p>Trends require sales data integration. Coming in a future update.</p></div>';
+}
+
+function renderCost(){
+  document.getElementById('cost-container').innerHTML='<div class="coming-soon"><h3>Food Cost Intelligence</h3><p>Trends require sales data integration. Coming in a future update.</p></div>';
+}
+
+document.getElementById('vendor-filter').addEventListener('change',function(e){
+  VENDOR_FILTER=e.target.value;
+  loadHistory();
+});
+
+document.getElementById('history-list').addEventListener('click',function(e){
   var el=e.target.closest('[data-action]');
   if(!el)return;
   var action=el.dataset.action;
-  if(action==='toggle-chip'){
-    var tid=el.dataset.tagId;
-    if(!tid){
-      ACTIVE_CHIPS.clear();
-    } else if(ACTIVE_CHIPS.has(tid)){
-      ACTIVE_CHIPS.delete(tid);
-    } else {
-      ACTIVE_CHIPS.add(tid);
-      if(ACTIVE_CHIPS.size===MOCK_TAGS.length)ACTIVE_CHIPS.clear();
-    }
-    renderTrends();
-  } else if(action==='trends-subtab'){
-    TRENDS_SUB_TAB=Number(el.dataset.sub);
-    renderTrends();
+  var id=el.dataset.id;
+  if(action==='toggle-event'){
+    EXPANDED_EVENTS[id]=!EXPANDED_EVENTS[id];
+    renderHistoryList();
   }
-});
-document.getElementById('s2').addEventListener('change',function(e){
-  var el=e.target.closest('[data-action="trends-time-filter"]');
-  if(el){TRENDS_TIME_FILTER=el.value;renderTrends();}
-});
-document.getElementById('s4').addEventListener('change',function(e){
-  var el=e.target.closest('[data-action="cost-time-filter"]');
-  if(el){COST_TIME_FILTER=el.value;renderCost();}
 });
 
 document.addEventListener('click',function(e){
@@ -873,60 +444,16 @@ document.addEventListener('click',function(e){
   }
 });
 
-function formatDate(dateStr){
-  var d=parseLocalDate(dateStr);
-  return new Intl.DateTimeFormat('en-US',{month:'short',day:'numeric',year:'numeric'}).format(d);
-}
-
-function renderLineItems(eventId){
-  var items=MOCK_PURCHASES.filter(p=>p.purchaseEventId===eventId);
-  return '<div class="event-detail" style="display:block">'+items.map(p=>'<div class="line-item"><div style="flex:1"><div style="font-size:13px;font-weight:500">'+p.name+'</div><div style="font-size:12px;color:var(--mut);margin-top:2px">Qty: '+p.qty+(p.isCase?' <span class="case-badge">CASE</span>':'')+'</div></div><div style="font-size:14px;font-weight:500">$'+p.price.toFixed(2)+'</div></div>').join('')+'</div>';
-}
-
-function renderHistory(){
-  var sel=document.getElementById('vendor-filter');
-  var vendors=[...MOCK_VENDORS].sort((a,b)=>a.name.localeCompare(b.name));
-  sel.innerHTML='<option value="">All Vendors</option>'+vendors.map(v=>'<option value="'+v.id+'">'+v.name+'</option>').join('');
-  sel.value=VENDOR_FILTER;
-  var list=document.getElementById('history-list');
-  var filtered=VENDOR_FILTER
-    ?MOCK_PURCHASE_EVENTS.filter(e=>e.vendorId===VENDOR_FILTER)
-    :MOCK_PURCHASE_EVENTS;
-  var sorted=filtered.slice().sort((a,b)=>b.date.localeCompare(a.date));
-  if(!sorted.length){
-    list.innerHTML='<div class="coming-soon"><h3>No purchases found</h3><p>No purchase events match the selected filter.</p></div>';
-    return;
-  }
-  list.innerHTML=sorted.map(evt=>{
-    var expanded=EXPANDED_EVENTS[evt.id];
-    return '<div class="event-card" data-action="toggle-event" data-id="'+evt.id+'"><div class="event-header"><div><div class="event-vendor">'+evt.vendorName+'</div><div class="event-meta">'+formatDate(evt.date)+'</div></div><div class="event-total">$'+evt.total.toFixed(2)+'</div></div>'+(expanded?renderLineItems(evt.id):'')+'</div>';
-  }).join('');
-}
-
-document.getElementById('vendor-filter').addEventListener('change',function(e){
-  VENDOR_FILTER=e.target.value;
-  renderHistory();
-});
-
-document.getElementById('history-list').addEventListener('click',function(e){
-  var el=e.target.closest('[data-action]');
-  if(!el)return;
-  var action=el.dataset.action;
-  var id=el.dataset.id;
-  if(action==='toggle-event')toggleEventDetail(id);
-});
-
-function toggleEventDetail(eventId){
-  EXPANDED_EVENTS[eventId]=!EXPANDED_EVENTS[eventId];
-  renderHistory();
-}
-
-if(typeof Chart==='undefined')console.error('Chart.js failed to load');
-
 document.addEventListener('dblclick',e=>e.preventDefault());
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');
 
-show(1);
+document.addEventListener('DOMContentLoaded',async function(){
+  try{await api('/api/v1/me');}catch(e){return;}
+  show(1);
+  loadVendors();
+  loadHistory();
+  loadStock();
+});
 </script>
 <script src="ptr.js"></script>
 </body>
