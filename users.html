@@ -452,8 +452,7 @@ document.querySelector('.app').addEventListener('click',async function(e){
     show(parseInt(el.dataset.tab));
   }else if(action==='edit-user'){
     const id=el.dataset.userId;
-    const uid=parseInt(id)||id;
-    await editUser(uid);
+    await editUser(id);
   }else if(action==='show-invite'){
     showInviteForm();
   }else if(action==='submit-invite'){
