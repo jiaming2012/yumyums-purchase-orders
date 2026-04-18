@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Backend
 status: executing
-stopped_at: Completed 11-02-PLAN.md
-last_updated: "2026-04-18T01:09:10.263Z"
+stopped_at: Completed 11-04-PLAN.md
+last_updated: "2026-04-18T01:12:24.341Z"
 last_activity: 2026-04-18
 progress:
   total_phases: 6
   completed_phases: 4
   total_plans: 23
-  completed_plans: 19
+  completed_plans: 20
   percent: 0
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-15)
 ## Current Position
 
 Phase: 11 (onboarding-users-admin) — EXECUTING
-Plan: 3 of 6
+Plan: 4 of 6
 Status: Ready to execute
 Last activity: 2026-04-18
 
@@ -71,6 +71,7 @@ Progress: [░░░░░░░░░░] 0% (v2.0 milestone)
 | Phase 10.2-reactive-sync-framework P03 | 58 | 2 tasks | 6 files |
 | Phase 11-onboarding-users-admin P01 | 126 | 2 tasks | 7 files |
 | Phase 11-onboarding-users-admin P02 | 12 | 2 tasks | 3 files |
+| Phase 11-onboarding-users-admin P04 | 420 | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -126,6 +127,8 @@ Recent decisions affecting current work:
 - [Phase 11-01]: ob_progress uses discriminator column (progress_type) rather than FK constraint to support both item and video_part progress in one table
 - [Phase 11-onboarding-users-admin]: Nickname collision checks both u.nickname and derived display_name via COALESCE — prevents either form from being silently shadowed
 - [Phase 11-onboarding-users-admin]: ClaimInviteToken uses atomic UPDATE RETURNING to prevent double-claim race without application-level locking
+- [Phase 11-onboarding-users-admin]: isManagerOrAdmin helper used for sign-off and management endpoints — manager role can sign off per D-05
+- [Phase 11-onboarding-users-admin]: GetHireTraining computes section state server-side: signed_off → complete → active → locked; isSectionComplete returns true for is_faq sections
 
 ### Pending Todos
 
@@ -146,6 +149,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-18T01:09:10.195Z
-Stopped at: Completed 11-02-PLAN.md
+Last session: 2026-04-18T01:12:24.280Z
+Stopped at: Completed 11-04-PLAN.md
 Resume file: None

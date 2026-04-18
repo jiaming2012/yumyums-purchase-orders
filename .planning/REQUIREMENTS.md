@@ -29,7 +29,7 @@
 ### Onboarding Persistence
 
 - [x] **ONBD-01**: Onboarding templates, sections, items, FAQ Q&A persisted to Postgres
-- [ ] **ONBD-02**: Training progress (checked items, video parts watched) saved per hire
+- [x] **ONBD-02**: Training progress (checked items, video parts watched) saved per hire
 - [x] **ONBD-03**: Section sign-off journal entries persisted with manager, reason, timestamp
 - [ ] **ONBD-04**: onboarding.html fetches data from API instead of hardcoded JS arrays
 
@@ -47,8 +47,8 @@
 
 ### Users Admin
 
-- [ ] **USER-01**: Admin can invite new users via API (email invite flow)
-- [ ] **USER-02**: Admin can manage user roles and app permissions via API
+- [x] **USER-01**: Admin can invite new users via API (email invite flow)
+- [x] **USER-02**: Admin can manage user roles and app permissions via API
 - [ ] **USER-03**: users.html wired to real admin API (replacing mock data)
 
 ### Photos
@@ -100,11 +100,11 @@ Deferred to future milestones.
 | SYNC-02 | Phase 10 | Complete |
 | SYNC-03 | Phase 10 | Complete |
 | ONBD-01 | Phase 11 | Complete |
-| ONBD-02 | Phase 11 | Pending |
+| ONBD-02 | Phase 11 | Complete |
 | ONBD-03 | Phase 11 | Complete |
 | ONBD-04 | Phase 11 | Pending |
-| USER-01 | Phase 11 | Pending |
-| USER-02 | Phase 11 | Pending |
+| USER-01 | Phase 11 | Complete |
+| USER-02 | Phase 11 | Complete |
 | USER-03 | Phase 11 | Pending |
 | INVT-01 | Phase 12 | Pending |
 | INVT-02 | Phase 12 | Pending |
