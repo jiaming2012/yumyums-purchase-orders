@@ -7,11 +7,16 @@ import (
 	"encoding/hex"
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/yumyums/hq/internal/config"
 	"golang.org/x/crypto/bcrypt"
 )
+
+// displayNameExpr computes display_name from first_name/last_name/nickname (D-09).
+// nickname takes precedence; falls back to "FirstName L." pattern.
+const displayNameExpr = `COALESCE(NULLIF(u.nickname, ''), u.first_name || ' ' || LEFT(u.last_name, 1) || '.') AS display_name`
 
 // User represents an authenticated user (returned from session lookup or login)
 type User struct {
@@ -86,16 +91,28 @@ func DeleteSessionByHash(ctx context.Context, pool *pgxpool.Pool, tokenHash stri
 	return nil
 }
 
+// DeleteAllSessionsByUserID deletes all sessions for a given user (D-20).
+// Used for session revocation when a user is deactivated or force-logged out.
+func DeleteAllSessionsByUserID(ctx context.Context, pool *pgxpool.Pool, userID string) error {
+	_, err := pool.Exec(ctx, `DELETE FROM sessions WHERE user_id = $1`, userID)
+	if err != nil {
+		return fmt.Errorf("delete sessions for user %s: %w", userID, err)
+	}
+	return nil
+}
+
 // LookupSession finds the user associated with a session token hash.
 // Returns nil, nil if the session does not exist or has expired.
 func LookupSession(ctx context.Context, pool *pgxpool.Pool, tokenHash string, superadmins map[string]config.SuperadminEntry) (*User, error) {
-	row := pool.QueryRow(ctx, `
-		SELECT u.id, u.email, u.display_name, u.role, u.status
+	query := fmt.Sprintf(`
+		SELECT u.id, u.email, %s, u.role, u.status
 		FROM sessions s
 		JOIN users u ON s.user_id = u.id
 		WHERE s.token_hash = $1
 		  AND (s.expires_at IS NULL OR s.expires_at > now())
-	`, tokenHash)
+	`, displayNameExpr)
+
+	row := pool.QueryRow(ctx, query, tokenHash)
 
 	var u User
 	err := row.Scan(&u.ID, &u.Email, &u.DisplayName, &u.Role, &u.Status)
@@ -117,11 +134,13 @@ func LookupSession(ctx context.Context, pool *pgxpool.Pool, tokenHash string, su
 // AuthenticateUser verifies email + password credentials and returns the user if valid.
 // Returns nil, nil if credentials are invalid (no such user, no password set, wrong password).
 func AuthenticateUser(ctx context.Context, pool *pgxpool.Pool, email, password string, superadmins map[string]config.SuperadminEntry) (*User, error) {
-	row := pool.QueryRow(ctx, `
-		SELECT id, email, display_name, password_hash, role, status
-		FROM users
-		WHERE email = $1
-	`, email)
+	query := fmt.Sprintf(`
+		SELECT u.id, u.email, %s, u.password_hash, u.role, u.status
+		FROM users u
+		WHERE u.email = $1
+	`, displayNameExpr)
+
+	row := pool.QueryRow(ctx, query, email)
 
 	var (
 		u            User
@@ -152,15 +171,16 @@ func AuthenticateUser(ctx context.Context, pool *pgxpool.Pool, email, password s
 }
 
 // UpsertSuperadmins ensures each superadmin from config exists in the users table.
-// If the user already exists, only the display_name is updated. This allows
+// If the user already exists, only first_name and last_name are updated. This allows
 // superadmins to set their password via the invite flow.
 func UpsertSuperadmins(ctx context.Context, pool *pgxpool.Pool, superadmins map[string]config.SuperadminEntry) error {
 	for email, entry := range superadmins {
+		firstName, lastName := splitName(entry.DisplayName)
 		_, err := pool.Exec(ctx, `
-			INSERT INTO users (email, display_name, role, status)
-			VALUES ($1, $2, 'admin', 'invited')
-			ON CONFLICT (email) DO UPDATE SET display_name = EXCLUDED.display_name
-		`, email, entry.DisplayName)
+			INSERT INTO users (email, first_name, last_name, role, status)
+			VALUES ($1, $2, $3, 'admin', 'invited')
+			ON CONFLICT (email) DO UPDATE SET first_name = EXCLUDED.first_name, last_name = EXCLUDED.last_name
+		`, email, firstName, lastName)
 		if err != nil {
 			return fmt.Errorf("upsert superadmin %s: %w", email, err)
 		}
@@ -183,4 +203,15 @@ func UpsertSuperadmins(ctx context.Context, pool *pgxpool.Pool, superadmins map[
 		log.Printf("Upserted superadmin: %s", email)
 	}
 	return nil
+}
+
+// splitName splits a full name string into first and last name components.
+// "Jamal M." -> ("Jamal", "M.")
+// "Jamal"    -> ("Jamal", "")
+func splitName(name string) (firstName, lastName string) {
+	idx := strings.Index(name, " ")
+	if idx < 0 {
+		return name, ""
+	}
+	return name[:idx], name[idx+1:]
 }
