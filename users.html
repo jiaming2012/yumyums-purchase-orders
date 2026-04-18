@@ -53,6 +53,8 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .empty{text-align:center;padding:48px 24px}
 .empty h3{font-size:15px;font-weight:600;margin:0 0 8px}
 .empty p{font-size:14px;color:var(--mut);margin:0}
+.role-checks{display:flex;flex-direction:column;gap:6px}
+.role-checks label{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--txt)}
 .invite-link-panel{padding:16px}
 .invite-link-panel h2{font-size:15px;font-weight:600;margin:0 0 12px}
 .invite-url{width:100%;padding:10px 12px;background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;font-size:13px;color:var(--mut);font-family:inherit;word-break:break-all;margin-bottom:10px;cursor:text;resize:none;outline:none}
@@ -153,17 +155,21 @@ function renderError(containerId,msg){
 }
 
 function pillClass(u){
+  var roles=u.roles||[];
   if(u.status==='invited')return'pill pill-invited';
-  if(u.role==='admin'||u.role==='superadmin')return'pill pill-admin';
-  if(u.role==='manager')return'pill pill-manager';
+  if(roles.includes('admin')||roles.includes('superadmin'))return'pill pill-admin';
+  if(roles.includes('manager'))return'pill pill-manager';
   return'pill pill-member';
 }
 
 function pillText(u){
+  var roles=u.roles||[];
   if(u.status==='invited')return'Invited';
-  if(u.role==='admin'||u.role==='superadmin')return'Admin';
-  if(u.role==='manager')return'Manager';
-  return'Member';
+  var parts=[];
+  if(roles.includes('admin')||roles.includes('superadmin'))parts.push('Admin');
+  else if(roles.includes('manager'))parts.push('Manager');
+  if(roles.includes('team_member')&&!roles.includes('admin'))parts.push('Team Member');
+  return parts.length?parts.join(' / '):'Member';
 }
 
 function displayName(u){
@@ -210,12 +216,12 @@ function showInviteForm(){
     <div class="hd"><h1>New Crew Member</h1></div>
     <div class="form-wrap">
       <div class="field">
-        <label>Role</label>
-        <select id="f-role">
-          <option value="admin">Admin</option>
-          <option value="manager">Manager</option>
-          <option value="team_member" selected>Member</option>
-        </select>
+        <label>Roles</label>
+        <div id="f-roles" class="role-checks">
+          <label><input type="checkbox" value="admin"> Admin</label>
+          <label><input type="checkbox" value="manager"> Manager</label>
+          <label><input type="checkbox" value="team_member" checked> Team Member</label>
+        </div>
       </div>
       <div class="field">
         <label>First Name</label>
@@ -239,14 +245,14 @@ async function submitInvite(){
   const first=document.getElementById('f-first').value.trim();
   const last=document.getElementById('f-last').value.trim();
   const email=document.getElementById('f-email').value.trim();
-  const role=document.getElementById('f-role').value;
+  const roles=Array.from(document.querySelectorAll('#f-roles input:checked')).map(c=>c.value);
   const errEl=document.getElementById('invite-err');
   errEl.classList.remove('show');
   if(!first||!last||!email){errEl.textContent='All fields are required.';errEl.classList.add('show');return}
   const btn=document.querySelector('[data-action="submit-invite"]');
   if(btn)btn.textContent='Creating...';
   try{
-    const result=await api('POST','/api/v1/users/invite',{first_name:first,last_name:last,email,role});
+    const result=await api('POST','/api/v1/users/invite',{first_name:first,last_name:last,email,roles});
     const url=window.location.origin+result.invite_path;
     showInviteLinkPanel('Invite Link',url,'invite-done');
     await loadUsers();
@@ -273,16 +279,17 @@ async function editUser(id){
   if(!u)return;
   editingUser=u;
   const dn=displayName(u);
+  const roles=u.roles||[];
   document.getElementById('edit-card').innerHTML=`
     <div class="hd"><h1>Edit ${dn}</h1></div>
     <div class="form-wrap">
       <div class="field">
-        <label>Role</label>
-        <select id="f-role">
-          <option value="admin"${u.role==='admin'?' selected':''}>Admin</option>
-          <option value="manager"${u.role==='manager'?' selected':''}>Manager</option>
-          <option value="team_member"${u.role==='team_member'?' selected':''}>Member</option>
-        </select>
+        <label>Roles</label>
+        <div id="f-roles" class="role-checks">
+          <label><input type="checkbox" value="admin"${roles.includes('admin')?' checked':''}> Admin</label>
+          <label><input type="checkbox" value="manager"${roles.includes('manager')?' checked':''}> Manager</label>
+          <label><input type="checkbox" value="team_member"${roles.includes('team_member')?' checked':''}> Team Member</label>
+        </div>
       </div>
       <div class="field">
         <label>First Name</label>
@@ -318,13 +325,13 @@ async function saveUser(){
   const first=document.getElementById('f-first').value.trim();
   const last=document.getElementById('f-last').value.trim();
   const nick=document.getElementById('f-nick').value.trim();
-  const role=document.getElementById('f-role').value;
+  const roles=Array.from(document.querySelectorAll('#f-roles input:checked')).map(c=>c.value);
   const nickErr=document.getElementById('nick-err');
   if(nickErr)nickErr.classList.remove('show');
   const btn=document.querySelector('[data-action="save-user"]');
   if(btn)btn.textContent='Saving...';
   try{
-    const result=await api('PATCH',`/api/v1/users/${editingUser.id}`,{first_name:first,last_name:last,nickname:nick,role});
+    const result=await api('PATCH',`/api/v1/users/${editingUser.id}`,{first_name:first,last_name:last,nickname:nick,roles});
     const idx=USERS.findIndex(u=>u.id===editingUser.id);
     if(idx>=0)USERS[idx]=result.user||result;
     showToast('Profile updated');
@@ -395,7 +402,7 @@ function renderAccess(userId){
     const roleGrants=app.role_grants||[];
     const userGrants=app.user_grants||[];
     const roles=['admin','manager','team_member'];
-    const roleLabels={admin:'Admin',manager:'Manager',team_member:'Member'};
+    const roleLabels={admin:'Admin',manager:'Manager',team_member:'Team Member'};
     let togglesHtml=roles.map(role=>`
       <div class="toggle-row">
         <div class="lbl">${roleLabels[role]}</div>

@@ -73,6 +73,8 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .rating-group{display:flex;gap:6px}
 .rating-btn{flex:1;padding:8px 4px;background:transparent;border:0.5px solid var(--brd);border-radius:8px;font-size:12px;font-weight:500;color:var(--mut);cursor:pointer;text-align:center}
 .rating-btn.on{background:var(--info-bg);color:var(--info-tx);border-color:var(--info-tx)}
+.role-checks{display:flex;flex-direction:column;gap:6px}
+.role-checks label{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--txt)}
 </style>
 </head>
 <body>
@@ -133,8 +135,8 @@ function renderSkeletons(containerId, count) {
 function generateOBId(prefix) {
   return prefix + '_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
 }
-function createNewOBTemplate(name, role) {
-  return { id: null, name: name, role: role, sections: [] };
+function createNewOBTemplate(name, roles) {
+  return { id: null, name: name, roles: roles||[], sections: [] };
 }
 function createNewOBSection(title) {
   return { id: generateOBId('sec'), title: title, requires_sign_off: false, is_faq: false, items: [] };
@@ -497,7 +499,7 @@ function renderOBTemplateList() {
     html += '<div class="empty"><h3>No templates yet.</h3><p>Create your first onboarding template to get started.</p></div>';
   } else {
     TEMPLATES.forEach(function(tpl) {
-      var roleLabel = tpl.role ? tpl.role.replace(/_/g,' ') : 'All roles';
+      var roleLabel = (tpl.roles&&tpl.roles.length) ? tpl.roles.map(function(r){return r.replace(/_/g,' ')}).join(', ') : 'All roles';
       var secCount = (tpl.sections||[]).length;
       html += '<div class="card" style="cursor:pointer" data-action="open-template" data-tpl-id="'+tpl.id+'">';
       html += '<div style="font-size:14px;font-weight:500;margin-bottom:4px">'+escapeOBAttr(tpl.name)+'</div>';
@@ -614,17 +616,14 @@ function renderOBEditor() {
   if (!tpl) return '';
   var html = '';
   html += '<span class="back" data-action="back-to-templates" style="display:inline-flex;align-items:center;gap:4px;font-size:14px;font-weight:500;margin-bottom:16px;cursor:pointer">&#8249; Templates</span>';
-  html += '<div style="display:flex;gap:8px;margin-bottom:12px">';
-  html += '<button class="btn-primary" data-action="save-template" style="margin-top:0;flex:1">Save</button>';
-  html += '<button class="btn-secondary" data-action="discard-template" style="margin-top:0;flex:1">Discard</button>';
-  html += '</div>';
   html += '<input type="text" value="'+escapeOBAttr(tpl.name)+'" data-action="tpl-name-input" placeholder="Template name" style="width:100%;padding:10px 12px;background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;font-size:14px;color:var(--txt);font-family:inherit;outline:none;margin-bottom:8px">';
-  html += '<select data-action="tpl-role-select" style="width:100%;padding:10px 12px;background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;font-size:14px;color:var(--txt);font-family:inherit;outline:none;margin-bottom:16px">';
-  html += '<option value=""'+(tpl.role===null||tpl.role===''?' selected':'')+'>All roles</option>';
+  var tplRoles = tpl.roles||[];
+  html += '<div class="role-checks" style="margin-bottom:16px">';
+  html += '<div style="font-size:12px;color:var(--mut);margin-bottom:6px">Target Roles (leave unchecked for all roles)</div>';
   ['line_cook','cashier','manager','admin'].forEach(function(r) {
-    html += '<option value="'+r+'"'+(tpl.role===r?' selected':'')+'>'+r.replace(/_/g,' ')+'</option>';
+    html += '<label><input type="checkbox" data-action="tpl-role-check" value="'+r+'"'+(tplRoles.includes(r)?' checked':'')+'>'+r.replace(/_/g,' ')+'</label>';
   });
-  html += '</select>';
+  html += '</div>';
   html += '<div class="ob-section-list">';
   (tpl.sections||[]).forEach(function(sec) {
     html += renderOBSection(sec);
@@ -634,6 +633,10 @@ function renderOBEditor() {
   if (tpl.id) {
     html += '<button style="width:100%;padding:12px;background:transparent;color:#c0392b;border:0.5px solid #c0392b;border-radius:8px;font-size:14px;font-weight:500;cursor:pointer;margin-top:24px" data-action="delete-template">Delete Template</button>';
   }
+  html += '<div style="display:flex;gap:8px;margin-top:24px">';
+  html += '<button data-action="save-template" style="flex:1;padding:12px;background:#27ae60;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer">Save</button>';
+  html += '<button class="btn-secondary" data-action="discard-template" style="flex:1;margin-top:0">Discard</button>';
+  html += '</div>';
   return html;
 }
 
@@ -910,12 +913,12 @@ document.getElementById('builder-body').addEventListener('click', async function
     btn.textContent = 'Saving…';
     try {
       if (tpl.id) {
-        await api('PUT', '/api/v1/onboarding/updateTemplate/'+tpl.id, { name: tpl.name, role: tpl.role || null, sections: tpl.sections });
+        await api('PUT', '/api/v1/onboarding/updateTemplate/'+tpl.id, { name: tpl.name, roles: tpl.roles || null, sections: tpl.sections });
         var idx = (TEMPLATES||[]).findIndex(function(t) { return t.id === tpl.id; });
         if (idx !== -1) TEMPLATES[idx] = JSON.parse(JSON.stringify(tpl));
         obBuilderState.activeTemplate = TEMPLATES[idx];
       } else {
-        var created = await api('POST', '/api/v1/onboarding/createTemplate', { name: tpl.name, role: tpl.role || null, sections: tpl.sections });
+        var created = await api('POST', '/api/v1/onboarding/createTemplate', { name: tpl.name, roles: tpl.roles || null, sections: tpl.sections });
         tpl.id = created.id;
         TEMPLATES.push(JSON.parse(JSON.stringify(tpl)));
         obBuilderState.activeTemplate = TEMPLATES[TEMPLATES.length - 1];
@@ -1047,8 +1050,10 @@ document.getElementById('builder-body').addEventListener('input', function(e) {
 });
 
 document.getElementById('builder-body').addEventListener('change', function(e) {
-  if (e.target.dataset.action === 'tpl-role-select' && obBuilderState.localCopy) {
-    obBuilderState.localCopy.role = e.target.value || null;
+  if (e.target.dataset.action === 'tpl-role-check' && obBuilderState.localCopy) {
+    var checks = document.querySelectorAll('[data-action="tpl-role-check"]:checked');
+    var roles = Array.from(checks).map(function(c) { return c.value; });
+    obBuilderState.localCopy.roles = roles.length > 0 ? roles : null;
     renderOBBuilder();
   }
 });
@@ -1062,7 +1067,7 @@ document.getElementById('builder-body').addEventListener('change', function(e) {
   } catch(e) {
     return;
   }
-  var isManager = CURRENT_USER.role === 'admin' || CURRENT_USER.role === 'manager' || CURRENT_USER.role === 'superadmin' || CURRENT_USER.is_superadmin;
+  var isManager = (CURRENT_USER.roles||[]).some(function(r){return r==='admin'||r==='manager'||r==='superadmin';}) || CURRENT_USER.is_superadmin;
   if (!isManager) {
     document.getElementById('t2').style.display = 'none';
     document.getElementById('t3').style.display = 'none';
