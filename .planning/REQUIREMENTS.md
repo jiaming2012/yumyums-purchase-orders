@@ -37,7 +37,7 @@
 
 - [x] **INVT-01**: Vendors, purchase events, and line items persisted to Postgres (replacing mock data)
 - [ ] **INVT-02**: inventory.html fetches purchase data from API for History, Stock, Trends, and Cost tabs
-- [ ] **INVT-03**: Receipt ingestion pipeline — upload receipt image, OCR, map to purchase items, human review
+- [x] **INVT-03**: Receipt ingestion pipeline — upload receipt image, OCR, map to purchase items, human review
 
 ### Offline Sync
 
@@ -112,7 +112,7 @@ Deferred to future milestones.
 | USER-03 | Phase 11 | Complete |
 | INVT-01 | Phase 12 | Complete |
 | INVT-02 | Phase 12 | Pending |
-| INVT-03 | Phase 12 | Pending |
+| INVT-03 | Phase 12 | Complete |
 | PHOT-01 | Phase 12 | Complete |
 | PHOT-02 | Phase 12 | Complete |
 | TILE-01 | Phase 12 | Complete |

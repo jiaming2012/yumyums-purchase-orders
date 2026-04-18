@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Backend
 status: executing
-stopped_at: Completed 12-02-PLAN.md
-last_updated: "2026-04-18T11:46:48.339Z"
+stopped_at: Completed 12-05-PLAN.md
+last_updated: "2026-04-18T11:53:55.370Z"
 last_activity: 2026-04-18
 progress:
   total_phases: 6
   completed_phases: 5
   total_plans: 29
-  completed_plans: 26
+  completed_plans: 28
   percent: 0
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-15)
 ## Current Position
 
 Phase: 12 (inventory-photos-tile-permissions) — EXECUTING
-Plan: 4 of 6
+Plan: 6 of 6
 Status: Ready to execute
 Last activity: 2026-04-18
 
@@ -78,6 +78,8 @@ Progress: [░░░░░░░░░░] 0% (v2.0 milestone)
 | Phase 12-inventory-photos-tile-permissions P03 | 1 | 2 tasks | 2 files |
 | Phase 12-inventory-photos-tile-permissions P01 | 3 | 2 tasks | 8 files |
 | Phase 12-inventory-photos-tile-permissions P02 | 5 | 2 tasks | 5 files |
+| Phase 12-inventory-photos-tile-permissions P05 | 4 | 2 tasks | 7 files |
+| Phase 12 P04 | 4 | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -146,6 +148,9 @@ Recent decisions affecting current work:
 - [Phase 12-02]: Used s3.Options.BaseEndpoint instead of deprecated EndpointResolverWithOptions for DO Spaces custom endpoint (SDK v2 v1.99.1 removed old field)
 - [Phase 12-02]: Photos presign route inside authenticated group — no unauthenticated upload URL generation
 - [Phase 12-02]: workflows.html uses fetch() directly for /api/v1/photos/presign — api() helper prepends /api/v1/workflow/ which would create wrong path
+- [Phase 12-inventory-photos-tile-permissions]: Receipt worker uses claude-haiku-4-5 via anthropic-sdk-go; Jaro-Winkler 0.85 threshold for purchase item fuzzy matching; worker gracefully skips on missing API keys; bank_tx_id idempotency check across purchase_events and pending_purchases
+- [Phase 12]: renderHistoryList used for in-memory re-renders; loadHistory fetches fresh data — avoids double-fetch on tab switch
+- [Phase 12]: Chart.js removed from inventory.html — Trends/Cost are coming-soon stubs, sales data deferred per D-13
 
 ### Pending Todos
 
@@ -168,6 +173,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-18T11:46:48.334Z
-Stopped at: Completed 12-02-PLAN.md
+Last session: 2026-04-18T11:53:49.502Z
+Stopped at: Completed 12-05-PLAN.md
 Resume file: None
