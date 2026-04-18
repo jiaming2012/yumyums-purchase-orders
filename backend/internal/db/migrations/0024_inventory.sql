@@ -55,7 +55,7 @@ CREATE INDEX purchase_events_vendor_id_idx ON purchase_events(vendor_id);
 CREATE INDEX purchase_events_event_date_idx ON purchase_events(event_date DESC);
 CREATE INDEX purchase_line_items_event_id_idx ON purchase_line_items(purchase_event_id);
 
-INSERT INTO hq_apps (slug, name, icon, is_active)
+INSERT INTO hq_apps (slug, name, icon, enabled)
 VALUES ('inventory', 'Inventory', '📦', true)
 ON CONFLICT (slug) DO NOTHING;
 
