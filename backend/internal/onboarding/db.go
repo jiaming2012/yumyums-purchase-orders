@@ -3,6 +3,7 @@ package onboarding
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -35,6 +36,8 @@ type Item struct {
 	Answer     *string     `json:"answer,omitempty"`
 	SortOrder  int         `json:"sort_order"`
 	VideoParts []VideoPart `json:"video_parts,omitempty"`
+	// Checked is populated when returning HireTraining — true if this item is checked by the hire.
+	Checked bool `json:"checked"`
 }
 
 // VideoPart represents a single part of a video series item.
@@ -44,6 +47,8 @@ type VideoPart struct {
 	Description string `json:"description"`
 	URL         string `json:"url"`
 	SortOrder   int    `json:"sort_order"`
+	// Checked is populated when returning HireTraining — true if this part is watched by the hire.
+	Checked bool `json:"checked"`
 }
 
 // SectionState is the computed state for a section during hire training.
@@ -96,15 +101,23 @@ type AssignedTemplate struct {
 	ProgressPercent int     `json:"progress_percent"`
 }
 
+// AssignedTemplateSummary is a minimal summary of a template assignment for the manager hire list.
+type AssignedTemplateSummary struct {
+	TemplateID   string `json:"template_id"`
+	TemplateName string `json:"template_name"`
+	ProgressPct  int    `json:"progress_pct"`
+}
+
 // HireOverview summarizes a hire's onboarding state for the manager view.
 type HireOverview struct {
-	HireID          string `json:"hire_id"`
-	DisplayName     string `json:"display_name"`
-	Email           string `json:"email"`
-	TemplateCount   int    `json:"template_count"`
-	ItemsChecked    int    `json:"items_checked"`
-	TotalItems      int    `json:"total_items"`
-	ProgressPercent int    `json:"progress_percent"`
+	HireID            string                    `json:"hire_id"`
+	DisplayName       string                    `json:"display_name"`
+	Email             string                    `json:"email"`
+	TemplateCount     int                       `json:"template_count"`
+	ItemsChecked      int                       `json:"items_checked"`
+	TotalItems        int                       `json:"total_items"`
+	ProgressPercent   int                       `json:"progress_percent"`
+	AssignedTemplates []AssignedTemplateSummary `json:"assigned_templates"`
 }
 
 // SignOffInput is the input for the SignOff DB function.
@@ -164,9 +177,11 @@ func GetTemplates(ctx context.Context, pool *pgxpool.Pool) ([]Template, error) {
 	var templates []Template
 	for rows.Next() {
 		var t Template
-		if err := rows.Scan(&t.ID, &t.Name, &t.Role, &t.CreatedAt); err != nil {
+		var createdAt time.Time
+		if err := rows.Scan(&t.ID, &t.Name, &t.Role, &createdAt); err != nil {
 			return nil, fmt.Errorf("scan template: %w", err)
 		}
+		t.CreatedAt = createdAt.UTC().Format(time.RFC3339)
 		templates = append(templates, t)
 	}
 	if err := rows.Err(); err != nil {
@@ -187,14 +202,16 @@ func GetTemplates(ctx context.Context, pool *pgxpool.Pool) ([]Template, error) {
 // GetTemplate returns a single template by ID with nested structure.
 func GetTemplate(ctx context.Context, pool *pgxpool.Pool, templateID string) (*Template, error) {
 	var t Template
+	var createdAt time.Time
 	err := pool.QueryRow(ctx, `
 		SELECT id, name, role, created_at
 		FROM ob_templates
 		WHERE id = $1
-	`, templateID).Scan(&t.ID, &t.Name, &t.Role, &t.CreatedAt)
+	`, templateID).Scan(&t.ID, &t.Name, &t.Role, &createdAt)
 	if err != nil {
 		return nil, fmt.Errorf("query template: %w", err)
 	}
+	t.CreatedAt = createdAt.UTC().Format(time.RFC3339)
 
 	sections, err := getSections(ctx, pool, t.ID)
 	if err != nil {
@@ -327,9 +344,11 @@ func GetHireTraining(ctx context.Context, pool *pgxpool.Pool, hireID, templateID
 	var progressEntries []ProgressEntry
 	for progressRows.Next() {
 		var pe ProgressEntry
-		if err := progressRows.Scan(&pe.ItemID, &pe.ProgressType, &pe.CheckedAt); err != nil {
+		var checkedAt time.Time
+		if err := progressRows.Scan(&pe.ItemID, &pe.ProgressType, &checkedAt); err != nil {
 			return nil, fmt.Errorf("scan progress: %w", err)
 		}
+		pe.CheckedAt = checkedAt.UTC().Format(time.RFC3339)
 		progressMap[pe.ItemID+":"+pe.ProgressType] = true
 		progressEntries = append(progressEntries, pe)
 	}
@@ -354,9 +373,11 @@ func GetHireTraining(ctx context.Context, pool *pgxpool.Pool, hireID, templateID
 	for signoffRows.Next() {
 		var sectionID string
 		var so SignOffInfo
-		if err := signoffRows.Scan(&sectionID, &so.ManagerID, &so.Notes, &so.Rating, &so.SignedOffAt); err != nil {
+		var signedOffAt time.Time
+		if err := signoffRows.Scan(&sectionID, &so.ManagerID, &so.Notes, &so.Rating, &signedOffAt); err != nil {
 			return nil, fmt.Errorf("scan signoff: %w", err)
 		}
+		so.SignedOffAt = signedOffAt.UTC().Format(time.RFC3339)
 		signoffMap[sectionID] = &so
 	}
 	if err := signoffRows.Err(); err != nil {
@@ -364,8 +385,21 @@ func GetHireTraining(ctx context.Context, pool *pgxpool.Pool, hireID, templateID
 	}
 
 	// Compute section states: locked/active/complete/signed_off
+	// Also populate Checked on each item/video_part using progressMap.
 	sectionProgresses := make([]SectionProgress, len(tmpl.Sections))
 	for i, sec := range tmpl.Sections {
+		// Populate Checked on items and video parts
+		for j := range sec.Items {
+			item := &sec.Items[j]
+			if item.Type == "video_series" {
+				for k := range item.VideoParts {
+					item.VideoParts[k].Checked = progressMap[item.VideoParts[k].ID+":video_part"]
+				}
+			} else {
+				item.Checked = progressMap[item.ID+":item"]
+			}
+		}
+
 		sp := SectionProgress{Section: sec}
 
 		if so, ok := signoffMap[sec.ID]; ok {
@@ -474,12 +508,14 @@ func GetMyTrainings(ctx context.Context, pool *pgxpool.Pool, hireID string) ([]A
 	var result []AssignedTemplate
 	for rows.Next() {
 		var at AssignedTemplate
+		var assignedAt time.Time
 		if err := rows.Scan(
-			&at.TemplateID, &at.TemplateName, &at.Role, &at.AssignedAt,
+			&at.TemplateID, &at.TemplateName, &at.Role, &assignedAt,
 			&at.ItemsChecked, &at.TotalItems,
 		); err != nil {
 			return nil, fmt.Errorf("scan assigned template: %w", err)
 		}
+		at.AssignedAt = assignedAt.UTC().Format(time.RFC3339)
 		if at.TotalItems > 0 {
 			at.ProgressPercent = (at.ItemsChecked * 100) / at.TotalItems
 		}
@@ -542,9 +578,71 @@ func GetManagerHires(ctx context.Context, pool *pgxpool.Pool) ([]HireOverview, e
 		if ho.TotalItems > 0 {
 			ho.ProgressPercent = (ho.ItemsChecked * 100) / ho.TotalItems
 		}
+		ho.AssignedTemplates = []AssignedTemplateSummary{}
 		result = append(result, ho)
 	}
-	return result, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate hire overviews: %w", err)
+	}
+
+	// Fetch per-hire assigned template details
+	for i := range result {
+		tmplRows, err := pool.Query(ctx, `
+			SELECT
+				ota.template_id,
+				ot.name,
+				COALESCE(checked.cnt, 0) AS items_checked,
+				COALESCE(total.cnt, 0)   AS total_items
+			FROM ob_template_assignments ota
+			JOIN ob_templates ot ON ot.id = ota.template_id
+			LEFT JOIN (
+				SELECT os.template_id, COUNT(*) AS cnt
+				FROM ob_progress op
+				JOIN ob_items oi ON oi.id = op.item_id
+				JOIN ob_sections os ON os.id = oi.section_id
+				WHERE op.hire_id = $1
+				GROUP BY os.template_id
+			) checked ON checked.template_id = ota.template_id
+			LEFT JOIN (
+				SELECT os.template_id, SUM(
+					CASE oi.type
+						WHEN 'video_series' THEN (
+							SELECT COUNT(*) FROM ob_video_parts vp WHERE vp.item_id = oi.id
+						)
+						WHEN 'checkbox' THEN 1
+						ELSE 0
+					END
+				) AS cnt
+				FROM ob_items oi
+				JOIN ob_sections os ON os.id = oi.section_id
+				WHERE oi.type IN ('checkbox', 'video_series')
+				GROUP BY os.template_id
+			) total ON total.template_id = ota.template_id
+			WHERE ota.hire_id = $1
+			ORDER BY ota.assigned_at
+		`, result[i].HireID)
+		if err != nil {
+			return nil, fmt.Errorf("query assigned templates for hire %s: %w", result[i].HireID, err)
+		}
+		for tmplRows.Next() {
+			var ts AssignedTemplateSummary
+			var checked, total int
+			if err := tmplRows.Scan(&ts.TemplateID, &ts.TemplateName, &checked, &total); err != nil {
+				tmplRows.Close()
+				return nil, fmt.Errorf("scan assigned template summary: %w", err)
+			}
+			if total > 0 {
+				ts.ProgressPct = (checked * 100) / total
+			}
+			result[i].AssignedTemplates = append(result[i].AssignedTemplates, ts)
+		}
+		tmplRows.Close()
+		if err := tmplRows.Err(); err != nil {
+			return nil, fmt.Errorf("iterate assigned templates for hire %s: %w", result[i].HireID, err)
+		}
+	}
+
+	return result, nil
 }
 
 // SaveProgress records or removes an onboarding progress entry for a hire.

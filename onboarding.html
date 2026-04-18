@@ -200,10 +200,10 @@ function renderMyList() {
 }
 
 async function openMyTraining(templateId) {
-  obState = { view: 'runner', activeTrainingId: CURRENT_USER.user_id, activeTemplateId: templateId };
+  obState = { view: 'runner', activeTrainingId: CURRENT_USER.id, activeTemplateId: templateId };
   renderSkeletons('my-body', 4);
   try {
-    CURRENT_TRAINING = await api('GET', '/api/v1/onboarding/hireTraining/'+CURRENT_USER.user_id+'?templateId='+templateId);
+    CURRENT_TRAINING = await api('GET', '/api/v1/onboarding/hireTraining/'+CURRENT_USER.id+'?templateId='+templateId);
     renderMyRunner();
   } catch(e) {
     document.getElementById('my-body').innerHTML = '<div class="empty"><h3>Something went wrong.</h3><p>Check your connection and try again.</p></div>';
@@ -215,7 +215,7 @@ function renderMyRunner() {
   var html = '';
   html += '<span class="back" data-action="back-to-my-list" style="display:inline-flex;align-items:center;gap:4px;color:var(--info-tx);font-size:14px;font-weight:500;margin-bottom:16px;cursor:pointer">&#8249; My Trainings</span>';
   html += '<div style="font-size:14px;font-weight:600;color:var(--txt);margin-bottom:16px">'+escapeOBAttr(CURRENT_TRAINING.template.name)+'</div>';
-  html += renderSections(CURRENT_TRAINING.sections, CURRENT_USER.user_id, false);
+  html += renderSections(CURRENT_TRAINING.sections, CURRENT_USER.id, false);
   document.getElementById('my-body').innerHTML = html;
 }
 
@@ -281,7 +281,7 @@ function renderSections(sections, hireId, readOnly) {
             html += '<div class="item-row" style="flex-direction:column;gap:4px;padding-bottom:4px">';
             html += '<div style="font-size:12px;font-weight:500;text-transform:uppercase;letter-spacing:0.5px;color:var(--mut);padding-bottom:4px">'+escapeOBAttr(item.label)+'</div>';
             html += '</div>';
-            (item.parts || []).forEach(function(part) {
+            (item.video_parts || []).forEach(function(part) {
               var partChecked = part.checked === true;
               var partCheckClass = 'ob-check' + (partChecked ? ' checked' : '');
               var canInteract = !readOnly && state === 'active';
@@ -321,7 +321,7 @@ function countSectionItems(sec) {
   var total = 0;
   (sec.items || []).forEach(function(item) {
     if (item.type === 'checkbox') total++;
-    else if (item.type === 'video_series') total += (item.parts || []).length;
+    else if (item.type === 'video_series') total += (item.video_parts || []).length;
   });
   return total;
 }
@@ -330,7 +330,7 @@ function countCheckedItems(sec) {
   var checked = 0;
   (sec.items || []).forEach(function(item) {
     if (item.type === 'checkbox' && item.checked) checked++;
-    else if (item.type === 'video_series') (item.parts || []).forEach(function(p) { if (p.checked) checked++; });
+    else if (item.type === 'video_series') (item.video_parts || []).forEach(function(p) { if (p.checked) checked++; });
   });
   return checked;
 }
@@ -344,8 +344,8 @@ function findItemInTraining(training, itemId, isSec) {
       var item = sec.items[i];
       if (!isSec && item.id === itemId) return item;
       if (item.type === 'video_series') {
-        for (var p = 0; p < (item.parts||[]).length; p++) {
-          if (!isSec && item.parts[p].id === itemId) return item.parts[p];
+        for (var p = 0; p < (item.video_parts||[]).length; p++) {
+          if (!isSec && item.video_parts[p].id === itemId) return item.video_parts[p];
         }
       }
     }
@@ -409,7 +409,7 @@ function renderManagerList() {
     }
   } else {
     filtered.forEach(function(hire) {
-      listHtml += '<div class="card" style="cursor:pointer" data-action="open-hire" data-hire-id="'+hire.user_id+'" data-hire-name="'+escapeOBAttr(hire.display_name)+'">';
+      listHtml += '<div class="card" style="cursor:pointer" data-action="open-hire" data-hire-id="'+hire.hire_id+'" data-hire-name="'+escapeOBAttr(hire.display_name)+'">';
       listHtml += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">';
       listHtml += '<span style="font-size:14px;font-weight:500">'+escapeOBAttr(hire.display_name)+'</span>';
       listHtml += '</div>';
@@ -790,7 +790,7 @@ document.getElementById('mgr-body').addEventListener('click', async function(e) 
   } else if (action === 'open-hire') {
     var hireId = btn.dataset.hireId;
     var hireName = btn.dataset.hireName;
-    var hire = (MANAGER_HIRES||[]).find(function(h) { return h.user_id === hireId; });
+    var hire = (MANAGER_HIRES||[]).find(function(h) { return h.hire_id === hireId; });
     var firstTemplate = hire && hire.assigned_templates && hire.assigned_templates[0];
     if (!firstTemplate) return;
     await openHireTraining(hireId, hireName, firstTemplate.template_id);
@@ -1062,7 +1062,7 @@ document.getElementById('builder-body').addEventListener('change', function(e) {
   } catch(e) {
     return;
   }
-  var isManager = CURRENT_USER.role === 'admin' || CURRENT_USER.role === 'manager' || CURRENT_USER.is_superadmin;
+  var isManager = CURRENT_USER.role === 'admin' || CURRENT_USER.role === 'manager' || CURRENT_USER.role === 'superadmin' || CURRENT_USER.is_superadmin;
   if (!isManager) {
     document.getElementById('t2').style.display = 'none';
     document.getElementById('t3').style.display = 'none';
