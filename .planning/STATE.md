@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Backend
 status: executing
-stopped_at: Completed 11-04-PLAN.md
-last_updated: "2026-04-18T01:12:24.341Z"
+stopped_at: Completed 11-03-PLAN.md
+last_updated: "2026-04-18T01:19:01.816Z"
 last_activity: 2026-04-18
 progress:
   total_phases: 6
   completed_phases: 4
   total_plans: 23
-  completed_plans: 20
+  completed_plans: 21
   percent: 0
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-15)
 ## Current Position
 
 Phase: 11 (onboarding-users-admin) — EXECUTING
-Plan: 4 of 6
+Plan: 5 of 6
 Status: Ready to execute
 Last activity: 2026-04-18
 
@@ -72,6 +72,7 @@ Progress: [░░░░░░░░░░] 0% (v2.0 milestone)
 | Phase 11-onboarding-users-admin P01 | 126 | 2 tasks | 7 files |
 | Phase 11-onboarding-users-admin P02 | 12 | 2 tasks | 3 files |
 | Phase 11-onboarding-users-admin P04 | 420 | 2 tasks | 4 files |
+| Phase 11-onboarding-users-admin P03 | 4 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -129,6 +130,8 @@ Recent decisions affecting current work:
 - [Phase 11-onboarding-users-admin]: ClaimInviteToken uses atomic UPDATE RETURNING to prevent double-claim race without application-level locking
 - [Phase 11-onboarding-users-admin]: isManagerOrAdmin helper used for sign-off and management endpoints — manager role can sign off per D-05
 - [Phase 11-onboarding-users-admin]: GetHireTraining computes section state server-side: signed_off → complete → active → locked; isSectionComplete returns true for is_faq sections
+- [Phase 11-onboarding-users-admin]: users.html event delegation via data-action attributes replaces old inline onclick handlers — consistent with workflows.html pattern
+- [Phase 11-onboarding-users-admin]: login.html dual-mode: normal login when no token param, accept-invite set-password form when ?token= present
 
 ### Pending Todos
 
@@ -149,6 +152,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-18T01:12:24.280Z
-Stopped at: Completed 11-04-PLAN.md
+Last session: 2026-04-18T01:19:01.778Z
+Stopped at: Completed 11-03-PLAN.md
 Resume file: None

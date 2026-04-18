@@ -133,7 +133,7 @@ Plans:
 Plans:
 - [x] 11-01-PLAN.md — DB migrations (users naming + ob_* tables) + auth service update
 - [x] 11-02-PLAN.md — Users admin backend (handlers + route wiring)
-- [ ] 11-03-PLAN.md — users.html big-bang API swap + login.html accept-invite mode
+- [x] 11-03-PLAN.md — users.html big-bang API swap + login.html accept-invite mode
 - [x] 11-04-PLAN.md — Onboarding backend (handlers + seed + route wiring)
 - [ ] 11-05-PLAN.md — onboarding.html big-bang API swap + SW rebuild
 - [ ] 11-06-PLAN.md — E2E test rewrite (onboarding + users)
@@ -167,5 +167,5 @@ Phases execute in numeric order: 9 → 10 → 10.1 → 10.2 → 11 → 12
 | 10. Workflows API | v2.0 | 5/5 | Complete   | 2026-04-15 |
 | 10.1 Cross-Device State Sync | v2.0 | 5/5 | Complete   | 2026-04-17 |
 | 10.2 Reactive Sync Framework | v2.0 | 3/3 | Complete    | 2026-04-17 |
-| 11. Onboarding + Users Admin | v2.0 | 3/6 | In Progress|  |
+| 11. Onboarding + Users Admin | v2.0 | 4/6 | In Progress|  |
 | 12. Inventory + Photos | v2.0 | 0/? | Not started | - |

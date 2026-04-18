@@ -49,7 +49,7 @@
 
 - [x] **USER-01**: Admin can invite new users via API (email invite flow)
 - [x] **USER-02**: Admin can manage user roles and app permissions via API
-- [ ] **USER-03**: users.html wired to real admin API (replacing mock data)
+- [x] **USER-03**: users.html wired to real admin API (replacing mock data)
 
 ### Photos
 
@@ -105,7 +105,7 @@ Deferred to future milestones.
 | ONBD-04 | Phase 11 | Pending |
 | USER-01 | Phase 11 | Complete |
 | USER-02 | Phase 11 | Complete |
-| USER-03 | Phase 11 | Pending |
+| USER-03 | Phase 11 | Complete |
 | INVT-01 | Phase 12 | Pending |
 | INVT-02 | Phase 12 | Pending |
 | INVT-03 | Phase 12 | Pending |
