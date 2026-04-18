@@ -33,6 +33,27 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .line-item-price{font-size:13px;font-weight:500;color:var(--txt);white-space:nowrap}
 .case-badge{font-size:10px;background:var(--warn-bg);color:var(--warn-tx);padding:1px 6px;border-radius:4px;margin-left:4px;vertical-align:middle}
 .filter-select{width:100%;padding:10px 12px;background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;font-size:14px;color:var(--txt);margin-bottom:12px;font-family:inherit;appearance:none;-webkit-appearance:none}
+.approval-badge{font-size:11px;font-weight:600;padding:3px 8px;border-radius:6px;background:var(--warn-bg);color:var(--warn-tx);white-space:nowrap}
+.review-form{background:var(--card);border:0.5px solid var(--warn-tx);border-radius:12px;padding:16px;margin-bottom:8px}
+.review-form-title{font-size:14px;font-weight:600;color:var(--txt);margin-bottom:12px}
+.field-group{margin-bottom:12px}
+.field-label{font-size:12px;color:var(--mut);margin-bottom:4px}
+.field-input{width:100%;padding:9px 12px;background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;font-size:14px;color:var(--txt);font-family:inherit}
+.correction-banner{background:var(--warn-bg);color:var(--warn-tx);border-radius:8px;padding:10px 12px;font-size:13px;margin-bottom:12px;line-height:1.4}
+.new-entity-warning{font-size:12px;color:var(--warn-tx);margin-top:4px}
+.review-line-items{margin-bottom:12px}
+.review-line-item-row{display:flex;align-items:center;gap:6px;margin-bottom:6px}
+.review-line-item-row input[type=text]{flex:2;padding:7px 10px;background:var(--bg);border:0.5px solid var(--brd);border-radius:6px;font-size:13px;color:var(--txt);font-family:inherit}
+.review-line-item-row input[type=number]{flex:1;padding:7px 10px;background:var(--bg);border:0.5px solid var(--brd);border-radius:6px;font-size:13px;color:var(--txt);font-family:inherit;min-width:0}
+.review-line-item-row .case-check{display:flex;align-items:center;gap:3px;font-size:12px;color:var(--mut);white-space:nowrap}
+.review-line-item-row .remove-line-btn{border:none;background:none;color:var(--mut);font-size:16px;cursor:pointer;padding:0 4px;line-height:1}
+.line-total-row{display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--mut);padding:6px 0;border-top:0.5px solid var(--brd);margin-top:4px}
+.line-total-value{font-weight:600;color:var(--txt)}
+.add-line-btn{width:100%;padding:8px;background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;font-size:13px;color:var(--info-tx);font-weight:500;cursor:pointer;font-family:inherit;margin-bottom:12px}
+.review-actions{display:flex;gap:8px;margin-top:4px}
+.btn-primary{flex:1;padding:12px;background:var(--info-bg);color:var(--info-tx);border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit}
+.btn-secondary{flex:1;padding:12px;background:var(--bg);color:var(--mut);border:0.5px solid var(--brd);border-radius:10px;font-size:14px;font-weight:500;cursor:pointer;font-family:inherit}
+.inline-error{font-size:13px;color:#c0392b;margin-top:8px;text-align:center}
 .coming-soon{text-align:center;padding:60px 20px;color:var(--mut)}
 .coming-soon h3{font-size:16px;font-weight:500;color:var(--txt);margin:0 0 8px}
 .coming-soon p{font-size:13px;margin:0;line-height:1.5}
@@ -161,6 +182,8 @@ let COLLAPSED_TAGS={};
 let VENDOR_FILTER='';
 let STOCK_OVERRIDES={};
 let OVERRIDE_FORM_OPEN=null;
+let REVIEW_OPEN_ID=null; // pending purchase id currently in review form
+let REVIEW_FORM_STATE={}; // keyed by id: {vendor_name, event_date, line_items:[{name,qty,price,is_case}], tax, total, bank_total}
 
 function show(n){
   [1,2,3,4].forEach(i=>{
@@ -218,6 +241,9 @@ async function loadVendors(){
 }
 
 function renderPurchaseEvent(evt){
+  if(evt.needs_review){
+    return renderPendingCard(evt);
+  }
   var expanded=EXPANDED_EVENTS[evt.id];
   var detail='';
   if(expanded&&evt.line_items&&evt.line_items.length){
@@ -226,8 +252,73 @@ function renderPurchaseEvent(evt){
       return '<div class="line-item"><div style="flex:1"><div style="font-size:13px;font-weight:500">'+desc+(p.is_case?' <span class="case-badge">CASE</span>':'')+'</div><div style="font-size:12px;color:var(--mut);margin-top:2px">Qty: '+p.quantity+'</div></div><div style="font-size:14px;font-weight:500">$'+Number(p.price).toFixed(2)+'</div></div>';
     }).join('')+'</div>';
   }
-  var badge=evt.needs_review?'<span class="stock-badge" style="background:var(--warn-bg);color:var(--warn-tx);margin-left:6px">Needs Review</span>':'';' '
-  return '<div class="event-card" data-action="toggle-event" data-id="'+evt.id+'"><div class="event-header"><div><div class="event-vendor">'+evt.vendor_name+badge+'</div><div class="event-meta">'+formatDate(evt.event_date)+'</div></div><div class="event-total">$'+Number(evt.total).toFixed(2)+'</div></div>'+detail+'</div>';
+  return '<div class="event-card" data-action="toggle-event" data-id="'+evt.id+'"><div class="event-header"><div><div class="event-vendor">'+evt.vendor_name+'</div><div class="event-meta">'+formatDate(evt.event_date)+'</div></div><div class="event-total">$'+Number(evt.total).toFixed(2)+'</div></div>'+detail+'</div>';
+}
+
+function renderPendingCard(p){
+  if(REVIEW_OPEN_ID===p.id){
+    return renderReviewForm(p);
+  }
+  var vendorDisplay=p.vendor||p.vendor_name||'Unknown Vendor';
+  return '<div class="event-card" data-action="review-pending" data-id="'+p.id+'" style="position:relative;padding-right:110px"><div style="position:absolute;top:12px;right:12px"><span class="approval-badge">Needs Review</span></div><div class="event-vendor">'+vendorDisplay+'</div><div class="event-meta">'+formatDate(p.event_date)+(p.reason?'&nbsp;&middot;&nbsp;'+p.reason:'')+'</div><div class="event-total" style="margin-top:4px">$'+Number(p.bank_total||p.total||0).toFixed(2)+'</div></div>';
+}
+
+function renderReviewForm(p){
+  var state=REVIEW_FORM_STATE[p.id];
+  if(!state){
+    var items=(p.items||[]).map(function(it){return {name:it.name||it.description||'',qty:it.quantity||1,price:it.price||0,is_case:!!it.is_case};});
+    state={vendor_name:p.vendor||p.vendor_name||'',event_date:p.event_date||'',line_items:items,tax:p.tax||0,total:p.total||0,bank_total:p.bank_total||p.total||0};
+    REVIEW_FORM_STATE[p.id]=state;
+  }
+  var lineTotal=state.line_items.reduce(function(s,li){return s+Number(li.qty)*Number(li.price);},0);
+  var bankTotal=Number(state.bank_total);
+  var mismatch=Math.abs(lineTotal-bankTotal)>0.01;
+  var mismatchBanner=mismatch?'<div class="correction-banner">Line item total ($'+lineTotal.toFixed(2)+') doesn\'t match bank transaction ($'+bankTotal.toFixed(2)+'). Check amounts before saving.</div>':'';
+  var linesHtml=state.line_items.map(function(li,i){
+    return '<div class="review-line-item-row">'+
+      '<input type="text" class="review-li-name" data-idx="'+i+'" value="'+escHtml(li.name)+'" placeholder="Item name">'+
+      '<input type="number" class="review-li-qty" data-idx="'+i+'" value="'+li.qty+'" min="0" step="1" placeholder="Qty" style="max-width:60px">'+
+      '<input type="number" class="review-li-price" data-idx="'+i+'" value="'+Number(li.price).toFixed(2)+'" min="0" step="0.01" placeholder="$0.00" style="max-width:80px">'+
+      '<label class="case-check"><input type="checkbox" class="review-li-case" data-idx="'+i+'"'+(li.is_case?' checked':'')+'>Case</label>'+
+      '<button class="remove-line-btn" data-action="remove-review-line" data-id="'+p.id+'" data-idx="'+i+'" aria-label="Remove">&times;</button>'+
+    '</div>';
+  }).join('');
+  var errorHtml=REVIEW_FORM_STATE[p.id]._error?'<div class="inline-error">'+escHtml(REVIEW_FORM_STATE[p.id]._error)+'</div>':'';
+  return '<div class="review-form" data-pending-id="'+p.id+'">'+
+    '<div class="review-form-title">Review Receipt</div>'+
+    mismatchBanner+
+    '<div class="field-group"><div class="field-label">Vendor</div><input class="field-input review-vendor" data-id="'+p.id+'" value="'+escHtml(state.vendor_name)+'"></div>'+
+    '<div class="field-group"><div class="field-label">Date</div><input type="date" class="field-input review-date" data-id="'+p.id+'" value="'+escHtml(state.event_date)+'"></div>'+
+    '<div class="review-line-items" data-id="'+p.id+'">'+linesHtml+
+    '<div class="line-total-row"><span>Line item total</span><span class="line-total-value">$'+lineTotal.toFixed(2)+'</span></div>'+
+    '</div>'+
+    '<button class="add-line-btn" data-action="add-review-line" data-id="'+p.id+'">+ Add Line Item</button>'+
+    errorHtml+
+    '<div class="review-actions">'+
+      '<button class="btn-primary" data-action="confirm-receipt" data-id="'+p.id+'">Confirm Receipt</button>'+
+      '<button class="btn-secondary" data-action="discard-receipt" data-id="'+p.id+'">Discard Receipt</button>'+
+    '</div>'+
+  '</div>';
+}
+
+function escHtml(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+function captureReviewFormInputs(pendingId){
+  var container=document.querySelector('.review-form[data-pending-id="'+pendingId+'"]');
+  if(!container)return;
+  var state=REVIEW_FORM_STATE[pendingId];
+  var vendorEl=container.querySelector('.review-vendor');
+  if(vendorEl)state.vendor_name=vendorEl.value;
+  var dateEl=container.querySelector('.review-date');
+  if(dateEl)state.event_date=dateEl.value;
+  var nameEls=container.querySelectorAll('.review-li-name');
+  var qtyEls=container.querySelectorAll('.review-li-qty');
+  var priceEls=container.querySelectorAll('.review-li-price');
+  var caseEls=container.querySelectorAll('.review-li-case');
+  state.line_items=[];
+  for(var i=0;i<nameEls.length;i++){
+    state.line_items.push({name:nameEls[i].value,qty:Number(qtyEls[i]?qtyEls[i].value:0),price:Number(priceEls[i]?priceEls[i].value:0),is_case:caseEls[i]?caseEls[i].checked:false});
+  }
 }
 
 async function loadHistory(append){
@@ -263,12 +354,18 @@ async function loadHistory(append){
 
 function renderHistoryList(){
   var list=document.getElementById('history-list');
-  var allItems=[...PENDING_PURCHASES.map(p=>Object.assign({},p,{needs_review:true})),...PURCHASES];
+  var pendingItems=PENDING_PURCHASES.map(p=>Object.assign({},p,{needs_review:true}));
+  var allItems=[...pendingItems,...PURCHASES];
   if(!allItems.length){
     list.innerHTML='<div class="empty"><h3 style="font-size:15px;font-weight:500;margin:0 0 6px">No purchases yet</h3><p>Purchase events will appear here once the receipt pipeline syncs.</p></div>';
+    updateHistoryTabLabel();
     return;
   }
-  var html=allItems.map(evt=>renderPurchaseEvent(evt)).join('');
+  var html='';
+  if(pendingItems.length===0){
+    html+='<div class="empty" style="padding:20px;margin-bottom:8px"><h3 style="font-size:15px;font-weight:500;margin:0 0 4px">All caught up</h3><p style="font-size:13px;margin:0;color:var(--mut)">No receipts are waiting for review.</p></div>';
+  }
+  html+=allItems.map(evt=>renderPurchaseEvent(evt)).join('');
   if(HISTORY_HAS_MORE){
     html+='<button id="load-more-btn" onclick="loadMore()" style="width:100%;padding:12px;background:var(--card);border:0.5px solid var(--brd);border-radius:8px;font-size:13px;color:var(--info-tx);font-weight:500;cursor:pointer;margin-top:4px">Load more</button>';
   }
@@ -407,8 +504,95 @@ document.getElementById('history-list').addEventListener('click',function(e){
   if(action==='toggle-event'){
     EXPANDED_EVENTS[id]=!EXPANDED_EVENTS[id];
     renderHistoryList();
+  } else if(action==='review-pending'){
+    REVIEW_OPEN_ID=(REVIEW_OPEN_ID===id)?null:id;
+    renderHistoryList();
+  } else if(action==='add-review-line'){
+    captureReviewFormInputs(id);
+    if(REVIEW_FORM_STATE[id])REVIEW_FORM_STATE[id].line_items.push({name:'',qty:1,price:0,is_case:false});
+    renderHistoryList();
+  } else if(action==='remove-review-line'){
+    captureReviewFormInputs(id);
+    var idx=parseInt(el.dataset.idx,10);
+    if(REVIEW_FORM_STATE[id]&&REVIEW_FORM_STATE[id].line_items.length>idx){
+      REVIEW_FORM_STATE[id].line_items.splice(idx,1);
+    }
+    renderHistoryList();
+  } else if(action==='confirm-receipt'){
+    captureReviewFormInputs(id);
+    confirmReceipt(id);
+  } else if(action==='discard-receipt'){
+    captureReviewFormInputs(id);
+    discardReceipt(id);
   }
 });
+
+// Re-render review form on input changes to update mismatch warning in real-time
+document.getElementById('history-list').addEventListener('input',function(e){
+  var form=e.target.closest('.review-form');
+  if(!form)return;
+  var pid=form.dataset.pendingId;
+  if(!pid)return;
+  captureReviewFormInputs(pid);
+  // Only re-render the form to update totals, preserving focus
+  var pendingItem=PENDING_PURCHASES.find(function(p){return p.id===pid;});
+  if(pendingItem){
+    form.outerHTML=renderReviewForm(Object.assign({},pendingItem,{needs_review:true}));
+  }
+});
+
+async function confirmReceipt(id){
+  var state=REVIEW_FORM_STATE[id];
+  if(!state)return;
+  if(!state.vendor_name.trim()){
+    state._error='Vendor name is required.';
+    renderHistoryList();
+    return;
+  }
+  if(!state.event_date){
+    state._error='Event date is required.';
+    renderHistoryList();
+    return;
+  }
+  state._error='';
+  try{
+    var payload={
+      id:id,
+      vendor_name:state.vendor_name.trim(),
+      event_date:state.event_date,
+      tax:Number(state.tax)||0,
+      total:state.line_items.reduce(function(s,li){return s+Number(li.qty)*Number(li.price);},0),
+      line_items:state.line_items.map(function(li){return {name:li.name,description:li.name,quantity:Number(li.qty),price:Number(li.price),is_case:!!li.is_case};})
+    };
+    await api('/api/v1/inventory/purchases/confirm',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    // Remove from pending list
+    PENDING_PURCHASES=PENDING_PURCHASES.filter(function(p){return p.id!==id;});
+    REVIEW_OPEN_ID=null;
+    delete REVIEW_FORM_STATE[id];
+    renderHistoryList();
+    // Refresh confirmed events list
+    loadHistory();
+  }catch(e){
+    if(e.message==='unauthorized')return;
+    if(REVIEW_FORM_STATE[id])REVIEW_FORM_STATE[id]._error="Couldn\u2019t save. Check your connection and try again.";
+    renderHistoryList();
+  }
+}
+
+async function discardReceipt(id){
+  if(!confirm('Discard this receipt? It will be removed from the review queue.'))return;
+  try{
+    await api('/api/v1/inventory/purchases/discard',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:id})});
+    PENDING_PURCHASES=PENDING_PURCHASES.filter(function(p){return p.id!==id;});
+    REVIEW_OPEN_ID=null;
+    delete REVIEW_FORM_STATE[id];
+    renderHistoryList();
+  }catch(e){
+    if(e.message==='unauthorized')return;
+    if(REVIEW_FORM_STATE[id])REVIEW_FORM_STATE[id]._error="Couldn\u2019t discard. Try again.";
+    renderHistoryList();
+  }
+}
 
 document.addEventListener('click',function(e){
   if(ACTIVE_TAB!==3)return;
