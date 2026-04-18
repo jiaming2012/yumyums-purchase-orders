@@ -12,8 +12,8 @@ import (
 // Idempotent: skips any template whose name already exists in ob_templates.
 func SeedOnboardingTemplates(ctx context.Context, pool *pgxpool.Pool) error {
 	kitchenBasics := CreateTemplateInput{
-		Name: "Kitchen Basics Training",
-		Role: nil,
+		Name:  "Kitchen Basics Training",
+		Roles: nil,
 		Sections: []CreateSectionInput{
 			{
 				Title:           "Safety & Hygiene",

@@ -25,7 +25,7 @@ type UserRow struct {
 	LastName    string     `json:"last_name"`
 	Nickname    *string    `json:"nickname,omitempty"`
 	DisplayName string     `json:"display_name"`
-	Role        string     `json:"role"`
+	Roles       []string   `json:"roles"`
 	Status      string     `json:"status"`
 	InvitedAt   time.Time  `json:"invited_at"`
 	AcceptedAt  *time.Time `json:"accepted_at,omitempty"`
@@ -36,7 +36,7 @@ type CreateUserInput struct {
 	FirstName string
 	LastName  string
 	Email     string
-	Role      string
+	Roles     []string
 }
 
 // UpdateUserInput holds optional fields for partial user updates.
@@ -44,7 +44,7 @@ type UpdateUserInput struct {
 	FirstName *string
 	LastName  *string
 	Nickname  *string
-	Role      *string
+	Roles     *[]string
 }
 
 // AppPermission represents a single app's permission state.
@@ -66,7 +66,7 @@ type SetPermInput struct {
 func ListUsers(ctx context.Context, pool *pgxpool.Pool) ([]UserRow, error) {
 	query := fmt.Sprintf(`
 		SELECT u.id, u.email, u.first_name, u.last_name, u.nickname,
-		       %s, u.role, u.status, u.invited_at, u.accepted_at
+		       %s, u.roles, u.status, u.invited_at, u.accepted_at
 		FROM users u
 		ORDER BY u.invited_at DESC
 	`, displayNameExpr)
@@ -82,7 +82,7 @@ func ListUsers(ctx context.Context, pool *pgxpool.Pool) ([]UserRow, error) {
 		var u UserRow
 		if err := rows.Scan(
 			&u.ID, &u.Email, &u.FirstName, &u.LastName, &u.Nickname,
-			&u.DisplayName, &u.Role, &u.Status, &u.InvitedAt, &u.AcceptedAt,
+			&u.DisplayName, &u.Roles, &u.Status, &u.InvitedAt, &u.AcceptedAt,
 		); err != nil {
 			return nil, fmt.Errorf("list users scan: %w", err)
 		}
@@ -98,7 +98,7 @@ func ListUsers(ctx context.Context, pool *pgxpool.Pool) ([]UserRow, error) {
 func GetUser(ctx context.Context, pool *pgxpool.Pool, userID string) (*UserRow, error) {
 	query := fmt.Sprintf(`
 		SELECT u.id, u.email, u.first_name, u.last_name, u.nickname,
-		       %s, u.role, u.status, u.invited_at, u.accepted_at
+		       %s, u.roles, u.status, u.invited_at, u.accepted_at
 		FROM users u
 		WHERE u.id = $1
 	`, displayNameExpr)
@@ -106,7 +106,7 @@ func GetUser(ctx context.Context, pool *pgxpool.Pool, userID string) (*UserRow, 
 	var u UserRow
 	err := pool.QueryRow(ctx, query, userID).Scan(
 		&u.ID, &u.Email, &u.FirstName, &u.LastName, &u.Nickname,
-		&u.DisplayName, &u.Role, &u.Status, &u.InvitedAt, &u.AcceptedAt,
+		&u.DisplayName, &u.Roles, &u.Status, &u.InvitedAt, &u.AcceptedAt,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -129,10 +129,10 @@ func CreateInvitedUser(ctx context.Context, pool *pgxpool.Pool, input CreateUser
 
 	var id string
 	err := pool.QueryRow(ctx, `
-		INSERT INTO users (email, first_name, last_name, role, status)
+		INSERT INTO users (email, first_name, last_name, roles, status)
 		VALUES ($1, $2, $3, $4, 'invited')
 		RETURNING id
-	`, input.Email, input.FirstName, input.LastName, input.Role).Scan(&id)
+	`, input.Email, input.FirstName, input.LastName, input.Roles).Scan(&id)
 	if err != nil {
 		return "", fmt.Errorf("create invited user: %w", err)
 	}
@@ -161,9 +161,9 @@ func UpdateUser(ctx context.Context, pool *pgxpool.Pool, userID string, input Up
 		args = append(args, *input.Nickname)
 		argIdx++
 	}
-	if input.Role != nil {
-		setClauses = append(setClauses, fmt.Sprintf("role = $%d", argIdx))
-		args = append(args, *input.Role)
+	if input.Roles != nil {
+		setClauses = append(setClauses, fmt.Sprintf("roles = $%d", argIdx))
+		args = append(args, *input.Roles)
 		argIdx++
 	}
 

@@ -67,11 +67,11 @@ func LoginHandler(pool *pgxpool.Pool, superadmins map[string]config.SuperadminEn
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(map[string]any{
-			"user": map[string]string{
+			"user": map[string]any{
 				"id":           user.ID,
 				"email":        user.Email,
 				"display_name": user.DisplayName,
-				"role":         user.Role,
+				"roles":        user.Roles,
 			},
 		})
 	}

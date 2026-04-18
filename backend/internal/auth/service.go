@@ -20,12 +20,12 @@ const displayNameExpr = `COALESCE(NULLIF(u.nickname, ''), u.first_name || ' ' ||
 
 // User represents an authenticated user (returned from session lookup or login)
 type User struct {
-	ID           string `json:"id"`
-	Email        string `json:"email"`
-	DisplayName  string `json:"display_name"`
-	Role         string `json:"role"`
-	Status       string `json:"status"`
-	IsSuperadmin bool   `json:"is_superadmin,omitempty"`
+	ID           string   `json:"id"`
+	Email        string   `json:"email"`
+	DisplayName  string   `json:"display_name"`
+	Roles        []string `json:"roles"`
+	Status       string   `json:"status"`
+	IsSuperadmin bool     `json:"is_superadmin,omitempty"`
 }
 
 // GenerateToken creates a cryptographically secure random token.
@@ -105,7 +105,7 @@ func DeleteAllSessionsByUserID(ctx context.Context, pool *pgxpool.Pool, userID s
 // Returns nil, nil if the session does not exist or has expired.
 func LookupSession(ctx context.Context, pool *pgxpool.Pool, tokenHash string, superadmins map[string]config.SuperadminEntry) (*User, error) {
 	query := fmt.Sprintf(`
-		SELECT u.id, u.email, %s, u.role, u.status
+		SELECT u.id, u.email, %s, u.roles, u.status
 		FROM sessions s
 		JOIN users u ON s.user_id = u.id
 		WHERE s.token_hash = $1
@@ -115,7 +115,7 @@ func LookupSession(ctx context.Context, pool *pgxpool.Pool, tokenHash string, su
 	row := pool.QueryRow(ctx, query, tokenHash)
 
 	var u User
-	err := row.Scan(&u.ID, &u.Email, &u.DisplayName, &u.Role, &u.Status)
+	err := row.Scan(&u.ID, &u.Email, &u.DisplayName, &u.Roles, &u.Status)
 	if err != nil {
 		// pgx returns pgx.ErrNoRows when no row found
 		if err.Error() == "no rows in result set" {
@@ -126,7 +126,7 @@ func LookupSession(ctx context.Context, pool *pgxpool.Pool, tokenHash string, su
 
 	if _, ok := superadmins[u.Email]; ok {
 		u.IsSuperadmin = true
-		u.Role = "superadmin"
+		u.Roles = []string{"superadmin"}
 	}
 	return &u, nil
 }
@@ -135,7 +135,7 @@ func LookupSession(ctx context.Context, pool *pgxpool.Pool, tokenHash string, su
 // Returns nil, nil if credentials are invalid (no such user, no password set, wrong password).
 func AuthenticateUser(ctx context.Context, pool *pgxpool.Pool, email, password string, superadmins map[string]config.SuperadminEntry) (*User, error) {
 	query := fmt.Sprintf(`
-		SELECT u.id, u.email, %s, u.password_hash, u.role, u.status
+		SELECT u.id, u.email, %s, u.password_hash, u.roles, u.status
 		FROM users u
 		WHERE u.email = $1
 	`, displayNameExpr)
@@ -146,7 +146,7 @@ func AuthenticateUser(ctx context.Context, pool *pgxpool.Pool, email, password s
 		u            User
 		passwordHash *string
 	)
-	err := row.Scan(&u.ID, &u.Email, &u.DisplayName, &passwordHash, &u.Role, &u.Status)
+	err := row.Scan(&u.ID, &u.Email, &u.DisplayName, &passwordHash, &u.Roles, &u.Status)
 	if err != nil {
 		if err.Error() == "no rows in result set" {
 			return nil, nil
@@ -165,7 +165,7 @@ func AuthenticateUser(ctx context.Context, pool *pgxpool.Pool, email, password s
 
 	if _, ok := superadmins[u.Email]; ok {
 		u.IsSuperadmin = true
-		u.Role = "superadmin"
+		u.Roles = []string{"superadmin"}
 	}
 	return &u, nil
 }
@@ -177,8 +177,8 @@ func UpsertSuperadmins(ctx context.Context, pool *pgxpool.Pool, superadmins map[
 	for email, entry := range superadmins {
 		firstName, lastName := splitName(entry.DisplayName)
 		_, err := pool.Exec(ctx, `
-			INSERT INTO users (email, first_name, last_name, role, status)
-			VALUES ($1, $2, $3, 'admin', 'invited')
+			INSERT INTO users (email, first_name, last_name, roles, status)
+			VALUES ($1, $2, $3, ARRAY['admin']::TEXT[], 'invited')
 			ON CONFLICT (email) DO UPDATE SET first_name = EXCLUDED.first_name, last_name = EXCLUDED.last_name
 		`, email, firstName, lastName)
 		if err != nil {

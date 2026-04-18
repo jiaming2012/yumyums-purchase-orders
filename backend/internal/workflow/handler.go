@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"slices"
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
@@ -114,7 +115,7 @@ func evaluateFailTrigger(trigger json.RawMessage, value json.RawMessage) bool {
 
 // isAdmin returns true if the user has admin or superadmin privileges (D-11).
 func isAdmin(user *auth.User) bool {
-	return user.Role == "admin" || user.IsSuperadmin
+	return slices.Contains(user.Roles, "admin") || user.IsSuperadmin
 }
 
 // hasApprover returns true if at least one assignment has role "approver".

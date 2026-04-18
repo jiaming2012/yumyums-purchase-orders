@@ -21,11 +21,11 @@ func MeHandler() http.HandlerFunc {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{
+		json.NewEncoder(w).Encode(map[string]any{
 			"id":           user.ID,
 			"email":        user.Email,
 			"display_name": user.DisplayName,
-			"role":         user.Role,
+			"roles":        user.Roles,
 			"status":       user.Status,
 		})
 	}
@@ -104,9 +104,9 @@ func queryUserApps(r *http.Request, pool *pgxpool.Pool, user *auth.User) ([]appR
 		FROM hq_apps a
 		LEFT JOIN app_permissions p ON p.app_id = a.id
 		WHERE a.enabled = true
-		  AND (p.role = $1 OR p.user_id = $2)
+		  AND (p.role = ANY($1) OR p.user_id = $2)
 		ORDER BY a.slug
-	`, user.Role, user.ID)
+	`, user.Roles, user.ID)
 	if err != nil {
 		return nil, err
 	}

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"slices"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -28,12 +29,12 @@ func writeError(w http.ResponseWriter, status int, msg string) {
 
 // isAdmin returns true if the user has admin or superadmin privileges.
 func isAdmin(user *auth.User) bool {
-	return user.Role == "admin" || user.IsSuperadmin
+	return slices.Contains(user.Roles, "admin") || user.IsSuperadmin
 }
 
 // isManagerOrAdmin returns true if the user has manager, admin, or superadmin privileges.
 func isManagerOrAdmin(user *auth.User) bool {
-	return user.Role == "manager" || isAdmin(user)
+	return slices.Contains(user.Roles, "manager") || isAdmin(user)
 }
 
 // ListTemplatesHandler handles GET /api/v1/onboarding/templates.

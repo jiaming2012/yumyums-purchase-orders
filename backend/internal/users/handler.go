@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
@@ -27,7 +28,7 @@ func writeError(w http.ResponseWriter, status int, msg string) {
 
 // isAdmin returns true if the user has admin or superadmin role.
 func isAdmin(user *auth.User) bool {
-	return user.Role == "admin" || user.IsSuperadmin
+	return slices.Contains(user.Roles, "admin") || user.IsSuperadmin
 }
 
 // ListUsersHandler handles GET /api/v1/users — admin only.
@@ -63,10 +64,10 @@ func InviteHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 
 		var body struct {
-			FirstName string `json:"first_name"`
-			LastName  string `json:"last_name"`
-			Email     string `json:"email"`
-			Role      string `json:"role"`
+			FirstName string   `json:"first_name"`
+			LastName  string   `json:"last_name"`
+			Email     string   `json:"email"`
+			Roles     []string `json:"roles"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid_json")
@@ -81,7 +82,7 @@ func InviteHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			FirstName: body.FirstName,
 			LastName:  body.LastName,
 			Email:     body.Email,
-			Role:      body.Role,
+			Roles:     body.Roles,
 		})
 		if err != nil {
 			// Check for unique constraint violation on email
@@ -135,10 +136,10 @@ func UpdateUserHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		userID := chi.URLParam(r, "id")
 
 		var body struct {
-			FirstName *string `json:"first_name"`
-			LastName  *string `json:"last_name"`
-			Nickname  *string `json:"nickname"`
-			Role      *string `json:"role"`
+			FirstName *string   `json:"first_name"`
+			LastName  *string   `json:"last_name"`
+			Nickname  *string   `json:"nickname"`
+			Roles     *[]string `json:"roles"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid_json")
@@ -166,7 +167,7 @@ func UpdateUserHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			FirstName: body.FirstName,
 			LastName:  body.LastName,
 			Nickname:  body.Nickname,
-			Role:      body.Role,
+			Roles:     body.Roles,
 		}); err != nil {
 			log.Printf("UpdateUserHandler UpdateUser error: %v", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")

@@ -13,7 +13,7 @@ import (
 type Template struct {
 	ID        string    `json:"id"`
 	Name      string    `json:"name"`
-	Role      *string   `json:"role"`
+	Roles     []string  `json:"roles"`
 	Sections  []Section `json:"sections"`
 	CreatedAt string    `json:"created_at"`
 }
@@ -92,13 +92,13 @@ type ProgressEntry struct {
 
 // AssignedTemplate is a template assignment with computed progress for a hire.
 type AssignedTemplate struct {
-	TemplateID      string  `json:"template_id"`
-	TemplateName    string  `json:"template_name"`
-	Role            *string `json:"role"`
-	AssignedAt      string  `json:"assigned_at"`
-	ItemsChecked    int     `json:"items_checked"`
-	TotalItems      int     `json:"total_items"`
-	ProgressPercent int     `json:"progress_percent"`
+	TemplateID      string   `json:"template_id"`
+	TemplateName    string   `json:"template_name"`
+	Roles           []string `json:"roles"`
+	AssignedAt      string   `json:"assigned_at"`
+	ItemsChecked    int      `json:"items_checked"`
+	TotalItems      int      `json:"total_items"`
+	ProgressPercent int      `json:"progress_percent"`
 }
 
 // AssignedTemplateSummary is a minimal summary of a template assignment for the manager hire list.
@@ -132,7 +132,7 @@ type SignOffInput struct {
 // CreateTemplateInput is the input for creating or updating an onboarding template.
 type CreateTemplateInput struct {
 	Name     string               `json:"name"`
-	Role     *string              `json:"role"`
+	Roles    []string             `json:"roles"`
 	Sections []CreateSectionInput `json:"sections"`
 }
 
@@ -165,7 +165,7 @@ type CreateVideoPartInput struct {
 // GetTemplates returns all onboarding templates with nested structure.
 func GetTemplates(ctx context.Context, pool *pgxpool.Pool) ([]Template, error) {
 	rows, err := pool.Query(ctx, `
-		SELECT id, name, role, created_at
+		SELECT id, name, roles, created_at
 		FROM ob_templates
 		ORDER BY created_at
 	`)
@@ -178,7 +178,7 @@ func GetTemplates(ctx context.Context, pool *pgxpool.Pool) ([]Template, error) {
 	for rows.Next() {
 		var t Template
 		var createdAt time.Time
-		if err := rows.Scan(&t.ID, &t.Name, &t.Role, &createdAt); err != nil {
+		if err := rows.Scan(&t.ID, &t.Name, &t.Roles, &createdAt); err != nil {
 			return nil, fmt.Errorf("scan template: %w", err)
 		}
 		t.CreatedAt = createdAt.UTC().Format(time.RFC3339)
@@ -204,10 +204,10 @@ func GetTemplate(ctx context.Context, pool *pgxpool.Pool, templateID string) (*T
 	var t Template
 	var createdAt time.Time
 	err := pool.QueryRow(ctx, `
-		SELECT id, name, role, created_at
+		SELECT id, name, roles, created_at
 		FROM ob_templates
 		WHERE id = $1
-	`, templateID).Scan(&t.ID, &t.Name, &t.Role, &createdAt)
+	`, templateID).Scan(&t.ID, &t.Name, &t.Roles, &createdAt)
 	if err != nil {
 		return nil, fmt.Errorf("query template: %w", err)
 	}
@@ -468,7 +468,7 @@ func GetMyTrainings(ctx context.Context, pool *pgxpool.Pool, hireID string) ([]A
 		SELECT
 			ota.template_id,
 			ot.name,
-			ot.role,
+			ot.roles,
 			ota.assigned_at,
 			COALESCE(checked.cnt, 0) AS items_checked,
 			COALESCE(total.cnt, 0)   AS total_items
@@ -510,7 +510,7 @@ func GetMyTrainings(ctx context.Context, pool *pgxpool.Pool, hireID string) ([]A
 		var at AssignedTemplate
 		var assignedAt time.Time
 		if err := rows.Scan(
-			&at.TemplateID, &at.TemplateName, &at.Role, &assignedAt,
+			&at.TemplateID, &at.TemplateName, &at.Roles, &assignedAt,
 			&at.ItemsChecked, &at.TotalItems,
 		); err != nil {
 			return nil, fmt.Errorf("scan assigned template: %w", err)
@@ -682,10 +682,10 @@ func CreateTemplate(ctx context.Context, pool *pgxpool.Pool, input CreateTemplat
 
 	var templateID string
 	err = tx.QueryRow(ctx, `
-		INSERT INTO ob_templates (name, role)
+		INSERT INTO ob_templates (name, roles)
 		VALUES ($1, $2)
 		RETURNING id
-	`, input.Name, input.Role).Scan(&templateID)
+	`, input.Name, input.Roles).Scan(&templateID)
 	if err != nil {
 		return "", fmt.Errorf("insert template: %w", err)
 	}
@@ -709,9 +709,9 @@ func UpdateTemplate(ctx context.Context, pool *pgxpool.Pool, templateID string, 
 	defer tx.Rollback(ctx) //nolint:errcheck
 
 	_, err = tx.Exec(ctx, `
-		UPDATE ob_templates SET name = $1, role = $2, updated_at = NOW()
+		UPDATE ob_templates SET name = $1, roles = $2, updated_at = NOW()
 		WHERE id = $3
-	`, input.Name, input.Role, templateID)
+	`, input.Name, input.Roles, templateID)
 	if err != nil {
 		return fmt.Errorf("update template: %w", err)
 	}
