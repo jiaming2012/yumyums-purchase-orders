@@ -36,7 +36,7 @@
 - [x] **Phase 10: Workflows API** — Checklist templates, submissions, approval flow, correction loop, and offline sync wired to workflows.html (completed 2026-04-15)
 - [x] **Phase 10.1: Cross-Device State Sync** — Op-log, WebSocket hub, real-time fan-out, Lamport clocks, conflict resolution, sync UX (completed 2026-04-17)
 - [x] **Phase 10.2: Reactive Sync Framework** — Shared Store with collection-level subscriptions, single write channel (POST /ops), shared JS modules for all tools (completed 2026-04-17)
-- [ ] **Phase 11: Onboarding + Users Admin** — Onboarding persistence, user CRUD, role management, and app permissions wired to their respective HTML pages
+- [x] **Phase 11: Onboarding + Users Admin** — Onboarding persistence, user CRUD, role management, and app permissions wired to their respective HTML pages (completed 2026-04-18)
 - [ ] **Phase 12: Inventory + Photos** — Purchase events, vendor data, receipt ingestion, and presigned photo upload wired to inventory.html and workflows.html
 
 ## Phase Details
@@ -136,7 +136,7 @@ Plans:
 - [x] 11-03-PLAN.md — users.html big-bang API swap + login.html accept-invite mode
 - [x] 11-04-PLAN.md — Onboarding backend (handlers + seed + route wiring)
 - [x] 11-05-PLAN.md — onboarding.html big-bang API swap + SW rebuild
-- [ ] 11-06-PLAN.md — E2E test rewrite (onboarding + users)
+- [x] 11-06-PLAN.md — E2E test rewrite (onboarding + users)
 
 ### Phase 12: Inventory + Photos
 **Goal**: Purchase history and vendor data come from Postgres, receipt photos can be uploaded and parsed into purchase events, and checklist photos are stored in object storage
@@ -167,5 +167,5 @@ Phases execute in numeric order: 9 → 10 → 10.1 → 10.2 → 11 → 12
 | 10. Workflows API | v2.0 | 5/5 | Complete   | 2026-04-15 |
 | 10.1 Cross-Device State Sync | v2.0 | 5/5 | Complete   | 2026-04-17 |
 | 10.2 Reactive Sync Framework | v2.0 | 3/3 | Complete    | 2026-04-17 |
-| 11. Onboarding + Users Admin | v2.0 | 5/6 | In Progress|  |
+| 11. Onboarding + Users Admin | v2.0 | 6/6 | Complete   | 2026-04-18 |
 | 12. Inventory + Photos | v2.0 | 0/? | Not started | - |

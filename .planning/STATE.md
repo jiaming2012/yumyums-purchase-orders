@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Backend
-status: executing
-stopped_at: Completed 11-05-PLAN.md
-last_updated: "2026-04-18T01:20:46.245Z"
+status: verifying
+stopped_at: Completed 11-06-PLAN.md
+last_updated: "2026-04-18T03:22:21.818Z"
 last_activity: 2026-04-18
 progress:
   total_phases: 6
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 23
-  completed_plans: 22
+  completed_plans: 23
   percent: 0
 ---
 
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-04-15)
 
 Phase: 11 (onboarding-users-admin) — EXECUTING
 Plan: 6 of 6
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-04-18
 
 Progress: [░░░░░░░░░░] 0% (v2.0 milestone)
@@ -74,6 +74,7 @@ Progress: [░░░░░░░░░░] 0% (v2.0 milestone)
 | Phase 11-onboarding-users-admin P04 | 420 | 2 tasks | 4 files |
 | Phase 11-onboarding-users-admin P03 | 4 | 2 tasks | 3 files |
 | Phase 11-onboarding-users-admin P05 | 327 | 2 tasks | 2 files |
+| Phase 11-onboarding-users-admin P06 | 120 | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -135,6 +136,7 @@ Recent decisions affecting current work:
 - [Phase 11-onboarding-users-admin]: login.html dual-mode: normal login when no token param, accept-invite set-password form when ?token= present
 - [Phase 11-onboarding-users-admin]: localCopy pattern in Builder editor — deep-copy template before editing; Save calls PUT/POST API, Discard reverts without re-fetch
 - [Phase 11-onboarding-users-admin]: SIGNOFF_FORM keyed by hireId_sectionId — supports concurrent sign-offs on multiple sections
+- [Phase 11-onboarding-users-admin]: parseInt(uuid)||uuid removed from users.html click handler — UUIDs starting with hex digits that are valid decimal integers (e.g. '209c6b34') parse as integers via parseInt, causing editUser(209) to fail USERS.find() since IDs are UUID strings
 
 ### Pending Todos
 
@@ -155,6 +157,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-18T01:20:46.241Z
-Stopped at: Completed 11-05-PLAN.md
+Last session: 2026-04-18T03:22:21.813Z
+Stopped at: Completed 11-06-PLAN.md
 Resume file: None

@@ -29,6 +29,10 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .tile.soon .tile-title{color:var(--mut)}
 .badge{position:absolute;top:10px;right:10px;font-size:10px;font-weight:500;padding:2px 7px;border-radius:8px;background:var(--brd);color:var(--mut);letter-spacing:0.2px}
 .badge-warn{background:var(--warn-bg);color:var(--warn-tx)}
+.user-bar{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+.user-bar .greeting{font-size:15px;font-weight:500}
+.user-bar .logout-btn{background:none;border:none;color:var(--mut);font-size:13px;font-weight:500;cursor:pointer;padding:6px 0;font-family:inherit}
+.user-bar .logout-btn:active{opacity:0.6}
 </style>
 </head>
 <body>
@@ -91,10 +95,34 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 </div>
 
 <script>
+function renderUserHeader(name){
+  var bar=document.createElement('div');
+  bar.className='user-bar';
+  var g=document.createElement('span');
+  g.className='greeting';
+  g.textContent='Hi, '+name;
+  var btn=document.createElement('button');
+  btn.className='logout-btn';
+  btn.id='btn-logout';
+  btn.textContent='Log out';
+  btn.onclick=logout;
+  bar.appendChild(g);
+  bar.appendChild(btn);
+  var grid=document.querySelector('.app .grid');
+  grid.parentNode.insertBefore(bar,grid);
+}
+async function logout(){
+  try{await fetch('/api/v1/auth/logout',{method:'POST'})}catch(e){}
+  window.location.href='/login.html';
+}
 async function checkAuth(){
   try{
     const res=await fetch('/api/v1/me');
     if(res.status===401){window.location.href='/login.html';return}
+    if(res.ok){
+      const data=await res.json();
+      if(data.display_name)renderUserHeader(data.display_name);
+    }
   }catch(e){
     // Network error -- allow offline access with cached page
   }
