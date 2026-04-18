@@ -20,13 +20,15 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .sub{font-size:13px;color:var(--mut);text-align:center;margin-bottom:32px}
 .card{background:var(--card);border-radius:14px;padding:24px;border:0.5px solid var(--brd)}
 .field{margin-bottom:16px}
-.field label{display:block;font-size:12px;font-weight:500;color:var(--mut);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.4px}
+.field label{display:block;font-size:12px;font-weight:600;color:var(--mut);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.4px}
 .field input{width:100%;padding:12px 14px;background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;font-size:15px;color:var(--txt);font-family:inherit;outline:none}
 .field input:focus{border-color:var(--info-tx)}
-.btn{width:100%;padding:13px;background:var(--info-bg);color:var(--info-tx);border:none;border-radius:8px;font-size:15px;font-weight:600;font-family:inherit;margin-top:4px}
+.btn{width:100%;padding:13px;background:var(--info-bg);color:var(--info-tx);border:none;border-radius:8px;font-size:15px;font-weight:600;font-family:inherit;margin-top:4px;cursor:pointer}
 .btn:active{opacity:0.8}
 .error{display:none;background:var(--warn-bg);color:var(--warn-tx);border-radius:8px;padding:11px 14px;font-size:13px;margin-bottom:16px;text-align:center}
 .error.show{display:block}
+.welcome-heading{font-size:26px;font-weight:400;margin:0 0 8px;text-align:center}
+.sub-heading{font-size:14px;color:var(--mut);margin-bottom:16px;text-align:center}
 </style>
 </head>
 <body>
@@ -36,27 +38,98 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 
   <div class="card">
     <div id="err" class="error">Invalid credentials. Please try again.</div>
-    <form onsubmit="signIn();return false">
-    <div class="field">
-      <label>Email</label>
-      <input id="email" type="email" placeholder="you@yumyums.com" autocomplete="username">
+
+    <!-- Normal login form -->
+    <div id="login-form">
+      <form onsubmit="signIn();return false">
+        <div class="field">
+          <label>Email</label>
+          <input id="email" type="email" name="email" placeholder="you@yumyums.com" autocomplete="username">
+        </div>
+        <div class="field">
+          <label>Password</label>
+          <input id="pw" type="password" name="password" placeholder="Password" autocomplete="current-password">
+        </div>
+        <button class="btn" type="submit">Sign In</button>
+      </form>
     </div>
-    <div class="field">
-      <label>Password</label>
-      <input id="pw" type="password" placeholder="Password" autocomplete="current-password">
+
+    <!-- Accept-invite form (shown when ?token= present) -->
+    <div id="invite-form" style="display:none">
+      <h1 id="welcome-heading" class="welcome-heading"></h1>
+      <p class="sub-heading">Set a password to activate your account.</p>
+      <form onsubmit="acceptInvite();return false">
+        <div class="field">
+          <label>Password</label>
+          <input id="invite-pw" type="password" name="password" placeholder="At least 8 characters" autocomplete="new-password">
+        </div>
+        <div class="field">
+          <label>Confirm Password</label>
+          <input id="invite-pw2" type="password" name="confirm_password" placeholder="Repeat password" autocomplete="new-password">
+        </div>
+        <button class="btn" type="submit">Set Password &amp; Log In</button>
+      </form>
     </div>
-    <button class="btn" type="submit">Sign In</button>
-    </form>
   </div>
 </div>
 
 <script>
+const params=new URLSearchParams(window.location.search);
+const inviteToken=params.get('token');
+
+if(inviteToken){
+  showAcceptInviteMode(inviteToken);
+}
+
+async function showAcceptInviteMode(token){
+  try{
+    const res=await fetch('/api/v1/auth/invite-info?token='+encodeURIComponent(token));
+    if(!res.ok){
+      const data=await res.json().catch(()=>({}));
+      showError('This invite link has expired. Ask your manager to send a new one.');
+      return;
+    }
+    const data=await res.json();
+    document.getElementById('login-form').style.display='none';
+    document.getElementById('invite-form').style.display='block';
+    document.getElementById('welcome-heading').textContent='Welcome, '+data.first_name;
+  }catch(e){
+    showError('Something went wrong. Check your connection and try again.');
+  }
+}
+
+async function acceptInvite(){
+  const pw=document.getElementById('invite-pw').value;
+  const pw2=document.getElementById('invite-pw2').value;
+  clearError();
+  if(pw!==pw2){showError("Passwords don't match.");return}
+  if(pw.length<8){showError('Password must be at least 8 characters.');return}
+  try{
+    const res=await fetch('/api/v1/auth/accept-invite',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({token:inviteToken,password:pw})
+    });
+    if(res.ok){
+      window.location.href='/index.html';
+    }else{
+      const data=await res.json().catch(()=>({}));
+      if(data.error==='token_expired'||data.error==='token_used'){
+        showError('This invite link has expired. Ask your manager to send a new one.');
+      }else{
+        showError('Something went wrong. Check your connection and try again.');
+      }
+    }
+  }catch(e){
+    showError('Something went wrong. Check your connection and try again.');
+  }
+}
+
 async function signIn(){
   const email=document.getElementById('email').value.trim();
   const pw=document.getElementById('pw').value;
-  const err=document.getElementById('err');
-  err.classList.remove('show');
-  if(!email||!pw){err.classList.add('show');return}
+  clearError();
+  if(!email||!pw){showError('Invalid credentials. Please try again.');return}
   try{
     const res=await fetch('/api/v1/auth/login',{
       method:'POST',
@@ -66,12 +139,23 @@ async function signIn(){
     if(res.ok){
       window.location.href='/';
     }else{
-      err.classList.add('show');
+      showError('Invalid credentials. Please try again.');
     }
   }catch(e){
-    err.classList.add('show');
+    showError('Invalid credentials. Please try again.');
   }
 }
+
+function showError(msg){
+  const el=document.getElementById('err');
+  el.textContent=msg;
+  el.classList.add('show');
+}
+
+function clearError(){
+  document.getElementById('err').classList.remove('show');
+}
+
 document.addEventListener('dblclick',e=>e.preventDefault());
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');
 </script>
