@@ -692,6 +692,62 @@ func GetManagerHires(ctx context.Context, pool *pgxpool.Pool) ([]HireOverview, e
 	return result, nil
 }
 
+// IsSectionLockedForEdits checks if the section containing the given item is
+// complete + requires sign-off + not yet signed off. In that state, edits are blocked.
+func IsSectionLockedForEdits(ctx context.Context, pool *pgxpool.Pool, hireID, itemID, progressType string) (bool, error) {
+	// Find the section this item belongs to
+	var sectionQuery string
+	if progressType == "video_part" {
+		sectionQuery = `SELECT os.id, os.requires_sign_off FROM ob_sections os
+			JOIN ob_items oi ON oi.section_id = os.id
+			JOIN ob_video_parts vp ON vp.item_id = oi.id
+			WHERE vp.id = $1`
+	} else {
+		sectionQuery = `SELECT os.id, os.requires_sign_off FROM ob_sections os
+			JOIN ob_items oi ON oi.section_id = os.id
+			WHERE oi.id = $1`
+	}
+
+	var sectionID string
+	var requiresSignOff bool
+	err := pool.QueryRow(ctx, sectionQuery, itemID).Scan(&sectionID, &requiresSignOff)
+	if err != nil {
+		return false, err
+	}
+	if !requiresSignOff {
+		return false, nil
+	}
+
+	// Check if already signed off (then it's locked differently — can't edit at all)
+	var signedOff bool
+	err = pool.QueryRow(ctx,
+		`SELECT EXISTS(SELECT 1 FROM ob_signoffs WHERE section_id = $1 AND hire_id = $2)`,
+		sectionID, hireID).Scan(&signedOff)
+	if err != nil {
+		return false, err
+	}
+	if signedOff {
+		return true, nil // signed off sections are permanently locked
+	}
+
+	// Check if all items in the section are complete (section is awaiting sign-off)
+	var hasIncomplete bool
+	err = pool.QueryRow(ctx, `
+		SELECT EXISTS(
+			SELECT 1 FROM ob_items oi
+			WHERE oi.section_id = $1 AND oi.type IN ('checkbox', 'video_series', 'faq')
+			AND NOT EXISTS (
+				SELECT 1 FROM ob_progress op WHERE op.item_id = oi.id AND op.hire_id = $2
+			)
+		)`, sectionID, hireID).Scan(&hasIncomplete)
+	if err != nil {
+		return false, err
+	}
+
+	// If no incomplete items, section is complete → locked for edits
+	return !hasIncomplete, nil
+}
+
 // SaveProgress records or removes an onboarding progress entry for a hire.
 func SaveProgress(ctx context.Context, pool *pgxpool.Pool, hireID, itemID, progressType string, checked bool) error {
 	if checked {

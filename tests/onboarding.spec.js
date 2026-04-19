@@ -572,6 +572,94 @@ test.describe('Manager tab', () => {
     expect(attrText).not.toContain('Signed off by');
   });
 
+  test('video part progress persists after page reload', async ({ page }) => {
+    await login(page);
+    const templates = await obApiCall(page, 'GET', 'templates');
+    const kitchenTemplate = templates.find(t => t.name === 'Kitchen Basics Training');
+    const me = await page.evaluate(async () => (await (await fetch('/api/v1/me')).json()));
+
+    await obApiCall(page, 'POST', 'assignTemplate', { hire_id: me.id, template_id: kitchenTemplate.id });
+
+    // Navigate to training, expand Equipment Training section, check a video part
+    await page.goto('/onboarding.html');
+    await page.waitForFunction(() => document.getElementById('my-body') && document.getElementById('my-body').querySelector('.card'));
+    await page.locator('#my-body .card', { hasText: 'Kitchen Basics' }).first().click();
+    await page.waitForSelector('.sec-header');
+
+    // Complete section 1 first (Safety & Hygiene) so section 2 unlocks
+    const fullTemplate = await obApiCall(page, 'GET', 'templates/' + kitchenTemplate.id);
+    const sec1 = fullTemplate.sections.find(s => s.title === 'Safety & Hygiene');
+    for (const item of sec1.items) {
+      if (item.type === 'checkbox') {
+        await obApiCall(page, 'POST', 'saveProgress', { item_id: item.id, progress_type: 'item', checked: true });
+      }
+    }
+    // Sign off section 1 so section 2 unlocks
+    await obApiCall(page, 'POST', 'signOff', { section_id: sec1.id, hire_id: me.id, notes: '', rating: 'ready' });
+
+    // Reload to see updated section states
+    await page.goto('/onboarding.html');
+    await page.waitForFunction(() => document.getElementById('my-body') && document.getElementById('my-body').querySelector('.card'));
+    await page.locator('#my-body .card', { hasText: 'Kitchen Basics' }).first().click();
+    await page.waitForSelector('.sec-header');
+
+    // Find Equipment Training section (section 2) and expand it
+    const eqHeader = page.locator('.sec-header', { hasText: 'EQUIPMENT' });
+    await eqHeader.click();
+    await page.waitForTimeout(500);
+
+    // Check the first video part checkbox
+    const videoCheck = page.locator('.ob-check').first();
+    if (await videoCheck.count() > 0) {
+      await videoCheck.click();
+      await page.waitForTimeout(2000); // wait for save
+
+      // Reload and reopen
+      await page.goto('/onboarding.html');
+      await page.waitForFunction(() => document.getElementById('my-body') && document.getElementById('my-body').querySelector('.card'));
+      await page.locator('#my-body .card', { hasText: 'Kitchen Basics' }).first().click();
+      await page.waitForSelector('.sec-header');
+      await page.locator('.sec-header', { hasText: 'EQUIPMENT' }).click();
+      await page.waitForTimeout(500);
+
+      // Video part should still be checked
+      const checkedParts = await page.locator('.ob-check.checked').count();
+      expect(checkedParts).toBeGreaterThanOrEqual(1);
+    }
+  });
+
+  test('backend rejects progress updates for completed sections awaiting sign-off', async ({ page }) => {
+    await login(page);
+    const templates = await obApiCall(page, 'GET', 'templates');
+    const kitchenTemplate = templates.find(t => t.name === 'Kitchen Basics Training');
+    const fullTemplate = await obApiCall(page, 'GET', 'templates/' + kitchenTemplate.id);
+    const sec1 = fullTemplate.sections.find(s => s.title === 'Safety & Hygiene');
+    const me = await page.evaluate(async () => (await (await fetch('/api/v1/me')).json()));
+
+    await obApiCall(page, 'POST', 'assignTemplate', { hire_id: me.id, template_id: kitchenTemplate.id });
+
+    // Complete all items in section 1
+    for (const item of sec1.items) {
+      if (item.type === 'checkbox') {
+        await obApiCall(page, 'POST', 'saveProgress', { item_id: item.id, progress_type: 'item', checked: true });
+      }
+    }
+
+    // Section is now "complete" (waiting for sign-off) — try to uncheck an item
+    const result = await page.evaluate(async ([itemId]) => {
+      const res = await fetch('/api/v1/onboarding/saveProgress', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ item_id: itemId, progress_type: 'item', checked: false })
+      });
+      return { status: res.status, body: await res.json() };
+    }, [sec1.items[0].id]);
+
+    // Should be rejected — section is awaiting sign-off
+    expect(result.status).toBe(400);
+    expect(result.body.error).toBe('section_awaiting_signoff');
+  });
+
   test('sign-off succeeds with rating only (notes optional)', async ({ page }) => {
     await login(page);
 

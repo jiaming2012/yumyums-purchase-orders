@@ -780,6 +780,11 @@ document.getElementById('my-body').addEventListener('click', async function(e) {
     var sec = findItemInTraining(CURRENT_TRAINING, secId, true);
     if (!item || !sec) return;
     var newChecked = !item.checked;
+    // Check if this would complete a sign-off section
+    if (newChecked && sec.requires_sign_off) {
+      var wouldComplete = (sec.items||[]).every(function(it) { return it.id === itemId ? true : it.checked; });
+      if (wouldComplete && !confirm('This will submit the section for sign-off. You won\'t be able to make changes after. Continue?')) return;
+    }
     item.checked = newChecked;
     recomputeSectionState(sec);
     renderMyRunner();
@@ -805,6 +810,16 @@ document.getElementById('my-body').addEventListener('click', async function(e) {
     var sec = findItemInTraining(CURRENT_TRAINING, secId, true);
     if (!part || !sec) return;
     var newChecked = !part.checked;
+    // Check if this would complete a sign-off section
+    if (newChecked && sec.requires_sign_off) {
+      var allItemsDone = (sec.items||[]).every(function(it) {
+        if (it.type === 'video_series') {
+          return (it.video_parts||[]).every(function(vp) { return vp.id === partId ? true : vp.checked; });
+        }
+        return it.checked;
+      });
+      if (allItemsDone && !confirm('This will submit the section for sign-off. You won\'t be able to make changes after. Continue?')) return;
+    }
     part.checked = newChecked;
     recomputeSectionState(sec);
     renderMyRunner();

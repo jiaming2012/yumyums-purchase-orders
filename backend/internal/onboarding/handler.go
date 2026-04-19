@@ -191,6 +191,18 @@ func SaveProgressHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
+		// Check if section is awaiting sign-off (complete + requires_sign_off + not signed off)
+		if !body.Checked {
+			locked, err := IsSectionLockedForEdits(r.Context(), pool, user.ID, body.ItemID, body.ProgressType)
+			if err != nil {
+				log.Printf("IsSectionLockedForEdits error: %v", err)
+			}
+			if locked {
+				writeError(w, http.StatusBadRequest, "section_awaiting_signoff")
+				return
+			}
+		}
+
 		if err := SaveProgress(r.Context(), pool, user.ID, body.ItemID, body.ProgressType, body.Checked); err != nil {
 			log.Printf("SaveProgress error: %v", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
