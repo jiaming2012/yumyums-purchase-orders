@@ -48,7 +48,7 @@ _Full phase details archived to [milestones/v2.0-ROADMAP.md](milestones/v2.0-ROA
 
 **Milestone Goal:** Replace placeholder video links with a real video experience — upload to DO Spaces, inline playback, watch enforcement, and thumbnails.
 
-- [ ] **Phase 1: Onboarding Video Upgrade** — DO Spaces video upload, inline player, watch-to-complete enforcement, thumbnails
+- [x] **Phase 1: Onboarding Video Upgrade** — DO Spaces video upload, inline player, watch-to-complete enforcement, thumbnails (completed 2026-04-19)
 
 ## Phase Details
 
@@ -67,4 +67,4 @@ _Full phase details archived to [milestones/v2.0-ROADMAP.md](milestones/v2.0-ROA
 Plans:
 - [x] 01-01-PLAN.md — Backend: migration, video presign, FFmpeg processing, watch progress API
 - [x] 01-02-PLAN.md — Builder UI: upload/URL toggle, XHR progress bar, thumbnail override
-- [ ] 01-03-PLAN.md — Runner UI: inline video player, seeking restriction, watch enforcement
+- [x] 01-03-PLAN.md — Runner UI: inline video player, seeking restriction, watch enforcement
