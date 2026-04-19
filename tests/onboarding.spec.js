@@ -582,6 +582,135 @@ test.describe('Manager tab', () => {
   });
 });
 
+// ─── Role-based auto-assignment ──────────────────────────────────────────────
+
+test.describe('Role-based auto-assignment', () => {
+  test('My Trainings list shows section-level progress (not item-level)', async ({ page }) => {
+    // Create a template with 2 sections, each with multiple items
+    await login(page);
+    await obApiCall(page, 'POST', 'createTemplate', {
+      name: 'Section Progress Test',
+      roles: ['admin', 'superadmin'],
+      sections: [
+        { title: 'Section A', sort_order: 1, requires_sign_off: false, is_faq: false, items: [
+          { type: 'checkbox', label: 'A1', sort_order: 1 },
+          { type: 'checkbox', label: 'A2', sort_order: 2 }
+        ]},
+        { title: 'Section B', sort_order: 2, requires_sign_off: false, is_faq: false, items: [
+          { type: 'checkbox', label: 'B1', sort_order: 1 },
+          { type: 'checkbox', label: 'B2', sort_order: 2 },
+          { type: 'checkbox', label: 'B3', sort_order: 3 }
+        ]}
+      ]
+    });
+
+    await page.goto('/onboarding.html');
+    await page.waitForFunction(() => {
+      const body = document.getElementById('my-body');
+      return body && (body.querySelector('.card') || body.querySelector('.empty'));
+    }, { timeout: 10000 });
+
+    const card = page.locator('#my-body .card', { hasText: 'Section Progress Test' }).first();
+    await expect(card).toBeVisible();
+
+    const text = await card.textContent();
+    expect(text).not.toContain('undefined');
+    // Should show "0 of 2 sections complete" (2 sections), NOT "0 of 5 items complete" (5 items)
+    expect(text).toContain('0 of 2 sections complete');
+  });
+
+  test('FAQ section shows viewed count and completes when all expanded', async ({ page }) => {
+    // Create template with a FAQ section
+    await login(page);
+    await obApiCall(page, 'POST', 'createTemplate', {
+      name: 'FAQ Progress Test',
+      roles: ['admin', 'superadmin'],
+      sections: [{ title: 'FAQ Section', sort_order: 1, requires_sign_off: false, is_faq: true, items: [
+        { type: 'faq', label: 'Question 1', answer: 'Answer 1', sort_order: 1 },
+        { type: 'faq', label: 'Question 2', answer: 'Answer 2', sort_order: 2 }
+      ]}]
+    });
+
+    await page.goto('/onboarding.html');
+    await page.waitForFunction(() => {
+      const body = document.getElementById('my-body');
+      return body && body.querySelector('.card');
+    }, { timeout: 10000 });
+
+    // Open the template
+    await page.locator('#my-body .card', { hasText: 'FAQ Progress Test' }).first().click();
+    await page.waitForFunction(() => {
+      const body = document.getElementById('my-body');
+      return body && body.querySelector('.sec-header');
+    }, { timeout: 10000 });
+
+    // FAQ section should show 0/2 initially
+    const header = page.locator('.sec-header').first();
+    await expect(header).toContainText('0/2');
+
+    // Expand the section
+    await header.click();
+    await page.waitForSelector('.faq-q');
+
+    // Expand first FAQ question
+    await page.locator('.faq-q').first().click();
+    await page.waitForTimeout(1500); // wait for auto-save
+
+    // Header should now show 1/2
+    await expect(page.locator('.sec-header').first()).toContainText('1/2');
+
+    // Expand second FAQ question
+    await page.locator('.faq-q').nth(1).click();
+    await page.waitForTimeout(1500);
+
+    // Should show Complete (2/2 viewed)
+    await expect(page.locator('.sec-header').first()).toContainText('Complete');
+  });
+
+  test('user with matching role sees template without explicit assignment', async ({ page }) => {
+    // Create a team_member user
+    await login(page);
+    const email2 = 'auto-assign-' + Date.now() + '@yumyums.kitchen';
+    const inviteRes = await page.evaluate(async (email) => {
+      const res = await fetch('/api/v1/users/invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ first_name: 'AutoAssign', last_name: 'Test', email, roles: ['team_member'] })
+      });
+      return res.json();
+    }, email2);
+    const token = inviteRes.invite_path.split('token=')[1];
+    await page.evaluate(async (t) => {
+      await fetch('/api/v1/auth/accept-invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: t, password: 'test456' })
+      });
+    }, token);
+
+    // Create a template with roles=['team_member'] via admin
+    await login(page);
+    await obApiCall(page, 'POST', 'createTemplate', {
+      name: 'Auto Assign Test',
+      roles: ['team_member'],
+      sections: [{ title: 'Basics', sort_order: 1, requires_sign_off: false, is_faq: false, items: [
+        { type: 'checkbox', label: 'Test item', sort_order: 1 }
+      ]}]
+    });
+
+    // Login as team_member — should see the template in My Trainings WITHOUT explicit assignment
+    await login(page, email2, 'test456');
+    await page.goto('/onboarding.html');
+    await page.waitForFunction(() => {
+      const body = document.getElementById('my-body');
+      return body && (body.querySelector('.card') || body.querySelector('.empty'));
+    }, { timeout: 10000 });
+
+    // Template should appear because user's role matches template's roles
+    await expect(page.locator('#my-body')).toContainText('Auto Assign Test');
+  });
+});
+
 // ─── Builder tab ─────────────────────────────────────────────────────────────
 
 test.describe('Builder tab', () => {

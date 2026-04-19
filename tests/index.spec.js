@@ -95,6 +95,74 @@ test('superadmin sees all tiles after restricted user logged out', async ({ page
   expect(adminTileCountAfter).toBe(adminTileCount);
 });
 
+test('onboarding badge only shows when user has incomplete trainings', async ({ page }) => {
+  await login(page);
+  await page.goto('/index.html');
+  // Wait for grid to be visible and permissions applied
+  await page.waitForFunction(() => {
+    var g = document.querySelector('.grid');
+    return g && g.style.visibility !== 'hidden';
+  }, { timeout: 5000 });
+  await page.waitForTimeout(1000); // wait for onboarding API call
+
+  // Check if user has any onboarding trainings assigned
+  const trainings = await page.evaluate(async () => {
+    try {
+      const res = await fetch('/api/v1/onboarding/myTrainings');
+      if (!res.ok) return [];
+      return await res.json();
+    } catch(e) { return []; }
+  });
+
+  const tile = page.locator('#tile-onboarding');
+  if (await tile.count() === 0) return; // tile not visible (permission filtered)
+
+  if (!trainings || trainings.length === 0) {
+    // No trainings assigned — badge should NOT appear
+    await expect(tile.locator('.badge-warn')).toHaveCount(0);
+  } else {
+    const hasIncomplete = trainings.some(t => (t.progress_pct || 0) < 100);
+    if (hasIncomplete) {
+      await expect(tile.locator('.badge-warn')).toHaveCount(1);
+    } else {
+      await expect(tile.locator('.badge-warn')).toHaveCount(0);
+    }
+  }
+});
+
+test('onboarding badge does not reappear after visiting onboarding and returning', async ({ page }) => {
+  await login(page);
+  await page.goto('/index.html');
+  await page.waitForFunction(() => {
+    var g = document.querySelector('.grid');
+    return g && g.style.visibility !== 'hidden';
+  }, { timeout: 5000 });
+  await page.waitForTimeout(1000);
+
+  // Record whether badge exists on first load
+  const tile = page.locator('#tile-onboarding');
+  if (await tile.count() === 0) return; // tile not visible
+  const badgeCountBefore = await tile.locator('.badge-warn').count();
+
+  // Navigate to onboarding and back
+  await page.goto('/onboarding.html');
+  await page.waitForTimeout(500);
+  await page.goto('/index.html');
+  await page.waitForFunction(() => {
+    var g = document.querySelector('.grid');
+    return g && g.style.visibility !== 'hidden';
+  }, { timeout: 5000 });
+  await page.waitForTimeout(1000);
+
+  // Badge state should be the same as before — no phantom badge appearing
+  const tile2 = page.locator('#tile-onboarding');
+  if (await tile2.count() === 0) return;
+  const badgeCountAfter = await tile2.locator('.badge-warn').count();
+  expect(badgeCountAfter).toBe(badgeCountBefore);
+  // Should never have more than 1 badge
+  expect(badgeCountAfter).toBeLessThanOrEqual(1);
+});
+
 test('after logout, visiting index.html redirects to login.html (session cleared)', async ({ page }) => {
   await login(page);
   await page.goto('/index.html');

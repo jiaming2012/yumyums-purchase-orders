@@ -407,6 +407,50 @@ test.describe('Password Reset', () => {
   });
 });
 
+// ─── Invite link panel ───────────────────────────────────────────────────────
+
+test.describe('Invite link panel', () => {
+  test('email notice is prominent and appears above the invite link', async ({ page }) => {
+    await login(page);
+    await page.goto('/users.html');
+    await waitForUserList(page);
+
+    // Open invite form
+    await page.locator('[data-action="show-invite"]').click();
+    await waitForEditCard(page);
+
+    // Fill in the form
+    await page.fill('#f-first', 'PanelTest');
+    await page.fill('#f-last', 'User');
+    const email = 'panel-test-' + Date.now() + '@yumyums.kitchen';
+    await page.fill('#f-email', email);
+
+    // Submit
+    await page.locator('[data-action="submit-invite"]').click();
+
+    // Wait for invite link panel
+    await page.waitForFunction(() => {
+      const el = document.getElementById('edit-card');
+      return el && el.querySelector('.invite-link-panel');
+    });
+
+    // Email notice should exist and appear BEFORE the invite link textarea
+    const emailNotice = page.locator('.invite-email-notice');
+    await expect(emailNotice).toBeVisible();
+    await expect(emailNotice).toContainText('invite link has been sent');
+
+    // Email notice should come before the invite URL textarea in DOM order
+    const noticeIndex = await page.evaluate(() => {
+      const panel = document.querySelector('.invite-link-panel');
+      const children = Array.from(panel.children);
+      const noticeIdx = children.findIndex(el => el.classList.contains('invite-email-notice'));
+      const urlIdx = children.findIndex(el => el.classList.contains('invite-url') || el.tagName === 'TEXTAREA');
+      return { noticeIdx, urlIdx };
+    });
+    expect(noticeIndex.noticeIdx).toBeLessThan(noticeIndex.urlIdx);
+  });
+});
+
 // ─── Access tab ──────────────────────────────────────────────────────────────
 
 test.describe('Access tab', () => {

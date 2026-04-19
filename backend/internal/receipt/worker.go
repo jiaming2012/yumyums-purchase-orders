@@ -18,7 +18,7 @@ import (
 // worker logs a warning and returns immediately (graceful skip).
 func StartWorker(ctx context.Context, cfg WorkerConfig) {
 	if cfg.MercuryAPIKey == "" || cfg.AnthropicAPIKey == "" {
-		log.Println("receipt worker: skipping — missing API keys (MERCURY_API_KEY or ANTHROPIC_API_KEY not set)")
+		log.Println("WARNING: receipt worker: skipping — missing API keys (MERCURY_API_KEY or ANTHROPIC_API_KEY not set)")
 		return
 	}
 

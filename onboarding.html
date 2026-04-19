@@ -207,11 +207,13 @@ function renderMyList() {
   }
   var html = '';
   MY_TRAININGS.forEach(function(t) {
-    var pct = t.progress_pct || 0;
+    var secDone = t.sections_complete || 0;
+    var secTotal = t.sections_total || 0;
+    var pct = t.progress_percent || (secTotal ? Math.round(secDone / secTotal * 100) : 0);
     html += '<div class="card" style="cursor:pointer" data-action="open-my-training" data-template-id="'+t.template_id+'" data-training-id="'+escapeOBAttr(t.template_id)+'">';
     html += '<div style="font-size:14px;font-weight:500;color:var(--txt);margin-bottom:8px">'+escapeOBAttr(t.template_name)+'</div>';
     html += '<div style="height:4px;background:var(--brd);border-radius:2px;margin-bottom:6px;overflow:hidden"><div style="height:100%;background:#27ae60;border-radius:2px;width:'+pct+'%"></div></div>';
-    html += '<div style="font-size:12px;color:var(--mut)">'+t.sections_complete+' of '+t.sections_total+' sections complete</div>';
+    html += '<div style="font-size:12px;color:var(--mut)">'+secDone+' of '+secTotal+' sections complete</div>';
     html += '</div>';
   });
   el.innerHTML = html;
@@ -261,7 +263,13 @@ function renderSections(sections, hireId, readOnly) {
       var totalItems = countSectionItems(sec);
       var checkedItems = countCheckedItems(sec);
       if (sec.is_faq) {
-        stateHtml = '<span style="font-size:12px;color:var(--mut)">FAQ</span>';
+        var faqTotal = (sec.items || []).length;
+        var faqViewed = (sec.items || []).filter(function(f) { return f.viewed; }).length;
+        if (faqViewed >= faqTotal && faqTotal > 0) {
+          stateHtml = '<span style="font-size:12px;color:#27ae60;font-weight:500">&#10003; Complete</span>';
+        } else {
+          stateHtml = '<span style="font-size:12px;color:var(--mut)">'+faqViewed+'/'+faqTotal+'</span>';
+        }
       } else {
         stateHtml = '<span style="font-size:12px;color:var(--mut)">'+checkedItems+'/'+totalItems+'</span>';
       }
@@ -718,6 +726,22 @@ document.getElementById('my-body').addEventListener('click', async function(e) {
       delete EXPANDED_FAQS[faqId];
     } else {
       EXPANDED_FAQS[faqId] = true;
+      // Mark FAQ item as viewed and persist
+      var faqItem = null;
+      if (CURRENT_TRAINING && CURRENT_TRAINING.sections) {
+        CURRENT_TRAINING.sections.forEach(function(s) {
+          if (s.is_faq) (s.items || []).forEach(function(f) { if (f.id === faqId) faqItem = f; });
+        });
+      }
+      if (faqItem && !faqItem.viewed) {
+        faqItem.viewed = true;
+        var hireId = obState.activeTrainingId || (CURRENT_USER && CURRENT_USER.id);
+        var secId = null;
+        CURRENT_TRAINING.sections.forEach(function(s) {
+          if (s.is_faq && (s.items || []).some(function(f) { return f.id === faqId; })) secId = s.id;
+        });
+        if (hireId) saveProgress(faqId, 'faq', true, CURRENT_TRAINING.sections, hireId);
+      }
     }
     renderMyRunner();
   } else if (action === 'toggle-item') {

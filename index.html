@@ -168,18 +168,26 @@ async function checkAuth(){
 checkAuth();
 document.addEventListener('dblclick',e=>e.preventDefault());
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');
-// Mock: current user has incomplete onboarding trainings
-(function(){
-  var hasIncomplete = true; // In production, this would check the backend
-  if(hasIncomplete){
-    var tile = document.getElementById('tile-onboarding');
-    if(tile){
-      var badge = document.createElement('div');
-      badge.className = 'badge badge-warn';
-      badge.textContent = 'Needs Attention';
+// Check for incomplete onboarding trainings
+(async function(){
+  try{
+    var res=await fetch('/api/v1/onboarding/myTrainings');
+    if(!res.ok)return;
+    var trainings=await res.json();
+    if(!trainings||!trainings.length)return;
+    var hasIncomplete=trainings.some(function(t){return(t.progress_pct||0)<100;});
+    var tile=document.getElementById('tile-onboarding');
+    if(!tile)return;
+    // Remove any existing badge first (prevents duplicates on re-navigation)
+    var existing=tile.querySelector('.badge-warn');
+    if(existing)existing.remove();
+    if(hasIncomplete){
+      var badge=document.createElement('div');
+      badge.className='badge badge-warn';
+      badge.textContent='Needs Attention';
       tile.appendChild(badge);
     }
-  }
+  }catch(e){}
 })();
 </script>
 <script src="ptr.js"></script>

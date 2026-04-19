@@ -59,6 +59,7 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .invite-link-panel{padding:16px}
 .invite-link-panel h2{font-size:15px;font-weight:600;margin:0 0 12px}
 .invite-url{width:100%;padding:10px 12px;background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;font-size:13px;color:var(--mut);font-family:inherit;word-break:break-all;margin-bottom:10px;cursor:text;resize:none;outline:none}
+.invite-email-notice{font-size:15px;color:#27ae60;font-weight:600;text-align:center;margin-bottom:16px}
 .invite-note{font-size:12px;color:var(--mut);text-align:center;margin-bottom:12px}
 .access-card{background:var(--card);border-radius:12px;overflow:hidden;margin-bottom:8px}
 .access-hd{padding:12px 16px;border-bottom:0.5px solid var(--brd);font-size:15px;font-weight:600;display:flex;align-items:center;gap:8px}
@@ -257,7 +258,7 @@ async function submitInvite(){
   try{
     const result=await api('POST','/api/v1/users/invite',{first_name:first,last_name:last,email,roles});
     const url=window.location.origin+result.invite_path;
-    showInviteLinkPanel('Invite Link',url,'invite-done');
+    showInviteLinkPanel('Invite Link',url,'invite-done',true);
     await loadUsers();
   }catch(e){
     if(btn)btn.textContent='Invite';
@@ -266,13 +267,14 @@ async function submitInvite(){
   }
 }
 
-function showInviteLinkPanel(heading,url,doneAction){
+function showInviteLinkPanel(heading,url,doneAction,isInvite){
+  var emailNotice=isInvite?'<div class="invite-email-notice">An email with the invite link has been sent.</div>':'';
   document.getElementById('edit-card').innerHTML=`
     <div class="invite-link-panel">
       <h2>${heading}</h2>
+      ${emailNotice}
       <textarea class="invite-url" readonly rows="3">${url}</textarea>
       <button class="btn-primary" data-action="copy-link" data-url="${url}">Copy Link</button>
-      <div class="invite-note">An email has been sent.</div>
       <button class="btn-secondary" data-action="${doneAction}">Done</button>
     </div>`;
 }

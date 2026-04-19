@@ -13,7 +13,7 @@ import (
 func SeedOnboardingTemplates(ctx context.Context, pool *pgxpool.Pool) error {
 	kitchenBasics := CreateTemplateInput{
 		Name:  "Kitchen Basics Training",
-		Roles: nil,
+		Roles: []string{"team_member", "manager"},
 		Sections: []CreateSectionInput{
 			{
 				Title:           "Safety & Hygiene",
@@ -105,6 +105,12 @@ func seedTemplate(ctx context.Context, pool *pgxpool.Pool, input CreateTemplateI
 		return fmt.Errorf("check existing ob_template: %w", err)
 	}
 	if existing > 0 {
+		// Update roles on existing template if they changed
+		if len(input.Roles) > 0 {
+			_, _ = pool.Exec(ctx,
+				`UPDATE ob_templates SET roles = $2 WHERE name = $1 AND (roles IS NULL OR roles != $2)`,
+				input.Name, input.Roles)
+		}
 		log.Printf("Onboarding template %q already exists, skipping", input.Name)
 		return nil
 	}

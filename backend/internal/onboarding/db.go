@@ -38,6 +38,8 @@ type Item struct {
 	VideoParts []VideoPart `json:"video_parts,omitempty"`
 	// Checked is populated when returning HireTraining — true if this item is checked by the hire.
 	Checked bool `json:"checked"`
+	// Viewed is populated for FAQ items — true if the hire has expanded/viewed this FAQ.
+	Viewed bool `json:"viewed,omitempty"`
 }
 
 // VideoPart represents a single part of a video series item.
@@ -92,13 +94,13 @@ type ProgressEntry struct {
 
 // AssignedTemplate is a template assignment with computed progress for a hire.
 type AssignedTemplate struct {
-	TemplateID      string   `json:"template_id"`
-	TemplateName    string   `json:"template_name"`
-	Roles           []string `json:"roles"`
-	AssignedAt      string   `json:"assigned_at"`
-	ItemsChecked    int      `json:"items_checked"`
-	TotalItems      int      `json:"total_items"`
-	ProgressPercent int      `json:"progress_percent"`
+	TemplateID        string   `json:"template_id"`
+	TemplateName      string   `json:"template_name"`
+	Roles             []string `json:"roles"`
+	AssignedAt        string   `json:"assigned_at"`
+	SectionsComplete  int      `json:"sections_complete"`
+	SectionsTotal     int      `json:"sections_total"`
+	ProgressPercent   int      `json:"progress_percent"`
 }
 
 // AssignedTemplateSummary is a minimal summary of a template assignment for the manager hire list.
@@ -395,6 +397,8 @@ func GetHireTraining(ctx context.Context, pool *pgxpool.Pool, hireID, templateID
 				for k := range item.VideoParts {
 					item.VideoParts[k].Checked = progressMap[item.VideoParts[k].ID+":video_part"]
 				}
+			} else if item.Type == "faq" {
+				item.Viewed = progressMap[item.ID+":faq"]
 			} else {
 				item.Checked = progressMap[item.ID+":item"]
 			}
@@ -423,17 +427,15 @@ func GetHireTraining(ctx context.Context, pool *pgxpool.Pool, hireID, templateID
 	}, nil
 }
 
-// isSectionComplete returns true if all non-faq items in the section are checked.
-// For FAQ sections, always returns true. For video_series, all parts must be watched.
+// isSectionComplete returns true if all items in the section are done.
+// For FAQ sections, all FAQ items must be viewed. For video_series, all parts must be watched.
 func isSectionComplete(sec Section, progressMap map[string]bool) bool {
-	if sec.IsFaq {
-		return true
-	}
 	for _, item := range sec.Items {
 		if item.Type == "faq" {
-			continue
-		}
-		if item.Type == "video_series" {
+			if !progressMap[item.ID+":faq"] {
+				return false
+			}
+		} else if item.Type == "video_series" {
 			for _, part := range item.VideoParts {
 				if !progressMap[part.ID+":video_part"] {
 					return false
@@ -446,7 +448,7 @@ func isSectionComplete(sec Section, progressMap map[string]bool) bool {
 			}
 		}
 	}
-	return true
+	return len(sec.Items) > 0
 }
 
 // canActivateSection returns true if idx==0 or all preceding sections are complete/signed_off.
@@ -462,44 +464,55 @@ func canActivateSection(idx int, sections []SectionProgress) bool {
 	return true
 }
 
-// GetMyTrainings returns all template assignments for a hire with progress percentages.
+// GetMyTrainings returns training templates for a hire — both explicitly assigned
+// and role-auto-assigned (template.roles overlaps user.roles).
 func GetMyTrainings(ctx context.Context, pool *pgxpool.Pool, hireID string) ([]AssignedTemplate, error) {
+	// Get user roles for auto-assignment matching
+	var userRoles []string
+	if err := pool.QueryRow(ctx, `SELECT roles FROM users WHERE id = $1`, hireID).Scan(&userRoles); err != nil {
+		return nil, fmt.Errorf("get user roles: %w", err)
+	}
+
 	rows, err := pool.Query(ctx, `
 		SELECT
-			ota.template_id,
+			ot.id AS template_id,
 			ot.name,
 			ot.roles,
-			ota.assigned_at,
-			COALESCE(checked.cnt, 0) AS items_checked,
-			COALESCE(total.cnt, 0)   AS total_items
-		FROM ob_template_assignments ota
-		JOIN ob_templates ot ON ot.id = ota.template_id
+			COALESCE(ota.assigned_at, ot.created_at) AS assigned_at,
+			COALESCE(sec_complete.cnt, 0) AS sections_complete,
+			COALESCE(sec_total.cnt, 0)    AS sections_total
+		FROM ob_templates ot
+		LEFT JOIN ob_template_assignments ota ON ota.template_id = ot.id AND ota.hire_id = $1
 		LEFT JOIN (
+			-- Count sections where ALL checkable items have progress
 			SELECT os.template_id, COUNT(*) AS cnt
-			FROM ob_progress op
-			JOIN ob_items oi ON oi.id = op.item_id
-			JOIN ob_sections os ON os.id = oi.section_id
-			WHERE op.hire_id = $1
+			FROM ob_sections os
+			WHERE NOT EXISTS (
+				-- Find any checkable item in this section WITHOUT progress
+				SELECT 1 FROM ob_items oi
+				WHERE oi.section_id = os.id AND oi.type IN ('checkbox', 'video_series')
+				AND NOT EXISTS (
+					SELECT 1 FROM ob_progress op
+					WHERE op.item_id = oi.id AND op.hire_id = $1
+				)
+			)
+			-- Only count sections that have at least one checkable item
+			AND EXISTS (
+				SELECT 1 FROM ob_items oi
+				WHERE oi.section_id = os.id AND oi.type IN ('checkbox', 'video_series')
+			)
 			GROUP BY os.template_id
-		) checked ON checked.template_id = ota.template_id
+		) sec_complete ON sec_complete.template_id = ot.id
 		LEFT JOIN (
-			SELECT os.template_id, SUM(
-				CASE oi.type
-					WHEN 'video_series' THEN (
-						SELECT COUNT(*) FROM ob_video_parts vp WHERE vp.item_id = oi.id
-					)
-					WHEN 'checkbox' THEN 1
-					ELSE 0
-				END
-			) AS cnt
-			FROM ob_items oi
-			JOIN ob_sections os ON os.id = oi.section_id
-			WHERE oi.type IN ('checkbox', 'video_series')
-			GROUP BY os.template_id
-		) total ON total.template_id = ota.template_id
+			-- Count total sections per template
+			SELECT template_id, COUNT(*) AS cnt
+			FROM ob_sections
+			GROUP BY template_id
+		) sec_total ON sec_total.template_id = ot.id
 		WHERE ota.hire_id = $1
-		ORDER BY ota.assigned_at
-	`, hireID)
+		   OR (ot.roles IS NOT NULL AND ot.roles && $2)
+		ORDER BY assigned_at
+	`, hireID, userRoles)
 	if err != nil {
 		return nil, fmt.Errorf("query my trainings: %w", err)
 	}
@@ -511,13 +524,13 @@ func GetMyTrainings(ctx context.Context, pool *pgxpool.Pool, hireID string) ([]A
 		var assignedAt time.Time
 		if err := rows.Scan(
 			&at.TemplateID, &at.TemplateName, &at.Roles, &assignedAt,
-			&at.ItemsChecked, &at.TotalItems,
+			&at.SectionsComplete, &at.SectionsTotal,
 		); err != nil {
 			return nil, fmt.Errorf("scan assigned template: %w", err)
 		}
 		at.AssignedAt = assignedAt.UTC().Format(time.RFC3339)
-		if at.TotalItems > 0 {
-			at.ProgressPercent = (at.ItemsChecked * 100) / at.TotalItems
+		if at.SectionsTotal > 0 {
+			at.ProgressPercent = (at.SectionsComplete * 100) / at.SectionsTotal
 		}
 		result = append(result, at)
 	}
