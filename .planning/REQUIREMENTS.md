@@ -104,7 +104,7 @@ Deferred to future milestones.
 | SYNC-02 | Phase 10 | Complete |
 | SYNC-03 | Phase 10 | Complete |
 | ONBD-01 | Phase 11 | Complete |
-| ONBD-02 | Phase 13 | Pending |
+| ONBD-02 | Phase 13 | Complete |
 | ONBD-03 | Phase 11 | Complete |
 | ONBD-04 | Phase 13 | Complete |
 | USER-01 | Phase 11 | Complete |
@@ -114,7 +114,7 @@ Deferred to future milestones.
 | INVT-02 | Phase 12 | Complete |
 | INVT-03 | Phase 12 | Complete |
 | PHOT-01 | Phase 12 | Complete |
-| PHOT-02 | Phase 13 | Pending |
+| PHOT-02 | Phase 13 | Complete |
 | TILE-01 | Phase 12 | Complete |
 
 **Coverage:**

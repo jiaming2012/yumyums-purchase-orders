@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Backend
-status: executing
-stopped_at: Completed 13-01-PLAN.md
-last_updated: "2026-04-19T19:45:22.898Z"
+status: verifying
+stopped_at: Completed 13-02-PLAN.md
+last_updated: "2026-04-19T19:53:32.438Z"
 last_activity: 2026-04-19
 progress:
   total_phases: 7
-  completed_phases: 6
+  completed_phases: 7
   total_plans: 31
-  completed_plans: 30
+  completed_plans: 31
   percent: 0
 ---
 
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-04-15)
 
 Phase: 13 (integration-fixes) — EXECUTING
 Plan: 2 of 2
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-04-19
 
 Progress: [░░░░░░░░░░] 0% (v2.0 milestone)
@@ -82,6 +82,7 @@ Progress: [░░░░░░░░░░] 0% (v2.0 milestone)
 | Phase 12 P04 | 4 | 2 tasks | 2 files |
 | Phase 12 P06 | 4 | 2 tasks | 4 files |
 | Phase 13-integration-fixes P01 | 8 | 2 tasks | 6 files |
+| Phase 13-integration-fixes P02 | 583 | 3 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -158,6 +159,8 @@ Recent decisions affecting current work:
 - [Phase 13-01]: is_superadmin exposed in /me response (was on User struct but not serialized)
 - [Phase 13-01]: Builder tab uses roles array check (CURRENT_USER.roles||[]).includes() instead of scalar CURRENT_USER.role ===
 - [Phase 13-01]: DeleteTemplateHandler uses DELETE method and CASCADE via ob_templates FK; frontend upgraded from PUT /updateTemplate/{id}/delete
+- [Phase 13-integration-fixes]: Hire detail view replaces auto-open-first-template in Manager tab for discoverability
+- [Phase 13-integration-fixes]: Photo URL included in _fail_note bundle for autoSaveField and hydrateFieldState photo persistence
 
 ### Pending Todos
 
@@ -180,6 +183,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-19T19:45:22.890Z
-Stopped at: Completed 13-01-PLAN.md
+Last session: 2026-04-19T19:53:32.430Z
+Stopped at: Completed 13-02-PLAN.md
 Resume file: None

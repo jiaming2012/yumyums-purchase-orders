@@ -38,7 +38,7 @@
 - [x] **Phase 10.2: Reactive Sync Framework** — Shared Store with collection-level subscriptions, single write channel (POST /ops), shared JS modules for all tools (completed 2026-04-17)
 - [x] **Phase 11: Onboarding + Users Admin** — Onboarding persistence, user CRUD, role management, and app permissions wired to their respective HTML pages (completed 2026-04-18)
 - [x] **Phase 12: Inventory + Photos + Tile Permissions** — Purchase events, vendor data, receipt ingestion, presigned photo upload, and permission-based tile filtering on index.html (completed 2026-04-18)
-- [ ] **Phase 13: Integration Fixes** — Fix /me response, Builder tab access, onboarding template assignment UI, delete template route, fail card photo persistence (gap closure)
+- [x] **Phase 13: Integration Fixes** — Fix /me response, Builder tab access, onboarding template assignment UI, delete template route, fail card photo persistence (gap closure) (completed 2026-04-19)
 
 ## Phase Details
 
@@ -172,7 +172,7 @@ Plans:
 
 Plans:
 - [x] 13-01-PLAN.md — Fix /me response, Builder tab role check, delete template route
-- [ ] 13-02-PLAN.md — Template assignment UI + fail card photo persistence
+- [x] 13-02-PLAN.md — Template assignment UI + fail card photo persistence
 
 ## Progress
 
@@ -195,4 +195,4 @@ Phases execute in numeric order: 9 → 10 → 10.1 → 10.2 → 11 → 12 → 13
 | 10.2 Reactive Sync Framework | v2.0 | 3/3 | Complete    | 2026-04-17 |
 | 11. Onboarding + Users Admin | v2.0 | 6/6 | Complete    | 2026-04-18 |
 | 12. Inventory + Photos + Tile Permissions | v2.0 | 6/6 | Complete    | 2026-04-18 |
-| 13. Integration Fixes | v2.0 | 1/2 | In Progress|  |
+| 13. Integration Fixes | v2.0 | 2/2 | Complete   | 2026-04-19 |
