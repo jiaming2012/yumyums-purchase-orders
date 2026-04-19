@@ -340,6 +340,12 @@ func main() {
 				r.Get("/presign", photos.PresignGetHandler(spacesPresigner, spacesBucket))
 			})
 
+			// Video endpoints — presigned upload URL + FFmpeg processing trigger
+			r.Route("/videos", func(r chi.Router) {
+				r.Post("/presign", onboarding.VideoPresignHandler(spacesPresigner, spacesBucket, spacesEndpoint))
+				r.Post("/process", onboarding.VideoProcessHandler(spacesPresigner, spacesBucket, spacesEndpoint, pool))
+			})
+
 			// Inventory endpoints — all authenticated
 			r.Route("/inventory", func(r chi.Router) {
 				r.Get("/vendors", inventory.ListVendorsHandler(pool))

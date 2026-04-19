@@ -1,14 +1,18 @@
 package onboarding
 
 import (
+	"context"
 	"encoding/json"
 	"log"
 	"net/http"
 	"slices"
+	"time"
 
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/yumyums/hq/internal/auth"
+	"github.com/yumyums/hq/internal/photos"
 )
 
 // writeJSON sets Content-Type and encodes v as JSON.
@@ -456,5 +460,109 @@ func DeleteTemplateHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+	}
+}
+
+// VideoPresignHandler handles POST /api/v1/videos/presign.
+// Generates a presigned PUT URL for direct browser upload to DO Spaces.
+// Requires admin/manager. Validates content_type against allowed video MIME types.
+func VideoPresignHandler(presigner *s3.PresignClient, bucket, endpoint string) http.HandlerFunc {
+	allowedContentTypes := map[string]bool{
+		"video/mp4":       true,
+		"video/quicktime": true,
+		"video/webm":      true,
+	}
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		if presigner == nil {
+			writeError(w, http.StatusServiceUnavailable, "video_storage_not_configured")
+			return
+		}
+
+		user := auth.UserFromContext(r.Context())
+		if user == nil {
+			writeError(w, http.StatusUnauthorized, "unauthorized")
+			return
+		}
+		if !isManagerOrAdmin(user) {
+			writeError(w, http.StatusForbidden, "forbidden")
+			return
+		}
+
+		var body struct {
+			TemplateID  string `json:"template_id"`
+			PartID      string `json:"part_id"`
+			Filename    string `json:"filename"`
+			ContentType string `json:"content_type"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_body")
+			return
+		}
+		if body.TemplateID == "" || body.PartID == "" || body.Filename == "" || body.ContentType == "" {
+			writeError(w, http.StatusBadRequest, "template_id_part_id_filename_content_type_required")
+			return
+		}
+		if !allowedContentTypes[body.ContentType] {
+			writeError(w, http.StatusBadRequest, "invalid_content_type")
+			return
+		}
+
+		key := "videos/onboarding/" + body.TemplateID + "/" + body.PartID + "/" + body.Filename
+		putURL, err := photos.GeneratePresignedPutURL(r.Context(), presigner, bucket, key, body.ContentType, 30*time.Minute)
+		if err != nil {
+			log.Printf("VideoPresignHandler presign error: %v", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+
+		writeJSON(w, http.StatusOK, map[string]string{
+			"url":        putURL,
+			"object_key": key,
+			"public_url": photos.PublicURL(endpoint, bucket, key),
+		})
+	}
+}
+
+// VideoProcessHandler handles POST /api/v1/videos/process.
+// Triggers FFmpeg conversion and thumbnail extraction in a background goroutine.
+// Returns 202 Accepted immediately. Requires admin/manager.
+func VideoProcessHandler(presigner *s3.PresignClient, bucket, endpoint string, pool *pgxpool.Pool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if presigner == nil {
+			writeError(w, http.StatusServiceUnavailable, "video_storage_not_configured")
+			return
+		}
+
+		user := auth.UserFromContext(r.Context())
+		if user == nil {
+			writeError(w, http.StatusUnauthorized, "unauthorized")
+			return
+		}
+		if !isManagerOrAdmin(user) {
+			writeError(w, http.StatusForbidden, "forbidden")
+			return
+		}
+
+		var body struct {
+			PartID    string `json:"part_id"`
+			ObjectKey string `json:"object_key"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_body")
+			return
+		}
+		if body.PartID == "" || body.ObjectKey == "" {
+			writeError(w, http.StatusBadRequest, "part_id_and_object_key_required")
+			return
+		}
+
+		go func() {
+			if err := processVideo(context.Background(), presigner, bucket, endpoint, pool, body.PartID, body.ObjectKey); err != nil {
+				log.Printf("VideoProcessHandler background error (part %s): %v", body.PartID, err)
+			}
+		}()
+
+		writeJSON(w, http.StatusAccepted, map[string]string{"status": "processing"})
 	}
 }
