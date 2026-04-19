@@ -419,6 +419,7 @@ function showSuccessCheck(){
 function showToast(msg){var t=document.getElementById('toast');t.textContent=msg;t.style.display='block';requestAnimationFrame(function(){t.style.opacity='1'});setTimeout(function(){t.style.opacity='0';setTimeout(function(){t.style.display='none'},300)},2000)}
 
 function formatTime(d){if(!d)return'';var h=d.getHours(),m=d.getMinutes(),ap=h>=12?'p':'a';h=h%12||12;return h+':'+(m<10?'0':'')+m+ap}
+function formatDateTime(d){if(!d)return'';var months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];return months[d.getMonth()]+' '+d.getDate()+', '+formatTime(d)}
 
 function openCamera(onCapture) {
   var inp = document.createElement('input');
@@ -1347,7 +1348,7 @@ function hydrateFieldState(filterFieldIds) {
         subSteps = val.sub_steps;
         val = val.value;
       }
-      var entry = { value: val, answeredBy: getUserName(), answeredAt: new Date(d.answered_at) };
+      var entry = { value: val, answeredBy: d.answered_by_name || getUserName(), answeredAt: new Date(d.answered_at) };
       if (subSteps) entry.sub_steps = subSteps;
       FIELD_RESPONSES[d.field_id] = entry;
     }
@@ -1362,7 +1363,7 @@ function hydrateFieldState(filterFieldIds) {
           subSteps = val.sub_steps;
           val = val.value;
         }
-        var entry = { value: val, answeredBy: getUserName(), answeredAt: new Date(r.answered_at) };
+        var entry = { value: val, answeredBy: r.answered_by_name || r.answeredBy || getUserName(), answeredAt: new Date(r.answered_at) };
         if (subSteps) entry.sub_steps = subSteps;
         FIELD_RESPONSES[r.field_id] = entry;
       }
@@ -1649,7 +1650,7 @@ function renderApprovals() {
     var rejCount = fields.filter(function(f) { return f._pendingReject; }).length;
     return '<div class="approval-card card" data-submission-id="' + submissionId + '">' +
       '<div class="hd"><h1>' + escapeHtml(tplName) + '</h1>' +
-      '<div class="sub">' + escapeHtml(submittedBy) + ' \u00b7 ' + formatTime(new Date(submittedAt)) + '</div></div>' +
+      '<div class="sub">' + escapeHtml(submittedBy) + ' \u00b7 ' + formatDateTime(new Date(submittedAt)) + '</div></div>' +
       itemsHtml +
       '<div class="approval-actions" style="padding:16px;margin-top:16px;background:var(--bg);border-radius:0 0 12px 12px">' +
       '<button class="btn-approve" data-action="approve" data-submission-id="' + submissionId + '">Approve submission</button>' +
@@ -1673,8 +1674,13 @@ function renderChecklistList(today) {
     totalFields += fieldCount;
     totalAnswered += answeredCount;
     const pct = fieldCount ? Math.round(answeredCount / fieldCount * 100) : 0;
-    // Check if already submitted in MY_SUBMISSIONS
-    var submission = MY_SUBMISSIONS ? MY_SUBMISSIONS.find(function(s) { return s.template_id === tpl.id; }) : null;
+    // Check if already submitted TODAY in MY_SUBMISSIONS (ignore stale submissions from prior days)
+    var todayStr = new Date().toISOString().slice(0, 10);
+    var submission = MY_SUBMISSIONS ? MY_SUBMISSIONS.find(function(s) {
+      if (s.template_id !== tpl.id) return false;
+      var subDate = s.submitted_at ? new Date(s.submitted_at).toISOString().slice(0, 10) : '';
+      return subDate === todayStr;
+    }) : null;
     var pendingBadge = submission && (submission.status === 'pending_approval' || submission.status === 'pending') ? '<div class="approval-badge">Pending Approval</div>' : '';
     var submittedBadge = submission && (submission.status === 'submitted' || submission.status === 'approved') ? '<div style="font-size:12px;color:#27ae60;margin-top:4px;font-weight:500">Submitted \u2713</div>' : '';
     return `<div class="row" data-fill-template-id="${tpl.id}" data-template-id="${tpl.id}" style="cursor:pointer"><div style="flex:1"><div class="nm">${escapeHtml(tpl.name)}</div><div class="mt">${secCount} section${secCount !== 1 ? 's' : ''} \u00b7 ${answeredCount}/${fieldCount} items</div><div style="height:4px;background:var(--brd);border-radius:2px;margin-top:6px;overflow:hidden"><div style="height:100%;background:#27ae60;border-radius:2px;width:${pct}%"></div></div>${pendingBadge}${submittedBadge}</div></div>`;
@@ -1695,8 +1701,13 @@ function renderRunner() {
   const visibleFields = (tpl.sections || []).filter(s => isSectionVisible(s)).flatMap(s => (s.fields || []).filter(f => isFieldVisible(f)));
   const answered = visibleFields.filter(f => FIELD_RESPONSES[f.id] !== undefined).length;
   const allFields = visibleFields;
-  // Check submission status BEFORE rendering sections
-  var submission = MY_SUBMISSIONS ? MY_SUBMISSIONS.find(function(s) { return s.template_id === tpl.id; }) : null;
+  // Check submission status BEFORE rendering sections — only today's submissions count
+  var todayStr = new Date().toISOString().slice(0, 10);
+  var submission = MY_SUBMISSIONS ? MY_SUBMISSIONS.find(function(s) {
+    if (s.template_id !== tpl.id) return false;
+    var subDate = s.submitted_at ? new Date(s.submitted_at).toISOString().slice(0, 10) : '';
+    return subDate === todayStr;
+  }) : null;
   var isSubmitted = submission && (submission.status === 'submitted');
   var isPending = submission && (submission.status === 'pending_approval' || submission.status === 'pending');
   fillState.readonly = isSubmitted || isPending;
@@ -1947,7 +1958,7 @@ document.getElementById('fill-body').addEventListener('click', function(e) {
         }
         var rows = history.map(function(s) {
           return '<div class="row"><div><div class="nm">' + escapeHtml(s.template_name || 'Checklist') + '</div>' +
-            '<div class="mt">' + formatTime(new Date(s.submitted_at || s.submittedAt)) + ' \u00b7 ' + escapeHtml(s.status || '') + '</div></div></div>';
+            '<div class="mt">' + formatDateTime(new Date(s.submitted_at || s.submittedAt)) + ' \u00b7 ' + escapeHtml(s.status || '') + '</div></div></div>';
         }).join('');
         container.innerHTML = '<div class="cat">HISTORY</div><div class="card">' + rows + '</div>' +
           '<div style="padding:8px 0;text-align:center"><button data-action="back-to-today" style="background:none;border:none;color:var(--info-tx);font-size:13px;font-weight:500;cursor:pointer;font-family:inherit;min-height:44px">\u2190 Back to today</button></div>';
@@ -2391,11 +2402,19 @@ function show(n) {
 }
 
 function checkBuilderAccess() {
-  if (!CURRENT_USER) return; // Not loaded yet
-  var isManagerPlus = CURRENT_USER.role === 'admin' || CURRENT_USER.role === 'superadmin' || CURRENT_USER.role === 'manager';
+  if (!CURRENT_USER) return;
+  var roles = CURRENT_USER.roles || [];
+  var isAdmin = roles.includes('admin') || roles.includes('superadmin') || CURRENT_USER.is_superadmin;
+  var isManagerPlus = isAdmin || roles.includes('manager');
+  // Approvals tab: manager+ only
   if (!isManagerPlus) {
     var t2 = document.getElementById('t2');
     if (t2) t2.style.display = 'none';
+  }
+  // Builder tab: admin+ only (D-11)
+  if (!isAdmin) {
+    var t3 = document.getElementById('t3');
+    if (t3) t3.style.display = 'none';
   }
 }
 

@@ -647,4 +647,305 @@ test.describe('Loading states', () => {
     await expect(page.locator('#t2')).toContainText('Approvals');
     await expect(page.locator('#t3')).toContainText('Builder');
   });
+
+  test('checklist progress is shared across team members', async ({ page }) => {
+    // Create a team_member user
+    await login(page);
+    const email2 = 'shared-checklist-' + Date.now() + '@yumyums.kitchen';
+    const inviteRes = await page.evaluate(async (email) => {
+      const res = await fetch('/api/v1/users/invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ first_name: 'Shared', last_name: 'Test', email, roles: ['team_member'] })
+      });
+      return res.json();
+    }, email2);
+    const token = inviteRes.invite_path.split('token=')[1];
+    await page.evaluate(async (t) => {
+      await fetch('/api/v1/auth/accept-invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: t, password: 'test456' })
+      });
+    }, token);
+
+    // Re-login as admin (accept-invite overwrites session cookie)
+    await login(page);
+
+    // Create a template scheduled for all 7 days so test works any day
+    const tpl = await apiCall(page, 'POST', 'createTemplate', {
+      name: 'Shared Team Test',
+      sections: [{ title: 'Section 1', order: 0, condition: null, fields: [
+        { type: 'checkbox', label: 'Team item 1', required: false, order: 0, config: null, fail_trigger: null, condition: null }
+      ]}],
+      schedules: [{ active_days: [0,1,2,3,4,5,6] }],
+      requires_approval: false,
+      assignments: [
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' },
+        { assignee_type: 'role', assignee_id: 'superadmin', assignment_role: 'assignee' },
+        { assignee_type: 'role', assignee_id: 'team_member', assignment_role: 'assignee' }
+      ]
+    });
+    expect(tpl.template_id || tpl.id).toBeTruthy();
+
+    // Login as admin, open workflows, fill in the checklist field
+    await page.goto(BASE + '/workflows.html');
+    await page.waitForSelector('#checklist-list .row');
+    // Find and open the Shared Team Test checklist
+    await page.locator('#checklist-list .row', { hasText: 'Shared Team Test' }).first().click();
+    await page.waitForSelector('#fill-body .fill-field');
+    // Check the checkbox
+    const firstCheckbox = page.locator('.check-btn').first();
+    await firstCheckbox.click();
+    await page.waitForTimeout(2000);
+    const progressText = await page.locator('.progress-line').textContent();
+    const match = progressText.match(/(\d+) of (\d+)/);
+    const adminAnswered = parseInt(match[1]);
+    expect(adminAnswered).toBe(1);
+
+    // Now login as the team_member
+    await page.goto(BASE + '/login.html');
+    await login(page, email2, 'test456');
+    await page.goto(BASE + '/workflows.html');
+    await page.waitForSelector('#checklist-list .row');
+    await page.locator('#checklist-list .row', { hasText: 'Shared Team Test' }).first().click();
+    await page.waitForSelector('#fill-body .fill-field');
+    // The team_member should see the same progress — checklist is a team object
+    const progressText2 = await page.locator('.progress-line').textContent();
+    const match2 = progressText2.match(/(\d+) of (\d+)/);
+    const memberAnswered = parseInt(match2[1]);
+    expect(memberAnswered).toBe(adminAnswered); // <-- BUG: currently 0 because drafts filtered per-user
+  });
+
+  test('field attribution shows who actually checked it, not the viewer', async ({ page }) => {
+    // Create a team_member user
+    await login(page);
+    const email2 = 'attrib-test-' + Date.now() + '@yumyums.kitchen';
+    const inviteRes = await page.evaluate(async (email) => {
+      const res = await fetch('/api/v1/users/invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ first_name: 'AttribTest', last_name: 'User', email, roles: ['team_member'] })
+      });
+      return res.json();
+    }, email2);
+    const token = inviteRes.invite_path.split('token=')[1];
+    await page.evaluate(async (t) => {
+      await fetch('/api/v1/auth/accept-invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: t, password: 'test456' })
+      });
+    }, token);
+
+    // Re-login as admin and create a shared template
+    await login(page);
+    const tpl = await apiCall(page, 'POST', 'createTemplate', {
+      name: 'Attribution Test',
+      sections: [{ title: 'Items', order: 0, condition: null, fields: [
+        { type: 'checkbox', label: 'Shared item', required: false, order: 0, config: null, fail_trigger: null, condition: null }
+      ]}],
+      schedules: [{ active_days: [0,1,2,3,4,5,6] }],
+      requires_approval: false,
+      assignments: [
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' },
+        { assignee_type: 'role', assignee_id: 'superadmin', assignment_role: 'assignee' },
+        { assignee_type: 'role', assignee_id: 'team_member', assignment_role: 'assignee' }
+      ]
+    });
+
+    // Login as team_member and check the item
+    await login(page, email2, 'test456');
+    await page.goto(BASE + '/workflows.html');
+    await page.waitForSelector('#checklist-list .row');
+    await page.locator('#checklist-list .row', { hasText: 'Attribution Test' }).first().click();
+    await page.waitForSelector('#fill-body .fill-field');
+    await page.locator('.check-btn').first().click();
+    await page.waitForTimeout(2000);
+    // Verify the attribution shows the team_member's name
+    const attrib1 = await page.locator('.fill-attribution').first().textContent();
+    expect(attrib1).toContain('AttribTest U.');
+
+    // Now login as admin and view the same checklist
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await page.waitForSelector('#checklist-list .row');
+    await page.locator('#checklist-list .row', { hasText: 'Attribution Test' }).first().click();
+    await page.waitForSelector('#fill-body .fill-field');
+    // The attribution should show AttribTest's name, NOT the admin's name
+    const attrib2 = await page.locator('.fill-attribution').first().textContent();
+    expect(attrib2).toContain('AttribTest U.'); // <-- BUG: was showing admin's name
+    expect(attrib2).not.toContain('Jamal');
+  });
+
+  test('re-checking a field updates attribution to the new user', async ({ page, browser }) => {
+    // Create a team_member user
+    await login(page);
+    const email2 = 'recheck-' + Date.now() + '@yumyums.kitchen';
+    const inviteRes = await page.evaluate(async (email) => {
+      const res = await fetch('/api/v1/users/invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ first_name: 'Recheck', last_name: 'User', email, roles: ['team_member'] })
+      });
+      return res.json();
+    }, email2);
+    const token = inviteRes.invite_path.split('token=')[1];
+    await page.evaluate(async (t) => {
+      await fetch('/api/v1/auth/accept-invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: t, password: 'test456' })
+      });
+    }, token);
+
+    // Re-login as admin, create template
+    await login(page);
+    await apiCall(page, 'POST', 'createTemplate', {
+      name: 'Recheck Attribution Test',
+      sections: [{ title: 'Items', order: 0, condition: null, fields: [
+        { type: 'checkbox', label: 'Recheck item', required: false, order: 0, config: null, fail_trigger: null, condition: null }
+      ]}],
+      schedules: [{ active_days: [0,1,2,3,4,5,6] }],
+      requires_approval: false,
+      assignments: [
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' },
+        { assignee_type: 'role', assignee_id: 'superadmin', assignment_role: 'assignee' },
+        { assignee_type: 'role', assignee_id: 'team_member', assignment_role: 'assignee' }
+      ]
+    });
+
+    // Admin checks the item
+    await page.goto(BASE + '/workflows.html');
+    await page.waitForSelector('#checklist-list .row');
+    await page.locator('#checklist-list .row', { hasText: 'Recheck Attribution Test' }).first().click();
+    await page.waitForSelector('#fill-body .fill-field');
+    await page.locator('.check-btn').first().click();
+    await page.waitForTimeout(2000);
+    // Verify shows admin's name
+    const attrib1 = await page.locator('.fill-attribution').first().textContent();
+    expect(attrib1).toContain('Jamal');
+
+    // Login as team_member on the SAME browser context
+    await login(page, email2, 'test456');
+    await page.goto(BASE + '/workflows.html');
+    await page.waitForSelector('#checklist-list .row');
+    await page.locator('#checklist-list .row', { hasText: 'Recheck Attribution Test' }).first().click();
+    await page.waitForSelector('#fill-body .fill-field');
+
+    // Field should show Jamal's attribution (from server data)
+    const attribBefore = await page.locator('.fill-attribution').first().textContent();
+    expect(attribBefore).toContain('Jamal');
+
+    // Team_member unchecks then re-checks the same field
+    await page.locator('.check-btn').first().click(); // uncheck
+    await page.waitForTimeout(500);
+    await page.locator('.check-btn').first().click(); // re-check
+    await page.waitForTimeout(500);
+
+    // Attribution should now show Recheck U., NOT Jamal
+    const attribAfter = await page.locator('.fill-attribution').first().textContent();
+    expect(attribAfter).toContain('Recheck U.');
+    expect(attribAfter).not.toContain('Jamal');
+  });
+
+  test('yes/no field attribution updates when different user answers', async ({ page }) => {
+    // Create team_member
+    await login(page);
+    const email2 = 'yn-attrib-' + Date.now() + '@yumyums.kitchen';
+    const inviteRes = await page.evaluate(async (email) => {
+      const res = await fetch('/api/v1/users/invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ first_name: 'YNTest', last_name: 'User', email, roles: ['team_member'] })
+      });
+      return res.json();
+    }, email2);
+    const token = inviteRes.invite_path.split('token=')[1];
+    await page.evaluate(async (t) => {
+      await fetch('/api/v1/auth/accept-invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: t, password: 'test456' })
+      });
+    }, token);
+
+    // Create template with yes/no field
+    await login(page);
+    await apiCall(page, 'POST', 'createTemplate', {
+      name: 'YN Attribution Test',
+      sections: [{ title: 'Items', order: 0, condition: null, fields: [
+        { type: 'yes_no', label: 'Equipment on?', required: false, order: 0, config: null, fail_trigger: null, condition: null }
+      ]}],
+      schedules: [{ active_days: [0,1,2,3,4,5,6] }],
+      requires_approval: false,
+      assignments: [
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' },
+        { assignee_type: 'role', assignee_id: 'superadmin', assignment_role: 'assignee' },
+        { assignee_type: 'role', assignee_id: 'team_member', assignment_role: 'assignee' }
+      ]
+    });
+
+    // Admin answers "Yes"
+    await page.goto(BASE + '/workflows.html');
+    await page.waitForSelector('#checklist-list .row');
+    await page.locator('#checklist-list .row', { hasText: 'YN Attribution Test' }).first().click();
+    await page.waitForSelector('#fill-body .fill-field');
+    await page.locator('[data-action="set-yes"]').first().click();
+    await page.waitForTimeout(2000);
+
+    // Login as team_member, open same checklist
+    await login(page, email2, 'test456');
+    await page.goto(BASE + '/workflows.html');
+    await page.waitForSelector('#checklist-list .row');
+    await page.locator('#checklist-list .row', { hasText: 'YN Attribution Test' }).first().click();
+    await page.waitForSelector('#fill-body .fill-field');
+
+    // Should show Jamal's attribution from server data
+    const attribBefore = await page.locator('.fill-attribution').first().textContent();
+    expect(attribBefore).toContain('Jamal');
+
+    // Team_member clicks "No" to update the field
+    await page.locator('[data-action="set-no"]').first().click();
+    await page.waitForTimeout(500);
+
+    // Attribution should now show YNTest, NOT Jamal
+    const attribAfter = await page.locator('.fill-attribution').first().textContent();
+    expect(attribAfter).toContain('YNTest U.');
+    expect(attribAfter).not.toContain('Jamal');
+  });
+
+  test('team_member cannot see Builder tab', async ({ page }) => {
+    // Create a team_member user via admin
+    await login(page);
+    const uniqueEmail = 'builder-test-' + Date.now() + '@yumyums.kitchen';
+    const inviteRes = await page.evaluate(async (email) => {
+      const res = await fetch('/api/v1/users/invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ first_name: 'BuilderTest', last_name: 'User', email, roles: ['team_member'] })
+      });
+      return res.json();
+    }, uniqueEmail);
+    // Accept invite
+    const token = inviteRes.invite_path.split('token=')[1];
+    await page.evaluate(async (t) => {
+      await fetch('/api/v1/auth/accept-invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: t, password: 'test456' })
+      });
+    }, token);
+
+    // Login as team_member
+    await login(page, uniqueEmail, 'test456');
+    await page.goto(BASE + '/workflows.html');
+    await page.waitForSelector('#t1');
+    await page.waitForTimeout(500); // wait for checkBuilderAccess
+
+    // Builder tab should NOT be visible
+    await expect(page.locator('#t3')).toBeHidden();
+    // My Checklists should still be visible
+    await expect(page.locator('#t1')).toBeVisible();
+  });
 });

@@ -556,12 +556,16 @@ func saveResponse(ctx context.Context, pool *pgxpool.Pool, fieldID string, value
 
 // myDrafts returns draft responses (submission_id IS NULL) for the given user.
 func myDrafts(ctx context.Context, pool *pgxpool.Pool, userID string) ([]FieldResponse, error) {
+	// Drafts are shared across the team — checklists are team objects, not per-user.
+	// Return all unsubmitted responses so every crew member sees the same progress.
 	rows, err := pool.Query(ctx,
-		`SELECT id, field_id, value, answered_by, answered_at
-		 FROM submission_responses
-		 WHERE submission_id IS NULL AND answered_by = $1
-		 ORDER BY answered_at DESC`,
-		userID,
+		`SELECT sr.id, sr.field_id, sr.value, sr.answered_by,
+		        COALESCE(NULLIF(u.nickname, ''), u.first_name || ' ' || LEFT(u.last_name, 1) || '.') AS answered_by_name,
+		        sr.answered_at
+		 FROM submission_responses sr
+		 LEFT JOIN users u ON u.id = sr.answered_by
+		 WHERE sr.submission_id IS NULL
+		 ORDER BY sr.answered_at DESC`,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("list drafts: %w", err)
@@ -572,7 +576,7 @@ func myDrafts(ctx context.Context, pool *pgxpool.Pool, userID string) ([]FieldRe
 	for rows.Next() {
 		var r FieldResponse
 		var valueRaw []byte
-		if err := rows.Scan(&r.ID, &r.FieldID, &valueRaw, &r.AnsweredBy, &r.AnsweredAt); err != nil {
+		if err := rows.Scan(&r.ID, &r.FieldID, &valueRaw, &r.AnsweredBy, &r.AnsweredByName, &r.AnsweredAt); err != nil {
 			return nil, fmt.Errorf("scan draft: %w", err)
 		}
 		r.Value = json.RawMessage(valueRaw)
@@ -644,15 +648,14 @@ func myChecklists(ctx context.Context, pool *pgxpool.Pool, userID string, client
 		}
 	}
 
-	// Today's submissions for this user
+	// Today's submissions — checklists are team objects, all members see all submissions
 	subRows, err := pool.Query(ctx,
 		`SELECT s.id, s.template_id, t.name, s.template_snapshot, s.submitted_by,
 		        s.submitted_at, s.status, s.reviewed_by, s.reviewed_at, s.idempotency_key
 		 FROM checklist_submissions s
 		 JOIN checklist_templates t ON t.id = s.template_id
-		 WHERE s.submitted_by = $1 AND s.submitted_at >= current_date
+		 WHERE s.submitted_at >= current_date
 		 ORDER BY s.submitted_at DESC`,
-		userID,
 	)
 	if err != nil {
 		return nil, nil, fmt.Errorf("list submissions: %w", err)

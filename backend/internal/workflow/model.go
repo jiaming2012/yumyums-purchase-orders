@@ -74,12 +74,13 @@ type Submission struct {
 }
 
 type FieldResponse struct {
-	ID           string          `json:"id"`
-	SubmissionID *string         `json:"submission_id,omitempty"`
-	FieldID      string          `json:"field_id"`
-	Value        json.RawMessage `json:"value"`
-	AnsweredBy   string          `json:"answered_by"`
-	AnsweredAt   time.Time       `json:"answered_at"`
+	ID             string          `json:"id"`
+	SubmissionID   *string         `json:"submission_id,omitempty"`
+	FieldID        string          `json:"field_id"`
+	Value          json.RawMessage `json:"value"`
+	AnsweredBy     string          `json:"answered_by"`
+	AnsweredByName string          `json:"answered_by_name,omitempty"`
+	AnsweredAt     time.Time       `json:"answered_at"`
 }
 
 type FailNote struct {

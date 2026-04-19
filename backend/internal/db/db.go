@@ -47,13 +47,7 @@ func Migrate(pool *pgxpool.Pool) error {
 }
 
 func SeedHQApps(ctx context.Context, pool *pgxpool.Pool) error {
-	var count int
-	if err := pool.QueryRow(ctx, "SELECT COUNT(*) FROM hq_apps").Scan(&count); err != nil {
-		return fmt.Errorf("count hq_apps: %w", err)
-	}
-	if count > 0 {
-		return nil
-	}
+	// Upsert all apps — runs every startup so new apps get added to existing databases
 	_, err := pool.Exec(ctx, `
 		INSERT INTO hq_apps (slug, name, icon) VALUES
 		  ('purchasing', 'Purchasing', '🛒'),
@@ -62,11 +56,12 @@ func SeedHQApps(ctx context.Context, pool *pgxpool.Pool) error {
 		  ('hiring', 'Hiring', '👥'),
 		  ('bi', 'BI', '📊'),
 		  ('users', 'Users', '🔐'),
-		  ('operations', 'Operations', '📋')
+		  ('operations', 'Operations', '📋'),
+		  ('onboarding', 'Onboarding', '🎓'),
+		  ('inventory', 'Inventory', '📦')
 		ON CONFLICT (slug) DO NOTHING`)
 	if err != nil {
 		return fmt.Errorf("seed hq_apps: %w", err)
 	}
-	log.Println("Seeded 7 hq_apps rows")
 	return nil
 }

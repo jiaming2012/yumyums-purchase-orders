@@ -339,10 +339,12 @@ function enqueueSyncToast(userId, userName, fieldIds) {
 
 function flushSyncToast() {
   const entries = Object.values(_toastQueue);
+  _toastQueue = {};
   if (!entries.length) return;
+  // Only show sync toast when inside a checklist detail view
+  if (typeof fillState !== 'undefined' && !fillState.activeTemplate) return;
   const msg = entries.map(e => e.count + ' field' + (e.count > 1 ? 's' : '') + ' updated by ' + e.name).join(', ');
   showSyncToast(msg);
-  _toastQueue = {};
 }
 
 function showSyncToast(msg) {
