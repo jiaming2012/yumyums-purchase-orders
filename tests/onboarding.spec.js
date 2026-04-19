@@ -628,6 +628,46 @@ test.describe('Manager tab', () => {
     }
   });
 
+  test('video part checked state returned by hireTraining API', async ({ page }) => {
+    await login(page);
+    const templates = await obApiCall(page, 'GET', 'templates');
+    const kitchenTemplate = templates.find(t => t.name === 'Kitchen Basics Training');
+    const fullTemplate = await obApiCall(page, 'GET', 'templates/' + kitchenTemplate.id);
+    const sec1 = fullTemplate.sections.find(s => s.title === 'Safety & Hygiene');
+    const sec2 = fullTemplate.sections.find(s => s.title === 'Equipment Training');
+    const me = await page.evaluate(async () => (await (await fetch('/api/v1/me')).json()));
+
+    await obApiCall(page, 'POST', 'assignTemplate', { hire_id: me.id, template_id: kitchenTemplate.id });
+
+    // Complete section 1 + sign off to unlock section 2
+    for (const item of sec1.items) {
+      if (item.type === 'checkbox') {
+        await obApiCall(page, 'POST', 'saveProgress', { item_id: item.id, progress_type: 'item', checked: true });
+      }
+    }
+    await obApiCall(page, 'POST', 'signOff', { section_id: sec1.id, hire_id: me.id, notes: '', rating: 'ready' });
+
+    // Check all video parts in section 2
+    for (const item of sec2.items) {
+      if (item.type === 'video_series') {
+        for (const part of (item.video_parts || [])) {
+          await obApiCall(page, 'POST', 'saveProgress', { item_id: part.id, progress_type: 'video_part', checked: true });
+        }
+      } else if (item.type === 'checkbox') {
+        await obApiCall(page, 'POST', 'saveProgress', { item_id: item.id, progress_type: 'item', checked: true });
+      }
+    }
+
+    // Fetch hireTraining — all video parts should be checked
+    const training = await obApiCall(page, 'GET', 'hireTraining/' + me.id + '?templateId=' + kitchenTemplate.id);
+    const equipSec = training.sections.find(s => s.title === 'Equipment Training');
+    const grillOp = equipSec.items.find(i => i.label === 'Grill Operation');
+
+    // ALL 3 video parts should be checked — this is the bug
+    const checkedParts = grillOp.video_parts.filter(p => p.checked);
+    expect(checkedParts.length).toBe(grillOp.video_parts.length);
+  });
+
   test('backend rejects progress updates for completed sections awaiting sign-off', async ({ page }) => {
     await login(page);
     const templates = await obApiCall(page, 'GET', 'templates');

@@ -336,8 +336,10 @@ func GetHireTraining(ctx context.Context, pool *pgxpool.Pool, hireID, templateID
 	progressRows, err := pool.Query(ctx, `
 		SELECT op.item_id, op.progress_type, op.checked_at
 		FROM ob_progress op
-		JOIN ob_items oi ON oi.id = op.item_id
-		JOIN ob_sections os ON os.id = oi.section_id
+		LEFT JOIN ob_items oi ON oi.id = op.item_id
+		LEFT JOIN ob_video_parts vp ON vp.id = op.item_id
+		LEFT JOIN ob_items vp_parent ON vp_parent.id = vp.item_id
+		JOIN ob_sections os ON os.id = COALESCE(oi.section_id, vp_parent.section_id)
 		WHERE op.hire_id = $1 AND os.template_id = $2
 	`, hireID, templateID)
 	if err != nil {
