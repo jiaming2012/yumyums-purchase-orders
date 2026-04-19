@@ -387,7 +387,7 @@ test.describe('Manager tab', () => {
       first_name: 'TestHire',
       last_name: 'Mgr',
       email: 'test.hire.mgr.' + Date.now() + '@yumyums.kitchen',
-      role: 'team_member',
+      roles: ['team_member'],
     });
     expect(inviteResult.user).toBeTruthy();
     const hireId = inviteResult.user.id;
@@ -425,7 +425,7 @@ test.describe('Manager tab', () => {
       first_name: 'SignOff',
       last_name: 'TestUser',
       email: 'signoff.test.' + Date.now() + '@yumyums.kitchen',
-      role: 'team_member',
+      roles: ['team_member'],
     });
     expect(inviteResult.user).toBeTruthy();
     const hireId = inviteResult.user.id;
@@ -573,8 +573,8 @@ test.describe('Manager tab', () => {
     await page.goto('/onboarding.html');
     await waitForMyList(page);
 
-    // Open training
-    await page.locator('[data-action="open-my-training"]').first().click();
+    // Open Kitchen Basics Training specifically
+    await page.locator('[data-action="open-my-training"]', { hasText: 'Kitchen Basics' }).first().click();
     await waitForTrainingRunner(page);
 
     // Signed-off section should show attribution text

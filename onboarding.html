@@ -326,24 +326,21 @@ function renderSections(sections, hireId, readOnly) {
           }
         });
         html += '</div>';
-        // Sign-off actions
-        if (readOnly && state !== 'signed_off' && sec.requires_sign_off && (state === 'complete' || state === 'active')) {
-          // Check if current user has sign-off permission for this section
-          var canSignOff = true;
-          if (sec.sign_off_roles && sec.sign_off_roles.length > 0) {
-            var userRoles = (CURRENT_USER && CURRENT_USER.roles) || [];
-            canSignOff = CURRENT_USER.is_superadmin || sec.sign_off_roles.some(function(r) { return userRoles.includes(r); });
-          }
-          if (canSignOff) {
-            var sfKey = hireId + '_' + sec.id;
-            if (SIGNOFF_FORM[sfKey]) {
-              html += renderSignOffForm(sec, hireId);
-            } else {
-              if (state === 'complete') {
-                html += '<div class="sec-actions"><button class="btn-approve" data-action="show-signoff-form" data-sec-id="'+sec.id+'" data-hire-id="'+hireId+'">Sign Off Section</button></div>';
-              }
-            }
-          }
+      }
+    }
+    // Sign-off actions — OUTSIDE the expandable area so always visible
+    if (readOnly && state !== 'signed_off' && sec.requires_sign_off && state === 'complete') {
+      var canSignOff = true;
+      if (sec.sign_off_roles && sec.sign_off_roles.length > 0) {
+        var userRoles = (CURRENT_USER && CURRENT_USER.roles) || [];
+        canSignOff = CURRENT_USER.is_superadmin || sec.sign_off_roles.some(function(r) { return userRoles.includes(r); });
+      }
+      if (canSignOff) {
+        var sfKey = hireId + '_' + sec.id;
+        if (SIGNOFF_FORM[sfKey]) {
+          html += renderSignOffForm(sec, hireId);
+        } else {
+          html += '<div class="sec-actions"><button class="btn-approve" data-action="show-signoff-form" data-sec-id="'+sec.id+'" data-hire-id="'+hireId+'">Sign Off Section</button></div>';
         }
       }
     }
