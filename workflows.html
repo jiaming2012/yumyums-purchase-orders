@@ -1529,17 +1529,75 @@ function handlePhotoCaptureClick(fldId) {
 function handleFailPhotoCaptureClick(fldId) {
   openCamera(function(file) {
     var objectURL = URL.createObjectURL(file);
-    if (!FAIL_NOTES[fldId]) FAIL_NOTES[fldId] = { note: '', severity: '' };
-    var oldPhoto = FAIL_NOTES[fldId].photo;
-    if (oldPhoto && oldPhoto.startsWith('blob:') && oldPhoto !== objectURL) URL.revokeObjectURL(oldPhoto);
-    FAIL_NOTES[fldId].photo = objectURL;
-    var failCard = document.querySelector('.fail-card[data-fld-id="' + fldId + '"]');
-    var tplField = fillState.activeTemplate.sections.flatMap(function(s){return s.fields}).find(function(f){return f.id===fldId});
-    if (failCard && tplField) {
-      var tmp = document.createElement('div');
-      tmp.innerHTML = renderFailCard(tplField, FAIL_NOTES[fldId]);
-      failCard.replaceWith(tmp.firstChild);
-    }
+    showPhotoPreview(objectURL, function() {
+      // User confirmed — upload via presigned PUT URL
+      var failCard = document.querySelector('.fail-card[data-fld-id="' + fldId + '"]');
+      var photoArea = failCard ? failCard.querySelector('[data-action="fail-photo-capture"], .photo-thumb-wrap, .photo-uploading-wrap') : null;
+      if (photoArea) {
+        var wrap = document.createElement('div');
+        wrap.className = 'photo-uploading-wrap';
+        wrap.innerHTML = '<div class="photo-uploading"><div class="photo-spinner"></div>Uploading...</div>';
+        photoArea.replaceWith(wrap);
+        photoArea = wrap;
+      }
+      var tpl = fillState.activeTemplate;
+      var tplId = tpl ? tpl.id : 'unknown';
+      var filename = 'fail-' + fldId + '.jpg';
+      fetch('/api/v1/photos/presign', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path_prefix: 'checklists', id: tplId, filename: filename })
+      }).then(function(r) {
+        if (r.status === 401) { location.href = 'login.html'; throw new Error('unauthorized'); }
+        if (!r.ok) throw new Error('presign failed: ' + r.status);
+        return r.json();
+      })
+      .then(function(presignResp) {
+        return fetch(presignResp.url, {
+          method: 'PUT',
+          body: file,
+          headers: { 'Content-Type': 'image/jpeg' }
+        }).then(function(putResp) {
+          if (!putResp.ok) throw new Error('PUT failed: ' + putResp.status);
+          return presignResp.public_url;
+        });
+      })
+      .then(function(publicUrl) {
+        URL.revokeObjectURL(objectURL);
+        if (!FAIL_NOTES[fldId]) FAIL_NOTES[fldId] = { note: '', severity: '' };
+        var oldPhoto = FAIL_NOTES[fldId].photo;
+        if (oldPhoto && oldPhoto.startsWith('blob:')) URL.revokeObjectURL(oldPhoto);
+        FAIL_NOTES[fldId].photo = publicUrl;
+        // Re-render fail card with new photo
+        var tplField = fillState.activeTemplate.sections.flatMap(function(s){return s.fields}).find(function(f){return f.id===fldId});
+        var currentCard = document.querySelector('.fail-card[data-fld-id="' + fldId + '"]');
+        if (currentCard && tplField) {
+          var tmp = document.createElement('div');
+          tmp.innerHTML = renderFailCard(tplField, FAIL_NOTES[fldId]);
+          currentCard.replaceWith(tmp.firstChild);
+        }
+        // Persist fail note with photo URL via autoSaveField
+        autoSaveField(fldId, FIELD_RESPONSES[fldId] ? FIELD_RESPONSES[fldId].value || FIELD_RESPONSES[fldId] : '');
+      })
+      .catch(function(err) {
+        console.error('Fail photo upload failed:', err);
+        URL.revokeObjectURL(objectURL);
+        // Re-render fail card to show retry button
+        if (!FAIL_NOTES[fldId]) FAIL_NOTES[fldId] = { note: '', severity: '' };
+        var tplField = fillState.activeTemplate.sections.flatMap(function(s){return s.fields}).find(function(f){return f.id===fldId});
+        var currentCard = document.querySelector('.fail-card[data-fld-id="' + fldId + '"]');
+        if (currentCard && tplField) {
+          var tmp = document.createElement('div');
+          tmp.innerHTML = renderFailCard(tplField, FAIL_NOTES[fldId]);
+          currentCard.replaceWith(tmp.firstChild);
+        }
+      });
+    }, function() {
+      // User retook — revoke old blob and re-open camera
+      URL.revokeObjectURL(objectURL);
+      handleFailPhotoCaptureClick(fldId);
+    });
   });
 }
 
