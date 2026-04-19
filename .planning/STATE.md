@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v2.0
-milestone_name: Backend
-status: verifying
-stopped_at: Completed 13-02-PLAN.md
-last_updated: "2026-04-19T19:53:32.438Z"
+milestone: v2.1
+milestone_name: Onboarding Video Upgrade
+status: executing
+stopped_at: Completed 01-02-PLAN.md
+last_updated: "2026-04-19T21:50:23.051Z"
 last_activity: 2026-04-19
 progress:
-  total_phases: 7
-  completed_phases: 7
-  total_plans: 31
-  completed_plans: 31
+  total_phases: 2
+  completed_phases: 1
+  total_plans: 6
+  completed_plans: 4
   percent: 0
 ---
 
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-15)
 
 **Core value:** Operational tools that let the owner manage crew workflows and training from one mobile app — with accountability and smart conditions.
-**Current focus:** Phase 13 — integration-fixes
+**Current focus:** Phase 01 — onboarding-video-upgrade
 
 ## Current Position
 
-Phase: 13 (integration-fixes) — EXECUTING
-Plan: 2 of 2
-Status: Phase complete — ready for verification
+Phase: 01 (onboarding-video-upgrade) — EXECUTING
+Plan: 2 of 3
+Status: Ready to execute
 Last activity: 2026-04-19
 
 Progress: [░░░░░░░░░░] 0% (v2.0 milestone)
@@ -83,6 +83,7 @@ Progress: [░░░░░░░░░░] 0% (v2.0 milestone)
 | Phase 12 P06 | 4 | 2 tasks | 4 files |
 | Phase 13-integration-fixes P01 | 8 | 2 tasks | 6 files |
 | Phase 13-integration-fixes P02 | 583 | 3 tasks | 4 files |
+| Phase 01-onboarding-video-upgrade P02 | 2 | 1 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -90,6 +91,7 @@ Progress: [░░░░░░░░░░] 0% (v2.0 milestone)
 
 - Phase 10.1 inserted after Phase 10: Cross-Device State Sync (URGENT)
 - Phase 10.2 inserted after Phase 10.1: Reactive Sync Framework (URGENT) — shared Store + single write channel before Phase 11
+- v2.1 milestone started: Onboarding Video Upgrade — Phase 1 added
 
 ### Decisions
 
@@ -161,6 +163,8 @@ Recent decisions affecting current work:
 - [Phase 13-01]: DeleteTemplateHandler uses DELETE method and CASCADE via ob_templates FK; frontend upgraded from PUT /updateTemplate/{id}/delete
 - [Phase 13-integration-fixes]: Hire detail view replaces auto-open-first-template in Manager tab for discoverability
 - [Phase 13-integration-fixes]: Photo URL included in _fail_note bundle for autoSaveField and hydrateFieldState photo persistence
+- [Phase 01-02]: uploadVideoFile uses XHR not fetch — only XHR exposes upload.progress events for progress bar
+- [Phase 01-02]: Builder change event listener added for file inputs and radios (change not click) alongside existing click delegation
 
 ### Pending Todos
 
@@ -183,6 +187,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-19T19:53:32.430Z
-Stopped at: Completed 13-02-PLAN.md
+Last session: 2026-04-19T21:50:23.043Z
+Stopped at: Completed 01-02-PLAN.md
 Resume file: None

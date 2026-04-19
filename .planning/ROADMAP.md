@@ -66,5 +66,5 @@ _Full phase details archived to [milestones/v2.0-ROADMAP.md](milestones/v2.0-ROA
 
 Plans:
 - [ ] 01-01-PLAN.md — Backend: migration, video presign, FFmpeg processing, watch progress API
-- [ ] 01-02-PLAN.md — Builder UI: upload/URL toggle, XHR progress bar, thumbnail override
+- [x] 01-02-PLAN.md — Builder UI: upload/URL toggle, XHR progress bar, thumbnail override
 - [ ] 01-03-PLAN.md — Runner UI: inline video player, seeking restriction, watch enforcement
