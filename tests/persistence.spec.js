@@ -903,4 +903,274 @@ test.describe('Persistence', () => {
     expect(imgSrc).not.toMatch(/^blob:/);
     expect(imgSrc).toBe(fakePublicUrl);
   });
+
+  // --- Video watch progress persistence ---
+
+  test('video max_watched_time survives back-to-list and reopen', async ({ page }) => {
+    // Use the seeded Kitchen Basics Training template which has video parts.
+    // This test verifies max_watched_time is persisted and restored via the API round-trip.
+    await login(page);
+    const me = await page.evaluate(async () => {
+      const res = await fetch('/api/v1/me');
+      if (!res.ok) return null;
+      return res.json();
+    });
+
+    // Get the Kitchen Basics Training template
+    const templates = await page.evaluate(async () => {
+      const res = await fetch('/api/v1/onboarding/templates');
+      if (!res.ok) return [];
+      return res.json();
+    });
+    const kitchenTemplate = templates.find(t => t.name === 'Kitchen Basics Training');
+    expect(kitchenTemplate).toBeTruthy();
+
+    // Assign the template (idempotent)
+    await page.evaluate(async ([hireId, templateId]) => {
+      await fetch('/api/v1/onboarding/assignTemplate', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hire_id: hireId, template_id: templateId }),
+      });
+    }, [me.id, kitchenTemplate.id]);
+
+    // Get training state to find a video part
+    const training = await page.evaluate(async ([hireId, templateId]) => {
+      const res = await fetch('/api/v1/onboarding/hireTraining/' + hireId + '?templateId=' + templateId);
+      if (!res.ok) return null;
+      return res.json();
+    }, [me.id, kitchenTemplate.id]);
+
+    // Find first video part in any section
+    let videoPartId = null;
+    for (const sp of training.sections) {
+      const sec = sp.section || sp;
+      const items = sec.items || [];
+      for (const item of items) {
+        if (item.type === 'video_series' && item.video_parts && item.video_parts.length > 0) {
+          videoPartId = item.video_parts[0].id;
+          break;
+        }
+      }
+      if (videoPartId) break;
+    }
+    expect(videoPartId).toBeTruthy();
+
+    // Save a video_watch_position progress row (simulates watching 30 seconds and pausing)
+    const savedMaxWatched = 30.0;
+    await page.evaluate(async ([partId, maxWatched]) => {
+      await fetch('/api/v1/onboarding/saveProgress', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ item_id: partId, progress_type: 'video_watch_position', checked: true, max_watched_time: maxWatched }),
+      });
+    }, [videoPartId, savedMaxWatched]);
+
+    // Re-fetch the training state to verify max_watched_time is persisted (round-trip via API)
+    const trainingAfter = await page.evaluate(async ([hireId, templateId]) => {
+      const res = await fetch('/api/v1/onboarding/hireTraining/' + hireId + '?templateId=' + templateId);
+      if (!res.ok) return null;
+      return res.json();
+    }, [me.id, kitchenTemplate.id]);
+
+    // Find the same video part in the re-fetched data
+    let videoPartAfter = null;
+    for (const sp of trainingAfter.sections) {
+      const sec = sp.section || sp;
+      const items = sec.items || [];
+      for (const item of items) {
+        if (item.type === 'video_series') {
+          const found = (item.video_parts || []).find(vp => vp.id === videoPartId);
+          if (found) { videoPartAfter = found; break; }
+        }
+      }
+      if (videoPartAfter) break;
+    }
+    expect(videoPartAfter).toBeTruthy();
+
+    // max_watched_time survives the round-trip (back-to-list and reopen via API)
+    expect(videoPartAfter.max_watched_time).toBeGreaterThanOrEqual(savedMaxWatched);
+    // max_watched_time must be a positive number
+    expect(videoPartAfter.max_watched_time).toBeGreaterThan(0);
+  });
+
+  test('video_watch_position progress does not mark section complete', async ({ page }) => {
+    await login(page);
+    const me = await page.evaluate(async () => {
+      const res = await fetch('/api/v1/me');
+      if (!res.ok) return null;
+      return res.json();
+    });
+
+    // Get the Kitchen Basics Training template
+    const templates = await page.evaluate(async () => {
+      const res = await fetch('/api/v1/onboarding/templates');
+      if (!res.ok) return [];
+      return res.json();
+    });
+    const kitchenTemplate = templates.find(t => t.name === 'Kitchen Basics Training');
+    expect(kitchenTemplate).toBeTruthy();
+
+    // Assign (idempotent)
+    await page.evaluate(async ([hireId, templateId]) => {
+      await fetch('/api/v1/onboarding/assignTemplate', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hire_id: hireId, template_id: templateId }),
+      });
+    }, [me.id, kitchenTemplate.id]);
+
+    // Get training state
+    const training = await page.evaluate(async ([hireId, templateId]) => {
+      const res = await fetch('/api/v1/onboarding/hireTraining/' + hireId + '?templateId=' + templateId);
+      if (!res.ok) return null;
+      return res.json();
+    }, [me.id, kitchenTemplate.id]);
+
+    // Find a video part in an active section
+    let videoPartId = null;
+    let videoSectionId = null;
+    for (const sp of training.sections) {
+      const sec = sp.section || sp;
+      if ((sp.state || sec.state) !== 'active') continue;
+      const items = sec.items || [];
+      for (const item of items) {
+        if (item.type === 'video_series' && item.video_parts && item.video_parts.length > 0) {
+          videoPartId = item.video_parts[0].id;
+          videoSectionId = sec.id || sp.id;
+          break;
+        }
+      }
+      if (videoPartId) break;
+    }
+
+    if (!videoPartId) {
+      // No active video section — can't test; skip gracefully
+      return;
+    }
+
+    // Save ONLY video_watch_position (not video_part)
+    await page.evaluate(async ([partId]) => {
+      await fetch('/api/v1/onboarding/saveProgress', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ item_id: partId, progress_type: 'video_watch_position', checked: true, max_watched_time: 120 }),
+      });
+    }, [videoPartId]);
+
+    // Re-fetch training state
+    const trainingAfter = await page.evaluate(async ([hireId, templateId]) => {
+      const res = await fetch('/api/v1/onboarding/hireTraining/' + hireId + '?templateId=' + templateId);
+      if (!res.ok) return null;
+      return res.json();
+    }, [me.id, kitchenTemplate.id]);
+
+    // Find the section
+    const sectionAfter = trainingAfter.sections.find(sp => {
+      const sec = sp.section || sp;
+      return (sec.id || sp.id) === videoSectionId;
+    });
+    expect(sectionAfter).toBeTruthy();
+
+    // Section should NOT be complete — video_watch_position alone is not enough
+    const sectionState = sectionAfter.state || (sectionAfter.section && sectionAfter.section.state);
+    expect(sectionState).not.toBe('complete');
+    expect(sectionState).not.toBe('signed_off');
+
+    // Also verify the video part's checked field is false
+    const sp = sectionAfter;
+    const sec = sp.section || sp;
+    const items = sec.items || [];
+    let videoPart = null;
+    for (const item of items) {
+      if (item.type === 'video_series') {
+        videoPart = (item.video_parts || []).find(vp => vp.id === videoPartId);
+        if (videoPart) break;
+      }
+    }
+    if (videoPart) {
+      expect(videoPart.checked).toBe(false);
+    }
+  });
+
+  test('max_watched_time persists after video marked as watched', async ({ page }) => {
+    await login(page);
+    const me = await page.evaluate(async () => {
+      const res = await fetch('/api/v1/me');
+      if (!res.ok) return null;
+      return res.json();
+    });
+
+    // Get the Kitchen Basics Training template
+    const templates = await page.evaluate(async () => {
+      const res = await fetch('/api/v1/onboarding/templates');
+      if (!res.ok) return [];
+      return res.json();
+    });
+    const kitchenTemplate = templates.find(t => t.name === 'Kitchen Basics Training');
+    expect(kitchenTemplate).toBeTruthy();
+
+    // Assign (idempotent)
+    await page.evaluate(async ([hireId, templateId]) => {
+      await fetch('/api/v1/onboarding/assignTemplate', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hire_id: hireId, template_id: templateId }),
+      });
+    }, [me.id, kitchenTemplate.id]);
+
+    // Get training state
+    const training = await page.evaluate(async ([hireId, templateId]) => {
+      const res = await fetch('/api/v1/onboarding/hireTraining/' + hireId + '?templateId=' + templateId);
+      if (!res.ok) return null;
+      return res.json();
+    }, [me.id, kitchenTemplate.id]);
+
+    // Find a video part
+    let videoPartId = null;
+    for (const sp of training.sections) {
+      const sec = sp.section || sp;
+      const items = sec.items || [];
+      for (const item of items) {
+        if (item.type === 'video_series' && item.video_parts && item.video_parts.length > 0) {
+          videoPartId = item.video_parts[0].id;
+          break;
+        }
+      }
+      if (videoPartId) break;
+    }
+    expect(videoPartId).toBeTruthy();
+
+    // Mark video part as watched with known max_watched_time (simulates 95%+ playback)
+    const knownMaxWatched = 120.0;
+    await page.evaluate(async ([partId, maxWatched]) => {
+      await fetch('/api/v1/onboarding/saveProgress', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ item_id: partId, progress_type: 'video_part', checked: true, max_watched_time: maxWatched }),
+      });
+    }, [videoPartId, knownMaxWatched]);
+
+    // Re-fetch training state after marking as watched
+    const trainingAfter = await page.evaluate(async ([hireId, templateId]) => {
+      const res = await fetch('/api/v1/onboarding/hireTraining/' + hireId + '?templateId=' + templateId);
+      if (!res.ok) return null;
+      return res.json();
+    }, [me.id, kitchenTemplate.id]);
+
+    // Find the video part in the refreshed data
+    let videoPartAfter = null;
+    for (const sp of trainingAfter.sections) {
+      const sec = sp.section || sp;
+      const items = sec.items || [];
+      for (const item of items) {
+        if (item.type === 'video_series') {
+          const found = (item.video_parts || []).find(vp => vp.id === videoPartId);
+          if (found) { videoPartAfter = found; break; }
+        }
+      }
+      if (videoPartAfter) break;
+    }
+    expect(videoPartAfter).toBeTruthy();
+
+    // Video part checkbox IS checked after full completion
+    expect(videoPartAfter.checked).toBe(true);
+
+    // max_watched_time persists alongside completion
+    expect(videoPartAfter.max_watched_time).toBeGreaterThanOrEqual(knownMaxWatched);
+  });
 });
