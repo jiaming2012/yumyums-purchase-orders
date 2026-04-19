@@ -168,19 +168,41 @@ async function checkAuth(){
 checkAuth();
 document.addEventListener('dblclick',e=>e.preventDefault());
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');
-// Check for incomplete onboarding trainings
+// Check for onboarding badges — incomplete trainings OR pending sign-offs
 (async function(){
+  var tile=document.getElementById('tile-onboarding');
+  if(!tile)return;
+  // Remove any existing badge first
+  var existing=tile.querySelector('.badge-warn');
+  if(existing)existing.remove();
+  // Reset link to default
+  tile.href='onboarding.html';
   try{
+    // Check manager pending sign-offs first (higher priority badge)
+    var mgrRes=await fetch('/api/v1/onboarding/managerHires');
+    if(mgrRes.ok){
+      var hires=await mgrRes.json();
+      var pendingCount=0;
+      (hires||[]).forEach(function(h){
+        (h.assigned_templates||[]).forEach(function(t){ if(t.pending_signoff) pendingCount++; });
+      });
+      if(pendingCount>0){
+        var badge=document.createElement('div');
+        badge.className='badge badge-warn';
+        badge.textContent='Needs Approval';
+        tile.appendChild(badge);
+        tile.href='onboarding.html?tab=manager';
+        return;
+      }
+    }
+  }catch(e){}
+  try{
+    // Check own incomplete trainings
     var res=await fetch('/api/v1/onboarding/myTrainings');
     if(!res.ok)return;
     var trainings=await res.json();
     if(!trainings||!trainings.length)return;
-    var hasIncomplete=trainings.some(function(t){return(t.progress_pct||0)<100;});
-    var tile=document.getElementById('tile-onboarding');
-    if(!tile)return;
-    // Remove any existing badge first (prevents duplicates on re-navigation)
-    var existing=tile.querySelector('.badge-warn');
-    if(existing)existing.remove();
+    var hasIncomplete=trainings.some(function(t){return(t.progress_percent||0)<100;});
     if(hasIncomplete){
       var badge=document.createElement('div');
       badge.className='badge badge-warn';

@@ -106,9 +106,10 @@ type AssignedTemplate struct {
 
 // AssignedTemplateSummary is a minimal summary of a template assignment for the manager hire list.
 type AssignedTemplateSummary struct {
-	TemplateID   string `json:"template_id"`
-	TemplateName string `json:"template_name"`
-	ProgressPct  int    `json:"progress_pct"`
+	TemplateID     string `json:"template_id"`
+	TemplateName   string `json:"template_name"`
+	ProgressPct    int    `json:"progress_pct"`
+	PendingSignoff bool   `json:"pending_signoff"`
 }
 
 // HireOverview summarizes a hire's onboarding state for the manager view.
@@ -617,7 +618,8 @@ func GetManagerHires(ctx context.Context, pool *pgxpool.Pool) ([]HireOverview, e
 				ot.id,
 				ot.name,
 				COALESCE(sec_total.cnt, 0) AS sections_total,
-				COALESCE(sec_complete.cnt, 0) AS sections_complete
+				COALESCE(sec_complete.cnt, 0) AS sections_complete,
+				COALESCE(pending_so.cnt, 0) AS pending_signoff_count
 			FROM ob_templates ot
 			LEFT JOIN (
 				SELECT template_id, COUNT(*) AS cnt FROM ob_sections GROUP BY template_id
@@ -637,6 +639,26 @@ func GetManagerHires(ctx context.Context, pool *pgxpool.Pool) ([]HireOverview, e
 				)
 				GROUP BY os.template_id
 			) sec_complete ON sec_complete.template_id = ot.id
+			LEFT JOIN (
+				-- Sections that are complete + require sign-off + NOT yet signed off
+				SELECT os.template_id, COUNT(*) AS cnt
+				FROM ob_sections os
+				WHERE os.requires_sign_off = true
+				AND NOT EXISTS (
+					SELECT 1 FROM ob_signoffs oso WHERE oso.section_id = os.id AND oso.hire_id = $1
+				)
+				AND NOT EXISTS (
+					SELECT 1 FROM ob_items oi
+					WHERE oi.section_id = os.id AND oi.type IN ('checkbox', 'video_series', 'faq')
+					AND NOT EXISTS (
+						SELECT 1 FROM ob_progress op WHERE op.item_id = oi.id AND op.hire_id = $1
+					)
+				)
+				AND EXISTS (
+					SELECT 1 FROM ob_items oi WHERE oi.section_id = os.id AND oi.type IN ('checkbox', 'video_series', 'faq')
+				)
+				GROUP BY os.template_id
+			) pending_so ON pending_so.template_id = ot.id
 			WHERE EXISTS (SELECT 1 FROM ob_template_assignments ota WHERE ota.hire_id = $1 AND ota.template_id = ot.id)
 			   OR (ot.roles IS NOT NULL AND ot.roles && $2)
 			ORDER BY ot.name
@@ -646,14 +668,15 @@ func GetManagerHires(ctx context.Context, pool *pgxpool.Pool) ([]HireOverview, e
 		}
 		for tmplRows.Next() {
 			var ts AssignedTemplateSummary
-			var secTotal, secComplete int
-			if err := tmplRows.Scan(&ts.TemplateID, &ts.TemplateName, &secTotal, &secComplete); err != nil {
+			var secTotal, secComplete, pendingSOCount int
+			if err := tmplRows.Scan(&ts.TemplateID, &ts.TemplateName, &secTotal, &secComplete, &pendingSOCount); err != nil {
 				tmplRows.Close()
 				return nil, fmt.Errorf("scan assigned template summary: %w", err)
 			}
 			if secTotal > 0 {
 				ts.ProgressPct = (secComplete * 100) / secTotal
 			}
+			ts.PendingSignoff = pendingSOCount > 0
 			result[i].AssignedTemplates = append(result[i].AssignedTemplates, ts)
 		}
 		tmplRows.Close()

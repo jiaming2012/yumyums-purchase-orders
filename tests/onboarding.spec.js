@@ -839,6 +839,71 @@ test.describe('Sign-off role assignment', () => {
     await expect(page.locator('.signoff-roles .role-chip.on')).toContainText('manager');
   });
 
+  test('manager navigates directly to Manager tab when pending sign-offs exist', async ({ page }) => {
+    // Create team_member + template with sign-off
+    await login(page);
+    const email2 = 'signoff-nav-' + Date.now() + '@yumyums.kitchen';
+    const inviteRes = await page.evaluate(async (email) => {
+      const res = await fetch('/api/v1/users/invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ first_name: 'SignNav', last_name: 'Test', email, roles: ['team_member'] })
+      });
+      return res.json();
+    }, email2);
+    const token = inviteRes.invite_path.split('token=')[1];
+    await page.evaluate(async (t) => {
+      await fetch('/api/v1/auth/accept-invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: t, password: 'test456' })
+      });
+    }, token);
+
+    // Create template with checkboxes + sign-off required, assigned to team_member
+    await login(page);
+    await obApiCall(page, 'POST', 'createTemplate', {
+      name: 'SignOff Nav Test',
+      roles: ['team_member'],
+      sections: [{ title: 'Tasks', sort_order: 1, requires_sign_off: true, sign_off_roles: ['admin', 'manager'], is_faq: false, items: [
+        { type: 'checkbox', label: 'Nav task', sort_order: 1 }
+      ]}]
+    });
+
+    // Login as team_member, complete the section to trigger "waiting for sign-off"
+    await login(page, email2, 'test456');
+    await page.goto('/onboarding.html');
+    await page.waitForFunction(() => {
+      const body = document.getElementById('my-body');
+      return body && body.querySelector('.card');
+    }, { timeout: 10000 });
+    await page.locator('#my-body .card', { hasText: 'SignOff Nav Test' }).first().click();
+    await page.waitForSelector('.sec-header');
+    // Expand and check the item
+    await page.locator('.sec-header').first().click();
+    await page.waitForSelector('.item-row');
+    await page.locator('.ob-check').first().click();
+    await page.waitForTimeout(2000);
+
+    // Now login as admin/manager and navigate to onboarding
+    await login(page);
+    await page.goto('/onboarding.html?tab=manager');
+    // Should start on Manager tab (tab 2), not My Trainings (tab 1)
+    await page.waitForFunction(() => {
+      var t2 = document.getElementById('t2');
+      return t2 && t2.classList.contains('on');
+    }, { timeout: 10000 });
+    await expect(page.locator('#t2')).toHaveClass(/on/);
+
+    // Manager should see the hire with "Waiting for Sign-Off" badge
+    await page.waitForFunction(() => {
+      var body = document.getElementById('mgr-body');
+      return body && body.querySelector('.card');
+    }, { timeout: 10000 });
+    await expect(page.locator('#mgr-body')).toContainText('SignNav T.');
+    await expect(page.locator('#mgr-body')).toContainText('Waiting');
+  });
+
   test('non-authorized role cannot sign off even if section is complete', async ({ page }) => {
     // Create template with sign-off restricted to 'admin' only
     await login(page);
