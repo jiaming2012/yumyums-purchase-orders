@@ -243,6 +243,30 @@ func SignOffHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
+		// Check sign_off_roles restriction if set on the section
+		var signOffRoles []string
+		_ = pool.QueryRow(r.Context(),
+			`SELECT sign_off_roles FROM ob_sections WHERE id = $1`, body.SectionID,
+		).Scan(&signOffRoles)
+		if len(signOffRoles) > 0 {
+			hasRole := false
+			for _, r := range signOffRoles {
+				for _, ur := range user.Roles {
+					if r == ur {
+						hasRole = true
+						break
+					}
+				}
+				if hasRole {
+					break
+				}
+			}
+			if !user.IsSuperadmin && !hasRole {
+				writeError(w, http.StatusForbidden, "sign_off_role_required")
+				return
+			}
+		}
+
 		input := SignOffInput{
 			ManagerID: user.ID,
 			SectionID: body.SectionID,

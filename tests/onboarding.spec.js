@@ -752,6 +752,140 @@ test.describe('Role-based auto-assignment', () => {
   });
 });
 
+// ─── Sign-off role assignment ─────────────────────────────────────────────────
+
+test.describe('Sign-off role assignment', () => {
+  test('builder shows sign-off role picker when Require Sign-off is enabled', async ({ page }) => {
+    await login(page);
+    await page.goto('/onboarding.html');
+    await waitForBuilderTab(page);
+    await page.click('#t3');
+    await waitForBuilderList(page);
+
+    // Create new template
+    page.once('dialog', async d => await d.accept('SignOff Roles Test'));
+    await page.locator('[data-action="new-template"]').click();
+    await expect(page.locator('[data-action="back-to-templates"]')).toBeVisible();
+
+    // Add a section
+    page.once('dialog', async d => await d.accept('Test Section'));
+    await page.locator('[data-action="add-ob-section"]').click();
+
+    // Sign-off role picker should NOT be visible before enabling sign-off
+    await expect(page.locator('.signoff-roles')).toHaveCount(0);
+
+    // Enable Require Sign-off toggle
+    await page.locator('[data-action="toggle-signoff"]').first().click();
+
+    // Sign-off role picker SHOULD now be visible with role chips
+    await expect(page.locator('.signoff-roles')).toHaveCount(1);
+    const chips = await page.locator('.signoff-roles .role-chip').count();
+    expect(chips).toBeGreaterThanOrEqual(2); // at least admin + manager
+  });
+
+  test('sign-off role picker disappears when sign-off is disabled', async ({ page }) => {
+    await login(page);
+    await page.goto('/onboarding.html');
+    await waitForBuilderTab(page);
+    await page.click('#t3');
+    await waitForBuilderList(page);
+
+    // Create template with sign-off enabled
+    page.once('dialog', async d => await d.accept('SignOff Toggle Test'));
+    await page.locator('[data-action="new-template"]').click();
+    page.once('dialog', async d => await d.accept('Section'));
+    await page.locator('[data-action="add-ob-section"]').click();
+
+    // Enable sign-off
+    await page.locator('[data-action="toggle-signoff"]').first().click();
+    await expect(page.locator('.signoff-roles')).toHaveCount(1);
+
+    // Disable sign-off
+    await page.locator('[data-action="toggle-signoff"]').first().click();
+
+    // Role picker should disappear
+    await expect(page.locator('.signoff-roles')).toHaveCount(0);
+  });
+
+  test('selected sign-off roles persist after save and reopen', async ({ page }) => {
+    await login(page);
+    await page.goto('/onboarding.html');
+    await waitForBuilderTab(page);
+    await page.click('#t3');
+    await waitForBuilderList(page);
+
+    // Create template
+    page.once('dialog', async d => await d.accept('SignOff Persist Test'));
+    await page.locator('[data-action="new-template"]').click();
+    page.once('dialog', async d => await d.accept('Section'));
+    await page.locator('[data-action="add-ob-section"]').click();
+
+    // Enable sign-off and select 'manager' role
+    await page.locator('[data-action="toggle-signoff"]').first().click();
+    await page.locator('.signoff-roles .role-chip', { hasText: 'manager' }).click();
+    await expect(page.locator('.signoff-roles .role-chip.on')).toHaveCount(1);
+
+    // Save
+    await page.locator('[data-action="save-template"]').click();
+    await waitForBuilderList(page);
+
+    // Reopen template
+    await page.locator('#builder-body .card', { hasText: 'SignOff Persist Test' }).first().click();
+    await expect(page.locator('[data-action="back-to-templates"]')).toBeVisible();
+
+    // Sign-off should still be enabled and 'manager' should be selected
+    await expect(page.locator('.signoff-roles')).toHaveCount(1);
+    await expect(page.locator('.signoff-roles .role-chip.on')).toHaveCount(1);
+    await expect(page.locator('.signoff-roles .role-chip.on')).toContainText('manager');
+  });
+
+  test('non-authorized role cannot sign off even if section is complete', async ({ page }) => {
+    // Create template with sign-off restricted to 'admin' only
+    await login(page);
+    const tpl = await obApiCall(page, 'POST', 'createTemplate', {
+      name: 'Restricted SignOff Test',
+      roles: ['team_member', 'admin'],
+      sections: [{ title: 'Restricted', sort_order: 1, requires_sign_off: true, is_faq: false,
+        sign_off_roles: ['admin'],
+        items: [{ type: 'checkbox', label: 'Task', sort_order: 1 }]
+      }]
+    });
+
+    // Create team_member user
+    const email2 = 'no-signoff-' + Date.now() + '@yumyums.kitchen';
+    const inviteRes = await page.evaluate(async (email) => {
+      const res = await fetch('/api/v1/users/invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ first_name: 'NoSign', last_name: 'Test', email, roles: ['team_member'] })
+      });
+      return res.json();
+    }, email2);
+    const token = inviteRes.invite_path.split('token=')[1];
+    await page.evaluate(async (t) => {
+      await fetch('/api/v1/auth/accept-invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: t, password: 'test456' })
+      });
+    }, token);
+
+    // Login as team_member, complete the section
+    await login(page, email2, 'test456');
+    await page.goto('/onboarding.html');
+    await page.waitForFunction(() => {
+      const body = document.getElementById('my-body');
+      return body && body.querySelector('.card');
+    }, { timeout: 10000 });
+    await page.locator('#my-body .card', { hasText: 'Restricted SignOff Test' }).first().click();
+    await page.waitForSelector('.sec-header');
+
+    // The sign-off button should NOT appear for team_member (not in sign_off_roles)
+    const signoffBtns = await page.locator('[data-action="show-signoff-form"]').count();
+    expect(signoffBtns).toBe(0);
+  });
+});
+
 // ─── Builder tab ─────────────────────────────────────────────────────────────
 
 test.describe('Builder tab', () => {

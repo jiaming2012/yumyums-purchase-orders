@@ -20,12 +20,13 @@ type Template struct {
 
 // Section represents a section within an onboarding template.
 type Section struct {
-	ID              string `json:"id"`
-	Title           string `json:"title"`
-	SortOrder       int    `json:"sort_order"`
-	RequiresSignOff bool   `json:"requires_sign_off"`
-	IsFaq           bool   `json:"is_faq"`
-	Items           []Item `json:"items"`
+	ID              string   `json:"id"`
+	Title           string   `json:"title"`
+	SortOrder       int      `json:"sort_order"`
+	RequiresSignOff bool     `json:"requires_sign_off"`
+	SignOffRoles    []string `json:"sign_off_roles,omitempty"`
+	IsFaq           bool     `json:"is_faq"`
+	Items           []Item   `json:"items"`
 }
 
 // Item represents a single item in an onboarding section (checkbox, video_series, or faq).
@@ -143,6 +144,7 @@ type CreateSectionInput struct {
 	Title           string            `json:"title"`
 	SortOrder       int               `json:"sort_order"`
 	RequiresSignOff bool              `json:"requires_sign_off"`
+	SignOffRoles    []string          `json:"sign_off_roles,omitempty"`
 	IsFaq           bool              `json:"is_faq"`
 	Items           []CreateItemInput `json:"items"`
 }
@@ -226,7 +228,7 @@ func GetTemplate(ctx context.Context, pool *pgxpool.Pool, templateID string) (*T
 // getSections fetches all sections for a template with their items.
 func getSections(ctx context.Context, pool *pgxpool.Pool, templateID string) ([]Section, error) {
 	rows, err := pool.Query(ctx, `
-		SELECT id, title, sort_order, requires_sign_off, is_faq
+		SELECT id, title, sort_order, requires_sign_off, sign_off_roles, is_faq
 		FROM ob_sections
 		WHERE template_id = $1
 		ORDER BY sort_order
@@ -239,7 +241,7 @@ func getSections(ctx context.Context, pool *pgxpool.Pool, templateID string) ([]
 	var sections []Section
 	for rows.Next() {
 		var s Section
-		if err := rows.Scan(&s.ID, &s.Title, &s.SortOrder, &s.RequiresSignOff, &s.IsFaq); err != nil {
+		if err := rows.Scan(&s.ID, &s.Title, &s.SortOrder, &s.RequiresSignOff, &s.SignOffRoles, &s.IsFaq); err != nil {
 			return nil, fmt.Errorf("scan section: %w", err)
 		}
 		sections = append(sections, s)
@@ -752,10 +754,10 @@ func insertSectionsTx(ctx context.Context, tx pgx.Tx, templateID string, section
 	for _, sec := range sections {
 		var sectionID string
 		err := tx.QueryRow(ctx, `
-			INSERT INTO ob_sections (template_id, title, sort_order, requires_sign_off, is_faq)
-			VALUES ($1, $2, $3, $4, $5)
+			INSERT INTO ob_sections (template_id, title, sort_order, requires_sign_off, sign_off_roles, is_faq)
+			VALUES ($1, $2, $3, $4, $5, $6)
 			RETURNING id
-		`, templateID, sec.Title, sec.SortOrder, sec.RequiresSignOff, sec.IsFaq).Scan(&sectionID)
+		`, templateID, sec.Title, sec.SortOrder, sec.RequiresSignOff, sec.SignOffRoles, sec.IsFaq).Scan(&sectionID)
 		if err != nil {
 			return fmt.Errorf("insert section %q: %w", sec.Title, err)
 		}

@@ -145,7 +145,7 @@ function createNewOBTemplate(name, roles) {
   return { id: null, name: name, roles: roles||[], sections: [] };
 }
 function createNewOBSection(title) {
-  return { id: generateOBId('sec'), title: title, requires_sign_off: false, is_faq: false, items: [] };
+  return { id: generateOBId('sec'), title: title, requires_sign_off: false, sign_off_roles: [], is_faq: false, items: [] };
 }
 function createNewOBCheckbox(label) {
   return { id: generateOBId('itm'), type: 'checkbox', label: label || '', sub_items: [] };
@@ -328,12 +328,20 @@ function renderSections(sections, hireId, readOnly) {
         html += '</div>';
         // Sign-off actions
         if (readOnly && state !== 'signed_off' && sec.requires_sign_off && (state === 'complete' || state === 'active')) {
-          var sfKey = hireId + '_' + sec.id;
-          if (SIGNOFF_FORM[sfKey]) {
-            html += renderSignOffForm(sec, hireId);
-          } else {
-            if (state === 'complete') {
-              html += '<div class="sec-actions"><button class="btn-approve" data-action="show-signoff-form" data-sec-id="'+sec.id+'" data-hire-id="'+hireId+'">Sign Off Section</button></div>';
+          // Check if current user has sign-off permission for this section
+          var canSignOff = true;
+          if (sec.sign_off_roles && sec.sign_off_roles.length > 0) {
+            var userRoles = (CURRENT_USER && CURRENT_USER.roles) || [];
+            canSignOff = CURRENT_USER.is_superadmin || sec.sign_off_roles.some(function(r) { return userRoles.includes(r); });
+          }
+          if (canSignOff) {
+            var sfKey = hireId + '_' + sec.id;
+            if (SIGNOFF_FORM[sfKey]) {
+              html += renderSignOffForm(sec, hireId);
+            } else {
+              if (state === 'complete') {
+                html += '<div class="sec-actions"><button class="btn-approve" data-action="show-signoff-form" data-sec-id="'+sec.id+'" data-hire-id="'+hireId+'">Sign Off Section</button></div>';
+              }
             }
           }
         }
@@ -601,6 +609,16 @@ function renderOBSection(sec) {
   html += '<span data-action="delete-ob-section" data-sec-id="'+sec.id+'" style="color:#c0392b;cursor:pointer;font-size:14px;margin-left:8px">&#10005;</span>';
   html += '</div>';
   html += '</div>';
+  if (sec.requires_sign_off) {
+    var secRoles = sec.sign_off_roles || [];
+    html += '<div class="signoff-roles" style="padding:6px 0 8px">';
+    html += '<div style="font-size:11px;color:var(--mut);margin-bottom:4px">Who can sign off</div>';
+    html += '<div class="role-chips">';
+    ['admin','manager'].forEach(function(r) {
+      html += '<button type="button" class="role-chip'+(secRoles.includes(r)?' on':'')+'" data-action="toggle-signoff-role" data-sec-id="'+sec.id+'" data-role="'+r+'">'+r+'</button>';
+    });
+    html += '</div></div>';
+  }
   html += '<input type="text" value="'+escapeOBAttr(sec.title)+'" data-action="sec-title-input" data-sec-id="'+sec.id+'" placeholder="Section title" style="width:100%;padding:8px 10px;background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;font-size:13px;color:var(--txt);font-family:inherit;outline:none;margin-bottom:8px">';
   if (sec.is_faq) {
     var faqHtml = '<div class="ob-field-list" data-section-id="'+sec.id+'">';
@@ -1013,7 +1031,21 @@ document.getElementById('builder-body').addEventListener('click', async function
     renderOBBuilder();
   } else if (action === 'toggle-signoff') {
     var sec = (obBuilderState.localCopy.sections||[]).find(function(s) { return s.id === btn.dataset.secId; });
-    if (sec) { sec.requires_sign_off = !sec.requires_sign_off; renderOBBuilder(); }
+    if (sec) {
+      sec.requires_sign_off = !sec.requires_sign_off;
+      if (!sec.requires_sign_off) sec.sign_off_roles = [];
+      renderOBBuilder();
+    }
+  } else if (action === 'toggle-signoff-role') {
+    var sec = (obBuilderState.localCopy.sections||[]).find(function(s) { return s.id === btn.dataset.secId; });
+    if (sec) {
+      if (!sec.sign_off_roles) sec.sign_off_roles = [];
+      var role = btn.dataset.role;
+      var idx = sec.sign_off_roles.indexOf(role);
+      if (idx === -1) sec.sign_off_roles.push(role);
+      else sec.sign_off_roles.splice(idx, 1);
+      btn.classList.toggle('on');
+    }
   } else if (action === 'toggle-faq-mode') {
     var sec = (obBuilderState.localCopy.sections||[]).find(function(s) { return s.id === btn.dataset.secId; });
     if (sec) { sec.is_faq = !sec.is_faq; renderOBBuilder(); }
