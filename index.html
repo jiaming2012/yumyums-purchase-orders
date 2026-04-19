@@ -189,7 +189,7 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');
       if(pendingCount>0){
         var badge=document.createElement('div');
         badge.className='badge badge-warn';
-        badge.textContent='Needs Approval';
+        badge.textContent='Waiting for Sign-Off';
         tile.appendChild(badge);
         tile.href='onboarding.html?tab=manager';
         return;
