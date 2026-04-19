@@ -199,8 +199,8 @@ function debouncedSaveField(fieldId, value) {
     try {
       var saveValue = value;
       var fn = store.get('failNotes', fieldId);
-      if (fn && (fn.note || fn.severity)) {
-        saveValue = { _v: value, _fail_note: { note: fn.note, severity: fn.severity } };
+      if (fn && (fn.note || fn.severity || fn.photo)) {
+        saveValue = { _v: value, _fail_note: { note: fn.note, severity: fn.severity, photo: fn.photo || null } };
       }
       const result = await submitOp('SET_FIELD', fieldId, 'field_response', { value: saveValue, field_id: fieldId });
       if (result && result._conflict) {
@@ -1340,7 +1340,7 @@ function hydrateFieldState(filterFieldIds) {
       var subSteps = null;
       // Unpack bundled fail note if present
       if (val && typeof val === 'object' && val._v !== undefined) {
-        if (val._fail_note) FAIL_NOTES[d.field_id] = { note: val._fail_note.note || '', severity: val._fail_note.severity || '' };
+        if (val._fail_note) FAIL_NOTES[d.field_id] = { note: val._fail_note.note || '', severity: val._fail_note.severity || '', photo: val._fail_note.photo || null };
         val = val._v;
       }
       // Unpack sub-step objects: { value: bool, sub_steps: {...} }

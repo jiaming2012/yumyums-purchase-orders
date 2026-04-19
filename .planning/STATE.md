@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Backend
-status: verifying
-stopped_at: Completed 12-06-PLAN.md
-last_updated: "2026-04-18T12:00:48.450Z"
-last_activity: 2026-04-18
+status: executing
+stopped_at: Completed 13-01-PLAN.md
+last_updated: "2026-04-19T19:45:22.898Z"
+last_activity: 2026-04-19
 progress:
-  total_phases: 6
+  total_phases: 7
   completed_phases: 6
-  total_plans: 29
-  completed_plans: 29
+  total_plans: 31
+  completed_plans: 30
   percent: 0
 ---
 
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-15)
 
 **Core value:** Operational tools that let the owner manage crew workflows and training from one mobile app — with accountability and smart conditions.
-**Current focus:** Phase 12 — inventory-photos-tile-permissions
+**Current focus:** Phase 13 — integration-fixes
 
 ## Current Position
 
-Phase: 12 (inventory-photos-tile-permissions) — EXECUTING
-Plan: 6 of 6
-Status: Phase complete — ready for verification
-Last activity: 2026-04-18
+Phase: 13 (integration-fixes) — EXECUTING
+Plan: 2 of 2
+Status: Ready to execute
+Last activity: 2026-04-19
 
 Progress: [░░░░░░░░░░] 0% (v2.0 milestone)
 
@@ -81,6 +81,7 @@ Progress: [░░░░░░░░░░] 0% (v2.0 milestone)
 | Phase 12-inventory-photos-tile-permissions P05 | 4 | 2 tasks | 7 files |
 | Phase 12 P04 | 4 | 2 tasks | 2 files |
 | Phase 12 P06 | 4 | 2 tasks | 4 files |
+| Phase 13-integration-fixes P01 | 8 | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -154,6 +155,9 @@ Recent decisions affecting current work:
 - [Phase 12]: Chart.js removed from inventory.html — Trends/Cost are coming-soon stubs, sales data deferred per D-13
 - [Phase 12]: renderPendingCard separates pending from confirmed event rendering to avoid nested conditional logic in renderPurchaseEvent
 - [Phase 12]: Fixed 0024_inventory.sql migration: is_active -> enabled (hq_apps column mismatch caused server startup failure)
+- [Phase 13-01]: is_superadmin exposed in /me response (was on User struct but not serialized)
+- [Phase 13-01]: Builder tab uses roles array check (CURRENT_USER.roles||[]).includes() instead of scalar CURRENT_USER.role ===
+- [Phase 13-01]: DeleteTemplateHandler uses DELETE method and CASCADE via ob_templates FK; frontend upgraded from PUT /updateTemplate/{id}/delete
 
 ### Pending Todos
 
@@ -176,6 +180,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-18T12:00:48.445Z
-Stopped at: Completed 12-06-PLAN.md
+Last session: 2026-04-19T19:45:22.890Z
+Stopped at: Completed 13-01-PLAN.md
 Resume file: None

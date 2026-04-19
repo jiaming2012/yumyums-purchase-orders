@@ -171,7 +171,7 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 13-01-PLAN.md — Fix /me response, Builder tab role check, delete template route
+- [x] 13-01-PLAN.md — Fix /me response, Builder tab role check, delete template route
 - [ ] 13-02-PLAN.md — Template assignment UI + fail card photo persistence
 
 ## Progress
@@ -195,4 +195,4 @@ Phases execute in numeric order: 9 → 10 → 10.1 → 10.2 → 11 → 12 → 13
 | 10.2 Reactive Sync Framework | v2.0 | 3/3 | Complete    | 2026-04-17 |
 | 11. Onboarding + Users Admin | v2.0 | 6/6 | Complete    | 2026-04-18 |
 | 12. Inventory + Photos + Tile Permissions | v2.0 | 6/6 | Complete    | 2026-04-18 |
-| 13. Integration Fixes | v2.0 | 0/2 | Not started | — |
+| 13. Integration Fixes | v2.0 | 1/2 | In Progress|  |

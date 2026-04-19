@@ -824,4 +824,83 @@ test.describe('Persistence', () => {
     const minorBtn = page.locator('[data-action="set-severity"][data-severity="minor"]');
     await expect(minorBtn).toHaveClass(/on/, { timeout: 5000 });
   });
+
+  test('fail photo survives back-to-list and reopen as https:// URL', async ({ page }) => {
+    const todayDOW = await getTodayDOW(page);
+
+    // Create template with a yes/no field — selecting No triggers the fail card
+    const tpl = await apiCall(page, 'POST', 'createTemplate', {
+      name: 'Fail Photo Test',
+      requires_approval: false,
+      sections: [{
+        title: 'Safety Check', order: 0, condition: null,
+        fields: [{
+          type: 'yes_no', label: 'Equipment OK?', required: true, order: 0,
+          config: {},
+          fail_trigger: null,
+          condition: null,
+        }],
+      }],
+      assignments: [{ assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' }],
+      schedules: [{ active_days: [todayDOW] }],
+    });
+
+    // Get the field ID for later assertions
+    const templates = await apiCall(page, 'GET', 'templates');
+    const found = templates.find(t => t.id === tpl.id);
+    const fieldId = found.sections[0].fields[0].id;
+    const fakePublicUrl = 'https://spaces.example.com/checklists/test/fail-' + fieldId + '.jpg';
+
+    // Open checklist
+    await page.goto(BASE + '/workflows.html');
+    const row = page.locator('[data-fill-template-id="' + tpl.id + '"]');
+    await expect(row).toBeVisible({ timeout: 10000 });
+    await row.click();
+
+    // Mark the yes/no field as No — this triggers the fail card
+    const noBtn = page.locator('[data-action="set-no"][data-fld-id="' + fieldId + '"]');
+    await expect(noBtn).toBeVisible({ timeout: 5000 });
+    await noBtn.click();
+    await page.waitForTimeout(300);
+
+    // Fail card should appear
+    const failCard = page.locator('.fail-card');
+    await expect(failCard).toBeVisible({ timeout: 5000 });
+
+    // Wait for the initial No-answer auto-save debounce to fire (400ms) so it doesn't overwrite
+    // the photo we inject next
+    await page.waitForTimeout(600);
+
+    // Inject the fail note photo directly via saveResponse to simulate a successful presign upload
+    // (camera UI is not available in test environment)
+    await apiCall(page, 'POST', 'saveResponse', {
+      field_id: fieldId,
+      value: { _v: false, _fail_note: { note: '', severity: '', photo: fakePublicUrl } },
+    });
+
+    // Wait for the saveResponse to land
+    await page.waitForTimeout(200);
+
+    // Back to list
+    await page.locator('#fill-back').scrollIntoViewIfNeeded();
+    await page.click('#fill-back');
+    await expect(page.locator('#checklist-list')).toBeVisible({ timeout: 5000 });
+
+    // Reopen the checklist
+    const row2 = page.locator('[data-fill-template-id="' + tpl.id + '"]');
+    await expect(row2).toBeVisible({ timeout: 5000 });
+    await row2.click();
+
+    // Fail card should still be visible (No answer was persisted)
+    const failCardAfter = page.locator('.fail-card');
+    await expect(failCardAfter).toBeVisible({ timeout: 5000 });
+
+    // Photo should be shown as an img with https:// src (NOT blob:)
+    const photoImg = failCardAfter.locator('img.photo-thumb');
+    await expect(photoImg).toBeVisible({ timeout: 5000 });
+    const imgSrc = await photoImg.getAttribute('src');
+    expect(imgSrc).toMatch(/^https:\/\//);
+    expect(imgSrc).not.toMatch(/^blob:/);
+    expect(imgSrc).toBe(fakePublicUrl);
+  });
 });
