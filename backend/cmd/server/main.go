@@ -362,6 +362,7 @@ func main() {
 				r.Post("/signOff", onboarding.SignOffHandler(pool))
 				r.Post("/createTemplate", onboarding.CreateTemplateHandler(pool))
 				r.Put("/updateTemplate/{id}", onboarding.UpdateTemplateHandler(pool))
+				r.Delete("/deleteTemplate/{id}", onboarding.DeleteTemplateHandler(pool))
 				r.Post("/assignTemplate", onboarding.AssignTemplateHandler(pool))
 				r.Post("/unassignTemplate", onboarding.UnassignTemplateHandler(pool))
 			})

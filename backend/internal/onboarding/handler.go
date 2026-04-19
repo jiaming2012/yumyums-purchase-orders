@@ -427,3 +427,33 @@ func UnassignTemplateHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 	}
 }
+
+// DeleteTemplateHandler handles DELETE /api/v1/onboarding/deleteTemplate/{id}.
+// Deletes an onboarding template and its associated sections/items via CASCADE. Requires admin/manager.
+func DeleteTemplateHandler(pool *pgxpool.Pool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		user := auth.UserFromContext(r.Context())
+		if user == nil {
+			writeError(w, http.StatusUnauthorized, "unauthorized")
+			return
+		}
+		if !isManagerOrAdmin(user) {
+			writeError(w, http.StatusForbidden, "forbidden")
+			return
+		}
+
+		id := chi.URLParam(r, "id")
+		if id == "" {
+			writeError(w, http.StatusBadRequest, "id_required")
+			return
+		}
+
+		_, err := pool.Exec(r.Context(), `DELETE FROM ob_templates WHERE id = $1`, id)
+		if err != nil {
+			log.Printf("DeleteTemplate error: %v", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+	}
+}

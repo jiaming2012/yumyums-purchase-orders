@@ -1163,7 +1163,7 @@ document.getElementById('builder-body').addEventListener('click', async function
     if (!tpl || !tpl.id) return;
     if (confirm('Delete this template? This cannot be undone.')) {
       try {
-        await api('PUT', '/api/v1/onboarding/updateTemplate/'+tpl.id+'/delete', {});
+        await api('DELETE', '/api/v1/onboarding/deleteTemplate/'+tpl.id);
       } catch(ex) { /* best effort */ }
       TEMPLATES = (TEMPLATES||[]).filter(function(t) { return t.id !== tpl.id; });
       obBuilderState = { view: 'list', activeTemplate: null, localCopy: null };
