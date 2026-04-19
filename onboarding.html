@@ -164,6 +164,14 @@ function formatDate(dateStr) {
   var d = new Date(dateStr);
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
+function formatDateTime(dateStr) {
+  if (!dateStr) return '';
+  var d = new Date(dateStr);
+  var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var h = d.getHours(), m = d.getMinutes(), ap = h >= 12 ? 'p' : 'a';
+  h = h % 12 || 12;
+  return months[d.getMonth()] + ' ' + d.getDate() + ', ' + h + ':' + (m < 10 ? '0' : '') + m + ap;
+}
 
 // === Tab switching ===
 var _activeTab = 1;
@@ -250,7 +258,7 @@ function renderSections(sections, hireId, readOnly) {
     if (isLocked) {
       stateHtml = '<span style="font-size:12px;color:var(--mut)">&#128274; Locked</span>';
     } else if (state === 'signed_off') {
-      var attr = sec.signoff ? 'Signed off by '+escapeOBAttr(sec.signoff.manager_name)+' &mdash; '+formatDate(sec.signoff.signed_off_at) : 'Signed off';
+      var attr = sec.sign_off ? 'By '+escapeOBAttr(sec.sign_off.manager_name)+' @ '+formatDateTime(sec.sign_off.signed_off_at) : '';
       stateHtml = '<div style="text-align:right"><span style="font-size:12px;color:#27ae60;font-weight:500">&#10003; Signed Off</span><div class="attribution">'+attr+'</div></div>';
     } else if (state === 'complete') {
       if (sec.requires_sign_off) {
@@ -923,7 +931,7 @@ document.getElementById('mgr-body').addEventListener('click', async function(e) 
         var sec = findItemInTraining(CURRENT_TRAINING, secId, true);
         if (sec) {
           sec.state = 'signed_off';
-          sec.signoff = { manager_name: CURRENT_USER ? (CURRENT_USER.display_name || CURRENT_USER.first_name) : 'Manager', signed_off_at: new Date().toISOString() };
+          sec.sign_off = { manager_name: CURRENT_USER ? (CURRENT_USER.display_name || CURRENT_USER.first_name) : 'Manager', signed_off_at: new Date().toISOString() };
         }
       }
       renderMgrRunner();

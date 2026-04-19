@@ -532,6 +532,46 @@ test.describe('Manager tab', () => {
     }
   });
 
+  test('signed-off section shows "By {manager} @ {datetime}" attribution', async ({ page }) => {
+    await login(page);
+
+    const templates = await obApiCall(page, 'GET', 'templates');
+    const kitchenTemplate = templates.find(t => t.name === 'Kitchen Basics Training');
+    const fullTemplate = await obApiCall(page, 'GET', 'templates/' + kitchenTemplate.id);
+    const sec1 = fullTemplate.sections.find(s => s.title === 'Safety & Hygiene');
+
+    const me = await page.evaluate(async () => {
+      const res = await fetch('/api/v1/me');
+      return res.json();
+    });
+
+    // Assign, complete, and sign off section 1
+    await obApiCall(page, 'POST', 'assignTemplate', { hire_id: me.id, template_id: kitchenTemplate.id });
+    for (const item of sec1.items) {
+      if (item.type === 'checkbox') {
+        await obApiCall(page, 'POST', 'saveProgress', { item_id: item.id, progress_type: 'item', checked: true });
+      }
+    }
+    await obApiCall(page, 'POST', 'signOff', { section_id: sec1.id, hire_id: me.id, notes: '', rating: 'ready' });
+
+    // Open My Trainings and view the template
+    await page.goto('/onboarding.html');
+    await page.waitForFunction(() => {
+      const body = document.getElementById('my-body');
+      return body && body.querySelector('.card');
+    }, { timeout: 10000 });
+    await page.locator('#my-body .card', { hasText: 'Kitchen Basics' }).first().click();
+    await page.waitForSelector('.sec-header');
+
+    // The signed-off section should show "By {name} @" format, NOT "Signed off by"
+    const sectionText = await page.locator('.sec-header').first().textContent();
+    expect(sectionText).toContain('Signed Off');
+    const attrText = await page.locator('.attribution').first().textContent();
+    expect(attrText).toContain('By ');
+    expect(attrText).toContain(' @ ');
+    expect(attrText).not.toContain('Signed off by');
+  });
+
   test('sign-off succeeds with rating only (notes optional)', async ({ page }) => {
     await login(page);
 

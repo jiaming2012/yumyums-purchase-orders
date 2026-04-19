@@ -74,6 +74,7 @@ type SectionProgress struct {
 // SignOffInfo holds sign-off data for a section.
 type SignOffInfo struct {
 	ManagerID   string `json:"manager_id"`
+	ManagerName string `json:"manager_name"`
 	Notes       string `json:"notes"`
 	Rating      string `json:"rating"`
 	SignedOffAt string `json:"signed_off_at"`
@@ -363,9 +364,12 @@ func GetHireTraining(ctx context.Context, pool *pgxpool.Pool, hireID, templateID
 
 	// Fetch all signoffs for this hire+template
 	signoffRows, err := pool.Query(ctx, `
-		SELECT os2.section_id, os2.manager_id, os2.notes, os2.rating, os2.signed_off_at
+		SELECT os2.section_id, os2.manager_id,
+		       COALESCE(NULLIF(u.nickname, ''), u.first_name || ' ' || LEFT(u.last_name, 1) || '.') AS manager_name,
+		       os2.notes, os2.rating, os2.signed_off_at
 		FROM ob_signoffs os2
 		JOIN ob_sections osec ON osec.id = os2.section_id
+		LEFT JOIN users u ON u.id = os2.manager_id
 		WHERE os2.hire_id = $1 AND osec.template_id = $2
 	`, hireID, templateID)
 	if err != nil {
@@ -379,7 +383,7 @@ func GetHireTraining(ctx context.Context, pool *pgxpool.Pool, hireID, templateID
 		var sectionID string
 		var so SignOffInfo
 		var signedOffAt time.Time
-		if err := signoffRows.Scan(&sectionID, &so.ManagerID, &so.Notes, &so.Rating, &signedOffAt); err != nil {
+		if err := signoffRows.Scan(&sectionID, &so.ManagerID, &so.ManagerName, &so.Notes, &so.Rating, &signedOffAt); err != nil {
 			return nil, fmt.Errorf("scan signoff: %w", err)
 		}
 		so.SignedOffAt = signedOffAt.UTC().Format(time.RFC3339)
