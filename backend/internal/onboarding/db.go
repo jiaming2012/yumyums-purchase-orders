@@ -9,6 +9,25 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// sectionIncompleteItem returns a SQL fragment that checks if a section has any
+// incomplete item. Handles video_series by checking all video parts, not the item itself.
+// The hireParam is the SQL parameter placeholder for the hire_id (e.g. "$1").
+func sectionIncompleteItem(hireParam string) string {
+	return `
+		SELECT 1 FROM ob_items oi
+		WHERE oi.section_id = os.id AND oi.type IN ('checkbox', 'video_series', 'faq')
+		AND (
+			(oi.type != 'video_series' AND NOT EXISTS (
+				SELECT 1 FROM ob_progress op WHERE op.item_id = oi.id AND op.hire_id = ` + hireParam + `
+			))
+			OR
+			(oi.type = 'video_series' AND EXISTS (
+				SELECT 1 FROM ob_video_parts vp WHERE vp.item_id = oi.id
+				AND NOT EXISTS (SELECT 1 FROM ob_progress op WHERE op.item_id = vp.id AND op.hire_id = ` + hireParam + `)
+			))
+		)`
+}
+
 // Template represents an onboarding template with nested sections.
 type Template struct {
 	ID        string    `json:"id"`
@@ -493,22 +512,12 @@ func GetMyTrainings(ctx context.Context, pool *pgxpool.Pool, hireID string) ([]A
 		FROM ob_templates ot
 		LEFT JOIN ob_template_assignments ota ON ota.template_id = ot.id AND ota.hire_id = $1
 		LEFT JOIN (
-			-- Count sections where ALL checkable items have progress
 			SELECT os.template_id, COUNT(*) AS cnt
 			FROM ob_sections os
-			WHERE NOT EXISTS (
-				-- Find any checkable item in this section WITHOUT progress
-				SELECT 1 FROM ob_items oi
-				WHERE oi.section_id = os.id AND oi.type IN ('checkbox', 'video_series')
-				AND NOT EXISTS (
-					SELECT 1 FROM ob_progress op
-					WHERE op.item_id = oi.id AND op.hire_id = $1
-				)
-			)
-			-- Only count sections that have at least one checkable item
+			WHERE NOT EXISTS (` + sectionIncompleteItem("$1") + `)
 			AND EXISTS (
 				SELECT 1 FROM ob_items oi
-				WHERE oi.section_id = os.id AND oi.type IN ('checkbox', 'video_series')
+				WHERE oi.section_id = os.id AND oi.type IN ('checkbox', 'video_series', 'faq')
 			)
 			GROUP BY os.template_id
 		) sec_complete ON sec_complete.template_id = ot.id
@@ -574,9 +583,15 @@ func GetManagerHires(ctx context.Context, pool *pgxpool.Pool) ([]HireOverview, e
 			WHERE NOT EXISTS (
 				SELECT 1 FROM ob_items oi
 				WHERE oi.section_id = os.id AND oi.type IN ('checkbox', 'video_series', 'faq')
-				AND NOT EXISTS (
-					SELECT 1 FROM ob_progress op
-					WHERE op.item_id = oi.id AND op.hire_id = u2.id
+				AND (
+					(oi.type != 'video_series' AND NOT EXISTS (
+						SELECT 1 FROM ob_progress op WHERE op.item_id = oi.id AND op.hire_id = u2.id
+					))
+					OR
+					(oi.type = 'video_series' AND EXISTS (
+						SELECT 1 FROM ob_video_parts vp WHERE vp.item_id = oi.id
+						AND NOT EXISTS (SELECT 1 FROM ob_progress op WHERE op.item_id = vp.id AND op.hire_id = u2.id)
+					))
 				)
 			)
 			AND EXISTS (
@@ -633,13 +648,7 @@ func GetManagerHires(ctx context.Context, pool *pgxpool.Pool) ([]HireOverview, e
 			LEFT JOIN (
 				SELECT os.template_id, COUNT(*) AS cnt
 				FROM ob_sections os
-				WHERE NOT EXISTS (
-					SELECT 1 FROM ob_items oi
-					WHERE oi.section_id = os.id AND oi.type IN ('checkbox', 'video_series', 'faq')
-					AND NOT EXISTS (
-						SELECT 1 FROM ob_progress op WHERE op.item_id = oi.id AND op.hire_id = $1
-					)
-				)
+				WHERE NOT EXISTS (` + sectionIncompleteItem("$1") + `)
 				AND EXISTS (
 					SELECT 1 FROM ob_items oi WHERE oi.section_id = os.id AND oi.type IN ('checkbox', 'video_series', 'faq')
 				)
@@ -653,13 +662,7 @@ func GetManagerHires(ctx context.Context, pool *pgxpool.Pool) ([]HireOverview, e
 				AND NOT EXISTS (
 					SELECT 1 FROM ob_signoffs oso WHERE oso.section_id = os.id AND oso.hire_id = $1
 				)
-				AND NOT EXISTS (
-					SELECT 1 FROM ob_items oi
-					WHERE oi.section_id = os.id AND oi.type IN ('checkbox', 'video_series', 'faq')
-					AND NOT EXISTS (
-						SELECT 1 FROM ob_progress op WHERE op.item_id = oi.id AND op.hire_id = $1
-					)
-				)
+				AND NOT EXISTS (` + sectionIncompleteItem("$1") + `)
 				AND EXISTS (
 					SELECT 1 FROM ob_items oi WHERE oi.section_id = os.id AND oi.type IN ('checkbox', 'video_series', 'faq')
 				)
@@ -738,8 +741,15 @@ func IsSectionLockedForEdits(ctx context.Context, pool *pgxpool.Pool, hireID, it
 		SELECT EXISTS(
 			SELECT 1 FROM ob_items oi
 			WHERE oi.section_id = $1 AND oi.type IN ('checkbox', 'video_series', 'faq')
-			AND NOT EXISTS (
-				SELECT 1 FROM ob_progress op WHERE op.item_id = oi.id AND op.hire_id = $2
+			AND (
+				(oi.type != 'video_series' AND NOT EXISTS (
+					SELECT 1 FROM ob_progress op WHERE op.item_id = oi.id AND op.hire_id = $2
+				))
+				OR
+				(oi.type = 'video_series' AND EXISTS (
+					SELECT 1 FROM ob_video_parts vp WHERE vp.item_id = oi.id
+					AND NOT EXISTS (SELECT 1 FROM ob_progress op WHERE op.item_id = vp.id AND op.hire_id = $2)
+				))
 			)
 		)`, sectionID, hireID).Scan(&hasIncomplete)
 	if err != nil {
