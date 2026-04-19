@@ -116,8 +116,8 @@ type HireOverview struct {
 	DisplayName       string                    `json:"display_name"`
 	Email             string                    `json:"email"`
 	TemplateCount     int                       `json:"template_count"`
-	ItemsChecked      int                       `json:"items_checked"`
-	TotalItems        int                       `json:"total_items"`
+	SectionsComplete  int                       `json:"sections_complete"`
+	SectionsTotal     int                       `json:"sections_total"`
 	ProgressPercent   int                       `json:"progress_percent"`
 	AssignedTemplates []AssignedTemplateSummary `json:"assigned_templates"`
 }
@@ -538,40 +538,47 @@ func GetMyTrainings(ctx context.Context, pool *pgxpool.Pool, hireID string) ([]A
 }
 
 // GetManagerHires returns hires with assigned templates and aggregate progress.
+// Includes both explicitly assigned and role-auto-assigned templates.
 func GetManagerHires(ctx context.Context, pool *pgxpool.Pool) ([]HireOverview, error) {
 	rows, err := pool.Query(ctx, `
 		SELECT
 			u.id,
 			COALESCE(NULLIF(u.nickname, ''), u.first_name || ' ' || LEFT(u.last_name, 1) || '.') AS display_name,
 			u.email,
-			COUNT(DISTINCT ota.template_id) AS template_count,
-			COALESCE(SUM(checked.cnt), 0)   AS items_checked,
-			COALESCE(SUM(total.cnt), 0)      AS total_items
+			COUNT(DISTINCT matched_tpl.id) AS template_count,
+			COALESCE(SUM(sec_complete.cnt), 0) AS sections_complete,
+			COALESCE(SUM(sec_total.cnt), 0)    AS sections_total
 		FROM users u
-		JOIN ob_template_assignments ota ON ota.hire_id = u.id
+		JOIN ob_templates matched_tpl ON (
+			EXISTS (SELECT 1 FROM ob_template_assignments ota WHERE ota.hire_id = u.id AND ota.template_id = matched_tpl.id)
+			OR (matched_tpl.roles IS NOT NULL AND matched_tpl.roles && u.roles)
+		)
 		LEFT JOIN (
-			SELECT op.hire_id, os.template_id, COUNT(*) AS cnt
-			FROM ob_progress op
-			JOIN ob_items oi ON oi.id = op.item_id
-			JOIN ob_sections os ON os.id = oi.section_id
-			GROUP BY op.hire_id, os.template_id
-		) checked ON checked.hire_id = u.id AND checked.template_id = ota.template_id
-		LEFT JOIN (
-			SELECT os.template_id, SUM(
-				CASE oi.type
-					WHEN 'video_series' THEN (
-						SELECT COUNT(*) FROM ob_video_parts vp WHERE vp.item_id = oi.id
-					)
-					WHEN 'checkbox' THEN 1
-					ELSE 0
-				END
-			) AS cnt
-			FROM ob_items oi
-			JOIN ob_sections os ON os.id = oi.section_id
-			WHERE oi.type IN ('checkbox', 'video_series')
+			SELECT os.template_id, COUNT(*) AS cnt
+			FROM ob_sections os
 			GROUP BY os.template_id
-		) total ON total.template_id = ota.template_id
+		) sec_total ON sec_total.template_id = matched_tpl.id
+		LEFT JOIN (
+			SELECT os.template_id, u2.id AS hire_id, COUNT(*) AS cnt
+			FROM ob_sections os
+			CROSS JOIN users u2
+			WHERE NOT EXISTS (
+				SELECT 1 FROM ob_items oi
+				WHERE oi.section_id = os.id AND oi.type IN ('checkbox', 'video_series', 'faq')
+				AND NOT EXISTS (
+					SELECT 1 FROM ob_progress op
+					WHERE op.item_id = oi.id AND op.hire_id = u2.id
+				)
+			)
+			AND EXISTS (
+				SELECT 1 FROM ob_items oi
+				WHERE oi.section_id = os.id AND oi.type IN ('checkbox', 'video_series', 'faq')
+			)
+			GROUP BY os.template_id, u2.id
+		) sec_complete ON sec_complete.template_id = matched_tpl.id AND sec_complete.hire_id = u.id
+		WHERE u.status = 'active'
 		GROUP BY u.id, display_name, u.email
+		HAVING COUNT(DISTINCT matched_tpl.id) > 0
 		ORDER BY display_name
 	`)
 	if err != nil {
@@ -584,12 +591,12 @@ func GetManagerHires(ctx context.Context, pool *pgxpool.Pool) ([]HireOverview, e
 		var ho HireOverview
 		if err := rows.Scan(
 			&ho.HireID, &ho.DisplayName, &ho.Email,
-			&ho.TemplateCount, &ho.ItemsChecked, &ho.TotalItems,
+			&ho.TemplateCount, &ho.SectionsComplete, &ho.SectionsTotal,
 		); err != nil {
 			return nil, fmt.Errorf("scan hire overview: %w", err)
 		}
-		if ho.TotalItems > 0 {
-			ho.ProgressPercent = (ho.ItemsChecked * 100) / ho.TotalItems
+		if ho.SectionsTotal > 0 {
+			ho.ProgressPercent = (ho.SectionsComplete * 100) / ho.SectionsTotal
 		}
 		ho.AssignedTemplates = []AssignedTemplateSummary{}
 		result = append(result, ho)
@@ -598,54 +605,52 @@ func GetManagerHires(ctx context.Context, pool *pgxpool.Pool) ([]HireOverview, e
 		return nil, fmt.Errorf("iterate hire overviews: %w", err)
 	}
 
-	// Fetch per-hire assigned template details
+	// Fetch per-hire template details (explicit + role-auto-assigned)
 	for i := range result {
+		var userRoles []string
+		_ = pool.QueryRow(ctx, `SELECT roles FROM users WHERE id = $1`, result[i].HireID).Scan(&userRoles)
+
 		tmplRows, err := pool.Query(ctx, `
 			SELECT
-				ota.template_id,
+				ot.id,
 				ot.name,
-				COALESCE(checked.cnt, 0) AS items_checked,
-				COALESCE(total.cnt, 0)   AS total_items
-			FROM ob_template_assignments ota
-			JOIN ob_templates ot ON ot.id = ota.template_id
+				COALESCE(sec_total.cnt, 0) AS sections_total,
+				COALESCE(sec_complete.cnt, 0) AS sections_complete
+			FROM ob_templates ot
+			LEFT JOIN (
+				SELECT template_id, COUNT(*) AS cnt FROM ob_sections GROUP BY template_id
+			) sec_total ON sec_total.template_id = ot.id
 			LEFT JOIN (
 				SELECT os.template_id, COUNT(*) AS cnt
-				FROM ob_progress op
-				JOIN ob_items oi ON oi.id = op.item_id
-				JOIN ob_sections os ON os.id = oi.section_id
-				WHERE op.hire_id = $1
+				FROM ob_sections os
+				WHERE NOT EXISTS (
+					SELECT 1 FROM ob_items oi
+					WHERE oi.section_id = os.id AND oi.type IN ('checkbox', 'video_series', 'faq')
+					AND NOT EXISTS (
+						SELECT 1 FROM ob_progress op WHERE op.item_id = oi.id AND op.hire_id = $1
+					)
+				)
+				AND EXISTS (
+					SELECT 1 FROM ob_items oi WHERE oi.section_id = os.id AND oi.type IN ('checkbox', 'video_series', 'faq')
+				)
 				GROUP BY os.template_id
-			) checked ON checked.template_id = ota.template_id
-			LEFT JOIN (
-				SELECT os.template_id, SUM(
-					CASE oi.type
-						WHEN 'video_series' THEN (
-							SELECT COUNT(*) FROM ob_video_parts vp WHERE vp.item_id = oi.id
-						)
-						WHEN 'checkbox' THEN 1
-						ELSE 0
-					END
-				) AS cnt
-				FROM ob_items oi
-				JOIN ob_sections os ON os.id = oi.section_id
-				WHERE oi.type IN ('checkbox', 'video_series')
-				GROUP BY os.template_id
-			) total ON total.template_id = ota.template_id
-			WHERE ota.hire_id = $1
-			ORDER BY ota.assigned_at
-		`, result[i].HireID)
+			) sec_complete ON sec_complete.template_id = ot.id
+			WHERE EXISTS (SELECT 1 FROM ob_template_assignments ota WHERE ota.hire_id = $1 AND ota.template_id = ot.id)
+			   OR (ot.roles IS NOT NULL AND ot.roles && $2)
+			ORDER BY ot.name
+		`, result[i].HireID, userRoles)
 		if err != nil {
 			return nil, fmt.Errorf("query assigned templates for hire %s: %w", result[i].HireID, err)
 		}
 		for tmplRows.Next() {
 			var ts AssignedTemplateSummary
-			var checked, total int
-			if err := tmplRows.Scan(&ts.TemplateID, &ts.TemplateName, &checked, &total); err != nil {
+			var secTotal, secComplete int
+			if err := tmplRows.Scan(&ts.TemplateID, &ts.TemplateName, &secTotal, &secComplete); err != nil {
 				tmplRows.Close()
 				return nil, fmt.Errorf("scan assigned template summary: %w", err)
 			}
-			if total > 0 {
-				ts.ProgressPct = (checked * 100) / total
+			if secTotal > 0 {
+				ts.ProgressPct = (secComplete * 100) / secTotal
 			}
 			result[i].AssignedTemplates = append(result[i].AssignedTemplates, ts)
 		}

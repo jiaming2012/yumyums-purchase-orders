@@ -667,6 +667,47 @@ test.describe('Role-based auto-assignment', () => {
     await expect(page.locator('.sec-header').first()).toContainText('Complete');
   });
 
+  test('Manager tab shows hires with role-auto-assigned templates', async ({ page }) => {
+    // Create team_member user
+    await login(page);
+    const email2 = 'mgr-view-' + Date.now() + '@yumyums.kitchen';
+    const inviteRes = await page.evaluate(async (email) => {
+      const res = await fetch('/api/v1/users/invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ first_name: 'MgrView', last_name: 'Test', email, roles: ['team_member'] })
+      });
+      return res.json();
+    }, email2);
+    const token = inviteRes.invite_path.split('token=')[1];
+    await page.evaluate(async (t) => {
+      await fetch('/api/v1/auth/accept-invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: t, password: 'test456' })
+      });
+    }, token);
+
+    // Create template with roles=['team_member']
+    await login(page);
+    await obApiCall(page, 'POST', 'createTemplate', {
+      name: 'MgrView Auto Test',
+      roles: ['team_member'],
+      sections: [{ title: 'Sec', sort_order: 1, requires_sign_off: true, is_faq: false, items: [
+        { type: 'checkbox', label: 'Task 1', sort_order: 1 }
+      ]}]
+    });
+
+    // Open Manager tab — should show MgrView T. as a hire with the auto-assigned template
+    await page.goto('/onboarding.html');
+    await waitForManagerTab(page);
+    await page.click('#t2');
+    await waitForManagerList(page);
+
+    // MgrView should appear in the manager's Active hires list
+    await expect(page.locator('#mgr-body')).toContainText('MgrView T.');
+  });
+
   test('user with matching role sees template without explicit assignment', async ({ page }) => {
     // Create a team_member user
     await login(page);

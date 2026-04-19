@@ -1716,7 +1716,7 @@ function renderRunner() {
   const submitHtml = isSubmitted
     ? `<div class="submit-confirm" style="margin-top:16px">Checklist submitted. Thanks, ${getUserInitials()}!</div>${unsubmitBtn}`
     : isPending
-      ? `<div class="submit-confirm" style="margin-top:16px">Submitted for approval. Waiting for manager review.</div>${unsubmitBtn}`
+      ? `<div class="submit-confirm" style="margin-top:16px">Submitted for approval by ${submission.submitted_by_name || getUserName()}. Waiting for manager review.</div>${unsubmitBtn}`
       : `<button class="btn-primary" id="submit-btn" data-action="submit" data-tpl-id="${tpl.id}" style="margin-top:8px">Submit checklist</button>`;
   return `<button class="editor-back" id="fill-back">Checklists</button>
 <div style="padding:10px 16px 0" class="progress-line">

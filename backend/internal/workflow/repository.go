@@ -651,9 +651,11 @@ func myChecklists(ctx context.Context, pool *pgxpool.Pool, userID string, client
 	// Today's submissions — checklists are team objects, all members see all submissions
 	subRows, err := pool.Query(ctx,
 		`SELECT s.id, s.template_id, t.name, s.template_snapshot, s.submitted_by,
+		        COALESCE(NULLIF(u.nickname, ''), u.first_name || ' ' || LEFT(u.last_name, 1) || '.') AS submitted_by_name,
 		        s.submitted_at, s.status, s.reviewed_by, s.reviewed_at, s.idempotency_key
 		 FROM checklist_submissions s
 		 JOIN checklist_templates t ON t.id = s.template_id
+		 LEFT JOIN users u ON u.id = s.submitted_by
 		 WHERE s.submitted_at >= current_date
 		 ORDER BY s.submitted_at DESC`,
 	)
@@ -666,12 +668,17 @@ func myChecklists(ctx context.Context, pool *pgxpool.Pool, userID string, client
 	for subRows.Next() {
 		var sub Submission
 		var snapshotRaw []byte
+		var displayName *string
 		if err := subRows.Scan(
 			&sub.ID, &sub.TemplateID, &sub.TemplateName, &snapshotRaw,
-			&sub.SubmittedBy, &sub.SubmittedAt, &sub.Status,
+			&sub.SubmittedBy, &displayName,
+			&sub.SubmittedAt, &sub.Status,
 			&sub.ReviewedBy, &sub.ReviewedAt, &sub.IdempotencyKey,
 		); err != nil {
 			return nil, nil, fmt.Errorf("scan submission: %w", err)
+		}
+		if displayName != nil {
+			sub.SubmittedByName = *displayName
 		}
 		sub.TemplateSnapshot = json.RawMessage(snapshotRaw)
 		submissions = append(submissions, sub)
