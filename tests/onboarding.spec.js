@@ -412,7 +412,7 @@ test.describe('Manager tab', () => {
     await expect(page.locator('#mgr-body')).toContainText('TestHire');
   });
 
-  test('sign-off form requires notes and rating', async ({ page }) => {
+  test('sign-off form requires readiness rating (notes optional)', async ({ page }) => {
     await login(page);
 
     const templates = await obApiCall(page, 'GET', 'templates');
@@ -513,27 +513,92 @@ test.describe('Manager tab', () => {
       const signOffForm = page.locator('#mgr-body .signoff-form').first();
       await expect(signOffForm).toBeVisible();
 
-      // Confirm button should be disabled until notes and rating filled
+      // Confirm button should be visible and clickable (not disabled)
       const confirmBtn = page.locator('#mgr-body [data-action="confirm-signoff"]').first();
-      await expect(confirmBtn).toBeDisabled();
+      await expect(confirmBtn).toBeVisible();
 
-      // Fill notes
-      await page.locator('#mgr-body .signoff-form textarea').first().fill('Good work');
-      // Button still disabled (no rating)
-      await expect(confirmBtn).toBeDisabled();
+      // Click Confirm without selecting rating — should show error
+      await confirmBtn.click();
+      await page.waitForTimeout(500);
+      await expect(page.locator('.signoff-form')).toContainText('Readiness is required');
 
-      // Select rating
+      // Select rating — error should clear and confirm should work
       await page.locator('#mgr-body .rating-btn').first().click();
-      // Now button should be enabled
-      await expect(confirmBtn).not.toBeDisabled();
-
-      // Click Confirm Sign-Off — should succeed
       await confirmBtn.click();
       await page.waitForTimeout(2000);
 
       // Section should now show "Signed Off" status
       await expect(page.locator('#mgr-body')).toContainText('Signed Off');
     }
+  });
+
+  test('sign-off succeeds with rating only (notes optional)', async ({ page }) => {
+    await login(page);
+
+    const templates = await obApiCall(page, 'GET', 'templates');
+    const kitchenTemplate = templates.find(t => t.name === 'Kitchen Basics Training');
+    const fullTemplate = await obApiCall(page, 'GET', 'templates/' + kitchenTemplate.id);
+    // Find a section that requires sign-off and hasn't been signed off yet
+    const signOffSections = fullTemplate.sections.filter(s => s.requires_sign_off);
+    if (signOffSections.length < 2) return; // need at least 2 sign-off sections for this test
+
+    const sec2 = signOffSections[1]; // use second section (first may already be signed off)
+    const me = await page.evaluate(async () => {
+      const res = await fetch('/api/v1/me');
+      return res.json();
+    });
+
+    // Assign and complete all items in section 2
+    await obApiCall(page, 'POST', 'assignTemplate', {
+      hire_id: me.id,
+      template_id: kitchenTemplate.id,
+    });
+    for (const item of sec2.items) {
+      const ptype = item.type === 'video_series' ? 'video_part' : 'item';
+      if (item.type === 'video_series') {
+        for (const part of (item.video_parts || [])) {
+          await obApiCall(page, 'POST', 'saveProgress', { item_id: part.id, progress_type: 'video_part', checked: true });
+        }
+      } else if (item.type === 'checkbox') {
+        await obApiCall(page, 'POST', 'saveProgress', { item_id: item.id, progress_type: 'item', checked: true });
+      }
+    }
+
+    // Sign off via API with NO notes — should succeed (notes optional)
+    const result = await obApiCall(page, 'POST', 'signOff', {
+      section_id: sec2.id,
+      hire_id: me.id,
+      notes: '',
+      rating: 'ready',
+    });
+    expect(result.ok).toBeTruthy();
+  });
+
+  test('sign-off via API rejects missing rating', async ({ page }) => {
+    await login(page);
+
+    const templates = await obApiCall(page, 'GET', 'templates');
+    const kitchenTemplate = templates.find(t => t.name === 'Kitchen Basics Training');
+    const fullTemplate = await obApiCall(page, 'GET', 'templates/' + kitchenTemplate.id);
+    const sec1 = fullTemplate.sections.find(s => s.title === 'Safety & Hygiene');
+
+    const me = await page.evaluate(async () => {
+      const res = await fetch('/api/v1/me');
+      return res.json();
+    });
+
+    // Try sign-off with no rating — should fail
+    const result = await page.evaluate(async ([secId, hireId]) => {
+      const res = await fetch('/api/v1/onboarding/signOff', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ section_id: secId, hire_id: hireId, notes: 'test', rating: '' })
+      });
+      return { status: res.status, body: await res.json() };
+    }, [sec1.id, me.id]);
+
+    expect(result.status).toBe(400);
+    expect(result.body.error).toBe('invalid_rating');
   });
 
   test('sign-off records attribution on hire view', async ({ page }) => {

@@ -233,10 +233,7 @@ func SignOffHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			writeError(w, http.StatusBadRequest, "hire_id_required")
 			return
 		}
-		if body.Notes == "" {
-			writeError(w, http.StatusBadRequest, "notes_required")
-			return
-		}
+		// Notes are optional; rating is required
 		validRatings := map[string]bool{"ready": true, "needs_practice": true, "struggling": true}
 		if !validRatings[body.Rating] {
 			writeError(w, http.StatusBadRequest, "invalid_rating")

@@ -484,7 +484,7 @@ function renderMgrRunner() {
 function renderSignOffForm(sec, hireId) {
   var sfKey = hireId + '_' + sec.id;
   var formState = SIGNOFF_FORM[sfKey] || { notes: '', rating: '' };
-  var canConfirm = formState.notes && formState.notes.trim() && formState.rating;
+  var canConfirm = !!formState.rating;
   var html = '<div class="signoff-form" data-sec-id="'+sec.id+'" data-hire-id="'+hireId+'">';
   html += '<div style="font-size:14px;font-weight:600;margin-bottom:12px">Sign Off: '+escapeOBAttr(sec.title)+'</div>';
   html += '<div class="field"><label>Notes</label>';
@@ -497,8 +497,8 @@ function renderSignOffForm(sec, hireId) {
     html += '<button class="rating-btn'+(isOn?' on':'')+'" data-action="signoff-rating" data-sec-id="'+sec.id+'" data-hire-id="'+hireId+'" data-rating="'+val+'">'+label+'</button>';
   });
   html += '</div></div>';
-  if (formState.err) html += '<span class="field-err">'+escapeOBAttr(formState.err)+'</span>';
-  html += '<button class="btn-approve" data-action="confirm-signoff" data-sec-id="'+sec.id+'" data-hire-id="'+hireId+'"'+(canConfirm?'':' disabled')+'>Confirm Sign-Off</button>';
+  if (formState.err) html += '<div class="field-err" style="margin-bottom:8px">'+escapeOBAttr(formState.err)+'</div>';
+  html += '<button class="btn-approve" data-action="confirm-signoff" data-sec-id="'+sec.id+'" data-hire-id="'+hireId+'">Confirm Sign-Off</button>';
   html += '<button class="btn-secondary" data-action="cancel-signoff" data-sec-id="'+sec.id+'" data-hire-id="'+hireId+'">Never Mind</button>';
   html += '</div>';
   return html;
@@ -907,7 +907,13 @@ document.getElementById('mgr-body').addEventListener('click', async function(e) 
     var hireId = btn.dataset.hireId;
     var sfKey = hireId + '_' + secId;
     var formState = SIGNOFF_FORM[sfKey];
-    if (!formState || !formState.notes || !formState.notes.trim() || !formState.rating) return;
+    if (!formState) return;
+    if (!formState.rating) {
+      formState.err = 'Selecting Readiness is required.';
+      renderMgrRunner();
+      return;
+    }
+    formState.err = '';
     btn.disabled = true;
     try {
       await api('POST', '/api/v1/onboarding/signOff', { section_id: secId, hire_id: hireId, notes: formState.notes.trim(), rating: formState.rating });
@@ -936,12 +942,6 @@ document.getElementById('mgr-body').addEventListener('input', function(e) {
     var sfKey = hireId + '_' + secId;
     if (!SIGNOFF_FORM[sfKey]) SIGNOFF_FORM[sfKey] = { notes: '', rating: '' };
     SIGNOFF_FORM[sfKey].notes = e.target.value;
-    // Update confirm button state inline without full re-render
-    var confirmBtn = document.querySelector('[data-action="confirm-signoff"][data-sec-id="'+secId+'"][data-hire-id="'+hireId+'"]');
-    if (confirmBtn) {
-      var canConfirm = SIGNOFF_FORM[sfKey].notes.trim() && SIGNOFF_FORM[sfKey].rating;
-      confirmBtn.disabled = !canConfirm;
-    }
   }
 });
 
