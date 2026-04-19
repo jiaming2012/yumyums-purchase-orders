@@ -83,6 +83,15 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .video-progress-bar{height:100%;background:var(--info-tx);border-radius:3px;width:0%;transition:width 0.2s}
 .video-upload-status{font-size:11px;color:var(--mut);margin-top:2px}
 .thumb-preview{width:60px;height:40px;object-fit:cover;border-radius:4px;border:0.5px solid var(--brd)}
+.video-thumb-wrap{position:relative;width:100%;max-width:280px;border-radius:8px;overflow:hidden;cursor:pointer;margin:6px 0}
+.video-thumb-wrap img{width:100%;height:auto;display:block}
+.video-thumb-wrap .play-btn{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:48px;height:48px;background:rgba(0,0,0,0.6);border-radius:50%;display:flex;align-items:center;justify-content:center}
+.video-thumb-wrap .play-btn::after{content:'';border-style:solid;border-width:10px 0 10px 18px;border-color:transparent transparent transparent #fff;margin-left:3px}
+.video-thumb-wrap.watched{opacity:0.7}
+.video-thumb-wrap.watched .play-btn{background:rgba(0,128,0,0.6)}
+.video-player-modal{position:fixed;top:0;left:0;width:100%;height:100%;background:#000;z-index:9999;display:none}
+.video-player-modal video{width:100%;height:100%;object-fit:contain}
+.video-player-close{position:absolute;top:12px;right:16px;color:#fff;font-size:24px;cursor:pointer;z-index:10000;background:rgba(0,0,0,0.5);border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center}
 </style>
 </head>
 <body>
@@ -326,17 +335,29 @@ function renderSections(sections, hireId, readOnly) {
             (item.video_parts || []).forEach(function(part) {
               var partChecked = part.checked === true;
               var partCheckClass = 'ob-check' + (partChecked ? ' checked' : '');
-              var canInteract = !readOnly && state === 'active';
-              var partCheckable = canInteract ? ' data-action="toggle-video-part" data-item-id="'+part.id+'" data-sec-id="'+sec.id+'" data-hire-id="'+hireId+'"' : '';
+              // D-12: Checkbox is read-only for video parts — no data-action, no toggle
+              var partCheckedAttr = partChecked ? ' checked disabled' : ' disabled';
+              var thumbSrc = part.thumbnail_url || '';
+              var watchedClass = partChecked ? ' watched' : '';
               html += '<div class="item-row">';
-              html += '<div class="'+partCheckClass+'"'+partCheckable+(readOnly?' style="cursor:default"':'')+'>'+(partChecked?'&#10003;':'')+'</div>';
-              html += '<div style="flex:1">';
-              html += '<div style="font-size:14px;font-weight:500">'+escapeOBAttr(part.title)+'</div>';
-              html += '<div style="font-size:12px;color:var(--mut);margin-top:2px">'+escapeOBAttr(part.desc)+'</div>';
+              html += '<label style="pointer-events:none"><input type="checkbox"'+partCheckedAttr+'> '+escapeOBAttr(part.title)+'</label>';
+              html += '<div style="flex:1;margin-left:8px">';
+              if (part.desc) html += '<div style="font-size:12px;color:var(--mut);margin-top:2px">'+escapeOBAttr(part.desc)+'</div>';
               if (partChecked && part.checked_by) html += '<div class="attribution">Checked by '+escapeOBAttr(part.checked_by)+'</div>';
-              if (part._saveErr) html += '<span class="field-err">'+escapeOBAttr(part._saveErr)+' <span data-action="retry-part" data-item-id="'+part.id+'" data-sec-id="'+sec.id+'" data-hire-id="'+hireId+'" style="cursor:pointer;text-decoration:underline">Tap to retry.</span></span>';
+              if (part._saveErr) html += '<span class="field-err">'+escapeOBAttr(part._saveErr)+'</span>';
+              if (part.url) {
+                if (thumbSrc) {
+                  html += '<div class="video-thumb-wrap'+watchedClass+'" data-action="play-video" data-part-id="'+escapeOBAttr(part.id)+'" data-video-url="'+escapeOBAttr(part.url)+'" data-thumb-url="'+escapeOBAttr(thumbSrc)+'" data-max-watched="'+(part.max_watched_time||0)+'" data-sec-id="'+escapeOBAttr(sec.id)+'" data-hire-id="'+escapeOBAttr(hireId)+'">';
+                  html += '<img src="'+escapeOBAttr(thumbSrc)+'" alt="'+escapeOBAttr(part.title)+'">';
+                  html += '<div class="play-btn"></div>';
+                  html += '</div>';
+                } else {
+                  html += '<div class="video-thumb-wrap'+watchedClass+'" data-action="play-video" data-part-id="'+escapeOBAttr(part.id)+'" data-video-url="'+escapeOBAttr(part.url)+'" data-thumb-url="" data-max-watched="'+(part.max_watched_time||0)+'" data-sec-id="'+escapeOBAttr(sec.id)+'" data-hire-id="'+escapeOBAttr(hireId)+'" style="background:var(--card);min-height:60px;display:flex;align-items:center;justify-content:center">';
+                  html += '<div class="play-btn" style="position:static;transform:none"></div>';
+                  html += '</div>';
+                }
+              }
               html += '</div>';
-              html += '<a class="video-link" data-action="watch-video" data-url="'+escapeOBAttr(part.url)+'" href="#">Watch Video</a>';
               html += '</div>';
             });
           }
@@ -944,6 +965,132 @@ async function uploadCustomThumbnail(file, secId, itemIdx, partIdx) {
 }
 
 // ==============================
+// VIDEO PLAYER
+// ==============================
+var ACTIVE_VIDEO_PART = null;
+
+function initVideoPlayer(videoEl, partId, videoUrl, thumbUrl, initialMaxWatched, secId, hireId) {
+  var maxWatchedTime = parseFloat(initialMaxWatched) || 0;
+  var marked = false;
+  ACTIVE_VIDEO_PART = { partId: partId, secId: secId, hireId: hireId, maxWatchedTime: maxWatchedTime };
+  // Strip old listeners by replacing the element
+  var fresh = videoEl.cloneNode(true);
+  videoEl.parentNode.replaceChild(fresh, videoEl);
+  videoEl = fresh;
+  videoEl.src = videoUrl;
+  // iOS Safari requires poster to avoid black screen before play
+  if (thumbUrl) videoEl.poster = thumbUrl;
+  videoEl.currentTime = maxWatchedTime > 0 ? maxWatchedTime : 0;
+  // D-10: Seeking restriction
+  videoEl.addEventListener('seeking', function() {
+    if (videoEl.currentTime > maxWatchedTime + 0.5) {
+      videoEl.currentTime = maxWatchedTime;
+    }
+  });
+  // D-09: Track furthest watched + 95% check
+  videoEl.addEventListener('timeupdate', function() {
+    if (videoEl.currentTime > maxWatchedTime) {
+      maxWatchedTime = videoEl.currentTime;
+      ACTIVE_VIDEO_PART.maxWatchedTime = maxWatchedTime;
+    }
+    if (!marked && !isNaN(videoEl.duration) && videoEl.duration > 0) {
+      if (videoEl.currentTime / videoEl.duration >= 0.95) {
+        marked = true;
+        markVideoPartWatched(partId, secId, hireId, maxWatchedTime);
+      }
+    }
+  });
+  // D-09: Also mark on ended
+  videoEl.addEventListener('ended', function() {
+    if (!marked) { marked = true; markVideoPartWatched(partId, secId, hireId, maxWatchedTime); }
+  });
+  // D-11: Save progress on pause
+  videoEl.addEventListener('pause', function() {
+    saveVideoWatchProgress(partId, maxWatchedTime);
+  });
+  videoEl.play().then(function() { enterFullscreen(videoEl); }).catch(function(err) { console.warn('Autoplay blocked:', err); });
+  return videoEl;
+}
+
+function enterFullscreen(videoEl) {
+  if (videoEl.webkitEnterFullscreen) videoEl.webkitEnterFullscreen();
+  else if (videoEl.requestFullscreen) videoEl.requestFullscreen();
+  else if (document.documentElement.requestFullscreen) document.getElementById('video-modal').requestFullscreen();
+}
+
+async function markVideoPartWatched(partId, secId, hireId, maxWatchedTime) {
+  var body = { item_id: partId, progress_type: 'video_part', checked: true, max_watched_time: maxWatchedTime };
+  try {
+    var res = await fetch('/api/v1/onboarding/saveProgress', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body), credentials: 'same-origin'
+    });
+    if (res.status === 401) { window.location.href = 'login.html'; return; }
+    if (CURRENT_TRAINING && CURRENT_TRAINING.sections) {
+      CURRENT_TRAINING.sections.forEach(function(s) {
+        s.items.forEach(function(it) {
+          if (it.type === 'video_series') {
+            (it.video_parts || []).forEach(function(vp) {
+              if (vp.id === partId) { vp.checked = true; vp.max_watched_time = maxWatchedTime; }
+            });
+          }
+        });
+      });
+    }
+    // Recompute section state after marking watched
+    if (CURRENT_TRAINING && CURRENT_TRAINING.sections) {
+      CURRENT_TRAINING.sections.forEach(function(s) {
+        if (s.id === secId) recomputeSectionState(s);
+      });
+    }
+    renderTrainingDetail();
+  } catch (err) { console.error('markVideoPartWatched error:', err); }
+}
+
+async function saveVideoWatchProgress(partId, maxWatchedTime) {
+  // Uses 'video_watch_position' progress type -- does NOT mark as complete
+  var body = { item_id: partId, progress_type: 'video_watch_position', checked: true, max_watched_time: maxWatchedTime };
+  try {
+    await fetch('/api/v1/onboarding/saveProgress', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body), credentials: 'same-origin'
+    });
+  } catch (err) { console.error('saveVideoWatchProgress error:', err); }
+}
+
+function renderTrainingDetail() {
+  // Re-render whichever runner is active
+  if (obState.view === 'runner') renderMyRunner();
+  else if (mgrState.view === 'runner') renderMgrRunner();
+}
+
+// Fullscreen exit handlers — save progress and close modal
+document.addEventListener('fullscreenchange', function() {
+  if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+    var modal = document.getElementById('video-modal');
+    if (modal && modal.style.display === 'block') {
+      var videoEl = document.getElementById('video-player');
+      videoEl.pause();
+      if (ACTIVE_VIDEO_PART) saveVideoWatchProgress(ACTIVE_VIDEO_PART.partId, ACTIVE_VIDEO_PART.maxWatchedTime);
+      videoEl.removeAttribute('src'); videoEl.load();
+      modal.style.display = 'none'; ACTIVE_VIDEO_PART = null;
+    }
+  }
+});
+document.addEventListener('webkitfullscreenchange', function() {
+  if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+    var modal = document.getElementById('video-modal');
+    if (modal && modal.style.display === 'block') {
+      var videoEl = document.getElementById('video-player');
+      videoEl.pause();
+      if (ACTIVE_VIDEO_PART) saveVideoWatchProgress(ACTIVE_VIDEO_PART.partId, ACTIVE_VIDEO_PART.maxWatchedTime);
+      videoEl.removeAttribute('src'); videoEl.load();
+      modal.style.display = 'none'; ACTIVE_VIDEO_PART = null;
+    }
+  }
+});
+
+// ==============================
 // EVENT DELEGATION — my-body
 // ==============================
 document.getElementById('my-body').addEventListener('click', async function(e) {
@@ -1024,40 +1171,27 @@ document.getElementById('my-body').addEventListener('click', async function(e) {
       item._saveErr = null;
       renderMyRunner();
     }
-  } else if (action === 'toggle-video-part') {
-    var partId = btn.dataset.itemId;
-    var secId = btn.dataset.secId;
-    var hireId = btn.dataset.hireId;
-    var part = findItemInTraining(CURRENT_TRAINING, partId, false);
-    var sec = findItemInTraining(CURRENT_TRAINING, secId, true);
-    if (!part || !sec) return;
-    var newChecked = !part.checked;
-    // Check if this would complete a sign-off section
-    if (newChecked && sec.requires_sign_off) {
-      var allItemsDone = (sec.items||[]).every(function(it) {
-        if (it.type === 'video_series') {
-          return (it.video_parts||[]).every(function(vp) { return vp.id === partId ? true : vp.checked; });
-        }
-        return it.checked;
-      });
-      if (allItemsDone && !confirm('This will submit the section for sign-off. You won\'t be able to make changes after. Continue?')) return;
-    }
-    part.checked = newChecked;
-    recomputeSectionState(sec);
-    renderMyRunner();
-    var ok = await saveProgress(partId, 'video_part', newChecked, CURRENT_TRAINING.sections, hireId);
-    if (!ok) {
-      var retries = SAVE_RETRY[partId] || 0;
-      if (retries >= 2) {
-        part.checked = !newChecked;
-        recomputeSectionState(sec);
-      }
-      part._saveErr = "Couldn't save.";
-      renderMyRunner();
-    } else {
-      part._saveErr = null;
-      renderMyRunner();
-    }
+  } else if (action === 'play-video') {
+    var el = e.target.closest('[data-action="play-video"]');
+    var modal = document.getElementById('video-modal');
+    modal.style.display = 'block';
+    var videoEl = document.getElementById('video-player');
+    initVideoPlayer(
+      videoEl,
+      el.dataset.partId,
+      el.dataset.videoUrl,
+      el.dataset.thumbUrl || '',
+      el.dataset.maxWatched || 0,
+      el.dataset.secId,
+      el.dataset.hireId
+    );
+  } else if (action === 'close-video') {
+    var modal = document.getElementById('video-modal');
+    var videoEl = document.getElementById('video-player');
+    videoEl.pause();
+    if (ACTIVE_VIDEO_PART) saveVideoWatchProgress(ACTIVE_VIDEO_PART.partId, ACTIVE_VIDEO_PART.maxWatchedTime);
+    videoEl.removeAttribute('src'); videoEl.load();
+    modal.style.display = 'none'; ACTIVE_VIDEO_PART = null;
   } else if (action === 'retry-item') {
     // trigger same as toggle-item
     var itemId = btn.dataset.itemId;
@@ -1082,9 +1216,6 @@ document.getElementById('my-body').addEventListener('click', async function(e) {
     if (ok) { part._saveErr = null; }
     else { part._saveErr = "Couldn't save."; }
     renderMyRunner();
-  } else if (action === 'watch-video') {
-    e.preventDefault();
-    window.open(btn.dataset.url, '_blank');
   }
 });
 
@@ -1168,9 +1299,6 @@ document.getElementById('mgr-body').addEventListener('click', async function(e) 
       EXPANDED_FAQS[faqId] = true;
     }
     renderMgrRunner();
-  } else if (action === 'watch-video') {
-    e.preventDefault();
-    window.open(btn.dataset.url, '_blank');
   } else if (action === 'show-signoff-form') {
     var secId = btn.dataset.secId;
     var hireId = btn.dataset.hireId;
@@ -1489,5 +1617,9 @@ if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
 </script>
 <script src="https://unpkg.com/sortablejs@1.15.7/Sortable.min.js"></script>
 <script src="ptr.js"></script>
+<div class="video-player-modal" id="video-modal">
+  <div class="video-player-close" data-action="close-video">&times;</div>
+  <video id="video-player" playsinline controls></video>
+</div>
 </body>
 </html>
