@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Onboarding Video Upgrade
 status: executing
-stopped_at: Completed 01-02-PLAN.md
-last_updated: "2026-04-19T21:50:23.051Z"
+stopped_at: Completed 01-01-PLAN.md
+last_updated: "2026-04-19T21:52:10.585Z"
 last_activity: 2026-04-19
 progress:
   total_phases: 2
   completed_phases: 1
   total_plans: 6
-  completed_plans: 4
+  completed_plans: 5
   percent: 0
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-15)
 ## Current Position
 
 Phase: 01 (onboarding-video-upgrade) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 Status: Ready to execute
 Last activity: 2026-04-19
 
@@ -84,6 +84,7 @@ Progress: [░░░░░░░░░░] 0% (v2.0 milestone)
 | Phase 13-integration-fixes P01 | 8 | 2 tasks | 6 files |
 | Phase 13-integration-fixes P02 | 583 | 3 tasks | 4 files |
 | Phase 01-onboarding-video-upgrade P02 | 2 | 1 tasks | 3 files |
+| Phase 01-onboarding-video-upgrade P01 | 15 | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -165,6 +166,9 @@ Recent decisions affecting current work:
 - [Phase 13-integration-fixes]: Photo URL included in _fail_note bundle for autoSaveField and hydrateFieldState photo persistence
 - [Phase 01-02]: uploadVideoFile uses XHR not fetch — only XHR exposes upload.progress events for progress bar
 - [Phase 01-02]: Builder change event listener added for file inputs and radios (change not click) alongside existing click delegation
+- [Phase 01-01]: video_watch_position is a separate progress_type from video_part — isSectionComplete only checks video_part so watch position tracking never falsely marks sections complete
+- [Phase 01-01]: GREATEST() upsert for max_watched_time in ON CONFLICT clause ensures only forward-progress watch positions are stored
+- [Phase 01-01]: VideoProcessHandler fires goroutine and returns 202 Accepted immediately — FFmpeg can take minutes for large videos
 
 ### Pending Todos
 
@@ -187,6 +191,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-19T21:50:23.043Z
-Stopped at: Completed 01-02-PLAN.md
+Last session: 2026-04-19T21:52:10.576Z
+Stopped at: Completed 01-01-PLAN.md
 Resume file: None
