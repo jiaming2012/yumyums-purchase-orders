@@ -413,7 +413,7 @@ function recomputeSectionState(sec) {
       if (sec.state === 'active') {
         sec.state = 'complete';
         sec.completed_at = new Date().toISOString();
-        delete EXPANDED_SECTIONS[sec.id];
+        // Do NOT auto-collapse FAQ — user needs time to read the last answer
         unlockNextSection(sec);
       }
     }
@@ -466,9 +466,9 @@ function renderManagerList() {
   subTabsHtml += '<button class="'+(mgrState.subView==='completed'?'on':'')+'" data-action="switch-sub" data-sub="completed">Completed</button>';
   subTabsHtml += '</div>';
   var hires = MANAGER_HIRES || [];
-  // Filter by completion: a hire is complete if all their templates are at 100%
+  // Filter by completion: a hire is complete if all templates are at 100% AND none are waiting for sign-off
   var filtered = hires.filter(function(h) {
-    var allDone = (h.assigned_templates||[]).length > 0 && (h.assigned_templates||[]).every(function(t) { return t.progress_pct >= 100; });
+    var allDone = (h.assigned_templates||[]).length > 0 && (h.assigned_templates||[]).every(function(t) { return t.progress_pct >= 100 && !t.pending_signoff; });
     return mgrState.subView === 'completed' ? allDone : !allDone;
   });
   var listHtml = '';
@@ -517,6 +517,51 @@ function renderMgrRunner() {
   html += '<span class="back" data-action="back-to-hires" style="display:inline-flex;align-items:center;gap:4px;color:var(--info-tx);font-size:14px;font-weight:500;margin-bottom:16px;cursor:pointer">&#8249; All Hires</span>';
   html += '<div style="font-size:14px;font-weight:600;color:var(--txt);margin-bottom:16px">'+escapeOBAttr(mgrState.activeHireName)+' &mdash; '+escapeOBAttr(CURRENT_TRAINING.template.name)+'</div>';
   html += renderSections(CURRENT_TRAINING.sections, mgrState.activeHireId, true);
+  document.getElementById('mgr-body').innerHTML = html;
+}
+
+function renderHireDetail(hire) {
+  var html = '';
+  html += '<span class="back" data-action="back-to-hires" style="display:inline-flex;align-items:center;gap:4px;color:var(--info-tx);font-size:14px;font-weight:500;margin-bottom:16px;cursor:pointer">&#8249; All Hires</span>';
+  html += '<div style="font-size:16px;font-weight:600;color:var(--txt);margin-bottom:16px">' + escapeOBAttr(hire.display_name) + '</div>';
+  var assigned = hire.assigned_templates || [];
+  if (assigned.length === 0) {
+    html += '<div class="empty" style="padding:16px 0"><p>No templates assigned yet.</p></div>';
+  } else {
+    assigned.forEach(function(t) {
+      var pct = t.progress_pct || 0;
+      html += '<div class="card" style="margin-bottom:8px">';
+      html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">';
+      html += '<span style="font-size:14px;font-weight:500">' + escapeOBAttr(t.template_name) + '</span>';
+      html += '<span style="font-size:12px;color:var(--mut)">' + pct + '%</span>';
+      html += '</div>';
+      html += '<div style="height:4px;background:var(--brd);border-radius:2px;margin-bottom:8px;overflow:hidden"><div style="height:100%;background:#27ae60;border-radius:2px;width:' + pct + '%"></div></div>';
+      html += '<div style="display:flex;gap:8px">';
+      html += '<button class="btn-secondary" style="flex:1;font-size:12px;padding:8px" data-action="view-training" data-hire-id="' + hire.hire_id + '" data-hire-name="' + escapeOBAttr(hire.display_name) + '" data-template-id="' + t.template_id + '">View Training</button>';
+      html += '<button style="flex:0;font-size:12px;padding:8px;background:transparent;color:#c0392b;border:1px solid #c0392b;border-radius:8px;cursor:pointer" data-action="unassign-template" data-hire-id="' + hire.hire_id + '" data-template-id="' + t.template_id + '">Unassign</button>';
+      html += '</div>';
+      html += '</div>';
+    });
+  }
+  html += '<button class="btn-approve" style="width:100%;margin-top:12px" data-action="show-assign-picker" data-hire-id="' + hire.hire_id + '">+ Assign Template</button>';
+  document.getElementById('mgr-body').innerHTML = html;
+}
+
+function renderAssignPicker(hireId, assignedIds) {
+  var available = (TEMPLATES || []).filter(function(t) { return !assignedIds.includes(t.id); });
+  var html = '';
+  html += '<span class="back" data-action="back-to-hire-detail" data-hire-id="' + hireId + '" style="display:inline-flex;align-items:center;gap:4px;color:var(--info-tx);font-size:14px;font-weight:500;margin-bottom:16px;cursor:pointer">&#8249; Back</span>';
+  html += '<div style="font-size:14px;font-weight:600;margin-bottom:12px">Assign Template</div>';
+  if (available.length === 0) {
+    html += '<div class="empty"><p>All templates are already assigned.</p></div>';
+  } else {
+    available.forEach(function(t) {
+      html += '<div class="card" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">';
+      html += '<span style="font-size:14px">' + escapeOBAttr(t.name) + '</span>';
+      html += '<button class="btn-approve" style="font-size:12px;padding:6px 16px" data-action="assign-template" data-hire-id="' + hireId + '" data-template-id="' + t.id + '">Assign</button>';
+      html += '</div>';
+    });
+  }
   document.getElementById('mgr-body').innerHTML = html;
 }
 
@@ -814,7 +859,11 @@ document.getElementById('my-body').addEventListener('click', async function(e) {
     var newChecked = !item.checked;
     // Check if this would complete a sign-off section
     if (newChecked && sec.requires_sign_off) {
-      var wouldComplete = (sec.items||[]).every(function(it) { return it.id === itemId ? true : it.checked; });
+      var wouldComplete = (sec.items||[]).every(function(it) {
+        if (it.id === itemId) return true;
+        if (it.type === 'video_series') return (it.video_parts||[]).every(function(vp) { return vp.checked; });
+        return it.checked;
+      });
       if (wouldComplete && !confirm('This will submit the section for sign-off. You won\'t be able to make changes after. Continue?')) return;
     }
     item.checked = newChecked;
@@ -910,11 +959,54 @@ document.getElementById('mgr-body').addEventListener('click', async function(e) 
     renderManagerList();
   } else if (action === 'open-hire') {
     var hireId = btn.dataset.hireId;
-    var hireName = btn.dataset.hireName;
     var hire = (MANAGER_HIRES||[]).find(function(h) { return h.hire_id === hireId; });
-    var firstTemplate = hire && hire.assigned_templates && hire.assigned_templates[0];
-    if (!firstTemplate) return;
-    await openHireTraining(hireId, hireName, firstTemplate.template_id);
+    if (!hire) return;
+    mgrState = { view: 'detail', subView: mgrState.subView, activeHireId: hireId, activeHireName: hire.display_name, activeTemplateId: null };
+    renderHireDetail(hire);
+  } else if (action === 'view-training') {
+    var hireId = btn.dataset.hireId;
+    var hireName = btn.dataset.hireName;
+    var templateId = btn.dataset.templateId;
+    await openHireTraining(hireId, hireName, templateId);
+  } else if (action === 'show-assign-picker') {
+    var hireId = btn.dataset.hireId;
+    var hire = (MANAGER_HIRES||[]).find(function(h) { return h.hire_id === hireId; });
+    var assignedIds = (hire && hire.assigned_templates || []).map(function(t) { return t.template_id; });
+    renderAssignPicker(hireId, assignedIds);
+  } else if (action === 'assign-template') {
+    var hireId = btn.dataset.hireId;
+    var templateId = btn.dataset.templateId;
+    try {
+      await api('POST', '/api/v1/onboarding/assignTemplate', { hire_id: hireId, template_id: templateId });
+      MANAGER_HIRES = await api('GET', '/api/v1/onboarding/managerHires');
+      var hire = (MANAGER_HIRES||[]).find(function(h) { return h.hire_id === hireId; });
+      if (hire) renderHireDetail(hire);
+      else renderManagerList();
+    } catch(e) {
+      alert('Failed to assign template. Try again.');
+    }
+  } else if (action === 'unassign-template') {
+    var hireId = btn.dataset.hireId;
+    var templateId = btn.dataset.templateId;
+    if (!confirm('Unassign this template? Progress will be lost.')) return;
+    try {
+      await api('POST', '/api/v1/onboarding/unassignTemplate', { hire_id: hireId, template_id: templateId });
+      MANAGER_HIRES = await api('GET', '/api/v1/onboarding/managerHires');
+      var hire = (MANAGER_HIRES||[]).find(function(h) { return h.hire_id === hireId; });
+      if (hire) renderHireDetail(hire);
+      else renderManagerList();
+    } catch(e) {
+      alert('Failed to unassign template. Try again.');
+    }
+  } else if (action === 'back-to-hire-detail') {
+    var hireId = btn.dataset.hireId;
+    var hire = (MANAGER_HIRES||[]).find(function(h) { return h.hire_id === hireId; });
+    if (hire) {
+      mgrState = { view: 'detail', subView: mgrState.subView, activeHireId: hireId, activeHireName: hire.display_name, activeTemplateId: null };
+      renderHireDetail(hire);
+    } else {
+      renderManagerList();
+    }
   } else if (action === 'back-to-hires') {
     mgrState = { view: 'list', subView: mgrState.subView, activeHireId: null, activeHireName: null, activeTemplateId: null };
     CURRENT_TRAINING = null;
