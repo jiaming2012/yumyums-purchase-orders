@@ -491,9 +491,10 @@ function renderSignOffForm(sec, hireId) {
   html += '<textarea data-action="signoff-notes" data-sec-id="'+sec.id+'" data-hire-id="'+hireId+'" placeholder="What went well? Any concerns?" rows="3">'+escapeOBAttr(formState.notes)+'</textarea></div>';
   html += '<div class="field"><label>Readiness</label>';
   html += '<div class="rating-group">';
-  ['Ready','Needs Practice','Struggling'].forEach(function(r) {
-    var isOn = formState.rating === r;
-    html += '<button class="rating-btn'+(isOn?' on':'')+'" data-action="signoff-rating" data-sec-id="'+sec.id+'" data-hire-id="'+hireId+'" data-rating="'+r+'">'+r+'</button>';
+  [['ready','Ready'],['needs_practice','Needs Practice'],['struggling','Struggling']].forEach(function(pair) {
+    var val = pair[0], label = pair[1];
+    var isOn = formState.rating === val;
+    html += '<button class="rating-btn'+(isOn?' on':'')+'" data-action="signoff-rating" data-sec-id="'+sec.id+'" data-hire-id="'+hireId+'" data-rating="'+val+'">'+label+'</button>';
   });
   html += '</div></div>';
   if (formState.err) html += '<span class="field-err">'+escapeOBAttr(formState.err)+'</span>';

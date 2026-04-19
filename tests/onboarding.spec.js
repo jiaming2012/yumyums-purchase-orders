@@ -526,6 +526,13 @@ test.describe('Manager tab', () => {
       await page.locator('#mgr-body .rating-btn').first().click();
       // Now button should be enabled
       await expect(confirmBtn).not.toBeDisabled();
+
+      // Click Confirm Sign-Off — should succeed
+      await confirmBtn.click();
+      await page.waitForTimeout(2000);
+
+      // Section should now show "Signed Off" status
+      await expect(page.locator('#mgr-body')).toContainText('Signed Off');
     }
   });
 
