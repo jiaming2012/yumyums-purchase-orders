@@ -86,8 +86,9 @@ const (
 // SectionProgress wraps Section with computed state for a specific hire.
 type SectionProgress struct {
 	Section
-	State   SectionState `json:"state"`
-	SignOff *SignOffInfo `json:"sign_off,omitempty"`
+	State       SectionState `json:"state"`
+	CompletedAt string       `json:"completed_at,omitempty"`
+	SignOff     *SignOffInfo  `json:"sign_off,omitempty"`
 }
 
 // SignOffInfo holds sign-off data for a section.
@@ -439,6 +440,8 @@ func GetHireTraining(ctx context.Context, pool *pgxpool.Pool, hireID, templateID
 			sp.SignOff = so
 		} else if isSectionComplete(sec, progressMap) {
 			sp.State = SectionComplete
+			// Derive completed_at from latest progress entry in this section
+			sp.CompletedAt = latestProgressInSection(sec, progressEntries)
 		} else if canActivateSection(i, sectionProgresses) {
 			sp.State = SectionActive
 		} else {
@@ -453,6 +456,27 @@ func GetHireTraining(ctx context.Context, pool *pgxpool.Pool, hireID, templateID
 		Sections: sectionProgresses,
 		Progress: progressEntries,
 	}, nil
+}
+
+// latestProgressInSection returns the latest checked_at timestamp for items in a section.
+func latestProgressInSection(sec Section, entries []ProgressEntry) string {
+	itemIDs := map[string]bool{}
+	for _, item := range sec.Items {
+		if item.Type == "video_series" {
+			for _, vp := range item.VideoParts {
+				itemIDs[vp.ID] = true
+			}
+		} else {
+			itemIDs[item.ID] = true
+		}
+	}
+	var latest string
+	for _, pe := range entries {
+		if itemIDs[pe.ItemID] && pe.CheckedAt > latest {
+			latest = pe.CheckedAt
+		}
+	}
+	return latest
 }
 
 // isSectionComplete returns true if all items in the section are done.

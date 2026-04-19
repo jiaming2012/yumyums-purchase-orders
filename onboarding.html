@@ -264,7 +264,8 @@ function renderSections(sections, hireId, readOnly) {
       if (sec.requires_sign_off) {
         stateHtml = '<span class="pill pill-warn">Waiting for Sign-Off</span>';
       } else {
-        stateHtml = '<span style="font-size:12px;color:#27ae60;font-weight:500">&#10003; Complete</span>';
+        var completedAt = sec.completed_at ? formatDateTime(sec.completed_at) : formatDateTime(new Date().toISOString());
+        stateHtml = '<div style="text-align:right"><span style="font-size:12px;color:#27ae60;font-weight:500">&#10003; Complete</span><div class="attribution">'+completedAt+'</div></div>';
       }
     } else {
       // active
@@ -405,13 +406,43 @@ async function saveProgress(itemId, progressType, checked, sections, hireId) {
 
 function recomputeSectionState(sec) {
   // Re-check if section complete based on local item states
-  if (sec.is_faq) return;
+  if (sec.is_faq) {
+    var faqTotal = (sec.items || []).length;
+    var faqViewed = (sec.items || []).filter(function(f) { return f.viewed; }).length;
+    if (faqTotal > 0 && faqViewed === faqTotal) {
+      if (sec.state === 'active') {
+        sec.state = 'complete';
+        sec.completed_at = new Date().toISOString();
+        delete EXPANDED_SECTIONS[sec.id];
+        unlockNextSection(sec);
+      }
+    }
+    return;
+  }
   var total = countSectionItems(sec);
   var checked = countCheckedItems(sec);
   if (total > 0 && checked === total) {
-    if (sec.state === 'active') sec.state = 'complete';
+    if (sec.state === 'active') {
+      sec.state = 'complete';
+      sec.completed_at = new Date().toISOString();
+      // Auto-collapse completed section
+      delete EXPANDED_SECTIONS[sec.id];
+      // Unlock next section
+      unlockNextSection(sec);
+    }
   } else {
     if (sec.state === 'complete') sec.state = 'active';
+  }
+}
+
+function unlockNextSection(completedSec) {
+  if (!CURRENT_TRAINING || !CURRENT_TRAINING.sections) return;
+  var sections = CURRENT_TRAINING.sections;
+  var idx = sections.findIndex(function(s) { return s.id === completedSec.id; });
+  if (idx < 0 || idx >= sections.length - 1) return;
+  var next = sections[idx + 1];
+  if (next.state === 'locked') {
+    next.state = 'active';
   }
 }
 
@@ -764,11 +795,12 @@ document.getElementById('my-body').addEventListener('click', async function(e) {
       if (faqItem && !faqItem.viewed) {
         faqItem.viewed = true;
         var hireId = obState.activeTrainingId || (CURRENT_USER && CURRENT_USER.id);
-        var secId = null;
+        var faqSec = null;
         CURRENT_TRAINING.sections.forEach(function(s) {
-          if (s.is_faq && (s.items || []).some(function(f) { return f.id === faqId; })) secId = s.id;
+          if (s.is_faq && (s.items || []).some(function(f) { return f.id === faqId; })) faqSec = s;
         });
         if (hireId) saveProgress(faqId, 'faq', true, CURRENT_TRAINING.sections, hireId);
+        if (faqSec) recomputeSectionState(faqSec);
       }
     }
     renderMyRunner();

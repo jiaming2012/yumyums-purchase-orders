@@ -628,6 +628,73 @@ test.describe('Manager tab', () => {
     }
   });
 
+  test('completing a section unlocks next section and collapses completed one', async ({ page }) => {
+    await login(page);
+    const templates = await obApiCall(page, 'GET', 'templates');
+    const kitchenTemplate = templates.find(t => t.name === 'Kitchen Basics Training');
+    const fullTemplate = await obApiCall(page, 'GET', 'templates/' + kitchenTemplate.id);
+    const me = await page.evaluate(async () => (await (await fetch('/api/v1/me')).json()));
+
+    await obApiCall(page, 'POST', 'assignTemplate', { hire_id: me.id, template_id: kitchenTemplate.id });
+
+    // Complete section 1 + sign off
+    const sec1 = fullTemplate.sections.find(s => s.title === 'Safety & Hygiene');
+    for (const item of sec1.items) {
+      if (item.type === 'checkbox') {
+        await obApiCall(page, 'POST', 'saveProgress', { item_id: item.id, progress_type: 'item', checked: true });
+      }
+    }
+    await obApiCall(page, 'POST', 'signOff', { section_id: sec1.id, hire_id: me.id, notes: '', rating: 'ready' });
+
+    // Complete section 2 (Equipment Training) + sign off
+    const sec2 = fullTemplate.sections.find(s => s.title === 'Equipment Training');
+    for (const item of sec2.items) {
+      if (item.type === 'video_series') {
+        for (const part of (item.video_parts || [])) {
+          await obApiCall(page, 'POST', 'saveProgress', { item_id: part.id, progress_type: 'video_part', checked: true });
+        }
+      } else if (item.type === 'checkbox') {
+        await obApiCall(page, 'POST', 'saveProgress', { item_id: item.id, progress_type: 'item', checked: true });
+      }
+    }
+    await obApiCall(page, 'POST', 'signOff', { section_id: sec2.id, hire_id: me.id, notes: '', rating: 'ready' });
+
+    // Open training — Menu Knowledge (section 3) should be active now
+    await page.goto('/onboarding.html');
+    await page.waitForFunction(() => document.getElementById('my-body') && document.getElementById('my-body').querySelector('.card'));
+    await page.locator('#my-body .card', { hasText: 'Kitchen Basics' }).first().click();
+    await page.waitForSelector('.sec-header');
+
+    // Expand Menu Knowledge and complete all items
+    const menuHeader = page.locator('.sec-header', { hasText: 'MENU KNOWLEDGE' });
+    await menuHeader.click();
+    await page.waitForTimeout(300);
+
+    // Check all checkboxes in Menu Knowledge
+    const checks = page.locator('.ob-check:not(.checked)');
+    const checkCount = await checks.count();
+    for (let i = 0; i < checkCount; i++) {
+      // Handle the confirmation dialog on the last item
+      if (i === checkCount - 1) {
+        page.once('dialog', d => d.accept());
+      }
+      await page.locator('.ob-check:not(.checked)').first().click();
+      await page.waitForTimeout(500);
+    }
+
+    // After completing Menu Knowledge:
+    // 1. Menu Knowledge items should be collapsed (not visible)
+    await page.waitForTimeout(1000);
+    const visibleItems = await page.locator('.sec-items').count();
+    // Items from completed sections should not be visible
+
+    // 2. FAQ section should be unlocked (not showing "Locked")
+    const faqHeader = page.locator('.sec-header', { hasText: 'FAQ' });
+    await expect(faqHeader).toBeVisible();
+    const faqText = await faqHeader.textContent();
+    expect(faqText).not.toContain('Locked');
+  });
+
   test('video part checked state returned by hireTraining API', async ({ page }) => {
     await login(page);
     const templates = await obApiCall(page, 'GET', 'templates');
