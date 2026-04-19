@@ -22,11 +22,12 @@ func MeHandler() http.HandlerFunc {
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]any{
-			"id":           user.ID,
-			"email":        user.Email,
-			"display_name": user.DisplayName,
-			"roles":        user.Roles,
-			"status":       user.Status,
+			"id":            user.ID,
+			"email":         user.Email,
+			"display_name":  user.DisplayName,
+			"roles":         user.Roles,
+			"status":        user.Status,
+			"is_superadmin": user.IsSuperadmin,
 		})
 	}
 }

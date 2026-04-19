@@ -34,10 +34,11 @@
 
 - [x] **Phase 9: Foundation + Auth** — Go server shell, Postgres, Tailscale HTTPS dev access, SW partition, and working login/logout (completed 2026-04-15)
 - [x] **Phase 10: Workflows API** — Checklist templates, submissions, approval flow, correction loop, and offline sync wired to workflows.html (completed 2026-04-15)
-- [x] **Phase 10.1: Cross-Device State Sync** ��� Op-log, WebSocket hub, real-time fan-out, Lamport clocks, conflict resolution, sync UX (completed 2026-04-17)
+- [x] **Phase 10.1: Cross-Device State Sync** — Op-log, WebSocket hub, real-time fan-out, Lamport clocks, conflict resolution, sync UX (completed 2026-04-17)
 - [x] **Phase 10.2: Reactive Sync Framework** — Shared Store with collection-level subscriptions, single write channel (POST /ops), shared JS modules for all tools (completed 2026-04-17)
 - [x] **Phase 11: Onboarding + Users Admin** — Onboarding persistence, user CRUD, role management, and app permissions wired to their respective HTML pages (completed 2026-04-18)
 - [x] **Phase 12: Inventory + Photos + Tile Permissions** — Purchase events, vendor data, receipt ingestion, presigned photo upload, and permission-based tile filtering on index.html (completed 2026-04-18)
+- [ ] **Phase 13: Integration Fixes** — Fix /me response, Builder tab access, onboarding template assignment UI, delete template route, fail card photo persistence (gap closure)
 
 ## Phase Details
 
@@ -47,7 +48,7 @@
 **Requirements**: INFRA-01, INFRA-02, INFRA-03, INFRA-04, AUTH-01, AUTH-02, AUTH-03, AUTH-04
 **Success Criteria** (what must be TRUE):
   1. Opening the app URL on a physical phone over Tailscale loads the HQ shell with no certificate errors
-  2. Service worker DevTools Cache Storage shows zero `/api/` URLs cached �� only static assets
+  2. Service worker DevTools Cache Storage shows zero `/api/` URLs cached — only static assets
   3. Crew member can enter email + password on login.html and land on the HQ launcher (no mock alert)
   4. Logging out invalidates the session — the browser cannot re-access protected pages without logging in again
   5. An unauthenticated request to any `/api/v1/` endpoint (except `/health`) returns 401
@@ -102,7 +103,7 @@ Plans:
 
 ### Phase 10.2: Reactive Sync Framework (INSERTED)
 
-**Goal:** Extract shared Store with collection-level subscriptions + single write channel (POST /ops). All mutations flow through submitOp �� server → entity tables + ops + notify → all clients. Optimistic updates preserved. Store, sync client, and applyOp become shared JS modules reusable by onboarding/inventory/users.
+**Goal:** Extract shared Store with collection-level subscriptions + single write channel (POST /ops). All mutations flow through submitOp → server → entity tables + ops + notify → all clients. Optimistic updates preserved. Store, sync client, and applyOp become shared JS modules reusable by onboarding/inventory/users.
 **Depends on:** Phase 10.1
 **Requirements**: RSYNC-01, RSYNC-02, RSYNC-03, RSYNC-04, RSYNC-05, RSYNC-06, RSYNC-07
 **Success Criteria** (what must be TRUE):
@@ -115,7 +116,7 @@ Plans:
 
 Plans:
 - [x] 10.2-01-PLAN.md — Create sync.js (Store + LamportClock + WS + IndexedDB + api + submitOp) + Workbox precache
-- [x] 10.2-02-PLAN.md �� Wire workflows.html to sync.js (Store collections + subscribers + debouncedSaveField)
+- [x] 10.2-02-PLAN.md — Wire workflows.html to sync.js (Store collections + subscribers + debouncedSaveField)
 - [x] 10.2-03-PLAN.md — Backend POST /ops endpoint + switch submitOp to POST /ops + eliminate _recentSaves
 
 ### Phase 11: Onboarding + Users Admin
@@ -157,10 +158,26 @@ Plans:
 - [x] 12-05-PLAN.md — Receipt ingestion pipeline (Mercury + Claude Haiku + validation)
 - [x] 12-06-PLAN.md — Receipt review queue UI + E2E tests
 
+### Phase 13: Integration Fixes
+**Goal**: All cross-phase integration breaks found in the v2.0 milestone audit are resolved — admin Builder tab accessible, onboarding template assignment has a UI path, delete template works, and fail card photos persist to Spaces
+**Depends on**: Phases 9-12 (gap closure phase)
+**Requirements**: WKFL-04, ONBD-02, ONBD-04, PHOT-02
+**Gap Closure**: Closes 4 integration gaps, 2 broken E2E flows from v2.0-MILESTONE-AUDIT.md
+**Success Criteria** (what must be TRUE):
+  1. An admin user can open the Builder tab in workflows.html and see the template list (not ADMIN_RESTRICTED)
+  2. A manager can assign a training template to a hire from the onboarding Manager tab
+  3. Deleting a template in the Builder tab removes it (no 404 error)
+  4. Corrective-action (fail card) photos survive page reload — stored as Spaces https:// URLs, not blob:
+**Plans**: 2 plans
+
+Plans:
+- [ ] 13-01-PLAN.md — Fix /me response, Builder tab role check, delete template route
+- [ ] 13-02-PLAN.md — Template assignment UI + fail card photo persistence
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 9 → 10 → 10.1 → 10.2 → 11 → 12
+Phases execute in numeric order: 9 → 10 → 10.1 → 10.2 → 11 → 12 → 13
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -177,4 +194,5 @@ Phases execute in numeric order: 9 → 10 → 10.1 → 10.2 → 11 → 12
 | 10.1 Cross-Device State Sync | v2.0 | 5/5 | Complete   | 2026-04-17 |
 | 10.2 Reactive Sync Framework | v2.0 | 3/3 | Complete    | 2026-04-17 |
 | 11. Onboarding + Users Admin | v2.0 | 6/6 | Complete    | 2026-04-18 |
-| 12. Inventory + Photos + Tile Permissions | v2.0 | 6/6 | Complete   | 2026-04-18 |
+| 12. Inventory + Photos + Tile Permissions | v2.0 | 6/6 | Complete    | 2026-04-18 |
+| 13. Integration Fixes | v2.0 | 0/2 | Not started | — |

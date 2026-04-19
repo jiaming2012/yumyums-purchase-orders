@@ -565,7 +565,7 @@ function renderBuilder() {
   if (!body) return;
   if (state.view === 'list') {
     // Check admin/superadmin restriction (D-11)
-    var isAdmin = CURRENT_USER && (CURRENT_USER.role === 'admin' || CURRENT_USER.role === 'superadmin');
+    var isAdmin = CURRENT_USER && ((CURRENT_USER.roles||[]).includes('admin') || (CURRENT_USER.roles||[]).includes('superadmin') || CURRENT_USER.is_superadmin);
     if (!isAdmin) {
       body.innerHTML = '<div id="builder-list"><div class="inline-error">' + ADMIN_RESTRICTED + '</div></div>';
       return;

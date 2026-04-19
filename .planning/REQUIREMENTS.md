@@ -7,17 +7,17 @@
 
 ### Foundation & Infrastructure
 
-- [ ] **INFRA-01**: Go binary serves PWA static files via embed.FS and API via chi router from same origin
+- [x] **INFRA-01**: Go binary serves PWA static files via embed.FS and API via chi router from same origin
 - [x] **INFRA-02**: Postgres 16 database with goose migrations for schema management
 - [ ] **INFRA-03**: Tailscale Serve provides HTTPS dev access for mobile device testing
-- [ ] **INFRA-04**: Service worker fetch handler partitioned — network-first for `/api/*`, cache-first for static files
+- [x] **INFRA-04**: Service worker fetch handler partitioned — network-first for `/api/*`, cache-first for static files
 
 ### Auth & Sessions
 
-- [ ] **AUTH-01**: User can log in with email + password via POST `/api/v1/auth/login` and receive httpOnly session cookie
-- [ ] **AUTH-02**: User can log out via POST `/api/v1/auth/logout` which invalidates the session
-- [ ] **AUTH-03**: Protected API endpoints reject unauthenticated requests with 401
-- [ ] **AUTH-04**: login.html wired to real auth API (replacing mock `alert()`)
+- [x] **AUTH-01**: User can log in with email + password via POST `/api/v1/auth/login` and receive httpOnly session cookie
+- [x] **AUTH-02**: User can log out via POST `/api/v1/auth/logout` which invalidates the session
+- [x] **AUTH-03**: Protected API endpoints reject unauthenticated requests with 401
+- [x] **AUTH-04**: login.html wired to real auth API (replacing mock `alert()`)
 
 ### Workflows Persistence
 
@@ -36,7 +36,7 @@
 ### Inventory Persistence
 
 - [x] **INVT-01**: Vendors, purchase events, and line items persisted to Postgres (replacing mock data)
-- [ ] **INVT-02**: inventory.html fetches purchase data from API for History, Stock, Trends, and Cost tabs
+- [x] **INVT-02**: inventory.html fetches purchase data from API for History, Stock, Trends, and Cost tabs
 - [x] **INVT-03**: Receipt ingestion pipeline — upload receipt image, OCR, map to purchase items, human review
 
 ### Offline Sync
@@ -88,38 +88,38 @@ Deferred to future milestones.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| INFRA-01 | Phase 9 | Pending |
+| INFRA-01 | Phase 9 | Complete |
 | INFRA-02 | Phase 9 | Complete |
 | INFRA-03 | Phase 9 | Pending |
-| INFRA-04 | Phase 9 | Pending |
-| AUTH-01 | Phase 9 | Pending |
-| AUTH-02 | Phase 9 | Pending |
-| AUTH-03 | Phase 9 | Pending |
-| AUTH-04 | Phase 9 | Pending |
+| INFRA-04 | Phase 9 | Complete |
+| AUTH-01 | Phase 9 | Complete |
+| AUTH-02 | Phase 9 | Complete |
+| AUTH-03 | Phase 9 | Complete |
+| AUTH-04 | Phase 9 | Complete |
 | WKFL-01 | Phase 10 | Complete |
 | WKFL-02 | Phase 10 | Complete |
 | WKFL-03 | Phase 10 | Complete |
-| WKFL-04 | Phase 10 | Complete |
+| WKFL-04 | Phase 13 | Pending |
 | SYNC-01 | Phase 10 | Complete |
 | SYNC-02 | Phase 10 | Complete |
 | SYNC-03 | Phase 10 | Complete |
 | ONBD-01 | Phase 11 | Complete |
-| ONBD-02 | Phase 11 | Complete |
+| ONBD-02 | Phase 13 | Pending |
 | ONBD-03 | Phase 11 | Complete |
-| ONBD-04 | Phase 11 | Complete |
+| ONBD-04 | Phase 13 | Pending |
 | USER-01 | Phase 11 | Complete |
 | USER-02 | Phase 11 | Complete |
 | USER-03 | Phase 11 | Complete |
 | INVT-01 | Phase 12 | Complete |
-| INVT-02 | Phase 12 | Pending |
+| INVT-02 | Phase 12 | Complete |
 | INVT-03 | Phase 12 | Complete |
 | PHOT-01 | Phase 12 | Complete |
-| PHOT-02 | Phase 12 | Complete |
+| PHOT-02 | Phase 13 | Pending |
 | TILE-01 | Phase 12 | Complete |
 
 **Coverage:**
 - v2.0 requirements: 28 total
-- Mapped to phases: 27
+- Mapped to phases: 28
 - Unmapped: 0
 
 ---
