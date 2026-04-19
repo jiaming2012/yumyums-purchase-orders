@@ -174,9 +174,10 @@ func SaveProgressHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 
 		var body struct {
-			ItemID       string `json:"item_id"`
-			ProgressType string `json:"progress_type"`
-			Checked      bool   `json:"checked"`
+			ItemID         string   `json:"item_id"`
+			ProgressType   string   `json:"progress_type"`
+			Checked        bool     `json:"checked"`
+			MaxWatchedTime *float64 `json:"max_watched_time,omitempty"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid_body")
@@ -203,7 +204,7 @@ func SaveProgressHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			}
 		}
 
-		if err := SaveProgress(r.Context(), pool, user.ID, body.ItemID, body.ProgressType, body.Checked); err != nil {
+		if err := SaveProgress(r.Context(), pool, user.ID, body.ItemID, body.ProgressType, body.Checked, body.MaxWatchedTime); err != nil {
 			log.Printf("SaveProgress error: %v", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return

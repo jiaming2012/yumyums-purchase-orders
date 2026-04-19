@@ -64,13 +64,15 @@ type Item struct {
 
 // VideoPart represents a single part of a video series item.
 type VideoPart struct {
-	ID          string `json:"id"`
-	Title       string `json:"title"`
-	Description string `json:"description"`
-	URL         string `json:"url"`
-	SortOrder   int    `json:"sort_order"`
+	ID             string  `json:"id"`
+	Title          string  `json:"title"`
+	Description    string  `json:"description"`
+	URL            string  `json:"url"`
+	ThumbnailURL   *string `json:"thumbnail_url,omitempty"` // populated from ob_video_parts.thumbnail_url
+	SortOrder      int     `json:"sort_order"`
 	// Checked is populated when returning HireTraining — true if this part is watched by the hire.
-	Checked bool `json:"checked"`
+	Checked        bool    `json:"checked"`
+	MaxWatchedTime float64 `json:"max_watched_time"` // populated from ob_progress max_watched_time
 }
 
 // SectionState is the computed state for a section during hire training.
@@ -127,10 +129,11 @@ type AssignedTemplate struct {
 
 // AssignedTemplateSummary is a minimal summary of a template assignment for the manager hire list.
 type AssignedTemplateSummary struct {
-	TemplateID     string `json:"template_id"`
-	TemplateName   string `json:"template_name"`
-	ProgressPct    int    `json:"progress_pct"`
-	PendingSignoff bool   `json:"pending_signoff"`
+	TemplateID       string `json:"template_id"`
+	TemplateName     string `json:"template_name"`
+	ProgressPct      int    `json:"progress_pct"`
+	PendingSignoff   bool   `json:"pending_signoff"`
+	ExplicitAssign   bool   `json:"explicit_assign"`
 }
 
 // HireOverview summarizes a hire's onboarding state for the manager view.
@@ -182,10 +185,11 @@ type CreateItemInput struct {
 
 // CreateVideoPartInput is the input for a video part.
 type CreateVideoPartInput struct {
-	Title       string `json:"title"`
-	Description string `json:"description"`
-	URL         string `json:"url"`
-	SortOrder   int    `json:"sort_order"`
+	Title        string  `json:"title"`
+	Description  string  `json:"description"`
+	URL          string  `json:"url"`
+	ThumbnailURL *string `json:"thumbnail_url,omitempty"`
+	SortOrder    int     `json:"sort_order"`
 }
 
 // GetTemplates returns all onboarding templates with nested structure.
@@ -324,7 +328,7 @@ func getItems(ctx context.Context, pool *pgxpool.Pool, sectionID string) ([]Item
 // getVideoParts fetches all video parts for a video_series item.
 func getVideoParts(ctx context.Context, pool *pgxpool.Pool, itemID string) ([]VideoPart, error) {
 	rows, err := pool.Query(ctx, `
-		SELECT id, title, description, url, sort_order
+		SELECT id, title, description, url, thumbnail_url, sort_order
 		FROM ob_video_parts
 		WHERE item_id = $1
 		ORDER BY sort_order
@@ -337,7 +341,7 @@ func getVideoParts(ctx context.Context, pool *pgxpool.Pool, itemID string) ([]Vi
 	var parts []VideoPart
 	for rows.Next() {
 		var vp VideoPart
-		if err := rows.Scan(&vp.ID, &vp.Title, &vp.Description, &vp.URL, &vp.SortOrder); err != nil {
+		if err := rows.Scan(&vp.ID, &vp.Title, &vp.Description, &vp.URL, &vp.ThumbnailURL, &vp.SortOrder); err != nil {
 			return nil, fmt.Errorf("scan video part: %w", err)
 		}
 		parts = append(parts, vp)
@@ -384,6 +388,31 @@ func GetHireTraining(ctx context.Context, pool *pgxpool.Pool, hireID, templateID
 		return nil, fmt.Errorf("iterate progress: %w", err)
 	}
 
+	// Fetch max_watched_time for this hire's video parts (from both video_part and video_watch_position rows)
+	watchRows, err := pool.Query(ctx, `
+		SELECT item_id, COALESCE(max_watched_time, 0) FROM ob_progress
+		WHERE hire_id = $1 AND progress_type IN ('video_part', 'video_watch_position') AND max_watched_time IS NOT NULL
+	`, hireID)
+	if err != nil {
+		return nil, fmt.Errorf("query watch times: %w", err)
+	}
+	defer watchRows.Close()
+
+	watchTimeMap := map[string]float64{}
+	for watchRows.Next() {
+		var itemID string
+		var t float64
+		if err := watchRows.Scan(&itemID, &t); err != nil {
+			return nil, fmt.Errorf("scan watch time: %w", err)
+		}
+		if t > watchTimeMap[itemID] {
+			watchTimeMap[itemID] = t
+		}
+	}
+	if err := watchRows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate watch times: %w", err)
+	}
+
 	// Fetch all signoffs for this hire+template
 	signoffRows, err := pool.Query(ctx, `
 		SELECT os2.section_id, os2.manager_id,
@@ -425,6 +454,7 @@ func GetHireTraining(ctx context.Context, pool *pgxpool.Pool, hireID, templateID
 			if item.Type == "video_series" {
 				for k := range item.VideoParts {
 					item.VideoParts[k].Checked = progressMap[item.VideoParts[k].ID+":video_part"]
+					item.VideoParts[k].MaxWatchedTime = watchTimeMap[item.VideoParts[k].ID]
 				}
 			} else if item.Type == "faq" {
 				item.Viewed = progressMap[item.ID+":faq"]
@@ -664,7 +694,8 @@ func GetManagerHires(ctx context.Context, pool *pgxpool.Pool) ([]HireOverview, e
 				ot.name,
 				COALESCE(sec_total.cnt, 0) AS sections_total,
 				COALESCE(sec_complete.cnt, 0) AS sections_complete,
-				COALESCE(pending_so.cnt, 0) AS pending_signoff_count
+				COALESCE(pending_so.cnt, 0) AS pending_signoff_count,
+				EXISTS (SELECT 1 FROM ob_template_assignments ota WHERE ota.hire_id = $1 AND ota.template_id = ot.id) AS explicit_assign
 			FROM ob_templates ot
 			LEFT JOIN (
 				SELECT template_id, COUNT(*) AS cnt FROM ob_sections GROUP BY template_id
@@ -702,7 +733,7 @@ func GetManagerHires(ctx context.Context, pool *pgxpool.Pool) ([]HireOverview, e
 		for tmplRows.Next() {
 			var ts AssignedTemplateSummary
 			var secTotal, secComplete, pendingSOCount int
-			if err := tmplRows.Scan(&ts.TemplateID, &ts.TemplateName, &secTotal, &secComplete, &pendingSOCount); err != nil {
+			if err := tmplRows.Scan(&ts.TemplateID, &ts.TemplateName, &secTotal, &secComplete, &pendingSOCount, &ts.ExplicitAssign); err != nil {
 				tmplRows.Close()
 				return nil, fmt.Errorf("scan assigned template summary: %w", err)
 			}
@@ -785,13 +816,14 @@ func IsSectionLockedForEdits(ctx context.Context, pool *pgxpool.Pool, hireID, it
 }
 
 // SaveProgress records or removes an onboarding progress entry for a hire.
-func SaveProgress(ctx context.Context, pool *pgxpool.Pool, hireID, itemID, progressType string, checked bool) error {
+// maxWatchedTime is optional — non-nil only for video watch position tracking.
+func SaveProgress(ctx context.Context, pool *pgxpool.Pool, hireID, itemID, progressType string, checked bool, maxWatchedTime *float64) error {
 	if checked {
 		_, err := pool.Exec(ctx, `
-			INSERT INTO ob_progress (hire_id, item_id, progress_type)
-			VALUES ($1, $2, $3)
-			ON CONFLICT (hire_id, item_id, progress_type) DO NOTHING
-		`, hireID, itemID, progressType)
+			INSERT INTO ob_progress (hire_id, item_id, progress_type, max_watched_time)
+			VALUES ($1, $2, $3, $4)
+			ON CONFLICT (hire_id, item_id, progress_type) DO UPDATE SET max_watched_time = GREATEST(ob_progress.max_watched_time, EXCLUDED.max_watched_time)
+		`, hireID, itemID, progressType, maxWatchedTime)
 		return err
 	}
 	_, err := pool.Exec(ctx, `
@@ -894,9 +926,9 @@ func insertSectionsTx(ctx context.Context, tx pgx.Tx, templateID string, section
 
 			for _, vp := range item.VideoParts {
 				_, err := tx.Exec(ctx, `
-					INSERT INTO ob_video_parts (item_id, title, description, url, sort_order)
-					VALUES ($1, $2, $3, $4, $5)
-				`, itemID, vp.Title, vp.Description, vp.URL, vp.SortOrder)
+					INSERT INTO ob_video_parts (item_id, title, description, url, thumbnail_url, sort_order)
+					VALUES ($1, $2, $3, $4, $5, $6)
+				`, itemID, vp.Title, vp.Description, vp.URL, vp.ThumbnailURL, vp.SortOrder)
 				if err != nil {
 					return fmt.Errorf("insert video part %q: %w", vp.Title, err)
 				}
