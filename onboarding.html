@@ -76,6 +76,13 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .role-chips{display:flex;gap:4px;flex-wrap:wrap}
 .role-chip{display:inline-flex;align-items:center;justify-content:center;min-width:36px;min-height:36px;padding:0 12px;border-radius:18px;border:0.5px solid var(--brd);background:transparent;color:var(--txt);font-size:12px;font-weight:500;cursor:pointer}
 .role-chip.on{background:var(--info-bg);color:var(--info-tx);border-color:var(--info-tx)}
+.video-upload-toggle{display:flex;gap:8px;margin-bottom:6px}
+.video-upload-toggle label{display:flex;align-items:center;gap:4px;font-size:12px;color:var(--txt);cursor:pointer}
+.video-upload-toggle input[type=radio]{margin:0}
+.video-progress{width:100%;height:6px;background:var(--brd);border-radius:3px;overflow:hidden;margin-top:4px;display:none}
+.video-progress-bar{height:100%;background:var(--info-tx);border-radius:3px;width:0%;transition:width 0.2s}
+.video-upload-status{font-size:11px;color:var(--mut);margin-top:2px}
+.thumb-preview{width:60px;height:40px;object-fit:cover;border-radius:4px;border:0.5px solid var(--brd)}
 </style>
 </head>
 <body>
@@ -154,7 +161,7 @@ function createNewOBVideoSeries(label) {
   return { id: generateOBId('vs'), type: 'video_series', label: label || '', parts: [] };
 }
 function createNewOBVideoPart() {
-  return { id: generateOBId('vp'), title: '', desc: '', url: '' };
+  return { id: generateOBId('vp'), title: '', desc: '', url: '', source: 'upload', thumbnail_url: null };
 }
 function createNewOBFaqItem() {
   return { id: generateOBId('faq'), question: '', answer: '' };
@@ -538,7 +545,7 @@ function renderHireDetail(hire) {
       html += '<div style="height:4px;background:var(--brd);border-radius:2px;margin-bottom:8px;overflow:hidden"><div style="height:100%;background:#27ae60;border-radius:2px;width:' + pct + '%"></div></div>';
       html += '<div style="display:flex;gap:8px">';
       html += '<button class="btn-secondary" style="flex:1;font-size:12px;padding:8px" data-action="view-training" data-hire-id="' + hire.hire_id + '" data-hire-name="' + escapeOBAttr(hire.display_name) + '" data-template-id="' + t.template_id + '">View Training</button>';
-      html += '<button style="flex:0;font-size:12px;padding:8px;background:transparent;color:#c0392b;border:1px solid #c0392b;border-radius:8px;cursor:pointer" data-action="unassign-template" data-hire-id="' + hire.hire_id + '" data-template-id="' + t.template_id + '">Unassign</button>';
+      if (t.explicit_assign) html += '<button style="flex:0;font-size:12px;padding:8px;background:transparent;color:#c0392b;border:1px solid #c0392b;border-radius:8px;cursor:pointer" data-action="unassign-template" data-hire-id="' + hire.hire_id + '" data-template-id="' + t.template_id + '">Unassign</button>';
       html += '</div>';
       html += '</div>';
     });
@@ -665,11 +672,39 @@ function renderOBVideoItem(item, secId, idx) {
   html += '<div class="ob-item-body">';
   var parts = item.parts || [];
   parts.forEach(function(part, pIdx) {
+    var partSrc = part.source || 'upload';
+    var partId = part.id;
     html += '<div class="ob-part-row">';
     html += '<div style="flex:1">';
+    // Title + description inputs
     html += '<input type="text" value="'+escapeOBAttr(part.title)+'" data-action="part-title-input" data-sec-id="'+secId+'" data-item-idx="'+idx+'" data-part-idx="'+pIdx+'" placeholder="Part title" style="width:100%;padding:4px 8px;background:var(--card);border:0.5px solid var(--brd);border-radius:6px;font-size:13px;color:var(--txt);font-family:inherit;outline:none;margin-bottom:4px">';
-    html += '<input type="text" value="'+escapeOBAttr(part.desc)+'" data-action="part-desc-input" data-sec-id="'+secId+'" data-item-idx="'+idx+'" data-part-idx="'+pIdx+'" placeholder="Description" style="width:100%;padding:4px 8px;background:var(--card);border:0.5px solid var(--brd);border-radius:6px;font-size:12px;color:var(--txt);font-family:inherit;outline:none;margin-bottom:4px">';
-    html += '<input type="text" value="'+escapeOBAttr(part.url)+'" data-action="part-url-input" data-sec-id="'+secId+'" data-item-idx="'+idx+'" data-part-idx="'+pIdx+'" placeholder="Video URL" style="width:100%;padding:4px 8px;background:var(--card);border:0.5px solid var(--brd);border-radius:6px;font-size:12px;color:var(--txt);font-family:inherit;outline:none">';
+    html += '<textarea data-action="part-desc-input" data-sec-id="'+secId+'" data-item-idx="'+idx+'" data-part-idx="'+pIdx+'" placeholder="Description" rows="2" style="width:100%;padding:4px 8px;background:var(--card);border:0.5px solid var(--brd);border-radius:6px;font-size:12px;color:var(--txt);font-family:inherit;outline:none;resize:vertical;margin-bottom:4px;box-sizing:border-box">'+escapeOBAttr(part.desc)+'</textarea>';
+    // Upload/URL radio toggle (D-01)
+    var uploadId = 'vsrc-upload-'+partId;
+    var urlId = 'vsrc-url-'+partId;
+    html += '<div class="video-upload-toggle">';
+    html += '<label><input type="radio" name="vsrc-'+partId+'" value="upload"'+(partSrc==='upload'?' checked':'')+' data-action="video-source-toggle" data-sec-id="'+secId+'" data-item-idx="'+idx+'" data-part-idx="'+pIdx+'"> Upload</label>';
+    html += '<label><input type="radio" name="vsrc-'+partId+'" value="url"'+(partSrc==='url'?' checked':'')+' data-action="video-source-toggle" data-sec-id="'+secId+'" data-item-idx="'+idx+'" data-part-idx="'+pIdx+'"> URL</label>';
+    html += '</div>';
+    if (partSrc === 'upload') {
+      // File input (D-02)
+      html += '<input type="file" accept=".mp4,.mov,.webm" data-action="upload-video-file" data-sec-id="'+secId+'" data-item-idx="'+idx+'" data-part-idx="'+pIdx+'" style="font-size:12px;color:var(--mut);margin-bottom:4px">';
+      // Progress bar (D-04)
+      html += '<div class="video-progress" id="vprog-'+partId+'"><div class="video-progress-bar"></div></div>';
+      html += '<div class="video-upload-status" id="vstat-'+partId+'">'+(part.url ? '&#10003; Uploaded' : '')+'</div>';
+    } else {
+      // URL text input
+      html += '<input type="text" value="'+escapeOBAttr(part.url)+'" data-action="part-url-input" data-sec-id="'+secId+'" data-item-idx="'+idx+'" data-part-idx="'+pIdx+'" placeholder="Video URL" style="width:100%;padding:4px 8px;background:var(--card);border:0.5px solid var(--brd);border-radius:6px;font-size:12px;color:var(--txt);font-family:inherit;outline:none">';
+    }
+    // Thumbnail section (D-14): show if video is already uploaded
+    if (part.url) {
+      html += '<div style="margin-top:6px">';
+      if (part.thumbnail_url) {
+        html += '<img class="thumb-preview" src="'+escapeOBAttr(part.thumbnail_url)+'" alt="Thumbnail"> ';
+      }
+      html += '<label style="font-size:11px;color:var(--mut)">Override thumbnail: <input type="file" accept=".jpg,.jpeg,.png" data-action="upload-custom-thumbnail" data-sec-id="'+secId+'" data-item-idx="'+idx+'" data-part-idx="'+pIdx+'" style="font-size:11px"></label>';
+      html += '</div>';
+    }
     html += '</div>';
     html += '<span data-action="delete-video-part" data-sec-id="'+secId+'" data-item-idx="'+idx+'" data-part-idx="'+pIdx+'" style="color:#c0392b;cursor:pointer;font-size:12px;padding-top:4px">&#10005;</span>';
     html += '</div>';
@@ -799,6 +834,112 @@ function initOBSortable() {
         obBuilderState.localCopy.sections.splice(evt.newIndex, 0, moved);
       }
     }));
+  }
+}
+
+// ==============================
+// VIDEO UPLOAD FUNCTIONS
+// ==============================
+async function uploadVideoFile(file, secId, itemIdx, partIdx) {
+  var tpl = obBuilderState.localCopy;
+  if (!tpl) return;
+  var sec = (tpl.sections||[]).find(function(s) { return s.id === secId; });
+  if (!sec) return;
+  var item = sec.items[+itemIdx];
+  if (!item || !item.parts) return;
+  var part = item.parts[+partIdx];
+  if (!part) return;
+  var partId = part.id;
+  var templateId = tpl.id;
+  // Validate file size (D-03): max 200 MB
+  if (file.size > 200*1024*1024) { alert('Max file size is 200 MB'); return; }
+  // Validate file type (D-02)
+  var allowed = ['video/mp4','video/quicktime','video/webm'];
+  if (!allowed.includes(file.type)) { alert('Accepted formats: MP4, MOV, WebM'); return; }
+  // Show progress bar
+  var progEl = document.getElementById('vprog-'+partId);
+  var statEl = document.getElementById('vstat-'+partId);
+  if (progEl) progEl.style.display = 'block';
+  if (statEl) statEl.textContent = 'Requesting upload URL…';
+  try {
+    // Request presigned URL (D-05)
+    var presignRes = await fetch('/api/v1/videos/presign', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ template_id: templateId, part_id: partId, filename: file.name, content_type: file.type })
+    });
+    if (!presignRes.ok) throw new Error('Presign failed: ' + presignRes.status);
+    var presignData = await presignRes.json();
+    if (statEl) statEl.textContent = '0% uploaded';
+    // XHR PUT for progress events (D-04)
+    var xhr = new XMLHttpRequest();
+    xhr.open('PUT', presignData.url);
+    xhr.setRequestHeader('Content-Type', file.type);
+    xhr.upload.addEventListener('progress', function(ev) {
+      if (ev.lengthComputable) {
+        var pct = Math.round(ev.loaded / ev.total * 100);
+        var bar = document.querySelector('#vprog-'+partId+' .video-progress-bar');
+        if (bar) bar.style.width = pct+'%';
+        if (statEl) statEl.textContent = pct+'% uploaded';
+      }
+    });
+    await new Promise(function(resolve, reject) {
+      xhr.onload = function() { xhr.status < 300 ? resolve() : reject(new Error('Upload failed: '+xhr.status)); };
+      xhr.onerror = function() { reject(new Error('Network error')); };
+      xhr.send(file);
+    });
+    // Update part state
+    part.url = presignData.public_url;
+    if (statEl) statEl.textContent = 'Processing…';
+    // Trigger FFmpeg conversion
+    await fetch('/api/v1/videos/process', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ part_id: partId, object_key: presignData.object_key })
+    });
+    if (statEl) statEl.textContent = 'Upload complete. Thumbnail will be generated shortly.';
+    // Re-render so thumbnail section appears
+    renderOBBuilder();
+  } catch(err) {
+    if (statEl) statEl.textContent = 'Upload failed. Try again.';
+    console.error('uploadVideoFile error:', err);
+  }
+}
+
+async function uploadCustomThumbnail(file, secId, itemIdx, partIdx) {
+  var tpl = obBuilderState.localCopy;
+  if (!tpl) return;
+  var sec = (tpl.sections||[]).find(function(s) { return s.id === secId; });
+  if (!sec) return;
+  var item = sec.items[+itemIdx];
+  if (!item || !item.parts) return;
+  var part = item.parts[+partIdx];
+  if (!part) return;
+  // Validate file type
+  var allowedThumb = ['image/jpeg','image/png'];
+  if (!allowedThumb.includes(file.type)) { alert('Accepted formats: JPG, PNG'); return; }
+  // Validate file size: max 5 MB
+  if (file.size > 5*1024*1024) { alert('Max thumbnail size is 5 MB'); return; }
+  var templateId = tpl.id;
+  var partId = part.id;
+  try {
+    // Use photos presign endpoint with video thumbnail path
+    var presignRes = await fetch('/api/v1/photos/presign', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ path_prefix: 'videos/onboarding', id: templateId+'/'+partId, filename: 'custom_thumb.jpg' })
+    });
+    if (!presignRes.ok) throw new Error('Presign failed: ' + presignRes.status);
+    var presignData = await presignRes.json();
+    // PUT thumbnail (small file, fetch is fine)
+    var putRes = await fetch(presignData.url, { method: 'PUT', headers: {'Content-Type': file.type}, body: file });
+    if (!putRes.ok) throw new Error('Thumbnail upload failed: ' + putRes.status);
+    // Update part state
+    part.thumbnail_url = presignData.public_url;
+    renderOBBuilder();
+  } catch(err) {
+    alert('Thumbnail upload failed. Try again.');
+    console.error('uploadCustomThumbnail error:', err);
   }
 }
 
@@ -1109,7 +1250,7 @@ document.getElementById('builder-body').addEventListener('click', async function
   if (action === 'new-template') {
     var name = prompt('Template name:');
     if (name && name.trim()) {
-      var tpl = createNewOBTemplate(name.trim(), null);
+      var tpl = createNewOBTemplate(name.trim(), ['team_member']);
       obBuilderState = { view: 'editor', activeTemplate: null, localCopy: tpl };
       renderOBBuilder();
     }
@@ -1278,6 +1419,28 @@ document.getElementById('builder-body').addEventListener('input', function(e) {
   } else if (e.target.dataset.action === 'faq-a-input') {
     var sec = (obBuilderState.localCopy.sections||[]).find(function(s) { return s.id === e.target.dataset.secId; });
     if (sec && sec.items[+e.target.dataset.faqIdx]) sec.items[+e.target.dataset.faqIdx].answer = e.target.value;
+  }
+});
+
+// Builder change handler — file inputs and radio toggles fire 'change' not 'click'
+document.getElementById('builder-body').addEventListener('change', function(e) {
+  if (!obBuilderState.localCopy) return;
+  var action = e.target.dataset.action;
+  if (action === 'video-source-toggle') {
+    var sec = (obBuilderState.localCopy.sections||[]).find(function(s) { return s.id === e.target.dataset.secId; });
+    if (sec) {
+      var item = sec.items[+e.target.dataset.itemIdx];
+      if (item && item.parts) {
+        item.parts[+e.target.dataset.partIdx].source = e.target.value;
+        renderOBBuilder();
+      }
+    }
+  } else if (action === 'upload-video-file') {
+    var f = e.target.files && e.target.files[0];
+    if (f) uploadVideoFile(f, e.target.dataset.secId, e.target.dataset.itemIdx, e.target.dataset.partIdx);
+  } else if (action === 'upload-custom-thumbnail') {
+    var f = e.target.files && e.target.files[0];
+    if (f) uploadCustomThumbnail(f, e.target.dataset.secId, e.target.dataset.itemIdx, e.target.dataset.partIdx);
   }
 });
 
