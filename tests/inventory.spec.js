@@ -1524,4 +1524,55 @@ test.describe('Inventory', () => {
     }, [grp.id]);
   });
 
+  // ── Stock settings edge cases ─────────────────────────────────────────
+
+  test('backend rejects negative threshold values', async ({ page }) => {
+    const groups = await invApiCall(page, 'GET', 'groups');
+    if (!groups || !groups.length) return;
+    const res = await page.evaluate(async (gid) => {
+      const r = await fetch('/api/v1/inventory/groups', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: gid, low_threshold: -1, high_threshold: 10 })
+      });
+      return r.status;
+    }, groups[0].id);
+    expect(res).toBe(400);
+  });
+
+  test('frontend shows error for negative threshold values', async ({ page }) => {
+    await page.locator('#t5').click();
+    await page.waitForFunction(() => {
+      const list = document.getElementById('items-list');
+      return list && list.querySelector('.item-group-section');
+    }, { timeout: 8000 });
+    // Open first group's stock settings
+    const settingsBtn = page.locator('[data-action="toggle-group-settings"]').first();
+    if (await settingsBtn.count() === 0) return;
+    await settingsBtn.click();
+    // Set a negative low threshold
+    const lowInput = page.locator('.group-low-threshold').first();
+    await lowInput.fill('-1');
+    await page.locator('[data-action="save-group-thresholds"]').first().click();
+    // Should show an error (alert or inline)
+    // The frontend uses alert() for validation — check that save didn't succeed
+    // by verifying the form is still open
+    await expect(page.locator('.group-low-threshold').first()).toBeVisible();
+  });
+
+  test('medium shows n/a when low=0 and high=1 (no medium range)', async ({ page }) => {
+    await page.locator('#t5').click();
+    await page.waitForFunction(() => {
+      const list = document.getElementById('items-list');
+      return list && list.querySelector('.item-group-section');
+    }, { timeout: 8000 });
+    const settingsBtn = page.locator('[data-action="toggle-group-settings"]').first();
+    if (await settingsBtn.count() === 0) return;
+    await settingsBtn.click();
+    await page.locator('.group-low-threshold').first().fill('0');
+    await page.locator('.group-high-threshold').first().fill('1');
+    // The medium label should show "n/a" since there's no range between 1 and 0
+    const mediumText = await page.locator('.item-edit-form').first().textContent();
+    expect(mediumText).toContain('n/a');
+  });
+
 });

@@ -301,6 +301,20 @@ function formatDate(dateStr){
   return new Intl.DateTimeFormat('en-US',{month:'short',day:'numeric',year:'numeric'}).format(d);
 }
 
+function timeAgo(dateStr){
+  if(!dateStr)return '';
+  var d=parseLocalDate(dateStr);
+  var now=new Date();now.setHours(0,0,0,0);
+  var diff=Math.floor((now-d)/(1000*60*60*24));
+  if(diff===0)return 'today';
+  if(diff===1)return 'yesterday';
+  if(diff<7)return diff+' days ago';
+  if(diff<14)return '1 week ago';
+  if(diff<30)return Math.floor(diff/7)+' weeks ago';
+  if(diff<60)return '1 month ago';
+  return Math.floor(diff/30)+' months ago';
+}
+
 function showSkeleton(containerId){
   document.getElementById(containerId).innerHTML='<div class="skeleton" style="background:var(--brd);border-radius:8px;height:64px;margin-bottom:8px;animation:pulse 1.2s infinite"></div>'.repeat(3);
 }
@@ -531,8 +545,8 @@ function renderStock(){
   if(needsReorder.length){
     reorderEl.innerHTML='<div class="reorder-section"><div class="reorder-title">Reorder Suggestions ('+needsReorder.length+')</div>'+needsReorder.map(s=>{
       var name=s.description;
-      var lastDate=s.last_purchase_date?'Last bought: '+formatDate(s.last_purchase_date):'No purchase history';
-      return '<div class="reorder-item"><div><div class="reorder-item-name">'+name+'</div><div class="reorder-item-meta">'+lastDate+'</div></div>'+badgeHtml(s.level)+'</div>';
+      var lastDate=s.last_purchase_date?'Last bought: '+timeAgo(s.last_purchase_date)+' &middot; '+formatDate(s.last_purchase_date):'No purchase history';
+      return '<div class="reorder-item"><div><div class="reorder-item-name">'+name+'</div><div class="reorder-item-meta">'+lastDate+'</div></div><div style="text-align:right"><div>'+badgeHtml(s.level)+'</div><div style="font-size:11px;color:var(--mut);margin-top:2px">Qty: '+(s.total_quantity||0)+'</div></div></div>';
     }).join('')+'</div>';
   } else {
     reorderEl.innerHTML='';
@@ -564,7 +578,7 @@ function renderStock(){
         html+='<div class="stock-item" data-action="toggle-stock-item" data-group-id="'+id+'"><span class="stock-item-name">'+id+'</span>'+badgeAndIndicator+'</div>';
         if(expanded){
           var lastDate=s.last_purchase_date?formatDate(s.last_purchase_date):'Unknown';
-          var qty=s.total_quantity!==undefined?'~'+s.total_quantity+' units':'No history';
+          var qty=s.total_quantity!==undefined?s.total_quantity+' units':'No history';
           var spend=s.total_spend?'$'+Number(s.total_spend).toFixed(2):'Unknown';
           var avgPrice=s.avg_price?'$'+Number(s.avg_price).toFixed(2):'Unknown';
           html+='<div class="stock-detail open">';
@@ -904,7 +918,7 @@ function renderItemsList(){
           '<div class="field-group" style="flex:1;margin:0"><div class="field-label">Low &le;</div><input type="number" class="field-input group-low-threshold" data-group-id="'+grpId+'" value="'+lowT+'" min="0" style="text-align:center"></div>'+
           '<div class="field-group" style="flex:1;margin:0"><div class="field-label">High &ge;</div><input type="number" class="field-input group-high-threshold" data-group-id="'+grpId+'" value="'+highT+'" min="0" style="text-align:center"></div>'+
         '</div>'+
-        '<div style="font-size:12px;color:var(--mut);margin-top:6px">'+(lowT+1)+'&ndash;'+(highT-1)+' = Medium</div>'+
+        '<div style="font-size:12px;color:var(--mut);margin-top:6px" class="medium-range-label">'+((lowT+1<=highT-1)?((lowT+1)+'&ndash;'+(highT-1)+' = Medium'):'Medium: n/a')+'</div>'+
         '<div class="review-actions" style="margin-top:8px">'+
           '<button class="btn-primary" data-action="save-group-thresholds" data-group-id="'+grpId+'">Save</button>'+
           '<button class="btn-secondary" data-action="cancel-group-settings">Cancel</button>'+
@@ -931,6 +945,21 @@ function renderItemsList(){
 document.getElementById('item-search').addEventListener('input',function(e){
   ITEM_SEARCH=e.target.value;
   renderItemsList();
+});
+
+// Live-update medium range label when threshold inputs change
+document.getElementById('items-list').addEventListener('input',function(e){
+  if(e.target.classList.contains('group-low-threshold')||e.target.classList.contains('group-high-threshold')){
+    var form=e.target.closest('.item-edit-form');
+    if(!form)return;
+    var lowEl=form.querySelector('.group-low-threshold');
+    var highEl=form.querySelector('.group-high-threshold');
+    var label=form.querySelector('.medium-range-label');
+    if(!lowEl||!highEl||!label)return;
+    var lo=parseInt(lowEl.value)||0;
+    var hi=parseInt(highEl.value)||0;
+    label.textContent=(lo+1<=hi-1)?((lo+1)+'\u2013'+(hi-1)+' = Medium'):'Medium: n/a';
+  }
 });
 
 // Handle "New Group" selection in any group dropdown within items tab
@@ -1010,6 +1039,7 @@ document.getElementById('items-list').addEventListener('click',function(e){
     var form=el.closest('.item-edit-form');
     var lowT=parseInt(form.querySelector('.group-low-threshold').value)||0;
     var highT=parseInt(form.querySelector('.group-high-threshold').value)||0;
+    if(lowT<0||highT<0){alert('Thresholds cannot be negative.');return;}
     if(lowT>=highT){alert('Low threshold must be less than high threshold.');return;}
     api('/api/v1/inventory/groups',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:gid,low_threshold:lowT,high_threshold:highT})}).then(function(){
       ITEM_GROUPS._editGroupId=null;
