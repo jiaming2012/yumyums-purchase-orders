@@ -581,10 +581,16 @@ function renderStock(){
           html+='<div class="stock-detail-row"><span class="stock-detail-label">Est. remaining</span><span class="stock-detail-value">'+qty+'</span></div>';
           html+='<div class="stock-detail-row"><span class="stock-detail-label">Avg unit price</span><span class="stock-detail-value">'+avgPrice+'</span></div>';
           html+='<div class="stock-detail-row"><span class="stock-detail-label">Stock value</span><span class="stock-detail-value">'+spend+'</span></div>';
+          html+='<button class="item-edit-btn" data-action="goto-setup-item" data-item-desc="'+escHtml(id)+'" style="width:100%;text-align:center;padding:8px 0;margin-top:4px">View in Setup</button>';
           if(OVERRIDE_FORM_OPEN===id){
             html+='<div class="override-form">';
             html+='<div class="field-group" style="margin-bottom:8px"><div class="field-label">Actual count on hand</div><input type="number" class="field-input stock-count-input" value="'+(s.total_quantity||0)+'" min="0" data-group-id="'+id+'"></div>';
-            html+='<input class="override-reason" placeholder="Reason (e.g. counted shelf)..." data-group-id="'+id+'">';
+            html+='<div class="chip-bar" style="margin-bottom:6px">'+
+              '<span class="chip reason-chip" data-reason="Counted shelf">Counted shelf</span>'+
+              '<span class="chip reason-chip" data-reason="Spoiled item">Spoiled item</span>'+
+              '<span class="chip reason-chip" data-reason="Damaged item">Damaged item</span>'+
+              '</div>';
+            html+='<input class="override-reason" placeholder="Or type a reason..." data-group-id="'+id+'">';
             html+='<div class="override-actions"><button class="btn-override btn-save" data-action="save-stock-count" data-group-id="'+id+'">Update Count</button><button class="btn-override btn-cancel" data-action="cancel-override">Cancel</button></div>';
             html+='</div>';
           } else {
@@ -823,6 +829,24 @@ document.addEventListener('click',function(e){
   } else if(action==='show-override'){
     OVERRIDE_FORM_OPEN=el.dataset.groupId;
     renderStock();
+  } else if(action==='goto-setup-item'){
+    var desc=el.dataset.itemDesc;
+    ITEM_SEARCH='';
+    var searchEl=document.getElementById('item-search');
+    if(searchEl)searchEl.value='';
+    // Switch to Setup tab, load fresh items, then expand the target item
+    ACTIVE_TAB=5;
+    [1,2,3,4,5].forEach(function(i){
+      document.getElementById('s'+i).style.display=i===5?'':'none';
+      var btn=document.getElementById('t'+i);if(btn)btn.className=i===5?'on':'';
+    });
+    showSetupSub(1);
+    api('/api/v1/inventory/items').then(function(data){
+      ALL_ITEMS=data||[];
+      var item=ALL_ITEMS.find(function(it){return it.description===desc;});
+      if(item)ITEM_EDIT_ID=item.id;
+      renderItemsList();
+    }).catch(function(err){console.error('goto-setup',err);});
   } else if(action==='save-stock-count'){
     var gid=el.dataset.groupId;
     var qtyInput=document.querySelector('.stock-count-input[data-group-id="'+gid+'"]');
@@ -834,6 +858,13 @@ document.addEventListener('click',function(e){
       OVERRIDE_FORM_OPEN=null;
       loadStock();
     }).catch(function(err){console.error('saveStockCount',err);});
+  } else if(e.target.classList.contains('reason-chip')){
+    var reason=e.target.dataset.reason;
+    var reasonInput=e.target.closest('.override-form').querySelector('.override-reason');
+    if(reasonInput)reasonInput.value=reason;
+    // Toggle chip selection
+    e.target.closest('.chip-bar').querySelectorAll('.chip').forEach(function(c){c.classList.remove('on');});
+    e.target.classList.add('on');
   } else if(action==='cancel-override'){
     OVERRIDE_FORM_OPEN=null;
     renderStock();

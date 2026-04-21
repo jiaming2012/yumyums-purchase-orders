@@ -1623,4 +1623,50 @@ test.describe('Inventory', () => {
     expect(mediumText).toContain('n/a');
   });
 
+  // ── Magic link: Stock → Setup ─────────────────────────────────────────
+
+  test('View in Setup link navigates to Setup tab with item expanded', async ({ page }) => {
+    // Create an item with stock data
+    const groups = await invApiCall(page, 'GET', 'groups');
+    const gid = groups && groups.length ? groups[0].id : null;
+    const itemName = 'Magic Link Test ' + Date.now();
+    const item = await invApiCall(page, 'POST', 'items', { description: itemName, group_id: gid });
+    if (!item) return;
+    const vendors = await invApiCall(page, 'GET', 'vendors');
+    if (!vendors || !vendors.length) return;
+    await invApiCall(page, 'POST', 'purchases', {
+      vendor_id: vendors[0].id, bank_tx_id: 'magic-link-' + Date.now(),
+      event_date: '2026-04-15', tax: 0, total: 5,
+      line_items: [{ purchase_item_id: item.id, description: itemName, quantity: 1, price: 5.00 }]
+    });
+    // Go to Stock tab and expand the item
+    await page.locator('#t3').click();
+    await page.waitForFunction(() => {
+      const list = document.getElementById('stock-list');
+      return list && list.querySelector('.stock-item');
+    }, { timeout: 8000 });
+    // Find and click the item to expand it
+    const stockItems = page.locator('.stock-item');
+    const count = await stockItems.count();
+    for (let i = 0; i < count; i++) {
+      const text = await stockItems.nth(i).textContent();
+      if (text.includes(itemName)) {
+        await stockItems.nth(i).click();
+        break;
+      }
+    }
+    // Click "View in Setup"
+    const setupLink = page.locator('[data-action="goto-setup-item"]').first();
+    if (await setupLink.count() === 0) return;
+    await setupLink.click();
+    // Should be on Setup tab with Items sub-tab
+    await expect(page.locator('#t5')).toHaveClass(/on/);
+    await expect(page.locator('#st1')).toHaveClass(/on/);
+    // Wait for items to load and the edit form to appear
+    await page.waitForFunction((itemId) => {
+      return document.querySelector('.item-edit-form[data-item-id="' + itemId + '"]');
+    }, item.id, { timeout: 8000 });
+    await expect(page.locator('.item-edit-form[data-item-id="' + item.id + '"]')).toBeVisible();
+  });
+
 });
