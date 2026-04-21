@@ -1469,6 +1469,54 @@ test.describe('Inventory', () => {
     expect(reorderText).not.toMatch(new RegExp('^' + grp.name + '\\b.*Last bought'));
   });
 
+  test('collapsing a stock group also collapses expanded items within it', async ({ page }) => {
+    await page.locator('#t3').click();
+    await page.waitForFunction(() => {
+      const list = document.getElementById('stock-list');
+      return list && list.querySelector('.stock-item');
+    }, { timeout: 8000 });
+    // Find a group with items
+    const tagHeader = page.locator('.tag-header').first();
+    if (await tagHeader.count() === 0) return;
+    // Ensure group is expanded
+    const arrow = tagHeader.locator('.arrow');
+    if (await arrow.evaluate(el => el.classList.contains('collapsed'))) {
+      await tagHeader.click();
+    }
+    // Expand the first stock item within the group
+    const stockItem = page.locator('.stock-item').first();
+    if (await stockItem.count() === 0) return;
+    await stockItem.click();
+    await expect(page.locator('.stock-detail.open').first()).toBeVisible();
+    // Collapse the group
+    await tagHeader.click();
+    // Expand the group again
+    await tagHeader.click();
+    // The stock item detail should be collapsed (not still open)
+    const openDetails = await page.locator('.stock-detail.open').count();
+    expect(openDetails).toBe(0);
+  });
+
+  test('expand all button expands all items in a stock group', async ({ page }) => {
+    await page.locator('#t3').click();
+    await page.waitForFunction(() => {
+      const list = document.getElementById('stock-list');
+      return list && list.querySelector('.stock-item');
+    }, { timeout: 8000 });
+    // Find a group with multiple items via expand-all button
+    const expandBtn = page.locator('[data-action="expand-all-in-group"]').first();
+    if (await expandBtn.count() === 0) return;
+    await expandBtn.click();
+    // Wait for re-render
+    await page.waitForTimeout(300);
+    // Find the tag-section containing this button
+    const section = page.locator('.tag-section').first();
+    const openDetails = await section.locator('.stock-detail.open').count();
+    const totalItems = await section.locator('.stock-item').count();
+    expect(openDetails).toBe(totalItems);
+    expect(openDetails).toBeGreaterThan(0);
+  });
+
   test('stock tab reflects threshold changes from Setup without page refresh', async ({ page }) => {
     // Get groups and pick one with items
     const groups = await invApiCall(page, 'GET', 'groups');
