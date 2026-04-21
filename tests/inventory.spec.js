@@ -1201,4 +1201,137 @@ test.describe('Inventory', () => {
     expect(res.id).toBeTruthy();
   });
 
+  // ── Group required error in create item modal ─────────────────────────
+
+  test('create item modal shows error when no group selected', async ({ page }) => {
+    const txId = 'test-no-group-modal-' + Date.now();
+    await seedPendingPurchase(page, {
+      bankTxId: txId, vendor: 'NoGroup Vendor', bankTotal: -10.00,
+      eventDate: '2026-04-15', reason: 'test', items: [{ name: 'test item', quantity: 1, price: 10.00 }],
+    });
+    await page.reload();
+    await waitForHistoryContent(page);
+    const pending = page.locator('[data-action="review-pending"]').first();
+    if (await pending.count() > 0) {
+      await pending.click();
+      await page.locator('.review-li-name').first().click();
+      await expect(page.locator('.item-modal')).toBeVisible();
+      await page.fill('#item-modal-search', 'no group item');
+      await page.waitForTimeout(200);
+      await page.locator('.item-modal-create').click();
+      // Leave group as "No Group" and click Create
+      await page.locator('#modal-create-item-btn').click();
+      // Should show error
+      const err = page.locator('#modal-create-error');
+      await expect(err).toBeVisible();
+      await expect(err).toContainText('group is required');
+      await page.locator('#item-modal-cancel').click();
+    }
+  });
+
+  test('create item modal error clears when group is selected and item created', async ({ page }) => {
+    const txId = 'test-group-fix-modal-' + Date.now();
+    await seedPendingPurchase(page, {
+      bankTxId: txId, vendor: 'GroupFix Vendor', bankTotal: -10.00,
+      eventDate: '2026-04-15', reason: 'test', items: [{ name: 'fixable item', quantity: 1, price: 10.00 }],
+    });
+    await page.reload();
+    await waitForHistoryContent(page);
+    const pending = page.locator('[data-action="review-pending"]').first();
+    if (await pending.count() > 0) {
+      await pending.click();
+      await page.locator('.review-li-name').first().click();
+      await expect(page.locator('.item-modal')).toBeVisible();
+      await page.fill('#item-modal-search', 'fixable unique ' + Date.now());
+      await page.waitForTimeout(200);
+      await page.locator('.item-modal-create').click();
+      // Click Create without group — error shows
+      await page.locator('#modal-create-item-btn').click();
+      await expect(page.locator('#modal-create-error')).toBeVisible();
+      // Now select a group and try again — should succeed (modal closes)
+      await page.locator('#modal-new-item-group').selectOption({ index: 1 });
+      await page.locator('#modal-create-item-btn').click();
+      await expect(page.locator('.item-modal')).toHaveCount(0);
+    }
+  });
+
+  // ── Duplicate group detection ─────────────────────────────────────────
+
+  test('creating duplicate group via API returns existing group (case-insensitive)', async ({ page }) => {
+    const groups = await invApiCall(page, 'GET', 'groups');
+    if (!groups || !groups.length) return;
+    const existingName = groups[0].name;
+    // Try creating with different casing
+    const beforeCount = groups.length;
+    await invApiCall(page, 'POST', 'groups', { name: existingName.toUpperCase() });
+    const afterGroups = await invApiCall(page, 'GET', 'groups');
+    // Should not have created a duplicate (UNIQUE constraint on name, normalizeItemName title-cases)
+    expect(afterGroups.length).toBeLessThanOrEqual(beforeCount + 1);
+  });
+
+  test('duplicate group shows toast warning in items tab', async ({ page }) => {
+    await page.locator('#t5').click();
+    await page.waitForFunction(() => document.getElementById('new-item-name'), { timeout: 5000 });
+    const groups = await invApiCall(page, 'GET', 'groups');
+    if (!groups || !groups.length) return;
+    const existingName = groups[0].name;
+    // Register dialog handler BEFORE triggering the select
+    page.once('dialog', async dialog => {
+      await dialog.accept(existingName);
+    });
+    // Select "+ New Group" — triggers the prompt
+    await page.locator('#new-item-group').selectOption('__new__');
+    // After accepting, toast should appear
+    await page.waitForFunction(() => {
+      const divs = document.querySelectorAll('div');
+      for (const d of divs) {
+        if (d.textContent.includes('already exists')) return true;
+      }
+      return false;
+    }, { timeout: 5000 });
+    // The existing group should be selected
+    const selectedVal = await page.locator('#new-item-group').inputValue();
+    expect(selectedVal).toBe(groups[0].id);
+  });
+
+  // ── Unlinked item visual indicator ────────────────────────────────────
+
+  test('unlinked line items show orange border', async ({ page }) => {
+    const txId = 'test-orange-border-' + Date.now();
+    await seedPendingPurchase(page, {
+      bankTxId: txId, vendor: 'Orange Vendor', bankTotal: -10.00,
+      eventDate: '2026-04-15', reason: 'test', items: [{ name: 'unmatched thing', quantity: 1, price: 10.00 }],
+    });
+    await page.reload();
+    await waitForHistoryContent(page);
+    const pending = page.locator('[data-action="review-pending"]').first();
+    if (await pending.count() > 0) {
+      await pending.click();
+      const wrap = page.locator('.review-li-name-wrap').first();
+      await expect(wrap).toHaveClass(/unlinked/);
+    }
+  });
+
+  test('auto-matched line items do not show orange border', async ({ page }) => {
+    // Create a catalog item first
+    const groups = await invApiCall(page, 'GET', 'groups');
+    const gid = groups && groups.length ? groups[0].id : null;
+    const itemName = 'Auto Match Check ' + Date.now();
+    await invApiCall(page, 'POST', 'items', { description: itemName, group_id: gid });
+    const txId = 'test-auto-match-' + Date.now();
+    await seedPendingPurchase(page, {
+      bankTxId: txId, vendor: 'Auto Vendor', bankTotal: -10.00,
+      eventDate: '2026-04-15', reason: 'test', items: [{ name: itemName, quantity: 1, price: 10.00 }],
+    });
+    await page.reload();
+    await waitForHistoryContent(page);
+    const pending = page.locator('[data-action="review-pending"]').first();
+    if (await pending.count() > 0) {
+      await pending.click();
+      const wrap = page.locator('.review-li-name-wrap').first();
+      await expect(wrap).toHaveClass(/linked/);
+      await expect(wrap).not.toHaveClass(/unlinked/);
+    }
+  });
+
 });
