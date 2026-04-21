@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	s3 "github.com/aws/aws-sdk-go-v2/service/s3"
@@ -256,13 +257,13 @@ func main() {
 		}
 		p, err := photos.NewSpacesPresigner(spacesCfg)
 		if err != nil {
-			log.Printf("WARNING: Failed to initialize DO Spaces presigner: %v — photo endpoints will return 503", err)
+			log.Printf("WARNING: Failed to initialize DO Spaces presigner: %v — photo and video upload endpoints will return 503", err)
 		} else {
 			spacesPresigner = p
 			log.Printf("DO Spaces presigner initialized (bucket: %s, endpoint: %s)", spacesBucket, spacesEndpoint)
 		}
 	} else {
-		log.Println("DO Spaces env vars not set — photo upload endpoints will return 503")
+		log.Println("WARNING: DO Spaces env vars not set (DO_SPACES_KEY, DO_SPACES_SECRET, DO_SPACES_BUCKET, DO_SPACES_REGION) — photo and video upload endpoints will return 503")
 	}
 
 	// Start WebSocket hub and Postgres LISTEN/NOTIFY pipeline
@@ -289,6 +290,28 @@ func main() {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
 			w.Write([]byte(`{"status":"ok"}`))
+		})
+		r.Post("/logs", func(w http.ResponseWriter, r *http.Request) {
+			var body struct {
+				Level   string `json:"level"`
+				Message string `json:"message"`
+				URL     string `json:"url"`
+				UA      string `json:"ua"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			// Best-effort user identification from session cookie
+			userInfo := "anonymous"
+			if cookie, err := r.Cookie("hq_session"); err == nil && cookie.Value != "" {
+				tokenHash := auth.HashToken(cookie.Value)
+				if user, err := auth.LookupSession(r.Context(), pool, tokenHash, superadmins); err == nil && user != nil {
+					userInfo = user.DisplayName + " (" + user.Email + ")"
+				}
+			}
+			log.Printf("[CLIENT %s] %s | user=%s | page=%s | ua=%s", strings.ToUpper(body.Level), body.Message, userInfo, body.URL, body.UA)
+			w.WriteHeader(http.StatusNoContent)
 		})
 		r.Post("/auth/login", auth.LoginHandler(pool, superadmins, secureCookie))
 		r.Get("/auth/invite-info", users.InviteInfoHandler(pool))
@@ -402,7 +425,8 @@ func main() {
 			MercuryAPIKey:   os.Getenv("MERCURY_API_KEY"),
 			AnthropicAPIKey: os.Getenv("ANTHROPIC_API_KEY"),
 			Pool:            pool,
-			SpacesPresigner: spacesEndpoint,
+			SpacesPresigner: spacesPresigner,
+			SpacesEndpoint:  spacesEndpoint,
 			SpacesBucket:    spacesBucket,
 			Interval:        workerInterval,
 			LookbackDays:    lookbackDays,

@@ -270,7 +270,7 @@ func InviteInfoHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 
 		tokenHash := auth.HashToken(rawToken)
-		firstName, err := GetInviteInfo(r.Context(), pool, tokenHash)
+		firstName, status, err := GetInviteInfo(r.Context(), pool, tokenHash)
 		if err != nil {
 			if errors.Is(err, ErrTokenInvalid) {
 				writeError(w, http.StatusBadRequest, "token_expired")
@@ -281,7 +281,7 @@ func InviteInfoHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		writeJSON(w, http.StatusOK, map[string]string{"first_name": firstName})
+		writeJSON(w, http.StatusOK, map[string]string{"first_name": firstName, "status": status})
 	}
 }
 
@@ -292,6 +292,7 @@ func AcceptInviteHandler(pool *pgxpool.Pool, secureCookie bool) http.HandlerFunc
 		var body struct {
 			Token    string `json:"token"`
 			Password string `json:"password"`
+			Nickname string `json:"nickname"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Token == "" || body.Password == "" {
 			writeError(w, http.StatusBadRequest, "validation_error")
@@ -319,7 +320,7 @@ func AcceptInviteHandler(pool *pgxpool.Pool, secureCookie bool) http.HandlerFunc
 			return
 		}
 
-		if err := ActivateUser(r.Context(), pool, userID, passwordHash); err != nil {
+		if err := ActivateUser(r.Context(), pool, userID, passwordHash, strings.TrimSpace(body.Nickname)); err != nil {
 			log.Printf("AcceptInviteHandler ActivateUser error: %v", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return

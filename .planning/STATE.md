@@ -4,8 +4,8 @@ milestone: v2.1
 milestone_name: Onboarding Video Upgrade
 status: executing
 stopped_at: "Checkpoint: Task 3 human-verify pending for 01-03-PLAN.md"
-last_updated: "2026-04-19T21:59:49.553Z"
-last_activity: 2026-04-19
+last_updated: "2026-04-20T04:34:13.737Z"
+last_activity: 2026-04-20
 progress:
   total_phases: 2
   completed_phases: 2
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-04-15)
 Phase: 01 (onboarding-video-upgrade) — EXECUTING
 Plan: 3 of 3
 Status: Ready to execute
-Last activity: 2026-04-19
+Last activity: 2026-04-20
 
 Progress: [░░░░░░░░░░] 0% (v2.0 milestone)
 

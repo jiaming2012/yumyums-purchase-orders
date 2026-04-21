@@ -1,7 +1,6 @@
 package onboarding
 
 import (
-	"context"
 	"encoding/json"
 	"log"
 	"net/http"
@@ -434,7 +433,7 @@ func UnassignTemplateHandler(pool *pgxpool.Pool) http.HandlerFunc {
 }
 
 // DeleteTemplateHandler handles DELETE /api/v1/onboarding/deleteTemplate/{id}.
-// Deletes an onboarding template and its associated sections/items via CASCADE. Requires admin/manager.
+// Soft-deletes an onboarding template by setting archived_at. Requires admin/manager.
 func DeleteTemplateHandler(pool *pgxpool.Pool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		user := auth.UserFromContext(r.Context())
@@ -453,7 +452,7 @@ func DeleteTemplateHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		_, err := pool.Exec(r.Context(), `DELETE FROM ob_templates WHERE id = $1`, id)
+		_, err := pool.Exec(r.Context(), `UPDATE ob_templates SET archived_at = now() WHERE id = $1`, id)
 		if err != nil {
 			log.Printf("DeleteTemplate error: %v", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
@@ -557,12 +556,13 @@ func VideoProcessHandler(presigner *s3.PresignClient, bucket, endpoint string, p
 			return
 		}
 
-		go func() {
-			if err := processVideo(context.Background(), presigner, bucket, endpoint, pool, body.PartID, body.ObjectKey); err != nil {
-				log.Printf("VideoProcessHandler background error (part %s): %v", body.PartID, err)
-			}
-		}()
+		result, err := processVideo(r.Context(), presigner, bucket, endpoint, pool, body.PartID, body.ObjectKey)
+		if err != nil {
+			log.Printf("VideoProcessHandler error (part %s): %v", body.PartID, err)
+			writeError(w, http.StatusInternalServerError, "processing_failed")
+			return
+		}
 
-		writeJSON(w, http.StatusAccepted, map[string]string{"status": "processing"})
+		writeJSON(w, http.StatusOK, result)
 	}
 }

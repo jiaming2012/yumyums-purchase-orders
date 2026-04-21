@@ -62,3 +62,10 @@ tasks:
     cmd: go run ./cmd/seed
     env:
       DB_URL: '{{.DB_URL}}'
+
+  db-reset-inventory:
+    desc: Wipe inventory + receipt data only (keeps users, templates, etc.)
+    cmd: >-
+      docker exec yumyums-pg psql -U yumyums -d yumyums -c "
+        TRUNCATE purchase_line_items, purchase_events, pending_purchases CASCADE;
+      "

@@ -3,6 +3,7 @@ package receipt
 import (
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -52,7 +53,8 @@ type WorkerConfig struct {
 	MercuryAPIKey    string
 	AnthropicAPIKey  string
 	Pool             *pgxpool.Pool
-	SpacesPresigner  string // endpoint base URL (optional)
+	SpacesPresigner  *s3.PresignClient // presign client (optional)
+	SpacesEndpoint   string            // endpoint base URL for public URLs
 	SpacesBucket     string
 	Interval         time.Duration
 	LookbackDays     int

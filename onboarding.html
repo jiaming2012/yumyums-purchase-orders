@@ -83,7 +83,8 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .video-progress-bar{height:100%;background:var(--info-tx);border-radius:3px;width:0%;transition:width 0.2s}
 .video-upload-status{font-size:11px;color:var(--mut);margin-top:2px}
 .thumb-preview{width:60px;height:40px;object-fit:cover;border-radius:4px;border:0.5px solid var(--brd)}
-.video-thumb-wrap{position:relative;width:100%;max-width:280px;border-radius:8px;overflow:hidden;cursor:pointer;margin:6px 0}
+.video-thumb-wrap{position:relative;width:100%;max-width:100%;border-radius:8px;overflow:hidden;cursor:pointer;margin:6px auto}
+.video-thumb-wrap img{width:100%;display:block}
 .video-thumb-wrap img{width:100%;height:auto;display:block}
 .video-thumb-wrap .play-btn{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:48px;height:48px;background:rgba(0,0,0,0.6);border-radius:50%;display:flex;align-items:center;justify-content:center}
 .video-thumb-wrap .play-btn::after{content:'';border-style:solid;border-width:10px 0 10px 18px;border-color:transparent transparent transparent #fff;margin-left:3px}
@@ -167,10 +168,10 @@ function createNewOBCheckbox(label) {
   return { id: generateOBId('itm'), type: 'checkbox', label: label || '', sub_items: [] };
 }
 function createNewOBVideoSeries(label) {
-  return { id: generateOBId('vs'), type: 'video_series', label: label || '', parts: [] };
+  return { id: generateOBId('vs'), type: 'video_series', label: label || '', video_parts: [] };
 }
 function createNewOBVideoPart() {
-  return { id: generateOBId('vp'), title: '', desc: '', url: '', source: 'upload', thumbnail_url: null };
+  return { id: generateOBId('vp'), title: '', description: '', url: '', source: 'upload', thumbnail_url: null };
 }
 function createNewOBFaqItem() {
   return { id: generateOBId('faq'), question: '', answer: '' };
@@ -299,7 +300,7 @@ function renderSections(sections, hireId, readOnly) {
         stateHtml = '<span style="font-size:12px;color:var(--mut)">'+checkedItems+'/'+totalItems+'</span>';
       }
     }
-    var chevron = isLocked ? '' : '<span style="font-size:12px;color:var(--mut);margin-left:4px">'+(isExpanded ? '&#9650;' : '&#9660;')+'</span>';
+    var chevron = isLocked ? '' : '<span style="font-size:10px;color:var(--mut);margin-left:6px;transition:transform 0.2s">'+(isExpanded ? '&#9661;' : '&#9655;')+'</span>';
     var actionAttr = isLocked ? '' : ' data-action="toggle-section" data-sec-id="'+sec.id+'" data-hire-id="'+hireId+'" data-read-only="'+(readOnly?'1':'0')+'"';
     html += '<div class="'+headerClass+'"'+actionAttr+'>';
     html += '<div style="display:flex;align-items:center;gap:6px"><span style="font-size:12px;font-weight:500;text-transform:uppercase;letter-spacing:0.5px">'+escapeOBAttr(sec.title)+'</span>'+chevron+'</div>';
@@ -330,35 +331,37 @@ function renderSections(sections, hireId, readOnly) {
             html += '</div></div>';
           } else if (item.type === 'video_series') {
             html += '<div class="item-row" style="flex-direction:column;gap:4px;padding-bottom:4px">';
-            html += '<div style="font-size:12px;font-weight:500;text-transform:uppercase;letter-spacing:0.5px;color:var(--mut);padding-bottom:4px">'+escapeOBAttr(item.label)+'</div>';
+            html += '<div style="font-size:16px;font-weight:600;letter-spacing:0.3px;color:var(--txt);padding-bottom:4px">'+escapeOBAttr(item.label)+'</div>';
             html += '</div>';
-            (item.video_parts || []).forEach(function(part) {
+            (item.video_parts || []).forEach(function(part, vpIdx) {
               var partChecked = part.checked === true;
-              var partCheckClass = 'ob-check' + (partChecked ? ' checked' : '');
-              // D-12: Checkbox is read-only for video parts — no data-action, no toggle
-              var partCheckedAttr = partChecked ? ' checked disabled' : ' disabled';
               var thumbSrc = part.thumbnail_url || '';
               var watchedClass = partChecked ? ' watched' : '';
-              html += '<div class="item-row">';
-              html += '<label style="pointer-events:none"><input type="checkbox"'+partCheckedAttr+'> '+escapeOBAttr(part.title)+'</label>';
-              html += '<div style="flex:1;margin-left:8px">';
-              if (part.desc) html += '<div style="font-size:12px;color:var(--mut);margin-top:2px">'+escapeOBAttr(part.desc)+'</div>';
+              html += '<div style="margin:0 auto;'+(vpIdx===0?'padding-top:20px;':'')+'text-align:center;max-width:90%">';
+              if (partChecked) {
+                var watchedAt = part.checked_at ? formatDateTime(part.checked_at) : '';
+                html += '<div style="text-align:right;margin-bottom:4px"><span style="font-size:12px;color:#27ae60;font-weight:500">&#10003; Watched</span>'+(watchedAt?'<div class="attribution">'+watchedAt+'</div>':'')+'</div>';
+              }
+              html += '<div style="margin-bottom:8px;max-width:240px;margin-left:auto;margin-right:auto">';
+              if (part.title) html += '<div style="font-size:16px;font-weight:700;color:var(--txt)">'+escapeOBAttr(part.title)+'</div>';
+              if (part.description) html += '<div style="font-size:12px;color:var(--mut);margin-top:2px">'+escapeOBAttr(part.description)+'</div>';
               if (partChecked && part.checked_by) html += '<div class="attribution">Checked by '+escapeOBAttr(part.checked_by)+'</div>';
-              if (part._saveErr) html += '<span class="field-err">'+escapeOBAttr(part._saveErr)+'</span>';
+              html += '</div>';
               if (part.url) {
                 if (thumbSrc) {
-                  html += '<div class="video-thumb-wrap'+watchedClass+'" data-action="play-video" data-part-id="'+escapeOBAttr(part.id)+'" data-video-url="'+escapeOBAttr(part.url)+'" data-thumb-url="'+escapeOBAttr(thumbSrc)+'" data-max-watched="'+(part.max_watched_time||0)+'" data-sec-id="'+escapeOBAttr(sec.id)+'" data-hire-id="'+escapeOBAttr(hireId)+'">';
+                  html += '<div class="video-thumb-wrap'+watchedClass+'" data-action="play-video" data-part-id="'+escapeOBAttr(part.id)+'" data-video-url="'+escapeOBAttr(part.url)+'" data-thumb-url="'+escapeOBAttr(thumbSrc)+'" data-max-watched="'+(part.max_watched_time||0)+'" data-sec-id="'+escapeOBAttr(sec.id)+'" data-hire-id="'+escapeOBAttr(hireId)+'" style="margin:0 auto">';
                   html += '<img src="'+escapeOBAttr(thumbSrc)+'" alt="'+escapeOBAttr(part.title)+'">';
                   html += '<div class="play-btn"></div>';
                   html += '</div>';
                 } else {
-                  html += '<div class="video-thumb-wrap'+watchedClass+'" data-action="play-video" data-part-id="'+escapeOBAttr(part.id)+'" data-video-url="'+escapeOBAttr(part.url)+'" data-thumb-url="" data-max-watched="'+(part.max_watched_time||0)+'" data-sec-id="'+escapeOBAttr(sec.id)+'" data-hire-id="'+escapeOBAttr(hireId)+'" style="background:var(--card);min-height:60px;display:flex;align-items:center;justify-content:center">';
+                  html += '<div class="video-thumb-wrap'+watchedClass+'" data-action="play-video" data-part-id="'+escapeOBAttr(part.id)+'" data-video-url="'+escapeOBAttr(part.url)+'" data-thumb-url="" data-max-watched="'+(part.max_watched_time||0)+'" data-sec-id="'+escapeOBAttr(sec.id)+'" data-hire-id="'+escapeOBAttr(hireId)+'" style="background:var(--bg);border:1px solid var(--brd);min-height:80px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;margin:0 auto">';
                   html += '<div class="play-btn" style="position:static;transform:none"></div>';
+                  html += '<span style="font-size:12px;color:var(--info-tx)">Tap to play</span>';
                   html += '</div>';
                 }
               }
               html += '</div>';
-              html += '</div>';
+              html += '<div style="margin:20px auto;width:90%;height:4px;background:var(--brd);border-radius:2px"></div>';
             });
           }
         });
@@ -559,8 +562,9 @@ function renderHireDetail(hire) {
     assigned.forEach(function(t) {
       var pct = t.progress_pct || 0;
       html += '<div class="card" style="margin-bottom:8px">';
+      var signoffBadge = t.pending_signoff ? ' <span class="pill pill-warn" style="font-size:10px;padding:1px 6px">Waiting for Sign-Off</span>' : '';
       html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">';
-      html += '<span style="font-size:14px;font-weight:500">' + escapeOBAttr(t.template_name) + '</span>';
+      html += '<span style="font-size:14px;font-weight:500">' + escapeOBAttr(t.template_name) + signoffBadge + '</span>';
       html += '<span style="font-size:12px;color:var(--mut)">' + pct + '%</span>';
       html += '</div>';
       html += '<div style="height:4px;background:var(--brd);border-radius:2px;margin-bottom:8px;overflow:hidden"><div style="height:100%;background:#27ae60;border-radius:2px;width:' + pct + '%"></div></div>';
@@ -691,7 +695,7 @@ function renderOBVideoItem(item, secId, idx) {
   html += '<span data-action="delete-ob-item" data-sec-id="'+secId+'" data-item-idx="'+idx+'" style="color:#c0392b;cursor:pointer;font-size:14px">&#10005;</span>';
   html += '</div>';
   html += '<div class="ob-item-body">';
-  var parts = item.parts || [];
+  var parts = item.video_parts || [];
   parts.forEach(function(part, pIdx) {
     var partSrc = part.source || 'upload';
     var partId = part.id;
@@ -699,7 +703,7 @@ function renderOBVideoItem(item, secId, idx) {
     html += '<div style="flex:1">';
     // Title + description inputs
     html += '<input type="text" value="'+escapeOBAttr(part.title)+'" data-action="part-title-input" data-sec-id="'+secId+'" data-item-idx="'+idx+'" data-part-idx="'+pIdx+'" placeholder="Part title" style="width:100%;padding:4px 8px;background:var(--card);border:0.5px solid var(--brd);border-radius:6px;font-size:13px;color:var(--txt);font-family:inherit;outline:none;margin-bottom:4px">';
-    html += '<textarea data-action="part-desc-input" data-sec-id="'+secId+'" data-item-idx="'+idx+'" data-part-idx="'+pIdx+'" placeholder="Description" rows="2" style="width:100%;padding:4px 8px;background:var(--card);border:0.5px solid var(--brd);border-radius:6px;font-size:12px;color:var(--txt);font-family:inherit;outline:none;resize:vertical;margin-bottom:4px;box-sizing:border-box">'+escapeOBAttr(part.desc)+'</textarea>';
+    html += '<textarea data-action="part-desc-input" data-sec-id="'+secId+'" data-item-idx="'+idx+'" data-part-idx="'+pIdx+'" placeholder="Description" rows="2" style="width:100%;padding:4px 8px;background:var(--card);border:0.5px solid var(--brd);border-radius:6px;font-size:12px;color:var(--txt);font-family:inherit;outline:none;resize:vertical;margin-bottom:4px;box-sizing:border-box">'+escapeOBAttr(part.description)+'</textarea>';
     // Upload/URL radio toggle (D-01)
     var uploadId = 'vsrc-upload-'+partId;
     var urlId = 'vsrc-url-'+partId;
@@ -708,11 +712,32 @@ function renderOBVideoItem(item, secId, idx) {
     html += '<label><input type="radio" name="vsrc-'+partId+'" value="url"'+(partSrc==='url'?' checked':'')+' data-action="video-source-toggle" data-sec-id="'+secId+'" data-item-idx="'+idx+'" data-part-idx="'+pIdx+'"> URL</label>';
     html += '</div>';
     if (partSrc === 'upload') {
-      // File input (D-02)
-      html += '<input type="file" accept=".mp4,.mov,.webm" data-action="upload-video-file" data-sec-id="'+secId+'" data-item-idx="'+idx+'" data-part-idx="'+pIdx+'" style="font-size:12px;color:var(--mut);margin-bottom:4px">';
+      if (part._uploadError) {
+        // Show failed state with retry button (file kept in memory)
+        html += '<div style="font-size:12px;color:#c0392b;margin-bottom:4px">&#9888; Upload failed: '+(part._pendingFileName||'file')+'</div>';
+        if (part._pendingFile) {
+          html += '<div style="display:flex;gap:6px;margin-bottom:4px">';
+          html += '<button data-action="retry-video-upload" data-sec-id="'+secId+'" data-item-idx="'+idx+'" data-part-idx="'+pIdx+'" style="padding:6px 12px;background:#c0392b;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:500;cursor:pointer">Retry Upload</button>';
+          html += '<button data-action="save-video-local" data-sec-id="'+secId+'" data-item-idx="'+idx+'" data-part-idx="'+pIdx+'" style="padding:6px 12px;background:var(--brd);color:var(--txt);border:none;border-radius:6px;font-size:12px;font-weight:500;cursor:pointer">Save Video for Later</button>';
+          html += '</div>';
+        }
+        html += '<input type="file" accept=".mp4,.mov,.webm,video/*" data-action="upload-video-file" data-sec-id="'+secId+'" data-item-idx="'+idx+'" data-part-idx="'+pIdx+'" id="vfile-'+partId+'" style="display:none"><button data-action="trigger-video-file" data-part-id="'+partId+'" style="padding:6px 12px;background:var(--info-bg);color:var(--info-tx);border:none;border-radius:6px;font-size:12px;font-weight:500;cursor:pointer;margin-bottom:4px">Select or Record Video</button>';
+      } else if (part.url) {
+        // Already uploaded
+        html += '<div style="font-size:12px;color:#27ae60;margin-bottom:4px">&#10003; Video uploaded</div>';
+        html += '<input type="file" accept=".mp4,.mov,.webm,video/*" data-action="upload-video-file" data-sec-id="'+secId+'" data-item-idx="'+idx+'" data-part-idx="'+pIdx+'" id="vfile-'+partId+'" style="display:none"><button data-action="trigger-video-file" data-part-id="'+partId+'" style="padding:6px 12px;background:var(--info-bg);color:var(--info-tx);border:none;border-radius:6px;font-size:12px;font-weight:500;cursor:pointer;margin-bottom:4px">Select or Record Video</button>';
+      } else {
+        // Fresh file input (D-02)
+        html += '<input type="file" accept=".mp4,.mov,.webm,video/*" data-action="upload-video-file" data-sec-id="'+secId+'" data-item-idx="'+idx+'" data-part-idx="'+pIdx+'" id="vfile-'+partId+'" style="display:none"><button data-action="trigger-video-file" data-part-id="'+partId+'" style="padding:6px 12px;background:var(--info-bg);color:var(--info-tx);border:none;border-radius:6px;font-size:12px;font-weight:500;cursor:pointer;margin-bottom:4px">Select or Record Video</button>';
+      }
+      // Video preview button (tap to play fullscreen)
+      var previewSrc = part._previewUrl || (part.url && !part._uploadError ? part.url : '');
+      if (previewSrc) {
+        html += '<button data-action="preview-video" data-video-src="'+escapeOBAttr(previewSrc)+'" style="padding:8px 12px;background:var(--card);border:1px solid var(--brd);border-radius:8px;font-size:12px;color:var(--info-tx);cursor:pointer;margin-bottom:4px;display:flex;align-items:center;gap:6px"><span style="font-size:16px">&#9654;</span> Preview Video</button>';
+      }
       // Progress bar (D-04)
       html += '<div class="video-progress" id="vprog-'+partId+'"><div class="video-progress-bar"></div></div>';
-      html += '<div class="video-upload-status" id="vstat-'+partId+'">'+(part.url ? '&#10003; Uploaded' : '')+'</div>';
+      html += '<div class="video-upload-status" id="vstat-'+partId+'"></div>';
     } else {
       // URL text input
       html += '<input type="text" value="'+escapeOBAttr(part.url)+'" data-action="part-url-input" data-sec-id="'+secId+'" data-item-idx="'+idx+'" data-part-idx="'+pIdx+'" placeholder="Video URL" style="width:100%;padding:4px 8px;background:var(--card);border:0.5px solid var(--brd);border-radius:6px;font-size:12px;color:var(--txt);font-family:inherit;outline:none">';
@@ -787,7 +812,7 @@ function renderOBSection(sec) {
       }
     });
     itemsHtml += '</div>';
-    itemsHtml += '<div style="display:flex;gap:6px;margin-top:6px">'+
+    itemsHtml += '<div style="display:flex;gap:6px;margin-top:12px;padding-top:12px;border-top:1px solid var(--brd)">'+
       '<button data-action="add-ob-item" data-sec-id="'+sec.id+'" data-item-type="checkbox" style="padding:6px 12px;background:var(--info-bg);color:var(--info-tx);border:none;border-radius:8px;font-size:12px;font-weight:500;cursor:pointer">+ Checkbox</button>'+
       '<button data-action="add-ob-item" data-sec-id="'+sec.id+'" data-item-type="video_series" style="padding:6px 12px;background:var(--info-bg);color:var(--info-tx);border:none;border-radius:8px;font-size:12px;font-weight:500;cursor:pointer">+ Video Series</button>'+
       '</div>';
@@ -867,11 +892,44 @@ async function uploadVideoFile(file, secId, itemIdx, partIdx) {
   var sec = (tpl.sections||[]).find(function(s) { return s.id === secId; });
   if (!sec) return;
   var item = sec.items[+itemIdx];
-  if (!item || !item.parts) return;
-  var part = item.parts[+partIdx];
+  if (!item || !item.video_parts) return;
+  var part = item.video_parts[+partIdx];
   if (!part) return;
   var partId = part.id;
   var templateId = tpl.id;
+  if (!templateId) {
+    alert('Template not saved yet. Please try again.');
+    return;
+  }
+  // Auto-save template to get real UUIDs for all sections/items/parts
+  try {
+    await api('PUT', '/api/v1/onboarding/updateTemplate/'+templateId, { name: tpl.name, roles: tpl.roles || [], sections: tpl.sections });
+    var fresh = await api('GET', '/api/v1/onboarding/templates/'+templateId);
+    // Update in-memory state with server UUIDs
+    var idx = (TEMPLATES||[]).findIndex(function(t) { return t.id === templateId; });
+    if (idx !== -1) TEMPLATES[idx] = fresh;
+    obBuilderState.activeTemplate = fresh;
+    obBuilderState.localCopy = JSON.parse(JSON.stringify(fresh));
+    tpl = obBuilderState.localCopy;
+    // Re-find the part with the new UUIDs (match by index)
+    sec = (tpl.sections||[]).find(function(s) { return s.title === sec.title; });
+    if (!sec) { alert('Could not find section after save.'); return; }
+    item = sec.items[+itemIdx];
+    if (!item) { alert('Could not find item after save.'); return; }
+    part = item.video_parts[+partIdx];
+    if (!part) { alert('Could not find video part after save.'); return; }
+    partId = part.id;
+  } catch(ex) {
+    alert('Could not save template before upload. Try again.');
+    return;
+  }
+  // Store file reference on part for retry, preview, and re-render persistence
+  part._pendingFile = file;
+  part._pendingFileName = file.name;
+  if (part._previewUrl) URL.revokeObjectURL(part._previewUrl);
+  part._previewUrl = URL.createObjectURL(file);
+  delete part._uploadError;
+  renderOBBuilder();
   // Validate file size (D-03): max 200 MB
   if (file.size > 200*1024*1024) { alert('Max file size is 200 MB'); return; }
   // Validate file type (D-02)
@@ -896,6 +954,7 @@ async function uploadVideoFile(file, secId, itemIdx, partIdx) {
     var xhr = new XMLHttpRequest();
     xhr.open('PUT', presignData.url);
     xhr.setRequestHeader('Content-Type', file.type);
+    xhr.setRequestHeader('x-amz-acl', 'public-read');
     xhr.upload.addEventListener('progress', function(ev) {
       if (ev.lengthComputable) {
         var pct = Math.round(ev.loaded / ev.total * 100);
@@ -905,25 +964,31 @@ async function uploadVideoFile(file, secId, itemIdx, partIdx) {
       }
     });
     await new Promise(function(resolve, reject) {
-      xhr.onload = function() { xhr.status < 300 ? resolve() : reject(new Error('Upload failed: '+xhr.status)); };
-      xhr.onerror = function() { reject(new Error('Network error')); };
+      xhr.onload = function() { xhr.status < 300 ? resolve() : reject(new Error('Upload failed ('+xhr.status+'): '+xhr.responseText)); };
+      xhr.onerror = function() { reject(new Error('Network error — check CORS configuration on DO Spaces bucket')); };
       xhr.send(file);
     });
-    // Update part state
-    part.url = presignData.public_url;
-    if (statEl) statEl.textContent = 'Processing…';
-    // Trigger FFmpeg conversion
-    await fetch('/api/v1/videos/process', {
+    if (statEl) statEl.textContent = 'Processing video…';
+    // Trigger FFmpeg conversion (synchronous — waits for conversion + thumbnail)
+    var processRes = await fetch('/api/v1/videos/process', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({ part_id: partId, object_key: presignData.object_key })
     });
-    if (statEl) statEl.textContent = 'Upload complete. Thumbnail will be generated shortly.';
+    if (!processRes.ok) throw new Error('Video processing failed: ' + processRes.status);
+    var processData = await processRes.json();
+    // Use the final converted URL (MP4) and thumbnail from the server
+    part.url = processData.video_url;
+    if (processData.thumbnail_url) part.thumbnail_url = processData.thumbnail_url;
+    delete part._pendingFileName;
+    delete part._pendingFile;
     // Re-render so thumbnail section appears
     renderOBBuilder();
   } catch(err) {
-    if (statEl) statEl.textContent = 'Upload failed. Try again.';
-    console.error('uploadVideoFile error:', err);
+    part._uploadError = true;
+    if (statEl) statEl.textContent = 'Upload failed: ' + (err.message || 'Unknown error');
+    console.error('uploadVideoFile error:', err.message || err);
+    renderOBBuilder();
   }
 }
 
@@ -933,8 +998,8 @@ async function uploadCustomThumbnail(file, secId, itemIdx, partIdx) {
   var sec = (tpl.sections||[]).find(function(s) { return s.id === secId; });
   if (!sec) return;
   var item = sec.items[+itemIdx];
-  if (!item || !item.parts) return;
-  var part = item.parts[+partIdx];
+  if (!item || !item.video_parts) return;
+  var part = item.video_parts[+partIdx];
   if (!part) return;
   // Validate file type
   var allowedThumb = ['image/jpeg','image/png'];
@@ -1378,9 +1443,20 @@ document.getElementById('builder-body').addEventListener('click', async function
   if (action === 'new-template') {
     var name = prompt('Template name:');
     if (name && name.trim()) {
-      var tpl = createNewOBTemplate(name.trim(), ['team_member']);
-      obBuilderState = { view: 'editor', activeTemplate: null, localCopy: tpl };
-      renderOBBuilder();
+      if (!navigator.onLine) {
+        alert('You are offline. Templates require a server connection to create. Please reconnect and try again.');
+        return;
+      }
+      try {
+        var created = await api('POST', '/api/v1/onboarding/createTemplate', { name: name.trim(), roles: ['team_member'], sections: [] });
+        var tpl = { id: created.id, name: name.trim(), roles: ['team_member'], sections: [] };
+        TEMPLATES = TEMPLATES || [];
+        TEMPLATES.push(JSON.parse(JSON.stringify(tpl)));
+        obBuilderState = { view: 'editor', activeTemplate: TEMPLATES[TEMPLATES.length - 1], localCopy: JSON.parse(JSON.stringify(tpl)) };
+        renderOBBuilder();
+      } catch(ex) {
+        alert(navigator.onLine ? 'Could not create template. Please try again.' : 'You appear to be offline. Please reconnect and try again.');
+      }
     }
   } else if (action === 'open-template') {
     var tplId = btn.dataset.tplId;
@@ -1401,16 +1477,17 @@ document.getElementById('builder-body').addEventListener('click', async function
     try {
       if (tpl.id) {
         await api('PUT', '/api/v1/onboarding/updateTemplate/'+tpl.id, { name: tpl.name, roles: tpl.roles || [], sections: tpl.sections });
-        var idx = (TEMPLATES||[]).findIndex(function(t) { return t.id === tpl.id; });
-        if (idx !== -1) TEMPLATES[idx] = JSON.parse(JSON.stringify(tpl));
-        obBuilderState.activeTemplate = TEMPLATES[idx];
       } else {
         var created = await api('POST', '/api/v1/onboarding/createTemplate', { name: tpl.name, roles: tpl.roles || [], sections: tpl.sections });
         tpl.id = created.id;
-        TEMPLATES.push(JSON.parse(JSON.stringify(tpl)));
-        obBuilderState.activeTemplate = TEMPLATES[TEMPLATES.length - 1];
       }
-      obBuilderState.localCopy = JSON.parse(JSON.stringify(obBuilderState.activeTemplate));
+      // Re-fetch to get server-assigned UUIDs for all sections/items/parts
+      var fresh = await api('GET', '/api/v1/onboarding/templates/'+tpl.id);
+      var idx = (TEMPLATES||[]).findIndex(function(t) { return t.id === tpl.id; });
+      if (idx !== -1) TEMPLATES[idx] = fresh;
+      else TEMPLATES.push(fresh);
+      obBuilderState.activeTemplate = fresh;
+      obBuilderState.localCopy = JSON.parse(JSON.stringify(fresh));
       obBuilderState.view = 'list';
       renderOBBuilder();
     } catch(ex) {
@@ -1430,7 +1507,7 @@ document.getElementById('builder-body').addEventListener('click', async function
   } else if (action === 'delete-template') {
     var tpl = obBuilderState.localCopy;
     if (!tpl || !tpl.id) return;
-    if (confirm('Delete this template? This cannot be undone.')) {
+    if (confirm('Delete "'+tpl.name+'"? The template will be archived and hidden from all users.')) {
       try {
         await api('DELETE', '/api/v1/onboarding/deleteTemplate/'+tpl.id);
       } catch(ex) { /* best effort */ }
@@ -1441,6 +1518,7 @@ document.getElementById('builder-body').addEventListener('click', async function
   } else if (action === 'add-ob-section') {
     var title = prompt('Section name:');
     if (title && title.trim()) {
+      if (!obBuilderState.localCopy.sections) obBuilderState.localCopy.sections = [];
       obBuilderState.localCopy.sections.push(createNewOBSection(title.trim()));
       renderOBBuilder();
     }
@@ -1499,16 +1577,69 @@ document.getElementById('builder-body').addEventListener('click', async function
     if (sec) {
       var item = sec.items[+btn.dataset.itemIdx];
       if (item) {
-        if (!item.parts) item.parts = [];
-        item.parts.push(createNewOBVideoPart());
+        if (!item.video_parts) item.video_parts = [];
+        item.video_parts.push(createNewOBVideoPart());
         renderOBBuilder();
+      }
+    }
+  } else if (action === 'preview-video') {
+    var src = btn.dataset.videoSrc;
+    if (src) {
+      var v = document.createElement('video');
+      v.src = src;
+      v.controls = true;
+      v.playsInline = true;
+      v.autoplay = true;
+      v.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:9999;background:#000;object-fit:contain';
+      var close = document.createElement('button');
+      close.textContent = '✕ Close';
+      close.style.cssText = 'position:fixed;top:12px;right:12px;z-index:10000;padding:8px 16px;background:rgba(0,0,0,0.7);color:#fff;border:none;border-radius:8px;font-size:14px;cursor:pointer';
+      close.onclick = function() { v.pause(); v.remove(); close.remove(); };
+      document.body.appendChild(v);
+      document.body.appendChild(close);
+      if (v.webkitEnterFullscreen) { try { v.webkitEnterFullscreen(); } catch(e) {} }
+      else if (v.requestFullscreen) { try { v.requestFullscreen(); } catch(e) {} }
+      v.addEventListener('fullscreenchange', function() { if (!document.fullscreenElement) { v.pause(); v.remove(); close.remove(); } });
+      v.addEventListener('webkitendfullscreen', function() { v.pause(); v.remove(); close.remove(); });
+    }
+  } else if (action === 'trigger-video-file') {
+    var fileInput = document.getElementById('vfile-'+btn.dataset.partId);
+    if (fileInput) fileInput.click();
+  } else if (action === 'save-video-local') {
+    var sec = (obBuilderState.localCopy.sections||[]).find(function(s) { return s.id === btn.dataset.secId; });
+    if (sec) {
+      var item = sec.items[+btn.dataset.itemIdx];
+      if (item && item.video_parts) {
+        var part = item.video_parts[+btn.dataset.partIdx];
+        if (part && part._pendingFile) {
+          if (!part.title || !part.title.trim()) {
+            alert('Please enter a part title before saving.');
+            return;
+          }
+          var ext = part._pendingFile.name.split('.').pop() || 'mp4';
+          var safeName = part.title.trim().replace(/[^a-zA-Z0-9 _-]/g, '').replace(/\s+/g, '-');
+          var a = document.createElement('a');
+          a.href = URL.createObjectURL(part._pendingFile);
+          a.download = safeName + '.' + ext;
+          a.click();
+          URL.revokeObjectURL(a.href);
+        }
+      }
+    }
+  } else if (action === 'retry-video-upload') {
+    var sec = (obBuilderState.localCopy.sections||[]).find(function(s) { return s.id === btn.dataset.secId; });
+    if (sec) {
+      var item = sec.items[+btn.dataset.itemIdx];
+      if (item && item.video_parts) {
+        var part = item.video_parts[+btn.dataset.partIdx];
+        if (part && part._pendingFile) uploadVideoFile(part._pendingFile, btn.dataset.secId, btn.dataset.itemIdx, btn.dataset.partIdx);
       }
     }
   } else if (action === 'delete-video-part') {
     var sec = (obBuilderState.localCopy.sections||[]).find(function(s) { return s.id === btn.dataset.secId; });
     if (sec) {
       var item = sec.items[+btn.dataset.itemIdx];
-      if (item && item.parts) { item.parts.splice(+btn.dataset.partIdx, 1); renderOBBuilder(); }
+      if (item && item.video_parts) { item.video_parts.splice(+btn.dataset.partIdx, 1); renderOBBuilder(); }
     }
   } else if (action === 'add-faq-item') {
     var sec = (obBuilderState.localCopy.sections||[]).find(function(s) { return s.id === btn.dataset.secId; });
@@ -1534,13 +1665,13 @@ document.getElementById('builder-body').addEventListener('input', function(e) {
     if (sec) { var item = sec.items[+e.target.dataset.itemIdx]; if (item && item.sub_items) item.sub_items[+e.target.dataset.subIdx].label = e.target.value; }
   } else if (e.target.dataset.action === 'part-title-input') {
     var sec = (obBuilderState.localCopy.sections||[]).find(function(s) { return s.id === e.target.dataset.secId; });
-    if (sec) { var item = sec.items[+e.target.dataset.itemIdx]; if (item && item.parts) item.parts[+e.target.dataset.partIdx].title = e.target.value; }
+    if (sec) { var item = sec.items[+e.target.dataset.itemIdx]; if (item && item.video_parts) item.video_parts[+e.target.dataset.partIdx].title = e.target.value; }
   } else if (e.target.dataset.action === 'part-desc-input') {
     var sec = (obBuilderState.localCopy.sections||[]).find(function(s) { return s.id === e.target.dataset.secId; });
-    if (sec) { var item = sec.items[+e.target.dataset.itemIdx]; if (item && item.parts) item.parts[+e.target.dataset.partIdx].desc = e.target.value; }
+    if (sec) { var item = sec.items[+e.target.dataset.itemIdx]; if (item && item.video_parts) item.video_parts[+e.target.dataset.partIdx].description = e.target.value; }
   } else if (e.target.dataset.action === 'part-url-input') {
     var sec = (obBuilderState.localCopy.sections||[]).find(function(s) { return s.id === e.target.dataset.secId; });
-    if (sec) { var item = sec.items[+e.target.dataset.itemIdx]; if (item && item.parts) item.parts[+e.target.dataset.partIdx].url = e.target.value; }
+    if (sec) { var item = sec.items[+e.target.dataset.itemIdx]; if (item && item.video_parts) item.video_parts[+e.target.dataset.partIdx].url = e.target.value; }
   } else if (e.target.dataset.action === 'faq-q-input') {
     var sec = (obBuilderState.localCopy.sections||[]).find(function(s) { return s.id === e.target.dataset.secId; });
     if (sec && sec.items[+e.target.dataset.faqIdx]) sec.items[+e.target.dataset.faqIdx].question = e.target.value;
@@ -1558,8 +1689,8 @@ document.getElementById('builder-body').addEventListener('change', function(e) {
     var sec = (obBuilderState.localCopy.sections||[]).find(function(s) { return s.id === e.target.dataset.secId; });
     if (sec) {
       var item = sec.items[+e.target.dataset.itemIdx];
-      if (item && item.parts) {
-        item.parts[+e.target.dataset.partIdx].source = e.target.value;
+      if (item && item.video_parts) {
+        item.video_parts[+e.target.dataset.partIdx].source = e.target.value;
         renderOBBuilder();
       }
     }
@@ -1616,10 +1747,23 @@ document.addEventListener('dblclick', function(e) { e.preventDefault(); });
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
 </script>
 <script src="https://unpkg.com/sortablejs@1.15.7/Sortable.min.js"></script>
-<script src="ptr.js"></script>
+<script src="log.js"></script><script src="ptr.js"></script>
 <div class="video-player-modal" id="video-modal">
-  <div class="video-player-close" data-action="close-video">&times;</div>
+  <div class="video-player-close" id="video-close-btn">&times;</div>
   <video id="video-player" playsinline controls></video>
 </div>
+<script>
+document.getElementById('video-close-btn').addEventListener('click', function() {
+  var modal = document.getElementById('video-modal');
+  var videoEl = document.getElementById('video-player');
+  videoEl.pause();
+  if (typeof ACTIVE_VIDEO_PART !== 'undefined' && ACTIVE_VIDEO_PART) saveVideoWatchProgress(ACTIVE_VIDEO_PART.partId, ACTIVE_VIDEO_PART.maxWatchedTime);
+  videoEl.removeAttribute('src'); videoEl.load();
+  modal.style.display = 'none';
+  if (typeof ACTIVE_VIDEO_PART !== 'undefined') ACTIVE_VIDEO_PART = null;
+  if (document.fullscreenElement) document.exitFullscreen();
+  if (document.webkitFullscreenElement) document.webkitExitFullscreen();
+});
+</script>
 </body>
 </html>

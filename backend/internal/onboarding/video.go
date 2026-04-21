@@ -117,6 +117,7 @@ func uploadToSpaces(ctx context.Context, presigner *s3.PresignClient, bucket, ke
 	}
 	req.ContentLength = stat.Size()
 	req.Header.Set("Content-Type", contentType)
+	req.Header.Set("x-amz-acl", "public-read")
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -133,10 +134,16 @@ func uploadToSpaces(ctx context.Context, presigner *s3.PresignClient, bucket, ke
 // processVideo handles FFmpeg conversion and thumbnail extraction for a video part.
 // Downloads raw file, converts if needed (.mov/.webm -> .mp4), extracts thumbnail,
 // uploads both back to Spaces, and updates ob_video_parts in the DB.
-func processVideo(ctx context.Context, presigner *s3.PresignClient, bucket, endpoint string, pool *pgxpool.Pool, partID, objectKey string) error {
+// ProcessResult contains the final URLs after processing.
+type ProcessResult struct {
+	VideoURL     string `json:"video_url"`
+	ThumbnailURL string `json:"thumbnail_url"`
+}
+
+func processVideo(ctx context.Context, presigner *s3.PresignClient, bucket, endpoint string, pool *pgxpool.Pool, partID, objectKey string) (*ProcessResult, error) {
 	tmpDir, err := os.MkdirTemp("", "yumyums-video-*")
 	if err != nil {
-		return fmt.Errorf("create temp dir: %w", err)
+		return nil, fmt.Errorf("create temp dir: %w", err)
 	}
 	defer os.RemoveAll(tmpDir)
 
@@ -146,7 +153,7 @@ func processVideo(ctx context.Context, presigner *s3.PresignClient, bucket, endp
 
 	// Download raw file from Spaces
 	if err := downloadFromSpaces(ctx, presigner, bucket, objectKey, inputPath); err != nil {
-		return fmt.Errorf("download from spaces: %w", err)
+		return nil, fmt.Errorf("download from spaces: %w", err)
 	}
 
 	// Key without extension (for derived keys)
@@ -155,22 +162,24 @@ func processVideo(ctx context.Context, presigner *s3.PresignClient, bucket, endp
 	// Convert to MP4 if needed
 	videoPath := inputPath
 	videoKey := objectKey
+	finalVideoURL := photos.PublicURL(endpoint, bucket, objectKey)
 	if ext == ".mov" || ext == ".webm" {
 		outputPath := filepath.Join(tmpDir, "output.mp4")
 		if err := convertToMP4(ctx, inputPath, outputPath); err != nil {
-			return fmt.Errorf("convert to mp4: %w", err)
+			return nil, fmt.Errorf("convert to mp4: %w", err)
 		}
 
 		mp4Key := keyWithoutExt + ".mp4"
 		if err := uploadToSpaces(ctx, presigner, bucket, mp4Key, outputPath, "video/mp4"); err != nil {
-			return fmt.Errorf("upload mp4: %w", err)
+			return nil, fmt.Errorf("upload mp4: %w", err)
 		}
 
 		mp4PublicURL := photos.PublicURL(endpoint, bucket, mp4Key)
 		if _, err := pool.Exec(ctx, `UPDATE ob_video_parts SET url = $1 WHERE id = $2`, mp4PublicURL, partID); err != nil {
-			return fmt.Errorf("update video url: %w", err)
+			return nil, fmt.Errorf("update video url: %w", err)
 		}
 
+		finalVideoURL = mp4PublicURL
 		videoPath = outputPath
 		videoKey = mp4Key
 	}
@@ -179,19 +188,19 @@ func processVideo(ctx context.Context, presigner *s3.PresignClient, bucket, endp
 	// Extract thumbnail
 	thumbPath := filepath.Join(tmpDir, "thumb.jpg")
 	if err := extractThumbnail(ctx, videoPath, thumbPath); err != nil {
-		return fmt.Errorf("extract thumbnail: %w", err)
+		return nil, fmt.Errorf("extract thumbnail: %w", err)
 	}
 
 	thumbKey := keyWithoutExt + "_thumb.jpg"
 	if err := uploadToSpaces(ctx, presigner, bucket, thumbKey, thumbPath, "image/jpeg"); err != nil {
-		return fmt.Errorf("upload thumbnail: %w", err)
+		return nil, fmt.Errorf("upload thumbnail: %w", err)
 	}
 
 	thumbPublicURL := photos.PublicURL(endpoint, bucket, thumbKey)
 	if _, err := pool.Exec(ctx, `UPDATE ob_video_parts SET thumbnail_url = $1 WHERE id = $2`, thumbPublicURL, partID); err != nil {
-		return fmt.Errorf("update thumbnail url: %w", err)
+		return nil, fmt.Errorf("update thumbnail url: %w", err)
 	}
 
-	log.Printf("processVideo: completed part %s — thumb %s", partID, thumbPublicURL)
-	return nil
+	log.Printf("processVideo: completed part %s — video %s, thumb %s", partID, finalVideoURL, thumbPublicURL)
+	return &ProcessResult{VideoURL: finalVideoURL, ThumbnailURL: thumbPublicURL}, nil
 }

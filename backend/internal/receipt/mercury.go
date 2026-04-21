@@ -24,7 +24,7 @@ func FetchTransactions(ctx context.Context, apiKey string, startDate, endDate ti
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		return nil, fmt.Errorf("FetchTransactions: failed to create request: %w", err)
+		return nil, fmt.Errorf("Mercury FetchTransactions: failed to create request: %w", err)
 	}
 
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", apiKey))
@@ -38,21 +38,21 @@ func FetchTransactions(ctx context.Context, apiKey string, startDate, endDate ti
 	client := &http.Client{Timeout: 30 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("FetchTransactions: request failed: %w", err)
+		return nil, fmt.Errorf("Mercury FetchTransactions: request failed: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("FetchTransactions: non-200 response: %d", resp.StatusCode)
+		return nil, fmt.Errorf("Mercury FetchTransactions: non-200 response: %d", resp.StatusCode)
 	}
 
 	var envelope mercuryListTransactionsResponse
 	if err := json.NewDecoder(resp.Body).Decode(&envelope); err != nil {
-		return nil, fmt.Errorf("FetchTransactions: failed to decode response: %w", err)
+		return nil, fmt.Errorf("Mercury FetchTransactions: failed to decode response: %w", err)
 	}
 
 	if len(envelope.Transactions) >= 1000 {
-		return nil, fmt.Errorf("FetchTransactions: response limit reached — implement pagination")
+		return nil, fmt.Errorf("Mercury FetchTransactions: response limit reached — implement pagination")
 	}
 
 	var out []MercuryTransaction

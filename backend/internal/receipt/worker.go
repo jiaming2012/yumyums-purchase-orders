@@ -1,10 +1,12 @@
 package receipt
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"log"
+	"net/http"
 	"path/filepath"
 	"strings"
 	"time"
@@ -72,7 +74,7 @@ func runIngestCycle(ctx context.Context, cfg WorkerConfig) error {
 		return nil
 	}
 
-	var autoCreated, pendingReview int
+	var autoCreated, pendingReview, skippedCached int
 
 	for _, tx := range txns {
 		if len(tx.Attachments) == 0 {
@@ -86,6 +88,7 @@ func runIngestCycle(ctx context.Context, cfg WorkerConfig) error {
 			continue
 		}
 		if already {
+			skippedCached++
 			continue
 		}
 
@@ -105,18 +108,35 @@ func runIngestCycle(ctx context.Context, cfg WorkerConfig) error {
 
 		// Optionally upload original to DO Spaces
 		receiptURL := attachment.URL
-		if cfg.SpacesPresigner != "" && cfg.SpacesBucket != "" {
+		if cfg.SpacesPresigner != nil && cfg.SpacesBucket != "" {
 			ext := strings.ToLower(filepath.Ext(attachment.FileName))
 			if ext == "" {
 				ext = ".jpg"
 			}
 			key := fmt.Sprintf("receipts/%s/original%s", tx.ID, ext)
-			uploaded, uploadErr := photos.GeneratePresignedPutURL(ctx, nil, cfg.SpacesBucket, key, contentType, 15*time.Minute)
+			presignedURL, uploadErr := photos.GeneratePresignedPutURL(ctx, cfg.SpacesPresigner, cfg.SpacesBucket, key, contentType, 15*time.Minute)
 			if uploadErr != nil {
 				log.Printf("receipt worker: presign for tx %s: %v (continuing)", tx.ID, uploadErr)
 			} else {
-				receiptURL = photos.PublicURL(cfg.SpacesPresigner, cfg.SpacesBucket, key)
-				_ = uploaded // presigned PUT URL not used here; worker uploads directly
+				putReq, reqErr := http.NewRequestWithContext(ctx, http.MethodPut, presignedURL, bytes.NewReader(fileBytes))
+				if reqErr != nil {
+					log.Printf("receipt worker: create PUT request for tx %s: %v (continuing)", tx.ID, reqErr)
+				} else {
+					putReq.Header.Set("Content-Type", contentType)
+					putReq.Header.Set("x-amz-acl", "public-read")
+					putReq.ContentLength = int64(len(fileBytes))
+					putResp, putErr := (&http.Client{Timeout: 60 * time.Second}).Do(putReq)
+					if putErr != nil {
+						log.Printf("receipt worker: upload to Spaces for tx %s: %v (continuing)", tx.ID, putErr)
+					} else {
+						putResp.Body.Close()
+						if putResp.StatusCode >= 200 && putResp.StatusCode < 300 {
+							receiptURL = photos.PublicURL(cfg.SpacesEndpoint, cfg.SpacesBucket, key)
+						} else {
+							log.Printf("receipt worker: Spaces PUT for tx %s returned %d (continuing)", tx.ID, putResp.StatusCode)
+						}
+					}
+				}
 			}
 		}
 
@@ -124,7 +144,7 @@ func runIngestCycle(ctx context.Context, cfg WorkerConfig) error {
 		items, summary, err := ParseReceipt(ctx, cfg.AnthropicAPIKey, fileBytes, contentType)
 		if err != nil {
 			log.Printf("receipt worker: ParseReceipt for tx %s: %v — routing to review queue", tx.ID, err)
-			if routeErr := insertPendingPurchase(ctx, cfg.Pool, tx, items, summary, receiptURL, err.Error()); routeErr != nil {
+			if routeErr := insertPendingPurchase(ctx, cfg.Pool, tx, items, summary, receiptURL, "Receipt could not be parsed automatically"); routeErr != nil {
 				log.Printf("receipt worker: insertPendingPurchase for tx %s: %v", tx.ID, routeErr)
 			}
 			pendingReview++
@@ -145,7 +165,7 @@ func runIngestCycle(ctx context.Context, cfg WorkerConfig) error {
 		// Auto-create purchase event
 		if err := createPurchaseEvent(ctx, cfg.Pool, tx, items, summary, receiptURL); err != nil {
 			log.Printf("receipt worker: createPurchaseEvent for tx %s: %v — routing to review queue", tx.ID, err)
-			if routeErr := insertPendingPurchase(ctx, cfg.Pool, tx, items, summary, receiptURL, err.Error()); routeErr != nil {
+			if routeErr := insertPendingPurchase(ctx, cfg.Pool, tx, items, summary, receiptURL, "Receipt could not be saved automatically"); routeErr != nil {
 				log.Printf("receipt worker: insertPendingPurchase for tx %s: %v", tx.ID, routeErr)
 			}
 			pendingReview++
@@ -155,8 +175,8 @@ func runIngestCycle(ctx context.Context, cfg WorkerConfig) error {
 		autoCreated++
 	}
 
-	log.Printf("receipt worker: processed %d transactions, %d auto-created, %d pending review",
-		len(txns), autoCreated, pendingReview)
+	log.Printf("receipt worker: processed %d transactions, %d auto-created, %d pending review, %d already cached",
+		len(txns), autoCreated, pendingReview, skippedCached)
 	return nil
 }
 

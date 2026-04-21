@@ -2,7 +2,7 @@
 
 ## What This Is
 
-A mobile-first PWA operations console for a food truck business. One app shell with a launcher grid linking to independent workflow tools — purchasing, user management, a workflow/checklist engine (Lumiform-style), and a crew onboarding/training system. Each tool is a standalone HTML page inside a shared PWA, designed for a small crew (1-5 people) to use on their phones. Shipped v1.0 with 3,695 LOC across 8 HTML/JS files, 89 E2E tests, and full dark mode support.
+A mobile-first PWA operations console for a food truck business. One app shell with a launcher grid linking to independent workflow tools — purchasing, user management, a workflow/checklist engine (Lumiform-style), crew onboarding/training, and inventory management. Each tool is a standalone HTML page inside a shared PWA, backed by a Go + Postgres REST API with real-time sync via WebSocket. Designed for a small crew (1-5 people) to use on their phones. Shipped v2.0 with Go backend, 28 API endpoints, real-time sync, offline support, receipt ingestion pipeline, and 108+ E2E tests.
 
 ## Core Value
 
@@ -48,16 +48,21 @@ Operational tools that let the owner manage crew workflows and training from one
 - ✓ Inventory app with purchase history, vendor filter, Chart.js spending charts, stock estimation, food cost intelligence — v1.1
 - ✓ 128+ Playwright E2E tests (54 workflows + 35 onboarding + 39 inventory) — v1.1
 
+- ✓ Go backend with Postgres — REST API replacing all mock data — v2.0
+- ✓ User auth + sessions — httpOnly cookies, login/logout/invite flows — v2.0
+- ✓ Workflows persistence — templates, submissions, approvals, audit trail — v2.0
+- ✓ Real-time cross-device sync — op-log, WebSocket hub, Lamport clocks — v2.0
+- ✓ Onboarding persistence — training progress, sign-off journal entries — v2.0
+- ✓ Inventory/Purchasing data pipeline — receipt ingestion, real purchase events — v2.0
+- ✓ PWA offline mode — IndexedDB queue, drain-on-reconnect, sync banner — v2.0
+- ✓ Photo upload via presigned URLs (DO Spaces) — v2.0
+- ✓ Tile-based permissions — users see only permitted app tiles — v2.0
+- ✓ Template assignment UI — managers assign training templates to hires — v2.0
+
 ### Active
 
-- [ ] Go backend with Postgres — REST API replacing all mock data
-- [ ] User auth + sessions — bearer tokens, login.html wired to real auth
-- [ ] Workflows persistence — save completions, approvals, audit trail
-- [x] Onboarding persistence — training progress, sign-off journal entries (Phase 11)
-- [ ] Inventory/Purchasing data pipeline — receipt ingestion, real purchase events
 - [ ] Food cost calculations — ingredient ratio derivation (potentially AI-assisted)
-- [ ] PWA offline mode — service worker sync, IndexedDB for offline queuing
-- [ ] Dev deployment via Tailscale
+- [ ] Dev deployment via Tailscale (INFRA-03 — human verification pending)
 
 ### Out of Scope
 
@@ -68,25 +73,12 @@ Operational tools that let the owner manage crew workflows and training from one
 
 ## Shipped Milestones
 
-## Current Milestone: v2.0 Backend
-
-**Goal:** Go backend with Postgres, replacing all mock data with real persistence — auth, workflows, onboarding, inventory, and food cost calculations. PWA offline mode. Tailscale dev deployment.
-
-**Target features:**
-- User auth + sessions (Go API, bearer tokens)
-- Workflows persistence (completions, approvals, audit trail)
-- Onboarding persistence (training progress, sign-off journal)
-- Inventory/Purchasing data pipeline (receipt ingestion, real purchase events)
-- Food cost calculations (ingredient ratio derivation)
-- PWA offline mode (IndexedDB + SW sync)
-- Dev deployment via Tailscale
-
 ## Shipped Milestones
 
 - **v1.0** Operations Console MVP (2026-04-14) — Workflows engine + Onboarding app
 - **v1.1** Inventory App (2026-04-14) — Purchase history, spending trends, stock estimation, food cost intelligence
-- Reorder suggestions (items at low/medium flagged for next PO)
-- HQ integration (launcher tile, SW cache, permissions)
+- **v2.0** Backend (2026-04-19) — Go + Postgres API, auth, real-time sync, offline support, receipt ingestion, photo upload, tile permissions
+- **v2.1** Onboarding Video Upgrade (2026-04-20) — DO Spaces video upload, FFmpeg conversion, inline player, watch enforcement, thumbnails
 
 ## Context
 
@@ -107,7 +99,7 @@ Operational tools that let the owner manage crew workflows and training from one
 - **PWA:** Must work as installed app on iOS and Android, offline-capable via service worker
 - **Mobile-first:** All UI designed for 480px max-width, touch-optimized
 - **Design consistency:** Shared CSS variables and dark mode across all pages
-- **Mocks only:** All data is hardcoded JavaScript arrays — no localStorage, no API calls
+- **API-backed:** All data persisted in Postgres via Go backend REST API — no mock data remains
 - **Testing:** Playwright E2E tests run via `npm test`
 
 ## Key Decisions

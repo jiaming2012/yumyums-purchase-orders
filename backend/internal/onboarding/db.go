@@ -21,9 +21,12 @@ func sectionIncompleteItem(hireParam string) string {
 				SELECT 1 FROM ob_progress op WHERE op.item_id = oi.id AND op.hire_id = ` + hireParam + `
 			))
 			OR
-			(oi.type = 'video_series' AND EXISTS (
-				SELECT 1 FROM ob_video_parts vp WHERE vp.item_id = oi.id
-				AND NOT EXISTS (SELECT 1 FROM ob_progress op WHERE op.item_id = vp.id AND op.hire_id = ` + hireParam + `)
+			(oi.type = 'video_series' AND (
+				NOT EXISTS (SELECT 1 FROM ob_video_parts vp WHERE vp.item_id = oi.id)
+				OR EXISTS (
+					SELECT 1 FROM ob_video_parts vp WHERE vp.item_id = oi.id
+					AND NOT EXISTS (SELECT 1 FROM ob_progress op WHERE op.item_id = vp.id AND op.hire_id = ` + hireParam + ` AND op.progress_type = 'video_part')
+				)
 			))
 		)`
 }
@@ -72,6 +75,7 @@ type VideoPart struct {
 	SortOrder      int     `json:"sort_order"`
 	// Checked is populated when returning HireTraining — true if this part is watched by the hire.
 	Checked        bool    `json:"checked"`
+	CheckedAt      string  `json:"checked_at,omitempty"`
 	MaxWatchedTime float64 `json:"max_watched_time"` // populated from ob_progress max_watched_time
 }
 
@@ -166,6 +170,7 @@ type CreateTemplateInput struct {
 
 // CreateSectionInput is the input for a section within a template.
 type CreateSectionInput struct {
+	ID              string            `json:"id,omitempty"`
 	Title           string            `json:"title"`
 	SortOrder       int               `json:"sort_order"`
 	RequiresSignOff bool              `json:"requires_sign_off"`
@@ -176,6 +181,7 @@ type CreateSectionInput struct {
 
 // CreateItemInput is the input for a single item in a section.
 type CreateItemInput struct {
+	ID         string                 `json:"id,omitempty"`
 	Type       string                 `json:"type"`
 	Label      string                 `json:"label"`
 	Answer     *string                `json:"answer,omitempty"`
@@ -185,6 +191,7 @@ type CreateItemInput struct {
 
 // CreateVideoPartInput is the input for a video part.
 type CreateVideoPartInput struct {
+	ID           string  `json:"id,omitempty"`
 	Title        string  `json:"title"`
 	Description  string  `json:"description"`
 	URL          string  `json:"url"`
@@ -197,6 +204,7 @@ func GetTemplates(ctx context.Context, pool *pgxpool.Pool) ([]Template, error) {
 	rows, err := pool.Query(ctx, `
 		SELECT id, name, roles, created_at
 		FROM ob_templates
+		WHERE archived_at IS NULL
 		ORDER BY created_at
 	`)
 	if err != nil {
@@ -453,8 +461,15 @@ func GetHireTraining(ctx context.Context, pool *pgxpool.Pool, hireID, templateID
 			item := &sec.Items[j]
 			if item.Type == "video_series" {
 				for k := range item.VideoParts {
-					item.VideoParts[k].Checked = progressMap[item.VideoParts[k].ID+":video_part"]
+					vpKey := item.VideoParts[k].ID + ":video_part"
+					item.VideoParts[k].Checked = progressMap[vpKey]
 					item.VideoParts[k].MaxWatchedTime = watchTimeMap[item.VideoParts[k].ID]
+					for _, pe := range progressEntries {
+						if pe.ItemID == item.VideoParts[k].ID && pe.ProgressType == "video_part" {
+							item.VideoParts[k].CheckedAt = pe.CheckedAt
+							break
+						}
+					}
 				}
 			} else if item.Type == "faq" {
 				item.Viewed = progressMap[item.ID+":faq"]
@@ -512,25 +527,29 @@ func latestProgressInSection(sec Section, entries []ProgressEntry) string {
 // isSectionComplete returns true if all items in the section are done.
 // For FAQ sections, all FAQ items must be viewed. For video_series, all parts must be watched.
 func isSectionComplete(sec Section, progressMap map[string]bool) bool {
+	totalCheckable := 0
 	for _, item := range sec.Items {
 		if item.Type == "faq" {
+			totalCheckable++
 			if !progressMap[item.ID+":faq"] {
 				return false
 			}
 		} else if item.Type == "video_series" {
 			for _, part := range item.VideoParts {
+				totalCheckable++
 				if !progressMap[part.ID+":video_part"] {
 					return false
 				}
 			}
 		} else {
 			// checkbox
+			totalCheckable++
 			if !progressMap[item.ID+":item"] {
 				return false
 			}
 		}
 	}
-	return len(sec.Items) > 0
+	return totalCheckable > 0
 }
 
 // canActivateSection returns true if idx==0 or all preceding sections are complete/signed_off.
@@ -581,8 +600,8 @@ func GetMyTrainings(ctx context.Context, pool *pgxpool.Pool, hireID string) ([]A
 			FROM ob_sections
 			GROUP BY template_id
 		) sec_total ON sec_total.template_id = ot.id
-		WHERE ota.hire_id = $1
-		   OR (ot.roles IS NOT NULL AND ot.roles && $2)
+		WHERE ot.archived_at IS NULL
+		  AND (ota.hire_id = $1 OR (ot.roles IS NOT NULL AND ot.roles && $2))
 		ORDER BY assigned_at
 	`, hireID, userRoles)
 	if err != nil {
@@ -723,8 +742,9 @@ func GetManagerHires(ctx context.Context, pool *pgxpool.Pool) ([]HireOverview, e
 				)
 				GROUP BY os.template_id
 			) pending_so ON pending_so.template_id = ot.id
-			WHERE EXISTS (SELECT 1 FROM ob_template_assignments ota WHERE ota.hire_id = $1 AND ota.template_id = ot.id)
-			   OR (ot.roles IS NOT NULL AND ot.roles && $2)
+			WHERE ot.archived_at IS NULL
+			  AND (EXISTS (SELECT 1 FROM ob_template_assignments ota WHERE ota.hire_id = $1 AND ota.template_id = ot.id)
+			       OR (ot.roles IS NOT NULL AND ot.roles && $2))
 			ORDER BY ot.name
 		`, result[i].HireID, userRoles)
 		if err != nil {
@@ -871,7 +891,8 @@ func CreateTemplate(ctx context.Context, pool *pgxpool.Pool, input CreateTemplat
 	return templateID, nil
 }
 
-// UpdateTemplate replaces a template's sections, items, and video parts entirely (full replace).
+// UpdateTemplate updates a template preserving existing section/item/video_part IDs
+// so that ob_progress rows (which reference item IDs) are not orphaned.
 func UpdateTemplate(ctx context.Context, pool *pgxpool.Pool, templateID string, input CreateTemplateInput) error {
 	tx, err := pool.Begin(ctx)
 	if err != nil {
@@ -887,17 +908,140 @@ func UpdateTemplate(ctx context.Context, pool *pgxpool.Pool, templateID string, 
 		return fmt.Errorf("update template: %w", err)
 	}
 
-	// Full replace: delete sections (items and video parts cascade via FK)
-	_, err = tx.Exec(ctx, `DELETE FROM ob_sections WHERE template_id = $1`, templateID)
-	if err != nil {
-		return fmt.Errorf("delete old sections: %w", err)
+	// Collect IDs that should be kept
+	keepSectionIDs := map[string]bool{}
+	keepItemIDs := map[string]bool{}
+	keepVPIDs := map[string]bool{}
+
+	for _, sec := range input.Sections {
+		var sectionID string
+		if sec.ID != "" && isUUID(sec.ID) {
+			// Update existing section
+			_, err := tx.Exec(ctx, `
+				UPDATE ob_sections SET title=$1, sort_order=$2, requires_sign_off=$3, sign_off_roles=$4, is_faq=$5
+				WHERE id=$6 AND template_id=$7
+			`, sec.Title, sec.SortOrder, sec.RequiresSignOff, sec.SignOffRoles, sec.IsFaq, sec.ID, templateID)
+			if err != nil {
+				return fmt.Errorf("update section %q: %w", sec.Title, err)
+			}
+			sectionID = sec.ID
+		} else {
+			// Insert new section
+			err := tx.QueryRow(ctx, `
+				INSERT INTO ob_sections (template_id, title, sort_order, requires_sign_off, sign_off_roles, is_faq)
+				VALUES ($1, $2, $3, $4, $5, $6) RETURNING id
+			`, templateID, sec.Title, sec.SortOrder, sec.RequiresSignOff, sec.SignOffRoles, sec.IsFaq).Scan(&sectionID)
+			if err != nil {
+				return fmt.Errorf("insert section %q: %w", sec.Title, err)
+			}
+		}
+		keepSectionIDs[sectionID] = true
+
+		for _, item := range sec.Items {
+			var itemID string
+			if item.ID != "" && isUUID(item.ID) {
+				_, err := tx.Exec(ctx, `
+					UPDATE ob_items SET section_id=$1, type=$2, label=$3, answer=$4, sort_order=$5
+					WHERE id=$6
+				`, sectionID, item.Type, item.Label, item.Answer, item.SortOrder, item.ID)
+				if err != nil {
+					return fmt.Errorf("update item %q: %w", item.Label, err)
+				}
+				itemID = item.ID
+			} else {
+				err := tx.QueryRow(ctx, `
+					INSERT INTO ob_items (section_id, type, label, answer, sort_order)
+					VALUES ($1, $2, $3, $4, $5) RETURNING id
+				`, sectionID, item.Type, item.Label, item.Answer, item.SortOrder).Scan(&itemID)
+				if err != nil {
+					return fmt.Errorf("insert item %q: %w", item.Label, err)
+				}
+			}
+			keepItemIDs[itemID] = true
+
+			for _, vp := range item.VideoParts {
+				var vpID string
+				if vp.ID != "" && isUUID(vp.ID) {
+					_, err := tx.Exec(ctx, `
+						UPDATE ob_video_parts SET item_id=$1, title=$2, description=$3, url=$4, thumbnail_url=$5, sort_order=$6
+						WHERE id=$7
+					`, itemID, vp.Title, vp.Description, vp.URL, vp.ThumbnailURL, vp.SortOrder, vp.ID)
+					if err != nil {
+						return fmt.Errorf("update video part %q: %w", vp.Title, err)
+					}
+					vpID = vp.ID
+				} else {
+					err := tx.QueryRow(ctx, `
+						INSERT INTO ob_video_parts (item_id, title, description, url, thumbnail_url, sort_order)
+						VALUES ($1, $2, $3, $4, $5, $6) RETURNING id
+					`, itemID, vp.Title, vp.Description, vp.URL, vp.ThumbnailURL, vp.SortOrder).Scan(&vpID)
+					if err != nil {
+						return fmt.Errorf("insert video part %q: %w", vp.Title, err)
+					}
+				}
+				keepVPIDs[vpID] = true
+			}
+		}
 	}
 
-	if err := insertSectionsTx(ctx, tx, templateID, input.Sections); err != nil {
-		return err
+	// Delete removed video parts, items, and sections (ones not in the input)
+	// Delete video parts first (deepest), then items, then sections
+	_, err = tx.Exec(ctx, `
+		DELETE FROM ob_video_parts WHERE item_id IN (
+			SELECT id FROM ob_items WHERE section_id IN (
+				SELECT id FROM ob_sections WHERE template_id = $1
+			)
+		) AND id != ALL($2)
+	`, templateID, pgxSlice(keepVPIDs))
+	if err != nil {
+		return fmt.Errorf("delete removed video parts: %w", err)
+	}
+
+	_, err = tx.Exec(ctx, `
+		DELETE FROM ob_items WHERE section_id IN (
+			SELECT id FROM ob_sections WHERE template_id = $1
+		) AND id != ALL($2)
+	`, templateID, pgxSlice(keepItemIDs))
+	if err != nil {
+		return fmt.Errorf("delete removed items: %w", err)
+	}
+
+	_, err = tx.Exec(ctx, `
+		DELETE FROM ob_sections WHERE template_id = $1 AND id != ALL($2)
+	`, templateID, pgxSlice(keepSectionIDs))
+	if err != nil {
+		return fmt.Errorf("delete removed sections: %w", err)
 	}
 
 	return tx.Commit(ctx)
+}
+
+// isUUID checks if a string looks like a valid UUID (8-4-4-4-12 hex pattern).
+func isUUID(s string) bool {
+	if len(s) != 36 {
+		return false
+	}
+	for i, c := range s {
+		if i == 8 || i == 13 || i == 18 || i == 23 {
+			if c != '-' {
+				return false
+			}
+		} else {
+			if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+// pgxSlice converts a map of IDs to a string slice for use with ANY/ALL.
+func pgxSlice(m map[string]bool) []string {
+	s := make([]string, 0, len(m))
+	for k := range m {
+		s = append(s, k)
+	}
+	return s
 }
 
 // insertSectionsTx inserts sections + items + video_parts within an existing transaction.

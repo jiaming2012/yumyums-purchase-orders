@@ -39,6 +39,7 @@ func GeneratePresignedPutURL(ctx context.Context, presigner *s3.PresignClient, b
 		Bucket:      aws.String(bucket),
 		Key:         aws.String(key),
 		ContentType: aws.String(contentType),
+		ACL:         "public-read",
 	}, s3.WithPresignExpires(ttl))
 	if err != nil {
 		return "", fmt.Errorf("presign PUT %s: %w", key, err)
@@ -60,14 +61,10 @@ func GeneratePresignedGetURL(ctx context.Context, presigner *s3.PresignClient, b
 }
 
 // PublicURL returns the permanent public URL for an object in DO Spaces.
-// Format: https://{bucket}.{region}.digitaloceanspaces.com/{key}
+// Uses path-style URLs to support bucket names with dots (e.g. "hq.yumyums")
+// which break subdomain-style due to wildcard SSL cert limitations.
+// Format: https://{region}.digitaloceanspaces.com/{bucket}/{key}
 func PublicURL(endpoint, bucket, key string) string {
 	// endpoint is like "https://nyc3.digitaloceanspaces.com"
-	// public URL is "https://{bucket}.nyc3.digitaloceanspaces.com/{key}"
-	// Strip "https://" prefix then prepend bucket subdomain
-	host := endpoint
-	if len(host) > 8 && host[:8] == "https://" {
-		host = host[8:]
-	}
-	return fmt.Sprintf("https://%s.%s/%s", bucket, host, key)
+	return fmt.Sprintf("%s/%s/%s", endpoint, bucket, key)
 }

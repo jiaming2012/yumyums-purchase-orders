@@ -174,6 +174,7 @@ func OpHandler(pool *pgxpool.Pool, router OpRouter) http.HandlerFunc {
 			LamportTS:  req.LamportTS,
 		}
 
+		log.Printf("OpHandler: op_type=%s entity=%s device=%s lamport_ts=%d", req.OpType, req.EntityID, req.DeviceID, req.LamportTS)
 		opID, conflict, err := EmitOpWithConflictCheck(ctx, pool, opInput)
 		if err != nil {
 			if errors.Is(err, ErrConflict) && conflict != nil {

@@ -62,13 +62,13 @@ type SetPermInput struct {
 	UserGrants []string `json:"user_grants"`
 }
 
-// ListUsers returns all users ordered by invited_at desc.
+// ListUsers returns all users ordered alphabetically by display name.
 func ListUsers(ctx context.Context, pool *pgxpool.Pool) ([]UserRow, error) {
 	query := fmt.Sprintf(`
 		SELECT u.id, u.email, u.first_name, u.last_name, u.nickname,
 		       %s, u.roles, u.status, u.invited_at, u.accepted_at
 		FROM users u
-		ORDER BY u.invited_at DESC
+		ORDER BY display_name ASC
 	`, displayNameExpr)
 
 	rows, err := pool.Query(ctx, query)
@@ -244,7 +244,19 @@ func ClaimInviteToken(ctx context.Context, pool *pgxpool.Pool, tokenHash string)
 }
 
 // ActivateUser sets a user's status to 'active' and stores their password hash.
-func ActivateUser(ctx context.Context, pool *pgxpool.Pool, userID, passwordHash string) error {
+// If nickname is non-empty, it is also set.
+func ActivateUser(ctx context.Context, pool *pgxpool.Pool, userID, passwordHash, nickname string) error {
+	if nickname != "" {
+		_, err := pool.Exec(ctx, `
+			UPDATE users
+			SET status = 'active', password_hash = $2, accepted_at = now(), nickname = $3
+			WHERE id = $1
+		`, userID, passwordHash, nickname)
+		if err != nil {
+			return fmt.Errorf("activate user: %w", err)
+		}
+		return nil
+	}
 	_, err := pool.Exec(ctx, `
 		UPDATE users
 		SET status = 'active', password_hash = $2, accepted_at = now()
@@ -345,21 +357,21 @@ func SetAppPermissions(ctx context.Context, pool *pgxpool.Pool, slug string, inp
 
 // GetInviteInfo returns the first_name of the user associated with a valid invite token.
 // Returns ErrTokenInvalid if token is expired or already used.
-func GetInviteInfo(ctx context.Context, pool *pgxpool.Pool, tokenHash string) (string, error) {
-	var firstName string
+func GetInviteInfo(ctx context.Context, pool *pgxpool.Pool, tokenHash string) (string, string, error) {
+	var firstName, status string
 	err := pool.QueryRow(ctx, `
-		SELECT u.first_name
+		SELECT u.first_name, u.status
 		FROM invite_tokens it
 		JOIN users u ON it.user_id = u.id
 		WHERE it.token_hash = $1
 		  AND it.used_at IS NULL
 		  AND it.expires_at > now()
-	`, tokenHash).Scan(&firstName)
+	`, tokenHash).Scan(&firstName, &status)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return "", ErrTokenInvalid
+			return "", "", ErrTokenInvalid
 		}
-		return "", fmt.Errorf("get invite info: %w", err)
+		return "", "", fmt.Errorf("get invite info: %w", err)
 	}
-	return firstName, nil
+	return firstName, status, nil
 }

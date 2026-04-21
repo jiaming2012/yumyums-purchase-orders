@@ -306,6 +306,219 @@ test.describe('My Trainings tab', () => {
     }
   });
 
+  test('video part with URL shows play button in My Trainings', async ({ page }) => {
+    // Regression: video parts were not showing in My Trainings because the frontend
+    // used "parts" instead of "video_parts" when saving, so video data was silently dropped.
+    await login(page);
+    const me = await page.evaluate(async () => {
+      const res = await fetch('/api/v1/me');
+      return res.json();
+    });
+
+    // Create template with a video series that has a URL
+    const tpl = await obApiCall(page, 'POST', 'createTemplate', {
+      name: 'Video Play Test',
+      roles: ['admin', 'superadmin'],
+      sections: [{ title: 'Watch Videos', sort_order: 1, requires_sign_off: false, is_faq: false, items: [
+        { type: 'video_series', label: 'Training Videos', sort_order: 1, video_parts: [
+          { title: 'Intro Video', description: 'Welcome to the team', url: 'https://example.com/test-video.mp4', sort_order: 1 }
+        ]}
+      ]}]
+    });
+
+    // Verify the template was saved with video parts
+    const fullTpl = await obApiCall(page, 'GET', 'templates/' + tpl.id);
+    const sec = fullTpl.sections.find(s => s.title === 'Watch Videos');
+    expect(sec).toBeTruthy();
+    const vs = sec.items.find(i => i.type === 'video_series');
+    expect(vs).toBeTruthy();
+    expect(vs.video_parts).toBeTruthy();
+    expect(vs.video_parts.length).toBe(1);
+    expect(vs.video_parts[0].url).toBe('https://example.com/test-video.mp4');
+
+    // Assign template to self
+    await obApiCall(page, 'POST', 'assignTemplate', {
+      hire_id: me.id,
+      template_id: tpl.id,
+    });
+
+    // Open My Trainings
+    await page.goto('/onboarding.html');
+    await waitForMyList(page);
+    await page.locator('#my-body .card', { hasText: 'Video Play Test' }).first().click();
+    await waitForTrainingRunner(page);
+
+    // Expand the section
+    const header = page.locator('#my-body .sec-header').first();
+    await header.click();
+
+    // Video series title should be visible
+    await expect(page.locator('#my-body')).toContainText('Training Videos');
+
+    // Play button should be visible (either thumbnail wrap or fallback play button)
+    await expect(page.locator('#my-body [data-action="play-video"]')).toBeVisible();
+
+    // Checkbox should be disabled (can't manually toggle video parts)
+    const checkbox = page.locator('#my-body input[type="checkbox"]').first();
+    await expect(checkbox).toBeDisabled();
+  });
+
+  test('video modal close button dismisses the player', async ({ page }) => {
+    // Regression: close button was inside #video-modal (outside #my-body),
+    // so the event delegation click handler never caught the close-video action.
+    await login(page);
+    const me = await page.evaluate(async () => {
+      const res = await fetch('/api/v1/me');
+      return res.json();
+    });
+
+    // Create template with video
+    const tpl = await obApiCall(page, 'POST', 'createTemplate', {
+      name: 'Video Close Test',
+      roles: ['admin', 'superadmin'],
+      sections: [{ title: 'Sec', sort_order: 1, requires_sign_off: false, is_faq: false, items: [
+        { type: 'video_series', label: 'Vids', sort_order: 1, video_parts: [
+          { title: 'Test Vid', description: '', url: 'https://example.com/close-test.mp4', sort_order: 1 }
+        ]}
+      ]}]
+    });
+
+    await obApiCall(page, 'POST', 'assignTemplate', { hire_id: me.id, template_id: tpl.id });
+
+    await page.goto('/onboarding.html');
+    await waitForMyList(page);
+    await page.locator('#my-body .card', { hasText: 'Video Close Test' }).first().click();
+    await waitForTrainingRunner(page);
+
+    // Expand section and tap play
+    await page.locator('#my-body .sec-header').first().click();
+    await page.locator('[data-action="play-video"]').first().click();
+
+    // Modal should be visible
+    await expect(page.locator('#video-modal')).toHaveCSS('display', 'block');
+
+    // Click close button
+    await page.locator('#video-close-btn').click();
+
+    // Modal should be hidden
+    await expect(page.locator('#video-modal')).toHaveCSS('display', 'none');
+  });
+
+  test('progress survives template edit — adding new item preserves existing progress', async ({ page }) => {
+    // Positive test: editing a template (adding a video part) should NOT wipe existing progress.
+    // Regression: UpdateTemplate used to DELETE all sections and re-insert, orphaning ob_progress rows.
+    await login(page);
+    const me = await page.evaluate(async () => {
+      const res = await fetch('/api/v1/me');
+      return res.json();
+    });
+
+    // Create template with a checkbox
+    const tpl = await obApiCall(page, 'POST', 'createTemplate', {
+      name: 'Progress Preserve Test',
+      roles: ['admin', 'superadmin'],
+      sections: [{ title: 'Tasks', sort_order: 1, requires_sign_off: false, is_faq: false, items: [
+        { type: 'checkbox', label: 'First task', sort_order: 1 }
+      ]}]
+    });
+
+    // Assign and complete the checkbox
+    await obApiCall(page, 'POST', 'assignTemplate', { hire_id: me.id, template_id: tpl.id });
+    const fullTpl = await obApiCall(page, 'GET', 'templates/' + tpl.id);
+    const item = fullTpl.sections[0].items[0];
+    await obApiCall(page, 'POST', 'saveProgress', { item_id: item.id, progress_type: 'item', checked: true });
+
+    // Verify progress exists before edit
+    const before = await obApiCall(page, 'GET', 'hireTraining/' + me.id + '?templateId=' + tpl.id);
+    expect(before.sections[0].items[0].checked).toBe(true);
+
+    // Edit template: add a second checkbox (simulates builder save)
+    await page.evaluate(async ([id, sections]) => {
+      await fetch('/api/v1/onboarding/updateTemplate/' + id, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: 'Progress Preserve Test',
+          roles: ['admin', 'superadmin'],
+          sections: [{
+            id: sections[0].id,
+            title: 'Tasks',
+            sort_order: 1,
+            requires_sign_off: false,
+            is_faq: false,
+            items: [
+              { id: sections[0].items[0].id, type: 'checkbox', label: 'First task', sort_order: 1 },
+              { type: 'checkbox', label: 'Second task', sort_order: 2 }
+            ]
+          }]
+        })
+      });
+    }, [tpl.id, fullTpl.sections]);
+
+    // Verify progress is preserved after edit
+    const after = await obApiCall(page, 'GET', 'hireTraining/' + me.id + '?templateId=' + tpl.id);
+    expect(after.sections[0].items[0].checked).toBe(true);
+    expect(after.sections[0].items[0].label).toBe('First task');
+    // New item should not be checked
+    expect(after.sections[0].items[1].checked).toBe(false);
+    expect(after.sections[0].items[1].label).toBe('Second task');
+  });
+
+  test('progress lost when item is removed from template — negative test', async ({ page }) => {
+    // Negative test: removing an item from the template SHOULD remove it from the response.
+    // The progress row becomes orphaned (item_id no longer in template) — this is expected.
+    await login(page);
+    const me = await page.evaluate(async () => {
+      const res = await fetch('/api/v1/me');
+      return res.json();
+    });
+
+    // Create template with two checkboxes
+    const tpl = await obApiCall(page, 'POST', 'createTemplate', {
+      name: 'Progress Remove Test',
+      roles: ['admin', 'superadmin'],
+      sections: [{ title: 'Tasks', sort_order: 1, requires_sign_off: false, is_faq: false, items: [
+        { type: 'checkbox', label: 'Keep me', sort_order: 1 },
+        { type: 'checkbox', label: 'Remove me', sort_order: 2 }
+      ]}]
+    });
+
+    await obApiCall(page, 'POST', 'assignTemplate', { hire_id: me.id, template_id: tpl.id });
+    const fullTpl = await obApiCall(page, 'GET', 'templates/' + tpl.id);
+
+    // Complete both items
+    await obApiCall(page, 'POST', 'saveProgress', { item_id: fullTpl.sections[0].items[0].id, progress_type: 'item', checked: true });
+    await obApiCall(page, 'POST', 'saveProgress', { item_id: fullTpl.sections[0].items[1].id, progress_type: 'item', checked: true });
+
+    // Edit template: remove second item
+    await page.evaluate(async ([id, sections]) => {
+      await fetch('/api/v1/onboarding/updateTemplate/' + id, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: 'Progress Remove Test',
+          roles: ['admin', 'superadmin'],
+          sections: [{
+            id: sections[0].id,
+            title: 'Tasks',
+            sort_order: 1,
+            requires_sign_off: false,
+            is_faq: false,
+            items: [
+              { id: sections[0].items[0].id, type: 'checkbox', label: 'Keep me', sort_order: 1 }
+            ]
+          }]
+        })
+      });
+    }, [tpl.id, fullTpl.sections]);
+
+    // Verify: first item still checked, second item gone from response
+    const after = await obApiCall(page, 'GET', 'hireTraining/' + me.id + '?templateId=' + tpl.id);
+    expect(after.sections[0].items.length).toBe(1);
+    expect(after.sections[0].items[0].checked).toBe(true);
+    expect(after.sections[0].items[0].label).toBe('Keep me');
+  });
+
   test('FAQ section shows questions and answers', async ({ page }) => {
     await login(page);
     const me = await page.evaluate(async () => {
@@ -974,6 +1187,55 @@ test.describe('Role-based auto-assignment', () => {
     await expect(page.locator('.sec-header').first()).toContainText('Complete');
   });
 
+  test('FAQ last question stays expanded after completing section', async ({ page }) => {
+    // Bug: opening the last FAQ question marks section complete AND auto-collapses it,
+    // hiding the answer before the employee can read it. FAQ sections should NOT collapse
+    // on completion — only non-FAQ sections should auto-collapse.
+    await login(page);
+    await obApiCall(page, 'POST', 'createTemplate', {
+      name: 'FAQ NoCollapse Test',
+      roles: ['admin', 'superadmin'],
+      sections: [{ title: 'FAQ Stay Open', sort_order: 1, requires_sign_off: false, is_faq: true, items: [
+        { type: 'faq', label: 'Q1', answer: 'Answer to Q1', sort_order: 1 },
+        { type: 'faq', label: 'Q2', answer: 'Answer to Q2', sort_order: 2 }
+      ]}]
+    });
+
+    await page.goto('/onboarding.html');
+    await page.waitForFunction(() => {
+      const body = document.getElementById('my-body');
+      return body && body.querySelector('.card');
+    }, { timeout: 10000 });
+
+    // Open the template
+    await page.locator('#my-body .card', { hasText: 'FAQ NoCollapse Test' }).first().click();
+    await page.waitForFunction(() => {
+      const body = document.getElementById('my-body');
+      return body && body.querySelector('.sec-header');
+    }, { timeout: 10000 });
+
+    // Expand the section
+    const header = page.locator('.sec-header').first();
+    await header.click();
+    await page.waitForSelector('.faq-q');
+
+    // View first question
+    await page.locator('.faq-q').first().click();
+    await page.waitForTimeout(1500);
+
+    // View second (last) question — this triggers section completion
+    await page.locator('.faq-q').nth(1).click();
+    await page.waitForTimeout(1500);
+
+    // Section should be marked complete
+    await expect(page.locator('.sec-header').first()).toContainText('Complete');
+
+    // The last FAQ answer MUST still be visible (section should NOT auto-collapse)
+    await expect(page.locator('.faq-a').last()).toBeVisible();
+    // FAQ questions should still be visible (section expanded)
+    await expect(page.locator('.faq-q').first()).toBeVisible();
+  });
+
   test('Manager tab shows hires with role-auto-assigned templates', async ({ page }) => {
     // Create team_member user
     await login(page);
@@ -1056,6 +1318,71 @@ test.describe('Role-based auto-assignment', () => {
 
     // Template should appear because user's role matches template's roles
     await expect(page.locator('#my-body')).toContainText('Auto Assign Test');
+  });
+
+  test('hire with pending sign-off stays in Active tab, not Completed', async ({ page }) => {
+    // Bug: a hire at 100% progress but with sections still "Waiting for Sign-Off"
+    // was incorrectly shown in the Manager > Completed tab. They should stay in Active
+    // until all sign-offs are done.
+    await login(page);
+
+    // Create a team_member user
+    const email2 = 'signoff-active-' + Date.now() + '@yumyums.kitchen';
+    const inviteRes = await page.evaluate(async (email) => {
+      const res = await fetch('/api/v1/users/invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ first_name: 'SignAct', last_name: 'Test', email, roles: ['team_member'] })
+      });
+      return res.json();
+    }, email2);
+    const token = inviteRes.invite_path.split('token=')[1];
+    await page.evaluate(async (t) => {
+      await fetch('/api/v1/auth/accept-invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: t, password: 'test456' })
+      });
+    }, token);
+
+    // Create template with a sign-off section (1 item)
+    await login(page);
+    const tpl = await obApiCall(page, 'POST', 'createTemplate', {
+      name: 'SignOff Active Test',
+      roles: ['team_member'],
+      sections: [{ title: 'Tasks', sort_order: 1, requires_sign_off: true, sign_off_roles: ['admin'], is_faq: false, items: [
+        { type: 'checkbox', label: 'Only task', sort_order: 1 }
+      ]}]
+    });
+
+    // Complete the item as the hire so progress = 100%
+    const fullTpl = await obApiCall(page, 'GET', 'templates/' + tpl.id);
+    const sec = fullTpl.sections[0];
+    const item = sec.items[0];
+
+    // Login as the hire to save progress (handler uses auth user, not body.hire_id)
+    await login(page, email2, 'test456');
+    await obApiCall(page, 'POST', 'saveProgress', {
+      item_id: item.id,
+      progress_type: 'item',
+      checked: true,
+    });
+
+    // Login back as admin and open Manager tab
+    await login(page);
+    await page.goto('/onboarding.html');
+    await waitForManagerTab(page);
+    await page.click('#t2');
+    await waitForManagerList(page);
+
+    // Hire should be in Active tab (default) with "Waiting for Sign-Off" badge
+    await expect(page.locator('#mgr-body')).toContainText('SignAct T.');
+    await expect(page.locator('#mgr-body')).toContainText('Waiting for Sign-Off');
+
+    // Switch to Completed tab — hire should NOT be there
+    await page.click('.sub-tabs button:has-text("Completed")');
+    await page.waitForTimeout(500);
+    await expect(page.locator('#mgr-body')).not.toContainText('SignAct T.');
   });
 });
 
@@ -1340,5 +1667,102 @@ test.describe('Builder tab', () => {
 
     // Template should appear in the list
     await expect(page.locator('#builder-body')).toContainText('E2E Test Template');
+  });
+
+  test('save-video-for-later requires part title', async ({ page }) => {
+    // The "Save Video for Later" button should require a part title before saving.
+    // Without a title, the user should see an alert.
+    await login(page);
+    await page.goto('/onboarding.html');
+    await waitForBuilderTab(page);
+    await page.click('#t3');
+    await waitForBuilderList(page);
+
+    // Create a new template with a video series
+    page.once('dialog', async dialog => await dialog.accept('Video Save Test'));
+    await page.click('[data-action="new-template"]');
+    await page.waitForSelector('[data-action="back-to-templates"]');
+
+    // Add a section
+    page.once('dialog', async dialog => await dialog.accept('Test Section'));
+    await page.click('[data-action="add-ob-section"]');
+
+    // Add a video series item
+    await page.click('[data-action="add-ob-item"][data-item-type="video_series"]');
+    await page.waitForSelector('[data-action="add-video-part"]');
+
+    // Add a video part (title left empty)
+    await page.click('[data-action="add-video-part"]');
+    await page.waitForSelector('[data-action="trigger-video-file"]');
+
+    // Simulate a failed upload by setting _pendingFile and _uploadError on the part
+    await page.evaluate(() => {
+      var tpl = obBuilderState.localCopy;
+      var sec = tpl.sections[0];
+      var item = sec.items[0];
+      var part = item.parts[0];
+      part._pendingFile = new File(['test'], 'test.mp4', { type: 'video/mp4' });
+      part._pendingFileName = 'test.mp4';
+      part._uploadError = true;
+      renderOBBuilder();
+    });
+
+    // "Save Video for Later" button should be visible
+    await expect(page.locator('[data-action="save-video-local"]')).toBeVisible();
+
+    // Click save — should get alert about missing title
+    let alertMsg = '';
+    page.once('dialog', async dialog => {
+      alertMsg = dialog.message();
+      await dialog.accept();
+    });
+    await page.click('[data-action="save-video-local"]');
+    expect(alertMsg).toContain('part title');
+  });
+
+  test('save-video-for-later uses part title in filename', async ({ page }) => {
+    // When a part title is filled in and "Save Video for Later" is clicked,
+    // the download filename should use the part title (sanitized).
+    await login(page);
+    await page.goto('/onboarding.html');
+    await waitForBuilderTab(page);
+    await page.click('#t3');
+    await waitForBuilderList(page);
+
+    // Create template with video series + part
+    page.once('dialog', async dialog => await dialog.accept('Video Filename Test'));
+    await page.click('[data-action="new-template"]');
+    await page.waitForSelector('[data-action="back-to-templates"]');
+
+    page.once('dialog', async dialog => await dialog.accept('Sec'));
+    await page.click('[data-action="add-ob-section"]');
+    await page.click('[data-action="add-ob-item"][data-item-type="video_series"]');
+    await page.click('[data-action="add-video-part"]');
+
+    // Fill in part title
+    await page.locator('[data-action="part-title-input"]').first().fill('Grill Pre-heat');
+
+    // Set up failed upload state
+    await page.evaluate(() => {
+      var part = obBuilderState.localCopy.sections[0].items[0].parts[0];
+      part._pendingFile = new File(['test'], 'original.mov', { type: 'video/quicktime' });
+      part._pendingFileName = 'original.mov';
+      part._uploadError = true;
+      renderOBBuilder();
+    });
+
+    // Re-fill the title (re-render cleared it)
+    await page.locator('[data-action="part-title-input"]').first().fill('Grill Pre-heat');
+    // Trigger input event so data model updates
+    await page.locator('[data-action="part-title-input"]').first().dispatchEvent('input');
+
+    // Intercept the download
+    const [download] = await Promise.all([
+      page.waitForEvent('download'),
+      page.click('[data-action="save-video-local"]')
+    ]);
+
+    // Filename should use the part title, not the original filename
+    expect(download.suggestedFilename()).toBe('Grill-Pre-heat.mov');
   });
 });

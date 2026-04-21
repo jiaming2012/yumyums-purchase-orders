@@ -57,8 +57,13 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
     <!-- Accept-invite form (shown when ?token= present) -->
     <div id="invite-form" style="display:none">
       <h1 id="welcome-heading" class="welcome-heading"></h1>
-      <p class="sub-heading">Set a password to activate your account.</p>
+      <p id="invite-sub" class="sub-heading">Set a password to activate your account.</p>
       <form onsubmit="acceptInvite();return false">
+        <div id="nickname-field" class="field" style="display:none">
+          <label>Nickname <span style="font-weight:400;color:var(--mut)">(optional)</span></label>
+          <input id="invite-nick" type="text" placeholder="e.g. Jay" autocomplete="nickname">
+          <div style="font-size:12px;color:var(--mut);margin-top:4px">How you'll appear in the app</div>
+        </div>
         <div class="field">
           <label>Password</label>
           <input id="invite-pw" type="password" name="password" placeholder="At least 8 characters" autocomplete="new-password">
@@ -93,6 +98,11 @@ async function showAcceptInviteMode(token){
     document.getElementById('login-form').style.display='none';
     document.getElementById('invite-form').style.display='block';
     document.getElementById('welcome-heading').textContent='Welcome, '+data.first_name;
+    if(data.status==='invited'){
+      document.getElementById('nickname-field').style.display='block';
+    }else{
+      document.getElementById('invite-sub').textContent='Enter your new password.';
+    }
   }catch(e){
     showError('Something went wrong. Check your connection and try again.');
   }
@@ -101,14 +111,17 @@ async function showAcceptInviteMode(token){
 async function acceptInvite(){
   const pw=document.getElementById('invite-pw').value;
   const pw2=document.getElementById('invite-pw2').value;
+  const nick=(document.getElementById('invite-nick').value||'').trim();
   clearError();
   if(pw!==pw2){showError("Passwords don't match.");return}
   if(pw.length<8){showError('Password must be at least 8 characters.');return}
   try{
+    const payload={token:inviteToken,password:pw};
+    if(nick)payload.nickname=nick;
     const res=await fetch('/api/v1/auth/accept-invite',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({token:inviteToken,password:pw})
+      body:JSON.stringify(payload)
     });
     if(res.ok){
       window.location.href='/index.html';
@@ -159,6 +172,6 @@ function clearError(){
 document.addEventListener('dblclick',e=>e.preventDefault());
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');
 </script>
-<script src="ptr.js"></script>
+<script src="log.js"></script><script src="ptr.js"></script>
 </body>
 </html>
