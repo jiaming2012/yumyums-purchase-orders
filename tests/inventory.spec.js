@@ -109,10 +109,10 @@ test.describe('Inventory', () => {
 
   // ── Tab navigation ──────────────────────────────────────────────────────
 
-  test('shows 4 tabs: Purchases, Trends, Stock, Cost', async ({ page }) => {
+  test('shows 4 tabs: Purchases, Stock, Trends, Cost', async ({ page }) => {
     await expect(page.locator('#t1')).toContainText('Purchases');
-    await expect(page.locator('#t2')).toContainText('Trends');
-    await expect(page.locator('#t3')).toContainText('Stock');
+    await expect(page.locator('#t2')).toContainText('Stock');
+    await expect(page.locator('#t3')).toContainText('Trends');
     await expect(page.locator('#t4')).toContainText('Cost');
   });
 
@@ -233,7 +233,7 @@ test.describe('Inventory', () => {
   // ── STCK-01: Stock tab loads stock levels from API ───────────────────────
 
   test('Stock tab loads stock levels from API', async ({ page }) => {
-    await page.click('#t3');
+    await page.click('#t2');
     await waitForStockContent(page);
     const stockList = page.locator('#stock-list');
     const text = await stockList.textContent();
@@ -243,7 +243,7 @@ test.describe('Inventory', () => {
   });
 
   test('Stock tab groups items by tag category', async ({ page }) => {
-    await page.click('#t3');
+    await page.click('#t2');
     await waitForStockContent(page);
     const stockItems = page.locator('.stock-item');
     const count = await stockItems.count();
@@ -254,7 +254,7 @@ test.describe('Inventory', () => {
   });
 
   test('tapping tag header collapses and expands section', async ({ page }) => {
-    await page.click('#t3');
+    await page.click('#t2');
     await waitForStockContent(page);
     const headers = page.locator('.tag-header');
     const headerCount = await headers.count();
@@ -274,7 +274,7 @@ test.describe('Inventory', () => {
   });
 
   test('tapping stock item expands detail with purchase info', async ({ page }) => {
-    await page.click('#t3');
+    await page.click('#t2');
     await waitForStockContent(page);
     const items = page.locator('.stock-item');
     const count = await items.count();
@@ -288,7 +288,7 @@ test.describe('Inventory', () => {
   // ── Reorder suggestions ──────────────────────────────────────────────────
 
   test('reorder suggestions section shows Low/Medium items if any exist', async ({ page }) => {
-    await page.click('#t3');
+    await page.click('#t2');
     await waitForStockContent(page);
     const reorderSection = page.locator('#reorder-section');
     const text = await reorderSection.textContent();
@@ -300,7 +300,7 @@ test.describe('Inventory', () => {
   // ── STCK-03: Manual override ─────────────────────────────────────────────
 
   test('Override Level button shows override form', async ({ page }) => {
-    await page.click('#t3');
+    await page.click('#t2');
     await waitForStockContent(page);
     const overrideBtns = page.locator('[data-action="show-override"]');
     const count = await overrideBtns.count();
@@ -315,9 +315,9 @@ test.describe('Inventory', () => {
   // ── Trends tab ───────────────────────────────────────────────────────────
 
   test('Trends tab shows coming soon content', async ({ page }) => {
-    await page.click('#t2');
-    await expect(page.locator('#s2')).toBeVisible();
-    await expect(page.locator('#s2')).toContainText('Spending Trends');
+    await page.click('#t3');
+    await expect(page.locator('#s3')).toBeVisible();
+    await expect(page.locator('#s3')).toContainText('Spending Trends');
   });
 
   // ── Cost tab ────────────────────────────────────────────────────────────
@@ -1458,7 +1458,7 @@ test.describe('Inventory', () => {
       line_items: [{ purchase_item_id: item.id, description: itemName, quantity: 1, price: 5.00 }]
     });
     // Go to Stock tab
-    await page.locator('#t3').click();
+    await page.locator('#t2').click();
     await page.waitForFunction(() => {
       const el = document.getElementById('reorder-section');
       return el && el.textContent.length > 0;
@@ -1470,7 +1470,7 @@ test.describe('Inventory', () => {
   });
 
   test('collapsing a stock group also collapses expanded items within it', async ({ page }) => {
-    await page.locator('#t3').click();
+    await page.locator('#t2').click();
     await page.waitForFunction(() => {
       const list = document.getElementById('stock-list');
       return list && list.querySelector('.stock-item');
@@ -1498,7 +1498,7 @@ test.describe('Inventory', () => {
   });
 
   test('expand all button expands all items in a stock group', async ({ page }) => {
-    await page.locator('#t3').click();
+    await page.locator('#t2').click();
     await page.waitForFunction(() => {
       const list = document.getElementById('stock-list');
       return list && list.querySelector('.stock-item');
@@ -1535,7 +1535,7 @@ test.describe('Inventory', () => {
       line_items: [{ purchase_item_id: item.id, description: itemName, quantity: 5, price: 5.00 }]
     });
     // Go to Stock tab — verify the item shows up
-    await page.locator('#t3').click();
+    await page.locator('#t2').click();
     await page.waitForFunction(() => {
       const list = document.getElementById('stock-list');
       return list && list.querySelector('.stock-item');
@@ -1554,7 +1554,7 @@ test.describe('Inventory', () => {
       });
     }, [grp.id]);
     // Switch back to Stock — should reload with new thresholds
-    await page.locator('#t3').click();
+    await page.locator('#t2').click();
     await page.waitForFunction(() => {
       const list = document.getElementById('stock-list');
       return list && list.querySelector('.stock-item');
@@ -1640,7 +1640,7 @@ test.describe('Inventory', () => {
       line_items: [{ purchase_item_id: item.id, description: itemName, quantity: 1, price: 5.00 }]
     });
     // Go to Stock tab and expand the item
-    await page.locator('#t3').click();
+    await page.locator('#t2').click();
     await page.waitForFunction(() => {
       const list = document.getElementById('stock-list');
       return list && list.querySelector('.stock-item');
@@ -1686,7 +1686,7 @@ test.describe('Inventory', () => {
       line_items: [{ purchase_item_id: item.id, description: itemName, quantity: 1, price: 5.00 }]
     });
     // Go to Stock tab
-    await page.locator('#t3').click();
+    await page.locator('#t2').click();
     await page.waitForFunction(() => {
       const el = document.getElementById('reorder-section');
       return el && el.textContent.length > 0;
