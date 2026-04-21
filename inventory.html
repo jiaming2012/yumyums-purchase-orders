@@ -521,11 +521,7 @@ async function loadStock(){
 
 function renderStock(){
   var stocks=[...STOCK_DATA];
-  // Apply overrides
-  stocks.forEach(s=>{
-    if(STOCK_OVERRIDES[s.group_name])s.level=STOCK_OVERRIDES[s.group_name].level;
-  });
-  // Determine level from API data if not set, using group thresholds
+  // Determine level from API data using group thresholds
   stocks.forEach(s=>{
     if(!s.level){
       var tq=s.total_quantity||0;
@@ -573,8 +569,7 @@ function renderStock(){
       items.forEach(s=>{
         var id=s.description||groupName;
         var expanded=EXPANDED_STOCK_ITEMS[id];
-        var ovr=STOCK_OVERRIDES[id];
-        var badgeAndIndicator=badgeHtml(s.level)+(ovr?'<span class="overridden-indicator">Overridden</span>':'')+' ';
+        var badgeAndIndicator=badgeHtml(s.level)+' ';
         html+='<div class="stock-item" data-action="toggle-stock-item" data-group-id="'+id+'"><span class="stock-item-name">'+id+'</span>'+badgeAndIndicator+'</div>';
         if(expanded){
           var lastDate=s.last_purchase_date?formatDate(s.last_purchase_date):'Unknown';
@@ -585,18 +580,15 @@ function renderStock(){
           html+='<div class="stock-detail-row"><span class="stock-detail-label">Last purchased</span><span class="stock-detail-value">'+lastDate+'</span></div>';
           html+='<div class="stock-detail-row"><span class="stock-detail-label">Est. remaining</span><span class="stock-detail-value">'+qty+'</span></div>';
           html+='<div class="stock-detail-row"><span class="stock-detail-label">Avg unit price</span><span class="stock-detail-value">'+avgPrice+'</span></div>';
-          html+='<div class="stock-detail-row"><span class="stock-detail-label">Est. value</span><span class="stock-detail-value">'+spend+'</span></div>';
-          if(ovr){
-            html+='<div class="stock-detail-row"><span class="stock-detail-label">Override reason</span><span class="stock-detail-value">'+ovr.reason+'</span></div>';
-            html+='<button class="btn-clear-override" data-action="clear-override" data-group-id="'+id+'">Clear Override</button>';
-          } else if(OVERRIDE_FORM_OPEN===id){
+          html+='<div class="stock-detail-row"><span class="stock-detail-label">Stock value</span><span class="stock-detail-value">'+spend+'</span></div>';
+          if(OVERRIDE_FORM_OPEN===id){
             html+='<div class="override-form">';
-            html+='<div class="override-radios"><label><input type="radio" name="override-level" value="low"> Low</label><label><input type="radio" name="override-level" value="medium"> Medium</label><label><input type="radio" name="override-level" value="high"> High</label></div>';
-            html+='<input class="override-reason" placeholder="Reason for override..." data-group-id="'+id+'">';
-            html+='<div class="override-actions"><button class="btn-override btn-save" data-action="save-override" data-group-id="'+id+'">Save Override</button><button class="btn-override btn-cancel" data-action="cancel-override">Cancel</button></div>';
+            html+='<div class="field-group" style="margin-bottom:8px"><div class="field-label">Actual count on hand</div><input type="number" class="field-input stock-count-input" value="'+(s.total_quantity||0)+'" min="0" data-group-id="'+id+'"></div>';
+            html+='<input class="override-reason" placeholder="Reason (e.g. counted shelf)..." data-group-id="'+id+'">';
+            html+='<div class="override-actions"><button class="btn-override btn-save" data-action="save-stock-count" data-group-id="'+id+'">Update Count</button><button class="btn-override btn-cancel" data-action="cancel-override">Cancel</button></div>';
             html+='</div>';
           } else {
-            html+='<button class="override-btn" data-action="show-override" data-group-id="'+id+'">Override Level</button>';
+            html+='<button class="override-btn" data-action="show-override" data-group-id="'+id+'">Update Stock Count</button>';
           }
           html+='</div>';
         }
@@ -831,20 +823,19 @@ document.addEventListener('click',function(e){
   } else if(action==='show-override'){
     OVERRIDE_FORM_OPEN=el.dataset.groupId;
     renderStock();
-  } else if(action==='save-override'){
+  } else if(action==='save-stock-count'){
     var gid=el.dataset.groupId;
-    var radio=document.querySelector('input[name="override-level"]:checked');
-    if(!radio)return;
-    var reason=(document.querySelector('.override-reason')||{}).value||'';
-    STOCK_OVERRIDES[gid]={level:radio.value,reason:reason,timestamp:new Date()};
-    OVERRIDE_FORM_OPEN=null;
-    renderStock();
+    var qtyInput=document.querySelector('.stock-count-input[data-group-id="'+gid+'"]');
+    var reasonInput=document.querySelector('.override-reason[data-group-id="'+gid+'"]');
+    var qty=parseInt(qtyInput?qtyInput.value:0)||0;
+    var reason=(reasonInput?reasonInput.value:'')||'';
+    if(qty<0){alert('Count cannot be negative.');return;}
+    api('/api/v1/inventory/stock/count',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({item_description:gid,quantity:qty,reason:reason})}).then(function(){
+      OVERRIDE_FORM_OPEN=null;
+      loadStock();
+    }).catch(function(err){console.error('saveStockCount',err);});
   } else if(action==='cancel-override'){
     OVERRIDE_FORM_OPEN=null;
-    renderStock();
-  } else if(action==='clear-override'){
-    var gid=el.dataset.groupId;
-    delete STOCK_OVERRIDES[gid];
     renderStock();
   }
 });

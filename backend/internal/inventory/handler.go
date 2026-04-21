@@ -363,18 +363,28 @@ func GetStockHandler(pool *pgxpool.Pool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		rows, err := pool.Query(r.Context(), `
 			SELECT
-				COALESCE(pi.description, pli.description) AS description,
-				ig.name AS group_name,
-				SUM(pli.quantity) AS total_quantity,
-				SUM(pli.quantity * pli.price) AS total_spend,
-				AVG(pli.price) AS avg_price,
-				MAX(pe.event_date)::text AS last_purchase_date
-			FROM purchase_line_items pli
-			JOIN purchase_events pe ON pe.id = pli.purchase_event_id
-			LEFT JOIN purchase_items pi ON pi.id = pli.purchase_item_id
-			LEFT JOIN item_groups ig ON ig.id = pi.group_id
-			GROUP BY COALESCE(pi.description, pli.description), ig.name
-			ORDER BY total_spend DESC`,
+				sub.description,
+				sub.group_name,
+				COALESCE(sco.quantity, sub.total_quantity) AS total_quantity,
+				sub.total_spend,
+				sub.avg_price,
+				sub.last_purchase_date
+			FROM (
+				SELECT
+					COALESCE(pi.description, pli.description) AS description,
+					ig.name AS group_name,
+					SUM(pli.quantity) AS total_quantity,
+					SUM(pli.quantity * pli.price) AS total_spend,
+					AVG(pli.price) AS avg_price,
+					MAX(pe.event_date)::text AS last_purchase_date
+				FROM purchase_line_items pli
+				JOIN purchase_events pe ON pe.id = pli.purchase_event_id
+				LEFT JOIN purchase_items pi ON pi.id = pli.purchase_item_id
+				LEFT JOIN item_groups ig ON ig.id = pi.group_id
+				GROUP BY COALESCE(pi.description, pli.description), ig.name
+			) sub
+			LEFT JOIN stock_count_overrides sco ON sco.item_description = sub.description
+			ORDER BY sub.total_spend DESC`,
 		)
 		if err != nil {
 			log.Printf("GetStock query: %v", err)
@@ -395,6 +405,41 @@ func GetStockHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			items = append(items, s)
 		}
 		writeJSON(w, http.StatusOK, items)
+	}
+}
+
+// UpdateStockCountHandler upserts a stock count override for an item.
+func UpdateStockCountHandler(pool *pgxpool.Pool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var input struct {
+			ItemDescription string `json:"item_description"`
+			Quantity        int    `json:"quantity"`
+			Reason          string `json:"reason"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_json")
+			return
+		}
+		if input.ItemDescription == "" {
+			writeError(w, http.StatusBadRequest, "item_description_required")
+			return
+		}
+		if input.Quantity < 0 {
+			writeError(w, http.StatusBadRequest, "quantity_must_be_positive")
+			return
+		}
+		_, err := pool.Exec(r.Context(), `
+			INSERT INTO stock_count_overrides (item_description, quantity, reason, updated_at)
+			VALUES ($1, $2, $3, now())
+			ON CONFLICT (item_description) DO UPDATE SET quantity = $2, reason = $3, updated_at = now()`,
+			input.ItemDescription, input.Quantity, input.Reason,
+		)
+		if err != nil {
+			log.Printf("UpdateStockCount: %v", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
 	}
 }
 
