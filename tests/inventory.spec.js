@@ -109,22 +109,22 @@ test.describe('Inventory', () => {
 
   // ── Tab navigation ──────────────────────────────────────────────────────
 
-  test('shows 4 tabs: History, Trends, Stock, Cost', async ({ page }) => {
-    await expect(page.locator('#t1')).toContainText('History');
+  test('shows 4 tabs: Purchases, Trends, Stock, Cost', async ({ page }) => {
+    await expect(page.locator('#t1')).toContainText('Purchases');
     await expect(page.locator('#t2')).toContainText('Trends');
     await expect(page.locator('#t3')).toContainText('Stock');
     await expect(page.locator('#t4')).toContainText('Cost');
   });
 
-  test('History tab is active by default', async ({ page }) => {
+  test('Purchases tab is active by default', async ({ page }) => {
     await expect(page.locator('#t1')).toHaveClass(/on/);
     await expect(page.locator('#s1')).toBeVisible();
     await expect(page.locator('#s2')).not.toBeVisible();
   });
 
-  // ── HIST-01: History tab loads purchase events from API ──────────────────
+  // ── HIST-01: Purchases tab loads purchase events from API ──────────────────
 
-  test('History tab loads purchase events from API', async ({ page }) => {
+  test('Purchases tab loads purchase events from API', async ({ page }) => {
     await waitForHistoryContent(page);
     const historyList = page.locator('#history-list');
     const text = await historyList.textContent();
@@ -134,7 +134,7 @@ test.describe('Inventory', () => {
     ).toBeTruthy();
   });
 
-  test('History tab shows empty state when no purchases exist', async ({ page }) => {
+  test('Purchases tab shows empty state when no purchases exist', async ({ page }) => {
     // With a fresh test DB, there may be no purchases initially.
     // We verify the empty state text is the correct copy if shown.
     await waitForHistoryContent(page);

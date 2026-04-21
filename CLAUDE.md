@@ -30,7 +30,7 @@ A mobile-first PWA operations console for a food truck business. One app shell w
 - **Auto-reload:** `ptr.js` listens for `controllerchange` to reload on new SW deploy
 - **Manifest:** `manifest.json` — "Yumyums HQ", standalone display, portrait orientation
 - **Styling:** Shared CSS variables with automatic dark mode, mobile-first (max-width 480px)
-- **Inventory:** `inventory.html` — 5-tab layout (History / Trends / Stock / Cost / Setup), receipt review pipeline, item catalog with groups/tags, stock level thresholds
+- **Inventory:** `inventory.html` — 5-tab layout (Purchases / Trends / Stock / Cost / Setup), receipt review pipeline, item catalog with groups/tags, stock level thresholds
 - **Receipt pipeline:** Mercury banking → receipt download → DO Spaces upload → Claude Haiku parse → validate → pending review queue → manual confirm
 - **Testing:** 170+ Playwright E2E tests across `tests/workflows.spec.js`, `tests/persistence.spec.js`, `tests/inventory.spec.js`, `tests/onboarding.spec.js`
 - **Backend:** Go + Postgres, REST API at `/api/v1/workflow/*`, `/api/v1/inventory/*`, `/api/v1/auth/*`, `/api/v1/onboarding/*`, `/api/v1/users/*`
@@ -45,7 +45,7 @@ A mobile-first PWA operations console for a food truck business. One app shell w
 
 ### inventory.html Key Concepts
 
-- **5-tab layout:** History (purchase events + pending review), Trends (coming soon), Stock (levels + reorder suggestions), Cost (coming soon), Setup (items + vendors management)
+- **5-tab layout:** Purchases (purchase events + pending review), Trends (coming soon), Stock (levels + reorder suggestions), Cost (coming soon), Setup (items + vendors management)
 - **Receipt review pipeline:** Pending purchases from Mercury receipt worker → user reviews line items → links each to catalog item via fullscreen picker modal → confirms when total matches bank transaction
 - **Item catalog:** Items are created from actual receipts (not pre-seeded). Each item belongs to a group (Proteins, Beverages, etc.). Groups have configurable stock level thresholds (low/high).
 - **Auto-match:** When review form opens, line item names are matched case-insensitively against catalog. Matched items show no border; unlinked items show orange warning border.
