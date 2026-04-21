@@ -67,6 +67,13 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .vendor-dropdown-item{padding:10px 12px;font-size:14px;color:var(--txt);cursor:pointer;border-bottom:0.5px solid var(--brd)}
 .vendor-dropdown-item:last-child{border-bottom:none}
 .vendor-dropdown-item:active,.vendor-dropdown-item.highlighted{background:var(--info-bg);color:var(--info-tx)}
+.review-li-name-wrap{flex:2;position:relative}
+.review-li-name-wrap input{width:100%;padding:7px 10px;background:var(--bg);border:0.5px solid var(--brd);border-radius:6px;font-size:13px;color:var(--txt);font-family:inherit}
+.item-dropdown{position:absolute;top:100%;left:0;right:0;background:var(--card);border:0.5px solid var(--brd);border-radius:8px;max-height:180px;overflow-y:auto;z-index:100;margin-top:2px;box-shadow:0 4px 12px rgba(0,0,0,0.3)}
+.item-dropdown-item{padding:8px 10px;font-size:13px;color:var(--txt);cursor:pointer;border-bottom:0.5px solid var(--brd)}
+.item-dropdown-item:last-child{border-bottom:none}
+.item-dropdown-item:active{background:var(--info-bg);color:var(--info-tx)}
+.item-dropdown-item.item-dd-create{color:var(--info-tx);font-weight:500}
 .coming-soon{text-align:center;padding:60px 20px;color:var(--mut)}
 .coming-soon h3{font-size:16px;font-weight:500;color:var(--txt);margin:0 0 8px}
 .coming-soon p{font-size:13px;margin:0;line-height:1.5}
@@ -129,6 +136,22 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .revenue-row{display:flex;justify-content:space-between;padding:8px 0;font-size:13px;margin-top:8px;border-top:0.5px solid var(--brd)}
 .revenue-label{color:var(--mut)}
 .revenue-value{font-weight:500}
+.item-group-section{margin-bottom:16px}
+.item-group-header{display:flex;align-items:center;justify-content:space-between;padding:12px 0;font-size:15px;font-weight:600;cursor:pointer;user-select:none;border-bottom:0.5px solid var(--brd)}
+.item-group-header .group-count{font-size:12px;color:var(--mut);font-weight:400}
+.item-group-tags{display:flex;gap:4px;margin-top:4px}
+.item-group-tag{font-size:10px;background:var(--info-bg);color:var(--info-tx);padding:1px 6px;border-radius:4px}
+.item-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:0.5px solid var(--brd);gap:8px}
+.item-row:last-child{border-bottom:none}
+.item-name{font-size:14px;color:var(--txt);flex:1}
+.item-group-label{font-size:11px;color:var(--mut);white-space:nowrap}
+.item-edit-btn{border:none;background:none;color:var(--info-tx);font-size:12px;cursor:pointer;padding:4px 8px;white-space:nowrap}
+.item-edit-form{background:var(--card);border:0.5px solid var(--brd);border-radius:12px;padding:16px;margin-bottom:8px}
+.item-edit-form .field-group{margin-bottom:10px}
+.add-item-bar{display:flex;gap:6px;margin-bottom:12px}
+.add-item-bar input{flex:1}
+.add-item-bar select{max-width:140px;padding:9px 8px;background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;font-size:13px;color:var(--txt);font-family:inherit}
+.add-item-bar button{padding:9px 16px;background:var(--info-bg);color:var(--info-tx);border:none;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;font-family:inherit;white-space:nowrap}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
 </style>
 </head>
@@ -140,6 +163,7 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
     <button id="t2" onclick="show(2)">Trends</button>
     <button id="t3" onclick="show(3)">Stock</button>
     <button id="t4" onclick="show(4)">Cost</button>
+    <button id="t5" onclick="show(5)">Items</button>
   </div>
   <div id="s1">
     <select id="vendor-filter" class="filter-select">
@@ -164,6 +188,10 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
       <h3>Food Cost Intelligence</h3>
       <p>Menu item cost estimates and ingredient analysis coming soon.</p>
     </div>
+  </div>
+  <div id="s5" style="display:none">
+    <input id="item-search" class="filter-select" type="text" placeholder="Search items..." autocomplete="off">
+    <div id="items-list"></div>
   </div>
 </div>
 <script>
@@ -199,7 +227,7 @@ let REVIEW_OPEN_ID=null; // pending purchase id currently in review form
 let REVIEW_FORM_STATE={}; // keyed by id: {vendor_name, event_date, line_items:[{name,qty,price,is_case}], tax, total, bank_total}
 
 function show(n){
-  [1,2,3,4].forEach(i=>{
+  [1,2,3,4,5].forEach(i=>{
     document.getElementById('s'+i).style.display=i===n?'':'none';
     var btn=document.getElementById('t'+i);
     if(btn)btn.className=i===n?'on':'';
@@ -213,11 +241,15 @@ function render(){
   if(ACTIVE_TAB===2)renderTrends();
   if(ACTIVE_TAB===3)renderStock();
   if(ACTIVE_TAB===4)renderCost();
+  if(ACTIVE_TAB===5)renderItemsList();
 }
 
 let PURCHASES=[];
 let STOCK_DATA=[];
 let PENDING_PURCHASES=[];
+let ALL_ITEMS=[];
+let ITEM_GROUPS=[];
+let ITEM_SEARCH='';
 let VENDORS=[];
 let HISTORY_PAGE=1;
 let HISTORY_LOADING=false;
@@ -280,7 +312,7 @@ function renderPendingCard(p){
 function renderReviewForm(p){
   var state=REVIEW_FORM_STATE[p.id];
   if(!state){
-    var items=(p.items||[]).map(function(it){return {name:it.name||it.description||'',qty:it.quantity||1,price:it.price||0,is_case:!!it.is_case};});
+    var items=(p.items||[]).map(function(it){return {name:it.name||it.description||'',qty:it.quantity||1,price:it.price||0,is_case:!!it.is_case,purchase_item_id:it.purchase_item_id||null};});
     state={vendor_name:p.vendor||p.vendor_name||'',event_date:p.event_date||'',line_items:items,tax:p.tax||0,total:p.total||0,bank_total:p.bank_total||p.total||0};
     REVIEW_FORM_STATE[p.id]=state;
   }
@@ -292,7 +324,7 @@ function renderReviewForm(p){
   var mismatchBanner=mismatch?'<div class="correction-banner">Total ($'+grandTotal.toFixed(2)+') doesn\'t match bank transaction ($'+bankTotal.toFixed(2)+'). Check amounts before saving.</div>':'<div class="match-banner">Amounts match ($'+grandTotal.toFixed(2)+'). Ready to confirm.</div>';
   var linesHtml=state.line_items.map(function(li,i){
     return '<div class="review-line-item-row">'+
-      '<input type="text" class="review-li-name" data-idx="'+i+'" value="'+escHtml(li.name)+'" placeholder="Item name">'+
+      '<div class="review-li-name-wrap"><input type="text" class="review-li-name" data-idx="'+i+'" data-item-id="'+(li.purchase_item_id||'')+'" value="'+escHtml(li.name)+'" placeholder="Search items..." autocomplete="off" readonly></div>'+
       '<input type="number" class="review-li-qty" data-idx="'+i+'" value="'+li.qty+'" min="0" step="1" placeholder="Qty" style="max-width:60px">'+
       '<input type="text" inputmode="decimal" class="review-li-price" data-idx="'+i+'" value="'+Number(li.price).toFixed(2)+'" placeholder="$0.00" style="max-width:80px">'+
       '<label class="case-check"><input type="checkbox" class="review-li-case" data-idx="'+i+'"'+(li.is_case?' checked':'')+'>Case</label>'+
@@ -339,7 +371,7 @@ function captureReviewFormInputs(pendingId){
   var caseEls=container.querySelectorAll('.review-li-case');
   state.line_items=[];
   for(var i=0;i<nameEls.length;i++){
-    state.line_items.push({name:nameEls[i].value,qty:Number(qtyEls[i]?qtyEls[i].value:0),price:Number(priceEls[i]?priceEls[i].value:0),is_case:caseEls[i]?caseEls[i].checked:false});
+    state.line_items.push({name:nameEls[i].value,qty:Number(qtyEls[i]?qtyEls[i].value:0),price:Number(priceEls[i]?priceEls[i].value:0),is_case:caseEls[i]?caseEls[i].checked:false,purchase_item_id:nameEls[i].dataset.itemId||null});
   }
 }
 
@@ -531,7 +563,7 @@ document.getElementById('history-list').addEventListener('click',function(e){
     renderHistoryList();
   } else if(action==='add-review-line'){
     captureReviewFormInputs(id);
-    if(REVIEW_FORM_STATE[id])REVIEW_FORM_STATE[id].line_items.push({name:'',qty:1,price:0,is_case:false});
+    if(REVIEW_FORM_STATE[id])REVIEW_FORM_STATE[id].line_items.push({name:'',qty:1,price:0,is_case:false,purchase_item_id:null});
     renderHistoryList();
   } else if(action==='remove-review-line'){
     captureReviewFormInputs(id);
@@ -665,7 +697,7 @@ async function confirmReceipt(id){
       event_date:state.event_date,
       tax:Number(state.tax)||0,
       total:state.line_items.reduce(function(s,li){return s+Number(li.qty)*Number(li.price);},0),
-      line_items:state.line_items.map(function(li){return {name:li.name,description:li.name,quantity:Number(li.qty),price:Number(li.price),is_case:!!li.is_case};})
+      line_items:state.line_items.map(function(li){return {purchase_item_id:li.purchase_item_id||null,name:li.name,description:li.name,quantity:Number(li.qty),price:Number(li.price),is_case:!!li.is_case};})
     };
     await api('/api/v1/inventory/purchases/confirm',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
     // Remove from pending list
@@ -731,16 +763,232 @@ document.addEventListener('click',function(e){
   }
 });
 
+// ── Items tab ──────────────────────────────────────────────────────────────
+
+async function loadItems(){
+  try{
+    var data=await api('/api/v1/inventory/items');
+    ALL_ITEMS=data||[];
+  }catch(e){if(e.message!=='unauthorized')console.error('loadItems',e);}
+  try{
+    var groups=await api('/api/v1/inventory/groups');
+    ITEM_GROUPS=groups||[];
+  }catch(e){if(e.message!=='unauthorized')console.error('loadGroups',e);}
+  renderItemsList();
+}
+
+function renderItemsList(){
+  var list=document.getElementById('items-list');
+  if(!list)return;
+  var query=ITEM_SEARCH.toLowerCase();
+  var filtered=ALL_ITEMS.filter(function(it){return !query||it.description.toLowerCase().indexOf(query)!==-1;});
+
+  // Group items by group_name
+  var grouped={};
+  var ungrouped=[];
+  filtered.forEach(function(it){
+    var gn=it.group_name||null;
+    if(gn){
+      if(!grouped[gn])grouped[gn]=[];
+      grouped[gn].push(it);
+    } else {
+      ungrouped.push(it);
+    }
+  });
+
+  // Build group options for add-item select
+  var groupOpts='<option value="">No Group</option>'+ITEM_GROUPS.map(function(g){return '<option value="'+g.id+'">'+escHtml(g.name)+'</option>';}).join('');
+
+  var html='<div class="add-item-bar">'+
+    '<input type="text" class="field-input" id="new-item-name" placeholder="New item name...">'+
+    '<select id="new-item-group" class="field-input">'+groupOpts+'</select>'+
+    '<button data-action="create-item">Add</button>'+
+    '</div>';
+
+  // Render grouped sections
+  var groupNames=Object.keys(grouped).sort();
+  groupNames.forEach(function(gn){
+    var items=grouped[gn];
+    html+='<div class="item-group-section"><div class="item-group-header"><span>'+escHtml(gn)+' <span class="group-count">('+items.length+')</span></span></div>';
+    items.forEach(function(it){
+      html+='<div class="item-row"><span class="item-name">'+escHtml(it.description)+'</span>'+
+        '<button class="item-edit-btn" data-action="edit-item" data-id="'+it.id+'" data-desc="'+escHtml(it.description)+'" data-group="'+(it.group_id||'')+'">Edit</button></div>';
+    });
+    html+='</div>';
+  });
+
+  // Render ungrouped
+  if(ungrouped.length){
+    html+='<div class="item-group-section"><div class="item-group-header"><span>Ungrouped <span class="group-count">('+ungrouped.length+')</span></span></div>';
+    ungrouped.forEach(function(it){
+      html+='<div class="item-row"><span class="item-name">'+escHtml(it.description)+'</span>'+
+        '<button class="item-edit-btn" data-action="edit-item" data-id="'+it.id+'" data-desc="'+escHtml(it.description)+'" data-group="'+(it.group_id||'')+'">Edit</button></div>';
+    });
+    html+='</div>';
+  }
+
+  if(!filtered.length){
+    html+='<div class="empty"><p>No items found.</p></div>';
+  }
+
+  list.innerHTML=html;
+}
+
+document.getElementById('item-search').addEventListener('input',function(e){
+  ITEM_SEARCH=e.target.value;
+  renderItemsList();
+});
+
+document.getElementById('items-list').addEventListener('click',function(e){
+  var el=e.target.closest('[data-action]');
+  if(!el)return;
+  var action=el.dataset.action;
+  if(action==='create-item'){
+    var nameEl=document.getElementById('new-item-name');
+    var groupEl=document.getElementById('new-item-group');
+    var name=nameEl.value.trim();
+    if(!name)return;
+    var groupId=groupEl.value||null;
+    api('/api/v1/inventory/items',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({description:name,group_id:groupId})}).then(function(){
+      nameEl.value='';
+      loadItems();
+    }).catch(function(err){console.error('createItem',err);});
+  } else if(action==='edit-item'){
+    var id=el.dataset.id;
+    var desc=el.dataset.desc;
+    var group=el.dataset.group;
+    var newName=prompt('Item name:',desc);
+    if(newName===null)return;
+    newName=newName.trim();
+    if(!newName)return;
+    // Pick group
+    var groupOpts=ITEM_GROUPS.map(function(g,i){return (i+1)+'. '+g.name;}).join('\n');
+    var groupPrompt=prompt('Group (enter number, blank for none):\n'+groupOpts);
+    var newGroupId=null;
+    if(groupPrompt&&!isNaN(parseInt(groupPrompt))){
+      var idx=parseInt(groupPrompt)-1;
+      if(idx>=0&&idx<ITEM_GROUPS.length)newGroupId=ITEM_GROUPS[idx].id;
+    } else if(groupPrompt===null){
+      return;
+    }
+    api('/api/v1/inventory/items',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:id,description:newName,group_id:newGroupId})}).then(function(){
+      loadItems();
+    }).catch(function(err){console.error('updateItem',err);});
+  }
+});
+
 document.addEventListener('dblclick',e=>e.preventDefault());
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');
 
 document.addEventListener('DOMContentLoaded',async function(){
   try{await api('/api/v1/me');}catch(e){return;}
+  // Preload items for review form dropdowns
+  try{var data=await api('/api/v1/inventory/items');ALL_ITEMS=data||[];}catch(e){}
+  try{var g=await api('/api/v1/inventory/groups');ITEM_GROUPS=g||[];}catch(e){}
   show(1);
   loadVendors();
   loadHistory();
   loadStock();
 });
+
+// ── Item name dropdown in review form ──────────────────────────────────────
+
+document.addEventListener('click',function(e){
+  // Open item dropdown when clicking readonly name input
+  if(e.target.classList.contains('review-li-name')){
+    showItemDropdown(e.target);
+    return;
+  }
+  // Close item dropdown if clicking elsewhere
+  closeItemDropdown();
+});
+
+function showItemDropdown(input){
+  closeItemDropdown();
+  // Make input editable for searching
+  input.removeAttribute('readonly');
+  input.focus();
+  var wrap=input.closest('.review-li-name-wrap');
+  if(!wrap)return;
+
+  renderItemDropdownForInput(input,wrap);
+
+  // Listen for typing to filter
+  input._itemHandler=function(){renderItemDropdownForInput(input,wrap);};
+  input.addEventListener('input',input._itemHandler);
+}
+
+function renderItemDropdownForInput(input,wrap){
+  var old=wrap.querySelector('.item-dropdown');
+  if(old)old.remove();
+  var query=input.value.toLowerCase().trim();
+  var matches=ALL_ITEMS.filter(function(it){return !query||it.description.toLowerCase().indexOf(query)!==-1;}).slice(0,10);
+
+  var dd=document.createElement('div');
+  dd.className='item-dropdown';
+
+  matches.forEach(function(it){
+    var item=document.createElement('div');
+    item.className='item-dropdown-item';
+    item.textContent=it.description+(it.group_name?' ('+it.group_name+')':'');
+    item.addEventListener('mousedown',function(ev){
+      ev.preventDefault();
+      input.value=it.description;
+      input.dataset.itemId=it.id;
+      input.setAttribute('readonly','readonly');
+      if(input._itemHandler){input.removeEventListener('input',input._itemHandler);delete input._itemHandler;}
+      closeItemDropdown();
+      // Trigger state capture
+      var form=input.closest('.review-form');
+      if(form){var pid=form.dataset.pendingId;if(pid)captureReviewFormInputs(pid);}
+    });
+    dd.appendChild(item);
+  });
+
+  // Create new item option
+  var createItem=document.createElement('div');
+  createItem.className='item-dropdown-item item-dd-create';
+  createItem.textContent='+ Create new item'+(query?' "'+query+'"':'');
+  createItem.addEventListener('mousedown',function(ev){
+    ev.preventDefault();
+    var name=query||prompt('New item name:');
+    if(!name||!name.trim())return;
+    name=name.trim();
+    // Create via API
+    api('/api/v1/inventory/items',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({description:name})}).then(function(res){
+      // Reload items and set the new item
+      return api('/api/v1/inventory/items');
+    }).then(function(data){
+      ALL_ITEMS=data||[];
+      var newItem=ALL_ITEMS.find(function(it){return it.description.toLowerCase()===name.toLowerCase();});
+      if(newItem){
+        input.value=newItem.description;
+        input.dataset.itemId=newItem.id;
+      } else {
+        input.value=name;
+        input.dataset.itemId='';
+      }
+      input.setAttribute('readonly','readonly');
+      if(input._itemHandler){input.removeEventListener('input',input._itemHandler);delete input._itemHandler;}
+      closeItemDropdown();
+      var form=input.closest('.review-form');
+      if(form){var pid=form.dataset.pendingId;if(pid)captureReviewFormInputs(pid);}
+    }).catch(function(err){console.error('createItem',err);});
+  });
+  dd.appendChild(createItem);
+
+  wrap.appendChild(dd);
+}
+
+function closeItemDropdown(){
+  var dds=document.querySelectorAll('.item-dropdown');
+  dds.forEach(function(dd){dd.remove();});
+  // Re-set readonly on any open inputs
+  document.querySelectorAll('.review-li-name:not([readonly])').forEach(function(el){
+    el.setAttribute('readonly','readonly');
+    if(el._itemHandler){el.removeEventListener('input',el._itemHandler);delete el._itemHandler;}
+  });
+}
 </script>
 <script src="log.js"></script><script src="ptr.js"></script>
 </body>

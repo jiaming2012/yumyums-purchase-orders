@@ -379,6 +379,12 @@ func main() {
 				r.Post("/purchases/discard", inventory.DiscardPendingPurchaseHandler(pool))
 				r.Post("/purchases/pending-seed", inventory.SeedPendingPurchaseHandler(pool))
 				r.Get("/stock", inventory.GetStockHandler(pool))
+				r.Get("/items", inventory.ListItemsHandler(pool))
+				r.Post("/items", inventory.CreateItemHandler(pool))
+				r.Put("/items", inventory.UpdateItemHandler(pool))
+				r.Get("/groups", inventory.ListGroupsHandler(pool))
+				r.Post("/groups", inventory.CreateGroupHandler(pool))
+				r.Get("/tags", inventory.ListTagsHandler(pool))
 			})
 
 			// Onboarding endpoints — all authenticated

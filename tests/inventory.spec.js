@@ -428,6 +428,151 @@ test.describe('Inventory', () => {
     await expect(page.locator('#cost-container')).toHaveCount(1);
   });
 
+  // ── Items tab (5th tab) ────────────────────────────────────────────────
+
+  test('Items tab exists as 5th tab', async ({ page }) => {
+    await expect(page.locator('#t5')).toContainText('Items');
+  });
+
+  test('Items tab shows item list grouped by group name', async ({ page }) => {
+    await page.locator('#t5').click();
+    await page.waitForFunction(() => {
+      const list = document.getElementById('items-list');
+      return list && (list.querySelector('.item-group-section') || list.querySelector('.empty'));
+    }, { timeout: 8000 });
+    const groups = page.locator('.item-group-section');
+    const count = await groups.count();
+    // Seeded data should have groups like Proteins, Produce, etc.
+    expect(count).toBeGreaterThan(0);
+  });
+
+  test('Items tab has search filter', async ({ page }) => {
+    await page.locator('#t5').click();
+    const search = page.locator('#item-search');
+    await expect(search).toBeVisible();
+    await expect(search).toHaveAttribute('placeholder', 'Search items...');
+  });
+
+  test('Items search filters items by name', async ({ page }) => {
+    await page.locator('#t5').click();
+    await page.waitForFunction(() => {
+      const list = document.getElementById('items-list');
+      return list && list.querySelector('.item-row');
+    }, { timeout: 8000 });
+    const totalBefore = await page.locator('.item-row').count();
+    await page.fill('#item-search', 'Salmon');
+    await page.waitForTimeout(300);
+    const totalAfter = await page.locator('.item-row').count();
+    expect(totalAfter).toBeLessThan(totalBefore);
+    expect(totalAfter).toBeGreaterThan(0);
+  });
+
+  test('Items tab has add item form', async ({ page }) => {
+    await page.locator('#t5').click();
+    await page.waitForFunction(() => document.getElementById('new-item-name'), { timeout: 5000 });
+    await expect(page.locator('#new-item-name')).toBeVisible();
+    await expect(page.locator('#new-item-group')).toBeVisible();
+    await expect(page.locator('[data-action="create-item"]')).toBeVisible();
+  });
+
+  test('create new item via Items tab', async ({ page }) => {
+    await page.locator('#t5').click();
+    await page.waitForFunction(() => document.getElementById('new-item-name'), { timeout: 5000 });
+    const itemName = 'Test Item ' + Date.now();
+    await page.fill('#new-item-name', itemName);
+    await page.click('[data-action="create-item"]');
+    // Wait for reload
+    await page.waitForFunction((name) => {
+      const rows = document.querySelectorAll('.item-row');
+      for (const r of rows) {
+        if (r.textContent.includes(name)) return true;
+      }
+      return false;
+    }, itemName, { timeout: 5000 });
+    await expect(page.locator('.item-row', { hasText: itemName })).toBeVisible();
+  });
+
+  // ── Item dropdown in receipt review ────────────────────────────────────
+
+  test('review form line item name is readonly (dropdown-only)', async ({ page }) => {
+    const txId = 'test-item-readonly-' + Date.now();
+    await seedPendingPurchase(page, {
+      bankTxId: txId, vendor: 'Dropdown Vendor', bankTotal: -10.00,
+      eventDate: '2026-04-15', reason: 'test', items: [{ name: 'Widget', quantity: 1, price: 10.00 }],
+    });
+    await page.reload();
+    await waitForHistoryContent(page);
+    const pending = page.locator('[data-action="review-pending"]').first();
+    if (await pending.count() > 0) {
+      await pending.click();
+      const nameInput = page.locator('.review-li-name').first();
+      const readonly = await nameInput.getAttribute('readonly');
+      expect(readonly).not.toBeNull();
+    }
+  });
+
+  test('clicking line item name opens item dropdown', async ({ page }) => {
+    const txId = 'test-item-dropdown-' + Date.now();
+    await seedPendingPurchase(page, {
+      bankTxId: txId, vendor: 'DD Vendor', bankTotal: -10.00,
+      eventDate: '2026-04-15', reason: 'test', items: [{ name: 'Something', quantity: 1, price: 10.00 }],
+    });
+    await page.reload();
+    await waitForHistoryContent(page);
+    const pending = page.locator('[data-action="review-pending"]').first();
+    if (await pending.count() > 0) {
+      await pending.click();
+      const nameInput = page.locator('.review-li-name').first();
+      await nameInput.click();
+      await expect(page.locator('.item-dropdown')).toBeVisible();
+      await expect(page.locator('.item-dropdown-item').first()).toBeVisible();
+    }
+  });
+
+  test('item dropdown shows create new item option', async ({ page }) => {
+    const txId = 'test-item-create-opt-' + Date.now();
+    await seedPendingPurchase(page, {
+      bankTxId: txId, vendor: 'Create Vendor', bankTotal: -10.00,
+      eventDate: '2026-04-15', reason: 'test', items: [{ name: 'Item', quantity: 1, price: 10.00 }],
+    });
+    await page.reload();
+    await waitForHistoryContent(page);
+    const pending = page.locator('[data-action="review-pending"]').first();
+    if (await pending.count() > 0) {
+      await pending.click();
+      await page.locator('.review-li-name').first().click();
+      await expect(page.locator('.item-dd-create')).toBeVisible();
+      await expect(page.locator('.item-dd-create')).toContainText('Create new item');
+    }
+  });
+
+  test('selecting item from dropdown fills name and sets item id', async ({ page }) => {
+    const txId = 'test-item-select-' + Date.now();
+    await seedPendingPurchase(page, {
+      bankTxId: txId, vendor: 'Select Vendor', bankTotal: -10.00,
+      eventDate: '2026-04-15', reason: 'test', items: [{ name: '', quantity: 1, price: 10.00 }],
+    });
+    await page.reload();
+    await waitForHistoryContent(page);
+    const pending = page.locator('[data-action="review-pending"]').first();
+    if (await pending.count() > 0) {
+      await pending.click();
+      const nameInput = page.locator('.review-li-name').first();
+      await nameInput.click();
+      // Select first item from dropdown
+      const firstItem = page.locator('.item-dropdown-item:not(.item-dd-create)').first();
+      if (await firstItem.count() > 0) {
+        const itemText = await firstItem.textContent();
+        await firstItem.click();
+        const value = await nameInput.inputValue();
+        expect(value.length).toBeGreaterThan(0);
+        const itemId = await nameInput.getAttribute('data-item-id');
+        expect(itemId).toBeTruthy();
+        expect(itemId.length).toBeGreaterThan(0);
+      }
+    }
+  });
+
   // ── Receipt review improvements (regression tests) ─────────────────────
 
   test('pending review form shows vendor search with + button', async ({ page }) => {

@@ -5,12 +5,20 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/yumyums/hq/internal/auth"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
+
+// normalizeItemName title-cases receipt text: "DEER PARK 40PK" → "Deer Park 40Pk".
+func normalizeItemName(s string) string {
+	return cases.Title(language.English).String(strings.ToLower(strings.TrimSpace(s)))
+}
 
 func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
@@ -219,11 +227,12 @@ func CreatePurchaseEventHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 
 		for _, li := range input.LineItems {
+			desc := normalizeItemName(li.Description)
 			_, err := tx.Exec(r.Context(), `
 				INSERT INTO purchase_line_items
 				(purchase_event_id, purchase_item_id, description, quantity, price, is_case)
 				VALUES ($1, $2, $3, $4, $5, $6)`,
-				eventID, li.PurchaseItemID, li.Description, li.Quantity, li.Price, li.IsCase,
+				eventID, li.PurchaseItemID, desc, li.Quantity, li.Price, li.IsCase,
 			)
 			if err != nil {
 				log.Printf("CreatePurchaseEvent insert line_item: %v", err)
@@ -339,11 +348,12 @@ func ConfirmPendingPurchaseHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 
 		for _, li := range input.LineItems {
+			desc := normalizeItemName(li.Description)
 			_, err := tx.Exec(r.Context(), `
 				INSERT INTO purchase_line_items
 				(purchase_event_id, purchase_item_id, description, quantity, price, is_case)
 				VALUES ($1, $2, $3, $4, $5, $6)`,
-				eventID, li.PurchaseItemID, li.Description, li.Quantity, li.Price, li.IsCase,
+				eventID, li.PurchaseItemID, desc, li.Quantity, li.Price, li.IsCase,
 			)
 			if err != nil {
 				log.Printf("ConfirmPendingPurchase insert line_item: %v", err)
@@ -437,5 +447,200 @@ func SeedPendingPurchaseHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 		writeJSON(w, http.StatusCreated, map[string]string{"id": id})
+	}
+}
+
+// ListItemsHandler returns all purchase items with their group name.
+func ListItemsHandler(pool *pgxpool.Pool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		rows, err := pool.Query(r.Context(), `
+			SELECT pi.id, pi.description, pi.group_id, ig.name
+			FROM purchase_items pi
+			LEFT JOIN item_groups ig ON ig.id = pi.group_id
+			ORDER BY pi.description`)
+		if err != nil {
+			log.Printf("ListItems query: %v", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		defer rows.Close()
+
+		items := []PurchaseItem{}
+		for rows.Next() {
+			var item PurchaseItem
+			if err := rows.Scan(&item.ID, &item.Description, &item.GroupID, &item.GroupName); err != nil {
+				log.Printf("ListItems scan: %v", err)
+				writeError(w, http.StatusInternalServerError, "internal_error")
+				return
+			}
+			items = append(items, item)
+		}
+		writeJSON(w, http.StatusOK, items)
+	}
+}
+
+// CreateItemHandler creates a new purchase item.
+func CreateItemHandler(pool *pgxpool.Pool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var input struct {
+			Description string  `json:"description"`
+			GroupID     *string `json:"group_id,omitempty"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_json")
+			return
+		}
+		if input.Description == "" {
+			writeError(w, http.StatusBadRequest, "description_required")
+			return
+		}
+		input.Description = normalizeItemName(input.Description)
+		var id string
+		err := pool.QueryRow(r.Context(), `
+			INSERT INTO purchase_items (description, group_id)
+			VALUES ($1, $2)
+			ON CONFLICT (description) DO UPDATE SET description = EXCLUDED.description
+			RETURNING id`,
+			input.Description, input.GroupID,
+		).Scan(&id)
+		if err != nil {
+			log.Printf("CreateItem insert: %v", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		writeJSON(w, http.StatusCreated, map[string]string{"id": id})
+	}
+}
+
+// UpdateItemHandler updates a purchase item's description or group.
+func UpdateItemHandler(pool *pgxpool.Pool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var input struct {
+			ID          string  `json:"id"`
+			Description string  `json:"description"`
+			GroupID     *string `json:"group_id,omitempty"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_json")
+			return
+		}
+		if input.ID == "" || input.Description == "" {
+			writeError(w, http.StatusBadRequest, "id_and_description_required")
+			return
+		}
+		tag, err := pool.Exec(r.Context(), `
+			UPDATE purchase_items SET description = $1, group_id = $2 WHERE id = $3`,
+			input.Description, input.GroupID, input.ID,
+		)
+		if err != nil {
+			log.Printf("UpdateItem update: %v", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		if tag.RowsAffected() == 0 {
+			writeError(w, http.StatusNotFound, "item_not_found")
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+// ListGroupsHandler returns all item groups with their tags.
+func ListGroupsHandler(pool *pgxpool.Pool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		rows, err := pool.Query(r.Context(), `
+			SELECT id, name, par_days FROM item_groups ORDER BY name`)
+		if err != nil {
+			log.Printf("ListGroups query: %v", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		defer rows.Close()
+
+		groups := []ItemGroup{}
+		for rows.Next() {
+			var g ItemGroup
+			if err := rows.Scan(&g.ID, &g.Name, &g.ParDays); err != nil {
+				log.Printf("ListGroups scan: %v", err)
+				writeError(w, http.StatusInternalServerError, "internal_error")
+				return
+			}
+			groups = append(groups, g)
+		}
+
+		// Load tags for each group
+		for i := range groups {
+			tagRows, err := pool.Query(r.Context(), `
+				SELECT t.id, t.name FROM tags t
+				JOIN item_group_tags igt ON igt.tag_id = t.id
+				WHERE igt.group_id = $1 ORDER BY t.name`, groups[i].ID)
+			if err != nil {
+				log.Printf("ListGroups tags query: %v", err)
+				continue
+			}
+			for tagRows.Next() {
+				var t Tag
+				if err := tagRows.Scan(&t.ID, &t.Name); err != nil {
+					continue
+				}
+				groups[i].Tags = append(groups[i].Tags, t)
+			}
+			tagRows.Close()
+		}
+
+		writeJSON(w, http.StatusOK, groups)
+	}
+}
+
+// CreateGroupHandler creates a new item group.
+func CreateGroupHandler(pool *pgxpool.Pool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var input struct {
+			Name string `json:"name"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_json")
+			return
+		}
+		if input.Name == "" {
+			writeError(w, http.StatusBadRequest, "name_required")
+			return
+		}
+		var id string
+		err := pool.QueryRow(r.Context(), `
+			INSERT INTO item_groups (name) VALUES ($1)
+			RETURNING id`, input.Name,
+		).Scan(&id)
+		if err != nil {
+			log.Printf("CreateGroup insert: %v", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		writeJSON(w, http.StatusCreated, map[string]string{"id": id})
+	}
+}
+
+// ListTagsHandler returns all tags.
+func ListTagsHandler(pool *pgxpool.Pool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		rows, err := pool.Query(r.Context(), `SELECT id, name FROM tags ORDER BY name`)
+		if err != nil {
+			log.Printf("ListTags query: %v", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		defer rows.Close()
+
+		tags := []Tag{}
+		for rows.Next() {
+			var t Tag
+			if err := rows.Scan(&t.ID, &t.Name); err != nil {
+				log.Printf("ListTags scan: %v", err)
+				writeError(w, http.StatusInternalServerError, "internal_error")
+				return
+			}
+			tags = append(tags, t)
+		}
+		writeJSON(w, http.StatusOK, tags)
 	}
 }

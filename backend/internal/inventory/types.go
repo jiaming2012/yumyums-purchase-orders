@@ -31,6 +31,16 @@ type PurchaseItem struct {
 	ID          string  `json:"id"`
 	Description string  `json:"description"`
 	GroupID     *string `json:"group_id,omitempty"`
+	GroupName   *string `json:"group_name,omitempty"`
+}
+
+// ItemGroupWithItems is an item group with its items included.
+type ItemGroupWithItems struct {
+	ID      string         `json:"id"`
+	Name    string         `json:"name"`
+	ParDays *int           `json:"par_days,omitempty"`
+	Tags    []Tag          `json:"tags,omitempty"`
+	Items   []PurchaseItem `json:"items"`
 }
 
 // LineItem is one line on a purchase event.
