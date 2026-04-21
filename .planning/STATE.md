@@ -5,7 +5,7 @@ milestone_name: Onboarding Video Upgrade
 status: executing
 stopped_at: "Checkpoint: Task 3 human-verify pending for 01-03-PLAN.md"
 last_updated: "2026-04-20T04:34:13.737Z"
-last_activity: 2026-04-20
+last_activity: 2026-04-21
 progress:
   total_phases: 2
   completed_phases: 2
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-04-15)
 Phase: 01 (onboarding-video-upgrade) — EXECUTING
 Plan: 3 of 3
 Status: Ready to execute
-Last activity: 2026-04-21 - Completed quick task 260421-im4: Rename History tab to Purchases in inventory.html and update all related docs
+Last activity: 2026-04-21 - Completed quick task 260421-iug: Move Stock tab before Trends in inventory.html
 
 Progress: [░░░░░░░░░░] 0% (v2.0 milestone)
 
@@ -192,9 +192,10 @@ None yet.
 | 260417-x0g | Add user display name and logout button to index.html | 2026-04-17 | 5edc1e1 | [260417-x0g-add-user-display-name-and-logout-button-](./quick/260417-x0g-add-user-display-name-and-logout-button-/) |
 | 260418-0tz | Multi-role support for users and training templates | 2026-04-18 | bf6a7c2 | [260418-0tz-multi-role-support-for-users-and-trainin](./quick/260418-0tz-multi-role-support-for-users-and-trainin/) |
 | 260421-im4 | Rename History tab to Purchases in inventory.html | 2026-04-21 | f46a88c | [260421-im4-rename-history-tab-to-purchases-in-inven](./quick/260421-im4-rename-history-tab-to-purchases-in-inven/) |
+| 260421-iug | Move Stock tab before Trends in inventory.html | 2026-04-21 | ab6806f | [260421-iug-move-the-stock-tab-before-trends-in-inve](./quick/260421-iug-move-the-stock-tab-before-trends-in-inve/) |
 
 ## Session Continuity
 
-Last session: 2026-04-21T13:29:00.000Z
-Stopped at: Completed quick task 260421-im4-PLAN.md
+Last session: 2026-04-21T17:42:22Z
+Stopped at: Completed quick task 260421-iug-PLAN.md
 Resume file: None
