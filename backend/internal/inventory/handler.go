@@ -404,3 +404,38 @@ func DiscardPendingPurchaseHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		w.WriteHeader(http.StatusNoContent)
 	}
 }
+
+// SeedPendingPurchaseHandler inserts a pending purchase for testing.
+func SeedPendingPurchaseHandler(pool *pgxpool.Pool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var input struct {
+			BankTxID   string          `json:"bank_tx_id"`
+			BankTotal  float64         `json:"bank_total"`
+			Vendor     string          `json:"vendor"`
+			EventDate  string          `json:"event_date"`
+			Reason     string          `json:"reason"`
+			Items      json.RawMessage `json:"items"`
+			ReceiptURL *string         `json:"receipt_url,omitempty"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_json")
+			return
+		}
+		if input.Items == nil {
+			input.Items = json.RawMessage(`[]`)
+		}
+		var id string
+		err := pool.QueryRow(r.Context(), `
+			INSERT INTO pending_purchases (bank_tx_id, bank_total, vendor, event_date, reason, items, receipt_url)
+			VALUES ($1, $2, $3, $4, $5, $6, $7)
+			RETURNING id`,
+			input.BankTxID, input.BankTotal, input.Vendor, input.EventDate, input.Reason, input.Items, input.ReceiptURL,
+		).Scan(&id)
+		if err != nil {
+			log.Printf("SeedPendingPurchase insert: %v", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		writeJSON(w, http.StatusCreated, map[string]string{"id": id})
+	}
+}

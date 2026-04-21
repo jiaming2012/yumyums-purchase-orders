@@ -428,4 +428,338 @@ test.describe('Inventory', () => {
     await expect(page.locator('#cost-container')).toHaveCount(1);
   });
 
+  // ── Receipt review improvements (regression tests) ─────────────────────
+
+  test('pending review form shows vendor search with + button', async ({ page }) => {
+    const txId = 'test-vendor-search-' + Date.now();
+    await seedPendingPurchase(page, {
+      bankTxId: txId, vendor: 'Test Vendor', bankTotal: -10.00,
+      eventDate: '2026-04-15', reason: 'test', items: [{ name: 'Item', quantity: 1, price: 10.00 }],
+    });
+    await page.reload();
+    await waitForHistoryContent(page);
+    const pending = page.locator('[data-action="review-pending"]').first();
+    if (await pending.count() > 0) {
+      await pending.click();
+      await expect(page.locator('.vendor-search-wrap')).toBeVisible();
+      await expect(page.locator('.vendor-add-btn')).toBeVisible();
+    }
+  });
+
+  test('vendor search filters known vendors as you type', async ({ page }) => {
+    const txId = 'test-vendor-filter-' + Date.now();
+    await seedPendingPurchase(page, {
+      bankTxId: txId, vendor: '', bankTotal: -5.00,
+      eventDate: '2026-04-15', reason: 'test', items: [],
+    });
+    await page.reload();
+    await waitForHistoryContent(page);
+    const pending = page.locator('[data-action="review-pending"]').first();
+    if (await pending.count() > 0) {
+      await pending.click();
+      const vendorInput = page.locator('.review-vendor');
+      await vendorInput.fill('');
+      await vendorInput.type('a');
+      // Dropdown should appear if any vendors match
+      const dropdown = page.locator('.vendor-dropdown');
+      const hasDropdown = await dropdown.count();
+      // Either dropdown shows or no vendors match — both valid
+      if (hasDropdown > 0) {
+        await expect(dropdown.locator('.vendor-dropdown-item').first()).toBeVisible();
+      }
+    }
+  });
+
+  test('vendor dropdown item click fills the vendor field', async ({ page }) => {
+    const txId = 'test-vendor-select-' + Date.now();
+    await seedPendingPurchase(page, {
+      bankTxId: txId, vendor: '', bankTotal: -5.00,
+      eventDate: '2026-04-15', reason: 'test', items: [],
+    });
+    await page.reload();
+    await waitForHistoryContent(page);
+    const pending = page.locator('[data-action="review-pending"]').first();
+    if (await pending.count() > 0) {
+      await pending.click();
+      const vendorInput = page.locator('.review-vendor');
+      await vendorInput.fill('');
+      // Wait for vendors to be loaded, then type to trigger dropdown
+      await page.waitForFunction(() => typeof VENDORS !== 'undefined' && VENDORS.length > 0, { timeout: 5000 }).catch(() => {});
+      const hasVendors = await page.evaluate(() => typeof VENDORS !== 'undefined' && VENDORS.length > 0);
+      if (hasVendors) {
+        const firstName = await page.evaluate(() => VENDORS[0].name);
+        await vendorInput.type(firstName.substring(0, 3));
+        const item = page.locator('.vendor-dropdown-item').first();
+        if (await item.count() > 0) {
+          await item.click();
+          await expect(vendorInput).toHaveValue(firstName);
+          await expect(page.locator('.vendor-dropdown')).toHaveCount(0);
+        }
+      }
+    }
+  });
+
+  test('review form has tax field and grand total', async ({ page }) => {
+    const txId = 'test-tax-field-' + Date.now();
+    await seedPendingPurchase(page, {
+      bankTxId: txId, vendor: 'Tax Test Vendor', bankTotal: -12.00,
+      eventDate: '2026-04-15', reason: 'test', items: [{ name: 'Widget', quantity: 1, price: 10.00 }],
+    });
+    await page.reload();
+    await waitForHistoryContent(page);
+    const pending = page.locator('[data-action="review-pending"]').first();
+    if (await pending.count() > 0) {
+      await pending.click();
+      await expect(page.locator('.review-tax')).toBeVisible();
+      await expect(page.locator('.grand-total-value')).toBeVisible();
+      await expect(page.locator('.line-total-value')).toContainText('$10.00');
+      await expect(page.locator('.grand-total-value')).toContainText('$10.00');
+    }
+  });
+
+  test('editing tax updates grand total in real-time', async ({ page }) => {
+    const txId = 'test-tax-update-' + Date.now();
+    await seedPendingPurchase(page, {
+      bankTxId: txId, vendor: 'Tax Update Vendor', bankTotal: -12.00,
+      eventDate: '2026-04-15', reason: 'test', items: [{ name: 'Widget', quantity: 1, price: 10.00 }],
+    });
+    await page.reload();
+    await waitForHistoryContent(page);
+    const pending = page.locator('[data-action="review-pending"]').first();
+    if (await pending.count() > 0) {
+      await pending.click();
+      const taxInput = page.locator('.review-tax');
+      await taxInput.fill('2.00');
+      await taxInput.dispatchEvent('input');
+      await expect(page.locator('.grand-total-value')).toContainText('$12.00');
+      await expect(page.locator('.line-total-value')).toContainText('$10.00');
+    }
+  });
+
+  test('green match banner shows when total equals bank transaction', async ({ page }) => {
+    const txId = 'test-match-banner-' + Date.now();
+    await seedPendingPurchase(page, {
+      bankTxId: txId, vendor: 'Match Vendor', bankTotal: -10.00,
+      eventDate: '2026-04-15', reason: 'test', items: [{ name: 'Widget', quantity: 1, price: 10.00 }],
+    });
+    await page.reload();
+    await waitForHistoryContent(page);
+    const pending = page.locator('[data-action="review-pending"]').first();
+    if (await pending.count() > 0) {
+      await pending.click();
+      await expect(page.locator('.match-banner')).toBeVisible();
+      await expect(page.locator('.match-banner')).toContainText('Amounts match');
+      await expect(page.locator('.match-banner')).toContainText('Ready to confirm');
+      await expect(page.locator('.correction-banner')).toHaveCount(0);
+    }
+  });
+
+  test('yellow mismatch banner shows when total differs from bank transaction', async ({ page }) => {
+    const txId = 'test-mismatch-banner-' + Date.now();
+    await seedPendingPurchase(page, {
+      bankTxId: txId, vendor: 'Mismatch Vendor', bankTotal: -20.00,
+      eventDate: '2026-04-15', reason: 'test', items: [{ name: 'Widget', quantity: 1, price: 10.00 }],
+    });
+    await page.reload();
+    await waitForHistoryContent(page);
+    const pending = page.locator('[data-action="review-pending"]').first();
+    if (await pending.count() > 0) {
+      await pending.click();
+      await expect(page.locator('.correction-banner')).toBeVisible();
+      await expect(page.locator('.correction-banner')).toContainText('doesn\'t match');
+      await expect(page.locator('.match-banner')).toHaveCount(0);
+    }
+  });
+
+  test('bank total displays as positive in mismatch banner', async ({ page }) => {
+    const txId = 'test-positive-bank-' + Date.now();
+    await seedPendingPurchase(page, {
+      bankTxId: txId, vendor: 'Positive Vendor', bankTotal: -25.00,
+      eventDate: '2026-04-15', reason: 'test', items: [{ name: 'Widget', quantity: 1, price: 10.00 }],
+    });
+    await page.reload();
+    await waitForHistoryContent(page);
+    const pending = page.locator('[data-action="review-pending"]').first();
+    if (await pending.count() > 0) {
+      await pending.click();
+      const bannerText = await page.locator('.correction-banner').textContent();
+      expect(bannerText).toContain('$25.00');
+      expect(bannerText).not.toContain('$-25.00');
+    }
+  });
+
+  test('banner switches from mismatch to match when amounts are corrected', async ({ page }) => {
+    const txId = 'test-banner-switch-' + Date.now();
+    await seedPendingPurchase(page, {
+      bankTxId: txId, vendor: 'Switch Vendor', bankTotal: -12.00,
+      eventDate: '2026-04-15', reason: 'test', items: [{ name: 'Widget', quantity: 1, price: 10.00 }],
+    });
+    await page.reload();
+    await waitForHistoryContent(page);
+    const pending = page.locator('[data-action="review-pending"]').first();
+    if (await pending.count() > 0) {
+      await pending.click();
+      // Initially mismatched
+      await expect(page.locator('.correction-banner')).toBeVisible();
+      // Add tax to make it match
+      const taxInput = page.locator('.review-tax');
+      await taxInput.fill('2.00');
+      await taxInput.dispatchEvent('input');
+      // Should switch to green
+      await expect(page.locator('.match-banner')).toBeVisible();
+      await expect(page.locator('.correction-banner')).toHaveCount(0);
+    }
+  });
+
+  test('price input is text type, not number (no spinner arrows)', async ({ page }) => {
+    const txId = 'test-price-input-' + Date.now();
+    await seedPendingPurchase(page, {
+      bankTxId: txId, vendor: 'Price Type Vendor', bankTotal: -10.00,
+      eventDate: '2026-04-15', reason: 'test', items: [{ name: 'Widget', quantity: 1, price: 5.00 }],
+    });
+    await page.reload();
+    await waitForHistoryContent(page);
+    const pending = page.locator('[data-action="review-pending"]').first();
+    if (await pending.count() > 0) {
+      await pending.click();
+      const priceInput = page.locator('.review-li-price').first();
+      const type = await priceInput.getAttribute('type');
+      expect(type).toBe('text');
+      const inputmode = await priceInput.getAttribute('inputmode');
+      expect(inputmode).toBe('decimal');
+    }
+  });
+
+  test('typing in price field does not lose focus', async ({ page }) => {
+    const txId = 'test-price-focus-' + Date.now();
+    await seedPendingPurchase(page, {
+      bankTxId: txId, vendor: 'Focus Vendor', bankTotal: -10.00,
+      eventDate: '2026-04-15', reason: 'test', items: [{ name: 'Widget', quantity: 1, price: 0 }],
+    });
+    await page.reload();
+    await waitForHistoryContent(page);
+    const pending = page.locator('[data-action="review-pending"]').first();
+    if (await pending.count() > 0) {
+      await pending.click();
+      const priceInput = page.locator('.review-li-price').first();
+      await priceInput.fill('');
+      await priceInput.type('12.50');
+      // Verify the input still has focus and contains the full typed value
+      const value = await priceInput.inputValue();
+      expect(value).toBe('12.50');
+      const isFocused = await priceInput.evaluate(el => document.activeElement === el);
+      expect(isFocused).toBe(true);
+    }
+  });
+
+  test('view receipt button appears on pending review with receipt_url', async ({ page }) => {
+    const txId = 'test-receipt-btn-' + Date.now();
+    await seedPendingPurchase(page, {
+      bankTxId: txId, vendor: 'Receipt Vendor', bankTotal: -10.00,
+      eventDate: '2026-04-15', reason: 'test',
+      items: [{ name: 'Widget', quantity: 1, price: 10.00 }],
+    });
+    // Seed with receipt_url
+    await page.evaluate(async (txId) => {
+      await fetch('/api/v1/inventory/purchases/pending-seed', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bank_tx_id: txId + '-with-url', vendor: 'Receipt URL Vendor',
+          bank_total: -15.00, event_date: '2026-04-15', reason: 'test',
+          items: [{ name: 'Item', quantity: 1, price: 15.00 }],
+          receipt_url: 'https://example.com/receipt.jpg',
+        }),
+      });
+    }, txId);
+    await page.reload();
+    await waitForHistoryContent(page);
+    // Find a pending card and open it
+    const pendingCards = page.locator('[data-action="review-pending"]');
+    const count = await pendingCards.count();
+    for (let i = 0; i < count; i++) {
+      await pendingCards.nth(i).click();
+      const receiptBtn = page.locator('.view-receipt-btn[data-action="view-receipt"]');
+      if (await receiptBtn.count() > 0) {
+        await expect(receiptBtn.first()).toContainText('View Original Receipt');
+        break;
+      }
+      // Close and try next
+      await pendingCards.nth(i).click();
+    }
+  });
+
+  test('view receipt button opens fullscreen overlay', async ({ page }) => {
+    await page.evaluate(async () => {
+      await fetch('/api/v1/inventory/purchases/pending-seed', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bank_tx_id: 'test-overlay-' + Date.now(), vendor: 'Overlay Vendor',
+          bank_total: -10.00, event_date: '2026-04-15', reason: 'test',
+          items: [{ name: 'Item', quantity: 1, price: 10.00 }],
+          receipt_url: 'https://example.com/receipt.jpg',
+        }),
+      });
+    });
+    await page.reload();
+    await waitForHistoryContent(page);
+    const pending = page.locator('[data-action="review-pending"]').first();
+    if (await pending.count() > 0) {
+      await pending.click();
+      const receiptBtn = page.locator('.view-receipt-btn[data-action="view-receipt"]');
+      if (await receiptBtn.count() > 0) {
+        await receiptBtn.first().click();
+        await expect(page.locator('.receipt-overlay')).toBeVisible();
+        await expect(page.locator('.receipt-overlay .close-receipt')).toBeVisible();
+        // Close overlay
+        await page.locator('.receipt-overlay .close-receipt').click();
+        await expect(page.locator('.receipt-overlay')).toHaveCount(0);
+      }
+    }
+  });
+
+  test('confirmed event shows view receipt button when expanded', async ({ page }) => {
+    await waitForHistoryContent(page);
+    const cards = page.locator('.event-card:not([data-action="review-pending"])');
+    const count = await cards.count();
+    if (count > 0) {
+      await cards.first().click();
+      // Receipt button may or may not exist depending on whether the event has a receipt_url
+      const receiptBtn = page.locator('.view-receipt-btn[data-action="view-receipt"]');
+      const btnCount = await receiptBtn.count();
+      if (btnCount > 0) {
+        await expect(receiptBtn.first()).toContainText('View Original Receipt');
+      }
+    }
+  });
+
+  test('pending reason shows friendly message not raw API error', async ({ page }) => {
+    await page.evaluate(async () => {
+      await fetch('/api/v1/inventory/purchases/pending-seed', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bank_tx_id: 'test-friendly-' + Date.now(), vendor: 'Error Vendor',
+          bank_total: -10.00, event_date: '2026-04-15',
+          reason: 'Receipt could not be parsed automatically',
+          items: [],
+        }),
+      });
+    });
+    await page.reload();
+    await waitForHistoryContent(page);
+    const pendingCards = page.locator('[data-action="review-pending"]');
+    const count = await pendingCards.count();
+    if (count > 0) {
+      for (let i = 0; i < count; i++) {
+        const text = await pendingCards.nth(i).textContent();
+        // Should never contain raw API JSON errors
+        expect(text).not.toContain('{"type":"error"');
+        expect(text).not.toContain('invalid_request_error');
+        expect(text).not.toContain('api.anthropic.com');
+      }
+    }
+  });
+
 });

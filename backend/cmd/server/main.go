@@ -377,6 +377,7 @@ func main() {
 				r.Get("/purchases/pending", inventory.ListPendingPurchasesHandler(pool))
 				r.Post("/purchases/confirm", inventory.ConfirmPendingPurchaseHandler(pool))
 				r.Post("/purchases/discard", inventory.DiscardPendingPurchaseHandler(pool))
+				r.Post("/purchases/pending-seed", inventory.SeedPendingPurchaseHandler(pool))
 				r.Get("/stock", inventory.GetStockHandler(pool))
 			})
 
