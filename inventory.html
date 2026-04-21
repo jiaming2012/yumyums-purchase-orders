@@ -900,21 +900,44 @@ document.getElementById('item-search').addEventListener('input',function(e){
 });
 
 // Handle "New Group" selection in any group dropdown within items tab
-document.getElementById('items-list').addEventListener('change',function(e){
-  var sel=e.target;
-  if(sel.value!=='__new__')return;
+function handleNewGroup(sel){
   var name=prompt('New group name:');
   if(!name||!name.trim()){sel.value='';return;}
-  api('/api/v1/inventory/groups',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:name.trim()})}).then(function(res){
+  name=name.trim();
+  // Check if group already exists (case-insensitive)
+  var existing=ITEM_GROUPS.find(function(g){return g.name.toLowerCase()===name.toLowerCase();});
+  if(existing){
+    showToastMessage('Group "'+existing.name+'" already exists — selected.');
+    rebuildGroupSelect(sel,existing.id);
+    return;
+  }
+  api('/api/v1/inventory/groups',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:name})}).then(function(){
     return api('/api/v1/inventory/groups');
   }).then(function(groups){
     ITEM_GROUPS=groups||[];
-    var created=ITEM_GROUPS.find(function(g){return g.name.toLowerCase()===name.trim().toLowerCase();});
-    // Rebuild options in this select
-    var opts='<option value="">No Group</option>'+ITEM_GROUPS.map(function(g){return '<option value="'+g.id+'"'+(created&&g.id===created.id?' selected':'')+'>'+escHtml(g.name)+'</option>';}).join('')+'<option value="__new__">+ New Group</option>';
-    sel.innerHTML=opts;
-    if(created)sel.value=created.id;
+    var created=ITEM_GROUPS.find(function(g){return g.name.toLowerCase()===name.toLowerCase();});
+    rebuildGroupSelect(sel,created?created.id:null);
   }).catch(function(err){console.error('createGroup',err);sel.value='';});
+}
+
+function rebuildGroupSelect(sel,selectedId){
+  var opts='<option value="">No Group</option>'+ITEM_GROUPS.map(function(g){return '<option value="'+g.id+'"'+(selectedId&&g.id===selectedId?' selected':'')+'>'+escHtml(g.name)+'</option>';}).join('')+'<option value="__new__">+ New Group</option>';
+  sel.innerHTML=opts;
+  if(selectedId)sel.value=selectedId;
+}
+
+function showToastMessage(msg){
+  var t=document.createElement('div');
+  t.style.cssText='position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:var(--warn-bg);color:var(--warn-tx);padding:10px 20px;border-radius:8px;font-size:13px;font-weight:500;z-index:99999;box-shadow:0 4px 12px rgba(0,0,0,0.3);text-align:center;max-width:80%';
+  t.textContent=msg;
+  document.body.appendChild(t);
+  setTimeout(function(){t.remove();},3000);
+}
+
+document.getElementById('items-list').addEventListener('change',function(e){
+  var sel=e.target;
+  if(sel.value!=='__new__')return;
+  handleNewGroup(sel);
 });
 
 document.getElementById('items-list').addEventListener('click',function(e){
@@ -1149,25 +1172,20 @@ function showCreateItemForm(prefill){
     '</div>';
   document.getElementById('modal-new-item-name').focus();
   document.getElementById('modal-new-item-group').addEventListener('change',function(){
-    var sel=this;
-    if(sel.value!=='__new__')return;
-    var gname=prompt('New group name:');
-    if(!gname||!gname.trim()){sel.value='';return;}
-    api('/api/v1/inventory/groups',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:gname.trim()})}).then(function(){
-      return api('/api/v1/inventory/groups');
-    }).then(function(groups){
-      ITEM_GROUPS=groups||[];
-      var created=ITEM_GROUPS.find(function(g){return g.name.toLowerCase()===gname.trim().toLowerCase();});
-      var opts='<option value="">No Group</option>'+ITEM_GROUPS.map(function(g){return '<option value="'+g.id+'"'+(created&&g.id===created.id?' selected':'')+'>'+escHtml(g.name)+'</option>';}).join('')+'<option value="__new__">+ New Group</option>';
-      sel.innerHTML=opts;
-      if(created)sel.value=created.id;
-    }).catch(function(err){console.error('createGroup',err);sel.value='';});
+    if(this.value!=='__new__')return;
+    handleNewGroup(this);
   });
   document.getElementById('modal-create-item-btn').addEventListener('click',function(){
     var name=document.getElementById('modal-new-item-name').value.trim();
     if(!name)return;
     var groupId=document.getElementById('modal-new-item-group').value||null;
     if(groupId==='__new__')groupId=null;
+    if(!groupId){
+      var err=document.getElementById('modal-create-error');
+      if(!err){err=document.createElement('div');err.id='modal-create-error';err.style.cssText='color:#c0392b;font-size:13px;text-align:center;margin-top:8px';document.getElementById('modal-create-item-btn').after(err);}
+      err.textContent='A group is required. Select a group or create a new one first.';
+      return;
+    }
     api('/api/v1/inventory/items',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({description:name,group_id:groupId})}).then(function(){
       return api('/api/v1/inventory/items');
     }).then(function(data){
