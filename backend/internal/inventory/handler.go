@@ -117,6 +117,121 @@ func UpdateVendorHandler(pool *pgxpool.Pool) http.HandlerFunc {
 	}
 }
 
+// MergeVendorsHandler merges source vendor into target: re-points all purchase_events, then deletes source.
+func MergeVendorsHandler(pool *pgxpool.Pool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var input struct {
+			SourceID string `json:"source_id"`
+			TargetID string `json:"target_id"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_json")
+			return
+		}
+		if input.SourceID == "" || input.TargetID == "" {
+			writeError(w, http.StatusBadRequest, "source_id_and_target_id_required")
+			return
+		}
+		if input.SourceID == input.TargetID {
+			writeError(w, http.StatusBadRequest, "cannot_merge_into_self")
+			return
+		}
+		tx, err := pool.Begin(r.Context())
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		defer tx.Rollback(r.Context()) //nolint:errcheck
+
+		// Re-point purchase_events from source to target
+		_, err = tx.Exec(r.Context(), `UPDATE purchase_events SET vendor_id = $1 WHERE vendor_id = $2`, input.TargetID, input.SourceID)
+		if err != nil {
+			log.Printf("MergeVendors re-point events: %v", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		// Delete source vendor
+		tag, err := tx.Exec(r.Context(), `DELETE FROM vendors WHERE id = $1`, input.SourceID)
+		if err != nil {
+			log.Printf("MergeVendors delete source: %v", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		if tag.RowsAffected() == 0 {
+			writeError(w, http.StatusNotFound, "source_vendor_not_found")
+			return
+		}
+		if err := tx.Commit(r.Context()); err != nil {
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+// MergeItemsHandler merges source item into target: re-points all purchase_line_items, then deletes source.
+func MergeItemsHandler(pool *pgxpool.Pool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var input struct {
+			SourceID string `json:"source_id"`
+			TargetID string `json:"target_id"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_json")
+			return
+		}
+		if input.SourceID == "" || input.TargetID == "" {
+			writeError(w, http.StatusBadRequest, "source_id_and_target_id_required")
+			return
+		}
+		if input.SourceID == input.TargetID {
+			writeError(w, http.StatusBadRequest, "cannot_merge_into_self")
+			return
+		}
+		tx, err := pool.Begin(r.Context())
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		defer tx.Rollback(r.Context()) //nolint:errcheck
+
+		// Re-point purchase_line_items from source to target
+		_, err = tx.Exec(r.Context(), `UPDATE purchase_line_items SET purchase_item_id = $1 WHERE purchase_item_id = $2`, input.TargetID, input.SourceID)
+		if err != nil {
+			log.Printf("MergeItems re-point line_items: %v", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		// Also update description to match target
+		var targetDesc string
+		err = tx.QueryRow(r.Context(), `SELECT description FROM purchase_items WHERE id = $1`, input.TargetID).Scan(&targetDesc)
+		if err != nil {
+			writeError(w, http.StatusNotFound, "target_item_not_found")
+			return
+		}
+		_, err = tx.Exec(r.Context(), `UPDATE purchase_line_items SET description = $1 WHERE purchase_item_id = $2`, targetDesc, input.TargetID)
+		if err != nil {
+			log.Printf("MergeItems update descriptions: %v", err)
+		}
+		// Delete source item
+		tag, err := tx.Exec(r.Context(), `DELETE FROM purchase_items WHERE id = $1`, input.SourceID)
+		if err != nil {
+			log.Printf("MergeItems delete source: %v", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		if tag.RowsAffected() == 0 {
+			writeError(w, http.StatusNotFound, "source_item_not_found")
+			return
+		}
+		if err := tx.Commit(r.Context()); err != nil {
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
 // ListPurchaseEventsHandler returns purchase events with nested line items.
 // Accepts optional ?vendor_id and ?page query params (LIMIT 50 per page).
 func ListPurchaseEventsHandler(pool *pgxpool.Pool) http.HandlerFunc {
@@ -552,6 +667,10 @@ func CreateItemHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 		if input.Description == "" {
 			writeError(w, http.StatusBadRequest, "description_required")
+			return
+		}
+		if input.GroupID == nil || *input.GroupID == "" {
+			writeError(w, http.StatusBadRequest, "group_required")
 			return
 		}
 		input.Description = normalizeItemName(input.Description)

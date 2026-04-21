@@ -69,7 +69,6 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .vendor-dropdown-item:active,.vendor-dropdown-item.highlighted{background:var(--info-bg);color:var(--info-tx)}
 .review-li-name-wrap{flex:2}
 .review-li-name-wrap.unlinked input{border-color:var(--warn-tx);border-width:1.5px}
-.review-li-name-wrap.linked input{border-color:#27ae60;border-width:1.5px}
 .review-li-name-wrap input{width:100%;padding:7px 10px;background:var(--bg);border:0.5px solid var(--brd);border-radius:6px;font-size:13px;color:var(--txt);font-family:inherit;cursor:pointer}
 .item-modal{position:fixed;inset:0;z-index:9999;background:var(--bg);display:flex;flex-direction:column;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
 .item-modal-header{display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:0.5px solid var(--brd)}
@@ -855,13 +854,18 @@ function renderItemsList(){
 
   function renderItemRow(it){
     if(ITEM_EDIT_ID===it.id){
+      var mergeItemOpts=filtered.filter(function(oi){return oi.id!==it.id;}).map(function(oi){return '<option value="'+oi.id+'">'+escHtml(oi.description)+'</option>';}).join('');
       return '<div class="item-edit-form" data-item-id="'+it.id+'">'+
         '<div class="field-group"><div class="field-label">Name</div><input type="text" class="field-input item-edit-name" value="'+escHtml(it.description)+'"></div>'+
         '<div class="field-group"><div class="field-label">Group</div><select class="field-input item-edit-group">'+groupOpts.replace('value="'+(it.group_id||'')+'"','value="'+(it.group_id||'')+'" selected')+'</select></div>'+
         '<div class="review-actions" style="margin-top:8px">'+
           '<button class="btn-primary" data-action="save-item" data-id="'+it.id+'">Save</button>'+
           '<button class="btn-secondary" data-action="cancel-edit-item">Cancel</button>'+
-        '</div></div>';
+        '</div>'+
+        (mergeItemOpts?'<div class="field-group" style="margin-top:12px;border-top:0.5px solid var(--brd);padding-top:12px"><div class="field-label">Merge into another item</div>'+
+        '<div class="add-item-bar"><select class="field-input merge-item-target"><option value="">Select item...</option>'+mergeItemOpts+'</select>'+
+        '<button class="btn-secondary" data-action="merge-item" data-id="'+it.id+'" style="color:var(--warn-tx)">Merge</button></div></div>':'')+
+        '</div>';
     }
     return '<div class="item-row" data-action="tap-item" data-id="'+it.id+'"><span class="item-name">'+escHtml(it.description)+'</span>'+
       '<span class="item-group-label">'+(it.group_name?escHtml(it.group_name):'—')+'</span></div>';
@@ -940,6 +944,17 @@ document.getElementById('items-list').addEventListener('click',function(e){
       ITEM_EDIT_ID=null;
       loadItems();
     }).catch(function(err){console.error('updateItem',err);});
+  } else if(action==='merge-item'){
+    var form=el.closest('.item-edit-form');
+    var targetSel=form.querySelector('.merge-item-target');
+    var targetId=targetSel?targetSel.value:'';
+    if(!targetId){alert('Select an item to merge into.');return;}
+    var targetName=targetSel.options[targetSel.selectedIndex].text;
+    if(!confirm('Merge this item into "'+targetName+'"? All line items will be moved and this item will be deleted.'))return;
+    api('/api/v1/inventory/items/merge',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({source_id:el.dataset.id,target_id:targetId})}).then(function(){
+      ITEM_EDIT_ID=null;
+      loadItems();
+    }).catch(function(err){console.error('mergeItem',err);});
   } else if(action==='cancel-edit-item'){
     ITEM_EDIT_ID=null;
     renderItemsList();
@@ -968,12 +983,17 @@ function renderVendorsList(){
   var html='';
   sorted.forEach(function(v){
     if(VENDOR_EDIT_ID===v.id){
+      var mergeOpts=sorted.filter(function(ov){return ov.id!==v.id;}).map(function(ov){return '<option value="'+ov.id+'">'+escHtml(ov.name)+'</option>';}).join('');
       html+='<div class="item-edit-form" data-vendor-id="'+v.id+'">'+
         '<div class="field-group"><div class="field-label">Vendor Name</div><input type="text" class="field-input vendor-edit-name" value="'+escHtml(v.name)+'"></div>'+
         '<div class="review-actions" style="margin-top:8px">'+
           '<button class="btn-primary" data-action="save-vendor" data-id="'+v.id+'">Save</button>'+
           '<button class="btn-secondary" data-action="cancel-edit-vendor">Cancel</button>'+
-        '</div></div>';
+        '</div>'+
+        (mergeOpts?'<div class="field-group" style="margin-top:12px;border-top:0.5px solid var(--brd);padding-top:12px"><div class="field-label">Merge into another vendor</div>'+
+        '<div class="add-item-bar"><select class="field-input merge-vendor-target"><option value="">Select vendor...</option>'+mergeOpts+'</select>'+
+        '<button class="btn-secondary" data-action="merge-vendor" data-id="'+v.id+'" style="color:var(--warn-tx)">Merge</button></div></div>':'')+
+        '</div>';
     } else {
       html+='<div class="item-row" data-action="tap-vendor" data-id="'+v.id+'"><span class="item-name">'+escHtml(v.name)+'</span></div>';
     }
@@ -1000,6 +1020,18 @@ document.getElementById('vendors-list').addEventListener('click',function(e){
       loadVendors();
       renderVendorsList();
     }).catch(function(err){console.error('updateVendor',err);});
+  } else if(action==='merge-vendor'){
+    var form=el.closest('.item-edit-form');
+    var targetSel=form.querySelector('.merge-vendor-target');
+    var targetId=targetSel?targetSel.value:'';
+    if(!targetId){alert('Select a vendor to merge into.');return;}
+    var targetName=targetSel.options[targetSel.selectedIndex].text;
+    if(!confirm('Merge this vendor into "'+targetName+'"? All purchases will be moved and this vendor will be deleted.'))return;
+    api('/api/v1/inventory/vendors/merge',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({source_id:el.dataset.id,target_id:targetId})}).then(function(){
+      VENDOR_EDIT_ID=null;
+      loadVendors();
+      renderVendorsList();
+    }).catch(function(err){console.error('mergeVendor',err);});
   } else if(action==='cancel-edit-vendor'){
     VENDOR_EDIT_ID=null;
     renderVendorsList();
@@ -1154,6 +1186,9 @@ function selectItemFromModal(itemId,itemDesc){
   if(ITEM_MODAL_TARGET){
     ITEM_MODAL_TARGET.value=itemDesc;
     ITEM_MODAL_TARGET.dataset.itemId=itemId;
+    // Update visual indicator
+    var wrap=ITEM_MODAL_TARGET.closest('.review-li-name-wrap');
+    if(wrap){wrap.classList.remove('unlinked');wrap.classList.add('linked');}
     var form=ITEM_MODAL_TARGET.closest('.review-form');
     if(form){var pid=form.dataset.pendingId;if(pid)captureReviewFormInputs(pid);}
   }

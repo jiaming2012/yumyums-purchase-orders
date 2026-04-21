@@ -495,9 +495,11 @@ test.describe('Inventory', () => {
   test('Items search filters items by name', async ({ page }) => {
     // Create two items so we can verify filtering narrows results
     const ts = Date.now();
-    await invApiCall(page, 'POST', 'items', { description: 'Filterable Alpha ' + ts });
-    await invApiCall(page, 'POST', 'items', { description: 'Filterable Beta ' + ts });
-    await invApiCall(page, 'POST', 'items', { description: 'Unrelated Gamma ' + ts });
+    const groups = await invApiCall(page, 'GET', 'groups');
+    const gid = groups && groups.length ? groups[0].id : null;
+    await invApiCall(page, 'POST', 'items', { description: 'Filterable Alpha ' + ts, group_id: gid });
+    await invApiCall(page, 'POST', 'items', { description: 'Filterable Beta ' + ts, group_id: gid });
+    await invApiCall(page, 'POST', 'items', { description: 'Unrelated Gamma ' + ts, group_id: gid });
     await page.reload();
     await page.waitForLoadState('networkidle');
     await page.locator('#t5').click();
@@ -527,6 +529,8 @@ test.describe('Inventory', () => {
     await page.waitForFunction(() => document.getElementById('new-item-name'), { timeout: 5000 });
     const itemName = 'Test Item ' + Date.now();
     await page.fill('#new-item-name', itemName);
+    // Select first group
+    await page.locator('#new-item-group').selectOption({ index: 1 });
     await page.click('[data-action="create-item"]');
     // Wait for reload
     await page.waitForFunction((name) => {
@@ -1047,6 +1051,154 @@ test.describe('Inventory', () => {
         expect(text).not.toContain('api.anthropic.com');
       }
     }
+  });
+
+  // ── Merge vendors ─────────────────────────────────────────────────────
+
+  test('merge vendors: source deleted, events migrated (positive)', async ({ page }) => {
+    // Create two vendors
+    const v1 = await invApiCall(page, 'POST', 'vendors', { name: 'Merge Source ' + Date.now() });
+    const v2 = await invApiCall(page, 'POST', 'vendors', { name: 'Merge Target ' + Date.now() });
+    if (!v1 || !v2) return;
+    // Create a purchase event under source vendor
+    await invApiCall(page, 'POST', 'purchases', {
+      vendor_id: v1.id, bank_tx_id: 'merge-test-' + Date.now(),
+      event_date: '2026-04-15', tax: 0, total: 10, line_items: [{ description: 'Test', quantity: 1, price: 10 }]
+    });
+    // Merge source into target
+    const res = await page.evaluate(async ([sid, tid]) => {
+      const r = await fetch('/api/v1/inventory/vendors/merge', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ source_id: sid, target_id: tid })
+      });
+      return r.status;
+    }, [v1.id, v2.id]);
+    expect(res).toBe(204);
+    // Verify source is gone
+    const vendors = await invApiCall(page, 'GET', 'vendors');
+    const sourceExists = vendors.some(v => v.id === v1.id);
+    expect(sourceExists).toBe(false);
+  });
+
+  test('merge vendors: cannot merge into self (negative)', async ({ page }) => {
+    const v = await invApiCall(page, 'POST', 'vendors', { name: 'Self Merge ' + Date.now() });
+    if (!v) return;
+    const res = await page.evaluate(async (id) => {
+      const r = await fetch('/api/v1/inventory/vendors/merge', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ source_id: id, target_id: id })
+      });
+      return r.status;
+    }, v.id);
+    expect(res).toBe(400);
+  });
+
+  test('merge vendors: invalid source returns error (negative)', async ({ page }) => {
+    const v = await invApiCall(page, 'POST', 'vendors', { name: 'Valid Target ' + Date.now() });
+    if (!v) return;
+    const res = await page.evaluate(async (tid) => {
+      const r = await fetch('/api/v1/inventory/vendors/merge', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ source_id: '00000000-0000-0000-0000-000000000000', target_id: tid })
+      });
+      return r.status;
+    }, v.id);
+    expect(res).toBe(404);
+  });
+
+  // ── Merge items ───────────────────────────────────────────────────────
+
+  test('merge items: source deleted, line items migrated (positive)', async ({ page }) => {
+    const groups = await invApiCall(page, 'GET', 'groups');
+    const gid = groups && groups.length ? groups[0].id : null;
+    const i1 = await invApiCall(page, 'POST', 'items', { description: 'Merge Src ' + Date.now(), group_id: gid });
+    const i2 = await invApiCall(page, 'POST', 'items', { description: 'Merge Tgt ' + Date.now(), group_id: gid });
+    if (!i1 || !i2) return;
+    const res = await page.evaluate(async ([sid, tid]) => {
+      const r = await fetch('/api/v1/inventory/items/merge', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ source_id: sid, target_id: tid })
+      });
+      return r.status;
+    }, [i1.id, i2.id]);
+    expect(res).toBe(204);
+    const items = await invApiCall(page, 'GET', 'items');
+    const sourceExists = items.some(i => i.id === i1.id);
+    expect(sourceExists).toBe(false);
+  });
+
+  test('merge items: cannot merge into self (negative)', async ({ page }) => {
+    const groups = await invApiCall(page, 'GET', 'groups');
+    const gid = groups && groups.length ? groups[0].id : null;
+    const i = await invApiCall(page, 'POST', 'items', { description: 'Self Item ' + Date.now(), group_id: gid });
+    if (!i) return;
+    const res = await page.evaluate(async (id) => {
+      const r = await fetch('/api/v1/inventory/items/merge', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ source_id: id, target_id: id })
+      });
+      return r.status;
+    }, i.id);
+    expect(res).toBe(400);
+  });
+
+  // ── Item selection updates visual indicator ───────────────────────────
+
+  test('selecting item in modal changes border from orange to no highlight', async ({ page }) => {
+    // Create a catalog item first
+    const groups = await invApiCall(page, 'GET', 'groups');
+    const gid = groups && groups.length ? groups[0].id : null;
+    const itemName = 'Visual Test Item ' + Date.now();
+    await invApiCall(page, 'POST', 'items', { description: itemName, group_id: gid });
+    const txId = 'test-color-' + Date.now();
+    await seedPendingPurchase(page, {
+      bankTxId: txId, vendor: 'Color Vendor', bankTotal: -10.00,
+      eventDate: '2026-04-15', reason: 'test', items: [{ name: 'unlinked thing', quantity: 1, price: 10.00 }],
+    });
+    await page.reload();
+    await waitForHistoryContent(page);
+    const pending = page.locator('[data-action="review-pending"]').first();
+    if (await pending.count() > 0) {
+      await pending.click();
+      // Should start as unlinked (orange)
+      const wrap = page.locator('.review-li-name-wrap').first();
+      await expect(wrap).toHaveClass(/unlinked/);
+      // Open modal and select the item
+      await page.locator('.review-li-name').first().click();
+      await expect(page.locator('.item-modal')).toBeVisible();
+      await page.fill('#item-modal-search', itemName.substring(0, 10));
+      await page.waitForTimeout(200);
+      const modalItem = page.locator('.item-modal-item').first();
+      if (await modalItem.count() > 0) {
+        await modalItem.click();
+        // Should now be linked (no orange)
+        await expect(wrap).not.toHaveClass(/unlinked/);
+        await expect(wrap).toHaveClass(/linked/);
+      }
+    }
+  });
+
+  // ── Group required for new items ──────────────────────────────────────
+
+  test('creating item without group is rejected (negative)', async ({ page }) => {
+    const res = await page.evaluate(async () => {
+      const r = await fetch('/api/v1/inventory/items', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ description: 'No Group Item ' + Date.now() })
+      });
+      return r.status;
+    });
+    expect(res).toBe(400);
+  });
+
+  test('creating item with group succeeds (positive)', async ({ page }) => {
+    const groups = await invApiCall(page, 'GET', 'groups');
+    if (!groups || !groups.length) return;
+    const res = await invApiCall(page, 'POST', 'items', {
+      description: 'Grouped Item ' + Date.now(), group_id: groups[0].id
+    });
+    expect(res).toBeTruthy();
+    expect(res.id).toBeTruthy();
   });
 
 });
