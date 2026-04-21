@@ -39,6 +39,7 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .field-group{margin-bottom:12px}
 .field-label{font-size:12px;color:var(--mut);margin-bottom:4px}
 .field-input{width:100%;padding:9px 12px;background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;font-size:14px;color:var(--txt);font-family:inherit}
+select.field-input{appearance:none;-webkit-appearance:none;padding-right:36px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%23999' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;background-size:12px 8px}
 .correction-banner{background:var(--warn-bg);color:var(--warn-tx);border-radius:8px;padding:10px 12px;font-size:13px;margin-bottom:12px;line-height:1.4}
 .match-banner{background:#dcfce7;color:#166534;border-radius:8px;padding:10px 12px;font-size:13px;margin-bottom:12px;line-height:1.4}
 @media(prefers-color-scheme:dark){.match-banner{background:#14532d;color:#86efac}}
@@ -256,6 +257,10 @@ function show(n){
     if(btn)btn.className=i===n?'on':'';
   });
   ACTIVE_TAB=n;
+  // Reload fresh data when switching tabs
+  if(n===1){loadHistory();}
+  if(n===3){loadStock();}
+  if(n===5){loadItems();}
   render();
 }
 
@@ -899,7 +904,7 @@ function renderItemsList(){
           '<div class="field-group" style="flex:1;margin:0"><div class="field-label">Low &le;</div><input type="number" class="field-input group-low-threshold" data-group-id="'+grpId+'" value="'+lowT+'" min="0" style="text-align:center"></div>'+
           '<div class="field-group" style="flex:1;margin:0"><div class="field-label">High &gt;</div><input type="number" class="field-input group-high-threshold" data-group-id="'+grpId+'" value="'+highT+'" min="0" style="text-align:center"></div>'+
         '</div>'+
-        '<div style="font-size:12px;color:var(--mut);margin-top:6px">Qty &le; '+lowT+' = Low, '+lowT+'&ndash;'+highT+' = Medium, &gt; '+highT+' = High</div>'+
+        '<div style="font-size:12px;color:var(--mut);margin-top:6px">'+(lowT+1)+'&ndash;'+highT+' = Medium</div>'+
         '<div class="review-actions" style="margin-top:8px">'+
           '<button class="btn-primary" data-action="save-group-thresholds" data-group-id="'+grpId+'">Save</button>'+
           '<button class="btn-secondary" data-action="cancel-group-settings">Cancel</button>'+
