@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-04-15)
 Phase: 01 (onboarding-video-upgrade) — EXECUTING
 Plan: 3 of 3
 Status: Ready to execute
-Last activity: 2026-04-20
+Last activity: 2026-04-21 - Completed quick task 260421-im4: Rename History tab to Purchases in inventory.html and update all related docs
 
 Progress: [░░░░░░░░░░] 0% (v2.0 milestone)
 
