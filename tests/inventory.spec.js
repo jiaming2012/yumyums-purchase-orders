@@ -1442,6 +1442,33 @@ test.describe('Inventory', () => {
 
   // ── Tab switch reloads fresh data ─────────────────────────────────────
 
+  test('reorder suggestions show item name not group name', async ({ page }) => {
+    // Create an item in a group with low stock (qty=1)
+    const groups = await invApiCall(page, 'GET', 'groups');
+    if (!groups || !groups.length) return;
+    const grp = groups[0]; // e.g. "Beverages" or "Proteins"
+    const itemName = 'Reorder Name Check ' + Date.now();
+    const item = await invApiCall(page, 'POST', 'items', { description: itemName, group_id: grp.id });
+    if (!item) return;
+    const vendors = await invApiCall(page, 'GET', 'vendors');
+    if (!vendors || !vendors.length) return;
+    await invApiCall(page, 'POST', 'purchases', {
+      vendor_id: vendors[0].id, bank_tx_id: 'reorder-name-' + Date.now(),
+      event_date: '2026-04-15', tax: 0, total: 5,
+      line_items: [{ purchase_item_id: item.id, description: itemName, quantity: 1, price: 5.00 }]
+    });
+    // Go to Stock tab
+    await page.locator('#t3').click();
+    await page.waitForFunction(() => {
+      const el = document.getElementById('reorder-section');
+      return el && el.textContent.length > 0;
+    }, { timeout: 8000 });
+    const reorderText = await page.locator('#reorder-section').textContent();
+    // Should show the item name, NOT the group name
+    expect(reorderText).toContain(itemName);
+    expect(reorderText).not.toMatch(new RegExp('^' + grp.name + '\\b.*Last bought'));
+  });
+
   test('stock tab reflects threshold changes from Setup without page refresh', async ({ page }) => {
     // Get groups and pick one with items
     const groups = await invApiCall(page, 'GET', 'groups');

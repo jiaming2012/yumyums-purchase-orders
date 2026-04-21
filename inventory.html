@@ -530,7 +530,7 @@ function renderStock(){
   needsReorder.sort((a,b)=>LEVEL_ORDER[a.level]-LEVEL_ORDER[b.level]||(a.group_name||a.description).localeCompare(b.group_name||b.description));
   if(needsReorder.length){
     reorderEl.innerHTML='<div class="reorder-section"><div class="reorder-title">Reorder Suggestions ('+needsReorder.length+')</div>'+needsReorder.map(s=>{
-      var name=s.group_name||s.description;
+      var name=s.description;
       var lastDate=s.last_purchase_date?'Last bought: '+formatDate(s.last_purchase_date):'No purchase history';
       return '<div class="reorder-item"><div><div class="reorder-item-name">'+name+'</div><div class="reorder-item-meta">'+lastDate+'</div></div>'+badgeHtml(s.level)+'</div>';
     }).join('')+'</div>';
