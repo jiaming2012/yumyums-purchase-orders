@@ -170,7 +170,7 @@ select.field-input{appearance:none;-webkit-appearance:none;padding-right:36px;ba
 <div class="app">
   <a class="back" href="index.html">&#8249; HQ &nbsp;&#183;&nbsp; Inventory</a>
   <div class="tabs">
-    <button id="t1" class="on" onclick="show(1)">History</button>
+    <button id="t1" class="on" onclick="show(1)">Purchases</button>
     <button id="t2" onclick="show(2)">Trends</button>
     <button id="t3" onclick="show(3)">Stock</button>
     <button id="t4" onclick="show(4)">Cost</button>
@@ -496,7 +496,7 @@ function updateHistoryTabLabel(){
   var btn=document.getElementById('t1');
   if(!btn)return;
   var n=PENDING_PURCHASES.length;
-  btn.textContent=n>0?'History ('+n+')':'History';
+  btn.textContent=n>0?'Purchases ('+n+')':'Purchases';
   btn.style.color=n>0?'var(--warn-tx)':'';' '
 }
 
