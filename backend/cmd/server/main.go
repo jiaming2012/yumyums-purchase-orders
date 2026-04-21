@@ -372,6 +372,8 @@ func main() {
 			// Inventory endpoints — all authenticated
 			r.Route("/inventory", func(r chi.Router) {
 				r.Get("/vendors", inventory.ListVendorsHandler(pool))
+				r.Post("/vendors", inventory.CreateVendorHandler(pool))
+				r.Put("/vendors", inventory.UpdateVendorHandler(pool))
 				r.Get("/purchases", inventory.ListPurchaseEventsHandler(pool))
 				r.Post("/purchases", inventory.CreatePurchaseEventHandler(pool))
 				r.Get("/purchases/pending", inventory.ListPendingPurchasesHandler(pool))

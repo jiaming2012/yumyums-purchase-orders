@@ -172,7 +172,7 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
     <button id="t2" onclick="show(2)">Trends</button>
     <button id="t3" onclick="show(3)">Stock</button>
     <button id="t4" onclick="show(4)">Cost</button>
-    <button id="t5" onclick="show(5)">Items</button>
+    <button id="t5" onclick="show(5)">Catalog</button>
   </div>
   <div id="s1">
     <select id="vendor-filter" class="filter-select">
@@ -199,8 +199,21 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
     </div>
   </div>
   <div id="s5" style="display:none">
-    <input id="item-search" class="filter-select" type="text" placeholder="Search items..." autocomplete="off">
-    <div id="items-list"></div>
+    <div class="sub-tabs">
+      <button id="st1" class="on" onclick="showCatalogSub(1)">Items</button>
+      <button id="st2" onclick="showCatalogSub(2)">Vendors</button>
+    </div>
+    <div id="cs1">
+      <input id="item-search" class="filter-select" type="text" placeholder="Search items..." autocomplete="off">
+      <div id="items-list"></div>
+    </div>
+    <div id="cs2" style="display:none">
+      <div class="add-item-bar">
+        <input type="text" class="field-input" id="new-vendor-name" placeholder="New vendor name...">
+        <button data-action="create-vendor" id="create-vendor-btn">Add</button>
+      </div>
+      <div id="vendors-list"></div>
+    </div>
   </div>
 </div>
 <script>
@@ -250,7 +263,10 @@ function render(){
   if(ACTIVE_TAB===2)renderTrends();
   if(ACTIVE_TAB===3)renderStock();
   if(ACTIVE_TAB===4)renderCost();
-  if(ACTIVE_TAB===5)renderItemsList();
+  if(ACTIVE_TAB===5){
+    if(CATALOG_SUB===1)renderItemsList();
+    else if(CATALOG_SUB===2)renderVendorsList();
+  }
 }
 
 let PURCHASES=[];
@@ -259,7 +275,9 @@ let PENDING_PURCHASES=[];
 let ALL_ITEMS=[];
 let ITEM_GROUPS=[];
 let ITEM_SEARCH='';
-let ITEM_EDIT_ID=null; // item id currently being edited inline
+let ITEM_EDIT_ID=null;
+let CATALOG_SUB=1;
+let VENDOR_EDIT_ID=null;
 let VENDORS=[];
 let HISTORY_PAGE=1;
 let HISTORY_LOADING=false;
@@ -291,7 +309,7 @@ async function loadVendors(){
     VENDORS=data||[];
     var sel=document.getElementById('vendor-filter');
     var sorted=[...VENDORS].sort((a,b)=>a.name.localeCompare(b.name));
-    sel.innerHTML='<option value="">All Vendors</option>'+sorted.map(v=>'<option value="'+v.id+'">'+v.name+'</option>').join('');
+    sel.innerHTML='<option value="">All Vendors</option>'+sorted.map(v=>'<option value="'+v.id+'">'+titleCase(v.name)+'</option>').join('');
   }catch(e){if(e.message!=='unauthorized')console.error('loadVendors',e);}
 }
 
@@ -308,7 +326,7 @@ function renderPurchaseEvent(evt){
       return '<div class="line-item"><div style="flex:1"><div style="font-size:13px;font-weight:500">'+desc+(p.is_case?' <span class="case-badge">CASE</span>':'')+'</div><div style="font-size:12px;color:var(--mut);margin-top:2px">Qty: '+p.quantity+'</div></div><div style="font-size:14px;font-weight:500">$'+Number(p.price).toFixed(2)+'</div></div>';
     }).join('')+receiptLink+'</div>';
   }
-  return '<div class="event-card" data-action="toggle-event" data-id="'+evt.id+'"><div class="event-header"><div><div class="event-vendor">'+evt.vendor_name+'</div><div class="event-meta">'+formatDate(evt.event_date)+'</div></div><div class="event-total">$'+Number(evt.total).toFixed(2)+'</div></div>'+detail+'</div>';
+  return '<div class="event-card" data-action="toggle-event" data-id="'+evt.id+'"><div class="event-header"><div><div class="event-vendor">'+titleCase(evt.vendor_name)+'</div><div class="event-meta">'+formatDate(evt.event_date)+'</div></div><div class="event-total">$'+Number(evt.total).toFixed(2)+'</div></div>'+detail+'</div>';
 }
 
 function renderPendingCard(p){
@@ -701,6 +719,12 @@ async function confirmReceipt(id){
     renderHistoryList();
     return;
   }
+  var unmapped=state.line_items.filter(function(li){return !li.purchase_item_id;});
+  if(unmapped.length>0){
+    state._error='All line items must be linked to a catalog item. Tap each item name to select or create one.';
+    renderHistoryList();
+    return;
+  }
   state._error='';
   try{
     var payload={
@@ -809,7 +833,7 @@ function renderItemsList(){
   });
 
   // Build group options for add-item select
-  var groupOpts='<option value="">No Group</option>'+ITEM_GROUPS.map(function(g){return '<option value="'+g.id+'">'+escHtml(g.name)+'</option>';}).join('');
+  var groupOpts='<option value="">No Group</option>'+ITEM_GROUPS.map(function(g){return '<option value="'+g.id+'">'+escHtml(g.name)+'</option>';}).join('')+'<option value="__new__">+ New Group</option>';
 
   var html='<div class="add-item-bar">'+
     '<input type="text" class="field-input" id="new-item-name" placeholder="New item name...">'+
@@ -859,6 +883,24 @@ document.getElementById('item-search').addEventListener('input',function(e){
   renderItemsList();
 });
 
+// Handle "New Group" selection in any group dropdown within items tab
+document.getElementById('items-list').addEventListener('change',function(e){
+  var sel=e.target;
+  if(sel.value!=='__new__')return;
+  var name=prompt('New group name:');
+  if(!name||!name.trim()){sel.value='';return;}
+  api('/api/v1/inventory/groups',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:name.trim()})}).then(function(res){
+    return api('/api/v1/inventory/groups');
+  }).then(function(groups){
+    ITEM_GROUPS=groups||[];
+    var created=ITEM_GROUPS.find(function(g){return g.name.toLowerCase()===name.trim().toLowerCase();});
+    // Rebuild options in this select
+    var opts='<option value="">No Group</option>'+ITEM_GROUPS.map(function(g){return '<option value="'+g.id+'"'+(created&&g.id===created.id?' selected':'')+'>'+escHtml(g.name)+'</option>';}).join('')+'<option value="__new__">+ New Group</option>';
+    sel.innerHTML=opts;
+    if(created)sel.value=created.id;
+  }).catch(function(err){console.error('createGroup',err);sel.value='';});
+});
+
 document.getElementById('items-list').addEventListener('click',function(e){
   var el=e.target.closest('[data-action]');
   if(!el)return;
@@ -892,6 +934,77 @@ document.getElementById('items-list').addEventListener('click',function(e){
   }
 });
 
+// ── Catalog sub-tabs ──────────────────────────────────────────────────────
+
+function showCatalogSub(n){
+  CATALOG_SUB=n;
+  [1,2].forEach(function(i){
+    var el=document.getElementById('cs'+i);
+    if(el)el.style.display=i===n?'':'none';
+    var btn=document.getElementById('st'+i);
+    if(btn)btn.className=i===n?'on':'';
+  });
+  render();
+}
+
+// ── Vendors sub-tab ──────────────────────────────────────────────────────
+
+function renderVendorsList(){
+  var list=document.getElementById('vendors-list');
+  if(!list)return;
+  var sorted=[...VENDORS].sort(function(a,b){return a.name.localeCompare(b.name);});
+  var html='';
+  sorted.forEach(function(v){
+    if(VENDOR_EDIT_ID===v.id){
+      html+='<div class="item-edit-form" data-vendor-id="'+v.id+'">'+
+        '<div class="field-group"><div class="field-label">Vendor Name</div><input type="text" class="field-input vendor-edit-name" value="'+escHtml(v.name)+'"></div>'+
+        '<div class="review-actions" style="margin-top:8px">'+
+          '<button class="btn-primary" data-action="save-vendor" data-id="'+v.id+'">Save</button>'+
+          '<button class="btn-secondary" data-action="cancel-edit-vendor">Cancel</button>'+
+        '</div></div>';
+    } else {
+      html+='<div class="item-row" data-action="tap-vendor" data-id="'+v.id+'"><span class="item-name">'+escHtml(v.name)+'</span></div>';
+    }
+  });
+  if(!sorted.length){
+    html+='<div class="empty"><p>No vendors yet.</p></div>';
+  }
+  list.innerHTML=html;
+}
+
+document.getElementById('vendors-list').addEventListener('click',function(e){
+  var el=e.target.closest('[data-action]');
+  if(!el)return;
+  var action=el.dataset.action;
+  if(action==='tap-vendor'){
+    VENDOR_EDIT_ID=VENDOR_EDIT_ID===el.dataset.id?null:el.dataset.id;
+    renderVendorsList();
+  } else if(action==='save-vendor'){
+    var form=el.closest('.item-edit-form');
+    var newName=form.querySelector('.vendor-edit-name').value.trim();
+    if(!newName)return;
+    api('/api/v1/inventory/vendors',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:el.dataset.id,name:newName})}).then(function(){
+      VENDOR_EDIT_ID=null;
+      loadVendors();
+      renderVendorsList();
+    }).catch(function(err){console.error('updateVendor',err);});
+  } else if(action==='cancel-edit-vendor'){
+    VENDOR_EDIT_ID=null;
+    renderVendorsList();
+  }
+});
+
+document.getElementById('create-vendor-btn').addEventListener('click',function(){
+  var nameEl=document.getElementById('new-vendor-name');
+  var name=nameEl.value.trim();
+  if(!name)return;
+  api('/api/v1/inventory/vendors',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:name})}).then(function(){
+    nameEl.value='';
+    loadVendors();
+    renderVendorsList();
+  }).catch(function(err){console.error('createVendor',err);});
+});
+
 document.addEventListener('dblclick',e=>e.preventDefault());
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');
 
@@ -922,13 +1035,15 @@ function openItemModal(input){
   modal.className='item-modal';
   modal.id='item-modal';
   modal.innerHTML='<div class="item-modal-header">'+
-    '<input type="text" id="item-modal-search" placeholder="Search items..." autofocus>'+
+    '<input type="text" id="item-modal-search" placeholder="Search items..." autofocus autocomplete="off">'+
     '<button class="item-modal-cancel" id="item-modal-cancel">Cancel</button>'+
     '</div>'+
     '<div class="item-modal-list" id="item-modal-list"></div>';
   document.body.appendChild(modal);
-  renderItemModal('');
+  var currentText=input.value.trim();
   var searchEl=document.getElementById('item-modal-search');
+  searchEl.value=currentText;
+  renderItemModal(currentText);
   searchEl.focus();
   searchEl.addEventListener('input',function(){renderItemModal(searchEl.value);});
   document.getElementById('item-modal-cancel').addEventListener('click',closeItemModal);
@@ -951,7 +1066,7 @@ function renderItemModal(query){
   // Create new item section
   if(q){
     html+='<div class="item-modal-create" id="item-modal-create-btn">'+
-      '<div class="item-modal-create-text">+ Create &ldquo;'+escHtml(q)+'&rdquo; as new item</div>'+
+      '<div class="item-modal-create-text">+ Create &ldquo;'+escHtml(titleCase(q))+'&rdquo; as new item</div>'+
       '</div>';
   }
 
@@ -972,7 +1087,7 @@ function renderItemModal(query){
   var createBtn=document.getElementById('item-modal-create-btn');
   if(createBtn){
     createBtn.addEventListener('click',function(){
-      showCreateItemForm(q);
+      showCreateItemForm(titleCase(q));
     });
   }
 }
@@ -980,7 +1095,7 @@ function renderItemModal(query){
 function showCreateItemForm(prefill){
   var list=document.getElementById('item-modal-list');
   if(!list)return;
-  var groupOpts='<option value="">No Group</option>'+ITEM_GROUPS.map(function(g){return '<option value="'+g.id+'">'+escHtml(g.name)+'</option>';}).join('');
+  var groupOpts='<option value="">No Group</option>'+ITEM_GROUPS.map(function(g){return '<option value="'+g.id+'">'+escHtml(g.name)+'</option>';}).join('')+'<option value="__new__">+ New Group</option>';
   list.innerHTML='<div class="item-modal-new-form">'+
     '<div class="field-group"><div class="field-label">Item Name</div>'+
     '<input type="text" class="field-input" id="modal-new-item-name" value="'+escHtml(prefill)+'"></div>'+
@@ -989,10 +1104,26 @@ function showCreateItemForm(prefill){
     '<button class="btn-primary" id="modal-create-item-btn">Create Item</button>'+
     '</div>';
   document.getElementById('modal-new-item-name').focus();
+  document.getElementById('modal-new-item-group').addEventListener('change',function(){
+    var sel=this;
+    if(sel.value!=='__new__')return;
+    var gname=prompt('New group name:');
+    if(!gname||!gname.trim()){sel.value='';return;}
+    api('/api/v1/inventory/groups',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:gname.trim()})}).then(function(){
+      return api('/api/v1/inventory/groups');
+    }).then(function(groups){
+      ITEM_GROUPS=groups||[];
+      var created=ITEM_GROUPS.find(function(g){return g.name.toLowerCase()===gname.trim().toLowerCase();});
+      var opts='<option value="">No Group</option>'+ITEM_GROUPS.map(function(g){return '<option value="'+g.id+'"'+(created&&g.id===created.id?' selected':'')+'>'+escHtml(g.name)+'</option>';}).join('')+'<option value="__new__">+ New Group</option>';
+      sel.innerHTML=opts;
+      if(created)sel.value=created.id;
+    }).catch(function(err){console.error('createGroup',err);sel.value='';});
+  });
   document.getElementById('modal-create-item-btn').addEventListener('click',function(){
     var name=document.getElementById('modal-new-item-name').value.trim();
     if(!name)return;
     var groupId=document.getElementById('modal-new-item-group').value||null;
+    if(groupId==='__new__')groupId=null;
     api('/api/v1/inventory/items',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({description:name,group_id:groupId})}).then(function(){
       return api('/api/v1/inventory/items');
     }).then(function(data){

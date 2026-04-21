@@ -57,6 +57,66 @@ func ListVendorsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 	}
 }
 
+// CreateVendorHandler creates a new vendor.
+func CreateVendorHandler(pool *pgxpool.Pool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var input struct {
+			Name string `json:"name"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_json")
+			return
+		}
+		if input.Name == "" {
+			writeError(w, http.StatusBadRequest, "name_required")
+			return
+		}
+		input.Name = normalizeItemName(input.Name)
+		var id string
+		err := pool.QueryRow(r.Context(), `
+			INSERT INTO vendors (name) VALUES ($1)
+			ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name
+			RETURNING id`, input.Name,
+		).Scan(&id)
+		if err != nil {
+			log.Printf("CreateVendor insert: %v", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		writeJSON(w, http.StatusCreated, map[string]string{"id": id})
+	}
+}
+
+// UpdateVendorHandler updates a vendor's name.
+func UpdateVendorHandler(pool *pgxpool.Pool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var input struct {
+			ID   string `json:"id"`
+			Name string `json:"name"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_json")
+			return
+		}
+		if input.ID == "" || input.Name == "" {
+			writeError(w, http.StatusBadRequest, "id_and_name_required")
+			return
+		}
+		input.Name = normalizeItemName(input.Name)
+		tag, err := pool.Exec(r.Context(), `UPDATE vendors SET name = $1 WHERE id = $2`, input.Name, input.ID)
+		if err != nil {
+			log.Printf("UpdateVendor update: %v", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		if tag.RowsAffected() == 0 {
+			writeError(w, http.StatusNotFound, "vendor_not_found")
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
 // ListPurchaseEventsHandler returns purchase events with nested line items.
 // Accepts optional ?vendor_id and ?page query params (LIMIT 50 per page).
 func ListPurchaseEventsHandler(pool *pgxpool.Pool) http.HandlerFunc {

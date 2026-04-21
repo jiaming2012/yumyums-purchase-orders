@@ -5,89 +5,39 @@ vendors:
   - name: "Costco"
   - name: "Local Farm"
 
+# Groups and tags are seeded here. Items are NOT seeded — they are created
+# automatically from receipt line items as they flow through the system.
+# This ensures the item catalog reflects actual purchased products
+# (e.g. "Poland Spring 40/16.9oz") rather than abstract categories.
 item_groups:
   - name: "Proteins"
     par_days: 3
     tags: ["Proteins", "Meat"]
-    purchase_items:
-      - description: "Salmon Fillet"
-      - description: "Chicken Breast"
-      - description: "Ground Beef"
-      - description: "Brisket"
-      - description: "Hot Dogs"
 
   - name: "Produce"
     par_days: 2
     tags: ["Produce", "Fresh"]
-    purchase_items:
-      - description: "Lettuce"
-      - description: "Tomatoes"
-      - description: "Yellow Onions"
-      - description: "Red Onions"
-      - description: "Jalapeños"
-      - description: "Corn Fresh"
 
   - name: "Dairy"
     par_days: 4
     tags: ["Dairy", "Cold"]
-    purchase_items:
-      - description: "Mexican Cheese Blend"
-      - description: "Parmesan Cheese"
-      - description: "White Cheddar Sauce"
-      - description: "Sour Cream"
-      - description: "Liquid Butter"
 
   - name: "Dry Goods"
     par_days: 7
     tags: ["Dry Goods", "Pantry"]
-    purchase_items:
-      - description: "Fryer Oil 35lb"
-      - description: "Olive Oil"
-      - description: "Salt"
-      - description: "Black Pepper"
-      - description: "Garlic Powder"
-      - description: "Old Bay Seasoning"
-      - description: "BBQ Sauce"
-      - description: "Ketchup"
-      - description: "Mustard"
-      - description: "Mayo"
 
   - name: "Packaging"
     par_days: 14
     tags: ["Supplies", "Packaging"]
-    purchase_items:
-      - description: "Food Containers Small"
-      - description: "Food Containers Large"
-      - description: "Napkins"
-      - description: "Foil"
-      - description: "Trash Bags"
-      - description: "Gloves"
 
   - name: "Beverages"
     par_days: 7
     tags: ["Drinks", "Beverages"]
-    purchase_items:
-      - description: "Coca-Cola"
-      - description: "Sprite"
-      - description: "Dr Pepper"
-      - description: "Water"
-      - description: "Ice"
 
   - name: "Bread"
     par_days: 2
     tags: ["Bread", "Bakery"]
-    purchase_items:
-      - description: "Hamburger Rolls"
-      - description: "Hot Dog Buns"
-      - description: "Brisket Brioche Rolls"
-      - description: "Sandwich Rolls"
 
   - name: "Cleaning Supplies"
     par_days: 30
     tags: ["Supplies", "Cleaning"]
-    purchase_items:
-      - description: "Bleach"
-      - description: "Grill Degreaser"
-      - description: "Hand Soap"
-      - description: "Paper Towels"
-      - description: "Wipes"

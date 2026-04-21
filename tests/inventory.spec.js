@@ -428,22 +428,61 @@ test.describe('Inventory', () => {
     await expect(page.locator('#cost-container')).toHaveCount(1);
   });
 
-  // ── Items tab (5th tab) ────────────────────────────────────────────────
+  // ── Catalog tab (5th tab) ───────────────────────────────────────────────
 
-  test('Items tab exists as 5th tab', async ({ page }) => {
-    await expect(page.locator('#t5')).toContainText('Items');
+  test('Catalog tab exists as 5th tab', async ({ page }) => {
+    await expect(page.locator('#t5')).toContainText('Catalog');
   });
 
-  test('Items tab shows item list grouped by group name', async ({ page }) => {
+  test('Catalog tab has Items and Vendors sub-tabs', async ({ page }) => {
+    await page.locator('#t5').click();
+    await expect(page.locator('#st1')).toContainText('Items');
+    await expect(page.locator('#st2')).toContainText('Vendors');
+    await expect(page.locator('#st1')).toHaveClass(/on/);
+  });
+
+  test('Vendors sub-tab shows vendor list', async ({ page }) => {
+    await page.locator('#t5').click();
+    await page.locator('#st2').click();
+    await page.waitForFunction(() => {
+      const list = document.getElementById('vendors-list');
+      return list && (list.querySelector('.item-row') || list.querySelector('.empty'));
+    }, { timeout: 5000 });
+    // Should have seeded vendors
+    const rows = page.locator('#vendors-list .item-row');
+    const count = await rows.count();
+    expect(count).toBeGreaterThan(0);
+  });
+
+  test('Vendors sub-tab has add vendor form', async ({ page }) => {
+    await page.locator('#t5').click();
+    await page.locator('#st2').click();
+    await expect(page.locator('#new-vendor-name')).toBeVisible();
+    await expect(page.locator('#create-vendor-btn')).toBeVisible();
+  });
+
+  test('tapping vendor expands inline edit form', async ({ page }) => {
+    await page.locator('#t5').click();
+    await page.locator('#st2').click();
+    await page.waitForFunction(() => {
+      const list = document.getElementById('vendors-list');
+      return list && list.querySelector('.item-row');
+    }, { timeout: 5000 });
+    await page.locator('#vendors-list .item-row').first().click();
+    await expect(page.locator('.vendor-edit-name')).toBeVisible();
+    await expect(page.locator('[data-action="save-vendor"]')).toBeVisible();
+    await expect(page.locator('[data-action="cancel-edit-vendor"]')).toBeVisible();
+  });
+
+  test('Items sub-tab shows item list or empty state', async ({ page }) => {
     await page.locator('#t5').click();
     await page.waitForFunction(() => {
       const list = document.getElementById('items-list');
-      return list && (list.querySelector('.item-group-section') || list.querySelector('.empty'));
+      return list && (list.querySelector('.item-group-section') || list.querySelector('.item-row') || list.querySelector('.empty') || list.querySelector('.add-item-bar'));
     }, { timeout: 8000 });
-    const groups = page.locator('.item-group-section');
-    const count = await groups.count();
-    // Seeded data should have groups like Proteins, Produce, etc.
-    expect(count).toBeGreaterThan(0);
+    // Either items exist (grouped or ungrouped) or empty state shows — both valid
+    const hasContent = await page.locator('#items-list').evaluate(el => el.children.length > 0);
+    expect(hasContent).toBe(true);
   });
 
   test('Items tab has search filter', async ({ page }) => {
@@ -454,17 +493,25 @@ test.describe('Inventory', () => {
   });
 
   test('Items search filters items by name', async ({ page }) => {
+    // Create two items so we can verify filtering narrows results
+    const ts = Date.now();
+    await invApiCall(page, 'POST', 'items', { description: 'Filterable Alpha ' + ts });
+    await invApiCall(page, 'POST', 'items', { description: 'Filterable Beta ' + ts });
+    await invApiCall(page, 'POST', 'items', { description: 'Unrelated Gamma ' + ts });
+    await page.reload();
+    await page.waitForLoadState('networkidle');
     await page.locator('#t5').click();
-    await page.waitForFunction(() => {
-      const list = document.getElementById('items-list');
-      return list && list.querySelector('.item-row');
-    }, { timeout: 8000 });
-    const totalBefore = await page.locator('.item-row').count();
-    await page.fill('#item-search', 'Salmon');
+    await page.waitForFunction((ts) => {
+      const rows = document.querySelectorAll('#items-list .item-row');
+      for (const r of rows) if (r.textContent.includes('Filterable Alpha')) return true;
+      return false;
+    }, ts, { timeout: 8000 });
+    const totalBefore = await page.locator('#items-list .item-row').count();
+    await page.fill('#item-search', 'Filterable');
     await page.waitForTimeout(300);
-    const totalAfter = await page.locator('.item-row').count();
+    const totalAfter = await page.locator('#items-list .item-row').count();
     expect(totalAfter).toBeLessThan(totalBefore);
-    expect(totalAfter).toBeGreaterThan(0);
+    expect(totalAfter).toBeGreaterThanOrEqual(2);
   });
 
   test('Items tab has add item form', async ({ page }) => {
@@ -526,14 +573,13 @@ test.describe('Inventory', () => {
       await nameInput.click();
       await expect(page.locator('.item-modal')).toBeVisible();
       await expect(page.locator('#item-modal-search')).toBeVisible();
-      await expect(page.locator('.item-modal-item').first()).toBeVisible();
       // Cancel closes modal
       await page.locator('#item-modal-cancel').click();
       await expect(page.locator('.item-modal')).toHaveCount(0);
     }
   });
 
-  test('item modal search filters items', async ({ page }) => {
+  test('item modal shows create option when searching', async ({ page }) => {
     const txId = 'test-item-modal-search-' + Date.now();
     await seedPendingPurchase(page, {
       bankTxId: txId, vendor: 'Search Vendor', bankTotal: -10.00,
@@ -546,15 +592,98 @@ test.describe('Inventory', () => {
       await pending.click();
       await page.locator('.review-li-name').first().click();
       await expect(page.locator('.item-modal')).toBeVisible();
-      const beforeCount = await page.locator('.item-modal-item').count();
-      await page.fill('#item-modal-search', 'Salmon');
+      await page.fill('#item-modal-search', 'Unique Test Item');
       await page.waitForTimeout(200);
-      const afterCount = await page.locator('.item-modal-item').count();
-      expect(afterCount).toBeLessThanOrEqual(beforeCount);
-      expect(afterCount).toBeGreaterThan(0);
       // Should show create option with search text
       await expect(page.locator('.item-modal-create')).toBeVisible();
+      await expect(page.locator('.item-modal-create-text')).toContainText('Create');
       await page.locator('#item-modal-cancel').click();
+    }
+  });
+
+  test('item modal create option shows title-cased name', async ({ page }) => {
+    const txId = 'test-item-title-case-' + Date.now();
+    await seedPendingPurchase(page, {
+      bankTxId: txId, vendor: 'TC Vendor', bankTotal: -10.00,
+      eventDate: '2026-04-15', reason: 'test', items: [{ name: 'test item', quantity: 1, price: 10.00 }],
+    });
+    await page.reload();
+    await waitForHistoryContent(page);
+    const pending = page.locator('[data-action="review-pending"]').first();
+    if (await pending.count() > 0) {
+      await pending.click();
+      await page.locator('.review-li-name').first().click();
+      await expect(page.locator('.item-modal')).toBeVisible();
+      await page.fill('#item-modal-search', 'new fancy item');
+      await page.waitForTimeout(200);
+      const createText = await page.locator('.item-modal-create-text').textContent();
+      // Should be title-cased: "New Fancy Item", not "new fancy item"
+      expect(createText).toContain('New Fancy Item');
+      await page.locator('#item-modal-cancel').click();
+    }
+  });
+
+  test('item modal pre-fills search with current line item text', async ({ page }) => {
+    const txId = 'test-prefill-' + Date.now();
+    await seedPendingPurchase(page, {
+      bankTxId: txId, vendor: 'Prefill Vendor', bankTotal: -10.00,
+      eventDate: '2026-04-15', reason: 'test', items: [{ name: 'SPECIAL SAUCE', quantity: 1, price: 10.00 }],
+    });
+    await page.reload();
+    await waitForHistoryContent(page);
+    const pending = page.locator('[data-action="review-pending"]').first();
+    if (await pending.count() > 0) {
+      await pending.click();
+      await page.locator('.review-li-name').first().click();
+      await expect(page.locator('.item-modal')).toBeVisible();
+      const searchVal = await page.locator('#item-modal-search').inputValue();
+      // Should be pre-filled with the title-cased line item text
+      expect(searchVal).toBe('Special Sauce');
+      await page.locator('#item-modal-cancel').click();
+    }
+  });
+
+  test('create item form pre-fills name with title case', async ({ page }) => {
+    const txId = 'test-create-prefill-' + Date.now();
+    await seedPendingPurchase(page, {
+      bankTxId: txId, vendor: 'Prefill Vendor', bankTotal: -10.00,
+      eventDate: '2026-04-15', reason: 'test', items: [{ name: 'some weird item', quantity: 1, price: 10.00 }],
+    });
+    await page.reload();
+    await waitForHistoryContent(page);
+    const pending = page.locator('[data-action="review-pending"]').first();
+    if (await pending.count() > 0) {
+      await pending.click();
+      await page.locator('.review-li-name').first().click();
+      await expect(page.locator('.item-modal')).toBeVisible();
+      await page.fill('#item-modal-search', 'brand new thing');
+      await page.waitForTimeout(200);
+      await page.locator('.item-modal-create').click();
+      // Create form should have title-cased prefill
+      const nameInput = page.locator('#modal-new-item-name');
+      await expect(nameInput).toBeVisible();
+      const val = await nameInput.inputValue();
+      expect(val).toBe('Brand New Thing');
+      await page.locator('#item-modal-cancel').click();
+    }
+  });
+
+  test('confirm receipt blocked when line items not linked to catalog items', async ({ page }) => {
+    const txId = 'test-confirm-block-' + Date.now();
+    await seedPendingPurchase(page, {
+      bankTxId: txId, vendor: 'Block Vendor', bankTotal: -10.00,
+      eventDate: '2026-04-15', reason: 'test', items: [{ name: 'Unlinked Item', quantity: 1, price: 10.00 }],
+    });
+    await page.reload();
+    await waitForHistoryContent(page);
+    const pending = page.locator('[data-action="review-pending"]').first();
+    if (await pending.count() > 0) {
+      await pending.click();
+      // Try to confirm without selecting items from catalog
+      await page.locator('[data-action="confirm-receipt"]').first().click();
+      // Should show error
+      await expect(page.locator('.inline-error')).toBeVisible();
+      await expect(page.locator('.inline-error')).toContainText('linked to a catalog item');
     }
   });
 
