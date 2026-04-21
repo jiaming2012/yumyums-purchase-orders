@@ -76,7 +76,7 @@ func SeedInventoryFixtures(ctx context.Context, pool *pgxpool.Pool) error {
 		var groupID string
 		err := pool.QueryRow(ctx,
 			`INSERT INTO item_groups (name, par_days) VALUES ($1, $2)
-			 ON CONFLICT DO NOTHING
+			 ON CONFLICT (name) DO NOTHING
 			 RETURNING id`,
 			g.Name, g.ParDays,
 		).Scan(&groupID)

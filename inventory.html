@@ -259,6 +259,7 @@ let PENDING_PURCHASES=[];
 let ALL_ITEMS=[];
 let ITEM_GROUPS=[];
 let ITEM_SEARCH='';
+let ITEM_EDIT_ID=null; // item id currently being edited inline
 let VENDORS=[];
 let HISTORY_PAGE=1;
 let HISTORY_LOADING=false;
@@ -314,15 +315,16 @@ function renderPendingCard(p){
   if(REVIEW_OPEN_ID===p.id){
     return renderReviewForm(p);
   }
-  var vendorDisplay=p.vendor||p.vendor_name||'Unknown Vendor';
-  return '<div class="event-card" data-action="review-pending" data-id="'+p.id+'" style="position:relative;padding-right:110px"><div style="position:absolute;top:12px;right:12px"><span class="approval-badge">Needs Review</span></div><div class="event-vendor">'+vendorDisplay+'</div><div class="event-meta">'+formatDate(p.event_date)+(p.reason?'&nbsp;&middot;&nbsp;'+p.reason:'')+'</div><div class="event-total" style="margin-top:4px">$'+Number(p.bank_total||p.total||0).toFixed(2)+'</div></div>';
+  var vendorDisplay=titleCase(p.vendor||p.vendor_name||'Unknown Vendor');
+  var reasonHtml=p.reason?'&nbsp;&middot;&nbsp;'+escHtml(p.reason).replace(/\(diff (\$[\d.]+)\)/,'(<span style="color:var(--warn-tx);font-weight:600">diff $1</span>)'):'';
+  return '<div class="event-card" data-action="review-pending" data-id="'+p.id+'" style="position:relative;padding-right:110px"><div style="position:absolute;top:12px;right:12px"><span class="approval-badge">Needs Review</span></div><div class="event-vendor">'+vendorDisplay+'</div><div class="event-meta">'+formatDate(p.event_date)+reasonHtml+'</div><div class="event-total" style="margin-top:4px">$'+Number(p.bank_total||p.total||0).toFixed(2)+'</div></div>';
 }
 
 function renderReviewForm(p){
   var state=REVIEW_FORM_STATE[p.id];
   if(!state){
-    var items=(p.items||[]).map(function(it){return {name:it.name||it.description||'',qty:it.quantity||1,price:it.price||0,is_case:!!it.is_case,purchase_item_id:it.purchase_item_id||null};});
-    state={vendor_name:p.vendor||p.vendor_name||'',event_date:p.event_date||'',line_items:items,tax:p.tax||0,total:p.total||0,bank_total:p.bank_total||p.total||0};
+    var items=(p.items||[]).map(function(it){return {name:titleCase(it.name||it.description||''),qty:it.quantity||1,price:it.price||0,is_case:!!it.is_case,purchase_item_id:it.purchase_item_id||null};});
+    state={vendor_name:titleCase(p.vendor||p.vendor_name||''),event_date:p.event_date||'',line_items:items,tax:p.tax||0,total:p.total||0,bank_total:p.bank_total||p.total||0};
     REVIEW_FORM_STATE[p.id]=state;
   }
   var lineTotal=state.line_items.reduce(function(s,li){return s+Number(li.qty)*Number(li.price);},0);
@@ -363,6 +365,7 @@ function renderReviewForm(p){
 }
 
 function escHtml(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function titleCase(s){return String(s||'').toLowerCase().replace(/\b\w/g,function(c){return c.toUpperCase();});}
 
 function captureReviewFormInputs(pendingId){
   var container=document.querySelector('.review-form[data-pending-id="'+pendingId+'"]');
@@ -814,25 +817,33 @@ function renderItemsList(){
     '<button data-action="create-item">Add</button>'+
     '</div>';
 
+  function renderItemRow(it){
+    if(ITEM_EDIT_ID===it.id){
+      return '<div class="item-edit-form" data-item-id="'+it.id+'">'+
+        '<div class="field-group"><div class="field-label">Name</div><input type="text" class="field-input item-edit-name" value="'+escHtml(it.description)+'"></div>'+
+        '<div class="field-group"><div class="field-label">Group</div><select class="field-input item-edit-group">'+groupOpts.replace('value="'+(it.group_id||'')+'"','value="'+(it.group_id||'')+'" selected')+'</select></div>'+
+        '<div class="review-actions" style="margin-top:8px">'+
+          '<button class="btn-primary" data-action="save-item" data-id="'+it.id+'">Save</button>'+
+          '<button class="btn-secondary" data-action="cancel-edit-item">Cancel</button>'+
+        '</div></div>';
+    }
+    return '<div class="item-row" data-action="tap-item" data-id="'+it.id+'"><span class="item-name">'+escHtml(it.description)+'</span>'+
+      '<span class="item-group-label">'+(it.group_name?escHtml(it.group_name):'—')+'</span></div>';
+  }
+
   // Render grouped sections
   var groupNames=Object.keys(grouped).sort();
   groupNames.forEach(function(gn){
     var items=grouped[gn];
     html+='<div class="item-group-section"><div class="item-group-header"><span>'+escHtml(gn)+' <span class="group-count">('+items.length+')</span></span></div>';
-    items.forEach(function(it){
-      html+='<div class="item-row"><span class="item-name">'+escHtml(it.description)+'</span>'+
-        '<button class="item-edit-btn" data-action="edit-item" data-id="'+it.id+'" data-desc="'+escHtml(it.description)+'" data-group="'+(it.group_id||'')+'">Edit</button></div>';
-    });
+    items.forEach(function(it){html+=renderItemRow(it);});
     html+='</div>';
   });
 
   // Render ungrouped
   if(ungrouped.length){
     html+='<div class="item-group-section"><div class="item-group-header"><span>Ungrouped <span class="group-count">('+ungrouped.length+')</span></span></div>';
-    ungrouped.forEach(function(it){
-      html+='<div class="item-row"><span class="item-name">'+escHtml(it.description)+'</span>'+
-        '<button class="item-edit-btn" data-action="edit-item" data-id="'+it.id+'" data-desc="'+escHtml(it.description)+'" data-group="'+(it.group_id||'')+'">Edit</button></div>';
-    });
+    ungrouped.forEach(function(it){html+=renderItemRow(it);});
     html+='</div>';
   }
 
@@ -862,27 +873,22 @@ document.getElementById('items-list').addEventListener('click',function(e){
       nameEl.value='';
       loadItems();
     }).catch(function(err){console.error('createItem',err);});
-  } else if(action==='edit-item'){
-    var id=el.dataset.id;
-    var desc=el.dataset.desc;
-    var group=el.dataset.group;
-    var newName=prompt('Item name:',desc);
-    if(newName===null)return;
-    newName=newName.trim();
+  } else if(action==='tap-item'){
+    ITEM_EDIT_ID=ITEM_EDIT_ID===el.dataset.id?null:el.dataset.id;
+    renderItemsList();
+  } else if(action==='save-item'){
+    var form=el.closest('.item-edit-form');
+    var itemId=el.dataset.id;
+    var newName=form.querySelector('.item-edit-name').value.trim();
+    var newGroupId=form.querySelector('.item-edit-group').value||null;
     if(!newName)return;
-    // Pick group
-    var groupOpts=ITEM_GROUPS.map(function(g,i){return (i+1)+'. '+g.name;}).join('\n');
-    var groupPrompt=prompt('Group (enter number, blank for none):\n'+groupOpts);
-    var newGroupId=null;
-    if(groupPrompt&&!isNaN(parseInt(groupPrompt))){
-      var idx=parseInt(groupPrompt)-1;
-      if(idx>=0&&idx<ITEM_GROUPS.length)newGroupId=ITEM_GROUPS[idx].id;
-    } else if(groupPrompt===null){
-      return;
-    }
-    api('/api/v1/inventory/items',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:id,description:newName,group_id:newGroupId})}).then(function(){
+    api('/api/v1/inventory/items',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:itemId,description:newName,group_id:newGroupId})}).then(function(){
+      ITEM_EDIT_ID=null;
       loadItems();
     }).catch(function(err){console.error('updateItem',err);});
+  } else if(action==='cancel-edit-item'){
+    ITEM_EDIT_ID=null;
+    renderItemsList();
   }
 });
 

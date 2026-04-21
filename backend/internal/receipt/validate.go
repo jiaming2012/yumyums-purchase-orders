@@ -14,7 +14,7 @@ func ValidateReceiptData(items []ReceiptItem, summary ReceiptSummary, bankAmount
 	if summary.Total != -bankAmount {
 		return ValidationResult{
 			Valid:  false,
-			Reason: fmt.Sprintf("receipt total %.2f does not match transaction amount %.2f", summary.Total, -bankAmount),
+			Reason: fmt.Sprintf("Receipt total $%.2f does not match transaction amount $%.2f", summary.Total, -bankAmount),
 		}
 	}
 
@@ -27,7 +27,7 @@ func ValidateReceiptData(items []ReceiptItem, summary ReceiptSummary, bankAmount
 	if math.Abs(subtotal-itemsTotal) > 0.01 {
 		return ValidationResult{
 			Valid:  false,
-			Reason: fmt.Sprintf("line item sum %.2f does not match receipt subtotal %.2f (diff %.4f)", itemsTotal, subtotal, math.Abs(subtotal-itemsTotal)),
+			Reason: fmt.Sprintf("Line item sum $%.2f does not match receipt subtotal $%.2f (diff $%.2f)", itemsTotal, subtotal, math.Abs(subtotal-itemsTotal)),
 		}
 	}
 
