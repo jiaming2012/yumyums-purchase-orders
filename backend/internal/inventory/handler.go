@@ -233,6 +233,38 @@ func MergeItemsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 	}
 }
 
+// UpdatePendingItemsHandler updates the items JSONB on a pending purchase (persists item selections).
+func UpdatePendingItemsHandler(pool *pgxpool.Pool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var input struct {
+			ID    string          `json:"id"`
+			Items json.RawMessage `json:"items"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_json")
+			return
+		}
+		if input.ID == "" {
+			writeError(w, http.StatusBadRequest, "id_required")
+			return
+		}
+		tag, err := pool.Exec(r.Context(),
+			`UPDATE pending_purchases SET items = $1 WHERE id = $2 AND confirmed_at IS NULL AND discarded_at IS NULL`,
+			input.Items, input.ID,
+		)
+		if err != nil {
+			log.Printf("UpdatePendingItems: %v", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		if tag.RowsAffected() == 0 {
+			writeError(w, http.StatusNotFound, "pending_purchase_not_found")
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
 // ListPurchaseEventsHandler returns purchase events with nested line items.
 // Accepts optional ?vendor_id and ?page query params (LIMIT 50 per page).
 func ListPurchaseEventsHandler(pool *pgxpool.Pool) http.HandlerFunc {

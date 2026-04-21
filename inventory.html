@@ -173,7 +173,7 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
     <button id="t2" onclick="show(2)">Trends</button>
     <button id="t3" onclick="show(3)">Stock</button>
     <button id="t4" onclick="show(4)">Cost</button>
-    <button id="t5" onclick="show(5)">Catalog</button>
+    <button id="t5" onclick="show(5)">Setup</button>
   </div>
   <div id="s1">
     <select id="vendor-filter" class="filter-select">
@@ -201,8 +201,8 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
   </div>
   <div id="s5" style="display:none">
     <div class="sub-tabs">
-      <button id="st1" class="on" onclick="showCatalogSub(1)">Items</button>
-      <button id="st2" onclick="showCatalogSub(2)">Vendors</button>
+      <button id="st1" class="on" onclick="showSetupSub(1)">Items</button>
+      <button id="st2" onclick="showSetupSub(2)">Vendors</button>
     </div>
     <div id="cs1">
       <input id="item-search" class="filter-select" type="text" placeholder="Search items..." autocomplete="off">
@@ -345,6 +345,11 @@ function renderReviewForm(p){
     var items=(p.items||[]).map(function(it){
       var name=titleCase(it.name||it.description||'');
       var itemId=it.purchase_item_id||null;
+      // If already linked, resolve canonical name from catalog
+      if(itemId){
+        var linked=ALL_ITEMS.find(function(ci){return ci.id===itemId;});
+        if(linked)name=linked.description;
+      }
       // Auto-match against catalog if not already linked
       if(!itemId&&name){
         var nameLower=name.toLowerCase();
@@ -984,9 +989,9 @@ document.getElementById('items-list').addEventListener('click',function(e){
   }
 });
 
-// ── Catalog sub-tabs ──────────────────────────────────────────────────────
+// ── Setup sub-tabs ──────────────────────────────────────────────────────
 
-function showCatalogSub(n){
+function showSetupSub(n){
   CATALOG_SUB=n;
   [1,2].forEach(function(i){
     var el=document.getElementById('cs'+i);
@@ -1208,9 +1213,25 @@ function selectItemFromModal(itemId,itemDesc){
     var wrap=ITEM_MODAL_TARGET.closest('.review-li-name-wrap');
     if(wrap){wrap.classList.remove('unlinked');wrap.classList.add('linked');}
     var form=ITEM_MODAL_TARGET.closest('.review-form');
-    if(form){var pid=form.dataset.pendingId;if(pid)captureReviewFormInputs(pid);}
+    if(form){
+      var pid=form.dataset.pendingId;
+      if(pid){
+        captureReviewFormInputs(pid);
+        // Persist item selections to DB so they survive page reloads
+        persistPendingItems(pid);
+      }
+    }
   }
   closeItemModal();
+}
+
+function persistPendingItems(pendingId){
+  var state=REVIEW_FORM_STATE[pendingId];
+  if(!state)return;
+  var items=state.line_items.map(function(li){
+    return {name:li.name,description:li.name,quantity:li.qty,price:li.price,is_case:li.is_case,purchase_item_id:li.purchase_item_id||null};
+  });
+  api('/api/v1/inventory/purchases/pending-items',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:pendingId,items:items})}).catch(function(err){console.error('persistPendingItems',err);});
 }
 
 function closeItemModal(){

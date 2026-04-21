@@ -428,13 +428,13 @@ test.describe('Inventory', () => {
     await expect(page.locator('#cost-container')).toHaveCount(1);
   });
 
-  // ── Catalog tab (5th tab) ───────────────────────────────────────────────
+  // ── Setup tab (5th tab) ───────────────────────────────────────────────
 
-  test('Catalog tab exists as 5th tab', async ({ page }) => {
-    await expect(page.locator('#t5')).toContainText('Catalog');
+  test('Setup tab exists as 5th tab', async ({ page }) => {
+    await expect(page.locator('#t5')).toContainText('Setup');
   });
 
-  test('Catalog tab has Items and Vendors sub-tabs', async ({ page }) => {
+  test('Setup tab has Items and Vendors sub-tabs', async ({ page }) => {
     await page.locator('#t5').click();
     await expect(page.locator('#st1')).toContainText('Items');
     await expect(page.locator('#st2')).toContainText('Vendors');
@@ -1378,6 +1378,66 @@ test.describe('Inventory', () => {
       await expect(wrap).toHaveClass(/linked/);
       await expect(wrap).not.toHaveClass(/unlinked/);
     }
+  });
+
+  // ── Item selection persists across navigation ─────────────────────────
+
+  test('item selection in review form persists after navigating away and back', async ({ page }) => {
+    // Create a catalog item
+    const groups = await invApiCall(page, 'GET', 'groups');
+    const gid = groups && groups.length ? groups[0].id : null;
+    const itemName = 'Persist Check ' + Date.now();
+    const created = await invApiCall(page, 'POST', 'items', { description: itemName, group_id: gid });
+    // Seed a pending purchase with a different raw name
+    const ts = Date.now();
+    const txId = 'test-persist-' + ts;
+    const vendorTag = 'PersistVendor' + ts;
+    await seedPendingPurchase(page, {
+      bankTxId: txId, vendor: vendorTag, bankTotal: -10.00,
+      eventDate: '2026-04-15', reason: 'test', items: [{ name: 'raw receipt text', quantity: 1, price: 10.00 }],
+    });
+    await page.reload();
+    await waitForHistoryContent(page);
+    // Open pending and select the catalog item
+    const pending = page.locator('[data-action="review-pending"]').first();
+    if (await pending.count() === 0) return;
+    await pending.click();
+    await page.locator('.review-li-name').first().click();
+    await expect(page.locator('.item-modal')).toBeVisible();
+    await page.fill('#item-modal-search', itemName.substring(0, 10));
+    await page.waitForTimeout(300);
+    const modalItem = page.locator('.item-modal-item').first();
+    if (await modalItem.count() === 0) { await page.locator('#item-modal-cancel').click(); return; }
+    await modalItem.click();
+    await expect(page.locator('.item-modal')).toHaveCount(0);
+    // Verify it's linked
+    await expect(page.locator('.review-li-name-wrap').first()).toHaveClass(/linked/);
+    // Navigate away and come back
+    await page.goto('/index.html');
+    await page.waitForLoadState('networkidle');
+    await page.goto('/inventory.html');
+    await page.waitForLoadState('networkidle');
+    await waitForHistoryContent(page);
+    // Find and open the specific pending purchase we seeded
+    const allPending = page.locator('[data-action="review-pending"]');
+    const pendingCount = await allPending.count();
+    let found = false;
+    for (let i = 0; i < pendingCount; i++) {
+      const text = await allPending.nth(i).textContent();
+      if (text.includes(vendorTag)) {
+        await allPending.nth(i).click();
+        found = true;
+        break;
+      }
+    }
+    if (!found) return;
+    // The item should still be linked (not orange)
+    const wrap = page.locator('.review-li-name-wrap').first();
+    await expect(wrap).toHaveClass(/linked/);
+    await expect(wrap).not.toHaveClass(/unlinked/);
+    // The name should match the catalog item, not the raw text
+    const nameVal = await page.locator('.review-li-name').first().inputValue();
+    expect(nameVal).toBe(itemName);
   });
 
 });

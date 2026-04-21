@@ -380,6 +380,7 @@ func main() {
 				r.Get("/purchases/pending", inventory.ListPendingPurchasesHandler(pool))
 				r.Post("/purchases/confirm", inventory.ConfirmPendingPurchaseHandler(pool))
 				r.Post("/purchases/discard", inventory.DiscardPendingPurchaseHandler(pool))
+				r.Put("/purchases/pending-items", inventory.UpdatePendingItemsHandler(pool))
 				r.Post("/purchases/pending-seed", inventory.SeedPendingPurchaseHandler(pool))
 				r.Get("/stock", inventory.GetStockHandler(pool))
 				r.Get("/items", inventory.ListItemsHandler(pool))
