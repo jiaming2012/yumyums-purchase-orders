@@ -171,8 +171,8 @@ select.field-input{appearance:none;-webkit-appearance:none;padding-right:36px;ba
   <a class="back" href="index.html">&#8249; HQ &nbsp;&#183;&nbsp; Inventory</a>
   <div class="tabs">
     <button id="t1" class="on" onclick="show(1)">Purchases</button>
-    <button id="t2" onclick="show(2)">Trends</button>
-    <button id="t3" onclick="show(3)">Stock</button>
+    <button id="t2" onclick="show(2)">Stock</button>
+    <button id="t3" onclick="show(3)">Trends</button>
     <button id="t4" onclick="show(4)">Cost</button>
     <button id="t5" onclick="show(5)">Setup</button>
   </div>
@@ -183,15 +183,15 @@ select.field-input{appearance:none;-webkit-appearance:none;padding-right:36px;ba
     <div id="history-list"></div>
   </div>
   <div id="s2" style="display:none">
+    <div id="reorder-section"></div>
+    <div id="stock-list"></div>
+  </div>
+  <div id="s3" style="display:none">
     <!-- TODO: gate Trends to manager+ via backend roles (INTG-01) -->
     <div id="trends-container" class="coming-soon">
       <h3>Spending Trends</h3>
       <p>Category breakdown and monthly spending charts coming soon.</p>
     </div>
-  </div>
-  <div id="s3" style="display:none">
-    <div id="reorder-section"></div>
-    <div id="stock-list"></div>
   </div>
   <div id="s4" style="display:none">
     <!-- TODO: gate Cost to manager+ via backend roles (INTG-01) -->
@@ -259,15 +259,15 @@ function show(n){
   ACTIVE_TAB=n;
   // Reload fresh data when switching tabs
   if(n===1){loadHistory();}
-  if(n===3){loadStock();}
+  if(n===2){loadStock();}
   if(n===5){loadItems();}
   render();
 }
 
 function render(){
   if(ACTIVE_TAB===1)renderHistoryList();
-  if(ACTIVE_TAB===2)renderTrends();
-  if(ACTIVE_TAB===3)renderStock();
+  if(ACTIVE_TAB===2)renderStock();
+  if(ACTIVE_TAB===3)renderTrends();
   if(ACTIVE_TAB===4)renderCost();
   if(ACTIVE_TAB===5){
     if(CATALOG_SUB===1)renderItemsList();
@@ -804,7 +804,7 @@ async function discardReceipt(id){
 }
 
 document.addEventListener('click',function(e){
-  if(ACTIVE_TAB!==3)return;
+  if(ACTIVE_TAB!==2)return;
   // Handle reason chip clicks (no data-action)
   if(e.target.classList.contains('reason-chip')){
     var reason=e.target.dataset.reason;
