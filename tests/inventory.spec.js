@@ -1201,6 +1201,52 @@ test.describe('Inventory', () => {
     expect(res.id).toBeTruthy();
   });
 
+  // ── Price mismatch prevents confirm ────────────────────────────────────
+
+  test('backend rejects confirm when total does not match bank transaction (negative)', async ({ page }) => {
+    const txId = 'test-mismatch-confirm-' + Date.now();
+    const seed = await seedPendingPurchase(page, {
+      bankTxId: txId, vendor: 'Mismatch Vendor', bankTotal: -50.00,
+      eventDate: '2026-04-15', reason: 'test', items: [{ name: 'Item', quantity: 1, price: 10.00 }],
+    });
+    if (!seed) return;
+    const res = await page.evaluate(async (id) => {
+      const r = await fetch('/api/v1/inventory/purchases/confirm', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id, vendor_name: 'Mismatch Vendor', event_date: '2026-04-15',
+          tax: 0, total: 10.00,
+          line_items: [{ description: 'Item', quantity: 1, price: 10.00 }]
+        })
+      });
+      const body = await r.json();
+      return { status: r.status, error: body.error };
+    }, seed.id);
+    expect(res.status).toBe(400);
+    expect(res.error).toContain('mismatch');
+  });
+
+  test('backend allows confirm when total matches bank transaction (positive)', async ({ page }) => {
+    const txId = 'test-match-confirm-' + Date.now();
+    const seed = await seedPendingPurchase(page, {
+      bankTxId: txId, vendor: 'Match Vendor', bankTotal: -10.00,
+      eventDate: '2026-04-15', reason: 'test', items: [{ name: 'Item', quantity: 1, price: 10.00 }],
+    });
+    if (!seed) return;
+    const res = await page.evaluate(async (id) => {
+      const r = await fetch('/api/v1/inventory/purchases/confirm', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id, vendor_name: 'Match Vendor', event_date: '2026-04-15',
+          tax: 0, total: 10.00,
+          line_items: [{ description: 'Item', quantity: 1, price: 10.00 }]
+        })
+      });
+      return r.status;
+    }, seed.id);
+    expect(res).toBe(200);
+  });
+
   // ── Group required error in create item modal ─────────────────────────
 
   test('create item modal shows error when no group selected', async ({ page }) => {

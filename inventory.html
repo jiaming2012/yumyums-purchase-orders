@@ -1038,9 +1038,9 @@ document.getElementById('vendors-list').addEventListener('click',function(e){
     var form=el.closest('.item-edit-form');
     var newName=form.querySelector('.vendor-edit-name').value.trim();
     if(!newName)return;
-    api('/api/v1/inventory/vendors',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:el.dataset.id,name:newName})}).then(function(){
+    api('/api/v1/inventory/vendors',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:el.dataset.id,name:newName})}).then(async function(){
       VENDOR_EDIT_ID=null;
-      loadVendors();
+      await loadVendors();
       renderVendorsList();
     }).catch(function(err){console.error('updateVendor',err);});
   } else if(action==='merge-vendor'){
@@ -1050,9 +1050,9 @@ document.getElementById('vendors-list').addEventListener('click',function(e){
     if(!targetId){alert('Select a vendor to merge into.');return;}
     var targetName=targetSel.options[targetSel.selectedIndex].text;
     if(!confirm('Merge this vendor into "'+targetName+'"? All purchases will be moved and this vendor will be deleted.'))return;
-    api('/api/v1/inventory/vendors/merge',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({source_id:el.dataset.id,target_id:targetId})}).then(function(){
+    api('/api/v1/inventory/vendors/merge',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({source_id:el.dataset.id,target_id:targetId})}).then(async function(){
       VENDOR_EDIT_ID=null;
-      loadVendors();
+      await loadVendors();
       renderVendorsList();
     }).catch(function(err){console.error('mergeVendor',err);});
   } else if(action==='cancel-edit-vendor'){
@@ -1065,9 +1065,9 @@ document.getElementById('create-vendor-btn').addEventListener('click',function()
   var nameEl=document.getElementById('new-vendor-name');
   var name=nameEl.value.trim();
   if(!name)return;
-  api('/api/v1/inventory/vendors',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:name})}).then(function(){
+  api('/api/v1/inventory/vendors',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:name})}).then(async function(){
     nameEl.value='';
-    loadVendors();
+    await loadVendors();
     renderVendorsList();
   }).catch(function(err){console.error('createVendor',err);});
 });

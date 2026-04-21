@@ -2,6 +2,7 @@ package inventory
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
@@ -497,14 +498,29 @@ func ConfirmPendingPurchaseHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 		defer tx.Rollback(r.Context()) //nolint:errcheck
 
-		// Fetch the pending purchase to get bank_tx_id
+		// Fetch the pending purchase to get bank_tx_id and bank_total
 		var bankTxID string
+		var bankTotal float64
 		err = tx.QueryRow(r.Context(),
-			`SELECT bank_tx_id FROM pending_purchases WHERE id = $1 AND confirmed_at IS NULL AND discarded_at IS NULL`,
+			`SELECT bank_tx_id, bank_total FROM pending_purchases WHERE id = $1 AND confirmed_at IS NULL AND discarded_at IS NULL`,
 			input.ID,
-		).Scan(&bankTxID)
+		).Scan(&bankTxID, &bankTotal)
 		if err != nil {
 			writeError(w, http.StatusNotFound, "pending_purchase_not_found")
+			return
+		}
+
+		// Validate total matches bank transaction (bank_total is negative for debits)
+		lineTotal := input.Tax
+		for _, li := range input.LineItems {
+			lineTotal += li.Price * float64(li.Quantity)
+		}
+		absBankTotal := bankTotal
+		if absBankTotal < 0 {
+			absBankTotal = -absBankTotal
+		}
+		if absBankTotal-lineTotal > 0.01 || lineTotal-absBankTotal > 0.01 {
+			writeError(w, http.StatusBadRequest, fmt.Sprintf("total_mismatch: receipt total $%.2f does not match bank transaction $%.2f", lineTotal, absBankTotal))
 			return
 		}
 
