@@ -10,10 +10,12 @@ A mobile-first PWA operations console for a food truck business. One app shell w
 
 | Tool | Status | Route |
 |------|--------|-------|
-| Operations | Complete (v1.0) | workflows.html |
+| Operations | Complete (v2.0) | workflows.html |
+| Inventory | Active (v2.0) | inventory.html |
+| Onboarding | Active (v2.1) | onboarding.html |
+| Users | Active (v2.0) | users.html |
 | Purchasing | Mockup | purchasing.html |
-| Users | Mockup | users.html |
-| Login | Screen | login.html |
+| Login | Active (v2.0) | login.html |
 | Payroll | Placeholder | — |
 | Scheduling | Placeholder | — |
 | Hiring | Placeholder | — |
@@ -28,8 +30,10 @@ A mobile-first PWA operations console for a food truck business. One app shell w
 - **Auto-reload:** `ptr.js` listens for `controllerchange` to reload on new SW deploy
 - **Manifest:** `manifest.json` — "Yumyums HQ", standalone display, portrait orientation
 - **Styling:** Shared CSS variables with automatic dark mode, mobile-first (max-width 480px)
-- **Testing:** 108 Playwright E2E tests across `tests/workflows.spec.js`, `tests/persistence.spec.js`, `tests/inventory.spec.js`, `tests/onboarding.spec.js`
-- **Backend:** Go + Postgres, REST API at `/api/v1/workflow/*` and `/api/v1/auth/*`
+- **Inventory:** `inventory.html` — 5-tab layout (History / Trends / Stock / Cost / Setup), receipt review pipeline, item catalog with groups/tags, stock level thresholds
+- **Receipt pipeline:** Mercury banking → receipt download → DO Spaces upload → Claude Haiku parse → validate → pending review queue → manual confirm
+- **Testing:** 170+ Playwright E2E tests across `tests/workflows.spec.js`, `tests/persistence.spec.js`, `tests/inventory.spec.js`, `tests/onboarding.spec.js`
+- **Backend:** Go + Postgres, REST API at `/api/v1/workflow/*`, `/api/v1/inventory/*`, `/api/v1/auth/*`, `/api/v1/onboarding/*`, `/api/v1/users/*`
 - **Data flow:** See `docs/data-flow-audit.md` for the full state persistence inventory
 
 ### workflows.html Key Concepts
@@ -38,6 +42,18 @@ A mobile-first PWA operations console for a food truck business. One app shell w
 - **Event delegation:** ONE click + ONE input listener per container div, routes via `data-action` attributes
 - **Data from API:** All data loaded from Go backend (`/api/v1/workflow/*`), no mock data
 - **SortableJS 1.15.7:** Only external dependency, loaded via CDN for drag-to-reorder
+
+### inventory.html Key Concepts
+
+- **5-tab layout:** History (purchase events + pending review), Trends (coming soon), Stock (levels + reorder suggestions), Cost (coming soon), Setup (items + vendors management)
+- **Receipt review pipeline:** Pending purchases from Mercury receipt worker → user reviews line items → links each to catalog item via fullscreen picker modal → confirms when total matches bank transaction
+- **Item catalog:** Items are created from actual receipts (not pre-seeded). Each item belongs to a group (Proteins, Beverages, etc.). Groups have configurable stock level thresholds (low/high).
+- **Auto-match:** When review form opens, line item names are matched case-insensitively against catalog. Matched items show no border; unlinked items show orange warning border.
+- **Item selection persistence:** Selecting an item in the picker modal saves to `pending_purchases.items` JSONB via `PUT /purchases/pending-items` so selections survive page reloads.
+- **Stock count overrides:** `stock_count_overrides` table stores manual quantity counts. Stock query uses `COALESCE(override, sum)`. Reason is required (preset chips: Counted shelf, Spoiled item, Damaged item).
+- **Name normalization:** `normalizeItemName()` in Go uses `cases.Title(language.English)` for title case. Applied on confirm, item create, and vendor create. Frontend `titleCase()` mirrors this.
+- **Merge:** Vendors and items can be merged (re-points all FKs, deletes source). Cannot merge into self.
+- **Magic links:** Stock item detail → "View in Setup" navigates to Setup tab with item expanded. Reorder suggestion tap scrolls to and expands the stock item below.
 
 ### Workflows Data Persistence Rule
 
