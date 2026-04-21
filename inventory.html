@@ -521,7 +521,7 @@ function renderStock(){
         var grp=ITEM_GROUPS.find(function(g){return g.name===s.group_name;});
         if(grp){lowT=grp.low_threshold||3;highT=grp.high_threshold||10;}
       }
-      s.level=tq===0?'unknown':tq>highT?'high':tq>lowT?'medium':'low';
+      s.level=tq===0?'unknown':tq>=highT?'high':tq>lowT?'medium':'low';
     }
   });
   // Reorder suggestions
@@ -902,9 +902,9 @@ function renderItemsList(){
       html+='<div class="item-edit-form" style="margin-bottom:8px">'+
         '<div style="display:flex;gap:12px;align-items:center">'+
           '<div class="field-group" style="flex:1;margin:0"><div class="field-label">Low &le;</div><input type="number" class="field-input group-low-threshold" data-group-id="'+grpId+'" value="'+lowT+'" min="0" style="text-align:center"></div>'+
-          '<div class="field-group" style="flex:1;margin:0"><div class="field-label">High &gt;</div><input type="number" class="field-input group-high-threshold" data-group-id="'+grpId+'" value="'+highT+'" min="0" style="text-align:center"></div>'+
+          '<div class="field-group" style="flex:1;margin:0"><div class="field-label">High &ge;</div><input type="number" class="field-input group-high-threshold" data-group-id="'+grpId+'" value="'+highT+'" min="0" style="text-align:center"></div>'+
         '</div>'+
-        '<div style="font-size:12px;color:var(--mut);margin-top:6px">'+(lowT+1)+'&ndash;'+highT+' = Medium</div>'+
+        '<div style="font-size:12px;color:var(--mut);margin-top:6px">'+(lowT+1)+'&ndash;'+(highT-1)+' = Medium</div>'+
         '<div class="review-actions" style="margin-top:8px">'+
           '<button class="btn-primary" data-action="save-group-thresholds" data-group-id="'+grpId+'">Save</button>'+
           '<button class="btn-secondary" data-action="cancel-group-settings">Cancel</button>'+
