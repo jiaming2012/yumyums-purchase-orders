@@ -67,13 +67,22 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .vendor-dropdown-item{padding:10px 12px;font-size:14px;color:var(--txt);cursor:pointer;border-bottom:0.5px solid var(--brd)}
 .vendor-dropdown-item:last-child{border-bottom:none}
 .vendor-dropdown-item:active,.vendor-dropdown-item.highlighted{background:var(--info-bg);color:var(--info-tx)}
-.review-li-name-wrap{flex:2;position:relative}
-.review-li-name-wrap input{width:100%;padding:7px 10px;background:var(--bg);border:0.5px solid var(--brd);border-radius:6px;font-size:13px;color:var(--txt);font-family:inherit}
-.item-dropdown{position:absolute;top:100%;left:0;right:0;background:var(--card);border:0.5px solid var(--brd);border-radius:8px;max-height:180px;overflow-y:auto;z-index:100;margin-top:2px;box-shadow:0 4px 12px rgba(0,0,0,0.3)}
-.item-dropdown-item{padding:8px 10px;font-size:13px;color:var(--txt);cursor:pointer;border-bottom:0.5px solid var(--brd)}
-.item-dropdown-item:last-child{border-bottom:none}
-.item-dropdown-item:active{background:var(--info-bg);color:var(--info-tx)}
-.item-dropdown-item.item-dd-create{color:var(--info-tx);font-weight:500}
+.review-li-name-wrap{flex:2}
+.review-li-name-wrap input{width:100%;padding:7px 10px;background:var(--bg);border:0.5px solid var(--brd);border-radius:6px;font-size:13px;color:var(--txt);font-family:inherit;cursor:pointer}
+.item-modal{position:fixed;inset:0;z-index:9999;background:var(--bg);display:flex;flex-direction:column;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+.item-modal-header{display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:0.5px solid var(--brd)}
+.item-modal-header input{flex:1;padding:10px 12px;background:var(--card);border:0.5px solid var(--brd);border-radius:8px;font-size:15px;color:var(--txt);font-family:inherit}
+.item-modal-cancel{border:none;background:none;color:var(--info-tx);font-size:14px;font-weight:500;cursor:pointer;padding:8px;white-space:nowrap}
+.item-modal-list{flex:1;overflow-y:auto;padding:0 16px}
+.item-modal-item{padding:14px 0;border-bottom:0.5px solid var(--brd);cursor:pointer}
+.item-modal-item:active{background:var(--info-bg);border-radius:8px}
+.item-modal-item-name{font-size:15px;font-weight:500;color:var(--txt)}
+.item-modal-item-group{font-size:12px;color:var(--mut);margin-top:2px}
+.item-modal-create{padding:14px 0;border-bottom:0.5px solid var(--brd);cursor:pointer}
+.item-modal-create-text{font-size:15px;font-weight:500;color:var(--info-tx)}
+.item-modal-new-form{padding:16px;border-top:0.5px solid var(--brd);background:var(--card)}
+.item-modal-new-form .field-group{margin-bottom:10px}
+.item-modal-new-form .btn-primary{width:100%}
 .coming-soon{text-align:center;padding:60px 20px;color:var(--mut)}
 .coming-soon h3{font-size:16px;font-weight:500;color:var(--txt);margin:0 0 8px}
 .coming-soon p{font-size:13px;margin:0;line-height:1.5}
@@ -891,103 +900,121 @@ document.addEventListener('DOMContentLoaded',async function(){
   loadStock();
 });
 
-// ── Item name dropdown in review form ──────────────────────────────────────
+// ── Item picker modal for review form ──────────────────────────────────────
+
+var ITEM_MODAL_TARGET=null; // the input element that opened the modal
 
 document.addEventListener('click',function(e){
-  // Open item dropdown when clicking readonly name input
   if(e.target.classList.contains('review-li-name')){
-    showItemDropdown(e.target);
-    return;
+    openItemModal(e.target);
   }
-  // Close item dropdown if clicking elsewhere
-  closeItemDropdown();
 });
 
-function showItemDropdown(input){
-  closeItemDropdown();
-  // Make input editable for searching
-  input.removeAttribute('readonly');
-  input.focus();
-  var wrap=input.closest('.review-li-name-wrap');
-  if(!wrap)return;
-
-  renderItemDropdownForInput(input,wrap);
-
-  // Listen for typing to filter
-  input._itemHandler=function(){renderItemDropdownForInput(input,wrap);};
-  input.addEventListener('input',input._itemHandler);
+function openItemModal(input){
+  ITEM_MODAL_TARGET=input;
+  var modal=document.createElement('div');
+  modal.className='item-modal';
+  modal.id='item-modal';
+  modal.innerHTML='<div class="item-modal-header">'+
+    '<input type="text" id="item-modal-search" placeholder="Search items..." autofocus>'+
+    '<button class="item-modal-cancel" id="item-modal-cancel">Cancel</button>'+
+    '</div>'+
+    '<div class="item-modal-list" id="item-modal-list"></div>';
+  document.body.appendChild(modal);
+  renderItemModal('');
+  var searchEl=document.getElementById('item-modal-search');
+  searchEl.focus();
+  searchEl.addEventListener('input',function(){renderItemModal(searchEl.value);});
+  document.getElementById('item-modal-cancel').addEventListener('click',closeItemModal);
 }
 
-function renderItemDropdownForInput(input,wrap){
-  var old=wrap.querySelector('.item-dropdown');
-  if(old)old.remove();
-  var query=input.value.toLowerCase().trim();
-  var matches=ALL_ITEMS.filter(function(it){return !query||it.description.toLowerCase().indexOf(query)!==-1;}).slice(0,10);
-
-  var dd=document.createElement('div');
-  dd.className='item-dropdown';
+function renderItemModal(query){
+  var list=document.getElementById('item-modal-list');
+  if(!list)return;
+  var q=query.toLowerCase().trim();
+  var matches=ALL_ITEMS.filter(function(it){return !q||it.description.toLowerCase().indexOf(q)!==-1;}).slice(0,30);
+  var html='';
 
   matches.forEach(function(it){
-    var item=document.createElement('div');
-    item.className='item-dropdown-item';
-    item.textContent=it.description+(it.group_name?' ('+it.group_name+')':'');
-    item.addEventListener('mousedown',function(ev){
-      ev.preventDefault();
-      input.value=it.description;
-      input.dataset.itemId=it.id;
-      input.setAttribute('readonly','readonly');
-      if(input._itemHandler){input.removeEventListener('input',input._itemHandler);delete input._itemHandler;}
-      closeItemDropdown();
-      // Trigger state capture
-      var form=input.closest('.review-form');
-      if(form){var pid=form.dataset.pendingId;if(pid)captureReviewFormInputs(pid);}
-    });
-    dd.appendChild(item);
+    html+='<div class="item-modal-item" data-item-id="'+it.id+'" data-item-desc="'+escHtml(it.description)+'">'+
+      '<div class="item-modal-item-name">'+escHtml(it.description)+'</div>'+
+      (it.group_name?'<div class="item-modal-item-group">'+escHtml(it.group_name)+'</div>':'')+
+      '</div>';
   });
 
-  // Create new item option
-  var createItem=document.createElement('div');
-  createItem.className='item-dropdown-item item-dd-create';
-  createItem.textContent='+ Create new item'+(query?' "'+query+'"':'');
-  createItem.addEventListener('mousedown',function(ev){
-    ev.preventDefault();
-    var name=query||prompt('New item name:');
-    if(!name||!name.trim())return;
-    name=name.trim();
-    // Create via API
-    api('/api/v1/inventory/items',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({description:name})}).then(function(res){
-      // Reload items and set the new item
+  // Create new item section
+  if(q){
+    html+='<div class="item-modal-create" id="item-modal-create-btn">'+
+      '<div class="item-modal-create-text">+ Create &ldquo;'+escHtml(q)+'&rdquo; as new item</div>'+
+      '</div>';
+  }
+
+  if(!matches.length&&!q){
+    html+='<div style="padding:40px 0;text-align:center;color:var(--mut)">No items in catalog yet.</div>';
+  }
+
+  list.innerHTML=html;
+
+  // Bind click on items
+  list.querySelectorAll('.item-modal-item').forEach(function(el){
+    el.addEventListener('click',function(){
+      selectItemFromModal(el.dataset.itemId,el.dataset.itemDesc);
+    });
+  });
+
+  // Bind create new
+  var createBtn=document.getElementById('item-modal-create-btn');
+  if(createBtn){
+    createBtn.addEventListener('click',function(){
+      showCreateItemForm(q);
+    });
+  }
+}
+
+function showCreateItemForm(prefill){
+  var list=document.getElementById('item-modal-list');
+  if(!list)return;
+  var groupOpts='<option value="">No Group</option>'+ITEM_GROUPS.map(function(g){return '<option value="'+g.id+'">'+escHtml(g.name)+'</option>';}).join('');
+  list.innerHTML='<div class="item-modal-new-form">'+
+    '<div class="field-group"><div class="field-label">Item Name</div>'+
+    '<input type="text" class="field-input" id="modal-new-item-name" value="'+escHtml(prefill)+'"></div>'+
+    '<div class="field-group"><div class="field-label">Group</div>'+
+    '<select class="field-input" id="modal-new-item-group">'+groupOpts+'</select></div>'+
+    '<button class="btn-primary" id="modal-create-item-btn">Create Item</button>'+
+    '</div>';
+  document.getElementById('modal-new-item-name').focus();
+  document.getElementById('modal-create-item-btn').addEventListener('click',function(){
+    var name=document.getElementById('modal-new-item-name').value.trim();
+    if(!name)return;
+    var groupId=document.getElementById('modal-new-item-group').value||null;
+    api('/api/v1/inventory/items',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({description:name,group_id:groupId})}).then(function(){
       return api('/api/v1/inventory/items');
     }).then(function(data){
       ALL_ITEMS=data||[];
       var newItem=ALL_ITEMS.find(function(it){return it.description.toLowerCase()===name.toLowerCase();});
       if(newItem){
-        input.value=newItem.description;
-        input.dataset.itemId=newItem.id;
+        selectItemFromModal(newItem.id,newItem.description);
       } else {
-        input.value=name;
-        input.dataset.itemId='';
+        closeItemModal();
       }
-      input.setAttribute('readonly','readonly');
-      if(input._itemHandler){input.removeEventListener('input',input._itemHandler);delete input._itemHandler;}
-      closeItemDropdown();
-      var form=input.closest('.review-form');
-      if(form){var pid=form.dataset.pendingId;if(pid)captureReviewFormInputs(pid);}
-    }).catch(function(err){console.error('createItem',err);});
+    }).catch(function(err){console.error('createItem',err);closeItemModal();});
   });
-  dd.appendChild(createItem);
-
-  wrap.appendChild(dd);
 }
 
-function closeItemDropdown(){
-  var dds=document.querySelectorAll('.item-dropdown');
-  dds.forEach(function(dd){dd.remove();});
-  // Re-set readonly on any open inputs
-  document.querySelectorAll('.review-li-name:not([readonly])').forEach(function(el){
-    el.setAttribute('readonly','readonly');
-    if(el._itemHandler){el.removeEventListener('input',el._itemHandler);delete el._itemHandler;}
-  });
+function selectItemFromModal(itemId,itemDesc){
+  if(ITEM_MODAL_TARGET){
+    ITEM_MODAL_TARGET.value=itemDesc;
+    ITEM_MODAL_TARGET.dataset.itemId=itemId;
+    var form=ITEM_MODAL_TARGET.closest('.review-form');
+    if(form){var pid=form.dataset.pendingId;if(pid)captureReviewFormInputs(pid);}
+  }
+  closeItemModal();
+}
+
+function closeItemModal(){
+  var modal=document.getElementById('item-modal');
+  if(modal)modal.remove();
+  ITEM_MODAL_TARGET=null;
 }
 </script>
 <script src="log.js"></script><script src="ptr.js"></script>

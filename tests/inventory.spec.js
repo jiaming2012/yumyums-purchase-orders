@@ -511,8 +511,8 @@ test.describe('Inventory', () => {
     }
   });
 
-  test('clicking line item name opens item dropdown', async ({ page }) => {
-    const txId = 'test-item-dropdown-' + Date.now();
+  test('clicking line item name opens item picker modal', async ({ page }) => {
+    const txId = 'test-item-modal-' + Date.now();
     await seedPendingPurchase(page, {
       bankTxId: txId, vendor: 'DD Vendor', bankTotal: -10.00,
       eventDate: '2026-04-15', reason: 'test', items: [{ name: 'Something', quantity: 1, price: 10.00 }],
@@ -524,15 +524,19 @@ test.describe('Inventory', () => {
       await pending.click();
       const nameInput = page.locator('.review-li-name').first();
       await nameInput.click();
-      await expect(page.locator('.item-dropdown')).toBeVisible();
-      await expect(page.locator('.item-dropdown-item').first()).toBeVisible();
+      await expect(page.locator('.item-modal')).toBeVisible();
+      await expect(page.locator('#item-modal-search')).toBeVisible();
+      await expect(page.locator('.item-modal-item').first()).toBeVisible();
+      // Cancel closes modal
+      await page.locator('#item-modal-cancel').click();
+      await expect(page.locator('.item-modal')).toHaveCount(0);
     }
   });
 
-  test('item dropdown shows create new item option', async ({ page }) => {
-    const txId = 'test-item-create-opt-' + Date.now();
+  test('item modal search filters items', async ({ page }) => {
+    const txId = 'test-item-modal-search-' + Date.now();
     await seedPendingPurchase(page, {
-      bankTxId: txId, vendor: 'Create Vendor', bankTotal: -10.00,
+      bankTxId: txId, vendor: 'Search Vendor', bankTotal: -10.00,
       eventDate: '2026-04-15', reason: 'test', items: [{ name: 'Item', quantity: 1, price: 10.00 }],
     });
     await page.reload();
@@ -541,12 +545,20 @@ test.describe('Inventory', () => {
     if (await pending.count() > 0) {
       await pending.click();
       await page.locator('.review-li-name').first().click();
-      await expect(page.locator('.item-dd-create')).toBeVisible();
-      await expect(page.locator('.item-dd-create')).toContainText('Create new item');
+      await expect(page.locator('.item-modal')).toBeVisible();
+      const beforeCount = await page.locator('.item-modal-item').count();
+      await page.fill('#item-modal-search', 'Salmon');
+      await page.waitForTimeout(200);
+      const afterCount = await page.locator('.item-modal-item').count();
+      expect(afterCount).toBeLessThanOrEqual(beforeCount);
+      expect(afterCount).toBeGreaterThan(0);
+      // Should show create option with search text
+      await expect(page.locator('.item-modal-create')).toBeVisible();
+      await page.locator('#item-modal-cancel').click();
     }
   });
 
-  test('selecting item from dropdown fills name and sets item id', async ({ page }) => {
+  test('selecting item from modal fills name and sets item id', async ({ page }) => {
     const txId = 'test-item-select-' + Date.now();
     await seedPendingPurchase(page, {
       bankTxId: txId, vendor: 'Select Vendor', bankTotal: -10.00,
@@ -559,11 +571,12 @@ test.describe('Inventory', () => {
       await pending.click();
       const nameInput = page.locator('.review-li-name').first();
       await nameInput.click();
-      // Select first item from dropdown
-      const firstItem = page.locator('.item-dropdown-item:not(.item-dd-create)').first();
+      await expect(page.locator('.item-modal')).toBeVisible();
+      const firstItem = page.locator('.item-modal-item').first();
       if (await firstItem.count() > 0) {
-        const itemText = await firstItem.textContent();
         await firstItem.click();
+        // Modal should close
+        await expect(page.locator('.item-modal')).toHaveCount(0);
         const value = await nameInput.inputValue();
         expect(value.length).toBeGreaterThan(0);
         const itemId = await nameInput.getAttribute('data-item-id');
