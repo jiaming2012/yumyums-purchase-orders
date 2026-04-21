@@ -389,6 +389,7 @@ func main() {
 				r.Post("/items/merge", inventory.MergeItemsHandler(pool))
 				r.Get("/groups", inventory.ListGroupsHandler(pool))
 				r.Post("/groups", inventory.CreateGroupHandler(pool))
+				r.Put("/groups", inventory.UpdateGroupHandler(pool))
 				r.Get("/tags", inventory.ListTagsHandler(pool))
 			})
 

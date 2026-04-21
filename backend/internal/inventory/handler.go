@@ -776,7 +776,7 @@ func UpdateItemHandler(pool *pgxpool.Pool) http.HandlerFunc {
 func ListGroupsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		rows, err := pool.Query(r.Context(), `
-			SELECT id, name, par_days FROM item_groups ORDER BY name`)
+			SELECT id, name, par_days, low_threshold, high_threshold FROM item_groups ORDER BY name`)
 		if err != nil {
 			log.Printf("ListGroups query: %v", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
@@ -787,7 +787,7 @@ func ListGroupsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		groups := []ItemGroup{}
 		for rows.Next() {
 			var g ItemGroup
-			if err := rows.Scan(&g.ID, &g.Name, &g.ParDays); err != nil {
+			if err := rows.Scan(&g.ID, &g.Name, &g.ParDays, &g.LowThreshold, &g.HighThreshold); err != nil {
 				log.Printf("ListGroups scan: %v", err)
 				writeError(w, http.StatusInternalServerError, "internal_error")
 				return
@@ -844,6 +844,47 @@ func CreateGroupHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 		writeJSON(w, http.StatusCreated, map[string]string{"id": id})
+	}
+}
+
+// UpdateGroupHandler updates a group's thresholds.
+func UpdateGroupHandler(pool *pgxpool.Pool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var input struct {
+			ID            string `json:"id"`
+			LowThreshold  int    `json:"low_threshold"`
+			HighThreshold int    `json:"high_threshold"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_json")
+			return
+		}
+		if input.ID == "" {
+			writeError(w, http.StatusBadRequest, "id_required")
+			return
+		}
+		if input.LowThreshold < 0 || input.HighThreshold < 0 {
+			writeError(w, http.StatusBadRequest, "thresholds_must_be_positive")
+			return
+		}
+		if input.LowThreshold >= input.HighThreshold {
+			writeError(w, http.StatusBadRequest, "low_must_be_less_than_high")
+			return
+		}
+		tag, err := pool.Exec(r.Context(), `
+			UPDATE item_groups SET low_threshold = $1, high_threshold = $2 WHERE id = $3`,
+			input.LowThreshold, input.HighThreshold, input.ID,
+		)
+		if err != nil {
+			log.Printf("UpdateGroup update: %v", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		if tag.RowsAffected() == 0 {
+			writeError(w, http.StatusNotFound, "group_not_found")
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
 	}
 }
 

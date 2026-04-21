@@ -506,12 +506,17 @@ function renderStock(){
   stocks.forEach(s=>{
     if(STOCK_OVERRIDES[s.group_name])s.level=STOCK_OVERRIDES[s.group_name].level;
   });
-  // Determine level from API data if not set
+  // Determine level from API data if not set, using group thresholds
   stocks.forEach(s=>{
     if(!s.level){
       var tq=s.total_quantity||0;
-      var ap=s.avg_price||0;
-      s.level=tq===0?'unknown':tq>10?'high':tq>3?'medium':'low';
+      var lowT=3,highT=10;
+      // Look up group thresholds
+      if(s.group_name){
+        var grp=ITEM_GROUPS.find(function(g){return g.name===s.group_name;});
+        if(grp){lowT=grp.low_threshold||3;highT=grp.high_threshold||10;}
+      }
+      s.level=tq===0?'unknown':tq>highT?'high':tq>lowT?'medium':'low';
     }
   });
   // Reorder suggestions
@@ -880,7 +885,26 @@ function renderItemsList(){
   var groupNames=Object.keys(grouped).sort();
   groupNames.forEach(function(gn){
     var items=grouped[gn];
-    html+='<div class="item-group-section"><div class="item-group-header"><span>'+escHtml(gn)+' <span class="group-count">('+items.length+')</span></span></div>';
+    var grp=ITEM_GROUPS.find(function(g){return g.name===gn;});
+    var grpId=grp?grp.id:'';
+    var lowT=grp?grp.low_threshold:3;
+    var highT=grp?grp.high_threshold:10;
+    html+='<div class="item-group-section"><div class="item-group-header"><span>'+escHtml(gn)+' <span class="group-count">('+items.length+')</span></span>';
+    if(grpId)html+='<button class="item-edit-btn" data-action="toggle-group-settings" data-group-id="'+grpId+'">Stock Settings</button>';
+    html+='</div>';
+    // Group settings form (inline, shown when toggled)
+    if(grpId&&ITEM_GROUPS._editGroupId===grpId){
+      html+='<div class="item-edit-form" style="margin-bottom:8px">'+
+        '<div style="display:flex;gap:12px;align-items:center">'+
+          '<div class="field-group" style="flex:1;margin:0"><div class="field-label">Low &le;</div><input type="number" class="field-input group-low-threshold" data-group-id="'+grpId+'" value="'+lowT+'" min="0" style="text-align:center"></div>'+
+          '<div class="field-group" style="flex:1;margin:0"><div class="field-label">High &gt;</div><input type="number" class="field-input group-high-threshold" data-group-id="'+grpId+'" value="'+highT+'" min="0" style="text-align:center"></div>'+
+        '</div>'+
+        '<div style="font-size:12px;color:var(--mut);margin-top:6px">Qty &le; '+lowT+' = Low, '+lowT+'&ndash;'+highT+' = Medium, &gt; '+highT+' = High</div>'+
+        '<div class="review-actions" style="margin-top:8px">'+
+          '<button class="btn-primary" data-action="save-group-thresholds" data-group-id="'+grpId+'">Save</button>'+
+          '<button class="btn-secondary" data-action="cancel-group-settings">Cancel</button>'+
+        '</div></div>';
+    }
     items.forEach(function(it){html+=renderItemRow(it);});
     html+='</div>';
   });
@@ -972,6 +996,26 @@ document.getElementById('items-list').addEventListener('click',function(e){
       ITEM_EDIT_ID=null;
       loadItems();
     }).catch(function(err){console.error('updateItem',err);});
+  } else if(action==='toggle-group-settings'){
+    var gid=el.dataset.groupId;
+    ITEM_GROUPS._editGroupId=ITEM_GROUPS._editGroupId===gid?null:gid;
+    renderItemsList();
+  } else if(action==='save-group-thresholds'){
+    var gid=el.dataset.groupId;
+    var form=el.closest('.item-edit-form');
+    var lowT=parseInt(form.querySelector('.group-low-threshold').value)||0;
+    var highT=parseInt(form.querySelector('.group-high-threshold').value)||0;
+    if(lowT>=highT){alert('Low threshold must be less than high threshold.');return;}
+    api('/api/v1/inventory/groups',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:gid,low_threshold:lowT,high_threshold:highT})}).then(function(){
+      ITEM_GROUPS._editGroupId=null;
+      return api('/api/v1/inventory/groups');
+    }).then(function(groups){
+      ITEM_GROUPS=groups||[];
+      renderItemsList();
+    }).catch(function(err){console.error('updateGroupThresholds',err);});
+  } else if(action==='cancel-group-settings'){
+    ITEM_GROUPS._editGroupId=null;
+    renderItemsList();
   } else if(action==='merge-item'){
     var form=el.closest('.item-edit-form');
     var targetSel=form.querySelector('.merge-item-target');

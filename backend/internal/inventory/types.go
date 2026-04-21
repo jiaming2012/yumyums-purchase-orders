@@ -20,10 +20,12 @@ type Tag struct {
 
 // ItemGroup groups related purchase items (e.g. "Proteins", "Produce").
 type ItemGroup struct {
-	ID      string `json:"id"`
-	Name    string `json:"name"`
-	ParDays *int   `json:"par_days,omitempty"`
-	Tags    []Tag  `json:"tags,omitempty"`
+	ID            string `json:"id"`
+	Name          string `json:"name"`
+	ParDays       *int   `json:"par_days,omitempty"`
+	LowThreshold  int    `json:"low_threshold"`
+	HighThreshold int    `json:"high_threshold"`
+	Tags          []Tag  `json:"tags,omitempty"`
 }
 
 // PurchaseItem is a canonical product that appears on purchase line items.
