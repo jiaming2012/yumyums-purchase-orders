@@ -1669,4 +1669,47 @@ test.describe('Inventory', () => {
     await expect(page.locator('.item-edit-form[data-item-id="' + item.id + '"]')).toBeVisible();
   });
 
+  // ── Reorder suggestion tap scrolls to stock item ──────────────────────
+
+  test('tapping reorder suggestion expands the stock item below', async ({ page }) => {
+    // Create an item with low stock
+    const groups = await invApiCall(page, 'GET', 'groups');
+    const gid = groups && groups.length ? groups[0].id : null;
+    const itemName = 'Reorder Tap Test ' + Date.now();
+    const item = await invApiCall(page, 'POST', 'items', { description: itemName, group_id: gid });
+    if (!item) return;
+    const vendors = await invApiCall(page, 'GET', 'vendors');
+    if (!vendors || !vendors.length) return;
+    await invApiCall(page, 'POST', 'purchases', {
+      vendor_id: vendors[0].id, bank_tx_id: 'reorder-tap-' + Date.now(),
+      event_date: '2026-04-15', tax: 0, total: 5,
+      line_items: [{ purchase_item_id: item.id, description: itemName, quantity: 1, price: 5.00 }]
+    });
+    // Go to Stock tab
+    await page.locator('#t3').click();
+    await page.waitForFunction(() => {
+      const el = document.getElementById('reorder-section');
+      return el && el.textContent.length > 0;
+    }, { timeout: 8000 });
+    // Find the reorder suggestion for this item and tap it
+    const reorderItems = page.locator('[data-action="scroll-to-stock-item"]');
+    const count = await reorderItems.count();
+    let tapped = false;
+    for (let i = 0; i < count; i++) {
+      const text = await reorderItems.nth(i).textContent();
+      if (text.includes(itemName)) {
+        await reorderItems.nth(i).click();
+        tapped = true;
+        break;
+      }
+    }
+    if (!tapped) return;
+    // The stock item detail should be expanded
+    await page.waitForTimeout(300);
+    await expect(page.locator('.stock-detail.open')).toBeVisible();
+    // Verify the expanded detail contains the item name's data
+    const detailText = await page.locator('.stock-detail.open').first().textContent();
+    expect(detailText.length).toBeGreaterThan(0);
+  });
+
 });

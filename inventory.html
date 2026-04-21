@@ -542,7 +542,7 @@ function renderStock(){
     reorderEl.innerHTML='<div class="reorder-section"><div class="reorder-title">Reorder Suggestions ('+needsReorder.length+')</div>'+needsReorder.map(s=>{
       var name=s.description;
       var lastDate=s.last_purchase_date?'Last bought: '+timeAgo(s.last_purchase_date)+' &middot; '+formatDate(s.last_purchase_date):'No purchase history';
-      return '<div class="reorder-item"><div><div class="reorder-item-name">'+name+'</div><div class="reorder-item-meta">'+lastDate+'</div></div><div style="text-align:right"><div>'+badgeHtml(s.level)+'</div><div style="font-size:11px;color:var(--mut);margin-top:2px">Qty: '+(s.total_quantity||0)+'</div></div></div>';
+      return '<div class="reorder-item" data-action="scroll-to-stock-item" data-stock-id="'+escHtml(name)+'" style="cursor:pointer"><div><div class="reorder-item-name">'+name+'</div><div class="reorder-item-meta">'+lastDate+'</div></div><div style="text-align:right"><div>'+badgeHtml(s.level)+'</div><div style="font-size:11px;color:var(--mut);margin-top:2px">Qty: '+(s.total_quantity||0)+'</div></div></div>';
     }).join('')+'</div>';
   } else {
     reorderEl.innerHTML='';
@@ -580,8 +580,8 @@ function renderStock(){
           html+='<div class="stock-detail-row"><span class="stock-detail-label">Last purchased</span><span class="stock-detail-value">'+lastDate+'</span></div>';
           html+='<div class="stock-detail-row"><span class="stock-detail-label">Est. remaining</span><span class="stock-detail-value">'+qty+'</span></div>';
           html+='<div class="stock-detail-row"><span class="stock-detail-label">Avg unit price</span><span class="stock-detail-value">'+avgPrice+'</span></div>';
-          html+='<div class="stock-detail-row"><span class="stock-detail-label">Stock value</span><span class="stock-detail-value">'+spend+'</span></div>';
-          html+='<button class="item-edit-btn" data-action="goto-setup-item" data-item-desc="'+escHtml(id)+'" style="width:100%;text-align:center;padding:8px 0;margin-top:4px">View in Setup</button>';
+          html+='<div class="stock-detail-row"><span class="stock-detail-label">Stock value (est.)</span><span class="stock-detail-value">'+spend+'</span></div>';
+          html+='<button class="item-edit-btn" data-action="goto-setup-item" data-item-desc="'+escHtml(id)+'" style="width:100%;text-align:right;padding:8px 0;margin-top:4px">View in Setup</button>';
           if(OVERRIDE_FORM_OPEN===id){
             html+='<div class="override-form">';
             html+='<div class="field-group" style="margin-bottom:8px"><div class="field-label">Actual count on hand</div><input type="number" class="field-input stock-count-input" value="'+(s.total_quantity||0)+'" min="0" data-group-id="'+id+'"></div>';
@@ -805,6 +805,15 @@ async function discardReceipt(id){
 
 document.addEventListener('click',function(e){
   if(ACTIVE_TAB!==3)return;
+  // Handle reason chip clicks (no data-action)
+  if(e.target.classList.contains('reason-chip')){
+    var reason=e.target.dataset.reason;
+    var reasonInput=e.target.closest('.override-form').querySelector('.override-reason');
+    if(reasonInput)reasonInput.value=reason;
+    e.target.closest('.chip-bar').querySelectorAll('.chip').forEach(function(c){c.classList.remove('on');});
+    e.target.classList.add('on');
+    return;
+  }
   var el=e.target.closest('[data-action]');
   if(!el)return;
   var action=el.dataset.action;
@@ -826,6 +835,22 @@ document.addEventListener('click',function(e){
     var items=STOCK_DATA.filter(function(s){return (s.group_name||'Other')===groupName;});
     items.forEach(function(s){var id=s.description||groupName;EXPANDED_STOCK_ITEMS[id]=true;});
     renderStock();
+  } else if(action==='scroll-to-stock-item'){
+    var sid=el.dataset.stockId;
+    // Expand the group if collapsed
+    var groupName=null;
+    STOCK_DATA.forEach(function(s){if((s.description||'')==sid)groupName=s.group_name||'Other';});
+    if(groupName&&COLLAPSED_TAGS[groupName]){
+      COLLAPSED_TAGS[groupName]=false;
+    }
+    // Expand the stock item
+    EXPANDED_STOCK_ITEMS[sid]=true;
+    renderStock();
+    // Scroll to it
+    setTimeout(function(){
+      var target=document.querySelector('.stock-item[data-group-id="'+sid+'"]');
+      if(target)target.scrollIntoView({behavior:'smooth',block:'center'});
+    },100);
   } else if(action==='show-override'){
     OVERRIDE_FORM_OPEN=el.dataset.groupId;
     renderStock();
@@ -854,17 +879,16 @@ document.addEventListener('click',function(e){
     var qty=parseInt(qtyInput?qtyInput.value:0)||0;
     var reason=(reasonInput?reasonInput.value:'')||'';
     if(qty<0){alert('Count cannot be negative.');return;}
+    if(!reason.trim()){
+      var errEl=el.closest('.override-form').querySelector('.stock-count-error');
+      if(!errEl){errEl=document.createElement('div');errEl.className='stock-count-error';errEl.style.cssText='color:#c0392b;font-size:13px;margin-top:6px';el.closest('.override-actions').after(errEl);}
+      errEl.textContent='A reason is required. Select or type one above.';
+      return;
+    }
     api('/api/v1/inventory/stock/count',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({item_description:gid,quantity:qty,reason:reason})}).then(function(){
       OVERRIDE_FORM_OPEN=null;
       loadStock();
     }).catch(function(err){console.error('saveStockCount',err);});
-  } else if(e.target.classList.contains('reason-chip')){
-    var reason=e.target.dataset.reason;
-    var reasonInput=e.target.closest('.override-form').querySelector('.override-reason');
-    if(reasonInput)reasonInput.value=reason;
-    // Toggle chip selection
-    e.target.closest('.chip-bar').querySelectorAll('.chip').forEach(function(c){c.classList.remove('on');});
-    e.target.classList.add('on');
   } else if(action==='cancel-override'){
     OVERRIDE_FORM_OPEN=null;
     renderStock();

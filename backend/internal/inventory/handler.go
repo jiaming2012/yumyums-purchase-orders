@@ -428,6 +428,10 @@ func UpdateStockCountHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			writeError(w, http.StatusBadRequest, "quantity_must_be_positive")
 			return
 		}
+		if strings.TrimSpace(input.Reason) == "" {
+			writeError(w, http.StatusBadRequest, "reason_required")
+			return
+		}
 		_, err := pool.Exec(r.Context(), `
 			INSERT INTO stock_count_overrides (item_description, quantity, reason, updated_at)
 			VALUES ($1, $2, $3, now())
