@@ -13,6 +13,9 @@ import (
 //go:embed fixtures/purchase_item_groups.yaml
 var fixturesYAML []byte
 
+//go:embed fixtures/purchase_items.yaml
+var itemsYAML []byte
+
 type fixturesFile struct {
 	Vendors    []vendorFixture    `yaml:"vendors"`
 	ItemGroups []itemGroupFixture `yaml:"item_groups"`
@@ -31,6 +34,30 @@ type itemGroupFixture struct {
 
 type purchaseItemFixture struct {
 	Description string `yaml:"description"`
+}
+
+type itemsFile struct {
+	Items []itemSeedGroup `yaml:"items"`
+}
+
+type itemSeedGroup struct {
+	Group         string          `yaml:"group"`
+	PurchaseItems []itemSeedEntry `yaml:"purchase_items"`
+}
+
+type itemSeedEntry struct {
+	Description   string `yaml:"description"`
+	FullName      string `yaml:"full_name,omitempty"`
+	PhotoURL      string `yaml:"photo_url,omitempty"`
+	StoreLocation string `yaml:"store_location,omitempty"`
+}
+
+// nilIfEmpty converts an empty string to nil, so optional fields become NULL in Postgres.
+func nilIfEmpty(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
 }
 
 // SeedInventoryFixtures loads purchase_item_groups.yaml and inserts vendors,
@@ -116,6 +143,39 @@ func SeedInventoryFixtures(ctx context.Context, pool *pgxpool.Pool) error {
 		}
 	}
 	log.Printf("inventory: seeded %d item_group(s)", len(f.ItemGroups))
+
+	// Seed purchase items from purchase_items.yaml
+	var items itemsFile
+	if err := yaml.Unmarshal(itemsYAML, &items); err != nil {
+		return fmt.Errorf("inventory: parse items yaml: %w", err)
+	}
+
+	itemCount := 0
+	for _, g := range items.Items {
+		// Look up the group_id by name
+		var groupID string
+		err := pool.QueryRow(ctx,
+			`SELECT id FROM item_groups WHERE name = $1`, g.Group,
+		).Scan(&groupID)
+		if err != nil {
+			log.Printf("inventory: warning: group %q not found, skipping %d items", g.Group, len(g.PurchaseItems))
+			continue
+		}
+
+		for _, item := range g.PurchaseItems {
+			_, err := pool.Exec(ctx,
+				`INSERT INTO purchase_items (description, full_name, photo_url, store_location, group_id)
+				 VALUES ($1, $2, $3, $4, $5)
+				 ON CONFLICT (description) DO NOTHING`,
+				item.Description, nilIfEmpty(item.FullName), nilIfEmpty(item.PhotoURL), nilIfEmpty(item.StoreLocation), groupID,
+			)
+			if err != nil {
+				return fmt.Errorf("inventory: seed item %q: %w", item.Description, err)
+			}
+			itemCount++
+		}
+	}
+	log.Printf("inventory: seeded %d purchase item(s) from YAML", itemCount)
 
 	return nil
 }
