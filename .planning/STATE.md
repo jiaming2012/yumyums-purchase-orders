@@ -196,6 +196,7 @@ None yet.
 | 260418-0tz | Multi-role support for users and training templates | 2026-04-18 | bf6a7c2 | [260418-0tz-multi-role-support-for-users-and-trainin](./quick/260418-0tz-multi-role-support-for-users-and-trainin/) |
 | 260421-im4 | Rename History tab to Purchases in inventory.html | 2026-04-21 | f46a88c | [260421-im4-rename-history-tab-to-purchases-in-inven](./quick/260421-im4-rename-history-tab-to-purchases-in-inven/) |
 | 260421-iug | Move Stock tab before Trends in inventory.html | 2026-04-21 | ab6806f | [260421-iug-move-the-stock-tab-before-trends-in-inve](./quick/260421-iug-move-the-stock-tab-before-trends-in-inve/) |
+| 260422-not | Move stock level classification to shared Go backend function | 2026-04-22 | 6a974ac | [260422-not-shared-stock-level-classification-move-f](./quick/260422-not-shared-stock-level-classification-move-f/) |
 
 ## Session Continuity
 
