@@ -299,7 +299,7 @@ async function savePOItems() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ items: items })
     });
-    if (updated) PO_STATE = updated;
+    if (updated) { PO_STATE = updated; renderOrder(); }
   } catch (e) {
     var s1 = document.getElementById('s1');
     var errDiv = document.createElement('div');
