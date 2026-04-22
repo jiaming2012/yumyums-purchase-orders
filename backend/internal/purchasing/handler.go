@@ -143,10 +143,7 @@ func GetActiveShoppingListHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
-		if sl == nil {
-			writeError(w, http.StatusNotFound, "no_active_shopping_list")
-			return
-		}
+		// Return null (not 404) when no active list — avoids console errors in frontend
 		writeJSON(w, http.StatusOK, sl)
 	}
 }
