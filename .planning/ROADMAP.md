@@ -74,9 +74,9 @@ _Full phase details archived to [milestones/v2.0-ROADMAP.md](milestones/v2.0-ROA
   4. Each line item in the PO shows the item's photo, store location note, suggested quantity, and who added it
   5. User can adjust quantity on each line item and changes persist to the API
   6. When adding an item, user can see if it's already on the PO and its current quantity
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 Plans:
-- [ ] 14-01-PLAN.md -- Backend: migrations, purchasing Go package, route registration
+- [x] 14-01-PLAN.md -- Backend: migrations, purchasing Go package, route registration
 - [ ] 14-02-PLAN.md -- Frontend: purchasing.html rewrite with Order tab, item picker, suggestions
 **UI hint**: yes
 
@@ -130,7 +130,7 @@ Plans:
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 14. PO Backend + Order Form | v3.0 | 0/2 | Not started | - |
+| 14. PO Backend + Order Form | v3.0 | 1/2 | In Progress|  |
 | 15. Notion Catalog Import | v3.0 | 0/? | Not started | - |
 | 16. Cutoff, Approval, and Shopping List | v3.0 | 0/? | Not started | - |
 | 17. Alerts, Notifications, and Repurchase Badges | v3.0 | 0/? | Not started | - |
