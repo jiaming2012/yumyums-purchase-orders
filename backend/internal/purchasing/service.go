@@ -190,9 +190,14 @@ func GetOrderLineItems(ctx context.Context, pool *pgxpool.Pool, poID string) ([]
 	return items, rows.Err()
 }
 
-// UpsertLineItems replaces the line items on a draft PO inside a transaction.
-// Returns ErrPONotDraft if the PO is not in draft status.
-func UpsertLineItems(ctx context.Context, pool *pgxpool.Pool, poID string, userID string, items []UpsertLineItemInput) error {
+// ErrPOLockedAdminOnly is returned when a non-admin tries to edit a locked PO.
+var ErrPOLockedAdminOnly = errors.New("po_locked_admin_only")
+
+// UpsertLineItems replaces the line items on a PO inside a transaction.
+// Draft POs: any authenticated user can edit.
+// Locked POs: only admin can edit (D-08). Returns ErrPOLockedAdminOnly for non-admin.
+// Other statuses: returns ErrPONotDraft.
+func UpsertLineItems(ctx context.Context, pool *pgxpool.Pool, poID string, userID string, items []UpsertLineItemInput, userIsAdmin bool) error {
 	tx, err := pool.Begin(ctx)
 	if err != nil {
 		return err
@@ -203,13 +208,16 @@ func UpsertLineItems(ctx context.Context, pool *pgxpool.Pool, poID string, userI
 		}
 	}()
 
-	// Verify PO is draft or locked (admin can edit locked POs per D-08)
+	// Verify PO status — draft is open to all, locked requires admin (D-08)
 	var status string
 	if err = tx.QueryRow(ctx, `SELECT status FROM purchase_orders WHERE id = $1`, poID).Scan(&status); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrPONotDraft
 		}
 		return err
+	}
+	if status == "locked" && !userIsAdmin {
+		return ErrPOLockedAdminOnly
 	}
 	if status != "draft" && status != "locked" {
 		return ErrPONotDraft

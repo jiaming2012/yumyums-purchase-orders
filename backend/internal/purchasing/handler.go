@@ -79,7 +79,11 @@ func UpsertLineItemsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		if err := UpsertLineItems(r.Context(), pool, id, user.ID, req.Items); err != nil {
+		if err := UpsertLineItems(r.Context(), pool, id, user.ID, req.Items, isAdmin(user)); err != nil {
+			if errors.Is(err, ErrPOLockedAdminOnly) {
+				writeError(w, http.StatusForbidden, "po_locked_admin_only")
+				return
+			}
 			if errors.Is(err, ErrPONotDraft) {
 				writeError(w, http.StatusConflict, "po_not_draft")
 				return
