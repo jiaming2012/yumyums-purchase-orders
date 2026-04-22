@@ -57,7 +57,7 @@ _Full phase details archived to [milestones/v2.0-ROADMAP.md](milestones/v2.0-ROA
 **Milestone Goal:** Connect the Purchase Orders tool to real inventory data with a full ordering-to-shopping workflow, cutoff enforcement, and multi-channel alerts via Zoho Cliq/email.
 
 - [x] **Phase 14: PO Backend + Order Form** - Schema migrations, purchasing API, and purchasing.html Tab 1 with live reorder suggestions, item search, added-by attribution, and duplicate detection (completed 2026-04-22)
-- [ ] **Phase 15: Notion Catalog Seed** - Convert Notion CSV to YAML seed file with images re-hosted to DO Spaces; seeds on first server run
+- [x] **Phase 15: Notion Catalog Seed** - Convert Notion CSV to YAML seed file with images re-hosted to DO Spaces; seeds on first server run (completed 2026-04-22)
 - [ ] **Phase 16: Cutoff, Approval, and Shopping List** - Cutoff scheduler, admin approval flow, shopping list with photo capture prompts and location enrichment
 - [ ] **Phase 17: Alerts, Notifications, and Repurchase Badges** - Async alert queue, Zoho Cliq/email delivery, user notification preferences, and inventory badge on shopping completion
 
@@ -89,7 +89,7 @@ Plans:
   2. Items seed idempotently on first server run (re-runs do not duplicate)
   3. Item photos from the Notion export are downloaded and re-hosted to DO Spaces; the raw Notion S3 URL is never stored in the YAML
   4. Photos load correctly 2+ hours after seed (confirming no reliance on expiring Notion URLs)
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 Plans:
 - [ ] 15-01-PLAN.md -- Migration, group fixtures, conversion script, generated YAML
 - [x] 15-02-PLAN.md -- Extend SeedInventoryFixtures to load purchase_items.yaml on startup
@@ -107,10 +107,13 @@ Plans:
   6. When checking off an item that has no photo or location, shopper is prompted to add them (can skip but must confirm skip each time)
   7. Shopper can upload a photo for an item that doesn't have one
   8. Tapping "Complete" on the shopping list sends a report of any unchecked items via the configured alert channel
-**Plans:** 2 plans
+**Plans:** 5 plans
 Plans:
-- [x] 14-01-PLAN.md -- Backend: migrations, purchasing Go package, route registration
-- [x] 14-02-PLAN.md -- Frontend: purchasing.html rewrite with Order tab, item picker, suggestions
+- [ ] 16-01-PLAN.md -- Migrations (cutoff_config, status extend, vendor FK, shopping tables) + Go types
+- [ ] 16-02-PLAN.md -- Backend state machine (lock/unlock/approve), cutoff scheduler, simulate-cutoff
+- [ ] 16-03-PLAN.md -- Backend shopping list CRUD, check-off, vendor completion, photo/location update
+- [ ] 16-04-PLAN.md -- Frontend PO tab (locked view, cutoff pill config, admin edit, approve button)
+- [ ] 16-05-PLAN.md -- Frontend Shopping tab (check-off, toast/badge, photo, location) + History tab
 **UI hint**: yes
 
 ### Phase 17: Alerts, Notifications, and Repurchase Badges
@@ -134,6 +137,6 @@ Plans:
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 14. PO Backend + Order Form | v3.0 | 2/2 | Complete    | 2026-04-22 |
-| 15. Notion Catalog Import | v3.0 | 1/2 | In Progress|  |
-| 16. Cutoff, Approval, and Shopping List | v3.0 | 0/? | Not started | - |
+| 15. Notion Catalog Import | v3.0 | 1/2 | Complete    | 2026-04-22 |
+| 16. Cutoff, Approval, and Shopping List | v3.0 | 0/5 | Not started | - |
 | 17. Alerts, Notifications, and Repurchase Badges | v3.0 | 0/? | Not started | - |
