@@ -17,7 +17,8 @@
 body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg);color:var(--txt);padding:env(safe-area-inset-top) 16px env(safe-area-inset-bottom)}
 .app{max-width:480px;margin:0 auto;padding-top:20px}
 .wordmark{font-size:22px;font-weight:700;color:var(--txt);margin-bottom:4px}
-.tagline{font-size:13px;color:var(--mut);margin-bottom:24px}
+.tagline{font-size:13px;color:#fff;margin-bottom:24px;font-weight:500}
+.tagline i{color:#c8962e;font-style:italic}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .tile{background:var(--card);border-radius:14px;padding:18px 16px 16px;border:0.5px solid var(--brd);text-decoration:none;color:inherit;display:flex;flex-direction:column;gap:6px;position:relative;overflow:hidden}
 .tile.active{cursor:pointer}
@@ -38,7 +39,7 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 <body>
 <div class="app">
   <div class="wordmark">Yumyums HQ</div>
-  <div class="tagline">Great Food Starts with Great Operations.</div>
+  <div class="tagline"><i>Good Food</i> starts with <i>Great Operations.</i></div>
 
   <div class="grid" style="visibility:hidden">
     <a class="tile active" href="purchasing.html">
