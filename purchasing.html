@@ -11,22 +11,24 @@
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <title>Yumyums Purchase Orders</title>
 <style>
-:root{--bg:#f5f5f3;--card:#fff;--txt:#1a1a1a;--mut:#6b6b6b;--brd:rgba(0,0,0,0.08);--info-bg:#e6f1fb;--info-tx:#0c447c;--warn-bg:#faeeda;--warn-tx:#854f0b}
-@media(prefers-color-scheme:dark){:root{--bg:#1a1a1a;--card:#262626;--txt:#f0f0f0;--mut:#999;--brd:rgba(255,255,255,0.1);--info-bg:#0c447c;--info-tx:#b5d4f4;--warn-bg:#633806;--warn-tx:#fac775}}
+:root{--bg:#f5f5f3;--card:#fff;--txt:#1a1a1a;--mut:#6b6b6b;--brd:rgba(0,0,0,0.08);--accent:#0c447c;--info-bg:#e6f1fb;--info-tx:#0c447c;--warn-bg:#faeeda;--warn-tx:#854f0b;--warn:#e08d0f;--ok:#1e8a4c;--ok-bg:#e4f5ec;--ok-tx:#1e8a4c}
+@media(prefers-color-scheme:dark){:root{--bg:#1a1a1a;--card:#262626;--txt:#f0f0f0;--mut:#999;--brd:rgba(255,255,255,0.1);--info-bg:#0c447c;--info-tx:#b5d4f4;--warn-bg:#633806;--warn-tx:#fac775;--ok-bg:#0d3a20;--ok-tx:#6fcf97}}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
 body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg);color:var(--txt);padding:env(safe-area-inset-top) 12px env(safe-area-inset-bottom)}
 .app{max-width:480px;margin:0 auto;padding-top:12px}
 .back{display:flex;align-items:center;gap:6px;margin-bottom:12px;color:var(--info-tx);font-size:14px;font-weight:500;text-decoration:none;-webkit-tap-highlight-color:transparent}
 .back::before{content:'‹';font-size:20px;line-height:1;margin-top:-1px}
 .tabs{display:flex;gap:4px;background:var(--card);border-radius:10px;padding:4px;margin-bottom:12px}
-.tabs button{flex:1;border:none;padding:10px;font-size:13px;border-radius:7px;background:transparent;color:var(--txt);font-weight:500}
+.tabs button{flex:1;border:none;padding:8px 4px;font-size:12px;border-radius:7px;background:transparent;color:var(--txt);font-weight:500}
 .tabs button.on{background:var(--info-bg);color:var(--info-tx)}
 .card{background:var(--card);border-radius:12px;overflow:hidden;margin-bottom:8px}
 .hd{padding:14px 16px;border-bottom:0.5px solid var(--brd)}
 .hd h1{font-size:15px;font-weight:500;margin:0}
 .sub{font-size:12px;color:var(--mut);margin-top:4px;display:flex;justify-content:space-between;align-items:center}
-.pill{font-size:11px;padding:3px 8px;border-radius:10px;background:var(--warn-bg);color:var(--warn-tx)}
+.pill{font-size:11px;padding:3px 8px;border-radius:10px;background:var(--warn-bg);color:var(--warn-tx);cursor:default}
 .pill.lk{background:var(--brd);color:var(--mut)}
+.pill.ok{background:var(--ok-bg);color:var(--ok-tx)}
+.pill.tap{cursor:pointer}
 .list{max-height:60vh;overflow-y:auto}
 .cat{position:sticky;top:0;background:var(--bg);padding:6px 16px;font-size:11px;font-weight:500;color:var(--mut);text-transform:uppercase;letter-spacing:0.5px;z-index:1}
 .row{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:0.5px solid var(--brd)}
@@ -35,699 +37,840 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .stp{display:flex;align-items:center;gap:10px}
 .stp button{width:32px;height:32px;border-radius:50%;border:0.5px solid var(--brd);background:transparent;font-size:16px;color:var(--txt);font-weight:500}
 .stp button:active{background:var(--info-bg)}
+.stp button:disabled{opacity:0.3;pointer-events:none}
 .stp span{min-width:18px;text-align:center;font-size:14px;font-weight:500}
 .ft{padding:12px 16px;border-top:0.5px solid var(--brd)}
 .ft button{width:100%;padding:12px;background:var(--info-bg);color:var(--info-tx);border:none;border-radius:8px;font-size:14px;font-weight:500}
-.lk-row{display:flex;justify-content:space-between;padding:10px 16px;border-bottom:0.5px solid var(--brd);font-size:13px}
-.lk-row span:last-child{color:var(--mut)}
-.po{padding:14px 16px}
-.po-h{display:flex;justify-content:space-between;font-size:14px;font-weight:500;margin-bottom:8px}
-.po-l{display:flex;justify-content:space-between;font-size:12px;color:var(--mut);line-height:2}
-.tot{display:flex;justify-content:space-between;padding:14px 16px;font-size:14px;font-weight:500}
-.item-card{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:0.5px solid var(--brd)}
-.item-card.dim{opacity:0.5}
-.item-thumb{width:48px;height:48px;border-radius:8px;object-fit:cover;background:var(--brd);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:600;color:var(--mut)}
-.item-thumb img{width:100%;height:100%;border-radius:8px;object-fit:cover;cursor:pointer}
-.photo-lightbox{position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.9);z-index:1000;display:flex;align-items:center;justify-content:center;flex-direction:column}
-.photo-lightbox img{max-width:95vw;max-height:85vh;object-fit:contain;border-radius:8px}
-.photo-lightbox .lb-close{position:fixed;top:16px;right:16px;background:none;border:none;color:#fff;font-size:28px;cursor:pointer;padding:8px;z-index:1001}
-.item-info{flex:1;min-width:0}
-.item-info .nm{font-size:14px;font-weight:600;line-height:1.2}
-.item-info .mt{font-size:12px;color:var(--mut);margin-top:2px}
-.item-info .attr{font-size:11px;color:var(--mut);margin-top:2px}
-.suggest-banner{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--warn-bg);color:var(--warn-tx);border-radius:12px;margin-bottom:8px;font-size:14px;font-weight:500}
-.suggest-banner button{background:none;border:none;font-size:20px;color:var(--warn-tx);padding:4px 8px;cursor:pointer}
-.suggest-list{background:var(--card);border-radius:12px;margin-bottom:8px;overflow:hidden}
-.suggest-list .sl-hd{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:0.5px solid var(--brd);font-size:14px;font-weight:500}
-.suggest-list .sl-hd button{background:none;border:none;color:var(--mut);font-size:13px;cursor:pointer}
-.suggest-row{display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:0.5px solid var(--brd);font-size:14px}
-.suggest-row input[type=checkbox]{width:20px;height:20px;margin:0;accent-color:var(--info-tx)}
-.suggest-row .sq{font-size:12px;color:var(--mut);white-space:nowrap}
-.sl-low{font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px;background:#c0392b;color:#fff;white-space:nowrap}
-.sl-med{font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px;background:var(--warn-bg);color:var(--warn-tx);white-space:nowrap}
-.suggest-ft{padding:12px 16px}
-.suggest-ft button{width:100%;padding:12px;background:var(--info-bg);color:var(--info-tx);border:none;border-radius:8px;font-size:14px;font-weight:500}
-.order-hd{padding:14px 16px;border-bottom:0.5px solid var(--brd)}
-.order-hd h1{font-size:15px;font-weight:500;margin:0}
-.order-hd .sub{font-size:12px;color:var(--mut);margin-top:4px;display:flex;justify-content:space-between;align-items:center}
-.add-btn{display:block;width:100%;padding:14px;background:var(--info-bg);color:var(--info-tx);border:none;border-radius:12px;font-size:14px;font-weight:500;margin-top:8px;cursor:pointer;text-align:center}
-.item-modal{position:fixed;inset:0;z-index:9999;background:var(--bg);display:none;flex-direction:column}
-.item-modal.open{display:flex}
-.item-modal .modal-hd{display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:0.5px solid var(--brd)}
-.item-modal .modal-hd input{flex:1;padding:10px 12px;border:1px solid var(--brd);border-radius:8px;font-size:14px;background:var(--card);color:var(--txt)}
-.item-modal .modal-hd button{background:none;border:none;color:var(--info-tx);font-size:14px;font-weight:500;cursor:pointer;white-space:nowrap}
-.item-modal .modal-list{flex:1;overflow-y:auto;padding:0}
-.picker-row{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:0.5px solid var(--brd)}
-.picker-row .pr-name{font-size:14px}
-.picker-row .pr-badge{font-size:11px;padding:3px 8px;border-radius:10px;background:var(--info-bg);color:var(--info-tx)}
-.picker-row .pr-add{padding:6px 14px;background:var(--info-bg);color:var(--info-tx);border:none;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer}
-.dup-popup{position:fixed;bottom:0;left:0;right:0;z-index:10000;background:var(--card);border-radius:16px 16px 0 0;padding:20px 16px env(safe-area-inset-bottom);box-shadow:0 -4px 20px rgba(0,0,0,0.15)}
-.dup-popup .dp-title{font-size:15px;font-weight:600;margin-bottom:4px}
-.dup-popup .dp-meta{font-size:13px;color:var(--mut);margin-bottom:16px}
-.dup-popup .dp-actions{display:flex;gap:12px}
-.dup-popup .dp-actions button{flex:1;padding:12px;border:none;border-radius:8px;font-size:14px;font-weight:500;cursor:pointer}
-.dup-popup .dp-go{background:var(--info-bg);color:var(--info-tx)}
-.dup-popup .dp-dismiss{background:var(--brd);color:var(--txt)}
-.dup-backdrop{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.3);display:none}
-.empty-state{text-align:center;padding:48px 24px;color:var(--mut)}
-.empty-state .es-icon{font-size:32px;margin-bottom:12px}
-.empty-state .es-title{font-size:15px;font-weight:600;color:var(--txt);margin-bottom:4px}
-.stub{padding:32px 24px;text-align:center;color:var(--mut);font-size:14px}
-.loading{text-align:center;padding:32px;color:var(--mut);font-size:14px}
-.error-card{padding:16px;background:var(--card);border-radius:12px;text-align:center;color:#c0392b;font-size:14px;margin-bottom:8px}
-.pill-btn{cursor:pointer;user-select:none}
-.cutoff-form{padding:14px 16px;margin-bottom:8px}
-.cutoff-form label{display:block;font-size:12px;color:var(--mut);margin-bottom:4px;margin-top:10px}
+.empty{padding:32px 16px;text-align:center;color:var(--mut);font-size:14px}
+/* Cutoff form */
+.cutoff-form{padding:12px 16px;border-top:0.5px solid var(--brd)}
+.cutoff-form label{display:block;font-size:12px;color:var(--mut);margin-bottom:4px;margin-top:8px}
 .cutoff-form label:first-child{margin-top:0}
-.cutoff-form select{width:100%;padding:10px 12px;border:1px solid var(--brd);border-radius:8px;font-size:14px;background:var(--card);color:var(--txt);appearance:none;-webkit-appearance:none}
-.cutoff-btns{display:flex;gap:8px;margin-top:14px}
-.cutoff-btns button{flex:1;padding:10px;border:none;border-radius:8px;font-size:14px;font-weight:500;cursor:pointer}
-.cutoff-btns .btn-save{background:var(--info-bg);color:var(--info-tx)}
-.cutoff-btns .btn-cancel{background:var(--brd);color:var(--txt)}
+.cutoff-form select{width:100%;padding:8px 10px;border:0.5px solid var(--brd);border-radius:8px;background:var(--bg);color:var(--txt);font-size:14px}
+.cutoff-btns{display:flex;gap:8px;margin-top:12px}
+.cutoff-btns button{flex:1;padding:10px;border:none;border-radius:8px;font-size:14px;font-weight:500}
+.btn-save-cutoff{background:var(--info-bg);color:var(--info-tx)}
+.btn-cancel-cutoff{background:var(--brd);color:var(--mut)}
+/* PO tab */
 .vendor-section{margin-bottom:8px}
-.vendor-hd{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:0.5px solid var(--brd);font-size:14px;font-weight:500}
-.vendor-hd .vh-right{display:flex;align-items:center;gap:8px}
-.status-badge{font-size:11px;padding:3px 8px;border-radius:10px}
-.status-badge.locked{background:var(--brd);color:var(--mut)}
-.status-badge.approved{background:#e8f5e9;color:#2e7d32}
-.status-badge.shopping{background:var(--info-bg);color:var(--info-tx)}
-.edit-toggle{font-size:12px;padding:4px 10px;border:1px solid var(--brd);border-radius:8px;background:transparent;color:var(--txt);cursor:pointer}
-.edit-toggle.active{background:var(--info-bg);color:var(--info-tx);border-color:transparent}
-.btn-approve{display:block;width:100%;padding:14px;background:#2e7d32;color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:600;margin-top:8px;cursor:pointer;text-align:center}
-.btn-approve:active{opacity:0.85}
-.po-stub{padding:32px 24px;text-align:center;color:var(--mut);font-size:14px;background:var(--card);border-radius:12px;margin-bottom:8px}
-.stp button:disabled{opacity:0.3;cursor:default}
+.vendor-hd{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:0.5px solid var(--brd)}
+.vendor-hd h3{font-size:14px;font-weight:600;margin:0}
+.vendor-meta{font-size:12px;color:var(--mut)}
+.item-card{display:flex;align-items:center;padding:10px 16px;border-bottom:0.5px solid var(--brd);gap:10px}
+.item-thumb{width:44px;height:44px;border-radius:8px;overflow:hidden;flex-shrink:0;background:var(--bg);display:flex;align-items:center;justify-content:center;cursor:pointer}
+.item-thumb img{width:100%;height:100%;object-fit:cover}
+.item-info{flex:1;min-width:0}
+.item-nm{font-size:14px;font-weight:500}
+.item-mt{font-size:11px;color:var(--mut);margin-top:2px}
+.item-loc{font-size:11px;color:var(--accent);margin-top:2px}
+.btn-approve{width:100%;padding:14px;background:#1e8a4c;color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:600;margin-top:4px}
+.btn-approve:disabled{opacity:0.5}
+.btn-edit-toggle{font-size:12px;padding:6px 12px;border:0.5px solid var(--brd);border-radius:8px;background:transparent;color:var(--accent)}
+.btn-edit-toggle.on{background:var(--info-bg)}
+/* Shopping tab */
+.shop-item{display:flex;align-items:center;padding:10px 16px;border-bottom:0.5px solid var(--brd);gap:10px}
+.shop-check{font-size:24px;padding:0 4px;cursor:pointer;user-select:none;flex-shrink:0}
+.shop-thumb{width:48px;height:48px;border-radius:8px;overflow:hidden;flex-shrink:0}
+.shop-thumb img{width:100%;height:100%;object-fit:cover}
+.no-photo{width:48px;height:48px;background:var(--bg);display:flex;align-items:center;justify-content:center;border-radius:8px;cursor:pointer;font-size:20px;border:0.5px dashed var(--brd)}
+.shop-info{flex:1;min-width:0}
+.shop-nm{font-size:14px;font-weight:600}
+.shop-qty{font-size:12px;color:var(--mut);margin-top:2px}
+.shop-loc{font-size:12px;color:var(--accent);margin-top:2px;cursor:pointer}
+.shop-loc input{width:100%;border:0.5px solid var(--brd);border-radius:6px;padding:4px 8px;font-size:12px;background:var(--bg);color:var(--txt)}
+.missing-badge{font-size:10px;color:var(--warn-tx);padding:2px 6px;background:var(--warn-bg);border-radius:4px;white-space:nowrap;flex-shrink:0}
+.shop-vendor-hd{display:flex;justify-content:space-between;align-items:center;padding:10px 16px;border-bottom:2px solid var(--brd);background:var(--bg);position:sticky;top:0;z-index:2}
+.shop-vendor-hd h3{font-size:14px;font-weight:700;margin:0}
+.vendor-progress{font-size:11px;color:var(--mut)}
+.btn-complete-vendor{width:calc(100% - 32px);margin:10px 16px;padding:12px;background:var(--info-bg);color:var(--info-tx);border:none;border-radius:8px;font-size:14px;font-weight:600}
+.section-completed{opacity:0.55}
+.section-completed .shop-check{pointer-events:none}
+.completion-note{font-size:11px;color:var(--ok-tx);padding:4px 16px 8px;text-align:center}
+.shop-toast{position:fixed;bottom:80px;left:12px;right:12px;background:#333;color:#fff;padding:12px 14px;border-radius:10px;font-size:13px;z-index:200;display:flex;justify-content:space-between;align-items:center;gap:8px;max-width:480px;margin:0 auto}
+.shop-toast button{background:var(--warn);color:#fff;border:none;padding:6px 12px;border-radius:6px;font-size:12px;font-weight:600;white-space:nowrap}
+/* History tab */
+.history-card{background:var(--card);border-radius:10px;margin:0 0 8px;overflow:hidden}
+.history-hd{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;cursor:pointer}
+.history-wk{font-weight:600;font-size:15px}
+.history-mt{font-size:12px;color:var(--mut);margin-top:2px}
+.history-chv{font-size:14px;color:var(--mut);transition:transform 0.2s;flex-shrink:0}
+.history-chv.open{transform:rotate(90deg)}
+.history-detail{padding:0 16px 12px}
+.history-vsec{margin:8px 0}
+.history-vsec-hd{font-size:12px;font-weight:600;color:var(--mut);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.3px}
+.history-item{display:flex;align-items:center;gap:8px;padding:4px 0;font-size:13px}
+.history-item.missed{color:var(--warn)}
 </style>
 </head>
 <body>
 <div class="app">
 <a class="back" href="index.html">HQ &nbsp;&#183;&nbsp; Purchase Orders</a>
 <div class="tabs">
-  <button id="t1" class="on" data-action="tab" data-tab="1">Order</button>
-  <button id="t2" data-action="tab" data-tab="2">Shopping</button>
-  <button id="t3" data-action="tab" data-tab="3">PO</button>
-  <button id="t4" data-action="tab" data-tab="4">History</button>
+  <button id="t1" class="on" onclick="show(1)">Order</button>
+  <button id="t2" onclick="show(2)">Shopping</button>
+  <button id="t3" onclick="show(3)">PO</button>
+  <button id="t4" onclick="show(4)">History</button>
 </div>
 
-<div id="s1"><!-- Order tab: rendered by JS --></div>
-<div id="s2" style="display:none"><div class="card"><div class="stub">Shopping list will appear here after the PO is approved</div></div></div>
-<div id="s3" style="display:none"><!-- PO tab: rendered by JS --></div>
-<div id="s4" style="display:none"><div class="card"><div class="stub">Past shopping runs will appear here</div></div></div>
-</div>
-
-<!-- Item picker modal -->
-<div class="item-modal" id="item-modal">
-  <div class="modal-hd">
-    <input type="text" id="picker-search" placeholder="Search items..." autocomplete="off">
-    <button data-action="close-picker">Back to order</button>
+<!-- s1: Order tab -->
+<div id="s1">
+  <div class="card">
+    <div class="hd">
+      <h1 id="order-week">Loading...</h1>
+      <div class="sub">
+        <span id="order-meta"></span>
+        <span id="cutoff-pill" class="pill">Cutoff</span>
+      </div>
+    </div>
+    <div id="cutoff-form" style="display:none" class="cutoff-form">
+      <label>Day</label>
+      <select id="cutoff-day">
+        <option value="0">Sunday</option>
+        <option value="1">Monday</option>
+        <option value="2">Tuesday</option>
+        <option value="3">Wednesday</option>
+        <option value="4">Thursday</option>
+        <option value="5">Friday</option>
+        <option value="6">Saturday</option>
+      </select>
+      <label>Time</label>
+      <select id="cutoff-time"></select>
+      <div class="cutoff-btns">
+        <button class="btn-save-cutoff" data-action="save-cutoff">Save</button>
+        <button class="btn-cancel-cutoff" data-action="cancel-cutoff">Cancel</button>
+      </div>
+    </div>
+    <div class="list" id="order-list"></div>
+    <div class="ft"><button onclick="submitOrder()">Submit additions</button></div>
   </div>
-  <div class="modal-list" id="picker-list"></div>
+  <div id="suggestions-card" style="display:none" class="card">
+    <div class="hd"><h1>Restock Suggestions</h1></div>
+    <div id="suggestions-list"></div>
+    <div class="ft"><button onclick="addSuggestions()">Add Selected</button></div>
+  </div>
 </div>
 
-<!-- Duplicate popup -->
-<div class="dup-backdrop" id="dup-backdrop" data-action="dismiss-dup"></div>
-<div class="dup-popup" id="dup-popup" style="display:none">
-  <div class="dp-title" id="dp-title"></div>
-  <div class="dp-meta" id="dp-meta"></div>
-  <div class="dp-actions">
-    <button class="dp-go" data-action="goto-item">Go to item</button>
-    <button class="dp-dismiss" data-action="dismiss-dup">Dismiss</button>
-  </div>
+<!-- s2: Shopping tab -->
+<div id="s2" style="display:none">
+  <div id="shopping-content"></div>
+  <div id="shop-toast" class="shop-toast" style="display:none"></div>
+</div>
+
+<!-- s3: PO tab -->
+<div id="s3" style="display:none">
+  <div id="po-content"></div>
+</div>
+
+<!-- s4: History tab -->
+<div id="s4" style="display:none">
+  <div id="history-content"></div>
+</div>
+
+<!-- Lightbox -->
+<div id="lightbox" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:999;align-items:center;justify-content:center" onclick="document.getElementById('lightbox').style.display='none'">
+  <img id="lb-img" style="max-width:100%;max-height:100%;object-fit:contain">
+</div>
 </div>
 
 <script>
-let PO_STATE = null;
-let SUGGESTIONS = [];
-let ALL_ITEMS = [];
-let SUGGESTION_OPEN = false;
-let DEBOUNCE_TIMER = null;
-let DUP_ITEM_ID = null;
-let PICKER_TARGET = 'order'; // 'order' or 'po' — which PO the picker adds items to
-const DEBOUNCE_MS = 600;
-const SEARCH_DEBOUNCE_MS = 300;
-let CUTOFF_CONFIG = null;
-let USER_ROLE = null;
-let PO_EDITING = false;
-let LOCKED_PO = null;
-let CUTOFF_FORM_OPEN = false;
+// ─── State ───────────────────────────────────────────────────────────────────
+var PO_STATE = null;
+var LOCKED_PO = null;
+var SUGGESTIONS = [];
+var ALL_ITEMS = [];
+var USER_ROLE = null;
+var CUTOFF_CONFIG = null;
+var PO_EDITING = false;
+var CUTOFF_FORM_OPEN = false;
+var PICKER_TARGET = null;
+var SHOPPING_LIST = null;
+var SHOPPING_HISTORY = [];
+var SHOPPING_HISTORY_LOADED = false;
+var SHOPPING_HISTORY_EXPANDED = {};
+var TOAST_TIMER = null;
+var SAVE_TIMER = null;
+var PENDING_QTY = {}; // {itemId: qty}
 
-async function api(path, opts) {
-  var res = await fetch(path, opts);
-  if (res.status === 401) { window.location.href = '/login.html'; throw new Error('unauthorized'); }
-  if (res.status === 204) return null;
-  var data = await res.json();
-  if (!res.ok) throw Object.assign(new Error(data.error || 'api_error'), { status: res.status, data: data });
-  return data;
+// ─── API helper ───────────────────────────────────────────────────────────────
+function api(path, opts) {
+  return fetch(path, Object.assign({headers:{'Content-Type':'application/json'}}, opts || {})).then(function(r) {
+    if (r.status === 401) { location.href = '/login.html'; return; }
+    if (r.status === 204) return null;
+    return r.json().then(function(data) {
+      if (!r.ok) { var e = new Error(data.error || 'Request failed'); e.status = r.status; e.data = data; throw e; }
+      return data;
+    });
+  });
 }
 
+// ─── Utilities ────────────────────────────────────────────────────────────────
 function weekLabel(dateStr) {
+  if (!dateStr) return '';
   var d = new Date(dateStr + 'T00:00:00');
-  return 'Week of ' + d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return 'Week of ' + d.toLocaleDateString('en-US', {month:'short', day:'numeric'});
 }
-
 function initials(name) {
   if (!name) return '?';
-  return name.split(' ').map(function(w){return w[0]||'';}).join('').toUpperCase().slice(0,2);
+  var parts = name.split(' ');
+  return (parts[0][0] + (parts[1] ? parts[1][0] : '')).toUpperCase();
 }
-
 function isAdminUser() {
-  if (!USER_ROLE) return false;
-  if (USER_ROLE.is_superadmin) return true;
-  return (USER_ROLE.roles || []).indexOf('admin') !== -1;
+  return USER_ROLE && (USER_ROLE.is_superadmin || (USER_ROLE.roles && (USER_ROLE.roles.includes('admin') || USER_ROLE.roles.includes('manager'))));
+}
+function formatCutoffLabel(cfg) {
+  if (!cfg) return 'Set cutoff';
+  var days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  return 'Cutoff ' + days[cfg.day_of_week] + ' ' + cfg.cutoff_time;
+}
+function fmtTime(isoStr) {
+  if (!isoStr) return '';
+  var d = new Date(isoStr);
+  return d.toLocaleDateString('en-US', {month:'short', day:'numeric'}) + ' ' + d.toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit'});
 }
 
-var DAYS = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+// ─── Init ─────────────────────────────────────────────────────────────────────
+async function init() {
+  try {
+    var results = await Promise.all([
+      api('/api/v1/me').catch(function() { return null; }),
+      api('/api/v1/purchasing/cutoff').catch(function() { return null; }),
+      api('/api/v1/purchasing/orders?status=locked').catch(function() { return null; }),
+      api('/api/v1/purchasing/shopping/active').catch(function() { return null; })
+    ]);
+    USER_ROLE = results[0];
+    var cutoffData = results[1];
+    CUTOFF_CONFIG = (cutoffData && cutoffData.id) ? cutoffData : null;
+    LOCKED_PO = results[2];
+    SHOPPING_LIST = results[3];
+  } catch(e) { console.error('Init error', e); }
 
-function formatCutoffLabel() {
-  if (!CUTOFF_CONFIG) return 'Set cutoff';
-  var day = DAYS[CUTOFF_CONFIG.day_of_week] || '';
-  var t = CUTOFF_CONFIG.cutoff_time || '';
-  var parts = t.split(':');
-  if (parts.length >= 2) {
-    var h = parseInt(parts[0], 10);
-    var m = parts[1];
-    var ampm = h >= 12 ? 'pm' : 'am';
-    h = h % 12 || 12;
-    t = h + (m !== '00' ? ':' + m : '') + ampm;
-  }
-  return 'Cutoff ' + day.slice(0,3) + ' ' + t;
+  try {
+    var orderData = await api('/api/v1/purchasing/orders').catch(function() { return null; });
+    PO_STATE = orderData;
+    if (PO_STATE) {
+      var [sugg, items] = await Promise.all([
+        api('/api/v1/purchasing/suggestions').catch(function() { return []; }),
+        api('/api/v1/purchasing/items').catch(function() { return []; })
+      ]);
+      SUGGESTIONS = sugg || [];
+      ALL_ITEMS = items || [];
+    }
+  } catch(e) { console.error('Order load error', e); }
+
+  renderOrder();
+  renderShoppingTab();
+  renderPOTab();
 }
 
-function renderCutoffForm() {
-  var selDay = CUTOFF_CONFIG ? CUTOFF_CONFIG.day_of_week : 0;
-  var selTime = CUTOFF_CONFIG ? (CUTOFF_CONFIG.cutoff_time || '').slice(0,5) : '18:00';
-
-  var dayOpts = DAYS.map(function(d, i) {
-    return '<option value="' + i + '"' + (i === selDay ? ' selected' : '') + '>' + d + '</option>';
-  }).join('');
-
-  var timeOpts = '';
+// ─── Cutoff time select options ───────────────────────────────────────────────
+(function buildCutoffTimeSelect() {
+  var sel = document.getElementById('cutoff-time');
   for (var h = 0; h < 24; h++) {
     for (var m = 0; m < 60; m += 30) {
-      var hh = String(h).padStart(2,'0');
-      var mm = String(m).padStart(2,'0');
-      var val = hh + ':' + mm;
-      var ampm = h >= 12 ? 'pm' : 'am';
-      var dh = h % 12 || 12;
-      var label = dh + ':' + mm + ' ' + ampm;
-      timeOpts += '<option value="' + val + '"' + (val === selTime ? ' selected' : '') + '>' + label + '</option>';
+      var hh = String(h).padStart(2,'0'), mm = String(m).padStart(2,'0');
+      var opt = document.createElement('option');
+      opt.value = hh + ':' + mm;
+      var ampm = h < 12 ? 'AM' : 'PM';
+      var disp = (h % 12 || 12) + ':' + mm + ' ' + ampm;
+      opt.textContent = disp;
+      sel.appendChild(opt);
     }
   }
+})();
 
-  return '<div class="cutoff-form card">'
-    + '<label>Day</label><select id="cutoff-day">' + dayOpts + '</select>'
-    + '<label>Time</label><select id="cutoff-time">' + timeOpts + '</select>'
-    + '<div class="cutoff-btns">'
-    + '<button class="btn-save" data-action="save-cutoff">Save</button>'
-    + '<button class="btn-cancel" data-action="cancel-cutoff">Cancel</button>'
-    + '</div></div>';
-}
+// ─── Order Tab ────────────────────────────────────────────────────────────────
+function renderOrder() {
+  var wk = document.getElementById('order-week');
+  var meta = document.getElementById('order-meta');
+  var pill = document.getElementById('cutoff-pill');
+  var lst = document.getElementById('order-list');
+  var suggCard = document.getElementById('suggestions-card');
 
-async function saveCutoff() {
-  var dayEl = document.getElementById('cutoff-day');
-  var timeEl = document.getElementById('cutoff-time');
-  if (!dayEl || !timeEl) return;
-  var day = parseInt(dayEl.value, 10);
-  var time = timeEl.value;
-  try {
-    var result = await api('/api/v1/purchasing/cutoff', {
-      method: 'PUT',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ day_of_week: day, cutoff_time: time, timezone: 'America/Chicago' })
-    });
-    CUTOFF_CONFIG = result;
-    CUTOFF_FORM_OPEN = false;
-    renderOrder();
-  } catch (e) {
-    alert('Failed to save cutoff: ' + (e.message || 'error'));
-  }
-}
-
-function renderPOTab() {
-  var s3 = document.getElementById('s3');
-  if (!LOCKED_PO) {
-    s3.innerHTML = '<div class="po-stub">No locked PO yet. Orders lock at the weekly cutoff.</div>';
+  if (!PO_STATE) {
+    wk.textContent = 'No active order';
+    meta.textContent = '';
+    pill.textContent = formatCutoffLabel(CUTOFF_CONFIG);
+    lst.innerHTML = '<div class="empty">No order this week yet.</div>';
     return;
   }
 
-  var items = LOCKED_PO.line_items || [];
-  var isAdmin = isAdminUser();
+  wk.textContent = weekLabel(PO_STATE.week_start);
+  var itemCount = PO_STATE.line_items ? PO_STATE.line_items.length : 0;
+  meta.textContent = itemCount + ' item' + (itemCount !== 1 ? 's' : '');
 
-  var statusText = LOCKED_PO.status === 'approved' ? 'Approved'
-    : LOCKED_PO.status === 'shopping_active' ? 'Shopping'
-    : 'Locked';
-  var statusClass = LOCKED_PO.status === 'approved' ? 'approved'
-    : LOCKED_PO.status === 'shopping_active' ? 'shopping'
-    : 'locked';
-
-  var html = '<div class="card">';
-  html += '<div class="vendor-hd">';
-  html += '<span>' + weekLabel(LOCKED_PO.week_start) + '</span>';
-  html += '<div class="vh-right">';
-  html += '<span class="status-badge ' + statusClass + '">' + statusText + '</span>';
-  if (isAdmin && LOCKED_PO.status === 'locked') {
-    html += '<button class="edit-toggle' + (PO_EDITING ? ' active' : '') + '" data-action="po-edit-toggle">' + (PO_EDITING ? 'Done' : 'Edit ✎') + '</button>';
-  }
-  html += '</div></div>';
-
-  if (items.length === 0) {
-    html += '<div class="stub">No items in this PO.</div>';
+  // Cutoff pill
+  pill.textContent = formatCutoffLabel(CUTOFF_CONFIG);
+  if (isAdminUser()) {
+    pill.className = 'pill tap';
+    pill.setAttribute('data-action', 'toggle-cutoff-config');
+    pill.title = 'Configure cutoff';
   } else {
-    var vendorGroups = {};
-    var vendorOrder = [];
-    items.forEach(function(item) {
-      var vname = item.vendor_name || item.store_location || 'Other';
-      if (!vendorGroups[vname]) { vendorGroups[vname] = []; vendorOrder.push(vname); }
-      vendorGroups[vname].push(item);
-    });
+    pill.className = 'pill';
+    pill.removeAttribute('data-action');
+  }
 
-    vendorOrder.forEach(function(vname) {
-      var vItems = vendorGroups[vname];
-      html += '<div class="vendor-section">';
-      html += '<div class="cat">' + vname + ' &middot; ' + vItems.length + ' item' + (vItems.length === 1 ? '' : 's') + '</div>';
-      vItems.forEach(function(item) {
-        html += renderPOItemCard(item, isAdmin && PO_EDITING);
+  // Restore cutoff form state if open
+  if (CUTOFF_FORM_OPEN && isAdminUser()) {
+    document.getElementById('cutoff-form').style.display = 'block';
+    if (CUTOFF_CONFIG) {
+      document.getElementById('cutoff-day').value = CUTOFF_CONFIG.day_of_week;
+      document.getElementById('cutoff-time').value = CUTOFF_CONFIG.cutoff_time;
+    }
+  }
+
+  // Group items by category
+  lst.innerHTML = '';
+  if (!PO_STATE.line_items || PO_STATE.line_items.length === 0) {
+    lst.innerHTML = '<div class="empty">No items yet. Add from suggestions below.</div>';
+  } else {
+    var groups = {};
+    PO_STATE.line_items.forEach(function(item) {
+      var g = (item.group_name || 'Other');
+      if (!groups[g]) groups[g] = [];
+      groups[g].push(item);
+    });
+    Object.keys(groups).sort().forEach(function(g) {
+      var h = document.createElement('div');
+      h.className = 'cat';
+      h.textContent = g;
+      lst.appendChild(h);
+      groups[g].forEach(function(item) {
+        var r = document.createElement('div');
+        r.className = 'row';
+        var qty = PENDING_QTY[item.id] !== undefined ? PENDING_QTY[item.id] : item.quantity;
+        r.innerHTML = '<div><div class="nm">' + item.item_name + '</div><div class="mt">' + item.unit + '</div></div>' +
+          '<div class="stp">' +
+          '<button data-action="qty-dec" data-item-id="' + item.id + '" data-po-id="' + PO_STATE.id + '">−</button>' +
+          '<span id="qty-' + item.id + '">' + qty + '</span>' +
+          '<button data-action="qty-inc" data-item-id="' + item.id + '" data-po-id="' + PO_STATE.id + '">+</button>' +
+          '</div>';
+        lst.appendChild(r);
       });
-      html += '</div>';
     });
   }
 
-  html += '</div>';
-
-  if (isAdmin && PO_EDITING && LOCKED_PO.status === 'locked') {
-    html += '<button class="add-btn" data-action="open-po-picker">+ Add item</button>';
-  }
-
-  if (isAdmin && LOCKED_PO.status === 'locked') {
-    html += '<button class="btn-approve" data-action="approve-po">Approve &amp; Create Shopping List</button>';
-  }
-
-  s3.innerHTML = html;
-}
-
-function renderPOItemCard(item, editable) {
-  var thumb = item.photo_url
-    ? '<div class="item-thumb"><img src="' + item.photo_url + '" alt="' + item.item_name + '" data-action="photo-zoom" data-photo-url="' + item.photo_url + '" data-photo-name="' + item.item_name + '"></div>'
-    : '<div class="item-thumb">' + (item.item_name || '?').charAt(0).toUpperCase() + '</div>';
-  var loc = item.store_location ? ' &middot; ' + item.store_location : '';
-  var ini = initials(item.added_by_name || '');
-  var dimClass = item.quantity === 0 ? ' dim' : '';
-  var disabled = editable ? '' : ' disabled';
-  return '<div class="item-card' + dimClass + '" data-item-id="' + item.purchase_item_id + '">'
-    + thumb
-    + '<div class="item-info"><div class="nm">' + item.item_name + '</div>'
-    + '<div class="mt">' + (item.unit || '') + loc + '</div>'
-    + (ini ? '<div class="attr">Added by: ' + ini + '</div>' : '')
-    + '</div>'
-    + '<div class="stp">'
-    + '<button data-action="po-qty-dec" data-item-id="' + item.purchase_item_id + '"' + disabled + '>&minus;</button>'
-    + '<span>' + item.quantity + '</span>'
-    + '<button data-action="po-qty-inc" data-item-id="' + item.purchase_item_id + '"' + disabled + '>+</button>'
-    + '</div></div>';
-}
-
-function updatePOQty(itemId, delta) {
-  if (!LOCKED_PO) return;
-  var item = (LOCKED_PO.line_items || []).find(function(it) { return it.purchase_item_id === itemId; });
-  if (!item) return;
-  item.quantity = Math.max(0, item.quantity + delta);
-  renderPOTab();
-  debouncedSave('po');
-}
-
-async function approvePO() {
-  if (!LOCKED_PO) return;
-  var btn = document.querySelector('[data-action="approve-po"]');
-  if (btn) { btn.disabled = true; btn.textContent = 'Approving...'; }
-  try {
-    await api('/api/v1/purchasing/orders/' + LOCKED_PO.id + '/approve', { method: 'POST' });
-    window.location.reload();
-  } catch (e) {
-    if (btn) { btn.disabled = false; btn.textContent = 'Approve & Create Shopping List'; }
-    if (e.status === 409) {
-      alert('Complete last week\'s shopping list before approving this one.');
-    } else {
-      alert('Failed to approve: ' + (e.message || 'error'));
-    }
-  }
-}
-
-async function init() {
-  var s1 = document.getElementById('s1');
-  s1.innerHTML = '<div class="loading">Loading order...</div>';
-  try {
-    var results = await Promise.all([
-      api('/api/v1/purchasing/orders', { method: 'POST', headers: {'Content-Type':'application/json'} }),
-      api('/api/v1/inventory/items'),
-      api('/api/v1/me').catch(function() { return null; }),
-      api('/api/v1/purchasing/cutoff').catch(function() { return null; }),
-      api('/api/v1/purchasing/orders?status=locked').catch(function() { return null; })
-    ]);
-    PO_STATE = results[0];
-    ALL_ITEMS = results[1] || [];
-    USER_ROLE = results[2];
-    CUTOFF_CONFIG = (results[3] && results[3].id) ? results[3] : null;
-    LOCKED_PO = results[4];
-    SUGGESTIONS = await api('/api/v1/purchasing/orders/' + PO_STATE.id + '/suggestions') || [];
-    renderOrder();
-    renderPOTab();
-  } catch (e) {
-    if (e.message !== 'unauthorized') {
-      s1.innerHTML = '<div class="error-card">Couldn\'t load the order. Pull down to refresh.</div>';
-    }
-  }
-}
-
-function renderOrder() {
-  var s1 = document.getElementById('s1');
-  var items = PO_STATE.line_items || [];
-  var contributors = [];
-  items.forEach(function(it) { if (it.added_by_name && contributors.indexOf(it.added_by_name) === -1) contributors.push(it.added_by_name); });
-  var contribText = contributors.length === 1 ? '1 contributor' : contributors.length + ' contributors';
-  var itemCount = items.length === 1 ? '1 item' : items.length + ' items';
-
-  var isAdmin = isAdminUser();
-  var cutoffLabel = formatCutoffLabel();
-  var cutoffPill = '';
-  if (isAdmin) {
-    cutoffPill = '<span class="pill pill-btn" data-action="toggle-cutoff-config">' + cutoffLabel + '</span>';
-  } else if (CUTOFF_CONFIG) {
-    cutoffPill = '<span class="pill">' + cutoffLabel + '</span>';
-  }
-
-  var html = '<div class="card">';
-  html += '<div class="order-hd">';
-  html += '<h1>' + weekLabel(PO_STATE.week_start) + '</h1>';
-  html += '<div class="sub"><span>' + contribText + ' &middot; ' + itemCount + '</span>' + cutoffPill + '</div>';
-  html += '</div>';
-  if (CUTOFF_FORM_OPEN && isAdmin) {
-    html += renderCutoffForm();
-  }
-
+  // Suggestions
   if (SUGGESTIONS.length > 0) {
-    html += '<div class="suggest-banner">';
-    html += '<span data-action="toggle-suggestions">' + SUGGESTIONS.length + ' restock suggestion' + (SUGGESTIONS.length === 1 ? '' : 's') + '</span>';
-    html += '<button data-action="toggle-suggestions">' + (SUGGESTION_OPEN ? '&minus;' : '+') + '</button>';
-    html += '</div>';
-  }
-
-  if (SUGGESTION_OPEN && SUGGESTIONS.length > 0) {
-    html += '<div class="suggest-list">';
+    suggCard.style.display = 'block';
+    var sl = document.getElementById('suggestions-list');
+    sl.innerHTML = '';
     SUGGESTIONS.forEach(function(s) {
-      var alreadyOnPO = (PO_STATE.line_items || []).some(function(li) { return li.purchase_item_id === s.purchase_item_id; });
-      html += '<div class="suggest-row">';
-      html += '<input type="checkbox" data-suggest-id="' + s.purchase_item_id + '"' + (alreadyOnPO ? ' disabled checked' : '') + '>';
-      html += '<span>' + s.item_name + '</span>';
-      var lvlClass = s.stock_level === 'Low' ? 'sl-low' : 'sl-med';
-      html += '<span class="' + lvlClass + '">' + s.stock_level + '</span>';
-      html += '<span class="sq">Suggested: ' + s.suggested_qty + (s.unit ? ' ' + s.unit : '') + '</span>';
-      html += '</div>';
+      var added = PO_STATE.line_items && PO_STATE.line_items.some(function(li) { return li.purchase_item_id === s.purchase_item_id; });
+      var r = document.createElement('div');
+      r.className = 'row';
+      r.innerHTML = '<div><div class="nm">' + s.item_name + '</div><div class="mt">' + s.unit + ' · need ' + s.suggested_qty + '</div></div>' +
+        '<input type="checkbox" data-action="toggle-sugg" data-item-id="' + s.purchase_item_id + '" data-qty="' + s.suggested_qty + '" data-unit="' + s.unit + '"' + (added ? ' checked' : '') + '>';
+      sl.appendChild(r);
     });
-    html += '<div class="suggest-ft"><button data-action="add-selected">Add Selected</button></div>';
-    html += '</div>';
-  }
-
-  if (items.length === 0) {
-    html += '<div class="empty-state">';
-    html += '<div class="es-icon">🛒</div>';
-    html += '<div class="es-title">Nothing on the order yet</div>';
-    html += '<div>Add items from inventory or tap the restock suggestions above</div>';
-    html += '</div>';
   } else {
-    var grouped = {};
-    var groupOrder = [];
-    items.forEach(function(it) {
-      var g = it.group_name || 'Other';
-      if (!grouped[g]) { grouped[g] = []; groupOrder.push(g); }
-      grouped[g].push(it);
-    });
-    groupOrder.forEach(function(g) {
-      html += '<div class="cat">' + g + '</div>';
-      grouped[g].forEach(function(it) { html += renderItemCard(it); });
-    });
+    suggCard.style.display = 'none';
   }
-
-  html += '</div>';
-  html += '<button class="add-btn" data-action="open-picker">+ Add item</button>';
-
-  s1.innerHTML = html;
 }
 
-function renderItemCard(item) {
-  var thumb = item.photo_url
-    ? '<div class="item-thumb"><img src="' + item.photo_url + '" alt="' + item.item_name + '" data-action="photo-zoom" data-photo-url="' + item.photo_url + '" data-photo-name="' + item.item_name + '"></div>'
-    : '<div class="item-thumb">' + item.item_name.charAt(0).toUpperCase() + '</div>';
-  var loc = item.store_location ? ' &middot; ' + item.store_location : '';
-  var ini = initials(item.added_by_name || 'You');
-  var dimClass = item.quantity === 0 ? ' dim' : '';
-  return '<div class="item-card' + dimClass + '" data-item-id="' + item.purchase_item_id + '">'
-    + thumb
-    + '<div class="item-info"><div class="nm">' + item.item_name + '</div>'
-    + '<div class="mt">' + (item.unit || '') + loc + '</div>'
-    + '<div class="attr">Added by: ' + ini + '</div></div>'
-    + '<div class="stp">'
-    + '<button data-action="qty-dec" data-item-id="' + item.purchase_item_id + '">&minus;</button>'
-    + '<span aria-label="Quantity: ' + item.quantity + '">' + item.quantity + '</span>'
-    + '<button data-action="qty-inc" data-item-id="' + item.purchase_item_id + '">+</button>'
-    + '</div></div>';
-}
-
-function openPhotoLightbox(url, name) {
-  var lb = document.createElement('div');
-  lb.className = 'photo-lightbox';
-  lb.innerHTML = '<button class="lb-close" data-action="close-lightbox">&times;</button>'
-    + '<img src="' + url + '" alt="' + (name || '') + '">';
-  lb.addEventListener('click', function(e) {
-    if (e.target === lb) closePhotoLightbox();
+function savePOItems(target) {
+  // target: 'order' or 'po'
+  var po = target === 'po' ? LOCKED_PO : PO_STATE;
+  if (!po) return;
+  var items = po.line_items.map(function(item) {
+    var qty = PENDING_QTY[item.id] !== undefined ? PENDING_QTY[item.id] : item.quantity;
+    return {purchase_item_id: item.purchase_item_id, quantity: qty, unit: item.unit};
   });
-  document.body.appendChild(lb);
-}
-
-function closePhotoLightbox() {
-  var lb = document.querySelector('.photo-lightbox');
-  if (lb) lb.remove();
-}
-
-function show(n) {
-  [1,2,3,4].forEach(function(i) {
-    document.getElementById('s'+i).style.display = i===n ? 'block' : 'none';
-    document.getElementById('t'+i).className = i===n ? 'on' : '';
-  });
-}
-
-function updateQty(itemId, delta) {
-  if (!PO_STATE) return;
-  var item = (PO_STATE.line_items || []).find(function(it) { return it.purchase_item_id === itemId; });
-  if (!item) return;
-  var newQty = Math.max(0, item.quantity + delta);
-  item.quantity = newQty;
-  var card = document.querySelector('.item-card[data-item-id="' + itemId + '"]');
-  if (card) {
-    card.className = 'item-card' + (newQty === 0 ? ' dim' : '');
-    var span = card.querySelector('.stp span');
-    if (span) { span.textContent = newQty; span.setAttribute('aria-label', 'Quantity: ' + newQty); }
-  }
-  debouncedSave('order');
+  api('/api/v1/purchasing/orders/' + po.id + '/items', {
+    method: 'PUT',
+    body: JSON.stringify({items: items})
+  }).then(function(updated) {
+    if (updated) {
+      if (target === 'po') LOCKED_PO = updated;
+      else PO_STATE = updated;
+    }
+    PENDING_QTY = {};
+  }).catch(function(e) { console.error('Save failed', e); });
 }
 
 function debouncedSave(target) {
-  clearTimeout(DEBOUNCE_TIMER);
-  DEBOUNCE_TIMER = setTimeout(function() { savePOItems(target); }, DEBOUNCE_MS);
+  clearTimeout(SAVE_TIMER);
+  SAVE_TIMER = setTimeout(function() { savePOItems(target); }, 1200);
 }
 
-async function savePOItems(target) {
-  var po = (target === 'po') ? LOCKED_PO : PO_STATE;
-  if (!po) return;
-  var items = (po.line_items || [])
-    .filter(function(it) { return it.quantity > 0; })
-    .map(function(it) { return { purchase_item_id: it.purchase_item_id, quantity: it.quantity, unit: it.unit || '' }; });
-  try {
-    var updated = await api('/api/v1/purchasing/orders/' + po.id + '/items', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ items: items })
-    });
-    if (updated) {
-      if (target === 'po') { LOCKED_PO = updated; renderPOTab(); }
-      else { PO_STATE = updated; renderOrder(); }
-    }
-  } catch (e) {
-    if (e.status === 403 || e.status === 409) {
-      // PO was locked or status changed — reload to pick up current state
-      alert(e.status === 403
-        ? 'This order has been locked. Only an admin can edit it.'
-        : 'This order is no longer editable.');
-      window.location.reload();
-      return;
-    }
-    var s1 = document.getElementById('s1');
-    var errDiv = document.createElement('div');
-    errDiv.className = 'error-card';
-    errDiv.textContent = "Couldn't save. Check connection and try again.";
-    s1.insertBefore(errDiv, s1.firstChild);
-    setTimeout(function() { if (errDiv.parentNode) errDiv.parentNode.removeChild(errDiv); }, 4000);
-  }
-}
-
-function addItemToPO(itemId) {
-  var targetPO = PICKER_TARGET === 'po' ? LOCKED_PO : PO_STATE;
-  if (!targetPO) return;
-  var catalogItem = ALL_ITEMS.find(function(it) { return it.id === itemId; });
-  if (!catalogItem) return;
-  var existing = (targetPO.line_items || []).find(function(it) { return it.purchase_item_id === itemId; });
-  if (existing) return;
-  targetPO.line_items = targetPO.line_items || [];
-  targetPO.line_items.push({
-    purchase_item_id: itemId,
-    item_name: catalogItem.description,
-    group_name: catalogItem.group_name || null,
-    photo_url: catalogItem.photo_url || null,
-    store_location: catalogItem.store_location || null,
-    quantity: 1,
-    unit: '',
-    added_by_name: 'You'
-  });
-  if (PICKER_TARGET === 'po') {
-    renderPOTab();
-    savePOItems('po');
-  } else {
-    SUGGESTIONS = SUGGESTIONS.filter(function(s) { return s.purchase_item_id !== itemId; });
-    renderOrder();
-    savePOItems('order');
-  }
-}
-
-function addSelectedSuggestions() {
-  if (!PO_STATE) return;
-  var checkboxes = document.querySelectorAll('.suggest-row input[type=checkbox]:checked:not(:disabled)');
-  checkboxes.forEach(function(cb) {
-    var sid = cb.dataset.suggestId;
-    var suggestion = SUGGESTIONS.find(function(s) { return s.purchase_item_id === sid; });
-    if (!suggestion) return;
-    var existing = (PO_STATE.line_items || []).find(function(it) { return it.purchase_item_id === sid; });
-    if (existing) return;
-    PO_STATE.line_items = PO_STATE.line_items || [];
-    PO_STATE.line_items.push({
-      purchase_item_id: suggestion.purchase_item_id,
-      item_name: suggestion.item_name,
-      group_name: suggestion.group_name || null,
-      photo_url: suggestion.photo_url || null,
-      store_location: suggestion.store_location || null,
-      quantity: suggestion.suggested_qty,
-      unit: suggestion.unit || '',
-      added_by_name: 'You'
-    });
-  });
-  SUGGESTIONS = SUGGESTIONS.filter(function(s) {
-    return !(PO_STATE.line_items || []).some(function(li) { return li.purchase_item_id === s.purchase_item_id; });
-  });
-  SUGGESTION_OPEN = false;
-  renderOrder();
+function submitOrder() {
   savePOItems('order');
+  showToast('Order saved');
 }
 
-function openItemModal(target) {
-  PICKER_TARGET = target || 'order';
-  var modal = document.getElementById('item-modal');
-  modal.classList.add('open');
-  var input = document.getElementById('picker-search');
-  input.value = '';
-  renderPickerList('');
-  setTimeout(function() { input.focus(); }, 100);
+function showToast(msg) {
+  var t = document.getElementById('shop-toast');
+  if (!t) return;
+  clearTimeout(TOAST_TIMER);
+  t.innerHTML = '<span>' + msg + '</span>';
+  t.style.display = 'flex';
+  TOAST_TIMER = setTimeout(function() { t.style.display = 'none'; }, 3000);
 }
 
-function closeItemModal() {
-  document.getElementById('item-modal').classList.remove('open');
-  document.getElementById('picker-search').value = '';
-}
-
-function renderPickerList(query) {
-  var q = (query || '').toLowerCase();
-  var filtered = ALL_ITEMS.filter(function(it) {
-    return !q || (it.description || '').toLowerCase().indexOf(q) !== -1;
-  }).slice(0, 30);
-
-  var html = '';
-  if (filtered.length === 0) {
-    html = '<div class="loading">No items found</div>';
-  } else {
-    filtered.forEach(function(it) {
-      var targetPO = PICKER_TARGET === 'po' ? LOCKED_PO : PO_STATE;
-      var onPO = targetPO && (targetPO.line_items || []).find(function(li) { return li.purchase_item_id === it.id; });
-      html += '<div class="picker-row">';
-      html += '<span class="pr-name">' + it.description + '</span>';
-      if (onPO) {
-        html += '<span class="pr-badge" data-action="picker-item-on-po" data-item-id="' + it.id + '">On PO: ' + onPO.quantity + (onPO.unit ? ' ' + onPO.unit : '') + '</span>';
-      } else {
-        html += '<button class="pr-add" data-action="add-to-po" data-item-id="' + it.id + '">+ Add</button>';
-      }
-      html += '</div>';
+async function addSuggestions() {
+  var checkboxes = document.querySelectorAll('[data-action="toggle-sugg"]:checked');
+  var items = Array.from(checkboxes).map(function(cb) {
+    return {purchase_item_id: cb.dataset.itemId, quantity: parseInt(cb.dataset.qty), unit: cb.dataset.unit};
+  });
+  if (!items.length) { showToast('No items selected'); return; }
+  try {
+    var updated = await api('/api/v1/purchasing/orders/' + PO_STATE.id + '/items', {
+      method: 'PUT', body: JSON.stringify({items: items})
     });
+    if (updated) { PO_STATE = updated; renderOrder(); showToast('Items added'); }
+  } catch(e) { showToast('Failed to add items'); }
+}
+
+// ─── Cutoff config ────────────────────────────────────────────────────────────
+function toggleCutoffForm() {
+  CUTOFF_FORM_OPEN = !CUTOFF_FORM_OPEN;
+  var form = document.getElementById('cutoff-form');
+  form.style.display = CUTOFF_FORM_OPEN ? 'block' : 'none';
+  if (CUTOFF_FORM_OPEN && CUTOFF_CONFIG) {
+    document.getElementById('cutoff-day').value = CUTOFF_CONFIG.day_of_week;
+    document.getElementById('cutoff-time').value = CUTOFF_CONFIG.cutoff_time;
   }
-  document.getElementById('picker-list').innerHTML = html;
 }
 
-function showDuplicatePopup(itemId) {
-  var item = PO_STATE && (PO_STATE.line_items || []).find(function(li) { return li.purchase_item_id === itemId; });
+async function saveCutoff() {
+  var day = parseInt(document.getElementById('cutoff-day').value);
+  var time = document.getElementById('cutoff-time').value;
+  try {
+    var cfg = await api('/api/v1/purchasing/cutoff', {
+      method: 'PUT',
+      body: JSON.stringify({day_of_week: day, cutoff_time: time, timezone: 'America/Chicago'})
+    });
+    CUTOFF_CONFIG = cfg;
+    CUTOFF_FORM_OPEN = false;
+    document.getElementById('cutoff-form').style.display = 'none';
+    renderOrder();
+    showToast('Cutoff saved');
+  } catch(e) { showToast('Failed to save cutoff'); }
+}
+
+// ─── PO Tab ───────────────────────────────────────────────────────────────────
+function renderPOTab() {
+  var el = document.getElementById('po-content');
+  if (!LOCKED_PO) {
+    el.innerHTML = '<div class="card"><div class="empty">No locked PO yet. Orders lock at the weekly cutoff.</div></div>';
+    return;
+  }
+  var admin = isAdminUser();
+  var statusLabel = LOCKED_PO.status === 'approved' ? 'Approved' : LOCKED_PO.status === 'shopping_active' ? 'Shopping Active' : 'Locked';
+  var statusClass = LOCKED_PO.status === 'approved' || LOCKED_PO.status === 'shopping_active' ? 'ok' : 'lk';
+
+  // Group by vendor
+  var vendorGroups = {};
+  var vendorOrder = [];
+  (LOCKED_PO.line_items || []).forEach(function(item) {
+    var vname = item.vendor_name || 'Unassigned';
+    if (!vendorGroups[vname]) { vendorGroups[vname] = []; vendorOrder.push(vname); }
+    vendorGroups[vname].push(item);
+  });
+
+  var html = '<div class="card"><div class="hd"><h1>' + weekLabel(LOCKED_PO.week_start) + '</h1>' +
+    '<div class="sub"><span>' + (LOCKED_PO.line_items || []).length + ' items</span>' +
+    '<div style="display:flex;gap:8px;align-items:center">' +
+    (admin ? '<button class="btn-edit-toggle' + (PO_EDITING ? ' on' : '') + '" data-action="po-edit-toggle">' + (PO_EDITING ? 'Done' : 'Edit ✎') + '</button>' : '') +
+    '<span class="pill ' + statusClass + '">' + statusLabel + '</span>' +
+    '</div></div></div>';
+
+  vendorOrder.forEach(function(vname) {
+    var items = vendorGroups[vname];
+    html += '<div class="vendor-section"><div class="vendor-hd"><h3>' + vname + '</h3><span class="vendor-meta">' + items.length + ' items</span></div>';
+    items.forEach(function(item) {
+      var qty = PENDING_QTY[item.id] !== undefined ? PENDING_QTY[item.id] : item.quantity;
+      var thumb = item.photo_url
+        ? '<div class="item-thumb" data-action="open-photo" data-url="' + item.photo_url + '"><img src="' + item.photo_url + '" loading="lazy"></div>'
+        : '<div class="item-thumb" style="font-size:20px">📦</div>';
+      var loc = item.store_location ? '<div class="item-loc">📍 ' + item.store_location + '</div>' : '';
+      var stpDisabled = (!admin || !PO_EDITING) ? ' disabled' : '';
+      html += '<div class="item-card">' + thumb +
+        '<div class="item-info"><div class="item-nm">' + item.item_name + '</div>' +
+        '<div class="item-mt">' + item.unit + (item.added_by_name ? ' · ' + initials(item.added_by_name) : '') + '</div>' + loc + '</div>' +
+        '<div class="stp">' +
+        '<button data-action="po-qty-dec" data-item-id="' + item.id + '"' + stpDisabled + '>−</button>' +
+        '<span id="poqty-' + item.id + '">' + qty + '</span>' +
+        '<button data-action="po-qty-inc" data-item-id="' + item.id + '"' + stpDisabled + '>+</button>' +
+        '</div></div>';
+    });
+    html += '</div>';
+  });
+
+  if (admin && LOCKED_PO.status === 'locked') {
+    html += '<div style="padding:12px 16px"><button class="btn-approve" data-action="approve-po">Approve &amp; Create Shopping List</button></div>';
+  }
+  html += '</div>';
+  el.innerHTML = html;
+}
+
+async function approvePO() {
+  var btn = document.querySelector('[data-action="approve-po"]');
+  if (btn) btn.disabled = true;
+  try {
+    await api('/api/v1/purchasing/orders/' + LOCKED_PO.id + '/approve', {method: 'POST'});
+    showToast('Shopping list created!');
+    setTimeout(function() { location.reload(); }, 1200);
+  } catch(e) {
+    if (btn) btn.disabled = false;
+    if (e.status === 409) {
+      alert('Complete last week\'s shopping list before approving this one.');
+    } else {
+      showToast('Approval failed');
+    }
+  }
+}
+
+function openItemModal(target) { /* stub for item picker if needed */ }
+
+function openPhotoLightbox(url) {
+  var lb = document.getElementById('lightbox');
+  document.getElementById('lb-img').src = url;
+  lb.style.display = 'flex';
+}
+
+// ─── Shopping Tab ─────────────────────────────────────────────────────────────
+function renderShoppingTab() {
+  var el = document.getElementById('shopping-content');
+  if (!SHOPPING_LIST) {
+    el.innerHTML = '<div class="card"><div class="empty">No active shopping list. The admin will create one after approving the weekly PO.</div></div>';
+    return;
+  }
+
+  var totalItems = 0, checkedItems = 0;
+  (SHOPPING_LIST.vendor_sections || []).forEach(function(sec) {
+    (sec.items || []).forEach(function(item) {
+      totalItems++;
+      if (item.checked) checkedItems++;
+    });
+  });
+
+  var html = '<div class="card"><div class="hd"><h1>' + weekLabel(SHOPPING_LIST.week_start) + '</h1>' +
+    '<div class="sub"><span>' + checkedItems + '/' + totalItems + ' checked</span>' +
+    '<span class="pill' + (SHOPPING_LIST.status === 'completed' ? ' ok' : '') + '">' +
+    (SHOPPING_LIST.status === 'completed' ? 'Completed' : 'Active') + '</span></div></div></div>';
+
+  (SHOPPING_LIST.vendor_sections || []).forEach(function(sec) {
+    var items = sec.items || [];
+    var secChecked = items.filter(function(i) { return i.checked; }).length;
+    var isCompleted = sec.status === 'completed';
+    html += '<div class="card' + (isCompleted ? ' section-completed' : '') + '">';
+    html += '<div class="shop-vendor-hd"><h3>' + sec.vendor_name + '</h3><span class="vendor-progress">' + secChecked + '/' + items.length + '</span></div>';
+    if (isCompleted && sec.completed_by_name) {
+      html += '<div class="completion-note">Completed by ' + sec.completed_by_name + (sec.completed_at ? ' · ' + fmtTime(sec.completed_at) : '') + '</div>';
+    }
+    items.forEach(function(item) {
+      var checkMark = item.checked ? '✅' : '⬜';
+      var thumb = item.photo_url
+        ? '<div class="shop-thumb" data-action="open-photo" data-url="' + item.photo_url + '"><img src="' + item.photo_url + '" loading="lazy"></div>'
+        : '<div class="no-photo" data-action="shop-add-photo" data-item-id="' + item.id + '" title="Add photo">📷</div>';
+      var locHtml = item.store_location
+        ? '<div class="shop-loc" data-action="shop-edit-loc" data-item-id="' + item.id + '">📍 ' + item.store_location + '</div>'
+        : '<div class="shop-loc" data-action="shop-edit-loc" data-item-id="' + item.id + '">📍 Add location</div>';
+      var badge = '';
+      if (item.checked && (!item.photo_url || !item.store_location)) {
+        var missing = [];
+        if (!item.photo_url) missing.push('No photo');
+        if (!item.store_location) missing.push('No location');
+        badge = '<span class="missing-badge">⚠ ' + missing.join(' · ') + '</span>';
+      }
+      html += '<div class="shop-item" data-item-id="' + item.id + '">' +
+        '<div class="shop-check" data-action="shop-check" data-item-id="' + item.id + '">' + checkMark + '</div>' +
+        thumb +
+        '<div class="shop-info">' +
+          '<div class="shop-nm">' + item.item_name + '</div>' +
+          '<div class="shop-qty">' + item.quantity + ' ' + item.unit + '</div>' +
+          locHtml +
+        '</div>' +
+        badge +
+        '</div>';
+    });
+    if (!isCompleted) {
+      html += '<button class="btn-complete-vendor" data-action="complete-vendor" data-section-id="' + sec.id + '" data-vendor-name="' + sec.vendor_name + '">Complete ' + sec.vendor_name + '</button>';
+    }
+    html += '</div>';
+  });
+
+  el.innerHTML = html;
+}
+
+function findShoppingItem(itemId) {
+  var found = null;
+  (SHOPPING_LIST.vendor_sections || []).forEach(function(sec) {
+    (sec.items || []).forEach(function(item) {
+      if (item.id === itemId) found = item;
+    });
+  });
+  return found;
+}
+
+async function handleShopCheck(itemId) {
+  var item = findShoppingItem(itemId);
   if (!item) return;
-  DUP_ITEM_ID = itemId;
-  document.getElementById('dp-title').textContent = item.item_name + ' already on PO';
-  document.getElementById('dp-meta').textContent = 'Qty: ' + item.quantity + ' \u00b7 Added by: ' + initials(item.added_by_name || 'You');
-  document.getElementById('dup-popup').style.display = 'block';
-  document.getElementById('dup-backdrop').style.display = 'block';
+  var newChecked = !item.checked;
+  item.checked = newChecked;
+  renderShoppingTab();
+  try {
+    await api('/api/v1/purchasing/shopping/' + SHOPPING_LIST.id + '/check', {
+      method: 'POST',
+      body: JSON.stringify({item_id: itemId, checked: newChecked})
+    });
+  } catch(e) {
+    item.checked = !newChecked; // rollback
+    renderShoppingTab();
+    return;
+  }
+  if (newChecked) {
+    var missing = [];
+    if (!item.photo_url) missing.push('photo');
+    if (!item.store_location) missing.push('location');
+    if (missing.length > 0) {
+      showShoppingToast(item.item_name + ' needs ' + missing.join(' & '), itemId);
+    }
+  }
 }
 
-function dismissDuplicatePopup() {
-  document.getElementById('dup-popup').style.display = 'none';
-  document.getElementById('dup-backdrop').style.display = 'none';
+function showShoppingToast(msg, itemId) {
+  clearTimeout(TOAST_TIMER);
+  var t = document.getElementById('shop-toast');
+  t.innerHTML = '<span>' + msg + '</span><button data-action="toast-add-now" data-item-id="' + itemId + '">Add Now</button>';
+  t.style.display = 'flex';
+  TOAST_TIMER = setTimeout(function() { t.style.display = 'none'; }, 5000);
 }
 
-function gotoItem(itemId) {
-  closeItemModal();
-  dismissDuplicatePopup();
-  setTimeout(function() {
-    var card = document.querySelector('.item-card[data-item-id="' + itemId + '"]');
-    if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  }, 100);
+async function handleShopAddPhoto(itemId) {
+  var input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*';
+  input.capture = 'environment';
+  input.onchange = async function() {
+    var file = input.files[0];
+    if (!file) return;
+    try {
+      var presign = await api('/api/v1/photos/presign', {
+        method: 'POST',
+        body: JSON.stringify({path_prefix: 'shopping', id: SHOPPING_LIST.id, filename: 'item_' + itemId + '.jpg'})
+      });
+      await fetch(presign.url, {method: 'PUT', body: file, headers: {'Content-Type': file.type}});
+      var updated = await api('/api/v1/purchasing/shopping/' + SHOPPING_LIST.id + '/items/' + itemId + '/photo', {
+        method: 'PUT',
+        body: JSON.stringify({photo_url: presign.public_url})
+      });
+      var item = findShoppingItem(itemId);
+      if (item) item.photo_url = presign.public_url;
+      renderShoppingTab();
+      showToast('Photo saved');
+    } catch(e) { showToast('Photo upload failed'); }
+  };
+  input.click();
 }
 
-document.addEventListener('click', function(e) {
+async function handleShopEditLoc(itemId) {
+  var item = findShoppingItem(itemId);
+  if (!item) return;
+  var locEl = document.querySelector('.shop-item[data-item-id="' + itemId + '"] .shop-loc');
+  if (!locEl) return;
+  var prev = item.store_location || '';
+  locEl.innerHTML = '<input type="text" class="loc-input" placeholder="Enter location" value="' + prev + '" style="width:100%;border:0.5px solid var(--brd);border-radius:6px;padding:4px 8px;font-size:12px;background:var(--bg);color:var(--txt)">';
+  var inp = locEl.querySelector('input');
+  inp.focus();
+  inp.select();
+  async function saveLoc() {
+    var val = inp.value.trim();
+    item.store_location = val || null;
+    try {
+      await api('/api/v1/purchasing/shopping/' + SHOPPING_LIST.id + '/items/' + itemId + '/location', {
+        method: 'PUT',
+        body: JSON.stringify({store_location: val})
+      });
+    } catch(e) { /* keep optimistic */ }
+    renderShoppingTab();
+  }
+  inp.onblur = saveLoc;
+  inp.onkeydown = function(e) { if (e.key === 'Enter') { inp.blur(); } };
+}
+
+async function handleCompleteVendor(sectionId, vendorName) {
+  if (!confirm('Complete ' + vendorName + '? Unchecked items will be marked as missing.')) return;
+  try {
+    var result = await api('/api/v1/purchasing/shopping/' + SHOPPING_LIST.id + '/vendors/' + sectionId + '/complete', {method: 'POST'});
+    var sec = (SHOPPING_LIST.vendor_sections || []).find(function(s) { return s.id === sectionId; });
+    if (sec) {
+      sec.status = 'completed';
+      sec.completed_at = new Date().toISOString();
+    }
+    if (result && result.list_completed) {
+      SHOPPING_LIST.status = 'completed';
+      showToast('Shopping list complete!');
+      setTimeout(function() { show(4); loadHistory(); }, 1500);
+    } else {
+      renderShoppingTab();
+      showToast(vendorName + ' completed');
+    }
+  } catch(e) { showToast('Failed to complete vendor'); }
+}
+
+// ─── History Tab ──────────────────────────────────────────────────────────────
+async function loadHistory() {
+  if (SHOPPING_HISTORY_LOADED && SHOPPING_HISTORY.length > 0) { renderHistoryTab(); return; }
+  try {
+    SHOPPING_HISTORY = await api('/api/v1/purchasing/shopping/history') || [];
+    SHOPPING_HISTORY_LOADED = true;
+  } catch(e) { SHOPPING_HISTORY = []; SHOPPING_HISTORY_LOADED = true; }
+  renderHistoryTab();
+}
+
+function renderHistoryTab() {
+  var el = document.getElementById('history-content');
+  if (!SHOPPING_HISTORY_LOADED) {
+    el.innerHTML = '<div class="empty">Loading...</div>';
+    return;
+  }
+  if (SHOPPING_HISTORY.length === 0) {
+    el.innerHTML = '<div class="card"><div class="empty">No completed shopping lists yet.</div></div>';
+    return;
+  }
+  var html = '';
+  SHOPPING_HISTORY.forEach(function(list) {
+    var expanded = SHOPPING_HISTORY_EXPANDED[list.id];
+    var missingCount = 0;
+    var vendorCount = (list.vendor_sections || []).length;
+    (list.vendor_sections || []).forEach(function(sec) {
+      (sec.items || []).forEach(function(item) { if (!item.checked) missingCount++; });
+    });
+    html += '<div class="history-card">' +
+      '<div class="history-hd" data-action="toggle-history" data-list-id="' + list.id + '">' +
+        '<div><div class="history-wk">' + weekLabel(list.week_start) + '</div>' +
+        '<div class="history-mt">' + vendorCount + ' vendor' + (vendorCount !== 1 ? 's' : '') + (missingCount > 0 ? ' · ' + missingCount + ' missing' : '') + '</div></div>' +
+        '<span class="history-chv' + (expanded ? ' open' : '') + '">›</span>' +
+      '</div>';
+    if (expanded) {
+      html += '<div class="history-detail">';
+      (list.vendor_sections || []).forEach(function(sec) {
+        html += '<div class="history-vsec">';
+        html += '<div class="history-vsec-hd">' + sec.vendor_name +
+          (sec.status === 'completed' && sec.completed_by_name ? ' · Completed by ' + sec.completed_by_name + (sec.completed_at ? ' on ' + fmtTime(sec.completed_at) : '') : '') + '</div>';
+        (sec.items || []).forEach(function(item) {
+          var cls = item.checked ? '' : ' missed';
+          var icon = item.checked ? '✅' : '❌';
+          html += '<div class="history-item' + cls + '">' + icon + ' ' + item.item_name + ' — ' + item.quantity + ' ' + item.unit + '</div>';
+        });
+        html += '</div>';
+      });
+      html += '</div>';
+    }
+    html += '</div>';
+  });
+  el.innerHTML = html;
+}
+
+async function handleToggleHistory(listId) {
+  if (!SHOPPING_HISTORY_EXPANDED[listId]) {
+    // Load full detail if not yet loaded
+    var list = SHOPPING_HISTORY.find(function(l) { return l.id === listId; });
+    if (list && (!list.vendor_sections || list.vendor_sections.every(function(s) { return !s.items || s.items.length === 0; }))) {
+      try {
+        var full = await api('/api/v1/purchasing/shopping/' + listId);
+        if (full) Object.assign(list, full);
+      } catch(e) { /* show without items */ }
+    }
+    SHOPPING_HISTORY_EXPANDED[listId] = true;
+  } else {
+    delete SHOPPING_HISTORY_EXPANDED[listId];
+  }
+  renderHistoryTab();
+}
+
+// ─── Tab switcher ─────────────────────────────────────────────────────────────
+function show(n) {
+  [1,2,3,4].forEach(function(i) {
+    var s = document.getElementById('s'+i);
+    var t = document.getElementById('t'+i);
+    if (s) s.style.display = i === n ? 'block' : 'none';
+    if (t) t.className = i === n ? 'on' : '';
+  });
+  if (n === 4 && !SHOPPING_HISTORY_LOADED) { loadHistory(); }
+}
+
+// ─── Event delegation ─────────────────────────────────────────────────────────
+document.body.addEventListener('click', function(e) {
   var el = e.target.closest('[data-action]');
   if (!el) return;
   var action = el.dataset.action;
-  if (action === 'tab') show(+el.dataset.tab);
-  if (action === 'toggle-suggestions') { SUGGESTION_OPEN = !SUGGESTION_OPEN; renderOrder(); }
-  if (action === 'dismiss-suggestions') { SUGGESTION_OPEN = false; renderOrder(); }
-  if (action === 'add-selected') addSelectedSuggestions();
-  if (action === 'qty-inc') updateQty(el.dataset.itemId, 1);
-  if (action === 'qty-dec') updateQty(el.dataset.itemId, -1);
-  if (action === 'open-picker') openItemModal('order');
-  if (action === 'open-po-picker') openItemModal('po');
-  if (action === 'close-picker') closeItemModal();
-  if (action === 'add-to-po') { addItemToPO(el.dataset.itemId); closeItemModal(); }
-  if (action === 'picker-item-on-po') showDuplicatePopup(el.dataset.itemId);
-  if (action === 'goto-item') { gotoItem(DUP_ITEM_ID); }
-  if (action === 'dismiss-dup') dismissDuplicatePopup();
-  if (action === 'photo-zoom') openPhotoLightbox(el.dataset.photoUrl, el.dataset.photoName);
-  if (action === 'close-lightbox') closePhotoLightbox();
-  if (action === 'toggle-cutoff-config') { CUTOFF_FORM_OPEN = !CUTOFF_FORM_OPEN; renderOrder(); }
-  if (action === 'save-cutoff') saveCutoff();
-  if (action === 'cancel-cutoff') { CUTOFF_FORM_OPEN = false; renderOrder(); }
-  if (action === 'po-edit-toggle') { PO_EDITING = !PO_EDITING; renderPOTab(); }
-  if (action === 'po-qty-inc') updatePOQty(el.dataset.itemId, 1);
-  if (action === 'po-qty-dec') updatePOQty(el.dataset.itemId, -1);
-  if (action === 'approve-po') approvePO();
-});
 
-var searchTimer = null;
-document.getElementById('picker-search').addEventListener('input', function(e) {
-  clearTimeout(searchTimer);
-  var val = e.target.value;
-  searchTimer = setTimeout(function() { renderPickerList(val); }, SEARCH_DEBOUNCE_MS);
+  if (action === 'toggle-cutoff-config') { toggleCutoffForm(); return; }
+  if (action === 'save-cutoff') { saveCutoff(); return; }
+  if (action === 'cancel-cutoff') {
+    CUTOFF_FORM_OPEN = false;
+    document.getElementById('cutoff-form').style.display = 'none';
+    return;
+  }
+  if (action === 'qty-inc') {
+    var id = el.dataset.itemId;
+    var item = (PO_STATE.line_items || []).find(function(i) { return i.id === id; });
+    if (!item) return;
+    PENDING_QTY[id] = (PENDING_QTY[id] !== undefined ? PENDING_QTY[id] : item.quantity) + 1;
+    document.getElementById('qty-' + id).textContent = PENDING_QTY[id];
+    debouncedSave('order');
+    return;
+  }
+  if (action === 'qty-dec') {
+    var id = el.dataset.itemId;
+    var item = (PO_STATE.line_items || []).find(function(i) { return i.id === id; });
+    if (!item) return;
+    var cur = PENDING_QTY[id] !== undefined ? PENDING_QTY[id] : item.quantity;
+    if (cur <= 0) return;
+    PENDING_QTY[id] = cur - 1;
+    document.getElementById('qty-' + id).textContent = PENDING_QTY[id];
+    debouncedSave('order');
+    return;
+  }
+  if (action === 'po-edit-toggle') {
+    PO_EDITING = !PO_EDITING;
+    renderPOTab();
+    return;
+  }
+  if (action === 'po-qty-inc') {
+    if (!PO_EDITING) return;
+    var id = el.dataset.itemId;
+    var item = (LOCKED_PO.line_items || []).find(function(i) { return i.id === id; });
+    if (!item) return;
+    PENDING_QTY[id] = (PENDING_QTY[id] !== undefined ? PENDING_QTY[id] : item.quantity) + 1;
+    document.getElementById('poqty-' + id).textContent = PENDING_QTY[id];
+    debouncedSave('po');
+    return;
+  }
+  if (action === 'po-qty-dec') {
+    if (!PO_EDITING) return;
+    var id = el.dataset.itemId;
+    var item = (LOCKED_PO.line_items || []).find(function(i) { return i.id === id; });
+    if (!item) return;
+    var cur = PENDING_QTY[id] !== undefined ? PENDING_QTY[id] : item.quantity;
+    if (cur <= 0) return;
+    PENDING_QTY[id] = cur - 1;
+    document.getElementById('poqty-' + id).textContent = PENDING_QTY[id];
+    debouncedSave('po');
+    return;
+  }
+  if (action === 'approve-po') { approvePO(); return; }
+  if (action === 'open-photo') { openPhotoLightbox(el.dataset.url); return; }
+  if (action === 'shop-check') { handleShopCheck(el.dataset.itemId); return; }
+  if (action === 'shop-add-photo') { handleShopAddPhoto(el.dataset.itemId); return; }
+  if (action === 'shop-edit-loc') { handleShopEditLoc(el.dataset.itemId); return; }
+  if (action === 'complete-vendor') { handleCompleteVendor(el.dataset.sectionId, el.dataset.vendorName); return; }
+  if (action === 'toast-add-now') {
+    var itemId = el.dataset.itemId;
+    var item = findShoppingItem(itemId);
+    document.getElementById('shop-toast').style.display = 'none';
+    if (item && !item.photo_url) { handleShopAddPhoto(itemId); }
+    else if (item) { handleShopEditLoc(itemId); }
+    return;
+  }
+  if (action === 'toggle-history') { handleToggleHistory(el.dataset.listId); return; }
 });
 
 document.addEventListener('dblclick', function(e) { e.preventDefault(); });
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+
 init();
 </script>
 <script src="log.js"></script><script src="ptr.js"></script>
