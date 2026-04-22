@@ -101,7 +101,8 @@ func GetOrderByID(ctx context.Context, pool *pgxpool.Pool, poID string) (*Purcha
 	return &po, nil
 }
 
-// GetOrderLineItems fetches line items for a PO, joined with item and user info.
+// GetOrderLineItems fetches line items for a PO, joined with item, user, and vendor info.
+// Returns VendorName via LEFT JOIN on vendors (D-09).
 func GetOrderLineItems(ctx context.Context, pool *pgxpool.Pool, poID string) ([]POLineItem, error) {
 	rows, err := pool.Query(ctx, `
 		SELECT
@@ -109,6 +110,7 @@ func GetOrderLineItems(ctx context.Context, pool *pgxpool.Pool, poID string) ([]
 			pi.description AS item_name,
 			ig.name AS group_name,
 			pi.photo_url, pi.store_location,
+			v.name AS vendor_name,
 			li.quantity, li.unit,
 			li.added_by AS added_by_id,
 			COALESCE(NULLIF(u.nickname, ''), u.first_name || ' ' || LEFT(u.last_name, 1) || '.') AS added_by_name,
@@ -116,6 +118,7 @@ func GetOrderLineItems(ctx context.Context, pool *pgxpool.Pool, poID string) ([]
 		FROM po_line_items li
 		JOIN purchase_items pi ON pi.id = li.purchase_item_id
 		LEFT JOIN item_groups ig ON ig.id = pi.group_id
+		LEFT JOIN vendors v ON v.id = pi.vendor_id
 		JOIN users u ON u.id = li.added_by
 		WHERE li.po_id = $1
 		ORDER BY ig.name NULLS LAST, pi.description
@@ -133,6 +136,7 @@ func GetOrderLineItems(ctx context.Context, pool *pgxpool.Pool, poID string) ([]
 			&li.ItemName,
 			&li.GroupName,
 			&li.PhotoURL, &li.StoreLocation,
+			&li.VendorName,
 			&li.Quantity, &li.Unit,
 			&li.AddedByID,
 			&li.AddedByName,
@@ -585,4 +589,279 @@ func GetSuggestions(ctx context.Context, pool *pgxpool.Pool, poID string) ([]Ord
 		suggestions = append(suggestions, s)
 	}
 	return suggestions, rows.Err()
+}
+
+// GetCutoffConfig returns the single-row cutoff config, or nil if not yet set.
+func GetCutoffConfig(ctx context.Context, pool *pgxpool.Pool) (*CutoffConfig, error) {
+	var cfg CutoffConfig
+	err := pool.QueryRow(ctx, `
+		SELECT id::text, day_of_week, cutoff_time::text, timezone, updated_at
+		FROM cutoff_config
+		LIMIT 1
+	`).Scan(&cfg.ID, &cfg.DayOfWeek, &cfg.CutoffTime, &cfg.Timezone, &cfg.UpdatedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("GetCutoffConfig: %w", err)
+	}
+	return &cfg, nil
+}
+
+// UpsertCutoffConfig replaces the single-row cutoff configuration.
+// Deletes all existing rows and inserts a new one (single-row table pattern).
+func UpsertCutoffConfig(ctx context.Context, pool *pgxpool.Pool, dayOfWeek int, cutoffTime string, timezone string) (*CutoffConfig, error) {
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("UpsertCutoffConfig: begin: %w", err)
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+
+	if _, err := tx.Exec(ctx, `DELETE FROM cutoff_config`); err != nil {
+		return nil, fmt.Errorf("UpsertCutoffConfig: delete: %w", err)
+	}
+
+	var cfg CutoffConfig
+	err = tx.QueryRow(ctx, `
+		INSERT INTO cutoff_config (day_of_week, cutoff_time, timezone)
+		VALUES ($1, $2::time, $3)
+		RETURNING id::text, day_of_week, cutoff_time::text, timezone, updated_at
+	`, dayOfWeek, cutoffTime, timezone).Scan(&cfg.ID, &cfg.DayOfWeek, &cfg.CutoffTime, &cfg.Timezone, &cfg.UpdatedAt)
+	if err != nil {
+		return nil, fmt.Errorf("UpsertCutoffConfig: insert: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("UpsertCutoffConfig: commit: %w", err)
+	}
+	return &cfg, nil
+}
+
+// LockPO transitions a draft PO to locked status and creates next week's draft.
+// Uses optimistic locking via WHERE status = 'draft' (Pitfall 2).
+func LockPO(ctx context.Context, pool *pgxpool.Pool, poID string) error {
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("LockPO: begin: %w", err)
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+
+	var weekStart string
+	err = tx.QueryRow(ctx, `
+		UPDATE purchase_orders
+		SET status = 'locked', locked_at = now(), version = version + 1
+		WHERE id = $1 AND status = 'draft'
+		RETURNING week_start::text
+	`, poID).Scan(&weekStart)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrPONotDraft
+		}
+		return fmt.Errorf("LockPO: update: %w", err)
+	}
+
+	// Compute next Monday (+7 days from week_start)
+	weekStartTime, err := time.Parse("2006-01-02", weekStart)
+	if err != nil {
+		return fmt.Errorf("LockPO: parse week_start %q: %w", weekStart, err)
+	}
+	nextWeekStart := weekStartTime.AddDate(0, 0, 7).Format("2006-01-02")
+
+	// Create next week's draft (idempotent — DO NOTHING if already exists)
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO purchase_orders (week_start, status)
+		VALUES ($1, 'draft')
+		ON CONFLICT (week_start) DO NOTHING
+	`, nextWeekStart); err != nil {
+		return fmt.Errorf("LockPO: create next draft: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("LockPO: commit: %w", err)
+	}
+	return nil
+}
+
+// UnlockPO transitions a locked PO back to draft status.
+// Returns ErrUnlockAfterApproval if the PO has been approved (D-13).
+func UnlockPO(ctx context.Context, pool *pgxpool.Pool, poID string) error {
+	// Check current status first — cannot unlock after approval
+	var status string
+	err := pool.QueryRow(ctx, `SELECT status FROM purchase_orders WHERE id = $1`, poID).Scan(&status)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrPONotLocked
+		}
+		return fmt.Errorf("UnlockPO: check status: %w", err)
+	}
+	if status == "approved" || status == "shopping_active" || status == "completed" {
+		return ErrUnlockAfterApproval
+	}
+
+	tag, err := pool.Exec(ctx, `
+		UPDATE purchase_orders
+		SET status = 'draft', locked_at = NULL, version = version + 1
+		WHERE id = $1 AND status = 'locked'
+	`, poID)
+	if err != nil {
+		return fmt.Errorf("UnlockPO: update: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrPONotLocked
+	}
+	return nil
+}
+
+// ApprovePO transitions a locked PO to shopping_active and creates an immutable
+// shopping list snapshot in a single transaction (D-10, D-11, D-15).
+// Returns ErrPONotLocked if the PO is not locked, ErrActiveShoppingListExists if
+// another shopping list is already active.
+func ApprovePO(ctx context.Context, pool *pgxpool.Pool, poID string, approvedBy string) (string, error) {
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		return "", fmt.Errorf("ApprovePO: begin: %w", err)
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+
+	// Check no active shopping list exists (D-11)
+	var activeCount int
+	if err := tx.QueryRow(ctx, `SELECT COUNT(*) FROM shopping_lists WHERE status = 'active'`).Scan(&activeCount); err != nil {
+		return "", fmt.Errorf("ApprovePO: check active lists: %w", err)
+	}
+	if activeCount > 0 {
+		return "", ErrActiveShoppingListExists
+	}
+
+	// Transition PO to shopping_active
+	var weekStart string
+	err = tx.QueryRow(ctx, `
+		UPDATE purchase_orders
+		SET status = 'shopping_active', approved_at = now(), approved_by = $2, version = version + 1
+		WHERE id = $1 AND status = 'locked'
+		RETURNING week_start::text
+	`, poID, approvedBy).Scan(&weekStart)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", ErrPONotLocked
+		}
+		return "", fmt.Errorf("ApprovePO: update po: %w", err)
+	}
+	_ = weekStart // confirms row found
+
+	// Create shopping list
+	var listID string
+	if err := tx.QueryRow(ctx, `
+		INSERT INTO shopping_lists (po_id) VALUES ($1) RETURNING id::text
+	`, poID).Scan(&listID); err != nil {
+		return "", fmt.Errorf("ApprovePO: create shopping list: %w", err)
+	}
+
+	// Get distinct vendors from PO line items
+	type vendorRow struct {
+		vid   string
+		vname string
+	}
+	vendorRows, err := tx.Query(ctx, `
+		SELECT COALESCE(pi.vendor_id::text, 'unassigned') AS vid, COALESCE(v.name, 'Unassigned') AS vname
+		FROM po_line_items pli
+		JOIN purchase_items pi ON pi.id = pli.purchase_item_id
+		LEFT JOIN vendors v ON v.id = pi.vendor_id
+		WHERE pli.po_id = $1
+		GROUP BY pi.vendor_id, v.name
+	`, poID)
+	if err != nil {
+		return "", fmt.Errorf("ApprovePO: query vendors: %w", err)
+	}
+
+	var vendors []vendorRow
+	for vendorRows.Next() {
+		var vr vendorRow
+		if err := vendorRows.Scan(&vr.vid, &vr.vname); err != nil {
+			vendorRows.Close()
+			return "", fmt.Errorf("ApprovePO: scan vendor: %w", err)
+		}
+		vendors = append(vendors, vr)
+	}
+	if err := vendorRows.Err(); err != nil {
+		vendorRows.Close()
+		return "", fmt.Errorf("ApprovePO: vendors rows err: %w", err)
+	}
+	vendorRows.Close()
+
+	// Create vendor sections and snapshot items for each vendor
+	for _, vr := range vendors {
+		var sectionID string
+		var vendorIDParam interface{}
+		if vr.vid != "unassigned" {
+			vendorIDParam = vr.vid
+		}
+		if err := tx.QueryRow(ctx, `
+			INSERT INTO shopping_list_vendor_sections (shopping_list_id, vendor_id, vendor_name)
+			VALUES ($1, $2, $3)
+			RETURNING id::text
+		`, listID, vendorIDParam, vr.vname).Scan(&sectionID); err != nil {
+			return "", fmt.Errorf("ApprovePO: create vendor section %q: %w", vr.vname, err)
+		}
+
+		// Snapshot items for this vendor
+		var itemsQuery string
+		var itemsArgs []interface{}
+		if vr.vid == "unassigned" {
+			itemsQuery = `
+				INSERT INTO shopping_list_items (shopping_list_id, vendor_section_id, purchase_item_id, item_name, photo_url, store_location, quantity, unit)
+				SELECT $1, $2, pi.id, COALESCE(pi.full_name, pi.description), pi.photo_url, pi.store_location, pli.quantity, pli.unit
+				FROM po_line_items pli
+				JOIN purchase_items pi ON pi.id = pli.purchase_item_id
+				WHERE pli.po_id = $3 AND pi.vendor_id IS NULL
+			`
+			itemsArgs = []interface{}{listID, sectionID, poID}
+		} else {
+			itemsQuery = `
+				INSERT INTO shopping_list_items (shopping_list_id, vendor_section_id, purchase_item_id, item_name, photo_url, store_location, quantity, unit)
+				SELECT $1, $2, pi.id, COALESCE(pi.full_name, pi.description), pi.photo_url, pi.store_location, pli.quantity, pli.unit
+				FROM po_line_items pli
+				JOIN purchase_items pi ON pi.id = pli.purchase_item_id
+				WHERE pli.po_id = $3 AND pi.vendor_id::text = $4
+			`
+			itemsArgs = []interface{}{listID, sectionID, poID, vr.vid}
+		}
+		if _, err := tx.Exec(ctx, itemsQuery, itemsArgs...); err != nil {
+			return "", fmt.Errorf("ApprovePO: snapshot items for vendor %q: %w", vr.vname, err)
+		}
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return "", fmt.Errorf("ApprovePO: commit: %w", err)
+	}
+	return listID, nil
+}
+
+// GetOrdersByStatus returns the most recent PO with the given status, or nil if none exists.
+// Used by the frontend to load locked/approved POs for the PO tab (D-09).
+func GetOrdersByStatus(ctx context.Context, pool *pgxpool.Pool, status string) (*PurchaseOrder, error) {
+	var po PurchaseOrder
+	err := pool.QueryRow(ctx, `
+		SELECT id, week_start::text, status, version, created_at,
+		       locked_at, approved_at, approved_by
+		FROM purchase_orders
+		WHERE status = $1
+		ORDER BY week_start DESC
+		LIMIT 1
+	`, status).Scan(
+		&po.ID, &po.WeekStart, &po.Status, &po.Version, &po.CreatedAt,
+		&po.LockedAt, &po.ApprovedAt, &po.ApprovedBy,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("GetOrdersByStatus: %w", err)
+	}
+
+	lineItems, err := GetOrderLineItems(ctx, pool, po.ID)
+	if err != nil {
+		return nil, fmt.Errorf("GetOrdersByStatus: get line items: %w", err)
+	}
+	po.LineItems = lineItems
+	return &po, nil
 }
