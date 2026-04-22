@@ -21,7 +21,7 @@ Requirements for Purchase Orders & Shopping Lists milestone. Each maps to roadma
 ### Cutoff & Approval
 
 - [x] **CUT-01**: Admin can configure a recurring weekly cutoff schedule (day + time)
-- [ ] **CUT-02**: After cutoff time, PO is locked — only admin can edit
+- [x] **CUT-02**: After cutoff time, PO is locked — only admin can edit
 - [x] **CUT-03**: Backend provides a test command to simulate cutoff for easy testing
 - [x] **CUT-04**: Admin can approve a locked PO, which generates a shopping checklist
 
@@ -86,7 +86,7 @@ Requirements for Purchase Orders & Shopping Lists milestone. Each maps to roadma
 | PO-07 | Phase 14 | Complete |
 | PO-08 | Phase 14 | Pending |
 | CUT-01 | Phase 16 | Complete |
-| CUT-02 | Phase 16 | Pending |
+| CUT-02 | Phase 16 | Complete |
 | CUT-03 | Phase 16 | Complete |
 | CUT-04 | Phase 16 | Complete |
 | SHOP-01 | Phase 16 | Complete |
