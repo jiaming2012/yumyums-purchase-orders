@@ -408,9 +408,12 @@ function renderOrder() {
 
   var isAdmin = isAdminUser();
   var cutoffLabel = formatCutoffLabel();
-  var cutoffPill = isAdmin
-    ? '<span class="pill pill-btn" data-action="toggle-cutoff-config">' + cutoffLabel + '</span>'
-    : '<span class="pill">' + cutoffLabel + '</span>';
+  var cutoffPill = '';
+  if (isAdmin) {
+    cutoffPill = '<span class="pill pill-btn" data-action="toggle-cutoff-config">' + cutoffLabel + '</span>';
+  } else if (CUTOFF_CONFIG) {
+    cutoffPill = '<span class="pill">' + cutoffLabel + '</span>';
+  }
 
   var html = '<div class="card">';
   html += '<div class="order-hd">';
