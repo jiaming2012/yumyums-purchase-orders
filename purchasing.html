@@ -117,6 +117,21 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .btn-approve:active{opacity:0.85}
 .po-stub{padding:32px 24px;text-align:center;color:var(--mut);font-size:14px;background:var(--card);border-radius:12px;margin-bottom:8px}
 .stp button:disabled{opacity:0.3;cursor:default}
+.shop-item{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:0.5px solid var(--brd)}
+.shop-item.checked{opacity:0.5}
+.shop-check{width:24px;height:24px;border-radius:6px;border:2px solid var(--brd);background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+.shop-check.on{background:var(--info-bg);border-color:var(--info-tx);color:var(--info-tx)}
+.shop-info{flex:1;min-width:0}
+.shop-info .nm{font-size:14px;font-weight:600;line-height:1.2}
+.shop-info .mt{font-size:12px;color:var(--mut);margin-top:2px}
+.shop-warn{font-size:10px;padding:2px 6px;border-radius:8px;background:var(--warn-bg);color:var(--warn-tx);margin-top:3px;display:inline-block}
+.shop-qty{font-size:14px;font-weight:500;color:var(--mut);white-space:nowrap}
+.vendor-complete-btn{display:block;width:100%;padding:12px;background:var(--info-bg);color:var(--info-tx);border:none;border-radius:8px;font-size:14px;font-weight:500;margin:8px 16px;width:calc(100% - 32px);cursor:pointer}
+.vendor-complete-btn:disabled{opacity:0.4;cursor:default}
+.vendor-done{padding:8px 16px;font-size:12px;color:var(--mut)}
+.shop-toast{position:fixed;bottom:70px;left:16px;right:16px;max-width:480px;margin:0 auto;background:var(--warn-bg);color:var(--warn-tx);padding:12px 16px;border-radius:12px;display:flex;justify-content:space-between;align-items:center;font-size:13px;z-index:500;box-shadow:0 4px 12px rgba(0,0,0,0.2)}
+.shop-toast button{background:none;border:none;color:var(--warn-tx);font-weight:600;font-size:13px;cursor:pointer;white-space:nowrap;padding:0 0 0 12px}
+.loc-input{width:100%;padding:6px 8px;border:1px solid var(--brd);border-radius:6px;font-size:12px;background:var(--card);color:var(--txt);margin-top:4px;font-family:inherit}
 </style>
 </head>
 <body>
@@ -130,7 +145,7 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 </div>
 
 <div id="s1"><!-- Order tab: rendered by JS --></div>
-<div id="s2" style="display:none"><div class="card"><div class="stub">Shopping list will appear here after the PO is approved</div></div></div>
+<div id="s2" style="display:none"><!-- Shopping tab: rendered by JS --></div>
 <div id="s3" style="display:none"><!-- PO tab: rendered by JS --></div>
 <div id="s4" style="display:none"><div class="card"><div class="stub">Past shopping runs will appear here</div></div></div>
 </div>
@@ -170,6 +185,8 @@ let USER_ROLE = null;
 let PO_EDITING = false;
 let LOCKED_PO = null;
 let CUTOFF_FORM_OPEN = false;
+let SHOPPING_LIST = null;
+let SHOP_TOAST_TIMER = null;
 
 async function api(path, opts) {
   var res = await fetch(path, opts);
@@ -381,16 +398,19 @@ async function init() {
       api('/api/v1/inventory/items'),
       api('/api/v1/me').catch(function() { return null; }),
       api('/api/v1/purchasing/cutoff').catch(function() { return null; }),
-      api('/api/v1/purchasing/orders?status=locked').catch(function() { return null; })
+      api('/api/v1/purchasing/orders?status=locked').catch(function() { return null; }),
+      api('/api/v1/purchasing/shopping/active').catch(function() { return null; })
     ]);
     PO_STATE = results[0];
     ALL_ITEMS = results[1] || [];
     USER_ROLE = results[2];
     CUTOFF_CONFIG = (results[3] && results[3].id) ? results[3] : null;
     LOCKED_PO = results[4];
+    SHOPPING_LIST = (results[5] && results[5].id) ? results[5] : null;
     SUGGESTIONS = await api('/api/v1/purchasing/orders/' + PO_STATE.id + '/suggestions') || [];
     renderOrder();
     renderPOTab();
+    renderShoppingTab();
   } catch (e) {
     if (e.message !== 'unauthorized') {
       s1.innerHTML = '<div class="error-card">Couldn\'t load the order. Pull down to refresh.</div>';
@@ -506,6 +526,159 @@ function openPhotoLightbox(url, name) {
 function closePhotoLightbox() {
   var lb = document.querySelector('.photo-lightbox');
   if (lb) lb.remove();
+}
+
+function renderShoppingTab() {
+  var s2 = document.getElementById('s2');
+  if (!SHOPPING_LIST) {
+    s2.innerHTML = '<div class="card"><div class="stub">Shopping list will appear here after the PO is approved</div></div>';
+    return;
+  }
+  var sections = SHOPPING_LIST.vendor_sections || [];
+  var html = '<div class="card"><div class="vendor-hd"><span>' + weekLabel(SHOPPING_LIST.week_start) + ' — Shopping</span></div>';
+
+  if (sections.length === 0) {
+    html += '<div class="stub">No items in this shopping list.</div>';
+  }
+
+  sections.forEach(function(sec) {
+    var isDone = sec.status === 'completed';
+    html += '<div class="vendor-section">';
+    html += '<div class="cat">' + sec.vendor_name + ' &middot; ' + sec.items.length + ' item' + (sec.items.length === 1 ? '' : 's');
+    if (isDone) html += ' &middot; <span style="color:var(--info-tx)">Done</span>';
+    html += '</div>';
+
+    (sec.items || []).forEach(function(item) {
+      var checkedClass = item.checked ? ' checked' : '';
+      var checkIcon = item.checked ? '✓' : '';
+      var checkClass = item.checked ? ' on' : '';
+      var thumb = item.photo_url
+        ? '<div class="item-thumb"><img src="' + item.photo_url + '" alt="' + item.item_name + '" data-action="photo-zoom" data-photo-url="' + item.photo_url + '" data-photo-name="' + item.item_name + '"></div>'
+        : '<div class="item-thumb">' + (item.item_name || '?').charAt(0).toUpperCase() + '</div>';
+      var loc = item.store_location ? item.store_location : '<span data-action="shop-edit-loc" data-item-id="' + item.id + '" style="color:var(--info-tx);cursor:pointer">Add location</span>';
+      var warn = '';
+      if (item.checked && !item.photo_url) warn += '<span class="shop-warn">No photo</span> ';
+      if (item.checked && !item.store_location) warn += '<span class="shop-warn">No location</span>';
+
+      html += '<div class="shop-item' + checkedClass + '">';
+      if (!isDone) {
+        html += '<button class="shop-check' + checkClass + '" data-action="shop-check" data-item-id="' + item.id + '" data-checked="' + (item.checked ? '1' : '0') + '" data-section-id="' + sec.id + '">' + checkIcon + '</button>';
+      }
+      html += thumb;
+      html += '<div class="shop-info"><div class="nm">' + item.item_name + '</div>';
+      html += '<div class="mt">' + loc + '</div>';
+      if (warn) html += '<div>' + warn + '</div>';
+      html += '</div>';
+      html += '<span class="shop-qty">' + item.quantity + (item.unit ? ' ' + item.unit : '') + '</span>';
+      html += '</div>';
+    });
+
+    if (!isDone) {
+      html += '<button class="vendor-complete-btn" data-action="shop-complete-vendor" data-section-id="' + sec.id + '">Complete ' + sec.vendor_name + '</button>';
+    } else {
+      html += '<div class="vendor-done">Completed by ' + (sec.completed_by_name || '?') + '</div>';
+    }
+    html += '</div>';
+  });
+
+  html += '</div>';
+  s2.innerHTML = html;
+}
+
+function showShoppingToast(itemName) {
+  clearTimeout(SHOP_TOAST_TIMER);
+  var existing = document.querySelector('.shop-toast');
+  if (existing) existing.remove();
+  var toast = document.createElement('div');
+  toast.className = 'shop-toast';
+  toast.innerHTML = '<span>' + itemName + ' needs photo &amp; location</span><button data-action="dismiss-shop-toast">OK</button>';
+  document.body.appendChild(toast);
+  SHOP_TOAST_TIMER = setTimeout(function() { if (toast.parentNode) toast.remove(); }, 5000);
+}
+
+async function handleShopCheck(itemId, currentlyChecked, sectionId) {
+  var newChecked = currentlyChecked !== '1';
+  try {
+    await api('/api/v1/purchasing/shopping/' + SHOPPING_LIST.id + '/check', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ item_id: itemId, checked: newChecked })
+    });
+    // Find and update in local state
+    var sections = SHOPPING_LIST.vendor_sections || [];
+    for (var i = 0; i < sections.length; i++) {
+      var items = sections[i].items || [];
+      for (var j = 0; j < items.length; j++) {
+        if (items[j].id === itemId) {
+          items[j].checked = newChecked;
+          // Show toast if checked and missing photo or location
+          if (newChecked && (!items[j].photo_url || !items[j].store_location)) {
+            showShoppingToast(items[j].item_name);
+          }
+          break;
+        }
+      }
+    }
+    renderShoppingTab();
+  } catch (e) {
+    alert('Failed to update: ' + (e.message || 'error'));
+  }
+}
+
+async function handleShopEditLoc(itemId) {
+  // Find current value
+  var currentLoc = '';
+  var sections = SHOPPING_LIST.vendor_sections || [];
+  for (var i = 0; i < sections.length; i++) {
+    var items = sections[i].items || [];
+    for (var j = 0; j < items.length; j++) {
+      if (items[j].id === itemId) { currentLoc = items[j].store_location || ''; break; }
+    }
+  }
+  var loc = prompt('Where is this item in the store?', currentLoc);
+  if (loc === null) return; // cancelled
+  try {
+    await api('/api/v1/purchasing/shopping/' + SHOPPING_LIST.id + '/items/' + itemId + '/location', {
+      method: 'PUT',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ store_location: loc })
+    });
+    // Update local state
+    for (var i = 0; i < sections.length; i++) {
+      var items = sections[i].items || [];
+      for (var j = 0; j < items.length; j++) {
+        if (items[j].id === itemId) { items[j].store_location = loc; break; }
+      }
+    }
+    renderShoppingTab();
+  } catch (e) {
+    alert('Failed to save location: ' + (e.message || 'error'));
+  }
+}
+
+async function handleCompleteVendor(sectionId) {
+  var sec = (SHOPPING_LIST.vendor_sections || []).find(function(s) { return s.id === sectionId; });
+  if (!sec) return;
+  var unchecked = (sec.items || []).filter(function(it) { return !it.checked; });
+  var msg = unchecked.length > 0
+    ? 'Complete ' + sec.vendor_name + '? ' + unchecked.length + ' item(s) will be marked as missing.'
+    : 'Complete ' + sec.vendor_name + '?';
+  if (!confirm(msg)) return;
+  try {
+    var result = await api('/api/v1/purchasing/shopping/' + SHOPPING_LIST.id + '/vendors/' + sectionId + '/complete', { method: 'POST' });
+    // Reload shopping list to get updated state
+    SHOPPING_LIST = await api('/api/v1/purchasing/shopping/active').catch(function() { return null; });
+    if (SHOPPING_LIST && SHOPPING_LIST.id) {
+      renderShoppingTab();
+    } else {
+      SHOPPING_LIST = null;
+      renderShoppingTab();
+      // All vendors done — list completed
+      alert('Shopping list completed!');
+    }
+  } catch (e) {
+    alert('Failed to complete: ' + (e.message || 'error'));
+  }
 }
 
 function show(n) {
@@ -717,6 +890,10 @@ document.addEventListener('click', function(e) {
   if (action === 'po-qty-inc') updatePOQty(el.dataset.itemId, 1);
   if (action === 'po-qty-dec') updatePOQty(el.dataset.itemId, -1);
   if (action === 'approve-po') approvePO();
+  if (action === 'shop-check') handleShopCheck(el.dataset.itemId, el.dataset.checked, el.dataset.sectionId);
+  if (action === 'shop-edit-loc') handleShopEditLoc(el.dataset.itemId);
+  if (action === 'shop-complete-vendor') handleCompleteVendor(el.dataset.sectionId);
+  if (action === 'dismiss-shop-toast') { var t = document.querySelector('.shop-toast'); if (t) t.remove(); }
 });
 
 var searchTimer = null;
