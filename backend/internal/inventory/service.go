@@ -166,7 +166,11 @@ func SeedInventoryFixtures(ctx context.Context, pool *pgxpool.Pool) error {
 			_, err := pool.Exec(ctx,
 				`INSERT INTO purchase_items (description, full_name, photo_url, store_location, group_id)
 				 VALUES ($1, $2, $3, $4, $5)
-				 ON CONFLICT (description) DO NOTHING`,
+				 ON CONFLICT (description) DO UPDATE SET
+				   full_name = COALESCE(EXCLUDED.full_name, purchase_items.full_name),
+				   photo_url = COALESCE(EXCLUDED.photo_url, purchase_items.photo_url),
+				   store_location = COALESCE(EXCLUDED.store_location, purchase_items.store_location),
+				   group_id = EXCLUDED.group_id`,
 				item.Description, nilIfEmpty(item.FullName), nilIfEmpty(item.PhotoURL), nilIfEmpty(item.StoreLocation), groupID,
 			)
 			if err != nil {

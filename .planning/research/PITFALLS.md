@@ -1,450 +1,333 @@
 # Pitfalls Research
 
-**Domain:** Adding Go + Postgres backend to an existing vanilla JS PWA (v2.0 backend milestone)
-**Researched:** 2026-04-15
-**Confidence:** HIGH (CORS, token storage, Tailscale verified via official docs + multiple sources; offline sync strategy verified via MDN + community; migration pitfalls verified via golang-migrate GitHub + official docs)
+**Domain:** Purchase orders, shopping lists, external alert integrations (Zoho Cliq / email), scheduled cutoffs, and Notion data import — added to an existing Go+Postgres food service PWA (v3.0 milestone)
+**Researched:** 2026-04-22
+**Confidence:** HIGH (PO state machine, timezone, Notion image URLs — multiple verified sources); MEDIUM (Zoho Cliq failure modes — official docs sparse on operational failure details, community evidence supports conclusions)
 
 ---
 
 ## Critical Pitfalls
 
----
-
-### Pitfall 1: CORS Misconfigured for Credentialed Requests
+### Pitfall 1: Zoho Cliq Webhook Token Silently Revoked — Alerts Stop Silently
 
 **What goes wrong:**
-The frontend starts calling the Go API and immediately hits CORS errors. The developer adds `AllowedOrigins: []string{"*"}` to get unblocked, which works for unauthenticated endpoints. Then auth is wired up using `credentials: 'include'` (cookies) or `Authorization` headers, and CORS breaks again — browsers refuse credentialed requests when the origin is a wildcard. The developer then reflects the request `Origin` header back verbatim instead of validating against an allowlist, which is functionally equivalent to `*` and is a security vulnerability.
+Zoho Cliq channel webhooks authenticate via a `zapikey` token appended to the webhook URL as a query parameter. Each user account holds a maximum of 5 webhook tokens. If the token owner's password changes, the account is deactivated (common with crew turnover), or Zoho revokes the token after a security event, every subsequent alert POST returns 401. If the Go handler doesn't log the response code, alerts vanish without any indication on the app side. The crew never gets notified. The owner doesn't find out until a shift is over.
 
 **Why it happens:**
-CORS has two distinct modes: simple (no credentials) and credentialed. Using `*` unblocks the first mode but is silently disallowed for the second. The mismatch only surfaces once auth is added, by which point the developer has already moved on mentally. The `rs/cors` package's `AllowedOrigins: []string{"*"}` with `AllowCredentials: true` will produce a runtime error or block requests — the library was specifically patched to prevent this combination.
+The webhook URL is generated once during setup, stored in the DB, and assumed to be permanent. Community reports confirm 401s appear after account-level changes (the Zoho help forum has a dedicated thread on this). Developers treat the URL as a static credential and don't build observability around it.
 
 **How to avoid:**
-Configure `rs/cors` with an explicit, environment-driven origin allowlist from day one:
-```go
-c := cors.New(cors.Options{
-    AllowedOrigins:   []string{"https://yourdomain.tailnet-name.ts.net", "http://localhost:3000"},
-    AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-    AllowedHeaders:   []string{"Authorization", "Content-Type"},
-    AllowCredentials: true,
-    MaxAge:           300,
-})
-```
-Drive origins from an environment variable (`CORS_ALLOWED_ORIGINS=...`) so local dev, Tailscale dev, and production are separate. Never use `*` when `AllowCredentials: true`.
+- Log every outgoing webhook response code and body to an `outgoing_alerts` table — including non-2xx codes.
+- Expose an admin-accessible health-check button in the settings UI that fires a test message and shows the last delivery timestamp + status code.
+- Tie the webhook token to a dedicated service account (not tied to a crew member) so crew turnover doesn't break alerts.
+- Store the webhook URL in an admin-configurable settings table, not as an env var or hardcoded constant. Rotation must not require a redeploy.
 
 **Warning signs:**
-- `Access-Control-Allow-Origin: *` anywhere in the Go config
-- Origin reflected verbatim from the `Origin` request header without validation
-- CORS middleware added in a hurry after auth was wired up rather than before
-- Preflight `OPTIONS` requests returning 404 (middleware not mounted correctly)
+- No log of non-2xx alert delivery attempts.
+- Webhook URL stored in env var with no admin UI to update it.
+- Token created under a named crew member's account.
+- Last successful delivery timestamp is stale and nobody noticed.
 
-**Phase to address:** Phase 1 (API foundation + auth) — CORS must be correct before a single authenticated endpoint goes live. Configure before writing any handler code.
+**Phase to address:** Zoho Cliq integration phase — build delivery logging and the health-check UI before wiring any alert trigger.
 
 ---
 
-### Pitfall 2: Service Worker Intercepts API Calls and Serves Stale Data
+### Pitfall 2: Alert Delivery Blocks the API Response (Synchronous HTTP Call)
 
 **What goes wrong:**
-The existing service worker (`sw.js`) uses a cache-first strategy for all fetch events and falls back to `index.html` for failures. When API calls to `/api/v1/...` are introduced, the service worker intercepts them. On the first request, the response is cached. Every subsequent call — including POST and mutation requests — may be served from cache instead of the network. Crew members see stale checklist data or think they submitted a completion but the SW served the previous response.
-
-The current SW fetch handler:
-```js
-// sw.js (current)
-self.addEventListener('fetch', e => {
-  e.respondWith(caches.match(e.request).then(r => r || fetch(e.request)
-    .catch(() => caches.match('./index.html'))));
-});
-```
-This will cache the first `/api/v1/checklists` response and serve it forever.
+The "Complete Shopping List" API handler fires `http.Post(webhookURL, ...)` inline before returning. If Zoho Cliq is slow (common during their maintenance windows), times out, or returns an error, the crew member's phone waits for the full timeout (default 30s in Go's http.Client). The "Complete" button appears frozen. On retry, the list is marked complete twice. Alert fails but the shopping action succeeded — the two are now coupled in the worst possible way.
 
 **Why it happens:**
-The existing SW was written for a static site with no dynamic data. Its cache-first strategy is appropriate for HTML/CSS/JS assets but catastrophic for API calls. Adding a backend changes the fetch landscape without changing the SW strategy.
+The inline POST is the simplest implementation. Decoupling via a queue feels like over-engineering for a small app. But external HTTP calls from within a request handler are universally considered a mistake in production Go services, regardless of app size.
 
 **How to avoid:**
-Partition the SW fetch strategy by request type. API calls use network-first (or network-only for mutations); static assets stay cache-first:
-```js
-self.addEventListener('fetch', e => {
-  const url = new URL(e.request.url);
-  // API calls: network-first, never cache mutations
-  if (url.pathname.startsWith('/api/')) {
-    if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(e.request.method)) {
-      // Mutations: network-only, queue offline
-      e.respondWith(fetch(e.request).catch(() =>
-        new Response(JSON.stringify({error:'offline'}), {status:503, headers:{'Content-Type':'application/json'}})));
-      return;
-    }
-    // GET: network-first with short cache TTL
-    e.respondWith(fetch(e.request)
-      .then(r => r)
-      .catch(() => caches.match(e.request)));
-    return;
-  }
-  // Static assets: cache-first (existing behavior)
-  e.respondWith(caches.match(e.request).then(r => r || fetch(e.request)
-    .catch(() => caches.match('./index.html'))));
-});
-```
-Also bump the SW cache version (`yumyums-v40` or higher) to force all clients to adopt the new fetch strategy.
+- Use an async alert queue: on shopping list completion, write a row to `outgoing_alerts` (status=pending) as part of the same DB transaction that marks the list complete. Return 200 to the client immediately.
+- A background goroutine polls `outgoing_alerts` for pending rows and delivers them with exponential backoff (3 attempts: immediate → 30s → 5min).
+- If all attempts fail, fall back to email using the configured fallback email address.
+- Set a short timeout (5s) on the webhook HTTP client regardless — never use the default.
 
 **Warning signs:**
-- SW cache version not bumped when API endpoints are added
-- No `pathname.startsWith('/api/')` check in the SW fetch handler
-- POST requests appearing in the Cache Storage DevTools panel
-- "Submit checklist" appears to succeed offline but the server never receives the request
+- `http.Post(webhookURL, ...)` called directly inside an HTTP handler goroutine.
+- No `outgoing_alerts` table in the schema.
+- Alert delivery tested by asserting "the HTTP call was made" not "the HTTP call succeeded and was retried on failure."
 
-**Phase to address:** Phase 1 (API foundation) — update SW fetch strategy before the first API call is made from the frontend. This is a blocking change; the old strategy will corrupt API behavior the moment endpoints are added.
+**Phase to address:** Zoho Cliq integration phase — queue design must be specified in the DB schema before any alert trigger is built.
 
 ---
 
-### Pitfall 3: Offline Checklist Completion Conflicts on Sync
+### Pitfall 3: Cutoff Race Condition — Edit Accepted After Deadline Passes
 
 **What goes wrong:**
-Crew member A completes the "Setup Checklist" while offline. Crew member B, who was online, also completes the same checklist 10 minutes later. When A's phone reconnects, the offline queue replays the completion to the server. The server now has two completion records for the same checklist submission. The approval UI shows the checklist as "submitted twice" or throws a unique constraint violation.
+The cutoff is enforced by a guard clause: `if time.Now().After(cutoff) { return 403 }`. The crew member opens the PO form 45 seconds before cutoff. The guard passes. The crew member edits. The cutoff passes. The crew member submits. The guard has already been evaluated — the write goes through on a locked PO.
 
-A subtler variant: crew member A fills items 1-5 offline, crew member B fills items 6-10 online on the same shared checklist. When A syncs, the server must merge partial completions rather than reject A's submission as a duplicate.
+A second race: two people edit the same open PO simultaneously. Both load the form at version 3. Person A saves first (version becomes 4). Person B's save runs — the WHERE clause only checks `po_id`, not version — Person B's write silently overwrites Person A's changes.
 
 **Why it happens:**
-Checklist completion was designed as an atomic "submit the whole thing" action in the frontend mock. In a real multi-user offline context, the atomicity assumption breaks. The backend schema and the sync protocol need to model partial completion and idempotent submission from the start.
+State validation is done in Go (application layer) before the DB write. The check and the write are separate operations with a gap between them. Concurrent edits are not considered because "only one person edits at a time" — which is true until the first time it isn't.
 
 **How to avoid:**
-- Assign a **client-generated UUID** (`crypto.randomUUID()`) to each submission before it is sent. Store this as `client_submission_id` on the server. The server deduplicates on this key — a replay of the same offline queue entry is a no-op.
-- Model responses at the **field level** (one row per field answer), not as a blob per submission. This allows partial sync without conflicts.
-- For the offline queue in IndexedDB, store: `{id: uuid, templateId, fieldId, value, userId, timestamp}` per field answer — not one record per full checklist submission.
-- The server endpoint `POST /api/v1/responses` accepts an array of field answers, each with its `client_id`. Server inserts with `ON CONFLICT (client_id) DO NOTHING`.
-- Declare the conflict resolution policy explicitly: "last write wins per field, per user" — not across users. Two users completing the same field is a team coordination problem, not a data problem. Flag it in the approval UI rather than silently resolving it.
+- Enforce cutoff and state inside the DB transaction: `UPDATE purchase_orders SET ..., version = version + 1 WHERE id = $1 AND version = $2 AND (status = 'open') AND (cutoff_at IS NULL OR NOW() < cutoff_at) RETURNING id`. If 0 rows returned → 409 Conflict.
+- Add a `version INTEGER NOT NULL DEFAULT 1` column to `purchase_orders` from the start.
+- The edit form loads the current version and includes it in the submit body. The handler passes it to the WHERE clause.
+- The frontend handles 409 with a clear message: "The PO was changed by someone else — refresh to see the latest version."
 
 **Warning signs:**
-- No `client_submission_id` or idempotency key in the API contract
-- Server submission endpoint accepts a single monolithic blob (no field-level granularity)
-- Offline queue stores entire checklist state, not individual field changes
-- No `ON CONFLICT` clause on the responses table insert
+- Cutoff check is a Go `if` statement before the `db.Exec(...)` call, not inside the WHERE clause.
+- No `version` column on `purchase_orders`.
+- No 409 handling in the frontend.
+- The edit endpoint tests only pass/fail — no concurrent edit test.
 
-**Phase to address:** Phase 2 (checklist persistence) — design the field-level response schema and idempotency key before writing any sync logic. This is a schema decision that is expensive to change after data exists.
+**Phase to address:** PO state machine phase — add `version` column in the migration before building any edit endpoint.
 
 ---
 
-### Pitfall 4: Auth Token Storage — localStorage Is XSS-Vulnerable
+### Pitfall 4: Go Cron DST Skip / Double-Fire for Cutoff Reminders
 
 **What goes wrong:**
-Bearer tokens are stored in `localStorage` because it is simple and works immediately. The existing codebase uses no third-party JS beyond SortableJS (CDN), but future dependencies or a CDN compromise introduce XSS. Any injected script can read `localStorage.getItem('token')` and exfiltrate the session token. For a food truck operations app where the owner's session controls template creation, user management, and approvals, this is a meaningful risk.
+The weekly cutoff reminder ("PO cutoff in 2 hours") is scheduled via `robfig/cron`. The cron expression is written in local time without an explicit timezone: `0 7 * * 1` (every Monday at 7 AM). The server is on a US timezone with DST. When clocks spring forward:
+- 2:00 AM jumps to 3:00 AM — any job scheduled in that window is skipped entirely.
+- When clocks fall back, 1:30 AM occurs twice — the job fires twice.
+
+For a food business with strict purchase deadlines, a skipped cutoff reminder means the owner misses the ordering window.
 
 **Why it happens:**
-`localStorage` is the path of least resistance. It survives page reloads, is trivially readable from JS, and requires no special headers. The complexity of httpOnly cookies (CORS `credentials: include`, `SameSite` configuration, CSRF protection) makes developers defer the correct approach.
+`robfig/cron` v3 defaults to UTC but does not warn when cron expressions are written expecting local time. The mismatch only surfaces twice a year (DST transitions), which makes it hard to catch in testing.
 
 **How to avoid:**
-Use **httpOnly, Secure, SameSite=Strict cookies** for the session token. This is the OWASP-recommended approach for 2025. The cookie is invisible to JavaScript — XSS cannot steal it.
-
-The Go backend sets the cookie on login:
-```go
-http.SetCookie(w, &http.Cookie{
-    Name:     "session",
-    Value:    sessionToken,
-    HttpOnly: true,
-    Secure:   true,          // HTTPS only (Tailscale Serve provides this)
-    SameSite: http.SameSiteStrictMode,
-    Path:     "/",
-    MaxAge:   86400 * 30,    // 30 days
-})
-```
-
-The frontend `fetch` calls include `credentials: 'include'` to send the cookie. No token is ever stored in JS-readable storage.
+- Store all cutoff times in UTC in the database. Never store local-time strings.
+- Initialize cron with explicit UTC: `cron.New(cron.WithLocation(time.UTC))`.
+- Compute schedule fire times from the stored UTC cutoff timestamp, not from a static cron expression (e.g., `time.Until(nextCutoff) - 2*time.Hour`).
+- Use `time.AfterFunc` for one-shot reminders computed from a specific stored timestamp — more precise than a recurring cron expression when the cutoff time is user-configured.
+- Display cutoff times to users in browser local time using `Intl.DateTimeFormat` — never show UTC in the UI.
+- Add an admin debug endpoint that shows the next scheduled reminder fire time in both UTC and local time.
 
 **Warning signs:**
-- `localStorage.setItem('token', ...)` anywhere in the frontend code
-- Authorization header built by reading from `localStorage` or `sessionStorage`
-- IndexedDB used to persist a session token across page loads
+- Cron expression contains a hard-coded hour in local time.
+- `cron.New()` called without `cron.WithLocation(time.UTC)`.
+- Cutoff time stored as a string like "Monday 9 AM" instead of a UTC timestamp.
+- No way to inspect next scheduled fire time without looking at server logs.
 
-**Phase to address:** Phase 1 (auth implementation) — the token storage strategy must be decided before login.html is wired to the real API. Changing from localStorage to cookies after the fact requires updates to every fetch call.
+**Phase to address:** Cutoff scheduling phase — UTC-only timestamp storage must be in the schema design before any scheduling logic is written.
 
 ---
 
-### Pitfall 5: iOS Safari PWA Cookie Isolation Breaks Auth
+### Pitfall 5: Notion Image URLs Expire 1 Hour After Export
 
 **What goes wrong:**
-Auth works perfectly in desktop Chrome and desktop Safari. On iOS, crew members install the PWA to the home screen. When the PWA opens in standalone mode, iOS creates a **separate storage partition** from Safari proper — cookies set in the browser do not transfer to the standalone PWA context. The crew member logs in, the cookie is set, and the next time they open the PWA from the home screen the session is gone.
-
-A subtler issue: iOS Safari treats cross-origin fetch requests from a standalone PWA as a "full CORS request" even when the domain matches, causing `credentials: 'include'` fetches to fail unless `Access-Control-Allow-Credentials: true` and a specific (not wildcard) `Access-Control-Allow-Origin` header are set.
+The Notion item catalog is exported as a CSV. Each row's image field contains a presigned AWS S3 URL with a 1-hour expiry (`X-Amz-Expires=3600`). The import script runs, inserts the raw Notion URLs into `catalog_items.photo_url`, and the item photos all display correctly during the import run. The next morning — or even 90 minutes later — every photo in the catalog shows a broken image. This has been widely documented by developers using the Notion API and export tooling.
 
 **Why it happens:**
-iOS PWA standalone mode is a separate browsing context with storage isolation by design. This is documented but not widely understood. SameSite=Strict cookies from a standalone PWA that calls a different origin (even on the same Tailscale network) will not be sent.
+Notion generates time-limited presigned S3 URLs for all file attachments. The export CSV shows the full URL with no visible indication it will expire. Developers assume a URL in a database is permanent.
 
 **How to avoid:**
-- **Same origin is the cleanest solution:** Serve both the static PWA and the Go API from the same domain (e.g., proxy via Tailscale Serve or Caddy). With same-origin, SameSite=Strict cookies work. Cross-origin calls become same-origin calls.
-- If cross-origin is unavoidable: use `SameSite=None; Secure` cookies and ensure the CORS `AllowedOrigins` list includes the exact PWA origin.
-- Test auth on a real iOS device with the PWA installed to the home screen — **not** in Safari, **not** in Chrome DevTools device emulation — before declaring auth done.
-- `fetch('/api/v1/auth/login', { credentials: 'same-origin' })` when serving from same origin is simpler than `credentials: 'include'` cross-origin.
+- During the import run: for each row with a photo URL, immediately download the bytes (`http.Get(notionURL)`) and re-upload to DO Spaces using the existing presigned upload flow. Store the DO Spaces URL (permanent) in `catalog_items.photo_url`.
+- Validate during import: log download failures to stderr; insert a NULL `photo_url` rather than a broken Notion URL.
+- Run the import in a single pass — download + upload + insert atomically per row. Do not insert first and re-host later.
+- After import, spot-check: verify photos still load 2 hours after the import completes.
 
 **Warning signs:**
-- Auth tested only in desktop browsers during development
-- API server running on a different port than the static file server (different origins)
-- No end-to-end test that opens the app in standalone mode on a real iOS device
-- `SameSite=Strict` set while making cross-origin fetch calls
+- Import script inserts raw `notion.so` or `amazonaws.com` URLs with expiry parameters.
+- Photos are verified to work immediately after import but not after a delay.
+- No image download + re-upload step in the import plan.
 
-**Phase to address:** Phase 1 (auth + Tailscale dev setup) — verify cookie auth on a real iOS device before moving to Phase 2. This is a blocker; discovery after multiple phases of backend work have been built around cross-origin auth is expensive to fix.
+**Phase to address:** Notion data import phase — image re-hosting must be part of the import script, not a follow-up task.
 
 ---
 
-### Pitfall 6: Migration Dirty State Blocks Startup
+### Pitfall 6: PO-to-Shopping-List State Drift After Admin Unlock
 
 **What goes wrong:**
-A migration fails midway — a Postgres DDL statement in a multi-statement migration partially executes, or the Go process is killed during `migrate up`. `golang-migrate` marks the current version as "dirty" in the `schema_migrations` table. The next time the server starts and runs `migrate.Up()`, it refuses to proceed with error: `Dirty database version N. Fix and force version`. The server will not start. In production or Tailscale dev, this blocks the entire team.
-
-A related issue: migrations are written without considering foreign key dependency order. The `responses` table references `submissions`, `submissions` references `templates` and `users`. If these are created in the wrong order, the migration fails with a FK constraint error and leaves the schema in a partially applied dirty state.
+The shopping list is generated from an approved PO (1:1 mapping, snapshot copy of line items). The admin later unlocks the PO for a correction and edits quantities. The PO now has updated quantities. The shopping list still shows the original quantities. The shopper goes to the store based on the old list, buys the wrong quantities, and marks the list complete. The owner's approved PO no longer reflects what was actually purchased.
 
 **Why it happens:**
-Migrations that contain multiple DDL statements are not atomic unless explicitly wrapped in a transaction. Postgres supports transactional DDL (`CREATE TABLE`, `ADD COLUMN` inside `BEGIN/COMMIT`), but developers forget to add the transaction wrapper, or they mix transactional and non-transactional statements in one file.
+The shopping list is treated as an independent entity after generation (snapshot approach). The PO is not locked when the list is generated, and no mechanism regenerates or flags the list when the PO changes. The state machine has a gap: "PO amended after shopping list created" is an unhandled transition.
 
 **How to avoid:**
-- Each migration file contains **exactly one logical change** — create one table, add one column. Never bundle multiple unrelated changes.
-- Wrap every migration in `BEGIN; ... COMMIT;` explicitly. This ensures a midway failure rolls back cleanly and does not leave the DB dirty.
-- Define creation order to respect FK dependencies: `users` → `sessions` → `templates` → `submissions` → `responses` → `rejection_flags` → `audit_log`. Down migrations drop in reverse order.
-- Recovery procedure: fix the SQL error, then `migrate force N` (where N is the failing version) to clear the dirty flag, then `migrate up`. Document this in the project CLAUDE.md so any developer can recover.
+- Define the state machine explicitly before building any UI: once a shopping list is generated, the PO status changes to `shopping_in_progress` (locked for editing). Admin unlock must explicitly transition the PO back to `approved` and either invalidate (delete) the shopping list or surface a warning: "Shopping list was already sent — regenerating will reset shopper progress."
+- Add a `generated_from_po_version INTEGER` column to shopping lists. When the PO version changes, flag the list as stale in the admin UI.
+- Alternatively, the shopping list references PO line items by FK (not snapshot copy) — changes to the PO immediately reflect in the list. Choose this only if stale mid-shop data is acceptable (risky).
 
 **Warning signs:**
-- Migration files with 5+ DDL statements bundled together
-- No `BEGIN;` / `COMMIT;` wrapping in migration SQL files
-- Tables created without verifying the FK dependency order
-- `migrate.Up()` called in the server startup path without error handling that distinguishes "dirty" from other errors
+- Shopping list items inserted via `INSERT INTO shopping_items SELECT ... FROM po_line_items` with no version tracking.
+- No status transition on `purchase_orders` when the shopping list is generated.
+- Admin unlock flow exists but shopping list state is not addressed in the PR.
 
-**Phase to address:** Phase 1 (database schema) — migration strategy (one change per file, transaction-wrapped, dependency-ordered) must be established as the pattern for the first migration. All subsequent migrations inherit the pattern.
+**Phase to address:** Shopping list phase — state machine transitions must be specified in the task plan before any shopping list endpoint is built.
 
 ---
 
-### Pitfall 7: Tailscale Dev Setup — Mobile Devices Cannot Reach the Server
+### Pitfall 7: "Repurchased" Badge Reset at UTC Midnight Instead of Business Timezone Midnight
 
 **What goes wrong:**
-The Go API is running on `localhost:8080`. The developer's laptop is on the Tailscale network. The crew member's phone has Tailscale installed but the phone cannot reach `<machine-name>.tailnet.ts.net:8080` because:
-1. The Go server is bound to `127.0.0.1` (loopback) instead of `0.0.0.0` — Tailscale traffic comes in on a separate interface
-2. MagicDNS is not enabled in the Tailscale admin console, so the hostname does not resolve on the phone
-3. The PWA was served without HTTPS; iOS standalone mode requires HTTPS for service workers and `Secure` cookies — the app installs but auth fails silently
+The "Repurchased +3" badge on inventory items resets every Monday. The reset logic runs `time.Now().UTC().Truncate(7 * 24 * time.Hour)` — midnight UTC. For a food truck in Chicago (UTC-6 in winter, UTC-5 in summer), this means the badge resets on Sunday evening local time (6 PM Sunday or 7 PM Sunday). Crew members see the badge disappear mid-Sunday-shift. Worse, a purchase at 11 PM Sunday local time is attributed to Monday's count instead of Sunday's, breaking weekly totals.
 
 **Why it happens:**
-Local development defaults to `localhost`/`127.0.0.1` throughout. Tailscale creates an additional network interface (`100.x.x.x` address range) that requires the server to bind to `0.0.0.0` or specifically to the Tailscale interface address.
+UTC truncation is the simplest calculation. Timezone-aware truncation requires knowing the business's local timezone, which developers defer because "we can add it later." It's the kind of bug that doesn't surface in tests using UTC fixtures.
 
 **How to avoid:**
-Use `tailscale serve` as the HTTPS terminating proxy in front of the Go API:
-```bash
-tailscale serve --bg http://localhost:8080
-```
-This:
-- Provides automatic HTTPS via Tailscale's Let's Encrypt integration
-- Exposes the service at `https://<machine>.tailnet-name.ts.net` on port 443
-- Resolves via MagicDNS on all tailnet devices automatically (enable MagicDNS in admin console)
-- Handles HTTPS cert distribution — no manual cert import on mobile devices required
-
-The Go server continues to bind to `localhost:8080`; Tailscale Serve handles the external interface. The static PWA files can be served from the same domain via `tailscale serve` proxying to a local static file server, making the whole setup same-origin.
+- Add a `business_timezone TEXT NOT NULL DEFAULT 'America/Chicago'` field to the settings table from the start.
+- All week-boundary and reset computations: `time.Now().In(businessTZ)` → truncate to week → convert back to UTC for storage.
+- Test with fixtures that cross midnight in the business timezone, not UTC.
+- Display reset dates in the UI using the business timezone: "Resets Monday (Chicago time)."
 
 **Warning signs:**
-- Go server started with `http.ListenAndServe(":8080", ...)` but tested only via `localhost`
-- MagicDNS not enabled in the Tailscale admin panel
-- No `tailscale serve` config in the project documentation
-- HTTPS tested only via self-signed cert installed manually on one device
+- Badge reset logic uses `time.Now().UTC()` without a timezone conversion.
+- No `business_timezone` field in any settings table.
+- Badge reset tests use UTC timestamps only.
 
-**Phase to address:** Phase 1 (infrastructure + dev setup) — Tailscale Serve configuration must be documented and verified on at least one mobile device before backend development begins. Every subsequent phase depends on mobile testing being possible.
-
----
-
-## Moderate Pitfalls
-
----
-
-### Pitfall 8: Background Sync API Has No iOS Support
-
-**What goes wrong:**
-The team builds offline checklist submission using the Background Sync API (`ServiceWorkerRegistration.sync.register('sync-checklists')`). It works in Chrome on Android and desktop. On iOS (which is the primary target device — food truck crew use iPhones), the `sync` event never fires. Safari does not implement Background Sync as of 2025. The offline queue silently does nothing on iOS.
-
-**How to avoid:**
-Do not depend on Background Sync API. Use the **online event** as the sync trigger instead:
-```js
-window.addEventListener('online', () => replayOfflineQueue());
-```
-Also retry on page visibility change (`visibilitychange` to visible) and on each page load when `navigator.onLine` is true. Store the offline queue in IndexedDB (not `localStorage` — the queue can be large and must survive SW restarts). Each queued item carries a `clientId` (UUID) for server-side deduplication.
-
-This approach works on iOS, Android, and desktop without any browser-specific API.
-
-**Warning signs:**
-- `registration.sync.register(...)` in the SW or page JS without a fallback
-- Offline sync tested only in Chrome DevTools or Android
-
-**Phase to address:** Phase 3 (offline mode) — design the sync trigger mechanism correctly from the start. Retrofitting from Background Sync to event-driven sync after offline mode is shipped requires touching every sync point.
-
----
-
-### Pitfall 9: CSRF Exposure When Using httpOnly Cookies
-
-**What goes wrong:**
-Switching from localStorage bearer tokens to httpOnly cookies introduces CSRF vulnerability. A malicious third-party site can trigger a state-changing request (e.g., `POST /api/v1/submissions`) from the user's browser, and the browser will automatically attach the httpOnly session cookie. The API cannot tell whether the request came from the legitimate PWA or from a malicious page.
-
-**How to avoid:**
-Three-layer defense:
-1. **`SameSite=Strict`** on all session cookies. This prevents the cookie from being sent on cross-site requests entirely. Effective for same-origin deployments.
-2. For any cross-origin endpoints: add a **CSRF token** as a custom request header (`X-CSRF-Token`). Custom headers trigger a CORS preflight — cross-origin pages cannot set custom headers without your CORS policy allowing them.
-3. **`Content-Type: application/json`** enforcement on all POST handlers. Non-simple content types trigger preflight; HTML form submissions use `application/x-www-form-urlencoded` which is a simple request.
-
-For this project (SameSite=Strict, same-origin serving via Tailscale Serve / Caddy), SameSite alone is sufficient. Document the protection rationale so future maintainers do not loosen the cookie config.
-
-**Warning signs:**
-- `SameSite=None` set without a documented reason
-- API endpoints that accept `application/x-www-form-urlencoded` POST requests
-- No CSRF protection documented in the API design
-
-**Phase to address:** Phase 1 (auth implementation) — cookie flags are set once at login implementation. Getting them right initially costs nothing; fixing a CSRF gap after the fact requires auditing every state-changing endpoint.
-
----
-
-### Pitfall 10: Postgres Schema Has No Migration for the Auth Tables First
-
-**What goes wrong:**
-The Go backend is developed in the order "let me get the interesting stuff working first." Template persistence is wired up in migration `001`, checklist responses in migration `002`, and auth/users in migration `003`. When the application server starts, it runs migrations in sequence. But the checklist response handler needs a `user_id` foreign key to the `users` table — which does not exist until migration `003`. The app can start with an inconsistent schema if migrations are run partially, or the team ends up rewriting the first two migrations to add the FK after the fact.
-
-**How to avoid:**
-Auth is not "interesting" from a product perspective, but it is the **dependency root** of the entire schema. Create migrations in dependency order:
-1. `001_create_users.up.sql`
-2. `002_create_sessions.up.sql`
-3. `003_create_templates.up.sql`
-4. `004_create_submissions.up.sql`
-5. `005_create_responses.up.sql`
-6. `006_create_rejection_flags.up.sql`
-7. `007_create_audit_log.up.sql`
-
-No migration should reference a table created by a later-numbered migration. Treat this ordering as a constraint at migration creation time, not something to check later.
-
-**Warning signs:**
-- Migration `001` creates a `templates` or `submissions` table
-- FK constraints are deferred or omitted from early migrations "to add later"
-- The migration numbering does not match the documented 7-table schema in `docs/user-management-api.md`
-
-**Phase to address:** Phase 1 (database schema design) — write the migration order as the very first step, before any Go handler code.
+**Phase to address:** Badge and repurchase tracking phase — add `business_timezone` to the settings table in its migration before writing any reset logic.
 
 ---
 
 ## Technical Debt Patterns
 
+Shortcuts that seem reasonable but create long-term problems.
+
 | Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
 |----------|-------------------|----------------|-----------------|
-| `localStorage` for session tokens | Zero config, works immediately | XSS-stealable; must be replaced before any real data | Never — use httpOnly cookies from the start |
-| `AllowedOrigins: []string{"*"}` in CORS config | Unblocks development immediately | Blocks credentialed requests; security vulnerability | Never with credentials; only acceptable for fully public, unauthenticated read endpoints |
-| Bundle multiple DDL changes in one migration file | Fewer files to manage | Dirty state on failure is hard to recover; rollback is destructive | Never — one logical change per file |
-| Skip offline sync for MVP | Faster to ship | Crew in a food truck (spotty WiFi) cannot submit completions; core use case broken | Acceptable only if explicitly scoped out and documented |
-| Hardcode Tailscale hostname in CORS config | Works immediately | Breaks when machine or tailnet changes | MVP acceptable — extract to env var before production |
-| Use `window.fetch` without retry on 503 | Simple client code | Mutations silently fail when server is briefly unavailable | Acceptable for MVP; add retry with backoff before production |
+| Inline webhook POST in HTTP handler | Simpler code, no queue to maintain | Blocks API response; silent drop on transient failure; no retry | Never — decouple from day one |
+| Storing Notion image URLs without re-hosting | Fast import script | All photos broken within 1 hour; requires re-import | Never — always re-host during the import run |
+| Cutoff check as Go guard clause before DB write | Simple and readable | Race condition window on cutoff boundary; last-write-wins on concurrent edits | Never for deadline-enforced state transitions |
+| UTC-naive timestamps for cutoff and reset logic | No timezone conversion code during early dev | Wrong week boundaries for US business; DST bugs appear twice a year | Acceptable only in single-timezone dev with an explicit TODO and same-sprint fix |
+| Hardcoded webhook URL in env var | Easy to set up initially | Requires redeploy to rotate; no admin recovery path on token expiry | Acceptable only if admin UI to update it is planned in the same phase |
+| Shopping list as full snapshot copy of PO with no version link | Simpler queries | Silent drift on PO amendment | Acceptable if PO is hard-locked after list generation and admin unlock is explicitly blocked |
+| SMTP relay for email fallback | No third-party API needed | Shared IP → poor sender reputation; lands in spam; 550/421 errors cryptic to debug | Never for a food business where email alerts must be reliable |
 
 ---
 
 ## Integration Gotchas
 
+Common mistakes when connecting to external services.
+
 | Integration | Common Mistake | Correct Approach |
 |-------------|----------------|------------------|
-| Go `rs/cors` + cookies | `AllowedOrigins: []string{"*"}` with `AllowCredentials: true` | Library rejects this combination; use explicit origin list |
-| Go `rs/cors` + OPTIONS preflight | Mounting CORS middleware after router — preflight hits the route handler first and returns 404 | Mount CORS middleware as the outermost handler, before the router |
-| `golang-migrate` + Postgres | Running `migrate.Up()` and ignoring the error type — dirty state causes server to loop on startup | Check for `migrate.ErrDirty` specifically; log instructions for manual recovery |
-| Tailscale Serve + Go | Go server bound to `127.0.0.1` — Tailscale proxy cannot reach it | Bind Go server to `0.0.0.0:PORT`; or rely on Tailscale Serve forwarding to localhost (Serve proxies to localhost by design) |
-| iOS PWA + httpOnly cookies | Testing auth in Safari browser and assuming standalone mode behaves identically | Test auth in standalone mode (Add to Home Screen) on a physical iOS device |
-| service worker + API calls | SW fetch handler caches `/api/` responses with cache-first strategy | Partition fetch strategy: network-first or network-only for all `/api/` URLs |
-| Background Sync API + iOS | Registering sync events, testing in Chrome, shipping to iOS crew | iOS does not support Background Sync; use `online` event + `navigator.onLine` check as fallback |
+| Zoho Cliq channel webhook | Assume `zapikey` token is permanent | Log every response; surface delivery status in admin UI; tie token to a service account |
+| Zoho Cliq | No retry on non-2xx | Async queue with 3-attempt exponential backoff (immediate → 30s → 5min) |
+| Zoho Cliq | No fallback when all retries exhausted | Fall back to email on third failure; log the exhausted alert to `outgoing_alerts` |
+| Zoho Cliq | Blocking API response on webhook delivery | Decouple: write intent to `outgoing_alerts` first, return 200, deliver in background goroutine |
+| Email (transactional) | Direct SMTP from Go server on a VPS | Shared IP = poor deliverability; use an API-based transactional service (Resend, Mailgun, Postmark) with SPF/DKIM/DMARC configured |
+| Email | No SPF/DKIM records for sending domain | Email sent from `yumyums.com` via DO server IP with no SPF goes straight to spam |
+| Notion export | Using raw CSV image URLs as permanent references | Notion S3 presigned URLs expire in 1 hour — download and re-host to DO Spaces during the import run |
+| Notion export | Trusting item name uniqueness in the export | Notion has no enforced unique constraint; duplicate names possible — deduplicate on lowercase-trimmed name during import |
+| DO Spaces | Reusing a presigned upload URL across multiple items | Presigned upload URLs are single-use; generate a fresh URL per item during import |
+| `robfig/cron` | Cron expression in local time without CRON_TZ | Schedule fires at the wrong UTC time; silently double-fires or skips on DST transitions |
 
 ---
 
 ## Performance Traps
 
+Patterns that work at small scale but fail as usage grows.
+
 | Trap | Symptoms | Prevention | When It Breaks |
 |------|----------|------------|----------------|
-| N+1 queries for checklist list endpoint | Checklist list loads slowly as template count grows | Use `JOIN` or batch fetch for template metadata; never query template per submission in a loop | At ~20 submissions |
-| Full response history returned per checklist | "My Checklists" tab is slow to render | Paginate or limit response history to last 30 days; server-side filter | At ~500 field responses |
-| Unindexed FK lookups on `user_id` in submissions/responses | Approval queue slow for managers | Add indexes on all FK columns at migration time, not retroactively | At ~100 submissions |
-| Replaying entire IndexedDB offline queue on reconnect | Sync takes 30+ seconds after extended offline period | Batch offline writes into one `POST /api/v1/sync` call, not one request per field | At ~50 offline field answers |
-| JWT verification on every request without caching | Auth overhead on each API call | Use opaque session tokens stored in Postgres (`sessions` table) with a short-lived cache; avoid stateless JWT for a small-crew app where session revocation matters | At ~10 concurrent users |
+| N+1 query loading stock levels for PO reorder suggestions | PO suggestion page slow as catalog grows | Batch: `SELECT ... WHERE item_id = ANY($1)` | Noticeable at ~200 catalog items |
+| Polling `outgoing_alerts` without an index on `(status, created_at)` | Background delivery goroutine causes sequential scans every poll interval | Add the index in the `outgoing_alerts` migration | Noticeable at ~1,000 alerts (unlikely here, but the index is trivially cheap) |
+| Shopping list render joining PO → line items → catalog → photos with no index on FK columns | List render slow on mobile, especially on spotty food truck WiFi | Index `po_line_items.po_id` and `catalog_items.id` from the migration | Noticeable at ~50-item POs |
+| Cron goroutine blocks during webhook delivery | Cron misses its next tick; subsequent reminders delayed | Alert delivery must be fire-and-forget from the cron tick perspective; use a goroutine or the async queue | From day one if Zoho response time is unpredictable (often 1-3s) |
+| Full PO history loaded for suggestion UI | PO form slow to open as order history grows | Limit suggestion query to last 8 weeks of purchases; add `LIMIT` and index on `purchased_at` | Noticeable at ~52 weeks of weekly orders |
 
 ---
 
 ## Security Mistakes
 
+Domain-specific security issues beyond general web security.
+
 | Mistake | Risk | Prevention |
 |---------|------|------------|
-| Session tokens in `localStorage` | XSS can exfiltrate tokens; any script injection compromises all crew sessions | httpOnly cookies only; no JS-readable token storage |
-| Reflecting `Origin` header verbatim in CORS response | Equivalent to wildcard; any site can make credentialed requests | Validate origin against an environment-configured allowlist |
-| No token expiry or session revocation | Stolen or shared device retains access indefinitely | Session tokens expire (30 days max); provide a `/api/v1/auth/logout` endpoint that deletes the session row |
-| Weak invite token generation | Brute-forceable invite links allow unauthorized user creation | Use `crypto/rand` to generate 32-byte invite tokens (256 bits of entropy); expire after 48 hours |
-| Photo uploads stored without access control | Crew photos (potentially food safety evidence) publicly accessible | Serve photo blobs through an authenticated endpoint, not as static public URLs |
-| Migration files committed with plaintext credentials | DB password in source history | Use environment variables for all DB connection strings; never hardcode credentials in SQL files or Go source |
+| Webhook token visible in server logs | Token exposure → attacker can post messages to your Cliq channel | Mask token in all log output; never log the raw webhook URL |
+| Shopping list "Complete" endpoint not role-checked on the server | Any authenticated user can mark any list complete regardless of assignment | Enforce RBAC in the Go handler; the frontend hiding the button is not sufficient |
+| PO approval endpoint accessible by crew role | Crew member approves their own PO | Handler must check `currentUser.Role >= manager`; return 403 otherwise |
+| PO status transitions not written to audit log | Owner can't tell who locked, unlocked, or approved a PO | Write to the existing audit log on every `purchase_orders.status` transition |
+| Email fallback reveals other crew members' email addresses | Privacy violation; crew members can see each other's personal email | Send alerts only to the configured recipient; never CC or mention other crew email addresses in alert bodies |
+| Admin settings endpoint (webhook URL update) not restricted to admin role | Any crew member can redirect alerts to an attacker-controlled endpoint | Settings write endpoints must enforce `role = admin` check in the handler |
 
 ---
 
 ## UX Pitfalls
 
+Common user experience mistakes in this domain.
+
 | Pitfall | User Impact | Better Approach |
 |---------|-------------|-----------------|
-| No loading states when API calls replace mock data | Crew members see blank screens while fetch completes — app appears broken | Add `<div class="loading">Loading...</div>` state between tab switch and first API response |
-| Optimistic UI without rollback | "Submitted" confirmation shown, then API fails — crew member thinks checklist is done when it is not | Show optimistic completion only for offline-queued items; for online submissions, wait for 200 OK before showing success |
-| Login form that submits then loses the return URL | Crew member follows a deep link, gets redirected to login, after login lands on home screen instead of original destination | Store `returnUrl` in `sessionStorage` before redirecting to login; restore after auth |
-| Silent offline mode | Crew member fills out checklist offline, submits, sees no indication the form is queued | Show "Saved offline — will sync when connected" banner on offline submission |
-| Auth session expiry with no prompt | Session expires mid-shift; crew member submits checklist and gets a 401 — data is lost | Intercept 401 responses globally; pause the queue, prompt re-login, then replay |
+| No indication when cutoff has passed mid-edit | Crew submits form, gets 409, sees a generic error, data appears lost | Show a sticky banner "Cutoff passed — only admins can now edit this PO" when the page detects cutoff has passed (check on save attempt; show graceful message) |
+| Badge shows "Repurchased +3" with no visible reset date | Crew doesn't know when count resets; badge loses meaning after a week | Show "Resets Monday" or the exact configured reset date directly below the badge count |
+| Shopping list has no item-level persistence | Shopper completes half the list, navigates away, completion is lost | Persist item-level completion using the same autoSave pattern from workflows — one row per item in a `shopping_completions` table |
+| Alert message body contains no item detail | Alert says "Shopping complete — missing items" with no list of what's missing | Include item names, quantities, and store location in the alert message body |
+| Cutoff time shown in UTC in the admin settings UI | Owner sets cutoff at the wrong wall-clock time | Always display and accept times in browser local timezone using `Intl.DateTimeFormat`; convert to UTC for storage in Go |
+| PO "saved" confirmation shown even when webhook alert failed | Owner believes the alert was sent; shopper never notified | Decouple save success from alert delivery status; show alert delivery status separately (e.g., "Alert sent" / "Alert pending") |
+| Notion import has no progress indicator | Import of ~100 items with photos (each requiring a DO upload) looks frozen | Show import progress: "Importing item 42 of 100 (downloading photo...)" — or a simple spinner with estimated time |
 
 ---
 
 ## "Looks Done But Isn't" Checklist
 
-- [ ] **CORS:** Test from a different origin (phone browser) with credentials — not just same-machine fetch with no credentials
-- [ ] **Cookie auth on iOS standalone:** Install PWA to home screen on a physical iPhone; log in, close app, reopen — session must persist
-- [ ] **SW API partition:** Open DevTools → Application → Cache Storage — no `/api/` URLs should appear as cached entries
-- [ ] **Offline queue:** Put phone in airplane mode, complete a checklist, restore connection — submission must reach the server (check the Postgres `responses` table)
-- [ ] **Migration dirty recovery:** Deliberately corrupt a migration (add a syntax error), run the server, verify the error message is actionable and the team knows the `migrate force` recovery step
-- [ ] **Tailscale mobile access:** Load the PWA on a real mobile device (not desktop browser) via the Tailscale hostname — full auth flow must work
-- [ ] **Duplicate sync prevention:** Submit an offline completion twice (simulate by replaying the IndexedDB queue manually) — the server must return 200 (idempotent), not a duplicate record
-- [ ] **Session expiry handling:** Let a session token expire (or manually delete the sessions row); make an API call from the frontend — must prompt re-login, not show a blank error
+Things that appear complete but are missing critical pieces.
+
+- [ ] **Cutoff enforcement:** Cutoff guard is in the Go handler — verify it is also enforced inside the DB transaction WHERE clause (not just a pre-check in Go code).
+- [ ] **Zoho Cliq integration:** Webhook fires in dev — verify `outgoing_alerts` table exists, non-2xx responses are logged, and the admin health-check shows last delivery timestamp.
+- [ ] **Notion import photos:** Photos display immediately after import — verify they still display 2 hours later (Notion URL expiry window is 1 hour).
+- [ ] **Shopping list RBAC:** "Complete" button is hidden from non-assigned users — verify the `/complete` API endpoint also rejects non-assigned users with 403.
+- [ ] **Badge reset timezone:** Badge clears on Monday — verify it clears at Monday midnight in the business's configured local timezone, not UTC midnight.
+- [ ] **Email fallback deliverability:** Email is configured as fallback — verify SPF and DKIM DNS records are set for the sending domain. Send a test email and check spam folder.
+- [ ] **Alert retry:** Alert delivery goroutine runs — verify that a transient 500 from Zoho triggers a retry attempt, not a permanent failed mark after the first attempt.
+- [ ] **Optimistic locking:** PO edit saves — open the PO on two devices simultaneously, edit on both, submit both — verify the second returns a 409 with a meaningful message, not a silent overwrite.
+- [ ] **Admin unlock + shopping list:** PO is unlocked after shopping list is generated — verify the shopping list is either regenerated or flagged as stale; it must not silently show outdated quantities.
 
 ---
 
 ## Recovery Strategies
 
+When pitfalls occur despite prevention, how to recover.
+
 | Pitfall | Recovery Cost | Recovery Steps |
 |---------|---------------|----------------|
-| CORS wildcard in production | LOW | Update `CORS_ALLOWED_ORIGINS` env var; redeploy; no schema changes |
-| SW caching API responses | MEDIUM | Update SW fetch handler; bump cache version; all clients must update SW (can take hours if cached SW is sticky) — use `skipWaiting()` + `clients.claim()` to force faster propagation |
-| localStorage tokens discovered after launch | HIGH | Migrate frontend to cookies; update every fetch call to add `credentials: 'include'`; force all users to log in again |
-| Migration dirty state | LOW | SSH to server; run `migrate force <version>`; fix the SQL error; run `migrate up` again |
-| iOS standalone cookie failure | MEDIUM | Switch to same-origin serving (proxy static files through Go or via Caddy/Tailscale Serve on same domain); re-test auth flow |
-| Duplicate records from offline sync replay | MEDIUM | Add `ON CONFLICT (client_id) DO NOTHING` to responses insert; backfill dedup via `SELECT DISTINCT ON (client_id)` query to identify duplicates |
-| Background Sync API not working on iOS | LOW | Replace `registration.sync.register()` with `window.addEventListener('online', replayQueue)` — no backend changes required |
+| Webhook token expired, alerts stopped | LOW | Update token in admin settings UI; send test via health-check; review `outgoing_alerts` for missed alerts and determine if manual notification is needed |
+| Notion images broken after import | MEDIUM | Query all `catalog_items` with Notion/S3 URLs → re-download → re-upload to DO Spaces → UPDATE rows. Script takes ~10min for 100 items |
+| Cutoff race caused wrong data saved | MEDIUM | Point-in-time restore from Postgres WAL if within backup window; post-fix: add optimistic locking + WHERE clause cutoff enforcement |
+| Shopping list diverged from PO after admin unlock | HIGH | Manual reconciliation: compare `po_line_items` with `shopping_items` for the affected PO; patch shopping list quantities; add PO version tracking to prevent recurrence |
+| Alert sent to wrong channel (misconfigured webhook URL) | LOW | Update webhook URL in admin settings; the alert was noise on the wrong channel — no data loss |
+| DST caused missed cutoff reminder | LOW | Manually trigger reminder via admin debug endpoint; convert all schedules to UTC-based `time.AfterFunc` to prevent recurrence |
+| UTC midnight badge reset fires Sunday evening local time | MEDIUM | Add `business_timezone` to settings table; migrate existing reset logic; backfill: the affected week's counts are off by one calendar day — acceptable to leave, fix going forward |
 
 ---
 
 ## Pitfall-to-Phase Mapping
 
+How roadmap phases should address these pitfalls.
+
 | Pitfall | Prevention Phase | Verification |
 |---------|------------------|--------------|
-| CORS misconfiguration (Pitfall 1) | Phase 1: API foundation | Credentialed fetch from mobile browser returns 200; DevTools shows correct CORS headers |
-| SW caches API responses (Pitfall 2) | Phase 1: API foundation | No `/api/` URLs in Cache Storage DevTools panel; POST requests never return cached response |
-| Offline sync conflicts (Pitfall 3) | Phase 2: Checklist persistence | Replaying an offline queue entry twice results in one DB row, not two |
-| Token storage in localStorage (Pitfall 4) | Phase 1: Auth | No `localStorage.getItem('token')` or `sessionStorage` reads in auth-related code |
-| iOS standalone cookie isolation (Pitfall 5) | Phase 1: Auth + Tailscale setup | Auth flow complete on physical iPhone in standalone mode |
-| Migration dirty state (Pitfall 6) | Phase 1: Database schema | All migrations wrapped in BEGIN/COMMIT; recovery procedure documented |
-| Tailscale mobile reach (Pitfall 7) | Phase 1: Infrastructure | Full app accessible on crew member's phone via Tailscale hostname with HTTPS |
-| Background Sync iOS gap (Pitfall 8) | Phase 3: Offline mode | Offline queue syncs on reconnect on an iOS device (not just Chrome/Android) |
-| CSRF with cookies (Pitfall 9) | Phase 1: Auth | `SameSite=Strict` confirmed on session cookie; no `application/x-www-form-urlencoded` POST endpoints |
-| Migration dependency order (Pitfall 10) | Phase 1: Database schema | Migration 001 is `create_users`; all FK references point to lower-numbered migrations |
+| Zoho Cliq token expiry / silent drop | Zoho Cliq integration (build alert queue + delivery log first) | Admin health-check fires test message and returns last delivery timestamp + status code |
+| Synchronous webhook blocking API response | Zoho Cliq integration (async queue design before any trigger) | Load test: delay Zoho response by 10s — shopping list Complete returns in <100ms |
+| Cutoff race condition | PO state machine phase (version column + WHERE clause enforcement) | Concurrent edit test: two clients edit the same PO simultaneously → one gets 409 with clear message |
+| Go cron DST timezone | Cutoff scheduling phase (UTC-only from DB schema) | Admin debug endpoint shows next reminder fire time in both UTC and local time; verify across DST boundary |
+| Notion image URL expiry | Data import phase (re-host images in import script) | Check photo URLs 2 hours after import — must still load |
+| PO → shopping list state drift | Shopping list phase (state machine spec before any UI) | PO amendment after list generation → list flagged stale or regenerated; shopper sees updated quantities |
+| Badge reset timezone mismatch | Badge/repurchase phase (business_timezone in settings) | Simulate purchase at 11 PM local Sunday → badge appears in Sunday count; Monday local midnight resets it |
+| Shopping list RBAC not enforced server-side | Shopping list phase (RBAC on every endpoint) | Non-assigned crew member calls Complete endpoint directly → 403 |
 
 ---
 
 ## Sources
 
-- [rs/cors — AllowedOrigins + AllowCredentials security note (August 2024)](https://github.com/rs/cors)
-- [rs/cors Go package docs — configuration options](https://pkg.go.dev/github.com/rs/cors)
-- [MDN: Progressive web apps — Caching strategies](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/Guides/Caching)
-- [MDN: Offline and background operation — service worker patterns](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/Guides/Offline_and_background_operation)
-- [web.dev/learn/pwa/serving — fetch strategy partitioning](https://web.dev/learn/pwa/serving)
-- [OWASP: Session Management Cheat Sheet — httpOnly cookie recommendation](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html)
-- [netguru: Sharing cookies between PWA standalone and Safari on iOS](https://www.netguru.com/blog/how-to-share-session-cookie-or-state-between-pwa-in-standalone-mode-and-safari-on-ios)
-- [Apple Developer Forums: iOS PWA standalone cookie isolation](https://developer.apple.com/forums/thread/125109)
-- [golang-migrate: Dirty database version recovery](https://medium.com/@kazutaka.yoshinaga/how-to-resolve-dirty-status-of-database-migration-in-golang-7735fb3138da)
-- [golang-migrate GitHub Issue #282 — force version after dirty state](https://github.com/golang-migrate/migrate/issues/282)
-- [Tailscale Docs: Enabling HTTPS certificates](https://tailscale.com/docs/how-to/set-up-https-certificates)
-- [Tailscale Docs: tailscale serve command](https://tailscale.com/kb/1242/tailscale-serve)
-- [whatpwacando.today: Background Sync — browser support table (Safari: no)](https://whatpwacando.today/background-sync/)
-- [Sachith Dassanayake: Offline sync & conflict resolution patterns (April 2026)](https://www.sachith.co.uk/offline-sync-conflict-resolution-patterns-crash-course-practical-guide-apr-8-2026/)
-- [ObjectBox: Customizable conflict resolution for offline-first apps](https://objectbox.io/customizable-conflict-resolution-for-offline-first-apps/)
-- [CyberChief: LocalStorage vs Cookies — JWT token storage security](https://www.cyberchief.ai/2023/05/secure-jwt-token-storage.html)
-- [BetterStack: Database migrations in Go with golang-migrate](https://betterstack.com/community/guides/scaling-go/golang-migrate/)
+- [Zoho Cliq Channel Webhooks documentation](https://www.zoho.com/cliq/help/platform/channel-webhooks.html)
+- [Zoho Cliq webhook token limit (5 per user) and 2FA session expiry](https://www.zoho.com/cliq/help/platform/webhook-tokens.html)
+- [Zoho community: 401 Unauthorized on incoming webhook — known failure mode](https://help.zoho.com/portal/en/community/topic/zoho-cliq-incoming-webhook-changes-and-401-issues)
+- [robfig/cron GitHub — CRON_TZ support, DST-related issues, v3 changelog](https://github.com/robfig/cron)
+- [netresearch/go-cron fork — DST handling notes and upstream gaps](https://github.com/netresearch/go-cron)
+- [CronMonitor: Handling Timezone Issues in Cron Jobs 2025](https://cronmonitor.app/blog/handling-timezone-issues-in-cron-jobs)
+- [DST pitfalls — spring forward skip, fall back double-fire](https://cronjob.live/docs/dst-pitfalls)
+- [PostgreSQL race conditions — SELECT FOR UPDATE, optimistic locking patterns](https://oneuptime.com/blog/post/2026-01-25-postgresql-race-conditions/view)
+- [Optimistic vs pessimistic locking in PostgreSQL with Go](https://hackernoon.com/comparing-optimistic-and-pessimistic-locking-with-go-and-postgresql)
+- [Notion image URL 1-hour expiry — real-world developer problem and fix](https://snugl.dev/archive/fixing-notions-1-hour-expiring-image-problem)
+- [Notion API file expiry — developer experience report](https://www.danvega.dev/blog/notion-api-file-expired)
+- [Notion S3 image URL expiry confirmed via nuxt/image issue discussion](https://github.com/nuxt/image/issues/1340)
+- [Notion export: imports append rows, no deduplication on native import](https://clonepartner.com/blog/how-to-import-data-into-notion-formats-limits-data-mapping)
+- [SMTP vs API email delivery — transactional pitfalls and shared IP reputation risk](https://www.mailgun.com/blog/email/difference-between-smtp-and-api/)
+- [SMTP from VPS deliverability — goes to spam without SPF/DKIM](https://mailtrap.io/blog/smtp-vs-email-api/)
+- [PWA Badging API — platform support matrix, iOS requirements](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/How_to/Display_badge_on_app_icon)
+- [HackerNews: Avoid 2:00–3:00 AM cron jobs — DST discussion](https://news.ycombinator.com/item?id=45723554)
 
 ---
-*Pitfalls research for: adding Go + Postgres backend to existing vanilla JS PWA (v2.0 backend milestone)*
-*Researched: 2026-04-15*
+*Pitfalls research for: Purchase orders, shopping lists, Zoho Cliq alerts, scheduled cutoffs, Notion data import — v3.0 milestone*
+*Researched: 2026-04-22*

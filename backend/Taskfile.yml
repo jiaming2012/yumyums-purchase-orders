@@ -63,6 +63,26 @@ tasks:
     env:
       DB_URL: '{{.DB_URL}}'
 
+  import-notion:
+    desc: Import Notion catalog export — uploads photos to DO Spaces, writes purchase_items.yaml
+    dotenv: ['.env']
+    cmd: >-
+      go run ./cmd/import-notion/
+      --csv ../notion-export/AllItems.csv
+      --images ../notion-export/AllItems/
+      --output internal/inventory/fixtures/purchase_items.yaml
+    env:
+      DO_SPACES_ENDPOINT: 'https://{{.DO_SPACES_REGION}}.digitaloceanspaces.com'
+
+  import-notion-dry:
+    desc: Dry-run Notion import (no upload, placeholder URLs)
+    cmd: >-
+      go run ./cmd/import-notion/
+      --csv ../notion-export/AllItems.csv
+      --images ../notion-export/AllItems/
+      --output internal/inventory/fixtures/purchase_items.yaml
+      --dry-run
+
   db-reset-inventory:
     desc: Wipe inventory + receipt data only (keeps users, templates, etc.)
     cmd: >-

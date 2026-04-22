@@ -61,17 +61,39 @@ Operational tools that let the owner manage crew workflows and training from one
 
 ### Active
 
-- [ ] Food cost calculations — ingredient ratio derivation (potentially AI-assisted)
-- [ ] Dev deployment via Tailscale (INFRA-03 — human verification pending)
+- [ ] PO form pulls reorder suggestions from inventory Stock tab with item photos, store location, and suggested quantities
+- [ ] Search and add items from inventory catalog (Setup tab) into PO form
+- [ ] Notion data import — seed item catalog from existing Notion export (~100 items with photos, categories, stores)
+- [ ] Recurring weekly cutoff schedule (admin-configurable day/time); after cutoff only admin can edit PO
+- [ ] Backend command for easy cutoff testing
+- [ ] Admin approval of PO generates a shopping checklist (1:1 mapping)
+- [ ] Shopping checklist tab with RBAC — assignable to specific members/roles
+- [ ] Shopping list shows item photo + store location (tap icon); location notes editable inline
+- [ ] Shopping list "Complete" button sends alert for missing items via configured channel
+- [ ] "Repurchased +[Qty]" badge on inventory items after purchase; configurable reset date
+- [ ] Alert reminders before cutoff time; out-of-stock alerts
+- [ ] Zoho Cliq channel integration for alerts (default); email as alternative
+- [ ] Users configure communication preference in Users tab (at least one required, Zoho Cliq default)
 
 ### Out of Scope
 
 - Multi-location support — single food truck operation
 - Real-time stock counting / barcode scanning — too complex for this milestone
-- Replacing the existing purchasing app — purchasing stays separate
 - HTMX frontend migration — may come in a future milestone
+- Food cost calculations — deferred from v2.x, not in scope for v3.0
+- Dev deployment via Tailscale — infrastructure concern, separate from PO workflow
 
-## Shipped Milestones
+## Current Milestone: v3.0 Purchase Orders & Shopping Lists
+
+**Goal:** Connect the Purchase Orders tool to real inventory data with a full ordering-to-shopping workflow, cutoff enforcement, and multi-channel alerts via Zoho Cliq/email.
+
+**Target features:**
+- PO form from inventory with reorder suggestions, photos, store locations, suggested quantities
+- Notion data import for item catalog seeding
+- Weekly cutoff schedule with admin lock and approval flow
+- Shopping checklist generation from approved POs with RBAC
+- Repurchased badge on inventory items with configurable reset
+- Multi-channel alerts (Zoho Cliq channel + email) with user preference config
 
 ## Shipped Milestones
 
@@ -140,4 +162,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-15 after v2.0 milestone start*
+*Last updated: 2026-04-22 after v3.0 milestone start*

@@ -1747,4 +1747,60 @@ test.describe('Inventory', () => {
     expect(reorderText).not.toContain(itemName);
   });
 
+  // ── Regression: PO photo lightbox opens on thumbnail tap ──────────────
+
+  test('tapping item photo in PO opens fullscreen lightbox', async ({ page }) => {
+    await login(page);
+
+    // Seed an item with a photo on the PO
+    const po = await page.evaluate(async () => {
+      const res = await fetch('/api/v1/purchasing/orders', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+      return res.json();
+    });
+    // Find an item with a photo_url from inventory
+    const items = await page.evaluate(async () => {
+      const res = await fetch('/api/v1/inventory/items');
+      return res.json();
+    });
+    const withPhoto = (items || []).find(i => i.photo_url);
+    if (!withPhoto || !po) return; // skip if no photos seeded
+
+    // Add item to PO
+    await page.evaluate(async ([poId, item]) => {
+      await fetch('/api/v1/purchasing/orders/' + poId + '/items', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: [{ purchase_item_id: item.id, quantity: 1, unit: '' }] })
+      });
+    }, [po.id, withPhoto]);
+
+    // Navigate to purchasing page and wait for items to render
+    await page.goto('/purchasing.html');
+    await page.waitForSelector('.item-thumb img', { timeout: 10000 });
+
+    const thumbImg = page.locator('.item-thumb img').first();
+
+    // Tap the thumbnail
+    await thumbImg.click();
+
+    // Lightbox should appear
+    const lightbox = page.locator('.photo-lightbox');
+    await expect(lightbox).toBeVisible({ timeout: 3000 });
+
+    // Lightbox should contain a full-size image
+    const lbImg = lightbox.locator('img');
+    await expect(lbImg).toBeVisible();
+    const src = await lbImg.getAttribute('src');
+    expect(src).toBeTruthy();
+    expect(src).toContain('http');
+
+    // Close button should exist
+    const closeBtn = lightbox.locator('.lb-close');
+    await expect(closeBtn).toBeVisible();
+
+    // Tap close — lightbox should disappear
+    await closeBtn.click();
+    await expect(lightbox).not.toBeVisible();
+  });
+
 });

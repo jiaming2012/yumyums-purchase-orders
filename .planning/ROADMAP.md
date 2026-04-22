@@ -89,7 +89,10 @@ Plans:
   2. Items seed idempotently on first server run (re-runs do not duplicate)
   3. Item photos from the Notion export are downloaded and re-hosted to DO Spaces; the raw Notion S3 URL is never stored in the YAML
   4. Photos load correctly 2+ hours after seed (confirming no reliance on expiring Notion URLs)
-**Plans**: TBD
+**Plans:** 1/2 plans executed
+Plans:
+- [ ] 15-01-PLAN.md -- Migration, group fixtures, conversion script, generated YAML
+- [x] 15-02-PLAN.md -- Extend SeedInventoryFixtures to load purchase_items.yaml on startup
 
 ### Phase 16: Cutoff, Approval, and Shopping List
 **Goal**: Admin can configure a weekly cutoff that auto-locks the PO, approve the locked PO to generate a shopping checklist, and crew can execute the shopping run with check-off, photo capture, and inline location notes
@@ -104,10 +107,10 @@ Plans:
   6. When checking off an item that has no photo or location, shopper is prompted to add them (can skip but must confirm skip each time)
   7. Shopper can upload a photo for an item that doesn't have one
   8. Tapping "Complete" on the shopping list sends a report of any unchecked items via the configured alert channel
-**Plans:** 1/2 plans executed
+**Plans:** 2 plans
 Plans:
 - [x] 14-01-PLAN.md -- Backend: migrations, purchasing Go package, route registration
-- [ ] 14-02-PLAN.md -- Frontend: purchasing.html rewrite with Order tab, item picker, suggestions
+- [x] 14-02-PLAN.md -- Frontend: purchasing.html rewrite with Order tab, item picker, suggestions
 **UI hint**: yes
 
 ### Phase 17: Alerts, Notifications, and Repurchase Badges
@@ -122,7 +125,7 @@ Plans:
   5. Badge resets on the admin-configured schedule (weekly reset date is timezone-aware)
 **Plans:** 2 plans
 Plans:
-- [ ] 14-01-PLAN.md -- Backend: migrations, purchasing Go package, route registration
+- [x] 14-01-PLAN.md -- Backend: migrations, purchasing Go package, route registration
 - [ ] 14-02-PLAN.md -- Frontend: purchasing.html rewrite with Order tab, item picker, suggestions
 **UI hint**: yes
 
@@ -130,7 +133,7 @@ Plans:
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 14. PO Backend + Order Form | v3.0 | 2/2 | Complete   | 2026-04-22 |
+| 14. PO Backend + Order Form | v3.0 | 2/2 | Complete    | 2026-04-22 |
 | 15. Notion Catalog Import | v3.0 | 1/2 | In Progress|  |
 | 16. Cutoff, Approval, and Shopping List | v3.0 | 0/? | Not started | - |
 | 17. Alerts, Notifications, and Repurchase Badges | v3.0 | 0/? | Not started | - |

@@ -1,126 +1,118 @@
-# Requirements: Yumyums HQ — Backend
+# Requirements: Yumyums HQ v3.0
 
-**Defined:** 2026-04-15
-**Core Value:** Replace all mock data with a real Go + Postgres backend — auth, persistence, offline sync, and receipt ingestion — so the crew can use the app for real operations.
+**Defined:** 2026-04-22
+**Core Value:** Operational tools that let the owner manage crew workflows and training from one mobile app — with accountability and smart conditions.
 
-## v2.0 Requirements
+## v3.0 Requirements
 
-### Foundation & Infrastructure
+Requirements for Purchase Orders & Shopping Lists milestone. Each maps to roadmap phases.
 
-- [x] **INFRA-01**: Go binary serves PWA static files via embed.FS and API via chi router from same origin
-- [x] **INFRA-02**: Postgres 16 database with goose migrations for schema management
-- [ ] **INFRA-03**: Tailscale Serve provides HTTPS dev access for mobile device testing
-- [x] **INFRA-04**: Service worker fetch handler partitioned — network-first for `/api/*`, cache-first for static files
+### Purchase Order Form
 
-### Auth & Sessions
+- [x] **PO-01**: User can view reorder suggestions from inventory Stock tab on the PO form
+- [x] **PO-02**: User can tap a reorder suggestion to add it to the purchase order
+- [x] **PO-03**: User can search and add items from the inventory catalog (Setup)
+- [x] **PO-04**: Each PO line item shows the item's photo, store location note, and suggested quantity
+- [x] **PO-05**: User can adjust quantity on each line item before submission
+- [x] **PO-06**: PO form is backed by real API data (replaces current purchasing.html mock)
+- [x] **PO-07**: Each PO line item shows who added it to the order
+- [x] **PO-08**: When adding an item, user can see if it's already on the PO and its current quantity
 
-- [x] **AUTH-01**: User can log in with email + password via POST `/api/v1/auth/login` and receive httpOnly session cookie
-- [x] **AUTH-02**: User can log out via POST `/api/v1/auth/logout` which invalidates the session
-- [x] **AUTH-03**: Protected API endpoints reject unauthenticated requests with 401
-- [x] **AUTH-04**: login.html wired to real auth API (replacing mock `alert()`)
+### Cutoff & Approval
 
-### Workflows Persistence
+- [ ] **CUT-01**: Admin can configure a recurring weekly cutoff schedule (day + time)
+- [ ] **CUT-02**: After cutoff time, PO is locked — only admin can edit
+- [ ] **CUT-03**: Backend provides a test command to simulate cutoff for easy testing
+- [ ] **CUT-04**: Admin can approve a locked PO, which generates a shopping checklist
 
-- [x] **WKFL-01**: Templates, sections, and fields persisted to Postgres (replacing MOCK_TEMPLATES)
-- [x] **WKFL-02**: Checklist submissions saved with field responses, user attribution, and timestamps
-- [x] **WKFL-03**: Approval flow persisted — pending, approved, rejected states with manager notes
-- [x] **WKFL-04**: workflows.html fetches data from API instead of hardcoded JS arrays
+### Shopping List
 
-### Onboarding Persistence
+- [ ] **SHOP-01**: Approved PO generates a shopping checklist (1:1 mapping)
+- [ ] **SHOP-02**: Shopping checklist tab with RBAC — assignable to specific members or roles
+- [ ] **SHOP-03**: Shopping list shows each item's photo and store location (tap icon to reveal)
+- [ ] **SHOP-04**: User can edit store location notes inline from the shopping list
+- [ ] **SHOP-05**: User can mark items as checked off while shopping
+- [ ] **SHOP-06**: "Complete" button sends alert for any missing/unchecked items
+- [ ] **SHOP-07**: When checking off an item without a photo or location, shopper is prompted to add them (can skip but must confirm each time)
+- [ ] **SHOP-08**: Shopper can upload a photo for an item that doesn't have one from the shopping list
 
-- [x] **ONBD-01**: Onboarding templates, sections, items, FAQ Q&A persisted to Postgres
-- [x] **ONBD-02**: Training progress (checked items, video parts watched) saved per hire
-- [x] **ONBD-03**: Section sign-off journal entries persisted with manager, reason, timestamp
-- [x] **ONBD-04**: onboarding.html fetches data from API instead of hardcoded JS arrays
+### Alerts & Notifications
 
-### Inventory Persistence
+- [ ] **ALRT-01**: System sends reminder alerts before cutoff time
+- [ ] **ALRT-02**: System sends alerts when items are out of stock
+- [ ] **ALRT-03**: Alerts delivered via Zoho Cliq channel (default) or email
+- [ ] **ALRT-04**: Users configure communication preference in Users tab (at least one required, Zoho Cliq default)
+- [ ] **ALRT-05**: Zoho Cliq channel integration via incoming webhook
+- [ ] **ALRT-06**: Missing items alert sent on shopping list completion via configured channels
 
-- [x] **INVT-01**: Vendors, purchase events, and line items persisted to Postgres (replacing mock data)
-- [x] **INVT-02**: inventory.html fetches purchase data from API for History, Stock, Trends, and Cost tabs
-- [x] **INVT-03**: Receipt ingestion pipeline — upload receipt image, OCR, map to purchase items, human review
+### Data Import
 
-### Offline Sync
+- [x] **IMP-01**: Notion CSV export is converted to a YAML seed file following existing fixture patterns
+- [x] **IMP-02**: Seed re-hosts Notion images to DO Spaces (URLs expire after 1 hour); raw Notion URLs never stored
 
-- [x] **SYNC-01**: Checklist completions queued in IndexedDB when offline
-- [x] **SYNC-02**: Queue replays on `online` event with idempotency keys preventing duplicates
-- [x] **SYNC-03**: User sees visual indicator of pending offline submissions
+### Repurchase Tracking
 
-### Users Admin
-
-- [x] **USER-01**: Admin can invite new users via API (email invite flow)
-- [x] **USER-02**: Admin can manage user roles and app permissions via API
-- [x] **USER-03**: users.html wired to real admin API (replacing mock data)
-
-### Photos
-
-- [x] **PHOT-01**: Photo upload via presigned URLs (evaluate Zoho Stratus vs DO Spaces for cost)
-- [x] **PHOT-02**: Photos stored and retrievable for checklist evidence and corrective action documentation
-
-### Tile Permissions
-
-- [x] **TILE-01**: index.html launcher grid filtered by GET /api/v1/me/apps — users only see tiles for apps they have permission to access
+- [ ] **REP-01**: Inventory items show "Repurchased +[Qty]" badge after purchase via shopping list completion
+- [ ] **REP-02**: Badge resets on a configurable date (admin-settable reset schedule)
 
 ## Future Requirements
 
-Deferred to future milestones.
+### Advanced PO Features
 
-### Food Cost Intelligence
-- **COST-01**: Server-side ingredient ratio derivation from purchase + sales data
-- **COST-02**: AI-assisted cost estimation pipeline
-- **COST-03**: Revenue data integration for true food cost percentage
-
-### Advanced
-- **ADVN-01**: Push notifications when checklists are due
-- **ADVN-02**: HTMX frontend migration (replace vanilla fetch calls)
-- **ADVN-03**: Metabase iframe embedding for Trends/Cost tabs
+- **PO-F01**: Multi-vendor PO splitting (separate orders per store)
+- **PO-F02**: PO history and reorder from previous orders
+- **PO-F03**: Price tracking and cost comparison across vendors
 
 ## Out of Scope
 
 | Feature | Reason |
 |---------|--------|
-| Food cost calculations | Deferred to future milestone — needs more data |
+| Auto-submit PO to vendor | Removes human judgment; wrong quantities waste hundreds on perishables |
+| Auto-deduct inventory on purchase | Same — human verification required for food service |
 | Multi-location support | Single food truck operation |
-| Real-time collaboration | 1 person per checklist, last-write-wins acceptable |
-| HTMX migration | Future milestone — vanilla JS works for now |
-| Barcode scanning | Hardware dependency, overkill for food truck scale |
+| Recurring Notion sync | One-time import is sufficient; catalog managed in-app after import |
+| Vendor portal / EDI | Overkill for small crew ordering from Restaurant Depot |
 
 ## Traceability
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| INFRA-01 | Phase 9 | Complete |
-| INFRA-02 | Phase 9 | Complete |
-| INFRA-03 | Phase 9 | Pending |
-| INFRA-04 | Phase 9 | Complete |
-| AUTH-01 | Phase 9 | Complete |
-| AUTH-02 | Phase 9 | Complete |
-| AUTH-03 | Phase 9 | Complete |
-| AUTH-04 | Phase 9 | Complete |
-| WKFL-01 | Phase 10 | Complete |
-| WKFL-02 | Phase 10 | Complete |
-| WKFL-03 | Phase 10 | Complete |
-| WKFL-04 | Phase 13 | Complete |
-| SYNC-01 | Phase 10 | Complete |
-| SYNC-02 | Phase 10 | Complete |
-| SYNC-03 | Phase 10 | Complete |
-| ONBD-01 | Phase 11 | Complete |
-| ONBD-02 | Phase 13 | Complete |
-| ONBD-03 | Phase 11 | Complete |
-| ONBD-04 | Phase 13 | Complete |
-| USER-01 | Phase 11 | Complete |
-| USER-02 | Phase 11 | Complete |
-| USER-03 | Phase 11 | Complete |
-| INVT-01 | Phase 12 | Complete |
-| INVT-02 | Phase 12 | Complete |
-| INVT-03 | Phase 12 | Complete |
-| PHOT-01 | Phase 12 | Complete |
-| PHOT-02 | Phase 13 | Complete |
-| TILE-01 | Phase 12 | Complete |
+| PO-01 | Phase 14 | Complete |
+| PO-02 | Phase 14 | Complete |
+| PO-03 | Phase 14 | Pending |
+| PO-04 | Phase 14 | Complete |
+| PO-05 | Phase 14 | Complete |
+| PO-06 | Phase 14 | Complete |
+| PO-07 | Phase 14 | Complete |
+| PO-08 | Phase 14 | Pending |
+| CUT-01 | Phase 16 | Pending |
+| CUT-02 | Phase 16 | Pending |
+| CUT-03 | Phase 16 | Pending |
+| CUT-04 | Phase 16 | Pending |
+| SHOP-01 | Phase 16 | Pending |
+| SHOP-02 | Phase 16 | Pending |
+| SHOP-03 | Phase 16 | Pending |
+| SHOP-04 | Phase 16 | Pending |
+| SHOP-05 | Phase 16 | Pending |
+| SHOP-06 | Phase 16 | Pending |
+| SHOP-07 | Phase 16 | Pending |
+| SHOP-08 | Phase 16 | Pending |
+| ALRT-01 | Phase 17 | Pending |
+| ALRT-02 | Phase 17 | Pending |
+| ALRT-03 | Phase 17 | Pending |
+| ALRT-04 | Phase 17 | Pending |
+| ALRT-05 | Phase 17 | Pending |
+| ALRT-06 | Phase 17 | Pending |
+| IMP-01 | Phase 15 | Complete |
+| IMP-02 | Phase 15 | Complete |
+| REP-01 | Phase 17 | Pending |
+| REP-02 | Phase 17 | Pending |
 
 **Coverage:**
-- v2.0 requirements: 28 total
-- Mapped to phases: 28
-- Unmapped: 0
+- v3.0 requirements: 30 total
+- Mapped to phases: 30
+- Unmapped: 0 ✓
 
 ---
-*Requirements defined: 2026-04-15*
+*Requirements defined: 2026-04-22*
+*Last updated: 2026-04-22 after roadmap creation*

@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Purchase Orders & Shopping Lists
-status: verifying
-stopped_at: Completed 15-01-PLAN.md
-last_updated: "2026-04-22T16:48:49.144Z"
+status: executing
+stopped_at: Completed 15-02-PLAN.md
+last_updated: "2026-04-22T16:53:32.492Z"
 last_activity: 2026-04-22
 progress:
   total_phases: 4
-  completed_phases: 0
-  total_plans: 2
+  completed_phases: 1
+  total_plans: 4
   completed_plans: 3
   percent: 0
 ---
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-22)
 
 **Core value:** Operational tools that let the owner manage crew workflows and training from one mobile app — with accountability and smart conditions.
-**Current focus:** Phase 14 — po-backend-order-form
+**Current focus:** Phase 15 — notion-catalog-seed
 
 ## Current Position
 
-Phase: 14 (po-backend-order-form) — EXECUTING
+Phase: 15 (notion-catalog-seed) — EXECUTING
 Plan: 2 of 2
-Status: Phase complete — ready for verification
+Status: Ready to execute
 Last activity: 2026-04-22
 
 Progress: [░░░░░░░░░░] 0% (v3.0)
@@ -51,7 +51,7 @@ Progress: [░░░░░░░░░░] 0% (v3.0)
 *Updated after each plan completion*
 | Phase 14 P01 | 3m | 3 tasks | 6 files |
 | Phase 14 P02 | 3m | 1 tasks | 2 files |
-| Phase 15-notion-catalog-seed P01 | 3 | 2 tasks | 5 files |
+| Phase 15 P02 | 10 | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -65,8 +65,8 @@ Progress: [░░░░░░░░░░] 0% (v3.0)
 - [Phase 14]: America/Chicago timezone for week_start computation in PO backend
 - [Phase 14]: UpsertLineItems uses transaction: verify draft, delete removed items, upsert remaining; added_by only set on INSERT
 - [Phase 14]: Full rewrite of purchasing.html (not incremental) — 89-line mock had no reusable state management
-- [Phase 15-notion-catalog-seed]: Used direct S3 PutObject in import script (not presigned URLs) — CLI batch tool does server-side upload; presigned URLs are for browser-side uploads
-- [Phase 15-notion-catalog-seed]: purchase_items.yaml committed as placeholder (items:[]) so codebase compiles before user runs the import script
+- [Phase 15]: nilIfEmpty helper converts optional YAML string fields to *string (NULL in Postgres) for photo_url, store_location, full_name
+- [Phase 15]: Unknown groups in purchase_items.yaml log warning and skip rather than crashing the seed
 
 ### Pending Todos
 
@@ -91,6 +91,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-22T16:48:49.139Z
-Stopped at: Completed 15-01-PLAN.md
+Last session: 2026-04-22T16:53:32.487Z
+Stopped at: Completed 15-02-PLAN.md
 Resume file: None

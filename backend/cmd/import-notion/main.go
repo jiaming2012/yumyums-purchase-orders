@@ -141,10 +141,14 @@ func main() {
 		log.Fatalf("read csv header: %v", err)
 	}
 
-	// Build column index map
+	// Build column index map (strip UTF-8 BOM from first header if present)
 	colIdx := map[string]int{}
 	for i, h := range headers {
-		colIdx[strings.TrimSpace(h)] = i
+		h = strings.TrimSpace(h)
+		if i == 0 {
+			h = strings.TrimPrefix(h, "\xef\xbb\xbf")
+		}
+		colIdx[h] = i
 	}
 
 	// Verify expected columns exist

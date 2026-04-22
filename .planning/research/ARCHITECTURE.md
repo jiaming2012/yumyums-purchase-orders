@@ -1,612 +1,594 @@
 # Architecture Research
 
-**Domain:** Go + Postgres backend integration with existing static PWA
-**Researched:** 2026-04-15
-**Confidence:** HIGH (Go serving static + API is well-documented; offline sync limitations on iOS are confirmed by MDN and caniuse)
+**Domain:** Purchase Order Workflow + Shopping Lists + Alerts + Cutoff Scheduling
+**Researched:** 2026-04-22
+**Confidence:** HIGH — derived directly from reading live codebase, not inferred from docs
 
 ---
 
-## Standard Architecture
+## Existing Architecture (What We're Extending)
 
 ### System Overview
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                     Client: Phone Browser                        │
-│  PWA (installed) — iOS Safari / Android Chrome                   │
-│                                                                  │
-│  ┌──────────────────┐  ┌──────────────────────────────────────┐ │
-│  │  Service Worker   │  │  IndexedDB (sync queue + cache)      │ │
-│  │  (cache-first)    │  │  localStorage (token, apps cache)    │ │
-│  └────────┬─────────┘  └──────────────────────────────────────┘ │
-│           │ fetch intercept                                       │
-└───────────┼─────────────────────────────────────────────────────┘
-            │ HTTPS (Tailscale Serve in dev / Caddy in prod)
-┌───────────┼─────────────────────────────────────────────────────┐
-│           │          Go HTTP Server (single binary)              │
-│  ┌────────▼────────────────────────────────────────────────┐    │
-│  │  Router (chi v5)                                         │    │
-│  │  GET /  →  static file server (embed.FS)                 │    │
-│  │  /api/v1/*  →  API handlers                              │    │
-│  └────────┬────────────────────────────────────────────────┘    │
-│           │                                                       │
-│  ┌────────▼─────────────────┐  ┌────────────────────────────┐   │
-│  │  Middleware               │  │  Handlers                   │   │
-│  │  - auth (bearer token)    │  │  auth, users, checklists,   │   │
-│  │  - request logging        │  │  onboarding, inventory      │   │
-│  │  - CORS (dev only)        │  └────────────┬───────────────┘   │
-│  └──────────────────────────┘               │                    │
-│                                  ┌──────────▼───────────────┐   │
-│                                  │  Service layer            │   │
-│                                  │  (business logic)         │   │
-│                                  └──────────┬───────────────┘   │
-│                                  ┌──────────▼───────────────┐   │
-│                                  │  sqlc-generated queries   │   │
-│                                  │  (type-safe, pgx/v5)      │   │
-│                                  └──────────┬───────────────┘   │
-└─────────────────────────────────────────────┼───────────────────┘
-                                              │
-┌─────────────────────────────────────────────┼───────────────────┐
-│                      PostgreSQL 16           │                    │
-│  ┌────────────────────────────────────────┐ │                    │
-│  │  users · sessions · invite_tokens      │ │                    │
-│  │  hq_apps · app_permissions             │ │                    │
-│  │  checklist_templates · sections        │ │                    │
-│  │  checklist_fields · submissions        │ │                    │
-│  │  submission_responses · fail_notes     │ │                    │
-│  │  submission_rejections · audit_log     │ │                    │
-│  │  onboarding_templates · sections       │ │                    │
-│  │  onboarding_progress · sign_offs       │ │                    │
-│  │  purchase_events · line_items          │ │                    │
-│  └────────────────────────────────────────┘ │                    │
-└─────────────────────────────────────────────┴───────────────────┘
-                                              │
-┌─────────────────────────────────────────────┴───────────────────┐
-│                   Digital Ocean Spaces (S3-compatible)           │
-│   Photo uploads (presigned URL pattern — browser uploads direct) │
-└─────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│                         Browser (PWA)                             │
+│  ┌──────────┐ ┌────────────────┐ ┌───────────────┐ ┌──────────┐ │
+│  │index.html│ │purchasing.html │ │inventory.html │ │users.html│ │
+│  │(launcher)│ │(MOCK — to wire)│ │(5-tab tool)   │ │(roles)   │ │
+│  └────┬─────┘ └───────┬────────┘ └───────┬───────┘ └────┬─────┘ │
+│       │               │                  │               │        │
+│       └───────────────┴──────────────────┴───────────────┘        │
+│                         fetch() + WebSocket                        │
+└──────────────────────────────────────────────────────────────────┘
+                               │
+                    ┌──────────▼──────────┐
+                    │  Go HTTP Server      │
+                    │  chi router          │
+                    │  /api/v1/*           │
+                    │  /ws (WebSocket hub) │
+                    │  Background workers  │
+                    └──────────┬──────────┘
+                               │
+              ┌────────────────┼────────────────┐
+              │                │                │
+    ┌─────────▼──────┐ ┌───────▼──────┐ ┌──────▼────────┐
+    │  PostgreSQL     │ │ DO Spaces    │ │ External APIs │
+    │  (pgx v5 pool) │ │ (S3 presign) │ │ Mercury bank  │
+    │  goose migr.   │ │              │ │ Anthropic AI  │
+    └────────────────┘ └──────────────┘ └───────────────┘
 ```
 
-### Component Responsibilities
+### Existing Table Schema (Inventory-relevant)
 
-| Component | Responsibility | Implementation |
-|-----------|----------------|----------------|
-| Go HTTP server | Serve static PWA files + REST API from single binary | `net/http` + chi router; embed.FS for static assets |
-| chi v5 router | URL routing, middleware grouping, subrouters | `go-chi/chi/v5`; route groups for `/api/v1/` |
-| Auth middleware | Bearer token validation on every protected route | Reads `Authorization: Bearer <token>`, hashes it, looks up `sessions` table |
-| sqlc + pgx/v5 | Type-safe database queries with Postgres-native driver | sqlc generates Go structs + query functions from SQL schema; pgx/v5 is the driver |
-| golang-migrate | Database schema versioning | SQL migration files in `migrations/`; runs on startup via embedded migration runner |
-| IndexedDB (client) | Offline queue for pending checklist submissions | Sync queue stores `{id, endpoint, payload, timestamp}`; drained on reconnect |
-| Service Worker | Cache-first asset serving + online/offline detection | Existing sw.js extended to fire sync drain on `online` event |
-| Digital Ocean Spaces | Photo storage for fail notes and corrective actions | Presigned PUT URL from server; browser uploads direct to Spaces; URL stored in DB |
-| Tailscale Serve | Dev-only HTTPS tunnel from dev machine to phone | `tailscale serve https:443 localhost:8080`; phone connects via Tailscale app |
-| Caddy | Production HTTPS reverse proxy on Hetzner | `reverse_proxy localhost:8080`; auto Let's Encrypt |
+```
+vendors           — food suppliers (name UNIQUE)
+purchase_items    — canonical catalog items (description UNIQUE, group_id FK)
+item_groups       — item categories (name, par_days, low/high thresholds)
+item_group_tags   — m2m join for group tags
+tags              — label taxonomy
+purchase_events   — actual receipts/purchases (vendor_id FK, bank_tx_id UNIQUE)
+purchase_line_items — line items on a purchase event (purchase_item_id FK)
+pending_purchases — unreviewed receipts from Mercury worker (items JSONB)
+stock_count_overrides — manual inventory count by item_description (TEXT PK)
+users             — crew with roles[] TEXT[], status
+sessions          — httpOnly cookie auth
+hq_apps           — app tile registry (slug, name, icon)
+app_permissions   — role_grants + user_grants per app slug
+```
+
+### Existing API Routes (Inventory)
+
+```
+GET  /api/v1/inventory/vendors           — list vendors
+POST /api/v1/inventory/vendors           — create vendor
+PUT  /api/v1/inventory/vendors           — update vendor name
+POST /api/v1/inventory/vendors/merge     — merge two vendors
+
+GET  /api/v1/inventory/purchases         — list purchase events (paginated)
+POST /api/v1/inventory/purchases         — create purchase event
+GET  /api/v1/inventory/purchases/pending — list unreviewed receipts
+POST /api/v1/inventory/purchases/confirm — confirm pending purchase
+POST /api/v1/inventory/purchases/discard — discard pending purchase
+PUT  /api/v1/inventory/purchases/pending-items — save item selections on pending
+
+GET  /api/v1/inventory/stock             — aggregated stock levels
+POST /api/v1/inventory/stock/count       — upsert stock count override
+
+GET  /api/v1/inventory/items             — list catalog items
+POST /api/v1/inventory/items             — create item
+PUT  /api/v1/inventory/items             — update item
+POST /api/v1/inventory/items/merge       — merge items
+
+GET  /api/v1/inventory/groups            — list item groups (with tags)
+POST /api/v1/inventory/groups            — create group
+PUT  /api/v1/inventory/groups            — update group thresholds
+GET  /api/v1/inventory/tags              — list tags
+```
+
+### Background Workers (Existing Pattern)
+
+The receipt worker (`internal/receipt/worker.go`) establishes the pattern for background work:
+- `StartWorker(ctx, cfg)` — launches goroutine, runs immediately, then on ticker
+- Config struct holds all dependencies (pool, API keys, presigner)
+- Graceful skip if env vars missing
+- Registered in `main.go` after server setup
+
+The cutoff scheduler must follow this same pattern.
 
 ---
 
-## Recommended Project Structure
+## New Components Required for v3.0
+
+### 1. New Database Tables
+
+```sql
+-- Purchase Orders: the week's ordering document
+CREATE TABLE purchase_orders (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  week_start   DATE NOT NULL UNIQUE,       -- Monday of the order week
+  status       TEXT NOT NULL DEFAULT 'draft'
+                 CHECK (status IN ('draft', 'locked', 'approved')),
+  submitted_by UUID REFERENCES users(id),
+  submitted_at TIMESTAMPTZ,
+  approved_by  UUID REFERENCES users(id),
+  approved_at  TIMESTAMPTZ,
+  locked_at    TIMESTAMPTZ,               -- when cutoff fired (auto-lock)
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- PO Line Items: what crew requested for that week
+CREATE TABLE po_line_items (
+  id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  po_id            UUID NOT NULL REFERENCES purchase_orders(id) ON DELETE CASCADE,
+  purchase_item_id UUID NOT NULL REFERENCES purchase_items(id),
+  quantity         NUMERIC(10,2) NOT NULL DEFAULT 0,
+  unit             TEXT,                  -- lb, case, each (from item group)
+  note             TEXT,
+  added_by         UUID NOT NULL REFERENCES users(id),
+  added_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (po_id, purchase_item_id)        -- one row per item per PO
+);
+
+-- Shopping Lists: generated from approved PO (1:1 with PO)
+CREATE TABLE shopping_lists (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  po_id        UUID NOT NULL UNIQUE REFERENCES purchase_orders(id),
+  assigned_to  UUID REFERENCES users(id), -- nullable — role-based or specific user
+  assigned_role TEXT,                     -- 'manager', 'team_member', etc.
+  completed_by UUID REFERENCES users(id),
+  completed_at TIMESTAMPTZ,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Shopping List Items: 1:1 with po_line_items, tracks check-off state
+CREATE TABLE shopping_list_items (
+  id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  shopping_list_id UUID NOT NULL REFERENCES shopping_lists(id) ON DELETE CASCADE,
+  po_line_item_id  UUID NOT NULL REFERENCES po_line_items(id),
+  checked          BOOLEAN NOT NULL DEFAULT false,
+  checked_by       UUID REFERENCES users(id),
+  checked_at       TIMESTAMPTZ,
+  store_note       TEXT,                  -- editable inline location note
+  UNIQUE (shopping_list_id, po_line_item_id)
+);
+
+-- Cutoff Config: admin-configurable weekly cutoff schedule
+CREATE TABLE cutoff_config (
+  id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  day_of_week    INTEGER NOT NULL CHECK (day_of_week BETWEEN 0 AND 6), -- 0=Sun
+  cutoff_time    TIME NOT NULL,           -- local time (e.g. 18:00)
+  timezone       TEXT NOT NULL DEFAULT 'America/New_York',
+  reminder_hours INTEGER[] NOT NULL DEFAULT '{2,24}', -- hours before cutoff
+  enabled        BOOLEAN NOT NULL DEFAULT true,
+  updated_by     UUID REFERENCES users(id),
+  updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Repurchase Badges: track "Repurchased +N" state per item
+CREATE TABLE repurchase_badges (
+  purchase_item_id UUID PRIMARY KEY REFERENCES purchase_items(id),
+  quantity         NUMERIC(10,2) NOT NULL DEFAULT 0,
+  reset_date       DATE,                  -- configurable reset date
+  last_purchase_at TIMESTAMPTZ,
+  updated_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- User Communication Preferences: Zoho Cliq / email
+CREATE TABLE user_notification_prefs (
+  user_id      UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  zoho_cliq_token TEXT,                  -- webhook URL or user token
+  email        TEXT,                     -- can differ from login email
+  prefer_cliq  BOOLEAN NOT NULL DEFAULT true,
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Alert Log: record of sent alerts for debugging / deduplication
+CREATE TABLE alert_log (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  alert_type TEXT NOT NULL,             -- 'cutoff_reminder', 'out_of_stock', 'shopping_complete'
+  ref_id     UUID,                      -- po_id, shopping_list_id, etc.
+  channel    TEXT NOT NULL,             -- 'zoho_cliq', 'email'
+  recipient  TEXT NOT NULL,             -- user_id or email
+  sent_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  payload    JSONB
+);
+```
+
+**Migration numbering:** Next migration is `0034_purchase_orders.sql`. Each logical group gets its own file following the existing single-purpose migration pattern.
+
+### 2. Purchase Items Extended
+
+The existing `purchase_items` table needs two new columns added via a separate migration:
+
+```sql
+-- 0039_purchase_items_photo_store.sql
+ALTER TABLE purchase_items
+  ADD COLUMN photo_url TEXT,
+  ADD COLUMN store_location TEXT;   -- e.g. "Restaurant Depot - Freezer aisle 3"
+```
+
+This is a non-breaking ALTER — existing rows get NULL for both columns.
+
+### 3. New API Routes
+
+All routes go under `/api/v1/purchasing/*` (new namespace, parallel to `/api/v1/inventory/*`):
 
 ```
-backend/                        # Go module root (separate from frontend)
-├── cmd/
-│   └── server/
-│       └── main.go             # Entry point: config, DB, migrations, start server
-├── internal/
-│   ├── auth/
-│   │   ├── handler.go          # POST /auth/login, /auth/logout, /auth/accept-invite
-│   │   ├── middleware.go       # Bearer token extraction + session lookup
-│   │   └── service.go          # Password hashing (bcrypt), token generation
-│   ├── users/
-│   │   ├── handler.go          # GET/POST/PATCH/DELETE /users, /users/invite
-│   │   └── service.go          # Invite token lifecycle, role validation
-│   ├── apps/
-│   │   ├── handler.go          # GET /me/apps, GET/PUT /apps/:slug/permissions
-│   │   └── service.go          # Access resolution (role grants + user grants)
-│   ├── checklists/
-│   │   ├── handler.go          # Templates CRUD, submissions, approvals
-│   │   └── service.go          # Approval flow, rejection + re-submit logic
-│   ├── onboarding/
-│   │   ├── handler.go          # Training templates, progress, sign-offs
-│   │   └── service.go          # Sequential section unlock logic
-│   ├── inventory/
-│   │   ├── handler.go          # Purchase events, line items, spending queries
-│   │   └── service.go          # Food cost calculations
-│   ├── photos/
-│   │   └── handler.go          # POST /photos/presign — generates Spaces presigned URL
-│   ├── db/
-│   │   ├── queries/            # sqlc input: .sql query files
-│   │   │   ├── users.sql
-│   │   │   ├── sessions.sql
-│   │   │   ├── checklists.sql
-│   │   │   └── ...
-│   │   └── generated/          # sqlc output: auto-generated Go code (do not edit)
-│   │       ├── db.go
-│   │       ├── models.go
-│   │       ├── users.sql.go
-│   │       └── ...
-│   ├── config/
-│   │   └── config.go           # Loads env vars + superadmins.yaml
-│   └── server/
-│       └── server.go           # Router setup, middleware wiring, static file embedding
-├── migrations/                 # golang-migrate SQL files
-│   ├── 001_create_users.up.sql
-│   ├── 001_create_users.down.sql
-│   ├── 002_create_sessions.up.sql
-│   └── ...
-├── config/
-│   └── superadmins.yaml        # Bootstrapped superadmin list (not in DB)
-├── sqlc.yaml                   # sqlc config
-├── go.mod
-└── go.sum
+-- Purchase Orders
+GET    /api/v1/purchasing/orders                 — list POs (most recent first)
+POST   /api/v1/purchasing/orders                 — create or get current week's PO
+GET    /api/v1/purchasing/orders/:id             — get single PO with line items
+POST   /api/v1/purchasing/orders/:id/lock        — admin: lock PO (manual or scheduled)
+POST   /api/v1/purchasing/orders/:id/approve     — admin: approve locked PO
 
-# Frontend: unchanged flat structure at repo root
-index.html
-workflows.html
-onboarding.html
-inventory.html
-purchasing.html
-users.html
-login.html
-sw.js
-ptr.js
-manifest.json
-tests/
+-- PO Line Items
+PUT    /api/v1/purchasing/orders/:id/items       — upsert line items (qty=0 means remove)
+GET    /api/v1/purchasing/orders/:id/suggestions — reorder suggestions from stock
+
+-- Shopping Lists
+GET    /api/v1/purchasing/shopping               — list shopping lists (RBAC filtered)
+GET    /api/v1/purchasing/shopping/:id           — get list with items
+POST   /api/v1/purchasing/shopping/:id/check     — check/uncheck item
+POST   /api/v1/purchasing/shopping/:id/complete  — complete list + trigger missing-items alert
+PUT    /api/v1/purchasing/shopping/:id/items/:item_id — update store_note
+
+-- Cutoff Config (admin only)
+GET    /api/v1/purchasing/cutoff                 — get current cutoff config
+PUT    /api/v1/purchasing/cutoff                 — update cutoff config
+
+-- Repurchase Badges
+GET    /api/v1/purchasing/badges                 — get all repurchase badges
+POST   /api/v1/purchasing/badges/reset           — reset badge for item
+PUT    /api/v1/purchasing/badges/reset-date      — set global reset date
+
+-- Notification Prefs (on /me namespace, not /purchasing)
+GET    /api/v1/me/notification-prefs             — get my prefs
+PUT    /api/v1/me/notification-prefs             — update my prefs
+
+-- Notion Import (admin, idempotent)
+POST   /api/v1/purchasing/import/notion          — import items from Notion export JSON
 ```
 
-### Structure Rationale
+### 4. New Go Package: `internal/purchasing`
 
-- **`backend/` subdirectory:** Keeps Go code separate from the static frontend files. Frontend continues to live at repo root — no changes to existing flat layout.
-- **`internal/` per domain:** Go's `internal/` enforcement prevents accidental cross-package leakage. Domain folders (auth, users, checklists) keep handler + service together — less navigation than deep layered folders.
-- **`db/generated/`:** sqlc output is committed (not gitignored) so CI does not need sqlc installed. Treat it as read-only; regenerate with `sqlc generate`.
-- **`migrations/`:** Numbered SQL files; golang-migrate runs them in order on startup. Embedded into the binary via `//go:embed migrations/*.sql`.
-- **No `pkg/` folder:** This is a service, not a library. Nothing is intended for external import.
+Mirror the structure of `internal/inventory`:
+
+```
+backend/internal/purchasing/
+├── handler.go      — HTTP handlers for all purchasing routes
+├── types.go        — PurchaseOrder, POLineItem, ShoppingList, etc.
+├── service.go      — business logic (generate shopping list, lock PO, etc.)
+├── scheduler.go    — cutoff scheduler goroutine (mirrors receipt/worker.go)
+└── notifier.go     — Zoho Cliq + email alert sending
+```
+
+**Registration in `main.go`:**
+- `purchasing.StartScheduler(ctx, schedulerCfg)` after `receipt.StartWorker`
+- Mount `r.Route("/api/v1/purchasing", ...)` in the authenticated group
+
+Optionally extract alert logic into `internal/notifier` if it becomes cross-cutting (future tools need alerts). For v3.0 scope, keeping it in `purchasing/notifier.go` is simpler and consistent with the codebase's single-responsibility-per-package pattern.
+
+### 5. New Frontend Page: `purchasing.html` (Rewrite from Mock)
+
+The current `purchasing.html` is a fully hardcoded mock (~90 LOC). It gets replaced with a real 3-tab tool. The file path and SW registration stay the same — no new page is needed.
+
+```
+Tab 1: "Order"    — current week PO form (reorder suggestions + search-add)
+Tab 2: "Locked"   — locked/submitted view (read-only for crew, approve for admin)
+Tab 3: "Shopping" — shopping checklists (RBAC filtered to assignee/role)
+```
+
+**Tab 1 (Order) data sources:**
+- `GET /api/v1/purchasing/orders` — current week PO
+- `GET /api/v1/purchasing/orders/:id/suggestions` — reorder suggestions from stock
+- `GET /api/v1/inventory/items` — full catalog for search-add
+- `GET /api/v1/inventory/groups` — group labels for display
+
+**Tab 3 (Shopping) data sources:**
+- `GET /api/v1/purchasing/shopping` — lists visible to current user
+- Item photos served from `purchase_items.photo_url` (DO Spaces public URL)
+- Store locations from `purchase_items.store_location`
+
+### 6. Users Tab: Notification Preferences
+
+Add a "Notifications" sub-section to `users.html` for the logged-in user to configure Zoho Cliq and email. This is not a new page — it's an additive UI section in the existing Users tool, available to all authenticated users (not admin-only) to configure their own preferences.
+
+---
+
+## Data Flow: PO Workflow
+
+```
+Crew (purchasing.html Tab 1)
+  → PUT /api/v1/purchasing/orders/:id/items   (upsert quantities)
+  → PO stored in purchase_orders + po_line_items
+
+Cutoff fires (scheduler goroutine OR admin taps Lock)
+  → POST /api/v1/purchasing/orders/:id/lock
+  → purchase_orders.status = 'locked', locked_at = now()
+  → Reminder alerts already sent 24h + 2h before cutoff time
+
+Admin reviews locked PO (Tab 2)
+  → POST /api/v1/purchasing/orders/:id/approve
+  → purchase_orders.status = 'approved'
+  → Server generates shopping_list + shopping_list_items (1:1 from po_line_items)
+  → Shopping list becomes visible in Tab 3 per RBAC
+
+Shopper (Tab 3)
+  → POST /api/v1/purchasing/shopping/:id/check   (each item)
+  → POST /api/v1/purchasing/shopping/:id/complete
+  → If any items unchecked → alert fires for missing items via notifier
+  → Checked items → update repurchase_badges (quantity += checked qty)
+```
+
+## Data Flow: Reorder Suggestions
+
+```
+GET /api/v1/purchasing/orders/:id/suggestions
+  → Query purchase_items JOIN item_groups (low_threshold, high_threshold)
+  → Query current stock: COALESCE(stock_count_overrides.quantity,
+                                   SUM(purchase_line_items.quantity))
+  → WHERE current_stock < item_groups.low_threshold
+  → JOIN purchase_items for photo_url, store_location
+  → Return sorted by group, then by stock deficit DESC
+```
+
+## Data Flow: Alerts
+
+```
+Scheduler goroutine (ticker every 15 min)
+  → SELECT cutoff_config WHERE enabled = true
+  → Calculate next cutoff timestamp in configured timezone
+  → For each reminder_hours threshold:
+      IF (cutoff_time - now()) <= reminder_hours AND
+         NOT EXISTS (SELECT 1 FROM alert_log WHERE alert_type = 'cutoff_reminder'
+                     AND ref_id = po_id AND sent_at > now() - interval '1 hour')
+      THEN send alert
+
+Notifier (per user in target role)
+  → SELECT user_notification_prefs WHERE user_id = ?
+  → IF prefer_cliq AND zoho_cliq_token IS NOT NULL → POST to Cliq webhook
+  → ELSE → send email
+  → INSERT INTO alert_log (for dedup on next tick)
+```
+
+## Data Flow: Repurchase Badges
+
+```
+POST /api/v1/purchasing/shopping/:id/complete
+  → For each shopping_list_item WHERE checked = true:
+      UPSERT repurchase_badges
+        SET quantity = quantity + po_line_item.quantity,
+            last_purchase_at = now()
+  → GET /api/v1/inventory/stock response includes repurchase badge data via LEFT JOIN
+
+Badge reset (two modes):
+  1. Manual: POST /api/v1/purchasing/badges/reset {purchase_item_id}
+             → UPDATE repurchase_badges SET quantity = 0
+  2. Scheduled: PUT /api/v1/purchasing/badges/reset-date {date}
+             → Scheduler checks daily; zeros all badges on that date
+```
+
+---
+
+## Component Boundaries
+
+| Component | Responsibility | Communicates With |
+|-----------|---------------|-------------------|
+| `purchasing/handler.go` | HTTP I/O, auth checks, JSON marshal | `purchasing/service.go`, `pgxpool` |
+| `purchasing/service.go` | Business logic: generate shopping list, lock PO, approval side effects | `pgxpool`, `purchasing/notifier.go` |
+| `purchasing/scheduler.go` | Time-based cutoff checks, reminder scheduling, badge reset | `service.go`, `notifier.go` |
+| `purchasing/notifier.go` | Send Zoho Cliq + email alerts, write alert_log | External Cliq webhook, SMTP |
+| `purchasing.html` | PO form, locked view, shopping checklist | `/api/v1/purchasing/*`, `/api/v1/inventory/*` |
+| `users.html` | Notification prefs section (additive) | `/api/v1/me/notification-prefs` |
 
 ---
 
 ## Architectural Patterns
 
-### Pattern 1: Go Serves Static Files + API from Same Origin
+### Pattern 1: Upsert-by-natural-key for PO Line Items
 
-**What:** The Go binary embeds all frontend HTML/CSS/JS files using `//go:embed` and serves them from the same HTTP server as the API. `/api/v1/` routes go to API handlers; everything else falls through to the embedded file server.
+**What:** `PUT /api/v1/purchasing/orders/:id/items` accepts the full item list and uses `ON CONFLICT (po_id, purchase_item_id) DO UPDATE`. Quantity = 0 means the frontend stepper was decremented to zero — backend deletes or skips it on read.
 
-**When to use:** Always. This is the core integration pattern. Same origin eliminates CORS entirely. PWA service worker requires same-origin for registration. Single binary is easy to deploy and run under Caddy.
+**When to use:** Any time a frontend stepper/checkbox represents the full desired state (not a delta). Matches the existing `pending_purchases.items` JSONB pattern and `stock_count_overrides` upsert.
 
-**Trade-offs:** Re-deploying the Go binary redeploys the frontend too (no separate static CDN). Acceptable for a 1-5 person crew tool.
+**Trade-offs:** Sends full state on every save (small payload given ~20-50 items/week). Avoids three separate create/update/delete endpoints.
 
-**Example:**
-```go
-// internal/server/server.go
+**Constraint:** Only allowed when `purchase_orders.status = 'draft'`. Writes when status is `locked` or `approved` return 409 for non-admin users.
 
-//go:embed ../../*.html ../../*.js ../../*.json
-var staticFiles embed.FS
+### Pattern 2: Shopping List Generated at Approval Time (Snapshot)
 
-func New(cfg *config.Config) *chi.Mux {
-    r := chi.NewRouter()
-    r.Use(middleware.Logger)
-    r.Use(middleware.Recoverer)
+**What:** Shopping list is a snapshot created when admin approves. `shopping_list_items` rows are created once from `po_line_items` at approval time inside a single Postgres transaction.
 
-    // API routes — mounted first so they take priority
-    r.Route("/api/v1", func(r chi.Router) {
-        r.Use(auth.Middleware(cfg))
-        r.Mount("/auth", auth.NewHandler(cfg).Routes())
-        r.Mount("/users", users.NewHandler(cfg).Routes())
-        r.Mount("/checklists", checklists.NewHandler(cfg).Routes())
-        // ... other domain handlers
-    })
+**When to use:** Any time you need an immutable record of what was approved. Prevents PO edits from silently changing an in-progress shop.
 
-    // Static file fallback — catches everything not matched above
-    // Serve from embed.FS; fallback to index.html for PWA navigation
-    r.Handle("/*", spaHandler(staticFiles))
-    return r
-}
+**Trade-offs:** Slight data duplication (shopping_list_items mirrors po_line_items). Worth it for correctness.
 
-func spaHandler(fs embed.FS) http.Handler {
-    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-        // Try to serve the exact file; fall back to index.html
-        _, err := fs.Open(r.URL.Path)
-        if err != nil {
-            r.URL.Path = "/"
-        }
-        http.FileServer(http.FS(fs)).ServeHTTP(w, r)
-    })
-}
-```
+**Implementation:** `POST /api/v1/purchasing/orders/:id/approve` opens one transaction: set status='approved', INSERT shopping_lists, bulk INSERT shopping_list_items from po_line_items.
 
-### Pattern 2: Offline Queue with Online-Event Drain (iOS-Safe)
+### Pattern 3: Alert Deduplication via alert_log
 
-**What:** Background Sync API is not supported on iOS Safari (as of 2026). The fallback is a durable IndexedDB queue that drains opportunistically: on page load, on tab focus, and on the `window` `online` event. This works on all platforms.
+**What:** Before sending any alert, check `alert_log` for a matching `(alert_type, ref_id, channel, recipient)` within the relevant time window. Insert into `alert_log` before (or immediately after) send.
 
-**When to use:** For checklist submissions, onboarding progress updates, and any write that could fail due to connectivity. Read-heavy operations (loading today's checklists) use stale-while-revalidate from service worker cache instead.
+**When to use:** Any recurring scheduler that fires on a ticker — same as `bankTxIDExists()` in the receipt worker.
 
-**Trade-offs:** If the user closes the app while offline and never reopens it, the queued data is not sent. For a food truck crew using the app daily, this is acceptable — the next morning's open triggers the drain.
+**Trade-offs:** Adds one SELECT before each alert. Acceptable at 1-5 users.
 
-**Pattern (client-side JS, added to each tool page that has writes):**
-```javascript
-// Offline queue — IndexedDB store: 'sync_queue'
-// Entry shape: { id: uuid, url, method, body, queued_at }
+**Implementation:** Partial unique index on `alert_log (alert_type, ref_id, recipient)` WHERE `sent_at > now() - interval '1 day'`. Use `INSERT ... ON CONFLICT DO NOTHING` as the dedup primitive.
 
-async function queueOrFetch(url, options) {
-  if (navigator.onLine) {
-    return fetch(url, options);
-  }
-  // Store in IndexedDB sync queue
-  await enqueue({ url, method: options.method, body: options.body });
-  return { ok: true, queued: true }; // optimistic response
-}
+### Pattern 4: Scheduler Follows receipt/worker.go Model
 
-async function drainQueue() {
-  const pending = await getAllQueued();
-  for (const req of pending) {
-    try {
-      const resp = await fetch(req.url, { method: req.method, body: req.body,
-        headers: { 'Authorization': 'Bearer ' + localStorage.getItem('hq_token'),
-                   'Content-Type': 'application/json' } });
-      if (resp.ok) await removeQueued(req.id);
-    } catch (e) {
-      break; // still offline — stop draining
-    }
-  }
-}
+**What:** `purchasing.StartScheduler(ctx, cfg)` runs in a goroutine, uses `time.NewTicker`, runs immediately then on each tick, skips gracefully if config env vars are missing.
 
-window.addEventListener('online', drainQueue);
-document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible') drainQueue();
-});
-drainQueue(); // drain on page load too
-```
+**When to use:** Any periodic background job in this codebase.
 
-**Service worker caching strategy per resource type:**
-
-| Resource | Strategy | Rationale |
-|----------|----------|-----------|
-| HTML, JS, CSS, manifest | Cache-first (existing sw.js) | PWA shell must work offline |
-| `GET /api/v1/checklists/today` | Stale-while-revalidate | Show cached list instantly; refresh in background |
-| `GET /api/v1/me` | Network-first (short timeout) | Auth state must be current |
-| `POST /api/v1/checklists/submissions` | Network, queue on failure | Write — offline queue pattern above |
-| Photo uploads to Spaces | Network only | Presigned URLs are time-limited; cannot queue |
-
-### Pattern 3: sqlc for Type-Safe Queries (No ORM)
-
-**What:** Write SQL schema and named queries in `.sql` files. Run `sqlc generate` to produce type-safe Go functions. No ORM, no query builder — raw SQL with compile-time safety.
-
-**When to use:** All database access in this project. The schema in `docs/user-management-api.md` is already written as SQL — sqlc is a natural fit.
-
-**Trade-offs:** Must re-run `sqlc generate` after any schema or query change. No dynamic query building (use multiple named queries for filter variations). Minor friction; large correctness payoff.
-
-**Example:**
-```sql
--- internal/db/queries/checklists.sql
-
--- name: GetTodayChecklists :many
-SELECT ct.*, array_agg(cs.id) as section_ids
-FROM checklist_templates ct
-JOIN checklist_sections cs ON cs.template_id = ct.id
-WHERE (ct.active_days IS NULL OR $1 = ANY(ct.active_days))
-  AND (
-    $2 = ANY(ct.assigned_to_roles)
-    OR $3 = ANY(ct.assigned_to_users)
-  )
-GROUP BY ct.id;
-```
-
-Generated Go usage:
-```go
-checklists, err := q.GetTodayChecklists(ctx, db.GetTodayChecklistsParams{
-    DayOfWeek:   int32(time.Now().Weekday()),
-    UserRole:    user.Role,
-    UserID:      user.ID,
-})
-```
-
-### Pattern 4: Presigned URL for Photo Uploads
-
-**What:** The browser requests a presigned S3 PUT URL from the Go server. The Go server generates it using the AWS SDK (Spaces is S3-compatible). The browser then uploads the photo file directly to Spaces using HTTP PUT — the file never passes through the Go server.
-
-**When to use:** All photo captures (fail notes, corrective actions, onboarding evidence). Keeps the Go server stateless with respect to file data.
-
-**Trade-offs:** Presigned URLs expire (15 minutes is typical). If the user is offline when they capture a photo, they cannot upload until connectivity returns and they get a fresh presigned URL. Photo uploads cannot be queued offline — this is an acceptable limitation.
-
-**Flow:**
-```
-1. Browser: POST /api/v1/photos/presign  { field_id, content_type: "image/jpeg" }
-2. Server: generates presigned PUT URL (expires 15m), returns { upload_url, public_url }
-3. Browser: PUT <upload_url> with photo blob (directly to Spaces, no server involvement)
-4. Browser: stores public_url in IndexedDB, includes it in submission payload
-```
-
-### Pattern 5: Tailscale Serve for Dev-to-Phone Access
-
-**What:** `tailscale serve` proxies your local Go server to your tailnet with automatic HTTPS. No router config, no firewall rules, no ngrok account needed. Phone connects via Tailscale app.
-
-**When to use:** Development only. Every phone and laptop that needs to test the PWA installs Tailscale and joins the tailnet.
-
-**Trade-offs:** Requires Tailscale installed on the dev machine and on the test phone. Acceptable for a 1-person dev team.
-
-**Setup:**
-```bash
-# Start Go server locally on port 8080
-./backend/server
-
-# Expose it to the tailnet with HTTPS
-tailscale serve https:443 localhost:8080
-
-# Phone accesses via: https://<machine-name>.tail1234.ts.net
-# PWA install prompt works because HTTPS is automatic
-# Service worker registration works — same-origin, HTTPS satisfied
-```
-
-In production, Caddy replaces Tailscale Serve:
-```
-# Caddyfile on Hetzner
-hq.yumyums.com {
-    reverse_proxy localhost:8080
-}
-```
+**Trade-offs:** Simple; no external job scheduler needed. Loses state on restart (timer resets). Acceptable for weekly cadence — worst case: a reminder fires slightly late after a deploy.
 
 ---
 
-## Data Flow
+## Integration Points: New vs. Modified
 
-### Authentication Flow
+### New (net-new files, no existing code modified)
 
-```
-login.html: POST /api/v1/auth/login { email, password }
-    ↓
-auth handler: hash input password (bcrypt.CompareHashAndPassword)
-    ↓
-DB query: SELECT * FROM users WHERE email = $1
-    ↓
-If match: generate 32-byte random token, store SHA-256(token) in sessions table
-    ↓
-Response: { token, expires_at, user }
-    ↓
-login.html: localStorage.setItem('hq_token', token)
-    ↓
-Redirect to index.html
-    ↓
-index.html: GET /api/v1/me/apps (Authorization: Bearer <token>)
-    ↓
-Server: hash token → lookup sessions → get user → evaluate app_permissions
-    ↓
-Response: [{ slug, name, icon }, ...]
-    ↓
-index.html: render only the tiles the user has access to
-           localStorage.setItem('hq_apps_cache', JSON.stringify(apps))
-```
+| Component | Type | Notes |
+|-----------|------|-------|
+| `backend/internal/purchasing/` | New Go package | handler, service, types, scheduler, notifier |
+| `backend/internal/db/migrations/0034_purchase_orders.sql` | New migration | purchase_orders, po_line_items |
+| `backend/internal/db/migrations/0035_shopping_lists.sql` | New migration | shopping_lists, shopping_list_items |
+| `backend/internal/db/migrations/0036_cutoff_config.sql` | New migration | cutoff_config, alert_log |
+| `backend/internal/db/migrations/0037_notification_prefs.sql` | New migration | user_notification_prefs |
+| `backend/internal/db/migrations/0038_repurchase_badges.sql` | New migration | repurchase_badges |
+| `backend/internal/db/migrations/0039_purchase_items_photo_store.sql` | New migration | ALTER TABLE purchase_items |
 
-### Checklist Submission Flow (Online)
+### Modified (changes to existing files)
 
-```
-workflows.html: crew fills out checklist, taps Submit
-    ↓
-POST /api/v1/checklists/submissions { template_id, version, responses[], fail_notes[] }
-    ↓
-Server: validate user assignment, create checklist_submissions row
-    ↓
-If requires_approval: status = 'pending'
-If no approval needed: status = 'completed'
-    ↓
-Insert submission_responses rows (one per field)
-Insert submission_fail_notes rows (for triggered fails)
-    ↓
-Response: { id, status, message }
-    ↓
-workflows.html: show fireworks (completed) or "awaiting approval" banner
-```
-
-### Checklist Submission Flow (Offline → Sync)
-
-```
-workflows.html: crew fills out checklist, device offline
-    ↓
-queueOrFetch() detects navigator.onLine === false
-    ↓
-Payload stored in IndexedDB sync_queue with { url, method, body }
-    ↓
-workflows.html: show "Saved offline — will submit when connected" banner
-    ↓
---- later, device reconnects ---
-    ↓
-window 'online' event fires → drainQueue()
-    ↓
-Each queued item sent to server in order
-    ↓
-On success: remove from IndexedDB queue
-    ↓
-UI refreshes: pull-to-refresh or next tab open triggers re-render from API
-```
-
-### Manager Approval Flow
-
-```
-Manager opens Approvals tab
-    ↓
-GET /api/v1/checklists/approvals
-Server: finds submissions where status = 'pending'
-        AND (approver_roles @> [user.role] OR approver_users @> [user.id])
-    ↓
-Manager reviews, taps Approve or Reject
-    ↓
-Approve: POST /api/v1/checklists/approvals/:id/approve { reason? }
-Server: SET status = 'approved', INSERT submission_audit_log
-    ↓
-Reject: POST /api/v1/checklists/approvals/:id/reject { rejected_items[] }
-Server: SET status = 'rejected', INSERT submission_rejections, INSERT audit_log
-    ↓
-Crew's next GET /api/v1/checklists/today returns existing_submission with rejection flags
-Crew re-completes flagged items → new submission → status = 'pending' again
-```
-
-### Photo Upload Flow
-
-```
-Crew captures photo (fail note or corrective action)
-    ↓
-POST /api/v1/photos/presign { field_id, content_type }
-Server: AWS SDK generates presigned PUT URL for Spaces bucket
-    ↓
-Browser: PUT <presigned_url> with photo blob (direct to Spaces, bypasses server)
-    ↓
-Browser: stores public_url in memory, includes in submission payload
-    ↓
-POST /api/v1/checklists/submissions includes photo_url in fail_notes[]
-```
+| File | Change | Impact |
+|------|--------|--------|
+| `backend/cmd/server/main.go` | Mount `/api/v1/purchasing/*`, start cutoff scheduler | Low — additive only, no existing routes touched |
+| `backend/internal/inventory/handler.go` | `GetStockHandler` JOIN to `repurchase_badges` | Low — additive response fields, zero-valued for items with no badge |
+| `backend/internal/inventory/types.go` | `StockItem` gets `RepurchasedQty *float64`, `ResetDate *string` fields | Low — nullable, backward-compatible |
+| `purchasing.html` | Full rewrite from mock to real API-backed 3-tab tool | High — complete replacement of ~90 LOC mock |
+| `users.html` | Add notification prefs sub-section | Low — additive UI section |
+| `sw.js` | Rebuild via `node build-sw.js` after any HTML change | Mandatory step per project convention |
 
 ---
 
-## Integration Points
+## External Service Integration
 
-### New vs Modified Components
-
-| Component | Change Type | What Changes |
-|-----------|-------------|--------------|
-| `backend/` directory | NEW | Entire Go server; does not touch any frontend file |
-| `login.html` | MODIFIED | Wire form POST to `POST /api/v1/auth/login`; store token in localStorage |
-| `index.html` | MODIFIED | On load, fetch `/api/v1/me/apps`; render tiles from API response; redirect to login on 401 |
-| `workflows.html` | MODIFIED | Replace `MOCK_TEMPLATES`/`MOCK_RESPONSES` reads with API calls; add offline queue logic |
-| `onboarding.html` | MODIFIED | Replace mock training data with API calls; add progress persistence |
-| `inventory.html` | MODIFIED | Replace mock purchase data with API calls to `/api/v1/inventory` |
-| `sw.js` | MODIFIED | Add stale-while-revalidate for select API endpoints; add online-event listener for drain |
-| `users.html` | MODIFIED | Wire invite/edit/delete to real user API endpoints |
-| `docs/user-management-api.md` | REFERENCE | Already specifies the schema and API contracts — implementation target |
-| `migrations/` | NEW | SQL migration files for all 14+ tables |
-| `config/superadmins.yaml` | NEW | Bootstrapped superadmin list |
-
-### Internal Boundaries
-
-| Boundary | Communication | Notes |
-|----------|---------------|-------|
-| Frontend HTML → Go API | `fetch()` with `Authorization: Bearer <token>` | All API calls use this pattern; token from localStorage |
-| Go server → PostgreSQL | pgx/v5 connection pool via sqlc-generated queries | Single pool shared across handlers |
-| Go server → Spaces | AWS SDK v2 (`aws-sdk-go-v2`) S3 client | Only used for presigned URL generation; no file data passes through server |
-| Service Worker → API | Intercepts fetch; stale-while-revalidate for GET endpoints | SW caches GET responses; writes bypass SW and go direct (or queue) |
-| IndexedDB → Server | Drain on online event; ordered by queued_at | Client-side only; server sees normal POST requests |
-| Frontend → Tailscale (dev) | HTTPS via tailscale serve | Dev only; phone and laptop join same tailnet |
-| Frontend → Caddy (prod) | HTTPS via Caddy reverse proxy | Caddy proxies to `localhost:8080` on Hetzner box |
-
-### External Services
-
-| Service | Integration Pattern | Notes |
-|---------|---------------------|-------|
-| Digital Ocean Spaces | Presigned PUT URL from Go; browser uploads direct | Use `aws-sdk-go-v2` with custom Spaces endpoint; same API as S3 |
-| Email (invite/reset) | Transactional email via SMTP or API | SendGrid or Postmark; Go `net/smtp` for simple setup. Not MVP-blocking — can log invite URLs to stdout initially |
-| Tailscale | `tailscale serve` CLI command on dev machine | No code changes; pure infrastructure |
-| Caddy | Caddyfile reverse proxy on Hetzner | No code changes; pure infrastructure |
+| Service | Integration Pattern | Config | Notes |
+|---------|---------------------|--------|-------|
+| Zoho Cliq | POST to incoming webhook URL | `ZOHO_CLIQ_WEBHOOK_URL` env var | One webhook for the shared channel. No per-user tokens needed for channel-level alerts. |
+| Email (SMTP) | Standard `net/smtp` or SendGrid HTTP API | `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS` env vars | Fallback channel when user prefers email or has no Cliq token. |
+| Notion API | One-shot import via `POST /api/v1/purchasing/import/notion` | Request body: Notion exported JSON | Maps Notion DB properties to `purchase_items` fields. Idempotent via `ON CONFLICT (description) DO UPDATE`. |
 
 ---
 
-## Suggested Build Order
+## Build Order (Phase Dependencies)
 
-Dependencies determine this order. Each step is testable in isolation before the next begins.
+Features have hard dependencies that constrain sequencing:
 
-### Phase 1: Go Server Shell + Static Serving (no auth)
+```
+Phase 1: Data Foundation
+  ├── Migrations 0034–0039 (all new tables + ALTER)
+  └── Extend /inventory/items API to return photo_url, store_location
 
-Stand up the Go binary with `chi`, embed the frontend files, serve them on `:8080`. Add one unauthenticated health endpoint `GET /api/v1/health`. Run `tailscale serve https:443 localhost:8080` and confirm the PWA loads on the phone over HTTPS. Service worker registers. No database yet.
+Phase 2: PO Form (purchasing.html rewrite, Tab 1)
+  ├── Requires: Phase 1 (purchase_orders + po_line_items tables)
+  ├── POST /api/v1/purchasing/orders             — get-or-create current week PO
+  ├── GET  /api/v1/purchasing/orders/:id/suggestions — reorder from stock
+  └── PUT  /api/v1/purchasing/orders/:id/items   — save quantities
 
-**Why first:** Validates the entire deploy chain (Go binary + static serving + Tailscale + phone access) before any business logic is written.
+Phase 3: Notion Import
+  ├── Requires: Phase 1 (photo_url + store_location columns exist)
+  └── POST /api/v1/purchasing/import/notion       — seed catalog with photos
 
-### Phase 2: Database + Migrations + Auth
+Phase 4: Cutoff + Lock
+  ├── Requires: Phase 2 (PO exists to lock)
+  ├── GET/PUT  /api/v1/purchasing/cutoff          — cutoff config CRUD
+  ├── POST /api/v1/purchasing/orders/:id/lock     — manual lock endpoint
+  └── purchasing/scheduler.go                    — auto-lock on cutoff time
+          + purchasing.html Tab 2 (locked view)
 
-Add Postgres connection (pgx/v5), golang-migrate running on startup, and the users/sessions/invite_tokens schema. Implement auth endpoints: login, logout, accept-invite. Wire `login.html` to call the real API. Wire `index.html` to call `/api/v1/me/apps`.
+Phase 5: Admin Approval + Shopping List
+  ├── Requires: Phase 4 (locked PO to approve)
+  ├── POST /api/v1/purchasing/orders/:id/approve  — approve + generate list
+  ├── GET  /api/v1/purchasing/shopping            — list shopping lists (RBAC)
+  ├── GET  /api/v1/purchasing/shopping/:id        — single list with items
+  ├── POST /api/v1/purchasing/shopping/:id/check  — check/uncheck items
+  ├── POST /api/v1/purchasing/shopping/:id/complete — complete list
+  └── purchasing.html Tab 3 (shopping checklist)
 
-**Why second:** Auth gates everything else. Building it early means all subsequent phases can test with real sessions.
+Phase 6: Alerts + Notification Prefs
+  ├── Requires: Phase 4 (scheduler exists to send reminders)
+  ├── Requires: Phase 5 (shopping complete triggers missing-items alert)
+  ├── purchasing/notifier.go                     — Zoho Cliq + email send
+  ├── GET/PUT /api/v1/me/notification-prefs       — prefs endpoints
+  └── users.html notification prefs section
 
-### Phase 3: Workflows API
+Phase 7: Repurchase Badges
+  ├── Requires: Phase 5 (shopping completion exists)
+  ├── Update GetStockHandler to JOIN repurchase_badges
+  ├── Update StockItem type with badge fields
+  └── GET/POST/PUT /api/v1/purchasing/badges      — badge CRUD
+```
 
-Implement checklist templates CRUD, today's checklists endpoint, submission flow, and approval/reject/unapprove endpoints. Wire `workflows.html` to API calls (replace mock data one endpoint at a time). Add offline queue logic to `workflows.html`.
-
-**Why third:** Workflows is the highest-value feature (core daily use). Approval flow complexity is isolated here before onboarding or inventory is added.
-
-### Phase 4: Onboarding API
-
-Implement onboarding templates CRUD, progress tracking, and sign-off endpoints. Wire `onboarding.html` to replace mock data.
-
-**Why fourth:** Onboarding has similar CRUD patterns to workflows but simpler state machine (no approval loop). Builds on Phase 3 patterns.
-
-### Phase 5: Inventory + Photos
-
-Implement purchase events, line items, and spending query endpoints. Wire `inventory.html`. Implement presigned URL endpoint for Spaces photo uploads. Wire photo capture in `workflows.html` to use presigned URL flow.
-
-**Why fifth:** Inventory is read-heavy and lower-risk. Photos depend on Spaces credentials which can be set up last.
-
-### Phase 6: Users App + Permissions
-
-Wire `users.html` to real user API endpoints (invite, edit, delete, reset password, app permissions). This is intentionally last because users.html is admin-only and doesn't block crew daily use.
+**Critical dependency:** Phases 1-4 can be built and tested independently. Phase 5 (shopping list generation) is the gate for Tab 3, alerts, and badges. Ship each phase as a deployable increment.
 
 ---
 
-## Anti-Patterns
+## Anti-Patterns to Avoid
 
-### Anti-Pattern 1: Separate Origin for the API Server
+### Anti-Pattern 1: Per-Item CRUD Endpoints for PO
 
-**What people do:** Run the Go API on a different domain or port from the static files (e.g., `api.yumyums.com` vs `hq.yumyums.com`).
-**Why it's wrong:** Service workers are strictly same-origin. A service worker registered on `hq.yumyums.com` cannot intercept requests to `api.yumyums.com`. Offline queueing breaks. CORS must be configured and maintained. PWA install is complicated.
-**Do this instead:** Go serves both static files and API from the same origin. One binary, one port, one domain.
+**What people do:** Separate `POST` (add item), `DELETE` (remove item), `PATCH` (update quantity) endpoints.
 
-### Anti-Pattern 2: Relying on Background Sync API for iOS
+**Why wrong:** Three endpoints for one stepper UX. The existing inventory stepper (stock count overrides) uses a single upsert. The `pending_purchases.items` JSONB also sends full state.
 
-**What people do:** Register a `sync` event in the service worker and assume offline submissions will drain automatically.
-**Why it's wrong:** Background Sync API has no support in Safari or iOS Safari as of 2026. For a food truck crew using iPhones, this silently fails.
-**Do this instead:** Use the `window` `online` event + page `visibilitychange` event to drain the IndexedDB queue. Works on all platforms including iOS. Background Sync is an enhancement for Android Chrome only, not a requirement.
+**Do instead:** Single `PUT /api/v1/purchasing/orders/:id/items` with full item list. Backend upserts all rows; quantity=0 means remove.
 
-### Anti-Pattern 3: Storing Bearer Tokens in Cookies
+### Anti-Pattern 2: Live Shopping List (No Snapshot)
 
-**What people do:** Set session tokens as cookies to avoid localStorage management.
-**Why it's wrong:** The existing design (docs/user-management-api.md) uses Bearer tokens in Authorization headers. Cookies introduce CSRF complexity. The PWA's offline queue holds payloads that include the token — localStorage fits this model.
-**Do this instead:** Store bearer token in `localStorage` as `hq_token`. Clear on logout. All fetch calls include `Authorization: Bearer ${localStorage.getItem('hq_token')}`.
+**What people do:** Shopping list reads directly from `po_line_items` in real time with a JOIN.
 
-### Anti-Pattern 4: ORM (GORM) for Database Access
+**Why wrong:** If the PO is edited after approval (edge case or bug), the shopping list silently changes mid-shop. The checked state stored per `po_line_item_id` would also break if a row is deleted.
 
-**What people do:** Add GORM to avoid writing SQL.
-**Why it's wrong:** The schema is already written as SQL in `docs/user-management-api.md`. GORM would require re-expressing it in Go struct tags. GORM's query abstraction hides bugs and performs worse than pgx with prepared statements. sqlc generates type-safe code from the SQL you already have.
-**Do this instead:** sqlc + pgx/v5. Write SQL once, get type-safe Go functions. Schema and queries stay in `.sql` files where they are readable.
+**Do instead:** Snapshot into `shopping_list_items` at approval time inside a transaction. PO is already frozen (locked) before approval, so snapshot matches approved state exactly.
 
-### Anti-Pattern 5: Routing Photo Uploads Through the Go Server
+### Anti-Pattern 3: Frontend Polls for Lock Status
 
-**What people do:** Have the browser POST the photo to the Go API, which then uploads to Spaces.
-**Why it's wrong:** Photo files can be 2-5 MB. Routing through the Go server doubles the bandwidth cost and adds server latency. The server must buffer the entire file in memory or disk before uploading.
-**Do this instead:** Presigned URL pattern. Server generates a time-limited PUT URL. Browser uploads directly to Spaces. Server never touches the file data.
+**What people do:** `purchasing.html` polls `GET /api/v1/purchasing/orders` every 30 seconds to detect when the PO transitions to locked.
 
-### Anti-Pattern 6: Running DB Migrations Manually
+**Why wrong:** Unnecessary load. The existing WebSocket hub is already connected.
 
-**What people do:** SSH into the server and run `migrate up` by hand on each deploy.
-**Why it's wrong:** Easy to forget. Creates state drift between dev and prod. Requires SSH access at deploy time.
-**Do this instead:** Embed migrations in the binary (`//go:embed migrations/*.sql`) and run `migrate.Up()` automatically on server startup. Idempotent — running against an already-migrated database is a no-op. Consistent across dev and prod.
+**Do instead:** When the scheduler (or admin) locks a PO, broadcast a WebSocket message: `{type: "PO_LOCKED", po_id: "..."}`. The frontend re-renders Tab 1 to the locked state. This matches the existing op-log/WebSocket pattern in `workflows.html`.
+
+### Anti-Pattern 4: Duplicate Notifier Logic
+
+**What people do:** Inline Zoho Cliq HTTP POST in three places: the cutoff scheduler, the shopping completion handler, and the out-of-stock checker.
+
+**Why wrong:** Three copies of HTTP client setup, error handling, and dedup logic. Changes (e.g., new Cliq API format) require three edits.
+
+**Do instead:** Single `notifier.Send(ctx, pool, payload)` function in `purchasing/notifier.go`. All three callers use this single entry point. It handles channel selection, alert_log dedup, and graceful skip when env vars are missing.
+
+### Anti-Pattern 5: Notion Data as a SQL Migration
+
+**What people do:** Write Notion export data directly into a goose migration file as INSERT statements.
+
+**Why wrong:** Migrations run on every startup (`goose.Up` is idempotent but still queries the schema). Seed data mixed with schema changes is fragile. Notion data will be edited in the app after import — running the migration again could overwrite manual edits.
+
+**Do instead:** `POST /api/v1/purchasing/import/notion` endpoint with idempotent `ON CONFLICT (description) DO UPDATE`. Admin triggers it once. Re-triggering is safe and picks up Notion updates without touching other data. Same pattern as `inventory.SeedInventoryFixtures` which uses upserts and is idempotent.
 
 ---
 
 ## Scaling Considerations
 
-This is a 1-5 person crew tool. The architecture is intentionally simple. These are the only scaling concerns worth noting:
+At 1-5 users and weekly ordering frequency, none of these features create load concerns.
 
-| Concern | At current scale (1-5 users) | If it ever grows |
-|---------|------------------------------|------------------|
-| DB connections | Single pgx pool (10 conns is plenty) | PgBouncer if connection count spikes |
-| Concurrent submissions | Postgres handles this fine with row-level locking | No action needed |
-| Photo storage | Spaces is effectively unlimited | No action needed |
-| Binary size with embedded assets | ~5-10 MB total; fine | No action needed |
-| Offline queue conflicts | Rare at 1-5 users; last-write-wins is acceptable | Conflict resolution UI if team grows |
-
-The only likely bottleneck is photo uploads over a poor mobile data connection during a busy service. The presigned URL pattern already handles this correctly — the Go server is not the bottleneck.
+| Concern | Now (1-5 users) | Future consideration |
+|---------|-----------------|----------------------|
+| PO concurrent writes | Single-writer fine (crew adds items one at a time on phones) | Optimistic locking if conflicts emerge (use `updated_at` version check) |
+| Alert delivery | Fire-and-forget acceptable; ticker runs 15min | Add retry table if Cliq/SMTP flakiness becomes a problem |
+| Reorder suggestions query | Inline JOIN is fast (~100 items) | Materialize if `purchase_line_items` grows beyond ~50k rows |
+| Shopping list check-off | Direct Postgres write per tap | Fine for 1-5 users; add optimistic UI if latency is felt on slow connections |
 
 ---
 
 ## Sources
 
-- [Serving static files and web apps in Go — Eli Bendersky](https://eli.thegreenplace.net/2022/serving-static-files-and-web-apps-in-go/) — same-binary static + API pattern
-- [Background Synchronization API — MDN](https://developer.mozilla.org/en-US/docs/Web/API/Background_Synchronization_API) — confirmed no iOS support
-- [Background Sync API — Can I Use](https://caniuse.com/background-sync) — browser support table
-- [Offline-first frontend apps in 2025 — LogRocket](https://blog.logrocket.com/offline-first-frontend-apps-2025-indexeddb-sqlite/) — IndexedDB queue pattern
-- [tailscale serve command — Tailscale Docs](https://tailscale.com/kb/1242/tailscale-serve) — HTTPS tailnet exposure
-- [sqlc — Compile SQL to type-safe code](https://sqlc.dev/) — query generation from SQL schema
-- [pgx v5 — Go Packages](https://pkg.go.dev/github.com/jackc/pgx/v5) — Postgres driver
-- [golang-migrate/migrate — GitHub](https://github.com/golang-migrate/migrate) — DB migration tool
-- [go-chi/chi v5 — GitHub](https://github.com/go-chi/chi) — HTTP router
-- [Digital Ocean Spaces presigned URL — GitHub sample](https://github.com/digitalocean/sample-functions-golang-presigned-url) — Go presigned PUT pattern
-- [How We Went All In on sqlc/pgx — brandur.org](https://brandur.org/sqlc) — production endorsement of sqlc + pgx
-- `docs/user-management-api.md` — existing schema and API contracts (implementation target)
-- `.planning/PROJECT.md` — v2.0 milestone requirements and constraints
+- Live codebase read directly:
+  - `/Users/jamal/projects/yumyums/hq/backend/cmd/server/main.go`
+  - `/Users/jamal/projects/yumyums/hq/backend/internal/inventory/handler.go`
+  - `/Users/jamal/projects/yumyums/hq/backend/internal/inventory/types.go`
+  - `/Users/jamal/projects/yumyums/hq/backend/internal/receipt/worker.go`
+  - `/Users/jamal/projects/yumyums/hq/backend/internal/sync/hub.go`
+  - `/Users/jamal/projects/yumyums/hq/backend/internal/db/migrations/0024_inventory.sql`
+  - `/Users/jamal/projects/yumyums/hq/backend/internal/db/migrations/0033_stock_count_overrides.sql`
+  - `/Users/jamal/projects/yumyums/hq/purchasing.html`
+- Project requirements: `.planning/PROJECT.md` (v3.0 feature list)
+- Existing patterns: `stock_count_overrides` upsert, `bankTxIDExists` idempotency, `receipt.StartWorker` scheduler model
 
 ---
-*Architecture research for: Yumyums HQ v2.0 Go + Postgres backend*
-*Researched: 2026-04-15*
+
+*Architecture research for: Yumyums HQ v3.0 — Purchase Orders, Shopping Lists, Alerts, Cutoff Scheduling*
+*Researched: 2026-04-22*
