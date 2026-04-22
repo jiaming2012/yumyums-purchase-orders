@@ -35,11 +35,12 @@ type OrderSuggestion struct {
 	ItemName       string  `json:"item_name"`
 	PhotoURL       *string `json:"photo_url,omitempty"`
 	StoreLocation  *string `json:"store_location,omitempty"`
-	GroupName      string  `json:"group_name"`
+	GroupName      *string `json:"group_name,omitempty"`
 	LowThreshold   int     `json:"low_threshold"`
 	CurrentStock   int     `json:"current_stock"`
 	SuggestedQty   int     `json:"suggested_qty"`
 	Unit           string  `json:"unit"`
+	StockLevel     string  `json:"stock_level"`
 }
 
 // UpsertLineItemInput is one item in the PUT /orders/:id/items body.

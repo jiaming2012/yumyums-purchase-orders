@@ -1712,4 +1712,39 @@ test.describe('Inventory', () => {
     expect(detailText.length).toBeGreaterThan(0);
   });
 
+  // ── Regression: PO suggestions must match inventory reorder logic ──────
+
+  test('PO suggestions excludes items with no purchase history or stock override', async ({ page }) => {
+    // Create an item in a group — but do NOT seed any purchase event for it
+    const groups = await invApiCall(page, 'GET', 'groups');
+    if (!groups || !groups.length) return;
+    const grp = groups[0];
+    const itemName = 'NoPurchaseHistory ' + Date.now();
+    const item = await invApiCall(page, 'POST', 'items', { description: itemName, group_id: grp.id });
+    if (!item) return;
+
+    // Create a draft PO to get suggestions against
+    const po = await page.evaluate(async () => {
+      const res = await fetch('/api/v1/purchasing/orders', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+      return res.json();
+    });
+
+    // Fetch PO suggestions
+    const suggestions = await page.evaluate(async (poId) => {
+      const res = await fetch('/api/v1/purchasing/orders/' + poId + '/suggestions');
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
+    }, po.id);
+
+    // Item with no purchase history and no stock override must NOT appear
+    const found = suggestions.find(s => s.item_name === itemName);
+    expect(found).toBeUndefined();
+
+    // Also verify: inventory Stock tab reorder suggestions don't show it either
+    await page.locator('#t2').click();
+    await waitForStockContent(page);
+    const reorderText = await page.locator('#reorder-section').textContent();
+    expect(reorderText).not.toContain(itemName);
+  });
+
 });

@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="Yumyums">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Yumyums Purchasing</title>
+<title>Yumyums Purchase Orders</title>
 <style>
 :root{--bg:#f5f5f3;--card:#fff;--txt:#1a1a1a;--mut:#6b6b6b;--brd:rgba(0,0,0,0.08);--info-bg:#e6f1fb;--info-tx:#0c447c;--warn-bg:#faeeda;--warn-tx:#854f0b}
 @media(prefers-color-scheme:dark){:root{--bg:#1a1a1a;--card:#262626;--txt:#f0f0f0;--mut:#999;--brd:rgba(255,255,255,0.1);--info-bg:#0c447c;--info-tx:#b5d4f4;--warn-bg:#633806;--warn-tx:#fac775}}
@@ -59,7 +59,9 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .suggest-list .sl-hd button{background:none;border:none;color:var(--mut);font-size:13px;cursor:pointer}
 .suggest-row{display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:0.5px solid var(--brd);font-size:14px}
 .suggest-row input[type=checkbox]{width:20px;height:20px;margin:0;accent-color:var(--info-tx)}
-.suggest-row .sq{font-size:12px;color:var(--mut);margin-left:auto;white-space:nowrap}
+.suggest-row .sq{font-size:12px;color:var(--mut);white-space:nowrap}
+.sl-low{font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px;background:#c0392b;color:#fff;white-space:nowrap}
+.sl-med{font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px;background:var(--warn-bg);color:var(--warn-tx);white-space:nowrap}
 .suggest-ft{padding:12px 16px}
 .suggest-ft button{width:100%;padding:12px;background:var(--info-bg);color:var(--info-tx);border:none;border-radius:8px;font-size:14px;font-weight:500}
 .order-hd{padding:14px 16px;border-bottom:0.5px solid var(--brd)}
@@ -94,7 +96,7 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 </head>
 <body>
 <div class="app">
-<a class="back" href="index.html">HQ &nbsp;&#183;&nbsp; Purchasing</a>
+<a class="back" href="index.html">HQ &nbsp;&#183;&nbsp; Purchase Orders</a>
 <div class="tabs">
   <button id="t1" class="on" data-action="tab" data-tab="1">Order</button>
   <button id="t2" data-action="tab" data-tab="2">Shopping</button>
@@ -205,6 +207,8 @@ function renderOrder() {
       html += '<div class="suggest-row">';
       html += '<input type="checkbox" data-suggest-id="' + s.purchase_item_id + '"' + (alreadyOnPO ? ' disabled checked' : '') + '>';
       html += '<span>' + s.item_name + '</span>';
+      var lvlClass = s.stock_level === 'Low' ? 'sl-low' : 'sl-med';
+      html += '<span class="' + lvlClass + '">' + s.stock_level + '</span>';
       html += '<span class="sq">Suggested: ' + s.suggested_qty + (s.unit ? ' ' + s.unit : '') + '</span>';
       html += '</div>';
     });

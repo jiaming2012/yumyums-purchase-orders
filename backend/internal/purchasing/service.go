@@ -34,7 +34,7 @@ func GetOrCreateOrder(ctx context.Context, pool *pgxpool.Pool) (*PurchaseOrder, 
 		INSERT INTO purchase_orders (week_start, status)
 		VALUES ($1, 'draft')
 		ON CONFLICT (week_start) DO UPDATE SET week_start = EXCLUDED.week_start
-		RETURNING id, week_start, status, version, created_at
+		RETURNING id, week_start::text, status, version, created_at
 	`, weekStart).Scan(&po.ID, &po.WeekStart, &po.Status, &po.Version, &po.CreatedAt)
 	if err != nil {
 		return nil, err
@@ -52,7 +52,7 @@ func GetOrCreateOrder(ctx context.Context, pool *pgxpool.Pool) (*PurchaseOrder, 
 func GetOrderByID(ctx context.Context, pool *pgxpool.Pool, poID string) (*PurchaseOrder, error) {
 	var po PurchaseOrder
 	err := pool.QueryRow(ctx, `
-		SELECT id, week_start, status, version, created_at
+		SELECT id, week_start::text, status, version, created_at
 		FROM purchase_orders
 		WHERE id = $1
 	`, poID).Scan(&po.ID, &po.WeekStart, &po.Status, &po.Version, &po.CreatedAt)
@@ -178,32 +178,51 @@ func UpsertLineItems(ctx context.Context, pool *pgxpool.Pool, poID string, userI
 }
 
 // GetSuggestions returns items below their group's low threshold not already on the PO.
+// Mirrors the inventory stock query approach: starts from purchase_line_items, resolves
+// catalog items via purchase_item_id or description fallback, applies group thresholds.
 func GetSuggestions(ctx context.Context, pool *pgxpool.Pool, poID string) ([]OrderSuggestion, error) {
 	rows, err := pool.Query(ctx, `
 		SELECT
-			pi.id AS purchase_item_id,
-			pi.description AS item_name,
-			pi.photo_url, pi.store_location,
-			ig.name AS group_name,
-			ig.low_threshold,
-			COALESCE(sco.quantity, COALESCE(stock.total_qty, 0)) AS current_stock,
-			GREATEST(1, ig.low_threshold - COALESCE(sco.quantity, COALESCE(stock.total_qty, 0))) AS suggested_qty,
-			'' AS unit
-		FROM purchase_items pi
-		JOIN item_groups ig ON ig.id = pi.group_id
-		LEFT JOIN stock_count_overrides sco ON sco.item_description = pi.description
-		LEFT JOIN (
-			SELECT pli.purchase_item_id, SUM(pli.quantity)::int AS total_qty
+			sub.purchase_item_id,
+			sub.item_name,
+			sub.photo_url,
+			sub.store_location,
+			sub.group_name,
+			COALESCE(ig.low_threshold, 3) AS low_threshold,
+			sub.current_stock,
+			GREATEST(1, COALESCE(ig.low_threshold, 3) - sub.current_stock) AS suggested_qty,
+			'' AS unit,
+			CASE
+				WHEN sub.current_stock <= COALESCE(ig.low_threshold, 3) THEN 'Low'
+				ELSE 'Medium'
+			END AS stock_level
+		FROM (
+			SELECT
+				pi.id AS purchase_item_id,
+				COALESCE(pi.description, pli.description) AS item_name,
+				pi.photo_url,
+				pi.store_location,
+				ig.name AS group_name,
+				ig.id AS group_id,
+				COALESCE(
+					sco.quantity,
+					SUM(pli.quantity)::int
+				) AS current_stock
 			FROM purchase_line_items pli
 			JOIN purchase_events pe ON pe.id = pli.purchase_event_id
-			GROUP BY pli.purchase_item_id
-		) stock ON stock.purchase_item_id = pi.id
-		WHERE NOT EXISTS (
-			SELECT 1 FROM po_line_items pol WHERE pol.po_id = $1 AND pol.purchase_item_id = pi.id
+			LEFT JOIN purchase_items pi ON pi.id = pli.purchase_item_id
+			LEFT JOIN item_groups ig ON ig.id = pi.group_id
+			LEFT JOIN stock_count_overrides sco ON sco.item_description = COALESCE(pi.description, pli.description)
+			GROUP BY pi.id, COALESCE(pi.description, pli.description), pi.photo_url, pi.store_location, ig.name, ig.id, sco.quantity
+		) sub
+		LEFT JOIN item_groups ig ON ig.id = sub.group_id
+		WHERE sub.purchase_item_id IS NOT NULL
+		AND sub.current_stock <= COALESCE(ig.high_threshold, 10)
+		AND sub.current_stock > 0
+		AND NOT EXISTS (
+			SELECT 1 FROM po_line_items pol WHERE pol.po_id = $1 AND pol.purchase_item_id = sub.purchase_item_id
 		)
-		GROUP BY pi.id, pi.description, pi.photo_url, pi.store_location, ig.name, ig.low_threshold, sco.quantity, stock.total_qty
-		HAVING COALESCE(sco.quantity, COALESCE(stock.total_qty, 0)) < ig.low_threshold
-		ORDER BY ig.name, pi.description
+		ORDER BY sub.group_name NULLS LAST, sub.item_name
 	`, poID)
 	if err != nil {
 		log.Printf("GetSuggestions query: %v", err)
@@ -219,7 +238,7 @@ func GetSuggestions(ctx context.Context, pool *pgxpool.Pool, poID string) ([]Ord
 			&s.PhotoURL, &s.StoreLocation,
 			&s.GroupName, &s.LowThreshold,
 			&s.CurrentStock, &s.SuggestedQty,
-			&s.Unit,
+			&s.Unit, &s.StockLevel,
 		); err != nil {
 			return nil, err
 		}
