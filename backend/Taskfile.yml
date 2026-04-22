@@ -83,6 +83,29 @@ tasks:
       --output internal/inventory/fixtures/purchase_items.yaml
       --dry-run
 
+  login:
+    desc: Login as admin and save session cookie to /tmp/yumcookie
+    cmd: >-
+      curl -s -c /tmp/yumcookie
+      -X POST http://localhost:{{.PORT}}/api/v1/auth/login
+      -H 'Content-Type: application/json'
+      -d '{"email":"jamal@yumyums.kitchen","password":"test123"}'
+      | python3 -m json.tool
+
+  simulate-cutoff:
+    desc: Trigger weekly cutoff — locks current draft PO and creates next week's draft
+    deps: [login]
+    cmd: >-
+      curl -s -X POST http://localhost:{{.PORT}}/api/v1/purchasing/simulate-cutoff
+      -b /tmp/yumcookie | python3 -m json.tool
+
+  db-reset-purchasing:
+    desc: Wipe purchasing data (POs, shopping lists) for re-testing cutoff flow
+    cmd: >-
+      docker exec yumyums-pg psql -U yumyums -d yumyums -c "
+        TRUNCATE shopping_list_items, shopping_list_vendor_sections, shopping_lists, po_line_items, purchase_orders CASCADE;
+      "
+
   db-reset-inventory:
     desc: Wipe inventory + receipt data only (keeps users, templates, etc.)
     cmd: >-

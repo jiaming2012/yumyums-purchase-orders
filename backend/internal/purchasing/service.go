@@ -55,17 +55,58 @@ func CurrentWeekStart() string {
 	return monday.Format("2006-01-02")
 }
 
-// GetOrCreateOrder gets or creates the purchase order for the current week.
+// GetOrCreateOrder returns the most recent draft PO. If the current week's PO
+// is locked/approved, it finds or creates the next week's draft instead.
+// The Order tab always shows an editable draft — never a locked PO.
 func GetOrCreateOrder(ctx context.Context, pool *pgxpool.Pool) (*PurchaseOrder, error) {
-	weekStart := CurrentWeekStart()
-
+	// First, try to find any existing draft PO (could be this week or next)
 	var po PurchaseOrder
 	err := pool.QueryRow(ctx, `
-		INSERT INTO purchase_orders (week_start, status)
-		VALUES ($1, 'draft')
-		ON CONFLICT (week_start) DO UPDATE SET week_start = EXCLUDED.week_start
-		RETURNING id, week_start::text, status, version, created_at
-	`, weekStart).Scan(&po.ID, &po.WeekStart, &po.Status, &po.Version, &po.CreatedAt)
+		SELECT id, week_start::text, status, version, created_at,
+		       locked_at, approved_at, approved_by
+		FROM purchase_orders
+		WHERE status = 'draft'
+		ORDER BY week_start DESC
+		LIMIT 1
+	`).Scan(&po.ID, &po.WeekStart, &po.Status, &po.Version, &po.CreatedAt,
+		&po.LockedAt, &po.ApprovedAt, &po.ApprovedBy)
+
+	if err != nil {
+		if !errors.Is(err, pgx.ErrNoRows) {
+			return nil, err
+		}
+		// No draft exists — create one for the current week (or next week if current is taken)
+		weekStart := CurrentWeekStart()
+		err = pool.QueryRow(ctx, `
+			INSERT INTO purchase_orders (week_start, status)
+			VALUES ($1, 'draft')
+			ON CONFLICT (week_start) DO NOTHING
+			RETURNING id, week_start::text, status, version, created_at
+		`, weekStart).Scan(&po.ID, &po.WeekStart, &po.Status, &po.Version, &po.CreatedAt)
+
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				// Current week exists but is not draft — try next week
+				ws, _ := time.Parse("2006-01-02", weekStart)
+				nextWeek := ws.AddDate(0, 0, 7).Format("2006-01-02")
+				err = pool.QueryRow(ctx, `
+					INSERT INTO purchase_orders (week_start, status)
+					VALUES ($1, 'draft')
+					ON CONFLICT (week_start) DO NOTHING
+					RETURNING id, week_start::text, status, version, created_at
+				`, nextWeek).Scan(&po.ID, &po.WeekStart, &po.Status, &po.Version, &po.CreatedAt)
+				if err != nil {
+					if errors.Is(err, pgx.ErrNoRows) {
+						// Next week draft already exists — fetch it
+						return GetOrdersByStatus(ctx, pool, "draft")
+					}
+					return nil, err
+				}
+			} else {
+				return nil, err
+			}
+		}
+	}
 	if err != nil {
 		return nil, err
 	}

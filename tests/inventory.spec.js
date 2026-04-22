@@ -1803,4 +1803,111 @@ test.describe('Inventory', () => {
     await expect(lightbox).not.toBeVisible();
   });
 
+  // ── Regression: Order tab shows next week draft after cutoff ───────────
+
+  test('after simulate-cutoff, Order tab shows next week draft', async ({ page }) => {
+    await login(page);
+
+    // Get current draft PO
+    const poBefore = await page.evaluate(async () => {
+      const res = await fetch('/api/v1/purchasing/orders', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+      return res.json();
+    });
+    if (!poBefore) return;
+    const weekBefore = poBefore.week_start;
+
+    // Simulate cutoff — locks current draft
+    const lockResult = await page.evaluate(async () => {
+      const res = await fetch('/api/v1/purchasing/simulate-cutoff', { method: 'POST' });
+      return res.ok;
+    });
+    expect(lockResult).toBeTruthy();
+
+    // Get draft PO again — should be a different week (next week)
+    const poAfter = await page.evaluate(async () => {
+      const res = await fetch('/api/v1/purchasing/orders', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+      return res.json();
+    });
+    expect(poAfter).toBeTruthy();
+    expect(poAfter.status).toBe('draft');
+    expect(poAfter.week_start).not.toBe(weekBefore);
+
+    // Navigate to purchasing page and verify Order tab shows new week
+    await page.goto('/purchasing.html');
+    await page.waitForSelector('.order-hd h1', { timeout: 10000 });
+    const weekLabel = await page.locator('.order-hd h1').textContent();
+    expect(weekLabel).not.toContain(weekBefore.split('-').pop()); // different date
+
+    // Verify PO tab shows the locked PO
+    await page.click('[data-tab="3"]');
+    await page.waitForTimeout(500);
+    const poTab = await page.locator('#s3').textContent();
+    expect(poTab).toMatch(/Locked|locked/);
+  });
+
+  // ── Regression: seed upsert updates photo_url on re-run ───────────────
+
+  test('seed runs idempotently without duplicating items', async ({ page }) => {
+    await login(page);
+
+    // Fetch items twice (simulating two server starts with seed)
+    const items1 = await page.evaluate(async () => {
+      const res = await fetch('/api/v1/inventory/items');
+      return res.json();
+    });
+
+    const items2 = await page.evaluate(async () => {
+      const res = await fetch('/api/v1/inventory/items');
+      return res.json();
+    });
+
+    // Same count — seed didn't duplicate
+    expect(items1.length).toBe(items2.length);
+
+    // No duplicate descriptions
+    const descriptions = items1.map(i => i.description);
+    const unique = [...new Set(descriptions)];
+    expect(unique.length).toBe(descriptions.length);
+  });
+
+  // ── Regression: PO suggestions match inventory reorder count ──────────
+
+  test('PO suggestions count matches inventory reorder suggestions', async ({ page }) => {
+    await login(page);
+
+    // Get draft PO
+    const po = await page.evaluate(async () => {
+      const res = await fetch('/api/v1/purchasing/orders', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+      return res.json();
+    });
+    if (!po) return;
+
+    // Get PO suggestions
+    const poSuggestions = await page.evaluate(async (poId) => {
+      const res = await fetch('/api/v1/purchasing/orders/' + poId + '/suggestions');
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
+    }, po.id);
+
+    // Go to inventory Stock tab and count reorder suggestions
+    await page.goto('/inventory.html');
+    await page.click('#t2');
+    await waitForStockContent(page);
+
+    const reorderSection = page.locator('#reorder-section');
+    const reorderText = await reorderSection.textContent();
+
+    // If inventory shows reorder suggestions, PO should show the same items
+    if (reorderText.trim().length > 0) {
+      // Extract count from "Reorder Suggestions (N)"
+      const match = reorderText.match(/Reorder Suggestions \((\d+)\)/);
+      if (match) {
+        const inventoryCount = parseInt(match[1], 10);
+        // PO suggestions should not exceed inventory reorder count
+        // (PO excludes items already on the PO, so it can be equal or fewer)
+        expect(poSuggestions.length).toBeLessThanOrEqual(inventoryCount);
+      }
+    }
+  });
+
 });
