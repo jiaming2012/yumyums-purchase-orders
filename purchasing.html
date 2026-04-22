@@ -458,7 +458,7 @@ function renderOrder() {
       html += '<div class="suggest-row">';
       html += '<input type="checkbox" data-suggest-id="' + s.purchase_item_id + '"' + (alreadyOnPO ? ' disabled checked' : '') + '>';
       html += '<span>' + s.item_name + '</span>';
-      var lvlClass = s.stock_level === 'Low' ? 'sl-low' : 'sl-med';
+      var lvlClass = s.stock_level === 'low' ? 'sl-low' : 'sl-med';
       html += '<span class="' + lvlClass + '">' + s.stock_level + '</span>';
       html += '<span class="sq">Suggested: ' + s.suggested_qty + (s.unit ? ' ' + s.unit : '') + '</span>';
       html += '</div>';
