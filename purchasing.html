@@ -162,6 +162,7 @@ let ALL_ITEMS = [];
 let SUGGESTION_OPEN = false;
 let DEBOUNCE_TIMER = null;
 let DUP_ITEM_ID = null;
+let PICKER_TARGET = 'order'; // 'order' or 'po' — which PO the picker adds items to
 const DEBOUNCE_MS = 600;
 const SEARCH_DEBOUNCE_MS = 300;
 let CUTOFF_CONFIG = null;
@@ -313,6 +314,10 @@ function renderPOTab() {
 
   html += '</div>';
 
+  if (isAdmin && PO_EDITING && LOCKED_PO.status === 'locked') {
+    html += '<button class="add-btn" data-action="open-po-picker">+ Add item</button>';
+  }
+
   if (isAdmin && LOCKED_PO.status === 'locked') {
     html += '<button class="btn-approve" data-action="approve-po">Approve &amp; Create Shopping List</button>';
   }
@@ -417,15 +422,15 @@ function renderOrder() {
   }
 
   if (SUGGESTIONS.length > 0) {
-    html += '<div class="suggest-banner" data-action="toggle-suggestions">';
-    html += '<span>' + SUGGESTIONS.length + ' item' + (SUGGESTIONS.length === 1 ? '' : 's') + ' need restock</span>';
-    html += '<button data-action="toggle-suggestions">' + (SUGGESTION_OPEN ? '&minus;' : '+') + '</button>';
+    html += '<div class="suggest-banner">';
+    html += '<span data-action="toggle-suggestions">' + SUGGESTIONS.length + ' restock suggestion' + (SUGGESTIONS.length === 1 ? '' : 's') + '</span>';
+    html += '<div><button data-action="dismiss-suggestions" style="font-size:13px;margin-right:8px">Dismiss</button>';
+    html += '<button data-action="toggle-suggestions">' + (SUGGESTION_OPEN ? '&minus;' : '+') + '</button></div>';
     html += '</div>';
   }
 
   if (SUGGESTION_OPEN && SUGGESTIONS.length > 0) {
     html += '<div class="suggest-list">';
-    html += '<div class="sl-hd"><span>' + SUGGESTIONS.length + ' restock suggestion' + (SUGGESTIONS.length === 1 ? '' : 's') + '</span><button data-action="dismiss-suggestions">Dismiss</button></div>';
     SUGGESTIONS.forEach(function(s) {
       var alreadyOnPO = (PO_STATE.line_items || []).some(function(li) { return li.purchase_item_id === s.purchase_item_id; });
       html += '<div class="suggest-row">';
@@ -551,25 +556,31 @@ async function savePOItems() {
 }
 
 function addItemToPO(itemId) {
-  if (!PO_STATE) return;
+  var targetPO = PICKER_TARGET === 'po' ? LOCKED_PO : PO_STATE;
+  if (!targetPO) return;
   var catalogItem = ALL_ITEMS.find(function(it) { return it.id === itemId; });
   if (!catalogItem) return;
-  var existing = (PO_STATE.line_items || []).find(function(it) { return it.purchase_item_id === itemId; });
+  var existing = (targetPO.line_items || []).find(function(it) { return it.purchase_item_id === itemId; });
   if (existing) return;
-  PO_STATE.line_items = PO_STATE.line_items || [];
-  PO_STATE.line_items.push({
+  targetPO.line_items = targetPO.line_items || [];
+  targetPO.line_items.push({
     purchase_item_id: itemId,
     item_name: catalogItem.description,
     group_name: catalogItem.group_name || null,
-    photo_url: null,
-    store_location: null,
+    photo_url: catalogItem.photo_url || null,
+    store_location: catalogItem.store_location || null,
     quantity: 1,
     unit: '',
     added_by_name: 'You'
   });
-  SUGGESTIONS = SUGGESTIONS.filter(function(s) { return s.purchase_item_id !== itemId; });
-  renderOrder();
-  savePOItems();
+  if (PICKER_TARGET === 'po') {
+    renderPOTab();
+    savePOItems();
+  } else {
+    SUGGESTIONS = SUGGESTIONS.filter(function(s) { return s.purchase_item_id !== itemId; });
+    renderOrder();
+    savePOItems();
+  }
 }
 
 function addSelectedSuggestions() {
@@ -601,7 +612,8 @@ function addSelectedSuggestions() {
   savePOItems();
 }
 
-function openItemModal() {
+function openItemModal(target) {
+  PICKER_TARGET = target || 'order';
   var modal = document.getElementById('item-modal');
   modal.classList.add('open');
   var input = document.getElementById('picker-search');
@@ -626,7 +638,8 @@ function renderPickerList(query) {
     html = '<div class="loading">No items found</div>';
   } else {
     filtered.forEach(function(it) {
-      var onPO = PO_STATE && (PO_STATE.line_items || []).find(function(li) { return li.purchase_item_id === it.id; });
+      var targetPO = PICKER_TARGET === 'po' ? LOCKED_PO : PO_STATE;
+      var onPO = targetPO && (targetPO.line_items || []).find(function(li) { return li.purchase_item_id === it.id; });
       html += '<div class="picker-row">';
       html += '<span class="pr-name">' + it.description + '</span>';
       if (onPO) {
@@ -674,7 +687,8 @@ document.addEventListener('click', function(e) {
   if (action === 'add-selected') addSelectedSuggestions();
   if (action === 'qty-inc') updateQty(el.dataset.itemId, 1);
   if (action === 'qty-dec') updateQty(el.dataset.itemId, -1);
-  if (action === 'open-picker') openItemModal();
+  if (action === 'open-picker') openItemModal('order');
+  if (action === 'open-po-picker') openItemModal('po');
   if (action === 'close-picker') closeItemModal();
   if (action === 'add-to-po') { addItemToPO(el.dataset.itemId); closeItemModal(); }
   if (action === 'picker-item-on-po') showDuplicatePopup(el.dataset.itemId);

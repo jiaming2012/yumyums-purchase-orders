@@ -444,10 +444,7 @@ func GetOrdersByStatusHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
-		if po == nil {
-			writeError(w, http.StatusNotFound, "not_found")
-			return
-		}
+		// Return null (not 404) when no PO with this status exists — avoids console errors in frontend
 		writeJSON(w, http.StatusOK, po)
 	}
 }
