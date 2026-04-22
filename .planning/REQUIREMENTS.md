@@ -20,19 +20,19 @@ Requirements for Purchase Orders & Shopping Lists milestone. Each maps to roadma
 
 ### Cutoff & Approval
 
-- [ ] **CUT-01**: Admin can configure a recurring weekly cutoff schedule (day + time)
+- [x] **CUT-01**: Admin can configure a recurring weekly cutoff schedule (day + time)
 - [ ] **CUT-02**: After cutoff time, PO is locked — only admin can edit
-- [ ] **CUT-03**: Backend provides a test command to simulate cutoff for easy testing
-- [ ] **CUT-04**: Admin can approve a locked PO, which generates a shopping checklist
+- [x] **CUT-03**: Backend provides a test command to simulate cutoff for easy testing
+- [x] **CUT-04**: Admin can approve a locked PO, which generates a shopping checklist
 
 ### Shopping List
 
-- [ ] **SHOP-01**: Approved PO generates a shopping checklist (1:1 mapping)
-- [ ] **SHOP-02**: Shopping checklist tab with RBAC — assignable to specific members or roles
-- [ ] **SHOP-03**: Shopping list shows each item's photo and store location (tap icon to reveal)
+- [x] **SHOP-01**: Approved PO generates a shopping checklist (1:1 mapping)
+- [x] **SHOP-02**: Shopping checklist tab with RBAC — assignable to specific members or roles
+- [x] **SHOP-03**: Shopping list shows each item's photo and store location (tap icon to reveal)
 - [ ] **SHOP-04**: User can edit store location notes inline from the shopping list
-- [ ] **SHOP-05**: User can mark items as checked off while shopping
-- [ ] **SHOP-06**: "Complete" button sends alert for any missing/unchecked items
+- [x] **SHOP-05**: User can mark items as checked off while shopping
+- [x] **SHOP-06**: "Complete" button sends alert for any missing/unchecked items
 - [ ] **SHOP-07**: When checking off an item without a photo or location, shopper is prompted to add them (can skip but must confirm each time)
 - [ ] **SHOP-08**: Shopper can upload a photo for an item that doesn't have one from the shopping list
 
@@ -85,16 +85,16 @@ Requirements for Purchase Orders & Shopping Lists milestone. Each maps to roadma
 | PO-06 | Phase 14 | Complete |
 | PO-07 | Phase 14 | Complete |
 | PO-08 | Phase 14 | Pending |
-| CUT-01 | Phase 16 | Pending |
+| CUT-01 | Phase 16 | Complete |
 | CUT-02 | Phase 16 | Pending |
-| CUT-03 | Phase 16 | Pending |
-| CUT-04 | Phase 16 | Pending |
-| SHOP-01 | Phase 16 | Pending |
-| SHOP-02 | Phase 16 | Pending |
-| SHOP-03 | Phase 16 | Pending |
+| CUT-03 | Phase 16 | Complete |
+| CUT-04 | Phase 16 | Complete |
+| SHOP-01 | Phase 16 | Complete |
+| SHOP-02 | Phase 16 | Complete |
+| SHOP-03 | Phase 16 | Complete |
 | SHOP-04 | Phase 16 | Pending |
-| SHOP-05 | Phase 16 | Pending |
-| SHOP-06 | Phase 16 | Pending |
+| SHOP-05 | Phase 16 | Complete |
+| SHOP-06 | Phase 16 | Complete |
 | SHOP-07 | Phase 16 | Pending |
 | SHOP-08 | Phase 16 | Pending |
 | ALRT-01 | Phase 17 | Pending |
