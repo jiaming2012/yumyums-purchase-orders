@@ -311,7 +311,7 @@ func GetShoppingListByID(ctx context.Context, pool *pgxpool.Pool, listID string)
 func loadShoppingListSections(ctx context.Context, pool *pgxpool.Pool, sl *ShoppingList) error {
 	rows, err := pool.Query(ctx, `
 		SELECT svs.id, svs.shopping_list_id, svs.vendor_id, svs.vendor_name, svs.status,
-		       svs.completed_by, u.display_name, svs.completed_at
+		       svs.completed_by, COALESCE(NULLIF(u.nickname, ''), u.first_name || ' ' || LEFT(u.last_name, 1) || '.') AS display_name, svs.completed_at
 		FROM shopping_list_vendor_sections svs
 		LEFT JOIN users u ON u.id = svs.completed_by
 		WHERE svs.shopping_list_id = $1
@@ -341,7 +341,7 @@ func loadShoppingListSections(ctx context.Context, pool *pgxpool.Pool, sl *Shopp
 	itemRows, err := pool.Query(ctx, `
 		SELECT sli.id, sli.shopping_list_id, sli.vendor_section_id, sli.purchase_item_id,
 		       sli.item_name, sli.photo_url, sli.store_location, sli.quantity, sli.unit,
-		       sli.checked, sli.checked_by, u.display_name, sli.checked_at
+		       sli.checked, sli.checked_by, COALESCE(NULLIF(u.nickname, ''), u.first_name || ' ' || LEFT(u.last_name, 1) || '.') AS display_name, sli.checked_at
 		FROM shopping_list_items sli
 		LEFT JOIN users u ON u.id = sli.checked_by
 		WHERE sli.shopping_list_id = $1
@@ -413,7 +413,7 @@ func GetShoppingListHistory(ctx context.Context, pool *pgxpool.Pool) ([]Shopping
 	for i := range lists {
 		secRows, err := pool.Query(ctx, `
 			SELECT svs.id, svs.shopping_list_id, svs.vendor_id, svs.vendor_name, svs.status,
-			       svs.completed_by, u.display_name, svs.completed_at
+			       svs.completed_by, COALESCE(NULLIF(u.nickname, ''), u.first_name || ' ' || LEFT(u.last_name, 1) || '.') AS display_name, svs.completed_at
 			FROM shopping_list_vendor_sections svs
 			LEFT JOIN users u ON u.id = svs.completed_by
 			WHERE svs.shopping_list_id = $1
