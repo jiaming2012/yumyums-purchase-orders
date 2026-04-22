@@ -203,7 +203,7 @@ func UpsertLineItems(ctx context.Context, pool *pgxpool.Pool, poID string, userI
 		}
 	}()
 
-	// Verify PO is draft
+	// Verify PO is draft or locked (admin can edit locked POs per D-08)
 	var status string
 	if err = tx.QueryRow(ctx, `SELECT status FROM purchase_orders WHERE id = $1`, poID).Scan(&status); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -211,7 +211,7 @@ func UpsertLineItems(ctx context.Context, pool *pgxpool.Pool, poID string, userI
 		}
 		return err
 	}
-	if status != "draft" {
+	if status != "draft" && status != "locked" {
 		return ErrPONotDraft
 	}
 
