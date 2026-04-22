@@ -9,10 +9,39 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/yumyums/hq/internal/auth"
 )
 
 // ErrPONotDraft is returned when an operation requires the PO to be in draft status.
 var ErrPONotDraft = errors.New("purchase order is not in draft status")
+
+// ErrPONotLocked is returned when an operation requires the PO to be in locked status.
+var ErrPONotLocked = errors.New("po_not_locked")
+
+// ErrPOAlreadyApproved is returned when the PO has already been approved.
+var ErrPOAlreadyApproved = errors.New("po_already_approved")
+
+// ErrActiveShoppingListExists is returned when an active shopping list already exists.
+var ErrActiveShoppingListExists = errors.New("active_shopping_list_exists")
+
+// ErrUnlockAfterApproval is returned when trying to unlock an already-approved PO.
+var ErrUnlockAfterApproval = errors.New("cannot_unlock_after_approval")
+
+// isAdmin returns true if the user is a superadmin or has the "admin" role.
+func isAdmin(user *auth.User) bool {
+	if user == nil {
+		return false
+	}
+	if user.IsSuperadmin {
+		return true
+	}
+	for _, r := range user.Roles {
+		if r == "admin" {
+			return true
+		}
+	}
+	return false
+}
 
 // CurrentWeekStart returns the Monday of the current week in America/Chicago timezone as YYYY-MM-DD.
 func CurrentWeekStart() string {

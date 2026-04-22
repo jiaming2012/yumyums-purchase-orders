@@ -117,3 +117,185 @@ func GetSuggestionsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		writeJSON(w, http.StatusOK, suggestions)
 	}
 }
+
+// GetActiveShoppingListHandler returns the active shopping list or 404 if none.
+// GET /api/v1/purchasing/shopping/active
+func GetActiveShoppingListHandler(pool *pgxpool.Pool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		user := auth.UserFromContext(r.Context())
+		if user == nil {
+			writeError(w, http.StatusUnauthorized, "unauthorized")
+			return
+		}
+
+		sl, err := GetActiveShoppingList(r.Context(), pool)
+		if err != nil {
+			log.Printf("GetActiveShoppingList: %v", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		if sl == nil {
+			writeError(w, http.StatusNotFound, "no_active_shopping_list")
+			return
+		}
+		writeJSON(w, http.StatusOK, sl)
+	}
+}
+
+// GetShoppingListHistoryHandler returns past completed shopping lists.
+// GET /api/v1/purchasing/shopping/history
+func GetShoppingListHistoryHandler(pool *pgxpool.Pool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		user := auth.UserFromContext(r.Context())
+		if user == nil {
+			writeError(w, http.StatusUnauthorized, "unauthorized")
+			return
+		}
+
+		lists, err := GetShoppingListHistory(r.Context(), pool)
+		if err != nil {
+			log.Printf("GetShoppingListHistory: %v", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		if lists == nil {
+			lists = []ShoppingList{}
+		}
+		writeJSON(w, http.StatusOK, lists)
+	}
+}
+
+// GetShoppingListHandler returns a specific shopping list with items.
+// GET /api/v1/purchasing/shopping/{id}
+func GetShoppingListHandler(pool *pgxpool.Pool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		user := auth.UserFromContext(r.Context())
+		if user == nil {
+			writeError(w, http.StatusUnauthorized, "unauthorized")
+			return
+		}
+
+		id := chi.URLParam(r, "id")
+		sl, err := GetShoppingListByID(r.Context(), pool, id)
+		if err != nil {
+			log.Printf("GetShoppingListByID: %v", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		if sl == nil {
+			writeError(w, http.StatusNotFound, "not_found")
+			return
+		}
+		writeJSON(w, http.StatusOK, sl)
+	}
+}
+
+// CheckShoppingItemHandler toggles the checked state on a shopping list item.
+// POST /api/v1/purchasing/shopping/{id}/check
+func CheckShoppingItemHandler(pool *pgxpool.Pool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		user := auth.UserFromContext(r.Context())
+		if user == nil {
+			writeError(w, http.StatusUnauthorized, "unauthorized")
+			return
+		}
+
+		var req struct {
+			ItemID  string `json:"item_id"`
+			Checked bool   `json:"checked"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.ItemID == "" {
+			writeError(w, http.StatusBadRequest, "invalid_body")
+			return
+		}
+
+		if err := CheckShoppingItem(r.Context(), pool, req.ItemID, req.Checked, user.ID); err != nil {
+			log.Printf("CheckShoppingItem: %v", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+	}
+}
+
+// UpdateShoppingItemLocationHandler updates store_location on a shopping list item (and its catalog item).
+// PUT /api/v1/purchasing/shopping/{id}/items/{itemId}/location
+func UpdateShoppingItemLocationHandler(pool *pgxpool.Pool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		user := auth.UserFromContext(r.Context())
+		if user == nil {
+			writeError(w, http.StatusUnauthorized, "unauthorized")
+			return
+		}
+
+		itemID := chi.URLParam(r, "itemId")
+		var req struct {
+			StoreLocation string `json:"store_location"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_body")
+			return
+		}
+
+		if err := UpdateShoppingItemLocation(r.Context(), pool, itemID, req.StoreLocation); err != nil {
+			log.Printf("UpdateShoppingItemLocation: %v", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+	}
+}
+
+// UpdateShoppingItemPhotoHandler updates photo_url on a shopping list item (and its catalog item).
+// PUT /api/v1/purchasing/shopping/{id}/items/{itemId}/photo
+func UpdateShoppingItemPhotoHandler(pool *pgxpool.Pool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		user := auth.UserFromContext(r.Context())
+		if user == nil {
+			writeError(w, http.StatusUnauthorized, "unauthorized")
+			return
+		}
+
+		itemID := chi.URLParam(r, "itemId")
+		var req struct {
+			PhotoURL string `json:"photo_url"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.PhotoURL == "" {
+			writeError(w, http.StatusBadRequest, "invalid_body")
+			return
+		}
+
+		if err := UpdateShoppingItemPhoto(r.Context(), pool, itemID, req.PhotoURL); err != nil {
+			log.Printf("UpdateShoppingItemPhoto: %v", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+	}
+}
+
+// CompleteVendorSectionHandler marks a vendor section as completed and cascades if all sections done.
+// POST /api/v1/purchasing/shopping/{id}/vendors/{vendorSectionId}/complete
+func CompleteVendorSectionHandler(pool *pgxpool.Pool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		user := auth.UserFromContext(r.Context())
+		if user == nil {
+			writeError(w, http.StatusUnauthorized, "unauthorized")
+			return
+		}
+
+		vendorSectionID := chi.URLParam(r, "vendorSectionId")
+
+		listCompleted, err := CompleteVendorSection(r.Context(), pool, vendorSectionID, user.ID)
+		if err != nil {
+			log.Printf("CompleteVendorSection: %v", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+
+		writeJSON(w, http.StatusOK, map[string]any{
+			"completed":      true,
+			"list_completed": listCompleted,
+		})
+	}
+}

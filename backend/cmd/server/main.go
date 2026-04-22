@@ -401,6 +401,15 @@ func main() {
 				r.Get("/orders/{id}", purchasing.GetOrderHandler(pool))
 				r.Put("/orders/{id}/items", purchasing.UpsertLineItemsHandler(pool))
 				r.Get("/orders/{id}/suggestions", purchasing.GetSuggestionsHandler(pool))
+
+				// Shopping list routes — static paths before wildcard {id}
+				r.Get("/shopping/active", purchasing.GetActiveShoppingListHandler(pool))
+				r.Get("/shopping/history", purchasing.GetShoppingListHistoryHandler(pool))
+				r.Get("/shopping/{id}", purchasing.GetShoppingListHandler(pool))
+				r.Post("/shopping/{id}/check", purchasing.CheckShoppingItemHandler(pool))
+				r.Put("/shopping/{id}/items/{itemId}/location", purchasing.UpdateShoppingItemLocationHandler(pool))
+				r.Put("/shopping/{id}/items/{itemId}/photo", purchasing.UpdateShoppingItemPhotoHandler(pool))
+				r.Post("/shopping/{id}/vendors/{vendorSectionId}/complete", purchasing.CompleteVendorSectionHandler(pool))
 			})
 
 			// Onboarding endpoints — all authenticated
