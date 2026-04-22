@@ -140,3 +140,14 @@ Plans:
 | 15. Notion Catalog Import | v3.0 | 1/2 | Complete    | 2026-04-22 |
 | 16. Cutoff, Approval, and Shopping List | v3.0 | 5/5 | Complete   | 2026-04-22 |
 | 17. Alerts, Notifications, and Repurchase Badges | v3.0 | 0/? | Not started | - |
+
+## Backlog
+
+### Phase 999.1: Tab persistence on refresh (BACKLOG)
+
+**Goal:** Persist active tab across page refresh for all apps using URL hash. When a tab is tapped, update `location.hash`. On page load, read the hash and activate the matching tab.
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd:review-backlog when ready)
