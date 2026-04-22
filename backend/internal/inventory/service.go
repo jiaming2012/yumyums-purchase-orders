@@ -150,6 +150,19 @@ func SeedInventoryFixtures(ctx context.Context, pool *pgxpool.Pool) error {
 		return fmt.Errorf("inventory: parse items yaml: %w", err)
 	}
 
+	// Build vendor name → id lookup for assigning vendor_id from store_location
+	vendorIDs := map[string]string{}
+	vRows, err := pool.Query(ctx, `SELECT id, name FROM vendors`)
+	if err == nil {
+		defer vRows.Close()
+		for vRows.Next() {
+			var vid, vname string
+			if vRows.Scan(&vid, &vname) == nil {
+				vendorIDs[vname] = vid
+			}
+		}
+	}
+
 	itemCount := 0
 	for _, g := range items.Items {
 		// Look up the group_id by name
@@ -163,15 +176,21 @@ func SeedInventoryFixtures(ctx context.Context, pool *pgxpool.Pool) error {
 		}
 
 		for _, item := range g.PurchaseItems {
+			// Resolve vendor_id from store_location if it matches a vendor name
+			var vendorID *string
+			if vid, ok := vendorIDs[item.StoreLocation]; ok {
+				vendorID = &vid
+			}
 			_, err := pool.Exec(ctx,
-				`INSERT INTO purchase_items (description, full_name, photo_url, store_location, group_id)
-				 VALUES ($1, $2, $3, $4, $5)
+				`INSERT INTO purchase_items (description, full_name, photo_url, store_location, group_id, vendor_id)
+				 VALUES ($1, $2, $3, $4, $5, $6)
 				 ON CONFLICT (description) DO UPDATE SET
 				   full_name = COALESCE(EXCLUDED.full_name, purchase_items.full_name),
 				   photo_url = COALESCE(EXCLUDED.photo_url, purchase_items.photo_url),
 				   store_location = COALESCE(EXCLUDED.store_location, purchase_items.store_location),
-				   group_id = EXCLUDED.group_id`,
-				item.Description, nilIfEmpty(item.FullName), nilIfEmpty(item.PhotoURL), nilIfEmpty(item.StoreLocation), groupID,
+				   group_id = EXCLUDED.group_id,
+				   vendor_id = COALESCE(EXCLUDED.vendor_id, purchase_items.vendor_id)`,
+				item.Description, nilIfEmpty(item.FullName), nilIfEmpty(item.PhotoURL), nilIfEmpty(item.StoreLocation), groupID, vendorID,
 			)
 			if err != nil {
 				return fmt.Errorf("inventory: seed item %q: %w", item.Description, err)
