@@ -521,22 +521,9 @@ async function loadStock(){
 
 function renderStock(){
   var stocks=[...STOCK_DATA];
-  // Determine level from API data using group thresholds
-  stocks.forEach(s=>{
-    if(!s.level){
-      var tq=s.total_quantity||0;
-      var lowT=3,highT=10;
-      // Look up group thresholds
-      if(s.group_name){
-        var grp=ITEM_GROUPS.find(function(g){return g.name===s.group_name;});
-        if(grp){lowT=grp.low_threshold||3;highT=grp.high_threshold||10;}
-      }
-      s.level=tq===0?'unknown':tq>=highT?'high':tq>lowT?'medium':'low';
-    }
-  });
   // Reorder suggestions
   var reorderEl=document.getElementById('reorder-section');
-  var needsReorder=stocks.filter(s=>s.level==='low'||s.level==='medium');
+  var needsReorder=stocks.filter(s=>s.needs_reorder);
   needsReorder.sort((a,b)=>LEVEL_ORDER[a.level]-LEVEL_ORDER[b.level]||(a.group_name||a.description).localeCompare(b.group_name||b.description));
   if(needsReorder.length){
     reorderEl.innerHTML='<div class="reorder-section"><div class="reorder-title">Reorder Suggestions ('+needsReorder.length+')</div>'+needsReorder.map(s=>{
