@@ -24,6 +24,7 @@ import (
 	"github.com/yumyums/hq/internal/inventory"
 	"github.com/yumyums/hq/internal/me"
 	"github.com/yumyums/hq/internal/onboarding"
+	"github.com/yumyums/hq/internal/purchasing"
 	"github.com/yumyums/hq/internal/photos"
 	"github.com/yumyums/hq/internal/receipt"
 	opsync "github.com/yumyums/hq/internal/sync"
@@ -392,6 +393,14 @@ func main() {
 				r.Post("/groups", inventory.CreateGroupHandler(pool))
 				r.Put("/groups", inventory.UpdateGroupHandler(pool))
 				r.Get("/tags", inventory.ListTagsHandler(pool))
+			})
+
+			// Purchasing endpoints — all authenticated
+			r.Route("/purchasing", func(r chi.Router) {
+				r.Post("/orders", purchasing.GetOrCreateOrderHandler(pool))
+				r.Get("/orders/{id}", purchasing.GetOrderHandler(pool))
+				r.Put("/orders/{id}/items", purchasing.UpsertLineItemsHandler(pool))
+				r.Get("/orders/{id}/suggestions", purchasing.GetSuggestionsHandler(pool))
 			})
 
 			// Onboarding endpoints — all authenticated
