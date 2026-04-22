@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/yumyums/hq/internal/auth"
+	"github.com/yumyums/hq/internal/inventory"
 )
 
 // ErrPONotDraft is returned when an operation requires the PO to be in draft status.
@@ -583,13 +584,10 @@ func GetSuggestions(ctx context.Context, pool *pgxpool.Pool, poID string) ([]Ord
 			sub.store_location,
 			sub.group_name,
 			COALESCE(ig.low_threshold, 3) AS low_threshold,
+			COALESCE(ig.high_threshold, 10) AS high_threshold,
 			sub.current_stock,
 			GREATEST(1, COALESCE(ig.low_threshold, 3) - sub.current_stock) AS suggested_qty,
-			'' AS unit,
-			CASE
-				WHEN sub.current_stock <= COALESCE(ig.low_threshold, 3) THEN 'Low'
-				ELSE 'Medium'
-			END AS stock_level
+			'' AS unit
 		FROM (
 			SELECT
 				pi.id AS purchase_item_id,
@@ -611,7 +609,7 @@ func GetSuggestions(ctx context.Context, pool *pgxpool.Pool, poID string) ([]Ord
 		) sub
 		LEFT JOIN item_groups ig ON ig.id = sub.group_id
 		WHERE sub.purchase_item_id IS NOT NULL
-		AND sub.current_stock <= COALESCE(ig.high_threshold, 10)
+		AND sub.current_stock < COALESCE(ig.high_threshold, 10)
 		AND sub.current_stock > 0
 		AND NOT EXISTS (
 			SELECT 1 FROM po_line_items pol WHERE pol.po_id = $1 AND pol.purchase_item_id = sub.purchase_item_id
@@ -627,15 +625,18 @@ func GetSuggestions(ctx context.Context, pool *pgxpool.Pool, poID string) ([]Ord
 	suggestions := []OrderSuggestion{}
 	for rows.Next() {
 		var s OrderSuggestion
+		var highThreshold int
 		if err := rows.Scan(
 			&s.PurchaseItemID, &s.ItemName,
 			&s.PhotoURL, &s.StoreLocation,
 			&s.GroupName, &s.LowThreshold,
+			&highThreshold,
 			&s.CurrentStock, &s.SuggestedQty,
-			&s.Unit, &s.StockLevel,
+			&s.Unit,
 		); err != nil {
 			return nil, err
 		}
+		s.StockLevel, _ = inventory.ClassifyStockLevel(s.CurrentStock, s.LowThreshold, highThreshold)
 		suggestions = append(suggestions, s)
 	}
 	return suggestions, rows.Err()

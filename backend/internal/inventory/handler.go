@@ -368,7 +368,9 @@ func GetStockHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				COALESCE(sco.quantity, sub.total_quantity) AS total_quantity,
 				sub.total_spend,
 				sub.avg_price,
-				sub.last_purchase_date
+				sub.last_purchase_date,
+				sub.low_threshold,
+				sub.high_threshold
 			FROM (
 				SELECT
 					COALESCE(pi.description, pli.description) AS description,
@@ -376,12 +378,14 @@ func GetStockHandler(pool *pgxpool.Pool) http.HandlerFunc {
 					SUM(pli.quantity) AS total_quantity,
 					SUM(pli.quantity * pli.price) AS total_spend,
 					AVG(pli.price) AS avg_price,
-					MAX(pe.event_date)::text AS last_purchase_date
+					MAX(pe.event_date)::text AS last_purchase_date,
+					COALESCE(ig.low_threshold, 3) AS low_threshold,
+					COALESCE(ig.high_threshold, 10) AS high_threshold
 				FROM purchase_line_items pli
 				JOIN purchase_events pe ON pe.id = pli.purchase_event_id
 				LEFT JOIN purchase_items pi ON pi.id = pli.purchase_item_id
 				LEFT JOIN item_groups ig ON ig.id = pi.group_id
-				GROUP BY COALESCE(pi.description, pli.description), ig.name
+				GROUP BY COALESCE(pi.description, pli.description), ig.name, ig.low_threshold, ig.high_threshold
 			) sub
 			LEFT JOIN stock_count_overrides sco ON sco.item_description = sub.description
 			ORDER BY sub.total_spend DESC`,
@@ -397,11 +401,13 @@ func GetStockHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		for rows.Next() {
 			var s StockItem
 			if err := rows.Scan(&s.Description, &s.GroupName,
-				&s.TotalQuantity, &s.TotalSpend, &s.AvgPrice, &s.LastPurchaseDate); err != nil {
+				&s.TotalQuantity, &s.TotalSpend, &s.AvgPrice, &s.LastPurchaseDate,
+				&s.LowThreshold, &s.HighThreshold); err != nil {
 				log.Printf("GetStock scan: %v", err)
 				writeError(w, http.StatusInternalServerError, "internal_error")
 				return
 			}
+			s.Level, s.NeedsReorder = ClassifyStockLevel(s.TotalQuantity, s.LowThreshold, s.HighThreshold)
 			items = append(items, s)
 		}
 		writeJSON(w, http.StatusOK, items)
