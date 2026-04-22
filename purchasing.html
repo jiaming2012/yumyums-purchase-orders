@@ -549,6 +549,14 @@ async function savePOItems(target) {
       else { PO_STATE = updated; renderOrder(); }
     }
   } catch (e) {
+    if (e.status === 403 || e.status === 409) {
+      // PO was locked or status changed — reload to pick up current state
+      alert(e.status === 403
+        ? 'This order has been locked. Only an admin can edit it.'
+        : 'This order is no longer editable.');
+      window.location.reload();
+      return;
+    }
     var s1 = document.getElementById('s1');
     var errDiv = document.createElement('div');
     errDiv.className = 'error-card';
