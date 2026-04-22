@@ -82,6 +82,14 @@ func runCutoffCheck(ctx context.Context, pool *pgxpool.Pool) {
 		return
 	}
 
+	// Block if there's already a locked PO awaiting approval
+	var lockedCount int
+	_ = pool.QueryRow(ctx, `SELECT COUNT(*) FROM purchase_orders WHERE status = 'locked'`).Scan(&lockedCount)
+	if lockedCount > 0 {
+		log.Println("cutoff scheduler: locked PO pending approval — skipping auto-lock")
+		return
+	}
+
 	// Find current draft PO
 	var draftID string
 	err = pool.QueryRow(ctx, `

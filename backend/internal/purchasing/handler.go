@@ -376,6 +376,18 @@ func SimulateCutoffHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
+		// Block if there's already a locked PO awaiting approval
+		lockedPO, err := GetOrdersByStatus(r.Context(), pool, "locked")
+		if err != nil {
+			log.Printf("SimulateCutoff: check locked: %v", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		if lockedPO != nil {
+			writeError(w, http.StatusConflict, "locked_po_pending_approval")
+			return
+		}
+
 		// Find current draft PO
 		po, err := GetOrCreateOrder(r.Context(), pool)
 		if err != nil {
