@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Purchase Orders & Shopping Lists
 status: executing
-stopped_at: Completed 16-01-PLAN.md
-last_updated: "2026-04-22T18:18:21.719Z"
+stopped_at: Completed 16-03-PLAN.md
+last_updated: "2026-04-22T18:24:13.334Z"
 last_activity: 2026-04-22
 progress:
   total_phases: 4
   completed_phases: 2
   total_plans: 9
-  completed_plans: 5
+  completed_plans: 6
   percent: 0
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-22)
 ## Current Position
 
 Phase: 16 (cutoff-approval-and-shopping-list) — EXECUTING
-Plan: 2 of 5
+Plan: 3 of 5
 Status: Ready to execute
 Last activity: 2026-04-22
 
@@ -53,6 +53,7 @@ Progress: [░░░░░░░░░░] 0% (v3.0)
 | Phase 14 P02 | 3m | 1 tasks | 2 files |
 | Phase 15 P02 | 10 | 1 tasks | 1 files |
 | Phase 16 P01 | 2m | 2 tasks | 5 files |
+| Phase 16 P03 | 3m | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -70,6 +71,8 @@ Progress: [░░░░░░░░░░] 0% (v3.0)
 - [Phase 15]: Unknown groups in purchase_items.yaml log warning and skip rather than crashing the seed
 - [Phase 16]: vendor_name snapshotted at shopping list creation time so display works even if vendor is later deleted
 - [Phase 16]: shopping_list_vendor_sections allows NULL vendor_id; unassigned items go into Unassigned section
+- [Phase 16]: loadShoppingListSections loads all items in one query then distributes by vendor_section_id map to avoid N+1 per section
+- [Phase 16]: UpdateShoppingItemLocation and UpdateShoppingItemPhoto update both shopping_list_items snapshot and purchase_items catalog so future lists see updates
 
 ### Pending Todos
 
@@ -94,6 +97,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-22T18:18:21.712Z
-Stopped at: Completed 16-01-PLAN.md
+Last session: 2026-04-22T18:24:13.327Z
+Stopped at: Completed 16-03-PLAN.md
 Resume file: None

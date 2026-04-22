@@ -30,11 +30,11 @@ Requirements for Purchase Orders & Shopping Lists milestone. Each maps to roadma
 - [x] **SHOP-01**: Approved PO generates a shopping checklist (1:1 mapping)
 - [x] **SHOP-02**: Shopping checklist tab with RBAC — assignable to specific members or roles
 - [x] **SHOP-03**: Shopping list shows each item's photo and store location (tap icon to reveal)
-- [ ] **SHOP-04**: User can edit store location notes inline from the shopping list
+- [x] **SHOP-04**: User can edit store location notes inline from the shopping list
 - [x] **SHOP-05**: User can mark items as checked off while shopping
 - [x] **SHOP-06**: "Complete" button sends alert for any missing/unchecked items
-- [ ] **SHOP-07**: When checking off an item without a photo or location, shopper is prompted to add them (can skip but must confirm each time)
-- [ ] **SHOP-08**: Shopper can upload a photo for an item that doesn't have one from the shopping list
+- [x] **SHOP-07**: When checking off an item without a photo or location, shopper is prompted to add them (can skip but must confirm each time)
+- [x] **SHOP-08**: Shopper can upload a photo for an item that doesn't have one from the shopping list
 
 ### Alerts & Notifications
 
@@ -92,11 +92,11 @@ Requirements for Purchase Orders & Shopping Lists milestone. Each maps to roadma
 | SHOP-01 | Phase 16 | Complete |
 | SHOP-02 | Phase 16 | Complete |
 | SHOP-03 | Phase 16 | Complete |
-| SHOP-04 | Phase 16 | Pending |
+| SHOP-04 | Phase 16 | Complete |
 | SHOP-05 | Phase 16 | Complete |
 | SHOP-06 | Phase 16 | Complete |
-| SHOP-07 | Phase 16 | Pending |
-| SHOP-08 | Phase 16 | Pending |
+| SHOP-07 | Phase 16 | Complete |
+| SHOP-08 | Phase 16 | Complete |
 | ALRT-01 | Phase 17 | Pending |
 | ALRT-02 | Phase 17 | Pending |
 | ALRT-03 | Phase 17 | Pending |
