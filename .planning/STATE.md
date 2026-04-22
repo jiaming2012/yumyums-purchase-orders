@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: milestone
+milestone: v3.0
+milestone_name: Purchase Orders & Shopping Lists
 status: verifying
-stopped_at: "Checkpoint: Task 4 human-verify pending for 16-05-PLAN.md"
-last_updated: "2026-04-22T20:12:40.875Z"
+stopped_at: Completed 16-04-PLAN.md
+last_updated: "2026-04-22T21:38:23.137Z"
 last_activity: 2026-04-22
 progress:
-  total_phases: 16
-  completed_phases: 6
-  total_plans: 22
-  completed_plans: 45
+  total_phases: 4
+  completed_phases: 3
+  total_plans: 9
+  completed_plans: 9
   percent: 0
 ---
 
@@ -87,6 +87,7 @@ Progress: [░░░░░░░░░░] 0% (v2.0 milestone)
 | Phase 01-onboarding-video-upgrade P01 | 15 | 2 tasks | 5 files |
 | Phase 01-onboarding-video-upgrade P03 | 30 | 2 tasks | 3 files |
 | Phase 16-cutoff-approval-and-shopping-list P05 | 5 | 3 tasks | 3 files |
+| Phase 16-cutoff-approval-and-shopping-list P04 | 35 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -175,6 +176,8 @@ Recent decisions affecting current work:
 - [Phase 01-onboarding-video-upgrade]: renderTrainingDetail() dispatches to active runner (my or mgr) based on obState/mgrState view
 - [Phase 16-05]: purchasing.html fully rewritten: 16-04 was planned but never executed; Plan 05 incorporates all 16-04 work (Order tab wired, PO tab, cutoff config) plus 16-05 shopping/history tabs in one pass
 - [Phase 16-05]: Optimistic shop-check: toggle state immediately, render, then await API — roll back item.checked on error
+- [Phase 16-cutoff-approval-and-shopping-list]: LOCKED_PO loaded from GET /orders?status=locked independently — not derived from PO_STATE status checks
+- [Phase 16-cutoff-approval-and-shopping-list]: PO tab groups items by vendor_name on POLineItem (from LEFT JOIN in Plan 02), not by item group_name — per D-09
 
 ### Pending Todos
 
@@ -200,6 +203,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-22T20:12:40.869Z
-Stopped at: Checkpoint: Task 4 human-verify pending for 16-05-PLAN.md
+Last session: 2026-04-22T21:38:23.131Z
+Stopped at: Completed 16-04-PLAN.md
 Resume file: None

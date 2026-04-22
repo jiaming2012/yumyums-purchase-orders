@@ -58,7 +58,7 @@ _Full phase details archived to [milestones/v2.0-ROADMAP.md](milestones/v2.0-ROA
 
 - [x] **Phase 14: PO Backend + Order Form** - Schema migrations, purchasing API, and purchasing.html Tab 1 with live reorder suggestions, item search, added-by attribution, and duplicate detection (completed 2026-04-22)
 - [x] **Phase 15: Notion Catalog Seed** - Convert Notion CSV to YAML seed file with images re-hosted to DO Spaces; seeds on first server run (completed 2026-04-22)
-- [ ] **Phase 16: Cutoff, Approval, and Shopping List** - Cutoff scheduler, admin approval flow, shopping list with photo capture prompts and location enrichment
+- [x] **Phase 16: Cutoff, Approval, and Shopping List** - Cutoff scheduler, admin approval flow, shopping list with photo capture prompts and location enrichment (completed 2026-04-22)
 - [ ] **Phase 17: Alerts, Notifications, and Repurchase Badges** - Async alert queue, Zoho Cliq/email delivery, user notification preferences, and inventory badge on shopping completion
 
 ## Phase Details
@@ -107,13 +107,13 @@ Plans:
   6. When checking off an item that has no photo or location, shopper is prompted to add them (can skip but must confirm skip each time)
   7. Shopper can upload a photo for an item that doesn't have one
   8. Tapping "Complete" on the shopping list sends a report of any unchecked items via the configured alert channel
-**Plans:** 3/5 plans executed
+**Plans:** 5/5 plans complete
 Plans:
 - [x] 16-01-PLAN.md -- Migrations (cutoff_config, status extend, vendor FK, shopping tables) + Go types
 - [x] 16-02-PLAN.md -- Backend state machine (lock/unlock/approve), cutoff scheduler, simulate-cutoff
 - [x] 16-03-PLAN.md -- Backend shopping list CRUD, check-off, vendor completion, photo/location update
-- [ ] 16-04-PLAN.md -- Frontend PO tab (locked view, cutoff pill config, admin edit, approve button)
-- [ ] 16-05-PLAN.md -- Frontend Shopping tab (check-off, toast/badge, photo, location) + History tab
+- [x] 16-04-PLAN.md -- Frontend PO tab (locked view, cutoff pill config, admin edit, approve button)
+- [x] 16-05-PLAN.md -- Frontend Shopping tab (check-off, toast/badge, photo, location) + History tab
 **UI hint**: yes
 
 ### Phase 17: Alerts, Notifications, and Repurchase Badges
@@ -138,5 +138,5 @@ Plans:
 |-------|-----------|----------------|--------|-----------|
 | 14. PO Backend + Order Form | v3.0 | 2/2 | Complete    | 2026-04-22 |
 | 15. Notion Catalog Import | v3.0 | 1/2 | Complete    | 2026-04-22 |
-| 16. Cutoff, Approval, and Shopping List | v3.0 | 3/5 | In Progress|  |
+| 16. Cutoff, Approval, and Shopping List | v3.0 | 5/5 | Complete   | 2026-04-22 |
 | 17. Alerts, Notifications, and Repurchase Badges | v3.0 | 0/? | Not started | - |
