@@ -19,16 +19,20 @@ type SpacesConfig struct {
 	Bucket    string
 }
 
-// NewSpacesPresigner creates a presign client configured for DO Spaces.
+// NewSpacesClient creates an S3 client configured for DO Spaces.
 // DO Spaces requires path-style addressing (UsePathStyle: true).
-func NewSpacesPresigner(cfg SpacesConfig) (*s3.PresignClient, error) {
-	client := s3.New(s3.Options{
+func NewSpacesClient(cfg SpacesConfig) *s3.Client {
+	return s3.New(s3.Options{
 		Region:       cfg.Region,
 		Credentials:  credentials.NewStaticCredentialsProvider(cfg.AccessKey, cfg.SecretKey, ""),
 		BaseEndpoint: aws.String(cfg.Endpoint),
 		UsePathStyle: true,
 	})
+}
 
+// NewSpacesPresigner creates a presign client configured for DO Spaces.
+func NewSpacesPresigner(cfg SpacesConfig) (*s3.PresignClient, error) {
+	client := NewSpacesClient(cfg)
 	return s3.NewPresignClient(client), nil
 }
 

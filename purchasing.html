@@ -124,7 +124,7 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .shop-info{flex:1;min-width:0}
 .shop-info .nm{font-size:14px;font-weight:600;line-height:1.2}
 .shop-info .mt{font-size:12px;color:var(--mut);margin-top:2px}
-.shop-warn{font-size:10px;padding:2px 6px;border-radius:8px;background:var(--warn-bg);color:var(--warn-tx);margin-top:3px;display:inline-block}
+.shop-warn{font-size:10px;padding:2px 6px;border-radius:8px;background:var(--warn-bg);color:var(--warn-tx);margin-top:3px;display:inline-block;cursor:pointer}
 .shop-qty{font-size:14px;font-weight:500;color:var(--mut);white-space:nowrap}
 .vendor-complete-btn{display:block;width:100%;padding:12px;background:var(--info-bg);color:var(--info-tx);border:none;border-radius:8px;font-size:14px;font-weight:500;margin:8px 16px;width:calc(100% - 32px);cursor:pointer}
 .vendor-complete-btn:disabled{opacity:0.4;cursor:default}
@@ -187,6 +187,8 @@ let LOCKED_PO = null;
 let CUTOFF_FORM_OPEN = false;
 let SHOPPING_LIST = null;
 let SHOP_TOAST_TIMER = null;
+
+function escHtml(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
 async function api(path, opts) {
   var res = await fetch(path, opts);
@@ -554,10 +556,10 @@ function renderShoppingTab() {
       var checkClass = item.checked ? ' on' : '';
       var thumb = item.photo_url
         ? '<div class="item-thumb"><img src="' + item.photo_url + '" alt="' + item.item_name + '" data-action="photo-zoom" data-photo-url="' + item.photo_url + '" data-photo-name="' + item.item_name + '"></div>'
-        : '<div class="item-thumb">' + (item.item_name || '?').charAt(0).toUpperCase() + '</div>';
+        : '<div class="item-thumb" data-action="shop-add-photo" data-item-id="' + item.id + '" data-item-name="' + escHtml(item.item_name) + '" style="cursor:pointer">' + (item.item_name || '?').charAt(0).toUpperCase() + '</div>';
       var loc = item.store_location ? item.store_location : '<span data-action="shop-edit-loc" data-item-id="' + item.id + '" style="color:var(--info-tx);cursor:pointer">Add location</span>';
       var warn = '';
-      if (item.checked && !item.photo_url) warn += '<span class="shop-warn">No photo</span> ';
+      if (item.checked && !item.photo_url) warn += '<span class="shop-warn" data-action="shop-add-photo" data-item-id="' + item.id + '" data-item-name="' + escHtml(item.item_name) + '">No photo</span> ';
       if (item.checked && !item.store_location) warn += '<span class="shop-warn">No location</span>';
 
       html += '<div class="shop-item' + checkedClass + '">';
@@ -678,6 +680,87 @@ async function handleCompleteVendor(sectionId) {
     }
   } catch (e) {
     alert('Failed to complete: ' + (e.message || 'error'));
+  }
+}
+
+// Shopping photo capture with confirmation
+var SHOP_PHOTO_ITEM_ID = null;
+var SHOP_PHOTO_ITEM_NAME = '';
+var shopPhotoInput = document.createElement('input');
+shopPhotoInput.type = 'file';
+shopPhotoInput.accept = 'image/*';
+shopPhotoInput.capture = 'environment';
+shopPhotoInput.style.display = 'none';
+document.body.appendChild(shopPhotoInput);
+
+function convertToJpeg(file, maxDim, quality, cb) {
+  var img = new Image();
+  img.onload = function() {
+    var w = img.width, h = img.height;
+    if (maxDim && (w > maxDim || h > maxDim)) {
+      var ratio = Math.min(maxDim / w, maxDim / h);
+      w = Math.round(w * ratio);
+      h = Math.round(h * ratio);
+    }
+    var c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    c.getContext('2d').drawImage(img, 0, 0, w, h);
+    c.toBlob(function(blob) {
+      URL.revokeObjectURL(img.src);
+      cb(blob, c.toDataURL('image/jpeg', quality));
+    }, 'image/jpeg', quality || 0.85);
+  };
+  img.src = URL.createObjectURL(file);
+}
+
+shopPhotoInput.addEventListener('change', function(e) {
+  var file = e.target.files[0];
+  if (!file || !SHOP_PHOTO_ITEM_ID) return;
+  var itemId = SHOP_PHOTO_ITEM_ID;
+  convertToJpeg(file, 1600, 0.85, function(jpegBlob) {
+    uploadShopPhotoDirect(jpegBlob, itemId);
+  });
+  shopPhotoInput.value = '';
+});
+
+function triggerShopPhoto(itemId, itemName) {
+  SHOP_PHOTO_ITEM_ID = itemId;
+  SHOP_PHOTO_ITEM_NAME = itemName;
+  shopPhotoInput.click();
+}
+
+async function uploadShopPhotoDirect(jpegBlob, itemId) {
+  // Show uploading toast
+  var toast = document.createElement('div');
+  toast.className = 'shop-toast';
+  toast.innerHTML = '<span>Uploading photo...</span>';
+  document.body.appendChild(toast);
+  try {
+    var form = new FormData();
+    form.append('path_prefix', 'shopping');
+    form.append('id', itemId);
+    form.append('filename', itemId + '.jpg');
+    form.append('file', jpegBlob, itemId + '.jpg');
+    var uploadResp = await api('/api/v1/photos/upload', { method: 'POST', body: form });
+    await api('/api/v1/purchasing/shopping/' + SHOPPING_LIST.id + '/items/' + itemId + '/photo', {
+      method: 'PUT',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ photo_url: uploadResp.public_url })
+    });
+    // Update local state
+    var sections = SHOPPING_LIST.vendor_sections || [];
+    for (var i = 0; i < sections.length; i++) {
+      var items = sections[i].items || [];
+      for (var j = 0; j < items.length; j++) {
+        if (items[j].id === itemId) { items[j].photo_url = uploadResp.public_url; break; }
+      }
+    }
+    toast.remove();
+    renderShoppingTab();
+  } catch (e) {
+    console.error('Shopping photo upload failed:', e);
+    toast.innerHTML = '<span>Photo upload failed</span><button data-action="dismiss-shop-toast">OK</button>';
+    setTimeout(function() { if (toast.parentNode) toast.remove(); }, 5000);
   }
 }
 
@@ -891,6 +974,7 @@ document.addEventListener('click', function(e) {
   if (action === 'po-qty-inc') updatePOQty(el.dataset.itemId, 1);
   if (action === 'po-qty-dec') updatePOQty(el.dataset.itemId, -1);
   if (action === 'approve-po') approvePO();
+  if (action === 'shop-add-photo') triggerShopPhoto(el.dataset.itemId, el.dataset.itemName);
   if (action === 'shop-check') handleShopCheck(el.dataset.itemId, el.dataset.checked, el.dataset.sectionId);
   if (action === 'shop-edit-loc') handleShopEditLoc(el.dataset.itemId);
   if (action === 'shop-complete-vendor') handleCompleteVendor(el.dataset.sectionId);

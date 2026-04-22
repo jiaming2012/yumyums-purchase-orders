@@ -2,9 +2,11 @@ package photos
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
@@ -91,5 +93,58 @@ func PresignGetHandler(presigner *s3.PresignClient, bucket string) http.HandlerF
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(presignGetResponse{URL: getURL}) //nolint:errcheck
+	}
+}
+
+// UploadHandler handles POST /api/v1/photos/upload.
+// Accepts multipart form with fields: path_prefix, id, filename, and file.
+// Uploads the file to DO Spaces server-side (no CORS issues from the browser).
+func UploadHandler(client *s3.Client, bucket, endpoint string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if client == nil {
+			http.Error(w, `{"error":"photo storage not configured"}`, http.StatusServiceUnavailable)
+			return
+		}
+
+		const maxSize = 10 << 20 // 10MB
+		r.Body = http.MaxBytesReader(w, r.Body, maxSize)
+		if err := r.ParseMultipartForm(maxSize); err != nil {
+			http.Error(w, `{"error":"file too large or invalid form"}`, http.StatusBadRequest)
+			return
+		}
+
+		pathPrefix := r.FormValue("path_prefix")
+		id := r.FormValue("id")
+		filename := r.FormValue("filename")
+		if pathPrefix == "" || id == "" || filename == "" {
+			http.Error(w, `{"error":"path_prefix, id, and filename are required"}`, http.StatusBadRequest)
+			return
+		}
+
+		file, _, err := r.FormFile("file")
+		if err != nil {
+			http.Error(w, `{"error":"file field is required"}`, http.StatusBadRequest)
+			return
+		}
+		defer file.Close()
+
+		key := pathPrefix + "/" + id + "/" + filename
+
+		_, err = client.PutObject(r.Context(), &s3.PutObjectInput{
+			Bucket:      aws.String(bucket),
+			Key:         aws.String(key),
+			Body:        file,
+			ContentType: aws.String("image/jpeg"),
+			ACL:         "public-read",
+		})
+		if err != nil {
+			log.Printf("UploadHandler PutObject %s: %v", key, err)
+			http.Error(w, `{"error":"upload failed"}`, http.StatusInternalServerError)
+			return
+		}
+
+		pubURL := PublicURL(endpoint, bucket, key)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{"public_url": pubURL}) //nolint:errcheck
 	}
 }

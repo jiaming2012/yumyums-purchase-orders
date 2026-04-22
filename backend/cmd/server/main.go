@@ -240,8 +240,9 @@ func main() {
 		log.Fatalf("Failed to seed inventory fixtures: %v", err)
 	}
 
-	// Initialize DO Spaces presigner (optional — graceful degradation if env vars missing)
+	// Initialize DO Spaces presigner + client (optional — graceful degradation if env vars missing)
 	var spacesPresigner *s3.PresignClient
+	var spacesClient *s3.Client
 	spacesEndpoint := os.Getenv("DO_SPACES_ENDPOINT")
 	spacesBucket := os.Getenv("DO_SPACES_BUCKET")
 	spacesRegion := os.Getenv("DO_SPACES_REGION")
@@ -256,6 +257,7 @@ func main() {
 			Region:    spacesRegion,
 			Bucket:    spacesBucket,
 		}
+		spacesClient = photos.NewSpacesClient(spacesCfg)
 		p, err := photos.NewSpacesPresigner(spacesCfg)
 		if err != nil {
 			log.Printf("WARNING: Failed to initialize DO Spaces presigner: %v — photo and video upload endpoints will return 503", err)
@@ -362,6 +364,7 @@ func main() {
 			r.Route("/photos", func(r chi.Router) {
 				r.Post("/presign", photos.PresignUploadHandler(spacesPresigner, spacesBucket, spacesEndpoint))
 				r.Get("/presign", photos.PresignGetHandler(spacesPresigner, spacesBucket))
+				r.Post("/upload", photos.UploadHandler(spacesClient, spacesBucket, spacesEndpoint))
 			})
 
 			// Video endpoints — presigned upload URL + FFmpeg processing trigger

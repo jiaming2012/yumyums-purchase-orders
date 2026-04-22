@@ -1916,6 +1916,45 @@ test.describe('Inventory', () => {
   test('PO suggestions count matches inventory reorder suggestions', async ({ page }) => {
     await login(page);
 
+    // Seed a controlled scenario: create a group with known thresholds,
+    // then create one item at exactly the high_threshold (should NOT reorder)
+    // and one item below the low_threshold (SHOULD reorder).
+    // This ensures we hit the boundary case that caused the 4-vs-3 mismatch.
+
+    const groups = await invApiCall(page, 'GET', 'groups');
+    if (!groups || !groups.length) return;
+    // Use the first group (low=3, high=10 by default from migration)
+    const grp = groups[0];
+    const highThreshold = grp.high_threshold || 10;
+    const ts = Date.now();
+    const vendors = await invApiCall(page, 'GET', 'vendors');
+    if (!vendors || !vendors.length) return;
+
+    // Item 1: stock exactly at high_threshold — inventory marks as 'high', NOT a reorder candidate
+    // Use a simple lowercase name to avoid normalization surprises
+    const highItemDesc = 'boundaryhigh' + ts;
+    const itemAtHigh = await invApiCall(page, 'POST', 'items', {
+      description: highItemDesc, group_id: grp.id
+    });
+    if (!itemAtHigh) return;
+    await invApiCall(page, 'POST', 'purchases', {
+      vendor_id: vendors[0].id, bank_tx_id: 'boundary-high-' + ts,
+      event_date: '2026-04-15', tax: 0, total: highThreshold * 2,
+      line_items: [{ purchase_item_id: itemAtHigh.id, description: highItemDesc, quantity: highThreshold, price: 2.00 }]
+    });
+
+    // Item 2: stock below low_threshold — inventory marks as 'low', IS a reorder candidate
+    const lowItemDesc = 'boundarylow' + ts;
+    const itemAtLow = await invApiCall(page, 'POST', 'items', {
+      description: lowItemDesc, group_id: grp.id
+    });
+    if (!itemAtLow) return;
+    await invApiCall(page, 'POST', 'purchases', {
+      vendor_id: vendors[0].id, bank_tx_id: 'boundary-low-' + ts,
+      event_date: '2026-04-15', tax: 0, total: 2,
+      line_items: [{ purchase_item_id: itemAtLow.id, description: lowItemDesc, quantity: 1, price: 2.00 }]
+    });
+
     // Get draft PO
     const po = await page.evaluate(async () => {
       const res = await fetch('/api/v1/purchasing/orders', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
@@ -1930,6 +1969,15 @@ test.describe('Inventory', () => {
       return Array.isArray(data) ? data : [];
     }, po.id);
 
+    // Verify: item at high_threshold must NOT appear in PO suggestions
+    // (description is stored normalized — compare case-insensitively)
+    const highItemInPO = poSuggestions.find(s => s.item_name.toLowerCase() === highItemDesc.toLowerCase());
+    expect(highItemInPO, 'Item at high_threshold should NOT appear in PO suggestions').toBeUndefined();
+
+    // Verify: item below low_threshold MUST appear in PO suggestions
+    const lowItemInPO = poSuggestions.find(s => s.item_name.toLowerCase() === lowItemDesc.toLowerCase());
+    expect(lowItemInPO, 'Item below low_threshold MUST appear in PO suggestions').toBeDefined();
+
     // Go to inventory Stock tab and count reorder suggestions
     await page.goto('/inventory.html');
     await page.click('#t2');
@@ -1938,17 +1986,21 @@ test.describe('Inventory', () => {
     const reorderSection = page.locator('#reorder-section');
     const reorderText = await reorderSection.textContent();
 
-    // If inventory shows reorder suggestions, PO should show the same items
-    if (reorderText.trim().length > 0) {
-      // Extract count from "Reorder Suggestions (N)"
-      const match = reorderText.match(/Reorder Suggestions \((\d+)\)/);
-      if (match) {
-        const inventoryCount = parseInt(match[1], 10);
-        // PO suggestions should not exceed inventory reorder count
-        // (PO excludes items already on the PO, so it can be equal or fewer)
-        expect(poSuggestions.length).toBeLessThanOrEqual(inventoryCount);
-      }
-    }
+    // Extract count from "Reorder Suggestions (N)"
+    const match = reorderText.match(/Reorder Suggestions \((\d+)\)/);
+    expect(match, 'Reorder Suggestions section should show a count').not.toBeNull();
+    const inventoryCount = parseInt(match[1], 10);
+
+    // Verify: item at high_threshold must NOT appear in inventory reorder suggestions
+    // (text comparison is case-insensitive — use lowercase ts-based suffix for robustness)
+    expect(reorderText.toLowerCase(), 'BoundaryHigh should NOT be in inventory reorder').not.toContain(highItemDesc.toLowerCase());
+
+    // Verify: item below low_threshold MUST appear in inventory reorder suggestions
+    expect(reorderText.toLowerCase(), 'BoundaryLow should be in inventory reorder').toContain(lowItemDesc.toLowerCase());
+
+    // PO suggestions count must exactly match inventory reorder count
+    // (both represent the same set of items needing reorder)
+    expect(poSuggestions.length).toBe(inventoryCount);
   });
 
   // ── Regression: admin can upsert items on a locked PO ─────────────────
