@@ -3,3 +3,6 @@ test-results/
 playwright-report/
 .planning/
 .claude/worktrees
+
+# Notion export source files (one-time import)
+notion-export/

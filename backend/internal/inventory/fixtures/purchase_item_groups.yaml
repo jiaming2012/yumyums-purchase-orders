@@ -41,3 +41,11 @@ item_groups:
   - name: "Cleaning Supplies"
     par_days: 30
     tags: ["Supplies", "Cleaning"]
+
+  - name: "Seasoning"
+    par_days: 14
+    tags: ["Seasoning", "Spices"]
+
+  - name: "Sauces"
+    par_days: 14
+    tags: ["Sauces", "Condiments"]
