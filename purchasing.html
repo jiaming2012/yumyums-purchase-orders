@@ -245,12 +245,12 @@ async function init() {
   } catch(e) { console.error('Init error', e); }
 
   try {
-    var orderData = await api('/api/v1/purchasing/orders').catch(function() { return null; });
+    var orderData = await api('/api/v1/purchasing/orders', { method: 'POST', headers: {'Content-Type':'application/json'} }).catch(function() { return null; });
     PO_STATE = orderData;
     if (PO_STATE) {
       var [sugg, items] = await Promise.all([
-        api('/api/v1/purchasing/suggestions').catch(function() { return []; }),
-        api('/api/v1/purchasing/items').catch(function() { return []; })
+        api('/api/v1/purchasing/orders/' + PO_STATE.id + '/suggestions').catch(function() { return []; }),
+        api('/api/v1/inventory/items').catch(function() { return []; })
       ]);
       SUGGESTIONS = sugg || [];
       ALL_ITEMS = items || [];
