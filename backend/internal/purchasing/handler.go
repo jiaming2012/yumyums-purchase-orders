@@ -79,7 +79,12 @@ func UpsertLineItemsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		if err := UpsertLineItems(r.Context(), pool, id, user.ID, req.Items, isAdmin(user)); err != nil {
+		// require_draft=true: Order tab sends this to prevent editing locked POs
+		// even for admin (admin edits locked POs via PO tab without this param)
+		requireDraft := r.URL.Query().Get("require_draft") == "true"
+		allowLocked := isAdmin(user) && !requireDraft
+
+		if err := UpsertLineItems(r.Context(), pool, id, user.ID, req.Items, allowLocked); err != nil {
 			if errors.Is(err, ErrPOLockedAdminOnly) {
 				writeError(w, http.StatusForbidden, "po_locked_admin_only")
 				return

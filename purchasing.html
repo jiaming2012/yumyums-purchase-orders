@@ -715,7 +715,8 @@ async function savePOItems(target) {
     .filter(function(it) { return it.quantity > 0; })
     .map(function(it) { return { purchase_item_id: it.purchase_item_id, quantity: it.quantity, unit: it.unit || '' }; });
   try {
-    var updated = await api('/api/v1/purchasing/orders/' + po.id + '/items', {
+    var draftParam = (target !== 'po') ? '?require_draft=true' : '';
+    var updated = await api('/api/v1/purchasing/orders/' + po.id + '/items' + draftParam, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ items: items })

@@ -2118,6 +2118,52 @@ test.describe('Inventory', () => {
     expect(editedItem.quantity).toBe(3);
   });
 
+  // ── Regression: Order tab upsert with require_draft rejects locked PO ──
+
+  test('upsert with require_draft=true rejects locked PO even for admin', async ({ page }) => {
+    await login(page);
+
+    // Ensure a locked PO exists
+    const lockedPO = await page.evaluate(async () => {
+      const res = await fetch('/api/v1/purchasing/orders?status=locked');
+      const data = await res.json();
+      return data && data.id ? data : null;
+    });
+    if (!lockedPO) return;
+
+    const items = await page.evaluate(async () => {
+      const res = await fetch('/api/v1/inventory/items');
+      return res.json();
+    });
+    if (!items || !items.length) return;
+
+    // Upsert WITH require_draft=true — should reject even for admin
+    const draftOnlyRes = await page.evaluate(async ([poId, itemId]) => {
+      const res = await fetch('/api/v1/purchasing/orders/' + poId + '/items?require_draft=true', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: [{ purchase_item_id: itemId, quantity: 1, unit: '' }] })
+      });
+      return { ok: res.ok, status: res.status };
+    }, [lockedPO.id, items[0].id]);
+
+    expect(draftOnlyRes.ok).toBeFalsy();
+    // 403 because require_draft=true makes even admin unable to edit locked PO
+    expect(draftOnlyRes.status).toBe(403);
+
+    // Upsert WITHOUT require_draft — should still work for admin on locked PO
+    const adminRes = await page.evaluate(async ([poId, itemId]) => {
+      const res = await fetch('/api/v1/purchasing/orders/' + poId + '/items', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: [{ purchase_item_id: itemId, quantity: 1, unit: '' }] })
+      });
+      return { ok: res.ok, status: res.status };
+    }, [lockedPO.id, items[0].id]);
+
+    expect(adminRes.ok).toBeTruthy();
+  });
+
   // ── Acceptance: cutoff pill is admin-only interactive, read-only for crew ──
 
   test('cutoff pill is admin-interactive and would be hidden for non-admin without config', async ({ page }) => {

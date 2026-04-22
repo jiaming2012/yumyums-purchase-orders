@@ -195,9 +195,10 @@ var ErrPOLockedAdminOnly = errors.New("po_locked_admin_only")
 
 // UpsertLineItems replaces the line items on a PO inside a transaction.
 // Draft POs: any authenticated user can edit.
-// Locked POs: only admin can edit (D-08). Returns ErrPOLockedAdminOnly for non-admin.
+// Locked POs: only allowed when allowLocked=true (admin via PO tab).
+// Order tab passes allowLocked=false via require_draft=true query param.
 // Other statuses: returns ErrPONotDraft.
-func UpsertLineItems(ctx context.Context, pool *pgxpool.Pool, poID string, userID string, items []UpsertLineItemInput, userIsAdmin bool) error {
+func UpsertLineItems(ctx context.Context, pool *pgxpool.Pool, poID string, userID string, items []UpsertLineItemInput, allowLocked bool) error {
 	tx, err := pool.Begin(ctx)
 	if err != nil {
 		return err
@@ -216,7 +217,7 @@ func UpsertLineItems(ctx context.Context, pool *pgxpool.Pool, poID string, userI
 		}
 		return err
 	}
-	if status == "locked" && !userIsAdmin {
+	if status == "locked" && !allowLocked {
 		return ErrPOLockedAdminOnly
 	}
 	if status != "draft" && status != "locked" {
