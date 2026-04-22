@@ -299,3 +299,251 @@ func CompleteVendorSectionHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		})
 	}
 }
+
+// GetCutoffConfigHandler returns the current cutoff config or an empty object.
+// GET /api/v1/purchasing/cutoff
+func GetCutoffConfigHandler(pool *pgxpool.Pool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		user := auth.UserFromContext(r.Context())
+		if user == nil {
+			writeError(w, http.StatusUnauthorized, "unauthorized")
+			return
+		}
+
+		cfg, err := GetCutoffConfig(r.Context(), pool)
+		if err != nil {
+			log.Printf("GetCutoffConfig: %v", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		if cfg == nil {
+			writeJSON(w, http.StatusOK, map[string]any{})
+			return
+		}
+		writeJSON(w, http.StatusOK, cfg)
+	}
+}
+
+// UpsertCutoffConfigHandler saves the cutoff config (admin-only, per D-01).
+// PUT /api/v1/purchasing/cutoff
+func UpsertCutoffConfigHandler(pool *pgxpool.Pool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		user := auth.UserFromContext(r.Context())
+		if user == nil {
+			writeError(w, http.StatusUnauthorized, "unauthorized")
+			return
+		}
+		if !isAdmin(user) {
+			writeError(w, http.StatusForbidden, "forbidden")
+			return
+		}
+
+		var req struct {
+			DayOfWeek  int    `json:"day_of_week"`
+			CutoffTime string `json:"cutoff_time"`
+			Timezone   string `json:"timezone"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_body")
+			return
+		}
+		if req.CutoffTime == "" || req.Timezone == "" {
+			writeError(w, http.StatusBadRequest, "cutoff_time and timezone required")
+			return
+		}
+
+		cfg, err := UpsertCutoffConfig(r.Context(), pool, req.DayOfWeek, req.CutoffTime, req.Timezone)
+		if err != nil {
+			log.Printf("UpsertCutoffConfig: %v", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		writeJSON(w, http.StatusOK, cfg)
+	}
+}
+
+// SimulateCutoffHandler immediately locks the current draft PO (admin-only, per D-04/D-05/D-06).
+// POST /api/v1/purchasing/simulate-cutoff
+func SimulateCutoffHandler(pool *pgxpool.Pool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		user := auth.UserFromContext(r.Context())
+		if user == nil {
+			writeError(w, http.StatusUnauthorized, "unauthorized")
+			return
+		}
+		if !isAdmin(user) {
+			writeError(w, http.StatusForbidden, "forbidden")
+			return
+		}
+
+		// Find current draft PO
+		po, err := GetOrCreateOrder(r.Context(), pool)
+		if err != nil {
+			log.Printf("SimulateCutoff: GetOrCreateOrder: %v", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+
+		if po.Status != "draft" {
+			writeError(w, http.StatusConflict, "po_not_draft")
+			return
+		}
+
+		if err := LockPO(r.Context(), pool, po.ID); err != nil {
+			if errors.Is(err, ErrPONotDraft) {
+				writeError(w, http.StatusConflict, "po_not_draft")
+				return
+			}
+			log.Printf("SimulateCutoff: LockPO: %v", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+
+		// Return the now-locked PO
+		locked, err := GetOrderByID(r.Context(), pool, po.ID)
+		if err != nil {
+			log.Printf("SimulateCutoff: GetOrderByID: %v", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		writeJSON(w, http.StatusOK, locked)
+	}
+}
+
+// GetOrdersByStatusHandler returns the most recent PO with the given status.
+// GET /api/v1/purchasing/orders?status=locked
+func GetOrdersByStatusHandler(pool *pgxpool.Pool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		user := auth.UserFromContext(r.Context())
+		if user == nil {
+			writeError(w, http.StatusUnauthorized, "unauthorized")
+			return
+		}
+
+		status := r.URL.Query().Get("status")
+		if status == "" {
+			writeError(w, http.StatusBadRequest, "status query param required")
+			return
+		}
+
+		po, err := GetOrdersByStatus(r.Context(), pool, status)
+		if err != nil {
+			log.Printf("GetOrdersByStatus: %v", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		if po == nil {
+			writeError(w, http.StatusNotFound, "not_found")
+			return
+		}
+		writeJSON(w, http.StatusOK, po)
+	}
+}
+
+// LockPOHandler locks a draft PO (admin-only).
+// POST /api/v1/purchasing/orders/{id}/lock
+func LockPOHandler(pool *pgxpool.Pool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		user := auth.UserFromContext(r.Context())
+		if user == nil {
+			writeError(w, http.StatusUnauthorized, "unauthorized")
+			return
+		}
+		if !isAdmin(user) {
+			writeError(w, http.StatusForbidden, "forbidden")
+			return
+		}
+
+		id := chi.URLParam(r, "id")
+		if err := LockPO(r.Context(), pool, id); err != nil {
+			if errors.Is(err, ErrPONotDraft) {
+				writeError(w, http.StatusConflict, "po_not_draft")
+				return
+			}
+			log.Printf("LockPO: %v", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+
+		po, err := GetOrderByID(r.Context(), pool, id)
+		if err != nil {
+			log.Printf("LockPOHandler: GetOrderByID: %v", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		writeJSON(w, http.StatusOK, po)
+	}
+}
+
+// UnlockPOHandler unlocks a locked PO (admin-only, blocked after approval per D-13).
+// POST /api/v1/purchasing/orders/{id}/unlock
+func UnlockPOHandler(pool *pgxpool.Pool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		user := auth.UserFromContext(r.Context())
+		if user == nil {
+			writeError(w, http.StatusUnauthorized, "unauthorized")
+			return
+		}
+		if !isAdmin(user) {
+			writeError(w, http.StatusForbidden, "forbidden")
+			return
+		}
+
+		id := chi.URLParam(r, "id")
+		if err := UnlockPO(r.Context(), pool, id); err != nil {
+			if errors.Is(err, ErrPONotLocked) {
+				writeError(w, http.StatusConflict, "po_not_locked")
+				return
+			}
+			if errors.Is(err, ErrUnlockAfterApproval) {
+				writeError(w, http.StatusConflict, "cannot_unlock_after_approval")
+				return
+			}
+			log.Printf("UnlockPO: %v", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+
+		po, err := GetOrderByID(r.Context(), pool, id)
+		if err != nil {
+			log.Printf("UnlockPOHandler: GetOrderByID: %v", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		writeJSON(w, http.StatusOK, po)
+	}
+}
+
+// ApprovePOHandler approves a locked PO and creates a shopping list snapshot (admin-only, per D-10).
+// POST /api/v1/purchasing/orders/{id}/approve
+func ApprovePOHandler(pool *pgxpool.Pool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		user := auth.UserFromContext(r.Context())
+		if user == nil {
+			writeError(w, http.StatusUnauthorized, "unauthorized")
+			return
+		}
+		if !isAdmin(user) {
+			writeError(w, http.StatusForbidden, "forbidden")
+			return
+		}
+
+		id := chi.URLParam(r, "id")
+		listID, err := ApprovePO(r.Context(), pool, id, user.ID)
+		if err != nil {
+			if errors.Is(err, ErrPONotLocked) {
+				writeError(w, http.StatusConflict, "po_not_locked")
+				return
+			}
+			if errors.Is(err, ErrActiveShoppingListExists) {
+				writeError(w, http.StatusConflict, "active_shopping_list_exists")
+				return
+			}
+			log.Printf("ApprovePO: %v", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+
+		writeJSON(w, http.StatusOK, map[string]string{"shopping_list_id": listID})
+	}
+}

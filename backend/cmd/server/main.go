@@ -397,10 +397,24 @@ func main() {
 
 			// Purchasing endpoints — all authenticated
 			r.Route("/purchasing", func(r chi.Router) {
+				// Cutoff config (admin-only for PUT)
+				r.Get("/cutoff", purchasing.GetCutoffConfigHandler(pool))
+				r.Put("/cutoff", purchasing.UpsertCutoffConfigHandler(pool))
+
+				// Simulate cutoff (admin-only)
+				r.Post("/simulate-cutoff", purchasing.SimulateCutoffHandler(pool))
+
+				// GET /orders?status=locked — must be before POST /orders and before /{id} wildcard
+				r.Get("/orders", purchasing.GetOrdersByStatusHandler(pool))
 				r.Post("/orders", purchasing.GetOrCreateOrderHandler(pool))
 				r.Get("/orders/{id}", purchasing.GetOrderHandler(pool))
 				r.Put("/orders/{id}/items", purchasing.UpsertLineItemsHandler(pool))
 				r.Get("/orders/{id}/suggestions", purchasing.GetSuggestionsHandler(pool))
+
+				// PO state machine (admin-only)
+				r.Post("/orders/{id}/lock", purchasing.LockPOHandler(pool))
+				r.Post("/orders/{id}/unlock", purchasing.UnlockPOHandler(pool))
+				r.Post("/orders/{id}/approve", purchasing.ApprovePOHandler(pool))
 
 				// Shopping list routes — static paths before wildcard {id}
 				r.Get("/shopping/active", purchasing.GetActiveShoppingListHandler(pool))
@@ -465,6 +479,9 @@ func main() {
 		}
 		receipt.StartWorker(ctx, receiptCfg)
 	}
+
+	// Start cutoff scheduler — polls every 15m to auto-lock POs at configured cutoff time
+	purchasing.StartScheduler(ctx, pool)
 
 	log.Printf("Yumyums HQ server listening on :%s", port)
 	if addrs, err := net.InterfaceAddrs(); err == nil {
