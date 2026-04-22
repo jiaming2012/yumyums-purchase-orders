@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v2.1
-milestone_name: Onboarding Video Upgrade
-status: executing
-stopped_at: "Checkpoint: Task 3 human-verify pending for 01-03-PLAN.md"
-last_updated: "2026-04-20T04:34:13.737Z"
-last_activity: 2026-04-21
+milestone: v1.0
+milestone_name: milestone
+status: verifying
+stopped_at: "Checkpoint: Task 4 human-verify pending for 16-05-PLAN.md"
+last_updated: "2026-04-22T20:12:40.875Z"
+last_activity: 2026-04-22
 progress:
-  total_phases: 2
-  completed_phases: 2
-  total_plans: 6
-  completed_plans: 6
+  total_phases: 16
+  completed_phases: 6
+  total_plans: 22
+  completed_plans: 45
   percent: 0
 ---
 
@@ -27,8 +27,8 @@ See: .planning/PROJECT.md (updated 2026-04-15)
 
 Phase: 01 (onboarding-video-upgrade) — EXECUTING
 Plan: 3 of 3
-Status: Ready to execute
-Last activity: 2026-04-21 - Completed quick task 260421-iug: Move Stock tab before Trends in inventory.html
+Status: Phase complete — ready for verification
+Last activity: 2026-04-22
 
 Progress: [░░░░░░░░░░] 0% (v2.0 milestone)
 
@@ -86,6 +86,7 @@ Progress: [░░░░░░░░░░] 0% (v2.0 milestone)
 | Phase 01-onboarding-video-upgrade P02 | 2 | 1 tasks | 3 files |
 | Phase 01-onboarding-video-upgrade P01 | 15 | 2 tasks | 5 files |
 | Phase 01-onboarding-video-upgrade P03 | 30 | 2 tasks | 3 files |
+| Phase 16-cutoff-approval-and-shopping-list P05 | 5 | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -172,6 +173,8 @@ Recent decisions affecting current work:
 - [Phase 01-01]: VideoProcessHandler fires goroutine and returns 202 Accepted immediately — FFmpeg can take minutes for large videos
 - [Phase 01-onboarding-video-upgrade]: cloneNode(true) resets video element listeners on each initVideoPlayer call
 - [Phase 01-onboarding-video-upgrade]: renderTrainingDetail() dispatches to active runner (my or mgr) based on obState/mgrState view
+- [Phase 16-05]: purchasing.html fully rewritten: 16-04 was planned but never executed; Plan 05 incorporates all 16-04 work (Order tab wired, PO tab, cutoff config) plus 16-05 shopping/history tabs in one pass
+- [Phase 16-05]: Optimistic shop-check: toggle state immediately, render, then await API — roll back item.checked on error
 
 ### Pending Todos
 
@@ -196,6 +199,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-21T17:42:22Z
-Stopped at: Completed quick task 260421-iug-PLAN.md
+Last session: 2026-04-22T20:12:40.869Z
+Stopped at: Checkpoint: Task 4 human-verify pending for 16-05-PLAN.md
 Resume file: None
