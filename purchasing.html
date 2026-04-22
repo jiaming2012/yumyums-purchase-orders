@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="Yumyums">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<title>Yumyums Purchasing</title>
+<title>Yumyums Purchase Orders</title>
 <style>
 :root{--bg:#f5f5f3;--card:#fff;--txt:#1a1a1a;--mut:#6b6b6b;--brd:rgba(0,0,0,0.08);--info-bg:#e6f1fb;--info-tx:#0c447c;--warn-bg:#faeeda;--warn-tx:#854f0b}
 @media(prefers-color-scheme:dark){:root{--bg:#1a1a1a;--card:#262626;--txt:#f0f0f0;--mut:#999;--brd:rgba(255,255,255,0.1);--info-bg:#0c447c;--info-tx:#b5d4f4;--warn-bg:#633806;--warn-tx:#fac775}}
@@ -44,45 +44,663 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .po-h{display:flex;justify-content:space-between;font-size:14px;font-weight:500;margin-bottom:8px}
 .po-l{display:flex;justify-content:space-between;font-size:12px;color:var(--mut);line-height:2}
 .tot{display:flex;justify-content:space-between;padding:14px 16px;font-size:14px;font-weight:500}
+.item-card{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:0.5px solid var(--brd)}
+.item-card.dim{opacity:0.5}
+.item-thumb{width:48px;height:48px;border-radius:8px;object-fit:cover;background:var(--brd);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:600;color:var(--mut)}
+.item-thumb img{width:100%;height:100%;border-radius:8px;object-fit:cover;cursor:pointer}
+.photo-lightbox{position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.9);z-index:1000;display:flex;align-items:center;justify-content:center;flex-direction:column}
+.photo-lightbox img{max-width:95vw;max-height:85vh;object-fit:contain;border-radius:8px}
+.photo-lightbox .lb-close{position:fixed;top:16px;right:16px;background:none;border:none;color:#fff;font-size:28px;cursor:pointer;padding:8px;z-index:1001}
+.item-info{flex:1;min-width:0}
+.item-info .nm{font-size:14px;font-weight:600;line-height:1.2}
+.item-info .mt{font-size:12px;color:var(--mut);margin-top:2px}
+.item-info .attr{font-size:11px;color:var(--mut);margin-top:2px}
+.suggest-banner{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--warn-bg);color:var(--warn-tx);border-radius:12px;margin-bottom:8px;font-size:14px;font-weight:500}
+.suggest-banner button{background:none;border:none;font-size:20px;color:var(--warn-tx);padding:4px 8px;cursor:pointer}
+.suggest-list{background:var(--card);border-radius:12px;margin-bottom:8px;overflow:hidden}
+.suggest-list .sl-hd{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:0.5px solid var(--brd);font-size:14px;font-weight:500}
+.suggest-list .sl-hd button{background:none;border:none;color:var(--mut);font-size:13px;cursor:pointer}
+.suggest-row{display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:0.5px solid var(--brd);font-size:14px}
+.suggest-row input[type=checkbox]{width:20px;height:20px;margin:0;accent-color:var(--info-tx)}
+.suggest-row .sq{font-size:12px;color:var(--mut);white-space:nowrap}
+.sl-low{font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px;background:#c0392b;color:#fff;white-space:nowrap}
+.sl-med{font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px;background:var(--warn-bg);color:var(--warn-tx);white-space:nowrap}
+.suggest-ft{padding:12px 16px}
+.suggest-ft button{width:100%;padding:12px;background:var(--info-bg);color:var(--info-tx);border:none;border-radius:8px;font-size:14px;font-weight:500}
+.order-hd{padding:14px 16px;border-bottom:0.5px solid var(--brd)}
+.order-hd h1{font-size:15px;font-weight:500;margin:0}
+.order-hd .sub{font-size:12px;color:var(--mut);margin-top:4px;display:flex;justify-content:space-between;align-items:center}
+.add-btn{display:block;width:100%;padding:14px;background:var(--info-bg);color:var(--info-tx);border:none;border-radius:12px;font-size:14px;font-weight:500;margin-top:8px;cursor:pointer;text-align:center}
+.item-modal{position:fixed;inset:0;z-index:9999;background:var(--bg);display:none;flex-direction:column}
+.item-modal.open{display:flex}
+.item-modal .modal-hd{display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:0.5px solid var(--brd)}
+.item-modal .modal-hd input{flex:1;padding:10px 12px;border:1px solid var(--brd);border-radius:8px;font-size:14px;background:var(--card);color:var(--txt)}
+.item-modal .modal-hd button{background:none;border:none;color:var(--info-tx);font-size:14px;font-weight:500;cursor:pointer;white-space:nowrap}
+.item-modal .modal-list{flex:1;overflow-y:auto;padding:0}
+.picker-row{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:0.5px solid var(--brd)}
+.picker-row .pr-name{font-size:14px}
+.picker-row .pr-badge{font-size:11px;padding:3px 8px;border-radius:10px;background:var(--info-bg);color:var(--info-tx)}
+.picker-row .pr-add{padding:6px 14px;background:var(--info-bg);color:var(--info-tx);border:none;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer}
+.dup-popup{position:fixed;bottom:0;left:0;right:0;z-index:10000;background:var(--card);border-radius:16px 16px 0 0;padding:20px 16px env(safe-area-inset-bottom);box-shadow:0 -4px 20px rgba(0,0,0,0.15)}
+.dup-popup .dp-title{font-size:15px;font-weight:600;margin-bottom:4px}
+.dup-popup .dp-meta{font-size:13px;color:var(--mut);margin-bottom:16px}
+.dup-popup .dp-actions{display:flex;gap:12px}
+.dup-popup .dp-actions button{flex:1;padding:12px;border:none;border-radius:8px;font-size:14px;font-weight:500;cursor:pointer}
+.dup-popup .dp-go{background:var(--info-bg);color:var(--info-tx)}
+.dup-popup .dp-dismiss{background:var(--brd);color:var(--txt)}
+.dup-backdrop{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.3);display:none}
+.empty-state{text-align:center;padding:48px 24px;color:var(--mut)}
+.empty-state .es-icon{font-size:32px;margin-bottom:12px}
+.empty-state .es-title{font-size:15px;font-weight:600;color:var(--txt);margin-bottom:4px}
+.stub{padding:32px 24px;text-align:center;color:var(--mut);font-size:14px}
+.loading{text-align:center;padding:32px;color:var(--mut);font-size:14px}
+.error-card{padding:16px;background:var(--card);border-radius:12px;text-align:center;color:#c0392b;font-size:14px;margin-bottom:8px}
+.pill-btn{cursor:pointer;user-select:none}
+.cutoff-form{padding:14px 16px;margin-bottom:8px}
+.cutoff-form label{display:block;font-size:12px;color:var(--mut);margin-bottom:4px;margin-top:10px}
+.cutoff-form label:first-child{margin-top:0}
+.cutoff-form select{width:100%;padding:10px 12px;border:1px solid var(--brd);border-radius:8px;font-size:14px;background:var(--card);color:var(--txt);appearance:none;-webkit-appearance:none}
+.cutoff-btns{display:flex;gap:8px;margin-top:14px}
+.cutoff-btns button{flex:1;padding:10px;border:none;border-radius:8px;font-size:14px;font-weight:500;cursor:pointer}
+.cutoff-btns .btn-save{background:var(--info-bg);color:var(--info-tx)}
+.cutoff-btns .btn-cancel{background:var(--brd);color:var(--txt)}
+.vendor-section{margin-bottom:8px}
+.vendor-hd{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:0.5px solid var(--brd);font-size:14px;font-weight:500}
+.vendor-hd .vh-right{display:flex;align-items:center;gap:8px}
+.status-badge{font-size:11px;padding:3px 8px;border-radius:10px}
+.status-badge.locked{background:var(--brd);color:var(--mut)}
+.status-badge.approved{background:#e8f5e9;color:#2e7d32}
+.status-badge.shopping{background:var(--info-bg);color:var(--info-tx)}
+.edit-toggle{font-size:12px;padding:4px 10px;border:1px solid var(--brd);border-radius:8px;background:transparent;color:var(--txt);cursor:pointer}
+.edit-toggle.active{background:var(--info-bg);color:var(--info-tx);border-color:transparent}
+.btn-approve{display:block;width:100%;padding:14px;background:#2e7d32;color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:600;margin-top:8px;cursor:pointer;text-align:center}
+.btn-approve:active{opacity:0.85}
+.po-stub{padding:32px 24px;text-align:center;color:var(--mut);font-size:14px;background:var(--card);border-radius:12px;margin-bottom:8px}
+.stp button:disabled{opacity:0.3;cursor:default}
 </style>
 </head>
 <body>
 <div class="app">
-<a class="back" href="index.html">HQ &nbsp;&#183;&nbsp; Purchasing</a>
-<div class="tabs"><button id="t1" class="on" onclick="show(1)">Form</button><button id="t2" onclick="show(2)">Locked</button><button id="t3" onclick="show(3)">PO</button></div>
-
-<div id="s1" class="card">
-<div class="hd"><h1>Week of Apr 13</h1><div class="sub"><span>Jamal · 7 items added</span><span class="pill">Cutoff Sun 6pm</span></div></div>
-<div class="list" id="lst"></div>
-<div class="ft"><button>Submit additions</button></div>
+<a class="back" href="index.html">HQ &nbsp;&#183;&nbsp; Purchase Orders</a>
+<div class="tabs">
+  <button id="t1" class="on" data-action="tab" data-tab="1">Order</button>
+  <button id="t2" data-action="tab" data-tab="2">Shopping</button>
+  <button id="t3" data-action="tab" data-tab="3">PO</button>
+  <button id="t4" data-action="tab" data-tab="4">History</button>
 </div>
 
-<div id="s2" class="card" style="display:none">
-<div class="hd"><h1>Week of Apr 13</h1><div class="sub"><span>3 contributors · 14 items</span><span class="pill lk">LOCKED</span></div></div>
-<div class="lk-row"><span>Salmon fillet</span><span>5 lb · JM MK</span></div>
-<div class="lk-row"><span>Shrimp 16/20</span><span>8 lb · JM</span></div>
-<div class="lk-row"><span>Lemons</span><span>3 case · MK TR</span></div>
-<div class="lk-row"><span>Boats 6oz</span><span>6 case · JM TR</span></div>
+<div id="s1"><!-- Order tab: rendered by JS --></div>
+<div id="s2" style="display:none"><div class="card"><div class="stub">Shopping list will appear here after the PO is approved</div></div></div>
+<div id="s3" style="display:none"><!-- PO tab: rendered by JS --></div>
+<div id="s4" style="display:none"><div class="card"><div class="stub">Past shopping runs will appear here</div></div></div>
 </div>
 
-<div id="s3" style="display:none">
-<div class="card po"><div class="po-h"><span>Restaurant Depot</span><span>$412.80</span></div>
-<div class="po-l"><span>Salmon fillet · 5 lb</span><span>$74.50</span></div>
-<div class="po-l"><span>Shrimp 16/20 · 8 lb</span><span>$96.00</span></div>
-<div class="po-l"><span>Lemons · 3 case</span><span>$87.30</span></div>
-<div class="po-l"><span>Boats 6oz · 6 case</span><span>$155.00</span></div></div>
-<div class="card po"><div class="po-h"><span>Sysco</span><span>$186.20</span></div></div>
-<div class="card tot"><span>Total</span><span>$599.00</span></div>
+<!-- Item picker modal -->
+<div class="item-modal" id="item-modal">
+  <div class="modal-hd">
+    <input type="text" id="picker-search" placeholder="Search items..." autocomplete="off">
+    <button data-action="close-picker">Back to order</button>
+  </div>
+  <div class="modal-list" id="picker-list"></div>
 </div>
+
+<!-- Duplicate popup -->
+<div class="dup-backdrop" id="dup-backdrop" data-action="dismiss-dup"></div>
+<div class="dup-popup" id="dup-popup" style="display:none">
+  <div class="dp-title" id="dp-title"></div>
+  <div class="dp-meta" id="dp-meta"></div>
+  <div class="dp-actions">
+    <button class="dp-go" data-action="goto-item">Go to item</button>
+    <button class="dp-dismiss" data-action="dismiss-dup">Dismiss</button>
+  </div>
 </div>
 
 <script>
-const CATS=[['Proteins',[['Salmon fillet','lb','par 6',3],['Lump crab','lb','par 8',0],['Shrimp 16/20','lb','par 10',2]]],['Produce',[['Lemons','case','par 2',1],['Romaine','case','par 1',0]]],['Packaging',[['Boats 6oz','case','par 5',4],['Napkins','case','par 3',0]]]];
-const lst=document.getElementById('lst');
-CATS.forEach(([cat,items])=>{const h=document.createElement('div');h.className='cat';h.textContent=cat;lst.appendChild(h);items.forEach(([n,u,p,q])=>{const r=document.createElement('div');r.className='row';r.innerHTML=`<div><div class="nm">${n}</div><div class="mt">${u} · ${p}</div></div><div class="stp"><button>−</button><span>${q}</span><button>+</button></div>`;const[m,s,pl]=r.querySelectorAll('.stp button,.stp span,.stp button');const sp=r.querySelector('.stp span');const btns=r.querySelectorAll('.stp button');btns[0].onclick=()=>{let v=+sp.textContent;if(v>0)sp.textContent=v-1};btns[1].onclick=()=>{sp.textContent=+sp.textContent+1};lst.appendChild(r)})});
-function show(n){[1,2,3].forEach(i=>{document.getElementById('s'+i).style.display=i==n?'block':'none';document.getElementById('t'+i).className=i==n?'on':''})}
-document.addEventListener('dblclick',e=>e.preventDefault());
-if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');
+let PO_STATE = null;
+let SUGGESTIONS = [];
+let ALL_ITEMS = [];
+let SUGGESTION_OPEN = false;
+let DEBOUNCE_TIMER = null;
+let DUP_ITEM_ID = null;
+const DEBOUNCE_MS = 600;
+const SEARCH_DEBOUNCE_MS = 300;
+let CUTOFF_CONFIG = null;
+let USER_ROLE = null;
+let PO_EDITING = false;
+let LOCKED_PO = null;
+let CUTOFF_FORM_OPEN = false;
+
+async function api(path, opts) {
+  var res = await fetch(path, opts);
+  if (res.status === 401) { window.location.href = '/login.html'; throw new Error('unauthorized'); }
+  if (res.status === 204) return null;
+  var data = await res.json();
+  if (!res.ok) throw Object.assign(new Error(data.error || 'api_error'), { status: res.status, data: data });
+  return data;
+}
+
+function weekLabel(dateStr) {
+  var d = new Date(dateStr + 'T00:00:00');
+  return 'Week of ' + d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function initials(name) {
+  if (!name) return '?';
+  return name.split(' ').map(function(w){return w[0]||'';}).join('').toUpperCase().slice(0,2);
+}
+
+function isAdminUser() {
+  if (!USER_ROLE) return false;
+  if (USER_ROLE.is_superadmin) return true;
+  return (USER_ROLE.roles || []).indexOf('admin') !== -1;
+}
+
+var DAYS = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+
+function formatCutoffLabel() {
+  if (!CUTOFF_CONFIG) return 'Set cutoff';
+  var day = DAYS[CUTOFF_CONFIG.day_of_week] || '';
+  var t = CUTOFF_CONFIG.cutoff_time || '';
+  var parts = t.split(':');
+  if (parts.length >= 2) {
+    var h = parseInt(parts[0], 10);
+    var m = parts[1];
+    var ampm = h >= 12 ? 'pm' : 'am';
+    h = h % 12 || 12;
+    t = h + (m !== '00' ? ':' + m : '') + ampm;
+  }
+  return 'Cutoff ' + day.slice(0,3) + ' ' + t;
+}
+
+function renderCutoffForm() {
+  var selDay = CUTOFF_CONFIG ? CUTOFF_CONFIG.day_of_week : 0;
+  var selTime = CUTOFF_CONFIG ? (CUTOFF_CONFIG.cutoff_time || '').slice(0,5) : '18:00';
+
+  var dayOpts = DAYS.map(function(d, i) {
+    return '<option value="' + i + '"' + (i === selDay ? ' selected' : '') + '>' + d + '</option>';
+  }).join('');
+
+  var timeOpts = '';
+  for (var h = 0; h < 24; h++) {
+    for (var m = 0; m < 60; m += 30) {
+      var hh = String(h).padStart(2,'0');
+      var mm = String(m).padStart(2,'0');
+      var val = hh + ':' + mm;
+      var ampm = h >= 12 ? 'pm' : 'am';
+      var dh = h % 12 || 12;
+      var label = dh + ':' + mm + ' ' + ampm;
+      timeOpts += '<option value="' + val + '"' + (val === selTime ? ' selected' : '') + '>' + label + '</option>';
+    }
+  }
+
+  return '<div class="cutoff-form card">'
+    + '<label>Day</label><select id="cutoff-day">' + dayOpts + '</select>'
+    + '<label>Time</label><select id="cutoff-time">' + timeOpts + '</select>'
+    + '<div class="cutoff-btns">'
+    + '<button class="btn-save" data-action="save-cutoff">Save</button>'
+    + '<button class="btn-cancel" data-action="cancel-cutoff">Cancel</button>'
+    + '</div></div>';
+}
+
+async function saveCutoff() {
+  var dayEl = document.getElementById('cutoff-day');
+  var timeEl = document.getElementById('cutoff-time');
+  if (!dayEl || !timeEl) return;
+  var day = parseInt(dayEl.value, 10);
+  var time = timeEl.value;
+  try {
+    var result = await api('/api/v1/purchasing/cutoff', {
+      method: 'PUT',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ day_of_week: day, cutoff_time: time, timezone: 'America/Chicago' })
+    });
+    CUTOFF_CONFIG = result;
+    CUTOFF_FORM_OPEN = false;
+    renderOrder();
+  } catch (e) {
+    alert('Failed to save cutoff: ' + (e.message || 'error'));
+  }
+}
+
+function renderPOTab() {
+  var s3 = document.getElementById('s3');
+  if (!LOCKED_PO) {
+    s3.innerHTML = '<div class="po-stub">No locked PO yet. Orders lock at the weekly cutoff.</div>';
+    return;
+  }
+
+  var items = LOCKED_PO.line_items || [];
+  var isAdmin = isAdminUser();
+
+  var statusText = LOCKED_PO.status === 'approved' ? 'Approved'
+    : LOCKED_PO.status === 'shopping_active' ? 'Shopping'
+    : 'Locked';
+  var statusClass = LOCKED_PO.status === 'approved' ? 'approved'
+    : LOCKED_PO.status === 'shopping_active' ? 'shopping'
+    : 'locked';
+
+  var html = '<div class="card">';
+  html += '<div class="vendor-hd">';
+  html += '<span>' + weekLabel(LOCKED_PO.week_start) + '</span>';
+  html += '<div class="vh-right">';
+  html += '<span class="status-badge ' + statusClass + '">' + statusText + '</span>';
+  if (isAdmin && LOCKED_PO.status === 'locked') {
+    html += '<button class="edit-toggle' + (PO_EDITING ? ' active' : '') + '" data-action="po-edit-toggle">' + (PO_EDITING ? 'Done' : 'Edit ✎') + '</button>';
+  }
+  html += '</div></div>';
+
+  if (items.length === 0) {
+    html += '<div class="stub">No items in this PO.</div>';
+  } else {
+    var vendorGroups = {};
+    var vendorOrder = [];
+    items.forEach(function(item) {
+      var vname = (item.vendor_name) || 'Unassigned';
+      if (!vendorGroups[vname]) { vendorGroups[vname] = []; vendorOrder.push(vname); }
+      vendorGroups[vname].push(item);
+    });
+
+    vendorOrder.forEach(function(vname) {
+      var vItems = vendorGroups[vname];
+      html += '<div class="vendor-section">';
+      html += '<div class="cat">' + vname + ' &middot; ' + vItems.length + ' item' + (vItems.length === 1 ? '' : 's') + '</div>';
+      vItems.forEach(function(item) {
+        html += renderPOItemCard(item, isAdmin && PO_EDITING);
+      });
+      html += '</div>';
+    });
+  }
+
+  html += '</div>';
+
+  if (isAdmin && LOCKED_PO.status === 'locked') {
+    html += '<button class="btn-approve" data-action="approve-po">Approve &amp; Create Shopping List</button>';
+  }
+
+  s3.innerHTML = html;
+}
+
+function renderPOItemCard(item, editable) {
+  var thumb = item.photo_url
+    ? '<div class="item-thumb"><img src="' + item.photo_url + '" alt="' + item.item_name + '" data-action="photo-zoom" data-photo-url="' + item.photo_url + '" data-photo-name="' + item.item_name + '"></div>'
+    : '<div class="item-thumb">' + (item.item_name || '?').charAt(0).toUpperCase() + '</div>';
+  var loc = item.store_location ? ' &middot; ' + item.store_location : '';
+  var ini = initials(item.added_by_name || '');
+  var dimClass = item.quantity === 0 ? ' dim' : '';
+  var disabled = editable ? '' : ' disabled';
+  return '<div class="item-card' + dimClass + '" data-item-id="' + item.purchase_item_id + '">'
+    + thumb
+    + '<div class="item-info"><div class="nm">' + item.item_name + '</div>'
+    + '<div class="mt">' + (item.unit || '') + loc + '</div>'
+    + (ini ? '<div class="attr">Added by: ' + ini + '</div>' : '')
+    + '</div>'
+    + '<div class="stp">'
+    + '<button data-action="po-qty-dec" data-item-id="' + item.purchase_item_id + '"' + disabled + '>&minus;</button>'
+    + '<span>' + item.quantity + '</span>'
+    + '<button data-action="po-qty-inc" data-item-id="' + item.purchase_item_id + '"' + disabled + '>+</button>'
+    + '</div></div>';
+}
+
+function updatePOQty(itemId, delta) {
+  if (!LOCKED_PO) return;
+  var item = (LOCKED_PO.line_items || []).find(function(it) { return it.purchase_item_id === itemId; });
+  if (!item) return;
+  item.quantity = Math.max(0, item.quantity + delta);
+  renderPOTab();
+  debouncedSave();
+}
+
+async function approvePO() {
+  if (!LOCKED_PO) return;
+  var btn = document.querySelector('[data-action="approve-po"]');
+  if (btn) { btn.disabled = true; btn.textContent = 'Approving...'; }
+  try {
+    await api('/api/v1/purchasing/orders/' + LOCKED_PO.id + '/approve', { method: 'POST' });
+    window.location.reload();
+  } catch (e) {
+    if (btn) { btn.disabled = false; btn.textContent = 'Approve & Create Shopping List'; }
+    if (e.status === 409) {
+      alert('Complete last week\'s shopping list before approving this one.');
+    } else {
+      alert('Failed to approve: ' + (e.message || 'error'));
+    }
+  }
+}
+
+async function init() {
+  var s1 = document.getElementById('s1');
+  s1.innerHTML = '<div class="loading">Loading order...</div>';
+  try {
+    var results = await Promise.all([
+      api('/api/v1/purchasing/orders', { method: 'POST', headers: {'Content-Type':'application/json'} }),
+      api('/api/v1/inventory/items'),
+      api('/api/v1/me').catch(function() { return null; }),
+      api('/api/v1/purchasing/cutoff').catch(function() { return null; }),
+      api('/api/v1/purchasing/orders?status=locked').catch(function() { return null; })
+    ]);
+    PO_STATE = results[0];
+    ALL_ITEMS = results[1] || [];
+    USER_ROLE = results[2];
+    CUTOFF_CONFIG = (results[3] && results[3].id) ? results[3] : null;
+    LOCKED_PO = results[4];
+    SUGGESTIONS = await api('/api/v1/purchasing/orders/' + PO_STATE.id + '/suggestions') || [];
+    renderOrder();
+    renderPOTab();
+  } catch (e) {
+    if (e.message !== 'unauthorized') {
+      s1.innerHTML = '<div class="error-card">Couldn\'t load the order. Pull down to refresh.</div>';
+    }
+  }
+}
+
+function renderOrder() {
+  var s1 = document.getElementById('s1');
+  var items = PO_STATE.line_items || [];
+  var contributors = [];
+  items.forEach(function(it) { if (it.added_by_name && contributors.indexOf(it.added_by_name) === -1) contributors.push(it.added_by_name); });
+  var contribText = contributors.length === 1 ? '1 contributor' : contributors.length + ' contributors';
+  var itemCount = items.length === 1 ? '1 item' : items.length + ' items';
+
+  var isAdmin = isAdminUser();
+  var cutoffLabel = formatCutoffLabel();
+  var cutoffPill = isAdmin
+    ? '<span class="pill pill-btn" data-action="toggle-cutoff-config">' + cutoffLabel + '</span>'
+    : '<span class="pill">' + cutoffLabel + '</span>';
+
+  var html = '<div class="card">';
+  html += '<div class="order-hd">';
+  html += '<h1>' + weekLabel(PO_STATE.week_start) + '</h1>';
+  html += '<div class="sub"><span>' + contribText + ' &middot; ' + itemCount + '</span>' + cutoffPill + '</div>';
+  html += '</div>';
+  if (CUTOFF_FORM_OPEN && isAdmin) {
+    html += renderCutoffForm();
+  }
+
+  if (SUGGESTIONS.length > 0) {
+    html += '<div class="suggest-banner" data-action="toggle-suggestions">';
+    html += '<span>' + SUGGESTIONS.length + ' item' + (SUGGESTIONS.length === 1 ? '' : 's') + ' need restock</span>';
+    html += '<button data-action="toggle-suggestions">' + (SUGGESTION_OPEN ? '&minus;' : '+') + '</button>';
+    html += '</div>';
+  }
+
+  if (SUGGESTION_OPEN && SUGGESTIONS.length > 0) {
+    html += '<div class="suggest-list">';
+    html += '<div class="sl-hd"><span>' + SUGGESTIONS.length + ' restock suggestion' + (SUGGESTIONS.length === 1 ? '' : 's') + '</span><button data-action="dismiss-suggestions">Dismiss</button></div>';
+    SUGGESTIONS.forEach(function(s) {
+      var alreadyOnPO = (PO_STATE.line_items || []).some(function(li) { return li.purchase_item_id === s.purchase_item_id; });
+      html += '<div class="suggest-row">';
+      html += '<input type="checkbox" data-suggest-id="' + s.purchase_item_id + '"' + (alreadyOnPO ? ' disabled checked' : '') + '>';
+      html += '<span>' + s.item_name + '</span>';
+      var lvlClass = s.stock_level === 'Low' ? 'sl-low' : 'sl-med';
+      html += '<span class="' + lvlClass + '">' + s.stock_level + '</span>';
+      html += '<span class="sq">Suggested: ' + s.suggested_qty + (s.unit ? ' ' + s.unit : '') + '</span>';
+      html += '</div>';
+    });
+    html += '<div class="suggest-ft"><button data-action="add-selected">Add Selected</button></div>';
+    html += '</div>';
+  }
+
+  if (items.length === 0) {
+    html += '<div class="empty-state">';
+    html += '<div class="es-icon">🛒</div>';
+    html += '<div class="es-title">Nothing on the order yet</div>';
+    html += '<div>Add items from inventory or tap the restock suggestions above</div>';
+    html += '</div>';
+  } else {
+    var grouped = {};
+    var groupOrder = [];
+    items.forEach(function(it) {
+      var g = it.group_name || 'Other';
+      if (!grouped[g]) { grouped[g] = []; groupOrder.push(g); }
+      grouped[g].push(it);
+    });
+    groupOrder.forEach(function(g) {
+      html += '<div class="cat">' + g + '</div>';
+      grouped[g].forEach(function(it) { html += renderItemCard(it); });
+    });
+  }
+
+  html += '</div>';
+  html += '<button class="add-btn" data-action="open-picker">+ Add item</button>';
+
+  s1.innerHTML = html;
+}
+
+function renderItemCard(item) {
+  var thumb = item.photo_url
+    ? '<div class="item-thumb"><img src="' + item.photo_url + '" alt="' + item.item_name + '" data-action="photo-zoom" data-photo-url="' + item.photo_url + '" data-photo-name="' + item.item_name + '"></div>'
+    : '<div class="item-thumb">' + item.item_name.charAt(0).toUpperCase() + '</div>';
+  var loc = item.store_location ? ' &middot; ' + item.store_location : '';
+  var ini = initials(item.added_by_name || 'You');
+  var dimClass = item.quantity === 0 ? ' dim' : '';
+  return '<div class="item-card' + dimClass + '" data-item-id="' + item.purchase_item_id + '">'
+    + thumb
+    + '<div class="item-info"><div class="nm">' + item.item_name + '</div>'
+    + '<div class="mt">' + (item.unit || '') + loc + '</div>'
+    + '<div class="attr">Added by: ' + ini + '</div></div>'
+    + '<div class="stp">'
+    + '<button data-action="qty-dec" data-item-id="' + item.purchase_item_id + '">&minus;</button>'
+    + '<span aria-label="Quantity: ' + item.quantity + '">' + item.quantity + '</span>'
+    + '<button data-action="qty-inc" data-item-id="' + item.purchase_item_id + '">+</button>'
+    + '</div></div>';
+}
+
+function openPhotoLightbox(url, name) {
+  var lb = document.createElement('div');
+  lb.className = 'photo-lightbox';
+  lb.innerHTML = '<button class="lb-close" data-action="close-lightbox">&times;</button>'
+    + '<img src="' + url + '" alt="' + (name || '') + '">';
+  lb.addEventListener('click', function(e) {
+    if (e.target === lb) closePhotoLightbox();
+  });
+  document.body.appendChild(lb);
+}
+
+function closePhotoLightbox() {
+  var lb = document.querySelector('.photo-lightbox');
+  if (lb) lb.remove();
+}
+
+function show(n) {
+  [1,2,3,4].forEach(function(i) {
+    document.getElementById('s'+i).style.display = i===n ? 'block' : 'none';
+    document.getElementById('t'+i).className = i===n ? 'on' : '';
+  });
+}
+
+function updateQty(itemId, delta) {
+  if (!PO_STATE) return;
+  var item = (PO_STATE.line_items || []).find(function(it) { return it.purchase_item_id === itemId; });
+  if (!item) return;
+  var newQty = Math.max(0, item.quantity + delta);
+  item.quantity = newQty;
+  var card = document.querySelector('.item-card[data-item-id="' + itemId + '"]');
+  if (card) {
+    card.className = 'item-card' + (newQty === 0 ? ' dim' : '');
+    var span = card.querySelector('.stp span');
+    if (span) { span.textContent = newQty; span.setAttribute('aria-label', 'Quantity: ' + newQty); }
+  }
+  debouncedSave();
+}
+
+function debouncedSave() {
+  clearTimeout(DEBOUNCE_TIMER);
+  DEBOUNCE_TIMER = setTimeout(savePOItems, DEBOUNCE_MS);
+}
+
+async function savePOItems() {
+  if (!PO_STATE) return;
+  var items = (PO_STATE.line_items || [])
+    .filter(function(it) { return it.quantity > 0; })
+    .map(function(it) { return { purchase_item_id: it.purchase_item_id, quantity: it.quantity, unit: it.unit || '' }; });
+  try {
+    var updated = await api('/api/v1/purchasing/orders/' + PO_STATE.id + '/items', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ items: items })
+    });
+    if (updated) { PO_STATE = updated; renderOrder(); }
+  } catch (e) {
+    var s1 = document.getElementById('s1');
+    var errDiv = document.createElement('div');
+    errDiv.className = 'error-card';
+    errDiv.textContent = "Couldn't save. Check connection and try again.";
+    s1.insertBefore(errDiv, s1.firstChild);
+    setTimeout(function() { if (errDiv.parentNode) errDiv.parentNode.removeChild(errDiv); }, 4000);
+  }
+}
+
+function addItemToPO(itemId) {
+  if (!PO_STATE) return;
+  var catalogItem = ALL_ITEMS.find(function(it) { return it.id === itemId; });
+  if (!catalogItem) return;
+  var existing = (PO_STATE.line_items || []).find(function(it) { return it.purchase_item_id === itemId; });
+  if (existing) return;
+  PO_STATE.line_items = PO_STATE.line_items || [];
+  PO_STATE.line_items.push({
+    purchase_item_id: itemId,
+    item_name: catalogItem.description,
+    group_name: catalogItem.group_name || null,
+    photo_url: null,
+    store_location: null,
+    quantity: 1,
+    unit: '',
+    added_by_name: 'You'
+  });
+  SUGGESTIONS = SUGGESTIONS.filter(function(s) { return s.purchase_item_id !== itemId; });
+  renderOrder();
+  savePOItems();
+}
+
+function addSelectedSuggestions() {
+  if (!PO_STATE) return;
+  var checkboxes = document.querySelectorAll('.suggest-row input[type=checkbox]:checked:not(:disabled)');
+  checkboxes.forEach(function(cb) {
+    var sid = cb.dataset.suggestId;
+    var suggestion = SUGGESTIONS.find(function(s) { return s.purchase_item_id === sid; });
+    if (!suggestion) return;
+    var existing = (PO_STATE.line_items || []).find(function(it) { return it.purchase_item_id === sid; });
+    if (existing) return;
+    PO_STATE.line_items = PO_STATE.line_items || [];
+    PO_STATE.line_items.push({
+      purchase_item_id: suggestion.purchase_item_id,
+      item_name: suggestion.item_name,
+      group_name: suggestion.group_name || null,
+      photo_url: suggestion.photo_url || null,
+      store_location: suggestion.store_location || null,
+      quantity: suggestion.suggested_qty,
+      unit: suggestion.unit || '',
+      added_by_name: 'You'
+    });
+  });
+  SUGGESTIONS = SUGGESTIONS.filter(function(s) {
+    return !(PO_STATE.line_items || []).some(function(li) { return li.purchase_item_id === s.purchase_item_id; });
+  });
+  SUGGESTION_OPEN = false;
+  renderOrder();
+  savePOItems();
+}
+
+function openItemModal() {
+  var modal = document.getElementById('item-modal');
+  modal.classList.add('open');
+  var input = document.getElementById('picker-search');
+  input.value = '';
+  renderPickerList('');
+  setTimeout(function() { input.focus(); }, 100);
+}
+
+function closeItemModal() {
+  document.getElementById('item-modal').classList.remove('open');
+  document.getElementById('picker-search').value = '';
+}
+
+function renderPickerList(query) {
+  var q = (query || '').toLowerCase();
+  var filtered = ALL_ITEMS.filter(function(it) {
+    return !q || (it.description || '').toLowerCase().indexOf(q) !== -1;
+  }).slice(0, 30);
+
+  var html = '';
+  if (filtered.length === 0) {
+    html = '<div class="loading">No items found</div>';
+  } else {
+    filtered.forEach(function(it) {
+      var onPO = PO_STATE && (PO_STATE.line_items || []).find(function(li) { return li.purchase_item_id === it.id; });
+      html += '<div class="picker-row">';
+      html += '<span class="pr-name">' + it.description + '</span>';
+      if (onPO) {
+        html += '<span class="pr-badge" data-action="picker-item-on-po" data-item-id="' + it.id + '">On PO: ' + onPO.quantity + (onPO.unit ? ' ' + onPO.unit : '') + '</span>';
+      } else {
+        html += '<button class="pr-add" data-action="add-to-po" data-item-id="' + it.id + '">+ Add</button>';
+      }
+      html += '</div>';
+    });
+  }
+  document.getElementById('picker-list').innerHTML = html;
+}
+
+function showDuplicatePopup(itemId) {
+  var item = PO_STATE && (PO_STATE.line_items || []).find(function(li) { return li.purchase_item_id === itemId; });
+  if (!item) return;
+  DUP_ITEM_ID = itemId;
+  document.getElementById('dp-title').textContent = item.item_name + ' already on PO';
+  document.getElementById('dp-meta').textContent = 'Qty: ' + item.quantity + ' \u00b7 Added by: ' + initials(item.added_by_name || 'You');
+  document.getElementById('dup-popup').style.display = 'block';
+  document.getElementById('dup-backdrop').style.display = 'block';
+}
+
+function dismissDuplicatePopup() {
+  document.getElementById('dup-popup').style.display = 'none';
+  document.getElementById('dup-backdrop').style.display = 'none';
+}
+
+function gotoItem(itemId) {
+  closeItemModal();
+  dismissDuplicatePopup();
+  setTimeout(function() {
+    var card = document.querySelector('.item-card[data-item-id="' + itemId + '"]');
+    if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, 100);
+}
+
+document.addEventListener('click', function(e) {
+  var el = e.target.closest('[data-action]');
+  if (!el) return;
+  var action = el.dataset.action;
+  if (action === 'tab') show(+el.dataset.tab);
+  if (action === 'toggle-suggestions') { SUGGESTION_OPEN = !SUGGESTION_OPEN; renderOrder(); }
+  if (action === 'dismiss-suggestions') { SUGGESTION_OPEN = false; renderOrder(); }
+  if (action === 'add-selected') addSelectedSuggestions();
+  if (action === 'qty-inc') updateQty(el.dataset.itemId, 1);
+  if (action === 'qty-dec') updateQty(el.dataset.itemId, -1);
+  if (action === 'open-picker') openItemModal();
+  if (action === 'close-picker') closeItemModal();
+  if (action === 'add-to-po') { addItemToPO(el.dataset.itemId); closeItemModal(); }
+  if (action === 'picker-item-on-po') showDuplicatePopup(el.dataset.itemId);
+  if (action === 'goto-item') { gotoItem(DUP_ITEM_ID); }
+  if (action === 'dismiss-dup') dismissDuplicatePopup();
+  if (action === 'photo-zoom') openPhotoLightbox(el.dataset.photoUrl, el.dataset.photoName);
+  if (action === 'close-lightbox') closePhotoLightbox();
+  if (action === 'toggle-cutoff-config') { CUTOFF_FORM_OPEN = !CUTOFF_FORM_OPEN; renderOrder(); }
+  if (action === 'save-cutoff') saveCutoff();
+  if (action === 'cancel-cutoff') { CUTOFF_FORM_OPEN = false; renderOrder(); }
+  if (action === 'po-edit-toggle') { PO_EDITING = !PO_EDITING; renderPOTab(); }
+  if (action === 'po-qty-inc') updatePOQty(el.dataset.itemId, 1);
+  if (action === 'po-qty-dec') updatePOQty(el.dataset.itemId, -1);
+  if (action === 'approve-po') approvePO();
+});
+
+var searchTimer = null;
+document.getElementById('picker-search').addEventListener('input', function(e) {
+  clearTimeout(searchTimer);
+  var val = e.target.value;
+  searchTimer = setTimeout(function() { renderPickerList(val); }, SEARCH_DEBOUNCE_MS);
+});
+
+document.addEventListener('dblclick', function(e) { e.preventDefault(); });
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+init();
 </script>
 <script src="log.js"></script><script src="ptr.js"></script>
 </body>
