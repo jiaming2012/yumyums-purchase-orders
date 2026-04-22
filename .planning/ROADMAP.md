@@ -104,7 +104,7 @@ Plans:
   6. When checking off an item that has no photo or location, shopper is prompted to add them (can skip but must confirm skip each time)
   7. Shopper can upload a photo for an item that doesn't have one
   8. Tapping "Complete" on the shopping list sends a report of any unchecked items via the configured alert channel
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 Plans:
 - [x] 14-01-PLAN.md -- Backend: migrations, purchasing Go package, route registration
 - [ ] 14-02-PLAN.md -- Frontend: purchasing.html rewrite with Order tab, item picker, suggestions
@@ -131,6 +131,6 @@ Plans:
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 14. PO Backend + Order Form | v3.0 | 2/2 | Complete   | 2026-04-22 |
-| 15. Notion Catalog Import | v3.0 | 0/? | Not started | - |
+| 15. Notion Catalog Import | v3.0 | 1/2 | In Progress|  |
 | 16. Cutoff, Approval, and Shopping List | v3.0 | 0/? | Not started | - |
 | 17. Alerts, Notifications, and Repurchase Badges | v3.0 | 0/? | Not started | - |

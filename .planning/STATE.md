@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Purchase Orders & Shopping Lists
-status: executing
-stopped_at: "Checkpoint: 14-02 Task 2 — awaiting human verification of purchasing.html rewrite"
-last_updated: "2026-04-22T14:32:40.466Z"
+status: verifying
+stopped_at: Completed 15-01-PLAN.md
+last_updated: "2026-04-22T16:48:49.144Z"
 last_activity: 2026-04-22
 progress:
   total_phases: 4
-  completed_phases: 1
+  completed_phases: 0
   total_plans: 2
-  completed_plans: 2
+  completed_plans: 3
   percent: 0
 ---
 
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-04-22)
 
 Phase: 14 (po-backend-order-form) — EXECUTING
 Plan: 2 of 2
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-04-22
 
 Progress: [░░░░░░░░░░] 0% (v3.0)
@@ -51,6 +51,7 @@ Progress: [░░░░░░░░░░] 0% (v3.0)
 *Updated after each plan completion*
 | Phase 14 P01 | 3m | 3 tasks | 6 files |
 | Phase 14 P02 | 3m | 1 tasks | 2 files |
+| Phase 15-notion-catalog-seed P01 | 3 | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -64,6 +65,8 @@ Progress: [░░░░░░░░░░] 0% (v3.0)
 - [Phase 14]: America/Chicago timezone for week_start computation in PO backend
 - [Phase 14]: UpsertLineItems uses transaction: verify draft, delete removed items, upsert remaining; added_by only set on INSERT
 - [Phase 14]: Full rewrite of purchasing.html (not incremental) — 89-line mock had no reusable state management
+- [Phase 15-notion-catalog-seed]: Used direct S3 PutObject in import script (not presigned URLs) — CLI batch tool does server-side upload; presigned URLs are for browser-side uploads
+- [Phase 15-notion-catalog-seed]: purchase_items.yaml committed as placeholder (items:[]) so codebase compiles before user runs the import script
 
 ### Pending Todos
 
@@ -88,6 +91,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-22T14:32:29.736Z
-Stopped at: Checkpoint: 14-02 Task 2 — awaiting human verification of purchasing.html rewrite
+Last session: 2026-04-22T16:48:49.139Z
+Stopped at: Completed 15-01-PLAN.md
 Resume file: None
