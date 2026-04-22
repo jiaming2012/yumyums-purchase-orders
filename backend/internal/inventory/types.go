@@ -92,12 +92,16 @@ type PendingPurchase struct {
 
 // StockItem is an aggregated stock level for one purchase item description.
 type StockItem struct {
-	Description     string   `json:"description"`
-	GroupName       *string  `json:"group_name,omitempty"`
-	TotalQuantity   int      `json:"total_quantity"`
-	TotalSpend      float64  `json:"total_spend"`
-	AvgPrice        float64  `json:"avg_price"`
+	Description      string  `json:"description"`
+	GroupName        *string `json:"group_name,omitempty"`
+	TotalQuantity    int     `json:"total_quantity"`
+	TotalSpend       float64 `json:"total_spend"`
+	AvgPrice         float64 `json:"avg_price"`
 	LastPurchaseDate string  `json:"last_purchase_date"` // YYYY-MM-DD
+	LowThreshold     int     `json:"low_threshold"`
+	HighThreshold    int     `json:"high_threshold"`
+	Level            string  `json:"level"`
+	NeedsReorder     bool    `json:"needs_reorder"`
 }
 
 // CreateLineItemInput is one line item in a CreatePurchaseEventInput.
