@@ -3,6 +3,7 @@ package purchasing
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"time"
 
@@ -174,6 +175,316 @@ func UpsertLineItems(ctx context.Context, pool *pgxpool.Pool, poID string, userI
 	if err = tx.Commit(ctx); err != nil {
 		return err
 	}
+	return nil
+}
+
+// GetActiveShoppingList returns the active shopping list with vendor sections and items, or nil if none.
+func GetActiveShoppingList(ctx context.Context, pool *pgxpool.Pool) (*ShoppingList, error) {
+	var sl ShoppingList
+	err := pool.QueryRow(ctx, `
+		SELECT sl.id, sl.po_id, po.week_start::text, sl.status, sl.assigned_to, sl.assigned_role, sl.created_at, sl.completed_at
+		FROM shopping_lists sl
+		JOIN purchase_orders po ON po.id = sl.po_id
+		WHERE sl.status = 'active'
+		LIMIT 1
+	`).Scan(&sl.ID, &sl.POID, &sl.WeekStart, &sl.Status, &sl.AssignedTo, &sl.AssignedRole, &sl.CreatedAt, &sl.CompletedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	if err := loadShoppingListSections(ctx, pool, &sl); err != nil {
+		return nil, err
+	}
+	return &sl, nil
+}
+
+// GetShoppingListByID returns a shopping list by ID with vendor sections and items. Used for history view.
+func GetShoppingListByID(ctx context.Context, pool *pgxpool.Pool, listID string) (*ShoppingList, error) {
+	var sl ShoppingList
+	err := pool.QueryRow(ctx, `
+		SELECT sl.id, sl.po_id, po.week_start::text, sl.status, sl.assigned_to, sl.assigned_role, sl.created_at, sl.completed_at
+		FROM shopping_lists sl
+		JOIN purchase_orders po ON po.id = sl.po_id
+		WHERE sl.id = $1
+	`, listID).Scan(&sl.ID, &sl.POID, &sl.WeekStart, &sl.Status, &sl.AssignedTo, &sl.AssignedRole, &sl.CreatedAt, &sl.CompletedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	if err := loadShoppingListSections(ctx, pool, &sl); err != nil {
+		return nil, err
+	}
+	return &sl, nil
+}
+
+// loadShoppingListSections loads vendor sections and their items into a ShoppingList.
+func loadShoppingListSections(ctx context.Context, pool *pgxpool.Pool, sl *ShoppingList) error {
+	rows, err := pool.Query(ctx, `
+		SELECT svs.id, svs.shopping_list_id, svs.vendor_id, svs.vendor_name, svs.status,
+		       svs.completed_by, u.display_name, svs.completed_at
+		FROM shopping_list_vendor_sections svs
+		LEFT JOIN users u ON u.id = svs.completed_by
+		WHERE svs.shopping_list_id = $1
+		ORDER BY svs.vendor_name
+	`, sl.ID)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	sections := []ShoppingListVendorSection{}
+	for rows.Next() {
+		var sec ShoppingListVendorSection
+		if err := rows.Scan(
+			&sec.ID, &sec.ShoppingListID, &sec.VendorID, &sec.VendorName, &sec.Status,
+			&sec.CompletedBy, &sec.CompletedByName, &sec.CompletedAt,
+		); err != nil {
+			return err
+		}
+		sections = append(sections, sec)
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+
+	// Load items for all sections in one query
+	itemRows, err := pool.Query(ctx, `
+		SELECT sli.id, sli.shopping_list_id, sli.vendor_section_id, sli.purchase_item_id,
+		       sli.item_name, sli.photo_url, sli.store_location, sli.quantity, sli.unit,
+		       sli.checked, sli.checked_by, u.display_name, sli.checked_at
+		FROM shopping_list_items sli
+		LEFT JOIN users u ON u.id = sli.checked_by
+		WHERE sli.shopping_list_id = $1
+		ORDER BY sli.item_name
+	`, sl.ID)
+	if err != nil {
+		return err
+	}
+	defer itemRows.Close()
+
+	// Index items by vendor_section_id
+	itemsBySection := map[string][]ShoppingListItem{}
+	for itemRows.Next() {
+		var item ShoppingListItem
+		if err := itemRows.Scan(
+			&item.ID, &item.ShoppingListID, &item.VendorSectionID, &item.PurchaseItemID,
+			&item.ItemName, &item.PhotoURL, &item.StoreLocation, &item.Quantity, &item.Unit,
+			&item.Checked, &item.CheckedBy, &item.CheckedByName, &item.CheckedAt,
+		); err != nil {
+			return err
+		}
+		itemsBySection[item.VendorSectionID] = append(itemsBySection[item.VendorSectionID], item)
+	}
+	if err := itemRows.Err(); err != nil {
+		return err
+	}
+
+	// Assign items to sections
+	for i, sec := range sections {
+		if items, ok := itemsBySection[sec.ID]; ok {
+			sections[i].Items = items
+		} else {
+			sections[i].Items = []ShoppingListItem{}
+		}
+	}
+	sl.VendorSections = sections
+	return nil
+}
+
+// GetShoppingListHistory returns completed shopping lists with vendor sections (no items — items loaded on expand).
+func GetShoppingListHistory(ctx context.Context, pool *pgxpool.Pool) ([]ShoppingList, error) {
+	rows, err := pool.Query(ctx, `
+		SELECT sl.id, sl.po_id, po.week_start::text, sl.status, sl.assigned_to, sl.assigned_role, sl.created_at, sl.completed_at
+		FROM shopping_lists sl
+		JOIN purchase_orders po ON po.id = sl.po_id
+		WHERE sl.status = 'completed'
+		ORDER BY po.week_start DESC
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	lists := []ShoppingList{}
+	for rows.Next() {
+		var sl ShoppingList
+		if err := rows.Scan(
+			&sl.ID, &sl.POID, &sl.WeekStart, &sl.Status, &sl.AssignedTo, &sl.AssignedRole, &sl.CreatedAt, &sl.CompletedAt,
+		); err != nil {
+			return nil, err
+		}
+		lists = append(lists, sl)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	// Load vendor sections (with missing_count) for each list
+	for i := range lists {
+		secRows, err := pool.Query(ctx, `
+			SELECT svs.id, svs.shopping_list_id, svs.vendor_id, svs.vendor_name, svs.status,
+			       svs.completed_by, u.display_name, svs.completed_at
+			FROM shopping_list_vendor_sections svs
+			LEFT JOIN users u ON u.id = svs.completed_by
+			WHERE svs.shopping_list_id = $1
+			ORDER BY svs.vendor_name
+		`, lists[i].ID)
+		if err != nil {
+			return nil, err
+		}
+
+		sections := []ShoppingListVendorSection{}
+		for secRows.Next() {
+			var sec ShoppingListVendorSection
+			if err := secRows.Scan(
+				&sec.ID, &sec.ShoppingListID, &sec.VendorID, &sec.VendorName, &sec.Status,
+				&sec.CompletedBy, &sec.CompletedByName, &sec.CompletedAt,
+			); err != nil {
+				secRows.Close()
+				return nil, err
+			}
+			sec.Items = []ShoppingListItem{}
+			sections = append(sections, sec)
+		}
+		secRows.Close()
+		if err := secRows.Err(); err != nil {
+			return nil, err
+		}
+		lists[i].VendorSections = sections
+	}
+
+	return lists, nil
+}
+
+// CheckShoppingItem toggles the checked state on a shopping list item.
+func CheckShoppingItem(ctx context.Context, pool *pgxpool.Pool, itemID string, checked bool, userID string) error {
+	tag, err := pool.Exec(ctx, `
+		UPDATE shopping_list_items
+		SET checked = $2,
+		    checked_by = CASE WHEN $2 THEN $3::uuid ELSE NULL END,
+		    checked_at = CASE WHEN $2 THEN now() ELSE NULL END
+		WHERE id = $1
+	`, itemID, checked, userID)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("shopping list item not found: %s", itemID)
+	}
+	return nil
+}
+
+// UpdateShoppingItemLocation updates store_location on both shopping_list_items AND purchase_items.
+func UpdateShoppingItemLocation(ctx context.Context, pool *pgxpool.Pool, itemID string, storeLocation string) error {
+	var purchaseItemID string
+	err := pool.QueryRow(ctx, `
+		UPDATE shopping_list_items SET store_location = $2 WHERE id = $1 RETURNING purchase_item_id
+	`, itemID, storeLocation).Scan(&purchaseItemID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fmt.Errorf("shopping list item not found: %s", itemID)
+		}
+		return err
+	}
+
+	_, err = pool.Exec(ctx, `UPDATE purchase_items SET store_location = $2 WHERE id = $1`, purchaseItemID, storeLocation)
+	return err
+}
+
+// UpdateShoppingItemPhoto updates photo_url on both shopping_list_items AND purchase_items.
+func UpdateShoppingItemPhoto(ctx context.Context, pool *pgxpool.Pool, itemID string, photoURL string) error {
+	var purchaseItemID string
+	err := pool.QueryRow(ctx, `
+		UPDATE shopping_list_items SET photo_url = $2 WHERE id = $1 RETURNING purchase_item_id
+	`, itemID, photoURL).Scan(&purchaseItemID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fmt.Errorf("shopping list item not found: %s", itemID)
+		}
+		return err
+	}
+
+	_, err = pool.Exec(ctx, `UPDATE purchase_items SET photo_url = $2 WHERE id = $1`, purchaseItemID, photoURL)
+	return err
+}
+
+// CompleteVendorSection marks a vendor section as completed and cascades to list/PO if all sections done.
+// Returns whether the entire shopping list is now completed.
+func CompleteVendorSection(ctx context.Context, pool *pgxpool.Pool, sectionID string, userID string) (bool, error) {
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		return false, err
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback(ctx)
+		}
+	}()
+
+	// Mark section completed
+	var listID string
+	err = tx.QueryRow(ctx, `
+		UPDATE shopping_list_vendor_sections
+		SET status = 'completed', completed_by = $2, completed_at = now()
+		WHERE id = $1 AND status = 'pending'
+		RETURNING shopping_list_id
+	`, sectionID, userID).Scan(&listID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return false, fmt.Errorf("vendor section not found or already completed: %s", sectionID)
+		}
+		return false, err
+	}
+
+	// Check if all sections for this list are completed
+	var pendingCount int
+	err = tx.QueryRow(ctx, `
+		SELECT COUNT(*) FROM shopping_list_vendor_sections WHERE shopping_list_id = $1 AND status = 'pending'
+	`, listID).Scan(&pendingCount)
+	if err != nil {
+		return false, err
+	}
+
+	listCompleted := pendingCount == 0
+	if listCompleted {
+		// Update shopping list status
+		_, err = tx.Exec(ctx, `
+			UPDATE shopping_lists SET status = 'completed', completed_at = now() WHERE id = $1
+		`, listID)
+		if err != nil {
+			return false, err
+		}
+
+		// Update associated PO status
+		_, err = tx.Exec(ctx, `
+			UPDATE purchase_orders SET status = 'completed' WHERE id = (SELECT po_id FROM shopping_lists WHERE id = $1)
+		`, listID)
+		if err != nil {
+			return false, err
+		}
+	}
+
+	// Call notify stub (Phase 17 alert hook) — called after section completed but before COMMIT
+	if notifyErr := NotifyVendorComplete(ctx, pool, listID); notifyErr != nil {
+		log.Printf("NotifyVendorComplete: %v", notifyErr)
+	}
+
+	if err = tx.Commit(ctx); err != nil {
+		return false, err
+	}
+	return listCompleted, nil
+}
+
+// NotifyVendorComplete is a no-op stub for Phase 17 alert wiring.
+// Phase 17 will replace this with actual Zoho Cliq / email delivery.
+func NotifyVendorComplete(ctx context.Context, pool *pgxpool.Pool, listID string) error {
+	log.Printf("alert pending (Phase 17): vendor section completed for shopping list %s", listID)
 	return nil
 }
 
