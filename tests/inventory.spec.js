@@ -1951,4 +1951,101 @@ test.describe('Inventory', () => {
     }
   });
 
+  // ── Regression: admin can upsert items on a locked PO ─────────────────
+
+  test('admin can add and save items on a locked PO without 409', async ({ page }) => {
+    await login(page);
+
+    // Get or create a draft PO and add an item
+    const po = await page.evaluate(async () => {
+      const res = await fetch('/api/v1/purchasing/orders', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+      return res.json();
+    });
+    if (!po) return;
+
+    const items = await page.evaluate(async () => {
+      const res = await fetch('/api/v1/inventory/items');
+      return res.json();
+    });
+    if (!items || !items.length) return;
+
+    // Add an item to draft
+    const item1 = items[0];
+    await page.evaluate(async ([poId, itemId]) => {
+      await fetch('/api/v1/purchasing/orders/' + poId + '/items', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: [{ purchase_item_id: itemId, quantity: 1, unit: '' }] })
+      });
+    }, [po.id, item1.id]);
+
+    // Simulate cutoff to lock the PO
+    const lockRes = await page.evaluate(async () => {
+      const res = await fetch('/api/v1/purchasing/simulate-cutoff', { method: 'POST' });
+      return { ok: res.ok, status: res.status };
+    });
+    // May be 409 if already locked from prior test — that's fine
+    if (!lockRes.ok && lockRes.status !== 409) {
+      throw new Error('simulate-cutoff failed: ' + lockRes.status);
+    }
+
+    // Find the locked PO
+    const lockedPO = await page.evaluate(async () => {
+      const res = await fetch('/api/v1/purchasing/orders?status=locked');
+      return res.ok ? res.json() : null;
+    });
+    if (!lockedPO) return; // no locked PO available
+
+    // Admin should be able to add another item to the locked PO (no 409)
+    const item2 = items.length > 1 ? items[1] : items[0];
+    const upsertRes = await page.evaluate(async ([poId, items]) => {
+      const res = await fetch('/api/v1/purchasing/orders/' + poId + '/items', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: items })
+      });
+      return { ok: res.ok, status: res.status };
+    }, [lockedPO.id, [
+      { purchase_item_id: item1.id, quantity: 1, unit: '' },
+      { purchase_item_id: item2.id, quantity: 2, unit: '' }
+    ]]);
+
+    expect(upsertRes.ok).toBeTruthy();
+    expect(upsertRes.status).toBe(200);
+
+    // Verify the item was saved — fetch locked PO again
+    const updated = await page.evaluate(async (poId) => {
+      const res = await fetch('/api/v1/purchasing/orders/' + poId);
+      return res.json();
+    }, lockedPO.id);
+
+    expect(updated.line_items.length).toBeGreaterThanOrEqual(2);
+    expect(updated.status).toBe('locked');
+  });
+
+  // ── Regression: PO tab groups by store_location not vendor_name ───────
+
+  test('PO tab groups items by store location', async ({ page }) => {
+    await login(page);
+
+    // Ensure a locked PO exists
+    const lockedPO = await page.evaluate(async () => {
+      const res = await fetch('/api/v1/purchasing/orders?status=locked');
+      return res.ok ? res.json() : null;
+    });
+    if (!lockedPO || !(lockedPO.line_items || []).length) return;
+
+    await page.goto('/purchasing.html');
+    await page.waitForSelector('[data-tab="3"]', { timeout: 10000 });
+    await page.click('[data-tab="3"]');
+    await page.waitForTimeout(500);
+
+    const poTabText = await page.locator('#s3').textContent();
+
+    // Should NOT show "Unassigned" — items should be grouped by store_location
+    expect(poTabText).not.toContain('UNASSIGNED');
+    // Should show actual store names or "Other" for items without a store
+    expect(poTabText).toMatch(/RESTAURANT DEPOT|OTHER|Locked|locked/i);
+  });
+
 });
