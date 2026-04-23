@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Purchase Orders & Shopping Lists
 status: executing
-stopped_at: Completed 17-02-PLAN.md
-last_updated: "2026-04-23T12:15:42.906Z"
-last_activity: 2026-04-23 -- Phase 17 execution started
+stopped_at: Completed 17-05-PLAN.md
+last_updated: "2026-04-23T12:25:39.079Z"
+last_activity: 2026-04-23
 progress:
   total_phases: 6
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 14
-  completed_plans: 12
+  completed_plans: 14
   percent: 0
 ---
 
@@ -26,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-04-15)
 ## Current Position
 
 Phase: 17 (alerts-notifications-and-repurchase-badges) — EXECUTING
-Plan: 1 of 5
-Status: Executing Phase 17
-Last activity: 2026-04-23 -- Phase 17 execution started
+Plan: 2 of 5
+Status: Ready to execute
+Last activity: 2026-04-23
 
 Progress: [░░░░░░░░░░] 0% (v2.0 milestone)
 
@@ -90,6 +90,7 @@ Progress: [░░░░░░░░░░] 0% (v2.0 milestone)
 | Phase 16-cutoff-approval-and-shopping-list P04 | 35 | 2 tasks | 3 files |
 | Phase 17 P01 | 8 | 5 tasks | 18 files |
 | Phase 17 P02 | 12 | 2 tasks | 5 files |
+| Phase 17 P05 | 12 | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -185,6 +186,8 @@ Recent decisions affecting current work:
 - [Phase 17]: alert_log UNIQUE (alert_type, week_start) provides idempotent cutoff reminder — INSERT ON CONFLICT DO NOTHING prevents duplicates
 - [Phase 17]: Low-stock alert uses batch message per week rather than one alert per item to avoid notification spam
 - [Phase 17]: notification_pref added to PATCH /users/{id} body (not separate endpoint) to keep edit form a single save action
+- [Phase 17]: users.DefaultTimezone exported as public const for cross-package timezone fallback
+- [Phase 17]: runLowStockCheck loads cutoff_config timezone instead of hardcoded America/Chicago, falls back to America/New_York
 
 ### Pending Todos
 
@@ -210,6 +213,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-23T01:13:23.347Z
-Stopped at: Completed 17-02-PLAN.md
+Last session: 2026-04-23T12:25:39.072Z
+Stopped at: Completed 17-05-PLAN.md
 Resume file: None
