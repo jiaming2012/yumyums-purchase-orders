@@ -11,6 +11,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/yumyums/hq/internal/alerts"
 	"github.com/yumyums/hq/internal/auth"
 )
 
@@ -194,7 +195,8 @@ func UpdateUserHandler(pool *pgxpool.Pool) http.HandlerFunc {
 
 // ResetPasswordHandler handles POST /api/v1/users/{id}/reset-password — admin only.
 // Generates a new invite token for password reset and returns the reset path.
-func ResetPasswordHandler(pool *pgxpool.Pool) http.HandlerFunc {
+// If SMTP is configured, sends the link to the user's email.
+func ResetPasswordHandler(pool *pgxpool.Pool, alertCfg alerts.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		caller := auth.UserFromContext(r.Context())
 		if caller == nil || !isAdmin(caller) {
@@ -203,6 +205,12 @@ func ResetPasswordHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 
 		userID := chi.URLParam(r, "id")
+
+		u, err := GetUser(r.Context(), pool, userID)
+		if err != nil || u == nil {
+			writeError(w, http.StatusNotFound, "user_not_found")
+			return
+		}
 
 		rawToken, hash, err := auth.GenerateToken()
 		if err != nil {
@@ -217,8 +225,31 @@ func ResetPasswordHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
+		invitePath := fmt.Sprintf("/login.html?token=%s", rawToken)
+
+		// Send email if SMTP is configured
+		if alertCfg.SMTPAddr != "" && u.Email != "" {
+			subject := "Yumyums HQ — You're Invited"
+			if u.Status != "invited" {
+				subject = "Yumyums HQ — Reset Your Password"
+			}
+			scheme := "https"
+			if r.TLS == nil {
+				scheme = "http"
+			}
+			baseURL := fmt.Sprintf("%s://%s", scheme, r.Host)
+			body := fmt.Sprintf("Hi %s,\n\nClick the link below to set your password and access Yumyums HQ:\n\n%s%s\n\nThis link expires in 7 days.\n\n— Yumyums HQ",
+				u.FirstName, baseURL, invitePath)
+			if err := alerts.SendEmail(alertCfg.SMTPAddr, alertCfg.SMTPUsername, alertCfg.SMTPPassword, alertCfg.SMTPFrom, u.Email, subject, body); err != nil {
+				log.Printf("ResetPasswordHandler email error: %v", err)
+				// Don't fail the request — link is still returned
+			} else {
+				log.Printf("Sent %s email to %s", subject, u.Email)
+			}
+		}
+
 		writeJSON(w, http.StatusOK, map[string]string{
-			"reset_path": fmt.Sprintf("/login.html?token=%s", rawToken),
+			"reset_path": invitePath,
 		})
 	}
 }

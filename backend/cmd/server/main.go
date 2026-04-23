@@ -282,6 +282,9 @@ func main() {
 	// Secure cookies require HTTPS — disable for local dev
 	secureCookie := os.Getenv("STATIC_DIR") == ""
 
+	// Load alert config early so handlers can send emails
+	alertCfg := alerts.LoadConfig()
+
 	// WebSocket endpoint at /ws — behind auth middleware, outside /api/v1 prefix
 	r.Group(func(r chi.Router) {
 		r.Use(auth.Middleware(pool, superadmins))
@@ -333,7 +336,7 @@ func main() {
 				r.Get("/", users.ListUsersHandler(pool))
 				r.Post("/invite", users.InviteHandler(pool))
 				r.Patch("/{id}", users.UpdateUserHandler(pool))
-				r.Post("/{id}/reset-password", users.ResetPasswordHandler(pool))
+				r.Post("/{id}/reset-password", users.ResetPasswordHandler(pool, alertCfg))
 				r.Post("/{id}/revoke", users.RevokeHandler(pool))
 				r.Delete("/{id}", users.DeleteUserHandler(pool))
 				// Notification preference — admin or self
@@ -493,7 +496,6 @@ func main() {
 	}
 
 	// Initialize and start alert queue — gracefully no-ops when env vars are not set
-	alertCfg := alerts.LoadConfig()
 	alertQ := alerts.NewQueue(alertCfg)
 	alertQ.Start(ctx)
 	purchasing.SetAlertQueue(alertQ)

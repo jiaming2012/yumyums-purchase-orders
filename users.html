@@ -34,6 +34,8 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .pill-config{background:#e8e8e8;color:#555}
 @media(prefers-color-scheme:dark){.pill-config{background:#3a3a3a;color:#aaa}}
 .pill-invited{background:var(--warn-bg);color:var(--warn-tx)}
+.btn-reinvite{background:none;border:1px solid var(--info-tx);color:var(--info-tx);font-size:11px;font-weight:600;padding:3px 10px;border-radius:6px;cursor:pointer;font-family:inherit}
+.btn-reinvite:active{opacity:0.6}
 .pill-admin{background:var(--info-bg);color:var(--info-tx)}
 .pill-manager{background:#eef6ee;color:#2d6a2d}
 @media(prefers-color-scheme:dark){.pill-manager{background:#1a3a1a;color:#7ec87e}}
@@ -195,8 +197,8 @@ function renderUsers(){
   el.innerHTML=USERS.map(u=>{
     const dn=displayName(u);
     const pill=`<span class="${pillClass(u)}">${pillText(u)}</span>`;
-    const invitedPill=u.status==='invited'?'':'';
-    return`<div class="row" data-action="edit-user" data-user-id="${u.id}"><span class="nm">${dn}</span><span style="display:flex;align-items:center;gap:6px">${pill}</span></div>`;
+    const reinviteBtn=u.status==='invited'?`<button class="btn-reinvite" data-action="reinvite" data-user-id="${u.id}">Reinvite</button>`:'';
+    return`<div class="row" data-action="edit-user" data-user-id="${u.id}"><span class="nm">${dn}</span><span style="display:flex;align-items:center;gap:6px">${reinviteBtn}${pill}</span></div>`;
   }).join('')+`<div style="padding:12px 16px"><button class="btn-primary" data-action="show-invite">Add Crew Member</button></div>`;
 }
 
@@ -529,6 +531,25 @@ document.querySelector('.app').addEventListener('click',async function(e){
   }else if(action==='back-to-edit'){
     if(editingUser)await editUser(editingUser.id);
     else show(1);
+  }else if(action==='reinvite'){
+    e.stopPropagation();
+    const uid=el.dataset.userId;
+    const u=USERS.find(x=>x.id===uid);
+    if(!u)return;
+    el.textContent='Sending...';
+    el.disabled=true;
+    try{
+      const result=await api('POST',`/api/v1/users/${uid}/reset-password`);
+      const url=window.location.origin+result.reset_path;
+      u._invite_url=url;
+      el.textContent='Sent!';
+      setTimeout(()=>{el.textContent='Reinvite';el.disabled=false},2000);
+      showToast('Invite resent to '+displayName(u));
+    }catch(err){
+      el.textContent='Reinvite';
+      el.disabled=false;
+      showToast('Could not resend invite.');
+    }
   }else if(action==='get-invite-link'){
     if(!editingUser)return;
     el.textContent='Generating...';
