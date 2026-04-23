@@ -6,10 +6,13 @@ import "os"
 // Both delivery channels gracefully no-op when their config is empty,
 // so the server starts without alerts configured during development.
 type Config struct {
-	// ZohoCliqWebhookURL is the incoming webhook URL for the purchase & inventory Zoho Cliq channel.
-	// If empty, Zoho Cliq delivery is skipped.
-	// Future channels (e.g., ZOHO_CLIQ_OPERATIONS_WEBHOOK_URL) can be added for other workflows.
-	ZohoCliqWebhookURL string
+	// Zoho Cliq OAuth credentials (Self Client flow).
+	// If ClientID or RefreshToken is empty, Zoho Cliq delivery is skipped.
+	// Future channels can add their own env vars (e.g., ZOHO_CLIQ_OPERATIONS_*).
+	ZohoCliqClientID     string
+	ZohoCliqClientSecret string
+	ZohoCliqRefreshToken string
+	ZohoCliqChannel      string // channel name (e.g., "purchaseandinventory")
 
 	// SMTPAddr is the SMTP server address (host:port, e.g. "smtp.sendgrid.net:587").
 	// If empty, email delivery is skipped.
@@ -26,10 +29,13 @@ type Config struct {
 // LoadConfig reads alert configuration from environment variables.
 func LoadConfig() Config {
 	return Config{
-		ZohoCliqWebhookURL: os.Getenv("ZOHO_CLIQ_PURCHASE_INVENTORY_WEBHOOK_URL"),
-		SMTPAddr:           os.Getenv("SMTP_ADDR"),
-		SMTPFrom:           os.Getenv("SMTP_FROM"),
-		SMTPUsername:       os.Getenv("SMTP_USERNAME"),
-		SMTPPassword:       os.Getenv("SMTP_PASSWORD"),
+		ZohoCliqClientID:     os.Getenv("ZOHO_CLIQ_CLIENT_ID"),
+		ZohoCliqClientSecret: os.Getenv("ZOHO_CLIQ_CLIENT_SECRET"),
+		ZohoCliqRefreshToken: os.Getenv("ZOHO_CLIQ_REFRESH_TOKEN"),
+		ZohoCliqChannel:      os.Getenv("ZOHO_CLIQ_CHANNEL"),
+		SMTPAddr:             os.Getenv("SMTP_ADDR"),
+		SMTPFrom:             os.Getenv("SMTP_FROM"),
+		SMTPUsername:          os.Getenv("SMTP_USERNAME"),
+		SMTPPassword:         os.Getenv("SMTP_PASSWORD"),
 	}
 }

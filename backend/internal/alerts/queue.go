@@ -51,12 +51,12 @@ func (q *Queue) deliver(a Alert) {
 	var err error
 	switch a.Channel {
 	case ChannelZohoCliq:
-		err = SendZohoCliq(q.cfg.ZohoCliqWebhookURL, a.Message)
+		err = SendZohoCliq(q.cfg, a.Message)
 	case ChannelEmail:
 		err = SendEmail(q.cfg.SMTPAddr, q.cfg.SMTPUsername, q.cfg.SMTPPassword, q.cfg.SMTPFrom, a.RecipientEmail, a.Subject, a.Message)
 	default:
 		log.Printf("alerts: unknown channel %q — falling back to zoho_cliq", a.Channel)
-		err = SendZohoCliq(q.cfg.ZohoCliqWebhookURL, a.Message)
+		err = SendZohoCliq(q.cfg, a.Message)
 	}
 	if err != nil {
 		log.Printf("alerts: delivery error (channel=%s recipient=%s): %v", a.Channel, a.RecipientEmail, err)
