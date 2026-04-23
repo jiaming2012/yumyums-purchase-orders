@@ -48,6 +48,16 @@ tasks:
       BASE_URL: 'http://{{.WIN_TS}}:{{.PORT}}'
       SUPERADMIN_CONFIG: config/superadmins.yaml
 
+  prod:
+    desc: Run the server in production mode (embedded assets, prod DB)
+    deps: [build]
+    cmd: ./bin/server
+    env:
+      PORT: '{{.PORT}}'
+      DB_URL: '{{.DB_URL}}'
+      BASE_URL: 'https://hq.yumyums.kitchen'
+      SUPERADMIN_CONFIG: config/superadmins.yaml
+
   build:
     desc: Build the server binary with embedded frontend assets
     cmds:
