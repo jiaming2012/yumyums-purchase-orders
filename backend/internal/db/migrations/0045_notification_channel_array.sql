@@ -8,6 +8,10 @@ BEGIN;
 -- Use ALTER TABLE ... DROP CONSTRAINT ... IF EXISTS to handle environments where the name varies.
 ALTER TABLE users DROP CONSTRAINT IF EXISTS users_notification_channel_check;
 
+-- Drop the existing default before type change (TEXT default can't auto-cast to TEXT[]).
+ALTER TABLE users
+  ALTER COLUMN notification_channel DROP DEFAULT;
+
 -- Convert notification_channel from TEXT to TEXT[] (array of channels).
 -- Existing single-channel rows become single-element arrays.
 ALTER TABLE users

@@ -1,9 +1,21 @@
 version: '3'
 
 vars:
-  DB_URL: '{{.DB_URL | default "postgres://yumyums:yumyums@localhost:5432/yumyums?sslmode=disable"}}'
+  # Connection components — override DB_HOST/DB_PORT for remote, or DB_URL for full control
+  DB_USER: '{{.DB_USER | default "yumyums"}}'
+  DB_PASS: '{{.DB_PASS | default "yumyums"}}'
+  DB_NAME: '{{.DB_NAME | default "yumyums"}}'
+  DB_HOST: '{{.DB_HOST | default "localhost"}}'
+  DB_PORT: '{{.DB_PORT | default "5432"}}'
+  DB_URL: '{{.DB_URL | default (printf "postgres://%s:%s@%s:%s/%s?sslmode=disable" .DB_USER .DB_PASS .DB_HOST .DB_PORT .DB_NAME)}}'
+  DB_TEST_URL: '{{.DB_TEST_URL | default (printf "postgres://%s:%s@%s:%s/hq_test?sslmode=disable" .DB_USER .DB_PASS .DB_HOST .DB_PORT)}}'
   PORT: '{{.PORT | default "8080"}}'
   STATIC_DIR: '{{.STATIC_DIR | default ".."}}'
+
+  # Windows box addresses
+  WIN_LAN: '192.168.8.164'
+  WIN_TS: '100.70.200.55'
+  WIN_PORT: '5433'
 
 tasks:
   dev:
@@ -15,6 +27,24 @@ tasks:
       DB_URL: '{{.DB_URL}}'
       SUPERADMIN_CONFIG: config/superadmins.yaml
 
+  dev:lan:
+    desc: Run server against Windows box (LAN)
+    cmd: go run ./cmd/server
+    env:
+      STATIC_DIR: '{{.STATIC_DIR}}'
+      PORT: '{{.PORT}}'
+      DB_URL: 'postgres://{{.DB_USER}}:{{.DB_PASS}}@{{.WIN_LAN}}:{{.WIN_PORT}}/{{.DB_NAME}}?sslmode=disable'
+      SUPERADMIN_CONFIG: config/superadmins.yaml
+
+  dev:tailscale:
+    desc: Run server against Windows box (Tailscale)
+    cmd: go run ./cmd/server
+    env:
+      STATIC_DIR: '{{.STATIC_DIR}}'
+      PORT: '{{.PORT}}'
+      DB_URL: 'postgres://{{.DB_USER}}:{{.DB_PASS}}@{{.WIN_TS}}:{{.WIN_PORT}}/{{.DB_NAME}}?sslmode=disable'
+      SUPERADMIN_CONFIG: config/superadmins.yaml
+
   build:
     desc: Build the server binary with embedded frontend assets
     cmds:
@@ -24,48 +54,86 @@ tasks:
       - cp -r ../lib cmd/server/public/ 2>/dev/null || true
       - go build -o bin/server ./cmd/server
 
+  # ---------------------------------------------------------------------------
+  # Local Docker (runs Postgres on this machine)
+  # ---------------------------------------------------------------------------
   db-start:
-    desc: Start PostgreSQL container
+    desc: Start local PostgreSQL container
     cmd: >-
       docker run -d --name yumyums-pg
-      -e POSTGRES_USER=yumyums
-      -e POSTGRES_PASSWORD=yumyums
-      -e POSTGRES_DB=yumyums
+      -e POSTGRES_USER={{.DB_USER}}
+      -e POSTGRES_PASSWORD={{.DB_PASS}}
+      -e POSTGRES_DB={{.DB_NAME}}
       -p 5432:5432
       -v yumyums-pgdata:/var/lib/postgresql/data
       postgres:13
 
   db-stop:
-    desc: Stop and remove PostgreSQL container
+    desc: Stop and remove local PostgreSQL container
     cmd: docker stop yumyums-pg && docker rm yumyums-pg
 
   db-reset:
-    desc: Reset database (stop, remove volume, restart)
+    desc: Reset local database (stop, remove volume, restart)
     cmds:
       - task db-stop
       - docker volume rm yumyums-pgdata
       - task db-start
 
   db-test:
-    desc: Ensure Postgres is running and hq_test database exists
-    cmds:
-      - docker start yumyums-pg 2>/dev/null || task backend:db-start
-      - sleep 1
-      - >-
-        docker exec yumyums-pg
-        psql -U yumyums -tc "SELECT 1 FROM pg_database WHERE datname = 'hq_test'"
-        | grep -q 1
-        || docker exec yumyums-pg psql -U yumyums -c "CREATE DATABASE hq_test"
+    desc: Ensure hq_test database exists (works local or remote)
+    cmd: >-
+      psql "{{.DB_URL}}" -tc
+      "SELECT 1 FROM pg_database WHERE datname = 'hq_test'"
+      | grep -q 1
+      || psql "{{.DB_URL}}" -c "CREATE DATABASE hq_test"
 
+  # ---------------------------------------------------------------------------
+  # Remote Docker (Windows box — managed via infra repo)
+  # ---------------------------------------------------------------------------
+  db-remote-up:
+    desc: Show command to start Postgres on Windows box
+    cmd: echo "On the Windows box, run:\n  cd infra/ && task yumyums:up"
+
+  db-ping:
+    desc: Check connectivity to the configured Postgres
+    cmd: psql "{{.DB_URL}}" -c "SELECT version();"
+
+  db-ping:lan:
+    desc: Check connectivity to Windows box (LAN)
+    cmd: psql "postgres://{{.DB_USER}}:{{.DB_PASS}}@{{.WIN_LAN}}:{{.WIN_PORT}}/{{.DB_NAME}}?sslmode=disable" -c "SELECT version();"
+
+  db-ping:tailscale:
+    desc: Check connectivity to Windows box (Tailscale)
+    cmd: psql "postgres://{{.DB_USER}}:{{.DB_PASS}}@{{.WIN_TS}}:{{.WIN_PORT}}/{{.DB_NAME}}?sslmode=disable" -c "SELECT version();"
+
+  # ---------------------------------------------------------------------------
+  # Data management (uses psql — works local or remote)
+  # ---------------------------------------------------------------------------
   seed:
     desc: Run Go seed command
     cmd: go run ./cmd/seed
     env:
       DB_URL: '{{.DB_URL}}'
 
+  db-reset-purchasing:
+    desc: Wipe purchasing data (POs, shopping lists) for re-testing cutoff flow
+    cmd: >-
+      psql "{{.DB_URL}}" -c "
+        TRUNCATE shopping_list_items, shopping_list_vendor_sections, shopping_lists, po_line_items, purchase_orders CASCADE;
+      "
+
+  db-reset-inventory:
+    desc: Wipe inventory + receipt data only (keeps users, templates, etc.)
+    cmd: >-
+      psql "{{.DB_URL}}" -c "
+        TRUNCATE purchase_line_items, purchase_events, pending_purchases CASCADE;
+      "
+
+  # ---------------------------------------------------------------------------
+  # Utility
+  # ---------------------------------------------------------------------------
   import-notion:
     desc: Import Notion catalog export — uploads photos to DO Spaces, writes purchase_items.yaml
-    dotenv: ['.env']
     cmd: >-
       go run ./cmd/import-notion/
       --csv ../notion-export/AllItems.csv
@@ -98,17 +166,3 @@ tasks:
     cmd: >-
       curl -s -X POST http://localhost:{{.PORT}}/api/v1/purchasing/simulate-cutoff
       -b /tmp/yumcookie | python3 -m json.tool
-
-  db-reset-purchasing:
-    desc: Wipe purchasing data (POs, shopping lists) for re-testing cutoff flow
-    cmd: >-
-      docker exec yumyums-pg psql -U yumyums -d yumyums -c "
-        TRUNCATE shopping_list_items, shopping_list_vendor_sections, shopping_lists, po_line_items, purchase_orders CASCADE;
-      "
-
-  db-reset-inventory:
-    desc: Wipe inventory + receipt data only (keeps users, templates, etc.)
-    cmd: >-
-      docker exec yumyums-pg psql -U yumyums -d yumyums -c "
-        TRUNCATE purchase_line_items, purchase_events, pending_purchases CASCADE;
-      "
