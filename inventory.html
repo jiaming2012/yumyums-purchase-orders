@@ -1155,11 +1155,11 @@ function renderBadgeResetConfig(){
   var configBody=BADGE_RESET_FORM_OPEN?
     '<div class="day-chips">'+dayChips+'</div>'+
     '<div class="field-group" style="margin-bottom:10px"><div class="field-label">Time</div><input type="time" class="field-input" id="badge-reset-time" value="'+BADGE_RESET_TIME+'"></div>'+
-    '<div class="field-group" style="margin-bottom:10px"><div class="field-label">Timezone</div><input class="field-input" value="America/Chicago" disabled></div>'+
+    '<div class="field-group" style="margin-bottom:10px"><div class="field-label">Timezone</div><input class="field-input" value="'+(BADGE_RESET_CONFIG&&BADGE_RESET_CONFIG.timezone?BADGE_RESET_CONFIG.timezone:'America/New_York')+'" disabled></div>'+
     '<div style="display:flex;gap:8px"><button class="btn-primary" data-action="save-badge-reset">Save</button><button class="btn-secondary" data-action="cancel-badge-reset">Cancel</button></div>'
     :'<div style="font-size:13px;color:var(--mut)">'+
       (BADGE_RESET_CONFIG&&BADGE_RESET_CONFIG.day_of_week!==undefined?
-        'Resets every '+BADGE_DAYS[BADGE_RESET_CONFIG.day_of_week]+' at '+(BADGE_RESET_CONFIG.reset_time||'06:00').slice(0,5)+' (America/Chicago)'
+        'Resets every '+BADGE_DAYS[BADGE_RESET_CONFIG.day_of_week]+' at '+(BADGE_RESET_CONFIG.reset_time||'06:00').slice(0,5)+' ('+(BADGE_RESET_CONFIG.timezone||'America/New_York')+')'
         :'Not configured')+
       '</div>';
   sec.innerHTML='<div class="badge-reset-card">'+
@@ -1187,7 +1187,7 @@ document.addEventListener('click',function(e){
     var timeEl=document.getElementById('badge-reset-time');
     var t=timeEl?timeEl.value:'06:00';
     BADGE_RESET_TIME=t||'06:00';
-    api('/api/v1/purchasing/repurchase-reset/config',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({day_of_week:BADGE_RESET_DAY,reset_time:BADGE_RESET_TIME,timezone:'America/Chicago'})}).then(function(cfg){
+    api('/api/v1/purchasing/repurchase-reset/config',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({day_of_week:BADGE_RESET_DAY,reset_time:BADGE_RESET_TIME,timezone:'America/New_York'})}).then(function(cfg){
       BADGE_RESET_CONFIG=cfg;
       BADGE_RESET_FORM_OPEN=false;
       renderBadgeResetConfig();

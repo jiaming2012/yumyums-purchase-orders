@@ -343,6 +343,18 @@ async function editUser(id){
           <label style="display:inline-flex;align-items:center;gap:4px"><input type="checkbox" id="f-notif-email" value="email"${(u.notification_channels||['zoho_cliq']).includes('email')?' checked':''}> Email</label>
         </div>
       </div>
+      <div class="field">
+        <label>Timezone</label>
+        <select id="f-timezone" style="width:100%;padding:10px 12px;border:0.5px solid var(--brd);border-radius:10px;background:var(--card);color:var(--txt);font-size:14px">
+          <option value="America/New_York"${(u.timezone||'America/New_York')==='America/New_York'?' selected':''}>Eastern (America/New_York)</option>
+          <option value="America/Chicago"${(u.timezone||'')==='America/Chicago'?' selected':''}>Central (America/Chicago)</option>
+          <option value="America/Denver"${(u.timezone||'')==='America/Denver'?' selected':''}>Mountain (America/Denver)</option>
+          <option value="America/Los_Angeles"${(u.timezone||'')==='America/Los_Angeles'?' selected':''}>Pacific (America/Los_Angeles)</option>
+          <option value="America/Anchorage"${(u.timezone||'')==='America/Anchorage'?' selected':''}>Alaska (America/Anchorage)</option>
+          <option value="Pacific/Honolulu"${(u.timezone||'')==='Pacific/Honolulu'?' selected':''}>Hawaii (Pacific/Honolulu)</option>
+          <option value="UTC"${(u.timezone||'')==='UTC'?' selected':''}>UTC</option>
+        </select>
+      </div>
       <button class="btn-primary" data-action="save-user">Update Profile</button>
       <div class="sep">
         <button class="btn-secondary" data-action="reset-password">Reset Password</button>
@@ -368,7 +380,8 @@ async function saveUser(){
   const btn=document.querySelector('[data-action="save-user"]');
   if(btn)btn.textContent='Saving...';
   try{
-    const result=await api('PATCH',`/api/v1/users/${editingUser.id}`,{first_name:first,last_name:last,nickname:nick,roles,notification_pref:notifChannels});
+    const tz=document.getElementById('f-timezone')?document.getElementById('f-timezone').value:'America/New_York';
+    const result=await api('PATCH',`/api/v1/users/${editingUser.id}`,{first_name:first,last_name:last,nickname:nick,roles,notification_pref:notifChannels,timezone:tz});
     const idx=USERS.findIndex(u=>u.id===editingUser.id);
     if(idx>=0)USERS[idx]=result.user||result;
     showToast('Profile updated');

@@ -642,7 +642,7 @@ func UpsertRepurchaseResetConfigHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			input.ResetTime = "06:00"
 		}
 		if input.Timezone == "" {
-			input.Timezone = "America/Chicago"
+			input.Timezone = "America/New_York"
 		}
 		cfg, err := UpsertRepurchaseResetConfig(r.Context(), pool, input.DayOfWeek, input.ResetTime, input.Timezone)
 		if err != nil {
