@@ -243,6 +243,17 @@ function showInviteForm(){
         <label>Email</label>
         <input id="f-email" type="email" placeholder="user@yumyums.com" autocomplete="email">
       </div>
+      <div class="field">
+        <label>Employee Type</label>
+        <div id="f-emp-type" style="display:flex;gap:8px">
+          <button type="button" class="role-chip on" data-emptype="W2">W2</button>
+          <button type="button" class="role-chip" data-emptype="1099">1099</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>Starting Salary (hourly)</label>
+        <input id="f-salary" type="number" step="0.01" min="0" placeholder="e.g. 15.00">
+      </div>
       <div id="invite-err" class="field-err"></div>
       <button class="btn-primary" data-action="submit-invite" style="background:#27ae60;color:#fff">Invite</button>
     </div>`;
@@ -254,13 +265,20 @@ async function submitInvite(){
   const last=document.getElementById('f-last').value.trim();
   const email=document.getElementById('f-email').value.trim();
   const roles=Array.from(document.querySelectorAll('#f-roles .role-chip.on')).map(c=>c.dataset.role);
+  const empTypeEl=document.querySelector('#f-emp-type .role-chip.on');
+  const empType=empTypeEl?empTypeEl.dataset.emptype:null;
+  const salaryVal=document.getElementById('f-salary').value;
+  const salary=salaryVal?parseFloat(salaryVal):null;
   const errEl=document.getElementById('invite-err');
   errEl.classList.remove('show');
   if(!first||!last||!email){errEl.textContent='All fields are required.';errEl.classList.add('show');return}
   const btn=document.querySelector('[data-action="submit-invite"]');
   if(btn)btn.textContent='Creating...';
   try{
-    const result=await api('POST','/api/v1/users/invite',{first_name:first,last_name:last,email,roles});
+    const payload={first_name:first,last_name:last,email,roles};
+    if(empType)payload.employee_type=empType;
+    if(salary!==null)payload.starting_salary=salary;
+    const result=await api('POST','/api/v1/users/invite',payload);
     const url=window.location.origin+result.invite_path;
     showInviteLinkPanel('Invite Link',url,'invite-done','An email with the invite link has been sent.');
     await loadUsers();
@@ -503,7 +521,15 @@ function show(n){
 // Event delegation
 document.querySelector('.app').addEventListener('click',async function(e){
   const chip=e.target.closest('.role-chip');
-  if(chip){chip.classList.toggle('on');return}
+  if(chip){
+    if(chip.dataset.emptype){
+      chip.parentElement.querySelectorAll('.role-chip').forEach(c=>c.classList.remove('on'));
+      chip.classList.add('on');
+    }else{
+      chip.classList.toggle('on');
+    }
+    return;
+  }
   const el=e.target.closest('[data-action]');
   if(!el)return;
   const action=el.dataset.action;

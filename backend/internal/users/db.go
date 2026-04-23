@@ -32,6 +32,12 @@ type UserRow struct {
 	Status               string     `json:"status"`
 	NotificationChannels []string   `json:"notification_channels"`
 	Timezone             string     `json:"timezone"`
+	EmployeeNumber       *int       `json:"employee_number,omitempty"`
+	EmployeeType         *string    `json:"employee_type,omitempty"`
+	StartingSalary       *float64   `json:"starting_salary,omitempty"`
+	ToastPosNumber       *string    `json:"toast_pos_number,omitempty"`
+	CashAppID            *string    `json:"cash_app_id,omitempty"`
+	PhoneNumber          *string    `json:"phone_number,omitempty"`
 	InvitedAt            time.Time  `json:"invited_at"`
 	AcceptedAt           *time.Time `json:"accepted_at,omitempty"`
 }
@@ -47,10 +53,12 @@ type NotificationPreferenceContact struct {
 
 // CreateUserInput holds fields required to create an invited user.
 type CreateUserInput struct {
-	FirstName string
-	LastName  string
-	Email     string
-	Roles     []string
+	FirstName      string
+	LastName       string
+	Email          string
+	Roles          []string
+	EmployeeType   *string
+	StartingSalary *float64
 }
 
 // UpdateUserInput holds optional fields for partial user updates.
@@ -82,7 +90,10 @@ type SetPermInput struct {
 func ListUsers(ctx context.Context, pool *pgxpool.Pool) ([]UserRow, error) {
 	query := fmt.Sprintf(`
 		SELECT u.id, u.email, u.first_name, u.last_name, u.nickname,
-		       %s, u.roles, u.status, u.notification_channel, u.timezone, u.invited_at, u.accepted_at
+		       %s, u.roles, u.status, u.notification_channel, u.timezone,
+		       u.employee_number, u.employee_type, u.starting_salary,
+		       u.toast_pos_number, u.cash_app_id, u.phone_number,
+		       u.invited_at, u.accepted_at
 		FROM users u
 		ORDER BY display_name ASC
 	`, displayNameExpr)
@@ -98,7 +109,10 @@ func ListUsers(ctx context.Context, pool *pgxpool.Pool) ([]UserRow, error) {
 		var u UserRow
 		if err := rows.Scan(
 			&u.ID, &u.Email, &u.FirstName, &u.LastName, &u.Nickname,
-			&u.DisplayName, &u.Roles, &u.Status, &u.NotificationChannels, &u.Timezone, &u.InvitedAt, &u.AcceptedAt,
+			&u.DisplayName, &u.Roles, &u.Status, &u.NotificationChannels, &u.Timezone,
+			&u.EmployeeNumber, &u.EmployeeType, &u.StartingSalary,
+			&u.ToastPosNumber, &u.CashAppID, &u.PhoneNumber,
+			&u.InvitedAt, &u.AcceptedAt,
 		); err != nil {
 			return nil, fmt.Errorf("list users scan: %w", err)
 		}
@@ -114,7 +128,10 @@ func ListUsers(ctx context.Context, pool *pgxpool.Pool) ([]UserRow, error) {
 func GetUser(ctx context.Context, pool *pgxpool.Pool, userID string) (*UserRow, error) {
 	query := fmt.Sprintf(`
 		SELECT u.id, u.email, u.first_name, u.last_name, u.nickname,
-		       %s, u.roles, u.status, u.notification_channel, u.timezone, u.invited_at, u.accepted_at
+		       %s, u.roles, u.status, u.notification_channel, u.timezone,
+		       u.employee_number, u.employee_type, u.starting_salary,
+		       u.toast_pos_number, u.cash_app_id, u.phone_number,
+		       u.invited_at, u.accepted_at
 		FROM users u
 		WHERE u.id = $1
 	`, displayNameExpr)
@@ -122,7 +139,10 @@ func GetUser(ctx context.Context, pool *pgxpool.Pool, userID string) (*UserRow, 
 	var u UserRow
 	err := pool.QueryRow(ctx, query, userID).Scan(
 		&u.ID, &u.Email, &u.FirstName, &u.LastName, &u.Nickname,
-		&u.DisplayName, &u.Roles, &u.Status, &u.NotificationChannels, &u.Timezone, &u.InvitedAt, &u.AcceptedAt,
+		&u.DisplayName, &u.Roles, &u.Status, &u.NotificationChannels, &u.Timezone,
+		&u.EmployeeNumber, &u.EmployeeType, &u.StartingSalary,
+		&u.ToastPosNumber, &u.CashAppID, &u.PhoneNumber,
+		&u.InvitedAt, &u.AcceptedAt,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -232,10 +252,10 @@ func CreateInvitedUser(ctx context.Context, pool *pgxpool.Pool, input CreateUser
 
 	var id string
 	err := pool.QueryRow(ctx, `
-		INSERT INTO users (email, first_name, last_name, roles, status)
-		VALUES ($1, $2, $3, $4, 'invited')
+		INSERT INTO users (email, first_name, last_name, roles, status, employee_type, starting_salary)
+		VALUES ($1, $2, $3, $4, 'invited', $5, $6)
 		RETURNING id
-	`, input.Email, input.FirstName, input.LastName, input.Roles).Scan(&id)
+	`, input.Email, input.FirstName, input.LastName, input.Roles, input.EmployeeType, input.StartingSalary).Scan(&id)
 	if err != nil {
 		return "", fmt.Errorf("create invited user: %w", err)
 	}
@@ -371,23 +391,27 @@ func ClaimInviteToken(ctx context.Context, pool *pgxpool.Pool, tokenHash string)
 
 // ActivateUser sets a user's status to 'active' and stores their password hash.
 // If nickname is non-empty, it is also set.
-func ActivateUser(ctx context.Context, pool *pgxpool.Pool, userID, passwordHash, nickname string) error {
-	if nickname != "" {
-		_, err := pool.Exec(ctx, `
-			UPDATE users
-			SET status = 'active', password_hash = $2, accepted_at = now(), nickname = $3
-			WHERE id = $1
-		`, userID, passwordHash, nickname)
-		if err != nil {
-			return fmt.Errorf("activate user: %w", err)
-		}
-		return nil
-	}
+// ActivateUserInput holds the fields set during invite acceptance.
+type ActivateUserInput struct {
+	PasswordHash   string
+	Nickname       string
+	ToastPosNumber *string
+	CashAppID      *string
+	PhoneNumber    *string
+}
+
+func ActivateUser(ctx context.Context, pool *pgxpool.Pool, userID string, input ActivateUserInput) error {
 	_, err := pool.Exec(ctx, `
 		UPDATE users
-		SET status = 'active', password_hash = $2, accepted_at = now()
+		SET status = 'active',
+		    password_hash = $2,
+		    accepted_at = now(),
+		    nickname = CASE WHEN $3 = '' THEN nickname ELSE $3 END,
+		    toast_pos_number = COALESCE($4, toast_pos_number),
+		    cash_app_id = COALESCE($5, cash_app_id),
+		    phone_number = COALESCE($6, phone_number)
 		WHERE id = $1
-	`, userID, passwordHash)
+	`, userID, input.PasswordHash, input.Nickname, input.ToastPosNumber, input.CashAppID, input.PhoneNumber)
 	if err != nil {
 		return fmt.Errorf("activate user: %w", err)
 	}

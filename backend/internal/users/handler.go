@@ -66,10 +66,12 @@ func InviteHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 
 		var body struct {
-			FirstName string   `json:"first_name"`
-			LastName  string   `json:"last_name"`
-			Email     string   `json:"email"`
-			Roles     []string `json:"roles"`
+			FirstName      string   `json:"first_name"`
+			LastName       string   `json:"last_name"`
+			Email          string   `json:"email"`
+			Roles          []string `json:"roles"`
+			EmployeeType   *string  `json:"employee_type"`
+			StartingSalary *float64 `json:"starting_salary"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid_json")
@@ -81,10 +83,12 @@ func InviteHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 
 		userID, err := CreateInvitedUser(r.Context(), pool, CreateUserInput{
-			FirstName: body.FirstName,
-			LastName:  body.LastName,
-			Email:     body.Email,
-			Roles:     body.Roles,
+			FirstName:      body.FirstName,
+			LastName:       body.LastName,
+			Email:          body.Email,
+			Roles:          body.Roles,
+			EmployeeType:   body.EmployeeType,
+			StartingSalary: body.StartingSalary,
 		})
 		if err != nil {
 			// Check for unique constraint violation on email
@@ -329,9 +333,12 @@ func InviteInfoHandler(pool *pgxpool.Pool) http.HandlerFunc {
 func AcceptInviteHandler(pool *pgxpool.Pool, secureCookie bool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
-			Token    string `json:"token"`
-			Password string `json:"password"`
-			Nickname string `json:"nickname"`
+			Token          string  `json:"token"`
+			Password       string  `json:"password"`
+			Nickname       string  `json:"nickname"`
+			ToastPosNumber *string `json:"toast_pos_number"`
+			CashAppID      *string `json:"cash_app_id"`
+			PhoneNumber    *string `json:"phone_number"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Token == "" || body.Password == "" {
 			writeError(w, http.StatusBadRequest, "validation_error")
@@ -359,7 +366,13 @@ func AcceptInviteHandler(pool *pgxpool.Pool, secureCookie bool) http.HandlerFunc
 			return
 		}
 
-		if err := ActivateUser(r.Context(), pool, userID, passwordHash, strings.TrimSpace(body.Nickname)); err != nil {
+		if err := ActivateUser(r.Context(), pool, userID, ActivateUserInput{
+			PasswordHash:   passwordHash,
+			Nickname:       strings.TrimSpace(body.Nickname),
+			ToastPosNumber: body.ToastPosNumber,
+			CashAppID:      body.CashAppID,
+			PhoneNumber:    body.PhoneNumber,
+		}); err != nil {
 			log.Printf("AcceptInviteHandler ActivateUser error: %v", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return

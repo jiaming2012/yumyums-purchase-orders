@@ -76,6 +76,28 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
           <label>Confirm Password</label>
           <input id="invite-pw2" type="password" name="confirm_password" placeholder="Repeat password" autocomplete="new-password">
         </div>
+        <div id="onboard-fields" style="display:none">
+          <div style="font-size:12px;font-weight:600;color:var(--mut);margin:20px 0 12px;text-transform:uppercase;letter-spacing:0.4px">Setup Info</div>
+          <div class="field">
+            <label>Toast PoS Number</label>
+            <input id="invite-toast" type="text" inputmode="numeric" pattern="[0-9]{4,}" placeholder="e.g. 0005" autocomplete="off">
+            <div style="font-size:12px;color:var(--mut);margin-top:4px">At least 4 digits, numbers only</div>
+          </div>
+          <div class="field">
+            <label>Cash App ID</label>
+            <div style="display:flex;align-items:center;gap:0">
+              <span style="padding:12px 0 12px 14px;background:var(--bg);border:0.5px solid var(--brd);border-right:none;border-radius:8px 0 0 8px;font-size:15px;color:var(--mut)">$</span>
+              <input id="invite-cashapp" type="text" placeholder="YourCashTag" autocomplete="off" style="border-radius:0 8px 8px 0;border-left:none">
+            </div>
+            <label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:13px;color:var(--mut);text-transform:none;letter-spacing:0;font-weight:400">
+              <input id="invite-no-cashapp" type="checkbox" style="width:auto"> I do not have Cash App
+            </label>
+          </div>
+          <div class="field">
+            <label>Phone Number</label>
+            <input id="invite-phone" type="tel" placeholder="(555) 123-4567" autocomplete="tel">
+          </div>
+        </div>
         <button class="btn" type="submit">Set Password &amp; Log In</button>
       </form>
     </div>
@@ -104,6 +126,7 @@ async function showAcceptInviteMode(token){
     document.getElementById('welcome-heading').textContent='Welcome, '+data.first_name;
     if(data.status==='invited'){
       document.getElementById('nickname-field').style.display='block';
+      document.getElementById('onboard-fields').style.display='block';
     }else{
       document.getElementById('invite-sub').textContent='Enter your new password.';
     }
@@ -112,6 +135,13 @@ async function showAcceptInviteMode(token){
   }
 }
 
+// Disable cashapp field when checkbox is checked
+document.getElementById('invite-no-cashapp').addEventListener('change',function(){
+  const inp=document.getElementById('invite-cashapp');
+  inp.disabled=this.checked;
+  if(this.checked)inp.value='';
+});
+
 async function acceptInvite(){
   const pw=document.getElementById('invite-pw').value;
   const pw2=document.getElementById('invite-pw2').value;
@@ -119,9 +149,32 @@ async function acceptInvite(){
   clearError();
   if(pw!==pw2){showError("Passwords don't match.");return}
   if(pw.length<8){showError('Password must be at least 8 characters.');return}
+
+  const payload={token:inviteToken,password:pw};
+  if(nick)payload.nickname=nick;
+
+  // Onboard fields (only present for invited status)
+  const toastEl=document.getElementById('invite-toast');
+  if(toastEl&&toastEl.offsetParent!==null){
+    const toast=toastEl.value.trim();
+    if(toast){
+      if(!/^\d{4,}$/.test(toast)){showError('Toast PoS Number must be at least 4 digits, numbers only.');return}
+      payload.toast_pos_number=toast;
+    }
+    const noCashApp=document.getElementById('invite-no-cashapp').checked;
+    const cashApp=document.getElementById('invite-cashapp').value.trim();
+    if(!noCashApp&&cashApp){
+      payload.cash_app_id='$'+cashApp.replace(/^\$/,'');
+    }
+    const phone=document.getElementById('invite-phone').value.trim();
+    if(phone){
+      const digits=phone.replace(/\D/g,'');
+      if(digits.length<10){showError('Please enter a valid phone number (at least 10 digits).');return}
+      payload.phone_number=phone;
+    }
+  }
+
   try{
-    const payload={token:inviteToken,password:pw};
-    if(nick)payload.nickname=nick;
     const res=await fetch('/api/v1/auth/accept-invite',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
