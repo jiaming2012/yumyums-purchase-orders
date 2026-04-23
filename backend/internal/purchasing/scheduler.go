@@ -9,6 +9,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/yumyums/hq/internal/alerts"
+	"github.com/yumyums/hq/internal/users"
 )
 
 // StartScheduler launches a background goroutine that checks whether the cutoff
@@ -21,7 +23,7 @@ func StartScheduler(ctx context.Context, pool *pgxpool.Pool) {
 
 	go func() {
 		// Run immediately on start
-		runCutoffCheck(ctx, pool)
+		runSchedulerTick(ctx, pool)
 
 		ticker := time.NewTicker(15 * time.Minute)
 		defer ticker.Stop()
@@ -32,10 +34,127 @@ func StartScheduler(ctx context.Context, pool *pgxpool.Pool) {
 				log.Println("cutoff scheduler: shutting down")
 				return
 			case <-ticker.C:
-				runCutoffCheck(ctx, pool)
+				runSchedulerTick(ctx, pool)
 			}
 		}
 	}()
+}
+
+// runSchedulerTick runs both the cutoff check and the cutoff reminder check on each tick.
+func runSchedulerTick(ctx context.Context, pool *pgxpool.Pool) {
+	runCutoffCheck(ctx, pool)
+	runReminderCheck(ctx, pool)
+}
+
+// runReminderCheck sends a 24-hour cutoff reminder to crew members if it hasn't been
+// sent yet this week (D-08: single reminder, idempotent via alert_log table).
+func runReminderCheck(ctx context.Context, pool *pgxpool.Pool) {
+	if alertQueue == nil {
+		return // alerts not configured — skip silently
+	}
+
+	config, err := GetCutoffConfig(ctx, pool)
+	if err != nil {
+		log.Printf("reminder check: GetCutoffConfig error: %v", err)
+		return
+	}
+	if config == nil {
+		return // no cutoff configured
+	}
+
+	loc, err := time.LoadLocation(config.Timezone)
+	if err != nil {
+		log.Printf("reminder check: invalid timezone %q: %v", config.Timezone, err)
+		return
+	}
+
+	hour, minute, err := parseCutoffTime(config.CutoffTime)
+	if err != nil {
+		log.Printf("reminder check: parse cutoff_time %q: %v", config.CutoffTime, err)
+		return
+	}
+
+	now := time.Now().In(loc)
+
+	// Compute the cutoff time this week
+	targetWeekday := time.Weekday(config.DayOfWeek)
+	daysAhead := int(targetWeekday) - int(now.Weekday())
+	if daysAhead < 0 {
+		daysAhead += 7
+	}
+	cutoffTime := time.Date(now.Year(), now.Month(), now.Day()+daysAhead, hour, minute, 0, 0, loc)
+
+	// Reminder window: 24h to 23h before cutoff (check within a 1-hour window to match 15m tick)
+	reminderWindowStart := cutoffTime.Add(-24 * time.Hour)
+	reminderWindowEnd := cutoffTime.Add(-23 * time.Hour)
+
+	if now.Before(reminderWindowStart) || now.After(reminderWindowEnd) {
+		return // not in reminder window
+	}
+
+	// Determine week_start for this cutoff (Monday of the week the cutoff applies to)
+	weekday := int(now.Weekday())
+	if weekday == 0 {
+		weekday = 7
+	}
+	monday := now.AddDate(0, 0, -(weekday - 1))
+	weekStart := monday.Format("2006-01-02")
+
+	// Idempotency check: was the reminder already sent this week?
+	var exists bool
+	err = pool.QueryRow(ctx, `
+		SELECT EXISTS(SELECT 1 FROM alert_log WHERE alert_type = 'cutoff_reminder' AND week_start = $1)
+	`, weekStart).Scan(&exists)
+	if err != nil {
+		log.Printf("reminder check: idempotency query error: %v", err)
+		return
+	}
+	if exists {
+		return // already sent
+	}
+
+	// Get current draft PO item count (D-10: include in reminder)
+	var itemCount int
+	_ = pool.QueryRow(ctx, `
+		SELECT COUNT(*) FROM po_line_items pli
+		JOIN purchase_orders po ON po.id = pli.po_id
+		WHERE po.status = 'draft'
+	`).Scan(&itemCount)
+
+	// Day name for message
+	dayNames := []string{"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"}
+	cutoffDay := dayNames[config.DayOfWeek]
+	msg := fmt.Sprintf(
+		"Reminder: PO cutoff is %s at %s. Current order has %d item(s). Add anything else before the deadline!",
+		cutoffDay, config.CutoffTime, itemCount,
+	)
+
+	// Get crew members who can add to PO (D-09)
+	contacts, err := users.GetUsersForAlerts(ctx, pool, alerts.TypeCutoffReminder)
+	if err != nil {
+		log.Printf("reminder check: GetUsersForAlerts: %v", err)
+		return
+	}
+
+	for _, c := range contacts {
+		alertQueue.Enqueue(alerts.Alert{
+			Channel:        c.NotificationChannel,
+			RecipientEmail: c.Email,
+			Subject:        "PO Cutoff Reminder",
+			Message:        msg,
+		})
+	}
+
+	// Record that reminder was sent this week
+	_, err = pool.Exec(ctx, `
+		INSERT INTO alert_log (alert_type, week_start) VALUES ('cutoff_reminder', $1)
+		ON CONFLICT (alert_type, week_start) DO NOTHING
+	`, weekStart)
+	if err != nil {
+		log.Printf("reminder check: insert alert_log: %v", err)
+	}
+
+	log.Printf("reminder check: sent cutoff reminder for week %s (%d recipients)", weekStart, len(contacts))
 }
 
 // runCutoffCheck loads the cutoff config, determines whether the cutoff time

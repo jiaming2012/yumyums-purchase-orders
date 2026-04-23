@@ -9,9 +9,20 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/yumyums/hq/internal/alerts"
 	"github.com/yumyums/hq/internal/auth"
 	"github.com/yumyums/hq/internal/inventory"
+	"github.com/yumyums/hq/internal/users"
 )
+
+// alertQueue is the package-level async alert dispatcher.
+// Set via SetAlertQueue before starting the server.
+var alertQueue *alerts.Queue
+
+// SetAlertQueue wires in the alert delivery queue. Call once at startup.
+func SetAlertQueue(q *alerts.Queue) {
+	alertQueue = q
+}
 
 // ErrPONotDraft is returned when an operation requires the PO to be in draft status.
 var ErrPONotDraft = errors.New("purchase order is not in draft status")
@@ -565,10 +576,74 @@ func CompleteVendorSection(ctx context.Context, pool *pgxpool.Pool, sectionID st
 	return listCompleted, nil
 }
 
-// NotifyVendorComplete is a no-op stub for Phase 17 alert wiring.
-// Phase 17 will replace this with actual Zoho Cliq / email delivery.
+// NotifyVendorComplete sends a shopping-completion alert to admins and the shopper.
+// Called inside CompleteVendorSection after the section is marked complete but before COMMIT.
+// Queries missing (unchecked) items for the list and dispatches via the configured alert queue.
+// Errors are logged but do not affect the transaction — alerts are best-effort.
 func NotifyVendorComplete(ctx context.Context, pool *pgxpool.Pool, listID string) error {
-	log.Printf("alert pending (Phase 17): vendor section completed for shopping list %s", listID)
+	if alertQueue == nil {
+		log.Printf("NotifyVendorComplete: alertQueue not configured — skipping alert for list %s", listID)
+		return nil
+	}
+
+	// Gather unchecked items across all vendor sections for this shopping list (D-11, D-13).
+	type missingItem struct {
+		vendorName string
+		itemName   string
+		quantity   int
+		unit       string
+	}
+	rows, err := pool.Query(ctx, `
+		SELECT svs.vendor_name, sli.item_name, sli.quantity, sli.unit
+		FROM shopping_list_items sli
+		JOIN shopping_list_vendor_sections svs ON svs.id = sli.vendor_section_id
+		WHERE sli.shopping_list_id = $1 AND sli.checked = false
+		ORDER BY svs.vendor_name, sli.item_name
+	`, listID)
+	if err != nil {
+		return fmt.Errorf("NotifyVendorComplete: query missing items: %w", err)
+	}
+	defer rows.Close()
+
+	var missing []missingItem
+	for rows.Next() {
+		var m missingItem
+		if err := rows.Scan(&m.vendorName, &m.itemName, &m.quantity, &m.unit); err != nil {
+			return fmt.Errorf("NotifyVendorComplete: scan missing item: %w", err)
+		}
+		missing = append(missing, m)
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("NotifyVendorComplete: missing items rows err: %w", err)
+	}
+
+	// Build message body (D-13: vendor name, missing items, quantities).
+	var msg string
+	if len(missing) == 0 {
+		msg = fmt.Sprintf("Shopping list completed — all items checked off!")
+	} else {
+		msg = fmt.Sprintf("Shopping list completed with %d unchecked item(s):\n", len(missing))
+		for _, m := range missing {
+			msg += fmt.Sprintf("  • %s: %s (%d %s)\n", m.vendorName, m.itemName, m.quantity, m.unit)
+		}
+	}
+
+	// Get admin contacts (D-12: admins + shopper — shopper wiring done via context if available).
+	contacts, err := users.GetUsersForAlerts(ctx, pool, alerts.TypeShoppingComplete)
+	if err != nil {
+		log.Printf("NotifyVendorComplete: GetUsersForAlerts: %v", err)
+		// Don't fail the transaction — alerts are best-effort
+		return nil
+	}
+
+	for _, c := range contacts {
+		alertQueue.Enqueue(alerts.Alert{
+			Channel:        c.NotificationChannel,
+			RecipientEmail: c.Email,
+			Subject:        "Shopping List Completed",
+			Message:        msg,
+		})
+	}
 	return nil
 }
 

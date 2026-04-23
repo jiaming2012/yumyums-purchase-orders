@@ -18,6 +18,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/yumyums/hq/internal/alerts"
 	"github.com/yumyums/hq/internal/auth"
 	"github.com/yumyums/hq/internal/config"
 	"github.com/yumyums/hq/internal/db"
@@ -483,7 +484,14 @@ func main() {
 		receipt.StartWorker(ctx, receiptCfg)
 	}
 
-	// Start cutoff scheduler — polls every 15m to auto-lock POs at configured cutoff time
+	// Initialize and start alert queue — gracefully no-ops when env vars are not set
+	alertCfg := alerts.LoadConfig()
+	alertQ := alerts.NewQueue(alertCfg)
+	alertQ.Start(ctx)
+	purchasing.SetAlertQueue(alertQ)
+	log.Println("Alert queue started")
+
+	// Start cutoff scheduler — polls every 15m to auto-lock POs and send reminders
 	purchasing.StartScheduler(ctx, pool)
 
 	log.Printf("Yumyums HQ server listening on :%s", port)

@@ -19,16 +19,25 @@ var ErrTokenInvalid = errors.New("token_invalid")
 
 // UserRow is the full user record returned from DB queries.
 type UserRow struct {
-	ID          string     `json:"id"`
-	Email       string     `json:"email"`
-	FirstName   string     `json:"first_name"`
-	LastName    string     `json:"last_name"`
-	Nickname    *string    `json:"nickname,omitempty"`
-	DisplayName string     `json:"display_name"`
-	Roles       []string   `json:"roles"`
-	Status      string     `json:"status"`
-	InvitedAt   time.Time  `json:"invited_at"`
-	AcceptedAt  *time.Time `json:"accepted_at,omitempty"`
+	ID                  string     `json:"id"`
+	Email               string     `json:"email"`
+	FirstName           string     `json:"first_name"`
+	LastName            string     `json:"last_name"`
+	Nickname            *string    `json:"nickname,omitempty"`
+	DisplayName         string     `json:"display_name"`
+	Roles               []string   `json:"roles"`
+	Status              string     `json:"status"`
+	NotificationChannel string     `json:"notification_channel"`
+	InvitedAt           time.Time  `json:"invited_at"`
+	AcceptedAt          *time.Time `json:"accepted_at,omitempty"`
+}
+
+// NotificationPreferenceContact holds the minimal fields needed for alert delivery.
+type NotificationPreferenceContact struct {
+	UserID              string
+	Email               string
+	DisplayName         string
+	NotificationChannel string
 }
 
 // CreateUserInput holds fields required to create an invited user.
@@ -66,7 +75,7 @@ type SetPermInput struct {
 func ListUsers(ctx context.Context, pool *pgxpool.Pool) ([]UserRow, error) {
 	query := fmt.Sprintf(`
 		SELECT u.id, u.email, u.first_name, u.last_name, u.nickname,
-		       %s, u.roles, u.status, u.invited_at, u.accepted_at
+		       %s, u.roles, u.status, u.notification_channel, u.invited_at, u.accepted_at
 		FROM users u
 		ORDER BY display_name ASC
 	`, displayNameExpr)
@@ -82,7 +91,7 @@ func ListUsers(ctx context.Context, pool *pgxpool.Pool) ([]UserRow, error) {
 		var u UserRow
 		if err := rows.Scan(
 			&u.ID, &u.Email, &u.FirstName, &u.LastName, &u.Nickname,
-			&u.DisplayName, &u.Roles, &u.Status, &u.InvitedAt, &u.AcceptedAt,
+			&u.DisplayName, &u.Roles, &u.Status, &u.NotificationChannel, &u.InvitedAt, &u.AcceptedAt,
 		); err != nil {
 			return nil, fmt.Errorf("list users scan: %w", err)
 		}
@@ -98,7 +107,7 @@ func ListUsers(ctx context.Context, pool *pgxpool.Pool) ([]UserRow, error) {
 func GetUser(ctx context.Context, pool *pgxpool.Pool, userID string) (*UserRow, error) {
 	query := fmt.Sprintf(`
 		SELECT u.id, u.email, u.first_name, u.last_name, u.nickname,
-		       %s, u.roles, u.status, u.invited_at, u.accepted_at
+		       %s, u.roles, u.status, u.notification_channel, u.invited_at, u.accepted_at
 		FROM users u
 		WHERE u.id = $1
 	`, displayNameExpr)
@@ -106,7 +115,7 @@ func GetUser(ctx context.Context, pool *pgxpool.Pool, userID string) (*UserRow, 
 	var u UserRow
 	err := pool.QueryRow(ctx, query, userID).Scan(
 		&u.ID, &u.Email, &u.FirstName, &u.LastName, &u.Nickname,
-		&u.DisplayName, &u.Roles, &u.Status, &u.InvitedAt, &u.AcceptedAt,
+		&u.DisplayName, &u.Roles, &u.Status, &u.NotificationChannel, &u.InvitedAt, &u.AcceptedAt,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -115,6 +124,88 @@ func GetUser(ctx context.Context, pool *pgxpool.Pool, userID string) (*UserRow, 
 		return nil, fmt.Errorf("get user: %w", err)
 	}
 	return &u, nil
+}
+
+// GetNotificationPreference returns a single user's notification_channel.
+func GetNotificationPreference(ctx context.Context, pool *pgxpool.Pool, userID string) (string, error) {
+	var channel string
+	err := pool.QueryRow(ctx, `SELECT notification_channel FROM users WHERE id = $1`, userID).Scan(&channel)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", nil
+		}
+		return "", fmt.Errorf("get notification preference: %w", err)
+	}
+	return channel, nil
+}
+
+// UpdateNotificationPreference sets notification_channel for a user.
+// Valid values are 'zoho_cliq' and 'email' (enforced by DB CHECK constraint).
+func UpdateNotificationPreference(ctx context.Context, pool *pgxpool.Pool, userID, channel string) error {
+	if channel != "zoho_cliq" && channel != "email" {
+		return fmt.Errorf("invalid notification_channel %q: must be 'zoho_cliq' or 'email'", channel)
+	}
+	tag, err := pool.Exec(ctx, `UPDATE users SET notification_channel = $2 WHERE id = $1`, userID, channel)
+	if err != nil {
+		return fmt.Errorf("update notification preference: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("user not found: %s", userID)
+	}
+	return nil
+}
+
+// GetUsersForAlerts returns contact info for all users who should receive a given type of alert.
+// For cutoff reminders (D-09): users with 'order' app permission.
+// For shopping completion (D-12): admin users only (callers add the shopper separately).
+func GetUsersForAlerts(ctx context.Context, pool *pgxpool.Pool, alertType string) ([]NotificationPreferenceContact, error) {
+	var query string
+	switch alertType {
+	case "cutoff_reminder":
+		// Users with 'order' permission: role grants to 'crew', 'manager', 'admin' + individual user grants
+		query = `
+			SELECT DISTINCT u.id, u.email,
+			       COALESCE(NULLIF(u.nickname,''), u.first_name || ' ' || LEFT(u.last_name,1) || '.') AS display_name,
+			       u.notification_channel
+			FROM users u
+			WHERE u.status = 'active'
+			  AND (
+			    'crew' = ANY(u.roles) OR 'manager' = ANY(u.roles) OR 'admin' = ANY(u.roles) OR u.is_superadmin
+			    OR EXISTS (
+			      SELECT 1 FROM app_permissions ap
+			      JOIN hq_apps a ON a.id = ap.app_id
+			      WHERE a.slug = 'purchasing' AND ap.user_id = u.id
+			    )
+			  )
+			ORDER BY display_name
+		`
+	default: // shopping_completion and others — admins only
+		query = `
+			SELECT u.id, u.email,
+			       COALESCE(NULLIF(u.nickname,''), u.first_name || ' ' || LEFT(u.last_name,1) || '.') AS display_name,
+			       u.notification_channel
+			FROM users u
+			WHERE u.status = 'active'
+			  AND ('admin' = ANY(u.roles) OR u.is_superadmin)
+			ORDER BY display_name
+		`
+	}
+
+	rows, err := pool.Query(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("GetUsersForAlerts: %w", err)
+	}
+	defer rows.Close()
+
+	var contacts []NotificationPreferenceContact
+	for rows.Next() {
+		var c NotificationPreferenceContact
+		if err := rows.Scan(&c.UserID, &c.Email, &c.DisplayName, &c.NotificationChannel); err != nil {
+			return nil, fmt.Errorf("GetUsersForAlerts scan: %w", err)
+		}
+		contacts = append(contacts, c)
+	}
+	return contacts, rows.Err()
 }
 
 // CreateInvitedUser inserts a new user with status='invited' and returns the new user ID.
