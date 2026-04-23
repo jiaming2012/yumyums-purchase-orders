@@ -171,7 +171,7 @@ func GetUsersForAlerts(ctx context.Context, pool *pgxpool.Pool, alertType string
 			FROM users u
 			WHERE u.status = 'active'
 			  AND (
-			    'crew' = ANY(u.roles) OR 'manager' = ANY(u.roles) OR 'admin' = ANY(u.roles) OR u.is_superadmin
+			    'crew' = ANY(u.roles) OR 'manager' = ANY(u.roles) OR 'admin' = ANY(u.roles)
 			    OR EXISTS (
 			      SELECT 1 FROM app_permissions ap
 			      JOIN hq_apps a ON a.id = ap.app_id
@@ -187,7 +187,7 @@ func GetUsersForAlerts(ctx context.Context, pool *pgxpool.Pool, alertType string
 			       u.notification_channel
 			FROM users u
 			WHERE u.status = 'active'
-			  AND ('admin' = ANY(u.roles) OR u.is_superadmin)
+			  AND ('admin' = ANY(u.roles))
 			ORDER BY display_name
 		`
 	}
