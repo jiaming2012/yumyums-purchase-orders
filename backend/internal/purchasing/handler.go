@@ -562,3 +562,94 @@ func ApprovePOHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		writeJSON(w, http.StatusOK, map[string]string{"shopping_list_id": listID})
 	}
 }
+
+// RepurchaseResetHandler manually triggers a repurchase badge reset (admin-only, D-17).
+// POST /api/v1/purchasing/repurchase-reset
+func RepurchaseResetHandler(pool *pgxpool.Pool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		user := auth.UserFromContext(r.Context())
+		if user == nil {
+			writeError(w, http.StatusUnauthorized, "unauthorized")
+			return
+		}
+		if !isAdmin(user) {
+			writeError(w, http.StatusForbidden, "forbidden")
+			return
+		}
+		if err := TriggerRepurchaseReset(r.Context(), pool); err != nil {
+			log.Printf("RepurchaseResetHandler: %v", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+// GetRepurchaseResetConfigHandler returns the current badge reset schedule (admin-only).
+// GET /api/v1/purchasing/repurchase-reset
+func GetRepurchaseResetConfigHandler(pool *pgxpool.Pool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		user := auth.UserFromContext(r.Context())
+		if user == nil {
+			writeError(w, http.StatusUnauthorized, "unauthorized")
+			return
+		}
+		if !isAdmin(user) {
+			writeError(w, http.StatusForbidden, "forbidden")
+			return
+		}
+		cfg, err := GetRepurchaseResetConfig(r.Context(), pool)
+		if err != nil {
+			log.Printf("GetRepurchaseResetConfigHandler: %v", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		if cfg == nil {
+			writeJSON(w, http.StatusOK, nil)
+			return
+		}
+		writeJSON(w, http.StatusOK, cfg)
+	}
+}
+
+// UpsertRepurchaseResetConfigHandler sets the weekly badge reset schedule (admin-only).
+// PUT /api/v1/purchasing/repurchase-reset/config
+func UpsertRepurchaseResetConfigHandler(pool *pgxpool.Pool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		user := auth.UserFromContext(r.Context())
+		if user == nil {
+			writeError(w, http.StatusUnauthorized, "unauthorized")
+			return
+		}
+		if !isAdmin(user) {
+			writeError(w, http.StatusForbidden, "forbidden")
+			return
+		}
+		var input struct {
+			DayOfWeek int    `json:"day_of_week"`
+			ResetTime string `json:"reset_time"` // HH:MM
+			Timezone  string `json:"timezone"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_body")
+			return
+		}
+		if input.DayOfWeek < 0 || input.DayOfWeek > 6 {
+			writeError(w, http.StatusBadRequest, "invalid_day_of_week")
+			return
+		}
+		if input.ResetTime == "" {
+			input.ResetTime = "06:00"
+		}
+		if input.Timezone == "" {
+			input.Timezone = "America/Chicago"
+		}
+		cfg, err := UpsertRepurchaseResetConfig(r.Context(), pool, input.DayOfWeek, input.ResetTime, input.Timezone)
+		if err != nil {
+			log.Printf("UpsertRepurchaseResetConfigHandler: %v", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		writeJSON(w, http.StatusOK, cfg)
+	}
+}

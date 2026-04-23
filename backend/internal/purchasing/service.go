@@ -565,14 +565,22 @@ func CompleteVendorSection(ctx context.Context, pool *pgxpool.Pool, sectionID st
 		}
 	}
 
-	// Call notify stub (Phase 17 alert hook) — called after section completed but before COMMIT
+	if err = tx.Commit(ctx); err != nil {
+		return false, err
+	}
+
+	// Record repurchase log entries for badge display (REP-01).
+	// Called after COMMIT — badge data is best-effort/cosmetic.
+	if repErr := RecordRepurchase(ctx, pool, sectionID); repErr != nil {
+		log.Printf("CompleteVendorSection: RecordRepurchase: %v", repErr)
+	}
+
+	// Send shopping completion alert to admins (D-11).
+	// Called after COMMIT — alerts are best-effort.
 	if notifyErr := NotifyVendorComplete(ctx, pool, listID); notifyErr != nil {
 		log.Printf("NotifyVendorComplete: %v", notifyErr)
 	}
 
-	if err = tx.Commit(ctx); err != nil {
-		return false, err
-	}
 	return listCompleted, nil
 }
 

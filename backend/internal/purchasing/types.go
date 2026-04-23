@@ -68,6 +68,16 @@ type CutoffConfig struct {
 	UpdatedAt  time.Time `json:"updated_at"`
 }
 
+// RepurchaseResetConfig stores the weekly badge reset schedule (single row, per D-16).
+type RepurchaseResetConfig struct {
+	ID          string     `json:"id"`
+	DayOfWeek   int        `json:"day_of_week"`  // 0=Sunday, 6=Saturday
+	ResetTime   string     `json:"reset_time"`   // HH:MM
+	Timezone    string     `json:"timezone"`
+	LastResetAt *time.Time `json:"last_reset_at,omitempty"`
+	UpdatedAt   time.Time  `json:"updated_at"`
+}
+
 // ShoppingList is an immutable snapshot created at PO approval time (per D-15).
 type ShoppingList struct {
 	ID             string                      `json:"id"`

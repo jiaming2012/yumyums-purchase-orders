@@ -90,18 +90,26 @@ type PendingPurchase struct {
 	CreatedAt   time.Time        `json:"created_at"`
 }
 
+// RepurchaseBadge holds repurchase tracking data for a stock item (REP-01).
+// Present when the item was purchased via a completed shopping list since the last badge reset.
+type RepurchaseBadge struct {
+	Qty           int       `json:"qty"`
+	RepurchasedAt time.Time `json:"repurchased_at"`
+}
+
 // StockItem is an aggregated stock level for one purchase item description.
 type StockItem struct {
-	Description      string  `json:"description"`
-	GroupName        *string `json:"group_name,omitempty"`
-	TotalQuantity    int     `json:"total_quantity"`
-	TotalSpend       float64 `json:"total_spend"`
-	AvgPrice         float64 `json:"avg_price"`
-	LastPurchaseDate string  `json:"last_purchase_date"` // YYYY-MM-DD
-	LowThreshold     int     `json:"low_threshold"`
-	HighThreshold    int     `json:"high_threshold"`
-	Level            string  `json:"level"`
-	NeedsReorder     bool    `json:"needs_reorder"`
+	Description      string           `json:"description"`
+	GroupName        *string          `json:"group_name,omitempty"`
+	TotalQuantity    int              `json:"total_quantity"`
+	TotalSpend       float64          `json:"total_spend"`
+	AvgPrice         float64          `json:"avg_price"`
+	LastPurchaseDate string           `json:"last_purchase_date"` // YYYY-MM-DD
+	LowThreshold     int              `json:"low_threshold"`
+	HighThreshold    int              `json:"high_threshold"`
+	Level            string           `json:"level"`
+	NeedsReorder     bool             `json:"needs_reorder"`
+	RepurchaseBadge  *RepurchaseBadge `json:"repurchase_badge,omitempty"`
 }
 
 // CreateLineItemInput is one line item in a CreatePurchaseEventInput.

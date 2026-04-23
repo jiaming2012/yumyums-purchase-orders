@@ -358,9 +358,18 @@ func ListPurchaseEventsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 	}
 }
 
-// GetStockHandler returns aggregated stock levels across all purchase items.
+// GetStockHandler returns aggregated stock levels across all purchase items,
+// including repurchase badge data (REP-01) when available.
 func GetStockHandler(pool *pgxpool.Pool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// Determine reset cutoff for repurchase badge — NULL means "since the beginning of time".
+		var resetCutoff *time.Time
+		var rc time.Time
+		err := pool.QueryRow(r.Context(), `SELECT last_reset_at FROM repurchase_reset_config LIMIT 1`).Scan(&rc)
+		if err == nil {
+			resetCutoff = &rc
+		}
+
 		rows, err := pool.Query(r.Context(), `
 			SELECT
 				sub.description,
@@ -370,7 +379,8 @@ func GetStockHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				sub.avg_price,
 				sub.last_purchase_date,
 				sub.low_threshold,
-				sub.high_threshold
+				sub.high_threshold,
+				sub.purchase_item_id
 			FROM (
 				SELECT
 					COALESCE(pi.description, pli.description) AS description,
@@ -380,12 +390,13 @@ func GetStockHandler(pool *pgxpool.Pool) http.HandlerFunc {
 					AVG(pli.price) AS avg_price,
 					MAX(pe.event_date)::text AS last_purchase_date,
 					COALESCE(ig.low_threshold, 3) AS low_threshold,
-					COALESCE(ig.high_threshold, 10) AS high_threshold
+					COALESCE(ig.high_threshold, 10) AS high_threshold,
+					pi.id AS purchase_item_id
 				FROM purchase_line_items pli
 				JOIN purchase_events pe ON pe.id = pli.purchase_event_id
 				LEFT JOIN purchase_items pi ON pi.id = pli.purchase_item_id
 				LEFT JOIN item_groups ig ON ig.id = pi.group_id
-				GROUP BY COALESCE(pi.description, pli.description), ig.name, ig.low_threshold, ig.high_threshold
+				GROUP BY COALESCE(pi.description, pli.description), ig.name, ig.low_threshold, ig.high_threshold, pi.id
 			) sub
 			LEFT JOIN stock_count_overrides sco ON sco.item_description = sub.description
 			ORDER BY sub.total_spend DESC`,
@@ -397,19 +408,86 @@ func GetStockHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 		defer rows.Close()
 
-		items := []StockItem{}
+		type stockRow struct {
+			s              StockItem
+			purchaseItemID *string
+		}
+		var rawRows []stockRow
 		for rows.Next() {
-			var s StockItem
-			if err := rows.Scan(&s.Description, &s.GroupName,
-				&s.TotalQuantity, &s.TotalSpend, &s.AvgPrice, &s.LastPurchaseDate,
-				&s.LowThreshold, &s.HighThreshold); err != nil {
+			var row stockRow
+			if err := rows.Scan(&row.s.Description, &row.s.GroupName,
+				&row.s.TotalQuantity, &row.s.TotalSpend, &row.s.AvgPrice, &row.s.LastPurchaseDate,
+				&row.s.LowThreshold, &row.s.HighThreshold, &row.purchaseItemID); err != nil {
 				log.Printf("GetStock scan: %v", err)
 				writeError(w, http.StatusInternalServerError, "internal_error")
 				return
 			}
-			s.Level, s.NeedsReorder = ClassifyStockLevel(s.TotalQuantity, s.LowThreshold, s.HighThreshold)
+			row.s.Level, row.s.NeedsReorder = ClassifyStockLevel(row.s.TotalQuantity, row.s.LowThreshold, row.s.HighThreshold)
+			rawRows = append(rawRows, row)
+		}
+		if err := rows.Err(); err != nil {
+			log.Printf("GetStock rows err: %v", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+
+		// Collect purchase_item_ids that have repurchase_log entries since last reset.
+		type badgeData struct {
+			qty int
+			at  time.Time
+		}
+		badgeByItemID := map[string]badgeData{}
+		if resetCutoff != nil {
+			badgeRows, err := pool.Query(r.Context(), `
+				SELECT purchase_item_id::text, SUM(quantity), MAX(repurchased_at)
+				FROM repurchase_log
+				WHERE repurchased_at > $1
+				GROUP BY purchase_item_id
+			`, resetCutoff)
+			if err == nil {
+				defer badgeRows.Close()
+				for badgeRows.Next() {
+					var id string
+					var b badgeData
+					if scanErr := badgeRows.Scan(&id, &b.qty, &b.at); scanErr == nil {
+						badgeByItemID[id] = b
+					}
+				}
+			}
+		} else {
+			// No reset configured — show badges for all repurchased items (ever)
+			badgeRows, err := pool.Query(r.Context(), `
+				SELECT purchase_item_id::text, SUM(quantity), MAX(repurchased_at)
+				FROM repurchase_log
+				GROUP BY purchase_item_id
+			`)
+			if err == nil {
+				defer badgeRows.Close()
+				for badgeRows.Next() {
+					var id string
+					var b badgeData
+					if scanErr := badgeRows.Scan(&id, &b.qty, &b.at); scanErr == nil {
+						badgeByItemID[id] = b
+					}
+				}
+			}
+		}
+
+		// Assemble final items with badge data
+		items := make([]StockItem, 0, len(rawRows))
+		for _, row := range rawRows {
+			s := row.s
+			if row.purchaseItemID != nil {
+				if b, ok := badgeByItemID[*row.purchaseItemID]; ok {
+					s.RepurchaseBadge = &RepurchaseBadge{
+						Qty:           b.qty,
+						RepurchasedAt: b.at,
+					}
+				}
+			}
 			items = append(items, s)
 		}
+
 		writeJSON(w, http.StatusOK, items)
 	}
 }

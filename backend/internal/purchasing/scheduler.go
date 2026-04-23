@@ -40,10 +40,11 @@ func StartScheduler(ctx context.Context, pool *pgxpool.Pool) {
 	}()
 }
 
-// runSchedulerTick runs both the cutoff check and the cutoff reminder check on each tick.
+// runSchedulerTick runs cutoff check, reminder check, and repurchase reset check on each tick.
 func runSchedulerTick(ctx context.Context, pool *pgxpool.Pool) {
 	runCutoffCheck(ctx, pool)
 	runReminderCheck(ctx, pool)
+	runRepurchaseResetCheck(ctx, pool)
 }
 
 // runReminderCheck sends a 24-hour cutoff reminder to crew members if it hasn't been

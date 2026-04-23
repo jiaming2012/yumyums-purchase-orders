@@ -428,6 +428,11 @@ func main() {
 				r.Put("/shopping/{id}/items/{itemId}/location", purchasing.UpdateShoppingItemLocationHandler(pool))
 				r.Put("/shopping/{id}/items/{itemId}/photo", purchasing.UpdateShoppingItemPhotoHandler(pool))
 				r.Post("/shopping/{id}/vendors/{vendorSectionId}/complete", purchasing.CompleteVendorSectionHandler(pool))
+
+				// Repurchase badge reset (admin-only)
+				r.Get("/repurchase-reset", purchasing.GetRepurchaseResetConfigHandler(pool))
+				r.Post("/repurchase-reset", purchasing.RepurchaseResetHandler(pool))
+				r.Put("/repurchase-reset/config", purchasing.UpsertRepurchaseResetConfigHandler(pool))
 			})
 
 			// Onboarding endpoints — all authenticated
