@@ -336,6 +336,9 @@ func main() {
 				r.Post("/{id}/reset-password", users.ResetPasswordHandler(pool))
 				r.Post("/{id}/revoke", users.RevokeHandler(pool))
 				r.Delete("/{id}", users.DeleteUserHandler(pool))
+				// Notification preference — admin or self
+				r.Get("/{id}/notification-preference", users.GetNotificationPreferenceHandler(pool))
+				r.Put("/{id}/notification-preference", users.UpdateNotificationPreferenceHandler(pool))
 			})
 
 			// App permissions endpoints — admin only

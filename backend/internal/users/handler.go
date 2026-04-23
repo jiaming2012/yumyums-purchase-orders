@@ -425,3 +425,71 @@ func SetAppPermissionsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		writeError(w, http.StatusNotFound, "not_found")
 	}
 }
+
+// GetNotificationPreferenceHandler returns a user's notification_channel (admin or self).
+// GET /api/v1/users/{id}/notification-preference
+func GetNotificationPreferenceHandler(pool *pgxpool.Pool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		currentUser := auth.UserFromContext(r.Context())
+		if currentUser == nil {
+			writeError(w, http.StatusUnauthorized, "unauthorized")
+			return
+		}
+		targetID := chi.URLParam(r, "id")
+		if !isAdmin(currentUser) && currentUser.ID != targetID {
+			writeError(w, http.StatusForbidden, "forbidden")
+			return
+		}
+		channel, err := GetNotificationPreference(r.Context(), pool, targetID)
+		if err != nil {
+			log.Printf("GetNotificationPreferenceHandler: %v", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		if channel == "" {
+			writeError(w, http.StatusNotFound, "user_not_found")
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]string{"notification_channel": channel})
+	}
+}
+
+// UpdateNotificationPreferenceHandler sets a user's notification_channel (admin or self, D-07).
+// PUT /api/v1/users/{id}/notification-preference
+func UpdateNotificationPreferenceHandler(pool *pgxpool.Pool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		currentUser := auth.UserFromContext(r.Context())
+		if currentUser == nil {
+			writeError(w, http.StatusUnauthorized, "unauthorized")
+			return
+		}
+		targetID := chi.URLParam(r, "id")
+		if !isAdmin(currentUser) && currentUser.ID != targetID {
+			writeError(w, http.StatusForbidden, "forbidden")
+			return
+		}
+
+		var input struct {
+			NotificationChannel string `json:"notification_channel"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_json")
+			return
+		}
+
+		if err := UpdateNotificationPreference(r.Context(), pool, targetID, input.NotificationChannel); err != nil {
+			if strings.Contains(err.Error(), "invalid notification_channel") {
+				writeError(w, http.StatusBadRequest, err.Error())
+				return
+			}
+			if strings.Contains(err.Error(), "user not found") {
+				writeError(w, http.StatusNotFound, "user_not_found")
+				return
+			}
+			log.Printf("UpdateNotificationPreferenceHandler: %v", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]string{"notification_channel": input.NotificationChannel})
+	}
+}
