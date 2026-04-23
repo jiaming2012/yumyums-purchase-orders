@@ -13,7 +13,7 @@ vars:
   STATIC_DIR: '{{.STATIC_DIR | default ".."}}'
 
   # Windows box addresses
-  WIN_LAN: '192.168.8.164'
+  WIN_LAN: '192.168.8.176'
   WIN_TS: '100.70.200.55'
   WIN_PORT: '5433'
 
@@ -25,7 +25,7 @@ tasks:
       STATIC_DIR: '{{.STATIC_DIR}}'
       PORT: '{{.PORT}}'
       DB_URL: '{{.DB_URL}}'
-      BASE_URL: 'http://localhost:{{.PORT}}'
+      BASE_URL: 'http://{{.WIN_TS}}:{{.PORT}}'
       SUPERADMIN_CONFIG: config/superadmins.yaml
 
   dev:lan:
