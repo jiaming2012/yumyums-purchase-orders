@@ -10,6 +10,9 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// DefaultTimezone is the IANA timezone applied when a user has no explicit timezone set.
+const DefaultTimezone = "America/New_York"
+
 // displayNameExpr computes display_name from first_name/last_name/nickname.
 // Matches the same expression used in auth/service.go.
 const displayNameExpr = `COALESCE(NULLIF(u.nickname, ''), u.first_name || ' ' || LEFT(u.last_name, 1) || '.') AS display_name`
@@ -28,6 +31,7 @@ type UserRow struct {
 	Roles                []string   `json:"roles"`
 	Status               string     `json:"status"`
 	NotificationChannels []string   `json:"notification_channels"`
+	Timezone             string     `json:"timezone"`
 	InvitedAt            time.Time  `json:"invited_at"`
 	AcceptedAt           *time.Time `json:"accepted_at,omitempty"`
 }
@@ -38,6 +42,7 @@ type NotificationPreferenceContact struct {
 	Email                string
 	DisplayName          string
 	NotificationChannels []string
+	Timezone             string
 }
 
 // CreateUserInput holds fields required to create an invited user.
@@ -55,6 +60,7 @@ type UpdateUserInput struct {
 	Nickname         *string
 	Roles            *[]string
 	NotificationPref *[]string // array of "zoho_cliq" and/or "email"
+	Timezone         *string   // IANA timezone name, e.g. "America/New_York"
 }
 
 // AppPermission represents a single app's permission state.
@@ -76,7 +82,7 @@ type SetPermInput struct {
 func ListUsers(ctx context.Context, pool *pgxpool.Pool) ([]UserRow, error) {
 	query := fmt.Sprintf(`
 		SELECT u.id, u.email, u.first_name, u.last_name, u.nickname,
-		       %s, u.roles, u.status, u.notification_channel, u.invited_at, u.accepted_at
+		       %s, u.roles, u.status, u.notification_channel, u.timezone, u.invited_at, u.accepted_at
 		FROM users u
 		ORDER BY display_name ASC
 	`, displayNameExpr)
@@ -92,7 +98,7 @@ func ListUsers(ctx context.Context, pool *pgxpool.Pool) ([]UserRow, error) {
 		var u UserRow
 		if err := rows.Scan(
 			&u.ID, &u.Email, &u.FirstName, &u.LastName, &u.Nickname,
-			&u.DisplayName, &u.Roles, &u.Status, &u.NotificationChannels, &u.InvitedAt, &u.AcceptedAt,
+			&u.DisplayName, &u.Roles, &u.Status, &u.NotificationChannels, &u.Timezone, &u.InvitedAt, &u.AcceptedAt,
 		); err != nil {
 			return nil, fmt.Errorf("list users scan: %w", err)
 		}
@@ -108,7 +114,7 @@ func ListUsers(ctx context.Context, pool *pgxpool.Pool) ([]UserRow, error) {
 func GetUser(ctx context.Context, pool *pgxpool.Pool, userID string) (*UserRow, error) {
 	query := fmt.Sprintf(`
 		SELECT u.id, u.email, u.first_name, u.last_name, u.nickname,
-		       %s, u.roles, u.status, u.notification_channel, u.invited_at, u.accepted_at
+		       %s, u.roles, u.status, u.notification_channel, u.timezone, u.invited_at, u.accepted_at
 		FROM users u
 		WHERE u.id = $1
 	`, displayNameExpr)
@@ -116,7 +122,7 @@ func GetUser(ctx context.Context, pool *pgxpool.Pool, userID string) (*UserRow, 
 	var u UserRow
 	err := pool.QueryRow(ctx, query, userID).Scan(
 		&u.ID, &u.Email, &u.FirstName, &u.LastName, &u.Nickname,
-		&u.DisplayName, &u.Roles, &u.Status, &u.NotificationChannels, &u.InvitedAt, &u.AcceptedAt,
+		&u.DisplayName, &u.Roles, &u.Status, &u.NotificationChannels, &u.Timezone, &u.InvitedAt, &u.AcceptedAt,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -172,7 +178,7 @@ func GetUsersForAlerts(ctx context.Context, pool *pgxpool.Pool, alertType string
 		query = `
 			SELECT DISTINCT u.id, u.email,
 			       COALESCE(NULLIF(u.nickname,''), u.first_name || ' ' || LEFT(u.last_name,1) || '.') AS display_name,
-			       u.notification_channel
+			       u.notification_channel, u.timezone
 			FROM users u
 			WHERE u.status = 'active'
 			  AND (
@@ -189,7 +195,7 @@ func GetUsersForAlerts(ctx context.Context, pool *pgxpool.Pool, alertType string
 		query = `
 			SELECT u.id, u.email,
 			       COALESCE(NULLIF(u.nickname,''), u.first_name || ' ' || LEFT(u.last_name,1) || '.') AS display_name,
-			       u.notification_channel
+			       u.notification_channel, u.timezone
 			FROM users u
 			WHERE u.status = 'active'
 			  AND ('admin' = ANY(u.roles))
@@ -206,7 +212,7 @@ func GetUsersForAlerts(ctx context.Context, pool *pgxpool.Pool, alertType string
 	var contacts []NotificationPreferenceContact
 	for rows.Next() {
 		var c NotificationPreferenceContact
-		if err := rows.Scan(&c.UserID, &c.Email, &c.DisplayName, &c.NotificationChannels); err != nil {
+		if err := rows.Scan(&c.UserID, &c.Email, &c.DisplayName, &c.NotificationChannels, &c.Timezone); err != nil {
 			return nil, fmt.Errorf("GetUsersForAlerts scan: %w", err)
 		}
 		contacts = append(contacts, c)
@@ -275,6 +281,15 @@ func UpdateUser(ctx context.Context, pool *pgxpool.Pool, userID string, input Up
 		}
 		setClauses = append(setClauses, fmt.Sprintf("notification_channel = $%d", argIdx))
 		args = append(args, channels)
+		argIdx++
+	}
+	if input.Timezone != nil {
+		tz := *input.Timezone
+		if _, err := time.LoadLocation(tz); err != nil {
+			return fmt.Errorf("invalid timezone %q: must be a valid IANA timezone name", tz)
+		}
+		setClauses = append(setClauses, fmt.Sprintf("timezone = $%d", argIdx))
+		args = append(args, tz)
 		argIdx++
 	}
 

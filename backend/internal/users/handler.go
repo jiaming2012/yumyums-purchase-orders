@@ -141,6 +141,7 @@ func UpdateUserHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			Nickname         *string   `json:"nickname"`
 			Roles            *[]string `json:"roles"`
 			NotificationPref *[]string `json:"notification_pref"`
+			Timezone         *string   `json:"timezone"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid_json")
@@ -170,8 +171,9 @@ func UpdateUserHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			Nickname:         body.Nickname,
 			Roles:            body.Roles,
 			NotificationPref: body.NotificationPref,
+			Timezone:         body.Timezone,
 		}); err != nil {
-			if strings.Contains(err.Error(), "invalid notification_channel") {
+			if strings.Contains(err.Error(), "invalid notification_channel") || strings.Contains(err.Error(), "invalid timezone") {
 				writeError(w, http.StatusBadRequest, err.Error())
 				return
 			}

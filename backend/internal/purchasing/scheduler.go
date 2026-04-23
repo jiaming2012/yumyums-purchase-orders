@@ -249,8 +249,20 @@ func runLowStockCheck(ctx context.Context, pool *pgxpool.Pool) {
 		return // alerts not configured — skip silently
 	}
 
-	// Compute current week_start (Monday-based, America/Chicago timezone)
-	loc, _ := time.LoadLocation("America/Chicago")
+	// Compute current week_start using the admin-configured cutoff timezone.
+	// Falls back to America/New_York if no cutoff config is set.
+	tzName := users.DefaultTimezone
+	config, err := GetCutoffConfig(ctx, pool)
+	if err != nil {
+		log.Printf("low-stock check: GetCutoffConfig error: %v", err)
+	} else if config != nil && config.Timezone != "" {
+		tzName = config.Timezone
+	}
+	loc, err := time.LoadLocation(tzName)
+	if err != nil {
+		log.Printf("low-stock check: invalid timezone %q: %v", tzName, err)
+		loc, _ = time.LoadLocation(users.DefaultTimezone)
+	}
 	now := time.Now().In(loc)
 	weekday := int(now.Weekday())
 	if weekday == 0 {
