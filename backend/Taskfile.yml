@@ -12,8 +12,9 @@ vars:
   PORT: '{{.PORT | default "8080"}}'
   STATIC_DIR: '{{.STATIC_DIR | default ".."}}'
 
-  # Windows box addresses
-  WIN_LAN: '192.168.8.176'
+  # Network addresses
+  DEV_TS: '{{.DEV_TS | default "100.90.128.69"}}'
+  WIN_LAN: '192.168.8.164'
   WIN_TS: '100.70.200.55'
   WIN_PORT: '5433'
 
@@ -25,7 +26,7 @@ tasks:
       STATIC_DIR: '{{.STATIC_DIR}}'
       PORT: '{{.PORT}}'
       DB_URL: '{{.DB_URL}}'
-      BASE_URL: 'http://{{.WIN_TS}}:{{.PORT}}'
+      BASE_URL: 'http://{{.DEV_TS}}:{{.PORT}}'
       SUPERADMIN_CONFIG: config/superadmins.yaml
 
   dev:lan:
@@ -35,7 +36,7 @@ tasks:
       STATIC_DIR: '{{.STATIC_DIR}}'
       PORT: '{{.PORT}}'
       DB_URL: 'postgres://{{.DB_USER}}:{{.DB_PASS}}@{{.WIN_LAN}}:{{.WIN_PORT}}/{{.DB_NAME}}?sslmode=disable'
-      BASE_URL: 'http://{{.WIN_LAN}}:{{.PORT}}'
+      BASE_URL: 'http://{{.DEV_TS}}:{{.PORT}}'
       SUPERADMIN_CONFIG: config/superadmins.yaml
 
   dev:tailscale:
@@ -45,7 +46,7 @@ tasks:
       STATIC_DIR: '{{.STATIC_DIR}}'
       PORT: '{{.PORT}}'
       DB_URL: 'postgres://{{.DB_USER}}:{{.DB_PASS}}@{{.WIN_TS}}:{{.WIN_PORT}}/{{.DB_NAME}}?sslmode=disable'
-      BASE_URL: 'http://{{.WIN_TS}}:{{.PORT}}'
+      BASE_URL: 'http://{{.DEV_TS}}:{{.PORT}}'
       SUPERADMIN_CONFIG: config/superadmins.yaml
 
   prod:
