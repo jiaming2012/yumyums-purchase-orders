@@ -63,11 +63,6 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
       <h1 id="welcome-heading" class="welcome-heading"></h1>
       <p id="invite-sub" class="sub-heading">Set a password to activate your account.</p>
       <form onsubmit="acceptInvite();return false">
-        <div id="nickname-field" class="field" style="display:none">
-          <label>Nickname <span style="font-weight:400;color:var(--mut)">(optional)</span></label>
-          <input id="invite-nick" type="text" placeholder="e.g. Jay" autocomplete="nickname">
-          <div style="font-size:12px;color:var(--mut);margin-top:4px">How you'll appear in the app</div>
-        </div>
         <div class="field">
           <label>Password</label>
           <input id="invite-pw" type="password" name="password" placeholder="At least 8 characters" autocomplete="new-password">
@@ -97,6 +92,11 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
             <label>Phone Number</label>
             <input id="invite-phone" type="tel" placeholder="(555) 123-4567" autocomplete="tel">
           </div>
+        </div>
+        <div id="nickname-field" class="field" style="display:none">
+          <label>Nickname <span style="font-weight:400;color:var(--mut)">(optional)</span></label>
+          <input id="invite-nick" type="text" placeholder="e.g. Jay" autocomplete="nickname">
+          <div style="font-size:12px;color:var(--mut);margin-top:4px">How you'll appear in the app</div>
         </div>
         <button class="btn" type="submit">Set Password &amp; Log In</button>
       </form>
