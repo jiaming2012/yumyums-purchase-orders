@@ -92,6 +92,7 @@ select.field-input{appearance:none;-webkit-appearance:none;padding-right:36px;ba
 .empty{text-align:center;padding:40px 20px;color:var(--mut)}
 .empty p{font-size:13px;margin:0}
 .stock-badge{display:inline-block;font-size:11px;font-weight:600;padding:2px 8px;border-radius:6px}
+.stock-repurchased{background:var(--info-bg);color:var(--info-tx)}
 .stock-high{background:#dcfce7;color:#166534}
 .stock-medium{background:#fef9c3;color:#854d0e}
 .stock-low{background:#fee2e2;color:#991b1b}
@@ -163,6 +164,11 @@ select.field-input{appearance:none;-webkit-appearance:none;padding-right:36px;ba
 .add-item-bar input{flex:1}
 .add-item-bar select{max-width:140px;padding:9px 8px;background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;font-size:13px;color:var(--txt);font-family:inherit}
 .add-item-bar button{padding:9px 16px;background:var(--info-bg);color:var(--info-tx);border:none;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;font-family:inherit;white-space:nowrap}
+.badge-reset-card{background:var(--card);border:0.5px solid var(--brd);border-radius:12px;padding:16px;margin-bottom:16px}
+.badge-reset-title{font-size:14px;font-weight:600;color:var(--txt);margin-bottom:12px;display:flex;align-items:center;justify-content:space-between}
+.day-chips{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:10px}
+.day-chip{padding:5px 10px;border-radius:12px;border:0.5px solid var(--brd);background:var(--bg);color:var(--mut);font-size:12px;font-weight:500;cursor:pointer;user-select:none}
+.day-chip.on{background:var(--info-bg);color:var(--info-tx);border-color:var(--info-tx)}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
 </style>
 </head>
@@ -201,6 +207,7 @@ select.field-input{appearance:none;-webkit-appearance:none;padding-right:36px;ba
     </div>
   </div>
   <div id="s5" style="display:none">
+    <div id="badge-reset-section" style="display:none"></div>
     <div class="sub-tabs">
       <button id="st1" class="on" onclick="showSetupSub(1)">Items</button>
       <button id="st2" onclick="showSetupSub(2)">Vendors</button>
@@ -249,6 +256,9 @@ let STOCK_OVERRIDES={};
 let OVERRIDE_FORM_OPEN=null;
 let REVIEW_OPEN_ID=null; // pending purchase id currently in review form
 let REVIEW_FORM_STATE={}; // keyed by id: {vendor_name, event_date, line_items:[{name,qty,price,is_case}], tax, total, bank_total}
+let CURRENT_USER=null;
+let BADGE_RESET_CONFIG=null;
+let BADGE_RESET_FORM_OPEN=false;
 
 function show(n){
   [1,2,3,4,5].forEach(i=>{
@@ -260,7 +270,7 @@ function show(n){
   // Reload fresh data when switching tabs
   if(n===1){loadHistory();}
   if(n===2){loadStock();}
-  if(n===5){loadItems();}
+  if(n===5){loadItems();if(isAdmin())loadBadgeResetConfig();}
   render();
 }
 
@@ -290,6 +300,12 @@ let HISTORY_LOADING=false;
 let HISTORY_HAS_MORE=true;
 
 const LEVEL_ORDER={low:0,medium:1,high:2,unknown:3};
+
+function isAdmin(){
+  if(!CURRENT_USER)return false;
+  if(CURRENT_USER.is_superadmin)return true;
+  return (CURRENT_USER.roles||[]).indexOf('admin')!==-1;
+}
 
 function badgeHtml(level){
   return '<span class="stock-badge stock-'+level+'">'+( level.charAt(0).toUpperCase()+level.slice(1))+'</span>';
@@ -557,6 +573,7 @@ function renderStock(){
         var id=s.description||groupName;
         var expanded=EXPANDED_STOCK_ITEMS[id];
         var badgeAndIndicator=badgeHtml(s.level)+' ';
+        if(s.repurchase_badge&&s.repurchase_badge.qty>0){badgeAndIndicator+='<span class="stock-badge stock-repurchased">Repurchased +'+s.repurchase_badge.qty+'</span> ';}
         html+='<div class="stock-item" data-action="toggle-stock-item" data-group-id="'+id+'"><span class="stock-item-name">'+id+'</span>'+badgeAndIndicator+'</div>';
         if(expanded){
           var lastDate=s.last_purchase_date?formatDate(s.last_purchase_date):'Unknown';
@@ -1111,6 +1128,73 @@ document.getElementById('items-list').addEventListener('click',function(e){
   }
 });
 
+// ── Badge Reset Config (admin-only) ─────────────────────────────────────
+
+var BADGE_RESET_DAY=0; // selected day of week (0=Sun)
+var BADGE_RESET_TIME='06:00';
+const BADGE_DAYS=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+async function loadBadgeResetConfig(){
+  try{
+    var cfg=await api('/api/v1/purchasing/repurchase-reset');
+    BADGE_RESET_CONFIG=cfg;
+    if(cfg&&cfg.day_of_week!==undefined){BADGE_RESET_DAY=cfg.day_of_week;}
+    if(cfg&&cfg.reset_time){BADGE_RESET_TIME=(cfg.reset_time||'06:00').slice(0,5);}
+  }catch(e){BADGE_RESET_CONFIG=null;}
+  renderBadgeResetConfig();
+}
+
+function renderBadgeResetConfig(){
+  var sec=document.getElementById('badge-reset-section');
+  if(!sec)return;
+  if(!isAdmin()){sec.style.display='none';return;}
+  sec.style.display='';
+  var dayChips=BADGE_DAYS.map(function(d,i){
+    return '<span class="day-chip'+(BADGE_RESET_DAY===i?' on':'')+'" data-action="badge-reset-day" data-day="'+i+'">'+d+'</span>';
+  }).join('');
+  var configBody=BADGE_RESET_FORM_OPEN?
+    '<div class="day-chips">'+dayChips+'</div>'+
+    '<div class="field-group" style="margin-bottom:10px"><div class="field-label">Time</div><input type="time" class="field-input" id="badge-reset-time" value="'+BADGE_RESET_TIME+'"></div>'+
+    '<div class="field-group" style="margin-bottom:10px"><div class="field-label">Timezone</div><input class="field-input" value="America/Chicago" disabled></div>'+
+    '<div style="display:flex;gap:8px"><button class="btn-primary" data-action="save-badge-reset">Save</button><button class="btn-secondary" data-action="cancel-badge-reset">Cancel</button></div>'
+    :'<div style="font-size:13px;color:var(--mut)">'+
+      (BADGE_RESET_CONFIG&&BADGE_RESET_CONFIG.day_of_week!==undefined?
+        'Resets every '+BADGE_DAYS[BADGE_RESET_CONFIG.day_of_week]+' at '+(BADGE_RESET_CONFIG.reset_time||'06:00').slice(0,5)+' (America/Chicago)'
+        :'Not configured')+
+      '</div>';
+  sec.innerHTML='<div class="badge-reset-card">'+
+    '<div class="badge-reset-title"><span>Badge Reset Schedule</span><button style="border:none;background:none;color:var(--info-tx);font-size:12px;cursor:pointer" data-action="toggle-badge-reset">'+(BADGE_RESET_FORM_OPEN?'Cancel':'Edit')+'</button></div>'+
+    configBody+
+    '</div>';
+}
+
+document.addEventListener('click',function(e){
+  var el=e.target.closest('[data-action]');
+  if(!el)return;
+  var action=el.dataset.action;
+  if(action==='toggle-badge-reset'){
+    BADGE_RESET_FORM_OPEN=!BADGE_RESET_FORM_OPEN;
+    renderBadgeResetConfig();
+  } else if(action==='badge-reset-day'){
+    BADGE_RESET_DAY=parseInt(el.dataset.day,10);
+    renderBadgeResetConfig();
+  } else if(action==='cancel-badge-reset'){
+    BADGE_RESET_FORM_OPEN=false;
+    if(BADGE_RESET_CONFIG&&BADGE_RESET_CONFIG.day_of_week!==undefined){BADGE_RESET_DAY=BADGE_RESET_CONFIG.day_of_week;}
+    if(BADGE_RESET_CONFIG&&BADGE_RESET_CONFIG.reset_time){BADGE_RESET_TIME=(BADGE_RESET_CONFIG.reset_time||'06:00').slice(0,5);}
+    renderBadgeResetConfig();
+  } else if(action==='save-badge-reset'){
+    var timeEl=document.getElementById('badge-reset-time');
+    var t=timeEl?timeEl.value:'06:00';
+    BADGE_RESET_TIME=t||'06:00';
+    api('/api/v1/purchasing/repurchase-reset/config',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({day_of_week:BADGE_RESET_DAY,reset_time:BADGE_RESET_TIME,timezone:'America/Chicago'})}).then(function(cfg){
+      BADGE_RESET_CONFIG=cfg;
+      BADGE_RESET_FORM_OPEN=false;
+      renderBadgeResetConfig();
+    }).catch(function(err){console.error('saveBadgeReset',err);});
+  }
+});
+
 // ── Setup sub-tabs ──────────────────────────────────────────────────────
 
 function showSetupSub(n){
@@ -1203,7 +1287,7 @@ document.addEventListener('dblclick',e=>e.preventDefault());
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');
 
 document.addEventListener('DOMContentLoaded',async function(){
-  try{await api('/api/v1/me');}catch(e){return;}
+  try{CURRENT_USER=await api('/api/v1/me');}catch(e){return;}
   // Preload items for review form dropdowns
   try{var data=await api('/api/v1/inventory/items');ALL_ITEMS=data||[];}catch(e){}
   try{var g=await api('/api/v1/inventory/groups');ITEM_GROUPS=g||[];}catch(e){}
