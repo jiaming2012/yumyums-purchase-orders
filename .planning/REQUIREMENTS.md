@@ -38,12 +38,12 @@ Requirements for Purchase Orders & Shopping Lists milestone. Each maps to roadma
 
 ### Alerts & Notifications
 
-- [ ] **ALRT-01**: System sends reminder alerts before cutoff time
-- [ ] **ALRT-02**: System sends alerts when items are out of stock
-- [ ] **ALRT-03**: Alerts delivered via Zoho Cliq channel (default) or email
-- [ ] **ALRT-04**: Users configure communication preference in Users tab (at least one required, Zoho Cliq default)
-- [ ] **ALRT-05**: Zoho Cliq channel integration via incoming webhook
-- [ ] **ALRT-06**: Missing items alert sent on shopping list completion via configured channels
+- [x] **ALRT-01**: System sends reminder alerts before cutoff time
+- [x] **ALRT-02**: System sends alerts when items are out of stock
+- [x] **ALRT-03**: Alerts delivered via Zoho Cliq channel (default) or email
+- [x] **ALRT-04**: Users configure communication preference in Users tab (at least one required, Zoho Cliq default)
+- [x] **ALRT-05**: Zoho Cliq channel integration via incoming webhook
+- [x] **ALRT-06**: Missing items alert sent on shopping list completion via configured channels
 
 ### Data Import
 
@@ -52,8 +52,8 @@ Requirements for Purchase Orders & Shopping Lists milestone. Each maps to roadma
 
 ### Repurchase Tracking
 
-- [ ] **REP-01**: Inventory items show "Repurchased +[Qty]" badge after purchase via shopping list completion
-- [ ] **REP-02**: Badge resets on a configurable date (admin-settable reset schedule)
+- [x] **REP-01**: Inventory items show "Repurchased +[Qty]" badge after purchase via shopping list completion
+- [x] **REP-02**: Badge resets on a configurable date (admin-settable reset schedule)
 
 ## Future Requirements
 
@@ -97,16 +97,16 @@ Requirements for Purchase Orders & Shopping Lists milestone. Each maps to roadma
 | SHOP-06 | Phase 16 | Complete |
 | SHOP-07 | Phase 16 | Complete |
 | SHOP-08 | Phase 16 | Complete |
-| ALRT-01 | Phase 17 | Pending |
-| ALRT-02 | Phase 17 | Pending |
-| ALRT-03 | Phase 17 | Pending |
-| ALRT-04 | Phase 17 | Pending |
-| ALRT-05 | Phase 17 | Pending |
-| ALRT-06 | Phase 17 | Pending |
+| ALRT-01 | Phase 17 | Complete |
+| ALRT-02 | Phase 17 | Complete |
+| ALRT-03 | Phase 17 | Complete |
+| ALRT-04 | Phase 17 | Complete |
+| ALRT-05 | Phase 17 | Complete |
+| ALRT-06 | Phase 17 | Complete |
 | IMP-01 | Phase 15 | Complete |
 | IMP-02 | Phase 15 | Complete |
-| REP-01 | Phase 17 | Pending |
-| REP-02 | Phase 17 | Pending |
+| REP-01 | Phase 17 | Complete |
+| REP-02 | Phase 17 | Complete |
 
 **Coverage:**
 - v3.0 requirements: 30 total

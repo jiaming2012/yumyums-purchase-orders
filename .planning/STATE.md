@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Purchase Orders & Shopping Lists
 status: verifying
-stopped_at: Phase 17 context gathered
-last_updated: "2026-04-23T00:39:01.057Z"
-last_activity: 2026-04-22
+stopped_at: Completed 17-01-PLAN.md
+last_updated: "2026-04-23T01:06:06.170Z"
+last_activity: 2026-04-23
 progress:
   total_phases: 6
-  completed_phases: 3
-  total_plans: 9
-  completed_plans: 9
+  completed_phases: 1
+  total_plans: 6
+  completed_plans: 8
   percent: 0
 ---
 
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-04-15)
 Phase: 01 (onboarding-video-upgrade) — EXECUTING
 Plan: 3 of 3
 Status: Phase complete — ready for verification
-Last activity: 2026-04-22
+Last activity: 2026-04-23
 
 Progress: [░░░░░░░░░░] 0% (v2.0 milestone)
 
@@ -88,6 +88,7 @@ Progress: [░░░░░░░░░░] 0% (v2.0 milestone)
 | Phase 01-onboarding-video-upgrade P03 | 30 | 2 tasks | 3 files |
 | Phase 16-cutoff-approval-and-shopping-list P05 | 5 | 3 tasks | 3 files |
 | Phase 16-cutoff-approval-and-shopping-list P04 | 35 | 2 tasks | 3 files |
+| Phase 17 P01 | 8 | 5 tasks | 18 files |
 
 ## Accumulated Context
 
@@ -178,6 +179,9 @@ Recent decisions affecting current work:
 - [Phase 16-05]: Optimistic shop-check: toggle state immediately, render, then await API — roll back item.checked on error
 - [Phase 16-cutoff-approval-and-shopping-list]: LOCKED_PO loaded from GET /orders?status=locked independently — not derived from PO_STATE status checks
 - [Phase 16-cutoff-approval-and-shopping-list]: PO tab groups items by vendor_name on POLineItem (from LEFT JOIN in Plan 02), not by item group_name — per D-09
+- [Phase 17]: package-level alertQueue var in purchasing package (not constructor injection) — consistent with scheduler.go pattern, minimal caller changes
+- [Phase 17]: RecordRepurchase and NotifyVendorComplete called after COMMIT — badge data and alerts are best-effort, don't block the transaction
+- [Phase 17]: alert_log UNIQUE (alert_type, week_start) provides idempotent cutoff reminder — INSERT ON CONFLICT DO NOTHING prevents duplicates
 
 ### Pending Todos
 
@@ -203,6 +207,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-23T00:39:01.046Z
-Stopped at: Phase 17 context gathered
-Resume file: .planning/phases/17-alerts-notifications-and-repurchase-badges/17-CONTEXT.md
+Last session: 2026-04-23T01:06:06.163Z
+Stopped at: Completed 17-01-PLAN.md
+Resume file: None
