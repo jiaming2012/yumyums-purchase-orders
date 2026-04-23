@@ -6,8 +6,9 @@ import "os"
 // Both delivery channels gracefully no-op when their config is empty,
 // so the server starts without alerts configured during development.
 type Config struct {
-	// ZohoCliqWebhookURL is the incoming webhook URL for the Zoho Cliq channel.
+	// ZohoCliqWebhookURL is the incoming webhook URL for the purchase & inventory Zoho Cliq channel.
 	// If empty, Zoho Cliq delivery is skipped.
+	// Future channels (e.g., ZOHO_CLIQ_OPERATIONS_WEBHOOK_URL) can be added for other workflows.
 	ZohoCliqWebhookURL string
 
 	// SMTPAddr is the SMTP server address (host:port, e.g. "smtp.sendgrid.net:587").
@@ -25,7 +26,7 @@ type Config struct {
 // LoadConfig reads alert configuration from environment variables.
 func LoadConfig() Config {
 	return Config{
-		ZohoCliqWebhookURL: os.Getenv("ZOHO_CLIQ_WEBHOOK_URL"),
+		ZohoCliqWebhookURL: os.Getenv("ZOHO_CLIQ_PURCHASE_INVENTORY_WEBHOOK_URL"),
 		SMTPAddr:           os.Getenv("SMTP_ADDR"),
 		SMTPFrom:           os.Getenv("SMTP_FROM"),
 		SMTPUsername:       os.Getenv("SMTP_USERNAME"),
