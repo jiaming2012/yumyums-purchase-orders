@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"slices"
 	"strings"
 
@@ -233,11 +234,10 @@ func ResetPasswordHandler(pool *pgxpool.Pool, alertCfg alerts.Config) http.Handl
 			if u.Status != "invited" {
 				subject = "Yumyums HQ — Reset Your Password"
 			}
-			scheme := "https"
-			if r.TLS == nil {
-				scheme = "http"
+			baseURL := os.Getenv("BASE_URL")
+			if baseURL == "" {
+				baseURL = "https://hq.yumyums.kitchen"
 			}
-			baseURL := fmt.Sprintf("%s://%s", scheme, r.Host)
 			body := fmt.Sprintf("Hi %s,\n\nClick the link below to set your password and access Yumyums HQ:\n\n%s%s\n\nThis link expires in 7 days.\n\n— Yumyums HQ",
 				u.FirstName, baseURL, invitePath)
 			if err := alerts.SendEmail(alertCfg.SMTPAddr, alertCfg.SMTPUsername, alertCfg.SMTPPassword, alertCfg.SMTPFrom, u.Email, subject, body); err != nil {

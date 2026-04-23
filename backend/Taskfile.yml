@@ -25,6 +25,7 @@ tasks:
       STATIC_DIR: '{{.STATIC_DIR}}'
       PORT: '{{.PORT}}'
       DB_URL: '{{.DB_URL}}'
+      BASE_URL: 'http://localhost:{{.PORT}}'
       SUPERADMIN_CONFIG: config/superadmins.yaml
 
   dev:lan:
@@ -34,6 +35,7 @@ tasks:
       STATIC_DIR: '{{.STATIC_DIR}}'
       PORT: '{{.PORT}}'
       DB_URL: 'postgres://{{.DB_USER}}:{{.DB_PASS}}@{{.WIN_LAN}}:{{.WIN_PORT}}/{{.DB_NAME}}?sslmode=disable'
+      BASE_URL: 'http://{{.WIN_LAN}}:{{.PORT}}'
       SUPERADMIN_CONFIG: config/superadmins.yaml
 
   dev:tailscale:
@@ -43,6 +45,7 @@ tasks:
       STATIC_DIR: '{{.STATIC_DIR}}'
       PORT: '{{.PORT}}'
       DB_URL: 'postgres://{{.DB_USER}}:{{.DB_PASS}}@{{.WIN_TS}}:{{.WIN_PORT}}/{{.DB_NAME}}?sslmode=disable'
+      BASE_URL: 'http://{{.WIN_TS}}:{{.PORT}}'
       SUPERADMIN_CONFIG: config/superadmins.yaml
 
   build:
