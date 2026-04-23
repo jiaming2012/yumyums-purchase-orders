@@ -126,11 +126,11 @@ Plans:
   3. Users can configure their notification preference (Zoho Cliq or email) in the Users tab; at least one channel is required
   4. Inventory Stock tab items show a "Repurchased +[Qty]" badge after the shopping list is marked complete
   5. Badge resets on the admin-configured schedule (weekly reset date is timezone-aware)
-**Plans:** 1/3 plans complete
+**Plans:** 2/3 plans executed
 Plans:
 - [x] 17-01-PLAN.md -- Migrations, async alert queue, Zoho Cliq + SMTP notifiers, main.go wiring
 - [ ] 17-02-PLAN.md -- Cutoff reminder, low-stock alerts, shopping completion wiring, user notification preference UI
-- [ ] 17-03-PLAN.md -- Repurchase badge (stock API join, inventory.html badge rendering, reset config)
+- [x] 17-03-PLAN.md -- Repurchase badge (stock API join, inventory.html badge rendering, reset config)
 **UI hint**: yes
 
 ## Progress
@@ -140,7 +140,7 @@ Plans:
 | 14. PO Backend + Order Form | v3.0 | 2/2 | Complete    | 2026-04-22 |
 | 15. Notion Catalog Import | v3.0 | 1/2 | Complete    | 2026-04-22 |
 | 16. Cutoff, Approval, and Shopping List | v3.0 | 5/5 | Complete   | 2026-04-22 |
-| 17. Alerts, Notifications, and Repurchase Badges | v3.0 | 1/3 | In Progress | - |
+| 17. Alerts, Notifications, and Repurchase Badges | v3.0 | 2/3 | In Progress|  |
 
 ## Backlog
 
