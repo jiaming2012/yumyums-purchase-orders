@@ -1,5 +1,28 @@
 # Milestones
 
+## v3.0 Purchase Orders & Shopping Lists (Shipped: 2026-04-23)
+
+**Phases completed:** 6 phases, 14 plans, 20 tasks
+
+**Key accomplishments:**
+
+- 0034_purchase_orders.sql:
+- 4-Tab Layout:
+- Task 1: Migration, group fixtures, gitignore
+- Extended SeedInventoryFixtures to embed purchase_items.yaml and idempotently seed items with full_name, photo_url, store_location, and group_id into purchase_items table on every server startup
+- One-liner:
+- One-liner:
+- Shopping list service layer and 7 REST endpoints: get active list (grouped by vendor), check off items with user attribution, edit store location, update photo, complete vendor section with cascading list+PO transition, history view, and Phase 17 alert stub.
+- PO tab with vendor-grouped locked view, admin edit toggle + approve button, and interactive cutoff config pill wired to PUT /cutoff
+- Full purchasing.html API wiring with Shopping tab (vendor-grouped checklist, optimistic check-off, toast/badge, photo upload, inline location edit, per-vendor completion) and History tab (expandable past lists with item detail and completion attribution), plus 14 E2E tests.
+- One-liner:
+- One-liner:
+- One-liner:
+- One-liner:
+- Per-user timezone column (migration 0046) with Go type updates, IANA validation, scheduler hardcode removal, and timezone dropdown in Users edit form
+
+---
+
 ## v2.1 Onboarding Video Upgrade (Shipped: 2026-04-20)
 
 **Phases completed:** 2 phases, 6 plans, 10 tasks

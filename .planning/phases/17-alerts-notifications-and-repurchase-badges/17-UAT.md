@@ -1,5 +1,5 @@
 ---
-status: complete
+status: resolved
 phase: 17-alerts-notifications-and-repurchase-badges
 source: [17-01-SUMMARY.md, 17-02-SUMMARY.md, 17-03-SUMMARY.md]
 started: 2026-04-23T00:15:00.000Z
@@ -54,7 +54,7 @@ blocked: 0
 ## Gaps
 
 - truth: "Users can select multiple alert channels (both Zoho Cliq and Email)"
-  status: failed
+  status: resolved
   reason: "User reported: Alert channel dropdown is single-select, should allow multi-select (both channels)"
   severity: major
   test: 2
@@ -62,7 +62,7 @@ blocked: 0
   missing: [multi-select notification preference]
 
 - truth: "No extra spacing between stock level badge and repurchase badge"
-  status: failed
+  status: resolved
   reason: "User reported: large gap between Low badge and Repurchased +1 badge"
   severity: cosmetic
   test: 3
@@ -70,7 +70,7 @@ blocked: 0
   missing: [CSS spacing fix]
 
 - truth: "Timezone is configurable per user, not hardcoded to America/Chicago"
-  status: failed
+  status: resolved
   reason: "User reported: cannot change timezone, should be per-user setting defaulting to America/New_York"
   severity: major
   test: 4
