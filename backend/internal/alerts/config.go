@@ -32,7 +32,7 @@ func LoadConfig() Config {
 		ZohoCliqClientID:     os.Getenv("ZOHO_CLIQ_CLIENT_ID"),
 		ZohoCliqClientSecret: os.Getenv("ZOHO_CLIQ_CLIENT_SECRET"),
 		ZohoCliqRefreshToken: os.Getenv("ZOHO_CLIQ_REFRESH_TOKEN"),
-		ZohoCliqChannel:      os.Getenv("ZOHO_CLIQ_CHANNEL"),
+		ZohoCliqChannel:      os.Getenv("ZOHO_CLIQ_PURCHASE_AND_INVENTORY_CHANNEL"),
 		SMTPAddr:             os.Getenv("SMTP_ADDR"),
 		SMTPFrom:             os.Getenv("SMTP_FROM"),
 		SMTPUsername:          os.Getenv("SMTP_USERNAME"),
