@@ -136,10 +136,11 @@ func UpdateUserHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		userID := chi.URLParam(r, "id")
 
 		var body struct {
-			FirstName *string   `json:"first_name"`
-			LastName  *string   `json:"last_name"`
-			Nickname  *string   `json:"nickname"`
-			Roles     *[]string `json:"roles"`
+			FirstName        *string   `json:"first_name"`
+			LastName         *string   `json:"last_name"`
+			Nickname         *string   `json:"nickname"`
+			Roles            *[]string `json:"roles"`
+			NotificationPref *string   `json:"notification_pref"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid_json")
@@ -164,11 +165,16 @@ func UpdateUserHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 
 		if err := UpdateUser(r.Context(), pool, userID, UpdateUserInput{
-			FirstName: body.FirstName,
-			LastName:  body.LastName,
-			Nickname:  body.Nickname,
-			Roles:     body.Roles,
+			FirstName:        body.FirstName,
+			LastName:         body.LastName,
+			Nickname:         body.Nickname,
+			Roles:            body.Roles,
+			NotificationPref: body.NotificationPref,
 		}); err != nil {
+			if strings.Contains(err.Error(), "invalid notification_channel") {
+				writeError(w, http.StatusBadRequest, err.Error())
+				return
+			}
 			log.Printf("UpdateUserHandler UpdateUser error: %v", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return

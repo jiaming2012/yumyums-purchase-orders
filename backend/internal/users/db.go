@@ -50,10 +50,11 @@ type CreateUserInput struct {
 
 // UpdateUserInput holds optional fields for partial user updates.
 type UpdateUserInput struct {
-	FirstName *string
-	LastName  *string
-	Nickname  *string
-	Roles     *[]string
+	FirstName        *string
+	LastName         *string
+	Nickname         *string
+	Roles            *[]string
+	NotificationPref *string // "zoho_cliq" or "email"
 }
 
 // AppPermission represents a single app's permission state.
@@ -255,6 +256,14 @@ func UpdateUser(ctx context.Context, pool *pgxpool.Pool, userID string, input Up
 	if input.Roles != nil {
 		setClauses = append(setClauses, fmt.Sprintf("roles = $%d", argIdx))
 		args = append(args, *input.Roles)
+		argIdx++
+	}
+	if input.NotificationPref != nil {
+		if *input.NotificationPref != "zoho_cliq" && *input.NotificationPref != "email" {
+			return fmt.Errorf("invalid notification_channel %q: must be 'zoho_cliq' or 'email'", *input.NotificationPref)
+		}
+		setClauses = append(setClauses, fmt.Sprintf("notification_channel = $%d", argIdx))
+		args = append(args, *input.NotificationPref)
 		argIdx++
 	}
 
