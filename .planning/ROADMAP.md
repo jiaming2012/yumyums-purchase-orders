@@ -59,7 +59,7 @@ _Full phase details archived to [milestones/v2.0-ROADMAP.md](milestones/v2.0-ROA
 - [x] **Phase 14: PO Backend + Order Form** - Schema migrations, purchasing API, and purchasing.html Tab 1 with live reorder suggestions, item search, added-by attribution, and duplicate detection (completed 2026-04-22)
 - [x] **Phase 15: Notion Catalog Seed** - Convert Notion CSV to YAML seed file with images re-hosted to DO Spaces; seeds on first server run (completed 2026-04-22)
 - [x] **Phase 16: Cutoff, Approval, and Shopping List** - Cutoff scheduler, admin approval flow, shopping list with photo capture prompts and location enrichment (completed 2026-04-22)
-- [x] **Phase 17: Alerts, Notifications, and Repurchase Badges** - Async alert queue, Zoho Cliq/email delivery, user notification preferences, and inventory badge on shopping completion (completed 2026-04-23)
+- [ ] **Phase 17: Alerts, Notifications, and Repurchase Badges** - Async alert queue, Zoho Cliq/email delivery, user notification preferences, and inventory badge on shopping completion (UAT gap closure in progress)
 
 ## Phase Details
 
@@ -126,11 +126,13 @@ Plans:
   3. Users can configure their notification preference (Zoho Cliq or email) in the Users tab; at least one channel is required
   4. Inventory Stock tab items show a "Repurchased +[Qty]" badge after the shopping list is marked complete
   5. Badge resets on the admin-configured schedule (weekly reset date is timezone-aware)
-**Plans:** 2/1 plans complete
+**Plans:** 5 plans (3 complete, 2 gap closure)
 Plans:
 - [x] 17-01-PLAN.md -- Migrations, async alert queue, Zoho Cliq + SMTP notifiers, main.go wiring
 - [x] 17-02-PLAN.md -- Cutoff reminder, low-stock alerts, shopping completion wiring, user notification preference UI
-- [ ] 17-03-PLAN.md -- Repurchase badge (stock API join, inventory.html badge rendering, reset config)
+- [x] 17-03-PLAN.md -- Repurchase badge (stock API join, inventory.html badge rendering, reset config)
+- [ ] 17-04-PLAN.md -- Gap closure: multi-select alert channels + badge spacing CSS fix
+- [ ] 17-05-PLAN.md -- Gap closure: per-user timezone setting (replaces hardcoded America/Chicago)
 **UI hint**: yes
 
 ## Progress
@@ -140,7 +142,7 @@ Plans:
 | 14. PO Backend + Order Form | v3.0 | 2/2 | Complete    | 2026-04-22 |
 | 15. Notion Catalog Import | v3.0 | 1/2 | Complete    | 2026-04-22 |
 | 16. Cutoff, Approval, and Shopping List | v3.0 | 5/5 | Complete   | 2026-04-22 |
-| 17. Alerts, Notifications, and Repurchase Badges | v3.0 | 2/1 | Complete   | 2026-04-23 |
+| 17. Alerts, Notifications, and Repurchase Badges | v3.0 | 3/5 | Gap Closure | — |
 
 ## Backlog
 

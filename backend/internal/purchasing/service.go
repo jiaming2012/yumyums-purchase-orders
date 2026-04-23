@@ -645,12 +645,14 @@ func NotifyVendorComplete(ctx context.Context, pool *pgxpool.Pool, listID string
 	}
 
 	for _, c := range contacts {
-		alertQueue.Enqueue(alerts.Alert{
-			Channel:        c.NotificationChannel,
-			RecipientEmail: c.Email,
-			Subject:        "Shopping List Completed",
-			Message:        msg,
-		})
+		for _, ch := range c.NotificationChannels {
+			alertQueue.Enqueue(alerts.Alert{
+				Channel:        ch,
+				RecipientEmail: c.Email,
+				Subject:        "Shopping List Completed",
+				Message:        msg,
+			})
+		}
 	}
 	return nil
 }

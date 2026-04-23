@@ -140,7 +140,7 @@ func UpdateUserHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			LastName         *string   `json:"last_name"`
 			Nickname         *string   `json:"nickname"`
 			Roles            *[]string `json:"roles"`
-			NotificationPref *string   `json:"notification_pref"`
+			NotificationPref *[]string `json:"notification_pref"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid_json")
@@ -446,17 +446,17 @@ func GetNotificationPreferenceHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			writeError(w, http.StatusForbidden, "forbidden")
 			return
 		}
-		channel, err := GetNotificationPreference(r.Context(), pool, targetID)
+		channels, err := GetNotificationPreference(r.Context(), pool, targetID)
 		if err != nil {
 			log.Printf("GetNotificationPreferenceHandler: %v", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
-		if channel == "" {
+		if channels == nil {
 			writeError(w, http.StatusNotFound, "user_not_found")
 			return
 		}
-		writeJSON(w, http.StatusOK, map[string]string{"notification_channel": channel})
+		writeJSON(w, http.StatusOK, map[string]interface{}{"notification_channels": channels})
 	}
 }
 
@@ -476,15 +476,15 @@ func UpdateNotificationPreferenceHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 
 		var input struct {
-			NotificationChannel string `json:"notification_channel"`
+			NotificationChannels []string `json:"notification_channels"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid_json")
 			return
 		}
 
-		if err := UpdateNotificationPreference(r.Context(), pool, targetID, input.NotificationChannel); err != nil {
-			if strings.Contains(err.Error(), "invalid notification_channel") {
+		if err := UpdateNotificationPreference(r.Context(), pool, targetID, input.NotificationChannels); err != nil {
+			if strings.Contains(err.Error(), "invalid notification_channel") || strings.Contains(err.Error(), "at least one") {
 				writeError(w, http.StatusBadRequest, err.Error())
 				return
 			}
@@ -496,6 +496,6 @@ func UpdateNotificationPreferenceHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
-		writeJSON(w, http.StatusOK, map[string]string{"notification_channel": input.NotificationChannel})
+		writeJSON(w, http.StatusOK, map[string]interface{}{"notification_channels": input.NotificationChannels})
 	}
 }

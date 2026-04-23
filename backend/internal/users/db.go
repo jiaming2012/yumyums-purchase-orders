@@ -19,25 +19,25 @@ var ErrTokenInvalid = errors.New("token_invalid")
 
 // UserRow is the full user record returned from DB queries.
 type UserRow struct {
-	ID                  string     `json:"id"`
-	Email               string     `json:"email"`
-	FirstName           string     `json:"first_name"`
-	LastName            string     `json:"last_name"`
-	Nickname            *string    `json:"nickname,omitempty"`
-	DisplayName         string     `json:"display_name"`
-	Roles               []string   `json:"roles"`
-	Status              string     `json:"status"`
-	NotificationChannel string     `json:"notification_channel"`
-	InvitedAt           time.Time  `json:"invited_at"`
-	AcceptedAt          *time.Time `json:"accepted_at,omitempty"`
+	ID                   string     `json:"id"`
+	Email                string     `json:"email"`
+	FirstName            string     `json:"first_name"`
+	LastName             string     `json:"last_name"`
+	Nickname             *string    `json:"nickname,omitempty"`
+	DisplayName          string     `json:"display_name"`
+	Roles                []string   `json:"roles"`
+	Status               string     `json:"status"`
+	NotificationChannels []string   `json:"notification_channels"`
+	InvitedAt            time.Time  `json:"invited_at"`
+	AcceptedAt           *time.Time `json:"accepted_at,omitempty"`
 }
 
 // NotificationPreferenceContact holds the minimal fields needed for alert delivery.
 type NotificationPreferenceContact struct {
-	UserID              string
-	Email               string
-	DisplayName         string
-	NotificationChannel string
+	UserID               string
+	Email                string
+	DisplayName          string
+	NotificationChannels []string
 }
 
 // CreateUserInput holds fields required to create an invited user.
@@ -54,7 +54,7 @@ type UpdateUserInput struct {
 	LastName         *string
 	Nickname         *string
 	Roles            *[]string
-	NotificationPref *string // "zoho_cliq" or "email"
+	NotificationPref *[]string // array of "zoho_cliq" and/or "email"
 }
 
 // AppPermission represents a single app's permission state.
@@ -92,7 +92,7 @@ func ListUsers(ctx context.Context, pool *pgxpool.Pool) ([]UserRow, error) {
 		var u UserRow
 		if err := rows.Scan(
 			&u.ID, &u.Email, &u.FirstName, &u.LastName, &u.Nickname,
-			&u.DisplayName, &u.Roles, &u.Status, &u.NotificationChannel, &u.InvitedAt, &u.AcceptedAt,
+			&u.DisplayName, &u.Roles, &u.Status, &u.NotificationChannels, &u.InvitedAt, &u.AcceptedAt,
 		); err != nil {
 			return nil, fmt.Errorf("list users scan: %w", err)
 		}
@@ -116,7 +116,7 @@ func GetUser(ctx context.Context, pool *pgxpool.Pool, userID string) (*UserRow, 
 	var u UserRow
 	err := pool.QueryRow(ctx, query, userID).Scan(
 		&u.ID, &u.Email, &u.FirstName, &u.LastName, &u.Nickname,
-		&u.DisplayName, &u.Roles, &u.Status, &u.NotificationChannel, &u.InvitedAt, &u.AcceptedAt,
+		&u.DisplayName, &u.Roles, &u.Status, &u.NotificationChannels, &u.InvitedAt, &u.AcceptedAt,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -127,26 +127,31 @@ func GetUser(ctx context.Context, pool *pgxpool.Pool, userID string) (*UserRow, 
 	return &u, nil
 }
 
-// GetNotificationPreference returns a single user's notification_channel.
-func GetNotificationPreference(ctx context.Context, pool *pgxpool.Pool, userID string) (string, error) {
-	var channel string
-	err := pool.QueryRow(ctx, `SELECT notification_channel FROM users WHERE id = $1`, userID).Scan(&channel)
+// GetNotificationPreference returns a user's notification_channels as a []string.
+func GetNotificationPreference(ctx context.Context, pool *pgxpool.Pool, userID string) ([]string, error) {
+	var channels []string
+	err := pool.QueryRow(ctx, `SELECT notification_channel FROM users WHERE id = $1`, userID).Scan(&channels)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return "", nil
+			return nil, nil
 		}
-		return "", fmt.Errorf("get notification preference: %w", err)
+		return nil, fmt.Errorf("get notification preference: %w", err)
 	}
-	return channel, nil
+	return channels, nil
 }
 
-// UpdateNotificationPreference sets notification_channel for a user.
-// Valid values are 'zoho_cliq' and 'email' (enforced by DB CHECK constraint).
-func UpdateNotificationPreference(ctx context.Context, pool *pgxpool.Pool, userID, channel string) error {
-	if channel != "zoho_cliq" && channel != "email" {
-		return fmt.Errorf("invalid notification_channel %q: must be 'zoho_cliq' or 'email'", channel)
+// UpdateNotificationPreference sets notification_channel (TEXT[]) for a user.
+// Valid values are 'zoho_cliq' and 'email'. At least one channel is required.
+func UpdateNotificationPreference(ctx context.Context, pool *pgxpool.Pool, userID string, channels []string) error {
+	if len(channels) == 0 {
+		return fmt.Errorf("at least one notification channel is required")
 	}
-	tag, err := pool.Exec(ctx, `UPDATE users SET notification_channel = $2 WHERE id = $1`, userID, channel)
+	for _, ch := range channels {
+		if ch != "zoho_cliq" && ch != "email" {
+			return fmt.Errorf("invalid notification_channel %q: must be 'zoho_cliq' or 'email'", ch)
+		}
+	}
+	tag, err := pool.Exec(ctx, `UPDATE users SET notification_channel = $2 WHERE id = $1`, userID, channels)
 	if err != nil {
 		return fmt.Errorf("update notification preference: %w", err)
 	}
@@ -201,7 +206,7 @@ func GetUsersForAlerts(ctx context.Context, pool *pgxpool.Pool, alertType string
 	var contacts []NotificationPreferenceContact
 	for rows.Next() {
 		var c NotificationPreferenceContact
-		if err := rows.Scan(&c.UserID, &c.Email, &c.DisplayName, &c.NotificationChannel); err != nil {
+		if err := rows.Scan(&c.UserID, &c.Email, &c.DisplayName, &c.NotificationChannels); err != nil {
 			return nil, fmt.Errorf("GetUsersForAlerts scan: %w", err)
 		}
 		contacts = append(contacts, c)
@@ -259,11 +264,17 @@ func UpdateUser(ctx context.Context, pool *pgxpool.Pool, userID string, input Up
 		argIdx++
 	}
 	if input.NotificationPref != nil {
-		if *input.NotificationPref != "zoho_cliq" && *input.NotificationPref != "email" {
-			return fmt.Errorf("invalid notification_channel %q: must be 'zoho_cliq' or 'email'", *input.NotificationPref)
+		channels := *input.NotificationPref
+		if len(channels) == 0 {
+			return fmt.Errorf("invalid notification_channel: at least one channel required")
+		}
+		for _, ch := range channels {
+			if ch != "zoho_cliq" && ch != "email" {
+				return fmt.Errorf("invalid notification_channel %q: must be 'zoho_cliq' or 'email'", ch)
+			}
 		}
 		setClauses = append(setClauses, fmt.Sprintf("notification_channel = $%d", argIdx))
-		args = append(args, *input.NotificationPref)
+		args = append(args, channels)
 		argIdx++
 	}
 

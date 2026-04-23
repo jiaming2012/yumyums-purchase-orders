@@ -140,12 +140,14 @@ func runReminderCheck(ctx context.Context, pool *pgxpool.Pool) {
 	}
 
 	for _, c := range contacts {
-		alertQueue.Enqueue(alerts.Alert{
-			Channel:        c.NotificationChannel,
-			RecipientEmail: c.Email,
-			Subject:        "PO Cutoff Reminder",
-			Message:        msg,
-		})
+		for _, ch := range c.NotificationChannels {
+			alertQueue.Enqueue(alerts.Alert{
+				Channel:        ch,
+				RecipientEmail: c.Email,
+				Subject:        "PO Cutoff Reminder",
+				Message:        msg,
+			})
+		}
 	}
 
 	// Record that reminder was sent this week
@@ -332,12 +334,14 @@ func runLowStockCheck(ctx context.Context, pool *pgxpool.Pool) {
 	}
 
 	for _, c := range contacts {
-		alertQueue.Enqueue(alerts.Alert{
-			Channel:        c.NotificationChannel,
-			RecipientEmail: c.Email,
-			Subject:        "Low Stock Alert",
-			Message:        msg,
-		})
+		for _, ch := range c.NotificationChannels {
+			alertQueue.Enqueue(alerts.Alert{
+				Channel:        ch,
+				RecipientEmail: c.Email,
+				Subject:        "Low Stock Alert",
+				Message:        msg,
+			})
+		}
 	}
 
 	log.Printf("low-stock check: sent alert for %d new low-stock item(s) for week %s", len(lowItems), weekStart)
