@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: Purchase Orders & Shopping Lists
 status: verifying
-stopped_at: Completed 17-03-PLAN.md
-last_updated: "2026-04-23T01:14:56.144Z"
+stopped_at: Completed 17-02-PLAN.md
+last_updated: "2026-04-23T01:13:23.355Z"
 last_activity: 2026-04-23
 progress:
   total_phases: 6
-  completed_phases: 3
-  total_plans: 12
-  completed_plans: 11
+  completed_phases: 1
+  total_plans: 6
+  completed_plans: 9
   percent: 0
 ---
 
@@ -89,7 +89,7 @@ Progress: [░░░░░░░░░░] 0% (v2.0 milestone)
 | Phase 16-cutoff-approval-and-shopping-list P05 | 5 | 3 tasks | 3 files |
 | Phase 16-cutoff-approval-and-shopping-list P04 | 35 | 2 tasks | 3 files |
 | Phase 17 P01 | 8 | 5 tasks | 18 files |
-| Phase 17 P03 | 10 | 2 tasks | 2 files |
+| Phase 17 P02 | 12 | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -183,7 +183,8 @@ Recent decisions affecting current work:
 - [Phase 17]: package-level alertQueue var in purchasing package (not constructor injection) — consistent with scheduler.go pattern, minimal caller changes
 - [Phase 17]: RecordRepurchase and NotifyVendorComplete called after COMMIT — badge data and alerts are best-effort, don't block the transaction
 - [Phase 17]: alert_log UNIQUE (alert_type, week_start) provides idempotent cutoff reminder — INSERT ON CONFLICT DO NOTHING prevents duplicates
-- [Phase 17]: repurchase badge UI uses Plan 01 API shape (repurchase_badge.qty not repurchased_qty) — Plan 01 built richer struct with timestamp
+- [Phase 17]: Low-stock alert uses batch message per week rather than one alert per item to avoid notification spam
+- [Phase 17]: notification_pref added to PATCH /users/{id} body (not separate endpoint) to keep edit form a single save action
 
 ### Pending Todos
 
@@ -209,6 +210,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-23T01:14:56.137Z
-Stopped at: Completed 17-03-PLAN.md
+Last session: 2026-04-23T01:13:23.347Z
+Stopped at: Completed 17-02-PLAN.md
 Resume file: None

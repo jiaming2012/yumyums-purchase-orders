@@ -336,6 +336,13 @@ async function editUser(id){
         <input id="f-email" type="email" value="${u.email||''}" readonly>
         <div class="field-hint">Email cannot be changed</div>
       </div>
+      <div class="field">
+        <label>Alert Channel</label>
+        <select id="f-notif-pref">
+          <option value="zoho_cliq"${(u.notification_channel||'zoho_cliq')==='zoho_cliq'?' selected':''}>Zoho Cliq</option>
+          <option value="email"${(u.notification_channel||'zoho_cliq')==='email'?' selected':''}>Email</option>
+        </select>
+      </div>
       <button class="btn-primary" data-action="save-user">Update Profile</button>
       <div class="sep">
         <button class="btn-secondary" data-action="reset-password">Reset Password</button>
@@ -352,12 +359,14 @@ async function saveUser(){
   const last=document.getElementById('f-last').value.trim();
   const nick=document.getElementById('f-nick').value.trim();
   const roles=Array.from(document.querySelectorAll('#f-roles .role-chip.on')).map(c=>c.dataset.role);
+  const notifPrefEl=document.getElementById('f-notif-pref');
+  const notifPref=notifPrefEl?notifPrefEl.value:'zoho_cliq';
   const nickErr=document.getElementById('nick-err');
   if(nickErr)nickErr.classList.remove('show');
   const btn=document.querySelector('[data-action="save-user"]');
   if(btn)btn.textContent='Saving...';
   try{
-    const result=await api('PATCH',`/api/v1/users/${editingUser.id}`,{first_name:first,last_name:last,nickname:nick,roles});
+    const result=await api('PATCH',`/api/v1/users/${editingUser.id}`,{first_name:first,last_name:last,nickname:nick,roles,notification_pref:notifPref});
     const idx=USERS.findIndex(u=>u.id===editingUser.id);
     if(idx>=0)USERS[idx]=result.user||result;
     showToast('Profile updated');

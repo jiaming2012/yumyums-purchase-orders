@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/yumyums/hq/internal/alerts"
+	"github.com/yumyums/hq/internal/inventory"
 	"github.com/yumyums/hq/internal/users"
 )
 
@@ -40,10 +41,11 @@ func StartScheduler(ctx context.Context, pool *pgxpool.Pool) {
 	}()
 }
 
-// runSchedulerTick runs cutoff check, reminder check, and repurchase reset check on each tick.
+// runSchedulerTick runs cutoff check, reminder check, low-stock alert check, and repurchase reset check on each tick.
 func runSchedulerTick(ctx context.Context, pool *pgxpool.Pool) {
 	runCutoffCheck(ctx, pool)
 	runReminderCheck(ctx, pool)
+	runLowStockCheck(ctx, pool)
 	runRepurchaseResetCheck(ctx, pool)
 }
 
@@ -236,6 +238,109 @@ func runCutoffCheck(ctx context.Context, pool *pgxpool.Pool) {
 	}
 
 	log.Printf("cutoff scheduler: locked PO %s (cutoff passed at %s)", draftID, cutoffCandidate.Format(time.RFC3339))
+}
+
+// runLowStockCheck queries items below their group's low threshold and sends an alert for any
+// that haven't been alerted this week (ALRT-02 idempotency via low_stock_alert_log).
+func runLowStockCheck(ctx context.Context, pool *pgxpool.Pool) {
+	if alertQueue == nil {
+		return // alerts not configured — skip silently
+	}
+
+	// Compute current week_start (Monday-based, America/Chicago timezone)
+	loc, _ := time.LoadLocation("America/Chicago")
+	now := time.Now().In(loc)
+	weekday := int(now.Weekday())
+	if weekday == 0 {
+		weekday = 7
+	}
+	monday := now.AddDate(0, 0, -(weekday - 1))
+	weekStart := monday.Format("2006-01-02")
+
+	// Query all stock items with their quantities and thresholds.
+	// Uses the same approach as GetSuggestions: purchase_line_items → purchase_items → item_groups.
+	type stockRow struct {
+		description  string
+		currentStock int
+		lowThreshold int
+		highThreshold int
+	}
+
+	rows, err := pool.Query(ctx, `
+		SELECT
+			COALESCE(pi.description, pli.description) AS item_description,
+			COALESCE(sco.quantity, SUM(pli.quantity)::int) AS current_stock,
+			COALESCE(ig.low_threshold, 3) AS low_threshold,
+			COALESCE(ig.high_threshold, 10) AS high_threshold
+		FROM purchase_line_items pli
+		JOIN purchase_events pe ON pe.id = pli.purchase_event_id
+		LEFT JOIN purchase_items pi ON pi.id = pli.purchase_item_id
+		LEFT JOIN item_groups ig ON ig.id = pi.group_id
+		LEFT JOIN stock_count_overrides sco ON sco.item_description = COALESCE(pi.description, pli.description)
+		WHERE pi.id IS NOT NULL
+		GROUP BY COALESCE(pi.description, pli.description), sco.quantity, ig.low_threshold, ig.high_threshold
+	`)
+	if err != nil {
+		log.Printf("low-stock check: query stock: %v", err)
+		return
+	}
+	defer rows.Close()
+
+	var lowItems []string
+	for rows.Next() {
+		var sr stockRow
+		if err := rows.Scan(&sr.description, &sr.currentStock, &sr.lowThreshold, &sr.highThreshold); err != nil {
+			log.Printf("low-stock check: scan row: %v", err)
+			continue
+		}
+
+		level, _ := inventory.ClassifyStockLevel(sr.currentStock, sr.lowThreshold, sr.highThreshold)
+		if level != "low" {
+			continue
+		}
+
+		// Attempt idempotent insert — DO NOTHING if already logged this week
+		tag, err := pool.Exec(ctx, `
+			INSERT INTO low_stock_alert_log (item_description, week_start) VALUES ($1, $2)
+			ON CONFLICT (item_description, week_start) DO NOTHING
+		`, sr.description, weekStart)
+		if err != nil {
+			log.Printf("low-stock check: insert log for %q: %v", sr.description, err)
+			continue
+		}
+		if tag.RowsAffected() > 0 {
+			// This item was not yet alerted this week — include it in the batch alert
+			lowItems = append(lowItems, sr.description)
+		}
+	}
+	if err := rows.Err(); err != nil {
+		log.Printf("low-stock check: rows err: %v", err)
+	}
+
+	if len(lowItems) == 0 {
+		return // nothing new to alert
+	}
+
+	// Build alert message
+	msg := fmt.Sprintf("Low Stock Alert: %d item(s) below threshold: %s", len(lowItems), strings.Join(lowItems, ", "))
+
+	// Get admin recipients
+	contacts, err := users.GetUsersForAlerts(ctx, pool, alerts.TypeShoppingComplete) // admins only
+	if err != nil {
+		log.Printf("low-stock check: GetUsersForAlerts: %v", err)
+		return
+	}
+
+	for _, c := range contacts {
+		alertQueue.Enqueue(alerts.Alert{
+			Channel:        c.NotificationChannel,
+			RecipientEmail: c.Email,
+			Subject:        "Low Stock Alert",
+			Message:        msg,
+		})
+	}
+
+	log.Printf("low-stock check: sent alert for %d new low-stock item(s) for week %s", len(lowItems), weekStart)
 }
 
 // parseCutoffTime splits "HH:MM" or "HH:MM:SS" into hour and minute integers.
