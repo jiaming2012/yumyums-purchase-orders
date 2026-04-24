@@ -1164,9 +1164,14 @@ test.describe('Approval Flow', () => {
     }
     await page.waitForTimeout(2000);
 
-    // Resubmit
+    // Resubmit — view auto-returns to list after success animation
     await page.click('[data-action="submit"]');
+    await page.waitForSelector('#checklist-list .row', { timeout: 10000 });
     await page.waitForTimeout(1000);
+
+    // Verify progress shows all items complete (4/4, not 2/4)
+    const resubProgress = await page.locator('#checklist-list .row', { hasText: rejName }).first().textContent();
+    expect(resubProgress).toContain('4/4');
 
     // --- User B (manager): approve the resubmission ---
     await login(page, mgr.email, mgr.password);

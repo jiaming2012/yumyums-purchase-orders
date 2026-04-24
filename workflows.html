@@ -1334,6 +1334,7 @@ function hydrateFieldState(filterFieldIds) {
   // Clear existing state
   Object.keys(FIELD_RESPONSES).forEach(function(k) { delete FIELD_RESPONSES[k]; });
   Object.keys(FAIL_NOTES).forEach(function(k) { delete FAIL_NOTES[k]; });
+  Object.keys(REJECTION_FLAGS).forEach(function(k) { delete REJECTION_FLAGS[k]; });
   // 1. Draft responses (in-progress, not yet submitted)
   (DRAFT_RESPONSES || []).forEach(function(d) {
     if (!filterFieldIds || filterFieldIds.has(d.field_id)) {
@@ -1370,14 +1371,21 @@ function hydrateFieldState(filterFieldIds) {
         FIELD_RESPONSES[r.field_id] = entry;
       }
     });
-    // 3. Load rejection flags — uncheck rejected fields so crew must re-complete
+    // 3. Load rejection flags — only from the LATEST submission per template
+    //    (a resubmission creates a new pending submission; the old rejected one should not clear new responses)
     if (sub.status === 'rejected' && sub.rejections && sub.rejections.length > 0) {
-      sub.rejections.forEach(function(rej) {
-        if (!filterFieldIds || filterFieldIds.has(rej.field_id)) {
-          REJECTION_FLAGS[rej.field_id] = { comment: rej.comment || '', requirePhoto: !!rej.require_photo };
-          delete FIELD_RESPONSES[rej.field_id]; // uncheck so crew must redo
-        }
+      var hasNewerSubmission = (MY_SUBMISSIONS || []).some(function(other) {
+        return other.template_id === sub.template_id && other.id !== sub.id &&
+          new Date(other.submitted_at) > new Date(sub.submitted_at);
       });
+      if (!hasNewerSubmission) {
+        sub.rejections.forEach(function(rej) {
+          if (!filterFieldIds || filterFieldIds.has(rej.field_id)) {
+            REJECTION_FLAGS[rej.field_id] = { comment: rej.comment || '', requirePhoto: !!rej.require_photo };
+            delete FIELD_RESPONSES[rej.field_id]; // uncheck so crew must redo
+          }
+        });
+      }
     }
   });
 }
