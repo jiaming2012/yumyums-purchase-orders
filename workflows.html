@@ -817,7 +817,7 @@ const DAY_INDICES = [1, 2, 3, 4, 5, 6, 0]; // Mon=1, Tue=2, ..., Sat=6, Sun=0
 
 function renderDayChips(activeDays, targetId, targetType, hasCustomDays) {
   const days = activeDays || [];
-  const isCustom = targetType === 'section' ? (days.length > 0) : !!hasCustomDays;
+  const isCustom = targetType === 'section' ? (activeDays !== null) : !!hasCustomDays;
   const inheritLabel = targetType === 'section' ? 'Same as schedule' : 'When section is visible';
   return `
     <div class="field" style="margin-top:12px">
