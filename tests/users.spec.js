@@ -500,3 +500,95 @@ test.describe('Access tab', () => {
     expect(restoredState).toBe(wasChecked);
   });
 });
+
+// ─── Alert Channel Defaults ─────────────────────────────────────────────────
+
+test.describe('Alert Channel Defaults', () => {
+  test('new user has both Zoho Cliq and Email enabled by default', async ({ page }) => {
+    await login(page);
+    await page.goto('/users.html');
+    await waitForUserList(page);
+
+    // Create a new user via API
+    const ts = Date.now();
+    const email = `notif-default-${ts}@yumyums.kitchen`;
+    const result = await page.evaluate(async (e) => {
+      const res = await fetch('/api/v1/users/invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ first_name: 'NotifTest', last_name: 'User', email: e, roles: ['team_member'] })
+      });
+      return res.json();
+    }, email);
+    expect(result.user).toBeTruthy();
+
+    // Verify API returns both channels
+    const user = result.user;
+    expect(user.notification_channels).toBeTruthy();
+    expect(user.notification_channels).toContain('zoho_cliq');
+    expect(user.notification_channels).toContain('email');
+    expect(user.notification_channels.length).toBe(2);
+  });
+
+  test('alert channel chips show both enabled when editing new user', async ({ page }) => {
+    await login(page);
+    await page.goto('/users.html');
+    await waitForUserList(page);
+
+    // Create user
+    const ts = Date.now();
+    const email = `notif-chips-${ts}@yumyums.kitchen`;
+    const result = await page.evaluate(async (e) => {
+      const res = await fetch('/api/v1/users/invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ first_name: 'ChipTest', last_name: 'User', email: e, roles: ['team_member'] })
+      });
+      return res.json();
+    }, email);
+    const userId = result.user.id;
+
+    // Open edit form for the new user
+    await page.reload();
+    await waitForUserList(page);
+    await page.click(`[data-action="edit-user"][data-user-id="${userId}"]`);
+    await waitForEditCard(page);
+
+    // Both alert channel chips should have the "on" class
+    const zohoChip = page.locator('#f-notif .role-chip[data-channel="zoho_cliq"]');
+    const emailChip = page.locator('#f-notif .role-chip[data-channel="email"]');
+    await expect(zohoChip).toHaveClass(/\bon\b/);
+    await expect(emailChip).toHaveClass(/\bon\b/);
+  });
+
+  test('alert channel chips toggle on and off', async ({ page }) => {
+    await login(page);
+    await page.goto('/users.html');
+    await waitForUserList(page);
+
+    // Open edit form for the first user
+    await page.click('[data-action="edit-user"]');
+    await waitForEditCard(page);
+
+    const zohoChip = page.locator('#f-notif .role-chip[data-channel="zoho_cliq"]');
+    const emailChip = page.locator('#f-notif .role-chip[data-channel="email"]');
+
+    // Get initial states
+    const zohoWasOn = await zohoChip.evaluate(el => el.classList.contains('on'));
+    const emailWasOn = await emailChip.evaluate(el => el.classList.contains('on'));
+
+    // Toggle Zoho off (or on)
+    await zohoChip.click();
+    const zohoAfter = await zohoChip.evaluate(el => el.classList.contains('on'));
+    expect(zohoAfter).toBe(!zohoWasOn);
+
+    // Toggle Email
+    await emailChip.click();
+    const emailAfter = await emailChip.evaluate(el => el.classList.contains('on'));
+    expect(emailAfter).toBe(!emailWasOn);
+
+    // Toggle both back to restore
+    await zohoChip.click();
+    await emailChip.click();
+  });
+});
