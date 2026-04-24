@@ -175,7 +175,10 @@ func AuthenticateUser(ctx context.Context, pool *pgxpool.Pool, email, password s
 // superadmins to set their password via the invite flow.
 func UpsertSuperadmins(ctx context.Context, pool *pgxpool.Pool, superadmins map[string]config.SuperadminEntry) error {
 	for email, entry := range superadmins {
-		firstName, lastName := splitName(entry.DisplayName)
+		firstName, lastName := entry.FirstName, entry.LastName
+		if firstName == "" && entry.DisplayName != "" {
+			firstName, lastName = splitName(entry.DisplayName)
+		}
 		_, err := pool.Exec(ctx, `
 			INSERT INTO users (email, first_name, last_name, roles, status)
 			VALUES ($1, $2, $3, ARRAY['admin']::TEXT[], 'invited')

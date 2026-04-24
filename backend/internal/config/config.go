@@ -9,7 +9,9 @@ import (
 
 type SuperadminEntry struct {
 	Email       string `yaml:"email"`
-	DisplayName string `yaml:"display_name"`
+	FirstName   string `yaml:"first_name"`
+	LastName    string `yaml:"last_name"`
+	DisplayName string `yaml:"display_name"` // deprecated — use first_name + last_name
 	DevPassword string `yaml:"dev_password,omitempty"`
 }
 

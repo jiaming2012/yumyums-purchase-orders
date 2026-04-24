@@ -4,5 +4,6 @@
 
 superadmins:
   - email: jamal@yumyums.kitchen
-    display_name: Jamal C.
+    first_name: Jamal
+    last_name: Cole
     dev_password: test123

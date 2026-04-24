@@ -501,6 +501,25 @@ test.describe('Access tab', () => {
   });
 });
 
+// ─── Last Name Display ──────────────────────────────────────────────────────
+
+test.describe('Last Name Display', () => {
+  test('edit form shows full last name, not abbreviated', async ({ page }) => {
+    await login(page);
+    await page.goto('/users.html');
+    await waitForUserList(page);
+
+    // Click the first user to open edit
+    await page.click('[data-action="edit-user"]');
+    await waitForEditCard(page);
+
+    // Last name field should show the full last name, not "C." or similar abbreviation
+    const lastNameValue = await page.locator('#f-last').inputValue();
+    expect(lastNameValue.length).toBeGreaterThan(2);
+    expect(lastNameValue).not.toMatch(/^[A-Z]\.$/);
+  });
+});
+
 // ─── Alert Channel Defaults ─────────────────────────────────────────────────
 
 test.describe('Alert Channel Defaults', () => {
