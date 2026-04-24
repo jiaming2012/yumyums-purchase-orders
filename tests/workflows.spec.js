@@ -1181,4 +1181,61 @@ test.describe('Approval Flow', () => {
     await page.click('[data-action="approve"]');
     await expect(page.locator('#toast')).toBeVisible({ timeout: 5000 });
   });
+
+  test('approved checklist shows Approved badge and cannot be resubmitted', async ({ page }) => {
+    // Setup
+    await login(page);
+    await cleanupTemplates(page);
+    await cleanupPendingApprovals(page);
+    const appName = 'ApprBadge ' + Date.now();
+    const tpl = await createApprovalTemplate(page, appName);
+    const crew = await createCrewUser(page, 'CrewAB');
+    await login(page);
+    const mgr = await createManagerUser(page, 'MgrAB');
+    await login(page);
+
+    // --- Crew: complete and submit ---
+    await login(page, crew.email, crew.password);
+    await page.goto(BASE + '/workflows.html');
+    await page.waitForSelector('#checklist-list .row');
+    await page.locator('#checklist-list .row', { hasText: appName }).first().click();
+    await page.waitForSelector('#fill-body .fill-field');
+    const checkBtns = page.locator('.check-btn');
+    for (let i = 0; i < await checkBtns.count(); i++) {
+      await checkBtns.nth(i).click();
+      await page.waitForTimeout(300);
+    }
+    await page.waitForTimeout(2000);
+    await page.click('[data-action="submit"]');
+    await page.waitForTimeout(1000);
+
+    // --- Manager: approve ---
+    await login(page, mgr.email, mgr.password);
+    await page.goto(BASE + '/workflows.html');
+    await page.click('#t2');
+    await expect(page.locator('#s2').locator('text=' + appName + '').first()).toBeVisible({ timeout: 5000 });
+    await page.click('[data-action="approve"]');
+    await expect(page.locator('#toast')).toBeVisible({ timeout: 5000 });
+
+    // --- Crew: verify "Approved ✓" badge on My Checklists list ---
+    await login(page, crew.email, crew.password);
+    await page.goto(BASE + '/workflows.html');
+    await page.waitForSelector('#checklist-list .row');
+    const row = page.locator('#checklist-list .row', { hasText: appName }).first();
+    await expect(row).toBeVisible();
+    await expect(row.locator('text=Approved')).toBeVisible({ timeout: 5000 });
+
+    // --- Open the checklist and verify no submit button ---
+    await row.click();
+    await page.waitForSelector('#fill-body .fill-field');
+
+    // "Approved ✓" confirmation should be visible
+    await expect(page.locator('.submit-confirm', { hasText: 'Approved' })).toBeVisible();
+
+    // Submit button should NOT exist
+    await expect(page.locator('#submit-btn')).not.toBeVisible();
+
+    // Unsubmit button should NOT exist
+    await expect(page.locator('[data-action="unsubmit"]')).not.toBeVisible();
+  });
 });

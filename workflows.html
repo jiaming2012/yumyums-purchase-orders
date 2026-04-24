@@ -1774,8 +1774,9 @@ function renderChecklistList(today) {
       return subDate === todayStr;
     }) : null;
     var pendingBadge = submission && (submission.status === 'pending_approval' || submission.status === 'pending') ? '<div class="approval-badge">Pending Approval</div>' : '';
-    var submittedBadge = submission && (submission.status === 'submitted' || submission.status === 'approved') ? '<div style="font-size:12px;color:#27ae60;margin-top:4px;font-weight:500">Submitted \u2713</div>' : '';
-    return `<div class="row" data-fill-template-id="${tpl.id}" data-template-id="${tpl.id}" style="cursor:pointer"><div style="flex:1"><div class="nm">${escapeHtml(tpl.name)}</div><div class="mt">${secCount} section${secCount !== 1 ? 's' : ''} \u00b7 ${answeredCount}/${fieldCount} items</div><div style="height:4px;background:var(--brd);border-radius:2px;margin-top:6px;overflow:hidden"><div style="height:100%;background:#27ae60;border-radius:2px;width:${pct}%"></div></div>${pendingBadge}${submittedBadge}</div></div>`;
+    var approvedBadge = submission && submission.status === 'approved' ? '<div style="font-size:12px;color:#27ae60;margin-top:4px;font-weight:500">Approved \u2713</div>' : '';
+    var submittedBadge = !approvedBadge && submission && submission.status === 'submitted' ? '<div style="font-size:12px;color:#27ae60;margin-top:4px;font-weight:500">Submitted \u2713</div>' : '';
+    return `<div class="row" data-fill-template-id="${tpl.id}" data-template-id="${tpl.id}" style="cursor:pointer"><div style="flex:1"><div class="nm">${escapeHtml(tpl.name)}</div><div class="mt">${secCount} section${secCount !== 1 ? 's' : ''} \u00b7 ${answeredCount}/${fieldCount} items</div><div style="height:4px;background:var(--brd);border-radius:2px;margin-top:6px;overflow:hidden"><div style="height:100%;background:#27ae60;border-radius:2px;width:${pct}%"></div></div>${pendingBadge}${approvedBadge}${submittedBadge}</div></div>`;
   }).join('');
   const aggPct = totalFields ? Math.round(totalAnswered / totalFields * 100) : 0;
   return `<div class="cat">TODAY'S CHECKLISTS</div>
@@ -1802,10 +1803,13 @@ function renderRunner() {
   }) : null;
   var isSubmitted = submission && (submission.status === 'submitted');
   var isPending = submission && (submission.status === 'pending_approval' || submission.status === 'pending');
-  fillState.readonly = isSubmitted || isPending;
+  var isApproved = submission && (submission.status === 'approved');
+  fillState.readonly = isSubmitted || isPending || isApproved;
   const sectionsHtml = (tpl.sections || []).map(sec => renderRunnerSection(sec)).join('');
   const unsubmitBtn = `<button data-action="unsubmit" data-tpl-id="${tpl.id}" data-submission-id="${submission ? submission.id : ''}" style="width:100%;padding:14px;margin:16px 0 0;background:#c0392b;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:500;font-family:inherit;cursor:pointer">Unsubmit</button>`;
-  const submitHtml = isSubmitted
+  const submitHtml = isApproved
+    ? `<div class="submit-confirm" style="margin-top:16px;color:#27ae60;font-weight:600">Approved \u2713</div>`
+    : isSubmitted
     ? `<div class="submit-confirm" style="margin-top:16px">Checklist submitted. Thanks, ${getUserInitials()}!</div>${unsubmitBtn}`
     : isPending
       ? `<div class="submit-confirm" style="margin-top:16px">Submitted for approval by ${submission.submitted_by_name || getUserName()}. Waiting for manager review.</div>${unsubmitBtn}`
