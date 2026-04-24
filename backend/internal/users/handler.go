@@ -57,7 +57,7 @@ func ListUsersHandler(pool *pgxpool.Pool) http.HandlerFunc {
 
 // InviteHandler handles POST /api/v1/users/invite — admin only.
 // Creates a user with status='invited' and returns an invite link with opaque token.
-func InviteHandler(pool *pgxpool.Pool) http.HandlerFunc {
+func InviteHandler(pool *pgxpool.Pool, alertCfg alerts.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		user := auth.UserFromContext(r.Context())
 		if user == nil || !isAdmin(user) {
@@ -121,9 +121,26 @@ func InviteHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
+		invitePath := fmt.Sprintf("/login.html?token=%s", rawToken)
+
+		// Send invite email if SMTP is configured
+		if alertCfg.SMTPAddr != "" && body.Email != "" {
+			baseURL := os.Getenv("BASE_URL")
+			if baseURL == "" {
+				baseURL = "https://hq.yumyums.kitchen"
+			}
+			emailBody := fmt.Sprintf("Hi %s,\n\nYou've been invited to Yumyums HQ! Click the link below to set your password and get started:\n\n%s%s\n\nThis link expires in 7 days.\n\n— Yumyums HQ",
+				body.FirstName, baseURL, invitePath)
+			if err := alerts.SendEmail(alertCfg.SMTPAddr, alertCfg.SMTPUsername, alertCfg.SMTPPassword, alertCfg.SMTPFrom, body.Email, "Yumyums HQ — You're Invited", emailBody); err != nil {
+				log.Printf("InviteHandler email error: %v", err)
+			} else {
+				log.Printf("Sent invite email to %s", body.Email)
+			}
+		}
+
 		writeJSON(w, http.StatusCreated, map[string]interface{}{
 			"user":        newUser,
-			"invite_path": fmt.Sprintf("/login.html?token=%s", rawToken),
+			"invite_path": invitePath,
 		})
 	}
 }

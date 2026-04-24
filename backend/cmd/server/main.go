@@ -334,7 +334,7 @@ func main() {
 			// User admin endpoints — admin only
 			r.Route("/users", func(r chi.Router) {
 				r.Get("/", users.ListUsersHandler(pool))
-				r.Post("/invite", users.InviteHandler(pool))
+				r.Post("/invite", users.InviteHandler(pool, alertCfg))
 				r.Patch("/{id}", users.UpdateUserHandler(pool))
 				r.Post("/{id}/reset-password", users.ResetPasswordHandler(pool, alertCfg))
 				r.Post("/{id}/revoke", users.RevokeHandler(pool))
