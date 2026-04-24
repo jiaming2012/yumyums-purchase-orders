@@ -1918,9 +1918,15 @@ function renderRunnerField(fld) {
       var subState = (resp && resp.sub_steps) ? resp.sub_steps : {};
       var allSubsDone = subs.every(function(s) { return !!subState[s.id]; });
       subStepsHtml = subs.map(function(s) {
-        var done = !!subState[s.id];
+        var subVal = subState[s.id];
+        var done = !!subVal;
+        // Per-sub attribution: support both legacy (true) and new ({by, at}) format
+        var subAttrib = '';
+        if (done && subVal && typeof subVal === 'object' && subVal.by) {
+          subAttrib = '<div class="fill-attribution" style="padding:0 16px 4px 40px;font-size:11px">' + escapeHtml(subVal.by) + ' \u00b7 ' + formatTime(new Date(subVal.at)) + '</div>';
+        }
         return '<div class="sub-step-row"><span class="sub-step-label-text' + (done ? ' style="text-decoration:line-through;color:var(--mut)"' : '') + '">' + escapeHtml(s.label) + '</span>' +
-          '<button class="sub-step-check ' + (done ? 'done' : '') + '" data-action="toggle-sub-step" data-field-id="' + fld.id + '" data-sub-id="' + s.id + '">' + (done ? '✓' : '') + '</button></div>';
+          '<button class="sub-step-check ' + (done ? 'done' : '') + '" data-action="toggle-sub-step" data-field-id="' + fld.id + '" data-sub-id="' + s.id + '">' + (done ? '✓' : '') + '</button></div>' + subAttrib;
       }).join('');
       // For sub-step checkboxes, parent is auto-checked when all subs done
       var parentChecked = allSubsDone;
@@ -1930,7 +1936,6 @@ function renderRunnerField(fld) {
         '<div class="fill-field-label" style="margin-bottom:0">' + escapeHtml(fld.label) + '</div>' +
         '<button class="check-btn ' + (parentChecked ? 'checked' : '') + '" data-field-id="' + fld.id + '" data-has-subs="true" aria-label="Toggle checkbox">' + (parentChecked ? '✓' : '') + '</button>' +
         '</div>' +
-        (parentChecked ? attribution : '') +
         subStepsHtml +
         '</div>';
     }
@@ -2141,16 +2146,18 @@ document.getElementById('fill-body').addEventListener('click', function(e) {
       }
       var resp = FIELD_RESPONSES[parentFldId];
       if (!resp.sub_steps) resp.sub_steps = {};
-      // Toggle
+      // Toggle — store who checked each sub-step
       if (resp.sub_steps[subId]) {
         delete resp.sub_steps[subId];
       } else {
-        resp.sub_steps[subId] = true;
+        resp.sub_steps[subId] = { by: getUserName(), at: new Date().toISOString() };
       }
+      resp.answeredBy = getUserName();
+      resp.answeredAt = new Date();
       // Auto-check parent if all subs done
       var allDone = tplField.sub_steps.every(function(s){ return !!resp.sub_steps[s.id]; });
       resp.value = allDone;
-      if (allDone) { resp.answeredAt = new Date(); clearRejectionFlag(parentFldId); }
+      if (allDone) { clearRejectionFlag(parentFldId); }
       debouncedSaveField(parentFldId, { value: resp.value, sub_steps: resp.sub_steps });
       var fieldDiv = document.querySelector('.fill-field[data-field-id="' + parentFldId + '"]');
       if (fieldDiv) fieldDiv.outerHTML = renderRunnerField(tplField);
