@@ -1370,6 +1370,15 @@ function hydrateFieldState(filterFieldIds) {
         FIELD_RESPONSES[r.field_id] = entry;
       }
     });
+    // 3. Load rejection flags — uncheck rejected fields so crew must re-complete
+    if (sub.status === 'rejected' && sub.rejections && sub.rejections.length > 0) {
+      sub.rejections.forEach(function(rej) {
+        if (!filterFieldIds || filterFieldIds.has(rej.field_id)) {
+          REJECTION_FLAGS[rej.field_id] = { comment: rej.comment || '', requirePhoto: !!rej.require_photo };
+          delete FIELD_RESPONSES[rej.field_id]; // uncheck so crew must redo
+        }
+      });
+    }
   });
 }
 
@@ -2380,6 +2389,15 @@ document.getElementById('approvals-body').addEventListener('click', function(e) 
     if (!submission) return;
     var field = submission.fields ? submission.fields.find(function(f) { return f.id === fldId; }) : null;
     if (!field) return;
+    // Preserve existing comments before re-render
+    var card = actionEl.closest('.approval-card');
+    if (card) {
+      card.querySelectorAll('.reject-item-input').forEach(function(ta) {
+        var fid = ta.dataset.rejectFld;
+        var f = submission.fields ? submission.fields.find(function(x) { return x.id === fid; }) : null;
+        if (f) f._rejectComment = ta.value.trim();
+      });
+    }
     field._pendingReject = !field._pendingReject;
     if (!field._pendingReject) { delete field._rejectComment; delete field._rejectRequirePhoto; }
     renderApprovals();

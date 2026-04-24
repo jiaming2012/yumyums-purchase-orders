@@ -382,7 +382,6 @@ test.describe('Approvals', () => {
 
     await page.click('#t2');
     await expect(page.locator('#s2')).toBeVisible();
-    // Empty state heading is "All caught up" — scope to #s2
     await expect(page.locator('#s2').locator('text=All caught up')).toBeVisible({ timeout: 5000 });
   });
 });
@@ -947,5 +946,234 @@ test.describe('Loading states', () => {
     await expect(page.locator('#t3')).toBeHidden();
     // My Checklists should still be visible
     await expect(page.locator('#t1')).toBeVisible();
+  });
+});
+
+// ─── F. Approval Flow (multi-user) ──────────────────────────────────────────
+
+test.describe('Approval Flow', () => {
+  // Helper: create a team_member user, accept invite, return { email, password }
+  async function createCrewUser(page, prefix) {
+    const email = prefix + '-' + Date.now() + '@yumyums.kitchen';
+    const password = 'crew1234';
+    const inviteRes = await page.evaluate(async ([e, name]) => {
+      const res = await fetch('/api/v1/users/invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ first_name: name, last_name: 'Test', email: e, roles: ['team_member'] })
+      });
+      return res.json();
+    }, [email, prefix]);
+    const token = inviteRes.invite_path.split('token=')[1];
+    await page.evaluate(async ([t, pw]) => {
+      await fetch('/api/v1/auth/accept-invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: t, password: pw })
+      });
+    }, [token, password]);
+    return { email, password };
+  }
+
+  // Helper: create a manager user, accept invite, return { email, password }
+  async function createManagerUser(page, prefix) {
+    const email = prefix + '-' + Date.now() + '@yumyums.kitchen';
+    const password = 'mgr12345';
+    const inviteRes = await page.evaluate(async ([e, name]) => {
+      const res = await fetch('/api/v1/users/invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ first_name: name, last_name: 'Mgr', email: e, roles: ['manager'] })
+      });
+      return res.json();
+    }, [email, prefix]);
+    const token = inviteRes.invite_path.split('token=')[1];
+    await page.evaluate(async ([t, pw]) => {
+      await fetch('/api/v1/auth/accept-invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: t, password: pw })
+      });
+    }, [token, password]);
+    return { email, password };
+  }
+
+  // Helper: create a 4-field template assigned to team_member (assignee) + manager (approver)
+  async function createApprovalTemplate(page, name) {
+    return apiCall(page, 'POST', 'createTemplate', {
+      name: name || 'Approval Flow Test',
+      requires_approval: true,
+      sections: [{
+        title: 'Checks', order: 0, condition: null,
+        fields: [
+          { type: 'checkbox', label: 'Item A', required: false, order: 0, config: {}, fail_trigger: null, condition: null },
+          { type: 'checkbox', label: 'Item B', required: false, order: 1, config: {}, fail_trigger: null, condition: null },
+          { type: 'checkbox', label: 'Item C', required: false, order: 2, config: {}, fail_trigger: null, condition: null },
+          { type: 'checkbox', label: 'Item D', required: false, order: 3, config: {}, fail_trigger: null, condition: null },
+        ]
+      }],
+      schedules: [{ active_days: [0,1,2,3,4,5,6] }],
+      assignments: [
+        { assignee_type: 'role', assignee_id: 'team_member', assignment_role: 'assignee' },
+        { assignee_type: 'role', assignee_id: 'manager', assignment_role: 'approver' },
+      ]
+    });
+  }
+
+  test('team member completes checklist, manager approves', async ({ page }) => {
+    // Setup: login as admin, create template, crew user, manager user
+    await login(page);
+    await cleanupTemplates(page);
+    await cleanupPendingApprovals(page);
+    const tplName = 'Approve ' + Date.now();
+    const tpl = await createApprovalTemplate(page, tplName);
+    const crew = await createCrewUser(page, 'CrewA');
+    await login(page); // re-login as admin after accept-invite
+    const mgr = await createManagerUser(page, 'MgrB');
+    await login(page); // re-login as admin after accept-invite
+
+    // --- User A (crew): open checklist, check all 4 items, submit ---
+    await login(page, crew.email, crew.password);
+    await page.goto(BASE + '/workflows.html');
+    await page.waitForSelector('#checklist-list .row');
+    await page.locator('#checklist-list .row', { hasText: tplName }).first().click();
+    await page.waitForSelector('#fill-body .fill-field');
+
+    // Check all 4 checkboxes
+    const checkBtns = page.locator('.check-btn');
+    const count = await checkBtns.count();
+    expect(count).toBe(4);
+    for (let i = 0; i < count; i++) {
+      await checkBtns.nth(i).click();
+      await page.waitForTimeout(300);
+    }
+
+    // Wait for auto-save
+    await page.waitForTimeout(2000);
+
+    // Submit
+    await page.click('[data-action="submit"]');
+    await page.waitForTimeout(1000);
+
+    // Verify submission confirmation
+    await expect(page.locator('#toast')).toBeVisible({ timeout: 5000 });
+
+    // --- User B (manager): approve ---
+    await login(page, mgr.email, mgr.password);
+    await page.goto(BASE + '/workflows.html');
+    await page.click('#t2'); // Approvals tab
+    await expect(page.locator('#s2')).toBeVisible();
+    await expect(page.locator('#s2').locator('text=' + tplName + '')).toBeVisible({ timeout: 5000 });
+
+    // Approve
+    await page.click('[data-action="approve"]');
+    await expect(page.locator('#toast')).toBeVisible({ timeout: 5000 });
+
+    // Verify the approval list is now empty
+  });
+
+  test('team member completes checklist, manager rejects 2 items, crew resubmits, manager approves', async ({ page }) => {
+    // Setup
+    await login(page);
+    await cleanupTemplates(page);
+    await cleanupPendingApprovals(page);
+    const rejName = 'Reject ' + Date.now();
+    const tpl = await createApprovalTemplate(page, rejName);
+    const crew = await createCrewUser(page, 'CrewR');
+    await login(page); // re-login as admin after accept-invite
+    const mgr = await createManagerUser(page, 'MgrR');
+    await login(page); // re-login as admin after accept-invite
+
+    // --- User A (crew): complete all items and submit ---
+    await login(page, crew.email, crew.password);
+    await page.goto(BASE + '/workflows.html');
+    await page.waitForSelector('#checklist-list .row');
+    await page.locator('#checklist-list .row', { hasText: rejName }).first().click();
+    await page.waitForSelector('#fill-body .fill-field');
+
+    const checkBtns = page.locator('.check-btn');
+    const totalFields = await checkBtns.count();
+    expect(totalFields).toBe(4);
+    for (let i = 0; i < totalFields; i++) {
+      await checkBtns.nth(i).click();
+      await page.waitForTimeout(300);
+    }
+    await page.waitForTimeout(2000);
+    await page.click('[data-action="submit"]');
+    await page.waitForTimeout(1000);
+
+    // --- User B (manager): flag 2 items with comments, reject ---
+    await login(page, mgr.email, mgr.password);
+    await page.goto(BASE + '/workflows.html');
+    await page.click('#t2');
+    await expect(page.locator('#s2').locator('text=' + rejName + '').first()).toBeVisible({ timeout: 5000 });
+
+    // Scope to the specific approval card
+    const card = page.locator('.approval-card', { hasText: rejName }).first();
+
+    // Get field IDs from Flag buttons to target textareas precisely
+    const flagBtns = card.locator('[data-action="toggle-reject-item"]');
+    const fldIdA = await flagBtns.nth(0).getAttribute('data-fld-id');
+    const fldIdB = await flagBtns.nth(1).getAttribute('data-fld-id');
+
+    // Flag Item A and enter comment
+    await flagBtns.nth(0).click();
+    await expect(card.locator(`[data-reject-fld="${fldIdA}"]`)).toBeVisible();
+    await card.locator(`[data-reject-fld="${fldIdA}"]`).fill('Item A needs redo');
+
+    // Flag Item B and enter comment
+    await flagBtns.nth(1).click();
+    await expect(card.locator(`[data-reject-fld="${fldIdB}"]`)).toBeVisible();
+    await card.locator(`[data-reject-fld="${fldIdB}"]`).fill('Item B is wrong');
+
+    // Submit rejection
+    await card.locator('[data-action="reject-submit"]').click();
+    await expect(page.locator('#toast')).toContainText('Rejected', { timeout: 5000 });
+
+    // --- User A (crew): sees rejected items ---
+    await login(page, crew.email, crew.password);
+    await page.goto(BASE + '/workflows.html');
+    await page.waitForSelector('#checklist-list .row');
+
+    // Verify the submission is rejected via API
+    await page.waitForSelector('#checklist-list .row');
+    const submissions = await page.evaluate(async () => {
+      const r = await fetch('/api/v1/workflow/myChecklists?dow=' + new Date().getDay());
+      const data = await r.json();
+      return data.submissions || [];
+    });
+    const rejectedSub = submissions.find(s => s.status === 'rejected');
+    expect(rejectedSub).toBeTruthy();
+    expect(rejectedSub.rejections.length).toBe(2);
+    expect(rejectedSub.rejections.map(r => r.comment).sort()).toEqual(['Item A needs redo', 'Item B is wrong']);
+
+    // Open the checklist and re-check all items for resubmission
+    await page.locator('#checklist-list .row', { hasText: rejName }).first().click();
+    await page.waitForSelector('#fill-body .fill-field');
+
+    // Check any unchecked items
+    const allCheckBtns = page.locator('.check-btn');
+    const totalBtns = await allCheckBtns.count();
+    for (let i = 0; i < totalBtns; i++) {
+      const btn = allCheckBtns.nth(i);
+      const isChecked = await btn.evaluate(el => el.classList.contains('checked'));
+      if (!isChecked) {
+        await btn.click();
+        await page.waitForTimeout(300);
+      }
+    }
+    await page.waitForTimeout(2000);
+
+    // Resubmit
+    await page.click('[data-action="submit"]');
+    await page.waitForTimeout(1000);
+
+    // --- User B (manager): approve the resubmission ---
+    await login(page, mgr.email, mgr.password);
+    await page.goto(BASE + '/workflows.html');
+    await page.click('#t2');
+    await expect(page.locator('#s2').locator('text=' + rejName + '').first()).toBeVisible({ timeout: 5000 });
+    await page.click('[data-action="approve"]');
+    await expect(page.locator('#toast')).toBeVisible({ timeout: 5000 });
   });
 });
