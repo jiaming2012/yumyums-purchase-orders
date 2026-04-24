@@ -933,7 +933,7 @@ function toggleApproval() {
 document.getElementById('builder-body').addEventListener('click', function(e) {
   // Template row -> open editor
   const tplRow = e.target.closest('[data-template-id]');
-  if (tplRow && !e.target.closest('.sec-delete') && !e.target.closest('.field-delete')) {
+  if (tplRow && !e.target.closest('.sec-delete') && !e.target.closest('.field-delete') && !e.target.closest('.day-inherit-btn') && !e.target.closest('.day-chip')) {
     openEditor(tplRow.dataset.templateId);
     return;
   }
