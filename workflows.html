@@ -817,16 +817,16 @@ const DAY_INDICES = [1, 2, 3, 4, 5, 6, 0]; // Mon=1, Tue=2, ..., Sat=6, Sun=0
 
 function renderDayChips(activeDays, targetId, targetType, hasCustomDays) {
   const days = activeDays || [];
-  const isCustom = targetType === 'section' ? true : !!hasCustomDays;
+  const isCustom = targetType === 'section' ? (days.length > 0) : !!hasCustomDays;
+  const inheritLabel = targetType === 'section' ? 'Same as schedule' : 'When section is visible';
   return `
     <div class="field" style="margin-top:12px">
       <label>SHOW ON DAYS</label>
-      ${targetType === 'field' ? `
       <div style="margin-bottom:8px">
-        <button class="day-inherit-btn ${!isCustom ? 'on' : ''}" data-target-id="${targetId}" data-target-type="${targetType}" data-action="inherit" style="padding:6px 12px;border-radius:8px;border:0.5px solid var(--brd);background:${!isCustom ? 'var(--info-bg)' : 'transparent'};color:${!isCustom ? 'var(--info-tx)' : 'var(--mut)'};font-size:12px;font-weight:500;margin-right:6px;cursor:pointer">When section is visible</button>
+        <button class="day-inherit-btn ${!isCustom ? 'on' : ''}" data-target-id="${targetId}" data-target-type="${targetType}" data-action="inherit" style="padding:6px 12px;border-radius:8px;border:0.5px solid var(--brd);background:${!isCustom ? 'var(--info-bg)' : 'transparent'};color:${!isCustom ? 'var(--info-tx)' : 'var(--mut)'};font-size:12px;font-weight:500;margin-right:6px;cursor:pointer">${inheritLabel}</button>
         <button class="day-inherit-btn ${isCustom ? 'on' : ''}" data-target-id="${targetId}" data-target-type="${targetType}" data-action="custom" style="padding:6px 12px;border-radius:8px;border:0.5px solid var(--brd);background:${isCustom ? 'var(--info-bg)' : 'transparent'};color:${isCustom ? 'var(--info-tx)' : 'var(--mut)'};font-size:12px;font-weight:500;cursor:pointer">Custom days</button>
-      </div>` : ''}
-      <div class="day-chips-row" ${targetType === 'field' && !isCustom ? 'style="display:none"' : ''}>
+      </div>
+      <div class="day-chips-row" ${!isCustom ? 'style="display:none"' : ''}>
         ${DAYS.map((label, i) => `
           <button class="day-chip ${days.includes(DAY_INDICES[i]) ? 'on' : ''}"
                   data-day="${DAY_INDICES[i]}" data-target-id="${targetId}"
@@ -1069,17 +1069,28 @@ document.getElementById('builder-body').addEventListener('click', function(e) {
   if (e.target.closest('.day-inherit-btn')) {
     const btn = e.target.closest('.day-inherit-btn');
     const targetId = btn.dataset.targetId;
+    const targetType = btn.dataset.targetType;
     const action = btn.dataset.action;
-    const sec = state.activeTemplate.sections.find(s =>
-      s.fields.some(f => f.id === targetId));
-    const fld = sec.fields.find(f => f.id === targetId);
-    if (action === 'inherit') {
-      // Remove custom days — field inherits from section
-      if (fld.condition) { delete fld.condition.days; if (!fld.condition.field_id) fld.condition = null; }
+    if (targetType === 'section') {
+      const sec = state.activeTemplate.sections.find(s => s.id === targetId);
+      if (sec) {
+        if (action === 'inherit') {
+          sec.condition = null; // inherit from schedule
+        } else {
+          if (!sec.condition) sec.condition = { days: [] };
+          else if (!sec.condition.days) sec.condition.days = [];
+        }
+      }
     } else {
-      // Switch to custom — initialize with empty days array
-      if (!fld.condition) fld.condition = { days: [] };
-      else if (!fld.condition.days) fld.condition.days = [];
+      const sec = state.activeTemplate.sections.find(s =>
+        s.fields.some(f => f.id === targetId));
+      const fld = sec.fields.find(f => f.id === targetId);
+      if (action === 'inherit') {
+        if (fld.condition) { delete fld.condition.days; if (!fld.condition.field_id) fld.condition = null; }
+      } else {
+        if (!fld.condition) fld.condition = { days: [] };
+        else if (!fld.condition.days) fld.condition.days = [];
+      }
     }
     renderBuilder();
     return;
