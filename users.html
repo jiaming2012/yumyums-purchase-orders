@@ -361,8 +361,8 @@ async function editUser(id){
       <div class="field">
         <label>Alert Channels</label>
         <div id="f-notif" class="role-chips">
-          <button type="button" class="role-chip${(u.notification_channels||['zoho_cliq']).includes('zoho_cliq')?' on':''}" data-channel="zoho_cliq">Zoho Cliq</button>
-          <button type="button" class="role-chip${(u.notification_channels||['zoho_cliq']).includes('email')?' on':''}" data-channel="email">Email</button>
+          <button type="button" class="role-chip${(u.notification_channels||['zoho_cliq','email']).includes('zoho_cliq')?' on':''}" data-channel="zoho_cliq">Zoho Cliq</button>
+          <button type="button" class="role-chip${(u.notification_channels||['zoho_cliq','email']).includes('email')?' on':''}" data-channel="email">Email</button>
         </div>
       </div>
       <div class="field">
