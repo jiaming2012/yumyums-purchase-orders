@@ -469,7 +469,34 @@ test.describe('Access control', () => {
   });
 });
 
-// ─── F. Validation ──────────────────────────────────────────────────────────
+// ─── F. Navigation ──────────────────────────────────────────────────────────
+
+test.describe('Navigation', () => {
+  test('clicking My Checklists tab while runner is open returns to list', async ({ page }) => {
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+
+    // Wait for checklist list to load
+    await page.waitForSelector('#checklist-list .row', { timeout: 5000 });
+
+    // Open the first checklist runner
+    await page.locator('#checklist-list .row').first().click();
+    await page.waitForSelector('#fill-body .fill-field', { timeout: 5000 });
+
+    // Runner should be showing (progress line visible, checklist-list gone)
+    await expect(page.locator('.progress-line')).toBeVisible();
+    await expect(page.locator('#checklist-list')).not.toBeVisible();
+
+    // Click "My Checklists" tab button
+    await page.click('#t1');
+
+    // Should return to list view — checklist-list should be visible again
+    await expect(page.locator('#checklist-list')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('#checklist-list .row').first()).toBeVisible({ timeout: 5000 });
+  });
+});
+
+// ─── G. Validation ──────────────────────────────────────────────────────────
 
 test.describe('Validation', () => {
   test('submit is blocked when fail trigger fires but corrective action is empty', async ({ page }) => {

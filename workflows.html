@@ -82,7 +82,7 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .sub-step-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 16px 8px 40px;border-bottom:0.5px solid var(--brd)}
 .sub-step-row:last-child{border-bottom:none}
 .sub-step-label-text{font-size:13px;flex:1}
-.sub-step-check{width:20px;height:20px;border-radius:4px;border:1.5px solid var(--brd);display:flex;align-items:center;justify-content:center;font-size:12px;color:#27ae60;flex-shrink:0;cursor:pointer}
+.sub-step-check{width:20px;height:20px;border-radius:4px;border:1.5px solid var(--brd);display:flex;align-items:center;justify-content:center;font-size:12px;color:#27ae60;flex-shrink:0;cursor:pointer;margin-right:9px}
 .sub-step-check.done{background:#27ae60;border-color:#27ae60;color:#fff}
 .fill-field-label{font-size:14px;font-weight:500;margin-bottom:6px}
 .fill-attribution{font-size:11px;color:var(--mut);margin-top:4px}
@@ -2509,7 +2509,9 @@ function show(n) {
   if (n === 1) {
     fillState.view = 'list';
     fillState.activeTemplate = null;
+    fillState.readonly = false;
     location.hash = '';
+    renderFillOut();
     loadMyChecklists();
   }
   if (n === 2) {
