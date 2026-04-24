@@ -1687,6 +1687,21 @@ function renderApprovals() {
     var tplName = submission.template_name || submission.tpl_name || 'Checklist';
     var submittedBy = submission.submitted_by_name || submission.submittedBy || 'Crew';
     var submittedAt = submission.submitted_at || submission.submittedAt || new Date().toISOString();
+    // Flatten template_snapshot sections into a fields array, merge with responses
+    if (!submission.fields && submission.template_snapshot) {
+      var snap = typeof submission.template_snapshot === 'string' ? JSON.parse(submission.template_snapshot) : submission.template_snapshot;
+      var respMap = {};
+      (submission.responses || []).forEach(function(r) { respMap[r.field_id] = r.value; });
+      submission.fields = [];
+      (snap.sections || []).forEach(function(sec) {
+        (sec.fields || []).forEach(function(f) {
+          var val = respMap[f.id];
+          // Unwrap JSON-encoded value strings
+          if (typeof val === 'string') { try { val = JSON.parse(val); } catch(e) {} }
+          submission.fields.push({ id: f.id, label: f.label || f.type, type: f.type, value: val !== undefined ? val : null });
+        });
+      });
+    }
     var fields = submission.fields || [];
     var itemsHtml = fields.map(function(fld) {
       var answered = fld.value !== null && fld.value !== undefined;
