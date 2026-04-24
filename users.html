@@ -360,9 +360,9 @@ async function editUser(id){
       </div>
       <div class="field">
         <label>Alert Channels</label>
-        <div style="margin:4px 0">
-          <label style="display:inline-flex;align-items:center;gap:4px;margin-right:12px"><input type="checkbox" id="f-notif-zoho" value="zoho_cliq"${(u.notification_channels||['zoho_cliq']).includes('zoho_cliq')?' checked':''}> Zoho Cliq</label>
-          <label style="display:inline-flex;align-items:center;gap:4px"><input type="checkbox" id="f-notif-email" value="email"${(u.notification_channels||['zoho_cliq']).includes('email')?' checked':''}> Email</label>
+        <div style="display:flex;gap:8px;margin:4px 0">
+          <label style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--bg);border:0.5px solid var(--brd);border-radius:10px;font-size:13px;cursor:pointer;flex:1;min-height:44px"><input type="checkbox" id="f-notif-zoho" value="zoho_cliq" style="width:18px;height:18px;border-radius:4px"${(u.notification_channels||['zoho_cliq']).includes('zoho_cliq')?' checked':''}> Zoho Cliq</label>
+          <label style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--bg);border:0.5px solid var(--brd);border-radius:10px;font-size:13px;cursor:pointer;flex:1;min-height:44px"><input type="checkbox" id="f-notif-email" value="email" style="width:18px;height:18px;border-radius:4px"${(u.notification_channels||['zoho_cliq']).includes('email')?' checked':''}> Email</label>
         </div>
       </div>
       <div class="field">
