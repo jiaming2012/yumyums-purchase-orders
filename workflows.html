@@ -1762,7 +1762,7 @@ function renderChecklistList(today) {
     const secCount = tpl.sections ? tpl.sections.length : 0;
     const fields = tpl.sections ? tpl.sections.flatMap(s => s.fields || []) : [];
     const fieldCount = fields.length;
-    const answeredCount = fields.filter(f => FIELD_RESPONSES[f.id] !== undefined).length;
+    const answeredCount = fields.filter(f => FIELD_RESPONSES[f.id] !== undefined && !REJECTION_FLAGS[f.id]).length;
     totalFields += fieldCount;
     totalAnswered += answeredCount;
     const pct = fieldCount ? Math.round(answeredCount / fieldCount * 100) : 0;
@@ -1791,7 +1791,7 @@ function renderRunner() {
   const tpl = fillState.activeTemplate;
   clearHiddenFieldAnswers();
   const visibleFields = (tpl.sections || []).filter(s => isSectionVisible(s)).flatMap(s => (s.fields || []).filter(f => isFieldVisible(f)));
-  const answered = visibleFields.filter(f => FIELD_RESPONSES[f.id] !== undefined).length;
+  const answered = visibleFields.filter(f => FIELD_RESPONSES[f.id] !== undefined && !REJECTION_FLAGS[f.id]).length;
   const allFields = visibleFields;
   // Check submission status BEFORE rendering sections — only today's submissions count
   var todayStr = new Date().toISOString().slice(0, 10);
@@ -2010,14 +2010,20 @@ function attachRunnerListeners() {
   // Temperature: handled by input delegation — no blur listener needed
 }
 
-function updateProgress() {
-  if (!fillState.activeTemplate) return;
+function countCompletedFields() {
+  // Derive answered count from FIELD_RESPONSES minus any fields with active rejection flags
+  if (!fillState.activeTemplate) return { answered: 0, total: 0 };
   const allFields = fillState.activeTemplate.sections.filter(s => isSectionVisible(s)).flatMap(s => s.fields.filter(f => isFieldVisible(f)));
-  const answered = allFields.filter(f => FIELD_RESPONSES[f.id] !== undefined).length;
+  const answered = allFields.filter(f => FIELD_RESPONSES[f.id] !== undefined && !REJECTION_FLAGS[f.id]).length;
+  return { answered, total: allFields.length };
+}
+
+function updateProgress() {
+  const { answered, total } = countCompletedFields();
   const el = document.querySelector('#fill-body .progress-line');
   if (el) {
-    var pct = allFields.length ? Math.round(answered / allFields.length * 100) : 0;
-    el.innerHTML = '<div style="height:6px;background:var(--brd);border-radius:3px;overflow:hidden;margin-bottom:6px"><div style="height:100%;background:#27ae60;border-radius:3px;width:' + pct + '%;transition:width .3s"></div></div><div style="font-size:13px;color:var(--mut)">' + answered + ' of ' + allFields.length + ' items complete</div>';
+    var pct = total ? Math.round(answered / total * 100) : 0;
+    el.innerHTML = '<div style="height:6px;background:var(--brd);border-radius:3px;overflow:hidden;margin-bottom:6px"><div style="height:100%;background:#27ae60;border-radius:3px;width:' + pct + '%;transition:width .3s"></div></div><div style="font-size:13px;color:var(--mut)">' + answered + ' of ' + total + ' items complete</div>';
   }
 }
 
