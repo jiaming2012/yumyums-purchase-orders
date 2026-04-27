@@ -153,6 +153,7 @@ type SectionInput struct {
 }
 
 type FieldInput struct {
+	ID          string       `json:"id,omitempty" yaml:"id"`
 	Type        string       `json:"type" yaml:"type"`
 	Label       string       `json:"label" yaml:"label"`
 	Required    bool         `json:"required" yaml:"required"`

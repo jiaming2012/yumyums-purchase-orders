@@ -8,12 +8,18 @@ import (
 	"net/http"
 	"slices"
 	"strconv"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/yumyums/hq/internal/auth"
 	opsync "github.com/yumyums/hq/internal/sync"
 )
+
+// isDuplicateNameErr checks if the error is a unique constraint violation on template name.
+func isDuplicateNameErr(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "idx_checklist_templates_name_active")
+}
 
 // Exported function aliases for cross-package use (e.g., sync.OpHandler).
 // These delegate to the unexported business logic functions so the OpHandler
@@ -193,6 +199,10 @@ func CreateTemplateHandler(pool *pgxpool.Pool) http.HandlerFunc {
 
 		id, err := insertTemplate(r.Context(), pool, input, user.ID)
 		if err != nil {
+			if isDuplicateNameErr(err) {
+				writeError(w, http.StatusUnprocessableEntity, "duplicate_name")
+				return
+			}
 			log.Printf("insertTemplate error: %v", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
@@ -245,6 +255,10 @@ func UpdateTemplateHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 
 		if err := replaceTemplate(r.Context(), pool, templateID, input); err != nil {
+			if isDuplicateNameErr(err) {
+				writeError(w, http.StatusUnprocessableEntity, "duplicate_name")
+				return
+			}
 			log.Printf("replaceTemplate error: %v", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return

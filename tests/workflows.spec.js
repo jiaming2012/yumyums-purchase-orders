@@ -162,6 +162,104 @@ test.describe('Builder', () => {
     await expect(page.locator('text=Nav Test')).toBeVisible({ timeout: 5000 });
   });
 
+  test('archive checklist soft-deletes and removes from list', async ({ page }) => {
+    // Create via API then reload so TEMPLATES is populated
+    const result = await apiCall(page, 'POST', 'createTemplate', {
+      name: 'Archive Test',
+      sections: [{ title: 'S1', order: 0, condition: null, fields: [] }],
+    });
+    const tplId = result.id;
+
+    await page.reload();
+    await page.click('#t3');
+    await expect(page.locator('#s3')).toBeVisible();
+    await expect(page.locator('#builder-list .row', { hasText: 'Archive Test' })).toBeVisible({ timeout: 5000 });
+
+    // Open the template in the editor
+    await page.locator('#builder-list .row', { hasText: 'Archive Test' }).first().click();
+    await expect(page.locator('[data-action="archive-template"]')).toBeVisible({ timeout: 5000 });
+
+    // Click archive button — accept the confirm dialog
+    page.once('dialog', async dialog => await dialog.accept());
+    await page.locator('[data-action="archive-template"]').click();
+
+    // Should show success toast
+    await expect(page.locator('#toast')).toBeVisible({ timeout: 5000 });
+
+    // Template should be removed from the list
+    await expect(page.locator('text=Archive Test')).not.toBeVisible({ timeout: 5000 });
+
+    // API confirms it's gone
+    const templates = await apiCall(page, 'GET', 'templates');
+    expect(templates.find(t => t.id === tplId)).toBeUndefined();
+  });
+
+  test('archive navigates back to builder list', async ({ page }) => {
+    const result = await apiCall(page, 'POST', 'createTemplate', {
+      name: 'Archive Nav Test',
+      sections: [{ title: 'S1', order: 0, condition: null, fields: [] }],
+    });
+
+    await page.reload();
+    await page.click('#t3');
+    await expect(page.locator('#s3')).toBeVisible();
+    await expect(page.locator('#builder-list .row', { hasText: 'Archive Nav Test' })).toBeVisible({ timeout: 5000 });
+
+    // Open editor
+    await page.locator('#builder-list .row', { hasText: 'Archive Nav Test' }).first().click();
+    await expect(page.locator('[data-action="archive-template"]')).toBeVisible({ timeout: 5000 });
+
+    // Archive — accept the confirm dialog
+    page.once('dialog', async dialog => await dialog.accept());
+    await page.locator('[data-action="archive-template"]').click();
+    await expect(page.locator('#toast')).toBeVisible({ timeout: 5000 });
+
+    // Should navigate back to builder list (editor closed, list visible)
+    await expect(page.locator('#builder-list')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('#save-btn')).not.toBeVisible();
+    await expect(page.locator('[data-action="archive-template"]')).not.toBeVisible();
+  });
+
+  test('duplicate checklist name shows error toast', async ({ page }) => {
+    // Create first template
+    await apiCall(page, 'POST', 'createTemplate', {
+      name: 'Unique Name Test',
+      sections: [{ title: 'S1', order: 0, condition: null, fields: [] }],
+    });
+
+    await page.reload();
+    await page.click('#t3');
+    await expect(page.locator('#s3')).toBeVisible();
+
+    // Try to create a second template with the same name
+    await page.click('#s3 .btn-primary');
+    await page.waitForSelector('#builder-body');
+    await page.fill('#tpl-name-input', 'Unique Name Test');
+    await page.click('#save-btn');
+
+    // Should show duplicate name error
+    await expect(page.locator('#toast')).toContainText('already exists', { timeout: 5000 });
+  });
+
+  test('can reuse name of deleted checklist', async ({ page }) => {
+    // Create and delete a template
+    const result = await apiCall(page, 'POST', 'createTemplate', {
+      name: 'Reuse Name Test',
+      sections: [{ title: 'S1', order: 0, condition: null, fields: [] }],
+    });
+    await apiCall(page, 'DELETE', 'archiveTemplate/' + result.id);
+
+    // Create a new template with the same name — should succeed
+    const result2 = await apiCall(page, 'POST', 'createTemplate', {
+      name: 'Reuse Name Test',
+      sections: [{ title: 'S1', order: 0, condition: null, fields: [] }],
+    });
+    expect(result2.id).toBeTruthy();
+
+    // Clean up
+    await apiCall(page, 'DELETE', 'archiveTemplate/' + result2.id);
+  });
+
   test('saving with requires_approval but no approver shows error toast', async ({ page }) => {
     await page.click('#t3');
     await expect(page.locator('#s3')).toBeVisible();
@@ -371,6 +469,49 @@ test.describe('Approvals', () => {
       // Send rejection via reject-submit button
       await page.click('[data-action="reject-submit"]');
     }
+  });
+
+  test('reject works after template update (field IDs change)', async ({ page }) => {
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await cleanupTemplates(page);
+    await cleanupPendingApprovals(page);
+
+    // 1. Create template and submit a checklist
+    const todayDOW = await getTodayDOW(page);
+    const result = await createTestTemplate(page, 'Reject After Update', todayDOW);
+    const templateId = result.id;
+    await submitChecklistViaAPI(page, templateId);
+
+    // 2. Update the template (replaceTemplate deletes+re-creates fields with new UUIDs)
+    await apiCall(page, 'PUT', 'updateTemplate/' + templateId, {
+      name: 'Reject After Update',
+      requires_approval: true,
+      sections: [{ title: 'Section 1', order: 0, condition: null, fields: [
+        { type: 'checkbox', label: 'Updated field', required: false, order: 0, config: {}, fail_trigger: null, condition: null },
+      ]}],
+      schedules: [{ active_days: [todayDOW] }],
+      assignments: [
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' },
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'approver' },
+      ],
+    });
+
+    // 3. Navigate to Approvals tab and reject a field — should not 500
+    await page.reload();
+    await page.click('#t2');
+    await expect(page.locator('#s2')).toBeVisible();
+    await expect(page.locator('#s2').locator('text=Reject After Update')).toBeVisible({ timeout: 5000 });
+
+    const flagBtn = page.locator('[data-action="toggle-reject-item"]').first();
+    await expect(flagBtn).toBeVisible({ timeout: 5000 });
+    await flagBtn.click();
+    const commentArea = page.locator('.reject-item-input').first();
+    await commentArea.fill('Fix this');
+    await page.click('[data-action="reject-submit"]');
+
+    // Verify rejection succeeded (toast or status change)
+    await expect(page.locator('#toast')).toBeVisible({ timeout: 5000 });
   });
 
   test('empty approvals shows caught up', async ({ page }) => {
@@ -939,6 +1080,598 @@ test.describe('Loading states', () => {
     const attribAfter = await page.locator('.fill-attribution').first().textContent();
     expect(attribAfter).toContain('YNTest U.');
     expect(attribAfter).not.toContain('Jamal');
+  });
+
+  test('sub-step completion attributes parent checkbox to the user who completed it', async ({ page }) => {
+    // Create a team_member user
+    await login(page);
+    const email2 = 'substep-attrib-' + Date.now() + '@yumyums.kitchen';
+    const inviteRes = await page.evaluate(async ([e]) => {
+      const res = await fetch('/api/v1/users/invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ first_name: 'SubStep', last_name: 'User', email: e, roles: ['team_member'] })
+      });
+      return res.json();
+    }, [email2]);
+    const token = inviteRes.invite_path.split('token=')[1];
+    await page.evaluate(async (t) => {
+      await fetch('/api/v1/auth/accept-invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: t, password: 'test456' })
+      });
+    }, token);
+
+    // Re-login as admin, create template with sub-steps
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    const createResult = await apiCall(page, 'POST', 'createTemplate', {
+      name: 'SubStep Attrib Test',
+      sections: [{ title: 'Inventory', order: 0, condition: null, fields: [
+        { type: 'checkbox', label: 'Stock verified', required: false, order: 0, config: null, fail_trigger: null, condition: null,
+          sub_steps: [
+            { id: 'sub1', label: 'Item A counted' },
+            { id: 'sub2', label: 'Item B counted' },
+          ]
+        }
+      ]}],
+      schedules: [{ active_days: [0,1,2,3,4,5,6] }],
+      requires_approval: false,
+      assignments: [
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' },
+        { assignee_type: 'role', assignee_id: 'superadmin', assignment_role: 'assignee' },
+        { assignee_type: 'role', assignee_id: 'team_member', assignment_role: 'assignee' }
+      ]
+    });
+
+    // Admin checks the first sub-step
+    await page.goto(BASE + '/workflows.html');
+    await page.waitForTimeout(2000);
+    await page.reload();
+    await page.waitForSelector('#checklist-list .row', { timeout: 10000 });
+    await page.locator('#checklist-list .row', { hasText: 'SubStep Attrib Test' }).first().click();
+    await page.waitForSelector('#fill-body .fill-field');
+    await page.locator('.sub-step-check').first().click();
+    await page.waitForTimeout(2000);
+
+    // Login as team_member, check the second sub-step (completes the parent)
+    await login(page, email2, 'test456');
+    await page.goto(BASE + '/workflows.html');
+    await page.waitForSelector('#checklist-list .row');
+    await page.locator('#checklist-list .row', { hasText: 'SubStep Attrib Test' }).first().click();
+    await page.waitForSelector('#fill-body .fill-field');
+    // Second sub-step should be unchecked
+    const subChecks = page.locator('.sub-step-check');
+    await subChecks.nth(1).click();
+    await page.waitForTimeout(500);
+
+    // Parent auto-checks — attribution should show SubStep U., not Jamal
+    const attrib = await page.locator('.fill-attribution').first().textContent();
+    expect(attrib).toContain('SubStep U.');
+    expect(attrib).not.toContain('Jamal');
+  });
+
+  test('sub-step attribution appears before divider line', async ({ page }) => {
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await cleanupTemplates(page);
+
+    const todayDOW = await getTodayDOW(page);
+    await apiCall(page, 'POST', 'createTemplate', {
+      name: 'Attrib Divider Test',
+      sections: [{ title: 'Tasks', order: 0, condition: null, fields: [
+        { type: 'checkbox', label: 'Parent task', required: false, order: 0, config: null, fail_trigger: null, condition: null,
+          sub_steps: [
+            { type: 'checkbox', label: 'Sub A', id: 'subA' },
+            { type: 'checkbox', label: 'Sub B', id: 'subB' },
+          ]
+        }
+      ]}],
+      schedules: [{ active_days: [todayDOW] }],
+      requires_approval: false,
+      assignments: [{ assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' }]
+    });
+
+    await page.reload();
+    await page.waitForSelector('#checklist-list .row', { timeout: 10000 });
+    await page.locator('#checklist-list .row', { hasText: 'Attrib Divider Test' }).first().click();
+    await page.waitForSelector('#fill-body .fill-field');
+
+    // Check first sub-step
+    await page.locator('.sub-step-check').first().click();
+    await page.waitForTimeout(500);
+
+    // Attribution should be visible
+    const attrib = page.locator('.fill-attribution').first();
+    await expect(attrib).toBeVisible();
+
+    // The checked sub-step row should NOT have a border-bottom (attribution has it instead)
+    const firstSubRow = page.locator('.sub-step-row').first();
+    const borderBottom = await firstSubRow.evaluate(el => getComputedStyle(el).borderBottomStyle);
+    expect(borderBottom).toBe('none');
+
+    // The attribution div should have a border-bottom
+    const attribBorder = await attrib.evaluate(el => getComputedStyle(el).borderBottomStyle);
+    expect(attribBorder).toBe('solid');
+  });
+
+  test('sub-steps visible in read-only submitted view', async ({ page }) => {
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await cleanupTemplates(page);
+
+    const todayDOW = await getTodayDOW(page);
+    await apiCall(page, 'POST', 'createTemplate', {
+      name: 'SubStep ReadOnly Test',
+      sections: [{ title: 'Tasks', order: 0, condition: null, fields: [
+        { type: 'checkbox', label: 'Main task', required: false, order: 0, config: null, fail_trigger: null, condition: null,
+          sub_steps: [
+            { type: 'checkbox', label: 'Step Alpha', id: 'alpha1' },
+            { type: 'checkbox', label: 'Step Beta', id: 'beta1' },
+          ]
+        }
+      ]}],
+      schedules: [{ active_days: [todayDOW] }],
+      requires_approval: true,
+      assignments: [
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' },
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'approver' },
+      ]
+    });
+
+    await page.reload();
+    await page.waitForSelector('#checklist-list .row', { timeout: 10000 });
+    await page.locator('#checklist-list .row', { hasText: 'SubStep ReadOnly Test' }).first().click();
+    await page.waitForSelector('#fill-body .fill-field');
+
+    // Check both sub-steps
+    await page.locator('.sub-step-check').first().click();
+    await page.waitForTimeout(300);
+    await page.locator('.sub-step-check').nth(1).click();
+    await page.waitForTimeout(1500);
+
+    // Submit
+    await page.click('[data-action="submit"]');
+    await page.waitForTimeout(2000);
+
+    // Reload to see read-only view
+    await page.reload();
+    await page.waitForSelector('#checklist-list .row', { timeout: 10000 });
+    await page.locator('#checklist-list .row', { hasText: 'SubStep ReadOnly Test' }).first().click();
+    await page.waitForSelector('#fill-body .fill-field');
+
+    // Sub-steps should be visible in read-only view
+    await expect(page.locator('.sub-step-row')).toHaveCount(2);
+    await expect(page.locator('.sub-step-label-text').first()).toContainText('Step Alpha');
+    await expect(page.locator('.sub-step-label-text').nth(1)).toContainText('Step Beta');
+  });
+
+  test('sub-steps visible in approvals review tab', async ({ page }) => {
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await cleanupTemplates(page);
+    await cleanupPendingApprovals(page);
+
+    const todayDOW = await getTodayDOW(page);
+    await apiCall(page, 'POST', 'createTemplate', {
+      name: 'SubStep Approval Test',
+      sections: [{ title: 'Tasks', order: 0, condition: null, fields: [
+        { type: 'checkbox', label: 'Verify inventory', required: false, order: 0, config: null, fail_trigger: null, condition: null,
+          sub_steps: [
+            { type: 'checkbox', label: 'Count proteins', id: 'prot1' },
+            { type: 'checkbox', label: 'Count sides', id: 'side1' },
+          ]
+        }
+      ]}],
+      schedules: [{ active_days: [todayDOW] }],
+      requires_approval: true,
+      assignments: [
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' },
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'approver' },
+      ]
+    });
+
+    // Submit via API
+    await page.reload();
+    await page.waitForSelector('#checklist-list .row', { timeout: 10000 });
+    await page.locator('#checklist-list .row', { hasText: 'SubStep Approval Test' }).first().click();
+    await page.waitForSelector('#fill-body .fill-field');
+    await page.locator('.sub-step-check').first().click();
+    await page.waitForTimeout(300);
+    await page.locator('.sub-step-check').nth(1).click();
+    await page.waitForTimeout(1500);
+    await page.click('[data-action="submit"]');
+    await page.waitForTimeout(2000);
+
+    // Switch to Approvals tab
+    await page.reload();
+    await page.click('#t2');
+    await expect(page.locator('#s2')).toBeVisible();
+    await expect(page.locator('#s2').locator('text=SubStep Approval Test')).toBeVisible({ timeout: 5000 });
+
+    // Sub-steps should be visible in the approval card (rendered as indented review-items)
+    await expect(page.locator('#s2').locator('text=Count proteins')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('#s2').locator('text=Count sides')).toBeVisible();
+    // Parent should NOT have a Flag button (sub-items have their own)
+    const parentItem = page.locator('#s2 .review-item').filter({ hasText: 'Verify inventory' });
+    await expect(parentItem.locator('.review-reject-btn')).toHaveCount(0);
+  });
+
+  test('list view item count matches runner count with conditional fields', async ({ page }) => {
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await cleanupTemplates(page);
+
+    // Create a template with a conditional field that's hidden today.
+    // Field "Always visible" is always shown.
+    // Field "Conditional" has a day condition for a day that is NOT today, so it's hidden.
+    const todayDOW = await getTodayDOW(page);
+    const hiddenDay = (todayDOW + 1) % 7; // tomorrow — not visible today
+    await apiCall(page, 'POST', 'createTemplate', {
+      name: 'Conditional Count Test',
+      sections: [{ title: 'Tasks', order: 0, condition: null, fields: [
+        { type: 'checkbox', label: 'Always visible', required: false, order: 0, config: null, fail_trigger: null, condition: null },
+        { type: 'checkbox', label: 'Hidden today', required: false, order: 1, config: null, fail_trigger: null, condition: { days: [hiddenDay] } },
+      ]}],
+      schedules: [{ active_days: [todayDOW] }],
+      requires_approval: false,
+      assignments: [{ assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' }]
+    });
+
+    await page.reload();
+    await page.waitForSelector('#checklist-list .row', { timeout: 10000 });
+
+    // List view should show 0/1 (not 0/2) — the hidden field should not be counted
+    const listRow = page.locator('#checklist-list .row', { hasText: 'Conditional Count Test' }).first();
+    await expect(listRow).toBeVisible();
+    const listText = await listRow.locator('.mt').textContent();
+    expect(listText).toContain('0/1');
+
+    // Open runner — progress should also show 0 of 1
+    await listRow.click();
+    await page.waitForSelector('#fill-body .fill-field');
+    await expect(page.locator('.progress-line')).toContainText('0 of 1');
+
+    // Only "Always visible" should be shown, not "Hidden today"
+    await expect(page.locator('.fill-field-label', { hasText: 'Always visible' })).toBeVisible();
+    await expect(page.locator('.fill-field-label', { hasText: 'Hidden today' })).not.toBeVisible();
+  });
+
+  test('conditional field appears after dependent text field is filled', async ({ page }) => {
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await cleanupTemplates(page);
+
+    const todayDOW = await getTodayDOW(page);
+    // Create template: text field + checkbox that shows only when text is "not empty"
+    const result = await apiCall(page, 'POST', 'createTemplate', {
+      name: 'Conditional Appear Test',
+      sections: [{ title: 'Tasks', order: 0, condition: null, fields: [
+        { type: 'text', label: 'Describe conditions', required: false, order: 0, config: null, fail_trigger: null, condition: null },
+      ]}],
+      schedules: [{ active_days: [todayDOW] }],
+      requires_approval: false,
+      assignments: [{ assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' }]
+    });
+
+    // Load template to get server-assigned field IDs
+    const templates = await apiCall(page, 'GET', 'templates');
+    const tpl = templates.find(t => t.name === 'Conditional Appear Test');
+    const textFieldId = tpl.sections[0].fields[0].id;
+
+    // Update template: add a second field with skip logic referencing the text field
+    await apiCall(page, 'PUT', 'updateTemplate/' + tpl.id, {
+      name: 'Conditional Appear Test',
+      sections: [{ title: 'Tasks', order: 0, condition: null, fields: [
+        { id: textFieldId, type: 'text', label: 'Describe conditions', required: false, order: 0, config: null, fail_trigger: null, condition: null },
+        { type: 'checkbox', label: 'Follow up task', required: false, order: 1, config: null, fail_trigger: null,
+          condition: { field_id: textFieldId, operator: 'equals', value: '_notempty' } },
+      ]}],
+      schedules: [{ active_days: [todayDOW] }],
+      requires_approval: false,
+      assignments: [{ assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' }]
+    });
+
+    await page.reload();
+    await page.waitForSelector('#checklist-list .row', { timeout: 10000 });
+    await page.locator('#checklist-list .row', { hasText: 'Conditional Appear Test' }).first().click();
+    await page.waitForSelector('#fill-body .fill-field');
+
+    // Initially, only text field should be visible (conditional field is hidden)
+    await expect(page.locator('.fill-field-label', { hasText: 'Describe conditions' })).toBeVisible();
+    await expect(page.locator('.fill-field-label', { hasText: 'Follow up task' })).not.toBeVisible();
+
+    // Type in the text field and blur
+    await page.locator('.fill-textarea').fill('Something happened');
+    await page.locator('.fill-textarea').blur();
+    await page.waitForTimeout(500);
+
+    // Conditional field should now appear
+    await expect(page.locator('.fill-field-label', { hasText: 'Follow up task' })).toBeVisible({ timeout: 3000 });
+  });
+
+  test('submitted responses survive template update', async ({ page }) => {
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await cleanupTemplates(page);
+    await cleanupPendingApprovals(page);
+
+    const todayDOW = await getTodayDOW(page);
+    // Create template, fill, and submit
+    await apiCall(page, 'POST', 'createTemplate', {
+      name: 'Survive Update Test',
+      sections: [{ title: 'Tasks', order: 0, condition: null, fields: [
+        { type: 'checkbox', label: 'Item A', required: false, order: 0, config: null, fail_trigger: null, condition: null },
+      ]}],
+      schedules: [{ active_days: [todayDOW] }],
+      requires_approval: true,
+      assignments: [
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' },
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'approver' },
+      ]
+    });
+
+    await page.reload();
+    await page.waitForSelector('#checklist-list .row', { timeout: 10000 });
+    await page.locator('#checklist-list .row', { hasText: 'Survive Update Test' }).first().click();
+    await page.waitForSelector('#fill-body .fill-field');
+
+    // Check the item and submit
+    await page.locator('.check-btn').first().click();
+    await page.waitForTimeout(1500);
+    page.once('dialog', async dialog => await dialog.accept());
+    await page.click('[data-action="submit"]');
+    await page.waitForTimeout(2000);
+
+    // Now update the template (add approver role) — triggers replaceTemplate
+    const templates = await apiCall(page, 'GET', 'templates');
+    const tpl = templates.find(t => t.name === 'Survive Update Test');
+    await apiCall(page, 'PUT', 'updateTemplate/' + tpl.id, {
+      name: 'Survive Update Test',
+      sections: [{ title: 'Tasks', order: 0, condition: null, fields: [
+        { type: 'checkbox', label: 'Item A', required: false, order: 0, config: null, fail_trigger: null, condition: null },
+      ]}],
+      schedules: [{ active_days: [todayDOW] }],
+      requires_approval: true,
+      assignments: [
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' },
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'approver' },
+        { assignee_type: 'role', assignee_id: 'manager', assignment_role: 'approver' },
+      ]
+    });
+
+    // Reload and open checklist — submitted responses should still show
+    await page.reload();
+    await page.waitForSelector('#checklist-list .row', { timeout: 10000 });
+    await page.locator('#checklist-list .row', { hasText: 'Survive Update Test' }).first().click();
+    await page.waitForSelector('#fill-body .fill-field');
+
+    // Progress should show 1/1, not 0/1
+    await expect(page.locator('.progress-line')).toContainText('1 of 1');
+  });
+
+  test('incomplete submit shows confirmation prompt', async ({ page }) => {
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await cleanupTemplates(page);
+
+    const todayDOW = await getTodayDOW(page);
+    await apiCall(page, 'POST', 'createTemplate', {
+      name: 'Incomplete Submit Test',
+      sections: [{ title: 'Tasks', order: 0, condition: null, fields: [
+        { type: 'checkbox', label: 'Task A', required: false, order: 0, config: null, fail_trigger: null, condition: null },
+        { type: 'checkbox', label: 'Task B', required: false, order: 1, config: null, fail_trigger: null, condition: null },
+      ]}],
+      schedules: [{ active_days: [todayDOW] }],
+      requires_approval: false,
+      assignments: [{ assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' }]
+    });
+
+    await page.reload();
+    await page.waitForSelector('#checklist-list .row', { timeout: 10000 });
+    await page.locator('#checklist-list .row', { hasText: 'Incomplete Submit Test' }).first().click();
+    await page.waitForSelector('#fill-body .fill-field');
+
+    // Check only one of two items
+    await page.locator('.check-btn').first().click();
+    await page.waitForTimeout(500);
+
+    // Submit — should prompt because 1 item is not completed
+    page.once('dialog', async dialog => {
+      expect(dialog.message()).toContain('1 item not completed');
+      await dialog.dismiss(); // Cancel submission
+    });
+    await page.click('[data-action="submit"]');
+
+    // Should still be on the checklist (not submitted)
+    await expect(page.locator('[data-action="submit"]')).toBeVisible();
+  });
+
+  test('sub-step progress counts correctly in list view', async ({ page }) => {
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await cleanupTemplates(page);
+
+    const todayDOW = await getTodayDOW(page);
+    await apiCall(page, 'POST', 'createTemplate', {
+      name: 'SubStep Count Test',
+      sections: [{ title: 'Tasks', order: 0, condition: null, fields: [
+        { type: 'checkbox', label: 'Parent with subs', required: false, order: 0, config: null, fail_trigger: null, condition: null,
+          sub_steps: [
+            { type: 'checkbox', label: 'Sub 1', id: 'cnt1' },
+            { type: 'checkbox', label: 'Sub 2', id: 'cnt2' },
+          ]
+        },
+        { type: 'checkbox', label: 'Simple item', required: false, order: 1, config: null, fail_trigger: null, condition: null },
+      ]}],
+      schedules: [{ active_days: [todayDOW] }],
+      requires_approval: false,
+      assignments: [{ assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' }]
+    });
+
+    await page.reload();
+    await page.waitForSelector('#checklist-list .row', { timeout: 10000 });
+    await page.locator('#checklist-list .row', { hasText: 'SubStep Count Test' }).first().click();
+    await page.waitForSelector('#fill-body .fill-field');
+
+    // Check only first sub-step — parent should NOT count as complete
+    await page.locator('.sub-step-check').first().click();
+    await page.waitForTimeout(500);
+
+    // Progress should show 0 of 2 (parent not complete because only 1 of 2 subs done)
+    await expect(page.locator('.progress-line')).toContainText('0 of 2');
+
+    // Check second sub-step — parent should now be complete
+    await page.locator('.sub-step-check').nth(1).click();
+    await page.waitForTimeout(500);
+
+    // Progress should show 1 of 2
+    await expect(page.locator('.progress-line')).toContainText('1 of 2');
+  });
+
+  test('skip logic condition persists after save and reload', async ({ page }) => {
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await cleanupTemplates(page);
+
+    // Create template with two fields via API — second has skip logic referencing first
+    const todayDOW = await getTodayDOW(page);
+    const result = await apiCall(page, 'POST', 'createTemplate', {
+      name: 'Skip Logic Persist Test',
+      sections: [{ title: 'Tasks', order: 0, condition: null, fields: [
+        { type: 'yes_no', label: 'Is it raining?', required: false, order: 0, config: null, fail_trigger: null, condition: null },
+        { type: 'checkbox', label: 'Bring umbrella', required: false, order: 1, config: null, fail_trigger: null, condition: null },
+      ]}],
+      schedules: [{ active_days: [todayDOW] }],
+      requires_approval: false,
+      assignments: [{ assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' }]
+    });
+
+    // Open in builder and add skip logic
+    await page.reload();
+    await page.click('#t3');
+    await expect(page.locator('#s3')).toBeVisible();
+    await expect(page.locator('#builder-list .row', { hasText: 'Skip Logic Persist Test' })).toBeVisible({ timeout: 5000 });
+    await page.locator('#builder-list .row', { hasText: 'Skip Logic Persist Test' }).first().click();
+    await page.waitForSelector('#builder-body');
+
+    // Expand the second field ("Bring umbrella")
+    await page.locator('.field-row', { hasText: 'Bring umbrella' }).locator('.field-row-tap').first().click();
+    await page.waitForTimeout(300);
+
+    // Select the first field in the skip logic dropdown
+    const skipSelect = page.locator('.skip-field-select').first();
+    await expect(skipSelect).toBeVisible({ timeout: 3000 });
+    // Select first option (the yes_no field)
+    const options = await skipSelect.locator('option').allTextContents();
+    const yesNoOption = options.find(o => o.includes('Is it raining'));
+    if (yesNoOption) {
+      await skipSelect.selectOption({ label: yesNoOption });
+      await page.waitForTimeout(300);
+
+      // Select value "Yes"
+      const valueSelect = page.locator('.skip-value-select').first();
+      if (await valueSelect.isVisible({ timeout: 2000 })) {
+        await valueSelect.selectOption({ label: 'Yes' });
+        await page.waitForTimeout(300);
+      }
+    }
+
+    // Save
+    await page.click('#save-btn');
+    await expect(page.locator('#builder-list')).toBeVisible({ timeout: 5000 });
+
+    // Reload and reopen — skip logic should persist
+    await page.reload();
+    await page.click('#t3');
+    await expect(page.locator('#s3')).toBeVisible();
+    await expect(page.locator('#builder-list .row', { hasText: 'Skip Logic Persist Test' })).toBeVisible({ timeout: 5000 });
+    await page.locator('#builder-list .row', { hasText: 'Skip Logic Persist Test' }).first().click();
+    await page.waitForSelector('#builder-body');
+
+    // Expand "Bring umbrella" again
+    await page.locator('.field-row', { hasText: 'Bring umbrella' }).locator('.field-row-tap').first().click();
+    await page.waitForTimeout(300);
+
+    // Skip logic should still reference "Is it raining?" — not be reset
+    const skipSelectAfter = page.locator('.skip-field-select').first();
+    await expect(skipSelectAfter).toBeVisible({ timeout: 3000 });
+    const selectedValue = await skipSelectAfter.inputValue();
+    expect(selectedValue).not.toBe(''); // Should have a field selected, not empty
+  });
+
+  test('new section defaults to Same as schedule', async ({ page }) => {
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await cleanupTemplates(page);
+    await page.reload();
+
+    // Go to Builder tab
+    await page.click('#t3');
+    await expect(page.locator('#s3')).toBeVisible();
+
+    // Create new checklist
+    await page.click('#s3 .btn-primary');
+    await page.waitForSelector('#builder-body');
+
+    // Add a section
+    page.once('dialog', async dialog => {
+      await dialog.accept('Test Section');
+    });
+    await page.locator('.add-section-btn').click();
+
+    // "Same as schedule" button should be active (has 'on' class)
+    const inheritBtn = page.locator('.day-inherit-btn').filter({ hasText: 'Same as schedule' }).first();
+    await expect(inheritBtn).toBeVisible();
+    await expect(inheritBtn).toHaveClass(/on/);
+  });
+
+  test('text field in read-only view shows answer below label', async ({ page }) => {
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await cleanupTemplates(page);
+
+    const todayDOW = await getTodayDOW(page);
+    await apiCall(page, 'POST', 'createTemplate', {
+      name: 'Text ReadOnly Test',
+      sections: [{ title: 'Notes', order: 0, condition: null, fields: [
+        { type: 'text', label: 'Describe conditions', required: false, order: 0, config: null, fail_trigger: null, condition: null },
+      ]}],
+      schedules: [{ active_days: [todayDOW] }],
+      requires_approval: true,
+      assignments: [
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' },
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'approver' },
+      ]
+    });
+
+    await page.reload();
+    await page.waitForSelector('#checklist-list .row', { timeout: 10000 });
+    await page.locator('#checklist-list .row', { hasText: 'Text ReadOnly Test' }).first().click();
+    await page.waitForSelector('#fill-body .fill-field');
+
+    // Fill in the text field
+    await page.locator('.fill-textarea').fill('Kitchen was cleaned and everything put away');
+    await page.waitForTimeout(1500);
+
+    // Submit
+    await page.click('[data-action="submit"]');
+    await page.waitForTimeout(2000);
+
+    // Reload and open — should be read-only
+    await page.reload();
+    await page.waitForSelector('#checklist-list .row', { timeout: 10000 });
+    await page.locator('#checklist-list .row', { hasText: 'Text ReadOnly Test' }).first().click();
+    await page.waitForSelector('#fill-body .fill-field');
+
+    // Label and answer should both be visible and not overlapping
+    await expect(page.locator('.fill-field-label')).toContainText('Describe conditions');
+    await expect(page.locator('.fill-field')).toContainText('Kitchen was cleaned');
+
+    // The text should NOT be inside a fill-field-row (it's rendered below the label)
+    const fieldRow = page.locator('.fill-field-row');
+    await expect(fieldRow).toHaveCount(0);
   });
 
   test('team_member cannot see Builder tab', async ({ page }) => {

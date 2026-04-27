@@ -51,6 +51,14 @@ type Section struct {
 	Items           []Item   `json:"items"`
 }
 
+// SubItem represents a sub-item within a checkbox item.
+type SubItem struct {
+	ID        string `json:"id"`
+	Label     string `json:"label"`
+	SortOrder int    `json:"sort_order"`
+	Checked   bool   `json:"checked"`
+}
+
 // Item represents a single item in an onboarding section (checkbox, video_series, or faq).
 type Item struct {
 	ID         string      `json:"id"`
@@ -58,6 +66,7 @@ type Item struct {
 	Label      string      `json:"label"`
 	Answer     *string     `json:"answer,omitempty"`
 	SortOrder  int         `json:"sort_order"`
+	SubItems   []SubItem   `json:"sub_items,omitempty"`
 	VideoParts []VideoPart `json:"video_parts,omitempty"`
 	// Checked is populated when returning HireTraining — true if this item is checked by the hire.
 	Checked bool `json:"checked"`
@@ -179,6 +188,13 @@ type CreateSectionInput struct {
 	Items           []CreateItemInput `json:"items"`
 }
 
+// CreateSubItemInput is the input for a sub-item within a checkbox item.
+type CreateSubItemInput struct {
+	ID        string `json:"id,omitempty"`
+	Label     string `json:"label"`
+	SortOrder int    `json:"sort_order"`
+}
+
 // CreateItemInput is the input for a single item in a section.
 type CreateItemInput struct {
 	ID         string                 `json:"id,omitempty"`
@@ -186,6 +202,7 @@ type CreateItemInput struct {
 	Label      string                 `json:"label"`
 	Answer     *string                `json:"answer,omitempty"`
 	SortOrder  int                    `json:"sort_order"`
+	SubItems   []CreateSubItemInput   `json:"sub_items,omitempty"`
 	VideoParts []CreateVideoPartInput `json:"video_parts,omitempty"`
 }
 
@@ -328,6 +345,13 @@ func getItems(ctx context.Context, pool *pgxpool.Pool, sectionID string) ([]Item
 			}
 			items[i].VideoParts = parts
 		}
+		if items[i].Type == "checkbox" {
+			subs, err := getSubItems(ctx, pool, items[i].ID)
+			if err != nil {
+				return nil, err
+			}
+			items[i].SubItems = subs
+		}
 	}
 
 	return items, nil
@@ -357,6 +381,30 @@ func getVideoParts(ctx context.Context, pool *pgxpool.Pool, itemID string) ([]Vi
 	return parts, rows.Err()
 }
 
+// getSubItems fetches all sub-items for a checkbox item.
+func getSubItems(ctx context.Context, pool *pgxpool.Pool, itemID string) ([]SubItem, error) {
+	rows, err := pool.Query(ctx, `
+		SELECT id, label, sort_order
+		FROM ob_sub_items
+		WHERE item_id = $1
+		ORDER BY sort_order
+	`, itemID)
+	if err != nil {
+		return nil, fmt.Errorf("query sub items: %w", err)
+	}
+	defer rows.Close()
+
+	var subs []SubItem
+	for rows.Next() {
+		var si SubItem
+		if err := rows.Scan(&si.ID, &si.Label, &si.SortOrder); err != nil {
+			return nil, fmt.Errorf("scan sub item: %w", err)
+		}
+		subs = append(subs, si)
+	}
+	return subs, rows.Err()
+}
+
 // GetHireTraining returns the template with progress and computed section states for a hire.
 func GetHireTraining(ctx context.Context, pool *pgxpool.Pool, hireID, templateID string) (*HireTraining, error) {
 	tmpl, err := GetTemplate(ctx, pool, templateID)
@@ -371,7 +419,9 @@ func GetHireTraining(ctx context.Context, pool *pgxpool.Pool, hireID, templateID
 		LEFT JOIN ob_items oi ON oi.id = op.item_id
 		LEFT JOIN ob_video_parts vp ON vp.id = op.item_id
 		LEFT JOIN ob_items vp_parent ON vp_parent.id = vp.item_id
-		JOIN ob_sections os ON os.id = COALESCE(oi.section_id, vp_parent.section_id)
+		LEFT JOIN ob_sub_items si ON si.id = op.item_id
+		LEFT JOIN ob_items si_parent ON si_parent.id = si.item_id
+		JOIN ob_sections os ON os.id = COALESCE(oi.section_id, vp_parent.section_id, si_parent.section_id)
 		WHERE op.hire_id = $1 AND os.template_id = $2
 	`, hireID, templateID)
 	if err != nil {
@@ -474,7 +524,19 @@ func GetHireTraining(ctx context.Context, pool *pgxpool.Pool, hireID, templateID
 			} else if item.Type == "faq" {
 				item.Viewed = progressMap[item.ID+":faq"]
 			} else {
-				item.Checked = progressMap[item.ID+":item"]
+				// Checkbox: if it has sub-items, derive checked from sub-item progress
+				if len(item.SubItems) > 0 {
+					allSubsChecked := true
+					for k := range item.SubItems {
+						item.SubItems[k].Checked = progressMap[item.SubItems[k].ID+":sub_item"]
+						if !item.SubItems[k].Checked {
+							allSubsChecked = false
+						}
+					}
+					item.Checked = allSubsChecked
+				} else {
+					item.Checked = progressMap[item.ID+":item"]
+				}
 			}
 		}
 
@@ -512,7 +574,13 @@ func latestProgressInSection(sec Section, entries []ProgressEntry) string {
 				itemIDs[vp.ID] = true
 			}
 		} else {
-			itemIDs[item.ID] = true
+			if len(item.SubItems) > 0 {
+				for _, si := range item.SubItems {
+					itemIDs[si.ID] = true
+				}
+			} else {
+				itemIDs[item.ID] = true
+			}
 		}
 	}
 	var latest string
@@ -542,10 +610,19 @@ func isSectionComplete(sec Section, progressMap map[string]bool) bool {
 				}
 			}
 		} else {
-			// checkbox
-			totalCheckable++
-			if !progressMap[item.ID+":item"] {
-				return false
+			// checkbox — if sub-items exist, check those instead
+			if len(item.SubItems) > 0 {
+				for _, si := range item.SubItems {
+					totalCheckable++
+					if !progressMap[si.ID+":sub_item"] {
+						return false
+					}
+				}
+			} else {
+				totalCheckable++
+				if !progressMap[item.ID+":item"] {
+					return false
+				}
 			}
 		}
 	}
@@ -782,6 +859,11 @@ func IsSectionLockedForEdits(ctx context.Context, pool *pgxpool.Pool, hireID, it
 			JOIN ob_items oi ON oi.section_id = os.id
 			JOIN ob_video_parts vp ON vp.item_id = oi.id
 			WHERE vp.id = $1`
+	} else if progressType == "sub_item" {
+		sectionQuery = `SELECT os.id, os.requires_sign_off FROM ob_sections os
+			JOIN ob_items oi ON oi.section_id = os.id
+			JOIN ob_sub_items si ON si.item_id = oi.id
+			WHERE si.id = $1`
 	} else {
 		sectionQuery = `SELECT os.id, os.requires_sign_off FROM ob_sections os
 			JOIN ob_items oi ON oi.section_id = os.id
@@ -912,6 +994,7 @@ func UpdateTemplate(ctx context.Context, pool *pgxpool.Pool, templateID string, 
 	keepSectionIDs := map[string]bool{}
 	keepItemIDs := map[string]bool{}
 	keepVPIDs := map[string]bool{}
+	keepSubItemIDs := map[string]bool{}
 
 	for _, sec := range input.Sections {
 		var sectionID string
@@ -981,11 +1064,44 @@ func UpdateTemplate(ctx context.Context, pool *pgxpool.Pool, templateID string, 
 				}
 				keepVPIDs[vpID] = true
 			}
+
+			for _, si := range item.SubItems {
+				var siID string
+				if si.ID != "" && isUUID(si.ID) {
+					_, err := tx.Exec(ctx, `
+						UPDATE ob_sub_items SET item_id=$1, label=$2, sort_order=$3
+						WHERE id=$4
+					`, itemID, si.Label, si.SortOrder, si.ID)
+					if err != nil {
+						return fmt.Errorf("update sub item %q: %w", si.Label, err)
+					}
+					siID = si.ID
+				} else {
+					err := tx.QueryRow(ctx, `
+						INSERT INTO ob_sub_items (item_id, label, sort_order)
+						VALUES ($1, $2, $3) RETURNING id
+					`, itemID, si.Label, si.SortOrder).Scan(&siID)
+					if err != nil {
+						return fmt.Errorf("insert sub item %q: %w", si.Label, err)
+					}
+				}
+				keepSubItemIDs[siID] = true
+			}
 		}
 	}
 
-	// Delete removed video parts, items, and sections (ones not in the input)
-	// Delete video parts first (deepest), then items, then sections
+	// Delete removed sub items, video parts, items, and sections (deepest first)
+	_, err = tx.Exec(ctx, `
+		DELETE FROM ob_sub_items WHERE item_id IN (
+			SELECT id FROM ob_items WHERE section_id IN (
+				SELECT id FROM ob_sections WHERE template_id = $1
+			)
+		) AND id != ALL($2)
+	`, templateID, pgxSlice(keepSubItemIDs))
+	if err != nil {
+		return fmt.Errorf("delete removed sub items: %w", err)
+	}
+
 	_, err = tx.Exec(ctx, `
 		DELETE FROM ob_video_parts WHERE item_id IN (
 			SELECT id FROM ob_items WHERE section_id IN (
@@ -1075,6 +1191,16 @@ func insertSectionsTx(ctx context.Context, tx pgx.Tx, templateID string, section
 				`, itemID, vp.Title, vp.Description, vp.URL, vp.ThumbnailURL, vp.SortOrder)
 				if err != nil {
 					return fmt.Errorf("insert video part %q: %w", vp.Title, err)
+				}
+			}
+
+			for _, si := range item.SubItems {
+				_, err := tx.Exec(ctx, `
+					INSERT INTO ob_sub_items (item_id, label, sort_order)
+					VALUES ($1, $2, $3)
+				`, itemID, si.Label, si.SortOrder)
+				if err != nil {
+					return fmt.Errorf("insert sub item %q: %w", si.Label, err)
 				}
 			}
 		}

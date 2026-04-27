@@ -85,7 +85,7 @@ func insertTemplateInTx(ctx context.Context, tx pgx.Tx, input TemplateInput, cre
 			return "", fmt.Errorf("insert section %q: %w", sec.Title, err)
 		}
 		for _, field := range sec.Fields {
-			if err := insertField(ctx, tx, sectionID, nil, field); err != nil {
+			if _, err := insertField(ctx, tx, sectionID, nil, field); err != nil {
 				return "", fmt.Errorf("insert field %q: %w", field.Label, err)
 			}
 		}
@@ -103,9 +103,10 @@ func replaceTemplate(ctx context.Context, pool *pgxpool.Pool, templateID string,
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck
 
-	// Remove response references to old fields before deleting sections
-	// Draft responses (not yet submitted) are deleted; submitted responses
-	// are preserved via template_snapshot so we detach them from the field FK.
+	// Delete only DRAFT responses (submission_id IS NULL).
+	// Submitted responses are preserved — their field_ids reference old UUIDs
+	// which match the submission's template_snapshot for hydration.
+	// FK constraints on field_id were dropped in migrations 0051/0053/0054.
 	if _, err := tx.Exec(ctx,
 		`DELETE FROM submission_responses
 		 WHERE submission_id IS NULL
@@ -114,37 +115,14 @@ func replaceTemplate(ctx context.Context, pool *pgxpool.Pool, templateID string,
 	); err != nil {
 		return fmt.Errorf("delete draft responses: %w", err)
 	}
-	if _, err := tx.Exec(ctx,
-		`UPDATE submission_responses SET field_id = field_id
-		 WHERE field_id IN (SELECT f.id FROM checklist_fields f JOIN checklist_sections s ON s.id = f.section_id WHERE s.template_id = $1)`,
-		templateID,
-	); err != nil {
-		// If there are submitted responses referencing these fields, drop the FK constraint
-		// by nullifying the field reference — the snapshot preserves the field data
-	}
-	// Drop fail notes and rejections referencing old fields
+	// Delete only draft fail notes (submission_id IS NULL)
 	if _, err := tx.Exec(ctx,
 		`DELETE FROM submission_fail_notes
-		 WHERE field_id IN (SELECT f.id FROM checklist_fields f JOIN checklist_sections s ON s.id = f.section_id WHERE s.template_id = $1)`,
+		 WHERE submission_id IS NULL
+		   AND field_id IN (SELECT f.id FROM checklist_fields f JOIN checklist_sections s ON s.id = f.section_id WHERE s.template_id = $1)`,
 		templateID,
 	); err != nil {
-		return fmt.Errorf("delete fail notes: %w", err)
-	}
-	if _, err := tx.Exec(ctx,
-		`DELETE FROM submission_rejections
-		 WHERE field_id IN (SELECT f.id FROM checklist_fields f JOIN checklist_sections s ON s.id = f.section_id WHERE s.template_id = $1)`,
-		templateID,
-	); err != nil {
-		return fmt.Errorf("delete rejections: %w", err)
-	}
-	// Now detach submitted responses from fields (set field_id to NULL won't work with NOT NULL constraint)
-	// Instead, delete them — the template_snapshot on the submission preserves the data
-	if _, err := tx.Exec(ctx,
-		`DELETE FROM submission_responses
-		 WHERE field_id IN (SELECT f.id FROM checklist_fields f JOIN checklist_sections s ON s.id = f.section_id WHERE s.template_id = $1)`,
-		templateID,
-	); err != nil {
-		return fmt.Errorf("delete submitted responses: %w", err)
+		return fmt.Errorf("delete draft fail notes: %w", err)
 	}
 	// Delete child records (sections cascade to fields; schedules and assignments have ON DELETE CASCADE)
 	if _, err := tx.Exec(ctx,
@@ -192,7 +170,8 @@ func replaceTemplate(ctx context.Context, pool *pgxpool.Pool, templateID string,
 		}
 	}
 
-	// Re-insert sections and fields
+	// Re-insert sections and fields, tracking old→new field ID mapping
+	fieldIDMap := map[string]string{} // old ID → new ID
 	for _, sec := range input.Sections {
 		condJSON, err := marshalNullableJSON(sec.Condition)
 		if err != nil {
@@ -209,9 +188,25 @@ func replaceTemplate(ctx context.Context, pool *pgxpool.Pool, templateID string,
 			return fmt.Errorf("insert section %q: %w", sec.Title, err)
 		}
 		for _, field := range sec.Fields {
-			if err := insertField(ctx, tx, sectionID, nil, field); err != nil {
+			newID, err := insertField(ctx, tx, sectionID, nil, field)
+			if err != nil {
 				return fmt.Errorf("insert field %q: %w", field.Label, err)
 			}
+			if field.ID != "" {
+				fieldIDMap[field.ID] = newID
+			}
+		}
+	}
+
+	// Second pass: update condition field_id references to use new IDs
+	for oldID, newID := range fieldIDMap {
+		if _, err := tx.Exec(ctx,
+			`UPDATE checklist_fields SET condition = jsonb_set(condition, '{field_id}', to_jsonb($1::text))
+			 WHERE section_id IN (SELECT id FROM checklist_sections WHERE template_id = $2)
+			   AND condition->>'field_id' = $3`,
+			newID, templateID, oldID,
+		); err != nil {
+			return fmt.Errorf("remap condition field_id %s→%s: %w", oldID, newID, err)
 		}
 	}
 
@@ -750,6 +745,7 @@ func pendingApprovals(ctx context.Context, pool *pgxpool.Pool, userID string) ([
 		 JOIN template_assignments ta ON ta.template_id = s.template_id
 		 LEFT JOIN users u ON u.id = s.submitted_by
 		 WHERE s.status = 'pending'
+		   AND t.archived_at IS NULL
 		   AND ta.assignment_role = 'approver'
 		   AND (
 		         (ta.assignee_type = 'user' AND ta.assignee_id = $1)

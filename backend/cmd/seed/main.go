@@ -70,7 +70,7 @@ func main() {
 	if appCount == 0 {
 		_, err = pool.Exec(ctx, `
             INSERT INTO hq_apps (slug, name, icon) VALUES
-              ('purchasing', 'Purchasing', '🛒'),
+              ('purchasing', 'Purchase Orders', '🛒'),
               ('payroll', 'Payroll', '💰'),
               ('scheduling', 'Scheduling', '📅'),
               ('hiring', 'Hiring', '👥'),

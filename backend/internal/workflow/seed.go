@@ -116,7 +116,7 @@ func seedTemplate(ctx context.Context, pool *pgxpool.Pool, tmpl TemplateInput, c
 
 		// Insert top-level fields
 		for _, field := range sec.Fields {
-			if err := insertField(ctx, tx, sectionID, nil, field); err != nil {
+			if _, err := insertField(ctx, tx, sectionID, nil, field); err != nil {
 				return fmt.Errorf("insert field %q: %w", field.Label, err)
 			}
 		}
@@ -130,18 +130,18 @@ func seedTemplate(ctx context.Context, pool *pgxpool.Pool, tmpl TemplateInput, c
 }
 
 // insertField inserts a single field and recursively inserts its sub-steps.
-func insertField(ctx context.Context, tx pgx.Tx, sectionID string, parentFieldID *string, field FieldInput) error {
+func insertField(ctx context.Context, tx pgx.Tx, sectionID string, parentFieldID *string, field FieldInput) (string, error) {
 	configJSON, err := marshalNullableJSON(field.Config)
 	if err != nil {
-		return fmt.Errorf("marshal config: %w", err)
+		return "", fmt.Errorf("marshal config: %w", err)
 	}
 	failTriggerJSON, err := marshalNullableJSON(field.FailTrigger)
 	if err != nil {
-		return fmt.Errorf("marshal fail_trigger: %w", err)
+		return "", fmt.Errorf("marshal fail_trigger: %w", err)
 	}
 	conditionJSON, err := marshalNullableJSON(field.Condition)
 	if err != nil {
-		return fmt.Errorf("marshal condition: %w", err)
+		return "", fmt.Errorf("marshal condition: %w", err)
 	}
 
 	var fieldID string
@@ -154,16 +154,16 @@ func insertField(ctx context.Context, tx pgx.Tx, sectionID string, parentFieldID
 		field.Required, field.Order, configJSON, failTriggerJSON, conditionJSON,
 	).Scan(&fieldID)
 	if err != nil {
-		return fmt.Errorf("insert field row: %w", err)
+		return "", fmt.Errorf("insert field row: %w", err)
 	}
 
 	// Insert sub-steps with this field as parent
 	for _, sub := range field.SubSteps {
-		if err := insertField(ctx, tx, sectionID, &fieldID, sub); err != nil {
-			return fmt.Errorf("insert sub-step %q: %w", sub.Label, err)
+		if _, err := insertField(ctx, tx, sectionID, &fieldID, sub); err != nil {
+			return "", fmt.Errorf("insert sub-step %q: %w", sub.Label, err)
 		}
 	}
-	return nil
+	return fieldID, nil
 }
 
 // marshalNullableJSON returns nil if the input is empty/null, otherwise

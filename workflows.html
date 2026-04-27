@@ -84,7 +84,7 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .sub-step-label-text{font-size:13px;flex:1}
 .sub-step-check{width:20px;height:20px;border-radius:4px;border:1.5px solid var(--brd);display:flex;align-items:center;justify-content:center;font-size:12px;color:#27ae60;flex-shrink:0;cursor:pointer;margin-right:9px}
 .sub-step-check.done{background:#27ae60;border-color:#27ae60;color:#fff}
-.fill-field-label{font-size:14px;font-weight:500;margin-bottom:6px}
+.fill-field-label{font-size:14px;font-weight:500;margin-bottom:6px;flex:1;min-width:0}
 .fill-attribution{font-size:11px;color:var(--mut);margin-top:4px}
 .check-btn{width:38px;height:38px;border-radius:10px;border:1.5px solid var(--brd);background:transparent;color:#27ae60;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .check-btn.checked{background:rgba(39,174,96,0.12);border-color:#27ae60}
@@ -495,6 +495,12 @@ function createNewTemplate() {
 
 // Transform frontend template shape to backend API shape for save
 function toApiTemplate(tpl) {
+  // Ensure sub-steps have type set (defaults to checkbox)
+  (tpl.sections || []).forEach(function(sec) {
+    (sec.fields || []).forEach(function(fld) {
+      (fld.sub_steps || []).forEach(function(s) { if (!s.type) s.type = 'checkbox'; });
+    });
+  });
   var out = { name: tpl.name, requires_approval: !!tpl.requires_approval, sections: tpl.sections };
   var assignments = [];
   if (tpl.assigned_to) {
@@ -531,14 +537,11 @@ function fromApiTemplate(t) {
 }
 
 function createNewSection(title) {
-  var days = state.activeTemplate && state.activeTemplate.active_days && state.activeTemplate.active_days.length
-    ? state.activeTemplate.active_days.slice()
-    : null;
   return {
     id: generateId('sec'),
     title: title,
     order: state.activeTemplate ? state.activeTemplate.sections.length : 0,
-    condition: days ? { days: days } : null,
+    condition: null,
     fields: []
   };
 }
@@ -635,7 +638,8 @@ function renderEditor() {
 </div>
 ${sectionsHtml}
 <button class="add-section-btn">+ Add section</button>
-<button class="btn-primary" id="save-btn" style="background:#27ae60;color:#fff">Save checklist</button>`;
+<button class="btn-primary" id="save-btn" style="background:#27ae60;color:#fff">Save checklist</button>
+${tpl.id && TEMPLATES.find(function(t){return t.id===tpl.id}) ? '<button class="btn-danger" data-action="archive-template" data-tpl-id="' + tpl.id + '" style="margin-top:8px;margin-bottom:40px">Archive checklist</button>' : ''}`;
 }
 
 function renderDayPicker(activeDays) {
@@ -1022,7 +1026,7 @@ document.getElementById('builder-body').addEventListener('click', function(e) {
     if (fld) {
       if (!fld.sub_steps) fld.sub_steps = [];
       if (subAction.dataset.action === 'add-sub-step') {
-        fld.sub_steps.push({ id: generateId('sub'), label: '' });
+        fld.sub_steps.push({ id: generateId('sub'), type: 'checkbox', label: '' });
       } else {
         fld.sub_steps.splice(+subAction.dataset.subIdx, 1);
       }
@@ -1160,8 +1164,10 @@ document.getElementById('builder-body').addEventListener('click', function(e) {
         showToast(ADMIN_RESTRICTED);
       } else if (err && err.error === 'requires_approver') {
         showToast('Select at least one approver when approval is required.');
+      } else if (err && err.error === 'duplicate_name') {
+        showToast('A checklist with this name already exists.');
       } else {
-        showToast('Save failed. Check your connection.');
+        showToast(navigator.onLine ? 'Save failed. Please try again.' : 'Save failed. Check your connection.');
       }
     });
     return;
@@ -1174,6 +1180,12 @@ document.getElementById('builder-body').addEventListener('click', function(e) {
     api('DELETE', 'archiveTemplate/' + tplId).then(function() {
       updateSaveStatus(-1);
       showToast('Template archived');
+      state.view = 'list';
+      state.activeTemplate = null;
+      state.originalTemplate = null;
+      state.expandedField = null;
+      state.fieldPickerSection = null;
+      renderBuilder();
       loadTemplates();
     }).catch(function() {
       updateSaveStatus(-1);
@@ -1182,27 +1194,26 @@ document.getElementById('builder-body').addEventListener('click', function(e) {
     return;
   }
 
-  // Archive button — show inline confirm
+  // Archive button — confirm via native dialog, then archive directly
   if (e.target.closest('[data-action="archive-template"]')) {
     var el = e.target.closest('[data-action="archive-template"]');
     var tplId = el.dataset.tplId;
-    var existing = document.getElementById('archive-confirm-' + tplId);
-    if (!existing) {
-      var confirmDiv = document.createElement('div');
-      confirmDiv.id = 'archive-confirm-' + tplId;
-      confirmDiv.style.cssText = 'padding:8px 16px;font-size:13px;color:#c0392b;display:flex;align-items:center;gap:8px;flex-wrap:wrap';
-      confirmDiv.innerHTML = 'Archive this template? Existing submissions will not be affected. ' +
-        '<button data-action="archive-confirm" data-tpl-id="' + tplId + '" style="padding:6px 12px;background:#c0392b;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit">Archive</button>' +
-        '<button data-action="archive-cancel" style="padding:6px 12px;background:transparent;color:var(--mut);border:none;font-size:12px;cursor:pointer;font-family:inherit">Cancel</button>';
-      el.parentNode.insertBefore(confirmDiv, el.nextSibling);
-    }
-    return;
-  }
-
-  // Archive cancel
-  if (e.target.closest('[data-action="archive-cancel"]')) {
-    var confirm = e.target.closest('[id^="archive-confirm-"]');
-    if (confirm) confirm.remove();
+    if (!confirm('Archive this checklist? Existing submissions will not be affected.')) return;
+    updateSaveStatus(1);
+    api('DELETE', 'archiveTemplate/' + tplId).then(function() {
+      updateSaveStatus(-1);
+      showToast('Template archived');
+      state.view = 'list';
+      state.activeTemplate = null;
+      state.originalTemplate = null;
+      state.expandedField = null;
+      state.fieldPickerSection = null;
+      renderBuilder();
+      loadTemplates();
+    }).catch(function() {
+      updateSaveStatus(-1);
+      showToast('Archive failed. Try again.');
+    });
     return;
   }
 
@@ -1466,7 +1477,7 @@ async function submitChecklistToAPI(tplId, allFlds, isReapproval) {
     var failNote = FAIL_NOTES[f.id];
     return {
       field_id: f.id,
-      value: resp ? JSON.stringify(resp.value) : null,
+      value: resp ? JSON.stringify(resp.sub_steps ? { value: resp.value, sub_steps: resp.sub_steps } : resp.value) : null,
       fail_note: failNote ? failNote.note : null,
       fail_severity: failNote ? failNote.severity : null
     };
@@ -1726,7 +1737,9 @@ function renderApprovals() {
           var val = respMap[f.id];
           // Unwrap JSON-encoded value strings
           if (typeof val === 'string') { try { val = JSON.parse(val); } catch(e) {} }
-          submission.fields.push({ id: f.id, label: f.label || f.type, type: f.type, value: val !== undefined ? val : null });
+          var field = { id: f.id, label: f.label || f.type, type: f.type, value: val !== undefined ? val : null };
+          if (f.sub_steps && f.sub_steps.length > 0) field.sub_steps = f.sub_steps;
+          submission.fields.push(field);
         });
       });
     }
@@ -1743,6 +1756,35 @@ function renderApprovals() {
       if (answered && typeof fld.value === 'string' && fld.value.startsWith('https://')) {
         photoThumb = '<a class="photo-thumb-link" href="' + fld.value + '" target="_blank" style="display:block;margin:6px 0 0 0"><img class="approvals-photo-thumb" src="' + fld.value + '" alt="Photo evidence"></a>';
       }
+      var hasSubs = fld.sub_steps && fld.sub_steps.length > 0;
+      var subsHtml = '';
+      if (hasSubs) {
+        var subState = (fld.value && typeof fld.value === 'object' && fld.value.sub_steps) ? fld.value.sub_steps : {};
+        subsHtml = fld.sub_steps.map(function(s) {
+          var done = !!subState[s.id];
+          var subAttrib = '';
+          if (done && subState[s.id] && typeof subState[s.id] === 'object' && subState[s.id].by) {
+            subAttrib = '<div style="padding:2px 0 4px 48px;font-size:11px;color:var(--mut)">' + escapeHtml(subState[s.id].by) + ' \u00b7 ' + formatTime(new Date(subState[s.id].at)) + '</div>';
+          }
+          var subIsRejected = s._pendingReject;
+          var subRejectForm = subIsRejected ?
+            '<div class="reject-item-form" style="margin-left:24px">' +
+            '<textarea class="reject-item-input" name="reject-' + s.id + '" data-reject-fld="' + s.id + '" placeholder="Comment for crew\u2026" rows="2">' + escapeHtml(s._rejectComment || '') + '</textarea>' +
+            '<label class="require-photo-toggle"><input type="checkbox" name="reject-photo-' + s.id + '" data-reject-photo-fld="' + s.id + '" ' + (s._rejectRequirePhoto ? 'checked' : '') + '> Require photo evidence</label></div>' : '';
+          return '<div class="review-item" style="padding-left:24px">' +
+            '<span class="review-check" style="font-size:12px;' + (done ? '' : 'color:#c0392b') + '">' + (done ? '✓' : '✗') + '</span>' +
+            '<span class="review-label" style="font-size:13px">' + escapeHtml(s.label) + '</span>' +
+            '<button class="review-reject-btn ' + (subIsRejected ? 'selected' : '') + '" data-action="toggle-reject-item" data-submission-id="' + submissionId + '" data-fld-id="' + s.id + '" style="font-size:11px;padding:2px 8px">' + (subIsRejected ? 'Flagged' : 'Flag') + '</button>' +
+            '</div>' + subAttrib + subRejectForm;
+        }).join('');
+      }
+      // For fields with sub-steps: no Flag on parent, sub-steps have their own flags
+      if (hasSubs) {
+        return '<div class="review-item">' +
+          '<span class="review-check" style="' + (answered ? '' : 'color:#c0392b') + '">' + (answered ? '✓' : '✗') + '</span>' +
+          '<span class="review-label">' + escapeHtml(fld.label || fld.type || fld.field_label || '') + '</span>' +
+          '</div>' + subsHtml;
+      }
       return '<div class="review-item" style="flex-wrap:wrap">' +
         '<span class="review-check" style="' + (answered ? '' : 'color:#c0392b') + '">' + (answered ? '✓' : '✗') + '</span>' +
         '<span class="review-label">' + escapeHtml(fld.label || fld.type || fld.field_label || '') + '</span>' +
@@ -1750,7 +1792,11 @@ function renderApprovals() {
         (photoThumb ? '<div style="width:100%;padding-left:24px">' + photoThumb + '</div>' : '') +
         '</div>' + rejectForm;
     }).join('');
-    var rejCount = fields.filter(function(f) { return f._pendingReject; }).length;
+    var rejCount = fields.reduce(function(count, f) {
+      if (f._pendingReject) count++;
+      (f.sub_steps || []).forEach(function(s) { if (s._pendingReject) count++; });
+      return count;
+    }, 0);
     return '<div class="approval-card card" data-submission-id="' + submissionId + '">' +
       '<div class="hd"><h1>' + escapeHtml(tplName) + '</h1>' +
       '<div class="sub">' + escapeHtml(submittedBy) + ' \u00b7 ' + formatDateTime(new Date(submittedAt)) + '</div></div>' +
@@ -1770,13 +1816,7 @@ function renderChecklistList(today) {
   }
   var totalFields = 0, totalAnswered = 0;
   const rows = today.map(tpl => {
-    const secCount = tpl.sections ? tpl.sections.length : 0;
-    const fields = tpl.sections ? tpl.sections.flatMap(s => s.fields || []) : [];
-    const fieldCount = fields.length;
-    const answeredCount = fields.filter(f => FIELD_RESPONSES[f.id] !== undefined && !REJECTION_FLAGS[f.id]).length;
-    totalFields += fieldCount;
-    totalAnswered += answeredCount;
-    const pct = fieldCount ? Math.round(answeredCount / fieldCount * 100) : 0;
+    const secCount = tpl.sections ? tpl.sections.filter(isSectionVisible).length : 0;
     // Check if already submitted TODAY in MY_SUBMISSIONS (ignore stale submissions from prior days)
     var todayStr = new Date().toISOString().slice(0, 10);
     var submission = MY_SUBMISSIONS ? MY_SUBMISSIONS.find(function(s) {
@@ -1784,6 +1824,12 @@ function renderChecklistList(today) {
       var subDate = s.submitted_at ? new Date(s.submitted_at).toISOString().slice(0, 10) : '';
       return subDate === todayStr;
     }) : null;
+    var progress = getProgress(tpl, submission);
+    var answeredCount = progress.answered;
+    var fieldCount = progress.total;
+    const pct = fieldCount ? Math.round(answeredCount / fieldCount * 100) : 0;
+    totalFields += fieldCount;
+    totalAnswered += answeredCount;
     var pendingBadge = submission && (submission.status === 'pending_approval' || submission.status === 'pending') ? '<div class="approval-badge">Pending Approval</div>' : '';
     var approvedBadge = submission && submission.status === 'approved' ? '<div style="font-size:12px;color:#27ae60;margin-top:4px;font-weight:500">Approved \u2713</div>' : '';
     var submittedBadge = !approvedBadge && submission && submission.status === 'submitted' ? '<div style="font-size:12px;color:#27ae60;margin-top:4px;font-weight:500">Submitted \u2713</div>' : '';
@@ -1802,9 +1848,9 @@ function renderChecklistList(today) {
 function renderRunner() {
   const tpl = fillState.activeTemplate;
   clearHiddenFieldAnswers();
-  const visibleFields = (tpl.sections || []).filter(s => isSectionVisible(s)).flatMap(s => (s.fields || []).filter(f => isFieldVisible(f)));
-  const answered = visibleFields.filter(f => FIELD_RESPONSES[f.id] !== undefined && !REJECTION_FLAGS[f.id]).length;
-  const allFields = visibleFields;
+  var runnerProgress = countCompletedFields();
+  var answered = runnerProgress.answered;
+  var allFields = { length: runnerProgress.total };
   // Check submission status BEFORE rendering sections — only today's submissions count
   var todayStr = new Date().toISOString().slice(0, 10);
   var submission = MY_SUBMISSIONS ? MY_SUBMISSIONS.find(function(s) {
@@ -1826,6 +1872,7 @@ function renderRunner() {
       ? `<div class="submit-confirm" style="margin-top:16px">Submitted for approval by ${submission.submitted_by_name || getUserName()}. Waiting for manager review.</div>${unsubmitBtn}`
       : `<button class="btn-primary" id="submit-btn" data-action="submit" data-tpl-id="${tpl.id}" style="margin-top:8px">Submit checklist</button>`;
   return `<button class="editor-back" id="fill-back">Checklists</button>
+<div style="padding:12px 16px 0;font-size:16px;font-weight:600">${escapeHtml(tpl.name)}</div>
 <div style="padding:10px 16px 0" class="progress-line">
   <div style="height:6px;background:var(--brd);border-radius:3px;overflow:hidden;margin-bottom:6px"><div style="height:100%;background:#27ae60;border-radius:3px;width:${allFields.length?Math.round(answered/allFields.length*100):0}%;transition:width .3s"></div></div>
   <div style="font-size:13px;color:var(--mut)">${answered} of ${allFields.length} items complete</div>
@@ -1850,6 +1897,13 @@ function isFieldVisible(fld) {
     if (!depResp) return false; // dependent field not answered yet — hide
     var depVal = String(depResp.value);
     var expected = String(fld.condition.value);
+    // Handle sentinel values from the builder dropdown
+    if (expected === '_notempty') {
+      // "_notempty" represents the concept "has a value" — operator 'equals' means "show when not-empty"
+      var hasValue = depVal && depVal !== 'undefined' && depVal !== 'null';
+      if (fld.condition.operator === 'equals') return hasValue;
+      if (fld.condition.operator === 'not_equals') return !hasValue;
+    }
     if (fld.condition.operator === 'equals' && depVal !== expected) return false;
     if (fld.condition.operator === 'not_equals' && depVal === expected) return false;
   }
@@ -1885,19 +1939,51 @@ function renderRunnerField(fld) {
   if (fillState.readonly) {
     var displayVal = '';
     if (fld.type === 'checkbox') {
-      displayVal = answered ? '✓' : '—';
+      var subs = fld.sub_steps && fld.sub_steps.length > 0 ? fld.sub_steps : null;
+      if (subs) {
+        var subState = (resp && resp.sub_steps) ? resp.sub_steps : {};
+        var allSubsDone = subs.every(function(s) { return !!subState[s.id]; });
+        var subsReadonly = subs.map(function(s) {
+          var subVal = subState[s.id];
+          var done = !!subVal;
+          var subAttrib = '';
+          if (done && subVal && typeof subVal === 'object' && subVal.by) {
+            subAttrib = '<div class="fill-attribution" style="padding:2px 0 8px 24px;font-size:11px;border-bottom:0.5px solid var(--brd)">' + escapeHtml(subVal.by) + ' \u00b7 ' + formatTime(new Date(subVal.at)) + '</div>';
+          }
+          return '<div class="sub-step-row"' + (subAttrib ? ' style="border-bottom:none"' : '') + '><span class="sub-step-label-text' + (done ? ' style="text-decoration:line-through;color:var(--mut)"' : '') + '">' + escapeHtml(s.label) + '</span>' +
+            '<span class="sub-step-check ' + (done ? 'done' : '') + '" style="cursor:default">' + (done ? '✓' : '') + '</span></div>' + subAttrib;
+        }).join('');
+        return '<div class="fill-field" data-field-id="' + fld.id + '">' +
+          '<div class="fill-field-row">' +
+          '<div class="fill-field-label" style="margin-bottom:0">' + escapeHtml(fld.label) + '</div>' +
+          '<span style="font-weight:500;' + (allSubsDone ? 'color:#27ae60' : 'color:#c0392b') + '">' + (allSubsDone ? '✓' : '✗') + '</span>' +
+          '</div>' +
+          subsReadonly +
+          attribution +
+          '</div>';
+      }
+      displayVal = answered ? '<span style="color:#27ae60">✓</span>' : '<span style="color:#c0392b">✗</span>';
     } else if (fld.type === 'yes_no') {
-      displayVal = !answered ? '—' : (resp.value === true || resp.value === 'true') ? 'Yes' : 'No';
+      displayVal = !answered ? '<span style="color:#c0392b">✗</span>' : (resp.value === true || resp.value === 'true') ? 'Yes' : 'No';
     } else if (fld.type === 'temperature') {
       var unit = fld.config && fld.config.unit ? fld.config.unit : 'F';
-      displayVal = answered ? resp.value + '°' + unit : '—';
+      displayVal = answered ? resp.value + '°' + unit : '<span style="color:#c0392b">✗</span>';
     } else if (fld.type === 'text') {
-      displayVal = answered ? escapeHtml(String(resp.value)) : '—';
+      displayVal = answered ? escapeHtml(String(resp.value)) : '<span style="color:#c0392b">✗</span>';
+    } else if (fld.type === 'photo') {
+      displayVal = answered && typeof resp.value === 'string' && resp.value.startsWith('https://') ? '<a href="' + resp.value + '" target="_blank" style="color:var(--info-tx)">View photo</a>' : '<span style="color:#c0392b">✗</span>';
     } else {
-      displayVal = answered ? String(resp.value) : '—';
+      displayVal = answered ? String(resp.value) : '<span style="color:#c0392b">✗</span>';
     }
     var failNote = FAIL_NOTES[fld.id];
     var failHtml = failNote && failNote.note ? `<div style="margin-top:4px;font-size:12px;color:var(--warn-tx)">Corrective action: ${escapeHtml(failNote.note)} (${escapeHtml(failNote.severity || '')})</div>` : '';
+    if (fld.type === 'text') {
+      return `<div class="fill-field" data-field-id="${fld.id}">
+  <div class="fill-field-label" style="margin-bottom:4px">${escapeHtml(fld.label)}</div>
+  <div style="font-size:14px;font-weight:500;white-space:pre-wrap;word-break:break-word">${displayVal}</div>
+  ${attribution}${failHtml}
+</div>`;
+    }
     return `<div class="fill-field" data-field-id="${fld.id}">
   <div class="fill-field-row">
     <div class="fill-field-label" style="margin-bottom:0">${escapeHtml(fld.label)}</div>
@@ -1923,9 +2009,9 @@ function renderRunnerField(fld) {
         // Per-sub attribution: support both legacy (true) and new ({by, at}) format
         var subAttrib = '';
         if (done && subVal && typeof subVal === 'object' && subVal.by) {
-          subAttrib = '<div class="fill-attribution" style="padding:0 0 4px 24px;font-size:11px">' + escapeHtml(subVal.by) + ' \u00b7 ' + formatTime(new Date(subVal.at)) + '</div>';
+          subAttrib = '<div class="fill-attribution" style="padding:2px 0 8px 24px;font-size:11px;border-bottom:0.5px solid var(--brd)">' + escapeHtml(subVal.by) + ' \u00b7 ' + formatTime(new Date(subVal.at)) + '</div>';
         }
-        return '<div class="sub-step-row"><span class="sub-step-label-text' + (done ? ' style="text-decoration:line-through;color:var(--mut)"' : '') + '">' + escapeHtml(s.label) + '</span>' +
+        return '<div class="sub-step-row"' + (subAttrib ? ' style="border-bottom:none"' : '') + '><span class="sub-step-label-text' + (done ? ' style="text-decoration:line-through;color:var(--mut)"' : '') + '">' + escapeHtml(s.label) + '</span>' +
           '<button class="sub-step-check ' + (done ? 'done' : '') + '" data-action="toggle-sub-step" data-field-id="' + fld.id + '" data-sub-id="' + s.id + '">' + (done ? '✓' : '') + '</button></div>' + subAttrib;
       }).join('');
       // For sub-step checkboxes, parent is auto-checked when all subs done
@@ -2014,7 +2100,7 @@ function renderRunnerField(fld) {
 }
 
 function attachRunnerListeners() {
-  // Text textarea: save on blur, no re-render
+  // Text textarea: save on blur, re-render to show/hide conditional fields
   document.querySelectorAll('.fill-textarea').forEach(el => {
     el.addEventListener('blur', function() {
       const fldId = this.dataset.fieldId;
@@ -2025,17 +2111,41 @@ function attachRunnerListeners() {
         delete FIELD_RESPONSES[fldId];
       }
       updateProgress();
+      renderFillOut();
     });
   });
   // Temperature: handled by input delegation — no blur listener needed
 }
 
+function isFieldAnswered(f) {
+  var resp = FIELD_RESPONSES[f.id];
+  if (resp === undefined) return false;
+  if (REJECTION_FLAGS[f.id]) return false;
+  // For fields with sub-steps, only count as complete when all subs are done
+  if (f.sub_steps && f.sub_steps.length > 0) return resp.value === true;
+  return true;
+}
+
+// getProgress: single source of truth for "X of Y items complete".
+// Applies section/field visibility filters and handles sub-steps consistently.
+// For submitted checklists, uses snapshot + responses instead of live template.
+function getProgress(tpl, submission) {
+  if (submission && submission.responses && submission.template_snapshot &&
+      (submission.status === 'pending' || submission.status === 'pending_approval' || submission.status === 'submitted' || submission.status === 'approved')) {
+    var snap = typeof submission.template_snapshot === 'string' ? JSON.parse(submission.template_snapshot) : submission.template_snapshot;
+    var snapFields = (snap.sections || []).filter(isSectionVisible).flatMap(function(s) { return (s.fields || []).filter(isFieldVisible); });
+    var respIds = new Set(submission.responses.filter(function(r) { return r.value !== null && r.value !== undefined; }).map(function(r) { return r.field_id; }));
+    var answered = snapFields.filter(function(f) { return respIds.has(f.id); }).length;
+    return { answered: answered, total: snapFields.length };
+  }
+  var visibleFields = (tpl.sections || []).filter(isSectionVisible).flatMap(function(s) { return (s.fields || []).filter(isFieldVisible); });
+  var answered = visibleFields.filter(isFieldAnswered).length;
+  return { answered: answered, total: visibleFields.length };
+}
+
 function countCompletedFields() {
-  // Derive answered count from FIELD_RESPONSES minus any fields with active rejection flags
   if (!fillState.activeTemplate) return { answered: 0, total: 0 };
-  const allFields = fillState.activeTemplate.sections.filter(s => isSectionVisible(s)).flatMap(s => s.fields.filter(f => isFieldVisible(f)));
-  const answered = allFields.filter(f => FIELD_RESPONSES[f.id] !== undefined && !REJECTION_FLAGS[f.id]).length;
-  return { answered, total: allFields.length };
+  return getProgress(fillState.activeTemplate, null);
 }
 
 function updateProgress() {
@@ -2056,6 +2166,17 @@ document.getElementById('fill-body').addEventListener('click', function(e) {
       fillState.activeTemplate = tpl;
       fillState.view = 'runner';
       location.hash = 'checklist=' + tpl.id;
+      // For submitted/pending checklists, use snapshot sections so field IDs match responses
+      var todayStr = new Date().toISOString().slice(0, 10);
+      var submission = MY_SUBMISSIONS ? MY_SUBMISSIONS.find(function(s) {
+        if (s.template_id !== tpl.id) return false;
+        var subDate = s.submitted_at ? new Date(s.submitted_at).toISOString().slice(0, 10) : '';
+        return subDate === todayStr;
+      }) : null;
+      if (submission && submission.template_snapshot && (submission.status === 'pending' || submission.status === 'pending_approval' || submission.status === 'submitted' || submission.status === 'approved')) {
+        var snap = typeof submission.template_snapshot === 'string' ? JSON.parse(submission.template_snapshot) : submission.template_snapshot;
+        if (snap && snap.sections) tpl.sections = snap.sections;
+      }
       // Restore field state (including fail notes) for this template's fields
       var tplFieldIds = new Set((tpl.sections || []).flatMap(function(s) { return (s.fields || []).map(function(f) { return f.id; }); }));
       hydrateFieldState(tplFieldIds);
@@ -2154,11 +2275,17 @@ document.getElementById('fill-body').addEventListener('click', function(e) {
       }
       resp.answeredBy = getUserName();
       resp.answeredAt = new Date();
-      // Auto-check parent if all subs done
+      // Auto-check parent if all subs done; clean up if none checked
       var allDone = tplField.sub_steps.every(function(s){ return !!resp.sub_steps[s.id]; });
+      var anyDone = tplField.sub_steps.some(function(s){ return !!resp.sub_steps[s.id]; });
       resp.value = allDone;
       if (allDone) { clearRejectionFlag(parentFldId); }
-      debouncedSaveField(parentFldId, { value: resp.value, sub_steps: resp.sub_steps });
+      if (!anyDone) {
+        delete FIELD_RESPONSES[parentFldId];
+        debouncedSaveField(parentFldId, false);
+      } else {
+        debouncedSaveField(parentFldId, { value: resp.value, sub_steps: resp.sub_steps });
+      }
       var fieldDiv = document.querySelector('.fill-field[data-field-id="' + parentFldId + '"]');
       if (fieldDiv) fieldDiv.outerHTML = renderRunnerField(tplField);
       updateProgress();
@@ -2255,6 +2382,12 @@ document.getElementById('fill-body').addEventListener('click', function(e) {
         return;
       }
 
+      // Check if all items are complete — prompt if not
+      var incompleteCount = allFlds.filter(function(f) { return !isFieldAnswered(f); }).length;
+      if (incompleteCount > 0) {
+        if (!confirm(incompleteCount + ' item' + (incompleteCount !== 1 ? 's' : '') + ' not completed. Submit anyway?')) return;
+      }
+
       // Cancel any pending auto-saves — their drafts will be moved by submitChecklist
       Object.keys(SAVE_DEBOUNCE).forEach(function(k) { clearTimeout(SAVE_DEBOUNCE[k]); delete SAVE_DEBOUNCE[k]; });
       Object.keys(FAIL_NOTE_DEBOUNCE).forEach(function(k) { clearTimeout(FAIL_NOTE_DEBOUNCE[k]); delete FAIL_NOTE_DEBOUNCE[k]; });
@@ -2262,7 +2395,7 @@ document.getElementById('fill-body').addEventListener('click', function(e) {
       var statusEl = document.getElementById('save-status');
       if (statusEl) { statusEl.style.display = 'none'; statusEl.style.opacity = '0'; }
       if (btn) { btn.textContent = 'Submitting\u2026'; btn.disabled = true; }
-      var allDone = allFlds.every(function(f){return FIELD_RESPONSES[f.id] !== undefined});
+      var allDone = allFlds.every(function(f){ return isFieldAnswered(f); });
       var prevSubmission = MY_SUBMISSIONS ? MY_SUBMISSIONS.find(function(s){return s.template_id===tplId}) : null;
       var isReapproval = prevSubmission && prevSubmission.status === 'rejected';
       Object.keys(REJECTION_FLAGS).forEach(function(k){ delete REJECTION_FLAGS[k]; });
@@ -2424,6 +2557,16 @@ document.getElementById('approvals-body').addEventListener('click', function(e) 
     var submission = PENDING ? PENDING.find(function(s) { return s.id === submissionId; }) : null;
     if (!submission) return;
     var field = submission.fields ? submission.fields.find(function(f) { return f.id === fldId; }) : null;
+    // Also search sub-steps
+    if (!field && submission.fields) {
+      submission.fields.forEach(function(f) {
+        if (field) return;
+        if (f.sub_steps) {
+          var sub = f.sub_steps.find(function(s) { return s.id === fldId; });
+          if (sub) field = sub;
+        }
+      });
+    }
     if (!field) return;
     // Preserve existing comments before re-render
     var card = actionEl.closest('.approval-card');
@@ -2431,6 +2574,7 @@ document.getElementById('approvals-body').addEventListener('click', function(e) 
       card.querySelectorAll('.reject-item-input').forEach(function(ta) {
         var fid = ta.dataset.rejectFld;
         var f = submission.fields ? submission.fields.find(function(x) { return x.id === fid; }) : null;
+        if (!f) submission.fields.forEach(function(x) { if (!f && x.sub_steps) { f = x.sub_steps.find(function(s) { return s.id === fid; }); } });
         if (f) f._rejectComment = ta.value.trim();
       });
     }
@@ -2444,7 +2588,12 @@ document.getElementById('approvals-body').addEventListener('click', function(e) 
     var submissionId = actionEl.dataset.submissionId;
     var submission = PENDING ? PENDING.find(function(s) { return s.id === submissionId; }) : null;
     if (!submission) return;
-    var rejectedFields = submission.fields ? submission.fields.filter(function(f) { return f._pendingReject; }) : [];
+    // Collect both top-level and sub-step flagged items
+    var rejectedFields = [];
+    (submission.fields || []).forEach(function(f) {
+      if (f._pendingReject) rejectedFields.push(f);
+      (f.sub_steps || []).forEach(function(s) { if (s._pendingReject) rejectedFields.push(s); });
+    });
     if (rejectedFields.length === 0) {
       showToast('Flag at least one item to reject');
       return;
@@ -2455,11 +2604,13 @@ document.getElementById('approvals-body').addEventListener('click', function(e) 
       card.querySelectorAll('.reject-item-input').forEach(function(ta) {
         var fid = ta.dataset.rejectFld;
         var field = submission.fields.find(function(f) { return f.id === fid; });
+        if (!field) submission.fields.forEach(function(f) { if (!field && f.sub_steps) { field = f.sub_steps.find(function(s) { return s.id === fid; }); } });
         if (field) field._rejectComment = ta.value.trim();
       });
       card.querySelectorAll('[data-reject-photo-fld]').forEach(function(cb) {
         var fid = cb.dataset.rejectPhotoFld;
         var field = submission.fields.find(function(f) { return f.id === fid; });
+        if (!field) submission.fields.forEach(function(f) { if (!field && f.sub_steps) { field = f.sub_steps.find(function(s) { return s.id === fid; }); } });
         if (field) field._rejectRequirePhoto = cb.checked;
       });
     }

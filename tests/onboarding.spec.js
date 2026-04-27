@@ -1669,6 +1669,46 @@ test.describe('Builder tab', () => {
     await expect(page.locator('#builder-body')).toContainText('E2E Test Template');
   });
 
+  test('sub-items persist after save and reopen', async ({ page }) => {
+    await login(page);
+    await page.goto('/onboarding.html');
+    await waitForBuilderTab(page);
+    await page.click('#t3');
+    await waitForBuilderList(page);
+
+    // Create new template
+    page.once('dialog', async dialog => {
+      await dialog.accept('SubItem Persist Test');
+    });
+    await page.locator('[data-action="new-template"]').click();
+    await expect(page.locator('[data-action="back-to-templates"]')).toBeVisible();
+
+    // Add a section
+    page.once('dialog', async dialog => {
+      await dialog.accept('Steps');
+    });
+    await page.locator('[data-action="add-ob-section"]').click();
+
+    // Add a checkbox item
+    await page.locator('[data-action="add-ob-item"][data-item-type="checkbox"]').first().click();
+    await page.locator('[data-action="item-label-input"]').last().fill('Main task');
+
+    // Add a sub-item
+    await page.locator('[data-action="add-sub-item"]').first().click();
+    await page.locator('[data-action="sub-item-label-input"]').last().fill('Set timer for 15 minutes');
+
+    // Save
+    await page.locator('[data-action="save-template"]').click();
+    await waitForBuilderList(page);
+
+    // Reopen the template
+    await page.locator('#builder-body .card', { hasText: 'SubItem Persist Test' }).first().click();
+    await expect(page.locator('[data-action="back-to-templates"]')).toBeVisible();
+
+    // Sub-item should still be there
+    await expect(page.locator('[data-action="sub-item-label-input"]').first()).toHaveValue('Set timer for 15 minutes');
+  });
+
   test('save-video-for-later requires part title', async ({ page }) => {
     // The "Save Video for Later" button should require a part title before saving.
     // Without a title, the user should see an alert.

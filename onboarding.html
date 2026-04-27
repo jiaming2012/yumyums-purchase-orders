@@ -28,8 +28,8 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .pill{display:inline-block;font-size:11px;font-weight:500;padding:2px 8px;border-radius:8px}
 .pill-warn{background:var(--warn-bg);color:var(--warn-tx)}
 .pill-ok{background:rgba(39,174,96,0.12);color:#27ae60}
-.item-row{display:flex;align-items:flex-start;gap:8px;padding:12px 16px;border-bottom:0.5px solid var(--brd);min-height:44px}
-.ob-check{width:22px;height:22px;border-radius:6px;border:1.5px solid var(--brd);background:transparent;flex-shrink:0;display:flex;align-items:center;justify-content:center;cursor:pointer;margin-top:2px}
+.item-row{display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:0.5px solid var(--brd);min-height:44px}
+.ob-check{width:22px;height:22px;border-radius:6px;border:1.5px solid var(--brd);background:transparent;flex-shrink:0;display:flex;align-items:center;justify-content:center;cursor:pointer}
 .ob-check.checked{background:rgba(39,174,96,0.12);border-color:#27ae60;color:#27ae60}
 .btn-primary{width:100%;padding:12px;background:var(--info-bg);color:var(--info-tx);border:none;border-radius:8px;font-size:14px;font-weight:500;cursor:pointer;margin-top:12px}
 .btn-primary:disabled{opacity:0.5;cursor:not-allowed}
@@ -165,7 +165,7 @@ function createNewOBTemplate(name, roles) {
   return { id: null, name: name, roles: roles||[], sections: [] };
 }
 function createNewOBSection(title) {
-  return { id: generateOBId('sec'), title: title, requires_sign_off: false, sign_off_roles: [], is_faq: false, items: [] };
+  return { id: generateOBId('sec'), title: title, requires_sign_off: true, sign_off_roles: ['admin', 'manager'], is_faq: false, items: [] };
 }
 function createNewOBCheckbox(label) {
   return { id: generateOBId('itm'), type: 'checkbox', label: label || '', sub_items: [] };
@@ -327,8 +327,26 @@ function renderSections(sections, hireId, readOnly) {
             var canInteract = !readOnly && state === 'active';
             var checkable = canInteract ? ' data-action="toggle-item" data-item-id="'+item.id+'" data-sec-id="'+sec.id+'" data-hire-id="'+hireId+'"' : '';
             html += '<div class="item-row">';
-            html += '<div class="'+checkClass+'"'+checkable+(readOnly?' style="cursor:default"':'')+'>'+(checked?'&#10003;':'')+'</div>';
+            var subs = item.sub_items || [];
+            var hasSubs = subs.length > 0;
+            if (hasSubs) {
+              // Parent is auto-derived — not directly checkable; align to top since sub-items expand below
+              html += '<div class="'+checkClass+'" style="cursor:default;align-self:flex-start">'+(checked?'&#10003;':'')+'</div>';
+            } else {
+              html += '<div class="'+checkClass+'"'+checkable+(readOnly?' style="cursor:default"':'')+'>'+(checked?'&#10003;':'')+'</div>';
+            }
             html += '<div style="flex:1"><div style="font-size:14px;font-weight:500">'+escapeOBAttr(item.label)+'</div>';
+            if (hasSubs) {
+              subs.forEach(function(sub) {
+                var subChecked = sub.checked === true;
+                var subCheckClass = 'ob-check' + (subChecked ? ' checked' : '');
+                var subCheckable = (!readOnly && state === 'active') ? ' data-action="toggle-sub-item" data-sub-id="'+sub.id+'" data-item-id="'+item.id+'" data-sec-id="'+sec.id+'" data-hire-id="'+hireId+'"' : '';
+                html += '<div style="display:flex;align-items:center;gap:8px;padding:8px 0 0 4px">';
+                html += '<div class="'+subCheckClass+'" style="width:18px;height:18px;border-radius:4px;font-size:11px"'+subCheckable+(readOnly?' style="cursor:default"':'')+'>'+(subChecked?'&#10003;':'')+'</div>';
+                html += '<span style="font-size:13px;'+(subChecked?'text-decoration:line-through;color:var(--mut)':'')+'">'+escapeOBAttr(sub.label)+'</span>';
+                html += '</div>';
+              });
+            }
             if (checked && item.checked_by) html += '<div class="attribution">Checked by '+escapeOBAttr(item.checked_by)+'</div>';
             if (item._saveErr) html += '<span class="field-err">'+escapeOBAttr(item._saveErr)+' <span data-action="retry-item" data-item-id="'+item.id+'" data-sec-id="'+sec.id+'" data-hire-id="'+hireId+'" style="cursor:pointer;text-decoration:underline">Tap to retry.</span></span>';
             html += '</div></div>';
@@ -394,8 +412,10 @@ function renderSections(sections, hireId, readOnly) {
 function countSectionItems(sec) {
   var total = 0;
   (sec.items || []).forEach(function(item) {
-    if (item.type === 'checkbox') total++;
-    else if (item.type === 'video_series') total += (item.video_parts || []).length;
+    if (item.type === 'checkbox') {
+      var subs = item.sub_items || [];
+      total += subs.length > 0 ? subs.length : 1;
+    } else if (item.type === 'video_series') total += (item.video_parts || []).length;
   });
   return total;
 }
@@ -403,8 +423,12 @@ function countSectionItems(sec) {
 function countCheckedItems(sec) {
   var checked = 0;
   (sec.items || []).forEach(function(item) {
-    if (item.type === 'checkbox' && item.checked) checked++;
-    else if (item.type === 'video_series') (item.video_parts || []).forEach(function(p) { if (p.checked) checked++; });
+    if (item.type === 'checkbox') {
+      var subs = item.sub_items || [];
+      if (subs.length > 0) {
+        subs.forEach(function(s) { if (s.checked) checked++; });
+      } else if (item.checked) checked++;
+    } else if (item.type === 'video_series') (item.video_parts || []).forEach(function(p) { if (p.checked) checked++; });
   });
   return checked;
 }
@@ -1239,6 +1263,29 @@ document.getElementById('my-body').addEventListener('click', async function(e) {
       item._saveErr = null;
       renderMyRunner();
     }
+  } else if (action === 'toggle-sub-item') {
+    var subId = btn.dataset.subId;
+    var parentItemId = btn.dataset.itemId;
+    var secId = btn.dataset.secId;
+    var hireId = btn.dataset.hireId;
+    var item = findItemInTraining(CURRENT_TRAINING, parentItemId, false);
+    var sec = findItemInTraining(CURRENT_TRAINING, secId, true);
+    if (!item || !sec) return;
+    var sub = (item.sub_items||[]).find(function(s) { return s.id === subId; });
+    if (!sub) return;
+    var newChecked = !sub.checked;
+    sub.checked = newChecked;
+    // Auto-derive parent checked from all sub-items
+    item.checked = (item.sub_items||[]).every(function(s) { return s.checked; });
+    recomputeSectionState(sec);
+    renderMyRunner();
+    var ok = await saveProgress(subId, 'sub_item', newChecked, CURRENT_TRAINING.sections, hireId);
+    if (!ok) {
+      sub.checked = !newChecked;
+      item.checked = (item.sub_items||[]).every(function(s) { return s.checked; });
+      recomputeSectionState(sec);
+      renderMyRunner();
+    }
   } else if (action === 'play-video') {
     var el = e.target.closest('[data-action="play-video"]');
     var modal = document.getElementById('video-modal');
@@ -1436,6 +1483,8 @@ document.getElementById('builder-body').addEventListener('click', async function
   var btn = e.target.closest('[data-action]');
   if (!btn) return;
   var action = btn.dataset.action;
+  // Guard: if localCopy is null (state was reset), ignore editor actions
+  if (!obBuilderState.localCopy && action !== 'new-template' && action !== 'open-template') return;
   if (action === 'tpl-role-chip' && obBuilderState.localCopy) {
     btn.classList.toggle('on');
     var chips = document.querySelectorAll('[data-action="tpl-role-chip"].on');

@@ -50,7 +50,7 @@ func SeedHQApps(ctx context.Context, pool *pgxpool.Pool) error {
 	// Upsert all apps — runs every startup so new apps get added to existing databases
 	_, err := pool.Exec(ctx, `
 		INSERT INTO hq_apps (slug, name, icon) VALUES
-		  ('purchasing', 'Purchasing', '🛒'),
+		  ('purchasing', 'Purchase Orders', '🛒'),
 		  ('payroll', 'Payroll', '💰'),
 		  ('scheduling', 'Scheduling', '📅'),
 		  ('hiring', 'Hiring', '👥'),
