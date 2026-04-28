@@ -1623,6 +1623,100 @@ test.describe('Inventory', () => {
     expect(mediumText).toContain('n/a');
   });
 
+  // ── Setup: Category + Store Location grouping ─────────────────────────
+
+  test('items with different store_locations appear under separate group headers', async ({ page }) => {
+    const ts = Date.now();
+    const groups = await invApiCall(page, 'GET', 'groups');
+    const gid = groups && groups.length ? groups[0].id : null;
+    const groupName = groups && groups.length ? groups[0].name : 'Other';
+    if (!gid) return;
+    // Create two items in the same category but different store_locations
+    const item1 = await invApiCall(page, 'POST', 'items', { description: 'Loc A Item ' + ts, group_id: gid });
+    const item2 = await invApiCall(page, 'POST', 'items', { description: 'Loc B Item ' + ts, group_id: gid });
+    // Set store_locations via PUT
+    await invApiCall(page, 'PUT', 'items', { id: item1.id, description: 'Loc A Item ' + ts, group_id: gid, store_location: 'Giant' });
+    await invApiCall(page, 'PUT', 'items', { id: item2.id, description: 'Loc B Item ' + ts, group_id: gid, store_location: 'Restaurant Depot' });
+    await page.reload();
+    await page.waitForLoadState('networkidle');
+    await page.locator('#t5').click();
+    await page.waitForFunction(() => {
+      const list = document.getElementById('items-list');
+      return list && list.querySelector('.item-group-section');
+    }, { timeout: 8000 });
+    // Both composite headers should exist
+    const headers = page.locator('.item-group-header');
+    const allText = await headers.allTextContents();
+    const giantHeader = allText.find(t => t.includes(groupName + ', Giant'));
+    const depotHeader = allText.find(t => t.includes(groupName + ', Restaurant Depot'));
+    expect(giantHeader).toBeTruthy();
+    expect(depotHeader).toBeTruthy();
+  });
+
+  test('items with null store_location appear under "Category, Unassigned"', async ({ page }) => {
+    const ts = Date.now();
+    const groups = await invApiCall(page, 'GET', 'groups');
+    const gid = groups && groups.length ? groups[0].id : null;
+    const groupName = groups && groups.length ? groups[0].name : 'Other';
+    if (!gid) return;
+    // Create an item with no store_location
+    await invApiCall(page, 'POST', 'items', { description: 'Unassigned Item ' + ts, group_id: gid });
+    await page.reload();
+    await page.waitForLoadState('networkidle');
+    await page.locator('#t5').click();
+    await page.waitForFunction(() => {
+      const list = document.getElementById('items-list');
+      return list && list.querySelector('.item-group-section');
+    }, { timeout: 8000 });
+    const headers = page.locator('.item-group-header');
+    const allText = await headers.allTextContents();
+    const unassignedHeader = allText.find(t => t.includes(groupName + ', Unassigned'));
+    expect(unassignedHeader).toBeTruthy();
+  });
+
+  test('user can set store_location from Setup tab edit form', async ({ page }) => {
+    const ts = Date.now();
+    const groups = await invApiCall(page, 'GET', 'groups');
+    const gid = groups && groups.length ? groups[0].id : null;
+    if (!gid) return;
+    const itemName = 'Loc Edit Item ' + ts;
+    await invApiCall(page, 'POST', 'items', { description: itemName, group_id: gid });
+    await page.reload();
+    await page.waitForLoadState('networkidle');
+    await page.locator('#t5').click();
+    await page.waitForFunction((name) => {
+      const rows = document.querySelectorAll('#items-list .item-row');
+      for (const r of rows) if (r.textContent.includes(name)) return true;
+      return false;
+    }, itemName, { timeout: 8000 });
+    // Tap item to expand edit form
+    await page.locator('.item-row', { hasText: itemName }).click();
+    await expect(page.locator('.item-edit-location')).toBeVisible();
+    // Fill in store location and save
+    await page.fill('.item-edit-location', 'Costco');
+    await page.click('[data-action="save-item"]');
+    // Wait for list to reload
+    await page.waitForFunction((name) => {
+      const rows = document.querySelectorAll('#items-list .item-row');
+      for (const r of rows) if (r.textContent.includes(name)) return true;
+      return false;
+    }, itemName, { timeout: 5000 });
+    // Verify the item now shows Costco as location
+    const itemRow = page.locator('.item-row', { hasText: itemName });
+    await expect(itemRow.locator('.item-group-label')).toHaveText('Costco');
+    // Reload and verify persistence
+    await page.reload();
+    await page.waitForLoadState('networkidle');
+    await page.locator('#t5').click();
+    await page.waitForFunction((name) => {
+      const rows = document.querySelectorAll('#items-list .item-row');
+      for (const r of rows) if (r.textContent.includes(name)) return true;
+      return false;
+    }, itemName, { timeout: 8000 });
+    const itemRowAfter = page.locator('.item-row', { hasText: itemName });
+    await expect(itemRowAfter.locator('.item-group-label')).toHaveText('Costco');
+  });
+
   // ── Magic link: Stock → Setup ─────────────────────────────────────────
 
   test('View in Setup link navigates to Setup tab with item expanded', async ({ page }) => {
