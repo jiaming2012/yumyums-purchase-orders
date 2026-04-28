@@ -1720,6 +1720,15 @@ test.describe('Inventory', () => {
     await expect(itemRowAfter.locator('.item-group-label')).toHaveText(vendorName);
   });
 
+  // ── Setup tab back link ─────────────────────────────────────────────
+
+  test('Setup tab has back link to Purchase Orders', async ({ page }) => {
+    await page.locator('#t5').click();
+    const link = page.locator('#s5 a.back[href="purchasing.html"]');
+    await expect(link).toBeVisible();
+    await expect(link).toContainText('Purchase Orders');
+  });
+
   // ── Add item group enforcement ──────────────────────────────────────
 
   test('add item bar does not allow No Group selection', async ({ page }) => {
