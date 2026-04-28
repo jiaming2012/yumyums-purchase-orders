@@ -935,12 +935,9 @@ function renderPickerList(query) {
     });
     var sortedKeys = Object.keys(groups).sort(function(a, b) { return a.localeCompare(b); });
     var targetPO = PICKER_TARGET === 'po' ? LOCKED_PO : PO_STATE;
-    var count = 0;
     sortedKeys.forEach(function(loc) {
-      if (count >= 30) return;
       html += '<div class="picker-group-header">' + loc + '</div>';
       groups[loc].forEach(function(it) {
-        if (count >= 30) return;
         var onPO = targetPO && (targetPO.line_items || []).find(function(li) { return li.purchase_item_id === it.id; });
         html += '<div class="picker-row">';
         html += '<span class="pr-name">' + it.description + '</span>';
@@ -950,13 +947,11 @@ function renderPickerList(query) {
           html += '<button class="pr-add" data-action="add-to-po" data-item-id="' + it.id + '">+ Add</button>';
         }
         html += '</div>';
-        count++;
       });
     });
-    if (unassigned.length > 0 && count < 30) {
+    if (unassigned.length > 0) {
       html += '<div class="picker-group-header">Unassigned</div>';
       unassigned.forEach(function(it) {
-        if (count >= 30) return;
         var onPO = targetPO && (targetPO.line_items || []).find(function(li) { return li.purchase_item_id === it.id; });
         html += '<div class="picker-row">';
         html += '<span class="pr-name">' + it.description + '</span>';
@@ -966,7 +961,6 @@ function renderPickerList(query) {
           html += '<span class="pr-unassigned">Set location in Setup</span>';
         }
         html += '</div>';
-        count++;
       });
     }
   }
