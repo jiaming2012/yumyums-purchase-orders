@@ -83,6 +83,8 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .picker-row .pr-name{font-size:14px}
 .picker-row .pr-badge{font-size:11px;padding:3px 8px;border-radius:10px;background:var(--info-bg);color:var(--info-tx)}
 .picker-row .pr-add{padding:6px 14px;background:var(--info-bg);color:var(--info-tx);border:none;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer}
+.picker-group-header{padding:8px 16px;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:var(--mut);background:var(--bg);position:sticky;top:0}
+.picker-row .pr-unassigned{color:var(--mut);font-size:12px;font-style:italic}
 .dup-popup{position:fixed;bottom:0;left:0;right:0;z-index:10000;background:var(--card);border-radius:16px 16px 0 0;padding:20px 16px env(safe-area-inset-bottom);box-shadow:0 -4px 20px rgba(0,0,0,0.15)}
 .dup-popup .dp-title{font-size:15px;font-weight:600;margin-bottom:4px}
 .dup-popup .dp-meta{font-size:13px;color:var(--mut);margin-bottom:16px}
@@ -914,24 +916,59 @@ function renderPickerList(query) {
   var q = (query || '').toLowerCase();
   var filtered = ALL_ITEMS.filter(function(it) {
     return !q || (it.description || '').toLowerCase().indexOf(q) !== -1;
-  }).slice(0, 30);
+  });
 
   var html = '';
   if (filtered.length === 0) {
     html = '<div class="loading">No items found</div>';
   } else {
+    // Group by store_location; "Unassigned" (null/empty) at bottom
+    var groups = {};
+    var unassigned = [];
     filtered.forEach(function(it) {
-      var targetPO = PICKER_TARGET === 'po' ? LOCKED_PO : PO_STATE;
-      var onPO = targetPO && (targetPO.line_items || []).find(function(li) { return li.purchase_item_id === it.id; });
-      html += '<div class="picker-row">';
-      html += '<span class="pr-name">' + it.description + '</span>';
-      if (onPO) {
-        html += '<span class="pr-badge" data-action="picker-item-on-po" data-item-id="' + it.id + '">On PO: ' + onPO.quantity + (onPO.unit ? ' ' + onPO.unit : '') + '</span>';
+      if (it.store_location) {
+        if (!groups[it.store_location]) groups[it.store_location] = [];
+        groups[it.store_location].push(it);
       } else {
-        html += '<button class="pr-add" data-action="add-to-po" data-item-id="' + it.id + '">+ Add</button>';
+        unassigned.push(it);
       }
-      html += '</div>';
     });
+    var sortedKeys = Object.keys(groups).sort(function(a, b) { return a.localeCompare(b); });
+    var targetPO = PICKER_TARGET === 'po' ? LOCKED_PO : PO_STATE;
+    var count = 0;
+    sortedKeys.forEach(function(loc) {
+      if (count >= 30) return;
+      html += '<div class="picker-group-header">' + loc + '</div>';
+      groups[loc].forEach(function(it) {
+        if (count >= 30) return;
+        var onPO = targetPO && (targetPO.line_items || []).find(function(li) { return li.purchase_item_id === it.id; });
+        html += '<div class="picker-row">';
+        html += '<span class="pr-name">' + it.description + '</span>';
+        if (onPO) {
+          html += '<span class="pr-badge" data-action="picker-item-on-po" data-item-id="' + it.id + '">On PO: ' + onPO.quantity + (onPO.unit ? ' ' + onPO.unit : '') + '</span>';
+        } else {
+          html += '<button class="pr-add" data-action="add-to-po" data-item-id="' + it.id + '">+ Add</button>';
+        }
+        html += '</div>';
+        count++;
+      });
+    });
+    if (unassigned.length > 0 && count < 30) {
+      html += '<div class="picker-group-header">Unassigned</div>';
+      unassigned.forEach(function(it) {
+        if (count >= 30) return;
+        var onPO = targetPO && (targetPO.line_items || []).find(function(li) { return li.purchase_item_id === it.id; });
+        html += '<div class="picker-row">';
+        html += '<span class="pr-name">' + it.description + '</span>';
+        if (onPO) {
+          html += '<span class="pr-badge" data-action="picker-item-on-po" data-item-id="' + it.id + '">On PO: ' + onPO.quantity + (onPO.unit ? ' ' + onPO.unit : '') + '</span>';
+        } else {
+          html += '<span class="pr-unassigned">Set location in Setup</span>';
+        }
+        html += '</div>';
+        count++;
+      });
+    }
   }
   document.getElementById('picker-list').innerHTML = html;
 }
