@@ -246,6 +246,40 @@ test.describe('Shopping tab', () => {
     expect(locText).toContain(testLoc);
   });
 
+  test('shopping aisle location does not overwrite catalog store_location', async ({ page }) => {
+    let shoppingList;
+    try {
+      shoppingList = await poApiCall(page, 'GET', 'shopping/active');
+    } catch(e) { test.skip(true, 'No active shopping list'); return; }
+    if (!shoppingList || !shoppingList.vendor_sections || shoppingList.vendor_sections.length === 0) {
+      test.skip(true, 'No items');
+      return;
+    }
+    const firstItem = shoppingList.vendor_sections[0].items && shoppingList.vendor_sections[0].items[0];
+    if (!firstItem) { test.skip(true, 'No items'); return; }
+
+    // Get the catalog item's current store_location via inventory API
+    const catalogBefore = await page.evaluate(async (pid) => {
+      const res = await fetch('/api/v1/inventory/items');
+      const items = await res.json();
+      return items.find(i => i.id === pid);
+    }, firstItem.purchase_item_id);
+    const originalLoc = catalogBefore ? catalogBefore.store_location : null;
+
+    // Set a shopping aisle location via the shopping API
+    const aisleLocation = 'Test Aisle 99Z';
+    await poApiCall(page, 'PUT', 'shopping/' + shoppingList.id + '/items/' + firstItem.id + '/location', { store_location: aisleLocation });
+
+    // Verify the catalog item's store_location was NOT changed
+    const catalogAfter = await page.evaluate(async (pid) => {
+      const res = await fetch('/api/v1/inventory/items');
+      const items = await res.json();
+      return items.find(i => i.id === pid);
+    }, firstItem.purchase_item_id);
+
+    expect(catalogAfter.store_location).toBe(originalLoc);
+  });
+
   test('toast appears when checking item without photo', async ({ page }) => {
     let shoppingList;
     try {

@@ -475,21 +475,17 @@ func CheckShoppingItem(ctx context.Context, pool *pgxpool.Pool, itemID string, c
 	return nil
 }
 
-// UpdateShoppingItemLocation updates store_location on both shopping_list_items AND purchase_items.
+// UpdateShoppingItemLocation updates store_location on shopping_list_items only.
+// This is an in-store aisle location (e.g. "Center Aisle, Back of Store"),
+// NOT the catalog store_location (vendor/store name like "Restaurant Depot").
 func UpdateShoppingItemLocation(ctx context.Context, pool *pgxpool.Pool, itemID string, storeLocation string) error {
-	var purchaseItemID string
-	err := pool.QueryRow(ctx, `
-		UPDATE shopping_list_items SET store_location = $2 WHERE id = $1 RETURNING purchase_item_id
-	`, itemID, storeLocation).Scan(&purchaseItemID)
+	_, err := pool.Exec(ctx, `
+		UPDATE shopping_list_items SET store_location = $2 WHERE id = $1
+	`, itemID, storeLocation)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return fmt.Errorf("shopping list item not found: %s", itemID)
-		}
-		return err
+		return fmt.Errorf("update shopping item location: %w", err)
 	}
-
-	_, err = pool.Exec(ctx, `UPDATE purchase_items SET store_location = $2 WHERE id = $1`, purchaseItemID, storeLocation)
-	return err
+	return nil
 }
 
 // UpdateShoppingItemPhoto updates photo_url on both shopping_list_items AND purchase_items.
