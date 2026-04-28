@@ -522,6 +522,11 @@ func ApproveSubmissionHandler(pool *pgxpool.Pool) http.HandlerFunc {
 
 		var body struct {
 			SubmissionID string `json:"submission_id"`
+			Feedback     []struct {
+				FieldID      string `json:"field_id"`
+				Comment      string `json:"comment"`
+				RequirePhoto bool   `json:"require_photo"`
+			} `json:"feedback"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.SubmissionID == "" {
 			writeError(w, http.StatusBadRequest, "invalid_body")
@@ -532,6 +537,20 @@ func ApproveSubmissionHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			log.Printf("approveSubmission error: %v", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
+		}
+		// Save feedback comments as rejection records on the approved submission
+		for _, fb := range body.Feedback {
+			if fb.FieldID == "" || fb.Comment == "" {
+				continue
+			}
+			if _, err := pool.Exec(r.Context(),
+				`INSERT INTO submission_rejections (submission_id, field_id, comment, require_photo, rejected_by)
+				 VALUES ($1, $2, $3, $4, $5)
+				 ON CONFLICT DO NOTHING`,
+				body.SubmissionID, fb.FieldID, fb.Comment, fb.RequirePhoto, user.ID,
+			); err != nil {
+				log.Printf("save approval feedback: %v", err)
+			}
 		}
 		if payload, merr := json.Marshal(map[string]any{"submission_id": body.SubmissionID}); merr == nil {
 			opsync.EmitOp(pool, opsync.OpInput{
@@ -583,6 +602,45 @@ func RejectItemHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			})
 		} else {
 			log.Printf("RejectItemHandler: failed to marshal op payload: %v", merr)
+		}
+		writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+	}
+}
+
+// UnsubmitHandler handles POST /api/v1/workflow/unsubmitChecklist.
+// Deletes the submission and moves responses back to drafts.
+func UnsubmitHandler(pool *pgxpool.Pool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		user := auth.UserFromContext(r.Context())
+		if user == nil {
+			writeError(w, http.StatusUnauthorized, "unauthorized")
+			return
+		}
+
+		var body struct {
+			SubmissionID string `json:"submission_id"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_body")
+			return
+		}
+		if body.SubmissionID == "" {
+			writeError(w, http.StatusBadRequest, "submission_id_required")
+			return
+		}
+
+		if err := unsubmitChecklist(r.Context(), pool, body.SubmissionID, user.ID); err != nil {
+			log.Printf("unsubmitChecklist error: %v", err)
+			if err.Error() == "not the submitter" {
+				writeError(w, http.StatusForbidden, "not_submitter")
+				return
+			}
+			if err.Error() == "cannot unsubmit approved checklist" {
+				writeError(w, http.StatusBadRequest, "already_approved")
+				return
+			}
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
 		}
 		writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 	}

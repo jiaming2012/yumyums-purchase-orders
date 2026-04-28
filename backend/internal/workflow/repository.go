@@ -103,27 +103,11 @@ func replaceTemplate(ctx context.Context, pool *pgxpool.Pool, templateID string,
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck
 
-	// Delete only DRAFT responses (submission_id IS NULL).
-	// Submitted responses are preserved — their field_ids reference old UUIDs
+	// Draft responses and fail notes are preserved and remapped to new field IDs
+	// after re-insertion (see fieldIDMap remapping below).
+	// Submitted responses are also preserved — their field_ids reference old UUIDs
 	// which match the submission's template_snapshot for hydration.
 	// FK constraints on field_id were dropped in migrations 0051/0053/0054.
-	if _, err := tx.Exec(ctx,
-		`DELETE FROM submission_responses
-		 WHERE submission_id IS NULL
-		   AND field_id IN (SELECT f.id FROM checklist_fields f JOIN checklist_sections s ON s.id = f.section_id WHERE s.template_id = $1)`,
-		templateID,
-	); err != nil {
-		return fmt.Errorf("delete draft responses: %w", err)
-	}
-	// Delete only draft fail notes (submission_id IS NULL)
-	if _, err := tx.Exec(ctx,
-		`DELETE FROM submission_fail_notes
-		 WHERE submission_id IS NULL
-		   AND field_id IN (SELECT f.id FROM checklist_fields f JOIN checklist_sections s ON s.id = f.section_id WHERE s.template_id = $1)`,
-		templateID,
-	); err != nil {
-		return fmt.Errorf("delete draft fail notes: %w", err)
-	}
 	// Delete child records (sections cascade to fields; schedules and assignments have ON DELETE CASCADE)
 	if _, err := tx.Exec(ctx,
 		`DELETE FROM checklist_sections WHERE template_id = $1`, templateID,
@@ -207,6 +191,24 @@ func replaceTemplate(ctx context.Context, pool *pgxpool.Pool, templateID string,
 			newID, templateID, oldID,
 		); err != nil {
 			return fmt.Errorf("remap condition field_id %s→%s: %w", oldID, newID, err)
+		}
+	}
+
+	// Third pass: remap draft responses and fail notes to new field IDs
+	for oldID, newID := range fieldIDMap {
+		if _, err := tx.Exec(ctx,
+			`UPDATE submission_responses SET field_id = $1
+			 WHERE submission_id IS NULL AND field_id = $2`,
+			newID, oldID,
+		); err != nil {
+			return fmt.Errorf("remap draft response %s→%s: %w", oldID, newID, err)
+		}
+		if _, err := tx.Exec(ctx,
+			`UPDATE submission_fail_notes SET field_id = $1
+			 WHERE submission_id IS NULL AND field_id = $2`,
+			newID, oldID,
+		); err != nil {
+			return fmt.Errorf("remap draft fail note %s→%s: %w", oldID, newID, err)
 		}
 	}
 
@@ -910,6 +912,66 @@ func rejectItem(ctx context.Context, pool *pgxpool.Pool, input RejectItemInput, 
 		return fmt.Errorf("commit transaction: %w", err)
 	}
 	return nil
+}
+
+// unsubmitChecklist deletes a submission and moves its responses back to drafts.
+// Only the submitter can unsubmit, and only if not yet approved.
+func unsubmitChecklist(ctx context.Context, pool *pgxpool.Pool, submissionID, userID string) error {
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin transaction: %w", err)
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+
+	// Verify the submission exists, belongs to this user, and is not approved
+	var status, submittedBy string
+	err = tx.QueryRow(ctx,
+		`SELECT status, submitted_by FROM checklist_submissions WHERE id = $1`,
+		submissionID,
+	).Scan(&status, &submittedBy)
+	if err != nil {
+		return fmt.Errorf("get submission: %w", err)
+	}
+	if submittedBy != userID {
+		return fmt.Errorf("not the submitter")
+	}
+	if status == "approved" {
+		return fmt.Errorf("cannot unsubmit approved checklist")
+	}
+
+	// Move submitted responses back to drafts (detach from submission)
+	if _, err := tx.Exec(ctx,
+		`UPDATE submission_responses SET submission_id = NULL WHERE submission_id = $1`,
+		submissionID,
+	); err != nil {
+		return fmt.Errorf("detach responses: %w", err)
+	}
+
+	// Move fail notes back to drafts
+	if _, err := tx.Exec(ctx,
+		`UPDATE submission_fail_notes SET submission_id = NULL WHERE submission_id = $1`,
+		submissionID,
+	); err != nil {
+		return fmt.Errorf("detach fail notes: %w", err)
+	}
+
+	// Delete rejections for this submission
+	if _, err := tx.Exec(ctx,
+		`DELETE FROM submission_rejections WHERE submission_id = $1`,
+		submissionID,
+	); err != nil {
+		return fmt.Errorf("delete rejections: %w", err)
+	}
+
+	// Delete the submission record
+	if _, err := tx.Exec(ctx,
+		`DELETE FROM checklist_submissions WHERE id = $1`,
+		submissionID,
+	); err != nil {
+		return fmt.Errorf("delete submission: %w", err)
+	}
+
+	return tx.Commit(ctx)
 }
 
 // cleanupOldDrafts deletes abandoned draft responses from previous days (pitfall 1).

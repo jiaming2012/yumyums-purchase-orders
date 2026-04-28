@@ -363,6 +363,7 @@ func main() {
 				r.Get("/pendingApprovals", workflow.PendingApprovalsHandler(pool))
 				r.Post("/approveSubmission", workflow.ApproveSubmissionHandler(pool))
 				r.Post("/rejectItem", workflow.RejectItemHandler(pool))
+				r.Post("/unsubmitChecklist", workflow.UnsubmitHandler(pool))
 				r.Get("/ops/since", opsync.OpsSinceHandler(pool))
 				r.Post("/ops", opsync.OpHandler(pool, workflowOpRouter(pool)))
 			})

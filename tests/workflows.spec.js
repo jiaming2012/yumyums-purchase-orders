@@ -445,6 +445,43 @@ test.describe('Approvals', () => {
     await expect(page.locator('#toast')).toBeVisible({ timeout: 5000 });
   });
 
+  test('approve with flag comment shows feedback on checklist', async ({ page }) => {
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await cleanupTemplates(page);
+    await cleanupPendingApprovals(page);
+    await createAndSubmitChecklist(page);
+
+    // Go to Approvals tab
+    await page.reload();
+    await page.click('#t2');
+    await expect(page.locator('#s2')).toBeVisible();
+    await expect(page.locator('#s2').locator('text=Approval Test')).toBeVisible({ timeout: 5000 });
+
+    // Flag the item with a comment
+    const flagBtn = page.locator('[data-action="toggle-reject-item"]').first();
+    await expect(flagBtn).toBeVisible({ timeout: 5000 });
+    await flagBtn.click();
+    const commentArea = page.locator('.reject-item-input').first();
+    await commentArea.fill('Please double-check this item next time');
+
+    // Approve (not reject) — feedback should be saved
+    await page.click('[data-action="approve"]');
+    await expect(page.locator('#toast')).toBeVisible({ timeout: 5000 });
+
+    // Go to My Checklists and open the approved checklist
+    await page.click('#t1');
+    await page.waitForTimeout(1000);
+    await page.reload();
+    await page.waitForSelector('#checklist-list .row', { timeout: 10000 });
+    await page.locator('#checklist-list .row', { hasText: 'Approval Test' }).first().click();
+    await page.waitForSelector('#fill-body');
+    await page.waitForTimeout(500);
+
+    // Feedback note should be visible
+    await expect(page.locator('text=Please double-check this item next time')).toBeVisible({ timeout: 5000 });
+  });
+
   test('reject item with comment', async ({ page }) => {
     await login(page);
     await page.goto(BASE + '/workflows.html');
@@ -1338,6 +1375,58 @@ test.describe('Loading states', () => {
     await expect(page.locator('.fill-field-label', { hasText: 'Hidden today' })).not.toBeVisible();
   });
 
+  test('conditional field appears after dependent checkbox is checked', async ({ page }) => {
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await cleanupTemplates(page);
+
+    const todayDOW = await getTodayDOW(page);
+    // Create template: checkbox A + checkbox B that only shows when A is checked
+    const result = await apiCall(page, 'POST', 'createTemplate', {
+      name: 'Conditional Checkbox Test',
+      sections: [{ title: 'Tasks', order: 0, condition: null, fields: [
+        { type: 'checkbox', label: 'Field A', required: false, order: 0, config: null, fail_trigger: null, condition: null },
+      ]}],
+      schedules: [{ active_days: [todayDOW] }],
+      requires_approval: false,
+      assignments: [{ assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' }]
+    });
+
+    // Get server-assigned field ID
+    const templates = await apiCall(page, 'GET', 'templates');
+    const tpl = templates.find(t => t.name === 'Conditional Checkbox Test');
+    const fieldAId = tpl.sections[0].fields[0].id;
+
+    // Update: add field B with condition on field A = true
+    await apiCall(page, 'PUT', 'updateTemplate/' + tpl.id, {
+      name: 'Conditional Checkbox Test',
+      sections: [{ title: 'Tasks', order: 0, condition: null, fields: [
+        { id: fieldAId, type: 'checkbox', label: 'Field A', required: false, order: 0, config: null, fail_trigger: null, condition: null },
+        { type: 'checkbox', label: 'Field B (conditional)', required: false, order: 1, config: null, fail_trigger: null,
+          condition: { field_id: fieldAId, operator: 'equals', value: 'true' } },
+      ]}],
+      schedules: [{ active_days: [todayDOW] }],
+      requires_approval: false,
+      assignments: [{ assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' }]
+    });
+
+    await page.reload();
+    await page.waitForSelector('#checklist-list .row', { timeout: 10000 });
+    await page.locator('#checklist-list .row', { hasText: 'Conditional Checkbox Test' }).first().click();
+    await page.waitForSelector('#fill-body .fill-field');
+
+    // Initially only Field A should be visible
+    await expect(page.locator('.fill-field-label', { hasText: 'Field A' })).toBeVisible();
+    await expect(page.locator('.fill-field-label', { hasText: 'Field B' })).not.toBeVisible();
+
+    // Check Field A
+    await page.locator('.check-btn').first().click();
+    await page.waitForTimeout(500);
+
+    // Field B should appear immediately without page refresh
+    await expect(page.locator('.fill-field-label', { hasText: 'Field B' })).toBeVisible({ timeout: 3000 });
+  });
+
   test('conditional field appears after dependent text field is filled', async ({ page }) => {
     await login(page);
     await page.goto(BASE + '/workflows.html');
@@ -1449,6 +1538,165 @@ test.describe('Loading states', () => {
 
     // Progress should show 1/1, not 0/1
     await expect(page.locator('.progress-line')).toContainText('1 of 1');
+  });
+
+  test('submitted checklist survives builder edit with assignment change', async ({ page }) => {
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await cleanupTemplates(page);
+    await cleanupPendingApprovals(page);
+
+    const todayDOW = await getTodayDOW(page);
+    // Create template assigned to admin only
+    const result = await apiCall(page, 'POST', 'createTemplate', {
+      name: 'Builder Edit Survive',
+      sections: [{ title: 'Tasks', order: 0, condition: null, fields: [
+        { type: 'checkbox', label: 'Do the thing', required: false, order: 0, config: null, fail_trigger: null, condition: null },
+      ]}],
+      schedules: [{ active_days: [todayDOW] }],
+      requires_approval: true,
+      assignments: [
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' },
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'approver' },
+      ]
+    });
+
+    // Open, check, submit
+    await page.reload();
+    await page.waitForSelector('#checklist-list .row', { timeout: 10000 });
+    await page.locator('#checklist-list .row', { hasText: 'Builder Edit Survive' }).first().click();
+    await page.waitForSelector('#fill-body .fill-field');
+    await page.locator('.check-btn').first().click();
+    await page.waitForTimeout(1500);
+    await page.click('[data-action="submit"]');
+    await page.waitForTimeout(2000);
+
+    // Now edit in Builder — add team_member as assignee (triggers replaceTemplate)
+    await page.click('#fill-back');
+    await page.waitForTimeout(500);
+    await page.click('#t3');
+    await expect(page.locator('#s3')).toBeVisible();
+    await expect(page.locator('#builder-list .row', { hasText: 'Builder Edit Survive' })).toBeVisible({ timeout: 5000 });
+    await page.locator('#builder-list .row', { hasText: 'Builder Edit Survive' }).first().click();
+    await page.waitForSelector('#builder-body');
+
+    // Just re-save without changes (triggers replaceTemplate)
+    await page.click('#save-btn');
+    await expect(page.locator('#builder-list')).toBeVisible({ timeout: 5000 });
+
+    // Go back to My Checklists and open
+    await page.click('#t1');
+    await page.waitForTimeout(1000);
+    await page.reload();
+    await page.waitForSelector('#checklist-list .row', { timeout: 10000 });
+    await page.locator('#checklist-list .row', { hasText: 'Builder Edit Survive' }).first().click();
+    await page.waitForSelector('#fill-body');
+    await page.waitForTimeout(500);
+
+    // Should still show 1/1 complete, not 0/1
+    await expect(page.locator('.progress-line')).toContainText('1 of 1');
+  });
+
+  test('draft responses survive template update (assignment change)', async ({ page }) => {
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await cleanupTemplates(page);
+
+    const todayDOW = await getTodayDOW(page);
+    const result = await apiCall(page, 'POST', 'createTemplate', {
+      name: 'Draft Survive Test',
+      sections: [{ title: 'Tasks', order: 0, condition: null, fields: [
+        { type: 'checkbox', label: 'Check me', required: false, order: 0, config: null, fail_trigger: null, condition: null },
+      ]}],
+      schedules: [{ active_days: [todayDOW] }],
+      requires_approval: false,
+      assignments: [{ assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' }]
+    });
+
+    // Open checklist and check the item (creates a draft response)
+    await page.reload();
+    await page.waitForSelector('#checklist-list .row', { timeout: 10000 });
+    await page.locator('#checklist-list .row', { hasText: 'Draft Survive Test' }).first().click();
+    await page.waitForSelector('#fill-body .fill-field');
+    await page.locator('.check-btn').first().click();
+    await page.waitForTimeout(2000); // wait for auto-save
+
+    // Go back to list
+    await page.click('#fill-back');
+    await page.waitForTimeout(500);
+
+    // Update template in builder — just add an approver (triggers replaceTemplate)
+    const templates = await apiCall(page, 'GET', 'templates');
+    const tpl = templates.find(t => t.name === 'Draft Survive Test');
+    await apiCall(page, 'PUT', 'updateTemplate/' + tpl.id, {
+      name: 'Draft Survive Test',
+      sections: [{ title: 'Tasks', order: 0, condition: null, fields: [
+        { id: tpl.sections[0].fields[0].id, type: 'checkbox', label: 'Check me', required: false, order: 0, config: null, fail_trigger: null, condition: null },
+      ]}],
+      schedules: [{ active_days: [todayDOW] }],
+      requires_approval: true,
+      assignments: [
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' },
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'approver' },
+      ]
+    });
+
+    // Reload and open checklist — draft response should survive
+    await page.reload();
+    await page.waitForSelector('#checklist-list .row', { timeout: 10000 });
+    await page.locator('#checklist-list .row', { hasText: 'Draft Survive Test' }).first().click();
+    await page.waitForSelector('#fill-body .fill-field');
+
+    // Checkbox should still be checked
+    await expect(page.locator('.check-btn.checked')).toBeVisible({ timeout: 5000 });
+  });
+
+  test('unsubmit returns checklist to editable draft', async ({ page }) => {
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await cleanupTemplates(page);
+    await cleanupPendingApprovals(page);
+
+    const todayDOW = await getTodayDOW(page);
+    await apiCall(page, 'POST', 'createTemplate', {
+      name: 'Unsubmit Test',
+      sections: [{ title: 'Tasks', order: 0, condition: null, fields: [
+        { type: 'checkbox', label: 'Check this', required: false, order: 0, config: null, fail_trigger: null, condition: null },
+      ]}],
+      schedules: [{ active_days: [todayDOW] }],
+      requires_approval: true,
+      assignments: [
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' },
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'approver' },
+      ]
+    });
+
+    await page.reload();
+    await page.waitForSelector('#checklist-list .row', { timeout: 10000 });
+    await page.locator('#checklist-list .row', { hasText: 'Unsubmit Test' }).first().click();
+    await page.waitForSelector('#fill-body .fill-field');
+
+    // Check item and submit
+    await page.locator('.check-btn').first().click();
+    await page.waitForTimeout(1500);
+    await page.click('[data-action="submit"]');
+    await page.waitForTimeout(2000);
+
+    // Should show "Pending Approval" with Unsubmit button
+    await expect(page.locator('[data-action="unsubmit"]')).toBeVisible({ timeout: 5000 });
+
+    // Unsubmit — accept confirm dialog
+    page.once('dialog', async dialog => await dialog.accept());
+    await page.click('[data-action="unsubmit"]');
+
+    // Should show success toast
+    await expect(page.locator('#toast')).toBeVisible({ timeout: 5000 });
+
+    // Submit button should be visible again (editable state)
+    await expect(page.locator('[data-action="submit"]')).toBeVisible({ timeout: 5000 });
+
+    // Checkbox should still be checked (response restored as draft)
+    await expect(page.locator('.check-btn.checked')).toBeVisible();
   });
 
   test('incomplete submit shows confirmation prompt', async ({ page }) => {
