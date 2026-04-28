@@ -954,7 +954,7 @@ function renderItemsList(){
       return '<div class="item-edit-form" data-item-id="'+it.id+'">'+
         '<div class="field-group"><div class="field-label">Name</div><input type="text" class="field-input item-edit-name" value="'+escHtml(it.description)+'"></div>'+
         '<div class="field-group"><div class="field-label">Group</div><select class="field-input item-edit-group">'+groupOpts.replace('value="'+(it.group_id||'')+'"','value="'+(it.group_id||'')+'" selected')+'</select></div>'+
-        '<div class="field-group"><div class="field-label">Store Location</div><input type="text" class="field-input item-edit-location" value="'+escHtml(it.store_location||'')+'" placeholder="e.g. Giant, Restaurant Depot"></div>'+
+        '<div class="field-group"><div class="field-label">Store Location</div><select class="field-input item-edit-location"><option value="">— None —</option>'+VENDORS.slice().sort(function(a,b){return a.name.localeCompare(b.name);}).map(function(v){return '<option value="'+escHtml(v.name)+'"'+(it.store_location===v.name?' selected':'')+'>'+escHtml(v.name)+'</option>';}).join('')+'<option value="__new__">+ Add new</option></select></div>'+
         '<div class="review-actions" style="margin-top:8px">'+
           '<button class="btn-primary" data-action="save-item" data-id="'+it.id+'">Save</button>'+
           '<button class="btn-secondary" data-action="cancel-edit-item">Cancel</button>'+
@@ -1071,6 +1071,12 @@ function showToastMessage(msg){
 document.getElementById('items-list').addEventListener('change',function(e){
   var sel=e.target;
   if(sel.value!=='__new__')return;
+  if(sel.classList.contains('item-edit-location')){
+    showSetupSub(2);
+    var input=document.getElementById('new-vendor-name');
+    if(input)input.focus();
+    return;
+  }
   handleNewGroup(sel);
 });
 
@@ -1096,7 +1102,8 @@ document.getElementById('items-list').addEventListener('click',function(e){
     var itemId=el.dataset.id;
     var newName=form.querySelector('.item-edit-name').value.trim();
     var newGroupId=form.querySelector('.item-edit-group').value||null;
-    var newLocation=form.querySelector('.item-edit-location').value.trim()||null;
+    var locVal=form.querySelector('.item-edit-location').value;
+    var newLocation=(locVal&&locVal!=='__new__')?locVal.trim():null;
     if(!newName)return;
     api('/api/v1/inventory/items',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:itemId,description:newName,group_id:newGroupId,store_location:newLocation})}).then(function(){
       ITEM_EDIT_ID=null;
@@ -1303,6 +1310,7 @@ document.addEventListener('DOMContentLoaded',async function(){
   // Preload items for review form dropdowns
   try{var data=await api('/api/v1/inventory/items');ALL_ITEMS=data||[];}catch(e){}
   try{var g=await api('/api/v1/inventory/groups');ITEM_GROUPS=g||[];}catch(e){}
+  try{var v=await api('/api/v1/inventory/vendors');VENDORS=v||[];}catch(e){}
   var hashTab=(location.hash.match(/tab=(\d+)/)||[])[1];
   var hashItem=decodeURIComponent((location.hash.match(/item=([^&]+)/)||[])[1]||'');
   if(hashItem&&ALL_ITEMS.length){

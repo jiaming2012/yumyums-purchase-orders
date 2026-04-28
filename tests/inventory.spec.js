@@ -1679,6 +1679,9 @@ test.describe('Inventory', () => {
     const groups = await invApiCall(page, 'GET', 'groups');
     const gid = groups && groups.length ? groups[0].id : null;
     if (!gid) return;
+    // Ensure a vendor exists to select as store location
+    const vendorName = 'Costco ' + ts;
+    await invApiCall(page, 'POST', 'vendors', { name: vendorName });
     const itemName = 'Loc Edit Item ' + ts;
     await invApiCall(page, 'POST', 'items', { description: itemName, group_id: gid });
     await page.reload();
@@ -1692,8 +1695,8 @@ test.describe('Inventory', () => {
     // Tap item to expand edit form
     await page.locator('.item-row', { hasText: itemName }).click();
     await expect(page.locator('.item-edit-location')).toBeVisible();
-    // Fill in store location and save
-    await page.fill('.item-edit-location', 'Costco');
+    // Select store location from dropdown and save
+    await page.locator('.item-edit-location').selectOption(vendorName);
     await page.click('[data-action="save-item"]');
     // Wait for list to reload
     await page.waitForFunction((name) => {
@@ -1701,9 +1704,9 @@ test.describe('Inventory', () => {
       for (const r of rows) if (r.textContent.includes(name)) return true;
       return false;
     }, itemName, { timeout: 5000 });
-    // Verify the item now shows Costco as location
+    // Verify the item now shows vendor as location
     const itemRow = page.locator('.item-row', { hasText: itemName });
-    await expect(itemRow.locator('.item-group-label')).toHaveText('Costco');
+    await expect(itemRow.locator('.item-group-label')).toHaveText(vendorName);
     // Reload and verify persistence
     await page.reload();
     await page.waitForLoadState('networkidle');
@@ -1714,7 +1717,66 @@ test.describe('Inventory', () => {
       return false;
     }, itemName, { timeout: 8000 });
     const itemRowAfter = page.locator('.item-row', { hasText: itemName });
-    await expect(itemRowAfter.locator('.item-group-label')).toHaveText('Costco');
+    await expect(itemRowAfter.locator('.item-group-label')).toHaveText(vendorName);
+  });
+
+  // ── Store location dropdown ─────────────────────────────────────────
+
+  test('store location edit form shows dropdown with vendor names and + Add new option', async ({ page }) => {
+    const ts = Date.now();
+    const groups = await invApiCall(page, 'GET', 'groups');
+    const gid = groups && groups.length ? groups[0].id : null;
+    if (!gid) return;
+    // Create a vendor and an item
+    const vendorName = 'Drop Vendor ' + ts;
+    await invApiCall(page, 'POST', 'vendors', { name: vendorName });
+    const itemName = 'Drop Test ' + ts;
+    await invApiCall(page, 'POST', 'items', { description: itemName, group_id: gid });
+    await page.reload();
+    await page.waitForLoadState('networkidle');
+    await page.locator('#t5').click();
+    await page.waitForFunction((name) => {
+      const rows = document.querySelectorAll('#items-list .item-row');
+      for (const r of rows) if (r.textContent.includes(name)) return true;
+      return false;
+    }, itemName, { timeout: 10000 });
+    // Expand item edit form
+    await page.locator('.item-row', { hasText: itemName }).click();
+    // Store location should be a <select>, not a text input
+    const sel = page.locator('.item-edit-location');
+    await expect(sel).toBeVisible();
+    expect(await sel.evaluate(el => el.tagName.toLowerCase())).toBe('select');
+    // Should contain the vendor name as an option
+    const opts = await sel.locator('option').allTextContents();
+    expect(opts).toContain(vendorName);
+    // Should have a "+ Add new" option
+    expect(opts.some(o => o.includes('Add'))).toBeTruthy();
+  });
+
+  test('store location "+ Add new" navigates to Vendors sub-tab and focuses new vendor input', async ({ page }) => {
+    const ts = Date.now();
+    const groups = await invApiCall(page, 'GET', 'groups');
+    const gid = groups && groups.length ? groups[0].id : null;
+    if (!gid) return;
+    const itemName = 'Add Loc Test ' + ts;
+    await invApiCall(page, 'POST', 'items', { description: itemName, group_id: gid });
+    await page.reload();
+    await page.waitForLoadState('networkidle');
+    await page.locator('#t5').click();
+    await page.waitForFunction((name) => {
+      const rows = document.querySelectorAll('#items-list .item-row');
+      for (const r of rows) if (r.textContent.includes(name)) return true;
+      return false;
+    }, itemName, { timeout: 10000 });
+    // Expand item edit form
+    await page.locator('.item-row', { hasText: itemName }).click();
+    // Select "+ Add new" from store location dropdown
+    await page.locator('.item-edit-location').selectOption('__new__');
+    // Should switch to Vendors sub-tab
+    await expect(page.locator('#cs2')).toBeVisible();
+    // New vendor name input should be focused
+    const focused = await page.evaluate(() => document.activeElement?.id);
+    expect(focused).toBe('new-vendor-name');
   });
 
   // ── Magic link: Stock → Setup ─────────────────────────────────────────
