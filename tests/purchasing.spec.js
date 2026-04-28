@@ -690,6 +690,35 @@ test.describe('Item picker store_location enforcement', () => {
 
 });
 
+// ── Item card → Inventory Setup deep link ────────────────────────────────
+
+test.describe('Item card Setup deep link', () => {
+  test.beforeEach(async ({ page }) => {
+    await login(page);
+    await page.goto('/purchasing.html');
+    await page.waitForLoadState('networkidle');
+  });
+
+  test('clicking item info on Order tab navigates to Inventory Setup with item expanded', async ({ page }) => {
+    // Wait for order to render with at least one item
+    const itemInfo = page.locator('.item-info[data-action="goto-setup"]').first();
+    await expect(itemInfo).toBeVisible({ timeout: 10000 });
+    const itemName = await itemInfo.locator('.nm').textContent();
+    // Click the item info area
+    await itemInfo.click();
+    // Should navigate to inventory.html
+    await page.waitForURL(/inventory\.html/, { timeout: 5000 });
+    // URL hash should contain the item name
+    const hash = await page.evaluate(() => location.hash);
+    expect(hash).toContain('tab=5');
+    expect(hash).toContain('item=');
+    // Setup tab should be visible with the item edit form
+    await page.waitForSelector('.item-edit-form', { timeout: 10000 });
+    const editName = await page.locator('.item-edit-name').inputValue();
+    expect(editName.toLowerCase()).toBe(itemName.toLowerCase());
+  });
+});
+
 // ── Regression: suggestions load on purchasing.html ──────────────────────
 
 test.describe('Purchasing Suggestions', () => {
