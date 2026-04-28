@@ -640,6 +640,27 @@ test.describe('Item picker store_location enforcement', () => {
     expect(count).toBeGreaterThanOrEqual(35);
   });
 
+  test('item picker stays open after scrolling to bottom of list', async ({ page }) => {
+    // Open item picker
+    await page.waitForSelector('[data-action="open-picker"]', { timeout: 5000 });
+    await page.click('[data-action="open-picker"]');
+    await page.waitForSelector('#item-modal.open', { timeout: 3000 });
+
+    // Clear search to show all items
+    await page.fill('#picker-search', '');
+    await page.waitForTimeout(300);
+
+    // Scroll the picker list to the very bottom
+    await page.evaluate(() => {
+      var list = document.getElementById('picker-list');
+      list.scrollTop = list.scrollHeight;
+    });
+    await page.waitForTimeout(500);
+
+    // Modal must still be open
+    await expect(page.locator('#item-modal.open')).toBeVisible();
+  });
+
   test('addItemToPO guard blocks items without store_location via toast', async ({ page }) => {
     // Create item without store_location
     const groups = await invApiCall(page, 'GET', 'groups');

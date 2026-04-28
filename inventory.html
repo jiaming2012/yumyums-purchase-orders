@@ -1304,7 +1304,18 @@ document.addEventListener('DOMContentLoaded',async function(){
   try{var data=await api('/api/v1/inventory/items');ALL_ITEMS=data||[];}catch(e){}
   try{var g=await api('/api/v1/inventory/groups');ITEM_GROUPS=g||[];}catch(e){}
   var hashTab=(location.hash.match(/tab=(\d+)/)||[])[1];
+  var hashItem=decodeURIComponent((location.hash.match(/item=([^&]+)/)||[])[1]||'');
+  if(hashItem&&ALL_ITEMS.length){
+    var match=ALL_ITEMS.find(function(it){return it.description===hashItem;});
+    if(match)ITEM_EDIT_ID=match.id;
+  }
   show(hashTab?+hashTab:1);
+  if(ITEM_EDIT_ID){
+    setTimeout(function(){
+      var form=document.querySelector('.item-edit-form[data-item-id="'+ITEM_EDIT_ID+'"]');
+      if(form)form.scrollIntoView({behavior:'smooth',block:'center'});
+    },300);
+  }
   loadVendors();
   loadHistory();
   loadStock();

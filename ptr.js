@@ -21,7 +21,16 @@ if('serviceWorker' in navigator){
     }
     return indicator;
   }
+  function insideScrollable(el){
+    while(el&&el!==document.body){
+      var ov=getComputedStyle(el).overflowY;
+      if(ov==='auto'||ov==='scroll')return true;
+      el=el.parentElement;
+    }
+    return false;
+  }
   document.addEventListener('touchstart',function(e){
+    if(insideScrollable(e.target))return;
     if(window.scrollY===0&&e.touches.length===1){
       startY=e.touches[0].pageY;
       pulling=true;
