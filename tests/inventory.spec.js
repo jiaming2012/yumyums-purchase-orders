@@ -1798,6 +1798,38 @@ test.describe('Inventory', () => {
     expect(nameVal.toLowerCase()).toContain('new setup item');
   });
 
+  // ── Store location non-vendor value preservation ────────────────────
+
+  test('item with non-vendor store_location shows current value in dropdown, not None', async ({ page }) => {
+    const ts = Date.now();
+    const groups = await invApiCall(page, 'GET', 'groups');
+    const gid = groups && groups.length ? groups[0].id : null;
+    if (!gid) return;
+    // Create item and set store_location to a non-vendor value via API
+    const itemName = 'Aisle Item ' + ts;
+    const created = await invApiCall(page, 'POST', 'items', { description: itemName, group_id: gid });
+    await invApiCall(page, 'PUT', 'items', {
+      id: created.id, description: itemName, group_id: gid,
+      store_location: 'Center Aisle Back Of Store'
+    });
+    await page.reload();
+    await page.waitForLoadState('networkidle');
+    await page.locator('#t5').click();
+    await page.waitForFunction((name) => {
+      const rows = document.querySelectorAll('#items-list .item-row');
+      for (const r of rows) if (r.textContent.includes(name)) return true;
+      return false;
+    }, itemName, { timeout: 10000 });
+    // Open edit form
+    await page.locator('.item-row', { hasText: itemName }).click();
+    await expect(page.locator('.item-edit-location')).toBeVisible();
+    // The dropdown should show the current non-vendor value, not "— None —"
+    const selectedText = await page.locator('.item-edit-location').evaluate(
+      el => el.options[el.selectedIndex].text
+    );
+    expect(selectedText).toContain('Center Aisle');
+  });
+
   // ── Store location dropdown ─────────────────────────────────────────
 
   test('store location edit form shows dropdown with vendor names and + Add new option', async ({ page }) => {

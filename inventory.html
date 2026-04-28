@@ -981,7 +981,7 @@ function renderItemsList(){
         photoArea+
         '<div class="field-group"><div class="field-label">Name</div><input type="text" class="field-input item-edit-name" value="'+escHtml(it.description)+'"></div>'+
         '<div class="field-group"><div class="field-label">Group</div><select class="field-input item-edit-group">'+groupOpts.replace('value="'+(it.group_id||'')+'"','value="'+(it.group_id||'')+'" selected')+'</select></div>'+
-        '<div class="field-group"><div class="field-label">Store Location</div><select class="field-input item-edit-location"><option value="">— None —</option>'+VENDORS.slice().sort(function(a,b){return a.name.localeCompare(b.name);}).map(function(v){return '<option value="'+escHtml(v.name)+'"'+(it.store_location===v.name?' selected':'')+'>'+escHtml(v.name)+'</option>';}).join('')+'<option value="__new__">+ Add new</option></select></div>'+
+        '<div class="field-group"><div class="field-label">Store Location</div><select class="field-input item-edit-location"><option value="">— None —</option>'+(it.store_location&&!VENDORS.some(function(v){return v.name===it.store_location;})?'<option value="'+escHtml(it.store_location)+'" selected>'+escHtml(it.store_location)+'</option>':'')+VENDORS.slice().sort(function(a,b){return a.name.localeCompare(b.name);}).map(function(v){return '<option value="'+escHtml(v.name)+'"'+(it.store_location===v.name?' selected':'')+'>'+escHtml(v.name)+'</option>';}).join('')+'<option value="__new__">+ Add new</option></select></div>'+
         '<div class="review-actions" style="margin-top:8px">'+
           '<button class="btn-primary" data-action="save-item" data-id="'+it.id+'">Save</button>'+
           '<button class="btn-secondary" data-action="cancel-edit-item">Cancel</button>'+
