@@ -215,9 +215,10 @@ None yet.
 | 260421-iug | Move Stock tab before Trends in inventory.html | 2026-04-21 | ab6806f | [260421-iug-move-the-stock-tab-before-trends-in-inve](./quick/260421-iug-move-the-stock-tab-before-trends-in-inve/) |
 | 260422-not | Move stock level classification to shared Go backend function | 2026-04-22 | 6a974ac | [260422-not-shared-stock-level-classification-move-f](./quick/260422-not-shared-stock-level-classification-move-f/) |
 | 260428-g36 | Remove 30-item cap from item picker renderPickerList | 2026-04-28 | 4cf4ea0 | [260428-g36-picker-item-cap](./quick/260428-g36-picker-item-cap/) |
+| 260428-j2r | Add photo upload/change to Inventory Setup item edit form | 2026-04-28 | f7ed57c | [260428-j2r-photo-upload-on-inventory-setup](./quick/260428-j2r-photo-upload-on-inventory-setup/) |
 
 ## Session Continuity
 
-Last session: 2026-04-28T15:35:00.134Z
-Stopped at: Completed quick task 260428-g36
+Last session: 2026-04-28T17:44:07.164Z
+Stopped at: Completed quick task 260428-j2r
 Resume file: None
