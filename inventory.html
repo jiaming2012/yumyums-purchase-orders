@@ -982,6 +982,7 @@ function renderItemsList(){
         '<div class="field-group"><div class="field-label">Name</div><input type="text" class="field-input item-edit-name" value="'+escHtml(it.description)+'"></div>'+
         '<div class="field-group"><div class="field-label">Group</div><select class="field-input item-edit-group">'+groupOpts.replace('value="'+(it.group_id||'')+'"','value="'+(it.group_id||'')+'" selected')+'</select></div>'+
         '<div class="field-group"><div class="field-label">Store Location</div><select class="field-input item-edit-location"><option value="">— None —</option>'+(it.store_location&&!VENDORS.some(function(v){return v.name===it.store_location;})?'<option value="'+escHtml(it.store_location)+'" selected>'+escHtml(it.store_location)+'</option>':'')+VENDORS.slice().sort(function(a,b){return a.name.localeCompare(b.name);}).map(function(v){return '<option value="'+escHtml(v.name)+'"'+(it.store_location===v.name?' selected':'')+'>'+escHtml(v.name)+'</option>';}).join('')+'<option value="__new__">+ Add new</option></select></div>'+
+        '<div class="field-group"><div class="field-label">Location in Store</div><input type="text" class="field-input item-edit-in-store" value="'+escHtml(it.location_in_store||'')+'" placeholder="e.g. Center Aisle, Back of Store"></div>'+
         '<div class="review-actions" style="margin-top:8px">'+
           '<button class="btn-primary" data-action="save-item" data-id="'+it.id+'">Save</button>'+
           '<button class="btn-secondary" data-action="cancel-edit-item">Cancel</button>'+
@@ -1139,7 +1140,9 @@ document.getElementById('items-list').addEventListener('click',function(e){
     if(!newName)return;
     var currentItem=ALL_ITEMS.find(function(it){return it.id===itemId;});
     var photoUrl=currentItem?currentItem.photo_url||null:null;
-    api('/api/v1/inventory/items',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:itemId,description:newName,group_id:newGroupId,store_location:newLocation,photo_url:photoUrl})}).then(function(){
+    var inStoreEl=form.querySelector('.item-edit-in-store');
+    var locationInStore=inStoreEl?inStoreEl.value.trim()||null:null;
+    api('/api/v1/inventory/items',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:itemId,description:newName,group_id:newGroupId,store_location:newLocation,photo_url:photoUrl,location_in_store:locationInStore})}).then(function(){
       ITEM_EDIT_ID=null;
       loadItems();
     }).catch(function(err){console.error('updateItem',err);});

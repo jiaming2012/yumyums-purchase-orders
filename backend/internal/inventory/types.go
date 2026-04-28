@@ -34,8 +34,9 @@ type PurchaseItem struct {
 	Description   string  `json:"description"`
 	GroupID       *string `json:"group_id,omitempty"`
 	GroupName     *string `json:"group_name,omitempty"`
-	StoreLocation *string `json:"store_location,omitempty"`
-	PhotoURL      *string `json:"photo_url,omitempty"`
+	StoreLocation   *string `json:"store_location,omitempty"`
+	LocationInStore *string `json:"location_in_store,omitempty"`
+	PhotoURL        *string `json:"photo_url,omitempty"`
 }
 
 // ItemGroupWithItems is an item group with its items included.
