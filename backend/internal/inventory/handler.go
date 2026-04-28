@@ -810,7 +810,7 @@ func SeedPendingPurchaseHandler(pool *pgxpool.Pool) http.HandlerFunc {
 func ListItemsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		rows, err := pool.Query(r.Context(), `
-			SELECT pi.id, pi.description, pi.group_id, ig.name, pi.store_location
+			SELECT pi.id, pi.description, pi.group_id, ig.name, pi.store_location, pi.photo_url
 			FROM purchase_items pi
 			LEFT JOIN item_groups ig ON ig.id = pi.group_id
 			ORDER BY pi.description`)
@@ -824,7 +824,7 @@ func ListItemsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		items := []PurchaseItem{}
 		for rows.Next() {
 			var item PurchaseItem
-			if err := rows.Scan(&item.ID, &item.Description, &item.GroupID, &item.GroupName, &item.StoreLocation); err != nil {
+			if err := rows.Scan(&item.ID, &item.Description, &item.GroupID, &item.GroupName, &item.StoreLocation, &item.PhotoURL); err != nil {
 				log.Printf("ListItems scan: %v", err)
 				writeError(w, http.StatusInternalServerError, "internal_error")
 				return
@@ -881,6 +881,7 @@ func UpdateItemHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			Description   string  `json:"description"`
 			GroupID       *string `json:"group_id,omitempty"`
 			StoreLocation *string `json:"store_location"`
+			PhotoURL      *string `json:"photo_url"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid_json")
@@ -891,8 +892,8 @@ func UpdateItemHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 		tag, err := pool.Exec(r.Context(), `
-			UPDATE purchase_items SET description = $1, group_id = $2, store_location = $3 WHERE id = $4`,
-			input.Description, input.GroupID, input.StoreLocation, input.ID,
+			UPDATE purchase_items SET description = $1, group_id = $2, store_location = $3, photo_url = $4 WHERE id = $5`,
+			input.Description, input.GroupID, input.StoreLocation, input.PhotoURL, input.ID,
 		)
 		if err != nil {
 			log.Printf("UpdateItem update: %v", err)

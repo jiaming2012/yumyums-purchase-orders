@@ -219,6 +219,7 @@ select.field-input{appearance:none;-webkit-appearance:none;padding-right:36px;ba
     <div id="cs1">
       <input id="item-search" class="filter-select" type="text" placeholder="Search items..." autocomplete="off">
       <div id="items-list"></div>
+      <input type="file" id="item-photo-input" accept="image/*" style="display:none">
     </div>
     <div id="cs2" style="display:none">
       <div class="add-item-bar">
@@ -298,6 +299,7 @@ let ALL_ITEMS=[];
 let ITEM_GROUPS=[];
 let ITEM_SEARCH='';
 let ITEM_EDIT_ID=null;
+let ITEM_PHOTO_EDIT_ID=null;
 let CATALOG_SUB=1;
 let VENDOR_EDIT_ID=null;
 let VENDORS=[];
@@ -306,6 +308,19 @@ let HISTORY_LOADING=false;
 let HISTORY_HAS_MORE=true;
 
 const LEVEL_ORDER={low:0,medium:1,high:2,unknown:3};
+
+function convertToJpeg(file,maxDim,quality,cb){
+  var img=new Image();
+  img.onload=function(){
+    var w=img.width,h=img.height;
+    if(maxDim&&(w>maxDim||h>maxDim)){var ratio=Math.min(maxDim/w,maxDim/h);w=Math.round(w*ratio);h=Math.round(h*ratio);}
+    var c=document.createElement('canvas');c.width=w;c.height=h;
+    c.getContext('2d').drawImage(img,0,0,w,h);
+    c.toBlob(function(blob){URL.revokeObjectURL(img.src);cb(blob,c.toDataURL('image/jpeg',quality));
+    },'image/jpeg',quality||0.85);
+  };
+  img.src=URL.createObjectURL(file);
+}
 
 function isAdmin(){
   if(!CURRENT_USER)return false;
@@ -954,7 +969,16 @@ function renderItemsList(){
   function renderItemRow(it){
     if(ITEM_EDIT_ID===it.id){
       var mergeItemOpts=filtered.filter(function(oi){return oi.id!==it.id;}).map(function(oi){return '<option value="'+oi.id+'">'+escHtml(oi.description)+'</option>';}).join('');
+      var photoArea='<div class="item-photo-area" style="display:flex;align-items:center;gap:12px;margin-bottom:12px">';
+      if(it.photo_url){
+        photoArea+='<img src="'+escHtml(it.photo_url)+'" style="width:48px;height:48px;border-radius:8px;object-fit:cover" class="item-photo-thumb">';
+      } else {
+        var letter=it.description?it.description.charAt(0).toUpperCase():'?';
+        photoArea+='<div style="width:48px;height:48px;border-radius:8px;background:var(--brd);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:600;color:var(--mut)" class="item-photo-thumb">'+letter+'</div>';
+      }
+      photoArea+='<a href="#" class="item-photo-change" data-action="change-item-photo" data-id="'+it.id+'" style="font-size:13px;color:var(--link,#007aff)">'+(it.photo_url?'Change photo':'Add photo')+'</a></div>';
       return '<div class="item-edit-form" data-item-id="'+it.id+'">'+
+        photoArea+
         '<div class="field-group"><div class="field-label">Name</div><input type="text" class="field-input item-edit-name" value="'+escHtml(it.description)+'"></div>'+
         '<div class="field-group"><div class="field-label">Group</div><select class="field-input item-edit-group">'+groupOpts.replace('value="'+(it.group_id||'')+'"','value="'+(it.group_id||'')+'" selected')+'</select></div>'+
         '<div class="field-group"><div class="field-label">Store Location</div><select class="field-input item-edit-location"><option value="">— None —</option>'+VENDORS.slice().sort(function(a,b){return a.name.localeCompare(b.name);}).map(function(v){return '<option value="'+escHtml(v.name)+'"'+(it.store_location===v.name?' selected':'')+'>'+escHtml(v.name)+'</option>';}).join('')+'<option value="__new__">+ Add new</option></select></div>'+
@@ -967,7 +991,8 @@ function renderItemsList(){
         '<button class="btn-secondary" data-action="merge-item" data-id="'+it.id+'" style="color:var(--warn-tx)">Merge</button></div></div>':'')+
         '</div>';
     }
-    return '<div class="item-row" data-action="tap-item" data-id="'+it.id+'"><span class="item-name">'+escHtml(it.description)+'</span>'+
+    var thumb=it.photo_url?'<img src="'+escHtml(it.photo_url)+'" style="width:24px;height:24px;border-radius:4px;object-fit:cover;margin-right:8px;vertical-align:middle">':'';
+    return '<div class="item-row" data-action="tap-item" data-id="'+it.id+'">'+thumb+'<span class="item-name">'+escHtml(it.description)+'</span>'+
       '<span class="item-group-label">'+(it.store_location?escHtml(it.store_location):'—')+'</span></div>';
   }
 
@@ -1112,7 +1137,9 @@ document.getElementById('items-list').addEventListener('click',function(e){
     var locVal=form.querySelector('.item-edit-location').value;
     var newLocation=(locVal&&locVal!=='__new__')?locVal.trim():null;
     if(!newName)return;
-    api('/api/v1/inventory/items',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:itemId,description:newName,group_id:newGroupId,store_location:newLocation})}).then(function(){
+    var currentItem=ALL_ITEMS.find(function(it){return it.id===itemId;});
+    var photoUrl=currentItem?currentItem.photo_url||null:null;
+    api('/api/v1/inventory/items',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:itemId,description:newName,group_id:newGroupId,store_location:newLocation,photo_url:photoUrl})}).then(function(){
       ITEM_EDIT_ID=null;
       loadItems();
     }).catch(function(err){console.error('updateItem',err);});
@@ -1148,11 +1175,50 @@ document.getElementById('items-list').addEventListener('click',function(e){
       ITEM_EDIT_ID=null;
       loadItems();
     }).catch(function(err){console.error('mergeItem',err);});
+  } else if(action==='change-item-photo'){
+    e.preventDefault();
+    ITEM_PHOTO_EDIT_ID=el.dataset.id;
+    document.getElementById('item-photo-input').click();
   } else if(action==='cancel-edit-item'){
     ITEM_EDIT_ID=null;
     renderItemsList();
   }
 });
+
+// ── Item photo upload ────────────────────────────────────────────────────
+
+document.getElementById('item-photo-input').addEventListener('change',function(e){
+  var file=e.target.files[0];
+  if(!file||!ITEM_PHOTO_EDIT_ID)return;
+  var itemId=ITEM_PHOTO_EDIT_ID;
+  convertToJpeg(file,1600,0.85,function(jpegBlob){
+    uploadItemPhoto(jpegBlob,itemId);
+  });
+  e.target.value='';
+});
+
+async function uploadItemPhoto(jpegBlob,itemId){
+  var toast=document.createElement('div');
+  toast.style.cssText='position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:var(--card);padding:10px 20px;border-radius:8px;font-size:13px;font-weight:500;z-index:99999;box-shadow:0 4px 12px rgba(0,0,0,0.3)';
+  toast.textContent='Uploading photo...';
+  document.body.appendChild(toast);
+  try{
+    var form=new FormData();
+    form.append('path_prefix','items');
+    form.append('id',itemId);
+    form.append('filename',itemId+'.jpg');
+    form.append('file',jpegBlob,itemId+'.jpg');
+    var resp=await api('/api/v1/photos/upload',{method:'POST',body:form});
+    var item=ALL_ITEMS.find(function(it){return it.id===itemId;});
+    if(item)item.photo_url=resp.public_url;
+    toast.remove();
+    renderItemsList();
+  }catch(e){
+    console.error('Item photo upload failed:',e);
+    toast.textContent='Upload failed';
+    setTimeout(function(){toast.remove();},3000);
+  }
+}
 
 // ── Badge Reset Config (admin-only) ─────────────────────────────────────
 

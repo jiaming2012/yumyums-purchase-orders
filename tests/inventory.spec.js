@@ -1720,6 +1720,34 @@ test.describe('Inventory', () => {
     await expect(itemRowAfter.locator('.item-group-label')).toHaveText(vendorName);
   });
 
+  // ── Setup: Photo thumbnail in edit form ─────────────────────────────
+
+  test('item edit form shows photo thumbnail area and change photo link', async ({ page }) => {
+    const ts = Date.now();
+    const groups = await invApiCall(page, 'GET', 'groups');
+    const gid = groups && groups.length ? groups[0].id : null;
+    if (!gid) return;
+    const itemName = 'Photo Test Item ' + ts;
+    await invApiCall(page, 'POST', 'items', { description: itemName, group_id: gid });
+    await page.reload();
+    await page.waitForLoadState('networkidle');
+    await page.locator('#t5').click();
+    await page.waitForFunction((name) => {
+      const rows = document.querySelectorAll('#items-list .item-row');
+      for (const r of rows) if (r.textContent.includes(name)) return true;
+      return false;
+    }, itemName, { timeout: 8000 });
+    // Tap item to expand edit form
+    await page.locator('.item-row', { hasText: itemName }).click();
+    await expect(page.locator('.item-edit-form')).toBeVisible();
+    // Verify photo area exists
+    await expect(page.locator('.item-photo-area')).toBeVisible();
+    // Verify change photo link exists
+    await expect(page.locator('.item-photo-change')).toBeVisible();
+    // Verify hidden file input exists
+    await expect(page.locator('#item-photo-input')).toBeAttached();
+  });
+
   // ── Setup tab back link ─────────────────────────────────────────────
 
   test('Setup tab has back link to Purchase Orders', async ({ page }) => {
