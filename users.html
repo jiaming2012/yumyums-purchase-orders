@@ -100,26 +100,27 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 <a class="back" href="index.html">HQ &nbsp;&#183;&nbsp; Users</a>
 <div class="tabs">
   <button id="t1" class="on" data-action="tab-switch" data-tab="1">Users</button>
-  <button id="t2" data-action="tab-switch" data-tab="2">Edit</button>
-  <button id="t3" data-action="tab-switch" data-tab="3">Access</button>
+  <button id="t2" data-action="tab-switch" data-tab="2">Access</button>
 </div>
 
-<!-- TAB 1: USERS LIST -->
+<!-- TAB 1: USERS LIST + EDIT -->
 <div id="s1" style="display:none">
-  <div class="card">
-    <div class="hd"><h1>Team</h1></div>
-    <div id="user-list"></div>
+  <div id="users-list-section">
+    <div class="card">
+      <div class="hd"><h1>Team</h1></div>
+      <div id="user-list"></div>
+    </div>
+  </div>
+  <div id="edit-section" style="display:none">
+    <a href="#" data-action="back-to-users" class="back" style="margin-bottom:12px">Users</a>
+    <div id="edit-card" class="card"></div>
   </div>
 </div>
 
-<!-- TAB 2: EDIT / INVITE -->
-<div id="s2" style="display:none">
-  <div id="edit-card" class="card"></div>
-</div>
-
-<!-- TAB 3: ACCESS -->
+<!-- TAB 2: ACCESS (was tab 3) -->
+<div id="s2" style="display:none"></div>
 <div id="s3" style="display:none"></div>
-<script src="tab.js" data-tabs="3"></script>
+<script src="tab.js" data-tabs="2"></script>
 
 </div>
 
@@ -258,7 +259,7 @@ function showInviteForm(){
       <div id="invite-err" class="field-err"></div>
       <button class="btn-primary" data-action="submit-invite" style="background:#27ae60;color:#fff">Invite</button>
     </div>`;
-  show(2);
+  showEditSection();
 }
 
 async function submitInvite(){
@@ -385,7 +386,7 @@ async function editUser(id){
         <button class="btn-danger" data-action="delete-user">Delete ${dn}</button>
       </div>
     </div>`;
-  show(2);
+  showEditSection();
 }
 
 async function saveUser(){
@@ -407,7 +408,7 @@ async function saveUser(){
     const idx=USERS.findIndex(u=>u.id===editingUser.id);
     if(idx>=0)USERS[idx]=result.user||result;
     showToast('Profile updated');
-    show(1);
+    showUsersList();
     renderUsers();
   }catch(e){
     if(btn)btn.textContent='Update Profile';
@@ -439,7 +440,7 @@ async function forceLogout(){
   if(!confirm(`Force logout ${dn}? They will need to log in again.`))return;
   try{
     await api('POST',`/api/v1/users/${editingUser.id}/revoke`);
-    show(1);
+    showUsersList();
     showToast('Session revoked');
   }catch(e){
     showToast('Could not revoke session.');
@@ -455,14 +456,14 @@ async function deleteUser(){
     USERS=USERS.filter(u=>u.id!==editingUser.id);
     editingUser=null;
     renderUsers();
-    show(1);
+    showUsersList();
   }catch(e){
     showToast('Could not delete user.');
   }
 }
 
 function renderAccess(){
-  const s3=document.getElementById('s3');
+  const s3=document.getElementById('s2');
   s3.innerHTML=`<div class="access-header">App Permissions</div>`;
   if(!APPS_PERMS.length){
     s3.innerHTML+=`<div class="error-msg">Could not load permissions.</div>`;
@@ -505,19 +506,27 @@ async function savePermissions(slug){
 }
 
 function show(n){
-  if(n===2&&!editingUser)n=1;
-  [1,2,3].forEach(i=>{
+  [1,2].forEach(i=>{
     document.getElementById('s'+i).style.display=i===n?'block':'none';
     const btn=document.getElementById('t'+i);
     if(btn)btn.className=i===n?'on':'';
   });
   location.hash='tab='+n;
-  if(n===3){
+  if(n===2){
     renderAccess();
   }
   if(n===1){
-    editingUser=null;
+    showUsersList();
   }
+}
+function showUsersList(){
+  editingUser=null;
+  document.getElementById('users-list-section').style.display='';
+  document.getElementById('edit-section').style.display='none';
+}
+function showEditSection(){
+  document.getElementById('users-list-section').style.display='none';
+  document.getElementById('edit-section').style.display='';
 }
 
 // Event delegation
@@ -537,6 +546,9 @@ document.querySelector('.app').addEventListener('click',async function(e){
   const action=el.dataset.action;
   if(action==='tab-switch'){
     show(parseInt(el.dataset.tab));
+  }else if(action==='back-to-users'){
+    e.preventDefault();
+    showUsersList();
   }else if(action==='edit-user'){
     const id=el.dataset.userId;
     await editUser(id);
@@ -555,10 +567,10 @@ document.querySelector('.app').addEventListener('click',async function(e){
       if(ta){ta.select();document.execCommand('copy');el.textContent='Copied!';setTimeout(()=>el.textContent='Copy Link',2000)}
     }
   }else if(action==='invite-done'){
-    show(1);
+    showUsersList();
   }else if(action==='back-to-edit'){
     if(editingUser)await editUser(editingUser.id);
-    else show(1);
+    else showUsersList();
   }else if(action==='reinvite'){
     e.stopPropagation();
     const uid=el.dataset.userId;
