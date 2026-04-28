@@ -50,9 +50,9 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .item-card.dim{opacity:0.5}
 .item-thumb{width:48px;height:48px;border-radius:8px;object-fit:cover;background:var(--brd);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:600;color:var(--mut)}
 .item-thumb img{width:100%;height:100%;border-radius:8px;object-fit:cover;cursor:pointer}
-.photo-lightbox{position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.9);z-index:1000;display:flex;align-items:center;justify-content:center;flex-direction:column}
+.photo-lightbox{position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.9);z-index:10001;display:flex;align-items:center;justify-content:center;flex-direction:column}
 .photo-lightbox img{max-width:95vw;max-height:85vh;object-fit:contain;border-radius:8px}
-.photo-lightbox .lb-close{position:fixed;top:16px;right:16px;background:none;border:none;color:#fff;font-size:28px;cursor:pointer;padding:8px;z-index:1001}
+.photo-lightbox .lb-close{position:fixed;top:16px;right:16px;background:none;border:none;color:#fff;font-size:28px;cursor:pointer;padding:8px;z-index:10002}
 .item-info{flex:1;min-width:0;cursor:pointer}
 .item-info .nm{font-size:14px;font-weight:600;line-height:1.2}
 .item-info .mt{font-size:12px;color:var(--mut);margin-top:2px}
@@ -79,8 +79,10 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .item-modal .modal-hd input{flex:1;padding:10px 12px;border:1px solid var(--brd);border-radius:8px;font-size:14px;background:var(--card);color:var(--txt)}
 .item-modal .modal-hd button{background:none;border:none;color:var(--info-tx);font-size:14px;font-weight:500;cursor:pointer;white-space:nowrap}
 .item-modal .modal-list{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:0}
-.picker-row{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:0.5px solid var(--brd)}
-.picker-row .pr-name{font-size:14px}
+.picker-row{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:0.5px solid var(--brd)}
+.picker-row .pr-thumb{width:36px;height:36px;border-radius:6px;object-fit:cover;flex-shrink:0;cursor:pointer}
+.picker-row .pr-thumb-placeholder{width:36px;height:36px;border-radius:6px;background:var(--brd);display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--mut);flex-shrink:0}
+.picker-row .pr-name{font-size:14px;flex:1;min-width:0}
 .picker-row .pr-badge{font-size:11px;padding:3px 8px;border-radius:10px;background:var(--info-bg);color:var(--info-tx)}
 .picker-row .pr-add{padding:6px 14px;background:var(--info-bg);color:var(--info-tx);border:none;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer}
 .picker-group-header{padding:8px 16px;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;color:var(--mut);background:var(--bg);position:sticky;top:0}
@@ -926,27 +928,51 @@ function renderPickerList(query) {
   if (filtered.length === 0) {
     html = '<div class="loading">No items found</div>';
   } else {
-    // Group by store_location; "Unassigned" (null/empty) at bottom
+    // Group by (store_location, group_name); "Unassigned" at bottom
     var groups = {};
     var unassigned = [];
     filtered.forEach(function(it) {
       if (it.store_location) {
-        if (!groups[it.store_location]) groups[it.store_location] = [];
-        groups[it.store_location].push(it);
+        var cat = it.group_name || 'Other';
+        var key = it.store_location + '\x00' + cat;
+        if (!groups[key]) groups[key] = { store: it.store_location, cat: cat, items: [] };
+        groups[key].items.push(it);
       } else {
         unassigned.push(it);
       }
     });
-    var sortedKeys = Object.keys(groups).sort(function(a, b) { return a.localeCompare(b); });
+    // Sort keys: by store name, then category
+    var sortedKeys = Object.keys(groups).sort(function(a, b) {
+      var ga = groups[a], gb = groups[b];
+      var s = ga.store.localeCompare(gb.store);
+      return s !== 0 ? s : ga.cat.localeCompare(gb.cat);
+    });
     var targetPO = PICKER_TARGET === 'po' ? LOCKED_PO : PO_STATE;
-    sortedKeys.forEach(function(loc) {
-      html += '<div class="picker-group-header">' + loc + '</div>';
-      groups[loc].forEach(function(it) {
+    function pickerThumb(it) {
+      if (it.photo_url) {
+        return '<img class="pr-thumb" src="' + it.photo_url + '" alt="' + it.description + '" data-action="photo-zoom" data-photo-url="' + it.photo_url + '" data-photo-name="' + it.description.replace(/"/g, '&quot;') + '">';
+      }
+      var letter = it.description ? it.description.charAt(0).toUpperCase() : '?';
+      return '<div class="pr-thumb-placeholder">' + letter + '</div>';
+    }
+    function pickerStepper(itemId, qty) {
+      return '<div class="stp">'
+        + '<button data-action="picker-dec" data-item-id="' + itemId + '">&minus;</button>'
+        + '<span>' + qty + '</span>'
+        + '<button data-action="picker-inc" data-item-id="' + itemId + '">+</button>'
+        + '</div>';
+    }
+    sortedKeys.forEach(function(key) {
+      var g = groups[key];
+      html += '<div class="picker-group-header">' + g.store + ', ' + g.cat + '</div>';
+      g.items.sort(function(a, b) { return a.description.localeCompare(b.description); });
+      g.items.forEach(function(it) {
         var onPO = targetPO && (targetPO.line_items || []).find(function(li) { return li.purchase_item_id === it.id; });
         html += '<div class="picker-row">';
-        html += '<span class="pr-name">' + it.description + '</span>';
+        html += pickerThumb(it);
+        html += '<span class="pr-name" data-action="goto-setup" data-item-desc="' + it.description.replace(/"/g, '&quot;') + '" style="cursor:pointer">' + it.description + '</span>';
         if (onPO) {
-          html += '<span class="pr-badge" data-action="picker-item-on-po" data-item-id="' + it.id + '">On PO: ' + onPO.quantity + (onPO.unit ? ' ' + onPO.unit : '') + '</span>';
+          html += pickerStepper(it.id, onPO.quantity);
         } else {
           html += '<button class="pr-add" data-action="add-to-po" data-item-id="' + it.id + '">+ Add</button>';
         }
@@ -955,12 +981,14 @@ function renderPickerList(query) {
     });
     if (unassigned.length > 0) {
       html += '<div class="picker-group-header">Unassigned</div>';
+      unassigned.sort(function(a, b) { return a.description.localeCompare(b.description); });
       unassigned.forEach(function(it) {
         var onPO = targetPO && (targetPO.line_items || []).find(function(li) { return li.purchase_item_id === it.id; });
         html += '<div class="picker-row">';
-        html += '<span class="pr-name">' + it.description + '</span>';
+        html += pickerThumb(it);
+        html += '<span class="pr-name" data-action="goto-setup" data-item-desc="' + it.description.replace(/"/g, '&quot;') + '" style="cursor:pointer">' + it.description + '</span>';
         if (onPO) {
-          html += '<span class="pr-badge" data-action="picker-item-on-po" data-item-id="' + it.id + '">On PO: ' + onPO.quantity + (onPO.unit ? ' ' + onPO.unit : '') + '</span>';
+          html += pickerStepper(it.id, onPO.quantity);
         } else {
           html += '<span class="pr-unassigned" data-action="goto-setup" data-item-desc="' + it.description.replace(/"/g, '&quot;') + '">Set location in Setup ›</span>';
         }
@@ -1009,6 +1037,8 @@ document.addEventListener('click', function(e) {
   if (action === 'open-po-picker') openItemModal('po');
   if (action === 'close-picker') closeItemModal();
   if (action === 'add-to-po') { addItemToPO(el.dataset.itemId); renderPickerList(document.getElementById('picker-search').value); }
+  if (action === 'picker-inc') { updateQty(el.dataset.itemId, 1); renderPickerList(document.getElementById('picker-search').value); }
+  if (action === 'picker-dec') { updateQty(el.dataset.itemId, -1); renderPickerList(document.getElementById('picker-search').value); }
   if (action === 'picker-item-on-po') showDuplicatePopup(el.dataset.itemId);
   if (action === 'goto-setup') { window.location.href = 'inventory.html#tab=5&item=' + encodeURIComponent(el.dataset.itemDesc); }
   if (action === 'goto-item') { gotoItem(DUP_ITEM_ID); }

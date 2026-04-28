@@ -106,6 +106,7 @@ select.field-input{appearance:none;-webkit-appearance:none;padding-right:36px;ba
 .tag-header .arrow{transition:transform 0.2s;font-size:12px;color:var(--mut)}
 .tag-header .arrow.collapsed{transform:rotate(-90deg)}
 .stock-item{background:var(--card);border:0.5px solid var(--brd);border-radius:12px;padding:14px 16px;margin-bottom:6px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.stock-badges{display:flex;align-items:center;gap:4px;flex-shrink:0}
 .stock-item-name{font-size:14px;font-weight:500;color:var(--txt)}
 .stock-detail{display:none;background:var(--card);border:0.5px solid var(--brd);border-radius:0 0 12px 12px;border-top:none;padding:12px 16px;margin-top:-6px;margin-bottom:6px}
 .stock-detail.open{display:block}
@@ -593,9 +594,10 @@ function renderStock(){
       items.forEach(s=>{
         var id=s.description||groupName;
         var expanded=EXPANDED_STOCK_ITEMS[id];
-        var badgeAndIndicator=badgeHtml(s.level);
+        var badgeAndIndicator='';
         if(s.repurchase_badge&&s.repurchase_badge.qty>0){badgeAndIndicator+='<span class="stock-badge stock-repurchased">Repurchased +'+s.repurchase_badge.qty+'</span>';}
-        html+='<div class="stock-item" data-action="toggle-stock-item" data-group-id="'+id+'"><span class="stock-item-name">'+id+'</span>'+badgeAndIndicator+'</div>';
+        badgeAndIndicator+=badgeHtml(s.level);
+        html+='<div class="stock-item" data-action="toggle-stock-item" data-group-id="'+id+'"><span class="stock-item-name">'+id+'</span><span class="stock-badges">'+badgeAndIndicator+'</span></div>';
         if(expanded){
           var lastDate=s.last_purchase_date?formatDate(s.last_purchase_date):'Unknown';
           var qty=s.total_quantity!==undefined?s.total_quantity+' units':'No history';

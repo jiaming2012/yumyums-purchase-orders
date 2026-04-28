@@ -253,6 +253,23 @@ test.describe('Inventory', () => {
     }
   });
 
+  test('stock item badges are right-aligned in a single container', async ({ page }) => {
+    await page.click('#t2');
+    await waitForStockContent(page);
+    const items = page.locator('.stock-item');
+    const count = await items.count();
+    if (count === 0) return;
+    // Every stock-item should have badges wrapped in a .stock-badges container
+    for (let i = 0; i < Math.min(count, 5); i++) {
+      const item = items.nth(i);
+      const badgeContainer = item.locator('.stock-badges');
+      await expect(badgeContainer).toBeVisible();
+      // The badge container should be a flex item (not loose spans)
+      const badges = await badgeContainer.locator('.stock-badge').count();
+      expect(badges).toBeGreaterThanOrEqual(1);
+    }
+  });
+
   test('tapping tag header collapses and expands section', async ({ page }) => {
     await page.click('#t2');
     await waitForStockContent(page);
