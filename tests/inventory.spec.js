@@ -1757,6 +1757,29 @@ test.describe('Inventory', () => {
     await expect(link).toContainText('Purchase Orders');
   });
 
+  // ── Badge Reset timezone ────────────────────────────────────────────
+
+  test('badge reset saves with browser timezone, not hardcoded value', async ({ browser }) => {
+    // Use a non-default timezone to catch hardcoded values
+    const context = await browser.newContext({ timezoneId: 'America/Chicago' });
+    const page = await context.newPage();
+    await login(page);
+    await page.goto('/inventory.html');
+    await page.waitForLoadState('networkidle');
+    await page.locator('#t5').click();
+    await page.waitForSelector('#badge-reset-section', { timeout: 5000 });
+    // Click Edit to open the form
+    await page.locator('[data-action="toggle-badge-reset"]').click();
+    // Intercept the save API call to check what timezone is sent
+    const [request] = await Promise.all([
+      page.waitForRequest(req => req.url().includes('repurchase-reset/config') && req.method() === 'PUT'),
+      page.click('[data-action="save-badge-reset"]')
+    ]);
+    const body = JSON.parse(request.postData());
+    expect(body.timezone).toBe('America/Chicago');
+    await context.close();
+  });
+
   // ── Add item group enforcement ──────────────────────────────────────
 
   test('add item bar does not allow No Group selection', async ({ page }) => {
