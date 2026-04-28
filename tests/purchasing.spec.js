@@ -491,6 +491,153 @@ test.describe('PO tab', () => {
 
 });
 
+// ── Store location enforcement in item picker ────────────────────────────
+
+test.describe('Item picker store_location enforcement', () => {
+
+  async function invApiCall(page, method, path, body) {
+    return page.evaluate(async ([m, p, b]) => {
+      const opts = { method: m, headers: { 'Content-Type': 'application/json' } };
+      if (b) opts.body = JSON.stringify(b);
+      const res = await fetch('/api/v1/inventory/' + p, opts);
+      if (res.status === 204) return null;
+      return res.json();
+    }, [method, path, body]);
+  }
+
+  test.beforeEach(async ({ page }) => {
+    await login(page);
+    await page.goto('/purchasing.html');
+    await page.waitForLoadState('networkidle');
+  });
+
+  test('item without store_location shows "Set location in Setup" instead of Add button', async ({ page }) => {
+    // Create item without store_location
+    const groups = await invApiCall(page, 'GET', 'groups');
+    const gid = groups && groups.length ? groups[0].id : null;
+    const ts = Date.now();
+    const itemName = 'NoLoc Item ' + ts;
+    await invApiCall(page, 'POST', 'items', { description: itemName, group_id: gid });
+
+    // Open item picker
+    await page.waitForSelector('[data-action="open-picker"]', { timeout: 5000 });
+    await page.click('[data-action="open-picker"]');
+    await page.waitForSelector('#item-modal.open', { timeout: 3000 });
+
+    // Search for the item
+    await page.fill('#picker-search', itemName);
+    await page.waitForTimeout(300);
+
+    // Verify the item appears under "Unassigned" group with no Add button
+    const row = page.locator('.picker-row', { hasText: itemName });
+    await expect(row).toBeVisible();
+    await expect(row.locator('.pr-add')).not.toBeVisible();
+    await expect(row.locator('.pr-unassigned')).toContainText('Set location in Setup');
+  });
+
+  test('item with store_location shows normal Add button', async ({ page }) => {
+    // Create item with store_location
+    const groups = await invApiCall(page, 'GET', 'groups');
+    const gid = groups && groups.length ? groups[0].id : null;
+    const ts = Date.now();
+    const itemName = 'Located Item ' + ts;
+    const created = await invApiCall(page, 'POST', 'items', { description: itemName, group_id: gid });
+
+    // Set store_location via inventory PUT
+    await invApiCall(page, 'PUT', 'items', { id: created.id, description: itemName, group_id: gid, store_location: 'Giant' });
+
+    // Reload to pick up new item in ALL_ITEMS
+    await page.reload();
+    await page.waitForLoadState('networkidle');
+
+    // Open item picker
+    await page.waitForSelector('[data-action="open-picker"]', { timeout: 5000 });
+    await page.click('[data-action="open-picker"]');
+    await page.waitForSelector('#item-modal.open', { timeout: 3000 });
+
+    // Search for the item
+    await page.fill('#picker-search', itemName);
+    await page.waitForTimeout(300);
+
+    // Verify the item has an Add button
+    const row = page.locator('.picker-row', { hasText: itemName });
+    await expect(row).toBeVisible();
+    await expect(row.locator('.pr-add')).toBeVisible();
+  });
+
+  test('items grouped by store_location with headers in picker', async ({ page }) => {
+    // Create items with different locations
+    const groups = await invApiCall(page, 'GET', 'groups');
+    const gid = groups && groups.length ? groups[0].id : null;
+    const ts = Date.now();
+
+    const item1Name = 'PickGiant ' + ts;
+    const item2Name = 'PickDepot ' + ts;
+    const item3Name = 'PickNoLoc ' + ts;
+
+    const it1 = await invApiCall(page, 'POST', 'items', { description: item1Name, group_id: gid });
+    const it2 = await invApiCall(page, 'POST', 'items', { description: item2Name, group_id: gid });
+    await invApiCall(page, 'POST', 'items', { description: item3Name, group_id: gid });
+
+    // Set locations
+    await invApiCall(page, 'PUT', 'items', { id: it1.id, description: item1Name, group_id: gid, store_location: 'Giant' });
+    await invApiCall(page, 'PUT', 'items', { id: it2.id, description: item2Name, group_id: gid, store_location: 'Restaurant Depot' });
+
+    // Reload to pick up changes
+    await page.reload();
+    await page.waitForLoadState('networkidle');
+
+    // Open item picker and search for our prefix
+    await page.waitForSelector('[data-action="open-picker"]', { timeout: 5000 });
+    await page.click('[data-action="open-picker"]');
+    await page.waitForSelector('#item-modal.open', { timeout: 3000 });
+
+    await page.fill('#picker-search', 'Pick');
+    await page.waitForTimeout(300);
+
+    // Verify group headers appear
+    const headers = await page.evaluate(() => {
+      return Array.from(document.querySelectorAll('.picker-group-header')).map(h => h.textContent);
+    });
+
+    expect(headers).toContain('Giant');
+    expect(headers).toContain('Restaurant Depot');
+    expect(headers).toContain('Unassigned');
+
+    // Verify "Unassigned" is last
+    const unassignedIdx = headers.indexOf('Unassigned');
+    expect(unassignedIdx).toBe(headers.length - 1);
+  });
+
+  test('addItemToPO guard blocks items without store_location via toast', async ({ page }) => {
+    // Create item without store_location
+    const groups = await invApiCall(page, 'GET', 'groups');
+    const gid = groups && groups.length ? groups[0].id : null;
+    const ts = Date.now();
+    const itemName = 'GuardTest ' + ts;
+    const created = await invApiCall(page, 'POST', 'items', { description: itemName, group_id: gid });
+
+    // Reload to pick up new item
+    await page.reload();
+    await page.waitForLoadState('networkidle');
+
+    // Try to call addItemToPO directly via evaluate (bypassing picker UI)
+    const toastShown = await page.evaluate((itemId) => {
+      // Ensure PO_STATE exists
+      if (typeof PO_STATE === 'undefined' || !PO_STATE) {
+        window.PO_STATE = { id: 'test', line_items: [] };
+      }
+      window.PICKER_TARGET = 'order';
+      addItemToPO(itemId);
+      var toast = document.querySelector('.shop-toast');
+      return toast ? toast.textContent : null;
+    }, created.id);
+
+    expect(toastShown).toContain('Set a store location in Inventory Setup');
+  });
+
+});
+
 // ── Regression: suggestions load on purchasing.html ──────────────────────
 
 test.describe('Purchasing Suggestions', () => {
