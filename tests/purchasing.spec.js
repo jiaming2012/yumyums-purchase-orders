@@ -609,6 +609,37 @@ test.describe('Item picker store_location enforcement', () => {
     expect(unassignedIdx).toBe(headers.length - 1);
   });
 
+  test('item picker renders all items when catalog exceeds 30', async ({ page }) => {
+    // Seed 35 items with store_location set
+    const groups = await invApiCall(page, 'GET', 'groups');
+    const gid = groups && groups.length ? groups[0].id : null;
+    const ts = Date.now();
+    const prefix = 'Cap' + ts;
+
+    for (let i = 0; i < 35; i++) {
+      const name = prefix + ' Item ' + String(i).padStart(2, '0');
+      const created = await invApiCall(page, 'POST', 'items', { description: name, group_id: gid });
+      await invApiCall(page, 'PUT', 'items', { id: created.id, description: name, group_id: gid, store_location: 'TestLoc' });
+    }
+
+    // Reload to pick up new items
+    await page.reload();
+    await page.waitForLoadState('networkidle');
+
+    // Open item picker
+    await page.waitForSelector('[data-action="open-picker"]', { timeout: 5000 });
+    await page.click('[data-action="open-picker"]');
+    await page.waitForSelector('#item-modal.open', { timeout: 3000 });
+
+    // Clear search to show all
+    await page.fill('#picker-search', '');
+    await page.waitForTimeout(300);
+
+    // Count picker rows — should be at least 35
+    const count = await page.locator('.picker-row').count();
+    expect(count).toBeGreaterThanOrEqual(35);
+  });
+
   test('addItemToPO guard blocks items without store_location via toast', async ({ page }) => {
     // Create item without store_location
     const groups = await invApiCall(page, 'GET', 'groups');
