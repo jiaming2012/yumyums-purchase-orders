@@ -810,7 +810,7 @@ func SeedPendingPurchaseHandler(pool *pgxpool.Pool) http.HandlerFunc {
 func ListItemsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		rows, err := pool.Query(r.Context(), `
-			SELECT pi.id, pi.description, pi.group_id, ig.name
+			SELECT pi.id, pi.description, pi.group_id, ig.name, pi.store_location
 			FROM purchase_items pi
 			LEFT JOIN item_groups ig ON ig.id = pi.group_id
 			ORDER BY pi.description`)
@@ -824,7 +824,7 @@ func ListItemsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		items := []PurchaseItem{}
 		for rows.Next() {
 			var item PurchaseItem
-			if err := rows.Scan(&item.ID, &item.Description, &item.GroupID, &item.GroupName); err != nil {
+			if err := rows.Scan(&item.ID, &item.Description, &item.GroupID, &item.GroupName, &item.StoreLocation); err != nil {
 				log.Printf("ListItems scan: %v", err)
 				writeError(w, http.StatusInternalServerError, "internal_error")
 				return
@@ -839,8 +839,9 @@ func ListItemsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 func CreateItemHandler(pool *pgxpool.Pool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var input struct {
-			Description string  `json:"description"`
-			GroupID     *string `json:"group_id,omitempty"`
+			Description   string  `json:"description"`
+			GroupID       *string `json:"group_id,omitempty"`
+			StoreLocation *string `json:"store_location,omitempty"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid_json")
@@ -857,11 +858,11 @@ func CreateItemHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		input.Description = normalizeItemName(input.Description)
 		var id string
 		err := pool.QueryRow(r.Context(), `
-			INSERT INTO purchase_items (description, group_id)
-			VALUES ($1, $2)
-			ON CONFLICT (description) DO UPDATE SET description = EXCLUDED.description
+			INSERT INTO purchase_items (description, group_id, store_location)
+			VALUES ($1, $2, $3)
+			ON CONFLICT (description) DO UPDATE SET description = EXCLUDED.description, store_location = COALESCE(EXCLUDED.store_location, purchase_items.store_location)
 			RETURNING id`,
-			input.Description, input.GroupID,
+			input.Description, input.GroupID, input.StoreLocation,
 		).Scan(&id)
 		if err != nil {
 			log.Printf("CreateItem insert: %v", err)
@@ -876,9 +877,10 @@ func CreateItemHandler(pool *pgxpool.Pool) http.HandlerFunc {
 func UpdateItemHandler(pool *pgxpool.Pool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var input struct {
-			ID          string  `json:"id"`
-			Description string  `json:"description"`
-			GroupID     *string `json:"group_id,omitempty"`
+			ID            string  `json:"id"`
+			Description   string  `json:"description"`
+			GroupID       *string `json:"group_id,omitempty"`
+			StoreLocation *string `json:"store_location"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid_json")
@@ -889,8 +891,8 @@ func UpdateItemHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 		tag, err := pool.Exec(r.Context(), `
-			UPDATE purchase_items SET description = $1, group_id = $2 WHERE id = $3`,
-			input.Description, input.GroupID, input.ID,
+			UPDATE purchase_items SET description = $1, group_id = $2, store_location = $3 WHERE id = $4`,
+			input.Description, input.GroupID, input.StoreLocation, input.ID,
 		)
 		if err != nil {
 			log.Printf("UpdateItem update: %v", err)

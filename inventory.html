@@ -185,7 +185,7 @@ select.field-input{appearance:none;-webkit-appearance:none;padding-right:36px;ba
     <button id="t4" onclick="show(4)">Cost</button>
     <button id="t5" onclick="show(5)">Setup</button>
   </div>
-  <div id="s1">
+  <div id="s1" style="display:none">
     <select id="vendor-filter" class="filter-select">
       <option value="">All Vendors</option>
     </select>
@@ -228,6 +228,7 @@ select.field-input{appearance:none;-webkit-appearance:none;padding-right:36px;ba
     </div>
   </div>
 </div>
+<script src="tab.js" data-tabs="5"></script>
 <script>
 function parseLocalDate(str){
   const [y,m,d]=str.split('-').map(Number);
@@ -270,6 +271,7 @@ function show(n){
     if(btn)btn.className=i===n?'on':'';
   });
   ACTIVE_TAB=n;
+  location.hash='tab='+n;
   // Reload fresh data when switching tabs
   if(n===1){loadHistory();}
   if(n===2){loadStock();}
@@ -922,14 +924,16 @@ function renderItemsList(){
   var query=ITEM_SEARCH.toLowerCase();
   var filtered=ALL_ITEMS.filter(function(it){return !query||it.description.toLowerCase().indexOf(query)!==-1;});
 
-  // Group items by group_name
+  // Group items by (group_name, store_location) composite key
   var grouped={};
   var ungrouped=[];
   filtered.forEach(function(it){
     var gn=it.group_name||null;
     if(gn){
-      if(!grouped[gn])grouped[gn]=[];
-      grouped[gn].push(it);
+      var loc=it.store_location||'Unassigned';
+      var key=gn+', '+loc;
+      if(!grouped[key])grouped[key]={items:[],groupName:gn,location:loc};
+      grouped[key].items.push(it);
     } else {
       ungrouped.push(it);
     }
@@ -950,6 +954,7 @@ function renderItemsList(){
       return '<div class="item-edit-form" data-item-id="'+it.id+'">'+
         '<div class="field-group"><div class="field-label">Name</div><input type="text" class="field-input item-edit-name" value="'+escHtml(it.description)+'"></div>'+
         '<div class="field-group"><div class="field-label">Group</div><select class="field-input item-edit-group">'+groupOpts.replace('value="'+(it.group_id||'')+'"','value="'+(it.group_id||'')+'" selected')+'</select></div>'+
+        '<div class="field-group"><div class="field-label">Store Location</div><input type="text" class="field-input item-edit-location" value="'+escHtml(it.store_location||'')+'" placeholder="e.g. Giant, Restaurant Depot"></div>'+
         '<div class="review-actions" style="margin-top:8px">'+
           '<button class="btn-primary" data-action="save-item" data-id="'+it.id+'">Save</button>'+
           '<button class="btn-secondary" data-action="cancel-edit-item">Cancel</button>'+
@@ -960,18 +965,21 @@ function renderItemsList(){
         '</div>';
     }
     return '<div class="item-row" data-action="tap-item" data-id="'+it.id+'"><span class="item-name">'+escHtml(it.description)+'</span>'+
-      '<span class="item-group-label">'+(it.group_name?escHtml(it.group_name):'—')+'</span></div>';
+      '<span class="item-group-label">'+(it.store_location?escHtml(it.store_location):'—')+'</span></div>';
   }
 
-  // Render grouped sections
-  var groupNames=Object.keys(grouped).sort();
-  groupNames.forEach(function(gn){
-    var items=grouped[gn];
+  // Render grouped sections sorted by composite key
+  var compositeKeys=Object.keys(grouped).sort();
+  compositeKeys.forEach(function(key){
+    var group=grouped[key];
+    var items=group.items;
+    var gn=group.groupName;
     var grp=ITEM_GROUPS.find(function(g){return g.name===gn;});
     var grpId=grp?grp.id:'';
     var lowT=grp?grp.low_threshold:3;
     var highT=grp?grp.high_threshold:10;
-    html+='<div class="item-group-section"><div class="item-group-header"><span>'+escHtml(gn)+' <span class="group-count">('+items.length+')</span></span>';
+    items.sort(function(a,b){return a.description.localeCompare(b.description);});
+    html+='<div class="item-group-section"><div class="item-group-header"><span>'+escHtml(key)+' <span class="group-count">('+items.length+')</span></span>';
     if(grpId)html+='<button class="item-edit-btn" data-action="toggle-group-settings" data-group-id="'+grpId+'">Stock Settings</button>';
     html+='</div>';
     // Group settings form (inline, shown when toggled)
@@ -1088,8 +1096,9 @@ document.getElementById('items-list').addEventListener('click',function(e){
     var itemId=el.dataset.id;
     var newName=form.querySelector('.item-edit-name').value.trim();
     var newGroupId=form.querySelector('.item-edit-group').value||null;
+    var newLocation=form.querySelector('.item-edit-location').value.trim()||null;
     if(!newName)return;
-    api('/api/v1/inventory/items',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:itemId,description:newName,group_id:newGroupId})}).then(function(){
+    api('/api/v1/inventory/items',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:itemId,description:newName,group_id:newGroupId,store_location:newLocation})}).then(function(){
       ITEM_EDIT_ID=null;
       loadItems();
     }).catch(function(err){console.error('updateItem',err);});
@@ -1294,7 +1303,8 @@ document.addEventListener('DOMContentLoaded',async function(){
   // Preload items for review form dropdowns
   try{var data=await api('/api/v1/inventory/items');ALL_ITEMS=data||[];}catch(e){}
   try{var g=await api('/api/v1/inventory/groups');ITEM_GROUPS=g||[];}catch(e){}
-  show(1);
+  var hashTab=(location.hash.match(/tab=(\d+)/)||[])[1];
+  show(hashTab?+hashTab:1);
   loadVendors();
   loadHistory();
   loadStock();

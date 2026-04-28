@@ -30,10 +30,11 @@ type ItemGroup struct {
 
 // PurchaseItem is a canonical product that appears on purchase line items.
 type PurchaseItem struct {
-	ID          string  `json:"id"`
-	Description string  `json:"description"`
-	GroupID     *string `json:"group_id,omitempty"`
-	GroupName   *string `json:"group_name,omitempty"`
+	ID            string  `json:"id"`
+	Description   string  `json:"description"`
+	GroupID       *string `json:"group_id,omitempty"`
+	GroupName     *string `json:"group_name,omitempty"`
+	StoreLocation *string `json:"store_location,omitempty"`
 }
 
 // ItemGroupWithItems is an item group with its items included.
