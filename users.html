@@ -105,7 +105,7 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 </div>
 
 <!-- TAB 1: USERS LIST -->
-<div id="s1">
+<div id="s1" style="display:none">
   <div class="card">
     <div class="hd"><h1>Team</h1></div>
     <div id="user-list"></div>
@@ -119,6 +119,7 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 
 <!-- TAB 3: ACCESS -->
 <div id="s3" style="display:none"></div>
+<script src="tab.js" data-tabs="3"></script>
 
 </div>
 
@@ -504,11 +505,13 @@ async function savePermissions(slug){
 }
 
 function show(n){
+  if(n===2&&!editingUser)n=1;
   [1,2,3].forEach(i=>{
     document.getElementById('s'+i).style.display=i===n?'block':'none';
     const btn=document.getElementById('t'+i);
     if(btn)btn.className=i===n?'on':'';
   });
+  location.hash='tab='+n;
   if(n===3){
     renderAccess();
   }
@@ -638,6 +641,8 @@ document.querySelector('.app').addEventListener('click',async function(e){
   try{CURRENT_USER=await api('GET','/api/v1/me')}catch(e){return}
   loadUsers();
   loadAppsPermissions();
+  var hashTab=(location.hash.match(/tab=(\d+)/)||[])[1];
+  show(hashTab?+hashTab:1);
 })();
 
 document.addEventListener('dblclick',e=>e.preventDefault());
