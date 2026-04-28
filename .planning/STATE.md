@@ -1,17 +1,17 @@
 ---
 gsd_state_version: 1.0
-milestone: v3.0
-milestone_name: Purchase Orders & Shopping Lists
+milestone: v1.0
+milestone_name: milestone
 status: executing
-stopped_at: Completed 17-05-PLAN.md
-last_updated: "2026-04-23T14:59:41.297Z"
+stopped_at: Completed 19-02-PLAN.md
+last_updated: "2026-04-28T15:21:40.501Z"
 last_activity: 2026-04-23
 progress:
-  total_phases: 6
-  completed_phases: 4
-  total_plans: 14
-  completed_plans: 14
-  percent: 0
+  total_phases: 2
+  completed_phases: 0
+  total_plans: 3
+  completed_plans: 1
+  percent: 33
 ---
 
 # Project State
@@ -91,6 +91,7 @@ Progress: [░░░░░░░░░░] 0% (v2.0 milestone)
 | Phase 17 P01 | 8 | 5 tasks | 18 files |
 | Phase 17 P02 | 12 | 2 tasks | 5 files |
 | Phase 17 P05 | 12 | 2 tasks | 7 files |
+| Phase 19 P02 | 267 | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -188,6 +189,7 @@ Recent decisions affecting current work:
 - [Phase 17]: notification_pref added to PATCH /users/{id} body (not separate endpoint) to keep edit form a single save action
 - [Phase 17]: users.DefaultTimezone exported as public const for cross-package timezone fallback
 - [Phase 17]: runLowStockCheck loads cutoff_config timezone instead of hardcoded America/Chicago, falls back to America/New_York
+- Item rows show store_location label in Setup (category in composite header); backend item endpoints accept store_location
 
 ### Pending Todos
 
@@ -213,6 +215,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-23T12:25:39.072Z
-Stopped at: Completed 17-05-PLAN.md
+Last session: 2026-04-28T15:21:33.513Z
+Stopped at: Completed 19-02-PLAN.md
 Resume file: None
