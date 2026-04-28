@@ -833,6 +833,16 @@ function addItemToPO(itemId) {
   if (!targetPO) return;
   var catalogItem = ALL_ITEMS.find(function(it) { return it.id === itemId; });
   if (!catalogItem) return;
+  if (!catalogItem.store_location) {
+    var existing2 = document.querySelector('.shop-toast');
+    if (existing2) existing2.remove();
+    var toast = document.createElement('div');
+    toast.className = 'shop-toast';
+    toast.innerHTML = '<span>Set a store location in Inventory Setup before adding to PO</span><button data-action="dismiss-shop-toast">OK</button>';
+    document.body.appendChild(toast);
+    setTimeout(function() { if (toast.parentNode) toast.remove(); }, 5000);
+    return;
+  }
   var existing = (targetPO.line_items || []).find(function(it) { return it.purchase_item_id === itemId; });
   if (existing) return;
   targetPO.line_items = targetPO.line_items || [];
