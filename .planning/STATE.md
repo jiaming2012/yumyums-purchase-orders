@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-04-15)
 Phase: 999.1
 Plan: Not started
 Status: Ready to execute
-Last activity: 2026-04-23
+Last activity: 2026-04-28 - Completed quick task 260428-g36: Remove 30-item cap from item picker
 
 Progress: [███████░░░] 67%
 
@@ -214,9 +214,10 @@ None yet.
 | 260421-im4 | Rename History tab to Purchases in inventory.html | 2026-04-21 | f46a88c | [260421-im4-rename-history-tab-to-purchases-in-inven](./quick/260421-im4-rename-history-tab-to-purchases-in-inven/) |
 | 260421-iug | Move Stock tab before Trends in inventory.html | 2026-04-21 | ab6806f | [260421-iug-move-the-stock-tab-before-trends-in-inve](./quick/260421-iug-move-the-stock-tab-before-trends-in-inve/) |
 | 260422-not | Move stock level classification to shared Go backend function | 2026-04-22 | 6a974ac | [260422-not-shared-stock-level-classification-move-f](./quick/260422-not-shared-stock-level-classification-move-f/) |
+| 260428-g36 | Remove 30-item cap from item picker renderPickerList | 2026-04-28 | 4cf4ea0 | [260428-g36-picker-item-cap](./quick/260428-g36-picker-item-cap/) |
 
 ## Session Continuity
 
-Last session: 2026-04-28T15:23:12.990Z
-Stopped at: Completed 19-01-PLAN.md
+Last session: 2026-04-28T15:35:00.134Z
+Stopped at: Completed quick task 260428-g36
 Resume file: None
