@@ -181,9 +181,10 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
   <button id="t2" onclick="show(2)">Approvals</button>
   <button id="t3" onclick="show(3)">Builder</button>
 </div>
-<div id="s1"><div id="sync-banner" class="sync-banner" style="display:none"></div><div id="fill-body"><div id="checklist-list"></div></div></div>
+<div id="s1" style="display:none"><div id="sync-banner" class="sync-banner" style="display:none"></div><div id="fill-body"><div id="checklist-list"></div></div></div>
 <div id="s2" style="display:none"><div id="approvals-body"><div id="approvals-list"></div></div></div>
 <div id="s3" style="display:none"><div id="builder-body"><div id="builder-list"></div></div></div>
+<script src="tab.js" data-tabs="3"></script>
 <div id="toast" style="display:none;position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--info-tx);color:#fff;padding:12px 24px;border-radius:10px;font-size:14px;font-weight:500;z-index:9999;transition:opacity .3s;opacity:0"></div>
 </div>
 
@@ -2729,9 +2730,11 @@ function show(n) {
     loadMyChecklists();
   }
   if (n === 2) {
+    location.hash = 'tab=2';
     loadPendingApprovals();
   }
   if (n === 3) {
+    location.hash = 'tab=3';
     state.view = 'list';
     state.activeTemplate = null;
     state.originalTemplate = null;
@@ -2800,8 +2803,13 @@ store.on('templates', function() {
   }
   checkBuilderAccess();
   renderBuilder();
-  // Load My Checklists tab (initial tab)
-  loadMyChecklists();
+  // Restore tab from hash (if not a checklist deep link)
+  var hashTab = (location.hash.match(/tab=(\d+)/) || [])[1];
+  if (hashTab && !location.hash.includes('checklist=')) {
+    show(+hashTab);
+  } else {
+    show(1);
+  }
   // Drain any offline queue from previous sessions
   renderSyncBanner();
   drainQueue();

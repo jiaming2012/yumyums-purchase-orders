@@ -674,6 +674,58 @@ test.describe('Navigation', () => {
   });
 });
 
+// ─── Tab Persistence ────────────────────────────────────────────────────────
+
+test.describe('Tab Persistence', () => {
+  test('workflows tab persists on reload', async ({ page }) => {
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await page.click('#t2');
+    await expect(page.locator('#t2.on')).toBeVisible();
+    expect(page.url()).toContain('#tab=2');
+
+    await page.reload();
+    await expect(page.locator('#t2.on')).toBeVisible({ timeout: 5000 });
+  });
+
+  test('onboarding tab persists on reload', async ({ page }) => {
+    await login(page);
+    await page.goto(BASE + '/onboarding.html');
+    // Only managers/admins see tabs 2 and 3
+    const t3 = page.locator('#t3');
+    if (await t3.isVisible({ timeout: 3000 })) {
+      await t3.click();
+      await expect(page.locator('#t3.on')).toBeVisible();
+      expect(page.url()).toContain('#tab=3');
+
+      await page.reload();
+      await expect(page.locator('#t3.on')).toBeVisible({ timeout: 5000 });
+    }
+  });
+
+  test('inventory tab persists on reload', async ({ page }) => {
+    await login(page);
+    await page.goto(BASE + '/inventory.html');
+    await page.click('#t2');
+    await expect(page.locator('#t2.on')).toBeVisible();
+    expect(page.url()).toContain('#tab=2');
+
+    await page.reload();
+    await expect(page.locator('#t2.on')).toBeVisible({ timeout: 5000 });
+  });
+
+  test('users tab persists on reload', async ({ page }) => {
+    await login(page);
+    await page.goto(BASE + '/users.html');
+    await page.click('#t3');
+    await expect(page.locator('#t3.on')).toBeVisible();
+    expect(page.url()).toContain('#tab=3');
+
+    await page.reload();
+    await expect(page.locator('#t3.on')).toBeVisible({ timeout: 5000 });
+  });
+});
+
 // ─── G. Validation ──────────────────────────────────────────────────────────
 
 test.describe('Validation', () => {

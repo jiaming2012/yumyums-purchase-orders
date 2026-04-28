@@ -106,9 +106,10 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
     <button id="t2" onclick="show(2)">Manager</button>
     <button id="t3" onclick="show(3)">Builder</button>
   </div>
-  <div id="s1"><div id="my-body"></div></div>
+  <div id="s1" style="display:none"><div id="my-body"></div></div>
   <div id="s2" style="display:none"><div id="mgr-body"></div></div>
   <div id="s3" style="display:none"><div id="builder-body"></div></div>
+  <script src="tab.js" data-tabs="3"></script>
 </div>
 <script>
 // === State ===
@@ -207,6 +208,7 @@ function show(n) {
     document.getElementById('s'+i).style.display = i===n ? '' : 'none';
     document.getElementById('t'+i).classList.toggle('on', i===n);
   });
+  location.hash = 'tab=' + n;
   // Background refresh from API (renders when data arrives)
   if (n === 1) loadMyTrainings();
   if (n === 2) loadManagerHires();
@@ -1771,12 +1773,15 @@ document.getElementById('builder-body').addEventListener('change', function(e) {
     document.getElementById('t2').style.display = 'none';
     document.getElementById('t3').style.display = 'none';
   }
-  // Check URL for ?tab=manager to navigate directly to Manager tab
+  // Check URL for ?tab=manager query param or #tab=N hash
   var urlTab = new URLSearchParams(window.location.search).get('tab');
-  if (isManager && urlTab === 'manager') {
+  var hashTab = (location.hash.match(/tab=(\d+)/) || [])[1];
+  if (hashTab) {
+    show(+hashTab);
+  } else if (isManager && urlTab === 'manager') {
     show(2);
   } else {
-    loadMyTrainings();
+    show(1);
   }
   if (isManager) {
     loadManagerHires();

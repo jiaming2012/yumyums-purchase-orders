@@ -60,22 +60,21 @@
 
 </details>
 
-## Backlog
+## Active
 
-### Phase 999.1: Tab persistence on refresh (BACKLOG)
+### Phase 18: Tab persistence on refresh
 
 **Goal:** Persist active tab across page refresh for all apps using URL hash. When a tab is tapped, update `location.hash`. On page load, read the hash and activate the matching tab.
 **Requirements:** TBD
 **Plans:** 0 plans
 
-Plans:
-- [ ] TBD (promote with /gsd:review-backlog when ready)
-
-### Phase 999.2: Require store location before adding item to PO (BACKLOG)
+### Phase 19: Require store location before adding item to PO
 
 **Goal:** Items without a store_location should appear in the catalog/item picker under an "Unassigned" section but be blocked from being added to a purchase order until a store location is set. This prevents shopping list items from having no location context.
+**Depends on:** Phase 16 (Shopping List)
 **Requirements:** TBD
 **Plans:** 0 plans
 
-Plans:
-- [ ] TBD (promote with /gsd:review-backlog when ready)
+## Backlog
+
+(empty)
