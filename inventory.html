@@ -939,12 +939,14 @@ function renderItemsList(){
     }
   });
 
-  // Build group options for add-item select
-  var groupOpts='<option value="">No Group</option>'+ITEM_GROUPS.map(function(g){return '<option value="'+g.id+'">'+escHtml(g.name)+'</option>';}).join('')+'<option value="__new__">+ New Group</option>';
+  // Build group options — edit form allows No Group, add bar does not
+  var groupOptsList=ITEM_GROUPS.map(function(g){return '<option value="'+g.id+'">'+escHtml(g.name)+'</option>';}).join('');
+  var groupOpts='<option value="">No Group</option>'+groupOptsList+'<option value="__new__">+ New Group</option>';
+  var addGroupOpts='<option value="">Select group...</option>'+groupOptsList+'<option value="__new__">+ New Group</option>';
 
   var html='<div class="add-item-bar">'+
     '<input type="text" class="field-input" id="new-item-name" placeholder="New item name...">'+
-    '<select id="new-item-group" class="field-input">'+groupOpts+'</select>'+
+    '<select id="new-item-group" class="field-input">'+addGroupOpts+'</select>'+
     '<button data-action="create-item">Add</button>'+
     '</div>';
 
@@ -1090,9 +1092,13 @@ document.getElementById('items-list').addEventListener('click',function(e){
     var name=nameEl.value.trim();
     if(!name)return;
     var groupId=groupEl.value||null;
-    api('/api/v1/inventory/items',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({description:name,group_id:groupId})}).then(function(){
+    if(!groupId){alert('Please select a group.');return;}
+    api('/api/v1/inventory/items',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({description:name,group_id:groupId})}).then(async function(created){
       nameEl.value='';
-      loadItems();
+      await loadItems();
+      // Open the new item's edit form to prompt setting store location
+      var match=ALL_ITEMS.find(function(it){return it.description.toLowerCase()===(created&&created.description||name).toLowerCase();});
+      if(match){ITEM_EDIT_ID=match.id;renderItemsList();setTimeout(function(){var form=document.querySelector('.item-edit-form[data-item-id="'+match.id+'"]');if(form)form.scrollIntoView({behavior:'smooth',block:'center'});},100);}
     }).catch(function(err){console.error('createItem',err);});
   } else if(action==='tap-item'){
     ITEM_EDIT_ID=ITEM_EDIT_ID===el.dataset.id?null:el.dataset.id;

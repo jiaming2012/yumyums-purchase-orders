@@ -1720,6 +1720,47 @@ test.describe('Inventory', () => {
     await expect(itemRowAfter.locator('.item-group-label')).toHaveText(vendorName);
   });
 
+  // ── Add item group enforcement ──────────────────────────────────────
+
+  test('add item bar does not allow No Group selection', async ({ page }) => {
+    await page.locator('#t5').click();
+    await page.waitForSelector('#new-item-group', { timeout: 5000 });
+    const opts = await page.locator('#new-item-group option').allTextContents();
+    expect(opts).not.toContain('No Group');
+    expect(opts[0]).toBe('Select group...');
+  });
+
+  test('create item without group shows alert', async ({ page }) => {
+    await page.locator('#t5').click();
+    await page.waitForSelector('#new-item-name', { timeout: 5000 });
+    await page.fill('#new-item-name', 'No Group Item ' + Date.now());
+    // Leave group as default "Select group..." (value="")
+    let dialogMsg = '';
+    page.on('dialog', async dialog => { dialogMsg = dialog.message(); await dialog.accept(); });
+    await page.click('[data-action="create-item"]');
+    await page.waitForTimeout(500);
+    expect(dialogMsg).toContain('group');
+  });
+
+  test('creating item opens edit form with store location dropdown', async ({ page }) => {
+    const groups = await invApiCall(page, 'GET', 'groups');
+    const gid = groups && groups.length ? groups[0].id : null;
+    if (!gid) return;
+    await page.locator('#t5').click();
+    await page.waitForSelector('#new-item-name', { timeout: 5000 });
+    const itemName = 'New Setup Item ' + Date.now();
+    await page.fill('#new-item-name', itemName);
+    await page.locator('#new-item-group').selectOption(gid);
+    await page.click('[data-action="create-item"]');
+    // Should open the item's edit form after creation
+    await expect(page.locator('.item-edit-form')).toBeVisible({ timeout: 8000 });
+    // Store location dropdown should be visible
+    await expect(page.locator('.item-edit-location')).toBeVisible();
+    // The edit form should contain the created item's name
+    const nameVal = await page.locator('.item-edit-name').inputValue();
+    expect(nameVal.toLowerCase()).toContain('new setup item');
+  });
+
   // ── Store location dropdown ─────────────────────────────────────────
 
   test('store location edit form shows dropdown with vendor names and + Add new option', async ({ page }) => {
