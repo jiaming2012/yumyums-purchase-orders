@@ -2,7 +2,9 @@ node_modules/
 test-results/
 playwright-report/
 .planning/
-.claude/worktrees
+.claude/
+*.map
+.features-gen/
 
 # Notion export source files (one-time import)
 notion-export/

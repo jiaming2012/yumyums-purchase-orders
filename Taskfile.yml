@@ -67,3 +67,41 @@ tasks:
     desc: Open Playwright UI mode for interactive debugging
     cmds:
       - npx playwright test --ui
+
+  bdd:gen:
+    desc: Generate Playwright tests from Gherkin feature files
+    cmds:
+      - npx bddgen
+
+  bdd:
+    desc: Run BDD/Gherkin tests only (uses Windows box DB)
+    deps: [sw, bdd:gen]
+    env:
+      DB_HOST: 100.70.200.55
+      DB_PORT: '5433'
+    cmds:
+      - npx playwright test --project=bdd
+
+  test:go:
+    desc: Run Go backend unit tests
+    cmds:
+      - cd backend && go test ./...
+
+  test:all:
+    desc: Run all tests (Go unit, Playwright E2E, BDD/Gherkin)
+    deps: [sw, bdd:gen]
+    env:
+      DB_HOST: 100.70.200.55
+      DB_PORT: '5433'
+    cmds:
+      - cd backend && go test ./...
+      - npx playwright test
+
+  bdd:headed:
+    desc: Run BDD/Gherkin tests (visible browser, uses Windows box DB)
+    deps: [bdd:gen]
+    env:
+      DB_HOST: 100.70.200.55
+      DB_PORT: '5433'
+    cmds:
+      - npx playwright test --project=bdd --headed

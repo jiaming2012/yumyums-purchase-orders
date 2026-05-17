@@ -1,4 +1,5 @@
 const { defineConfig } = require('@playwright/test');
+const { defineBddConfig } = require('playwright-bdd');
 
 const dbHost = process.env.DB_HOST || 'localhost';
 const dbPort = process.env.DB_PORT || '5432';
@@ -6,8 +7,12 @@ const dbUser = process.env.DB_USER || 'yumyums';
 const dbPass = process.env.DB_PASS || 'yumyums';
 const testDbUrl = `postgres://${dbUser}:${dbPass}@${dbHost}:${dbPort}/hq_test?sslmode=disable&TimeZone=America/New_York`;
 
+const bddTestDir = defineBddConfig({
+  features: './features/**/*.feature',
+  steps: './features/steps/**/*.js',
+});
+
 module.exports = defineConfig({
-  testDir: './tests',
   timeout: 30000,
   retries: 1,
   use: {
@@ -23,6 +28,7 @@ module.exports = defineConfig({
     timeout: 60000,
   },
   projects: [
-    { name: 'chromium', use: { browserName: 'chromium' } },
+    { name: 'chromium', testDir: './tests', use: { browserName: 'chromium' } },
+    { name: 'bdd', testDir: bddTestDir, use: { browserName: 'chromium' } },
   ],
 });
