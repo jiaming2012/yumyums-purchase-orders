@@ -6,6 +6,9 @@ includes:
   backend:
     taskfile: ./backend/Taskfile.yml
     dir: ./backend
+  prod:
+    taskfile: ./prod/Taskfile.yml
+    dir: .
 
 tasks:
   deploy:
@@ -105,3 +108,5 @@ tasks:
       DB_PORT: '5433'
     cmds:
       - npx playwright test --project=bdd --headed
+
+  # Production stack tasks live in ./prod/Taskfile.yml (included as `prod:`)
