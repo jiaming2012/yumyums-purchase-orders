@@ -1048,10 +1048,12 @@ function renderItemsList(){
   if(PREFILL_NEW_ITEM){
     var inp=document.getElementById('new-item-name');
     if(inp){inp.value=PREFILL_NEW_ITEM;inp.focus();}
-    PREFILL_NEW_ITEM=null;
   }
 }
 
+document.getElementById('items-list').addEventListener('input',function(e){
+  if(e.target.id==='new-item-name')PREFILL_NEW_ITEM=null;
+});
 document.getElementById('item-search').addEventListener('input',function(e){
   ITEM_SEARCH=e.target.value;
   renderItemsList();
@@ -1124,6 +1126,7 @@ document.getElementById('items-list').addEventListener('click',function(e){
   if(!el)return;
   var action=el.dataset.action;
   if(action==='create-item'){
+    PREFILL_NEW_ITEM=null;
     var nameEl=document.getElementById('new-item-name');
     var groupEl=document.getElementById('new-item-group');
     var name=nameEl.value.trim();
