@@ -698,10 +698,13 @@ func GetMyTrainings(ctx context.Context, pool *pgxpool.Pool, hireID string) ([]A
 			GROUP BY os.template_id
 		) sec_complete ON sec_complete.template_id = ot.id
 		LEFT JOIN (
-			-- Count total sections per template
-			SELECT template_id, COUNT(*) AS cnt
-			FROM ob_sections
-			GROUP BY template_id
+			-- Count total sections that have at least one checkable item
+			SELECT os2.template_id, COUNT(*) AS cnt
+			FROM ob_sections os2
+			WHERE EXISTS (
+				SELECT 1 FROM ob_items oi WHERE oi.section_id = os2.id AND oi.type IN ('checkbox', 'video_series', 'faq')
+			)
+			GROUP BY os2.template_id
 		) sec_total ON sec_total.template_id = ot.id
 		WHERE ot.archived_at IS NULL
 		  AND (ota.hire_id = $1 OR (ot.roles IS NOT NULL AND ot.roles && $2))
@@ -750,6 +753,9 @@ func GetManagerHires(ctx context.Context, pool *pgxpool.Pool) ([]HireOverview, e
 		LEFT JOIN (
 			SELECT os.template_id, COUNT(*) AS cnt
 			FROM ob_sections os
+			WHERE EXISTS (
+				SELECT 1 FROM ob_items oi WHERE oi.section_id = os.id AND oi.type IN ('checkbox', 'video_series', 'faq')
+			)
 			GROUP BY os.template_id
 		) sec_total ON sec_total.template_id = matched_tpl.id
 		LEFT JOIN (
@@ -820,7 +826,9 @@ func GetManagerHires(ctx context.Context, pool *pgxpool.Pool) ([]HireOverview, e
 				EXISTS (SELECT 1 FROM ob_template_assignments ota WHERE ota.hire_id = $1 AND ota.template_id = ot.id) AS explicit_assign
 			FROM ob_templates ot
 			LEFT JOIN (
-				SELECT template_id, COUNT(*) AS cnt FROM ob_sections GROUP BY template_id
+				SELECT os.template_id, COUNT(*) AS cnt FROM ob_sections os
+				WHERE EXISTS (SELECT 1 FROM ob_items oi WHERE oi.section_id = os.id AND oi.type IN ('checkbox', 'video_series', 'faq'))
+				GROUP BY os.template_id
 			) sec_total ON sec_total.template_id = ot.id
 			LEFT JOIN (
 				SELECT os.template_id, COUNT(*) AS cnt
