@@ -433,6 +433,77 @@ func UnassignTemplateHandler(pool *pgxpool.Pool) http.HandlerFunc {
 	}
 }
 
+// RejectSectionHandler handles POST /api/v1/onboarding/rejectSection.
+// Manager/admin rejects a section, reverting it to active so the crew can re-edit.
+// Deletes sign-off (if any) and unchecks the first item to force active state.
+func RejectSectionHandler(pool *pgxpool.Pool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		user := auth.UserFromContext(r.Context())
+		if user == nil {
+			writeError(w, http.StatusUnauthorized, "unauthorized")
+			return
+		}
+		if !isManagerOrAdmin(user) {
+			writeError(w, http.StatusForbidden, "forbidden")
+			return
+		}
+
+		var body struct {
+			SectionID string `json:"section_id"`
+			HireID    string `json:"hire_id"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_body")
+			return
+		}
+		if body.SectionID == "" || body.HireID == "" {
+			writeError(w, http.StatusBadRequest, "section_id_and_hire_id_required")
+			return
+		}
+
+		uncheckedID, err := ReopenSection(r.Context(), pool, body.SectionID, body.HireID)
+		if err != nil {
+			log.Printf("RejectSection error: %v", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]string{"ok": "true", "unchecked_item_id": uncheckedID})
+	}
+}
+
+// ReopenSectionHandler handles POST /api/v1/onboarding/reopenSection.
+// Crew member reopens their own section to make edits (unsubmit).
+// Deletes sign-off (if any) and unchecks the first item to force active state.
+func ReopenSectionHandler(pool *pgxpool.Pool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		user := auth.UserFromContext(r.Context())
+		if user == nil {
+			writeError(w, http.StatusUnauthorized, "unauthorized")
+			return
+		}
+
+		var body struct {
+			SectionID string `json:"section_id"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_body")
+			return
+		}
+		if body.SectionID == "" {
+			writeError(w, http.StatusBadRequest, "section_id_required")
+			return
+		}
+
+		uncheckedID, err := ReopenSection(r.Context(), pool, body.SectionID, user.ID)
+		if err != nil {
+			log.Printf("ReopenSection error: %v", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]string{"ok": "true", "unchecked_item_id": uncheckedID})
+	}
+}
+
 // DeleteTemplateHandler handles DELETE /api/v1/onboarding/deleteTemplate/{id}.
 // Soft-deletes an onboarding template by setting archived_at. Requires admin/manager.
 func DeleteTemplateHandler(pool *pgxpool.Pool) http.HandlerFunc {

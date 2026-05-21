@@ -995,6 +995,58 @@ func SignOff(ctx context.Context, pool *pgxpool.Pool, input SignOffInput) error 
 	return err
 }
 
+// ReopenSection reverts a section to active by deleting the sign-off (if any)
+// and removing the first item's progress entry so the section is no longer complete.
+func ReopenSection(ctx context.Context, pool *pgxpool.Pool, sectionID, hireID string) (string, error) {
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		return "", fmt.Errorf("begin transaction: %w", err)
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+
+	// Delete sign-off if exists
+	_, err = tx.Exec(ctx, `DELETE FROM ob_signoffs WHERE section_id = $1 AND hire_id = $2`, sectionID, hireID)
+	if err != nil {
+		return "", fmt.Errorf("delete signoff: %w", err)
+	}
+
+	// Find first item in section
+	var itemID string
+	err = tx.QueryRow(ctx, `
+		SELECT id FROM ob_items WHERE section_id = $1 ORDER BY sort_order LIMIT 1
+	`, sectionID).Scan(&itemID)
+	if err != nil {
+		return "", fmt.Errorf("find first item: %w", err)
+	}
+
+	// Check if item has sub-items; if so, delete first sub-item's progress
+	var subID string
+	err = tx.QueryRow(ctx, `
+		SELECT id FROM ob_sub_items WHERE item_id = $1 ORDER BY sort_order LIMIT 1
+	`, itemID).Scan(&subID)
+	if err == nil {
+		// Has sub-items — delete first sub-item's progress
+		_, err = tx.Exec(ctx, `DELETE FROM ob_progress WHERE item_id = $1 AND hire_id = $2`, subID, hireID)
+		if err != nil {
+			return "", fmt.Errorf("delete sub-item progress: %w", err)
+		}
+		if err := tx.Commit(ctx); err != nil {
+			return "", fmt.Errorf("commit: %w", err)
+		}
+		return subID, nil
+	}
+
+	// No sub-items — delete item's progress
+	_, err = tx.Exec(ctx, `DELETE FROM ob_progress WHERE item_id = $1 AND hire_id = $2`, itemID, hireID)
+	if err != nil {
+		return "", fmt.Errorf("delete item progress: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return "", fmt.Errorf("commit: %w", err)
+	}
+	return itemID, nil
+}
+
 // CreateTemplate inserts a new onboarding template with all sections, items, and video parts.
 func CreateTemplate(ctx context.Context, pool *pgxpool.Pool, input CreateTemplateInput) (string, error) {
 	tx, err := pool.Begin(ctx)

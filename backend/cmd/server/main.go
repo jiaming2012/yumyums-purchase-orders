@@ -451,6 +451,8 @@ func main() {
 				r.Get("/managerHires", onboarding.ManagerHiresHandler(pool))
 				r.Post("/saveProgress", onboarding.SaveProgressHandler(pool))
 				r.Post("/signOff", onboarding.SignOffHandler(pool))
+				r.Post("/rejectSection", onboarding.RejectSectionHandler(pool))
+				r.Post("/reopenSection", onboarding.ReopenSectionHandler(pool))
 				r.Post("/createTemplate", onboarding.CreateTemplateHandler(pool))
 				r.Put("/updateTemplate/{id}", onboarding.UpdateTemplateHandler(pool))
 				r.Delete("/deleteTemplate/{id}", onboarding.DeleteTemplateHandler(pool))

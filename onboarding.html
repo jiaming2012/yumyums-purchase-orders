@@ -520,19 +520,33 @@ function renderSections(sections, hireId, readOnly) {
         html += '</div>';
       }
     }
-    // Sign-off actions — OUTSIDE the expandable area so always visible
-    if (readOnly && state !== 'signed_off' && sec.requires_sign_off && state === 'complete') {
-      var canSignOff = true;
-      if (sec.sign_off_roles && sec.sign_off_roles.length > 0) {
-        var userRoles = (CURRENT_USER && CURRENT_USER.roles) || [];
-        canSignOff = CURRENT_USER.is_superadmin || sec.sign_off_roles.some(function(r) { return userRoles.includes(r); });
-      }
-      if (canSignOff) {
-        var sfKey = hireId + '_' + sec.id;
-        if (SIGNOFF_FORM[sfKey]) {
-          html += renderSignOffForm(sec, hireId);
-        } else {
-          html += '<div class="sec-actions"><button class="btn-approve" data-action="show-signoff-form" data-sec-id="'+sec.id+'" data-hire-id="'+hireId+'">Sign Off Section</button></div>';
+    // Crew: "Go Back & Edit" on complete sections awaiting sign-off
+    if (!readOnly && state === 'complete' && sec.requires_sign_off) {
+      html += '<div class="sec-actions"><button class="btn-secondary" data-action="reopen-section" data-sec-id="'+sec.id+'">Go Back &amp; Edit</button></div>';
+    }
+    // Manager: sign-off and reject actions
+    if (readOnly && sec.requires_sign_off) {
+      if (state === 'complete') {
+        var canSignOff = true;
+        if (sec.sign_off_roles && sec.sign_off_roles.length > 0) {
+          var userRoles = (CURRENT_USER && CURRENT_USER.roles) || [];
+          canSignOff = CURRENT_USER.is_superadmin || sec.sign_off_roles.some(function(r) { return userRoles.includes(r); });
+        }
+        if (canSignOff) {
+          var sfKey = hireId + '_' + sec.id;
+          if (SIGNOFF_FORM[sfKey]) {
+            html += renderSignOffForm(sec, hireId);
+          } else {
+            html += '<div class="sec-actions">';
+            html += '<button class="btn-approve" data-action="show-signoff-form" data-sec-id="'+sec.id+'" data-hire-id="'+hireId+'">Sign Off Section</button>';
+            html += '<button class="btn-danger" data-action="reject-section" data-sec-id="'+sec.id+'" data-hire-id="'+hireId+'">Reject</button>';
+            html += '</div>';
+          }
+        }
+      } else if (state === 'signed_off') {
+        var canReject = CURRENT_USER.is_superadmin || (CURRENT_USER.roles || []).some(function(r) { return r === 'admin' || r === 'manager'; });
+        if (canReject) {
+          html += '<div class="sec-actions"><button class="btn-danger" data-action="reject-section" data-sec-id="'+sec.id+'" data-hire-id="'+hireId+'">Reject &amp; Reopen</button></div>';
         }
       }
     }
@@ -1493,6 +1507,29 @@ document.getElementById('my-body').addEventListener('click', async function(e) {
     handleOBPhotoCaptureClick(itemId, hireId, secId, CURRENT_TRAINING ? CURRENT_TRAINING.sections : []);
   } else if (action === 'ob-view-photo') {
     showFullPhoto(btn.dataset.photoUrl);
+  } else if (action === 'reopen-section') {
+    if (!confirm('Go back and edit this section? It will need to be re-completed for sign-off.')) return;
+    var secId = btn.dataset.secId;
+    try {
+      var resp = await api('POST', '/api/v1/onboarding/reopenSection', { section_id: secId });
+      // Uncheck the item locally to match backend state
+      if (resp && resp.unchecked_item_id && CURRENT_TRAINING) {
+        var uncheckedId = resp.unchecked_item_id;
+        CURRENT_TRAINING.sections.forEach(function(sec) {
+          (sec.items || []).forEach(function(item) {
+            if (item.id === uncheckedId) { item.checked = false; }
+            (item.sub_items || []).forEach(function(sub) {
+              if (sub.id === uncheckedId) { sub.checked = false; }
+            });
+          });
+          if (sec.id === secId) { sec.state = 'active'; sec.sign_off = null; delete sec.completed_at; }
+        });
+      }
+      EXPANDED_SECTIONS[secId] = true;
+      renderMyRunner();
+    } catch(e) {
+      alert('Could not reopen section. Try again.');
+    }
   }
 });
 
@@ -1627,6 +1664,33 @@ document.getElementById('mgr-body').addEventListener('click', async function(e) 
     }
   } else if (action === 'ob-view-photo') {
     showFullPhoto(btn.dataset.photoUrl);
+  } else if (action === 'reject-section') {
+    if (!confirm('Reject this section? The crew member will need to re-do it.')) return;
+    var secId = btn.dataset.secId;
+    var hireId = btn.dataset.hireId;
+    try {
+      var resp = await api('POST', '/api/v1/onboarding/rejectSection', { section_id: secId, hire_id: hireId });
+      if (CURRENT_TRAINING) {
+        var uncheckedId = resp && resp.unchecked_item_id;
+        CURRENT_TRAINING.sections.forEach(function(sec) {
+          if (sec.id === secId) {
+            sec.state = 'active';
+            sec.sign_off = null;
+            delete sec.completed_at;
+          }
+          (sec.items || []).forEach(function(item) {
+            if (item.id === uncheckedId) { item.checked = false; }
+            (item.sub_items || []).forEach(function(sub) {
+              if (sub.id === uncheckedId) { sub.checked = false; }
+            });
+          });
+        });
+      }
+      EXPANDED_SECTIONS[secId] = true;
+      renderMgrRunner();
+    } catch(e) {
+      alert('Could not reject section. Try again.');
+    }
   }
 });
 
