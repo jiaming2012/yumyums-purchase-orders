@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 18-01-PLAN.md
-last_updated: "2026-05-21T02:51:54.940Z"
+stopped_at: Checkpoint at 18-02 Task 3 (human-verify)
+last_updated: "2026-05-21T02:59:56.131Z"
 last_activity: "2026-04-28 - Completed quick task 260428-g36: Remove 30-item cap from item picker"
 progress:
   total_phases: 4
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 3
-  percent: 0
+  completed_phases: 1
+  total_plans: 1
+  completed_plans: 4
+  percent: 100
 ---
 
 # Project State
@@ -30,7 +30,7 @@ Plan: Not started
 Status: Ready to execute
 Last activity: 2026-04-28 - Completed quick task 260428-g36: Remove 30-item cap from item picker
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -94,6 +94,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 19 P02 | 267 | 3 tasks | 5 files |
 | Phase 19 P01 | 5 | 4 tasks | 2 files |
 | Phase 18 P01 | 159 | 2 tasks | 3 files |
+| Phase 18 P02 | 264 | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -194,6 +195,7 @@ Recent decisions affecting current work:
 - Item rows show store_location label in Setup (category in composite header); backend item endpoints accept store_location
 - Phase 19-01: Reused shop-toast for store_location guard; picker grouped by store_location with sticky headers; unassigned items blocked with hint text
 - Photo items use COALESCE upsert for value column; sql.NullString for scanning; same incomplete-item detection as checkboxes
+- Copied openCamera/showPhotoPreview from workflows.html for photo capture in onboarding
 
 ### Pending Todos
 
@@ -221,6 +223,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-21T02:51:54.928Z
-Stopped at: Completed 18-01-PLAN.md
-Resume file: None
+Last session: 2026-05-21T02:59:56.122Z
+Stopped at: Checkpoint at 18-02 Task 3 (human-verify)
+Resume file: 18-02-PLAN.md Task 3
