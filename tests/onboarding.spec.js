@@ -2001,3 +2001,180 @@ test.describe('Section completion with sub-items', () => {
     await obApiCall(page, 'DELETE', 'deleteTemplate/' + tpl.id);
   });
 });
+
+// ─── Reject and Unsubmit ────────────────────────────────────────────────────
+
+test.describe('Reject and unsubmit sections', () => {
+  // Helper: create a template with one sign-off section, assign, complete all items
+  async function setupCompletedSignoffSection(page) {
+    const me = await page.evaluate(async () => {
+      const res = await fetch('/api/v1/me');
+      return res.json();
+    });
+    const tpl = await obApiCall(page, 'POST', 'createTemplate', {
+      name: 'Reject Test ' + Date.now(),
+      roles: [],
+      sections: [{
+        title: 'Sign-off Section',
+        sort_order: 0,
+        requires_sign_off: true,
+        sign_off_roles: ['admin', 'manager'],
+        is_faq: false,
+        items: [{
+          type: 'checkbox',
+          label: 'Task A',
+          sort_order: 0,
+          require_proof_photo: true,
+          sub_items: [],
+        }, {
+          type: 'checkbox',
+          label: 'Task B',
+          sort_order: 1,
+          sub_items: [],
+        }],
+      }],
+    });
+    await obApiCall(page, 'POST', 'assignTemplate', {
+      hire_id: me.id,
+      template_id: tpl.id,
+    });
+    const full = await obApiCall(page, 'GET', 'templates/' + tpl.id);
+    // Complete both items
+    for (const item of full.sections[0].items) {
+      await obApiCall(page, 'POST', 'saveProgress', {
+        item_id: item.id,
+        progress_type: 'item',
+        checked: true,
+      });
+    }
+    return { me, tpl, full };
+  }
+
+  test('crew can unsubmit a completed section and re-edit', async ({ page }) => {
+    await login(page);
+    const { me, tpl } = await setupCompletedSignoffSection(page);
+
+    // Verify section shows "Waiting for Sign-Off" with "Go Back & Edit" button
+    await page.goto('/onboarding.html');
+    await waitForMyList(page);
+    await page.locator('[data-action="open-my-training"]').filter({ hasText: tpl.id }).first().click();
+    await waitForTrainingRunner(page);
+
+    await expect(page.locator('.pill-warn')).toContainText('Waiting for Sign-Off');
+    const goBackBtn = page.locator('[data-action="reopen-section"]');
+    await expect(goBackBtn).toBeVisible();
+
+    // Accept the confirmation dialog
+    page.on('dialog', dialog => dialog.accept());
+    await goBackBtn.click();
+
+    // Section should now be active — items should be interactive
+    await page.waitForTimeout(500);
+    // The section should be expanded and show toggle-item buttons
+    await expect(page.locator('[data-action="toggle-item"]').first()).toBeVisible();
+
+    // Cleanup
+    await obApiCall(page, 'DELETE', 'deleteTemplate/' + tpl.id);
+  });
+
+  test('manager can reject a signed-off section', async ({ page }) => {
+    await login(page);
+    const { me, tpl, full } = await setupCompletedSignoffSection(page);
+    const secId = full.sections[0].id;
+
+    // Sign off the section via API
+    await obApiCall(page, 'POST', 'signOff', {
+      section_id: secId,
+      hire_id: me.id,
+      notes: 'Looks good',
+      rating: 'ready',
+    });
+
+    // Open Manager tab, navigate to hire training
+    await page.goto('/onboarding.html');
+    await page.click('#t2');
+    await waitForManagerList(page);
+
+    // Open hire detail
+    await page.locator('#mgr-body [data-action="open-hire"]').first().click();
+    await page.waitForTimeout(500);
+
+    // Open the training
+    const viewBtn = page.locator('[data-action="view-training"]').filter({ hasText: tpl.id }).first();
+    if (await viewBtn.isVisible()) {
+      await viewBtn.click();
+      await page.waitForTimeout(500);
+    }
+
+    // Should see "Reject & Reopen" button on signed-off section
+    const rejectBtn = page.locator('[data-action="reject-section"]');
+    await expect(rejectBtn.first()).toBeVisible();
+
+    // Accept confirmation and reject
+    page.on('dialog', dialog => dialog.accept());
+    await rejectBtn.first().click();
+    await page.waitForTimeout(500);
+
+    // Section should now show as active (no longer signed off)
+    await expect(page.locator('.sec-header').first()).not.toContainText('Signed Off');
+
+    // Cleanup
+    await obApiCall(page, 'DELETE', 'deleteTemplate/' + tpl.id);
+  });
+
+  test('manager can reject before sign-off (complete section)', async ({ page }) => {
+    await login(page);
+    const { me, tpl, full } = await setupCompletedSignoffSection(page);
+
+    // Open Manager tab → hire → training
+    await page.goto('/onboarding.html');
+    await page.click('#t2');
+    await waitForManagerList(page);
+    await page.locator('#mgr-body [data-action="open-hire"]').first().click();
+    await page.waitForTimeout(500);
+    const viewBtn = page.locator('[data-action="view-training"]').filter({ hasText: tpl.id }).first();
+    if (await viewBtn.isVisible()) {
+      await viewBtn.click();
+      await page.waitForTimeout(500);
+    }
+
+    // Should see "Reject" button alongside "Sign Off Section"
+    const rejectBtn = page.locator('[data-action="reject-section"]');
+    await expect(rejectBtn.first()).toBeVisible();
+
+    page.on('dialog', dialog => dialog.accept());
+    await rejectBtn.first().click();
+    await page.waitForTimeout(500);
+
+    // Section should revert to active
+    await expect(page.locator('.sec-header').first()).not.toContainText('Waiting for Sign-Off');
+
+    // Cleanup
+    await obApiCall(page, 'DELETE', 'deleteTemplate/' + tpl.id);
+  });
+
+  test('unsubmitted section allows proof photo capture button', async ({ page }) => {
+    await login(page);
+    const { me, tpl } = await setupCompletedSignoffSection(page);
+
+    // Reopen via API
+    const full = await obApiCall(page, 'GET', 'templates/' + tpl.id);
+    await obApiCall(page, 'POST', 'reopenSection', { section_id: full.sections[0].id });
+
+    // Load My Trainings and open training
+    await page.goto('/onboarding.html');
+    await waitForMyList(page);
+    await page.locator('[data-action="open-my-training"]').filter({ hasText: tpl.id }).first().click();
+    await waitForTrainingRunner(page);
+
+    // Expand section
+    await page.locator('.sec-header').first().click();
+    await page.waitForTimeout(300);
+
+    // Proof photo button should be visible on items with require_proof_photo
+    await expect(page.locator('[data-action="ob-photo-capture"]').first()).toBeVisible();
+
+    // Cleanup
+    await obApiCall(page, 'DELETE', 'deleteTemplate/' + tpl.id);
+  });
+});
