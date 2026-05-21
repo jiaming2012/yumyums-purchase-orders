@@ -66,7 +66,11 @@
 
 **Goal:** Add a `photo` item type to the onboarding system so crew members can capture and upload photos as part of their training checklists. Includes Builder support (+ Photo button), My Trainings photo capture/upload UI, Manager read-only photo viewing, backend progress tracking with photo URL storage, and section progress counting.
 **Requirements:** TBD
-**Plans:** 0 plans
+**Plans:** 2 plans
+
+Plans:
+- [ ] 18-01-PLAN.md — DB migration + backend Go changes (value column, photo type in SQL filters, SaveProgress/GetHireTraining updates)
+- [ ] 18-02-PLAN.md — Frontend photo support in onboarding.html (CSS, camera capture, upload, thumbnails, Builder + Photo button, progress counting)
 
 ### Phase 19: Tab persistence on refresh
 
