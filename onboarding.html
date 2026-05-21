@@ -242,6 +242,16 @@ function showPhotoPreview(objectURL, onConfirm, onRetake) {
   };
 }
 
+function showFullPhoto(url) {
+  var modal = document.createElement('div');
+  modal.className = 'photo-modal';
+  modal.innerHTML = '<img class="photo-preview" src="' + url + '">' +
+    '<div style="position:fixed;top:12px;left:16px;z-index:1001"><button style="background:rgba(0,0,0,0.5);color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:14px;font-weight:500;cursor:pointer;font-family:inherit">&#8249; Back</button></div>';
+  document.body.appendChild(modal);
+  modal.querySelector('button').onclick = function() { modal.remove(); };
+  modal.addEventListener('click', function(e) { if (e.target === modal) modal.remove(); });
+}
+
 function handleOBPhotoCaptureClick(itemId, hireId, secId, sections) {
   openCamera(function(file) {
     // Skip custom preview — iOS/Android camera already has review/retake
@@ -438,12 +448,12 @@ function renderSections(sections, hireId, readOnly) {
             if (checked && item.checked_by) html += '<div class="attribution">Checked by '+escapeOBAttr(item.checked_by)+'</div>';
             // Reference photo (template-level guide image)
             if (item.reference_photo_url) {
-              html += '<div class="photo-thumb-wrap"><a class="photo-thumb-link" href="'+item.reference_photo_url+'" target="_blank"><img class="photo-thumb" src="'+item.reference_photo_url+'" alt="Reference"></a><span style="font-size:11px;color:var(--mut)">Reference</span></div>';
+              html += '<div class="photo-thumb-wrap"><img class="photo-thumb" src="'+item.reference_photo_url+'" alt="Reference" data-action="ob-view-photo" data-photo-url="'+escapeOBAttr(item.reference_photo_url)+'"><span style="font-size:11px;color:var(--mut)">Reference</span></div>';
             }
             // Proof photo (crew-uploaded evidence)
             if (item.require_proof_photo || item.proof_photo_url) {
               if (item.proof_photo_url) {
-                html += '<div class="photo-thumb-wrap"><a class="photo-thumb-link" href="'+item.proof_photo_url+'" target="_blank"><img class="photo-thumb" src="'+item.proof_photo_url+'" alt="Proof"></a>';
+                html += '<div class="photo-thumb-wrap"><img class="photo-thumb" src="'+item.proof_photo_url+'" alt="Proof" data-action="ob-view-photo" data-photo-url="'+escapeOBAttr(item.proof_photo_url)+'">';
                 if (canInteract) html += '<button class="photo-retake-link" data-action="ob-photo-capture" data-item-id="'+item.id+'" data-sec-id="'+sec.id+'" data-hire-id="'+hireId+'">Retake</button>';
                 html += '</div>';
               } else if (canInteract) {
@@ -1451,6 +1461,8 @@ document.getElementById('my-body').addEventListener('click', async function(e) {
     var secId = btn.dataset.secId;
     var hireId = btn.dataset.hireId;
     handleOBPhotoCaptureClick(itemId, hireId, secId, CURRENT_TRAINING ? CURRENT_TRAINING.sections : []);
+  } else if (action === 'ob-view-photo') {
+    showFullPhoto(btn.dataset.photoUrl);
   }
 });
 
@@ -1583,6 +1595,8 @@ document.getElementById('mgr-body').addEventListener('click', async function(e) 
       SIGNOFF_FORM[sfKey].err = 'Something went wrong. Try again.';
       renderMgrRunner();
     }
+  } else if (action === 'ob-view-photo') {
+    showFullPhoto(btn.dataset.photoUrl);
   }
 });
 
