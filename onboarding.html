@@ -101,13 +101,13 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .photo-modal-actions{position:fixed;bottom:32px;left:0;right:0;display:flex;justify-content:center;gap:16px;align-items:center}
 .photo-confirm-btn{min-width:56px;min-height:56px;border-radius:28px;background:var(--info-bg);color:var(--info-tx);border:none;font-size:24px;cursor:pointer;display:flex;align-items:center;justify-content:center}
 .photo-retake-btn{padding:12px 16px;background:transparent;color:var(--info-tx);border:none;font-size:14px;font-weight:500;cursor:pointer;min-height:44px;font-family:inherit}
-.photo-thumb{width:72px;height:72px;border-radius:8px;object-fit:cover;border:0.5px solid var(--brd)}
+.photo-thumb{width:48px;height:48px;border-radius:6px;object-fit:cover;border:0.5px solid var(--brd)}
 .photo-capture-btn{padding:8px 12px;background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;font-size:14px;cursor:pointer;font-family:inherit;color:var(--txt)}
 .photo-retake-link{background:none;border:none;color:var(--info-tx);font-size:12px;cursor:pointer;padding:0;font-family:inherit}
 .photo-uploading{display:flex;align-items:center;gap:10px;padding:8px 0;font-size:13px;color:var(--mut)}
 .photo-spinner{width:18px;height:18px;border:2px solid var(--brd);border-top-color:var(--info-tx);border-radius:50%;animation:photo-spin 0.8s linear infinite;flex-shrink:0}
 @keyframes photo-spin{to{transform:rotate(360deg)}}
-.photo-thumb-wrap{display:flex;flex-direction:column;gap:4px;align-items:flex-start;padding:6px 0}
+.photo-thumb-wrap{display:flex;gap:6px;align-items:center;padding:2px 0}
 .photo-thumb-link{display:block;cursor:pointer}
 </style>
 </head>
@@ -474,7 +474,7 @@ function renderSections(sections, hireId, readOnly) {
                 if (canInteract) html += '<button class="photo-retake-link" data-action="ob-photo-capture" data-item-id="'+item.id+'" data-sec-id="'+sec.id+'" data-hire-id="'+hireId+'">Retake</button>';
                 html += '</div>';
               } else if (canInteract) {
-                html += '<button class="photo-capture-btn" data-action="ob-photo-capture" data-item-id="'+item.id+'" data-sec-id="'+sec.id+'" data-hire-id="'+hireId+'" style="margin-top:4px">&#128247; Take Proof Photo</button>';
+                html += '<button class="photo-capture-btn" data-action="ob-photo-capture" data-item-id="'+item.id+'" data-sec-id="'+sec.id+'" data-hire-id="'+hireId+'" style="margin-top:2px;font-size:12px">&#128247; Take Proof Photo</button>';
               } else if (readOnly) {
                 html += '<div style="font-size:12px;color:var(--mut);padding:4px 0">No proof photo</div>';
               }
