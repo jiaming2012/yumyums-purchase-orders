@@ -17,7 +17,7 @@
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
 body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg);color:var(--txt);padding:env(safe-area-inset-top) 16px env(safe-area-inset-bottom)}
 .app{max-width:480px;margin:0 auto;padding-top:20px}
-.back{display:inline-flex;align-items:center;gap:6px;color:var(--info-tx);text-decoration:none;font-size:16px;font-weight:500;margin-bottom:16px;cursor:pointer;min-height:44px;padding:4px 8px 4px 0}.back::before{content:'';display:none}
+.back{display:inline-flex;align-items:center;gap:6px;color:var(--info-tx);text-decoration:none;font-size:16px;font-weight:500;margin-bottom:12px;cursor:pointer;min-height:44px;padding:4px 8px 4px 0;-webkit-tap-highlight-color:transparent}
 .tabs{display:flex;gap:0;background:var(--card);border-radius:10px;padding:3px;border:0.5px solid var(--brd);margin-bottom:16px}
 .tabs button{flex:1;border:none;background:transparent;padding:12px 0;font-size:14px;font-weight:500;color:var(--mut);border-radius:8px;cursor:pointer}
 .tabs button.on{background:var(--info-bg);color:var(--info-tx)}
@@ -362,7 +362,7 @@ async function openMyTraining(templateId) {
 function renderMyRunner() {
   if (!CURRENT_TRAINING) { loadMyTrainings(); return; }
   var html = '';
-  html += '<span class="back" data-action="back-to-my-list" style="display:inline-flex;align-items:center;gap:4px;color:var(--info-tx);font-size:14px;font-weight:500;margin-bottom:16px;cursor:pointer">&#8249; My Trainings</span>';
+  html += '<span class="back" data-action="back-to-my-list" style="cursor:pointer">&#8249; My Trainings</span>';
   html += '<div style="font-size:14px;font-weight:600;color:var(--txt);margin-bottom:16px">'+escapeOBAttr(CURRENT_TRAINING.template.name)+'</div>';
   html += renderSections(CURRENT_TRAINING.sections, CURRENT_USER.id, false);
   document.getElementById('my-body').innerHTML = html;
@@ -719,7 +719,7 @@ async function openHireTraining(hireId, hireName, templateId) {
 function renderMgrRunner() {
   if (!CURRENT_TRAINING) { loadManagerHires(); return; }
   var html = '';
-  html += '<span class="back" data-action="back-to-hires" style="display:inline-flex;align-items:center;gap:4px;color:var(--info-tx);font-size:14px;font-weight:500;margin-bottom:16px;cursor:pointer">&#8249; All Hires</span>';
+  html += '<span class="back" data-action="back-to-hires" style="cursor:pointer">&#8249; All Hires</span>';
   html += '<div style="font-size:14px;font-weight:600;color:var(--txt);margin-bottom:16px">'+escapeOBAttr(mgrState.activeHireName)+' &mdash; '+escapeOBAttr(CURRENT_TRAINING.template.name)+'</div>';
   html += renderSections(CURRENT_TRAINING.sections, mgrState.activeHireId, true);
   document.getElementById('mgr-body').innerHTML = html;
@@ -727,7 +727,7 @@ function renderMgrRunner() {
 
 function renderHireDetail(hire) {
   var html = '';
-  html += '<span class="back" data-action="back-to-hires" style="display:inline-flex;align-items:center;gap:4px;color:var(--info-tx);font-size:14px;font-weight:500;margin-bottom:16px;cursor:pointer">&#8249; All Hires</span>';
+  html += '<span class="back" data-action="back-to-hires" style="cursor:pointer">&#8249; All Hires</span>';
   html += '<div style="font-size:16px;font-weight:600;color:var(--txt);margin-bottom:16px">' + escapeOBAttr(hire.display_name) + '</div>';
   var assigned = hire.assigned_templates || [];
   if (assigned.length === 0) {
@@ -756,7 +756,7 @@ function renderHireDetail(hire) {
 function renderAssignPicker(hireId, assignedIds) {
   var available = (TEMPLATES || []).filter(function(t) { return !assignedIds.includes(t.id); });
   var html = '';
-  html += '<span class="back" data-action="back-to-hire-detail" data-hire-id="' + hireId + '" style="display:inline-flex;align-items:center;gap:4px;color:var(--info-tx);font-size:14px;font-weight:500;margin-bottom:16px;cursor:pointer">&#8249; Back</span>';
+  html += '<span class="back" data-action="back-to-hire-detail" data-hire-id="' + hireId + '" style="cursor:pointer">&#8249; Back</span>';
   html += '<div style="font-size:14px;font-weight:600;margin-bottom:12px">Assign Template</div>';
   if (available.length === 0) {
     html += '<div class="empty"><p>All templates are already assigned.</p></div>';
@@ -1022,7 +1022,7 @@ function renderOBEditor() {
   var tpl = obBuilderState.localCopy;
   if (!tpl) return '';
   var html = '';
-  html += '<span class="back" data-action="back-to-templates" style="display:inline-flex;align-items:center;gap:4px;font-size:14px;font-weight:500;margin-bottom:16px;cursor:pointer">&#8249; Templates</span>';
+  html += '<span class="back" data-action="back-to-templates" style="cursor:pointer">&#8249; Templates</span>';
   html += '<input type="text" value="'+escapeOBAttr(tpl.name)+'" data-action="tpl-name-input" placeholder="Template name" style="width:100%;padding:10px 12px;background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;font-size:14px;color:var(--txt);font-family:inherit;outline:none;margin-bottom:8px">';
   var tplRoles = tpl.roles||[];
   html += '<div style="margin-bottom:16px">';
