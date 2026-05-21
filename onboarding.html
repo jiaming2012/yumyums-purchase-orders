@@ -244,49 +244,38 @@ function showPhotoPreview(objectURL, onConfirm, onRetake) {
 
 function handleOBPhotoCaptureClick(itemId, hireId, secId, sections) {
   openCamera(function(file) {
-    var objectURL = URL.createObjectURL(file);
-    showPhotoPreview(objectURL, function() {
-      var captureArea = document.querySelector('[data-action="ob-photo-capture"][data-item-id="' + itemId + '"]');
-      if (captureArea && captureArea.parentNode) {
-        captureArea.parentNode.innerHTML = '<div class="photo-uploading"><div class="photo-spinner"></div>Uploading...</div>';
-      }
-      var formData = new FormData();
-      formData.append('path_prefix', 'onboarding');
-      formData.append('id', hireId);
-      formData.append('filename', itemId + '.jpg');
-      formData.append('file', file);
-      fetch('/api/v1/photos/upload', {
-        method: 'POST',
-        credentials: 'include',
-        body: formData
-      }).then(function(r) {
-        if (r.status === 401) { location.href = 'login.html'; throw new Error('unauthorized'); }
-        if (!r.ok) throw new Error('upload failed: ' + r.status);
-        return r.json();
-      }).then(function(resp) {
-        var publicUrl = resp.public_url;
-        URL.revokeObjectURL(objectURL);
-        saveProgress(itemId, 'photo', true, sections, hireId, publicUrl);
-        // Update local item state with proof photo URL
-        (sections || []).forEach(function(sec) {
-          (sec.items || []).forEach(function(item) {
-            if (item.id === itemId) {
-              item.proof_photo_url = publicUrl;
-            }
-          });
+    // Skip custom preview — iOS/Android camera already has review/retake
+    var captureArea = document.querySelector('[data-action="ob-photo-capture"][data-item-id="' + itemId + '"]');
+    if (captureArea && captureArea.parentNode) {
+      captureArea.parentNode.innerHTML = '<div class="photo-uploading"><div class="photo-spinner"></div>Uploading...</div>';
+    }
+    var formData = new FormData();
+    formData.append('path_prefix', 'onboarding');
+    formData.append('id', hireId);
+    formData.append('filename', itemId + '.jpg');
+    formData.append('file', file);
+    fetch('/api/v1/photos/upload', {
+      method: 'POST',
+      credentials: 'include',
+      body: formData
+    }).then(function(r) {
+      if (r.status === 401) { location.href = 'login.html'; throw new Error('unauthorized'); }
+      if (!r.ok) throw new Error('upload failed: ' + r.status);
+      return r.json();
+    }).then(function(resp) {
+      saveProgress(itemId, 'photo', true, sections, hireId, resp.public_url);
+      (sections || []).forEach(function(sec) {
+        (sec.items || []).forEach(function(item) {
+          if (item.id === itemId) { item.proof_photo_url = resp.public_url; }
         });
-        renderMyRunner();
-      }).catch(function(err) {
-        console.error('Photo upload failed:', err);
-        URL.revokeObjectURL(objectURL);
-        var area = document.querySelector('.photo-uploading');
-        if (area && area.parentNode) {
-          area.parentNode.innerHTML = '<button class="photo-capture-btn" data-action="ob-photo-capture" data-item-id="' + itemId + '" data-sec-id="' + secId + '" data-hire-id="' + hireId + '">&#128247; Take Proof Photo</button>';
-        }
       });
-    }, function() {
-      URL.revokeObjectURL(objectURL);
-      handleOBPhotoCaptureClick(itemId, hireId, secId, sections);
+      renderMyRunner();
+    }).catch(function(err) {
+      console.error('Photo upload failed:', err);
+      var area = document.querySelector('.photo-uploading');
+      if (area && area.parentNode) {
+        area.parentNode.innerHTML = '<button class="photo-capture-btn" data-action="ob-photo-capture" data-item-id="' + itemId + '" data-sec-id="' + secId + '" data-hire-id="' + hireId + '">&#128247; Take Proof Photo</button>';
+      }
     });
   });
 }
@@ -1761,8 +1750,6 @@ document.getElementById('builder-body').addEventListener('click', async function
       var item = sec.items[+btn.dataset.itemIdx];
       if (item) {
         openCamera(function(file) {
-          var objectURL = URL.createObjectURL(file);
-          showPhotoPreview(objectURL, function() {
             var tplId = obBuilderState.localCopy.id || 'new';
             var filename = 'ref-' + item.id + '.jpg';
             var formData = new FormData();
@@ -1778,16 +1765,12 @@ document.getElementById('builder-body').addEventListener('click', async function
               if (!r.ok) throw new Error('upload failed');
               return r.json();
             }).then(function(resp) {
-              var publicUrl = resp.public_url;
-              URL.revokeObjectURL(objectURL);
-              item.reference_photo_url = publicUrl;
+              item.reference_photo_url = resp.public_url;
               renderOBBuilder();
             }).catch(function(err) {
               console.error('Reference photo upload failed:', err);
-              URL.revokeObjectURL(objectURL);
               alert('Upload failed. Try again.');
             });
-          }, function() { URL.revokeObjectURL(objectURL); });
         });
       }
     }
