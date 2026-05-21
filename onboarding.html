@@ -436,49 +436,49 @@ function renderSections(sections, hireId, readOnly) {
             } else {
               html += '<div class="'+checkClass+'"'+checkable+(readOnly?' style="cursor:default"':'')+'>'+(checked?'&#10003;':'')+'</div>';
             }
+            html += '<div style="flex:1;display:flex;gap:8px;align-items:flex-start">';
+            if (item.reference_photo_url) {
+              html += '<img class="photo-thumb" src="'+item.reference_photo_url+'" alt="" data-action="ob-view-photo" data-photo-url="'+escapeOBAttr(item.reference_photo_url)+'" style="flex-shrink:0;margin-top:2px">';
+            }
             html += '<div style="flex:1"><div style="font-size:14px;font-weight:500">'+escapeOBAttr(item.label)+'</div>';
             if (hasSubs) {
               subs.forEach(function(sub) {
                 var subChecked = sub.checked === true;
                 var subCheckClass = 'ob-check' + (subChecked ? ' checked' : '');
                 var subCheckable = (!readOnly && state === 'active') ? ' data-action="toggle-sub-item" data-sub-id="'+sub.id+'" data-item-id="'+item.id+'" data-sec-id="'+sec.id+'" data-hire-id="'+hireId+'"' : '';
-                html += '<div style="display:flex;align-items:center;gap:8px;padding:8px 0 0 4px">';
-                html += '<div class="'+subCheckClass+'" style="width:18px;height:18px;border-radius:4px;font-size:11px"'+subCheckable+(readOnly?' style="cursor:default"':'')+'>'+(subChecked?'&#10003;':'')+'</div>';
-                html += '<div style="flex:1"><span style="font-size:13px;'+(subChecked?'text-decoration:line-through;color:var(--mut)':'')+'">'+escapeOBAttr(sub.label)+'</span>';
+                html += '<div style="display:flex;gap:6px;align-items:flex-start;padding:4px 0 0 4px">';
+                html += '<div class="'+subCheckClass+'" style="width:18px;height:18px;border-radius:4px;font-size:11px;flex-shrink:0;margin-top:1px"'+subCheckable+(readOnly?' style="cursor:default"':'')+'>'+(subChecked?'&#10003;':'')+'</div>';
                 if (sub.reference_photo_url) {
-                  html += '<div class="photo-thumb-wrap" style="padding:4px 0"><img class="photo-thumb" src="'+sub.reference_photo_url+'" alt="Reference" data-action="ob-view-photo" data-photo-url="'+escapeOBAttr(sub.reference_photo_url)+'"><span style="font-size:11px;color:var(--mut)">Reference</span></div>';
+                  html += '<img class="photo-thumb" src="'+sub.reference_photo_url+'" alt="" data-action="ob-view-photo" data-photo-url="'+escapeOBAttr(sub.reference_photo_url)+'" style="width:32px;height:32px;border-radius:4px;flex-shrink:0">';
                 }
+                html += '<div style="flex:1"><span style="font-size:13px;'+(subChecked?'text-decoration:line-through;color:var(--mut)':'')+'">'+escapeOBAttr(sub.label)+'</span>';
                 if (sub.require_proof_photo || sub.proof_photo_url) {
                   if (sub.proof_photo_url) {
-                    html += '<div class="photo-thumb-wrap" style="padding:4px 0"><img class="photo-thumb" src="'+sub.proof_photo_url+'" alt="Proof" data-action="ob-view-photo" data-photo-url="'+escapeOBAttr(sub.proof_photo_url)+'">';
+                    html += '<div class="photo-thumb-wrap"><img class="photo-thumb" src="'+sub.proof_photo_url+'" alt="" data-action="ob-view-photo" data-photo-url="'+escapeOBAttr(sub.proof_photo_url)+'" style="width:32px;height:32px;border-radius:4px">';
                     if (!readOnly && state === 'active') html += '<button class="photo-retake-link" data-action="ob-photo-capture" data-item-id="'+sub.id+'" data-sec-id="'+sec.id+'" data-hire-id="'+hireId+'">Retake</button>';
                     html += '</div>';
                   } else if (!readOnly && state === 'active') {
-                    html += '<button class="photo-capture-btn" data-action="ob-photo-capture" data-item-id="'+sub.id+'" data-sec-id="'+sec.id+'" data-hire-id="'+hireId+'" style="margin-top:4px;font-size:12px">&#128247; Proof Photo</button>';
+                    html += '<button class="photo-capture-btn" data-action="ob-photo-capture" data-item-id="'+sub.id+'" data-sec-id="'+sec.id+'" data-hire-id="'+hireId+'" style="margin-top:2px;font-size:11px;padding:4px 8px">&#128247; Proof</button>';
                   } else if (readOnly) {
-                    html += '<div style="font-size:11px;color:var(--mut);padding:2px 0">No proof photo</div>';
+                    html += '<span style="font-size:11px;color:var(--mut)"> · No proof</span>';
                   }
                 }
                 html += '</div></div>';
               });
             }
             if (checked && item.checked_by) html += '<div class="attribution">Checked by '+escapeOBAttr(item.checked_by)+'</div>';
-            // Reference photo (template-level guide image)
-            if (item.reference_photo_url) {
-              html += '<div class="photo-thumb-wrap"><img class="photo-thumb" src="'+item.reference_photo_url+'" alt="Reference" data-action="ob-view-photo" data-photo-url="'+escapeOBAttr(item.reference_photo_url)+'"><span style="font-size:11px;color:var(--mut)">Reference</span></div>';
-            }
-            // Proof photo (crew-uploaded evidence)
             if (item.require_proof_photo || item.proof_photo_url) {
               if (item.proof_photo_url) {
-                html += '<div class="photo-thumb-wrap"><img class="photo-thumb" src="'+item.proof_photo_url+'" alt="Proof" data-action="ob-view-photo" data-photo-url="'+escapeOBAttr(item.proof_photo_url)+'">';
+                html += '<div class="photo-thumb-wrap"><img class="photo-thumb" src="'+item.proof_photo_url+'" alt="" data-action="ob-view-photo" data-photo-url="'+escapeOBAttr(item.proof_photo_url)+'" style="width:32px;height:32px;border-radius:4px">';
                 if (canInteract) html += '<button class="photo-retake-link" data-action="ob-photo-capture" data-item-id="'+item.id+'" data-sec-id="'+sec.id+'" data-hire-id="'+hireId+'">Retake</button>';
                 html += '</div>';
               } else if (canInteract) {
-                html += '<button class="photo-capture-btn" data-action="ob-photo-capture" data-item-id="'+item.id+'" data-sec-id="'+sec.id+'" data-hire-id="'+hireId+'" style="margin-top:2px;font-size:12px">&#128247; Take Proof Photo</button>';
+                html += '<button class="photo-capture-btn" data-action="ob-photo-capture" data-item-id="'+item.id+'" data-sec-id="'+sec.id+'" data-hire-id="'+hireId+'" style="margin-top:2px;font-size:11px;padding:4px 8px">&#128247; Proof Photo</button>';
               } else if (readOnly) {
-                html += '<div style="font-size:12px;color:var(--mut);padding:4px 0">No proof photo</div>';
+                html += '<span style="font-size:11px;color:var(--mut)"> · No proof</span>';
               }
             }
+            html += '</div>';
             if (item._saveErr) html += '<span class="field-err">'+escapeOBAttr(item._saveErr)+' <span data-action="retry-item" data-item-id="'+item.id+'" data-sec-id="'+sec.id+'" data-hire-id="'+hireId+'" style="cursor:pointer;text-decoration:underline">Tap to retry.</span></span>';
             html += '</div></div>';
           } else if (item.type === 'video_series') {
