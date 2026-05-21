@@ -926,7 +926,8 @@ function renderPickerList(query) {
 
   var html = '';
   if (filtered.length === 0) {
-    html = '<div class="loading">No items found</div>';
+    html = '<div class="loading">No items found</div>' +
+      '<div style="text-align:center;padding:12px 0"><a href="inventory.html#setup?newItem=' + encodeURIComponent(query || '') + '" style="display:inline-block;padding:10px 20px;background:var(--info-bg);color:var(--info-tx);border-radius:8px;font-size:14px;font-weight:500;text-decoration:none">+ Add Item in Inventory</a></div>';
   } else {
     // Group by (store_location, group_name); "Unassigned" at bottom
     var groups = {};

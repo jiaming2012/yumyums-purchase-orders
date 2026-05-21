@@ -1392,11 +1392,20 @@ document.addEventListener('DOMContentLoaded',async function(){
   try{var v=await api('/api/v1/inventory/vendors');VENDORS=v||[];}catch(e){}
   var hashTab=(location.hash.match(/tab=(\d+)/)||[])[1];
   var hashItem=decodeURIComponent((location.hash.match(/item=([^&]+)/)||[])[1]||'');
+  var hashNewItem=decodeURIComponent((location.hash.match(/newItem=([^&]+)/)||[])[1]||'');
+  if(hashNewItem){hashTab='5';}
   if(hashItem&&ALL_ITEMS.length){
     var match=ALL_ITEMS.find(function(it){return it.description===hashItem;});
     if(match)ITEM_EDIT_ID=match.id;
   }
   show(hashTab?+hashTab:1);
+  if(hashNewItem){
+    setTimeout(function(){
+      var inp=document.getElementById('new-item-name');
+      if(inp){inp.value=hashNewItem;inp.focus();}
+      location.hash='tab=5';
+    },300);
+  }
   if(ITEM_EDIT_ID){
     setTimeout(function(){
       var form=document.querySelector('.item-edit-form[data-item-id="'+ITEM_EDIT_ID+'"]');
