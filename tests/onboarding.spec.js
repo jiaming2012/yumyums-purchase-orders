@@ -1806,3 +1806,198 @@ test.describe('Builder tab', () => {
     expect(download.suggestedFilename()).toBe('Grill-Pre-heat.mov');
   });
 });
+
+// ─── Section completion with sub-items ──────────────────────────────────────
+
+test.describe('Section completion with sub-items', () => {
+  test('completing all sub-items marks section complete on My Trainings list', async ({ page }) => {
+    // Regression: sectionIncompleteItem SQL checked progress on parent item ID,
+    // but sub-item progress uses sub_item.id. Sections with sub-items could never
+    // appear complete in the list view.
+    await login(page);
+    const me = await page.evaluate(async () => {
+      const res = await fetch('/api/v1/me');
+      return res.json();
+    });
+
+    // Create a template with one section containing a checkbox with sub-items
+    const tpl = await obApiCall(page, 'POST', 'createTemplate', {
+      name: 'Sub-Item Completion Test',
+      roles: [],
+      sections: [{
+        title: 'Section With Subs',
+        sort_order: 0,
+        requires_sign_off: false,
+        sign_off_roles: [],
+        is_faq: false,
+        items: [{
+          type: 'checkbox',
+          label: 'Parent item',
+          sort_order: 0,
+          sub_items: [
+            { label: 'Sub A', sort_order: 0 },
+            { label: 'Sub B', sort_order: 1 },
+          ],
+        }],
+      }],
+    });
+
+    // Assign to self
+    await obApiCall(page, 'POST', 'assignTemplate', {
+      hire_id: me.id,
+      template_id: tpl.id,
+    });
+
+    // Get the template to find sub-item IDs
+    const full = await obApiCall(page, 'GET', 'templates/' + tpl.id);
+    const subs = full.sections[0].items[0].sub_items;
+    expect(subs.length).toBe(2);
+
+    // Complete both sub-items via API
+    for (const sub of subs) {
+      await obApiCall(page, 'POST', 'saveProgress', {
+        item_id: sub.id,
+        progress_type: 'sub_item',
+        checked: true,
+      });
+    }
+
+    // Load My Trainings and verify section count shows 1 of 1 complete
+    await page.goto('/onboarding.html');
+    await waitForMyList(page);
+
+    const card = page.locator('.card').filter({ hasText: 'Sub-Item Completion Test' });
+    await expect(card).toBeVisible();
+    await expect(card).toContainText('1 of 1 sections complete');
+
+    // Cleanup
+    await obApiCall(page, 'DELETE', 'deleteTemplate/' + tpl.id);
+  });
+
+  test('Manager tab shows correct completion for sub-item checkboxes', async ({ page }) => {
+    // Regression: same sectionIncompleteItem bug affected manager hires view
+    await login(page);
+    const me = await page.evaluate(async () => {
+      const res = await fetch('/api/v1/me');
+      return res.json();
+    });
+
+    const tpl = await obApiCall(page, 'POST', 'createTemplate', {
+      name: 'Manager Sub-Item Test',
+      roles: [],
+      sections: [{
+        title: 'Tasks With Subs',
+        sort_order: 0,
+        requires_sign_off: false,
+        sign_off_roles: [],
+        is_faq: false,
+        items: [{
+          type: 'checkbox',
+          label: 'Do the thing',
+          sort_order: 0,
+          sub_items: [
+            { label: 'Step 1', sort_order: 0 },
+            { label: 'Step 2', sort_order: 1 },
+          ],
+        }],
+      }],
+    });
+
+    await obApiCall(page, 'POST', 'assignTemplate', {
+      hire_id: me.id,
+      template_id: tpl.id,
+    });
+
+    const full = await obApiCall(page, 'GET', 'templates/' + tpl.id);
+    const subs = full.sections[0].items[0].sub_items;
+
+    // Complete all sub-items
+    for (const sub of subs) {
+      await obApiCall(page, 'POST', 'saveProgress', {
+        item_id: sub.id,
+        progress_type: 'sub_item',
+        checked: true,
+      });
+    }
+
+    // Check Manager tab
+    await page.goto('/onboarding.html');
+    await page.click('#t2');
+    await waitForManagerList(page);
+
+    // The hire card should show progress > 0%
+    const hireCard = page.locator('#mgr-body .card').first();
+    await expect(hireCard).toBeVisible();
+    // Progress text should NOT be 0%
+    const progressText = await hireCard.textContent();
+    expect(progressText).not.toContain('0%');
+
+    // Cleanup
+    await obApiCall(page, 'DELETE', 'deleteTemplate/' + tpl.id);
+  });
+
+  test('reference photo URL persists through template save and displays in training', async ({ page }) => {
+    // Regression: reference_photo_url on items must survive save/reload cycle
+    await login(page);
+    const me = await page.evaluate(async () => {
+      const res = await fetch('/api/v1/me');
+      return res.json();
+    });
+
+    const refUrl = 'https://example.com/test-reference.jpg';
+
+    const tpl = await obApiCall(page, 'POST', 'createTemplate', {
+      name: 'Ref Photo Test',
+      roles: [],
+      sections: [{
+        title: 'Photo Section',
+        sort_order: 0,
+        requires_sign_off: false,
+        sign_off_roles: [],
+        is_faq: false,
+        items: [{
+          type: 'checkbox',
+          label: 'Check with photo',
+          sort_order: 0,
+          reference_photo_url: refUrl,
+          require_proof_photo: true,
+          sub_items: [],
+        }],
+      }],
+    });
+
+    // Verify it persists by re-fetching the template
+    const full = await obApiCall(page, 'GET', 'templates/' + tpl.id);
+    expect(full.sections[0].items[0].reference_photo_url).toBe(refUrl);
+    expect(full.sections[0].items[0].require_proof_photo).toBe(true);
+
+    // Assign and check it appears in hire training API
+    await obApiCall(page, 'POST', 'assignTemplate', {
+      hire_id: me.id,
+      template_id: tpl.id,
+    });
+
+    const training = await obApiCall(page, 'GET', 'hireTraining/' + me.id + '?templateId=' + tpl.id);
+    const item = training.sections[0].items[0];
+    expect(item.reference_photo_url).toBe(refUrl);
+    expect(item.require_proof_photo).toBe(true);
+
+    // Load page and verify photo thumbnail renders
+    await page.goto('/onboarding.html');
+    await waitForMyList(page);
+    await page.locator('[data-action="open-my-training"]').filter({ hasText: 'Ref Photo Test' }).click();
+    await waitForTrainingRunner(page);
+
+    // Expand section
+    await page.locator('.sec-header').first().click();
+
+    // Photo thumbnail should be visible
+    await expect(page.locator('img.photo-thumb[src="' + refUrl + '"]')).toBeVisible();
+
+    // Proof photo button should be visible (require_proof_photo = true)
+    await expect(page.locator('[data-action="ob-photo-capture"]')).toBeVisible();
+
+    // Cleanup
+    await obApiCall(page, 'DELETE', 'deleteTemplate/' + tpl.id);
+  });
+});
