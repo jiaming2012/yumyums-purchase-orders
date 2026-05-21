@@ -184,6 +184,9 @@ function createNewOBSection(title) {
 function createNewOBCheckbox(label) {
   return { id: generateOBId('itm'), type: 'checkbox', label: label || '', sub_items: [] };
 }
+function createNewOBPhotoItem(label) {
+  return { id: generateOBId('itm'), type: 'photo', label: label || '', sub_items: [] };
+}
 function createNewOBVideoSeries(label) {
   return { id: generateOBId('vs'), type: 'video_series', label: label || '', video_parts: [] };
 }
@@ -840,6 +843,17 @@ function renderOBCheckboxItem(item, secId, idx) {
   return html;
 }
 
+function renderOBPhotoItem(item, secId, idx) {
+  var html = '<div class="ob-item-card" data-item-id="'+item.id+'">';
+  html += '<div class="ob-item-header">';
+  html += '<span class="drag-handle">&#9776;</span>';
+  html += '<input type="text" value="'+escapeOBAttr(item.label)+'" data-action="item-label-input" data-sec-id="'+secId+'" data-item-idx="'+idx+'" placeholder="Photo label" style="flex:1;padding:6px 8px;background:var(--card);border:0.5px solid var(--brd);border-radius:6px;font-size:13px;color:var(--txt);font-family:inherit;outline:none">';
+  html += '<span style="font-size:11px;color:var(--mut);white-space:nowrap">Photo</span>';
+  html += '<span data-action="delete-ob-item" data-sec-id="'+secId+'" data-item-idx="'+idx+'" style="color:#c0392b;cursor:pointer;font-size:14px">&#10005;</span>';
+  html += '</div></div>';
+  return html;
+}
+
 function renderOBVideoItem(item, secId, idx) {
   var html = '<div class="ob-item-card" data-item-id="'+item.id+'">';
   html += '<div class="ob-item-header">';
@@ -963,12 +977,15 @@ function renderOBSection(sec) {
         itemsHtml += renderOBCheckboxItem(item, sec.id, idx);
       } else if (item.type === 'video_series') {
         itemsHtml += renderOBVideoItem(item, sec.id, idx);
+      } else if (item.type === 'photo') {
+        itemsHtml += renderOBPhotoItem(item, sec.id, idx);
       }
     });
     itemsHtml += '</div>';
     itemsHtml += '<div style="display:flex;gap:6px;margin-top:12px;padding-top:12px;border-top:1px solid var(--brd)">'+
       '<button data-action="add-ob-item" data-sec-id="'+sec.id+'" data-item-type="checkbox" style="padding:6px 12px;background:var(--info-bg);color:var(--info-tx);border:none;border-radius:8px;font-size:12px;font-weight:500;cursor:pointer">+ Checkbox</button>'+
       '<button data-action="add-ob-item" data-sec-id="'+sec.id+'" data-item-type="video_series" style="padding:6px 12px;background:var(--info-bg);color:var(--info-tx);border:none;border-radius:8px;font-size:12px;font-weight:500;cursor:pointer">+ Video Series</button>'+
+      '<button data-action="add-ob-item" data-sec-id="'+sec.id+'" data-item-type="photo" style="padding:6px 12px;background:var(--info-bg);color:var(--info-tx);border:none;border-radius:8px;font-size:12px;font-weight:500;cursor:pointer">+ Photo</button>'+
       '</div>';
     html += itemsHtml;
   }
@@ -1735,6 +1752,7 @@ document.getElementById('builder-body').addEventListener('click', async function
       var itemType = btn.dataset.itemType;
       if (itemType === 'checkbox') sec.items.push(createNewOBCheckbox(''));
       else if (itemType === 'video_series') sec.items.push(createNewOBVideoSeries(''));
+      else if (itemType === 'photo') sec.items.push(createNewOBPhotoItem(''));
       renderOBBuilder();
     }
   } else if (action === 'delete-ob-item') {
