@@ -69,7 +69,7 @@
 **Plans:** 2 plans
 
 Plans:
-- [ ] 18-01-PLAN.md — DB migration + backend Go changes (value column, photo type in SQL filters, SaveProgress/GetHireTraining updates)
+- [x] 18-01-PLAN.md — DB migration + backend Go changes (value column, photo type in SQL filters, SaveProgress/GetHireTraining updates)
 - [ ] 18-02-PLAN.md — Frontend photo support in onboarding.html (CSS, camera capture, upload, thumbnails, Builder + Photo button, progress counting)
 
 ### Phase 19: Tab persistence on refresh

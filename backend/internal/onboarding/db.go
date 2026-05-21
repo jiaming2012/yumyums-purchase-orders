@@ -2,6 +2,7 @@ package onboarding
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"time"
 
@@ -15,7 +16,7 @@ import (
 func sectionIncompleteItem(hireParam string) string {
 	return `
 		SELECT 1 FROM ob_items oi
-		WHERE oi.section_id = os.id AND oi.type IN ('checkbox', 'video_series', 'faq')
+		WHERE oi.section_id = os.id AND oi.type IN ('checkbox', 'video_series', 'faq', 'photo')
 		AND (
 			(oi.type != 'video_series' AND NOT EXISTS (
 				SELECT 1 FROM ob_progress op WHERE op.item_id = oi.id AND op.hire_id = ` + hireParam + `
@@ -72,6 +73,8 @@ type Item struct {
 	Checked bool `json:"checked"`
 	// Viewed is populated for FAQ items — true if the hire has expanded/viewed this FAQ.
 	Viewed bool `json:"viewed,omitempty"`
+	// PhotoURL is populated for photo items — the URL of the uploaded photo.
+	PhotoURL string `json:"photo_url,omitempty"`
 }
 
 // VideoPart represents a single part of a video series item.
@@ -414,7 +417,7 @@ func GetHireTraining(ctx context.Context, pool *pgxpool.Pool, hireID, templateID
 
 	// Fetch all progress for this hire+template
 	progressRows, err := pool.Query(ctx, `
-		SELECT op.item_id, op.progress_type, op.checked_at
+		SELECT op.item_id, op.progress_type, op.checked_at, op.value
 		FROM ob_progress op
 		LEFT JOIN ob_items oi ON oi.id = op.item_id
 		LEFT JOIN ob_video_parts vp ON vp.id = op.item_id
@@ -431,15 +434,20 @@ func GetHireTraining(ctx context.Context, pool *pgxpool.Pool, hireID, templateID
 
 	// progressMap: "item_id:progress_type" -> true
 	progressMap := map[string]bool{}
+	valueMap := map[string]string{}
 	var progressEntries []ProgressEntry
 	for progressRows.Next() {
 		var pe ProgressEntry
 		var checkedAt time.Time
-		if err := progressRows.Scan(&pe.ItemID, &pe.ProgressType, &checkedAt); err != nil {
+		var value sql.NullString
+		if err := progressRows.Scan(&pe.ItemID, &pe.ProgressType, &checkedAt, &value); err != nil {
 			return nil, fmt.Errorf("scan progress: %w", err)
 		}
 		pe.CheckedAt = checkedAt.UTC().Format(time.RFC3339)
 		progressMap[pe.ItemID+":"+pe.ProgressType] = true
+		if value.Valid {
+			valueMap[pe.ItemID] = value.String
+		}
 		progressEntries = append(progressEntries, pe)
 	}
 	if err := progressRows.Err(); err != nil {
@@ -523,6 +531,11 @@ func GetHireTraining(ctx context.Context, pool *pgxpool.Pool, hireID, templateID
 				}
 			} else if item.Type == "faq" {
 				item.Viewed = progressMap[item.ID+":faq"]
+			} else if item.Type == "photo" {
+				item.Checked = progressMap[item.ID+":photo"]
+				if url, ok := valueMap[item.ID]; ok {
+					item.PhotoURL = url
+				}
 			} else {
 				// Checkbox: if it has sub-items, derive checked from sub-item progress
 				if len(item.SubItems) > 0 {
@@ -609,6 +622,11 @@ func isSectionComplete(sec Section, progressMap map[string]bool) bool {
 					return false
 				}
 			}
+		} else if item.Type == "photo" {
+			totalCheckable++
+			if !progressMap[item.ID+":photo"] {
+				return false
+			}
 		} else {
 			// checkbox — if sub-items exist, check those instead
 			if len(item.SubItems) > 0 {
@@ -667,7 +685,7 @@ func GetMyTrainings(ctx context.Context, pool *pgxpool.Pool, hireID string) ([]A
 			WHERE NOT EXISTS (` + sectionIncompleteItem("$1") + `)
 			AND EXISTS (
 				SELECT 1 FROM ob_items oi
-				WHERE oi.section_id = os.id AND oi.type IN ('checkbox', 'video_series', 'faq')
+				WHERE oi.section_id = os.id AND oi.type IN ('checkbox', 'video_series', 'faq', 'photo')
 			)
 			GROUP BY os.template_id
 		) sec_complete ON sec_complete.template_id = ot.id
@@ -732,7 +750,7 @@ func GetManagerHires(ctx context.Context, pool *pgxpool.Pool) ([]HireOverview, e
 			CROSS JOIN users u2
 			WHERE NOT EXISTS (
 				SELECT 1 FROM ob_items oi
-				WHERE oi.section_id = os.id AND oi.type IN ('checkbox', 'video_series', 'faq')
+				WHERE oi.section_id = os.id AND oi.type IN ('checkbox', 'video_series', 'faq', 'photo')
 				AND (
 					(oi.type != 'video_series' AND NOT EXISTS (
 						SELECT 1 FROM ob_progress op WHERE op.item_id = oi.id AND op.hire_id = u2.id
@@ -746,7 +764,7 @@ func GetManagerHires(ctx context.Context, pool *pgxpool.Pool) ([]HireOverview, e
 			)
 			AND EXISTS (
 				SELECT 1 FROM ob_items oi
-				WHERE oi.section_id = os.id AND oi.type IN ('checkbox', 'video_series', 'faq')
+				WHERE oi.section_id = os.id AND oi.type IN ('checkbox', 'video_series', 'faq', 'photo')
 			)
 			GROUP BY os.template_id, u2.id
 		) sec_complete ON sec_complete.template_id = matched_tpl.id AND sec_complete.hire_id = u.id
@@ -801,7 +819,7 @@ func GetManagerHires(ctx context.Context, pool *pgxpool.Pool) ([]HireOverview, e
 				FROM ob_sections os
 				WHERE NOT EXISTS (` + sectionIncompleteItem("$1") + `)
 				AND EXISTS (
-					SELECT 1 FROM ob_items oi WHERE oi.section_id = os.id AND oi.type IN ('checkbox', 'video_series', 'faq')
+					SELECT 1 FROM ob_items oi WHERE oi.section_id = os.id AND oi.type IN ('checkbox', 'video_series', 'faq', 'photo')
 				)
 				GROUP BY os.template_id
 			) sec_complete ON sec_complete.template_id = ot.id
@@ -815,7 +833,7 @@ func GetManagerHires(ctx context.Context, pool *pgxpool.Pool) ([]HireOverview, e
 				)
 				AND NOT EXISTS (` + sectionIncompleteItem("$1") + `)
 				AND EXISTS (
-					SELECT 1 FROM ob_items oi WHERE oi.section_id = os.id AND oi.type IN ('checkbox', 'video_series', 'faq')
+					SELECT 1 FROM ob_items oi WHERE oi.section_id = os.id AND oi.type IN ('checkbox', 'video_series', 'faq', 'photo')
 				)
 				GROUP BY os.template_id
 			) pending_so ON pending_so.template_id = ot.id
@@ -897,7 +915,7 @@ func IsSectionLockedForEdits(ctx context.Context, pool *pgxpool.Pool, hireID, it
 	err = pool.QueryRow(ctx, `
 		SELECT EXISTS(
 			SELECT 1 FROM ob_items oi
-			WHERE oi.section_id = $1 AND oi.type IN ('checkbox', 'video_series', 'faq')
+			WHERE oi.section_id = $1 AND oi.type IN ('checkbox', 'video_series', 'faq', 'photo')
 			AND (
 				(oi.type != 'video_series' AND NOT EXISTS (
 					SELECT 1 FROM ob_progress op WHERE op.item_id = oi.id AND op.hire_id = $2
@@ -919,13 +937,15 @@ func IsSectionLockedForEdits(ctx context.Context, pool *pgxpool.Pool, hireID, it
 
 // SaveProgress records or removes an onboarding progress entry for a hire.
 // maxWatchedTime is optional — non-nil only for video watch position tracking.
-func SaveProgress(ctx context.Context, pool *pgxpool.Pool, hireID, itemID, progressType string, checked bool, maxWatchedTime *float64) error {
+func SaveProgress(ctx context.Context, pool *pgxpool.Pool, hireID, itemID, progressType string, checked bool, maxWatchedTime *float64, value *string) error {
 	if checked {
 		_, err := pool.Exec(ctx, `
-			INSERT INTO ob_progress (hire_id, item_id, progress_type, max_watched_time)
-			VALUES ($1, $2, $3, $4)
-			ON CONFLICT (hire_id, item_id, progress_type) DO UPDATE SET max_watched_time = GREATEST(ob_progress.max_watched_time, EXCLUDED.max_watched_time)
-		`, hireID, itemID, progressType, maxWatchedTime)
+			INSERT INTO ob_progress (hire_id, item_id, progress_type, max_watched_time, value)
+			VALUES ($1, $2, $3, $4, $5)
+			ON CONFLICT (hire_id, item_id, progress_type) DO UPDATE
+			SET max_watched_time = GREATEST(ob_progress.max_watched_time, EXCLUDED.max_watched_time),
+			    value = COALESCE(EXCLUDED.value, ob_progress.value)
+		`, hireID, itemID, progressType, maxWatchedTime, value)
 		return err
 	}
 	_, err := pool.Exec(ctx, `
