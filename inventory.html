@@ -300,6 +300,7 @@ let ALL_ITEMS=[];
 let ITEM_GROUPS=[];
 let ITEM_SEARCH='';
 let ITEM_EDIT_ID=null;
+let PREFILL_NEW_ITEM=null;
 let ITEM_PHOTO_EDIT_ID=null;
 let CATALOG_SUB=1;
 let VENDOR_EDIT_ID=null;
@@ -1042,6 +1043,12 @@ function renderItemsList(){
   }
 
   list.innerHTML=html;
+  // Apply prefill from cross-page navigation (PO → Inventory Setup)
+  if(PREFILL_NEW_ITEM){
+    var inp=document.getElementById('new-item-name');
+    if(inp){inp.value=PREFILL_NEW_ITEM;inp.focus();}
+    PREFILL_NEW_ITEM=null;
+  }
 }
 
 document.getElementById('item-search').addEventListener('input',function(e){
@@ -1393,19 +1400,12 @@ document.addEventListener('DOMContentLoaded',async function(){
   var hashTab=(location.hash.match(/tab=(\d+)/)||[])[1];
   var hashItem=decodeURIComponent((location.hash.match(/item=([^&]+)/)||[])[1]||'');
   var hashNewItem=decodeURIComponent((location.hash.match(/newItem=([^&]+)/)||[])[1]||'');
-  if(hashNewItem){hashTab='5';}
+  if(hashNewItem){hashTab='5';PREFILL_NEW_ITEM=hashNewItem;}
   if(hashItem&&ALL_ITEMS.length){
     var match=ALL_ITEMS.find(function(it){return it.description===hashItem;});
     if(match)ITEM_EDIT_ID=match.id;
   }
   show(hashTab?+hashTab:1);
-  if(hashNewItem){
-    setTimeout(function(){
-      var inp=document.getElementById('new-item-name');
-      if(inp){inp.value=hashNewItem;inp.focus();}
-      location.hash='tab=5';
-    },300);
-  }
   if(ITEM_EDIT_ID){
     setTimeout(function(){
       var form=document.querySelector('.item-edit-form[data-item-id="'+ITEM_EDIT_ID+'"]');

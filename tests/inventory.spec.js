@@ -2550,3 +2550,27 @@ test.describe('Inventory', () => {
   });
 
 });
+
+// ─── Cross-page navigation: PO → Inventory Setup ─────────────────────────
+
+test.describe('PO add item navigates to Inventory Setup', () => {
+  test('navigating to inventory.html with newItem hash prefills item name and shows Setup tab', async ({ page }) => {
+    // Regression: loadItems() async re-render wiped the prefilled value,
+    // and hash parsing didn't activate Setup tab (tab 5).
+    await login(page);
+
+    // Navigate directly with the hash (simulates clicking "Add Item in Inventory" from PO)
+    await page.goto('/inventory.html#setup?newItem=Carrots');
+
+    // Wait for Setup tab to be active (tab 5)
+    await page.waitForFunction(() => {
+      var btn = document.getElementById('t5');
+      return btn && btn.className === 'on';
+    }, { timeout: 5000 });
+
+    // The new-item-name input should have the prefilled value
+    const nameInput = page.locator('#new-item-name');
+    await expect(nameInput).toBeVisible();
+    await expect(nameInput).toHaveValue('Carrots');
+  });
+});
