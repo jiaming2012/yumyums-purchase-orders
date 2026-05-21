@@ -277,6 +277,9 @@ function handleOBPhotoCaptureClick(itemId, hireId, secId, sections) {
       (sections || []).forEach(function(sec) {
         (sec.items || []).forEach(function(item) {
           if (item.id === itemId) { item.proof_photo_url = resp.public_url; }
+          (item.sub_items || []).forEach(function(sub) {
+            if (sub.id === itemId) { sub.proof_photo_url = resp.public_url; }
+          });
         });
       });
       renderMyRunner();
@@ -441,8 +444,22 @@ function renderSections(sections, hireId, readOnly) {
                 var subCheckable = (!readOnly && state === 'active') ? ' data-action="toggle-sub-item" data-sub-id="'+sub.id+'" data-item-id="'+item.id+'" data-sec-id="'+sec.id+'" data-hire-id="'+hireId+'"' : '';
                 html += '<div style="display:flex;align-items:center;gap:8px;padding:8px 0 0 4px">';
                 html += '<div class="'+subCheckClass+'" style="width:18px;height:18px;border-radius:4px;font-size:11px"'+subCheckable+(readOnly?' style="cursor:default"':'')+'>'+(subChecked?'&#10003;':'')+'</div>';
-                html += '<span style="font-size:13px;'+(subChecked?'text-decoration:line-through;color:var(--mut)':'')+'">'+escapeOBAttr(sub.label)+'</span>';
-                html += '</div>';
+                html += '<div style="flex:1"><span style="font-size:13px;'+(subChecked?'text-decoration:line-through;color:var(--mut)':'')+'">'+escapeOBAttr(sub.label)+'</span>';
+                if (sub.reference_photo_url) {
+                  html += '<div class="photo-thumb-wrap" style="padding:4px 0"><img class="photo-thumb" src="'+sub.reference_photo_url+'" alt="Reference" data-action="ob-view-photo" data-photo-url="'+escapeOBAttr(sub.reference_photo_url)+'"><span style="font-size:11px;color:var(--mut)">Reference</span></div>';
+                }
+                if (sub.require_proof_photo || sub.proof_photo_url) {
+                  if (sub.proof_photo_url) {
+                    html += '<div class="photo-thumb-wrap" style="padding:4px 0"><img class="photo-thumb" src="'+sub.proof_photo_url+'" alt="Proof" data-action="ob-view-photo" data-photo-url="'+escapeOBAttr(sub.proof_photo_url)+'">';
+                    if (!readOnly && state === 'active') html += '<button class="photo-retake-link" data-action="ob-photo-capture" data-item-id="'+sub.id+'" data-sec-id="'+sec.id+'" data-hire-id="'+hireId+'">Retake</button>';
+                    html += '</div>';
+                  } else if (!readOnly && state === 'active') {
+                    html += '<button class="photo-capture-btn" data-action="ob-photo-capture" data-item-id="'+sub.id+'" data-sec-id="'+sec.id+'" data-hire-id="'+hireId+'" style="margin-top:4px;font-size:12px">&#128247; Proof Photo</button>';
+                  } else if (readOnly) {
+                    html += '<div style="font-size:11px;color:var(--mut);padding:2px 0">No proof photo</div>';
+                  }
+                }
+                html += '</div></div>';
               });
             }
             if (checked && item.checked_by) html += '<div class="attribution">Checked by '+escapeOBAttr(item.checked_by)+'</div>';
@@ -818,9 +835,22 @@ function renderOBCheckboxItem(item, secId, idx) {
   var subItems = item.sub_items || item.subItems || [];
   html += '<div class="ob-item-body">';
   subItems.forEach(function(sub, subIdx) {
-    html += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">';
+    html += '<div style="margin-bottom:6px;padding:4px 0;border-bottom:0.5px solid var(--brd)">';
+    html += '<div style="display:flex;align-items:center;gap:6px">';
     html += '<input type="text" value="'+escapeOBAttr(sub.label)+'" data-action="sub-item-label-input" data-sec-id="'+secId+'" data-item-idx="'+idx+'" data-sub-idx="'+subIdx+'" placeholder="Sub-item label" style="flex:1;padding:4px 8px;background:var(--card);border:0.5px solid var(--brd);border-radius:6px;font-size:12px;color:var(--txt);font-family:inherit;outline:none">';
     html += '<span data-action="delete-sub-item" data-sec-id="'+secId+'" data-item-idx="'+idx+'" data-sub-idx="'+subIdx+'" style="color:#c0392b;cursor:pointer;font-size:12px">&#10005;</span>';
+    html += '</div>';
+    // Sub-item photo options
+    html += '<div style="padding:4px 0 0 4px;display:flex;flex-wrap:wrap;gap:6px;align-items:center">';
+    if (sub.reference_photo_url) {
+      html += '<img class="photo-thumb" src="'+escapeOBAttr(sub.reference_photo_url)+'" alt="Ref" style="width:36px;height:36px;border-radius:4px">';
+      html += '<button class="photo-retake-link" data-action="ob-builder-sub-ref-photo" data-sec-id="'+secId+'" data-item-idx="'+idx+'" data-sub-idx="'+subIdx+'">Change</button>';
+      html += '<button class="photo-retake-link" data-action="ob-builder-remove-sub-ref-photo" data-sec-id="'+secId+'" data-item-idx="'+idx+'" data-sub-idx="'+subIdx+'" style="color:#c0392b">Remove</button>';
+    } else {
+      html += '<button class="photo-capture-btn" data-action="ob-builder-sub-ref-photo" data-sec-id="'+secId+'" data-item-idx="'+idx+'" data-sub-idx="'+subIdx+'" style="font-size:11px;padding:4px 8px">&#128247; Ref photo</button>';
+    }
+    html += '<label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--mut);cursor:pointer"><input type="checkbox" data-action="ob-builder-sub-proof-toggle" data-sec-id="'+secId+'" data-item-idx="'+idx+'" data-sub-idx="'+subIdx+'"'+(sub.require_proof_photo?' checked':'')+' style="width:14px;height:14px"> Proof</label>';
+    html += '</div>';
     html += '</div>';
   });
   html += '<button data-action="add-sub-item" data-sec-id="'+secId+'" data-item-idx="'+idx+'" style="padding:4px 10px;background:var(--info-bg);color:var(--info-tx);border:none;border-radius:6px;font-size:11px;font-weight:500;cursor:pointer;margin-top:2px">+ Sub-item</button>';
@@ -1799,6 +1829,51 @@ document.getElementById('builder-body').addEventListener('click', async function
     if (sec) {
       var item = sec.items[+btn.dataset.itemIdx];
       if (item) { item.require_proof_photo = btn.checked; }
+    }
+  } else if (action === 'ob-builder-sub-ref-photo') {
+    var sec = (obBuilderState.localCopy.sections||[]).find(function(s) { return s.id === btn.dataset.secId; });
+    if (sec) {
+      var item = sec.items[+btn.dataset.itemIdx];
+      var sub = item && (item.sub_items || [])[+btn.dataset.subIdx];
+      if (sub) {
+        openCamera(function(file) {
+            var tplId = obBuilderState.localCopy.id || 'new';
+            var filename = 'ref-' + sub.id + '.jpg';
+            var formData = new FormData();
+            formData.append('path_prefix', 'onboarding');
+            formData.append('id', tplId);
+            formData.append('filename', filename);
+            formData.append('file', file);
+            fetch('/api/v1/photos/upload', {
+              method: 'POST', credentials: 'include',
+              body: formData
+            }).then(function(r) {
+              if (r.status === 401) { location.href = 'login.html'; throw new Error('unauthorized'); }
+              if (!r.ok) throw new Error('upload failed');
+              return r.json();
+            }).then(function(resp) {
+              sub.reference_photo_url = resp.public_url;
+              renderOBBuilder();
+            }).catch(function(err) {
+              console.error('Sub-item ref photo upload failed:', err);
+              alert('Upload failed. Try again.');
+            });
+        });
+      }
+    }
+  } else if (action === 'ob-builder-remove-sub-ref-photo') {
+    var sec = (obBuilderState.localCopy.sections||[]).find(function(s) { return s.id === btn.dataset.secId; });
+    if (sec) {
+      var item = sec.items[+btn.dataset.itemIdx];
+      var sub = item && (item.sub_items || [])[+btn.dataset.subIdx];
+      if (sub) { sub.reference_photo_url = null; renderOBBuilder(); }
+    }
+  } else if (action === 'ob-builder-sub-proof-toggle') {
+    var sec = (obBuilderState.localCopy.sections||[]).find(function(s) { return s.id === btn.dataset.secId; });
+    if (sec) {
+      var item = sec.items[+btn.dataset.itemIdx];
+      var sub = item && (item.sub_items || [])[+btn.dataset.subIdx];
+      if (sub) { sub.require_proof_photo = btn.checked; }
     }
   } else if (action === 'add-video-part') {
     var sec = (obBuilderState.localCopy.sections||[]).find(function(s) { return s.id === btn.dataset.secId; });

@@ -54,10 +54,13 @@ type Section struct {
 
 // SubItem represents a sub-item within a checkbox item.
 type SubItem struct {
-	ID        string `json:"id"`
-	Label     string `json:"label"`
-	SortOrder int    `json:"sort_order"`
-	Checked   bool   `json:"checked"`
+	ID                string  `json:"id"`
+	Label             string  `json:"label"`
+	SortOrder         int     `json:"sort_order"`
+	Checked           bool    `json:"checked"`
+	ReferencePhotoURL *string `json:"reference_photo_url,omitempty"`
+	RequireProofPhoto bool    `json:"require_proof_photo,omitempty"`
+	ProofPhotoURL     string  `json:"proof_photo_url,omitempty"`
 }
 
 // Item represents a single item in an onboarding section (checkbox, video_series, or faq).
@@ -197,9 +200,11 @@ type CreateSectionInput struct {
 
 // CreateSubItemInput is the input for a sub-item within a checkbox item.
 type CreateSubItemInput struct {
-	ID        string `json:"id,omitempty"`
-	Label     string `json:"label"`
-	SortOrder int    `json:"sort_order"`
+	ID                string  `json:"id,omitempty"`
+	Label             string  `json:"label"`
+	SortOrder         int     `json:"sort_order"`
+	ReferencePhotoURL *string `json:"reference_photo_url,omitempty"`
+	RequireProofPhoto bool    `json:"require_proof_photo,omitempty"`
 }
 
 // CreateItemInput is the input for a single item in a section.
@@ -393,7 +398,7 @@ func getVideoParts(ctx context.Context, pool *pgxpool.Pool, itemID string) ([]Vi
 // getSubItems fetches all sub-items for a checkbox item.
 func getSubItems(ctx context.Context, pool *pgxpool.Pool, itemID string) ([]SubItem, error) {
 	rows, err := pool.Query(ctx, `
-		SELECT id, label, sort_order
+		SELECT id, label, sort_order, reference_photo_url, require_proof_photo
 		FROM ob_sub_items
 		WHERE item_id = $1
 		ORDER BY sort_order
@@ -406,7 +411,7 @@ func getSubItems(ctx context.Context, pool *pgxpool.Pool, itemID string) ([]SubI
 	var subs []SubItem
 	for rows.Next() {
 		var si SubItem
-		if err := rows.Scan(&si.ID, &si.Label, &si.SortOrder); err != nil {
+		if err := rows.Scan(&si.ID, &si.Label, &si.SortOrder, &si.ReferencePhotoURL, &si.RequireProofPhoto); err != nil {
 			return nil, fmt.Errorf("scan sub item: %w", err)
 		}
 		subs = append(subs, si)
@@ -547,6 +552,9 @@ func GetHireTraining(ctx context.Context, pool *pgxpool.Pool, hireID, templateID
 					allSubsChecked := true
 					for k := range item.SubItems {
 						item.SubItems[k].Checked = progressMap[item.SubItems[k].ID+":sub_item"]
+						if url, ok := valueMap[item.SubItems[k].ID]; ok {
+							item.SubItems[k].ProofPhotoURL = url
+						}
 						if !item.SubItems[k].Checked {
 							allSubsChecked = false
 						}
@@ -1089,18 +1097,18 @@ func UpdateTemplate(ctx context.Context, pool *pgxpool.Pool, templateID string, 
 				var siID string
 				if si.ID != "" && isUUID(si.ID) {
 					_, err := tx.Exec(ctx, `
-						UPDATE ob_sub_items SET item_id=$1, label=$2, sort_order=$3
-						WHERE id=$4
-					`, itemID, si.Label, si.SortOrder, si.ID)
+						UPDATE ob_sub_items SET item_id=$1, label=$2, sort_order=$3, reference_photo_url=$4, require_proof_photo=$5
+						WHERE id=$6
+					`, itemID, si.Label, si.SortOrder, si.ReferencePhotoURL, si.RequireProofPhoto, si.ID)
 					if err != nil {
 						return fmt.Errorf("update sub item %q: %w", si.Label, err)
 					}
 					siID = si.ID
 				} else {
 					err := tx.QueryRow(ctx, `
-						INSERT INTO ob_sub_items (item_id, label, sort_order)
-						VALUES ($1, $2, $3) RETURNING id
-					`, itemID, si.Label, si.SortOrder).Scan(&siID)
+						INSERT INTO ob_sub_items (item_id, label, sort_order, reference_photo_url, require_proof_photo)
+						VALUES ($1, $2, $3, $4, $5) RETURNING id
+					`, itemID, si.Label, si.SortOrder, si.ReferencePhotoURL, si.RequireProofPhoto).Scan(&siID)
 					if err != nil {
 						return fmt.Errorf("insert sub item %q: %w", si.Label, err)
 					}
@@ -1216,9 +1224,9 @@ func insertSectionsTx(ctx context.Context, tx pgx.Tx, templateID string, section
 
 			for _, si := range item.SubItems {
 				_, err := tx.Exec(ctx, `
-					INSERT INTO ob_sub_items (item_id, label, sort_order)
-					VALUES ($1, $2, $3)
-				`, itemID, si.Label, si.SortOrder)
+					INSERT INTO ob_sub_items (item_id, label, sort_order, reference_photo_url, require_proof_photo)
+					VALUES ($1, $2, $3, $4, $5)
+				`, itemID, si.Label, si.SortOrder, si.ReferencePhotoURL, si.RequireProofPhoto)
 				if err != nil {
 					return fmt.Errorf("insert sub item %q: %w", si.Label, err)
 				}
