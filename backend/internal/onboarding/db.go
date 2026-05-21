@@ -16,7 +16,7 @@ import (
 func sectionIncompleteItem(hireParam string) string {
 	return `
 		SELECT 1 FROM ob_items oi
-		WHERE oi.section_id = os.id AND oi.type IN ('checkbox', 'video_series', 'faq', 'photo')
+		WHERE oi.section_id = os.id AND oi.type IN ('checkbox', 'video_series', 'faq')
 		AND (
 			(oi.type != 'video_series' AND NOT EXISTS (
 				SELECT 1 FROM ob_progress op WHERE op.item_id = oi.id AND op.hire_id = ` + hireParam + `
@@ -73,8 +73,12 @@ type Item struct {
 	Checked bool `json:"checked"`
 	// Viewed is populated for FAQ items — true if the hire has expanded/viewed this FAQ.
 	Viewed bool `json:"viewed,omitempty"`
-	// PhotoURL is populated for photo items — the URL of the uploaded photo.
-	PhotoURL string `json:"photo_url,omitempty"`
+	// ReferencePhotoURL is the template-level reference photo showing crew what "done" looks like.
+	ReferencePhotoURL *string `json:"reference_photo_url,omitempty"`
+	// RequireProofPhoto indicates whether crew must upload a proof photo for this item.
+	RequireProofPhoto bool `json:"require_proof_photo,omitempty"`
+	// ProofPhotoURL is populated from ob_progress.value — the crew's uploaded proof photo.
+	ProofPhotoURL string `json:"proof_photo_url,omitempty"`
 }
 
 // VideoPart represents a single part of a video series item.
@@ -200,13 +204,15 @@ type CreateSubItemInput struct {
 
 // CreateItemInput is the input for a single item in a section.
 type CreateItemInput struct {
-	ID         string                 `json:"id,omitempty"`
-	Type       string                 `json:"type"`
-	Label      string                 `json:"label"`
-	Answer     *string                `json:"answer,omitempty"`
-	SortOrder  int                    `json:"sort_order"`
-	SubItems   []CreateSubItemInput   `json:"sub_items,omitempty"`
-	VideoParts []CreateVideoPartInput `json:"video_parts,omitempty"`
+	ID                string                 `json:"id,omitempty"`
+	Type              string                 `json:"type"`
+	Label             string                 `json:"label"`
+	Answer            *string                `json:"answer,omitempty"`
+	SortOrder         int                    `json:"sort_order"`
+	SubItems          []CreateSubItemInput   `json:"sub_items,omitempty"`
+	VideoParts        []CreateVideoPartInput `json:"video_parts,omitempty"`
+	ReferencePhotoURL *string                `json:"reference_photo_url,omitempty"`
+	RequireProofPhoto bool                   `json:"require_proof_photo,omitempty"`
 }
 
 // CreateVideoPartInput is the input for a video part.
@@ -318,7 +324,7 @@ func getSections(ctx context.Context, pool *pgxpool.Pool, templateID string) ([]
 // getItems fetches all items for a section, including video parts for video_series items.
 func getItems(ctx context.Context, pool *pgxpool.Pool, sectionID string) ([]Item, error) {
 	rows, err := pool.Query(ctx, `
-		SELECT id, type, label, answer, sort_order
+		SELECT id, type, label, answer, sort_order, reference_photo_url, require_proof_photo
 		FROM ob_items
 		WHERE section_id = $1
 		ORDER BY sort_order
@@ -331,7 +337,7 @@ func getItems(ctx context.Context, pool *pgxpool.Pool, sectionID string) ([]Item
 	var items []Item
 	for rows.Next() {
 		var it Item
-		if err := rows.Scan(&it.ID, &it.Type, &it.Label, &it.Answer, &it.SortOrder); err != nil {
+		if err := rows.Scan(&it.ID, &it.Type, &it.Label, &it.Answer, &it.SortOrder, &it.ReferencePhotoURL, &it.RequireProofPhoto); err != nil {
 			return nil, fmt.Errorf("scan item: %w", err)
 		}
 		items = append(items, it)
@@ -531,13 +537,12 @@ func GetHireTraining(ctx context.Context, pool *pgxpool.Pool, hireID, templateID
 				}
 			} else if item.Type == "faq" {
 				item.Viewed = progressMap[item.ID+":faq"]
-			} else if item.Type == "photo" {
-				item.Checked = progressMap[item.ID+":photo"]
-				if url, ok := valueMap[item.ID]; ok {
-					item.PhotoURL = url
-				}
 			} else {
-				// Checkbox: if it has sub-items, derive checked from sub-item progress
+				// Checkbox: populate proof photo URL from progress value if present
+				if url, ok := valueMap[item.ID]; ok {
+					item.ProofPhotoURL = url
+				}
+				// If it has sub-items, derive checked from sub-item progress
 				if len(item.SubItems) > 0 {
 					allSubsChecked := true
 					for k := range item.SubItems {
@@ -622,11 +627,6 @@ func isSectionComplete(sec Section, progressMap map[string]bool) bool {
 					return false
 				}
 			}
-		} else if item.Type == "photo" {
-			totalCheckable++
-			if !progressMap[item.ID+":photo"] {
-				return false
-			}
 		} else {
 			// checkbox — if sub-items exist, check those instead
 			if len(item.SubItems) > 0 {
@@ -685,7 +685,7 @@ func GetMyTrainings(ctx context.Context, pool *pgxpool.Pool, hireID string) ([]A
 			WHERE NOT EXISTS (` + sectionIncompleteItem("$1") + `)
 			AND EXISTS (
 				SELECT 1 FROM ob_items oi
-				WHERE oi.section_id = os.id AND oi.type IN ('checkbox', 'video_series', 'faq', 'photo')
+				WHERE oi.section_id = os.id AND oi.type IN ('checkbox', 'video_series', 'faq')
 			)
 			GROUP BY os.template_id
 		) sec_complete ON sec_complete.template_id = ot.id
@@ -750,7 +750,7 @@ func GetManagerHires(ctx context.Context, pool *pgxpool.Pool) ([]HireOverview, e
 			CROSS JOIN users u2
 			WHERE NOT EXISTS (
 				SELECT 1 FROM ob_items oi
-				WHERE oi.section_id = os.id AND oi.type IN ('checkbox', 'video_series', 'faq', 'photo')
+				WHERE oi.section_id = os.id AND oi.type IN ('checkbox', 'video_series', 'faq')
 				AND (
 					(oi.type != 'video_series' AND NOT EXISTS (
 						SELECT 1 FROM ob_progress op WHERE op.item_id = oi.id AND op.hire_id = u2.id
@@ -764,7 +764,7 @@ func GetManagerHires(ctx context.Context, pool *pgxpool.Pool) ([]HireOverview, e
 			)
 			AND EXISTS (
 				SELECT 1 FROM ob_items oi
-				WHERE oi.section_id = os.id AND oi.type IN ('checkbox', 'video_series', 'faq', 'photo')
+				WHERE oi.section_id = os.id AND oi.type IN ('checkbox', 'video_series', 'faq')
 			)
 			GROUP BY os.template_id, u2.id
 		) sec_complete ON sec_complete.template_id = matched_tpl.id AND sec_complete.hire_id = u.id
@@ -819,7 +819,7 @@ func GetManagerHires(ctx context.Context, pool *pgxpool.Pool) ([]HireOverview, e
 				FROM ob_sections os
 				WHERE NOT EXISTS (` + sectionIncompleteItem("$1") + `)
 				AND EXISTS (
-					SELECT 1 FROM ob_items oi WHERE oi.section_id = os.id AND oi.type IN ('checkbox', 'video_series', 'faq', 'photo')
+					SELECT 1 FROM ob_items oi WHERE oi.section_id = os.id AND oi.type IN ('checkbox', 'video_series', 'faq')
 				)
 				GROUP BY os.template_id
 			) sec_complete ON sec_complete.template_id = ot.id
@@ -833,7 +833,7 @@ func GetManagerHires(ctx context.Context, pool *pgxpool.Pool) ([]HireOverview, e
 				)
 				AND NOT EXISTS (` + sectionIncompleteItem("$1") + `)
 				AND EXISTS (
-					SELECT 1 FROM ob_items oi WHERE oi.section_id = os.id AND oi.type IN ('checkbox', 'video_series', 'faq', 'photo')
+					SELECT 1 FROM ob_items oi WHERE oi.section_id = os.id AND oi.type IN ('checkbox', 'video_series', 'faq')
 				)
 				GROUP BY os.template_id
 			) pending_so ON pending_so.template_id = ot.id
@@ -915,7 +915,7 @@ func IsSectionLockedForEdits(ctx context.Context, pool *pgxpool.Pool, hireID, it
 	err = pool.QueryRow(ctx, `
 		SELECT EXISTS(
 			SELECT 1 FROM ob_items oi
-			WHERE oi.section_id = $1 AND oi.type IN ('checkbox', 'video_series', 'faq', 'photo')
+			WHERE oi.section_id = $1 AND oi.type IN ('checkbox', 'video_series', 'faq')
 			AND (
 				(oi.type != 'video_series' AND NOT EXISTS (
 					SELECT 1 FROM ob_progress op WHERE op.item_id = oi.id AND op.hire_id = $2
@@ -1044,18 +1044,18 @@ func UpdateTemplate(ctx context.Context, pool *pgxpool.Pool, templateID string, 
 			var itemID string
 			if item.ID != "" && isUUID(item.ID) {
 				_, err := tx.Exec(ctx, `
-					UPDATE ob_items SET section_id=$1, type=$2, label=$3, answer=$4, sort_order=$5
-					WHERE id=$6
-				`, sectionID, item.Type, item.Label, item.Answer, item.SortOrder, item.ID)
+					UPDATE ob_items SET section_id=$1, type=$2, label=$3, answer=$4, sort_order=$5, reference_photo_url=$6, require_proof_photo=$7
+					WHERE id=$8
+				`, sectionID, item.Type, item.Label, item.Answer, item.SortOrder, item.ReferencePhotoURL, item.RequireProofPhoto, item.ID)
 				if err != nil {
 					return fmt.Errorf("update item %q: %w", item.Label, err)
 				}
 				itemID = item.ID
 			} else {
 				err := tx.QueryRow(ctx, `
-					INSERT INTO ob_items (section_id, type, label, answer, sort_order)
-					VALUES ($1, $2, $3, $4, $5) RETURNING id
-				`, sectionID, item.Type, item.Label, item.Answer, item.SortOrder).Scan(&itemID)
+					INSERT INTO ob_items (section_id, type, label, answer, sort_order, reference_photo_url, require_proof_photo)
+					VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id
+				`, sectionID, item.Type, item.Label, item.Answer, item.SortOrder, item.ReferencePhotoURL, item.RequireProofPhoto).Scan(&itemID)
 				if err != nil {
 					return fmt.Errorf("insert item %q: %w", item.Label, err)
 				}
@@ -1196,10 +1196,10 @@ func insertSectionsTx(ctx context.Context, tx pgx.Tx, templateID string, section
 		for _, item := range sec.Items {
 			var itemID string
 			err := tx.QueryRow(ctx, `
-				INSERT INTO ob_items (section_id, type, label, answer, sort_order)
-				VALUES ($1, $2, $3, $4, $5)
+				INSERT INTO ob_items (section_id, type, label, answer, sort_order, reference_photo_url, require_proof_photo)
+				VALUES ($1, $2, $3, $4, $5, $6, $7)
 				RETURNING id
-			`, sectionID, item.Type, item.Label, item.Answer, item.SortOrder).Scan(&itemID)
+			`, sectionID, item.Type, item.Label, item.Answer, item.SortOrder, item.ReferencePhotoURL, item.RequireProofPhoto).Scan(&itemID)
 			if err != nil {
 				return fmt.Errorf("insert item %q: %w", item.Label, err)
 			}

@@ -184,9 +184,6 @@ function createNewOBSection(title) {
 function createNewOBCheckbox(label) {
   return { id: generateOBId('itm'), type: 'checkbox', label: label || '', sub_items: [] };
 }
-function createNewOBPhotoItem(label) {
-  return { id: generateOBId('itm'), type: 'photo', label: label || '', sub_items: [] };
-}
 function createNewOBVideoSeries(label) {
   return { id: generateOBId('vs'), type: 'video_series', label: label || '', video_parts: [] };
 }
@@ -273,23 +270,21 @@ function handleOBPhotoCaptureClick(itemId, hireId, secId, sections) {
       }).then(function(publicUrl) {
         URL.revokeObjectURL(objectURL);
         saveProgress(itemId, 'photo', true, sections, hireId, publicUrl);
+        // Update local item state with proof photo URL
         (sections || []).forEach(function(sec) {
           (sec.items || []).forEach(function(item) {
             if (item.id === itemId) {
-              item.photo_url = publicUrl;
-              item.checked = true;
+              item.proof_photo_url = publicUrl;
             }
           });
         });
-        var sec = (sections || []).find(function(s) { return s.id === secId; });
-        if (sec) recomputeSectionState(sec);
         renderMyRunner();
       }).catch(function(err) {
         console.error('Photo upload failed:', err);
         URL.revokeObjectURL(objectURL);
         var area = document.querySelector('.photo-uploading');
         if (area && area.parentNode) {
-          area.parentNode.innerHTML = '<button class="photo-capture-btn" data-action="ob-photo-capture" data-item-id="' + itemId + '" data-sec-id="' + secId + '" data-hire-id="' + hireId + '">&#128247; Take Photo</button>';
+          area.parentNode.innerHTML = '<button class="photo-capture-btn" data-action="ob-photo-capture" data-item-id="' + itemId + '" data-sec-id="' + secId + '" data-hire-id="' + hireId + '">&#128247; Take Proof Photo</button>';
         }
       });
     }, function() {
@@ -455,6 +450,22 @@ function renderSections(sections, hireId, readOnly) {
               });
             }
             if (checked && item.checked_by) html += '<div class="attribution">Checked by '+escapeOBAttr(item.checked_by)+'</div>';
+            // Reference photo (template-level guide image)
+            if (item.reference_photo_url) {
+              html += '<div class="photo-thumb-wrap"><a class="photo-thumb-link" href="'+item.reference_photo_url+'" target="_blank"><img class="photo-thumb" src="'+item.reference_photo_url+'" alt="Reference"></a><span style="font-size:11px;color:var(--mut)">Reference</span></div>';
+            }
+            // Proof photo (crew-uploaded evidence)
+            if (item.require_proof_photo || item.proof_photo_url) {
+              if (item.proof_photo_url) {
+                html += '<div class="photo-thumb-wrap"><a class="photo-thumb-link" href="'+item.proof_photo_url+'" target="_blank"><img class="photo-thumb" src="'+item.proof_photo_url+'" alt="Proof"></a>';
+                if (canInteract) html += '<button class="photo-retake-link" data-action="ob-photo-capture" data-item-id="'+item.id+'" data-sec-id="'+sec.id+'" data-hire-id="'+hireId+'">Retake</button>';
+                html += '</div>';
+              } else if (canInteract) {
+                html += '<button class="photo-capture-btn" data-action="ob-photo-capture" data-item-id="'+item.id+'" data-sec-id="'+sec.id+'" data-hire-id="'+hireId+'" style="margin-top:4px">&#128247; Take Proof Photo</button>';
+              } else if (readOnly) {
+                html += '<div style="font-size:12px;color:var(--mut);padding:4px 0">No proof photo</div>';
+              }
+            }
             if (item._saveErr) html += '<span class="field-err">'+escapeOBAttr(item._saveErr)+' <span data-action="retry-item" data-item-id="'+item.id+'" data-sec-id="'+sec.id+'" data-hire-id="'+hireId+'" style="cursor:pointer;text-decoration:underline">Tap to retry.</span></span>';
             html += '</div></div>';
           } else if (item.type === 'video_series') {
@@ -491,25 +502,6 @@ function renderSections(sections, hireId, readOnly) {
               html += '</div>';
               html += '<div style="margin:20px auto;width:90%;height:4px;background:var(--brd);border-radius:2px"></div>';
             });
-          } else if (item.type === 'photo') {
-            var hasPhoto = !!item.photo_url;
-            var canInteract = !readOnly && state === 'active';
-            html += '<div class="item-row">';
-            html += '<div class="ob-check' + (hasPhoto ? ' checked' : '') + '" style="cursor:default">' + (hasPhoto ? '&#10003;' : '') + '</div>';
-            html += '<div style="flex:1"><div style="font-size:14px;font-weight:500">' + escapeOBAttr(item.label) + '</div>';
-            if (hasPhoto) {
-              html += '<div class="photo-thumb-wrap">' +
-                '<a class="photo-thumb-link" href="' + item.photo_url + '" target="_blank">' +
-                '<img class="photo-thumb" src="' + item.photo_url + '" alt="Photo">' +
-                '</a>';
-              if (canInteract) html += '<button class="photo-retake-link" data-action="ob-photo-retake" data-item-id="' + item.id + '" data-sec-id="' + sec.id + '" data-hire-id="' + hireId + '">Retake</button>';
-              html += '</div>';
-            } else if (canInteract) {
-              html += '<div class="photo-capture-area"><button class="photo-capture-btn" data-action="ob-photo-capture" data-item-id="' + item.id + '" data-sec-id="' + sec.id + '" data-hire-id="' + hireId + '">&#128247; Take Photo</button></div>';
-            } else if (readOnly) {
-              html += '<div style="font-size:12px;color:var(--mut);padding:4px 0">No photo</div>';
-            }
-            html += '</div></div>';
           }
         });
         html += '</div>';
@@ -542,7 +534,6 @@ function countSectionItems(sec) {
       var subs = item.sub_items || [];
       total += subs.length > 0 ? subs.length : 1;
     } else if (item.type === 'video_series') total += (item.video_parts || []).length;
-    else if (item.type === 'photo') total += 1;
   });
   return total;
 }
@@ -556,7 +547,6 @@ function countCheckedItems(sec) {
         subs.forEach(function(s) { if (s.checked) checked++; });
       } else if (item.checked) checked++;
     } else if (item.type === 'video_series') (item.video_parts || []).forEach(function(p) { if (p.checked) checked++; });
-    else if (item.type === 'photo') { if (item.checked) checked++; }
   });
   return checked;
 }
@@ -838,19 +828,17 @@ function renderOBCheckboxItem(item, secId, idx) {
     html += '</div>';
   });
   html += '<button data-action="add-sub-item" data-sec-id="'+secId+'" data-item-idx="'+idx+'" style="padding:4px 10px;background:var(--info-bg);color:var(--info-tx);border:none;border-radius:6px;font-size:11px;font-weight:500;cursor:pointer;margin-top:2px">+ Sub-item</button>';
+  // Photo options
+  html += '<div style="margin-top:8px;padding-top:8px;border-top:0.5px solid var(--brd)">';
+  if (item.reference_photo_url) {
+    html += '<div class="photo-thumb-wrap" style="margin-bottom:6px"><img class="photo-thumb" src="'+escapeOBAttr(item.reference_photo_url)+'" alt="Reference"><button class="photo-retake-link" data-action="ob-builder-ref-photo" data-sec-id="'+secId+'" data-item-idx="'+idx+'">Change</button> <button class="photo-retake-link" data-action="ob-builder-remove-ref-photo" data-sec-id="'+secId+'" data-item-idx="'+idx+'" style="color:#c0392b">Remove</button></div>';
+  } else {
+    html += '<button class="photo-capture-btn" data-action="ob-builder-ref-photo" data-sec-id="'+secId+'" data-item-idx="'+idx+'" style="font-size:12px;margin-bottom:6px">&#128247; Add reference photo</button>';
+  }
+  html += '<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--mut);cursor:pointer"><input type="checkbox" data-action="ob-builder-proof-toggle" data-sec-id="'+secId+'" data-item-idx="'+idx+'"'+(item.require_proof_photo?' checked':'')+' style="width:16px;height:16px"> Require proof photo</label>';
   html += '</div>';
   html += '</div>';
-  return html;
-}
-
-function renderOBPhotoItem(item, secId, idx) {
-  var html = '<div class="ob-item-card" data-item-id="'+item.id+'">';
-  html += '<div class="ob-item-header">';
-  html += '<span class="drag-handle">&#9776;</span>';
-  html += '<input type="text" value="'+escapeOBAttr(item.label)+'" data-action="item-label-input" data-sec-id="'+secId+'" data-item-idx="'+idx+'" placeholder="Photo label" style="flex:1;padding:6px 8px;background:var(--card);border:0.5px solid var(--brd);border-radius:6px;font-size:13px;color:var(--txt);font-family:inherit;outline:none">';
-  html += '<span style="font-size:11px;color:var(--mut);white-space:nowrap">Photo</span>';
-  html += '<span data-action="delete-ob-item" data-sec-id="'+secId+'" data-item-idx="'+idx+'" style="color:#c0392b;cursor:pointer;font-size:14px">&#10005;</span>';
-  html += '</div></div>';
+  html += '</div>';
   return html;
 }
 
@@ -977,15 +965,12 @@ function renderOBSection(sec) {
         itemsHtml += renderOBCheckboxItem(item, sec.id, idx);
       } else if (item.type === 'video_series') {
         itemsHtml += renderOBVideoItem(item, sec.id, idx);
-      } else if (item.type === 'photo') {
-        itemsHtml += renderOBPhotoItem(item, sec.id, idx);
       }
     });
     itemsHtml += '</div>';
     itemsHtml += '<div style="display:flex;gap:6px;margin-top:12px;padding-top:12px;border-top:1px solid var(--brd)">'+
       '<button data-action="add-ob-item" data-sec-id="'+sec.id+'" data-item-type="checkbox" style="padding:6px 12px;background:var(--info-bg);color:var(--info-tx);border:none;border-radius:8px;font-size:12px;font-weight:500;cursor:pointer">+ Checkbox</button>'+
       '<button data-action="add-ob-item" data-sec-id="'+sec.id+'" data-item-type="video_series" style="padding:6px 12px;background:var(--info-bg);color:var(--info-tx);border:none;border-radius:8px;font-size:12px;font-weight:500;cursor:pointer">+ Video Series</button>'+
-      '<button data-action="add-ob-item" data-sec-id="'+sec.id+'" data-item-type="photo" style="padding:6px 12px;background:var(--info-bg);color:var(--info-tx);border:none;border-radius:8px;font-size:12px;font-weight:500;cursor:pointer">+ Photo</button>'+
       '</div>';
     html += itemsHtml;
   }
@@ -1752,7 +1737,6 @@ document.getElementById('builder-body').addEventListener('click', async function
       var itemType = btn.dataset.itemType;
       if (itemType === 'checkbox') sec.items.push(createNewOBCheckbox(''));
       else if (itemType === 'video_series') sec.items.push(createNewOBVideoSeries(''));
-      else if (itemType === 'photo') sec.items.push(createNewOBPhotoItem(''));
       renderOBBuilder();
     }
   } else if (action === 'delete-ob-item') {
@@ -1773,6 +1757,54 @@ document.getElementById('builder-body').addEventListener('click', async function
     if (sec) {
       var item = sec.items[+btn.dataset.itemIdx];
       if (item && item.sub_items) { item.sub_items.splice(+btn.dataset.subIdx, 1); renderOBBuilder(); }
+    }
+  } else if (action === 'ob-builder-ref-photo') {
+    var sec = (obBuilderState.localCopy.sections||[]).find(function(s) { return s.id === btn.dataset.secId; });
+    if (sec) {
+      var item = sec.items[+btn.dataset.itemIdx];
+      if (item) {
+        openCamera(function(file) {
+          var objectURL = URL.createObjectURL(file);
+          showPhotoPreview(objectURL, function() {
+            var tplId = obBuilderState.localCopy.id || 'new';
+            var filename = 'ref-' + item.id + '.jpg';
+            fetch('/api/v1/photos/presign', {
+              method: 'POST', credentials: 'include',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ path_prefix: 'onboarding', id: tplId, filename: filename })
+            }).then(function(r) {
+              if (r.status === 401) { location.href = 'login.html'; throw new Error('unauthorized'); }
+              if (!r.ok) throw new Error('presign failed');
+              return r.json();
+            }).then(function(presignResp) {
+              return fetch(presignResp.url, { method: 'PUT', body: file, headers: { 'Content-Type': 'image/jpeg' } }).then(function(putResp) {
+                if (!putResp.ok) throw new Error('PUT failed');
+                return presignResp.public_url;
+              });
+            }).then(function(publicUrl) {
+              URL.revokeObjectURL(objectURL);
+              item.reference_photo_url = publicUrl;
+              renderOBBuilder();
+            }).catch(function(err) {
+              console.error('Reference photo upload failed:', err);
+              URL.revokeObjectURL(objectURL);
+              alert('Upload failed. Try again.');
+            });
+          }, function() { URL.revokeObjectURL(objectURL); });
+        });
+      }
+    }
+  } else if (action === 'ob-builder-remove-ref-photo') {
+    var sec = (obBuilderState.localCopy.sections||[]).find(function(s) { return s.id === btn.dataset.secId; });
+    if (sec) {
+      var item = sec.items[+btn.dataset.itemIdx];
+      if (item) { item.reference_photo_url = null; renderOBBuilder(); }
+    }
+  } else if (action === 'ob-builder-proof-toggle') {
+    var sec = (obBuilderState.localCopy.sections||[]).find(function(s) { return s.id === btn.dataset.secId; });
+    if (sec) {
+      var item = sec.items[+btn.dataset.itemIdx];
+      if (item) { item.require_proof_photo = btn.checked; }
     }
   } else if (action === 'add-video-part') {
     var sec = (obBuilderState.localCopy.sections||[]).find(function(s) { return s.id === btn.dataset.secId; });
