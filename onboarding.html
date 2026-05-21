@@ -460,7 +460,7 @@ function renderSections(sections, hireId, readOnly) {
                   } else if (!readOnly && state === 'active') {
                     html += '<button class="photo-capture-btn" data-action="ob-photo-capture" data-item-id="'+sub.id+'" data-sec-id="'+sec.id+'" data-hire-id="'+hireId+'" style="margin-top:2px;font-size:11px;padding:4px 8px">&#128247; Proof</button>';
                   } else if (readOnly) {
-                    html += '<span style="font-size:11px;color:var(--mut)"> · No proof</span>';
+                    html += '<span style="font-size:13px;color:#c0392b;display:block;padding:2px 0">No photo taken</span>';
                   }
                 }
                 html += '</div></div>';
@@ -475,7 +475,7 @@ function renderSections(sections, hireId, readOnly) {
               } else if (canInteract) {
                 html += '<button class="photo-capture-btn" data-action="ob-photo-capture" data-item-id="'+item.id+'" data-sec-id="'+sec.id+'" data-hire-id="'+hireId+'" style="margin-top:2px;font-size:11px;padding:4px 8px">&#128247; Proof Photo</button>';
               } else if (readOnly) {
-                html += '<span style="font-size:11px;color:var(--mut)"> · No proof</span>';
+                html += '<span style="font-size:13px;color:#c0392b;display:block;padding:2px 0">No photo taken</span>';
               }
             }
             html += '</div>';
