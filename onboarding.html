@@ -250,24 +250,21 @@ function handleOBPhotoCaptureClick(itemId, hireId, secId, sections) {
       if (captureArea && captureArea.parentNode) {
         captureArea.parentNode.innerHTML = '<div class="photo-uploading"><div class="photo-spinner"></div>Uploading...</div>';
       }
-      fetch('/api/v1/photos/presign', {
+      var formData = new FormData();
+      formData.append('path_prefix', 'onboarding');
+      formData.append('id', hireId);
+      formData.append('filename', itemId + '.jpg');
+      formData.append('file', file);
+      fetch('/api/v1/photos/upload', {
         method: 'POST',
         credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ path_prefix: 'onboarding', id: hireId, filename: itemId + '.jpg' })
+        body: formData
       }).then(function(r) {
         if (r.status === 401) { location.href = 'login.html'; throw new Error('unauthorized'); }
-        if (!r.ok) throw new Error('presign failed: ' + r.status);
+        if (!r.ok) throw new Error('upload failed: ' + r.status);
         return r.json();
-      }).then(function(presignResp) {
-        return fetch(presignResp.url, {
-          method: 'PUT', body: file,
-          headers: { 'Content-Type': 'image/jpeg' }
-        }).then(function(putResp) {
-          if (!putResp.ok) throw new Error('PUT failed: ' + putResp.status);
-          return presignResp.public_url;
-        });
-      }).then(function(publicUrl) {
+      }).then(function(resp) {
+        var publicUrl = resp.public_url;
         URL.revokeObjectURL(objectURL);
         saveProgress(itemId, 'photo', true, sections, hireId, publicUrl);
         // Update local item state with proof photo URL
@@ -1768,20 +1765,20 @@ document.getElementById('builder-body').addEventListener('click', async function
           showPhotoPreview(objectURL, function() {
             var tplId = obBuilderState.localCopy.id || 'new';
             var filename = 'ref-' + item.id + '.jpg';
-            fetch('/api/v1/photos/presign', {
+            var formData = new FormData();
+            formData.append('path_prefix', 'onboarding');
+            formData.append('id', tplId);
+            formData.append('filename', filename);
+            formData.append('file', file);
+            fetch('/api/v1/photos/upload', {
               method: 'POST', credentials: 'include',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ path_prefix: 'onboarding', id: tplId, filename: filename })
+              body: formData
             }).then(function(r) {
               if (r.status === 401) { location.href = 'login.html'; throw new Error('unauthorized'); }
-              if (!r.ok) throw new Error('presign failed');
+              if (!r.ok) throw new Error('upload failed');
               return r.json();
-            }).then(function(presignResp) {
-              return fetch(presignResp.url, { method: 'PUT', body: file, headers: { 'Content-Type': 'image/jpeg' } }).then(function(putResp) {
-                if (!putResp.ok) throw new Error('PUT failed');
-                return presignResp.public_url;
-              });
-            }).then(function(publicUrl) {
+            }).then(function(resp) {
+              var publicUrl = resp.public_url;
               URL.revokeObjectURL(objectURL);
               item.reference_photo_url = publicUrl;
               renderOBBuilder();
