@@ -11,14 +11,28 @@ import (
 )
 
 // sectionIncompleteItem returns a SQL fragment that checks if a section has any
-// incomplete item. Handles video_series by checking all video parts, not the item itself.
+// incomplete item. Handles video_series by checking video parts, and checkbox items
+// by checking sub-items when they exist (otherwise checks the item itself).
 // The hireParam is the SQL parameter placeholder for the hire_id (e.g. "$1").
 func sectionIncompleteItem(hireParam string) string {
 	return `
 		SELECT 1 FROM ob_items oi
 		WHERE oi.section_id = os.id AND oi.type IN ('checkbox', 'video_series', 'faq')
 		AND (
-			(oi.type != 'video_series' AND NOT EXISTS (
+			(oi.type = 'checkbox' AND (
+				-- Checkbox with sub-items: check all sub-items have progress
+				(EXISTS (SELECT 1 FROM ob_sub_items si WHERE si.item_id = oi.id)
+				 AND EXISTS (
+					SELECT 1 FROM ob_sub_items si WHERE si.item_id = oi.id
+					AND NOT EXISTS (SELECT 1 FROM ob_progress op WHERE op.item_id = si.id AND op.hire_id = ` + hireParam + `)
+				))
+				OR
+				-- Checkbox without sub-items: check item itself has progress
+				(NOT EXISTS (SELECT 1 FROM ob_sub_items si WHERE si.item_id = oi.id)
+				 AND NOT EXISTS (SELECT 1 FROM ob_progress op WHERE op.item_id = oi.id AND op.hire_id = ` + hireParam + `))
+			))
+			OR
+			(oi.type = 'faq' AND NOT EXISTS (
 				SELECT 1 FROM ob_progress op WHERE op.item_id = oi.id AND op.hire_id = ` + hireParam + `
 			))
 			OR
