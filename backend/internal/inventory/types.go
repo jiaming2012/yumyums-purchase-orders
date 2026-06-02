@@ -149,3 +149,27 @@ type ConfirmPendingInput struct {
 type DiscardPendingInput struct {
 	ID string `json:"id"`
 }
+
+// PeriodSummary is the response body for GET /api/v1/inventory/period-summary.
+// COGS aggregates use purchase_events.event_date (DATE — no TZ).
+// Completeness gate uses pending_purchases.created_at cast to America/Chicago calendar date.
+type PeriodSummary struct {
+	From               string            `json:"from"`                 // YYYY-MM-DD
+	To                 string            `json:"to"`                   // YYYY-MM-DD
+	COGSExclTax        float64           `json:"cogs_excl_tax"`
+	COGSInclTax        float64           `json:"cogs_incl_tax"`
+	PurchaseEventCount int               `json:"purchase_event_count"`
+	Completeness       CompletenessBlock `json:"completeness"`
+}
+
+// CompletenessBlock reports whether HQ receipts for the period are fully
+// ingested + reviewed + catalog-linked. `ready` is true iff both ID lists are empty.
+// PendingReviewIDs lists pending_purchases.id rows where confirmed_at IS NULL
+// AND discarded_at IS NULL within the period.
+// UnlinkedLineItemIDs lists purchase_line_items.id rows where purchase_item_id
+// IS NULL for purchase_events in the period.
+type CompletenessBlock struct {
+	Ready               bool     `json:"ready"`
+	PendingReviewIDs    []string `json:"pending_review_ids"`
+	UnlinkedLineItemIDs []string `json:"unlinked_line_item_ids"`
+}
