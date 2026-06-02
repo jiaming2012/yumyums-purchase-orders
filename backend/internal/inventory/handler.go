@@ -1049,3 +1049,141 @@ func ListTagsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		writeJSON(w, http.StatusOK, tags)
 	}
 }
+
+// PeriodSummaryHandler returns aggregated COGS and receipt-completeness data for a
+// date range. Intended for service-to-service callers (sales-processor) — wired
+// behind auth.ServiceTokenMiddleware in main.go, NOT the cookie-auth group.
+//
+// Query params (both required, inclusive, format YYYY-MM-DD):
+//   from — start date (interpreted in America/Chicago for the completeness gate;
+//          plain DATE comparison for COGS since purchase_events.event_date is DATE).
+//   to   — end date.
+//
+// Response (200): inventory.PeriodSummary JSON.
+// Errors: 400 on malformed dates or from > to; 500 on internal DB error.
+func PeriodSummaryHandler(pool *pgxpool.Pool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		fromStr := r.URL.Query().Get("from")
+		toStr := r.URL.Query().Get("to")
+		if _, err := time.Parse("2006-01-02", fromStr); err != nil {
+			writeError(w, http.StatusBadRequest, "from must be YYYY-MM-DD")
+			return
+		}
+		if _, err := time.Parse("2006-01-02", toStr); err != nil {
+			writeError(w, http.StatusBadRequest, "to must be YYYY-MM-DD")
+			return
+		}
+		if fromStr > toStr {
+			writeError(w, http.StatusBadRequest, "from must be <= to")
+			return
+		}
+
+		// 1) COGS aggregate. event_date is DATE (no TZ cast needed).
+		//    cogs_excl_tax = SUM(quantity * price) rounded to 2dp.
+		//    cogs_incl_tax = cogs_excl_tax + SUM(tax) over purchase_events in range.
+		//    purchase_event_count = COUNT(purchase_events) in range.
+		var cogsExcl float64
+		var cogsIncl float64
+		var eventCount int
+		err := pool.QueryRow(r.Context(), `
+			WITH events AS (
+				SELECT id, tax
+				FROM purchase_events
+				WHERE event_date BETWEEN $1 AND $2
+			),
+			lines AS (
+				SELECT ROUND(COALESCE(SUM(pli.quantity * pli.price), 0)::numeric, 2) AS total
+				FROM purchase_line_items pli
+				WHERE pli.purchase_event_id IN (SELECT id FROM events)
+			)
+			SELECT
+				(SELECT total FROM lines)                                     AS cogs_excl_tax,
+				(SELECT total FROM lines) + COALESCE(SUM(tax), 0)             AS cogs_incl_tax,
+				COUNT(*)                                                      AS event_count
+			FROM events`, fromStr, toStr).Scan(&cogsExcl, &cogsIncl, &eventCount)
+		if err != nil {
+			log.Printf("PeriodSummary cogs query: %v", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+
+		// 2) Pending review IDs — receipts in the period that have not been
+		//    confirmed or discarded. Discarded counts as resolved per phase scope.
+		//    created_at is TIMESTAMPTZ → cast in America/Chicago to match the
+		//    food-truck calendar (repurchase.go:71 establishes this convention).
+		pendingIDs := []string{}
+		rows, err := pool.Query(r.Context(), `
+			SELECT id::text
+			FROM pending_purchases
+			WHERE (created_at AT TIME ZONE 'America/Chicago')::date BETWEEN $1 AND $2
+			  AND confirmed_at IS NULL
+			  AND discarded_at IS NULL
+			ORDER BY created_at`, fromStr, toStr)
+		if err != nil {
+			log.Printf("PeriodSummary pending query: %v", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var id string
+			if err := rows.Scan(&id); err != nil {
+				log.Printf("PeriodSummary pending scan: %v", err)
+				writeError(w, http.StatusInternalServerError, "internal_error")
+				return
+			}
+			pendingIDs = append(pendingIDs, id)
+		}
+		if err := rows.Err(); err != nil {
+			log.Printf("PeriodSummary pending rows.Err: %v", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+
+		// 3) Unlinked line items in confirmed events within range. A line item
+		//    is "unlinked" when purchase_item_id IS NULL — i.e. the receipt was
+		//    confirmed but the description never got mapped to a catalog item.
+		unlinkedIDs := []string{}
+		rows2, err := pool.Query(r.Context(), `
+			SELECT pli.id::text
+			FROM purchase_line_items pli
+			JOIN purchase_events pe ON pe.id = pli.purchase_event_id
+			WHERE pe.event_date BETWEEN $1 AND $2
+			  AND pli.purchase_item_id IS NULL
+			ORDER BY pli.id`, fromStr, toStr)
+		if err != nil {
+			log.Printf("PeriodSummary unlinked query: %v", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		defer rows2.Close()
+		for rows2.Next() {
+			var id string
+			if err := rows2.Scan(&id); err != nil {
+				log.Printf("PeriodSummary unlinked scan: %v", err)
+				writeError(w, http.StatusInternalServerError, "internal_error")
+				return
+			}
+			unlinkedIDs = append(unlinkedIDs, id)
+		}
+		if err := rows2.Err(); err != nil {
+			log.Printf("PeriodSummary unlinked rows.Err: %v", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+
+		resp := PeriodSummary{
+			From:               fromStr,
+			To:                 toStr,
+			COGSExclTax:        cogsExcl,
+			COGSInclTax:        cogsIncl,
+			PurchaseEventCount: eventCount,
+			Completeness: CompletenessBlock{
+				Ready:               len(pendingIDs) == 0 && len(unlinkedIDs) == 0,
+				PendingReviewIDs:    pendingIDs,
+				UnlinkedLineItemIDs: unlinkedIDs,
+			},
+		}
+		writeJSON(w, http.StatusOK, resp)
+	}
+}
