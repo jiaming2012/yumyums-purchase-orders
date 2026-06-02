@@ -32,6 +32,7 @@ A mobile-first PWA operations console for a food truck business. One app shell w
 - **Styling:** Shared CSS variables with automatic dark mode, mobile-first (max-width 480px)
 - **Inventory:** `inventory.html` — 5-tab layout (Purchases / Stock / Trends / Cost / Setup), receipt review pipeline, item catalog with groups/tags, stock level thresholds
 - **Receipt pipeline:** Mercury banking → receipt download → DO Spaces upload → Claude Haiku parse → validate → pending review queue → manual confirm
+- **Period summary endpoint (Phase 21):** GET /api/v1/inventory/period-summary returns COGS + completeness gate for sales-processor's weekly payroll. Auth via HQ_INVENTORY_SERVICE_TOKEN (Bearer); unset → 503. See .planning/phases/21-cogs-in-sales-processor-report-receipt-completeness-gate-bef/21-SALES-PROCESSOR-CONTRACT.md.
 - **Testing:** 170+ Playwright E2E tests across `tests/workflows.spec.js`, `tests/persistence.spec.js`, `tests/inventory.spec.js`, `tests/onboarding.spec.js`
 - **Backend:** Go + Postgres, REST API at `/api/v1/workflow/*`, `/api/v1/inventory/*`, `/api/v1/auth/*`, `/api/v1/onboarding/*`, `/api/v1/users/*`
 - **Data flow:** See `docs/data-flow-audit.md` for the full state persistence inventory
