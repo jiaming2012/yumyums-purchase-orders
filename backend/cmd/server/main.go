@@ -270,6 +270,13 @@ func main() {
 		log.Println("WARNING: DO Spaces env vars not set (DO_SPACES_KEY, DO_SPACES_SECRET, DO_SPACES_BUCKET, DO_SPACES_REGION) — photo and video upload endpoints will return 503")
 	}
 
+	// Service-to-service token for sales-processor → /api/v1/inventory/period-summary
+	// Empty value = endpoint returns 503 (fail-closed); see auth.ServiceTokenMiddleware.
+	serviceToken := os.Getenv("HQ_INVENTORY_SERVICE_TOKEN")
+	if serviceToken == "" {
+		log.Println("WARNING: HQ_INVENTORY_SERVICE_TOKEN not set — /api/v1/inventory/period-summary will return 503")
+	}
+
 	// Start WebSocket hub and Postgres LISTEN/NOTIFY pipeline
 	hub := opsync.NewHub()
 	go hub.Run()
@@ -323,6 +330,14 @@ func main() {
 		r.Post("/auth/login", auth.LoginHandler(pool, superadmins, secureCookie))
 		r.Get("/auth/invite-info", users.InviteInfoHandler(pool))
 		r.Post("/auth/accept-invite", users.AcceptInviteHandler(pool, secureCookie))
+
+		// Service-to-service (no cookie session) — inventory period summary for
+		// sales-processor weekly payroll flow. Lives in its OWN group with
+		// service-token middleware; NOT under auth.Middleware (no cookie).
+		r.Group(func(r chi.Router) {
+			r.Use(auth.ServiceTokenMiddleware(serviceToken))
+			r.Get("/inventory/period-summary", inventory.PeriodSummaryHandler(pool))
+		})
 
 		// Protected — auth middleware applied to this group
 		r.Group(func(r chi.Router) {
