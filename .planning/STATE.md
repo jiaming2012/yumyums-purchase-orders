@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
+status: ready_to_plan
 stopped_at: Checkpoint at 18-02 Task 3 (human-verify)
-last_updated: "2026-05-21T02:59:56.131Z"
-last_activity: "2026-04-28 - Completed quick task 260428-g36: Remove 30-item cap from item picker"
+last_updated: "2026-06-02T21:23:02.151Z"
+last_activity: 2026-06-02 -- Phase 21 execution started
 progress:
-  total_phases: 4
-  completed_phases: 1
-  total_plans: 1
-  completed_plans: 4
-  percent: 100
+  total_phases: 6
+  completed_phases: 3
+  total_plans: 8
+  completed_plans: 6
+  percent: 50
 ---
 
 # Project State
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-15)
 
 **Core value:** Operational tools that let the owner manage crew workflows and training from one mobile app — with accountability and smart conditions.
-**Current focus:** Phase 17 — alerts-notifications-and-repurchase-badges
+**Current focus:** Phase 21 — cogs-in-sales-processor-report-receipt-completeness-gate-bef
 
 ## Current Position
 
-Phase: 999.1
+Phase: 999.2
 Plan: Not started
-Status: Ready to execute
-Last activity: 2026-04-28 - Completed quick task 260428-g36: Remove 30-item cap from item picker
+Status: Ready to plan
+Last activity: 2026-06-02
 
 Progress: [██████████] 100%
 
@@ -36,7 +36,7 @@ Progress: [██████████] 100%
 
 **Velocity:**
 
-- Total plans completed: 18 (v1.0 + v1.1)
+- Total plans completed: 21 (v1.0 + v1.1)
 - Average duration: ~12 min
 - Total execution time: ~3.6 hours
 
@@ -48,6 +48,7 @@ Progress: [██████████] 100%
 | 10-workflows-api | TBD | - | - |
 | 11-onboarding-users-admin | TBD | - | - |
 | 12-inventory-photos | TBD | - | - |
+| 21 | 3 | - | - |
 
 **Recent Trend:**
 
@@ -103,6 +104,7 @@ Progress: [██████████] 100%
 - Phase 10.1 inserted after Phase 10: Cross-Device State Sync (URGENT)
 - Phase 10.2 inserted after Phase 10.1: Reactive Sync Framework (URGENT) — shared Store + single write channel before Phase 11
 - v2.1 milestone started: Onboarding Video Upgrade — Phase 1 added
+- Phase 21 added: COGS in sales-processor report + receipt completeness gate before payroll — exposes HQ `purchase_events` data to the cross-repo `sales-processor` weekly payroll flow via new `GET /api/v1/inventory/period-summary` endpoint; blocks payroll PDF / OnPay CSV / Mercury transfers when receipts incomplete (unconfirmed `pending_purchases` or `purchase_line_items.purchase_item_id IS NULL`). Per-menu-item COGS attribution deferred.
 
 ### Decisions
 
@@ -226,3 +228,5 @@ None yet.
 Last session: 2026-05-21T02:59:56.122Z
 Stopped at: Checkpoint at 18-02 Task 3 (human-verify)
 Resume file: 18-02-PLAN.md Task 3
+
+**Planned Phase:** 21 (cogs-in-sales-processor-report-receipt-completeness-gate-bef) — 3 plans — 2026-06-02T21:14:18.742Z
