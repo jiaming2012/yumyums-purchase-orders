@@ -552,6 +552,13 @@ func main() {
 		}
 	}
 
+	// Bind the listener synchronously so the "ready" sentinel below is accurate
+	// (the kernel buffers incoming connections in the backlog until http.Serve
+	// picks them up). Avoids racing with background goroutine logs.
+	ln, err := net.Listen("tcp", ":"+port)
+	if err != nil {
+		log.Fatalf("listen :%s: %v", port, err)
+	}
 	log.Printf("Yumyums HQ server listening on :%s", port)
 	if addrs, err := net.InterfaceAddrs(); err == nil {
 		for _, a := range addrs {
@@ -560,7 +567,8 @@ func main() {
 			}
 		}
 	}
-	if err := http.ListenAndServe(":"+port, r); err != nil {
+	log.Println("=== Yumyums HQ ready — accepting connections ===")
+	if err := http.Serve(ln, r); err != nil {
 		log.Fatalf("Server failed: %v", err)
 	}
 }
