@@ -8,3 +8,9 @@ bin/
 /import-notion
 /seed
 /server
+
+# Toast CSV cache (Phase 22.1 D-12 — forensic/inspection only; reads always come from DO Spaces)
+cache/
+
+# New cmd binary (Phase 22.1)
+/migrate-toast-archive
