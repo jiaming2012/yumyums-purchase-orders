@@ -2,50 +2,62 @@ package toast
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
-	"os"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
+	s3types "github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // RunIngest executes one Toast ingest cycle over [fromDate, toDate] inclusive.
-// Idempotent by construction (ON CONFLICT DO UPDATE on daily_menu_sales, last
-// row wins per D-05). Per-day errors are logged + skipped so a single bad day
-// doesn't kill the cycle.
+// Reads CSVs from DO Spaces (Phase 22.1 D-04 / D-13 — never from cache, never
+// from SFTP). Idempotent by construction (ON CONFLICT DO UPDATE on
+// daily_menu_sales, last row wins per Phase 22 D-05). Per-day errors are
+// logged + skipped so a single bad day doesn't kill the cycle (Pattern 3).
 //
-// Callers: cmd/sync-toast (CLI, Plan 04) and worker.runCycle (Plan 04).
+// Returns a non-nil error ONLY for systemic failures (Spaces unreachable in
+// pre-flight, or missing config). Per-key 404s are NOT systemic — the worker's
+// consecutive-failure counter (Plan 04) should not fire on a clean Spaces miss.
+//
+// Callers: cmd/sync-toast (CLI, Plan 06) and worker.runCycle (Plan 04).
 func RunIngest(ctx context.Context, pool *pgxpool.Pool, cfg Config, fromDate, toDate time.Time) (*IngestResult, error) {
 	start := time.Now()
 
-	pkBytes, err := os.ReadFile(cfg.SFTPKeyPath)
-	if err != nil {
-		return nil, fmt.Errorf("read key %q: %w", cfg.SFTPKeyPath, err)
+	if cfg.SpacesClient == nil || cfg.SpacesBucket == "" {
+		return nil, fmt.Errorf("toast ingest: SpacesClient or SpacesBucket not configured")
 	}
-
-	client, err := dialWithRetry(cfg, string(pkBytes))
-	if err != nil {
-		return nil, fmt.Errorf("sftp dial: %w", err)
-	}
-	defer client.Close()
 
 	result := &IngestResult{}
 
 	for d := fromDate; !d.After(toDate); d = d.AddDate(0, 0, 1) {
 		dateDir := d.Format("20060102")
-		remotePath := fmt.Sprintf("/%s/%s/ItemSelectionDetails.csv", cfg.ExportID, dateDir)
+		key := SpacesCSVKey(dateDir)
 
-		f, err := client.Download(remotePath)
+		resp, err := cfg.SpacesClient.GetObject(ctx, &s3.GetObjectInput{
+			Bucket: aws.String(cfg.SpacesBucket),
+			Key:    aws.String(key),
+		})
 		if err != nil {
-			// Closed-day directories don't exist on the SFTP server — that's
-			// expected; log at debug-ish level and continue.
-			log.Printf("toast ingest: skip %s (download: %v)", dateDir, err)
+			var nsk *s3types.NoSuchKey
+			if errors.As(err, &nsk) {
+				// D-05 generalization: clean miss on Spaces is expected for dates
+				// past Toast's retention horizon that migration hasn't seeded yet.
+				log.Printf("toast ingest: skip %s (not in Spaces)", dateDir)
+				continue
+			}
+			// Other Spaces errors (auth, network) — log per-date but DON'T return.
+			// Worker's per-cycle wrapper decides whether systemic counter should
+			// fire (it observes whether RunIngest returns an error overall).
+			log.Printf("toast ingest: skip %s (spaces: %v)", dateDir, err)
 			continue
 		}
 
-		rows, parseErr := parseItemSelectionDetails(f, d.Format("2006-01-02"))
-		f.Close()
+		rows, parseErr := parseItemSelectionDetails(resp.Body, d.Format("2006-01-02"))
+		resp.Body.Close()
 		if parseErr != nil {
 			log.Printf("toast ingest: skip %s (parse: %v)", dateDir, parseErr)
 			continue
@@ -67,7 +79,7 @@ func RunIngest(ctx context.Context, pool *pgxpool.Pool, cfg Config, fromDate, to
 }
 
 // upsertDayInTx writes one day's AggregatedRows in a single DB transaction.
-// Returns (menu_items_upserted, daily_menu_sales_upserted) counts.
+// UNCHANGED from Phase 22 (D-05/D-07 idempotency contract). Do not touch the SQL.
 //
 // menu_items: INSERT ... ON CONFLICT (master_id) DO UPDATE SET name/menu/menu_group/menu_subgroup
 //
@@ -134,7 +146,7 @@ func upsertDayInTx(ctx context.Context, pool *pgxpool.Pool, rows []AggregatedRow
 
 // isColdStart detects whether this is the first ever ingest by checking
 // daily_menu_sales emptiness (D-02). No bespoke flag or env var — self-healing
-// if someone TRUNCATEs the table.
+// if someone TRUNCATEs the table. UNCHANGED from Phase 22.
 func isColdStart(ctx context.Context, pool *pgxpool.Pool) (bool, error) {
 	var n int
 	if err := pool.QueryRow(ctx, `SELECT COUNT(*) FROM daily_menu_sales`).Scan(&n); err != nil {
