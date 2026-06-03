@@ -155,6 +155,16 @@ Plans:
 - [ ] 22-05-PLAN.md — ListMenuItemsHandler + wire toast into cmd/server/main.go (env load + worker start + chi route mount in cookie-auth group) (Wave 4, depends on 22-03 + 22-04)
 - [ ] 22-06-PLAN.md — Menu tab in inventory.html (new t3/s3 between Stock and Setup) + `task sw` rebuild + human verification checkpoint (Wave 5, depends on 22-05)
 
+### Phase 22.1: HQ Toast ingest re-architecture — Spaces-first ingest worker (no SFTP in read path); HQ-owned SFTP→Spaces sync worker + CLI; one-time sales-processor archive → DO Spaces migration CLI; local cache at backend/cache/toast/YYYYMMDD/ (INSERTED)
+
+**Goal:** [Urgent work - to be planned]
+**Requirements**: TBD
+**Depends on:** Phase 22
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 22.1 to break down)
+
 ### Phase 999.1: Tab persistence on refresh (moved from Phase 18)
 
 **Goal:** Persist active tab across page refresh for all apps using URL hash. When a tab is tapped, update `location.hash`. On page load, read the hash and activate the matching tab.

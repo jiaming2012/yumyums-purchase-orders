@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: planning
-stopped_at: Phase 22 context gathered
-last_updated: "2026-06-03T04:56:06.097Z"
+stopped_at: Phase 22.1 context gathered
+last_updated: "2026-06-03T12:27:14.685Z"
 last_activity: 2026-06-02
 progress:
-  total_phases: 7
-  completed_phases: 3
-  total_plans: 8
-  completed_plans: 9
+  total_phases: 8
+  completed_phases: 4
+  total_plans: 14
+  completed_plans: 15
   percent: 100
 ---
 
@@ -105,6 +105,7 @@ Progress: [██████████] 100%
 - Phase 10.2 inserted after Phase 10.1: Reactive Sync Framework (URGENT) — shared Store + single write channel before Phase 11
 - v2.1 milestone started: Onboarding Video Upgrade — Phase 1 added
 - Phase 21 added: COGS in sales-processor report + receipt completeness gate before payroll — exposes HQ `purchase_events` data to the cross-repo `sales-processor` weekly payroll flow via new `GET /api/v1/inventory/period-summary` endpoint; blocks payroll PDF / OnPay CSV / Mercury transfers when receipts incomplete (unconfirmed `pending_purchases` or `purchase_line_items.purchase_item_id IS NULL`). Per-menu-item COGS attribution deferred.
+- Phase 22.1 inserted after Phase 22 (URGENT — Phase 22 stays open until 22.1 verifies; both close together): HQ Toast ingest re-architecture. Verification of Phase 22 revealed Toast SFTP purges files faster than the 90-day backfill window assumes. Source of truth moves to DO Spaces. Phase 22.1 ships: (1) Spaces-first ingest worker (no SFTP in read path); (2) HQ-owned SFTP→Spaces sync worker + CLI (sales-processor decoupled, peer model); (3) one-time sales-processor archive → DO Spaces migration CLI; (4) local cache at `backend/cache/toast/YYYYMMDD/` (gitignored).
 
 ### Decisions
 
@@ -226,7 +227,7 @@ None yet.
 ## Session Continuity
 
 Last session: --stopped-at
-Stopped at: Phase 22 context gathered
+Stopped at: Phase 22.1 context gathered
 Resume file: --resume-file
 
 **Planned Phase:** 21 (cogs-in-sales-processor-report-receipt-completeness-gate-bef) — 3 plans — 2026-06-02T21:14:18.742Z
