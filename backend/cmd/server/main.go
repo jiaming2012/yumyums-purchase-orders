@@ -29,6 +29,7 @@ import (
 	"github.com/yumyums/hq/internal/photos"
 	"github.com/yumyums/hq/internal/receipt"
 	opsync "github.com/yumyums/hq/internal/sync"
+	"github.com/yumyums/hq/internal/toast"
 	"github.com/yumyums/hq/internal/users"
 	"github.com/yumyums/hq/internal/workflow"
 )
@@ -419,6 +420,8 @@ func main() {
 				r.Post("/groups", inventory.CreateGroupHandler(pool))
 				r.Put("/groups", inventory.UpdateGroupHandler(pool))
 				r.Get("/tags", inventory.ListTagsHandler(pool))
+				// Toast menu items + this-week aggregate (Phase 22). Cookie-auth, not service-token.
+				r.Get("/menu-items", toast.ListMenuItemsHandler(pool))
 			})
 
 			// Purchasing endpoints — all authenticated
@@ -521,6 +524,23 @@ func main() {
 
 	// Start cutoff scheduler — polls every 15m to auto-lock POs and send reminders
 	purchasing.StartScheduler(ctx, pool)
+
+	// Toast SFTP ingest — Phase 22.
+	// Fails fast on missing/unreadable TOAST_SFTP_KEY_PATH (D-12) — no graceful skip.
+	// TOAST_SYNC_INTERVAL=0 disables the in-process worker (cmd/sync-toast still available).
+	{
+		toastCfg, err := toast.LoadConfigFromEnv()
+		if err != nil {
+			log.Fatalf("toast worker: %v", err)
+		}
+		toastCfg.Pool = pool
+
+		if toastCfg.Interval == 0 {
+			log.Println("toast worker: TOAST_SYNC_INTERVAL=0 — in-process worker disabled (cmd/sync-toast remains available)")
+		} else {
+			toast.StartWorker(ctx, toastCfg)
+		}
+	}
 
 	log.Printf("Yumyums HQ server listening on :%s", port)
 	if addrs, err := net.InterfaceAddrs(); err == nil {
