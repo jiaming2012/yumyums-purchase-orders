@@ -145,15 +145,15 @@ Plans:
 - When sales-processor is stopped entirely, HQ keeps ingesting Toast data and the Menu view stays current.
 
 **Requirements:** TBD (no formal REQ-IDs — see Acceptance bullets above as the source of truth)
-**Plans:** 6 plans
+**Plans:** 6/6 plans complete
 
 Plans:
-- [ ] 22-01-PLAN.md — DB migrations 0060_menu_items.sql + 0061_daily_menu_sales.sql (Wave 1)
-- [ ] 22-02-PLAN.md — Port sales-processor SFTP client to backend/internal/toast/sftp.go + promote pkg/sftp + crypto/ssh to direct deps (Wave 1, parallel with 22-01)
-- [ ] 22-03-PLAN.md — toast package internals: types/config/parser (TDD)/ingest orchestrator (Wave 2, depends on 22-01 + 22-02)
-- [ ] 22-04-PLAN.md — toast.StartWorker (12h ticker + cold-start branch) + cmd/sync-toast CLI binary (Wave 3, depends on 22-03)
-- [ ] 22-05-PLAN.md — ListMenuItemsHandler + wire toast into cmd/server/main.go (env load + worker start + chi route mount in cookie-auth group) (Wave 4, depends on 22-03 + 22-04)
-- [ ] 22-06-PLAN.md — Menu tab in inventory.html (new t3/s3 between Stock and Setup) + `task sw` rebuild + human verification checkpoint (Wave 5, depends on 22-05)
+- [x] 22-01-PLAN.md — DB migrations 0060_menu_items.sql + 0061_daily_menu_sales.sql (Wave 1)
+- [x] 22-02-PLAN.md — Port sales-processor SFTP client to backend/internal/toast/sftp.go + promote pkg/sftp + crypto/ssh to direct deps (Wave 1, parallel with 22-01)
+- [x] 22-03-PLAN.md — toast package internals: types/config/parser (TDD)/ingest orchestrator (Wave 2, depends on 22-01 + 22-02)
+- [x] 22-04-PLAN.md — toast.StartWorker (12h ticker + cold-start branch) + cmd/sync-toast CLI binary (Wave 3, depends on 22-03)
+- [x] 22-05-PLAN.md — ListMenuItemsHandler + wire toast into cmd/server/main.go (env load + worker start + chi route mount in cookie-auth group) (Wave 4, depends on 22-03 + 22-04)
+- [x] 22-06-PLAN.md — Menu tab in inventory.html (new t3/s3 between Stock and Setup) + `task sw` rebuild + human verification checkpoint (Wave 5, depends on 22-05)
 
 ### Phase 22.1: HQ Toast ingest re-architecture — Spaces-first ingest worker (no SFTP in read path); HQ-owned SFTP→Spaces sync worker + CLI; one-time sales-processor archive → DO Spaces migration CLI; local cache at backend/cache/toast/YYYYMMDD/ (INSERTED)
 
