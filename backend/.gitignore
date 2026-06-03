@@ -1,3 +1,10 @@
 # Build output
 bin/
 .env
+
+# Stray `go build ./cmd/...` artifacts (binaries named after cmd dir, dropped
+# into backend/ when -o is omitted). Add new ones here as cmd binaries grow.
+/sync-toast
+/import-notion
+/seed
+/server
