@@ -3,6 +3,7 @@ package toast
 import (
 	"time"
 
+	s3 "github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -18,6 +19,15 @@ type Config struct {
 	Interval       time.Duration // 12h default; 0 disables the worker
 	SyncWindowDays int           // 7 — re-pull last N days per tick
 	BackfillDays   int           // 90 — used on cold-start only
+
+	// Phase 22.1 additions — DO Spaces is the durable archive (D-01).
+	// SpacesClient is injected by the caller (cmd/server/main.go around line 532).
+	// If nil at StartWorker time, the worker logs WARNING and returns gracefully
+	// (D-06 deviation from Phase 22 D-12: Spaces is broader than Toast — server keeps running).
+	SpacesClient   *s3.Client
+	SpacesBucket   string // e.g. "hq.yumyums"
+	SpacesEndpoint string // e.g. "https://nyc3.digitaloceanspaces.com"
+	CacheDir       string // e.g. "backend/cache/toast" (D-12)
 }
 
 // AggregatedRow is the parser's output: one row per (master_id, business_date)
