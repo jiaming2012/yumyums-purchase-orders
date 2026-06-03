@@ -165,6 +165,22 @@ tasks:
       --output internal/inventory/fixtures/purchase_items.yaml
       --dry-run
 
+  migrate-toast:
+    desc: One-shot upload of sales-processor Toast archive to DO Spaces (idempotent via HeadObject; pass OVERWRITE=1 to re-upload)
+    cmd: >-
+      go run ./cmd/migrate-toast-archive
+      --source {{.SOURCE | default "/Users/jamal/projects/yumyums/sales-processor/output/toast_reports"}}
+      {{if eq (.OVERWRITE | default "0") "1"}}--overwrite{{end}}
+
+  sync-toast:
+    desc: Replay Toast ingest for a date range, reading from DO Spaces (requires DB_URL + DO_SPACES_*; usage — task backend:sync-toast FROM=2026-05-01 TO=2026-05-31)
+    cmd: >-
+      go run ./cmd/sync-toast
+      --from {{.FROM}}
+      --to {{.TO}}
+    env:
+      DB_URL: '{{.DB_URL}}'
+
   login:
     desc: Login as admin and save session cookie to /tmp/yumcookie
     cmd: >-
