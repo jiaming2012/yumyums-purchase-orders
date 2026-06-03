@@ -118,7 +118,18 @@ func runCycle(ctx context.Context, cfg Config) {
 		switch {
 		case errors.Is(sErr, ErrSFTPMiss):
 			// D-05: expected past Toast retention horizon — INFO log, no counter bump.
-			log.Printf("toast sync: skip %s (not in SFTP)", dateDir)
+			// Distinguish "already archived in Spaces" (fine — ingest will pick it up)
+			// from "MISSING from Spaces too" (truly absent — operator may need to migrate).
+			csvKey := SpacesCSVKey(dateDir)
+			exists, headErr := SpacesKeyExists(ctx, cfg.SpacesClient, cfg.SpacesBucket, csvKey)
+			switch {
+			case headErr != nil:
+				log.Printf("toast sync: skip %s (not in SFTP, Spaces check failed: %v)", dateDir, headErr)
+			case exists:
+				log.Printf("toast sync: skip %s (not in SFTP, archived in Spaces)", dateDir)
+			default:
+				log.Printf("toast sync: skip %s (not in SFTP, MISSING from Spaces)", dateDir)
+			}
 		case sErr != nil:
 			// Non-miss Spaces error (PutObject failure, network, auth, etc.) — systemic.
 			log.Printf("ERROR toast sync: %s: %v", dateDir, sErr)
