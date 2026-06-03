@@ -171,9 +171,13 @@ tasks:
       go run ./cmd/migrate-toast-archive
       --source {{.SOURCE | default "/Users/jamal/projects/yumyums/sales-processor/output/toast_reports"}}
       {{if eq (.OVERWRITE | default "0") "1"}}--overwrite{{end}}
+    env:
+      DO_SPACES_ENDPOINT: '{{.DO_SPACES_ENDPOINT | default (printf "https://%s.digitaloceanspaces.com" .DO_SPACES_REGION)}}'
 
   migrate-toast:90-days:
     desc: Migrate only the last 90 days of Toast archive (matches worker backfill window; pass OVERWRITE=1 to re-upload)
+    env:
+      DO_SPACES_ENDPOINT: '{{.DO_SPACES_ENDPOINT | default (printf "https://%s.digitaloceanspaces.com" .DO_SPACES_REGION)}}'
     cmds:
       - |
         ARCHIVE="{{.SOURCE | default "/Users/jamal/projects/yumyums/sales-processor/output/toast_reports"}}"
@@ -198,6 +202,7 @@ tasks:
       --to {{.TO}}
     env:
       DB_URL: '{{.DB_URL}}'
+      DO_SPACES_ENDPOINT: '{{.DO_SPACES_ENDPOINT | default (printf "https://%s.digitaloceanspaces.com" .DO_SPACES_REGION)}}'
 
   login:
     desc: Login as admin and save session cookie to /tmp/yumcookie
