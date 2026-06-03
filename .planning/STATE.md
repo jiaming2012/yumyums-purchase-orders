@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: planning
+status: executing
 stopped_at: Phase 22.1 context gathered
-last_updated: "2026-06-03T12:27:14.685Z"
-last_activity: 2026-06-02
+last_updated: "2026-06-03T13:01:41.044Z"
+last_activity: 2026-06-03 -- Phase 22.1 execution started
 progress:
   total_phases: 8
   completed_phases: 4
-  total_plans: 14
+  total_plans: 19
   completed_plans: 15
-  percent: 100
+  percent: 79
 ---
 
 # Project State
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-15)
 
 **Core value:** Operational tools that let the owner manage crew workflows and training from one mobile app — with accountability and smart conditions.
-**Current focus:** Phase 21 — cogs-in-sales-processor-report-receipt-completeness-gate-bef
+**Current focus:** Phase 22.1 — hq-toast-ingest-re-architecture-spaces-first-ingest-worker-n
 
 ## Current Position
 
-Phase: 999.2
-Plan: Not started
-Status: Ready to plan
-Last activity: 2026-06-02
+Phase: 22.1 (hq-toast-ingest-re-architecture-spaces-first-ingest-worker-n) — EXECUTING
+Plan: 1 of 5
+Status: Executing Phase 22.1
+Last activity: 2026-06-03 -- Phase 22.1 execution started
 
 Progress: [██████████] 100%
 
@@ -230,4 +230,4 @@ Last session: --stopped-at
 Stopped at: Phase 22.1 context gathered
 Resume file: --resume-file
 
-**Planned Phase:** 21 (cogs-in-sales-processor-report-receipt-completeness-gate-bef) — 3 plans — 2026-06-02T21:14:18.742Z
+**Planned Phase:** 22.1 (HQ Toast ingest re-architecture) — 5 plans — 2026-06-03T12:59:15.151Z

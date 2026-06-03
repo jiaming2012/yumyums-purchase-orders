@@ -157,13 +157,17 @@ Plans:
 
 ### Phase 22.1: HQ Toast ingest re-architecture — Spaces-first ingest worker (no SFTP in read path); HQ-owned SFTP→Spaces sync worker + CLI; one-time sales-processor archive → DO Spaces migration CLI; local cache at backend/cache/toast/YYYYMMDD/ (INSERTED)
 
-**Goal:** [Urgent work - to be planned]
+**Goal:** Replace Phase 22's SFTP-direct ingest with a Spaces-first pipeline. HQ owns the SFTP→DO Spaces sync (with local forensic cache), the Spaces→DB ingest, and a one-time migration CLI that seeds the bucket from sales-processor's historical Toast archive. Server keeps running when Spaces is unreachable; degraded operation alerts via Cliq after 3 consecutive failed ticks.
 **Requirements**: TBD
 **Depends on:** Phase 22
-**Plans:** 0 plans
+**Plans:** 5 plans
 
 Plans:
-- [ ] TBD (run /gsd-plan-phase 22.1 to break down)
+- [ ] 22.1-01-PLAN.md — Toast Config + spaces.go + meta.go helpers + .gitignore (Wave 1, no deps)
+- [ ] 22.1-02-PLAN.md — sync.go (SFTP→Spaces+cache atomic writer) + ingest.go refactor to read from Spaces (Wave 2, depends on 22.1-01)
+- [ ] 22.1-03-PLAN.md — cmd/migrate-toast-archive CLI (one-shot historical seed, no DB writes) (Wave 2, depends on 22.1-01)
+- [ ] 22.1-04-PLAN.md — worker.go combined sync+ingest refactor + SetAlertQueue + 3-consec-fail Cliq alert (Wave 3, depends on 22.1-01, 22.1-02)
+- [ ] 22.1-05-PLAN.md — cmd/server/main.go wiring (inject Spaces fields + SetAlertQueue) + cmd/sync-toast refactor (Wave 4, depends on 22.1-01, 22.1-02, 22.1-04)
 
 ### Phase 999.1: Tab persistence on refresh (moved from Phase 18)
 
