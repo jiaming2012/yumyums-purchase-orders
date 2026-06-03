@@ -119,6 +119,31 @@ Plans:
 - [x] 21-03-PLAN.md — Wire route into main.go, integration tests against hq_test DB, update CLAUDE.md (Wave 2, depends on 21-01 and 21-02)
 - ✋ 21-SALES-PROCESSOR-CONTRACT.md — HTTP contract for the sales-processor team (no PLAN.md — separate repo, hand-off document)
 
+### Phase 22: HQ Toast ingest — SFTP fetcher + menu_items + daily sales aggregate
+
+**Goal:** Make HQ a self-contained Toast SFTP consumer so the menu_items table reflects what's actually being sold without depending on sales-processor. HQ pulls Toast SFTP reports on its own schedule, aggregates per-day sales at ingest, and stores only what it needs (menu items + units sold per day per item). Lays the schema and ingest pipeline that Phase 999.2 (recipes + COGS attribution) will build on.
+
+**Why:** Phase 999.2 needs a live menu_items source. Phase 21 established sales-processor as the consumer of HQ data; reversing that direction (HQ depends on sales-processor) would tangle deployment topology and double the auth surface. HQ runs separately on the Windows box / Cloudflare Tunnel; sales-processor runs separately. Both can be peer SFTP consumers of Toast.
+
+**Scope:**
+1. **SFTP client** — port `sales-processor/sftp/default.go` to `backend/internal/toast/sftp.go` (same `golang.org/x/crypto/ssh` + `github.com/pkg/sftp` deps). Reuses the existing SSH key file from sales-processor (`creds/id_rsa`, user `YumYumsExportUser`, host `s-9b0f88558b264dfda.server.transfer.us-east-1.amazonaws.com:22`). Env vars: `TOAST_SFTP_KEY_PATH` (default `creds/id_rsa`), `TOAST_SFTP_USER`, `TOAST_SFTP_HOST`.
+2. **CSV parser** — `backend/internal/toast/parse.go` reads `ItemSelectionDetails.csv` and emits `(toast_master_id, name, menu_group, menu, business_date, qty, gross_amount)` rows. Tolerates header drift; skips voided lines (`Void? = true`).
+3. **DB migration** — `menu_items` (`id UUID PK`, `toast_master_id TEXT UNIQUE`, `name TEXT`, `menu_group TEXT`, `menu TEXT`, `last_seen DATE`, `created_at TIMESTAMPTZ`) and `daily_menu_sales` (`menu_item_id UUID FK`, `business_date DATE`, `units_sold NUMERIC`, `gross_amount NUMERIC(10,2)`, PK `(menu_item_id, business_date)`).
+4. **Sync command** — `backend/cmd/sync-toast/main.go` does one SFTP pull → parse → upsert pass; idempotent (`ON CONFLICT … DO UPDATE` on `daily_menu_sales`, `DO NOTHING` for new `menu_items` other than `last_seen` bump). Cron-friendly exit code.
+5. **Background scheduler** — goroutine in `cmd/server` that runs the sync once on startup and every 12 hours after. Configurable via `TOAST_SYNC_INTERVAL`; `0` disables and forces external cron.
+6. **Read API** — `GET /api/v1/inventory/menu-items?since=YYYY-MM-DD` returns the current menu_items list for the Recipes tab picker (cookie-auth, not service-token — this is HQ-internal UI).
+7. **Minimal UI** — Menu view in `inventory.html` (new tab or section under Setup) listing items + last-seen date + this-week units sold, so the ingest is visible without needing the full Recipes UX yet.
+
+**Depends on:** Phase 21 (reuses chi router structure; no service-token dependency since this endpoint is cookie-auth).
+
+**Tradeoffs:** HQ and sales-processor will both poll Toast SFTP at staggered times. Toast doesn't appear to rate-limit, but credential rotation now affects both repos. Aggregate-at-ingest means HQ can't reconstruct per-order analytics later; sales-processor remains the source of truth for that.
+
+**Acceptance:**
+- HQ server starts, runs `sync-toast`, and `menu_items` table fills with distinct items from the last N days of reports.
+- `daily_menu_sales` accumulates one row per `(menu_item, date)`; re-running the sync does not duplicate rows.
+- Menu view in `inventory.html` shows the items, sorted by `last_seen DESC`, with this-week units sold next to each.
+- When sales-processor is stopped entirely, HQ keeps ingesting Toast data and the Menu view stays current.
+
 ### Phase 999.1: Tab persistence on refresh (moved from Phase 18)
 
 **Goal:** Persist active tab across page refresh for all apps using URL hash. When a tab is tapped, update `location.hash`. On page load, read the hash and activate the matching tab.
@@ -129,23 +154,27 @@ Plans:
 
 ### Phase 999.2: Per-menu-item COGS attribution via recipe/BOM mapping (BACKLOG)
 
-**Goal:** Allocate ingredient cost from `purchase_line_items` to individual menu items so the weekly report can show "Jerked Chicken Sliders sold N units, ingredient cost $X". Requires a recipe/BOM table linking `purchase_items` → `menu_items` with a usage percentage (or per-unit consumption) per ingredient per dish.
+**Goal:** Allocate ingredient cost from `purchase_line_items` to individual menu items so the weekly report can show "Jerked Chicken Sliders sold N units, ingredient cost $X". Builds on Phase 22's `menu_items` + `daily_menu_sales` ingest by adding a recipe/BOM table linking `purchase_items` → `menu_items` with a usage percentage per ingredient per dish.
+
+**Approach:** Rough usage % (not per-unit BOM). Setup cost ~1 evening for the whole menu; accuracy tuned weekly via a reconciliation residual.
 
 **Scope:**
-1. HQ DB migration: `menu_items` (id, name, toast_item_id, active, created_at) + `recipes` (id, menu_item_id FK, purchase_item_id FK, usage_pct OR units_consumed_per_serving, unit; unique on (menu_item_id, purchase_item_id)). Seed `menu_items` from existing distinct `Sale.Name` values in sales-processor DB.
-2. HQ endpoint `GET /api/v1/inventory/menu-cogs?from=&to=` taking per-menu-item units-sold map and returning `[{menu_item_name, units_sold, ingredient_cost_per_unit, ingredient_cost_total}]`.
-3. UI: new Recipes tab/subview in `inventory.html` for managing usage % per ingredient per menu item. Reuse the existing `pending_purchases` catalog item picker pattern.
-4. `sales-processor` extension: aggregate `Sale.Name` → units sold for the week, POST to `/menu-cogs`, render "COGS by Menu Item" breakdown in `WeeklySummary.Show()`.
-5. Show menu items with no recipe configured as a residual "Unallocated COGS" row (warn, don't block) so the gap is visible.
+1. **DB migration** — `recipes` (id, menu_item_id FK → `menu_items` from Phase 22, purchase_item_id FK, usage_pct NUMERIC(5,2), updated_at; unique on (menu_item_id, purchase_item_id)).
+2. **Per-ingredient view (primary UI)** — Recipes tab in `inventory.html` defaults to ingredient-first: each row shows an ingredient, its week-to-date spend, and the menu items it's allocated to with their %. This is where the user edits — never per-menu-item alone — so the sum constraint is always visible.
+3. **Sum constraint** — per `purchase_item_id`, `SUM(usage_pct)` cannot exceed 100. Save-time validation; UI surfaces "Unallocated: X%" and "Over-allocated: blocked" as a live running total.
+4. **Weekly drift check** — after each weekly COGS compute, surface "ingredients where Unallocated > 20%" (likely missing menu item mapping) and "ingredients where actual usage diverges from your % by > 30% based on this week's mix" (suggested rebalance).
+5. **HQ endpoint** — `POST /api/v1/inventory/menu-cogs` (service-token, peer of Phase 21's period-summary). Body: `{from, to, menu_items: [{toast_master_id, units_sold}]}`. Returns: `[{menu_item_name, units_sold, ingredient_cost_per_unit, ingredient_cost_total}]` plus an `unallocated_cogs` total.
+6. **sales-processor consumer** — aggregates `Sale.Name → units sold` for the week, POSTs to `/menu-cogs`, renders "COGS by Menu Item" + "Unallocated COGS" rows in `WeeklySummary.Show()`. **(HANDED OFF)**
 
-**Depends on:** Phase 21 (reuses period-summary endpoint patterns, HQ service-token auth, sales-processor HTTPClient pattern).
+**Depends on:** Phase 22 (menu_items table + ingest pipeline) and Phase 21 (service-token auth pattern).
 
-**Tradeoffs:** Usage % is faster to set up but accuracy drifts with case-size changes. Per-unit consumption (e.g. "1 slider = 0.05 lb chicken") is precise but needs unit conversions. Start with %; upgrade later if numbers don't reconcile to total purchase cost.
+**Tradeoffs:** Usage % drifts with menu mix changes — the weekly drift check is the mitigation, not a fix. Per-unit BOM is more precise but the data-entry cost is ~1 week vs ~1 evening; deferred until % stops being good enough.
 
 **Acceptance:**
-- Owner can open inventory app → Recipes tab → pick a menu item → add ingredients with usage %.
-- Weekly report shows COGS by menu item AND a residual "Unallocated COGS" row that approaches zero as recipes fill in.
-- Sum of menu-item COGS + unallocated equals total purchase-line-item COGS for the week (sanity check).
+- Owner opens inventory app → Recipes tab → sees ingredients sorted by week's spend, each with allocated menu items and `Unallocated: X%`.
+- Trying to save a recipe that would push an ingredient's sum > 100% is blocked with a message naming which other menu item to reduce.
+- Weekly report shows COGS by menu item AND an `Unallocated COGS` row.
+- Drift check fires after each weekly compute, listing ingredients where the mapping looks stale.
 
 **Out of scope:**
 - Real-time ingredient consumption tracking (allocation math at report time only).
