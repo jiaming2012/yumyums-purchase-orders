@@ -525,8 +525,11 @@ func main() {
 	// Start cutoff scheduler — polls every 15m to auto-lock POs and send reminders
 	purchasing.StartScheduler(ctx, pool)
 
-	// Toast SFTP ingest — Phase 22.
-	// Fails fast on missing/unreadable TOAST_SFTP_KEY_PATH (D-12) — no graceful skip.
+	// Toast ingest — Phase 22.1.
+	// Combined sync+ingest worker: SFTP→Spaces+cache per date, then Spaces→DB.
+	// D-12 preserved: LoadConfigFromEnv fails fast on missing/unreadable TOAST_SFTP_KEY_PATH.
+	// D-06: Spaces unreachable does NOT crash the server — worker logs WARNING and skips ticks;
+	//       Cliq alert fires to purchaseandinventory channel after 3 consecutive failures.
 	// TOAST_SYNC_INTERVAL=0 disables the in-process worker (cmd/sync-toast still available).
 	{
 		toastCfg, err := toast.LoadConfigFromEnv()
@@ -534,6 +537,13 @@ func main() {
 			log.Fatalf("toast worker: %v", err)
 		}
 		toastCfg.Pool = pool
+		toastCfg.SpacesClient = spacesClient
+		toastCfg.SpacesBucket = spacesBucket
+		toastCfg.SpacesEndpoint = spacesEndpoint
+		toastCfg.CacheDir = envOrDefault("TOAST_CACHE_DIR", "backend/cache/toast")
+
+		// Wire the alert queue so Plan 04's degraded-Spaces alert can dispatch.
+		toast.SetAlertQueue(alertQ)
 
 		if toastCfg.Interval == 0 {
 			log.Println("toast worker: TOAST_SYNC_INTERVAL=0 — in-process worker disabled (cmd/sync-toast remains available)")
@@ -553,4 +563,13 @@ func main() {
 	if err := http.ListenAndServe(":"+port, r); err != nil {
 		log.Fatalf("Server failed: %v", err)
 	}
+}
+
+// envOrDefault returns os.Getenv(k) if non-empty, else d. Used for optional
+// env overrides where a sensible default exists (e.g., TOAST_CACHE_DIR).
+func envOrDefault(k, d string) string {
+	if v := os.Getenv(k); v != "" {
+		return v
+	}
+	return d
 }
