@@ -66,30 +66,6 @@ func RunIngest(ctx context.Context, pool *pgxpool.Pool, cfg Config, fromDate, to
 	return result, nil
 }
 
-// dialWithRetry wraps toast.New with the D-10 backoff schedule (5s / 15s / 30s).
-// Each attempt uses a 30s connect timeout (mirrors sales-processor).
-func dialWithRetry(cfg Config, pemKey string) (*Client, error) {
-	backoffs := []time.Duration{5 * time.Second, 15 * time.Second, 30 * time.Second}
-	var lastErr error
-	for i, wait := range backoffs {
-		client, err := New(SFTPConfig{
-			Username:   cfg.SFTPUser,
-			PrivateKey: pemKey,
-			Server:     cfg.SFTPHost,
-			Timeout:    30 * time.Second,
-		})
-		if err == nil {
-			return client, nil
-		}
-		lastErr = err
-		if i < len(backoffs)-1 {
-			log.Printf("toast ingest: SFTP dial attempt %d failed: %v — retrying in %s", i+1, err, wait)
-			time.Sleep(wait)
-		}
-	}
-	return nil, fmt.Errorf("sftp dial failed after %d attempts: %w", len(backoffs), lastErr)
-}
-
 // upsertDayInTx writes one day's AggregatedRows in a single DB transaction.
 // Returns (menu_items_upserted, daily_menu_sales_upserted) counts.
 //
