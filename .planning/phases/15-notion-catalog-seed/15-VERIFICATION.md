@@ -1,27 +1,15 @@
 ---
 phase: 15-notion-catalog-seed
 verified: 2026-04-22T17:30:00Z
-status: gaps_found
-score: 6/8 must-haves verified
-gaps:
-  - truth: "Notion CSV is converted to a YAML seed file with DO Spaces photo URLs"
-    status: partial
-    reason: "All artifacts exist and compile correctly in git commits on worktree-agent-a8c95582 but have NOT been merged into main. purchase_items.yaml is a placeholder (items: []) — intentionally so per D-05; the import script must be run manually with the Notion export to populate it."
-    artifacts:
-      - path: "backend/internal/inventory/fixtures/purchase_items.yaml"
-        issue: "Placeholder only (items: []) — script must be run with actual Notion CSV to generate real data"
-    missing:
-      - "Merge worktree-agent-a8c95582 into main (4 commits: 5e8bdd1, 6380e47, c9dfda7, e883a0f)"
-      - "Run go run ./cmd/import-notion/ with Notion CSV + images to populate purchase_items.yaml with real items and DO Spaces URLs"
-      - "Commit the populated purchase_items.yaml to main"
-  - truth: "Items seed idempotently on every server startup"
-    status: failed
-    reason: "The extended SeedInventoryFixtures (with purchase_items.yaml embedding and item seeding loop) exists only in commit e883a0f on worktree-agent-a8c95582, not in main. The main branch service.go has no go:embed for purchase_items.yaml and no item seeding loop."
-    artifacts:
-      - path: "backend/internal/inventory/service.go"
-        issue: "Main branch version lacks the purchase_items.yaml embed and item seeding loop added in Phase 15"
-    missing:
-      - "Merge Phase 15 commits into main so server seeds items on startup"
+resolved: 2026-06-03T00:00:00Z
+status: passed
+score: 8/8 must-haves verified
+resolution: |
+  Gaps were stale by 2026-06-03. The four worktree commits (5e8bdd1, 6380e47, c9dfda7, e883a0f)
+  are now reachable from `dev` and `main`. `purchase_items.yaml` is populated with 106 real items
+  across all groups, every photo_url points to `nyc3.digitaloceanspaces.com/hq.yumyums/items/*.png`.
+  `service.go` carries `//go:embed fixtures/purchase_items.yaml` and the item seeding loop with
+  `ON CONFLICT (description) DO NOTHING`. Truths 1, 6, and 8 are now VERIFIED.
 human_verification:
   - test: "Run import-notion script with real Notion export and verify DO Spaces URLs"
     expected: "purchase_items.yaml populated with ~106 items, all photo_url fields pointing to *.digitaloceanspaces.com (not amazonaws.com or Notion URLs)"
