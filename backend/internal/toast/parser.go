@@ -80,6 +80,12 @@ func parseItemSelectionDetails(r io.Reader, businessDate string) ([]AggregatedRo
 		if masterID == "" {
 			continue // skip rows without a master id (defensive — Toast always populates this)
 		}
+		if masterID == "Master Id" {
+			// Defensive: sales-processor's historical archive concatenates multiple
+			// Toast exports into one daily file, leaving duplicate header rows mid-stream.
+			// Real Toast master_ids are numeric strings — "Master Id" is the header label.
+			continue
+		}
 
 		qty, err := parseQty(get("Qty"))
 		if err != nil {

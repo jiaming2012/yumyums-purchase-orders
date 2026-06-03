@@ -157,3 +157,36 @@ func TestParseEmptyMenuSubgroupBecomesNil(t *testing.T) {
 		t.Errorf("M2 MenuSubgroup: want 'Cans', got %q", *byID["M2"].MenuSubgroup)
 	}
 }
+
+// Regression — sales-processor's historical archive concatenates multiple Toast
+// exports into one daily file, leaving duplicate header rows mid-stream. Each
+// embedded header row carries `"Master Id"` literally in the master_id column.
+// The parser must skip these silently (not crash on strconv.ParseFloat("Qty")).
+func TestParseEmbeddedDuplicateHeader(t *testing.T) {
+	csvData := `"Master Id","Menu Item","Menu","Menu Group","Menu Subgroup(s)","Qty","Gross Price","Void?"
+"M1","Jerk Sliders","Main","Sandwiches","","2","20.00","false"
+"Master Id","Menu Item","Menu","Menu Group","Menu Subgroup(s)","Qty","Gross Price","Void?"
+"M2","Plantains","Main","Sides","","1","5.00","false"
+"Master Id","Menu Item","Menu","Menu Group","Menu Subgroup(s)","Qty","Gross Price","Void?"
+"M3","Sorrel","Beverage","Drinks","","3","9.00","false"
+`
+	rows, err := parseItemSelectionDetails(strings.NewReader(csvData), "2026-05-31")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(rows) != 3 {
+		t.Fatalf("want 3 rows (embedded headers skipped), got %d", len(rows))
+	}
+	byID := map[string]AggregatedRow{}
+	for _, r := range rows {
+		byID[r.MasterID] = r
+	}
+	for _, id := range []string{"M1", "M2", "M3"} {
+		if _, ok := byID[id]; !ok {
+			t.Errorf("missing master_id %s — embedded header may have masked real data", id)
+		}
+	}
+	if _, ok := byID["Master Id"]; ok {
+		t.Errorf("master_id 'Master Id' should have been skipped as embedded header")
+	}
+}
