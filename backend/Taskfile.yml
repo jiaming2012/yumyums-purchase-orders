@@ -172,6 +172,24 @@ tasks:
       --source {{.SOURCE | default "/Users/jamal/projects/yumyums/sales-processor/output/toast_reports"}}
       {{if eq (.OVERWRITE | default "0") "1"}}--overwrite{{end}}
 
+  migrate-toast:90-days:
+    desc: Migrate only the last 90 days of Toast archive (matches worker backfill window; pass OVERWRITE=1 to re-upload)
+    cmds:
+      - |
+        ARCHIVE="{{.SOURCE | default "/Users/jamal/projects/yumyums/sales-processor/output/toast_reports"}}"
+        CUTOFF=$(date -v-90d +%Y%m%d 2>/dev/null || date -d '90 days ago' +%Y%m%d)
+        STAGE=$(mktemp -d -t toast-migrate-90d.XXXXXX)
+        trap "rm -rf $STAGE" EXIT
+        COUNT=0
+        for d in $(ls "$ARCHIVE" | grep -E '^[0-9]{8}$' | awk -v c=$CUTOFF '$1 >= c'); do
+          [ -f "$ARCHIVE/$d/ItemSelectionDetails.csv" ] || continue
+          mkdir -p "$STAGE/$d"
+          ln "$ARCHIVE/$d/ItemSelectionDetails.csv" "$STAGE/$d/ItemSelectionDetails.csv"
+          COUNT=$((COUNT+1))
+        done
+        echo "Staged $COUNT date dirs from $CUTOFF onward at $STAGE"
+        go run ./cmd/migrate-toast-archive --source "$STAGE" {{if eq (.OVERWRITE | default "0") "1"}}--overwrite{{end}}
+
   sync-toast:
     desc: Replay Toast ingest for a date range, reading from DO Spaces (requires DB_URL + DO_SPACES_*; usage — task backend:sync-toast FROM=2026-05-01 TO=2026-05-31)
     cmd: >-
