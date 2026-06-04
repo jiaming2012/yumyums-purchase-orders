@@ -206,7 +206,12 @@ Plans:
 - Multi-vendor / multi-size purchases of the same ingredient (assume single canonical `purchase_item` per ingredient for now).
 
 **Requirements:** TBD
-**Plans:** 0 plans
+**Plans:** 6 plans
 
 Plans:
-- [ ] TBD (promote with /gsd-review-backlog when ready)
+- [ ] 999.2-01-PLAN.md — Migrations 0062_recipes.sql + 0063_drift_check_results.sql + internal/recipes package skeleton (types, repository, alertQueue setter, repository tests) (Wave 1)
+- [ ] 999.2-02-PLAN.md — MenuCogsHandler + writeJSON/writeError helpers + service-token route registration + integration tests (Wave 2, depends on 01)
+- [ ] 999.2-03-PLAN.md — Recipes CRUD endpoints (List/Create/Update/Delete/Merge) + sum-constraint 422 envelope + cookie-auth route registration + tests (Wave 2, depends on 01)
+- [ ] 999.2-04-PLAN.md — StartDriftScheduler + computeDrift (3 sections) + DriftBannerHandler + Cliq alert + main.go wiring + tests (Wave 3, depends on 01, 03)
+- [ ] 999.2-05-PLAN.md — inventory.html Recipes tab (CSS + state + render + slider + picker + read-only summary + drift banner) + tests/inventory.spec.js update + sw rebuild + human-verify (Wave 4, depends on 02, 03, 04)
+- [ ] 999.2-06-PLAN.md — tests/recipes.spec.js + tests/persistence.spec.js usage_pct regression + 999.2-SALES-PROCESSOR-CONTRACT.md + CLAUDE.md bullet (Wave 5, depends on 05)

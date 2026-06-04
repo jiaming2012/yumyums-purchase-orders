@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: planning
-stopped_at: Phase 999.2 context gathered
-last_updated: "2026-06-04T12:19:39.382Z"
-last_activity: 2026-06-03
+status: executing
+stopped_at: Phase 999.2 UI-SPEC approved
+last_updated: "2026-06-04T14:09:04.686Z"
+last_activity: 2026-06-04 -- Phase 999.2 execution started
 progress:
   total_phases: 8
   completed_phases: 5
-  total_plans: 19
+  total_plans: 25
   completed_plans: 20
-  percent: 100
+  percent: 80
 ---
 
 # Project State
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-15)
 
 **Core value:** Operational tools that let the owner manage crew workflows and training from one mobile app — with accountability and smart conditions.
-**Current focus:** Phase 22.1 — hq-toast-ingest-re-architecture-spaces-first-ingest-worker-n
+**Current focus:** Phase 999.2 — per-menu-item-cogs-attribution-via-recipe-bom-mapping
 
 ## Current Position
 
-Phase: 22.1
-Plan: Not started
-Status: Ready to plan
-Last activity: 2026-06-03
+Phase: 999.2 (per-menu-item-cogs-attribution-via-recipe-bom-mapping) — EXECUTING
+Plan: 1 of 6
+Status: Executing Phase 999.2
+Last activity: 2026-06-04 -- Phase 999.2 execution started
 
 Progress: [██████████] 100%
 
@@ -229,7 +229,7 @@ None yet.
 ## Session Continuity
 
 Last session: --stopped-at
-Stopped at: Phase 999.2 context gathered
+Stopped at: Phase 999.2 UI-SPEC approved
 Resume file: --resume-file
 
-**Planned Phase:** 22.1 (HQ Toast ingest re-architecture) — 5 plans — 2026-06-03T12:59:15.151Z
+**Planned Phase:** 999.2 (Per-menu-item COGS attribution via recipe/BOM mapping) — 6 plans — 2026-06-04T13:45:31.758Z
