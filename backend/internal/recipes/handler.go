@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -516,5 +517,32 @@ func MergeMenuItemHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]int{"rows_re_pointed": rows})
+	}
+}
+
+// DriftBannerHandler — GET /inventory/recipes/drift
+// Returns the latest week's drift_check_results.payload as JSON. Empty object
+// `{}` when no drift_check_results rows exist (D-22 clean week → banner hidden).
+//
+// Cookie-auth-protected (registered under the auth.Middleware group in main.go,
+// inside the existing /inventory/recipes route block from Plan 03).
+func DriftBannerHandler(pool *pgxpool.Pool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var payloadBytes []byte
+		err := pool.QueryRow(r.Context(),
+			`SELECT payload FROM drift_check_results ORDER BY week_start DESC LIMIT 1`,
+		).Scan(&payloadBytes)
+		if errors.Is(err, pgx.ErrNoRows) {
+			writeJSON(w, http.StatusOK, map[string]any{})
+			return
+		}
+		if err != nil {
+			log.Printf("DriftBanner: %v", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(payloadBytes)
 	}
 }

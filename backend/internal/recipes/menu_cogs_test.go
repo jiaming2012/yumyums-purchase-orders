@@ -2,11 +2,9 @@ package recipes
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"strconv"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
@@ -15,85 +13,11 @@ import (
 )
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Fixture helpers specific to menu-cogs tests (purchase_events,
-// purchase_line_items, daily_menu_sales). Shared helpers (setupTestDB,
-// seedMenuItem, seedPurchaseItem, seedRecipe) come from helpers_test.go.
+// Plan 04 consolidation: seedVendor / seedPurchaseEvent / seedPurchaseLineItem /
+// seedDailyMenuSales were promoted into helpers_test.go so the recipes package
+// shares one source of truth across menu-cogs and drift tests. Originally
+// defined here in Plan 02. Signatures unchanged.
 // ─────────────────────────────────────────────────────────────────────────────
-
-// seedVendor inserts a vendor and returns its UUID. Note: setupTestDB's TRUNCATE
-// does not include vendors (Wave 1's helpers_test.go stops at purchase_items, and
-// extending it would break Plan 04's contract). To keep tests idempotent across
-// repeated `go test` runs, we DELETE FROM vendors first, then INSERT. CASCADE
-// from prior test events has already cleared the FK-referencing rows.
-func seedVendor(t *testing.T, pool *pgxpool.Pool, name string) string {
-	t.Helper()
-	if _, err := pool.Exec(context.Background(), `DELETE FROM vendors WHERE name = $1`, name); err != nil {
-		t.Fatalf("seedVendor cleanup: %v", err)
-	}
-	var id string
-	err := pool.QueryRow(context.Background(),
-		`INSERT INTO vendors (name) VALUES ($1) RETURNING id::text`, name,
-	).Scan(&id)
-	if err != nil {
-		t.Fatalf("seedVendor(%q): %v", name, err)
-	}
-	return id
-}
-
-// seedPurchaseEvent inserts a purchase_event with given total/tax/date. bank_tx_id
-// is synthesized from the date+total to satisfy UNIQUE.
-func seedPurchaseEvent(t *testing.T, pool *pgxpool.Pool, vendorID, eventDate string, tax, total float64) string {
-	t.Helper()
-	var id string
-	bankTx := "tx-" + eventDate + "-" + strconv.FormatFloat(total, 'f', 2, 64) + "-" + strconv.FormatFloat(tax, 'f', 2, 64)
-	err := pool.QueryRow(context.Background(),
-		`INSERT INTO purchase_events (vendor_id, bank_tx_id, event_date, tax, total)
-		 VALUES ($1, $2, $3::date, $4, $5) RETURNING id::text`,
-		vendorID, bankTx, eventDate, tax, total,
-	).Scan(&id)
-	if err != nil {
-		t.Fatalf("seedPurchaseEvent: %v", err)
-	}
-	return id
-}
-
-// seedPurchaseLineItem inserts a purchase_line_item linked to a purchase_event +
-// purchase_item. If purchaseItemID is empty, purchase_item_id is NULL.
-func seedPurchaseLineItem(t *testing.T, pool *pgxpool.Pool, eventID, purchaseItemID, description string, qty int, price float64) string {
-	t.Helper()
-	var id string
-	var err error
-	if purchaseItemID == "" {
-		err = pool.QueryRow(context.Background(),
-			`INSERT INTO purchase_line_items (purchase_event_id, purchase_item_id, description, quantity, price, is_case)
-			 VALUES ($1, NULL, $2, $3, $4, false) RETURNING id::text`,
-			eventID, description, qty, price,
-		).Scan(&id)
-	} else {
-		err = pool.QueryRow(context.Background(),
-			`INSERT INTO purchase_line_items (purchase_event_id, purchase_item_id, description, quantity, price, is_case)
-			 VALUES ($1, $2, $3, $4, $5, false) RETURNING id::text`,
-			eventID, purchaseItemID, description, qty, price,
-		).Scan(&id)
-	}
-	if err != nil {
-		t.Fatalf("seedPurchaseLineItem: %v", err)
-	}
-	return id
-}
-
-// seedDailyMenuSales inserts a daily_menu_sales row.
-func seedDailyMenuSales(t *testing.T, pool *pgxpool.Pool, menuItemID, businessDate string, unitsSold int, gross float64) {
-	t.Helper()
-	_, err := pool.Exec(context.Background(),
-		`INSERT INTO daily_menu_sales (menu_item_id, business_date, units_sold, gross_amount)
-		 VALUES ($1, $2::date, $3, $4)`,
-		menuItemID, businessDate, unitsSold, gross,
-	)
-	if err != nil {
-		t.Fatalf("seedDailyMenuSales: %v", err)
-	}
-}
 
 // callMenuCogs invokes MenuCogsHandler directly with the given query string.
 func callMenuCogs(t *testing.T, pool *pgxpool.Pool, query string) *httptest.ResponseRecorder {

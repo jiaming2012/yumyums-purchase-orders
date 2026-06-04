@@ -429,13 +429,14 @@ func main() {
 
 			// Phase 999.2 — recipes CRUD (cookie-auth; any authenticated user can edit).
 			// The menu-cogs endpoint sits in the service-token group above (line ~343).
-			// Plan 04 will add `r.Get("/drift", recipes.DriftBannerHandler(pool))` here.
+			// /drift is read by Plan 05's Recipes-tab banner (D-22 self-healing).
 			r.Route("/inventory/recipes", func(r chi.Router) {
 				r.Get("/", recipes.ListRecipesHandler(pool))
 				r.Post("/", recipes.CreateRecipeHandler(pool))
 				r.Put("/{id}", recipes.UpdateRecipeHandler(pool))
 				r.Delete("/{id}", recipes.DeleteRecipeHandler(pool))
 				r.Post("/merge", recipes.MergeMenuItemHandler(pool))
+				r.Get("/drift", recipes.DriftBannerHandler(pool)) // Phase 999.2 Plan 04
 			})
 
 			// Purchasing endpoints — all authenticated
@@ -538,6 +539,12 @@ func main() {
 
 	// Start cutoff scheduler — polls every 15m to auto-lock POs and send reminders
 	purchasing.StartScheduler(ctx, pool)
+
+	// Phase 999.2 Plan 04 — recipes drift scheduler.
+	// Polls every 15m; runs the actual drift check once on Monday 09:00 Chicago.
+	// SetAlertQueue MUST be called BEFORE StartDriftScheduler (mirrors toast pattern).
+	recipes.SetAlertQueue(alertQ)
+	recipes.StartDriftScheduler(ctx, pool)
 
 	// Toast ingest — Phase 22.1.
 	// Combined sync+ingest worker: SFTP→Spaces+cache per date, then Spaces→DB.
