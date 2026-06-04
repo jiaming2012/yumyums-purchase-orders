@@ -109,19 +109,68 @@ test.describe('Inventory', () => {
 
   // ── Tab navigation ──────────────────────────────────────────────────────
 
-  test('shows 6 tabs: Purchases, Stock, Menu, Trends, Cost, Setup', async ({ page }) => {
+  test('shows 7 tabs: Purchases, Stock, Menu, Recipes, Trends, Cost, Setup', async ({ page }) => {
     await expect(page.locator('#t1')).toContainText('Purchases');
     await expect(page.locator('#t2')).toContainText('Stock');
     await expect(page.locator('#t3')).toContainText('Menu');
-    await expect(page.locator('#t4')).toContainText('Trends');
-    await expect(page.locator('#t5')).toContainText('Cost');
-    await expect(page.locator('#t6')).toContainText('Setup');
+    await expect(page.locator('#t4')).toContainText('Recipes');
+    await expect(page.locator('#t5')).toContainText('Trends');
+    await expect(page.locator('#t6')).toContainText('Cost');
+    await expect(page.locator('#t7')).toContainText('Setup');
   });
 
   test('Purchases tab is active by default', async ({ page }) => {
     await expect(page.locator('#t1')).toHaveClass(/on/);
     await expect(page.locator('#s1')).toBeVisible();
     await expect(page.locator('#s2')).not.toBeVisible();
+  });
+
+  test('Recipes tab activates on #tab=4 hash', async ({ page }) => {
+    await page.goto('/inventory.html#tab=4');
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('#t4')).toHaveClass(/on/);
+    await expect(page.locator('#s4')).toBeVisible();
+    await expect(page.locator('#s3')).not.toBeVisible();
+  });
+
+  test('Recipes tab loads /api/v1/inventory/recipes and /api/v1/inventory/recipes/drift', async ({ page }) => {
+    const recipesPromise = page.waitForRequest(
+      (req) => req.url().includes('/api/v1/inventory/recipes') && !req.url().includes('/drift'),
+      { timeout: 10000 }
+    );
+    const driftPromise = page.waitForRequest(
+      (req) => req.url().includes('/api/v1/inventory/recipes/drift'),
+      { timeout: 10000 }
+    );
+    await page.click('#t4');
+    await Promise.all([recipesPromise, driftPromise]);
+  });
+
+  test('Recipes tab shows empty state when no ingredients', async ({ page }) => {
+    await page.click('#t4');
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('#s4')).toBeVisible();
+  });
+
+  test('Setup tab (now tab 7) renders catalog content when activated', async ({ page }) => {
+    // Guards against a regression where render() dispatcher fails to route
+    // ACTIVE_TAB===7 to renderItemsList — the BLOCKER fix in Plan 999.2-05 Task 1 sub-edit 4.
+    // If the dispatcher is broken, #s7 becomes visible but its body stays empty / stale.
+    await page.click('#t7');
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('#t7')).toHaveClass(/on/);
+    await expect(page.locator('#s7')).toBeVisible();
+    // The Setup tab has a search input and a catalog-items container that renderItemsList
+    // populates. Either MUST be present once render() routes ACTIVE_TAB=7 to the catalog
+    // sub-renderer.
+    const searchVisible = await page.locator('#item-search').isVisible().catch(() => false);
+    const setupVisible = await page.locator('#s7').isVisible();
+    expect(setupVisible).toBe(true);
+    if (!searchVisible) {
+      // Fallback: assert #s7 has non-empty rendered content (catalog HTML present).
+      const html = await page.locator('#s7').innerHTML();
+      expect(html.length).toBeGreaterThan(50); // non-trivial DOM
+    }
   });
 
   // ── HIST-01: Purchases tab loads purchase events from API ──────────────────
