@@ -2,6 +2,7 @@ package recipes
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"testing"
 
@@ -97,4 +98,77 @@ func seedRecipe(t *testing.T, pool *pgxpool.Pool, menuItemID, purchaseItemID str
 		t.Fatalf("seedRecipe: %v", err)
 	}
 	return id
+}
+
+// ── Plan 04 additions — purchase event + line item + daily menu sales fixtures ──
+
+// seedTestVendorCounter generates a unique vendor name per call so concurrent
+// seedPurchaseEvent calls don't collide on vendors.name UNIQUE.
+var seedTestVendorCounter int64
+
+// seedPurchaseEvent inserts a purchase_event with the given event_date / total /
+// tax and returns the event id. Required NOT NULL columns (vendor_id,
+// bank_tx_id) are populated internally — vendor is auto-created with a unique
+// synthetic name, bank_tx_id is derived from (eventDate, counter) to satisfy
+// the UNIQUE constraint across multiple seeds in the same test.
+//
+// Per plan: signature stable across the package; column adjustments made
+// internally per the actual 0024_inventory.sql shape.
+func seedPurchaseEvent(t *testing.T, pool *pgxpool.Pool, eventDate string, total, tax float64) string {
+	t.Helper()
+	seedTestVendorCounter++
+	vendorName := fmt.Sprintf("test-vendor-%d", seedTestVendorCounter)
+	var vendorID string
+	err := pool.QueryRow(context.Background(),
+		`INSERT INTO vendors (name) VALUES ($1) RETURNING id::text`, vendorName,
+	).Scan(&vendorID)
+	if err != nil {
+		t.Fatalf("seedPurchaseEvent vendor: %v", err)
+	}
+	bankTxID := fmt.Sprintf("tx-%s-%d", eventDate, seedTestVendorCounter)
+	var id string
+	err = pool.QueryRow(context.Background(),
+		`INSERT INTO purchase_events (vendor_id, bank_tx_id, event_date, tax, total)
+		 VALUES ($1, $2, $3::date, $4, $5) RETURNING id::text`,
+		vendorID, bankTxID, eventDate, tax, total,
+	).Scan(&id)
+	if err != nil {
+		t.Fatalf("seedPurchaseEvent(%q, %.2f, %.2f): %v", eventDate, total, tax, err)
+	}
+	return id
+}
+
+// seedPurchaseLineItem inserts a purchase_line_item linked to the given event
+// and purchase_item. Returns the line item id. The description NOT NULL column
+// is set to "Test Line" since tests reading via purchase_item_id don't depend on
+// it (the joins in scheduler.go/drift.go go through purchase_items).
+func seedPurchaseLineItem(t *testing.T, pool *pgxpool.Pool, eventID, purchaseItemID string, quantity, price float64) string {
+	t.Helper()
+	var id string
+	err := pool.QueryRow(context.Background(),
+		`INSERT INTO purchase_line_items (purchase_event_id, purchase_item_id, description, quantity, price)
+		 VALUES ($1, $2, $3, $4, $5) RETURNING id::text`,
+		eventID, purchaseItemID, "Test Line", int(quantity), price,
+	).Scan(&id)
+	if err != nil {
+		t.Fatalf("seedPurchaseLineItem(%q, %q): %v", eventID, purchaseItemID, err)
+	}
+	return id
+}
+
+// seedDailyMenuSales inserts a daily_menu_sales row for the given menu_item +
+// business_date. Idempotent via PRIMARY KEY (menu_item_id, business_date) using
+// ON CONFLICT DO UPDATE so tests can re-seed the same key.
+func seedDailyMenuSales(t *testing.T, pool *pgxpool.Pool, menuItemID, businessDate string, unitsSold, grossAmount float64) {
+	t.Helper()
+	_, err := pool.Exec(context.Background(),
+		`INSERT INTO daily_menu_sales (menu_item_id, business_date, units_sold, gross_amount)
+		 VALUES ($1, $2::date, $3, $4)
+		 ON CONFLICT (menu_item_id, business_date)
+		 DO UPDATE SET units_sold = EXCLUDED.units_sold, gross_amount = EXCLUDED.gross_amount`,
+		menuItemID, businessDate, int(unitsSold), grossAmount,
+	)
+	if err != nil {
+		t.Fatalf("seedDailyMenuSales(%q, %q): %v", menuItemID, businessDate, err)
+	}
 }
