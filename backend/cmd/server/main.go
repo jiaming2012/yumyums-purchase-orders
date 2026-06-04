@@ -427,6 +427,17 @@ func main() {
 				r.Get("/menu-items", toast.ListMenuItemsHandler(pool))
 			})
 
+			// Phase 999.2 — recipes CRUD (cookie-auth; any authenticated user can edit).
+			// The menu-cogs endpoint sits in the service-token group above (line ~343).
+			// Plan 04 will add `r.Get("/drift", recipes.DriftBannerHandler(pool))` here.
+			r.Route("/inventory/recipes", func(r chi.Router) {
+				r.Get("/", recipes.ListRecipesHandler(pool))
+				r.Post("/", recipes.CreateRecipeHandler(pool))
+				r.Put("/{id}", recipes.UpdateRecipeHandler(pool))
+				r.Delete("/{id}", recipes.DeleteRecipeHandler(pool))
+				r.Post("/merge", recipes.MergeMenuItemHandler(pool))
+			})
+
 			// Purchasing endpoints — all authenticated
 			r.Route("/purchasing", func(r chi.Router) {
 				// Cutoff config (admin-only for PUT)
