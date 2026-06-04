@@ -28,6 +28,7 @@ import (
 	"github.com/yumyums/hq/internal/purchasing"
 	"github.com/yumyums/hq/internal/photos"
 	"github.com/yumyums/hq/internal/receipt"
+	"github.com/yumyums/hq/internal/recipes"
 	opsync "github.com/yumyums/hq/internal/sync"
 	"github.com/yumyums/hq/internal/toast"
 	"github.com/yumyums/hq/internal/users"
@@ -272,10 +273,11 @@ func main() {
 	}
 
 	// Service-to-service token for sales-processor → /api/v1/inventory/period-summary
+	// and /api/v1/inventory/menu-cogs (Phase 999.2).
 	// Empty value = endpoint returns 503 (fail-closed); see auth.ServiceTokenMiddleware.
 	serviceToken := os.Getenv("HQ_INVENTORY_SERVICE_TOKEN")
 	if serviceToken == "" {
-		log.Println("WARNING: HQ_INVENTORY_SERVICE_TOKEN not set — /api/v1/inventory/period-summary will return 503")
+		log.Println("WARNING: HQ_INVENTORY_SERVICE_TOKEN not set — /api/v1/inventory/period-summary AND /api/v1/inventory/menu-cogs will return 503")
 	}
 
 	// Start WebSocket hub and Postgres LISTEN/NOTIFY pipeline
@@ -338,6 +340,7 @@ func main() {
 		r.Group(func(r chi.Router) {
 			r.Use(auth.ServiceTokenMiddleware(serviceToken))
 			r.Get("/inventory/period-summary", inventory.PeriodSummaryHandler(pool))
+			r.Get("/inventory/menu-cogs", recipes.MenuCogsHandler(pool)) // Phase 999.2
 		})
 
 		// Protected — auth middleware applied to this group
