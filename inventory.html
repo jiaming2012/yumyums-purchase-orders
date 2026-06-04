@@ -1980,10 +1980,11 @@ async function openMenuItemPicker(purchaseItemID){
   (ing.recipes||[]).forEach(function(r){alreadyAllocated[r.menu_item_id]=true;});
   var menuItems;
   try{
-    // Per checker revision: pass ?since=90 so D-07 stale menu items still surface.
-    // Backend default is 7 days (backend/internal/toast/handler.go) which would hide
-    // menu items with recipes but no sales in the last week.
-    var resp=await api('/api/v1/inventory/menu-items?since=90');
+    // Backend expects since as YYYY-MM-DD; default window is 7 days which hides
+    // menu items with recipes but no sales in the last week. Pass 90 days back
+    // so D-07 stale menu items still surface.
+    var sinceDate=new Date(Date.now()-90*24*60*60*1000).toISOString().slice(0,10);
+    var resp=await api('/api/v1/inventory/menu-items?since='+sinceDate);
     menuItems=(resp&&resp.menu_items)||resp||[];
   }catch(e){
     if(e&&e.message==='unauthorized')return;
