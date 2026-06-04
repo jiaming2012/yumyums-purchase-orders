@@ -188,6 +188,81 @@ test.describe('Inventory', () => {
     ).toMatch(/menu-items\?since=/);
   });
 
+  test('tapping a menu item name triggers renderRecipeSummary', async ({ page }) => {
+    // Regression: human-verify reported that tapping a menu item name in an
+    // expanded ingredient row does nothing — the summary card stays on its
+    // "Tap an ingredient to see how it breaks down by dish" placeholder.
+    //
+    // The placeholder ONLY appears when SELECTED_MENU_ITEM_ID is null. So if
+    // the click handler fires correctly, the placeholder MUST be replaced
+    // (either by the populated card or by "No allocations for this menu item.").
+    // The test is independent of RECIPES_DATA state.
+    await page.click('#t4');
+    await page.waitForLoadState('networkidle');
+
+    // Inject a synthetic allocation row matching the markup renderIngredientDetail emits.
+    await page.evaluate(() => {
+      const host = document.getElementById('recipes-list');
+      host.innerHTML = `
+        <div class="recipe-ingredient-row open" data-action="toggle-recipe-row" data-purchase-item-id="synthetic-pi">
+          <div class="recipe-detail" style="display:block">
+            <div class="recipe-allocation-row" data-recipe-id="synthetic-r" data-purchase-item-id="synthetic-pi">
+              <div class="recipe-alloc-head">
+                <div>
+                  <div id="synth-alloc-name" class="recipe-alloc-name" data-action="view-menu-summary" data-menu-item-id="synthetic-mi">Synthetic Test Burger</div>
+                  <div class="recipe-alloc-group">Lunch</div>
+                </div>
+                <div class="recipe-pct-chip">5%</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    });
+
+    // Confirm baseline: summary card shows the empty placeholder.
+    const before = await page.locator('#recipes-summary-card').innerHTML();
+    expect(before).toContain('Tap an ingredient to see how it breaks down by dish');
+
+    // Tap the menu item name.
+    await page.click('#synth-alloc-name');
+
+    // After the click, the placeholder text MUST be replaced — either by the
+    // populated card or by the "No allocations" empty state.
+    const after = await page.locator('#recipes-summary-card').innerHTML();
+    expect(after, 'click on .recipe-alloc-name must update the summary card').not.toContain('Tap an ingredient to see how it breaks down by dish');
+  });
+
+  test('tapping a Menu tab card jumps to Recipes with that menu item selected', async ({ page }) => {
+    // UX gap from human-verify: user tapped a card on the Menu tab expecting
+    // a cost breakdown to appear. Menu cards were read-only by design — the
+    // breakdown lives on the Recipes tab. Closes the loop with a cross-link.
+    await page.click('#t3');
+    await page.waitForLoadState('networkidle');
+
+    // Inject a synthetic Menu card with the cross-link action.
+    await page.evaluate(() => {
+      const list = document.getElementById('menu-list');
+      list.innerHTML = `
+        <div id="synth-menu-card" class="stock-item" data-action="menu-card-to-recipes" data-menu-item-id="synthetic-mi" style="cursor:pointer">
+          <div class="stock-item-name">Synthetic Burger</div>
+        </div>
+      `;
+    });
+
+    // Sanity check: Menu tab is active.
+    await expect(page.locator('#t3')).toHaveClass(/on/);
+
+    await page.click('#synth-menu-card');
+    // Tab should switch to Recipes.
+    await expect(page.locator('#t4')).toHaveClass(/on/, { timeout: 3000 });
+    await expect(page.locator('#s4')).toBeVisible();
+
+    // Summary card must update — placeholder gone (either populated card or "No allocations").
+    const summary = await page.locator('#recipes-summary-card').innerHTML();
+    expect(summary, 'Menu-card tap must populate the Recipes summary card').not.toContain('Tap an ingredient to see how it breaks down by dish');
+  });
+
   test('Setup tab (now tab 7) renders catalog content when activated', async ({ page }) => {
     // Guards against a regression where render() dispatcher fails to route
     // ACTIVE_TAB===7 to renderItemsList — the BLOCKER fix in Plan 999.2-05 Task 1 sub-edit 4.
