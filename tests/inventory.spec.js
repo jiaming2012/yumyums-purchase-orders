@@ -126,7 +126,11 @@ test.describe('Inventory', () => {
   });
 
   test('Recipes tab activates on #tab=4 hash', async ({ page }) => {
+    // Force a real reload so tab.js re-executes; beforeEach already navigated
+    // to /inventory.html, so page.goto('/inventory.html#tab=4') would be a
+    // same-document hash change and tab.js would not run again.
     await page.goto('/inventory.html#tab=4');
+    await page.reload();
     await page.waitForLoadState('networkidle');
     await expect(page.locator('#t4')).toHaveClass(/on/);
     await expect(page.locator('#s4')).toBeVisible();
@@ -494,17 +498,17 @@ test.describe('Inventory', () => {
   // ── Trends tab ───────────────────────────────────────────────────────────
 
   test('Trends tab shows coming soon content', async ({ page }) => {
-    await page.click('#t4');
-    await expect(page.locator('#s4')).toBeVisible();
-    await expect(page.locator('#s4')).toContainText('Spending Trends');
+    await page.click('#t5');
+    await expect(page.locator('#s5')).toBeVisible();
+    await expect(page.locator('#s5')).toContainText('Spending Trends');
   });
 
   // ── Cost tab ────────────────────────────────────────────────────────────
 
   test('Cost tab shows coming soon content', async ({ page }) => {
-    await page.click('#t5');
-    await expect(page.locator('#s5')).toBeVisible();
-    await expect(page.locator('#s5')).toContainText('Food Cost Intelligence');
+    await page.click('#t6');
+    await expect(page.locator('#s6')).toBeVisible();
+    await expect(page.locator('#s6')).toContainText('Food Cost Intelligence');
   });
 
   // ── Menu tab (Phase 22 — Toast ingest) ──────────────────────────────────
@@ -656,21 +660,21 @@ test.describe('Inventory', () => {
     await expect(page.locator('#cost-container')).toHaveCount(1);
   });
 
-  // ── Setup tab (6th tab) ───────────────────────────────────────────────
+  // ── Setup tab (7th tab) ───────────────────────────────────────────────
 
-  test('Setup tab exists as 6th tab', async ({ page }) => {
-    await expect(page.locator('#t6')).toContainText('Setup');
+  test('Setup tab exists as 7th tab', async ({ page }) => {
+    await expect(page.locator('#t7')).toContainText('Setup');
   });
 
   test('Setup tab has Items and Vendors sub-tabs', async ({ page }) => {
-    await page.locator('#t6').click();
+    await page.locator('#t7').click();
     await expect(page.locator('#st1')).toContainText('Items');
     await expect(page.locator('#st2')).toContainText('Vendors');
     await expect(page.locator('#st1')).toHaveClass(/on/);
   });
 
   test('Vendors sub-tab shows vendor list', async ({ page }) => {
-    await page.locator('#t6').click();
+    await page.locator('#t7').click();
     await page.locator('#st2').click();
     await page.waitForFunction(() => {
       const list = document.getElementById('vendors-list');
@@ -683,14 +687,14 @@ test.describe('Inventory', () => {
   });
 
   test('Vendors sub-tab has add vendor form', async ({ page }) => {
-    await page.locator('#t6').click();
+    await page.locator('#t7').click();
     await page.locator('#st2').click();
     await expect(page.locator('#new-vendor-name')).toBeVisible();
     await expect(page.locator('#create-vendor-btn')).toBeVisible();
   });
 
   test('tapping vendor expands inline edit form', async ({ page }) => {
-    await page.locator('#t6').click();
+    await page.locator('#t7').click();
     await page.locator('#st2').click();
     await page.waitForFunction(() => {
       const list = document.getElementById('vendors-list');
@@ -703,7 +707,7 @@ test.describe('Inventory', () => {
   });
 
   test('Items sub-tab shows item list or empty state', async ({ page }) => {
-    await page.locator('#t6').click();
+    await page.locator('#t7').click();
     await page.waitForFunction(() => {
       const list = document.getElementById('items-list');
       return list && (list.querySelector('.item-group-section') || list.querySelector('.item-row') || list.querySelector('.empty') || list.querySelector('.add-item-bar'));
@@ -714,7 +718,7 @@ test.describe('Inventory', () => {
   });
 
   test('Items tab has search filter', async ({ page }) => {
-    await page.locator('#t6').click();
+    await page.locator('#t7').click();
     const search = page.locator('#item-search');
     await expect(search).toBeVisible();
     await expect(search).toHaveAttribute('placeholder', 'Search items...');
@@ -730,7 +734,7 @@ test.describe('Inventory', () => {
     await invApiCall(page, 'POST', 'items', { description: 'Unrelated Gamma ' + ts, group_id: gid });
     await page.reload();
     await page.waitForLoadState('networkidle');
-    await page.locator('#t6').click();
+    await page.locator('#t7').click();
     await page.waitForFunction((ts) => {
       const rows = document.querySelectorAll('#items-list .item-row');
       for (const r of rows) if (r.textContent.includes('Filterable Alpha')) return true;
@@ -745,7 +749,7 @@ test.describe('Inventory', () => {
   });
 
   test('Items tab has add item form', async ({ page }) => {
-    await page.locator('#t6').click();
+    await page.locator('#t7').click();
     await page.waitForFunction(() => document.getElementById('new-item-name'), { timeout: 5000 });
     await expect(page.locator('#new-item-name')).toBeVisible();
     await expect(page.locator('#new-item-group')).toBeVisible();
@@ -753,7 +757,7 @@ test.describe('Inventory', () => {
   });
 
   test('create new item via Items tab', async ({ page }) => {
-    await page.locator('#t6').click();
+    await page.locator('#t7').click();
     await page.waitForFunction(() => document.getElementById('new-item-name'), { timeout: 5000 });
     const itemName = 'Test Item ' + Date.now();
     await page.fill('#new-item-name', itemName);
@@ -1544,7 +1548,7 @@ test.describe('Inventory', () => {
   });
 
   test('duplicate group shows toast warning in items tab', async ({ page }) => {
-    await page.locator('#t6').click();
+    await page.locator('#t7').click();
     await page.waitForFunction(() => document.getElementById('new-item-name'), { timeout: 5000 });
     const groups = await invApiCall(page, 'GET', 'groups');
     if (!groups || !groups.length) return;
@@ -1769,7 +1773,7 @@ test.describe('Inventory', () => {
       return list && list.querySelector('.stock-item');
     }, { timeout: 8000 });
     // Now switch to Setup and change thresholds so qty 5 becomes "High" (set high=5)
-    await page.locator('#t6').click();
+    await page.locator('#t7').click();
     await page.waitForFunction(() => {
       const list = document.getElementById('items-list');
       return list && (list.querySelector('.item-group-section') || list.querySelector('.add-item-bar'));
@@ -1816,7 +1820,7 @@ test.describe('Inventory', () => {
   });
 
   test('frontend shows error for negative threshold values', async ({ page }) => {
-    await page.locator('#t6').click();
+    await page.locator('#t7').click();
     await page.waitForFunction(() => {
       const list = document.getElementById('items-list');
       return list && list.querySelector('.item-group-section');
@@ -1836,7 +1840,7 @@ test.describe('Inventory', () => {
   });
 
   test('medium shows n/a when low=0 and high=1 (no medium range)', async ({ page }) => {
-    await page.locator('#t6').click();
+    await page.locator('#t7').click();
     await page.waitForFunction(() => {
       const list = document.getElementById('items-list');
       return list && list.querySelector('.item-group-section');
@@ -1867,7 +1871,7 @@ test.describe('Inventory', () => {
     await invApiCall(page, 'PUT', 'items', { id: item2.id, description: 'Loc B Item ' + ts, group_id: gid, store_location: 'Restaurant Depot' });
     await page.reload();
     await page.waitForLoadState('networkidle');
-    await page.locator('#t6').click();
+    await page.locator('#t7').click();
     await page.waitForFunction(() => {
       const list = document.getElementById('items-list');
       return list && list.querySelector('.item-group-section');
@@ -1891,7 +1895,7 @@ test.describe('Inventory', () => {
     await invApiCall(page, 'POST', 'items', { description: 'Unassigned Item ' + ts, group_id: gid });
     await page.reload();
     await page.waitForLoadState('networkidle');
-    await page.locator('#t6').click();
+    await page.locator('#t7').click();
     await page.waitForFunction(() => {
       const list = document.getElementById('items-list');
       return list && list.querySelector('.item-group-section');
@@ -1914,7 +1918,7 @@ test.describe('Inventory', () => {
     await invApiCall(page, 'POST', 'items', { description: itemName, group_id: gid });
     await page.reload();
     await page.waitForLoadState('networkidle');
-    await page.locator('#t6').click();
+    await page.locator('#t7').click();
     await page.waitForFunction((name) => {
       const rows = document.querySelectorAll('#items-list .item-row');
       for (const r of rows) if (r.textContent.includes(name)) return true;
@@ -1938,7 +1942,7 @@ test.describe('Inventory', () => {
     // Reload and verify persistence
     await page.reload();
     await page.waitForLoadState('networkidle');
-    await page.locator('#t6').click();
+    await page.locator('#t7').click();
     await page.waitForFunction((name) => {
       const rows = document.querySelectorAll('#items-list .item-row');
       for (const r of rows) if (r.textContent.includes(name)) return true;
@@ -1959,7 +1963,7 @@ test.describe('Inventory', () => {
     await invApiCall(page, 'POST', 'items', { description: itemName, group_id: gid });
     await page.reload();
     await page.waitForLoadState('networkidle');
-    await page.locator('#t6').click();
+    await page.locator('#t7').click();
     await page.waitForFunction((name) => {
       const rows = document.querySelectorAll('#items-list .item-row');
       for (const r of rows) if (r.textContent.includes(name)) return true;
@@ -1979,8 +1983,8 @@ test.describe('Inventory', () => {
   // ── Setup tab back link ─────────────────────────────────────────────
 
   test('Setup tab has back link to Purchase Orders', async ({ page }) => {
-    await page.locator('#t6').click();
-    const link = page.locator('#s6 a.back[href="purchasing.html"]');
+    await page.locator('#t7').click();
+    const link = page.locator('#s7 a.back[href="purchasing.html"]');
     await expect(link).toBeVisible();
     await expect(link).toContainText('Purchase Orders');
   });
@@ -1994,7 +1998,7 @@ test.describe('Inventory', () => {
     await login(page);
     await page.goto('/inventory.html');
     await page.waitForLoadState('networkidle');
-    await page.locator('#t6').click();
+    await page.locator('#t7').click();
     await page.waitForSelector('#badge-reset-section', { timeout: 5000 });
     // Click Edit to open the form
     await page.locator('[data-action="toggle-badge-reset"]').click();
@@ -2011,7 +2015,7 @@ test.describe('Inventory', () => {
   // ── Add item group enforcement ──────────────────────────────────────
 
   test('add item bar does not allow No Group selection', async ({ page }) => {
-    await page.locator('#t6').click();
+    await page.locator('#t7').click();
     await page.waitForSelector('#new-item-group', { timeout: 5000 });
     const opts = await page.locator('#new-item-group option').allTextContents();
     expect(opts).not.toContain('No Group');
@@ -2019,7 +2023,7 @@ test.describe('Inventory', () => {
   });
 
   test('create item without group shows alert', async ({ page }) => {
-    await page.locator('#t6').click();
+    await page.locator('#t7').click();
     await page.waitForSelector('#new-item-name', { timeout: 5000 });
     await page.fill('#new-item-name', 'No Group Item ' + Date.now());
     // Leave group as default "Select group..." (value="")
@@ -2034,7 +2038,7 @@ test.describe('Inventory', () => {
     const groups = await invApiCall(page, 'GET', 'groups');
     const gid = groups && groups.length ? groups[0].id : null;
     if (!gid) return;
-    await page.locator('#t6').click();
+    await page.locator('#t7').click();
     await page.waitForSelector('#new-item-name', { timeout: 5000 });
     const itemName = 'New Setup Item ' + Date.now();
     await page.fill('#new-item-name', itemName);
@@ -2065,7 +2069,7 @@ test.describe('Inventory', () => {
     });
     await page.reload();
     await page.waitForLoadState('networkidle');
-    await page.locator('#t6').click();
+    await page.locator('#t7').click();
     await page.waitForFunction((name) => {
       const rows = document.querySelectorAll('#items-list .item-row');
       for (const r of rows) if (r.textContent.includes(name)) return true;
@@ -2095,7 +2099,7 @@ test.describe('Inventory', () => {
     await invApiCall(page, 'POST', 'items', { description: itemName, group_id: gid });
     await page.reload();
     await page.waitForLoadState('networkidle');
-    await page.locator('#t6').click();
+    await page.locator('#t7').click();
     await page.waitForFunction((name) => {
       const rows = document.querySelectorAll('#items-list .item-row');
       for (const r of rows) if (r.textContent.includes(name)) return true;
@@ -2123,7 +2127,7 @@ test.describe('Inventory', () => {
     await invApiCall(page, 'POST', 'items', { description: itemName, group_id: gid });
     await page.reload();
     await page.waitForLoadState('networkidle');
-    await page.locator('#t6').click();
+    await page.locator('#t7').click();
     await page.waitForFunction((name) => {
       const rows = document.querySelectorAll('#items-list .item-row');
       for (const r of rows) if (r.textContent.includes(name)) return true;
@@ -2177,7 +2181,7 @@ test.describe('Inventory', () => {
     if (await setupLink.count() === 0) return;
     await setupLink.click();
     // Should be on Setup tab with Items sub-tab
-    await expect(page.locator('#t6')).toHaveClass(/on/);
+    await expect(page.locator('#t7')).toHaveClass(/on/);
     await expect(page.locator('#st1')).toHaveClass(/on/);
     // Wait for items to load and the edit form to appear
     await page.waitForFunction((itemId) => {
@@ -2767,15 +2771,15 @@ test.describe('Inventory', () => {
 test.describe('PO add item navigates to Inventory Setup', () => {
   test('navigating to inventory.html with newItem hash prefills item name and shows Setup tab', async ({ page }) => {
     // Regression: loadItems() async re-render wiped the prefilled value,
-    // and hash parsing didn't activate Setup tab (tab 6 — Phase 22 renumber).
+    // and hash parsing didn't activate Setup tab (tab 7 — Phase 999.2-05 renumber).
     await login(page);
 
     // Navigate directly with the hash (simulates clicking "Add Item in Inventory" from PO)
     await page.goto('/inventory.html#setup?newItem=Carrots');
 
-    // Wait for Setup tab to be active (tab 6 — was 5 before Phase 22)
+    // Wait for Setup tab to be active (tab 7 — was 6 before Phase 999.2-05)
     await page.waitForFunction(() => {
-      var btn = document.getElementById('t6');
+      var btn = document.getElementById('t7');
       return btn && btn.className === 'on';
     }, { timeout: 5000 });
 

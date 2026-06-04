@@ -1498,7 +1498,7 @@ document.addEventListener('DOMContentLoaded',async function(){
   var hashTab=(location.hash.match(/tab=(\d+)/)||[])[1];
   var hashItem=decodeURIComponent((location.hash.match(/item=([^&]+)/)||[])[1]||'');
   var hashNewItem=decodeURIComponent((location.hash.match(/newItem=([^&]+)/)||[])[1]||'');
-  if(hashNewItem){hashTab='6';PREFILL_NEW_ITEM=hashNewItem;}
+  if(hashNewItem){hashTab='7';PREFILL_NEW_ITEM=hashNewItem;}
   if(hashItem&&ALL_ITEMS.length){
     var match=ALL_ITEMS.find(function(it){return it.description===hashItem;});
     if(match)ITEM_EDIT_ID=match.id;
