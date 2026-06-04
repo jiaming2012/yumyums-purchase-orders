@@ -100,75 +100,91 @@ func seedRecipe(t *testing.T, pool *pgxpool.Pool, menuItemID, purchaseItemID str
 	return id
 }
 
-// ── Plan 04 additions — purchase event + line item + daily menu sales fixtures ──
-
-// seedTestVendorCounter generates a unique vendor name per call so concurrent
-// seedPurchaseEvent calls don't collide on vendors.name UNIQUE.
-var seedTestVendorCounter int64
-
-// seedPurchaseEvent inserts a purchase_event with the given event_date / total /
-// tax and returns the event id. Required NOT NULL columns (vendor_id,
-// bank_tx_id) are populated internally — vendor is auto-created with a unique
-// synthetic name, bank_tx_id is derived from (eventDate, counter) to satisfy
-// the UNIQUE constraint across multiple seeds in the same test.
+// ── Plan 04 additions — promoted from menu_cogs_test.go ──
 //
-// Per plan: signature stable across the package; column adjustments made
-// internally per the actual 0024_inventory.sql shape.
-func seedPurchaseEvent(t *testing.T, pool *pgxpool.Pool, eventDate string, total, tax float64) string {
+// Plan 02 originally placed seedVendor / seedPurchaseEvent / seedPurchaseLineItem /
+// seedDailyMenuSales inside menu_cogs_test.go. Plan 04 expected to define them
+// here for the first time (the planner wasn't aware of the menu_cogs_test.go
+// fixtures). Deviation Rule 1 (consolidate, don't duplicate): the canonical
+// definitions live here so all package tests share one source of truth, and
+// menu_cogs_test.go references them by name.
+//
+// Vendor handling: setupTestDB does NOT TRUNCATE vendors (the table is not
+// truncated to avoid breaking adjacent app tests that share the DB). seedVendor
+// DELETEs by name first to make repeated `go test` runs idempotent. CASCADE
+// from prior test events has already cleared the FK-referencing rows by the
+// time setupTestDB returns.
+
+// seedVendor inserts a vendor and returns its UUID.
+func seedVendor(t *testing.T, pool *pgxpool.Pool, name string) string {
 	t.Helper()
-	seedTestVendorCounter++
-	vendorName := fmt.Sprintf("test-vendor-%d", seedTestVendorCounter)
-	var vendorID string
-	err := pool.QueryRow(context.Background(),
-		`INSERT INTO vendors (name) VALUES ($1) RETURNING id::text`, vendorName,
-	).Scan(&vendorID)
-	if err != nil {
-		t.Fatalf("seedPurchaseEvent vendor: %v", err)
+	if _, err := pool.Exec(context.Background(), `DELETE FROM vendors WHERE name = $1`, name); err != nil {
+		t.Fatalf("seedVendor cleanup: %v", err)
 	}
-	bankTxID := fmt.Sprintf("tx-%s-%d", eventDate, seedTestVendorCounter)
 	var id string
-	err = pool.QueryRow(context.Background(),
+	err := pool.QueryRow(context.Background(),
+		`INSERT INTO vendors (name) VALUES ($1) RETURNING id::text`, name,
+	).Scan(&id)
+	if err != nil {
+		t.Fatalf("seedVendor(%q): %v", name, err)
+	}
+	return id
+}
+
+// seedPurchaseEvent inserts a purchase_event with given total/tax/date.
+// bank_tx_id is synthesized from the date+total+tax tuple to satisfy UNIQUE.
+func seedPurchaseEvent(t *testing.T, pool *pgxpool.Pool, vendorID, eventDate string, tax, total float64) string {
+	t.Helper()
+	bankTx := fmt.Sprintf("tx-%s-%.2f-%.2f", eventDate, total, tax)
+	var id string
+	err := pool.QueryRow(context.Background(),
 		`INSERT INTO purchase_events (vendor_id, bank_tx_id, event_date, tax, total)
 		 VALUES ($1, $2, $3::date, $4, $5) RETURNING id::text`,
-		vendorID, bankTxID, eventDate, tax, total,
+		vendorID, bankTx, eventDate, tax, total,
 	).Scan(&id)
 	if err != nil {
-		t.Fatalf("seedPurchaseEvent(%q, %.2f, %.2f): %v", eventDate, total, tax, err)
+		t.Fatalf("seedPurchaseEvent: %v", err)
 	}
 	return id
 }
 
-// seedPurchaseLineItem inserts a purchase_line_item linked to the given event
-// and purchase_item. Returns the line item id. The description NOT NULL column
-// is set to "Test Line" since tests reading via purchase_item_id don't depend on
-// it (the joins in scheduler.go/drift.go go through purchase_items).
-func seedPurchaseLineItem(t *testing.T, pool *pgxpool.Pool, eventID, purchaseItemID string, quantity, price float64) string {
+// seedPurchaseLineItem inserts a purchase_line_item linked to a purchase_event +
+// purchase_item. If purchaseItemID is empty, purchase_item_id is NULL.
+func seedPurchaseLineItem(t *testing.T, pool *pgxpool.Pool, eventID, purchaseItemID, description string, qty int, price float64) string {
 	t.Helper()
 	var id string
-	err := pool.QueryRow(context.Background(),
-		`INSERT INTO purchase_line_items (purchase_event_id, purchase_item_id, description, quantity, price)
-		 VALUES ($1, $2, $3, $4, $5) RETURNING id::text`,
-		eventID, purchaseItemID, "Test Line", int(quantity), price,
-	).Scan(&id)
+	var err error
+	if purchaseItemID == "" {
+		err = pool.QueryRow(context.Background(),
+			`INSERT INTO purchase_line_items (purchase_event_id, purchase_item_id, description, quantity, price, is_case)
+			 VALUES ($1, NULL, $2, $3, $4, false) RETURNING id::text`,
+			eventID, description, qty, price,
+		).Scan(&id)
+	} else {
+		err = pool.QueryRow(context.Background(),
+			`INSERT INTO purchase_line_items (purchase_event_id, purchase_item_id, description, quantity, price, is_case)
+			 VALUES ($1, $2, $3, $4, $5, false) RETURNING id::text`,
+			eventID, purchaseItemID, description, qty, price,
+		).Scan(&id)
+	}
 	if err != nil {
-		t.Fatalf("seedPurchaseLineItem(%q, %q): %v", eventID, purchaseItemID, err)
+		t.Fatalf("seedPurchaseLineItem: %v", err)
 	}
 	return id
 }
 
-// seedDailyMenuSales inserts a daily_menu_sales row for the given menu_item +
-// business_date. Idempotent via PRIMARY KEY (menu_item_id, business_date) using
-// ON CONFLICT DO UPDATE so tests can re-seed the same key.
-func seedDailyMenuSales(t *testing.T, pool *pgxpool.Pool, menuItemID, businessDate string, unitsSold, grossAmount float64) {
+// seedDailyMenuSales inserts a daily_menu_sales row. Idempotent via ON CONFLICT
+// DO UPDATE so tests can re-seed the same (menu_item, date) key.
+func seedDailyMenuSales(t *testing.T, pool *pgxpool.Pool, menuItemID, businessDate string, unitsSold int, gross float64) {
 	t.Helper()
 	_, err := pool.Exec(context.Background(),
 		`INSERT INTO daily_menu_sales (menu_item_id, business_date, units_sold, gross_amount)
 		 VALUES ($1, $2::date, $3, $4)
 		 ON CONFLICT (menu_item_id, business_date)
 		 DO UPDATE SET units_sold = EXCLUDED.units_sold, gross_amount = EXCLUDED.gross_amount`,
-		menuItemID, businessDate, int(unitsSold), grossAmount,
+		menuItemID, businessDate, unitsSold, gross,
 	)
 	if err != nil {
-		t.Fatalf("seedDailyMenuSales(%q, %q): %v", menuItemID, businessDate, err)
+		t.Fatalf("seedDailyMenuSales: %v", err)
 	}
 }
