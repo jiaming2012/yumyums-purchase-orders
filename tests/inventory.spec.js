@@ -152,6 +152,42 @@ test.describe('Inventory', () => {
     await expect(page.locator('#s4')).toBeVisible();
   });
 
+  test('menu-item picker uses YYYY-MM-DD since format (contract + source)', async ({ page }) => {
+    // Regression for "Menu items unavailable" alert: the frontend passed
+    // ?since=90 (intended as "90 days") but the backend's toast handler
+    // parses since as YYYY-MM-DD and returns 400 otherwise — which the picker
+    // catch-block surfaced as the alert.
+
+    // Part 1 — Backend contract: integer-only since must be rejected (400)
+    // and a YYYY-MM-DD value must be accepted (200). This guards the contract
+    // the frontend has to honor.
+    const bad = await page.evaluate(async () => {
+      const r = await fetch('/api/v1/inventory/menu-items?since=90');
+      return { status: r.status };
+    });
+    expect(bad.status, 'integer since must be rejected (contract guard)').toBe(400);
+
+    const good = await page.evaluate(async () => {
+      const r = await fetch('/api/v1/inventory/menu-items?since=2025-01-01');
+      return { status: r.status };
+    });
+    expect(good.status, 'YYYY-MM-DD since must be accepted').toBe(200);
+
+    // Part 2 — Frontend source: openMenuItemPicker must not pass an integer-only
+    // since value (which is what triggered the original alert). It should
+    // compute a YYYY-MM-DD string at call time.
+    const src = await page.evaluate(() => window.openMenuItemPicker.toString());
+    const literalIntMatch = src.match(/menu-items\?since=(\d+)(?:['"&]|$)/);
+    expect(
+      literalIntMatch,
+      'openMenuItemPicker must not hardcode an integer since= value; compute a YYYY-MM-DD'
+    ).toBeNull();
+    expect(
+      src,
+      'openMenuItemPicker source must reference menu-items endpoint with a since param'
+    ).toMatch(/menu-items\?since=/);
+  });
+
   test('Setup tab (now tab 7) renders catalog content when activated', async ({ page }) => {
     // Guards against a regression where render() dispatcher fails to route
     // ACTIVE_TAB===7 to renderItemsList — the BLOCKER fix in Plan 999.2-05 Task 1 sub-edit 4.
