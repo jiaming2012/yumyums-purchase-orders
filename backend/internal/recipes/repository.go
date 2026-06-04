@@ -199,7 +199,84 @@ func LargestSiblingAllocation(ctx context.Context, pool *pgxpool.Pool, purchaseI
 	return name, pct, err
 }
 
-// ListIngredientsWithSpend signature stub — full body implemented in Plan 03.
+// ListIngredientsWithSpend returns one row per purchase_item that has either
+// (a) recipe rows or (b) non-zero spend in [from, to]. Each row carries the
+// last-week spend (tax-inclusive per D-11) and the nested recipes joined to
+// menu_items for D-09 disambiguation.
+//
+// Implementation: two queries — first for the ingredient summary rows
+// (purchase_items + window spend + sum_pct), second for the nested recipes joined
+// to menu_items. Sorted by last_week_spend DESC then description ASC.
 func ListIngredientsWithSpend(ctx context.Context, pool *pgxpool.Pool, from, to string) ([]IngredientWithSpend, error) {
-	return nil, errors.New("recipes: ListIngredientsWithSpend not yet implemented — Plan 03")
+	rows, err := pool.Query(ctx, `
+WITH window_spend AS (
+  SELECT
+    pli.purchase_item_id,
+    SUM((pli.quantity * pli.price) *
+        COALESCE(pe.total / NULLIF(pe.total - pe.tax, 0), 1)) AS spend_incl_tax
+  FROM purchase_line_items pli
+  JOIN purchase_events pe ON pe.id = pli.purchase_event_id
+  WHERE pe.event_date BETWEEN $1 AND $2
+    AND pli.purchase_item_id IS NOT NULL
+  GROUP BY pli.purchase_item_id
+)
+SELECT
+  pi.id::text                                            AS purchase_item_id,
+  pi.description                                         AS description,
+  ROUND(COALESCE(ws.spend_incl_tax, 0)::numeric, 2)      AS last_week_spend,
+  COALESCE((SELECT SUM(r2.usage_pct) FROM recipes r2 WHERE r2.purchase_item_id = pi.id), 0) AS sum_pct
+FROM purchase_items pi
+LEFT JOIN window_spend ws ON ws.purchase_item_id = pi.id
+WHERE EXISTS (SELECT 1 FROM recipes WHERE purchase_item_id = pi.id)
+   OR COALESCE(ws.spend_incl_tax, 0) > 0
+ORDER BY COALESCE(ws.spend_incl_tax, 0) DESC, pi.description ASC`, from, to)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	ingredients := []IngredientWithSpend{}
+	indexByID := map[string]int{}
+	for rows.Next() {
+		var ing IngredientWithSpend
+		if err := rows.Scan(&ing.PurchaseItemID, &ing.Description, &ing.LastWeekSpend, &ing.SumPct); err != nil {
+			return nil, err
+		}
+		ing.Recipes = []RecipeWithMenu{}
+		indexByID[ing.PurchaseItemID] = len(ingredients)
+		ingredients = append(ingredients, ing)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	// Second query: load recipes for these ingredients in one shot, distribute into rows.
+	if len(ingredients) == 0 {
+		return ingredients, nil
+	}
+	ids := make([]string, len(ingredients))
+	for i, ing := range ingredients {
+		ids[i] = ing.PurchaseItemID
+	}
+	recRows, err := pool.Query(ctx, `
+SELECT r.id, r.menu_item_id, mi.name, mi.menu_group, mi.menu_subgroup,
+       r.purchase_item_id::text, r.usage_pct, r.updated_at
+FROM recipes r
+JOIN menu_items mi ON mi.id = r.menu_item_id
+WHERE r.purchase_item_id::text = ANY($1)
+ORDER BY r.usage_pct DESC`, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer recRows.Close()
+	for recRows.Next() {
+		var r RecipeWithMenu
+		if err := recRows.Scan(&r.ID, &r.MenuItemID, &r.MenuItemName, &r.MenuGroup, &r.MenuSubgroup,
+			&r.PurchaseItemID, &r.UsagePct, &r.UpdatedAt); err != nil {
+			return nil, err
+		}
+		if idx, ok := indexByID[r.PurchaseItemID]; ok {
+			ingredients[idx].Recipes = append(ingredients[idx].Recipes, r)
+		}
+	}
+	return ingredients, recRows.Err()
 }

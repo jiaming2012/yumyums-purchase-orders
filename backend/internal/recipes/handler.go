@@ -3,10 +3,13 @@ package recipes
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -285,4 +288,233 @@ ORDER BY amount DESC`, from, to)
 		out.ByIngredient = append(out.ByIngredient, d)
 	}
 	return out, rows.Err()
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Recipes CRUD handlers (Plan 03) — cookie-auth-protected. Mounted under the
+// auth.Middleware group at main.go inside r.Route("/inventory/recipes", ...).
+// The 422 sum_exceeds_100 envelope shape `{"error":"sum_exceeds_100",
+// "conflict_menu_item":"<name>","conflict_pct":<n>}` is the contract Plan 05's
+// frontend depends on for rollback messaging (D-03).
+// ─────────────────────────────────────────────────────────────────────────────
+
+// validateUsagePct returns "" if value is valid; otherwise an error sentinel string
+// suitable for inclusion in a 422 envelope. Per Pitfall 7: 0..100 and multiple of 5.
+// Float math: NUMERIC(5,2) stored as float64 — `usage_pct*100` integer-converts
+// safely for values like 45.0 (= 4500) and we check % 500 == 0.
+func validateUsagePct(v float64) string {
+	if v < 0 || v > 100 {
+		return "usage_pct must be between 0 and 100"
+	}
+	cents := int(v * 100)
+	if cents%500 != 0 {
+		return "usage_pct must be a multiple of 5"
+	}
+	return ""
+}
+
+// chicagoWeekWindow returns (from, to) as YYYY-MM-DD for the last 7 days ending TODAY
+// in America/Chicago, used as the default range for ListRecipesHandler when query
+// params are missing. Falls back to the past 7 calendar days in UTC if TZ load fails.
+func chicagoWeekWindow() (string, string) {
+	loc, err := time.LoadLocation("America/Chicago")
+	if err != nil {
+		now := time.Now().UTC()
+		return now.AddDate(0, 0, -7).Format("2006-01-02"), now.Format("2006-01-02")
+	}
+	now := time.Now().In(loc)
+	return now.AddDate(0, 0, -7).Format("2006-01-02"), now.Format("2006-01-02")
+}
+
+// ListRecipesHandler returns the ingredient-first list for the Recipes tab.
+// Cookie-auth-protected (registered under the auth.Middleware group in main.go).
+// Query params:
+//
+//	from, to — YYYY-MM-DD (optional; defaults to last 7 days ending today in Chicago)
+func ListRecipesHandler(pool *pgxpool.Pool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		fromStr := r.URL.Query().Get("from")
+		toStr := r.URL.Query().Get("to")
+		if fromStr == "" && toStr == "" {
+			fromStr, toStr = chicagoWeekWindow()
+		}
+		if _, err := time.Parse("2006-01-02", fromStr); err != nil {
+			writeError(w, http.StatusBadRequest, "from must be YYYY-MM-DD")
+			return
+		}
+		if _, err := time.Parse("2006-01-02", toStr); err != nil {
+			writeError(w, http.StatusBadRequest, "to must be YYYY-MM-DD")
+			return
+		}
+		if fromStr > toStr {
+			writeError(w, http.StatusBadRequest, "from must be <= to")
+			return
+		}
+		ingredients, err := ListIngredientsWithSpend(r.Context(), pool, fromStr, toStr)
+		if err != nil {
+			log.Printf("ListRecipes: %v", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{
+			"from":        fromStr,
+			"to":          toStr,
+			"ingredients": ingredients,
+		})
+	}
+}
+
+// CreateRecipeHandler — POST /inventory/recipes
+// Body: {"menu_item_id":"<uuid>","purchase_item_id":"<uuid>","usage_pct":<n>}
+// On 422 sum_exceeds_100: response body names the largest sibling allocation per D-03.
+func CreateRecipeHandler(pool *pgxpool.Pool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var input struct {
+			MenuItemID     string  `json:"menu_item_id"`
+			PurchaseItemID string  `json:"purchase_item_id"`
+			UsagePct       float64 `json:"usage_pct"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_json")
+			return
+		}
+		if input.MenuItemID == "" || input.PurchaseItemID == "" {
+			writeError(w, http.StatusBadRequest, "menu_item_id and purchase_item_id required")
+			return
+		}
+		if msg := validateUsagePct(input.UsagePct); msg != "" {
+			writeJSON(w, http.StatusUnprocessableEntity, map[string]any{
+				"error":  "invalid_usage_pct",
+				"detail": msg,
+			})
+			return
+		}
+		id, sumAfter, err := CreateRecipe(r.Context(), pool, input.MenuItemID, input.PurchaseItemID, input.UsagePct)
+		if errors.Is(err, ErrSumExceeds100) {
+			// Find the largest sibling to name in the message. No specific recipe to exclude —
+			// the rejected insert was rolled back, so all surviving rows are siblings.
+			name, pct, _ := LargestSiblingAllocation(r.Context(), pool, input.PurchaseItemID, "00000000-0000-0000-0000-000000000000")
+			writeJSON(w, http.StatusUnprocessableEntity, map[string]any{
+				"error":              "sum_exceeds_100",
+				"conflict_menu_item": name,
+				"conflict_pct":       pct,
+			})
+			return
+		}
+		if err != nil {
+			// pgx returns SQLSTATE 23505 for unique_violation; the error string typically
+			// contains "duplicate key value violates unique constraint".
+			if strings.Contains(err.Error(), "unique_violation") ||
+				strings.Contains(err.Error(), "duplicate key") ||
+				strings.Contains(err.Error(), "23505") {
+				writeError(w, http.StatusConflict, "recipe_already_exists")
+				return
+			}
+			log.Printf("CreateRecipe: %v", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		writeJSON(w, http.StatusCreated, map[string]any{"id": id, "sum_after": sumAfter})
+	}
+}
+
+// UpdateRecipeHandler — PUT /inventory/recipes/{id}
+// Body: {"usage_pct":<n>}
+// On 422 sum_exceeds_100: names the largest sibling allocation (excluding this recipe).
+func UpdateRecipeHandler(pool *pgxpool.Pool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		recipeID := chi.URLParam(r, "id")
+		if recipeID == "" {
+			writeError(w, http.StatusBadRequest, "recipe_id required")
+			return
+		}
+		var input struct {
+			UsagePct float64 `json:"usage_pct"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_json")
+			return
+		}
+		if msg := validateUsagePct(input.UsagePct); msg != "" {
+			writeJSON(w, http.StatusUnprocessableEntity, map[string]any{
+				"error":  "invalid_usage_pct",
+				"detail": msg,
+			})
+			return
+		}
+		purchaseItemID, _, err := UpdateRecipeUsagePct(r.Context(), pool, recipeID, input.UsagePct)
+		if errors.Is(err, ErrRecipeNotFound) {
+			writeError(w, http.StatusNotFound, "recipe_not_found")
+			return
+		}
+		if errors.Is(err, ErrSumExceeds100) {
+			name, pct, _ := LargestSiblingAllocation(r.Context(), pool, purchaseItemID, recipeID)
+			writeJSON(w, http.StatusUnprocessableEntity, map[string]any{
+				"error":              "sum_exceeds_100",
+				"conflict_menu_item": name,
+				"conflict_pct":       pct,
+			})
+			return
+		}
+		if err != nil {
+			log.Printf("UpdateRecipe: %v", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+// DeleteRecipeHandler — DELETE /inventory/recipes/{id}
+func DeleteRecipeHandler(pool *pgxpool.Pool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		recipeID := chi.URLParam(r, "id")
+		if recipeID == "" {
+			writeError(w, http.StatusBadRequest, "recipe_id required")
+			return
+		}
+		err := DeleteRecipe(r.Context(), pool, recipeID)
+		if errors.Is(err, ErrRecipeNotFound) {
+			writeError(w, http.StatusNotFound, "recipe_not_found")
+			return
+		}
+		if err != nil {
+			log.Printf("DeleteRecipe: %v", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+// MergeMenuItemHandler — POST /inventory/recipes/merge
+// Body: {"source_menu_item_id":"<uuid>","target_menu_item_id":"<uuid>"}
+// Re-points all recipe rows from source to target, then deletes the source menu_items row.
+// Mirrors inventory.MergeItemsHandler / MergeVendorsHandler semantics (D-08).
+func MergeMenuItemHandler(pool *pgxpool.Pool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var input struct {
+			SourceMenuItemID string `json:"source_menu_item_id"`
+			TargetMenuItemID string `json:"target_menu_item_id"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_json")
+			return
+		}
+		if input.SourceMenuItemID == "" || input.TargetMenuItemID == "" {
+			writeError(w, http.StatusBadRequest, "source_menu_item_id and target_menu_item_id required")
+			return
+		}
+		rows, err := MergeMenuItem(r.Context(), pool, input.SourceMenuItemID, input.TargetMenuItemID)
+		if err != nil {
+			if strings.Contains(err.Error(), "cannot_merge_into_self") {
+				writeError(w, http.StatusBadRequest, "cannot_merge_into_self")
+				return
+			}
+			log.Printf("MergeMenuItem: %v", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]int{"rows_re_pointed": rows})
+	}
 }
