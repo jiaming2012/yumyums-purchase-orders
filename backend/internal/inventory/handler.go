@@ -732,6 +732,23 @@ func ConfirmPendingPurchaseHandler(pool *pgxpool.Pool) http.HandlerFunc {
 					return
 				}
 			}
+		} else {
+			// Empty-items resolution: insert a single placeholder line item so
+			// the bank total contributes to cogs_excl_tax. Linked to the seed
+			// purchase_items row (see migration 0064_no_itemized_receipt_seed.sql)
+			// so unlinked_line_item_ids stays empty.
+			const noItemizedReceiptItemID = "00000000-0000-0000-0000-000000000001"
+			_, err := tx.Exec(r.Context(), `
+				INSERT INTO purchase_line_items
+				(purchase_event_id, purchase_item_id, description, quantity, price, is_case)
+				VALUES ($1, $2, '(no itemized receipt)', 1, $3, false)`,
+				eventID, noItemizedReceiptItemID, eventTotal,
+			)
+			if err != nil {
+				log.Printf("ConfirmPendingPurchase insert placeholder line_item: %v", err)
+				writeError(w, http.StatusInternalServerError, "internal_error")
+				return
+			}
 		}
 
 		// Mark pending purchase as confirmed

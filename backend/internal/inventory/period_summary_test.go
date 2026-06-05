@@ -1,6 +1,7 @@
 package inventory
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"net/http"
@@ -10,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/yumyums/hq/internal/auth"
 	"github.com/yumyums/hq/internal/db"
 )
 
@@ -157,6 +159,51 @@ func boolByte(b bool) byte {
 		return 1
 	}
 	return 0
+}
+
+// insertNoItemizedReceiptSeed re-inserts the seed purchase_items row that
+// resetFixtures TRUNCATEs away. Idempotent. See migration
+// 0064_no_itemized_receipt_seed.sql for the production source of this row.
+func insertNoItemizedReceiptSeed(t *testing.T) string {
+	t.Helper()
+	const seedID = "00000000-0000-0000-0000-000000000001"
+	_, err := testPool.Exec(t.Context(),
+		`INSERT INTO purchase_items (id, description) VALUES ($1, '(no itemized receipt)') ON CONFLICT (description) DO NOTHING`,
+		seedID)
+	if err != nil {
+		t.Fatalf("seed insert: %v", err)
+	}
+	return seedID
+}
+
+// insertTestUser inserts a minimal active user row so confirmed_by FK on
+// pending_purchases can resolve. Returns the user's UUID.
+func insertTestUser(t *testing.T, email string) string {
+	t.Helper()
+	var id string
+	err := testPool.QueryRow(t.Context(),
+		`INSERT INTO users (email, display_name, role, status) VALUES ($1, $2, 'admin', 'active') RETURNING id::text`,
+		email, "Test User").Scan(&id)
+	if err != nil {
+		t.Fatalf("insert user: %v", err)
+	}
+	return id
+}
+
+// insertPendingPurchaseWithBankTotal inserts an unconfirmed/undiscarded
+// pending_purchases row with a real bank_total (typically negative for a
+// debit). Used by the end-to-end empty-items confirm test.
+func insertPendingPurchaseWithBankTotal(t *testing.T, bankTxID string, bankTotal float64, createdAt string) string {
+	t.Helper()
+	var id string
+	q := `INSERT INTO pending_purchases (bank_tx_id, bank_total, vendor, items, created_at)
+	      VALUES ($1, $2, 'TestVendor', '[]'::jsonb, $3::timestamptz)
+	      RETURNING id::text`
+	err := testPool.QueryRow(t.Context(), q, bankTxID, bankTotal, createdAt).Scan(&id)
+	if err != nil {
+		t.Fatalf("insert pending_purchase: %v", err)
+	}
+	return id
 }
 
 // insertPendingPurchaseWithReason inserts an unconfirmed/undiscarded
@@ -334,6 +381,113 @@ func TestPeriodSummary(t *testing.T) {
 		code, _ := callHandler(t, "2026-05-31", "2026-05-25")
 		if code != http.StatusBadRequest {
 			t.Errorf("status = %d, want 400", code)
+		}
+	})
+
+	// Phase 260605-q7b: empty-items "confirm without receipt" path now
+	// inserts a placeholder purchase_line_items row linked to the seed
+	// purchase_items row from migration 0064. These three subtests cover:
+	// (1) the placeholder dollars land in cogs_excl_tax,
+	// (2) the placeholder does NOT trip unlinked_line_item_ids, and
+	// (3) the end-to-end ConfirmPendingPurchaseHandler empty-items path
+	//     produces the same result as inserting the rows by hand.
+
+	t.Run("placeholder line item lands in cogs_excl_tax", func(t *testing.T) {
+		resetFixtures(t)
+		seedID := insertNoItemizedReceiptSeed(t)
+		vendorID := insertVendor(t, "RestaurantDepot")
+		// Insert one purchase_events row in window plus a single placeholder
+		// purchase_line_items row mirroring an abs(bank_total) of $50.00.
+		// Uses insertEventAndLine — it accepts the seed UUID like any other
+		// purchase_item_id.
+		insertEventAndLine(t, vendorID, "2026-05-26", 0, 50.00, 50.00, 1, seedID)
+
+		code, got := callHandler(t, from, to)
+		if code != http.StatusOK {
+			t.Fatalf("status = %d, want 200", code)
+		}
+		if got.COGSExclTax != 50.00 {
+			t.Errorf("COGSExclTax = %v, want 50.00", got.COGSExclTax)
+		}
+		if got.PurchaseEventCount != 1 {
+			t.Errorf("PurchaseEventCount = %d, want 1", got.PurchaseEventCount)
+		}
+	})
+
+	t.Run("placeholder does NOT trip unlinked_line_item_ids", func(t *testing.T) {
+		resetFixtures(t)
+		seedID := insertNoItemizedReceiptSeed(t)
+		vendorID := insertVendor(t, "RestaurantDepot")
+		insertEventAndLine(t, vendorID, "2026-05-26", 0, 50.00, 50.00, 1, seedID)
+
+		code, got := callHandler(t, from, to)
+		if code != http.StatusOK {
+			t.Fatalf("status = %d, want 200", code)
+		}
+		if len(got.Completeness.UnlinkedLineItemIDs) != 0 {
+			t.Errorf("UnlinkedLineItemIDs = %v, want [] (placeholder must be linked to seed)",
+				got.Completeness.UnlinkedLineItemIDs)
+		}
+		if !got.Completeness.Ready {
+			t.Errorf("Ready = false, want true. pending=%v unlinked=%v",
+				got.Completeness.PendingReviewIDs, got.Completeness.UnlinkedLineItemIDs)
+		}
+	})
+
+	t.Run("end-to-end empty-items confirm increments cogs", func(t *testing.T) {
+		resetFixtures(t)
+		// Re-seed the placeholder catalog row (resetFixtures TRUNCATEs it),
+		// then create a user (FK for pending_purchases.confirmed_by) and a
+		// pending_purchases row with bank_total=-75.00 (negative = debit).
+		insertNoItemizedReceiptSeed(t)
+		userID := insertTestUser(t, "confirm-empty@yumyums.test")
+		ppID := insertPendingPurchaseWithBankTotal(t,
+			"e2e-empty-tx-1", -75.00, "2026-05-27 10:00:00-05:00")
+
+		// Invoke ConfirmPendingPurchaseHandler via httptest with the seeded
+		// user in context (mirrors what auth.Middleware does in prod).
+		body := ConfirmPendingInput{
+			ID:         ppID,
+			VendorName: "RestaurantDepot",
+			EventDate:  "2026-05-27",
+			LineItems:  nil, // empty — triggers the empty-resolution branch
+		}
+		buf, err := json.Marshal(body)
+		if err != nil {
+			t.Fatalf("marshal confirm body: %v", err)
+		}
+		req := httptest.NewRequest(http.MethodPost,
+			"/api/v1/inventory/purchases/confirm", bytes.NewReader(buf))
+		req.Header.Set("Content-Type", "application/json")
+		ctx := context.WithValue(req.Context(), auth.CtxKeyUser, &auth.User{
+			ID:    userID,
+			Email: "confirm-empty@yumyums.test",
+		})
+		req = req.WithContext(ctx)
+		rec := httptest.NewRecorder()
+		ConfirmPendingPurchaseHandler(testPool).ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("confirm status = %d, body=%s", rec.Code, rec.Body.String())
+		}
+
+		// Now query period-summary — cogs_excl_tax should equal abs(-75.00).
+		code, got := callHandler(t, from, to)
+		if code != http.StatusOK {
+			t.Fatalf("period-summary status = %d, want 200", code)
+		}
+		if got.COGSExclTax != 75.00 {
+			t.Errorf("COGSExclTax = %v, want 75.00 (abs(bank_total))", got.COGSExclTax)
+		}
+		if got.PurchaseEventCount != 1 {
+			t.Errorf("PurchaseEventCount = %d, want 1", got.PurchaseEventCount)
+		}
+		if len(got.Completeness.UnlinkedLineItemIDs) != 0 {
+			t.Errorf("UnlinkedLineItemIDs = %v, want []",
+				got.Completeness.UnlinkedLineItemIDs)
+		}
+		if !got.Completeness.Ready {
+			t.Errorf("Ready = false, want true. pending=%v unlinked=%v",
+				got.Completeness.PendingReviewIDs, got.Completeness.UnlinkedLineItemIDs)
 		}
 	})
 }
