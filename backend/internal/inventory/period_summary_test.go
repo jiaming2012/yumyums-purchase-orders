@@ -159,6 +159,23 @@ func boolByte(b bool) byte {
 	return 0
 }
 
+// insertPendingPurchaseWithReason inserts an unconfirmed/undiscarded
+// pending_purchases row with the given reason sentinel. Used by the
+// completeness gate test to assert no_attachment_on_bank_tx rows block ready.
+func insertPendingPurchaseWithReason(t *testing.T, createdAt, reason string) string {
+	t.Helper()
+	var id string
+	q := `INSERT INTO pending_purchases (bank_tx_id, bank_total, vendor, items, reason, created_at)
+	      VALUES ($1, 0, 'TestVendor', '[]'::jsonb, $2, $3::timestamptz)
+	      RETURNING id::text`
+	err := testPool.QueryRow(t.Context(), q,
+		"pp-tx-noatt-"+createdAt, reason, createdAt).Scan(&id)
+	if err != nil {
+		t.Fatalf("insert pending_purchase: %v", err)
+	}
+	return id
+}
+
 func TestPeriodSummary(t *testing.T) {
 	if testPool == nil {
 		t.Skip("DB_TEST_URL not reachable; skipping integration test")
@@ -267,6 +284,40 @@ func TestPeriodSummary(t *testing.T) {
 		if !got.Completeness.Ready {
 			t.Errorf("Ready = false, want true (discarded should be excluded). pending=%v unlinked=%v",
 				got.Completeness.PendingReviewIDs, got.Completeness.UnlinkedLineItemIDs)
+		}
+	})
+
+	t.Run("ready=false when no_attachment_on_bank_tx pending row in range", func(t *testing.T) {
+		// Phase 260605-pk1: HQ now surfaces every supported Mercury card swipe
+		// (not just photographed ones) as a pending_purchases row with
+		// reason='no_attachment_on_bank_tx'. The completeness gate's existing
+		// filter (confirmed_at IS NULL AND discarded_at IS NULL) is
+		// reason-agnostic, so these rows must block ready.
+		resetFixtures(t)
+		vendorID := insertVendor(t, "Acme")
+		piID := insertPurchaseItem(t, "Salmon")
+		insertEventAndLine(t, vendorID, "2026-05-26", 2.50, 25.00, 4.5, 5, piID)
+
+		// No-attachment pending row created on 2026-05-28 (in range).
+		ppID := insertPendingPurchaseWithReason(t,
+			"2026-05-28 10:00:00-05:00", "no_attachment_on_bank_tx")
+
+		code, got := callHandler(t, from, to)
+		if code != http.StatusOK {
+			t.Fatalf("status = %d, want 200", code)
+		}
+		if got.Completeness.Ready {
+			t.Errorf("Ready = true, want false (no_attachment row should block)")
+		}
+		found := false
+		for _, id := range got.Completeness.PendingReviewIDs {
+			if id == ppID {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("PendingReviewIDs = %v, want to contain %s", got.Completeness.PendingReviewIDs, ppID)
 		}
 	})
 
