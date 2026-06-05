@@ -227,6 +227,7 @@ None yet.
 | 260428-g36 | Remove 30-item cap from item picker renderPickerList | 2026-04-28 | 4cf4ea0 | [260428-g36-picker-item-cap](./quick/260428-g36-picker-item-cap/) |
 | 260428-j2r | Add photo upload/change to Inventory Setup item edit form | 2026-04-28 | f7ed57c | [260428-j2r-photo-upload-on-inventory-setup](./quick/260428-j2r-photo-upload-on-inventory-setup/) |
 | 260605-pk1 | Receipt-gate Mercury card transactions — surface no-attachment txns + accept empty-items confirm | 2026-06-05 | 4fe8dd2 | [260605-pk1-receipt-gate-mercury-card-transactions-m](./quick/260605-pk1-receipt-gate-mercury-card-transactions-m/) |
+| 260605-q7b | Fix COGS undercount on confirm-without-receipt — seed placeholder catalog row + handler else-branch + backfill orphan events | 2026-06-05 | ef48640 | [260605-q7b-fix-cogs-undercount-on-confirm-without-r](./quick/260605-q7b-fix-cogs-undercount-on-confirm-without-r/) |
 
 ## Deferred Items
 
