@@ -69,9 +69,16 @@ Operational tools that let the owner manage crew workflows and training from one
 - ✓ Multi-channel alerts (Zoho Cliq + email) with per-user preference — v3.0 Phase 17
 - ✓ Per-user timezone setting for scheduler and alerts — v3.0 Phase 17
 
+- ✓ Recipe/BOM mapping table (purchase_item × menu_item × usage_pct) with sum-constraint enforcement — Phase 999.2
+- ✓ GET /api/v1/inventory/menu-cogs endpoint (service-token auth) for sales-processor consumption — Phase 999.2
+- ✓ Recipes tab UI with ingredients-first list, 5%-snap slider, fullscreen menu-item picker, drift banner — Phase 999.2
+- ✓ Weekly drift-check scheduler (Sunday 03:00 Chicago) with Cliq alert sink — Phase 999.2
+- ✓ Menu→Recipes cross-link summary card (extension during human-verify) — Phase 999.2
+- ✓ Sales-processor contract handoff doc for per-menu-item COGS attribution — Phase 999.2
+
 ### Active
 
-None — v3.0 milestone complete.
+None — v3.0 milestone complete; Phase 999.2 (backlog) shipped 2026-06-05.
 
 ### Out of Scope
 
@@ -149,4 +156,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-23 after v3.0 milestone completion*
+*Last updated: 2026-06-05 after Phase 999.2 (per-menu-item COGS attribution) backlog completion*
