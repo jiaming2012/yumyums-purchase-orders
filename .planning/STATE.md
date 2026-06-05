@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v3.1
 milestone_name: Toast Integration & COGS Pipeline
-status: milestone_complete
-stopped_at: v3.1 ready to archive
-last_updated: "2026-06-05T00:30:00Z"
-last_activity: 2026-06-05 -- v3.1 milestone retroactively labeled
+status: milestone_archived
+stopped_at: v3.1 archived; awaiting next milestone
+last_updated: "2026-06-05T07:55:00Z"
+last_activity: 2026-06-05 -- v3.1 milestone archived
 progress:
   total_phases: 8
   completed_phases: 6
@@ -226,6 +226,24 @@ None yet.
 | 260422-not | Move stock level classification to shared Go backend function | 2026-04-22 | 6a974ac | [260422-not-shared-stock-level-classification-move-f](./quick/260422-not-shared-stock-level-classification-move-f/) |
 | 260428-g36 | Remove 30-item cap from item picker renderPickerList | 2026-04-28 | 4cf4ea0 | [260428-g36-picker-item-cap](./quick/260428-g36-picker-item-cap/) |
 | 260428-j2r | Add photo upload/change to Inventory Setup item edit form | 2026-04-28 | f7ed57c | [260428-j2r-photo-upload-on-inventory-setup](./quick/260428-j2r-photo-upload-on-inventory-setup/) |
+
+## Deferred Items
+
+Items acknowledged and deferred at v3.1 milestone close on 2026-06-05:
+
+| Category | Item | Status | Note |
+|----------|------|--------|------|
+| uat_gap | Phase 21 21-HUMAN-UAT.md | partial — 4 pending | v3.1 scope, human-only acceptance |
+| uat_gap | Phase 999.2 999.2-HUMAN-UAT.md | partial — 5 pending | v3.1 scope, deferred to manual ack |
+| uat_gap | Phase 09 09-UAT.md | testing — 9 pending | v2.0 carry-over (Tailscale/iPhone UAT) |
+| verification_gap | Phase 21 21-VERIFICATION.md | human_needed | v3.1 scope |
+| verification_gap | Phase 999.2 999.2-VERIFICATION.md | human_needed | v3.1 scope |
+| verification_gap | Phase 01 01-VERIFICATION.md | human_needed | v1.0 carry-over |
+| verification_gap | Phase 02 02-VERIFICATION.md | human_needed | v1.0 carry-over |
+| verification_gap | Phase 14 14-VERIFICATION.md | human_needed | v3.0 carry-over |
+| quick_task | 11 quick-task slugs dated 260412–260428 | missing | pre-v3.0 era, never acted on |
+
+Total: 21 items. Pre-v3.0 carry-over items will roll forward and should be reviewed at next milestone audit.
 
 ## Session Continuity
 

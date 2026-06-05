@@ -1,5 +1,25 @@
 # Milestones
 
+## v3.1 Toast Integration & COGS Pipeline (Shipped: 2026-06-05)
+
+**Phases completed:** 6 phases (18, 20, 21, 22, 22.1, 999.2), 24 plans
+
+**Key accomplishments:**
+
+- HQ becomes a self-contained Toast SFTP consumer — `menu_items` + `daily_menu_sales` tables, 12h sync worker, on-demand `sync-toast` CLI, Menu tab UI (Phase 22)
+- Spaces-first Toast pipeline — SFTP→DO Spaces sync with local forensic cache, ingest reads exclusively from Spaces, one-time historical archive migration CLI, graceful Cliq-alerting degraded mode (Phase 22.1)
+- COGS pipeline to sales-processor — `GET /api/v1/inventory/period-summary` behind `ServiceTokenMiddleware` (Bearer auth) with receipt-completeness gate that hard-fails weekly payroll when receipts are incomplete (Phase 21)
+- Per-menu-item COGS attribution via recipe/BOM mapping — `recipes` table with sum-constraint enforcement, `GET /api/v1/inventory/menu-cogs` endpoint, weekly drift-check scheduler with Cliq sink, ingredients-first Recipes tab UI with 5%-snap slider + fullscreen picker + drift banner (Phase 999.2)
+- Sales-processor handoff contracts — `21-SALES-PROCESSOR-CONTRACT.md` (period-summary) and `999.2-SALES-PROCESSOR-CONTRACT.md` (menu-cogs) mirroring HTTP shapes byte-for-byte for cross-repo consumption
+- Photo capture in onboarding checklists — DB migration, camera/upload UI across My Trainings/Manager/Builder, DO Spaces presigned-PUT integration (Phase 18)
+- Store location enforcement on PO — items without `store_location` surface under "Unassigned" but are blocked from PO until set (Phase 20)
+
+**Known deferred items at close:** 21 (9 v3.1-scope HUMAN-UAT/VERIFICATION items, 12 pre-v3.0 carry-over). See STATE.md `Deferred Items`.
+
+[Archive: milestones/v3.1-ROADMAP.md](milestones/v3.1-ROADMAP.md)
+
+---
+
 ## v3.0 Purchase Orders & Shopping Lists (Shipped: 2026-04-23)
 
 **Phases completed:** 6 phases, 14 plans, 20 tasks
