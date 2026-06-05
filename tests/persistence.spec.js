@@ -1173,4 +1173,126 @@ test.describe('Persistence', () => {
     // max_watched_time persists alongside completion
     expect(videoPartAfter.max_watched_time).toBeGreaterThanOrEqual(knownMaxWatched);
   });
+
+  // ─── Recipes (Phase 999.2) ──────────────────────────────────────────────
+  //
+  // Per CLAUDE.md persistence rule: every user-entered value must round-trip
+  // through the API. The Recipes tab's slider writes usage_pct via
+  // PUT /api/v1/inventory/recipes/{id}. This test proves the value survives
+  // the round-trip — write a new value, GET, assert the value persisted.
+  //
+  // The Recipes tab's slider snaps to 5% increments and validateUsagePct
+  // (Plan 03) enforces this server-side. The PUT contract is
+  // {usage_pct: <multiple of 5, 0..100>}; sum-constraint 422 envelope is
+  // covered by tests/recipes.spec.js.
+
+  test('recipe usage_pct round-trips through PUT and GET', async ({ page }) => {
+    // Setup: this test needs an existing menu_item + purchase_item to create
+    // a recipe row. menu_items are populated by the Toast ingest worker; in
+    // the test environment they may be absent. We gracefully skip if no menu
+    // items exist — the snap-invariant / 404 / merge contract assertions in
+    // tests/recipes.spec.js cover the always-on surface.
+
+    const menuItems = await page.evaluate(async () => {
+      // 365-day window — broad enough to surface ANY seeded menu items.
+      const since = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      const r = await fetch('/api/v1/inventory/menu-items?since=' + since);
+      if (!r.ok) return [];
+      const body = await r.json();
+      return Array.isArray(body) ? body : (body.menu_items || []);
+    });
+    test.skip(menuItems.length === 0, 'no menu_items in test DB — skipping recipe round-trip (Toast ingest disabled)');
+
+    const purchaseItems = await page.evaluate(async () => {
+      const r = await fetch('/api/v1/inventory/items');
+      if (!r.ok) return [];
+      const body = await r.json();
+      return Array.isArray(body) ? body : (body.items || []);
+    });
+    test.skip(purchaseItems.length === 0, 'no purchase_items in test DB');
+
+    const menuItemID = menuItems[0].id;
+    const purchaseItemID = purchaseItems[0].id;
+
+    // Clean up any prior recipe on the same (menu_item, purchase_item) pair —
+    // the table has UNIQUE (menu_item_id, purchase_item_id) per migration 0062.
+    // We list and delete by id if the pair already exists.
+    const existing = await page.evaluate(async () => {
+      const r = await fetch('/api/v1/inventory/recipes/');
+      if (!r.ok) return { ingredients: [] };
+      return r.json();
+    });
+    for (const ing of (existing.ingredients || [])) {
+      if (ing.purchase_item_id !== purchaseItemID) continue;
+      for (const r of (ing.recipes || [])) {
+        if (r.menu_item_id !== menuItemID) continue;
+        await page.evaluate(async (rid) => {
+          await fetch('/api/v1/inventory/recipes/' + rid, { method: 'DELETE' });
+        }, r.id);
+      }
+    }
+
+    // Step 1 — POST: create recipe with usage_pct=5 (the default Plan 05 uses
+    // when the slider thumb is first added via the menu-item picker).
+    const created = await page.evaluate(async ([miID, piID]) => {
+      const r = await fetch('/api/v1/inventory/recipes/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ menu_item_id: miID, purchase_item_id: piID, usage_pct: 5 }),
+      });
+      return { status: r.status, body: await r.json() };
+    }, [menuItemID, purchaseItemID]);
+    expect(created.status).toBe(201);
+    expect(created.body).toHaveProperty('id');
+    const recipeID = created.body.id;
+
+    // Step 2 — GET: confirm initial value persisted (5%).
+    let listed = await page.evaluate(async () => {
+      const r = await fetch('/api/v1/inventory/recipes/');
+      return r.json();
+    });
+    let found = null;
+    for (const ing of (listed.ingredients || [])) {
+      for (const r of (ing.recipes || [])) {
+        if (r.id === recipeID) { found = r; break; }
+      }
+      if (found) break;
+    }
+    expect(found, 'created recipe must appear in /recipes GET').not.toBeNull();
+    expect(+found.usage_pct).toBe(5);
+
+    // Step 3 — PUT: simulate slider release to 25%.
+    const updated = await page.evaluate(async (rid) => {
+      const r = await fetch('/api/v1/inventory/recipes/' + rid, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ usage_pct: 25 }),
+      });
+      let body = null;
+      try { body = await r.json(); } catch (_) {}
+      return { status: r.status, body };
+    }, recipeID);
+    // 200 with body or 204 (handler may use either; Plan 03 SUMMARY says 204).
+    expect([200, 204]).toContain(updated.status);
+
+    // Step 4 — GET: confirm NEW value persisted (25%, NOT 5%).
+    listed = await page.evaluate(async () => {
+      const r = await fetch('/api/v1/inventory/recipes/');
+      return r.json();
+    });
+    found = null;
+    for (const ing of (listed.ingredients || [])) {
+      for (const r of (ing.recipes || [])) {
+        if (r.id === recipeID) { found = r; break; }
+      }
+      if (found) break;
+    }
+    expect(found, 'recipe must still appear in /recipes GET after PUT').not.toBeNull();
+    expect(+found.usage_pct, 'usage_pct must persist as 25 after PUT — slider release contract').toBe(25);
+
+    // Cleanup: delete the recipe so the test is idempotent across runs.
+    await page.evaluate(async (rid) => {
+      await fetch('/api/v1/inventory/recipes/' + rid, { method: 'DELETE' });
+    }, recipeID);
+  });
 });

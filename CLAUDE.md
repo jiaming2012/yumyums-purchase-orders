@@ -30,10 +30,11 @@ A mobile-first PWA operations console for a food truck business. One app shell w
 - **Auto-reload:** `ptr.js` listens for `controllerchange` to reload on new SW deploy
 - **Manifest:** `manifest.json` — "Yumyums HQ", standalone display, portrait orientation
 - **Styling:** Shared CSS variables with automatic dark mode, mobile-first (max-width 480px)
-- **Inventory:** `inventory.html` — 5-tab layout (Purchases / Stock / Trends / Cost / Setup), receipt review pipeline, item catalog with groups/tags, stock level thresholds
+- **Inventory:** `inventory.html` — 7-tab layout (Purchases / Stock / Menu / Recipes / Trends / Cost / Setup), receipt review pipeline, item catalog with groups/tags, stock level thresholds, recipe/BOM editing for per-menu-item COGS
 - **Receipt pipeline:** Mercury banking → receipt download → DO Spaces upload → Claude Haiku parse → validate → pending review queue → manual confirm
 - **Period summary endpoint (Phase 21):** GET /api/v1/inventory/period-summary returns COGS + completeness gate for sales-processor's weekly payroll. Auth via HQ_INVENTORY_SERVICE_TOKEN (Bearer); unset → 503. See .planning/phases/21-cogs-in-sales-processor-report-receipt-completeness-gate-bef/21-SALES-PROCESSOR-CONTRACT.md.
-- **Testing:** 170+ Playwright E2E tests across `tests/workflows.spec.js`, `tests/persistence.spec.js`, `tests/inventory.spec.js`, `tests/onboarding.spec.js`
+- **Menu-COGS endpoint (Phase 999.2):** GET /api/v1/inventory/menu-cogs?from=YYYY-MM-DD&to=YYYY-MM-DD returns per-menu-item COGS attribution (units_sold + ingredient_cost_per_unit + ingredient_cost_total) for sales-processor's weekly report. Optional `?breakdown=true` adds per-ingredient detail per menu item. Auth via the SAME HQ_INVENTORY_SERVICE_TOKEN (Bearer) Phase 21 uses; unset → 503. HQ is truth source for units_sold (joins recipes → menu_items → daily_menu_sales internally). No completeness gate — drift surfaces in-app via the Recipes-tab banner + weekly Cliq alert. See .planning/phases/999.2-per-menu-item-cogs-attribution-via-recipe-bom-mapping/999.2-SALES-PROCESSOR-CONTRACT.md.
+- **Testing:** 170+ Playwright E2E tests across `tests/workflows.spec.js`, `tests/persistence.spec.js`, `tests/inventory.spec.js`, `tests/onboarding.spec.js`, `tests/recipes.spec.js`
 - **Backend:** Go + Postgres, REST API at `/api/v1/workflow/*`, `/api/v1/inventory/*`, `/api/v1/auth/*`, `/api/v1/onboarding/*`, `/api/v1/users/*`
 - **Data flow:** See `docs/data-flow-audit.md` for the full state persistence inventory
 
@@ -46,15 +47,16 @@ A mobile-first PWA operations console for a food truck business. One app shell w
 
 ### inventory.html Key Concepts
 
-- **5-tab layout:** Purchases (purchase events + pending review), Stock (levels + reorder suggestions), Trends (coming soon), Cost (coming soon), Setup (items + vendors management)
+- **7-tab layout:** Purchases (purchase events + pending review), Stock (levels + reorder suggestions), Menu (Toast menu items, read-only), Recipes (BOM editing — ingredient-first slider allocation for per-menu-item COGS), Trends (coming soon), Cost (coming soon), Setup (items + vendors management)
 - **Receipt review pipeline:** Pending purchases from Mercury receipt worker → user reviews line items → links each to catalog item via fullscreen picker modal → confirms when total matches bank transaction
 - **Item catalog:** Items are created from actual receipts (not pre-seeded). Each item belongs to a group (Proteins, Beverages, etc.). Groups have configurable stock level thresholds (low/high).
 - **Auto-match:** When review form opens, line item names are matched case-insensitively against catalog. Matched items show no border; unlinked items show orange warning border.
 - **Item selection persistence:** Selecting an item in the picker modal saves to `pending_purchases.items` JSONB via `PUT /purchases/pending-items` so selections survive page reloads.
 - **Stock count overrides:** `stock_count_overrides` table stores manual quantity counts. Stock query uses `COALESCE(override, sum)`. Reason is required (preset chips: Counted shelf, Spoiled item, Damaged item).
 - **Name normalization:** `normalizeItemName()` in Go uses `cases.Title(language.English)` for title case. Applied on confirm, item create, and vendor create. Frontend `titleCase()` mirrors this.
-- **Merge:** Vendors and items can be merged (re-points all FKs, deletes source). Cannot merge into self.
-- **Magic links:** Stock item detail → "View in Setup" navigates to Setup tab with item expanded. Reorder suggestion tap scrolls to and expands the stock item below.
+- **Merge:** Vendors and items can be merged (re-points all FKs, deletes source). Cannot merge into self. Menu items in the Recipes tab can be merged the same way.
+- **Magic links:** Stock item detail → "View in Setup" navigates to Setup tab with item expanded. Reorder suggestion tap scrolls to and expands the stock item below. Menu tab card tap → jumps to Recipes tab with that menu item's cost summary auto-selected.
+- **Recipes (Phase 999.2):** Each ingredient (purchase_item) has a collapsed row showing last-week spend + unallocated %. Expand to edit `recipes.usage_pct` per menu item via 5%-snap sliders (autosave on release via PUT /api/v1/inventory/recipes/{id}). Server enforces sum-per-purchase_item ≤ 100 — 422 envelope `{error:"sum_exceeds_100",conflict_menu_item,conflict_pct}` triggers slider rollback + inline error. Weekly drift check (Monday 09:00 Chicago) writes to `drift_check_results` + fires Cliq message; banner reads from /api/v1/inventory/recipes/drift (200 `{}` when clean).
 
 ### Workflows Data Persistence Rule
 
