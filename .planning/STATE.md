@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
+status: milestone_complete
 stopped_at: Phase 999.2 UI-SPEC approved
 last_updated: "2026-06-04T14:09:04.686Z"
 last_activity: 2026-06-04 -- Phase 999.2 execution started
 progress:
   total_phases: 8
-  completed_phases: 5
+  completed_phases: 6
   total_plans: 25
   completed_plans: 20
-  percent: 80
+  percent: 75
 ---
 
 # Project State
@@ -25,10 +25,10 @@ See: .planning/PROJECT.md (updated 2026-04-15)
 
 ## Current Position
 
-Phase: 999.2 (per-menu-item-cogs-attribution-via-recipe-bom-mapping) — EXECUTING
-Plan: 1 of 6
-Status: Executing Phase 999.2
-Last activity: 2026-06-04 -- Phase 999.2 execution started
+Phase: 999.2
+Plan: Not started
+Status: Milestone complete
+Last activity: 2026-06-05
 
 Progress: [██████████] 100%
 
@@ -36,7 +36,7 @@ Progress: [██████████] 100%
 
 **Velocity:**
 
-- Total plans completed: 32 (v1.0 + v1.1)
+- Total plans completed: 38 (v1.0 + v1.1)
 - Average duration: ~12 min
 - Total execution time: ~3.6 hours
 
@@ -51,6 +51,7 @@ Progress: [██████████] 100%
 | 21 | 3 | - | - |
 | 22.1 | 5 | - | - |
 | 22 | 6 | - | - |
+| 999.2 | 6 | - | - |
 
 **Recent Trend:**
 
