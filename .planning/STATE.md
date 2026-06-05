@@ -1,11 +1,11 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: milestone
+milestone: v3.1
+milestone_name: Toast Integration & COGS Pipeline
 status: milestone_complete
-stopped_at: Phase 999.2 UI-SPEC approved
-last_updated: "2026-06-04T14:09:04.686Z"
-last_activity: 2026-06-04 -- Phase 999.2 execution started
+stopped_at: v3.1 ready to archive
+last_updated: "2026-06-05T00:30:00Z"
+last_activity: 2026-06-05 -- v3.1 milestone retroactively labeled
 progress:
   total_phases: 8
   completed_phases: 6

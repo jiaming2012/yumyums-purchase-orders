@@ -78,7 +78,22 @@ Operational tools that let the owner manage crew workflows and training from one
 
 ### Active
 
-None — v3.0 milestone complete; Phase 999.2 (backlog) shipped 2026-06-05.
+None — v3.1 milestone complete.
+
+## Current Milestone: v3.1 Toast Integration & COGS Pipeline (shipped 2026-06-05)
+
+**Goal:** Make HQ a self-contained Toast SFTP consumer, ship the COGS pipeline to sales-processor, and add per-menu-item COGS attribution via recipe/BOM mapping — closing the loop between purchases (purchase_items), sales (menu_items), and weekly payroll.
+
+**Shipped:**
+- Phase 18: Photos on onboarding checklists
+- Phase 20: Store location enforcement on PO (renumbered from 19)
+- Phase 21: COGS in sales-processor report + receipt completeness gate before payroll
+- Phase 22: HQ Toast SFTP ingest — menu_items + daily sales aggregate
+- Phase 22.1: Toast ingest re-architecture — Spaces-first ingest worker + sync CLI
+- Phase 999.2: Per-menu-item COGS attribution via recipe/BOM mapping
+
+**Parked / backlog (not in v3.1):**
+- Phase 999.1: Tab persistence on refresh (carried forward)
 
 ### Out of Scope
 
@@ -156,4 +171,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-05 after Phase 999.2 (per-menu-item COGS attribution) backlog completion*
+*Last updated: 2026-06-05 — relabeled post-v3.0 work as v3.1 Toast Integration & COGS Pipeline milestone, ready to close*

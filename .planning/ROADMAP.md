@@ -7,6 +7,7 @@
 - ✅ **v2.0 Backend** — Phases 9-13 (shipped 2026-04-19) — [Archive](milestones/v2.0-ROADMAP.md)
 - ✅ **v2.1 Onboarding Video Upgrade** — Phase 1 (shipped 2026-04-20) — [Archive](milestones/v2.1-ROADMAP.md)
 - ✅ **v3.0 Purchase Orders & Shopping Lists** — Phases 14-17 (shipped 2026-04-23) — [Archive](milestones/v3.0-ROADMAP.md)
+- ✅ **v3.1 Toast Integration & COGS Pipeline** — Phases 18, 20, 21, 22, 22.1, 999.2 (shipped 2026-06-05) — pending archive
 
 ## Phases
 
