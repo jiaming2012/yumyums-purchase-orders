@@ -70,17 +70,13 @@ func runIngestCycle(ctx context.Context, cfg WorkerConfig) error {
 	}
 
 	if len(txns) == 0 {
-		log.Println("receipt worker: no transactions with attachments found")
+		log.Println("receipt worker: no supported transactions found")
 		return nil
 	}
 
 	var autoCreated, pendingReview, skippedCached int
 
 	for _, tx := range txns {
-		if len(tx.Attachments) == 0 {
-			continue
-		}
-
 		// Idempotency: skip if already in purchase_events or pending_purchases
 		already, err := bankTxIDExists(ctx, cfg.Pool, tx.ID)
 		if err != nil {
@@ -89,6 +85,24 @@ func runIngestCycle(ctx context.Context, cfg WorkerConfig) error {
 		}
 		if already {
 			skippedCached++
+			continue
+		}
+
+		// No-attachment branch: surface every unreceipted card swipe in
+		// pending_purchases so the completeness gate can block payroll on
+		// unresolved card spend. ON CONFLICT DO NOTHING on bank_tx_id keeps
+		// re-polls idempotent.
+		if len(tx.Attachments) == 0 {
+			if routeErr := insertPendingPurchase(
+				ctx, cfg.Pool, tx,
+				nil,              // items unknown without receipt
+				ReceiptSummary{}, // summary unknown without receipt
+				"",               // no receiptURL
+				"no_attachment_on_bank_tx",
+			); routeErr != nil {
+				log.Printf("receipt worker: insertPendingPurchase (no-attachment) for tx %s: %v", tx.ID, routeErr)
+			}
+			pendingReview++
 			continue
 		}
 

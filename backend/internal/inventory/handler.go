@@ -675,18 +675,32 @@ func ConfirmPendingPurchaseHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		// Validate total matches bank transaction (bank_total is negative for debits)
-		lineTotal := input.Tax
-		for _, li := range input.LineItems {
-			lineTotal += li.Price * float64(li.Quantity)
-		}
+		// Compute abs(bank_total) — bank_total is negative for debits.
 		absBankTotal := bankTotal
 		if absBankTotal < 0 {
 			absBankTotal = -absBankTotal
 		}
-		if absBankTotal-lineTotal > 0.01 || lineTotal-absBankTotal > 0.01 {
-			writeError(w, http.StatusBadRequest, fmt.Sprintf("total_mismatch: receipt total $%.2f does not match bank transaction $%.2f", lineTotal, absBankTotal))
-			return
+
+		// Empty-items resolution: operator is confirming "this was food, no
+		// receipt available". Skip the mismatch check, use abs(bank_total) as
+		// the event total, force tax=0, and skip the line-item loop entirely.
+		emptyResolution := len(input.LineItems) == 0
+		var eventTax, eventTotal float64
+		if emptyResolution {
+			eventTax = 0
+			eventTotal = absBankTotal
+		} else {
+			// Validate receipt-parsed total matches bank transaction.
+			lineTotal := input.Tax
+			for _, li := range input.LineItems {
+				lineTotal += li.Price * float64(li.Quantity)
+			}
+			if absBankTotal-lineTotal > 0.01 || lineTotal-absBankTotal > 0.01 {
+				writeError(w, http.StatusBadRequest, fmt.Sprintf("total_mismatch: receipt total $%.2f does not match bank transaction $%.2f", lineTotal, absBankTotal))
+				return
+			}
+			eventTax = input.Tax
+			eventTotal = input.Total
 		}
 
 		// Create the real purchase event
@@ -695,7 +709,7 @@ func ConfirmPendingPurchaseHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			INSERT INTO purchase_events (vendor_id, bank_tx_id, event_date, tax, total)
 			VALUES ($1, $2, $3, $4, $5)
 			RETURNING id`,
-			vendorID, bankTxID, input.EventDate, input.Tax, input.Total,
+			vendorID, bankTxID, input.EventDate, eventTax, eventTotal,
 		).Scan(&eventID)
 		if err != nil {
 			log.Printf("ConfirmPendingPurchase insert event: %v", err)
@@ -703,18 +717,20 @@ func ConfirmPendingPurchaseHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		for _, li := range input.LineItems {
-			desc := normalizeItemName(li.Description)
-			_, err := tx.Exec(r.Context(), `
-				INSERT INTO purchase_line_items
-				(purchase_event_id, purchase_item_id, description, quantity, price, is_case)
-				VALUES ($1, $2, $3, $4, $5, $6)`,
-				eventID, li.PurchaseItemID, desc, li.Quantity, li.Price, li.IsCase,
-			)
-			if err != nil {
-				log.Printf("ConfirmPendingPurchase insert line_item: %v", err)
-				writeError(w, http.StatusInternalServerError, "internal_error")
-				return
+		if !emptyResolution {
+			for _, li := range input.LineItems {
+				desc := normalizeItemName(li.Description)
+				_, err := tx.Exec(r.Context(), `
+					INSERT INTO purchase_line_items
+					(purchase_event_id, purchase_item_id, description, quantity, price, is_case)
+					VALUES ($1, $2, $3, $4, $5, $6)`,
+					eventID, li.PurchaseItemID, desc, li.Quantity, li.Price, li.IsCase,
+				)
+				if err != nil {
+					log.Printf("ConfirmPendingPurchase insert line_item: %v", err)
+					writeError(w, http.StatusInternalServerError, "internal_error")
+					return
+				}
 			}
 		}
 

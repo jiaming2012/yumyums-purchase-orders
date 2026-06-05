@@ -18,7 +18,9 @@ const (
 )
 
 // FetchTransactions fetches Mercury transactions for the given date range.
-// Only returns transactions that are "sent" and have attachments.
+// Returns every "sent" supported transaction regardless of attachment count;
+// classifying attached vs. unattached rows is the worker's job (see worker.go)
+// so the completeness gate can fail on unreceipted card spend.
 func FetchTransactions(ctx context.Context, apiKey string, startDate, endDate time.Time) ([]MercuryTransaction, error) {
 	url := "https://api.mercury.com/api/v1/transactions"
 
@@ -63,9 +65,10 @@ func FetchTransactions(ctx context.Context, apiKey string, startDate, endDate ti
 		if !isSupportedKind(tx.Kind) {
 			continue
 		}
-		if len(tx.Attachments) > 0 {
-			out = append(out, tx)
-		}
+		// Attachment-or-not classification is the worker's job now —
+		// see worker.go. Both branches need to be tracked so the
+		// completeness gate can fail on unreceipted spend.
+		out = append(out, tx)
 	}
 
 	return out, nil
