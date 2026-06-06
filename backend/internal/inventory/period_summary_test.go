@@ -234,27 +234,10 @@ func insertPendingPurchaseWithBankTotal(t *testing.T, bankTxID string, bankTotal
 	return id
 }
 
-// insertPendingPurchaseWithReason inserts an unconfirmed/undiscarded
-// pending_purchases row with the given reason sentinel. Used by the
-// completeness gate test to assert no_attachment_on_bank_tx rows block ready.
-func insertPendingPurchaseWithReason(t *testing.T, createdAt, reason string) string {
-	t.Helper()
-	var id string
-	q := `INSERT INTO pending_purchases (bank_tx_id, bank_total, vendor, items, reason, created_at)
-	      VALUES ($1, 0, 'TestVendor', '[]'::jsonb, $2, $3::timestamptz)
-	      RETURNING id::text`
-	err := testPool.QueryRow(t.Context(), q,
-		"pp-tx-noatt-"+createdAt, reason, createdAt).Scan(&id)
-	if err != nil {
-		t.Fatalf("insert pending_purchase: %v", err)
-	}
-	return id
-}
-
 // insertPendingPurchaseWithEventDate inserts an unconfirmed/undiscarded
 // pending_purchases row. eventDate is a DATE string ("YYYY-MM-DD") or "" for NULL.
 // createdAt is a timestamptz string. reason is a string sentinel or "" for NULL.
-// Returns the inserted id::text. Mirrors insertPendingPurchaseWithReason style.
+// Returns the inserted id::text.
 func insertPendingPurchaseWithEventDate(t *testing.T, bankTxID, eventDate, createdAt, reason string) string {
 	t.Helper()
 	var (
