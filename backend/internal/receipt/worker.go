@@ -94,6 +94,23 @@ func runIngestCycle(ctx context.Context, cfg WorkerConfig) error {
 			}
 		}
 
+		// Same refresh pattern for pending_purchases — catches the race where a
+		// pending row was created before Mercury's classify pipeline tagged a
+		// category. Idempotent via IS DISTINCT FROM. Runs for cached AND new
+		// transactions (before the `already` short-circuit) so the next worker
+		// poll backfills any row inside the 14-day lookback window.
+		if tx.CategoryData != nil {
+			_, refreshErr := cfg.Pool.Exec(ctx,
+				`UPDATE pending_purchases
+				 SET mercury_category = $1
+				 WHERE bank_tx_id = $2
+				   AND (mercury_category IS DISTINCT FROM $1)`,
+				tx.CategoryData.Name, tx.ID)
+			if refreshErr != nil {
+				log.Printf("receipt worker: refresh pending_purchases.mercury_category for tx %s: %v (continuing)", tx.ID, refreshErr)
+			}
+		}
+
 		// Backfill pending_purchases.vendor from Mercury's bankDescription
 		// for rows that landed before the BankDescription-fallback shipped
 		// (260606-hew). Runs alongside mercury_category refresh — before
@@ -360,10 +377,19 @@ func insertPendingPurchase(ctx context.Context, pool *pgxpool.Pool, tx MercuryTr
 		vendor = tx.BankDescription
 	}
 
+	// Derive mercury_category (nil-safe — NULL when Mercury hasn't classified yet).
+	// Mirrors createPurchaseEvent. /period-summary uses this to gate whether
+	// a pending row blocks payroll (COGS-category + no_attachment = blocks)
+	// or rolls into COGS at bank_total (COGS-category + parse-failed receipt).
+	var mercuryCategory string
+	if tx.CategoryData != nil {
+		mercuryCategory = tx.CategoryData.Name
+	}
+
 	_, err = pool.Exec(ctx,
 		`INSERT INTO pending_purchases
-		 (bank_tx_id, bank_total, vendor, event_date, tax, total, items, reason, receipt_url)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		 (bank_tx_id, bank_total, vendor, event_date, tax, total, items, reason, receipt_url, mercury_category)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 		 ON CONFLICT DO NOTHING`,
 		tx.ID,
 		tx.Amount,
@@ -374,6 +400,7 @@ func insertPendingPurchase(ctx context.Context, pool *pgxpool.Pool, tx MercuryTr
 		itemsJSON,
 		nullableString(reason),
 		nullableString(receiptURL),
+		nullableString(mercuryCategory),
 	)
 	if err != nil {
 		return fmt.Errorf("insertPendingPurchase: %w", err)
