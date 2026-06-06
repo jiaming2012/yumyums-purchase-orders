@@ -54,12 +54,19 @@ func resetFixtures(t *testing.T) {
 	}
 }
 
-// callHandler invokes PeriodSummaryHandler directly (not through chi).
+// callHandler invokes PeriodSummaryHandler directly (not through chi)
+// with the default ["COGS"] allowlist.
 func callHandler(t *testing.T, from, to string) (int, PeriodSummary) {
+	return callHandlerWithAllowlist(t, from, to, []string{"COGS"})
+}
+
+// callHandlerWithAllowlist is the underlying helper that lets a subtest pass
+// a custom Mercury category allowlist (Phase 260605-v0n).
+func callHandlerWithAllowlist(t *testing.T, from, to string, allowlist []string) (int, PeriodSummary) {
 	t.Helper()
 	req := httptest.NewRequest(http.MethodGet, "/?from="+from+"&to="+to, nil)
 	rec := httptest.NewRecorder()
-	PeriodSummaryHandler(testPool).ServeHTTP(rec, req)
+	PeriodSummaryHandler(testPool, allowlist).ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
 		return rec.Code, PeriodSummary{}
 	}
@@ -100,14 +107,35 @@ func insertPurchaseItem(t *testing.T, description string) string {
 // insertEventAndLine inserts a purchase_event + a single purchase_line_item.
 // If purchaseItemID is empty string, the line item's purchase_item_id is NULL
 // (the unlinked case).
+//
+// Phase 260605-v0n: Defaults mercury_category='COGS' so events are included
+// under the default allowlist. Use insertEventAndLineWithCategory for tests
+// that need a non-COGS or NULL category.
 func insertEventAndLine(t *testing.T, vendorID, eventDate string, tax, total, price float64, qty int, purchaseItemID string) (string, string) {
 	t.Helper()
+	return insertEventAndLineWithCategory(t, vendorID, eventDate, tax, total, price, qty, purchaseItemID, "COGS")
+}
+
+// insertEventAndLineWithCategory is the underlying helper. Empty `category`
+// string is treated as NULL (uncategorized — excluded by default allowlist).
+func insertEventAndLineWithCategory(t *testing.T, vendorID, eventDate string, tax, total, price float64, qty int, purchaseItemID, category string) (string, string) {
+	t.Helper()
 	var eventID string
+	var categoryArg interface{}
+	if category == "" {
+		categoryArg = nil
+	} else {
+		categoryArg = category
+	}
+	bankTxID := "tx-" + eventDate + "-" + strconv.Itoa(int(price*10000))
+	if category != "" && category != "COGS" {
+		bankTxID += "-" + category
+	}
 	err := testPool.QueryRow(t.Context(),
-		`INSERT INTO purchase_events (vendor_id, bank_tx_id, event_date, tax, total)
-		 VALUES ($1, $2, $3::date, $4, $5)
+		`INSERT INTO purchase_events (vendor_id, bank_tx_id, event_date, tax, total, mercury_category)
+		 VALUES ($1, $2, $3::date, $4, $5, $6)
 		 RETURNING id::text`,
-		vendorID, "tx-"+eventDate+"-"+strconv.Itoa(int(price*10000)), eventDate, tax, total).Scan(&eventID)
+		vendorID, bankTxID, eventDate, tax, total, categoryArg).Scan(&eventID)
 	if err != nil {
 		t.Fatalf("insert purchase_event: %v", err)
 	}
@@ -470,6 +498,17 @@ func TestPeriodSummary(t *testing.T) {
 			t.Fatalf("confirm status = %d, body=%s", rec.Code, rec.Body.String())
 		}
 
+		// Phase 260605-v0n: ConfirmPendingPurchaseHandler writes NULL for
+		// mercury_category by design (worker re-sync fills it on next tick).
+		// In production the 6h worker pass populates it; here we simulate
+		// that pass with a direct UPDATE so the default ["COGS"] allowlist
+		// includes the just-confirmed event.
+		if _, err := testPool.Exec(t.Context(),
+			`UPDATE purchase_events SET mercury_category = 'COGS' WHERE bank_tx_id = $1`,
+			"e2e-empty-tx-1"); err != nil {
+			t.Fatalf("simulate worker re-sync: %v", err)
+		}
+
 		// Now query period-summary — cogs_excl_tax should equal abs(-75.00).
 		code, got := callHandler(t, from, to)
 		if code != http.StatusOK {
@@ -601,8 +640,8 @@ func TestPeriodSummary(t *testing.T) {
 		vendorID := insertVendor(t, "OrphanVendor")
 		var eventID string
 		err := testPool.QueryRow(t.Context(),
-			`INSERT INTO purchase_events (vendor_id, bank_tx_id, event_date, tax, total)
-			 VALUES ($1, $2, '2026-05-28'::date, 0, 0)
+			`INSERT INTO purchase_events (vendor_id, bank_tx_id, event_date, tax, total, mercury_category)
+			 VALUES ($1, $2, '2026-05-28'::date, 0, 0, 'COGS')
 			 RETURNING id::text`,
 			vendorID, "tx-orphan-260528").Scan(&eventID)
 		if err != nil {
@@ -625,6 +664,97 @@ func TestPeriodSummary(t *testing.T) {
 		}
 		if row.TripCount != 1 {
 			t.Errorf("TripCount = %d, want 1", row.TripCount)
+		}
+	})
+
+	// Phase 260605-v0n: Mercury category allowlist filters the COGS aggregate.
+	// CubeSmart storage rent (category "Rent & Utilities") stays in
+	// purchase_events for bookkeeping but does NOT roll up into food-cost
+	// numbers sent to sales-processor. NULL is also excluded (Postgres
+	// ANY(NULL) returns NULL, not true). Custom allowlists let ops include
+	// additional categories without a code change.
+
+	t.Run("allowlist excludes non-COGS rows", func(t *testing.T) {
+		resetFixtures(t)
+		acmeID := insertVendor(t, "Acme")
+		cubeID := insertVendor(t, "CubeSmart")
+		piID := insertPurchaseItem(t, "Salmon")
+		// COGS event ($30 line). Default helper sets mercury_category='COGS'.
+		insertEventAndLine(t, acmeID, "2026-05-26", 0, 30.00, 30.00, 1, piID)
+		// Non-COGS event ($999 line) — should be filtered out.
+		insertEventAndLineWithCategory(t, cubeID, "2026-05-27", 0, 999.00, 999.00, 1, piID, "Rent & Utilities")
+
+		code, got := callHandler(t, from, to)
+		if code != http.StatusOK {
+			t.Fatalf("status = %d", code)
+		}
+		if got.COGSExclTax != 30.00 {
+			t.Errorf("COGSExclTax = %v, want 30.00 (non-COGS event excluded)", got.COGSExclTax)
+		}
+		if got.PurchaseEventCount != 1 {
+			t.Errorf("PurchaseEventCount = %d, want 1", got.PurchaseEventCount)
+		}
+		if len(got.ByVendor) != 1 {
+			t.Fatalf("len(ByVendor) = %d, want 1 (CubeSmart should be excluded; got=%+v)",
+				len(got.ByVendor), got.ByVendor)
+		}
+		if got.ByVendor[0].VendorName != "Acme" {
+			t.Errorf("ByVendor[0].VendorName = %q, want Acme", got.ByVendor[0].VendorName)
+		}
+		// tax aggregate must also exclude the non-COGS event (tax was 0 on both
+		// but the assertion is structural — by_vendor only has Acme so any tax
+		// on CubeSmart could only leak via the correlated subquery on pe2).
+		if got.ByVendor[0].TotalInclTax != 30.00 {
+			t.Errorf("ByVendor[0].TotalInclTax = %v, want 30.00", got.ByVendor[0].TotalInclTax)
+		}
+	})
+
+	t.Run("NULL mercury_category is excluded by default", func(t *testing.T) {
+		resetFixtures(t)
+		acmeID := insertVendor(t, "Acme")
+		piID := insertPurchaseItem(t, "Salmon")
+		// Empty category string → NULL in DB. ANY(NULL) returns NULL → excluded.
+		insertEventAndLineWithCategory(t, acmeID, "2026-05-26", 0, 50.00, 50.00, 1, piID, "")
+
+		code, got := callHandler(t, from, to)
+		if code != http.StatusOK {
+			t.Fatalf("status = %d", code)
+		}
+		if got.COGSExclTax != 0 {
+			t.Errorf("COGSExclTax = %v, want 0 (NULL category excluded)", got.COGSExclTax)
+		}
+		if got.PurchaseEventCount != 0 {
+			t.Errorf("PurchaseEventCount = %d, want 0", got.PurchaseEventCount)
+		}
+		if len(got.ByVendor) != 0 {
+			t.Errorf("len(ByVendor) = %d, want 0 (NULL-category vendor must not appear)",
+				len(got.ByVendor))
+		}
+	})
+
+	t.Run("custom multi-element allowlist includes both", func(t *testing.T) {
+		resetFixtures(t)
+		acmeID := insertVendor(t, "Acme")
+		otherID := insertVendor(t, "OtherVendor")
+		piID := insertPurchaseItem(t, "Salmon")
+		// COGS event ($30) — included by default + custom allowlist.
+		insertEventAndLine(t, acmeID, "2026-05-26", 0, 30.00, 30.00, 1, piID)
+		// "Other / Needs Review" event ($40) — excluded by default, included
+		// when the custom allowlist names it.
+		insertEventAndLineWithCategory(t, otherID, "2026-05-27", 0, 40.00, 40.00, 1, piID, "Other / Needs Review")
+
+		code, got := callHandlerWithAllowlist(t, from, to, []string{"COGS", "Other / Needs Review"})
+		if code != http.StatusOK {
+			t.Fatalf("status = %d", code)
+		}
+		if got.COGSExclTax != 70.00 {
+			t.Errorf("COGSExclTax = %v, want 70.00 (both categories included)", got.COGSExclTax)
+		}
+		if got.PurchaseEventCount != 2 {
+			t.Errorf("PurchaseEventCount = %d, want 2", got.PurchaseEventCount)
+		}
+		if len(got.ByVendor) != 2 {
+			t.Errorf("len(ByVendor) = %d, want 2 (got=%+v)", len(got.ByVendor), got.ByVendor)
 		}
 	})
 }
