@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-04-15)
 Phase: 999.2
 Plan: Not started
 Status: Milestone complete
-Last activity: 2026-06-05 - Completed quick task 260605-v0n: Filter COGS by Mercury category allowlist
+Last activity: 2026-06-06 - Completed quick task 260606-0gh: Fix completeness gate to use event_date for pending_purchases filter
 
 Progress: [██████████] 100%
 
@@ -216,20 +216,21 @@ None yet.
 
 ### Quick Tasks Completed
 
-| # | Description | Date | Commit | Directory |
-|---|-------------|------|--------|-----------|
-| 260415-axs | Convert backend/Makefile to backend/Taskfile.yml (go-task format) | 2026-04-15 | 691e616 | [260415-axs-convert-backend-makefile-to-backend-task](./quick/260415-axs-convert-backend-makefile-to-backend-task/) |
-| 260417-x0g | Add user display name and logout button to index.html | 2026-04-17 | 5edc1e1 | [260417-x0g-add-user-display-name-and-logout-button-](./quick/260417-x0g-add-user-display-name-and-logout-button-/) |
-| 260418-0tz | Multi-role support for users and training templates | 2026-04-18 | bf6a7c2 | [260418-0tz-multi-role-support-for-users-and-trainin](./quick/260418-0tz-multi-role-support-for-users-and-trainin/) |
-| 260421-im4 | Rename History tab to Purchases in inventory.html | 2026-04-21 | f46a88c | [260421-im4-rename-history-tab-to-purchases-in-inven](./quick/260421-im4-rename-history-tab-to-purchases-in-inven/) |
-| 260421-iug | Move Stock tab before Trends in inventory.html | 2026-04-21 | ab6806f | [260421-iug-move-the-stock-tab-before-trends-in-inve](./quick/260421-iug-move-the-stock-tab-before-trends-in-inve/) |
-| 260422-not | Move stock level classification to shared Go backend function | 2026-04-22 | 6a974ac | [260422-not-shared-stock-level-classification-move-f](./quick/260422-not-shared-stock-level-classification-move-f/) |
-| 260428-g36 | Remove 30-item cap from item picker renderPickerList | 2026-04-28 | 4cf4ea0 | [260428-g36-picker-item-cap](./quick/260428-g36-picker-item-cap/) |
-| 260428-j2r | Add photo upload/change to Inventory Setup item edit form | 2026-04-28 | f7ed57c | [260428-j2r-photo-upload-on-inventory-setup](./quick/260428-j2r-photo-upload-on-inventory-setup/) |
-| 260605-pk1 | Receipt-gate Mercury card transactions — surface no-attachment txns + accept empty-items confirm | 2026-06-05 | 4fe8dd2 | [260605-pk1-receipt-gate-mercury-card-transactions-m](./quick/260605-pk1-receipt-gate-mercury-card-transactions-m/) |
-| 260605-q7b | Fix COGS undercount on confirm-without-receipt — seed placeholder catalog row + handler else-branch + backfill orphan events | 2026-06-05 | ef48640 | [260605-q7b-fix-cogs-undercount-on-confirm-without-r](./quick/260605-q7b-fix-cogs-undercount-on-confirm-without-r/) |
-| 260605-u0i | Add by_vendor array to GET /api/v1/inventory/period-summary — completes sales-processor per-vendor COGS table contract | 2026-06-06 | 7579fe7 | [260605-u0i-add-by-vendor-array-to-get-api-v1-invent](./quick/260605-u0i-add-by-vendor-array-to-get-api-v1-invent/) |
-| 260605-v0n | Filter COGS by Mercury category — cache mercury_category on purchase_events, filter /period-summary (main + by_vendor) by allowlist, ingest categoryData + worker re-sync, HQ_COGS_CATEGORY_ALLOWLIST env var | 2026-06-06 | b351804 | [260605-v0n-filter-cogs-by-mercury-category](./quick/260605-v0n-filter-cogs-by-mercury-category/) |
+| # | Description | Date | Commit | Status | Directory |
+|---|-------------|------|--------|--------|-----------|
+| 260415-axs | Convert backend/Makefile to backend/Taskfile.yml (go-task format) | 2026-04-15 | 691e616 |  | [260415-axs-convert-backend-makefile-to-backend-task](./quick/260415-axs-convert-backend-makefile-to-backend-task/) |
+| 260417-x0g | Add user display name and logout button to index.html | 2026-04-17 | 5edc1e1 |  | [260417-x0g-add-user-display-name-and-logout-button-](./quick/260417-x0g-add-user-display-name-and-logout-button-/) |
+| 260418-0tz | Multi-role support for users and training templates | 2026-04-18 | bf6a7c2 |  | [260418-0tz-multi-role-support-for-users-and-trainin](./quick/260418-0tz-multi-role-support-for-users-and-trainin/) |
+| 260421-im4 | Rename History tab to Purchases in inventory.html | 2026-04-21 | f46a88c |  | [260421-im4-rename-history-tab-to-purchases-in-inven](./quick/260421-im4-rename-history-tab-to-purchases-in-inven/) |
+| 260421-iug | Move Stock tab before Trends in inventory.html | 2026-04-21 | ab6806f |  | [260421-iug-move-the-stock-tab-before-trends-in-inve](./quick/260421-iug-move-the-stock-tab-before-trends-in-inve/) |
+| 260422-not | Move stock level classification to shared Go backend function | 2026-04-22 | 6a974ac |  | [260422-not-shared-stock-level-classification-move-f](./quick/260422-not-shared-stock-level-classification-move-f/) |
+| 260428-g36 | Remove 30-item cap from item picker renderPickerList | 2026-04-28 | 4cf4ea0 |  | [260428-g36-picker-item-cap](./quick/260428-g36-picker-item-cap/) |
+| 260428-j2r | Add photo upload/change to Inventory Setup item edit form | 2026-04-28 | f7ed57c |  | [260428-j2r-photo-upload-on-inventory-setup](./quick/260428-j2r-photo-upload-on-inventory-setup/) |
+| 260605-pk1 | Receipt-gate Mercury card transactions — surface no-attachment txns + accept empty-items confirm | 2026-06-05 | 4fe8dd2 |  | [260605-pk1-receipt-gate-mercury-card-transactions-m](./quick/260605-pk1-receipt-gate-mercury-card-transactions-m/) |
+| 260605-q7b | Fix COGS undercount on confirm-without-receipt — seed placeholder catalog row + handler else-branch + backfill orphan events | 2026-06-05 | ef48640 |  | [260605-q7b-fix-cogs-undercount-on-confirm-without-r](./quick/260605-q7b-fix-cogs-undercount-on-confirm-without-r/) |
+| 260605-u0i | Add by_vendor array to GET /api/v1/inventory/period-summary — completes sales-processor per-vendor COGS table contract | 2026-06-06 | 7579fe7 |  | [260605-u0i-add-by-vendor-array-to-get-api-v1-invent](./quick/260605-u0i-add-by-vendor-array-to-get-api-v1-invent/) |
+| 260605-v0n | Filter COGS by Mercury category — cache mercury_category on purchase_events, filter /period-summary (main + by_vendor) by allowlist, ingest categoryData + worker re-sync, HQ_COGS_CATEGORY_ALLOWLIST env var | 2026-06-06 | b351804 |  | [260605-v0n-filter-cogs-by-mercury-category](./quick/260605-v0n-filter-cogs-by-mercury-category/) |
+| 260606-0gh | Fix completeness gate to filter pending_purchases by COALESCE(event_date, created_at::Chicago) — late-ingested May receipts now block ready for the May period | 2026-06-06 | cf959bd | Verified | [260606-0gh-completeness-gate-filters-pending-review](./quick/260606-0gh-completeness-gate-filters-pending-review/) |
 
 ## Deferred Items
 
@@ -251,8 +252,8 @@ Total: 21 items. Pre-v3.0 carry-over items will roll forward and should be revie
 
 ## Session Continuity
 
-Last session: --stopped-at
-Stopped at: Phase 999.2 UI-SPEC approved
+Last session: 2026-06-06T00:27:00Z
+Stopped at: Completed quick task 260606-0gh: completeness gate filters by event_date
 Resume file: --resume-file
 
 **Planned Phase:** 999.2 (Per-menu-item COGS attribution via recipe/BOM mapping) — 6 plans — 2026-06-04T13:45:31.758Z
