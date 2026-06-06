@@ -173,8 +173,12 @@ func insertPendingPurchase(t *testing.T, createdAt string, confirmed, discarded 
 		discardedSQL = "now()"
 	}
 	// items JSONB requires a value — use empty array.
-	q := `INSERT INTO pending_purchases (bank_tx_id, bank_total, vendor, items, created_at, confirmed_at, discarded_at)
-	      VALUES ($1, 0, 'TestVendor', '[]'::jsonb, $2::timestamptz, ` + confirmedSQL + `, ` + discardedSQL + `)
+	// Phase 260606-jvs: default mercury_category='COGS' + reason='no_attachment_on_bank_tx'
+	// so the row is a "blocking" pending under the narrowed gate (the prior call sites
+	// of this helper all asserted the row blocks ready). Tests that need a non-blocking
+	// row use insertPendingPurchaseFull instead.
+	q := `INSERT INTO pending_purchases (bank_tx_id, bank_total, vendor, items, created_at, confirmed_at, discarded_at, mercury_category, reason)
+	      VALUES ($1, 0, 'TestVendor', '[]'::jsonb, $2::timestamptz, ` + confirmedSQL + `, ` + discardedSQL + `, 'COGS', 'no_attachment_on_bank_tx')
 	      RETURNING id::text`
 	err := testPool.QueryRow(t.Context(), q, "pp-tx-"+createdAt+strconv.Itoa(int(boolByte(confirmed))+int(boolByte(discarded))*2), createdAt).Scan(&id)
 	if err != nil {
@@ -237,13 +241,47 @@ func insertPendingPurchaseWithBankTotal(t *testing.T, bankTxID string, bankTotal
 
 // insertPendingPurchaseWithEventDate inserts an unconfirmed/undiscarded
 // pending_purchases row. eventDate is a DATE string ("YYYY-MM-DD") or "" for NULL.
-// createdAt is a timestamptz string. reason is a string sentinel or "" for NULL.
+// createdAt is a timestamptz string. reason is a string sentinel or "" for the
+// default blocking reason ("no_attachment_on_bank_tx").
 // Returns the inserted id::text.
+//
+// Phase 260606-jvs: defaults mercury_category='COGS' so the row passes the
+// narrowed pending-gate allowlist filter. Defaults reason to
+// 'no_attachment_on_bank_tx' (the only blocking reason) when caller passes "".
+// Tests that need a non-blocking row use insertPendingPurchaseFull instead.
 func insertPendingPurchaseWithEventDate(t *testing.T, bankTxID, eventDate, createdAt, reason string) string {
+	t.Helper()
+	var ed *string
+	if eventDate != "" {
+		ed = &eventDate
+	}
+	if reason == "" {
+		reason = "no_attachment_on_bank_tx"
+	}
+	var id string
+	q := `INSERT INTO pending_purchases (bank_tx_id, bank_total, vendor, items, event_date, reason, created_at, mercury_category)
+	      VALUES ($1, 0, 'TestVendor', '[]'::jsonb, $2::date, $3, $4::timestamptz, 'COGS')
+	      RETURNING id::text`
+	if err := testPool.QueryRow(t.Context(), q, bankTxID, ed, reason, createdAt).Scan(&id); err != nil {
+		t.Fatalf("insert pending_purchase: %v", err)
+	}
+	return id
+}
+
+// insertPendingPurchaseFull inserts an unconfirmed/undiscarded pending row with
+// full control over the four fields the narrowed /period-summary contract cares
+// about: reason, mercuryCategory, vendor, bankTotal.
+//
+// Pass mercuryCategory == "" for SQL NULL (uncategorised — excluded by the
+// allowlist filter). Pass eventDate == "" for SQL NULL (created_at::Chicago
+// becomes the period-filter input). Pass reason == "" for SQL NULL (treated
+// as non-blocking by the narrowed gate since reason != 'no_attachment_on_bank_tx').
+func insertPendingPurchaseFull(t *testing.T, bankTxID, eventDate, createdAt, reason, mercuryCategory, vendor string, bankTotal float64) string {
 	t.Helper()
 	var (
 		ed *string
 		rs *string
+		mc *string
 	)
 	if eventDate != "" {
 		ed = &eventDate
@@ -251,11 +289,16 @@ func insertPendingPurchaseWithEventDate(t *testing.T, bankTxID, eventDate, creat
 	if reason != "" {
 		rs = &reason
 	}
+	if mercuryCategory != "" {
+		mc = &mercuryCategory
+	}
 	var id string
-	q := `INSERT INTO pending_purchases (bank_tx_id, bank_total, vendor, items, event_date, reason, created_at)
-	      VALUES ($1, 0, 'TestVendor', '[]'::jsonb, $2::date, $3, $4::timestamptz)
+	q := `INSERT INTO pending_purchases
+	        (bank_tx_id, bank_total, vendor, items, event_date, reason, created_at, mercury_category)
+	      VALUES ($1, $2, $3, '[]'::jsonb, $4::date, $5, $6::timestamptz, $7)
 	      RETURNING id::text`
-	if err := testPool.QueryRow(t.Context(), q, bankTxID, ed, rs, createdAt).Scan(&id); err != nil {
+	if err := testPool.QueryRow(t.Context(), q,
+		bankTxID, bankTotal, vendor, ed, rs, createdAt, mc).Scan(&id); err != nil {
 		t.Fatalf("insert pending_purchase: %v", err)
 	}
 	return id
@@ -1074,10 +1117,15 @@ func TestPeriodSummary(t *testing.T) {
 	})
 
 	t.Run("pending_review_details populates vendor/event_date/bank_total/reason", func(t *testing.T) {
+		// Phase 260606-jvs: only rows with reason='no_attachment_on_bank_tx' AND
+		// mercury_category in allowlist surface in pending_review_details now.
+		// Previously asserted with reason='tax_mismatch'; updated to the only
+		// blocking reason. The serialisation behaviour the test pins (Reason
+		// pointer non-nil, value = reason text) is unchanged in shape.
 		resetFixtures(t)
 		var id string
-		q := `INSERT INTO pending_purchases (bank_tx_id, bank_total, vendor, items, event_date, reason, created_at)
-		      VALUES ('mx-100', -87.50, 'Restaurant Depot', '[]'::jsonb, '2026-05-28'::date, 'tax_mismatch', '2026-05-28 12:00:00-05:00'::timestamptz)
+		q := `INSERT INTO pending_purchases (bank_tx_id, bank_total, vendor, items, event_date, reason, created_at, mercury_category)
+		      VALUES ('mx-100', -87.50, 'Restaurant Depot', '[]'::jsonb, '2026-05-28'::date, 'no_attachment_on_bank_tx', '2026-05-28 12:00:00-05:00'::timestamptz, 'COGS')
 		      RETURNING id::text`
 		if err := testPool.QueryRow(t.Context(), q).Scan(&id); err != nil {
 			t.Fatalf("insert pending: %v", err)
@@ -1108,9 +1156,9 @@ func TestPeriodSummary(t *testing.T) {
 			t.Errorf("details[0].BankTotal = %v, want %v", d.BankTotal, -87.50)
 		}
 		if d.Reason == nil {
-			t.Errorf("details[0].Reason = nil, want non-nil pointer to %q", "tax_mismatch")
-		} else if *d.Reason != "tax_mismatch" {
-			t.Errorf("*details[0].Reason = %q, want %q", *d.Reason, "tax_mismatch")
+			t.Errorf("details[0].Reason = nil, want non-nil pointer to %q", "no_attachment_on_bank_tx")
+		} else if *d.Reason != "no_attachment_on_bank_tx" {
+			t.Errorf("*details[0].Reason = %q, want %q", *d.Reason, "no_attachment_on_bank_tx")
 		}
 	})
 
@@ -1141,10 +1189,12 @@ func TestPeriodSummary(t *testing.T) {
 		// from Mercury BankDescription). The SQL still uses COALESCE(vendor,'')
 		// defensively; this test pins the closest observable behaviour —
 		// an empty-string vendor surfaces as "" in the API response.
+		// Phase 260606-jvs: added mercury_category='COGS' + reason='no_attachment_on_bank_tx'
+		// so the row stays a blocking pending under the narrowed gate.
 		resetFixtures(t)
 		var id string
-		q := `INSERT INTO pending_purchases (bank_tx_id, bank_total, vendor, items, event_date, created_at)
-		      VALUES ('mx-300', -10.00, '', '[]'::jsonb, '2026-05-27'::date, '2026-05-27 12:00:00-05:00'::timestamptz)
+		q := `INSERT INTO pending_purchases (bank_tx_id, bank_total, vendor, items, event_date, created_at, reason, mercury_category)
+		      VALUES ('mx-300', -10.00, '', '[]'::jsonb, '2026-05-27'::date, '2026-05-27 12:00:00-05:00'::timestamptz, 'no_attachment_on_bank_tx', 'COGS')
 		      RETURNING id::text`
 		if err := testPool.QueryRow(t.Context(), q).Scan(&id); err != nil {
 			t.Fatalf("insert pending: %v", err)
@@ -1163,37 +1213,13 @@ func TestPeriodSummary(t *testing.T) {
 		}
 	})
 
-	t.Run("pending_review_details reason=NULL omitted from JSON", func(t *testing.T) {
-		resetFixtures(t)
-		_ = insertPendingPurchaseWithEventDate(t,
-			"mx-400", "2026-05-27", "2026-05-27 12:00:00-05:00", "")
-
-		// Use raw recorder so we can inspect the serialised body for the
-		// omitempty side-effect (NULL reason → nil pointer → absent JSON key).
-		req := httptest.NewRequest(http.MethodGet, "/?from="+from+"&to="+to, nil)
-		rec := httptest.NewRecorder()
-		PeriodSummaryHandler(testPool, []string{"COGS"}).ServeHTTP(rec, req)
-		if rec.Code != http.StatusOK {
-			t.Fatalf("status = %d, want 200 (body=%s)", rec.Code, rec.Body.String())
-		}
-
-		var out PeriodSummary
-		if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
-			t.Fatalf("decode: %v (body=%s)", err, rec.Body.String())
-		}
-		details := out.Completeness.PendingReviewDetails
-		if len(details) != 1 {
-			t.Fatalf("len(details) = %d, want 1 (full=%v)", len(details), details)
-		}
-		if details[0].Reason != nil {
-			t.Errorf("details[0].Reason = %v, want nil (NULL → nil pointer)", *details[0].Reason)
-		}
-		// omitempty must drop the key entirely from the serialised row.
-		if strings.Contains(rec.Body.String(), `"reason":`) {
-			t.Errorf("raw JSON contains `\"reason\":` — want omitempty to drop the key.\nbody=%s",
-				rec.Body.String())
-		}
-	})
+	// Phase 260606-jvs: the prior `pending_review_details reason=NULL omitted from JSON`
+	// test was removed — under the narrowed gate, only rows with
+	// reason='no_attachment_on_bank_tx' surface in pending_review_details, so a
+	// NULL-reason row can never appear there. The omitempty serialisation
+	// behaviour on `PendingReviewDetail.Reason` remains a structural property
+	// of the struct (json:"reason,omitempty") — not exercised here because the
+	// surface is unreachable post-narrowing.
 
 	t.Run("pending_review_details serializes as [] when empty period", func(t *testing.T) {
 		resetFixtures(t)
@@ -1206,6 +1232,306 @@ func TestPeriodSummary(t *testing.T) {
 		if !strings.Contains(rec.Body.String(), `"pending_review_details":[]`) {
 			t.Errorf("JSON missing `\"pending_review_details\":[]` (want non-null empty array).\nbody=%s",
 				rec.Body.String())
+		}
+	})
+
+	// Phase 260606-jvs: 2×2 truth table on (mercury_category in allowlist) ×
+	// (reason == 'no_attachment_on_bank_tx') for the narrowed completeness
+	// gate, plus the rolled-into-COGS + by_vendor merge semantics for the
+	// non-blocking food-category branch. See 260606-jvs-HANDOFF.md §4.
+	//
+	// Allowlist sentinel is the default ["COGS"] used by callHandler — keeps
+	// these tests aligned with the existing convention in this file.
+
+	t.Run("case_a_food_no_attachment_blocks", func(t *testing.T) {
+		// Case A: food category + reason='no_attachment_on_bank_tx' → ONLY blocker.
+		// Blocks ready, surfaces in pending_review_ids, does NOT roll into COGS
+		// (blocking rows stay out of the aggregate per the data-model invariant).
+		resetFixtures(t)
+		ppID := insertPendingPurchaseFull(t,
+			"jvs-case-a", "2026-05-27", "2026-05-27 10:00:00-05:00",
+			"no_attachment_on_bank_tx", "COGS", "Restaurant Depot", -50.00)
+
+		code, got := callHandler(t, from, to)
+		if code != http.StatusOK {
+			t.Fatalf("status = %d, want 200", code)
+		}
+		if got.Completeness.Ready {
+			t.Errorf("Ready = true, want false (case A must block)")
+		}
+		if len(got.Completeness.PendingReviewIDs) != 1 || got.Completeness.PendingReviewIDs[0] != ppID {
+			t.Errorf("PendingReviewIDs = %v, want [%s]", got.Completeness.PendingReviewIDs, ppID)
+		}
+		if got.COGSExclTax != 0 {
+			t.Errorf("COGSExclTax = %v, want 0 (blocking row stays out of COGS)", got.COGSExclTax)
+		}
+	})
+
+	t.Run("case_b_food_parse_failed_rolls_into_cogs", func(t *testing.T) {
+		// Case B: food category + parse-failed reason → non-blocking, rolled
+		// into COGS at ABS(bank_total).
+		resetFixtures(t)
+		ppID := insertPendingPurchaseFull(t,
+			"jvs-case-b", "2026-05-27", "2026-05-27 10:00:00-05:00",
+			"Receipt could not be parsed automatically", "COGS", "Save A Lot", -19.28)
+
+		code, got := callHandler(t, from, to)
+		if code != http.StatusOK {
+			t.Fatalf("status = %d, want 200", code)
+		}
+		if !got.Completeness.Ready {
+			t.Errorf("Ready = false, want true (case B must NOT block). pending=%v unlinked=%v",
+				got.Completeness.PendingReviewIDs, got.Completeness.UnlinkedLineItemIDs)
+		}
+		for _, id := range got.Completeness.PendingReviewIDs {
+			if id == ppID {
+				t.Errorf("PendingReviewIDs contains %s, want it excluded (non-blocking)", ppID)
+			}
+		}
+		if got.COGSExclTax != 19.28 {
+			t.Errorf("COGSExclTax = %v, want 19.28 (ABS(bank_total))", got.COGSExclTax)
+		}
+		// Tax assumption: pending bank_total flows into both excl + incl.
+		if got.COGSInclTax != 19.28 {
+			t.Errorf("COGSInclTax = %v, want 19.28 (pending bank_total flows into both)", got.COGSInclTax)
+		}
+		if got.PurchaseEventCount != 1 {
+			t.Errorf("PurchaseEventCount = %d, want 1 (eligible pending counts)", got.PurchaseEventCount)
+		}
+	})
+
+	t.Run("case_c_non_food_no_attachment_does_not_block_or_roll", func(t *testing.T) {
+		// Case C: non-food category + no_attachment → non-blocking, NOT in COGS.
+		// Amazon refund scenario from the morning failure.
+		resetFixtures(t)
+		_ = insertPendingPurchaseFull(t,
+			"jvs-case-c", "2026-05-27", "2026-05-27 10:00:00-05:00",
+			"no_attachment_on_bank_tx", "Software, SaaS & Subscriptions", "Amazon", -14.00)
+
+		code, got := callHandler(t, from, to)
+		if code != http.StatusOK {
+			t.Fatalf("status = %d, want 200", code)
+		}
+		if !got.Completeness.Ready {
+			t.Errorf("Ready = false, want true (case C is non-blocking). pending=%v",
+				got.Completeness.PendingReviewIDs)
+		}
+		if len(got.Completeness.PendingReviewIDs) != 0 {
+			t.Errorf("PendingReviewIDs = %v, want []", got.Completeness.PendingReviewIDs)
+		}
+		if got.COGSExclTax != 0 {
+			t.Errorf("COGSExclTax = %v, want 0 (non-food never rolls into COGS)", got.COGSExclTax)
+		}
+	})
+
+	t.Run("case_d_non_food_parse_failed_does_not_block_or_roll", func(t *testing.T) {
+		// Case D: non-food category + parse-failed reason → non-blocking, NOT in COGS.
+		resetFixtures(t)
+		_ = insertPendingPurchaseFull(t,
+			"jvs-case-d", "2026-05-27", "2026-05-27 10:00:00-05:00",
+			"Receipt could not be parsed automatically", "Software, SaaS & Subscriptions", "DropboxPro", -9.99)
+
+		code, got := callHandler(t, from, to)
+		if code != http.StatusOK {
+			t.Fatalf("status = %d, want 200", code)
+		}
+		if !got.Completeness.Ready {
+			t.Errorf("Ready = false, want true (case D is non-blocking)")
+		}
+		if len(got.Completeness.PendingReviewIDs) != 0 {
+			t.Errorf("PendingReviewIDs = %v, want []", got.Completeness.PendingReviewIDs)
+		}
+		if got.COGSExclTax != 0 {
+			t.Errorf("COGSExclTax = %v, want 0", got.COGSExclTax)
+		}
+	})
+
+	t.Run("null_mercury_category_with_no_attachment_does_not_block", func(t *testing.T) {
+		// NULL mercury_category + no_attachment_on_bank_tx → NOT blocking, NOT in COGS.
+		// Postgres `column = ANY($1)` returns NULL (not true) when column IS NULL,
+		// which is consistent with the principle that uncategorised txns are
+		// operator-triage chores, not data blockers.
+		resetFixtures(t)
+		_ = insertPendingPurchaseFull(t,
+			"jvs-null-cat", "2026-05-27", "2026-05-27 10:00:00-05:00",
+			"no_attachment_on_bank_tx", "" /* NULL */, "Unknown Vendor", -42.00)
+
+		code, got := callHandler(t, from, to)
+		if code != http.StatusOK {
+			t.Fatalf("status = %d, want 200", code)
+		}
+		if !got.Completeness.Ready {
+			t.Errorf("Ready = false, want true (NULL category must not block)")
+		}
+		if len(got.Completeness.PendingReviewIDs) != 0 {
+			t.Errorf("PendingReviewIDs = %v, want []", got.Completeness.PendingReviewIDs)
+		}
+		if got.COGSExclTax != 0 {
+			t.Errorf("COGSExclTax = %v, want 0", got.COGSExclTax)
+		}
+	})
+
+	t.Run("date_filter_still_applies_to_blocking_row_out_of_period", func(t *testing.T) {
+		// Case-A blocking row whose period anchor (event_date or fallback
+		// created_at::Chicago) is outside the window must NOT block, must NOT
+		// surface in pending_review_ids, and must NOT roll into COGS.
+		resetFixtures(t)
+		_ = insertPendingPurchaseFull(t,
+			"jvs-case-a-oop", "2026-04-15", "2026-04-15 10:00:00-05:00",
+			"no_attachment_on_bank_tx", "COGS", "Restaurant Depot", -50.00)
+
+		code, got := callHandler(t, from, to)
+		if code != http.StatusOK {
+			t.Fatalf("status = %d, want 200", code)
+		}
+		if !got.Completeness.Ready {
+			t.Errorf("Ready = false, want true (out-of-period must not block)")
+		}
+		if len(got.Completeness.PendingReviewIDs) != 0 {
+			t.Errorf("PendingReviewIDs = %v, want []", got.Completeness.PendingReviewIDs)
+		}
+		if got.COGSExclTax != 0 {
+			t.Errorf("COGSExclTax = %v, want 0", got.COGSExclTax)
+		}
+	})
+
+	t.Run("pending_review_details_parity_under_narrowed_gate", func(t *testing.T) {
+		// Single case-A row → pending_review_ids has 1 entry, pending_review_details
+		// has 1 entry, IDs match index-wise.
+		resetFixtures(t)
+		ppID := insertPendingPurchaseFull(t,
+			"jvs-parity", "2026-05-27", "2026-05-27 10:00:00-05:00",
+			"no_attachment_on_bank_tx", "COGS", "Restaurant Depot", -50.00)
+
+		code, got := callHandler(t, from, to)
+		if code != http.StatusOK {
+			t.Fatalf("status = %d, want 200", code)
+		}
+		ids := got.Completeness.PendingReviewIDs
+		details := got.Completeness.PendingReviewDetails
+		if len(ids) != 1 || ids[0] != ppID {
+			t.Fatalf("PendingReviewIDs = %v, want [%s]", ids, ppID)
+		}
+		if len(details) != 1 || details[0].ID != ppID {
+			t.Fatalf("PendingReviewDetails IDs = %+v, want one row with id=%s", details, ppID)
+		}
+		if details[0].BankTxID != "jvs-parity" {
+			t.Errorf("details[0].BankTxID = %q, want %q", details[0].BankTxID, "jvs-parity")
+		}
+	})
+
+	t.Run("case_b_by_vendor_match_merges_into_vendor_row", func(t *testing.T) {
+		// One confirmed RD event ($100) + one case-B Save A Lot pending row ($19).
+		// cogs_excl_tax == 119; by_vendor has BOTH an RD row at $100 and a
+		// Save A Lot row at $19, each with a real (non-empty) vendor_id.
+		resetFixtures(t)
+		depotID := insertVendor(t, "Restaurant Depot")
+		salID := insertVendor(t, "Save A Lot")
+		piID := insertPurchaseItem(t, "Salmon")
+		// Confirmed RD event: 1 * $100 = $100.
+		insertEventAndLineWithCategory(t,
+			depotID, "2026-05-26", 0, 100.00, 100.00, 1, piID, "COGS")
+		// Case-B Save A Lot pending: ABS(-19) = $19.
+		_ = insertPendingPurchaseFull(t,
+			"jvs-byv-match", "2026-05-27", "2026-05-27 10:00:00-05:00",
+			"Receipt could not be parsed automatically", "COGS", "Save A Lot", -19.00)
+
+		code, got := callHandler(t, from, to)
+		if code != http.StatusOK {
+			t.Fatalf("status = %d, want 200", code)
+		}
+		if diff := got.COGSExclTax - 119.00; diff > 0.01 || diff < -0.01 {
+			t.Errorf("COGSExclTax = %v, want 119.00", got.COGSExclTax)
+		}
+		// Find each vendor row.
+		var foundDepot, foundSAL bool
+		for _, row := range got.ByVendor {
+			switch row.VendorName {
+			case "Restaurant Depot":
+				foundDepot = true
+				if row.VendorID != depotID {
+					t.Errorf("RD VendorID = %q, want %q (real vendor id)", row.VendorID, depotID)
+				}
+				if diff := row.TotalExclTax - 100.00; diff > 0.01 || diff < -0.01 {
+					t.Errorf("RD TotalExclTax = %v, want 100.00", row.TotalExclTax)
+				}
+			case "Save A Lot":
+				foundSAL = true
+				if row.VendorID != salID {
+					t.Errorf("SAL VendorID = %q, want %q (real vendor id)", row.VendorID, salID)
+				}
+				if diff := row.TotalExclTax - 19.00; diff > 0.01 || diff < -0.01 {
+					t.Errorf("SAL TotalExclTax = %v, want 19.00", row.TotalExclTax)
+				}
+			}
+		}
+		if !foundDepot {
+			t.Errorf("by_vendor missing Restaurant Depot row; got=%+v", got.ByVendor)
+		}
+		if !foundSAL {
+			t.Errorf("by_vendor missing Save A Lot row; got=%+v", got.ByVendor)
+		}
+	})
+
+	t.Run("case_b_by_vendor_unmatched_renders_with_empty_vendor_id", func(t *testing.T) {
+		// Case-B pending with vendor text that has no vendors.name match →
+		// surfaces in by_vendor with vendor_id == "" and vendor_name == original text.
+		resetFixtures(t)
+		_ = insertPendingPurchaseFull(t,
+			"jvs-byv-unmatched", "2026-05-27", "2026-05-27 10:00:00-05:00",
+			"Receipt could not be parsed automatically", "COGS",
+			"Brand New Vendor not in vendors table", -27.50)
+
+		code, got := callHandler(t, from, to)
+		if code != http.StatusOK {
+			t.Fatalf("status = %d, want 200", code)
+		}
+		var found bool
+		for _, row := range got.ByVendor {
+			if row.VendorName == "Brand New Vendor not in vendors table" {
+				found = true
+				if row.VendorID != "" {
+					t.Errorf("unmatched VendorID = %q, want empty string", row.VendorID)
+				}
+				if diff := row.TotalExclTax - 27.50; diff > 0.01 || diff < -0.01 {
+					t.Errorf("unmatched TotalExclTax = %v, want 27.50", row.TotalExclTax)
+				}
+			}
+		}
+		if !found {
+			t.Errorf("by_vendor missing unmatched row; got=%+v", got.ByVendor)
+		}
+	})
+
+	t.Run("case_b_by_vendor_vendor_name_fuzz_joins_case_and_trim_insensitive", func(t *testing.T) {
+		// Pre-insert vendors.name='Save A Lot'. Case-B pending with vendor=
+		// 'save a lot ' (lowercase + trailing space) must join via LOWER(TRIM())
+		// and merge into the existing Save A Lot row — no duplicate row with
+		// vendor_id == "".
+		resetFixtures(t)
+		salID := insertVendor(t, "Save A Lot")
+		_ = insertPendingPurchaseFull(t,
+			"jvs-byv-fuzz", "2026-05-27", "2026-05-27 10:00:00-05:00",
+			"Receipt could not be parsed automatically", "COGS", "save a lot ", -19.00)
+
+		code, got := callHandler(t, from, to)
+		if code != http.StatusOK {
+			t.Fatalf("status = %d, want 200", code)
+		}
+		// Exactly one row, real vendor_id, name canonicalised to "Save A Lot".
+		if len(got.ByVendor) != 1 {
+			t.Fatalf("len(ByVendor) = %d, want 1 (no duplicate unmatched row); got=%+v",
+				len(got.ByVendor), got.ByVendor)
+		}
+		row := got.ByVendor[0]
+		if row.VendorID != salID {
+			t.Errorf("VendorID = %q, want %q (real vendor id, not empty)", row.VendorID, salID)
+		}
+		if row.VendorName != "Save A Lot" {
+			t.Errorf("VendorName = %q, want %q (canonicalised)", row.VendorName, "Save A Lot")
+		}
+		if diff := row.TotalExclTax - 19.00; diff > 0.01 || diff < -0.01 {
+			t.Errorf("TotalExclTax = %v, want 19.00", row.TotalExclTax)
 		}
 	})
 }
