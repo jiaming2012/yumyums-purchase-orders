@@ -1194,18 +1194,21 @@ func PeriodSummaryHandler(pool *pgxpool.Pool, cogsAllowlist []string) http.Handl
 			return
 		}
 
-		// 3) Pending review IDs — receipts in the period that have not been
-		//    confirmed or discarded. Discarded counts as resolved per phase scope.
-		//    created_at is TIMESTAMPTZ → cast in America/Chicago to match the
-		//    food-truck calendar (repurchase.go:71 establishes this convention).
+		// 3) Pending review IDs — receipts whose business date falls in the
+		//    period and have not been confirmed or discarded. We filter on
+		//    COALESCE(event_date, created_at::Chicago::date): event_date wins
+		//    because it reflects when the purchase actually happened (the
+		//    receipt worker's 14-day lookback can ingest May receipts in
+		//    June); created_at is the fallback for rows where event_date
+		//    was not extracted. Chicago cast matches repurchase.go:71.
 		pendingIDs := []string{}
 		rows, err := pool.Query(r.Context(), `
 			SELECT id::text
 			FROM pending_purchases
-			WHERE (created_at AT TIME ZONE 'America/Chicago')::date BETWEEN $1 AND $2
+			WHERE COALESCE(event_date, (created_at AT TIME ZONE 'America/Chicago')::date) BETWEEN $1 AND $2
 			  AND confirmed_at IS NULL
 			  AND discarded_at IS NULL
-			ORDER BY created_at`, fromStr, toStr)
+			ORDER BY COALESCE(event_date, (created_at AT TIME ZONE 'America/Chicago')::date), created_at`, fromStr, toStr)
 		if err != nil {
 			log.Printf("PeriodSummary pending query: %v", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
