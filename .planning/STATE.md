@@ -4,8 +4,8 @@ milestone: v3.1
 milestone_name: Toast Integration & COGS Pipeline
 status: milestone_archived
 stopped_at: v3.1 archived; awaiting next milestone
-last_updated: "2026-06-05T07:55:00Z"
-last_activity: 2026-06-05 -- v3.1 milestone archived
+last_updated: "2026-06-06T07:25:00Z"
+last_activity: 2026-06-06 -- Completed quick task 260606-9y0: Expose tracked_bank_tx_ids on /period-summary
 progress:
   total_phases: 8
   completed_phases: 6
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-04-15)
 Phase: 999.2
 Plan: Not started
 Status: Milestone complete
-Last activity: 2026-06-06 - Completed quick task 260606-0gh: Fix completeness gate to use event_date for pending_purchases filter
+Last activity: 2026-06-06 - Completed quick task 260606-9y0: Expose tracked_bank_tx_ids on /period-summary
 
 Progress: [██████████] 100%
 
@@ -231,6 +231,7 @@ None yet.
 | 260605-u0i | Add by_vendor array to GET /api/v1/inventory/period-summary — completes sales-processor per-vendor COGS table contract | 2026-06-06 | 7579fe7 |  | [260605-u0i-add-by-vendor-array-to-get-api-v1-invent](./quick/260605-u0i-add-by-vendor-array-to-get-api-v1-invent/) |
 | 260605-v0n | Filter COGS by Mercury category — cache mercury_category on purchase_events, filter /period-summary (main + by_vendor) by allowlist, ingest categoryData + worker re-sync, HQ_COGS_CATEGORY_ALLOWLIST env var | 2026-06-06 | b351804 |  | [260605-v0n-filter-cogs-by-mercury-category](./quick/260605-v0n-filter-cogs-by-mercury-category/) |
 | 260606-0gh | Fix completeness gate to filter pending_purchases by COALESCE(event_date, created_at::Chicago) — late-ingested May receipts now block ready for the May period | 2026-06-06 | cf959bd | Verified | [260606-0gh-completeness-gate-filters-pending-review](./quick/260606-0gh-completeness-gate-filters-pending-review/) |
+| 260606-9y0 | Expose tracked_bank_tx_ids on /period-summary — UNION of bank_tx_id across purchase_events + pending_purchases (all states) so sales-processor can diff Mercury and detect un-ingested transactions | 2026-06-06 | f730485 | Verified | [260606-9y0-tracked-bank-tx-ids-on-period](./quick/260606-9y0-tracked-bank-tx-ids-on-period/) |
 
 ## Deferred Items
 
