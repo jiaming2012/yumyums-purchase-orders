@@ -892,4 +892,143 @@ func TestPeriodSummary(t *testing.T) {
 			t.Errorf("UnlinkedLineItemIDs = %v, want []", got.Completeness.UnlinkedLineItemIDs)
 		}
 	})
+
+	// Phase 260606-9y0: tracked_bank_tx_ids surfaces every bank_tx_id HQ
+	// has touched for the period across all states. Sales-processor will
+	// diff this against Mercury's own transaction list to detect "Mercury
+	// has it, HQ hasn't ingested it yet" gaps.
+
+	t.Run("tracked_bank_tx_ids: empty period renders [] not null", func(t *testing.T) {
+		resetFixtures(t)
+		code, got := callHandler(t, from, to)
+		if code != http.StatusOK {
+			t.Fatalf("status = %d", code)
+		}
+		if got.TrackedBankTxIDs == nil {
+			t.Fatalf("TrackedBankTxIDs is nil; want empty slice")
+		}
+		if len(got.TrackedBankTxIDs) != 0 {
+			t.Fatalf("len(TrackedBankTxIDs) = %d, want 0", len(got.TrackedBankTxIDs))
+		}
+		raw, err := json.Marshal(got)
+		if err != nil {
+			t.Fatalf("marshal: %v", err)
+		}
+		if !bytes.Contains(raw, []byte(`"tracked_bank_tx_ids":[]`)) {
+			t.Errorf("JSON missing `\"tracked_bank_tx_ids\":[]` — got %s", string(raw))
+		}
+	})
+
+	t.Run("tracked_bank_tx_ids: all states present, deduped, sorted", func(t *testing.T) {
+		resetFixtures(t)
+		vendorID := insertVendor(t, "Acme")
+
+		// A: purchase_events row, confirmed (no pending_purchases counterpart).
+		var eventA string
+		err := testPool.QueryRow(t.Context(),
+			`INSERT INTO purchase_events (vendor_id, bank_tx_id, event_date, tax, total, mercury_category)
+			 VALUES ($1, 'tx-A', '2026-05-26'::date, 0, 0, 'COGS')
+			 RETURNING id::text`, vendorID).Scan(&eventA)
+		if err != nil {
+			t.Fatalf("insert event A: %v", err)
+		}
+
+		// B: pending_purchases, untouched (confirmed_at/discarded_at NULL).
+		_ = insertPendingPurchaseWithEventDate(t,
+			"tx-B", "2026-05-27", "2026-05-27 10:00:00-05:00", "")
+
+		// C: pending_purchases with discarded_at set.
+		_, err = testPool.Exec(t.Context(),
+			`INSERT INTO pending_purchases
+			   (bank_tx_id, bank_total, vendor, items, event_date, created_at, discarded_at)
+			 VALUES ('tx-C', 0, 'TestVendor', '[]'::jsonb,
+			         '2026-05-28'::date, '2026-05-28 10:00:00-05:00'::timestamptz, now())`)
+		if err != nil {
+			t.Fatalf("insert pending C: %v", err)
+		}
+
+		// D: pending_purchases WITH a matching purchase_events row (confirm
+		// path). UNION must dedupe to a single entry.
+		_, err = testPool.Exec(t.Context(),
+			`INSERT INTO pending_purchases
+			   (bank_tx_id, bank_total, vendor, items, event_date, created_at, confirmed_at)
+			 VALUES ('tx-D', 0, 'TestVendor', '[]'::jsonb,
+			         '2026-05-29'::date, '2026-05-29 10:00:00-05:00'::timestamptz, now())`)
+		if err != nil {
+			t.Fatalf("insert pending D: %v", err)
+		}
+		_, err = testPool.Exec(t.Context(),
+			`INSERT INTO purchase_events (vendor_id, bank_tx_id, event_date, tax, total, mercury_category)
+			 VALUES ($1, 'tx-D', '2026-05-29'::date, 0, 0, 'COGS')`, vendorID)
+		if err != nil {
+			t.Fatalf("insert event D: %v", err)
+		}
+
+		// Out-of-period sentinel: must NOT appear.
+		_, err = testPool.Exec(t.Context(),
+			`INSERT INTO pending_purchases
+			   (bank_tx_id, bank_total, vendor, items, event_date, created_at)
+			 VALUES ('tx-Z-out-of-period', 0, 'TestVendor', '[]'::jsonb,
+			         '2026-06-15'::date, '2026-06-15 10:00:00-05:00'::timestamptz)`)
+		if err != nil {
+			t.Fatalf("insert pending Z: %v", err)
+		}
+
+		code, got := callHandler(t, from, to)
+		if code != http.StatusOK {
+			t.Fatalf("status = %d", code)
+		}
+		want := []string{"tx-A", "tx-B", "tx-C", "tx-D"}
+		if len(got.TrackedBankTxIDs) != len(want) {
+			t.Fatalf("TrackedBankTxIDs = %v, want %v", got.TrackedBankTxIDs, want)
+		}
+		for i, id := range want {
+			if got.TrackedBankTxIDs[i] != id {
+				t.Errorf("TrackedBankTxIDs[%d] = %q, want %q (full=%v)",
+					i, got.TrackedBankTxIDs[i], id, got.TrackedBankTxIDs)
+			}
+		}
+	})
+
+	t.Run("tracked_bank_tx_ids: period boundary uses COALESCE(event_date, created_at::Chicago)", func(t *testing.T) {
+		// Mirrors the existing pending-gate event_date × created_at axis
+		// tests above — the UNION's pending half must agree with the
+		// pending-review filter on which rows belong to the period.
+		resetFixtures(t)
+
+		// Row in: event_date in range, created_at out of range. COALESCE
+		// picks event_date → must appear.
+		_ = insertPendingPurchaseWithEventDate(t,
+			"tx-in-by-event-date", "2026-05-29", "2026-06-02 10:00:00-05:00", "")
+
+		// Row out: event_date out of range, created_at in range. COALESCE
+		// picks event_date → must NOT appear.
+		_ = insertPendingPurchaseWithEventDate(t,
+			"tx-out-by-event-date", "2026-05-20", "2026-05-27 10:00:00-05:00", "")
+
+		// Row in: NULL event_date, created_at in range. COALESCE falls
+		// back to created_at → must appear.
+		_ = insertPendingPurchaseWithEventDate(t,
+			"tx-in-by-created-at", "", "2026-05-27 10:00:00-05:00", "")
+
+		// Row out: NULL event_date, created_at out of range. COALESCE
+		// falls back to created_at → must NOT appear.
+		_ = insertPendingPurchaseWithEventDate(t,
+			"tx-out-by-created-at", "", "2026-06-05 10:00:00-05:00", "")
+
+		code, got := callHandler(t, from, to)
+		if code != http.StatusOK {
+			t.Fatalf("status = %d", code)
+		}
+		want := []string{"tx-in-by-created-at", "tx-in-by-event-date"}
+		if len(got.TrackedBankTxIDs) != len(want) {
+			t.Fatalf("TrackedBankTxIDs = %v, want %v", got.TrackedBankTxIDs, want)
+		}
+		for i, id := range want {
+			if got.TrackedBankTxIDs[i] != id {
+				t.Errorf("TrackedBankTxIDs[%d] = %q, want %q (full=%v)",
+					i, got.TrackedBankTxIDs[i], id, got.TrackedBankTxIDs)
+			}
+		}
+	})
 }

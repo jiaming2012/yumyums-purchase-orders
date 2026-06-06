@@ -160,7 +160,14 @@ type PeriodSummary struct {
 	COGSInclTax        float64           `json:"cogs_incl_tax"`
 	PurchaseEventCount int               `json:"purchase_event_count"`
 	ByVendor           []VendorCOGS      `json:"by_vendor"`
-	Completeness       CompletenessBlock `json:"completeness"`
+	// TrackedBankTxIDs is every Mercury bank_tx_id HQ has touched for
+	// the period, across all states (confirmed in purchase_events,
+	// pending/confirmed/discarded in pending_purchases). Consumers diff
+	// this against Mercury's own transaction list for the same period
+	// to detect "Mercury has it, HQ hasn't ingested it yet" gaps. See
+	// sales-processor/docs/payroll-mercury-gap-check.md.
+	TrackedBankTxIDs []string          `json:"tracked_bank_tx_ids"`
+	Completeness     CompletenessBlock `json:"completeness"`
 }
 
 // VendorCOGS is one row of the per-vendor breakdown returned by

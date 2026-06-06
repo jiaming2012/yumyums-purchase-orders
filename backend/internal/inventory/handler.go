@@ -1230,6 +1230,52 @@ func PeriodSummaryHandler(pool *pgxpool.Pool, cogsAllowlist []string) http.Handl
 			return
 		}
 
+		// 3b) Tracked bank_tx_ids — every bank_tx_id HQ has touched for
+		//     the period, across all states (confirmed in purchase_events,
+		//     pending/confirmed/discarded in pending_purchases). Consumers
+		//     diff this against Mercury's own transaction list for the
+		//     same period to detect "Mercury has it, HQ hasn't ingested it
+		//     yet" gaps. UNION (not UNION ALL) collapses the confirm path
+		//     where a bank_tx_id appears in both tables. No mercury_category
+		//     filter — this list is for completeness detection, not COGS
+		//     aggregation. Date filter on the pending half mirrors step 3
+		//     so both queries decide period membership the same way.
+		trackedTxIDs := []string{}
+		rowsT, err := pool.Query(r.Context(), `
+			SELECT DISTINCT bank_tx_id
+			FROM (
+				SELECT bank_tx_id
+				FROM purchase_events
+				WHERE event_date BETWEEN $1 AND $2
+
+				UNION
+
+				SELECT bank_tx_id
+				FROM pending_purchases
+				WHERE COALESCE(event_date, (created_at AT TIME ZONE 'America/Chicago')::date) BETWEEN $1 AND $2
+			) AS tracked
+			ORDER BY bank_tx_id ASC`, fromStr, toStr)
+		if err != nil {
+			log.Printf("PeriodSummary tracked-tx-ids query: %v", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		defer rowsT.Close()
+		for rowsT.Next() {
+			var id string
+			if err := rowsT.Scan(&id); err != nil {
+				log.Printf("PeriodSummary tracked-tx-ids scan: %v", err)
+				writeError(w, http.StatusInternalServerError, "internal_error")
+				return
+			}
+			trackedTxIDs = append(trackedTxIDs, id)
+		}
+		if err := rowsT.Err(); err != nil {
+			log.Printf("PeriodSummary tracked-tx-ids rows.Err: %v", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+
 		// 4) Unlinked line items in confirmed events within range. A line item
 		//    is "unlinked" when purchase_item_id IS NULL — i.e. the receipt was
 		//    confirmed but the description never got mapped to a catalog item.
@@ -1269,6 +1315,7 @@ func PeriodSummaryHandler(pool *pgxpool.Pool, cogsAllowlist []string) http.Handl
 			COGSInclTax:        cogsIncl,
 			PurchaseEventCount: eventCount,
 			ByVendor:           byVendor,
+			TrackedBankTxIDs:   trackedTxIDs,
 			Completeness: CompletenessBlock{
 				Ready:               len(pendingIDs) == 0 && len(unlinkedIDs) == 0,
 				PendingReviewIDs:    pendingIDs,
