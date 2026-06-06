@@ -1202,8 +1202,14 @@ func PeriodSummaryHandler(pool *pgxpool.Pool, cogsAllowlist []string) http.Handl
 		//    June); created_at is the fallback for rows where event_date
 		//    was not extracted. Chicago cast matches repurchase.go:71.
 		pendingIDs := []string{}
+		pendingDetails := []PendingReviewDetail{}
 		rows, err := pool.Query(r.Context(), `
-			SELECT id::text
+			SELECT id::text,
+			       bank_tx_id,
+			       COALESCE(vendor, '') AS vendor,
+			       COALESCE(event_date, (created_at AT TIME ZONE 'America/Chicago')::date)::text AS event_date,
+			       bank_total,
+			       reason
 			FROM pending_purchases
 			WHERE COALESCE(event_date, (created_at AT TIME ZONE 'America/Chicago')::date) BETWEEN $1 AND $2
 			  AND confirmed_at IS NULL
@@ -1216,13 +1222,14 @@ func PeriodSummaryHandler(pool *pgxpool.Pool, cogsAllowlist []string) http.Handl
 		}
 		defer rows.Close()
 		for rows.Next() {
-			var id string
-			if err := rows.Scan(&id); err != nil {
+			var d PendingReviewDetail
+			if err := rows.Scan(&d.ID, &d.BankTxID, &d.Vendor, &d.EventDate, &d.BankTotal, &d.Reason); err != nil {
 				log.Printf("PeriodSummary pending scan: %v", err)
 				writeError(w, http.StatusInternalServerError, "internal_error")
 				return
 			}
-			pendingIDs = append(pendingIDs, id)
+			pendingIDs = append(pendingIDs, d.ID)
+			pendingDetails = append(pendingDetails, d)
 		}
 		if err := rows.Err(); err != nil {
 			log.Printf("PeriodSummary pending rows.Err: %v", err)
@@ -1317,9 +1324,10 @@ func PeriodSummaryHandler(pool *pgxpool.Pool, cogsAllowlist []string) http.Handl
 			ByVendor:           byVendor,
 			TrackedBankTxIDs:   trackedTxIDs,
 			Completeness: CompletenessBlock{
-				Ready:               len(pendingIDs) == 0 && len(unlinkedIDs) == 0,
-				PendingReviewIDs:    pendingIDs,
-				UnlinkedLineItemIDs: unlinkedIDs,
+				Ready:                len(pendingIDs) == 0 && len(unlinkedIDs) == 0,
+				PendingReviewIDs:     pendingIDs,
+				PendingReviewDetails: pendingDetails,
+				UnlinkedLineItemIDs:  unlinkedIDs,
 			},
 		}
 		writeJSON(w, http.StatusOK, resp)
