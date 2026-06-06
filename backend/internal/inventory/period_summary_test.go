@@ -490,4 +490,141 @@ func TestPeriodSummary(t *testing.T) {
 				got.Completeness.PendingReviewIDs, got.Completeness.UnlinkedLineItemIDs)
 		}
 	})
+
+	// Phase 260605-u0i: per-vendor COGS breakdown on /period-summary.
+	// The sales-processor weekly payroll PDF renders a per-vendor spend
+	// table from `by_vendor`. These subtests pin shape, the sums-match
+	// invariant, the order contract (spend desc, name asc tiebreaker),
+	// the empty-period JSON shape ([] not null), and a regression guard
+	// for purchase_events with zero line items.
+
+	t.Run("by_vendor: shape + sums match + order", func(t *testing.T) {
+		resetFixtures(t)
+		// Two vendors with different spend; one tied pair on a third
+		// vendor to exercise the name-ASC tiebreaker.
+		depotID := insertVendor(t, "Restaurant Depot")
+		salID := insertVendor(t, "Save-A-Lot")
+		zetaID := insertVendor(t, "Zeta")
+		acmeID := insertVendor(t, "Acme")
+		piID := insertPurchaseItem(t, "Salmon")
+
+		// Restaurant Depot: 2 events, qty*price = 5*10 + 3*20 = 110; tax 5+5=10
+		insertEventAndLine(t, depotID, "2026-05-26", 5.00, 60.00, 10.00, 5, piID)
+		insertEventAndLine(t, depotID, "2026-05-27", 5.00, 65.00, 20.00, 3, piID)
+		// Save-A-Lot: 1 event, 2*15 = 30; tax 2
+		insertEventAndLine(t, salID, "2026-05-28", 2.00, 32.00, 15.00, 2, piID)
+		// Tied pair (both $10.00 excl) — Acme must come before Zeta
+		insertEventAndLine(t, zetaID, "2026-05-29", 0.50, 10.50, 10.00, 1, piID)
+		insertEventAndLine(t, acmeID, "2026-05-30", 0.50, 10.50, 10.00, 1, piID)
+
+		code, got := callHandler(t, from, to)
+		if code != http.StatusOK {
+			t.Fatalf("status = %d", code)
+		}
+
+		if got.ByVendor == nil {
+			t.Fatalf("ByVendor is nil; want non-nil slice")
+		}
+		if len(got.ByVendor) != 4 {
+			t.Fatalf("len(ByVendor) = %d, want 4 (got=%+v)", len(got.ByVendor), got.ByVendor)
+		}
+
+		// Order: Depot (110) > Save-A-Lot (30) > Acme (10, ASC) > Zeta (10)
+		wantOrder := []string{"Restaurant Depot", "Save-A-Lot", "Acme", "Zeta"}
+		for i, name := range wantOrder {
+			if got.ByVendor[i].VendorName != name {
+				t.Errorf("ByVendor[%d].VendorName = %q, want %q", i, got.ByVendor[i].VendorName, name)
+			}
+		}
+
+		// Shape: every row has non-empty ID/name and TripCount >= 1
+		for i, row := range got.ByVendor {
+			if row.VendorID == "" {
+				t.Errorf("row %d VendorID empty", i)
+			}
+			if row.VendorName == "" {
+				t.Errorf("row %d VendorName empty", i)
+			}
+			if row.TripCount < 1 {
+				t.Errorf("row %d TripCount = %d, want >=1", i, row.TripCount)
+			}
+		}
+
+		// Sums invariant
+		var sumExcl, sumIncl float64
+		for _, row := range got.ByVendor {
+			sumExcl += row.TotalExclTax
+			sumIncl += row.TotalInclTax
+		}
+		if diff := sumExcl - got.COGSExclTax; diff > 0.01 || diff < -0.01 {
+			t.Errorf("Σ TotalExclTax (%v) != COGSExclTax (%v)", sumExcl, got.COGSExclTax)
+		}
+		if diff := sumIncl - got.COGSInclTax; diff > 0.01 || diff < -0.01 {
+			t.Errorf("Σ TotalInclTax (%v) != COGSInclTax (%v)", sumIncl, got.COGSInclTax)
+		}
+
+		// Trip count for Restaurant Depot must be 2
+		if got.ByVendor[0].TripCount != 2 {
+			t.Errorf("Depot TripCount = %d, want 2", got.ByVendor[0].TripCount)
+		}
+	})
+
+	t.Run("by_vendor: empty period renders [] not null", func(t *testing.T) {
+		resetFixtures(t)
+		code, got := callHandler(t, from, to)
+		if code != http.StatusOK {
+			t.Fatalf("status = %d", code)
+		}
+		if got.ByVendor == nil {
+			t.Fatalf("ByVendor is nil; want empty slice")
+		}
+		if len(got.ByVendor) != 0 {
+			t.Fatalf("len(ByVendor) = %d, want 0", len(got.ByVendor))
+		}
+		// JSON-level check: must render as [] not null
+		raw, err := json.Marshal(got)
+		if err != nil {
+			t.Fatalf("marshal: %v", err)
+		}
+		if !bytes.Contains(raw, []byte(`"by_vendor":[]`)) {
+			t.Errorf("JSON missing `\"by_vendor\":[]` — got %s", string(raw))
+		}
+	})
+
+	t.Run("by_vendor: zero-line-items event still appears (regression)", func(t *testing.T) {
+		resetFixtures(t)
+		// Direct INSERT — bypass insertEventAndLine (which always adds
+		// a line) AND bypass the confirm handler (which would create
+		// the placeholder line item from the undercount fix). This
+		// guards against future code paths that create events without
+		// line items.
+		vendorID := insertVendor(t, "OrphanVendor")
+		var eventID string
+		err := testPool.QueryRow(t.Context(),
+			`INSERT INTO purchase_events (vendor_id, bank_tx_id, event_date, tax, total)
+			 VALUES ($1, $2, '2026-05-28'::date, 0, 0)
+			 RETURNING id::text`,
+			vendorID, "tx-orphan-260528").Scan(&eventID)
+		if err != nil {
+			t.Fatalf("insert orphan event: %v", err)
+		}
+
+		code, got := callHandler(t, from, to)
+		if code != http.StatusOK {
+			t.Fatalf("status = %d", code)
+		}
+		if len(got.ByVendor) != 1 {
+			t.Fatalf("len(ByVendor) = %d, want 1 (got=%+v)", len(got.ByVendor), got.ByVendor)
+		}
+		row := got.ByVendor[0]
+		if row.VendorName != "OrphanVendor" {
+			t.Errorf("VendorName = %q, want OrphanVendor", row.VendorName)
+		}
+		if row.TotalExclTax != 0 {
+			t.Errorf("TotalExclTax = %v, want 0", row.TotalExclTax)
+		}
+		if row.TripCount != 1 {
+			t.Errorf("TripCount = %d, want 1", row.TripCount)
+		}
+	})
 }
