@@ -159,7 +159,19 @@ type PeriodSummary struct {
 	COGSExclTax        float64           `json:"cogs_excl_tax"`
 	COGSInclTax        float64           `json:"cogs_incl_tax"`
 	PurchaseEventCount int               `json:"purchase_event_count"`
+	ByVendor           []VendorCOGS      `json:"by_vendor"`
 	Completeness       CompletenessBlock `json:"completeness"`
+}
+
+// VendorCOGS is one row of the per-vendor breakdown returned by
+// /period-summary. trip_count counts distinct purchase_events for the vendor
+// in the period; tax is allocated per event (not per line item).
+type VendorCOGS struct {
+	VendorID     string  `json:"vendor_id"`
+	VendorName   string  `json:"vendor_name"`
+	TotalExclTax float64 `json:"total_excl_tax"`
+	TotalInclTax float64 `json:"total_incl_tax"`
+	TripCount    int     `json:"trip_count"`
 }
 
 // CompletenessBlock reports whether HQ receipts for the period are fully

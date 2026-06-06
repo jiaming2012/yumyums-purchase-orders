@@ -1140,7 +1140,58 @@ func PeriodSummaryHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		// 2) Pending review IDs — receipts in the period that have not been
+		// 2) Per-vendor COGS breakdown. LEFT JOIN purchase_line_items so
+		//    a vendor with a purchase_event but no lines still appears
+		//    (trip_count=1, total_excl_tax=0). Tax is summed via
+		//    correlated subquery so it isn't multiplied by the line-item
+		//    join cardinality. Order: spend desc, name asc for
+		//    deterministic test + PDF output.
+		byVendor := []VendorCOGS{}
+		rowsV, err := pool.Query(r.Context(), `
+			SELECT
+			    v.id::text                                                                AS vendor_id,
+			    v.name                                                                    AS vendor_name,
+			    ROUND(COALESCE(SUM(pli.quantity * pli.price), 0)::numeric, 2)             AS total_excl_tax,
+			    ROUND(
+			      COALESCE(SUM(pli.quantity * pli.price), 0)::numeric
+			      + COALESCE(
+			          (SELECT SUM(pe2.tax)
+			             FROM purchase_events pe2
+			            WHERE pe2.vendor_id = v.id
+			              AND pe2.event_date BETWEEN $1 AND $2),
+			          0
+			        )::numeric,
+			      2
+			    )                                                                         AS total_incl_tax,
+			    COUNT(DISTINCT pe.id)                                                     AS trip_count
+			FROM purchase_events pe
+			JOIN vendors v                    ON v.id = pe.vendor_id
+			LEFT JOIN purchase_line_items pli ON pli.purchase_event_id = pe.id
+			WHERE pe.event_date BETWEEN $1 AND $2
+			GROUP BY v.id, v.name
+			ORDER BY total_excl_tax DESC, v.name ASC`, fromStr, toStr)
+		if err != nil {
+			log.Printf("PeriodSummary by-vendor query: %v", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		defer rowsV.Close()
+		for rowsV.Next() {
+			var v VendorCOGS
+			if err := rowsV.Scan(&v.VendorID, &v.VendorName, &v.TotalExclTax, &v.TotalInclTax, &v.TripCount); err != nil {
+				log.Printf("PeriodSummary by-vendor scan: %v", err)
+				writeError(w, http.StatusInternalServerError, "internal_error")
+				return
+			}
+			byVendor = append(byVendor, v)
+		}
+		if err := rowsV.Err(); err != nil {
+			log.Printf("PeriodSummary by-vendor rows.Err: %v", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+
+		// 3) Pending review IDs — receipts in the period that have not been
 		//    confirmed or discarded. Discarded counts as resolved per phase scope.
 		//    created_at is TIMESTAMPTZ → cast in America/Chicago to match the
 		//    food-truck calendar (repurchase.go:71 establishes this convention).
@@ -1173,7 +1224,7 @@ func PeriodSummaryHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		// 3) Unlinked line items in confirmed events within range. A line item
+		// 4) Unlinked line items in confirmed events within range. A line item
 		//    is "unlinked" when purchase_item_id IS NULL — i.e. the receipt was
 		//    confirmed but the description never got mapped to a catalog item.
 		unlinkedIDs := []string{}
@@ -1211,6 +1262,7 @@ func PeriodSummaryHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			COGSExclTax:        cogsExcl,
 			COGSInclTax:        cogsIncl,
 			PurchaseEventCount: eventCount,
+			ByVendor:           byVendor,
 			Completeness: CompletenessBlock{
 				Ready:               len(pendingIDs) == 0 && len(unlinkedIDs) == 0,
 				PendingReviewIDs:    pendingIDs,
