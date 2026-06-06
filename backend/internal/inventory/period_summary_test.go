@@ -251,6 +251,32 @@ func insertPendingPurchaseWithReason(t *testing.T, createdAt, reason string) str
 	return id
 }
 
+// insertPendingPurchaseWithEventDate inserts an unconfirmed/undiscarded
+// pending_purchases row. eventDate is a DATE string ("YYYY-MM-DD") or "" for NULL.
+// createdAt is a timestamptz string. reason is a string sentinel or "" for NULL.
+// Returns the inserted id::text. Mirrors insertPendingPurchaseWithReason style.
+func insertPendingPurchaseWithEventDate(t *testing.T, bankTxID, eventDate, createdAt, reason string) string {
+	t.Helper()
+	var (
+		ed *string
+		rs *string
+	)
+	if eventDate != "" {
+		ed = &eventDate
+	}
+	if reason != "" {
+		rs = &reason
+	}
+	var id string
+	q := `INSERT INTO pending_purchases (bank_tx_id, bank_total, vendor, items, event_date, reason, created_at)
+	      VALUES ($1, 0, 'TestVendor', '[]'::jsonb, $2::date, $3, $4::timestamptz)
+	      RETURNING id::text`
+	if err := testPool.QueryRow(t.Context(), q, bankTxID, ed, rs, createdAt).Scan(&id); err != nil {
+		t.Fatalf("insert pending_purchase: %v", err)
+	}
+	return id
+}
+
 func TestPeriodSummary(t *testing.T) {
 	if testPool == nil {
 		t.Skip("DB_TEST_URL not reachable; skipping integration test")
@@ -368,14 +394,17 @@ func TestPeriodSummary(t *testing.T) {
 		// reason='no_attachment_on_bank_tx'. The completeness gate's existing
 		// filter (confirmed_at IS NULL AND discarded_at IS NULL) is
 		// reason-agnostic, so these rows must block ready.
+		// Phase 260606-0gh: event_date is now set explicitly in range (it is
+		// load-bearing for the COALESCE filter — this confirms the new WHERE
+		// picks it up even when created_at also happens to be in range).
 		resetFixtures(t)
 		vendorID := insertVendor(t, "Acme")
 		piID := insertPurchaseItem(t, "Salmon")
 		insertEventAndLine(t, vendorID, "2026-05-26", 2.50, 25.00, 4.5, 5, piID)
 
-		// No-attachment pending row created on 2026-05-28 (in range).
-		ppID := insertPendingPurchaseWithReason(t,
-			"2026-05-28 10:00:00-05:00", "no_attachment_on_bank_tx")
+		// No-attachment pending row: event_date in range, created_at also in range.
+		ppID := insertPendingPurchaseWithEventDate(t,
+			"pp-tx-noatt-in-range", "2026-05-28", "2026-05-28 10:00:00-05:00", "no_attachment_on_bank_tx")
 
 		code, got := callHandler(t, from, to)
 		if code != http.StatusOK {
@@ -755,6 +784,129 @@ func TestPeriodSummary(t *testing.T) {
 		}
 		if len(got.ByVendor) != 2 {
 			t.Errorf("len(ByVendor) = %d, want 2 (got=%+v)", len(got.ByVendor), got.ByVendor)
+		}
+	})
+
+	// Phase 260606-0gh: event_date × created_at axis tests. The pending-review
+	// filter must use COALESCE(event_date, created_at::Chicago::date) so a
+	// late-discovered May receipt ingested in June is still caught in the May
+	// period gate, and an old row ingested during the period but whose
+	// event_date is outside the window is correctly excluded.
+
+	t.Run("ready=false when pending row has event_date in range but created_at out of range", func(t *testing.T) {
+		resetFixtures(t)
+		vendorID := insertVendor(t, "Acme")
+		piID := insertPurchaseItem(t, "Salmon")
+		// One linked event so COGS is non-zero and ready could be true absent pending.
+		insertEventAndLine(t, vendorID, "2026-05-26", 2.50, 25.00, 4.5, 5, piID)
+		// event_date='2026-05-29' (in range), created_at='2026-06-02' (out of range).
+		// COALESCE picks event_date → row is IN the period → should block ready.
+		ppID := insertPendingPurchaseWithEventDate(t,
+			"pp-evt-in-cr-out", "2026-05-29", "2026-06-02 10:00:00-05:00", "")
+
+		code, got := callHandler(t, from, to)
+		if code != http.StatusOK {
+			t.Fatalf("status = %d, want 200", code)
+		}
+		if got.Completeness.Ready {
+			t.Errorf("Ready = true, want false (event_date in range must block)")
+		}
+		found := false
+		for _, id := range got.Completeness.PendingReviewIDs {
+			if id == ppID {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("PendingReviewIDs = %v, want to contain %s", got.Completeness.PendingReviewIDs, ppID)
+		}
+		if len(got.Completeness.UnlinkedLineItemIDs) != 0 {
+			t.Errorf("UnlinkedLineItemIDs = %v, want []", got.Completeness.UnlinkedLineItemIDs)
+		}
+	})
+
+	t.Run("ready=true when pending row has event_date out of range but created_at in range", func(t *testing.T) {
+		resetFixtures(t)
+		vendorID := insertVendor(t, "Acme")
+		piID := insertPurchaseItem(t, "Salmon")
+		insertEventAndLine(t, vendorID, "2026-05-26", 2.50, 25.00, 4.5, 5, piID)
+		// event_date='2026-05-20' (before period), created_at='2026-05-27' (in range).
+		// COALESCE picks event_date → row is OUTSIDE the period → must NOT block.
+		_ = insertPendingPurchaseWithEventDate(t,
+			"pp-evt-out-cr-in", "2026-05-20", "2026-05-27 10:00:00-05:00", "")
+
+		code, got := callHandler(t, from, to)
+		if code != http.StatusOK {
+			t.Fatalf("status = %d, want 200", code)
+		}
+		if !got.Completeness.Ready {
+			t.Errorf("Ready = false, want true (event_date out of range must not block). pending=%v",
+				got.Completeness.PendingReviewIDs)
+		}
+		if len(got.Completeness.PendingReviewIDs) != 0 {
+			t.Errorf("PendingReviewIDs = %v, want []", got.Completeness.PendingReviewIDs)
+		}
+		if len(got.Completeness.UnlinkedLineItemIDs) != 0 {
+			t.Errorf("UnlinkedLineItemIDs = %v, want []", got.Completeness.UnlinkedLineItemIDs)
+		}
+	})
+
+	t.Run("ready=false when pending row has NULL event_date and created_at in range", func(t *testing.T) {
+		resetFixtures(t)
+		vendorID := insertVendor(t, "Acme")
+		piID := insertPurchaseItem(t, "Salmon")
+		insertEventAndLine(t, vendorID, "2026-05-26", 2.50, 25.00, 4.5, 5, piID)
+		// NULL event_date → COALESCE falls back to created_at::Chicago.
+		// created_at='2026-05-27' (in range) → row is in the period → must block.
+		ppID := insertPendingPurchaseWithEventDate(t,
+			"pp-evt-null-cr-in", "", "2026-05-27 10:00:00-05:00", "")
+
+		code, got := callHandler(t, from, to)
+		if code != http.StatusOK {
+			t.Fatalf("status = %d, want 200", code)
+		}
+		if got.Completeness.Ready {
+			t.Errorf("Ready = true, want false (NULL event_date with created_at in range must block)")
+		}
+		found := false
+		for _, id := range got.Completeness.PendingReviewIDs {
+			if id == ppID {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("PendingReviewIDs = %v, want to contain %s", got.Completeness.PendingReviewIDs, ppID)
+		}
+		if len(got.Completeness.UnlinkedLineItemIDs) != 0 {
+			t.Errorf("UnlinkedLineItemIDs = %v, want []", got.Completeness.UnlinkedLineItemIDs)
+		}
+	})
+
+	t.Run("ready=true when pending row has NULL event_date and created_at out of range", func(t *testing.T) {
+		resetFixtures(t)
+		vendorID := insertVendor(t, "Acme")
+		piID := insertPurchaseItem(t, "Salmon")
+		insertEventAndLine(t, vendorID, "2026-05-26", 2.50, 25.00, 4.5, 5, piID)
+		// NULL event_date → COALESCE falls back to created_at::Chicago.
+		// created_at='2026-06-05' (after period) → row is outside the period → must NOT block.
+		_ = insertPendingPurchaseWithEventDate(t,
+			"pp-evt-null-cr-out", "", "2026-06-05 10:00:00-05:00", "")
+
+		code, got := callHandler(t, from, to)
+		if code != http.StatusOK {
+			t.Fatalf("status = %d, want 200", code)
+		}
+		if !got.Completeness.Ready {
+			t.Errorf("Ready = false, want true (NULL event_date with created_at out of range must not block). pending=%v",
+				got.Completeness.PendingReviewIDs)
+		}
+		if len(got.Completeness.PendingReviewIDs) != 0 {
+			t.Errorf("PendingReviewIDs = %v, want []", got.Completeness.PendingReviewIDs)
+		}
+		if len(got.Completeness.UnlinkedLineItemIDs) != 0 {
+			t.Errorf("UnlinkedLineItemIDs = %v, want []", got.Completeness.UnlinkedLineItemIDs)
 		}
 	})
 }
