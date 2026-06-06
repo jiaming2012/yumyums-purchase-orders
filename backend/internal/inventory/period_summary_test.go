@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -1029,6 +1030,182 @@ func TestPeriodSummary(t *testing.T) {
 				t.Errorf("TrackedBankTxIDs[%d] = %q, want %q (full=%v)",
 					i, got.TrackedBankTxIDs[i], id, got.TrackedBankTxIDs)
 			}
+		}
+	})
+
+	// pending_review_details: parallel array to pending_review_ids exposed for
+	// service-token callers (sales-processor) so they can render rich pending
+	// review context without a second round trip to the cookie-gated
+	// /purchases/pending endpoint. Field order MUST match the IDs array
+	// (same SELECT, same WHERE/ORDER BY, same scan loop in handler.go).
+
+	t.Run("pending_review_details parity with pending_review_ids", func(t *testing.T) {
+		resetFixtures(t)
+		// Three pending rows in range, distinct event_dates so order is stable.
+		_ = insertPendingPurchaseWithEventDate(t,
+			"mx-parity-1", "2026-05-26", "2026-05-26 12:00:00-05:00", "")
+		_ = insertPendingPurchaseWithEventDate(t,
+			"mx-parity-2", "2026-05-28", "2026-05-28 12:00:00-05:00", "")
+		_ = insertPendingPurchaseWithEventDate(t,
+			"mx-parity-3", "2026-05-30", "2026-05-30 12:00:00-05:00", "")
+
+		code, got := callHandler(t, from, to)
+		if code != http.StatusOK {
+			t.Fatalf("status = %d, want 200", code)
+		}
+		ids := got.Completeness.PendingReviewIDs
+		details := got.Completeness.PendingReviewDetails
+		if details == nil {
+			t.Fatalf("PendingReviewDetails is nil; want non-nil slice")
+		}
+		if len(details) != len(ids) {
+			t.Fatalf("len(details) = %d, len(ids) = %d; want equal (details=%v ids=%v)",
+				len(details), len(ids), details, ids)
+		}
+		if len(ids) != 3 {
+			t.Fatalf("len(ids) = %d, want 3", len(ids))
+		}
+		for i := range ids {
+			if details[i].ID != ids[i] {
+				t.Errorf("details[%d].ID = %q, ids[%d] = %q; want equal",
+					i, details[i].ID, i, ids[i])
+			}
+		}
+	})
+
+	t.Run("pending_review_details populates vendor/event_date/bank_total/reason", func(t *testing.T) {
+		resetFixtures(t)
+		var id string
+		q := `INSERT INTO pending_purchases (bank_tx_id, bank_total, vendor, items, event_date, reason, created_at)
+		      VALUES ('mx-100', -87.50, 'Restaurant Depot', '[]'::jsonb, '2026-05-28'::date, 'tax_mismatch', '2026-05-28 12:00:00-05:00'::timestamptz)
+		      RETURNING id::text`
+		if err := testPool.QueryRow(t.Context(), q).Scan(&id); err != nil {
+			t.Fatalf("insert pending: %v", err)
+		}
+
+		code, got := callHandler(t, from, to)
+		if code != http.StatusOK {
+			t.Fatalf("status = %d, want 200", code)
+		}
+		details := got.Completeness.PendingReviewDetails
+		if len(details) != 1 {
+			t.Fatalf("len(details) = %d, want 1 (full=%v)", len(details), details)
+		}
+		d := details[0]
+		if d.ID != id {
+			t.Errorf("details[0].ID = %q, want %q", d.ID, id)
+		}
+		if d.BankTxID != "mx-100" {
+			t.Errorf("details[0].BankTxID = %q, want %q", d.BankTxID, "mx-100")
+		}
+		if d.Vendor != "Restaurant Depot" {
+			t.Errorf("details[0].Vendor = %q, want %q", d.Vendor, "Restaurant Depot")
+		}
+		if d.EventDate != "2026-05-28" {
+			t.Errorf("details[0].EventDate = %q, want %q", d.EventDate, "2026-05-28")
+		}
+		if d.BankTotal != -87.50 {
+			t.Errorf("details[0].BankTotal = %v, want %v", d.BankTotal, -87.50)
+		}
+		if d.Reason == nil {
+			t.Errorf("details[0].Reason = nil, want non-nil pointer to %q", "tax_mismatch")
+		} else if *d.Reason != "tax_mismatch" {
+			t.Errorf("*details[0].Reason = %q, want %q", *d.Reason, "tax_mismatch")
+		}
+	})
+
+	t.Run("pending_review_details event_date falls back to Chicago cast of created_at", func(t *testing.T) {
+		resetFixtures(t)
+		// NULL event_date, created_at 2026-05-29 22:02:00 UTC.
+		// Chicago = UTC-5 (CDT in late May) → local time 2026-05-29 17:02 → date 2026-05-29.
+		_ = insertPendingPurchaseWithEventDate(t,
+			"mx-200", "", "2026-05-29 22:02:00+00", "")
+
+		code, got := callHandler(t, from, to)
+		if code != http.StatusOK {
+			t.Fatalf("status = %d, want 200", code)
+		}
+		details := got.Completeness.PendingReviewDetails
+		if len(details) != 1 {
+			t.Fatalf("len(details) = %d, want 1 (full=%v)", len(details), details)
+		}
+		if details[0].EventDate != "2026-05-29" {
+			t.Errorf("details[0].EventDate = %q, want %q (Chicago cast of created_at)",
+				details[0].EventDate, "2026-05-29")
+		}
+	})
+
+	t.Run("pending_review_details vendor='' serializes as empty string", func(t *testing.T) {
+		// Note: pending_purchases.vendor is NOT NULL at the schema level
+		// (tightened by quick task 260606-hew which always populates vendor
+		// from Mercury BankDescription). The SQL still uses COALESCE(vendor,'')
+		// defensively; this test pins the closest observable behaviour —
+		// an empty-string vendor surfaces as "" in the API response.
+		resetFixtures(t)
+		var id string
+		q := `INSERT INTO pending_purchases (bank_tx_id, bank_total, vendor, items, event_date, created_at)
+		      VALUES ('mx-300', -10.00, '', '[]'::jsonb, '2026-05-27'::date, '2026-05-27 12:00:00-05:00'::timestamptz)
+		      RETURNING id::text`
+		if err := testPool.QueryRow(t.Context(), q).Scan(&id); err != nil {
+			t.Fatalf("insert pending: %v", err)
+		}
+
+		code, got := callHandler(t, from, to)
+		if code != http.StatusOK {
+			t.Fatalf("status = %d, want 200", code)
+		}
+		details := got.Completeness.PendingReviewDetails
+		if len(details) != 1 {
+			t.Fatalf("len(details) = %d, want 1 (full=%v)", len(details), details)
+		}
+		if details[0].Vendor != "" {
+			t.Errorf("details[0].Vendor = %q, want empty string", details[0].Vendor)
+		}
+	})
+
+	t.Run("pending_review_details reason=NULL omitted from JSON", func(t *testing.T) {
+		resetFixtures(t)
+		_ = insertPendingPurchaseWithEventDate(t,
+			"mx-400", "2026-05-27", "2026-05-27 12:00:00-05:00", "")
+
+		// Use raw recorder so we can inspect the serialised body for the
+		// omitempty side-effect (NULL reason → nil pointer → absent JSON key).
+		req := httptest.NewRequest(http.MethodGet, "/?from="+from+"&to="+to, nil)
+		rec := httptest.NewRecorder()
+		PeriodSummaryHandler(testPool, []string{"COGS"}).ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d, want 200 (body=%s)", rec.Code, rec.Body.String())
+		}
+
+		var out PeriodSummary
+		if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+			t.Fatalf("decode: %v (body=%s)", err, rec.Body.String())
+		}
+		details := out.Completeness.PendingReviewDetails
+		if len(details) != 1 {
+			t.Fatalf("len(details) = %d, want 1 (full=%v)", len(details), details)
+		}
+		if details[0].Reason != nil {
+			t.Errorf("details[0].Reason = %v, want nil (NULL → nil pointer)", *details[0].Reason)
+		}
+		// omitempty must drop the key entirely from the serialised row.
+		if strings.Contains(rec.Body.String(), `"reason":`) {
+			t.Errorf("raw JSON contains `\"reason\":` — want omitempty to drop the key.\nbody=%s",
+				rec.Body.String())
+		}
+	})
+
+	t.Run("pending_review_details serializes as [] when empty period", func(t *testing.T) {
+		resetFixtures(t)
+		req := httptest.NewRequest(http.MethodGet, "/?from="+from+"&to="+to, nil)
+		rec := httptest.NewRecorder()
+		PeriodSummaryHandler(testPool, []string{"COGS"}).ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d, want 200 (body=%s)", rec.Code, rec.Body.String())
+		}
+		if !strings.Contains(rec.Body.String(), `"pending_review_details":[]`) {
+			t.Errorf("JSON missing `\"pending_review_details\":[]` (want non-null empty array).\nbody=%s",
+				rec.Body.String())
 		}
 	})
 }

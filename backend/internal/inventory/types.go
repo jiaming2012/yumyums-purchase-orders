@@ -188,7 +188,22 @@ type VendorCOGS struct {
 // UnlinkedLineItemIDs lists purchase_line_items.id rows where purchase_item_id
 // IS NULL for purchase_events in the period.
 type CompletenessBlock struct {
-	Ready               bool     `json:"ready"`
-	PendingReviewIDs    []string `json:"pending_review_ids"`
-	UnlinkedLineItemIDs []string `json:"unlinked_line_item_ids"`
+	Ready                bool                  `json:"ready"`
+	PendingReviewIDs     []string              `json:"pending_review_ids"`
+	PendingReviewDetails []PendingReviewDetail `json:"pending_review_details"`
+	UnlinkedLineItemIDs  []string              `json:"unlinked_line_item_ids"`
+}
+
+// PendingReviewDetail is one row of operator-facing context per pending
+// review. Exposed on /period-summary so service-token callers
+// (sales-processor) can render a meaningful failure message without a
+// second round trip to the cookie-auth-only /purchases/pending
+// endpoint.
+type PendingReviewDetail struct {
+	ID        string  `json:"id"`
+	BankTxID  string  `json:"bank_tx_id"`
+	Vendor    string  `json:"vendor"`     // "" when receipt parser couldn't extract one
+	EventDate string  `json:"event_date"` // YYYY-MM-DD; falls back to created_at::date
+	BankTotal float64 `json:"bank_total"`
+	Reason    *string `json:"reason,omitempty"`
 }
