@@ -59,9 +59,10 @@ func TestInsertPendingPurchase_NoAttachmentBranch_ShapeAndDefaults(t *testing.T)
 	resetReceiptFixtures(t)
 
 	tx := MercuryTransaction{
-		ID:        "tx-noatt-1",
-		Amount:    42.50,
-		CreatedAt: "2026-05-27T10:00:00Z",
+		ID:              "tx-noatt-1",
+		Amount:          42.50,
+		BankDescription: "RESTAURANT DEPOT 0123 CHICAGO IL",
+		CreatedAt:       "2026-05-27T10:00:00Z",
 	}
 	err := insertPendingPurchase(
 		t.Context(), testPool, tx,
@@ -104,13 +105,154 @@ func TestInsertPendingPurchase_NoAttachmentBranch_ShapeAndDefaults(t *testing.T)
 	if !reason.Valid || reason.String != "no_attachment_on_bank_tx" {
 		t.Errorf("reason = %+v, want valid %q", reason, "no_attachment_on_bank_tx")
 	}
-	// vendor column NOT NULL in schema → empty string when summary.Vendor is "".
-	// Accept either NULL (if schema is nullable) or "".
-	if vendor.Valid && vendor.String != "" {
-		t.Errorf("vendor = %q, want \"\" or NULL", vendor.String)
+	// Phase 260606-hew: empty summary.Vendor falls back to tx.BankDescription
+	// so unreceipted card swipes no longer render as "Unknown Vendor".
+	if !vendor.Valid || vendor.String != "RESTAURANT DEPOT 0123 CHICAGO IL" {
+		t.Errorf("vendor = %+v, want %q (BankDescription fallback)", vendor, "RESTAURANT DEPOT 0123 CHICAGO IL")
 	}
 	if !eventDate.Valid || eventDate.String != "2026-05-27" {
 		t.Errorf("event_date = %+v, want 2026-05-27", eventDate)
+	}
+}
+
+// TestInsertPendingPurchase_VendorFallback_PrefersSummary asserts that when
+// the receipt parser populated summary.Vendor (curated name from the image),
+// the fallback does NOT overwrite it with Mercury's raw bankDescription.
+func TestInsertPendingPurchase_VendorFallback_PrefersSummary(t *testing.T) {
+	if testPool == nil {
+		t.Skip("DB_TEST_URL not reachable; skipping integration test")
+	}
+	resetReceiptFixtures(t)
+
+	tx := MercuryTransaction{
+		ID:              "tx-parsed-1",
+		Amount:          25.00,
+		BankDescription: "ACME FOOD CO 0123 CHICAGO IL",
+		CreatedAt:       "2026-05-27T10:00:00Z",
+	}
+	summary := ReceiptSummary{Vendor: "Acme Foods", Tax: 0, Total: 25.00}
+	if err := insertPendingPurchase(
+		t.Context(), testPool, tx,
+		nil, summary, "",
+		"some_reason",
+	); err != nil {
+		t.Fatalf("insertPendingPurchase: %v", err)
+	}
+
+	var vendor sql.NullString
+	if err := testPool.QueryRow(t.Context(),
+		`SELECT vendor FROM pending_purchases WHERE bank_tx_id = $1`, "tx-parsed-1",
+	).Scan(&vendor); err != nil {
+		t.Fatalf("select: %v", err)
+	}
+	if !vendor.Valid || vendor.String != "Acme Foods" {
+		t.Errorf("vendor = %+v, want %q (curated name beats bank string)", vendor, "Acme Foods")
+	}
+}
+
+// TestBackfillPendingVendor_SetsWhenEmpty asserts the re-poll backfill
+// helper populates pending_purchases.vendor from tx.BankDescription for
+// rows whose vendor is the empty string. Mirrors what the worker loop
+// does on every poll for cached transactions within the lookback
+// window. Production rows hit this case because the no-attachment
+// branch used to write summary.Vendor == "" before this phase.
+// (Schema has vendor NOT NULL — empty string, not NULL, is what
+// pre-260606-hew rows actually contain.)
+func TestBackfillPendingVendor_SetsWhenEmpty(t *testing.T) {
+	if testPool == nil {
+		t.Skip("DB_TEST_URL not reachable; skipping integration test")
+	}
+	resetReceiptFixtures(t)
+
+	// Simulate a pre-260606-hew row: vendor is '' because the no-att
+	// branch handed in ReceiptSummary{} at the time.
+	if _, err := testPool.Exec(t.Context(),
+		`INSERT INTO pending_purchases (bank_tx_id, bank_total, vendor, items)
+		 VALUES ($1, $2, '', '[]'::jsonb)`,
+		"tx-backfill-empty", -391.96,
+	); err != nil {
+		t.Fatalf("seed empty-vendor pending: %v", err)
+	}
+
+	tx := MercuryTransaction{ID: "tx-backfill-empty", BankDescription: "RESTAURANT DEPOT"}
+	if err := backfillPendingVendor(t.Context(), testPool, tx); err != nil {
+		t.Fatalf("backfillPendingVendor: %v", err)
+	}
+
+	var got sql.NullString
+	if err := testPool.QueryRow(t.Context(),
+		`SELECT vendor FROM pending_purchases WHERE bank_tx_id = $1`, "tx-backfill-empty",
+	).Scan(&got); err != nil {
+		t.Fatalf("select: %v", err)
+	}
+	if !got.Valid || got.String != "RESTAURANT DEPOT" {
+		t.Errorf("vendor = %+v, want %q", got, "RESTAURANT DEPOT")
+	}
+}
+
+// TestBackfillPendingVendor_DoesNotOverwriteExisting asserts the
+// IS NULL OR = '' guard protects a receipt-parsed pending whose vendor
+// Claude (or a human) already set.
+func TestBackfillPendingVendor_DoesNotOverwriteExisting(t *testing.T) {
+	if testPool == nil {
+		t.Skip("DB_TEST_URL not reachable; skipping integration test")
+	}
+	resetReceiptFixtures(t)
+
+	if _, err := testPool.Exec(t.Context(),
+		`INSERT INTO pending_purchases (bank_tx_id, bank_total, vendor, items)
+		 VALUES ($1, $2, 'Acme Foods', '[]'::jsonb)`,
+		"tx-curated", -50.00,
+	); err != nil {
+		t.Fatalf("seed curated-vendor pending: %v", err)
+	}
+
+	tx := MercuryTransaction{ID: "tx-curated", BankDescription: "ACME FOOD CO 0123 CHICAGO IL"}
+	if err := backfillPendingVendor(t.Context(), testPool, tx); err != nil {
+		t.Fatalf("backfillPendingVendor: %v", err)
+	}
+
+	var vendor sql.NullString
+	if err := testPool.QueryRow(t.Context(),
+		`SELECT vendor FROM pending_purchases WHERE bank_tx_id = $1`, "tx-curated",
+	).Scan(&vendor); err != nil {
+		t.Fatalf("select: %v", err)
+	}
+	if !vendor.Valid || vendor.String != "Acme Foods" {
+		t.Errorf("vendor = %+v, want %q (curated name must NOT be overwritten)", vendor, "Acme Foods")
+	}
+}
+
+// TestBackfillPendingVendor_EmptyBankDescriptionIsNoOp asserts the helper
+// short-circuits when tx.BankDescription is empty — leaves the row's
+// existing vendor untouched. (Schema has vendor NOT NULL, so we seed ''.)
+func TestBackfillPendingVendor_EmptyBankDescriptionIsNoOp(t *testing.T) {
+	if testPool == nil {
+		t.Skip("DB_TEST_URL not reachable; skipping integration test")
+	}
+	resetReceiptFixtures(t)
+
+	if _, err := testPool.Exec(t.Context(),
+		`INSERT INTO pending_purchases (bank_tx_id, bank_total, vendor, items)
+		 VALUES ($1, $2, '', '[]'::jsonb)`,
+		"tx-empty-bd", -10.00,
+	); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	tx := MercuryTransaction{ID: "tx-empty-bd", BankDescription: ""}
+	if err := backfillPendingVendor(t.Context(), testPool, tx); err != nil {
+		t.Fatalf("backfillPendingVendor: %v", err)
+	}
+
+	var vendor sql.NullString
+	if err := testPool.QueryRow(t.Context(),
+		`SELECT vendor FROM pending_purchases WHERE bank_tx_id = $1`, "tx-empty-bd",
+	).Scan(&vendor); err != nil {
+		t.Fatalf("select: %v", err)
+	}
+	if !vendor.Valid || vendor.String != "" {
+		t.Errorf("vendor = %+v, want \"\" (empty BankDescription must not overwrite to anything else)", vendor)
 	}
 }
 

@@ -94,6 +94,16 @@ func runIngestCycle(ctx context.Context, cfg WorkerConfig) error {
 			}
 		}
 
+		// Backfill pending_purchases.vendor from Mercury's bankDescription
+		// for rows that landed before the BankDescription-fallback shipped
+		// (260606-hew). Runs alongside mercury_category refresh — before
+		// the `already` short-circuit — so cached rows within the lookback
+		// window auto-backfill on the next poll. No separate one-shot
+		// migration.
+		if backfillErr := backfillPendingVendor(ctx, cfg.Pool, tx); backfillErr != nil {
+			log.Printf("receipt worker: backfill vendor for tx %s: %v (continuing)", tx.ID, backfillErr)
+		}
+
 		// Idempotency: skip if already in purchase_events or pending_purchases
 		already, err := bankTxIDExists(ctx, cfg.Pool, tx.ID)
 		if err != nil {
@@ -338,6 +348,18 @@ func insertPendingPurchase(ctx context.Context, pool *pgxpool.Pool, tx MercuryTr
 
 	eventDate := parseEventDate(tx.CreatedAt)
 
+	// Vendor fallback: Mercury attaches a bankDescription to every card
+	// transaction (e.g. "RESTAURANT DEPOT 0123 CHICAGO IL"). The
+	// no_attachment_on_bank_tx branch passes an empty ReceiptSummary so
+	// summary.Vendor is "" — without this fallback every unreceipted
+	// pending renders as "Unknown Vendor" in the Purchases tab. When
+	// Claude successfully parses a receipt, summary.Vendor wins (the
+	// curated name beats the raw bank string).
+	vendor := summary.Vendor
+	if vendor == "" {
+		vendor = tx.BankDescription
+	}
+
 	_, err = pool.Exec(ctx,
 		`INSERT INTO pending_purchases
 		 (bank_tx_id, bank_total, vendor, event_date, tax, total, items, reason, receipt_url)
@@ -345,7 +367,7 @@ func insertPendingPurchase(ctx context.Context, pool *pgxpool.Pool, tx MercuryTr
 		 ON CONFLICT DO NOTHING`,
 		tx.ID,
 		tx.Amount,
-		summary.Vendor,
+		vendor,
 		nullableString(eventDate),
 		nullableFloat64(summary.Tax),
 		nullableFloat64(summary.Total),
@@ -357,6 +379,24 @@ func insertPendingPurchase(ctx context.Context, pool *pgxpool.Pool, tx MercuryTr
 		return fmt.Errorf("insertPendingPurchase: %w", err)
 	}
 	return nil
+}
+
+// backfillPendingVendor sets pending_purchases.vendor to Mercury's
+// bankDescription for the given tx when the row exists with a missing
+// vendor. The IS NULL OR = '' guard means a receipt-parsed pending whose
+// vendor Claude already set is never overwritten. Idempotent on re-poll.
+// Empty bankDescription is a no-op.
+func backfillPendingVendor(ctx context.Context, pool *pgxpool.Pool, tx MercuryTransaction) error {
+	if tx.BankDescription == "" {
+		return nil
+	}
+	_, err := pool.Exec(ctx,
+		`UPDATE pending_purchases
+		 SET vendor = $1
+		 WHERE bank_tx_id = $2
+		   AND (vendor IS NULL OR vendor = '')`,
+		tx.BankDescription, tx.ID)
+	return err
 }
 
 // loadPurchaseItemsMap returns a map of description -> id for all purchase_items.
