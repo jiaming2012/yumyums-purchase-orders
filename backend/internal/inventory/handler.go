@@ -1112,9 +1112,15 @@ func PeriodSummaryHandler(pool *pgxpool.Pool, cogsAllowlist []string) http.Handl
 		}
 
 		// 1) COGS aggregate. event_date is DATE (no TZ cast needed).
-		//    cogs_excl_tax = SUM(quantity * price) rounded to 2dp.
-		//    cogs_incl_tax = cogs_excl_tax + SUM(tax) over purchase_events in range.
-		//    purchase_event_count = COUNT(purchase_events) in range.
+		//    cogs_excl_tax = SUM(confirmed line items) + SUM(ABS(bank_total)) of
+		//    non-blocking eligible pending (COGS-category, receipt attached but
+		//    parse-failed, in period, unconfirmed, undiscarded).
+		//    cogs_incl_tax adds SUM(tax) over confirmed purchase_events only;
+		//    pending rows contribute bank_total to both (≈5% inaccuracy per
+		//    pending row vs. excluding entirely; operator confirming flips it).
+		//    Non-blocking pending excludes reason = 'no_attachment_on_bank_tx'
+		//    so blocking rows (food + no receipt) stay out of COGS — they'd be
+		//    moot since Ready=false anyway, but keeps the data model honest.
 		var cogsExcl float64
 		var cogsIncl float64
 		var eventCount int
@@ -1129,50 +1135,122 @@ func PeriodSummaryHandler(pool *pgxpool.Pool, cogsAllowlist []string) http.Handl
 				SELECT ROUND(COALESCE(SUM(pli.quantity * pli.price), 0)::numeric, 2) AS total
 				FROM purchase_line_items pli
 				WHERE pli.purchase_event_id IN (SELECT id FROM events)
+			),
+			pending AS (
+				SELECT ROUND(COALESCE(SUM(ABS(bank_total)), 0)::numeric, 2) AS total,
+				       COUNT(*)                                              AS event_count
+				FROM pending_purchases
+				WHERE COALESCE(event_date, (created_at AT TIME ZONE 'America/Chicago')::date)
+				        BETWEEN $1 AND $2
+				  AND confirmed_at IS NULL
+				  AND discarded_at IS NULL
+				  AND mercury_category = ANY($3)
+				  AND reason != 'no_attachment_on_bank_tx'
+			),
+			event_tax AS (
+				SELECT COALESCE(SUM(tax), 0)::numeric AS total FROM events
 			)
 			SELECT
-				(SELECT total FROM lines)                                     AS cogs_excl_tax,
-				(SELECT total FROM lines) + COALESCE(SUM(tax), 0)             AS cogs_incl_tax,
-				COUNT(*)                                                      AS event_count
-			FROM events`, fromStr, toStr, cogsAllowlist).Scan(&cogsExcl, &cogsIncl, &eventCount)
+				(SELECT total FROM lines) + (SELECT total FROM pending)                       AS cogs_excl_tax,
+				(SELECT total FROM lines) + (SELECT total FROM pending)
+				    + (SELECT total FROM event_tax)                                           AS cogs_incl_tax,
+				(SELECT COUNT(*) FROM events) + (SELECT event_count FROM pending)             AS event_count`,
+			fromStr, toStr, cogsAllowlist).Scan(&cogsExcl, &cogsIncl, &eventCount)
 		if err != nil {
 			log.Printf("PeriodSummary cogs query: %v", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
 
-		// 2) Per-vendor COGS breakdown. LEFT JOIN purchase_line_items so
-		//    a vendor with a purchase_event but no lines still appears
-		//    (trip_count=1, total_excl_tax=0). Tax is summed via
-		//    correlated subquery so it isn't multiplied by the line-item
-		//    join cardinality. Order: spend desc, name asc for
-		//    deterministic test + PDF output.
+		// 2) Per-vendor COGS breakdown. Three CTEs:
+		//      - confirmed: existing by-vendor sum over purchase_events +
+		//        purchase_line_items (LEFT JOIN so a vendor with a purchase_event
+		//        but no lines still appears; tax via correlated subquery so it
+		//        isn't multiplied by the line-item join cardinality).
+		//      - pending_matched: non-blocking eligible pending whose vendor
+		//        text matches an existing vendors.name (LOWER(TRIM()) join).
+		//        Their ABS(bank_total) folds into the matched vendor row.
+		//      - pending_unmatched: non-blocking eligible pending whose vendor
+		//        text has no vendors.name match — each goes into its own row
+		//        with vendor_id = ''. Operator can promote via the UI.
+		//    Outer GROUP BY collapses confirmed + matched-pending into one row
+		//    per real vendor. Order: spend desc, name asc for deterministic
+		//    test + PDF output.
 		byVendor := []VendorCOGS{}
 		rowsV, err := pool.Query(r.Context(), `
-			SELECT
-			    v.id::text                                                                AS vendor_id,
-			    v.name                                                                    AS vendor_name,
-			    ROUND(COALESCE(SUM(pli.quantity * pli.price), 0)::numeric, 2)             AS total_excl_tax,
-			    ROUND(
-			      COALESCE(SUM(pli.quantity * pli.price), 0)::numeric
-			      + COALESCE(
-			          (SELECT SUM(pe2.tax)
-			             FROM purchase_events pe2
-			            WHERE pe2.vendor_id = v.id
-			              AND pe2.event_date BETWEEN $1 AND $2
-			              AND pe2.mercury_category = ANY($3)),
-			          0
-			        )::numeric,
-			      2
-			    )                                                                         AS total_incl_tax,
-			    COUNT(DISTINCT pe.id)                                                     AS trip_count
-			FROM purchase_events pe
-			JOIN vendors v                    ON v.id = pe.vendor_id
-			LEFT JOIN purchase_line_items pli ON pli.purchase_event_id = pe.id
-			WHERE pe.event_date BETWEEN $1 AND $2
-			  AND pe.mercury_category = ANY($3)
-			GROUP BY v.id, v.name
-			ORDER BY total_excl_tax DESC, v.name ASC`, fromStr, toStr, cogsAllowlist)
+			WITH confirmed AS (
+				SELECT
+				    v.id::text                                                                AS vendor_id,
+				    v.name                                                                    AS vendor_name,
+				    ROUND(COALESCE(SUM(pli.quantity * pli.price), 0)::numeric, 2)             AS total_excl_tax,
+				    ROUND(
+				      COALESCE(SUM(pli.quantity * pli.price), 0)::numeric
+				      + COALESCE(
+				          (SELECT SUM(pe2.tax)
+				             FROM purchase_events pe2
+				            WHERE pe2.vendor_id = v.id
+				              AND pe2.event_date BETWEEN $1 AND $2
+				              AND pe2.mercury_category = ANY($3)),
+				          0
+				        )::numeric,
+				      2
+				    )                                                                         AS total_incl_tax,
+				    COUNT(DISTINCT pe.id)                                                     AS trip_count
+				FROM purchase_events pe
+				JOIN vendors v                    ON v.id = pe.vendor_id
+				LEFT JOIN purchase_line_items pli ON pli.purchase_event_id = pe.id
+				WHERE pe.event_date BETWEEN $1 AND $2
+				  AND pe.mercury_category = ANY($3)
+				GROUP BY v.id, v.name
+			),
+			pending_eligible AS (
+				SELECT id, bank_total, vendor
+				FROM pending_purchases
+				WHERE COALESCE(event_date, (created_at AT TIME ZONE 'America/Chicago')::date)
+				        BETWEEN $1 AND $2
+				  AND confirmed_at IS NULL
+				  AND discarded_at IS NULL
+				  AND mercury_category = ANY($3)
+				  AND reason != 'no_attachment_on_bank_tx'
+			),
+			pending_matched AS (
+				SELECT
+				    v.id::text                                            AS vendor_id,
+				    v.name                                                AS vendor_name,
+				    ROUND(SUM(ABS(pe.bank_total))::numeric, 2)            AS total_excl_tax,
+				    ROUND(SUM(ABS(pe.bank_total))::numeric, 2)            AS total_incl_tax,
+				    COUNT(*)                                              AS trip_count
+				FROM pending_eligible pe
+				JOIN vendors v ON LOWER(TRIM(v.name)) = LOWER(TRIM(pe.vendor))
+				GROUP BY v.id, v.name
+			),
+			pending_unmatched AS (
+				SELECT
+				    ''::text                                                                  AS vendor_id,
+				    COALESCE(NULLIF(TRIM(pe.vendor), ''), '(unknown vendor)')                 AS vendor_name,
+				    ROUND(SUM(ABS(pe.bank_total))::numeric, 2)                                AS total_excl_tax,
+				    ROUND(SUM(ABS(pe.bank_total))::numeric, 2)                                AS total_incl_tax,
+				    COUNT(*)                                                                  AS trip_count
+				FROM pending_eligible pe
+				WHERE NOT EXISTS (
+				    SELECT 1 FROM vendors v
+				    WHERE LOWER(TRIM(v.name)) = LOWER(TRIM(pe.vendor))
+				)
+				GROUP BY pe.vendor
+			)
+			SELECT vendor_id, vendor_name,
+			       SUM(total_excl_tax)  AS total_excl_tax,
+			       SUM(total_incl_tax)  AS total_incl_tax,
+			       SUM(trip_count)::int AS trip_count
+			FROM (
+			    SELECT vendor_id, vendor_name, total_excl_tax, total_incl_tax, trip_count FROM confirmed
+			    UNION ALL
+			    SELECT vendor_id, vendor_name, total_excl_tax, total_incl_tax, trip_count FROM pending_matched
+			    UNION ALL
+			    SELECT vendor_id, vendor_name, total_excl_tax, total_incl_tax, trip_count FROM pending_unmatched
+			) combined
+			GROUP BY vendor_id, vendor_name
+			ORDER BY total_excl_tax DESC, vendor_name ASC`, fromStr, toStr, cogsAllowlist)
 		if err != nil {
 			log.Printf("PeriodSummary by-vendor query: %v", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
@@ -1194,13 +1272,18 @@ func PeriodSummaryHandler(pool *pgxpool.Pool, cogsAllowlist []string) http.Handl
 			return
 		}
 
-		// 3) Pending review IDs — receipts whose business date falls in the
-		//    period and have not been confirmed or discarded. We filter on
-		//    COALESCE(event_date, created_at::Chicago::date): event_date wins
-		//    because it reflects when the purchase actually happened (the
-		//    receipt worker's 14-day lookback can ingest May receipts in
-		//    June); created_at is the fallback for rows where event_date
-		//    was not extracted. Chicago cast matches repurchase.go:71.
+		// 3) Pending review IDs — only *blocking* pending rows: receipts whose
+		//    business date falls in the period, have not been confirmed or
+		//    discarded, are COGS-category (mercury_category in allowlist),
+		//    AND have no attached receipt (reason = 'no_attachment_on_bank_tx').
+		//    Non-blocking pending (food + parse-failed, non-food, NULL category)
+		//    are intentionally excluded — they don't block payroll. They still
+		//    surface in the operator's Inventory UI via ListPendingPurchasesHandler.
+		//    Date filter on COALESCE(event_date, created_at::Chicago::date):
+		//    event_date wins because it reflects when the purchase actually
+		//    happened (the receipt worker's 14-day lookback can ingest May
+		//    receipts in June); created_at is the fallback for rows where
+		//    event_date was not extracted. Chicago cast matches repurchase.go:71.
 		pendingIDs := []string{}
 		pendingDetails := []PendingReviewDetail{}
 		rows, err := pool.Query(r.Context(), `
@@ -1214,7 +1297,9 @@ func PeriodSummaryHandler(pool *pgxpool.Pool, cogsAllowlist []string) http.Handl
 			WHERE COALESCE(event_date, (created_at AT TIME ZONE 'America/Chicago')::date) BETWEEN $1 AND $2
 			  AND confirmed_at IS NULL
 			  AND discarded_at IS NULL
-			ORDER BY COALESCE(event_date, (created_at AT TIME ZONE 'America/Chicago')::date), created_at`, fromStr, toStr)
+			  AND mercury_category = ANY($3)
+			  AND reason = 'no_attachment_on_bank_tx'
+			ORDER BY COALESCE(event_date, (created_at AT TIME ZONE 'America/Chicago')::date), created_at`, fromStr, toStr, cogsAllowlist)
 		if err != nil {
 			log.Printf("PeriodSummary pending query: %v", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
