@@ -9,14 +9,23 @@ import (
 
 // MercuryTransaction represents a single transaction from the Mercury banking API.
 type MercuryTransaction struct {
-	ID              string        `json:"id"`
-	Amount          float64       `json:"amount"`
-	BankDescription string        `json:"bankDescription"`
-	Status          string        `json:"status"`
-	Kind            string        `json:"kind"`
-	Attachments     []Attachment  `json:"attachments"`
-	Note            string        `json:"note"`
-	CreatedAt       string        `json:"createdAt"`
+	ID              string               `json:"id"`
+	Amount          float64              `json:"amount"`
+	BankDescription string               `json:"bankDescription"`
+	Status          string               `json:"status"`
+	Kind            string               `json:"kind"`
+	Attachments     []Attachment         `json:"attachments"`
+	Note            string               `json:"note"`
+	CreatedAt       string               `json:"createdAt"`
+	CategoryData    *MercuryCategoryData `json:"categoryData"` // nullable
+}
+
+// MercuryCategoryData mirrors Mercury's per-transaction categoryData
+// field. Set by the sales-processor classify pipeline (Claude) via
+// PATCH /transaction/{id}. Null until classified.
+type MercuryCategoryData struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
 }
 
 // Attachment is a file attachment on a Mercury transaction (e.g. a receipt scan).

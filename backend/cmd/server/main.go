@@ -337,9 +337,23 @@ func main() {
 		// Service-to-service (no cookie session) — inventory period summary for
 		// sales-processor weekly payroll flow. Lives in its OWN group with
 		// service-token middleware; NOT under auth.Middleware (no cookie).
+		//
+		// HQ_COGS_CATEGORY_ALLOWLIST configures which Mercury categoryData.name
+		// values count toward the COGS aggregate. Comma-separated, default "COGS".
+		// Non-allowlisted (and NULL) events stay in purchase_events for
+		// bookkeeping but don't roll up into food-cost numbers.
+		rawAllow := envOrDefault("HQ_COGS_CATEGORY_ALLOWLIST", "COGS")
+		cogsAllowlist := make([]string, 0)
+		for _, s := range strings.Split(rawAllow, ",") {
+			if t := strings.TrimSpace(s); t != "" {
+				cogsAllowlist = append(cogsAllowlist, t)
+			}
+		}
+		log.Printf("inventory: COGS category allowlist = %v", cogsAllowlist)
+
 		r.Group(func(r chi.Router) {
 			r.Use(auth.ServiceTokenMiddleware(serviceToken))
-			r.Get("/inventory/period-summary", inventory.PeriodSummaryHandler(pool))
+			r.Get("/inventory/period-summary", inventory.PeriodSummaryHandler(pool, cogsAllowlist))
 			r.Get("/inventory/menu-cogs", recipes.MenuCogsHandler(pool)) // Phase 999.2
 		})
 

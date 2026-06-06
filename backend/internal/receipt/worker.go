@@ -77,6 +77,23 @@ func runIngestCycle(ctx context.Context, cfg WorkerConfig) error {
 	var autoCreated, pendingReview, skippedCached int
 
 	for _, tx := range txns {
+		// Refresh mercury_category on existing events so values set by the
+		// sales-processor classify pipeline (async, weekly or nightly) propagate
+		// into HQ without a separate scheduler. Idempotent via IS DISTINCT FROM.
+		// Runs for cached AND new transactions (before the `already` short-circuit)
+		// so a previously-ingested row can pick up a late classify pass.
+		if tx.CategoryData != nil {
+			_, refreshErr := cfg.Pool.Exec(ctx,
+				`UPDATE purchase_events
+				 SET mercury_category = $1
+				 WHERE bank_tx_id = $2
+				   AND (mercury_category IS DISTINCT FROM $1)`,
+				tx.CategoryData.Name, tx.ID)
+			if refreshErr != nil {
+				log.Printf("receipt worker: refresh mercury_category for tx %s: %v (continuing)", tx.ID, refreshErr)
+			}
+		}
+
 		// Idempotency: skip if already in purchase_events or pending_purchases
 		already, err := bankTxIDExists(ctx, cfg.Pool, tx.ID)
 		if err != nil {
@@ -252,13 +269,19 @@ func createPurchaseEvent(ctx context.Context, pool *pgxpool.Pool, tx MercuryTran
 	// Parse event date from Mercury CreatedAt
 	eventDate := parseEventDate(tx.CreatedAt)
 
+	// Derive mercury_category (nil-safe — NULL when Mercury hasn't classified yet)
+	var mercuryCategory string
+	if tx.CategoryData != nil {
+		mercuryCategory = tx.CategoryData.Name
+	}
+
 	// Insert purchase_event
 	var eventID string
 	err = dbTx.QueryRow(ctx,
-		`INSERT INTO purchase_events (vendor_id, bank_tx_id, event_date, tax, total, receipt_url)
-		 VALUES ($1, $2, $3, $4, $5, $6)
+		`INSERT INTO purchase_events (vendor_id, bank_tx_id, event_date, tax, total, receipt_url, mercury_category)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7)
 		 RETURNING id`,
-		vendorID, tx.ID, eventDate, summary.Tax, summary.Total, nullableString(receiptURL),
+		vendorID, tx.ID, eventDate, summary.Tax, summary.Total, nullableString(receiptURL), nullableString(mercuryCategory),
 	).Scan(&eventID)
 	if err != nil {
 		return fmt.Errorf("createPurchaseEvent: insert purchase_event: %w", err)

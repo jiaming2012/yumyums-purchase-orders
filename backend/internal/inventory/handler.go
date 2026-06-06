@@ -1094,7 +1094,7 @@ func ListTagsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 //
 // Response (200): inventory.PeriodSummary JSON.
 // Errors: 400 on malformed dates or from > to; 500 on internal DB error.
-func PeriodSummaryHandler(pool *pgxpool.Pool) http.HandlerFunc {
+func PeriodSummaryHandler(pool *pgxpool.Pool, cogsAllowlist []string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		fromStr := r.URL.Query().Get("from")
 		toStr := r.URL.Query().Get("to")
@@ -1123,6 +1123,7 @@ func PeriodSummaryHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				SELECT id, tax
 				FROM purchase_events
 				WHERE event_date BETWEEN $1 AND $2
+				  AND mercury_category = ANY($3)
 			),
 			lines AS (
 				SELECT ROUND(COALESCE(SUM(pli.quantity * pli.price), 0)::numeric, 2) AS total
@@ -1133,7 +1134,7 @@ func PeriodSummaryHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				(SELECT total FROM lines)                                     AS cogs_excl_tax,
 				(SELECT total FROM lines) + COALESCE(SUM(tax), 0)             AS cogs_incl_tax,
 				COUNT(*)                                                      AS event_count
-			FROM events`, fromStr, toStr).Scan(&cogsExcl, &cogsIncl, &eventCount)
+			FROM events`, fromStr, toStr, cogsAllowlist).Scan(&cogsExcl, &cogsIncl, &eventCount)
 		if err != nil {
 			log.Printf("PeriodSummary cogs query: %v", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
@@ -1158,7 +1159,8 @@ func PeriodSummaryHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			          (SELECT SUM(pe2.tax)
 			             FROM purchase_events pe2
 			            WHERE pe2.vendor_id = v.id
-			              AND pe2.event_date BETWEEN $1 AND $2),
+			              AND pe2.event_date BETWEEN $1 AND $2
+			              AND pe2.mercury_category = ANY($3)),
 			          0
 			        )::numeric,
 			      2
@@ -1168,8 +1170,9 @@ func PeriodSummaryHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			JOIN vendors v                    ON v.id = pe.vendor_id
 			LEFT JOIN purchase_line_items pli ON pli.purchase_event_id = pe.id
 			WHERE pe.event_date BETWEEN $1 AND $2
+			  AND pe.mercury_category = ANY($3)
 			GROUP BY v.id, v.name
-			ORDER BY total_excl_tax DESC, v.name ASC`, fromStr, toStr)
+			ORDER BY total_excl_tax DESC, v.name ASC`, fromStr, toStr, cogsAllowlist)
 		if err != nil {
 			log.Printf("PeriodSummary by-vendor query: %v", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
