@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-04-15)
 Phase: 999.2
 Plan: Not started
 Status: Milestone complete
-Last activity: 2026-06-06 - Completed quick task 260606-hvy: Expose pending_review_details on /period-summary
+Last activity: 2026-06-06 - Completed quick task 260606-jvs: Narrow /period-summary completeness.ready to COGS-blocking pending only + roll non-blocking food pending into COGS
 
 Progress: [██████████] 100%
 
@@ -234,6 +234,7 @@ None yet.
 | 260606-9y0 | Expose tracked_bank_tx_ids on /period-summary — UNION of bank_tx_id across purchase_events + pending_purchases (all states) so sales-processor can diff Mercury and detect un-ingested transactions | 2026-06-06 | f730485 | Verified | [260606-9y0-tracked-bank-tx-ids-on-period](./quick/260606-9y0-tracked-bank-tx-ids-on-period/) |
 | 260606-hew | Persist Mercury BankDescription as pending_purchases.vendor — fixes "Unknown Vendor" rendering on no_attachment_on_bank_tx rows + backfills existing in-window rows on next worker poll | 2026-06-06 | ea23933 | Verified | [260606-hew-vendor-fallback-bank-description](./quick/260606-hew-vendor-fallback-bank-description/) |
 | 260606-hvy | Expose pending_review_details on /period-summary — parallel array next to pending_review_ids so sales-processor renders vendor + event_date + bank_total + reason instead of bare UUIDs | 2026-06-06 | d31b628 |  | [260606-hvy-expose-pending-review-details-on-period-](./quick/260606-hvy-expose-pending-review-details-on-period-/) |
+| 260606-jvs | Narrow /period-summary completeness.ready to COGS-blocking pending receipts only (food category + no_attachment_on_bank_tx) + roll non-blocking food-category pending into cogs_excl_tax / by_vendor at ABS(bank_total); adds pending_purchases.mercury_category column + worker populate/refresh | 2026-06-06 | f3f9b2a |  | [260606-jvs-narrow-completeness-ready-on-period-summ](./quick/260606-jvs-narrow-completeness-ready-on-period-summ/) |
 
 ## Deferred Items
 
