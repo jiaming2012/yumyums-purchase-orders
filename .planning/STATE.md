@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-04-15)
 Phase: 999.2
 Plan: Not started
 Status: Milestone complete
-Last activity: 2026-06-05
+Last activity: 2026-06-05 - Completed quick task 260605-v0n: Filter COGS by Mercury category allowlist
 
 Progress: [██████████] 100%
 
@@ -229,6 +229,7 @@ None yet.
 | 260605-pk1 | Receipt-gate Mercury card transactions — surface no-attachment txns + accept empty-items confirm | 2026-06-05 | 4fe8dd2 | [260605-pk1-receipt-gate-mercury-card-transactions-m](./quick/260605-pk1-receipt-gate-mercury-card-transactions-m/) |
 | 260605-q7b | Fix COGS undercount on confirm-without-receipt — seed placeholder catalog row + handler else-branch + backfill orphan events | 2026-06-05 | ef48640 | [260605-q7b-fix-cogs-undercount-on-confirm-without-r](./quick/260605-q7b-fix-cogs-undercount-on-confirm-without-r/) |
 | 260605-u0i | Add by_vendor array to GET /api/v1/inventory/period-summary — completes sales-processor per-vendor COGS table contract | 2026-06-06 | 7579fe7 | [260605-u0i-add-by-vendor-array-to-get-api-v1-invent](./quick/260605-u0i-add-by-vendor-array-to-get-api-v1-invent/) |
+| 260605-v0n | Filter COGS by Mercury category — cache mercury_category on purchase_events, filter /period-summary (main + by_vendor) by allowlist, ingest categoryData + worker re-sync, HQ_COGS_CATEGORY_ALLOWLIST env var | 2026-06-06 | b351804 | [260605-v0n-filter-cogs-by-mercury-category](./quick/260605-v0n-filter-cogs-by-mercury-category/) |
 
 ## Deferred Items
 
