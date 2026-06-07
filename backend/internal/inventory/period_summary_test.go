@@ -3,6 +3,7 @@ package inventory
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -11,6 +12,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/yumyums/hq/internal/auth"
 	"github.com/yumyums/hq/internal/db"
@@ -1726,5 +1728,170 @@ func TestConfirmPending_RejectsTotalMismatchWith422(t *testing.T) {
 	}
 	if gotBankTotal != 50.00 {
 		t.Errorf("bank_total = %v, want 50.00", gotBankTotal)
+	}
+}
+
+// ─── Phase 260607-koi: RetryParsePendingPurchaseHandler ─────────────────────
+//
+// The retry-parse endpoint nulls the parse_error column on a stuck pending row
+// so the next worker sync cycle (260607-fxl parseFailedRetry branch) will
+// re-attempt parsing through Sonnet. The 4 tests below pin the 4 dispositions:
+//   - 200 + parse_error nulled when the row is pending and has a parse_error
+//   - 404 pending_purchase_not_found when the id does not exist
+//   - 422 row_not_pending when the row is confirmed or discarded
+//   - 422 nothing_to_retry when parse_error is already NULL
+
+// retryParseHelper performs the boilerplate for invoking
+// RetryParsePendingPurchaseHandler with the row id encoded into the URL path
+// (the route uses chi.URLParam, NOT a JSON body). Wires the chi router so
+// chi.URLParam("id") resolves correctly inside the handler.
+func retryParseHelper(t *testing.T, id string) *httptest.ResponseRecorder {
+	t.Helper()
+	router := chi.NewRouter()
+	router.Post("/api/v1/inventory/purchases/pending/{id}/retry-parse",
+		RetryParsePendingPurchaseHandler(testPool))
+	req := httptest.NewRequest(http.MethodPost,
+		"/api/v1/inventory/purchases/pending/"+id+"/retry-parse", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	return rec
+}
+
+// TestRetryParse_ClearsParseError verifies the happy path: a pending row with a
+// parse_error set is updated so parse_error becomes NULL and the row is
+// returned in the 200 response body.
+func TestRetryParse_ClearsParseError(t *testing.T) {
+	if testPool == nil {
+		t.Skip("DB_TEST_URL not reachable; skipping integration test")
+	}
+	resetFixtures(t)
+
+	ppID := insertPendingPurchaseWithEventDate(t,
+		"koi-clears-tx", "2026-05-27", "2026-05-27 10:00:00-05:00",
+		"Receipt could not be parsed automatically")
+	if _, err := testPool.Exec(t.Context(),
+		`UPDATE pending_purchases SET parse_error = $1 WHERE id = $2`,
+		"haiku: boom; sonnet: boom", ppID); err != nil {
+		t.Fatalf("set parse_error: %v", err)
+	}
+
+	rec := retryParseHelper(t, ppID)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 (body=%s)", rec.Code, rec.Body.String())
+	}
+	// Response body is the full PendingPurchase row with parse_error nil/empty.
+	var body PendingPurchase
+	if err := json.NewDecoder(rec.Body).Decode(&body); err != nil {
+		t.Fatalf("decode body: %v", err)
+	}
+	if body.ID != ppID {
+		t.Errorf("response id = %q, want %q", body.ID, ppID)
+	}
+	if body.ParseError != nil && *body.ParseError != "" {
+		t.Errorf("response parse_error = %q, want nil or empty", *body.ParseError)
+	}
+
+	// DB sanity: column is now NULL.
+	var parseErrAfter sql.NullString
+	if err := testPool.QueryRow(t.Context(),
+		`SELECT parse_error FROM pending_purchases WHERE id = $1`, ppID,
+	).Scan(&parseErrAfter); err != nil {
+		t.Fatalf("select parse_error: %v", err)
+	}
+	if parseErrAfter.Valid {
+		t.Errorf("parse_error column = %q, want NULL", parseErrAfter.String)
+	}
+}
+
+// TestRetryParse_404OnUnknownId verifies that a valid-uuid-but-unknown id
+// returns 404 with the existing pending_purchase_not_found envelope (matches
+// the UpdatePendingItemsHandler / ConfirmPendingPurchaseHandler convention).
+func TestRetryParse_404OnUnknownId(t *testing.T) {
+	if testPool == nil {
+		t.Skip("DB_TEST_URL not reachable; skipping integration test")
+	}
+	resetFixtures(t)
+
+	// Valid UUID format, but no pending row inserted — Postgres lookup returns
+	// ErrNoRows which maps to 404.
+	unknownID := "00000000-0000-0000-0000-0000000000aa"
+	rec := retryParseHelper(t, unknownID)
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404 (body=%s)", rec.Code, rec.Body.String())
+	}
+	var body map[string]string
+	if err := json.NewDecoder(rec.Body).Decode(&body); err != nil {
+		t.Fatalf("decode body: %v", err)
+	}
+	if body["error"] != "pending_purchase_not_found" {
+		t.Errorf("error = %q, want %q", body["error"], "pending_purchase_not_found")
+	}
+}
+
+// TestRetryParse_422OnConfirmedRow verifies that a confirmed (or discarded)
+// row returns the 422 row_not_pending envelope — the operator cannot re-arm a
+// row that already finished its lifecycle.
+func TestRetryParse_422OnConfirmedRow(t *testing.T) {
+	if testPool == nil {
+		t.Skip("DB_TEST_URL not reachable; skipping integration test")
+	}
+	resetFixtures(t)
+
+	ppID := insertPendingPurchaseWithEventDate(t,
+		"koi-confirmed-tx", "2026-05-27", "2026-05-27 10:00:00-05:00",
+		"Receipt could not be parsed automatically")
+	if _, err := testPool.Exec(t.Context(),
+		`UPDATE pending_purchases SET confirmed_at = NOW(), parse_error = $1 WHERE id = $2`,
+		"haiku: boom; sonnet: boom", ppID); err != nil {
+		t.Fatalf("set confirmed_at + parse_error: %v", err)
+	}
+
+	rec := retryParseHelper(t, ppID)
+
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("status = %d, want 422 (body=%s)", rec.Code, rec.Body.String())
+	}
+	var body map[string]string
+	if err := json.NewDecoder(rec.Body).Decode(&body); err != nil {
+		t.Fatalf("decode body: %v", err)
+	}
+	if body["error"] != "row_not_pending" {
+		t.Errorf("error = %q, want %q", body["error"], "row_not_pending")
+	}
+	if body["reason"] == "" {
+		t.Errorf("reason is empty; want explanatory text")
+	}
+}
+
+// TestRetryParse_422WhenNothingToRetry verifies the no-op guard: a pending row
+// whose parse_error is already NULL returns the 422 nothing_to_retry envelope
+// rather than uselessly executing the UPDATE.
+func TestRetryParse_422WhenNothingToRetry(t *testing.T) {
+	if testPool == nil {
+		t.Skip("DB_TEST_URL not reachable; skipping integration test")
+	}
+	resetFixtures(t)
+
+	// insertPendingPurchaseWithEventDate writes parse_error=NULL by default.
+	ppID := insertPendingPurchaseWithEventDate(t,
+		"koi-noop-tx", "2026-05-27", "2026-05-27 10:00:00-05:00",
+		"Receipt could not be parsed automatically")
+
+	rec := retryParseHelper(t, ppID)
+
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("status = %d, want 422 (body=%s)", rec.Code, rec.Body.String())
+	}
+	var body map[string]string
+	if err := json.NewDecoder(rec.Body).Decode(&body); err != nil {
+		t.Fatalf("decode body: %v", err)
+	}
+	if body["error"] != "nothing_to_retry" {
+		t.Errorf("error = %q, want %q", body["error"], "nothing_to_retry")
+	}
+	if body["reason"] == "" {
+		t.Errorf("reason is empty; want explanatory text")
 	}
 }

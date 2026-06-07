@@ -1,6 +1,7 @@
 package inventory
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"log"
@@ -10,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/yumyums/hq/internal/auth"
@@ -832,6 +834,99 @@ func DiscardPendingPurchaseHandler(pool *pgxpool.Pool) http.HandlerFunc {
 
 		w.WriteHeader(http.StatusNoContent)
 	}
+}
+
+// RetryParsePendingPurchaseHandler clears parse_error on a pending row so the
+// next worker sync cycle (260607-fxl parseFailedRetry branch) will re-attempt
+// parsing through Sonnet. Used to re-arm rows stuck after a parser bug fix
+// without DB access — e.g. recovering the Restaurant Depot $391.96 row after
+// 260607-k1n's float64 quantity fix.
+//
+// Endpoint:  POST /api/v1/inventory/purchases/pending/{id}/retry-parse
+// Auth:      Inside the auth-gated inventory route group — same as confirm/discard.
+// Mutation:  UPDATE pending_purchases SET parse_error = NULL WHERE id = $1.
+// Response:  200 + full PendingPurchase row (matches /purchases/pending shape)
+//
+//	404 pending_purchase_not_found     — id does not exist
+//	422 row_not_pending                — row already confirmed/discarded
+//	422 nothing_to_retry               — parse_error already NULL (no-op guard)
+func RetryParsePendingPurchaseHandler(pool *pgxpool.Pool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := chi.URLParam(r, "id")
+		if id == "" {
+			writeError(w, http.StatusBadRequest, "id_required")
+			return
+		}
+
+		// Read current row state to decide 404 vs 422 disposition.
+		var confirmedAt, discardedAt sql.NullTime
+		var parseError sql.NullString
+		err := pool.QueryRow(r.Context(),
+			`SELECT confirmed_at, discarded_at, parse_error
+			   FROM pending_purchases WHERE id = $1`,
+			id,
+		).Scan(&confirmedAt, &discardedAt, &parseError)
+		if err != nil {
+			// pgx.ErrNoRows OR any other read error — match the
+			// UpdatePendingItemsHandler convention: 404 pending_purchase_not_found.
+			writeError(w, http.StatusNotFound, "pending_purchase_not_found")
+			return
+		}
+		if confirmedAt.Valid || discardedAt.Valid {
+			writeJSON(w, http.StatusUnprocessableEntity, map[string]string{
+				"error":  "row_not_pending",
+				"reason": "row is already confirmed or discarded",
+			})
+			return
+		}
+		if !parseError.Valid || parseError.String == "" {
+			writeJSON(w, http.StatusUnprocessableEntity, map[string]string{
+				"error":  "nothing_to_retry",
+				"reason": "row has no parse_error to clear",
+			})
+			return
+		}
+
+		if _, err := pool.Exec(r.Context(),
+			`UPDATE pending_purchases SET parse_error = NULL WHERE id = $1`,
+			id,
+		); err != nil {
+			log.Printf("RetryParsePendingPurchase update: %v", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+
+		// Re-fetch and return the updated row using the same projection
+		// ListPendingPurchasesHandler uses, so the FE response shape matches.
+		pending, ferr := fetchPendingPurchaseByID(r.Context(), pool, id)
+		if ferr != nil {
+			log.Printf("RetryParsePendingPurchase refetch: %v", ferr)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		writeJSON(w, http.StatusOK, pending)
+	}
+}
+
+// fetchPendingPurchaseByID returns a single PendingPurchase row by id using
+// the same column projection as ListPendingPurchasesHandler. Used by the
+// retry-parse handler to return the refreshed row in the 200 response body.
+func fetchPendingPurchaseByID(ctx context.Context, pool *pgxpool.Pool, id string) (PendingPurchase, error) {
+	var p PendingPurchase
+	err := pool.QueryRow(ctx, `
+		SELECT id, bank_tx_id, bank_total, vendor, event_date::text,
+		       tax, total, total_units, total_cases, receipt_url,
+		       reason, parse_error, items,
+		       confirmed_at, confirmed_by, discarded_at, created_at
+		FROM pending_purchases
+		WHERE id = $1`, id,
+	).Scan(
+		&p.ID, &p.BankTxID, &p.BankTotal, &p.Vendor, &p.EventDate,
+		&p.Tax, &p.Total, &p.TotalUnits, &p.TotalCases, &p.ReceiptURL,
+		&p.Reason, &p.ParseError, &p.Items,
+		&p.ConfirmedAt, &p.ConfirmedBy, &p.DiscardedAt, &p.CreatedAt,
+	)
+	return p, err
 }
 
 // SeedPendingPurchaseHandler inserts a pending purchase for testing.
