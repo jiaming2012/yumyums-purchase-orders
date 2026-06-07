@@ -32,18 +32,21 @@ func ValidateReceiptData(items []ReceiptItem, summary ReceiptSummary, bankAmount
 	}
 
 	// Check 3: sum of item quantities must equal totalUnits + totalCases.
-	// item.Quantity is float64 (tolerates LLM-returned decimals like 40.0);
-	// round the sum to int to match the int summary semantics — this mirrors
-	// the DB-write rounding in createPurchaseEvent.
+	// item.Quantity AND summary.TotalUnits/.TotalCases are float64 (tolerate
+	// LLM-returned decimals like 40.0 / 85.56); round both sides to int for
+	// the comparison — this mirrors the DB-write rounding in createPurchaseEvent
+	// and matches the 260607-k1n Check 3 pattern (260607-l9m extends the
+	// widening from items to the summary block).
 	totalQty := 0.0
 	for _, item := range items {
 		totalQty += item.Quantity
 	}
 	roundedQty := int(math.Round(totalQty))
-	if roundedQty != summary.TotalUnits+summary.TotalCases {
+	roundedSummary := int(math.Round(summary.TotalUnits + summary.TotalCases))
+	if roundedQty != roundedSummary {
 		return ValidationResult{
 			Valid:  false,
-			Reason: fmt.Sprintf("item count %d does not match summary units+cases %d", roundedQty, summary.TotalUnits+summary.TotalCases),
+			Reason: fmt.Sprintf("item count %d does not match summary units+cases %d", roundedQty, roundedSummary),
 		}
 	}
 

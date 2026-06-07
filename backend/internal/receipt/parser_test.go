@@ -34,8 +34,8 @@ func TestParseJSONBody_DecimalQuantity(t *testing.T) {
 	if items[0].Quantity != 40.0 {
 		t.Errorf("items[0].Quantity = %v, want 40.0", items[0].Quantity)
 	}
-	if summary.TotalUnits != 40 {
-		t.Errorf("summary.TotalUnits = %d, want 40", summary.TotalUnits)
+	if summary.TotalUnits != 40.0 {
+		t.Errorf("summary.TotalUnits = %v, want 40.0", summary.TotalUnits)
 	}
 }
 

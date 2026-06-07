@@ -49,10 +49,18 @@ type ReceiptItem struct {
 }
 
 // ReceiptSummary is the summary block parsed from a receipt.
+//
+// TotalUnits/TotalCases are float64 so JSON values like total_units: 85.56
+// (which Anthropic returns for some receipts — e.g. the 2026-06-07
+// Restaurant Depot case, 260607-l9m) unmarshal cleanly instead of failing
+// the strict int decoder. The DB columns pending_purchases.total_units /
+// total_cases are INTEGER, but ReceiptSummary is NEVER persisted directly;
+// worker.go only writes summary.Vendor/.Tax/.Total. The validate.go
+// comparison rounds via int(math.Round(...)) at the boundary.
 type ReceiptSummary struct {
 	Vendor     string  `json:"vendor"`
-	TotalUnits int     `json:"total_units"`
-	TotalCases int     `json:"total_cases"`
+	TotalUnits float64 `json:"total_units"`
+	TotalCases float64 `json:"total_cases"`
 	Tax        float64 `json:"tax"`
 	Total      float64 `json:"total"`
 }
