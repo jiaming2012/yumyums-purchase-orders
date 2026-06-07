@@ -1,9 +1,10 @@
 package inventory
 
 import (
+	"database/sql"
 	"encoding/json"
-	"fmt"
 	"log"
+	"math"
 	"net/http"
 	"strconv"
 	"strings"
@@ -665,22 +666,42 @@ func ConfirmPendingPurchaseHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 		defer tx.Rollback(r.Context()) //nolint:errcheck
 
-		// Fetch the pending purchase to get bank_tx_id and bank_total
+		// Fetch the pending purchase to get bank_tx_id, bank_total, and reason.
+		// Phase 260607-fxl: reason is needed to gate the empty-items branch —
+		// it's only safe when the row was a no-attachment placeholder (the
+		// 260605-pk1 flow). Parse-failed rows must be itemized or discarded.
 		var bankTxID string
 		var bankTotal float64
+		var pendingReason sql.NullString
 		err = tx.QueryRow(r.Context(),
-			`SELECT bank_tx_id, bank_total FROM pending_purchases WHERE id = $1 AND confirmed_at IS NULL AND discarded_at IS NULL`,
+			`SELECT bank_tx_id, bank_total, reason FROM pending_purchases WHERE id = $1 AND confirmed_at IS NULL AND discarded_at IS NULL`,
 			input.ID,
-		).Scan(&bankTxID, &bankTotal)
+		).Scan(&bankTxID, &bankTotal, &pendingReason)
 		if err != nil {
 			writeError(w, http.StatusNotFound, "pending_purchase_not_found")
 			return
+		}
+		reasonStr := ""
+		if pendingReason.Valid {
+			reasonStr = pendingReason.String
 		}
 
 		// Compute abs(bank_total) — bank_total is negative for debits.
 		absBankTotal := bankTotal
 		if absBankTotal < 0 {
 			absBankTotal = -absBankTotal
+		}
+
+		// Phase 260607-fxl: empty items only allowed for explicit no-attachment
+		// rows. Parse-failed rows (where a receipt IS attached) must be
+		// itemized or discarded — the operator should not be able to write the
+		// placeholder $bank_total into cogs and bypass the line-item review.
+		if len(input.LineItems) == 0 && reasonStr != "no_attachment_on_bank_tx" {
+			writeJSON(w, http.StatusUnprocessableEntity, map[string]string{
+				"error":  "empty_items_not_allowed",
+				"reason": "add at least one line item or set pending reason to no_attachment_on_bank_tx",
+			})
+			return
 		}
 
 		// Empty-items resolution: operator is confirming "this was food, no
@@ -698,7 +719,14 @@ func ConfirmPendingPurchaseHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				lineTotal += li.Price * float64(li.Quantity)
 			}
 			if absBankTotal-lineTotal > 0.01 || lineTotal-absBankTotal > 0.01 {
-				writeError(w, http.StatusBadRequest, fmt.Sprintf("total_mismatch: receipt total $%.2f does not match bank transaction $%.2f", lineTotal, absBankTotal))
+				// Phase 260607-fxl: upgrade 400 text → structured 422 envelope
+				// so the FE can render line_total / bank_total without parsing
+				// the text. Round to 2dp to avoid floating-point noise.
+				writeJSON(w, http.StatusUnprocessableEntity, map[string]any{
+					"error":      "total_mismatch",
+					"line_total": math.Round(lineTotal*100) / 100,
+					"bank_total": math.Round(absBankTotal*100) / 100,
+				})
 				return
 			}
 			eventTax = input.Tax

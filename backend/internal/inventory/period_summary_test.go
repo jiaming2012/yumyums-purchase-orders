@@ -213,10 +213,21 @@ func insertNoItemizedReceiptSeed(t *testing.T) string {
 // pending_purchases can resolve. Returns the user's UUID.
 func insertTestUser(t *testing.T, email string) string {
 	t.Helper()
+	// Phase 260607-fxl: column "display_name" and column "role" were removed
+	// by migrations 0017_users_naming.sql (display_name → first_name+last_name)
+	// and the 11-onboarding role-array refactor (role → roles[]). The helper
+	// was already broken on HEAD prior to this fix; updating to the current
+	// schema is a Rule 3 unblock so the confirm tests can resolve confirmed_by.
+	//
+	// resetFixtures does NOT truncate users, so use ON CONFLICT (email) to
+	// stay idempotent across repeated test runs against the same DB.
 	var id string
 	err := testPool.QueryRow(t.Context(),
-		`INSERT INTO users (email, display_name, role, status) VALUES ($1, $2, 'admin', 'active') RETURNING id::text`,
-		email, "Test User").Scan(&id)
+		`INSERT INTO users (email, first_name, last_name, roles, status)
+		 VALUES ($1, $2, $3, ARRAY['admin']::text[], 'active')
+		 ON CONFLICT (email) DO UPDATE SET status = EXCLUDED.status
+		 RETURNING id::text`,
+		email, "Test", "User").Scan(&id)
 	if err != nil {
 		t.Fatalf("insert user: %v", err)
 	}
@@ -527,6 +538,16 @@ func TestPeriodSummary(t *testing.T) {
 		userID := insertTestUser(t, "confirm-empty@yumyums.test")
 		ppID := insertPendingPurchaseWithBankTotal(t,
 			"e2e-empty-tx-1", -75.00, "2026-05-27 10:00:00-05:00")
+		// Phase 260607-fxl: the empty-items confirm branch now requires
+		// reason='no_attachment_on_bank_tx' on the pending row. The original
+		// insertPendingPurchaseWithBankTotal helper writes reason=NULL by
+		// default; inject the allowlist value here so this test continues to
+		// exercise the 260605-pk1 no-attachment confirm flow.
+		if _, err := testPool.Exec(t.Context(),
+			`UPDATE pending_purchases SET reason = 'no_attachment_on_bank_tx' WHERE id = $1`,
+			ppID); err != nil {
+			t.Fatalf("set reason: %v", err)
+		}
 
 		// Invoke ConfirmPendingPurchaseHandler via httptest with the seeded
 		// user in context (mirrors what auth.Middleware does in prod).
@@ -1534,4 +1555,176 @@ func TestPeriodSummary(t *testing.T) {
 			t.Errorf("TotalExclTax = %v, want 19.00", row.TotalExclTax)
 		}
 	})
+}
+
+// ─── Phase 260607-fxl: ConfirmPendingPurchaseHandler gates ──────────────────
+
+// confirmPendingHelper performs the boilerplate for invoking
+// ConfirmPendingPurchaseHandler with a seeded user in context. Returns the
+// raw httptest.ResponseRecorder so the caller can assert on status + body.
+func confirmPendingHelper(t *testing.T, userID string, body ConfirmPendingInput) *httptest.ResponseRecorder {
+	t.Helper()
+	buf, err := json.Marshal(body)
+	if err != nil {
+		t.Fatalf("marshal confirm body: %v", err)
+	}
+	req := httptest.NewRequest(http.MethodPost,
+		"/api/v1/inventory/purchases/confirm", bytes.NewReader(buf))
+	req.Header.Set("Content-Type", "application/json")
+	ctx := context.WithValue(req.Context(), auth.CtxKeyUser, &auth.User{
+		ID:    userID,
+		Email: "confirm-test@yumyums.test",
+	})
+	req = req.WithContext(ctx)
+	rec := httptest.NewRecorder()
+	ConfirmPendingPurchaseHandler(testPool).ServeHTTP(rec, req)
+	return rec
+}
+
+// TestConfirmPending_RejectsEmptyItemsWhenReceiptAttached asserts the new
+// FIX B gate: a pending row whose reason is the parse-failure sentinel (NOT
+// the no-attachment sentinel) cannot be confirmed with empty line_items.
+// The receipt IS attached — the operator must itemize or discard.
+func TestConfirmPending_RejectsEmptyItemsWhenReceiptAttached(t *testing.T) {
+	if testPool == nil {
+		t.Skip("DB_TEST_URL not reachable; skipping integration test")
+	}
+	resetFixtures(t)
+	userID := insertTestUser(t, "confirm-reject-empty@yumyums.test")
+
+	// Seed a parse-failed pending row directly (no helper covers this reason).
+	var ppID string
+	if err := testPool.QueryRow(t.Context(),
+		`INSERT INTO pending_purchases (bank_tx_id, bank_total, vendor, items, reason, created_at)
+		 VALUES ($1, $2, $3, '[]'::jsonb, $4, $5::timestamptz)
+		 RETURNING id::text`,
+		"fxl-reject-empty-tx", -50.00, "TestVendor",
+		"Receipt could not be parsed automatically",
+		"2026-05-27 10:00:00-05:00",
+	).Scan(&ppID); err != nil {
+		t.Fatalf("seed pending: %v", err)
+	}
+
+	rec := confirmPendingHelper(t, userID, ConfirmPendingInput{
+		ID:         ppID,
+		VendorName: "TestVendor",
+		EventDate:  "2026-05-27",
+		LineItems:  nil, // empty — should be rejected
+	})
+
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("status = %d, want 422 (body=%s)", rec.Code, rec.Body.String())
+	}
+	var body map[string]string
+	if err := json.NewDecoder(rec.Body).Decode(&body); err != nil {
+		t.Fatalf("decode body: %v", err)
+	}
+	if body["error"] != "empty_items_not_allowed" {
+		t.Errorf("error = %q, want %q", body["error"], "empty_items_not_allowed")
+	}
+}
+
+// TestConfirmPending_AcceptsEmptyItemsWhenNoAttachment proves the 260605-pk1
+// no-attachment confirm flow still returns 200 after the new gate. This is
+// the regression guard for that pre-existing flow.
+func TestConfirmPending_AcceptsEmptyItemsWhenNoAttachment(t *testing.T) {
+	if testPool == nil {
+		t.Skip("DB_TEST_URL not reachable; skipping integration test")
+	}
+	resetFixtures(t)
+	insertNoItemizedReceiptSeed(t)
+	userID := insertTestUser(t, "confirm-accept-empty@yumyums.test")
+	ppID := insertPendingPurchaseWithBankTotal(t,
+		"fxl-accept-empty-tx", -75.00, "2026-05-27 10:00:00-05:00")
+	// Set the allowlist reason so the new gate permits the empty-items branch.
+	if _, err := testPool.Exec(t.Context(),
+		`UPDATE pending_purchases SET reason = 'no_attachment_on_bank_tx' WHERE id = $1`,
+		ppID); err != nil {
+		t.Fatalf("set reason: %v", err)
+	}
+
+	rec := confirmPendingHelper(t, userID, ConfirmPendingInput{
+		ID:         ppID,
+		VendorName: "TestVendor",
+		EventDate:  "2026-05-27",
+		LineItems:  nil,
+	})
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 (body=%s)", rec.Code, rec.Body.String())
+	}
+
+	// Sanity: purchase_events row was created.
+	var eventCount int
+	if err := testPool.QueryRow(t.Context(),
+		`SELECT COUNT(*) FROM purchase_events WHERE bank_tx_id='fxl-accept-empty-tx'`,
+	).Scan(&eventCount); err != nil {
+		t.Fatalf("count events: %v", err)
+	}
+	if eventCount != 1 {
+		t.Errorf("event rows = %d, want 1", eventCount)
+	}
+}
+
+// TestConfirmPending_RejectsTotalMismatchWith422 asserts the upgrade of the
+// old text-400 total-mismatch rejection to a structured 422 envelope with
+// numeric line_total + bank_total so the FE can render them directly.
+func TestConfirmPending_RejectsTotalMismatchWith422(t *testing.T) {
+	if testPool == nil {
+		t.Skip("DB_TEST_URL not reachable; skipping integration test")
+	}
+	resetFixtures(t)
+	// Seed the placeholder catalog row so the line_items[].purchase_item_id
+	// references something real even though the handler short-circuits
+	// before insertion. resetFixtures TRUNCATEd it.
+	seedID := insertNoItemizedReceiptSeed(t)
+	userID := insertTestUser(t, "confirm-mismatch@yumyums.test")
+
+	// Seed a parse-failed pending row with bank_total=-50.00.
+	var ppID string
+	if err := testPool.QueryRow(t.Context(),
+		`INSERT INTO pending_purchases (bank_tx_id, bank_total, vendor, items, reason, created_at)
+		 VALUES ($1, $2, $3, '[]'::jsonb, $4, $5::timestamptz)
+		 RETURNING id::text`,
+		"fxl-mismatch-tx", -50.00, "TestVendor",
+		"Receipt could not be parsed automatically",
+		"2026-05-27 10:00:00-05:00",
+	).Scan(&ppID); err != nil {
+		t.Fatalf("seed pending: %v", err)
+	}
+
+	rec := confirmPendingHelper(t, userID, ConfirmPendingInput{
+		ID:         ppID,
+		VendorName: "TestVendor",
+		EventDate:  "2026-05-27",
+		// 1 x $42.00 = $42.00 ≠ $50.00 abs bank total → mismatch.
+		LineItems: []CreateLineItemInput{
+			{PurchaseItemID: &seedID, Description: "x", Quantity: 1, Price: 42.00, IsCase: false},
+		},
+	})
+
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("status = %d, want 422 (body=%s)", rec.Code, rec.Body.String())
+	}
+	var body map[string]any
+	if err := json.NewDecoder(rec.Body).Decode(&body); err != nil {
+		t.Fatalf("decode body: %v", err)
+	}
+	if body["error"] != "total_mismatch" {
+		t.Errorf("error = %v, want %q", body["error"], "total_mismatch")
+	}
+	gotLineTotal, ok := body["line_total"].(float64)
+	if !ok {
+		t.Errorf("line_total type = %T, want float64", body["line_total"])
+	}
+	if gotLineTotal != 42.00 {
+		t.Errorf("line_total = %v, want 42.00", gotLineTotal)
+	}
+	gotBankTotal, ok := body["bank_total"].(float64)
+	if !ok {
+		t.Errorf("bank_total type = %T, want float64", body["bank_total"])
+	}
+	if gotBankTotal != 50.00 {
+		t.Errorf("bank_total = %v, want 50.00", gotBankTotal)
+	}
 }
