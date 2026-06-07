@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -1439,5 +1440,198 @@ func TestInsertPendingPurchase_ParseErrorNullByDefault(t *testing.T) {
 	}
 	if ns.Valid {
 		t.Errorf("parse_error = %q, want NULL (empty parseError must not be stored)", ns.String)
+	}
+}
+
+// TestRunIngestCycle_ScenarioTable exercises the worker's parse → validate
+// → persist branches end-to-end with stubbed Mercury + Anthropic seams.
+//
+// Each case drives a fresh single-transaction ingest cycle and asserts the
+// resulting purchase_events / pending_purchases rows match the expected
+// shape. Companion to the existing TestRunIngestCycle_* tests — those
+// cover the upgrade/no-attachment edges; this covers the parse/validate
+// happy/fallback/failure matrix.
+//
+// Phase 260607-k1n: motivated by the decimal-quantity Restaurant Depot
+// bug. The both_fail_decimal_qty case locks in coverage of the exact error
+// string the worker logged so a regression in error-propagation surfaces
+// here.
+func TestRunIngestCycle_ScenarioTable(t *testing.T) {
+	if testPool == nil {
+		t.Skip("DB_TEST_URL not reachable; skipping integration test")
+	}
+
+	// Mercury debits are NEGATIVE; ValidateReceiptData requires
+	// summary.Total == -bankAmount AND sum(item.Quantity) == TotalUnits+TotalCases.
+	// Use unique bank_tx_ids per case so cases are independent if t.Parallel()
+	// is later enabled.
+	validItems := []ReceiptItem{
+		{Name: "Salmon", Quantity: 1, Price: 42.50, IsCase: false},
+	}
+	validSummary := ReceiptSummary{Vendor: "Acme", Tax: 0, Total: 42.50, TotalUnits: 1, TotalCases: 0}
+
+	// The exact unmarshal error string from the production log
+	// (262e21 / Restaurant Depot, 2026-06-07). Locks in error-text
+	// preservation through the haiku+sonnet seam.
+	decimalQtyErrText := "json: cannot unmarshal number 40.0 into Go struct field ReceiptItem.items.quantity of type int"
+
+	cases := []struct {
+		name string
+		// stubs setup
+		parseItems    []ReceiptItem
+		parseSummary  ReceiptSummary
+		parseErr      error
+		sonnetItems   []ReceiptItem
+		sonnetSummary ReceiptSummary
+		sonnetErr     error
+		// tx setup
+		bankTxID string
+		amount   float64 // Mercury debit (negative)
+		// expectations
+		wantAutoCreated   int
+		wantPendingReview int
+		wantPendingReason string   // substring match
+		wantParseErrParts []string // substrings that MUST appear in pending.parse_error (empty list = column should be NULL)
+		wantSonnetCalled  bool
+	}{
+		{
+			name:            "happy_haiku_succeeds",
+			parseItems:      validItems,
+			parseSummary:    validSummary,
+			bankTxID:        "T-scenario-haiku-ok",
+			amount:          -42.50,
+			wantAutoCreated: 1,
+		},
+		{
+			name:             "haiku_fails_sonnet_recovers",
+			parseErr:         fmt.Errorf("ParseReceipt: failed to parse JSON body: %s", decimalQtyErrText),
+			sonnetItems:      validItems,
+			sonnetSummary:    validSummary,
+			bankTxID:         "T-scenario-sonnet-recovers",
+			amount:           -42.50,
+			wantAutoCreated:  1,
+			wantSonnetCalled: true,
+		},
+		{
+			name:              "both_fail_with_realistic_errors",
+			parseErr:          fmt.Errorf("ParseReceipt: API call failed: 529 overloaded"),
+			sonnetErr:         fmt.Errorf("ParseReceiptWithSonnet: failed to parse JSON body: invalid character 'x'"),
+			bankTxID:          "T-scenario-both-fail",
+			amount:            -42.50,
+			wantPendingReview: 1,
+			wantPendingReason: "Receipt could not be parsed automatically",
+			wantParseErrParts: []string{"haiku:", "sonnet:", "529 overloaded", "invalid character"},
+			wantSonnetCalled:  true,
+		},
+		{
+			name:              "both_fail_decimal_qty",
+			parseErr:          fmt.Errorf("ParseReceipt: failed to parse JSON body: parseJSONBody: %s", decimalQtyErrText),
+			sonnetErr:         fmt.Errorf("ParseReceiptWithSonnet: failed to parse JSON body: parseJSONBody: %s", decimalQtyErrText),
+			bankTxID:          "T-scenario-decimal-qty",
+			amount:            -391.96,
+			wantPendingReview: 1,
+			wantPendingReason: "Receipt could not be parsed automatically",
+			// Locks in that today's exact error substring is preserved end-to-end.
+			wantParseErrParts: []string{"haiku:", "sonnet:", "40.0", "type int"},
+			wantSonnetCalled:  true,
+		},
+		{
+			name:              "total_mismatch",
+			parseItems:        validItems,
+			parseSummary:      ReceiptSummary{Vendor: "Acme", Tax: 0, Total: 99.99, TotalUnits: 1, TotalCases: 0}, // doesn't match -bankAmount
+			bankTxID:          "T-scenario-total-mismatch",
+			amount:            -42.50,
+			wantPendingReview: 1,
+			wantPendingReason: "does not match", // matches Check 1 or Check 2 reason text
+			wantParseErrParts: nil,              // parse_error should be NULL on validate-fail
+		},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			resetReceiptFixtures(t)
+
+			stubs := &workerStubs{
+				txns: []MercuryTransaction{{
+					ID:          tc.bankTxID,
+					Amount:      tc.amount,
+					CreatedAt:   "2026-06-07T10:00:00Z",
+					Attachments: []Attachment{{URL: "http://fake/r.jpg", FileName: "r.jpg"}},
+				}},
+				parseItems:    tc.parseItems,
+				parseSummary:  tc.parseSummary,
+				parseErr:      tc.parseErr,
+				sonnetItems:   tc.sonnetItems,
+				sonnetSummary: tc.sonnetSummary,
+				sonnetErr:     tc.sonnetErr,
+			}
+			installWorkerStubs(t, stubs)
+
+			result, err := runIngestCycle(t.Context(), WorkerConfig{
+				MercuryAPIKey:   "stub",
+				AnthropicAPIKey: "stub",
+				Pool:            testPool,
+				LookbackDays:    14,
+			})
+			if err != nil {
+				t.Fatalf("runIngestCycle: %v", err)
+			}
+
+			if result.AutoCreated != tc.wantAutoCreated {
+				t.Errorf("AutoCreated = %d, want %d", result.AutoCreated, tc.wantAutoCreated)
+			}
+			if result.PendingReview != tc.wantPendingReview {
+				t.Errorf("PendingReview = %d, want %d", result.PendingReview, tc.wantPendingReview)
+			}
+			if tc.wantSonnetCalled && stubs.sonnetCallCount == 0 {
+				t.Errorf("expected Sonnet to be called, got %d calls", stubs.sonnetCallCount)
+			}
+			if !tc.wantSonnetCalled && stubs.sonnetCallCount > 0 {
+				t.Errorf("expected Sonnet NOT to be called, got %d calls", stubs.sonnetCallCount)
+			}
+
+			if tc.wantPendingReview > 0 {
+				var reason sql.NullString
+				var parseError sql.NullString
+				if err := testPool.QueryRow(t.Context(),
+					`SELECT reason, parse_error FROM pending_purchases WHERE bank_tx_id=$1`,
+					tc.bankTxID,
+				).Scan(&reason, &parseError); err != nil {
+					t.Fatalf("query pending row: %v", err)
+				}
+				if !strings.Contains(reason.String, tc.wantPendingReason) {
+					t.Errorf("pending reason %q does not contain %q", reason.String, tc.wantPendingReason)
+				}
+				if len(tc.wantParseErrParts) == 0 {
+					// validate-fail path: parse_error column should be NULL
+					if parseError.Valid && parseError.String != "" {
+						t.Errorf("expected parse_error NULL, got %q", parseError.String)
+					}
+				} else {
+					if !parseError.Valid {
+						t.Errorf("expected parse_error populated, got NULL")
+					}
+					for _, part := range tc.wantParseErrParts {
+						if !strings.Contains(parseError.String, part) {
+							t.Errorf("parse_error %q missing substring %q", parseError.String, part)
+						}
+					}
+				}
+			}
+
+			if tc.wantAutoCreated > 0 {
+				var n int
+				if err := testPool.QueryRow(t.Context(),
+					`SELECT COUNT(*) FROM purchase_events WHERE bank_tx_id=$1`,
+					tc.bankTxID,
+				).Scan(&n); err != nil {
+					t.Fatalf("count purchase_events: %v", err)
+				}
+				if n != 1 {
+					t.Errorf("purchase_events count = %d, want 1", n)
+				}
+			}
+		})
 	}
 }
