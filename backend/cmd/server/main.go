@@ -461,6 +461,7 @@ func main() {
 				r.Get("/sync-receipts/status", inventory.SyncReceiptsStatusHandler(pool))
 				r.Post("/purchases/confirm", inventory.ConfirmPendingPurchaseHandler(pool))
 				r.Post("/purchases/discard", inventory.DiscardPendingPurchaseHandler(pool))
+				r.Post("/purchases/pending/{id}/retry-parse", inventory.RetryParsePendingPurchaseHandler(pool))
 				r.Put("/purchases/pending-items", inventory.UpdatePendingItemsHandler(pool))
 				r.Post("/purchases/pending-seed", inventory.SeedPendingPurchaseHandler(pool))
 				r.Get("/stock", inventory.GetStockHandler(pool))
