@@ -527,7 +527,7 @@ func insertPendingPurchase(ctx context.Context, pool *pgxpool.Pool, tx MercuryTr
 		`INSERT INTO pending_purchases
 		 (bank_tx_id, bank_total, vendor, event_date, tax, total, items, reason, receipt_url, mercury_category)
 		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-		 ON CONFLICT DO NOTHING`,
+		 ON CONFLICT (bank_tx_id) WHERE confirmed_at IS NULL AND discarded_at IS NULL DO NOTHING`,
 		tx.ID,
 		tx.Amount,
 		vendor,

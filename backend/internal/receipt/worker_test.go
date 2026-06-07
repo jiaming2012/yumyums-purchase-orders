@@ -834,3 +834,176 @@ func TestClassifyExistingTx(t *testing.T) {
 		}
 	})
 }
+
+// ─── Phase 260607-dg9: partial unique index + items-nil dedupe regression ────
+
+// TestInsertPendingPurchase_DedupesOnReinsertWithDifferentReason proves that
+// when a second insert with the SAME bank_tx_id but a DIFFERENT reason hits
+// the partial unique index, ON CONFLICT DO NOTHING preserves the ORIGINAL
+// reason (guards against accidentally switching to DO UPDATE).
+func TestInsertPendingPurchase_DedupesOnReinsertWithDifferentReason(t *testing.T) {
+	if testPool == nil {
+		t.Skip("DB_TEST_URL not reachable; skipping integration test")
+	}
+	resetReceiptFixtures(t)
+
+	tx := MercuryTransaction{
+		ID:        "tx-dedupe-reason",
+		Amount:    25.00,
+		CreatedAt: "2026-05-27T10:00:00Z",
+	}
+
+	// First insert with reason A.
+	if err := insertPendingPurchase(
+		t.Context(), testPool, tx,
+		nil, ReceiptSummary{}, "",
+		"no_attachment_on_bank_tx",
+	); err != nil {
+		t.Fatalf("first insertPendingPurchase: %v", err)
+	}
+
+	// Second insert with reason B — must be a no-op due to partial unique index.
+	if err := insertPendingPurchase(
+		t.Context(), testPool, tx,
+		nil, ReceiptSummary{}, "",
+		"parse_failed",
+	); err != nil {
+		t.Fatalf("second insertPendingPurchase: %v", err)
+	}
+
+	var count int
+	if err := testPool.QueryRow(t.Context(),
+		`SELECT COUNT(*) FROM pending_purchases WHERE bank_tx_id = $1`,
+		"tx-dedupe-reason",
+	).Scan(&count); err != nil {
+		t.Fatalf("count: %v", err)
+	}
+	if count != 1 {
+		t.Errorf("pending_purchases rows = %d, want 1", count)
+	}
+
+	var reason sql.NullString
+	if err := testPool.QueryRow(t.Context(),
+		`SELECT reason FROM pending_purchases WHERE bank_tx_id = $1`,
+		"tx-dedupe-reason",
+	).Scan(&reason); err != nil {
+		t.Fatalf("select reason: %v", err)
+	}
+	if !reason.Valid || reason.String != "no_attachment_on_bank_tx" {
+		t.Errorf("reason = %+v, want %q (ON CONFLICT DO NOTHING must preserve original)", reason, "no_attachment_on_bank_tx")
+	}
+}
+
+// TestMigration_DedupesExistingPendingDuplicates proves the dedupe CTE in
+// migration 0068 removes duplicate active pending rows (keeping latest
+// created_at) and that the partial unique index then blocks new duplicates.
+// Because TestMain auto-applies all migrations before tests run, this test
+// manually drops the partial unique index, seeds duplicates, re-runs the
+// dedupe CTE, then re-creates the index — exercising the same SQL the
+// migration runs in production on its first apply.
+func TestMigration_DedupesExistingPendingDuplicates(t *testing.T) {
+	if testPool == nil {
+		t.Skip("DB_TEST_URL not reachable; skipping integration test")
+	}
+	resetReceiptFixtures(t)
+	ctx := t.Context()
+
+	// 1. Drop the partial unique index so we can seed duplicates.
+	if _, err := testPool.Exec(ctx,
+		`DROP INDEX IF EXISTS pending_purchases_bank_tx_id_uniq`,
+	); err != nil {
+		t.Fatalf("drop index: %v", err)
+	}
+
+	// 2. Seed two active pending rows with the same bank_tx_id — older
+	//    created_at first, then newer. Dedupe must keep the newer.
+	if _, err := testPool.Exec(ctx,
+		`INSERT INTO pending_purchases
+		 (bank_tx_id, bank_total, vendor, reason, items, created_at)
+		 VALUES
+		 ($1, 10.00, 'VendorA', 'reason_older', '[]'::jsonb, '2026-05-25T10:00:00Z'),
+		 ($1, 10.00, 'VendorB', 'reason_newer', '[]'::jsonb, '2026-05-27T10:00:00Z')`,
+		"tx-mig-dupe",
+	); err != nil {
+		t.Fatalf("seed duplicates: %v", err)
+	}
+
+	// 3. Re-run the migration's dedupe CTE (must match migration 0068 exactly).
+	if _, err := testPool.Exec(ctx,
+		`WITH ranked AS (
+		   SELECT id,
+		          ROW_NUMBER() OVER (
+		            PARTITION BY bank_tx_id
+		            ORDER BY created_at DESC, id DESC
+		          ) AS rn
+		     FROM pending_purchases
+		    WHERE confirmed_at IS NULL
+		      AND discarded_at IS NULL
+		 )
+		 DELETE FROM pending_purchases
+		  WHERE id IN (SELECT id FROM ranked WHERE rn > 1)`,
+	); err != nil {
+		t.Fatalf("dedupe CTE: %v", err)
+	}
+
+	// 4. Re-create the partial unique index — same DDL as migration 0068.
+	if _, err := testPool.Exec(ctx,
+		`CREATE UNIQUE INDEX IF NOT EXISTS pending_purchases_bank_tx_id_uniq
+		   ON pending_purchases(bank_tx_id)
+		   WHERE confirmed_at IS NULL AND discarded_at IS NULL`,
+	); err != nil {
+		t.Fatalf("create unique index: %v", err)
+	}
+
+	// 5. Assert exactly one row remains and it's the newer one.
+	var count int
+	var reason sql.NullString
+	if err := testPool.QueryRow(ctx,
+		`SELECT COUNT(*), MAX(reason) FROM pending_purchases WHERE bank_tx_id = $1`,
+		"tx-mig-dupe",
+	).Scan(&count, &reason); err != nil {
+		t.Fatalf("count: %v", err)
+	}
+	if count != 1 {
+		t.Fatalf("rows after dedupe = %d, want 1", count)
+	}
+	if !reason.Valid || reason.String != "reason_newer" {
+		t.Errorf("kept row reason = %+v, want %q (dedupe must keep latest created_at)", reason, "reason_newer")
+	}
+
+	// 6. Assert the partial unique index now blocks a fresh duplicate insert.
+	//    ON CONFLICT DO NOTHING (with the partial-index target) must
+	//    silently absorb the duplicate. Use the same ON CONFLICT clause
+	//    the worker uses to prove parity.
+	cmdTag, err := testPool.Exec(ctx,
+		`INSERT INTO pending_purchases
+		 (bank_tx_id, bank_total, vendor, items)
+		 VALUES ($1, 10.00, 'VendorC', '[]'::jsonb)
+		 ON CONFLICT (bank_tx_id) WHERE confirmed_at IS NULL AND discarded_at IS NULL DO NOTHING`,
+		"tx-mig-dupe",
+	)
+	if err != nil {
+		t.Fatalf("conflict insert: %v", err)
+	}
+	if cmdTag.RowsAffected() != 0 {
+		t.Errorf("rows affected on conflict insert = %d, want 0 (partial unique index must block)", cmdTag.RowsAffected())
+	}
+
+	// 7. And confirmed/discarded rows should NOT conflict — the partial
+	//    predicate excludes them. Mark the existing row discarded, then a
+	//    fresh active row for the same bank_tx_id should succeed.
+	if _, err := testPool.Exec(ctx,
+		`UPDATE pending_purchases SET discarded_at = now() WHERE bank_tx_id = $1`,
+		"tx-mig-dupe",
+	); err != nil {
+		t.Fatalf("mark discarded: %v", err)
+	}
+	if _, err := testPool.Exec(ctx,
+		`INSERT INTO pending_purchases
+		 (bank_tx_id, bank_total, vendor, items)
+		 VALUES ($1, 10.00, 'VendorD', '[]'::jsonb)`,
+		"tx-mig-dupe",
+	); err != nil {
+		t.Fatalf("re-insert after discard should succeed (partial predicate excludes discarded): %v", err)
+	}
+}
