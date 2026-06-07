@@ -285,6 +285,36 @@ func main() {
 	go hub.Run()
 	opsync.StartListener(ctx, dbURL, hub, pool)
 
+	// Receipt worker config — hoisted above route registration so the
+	// on-demand sync handler (POST /inventory/sync-receipts) can close over it.
+	// The background worker.StartWorker call below reuses the same config.
+	workerInterval := 6 * time.Hour
+	if intervalStr := os.Getenv("RECEIPT_WORKER_INTERVAL"); intervalStr != "" {
+		if d, err := time.ParseDuration(intervalStr); err == nil {
+			workerInterval = d
+		} else {
+			log.Printf("WARNING: invalid RECEIPT_WORKER_INTERVAL %q — using 6h default", intervalStr)
+		}
+	}
+	lookbackDays := 14
+	if lbStr := os.Getenv("MERCURY_LOOKBACK_DAYS"); lbStr != "" {
+		if n, err := strconv.Atoi(lbStr); err == nil && n > 0 {
+			lookbackDays = n
+		} else {
+			log.Printf("WARNING: invalid MERCURY_LOOKBACK_DAYS %q — using 14 default", lbStr)
+		}
+	}
+	receiptCfg := receipt.WorkerConfig{
+		MercuryAPIKey:   os.Getenv("MERCURY_API_KEY"),
+		AnthropicAPIKey: os.Getenv("ANTHROPIC_API_KEY"),
+		Pool:            pool,
+		SpacesPresigner: spacesPresigner,
+		SpacesEndpoint:  spacesEndpoint,
+		SpacesBucket:    spacesBucket,
+		Interval:        workerInterval,
+		LookbackDays:    lookbackDays,
+	}
+
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
@@ -423,6 +453,12 @@ func main() {
 				r.Get("/purchases", inventory.ListPurchaseEventsHandler(pool))
 				r.Post("/purchases", inventory.CreatePurchaseEventHandler(pool))
 				r.Get("/purchases/pending", inventory.ListPendingPurchasesHandler(pool))
+				// On-demand Mercury receipt sync (260607-bir): durable single-flight
+				// runner backed by receipt_sync_runs. closes over receiptCfg above.
+				r.Post("/sync-receipts", inventory.SyncReceiptsHandler(pool, func(ctx context.Context) (receipt.IngestResult, error) {
+					return receipt.RunIngestCycle(ctx, receiptCfg)
+				}))
+				r.Get("/sync-receipts/status", inventory.SyncReceiptsStatusHandler(pool))
 				r.Post("/purchases/confirm", inventory.ConfirmPendingPurchaseHandler(pool))
 				r.Post("/purchases/discard", inventory.DiscardPendingPurchaseHandler(pool))
 				r.Put("/purchases/pending-items", inventory.UpdatePendingItemsHandler(pool))
@@ -511,39 +547,10 @@ func main() {
 
 	r.Handle("/*", http.FileServerFS(staticFS))
 
-	// Start receipt ingestion background worker
+	// Start receipt ingestion background worker.
 	// Gracefully skips if MERCURY_API_KEY or ANTHROPIC_API_KEY is not set.
-	{
-		workerInterval := 6 * time.Hour
-		if intervalStr := os.Getenv("RECEIPT_WORKER_INTERVAL"); intervalStr != "" {
-			if d, err := time.ParseDuration(intervalStr); err == nil {
-				workerInterval = d
-			} else {
-				log.Printf("WARNING: invalid RECEIPT_WORKER_INTERVAL %q — using 6h default", intervalStr)
-			}
-		}
-
-		lookbackDays := 14
-		if lbStr := os.Getenv("MERCURY_LOOKBACK_DAYS"); lbStr != "" {
-			if n, err := strconv.Atoi(lbStr); err == nil && n > 0 {
-				lookbackDays = n
-			} else {
-				log.Printf("WARNING: invalid MERCURY_LOOKBACK_DAYS %q — using 14 default", lbStr)
-			}
-		}
-
-		receiptCfg := receipt.WorkerConfig{
-			MercuryAPIKey:   os.Getenv("MERCURY_API_KEY"),
-			AnthropicAPIKey: os.Getenv("ANTHROPIC_API_KEY"),
-			Pool:            pool,
-			SpacesPresigner: spacesPresigner,
-			SpacesEndpoint:  spacesEndpoint,
-			SpacesBucket:    spacesBucket,
-			Interval:        workerInterval,
-			LookbackDays:    lookbackDays,
-		}
-		receipt.StartWorker(ctx, receiptCfg)
-	}
+	// receiptCfg was constructed above (hoisted so the sync handler can close over it).
+	receipt.StartWorker(ctx, receiptCfg)
 
 	// Initialize and start alert queue — gracefully no-ops when env vars are not set
 	alertQ := alerts.NewQueue(alertCfg)

@@ -33,7 +33,7 @@ func StartWorker(ctx context.Context, cfg WorkerConfig) {
 
 	go func() {
 		// Run immediately on start, then on each tick
-		if err := runIngestCycle(ctx, cfg); err != nil {
+		if _, err := runIngestCycle(ctx, cfg); err != nil {
 			log.Printf("receipt worker: ingest cycle error: %v", err)
 		}
 
@@ -46,7 +46,7 @@ func StartWorker(ctx context.Context, cfg WorkerConfig) {
 				log.Println("receipt worker: shutting down")
 				return
 			case <-ticker.C:
-				if err := runIngestCycle(ctx, cfg); err != nil {
+				if _, err := runIngestCycle(ctx, cfg); err != nil {
 					log.Printf("receipt worker: ingest cycle error: %v", err)
 				}
 			}
@@ -54,8 +54,25 @@ func StartWorker(ctx context.Context, cfg WorkerConfig) {
 	}()
 }
 
+// IngestResult captures the counts produced by one ingest cycle.
+// Returned by runIngestCycle so callers (the on-demand sync handler) can
+// persist these counts to receipt_sync_runs alongside the terminal status.
+type IngestResult struct {
+	Processed     int
+	AutoCreated   int
+	PendingReview int
+	Cached        int
+}
+
+// RunIngestCycle runs one Mercury ingest cycle and returns the result counts.
+// Used by the on-demand sync endpoint; the background worker calls
+// runIngestCycle directly.
+func RunIngestCycle(ctx context.Context, cfg WorkerConfig) (IngestResult, error) {
+	return runIngestCycle(ctx, cfg)
+}
+
 // runIngestCycle executes one full Mercury → parse → validate → persist cycle.
-func runIngestCycle(ctx context.Context, cfg WorkerConfig) error {
+func runIngestCycle(ctx context.Context, cfg WorkerConfig) (IngestResult, error) {
 	lookback := cfg.LookbackDays
 	if lookback <= 0 {
 		lookback = 14
@@ -66,12 +83,12 @@ func runIngestCycle(ctx context.Context, cfg WorkerConfig) error {
 
 	txns, err := FetchTransactions(ctx, cfg.MercuryAPIKey, startDate, endDate)
 	if err != nil {
-		return fmt.Errorf("runIngestCycle: FetchTransactions: %w", err)
+		return IngestResult{}, fmt.Errorf("runIngestCycle: FetchTransactions: %w", err)
 	}
 
 	if len(txns) == 0 {
 		log.Println("receipt worker: no supported transactions found")
-		return nil
+		return IngestResult{}, nil
 	}
 
 	var autoCreated, pendingReview, skippedCached int
@@ -235,7 +252,12 @@ func runIngestCycle(ctx context.Context, cfg WorkerConfig) error {
 
 	log.Printf("receipt worker: processed %d transactions, %d auto-created, %d pending review, %d already cached",
 		len(txns), autoCreated, pendingReview, skippedCached)
-	return nil
+	return IngestResult{
+		Processed:     len(txns),
+		AutoCreated:   autoCreated,
+		PendingReview: pendingReview,
+		Cached:        skippedCached,
+	}, nil
 }
 
 // bankTxIDExists returns true if the bank_tx_id already exists in either
