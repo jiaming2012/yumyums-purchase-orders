@@ -160,7 +160,11 @@ func runIngestCycle(ctx context.Context, cfg WorkerConfig) (IngestResult, error)
 		// pending row whose Mercury tx now has a receipt" upgrade case.
 		// Phase 260607-co0: replaces the 2-way bankTxIDExists short-circuit
 		// that previously skipped these rows forever.
-		kind, existingReason, err := classifyExistingTx(ctx, cfg.Pool, tx.ID)
+		// Phase 260607-fxl: classifyExistingTx now also returns hasParseError
+		// + hasItems so the upgrade gate can retry pre-260607-e1c parse-failed
+		// rows once (parse_error NULL → never tried Sonnet) without clobbering
+		// user-edited rows (items non-empty).
+		kind, existingReason, hasParseError, hasItems, err := classifyExistingTx(ctx, cfg.Pool, tx.ID)
 		if err != nil {
 			log.Printf("receipt worker: classifyExistingTx tx %s: %v", tx.ID, err)
 			continue
@@ -172,11 +176,18 @@ func runIngestCycle(ctx context.Context, cfg WorkerConfig) (IngestResult, error)
 			skippedCached++
 			continue
 		case "pending":
-			// Re-process if (and only if) the row was the no-attachment
-			// sentinel and the Mercury tx now has at least one attachment.
-			// Any other reason (parse failure, validate failure) stays in
-			// the human-review queue.
-			if existingReason == "no_attachment_on_bank_tx" && len(tx.Attachments) > 0 {
+			// Two upgrade cases:
+			//  (a) Existing: no-attachment row whose Mercury tx now has a
+			//      receipt — promote it through the normal parse path.
+			//  (b) Phase 260607-fxl: pre-e1c parse-failed row that never
+			//      got a Sonnet attempt. Gate by parse_error IS NULL (NOT
+			//      both-models-failed already) AND items empty (operator
+			//      hasn't started editing). Requires attachments to retry
+			//      against.
+			noAttachmentUpgrade := existingReason == "no_attachment_on_bank_tx" && len(tx.Attachments) > 0
+			parseFailedRetry := existingReason == "Receipt could not be parsed automatically" &&
+				!hasParseError && !hasItems && len(tx.Attachments) > 0
+			if noAttachmentUpgrade || parseFailedRetry {
 				isUpgrade = true
 				// Fall through to download/parse path below.
 			} else {
@@ -353,30 +364,45 @@ func routePending(ctx context.Context, pool *pgxpool.Pool, tx MercuryTransaction
 //                      can decide if this is the upgrade-eligible
 //                      "no_attachment_on_bank_tx" case.
 //
+// hasParseError / hasItems are ONLY meaningful for kind="pending":
+//   - hasParseError = true when pending_purchases.parse_error IS NOT NULL.
+//                     Phase 260607-fxl uses this to gate parse-failed retries
+//                     so we never re-call the parser on a row where BOTH Haiku
+//                     and Sonnet already failed (parse_error populated).
+//   - hasItems      = true when pending_purchases.items is a non-empty JSONB
+//                     array. Phase 260607-fxl uses this so a user-edited row
+//                     (operator added line items already) is never clobbered
+//                     by a worker re-parse.
+//
+// For kind="event" and kind="none", hasParseError and hasItems are always
+// false — callers should not branch on them in those cases.
+//
 // Discarded pending rows return kind="none" — the user explicitly threw the
 // row away, so the worker is free to re-process the same bank_tx_id.
-func classifyExistingTx(ctx context.Context, pool *pgxpool.Pool, bankTxID string) (kind, reason string, err error) {
+func classifyExistingTx(ctx context.Context, pool *pgxpool.Pool, bankTxID string) (kind, reason string, hasParseError, hasItems bool, err error) {
 	err = pool.QueryRow(ctx, `
-		SELECT 'event' AS kind, '' AS reason
+		SELECT 'event' AS kind, '' AS reason, false AS has_parse_error, false AS has_items
 		  FROM purchase_events WHERE bank_tx_id = $1
 		UNION ALL
-		SELECT 'event' AS kind, COALESCE(reason,'') AS reason
+		SELECT 'event' AS kind, COALESCE(reason,'') AS reason, false, false
 		  FROM pending_purchases
 		 WHERE bank_tx_id = $1 AND confirmed_at IS NOT NULL
 		UNION ALL
-		SELECT 'pending' AS kind, COALESCE(reason,'') AS reason
+		SELECT 'pending' AS kind, COALESCE(reason,'') AS reason,
+		       (parse_error IS NOT NULL),
+		       (COALESCE(jsonb_array_length(items), 0) > 0)
 		  FROM pending_purchases
 		 WHERE bank_tx_id = $1
 		   AND confirmed_at IS NULL
 		   AND discarded_at IS NULL
-		LIMIT 1`, bankTxID).Scan(&kind, &reason)
+		LIMIT 1`, bankTxID).Scan(&kind, &reason, &hasParseError, &hasItems)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return "none", "", nil
+		return "none", "", false, false, nil
 	}
 	if err != nil {
-		return "", "", fmt.Errorf("classifyExistingTx: %w", err)
+		return "", "", false, false, fmt.Errorf("classifyExistingTx: %w", err)
 	}
-	return kind, reason, nil
+	return kind, reason, hasParseError, hasItems, nil
 }
 
 // pickAttachment selects the best receipt attachment from a transaction.
