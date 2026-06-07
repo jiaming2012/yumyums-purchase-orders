@@ -294,6 +294,34 @@ func TestInsertPendingPurchase_NoAttachmentBranch_IdempotentOnRerun(t *testing.T
 	}
 }
 
+// TestRunIngestCycle_NoTransactions_ReturnsZeroResult asserts the refactored
+// runIngestCycle signature: when the Mercury fetch returns an error (the only
+// reachable early-exit path without a live Mercury API key), the result must be
+// the zero IngestResult and err must be non-nil. This exercises the
+// `return IngestResult{}, fmt.Errorf("…")` path on FetchTransactions failure.
+func TestRunIngestCycle_NoTransactions_ReturnsZeroResult(t *testing.T) {
+	if testPool == nil {
+		t.Skip("DB_TEST_URL not reachable; skipping integration test")
+	}
+	resetReceiptFixtures(t)
+
+	// Empty MercuryAPIKey triggers the Mercury API to reject the request,
+	// causing FetchTransactions to return a non-nil error — the path we want
+	// to verify returns the zero IngestResult.
+	cfg := WorkerConfig{
+		MercuryAPIKey: "",
+		Pool:          testPool,
+		LookbackDays:  14,
+	}
+	result, err := runIngestCycle(t.Context(), cfg)
+	if err == nil {
+		t.Fatalf("runIngestCycle: expected error from empty MercuryAPIKey, got nil")
+	}
+	if result != (IngestResult{}) {
+		t.Errorf("runIngestCycle: result = %+v, want zero IngestResult on error", result)
+	}
+}
+
 // TestInsertPendingPurchase_CoexistsWithAttachmentBranch asserts the
 // no-attachment branch (pending_purchases insert) and the parsed-receipt
 // branch (purchase_events insert via createPurchaseEvent) do not contaminate
