@@ -2904,3 +2904,33 @@ test.describe('Receipt sync button', () => {
     await expect(chip).toContainText('5 skipped');
   });
 });
+
+// ─── Phase 260607-e1c: parse_error display on pending card ───────────────────
+test.describe('Pending card — parse_error display (260607-e1c)', () => {
+  test.beforeEach(async ({ page }) => { await login(page); });
+
+  test('renders Parser error line when parse_error is set', async ({ page }) => {
+    // Stub GET /purchases/pending so the test row reliably surfaces the
+    // parse_error display branch without DB seeding. Other methods (PUT
+    // /pending-items, etc.) fall through to the real backend.
+    await page.route('**/api/v1/inventory/purchases/pending', async route => {
+      if (route.request().method() !== 'GET') return route.continue();
+      await route.fulfill({
+        status: 200, contentType: 'application/json',
+        body: JSON.stringify([{
+          id: 'pe-1', bank_tx_id: 'tx-parse-err', bank_total: -391.96,
+          vendor: 'RESTAURANT DEPOT', event_date: '2026-06-05',
+          reason: 'Receipt could not be parsed automatically',
+          parse_error: "failed to unmarshal: invalid character '<' looking for beginning of value (text: <html>)",
+          items: [], created_at: new Date().toISOString(),
+        }])
+      });
+    });
+    await page.goto('/inventory.html');
+    await page.waitForLoadState('networkidle');
+    const card = page.locator('[data-action="review-pending"][data-id="pe-1"]');
+    await expect(card).toBeVisible();
+    await expect(card).toContainText('Parser error:');
+    await expect(card).toContainText("invalid character '<'");
+  });
+});

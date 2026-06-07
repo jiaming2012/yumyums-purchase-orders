@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -403,13 +404,17 @@ func TestInsertPendingPurchase_CoexistsWithAttachmentBranch(t *testing.T) {
 // tests can assert on "must not be called" paths (e.g. the cached short-circuit
 // must NOT call parseReceipt).
 type workerStubs struct {
-	txns           []MercuryTransaction
-	parseItems     []ReceiptItem
-	parseSummary   ReceiptSummary
-	parseErr       error
-	parseCallCount int
-	fetchCalled    bool
-	dlCalled       bool
+	txns            []MercuryTransaction
+	parseItems      []ReceiptItem
+	parseSummary    ReceiptSummary
+	parseErr        error
+	parseCallCount  int
+	sonnetItems     []ReceiptItem  // Phase 260607-e1c
+	sonnetSummary   ReceiptSummary // Phase 260607-e1c
+	sonnetErr       error          // Phase 260607-e1c
+	sonnetCallCount int            // Phase 260607-e1c
+	fetchCalled     bool
+	dlCalled        bool
 }
 
 func installWorkerStubs(t *testing.T, s *workerStubs) {
@@ -428,6 +433,16 @@ func installWorkerStubs(t *testing.T, s *workerStubs) {
 		return s.parseItems, s.parseSummary, s.parseErr
 	}
 	t.Cleanup(func() { parseReceipt = origParse })
+
+	// Phase 260607-e1c: Sonnet fallback seam — installed alongside parseReceipt
+	// so each test can independently drive the (haiku ok / haiku fail+sonnet ok /
+	// both fail) branches.
+	origSonnet := parseReceiptWithSonnet
+	parseReceiptWithSonnet = func(_ context.Context, _ string, _ []byte, _ string) ([]ReceiptItem, ReceiptSummary, error) {
+		s.sonnetCallCount++
+		return s.sonnetItems, s.sonnetSummary, s.sonnetErr
+	}
+	t.Cleanup(func() { parseReceiptWithSonnet = origSonnet })
 
 	origDL := downloadReceiptFileFn
 	downloadReceiptFileFn = func(_ context.Context, _ string) ([]byte, string, error) {
@@ -552,6 +567,10 @@ func TestRunIngestCycle_UpgradesPendingNoAttachmentRow_ParseFails(t *testing.T) 
 		t.Fatalf("read original id: %v", err)
 	}
 
+	// Phase 260607-e1c: Sonnet fallback now retries Haiku failures, so this
+	// test must drive BOTH stubs to error to keep the path landing on the
+	// parse-fail routePending branch (vs Sonnet's empty summary passing through
+	// to ValidateReceiptData and producing a validate-fail reason).
 	stubs := &workerStubs{
 		txns: []MercuryTransaction{{
 			ID:          "T-upgrade-fail",
@@ -559,7 +578,8 @@ func TestRunIngestCycle_UpgradesPendingNoAttachmentRow_ParseFails(t *testing.T) 
 			CreatedAt:   "2026-05-27T10:00:00Z",
 			Attachments: []Attachment{{URL: "http://fake/r.jpg", FileName: "r.jpg"}},
 		}},
-		parseErr: errors.New("haiku timeout"),
+		parseErr:  errors.New("haiku timeout"),
+		sonnetErr: errors.New("sonnet timeout"),
 	}
 	installWorkerStubs(t, stubs)
 
@@ -1011,5 +1031,183 @@ func TestMigration_DedupesExistingPendingDuplicates(t *testing.T) {
 		"tx-mig-dupe",
 	); err != nil {
 		t.Fatalf("re-insert after discard should succeed (partial predicate excludes discarded): %v", err)
+	}
+}
+
+// ─── Phase 260607-e1c: Sonnet fallback + persist parse_error ────────────────
+//
+// Cover the new (haiku→sonnet) retry seam. Three scenarios:
+//   1. Haiku fails, Sonnet succeeds → auto-create proceeds normally, no pending row.
+//   2. Haiku fails, Sonnet ALSO fails → pending row created with parse_error
+//      containing BOTH "haiku" and "sonnet" substrings.
+//   3. insertPendingPurchase called with parseError="" leaves the column NULL
+//      (default-NULL contract).
+
+// TestRunIngestCycle_FallsBackToSonnet exercises the happy fallback path:
+// Haiku errs, Sonnet returns valid items+summary → ValidateReceiptData passes,
+// createPurchaseEvent runs, AutoCreated=1, no pending row.
+func TestRunIngestCycle_FallsBackToSonnet(t *testing.T) {
+	if testPool == nil {
+		t.Skip("DB_TEST_URL not reachable; skipping integration test")
+	}
+	resetReceiptFixtures(t)
+
+	// Mercury debits are NEGATIVE values; ValidateReceiptData requires
+	// summary.Total == -bankAmount AND sum(item.Quantity) == TotalUnits+TotalCases.
+	stubs := &workerStubs{
+		txns: []MercuryTransaction{{
+			ID:          "T-sonnet-ok",
+			Amount:      -42.50,
+			CreatedAt:   "2026-05-27T10:00:00Z",
+			Attachments: []Attachment{{URL: "http://fake/r.jpg", FileName: "r.jpg"}},
+		}},
+		parseErr: errors.New("haiku timeout"),
+		// Sonnet returns valid output — fall through to validate+create.
+		sonnetItems: []ReceiptItem{
+			{Name: "Salmon", Quantity: 1, Price: 42.50, IsCase: false},
+		},
+		sonnetSummary: ReceiptSummary{Vendor: "Acme", Tax: 0, Total: 42.50, TotalUnits: 1, TotalCases: 0},
+	}
+	installWorkerStubs(t, stubs)
+
+	result, err := runIngestCycle(t.Context(), WorkerConfig{
+		MercuryAPIKey:   "stub",
+		AnthropicAPIKey: "stub",
+		Pool:            testPool,
+		LookbackDays:    14,
+	})
+	if err != nil {
+		t.Fatalf("runIngestCycle: %v", err)
+	}
+
+	if result.AutoCreated != 1 {
+		t.Errorf("AutoCreated = %d, want 1", result.AutoCreated)
+	}
+	if result.PendingReview != 0 {
+		t.Errorf("PendingReview = %d, want 0", result.PendingReview)
+	}
+	if stubs.parseCallCount != 1 {
+		t.Errorf("parseCallCount = %d, want 1 (Haiku must be tried first)", stubs.parseCallCount)
+	}
+	if stubs.sonnetCallCount != 1 {
+		t.Errorf("sonnetCallCount = %d, want 1 (Sonnet must be tried after Haiku fail)", stubs.sonnetCallCount)
+	}
+
+	var pendingCount, eventCount int
+	if err := testPool.QueryRow(t.Context(),
+		`SELECT COUNT(*) FROM pending_purchases WHERE bank_tx_id='T-sonnet-ok'`,
+	).Scan(&pendingCount); err != nil {
+		t.Fatalf("count pending: %v", err)
+	}
+	if err := testPool.QueryRow(t.Context(),
+		`SELECT COUNT(*) FROM purchase_events WHERE bank_tx_id='T-sonnet-ok'`,
+	).Scan(&eventCount); err != nil {
+		t.Fatalf("count events: %v", err)
+	}
+	if pendingCount != 0 {
+		t.Errorf("pending rows = %d, want 0 (Sonnet success must NOT route to pending)", pendingCount)
+	}
+	if eventCount != 1 {
+		t.Errorf("event rows = %d, want 1 (Sonnet success must auto-create event)", eventCount)
+	}
+}
+
+// TestRunIngestCycle_BothModelsFail_StoresParseError covers the (haiku→sonnet)
+// double-fail path: pending row created with parse_error containing both
+// error strings concatenated as "haiku: <h>; sonnet: <s>".
+func TestRunIngestCycle_BothModelsFail_StoresParseError(t *testing.T) {
+	if testPool == nil {
+		t.Skip("DB_TEST_URL not reachable; skipping integration test")
+	}
+	resetReceiptFixtures(t)
+
+	stubs := &workerStubs{
+		txns: []MercuryTransaction{{
+			ID:          "T-both-fail",
+			Amount:      -391.96,
+			CreatedAt:   "2026-05-27T10:00:00Z",
+			Attachments: []Attachment{{URL: "http://fake/r.pdf", FileName: "r.pdf"}},
+		}},
+		parseErr:  errors.New("haiku boom"),
+		sonnetErr: errors.New("sonnet boom"),
+	}
+	installWorkerStubs(t, stubs)
+
+	result, err := runIngestCycle(t.Context(), WorkerConfig{
+		MercuryAPIKey:   "stub",
+		AnthropicAPIKey: "stub",
+		Pool:            testPool,
+		LookbackDays:    14,
+	})
+	if err != nil {
+		t.Fatalf("runIngestCycle: %v", err)
+	}
+
+	if result.PendingReview != 1 {
+		t.Errorf("PendingReview = %d, want 1", result.PendingReview)
+	}
+	if result.AutoCreated != 0 {
+		t.Errorf("AutoCreated = %d, want 0", result.AutoCreated)
+	}
+	if stubs.parseCallCount != 1 {
+		t.Errorf("parseCallCount = %d, want 1", stubs.parseCallCount)
+	}
+	if stubs.sonnetCallCount != 1 {
+		t.Errorf("sonnetCallCount = %d, want 1", stubs.sonnetCallCount)
+	}
+
+	var parseError sql.NullString
+	var reason sql.NullString
+	if err := testPool.QueryRow(t.Context(),
+		`SELECT parse_error, reason FROM pending_purchases WHERE bank_tx_id='T-both-fail'`,
+	).Scan(&parseError, &reason); err != nil {
+		t.Fatalf("select pending: %v", err)
+	}
+	if !parseError.Valid {
+		t.Fatalf("parse_error = NULL, want non-null with haiku+sonnet errors")
+	}
+	pe := parseError.String
+	for _, want := range []string{"haiku", "sonnet", "boom"} {
+		if !strings.Contains(pe, want) {
+			t.Errorf("parse_error %q missing substring %q", pe, want)
+		}
+	}
+	if !reason.Valid || reason.String != "Receipt could not be parsed automatically" {
+		t.Errorf("reason = %+v, want parse-fail sentinel", reason)
+	}
+}
+
+// TestInsertPendingPurchase_ParseErrorNullByDefault asserts the (default,
+// no-parse-attempt) write leaves parse_error column NULL. Mirrors the
+// no-attachment branch's call shape with parseError="".
+func TestInsertPendingPurchase_ParseErrorNullByDefault(t *testing.T) {
+	if testPool == nil {
+		t.Skip("DB_TEST_URL not reachable; skipping integration test")
+	}
+	resetReceiptFixtures(t)
+
+	tx := MercuryTransaction{
+		ID:        "tx-default-null",
+		Amount:    19.99,
+		CreatedAt: "2026-05-27T10:00:00Z",
+	}
+	if err := insertPendingPurchase(
+		t.Context(), testPool, tx,
+		nil, ReceiptSummary{}, "",
+		"no_attachment_on_bank_tx",
+		"", // parseError empty — must land as NULL on the column.
+	); err != nil {
+		t.Fatalf("insertPendingPurchase: %v", err)
+	}
+
+	var ns sql.NullString
+	if err := testPool.QueryRow(t.Context(),
+		`SELECT parse_error FROM pending_purchases WHERE bank_tx_id = $1`,
+		"tx-default-null",
+	).Scan(&ns); err != nil {
+		t.Fatalf("select: %v", err)
+	}
+	if ns.Valid {
+		t.Errorf("parse_error = %q, want NULL (empty parseError must not be stored)", ns.String)
 	}
 }
