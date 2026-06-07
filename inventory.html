@@ -368,9 +368,15 @@ function renderSyncUI(){
     if(SYNC_CHIP_DISMISSED_ID===s.id){chip.style.display='none';return;}
     var mins=Math.max(0,Math.floor((Date.now()-new Date(s.finished_at||s.started_at).getTime())/60000));
     var when=mins===0?'just now':(mins+'m ago');
+    // Phase 260607-co0: tail segments only appear when their count > 0.
+    // Format: 'Last synced X — N processed[, M auto-added][, K pending review][, C skipped]'.
+    var parts=[s.processed+' processed'];
+    if(s.auto_created>0)parts.push(s.auto_created+' auto-added');
+    if(s.pending_review>0)parts.push(s.pending_review+' pending review');
+    if(s.cached>0)parts.push(s.cached+' skipped');
     chip.style.display='';
     chip.className='sync-chip ok';
-    chip.innerHTML='<span>Last synced '+when+' — '+s.processed+' processed, '+s.pending_review+' pending review</span>'+
+    chip.innerHTML='<span>Last synced '+when+' — '+parts.join(', ')+'</span>'+
                   '<button class="sync-chip-dismiss" data-action="dismiss-sync-chip" aria-label="Dismiss">×</button>';
   }
 }

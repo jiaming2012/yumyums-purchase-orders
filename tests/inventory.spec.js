@@ -2869,9 +2869,38 @@ test.describe('Receipt sync button', () => {
     await expect(chip).toBeVisible();
     await expect(chip).toContainText('5 processed');
     await expect(chip).toContainText('2 pending review');
+    // Phase 260607-co0: auto_created > 0 now surfaces; cached:0 stays hidden.
+    await expect(chip).toContainText('3 auto-added');
+    await expect(chip).not.toContainText('skipped');
 
     // Dismiss × hides the chip.
     await chip.locator('[data-action="dismiss-sync-chip"]').click();
     await expect(chip).not.toBeVisible();
+  });
+
+  // Phase 260607-co0: stubbed cached > 0 must surface a 'skipped' tail segment.
+  // Combined with auto_created > 0 and pending_review > 0 this asserts the
+  // join-with-comma format keeps all four counts present.
+  test('completed run with cached > 0 shows skipped segment', async ({ page }) => {
+    await page.route('**/api/v1/inventory/sync-receipts/status', async route => {
+      await route.fulfill({
+        status: 200, contentType: 'application/json',
+        body: JSON.stringify({
+          id: 8, status: 'done',
+          started_at: new Date(Date.now() - 60000).toISOString(),
+          finished_at: new Date().toISOString(),
+          processed: 10, auto_created: 4, pending_review: 1, cached: 5,
+          error: null, triggered_by: 'manual'
+        })
+      });
+    });
+    await page.goto('/inventory.html');
+    await page.waitForLoadState('networkidle');
+    const chip = page.locator('#sync-receipts-chip');
+    await expect(chip).toBeVisible();
+    await expect(chip).toContainText('10 processed');
+    await expect(chip).toContainText('4 auto-added');
+    await expect(chip).toContainText('1 pending review');
+    await expect(chip).toContainText('5 skipped');
   });
 });
