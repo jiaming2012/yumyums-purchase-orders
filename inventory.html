@@ -582,7 +582,15 @@ function renderPendingCard(p){
   }
   var vendorDisplay=titleCase(p.vendor||p.vendor_name||'Unknown Vendor');
   var reasonHtml=p.reason?'&nbsp;&middot;&nbsp;'+escHtml(p.reason).replace(/\(diff (\$[\d.]+)\)/,'(<span style="color:var(--warn-tx);font-weight:600">diff $1</span>)'):'';
-  return '<div class="event-card" data-action="review-pending" data-id="'+p.id+'" style="position:relative;padding-right:110px"><div style="position:absolute;top:12px;right:12px"><span class="approval-badge">Needs Review</span></div><div class="event-vendor">'+vendorDisplay+'</div><div class="event-meta">'+formatDate(p.event_date)+reasonHtml+'</div><div class="event-total" style="margin-top:4px">$'+Number(p.bank_total||p.total||0).toFixed(2)+'</div></div>';
+  // Phase 260607-e1c: surface the actual parser error (haiku+sonnet concat)
+  // on the pending card so the owner can see WHY parsing failed instead of
+  // a generic "Receipt could not be parsed automatically" line.
+  var parseErrHtml='';
+  if(p.reason==='Receipt could not be parsed automatically' && p.parse_error){
+    var truncated=String(p.parse_error).slice(0,140);
+    parseErrHtml='<div class="event-meta" style="font-style:italic;opacity:0.7;margin-top:2px">Parser error: '+escHtml(truncated)+'</div>';
+  }
+  return '<div class="event-card" data-action="review-pending" data-id="'+p.id+'" style="position:relative;padding-right:110px"><div style="position:absolute;top:12px;right:12px"><span class="approval-badge">Needs Review</span></div><div class="event-vendor">'+vendorDisplay+'</div><div class="event-meta">'+formatDate(p.event_date)+reasonHtml+'</div>'+parseErrHtml+'<div class="event-total" style="margin-top:4px">$'+Number(p.bank_total||p.total||0).toFixed(2)+'</div></div>';
 }
 
 function renderReviewForm(p){
