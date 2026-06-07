@@ -619,6 +619,12 @@ func TestRunIngestCycle_UpgradesPendingNoAttachmentRow_ParseFails(t *testing.T) 
 // reason other than 'no_attachment_on_bank_tx' (e.g. a prior parse failure
 // the human still needs to review) still short-circuit as Cached, even when
 // the tx has attachments. parseReceipt must NOT be called for cached rows.
+//
+// Phase 260607-fxl: parse_error must be populated on the seed so the new
+// parseFailedRetry gate (parse_error IS NULL AND items empty) does NOT fire.
+// Without parse_error set, this row would now retry through Sonnet — the
+// "real cached" intent here is "BOTH models already failed, human-review
+// territory" so parse_error is the correct signal.
 func TestRunIngestCycle_SkipsRealCached(t *testing.T) {
 	if testPool == nil {
 		t.Skip("DB_TEST_URL not reachable; skipping integration test")
@@ -626,8 +632,8 @@ func TestRunIngestCycle_SkipsRealCached(t *testing.T) {
 	resetReceiptFixtures(t)
 
 	if _, err := testPool.Exec(t.Context(), `
-		INSERT INTO pending_purchases (bank_tx_id, bank_total, vendor, reason, items)
-		VALUES ($1, $2, $3, 'Receipt could not be parsed automatically', '[]'::jsonb)`,
+		INSERT INTO pending_purchases (bank_tx_id, bank_total, vendor, reason, items, parse_error)
+		VALUES ($1, $2, $3, 'Receipt could not be parsed automatically', '[]'::jsonb, 'haiku boom; sonnet boom')`,
 		"T-real-cached", 19.99, "STUB",
 	); err != nil {
 		t.Fatalf("seed: %v", err)
@@ -672,6 +678,203 @@ func TestRunIngestCycle_SkipsRealCached(t *testing.T) {
 	}
 	if reason != "Receipt could not be parsed automatically" {
 		t.Errorf("reason = %q, want unchanged", reason)
+	}
+}
+
+// ─── Phase 260607-fxl: parse-failed retry gate ──────────────────────────────
+
+// TestRunIngestCycle_RetriesPriorHaikuFailureWhenParseErrorNull covers the
+// happy path of the new parseFailedRetry branch. A pre-260607-e1c row that hit
+// Haiku-fails-no-Sonnet (reason='Receipt could not be parsed automatically',
+// parse_error=NULL, items='[]') gets retried — Haiku fails, Sonnet succeeds,
+// the row is DELETEd and a purchase_events row is INSERTed atomically.
+func TestRunIngestCycle_RetriesPriorHaikuFailureWhenParseErrorNull(t *testing.T) {
+	if testPool == nil {
+		t.Skip("DB_TEST_URL not reachable; skipping integration test")
+	}
+	resetReceiptFixtures(t)
+
+	// Negative amount = debit (food spend). Pre-e1c rows stored bank_total
+	// the same way.
+	if _, err := testPool.Exec(t.Context(), `
+		INSERT INTO pending_purchases (bank_tx_id, bank_total, vendor, reason, items, parse_error)
+		VALUES ($1, $2, $3, 'Receipt could not be parsed automatically', '[]'::jsonb, NULL)`,
+		"T-retry-ok", -42.50, "STUB",
+	); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	stubs := &workerStubs{
+		txns: []MercuryTransaction{{
+			ID:          "T-retry-ok",
+			Amount:      -42.50,
+			CreatedAt:   "2026-05-27T10:00:00Z",
+			Attachments: []Attachment{{URL: "http://fake/r.jpg", FileName: "r.jpg"}},
+		}},
+		parseErr: errors.New("haiku boom"),
+		sonnetItems: []ReceiptItem{
+			{Name: "Salmon", Quantity: 1, Price: 42.50, IsCase: false},
+		},
+		sonnetSummary: ReceiptSummary{Vendor: "Acme", Tax: 0, Total: 42.50, TotalUnits: 1, TotalCases: 0},
+	}
+	installWorkerStubs(t, stubs)
+
+	result, err := runIngestCycle(t.Context(), WorkerConfig{
+		MercuryAPIKey:   "stub",
+		AnthropicAPIKey: "stub",
+		Pool:            testPool,
+		LookbackDays:    14,
+	})
+	if err != nil {
+		t.Fatalf("runIngestCycle: %v", err)
+	}
+
+	if result.AutoCreated != 1 {
+		t.Errorf("AutoCreated = %d, want 1", result.AutoCreated)
+	}
+	if result.PendingReview != 0 {
+		t.Errorf("PendingReview = %d, want 0", result.PendingReview)
+	}
+	if result.Cached != 0 {
+		t.Errorf("Cached = %d, want 0", result.Cached)
+	}
+	if stubs.parseCallCount != 1 {
+		t.Errorf("parseCallCount = %d, want 1 (Haiku should be tried once)", stubs.parseCallCount)
+	}
+	if stubs.sonnetCallCount != 1 {
+		t.Errorf("sonnetCallCount = %d, want 1 (Sonnet fallback should fire after Haiku fails)", stubs.sonnetCallCount)
+	}
+
+	var pendingCount, eventCount int
+	if err := testPool.QueryRow(t.Context(),
+		`SELECT COUNT(*) FROM pending_purchases WHERE bank_tx_id='T-retry-ok'`,
+	).Scan(&pendingCount); err != nil {
+		t.Fatalf("count pending: %v", err)
+	}
+	if err := testPool.QueryRow(t.Context(),
+		`SELECT COUNT(*) FROM purchase_events WHERE bank_tx_id='T-retry-ok'`,
+	).Scan(&eventCount); err != nil {
+		t.Fatalf("count events: %v", err)
+	}
+	if pendingCount != 0 {
+		t.Errorf("pending rows = %d, want 0 (retry success should DELETE)", pendingCount)
+	}
+	if eventCount != 1 {
+		t.Errorf("event rows = %d, want 1", eventCount)
+	}
+}
+
+// TestRunIngestCycle_DoesNotRetryWhenParseErrorSet asserts the parse-failed
+// retry gate's primary guard: once parse_error is populated (meaning BOTH
+// Haiku and Sonnet already failed in a previous run), the row STAYS cached
+// — no infinite parse loop. parseReceipt / parseReceiptWithSonnet must NOT
+// be invoked, and the download seam must NOT be hit either.
+func TestRunIngestCycle_DoesNotRetryWhenParseErrorSet(t *testing.T) {
+	if testPool == nil {
+		t.Skip("DB_TEST_URL not reachable; skipping integration test")
+	}
+	resetReceiptFixtures(t)
+
+	if _, err := testPool.Exec(t.Context(), `
+		INSERT INTO pending_purchases (bank_tx_id, bank_total, vendor, reason, items, parse_error)
+		VALUES ($1, $2, $3, 'Receipt could not be parsed automatically', '[]'::jsonb, 'haiku boom; sonnet boom')`,
+		"T-no-retry-err", -42.50, "STUB",
+	); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	stubs := &workerStubs{
+		txns: []MercuryTransaction{{
+			ID:          "T-no-retry-err",
+			Amount:      -42.50,
+			CreatedAt:   "2026-05-27T10:00:00Z",
+			Attachments: []Attachment{{URL: "http://fake/r.jpg", FileName: "r.jpg"}},
+		}},
+	}
+	installWorkerStubs(t, stubs)
+
+	result, err := runIngestCycle(t.Context(), WorkerConfig{
+		MercuryAPIKey: "stub", AnthropicAPIKey: "stub", Pool: testPool, LookbackDays: 14,
+	})
+	if err != nil {
+		t.Fatalf("runIngestCycle: %v", err)
+	}
+
+	if result.Cached != 1 {
+		t.Errorf("Cached = %d, want 1", result.Cached)
+	}
+	if result.AutoCreated != 0 {
+		t.Errorf("AutoCreated = %d, want 0", result.AutoCreated)
+	}
+	if stubs.parseCallCount != 0 {
+		t.Errorf("parseCallCount = %d, want 0 (cached row must not call Haiku)", stubs.parseCallCount)
+	}
+	if stubs.sonnetCallCount != 0 {
+		t.Errorf("sonnetCallCount = %d, want 0 (cached row must not call Sonnet)", stubs.sonnetCallCount)
+	}
+	if stubs.dlCalled {
+		t.Errorf("dlCalled = true, want false (cached row must not download)")
+	}
+}
+
+// TestRunIngestCycle_DoesNotRetryParseFailedWithItems asserts the second
+// guard: a parse-failed row with parse_error=NULL but items populated (user
+// has started editing the row manually) is NOT retried — the operator's edits
+// must not be clobbered by a worker re-parse.
+func TestRunIngestCycle_DoesNotRetryParseFailedWithItems(t *testing.T) {
+	if testPool == nil {
+		t.Skip("DB_TEST_URL not reachable; skipping integration test")
+	}
+	resetReceiptFixtures(t)
+
+	if _, err := testPool.Exec(t.Context(), `
+		INSERT INTO pending_purchases (bank_tx_id, bank_total, vendor, reason, items, parse_error)
+		VALUES ($1, $2, $3, 'Receipt could not be parsed automatically',
+		        '[{"name":"foo","quantity":1,"price":1.0,"is_case":false}]'::jsonb, NULL)`,
+		"T-no-retry-items", -42.50, "STUB",
+	); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	var origItems string
+	if err := testPool.QueryRow(t.Context(),
+		`SELECT items::text FROM pending_purchases WHERE bank_tx_id='T-no-retry-items'`,
+	).Scan(&origItems); err != nil {
+		t.Fatalf("read original items: %v", err)
+	}
+
+	stubs := &workerStubs{
+		txns: []MercuryTransaction{{
+			ID:          "T-no-retry-items",
+			Amount:      -42.50,
+			CreatedAt:   "2026-05-27T10:00:00Z",
+			Attachments: []Attachment{{URL: "http://fake/r.jpg", FileName: "r.jpg"}},
+		}},
+	}
+	installWorkerStubs(t, stubs)
+
+	result, err := runIngestCycle(t.Context(), WorkerConfig{
+		MercuryAPIKey: "stub", AnthropicAPIKey: "stub", Pool: testPool, LookbackDays: 14,
+	})
+	if err != nil {
+		t.Fatalf("runIngestCycle: %v", err)
+	}
+
+	if result.Cached != 1 {
+		t.Errorf("Cached = %d, want 1", result.Cached)
+	}
+	if stubs.parseCallCount != 0 {
+		t.Errorf("parseCallCount = %d, want 0 (user-edited row must not be reparsed)", stubs.parseCallCount)
+	}
+
+	var gotItems string
+	if err := testPool.QueryRow(t.Context(),
+		`SELECT items::text FROM pending_purchases WHERE bank_tx_id='T-no-retry-items'`,
+	).Scan(&gotItems); err != nil {
+		t.Fatalf("read items after run: %v", err)
+	}
+	if gotItems != origItems {
+		t.Errorf("items changed: was %q, now %q (worker must not clobber user edits)", origItems, gotItems)
 	}
 }
 
@@ -760,7 +963,7 @@ func TestClassifyExistingTx(t *testing.T) {
 
 	t.Run("empty DB returns none", func(t *testing.T) {
 		resetReceiptFixtures(t)
-		kind, reason, err := classifyExistingTx(t.Context(), testPool, "no-such-tx")
+		kind, reason, _, _, err := classifyExistingTx(t.Context(), testPool, "no-such-tx")
 		if err != nil {
 			t.Fatalf("classify: %v", err)
 		}
@@ -781,7 +984,7 @@ func TestClassifyExistingTx(t *testing.T) {
 		); err != nil {
 			t.Fatalf("seed: %v", err)
 		}
-		kind, reason, err := classifyExistingTx(t.Context(), testPool, "T-cls-pending")
+		kind, reason, _, _, err := classifyExistingTx(t.Context(), testPool, "T-cls-pending")
 		if err != nil {
 			t.Fatalf("classify: %v", err)
 		}
@@ -802,7 +1005,7 @@ func TestClassifyExistingTx(t *testing.T) {
 		); err != nil {
 			t.Fatalf("seed: %v", err)
 		}
-		kind, _, err := classifyExistingTx(t.Context(), testPool, "T-cls-discarded")
+		kind, _, _, _, err := classifyExistingTx(t.Context(), testPool, "T-cls-discarded")
 		if err != nil {
 			t.Fatalf("classify: %v", err)
 		}
@@ -822,7 +1025,7 @@ func TestClassifyExistingTx(t *testing.T) {
 		); err != nil {
 			t.Fatalf("seed: %v", err)
 		}
-		kind, _, err := classifyExistingTx(t.Context(), testPool, "T-cls-confirmed")
+		kind, _, _, _, err := classifyExistingTx(t.Context(), testPool, "T-cls-confirmed")
 		if err != nil {
 			t.Fatalf("classify: %v", err)
 		}
@@ -846,7 +1049,7 @@ func TestClassifyExistingTx(t *testing.T) {
 		); err != nil {
 			t.Fatalf("seed event: %v", err)
 		}
-		kind, reason, err := classifyExistingTx(t.Context(), testPool, "T-cls-event")
+		kind, reason, _, _, err := classifyExistingTx(t.Context(), testPool, "T-cls-event")
 		if err != nil {
 			t.Fatalf("classify: %v", err)
 		}
