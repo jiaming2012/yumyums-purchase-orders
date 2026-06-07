@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -11,8 +12,24 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/yumyums/hq/internal/photos"
+)
+
+// Test seams. Production callers MUST go through these package-level vars so
+// tests can inject fakes without changing exported function signatures. See
+// worker_test.go — each test saves the original, swaps in a stub, and restores
+// in a t.Cleanup callback.
+//
+// Phase 260607-co0: parseReceipt + fetchTransactions + downloadReceiptFileFn
+// are introduced so the upgrade-path tests (no_attachment → re-sync with
+// receipt attached) can drive runIngestCycle end-to-end without hitting
+// Mercury / Anthropic / the receipt CDN.
+var (
+	fetchTransactions     = FetchTransactions
+	parseReceipt          = ParseReceipt
+	downloadReceiptFileFn = downloadReceiptFile
 )
 
 // StartWorker launches a background goroutine that polls Mercury for new
@@ -81,7 +98,7 @@ func runIngestCycle(ctx context.Context, cfg WorkerConfig) (IngestResult, error)
 	endDate := time.Now()
 	startDate := endDate.AddDate(0, 0, -lookback)
 
-	txns, err := FetchTransactions(ctx, cfg.MercuryAPIKey, startDate, endDate)
+	txns, err := fetchTransactions(ctx, cfg.MercuryAPIKey, startDate, endDate)
 	if err != nil {
 		return IngestResult{}, fmt.Errorf("runIngestCycle: FetchTransactions: %w", err)
 	}
@@ -138,32 +155,58 @@ func runIngestCycle(ctx context.Context, cfg WorkerConfig) (IngestResult, error)
 			log.Printf("receipt worker: backfill vendor for tx %s: %v (continuing)", tx.ID, backfillErr)
 		}
 
-		// Idempotency: skip if already in purchase_events or pending_purchases
-		already, err := bankTxIDExists(ctx, cfg.Pool, tx.ID)
+		// Idempotency: 3-way classify so we can detect the "stale no-attachment
+		// pending row whose Mercury tx now has a receipt" upgrade case.
+		// Phase 260607-co0: replaces the 2-way bankTxIDExists short-circuit
+		// that previously skipped these rows forever.
+		kind, existingReason, err := classifyExistingTx(ctx, cfg.Pool, tx.ID)
 		if err != nil {
-			log.Printf("receipt worker: check existing tx %s: %v", tx.ID, err)
+			log.Printf("receipt worker: classifyExistingTx tx %s: %v", tx.ID, err)
 			continue
 		}
-		if already {
+		isUpgrade := false
+		switch kind {
+		case "event":
+			// Already a purchase_event (or a confirmed pending) — done.
 			skippedCached++
 			continue
+		case "pending":
+			// Re-process if (and only if) the row was the no-attachment
+			// sentinel and the Mercury tx now has at least one attachment.
+			// Any other reason (parse failure, validate failure) stays in
+			// the human-review queue.
+			if existingReason == "no_attachment_on_bank_tx" && len(tx.Attachments) > 0 {
+				isUpgrade = true
+				// Fall through to download/parse path below.
+			} else {
+				skippedCached++
+				continue
+			}
+		case "none":
+			// New transaction — fall through to ingest.
 		}
 
 		// No-attachment branch: surface every unreceipted card swipe in
 		// pending_purchases so the completeness gate can block payroll on
 		// unresolved card spend. ON CONFLICT DO NOTHING on bank_tx_id keeps
 		// re-polls idempotent.
+		//
+		// isUpgrade is impossible here (we only set it when len(Attachments)>0),
+		// but the !isUpgrade guard is kept defensively so a future refactor
+		// can't accidentally re-INSERT over an existing row via this branch.
 		if len(tx.Attachments) == 0 {
-			if routeErr := insertPendingPurchase(
-				ctx, cfg.Pool, tx,
-				nil,              // items unknown without receipt
-				ReceiptSummary{}, // summary unknown without receipt
-				"",               // no receiptURL
-				"no_attachment_on_bank_tx",
-			); routeErr != nil {
-				log.Printf("receipt worker: insertPendingPurchase (no-attachment) for tx %s: %v", tx.ID, routeErr)
+			if !isUpgrade {
+				if routeErr := insertPendingPurchase(
+					ctx, cfg.Pool, tx,
+					nil,              // items unknown without receipt
+					ReceiptSummary{}, // summary unknown without receipt
+					"",               // no receiptURL
+					"no_attachment_on_bank_tx",
+				); routeErr != nil {
+					log.Printf("receipt worker: insertPendingPurchase (no-attachment) for tx %s: %v", tx.ID, routeErr)
+				}
+				pendingReview++
 			}
-			pendingReview++
 			continue
 		}
 
@@ -174,8 +217,9 @@ func runIngestCycle(ctx context.Context, cfg WorkerConfig) (IngestResult, error)
 			continue
 		}
 
-		// Download receipt file
-		fileBytes, contentType, err := downloadReceiptFile(ctx, attachment.URL)
+		// Download receipt file (via the downloadReceiptFileFn seam so tests
+		// can inject fake bytes without an httptest.Server).
+		fileBytes, contentType, err := downloadReceiptFileFn(ctx, attachment.URL)
 		if err != nil {
 			log.Printf("receipt worker: download attachment for tx %s: %v", tx.ID, err)
 			continue
@@ -215,12 +259,12 @@ func runIngestCycle(ctx context.Context, cfg WorkerConfig) (IngestResult, error)
 			}
 		}
 
-		// Parse with Claude Haiku
-		items, summary, err := ParseReceipt(ctx, cfg.AnthropicAPIKey, fileBytes, contentType)
+		// Parse with Claude Haiku (via the parseReceipt seam).
+		items, summary, err := parseReceipt(ctx, cfg.AnthropicAPIKey, fileBytes, contentType)
 		if err != nil {
 			log.Printf("receipt worker: ParseReceipt for tx %s: %v — routing to review queue", tx.ID, err)
-			if routeErr := insertPendingPurchase(ctx, cfg.Pool, tx, items, summary, receiptURL, "Receipt could not be parsed automatically"); routeErr != nil {
-				log.Printf("receipt worker: insertPendingPurchase for tx %s: %v", tx.ID, routeErr)
+			if routeErr := routePending(ctx, cfg.Pool, tx, items, summary, receiptURL, "Receipt could not be parsed automatically", isUpgrade); routeErr != nil {
+				log.Printf("receipt worker: routePending (parse-fail) for tx %s: %v", tx.ID, routeErr)
 			}
 			pendingReview++
 			continue
@@ -230,18 +274,21 @@ func runIngestCycle(ctx context.Context, cfg WorkerConfig) (IngestResult, error)
 		result := ValidateReceiptData(items, summary, tx.Amount)
 		if !result.Valid {
 			log.Printf("receipt worker: transaction %s routed to review queue: %s", tx.ID, result.Reason)
-			if routeErr := insertPendingPurchase(ctx, cfg.Pool, tx, items, summary, receiptURL, result.Reason); routeErr != nil {
-				log.Printf("receipt worker: insertPendingPurchase for tx %s: %v", tx.ID, routeErr)
+			if routeErr := routePending(ctx, cfg.Pool, tx, items, summary, receiptURL, result.Reason, isUpgrade); routeErr != nil {
+				log.Printf("receipt worker: routePending (validate-fail) for tx %s: %v", tx.ID, routeErr)
 			}
 			pendingReview++
 			continue
 		}
 
-		// Auto-create purchase event
-		if err := createPurchaseEvent(ctx, cfg.Pool, tx, items, summary, receiptURL); err != nil {
+		// Auto-create purchase event. isUpgrade=true causes the helper to
+		// DELETE the stale pending row inside the same DB transaction as
+		// the event INSERT — atomic upgrade with no window for a concurrent
+		// re-sync to see both rows.
+		if err := createPurchaseEvent(ctx, cfg.Pool, tx, items, summary, receiptURL, isUpgrade); err != nil {
 			log.Printf("receipt worker: createPurchaseEvent for tx %s: %v — routing to review queue", tx.ID, err)
-			if routeErr := insertPendingPurchase(ctx, cfg.Pool, tx, items, summary, receiptURL, "Receipt could not be saved automatically"); routeErr != nil {
-				log.Printf("receipt worker: insertPendingPurchase for tx %s: %v", tx.ID, routeErr)
+			if routeErr := routePending(ctx, cfg.Pool, tx, items, summary, receiptURL, "Receipt could not be saved automatically", isUpgrade); routeErr != nil {
+				log.Printf("receipt worker: routePending (save-fail) for tx %s: %v", tx.ID, routeErr)
 			}
 			pendingReview++
 			continue
@@ -260,22 +307,58 @@ func runIngestCycle(ctx context.Context, cfg WorkerConfig) (IngestResult, error)
 	}, nil
 }
 
-// bankTxIDExists returns true if the bank_tx_id already exists in either
-// purchase_events or pending_purchases (idempotency guard).
-func bankTxIDExists(ctx context.Context, pool *pgxpool.Pool, bankTxID string) (bool, error) {
-	var n int
-	err := pool.QueryRow(ctx,
-		`SELECT COUNT(*) FROM (
-			SELECT 1 FROM purchase_events WHERE bank_tx_id = $1
-			UNION ALL
-			SELECT 1 FROM pending_purchases WHERE bank_tx_id = $1
-		) sub`,
-		bankTxID,
-	).Scan(&n)
-	if err != nil {
-		return false, fmt.Errorf("bankTxIDExists: %w", err)
+// routePending dispatches the parse-fail / validate-fail / save-fail branches
+// of runIngestCycle to either INSERT a new pending_purchases row (cold path)
+// or UPDATE the existing one in place (upgrade path, isUpgrade=true). Keeps
+// the call sites in runIngestCycle one-liners.
+func routePending(ctx context.Context, pool *pgxpool.Pool, tx MercuryTransaction, items []ReceiptItem, summary ReceiptSummary, receiptURL string, reason string, isUpgrade bool) error {
+	if isUpgrade {
+		return updatePendingPurchase(ctx, pool, tx, items, summary, receiptURL, reason)
 	}
-	return n > 0, nil
+	return insertPendingPurchase(ctx, pool, tx, items, summary, receiptURL, reason)
+}
+
+// classifyExistingTx reports what HQ already has for a given Mercury bank_tx_id.
+// Replaces the old bankTxIDExists 2-way guard so the worker can distinguish a
+// "real" cached row (skip) from a stale no_attachment_on_bank_tx pending row
+// whose Mercury tx now has receipt attachments (upgrade — reprocess).
+//
+// Return contract:
+//   - kind "none"    → not seen yet; runIngestCycle should ingest normally.
+//   - kind "event"   → already in purchase_events OR a confirmed pending row.
+//                      Idempotency win: a confirmed pending row represents a
+//                      real, locked purchase, so it behaves like an event.
+//                      reason is "" for this kind.
+//   - kind "pending" → still-open pending_purchases row
+//                      (confirmed_at IS NULL AND discarded_at IS NULL).
+//                      reason carries pending_purchases.reason so the caller
+//                      can decide if this is the upgrade-eligible
+//                      "no_attachment_on_bank_tx" case.
+//
+// Discarded pending rows return kind="none" — the user explicitly threw the
+// row away, so the worker is free to re-process the same bank_tx_id.
+func classifyExistingTx(ctx context.Context, pool *pgxpool.Pool, bankTxID string) (kind, reason string, err error) {
+	err = pool.QueryRow(ctx, `
+		SELECT 'event' AS kind, '' AS reason
+		  FROM purchase_events WHERE bank_tx_id = $1
+		UNION ALL
+		SELECT 'event' AS kind, COALESCE(reason,'') AS reason
+		  FROM pending_purchases
+		 WHERE bank_tx_id = $1 AND confirmed_at IS NOT NULL
+		UNION ALL
+		SELECT 'pending' AS kind, COALESCE(reason,'') AS reason
+		  FROM pending_purchases
+		 WHERE bank_tx_id = $1
+		   AND confirmed_at IS NULL
+		   AND discarded_at IS NULL
+		LIMIT 1`, bankTxID).Scan(&kind, &reason)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "none", "", nil
+	}
+	if err != nil {
+		return "", "", fmt.Errorf("classifyExistingTx: %w", err)
+	}
+	return kind, reason, nil
 }
 
 // pickAttachment selects the best receipt attachment from a transaction.
@@ -296,12 +379,34 @@ func pickAttachment(tx MercuryTransaction) *Attachment {
 
 // createPurchaseEvent inserts a new purchase_event and its line items within
 // a DB transaction, auto-creating the vendor and any new purchase items.
-func createPurchaseEvent(ctx context.Context, pool *pgxpool.Pool, tx MercuryTransaction, items []ReceiptItem, summary ReceiptSummary, receiptURL string) error {
+//
+// isUpgrade=true (Phase 260607-co0): the caller has classified an existing
+// pending_purchases row with reason='no_attachment_on_bank_tx' as upgrade-
+// eligible (the Mercury tx now has a receipt attachment). In that case the
+// helper runs `DELETE FROM pending_purchases WHERE bank_tx_id=$1` as the FIRST
+// statement inside the same dbTx as the event INSERT, so the swap is atomic:
+// either both the DELETE and the INSERT commit, or neither does.
+func createPurchaseEvent(ctx context.Context, pool *pgxpool.Pool, tx MercuryTransaction, items []ReceiptItem, summary ReceiptSummary, receiptURL string, isUpgrade bool) error {
 	dbTx, err := pool.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("createPurchaseEvent: begin: %w", err)
 	}
 	defer dbTx.Rollback(ctx) //nolint:errcheck
+
+	// Upgrade path: delete the stale no-attachment pending row in the same
+	// transaction so we never publish a state where both rows exist
+	// simultaneously. A concurrent re-sync hitting between classify and
+	// commit will either see the pending row (and re-process — at worst
+	// triggers a duplicate event INSERT that fails at commit, the loser
+	// retries next tick) or see the new event row (and short-circuit).
+	if isUpgrade {
+		if _, err := dbTx.Exec(ctx,
+			`DELETE FROM pending_purchases WHERE bank_tx_id = $1`,
+			tx.ID,
+		); err != nil {
+			return fmt.Errorf("createPurchaseEvent: delete upgrade pending: %w", err)
+		}
+	}
 
 	// Upsert vendor
 	var vendorID string
@@ -426,6 +531,66 @@ func insertPendingPurchase(ctx context.Context, pool *pgxpool.Pool, tx MercuryTr
 	)
 	if err != nil {
 		return fmt.Errorf("insertPendingPurchase: %w", err)
+	}
+	return nil
+}
+
+// updatePendingPurchase updates an existing pending_purchases row IN PLACE,
+// keyed by bank_tx_id. Mirrors insertPendingPurchase field-for-field but
+// issues UPDATE instead of INSERT — used by the upgrade path
+// (re-syncing a no_attachment_on_bank_tx row whose Mercury tx now has a
+// receipt) when the parse / validate still fails so the row stays pending
+// for human review. Preserves the row's UUID PK so any FE references to the
+// pending row remain stable.
+//
+// rowcount==0 is NOT an error: between classifyExistingTx and this UPDATE
+// the row may have been confirmed or discarded by a concurrent user action.
+// The next worker poll will re-classify cleanly.
+func updatePendingPurchase(ctx context.Context, pool *pgxpool.Pool, tx MercuryTransaction, items []ReceiptItem, summary ReceiptSummary, receiptURL string, reason string) error {
+	itemsJSON, err := json.Marshal(items)
+	if err != nil {
+		itemsJSON = []byte("[]")
+	}
+
+	eventDate := parseEventDate(tx.CreatedAt)
+
+	// Vendor fallback — same rule as insertPendingPurchase: curated summary
+	// wins; raw bankDescription as fallback.
+	vendor := summary.Vendor
+	if vendor == "" {
+		vendor = tx.BankDescription
+	}
+
+	var mercuryCategory string
+	if tx.CategoryData != nil {
+		mercuryCategory = tx.CategoryData.Name
+	}
+
+	_, err = pool.Exec(ctx,
+		`UPDATE pending_purchases
+		    SET bank_total       = $2,
+		        vendor           = $3,
+		        event_date       = $4,
+		        tax              = $5,
+		        total            = $6,
+		        items            = $7,
+		        reason           = $8,
+		        receipt_url      = $9,
+		        mercury_category = $10
+		  WHERE bank_tx_id = $1`,
+		tx.ID,
+		tx.Amount,
+		vendor,
+		nullableString(eventDate),
+		nullableFloat64(summary.Tax),
+		nullableFloat64(summary.Total),
+		itemsJSON,
+		nullableString(reason),
+		nullableString(receiptURL),
+		nullableString(mercuryCategory),
+	)
+	if err != nil {
+		return fmt.Errorf("updatePendingPurchase: %w", err)
 	}
 	return nil
 }
