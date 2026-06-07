@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-04-15)
 Phase: 999.2
 Plan: Not started
 Status: Milestone complete
-Last activity: 2026-06-07 - Completed quick task 260607-co0: Reprocess pending no-attachment rows on Mercury attachment reupload (3-way classify, atomic DELETE+INSERT upgrade, chip surfaces cached+auto-added counts)
+Last activity: 2026-06-07 - Completed quick task 260607-dg9: Close two deferred pending_purchases bugs (items=null → [] guard; partial UNIQUE index on bank_tx_id + ON CONFLICT target)
 
 Progress: [██████████] 100%
 
@@ -237,6 +237,7 @@ None yet.
 | 260606-jvs | Narrow /period-summary completeness.ready to COGS-blocking pending receipts only (food category + no_attachment_on_bank_tx) + roll non-blocking food-category pending into cogs_excl_tax / by_vendor at ABS(bank_total); adds pending_purchases.mercury_category column + worker populate/refresh | 2026-06-06 | f3f9b2a |  | [260606-jvs-narrow-completeness-ready-on-period-summ](./quick/260606-jvs-narrow-completeness-ready-on-period-summ/) |
 | 260607-bir | Sync Receipts to Mercury button on inventory Purchases tab — POST /api/v1/inventory/sync-receipts (single-flight via partial unique index + panic-safe goroutine wrapping runIngestCycle) + GET /sync-receipts/status; durable receipt_sync_runs row survives reload/PWA close-reopen; FE renders idle/running/done summary/failed states with visibility-aware 3s polling | 2026-06-07 | aebb84d |  | [260607-bir-mercury-receipt-sync-button](./quick/260607-bir-mercury-receipt-sync-button/) |
 | 260607-co0 | Reprocess pending no-attachment rows when Mercury attachment is added on re-sync — classifyExistingTx 3-way (event/pending/none) replaces binary bankTxIDExists; pending-no-attachment + now-has-attachment upgrades via atomic DELETE+INSERT in createPurchaseEvent tx (auto-create path) or in-place updatePendingPurchase (parse/validate failure path); FE sync chip surfaces auto-added + cached counts so "0 pending review" with cached>0 stops being confusing; 5 new worker tests via parseReceipt/FetchTransactions seam | 2026-06-07 | 8360333 |  | [260607-co0-reprocess-pending-on-reupload](./quick/260607-co0-reprocess-pending-on-reupload/) |
+| 260607-dg9 | Close two deferred 260607-co0 bugs: (1) guard items==nil before json.Marshal so pending_purchases.items is []' not 'null' in both insertPendingPurchase + updatePendingPurchase; (2) migration 0068 adds partial UNIQUE INDEX on pending_purchases(bank_tx_id) WHERE confirmed_at IS NULL AND discarded_at IS NULL after deduping existing active rows; ON CONFLICT clause updated to target the partial index so re-polls during the 14-day lookback no longer create duplicate pending rows; 2 new worker tests + flips 2 previously-failing tests to passing | 2026-06-07 | e5353d5 |  | [260607-dg9-pending-purchases-unique-index-and-items](./quick/260607-dg9-pending-purchases-unique-index-and-items/) |
 
 ## Deferred Items
 
