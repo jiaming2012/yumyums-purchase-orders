@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math"
 	"net/http"
 	"path/filepath"
 	"strings"
@@ -510,10 +511,12 @@ func createPurchaseEvent(ctx context.Context, pool *pgxpool.Pool, tx MercuryTran
 			existingItems[itemName] = itemID
 		}
 
+		// ReceiptItem.Quantity is float64 (tolerates LLM-returned decimals like 40.0)
+		// but purchase_line_items.quantity is INTEGER — round at the DB-write boundary.
 		_, err = dbTx.Exec(ctx,
 			`INSERT INTO purchase_line_items (purchase_event_id, purchase_item_id, description, quantity, price, is_case)
 			 VALUES ($1, $2, $3, $4, $5, $6)`,
-			eventID, nullableStringPtr(&itemID), itemName, item.Quantity, item.Price, item.IsCase,
+			eventID, nullableStringPtr(&itemID), itemName, int(math.Round(item.Quantity)), item.Price, item.IsCase,
 		)
 		if err != nil {
 			return fmt.Errorf("createPurchaseEvent: insert line_item %q: %w", item.Name, err)

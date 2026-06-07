@@ -35,9 +35,15 @@ type Attachment struct {
 }
 
 // ReceiptItem is a single line item parsed from a receipt.
+//
+// Quantity is float64 so JSON values like `40.0` (which Anthropic returns for
+// some receipts — e.g. Restaurant Depot, 260607-k1n) unmarshal cleanly instead
+// of failing the strict int decoder. The DB column purchase_line_items.quantity
+// is INTEGER — the int coercion happens at the single DB-write boundary in
+// worker.go (createPurchaseEvent) via math.Round.
 type ReceiptItem struct {
 	Name     string  `json:"name"`
-	Quantity int     `json:"quantity"`
+	Quantity float64 `json:"quantity"`
 	Price    float64 `json:"price"`
 	IsCase   bool    `json:"is_case"`
 }

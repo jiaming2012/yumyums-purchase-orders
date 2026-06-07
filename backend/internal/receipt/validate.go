@@ -21,7 +21,7 @@ func ValidateReceiptData(items []ReceiptItem, summary ReceiptSummary, bankAmount
 	// Check 2: sum of (item.Price * item.Quantity) must equal (summary.Total - summary.Tax) within $0.01
 	itemsTotal := 0.0
 	for _, item := range items {
-		itemsTotal += item.Price * float64(item.Quantity)
+		itemsTotal += item.Price * item.Quantity
 	}
 	subtotal := summary.Total - summary.Tax
 	if math.Abs(subtotal-itemsTotal) > 0.01 {
@@ -31,15 +31,19 @@ func ValidateReceiptData(items []ReceiptItem, summary ReceiptSummary, bankAmount
 		}
 	}
 
-	// Check 3: sum of item quantities must equal totalUnits + totalCases
-	totalQty := 0
+	// Check 3: sum of item quantities must equal totalUnits + totalCases.
+	// item.Quantity is float64 (tolerates LLM-returned decimals like 40.0);
+	// round the sum to int to match the int summary semantics — this mirrors
+	// the DB-write rounding in createPurchaseEvent.
+	totalQty := 0.0
 	for _, item := range items {
 		totalQty += item.Quantity
 	}
-	if totalQty != summary.TotalUnits+summary.TotalCases {
+	roundedQty := int(math.Round(totalQty))
+	if roundedQty != summary.TotalUnits+summary.TotalCases {
 		return ValidationResult{
 			Valid:  false,
-			Reason: fmt.Sprintf("item count %d does not match summary units+cases %d", totalQty, summary.TotalUnits+summary.TotalCases),
+			Reason: fmt.Sprintf("item count %d does not match summary units+cases %d", roundedQty, summary.TotalUnits+summary.TotalCases),
 		}
 	}
 
