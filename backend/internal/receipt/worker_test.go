@@ -358,7 +358,7 @@ func TestInsertPendingPurchase_CoexistsWithAttachmentBranch(t *testing.T) {
 		{Name: "Salmon", Quantity: 1, Price: 10.00, IsCase: false},
 	}
 	summary := ReceiptSummary{Vendor: "Acme", Tax: 0.50, Total: 10.50}
-	if err := createPurchaseEvent(t.Context(), testPool, attachedTx, items, summary, ""); err != nil {
+	if err := createPurchaseEvent(t.Context(), testPool, attachedTx, items, summary, "", false /* isUpgrade */); err != nil {
 		t.Fatalf("createPurchaseEvent: %v", err)
 	}
 
@@ -444,26 +444,29 @@ func TestRunIngestCycle_UpgradesPendingNoAttachmentRow(t *testing.T) {
 	resetReceiptFixtures(t)
 
 	// Seed an existing no-attachment pending row, simulating a prior worker
-	// poll that saw the unreceipted card swipe.
+	// poll that saw the unreceipted card swipe. Mercury debits are NEGATIVE
+	// values — bank_total mirrors what the no-attachment branch stored.
 	if _, err := testPool.Exec(t.Context(), `
 		INSERT INTO pending_purchases (bank_tx_id, bank_total, vendor, reason, items)
 		VALUES ($1, $2, $3, 'no_attachment_on_bank_tx', '[]'::jsonb)`,
-		"T-upgrade-ok", 42.50, "STUB",
+		"T-upgrade-ok", -42.50, "STUB",
 	); err != nil {
 		t.Fatalf("seed: %v", err)
 	}
 
+	// Mercury Amount is negative (debit). ValidateReceiptData requires
+	// summary.Total == -bankAmount AND sum(item.Quantity) == TotalUnits+TotalCases.
 	stubs := &workerStubs{
 		txns: []MercuryTransaction{{
 			ID:          "T-upgrade-ok",
-			Amount:      42.50,
+			Amount:      -42.50,
 			CreatedAt:   "2026-05-27T10:00:00Z",
 			Attachments: []Attachment{{URL: "http://fake/r.jpg", FileName: "r.jpg"}},
 		}},
 		parseItems: []ReceiptItem{
 			{Name: "Salmon", Quantity: 1, Price: 42.50, IsCase: false},
 		},
-		parseSummary: ReceiptSummary{Vendor: "Acme", Tax: 0, Total: 42.50},
+		parseSummary: ReceiptSummary{Vendor: "Acme", Tax: 0, Total: 42.50, TotalUnits: 1, TotalCases: 0},
 	}
 	installWorkerStubs(t, stubs)
 
