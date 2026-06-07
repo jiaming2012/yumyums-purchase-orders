@@ -1,0 +1,7 @@
+{
+  "items": [
+    {"name": "Chicken Thighs", "quantity": 40.0, "price": 1.00, "is_case": false},
+    {"name": "Cases of Beverage", "quantity": 3.5, "price": 12.00, "is_case": true}
+  ],
+  "summary": {"vendor": "Restaurant Depot", "total_units": 85.56, "total_cases": 3.5, "tax": 0.00, "total": 82.00}
+}

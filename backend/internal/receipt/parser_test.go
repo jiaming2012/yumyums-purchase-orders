@@ -65,3 +65,41 @@ func TestParseJSONBody_MalformedReturnsError(t *testing.T) {
 		t.Errorf("error %q does not contain 'failed to unmarshal'", err.Error())
 	}
 }
+
+// TestParseJSONBody_FloatSummary is the regression test for the
+// production bug found on 2026-06-07 (quick task 260607-l9m): Anthropic
+// returned `"total_units": 85.56` in the summary block for a Restaurant
+// Depot receipt and Go's strict int unmarshaler rejected it, routing
+// the row to pending review with parse_error =
+//
+//	"json: cannot unmarshal number 85.56 into Go struct field
+//	 ReceiptSummary.summary.total_units of type int"
+//
+// The fix (260607-l9m): ReceiptSummary.TotalUnits + .TotalCases are now
+// float64 at parse-time. The validate.go Check 3 comparison rounds both
+// sides via int(math.Round(...)) at the comparison boundary — same
+// pattern as 260607-k1n's ReceiptItem.Quantity widening.
+func TestParseJSONBody_FloatSummary(t *testing.T) {
+	// Approximation of the failing payload shape (the production log
+	// showed total_units: 85.56). Items use the production-observed
+	// quantity: 0 shape to exercise zero-quantity passes too.
+	body := `{
+	  "items": [
+	    {"name": "Mixed Items", "quantity": 0, "price": 0, "is_case": false}
+	  ],
+	  "summary": {"vendor": "Restaurant Depot", "total_units": 85.56, "total_cases": 0, "tax": 0.0, "total": 0.0}
+	}`
+	items, summary, err := parseJSONBody(body)
+	if err != nil {
+		t.Fatalf("parseJSONBody returned error for float total_units: %v", err)
+	}
+	if len(items) != 1 {
+		t.Fatalf("len(items) = %d, want 1", len(items))
+	}
+	if summary.TotalUnits != 85.56 {
+		t.Errorf("summary.TotalUnits = %v, want 85.56", summary.TotalUnits)
+	}
+	if summary.TotalCases != 0.0 {
+		t.Errorf("summary.TotalCases = %v, want 0.0", summary.TotalCases)
+	}
+}
