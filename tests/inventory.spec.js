@@ -2987,3 +2987,79 @@ test.describe('PDF receipt iframe (260607-e1c)', () => {
     await expect(openLink).toHaveAttribute('href', /restaurant-depot\.pdf$/);
   });
 });
+
+// ─── Phase 260607-fxl: Confirm Receipt disabled state ────────────────────────
+test.describe('Confirm Receipt disabled state (260607-fxl)', () => {
+  test.beforeEach(async ({ page }) => { await login(page); });
+
+  test('Confirm Receipt button is disabled when totals do not match and items are non-empty', async ({ page }) => {
+    await page.route('**/api/v1/inventory/purchases/pending', async route => {
+      if (route.request().method() !== 'GET') return route.continue();
+      await route.fulfill({
+        status: 200, contentType: 'application/json',
+        body: JSON.stringify([{
+          id: 'fxl-mismatch', bank_tx_id: 'tx-mismatch', bank_total: -50.00,
+          vendor: 'TEST VENDOR', event_date: '2026-06-05',
+          reason: 'Receipt could not be parsed automatically',
+          items: [{name:'Item A', quantity:1, price:42.00, is_case:false, purchase_item_id:null}],
+          created_at: new Date().toISOString(),
+        }])
+      });
+    });
+    await page.goto('/inventory.html');
+    await page.waitForLoadState('networkidle');
+    const card = page.locator('[data-action="review-pending"][data-id="fxl-mismatch"]');
+    await expect(card).toBeVisible();
+    await card.click();
+    const btn = page.locator('.btn-primary[data-action="confirm-receipt"][data-id="fxl-mismatch"]');
+    await expect(btn).toBeVisible();
+    await expect(btn).toBeDisabled();
+  });
+
+  test('Confirm Receipt button is disabled when items are empty and pending reason is parse-failed', async ({ page }) => {
+    await page.route('**/api/v1/inventory/purchases/pending', async route => {
+      if (route.request().method() !== 'GET') return route.continue();
+      await route.fulfill({
+        status: 200, contentType: 'application/json',
+        body: JSON.stringify([{
+          id: 'fxl-empty-parsefail', bank_tx_id: 'tx-empty-pf', bank_total: -50.00,
+          vendor: 'TEST VENDOR', event_date: '2026-06-05',
+          reason: 'Receipt could not be parsed automatically',
+          items: [], created_at: new Date().toISOString(),
+        }])
+      });
+    });
+    await page.goto('/inventory.html');
+    await page.waitForLoadState('networkidle');
+    const card = page.locator('[data-action="review-pending"][data-id="fxl-empty-parsefail"]');
+    await expect(card).toBeVisible();
+    await card.click();
+    const btn = page.locator('.btn-primary[data-action="confirm-receipt"][data-id="fxl-empty-parsefail"]');
+    await expect(btn).toBeVisible();
+    await expect(btn).toBeDisabled();
+  });
+
+  test('Confirm Receipt button is enabled when items match bank total', async ({ page }) => {
+    await page.route('**/api/v1/inventory/purchases/pending', async route => {
+      if (route.request().method() !== 'GET') return route.continue();
+      await route.fulfill({
+        status: 200, contentType: 'application/json',
+        body: JSON.stringify([{
+          id: 'fxl-match', bank_tx_id: 'tx-match', bank_total: -50.00,
+          vendor: 'TEST VENDOR', event_date: '2026-06-05',
+          reason: 'Receipt could not be parsed automatically',
+          items: [{name:'Item A', quantity:1, price:50.00, is_case:false, purchase_item_id:'00000000-0000-0000-0000-000000000001'}],
+          created_at: new Date().toISOString(),
+        }])
+      });
+    });
+    await page.goto('/inventory.html');
+    await page.waitForLoadState('networkidle');
+    const card = page.locator('[data-action="review-pending"][data-id="fxl-match"]');
+    await expect(card).toBeVisible();
+    await card.click();
+    const btn = page.locator('.btn-primary[data-action="confirm-receipt"][data-id="fxl-match"]');
+    await expect(btn).toBeVisible();
+    await expect(btn).toBeEnabled();
+  });
+});

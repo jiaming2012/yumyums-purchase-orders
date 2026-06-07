@@ -67,6 +67,7 @@ select.field-input{appearance:none;-webkit-appearance:none;padding-right:36px;ba
 .add-line-btn{width:100%;padding:8px;background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;font-size:13px;color:var(--info-tx);font-weight:500;cursor:pointer;font-family:inherit;margin-bottom:12px}
 .review-actions{display:flex;gap:8px;margin-top:4px}
 .btn-primary{flex:1;padding:12px;background:var(--info-bg);color:var(--info-tx);border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit}
+.btn-primary:disabled{opacity:0.5;cursor:not-allowed}
 .btn-secondary{flex:1;padding:12px;background:var(--bg);color:var(--mut);border:0.5px solid var(--brd);border-radius:10px;font-size:14px;font-weight:500;cursor:pointer;font-family:inherit}
 .inline-error{font-size:13px;color:#c0392b;margin-top:8px;text-align:center}
 .view-receipt-btn{width:100%;padding:10px;background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;font-size:13px;color:var(--info-tx);font-weight:500;cursor:pointer;font-family:inherit;margin-top:8px;text-align:center}
@@ -622,6 +623,14 @@ function renderReviewForm(p){
   var bankTotal=Math.abs(Number(state.bank_total));
   var mismatch=Math.abs(grandTotal-bankTotal)>0.01;
   var mismatchBanner=mismatch?'<div class="correction-banner">Total ($'+grandTotal.toFixed(2)+') doesn\'t match bank transaction ($'+bankTotal.toFixed(2)+'). Check amounts before saving.</div>':'<div class="match-banner">Amounts match ($'+grandTotal.toFixed(2)+'). Ready to confirm.</div>';
+  // Phase 260607-fxl: Confirm Receipt is enabled only when (items present AND
+  // totals match) OR (items empty AND reason is the no-attachment sentinel —
+  // the 260605-pk1 flow). Parse-failed rows with no items, or any row whose
+  // totals don't match, render the button disabled.
+  var hasItems=state.line_items.length>0;
+  var isNoAttachment=p.reason==='no_attachment_on_bank_tx';
+  var matches=!mismatch;
+  var canConfirm=(hasItems&&matches)||(!hasItems&&isNoAttachment);
   var linesHtml=state.line_items.map(function(li,i){
     return '<div class="review-line-item-row">'+
       '<div class="review-li-name-wrap '+(li.purchase_item_id?'linked':'unlinked')+'"><input type="text" class="review-li-name" data-idx="'+i+'" data-item-id="'+(li.purchase_item_id||'')+'" value="'+escHtml(li.name)+'" placeholder="Tap to select item..." autocomplete="off" readonly></div>'+
@@ -646,7 +655,7 @@ function renderReviewForm(p){
     '<button class="add-line-btn" data-action="add-review-line" data-id="'+p.id+'">+ Add Line Item</button>'+
     errorHtml+
     '<div class="review-actions">'+
-      '<button class="btn-primary" data-action="confirm-receipt" data-id="'+p.id+'">Confirm Receipt</button>'+
+      '<button class="btn-primary" data-action="confirm-receipt" data-id="'+p.id+'"'+(canConfirm?'':' disabled')+'>Confirm Receipt</button>'+
       '<button class="btn-secondary" data-action="discard-receipt" data-id="'+p.id+'">Discard Receipt</button>'+
     '</div>'+
     receiptBtn+
@@ -940,6 +949,10 @@ document.getElementById('history-list').addEventListener('click',function(e){
       if(REVIEW_FORM_STATE[id])REVIEW_FORM_STATE[id].vendor_name=vendorName;
     }
   } else if(action==='confirm-receipt'){
+    // Phase 260607-fxl: disabled-state click guard. Browsers normally suppress
+    // clicks on a disabled <button>, but this is a delegated handler — guard
+    // in JS too so a stale event can't slip through.
+    if(el.disabled)return;
     captureReviewFormInputs(id);
     confirmReceipt(id);
   } else if(action==='discard-receipt'){
@@ -994,6 +1007,17 @@ document.getElementById('history-list').addEventListener('input',function(e){
       } else {
         matchBanner.textContent='Amounts match ($'+grandTotal.toFixed(2)+'). Ready to confirm.';
       }
+    }
+    // Phase 260607-fxl: keep Confirm Receipt button disabled state in sync
+    // with live inputs. canConfirm follows the same rule used at render time.
+    var hasItemsNow=state.line_items.length>0;
+    var pendingRow=PENDING_PURCHASES.find(function(pp){return pp.id===pid;});
+    var isNoAttachmentNow=pendingRow&&pendingRow.reason==='no_attachment_on_bank_tx';
+    var canConfirmNow=(hasItemsNow&&!mismatch)||(!hasItemsNow&&isNoAttachmentNow);
+    var confirmBtn=form.querySelector('.btn-primary[data-action="confirm-receipt"]');
+    if(confirmBtn){
+      if(canConfirmNow)confirmBtn.removeAttribute('disabled');
+      else confirmBtn.setAttribute('disabled','');
     }
   }
 });
