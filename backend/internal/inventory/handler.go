@@ -598,7 +598,8 @@ func ListPendingPurchasesHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		rows, err := pool.Query(r.Context(), `
 			SELECT id, bank_tx_id, bank_total, vendor, event_date::text,
 			       tax, total, total_units, total_cases, receipt_url,
-			       reason, items, confirmed_at, confirmed_by, discarded_at, created_at
+			       reason, parse_error, items,
+			       confirmed_at, confirmed_by, discarded_at, created_at
 			FROM pending_purchases
 			WHERE confirmed_at IS NULL AND discarded_at IS NULL
 			ORDER BY created_at DESC`,
@@ -616,7 +617,8 @@ func ListPendingPurchasesHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			if err := rows.Scan(
 				&p.ID, &p.BankTxID, &p.BankTotal, &p.Vendor, &p.EventDate,
 				&p.Tax, &p.Total, &p.TotalUnits, &p.TotalCases, &p.ReceiptURL,
-				&p.Reason, &p.Items, &p.ConfirmedAt, &p.ConfirmedBy, &p.DiscardedAt, &p.CreatedAt,
+				&p.Reason, &p.ParseError, &p.Items,
+				&p.ConfirmedAt, &p.ConfirmedBy, &p.DiscardedAt, &p.CreatedAt,
 			); err != nil {
 				log.Printf("ListPendingPurchases scan: %v", err)
 				writeError(w, http.StatusInternalServerError, "internal_error")

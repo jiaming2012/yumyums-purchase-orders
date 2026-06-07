@@ -86,6 +86,7 @@ type PendingPurchase struct {
 	TotalCases  *int             `json:"total_cases,omitempty"`
 	ReceiptURL  *string          `json:"receipt_url,omitempty"`
 	Reason      *string          `json:"reason,omitempty"`
+	ParseError  *string          `json:"parse_error,omitempty"`
 	Items       json.RawMessage  `json:"items"`
 	ConfirmedAt *time.Time       `json:"confirmed_at,omitempty"`
 	ConfirmedBy *string          `json:"confirmed_by,omitempty"`

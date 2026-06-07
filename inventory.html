@@ -72,6 +72,7 @@ select.field-input{appearance:none;-webkit-appearance:none;padding-right:36px;ba
 .view-receipt-btn{width:100%;padding:10px;background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;font-size:13px;color:var(--info-tx);font-weight:500;cursor:pointer;font-family:inherit;margin-top:8px;text-align:center}
 .receipt-overlay{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.92);display:flex;flex-direction:column;align-items:center;justify-content:center}
 .receipt-overlay img{max-width:100%;max-height:calc(100% - 60px);object-fit:contain}
+.receipt-overlay iframe{width:100%;height:calc(100% - 50px);border:0;background:#fff;margin-top:50px}
 .receipt-overlay .close-receipt{position:absolute;top:12px;right:16px;background:none;border:none;color:#fff;font-size:28px;cursor:pointer;padding:8px;z-index:1}
 .vendor-search-wrap{position:relative;display:flex;gap:6px;align-items:center}
 .vendor-search-wrap input{flex:1}
@@ -582,7 +583,15 @@ function renderPendingCard(p){
   }
   var vendorDisplay=titleCase(p.vendor||p.vendor_name||'Unknown Vendor');
   var reasonHtml=p.reason?'&nbsp;&middot;&nbsp;'+escHtml(p.reason).replace(/\(diff (\$[\d.]+)\)/,'(<span style="color:var(--warn-tx);font-weight:600">diff $1</span>)'):'';
-  return '<div class="event-card" data-action="review-pending" data-id="'+p.id+'" style="position:relative;padding-right:110px"><div style="position:absolute;top:12px;right:12px"><span class="approval-badge">Needs Review</span></div><div class="event-vendor">'+vendorDisplay+'</div><div class="event-meta">'+formatDate(p.event_date)+reasonHtml+'</div><div class="event-total" style="margin-top:4px">$'+Number(p.bank_total||p.total||0).toFixed(2)+'</div></div>';
+  // Phase 260607-e1c: surface the actual parser error (haiku+sonnet concat)
+  // on the pending card so the owner can see WHY parsing failed instead of
+  // a generic "Receipt could not be parsed automatically" line.
+  var parseErrHtml='';
+  if(p.reason==='Receipt could not be parsed automatically' && p.parse_error){
+    var truncated=String(p.parse_error).slice(0,140);
+    parseErrHtml='<div class="event-meta" style="font-style:italic;opacity:0.7;margin-top:2px">Parser error: '+escHtml(truncated)+'</div>';
+  }
+  return '<div class="event-card" data-action="review-pending" data-id="'+p.id+'" style="position:relative;padding-right:110px"><div style="position:absolute;top:12px;right:12px"><span class="approval-badge">Needs Review</span></div><div class="event-vendor">'+vendorDisplay+'</div><div class="event-meta">'+formatDate(p.event_date)+reasonHtml+'</div>'+parseErrHtml+'<div class="event-total" style="margin-top:4px">$'+Number(p.bank_total||p.total||0).toFixed(2)+'</div></div>';
 }
 
 function renderReviewForm(p){
@@ -896,12 +905,30 @@ document.getElementById('history-list').addEventListener('click',function(e){
   } else if(action==='view-receipt'){
     var url=el.dataset.url;
     if(url){
+      // Phase 260607-e1c: branch on .pdf so PDFs render via <iframe> (iOS
+      // PWA inline PDF viewer is flaky — Open-in-new-tab link is the safety
+      // net). Strip querystring/fragment before the extension check so
+      // signed/presigned URLs like ...restaurant-depot.pdf?X-Amz-Signature=…
+      // still match.
+      var bare=String(url).split('?')[0].split('#')[0].toLowerCase();
+      var isPdf=bare.endsWith('.pdf');
       var overlay=document.createElement('div');
       overlay.className='receipt-overlay';
-      overlay.innerHTML='<button class="close-receipt" aria-label="Close">&times;</button><img src="'+escHtml(url)+'" alt="Receipt">';
-      var img=overlay.querySelector('img');
-      img.onerror=function(){img.style.display='none';var msg=document.createElement('div');msg.style.cssText='color:#fff;font-size:15px;text-align:center;padding:20px';msg.textContent='Receipt image unavailable';overlay.appendChild(msg);};
-      overlay.addEventListener('click',function(ev){if(ev.target===overlay||ev.target.classList.contains('close-receipt'))overlay.remove();});
+      var openLink='<a href="'+escHtml(url)+'" target="_blank" rel="noopener" class="open-receipt-link" style="position:absolute;top:12px;left:12px;color:#fff;font-size:13px;text-decoration:underline;z-index:2">Open in new tab</a>';
+      var body=isPdf
+        ? '<iframe src="'+escHtml(url)+'" style="width:100%;height:100%;border:0;background:#fff"></iframe>'
+        : '<img src="'+escHtml(url)+'" alt="Receipt">';
+      overlay.innerHTML='<button class="close-receipt" aria-label="Close">&times;</button>'+openLink+body;
+      if(!isPdf){
+        var img=overlay.querySelector('img');
+        img.onerror=function(){img.style.display='none';var msg=document.createElement('div');msg.style.cssText='color:#fff;font-size:15px;text-align:center;padding:20px';msg.textContent='Receipt image unavailable';overlay.appendChild(msg);};
+      }
+      overlay.addEventListener('click',function(ev){
+        // Clicking the Open-in-new-tab link MUST NOT close the overlay —
+        // the user is following the link, not dismissing.
+        if(ev.target.classList.contains('open-receipt-link'))return;
+        if(ev.target===overlay||ev.target.classList.contains('close-receipt'))overlay.remove();
+      });
       document.body.appendChild(overlay);
     }
   } else if(action==='add-vendor'){
