@@ -17,8 +17,29 @@ const receiptParsePrompt = `Parse this receipt. Return ONLY a JSON object, no ma
 var jsonFenceRe = regexp.MustCompile("(?s)```(?:json)?\\s*(\\{.*?\\})\\s*```")
 
 // ParseReceipt sends a receipt file to Claude Haiku and returns the parsed
-// line items and summary.
+// line items and summary. Thin wrapper around parseReceiptWithModel so the
+// Sonnet fallback (ParseReceiptWithSonnet) can share the same logic with a
+// different model + max_tokens. Error wrapping is done by parseReceiptWithModel
+// using the supplied label so call-site logs distinguish Haiku vs Sonnet
+// failures (the seam in worker.go logs both error strings on double-fail).
 func ParseReceipt(ctx context.Context, apiKey string, fileBytes []byte, contentType string) ([]ReceiptItem, ReceiptSummary, error) {
+	return parseReceiptWithModel(ctx, apiKey, fileBytes, contentType, anthropic.ModelClaudeHaiku4_5, 2048, "ParseReceipt")
+}
+
+// ParseReceiptWithSonnet is the Sonnet fallback used by the worker when
+// Haiku (via ParseReceipt) fails on a receipt. Uses claude-sonnet-4-6 with
+// MaxTokens=4096 — Sonnet handles complex multi-page or low-quality PDF
+// receipts that Haiku chokes on. Same return shape as ParseReceipt so the
+// caller can fall through to ValidateReceiptData on success.
+func ParseReceiptWithSonnet(ctx context.Context, apiKey string, fileBytes []byte, contentType string) ([]ReceiptItem, ReceiptSummary, error) {
+	return parseReceiptWithModel(ctx, apiKey, fileBytes, contentType, anthropic.ModelClaudeSonnet4_6, 4096, "ParseReceiptWithSonnet")
+}
+
+// parseReceiptWithModel is the shared implementation that both ParseReceipt
+// (Haiku) and ParseReceiptWithSonnet (Sonnet) call into. label is used to
+// prefix wrapped error messages so worker logs can attribute failures to
+// the correct model.
+func parseReceiptWithModel(ctx context.Context, apiKey string, fileBytes []byte, contentType string, model anthropic.Model, maxTokens int64, label string) ([]ReceiptItem, ReceiptSummary, error) {
 	client := anthropic.NewClient(option.WithAPIKey(apiKey))
 
 	// Build the content block for the receipt file
@@ -36,8 +57,8 @@ func ParseReceipt(ctx context.Context, apiKey string, fileBytes []byte, contentT
 	}
 
 	msg, err := client.Messages.New(ctx, anthropic.MessageNewParams{
-		Model:     anthropic.ModelClaudeHaiku4_5,
-		MaxTokens: 2048,
+		Model:     model,
+		MaxTokens: maxTokens,
 		Messages: []anthropic.MessageParam{
 			{
 				Role: "user",
@@ -49,7 +70,7 @@ func ParseReceipt(ctx context.Context, apiKey string, fileBytes []byte, contentT
 		},
 	})
 	if err != nil {
-		return nil, ReceiptSummary{}, fmt.Errorf("ParseReceipt: API call failed: %w", err)
+		return nil, ReceiptSummary{}, fmt.Errorf("%s: API call failed: %w", label, err)
 	}
 
 	// Extract text from the response
@@ -61,12 +82,12 @@ func ParseReceipt(ctx context.Context, apiKey string, fileBytes []byte, contentT
 	}
 
 	if rawText == "" {
-		return nil, ReceiptSummary{}, fmt.Errorf("ParseReceipt: empty response from API")
+		return nil, ReceiptSummary{}, fmt.Errorf("%s: empty response from API", label)
 	}
 
 	items, summary, err := parseJSONBody(rawText)
 	if err != nil {
-		return nil, ReceiptSummary{}, fmt.Errorf("ParseReceipt: failed to parse JSON body: %w", err)
+		return nil, ReceiptSummary{}, fmt.Errorf("%s: failed to parse JSON body: %w", label, err)
 	}
 
 	return items, summary, nil

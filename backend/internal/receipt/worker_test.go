@@ -70,6 +70,7 @@ func TestInsertPendingPurchase_NoAttachmentBranch_ShapeAndDefaults(t *testing.T)
 		t.Context(), testPool, tx,
 		nil, ReceiptSummary{}, "",
 		"no_attachment_on_bank_tx",
+		"", // parseError empty: no-attachment branch never attempts parse
 	)
 	if err != nil {
 		t.Fatalf("insertPendingPurchase: %v", err)
@@ -137,6 +138,7 @@ func TestInsertPendingPurchase_VendorFallback_PrefersSummary(t *testing.T) {
 		t.Context(), testPool, tx,
 		nil, summary, "",
 		"some_reason",
+		"",
 	); err != nil {
 		t.Fatalf("insertPendingPurchase: %v", err)
 	}
@@ -277,6 +279,7 @@ func TestInsertPendingPurchase_NoAttachmentBranch_IdempotentOnRerun(t *testing.T
 			t.Context(), testPool, tx,
 			nil, ReceiptSummary{}, "",
 			"no_attachment_on_bank_tx",
+			"",
 		)
 		if err != nil {
 			t.Fatalf("insertPendingPurchase call %d: %v", i+1, err)
@@ -344,6 +347,7 @@ func TestInsertPendingPurchase_CoexistsWithAttachmentBranch(t *testing.T) {
 		t.Context(), testPool, noattTx,
 		nil, ReceiptSummary{}, "",
 		"no_attachment_on_bank_tx",
+		"",
 	); err != nil {
 		t.Fatalf("insertPendingPurchase: %v", err)
 	}
@@ -858,6 +862,7 @@ func TestInsertPendingPurchase_DedupesOnReinsertWithDifferentReason(t *testing.T
 		t.Context(), testPool, tx,
 		nil, ReceiptSummary{}, "",
 		"no_attachment_on_bank_tx",
+		"",
 	); err != nil {
 		t.Fatalf("first insertPendingPurchase: %v", err)
 	}
@@ -867,6 +872,7 @@ func TestInsertPendingPurchase_DedupesOnReinsertWithDifferentReason(t *testing.T
 		t.Context(), testPool, tx,
 		nil, ReceiptSummary{}, "",
 		"parse_failed",
+		"",
 	); err != nil {
 		t.Fatalf("second insertPendingPurchase: %v", err)
 	}

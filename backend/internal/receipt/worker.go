@@ -27,9 +27,10 @@ import (
 // receipt attached) can drive runIngestCycle end-to-end without hitting
 // Mercury / Anthropic / the receipt CDN.
 var (
-	fetchTransactions     = FetchTransactions
-	parseReceipt          = ParseReceipt
-	downloadReceiptFileFn = downloadReceiptFile
+	fetchTransactions      = FetchTransactions
+	parseReceipt           = ParseReceipt
+	parseReceiptWithSonnet = ParseReceiptWithSonnet
+	downloadReceiptFileFn  = downloadReceiptFile
 )
 
 // StartWorker launches a background goroutine that polls Mercury for new
@@ -202,6 +203,7 @@ func runIngestCycle(ctx context.Context, cfg WorkerConfig) (IngestResult, error)
 					ReceiptSummary{}, // summary unknown without receipt
 					"",               // no receiptURL
 					"no_attachment_on_bank_tx",
+					"", // parseError: no parse attempted on no-attachment branch
 				); routeErr != nil {
 					log.Printf("receipt worker: insertPendingPurchase (no-attachment) for tx %s: %v", tx.ID, routeErr)
 				}
@@ -259,22 +261,34 @@ func runIngestCycle(ctx context.Context, cfg WorkerConfig) (IngestResult, error)
 			}
 		}
 
-		// Parse with Claude Haiku (via the parseReceipt seam).
+		// Parse with Claude Haiku (via the parseReceipt seam). On Haiku failure,
+		// retry once with Sonnet (parseReceiptWithSonnet seam). If Sonnet ALSO
+		// fails, route to pending review with the concatenated parse_error so
+		// the owner can see WHY parsing failed on the FE pending card.
+		// Phase 260607-e1c.
 		items, summary, err := parseReceipt(ctx, cfg.AnthropicAPIKey, fileBytes, contentType)
 		if err != nil {
-			log.Printf("receipt worker: ParseReceipt for tx %s: %v — routing to review queue", tx.ID, err)
-			if routeErr := routePending(ctx, cfg.Pool, tx, items, summary, receiptURL, "Receipt could not be parsed automatically", isUpgrade); routeErr != nil {
-				log.Printf("receipt worker: routePending (parse-fail) for tx %s: %v", tx.ID, routeErr)
+			haikuErr := err
+			log.Printf("receipt worker: Haiku failed for tx %s, retrying with Sonnet: %v", tx.ID, haikuErr)
+			items, summary, err = parseReceiptWithSonnet(ctx, cfg.AnthropicAPIKey, fileBytes, contentType)
+			if err != nil {
+				combined := fmt.Sprintf("haiku: %v; sonnet: %v", haikuErr, err)
+				log.Printf("receipt worker: Sonnet also failed for tx %s: %v — routing to review queue", tx.ID, err)
+				if routeErr := routePending(ctx, cfg.Pool, tx, items, summary, receiptURL, "Receipt could not be parsed automatically", combined, isUpgrade); routeErr != nil {
+					log.Printf("receipt worker: routePending (parse-fail) for tx %s: %v", tx.ID, routeErr)
+				}
+				pendingReview++
+				continue
 			}
-			pendingReview++
-			continue
+			// Sonnet succeeded — fall through to ValidateReceiptData with
+			// Sonnet's output. items/summary/err are now populated by Sonnet.
 		}
 
 		// Validate
 		result := ValidateReceiptData(items, summary, tx.Amount)
 		if !result.Valid {
 			log.Printf("receipt worker: transaction %s routed to review queue: %s", tx.ID, result.Reason)
-			if routeErr := routePending(ctx, cfg.Pool, tx, items, summary, receiptURL, result.Reason, isUpgrade); routeErr != nil {
+			if routeErr := routePending(ctx, cfg.Pool, tx, items, summary, receiptURL, result.Reason, "", isUpgrade); routeErr != nil {
 				log.Printf("receipt worker: routePending (validate-fail) for tx %s: %v", tx.ID, routeErr)
 			}
 			pendingReview++
@@ -287,7 +301,7 @@ func runIngestCycle(ctx context.Context, cfg WorkerConfig) (IngestResult, error)
 		// re-sync to see both rows.
 		if err := createPurchaseEvent(ctx, cfg.Pool, tx, items, summary, receiptURL, isUpgrade); err != nil {
 			log.Printf("receipt worker: createPurchaseEvent for tx %s: %v — routing to review queue", tx.ID, err)
-			if routeErr := routePending(ctx, cfg.Pool, tx, items, summary, receiptURL, "Receipt could not be saved automatically", isUpgrade); routeErr != nil {
+			if routeErr := routePending(ctx, cfg.Pool, tx, items, summary, receiptURL, "Receipt could not be saved automatically", "", isUpgrade); routeErr != nil {
 				log.Printf("receipt worker: routePending (save-fail) for tx %s: %v", tx.ID, routeErr)
 			}
 			pendingReview++
@@ -311,11 +325,15 @@ func runIngestCycle(ctx context.Context, cfg WorkerConfig) (IngestResult, error)
 // of runIngestCycle to either INSERT a new pending_purchases row (cold path)
 // or UPDATE the existing one in place (upgrade path, isUpgrade=true). Keeps
 // the call sites in runIngestCycle one-liners.
-func routePending(ctx context.Context, pool *pgxpool.Pool, tx MercuryTransaction, items []ReceiptItem, summary ReceiptSummary, receiptURL string, reason string, isUpgrade bool) error {
+//
+// parseError carries the concatenated Haiku+Sonnet error string from the
+// (haiku→sonnet) double-fail path; all other call sites pass "" (column
+// stays NULL).
+func routePending(ctx context.Context, pool *pgxpool.Pool, tx MercuryTransaction, items []ReceiptItem, summary ReceiptSummary, receiptURL string, reason string, parseError string, isUpgrade bool) error {
 	if isUpgrade {
-		return updatePendingPurchase(ctx, pool, tx, items, summary, receiptURL, reason)
+		return updatePendingPurchase(ctx, pool, tx, items, summary, receiptURL, reason, parseError)
 	}
-	return insertPendingPurchase(ctx, pool, tx, items, summary, receiptURL, reason)
+	return insertPendingPurchase(ctx, pool, tx, items, summary, receiptURL, reason, parseError)
 }
 
 // classifyExistingTx reports what HQ already has for a given Mercury bank_tx_id.
@@ -484,7 +502,11 @@ func createPurchaseEvent(ctx context.Context, pool *pgxpool.Pool, tx MercuryTran
 
 // insertPendingPurchase inserts a failed-validation transaction into the
 // pending_purchases review queue.
-func insertPendingPurchase(ctx context.Context, pool *pgxpool.Pool, tx MercuryTransaction, items []ReceiptItem, summary ReceiptSummary, receiptURL string, reason string) error {
+//
+// parseError, when non-empty, is stored on pending_purchases.parse_error so
+// the FE can render the actual Anthropic/parse error string on the pending
+// card. Empty string stays NULL (column was added in migration 0069).
+func insertPendingPurchase(ctx context.Context, pool *pgxpool.Pool, tx MercuryTransaction, items []ReceiptItem, summary ReceiptSummary, receiptURL string, reason string, parseError string) error {
 	// items==nil guard: json.Marshal(nil) returns []byte("null"), which the FE
 	// can crash on with .length / .map. A nil slice and an empty
 	// []ReceiptItem{} slice are distinguishable via items == nil; treat nil
@@ -525,8 +547,8 @@ func insertPendingPurchase(ctx context.Context, pool *pgxpool.Pool, tx MercuryTr
 
 	_, err := pool.Exec(ctx,
 		`INSERT INTO pending_purchases
-		 (bank_tx_id, bank_total, vendor, event_date, tax, total, items, reason, receipt_url, mercury_category)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		 (bank_tx_id, bank_total, vendor, event_date, tax, total, items, reason, receipt_url, mercury_category, parse_error)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 		 ON CONFLICT (bank_tx_id) WHERE confirmed_at IS NULL AND discarded_at IS NULL DO NOTHING`,
 		tx.ID,
 		tx.Amount,
@@ -538,6 +560,7 @@ func insertPendingPurchase(ctx context.Context, pool *pgxpool.Pool, tx MercuryTr
 		nullableString(reason),
 		nullableString(receiptURL),
 		nullableString(mercuryCategory),
+		nullableString(parseError),
 	)
 	if err != nil {
 		return fmt.Errorf("insertPendingPurchase: %w", err)
@@ -556,7 +579,7 @@ func insertPendingPurchase(ctx context.Context, pool *pgxpool.Pool, tx MercuryTr
 // rowcount==0 is NOT an error: between classifyExistingTx and this UPDATE
 // the row may have been confirmed or discarded by a concurrent user action.
 // The next worker poll will re-classify cleanly.
-func updatePendingPurchase(ctx context.Context, pool *pgxpool.Pool, tx MercuryTransaction, items []ReceiptItem, summary ReceiptSummary, receiptURL string, reason string) error {
+func updatePendingPurchase(ctx context.Context, pool *pgxpool.Pool, tx MercuryTransaction, items []ReceiptItem, summary ReceiptSummary, receiptURL string, reason string, parseError string) error {
 	// items==nil guard — mirrors insertPendingPurchase. See note there.
 	var itemsJSON []byte
 	if items == nil {
@@ -593,7 +616,8 @@ func updatePendingPurchase(ctx context.Context, pool *pgxpool.Pool, tx MercuryTr
 		        items            = $7,
 		        reason           = $8,
 		        receipt_url      = $9,
-		        mercury_category = $10
+		        mercury_category = $10,
+		        parse_error      = $11
 		  WHERE bank_tx_id = $1`,
 		tx.ID,
 		tx.Amount,
@@ -605,6 +629,7 @@ func updatePendingPurchase(ctx context.Context, pool *pgxpool.Pool, tx MercuryTr
 		nullableString(reason),
 		nullableString(receiptURL),
 		nullableString(mercuryCategory),
+		nullableString(parseError),
 	)
 	if err != nil {
 		return fmt.Errorf("updatePendingPurchase: %w", err)
