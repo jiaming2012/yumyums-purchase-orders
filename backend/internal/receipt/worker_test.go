@@ -1060,6 +1060,33 @@ func TestClassifyExistingTx(t *testing.T) {
 			t.Errorf("reason = %q, want \"\"", reason)
 		}
 	})
+
+	t.Run("legacy items='null' scalar does not error", func(t *testing.T) {
+		// Regression: pre-260607-dg9 rows have items stored as the JSON literal
+		// `null` (a scalar, not an array). jsonb_array_length(null::jsonb) raises
+		// SQLSTATE 22023, so the items-empty check must guard via jsonb_typeof.
+		resetReceiptFixtures(t)
+		if _, err := testPool.Exec(t.Context(), `
+			INSERT INTO pending_purchases (bank_tx_id, bank_total, vendor, reason, items)
+			VALUES ($1, $2, $3, 'no_attachment_on_bank_tx', 'null'::jsonb)`,
+			"T-cls-legacy-null", 10.00, "STUB",
+		); err != nil {
+			t.Fatalf("seed: %v", err)
+		}
+		kind, reason, _, hasItems, err := classifyExistingTx(t.Context(), testPool, "T-cls-legacy-null")
+		if err != nil {
+			t.Fatalf("classify must not error on legacy items='null' rows: %v", err)
+		}
+		if kind != "pending" {
+			t.Errorf("kind = %q, want %q", kind, "pending")
+		}
+		if reason != "no_attachment_on_bank_tx" {
+			t.Errorf("reason = %q, want %q", reason, "no_attachment_on_bank_tx")
+		}
+		if hasItems {
+			t.Errorf("hasItems = true, want false (JSON scalar null is not a non-empty array)")
+		}
+	})
 }
 
 // ─── Phase 260607-dg9: partial unique index + items-nil dedupe regression ────

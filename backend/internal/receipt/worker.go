@@ -390,7 +390,7 @@ func classifyExistingTx(ctx context.Context, pool *pgxpool.Pool, bankTxID string
 		UNION ALL
 		SELECT 'pending' AS kind, COALESCE(reason,'') AS reason,
 		       (parse_error IS NOT NULL),
-		       (COALESCE(jsonb_array_length(items), 0) > 0)
+		       (jsonb_typeof(items) = 'array' AND jsonb_array_length(items) > 0)
 		  FROM pending_purchases
 		 WHERE bank_tx_id = $1
 		   AND confirmed_at IS NULL
