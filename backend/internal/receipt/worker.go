@@ -485,9 +485,19 @@ func createPurchaseEvent(ctx context.Context, pool *pgxpool.Pool, tx MercuryTran
 // insertPendingPurchase inserts a failed-validation transaction into the
 // pending_purchases review queue.
 func insertPendingPurchase(ctx context.Context, pool *pgxpool.Pool, tx MercuryTransaction, items []ReceiptItem, summary ReceiptSummary, receiptURL string, reason string) error {
-	itemsJSON, err := json.Marshal(items)
-	if err != nil {
+	// items==nil guard: json.Marshal(nil) returns []byte("null"), which the FE
+	// can crash on with .length / .map. A nil slice and an empty
+	// []ReceiptItem{} slice are distinguishable via items == nil; treat nil
+	// (the no_attachment branch) as the empty JSON array.
+	var itemsJSON []byte
+	if items == nil {
 		itemsJSON = []byte("[]")
+	} else {
+		var err error
+		itemsJSON, err = json.Marshal(items)
+		if err != nil {
+			itemsJSON = []byte("[]")
+		}
 	}
 
 	eventDate := parseEventDate(tx.CreatedAt)
@@ -513,7 +523,7 @@ func insertPendingPurchase(ctx context.Context, pool *pgxpool.Pool, tx MercuryTr
 		mercuryCategory = tx.CategoryData.Name
 	}
 
-	_, err = pool.Exec(ctx,
+	_, err := pool.Exec(ctx,
 		`INSERT INTO pending_purchases
 		 (bank_tx_id, bank_total, vendor, event_date, tax, total, items, reason, receipt_url, mercury_category)
 		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
@@ -547,9 +557,16 @@ func insertPendingPurchase(ctx context.Context, pool *pgxpool.Pool, tx MercuryTr
 // the row may have been confirmed or discarded by a concurrent user action.
 // The next worker poll will re-classify cleanly.
 func updatePendingPurchase(ctx context.Context, pool *pgxpool.Pool, tx MercuryTransaction, items []ReceiptItem, summary ReceiptSummary, receiptURL string, reason string) error {
-	itemsJSON, err := json.Marshal(items)
-	if err != nil {
+	// items==nil guard — mirrors insertPendingPurchase. See note there.
+	var itemsJSON []byte
+	if items == nil {
 		itemsJSON = []byte("[]")
+	} else {
+		var err error
+		itemsJSON, err = json.Marshal(items)
+		if err != nil {
+			itemsJSON = []byte("[]")
+		}
 	}
 
 	eventDate := parseEventDate(tx.CreatedAt)
@@ -566,7 +583,7 @@ func updatePendingPurchase(ctx context.Context, pool *pgxpool.Pool, tx MercuryTr
 		mercuryCategory = tx.CategoryData.Name
 	}
 
-	_, err = pool.Exec(ctx,
+	_, err := pool.Exec(ctx,
 		`UPDATE pending_purchases
 		    SET bank_total       = $2,
 		        vendor           = $3,
