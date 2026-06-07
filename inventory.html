@@ -37,6 +37,13 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .line-item-price{font-size:13px;font-weight:500;color:var(--txt);white-space:nowrap}
 .case-badge{font-size:10px;background:var(--warn-bg);color:var(--warn-tx);padding:1px 6px;border-radius:4px;margin-left:4px;vertical-align:middle}
 .filter-select{width:100%;padding:10px 12px;background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;font-size:14px;color:var(--txt);margin-bottom:12px;font-family:inherit;appearance:none;-webkit-appearance:none}
+.sync-bar{display:flex;flex-direction:column;gap:8px;margin-bottom:12px}
+.sync-btn{width:100%;padding:11px 14px;background:var(--info-bg);color:var(--info-tx);border:0.5px solid var(--brd);border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;min-height:44px}
+.sync-btn:disabled{opacity:0.6;cursor:default}
+.sync-chip{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 12px;background:var(--card);border:0.5px solid var(--brd);border-radius:8px;font-size:13px;color:var(--mut)}
+.sync-chip.ok{color:var(--info-tx);background:var(--info-bg)}
+.sync-chip.err{color:var(--warn-tx);background:var(--warn-bg)}
+.sync-chip-dismiss{background:none;border:none;color:inherit;cursor:pointer;font-size:18px;line-height:1;padding:0 4px;min-width:24px;min-height:24px}
 .approval-badge{font-size:11px;font-weight:600;padding:3px 8px;border-radius:6px;background:var(--warn-bg);color:var(--warn-tx);white-space:nowrap}
 .review-form{background:var(--card);border:0.5px solid var(--warn-tx);border-radius:12px;padding:16px;margin-bottom:8px}
 .review-form-title{font-size:14px;font-weight:600;color:var(--txt);margin-bottom:12px}
@@ -228,6 +235,10 @@ select.field-input{appearance:none;-webkit-appearance:none;padding-right:36px;ba
     <button id="t7" onclick="show(7)">Setup</button>
   </div>
   <div id="s1" style="display:none">
+    <div class="sync-bar">
+      <button id="sync-receipts-btn" class="sync-btn" type="button">Sync Receipts</button>
+      <div id="sync-receipts-chip" style="display:none"></div>
+    </div>
     <select id="vendor-filter" class="filter-select">
       <option value="">All Vendors</option>
     </select>
@@ -320,6 +331,118 @@ let CURRENT_USER=null;
 let BADGE_RESET_CONFIG=null;
 let BADGE_RESET_FORM_OPEN=false;
 
+// ─── Receipt sync (260607-bir) ─────────────────────────────────────────
+// SYNC_STATE mirrors the latest receipt_sync_runs row (or null when empty).
+// Polling is visibility-aware: we stop on document.hidden and resume on
+// visible. Status survives reload because it's read from the server.
+var SYNC_STATE=null;
+var SYNC_POLL_TIMER=null;
+var SYNC_CHIP_DISMISSED_ID=null;
+var SYNC_POLL_MS=3000;
+
+function syncEscapeHTML(str){
+  return String(str).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});
+}
+
+function renderSyncUI(){
+  var btn=document.getElementById('sync-receipts-btn');
+  var chip=document.getElementById('sync-receipts-chip');
+  if(!btn||!chip)return;
+  var s=SYNC_STATE;
+  var running=s&&s.status==='running';
+  btn.disabled=!!running;
+  btn.textContent=running?'Syncing…':'Sync Receipts';
+  // Chip rules:
+  //  - running: hide chip (button label carries the state)
+  //  - failed: red chip, not dismissable until user retries
+  //  - done: green chip with summary + ×; hide if user already dismissed this run id
+  if(!s||running){chip.style.display='none';chip.className='';chip.innerHTML='';return;}
+  if(s.status==='failed'){
+    chip.style.display='';
+    chip.className='sync-chip err';
+    chip.innerHTML='<span>Sync failed: '+syncEscapeHTML(s.error||'unknown error')+'</span>';
+    return;
+  }
+  if(s.status==='done'){
+    if(SYNC_CHIP_DISMISSED_ID===s.id){chip.style.display='none';return;}
+    var mins=Math.max(0,Math.floor((Date.now()-new Date(s.finished_at||s.started_at).getTime())/60000));
+    var when=mins===0?'just now':(mins+'m ago');
+    chip.style.display='';
+    chip.className='sync-chip ok';
+    chip.innerHTML='<span>Last synced '+when+' — '+s.processed+' processed, '+s.pending_review+' pending review</span>'+
+                  '<button class="sync-chip-dismiss" data-action="dismiss-sync-chip" aria-label="Dismiss">×</button>';
+  }
+}
+
+async function refreshSyncStatus(){
+  try{
+    var res=await fetch('/api/v1/inventory/sync-receipts/status',{credentials:'include'});
+    if(!res.ok)return;
+    var body=await res.json();
+    var prev=SYNC_STATE;
+    SYNC_STATE=body; // server returns the row object or null
+    renderSyncUI();
+    if(SYNC_STATE&&SYNC_STATE.status==='running'){startSyncPoll();}
+    else{
+      stopSyncPoll();
+      // Refresh the purchases list when a run transitions from running → done
+      // so newly-ingested rows appear without a full page reload.
+      if(SYNC_STATE&&SYNC_STATE.status==='done'&&prev&&prev.status==='running'&&typeof loadHistory==='function'){
+        loadHistory();
+      }
+    }
+  }catch(e){/* offline / transient; no UI noise */}
+}
+
+function startSyncPoll(){
+  if(SYNC_POLL_TIMER)return;
+  if(document.hidden)return; // visibilitychange listener will start it later
+  SYNC_POLL_TIMER=setInterval(refreshSyncStatus,SYNC_POLL_MS);
+}
+function stopSyncPoll(){
+  if(SYNC_POLL_TIMER){clearInterval(SYNC_POLL_TIMER);SYNC_POLL_TIMER=null;}
+}
+
+document.addEventListener('visibilitychange',function(){
+  if(document.hidden){stopSyncPoll();}
+  else if(SYNC_STATE&&SYNC_STATE.status==='running'){startSyncPoll();refreshSyncStatus();}
+});
+
+async function triggerSync(){
+  var btn=document.getElementById('sync-receipts-btn');
+  if(btn)btn.disabled=true;
+  try{
+    var res=await fetch('/api/v1/inventory/sync-receipts',{method:'POST',credentials:'include'});
+    if(res.status===409){
+      // another tab already started a run — pick up its state
+      await refreshSyncStatus();
+      return;
+    }
+    if(!res.ok)throw new Error('HTTP '+res.status);
+    var body=await res.json();
+    SYNC_STATE={id:body.id,status:'running',started_at:body.started_at,processed:0,auto_created:0,pending_review:0,cached:0};
+    SYNC_CHIP_DISMISSED_ID=null;
+    renderSyncUI();
+    startSyncPoll();
+  }catch(e){
+    if(btn)btn.disabled=false;
+    alert('Could not start sync: '+e.message);
+  }
+}
+
+// Event delegation for the sync button + chip dismiss × — keep with existing
+// document-level click wiring style used elsewhere in this file.
+document.addEventListener('click',function(e){
+  var t=e.target;
+  if(!t)return;
+  if(t.id==='sync-receipts-btn'){triggerSync();return;}
+  if(t.getAttribute&&t.getAttribute('data-action')==='dismiss-sync-chip'){
+    if(SYNC_STATE)SYNC_CHIP_DISMISSED_ID=SYNC_STATE.id;
+    renderSyncUI();
+    return;
+  }
+});
+
 function show(n){
   [1,2,3,4,5,6,7].forEach(i=>{
     var el=document.getElementById('s'+i); if(el)el.style.display=i===n?'':'none';
@@ -329,7 +452,7 @@ function show(n){
   ACTIVE_TAB=n;
   location.hash='tab='+n;
   // Reload fresh data when switching tabs
-  if(n===1){loadHistory();}
+  if(n===1){loadHistory();refreshSyncStatus();}
   if(n===2){loadStock();}
   if(n===3){loadMenu();}
   if(n===4){loadRecipes();}
@@ -1512,6 +1635,7 @@ document.addEventListener('DOMContentLoaded',async function(){
   }
   loadVendors();
   loadHistory();
+  refreshSyncStatus();
   loadStock();
 });
 

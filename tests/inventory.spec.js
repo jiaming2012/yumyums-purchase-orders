@@ -2789,3 +2789,89 @@ test.describe('PO add item navigates to Inventory Setup', () => {
     await expect(nameInput).toHaveValue('Carrots');
   });
 });
+
+// ─── Receipt sync button (260607-bir) ────────────────────────────────────
+
+test.describe('Receipt sync button', () => {
+  test.beforeEach(async ({ page }) => {
+    await login(page);
+  });
+
+  test('clicking Sync Receipts disables button and shows Syncing…', async ({ page }) => {
+    // Status endpoint returns null on first load — no prior run.
+    await page.route('**/api/v1/inventory/sync-receipts/status', async route => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: 'null' });
+    });
+    // POST returns 200 with a running run.
+    await page.route('**/api/v1/inventory/sync-receipts', async route => {
+      if (route.request().method() === 'POST') {
+        await route.fulfill({
+          status: 200, contentType: 'application/json',
+          body: JSON.stringify({ id: 1, status: 'running', started_at: new Date().toISOString() })
+        });
+      } else { await route.continue(); }
+    });
+
+    await page.goto('/inventory.html');
+    await page.waitForLoadState('networkidle');
+
+    const btn = page.locator('#sync-receipts-btn');
+    await expect(btn).toHaveText('Sync Receipts');
+    await btn.click();
+    await expect(btn).toHaveText(/Syncing/);
+    await expect(btn).toBeDisabled();
+  });
+
+  test('reload mid-run shows Syncing… (state survives via GET /status)', async ({ page }) => {
+    // Status endpoint returns a running row — simulates a sync started in
+    // a previous session that has not yet completed.
+    await page.route('**/api/v1/inventory/sync-receipts/status', async route => {
+      await route.fulfill({
+        status: 200, contentType: 'application/json',
+        body: JSON.stringify({
+          id: 42, status: 'running',
+          started_at: new Date().toISOString(), finished_at: null,
+          processed: 0, auto_created: 0, pending_review: 0, cached: 0,
+          error: null, triggered_by: 'manual'
+        })
+      });
+    });
+
+    await page.goto('/inventory.html');
+    await page.waitForLoadState('networkidle');
+
+    // Purchases is the default tab — sync button should mount on load and
+    // pick up the running state from /status without any user action.
+    const btn = page.locator('#sync-receipts-btn');
+    await expect(btn).toBeVisible();
+    await expect(btn).toHaveText(/Syncing/);
+    await expect(btn).toBeDisabled();
+  });
+
+  test('completed run shows summary chip with counts', async ({ page }) => {
+    await page.route('**/api/v1/inventory/sync-receipts/status', async route => {
+      await route.fulfill({
+        status: 200, contentType: 'application/json',
+        body: JSON.stringify({
+          id: 7, status: 'done',
+          started_at: new Date(Date.now() - 60000).toISOString(),
+          finished_at: new Date().toISOString(),
+          processed: 5, auto_created: 3, pending_review: 2, cached: 0,
+          error: null, triggered_by: 'manual'
+        })
+      });
+    });
+
+    await page.goto('/inventory.html');
+    await page.waitForLoadState('networkidle');
+
+    const chip = page.locator('#sync-receipts-chip');
+    await expect(chip).toBeVisible();
+    await expect(chip).toContainText('5 processed');
+    await expect(chip).toContainText('2 pending review');
+
+    // Dismiss × hides the chip.
+    await chip.locator('[data-action="dismiss-sync-chip"]').click();
+    await expect(chip).not.toBeVisible();
+  });
+});
