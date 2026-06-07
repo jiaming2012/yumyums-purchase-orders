@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -11,8 +12,24 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/yumyums/hq/internal/photos"
+)
+
+// Test seams. Production callers MUST go through these package-level vars so
+// tests can inject fakes without changing exported function signatures. See
+// worker_test.go — each test saves the original, swaps in a stub, and restores
+// in a t.Cleanup callback.
+//
+// Phase 260607-co0: parseReceipt + fetchTransactions + downloadReceiptFileFn
+// are introduced so the upgrade-path tests (no_attachment → re-sync with
+// receipt attached) can drive runIngestCycle end-to-end without hitting
+// Mercury / Anthropic / the receipt CDN.
+var (
+	fetchTransactions     = FetchTransactions
+	parseReceipt          = ParseReceipt
+	downloadReceiptFileFn = downloadReceiptFile
 )
 
 // StartWorker launches a background goroutine that polls Mercury for new
@@ -262,6 +279,10 @@ func runIngestCycle(ctx context.Context, cfg WorkerConfig) (IngestResult, error)
 
 // bankTxIDExists returns true if the bank_tx_id already exists in either
 // purchase_events or pending_purchases (idempotency guard).
+//
+// DEPRECATED: This 2-way guard is being replaced by classifyExistingTx in
+// Phase 260607-co0. Once runIngestCycle is wired to the 3-way switch (in the
+// follow-up feat commit), this helper is deleted.
 func bankTxIDExists(ctx context.Context, pool *pgxpool.Pool, bankTxID string) (bool, error) {
 	var n int
 	err := pool.QueryRow(ctx,
@@ -276,6 +297,49 @@ func bankTxIDExists(ctx context.Context, pool *pgxpool.Pool, bankTxID string) (b
 		return false, fmt.Errorf("bankTxIDExists: %w", err)
 	}
 	return n > 0, nil
+}
+
+// classifyExistingTx reports what HQ already has for a given Mercury bank_tx_id.
+// Replaces the old bankTxIDExists 2-way guard so the worker can distinguish a
+// "real" cached row (skip) from a stale no_attachment_on_bank_tx pending row
+// whose Mercury tx now has receipt attachments (upgrade — reprocess).
+//
+// Return contract:
+//   - kind "none"    → not seen yet; runIngestCycle should ingest normally.
+//   - kind "event"   → already in purchase_events OR a confirmed pending row.
+//                      Idempotency win: a confirmed pending row represents a
+//                      real, locked purchase, so it behaves like an event.
+//                      reason is "" for this kind.
+//   - kind "pending" → still-open pending_purchases row
+//                      (confirmed_at IS NULL AND discarded_at IS NULL).
+//                      reason carries pending_purchases.reason so the caller
+//                      can decide if this is the upgrade-eligible
+//                      "no_attachment_on_bank_tx" case.
+//
+// Discarded pending rows return kind="none" — the user explicitly threw the
+// row away, so the worker is free to re-process the same bank_tx_id.
+func classifyExistingTx(ctx context.Context, pool *pgxpool.Pool, bankTxID string) (kind, reason string, err error) {
+	err = pool.QueryRow(ctx, `
+		SELECT 'event' AS kind, '' AS reason
+		  FROM purchase_events WHERE bank_tx_id = $1
+		UNION ALL
+		SELECT 'event' AS kind, COALESCE(reason,'') AS reason
+		  FROM pending_purchases
+		 WHERE bank_tx_id = $1 AND confirmed_at IS NOT NULL
+		UNION ALL
+		SELECT 'pending' AS kind, COALESCE(reason,'') AS reason
+		  FROM pending_purchases
+		 WHERE bank_tx_id = $1
+		   AND confirmed_at IS NULL
+		   AND discarded_at IS NULL
+		LIMIT 1`, bankTxID).Scan(&kind, &reason)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "none", "", nil
+	}
+	if err != nil {
+		return "", "", fmt.Errorf("classifyExistingTx: %w", err)
+	}
+	return kind, reason, nil
 }
 
 // pickAttachment selects the best receipt attachment from a transaction.
@@ -426,6 +490,66 @@ func insertPendingPurchase(ctx context.Context, pool *pgxpool.Pool, tx MercuryTr
 	)
 	if err != nil {
 		return fmt.Errorf("insertPendingPurchase: %w", err)
+	}
+	return nil
+}
+
+// updatePendingPurchase updates an existing pending_purchases row IN PLACE,
+// keyed by bank_tx_id. Mirrors insertPendingPurchase field-for-field but
+// issues UPDATE instead of INSERT — used by the upgrade path
+// (re-syncing a no_attachment_on_bank_tx row whose Mercury tx now has a
+// receipt) when the parse / validate still fails so the row stays pending
+// for human review. Preserves the row's UUID PK so any FE references to the
+// pending row remain stable.
+//
+// rowcount==0 is NOT an error: between classifyExistingTx and this UPDATE
+// the row may have been confirmed or discarded by a concurrent user action.
+// The next worker poll will re-classify cleanly.
+func updatePendingPurchase(ctx context.Context, pool *pgxpool.Pool, tx MercuryTransaction, items []ReceiptItem, summary ReceiptSummary, receiptURL string, reason string) error {
+	itemsJSON, err := json.Marshal(items)
+	if err != nil {
+		itemsJSON = []byte("[]")
+	}
+
+	eventDate := parseEventDate(tx.CreatedAt)
+
+	// Vendor fallback — same rule as insertPendingPurchase: curated summary
+	// wins; raw bankDescription as fallback.
+	vendor := summary.Vendor
+	if vendor == "" {
+		vendor = tx.BankDescription
+	}
+
+	var mercuryCategory string
+	if tx.CategoryData != nil {
+		mercuryCategory = tx.CategoryData.Name
+	}
+
+	_, err = pool.Exec(ctx,
+		`UPDATE pending_purchases
+		    SET bank_total       = $2,
+		        vendor           = $3,
+		        event_date       = $4,
+		        tax              = $5,
+		        total            = $6,
+		        items            = $7,
+		        reason           = $8,
+		        receipt_url      = $9,
+		        mercury_category = $10
+		  WHERE bank_tx_id = $1`,
+		tx.ID,
+		tx.Amount,
+		vendor,
+		nullableString(eventDate),
+		nullableFloat64(summary.Tax),
+		nullableFloat64(summary.Total),
+		itemsJSON,
+		nullableString(reason),
+		nullableString(receiptURL),
+		nullableString(mercuryCategory),
+	)
+	if err != nil {
+		return fmt.Errorf("updatePendingPurchase: %w", err)
 	}
 	return nil
 }

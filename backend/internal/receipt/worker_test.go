@@ -3,8 +3,10 @@ package receipt
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/yumyums/hq/internal/db"
@@ -381,4 +383,451 @@ func TestInsertPendingPurchase_CoexistsWithAttachmentBranch(t *testing.T) {
 			t.Errorf("%s: got %d, want %d", c.name, got, c.expect)
 		}
 	}
+}
+
+// ─── Phase 260607-co0: upgrade path for stale no_attachment_on_bank_tx rows ──
+//
+// Background: When a Mercury card swipe lands without a receipt attachment,
+// the worker writes a pending_purchases row with reason='no_attachment_on_bank_tx'.
+// Before this phase, the worker's 2-way bankTxIDExists guard treated that row
+// as "already ingested" forever, so if the user later uploaded a receipt in
+// Mercury, the worker still short-circuited and the line items stayed at
+// $0.00. These tests cover the new 3-way classifyExistingTx + isUpgrade flow.
+
+// installWorkerStubs swaps the package-level seams to controllable fakes for
+// the duration of a single test. Each stub records whether it was invoked so
+// tests can assert on "must not be called" paths (e.g. the cached short-circuit
+// must NOT call parseReceipt).
+type workerStubs struct {
+	txns           []MercuryTransaction
+	parseItems     []ReceiptItem
+	parseSummary   ReceiptSummary
+	parseErr       error
+	parseCallCount int
+	fetchCalled    bool
+	dlCalled       bool
+}
+
+func installWorkerStubs(t *testing.T, s *workerStubs) {
+	t.Helper()
+
+	origFetch := fetchTransactions
+	fetchTransactions = func(_ context.Context, _ string, _, _ time.Time) ([]MercuryTransaction, error) {
+		s.fetchCalled = true
+		return s.txns, nil
+	}
+	t.Cleanup(func() { fetchTransactions = origFetch })
+
+	origParse := parseReceipt
+	parseReceipt = func(_ context.Context, _ string, _ []byte, _ string) ([]ReceiptItem, ReceiptSummary, error) {
+		s.parseCallCount++
+		return s.parseItems, s.parseSummary, s.parseErr
+	}
+	t.Cleanup(func() { parseReceipt = origParse })
+
+	origDL := downloadReceiptFileFn
+	downloadReceiptFileFn = func(_ context.Context, _ string) ([]byte, string, error) {
+		s.dlCalled = true
+		return []byte("FAKE-RECEIPT-BYTES"), "image/jpeg", nil
+	}
+	t.Cleanup(func() { downloadReceiptFileFn = origDL })
+}
+
+// TestRunIngestCycle_UpgradesPendingNoAttachmentRow exercises the happy upgrade
+// path: a pending row with reason='no_attachment_on_bank_tx' exists, the
+// Mercury tx now has an attachment, parse succeeds → the pending row is
+// DELETED and a purchase_events row is INSERTED in one DB transaction.
+func TestRunIngestCycle_UpgradesPendingNoAttachmentRow(t *testing.T) {
+	if testPool == nil {
+		t.Skip("DB_TEST_URL not reachable; skipping integration test")
+	}
+	resetReceiptFixtures(t)
+
+	// Seed an existing no-attachment pending row, simulating a prior worker
+	// poll that saw the unreceipted card swipe.
+	if _, err := testPool.Exec(t.Context(), `
+		INSERT INTO pending_purchases (bank_tx_id, bank_total, vendor, reason, items)
+		VALUES ($1, $2, $3, 'no_attachment_on_bank_tx', '[]'::jsonb)`,
+		"T-upgrade-ok", 42.50, "STUB",
+	); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	stubs := &workerStubs{
+		txns: []MercuryTransaction{{
+			ID:          "T-upgrade-ok",
+			Amount:      42.50,
+			CreatedAt:   "2026-05-27T10:00:00Z",
+			Attachments: []Attachment{{URL: "http://fake/r.jpg", FileName: "r.jpg"}},
+		}},
+		parseItems: []ReceiptItem{
+			{Name: "Salmon", Quantity: 1, Price: 42.50, IsCase: false},
+		},
+		parseSummary: ReceiptSummary{Vendor: "Acme", Tax: 0, Total: 42.50},
+	}
+	installWorkerStubs(t, stubs)
+
+	result, err := runIngestCycle(t.Context(), WorkerConfig{
+		MercuryAPIKey:   "stub",
+		AnthropicAPIKey: "stub",
+		Pool:            testPool,
+		LookbackDays:    14,
+	})
+	if err != nil {
+		t.Fatalf("runIngestCycle: %v", err)
+	}
+
+	if result.AutoCreated != 1 {
+		t.Errorf("AutoCreated = %d, want 1", result.AutoCreated)
+	}
+	if result.PendingReview != 0 {
+		t.Errorf("PendingReview = %d, want 0", result.PendingReview)
+	}
+	if result.Cached != 0 {
+		t.Errorf("Cached = %d, want 0", result.Cached)
+	}
+
+	var pendingCount, eventCount int
+	if err := testPool.QueryRow(t.Context(),
+		`SELECT COUNT(*) FROM pending_purchases WHERE bank_tx_id='T-upgrade-ok'`,
+	).Scan(&pendingCount); err != nil {
+		t.Fatalf("count pending: %v", err)
+	}
+	if err := testPool.QueryRow(t.Context(),
+		`SELECT COUNT(*) FROM purchase_events WHERE bank_tx_id='T-upgrade-ok'`,
+	).Scan(&eventCount); err != nil {
+		t.Fatalf("count events: %v", err)
+	}
+	if pendingCount != 0 {
+		t.Errorf("pending rows = %d, want 0 (upgrade should DELETE the row)", pendingCount)
+	}
+	if eventCount != 1 {
+		t.Errorf("event rows = %d, want 1 (upgrade should INSERT the event)", eventCount)
+	}
+
+	var lineCount int
+	if err := testPool.QueryRow(t.Context(),
+		`SELECT COUNT(*) FROM purchase_line_items pli
+		   JOIN purchase_events pe ON pe.id = pli.purchase_event_id
+		  WHERE pe.bank_tx_id = 'T-upgrade-ok' AND pli.description = 'Salmon'`,
+	).Scan(&lineCount); err != nil {
+		t.Fatalf("count line items: %v", err)
+	}
+	if lineCount != 1 {
+		t.Errorf("line items = %d, want 1", lineCount)
+	}
+}
+
+// TestRunIngestCycle_UpgradesPendingNoAttachmentRow_ParseFails exercises the
+// upgrade path when the receipt parse fails: the pending row's UUID is
+// PRESERVED via UPDATE (no ON CONFLICT skip, no orphan), the reason now
+// reflects the parser failure, and counts roll into PendingReview.
+func TestRunIngestCycle_UpgradesPendingNoAttachmentRow_ParseFails(t *testing.T) {
+	if testPool == nil {
+		t.Skip("DB_TEST_URL not reachable; skipping integration test")
+	}
+	resetReceiptFixtures(t)
+
+	if _, err := testPool.Exec(t.Context(), `
+		INSERT INTO pending_purchases (bank_tx_id, bank_total, vendor, reason, items)
+		VALUES ($1, $2, $3, 'no_attachment_on_bank_tx', '[]'::jsonb)`,
+		"T-upgrade-fail", 42.50, "STUB",
+	); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	// Capture the seeded row's UUID PK so we can assert the UPDATE path
+	// preserved it rather than DELETE+re-INSERT.
+	var origID string
+	if err := testPool.QueryRow(t.Context(),
+		`SELECT id::text FROM pending_purchases WHERE bank_tx_id='T-upgrade-fail'`,
+	).Scan(&origID); err != nil {
+		t.Fatalf("read original id: %v", err)
+	}
+
+	stubs := &workerStubs{
+		txns: []MercuryTransaction{{
+			ID:          "T-upgrade-fail",
+			Amount:      42.50,
+			CreatedAt:   "2026-05-27T10:00:00Z",
+			Attachments: []Attachment{{URL: "http://fake/r.jpg", FileName: "r.jpg"}},
+		}},
+		parseErr: errors.New("haiku timeout"),
+	}
+	installWorkerStubs(t, stubs)
+
+	result, err := runIngestCycle(t.Context(), WorkerConfig{
+		MercuryAPIKey: "stub", AnthropicAPIKey: "stub",
+		Pool: testPool, LookbackDays: 14,
+	})
+	if err != nil {
+		t.Fatalf("runIngestCycle: %v", err)
+	}
+
+	if result.PendingReview != 1 {
+		t.Errorf("PendingReview = %d, want 1", result.PendingReview)
+	}
+	if result.AutoCreated != 0 {
+		t.Errorf("AutoCreated = %d, want 0", result.AutoCreated)
+	}
+	if result.Cached != 0 {
+		t.Errorf("Cached = %d, want 0", result.Cached)
+	}
+
+	var gotID, gotReason string
+	if err := testPool.QueryRow(t.Context(),
+		`SELECT id::text, COALESCE(reason,'') FROM pending_purchases WHERE bank_tx_id='T-upgrade-fail'`,
+	).Scan(&gotID, &gotReason); err != nil {
+		t.Fatalf("read updated row: %v", err)
+	}
+	if gotID != origID {
+		t.Errorf("pending row id changed: was %q, now %q (upgrade should UPDATE, not DELETE+INSERT)", origID, gotID)
+	}
+	if gotReason != "Receipt could not be parsed automatically" {
+		t.Errorf("reason = %q, want %q", gotReason, "Receipt could not be parsed automatically")
+	}
+}
+
+// TestRunIngestCycle_SkipsRealCached asserts that pending rows with any
+// reason other than 'no_attachment_on_bank_tx' (e.g. a prior parse failure
+// the human still needs to review) still short-circuit as Cached, even when
+// the tx has attachments. parseReceipt must NOT be called for cached rows.
+func TestRunIngestCycle_SkipsRealCached(t *testing.T) {
+	if testPool == nil {
+		t.Skip("DB_TEST_URL not reachable; skipping integration test")
+	}
+	resetReceiptFixtures(t)
+
+	if _, err := testPool.Exec(t.Context(), `
+		INSERT INTO pending_purchases (bank_tx_id, bank_total, vendor, reason, items)
+		VALUES ($1, $2, $3, 'Receipt could not be parsed automatically', '[]'::jsonb)`,
+		"T-real-cached", 19.99, "STUB",
+	); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	stubs := &workerStubs{
+		txns: []MercuryTransaction{{
+			ID:          "T-real-cached",
+			Amount:      19.99,
+			CreatedAt:   "2026-05-27T10:00:00Z",
+			Attachments: []Attachment{{URL: "http://fake/r.jpg", FileName: "r.jpg"}},
+		}},
+	}
+	installWorkerStubs(t, stubs)
+
+	result, err := runIngestCycle(t.Context(), WorkerConfig{
+		MercuryAPIKey: "stub", AnthropicAPIKey: "stub",
+		Pool: testPool, LookbackDays: 14,
+	})
+	if err != nil {
+		t.Fatalf("runIngestCycle: %v", err)
+	}
+
+	if result.Cached != 1 {
+		t.Errorf("Cached = %d, want 1", result.Cached)
+	}
+	if result.AutoCreated != 0 {
+		t.Errorf("AutoCreated = %d, want 0", result.AutoCreated)
+	}
+	if result.PendingReview != 0 {
+		t.Errorf("PendingReview = %d, want 0", result.PendingReview)
+	}
+	if stubs.parseCallCount != 0 {
+		t.Errorf("parseReceipt called %d times, want 0 (cached path must short-circuit before parse)", stubs.parseCallCount)
+	}
+
+	var reason string
+	if err := testPool.QueryRow(t.Context(),
+		`SELECT COALESCE(reason,'') FROM pending_purchases WHERE bank_tx_id='T-real-cached'`,
+	).Scan(&reason); err != nil {
+		t.Fatalf("read row: %v", err)
+	}
+	if reason != "Receipt could not be parsed automatically" {
+		t.Errorf("reason = %q, want unchanged", reason)
+	}
+}
+
+// TestRunIngestCycle_SkipsExistingPurchaseEvent asserts that a tx already in
+// purchase_events short-circuits as Cached regardless of whether it now has
+// attachments. parseReceipt must NOT be called.
+func TestRunIngestCycle_SkipsExistingPurchaseEvent(t *testing.T) {
+	if testPool == nil {
+		t.Skip("DB_TEST_URL not reachable; skipping integration test")
+	}
+	resetReceiptFixtures(t)
+
+	// Direct INSERT (not createPurchaseEvent) so the fixture doesn't couple
+	// to the upgrade refactor we're testing.
+	var vendorID string
+	if err := testPool.QueryRow(t.Context(),
+		`INSERT INTO vendors (name) VALUES ($1) RETURNING id`,
+		"Existing Vendor",
+	).Scan(&vendorID); err != nil {
+		t.Fatalf("seed vendor: %v", err)
+	}
+	if _, err := testPool.Exec(t.Context(),
+		`INSERT INTO purchase_events (vendor_id, bank_tx_id, event_date, total)
+		 VALUES ($1, $2, '2026-05-27', $3)`,
+		vendorID, "T-existing-event", 50.00,
+	); err != nil {
+		t.Fatalf("seed event: %v", err)
+	}
+
+	stubs := &workerStubs{
+		txns: []MercuryTransaction{{
+			ID:          "T-existing-event",
+			Amount:      50.00,
+			CreatedAt:   "2026-05-27T10:00:00Z",
+			Attachments: []Attachment{{URL: "http://fake/r.jpg", FileName: "r.jpg"}},
+		}},
+	}
+	installWorkerStubs(t, stubs)
+
+	result, err := runIngestCycle(t.Context(), WorkerConfig{
+		MercuryAPIKey: "stub", AnthropicAPIKey: "stub",
+		Pool: testPool, LookbackDays: 14,
+	})
+	if err != nil {
+		t.Fatalf("runIngestCycle: %v", err)
+	}
+
+	if result.Cached != 1 {
+		t.Errorf("Cached = %d, want 1", result.Cached)
+	}
+	if result.AutoCreated != 0 {
+		t.Errorf("AutoCreated = %d, want 0", result.AutoCreated)
+	}
+	if result.PendingReview != 0 {
+		t.Errorf("PendingReview = %d, want 0", result.PendingReview)
+	}
+	if stubs.parseCallCount != 0 {
+		t.Errorf("parseReceipt called %d times, want 0", stubs.parseCallCount)
+	}
+
+	var pendingCount, eventCount int
+	if err := testPool.QueryRow(t.Context(),
+		`SELECT COUNT(*) FROM pending_purchases WHERE bank_tx_id='T-existing-event'`,
+	).Scan(&pendingCount); err != nil {
+		t.Fatalf("count pending: %v", err)
+	}
+	if err := testPool.QueryRow(t.Context(),
+		`SELECT COUNT(*) FROM purchase_events WHERE bank_tx_id='T-existing-event'`,
+	).Scan(&eventCount); err != nil {
+		t.Fatalf("count events: %v", err)
+	}
+	if pendingCount != 0 {
+		t.Errorf("pending rows = %d, want 0 (cached event must not create pending)", pendingCount)
+	}
+	if eventCount != 1 {
+		t.Errorf("event rows = %d, want 1 (no duplicate)", eventCount)
+	}
+}
+
+// TestClassifyExistingTx is a pure unit test (no worker stubs) for the
+// 3-way classifyExistingTx helper that replaces bankTxIDExists.
+func TestClassifyExistingTx(t *testing.T) {
+	if testPool == nil {
+		t.Skip("DB_TEST_URL not reachable; skipping integration test")
+	}
+
+	t.Run("empty DB returns none", func(t *testing.T) {
+		resetReceiptFixtures(t)
+		kind, reason, err := classifyExistingTx(t.Context(), testPool, "no-such-tx")
+		if err != nil {
+			t.Fatalf("classify: %v", err)
+		}
+		if kind != "none" {
+			t.Errorf("kind = %q, want %q", kind, "none")
+		}
+		if reason != "" {
+			t.Errorf("reason = %q, want \"\"", reason)
+		}
+	})
+
+	t.Run("pending no_attachment row → pending", func(t *testing.T) {
+		resetReceiptFixtures(t)
+		if _, err := testPool.Exec(t.Context(), `
+			INSERT INTO pending_purchases (bank_tx_id, bank_total, vendor, reason, items)
+			VALUES ($1, $2, $3, 'no_attachment_on_bank_tx', '[]'::jsonb)`,
+			"T-cls-pending", 10.00, "STUB",
+		); err != nil {
+			t.Fatalf("seed: %v", err)
+		}
+		kind, reason, err := classifyExistingTx(t.Context(), testPool, "T-cls-pending")
+		if err != nil {
+			t.Fatalf("classify: %v", err)
+		}
+		if kind != "pending" {
+			t.Errorf("kind = %q, want %q", kind, "pending")
+		}
+		if reason != "no_attachment_on_bank_tx" {
+			t.Errorf("reason = %q, want %q", reason, "no_attachment_on_bank_tx")
+		}
+	})
+
+	t.Run("discarded pending row → none (re-ingest allowed)", func(t *testing.T) {
+		resetReceiptFixtures(t)
+		if _, err := testPool.Exec(t.Context(), `
+			INSERT INTO pending_purchases (bank_tx_id, bank_total, vendor, reason, items, discarded_at)
+			VALUES ($1, $2, $3, 'no_attachment_on_bank_tx', '[]'::jsonb, now())`,
+			"T-cls-discarded", 10.00, "STUB",
+		); err != nil {
+			t.Fatalf("seed: %v", err)
+		}
+		kind, _, err := classifyExistingTx(t.Context(), testPool, "T-cls-discarded")
+		if err != nil {
+			t.Fatalf("classify: %v", err)
+		}
+		if kind != "none" {
+			t.Errorf("kind = %q, want %q (discarded rows MUST NOT block re-ingest)", kind, "none")
+		}
+	})
+
+	t.Run("confirmed pending row → event (idempotent like locked purchase)", func(t *testing.T) {
+		resetReceiptFixtures(t)
+		// confirmed_by references users(id); leave NULL — confirmed_at alone
+		// is sufficient for the WHERE filter.
+		if _, err := testPool.Exec(t.Context(), `
+			INSERT INTO pending_purchases (bank_tx_id, bank_total, vendor, reason, items, confirmed_at)
+			VALUES ($1, $2, $3, 'no_attachment_on_bank_tx', '[]'::jsonb, now())`,
+			"T-cls-confirmed", 10.00, "STUB",
+		); err != nil {
+			t.Fatalf("seed: %v", err)
+		}
+		kind, _, err := classifyExistingTx(t.Context(), testPool, "T-cls-confirmed")
+		if err != nil {
+			t.Fatalf("classify: %v", err)
+		}
+		if kind != "event" {
+			t.Errorf("kind = %q, want %q (confirmed pending behaves like event)", kind, "event")
+		}
+	})
+
+	t.Run("purchase_events row → event", func(t *testing.T) {
+		resetReceiptFixtures(t)
+		var vendorID string
+		if err := testPool.QueryRow(t.Context(),
+			`INSERT INTO vendors (name) VALUES ('Cls Vendor') RETURNING id`,
+		).Scan(&vendorID); err != nil {
+			t.Fatalf("seed vendor: %v", err)
+		}
+		if _, err := testPool.Exec(t.Context(),
+			`INSERT INTO purchase_events (vendor_id, bank_tx_id, event_date, total)
+			 VALUES ($1, $2, '2026-05-27', $3)`,
+			vendorID, "T-cls-event", 25.00,
+		); err != nil {
+			t.Fatalf("seed event: %v", err)
+		}
+		kind, reason, err := classifyExistingTx(t.Context(), testPool, "T-cls-event")
+		if err != nil {
+			t.Fatalf("classify: %v", err)
+		}
+		if kind != "event" {
+			t.Errorf("kind = %q, want %q", kind, "event")
+		}
+		if reason != "" {
+			t.Errorf("reason = %q, want \"\"", reason)
+		}
+	})
 }
