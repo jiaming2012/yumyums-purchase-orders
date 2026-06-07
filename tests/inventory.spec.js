@@ -2934,3 +2934,56 @@ test.describe('Pending card — parse_error display (260607-e1c)', () => {
     await expect(card).toContainText("invalid character '<'");
   });
 });
+
+// ─── Phase 260607-e1c: PDF iframe view-receipt overlay ──────────────────────
+test.describe('PDF receipt iframe (260607-e1c)', () => {
+  test.beforeEach(async ({ page }) => { await login(page); });
+
+  test('PDF receipt opens in iframe with new-tab link', async ({ page }) => {
+    // Stub the pending row so the view-receipt button renders with a known
+    // PDF URL we can route-intercept.
+    await page.route('**/api/v1/inventory/purchases/pending', async route => {
+      if (route.request().method() !== 'GET') return route.continue();
+      await route.fulfill({
+        status: 200, contentType: 'application/json',
+        body: JSON.stringify([{
+          id: 'pdf-1', bank_tx_id: 'tx-pdf', bank_total: -391.96,
+          vendor: 'PDF Vendor', event_date: '2026-06-05',
+          reason: 'Receipt could not be parsed automatically',
+          receipt_url: 'https://example.com/receipts/restaurant-depot.pdf',
+          items: [], created_at: new Date().toISOString(),
+        }])
+      });
+    });
+    // Stub the PDF fetch so the iframe doesn't hit a real network resource.
+    await page.route('https://example.com/receipts/restaurant-depot.pdf', async route => {
+      await route.fulfill({ status: 200, contentType: 'application/pdf', body: Buffer.from('%PDF-1.4\n%minimal\n') });
+    });
+
+    await page.goto('/inventory.html');
+    await page.waitForLoadState('networkidle');
+
+    // Open the pending row's review form (tap the card).
+    const card = page.locator('[data-action="review-pending"][data-id="pdf-1"]');
+    await expect(card).toBeVisible();
+    await card.click();
+
+    // The review form exposes the view-receipt button.
+    const receiptBtn = page.locator('.view-receipt-btn[data-action="view-receipt"]').first();
+    await expect(receiptBtn).toBeVisible();
+    await receiptBtn.click();
+
+    const overlay = page.locator('.receipt-overlay');
+    await expect(overlay).toBeVisible();
+    // PDF branch: iframe present, no img, no "image unavailable" fallback.
+    await expect(overlay.locator('iframe')).toBeVisible();
+    await expect(overlay.locator('img')).toHaveCount(0);
+    await expect(overlay).not.toContainText('Receipt image unavailable');
+
+    // Open-in-new-tab safety-net link.
+    const openLink = overlay.locator('.open-receipt-link');
+    await expect(openLink).toBeVisible();
+    await expect(openLink).toHaveAttribute('target', '_blank');
+    await expect(openLink).toHaveAttribute('href', /restaurant-depot\.pdf$/);
+  });
+});
