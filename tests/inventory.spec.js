@@ -2935,6 +2935,115 @@ test.describe('Pending card — parse_error display (260607-e1c)', () => {
   });
 });
 
+// ─── Phase 260607-koi: Retry parse button on pending card ───────────────────
+test.describe('Retry parse button (260607-koi)', () => {
+  test.beforeEach(async ({ page }) => { await login(page); });
+
+  test('is shown when pending row has parse_error', async ({ page }) => {
+    // Stub a parse-failed pending row so the Retry parse button surfaces.
+    await page.route('**/api/v1/inventory/purchases/pending', async route => {
+      if (route.request().method() !== 'GET') return route.continue();
+      await route.fulfill({
+        status: 200, contentType: 'application/json',
+        body: JSON.stringify([{
+          id: 'koi-1', bank_tx_id: 'tx-koi-1', bank_total: -391.96,
+          vendor: 'RESTAURANT DEPOT', event_date: '2026-06-05',
+          reason: 'Receipt could not be parsed automatically',
+          parse_error: 'haiku: boom; sonnet: boom',
+          items: [], created_at: new Date().toISOString(),
+        }])
+      });
+    });
+    await page.goto('/inventory.html');
+    await page.waitForLoadState('networkidle');
+
+    const card = page.locator('[data-action="review-pending"][data-id="koi-1"]');
+    await expect(card).toBeVisible();
+    // Regression sanity: 260607-e1c Parser error line still renders.
+    await expect(card).toContainText('Parser error:');
+    // New: the Retry parse button is visible and labelled.
+    const btn = card.locator('[data-action="retry-parse"]');
+    await expect(btn).toBeVisible();
+    await expect(btn).toContainText('Retry parse');
+  });
+
+  test('is hidden when parse_error is empty', async ({ page }) => {
+    // parse_error omitted (falsey) — button must NOT render but card still does.
+    await page.route('**/api/v1/inventory/purchases/pending', async route => {
+      if (route.request().method() !== 'GET') return route.continue();
+      await route.fulfill({
+        status: 200, contentType: 'application/json',
+        body: JSON.stringify([{
+          id: 'koi-2', bank_tx_id: 'tx-koi-2', bank_total: -42.00,
+          vendor: 'Some Vendor', event_date: '2026-06-05',
+          reason: 'Receipt could not be parsed automatically',
+          // parse_error intentionally omitted
+          items: [], created_at: new Date().toISOString(),
+        }])
+      });
+    });
+    await page.goto('/inventory.html');
+    await page.waitForLoadState('networkidle');
+
+    const card = page.locator('[data-action="review-pending"][data-id="koi-2"]');
+    await expect(card).toBeVisible();
+    // Regression sanity: card itself still renders.
+    await expect(card).toContainText('Some Vendor');
+    // Button must not exist.
+    await expect(card.locator('[data-action="retry-parse"]')).toHaveCount(0);
+    // Parser error line must not render either (parse_error falsey).
+    await expect(card).not.toContainText('Parser error:');
+  });
+
+  test('clears parse_error from card on success', async ({ page }) => {
+    // Mutable stub: first GET returns the row with parse_error; the POST
+    // is intercepted with 200 success.
+    await page.route('**/api/v1/inventory/purchases/pending', async route => {
+      if (route.request().method() !== 'GET') return route.continue();
+      await route.fulfill({
+        status: 200, contentType: 'application/json',
+        body: JSON.stringify([{
+          id: 'koi-3', bank_tx_id: 'tx-koi-3', bank_total: -391.96,
+          vendor: 'RESTAURANT DEPOT', event_date: '2026-06-05',
+          reason: 'Receipt could not be parsed automatically',
+          parse_error: 'haiku: boom; sonnet: boom',
+          items: [], created_at: new Date().toISOString(),
+        }])
+      });
+    });
+    // Stub the POST retry-parse endpoint to return the row with parse_error
+    // cleared. The * glob covers the URL-encoded id.
+    await page.route('**/api/v1/inventory/purchases/pending/*/retry-parse', async route => {
+      if (route.request().method() !== 'POST') return route.continue();
+      await route.fulfill({
+        status: 200, contentType: 'application/json',
+        body: JSON.stringify({
+          id: 'koi-3', bank_tx_id: 'tx-koi-3', bank_total: -391.96,
+          vendor: 'RESTAURANT DEPOT', event_date: '2026-06-05',
+          reason: 'Receipt could not be parsed automatically',
+          parse_error: null,
+          items: [], created_at: new Date().toISOString(),
+        })
+      });
+    });
+
+    await page.goto('/inventory.html');
+    await page.waitForLoadState('networkidle');
+
+    const card = page.locator('[data-action="review-pending"][data-id="koi-3"]');
+    await expect(card).toBeVisible();
+    await expect(card).toContainText('Parser error:');
+    const btn = card.locator('[data-action="retry-parse"]');
+    await expect(btn).toBeVisible();
+
+    await btn.click();
+
+    // After success: Parser error line + retry button both disappear.
+    await expect(card).not.toContainText('Parser error:');
+    await expect(card.locator('[data-action="retry-parse"]')).toHaveCount(0);
+  });
+});
+
 // ─── Phase 260607-e1c: PDF iframe view-receipt overlay ──────────────────────
 test.describe('PDF receipt iframe (260607-e1c)', () => {
   test.beforeEach(async ({ page }) => { await login(page); });
