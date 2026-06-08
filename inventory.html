@@ -588,16 +588,34 @@ function renderPendingCard(p){
   // Phase 260607-e1c: surface the actual parser error (haiku+sonnet concat)
   // on the pending card so the owner can see WHY parsing failed instead of
   // a generic "Receipt could not be parsed automatically" line.
+  // Phase 260607-koi: the Retry parse button renders when there's something
+  // to clear server-side. It carries its own data-action so the history-list
+  // closest('[data-action]') delegate routes button clicks to 'retry-parse'
+  // rather than the outer 'review-pending' card click.
+  // Phase 260607-s6r: broadened to also cover the items-mismatch case
+  // (parse_error NULL but parsed items don't sum to bank_total — wrong
+  // receipt paired to bank tx). The data-mismatch flag tells the click
+  // handler whether to confirm() before POSTing — parse-error-only stays
+  // zero-friction (koi behavior preserved).
+  var hasParseError=p.reason==='Receipt could not be parsed automatically' && p.parse_error;
+  var itemsArr=Array.isArray(p.items)?p.items:[];
+  var hasItems=itemsArr.length>0;
+  var pLineTotal=itemsArr.reduce(function(s,it){
+    return s+Number(it.quantity||0)*Number(it.price||0);
+  },0);
+  var pBankTotal=Math.abs(Number(p.bank_total||p.total||0));
+  // Reuse the 0.01 epsilon from the review-form mismatch banner (line 631)
+  // and the backend ConfirmPendingPurchaseHandler total_mismatch check —
+  // do NOT introduce a new constant.
+  var itemsMismatch=hasItems && Math.abs(pLineTotal-pBankTotal)>0.01;
+  var showRetry=hasParseError || itemsMismatch;
   var parseErrHtml='';
-  if(p.reason==='Receipt could not be parsed automatically' && p.parse_error){
+  if(hasParseError){
     var truncated=String(p.parse_error).slice(0,140);
-    // Phase 260607-koi: the Retry parse button is gated on the same parse_error
-    // condition so it only renders when there's actually something to clear.
-    // It carries its own data-action so the history-list closest('[data-action]')
-    // delegate routes button clicks to 'retry-parse' rather than the outer
-    // 'review-pending' card click.
-    parseErrHtml='<div class="event-meta" style="font-style:italic;opacity:0.7;margin-top:2px">Parser error: '+escHtml(truncated)+'</div>'+
-      '<button class="retry-parse-btn" data-action="retry-parse" data-id="'+p.id+'">Retry parse</button>';
+    parseErrHtml='<div class="event-meta" style="font-style:italic;opacity:0.7;margin-top:2px">Parser error: '+escHtml(truncated)+'</div>';
+  }
+  if(showRetry){
+    parseErrHtml+='<button class="retry-parse-btn" data-action="retry-parse" data-id="'+p.id+'" data-mismatch="'+(itemsMismatch && !hasParseError?'1':'0')+'">Retry parse</button>';
   }
   return '<div class="event-card" data-action="review-pending" data-id="'+p.id+'" style="position:relative;padding-right:110px"><div style="position:absolute;top:12px;right:12px"><span class="approval-badge">Needs Review</span></div><div class="event-vendor">'+vendorDisplay+'</div><div class="event-meta">'+formatDate(p.event_date)+reasonHtml+'</div>'+parseErrHtml+'<div class="event-total" style="margin-top:4px">$'+Number(p.bank_total||p.total||0).toFixed(2)+'</div></div>';
 }
@@ -974,14 +992,27 @@ document.getElementById('history-list').addEventListener('click',function(e){
     // button. The closest('[data-action]') lookup at the top of the
     // delegate routes the click here (not 'review-pending') because the
     // button is nested inside the card and innermost wins.
+    // Phase 260607-s6r: items-mismatch path goes through confirm() first
+    // because we're throwing away parsed line items. parse_error-only
+    // path stays zero-friction (data-mismatch='0' skips the confirm).
     var rid=id;
+    var isMismatch=el.getAttribute('data-mismatch')==='1';
+    if(isMismatch && !confirm('Discard parsed items and re-parse from receipt?')){
+      return;
+    }
     fetch('/api/v1/inventory/purchases/pending/'+encodeURIComponent(rid)+'/retry-parse',{
       method:'POST',credentials:'include'
     }).then(function(resp){
       if(resp.ok){
         showToastMessage('Marked for retry. Click Sync Receipts to run now.');
         var row=PENDING_PURCHASES.find(function(pp){return pp.id===rid;});
-        if(row)row.parse_error='';
+        if(row){
+          row.parse_error='';
+          if(isMismatch){
+            row.items=[];
+            row.reason='Receipt could not be parsed automatically';
+          }
+        }
         renderHistoryList();
       }else{
         alert('Could not mark for retry: HTTP '+resp.status);

@@ -1895,3 +1895,109 @@ func TestRetryParse_422WhenNothingToRetry(t *testing.T) {
 		t.Errorf("reason is empty; want explanatory text")
 	}
 }
+
+// TestRetryParse_ItemsMismatch_Accepted verifies the 260607-s6r broadening:
+// a pending row with parse_error=NULL but items populated whose line_total
+// doesn't match bank_total is accepted, items are cleared to '[]'::jsonb,
+// and reason is reset to the parse-failed sentinel so the worker's
+// parseFailedRetry gate matches on next sync.
+func TestRetryParse_ItemsMismatch_Accepted(t *testing.T) {
+	if testPool == nil {
+		t.Skip("DB_TEST_URL not reachable; skipping integration test")
+	}
+	resetFixtures(t)
+
+	// Use insertPendingPurchaseFull so we can control bank_total. Pass
+	// reason="no_attachment_on_bank_tx" (any non-NULL non-parse-failed
+	// reason works) and bank_total=50.00, then override items to a $100
+	// single line so line_total != bank_total triggers the s6r branch.
+	ppID := insertPendingPurchaseFull(t,
+		"s6r-mismatch-tx",           // bank_tx_id
+		"2026-05-27",                // event_date
+		"2026-05-27 10:00:00-05:00", // created_at
+		"no_attachment_on_bank_tx",  // reason
+		"COGS",                      // mercury_category
+		"TestVendor",                // vendor
+		50.0,                        // bank_total
+	)
+	if _, err := testPool.Exec(t.Context(),
+		`UPDATE pending_purchases
+		    SET items = '[{"name":"x","quantity":1,"price":100,"is_case":false}]'::jsonb
+		  WHERE id = $1`, ppID); err != nil {
+		t.Fatalf("set items: %v", err)
+	}
+
+	rec := retryParseHelper(t, ppID)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 (body=%s)", rec.Code, rec.Body.String())
+	}
+
+	// DB sanity: items emptied, reason updated, parse_error still NULL,
+	// row still pending (confirmed_at unchanged).
+	var (
+		itemsAfter     []byte
+		reasonAfter    sql.NullString
+		parseErrAfter  sql.NullString
+		confirmedAfter sql.NullTime
+	)
+	if err := testPool.QueryRow(t.Context(),
+		`SELECT items, reason, parse_error, confirmed_at
+		   FROM pending_purchases WHERE id = $1`, ppID,
+	).Scan(&itemsAfter, &reasonAfter, &parseErrAfter, &confirmedAfter); err != nil {
+		t.Fatalf("select after: %v", err)
+	}
+	if string(itemsAfter) != "[]" {
+		t.Errorf("items after = %q, want %q", string(itemsAfter), "[]")
+	}
+	if !reasonAfter.Valid || reasonAfter.String != "Receipt could not be parsed automatically" {
+		t.Errorf("reason after = %v, want %q", reasonAfter, "Receipt could not be parsed automatically")
+	}
+	if parseErrAfter.Valid {
+		t.Errorf("parse_error after = %q, want NULL", parseErrAfter.String)
+	}
+	if confirmedAfter.Valid {
+		t.Errorf("confirmed_at after = %v, want NULL", confirmedAfter.Time)
+	}
+}
+
+// TestRetryParse_ItemsMatchTotals_StillRejected verifies that the 260607-s6r
+// broadening does NOT scope-creep into "any populated items row": when items
+// are populated AND totals match within 0.01, the row is healthy and
+// retry-parse must still return 422 nothing_to_retry (matches the existing
+// koi guard).
+func TestRetryParse_ItemsMatchTotals_StillRejected(t *testing.T) {
+	if testPool == nil {
+		t.Skip("DB_TEST_URL not reachable; skipping integration test")
+	}
+	resetFixtures(t)
+
+	ppID := insertPendingPurchaseFull(t,
+		"s6r-match-tx",
+		"2026-05-27",
+		"2026-05-27 10:00:00-05:00",
+		"no_attachment_on_bank_tx",
+		"COGS",
+		"TestVendor",
+		100.0, // bank_total matches the items line_total below
+	)
+	if _, err := testPool.Exec(t.Context(),
+		`UPDATE pending_purchases
+		    SET items = '[{"name":"x","quantity":1,"price":100,"is_case":false}]'::jsonb
+		  WHERE id = $1`, ppID); err != nil {
+		t.Fatalf("set items: %v", err)
+	}
+
+	rec := retryParseHelper(t, ppID)
+
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("status = %d, want 422 (body=%s)", rec.Code, rec.Body.String())
+	}
+	var body map[string]string
+	if err := json.NewDecoder(rec.Body).Decode(&body); err != nil {
+		t.Fatalf("decode body: %v", err)
+	}
+	if body["error"] != "nothing_to_retry" {
+		t.Errorf("error = %q, want %q", body["error"], "nothing_to_retry")
+	}
+}
