@@ -836,20 +836,31 @@ func DiscardPendingPurchaseHandler(pool *pgxpool.Pool) http.HandlerFunc {
 	}
 }
 
-// RetryParsePendingPurchaseHandler clears parse_error on a pending row so the
-// next worker sync cycle (260607-fxl parseFailedRetry branch) will re-attempt
-// parsing through Sonnet. Used to re-arm rows stuck after a parser bug fix
-// without DB access — e.g. recovering the Restaurant Depot $391.96 row after
-// 260607-k1n's float64 quantity fix.
+// RetryParsePendingPurchaseHandler re-arms a pending row so the next worker
+// sync cycle (260607-fxl parseFailedRetry branch) will re-attempt parsing
+// through Sonnet. Used to recover stuck rows without DB access.
+//
+// Two branches, picked from the row's current state:
+//
+//  1. parse_error branch (260607-koi): row has a non-empty parse_error string.
+//     UPDATE sets parse_error=NULL. Existing items + reason left untouched.
+//     Used to recover rows like Restaurant Depot $391.96 after 260607-k1n's
+//     float64 quantity fix.
+//
+//  2. items-mismatch branch (260607-s6r): row has parse_error=NULL but items
+//     are populated AND SUM(quantity*price) doesn't match abs(bank_total).
+//     UPDATE clears items to '[]'::jsonb and sets reason to the parse-failed
+//     sentinel so worker.parseFailedRetry matches on next sync. Used to
+//     recover rows where parse technically succeeded but matched the wrong
+//     receipt (e.g. Amazon $65.62 bank tx paired to a $1515.16 receipt).
 //
 // Endpoint:  POST /api/v1/inventory/purchases/pending/{id}/retry-parse
 // Auth:      Inside the auth-gated inventory route group — same as confirm/discard.
-// Mutation:  UPDATE pending_purchases SET parse_error = NULL WHERE id = $1.
 // Response:  200 + full PendingPurchase row (matches /purchases/pending shape)
 //
 //	404 pending_purchase_not_found     — id does not exist
 //	422 row_not_pending                — row already confirmed/discarded
-//	422 nothing_to_retry               — parse_error already NULL (no-op guard)
+//	422 nothing_to_retry               — parse_error NULL AND items match totals
 func RetryParsePendingPurchaseHandler(pool *pgxpool.Pool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := chi.URLParam(r, "id")
@@ -858,14 +869,19 @@ func RetryParsePendingPurchaseHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		// Read current row state to decide 404 vs 422 disposition.
-		var confirmedAt, discardedAt sql.NullTime
-		var parseError sql.NullString
+		// Read current row state to decide which branch to take.
+		var (
+			confirmedAt sql.NullTime
+			discardedAt sql.NullTime
+			parseError  sql.NullString
+			itemsJSON   []byte
+			bankTotal   float64
+		)
 		err := pool.QueryRow(r.Context(),
-			`SELECT confirmed_at, discarded_at, parse_error
+			`SELECT confirmed_at, discarded_at, parse_error, items, bank_total
 			   FROM pending_purchases WHERE id = $1`,
 			id,
-		).Scan(&confirmedAt, &discardedAt, &parseError)
+		).Scan(&confirmedAt, &discardedAt, &parseError, &itemsJSON, &bankTotal)
 		if err != nil {
 			// pgx.ErrNoRows OR any other read error — match the
 			// UpdatePendingItemsHandler convention: 404 pending_purchase_not_found.
@@ -879,20 +895,75 @@ func RetryParsePendingPurchaseHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			})
 			return
 		}
-		if !parseError.Valid || parseError.String == "" {
+
+		// Compute items-mismatch eligibility for the new s6r branch.
+		// Tolerate the legacy 'null' literal that pre-260607-dg9 rows
+		// sometimes carry — treat as empty. Malformed items get the
+		// same treatment rather than 500ing; the parse_error branch
+		// still works.
+		type retryParseItem struct {
+			Quantity float64 `json:"quantity"`
+			Price    float64 `json:"price"`
+		}
+		var items []retryParseItem
+		if len(itemsJSON) > 0 && string(itemsJSON) != "null" {
+			if uerr := json.Unmarshal(itemsJSON, &items); uerr != nil {
+				items = nil
+			}
+		}
+		var lineTotal float64
+		for _, it := range items {
+			lineTotal += it.Quantity * it.Price
+		}
+		// Bank tx amounts arrive negative for outflow; compare absolute values
+		// to match the FE banner + ConfirmPendingPurchaseHandler convention.
+		// Reuse the SAME 0.01 epsilon used by inventory.html's review-form
+		// mismatch banner — do NOT introduce a new constant.
+		absBank := math.Abs(bankTotal)
+		itemsMismatch := len(items) > 0 && math.Abs(lineTotal-absBank) > 0.01
+
+		hasParseError := parseError.Valid && parseError.String != ""
+
+		switch {
+		case hasParseError:
+			// 260607-koi: existing parse_error branch — preserved verbatim.
+			if _, err := pool.Exec(r.Context(),
+				`UPDATE pending_purchases SET parse_error = NULL WHERE id = $1`,
+				id,
+			); err != nil {
+				log.Printf("RetryParsePendingPurchase update: %v", err)
+				writeError(w, http.StatusInternalServerError, "internal_error")
+				return
+			}
+		case itemsMismatch:
+			// 260607-s6r: items-mismatch branch.
+			// Sentinel choice: items='[]'::jsonb is chosen because
+			// worker.go classifyExistingTx (lines 393–394) requires
+			//   jsonb_typeof(items)='array' AND jsonb_array_length(items)>0
+			// for hasItems=true. '[]' satisfies the typeof but fails the
+			// length, giving hasItems=false — exactly what
+			// worker.parseFailedRetry needs to re-fire on the next sync.
+			// Matches the 260607-dg9 convention.
+			if _, err := pool.Exec(r.Context(),
+				`UPDATE pending_purchases
+				    SET items = '[]'::jsonb,
+				        reason = 'Receipt could not be parsed automatically'
+				  WHERE id = $1`,
+				id,
+			); err != nil {
+				log.Printf("RetryParsePendingPurchase update: %v", err)
+				writeError(w, http.StatusInternalServerError, "internal_error")
+				return
+			}
+			log.Printf("RetryParse s6r: row %s re-queued (items-mismatch: line_total=%.2f bank_total=%.2f)",
+				id, lineTotal, absBank)
+		default:
+			// parse_error NULL AND items match totals (or items empty) —
+			// nothing to retry.
 			writeJSON(w, http.StatusUnprocessableEntity, map[string]string{
 				"error":  "nothing_to_retry",
-				"reason": "row has no parse_error to clear",
+				"reason": "row has no parse_error to clear and items match bank_total",
 			})
-			return
-		}
-
-		if _, err := pool.Exec(r.Context(),
-			`UPDATE pending_purchases SET parse_error = NULL WHERE id = $1`,
-			id,
-		); err != nil {
-			log.Printf("RetryParsePendingPurchase update: %v", err)
-			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
 
