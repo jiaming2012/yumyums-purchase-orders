@@ -115,6 +115,13 @@ Progress: [██████████] 100%
 Decisions are logged in PROJECT.md Key Decisions table.
 Recent decisions affecting current work:
 
+> **Status tags (new entries only — see `.planning/PLANNING-TEMPLATES.md` Block C):**
+> Format: `- [Phase NN] [LOCKED|PROBATIONARY|FLUID] [YYYY-MM-DD]: <decision>`
+> - **LOCKED** — frozen architecture; changing requires a superseding ADR-style row.
+> - **PROBATIONARY** — recently changed; watch for regression. Auto-promotes to LOCKED after 2 phases without re-litigation.
+> - **FLUID** — current best guess; cheap to revise.
+> Untagged rows below predate this convention and are implicitly LOCKED unless contradicted.
+
 - [v2.0 roadmap]: httpOnly, Secure, SameSite=Strict cookies — NOT localStorage — for session tokens (XSS risk; iOS standalone partition breaks localStorage anyway)
 - [v2.0 roadmap]: Same-origin serving — Go binary embeds frontend via embed.FS, serves both `/api/v1/*` and static files from same host — eliminates CORS entirely
 - [v2.0 roadmap]: IndexedDB + `online` event for offline queue — NOT Background Sync API (zero iOS Safari support)

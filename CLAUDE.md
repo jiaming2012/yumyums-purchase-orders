@@ -128,6 +128,21 @@ Add this test to `tests/persistence.spec.js` under the "Draft response persisten
 - **Required test:** Every new field type or data entry feature MUST have a back-and-reopen test in `tests/persistence.spec.js` — enter data → back → reopen → data still there. Feature is not complete without this test.
 - **Bug fix protocol (approval phase):** When a bug is found during human verification, write the regression test FIRST — before applying the fix. The test must fail (proving it captures the bug), then apply the fix, then verify the test passes. Only run the new test(s) during iteration, not the full suite: `npx playwright test tests/<file>.spec.js -g "<test name>"`. This ensures the test actually guards against the regression, not just passing by coincidence.
 
+### Definition of Done
+
+Templates for all blocks below live in `.planning/PLANNING-TEMPLATES.md`.
+
+- **`done_when:` block required in every PLAN.md and UI-SPEC.md.** Every criterion names the observable behavior AND the check that proves it ("Empty state renders 'No X yet' when DB returns [] — load page with empty fixture, screenshot"). Banned words: "looks good," "feels right," "polished," "clean," "nice."
+- **State Enumeration Table required in every UI-SPEC.md.** One table covering empty, loading, error, success, plus **at least 2 phase-specific edge rows** (long content, offline, 409 conflict, race — whichever apply). Each row names the trigger and the visual contract. The table is incomplete without the edge rows.
+- **Self-verification ritual before declaring a UI phase done.** This environment is headless — verify via screenshots, not imagination:
+  1. Write/extend a Playwright spec at `tests/states-<phase>.spec.js` that forces each State Enumeration Table row (fixture/mock/DB seed), navigates, and screenshots.
+  2. Run it (`--update-snapshots` first run; without it thereafter, as a regression suite).
+  3. Read the PNGs back with the Read tool (multimodal) and compare row-by-row against the visual contract.
+  4. Report what was *observed* — not what was intended — in the phase SUMMARY.md, with screenshots referenced.
+  5. If the dev server / DB / creds aren't available, say so explicitly and stop. Never declare done from code reading alone.
+- **Mockup sign-off before UI code on phases introducing new components.** Commit the mockup (HTML or annotated screenshot) at `.planning/.../<phase>/mockup.html` and wait for an explicit human "ok, build this" before touching production code. Note any deviation from the approved mockup in SUMMARY.md.
+- **Verifier subagent gate between build and SUMMARY.md on UI phases.** Spawn one verifier subagent whose inputs are ONLY: the UI-SPEC.md, the `done_when:` block, the diff, and the self-verify screenshots — not the planning conversation or the implementer's reasoning. It outputs pass/fail per `done_when:` row plus issues beyond the contract. SUMMARY.md may not be written until every row passes or is explicitly waived (waiver + reason noted in SUMMARY.md, e.g. "requires live Mercury creds").
+
 <!-- GSD:project-start source:PROJECT.md -->
 ## Project
 
