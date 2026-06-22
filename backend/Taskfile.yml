@@ -29,6 +29,17 @@ tasks:
       BASE_URL: 'http://{{.DEV_TS}}:{{.PORT}}'
       SUPERADMIN_CONFIG: config/superadmins.yaml
 
+  dev:log:
+    desc: Run the server with all log output written to a file
+    cmd: go run ./cmd/server
+    env:
+      STATIC_DIR: '{{.STATIC_DIR}}'
+      PORT: '{{.PORT}}'
+      DB_URL: '{{.DB_URL}}'
+      BASE_URL: 'http://{{.DEV_TS}}:{{.PORT}}'
+      SUPERADMIN_CONFIG: config/superadmins.yaml
+      LOG_TO_FILE: '1'
+
   dev:lan:
     desc: Run server against Windows box (LAN)
     cmd: go run ./cmd/server
@@ -48,6 +59,17 @@ tasks:
       DB_URL: 'postgres://{{.DB_USER}}:{{.DB_PASS}}@{{.WIN_TS}}:{{.WIN_PORT}}/{{.DB_NAME}}?sslmode=disable'
       BASE_URL: 'http://{{.DEV_TS}}:{{.PORT}}'
       SUPERADMIN_CONFIG: config/superadmins.yaml
+
+  dev:tailscale:log:
+    desc: Run server against Windows box (Tailscale) with log output written to a file
+    cmd: go run ./cmd/server
+    env:
+      STATIC_DIR: '{{.STATIC_DIR}}'
+      PORT: '{{.PORT}}'
+      DB_URL: 'postgres://{{.DB_USER}}:{{.DB_PASS}}@{{.WIN_TS}}:{{.WIN_PORT}}/{{.DB_NAME}}?sslmode=disable'
+      BASE_URL: 'http://{{.DEV_TS}}:{{.PORT}}'
+      SUPERADMIN_CONFIG: config/superadmins.yaml
+      LOG_TO_FILE: '1'
 
   prod:
     desc: Run the server in production mode (embedded assets, prod DB)

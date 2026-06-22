@@ -2,14 +2,18 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
 	"embed"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/fs"
 	"log"
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -143,6 +147,27 @@ func workflowOpRouter(pool *pgxpool.Pool) opsync.OpRouter {
 var embeddedFS embed.FS
 
 func main() {
+	// LOG_TO_FILE=1 redirects all log output to a timestamped file in logs/
+	if os.Getenv("LOG_TO_FILE") == "1" {
+		logDir := "logs"
+		if err := os.MkdirAll(logDir, 0o755); err != nil {
+			log.Fatalf("Failed to create log directory: %v", err)
+		}
+		randBytes := make([]byte, 4)
+		rand.Read(randBytes)
+		logName := fmt.Sprintf("hq_%s_%s.log",
+			time.Now().Format("20060102_150405"),
+			hex.EncodeToString(randBytes))
+		logPath := filepath.Join(logDir, logName)
+		f, err := os.Create(logPath)
+		if err != nil {
+			log.Fatalf("Failed to create log file: %v", err)
+		}
+		defer f.Close()
+		log.SetOutput(f)
+		fmt.Println(logPath)
+	}
+
 	var staticFS fs.FS
 	if dir := os.Getenv("STATIC_DIR"); dir != "" {
 		// Dev: serve from disk — no rebuild needed for frontend changes

@@ -1,5 +1,8 @@
 # Build output
 bin/
+
+# Server log files
+logs/
 .env
 
 # Stray `go build ./cmd/...` artifacts (binaries named after cmd dir, dropped
