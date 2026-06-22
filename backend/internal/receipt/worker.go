@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"math"
 	"net/http"
 	"path/filepath"
@@ -39,7 +39,7 @@ var (
 // worker logs a warning and returns immediately (graceful skip).
 func StartWorker(ctx context.Context, cfg WorkerConfig) {
 	if cfg.MercuryAPIKey == "" || cfg.AnthropicAPIKey == "" {
-		log.Println("WARNING: receipt worker: skipping — missing API keys (MERCURY_API_KEY or ANTHROPIC_API_KEY not set)")
+		slog.Warn("receipt worker: skipping — missing API keys (MERCURY_API_KEY or ANTHROPIC_API_KEY not set)")
 		return
 	}
 
@@ -48,12 +48,12 @@ func StartWorker(ctx context.Context, cfg WorkerConfig) {
 		interval = 6 * time.Hour
 	}
 
-	log.Printf("receipt worker: starting (interval=%s, lookback=%dd)", interval, cfg.LookbackDays)
+	slog.Info("receipt worker: starting", "interval", interval, "lookback_days", cfg.LookbackDays)
 
 	go func() {
 		// Run immediately on start, then on each tick
 		if _, err := runIngestCycle(ctx, cfg); err != nil {
-			log.Printf("receipt worker: ingest cycle error: %v", err)
+			slog.Error("receipt worker: ingest cycle error", "error", err)
 		}
 
 		ticker := time.NewTicker(interval)
@@ -62,11 +62,11 @@ func StartWorker(ctx context.Context, cfg WorkerConfig) {
 		for {
 			select {
 			case <-ctx.Done():
-				log.Println("receipt worker: shutting down")
+				slog.Info("receipt worker: shutting down")
 				return
 			case <-ticker.C:
 				if _, err := runIngestCycle(ctx, cfg); err != nil {
-					log.Printf("receipt worker: ingest cycle error: %v", err)
+					slog.Error("receipt worker: ingest cycle error", "error", err)
 				}
 			}
 		}
@@ -106,7 +106,7 @@ func runIngestCycle(ctx context.Context, cfg WorkerConfig) (IngestResult, error)
 	}
 
 	if len(txns) == 0 {
-		log.Println("receipt worker: no supported transactions found")
+		slog.Info("receipt worker: no supported transactions found")
 		return IngestResult{}, nil
 	}
 
@@ -126,7 +126,7 @@ func runIngestCycle(ctx context.Context, cfg WorkerConfig) (IngestResult, error)
 				   AND (mercury_category IS DISTINCT FROM $1)`,
 				tx.CategoryData.Name, tx.ID)
 			if refreshErr != nil {
-				log.Printf("receipt worker: refresh mercury_category for tx %s: %v (continuing)", tx.ID, refreshErr)
+				slog.Warn("receipt worker: refresh mercury_category failed", "tx_id", tx.ID, "error", refreshErr)
 			}
 		}
 
@@ -143,7 +143,7 @@ func runIngestCycle(ctx context.Context, cfg WorkerConfig) (IngestResult, error)
 				   AND (mercury_category IS DISTINCT FROM $1)`,
 				tx.CategoryData.Name, tx.ID)
 			if refreshErr != nil {
-				log.Printf("receipt worker: refresh pending_purchases.mercury_category for tx %s: %v (continuing)", tx.ID, refreshErr)
+				slog.Warn("receipt worker: refresh pending_purchases.mercury_category failed", "tx_id", tx.ID, "error", refreshErr)
 			}
 		}
 
@@ -154,7 +154,7 @@ func runIngestCycle(ctx context.Context, cfg WorkerConfig) (IngestResult, error)
 		// window auto-backfill on the next poll. No separate one-shot
 		// migration.
 		if backfillErr := backfillPendingVendor(ctx, cfg.Pool, tx); backfillErr != nil {
-			log.Printf("receipt worker: backfill vendor for tx %s: %v (continuing)", tx.ID, backfillErr)
+			slog.Warn("receipt worker: backfill vendor failed", "tx_id", tx.ID, "error", backfillErr)
 		}
 
 		// Idempotency: 3-way classify so we can detect the "stale no-attachment
@@ -167,7 +167,7 @@ func runIngestCycle(ctx context.Context, cfg WorkerConfig) (IngestResult, error)
 		// user-edited rows (items non-empty).
 		kind, existingReason, hasParseError, hasItems, err := classifyExistingTx(ctx, cfg.Pool, tx.ID)
 		if err != nil {
-			log.Printf("receipt worker: classifyExistingTx tx %s: %v", tx.ID, err)
+			slog.Error("receipt worker: classifyExistingTx failed", "tx_id", tx.ID, "error", err)
 			continue
 		}
 		isUpgrade := false
@@ -217,7 +217,7 @@ func runIngestCycle(ctx context.Context, cfg WorkerConfig) (IngestResult, error)
 					"no_attachment_on_bank_tx",
 					"", // parseError: no parse attempted on no-attachment branch
 				); routeErr != nil {
-					log.Printf("receipt worker: insertPendingPurchase (no-attachment) for tx %s: %v", tx.ID, routeErr)
+					slog.Error("receipt worker: insertPendingPurchase (no-attachment) failed", "tx_id", tx.ID, "error", routeErr)
 				}
 				pendingReview++
 			}
@@ -227,7 +227,7 @@ func runIngestCycle(ctx context.Context, cfg WorkerConfig) (IngestResult, error)
 		// Choose best attachment — prefer PDF for known multi-attachment vendors
 		attachment := pickAttachment(tx)
 		if attachment == nil {
-			log.Printf("receipt worker: transaction %s has attachments but none selected — skipping", tx.ID)
+			slog.Warn("receipt worker: transaction has attachments but none selected — skipping", "tx_id", tx.ID)
 			continue
 		}
 
@@ -235,7 +235,7 @@ func runIngestCycle(ctx context.Context, cfg WorkerConfig) (IngestResult, error)
 		// can inject fake bytes without an httptest.Server).
 		fileBytes, contentType, err := downloadReceiptFileFn(ctx, attachment.URL)
 		if err != nil {
-			log.Printf("receipt worker: download attachment for tx %s: %v", tx.ID, err)
+			slog.Error("receipt worker: download attachment failed", "tx_id", tx.ID, "error", err)
 			continue
 		}
 
@@ -249,24 +249,24 @@ func runIngestCycle(ctx context.Context, cfg WorkerConfig) (IngestResult, error)
 			key := fmt.Sprintf("receipts/%s/original%s", tx.ID, ext)
 			presignedURL, uploadErr := photos.GeneratePresignedPutURL(ctx, cfg.SpacesPresigner, cfg.SpacesBucket, key, contentType, 15*time.Minute)
 			if uploadErr != nil {
-				log.Printf("receipt worker: presign for tx %s: %v (continuing)", tx.ID, uploadErr)
+				slog.Warn("receipt worker: presign failed", "tx_id", tx.ID, "error", uploadErr)
 			} else {
 				putReq, reqErr := http.NewRequestWithContext(ctx, http.MethodPut, presignedURL, bytes.NewReader(fileBytes))
 				if reqErr != nil {
-					log.Printf("receipt worker: create PUT request for tx %s: %v (continuing)", tx.ID, reqErr)
+					slog.Warn("receipt worker: create PUT request failed", "tx_id", tx.ID, "error", reqErr)
 				} else {
 					putReq.Header.Set("Content-Type", contentType)
 					putReq.Header.Set("x-amz-acl", "public-read")
 					putReq.ContentLength = int64(len(fileBytes))
 					putResp, putErr := (&http.Client{Timeout: 60 * time.Second}).Do(putReq)
 					if putErr != nil {
-						log.Printf("receipt worker: upload to Spaces for tx %s: %v (continuing)", tx.ID, putErr)
+						slog.Warn("receipt worker: upload to Spaces failed", "tx_id", tx.ID, "error", putErr)
 					} else {
 						putResp.Body.Close()
 						if putResp.StatusCode >= 200 && putResp.StatusCode < 300 {
 							receiptURL = photos.PublicURL(cfg.SpacesEndpoint, cfg.SpacesBucket, key)
 						} else {
-							log.Printf("receipt worker: Spaces PUT for tx %s returned %d (continuing)", tx.ID, putResp.StatusCode)
+							slog.Warn("receipt worker: Spaces PUT returned non-2xx", "tx_id", tx.ID, "status", putResp.StatusCode)
 						}
 					}
 				}
@@ -281,13 +281,13 @@ func runIngestCycle(ctx context.Context, cfg WorkerConfig) (IngestResult, error)
 		items, summary, err := parseReceipt(ctx, cfg.AnthropicAPIKey, fileBytes, contentType)
 		if err != nil {
 			haikuErr := err
-			log.Printf("receipt worker: Haiku failed for tx %s, retrying with Sonnet: %v", tx.ID, haikuErr)
+			slog.Warn("receipt worker: Haiku failed, retrying with Sonnet", "tx_id", tx.ID, "error", haikuErr)
 			items, summary, err = parseReceiptWithSonnet(ctx, cfg.AnthropicAPIKey, fileBytes, contentType)
 			if err != nil {
 				combined := fmt.Sprintf("haiku: %v; sonnet: %v", haikuErr, err)
-				log.Printf("receipt worker: Sonnet also failed for tx %s: %v — routing to review queue", tx.ID, err)
+				slog.Error("receipt worker: Sonnet also failed — routing to review queue", "tx_id", tx.ID, "error", err)
 				if routeErr := routePending(ctx, cfg.Pool, tx, items, summary, receiptURL, "Receipt could not be parsed automatically", combined, isUpgrade); routeErr != nil {
-					log.Printf("receipt worker: routePending (parse-fail) for tx %s: %v", tx.ID, routeErr)
+					slog.Error("receipt worker: routePending (parse-fail) failed", "tx_id", tx.ID, "error", routeErr)
 				}
 				pendingReview++
 				continue
@@ -299,9 +299,9 @@ func runIngestCycle(ctx context.Context, cfg WorkerConfig) (IngestResult, error)
 		// Validate
 		result := ValidateReceiptData(items, summary, tx.Amount)
 		if !result.Valid {
-			log.Printf("receipt worker: transaction %s routed to review queue: %s", tx.ID, result.Reason)
+			slog.Info("receipt worker: transaction routed to review queue", "tx_id", tx.ID, "reason", result.Reason)
 			if routeErr := routePending(ctx, cfg.Pool, tx, items, summary, receiptURL, result.Reason, "", isUpgrade); routeErr != nil {
-				log.Printf("receipt worker: routePending (validate-fail) for tx %s: %v", tx.ID, routeErr)
+				slog.Error("receipt worker: routePending (validate-fail) failed", "tx_id", tx.ID, "error", routeErr)
 			}
 			pendingReview++
 			continue
@@ -312,9 +312,9 @@ func runIngestCycle(ctx context.Context, cfg WorkerConfig) (IngestResult, error)
 		// the event INSERT — atomic upgrade with no window for a concurrent
 		// re-sync to see both rows.
 		if err := createPurchaseEvent(ctx, cfg.Pool, tx, items, summary, receiptURL, isUpgrade); err != nil {
-			log.Printf("receipt worker: createPurchaseEvent for tx %s: %v — routing to review queue", tx.ID, err)
+			slog.Error("receipt worker: createPurchaseEvent failed — routing to review queue", "tx_id", tx.ID, "error", err)
 			if routeErr := routePending(ctx, cfg.Pool, tx, items, summary, receiptURL, "Receipt could not be saved automatically", "", isUpgrade); routeErr != nil {
-				log.Printf("receipt worker: routePending (save-fail) for tx %s: %v", tx.ID, routeErr)
+				slog.Error("receipt worker: routePending (save-fail) failed", "tx_id", tx.ID, "error", routeErr)
 			}
 			pendingReview++
 			continue
@@ -323,8 +323,8 @@ func runIngestCycle(ctx context.Context, cfg WorkerConfig) (IngestResult, error)
 		autoCreated++
 	}
 
-	log.Printf("receipt worker: processed %d transactions, %d auto-created, %d pending review, %d already cached",
-		len(txns), autoCreated, pendingReview, skippedCached)
+	slog.Info("receipt worker: cycle complete",
+		"processed", len(txns), "auto_created", autoCreated, "pending_review", pendingReview, "cached", skippedCached)
 	return IngestResult{
 		Processed:     len(txns),
 		AutoCreated:   autoCreated,

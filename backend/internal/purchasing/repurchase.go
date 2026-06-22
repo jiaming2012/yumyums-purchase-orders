@@ -3,7 +3,7 @@ package purchasing
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -47,7 +47,7 @@ func RecordRepurchase(ctx context.Context, pool *pgxpool.Pool, sectionID string)
 			INSERT INTO repurchase_log (purchase_item_id, shopping_list_id, quantity)
 			VALUES ($1, $2, $3)
 		`, it.purchaseItemID, it.listID, it.qty); err != nil {
-			log.Printf("RecordRepurchase: insert log for item %s: %v", it.purchaseItemID, err)
+			slog.Error("RecordRepurchase insert log failed", "purchase_item_id", it.purchaseItemID, "error", err)
 			// Continue — other items should still be recorded
 		}
 	}
@@ -129,7 +129,7 @@ func UpsertRepurchaseResetConfig(ctx context.Context, pool *pgxpool.Pool, dayOfW
 func runRepurchaseResetCheck(ctx context.Context, pool *pgxpool.Pool) {
 	cfg, err := GetRepurchaseResetConfig(ctx, pool)
 	if err != nil {
-		log.Printf("repurchase reset: GetRepurchaseResetConfig error: %v", err)
+		slog.Error("repurchase reset GetRepurchaseResetConfig error", "error", err)
 		return
 	}
 	if cfg == nil {
@@ -138,13 +138,13 @@ func runRepurchaseResetCheck(ctx context.Context, pool *pgxpool.Pool) {
 
 	loc, err := time.LoadLocation(cfg.Timezone)
 	if err != nil {
-		log.Printf("repurchase reset: invalid timezone %q: %v", cfg.Timezone, err)
+		slog.Error("repurchase reset invalid timezone", "timezone", cfg.Timezone, "error", err)
 		return
 	}
 
 	hour, minute, err := parseCutoffTime(cfg.ResetTime)
 	if err != nil {
-		log.Printf("repurchase reset: parse reset_time %q: %v", cfg.ResetTime, err)
+		slog.Error("repurchase reset parse reset_time failed", "reset_time", cfg.ResetTime, "error", err)
 		return
 	}
 
@@ -170,8 +170,8 @@ func runRepurchaseResetCheck(ctx context.Context, pool *pgxpool.Pool) {
 	if _, err := pool.Exec(ctx, `
 		UPDATE repurchase_reset_config SET last_reset_at = $1, updated_at = now()
 	`, resetCandidate); err != nil {
-		log.Printf("repurchase reset: update error: %v", err)
+		slog.Error("repurchase reset update error", "error", err)
 		return
 	}
-	log.Printf("repurchase reset: triggered automatic badge reset at %s", resetCandidate.Format(time.RFC3339))
+	slog.Info("repurchase reset triggered automatic badge reset", "reset_at", resetCandidate.Format(time.RFC3339))
 }

@@ -35,7 +35,7 @@ package main
 import (
 	"context"
 	"flag"
-	"log"
+	"log/slog"
 	"os"
 	"time"
 
@@ -45,34 +45,42 @@ import (
 )
 
 func main() {
+	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stderr, nil)))
+
 	fromStr := flag.String("from", "", "Start date YYYY-MM-DD (required)")
 	toStr := flag.String("to", "", "End date YYYY-MM-DD (required)")
 	flag.Parse()
 
 	if *fromStr == "" || *toStr == "" {
 		flag.Usage()
-		log.Fatal("--from and --to are required")
+		slog.Error("--from and --to are required")
+		os.Exit(1)
 	}
 	fromDate, err := time.Parse("2006-01-02", *fromStr)
 	if err != nil {
-		log.Fatalf("--from %q invalid (want YYYY-MM-DD): %v", *fromStr, err)
+		slog.Error("invalid --from date (want YYYY-MM-DD)", "from", *fromStr, "error", err)
+		os.Exit(1)
 	}
 	toDate, err := time.Parse("2006-01-02", *toStr)
 	if err != nil {
-		log.Fatalf("--to %q invalid (want YYYY-MM-DD): %v", *toStr, err)
+		slog.Error("invalid --to date (want YYYY-MM-DD)", "to", *toStr, "error", err)
+		os.Exit(1)
 	}
 	if toDate.Before(fromDate) {
-		log.Fatalf("--to (%s) is before --from (%s)", *toStr, *fromStr)
+		slog.Error("--to is before --from", "to", *toStr, "from", *fromStr)
+		os.Exit(1)
 	}
 
 	dbURL := os.Getenv("DB_URL")
 	if dbURL == "" {
-		log.Fatal("DB_URL is required")
+		slog.Error("DB_URL is required")
+		os.Exit(1)
 	}
 
 	cfg, err := toast.LoadConfigFromEnv()
 	if err != nil {
-		log.Fatalf("toast config: %v", err)
+		slog.Error("toast config failed", "error", err)
+		os.Exit(1)
 	}
 
 	// Phase 22.1: RunIngest reads from Spaces. Build the Spaces client here
@@ -83,7 +91,8 @@ func main() {
 	spacesRegion := os.Getenv("DO_SPACES_REGION")
 	spacesBucket := os.Getenv("DO_SPACES_BUCKET")
 	if spacesKey == "" || spacesSecret == "" || spacesEndpoint == "" || spacesRegion == "" || spacesBucket == "" {
-		log.Fatal("DO_SPACES_KEY, DO_SPACES_SECRET, DO_SPACES_ENDPOINT, DO_SPACES_REGION, DO_SPACES_BUCKET must all be set")
+		slog.Error("DO_SPACES_KEY, DO_SPACES_SECRET, DO_SPACES_ENDPOINT, DO_SPACES_REGION, DO_SPACES_BUCKET must all be set")
+		os.Exit(1)
 	}
 	cfg.SpacesClient = photos.NewSpacesClient(photos.SpacesConfig{
 		AccessKey: spacesKey,
@@ -99,19 +108,24 @@ func main() {
 	ctx := context.Background()
 	pool, err := pgxpool.New(ctx, dbURL)
 	if err != nil {
-		log.Fatalf("db connect: %v", err)
+		slog.Error("db connect failed", "error", err)
+		os.Exit(1)
 	}
 	defer pool.Close()
 	cfg.Pool = pool
 
 	result, err := toast.RunIngest(ctx, pool, cfg, fromDate, toDate)
 	if err != nil {
-		log.Fatalf("ingest: %v", err)
+		slog.Error("ingest failed", "error", err)
+		os.Exit(1)
 	}
 
-	log.Printf("done. dates=[%s..%s] items_upserted=%d sales_rows_upserted=%d duration=%s",
-		fromDate.Format("20060102"), toDate.Format("20060102"),
-		result.ItemsUpserted, result.SalesRowsUpserted, result.Duration)
+	slog.Info("done",
+		"from", fromDate.Format("20060102"),
+		"to", toDate.Format("20060102"),
+		"items_upserted", result.ItemsUpserted,
+		"sales_rows_upserted", result.SalesRowsUpserted,
+		"duration", result.Duration)
 }
 
 func envOr(k, d string) string {

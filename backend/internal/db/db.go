@@ -4,7 +4,7 @@ import (
 	"context"
 	"embed"
 	"fmt"
-	"log"
+	"log/slog"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/stdlib"
@@ -42,7 +42,7 @@ func Migrate(pool *pgxpool.Pool) error {
 	if err := goose.Up(sqlDB, "migrations"); err != nil {
 		return fmt.Errorf("run migrations: %w", err)
 	}
-	log.Println("Database migrations applied successfully")
+	slog.Info("database migrations applied successfully")
 	return nil
 }
 

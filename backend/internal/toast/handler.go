@@ -2,7 +2,7 @@ package toast
 
 import (
 	"encoding/json"
-	"log"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -62,7 +62,7 @@ func ListMenuItemsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			GROUP BY mi.id
 			ORDER BY mi.last_seen DESC`, sinceStr)
 		if err != nil {
-			log.Printf("ListMenuItems query: %v", err)
+			slog.Error("ListMenuItems query", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -77,7 +77,7 @@ func ListMenuItemsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				&lastSeen, &m.CreatedAt,
 				&m.UnitsSoldThisWeek, &m.GrossThisWeek,
 			); err != nil {
-				log.Printf("ListMenuItems scan: %v", err)
+				slog.Error("ListMenuItems scan", "error", err)
 				writeError(w, http.StatusInternalServerError, "internal_error")
 				return
 			}
@@ -85,7 +85,7 @@ func ListMenuItemsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			out = append(out, m)
 		}
 		if err := rows.Err(); err != nil {
-			log.Printf("ListMenuItems rows.Err: %v", err)
+			slog.Error("ListMenuItems rows.Err", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}

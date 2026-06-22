@@ -3,7 +3,7 @@ package purchasing
 import (
 	"encoding/json"
 	"errors"
-	"log"
+	"log/slog"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -33,7 +33,7 @@ func GetOrCreateOrderHandler(pool *pgxpool.Pool) http.HandlerFunc {
 
 		po, err := GetOrCreateOrder(r.Context(), pool)
 		if err != nil {
-			log.Printf("GetOrCreateOrder: %v", err)
+			slog.Error("GetOrCreateOrder failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -49,7 +49,7 @@ func GetOrderHandler(pool *pgxpool.Pool) http.HandlerFunc {
 
 		po, err := GetOrderByID(r.Context(), pool, id)
 		if err != nil {
-			log.Printf("GetOrderByID: %v", err)
+			slog.Error("GetOrderByID failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -93,14 +93,14 @@ func UpsertLineItemsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				writeError(w, http.StatusConflict, "po_not_draft")
 				return
 			}
-			log.Printf("UpsertLineItems: %v", err)
+			slog.Error("UpsertLineItems failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
 
 		po, err := GetOrderByID(r.Context(), pool, id)
 		if err != nil {
-			log.Printf("GetOrderByID after upsert: %v", err)
+			slog.Error("GetOrderByID after upsert failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -116,7 +116,7 @@ func GetSuggestionsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 
 		suggestions, err := GetSuggestions(r.Context(), pool, id)
 		if err != nil {
-			log.Printf("GetSuggestions: %v", err)
+			slog.Error("GetSuggestions failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -139,7 +139,7 @@ func GetActiveShoppingListHandler(pool *pgxpool.Pool) http.HandlerFunc {
 
 		sl, err := GetActiveShoppingList(r.Context(), pool)
 		if err != nil {
-			log.Printf("GetActiveShoppingList: %v", err)
+			slog.Error("GetActiveShoppingList failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -160,7 +160,7 @@ func GetShoppingListHistoryHandler(pool *pgxpool.Pool) http.HandlerFunc {
 
 		lists, err := GetShoppingListHistory(r.Context(), pool)
 		if err != nil {
-			log.Printf("GetShoppingListHistory: %v", err)
+			slog.Error("GetShoppingListHistory failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -184,7 +184,7 @@ func GetShoppingListHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		id := chi.URLParam(r, "id")
 		sl, err := GetShoppingListByID(r.Context(), pool, id)
 		if err != nil {
-			log.Printf("GetShoppingListByID: %v", err)
+			slog.Error("GetShoppingListByID failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -216,7 +216,7 @@ func CheckShoppingItemHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 
 		if err := CheckShoppingItem(r.Context(), pool, req.ItemID, req.Checked, user.ID); err != nil {
-			log.Printf("CheckShoppingItem: %v", err)
+			slog.Error("CheckShoppingItem failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -244,7 +244,7 @@ func UpdateShoppingItemLocationHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 
 		if err := UpdateShoppingItemLocation(r.Context(), pool, itemID, req.StoreLocation); err != nil {
-			log.Printf("UpdateShoppingItemLocation: %v", err)
+			slog.Error("UpdateShoppingItemLocation failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -272,7 +272,7 @@ func UpdateShoppingItemPhotoHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 
 		if err := UpdateShoppingItemPhoto(r.Context(), pool, itemID, req.PhotoURL); err != nil {
-			log.Printf("UpdateShoppingItemPhoto: %v", err)
+			slog.Error("UpdateShoppingItemPhoto failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -294,7 +294,7 @@ func CompleteVendorSectionHandler(pool *pgxpool.Pool) http.HandlerFunc {
 
 		listCompleted, err := CompleteVendorSection(r.Context(), pool, vendorSectionID, user.ID)
 		if err != nil {
-			log.Printf("CompleteVendorSection: %v", err)
+			slog.Error("CompleteVendorSection failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -318,7 +318,7 @@ func GetCutoffConfigHandler(pool *pgxpool.Pool) http.HandlerFunc {
 
 		cfg, err := GetCutoffConfig(r.Context(), pool)
 		if err != nil {
-			log.Printf("GetCutoffConfig: %v", err)
+			slog.Error("GetCutoffConfig failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -360,7 +360,7 @@ func UpsertCutoffConfigHandler(pool *pgxpool.Pool) http.HandlerFunc {
 
 		cfg, err := UpsertCutoffConfig(r.Context(), pool, req.DayOfWeek, req.CutoffTime, req.Timezone)
 		if err != nil {
-			log.Printf("UpsertCutoffConfig: %v", err)
+			slog.Error("UpsertCutoffConfig failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -385,7 +385,7 @@ func SimulateCutoffHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		// Block if there's already a locked PO awaiting approval
 		lockedPO, err := GetOrdersByStatus(r.Context(), pool, "locked")
 		if err != nil {
-			log.Printf("SimulateCutoff: check locked: %v", err)
+			slog.Error("SimulateCutoff check locked failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -397,7 +397,7 @@ func SimulateCutoffHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		// Find current draft PO
 		po, err := GetOrCreateOrder(r.Context(), pool)
 		if err != nil {
-			log.Printf("SimulateCutoff: GetOrCreateOrder: %v", err)
+			slog.Error("SimulateCutoff GetOrCreateOrder failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -412,7 +412,7 @@ func SimulateCutoffHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				writeError(w, http.StatusConflict, "po_not_draft")
 				return
 			}
-			log.Printf("SimulateCutoff: LockPO: %v", err)
+			slog.Error("SimulateCutoff LockPO failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -420,7 +420,7 @@ func SimulateCutoffHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		// Return the now-locked PO
 		locked, err := GetOrderByID(r.Context(), pool, po.ID)
 		if err != nil {
-			log.Printf("SimulateCutoff: GetOrderByID: %v", err)
+			slog.Error("SimulateCutoff GetOrderByID failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -446,7 +446,7 @@ func GetOrdersByStatusHandler(pool *pgxpool.Pool) http.HandlerFunc {
 
 		po, err := GetOrdersByStatus(r.Context(), pool, status)
 		if err != nil {
-			log.Printf("GetOrdersByStatus: %v", err)
+			slog.Error("GetOrdersByStatus failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -475,14 +475,14 @@ func LockPOHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				writeError(w, http.StatusConflict, "po_not_draft")
 				return
 			}
-			log.Printf("LockPO: %v", err)
+			slog.Error("LockPO failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
 
 		po, err := GetOrderByID(r.Context(), pool, id)
 		if err != nil {
-			log.Printf("LockPOHandler: GetOrderByID: %v", err)
+			slog.Error("LockPOHandler GetOrderByID failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -514,14 +514,14 @@ func UnlockPOHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				writeError(w, http.StatusConflict, "cannot_unlock_after_approval")
 				return
 			}
-			log.Printf("UnlockPO: %v", err)
+			slog.Error("UnlockPO failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
 
 		po, err := GetOrderByID(r.Context(), pool, id)
 		if err != nil {
-			log.Printf("UnlockPOHandler: GetOrderByID: %v", err)
+			slog.Error("UnlockPOHandler GetOrderByID failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -554,7 +554,7 @@ func ApprovePOHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				writeError(w, http.StatusConflict, "active_shopping_list_exists")
 				return
 			}
-			log.Printf("ApprovePO: %v", err)
+			slog.Error("ApprovePO failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -577,7 +577,7 @@ func RepurchaseResetHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 		if err := TriggerRepurchaseReset(r.Context(), pool); err != nil {
-			log.Printf("RepurchaseResetHandler: %v", err)
+			slog.Error("RepurchaseResetHandler failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -600,7 +600,7 @@ func GetRepurchaseResetConfigHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 		cfg, err := GetRepurchaseResetConfig(r.Context(), pool)
 		if err != nil {
-			log.Printf("GetRepurchaseResetConfigHandler: %v", err)
+			slog.Error("GetRepurchaseResetConfigHandler failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -646,7 +646,7 @@ func UpsertRepurchaseResetConfigHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 		cfg, err := UpsertRepurchaseResetConfig(r.Context(), pool, input.DayOfWeek, input.ResetTime, input.Timezone)
 		if err != nil {
-			log.Printf("UpsertRepurchaseResetConfigHandler: %v", err)
+			slog.Error("UpsertRepurchaseResetConfigHandler failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}

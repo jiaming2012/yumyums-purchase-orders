@@ -3,7 +3,7 @@ package onboarding
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -111,7 +111,7 @@ func seedTemplate(ctx context.Context, pool *pgxpool.Pool, input CreateTemplateI
 				`UPDATE ob_templates SET roles = $2 WHERE name = $1 AND (roles IS NULL OR roles != $2)`,
 				input.Name, input.Roles)
 		}
-		log.Printf("Onboarding template %q already exists, skipping", input.Name)
+		slog.Info("onboarding template already exists, skipping", "name", input.Name)
 		return nil
 	}
 
@@ -119,7 +119,7 @@ func seedTemplate(ctx context.Context, pool *pgxpool.Pool, input CreateTemplateI
 	if err != nil {
 		return fmt.Errorf("create template: %w", err)
 	}
-	log.Printf("Seeded onboarding template %q (id=%s)", input.Name, id)
+	slog.Info("seeded onboarding template", "name", input.Name, "id", id)
 	return nil
 }
 

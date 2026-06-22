@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -46,26 +46,26 @@ func RunIngest(ctx context.Context, pool *pgxpool.Pool, cfg Config, fromDate, to
 			if errors.As(err, &nsk) {
 				// D-05 generalization: clean miss on Spaces is expected for dates
 				// past Toast's retention horizon that migration hasn't seeded yet.
-				log.Printf("toast ingest: skip %s (not in Spaces)", dateDir)
+				slog.Info("toast ingest: skip (not in Spaces)", "date", dateDir)
 				continue
 			}
 			// Other Spaces errors (auth, network) — log per-date but DON'T return.
 			// Worker's per-cycle wrapper decides whether systemic counter should
 			// fire (it observes whether RunIngest returns an error overall).
-			log.Printf("toast ingest: skip %s (spaces: %v)", dateDir, err)
+			slog.Error("toast ingest: skip (spaces error)", "date", dateDir, "error", err)
 			continue
 		}
 
 		rows, parseErr := parseItemSelectionDetails(resp.Body, d.Format("2006-01-02"))
 		resp.Body.Close()
 		if parseErr != nil {
-			log.Printf("toast ingest: skip %s (parse: %v)", dateDir, parseErr)
+			slog.Error("toast ingest: skip (parse error)", "date", dateDir, "error", parseErr)
 			continue
 		}
 
 		items, sales, err := upsertDayInTx(ctx, pool, rows)
 		if err != nil {
-			log.Printf("toast ingest: skip %s (db: %v)", dateDir, err)
+			slog.Error("toast ingest: skip (db error)", "date", dateDir, "error", err)
 			continue
 		}
 

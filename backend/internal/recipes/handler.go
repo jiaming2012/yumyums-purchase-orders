@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"log"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -114,7 +114,7 @@ LEFT JOIN menu_units mu ON mu.menu_item_id = mi.id
 GROUP BY mi.id, mi.master_id, mi.name, mi.menu_group, mi.menu_subgroup, mu.units_sold
 ORDER BY mi.name`, fromStr, toStr)
 		if err != nil {
-			log.Printf("MenuCogs summary query: %v", err)
+			slog.Error("MenuCogs summary query", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -130,7 +130,7 @@ ORDER BY mi.name`, fromStr, toStr)
 				&row.MenuGroup, &row.MenuSubgroup, &row.UnitsSold,
 				&row.IngredientCostTotal, &perUnit,
 			); err != nil {
-				log.Printf("MenuCogs summary scan: %v", err)
+				slog.Error("MenuCogs summary scan", "error", err)
 				writeError(w, http.StatusInternalServerError, "internal_error")
 				return
 			}
@@ -139,7 +139,7 @@ ORDER BY mi.name`, fromStr, toStr)
 			rowsOut = append(rowsOut, row)
 		}
 		if err := summaryRows.Err(); err != nil {
-			log.Printf("MenuCogs summary iter: %v", err)
+			slog.Error("MenuCogs summary iter", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -169,7 +169,7 @@ LEFT JOIN purchase_item_alloc pia ON pia.purchase_item_id = ws.purchase_item_id`
 			fromStr, toStr,
 		).Scan(&totalUnalloc)
 		if err != nil {
-			log.Printf("MenuCogs unallocated query: %v", err)
+			slog.Error("MenuCogs unallocated query", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -187,13 +187,13 @@ LEFT JOIN purchase_item_alloc pia ON pia.purchase_item_id = ws.purchase_item_id`
 			// ── Query 3 (breakdown only): per-ingredient detail per menu_item ──
 			// Plus query 4: by-ingredient unallocated breakdown.
 			if err := loadBreakdown(ctx, pool, fromStr, toStr, rowsOut, rowIndex); err != nil {
-				log.Printf("MenuCogs breakdown ingredient query: %v", err)
+				slog.Error("MenuCogs breakdown ingredient query", "error", err)
 				writeError(w, http.StatusInternalServerError, "internal_error")
 				return
 			}
 			unalloc, err := loadUnallocatedBreakdown(ctx, pool, fromStr, toStr, totalUnalloc)
 			if err != nil {
-				log.Printf("MenuCogs unallocated breakdown query: %v", err)
+				slog.Error("MenuCogs unallocated breakdown query", "error", err)
 				writeError(w, http.StatusInternalServerError, "internal_error")
 				return
 			}
@@ -353,7 +353,7 @@ func ListRecipesHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 		ingredients, err := ListIngredientsWithSpend(r.Context(), pool, fromStr, toStr)
 		if err != nil {
-			log.Printf("ListRecipes: %v", err)
+			slog.Error("ListRecipes", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -411,7 +411,7 @@ func CreateRecipeHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				writeError(w, http.StatusConflict, "recipe_already_exists")
 				return
 			}
-			log.Printf("CreateRecipe: %v", err)
+			slog.Error("CreateRecipe", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -458,7 +458,7 @@ func UpdateRecipeHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 		if err != nil {
-			log.Printf("UpdateRecipe: %v", err)
+			slog.Error("UpdateRecipe", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -480,7 +480,7 @@ func DeleteRecipeHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 		if err != nil {
-			log.Printf("DeleteRecipe: %v", err)
+			slog.Error("DeleteRecipe", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -512,7 +512,7 @@ func MergeMenuItemHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				writeError(w, http.StatusBadRequest, "cannot_merge_into_self")
 				return
 			}
-			log.Printf("MergeMenuItem: %v", err)
+			slog.Error("MergeMenuItem", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -537,7 +537,7 @@ func DriftBannerHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 		if err != nil {
-			log.Printf("DriftBanner: %v", err)
+			slog.Error("DriftBanner", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}

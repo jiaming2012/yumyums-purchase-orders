@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"time"
 
 	"github.com/yumyums/hq/internal/alerts"
@@ -55,19 +55,18 @@ func StartWorker(ctx context.Context, cfg Config) {
 	// Graceful guard for D-06: if Spaces isn't configured, log + return.
 	// Server keeps running; receipt worker and other subsystems are unaffected.
 	if cfg.SpacesClient == nil || cfg.SpacesBucket == "" {
-		log.Println("WARNING: toast worker: DO Spaces not configured — ingest disabled (server continues)")
+		slog.Warn("toast worker: DO Spaces not configured — ingest disabled (server continues)")
 		return
 	}
 
 	interval := cfg.Interval
 	if interval <= 0 {
 		// Defensive — main.go should have already returned early on interval=0.
-		log.Println("toast worker: refusing to start with non-positive interval; check TOAST_SYNC_INTERVAL")
+		slog.Warn("toast worker: refusing to start with non-positive interval; check TOAST_SYNC_INTERVAL")
 		return
 	}
 
-	log.Printf("toast worker: starting (interval=%s, window=%dd, backfill=%dd)",
-		interval, cfg.SyncWindowDays, cfg.BackfillDays)
+	slog.Info("toast worker: starting", "interval", interval, "window_days", cfg.SyncWindowDays, "backfill_days", cfg.BackfillDays)
 
 	go func() {
 		// Run immediately on start (mirrors receipt.StartWorker + purchasing.StartScheduler).
@@ -79,7 +78,7 @@ func StartWorker(ctx context.Context, cfg Config) {
 		for {
 			select {
 			case <-ctx.Done():
-				log.Println("toast worker: shutting down")
+				slog.Info("toast worker: shutting down")
 				return
 			case <-ticker.C:
 				runCycle(ctx, cfg)
@@ -94,14 +93,14 @@ func StartWorker(ctx context.Context, cfg Config) {
 func runCycle(ctx context.Context, cfg Config) {
 	cold, err := isColdStart(ctx, cfg.Pool)
 	if err != nil {
-		log.Printf("toast worker: cold-start check failed: %v", err)
+		slog.Error("toast worker: cold-start check failed", "error", err)
 		return
 	}
 
 	windowDays := cfg.SyncWindowDays
 	if cold {
 		windowDays = cfg.BackfillDays
-		log.Printf("toast worker: cold start detected — pulling last %d days", windowDays)
+		slog.Info("toast worker: cold start detected", "backfill_days", windowDays)
 	}
 
 	toDate := time.Now()
@@ -124,15 +123,15 @@ func runCycle(ctx context.Context, cfg Config) {
 			exists, headErr := SpacesKeyExists(ctx, cfg.SpacesClient, cfg.SpacesBucket, csvKey)
 			switch {
 			case headErr != nil:
-				log.Printf("toast sync: skip %s (not in SFTP, Spaces check failed: %v)", dateDir, headErr)
+				slog.Warn("toast sync: skip (not in SFTP, Spaces check failed)", "date", dateDir, "error", headErr)
 			case exists:
-				log.Printf("toast sync: skip %s (not in SFTP, archived in Spaces)", dateDir)
+				slog.Info("toast sync: skip (not in SFTP, archived in Spaces)", "date", dateDir)
 			default:
-				log.Printf("toast sync: skip %s (not in SFTP, MISSING from Spaces)", dateDir)
+				slog.Warn("toast sync: skip (not in SFTP, MISSING from Spaces)", "date", dateDir)
 			}
 		case sErr != nil:
 			// Non-miss Spaces error (PutObject failure, network, auth, etc.) — systemic.
-			log.Printf("ERROR toast sync: %s: %v", dateDir, sErr)
+			slog.Error("toast sync: systemic error", "date", dateDir, "error", sErr)
 			syncSystemicErr = true
 			lastSyncErr = sErr
 		case wrote:
@@ -143,7 +142,7 @@ func runCycle(ctx context.Context, cfg Config) {
 	// --- Ingest phase ---
 	result, iErr := RunIngest(ctx, cfg.Pool, cfg, fromDate, toDate)
 	if iErr != nil {
-		log.Printf("toast worker: ingest cycle aborted: %v", iErr)
+		slog.Error("toast worker: ingest cycle aborted", "error", iErr)
 		// RunIngest returns non-nil only on systemic precondition failure
 		// (e.g., SpacesClient nil) — count as systemic.
 		syncSystemicErr = true
@@ -153,31 +152,33 @@ func runCycle(ctx context.Context, cfg Config) {
 	// --- Failure-counter bookkeeping (D-06) ---
 	if syncSystemicErr {
 		consecSpacesFails++
-		log.Printf("toast worker: consecutive Spaces failures = %d", consecSpacesFails)
+		slog.Warn("toast worker: consecutive Spaces failures", "count", consecSpacesFails)
 		if consecSpacesFails >= 3 && !alertFiredAtThreshold {
 			fireDegradedAlert(lastSyncErr)
 			alertFiredAtThreshold = true
 		}
 		// Per-cycle summary still emitted even on partial failure if ingest produced anything.
 		if result != nil {
-			log.Printf("toast ingest: dates=[%s..%s] items_upserted=%d sales_rows_upserted=%d duration=%s synced=%d (degraded)",
-				fromDate.Format("20060102"), toDate.Format("20060102"),
-				result.ItemsUpserted, result.SalesRowsUpserted, result.Duration, syncedCount)
+			slog.Warn("toast ingest: cycle complete (degraded)",
+				"from", fromDate.Format("20060102"), "to", toDate.Format("20060102"),
+				"items_upserted", result.ItemsUpserted, "sales_rows_upserted", result.SalesRowsUpserted,
+				"duration", result.Duration, "synced", syncedCount)
 		}
 		return
 	}
 
 	// Clean tick — reset counter + alert latch.
 	if consecSpacesFails > 0 || alertFiredAtThreshold {
-		log.Printf("toast worker: Spaces recovered after %d consecutive failures", consecSpacesFails)
+		slog.Info("toast worker: Spaces recovered", "previous_failures", consecSpacesFails)
 	}
 	consecSpacesFails = 0
 	alertFiredAtThreshold = false
 
 	// D-13: single INFO line per cycle.
-	log.Printf("toast ingest: dates=[%s..%s] items_upserted=%d sales_rows_upserted=%d duration=%s synced=%d",
-		fromDate.Format("20060102"), toDate.Format("20060102"),
-		result.ItemsUpserted, result.SalesRowsUpserted, result.Duration, syncedCount)
+	slog.Info("toast ingest: cycle complete",
+		"from", fromDate.Format("20060102"), "to", toDate.Format("20060102"),
+		"items_upserted", result.ItemsUpserted, "sales_rows_upserted", result.SalesRowsUpserted,
+		"duration", result.Duration, "synced", syncedCount)
 }
 
 // fireDegradedAlert dispatches one Cliq alert to the purchaseandinventory
@@ -185,7 +186,7 @@ func runCycle(ctx context.Context, cfg Config) {
 // in alerts/config.go). Nil-safe — no-op if SetAlertQueue was not called.
 func fireDegradedAlert(lastErr error) {
 	if alertQueue == nil {
-		log.Println("toast worker: degraded alert would be sent but alertQueue is not configured")
+		slog.Warn("toast worker: degraded alert would be sent but alertQueue is not configured")
 		return
 	}
 	msg := fmt.Sprintf("Toast sync degraded: 3 consecutive failed ticks talking to DO Spaces. Last error: %v", lastErr)
@@ -193,5 +194,5 @@ func fireDegradedAlert(lastErr error) {
 		Channel: alerts.ChannelZohoCliq,
 		Message: msg,
 	})
-	log.Printf("toast worker: ALERT dispatched: %s", msg)
+	slog.Warn("toast worker: ALERT dispatched", "message", msg)
 }
