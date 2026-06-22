@@ -9,7 +9,7 @@ vars:
   DB_PORT: '{{.DB_PORT | default "5432"}}'
   DB_URL: '{{.DB_URL | default (printf "postgres://%s:%s@%s:%s/%s?sslmode=disable" .DB_USER .DB_PASS .DB_HOST .DB_PORT .DB_NAME)}}'
   DB_TEST_URL: '{{.DB_TEST_URL | default (printf "postgres://%s:%s@%s:%s/hq_test?sslmode=disable" .DB_USER .DB_PASS .DB_HOST .DB_PORT)}}'
-  PORT: '{{.PORT | default "8080"}}'
+  PORT: '{{.PORT | default "8484"}}'
   STATIC_DIR: '{{.STATIC_DIR | default ".."}}'
 
   # Network addresses
