@@ -19,6 +19,14 @@ summary.total = signed sum of price*quantity across ALL images + summary.tax.
 summary.tax = signed sum of taxes across ALL images.
 summary.vendor = vendor from the purchase image.
 
+PRICE FIELD (CRITICAL):
+- "price" is the UNIT price. "price * quantity" MUST equal the line's extended total shown on the receipt.
+- Weight-priced item example: a line "BEEF CHUCK 10.13 lbs @ $5.30/lb = $53.69" -> {"quantity": 10.13, "price": 5.30}, NOT {"quantity": 10.13, "price": 53.69}.
+- Each-priced item example: "HUNTS KETCHUP 1 ea @ $34.30 = $34.30" -> {"quantity": 1, "price": 34.30}.
+- Multi-case example: "BAG BRN 1/8 5 cases @ $8.33 = $41.65" -> {"quantity": 5, "price": 8.33}.
+- If a line shows ONLY the extended total (no per-unit breakdown visible), set quantity=1 and price=extended_total.
+- Verify before emitting: sum(price * quantity) across ALL items must equal (summary.total - summary.tax) within $0.01.
+
 Return ONLY raw JSON. No markdown code fences. No explanation.
 
 Example:
@@ -144,20 +152,19 @@ func parseJSONBody(text string) ([]ReceiptItem, ReceiptSummary, error) {
 func ParseReceiptWithFeedback(ctx context.Context, apiKey string, blobs []FileBlob, prevTotal float64, bankAmount float64, validateReason string) ([]ReceiptItem, ReceiptSummary, error) {
 	client := anthropic.NewClient(option.WithAPIKey(apiKey))
 
-	diff := prevTotal - (-bankAmount)
+	feedbackPrompt := fmt.Sprintf(`You previously parsed this receipt. Your output failed validation:
+  failure: %s
+  your previous summary.total: $%.2f
 
-	feedbackPrompt := fmt.Sprintf(`You previously parsed this receipt and returned summary.total = $%.2f.
-The bank transaction amount is $%.2f. The receipt total must equal $%.2f.
-Discrepancy: $%.2f.
+The bank transaction amount is $%.2f (negative = debit). The receipt total must equal $%.2f.
 
-Look at the attached image(s) again. Find what's missing or wrong:
-- Is there a refund / credit memo / return whose negative items you skipped?
-- If multiple images are attached, did you treat them as one combined transaction?
-- Did you misread a digit or miss a discount line?
+Common causes of validation failure:
+- "Receipt total $X does not match transaction amount $Y": you missed a refund / credit memo / discount, OR if multiple images are attached you didn't treat them as ONE combined transaction. Include refund items with NEGATIVE prices.
+- "Line item sum $X does not match receipt subtotal $Y": for each line, "price" must be the UNIT price (per lb, per case, per each), not the line extended total. A weight-priced line "10.13 lbs @ $5.30/lb = $53.69" emits {"quantity": 10.13, "price": 5.30}. Verify sum(price*quantity) equals summary.total-summary.tax before emitting.
+- "item count N does not match summary units+cases M": summary.total_units + summary.total_cases must equal the total count of line items (sum of quantities rounded to integers).
 
-Re-emit the corrected JSON. summary.total must equal $%.2f.
-Same JSON shape as before. No markdown code fences. No explanation.`,
-		prevTotal, bankAmount, -bankAmount, diff, -bankAmount)
+Re-emit the corrected JSON. summary.total must equal $%.2f. Same JSON shape as before. No markdown code fences. No explanation.`,
+		validateReason, prevTotal, bankAmount, -bankAmount, -bankAmount)
 
 	var contentBlocks []anthropic.ContentBlockParamUnion
 	for _, blob := range blobs {

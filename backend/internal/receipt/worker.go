@@ -335,8 +335,14 @@ func runIngestCycle(ctx context.Context, cfg WorkerConfig) (IngestResult, error)
 			if attempt == maxParseAttempts {
 				break
 			}
-			// Only retry on Check 1 ("Receipt total ...") mismatches.
-			if !strings.HasPrefix(lastValidate.Reason, "Receipt total") {
+			// Retry on Check 1 (total mismatch) and Check 2 (line-item-sum mismatch).
+			// Both can be fixed by re-asking with the bank's ground truth + a hint
+			// about unit-price semantics. Check 3 ("item count ... does not match
+			// summary units+cases ...") is NOT retried — that's Claude's internal
+			// count inconsistency, not something more context will fix.
+			isRetriable := strings.HasPrefix(lastValidate.Reason, "Receipt total") ||
+				strings.HasPrefix(lastValidate.Reason, "Line item sum")
+			if !isRetriable {
 				break
 			}
 			newItems, newSummary, feedbackErr := parseReceiptWithFeedback(
