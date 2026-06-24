@@ -214,6 +214,7 @@ func runIngestCycle(ctx context.Context, cfg WorkerConfig) (IngestResult, error)
 					nil,              // items unknown without receipt
 					ReceiptSummary{}, // summary unknown without receipt
 					"",               // no receiptURL
+					nil,              // no receiptURLs
 					"no_attachment_on_bank_tx",
 					"", // parseError: no parse attempted on no-attachment branch
 				); routeErr != nil {
@@ -242,41 +243,51 @@ func runIngestCycle(ctx context.Context, cfg WorkerConfig) (IngestResult, error)
 			continue
 		}
 
-		// Optionally upload first attachment to DO Spaces. Only the first
-		// attachment is stored to avoid multiplying storage cost; the
-		// receiptURL on purchase_events points at this first file.
-		firstAtt := tx.Attachments[0]
-		receiptURL := firstAtt.URL
-		if cfg.SpacesPresigner != nil && cfg.SpacesBucket != "" {
-			ext := strings.ToLower(filepath.Ext(firstAtt.FileName))
-			if ext == "" {
-				ext = ".jpg"
-			}
-			key := fmt.Sprintf("receipts/%s/original%s", tx.ID, ext)
-			presignedURL, uploadErr := photos.GeneratePresignedPutURL(ctx, cfg.SpacesPresigner, cfg.SpacesBucket, key, blobs[0].ContentType, 15*time.Minute)
-			if uploadErr != nil {
-				log.Printf("receipt worker: presign for tx %s: %v (continuing)", tx.ID, uploadErr)
-			} else {
-				putReq, reqErr := http.NewRequestWithContext(ctx, http.MethodPut, presignedURL, bytes.NewReader(blobs[0].Bytes))
-				if reqErr != nil {
-					log.Printf("receipt worker: create PUT request for tx %s: %v (continuing)", tx.ID, reqErr)
+		// Upload all attachments to DO Spaces in order. Each gets a
+		// per-index key receipts/{tx.ID}/{i}{ext} so they can coexist.
+		// receiptURLs collects the final public (or fallback Mercury) URL
+		// for each slot. receiptURL (singular) is set to receiptURLs[0]
+		// for backward compat with the existing singular-column INSERT calls.
+		receiptURLs := make([]string, 0, len(blobs))
+		for i, blob := range blobs {
+			att := tx.Attachments[i]
+			slotURL := att.URL // fallback: original Mercury URL
+			if cfg.SpacesPresigner != nil && cfg.SpacesBucket != "" {
+				ext := strings.ToLower(filepath.Ext(att.FileName))
+				if ext == "" {
+					ext = ".jpg"
+				}
+				key := fmt.Sprintf("receipts/%s/%d%s", tx.ID, i, ext)
+				presignedURL, uploadErr := photos.GeneratePresignedPutURL(ctx, cfg.SpacesPresigner, cfg.SpacesBucket, key, blob.ContentType, 15*time.Minute)
+				if uploadErr != nil {
+					log.Printf("receipt worker: presign slot %d for tx %s: %v (falling back to Mercury URL)", i, tx.ID, uploadErr)
 				} else {
-					putReq.Header.Set("Content-Type", blobs[0].ContentType)
-					putReq.Header.Set("x-amz-acl", "public-read")
-					putReq.ContentLength = int64(len(blobs[0].Bytes))
-					putResp, putErr := (&http.Client{Timeout: 60 * time.Second}).Do(putReq)
-					if putErr != nil {
-						log.Printf("receipt worker: upload to Spaces for tx %s: %v (continuing)", tx.ID, putErr)
+					putReq, reqErr := http.NewRequestWithContext(ctx, http.MethodPut, presignedURL, bytes.NewReader(blob.Bytes))
+					if reqErr != nil {
+						log.Printf("receipt worker: create PUT request slot %d for tx %s: %v (falling back to Mercury URL)", i, tx.ID, reqErr)
 					} else {
-						putResp.Body.Close()
-						if putResp.StatusCode >= 200 && putResp.StatusCode < 300 {
-							receiptURL = photos.PublicURL(cfg.SpacesEndpoint, cfg.SpacesBucket, key)
+						putReq.Header.Set("Content-Type", blob.ContentType)
+						putReq.Header.Set("x-amz-acl", "public-read")
+						putReq.ContentLength = int64(len(blob.Bytes))
+						putResp, putErr := (&http.Client{Timeout: 60 * time.Second}).Do(putReq)
+						if putErr != nil {
+							log.Printf("receipt worker: upload slot %d to Spaces for tx %s: %v (falling back to Mercury URL)", i, tx.ID, putErr)
 						} else {
-							log.Printf("receipt worker: Spaces PUT for tx %s returned %d (continuing)", tx.ID, putResp.StatusCode)
+							putResp.Body.Close()
+							if putResp.StatusCode >= 200 && putResp.StatusCode < 300 {
+								slotURL = photos.PublicURL(cfg.SpacesEndpoint, cfg.SpacesBucket, key)
+							} else {
+								log.Printf("receipt worker: Spaces PUT slot %d for tx %s returned %d (falling back to Mercury URL)", i, tx.ID, putResp.StatusCode)
+							}
 						}
 					}
 				}
 			}
+			receiptURLs = append(receiptURLs, slotURL)
+		}
+		receiptURL := ""
+		if len(receiptURLs) > 0 {
+			receiptURL = receiptURLs[0]
 		}
 
 		// Parse with Claude Haiku (via the parseReceipt seam). On Haiku failure,
@@ -292,7 +303,7 @@ func runIngestCycle(ctx context.Context, cfg WorkerConfig) (IngestResult, error)
 			if err != nil {
 				combined := fmt.Sprintf("haiku: %v; sonnet: %v", haikuErr, err)
 				log.Printf("receipt worker: Sonnet also failed for tx %s: %v — routing to review queue", tx.ID, err)
-				if routeErr := routePending(ctx, cfg.Pool, tx, items, summary, receiptURL, "Receipt could not be parsed automatically", combined, isUpgrade); routeErr != nil {
+				if routeErr := routePending(ctx, cfg.Pool, tx, items, summary, receiptURL, receiptURLs, "Receipt could not be parsed automatically", combined, isUpgrade); routeErr != nil {
 					log.Printf("receipt worker: routePending (parse-fail) for tx %s: %v", tx.ID, routeErr)
 				}
 				pendingReview++
@@ -306,7 +317,7 @@ func runIngestCycle(ctx context.Context, cfg WorkerConfig) (IngestResult, error)
 		result := ValidateReceiptData(items, summary, tx.Amount)
 		if !result.Valid {
 			log.Printf("receipt worker: transaction %s routed to review queue: %s", tx.ID, result.Reason)
-			if routeErr := routePending(ctx, cfg.Pool, tx, items, summary, receiptURL, result.Reason, "", isUpgrade); routeErr != nil {
+			if routeErr := routePending(ctx, cfg.Pool, tx, items, summary, receiptURL, receiptURLs, result.Reason, "", isUpgrade); routeErr != nil {
 				log.Printf("receipt worker: routePending (validate-fail) for tx %s: %v", tx.ID, routeErr)
 			}
 			pendingReview++
@@ -317,9 +328,9 @@ func runIngestCycle(ctx context.Context, cfg WorkerConfig) (IngestResult, error)
 		// DELETE the stale pending row inside the same DB transaction as
 		// the event INSERT — atomic upgrade with no window for a concurrent
 		// re-sync to see both rows.
-		if err := createPurchaseEvent(ctx, cfg.Pool, tx, items, summary, receiptURL, isUpgrade); err != nil {
+		if err := createPurchaseEvent(ctx, cfg.Pool, tx, items, summary, receiptURL, receiptURLs, isUpgrade); err != nil {
 			log.Printf("receipt worker: createPurchaseEvent for tx %s: %v — routing to review queue", tx.ID, err)
-			if routeErr := routePending(ctx, cfg.Pool, tx, items, summary, receiptURL, "Receipt could not be saved automatically", "", isUpgrade); routeErr != nil {
+			if routeErr := routePending(ctx, cfg.Pool, tx, items, summary, receiptURL, receiptURLs, "Receipt could not be saved automatically", "", isUpgrade); routeErr != nil {
 				log.Printf("receipt worker: routePending (save-fail) for tx %s: %v", tx.ID, routeErr)
 			}
 			pendingReview++
@@ -347,11 +358,11 @@ func runIngestCycle(ctx context.Context, cfg WorkerConfig) (IngestResult, error)
 // parseError carries the concatenated Haiku+Sonnet error string from the
 // (haiku→sonnet) double-fail path; all other call sites pass "" (column
 // stays NULL).
-func routePending(ctx context.Context, pool *pgxpool.Pool, tx MercuryTransaction, items []ReceiptItem, summary ReceiptSummary, receiptURL string, reason string, parseError string, isUpgrade bool) error {
+func routePending(ctx context.Context, pool *pgxpool.Pool, tx MercuryTransaction, items []ReceiptItem, summary ReceiptSummary, receiptURL string, receiptURLs []string, reason string, parseError string, isUpgrade bool) error {
 	if isUpgrade {
-		return updatePendingPurchase(ctx, pool, tx, items, summary, receiptURL, reason, parseError)
+		return updatePendingPurchase(ctx, pool, tx, items, summary, receiptURL, receiptURLs, reason, parseError)
 	}
-	return insertPendingPurchase(ctx, pool, tx, items, summary, receiptURL, reason, parseError)
+	return insertPendingPurchase(ctx, pool, tx, items, summary, receiptURL, receiptURLs, reason, parseError)
 }
 
 // classifyExistingTx reports what HQ already has for a given Mercury bank_tx_id.
@@ -421,7 +432,7 @@ func classifyExistingTx(ctx context.Context, pool *pgxpool.Pool, bankTxID string
 // helper runs `DELETE FROM pending_purchases WHERE bank_tx_id=$1` as the FIRST
 // statement inside the same dbTx as the event INSERT, so the swap is atomic:
 // either both the DELETE and the INSERT commit, or neither does.
-func createPurchaseEvent(ctx context.Context, pool *pgxpool.Pool, tx MercuryTransaction, items []ReceiptItem, summary ReceiptSummary, receiptURL string, isUpgrade bool) error {
+func createPurchaseEvent(ctx context.Context, pool *pgxpool.Pool, tx MercuryTransaction, items []ReceiptItem, summary ReceiptSummary, receiptURL string, receiptURLs []string, isUpgrade bool) error {
 	dbTx, err := pool.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("createPurchaseEvent: begin: %w", err)
@@ -467,10 +478,10 @@ func createPurchaseEvent(ctx context.Context, pool *pgxpool.Pool, tx MercuryTran
 	// Insert purchase_event
 	var eventID string
 	err = dbTx.QueryRow(ctx,
-		`INSERT INTO purchase_events (vendor_id, bank_tx_id, event_date, tax, total, receipt_url, mercury_category)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7)
+		`INSERT INTO purchase_events (vendor_id, bank_tx_id, event_date, tax, total, receipt_url, receipt_urls, mercury_category)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		 RETURNING id`,
-		vendorID, tx.ID, eventDate, summary.Tax, summary.Total, nullableString(receiptURL), nullableString(mercuryCategory),
+		vendorID, tx.ID, eventDate, summary.Tax, summary.Total, nullableString(receiptURL), receiptURLsJSON(receiptURLs), nullableString(mercuryCategory),
 	).Scan(&eventID)
 	if err != nil {
 		return fmt.Errorf("createPurchaseEvent: insert purchase_event: %w", err)
@@ -525,7 +536,7 @@ func createPurchaseEvent(ctx context.Context, pool *pgxpool.Pool, tx MercuryTran
 // parseError, when non-empty, is stored on pending_purchases.parse_error so
 // the FE can render the actual Anthropic/parse error string on the pending
 // card. Empty string stays NULL (column was added in migration 0069).
-func insertPendingPurchase(ctx context.Context, pool *pgxpool.Pool, tx MercuryTransaction, items []ReceiptItem, summary ReceiptSummary, receiptURL string, reason string, parseError string) error {
+func insertPendingPurchase(ctx context.Context, pool *pgxpool.Pool, tx MercuryTransaction, items []ReceiptItem, summary ReceiptSummary, receiptURL string, receiptURLs []string, reason string, parseError string) error {
 	// items==nil guard: json.Marshal(nil) returns []byte("null"), which the FE
 	// can crash on with .length / .map. A nil slice and an empty
 	// []ReceiptItem{} slice are distinguishable via items == nil; treat nil
@@ -566,8 +577,8 @@ func insertPendingPurchase(ctx context.Context, pool *pgxpool.Pool, tx MercuryTr
 
 	_, err := pool.Exec(ctx,
 		`INSERT INTO pending_purchases
-		 (bank_tx_id, bank_total, vendor, event_date, tax, total, items, reason, receipt_url, mercury_category, parse_error)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+		 (bank_tx_id, bank_total, vendor, event_date, tax, total, items, reason, receipt_url, receipt_urls, mercury_category, parse_error)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 		 ON CONFLICT (bank_tx_id) WHERE confirmed_at IS NULL AND discarded_at IS NULL DO NOTHING`,
 		tx.ID,
 		tx.Amount,
@@ -578,6 +589,7 @@ func insertPendingPurchase(ctx context.Context, pool *pgxpool.Pool, tx MercuryTr
 		itemsJSON,
 		nullableString(reason),
 		nullableString(receiptURL),
+		receiptURLsJSON(receiptURLs),
 		nullableString(mercuryCategory),
 		nullableString(parseError),
 	)
@@ -598,7 +610,7 @@ func insertPendingPurchase(ctx context.Context, pool *pgxpool.Pool, tx MercuryTr
 // rowcount==0 is NOT an error: between classifyExistingTx and this UPDATE
 // the row may have been confirmed or discarded by a concurrent user action.
 // The next worker poll will re-classify cleanly.
-func updatePendingPurchase(ctx context.Context, pool *pgxpool.Pool, tx MercuryTransaction, items []ReceiptItem, summary ReceiptSummary, receiptURL string, reason string, parseError string) error {
+func updatePendingPurchase(ctx context.Context, pool *pgxpool.Pool, tx MercuryTransaction, items []ReceiptItem, summary ReceiptSummary, receiptURL string, receiptURLs []string, reason string, parseError string) error {
 	// items==nil guard — mirrors insertPendingPurchase. See note there.
 	var itemsJSON []byte
 	if items == nil {
@@ -635,8 +647,9 @@ func updatePendingPurchase(ctx context.Context, pool *pgxpool.Pool, tx MercuryTr
 		        items            = $7,
 		        reason           = $8,
 		        receipt_url      = $9,
-		        mercury_category = $10,
-		        parse_error      = $11
+		        receipt_urls     = $10,
+		        mercury_category = $11,
+		        parse_error      = $12
 		  WHERE bank_tx_id = $1`,
 		tx.ID,
 		tx.Amount,
@@ -647,6 +660,7 @@ func updatePendingPurchase(ctx context.Context, pool *pgxpool.Pool, tx MercuryTr
 		itemsJSON,
 		nullableString(reason),
 		nullableString(receiptURL),
+		receiptURLsJSON(receiptURLs),
 		nullableString(mercuryCategory),
 		nullableString(parseError),
 	)
@@ -727,4 +741,18 @@ func nullableFloat64(f float64) interface{} {
 		return nil
 	}
 	return f
+}
+
+// receiptURLsJSON marshals a URL slice to JSON bytes for JSONB storage.
+// Returns nil when the slice is empty so the column stays NULL rather than
+// storing an empty array. pgx accepts []byte for JSONB parameters directly.
+func receiptURLsJSON(urls []string) interface{} {
+	if len(urls) == 0 {
+		return nil
+	}
+	b, err := json.Marshal(urls)
+	if err != nil {
+		return nil
+	}
+	return b
 }

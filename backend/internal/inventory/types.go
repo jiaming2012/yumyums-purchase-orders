@@ -61,16 +61,17 @@ type LineItem struct {
 
 // PurchaseEvent is a single vendor purchase (one receipt).
 type PurchaseEvent struct {
-	ID         string     `json:"id"`
-	VendorID   string     `json:"vendor_id"`
-	VendorName string     `json:"vendor_name"`
-	BankTxID   string     `json:"bank_tx_id"`
-	EventDate  string     `json:"event_date"` // YYYY-MM-DD
-	Tax        float64    `json:"tax"`
-	Total      float64    `json:"total"`
-	ReceiptURL *string    `json:"receipt_url,omitempty"`
-	CreatedAt  time.Time  `json:"created_at"`
-	LineItems  []LineItem `json:"line_items,omitempty"`
+	ID          string     `json:"id"`
+	VendorID    string     `json:"vendor_id"`
+	VendorName  string     `json:"vendor_name"`
+	BankTxID    string     `json:"bank_tx_id"`
+	EventDate   string     `json:"event_date"` // YYYY-MM-DD
+	Tax         float64    `json:"tax"`
+	Total       float64    `json:"total"`
+	ReceiptURL  *string    `json:"receipt_url,omitempty"`
+	ReceiptURLs []string   `json:"receipt_urls,omitempty"`
+	CreatedAt   time.Time  `json:"created_at"`
+	LineItems   []LineItem `json:"line_items,omitempty"`
 }
 
 // PendingPurchase is a receipt awaiting review before becoming a real purchase event.
@@ -85,6 +86,7 @@ type PendingPurchase struct {
 	TotalUnits  *int             `json:"total_units,omitempty"`
 	TotalCases  *int             `json:"total_cases,omitempty"`
 	ReceiptURL  *string          `json:"receipt_url,omitempty"`
+	ReceiptURLs []string         `json:"receipt_urls,omitempty"`
 	Reason      *string          `json:"reason,omitempty"`
 	ParseError  *string          `json:"parse_error,omitempty"`
 	Items       json.RawMessage  `json:"items"`

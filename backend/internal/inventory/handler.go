@@ -286,7 +286,7 @@ func ListPurchaseEventsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		if vendorID != "" {
 			rows, err = pool.Query(r.Context(), `
 				SELECT pe.id, pe.vendor_id, v.name, pe.bank_tx_id,
-				       pe.event_date::text, pe.tax, pe.total, pe.receipt_url, pe.created_at
+				       pe.event_date::text, pe.tax, pe.total, pe.receipt_url, pe.receipt_urls, pe.created_at
 				FROM purchase_events pe
 				JOIN vendors v ON v.id = pe.vendor_id
 				WHERE pe.vendor_id = $1
@@ -297,7 +297,7 @@ func ListPurchaseEventsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		} else {
 			rows, err = pool.Query(r.Context(), `
 				SELECT pe.id, pe.vendor_id, v.name, pe.bank_tx_id,
-				       pe.event_date::text, pe.tax, pe.total, pe.receipt_url, pe.created_at
+				       pe.event_date::text, pe.tax, pe.total, pe.receipt_url, pe.receipt_urls, pe.created_at
 				FROM purchase_events pe
 				JOIN vendors v ON v.id = pe.vendor_id
 				ORDER BY pe.event_date DESC
@@ -315,11 +315,15 @@ func ListPurchaseEventsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		events := []PurchaseEvent{}
 		for rows.Next() {
 			var pe PurchaseEvent
+			var receiptURLsJSON []byte
 			if err := rows.Scan(&pe.ID, &pe.VendorID, &pe.VendorName, &pe.BankTxID,
-				&pe.EventDate, &pe.Tax, &pe.Total, &pe.ReceiptURL, &pe.CreatedAt); err != nil {
+				&pe.EventDate, &pe.Tax, &pe.Total, &pe.ReceiptURL, &receiptURLsJSON, &pe.CreatedAt); err != nil {
 				log.Printf("ListPurchaseEvents scan: %v", err)
 				writeError(w, http.StatusInternalServerError, "internal_error")
 				return
+			}
+			if len(receiptURLsJSON) > 0 {
+				_ = json.Unmarshal(receiptURLsJSON, &pe.ReceiptURLs)
 			}
 			events = append(events, pe)
 		}
@@ -600,7 +604,7 @@ func ListPendingPurchasesHandler(pool *pgxpool.Pool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		rows, err := pool.Query(r.Context(), `
 			SELECT id, bank_tx_id, bank_total, vendor, event_date::text,
-			       tax, total, total_units, total_cases, receipt_url,
+			       tax, total, total_units, total_cases, receipt_url, receipt_urls,
 			       reason, parse_error, items,
 			       confirmed_at, confirmed_by, discarded_at, created_at
 			FROM pending_purchases
@@ -617,15 +621,19 @@ func ListPendingPurchasesHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		pending := []PendingPurchase{}
 		for rows.Next() {
 			var p PendingPurchase
+			var receiptURLsJSON []byte
 			if err := rows.Scan(
 				&p.ID, &p.BankTxID, &p.BankTotal, &p.Vendor, &p.EventDate,
-				&p.Tax, &p.Total, &p.TotalUnits, &p.TotalCases, &p.ReceiptURL,
+				&p.Tax, &p.Total, &p.TotalUnits, &p.TotalCases, &p.ReceiptURL, &receiptURLsJSON,
 				&p.Reason, &p.ParseError, &p.Items,
 				&p.ConfirmedAt, &p.ConfirmedBy, &p.DiscardedAt, &p.CreatedAt,
 			); err != nil {
 				log.Printf("ListPendingPurchases scan: %v", err)
 				writeError(w, http.StatusInternalServerError, "internal_error")
 				return
+			}
+			if len(receiptURLsJSON) > 0 {
+				_ = json.Unmarshal(receiptURLsJSON, &p.ReceiptURLs)
 			}
 			pending = append(pending, p)
 		}
@@ -984,19 +992,23 @@ func RetryParsePendingPurchaseHandler(pool *pgxpool.Pool) http.HandlerFunc {
 // retry-parse handler to return the refreshed row in the 200 response body.
 func fetchPendingPurchaseByID(ctx context.Context, pool *pgxpool.Pool, id string) (PendingPurchase, error) {
 	var p PendingPurchase
+	var receiptURLsJSON []byte
 	err := pool.QueryRow(ctx, `
 		SELECT id, bank_tx_id, bank_total, vendor, event_date::text,
-		       tax, total, total_units, total_cases, receipt_url,
+		       tax, total, total_units, total_cases, receipt_url, receipt_urls,
 		       reason, parse_error, items,
 		       confirmed_at, confirmed_by, discarded_at, created_at
 		FROM pending_purchases
 		WHERE id = $1`, id,
 	).Scan(
 		&p.ID, &p.BankTxID, &p.BankTotal, &p.Vendor, &p.EventDate,
-		&p.Tax, &p.Total, &p.TotalUnits, &p.TotalCases, &p.ReceiptURL,
+		&p.Tax, &p.Total, &p.TotalUnits, &p.TotalCases, &p.ReceiptURL, &receiptURLsJSON,
 		&p.Reason, &p.ParseError, &p.Items,
 		&p.ConfirmedAt, &p.ConfirmedBy, &p.DiscardedAt, &p.CreatedAt,
 	)
+	if err == nil && len(receiptURLsJSON) > 0 {
+		_ = json.Unmarshal(receiptURLsJSON, &p.ReceiptURLs)
+	}
 	return p, err
 }
 
