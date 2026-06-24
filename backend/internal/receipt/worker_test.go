@@ -415,7 +415,7 @@ type workerStubs struct {
 	sonnetErr       error          // Phase 260607-e1c
 	sonnetCallCount int            // Phase 260607-e1c
 	fetchCalled     bool
-	dlCalled        bool
+	dlCallCount     int // incremented once per attachment download
 }
 
 func installWorkerStubs(t *testing.T, s *workerStubs) {
@@ -429,7 +429,7 @@ func installWorkerStubs(t *testing.T, s *workerStubs) {
 	t.Cleanup(func() { fetchTransactions = origFetch })
 
 	origParse := parseReceipt
-	parseReceipt = func(_ context.Context, _ string, _ []byte, _ string) ([]ReceiptItem, ReceiptSummary, error) {
+	parseReceipt = func(_ context.Context, _ string, _ []FileBlob) ([]ReceiptItem, ReceiptSummary, error) {
 		s.parseCallCount++
 		return s.parseItems, s.parseSummary, s.parseErr
 	}
@@ -439,7 +439,7 @@ func installWorkerStubs(t *testing.T, s *workerStubs) {
 	// so each test can independently drive the (haiku ok / haiku fail+sonnet ok /
 	// both fail) branches.
 	origSonnet := parseReceiptWithSonnet
-	parseReceiptWithSonnet = func(_ context.Context, _ string, _ []byte, _ string) ([]ReceiptItem, ReceiptSummary, error) {
+	parseReceiptWithSonnet = func(_ context.Context, _ string, _ []FileBlob) ([]ReceiptItem, ReceiptSummary, error) {
 		s.sonnetCallCount++
 		return s.sonnetItems, s.sonnetSummary, s.sonnetErr
 	}
@@ -447,7 +447,7 @@ func installWorkerStubs(t *testing.T, s *workerStubs) {
 
 	origDL := downloadReceiptFileFn
 	downloadReceiptFileFn = func(_ context.Context, _ string) ([]byte, string, error) {
-		s.dlCalled = true
+		s.dlCallCount++
 		return []byte("FAKE-RECEIPT-BYTES"), "image/jpeg", nil
 	}
 	t.Cleanup(func() { downloadReceiptFileFn = origDL })
@@ -813,8 +813,8 @@ func TestRunIngestCycle_DoesNotRetryWhenParseErrorSet(t *testing.T) {
 	if stubs.sonnetCallCount != 0 {
 		t.Errorf("sonnetCallCount = %d, want 0 (cached row must not call Sonnet)", stubs.sonnetCallCount)
 	}
-	if stubs.dlCalled {
-		t.Errorf("dlCalled = true, want false (cached row must not download)")
+	if stubs.dlCallCount != 0 {
+		t.Errorf("dlCallCount = %d, want 0 (cached row must not download)", stubs.dlCallCount)
 	}
 }
 
@@ -1485,14 +1485,16 @@ func TestRunIngestCycle_ScenarioTable(t *testing.T) {
 		sonnetSummary ReceiptSummary
 		sonnetErr     error
 		// tx setup
-		bankTxID string
-		amount   float64 // Mercury debit (negative)
+		bankTxID    string
+		amount      float64 // Mercury debit (negative)
+		attachments []Attachment // nil → default single attachment
 		// expectations
 		wantAutoCreated   int
 		wantPendingReview int
 		wantPendingReason string   // substring match
 		wantParseErrParts []string // substrings that MUST appear in pending.parse_error (empty list = column should be NULL)
 		wantSonnetCalled  bool
+		wantDLCallCount   int // expected number of downloadReceiptFileFn calls; 0 means "don't check"
 	}{
 		{
 			name:            "happy_haiku_succeeds",
@@ -1545,6 +1547,33 @@ func TestRunIngestCycle_ScenarioTable(t *testing.T) {
 			wantPendingReason: "does not match", // matches Check 1 or Check 2 reason text
 			wantParseErrParts: nil,              // parse_error should be NULL on validate-fail
 		},
+		{
+			// Multi-attachment net: a purchase receipt ($804.49) and a refund
+			// receipt ($16.12 credit) attached to the same Mercury debit of
+			// $-788.37. Both files are downloaded; Claude is called once with
+			// both blobs and returns a combined summary whose Total matches the
+			// bank net. Reproduces the Restaurant Depot #855 incident
+			// (2026-06-17).
+			name: "multi_attachment_net_auto_creates",
+			parseItems: []ReceiptItem{
+				{Name: "Case Chicken", Quantity: 1, Price: 804.49, IsCase: true},
+				{Name: "Credit Memo", Quantity: 1, Price: -16.12, IsCase: false},
+			},
+			parseSummary: ReceiptSummary{
+				Vendor:     "Restaurant Depot",
+				Total:      788.37,
+				TotalUnits: 1,
+				TotalCases: 1,
+			},
+			bankTxID: "T-scenario-multi-att",
+			amount:   -788.37,
+			attachments: []Attachment{
+				{URL: "http://fake/purchase.jpg", FileName: "purchase.jpg"},
+				{URL: "http://fake/refund.pdf", FileName: "refund.pdf"},
+			},
+			wantAutoCreated: 1,
+			wantDLCallCount: 2, // both attachments must be downloaded
+		},
 	}
 
 	for _, tc := range cases {
@@ -1552,12 +1581,17 @@ func TestRunIngestCycle_ScenarioTable(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			resetReceiptFixtures(t)
 
+			atts := tc.attachments
+			if atts == nil {
+				atts = []Attachment{{URL: "http://fake/r.jpg", FileName: "r.jpg"}}
+			}
+
 			stubs := &workerStubs{
 				txns: []MercuryTransaction{{
 					ID:          tc.bankTxID,
 					Amount:      tc.amount,
 					CreatedAt:   "2026-06-07T10:00:00Z",
-					Attachments: []Attachment{{URL: "http://fake/r.jpg", FileName: "r.jpg"}},
+					Attachments: atts,
 				}},
 				parseItems:    tc.parseItems,
 				parseSummary:  tc.parseSummary,
@@ -1589,6 +1623,9 @@ func TestRunIngestCycle_ScenarioTable(t *testing.T) {
 			}
 			if !tc.wantSonnetCalled && stubs.sonnetCallCount > 0 {
 				t.Errorf("expected Sonnet NOT to be called, got %d calls", stubs.sonnetCallCount)
+			}
+			if tc.wantDLCallCount > 0 && stubs.dlCallCount != tc.wantDLCallCount {
+				t.Errorf("dlCallCount = %d, want %d (all attachments must be downloaded)", stubs.dlCallCount, tc.wantDLCallCount)
 			}
 
 			if tc.wantPendingReview > 0 {

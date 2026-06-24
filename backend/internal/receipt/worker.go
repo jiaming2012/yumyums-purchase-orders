@@ -224,40 +224,46 @@ func runIngestCycle(ctx context.Context, cfg WorkerConfig) (IngestResult, error)
 			continue
 		}
 
-		// Choose best attachment — prefer PDF for known multi-attachment vendors
-		attachment := pickAttachment(tx)
-		if attachment == nil {
-			log.Printf("receipt worker: transaction %s has attachments but none selected — skipping", tx.ID)
+		// Download every attachment and collect FileBlobs so all receipts for
+		// this transaction are sent to Claude in a single multi-image prompt.
+		// This handles the purchase + refund case: both files are seen together,
+		// and Claude returns a single combined summary whose Total is the net.
+		var blobs []FileBlob
+		for _, att := range tx.Attachments {
+			fb, ct, dlErr := downloadReceiptFileFn(ctx, att.URL)
+			if dlErr != nil {
+				log.Printf("receipt worker: download attachment %s for tx %s: %v (skipping attachment)", att.URL, tx.ID, dlErr)
+				continue
+			}
+			blobs = append(blobs, FileBlob{Bytes: fb, ContentType: ct})
+		}
+		if len(blobs) == 0 {
+			log.Printf("receipt worker: all attachments failed to download for tx %s — skipping", tx.ID)
 			continue
 		}
 
-		// Download receipt file (via the downloadReceiptFileFn seam so tests
-		// can inject fake bytes without an httptest.Server).
-		fileBytes, contentType, err := downloadReceiptFileFn(ctx, attachment.URL)
-		if err != nil {
-			log.Printf("receipt worker: download attachment for tx %s: %v", tx.ID, err)
-			continue
-		}
-
-		// Optionally upload original to DO Spaces
-		receiptURL := attachment.URL
+		// Optionally upload first attachment to DO Spaces. Only the first
+		// attachment is stored to avoid multiplying storage cost; the
+		// receiptURL on purchase_events points at this first file.
+		firstAtt := tx.Attachments[0]
+		receiptURL := firstAtt.URL
 		if cfg.SpacesPresigner != nil && cfg.SpacesBucket != "" {
-			ext := strings.ToLower(filepath.Ext(attachment.FileName))
+			ext := strings.ToLower(filepath.Ext(firstAtt.FileName))
 			if ext == "" {
 				ext = ".jpg"
 			}
 			key := fmt.Sprintf("receipts/%s/original%s", tx.ID, ext)
-			presignedURL, uploadErr := photos.GeneratePresignedPutURL(ctx, cfg.SpacesPresigner, cfg.SpacesBucket, key, contentType, 15*time.Minute)
+			presignedURL, uploadErr := photos.GeneratePresignedPutURL(ctx, cfg.SpacesPresigner, cfg.SpacesBucket, key, blobs[0].ContentType, 15*time.Minute)
 			if uploadErr != nil {
 				log.Printf("receipt worker: presign for tx %s: %v (continuing)", tx.ID, uploadErr)
 			} else {
-				putReq, reqErr := http.NewRequestWithContext(ctx, http.MethodPut, presignedURL, bytes.NewReader(fileBytes))
+				putReq, reqErr := http.NewRequestWithContext(ctx, http.MethodPut, presignedURL, bytes.NewReader(blobs[0].Bytes))
 				if reqErr != nil {
 					log.Printf("receipt worker: create PUT request for tx %s: %v (continuing)", tx.ID, reqErr)
 				} else {
-					putReq.Header.Set("Content-Type", contentType)
+					putReq.Header.Set("Content-Type", blobs[0].ContentType)
 					putReq.Header.Set("x-amz-acl", "public-read")
-					putReq.ContentLength = int64(len(fileBytes))
+					putReq.ContentLength = int64(len(blobs[0].Bytes))
 					putResp, putErr := (&http.Client{Timeout: 60 * time.Second}).Do(putReq)
 					if putErr != nil {
 						log.Printf("receipt worker: upload to Spaces for tx %s: %v (continuing)", tx.ID, putErr)
@@ -278,11 +284,11 @@ func runIngestCycle(ctx context.Context, cfg WorkerConfig) (IngestResult, error)
 		// fails, route to pending review with the concatenated parse_error so
 		// the owner can see WHY parsing failed on the FE pending card.
 		// Phase 260607-e1c.
-		items, summary, err := parseReceipt(ctx, cfg.AnthropicAPIKey, fileBytes, contentType)
+		items, summary, err := parseReceipt(ctx, cfg.AnthropicAPIKey, blobs)
 		if err != nil {
 			haikuErr := err
 			log.Printf("receipt worker: Haiku failed for tx %s, retrying with Sonnet: %v", tx.ID, haikuErr)
-			items, summary, err = parseReceiptWithSonnet(ctx, cfg.AnthropicAPIKey, fileBytes, contentType)
+			items, summary, err = parseReceiptWithSonnet(ctx, cfg.AnthropicAPIKey, blobs)
 			if err != nil {
 				combined := fmt.Sprintf("haiku: %v; sonnet: %v", haikuErr, err)
 				log.Printf("receipt worker: Sonnet also failed for tx %s: %v — routing to review queue", tx.ID, err)
@@ -404,22 +410,6 @@ func classifyExistingTx(ctx context.Context, pool *pgxpool.Pool, bankTxID string
 		return "", "", false, false, fmt.Errorf("classifyExistingTx: %w", err)
 	}
 	return kind, reason, hasParseError, hasItems, nil
-}
-
-// pickAttachment selects the best receipt attachment from a transaction.
-// For transactions with multiple attachments, prefers PDF files.
-func pickAttachment(tx MercuryTransaction) *Attachment {
-	if len(tx.Attachments) == 1 {
-		return &tx.Attachments[0]
-	}
-	// Multiple attachments — prefer PDF
-	for i, att := range tx.Attachments {
-		if strings.ToLower(filepath.Ext(att.FileName)) == ".pdf" {
-			return &tx.Attachments[i]
-		}
-	}
-	// Fallback: first attachment
-	return &tx.Attachments[0]
 }
 
 // createPurchaseEvent inserts a new purchase_event and its line items within
