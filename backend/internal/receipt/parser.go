@@ -27,10 +27,16 @@ PRICE FIELD (CRITICAL):
 - If a line shows ONLY the extended total (no per-unit breakdown visible), set quantity=1 and price=extended_total.
 - Verify before emitting: sum(price * quantity) across ALL items must equal (summary.total - summary.tax) within $0.01.
 
+COUNT FIELDS (CRITICAL):
+- summary.total_units = sum of quantities for items where is_case=false.
+- summary.total_cases = sum of quantities for items where is_case=true.
+- (summary.total_units + summary.total_cases) MUST equal the sum of all line item quantities, rounded to the nearest integer.
+- Do NOT leave these as zero unless there are zero line items.
+
 Return ONLY raw JSON. No markdown code fences. No explanation.
 
-Example:
-{"items": [{"name": "...", "quantity": 1, "price": 0.00, "is_case": false}], "summary": {"vendor": "...", "total_units": 0, "total_cases": 0, "tax": 0.00, "total": 0.00}}`
+Example shape (values are illustrative — derive the real numbers from the receipt):
+{"items": [{"name": "...", "quantity": 1, "price": 0.00, "is_case": false}], "summary": {"vendor": "...", "total_units": 1, "total_cases": 0, "tax": 0.00, "total": 0.00}}`
 
 // FileBlob holds raw bytes and MIME type for a single receipt file to be sent
 // to Claude. Multiple FileBlobs can be bundled into one prompt so that a

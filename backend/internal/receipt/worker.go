@@ -335,16 +335,10 @@ func runIngestCycle(ctx context.Context, cfg WorkerConfig) (IngestResult, error)
 			if attempt == maxParseAttempts {
 				break
 			}
-			// Retry on Check 1 (total mismatch) and Check 2 (line-item-sum mismatch).
-			// Both can be fixed by re-asking with the bank's ground truth + a hint
-			// about unit-price semantics. Check 3 ("item count ... does not match
-			// summary units+cases ...") is NOT retried — that's Claude's internal
-			// count inconsistency, not something more context will fix.
-			isRetriable := strings.HasPrefix(lastValidate.Reason, "Receipt total") ||
-				strings.HasPrefix(lastValidate.Reason, "Line item sum")
-			if !isRetriable {
-				break
-			}
+			// Retry on ANY validation failure. The feedback prompt in
+			// ParseReceiptWithFeedback dispatches per-check guidance based on
+			// the full validate.Reason string, so Claude gets actionable hints
+			// regardless of which check failed. MAX_ATTEMPTS=2 caps cost.
 			newItems, newSummary, feedbackErr := parseReceiptWithFeedback(
 				ctx, cfg.AnthropicAPIKey, blobs, summary.Total, tx.Amount, lastValidate.Reason)
 			if feedbackErr != nil {

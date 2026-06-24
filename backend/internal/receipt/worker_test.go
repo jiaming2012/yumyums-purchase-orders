@@ -1821,14 +1821,15 @@ func TestRunIngestCycle_ScenarioTable(t *testing.T) {
 		}
 	})
 
-	t.Run("validation_check3_item_count_mismatch_not_retried", func(t *testing.T) {
+	t.Run("validation_check3_item_count_mismatch_retries_then_succeeds", func(t *testing.T) {
 		resetReceiptFixtures(t)
 
 		// Valid total + valid line-item sums BUT summary.total_units + total_cases != sum(quantity).
-		// item has quantity=1 but summary says total_units=5.
+		// First parse: sum(qty)=1, summary says 5 (Check 3 fail).
+		// Feedback retry returns corrected summary so sum(qty)=units+cases.
 		stubs := &workerStubs{
 			txns: []MercuryTransaction{{
-				ID:        "T-check3-no-retry",
+				ID:        "T-check3-retry-success",
 				Amount:    -50.00,
 				CreatedAt: "2026-06-24T10:00:00Z",
 				Attachments: []Attachment{
@@ -1844,6 +1845,15 @@ func TestRunIngestCycle_ScenarioTable(t *testing.T) {
 				TotalUnits: 5, // mismatch: sum(qty)=1, but summary says 5
 				TotalCases: 0,
 			},
+			feedbackItems: []ReceiptItem{
+				{Name: "BEEF CHUCK", Quantity: 1, Price: 50.00, IsCase: false},
+			},
+			feedbackSummary: ReceiptSummary{
+				Vendor:     "Restaurant Depot",
+				Total:      50.00,
+				TotalUnits: 1, // corrected: matches sum(qty)
+				TotalCases: 0,
+			},
 		}
 		installWorkerStubs(t, stubs)
 
@@ -1857,35 +1867,14 @@ func TestRunIngestCycle_ScenarioTable(t *testing.T) {
 			t.Fatalf("runIngestCycle: %v", err)
 		}
 
-		if result.PendingReview != 1 {
-			t.Errorf("PendingReview = %d, want 1 (Check 3 mismatch must route to pending)", result.PendingReview)
+		if result.AutoCreated != 1 {
+			t.Errorf("AutoCreated = %d, want 1 (Check 3 retry must auto-create after feedback)", result.AutoCreated)
 		}
-		if result.AutoCreated != 0 {
-			t.Errorf("AutoCreated = %d, want 0", result.AutoCreated)
+		if result.PendingReview != 0 {
+			t.Errorf("PendingReview = %d, want 0", result.PendingReview)
 		}
-		if stubs.feedbackCallCount != 0 {
-			t.Errorf("feedbackCallCount = %d, want 0 (Check 3 must NOT trigger feedback retry)", stubs.feedbackCallCount)
-		}
-
-		// parse_error trace must contain "attempt 1" only (no attempt 2).
-		var parseError sql.NullString
-		var reason sql.NullString
-		if err := testPool.QueryRow(t.Context(),
-			`SELECT parse_error, reason FROM pending_purchases WHERE bank_tx_id = $1`, "T-check3-no-retry",
-		).Scan(&parseError, &reason); err != nil {
-			t.Fatalf("select pending row: %v", err)
-		}
-		if !parseError.Valid || parseError.String == "" {
-			t.Fatalf("parse_error is NULL or empty, want retry trace containing 'attempt 1'")
-		}
-		if !strings.Contains(parseError.String, "attempt 1") {
-			t.Errorf("parse_error %q must contain 'attempt 1'", parseError.String)
-		}
-		if strings.Contains(parseError.String, "attempt 2") {
-			t.Errorf("parse_error %q must NOT contain 'attempt 2' (Check 3 must not retry)", parseError.String)
-		}
-		if !reason.Valid || !strings.Contains(reason.String, "item count") {
-			t.Errorf("reason = %+v, want string containing 'item count'", reason)
+		if stubs.feedbackCallCount != 1 {
+			t.Errorf("feedbackCallCount = %d, want 1 (Check 3 must trigger ONE feedback retry)", stubs.feedbackCallCount)
 		}
 	})
 
