@@ -76,6 +76,8 @@ select.field-input{appearance:none;-webkit-appearance:none;padding-right:36px;ba
 .receipt-overlay img{max-width:100%;max-height:calc(100% - 60px);object-fit:contain}
 .receipt-overlay iframe{width:100%;height:calc(100% - 50px);border:0;background:#fff;margin-top:50px;color-scheme:light}
 .receipt-overlay .close-receipt{position:absolute;top:12px;right:16px;background:none;border:none;color:#fff;font-size:28px;cursor:pointer;padding:8px;z-index:1}
+.receipt-overlay .nav-bar{position:absolute;bottom:12px;left:0;right:0;display:flex;justify-content:center;align-items:center;gap:16px;color:#fff;font-size:14px;z-index:2}
+.receipt-overlay .nav-bar button{background:rgba(255,255,255,0.15);border:0;color:#fff;font-size:20px;width:44px;height:44px;border-radius:22px;cursor:pointer}
 .vendor-search-wrap{position:relative;display:flex;gap:6px;align-items:center}
 .vendor-search-wrap input{flex:1}
 .vendor-add-btn{width:38px;height:38px;border:0.5px solid var(--brd);border-radius:8px;background:var(--bg);color:var(--info-tx);font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
@@ -570,7 +572,10 @@ function renderPurchaseEvent(evt){
   var expanded=EXPANDED_EVENTS[evt.id];
   var detail='';
   if(expanded&&evt.line_items&&evt.line_items.length){
-    var receiptLink=evt.receipt_url?'<button class="view-receipt-btn" data-action="view-receipt" data-url="'+escHtml(evt.receipt_url)+'" style="margin-top:12px">View Original Receipt</button>':'';
+    var _ruEvt=evt.receipt_urls&&evt.receipt_urls.length>0?evt.receipt_urls:null;
+    var _urlEvt=evt.receipt_url||(_ruEvt?_ruEvt[0]:'');
+    var _urlsAttrEvt=_ruEvt?' data-urls="'+escHtml(JSON.stringify(_ruEvt))+'"':'';
+    var receiptLink=_urlEvt?'<button class="view-receipt-btn" data-action="view-receipt" data-url="'+escHtml(_urlEvt)+'"'+_urlsAttrEvt+' style="margin-top:12px">View Original Receipt</button>':'';
     detail='<div class="event-detail" style="display:block">'+evt.line_items.map(p=>{
       var desc=p.description||p.name||'';
       return '<div class="line-item"><div style="flex:1"><div style="font-size:13px;font-weight:500">'+desc+(p.is_case?' <span class="case-badge">CASE</span>':'')+'</div><div style="font-size:12px;color:var(--mut);margin-top:2px">Qty: '+p.quantity+'</div></div><div style="font-size:14px;font-weight:500">$'+Number(p.price).toFixed(2)+'</div></div>';
@@ -666,7 +671,10 @@ function renderReviewForm(p){
     '</div>';
   }).join('');
   var errorHtml=REVIEW_FORM_STATE[p.id]._error?'<div class="inline-error">'+escHtml(REVIEW_FORM_STATE[p.id]._error)+'</div>':'';
-  var receiptBtn=p.receipt_url?'<button class="view-receipt-btn" data-action="view-receipt" data-url="'+escHtml(p.receipt_url)+'">View Original Receipt</button>':'';
+  var _ruPend=p.receipt_urls&&p.receipt_urls.length>0?p.receipt_urls:null;
+  var _urlPend=p.receipt_url||(_ruPend?_ruPend[0]:'');
+  var _urlsAttrPend=_ruPend?' data-urls="'+escHtml(JSON.stringify(_ruPend))+'"':'';
+  var receiptBtn=_urlPend?'<button class="view-receipt-btn" data-action="view-receipt" data-url="'+escHtml(_urlPend)+'"'+_urlsAttrPend+'>View Original Receipt</button>':'';
   return '<div class="review-form" data-pending-id="'+p.id+'">'+
     '<div class="review-form-title">Review Receipt</div>'+
     mismatchBanner+
@@ -939,29 +947,101 @@ document.getElementById('history-list').addEventListener('click',function(e){
   } else if(action==='view-receipt'){
     var url=el.dataset.url;
     if(url){
-      // Phase 260607-e1c: branch on .pdf so PDFs render via <iframe> (iOS
-      // PWA inline PDF viewer is flaky — Open-in-new-tab link is the safety
-      // net). Strip querystring/fragment before the extension check so
-      // signed/presigned URLs like ...restaurant-depot.pdf?X-Amz-Signature=…
+      // Parse the URL list: data-urls takes priority; fall back to the
+      // single data-url so single-attachment rows work as before.
+      var urls=el.dataset.urls?JSON.parse(el.dataset.urls):[url];
+      if(!urls||!urls.length)urls=[url];
+
+      // Phase 260607-e1c: branch on .pdf so PDFs render via <iframe>.
+      // Strip querystring/fragment before the extension check so
+      // signed/presigned URLs like ...receipt.pdf?X-Amz-Signature=…
       // still match.
-      var bare=String(url).split('?')[0].split('#')[0].toLowerCase();
-      var isPdf=bare.endsWith('.pdf');
+      function isPdfUrl(u){
+        var bare=String(u).split('?')[0].split('#')[0].toLowerCase();
+        return bare.endsWith('.pdf');
+      }
+      function buildMediaEl(u){
+        if(isPdfUrl(u)){
+          var fr=document.createElement('iframe');
+          fr.src=u;
+          fr.style.cssText='width:100%;height:100%;border:0;background:#fff;color-scheme:light';
+          return fr;
+        }
+        var im=document.createElement('img');
+        im.src=u;
+        im.alt='Receipt';
+        im.onerror=function(){im.style.display='none';var msg=document.createElement('div');msg.style.cssText='color:#fff;font-size:15px;text-align:center;padding:20px';msg.textContent='Receipt image unavailable';overlay.appendChild(msg);};
+        return im;
+      }
+
       var overlay=document.createElement('div');
       overlay.className='receipt-overlay';
-      var openLink='<a href="'+escHtml(url)+'" target="_blank" rel="noopener" class="open-receipt-link" style="position:absolute;top:12px;left:12px;color:#fff;font-size:13px;text-decoration:underline;z-index:2">Open in new tab</a>';
-      var body=isPdf
-        ? '<iframe src="'+escHtml(url)+'" style="width:100%;height:100%;border:0;background:#fff;color-scheme:light"></iframe>'
-        : '<img src="'+escHtml(url)+'" alt="Receipt">';
-      overlay.innerHTML='<button class="close-receipt" aria-label="Close">&times;</button>'+openLink+body;
-      if(!isPdf){
-        var img=overlay.querySelector('img');
-        img.onerror=function(){img.style.display='none';var msg=document.createElement('div');msg.style.cssText='color:#fff;font-size:15px;text-align:center;padding:20px';msg.textContent='Receipt image unavailable';overlay.appendChild(msg);};
+
+      var closeBtn=document.createElement('button');
+      closeBtn.className='close-receipt';
+      closeBtn.setAttribute('aria-label','Close');
+      closeBtn.innerHTML='&times;';
+      overlay.appendChild(closeBtn);
+
+      var openLink=document.createElement('a');
+      openLink.className='open-receipt-link';
+      openLink.target='_blank';
+      openLink.rel='noopener';
+      openLink.style.cssText='position:absolute;top:12px;left:12px;color:#fff;font-size:13px;text-decoration:underline;z-index:2';
+      openLink.textContent='Open in new tab';
+      overlay.appendChild(openLink);
+
+      // Media container — swapped by carousel navigation.
+      var mediaWrap=document.createElement('div');
+      mediaWrap.style.cssText='width:100%;height:100%;display:flex;align-items:center;justify-content:center;pointer-events:none';
+      overlay.appendChild(mediaWrap);
+
+      var curIdx=0;
+      function showSlide(idx){
+        curIdx=idx;
+        var u=urls[curIdx];
+        openLink.href=u;
+        // Clear previous child and insert new media element.
+        while(mediaWrap.firstChild)mediaWrap.removeChild(mediaWrap.firstChild);
+        var el2=buildMediaEl(u);
+        el2.style.pointerEvents='auto';
+        mediaWrap.appendChild(el2);
+        if(navBar)counter.textContent=(curIdx+1)+' / '+urls.length;
       }
+
+      // Nav bar (only rendered for multi-attachment rows).
+      var navBar=null;
+      var counter=null;
+      if(urls.length>1){
+        navBar=document.createElement('div');
+        navBar.className='nav-bar';
+        var prevBtn=document.createElement('button');
+        prevBtn.textContent='«';
+        prevBtn.setAttribute('aria-label','Previous');
+        prevBtn.addEventListener('click',function(ev){
+          ev.stopPropagation();
+          showSlide((curIdx-1+urls.length)%urls.length);
+        });
+        counter=document.createElement('span');
+        var nextBtn=document.createElement('button');
+        nextBtn.textContent='»';
+        nextBtn.setAttribute('aria-label','Next');
+        nextBtn.addEventListener('click',function(ev){
+          ev.stopPropagation();
+          showSlide((curIdx+1)%urls.length);
+        });
+        navBar.appendChild(prevBtn);
+        navBar.appendChild(counter);
+        navBar.appendChild(nextBtn);
+        overlay.appendChild(navBar);
+      }
+
+      showSlide(0);
+
       overlay.addEventListener('click',function(ev){
-        // Clicking the Open-in-new-tab link MUST NOT close the overlay —
-        // the user is following the link, not dismissing.
-        if(ev.target.classList.contains('open-receipt-link'))return;
-        if(ev.target===overlay||ev.target.classList.contains('close-receipt'))overlay.remove();
+        // Clicking the Open-in-new-tab link MUST NOT close the overlay.
+        if(ev.target===openLink||openLink.contains(ev.target))return;
+        if(ev.target===overlay||ev.target===closeBtn)overlay.remove();
       });
       document.body.appendChild(overlay);
     }
