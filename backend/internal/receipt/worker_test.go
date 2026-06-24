@@ -3,6 +3,7 @@ package receipt
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -71,6 +72,7 @@ func TestInsertPendingPurchase_NoAttachmentBranch_ShapeAndDefaults(t *testing.T)
 	err := insertPendingPurchase(
 		t.Context(), testPool, tx,
 		nil, ReceiptSummary{}, "",
+		nil, // receiptURLs: no-attachment branch has no URLs
 		"no_attachment_on_bank_tx",
 		"", // parseError empty: no-attachment branch never attempts parse
 	)
@@ -139,6 +141,7 @@ func TestInsertPendingPurchase_VendorFallback_PrefersSummary(t *testing.T) {
 	if err := insertPendingPurchase(
 		t.Context(), testPool, tx,
 		nil, summary, "",
+		nil, // receiptURLs: not available for this test
 		"some_reason",
 		"",
 	); err != nil {
@@ -280,6 +283,7 @@ func TestInsertPendingPurchase_NoAttachmentBranch_IdempotentOnRerun(t *testing.T
 		err := insertPendingPurchase(
 			t.Context(), testPool, tx,
 			nil, ReceiptSummary{}, "",
+			nil, // receiptURLs: no-attachment branch has no URLs
 			"no_attachment_on_bank_tx",
 			"",
 		)
@@ -348,6 +352,7 @@ func TestInsertPendingPurchase_CoexistsWithAttachmentBranch(t *testing.T) {
 	if err := insertPendingPurchase(
 		t.Context(), testPool, noattTx,
 		nil, ReceiptSummary{}, "",
+		nil, // receiptURLs: no-attachment branch has no URLs
 		"no_attachment_on_bank_tx",
 		"",
 	); err != nil {
@@ -364,7 +369,7 @@ func TestInsertPendingPurchase_CoexistsWithAttachmentBranch(t *testing.T) {
 		{Name: "Salmon", Quantity: 1, Price: 10.00, IsCase: false},
 	}
 	summary := ReceiptSummary{Vendor: "Acme", Tax: 0.50, Total: 10.50}
-	if err := createPurchaseEvent(t.Context(), testPool, attachedTx, items, summary, "", false /* isUpgrade */); err != nil {
+	if err := createPurchaseEvent(t.Context(), testPool, attachedTx, items, summary, "", nil /* receiptURLs */, false /* isUpgrade */); err != nil {
 		t.Fatalf("createPurchaseEvent: %v", err)
 	}
 
@@ -1112,6 +1117,7 @@ func TestInsertPendingPurchase_DedupesOnReinsertWithDifferentReason(t *testing.T
 	if err := insertPendingPurchase(
 		t.Context(), testPool, tx,
 		nil, ReceiptSummary{}, "",
+		nil, // receiptURLs
 		"no_attachment_on_bank_tx",
 		"",
 	); err != nil {
@@ -1122,6 +1128,7 @@ func TestInsertPendingPurchase_DedupesOnReinsertWithDifferentReason(t *testing.T
 	if err := insertPendingPurchase(
 		t.Context(), testPool, tx,
 		nil, ReceiptSummary{}, "",
+		nil, // receiptURLs
 		"parse_failed",
 		"",
 	); err != nil {
@@ -1425,6 +1432,7 @@ func TestInsertPendingPurchase_ParseErrorNullByDefault(t *testing.T) {
 	if err := insertPendingPurchase(
 		t.Context(), testPool, tx,
 		nil, ReceiptSummary{}, "",
+		nil, // receiptURLs: no-attachment branch has no URLs
 		"no_attachment_on_bank_tx",
 		"", // parseError empty — must land as NULL on the column.
 	); err != nil {
@@ -1669,6 +1677,115 @@ func TestRunIngestCycle_ScenarioTable(t *testing.T) {
 					t.Errorf("purchase_events count = %d, want 1", n)
 				}
 			}
+
+			// receipt_urls assertion for the multi-attachment auto-create case.
+			// SpacesPresigner is nil in tests so URLs fall back to Mercury URLs;
+			// the array still contains one entry per attachment in order.
+			if tc.name == "multi_attachment_net_auto_creates" {
+				var receiptURLsRaw []byte
+				if err := testPool.QueryRow(t.Context(),
+					`SELECT receipt_urls FROM purchase_events WHERE bank_tx_id=$1`,
+					tc.bankTxID,
+				).Scan(&receiptURLsRaw); err != nil {
+					t.Fatalf("select receipt_urls from purchase_events: %v", err)
+				}
+				if len(receiptURLsRaw) == 0 {
+					t.Fatalf("purchase_events.receipt_urls is NULL, want JSON array of length 2")
+				}
+				var gotURLs []string
+				if err := json.Unmarshal(receiptURLsRaw, &gotURLs); err != nil {
+					t.Fatalf("unmarshal receipt_urls: %v", err)
+				}
+				if len(gotURLs) != 2 {
+					t.Errorf("receipt_urls length = %d, want 2", len(gotURLs))
+				}
+				// No Spaces presigner → fallback to Mercury URLs.
+				if len(gotURLs) > 0 && gotURLs[0] != "http://fake/purchase.jpg" {
+					t.Errorf("receipt_urls[0] = %q, want %q (Mercury fallback)", gotURLs[0], "http://fake/purchase.jpg")
+				}
+				if len(gotURLs) > 1 && gotURLs[1] != "http://fake/refund.pdf" {
+					t.Errorf("receipt_urls[1] = %q, want %q (Mercury fallback)", gotURLs[1], "http://fake/refund.pdf")
+				}
+			}
 		})
+	}
+}
+
+// TestMultiAttachment_ValidateFailStoresURLsOnPending asserts that when a
+// multi-attachment transaction fails validation, pending_purchases.receipt_urls
+// is populated with one entry per attachment (in order) and receipt_url holds
+// the primary (index 0) URL. SpacesPresigner is nil → Mercury fallback URLs.
+func TestMultiAttachment_ValidateFailStoresURLsOnPending(t *testing.T) {
+	if testPool == nil {
+		t.Skip("DB_TEST_URL not reachable; skipping integration test")
+	}
+	resetReceiptFixtures(t)
+
+	stubs := &workerStubs{
+		txns: []MercuryTransaction{{
+			ID:        "T-multi-pending",
+			Amount:    -788.37,
+			CreatedAt: "2026-06-07T10:00:00Z",
+			Attachments: []Attachment{
+				{URL: "http://fake/purchase.jpg", FileName: "purchase.jpg"},
+				{URL: "http://fake/refund.pdf", FileName: "refund.pdf"},
+			},
+		}},
+		// Summary total doesn't match bank amount → validate-fail → pending row.
+		parseItems: []ReceiptItem{
+			{Name: "Case Chicken", Quantity: 1, Price: 999.99, IsCase: true},
+		},
+		parseSummary: ReceiptSummary{
+			Vendor:     "Restaurant Depot",
+			Total:      999.99,
+			TotalUnits: 0,
+			TotalCases: 1,
+		},
+	}
+	installWorkerStubs(t, stubs)
+
+	result, err := runIngestCycle(t.Context(), WorkerConfig{
+		MercuryAPIKey:   "stub",
+		AnthropicAPIKey: "stub",
+		Pool:            testPool,
+		LookbackDays:    14,
+	})
+	if err != nil {
+		t.Fatalf("runIngestCycle: %v", err)
+	}
+	if result.PendingReview != 1 {
+		t.Errorf("PendingReview = %d, want 1", result.PendingReview)
+	}
+
+	var receiptURL sql.NullString
+	var receiptURLsRaw []byte
+	if err := testPool.QueryRow(t.Context(),
+		`SELECT receipt_url, receipt_urls FROM pending_purchases WHERE bank_tx_id = $1`,
+		"T-multi-pending",
+	).Scan(&receiptURL, &receiptURLsRaw); err != nil {
+		t.Fatalf("select pending row: %v", err)
+	}
+
+	// receipt_url (singular) must hold the primary URL.
+	if !receiptURL.Valid || receiptURL.String != "http://fake/purchase.jpg" {
+		t.Errorf("receipt_url = %+v, want %q", receiptURL, "http://fake/purchase.jpg")
+	}
+
+	// receipt_urls must be a JSON array of length 2.
+	if len(receiptURLsRaw) == 0 {
+		t.Fatalf("pending_purchases.receipt_urls is NULL, want JSON array of length 2")
+	}
+	var gotURLs []string
+	if err := json.Unmarshal(receiptURLsRaw, &gotURLs); err != nil {
+		t.Fatalf("unmarshal receipt_urls: %v", err)
+	}
+	if len(gotURLs) != 2 {
+		t.Errorf("receipt_urls length = %d, want 2", len(gotURLs))
+	}
+	if len(gotURLs) > 0 && gotURLs[0] != "http://fake/purchase.jpg" {
+		t.Errorf("receipt_urls[0] = %q, want %q", gotURLs[0], "http://fake/purchase.jpg")
+	}
+	if len(gotURLs) > 1 && gotURLs[1] != "http://fake/refund.pdf" {
+		t.Errorf("receipt_urls[1] = %q, want %q", gotURLs[1], "http://fake/refund.pdf")
 	}
 }

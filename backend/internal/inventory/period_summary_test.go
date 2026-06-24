@@ -2001,3 +2001,80 @@ func TestRetryParse_ItemsMatchTotals_StillRejected(t *testing.T) {
 		t.Errorf("error = %q, want %q", body["error"], "nothing_to_retry")
 	}
 }
+
+// TestListPendingPurchases_ReceiptURLsField asserts that ListPendingPurchasesHandler
+// includes the receipt_urls array in its response when the column is populated,
+// and omits it (rather than returning null) when the column is NULL. This covers
+// the backward-compat path for rows written before migration 0070.
+func TestListPendingPurchases_ReceiptURLsField(t *testing.T) {
+	if testPool == nil {
+		t.Skip("DB_TEST_URL not reachable; skipping integration test")
+	}
+	resetFixtures(t)
+
+	// Row A: receipt_urls populated with two URLs.
+	var idA string
+	if err := testPool.QueryRow(t.Context(), `
+		INSERT INTO pending_purchases (bank_tx_id, bank_total, vendor, items, receipt_url, receipt_urls)
+		VALUES ($1, $2, $3, '[]'::jsonb, $4, $5::jsonb)
+		RETURNING id::text`,
+		"pp-ru-a", 100.0, "VendorA",
+		"http://spaces/0.jpg",
+		`["http://spaces/0.jpg","http://spaces/1.pdf"]`,
+	).Scan(&idA); err != nil {
+		t.Fatalf("insert row A: %v", err)
+	}
+
+	// Row B: receipt_urls NULL — backward-compat legacy row.
+	var idB string
+	if err := testPool.QueryRow(t.Context(), `
+		INSERT INTO pending_purchases (bank_tx_id, bank_total, vendor, items, receipt_url)
+		VALUES ($1, $2, $3, '[]'::jsonb, $4)
+		RETURNING id::text`,
+		"pp-ru-b", 50.0, "VendorB", "http://mercury/r.jpg",
+	).Scan(&idB); err != nil {
+		t.Fatalf("insert row B: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+	ListPendingPurchasesHandler(testPool).ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 (body=%s)", rec.Code, rec.Body.String())
+	}
+
+	var pending []PendingPurchase
+	if err := json.NewDecoder(rec.Body).Decode(&pending); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+
+	// Find rows by ID.
+	byID := make(map[string]PendingPurchase)
+	for _, p := range pending {
+		byID[p.ID] = p
+	}
+
+	rowA, ok := byID[idA]
+	if !ok {
+		t.Fatalf("row A (%s) not found in response", idA)
+	}
+	if len(rowA.ReceiptURLs) != 2 {
+		t.Errorf("row A ReceiptURLs length = %d, want 2; got %v", len(rowA.ReceiptURLs), rowA.ReceiptURLs)
+	} else {
+		if rowA.ReceiptURLs[0] != "http://spaces/0.jpg" {
+			t.Errorf("ReceiptURLs[0] = %q, want %q", rowA.ReceiptURLs[0], "http://spaces/0.jpg")
+		}
+		if rowA.ReceiptURLs[1] != "http://spaces/1.pdf" {
+			t.Errorf("ReceiptURLs[1] = %q, want %q", rowA.ReceiptURLs[1], "http://spaces/1.pdf")
+		}
+	}
+
+	rowB, ok := byID[idB]
+	if !ok {
+		t.Fatalf("row B (%s) not found in response", idB)
+	}
+	// Legacy row with receipt_urls=NULL must not return the field at all.
+	if len(rowB.ReceiptURLs) != 0 {
+		t.Errorf("row B ReceiptURLs = %v, want nil/empty (legacy row must not expose receipt_urls)", rowB.ReceiptURLs)
+	}
+}
