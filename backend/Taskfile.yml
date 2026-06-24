@@ -49,6 +49,39 @@ tasks:
       BASE_URL: 'http://{{.DEV_TS}}:{{.PORT}}'
       SUPERADMIN_CONFIG: config/superadmins.yaml
 
+  # ---------------------------------------------------------------------------
+  # Migrations (goose). `go run` caches the binary per-version so the first run
+  # downloads and subsequent runs are instant. Mirrors the dev / dev:lan /
+  # dev:tailscale matrix so the migration target always matches the dev DB.
+  # ---------------------------------------------------------------------------
+  migrate:
+    desc: Apply pending migrations (local DB)
+    cmd: go run github.com/pressly/goose/v3/cmd/goose@v3.27.1 -dir internal/db/migrations postgres "{{.DB_URL}}" up
+
+  migrate:lan:
+    desc: Apply pending migrations against Windows box (LAN)
+    cmd: go run github.com/pressly/goose/v3/cmd/goose@v3.27.1 -dir internal/db/migrations postgres "postgres://{{.DB_USER}}:{{.DB_PASS}}@{{.WIN_LAN}}:{{.WIN_PORT}}/{{.DB_NAME}}?sslmode=disable" up
+
+  migrate:tailscale:
+    desc: Apply pending migrations against Windows box (Tailscale)
+    cmd: go run github.com/pressly/goose/v3/cmd/goose@v3.27.1 -dir internal/db/migrations postgres "postgres://{{.DB_USER}}:{{.DB_PASS}}@{{.WIN_TS}}:{{.WIN_PORT}}/{{.DB_NAME}}?sslmode=disable" up
+
+  migrate:status:
+    desc: Show migration status (local DB)
+    cmd: go run github.com/pressly/goose/v3/cmd/goose@v3.27.1 -dir internal/db/migrations postgres "{{.DB_URL}}" status
+
+  migrate:status:tailscale:
+    desc: Show migration status against Windows box (Tailscale)
+    cmd: go run github.com/pressly/goose/v3/cmd/goose@v3.27.1 -dir internal/db/migrations postgres "postgres://{{.DB_USER}}:{{.DB_PASS}}@{{.WIN_TS}}:{{.WIN_PORT}}/{{.DB_NAME}}?sslmode=disable" status
+
+  migrate:down:
+    desc: Roll back the most recent migration (local DB)
+    cmd: go run github.com/pressly/goose/v3/cmd/goose@v3.27.1 -dir internal/db/migrations postgres "{{.DB_URL}}" down
+
+  migrate:down:tailscale:
+    desc: Roll back the most recent migration against Windows box (Tailscale)
+    cmd: go run github.com/pressly/goose/v3/cmd/goose@v3.27.1 -dir internal/db/migrations postgres "postgres://{{.DB_USER}}:{{.DB_PASS}}@{{.WIN_TS}}:{{.WIN_PORT}}/{{.DB_NAME}}?sslmode=disable" down
+
   prod:
     desc: Run the server in production mode (embedded assets, prod DB)
     deps: [build]
