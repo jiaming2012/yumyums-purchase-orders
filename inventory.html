@@ -74,7 +74,7 @@ select.field-input{appearance:none;-webkit-appearance:none;padding-right:36px;ba
 .retry-parse-btn{width:100%;padding:10px;background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;font-size:13px;color:var(--info-tx);font-weight:500;cursor:pointer;font-family:inherit;margin-top:6px;text-align:center}
 .receipt-overlay{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.92);display:flex;flex-direction:column;align-items:center;justify-content:center}
 .receipt-overlay img{max-width:100%;max-height:calc(100% - 60px);object-fit:contain}
-.receipt-overlay iframe{width:100%;height:calc(100% - 50px);border:0;background:#fff;margin-top:50px}
+.receipt-overlay iframe{width:100%;height:calc(100% - 50px);border:0;background:#fff;margin-top:50px;color-scheme:light}
 .receipt-overlay .close-receipt{position:absolute;top:12px;right:16px;background:none;border:none;color:#fff;font-size:28px;cursor:pointer;padding:8px;z-index:1}
 .vendor-search-wrap{position:relative;display:flex;gap:6px;align-items:center}
 .vendor-search-wrap input{flex:1}
@@ -950,7 +950,7 @@ document.getElementById('history-list').addEventListener('click',function(e){
       overlay.className='receipt-overlay';
       var openLink='<a href="'+escHtml(url)+'" target="_blank" rel="noopener" class="open-receipt-link" style="position:absolute;top:12px;left:12px;color:#fff;font-size:13px;text-decoration:underline;z-index:2">Open in new tab</a>';
       var body=isPdf
-        ? '<iframe src="'+escHtml(url)+'" style="width:100%;height:100%;border:0;background:#fff"></iframe>'
+        ? '<iframe src="'+escHtml(url)+'" style="width:100%;height:100%;border:0;background:#fff;color-scheme:light"></iframe>'
         : '<img src="'+escHtml(url)+'" alt="Receipt">';
       overlay.innerHTML='<button class="close-receipt" aria-label="Close">&times;</button>'+openLink+body;
       if(!isPdf){
