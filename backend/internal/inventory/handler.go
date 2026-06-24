@@ -933,29 +933,21 @@ func RetryParsePendingPurchaseHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		hasParseError := parseError.Valid && parseError.String != ""
 
 		switch {
-		case hasParseError:
-			// 260607-koi: existing parse_error branch — preserved verbatim.
-			if _, err := pool.Exec(r.Context(),
-				`UPDATE pending_purchases SET parse_error = NULL WHERE id = $1`,
-				id,
-			); err != nil {
-				log.Printf("RetryParsePendingPurchase update: %v", err)
-				writeError(w, http.StatusInternalServerError, "internal_error")
-				return
-			}
-		case itemsMismatch:
-			// 260607-s6r: items-mismatch branch.
-			// Sentinel choice: items='[]'::jsonb is chosen because
-			// worker.go classifyExistingTx (lines 393–394) requires
-			//   jsonb_typeof(items)='array' AND jsonb_array_length(items)>0
-			// for hasItems=true. '[]' satisfies the typeof but fails the
-			// length, giving hasItems=false — exactly what
-			// worker.parseFailedRetry needs to re-fire on the next sync.
-			// Matches the 260607-dg9 convention.
+		case hasParseError || itemsMismatch:
+			// Unified retry reset: clear items + reason + parse_error so the
+			// row matches the worker's parseFailedRetry upgrade gate, which
+			// requires reason='Receipt could not be parsed automatically'
+			// AND items=[] AND parse_error IS NULL. Previously the two
+			// branches were mutually exclusive — a row with BOTH
+			// parse_error set AND items populated (the state c43ff15's
+			// retry-loop persistence creates on validate-fail) would only
+			// clear parse_error, leaving items + the validate-fail reason
+			// in place; the worker would then skip on the next sync.
 			if _, err := pool.Exec(r.Context(),
 				`UPDATE pending_purchases
 				    SET items = '[]'::jsonb,
-				        reason = 'Receipt could not be parsed automatically'
+				        reason = 'Receipt could not be parsed automatically',
+				        parse_error = NULL
 				  WHERE id = $1`,
 				id,
 			); err != nil {
@@ -963,8 +955,8 @@ func RetryParsePendingPurchaseHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				writeError(w, http.StatusInternalServerError, "internal_error")
 				return
 			}
-			log.Printf("RetryParse s6r: row %s re-queued (items-mismatch: line_total=%.2f bank_total=%.2f)",
-				id, lineTotal, absBank)
+			log.Printf("RetryParse: row %s re-queued (had_parse_error=%v items_mismatch=%v line_total=%.2f bank_total=%.2f)",
+				id, hasParseError, itemsMismatch, lineTotal, absBank)
 		default:
 			// parse_error NULL AND items match totals (or items empty) —
 			// nothing to retry.
