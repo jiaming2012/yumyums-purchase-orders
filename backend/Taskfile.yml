@@ -21,7 +21,7 @@ vars:
 tasks:
   dev:
     desc: Run the server in development mode
-    cmd: go run ./cmd/server
+    cmd: go run ./cmd/server 2>&1 | tee /tmp/hq-server.log
     env:
       STATIC_DIR: '{{.STATIC_DIR}}'
       PORT: '{{.PORT}}'
@@ -31,7 +31,7 @@ tasks:
 
   dev:lan:
     desc: Run server against Windows box (LAN)
-    cmd: go run ./cmd/server
+    cmd: go run ./cmd/server 2>&1 | tee /tmp/hq-server.log
     env:
       STATIC_DIR: '{{.STATIC_DIR}}'
       PORT: '{{.PORT}}'
@@ -41,7 +41,7 @@ tasks:
 
   dev:tailscale:
     desc: Run server against Windows box (Tailscale)
-    cmd: go run ./cmd/server
+    cmd: go run ./cmd/server 2>&1 | tee /tmp/hq-server.log
     env:
       STATIC_DIR: '{{.STATIC_DIR}}'
       PORT: '{{.PORT}}'
