@@ -419,8 +419,13 @@ type workerStubs struct {
 	sonnetSummary   ReceiptSummary // Phase 260607-e1c
 	sonnetErr       error          // Phase 260607-e1c
 	sonnetCallCount int            // Phase 260607-e1c
-	fetchCalled     bool
-	dlCallCount     int // incremented once per attachment download
+	// feedback retry seam (goal-driven retry loop)
+	feedbackItems      []ReceiptItem
+	feedbackSummary    ReceiptSummary
+	feedbackErr        error
+	feedbackCallCount  int
+	fetchCalled        bool
+	dlCallCount        int // incremented once per attachment download
 }
 
 func installWorkerStubs(t *testing.T, s *workerStubs) {
@@ -449,6 +454,14 @@ func installWorkerStubs(t *testing.T, s *workerStubs) {
 		return s.sonnetItems, s.sonnetSummary, s.sonnetErr
 	}
 	t.Cleanup(func() { parseReceiptWithSonnet = origSonnet })
+
+	// Goal-driven feedback retry seam.
+	origFeedback := parseReceiptWithFeedback
+	parseReceiptWithFeedback = func(_ context.Context, _ string, _ []FileBlob, _ float64, _ float64, _ string) ([]ReceiptItem, ReceiptSummary, error) {
+		s.feedbackCallCount++
+		return s.feedbackItems, s.feedbackSummary, s.feedbackErr
+	}
+	t.Cleanup(func() { parseReceiptWithFeedback = origFeedback })
 
 	origDL := downloadReceiptFileFn
 	downloadReceiptFileFn = func(_ context.Context, _ string) ([]byte, string, error) {
@@ -1583,6 +1596,161 @@ func TestRunIngestCycle_ScenarioTable(t *testing.T) {
 			wantDLCallCount: 2, // both attachments must be downloaded
 		},
 	}
+
+	// ── New scenario table cases for goal-driven retry loop ──────────────────
+	// These are separate from the table loop below so they can access the
+	// feedbackCallCount field. They reuse the same DB + stub infrastructure.
+
+	t.Run("multi_attachment_first_parse_wrong_total_then_feedback_succeeds", func(t *testing.T) {
+		resetReceiptFixtures(t)
+
+		// First parse stub: purchase-only total (misses the refund).
+		// Feedback stub: corrected total with refund items added.
+		stubs := &workerStubs{
+			txns: []MercuryTransaction{{
+				ID:        "T-feedback-ok",
+				Amount:    -788.37,
+				CreatedAt: "2026-06-17T10:00:00Z",
+				Attachments: []Attachment{
+					{URL: "http://fake/purchase.jpg", FileName: "purchase.jpg"},
+					{URL: "http://fake/refund.pdf", FileName: "refund.pdf"},
+				},
+			}},
+			// Initial parse misses refund — returns purchase total only.
+			parseItems: []ReceiptItem{
+				{Name: "Case Chicken", Quantity: 1, Price: 804.49, IsCase: true},
+			},
+			parseSummary: ReceiptSummary{
+				Vendor:     "Restaurant Depot",
+				Total:      804.49,
+				TotalUnits: 0,
+				TotalCases: 1,
+			},
+			// Feedback retry returns corrected net total with refund item.
+			feedbackItems: []ReceiptItem{
+				{Name: "Case Chicken", Quantity: 1, Price: 804.49, IsCase: true},
+				{Name: "Credit Memo", Quantity: 1, Price: -16.12, IsCase: false},
+			},
+			feedbackSummary: ReceiptSummary{
+				Vendor:     "Restaurant Depot",
+				Total:      788.37,
+				TotalUnits: 1,
+				TotalCases: 1,
+			},
+		}
+		installWorkerStubs(t, stubs)
+
+		result, err := runIngestCycle(t.Context(), WorkerConfig{
+			MercuryAPIKey:   "stub",
+			AnthropicAPIKey: "stub",
+			Pool:            testPool,
+			LookbackDays:    14,
+		})
+		if err != nil {
+			t.Fatalf("runIngestCycle: %v", err)
+		}
+
+		if result.AutoCreated != 1 {
+			t.Errorf("AutoCreated = %d, want 1 (feedback retry must produce auto-create)", result.AutoCreated)
+		}
+		if result.PendingReview != 0 {
+			t.Errorf("PendingReview = %d, want 0", result.PendingReview)
+		}
+		if stubs.feedbackCallCount != 1 {
+			t.Errorf("feedbackCallCount = %d, want 1 (one Sonnet feedback call expected)", stubs.feedbackCallCount)
+		}
+
+		// Assert auto-created event exists with both receipt URLs in array.
+		var receiptURLsRaw []byte
+		if err := testPool.QueryRow(t.Context(),
+			`SELECT receipt_urls FROM purchase_events WHERE bank_tx_id = $1`, "T-feedback-ok",
+		).Scan(&receiptURLsRaw); err != nil {
+			t.Fatalf("select receipt_urls: %v", err)
+		}
+		if len(receiptURLsRaw) == 0 {
+			t.Fatalf("purchase_events.receipt_urls is NULL, want JSON array of length 2")
+		}
+		var gotURLs []string
+		if err := json.Unmarshal(receiptURLsRaw, &gotURLs); err != nil {
+			t.Fatalf("unmarshal receipt_urls: %v", err)
+		}
+		if len(gotURLs) != 2 {
+			t.Errorf("receipt_urls length = %d, want 2", len(gotURLs))
+		}
+	})
+
+	t.Run("multi_attachment_feedback_also_fails_routes_to_pending", func(t *testing.T) {
+		resetReceiptFixtures(t)
+
+		stubs := &workerStubs{
+			txns: []MercuryTransaction{{
+				ID:        "T-feedback-fail",
+				Amount:    -788.37,
+				CreatedAt: "2026-06-17T10:00:00Z",
+				Attachments: []Attachment{
+					{URL: "http://fake/purchase.jpg", FileName: "purchase.jpg"},
+					{URL: "http://fake/refund.pdf", FileName: "refund.pdf"},
+				},
+			}},
+			// Initial parse misses refund.
+			parseItems: []ReceiptItem{
+				{Name: "Case Chicken", Quantity: 1, Price: 804.49, IsCase: true},
+			},
+			parseSummary: ReceiptSummary{
+				Vendor:     "Restaurant Depot",
+				Total:      804.49,
+				TotalUnits: 0,
+				TotalCases: 1,
+			},
+			// Feedback retry also returns wrong total.
+			feedbackItems: []ReceiptItem{
+				{Name: "Case Chicken", Quantity: 1, Price: 810.00, IsCase: true},
+			},
+			feedbackSummary: ReceiptSummary{
+				Vendor:     "Restaurant Depot",
+				Total:      810.00,
+				TotalUnits: 0,
+				TotalCases: 1,
+			},
+		}
+		installWorkerStubs(t, stubs)
+
+		result, err := runIngestCycle(t.Context(), WorkerConfig{
+			MercuryAPIKey:   "stub",
+			AnthropicAPIKey: "stub",
+			Pool:            testPool,
+			LookbackDays:    14,
+		})
+		if err != nil {
+			t.Fatalf("runIngestCycle: %v", err)
+		}
+
+		if result.PendingReview != 1 {
+			t.Errorf("PendingReview = %d, want 1 (double-fail must route to pending)", result.PendingReview)
+		}
+		if result.AutoCreated != 0 {
+			t.Errorf("AutoCreated = %d, want 0", result.AutoCreated)
+		}
+		if stubs.feedbackCallCount != 1 {
+			t.Errorf("feedbackCallCount = %d, want 1", stubs.feedbackCallCount)
+		}
+
+		// pending_purchases.parse_error must contain retry trace for both attempts.
+		var parseError sql.NullString
+		if err := testPool.QueryRow(t.Context(),
+			`SELECT parse_error FROM pending_purchases WHERE bank_tx_id = $1`, "T-feedback-fail",
+		).Scan(&parseError); err != nil {
+			t.Fatalf("select parse_error: %v", err)
+		}
+		if !parseError.Valid || parseError.String == "" {
+			t.Fatalf("parse_error is NULL or empty, want retry trace")
+		}
+		for _, want := range []string{"attempt 1:", "attempt 2:"} {
+			if !strings.Contains(parseError.String, want) {
+				t.Errorf("parse_error %q missing substring %q", parseError.String, want)
+			}
+		}
+	})
 
 	for _, tc := range cases {
 		tc := tc

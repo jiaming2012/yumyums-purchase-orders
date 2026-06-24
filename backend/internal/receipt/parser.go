@@ -5,16 +5,24 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"regexp"
 	"strings"
 
 	anthropic "github.com/anthropics/anthropic-sdk-go"
 	"github.com/anthropics/anthropic-sdk-go/option"
 )
 
-const receiptParsePrompt = `Parse this receipt. Return ONLY a JSON object, no markdown, no explanation: {"items": [{"name": "...", "quantity": 1, "price": 0.00, "is_case": false}], "summary": {"vendor": "...", "total_units": 0, "total_cases": 0, "tax": 0.00, "total": 0.00}}`
+const receiptParsePrompt = `Parse this receipt image or set of receipt images.
 
-var jsonFenceRe = regexp.MustCompile("(?s)```(?:json)?\\s*(\\{.*?\\})\\s*```")
+When multiple images are attached, treat them as ONE combined transaction.
+If one image is a refund / credit memo / return (negative amounts, REFUND/RETURN/CREDIT headers), include its line items with NEGATIVE prices.
+summary.total = signed sum of price*quantity across ALL images + summary.tax.
+summary.tax = signed sum of taxes across ALL images.
+summary.vendor = vendor from the purchase image.
+
+Return ONLY raw JSON. No markdown code fences. No explanation.
+
+Example:
+{"items": [{"name": "...", "quantity": 1, "price": 0.00, "is_case": false}], "summary": {"vendor": "...", "total_units": 0, "total_cases": 0, "tax": 0.00, "total": 0.00}}`
 
 // FileBlob holds raw bytes and MIME type for a single receipt file to be sent
 // to Claude. Multiple FileBlobs can be bundled into one prompt so that a
@@ -31,7 +39,7 @@ type FileBlob struct {
 // using the supplied label so call-site logs distinguish Haiku vs Sonnet
 // failures (the seam in worker.go logs both error strings on double-fail).
 func ParseReceipt(ctx context.Context, apiKey string, blobs []FileBlob) ([]ReceiptItem, ReceiptSummary, error) {
-	return parseReceiptWithModel(ctx, apiKey, blobs, anthropic.ModelClaudeHaiku4_5, 2048, "ParseReceipt")
+	return parseReceiptWithModel(ctx, apiKey, blobs, anthropic.ModelClaudeHaiku4_5, 4096, "ParseReceipt")
 }
 
 // ParseReceiptWithSonnet is the Sonnet fallback used by the worker when
@@ -104,14 +112,15 @@ func parseReceiptWithModel(ctx context.Context, apiKey string, blobs []FileBlob,
 }
 
 // parseJSONBody extracts and parses the structured receipt JSON from Claude's response.
-// Handles both bare JSON and JSON wrapped in markdown code fences.
+// Handles both bare JSON and JSON wrapped in markdown code fences (including truncated
+// output where the closing ``` is missing — e.g. Haiku at 2048 maxTokens).
 func parseJSONBody(text string) ([]ReceiptItem, ReceiptSummary, error) {
 	text = strings.TrimSpace(text)
-
-	// Try to extract JSON from markdown code fence first
-	if matches := jsonFenceRe.FindStringSubmatch(text); len(matches) >= 2 {
-		text = strings.TrimSpace(matches[1])
-	}
+	text = strings.TrimPrefix(text, "```json")
+	text = strings.TrimPrefix(text, "```")
+	text = strings.TrimSpace(text)
+	text = strings.TrimSuffix(text, "```")
+	text = strings.TrimSpace(text)
 
 	var result struct {
 		Items   []ReceiptItem  `json:"items"`
@@ -123,6 +132,78 @@ func parseJSONBody(text string) ([]ReceiptItem, ReceiptSummary, error) {
 	}
 
 	return result.Items, result.Summary, nil
+}
+
+// ParseReceiptWithFeedback sends the same receipt blobs back to Sonnet with a
+// reconciliation prompt that embeds the bank's ground-truth amount so Claude can
+// find whatever was missed on the first pass (e.g. a refund / credit memo in a
+// second attachment that it ignored). Always uses Sonnet + maxTokens=4096.
+//
+// A package-level seam var parseReceiptWithFeedback (in worker.go) wraps this
+// function so tests can inject a stub without changing this signature.
+func ParseReceiptWithFeedback(ctx context.Context, apiKey string, blobs []FileBlob, prevTotal float64, bankAmount float64, validateReason string) ([]ReceiptItem, ReceiptSummary, error) {
+	client := anthropic.NewClient(option.WithAPIKey(apiKey))
+
+	diff := prevTotal - (-bankAmount)
+
+	feedbackPrompt := fmt.Sprintf(`You previously parsed this receipt and returned summary.total = $%.2f.
+The bank transaction amount is $%.2f. The receipt total must equal $%.2f.
+Discrepancy: $%.2f.
+
+Look at the attached image(s) again. Find what's missing or wrong:
+- Is there a refund / credit memo / return whose negative items you skipped?
+- If multiple images are attached, did you treat them as one combined transaction?
+- Did you misread a digit or miss a discount line?
+
+Re-emit the corrected JSON. summary.total must equal $%.2f.
+Same JSON shape as before. No markdown code fences. No explanation.`,
+		prevTotal, bankAmount, -bankAmount, diff, -bankAmount)
+
+	var contentBlocks []anthropic.ContentBlockParamUnion
+	for _, blob := range blobs {
+		encoded := base64.StdEncoding.EncodeToString(blob.Bytes)
+		if strings.HasPrefix(blob.ContentType, "application/pdf") {
+			contentBlocks = append(contentBlocks, anthropic.NewDocumentBlock(anthropic.Base64PDFSourceParam{
+				Data: encoded,
+			}))
+		} else {
+			mediaType := normalizeImageMediaType(blob.ContentType)
+			contentBlocks = append(contentBlocks, anthropic.NewImageBlockBase64(mediaType, encoded))
+		}
+	}
+	contentBlocks = append(contentBlocks, anthropic.NewTextBlock(feedbackPrompt))
+
+	msg, err := client.Messages.New(ctx, anthropic.MessageNewParams{
+		Model:     anthropic.ModelClaudeSonnet4_6,
+		MaxTokens: 4096,
+		Messages: []anthropic.MessageParam{
+			{
+				Role:    "user",
+				Content: contentBlocks,
+			},
+		},
+	})
+	if err != nil {
+		return nil, ReceiptSummary{}, fmt.Errorf("ParseReceiptWithFeedback: API call failed: %w", err)
+	}
+
+	var rawText string
+	for _, block := range msg.Content {
+		if block.Type == "text" {
+			rawText += block.Text
+		}
+	}
+
+	if rawText == "" {
+		return nil, ReceiptSummary{}, fmt.Errorf("ParseReceiptWithFeedback: empty response from API")
+	}
+
+	items, summary, err := parseJSONBody(rawText)
+	if err != nil {
+		return nil, ReceiptSummary{}, fmt.Errorf("ParseReceiptWithFeedback: failed to parse JSON body: %w", err)
+	}
+
+	return items, summary, nil
 }
 
 // normalizeImageMediaType maps a content type to the values Claude accepts.

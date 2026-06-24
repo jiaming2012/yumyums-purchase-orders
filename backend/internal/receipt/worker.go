@@ -28,10 +28,11 @@ import (
 // receipt attached) can drive runIngestCycle end-to-end without hitting
 // Mercury / Anthropic / the receipt CDN.
 var (
-	fetchTransactions      = FetchTransactions
-	parseReceipt           = ParseReceipt
-	parseReceiptWithSonnet = ParseReceiptWithSonnet
-	downloadReceiptFileFn  = downloadReceiptFile
+	fetchTransactions          = FetchTransactions
+	parseReceipt               = ParseReceipt
+	parseReceiptWithSonnet     = ParseReceiptWithSonnet
+	parseReceiptWithFeedback   = ParseReceiptWithFeedback
+	downloadReceiptFileFn      = downloadReceiptFile
 )
 
 // StartWorker launches a background goroutine that polls Mercury for new
@@ -313,11 +314,48 @@ func runIngestCycle(ctx context.Context, cfg WorkerConfig) (IngestResult, error)
 			// Sonnet's output. items/summary/err are now populated by Sonnet.
 		}
 
-		// Validate
-		result := ValidateReceiptData(items, summary, tx.Amount)
-		if !result.Valid {
-			log.Printf("receipt worker: transaction %s routed to review queue: %s", tx.ID, result.Reason)
-			if routeErr := routePending(ctx, cfg.Pool, tx, items, summary, receiptURL, receiptURLs, result.Reason, "", isUpgrade); routeErr != nil {
+		// Goal-driven retry loop. Goal: summary.Total == -tx.Amount (Check 1 in
+		// validate.go). On a "Receipt total ..." mismatch, retry once with
+		// ParseReceiptWithFeedback so Claude sees the bank's ground truth and
+		// can find a missed refund / credit memo / etc. Other validation
+		// failures (items-sum, item-count) aren't fixable by re-asking — those
+		// reflect Claude's internal inconsistency, not missing context.
+		const maxParseAttempts = 2
+		var lastValidate ValidationResult
+		var retryTrace []string
+		for attempt := 1; attempt <= maxParseAttempts; attempt++ {
+			lastValidate = ValidateReceiptData(items, summary, tx.Amount)
+			if lastValidate.Valid {
+				break
+			}
+			log.Printf("receipt worker: tx %s attempt %d/%d validate failed: %s",
+				tx.ID, attempt, maxParseAttempts, lastValidate.Reason)
+			retryTrace = append(retryTrace, fmt.Sprintf("attempt %d: total=%.2f reason=%s",
+				attempt, summary.Total, lastValidate.Reason))
+			if attempt == maxParseAttempts {
+				break
+			}
+			// Only retry on Check 1 ("Receipt total ...") mismatches.
+			if !strings.HasPrefix(lastValidate.Reason, "Receipt total") {
+				break
+			}
+			newItems, newSummary, feedbackErr := parseReceiptWithFeedback(
+				ctx, cfg.AnthropicAPIKey, blobs, summary.Total, tx.Amount, lastValidate.Reason)
+			if feedbackErr != nil {
+				log.Printf("receipt worker: tx %s feedback retry failed: %v — using prior attempt", tx.ID, feedbackErr)
+				retryTrace = append(retryTrace, fmt.Sprintf("feedback retry errored: %v", feedbackErr))
+				break
+			}
+			items, summary = newItems, newSummary
+		}
+
+		if !lastValidate.Valid {
+			parseErrForRow := ""
+			if len(retryTrace) > 0 {
+				parseErrForRow = strings.Join(retryTrace, "; ")
+			}
+			log.Printf("receipt worker: tx %s routed to review queue: %s", tx.ID, lastValidate.Reason)
+			if routeErr := routePending(ctx, cfg.Pool, tx, items, summary, receiptURL, receiptURLs, lastValidate.Reason, parseErrForRow, isUpgrade); routeErr != nil {
 				log.Printf("receipt worker: routePending (validate-fail) for tx %s: %v", tx.ID, routeErr)
 			}
 			pendingReview++
