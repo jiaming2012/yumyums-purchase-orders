@@ -2619,3 +2619,131 @@ func TestWorker_PendingRow_HasPurchaseItemIDsPrefilled(t *testing.T) {
 			gotItems[2].PurchaseItemID)
 	}
 }
+
+// ─── Phase 260625: two-stage token + AI matcher ──────────────────────────────
+
+// TestEnrichItemsWithMatches_TokenMatcher_HitsHighThreshold verifies that the
+// token-overlap matcher bridges the gap between human-friendly catalog names
+// ("Lemonade Mix", "Hoagie Containers", "Chicken Tenders") and Restaurant
+// Depot SKU-style receipt names ("4C LEMONADE 35QT", "FM HING HOAGIE 99HT1R",
+// "BF CHUCK TENDERS RW"). The AI stub returns nothing so the assertion is
+// purely on the token-based stage.
+func TestEnrichItemsWithMatches_TokenMatcher_HitsHighThreshold(t *testing.T) {
+	if testPool == nil {
+		t.Skip("DB_TEST_URL not reachable; skipping integration test")
+	}
+	resetReceiptFixtures(t)
+
+	// Seed catalog with human-friendly names.
+	var lemonadeID, hoagieID, tenderID string
+	if err := testPool.QueryRow(t.Context(),
+		`INSERT INTO purchase_items (description) VALUES ('Lemonade Mix') RETURNING id`,
+	).Scan(&lemonadeID); err != nil {
+		t.Fatalf("seed Lemonade Mix: %v", err)
+	}
+	if err := testPool.QueryRow(t.Context(),
+		`INSERT INTO purchase_items (description) VALUES ('Hoagie Containers') RETURNING id`,
+	).Scan(&hoagieID); err != nil {
+		t.Fatalf("seed Hoagie Containers: %v", err)
+	}
+	if err := testPool.QueryRow(t.Context(),
+		`INSERT INTO purchase_items (description) VALUES ('Chicken Tenders') RETURNING id`,
+	).Scan(&tenderID); err != nil {
+		t.Fatalf("seed Chicken Tenders: %v", err)
+	}
+
+	// Stub the AI seam so Stage 2 returns nothing — we're testing Stage 1 only.
+	origAI := matchItemsWithAI
+	matchItemsWithAI = func(_ context.Context, _ string, _ []string, _ map[string]string) (map[string]string, error) {
+		return nil, nil
+	}
+	t.Cleanup(func() { matchItemsWithAI = origAI })
+
+	items := []ReceiptItem{
+		{Name: "4C LEMONADE 35QT"},
+		{Name: "FM HING HOAGIE 99HT1R"},
+		{Name: "BF CHUCK TENDERS RW"},
+	}
+
+	matched, catalogSize, err := enrichItemsWithMatches(t.Context(), testPool, items, "stub-key")
+	if err != nil {
+		t.Fatalf("enrichItemsWithMatches: %v", err)
+	}
+	if catalogSize != 3 {
+		t.Errorf("catalogSize = %d, want 3", catalogSize)
+	}
+	if matched != 3 {
+		t.Errorf("matched = %d, want 3 (token matcher should bridge SKU→catalog gap)", matched)
+	}
+
+	// Spot-check IDs to confirm the right catalog entries were picked.
+	if items[0].PurchaseItemID == nil || *items[0].PurchaseItemID != lemonadeID {
+		t.Errorf("items[0] PurchaseItemID = %v, want %q (Lemonade Mix)", items[0].PurchaseItemID, lemonadeID)
+	}
+	if items[1].PurchaseItemID == nil || *items[1].PurchaseItemID != hoagieID {
+		t.Errorf("items[1] PurchaseItemID = %v, want %q (Hoagie Containers)", items[1].PurchaseItemID, hoagieID)
+	}
+	if items[2].PurchaseItemID == nil || *items[2].PurchaseItemID != tenderID {
+		t.Errorf("items[2] PurchaseItemID = %v, want %q (Chicken Tenders)", items[2].PurchaseItemID, tenderID)
+	}
+}
+
+// TestEnrichItemsWithMatches_AIFallback_PicksUpHighConfidence verifies that
+// when token matching can't close the gap (e.g. "COCA COLA 12PK" vs "Coke"),
+// the AI fallback stage resolves the item by returning a high-confidence match.
+// "WHOLE PACKER BRISKET 14LB" should hit token stage (overlap on "brisket").
+// "COCA COLA 12PK 12OZ CAN" should fall through to AI fallback.
+func TestEnrichItemsWithMatches_AIFallback_PicksUpHighConfidence(t *testing.T) {
+	if testPool == nil {
+		t.Skip("DB_TEST_URL not reachable; skipping integration test")
+	}
+	resetReceiptFixtures(t)
+
+	var brisketID, cokeID string
+	if err := testPool.QueryRow(t.Context(),
+		`INSERT INTO purchase_items (description) VALUES ('Brisket') RETURNING id`,
+	).Scan(&brisketID); err != nil {
+		t.Fatalf("seed Brisket: %v", err)
+	}
+	if err := testPool.QueryRow(t.Context(),
+		`INSERT INTO purchase_items (description) VALUES ('Coke') RETURNING id`,
+	).Scan(&cokeID); err != nil {
+		t.Fatalf("seed Coke: %v", err)
+	}
+
+	// Stub AI to provide the Coke match (simulating high-confidence AI response).
+	origAI := matchItemsWithAI
+	matchItemsWithAI = func(_ context.Context, _ string, unmatchedNames []string, _ map[string]string) (map[string]string, error) {
+		result := make(map[string]string)
+		for _, name := range unmatchedNames {
+			if name == "COCA COLA 12PK 12OZ CAN" {
+				result[name] = cokeID
+			}
+		}
+		return result, nil
+	}
+	t.Cleanup(func() { matchItemsWithAI = origAI })
+
+	items := []ReceiptItem{
+		{Name: "WHOLE PACKER BRISKET 14LB"},
+		{Name: "COCA COLA 12PK 12OZ CAN"},
+	}
+
+	matched, catalogSize, err := enrichItemsWithMatches(t.Context(), testPool, items, "stub-key")
+	if err != nil {
+		t.Fatalf("enrichItemsWithMatches: %v", err)
+	}
+	if catalogSize != 2 {
+		t.Errorf("catalogSize = %d, want 2", catalogSize)
+	}
+	if matched != 2 {
+		t.Errorf("matched = %d, want 2 (brisket via token, coke via AI)", matched)
+	}
+
+	if items[0].PurchaseItemID == nil || *items[0].PurchaseItemID != brisketID {
+		t.Errorf("items[0] PurchaseItemID = %v, want %q (Brisket via token matcher)", items[0].PurchaseItemID, brisketID)
+	}
+	if items[1].PurchaseItemID == nil || *items[1].PurchaseItemID != cokeID {
+		t.Errorf("items[1] PurchaseItemID = %v, want %q (Coke via AI fallback)", items[1].PurchaseItemID, cokeID)
+	}
+}

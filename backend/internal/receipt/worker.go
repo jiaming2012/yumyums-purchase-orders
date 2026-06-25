@@ -376,7 +376,7 @@ func runIngestCycle(ctx context.Context, cfg WorkerConfig) (IngestResult, error)
 		// deciding the route (routePending vs createPurchaseEvent). This lets the
 		// FE pre-fill the dropdowns on pending-review cards without any FE change.
 		// Enrichment errors are non-fatal — log and proceed with unmatched items.
-		matchedCount, catalogSize, enrichErr := enrichItemsWithMatches(ctx, cfg.Pool, items)
+		matchedCount, catalogSize, enrichErr := enrichItemsWithMatches(ctx, cfg.Pool, items, cfg.AnthropicAPIKey)
 		if enrichErr != nil {
 			log.Printf("receipt worker: tx %s enrichItemsWithMatches: %v (continuing without match enrichment)", tx.ID, enrichErr)
 		} else {
@@ -840,27 +840,77 @@ func loadPurchaseItemsMap(ctx context.Context, pool *pgxpool.Pool) (map[string]s
 	return m, rows.Err()
 }
 
-// enrichItemsWithMatches populates each item's PurchaseItemID by fuzzy-matching
-// item.Name against the existing purchase_items catalog. Items with no confident
-// match (DerivePurchaseItemID returns isNew=true) are left unchanged
-// (PurchaseItemID stays nil → omitted from JSON → FE shows "Tap to select item").
+// enrichItemsWithMatches populates each item's PurchaseItemID using a
+// two-stage pipeline:
 //
-// Returns the number of items that were matched and the catalog size so the
-// caller can apply the low-match-rate sanity check.
-func enrichItemsWithMatches(ctx context.Context, pool *pgxpool.Pool, items []ReceiptItem) (matched int, catalogSize int, err error) {
+//  1. Stage 1 (fast, deterministic): exact case-insensitive match + Jaro-Winkler
+//     (DerivePurchaseItemID, threshold 0.85), then token-overlap match at 0.7
+//     threshold (matchByTokens). Bridges the gap between catalog names like
+//     "Lemonade Mix" and SKU-style receipt names like "4C LEMONADE 35QT".
+//
+//  2. Stage 2 (AI fallback): items still unmatched after Stage 1 are sent to
+//     Claude Haiku in a single batch call. Only "high" confidence AI matches
+//     are accepted; lower confidence is left unmatched for the human to resolve
+//     in the FE. Errors are non-fatal — we log and proceed.
+//
+// Returns the number of items matched and the catalog size so the caller can
+// apply the low-match-rate sanity gate.
+func enrichItemsWithMatches(ctx context.Context, pool *pgxpool.Pool, items []ReceiptItem, anthropicAPIKey string) (matched int, catalogSize int, err error) {
 	existingMap, err := loadPurchaseItemsMap(ctx, pool)
 	if err != nil {
 		return 0, 0, fmt.Errorf("enrichItemsWithMatches: %w", err)
 	}
 	catalogSize = len(existingMap)
+
+	var unmatchedNames []string
+	var unmatchedIdx []int
+
+	// Pass 1: exact/JW match (DerivePurchaseItemID) then token-overlap match.
 	for i := range items {
-		id, _, isNew := DerivePurchaseItemID(items[i].Name, existingMap)
-		if !isNew {
+		if items[i].PurchaseItemID != nil {
+			// Already matched upstream (e.g. a prior pass) — count and skip.
+			matched++
+			continue
+		}
+
+		// Step 1a: exact case-insensitive + Jaro-Winkler 0.85 (existing logic).
+		if id, _, isNew := DerivePurchaseItemID(items[i].Name, existingMap); !isNew {
 			idCopy := id
 			items[i].PurchaseItemID = &idCopy
 			matched++
+			continue
+		}
+
+		// Step 1b: token-overlap at 0.7 threshold.
+		if id, _, _ := matchByTokens(items[i].Name, existingMap, tokenMatchThreshold); id != "" {
+			idCopy := id
+			items[i].PurchaseItemID = &idCopy
+			matched++
+			continue
+		}
+
+		// Neither stage matched — defer to AI.
+		unmatchedNames = append(unmatchedNames, items[i].Name)
+		unmatchedIdx = append(unmatchedIdx, i)
+	}
+
+	// Pass 2: AI fallback for remaining unmatched items.
+	if len(unmatchedNames) > 0 && anthropicAPIKey != "" {
+		aiMatches, aiErr := matchItemsWithAI(ctx, anthropicAPIKey, unmatchedNames, existingMap)
+		if aiErr != nil {
+			log.Printf("receipt worker: AI item matching failed: %v (continuing with partial matches)", aiErr)
+		} else {
+			for k, idx := range unmatchedIdx {
+				rawName := unmatchedNames[k]
+				if id, ok := aiMatches[rawName]; ok {
+					idCopy := id
+					items[idx].PurchaseItemID = &idCopy
+					matched++
+				}
+			}
 		}
 	}
+
 	return matched, catalogSize, nil
 }
 
