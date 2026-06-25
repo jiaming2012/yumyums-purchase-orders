@@ -1559,22 +1559,21 @@ func TestRunIngestCycle_ScenarioTable(t *testing.T) {
 			wantSonnetCalled:  true,
 		},
 		{
-			// total_mismatch: parse returns total=99.99 which doesn't match the
-			// bank amount ($42.50). The retry guard fires (broadened to ALL
-			// validation failures in 911fe43), calls feedback with no-op stub
-			// (returns zero summary, also fails). Both attempts stored in the
-			// retry trace → parse_error is non-NULL with attempt markers.
-			// The test asserts pending is created (wantPendingReview=1) and the
-			// reason contains "does not match". wantParseErrParts checks the
-			// retry trace is persisted (not NULL).
-			name:              "total_mismatch",
-			parseItems:        validItems,
-			parseSummary:      ReceiptSummary{Vendor: "Acme", Tax: 0, Total: 99.99, TotalUnits: 1, TotalCases: 0}, // doesn't match -bankAmount
+			// total_mismatch: items themselves don't derive to the bank amount.
+			// derivedTotal = 1×99.99 + 0 = $99.99 ≠ $42.50 → Check 1 fires.
+			// Feedback stub returns zero summary (also fails derivedTotal check).
+			// Both attempts stored in retry trace → parse_error non-NULL.
+			// The test asserts pending is created and reason contains "does not match".
+			name: "total_mismatch",
+			parseItems: []ReceiptItem{
+				{Name: "Salmon", Quantity: 1, Price: 99.99, IsCase: false}, // price deliberately wrong: sum=99.99 ≠ 42.50
+			},
+			parseSummary:      ReceiptSummary{Vendor: "Acme", Tax: 0, Total: 99.99, TotalUnits: 1, TotalCases: 0},
 			bankTxID:          "T-scenario-total-mismatch",
 			amount:            -42.50,
 			wantPendingReview: 1,
-			wantPendingReason: "does not match", // matches Check 1 or Check 2 reason text
-			wantParseErrParts: []string{"attempt 1:", "attempt 2:"},  // retry loop fires on Check 1; both attempts logged
+			wantPendingReason: "does not match", // matches "Receipt derived total ... does not match"
+			wantParseErrParts: []string{"attempt 1:", "attempt 2:"}, // retry loop fires; both attempts logged
 		},
 		{
 			// Multi-attachment net: a purchase receipt ($804.49) and a refund
@@ -2092,22 +2091,134 @@ func TestMultiAttachment_ValidateFailStoresURLsOnPending(t *testing.T) {
 	}
 }
 
+// TestWorker_DerivedTotal_AutoCreatesWhenItemsSumMatchesBank exercises the
+// derived-total architecture: Claude's summary.Total is WRONG (purchase-only,
+// not netted) but the items themselves ARE correctly netted (attempt-1 behavior
+// seen live on Restaurant Depot tx f13472e8-6a6c-11f1-bca2-4b2005726612).
+//
+// Setup mirrors that tx:
+//   bank amount       = -$788.37  (Mercury debit)
+//   2 attachments     (purchase + refund receipts)
+//   parseReceipt stub:
+//     items = [{PURCHASE BUCKET, price=787.73, qty=1}, {REFUND BUCKET, price=-15.96, qty=1}]
+//     summary.Total = $804.49  (Claude's purchase-only total — WRONG)
+//     summary.Tax   = $16.60   (correctly-netted tax)
+//   derivedTotal = (787.73×1 + -15.96×1) + 16.60 = 771.77 + 16.60 = $788.37 ✓
+//
+// Expected behaviour with the new validate.go (derive total from items):
+//   Check 1: |derivedTotal - 788.37| = |788.37 - 788.37| = 0 ≤ 0.01 → PASS
+//   → No retry loop needed; row auto-creates on the FIRST attempt.
+//   → Persisted purchase_events.total = $788.37 (derived), NOT Claude's $804.49.
+func TestWorker_DerivedTotal_AutoCreatesWhenItemsSumMatchesBank(t *testing.T) {
+	if testPool == nil {
+		t.Skip("DB_TEST_URL not reachable; skipping integration test")
+	}
+	resetReceiptFixtures(t)
+
+	stubs := &workerStubs{
+		txns: []MercuryTransaction{{
+			ID:        "T-derived-total-ok",
+			Amount:    -788.37,
+			CreatedAt: "2026-06-17T10:00:00Z",
+			Attachments: []Attachment{
+				{URL: "http://fake/purchase.jpg", FileName: "purchase.jpg"},
+				{URL: "http://fake/refund.pdf", FileName: "refund.pdf"},
+			},
+		}},
+		// Claude's attempt-1 behavior: items correctly netted, total NOT netted.
+		// sum(price*qty) = 787.73 + (-15.96) = 771.77
+		// derivedTotal   = 771.77 + 16.60 = 788.37 ✓ matches -bankAmount
+		parseItems: []ReceiptItem{
+			{Name: "PURCHASE BUCKET", Price: 787.73, Quantity: 1, IsCase: false},
+			{Name: "REFUND BUCKET", Price: -15.96, Quantity: 1, IsCase: false},
+		},
+		parseSummary: ReceiptSummary{
+			Vendor:     "Restaurant Depot #855",
+			Total:      804.49, // Claude's wrong (purchase-only) total — INTENTIONALLY WRONG
+			Tax:        16.60,  // correctly-netted tax
+			TotalUnits: 2,
+			TotalCases: 0,
+		},
+	}
+	installWorkerStubs(t, stubs)
+
+	result, err := runIngestCycle(t.Context(), WorkerConfig{
+		MercuryAPIKey:   "stub",
+		AnthropicAPIKey: "stub",
+		Pool:            testPool,
+		LookbackDays:    14,
+	})
+	if err != nil {
+		t.Fatalf("runIngestCycle: %v", err)
+	}
+
+	// 1. parseReceipt called exactly once — no retry needed because derived-total
+	//    check passes on the first attempt.
+	if stubs.parseCallCount != 1 {
+		t.Errorf("parseCallCount = %d, want 1 (no retry expected)", stubs.parseCallCount)
+	}
+
+	// 2. parseReceiptWithFeedback must NOT be called — first attempt succeeds.
+	if stubs.feedbackCallCount != 0 {
+		t.Errorf("feedbackCallCount = %d, want 0 (no feedback retry should fire)", stubs.feedbackCallCount)
+	}
+
+	// 3. AutoCreated = 1: derived-total passes on first attempt.
+	if result.AutoCreated != 1 {
+		t.Errorf("AutoCreated = %d, want 1", result.AutoCreated)
+	}
+	if result.PendingReview != 0 {
+		t.Errorf("PendingReview = %d, want 0", result.PendingReview)
+	}
+
+	// 4. A purchase_events row exists for this bank_tx_id.
+	var eventCount int
+	if err := testPool.QueryRow(t.Context(),
+		`SELECT COUNT(*) FROM purchase_events WHERE bank_tx_id = $1`,
+		"T-derived-total-ok",
+	).Scan(&eventCount); err != nil {
+		t.Fatalf("count purchase_events: %v", err)
+	}
+	if eventCount != 1 {
+		t.Errorf("purchase_events count = %d, want 1", eventCount)
+	}
+
+	// 5. The persisted total must be the DERIVED value ($788.37), not Claude's
+	//    wrong summary.Total ($804.49). worker.go overwrites summary.Total with
+	//    the derived value before calling createPurchaseEvent.
+	var persistedTotal float64
+	if err := testPool.QueryRow(t.Context(),
+		`SELECT total FROM purchase_events WHERE bank_tx_id = $1`,
+		"T-derived-total-ok",
+	).Scan(&persistedTotal); err != nil {
+		t.Fatalf("select purchase_events.total: %v", err)
+	}
+	if persistedTotal < 788.36 || persistedTotal > 788.38 {
+		t.Errorf("purchase_events.total = %.2f, want 788.37 (derived, not Claude's 804.49)", persistedTotal)
+	}
+
+	// 6. Two line items exist for this event.
+	var lineCount int
+	if err := testPool.QueryRow(t.Context(),
+		`SELECT COUNT(*) FROM purchase_line_items pli
+		   JOIN purchase_events pe ON pe.id = pli.purchase_event_id
+		  WHERE pe.bank_tx_id = $1`,
+		"T-derived-total-ok",
+	).Scan(&lineCount); err != nil {
+		t.Fatalf("count purchase_line_items: %v", err)
+	}
+	if lineCount != 2 {
+		t.Errorf("purchase_line_items count = %d, want 2", lineCount)
+	}
+}
+
 // TestWorker_LineItemSumMismatch_RetriesWithFeedback asserts the goal-driven
-// retry loop fires when Check 2 ("Line item sum ... does not match receipt
-// subtotal") fails — not just on Check 1 ("Receipt total ...") mismatches.
-//
-// Reproduces the tx f13472e8 (Restaurant Depot -$788.37) live failure:
-//   - summary.Total = $788.37  → Check 1 PASSES (total matches bank amount)
-//   - Claude put extended/line totals in the `price` field (weight-priced items):
-//       BF GROUND CHUK: quantity=10.13, price=53.69 (extended)  → product=$543.78
-//       BF TENDERS:     quantity=17.15, price=91.07 (extended)  → product=$1561.85
-//       itemsSum = $2105.63 ≠ subtotal $771.77 → Check 2 FAILS
-//   - With the c43ff15 guard (!strings.HasPrefix("Receipt total")), the retry
-//     loop broke immediately, routing to pending. After the fix, the guard also
-//     matches "Line item sum" so parseReceiptWithFeedback is called.
-//
-// The feedback stub returns corrected unit prices so all three checks pass,
-// and the worker auto-creates the purchase_events row.
+// retry loop fires when the derived-total check fails due to Claude returning
+// extended totals in the price field (not unit prices). This is the pattern
+// seen live on tx f13472e8 (Restaurant Depot -$788.37):
+//   - derivedTotal = sum(price*qty) + tax = ($543.78 + $1561.85) + $16.60 = $2122.23 ≠ $788.37
+//   - Check 1 (|derivedTotal - bankAmount| > 0.01) fires → feedback retry called
+//   - Feedback corrects unit prices so derived-total = $788.37 → auto-create.
 func TestWorker_LineItemSumMismatch_RetriesWithFeedback(t *testing.T) {
 	if testPool == nil {
 		t.Skip("DB_TEST_URL not reachable; skipping integration test")
@@ -2124,14 +2235,12 @@ func TestWorker_LineItemSumMismatch_RetriesWithFeedback(t *testing.T) {
 				{URL: "http://fake/refund.pdf", FileName: "refund.pdf"},
 			},
 		}},
-		// First parse: Check 1 passes (total=788.37 matches bank) but Check 2
-		// fails — Claude returned extended totals in the price field.
+		// First parse: Claude returned extended totals in the price field.
 		//   BF GROUND CHUK: price=53.69 (extended), quantity=10.13 → product=$543.78
 		//   BF TENDERS:     price=91.07 (extended), quantity=17.15 → product=$1561.85
-		//   itemsSum = $2105.63; subtotal = 788.37 - 16.60 = $771.77
-		//   |diff| = $1333.86 > $0.01 → Check 2 fires.
-		// TotalUnits = 27 ensures Check 3 does not fire before Check 2 (Check 2
-		// is evaluated first regardless; Check 3 would see round(27.28)=27 == 27).
+		//   derivedTotal = $543.78 + $1561.85 + $16.60 = $2122.23 ≠ $788.37
+		//   Check 1 (|derivedTotal - bankAmount| > 0.01) fires → feedback called.
+		// TotalUnits = 27 ensures Check 3 does not interfere (round(27.28)=27 == 27).
 		parseItems: []ReceiptItem{
 			{Name: "BF GROUND CHUK", Price: 53.69, Quantity: 10.13, IsCase: false},
 			{Name: "BF TENDERS", Price: 91.07, Quantity: 17.15, IsCase: false},
@@ -2143,11 +2252,10 @@ func TestWorker_LineItemSumMismatch_RetriesWithFeedback(t *testing.T) {
 			TotalUnits: 27,
 			TotalCases: 0,
 		},
-		// Feedback stub: corrected unit prices so price*quantity = extended.
-		// Use simplified numbers to guarantee all three checks pass cleanly:
+		// Feedback stub: corrected unit prices so derived-total matches bank.
 		//   item 1: price=50.00, quantity=1.0 → $50.00
 		//   item 2: price=721.77, quantity=1.0 → $721.77
-		//   itemsSum = $771.77 = 788.37 - 16.60 (subtotal) → Check 2 passes.
+		//   derivedTotal = $771.77 + $16.60 = $788.37 ✓ → Check 1 passes.
 		//   TotalUnits = 2 = round(1.0 + 1.0) → Check 3 passes.
 		feedbackItems: []ReceiptItem{
 			{Name: "BF GROUND CHUK", Price: 50.00, Quantity: 1.0, IsCase: false},
@@ -2178,11 +2286,11 @@ func TestWorker_LineItemSumMismatch_RetriesWithFeedback(t *testing.T) {
 		t.Errorf("parseCallCount = %d, want 1", stubs.parseCallCount)
 	}
 
-	// 2. parseReceiptWithFeedback called exactly once — this is the key assertion
-	// that FAILS before the fix: the old guard (!strings.HasPrefix("Receipt total"))
-	// breaks out of the retry loop on "Line item sum ..." without calling feedback.
+	// 2. parseReceiptWithFeedback called exactly once — derived-total check fires
+	//    on the extended-price items (derivedTotal=$2122.23 ≠ $788.37) so the
+	//    retry loop invokes feedback.
 	if stubs.feedbackCallCount != 1 {
-		t.Errorf("feedbackCallCount = %d, want 1 (Line item sum mismatch must trigger feedback retry); got %d",
+		t.Errorf("feedbackCallCount = %d, want 1 (extended-price derived-total mismatch must trigger feedback retry); got %d",
 			stubs.feedbackCallCount, stubs.feedbackCallCount)
 	}
 

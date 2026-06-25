@@ -362,6 +362,18 @@ func runIngestCycle(ctx context.Context, cfg WorkerConfig) (IngestResult, error)
 			continue
 		}
 
+		// Overwrite summary.Total with the derived value so the persisted
+		// purchase_events.total reflects the bank-matched amount, not whatever
+		// Claude reported. Claude's summary.Total may be purchase-only on a
+		// purchase+refund receipt (multi-image inconsistency); the derived value
+		// (itemsSum + tax) is what validate.go used to pass Check 1 and is
+		// guaranteed to match the bank amount within $0.01.
+		derivedItemsSum := 0.0
+		for _, item := range items {
+			derivedItemsSum += item.Price * item.Quantity
+		}
+		summary.Total = derivedItemsSum + summary.Tax
+
 		// Auto-create purchase event. isUpgrade=true causes the helper to
 		// DELETE the stale pending row inside the same DB transaction as
 		// the event INSERT — atomic upgrade with no window for a concurrent
