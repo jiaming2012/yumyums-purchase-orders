@@ -10,21 +10,56 @@ import (
 )
 
 const (
-	mercuryStatusSent             = "sent"
-	mercuryKindCreditCard         = "creditCardTransaction"
-	mercuryKindDebitCard          = "debitCardTransaction"
-	mercuryKindCreditCardCredit   = "creditCardCredit"
-	mercuryKindDebitCardCredit    = "debitCardCredit"
+	mercuryStatusSent           = "sent"
+	mercuryKindCreditCard       = "creditCardTransaction"
+	mercuryKindDebitCard        = "debitCardTransaction"
+	mercuryKindCreditCardCredit = "creditCardCredit"
+	mercuryKindDebitCardCredit  = "debitCardCredit"
+
+	// mercuryPageLimit is the maximum page size accepted by Mercury's list
+	// endpoint (both the default and the maximum). We always request this many
+	// records per page so pagination terminates as quickly as possible.
+	mercuryPageLimit = 500
 )
 
 // FetchTransactions fetches Mercury transactions for the given date range.
 // Returns every "sent" supported transaction regardless of attachment count;
 // classifying attached vs. unattached rows is the worker's job (see worker.go)
 // so the completeness gate can fail on unreceipted card spend.
+//
+// Pagination: Mercury caps each response at 500 records. This function
+// iterates with increasing offsets until a page shorter than the limit is
+// returned (the standard "last page" sentinel). An offset safety ceiling of
+// 50 000 prevents infinite loops if Mercury ever misbehaves.
 func FetchTransactions(ctx context.Context, apiKey string, startDate, endDate time.Time) ([]MercuryTransaction, error) {
-	url := "https://api.mercury.com/api/v1/transactions"
+	var all []MercuryTransaction
+	offset := 0
+	for {
+		page, err := fetchTransactionsPage(ctx, apiKey, startDate, endDate, mercuryPageLimit, offset)
+		if err != nil {
+			return nil, err
+		}
+		all = append(all, page...)
+		if len(page) < mercuryPageLimit {
+			break
+		}
+		offset += mercuryPageLimit
+		if offset > 50000 {
+			// Defensive: bail out if Mercury keeps returning full pages well
+			// beyond any plausible transaction volume for this codebase.
+			return nil, fmt.Errorf("Mercury FetchTransactions: offset exceeded 50000 — bailing")
+		}
+	}
+	return all, nil
+}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+// fetchTransactionsPage fetches a single page of transactions from the Mercury
+// list endpoint with the given limit and offset. It applies the status/kind
+// filters so callers only see supported, sent transactions.
+func fetchTransactionsPage(ctx context.Context, apiKey string, startDate, endDate time.Time, limit, offset int) ([]MercuryTransaction, error) {
+	const mercuryURL = "https://api.mercury.com/api/v1/transactions"
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, mercuryURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("Mercury FetchTransactions: failed to create request: %w", err)
 	}
@@ -35,6 +70,8 @@ func FetchTransactions(ctx context.Context, apiKey string, startDate, endDate ti
 	q := req.URL.Query()
 	q.Add("start", startDate.Format("2006-01-02"))
 	q.Add("end", endDate.Format("2006-01-02"))
+	q.Add("limit", fmt.Sprintf("%d", limit))
+	q.Add("offset", fmt.Sprintf("%d", offset))
 	req.URL.RawQuery = q.Encode()
 
 	client := &http.Client{Timeout: 30 * time.Second}
@@ -51,10 +88,6 @@ func FetchTransactions(ctx context.Context, apiKey string, startDate, endDate ti
 	var envelope mercuryListTransactionsResponse
 	if err := json.NewDecoder(resp.Body).Decode(&envelope); err != nil {
 		return nil, fmt.Errorf("Mercury FetchTransactions: failed to decode response: %w", err)
-	}
-
-	if len(envelope.Transactions) >= 1000 {
-		return nil, fmt.Errorf("Mercury FetchTransactions: response limit reached — implement pagination")
 	}
 
 	var out []MercuryTransaction
@@ -83,10 +116,8 @@ func FetchTransactions(ctx context.Context, apiKey string, startDate, endDate ti
 // IDs in the request set that Mercury doesn't return are simply absent from
 // the result map — callers should treat that as "not found in Mercury".
 //
-// Errors out if Mercury returns >= 1000 transactions (existing pagination
-// limit — see FetchTransactions). A 1-year window for a small business
-// should never hit this; if it does, the operator must shorten the window
-// or implement pagination.
+// FetchTransactions now paginates automatically, so large 1-year windows
+// with many transactions are handled correctly.
 func FetchTransactionsByIDs(ctx context.Context, apiKey string, requestedIDs []string) (map[string]MercuryTransaction, error) {
 	if len(requestedIDs) == 0 {
 		return nil, nil
