@@ -243,6 +243,7 @@ select.field-input{appearance:none;-webkit-appearance:none;padding-right:36px;ba
   <div id="s1" style="display:none">
     <div class="sync-bar">
       <button id="sync-receipts-btn" class="sync-btn" type="button">Sync Receipts</button>
+      <button id="reprocess-all-btn" class="sync-btn" type="button" style="display:none">Reprocess All Pending</button>
       <div id="sync-receipts-chip" style="display:none"></div>
     </div>
     <select id="vendor-filter" class="filter-select">
@@ -397,6 +398,9 @@ async function refreshSyncStatus(){
     if(SYNC_STATE&&SYNC_STATE.status==='running'){startSyncPoll();}
     else{
       stopSyncPoll();
+      // Re-enable the reprocess button when the sync finishes.
+      var reprBtn=document.getElementById('reprocess-all-btn');
+      if(reprBtn)reprBtn.disabled=false;
       // Refresh the purchases list when a run transitions from running → done
       // so newly-ingested rows appear without a full page reload.
       if(SYNC_STATE&&SYNC_STATE.status==='done'&&prev&&prev.status==='running'&&typeof loadHistory==='function'){
@@ -442,12 +446,42 @@ async function triggerSync(){
   }
 }
 
+// showReprocessBtn shows the "Reprocess All Pending" button only for admins/superadmins.
+// Called after CURRENT_USER is loaded and after each renderHistoryList so the
+// button visibility stays in sync with the user's role.
+function showReprocessBtn(){
+  var btn=document.getElementById('reprocess-all-btn');
+  if(!btn)return;
+  btn.style.display=isAdmin()?'':'none';
+}
+
+async function triggerReprocessAll(){
+  var btn=document.getElementById('reprocess-all-btn');
+  var pendingCount=PENDING_PURCHASES.length;
+  if(!confirm('Reset and re-process all '+pendingCount+' pending receipts? This will overwrite any partial edits. Continue?'))return;
+  if(btn)btn.disabled=true;
+  try{
+    var res=await fetch('/api/v1/inventory/purchases/reprocess-all',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'}});
+    var j=await res.json();
+    if(j.error){showToastMessage('Reprocess failed: '+j.error);if(btn)btn.disabled=false;return;}
+    showToastMessage('Reset '+j.reset_count+' rows. Sync running…');
+    SYNC_STATE={id:j.sync_id,status:'running',started_at:j.started_at,processed:0,auto_created:0,pending_review:0,cached:0};
+    SYNC_CHIP_DISMISSED_ID=null;
+    renderSyncUI();
+    startSyncPoll();
+  }catch(e){
+    if(btn)btn.disabled=false;
+    showToastMessage('Reprocess failed: '+e.message);
+  }
+}
+
 // Event delegation for the sync button + chip dismiss × — keep with existing
 // document-level click wiring style used elsewhere in this file.
 document.addEventListener('click',function(e){
   var t=e.target;
   if(!t)return;
   if(t.id==='sync-receipts-btn'){triggerSync();return;}
+  if(t.id==='reprocess-all-btn'){triggerReprocessAll();return;}
   if(t.getAttribute&&t.getAttribute('data-action')==='dismiss-sync-chip'){
     if(SYNC_STATE)SYNC_CHIP_DISMISSED_ID=SYNC_STATE.id;
     renderSyncUI();
@@ -1814,6 +1848,7 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');
 
 document.addEventListener('DOMContentLoaded',async function(){
   try{CURRENT_USER=await api('/api/v1/me');}catch(e){return;}
+  showReprocessBtn();
   // Preload items for review form dropdowns
   try{var data=await api('/api/v1/inventory/items');ALL_ITEMS=data||[];}catch(e){}
   try{var g=await api('/api/v1/inventory/groups');ITEM_GROUPS=g||[];}catch(e){}

@@ -32,6 +32,7 @@ import (
 	opsync "github.com/yumyums/hq/internal/sync"
 	"github.com/yumyums/hq/internal/toast"
 	"github.com/yumyums/hq/internal/users"
+	"github.com/yumyums/hq/internal/version"
 	"github.com/yumyums/hq/internal/workflow"
 )
 
@@ -336,7 +337,13 @@ func main() {
 		r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"status":"ok"}`))
+			_ = json.NewEncoder(w).Encode(map[string]string{
+				"status":           "ok",
+				"backend_version":  version.Backend,
+				"frontend_version": version.Frontend,
+				"git_sha":          version.GitSHA,
+				"built_at":         version.BuiltAt,
+			})
 		})
 		r.Post("/logs", func(w http.ResponseWriter, r *http.Request) {
 			var body struct {
@@ -459,6 +466,9 @@ func main() {
 					return receipt.RunIngestCycle(ctx, receiptCfg)
 				}))
 				r.Get("/sync-receipts/status", inventory.SyncReceiptsStatusHandler(pool))
+				r.Post("/purchases/reprocess-all", inventory.ReprocessAllPendingHandler(pool, func(ctx context.Context) (receipt.IngestResult, error) {
+					return receipt.RunIngestCycle(ctx, receiptCfg)
+				}))
 				r.Post("/purchases/confirm", inventory.ConfirmPendingPurchaseHandler(pool))
 				r.Post("/purchases/discard", inventory.DiscardPendingPurchaseHandler(pool))
 				r.Post("/purchases/pending/{id}/retry-parse", inventory.RetryParsePendingPurchaseHandler(pool))
