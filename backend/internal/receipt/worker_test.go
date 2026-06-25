@@ -1559,6 +1559,14 @@ func TestRunIngestCycle_ScenarioTable(t *testing.T) {
 			wantSonnetCalled:  true,
 		},
 		{
+			// total_mismatch: parse returns total=99.99 which doesn't match the
+			// bank amount ($42.50). The retry guard fires (broadened to ALL
+			// validation failures in 911fe43), calls feedback with no-op stub
+			// (returns zero summary, also fails). Both attempts stored in the
+			// retry trace → parse_error is non-NULL with attempt markers.
+			// The test asserts pending is created (wantPendingReview=1) and the
+			// reason contains "does not match". wantParseErrParts checks the
+			// retry trace is persisted (not NULL).
 			name:              "total_mismatch",
 			parseItems:        validItems,
 			parseSummary:      ReceiptSummary{Vendor: "Acme", Tax: 0, Total: 99.99, TotalUnits: 1, TotalCases: 0}, // doesn't match -bankAmount
@@ -1566,7 +1574,7 @@ func TestRunIngestCycle_ScenarioTable(t *testing.T) {
 			amount:            -42.50,
 			wantPendingReview: 1,
 			wantPendingReason: "does not match", // matches Check 1 or Check 2 reason text
-			wantParseErrParts: nil,              // parse_error should be NULL on validate-fail
+			wantParseErrParts: []string{"attempt 1:", "attempt 2:"},  // retry loop fires on Check 1; both attempts logged
 		},
 		{
 			// Multi-attachment net: a purchase receipt ($804.49) and a refund
@@ -2081,5 +2089,120 @@ func TestMultiAttachment_ValidateFailStoresURLsOnPending(t *testing.T) {
 	}
 	if len(gotURLs) > 1 && gotURLs[1] != "http://fake/refund.pdf" {
 		t.Errorf("receipt_urls[1] = %q, want %q", gotURLs[1], "http://fake/refund.pdf")
+	}
+}
+
+// TestWorker_LineItemSumMismatch_RetriesWithFeedback asserts the goal-driven
+// retry loop fires when Check 2 ("Line item sum ... does not match receipt
+// subtotal") fails — not just on Check 1 ("Receipt total ...") mismatches.
+//
+// Reproduces the tx f13472e8 (Restaurant Depot -$788.37) live failure:
+//   - summary.Total = $788.37  → Check 1 PASSES (total matches bank amount)
+//   - Claude put extended/line totals in the `price` field (weight-priced items):
+//       BF GROUND CHUK: quantity=10.13, price=53.69 (extended)  → product=$543.78
+//       BF TENDERS:     quantity=17.15, price=91.07 (extended)  → product=$1561.85
+//       itemsSum = $2105.63 ≠ subtotal $771.77 → Check 2 FAILS
+//   - With the c43ff15 guard (!strings.HasPrefix("Receipt total")), the retry
+//     loop broke immediately, routing to pending. After the fix, the guard also
+//     matches "Line item sum" so parseReceiptWithFeedback is called.
+//
+// The feedback stub returns corrected unit prices so all three checks pass,
+// and the worker auto-creates the purchase_events row.
+func TestWorker_LineItemSumMismatch_RetriesWithFeedback(t *testing.T) {
+	if testPool == nil {
+		t.Skip("DB_TEST_URL not reachable; skipping integration test")
+	}
+	resetReceiptFixtures(t)
+
+	stubs := &workerStubs{
+		txns: []MercuryTransaction{{
+			ID:        "T-linesum-mismatch-retry",
+			Amount:    -788.37,
+			CreatedAt: "2026-06-24T10:00:00Z",
+			Attachments: []Attachment{
+				{URL: "http://fake/purchase.jpg", FileName: "purchase.jpg"},
+				{URL: "http://fake/refund.pdf", FileName: "refund.pdf"},
+			},
+		}},
+		// First parse: Check 1 passes (total=788.37 matches bank) but Check 2
+		// fails — Claude returned extended totals in the price field.
+		//   BF GROUND CHUK: price=53.69 (extended), quantity=10.13 → product=$543.78
+		//   BF TENDERS:     price=91.07 (extended), quantity=17.15 → product=$1561.85
+		//   itemsSum = $2105.63; subtotal = 788.37 - 16.60 = $771.77
+		//   |diff| = $1333.86 > $0.01 → Check 2 fires.
+		// TotalUnits = 27 ensures Check 3 does not fire before Check 2 (Check 2
+		// is evaluated first regardless; Check 3 would see round(27.28)=27 == 27).
+		parseItems: []ReceiptItem{
+			{Name: "BF GROUND CHUK", Price: 53.69, Quantity: 10.13, IsCase: false},
+			{Name: "BF TENDERS", Price: 91.07, Quantity: 17.15, IsCase: false},
+		},
+		parseSummary: ReceiptSummary{
+			Vendor:     "Restaurant Depot #855",
+			Total:      788.37,
+			Tax:        16.60,
+			TotalUnits: 27,
+			TotalCases: 0,
+		},
+		// Feedback stub: corrected unit prices so price*quantity = extended.
+		// Use simplified numbers to guarantee all three checks pass cleanly:
+		//   item 1: price=50.00, quantity=1.0 → $50.00
+		//   item 2: price=721.77, quantity=1.0 → $721.77
+		//   itemsSum = $771.77 = 788.37 - 16.60 (subtotal) → Check 2 passes.
+		//   TotalUnits = 2 = round(1.0 + 1.0) → Check 3 passes.
+		feedbackItems: []ReceiptItem{
+			{Name: "BF GROUND CHUK", Price: 50.00, Quantity: 1.0, IsCase: false},
+			{Name: "BF TENDERS", Price: 721.77, Quantity: 1.0, IsCase: false},
+		},
+		feedbackSummary: ReceiptSummary{
+			Vendor:     "Restaurant Depot #855",
+			Total:      788.37,
+			Tax:        16.60,
+			TotalUnits: 2,
+			TotalCases: 0,
+		},
+	}
+	installWorkerStubs(t, stubs)
+
+	result, err := runIngestCycle(t.Context(), WorkerConfig{
+		MercuryAPIKey:   "stub",
+		AnthropicAPIKey: "stub",
+		Pool:            testPool,
+		LookbackDays:    14,
+	})
+	if err != nil {
+		t.Fatalf("runIngestCycle: %v", err)
+	}
+
+	// 1. parseReceipt (Haiku) called exactly once.
+	if stubs.parseCallCount != 1 {
+		t.Errorf("parseCallCount = %d, want 1", stubs.parseCallCount)
+	}
+
+	// 2. parseReceiptWithFeedback called exactly once — this is the key assertion
+	// that FAILS before the fix: the old guard (!strings.HasPrefix("Receipt total"))
+	// breaks out of the retry loop on "Line item sum ..." without calling feedback.
+	if stubs.feedbackCallCount != 1 {
+		t.Errorf("feedbackCallCount = %d, want 1 (Line item sum mismatch must trigger feedback retry); got %d",
+			stubs.feedbackCallCount, stubs.feedbackCallCount)
+	}
+
+	// 3. AutoCreated = 1: feedback corrected the parse so the event auto-creates.
+	if result.AutoCreated != 1 {
+		t.Errorf("AutoCreated = %d, want 1 (feedback-corrected result must auto-create)", result.AutoCreated)
+	}
+	if result.PendingReview != 0 {
+		t.Errorf("PendingReview = %d, want 0", result.PendingReview)
+	}
+
+	// 4. A purchase_events row exists for this tx.
+	var eventCount int
+	if err := testPool.QueryRow(t.Context(),
+		`SELECT COUNT(*) FROM purchase_events WHERE bank_tx_id = $1`,
+		"T-linesum-mismatch-retry",
+	).Scan(&eventCount); err != nil {
+		t.Fatalf("count purchase_events: %v", err)
+	}
+	if eventCount != 1 {
+		t.Errorf("purchase_events count = %d, want 1", eventCount)
 	}
 }
