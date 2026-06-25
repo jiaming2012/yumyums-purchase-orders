@@ -74,45 +74,43 @@ func FetchTransactions(ctx context.Context, apiKey string, startDate, endDate ti
 	return out, nil
 }
 
-// FetchTransactionByID fetches a single Mercury transaction by its ID using
-// the GET /api/v1/transactions/{id} endpoint. This bypasses the list
-// endpoint's date-range filter, so it can recover transactions older than
-// the worker's normal 14-day lookback window.
+// FetchTransactionsByIDs fetches Mercury transactions in a wide date range
+// (1 year back from now by default) and returns a map keyed by tx ID for
+// the requested IDs only. Used by the reprocess pipeline to bypass the
+// list endpoint's narrow lookback in the standard ingest path.
 //
-// Returns (nil, nil) when Mercury returns 404 (transaction not found or
-// deleted). All other non-2xx responses return a non-nil error.
-func FetchTransactionByID(ctx context.Context, apiKey string, txID string) (*MercuryTransaction, error) {
-	url := fmt.Sprintf("https://api.mercury.com/api/v1/transactions/%s", txID)
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	if err != nil {
-		return nil, fmt.Errorf("Mercury FetchTransactionByID: failed to create request: %w", err)
-	}
-
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", apiKey))
-	req.Header.Set("Accept", "application/json;charset=utf-8")
-
-	client := &http.Client{Timeout: 30 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("Mercury FetchTransactionByID: request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode == http.StatusNotFound {
-		// Transaction not found — caller skips the row.
+// Returns ONLY the txs whose ID is in the requested set (filters out others).
+// IDs in the request set that Mercury doesn't return are simply absent from
+// the result map — callers should treat that as "not found in Mercury".
+//
+// Errors out if Mercury returns >= 1000 transactions (existing pagination
+// limit — see FetchTransactions). A 1-year window for a small business
+// should never hit this; if it does, the operator must shorten the window
+// or implement pagination.
+func FetchTransactionsByIDs(ctx context.Context, apiKey string, requestedIDs []string) (map[string]MercuryTransaction, error) {
+	if len(requestedIDs) == 0 {
 		return nil, nil
 	}
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("Mercury FetchTransactionByID: non-200 response: %d", resp.StatusCode)
+	endDate := time.Now()
+	startDate := endDate.AddDate(-1, 0, 0) // 1 year back
+
+	txs, err := fetchTransactions(ctx, apiKey, startDate, endDate)
+	if err != nil {
+		return nil, fmt.Errorf("FetchTransactionsByIDs: %w", err)
 	}
 
-	var tx MercuryTransaction
-	if err := json.NewDecoder(resp.Body).Decode(&tx); err != nil {
-		return nil, fmt.Errorf("Mercury FetchTransactionByID: failed to decode response: %w", err)
+	want := make(map[string]bool, len(requestedIDs))
+	for _, id := range requestedIDs {
+		want[id] = true
 	}
 
-	return &tx, nil
+	out := make(map[string]MercuryTransaction, len(requestedIDs))
+	for _, tx := range txs {
+		if want[tx.ID] {
+			out[tx.ID] = tx
+		}
+	}
+	return out, nil
 }
 
 func isSupportedKind(kind string) bool {

@@ -9,33 +9,35 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// PerRowReprocessRunner is a function that fetches a single Mercury transaction
-// by bank_tx_id and runs the full ingest pipeline for it. It returns a result
-// string ("auto_created" | "pending_review" | "cached" | "errored") and any
-// non-fatal error. Production callers pass receipt.ProcessSingleTxByID wrapped
-// in a closure; tests inject a stub.
-type PerRowReprocessRunner func(ctx context.Context, bankTxID string) (string, error)
+// BatchReprocessRunner is a function that fetches all requested Mercury
+// transactions in a single wide-range list call and runs the full ingest
+// pipeline for each. Returns a map of bank_tx_id -> status where status is
+// one of "auto_created", "pending_review", "cached", "errored", or
+// "not_found_in_mercury". Production callers pass receipt.ProcessAllPendingByIDs
+// wrapped in a closure; tests inject a stub.
+type BatchReprocessRunner func(ctx context.Context, bankTxIDs []string) (map[string]string, error)
 
 // ReprocessAllPendingHandler reprocesses every still-pending purchase row by
-// fetching each row's Mercury transaction individually (bypassing the list
-// endpoint's 14-day lookback limit) and running the full ingest pipeline.
+// fetching all pending Mercury transactions in a single wide-range list call
+// (bypassing the list endpoint's 14-day lookback limit) and running the full
+// ingest pipeline for each.
 //
-// Per-row approach (fixes "lookback amnesia"):
+// Batch approach (fixes "lookback amnesia" and removes dead per-tx endpoint):
 //  1. Single-flight via receipt_sync_runs (same as SyncReceiptsHandler).
 //  2. SELECT bank_tx_id FROM pending_purchases WHERE still-active.
-//  3. For each bank_tx_id call the PerRowReprocessRunner which:
-//     a. Hits Mercury GET /transaction/{id} for the latest state.
-//     b. Runs the full classify → parse → validate → persist pipeline.
-//  4. Aggregate counts and write the terminal tally to receipt_sync_runs.
+//  3. Call the BatchReprocessRunner once with all IDs — it fetches a 1-year
+//     window from Mercury, builds a map, and runs classify→parse→validate→persist
+//     for each found tx.
+//  4. Aggregate the result map into counts and write the terminal tally to
+//     receipt_sync_runs.
 //
 // Response (200 OK):
 //
-//	{ "pending_count": N, "sync_id": M, "started_at": "...", "status": "running",
-//	  "auto_created": A, "pending_review": P, "errored": E }
+//	{ "pending_count": N, "sync_id": M, "started_at": "...", "status": "running" }
 //
 // Returns 409 if a sync is already running (the existing single-running index
 // fires a unique-violation on INSERT).
-func ReprocessAllPendingHandler(pool *pgxpool.Pool, runner PerRowReprocessRunner) http.HandlerFunc {
+func ReprocessAllPendingHandler(pool *pgxpool.Pool, runner BatchReprocessRunner) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Step 1: collect all still-pending bank_tx_ids.
 		rows, err := pool.Query(r.Context(),
@@ -89,7 +91,7 @@ func ReprocessAllPendingHandler(pool *pgxpool.Pool, runner PerRowReprocessRunner
 			return
 		}
 
-		// Step 3: spawn the per-row reprocess goroutine (detached from the request context).
+		// Step 3: spawn the batch reprocess goroutine (detached from the request context).
 		go runReprocessGoroutine(pool, runner, id, bankTxIDs)
 
 		writeJSON(w, http.StatusOK, map[string]any{
@@ -101,9 +103,10 @@ func ReprocessAllPendingHandler(pool *pgxpool.Pool, runner PerRowReprocessRunner
 	}
 }
 
-// runReprocessGoroutine processes each bank_tx_id via the runner and writes the
-// final tally to receipt_sync_runs. recover() guarantees no orphan running rows.
-func runReprocessGoroutine(pool *pgxpool.Pool, runner PerRowReprocessRunner, id int64, bankTxIDs []string) {
+// runReprocessGoroutine calls the batch runner once for all bank_tx_ids, aggregates
+// the result map into counts, and writes the final tally to receipt_sync_runs.
+// recover() guarantees no orphan running rows.
+func runReprocessGoroutine(pool *pgxpool.Pool, runner BatchReprocessRunner, id int64, bankTxIDs []string) {
 	ctx := context.Background()
 	defer func() {
 		if rec := recover(); rec != nil {
@@ -116,12 +119,18 @@ func runReprocessGoroutine(pool *pgxpool.Pool, runner PerRowReprocessRunner, id 
 		}
 	}()
 
+	results, runErr := runner(ctx, bankTxIDs)
+	if runErr != nil {
+		log.Printf("ReprocessAllPending: batch runner error for run %d: %v", id, runErr)
+		_, _ = pool.Exec(ctx,
+			`UPDATE receipt_sync_runs
+			 SET status='failed', finished_at=now(), error=$1
+			 WHERE id=$2`, runErr.Error(), id)
+		return
+	}
+
 	var autoCreated, pendingReview, errored int
-	for _, bankTxID := range bankTxIDs {
-		result, runErr := runner(ctx, bankTxID)
-		if runErr != nil {
-			log.Printf("ReprocessAllPending: runner error for tx %s: %v", bankTxID, runErr)
-		}
+	for _, result := range results {
 		switch result {
 		case "auto_created":
 			autoCreated++

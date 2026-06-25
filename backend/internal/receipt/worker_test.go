@@ -2926,3 +2926,68 @@ func TestMatchItemsWithAI_EmptyInputSkipsAPICall(t *testing.T) {
 		t.Errorf("MatchItemsWithAI result = %v, want nil for empty input", result2)
 	}
 }
+
+// ─── FetchTransactionsByIDs unit tests ───────────────────────────────────────
+
+// TestFetchTransactionsByIDs_FiltersToRequestedIDs verifies that when the
+// underlying fetchTransactions seam returns 5 txs, only the 3 whose IDs are in
+// the requested set appear in the result map — the other 2 are filtered out.
+func TestFetchTransactionsByIDs_FiltersToRequestedIDs(t *testing.T) {
+	allTxs := []MercuryTransaction{
+		{ID: "tx-a", Amount: -10.00, Status: "sent", Kind: mercuryKindDebitCard},
+		{ID: "tx-b", Amount: -20.00, Status: "sent", Kind: mercuryKindDebitCard},
+		{ID: "tx-c", Amount: -30.00, Status: "sent", Kind: mercuryKindDebitCard},
+		{ID: "tx-d", Amount: -40.00, Status: "sent", Kind: mercuryKindDebitCard},
+		{ID: "tx-e", Amount: -50.00, Status: "sent", Kind: mercuryKindDebitCard},
+	}
+
+	origFetch := fetchTransactions
+	fetchTransactions = func(_ context.Context, _ string, _, _ time.Time) ([]MercuryTransaction, error) {
+		return allTxs, nil
+	}
+	t.Cleanup(func() { fetchTransactions = origFetch })
+
+	requestedIDs := []string{"tx-a", "tx-c", "tx-e"}
+	result, err := fetchTransactionsByIDs(t.Context(), "stub-key", requestedIDs)
+	if err != nil {
+		t.Fatalf("fetchTransactionsByIDs: %v", err)
+	}
+
+	if len(result) != 3 {
+		t.Errorf("result len = %d, want 3", len(result))
+	}
+	for _, id := range requestedIDs {
+		if _, ok := result[id]; !ok {
+			t.Errorf("result missing requested ID %q", id)
+		}
+	}
+	for _, id := range []string{"tx-b", "tx-d"} {
+		if _, ok := result[id]; ok {
+			t.Errorf("result contains unrequested ID %q", id)
+		}
+	}
+}
+
+// TestFetchTransactionsByIDs_EmptyInput_ReturnsNil verifies that calling
+// fetchTransactionsByIDs with an empty slice returns (nil, nil) without
+// invoking the underlying fetchTransactions seam.
+func TestFetchTransactionsByIDs_EmptyInput_ReturnsNil(t *testing.T) {
+	callCount := 0
+	origFetch := fetchTransactions
+	fetchTransactions = func(_ context.Context, _ string, _, _ time.Time) ([]MercuryTransaction, error) {
+		callCount++
+		return nil, nil
+	}
+	t.Cleanup(func() { fetchTransactions = origFetch })
+
+	result, err := fetchTransactionsByIDs(t.Context(), "stub-key", []string{})
+	if err != nil {
+		t.Fatalf("fetchTransactionsByIDs(empty): %v", err)
+	}
+	if result != nil {
+		t.Errorf("result = %v, want nil for empty input", result)
+	}
+	if callCount != 0 {
+		t.Errorf("fetchTransactions called %d times, want 0 (empty input must not call API)", callCount)
+	}
+}

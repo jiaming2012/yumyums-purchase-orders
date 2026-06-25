@@ -3,7 +3,6 @@ package inventory
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http/httptest"
 	"testing"
 	"time"
@@ -92,11 +91,15 @@ func fetchPendingRow(t *testing.T, id string) pendingRow {
 	return row
 }
 
-// stubPerRowRunnerOK returns a PerRowReprocessRunner that returns the given
+// stubBatchRunnerOK returns a BatchReprocessRunner that returns the given
 // result for all bank_tx_ids without any real Mercury/Anthropic calls.
-func stubPerRowRunnerOK(result string) PerRowReprocessRunner {
-	return func(ctx context.Context, bankTxID string) (string, error) {
-		return result, nil
+func stubBatchRunnerOK(result string) BatchReprocessRunner {
+	return func(ctx context.Context, bankTxIDs []string) (map[string]string, error) {
+		out := make(map[string]string, len(bankTxIDs))
+		for _, id := range bankTxIDs {
+			out[id] = result
+		}
+		return out, nil
 	}
 }
 
@@ -124,11 +127,15 @@ func TestReprocessAllPendingHandler_QueuesPerRowProcessing(t *testing.T) {
 	// Seed 1 discarded row — must NOT be passed to the runner.
 	insertDiscardedPendingPurchase(t, "discarded-1")
 
-	// Count how many times the runner is invoked and which bank_tx_ids it sees.
+	// Record which bank_tx_ids the batch runner receives.
 	var calledIDs []string
-	runner := PerRowReprocessRunner(func(ctx context.Context, bankTxID string) (string, error) {
-		calledIDs = append(calledIDs, bankTxID)
-		return "pending_review", nil
+	runner := BatchReprocessRunner(func(ctx context.Context, bankTxIDs []string) (map[string]string, error) {
+		calledIDs = append(calledIDs, bankTxIDs...)
+		out := make(map[string]string, len(bankTxIDs))
+		for _, id := range bankTxIDs {
+			out[id] = "pending_review"
+		}
+		return out, nil
 	})
 
 	handler := ReprocessAllPendingHandler(testPool, runner)
@@ -204,7 +211,7 @@ func TestReprocessAllPendingHandler_ReturnsConflictWhenSyncAlreadyRunning(t *tes
 	// Seed one stuck row so there's something to process.
 	_ = insertStuckPendingPurchase(t, "stuck-conflict", "Receipt total $X doesn't match...", true, false)
 
-	runner := stubPerRowRunnerOK("pending_review")
+	runner := stubBatchRunnerOK("pending_review")
 	handler := ReprocessAllPendingHandler(testPool, runner)
 
 	req := httptest.NewRequest("POST", "/inventory/purchases/reprocess-all", nil)
@@ -247,32 +254,40 @@ func TestReprocessAllPendingHandler_PerRowRefetch_RecoversOlderRow(t *testing.T)
 		t.Fatalf("seed old pending: %v", err)
 	}
 
-	// Stub runner: auto_created=1 to simulate per-row fetch+parse+create succeeding.
-	// The per-row reprocess runner is called once per pending bank_tx_id.
+	// Stub batch runner: simulates fetching all pending IDs in one call,
+	// auto-creating the event for the old tx.
 	callCount := 0
-	runner := PerRowReprocessRunner(func(ctx context.Context, bankTxID string) (string, error) {
+	runner := BatchReprocessRunner(func(ctx context.Context, bankTxIDs []string) (map[string]string, error) {
 		callCount++
-		if bankTxID != oldBankTxID {
-			return "errored", fmt.Errorf("unexpected bankTxID %q", bankTxID)
+		out := make(map[string]string, len(bankTxIDs))
+		for _, bankTxID := range bankTxIDs {
+			if bankTxID != oldBankTxID {
+				out[bankTxID] = "errored"
+				continue
+			}
+			// Simulate auto-create: insert a purchase_events row and delete the pending row.
+			var vendorID string
+			if err := testPool.QueryRow(ctx,
+				`INSERT INTO vendors (name) VALUES ('Old Vendor') ON CONFLICT (name) DO UPDATE SET name=EXCLUDED.name RETURNING id`,
+			).Scan(&vendorID); err != nil {
+				out[bankTxID] = "errored"
+				continue
+			}
+			if _, err := testPool.Exec(ctx,
+				`INSERT INTO purchase_events (vendor_id, bank_tx_id, event_date, total)
+				 VALUES ($1, $2, '2026-05-24', 42.50)`,
+				vendorID, bankTxID); err != nil {
+				out[bankTxID] = "errored"
+				continue
+			}
+			if _, err := testPool.Exec(ctx,
+				`DELETE FROM pending_purchases WHERE bank_tx_id = $1`, bankTxID); err != nil {
+				out[bankTxID] = "errored"
+				continue
+			}
+			out[bankTxID] = "auto_created"
 		}
-		// Simulate auto-create: insert a purchase_events row and delete the pending row.
-		var vendorID string
-		if err := testPool.QueryRow(ctx,
-			`INSERT INTO vendors (name) VALUES ('Old Vendor') ON CONFLICT (name) DO UPDATE SET name=EXCLUDED.name RETURNING id`,
-		).Scan(&vendorID); err != nil {
-			return "errored", err
-		}
-		if _, err := testPool.Exec(ctx,
-			`INSERT INTO purchase_events (vendor_id, bank_tx_id, event_date, total)
-			 VALUES ($1, $2, '2026-05-24', 42.50)`,
-			vendorID, bankTxID); err != nil {
-			return "errored", err
-		}
-		if _, err := testPool.Exec(ctx,
-			`DELETE FROM pending_purchases WHERE bank_tx_id = $1`, bankTxID); err != nil {
-			return "errored", err
-		}
-		return "auto_created", nil
+		return out, nil
 	})
 
 	handler := ReprocessAllPendingHandler(testPool, runner)
@@ -296,9 +311,9 @@ func TestReprocessAllPendingHandler_PerRowRefetch_RecoversOlderRow(t *testing.T)
 		waitForTerminalStatus(t, int64(syncID), 2*time.Second)
 	}
 
-	// Assert runner was called exactly once (for the one pending row).
+	// Assert the batch runner was called exactly once (one batch call covers all pending rows).
 	if callCount != 1 {
-		t.Errorf("runner callCount = %d, want 1", callCount)
+		t.Errorf("runner callCount = %d, want 1 (batch runner called once for all pending rows)", callCount)
 	}
 
 	// Assert the auto_created count was written to the sync run row.

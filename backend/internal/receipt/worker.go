@@ -29,37 +29,46 @@ import (
 // receipt attached) can drive runIngestCycle end-to-end without hitting
 // Mercury / Anthropic / the receipt CDN.
 //
-// fetchTransactionByID is the seam for per-row reprocess (reprocess-all uses
-// this to bypass the list endpoint's date-range filter).
+// fetchTransactionsByIDs is the seam for batch reprocess (reprocess-all uses
+// this to fetch all pending tx IDs in one wide-range list call, bypassing
+// the individual-tx endpoint that does not exist on Mercury).
 var (
-	fetchTransactions          = FetchTransactions
-	fetchTransactionByID       = FetchTransactionByID
-	parseReceipt               = ParseReceipt
-	parseReceiptWithSonnet     = ParseReceiptWithSonnet
-	parseReceiptWithFeedback   = ParseReceiptWithFeedback
-	downloadReceiptFileFn      = downloadReceiptFile
+	fetchTransactions        = FetchTransactions
+	fetchTransactionsByIDs   = FetchTransactionsByIDs
+	parseReceipt             = ParseReceipt
+	parseReceiptWithSonnet   = ParseReceiptWithSonnet
+	parseReceiptWithFeedback = ParseReceiptWithFeedback
+	downloadReceiptFileFn    = downloadReceiptFile
 )
 
-// ProcessSingleTxByID fetches a single Mercury transaction by ID and runs the
-// full ingest pipeline for it via processSingleTx. Used by the per-row
-// reprocess handler so each pending row is refetched individually, bypassing
-// the list endpoint's date-range lookback limit.
-//
-// Returns the same enum as processSingleTx: "auto_created" | "pending_review"
-// | "cached" | "errored". Returns ("cached", nil) when Mercury returns 404
-// for the transaction ID (the tx no longer exists; leave the pending row alone).
-func ProcessSingleTxByID(ctx context.Context, cfg WorkerConfig, bankTxID string) (string, error) {
-	tx, err := fetchTransactionByID(ctx, cfg.MercuryAPIKey, bankTxID)
+// ProcessAllPendingByIDs runs processSingleTx (with reprocess=true) for each
+// requested bank tx ID, fetching them all in one Mercury list call. Returns a
+// map ID->status where status is one of "auto_created", "pending_review",
+// "cached", "errored", or "not_found_in_mercury". Skipped rows (not returned
+// by Mercury in the 1-year window) get "not_found_in_mercury".
+func ProcessAllPendingByIDs(ctx context.Context, cfg WorkerConfig, bankTxIDs []string) (map[string]string, error) {
+	txMap, err := fetchTransactionsByIDs(ctx, cfg.MercuryAPIKey, bankTxIDs)
 	if err != nil {
-		log.Printf("receipt worker: FetchTransactionByID %s: %v", bankTxID, err)
-		return "errored", err
+		return nil, err
 	}
-	if tx == nil {
-		// Mercury returned 404 — transaction not found. Leave the pending row untouched.
-		log.Printf("receipt worker: tx %s not found in Mercury (404) — leaving pending row", bankTxID)
-		return "cached", nil
+
+	out := make(map[string]string, len(bankTxIDs))
+	for _, id := range bankTxIDs {
+		tx, ok := txMap[id]
+		if !ok {
+			log.Printf("receipt worker: tx %s not found in Mercury (1y window) — leaving pending row", id)
+			out[id] = "not_found_in_mercury"
+			continue
+		}
+		status, perr := processSingleTx(ctx, cfg, tx, true)
+		if perr != nil {
+			log.Printf("receipt worker: tx %s reprocess error: %v", id, perr)
+			out[id] = "errored"
+			continue
+		}
+		out[id] = status
 	}
-	return processSingleTx(ctx, cfg, *tx, true)
+	return out, nil
 }
 
 // StartWorker launches a background goroutine that polls Mercury for new
