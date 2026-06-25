@@ -28,45 +28,71 @@ import (
 // are introduced so the upgrade-path tests (no_attachment → re-sync with
 // receipt attached) can drive runIngestCycle end-to-end without hitting
 // Mercury / Anthropic / the receipt CDN.
-//
-// fetchTransactionsByIDs is the seam for batch reprocess (reprocess-all uses
-// this to fetch all pending tx IDs in one wide-range list call, bypassing
-// the individual-tx endpoint that does not exist on Mercury).
 var (
 	fetchTransactions        = FetchTransactions
-	fetchTransactionsByIDs   = FetchTransactionsByIDs
 	parseReceipt             = ParseReceipt
 	parseReceiptWithSonnet   = ParseReceiptWithSonnet
 	parseReceiptWithFeedback = ParseReceiptWithFeedback
 	downloadReceiptFileFn    = downloadReceiptFile
 )
 
-// ProcessAllPendingByIDs runs processSingleTx (with reprocess=true) for each
-// requested bank tx ID, fetching them all in one Mercury list call. Returns a
-// map ID->status where status is one of "auto_created", "pending_review",
-// "cached", "errored", or "not_found_in_mercury". Skipped rows (not returned
-// by Mercury in the 1-year window) get "not_found_in_mercury".
-func ProcessAllPendingByIDs(ctx context.Context, cfg WorkerConfig, bankTxIDs []string) (map[string]string, error) {
-	txMap, err := fetchTransactionsByIDs(ctx, cfg.MercuryAPIKey, bankTxIDs)
-	if err != nil {
-		return nil, err
+// PendingRowForReprocess is the minimal data needed from a pending_purchases
+// row to drive a reprocess: bank tx ID for upsert keying, bank amount for
+// validation, vendor for fallback display, event_date for the synthesized
+// MercuryTransaction.CreatedAt, and the receipt URL list to download.
+type PendingRowForReprocess struct {
+	BankTxID    string
+	BankTotal   float64  // negative for debit, matches Mercury convention
+	Vendor      string
+	EventDate   string   // YYYY-MM-DD
+	ReceiptURLs []string // may be one URL (legacy) or many (multi-attachment)
+}
+
+// ReprocessFromSpaces synthesizes a MercuryTransaction from the pending row's
+// stored data, downloads each receipt URL from the Spaces bucket (or wherever
+// the URL points), and runs the standard parse/validate/persist pipeline. No
+// Mercury API calls are made. Returns one of "auto_created", "pending_review",
+// "errored", "no_attachments".
+func ReprocessFromSpaces(ctx context.Context, cfg WorkerConfig, row PendingRowForReprocess) (string, error) {
+	if len(row.ReceiptURLs) == 0 {
+		log.Printf("receipt worker: tx %s reprocess skipped — no receipt URLs stored", row.BankTxID)
+		return "no_attachments", nil
 	}
 
-	out := make(map[string]string, len(bankTxIDs))
-	for _, id := range bankTxIDs {
-		tx, ok := txMap[id]
-		if !ok {
-			log.Printf("receipt worker: tx %s not found in Mercury (1y window) — leaving pending row", id)
-			out[id] = "not_found_in_mercury"
+	// Synthesize a MercuryTransaction from row data.
+	syntheticTx := MercuryTransaction{
+		ID:              row.BankTxID,
+		Amount:          row.BankTotal,
+		BankDescription: row.Vendor,
+		Status:          mercuryStatusSent,    // implied: already in pending_purchases
+		Kind:            mercuryKindDebitCard, // best-effort; not used by parse logic
+		CreatedAt:       row.EventDate,
+		Attachments:     make([]Attachment, len(row.ReceiptURLs)),
+	}
+	for i, url := range row.ReceiptURLs {
+		syntheticTx.Attachments[i] = Attachment{
+			URL:      url,
+			FileName: fmt.Sprintf("attachment_%d", i),
+		}
+	}
+
+	return processSingleTx(ctx, cfg, syntheticTx, true)
+}
+
+// BatchReprocessFromSpaces is the entry point the reprocess handler calls.
+// It runs ReprocessFromSpaces for each row and aggregates the results into a
+// map of bank_tx_id -> status. Errors per row are logged and counted as
+// "errored" without aborting the batch.
+func BatchReprocessFromSpaces(ctx context.Context, cfg WorkerConfig, rows []PendingRowForReprocess) (map[string]string, error) {
+	out := make(map[string]string, len(rows))
+	for _, row := range rows {
+		status, err := ReprocessFromSpaces(ctx, cfg, row)
+		if err != nil {
+			log.Printf("receipt worker: tx %s reprocess error: %v", row.BankTxID, err)
+			out[row.BankTxID] = "errored"
 			continue
 		}
-		status, perr := processSingleTx(ctx, cfg, tx, true)
-		if perr != nil {
-			log.Printf("receipt worker: tx %s reprocess error: %v", id, perr)
-			out[id] = "errored"
-			continue
-		}
-		out[id] = status
+		out[row.BankTxID] = status
 	}
 	return out, nil
 }

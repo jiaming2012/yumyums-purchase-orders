@@ -2927,67 +2927,124 @@ func TestMatchItemsWithAI_EmptyInputSkipsAPICall(t *testing.T) {
 	}
 }
 
-// ─── FetchTransactionsByIDs unit tests ───────────────────────────────────────
+// ─── BatchReprocessFromSpaces unit tests ─────────────────────────────────────
 
-// TestFetchTransactionsByIDs_FiltersToRequestedIDs verifies that when the
-// underlying fetchTransactions seam returns 5 txs, only the 3 whose IDs are in
-// the requested set appear in the result map — the other 2 are filtered out.
-func TestFetchTransactionsByIDs_FiltersToRequestedIDs(t *testing.T) {
-	allTxs := []MercuryTransaction{
-		{ID: "tx-a", Amount: -10.00, Status: "sent", Kind: mercuryKindDebitCard},
-		{ID: "tx-b", Amount: -20.00, Status: "sent", Kind: mercuryKindDebitCard},
-		{ID: "tx-c", Amount: -30.00, Status: "sent", Kind: mercuryKindDebitCard},
-		{ID: "tx-d", Amount: -40.00, Status: "sent", Kind: mercuryKindDebitCard},
-		{ID: "tx-e", Amount: -50.00, Status: "sent", Kind: mercuryKindDebitCard},
+// TestBatchReprocessFromSpaces_ProcessesEachRow exercises the Spaces-based
+// reprocess batch runner:
+//   - Row 1: valid receipt URL + parse succeeds → "auto_created"
+//   - Row 2: valid receipt URL + validate fails → "pending_review"
+//   - Row 3: no receipt URLs → "no_attachments"
+//
+// No Mercury or Anthropic API calls are made. All seams are stubbed.
+func TestBatchReprocessFromSpaces_ProcessesEachRow(t *testing.T) {
+	if testPool == nil {
+		t.Skip("DB_TEST_URL not reachable; skipping integration test")
+	}
+	resetReceiptFixtures(t)
+
+	// Row 1 seeds: parse succeeds, validate passes → auto_created.
+	// bank_total is -42.50 (debit); summary.Total must equal 42.50 and
+	// sum(qty*price) == 42.50 for validate to pass.
+	if _, err := testPool.Exec(t.Context(), `
+		INSERT INTO pending_purchases (bank_tx_id, bank_total, vendor, items, reason, receipt_url)
+		VALUES ($1, $2, $3, '[]'::jsonb, 'Receipt could not be parsed automatically',
+		        'https://spaces.example.com/receipts/row1.jpg')`,
+		"sp-row1", -42.50, "SpacesVendor1",
+	); err != nil {
+		t.Fatalf("seed row1: %v", err)
 	}
 
-	origFetch := fetchTransactions
-	fetchTransactions = func(_ context.Context, _ string, _, _ time.Time) ([]MercuryTransaction, error) {
-		return allTxs, nil
+	// Row 2 seeds: parse succeeds but total mismatch → pending_review.
+	// bank_total=-20.00 but we'll return a parse result totalling $99, which
+	// won't match, so it routes to pending_review.
+	if _, err := testPool.Exec(t.Context(), `
+		INSERT INTO pending_purchases (bank_tx_id, bank_total, vendor, items, reason, receipt_url)
+		VALUES ($1, $2, $3, '[]'::jsonb, 'Receipt could not be parsed automatically',
+		        'https://spaces.example.com/receipts/row2.jpg')`,
+		"sp-row2", -20.00, "SpacesVendor2",
+	); err != nil {
+		t.Fatalf("seed row2: %v", err)
 	}
-	t.Cleanup(func() { fetchTransactions = origFetch })
 
-	requestedIDs := []string{"tx-a", "tx-c", "tx-e"}
-	result, err := fetchTransactionsByIDs(t.Context(), "stub-key", requestedIDs)
+	// Row 3: no receipt URLs → no_attachments without calling parse.
+	row3 := PendingRowForReprocess{
+		BankTxID:    "sp-row3",
+		BankTotal:   -10.00,
+		Vendor:      "SpacesVendor3",
+		EventDate:   "2026-06-01",
+		ReceiptURLs: nil, // explicitly no URLs
+	}
+
+	// Install stubs: downloadReceiptFileFn, parseReceipt, parseReceiptWithFeedback.
+	callsByTx := map[string]int{}
+	origDL := downloadReceiptFileFn
+	downloadReceiptFileFn = func(_ context.Context, _ string) ([]byte, string, error) {
+		return []byte("FAKE-RECEIPT-BYTES"), "image/jpeg", nil
+	}
+	t.Cleanup(func() { downloadReceiptFileFn = origDL })
+
+	origParse := parseReceipt
+	parseReceipt = func(_ context.Context, _ string, _ []FileBlob) ([]ReceiptItem, ReceiptSummary, error) {
+		// We can't easily tell which row is calling, so return per-call based on count.
+		callsByTx["parse"]++
+		n := callsByTx["parse"]
+		if n == 1 {
+			// Row 1: valid parse — total matches -bank_total 42.50.
+			return []ReceiptItem{
+				{Name: "Item A", Quantity: 1, Price: 42.50, IsCase: false},
+			}, ReceiptSummary{Vendor: "SpacesVendor1", Tax: 0, Total: 42.50, TotalUnits: 1}, nil
+		}
+		// Row 2: total mismatch ($99 vs $20 bank).
+		return []ReceiptItem{
+			{Name: "Item B", Quantity: 1, Price: 99.00, IsCase: false},
+		}, ReceiptSummary{Vendor: "SpacesVendor2", Tax: 0, Total: 99.00, TotalUnits: 1}, nil
+	}
+	t.Cleanup(func() { parseReceipt = origParse })
+
+	origSonnet := parseReceiptWithSonnet
+	parseReceiptWithSonnet = func(_ context.Context, _ string, _ []FileBlob) ([]ReceiptItem, ReceiptSummary, error) {
+		// Not expected to be called (Haiku succeeds for both rows).
+		t.Error("parseReceiptWithSonnet called unexpectedly")
+		return nil, ReceiptSummary{}, nil
+	}
+	t.Cleanup(func() { parseReceiptWithSonnet = origSonnet })
+
+	origFeedback := parseReceiptWithFeedback
+	parseReceiptWithFeedback = func(_ context.Context, _ string, _ []FileBlob, _, _ float64, _ string) ([]ReceiptItem, ReceiptSummary, error) {
+		// Row 2 will retry once. Return same mismatched result so it ends in pending_review.
+		return []ReceiptItem{
+			{Name: "Item B", Quantity: 1, Price: 99.00, IsCase: false},
+		}, ReceiptSummary{Vendor: "SpacesVendor2", Tax: 0, Total: 99.00, TotalUnits: 1}, nil
+	}
+	t.Cleanup(func() { parseReceiptWithFeedback = origFeedback })
+
+	cfg := WorkerConfig{
+		MercuryAPIKey:   "stub",
+		AnthropicAPIKey: "stub",
+		Pool:            testPool,
+	}
+
+	rows := []PendingRowForReprocess{
+		{BankTxID: "sp-row1", BankTotal: -42.50, Vendor: "SpacesVendor1", EventDate: "2026-06-01", ReceiptURLs: []string{"https://spaces.example.com/receipts/row1.jpg"}},
+		{BankTxID: "sp-row2", BankTotal: -20.00, Vendor: "SpacesVendor2", EventDate: "2026-06-02", ReceiptURLs: []string{"https://spaces.example.com/receipts/row2.jpg"}},
+		row3,
+	}
+
+	result, err := BatchReprocessFromSpaces(t.Context(), cfg, rows)
 	if err != nil {
-		t.Fatalf("fetchTransactionsByIDs: %v", err)
+		t.Fatalf("BatchReprocessFromSpaces: %v", err)
 	}
 
 	if len(result) != 3 {
-		t.Errorf("result len = %d, want 3", len(result))
+		t.Fatalf("result len = %d, want 3", len(result))
 	}
-	for _, id := range requestedIDs {
-		if _, ok := result[id]; !ok {
-			t.Errorf("result missing requested ID %q", id)
-		}
+	if result["sp-row1"] != "auto_created" {
+		t.Errorf("sp-row1 status = %q, want auto_created", result["sp-row1"])
 	}
-	for _, id := range []string{"tx-b", "tx-d"} {
-		if _, ok := result[id]; ok {
-			t.Errorf("result contains unrequested ID %q", id)
-		}
+	if result["sp-row2"] != "pending_review" {
+		t.Errorf("sp-row2 status = %q, want pending_review", result["sp-row2"])
 	}
-}
-
-// TestFetchTransactionsByIDs_EmptyInput_ReturnsNil verifies that calling
-// fetchTransactionsByIDs with an empty slice returns (nil, nil) without
-// invoking the underlying fetchTransactions seam.
-func TestFetchTransactionsByIDs_EmptyInput_ReturnsNil(t *testing.T) {
-	callCount := 0
-	origFetch := fetchTransactions
-	fetchTransactions = func(_ context.Context, _ string, _, _ time.Time) ([]MercuryTransaction, error) {
-		callCount++
-		return nil, nil
-	}
-	t.Cleanup(func() { fetchTransactions = origFetch })
-
-	result, err := fetchTransactionsByIDs(t.Context(), "stub-key", []string{})
-	if err != nil {
-		t.Fatalf("fetchTransactionsByIDs(empty): %v", err)
-	}
-	if result != nil {
-		t.Errorf("result = %v, want nil for empty input", result)
-	}
-	if callCount != 0 {
-		t.Errorf("fetchTransactions called %d times, want 0 (empty input must not call API)", callCount)
+	if result["sp-row3"] != "no_attachments" {
+		t.Errorf("sp-row3 status = %q, want no_attachments", result["sp-row3"])
 	}
 }

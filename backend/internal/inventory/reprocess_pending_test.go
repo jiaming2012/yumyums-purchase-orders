@@ -4,8 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"net/http/httptest"
+	"sort"
 	"testing"
 	"time"
+
+	"github.com/yumyums/hq/internal/receipt"
 )
 
 // resetPendingPurchases truncates pending_purchases to ensure clean state per test.
@@ -23,6 +26,13 @@ func resetPendingPurchases(t *testing.T) {
 // Returns the inserted id.
 func insertStuckPendingPurchase(t *testing.T, bankTxID, reason string, withItems bool, withParseError bool) string {
 	t.Helper()
+	return insertStuckPendingPurchaseWithURL(t, bankTxID, reason, withItems, withParseError, "")
+}
+
+// insertStuckPendingPurchaseWithURL is like insertStuckPendingPurchase but
+// also sets receipt_url so the row is eligible for Spaces-based reprocess.
+func insertStuckPendingPurchaseWithURL(t *testing.T, bankTxID, reason string, withItems bool, withParseError bool, receiptURL string) string {
+	t.Helper()
 	itemsJSON := "'[]'::jsonb"
 	if withItems {
 		itemsJSON = `'[{"name":"x","quantity":1,"price":10.00,"is_case":false}]'::jsonb`
@@ -33,12 +43,16 @@ func insertStuckPendingPurchase(t *testing.T, bankTxID, reason string, withItems
 		msg := "some parse error"
 		parseErr = &msg
 	}
+	var receiptURLVal *string
+	if receiptURL != "" {
+		receiptURLVal = &receiptURL
+	}
 	q := `INSERT INTO pending_purchases
-	        (bank_tx_id, bank_total, vendor, items, reason, parse_error, created_at)
-	      VALUES ($1, 0, 'TestVendor', ` + itemsJSON + `, $2, $3, now())
+	        (bank_tx_id, bank_total, vendor, items, reason, parse_error, receipt_url, created_at)
+	      VALUES ($1, 0, 'TestVendor', ` + itemsJSON + `, $2, $3, $4, now())
 	      RETURNING id::text`
-	if err := testPool.QueryRow(t.Context(), q, bankTxID, reason, parseErr).Scan(&id); err != nil {
-		t.Fatalf("insertStuckPendingPurchase %s: %v", bankTxID, err)
+	if err := testPool.QueryRow(t.Context(), q, bankTxID, reason, parseErr, receiptURLVal).Scan(&id); err != nil {
+		t.Fatalf("insertStuckPendingPurchaseWithURL %s: %v", bankTxID, err)
 	}
 	return id
 }
@@ -92,12 +106,12 @@ func fetchPendingRow(t *testing.T, id string) pendingRow {
 }
 
 // stubBatchRunnerOK returns a BatchReprocessRunner that returns the given
-// result for all bank_tx_ids without any real Mercury/Anthropic calls.
+// result for all rows without any real Spaces/Anthropic calls.
 func stubBatchRunnerOK(result string) BatchReprocessRunner {
-	return func(ctx context.Context, bankTxIDs []string) (map[string]string, error) {
-		out := make(map[string]string, len(bankTxIDs))
-		for _, id := range bankTxIDs {
-			out[id] = result
+	return func(ctx context.Context, rows []receipt.PendingRowForReprocess) (map[string]string, error) {
+		out := make(map[string]string, len(rows))
+		for _, row := range rows {
+			out[row.BankTxID] = result
 		}
 		return out, nil
 	}
@@ -116,10 +130,10 @@ func TestReprocessAllPendingHandler_QueuesPerRowProcessing(t *testing.T) {
 	resetPendingPurchases(t)
 	resetSyncRuns(t)
 
-	// Seed 3 stuck rows in various legacy states.
-	_ = insertStuckPendingPurchase(t, "stuck-a", "Receipt total $42.00 doesn't match...", true, false)
-	_ = insertStuckPendingPurchase(t, "stuck-b", "Line item sum $X doesn't match...", false, true)
-	_ = insertStuckPendingPurchase(t, "stuck-c", "item count 3 doesn't match...", false, false)
+	// Seed 3 stuck rows with receipt URLs so they pass the Spaces-reprocess filter.
+	_ = insertStuckPendingPurchaseWithURL(t, "stuck-a", "Receipt total $42.00 doesn't match...", true, false, "https://spaces.example.com/r/stuck-a.jpg")
+	_ = insertStuckPendingPurchaseWithURL(t, "stuck-b", "Line item sum $X doesn't match...", false, true, "https://spaces.example.com/r/stuck-b.jpg")
+	_ = insertStuckPendingPurchaseWithURL(t, "stuck-c", "item count 3 doesn't match...", false, false, "https://spaces.example.com/r/stuck-c.jpg")
 
 	// Seed 1 confirmed row — must NOT be passed to the runner.
 	insertConfirmedPendingPurchase(t, "confirmed-1")
@@ -127,13 +141,15 @@ func TestReprocessAllPendingHandler_QueuesPerRowProcessing(t *testing.T) {
 	// Seed 1 discarded row — must NOT be passed to the runner.
 	insertDiscardedPendingPurchase(t, "discarded-1")
 
-	// Record which bank_tx_ids the batch runner receives.
+	// Record which bank_tx_ids the batch runner receives (via rows).
 	var calledIDs []string
-	runner := BatchReprocessRunner(func(ctx context.Context, bankTxIDs []string) (map[string]string, error) {
-		calledIDs = append(calledIDs, bankTxIDs...)
-		out := make(map[string]string, len(bankTxIDs))
-		for _, id := range bankTxIDs {
-			out[id] = "pending_review"
+	runner := BatchReprocessRunner(func(ctx context.Context, rows []receipt.PendingRowForReprocess) (map[string]string, error) {
+		for _, row := range rows {
+			calledIDs = append(calledIDs, row.BankTxID)
+		}
+		out := make(map[string]string, len(rows))
+		for _, row := range rows {
+			out[row.BankTxID] = "pending_review"
 		}
 		return out, nil
 	})
@@ -231,67 +247,64 @@ func TestReprocessAllPendingHandler_ReturnsConflictWhenSyncAlreadyRunning(t *tes
 	}
 }
 
-// TestReprocessAllPendingHandler_PerRowRefetch_RecoversOlderRow verifies that
-// reprocess-all fetches each pending row's tx individually (bypassing the
-// 14-day lookback window), so a row whose tx is 30 days old can still be
-// promoted to a purchase_event.
-func TestReprocessAllPendingHandler_PerRowRefetch_RecoversOlderRow(t *testing.T) {
+// TestReprocessAllPendingHandler_SelectsAndRoutesRows verifies the new
+// Spaces-based reprocess handler:
+//   - Row with a single legacy receipt_url → wrapped to 1-element list and passed to runner
+//   - Row with multi-URL receipt_urls JSONB → passed with all URLs to runner
+//   - Row with no receipt_url (can't reprocess from storage) → filtered out before runner
+//
+// The runner stub records the rows it receives so we can assert on URL shape.
+func TestReprocessAllPendingHandler_SelectsAndRoutesRows(t *testing.T) {
 	if testPool == nil {
 		t.Skip("DB_TEST_URL not reachable; skipping integration test")
 	}
 	resetPendingPurchases(t)
 	resetSyncRuns(t)
 
-	// Seed: a pending row whose transaction is 30 days old — outside the
-	// normal 14-day Mercury lookback window. The old bulk-sync approach would
-	// never pick this up; per-row refetch must recover it.
-	const oldBankTxID = "tx-old-30d"
+	// Row 1: legacy single-URL (receipt_url set, receipt_urls NULL).
+	const legacyTxID = "tx-legacy-url"
 	if _, err := testPool.Exec(t.Context(), `
-		INSERT INTO pending_purchases (bank_tx_id, bank_total, vendor, reason, items)
-		VALUES ($1, $2, $3, 'Receipt could not be parsed automatically', '[]'::jsonb)`,
-		oldBankTxID, -42.50, "Old Vendor",
+		INSERT INTO pending_purchases (bank_tx_id, bank_total, vendor, items, reason, receipt_url)
+		VALUES ($1, -10.00, 'LegacyVendor', '[]'::jsonb, 'parse_failed', $2)`,
+		legacyTxID, "https://spaces.example.com/receipts/legacy.jpg",
 	); err != nil {
-		t.Fatalf("seed old pending: %v", err)
+		t.Fatalf("seed legacy row: %v", err)
 	}
 
-	// Stub batch runner: simulates fetching all pending IDs in one call,
-	// auto-creating the event for the old tx.
-	callCount := 0
-	runner := BatchReprocessRunner(func(ctx context.Context, bankTxIDs []string) (map[string]string, error) {
-		callCount++
-		out := make(map[string]string, len(bankTxIDs))
-		for _, bankTxID := range bankTxIDs {
-			if bankTxID != oldBankTxID {
-				out[bankTxID] = "errored"
-				continue
-			}
-			// Simulate auto-create: insert a purchase_events row and delete the pending row.
-			var vendorID string
-			if err := testPool.QueryRow(ctx,
-				`INSERT INTO vendors (name) VALUES ('Old Vendor') ON CONFLICT (name) DO UPDATE SET name=EXCLUDED.name RETURNING id`,
-			).Scan(&vendorID); err != nil {
-				out[bankTxID] = "errored"
-				continue
-			}
-			if _, err := testPool.Exec(ctx,
-				`INSERT INTO purchase_events (vendor_id, bank_tx_id, event_date, total)
-				 VALUES ($1, $2, '2026-05-24', 42.50)`,
-				vendorID, bankTxID); err != nil {
-				out[bankTxID] = "errored"
-				continue
-			}
-			if _, err := testPool.Exec(ctx,
-				`DELETE FROM pending_purchases WHERE bank_tx_id = $1`, bankTxID); err != nil {
-				out[bankTxID] = "errored"
-				continue
-			}
-			out[bankTxID] = "auto_created"
+	// Row 2: multi-URL row (receipt_urls JSONB set, receipt_url also set to first URL).
+	const multiTxID = "tx-multi-url"
+	if _, err := testPool.Exec(t.Context(), `
+		INSERT INTO pending_purchases (bank_tx_id, bank_total, vendor, items, reason, receipt_url, receipt_urls)
+		VALUES ($1, -20.00, 'MultiVendor', '[]'::jsonb, 'parse_failed',
+		        'https://spaces.example.com/receipts/multi-0.jpg',
+		        '["https://spaces.example.com/receipts/multi-0.jpg","https://spaces.example.com/receipts/multi-1.jpg"]'::jsonb)`,
+		multiTxID,
+	); err != nil {
+		t.Fatalf("seed multi-url row: %v", err)
+	}
+
+	// Row 3: no receipt_url — must be filtered out.
+	const noURLTxID = "tx-no-url"
+	if _, err := testPool.Exec(t.Context(), `
+		INSERT INTO pending_purchases (bank_tx_id, bank_total, vendor, items, reason)
+		VALUES ($1, -5.00, 'NoURLVendor', '[]'::jsonb, 'no_attachment_on_bank_tx')`,
+		noURLTxID,
+	); err != nil {
+		t.Fatalf("seed no-url row: %v", err)
+	}
+
+	// Stub runner: record received rows for inspection.
+	var receivedRows []receipt.PendingRowForReprocess
+	runner := BatchReprocessRunner(func(ctx context.Context, rows []receipt.PendingRowForReprocess) (map[string]string, error) {
+		receivedRows = append(receivedRows, rows...)
+		out := make(map[string]string, len(rows))
+		for _, row := range rows {
+			out[row.BankTxID] = "pending_review"
 		}
 		return out, nil
 	})
 
 	handler := ReprocessAllPendingHandler(testPool, runner)
-
 	req := httptest.NewRequest("POST", "/inventory/purchases/reprocess-all", nil)
 	rec := httptest.NewRecorder()
 	handler(rec, req)
@@ -305,47 +318,65 @@ func TestReprocessAllPendingHandler_PerRowRefetch_RecoversOlderRow(t *testing.T)
 		t.Fatalf("decode response: %v", err)
 	}
 
-	// Wait for the goroutine to finish before asserting DB state.
+	// pending_count reflects only rows with URLs (2, not 3).
+	pendingCount, _ := body["pending_count"].(float64)
+	if pendingCount != 2 {
+		t.Errorf("pending_count = %v, want 2 (no-URL row must be excluded)", pendingCount)
+	}
+
 	syncID, _ := body["sync_id"].(float64)
 	if syncID > 0 {
 		waitForTerminalStatus(t, int64(syncID), 2*time.Second)
 	}
 
-	// Assert the batch runner was called exactly once (one batch call covers all pending rows).
-	if callCount != 1 {
-		t.Errorf("runner callCount = %d, want 1 (batch runner called once for all pending rows)", callCount)
+	// Runner must have received exactly 2 rows (no-URL row filtered out).
+	if len(receivedRows) != 2 {
+		t.Fatalf("runner received %d rows, want 2", len(receivedRows))
 	}
 
-	// Assert the auto_created count was written to the sync run row.
-	var autoCreated int
-	if err := testPool.QueryRow(t.Context(),
-		`SELECT auto_created FROM receipt_sync_runs WHERE id = $1`, int64(syncID),
-	).Scan(&autoCreated); err != nil {
-		t.Fatalf("select auto_created from sync run: %v", err)
-	}
-	if autoCreated != 1 {
-		t.Errorf("sync_run.auto_created = %d, want 1", autoCreated)
+	// Assert no-URL row was NOT passed to runner.
+	for _, row := range receivedRows {
+		if row.BankTxID == noURLTxID {
+			t.Errorf("runner received no-URL row %q — must be filtered before runner call", noURLTxID)
+		}
 	}
 
-	// Assert the old pending row is gone.
-	var pendingCount int
-	if err := testPool.QueryRow(t.Context(),
-		`SELECT COUNT(*) FROM pending_purchases WHERE bank_tx_id = $1`, oldBankTxID,
-	).Scan(&pendingCount); err != nil {
-		t.Fatalf("count pending: %v", err)
-	}
-	if pendingCount != 0 {
-		t.Errorf("pending_purchases count = %d, want 0 (old row must be promoted)", pendingCount)
+	// Build a map for easy assertion.
+	rowMap := make(map[string]receipt.PendingRowForReprocess, len(receivedRows))
+	for _, row := range receivedRows {
+		rowMap[row.BankTxID] = row
 	}
 
-	// Assert a purchase_event was created.
-	var eventCount int
-	if err := testPool.QueryRow(t.Context(),
-		`SELECT COUNT(*) FROM purchase_events WHERE bank_tx_id = $1`, oldBankTxID,
-	).Scan(&eventCount); err != nil {
-		t.Fatalf("count events: %v", err)
+	// Legacy row: should arrive with a 1-element URL list.
+	if legacyRow, ok := rowMap[legacyTxID]; !ok {
+		t.Errorf("legacy row %q not found in runner input", legacyTxID)
+	} else {
+		if len(legacyRow.ReceiptURLs) != 1 {
+			t.Errorf("legacy row ReceiptURLs len = %d, want 1", len(legacyRow.ReceiptURLs))
+		} else if legacyRow.ReceiptURLs[0] != "https://spaces.example.com/receipts/legacy.jpg" {
+			t.Errorf("legacy row ReceiptURLs[0] = %q, want legacy URL", legacyRow.ReceiptURLs[0])
+		}
 	}
-	if eventCount != 1 {
-		t.Errorf("purchase_events count = %d, want 1", eventCount)
+
+	// Multi-URL row: should arrive with both URLs.
+	if multiRow, ok := rowMap[multiTxID]; !ok {
+		t.Errorf("multi-url row %q not found in runner input", multiTxID)
+	} else {
+		if len(multiRow.ReceiptURLs) != 2 {
+			t.Errorf("multi-url row ReceiptURLs len = %d, want 2", len(multiRow.ReceiptURLs))
+		} else {
+			got := make([]string, len(multiRow.ReceiptURLs))
+			copy(got, multiRow.ReceiptURLs)
+			sort.Strings(got)
+			want := []string{
+				"https://spaces.example.com/receipts/multi-0.jpg",
+				"https://spaces.example.com/receipts/multi-1.jpg",
+			}
+			for i, w := range want {
+				if got[i] != w {
+					t.Errorf("multi-url ReceiptURLs[%d] = %q, want %q", i, got[i], w)
+				}
+			}
+		}
 	}
 }
