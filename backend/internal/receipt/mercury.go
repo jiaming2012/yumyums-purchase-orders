@@ -35,12 +35,15 @@ func FetchTransactions(ctx context.Context, apiKey string, startDate, endDate ti
 	var all []MercuryTransaction
 	offset := 0
 	for {
-		page, err := fetchTransactionsPage(ctx, apiKey, startDate, endDate, mercuryPageLimit, offset)
+		filtered, rawCount, err := fetchTransactionsPage(ctx, apiKey, startDate, endDate, mercuryPageLimit, offset)
 		if err != nil {
 			return nil, err
 		}
-		all = append(all, page...)
-		if len(page) < mercuryPageLimit {
+		all = append(all, filtered...)
+		// Use the RAW page size to decide whether to continue — not the filtered
+		// count. A page of 500 raw txs where 460 are filtered would otherwise
+		// appear as a 40-tx "short page" and incorrectly stop pagination early.
+		if rawCount < mercuryPageLimit {
 			break
 		}
 		offset += mercuryPageLimit
@@ -56,12 +59,19 @@ func FetchTransactions(ctx context.Context, apiKey string, startDate, endDate ti
 // fetchTransactionsPage fetches a single page of transactions from the Mercury
 // list endpoint with the given limit and offset. It applies the status/kind
 // filters so callers only see supported, sent transactions.
-func fetchTransactionsPage(ctx context.Context, apiKey string, startDate, endDate time.Time, limit, offset int) ([]MercuryTransaction, error) {
+//
+// Returns both the filtered slice and the raw count of transactions Mercury
+// returned (before filtering). The caller must use rawCount — not
+// len(filtered) — to decide whether to continue paginating, because a page
+// of e.g. 500 raw txs where 460 are unsupported would look like a 40-tx
+// "short page" if the caller used the filtered length, terminating the loop
+// prematurely.
+func fetchTransactionsPage(ctx context.Context, apiKey string, startDate, endDate time.Time, limit, offset int) (filtered []MercuryTransaction, rawCount int, err error) {
 	const mercuryURL = "https://api.mercury.com/api/v1/transactions"
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, mercuryURL, nil)
 	if err != nil {
-		return nil, fmt.Errorf("Mercury FetchTransactions: failed to create request: %w", err)
+		return nil, 0, fmt.Errorf("Mercury FetchTransactions: failed to create request: %w", err)
 	}
 
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", apiKey))
@@ -77,18 +87,20 @@ func fetchTransactionsPage(ctx context.Context, apiKey string, startDate, endDat
 	client := &http.Client{Timeout: 30 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("Mercury FetchTransactions: request failed: %w", err)
+		return nil, 0, fmt.Errorf("Mercury FetchTransactions: request failed: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("Mercury FetchTransactions: non-200 response: %d", resp.StatusCode)
+		return nil, 0, fmt.Errorf("Mercury FetchTransactions: non-200 response: %d", resp.StatusCode)
 	}
 
 	var envelope mercuryListTransactionsResponse
 	if err := json.NewDecoder(resp.Body).Decode(&envelope); err != nil {
-		return nil, fmt.Errorf("Mercury FetchTransactions: failed to decode response: %w", err)
+		return nil, 0, fmt.Errorf("Mercury FetchTransactions: failed to decode response: %w", err)
 	}
+
+	rawCount = len(envelope.Transactions)
 
 	var out []MercuryTransaction
 	for _, tx := range envelope.Transactions {
@@ -104,7 +116,7 @@ func fetchTransactionsPage(ctx context.Context, apiKey string, startDate, endDat
 		out = append(out, tx)
 	}
 
-	return out, nil
+	return out, rawCount, nil
 }
 
 // FetchTransactionsByIDs fetches Mercury transactions in a wide date range

@@ -213,6 +213,86 @@ func TestFetchTransactions_FiltersUnsupportedKinds(t *testing.T) {
 	}
 }
 
+// makeMixedTxPage returns a slice of (supported + unsupported) MercuryTransactions.
+// The first `supported` entries are debitCard/sent (pass the filter); the
+// remaining `unsupported` entries use kind="bookkeepingTransaction" so the
+// filter drops them. IDs are globally unique via startIdx.
+func makeMixedTxPage(startIdx, supported, unsupported int) []MercuryTransaction {
+	txs := make([]MercuryTransaction, 0, supported+unsupported)
+	for i := range supported {
+		txs = append(txs, MercuryTransaction{
+			ID:     fmt.Sprintf("tx-good-%d", startIdx+i),
+			Amount: -float64(startIdx + i + 1),
+			Status: mercuryStatusSent,
+			Kind:   mercuryKindDebitCard,
+		})
+	}
+	for i := range unsupported {
+		txs = append(txs, MercuryTransaction{
+			ID:     fmt.Sprintf("tx-bad-%d", startIdx+supported+i),
+			Amount: -float64(startIdx + supported + i + 1),
+			Status: mercuryStatusSent,
+			Kind:   "bookkeepingTransaction",
+		})
+	}
+	return txs
+}
+
+// TestFetchTransactions_PaginatesWhenFilterShrinksPage verifies that FetchTransactions
+// continues paginating based on the RAW page size returned by Mercury — not the
+// count of filtered (supported) transactions. Without the fix, a page of 500 raw txs
+// where only 50 pass the filter looks like a 50-tx page, which is less than
+// mercuryPageLimit (500), so the loop breaks early and never fetches page 2 or 3.
+//
+// Server behaviour:
+//
+//	offset=0    → 500 raw (50 supported, 450 unsupported) — full page, must continue
+//	offset=500  → 500 raw (50 supported, 450 unsupported) — full page, must continue
+//	offset=1000 → 100 raw (10 supported, 90 unsupported)  — short page, must stop
+//
+// Expected: 110 supported txs total, 3 HTTP calls.
+// Failure mode without the fix: 50 txs, 1 HTTP call.
+func TestFetchTransactions_PaginatesWhenFilterShrinksPage(t *testing.T) {
+	callCount := 0
+	pages := map[int][]MercuryTransaction{
+		0:    makeMixedTxPage(0, 50, 450),
+		500:  makeMixedTxPage(500, 50, 450),
+		1000: makeMixedTxPage(1000, 10, 90),
+	}
+
+	srv := mercuryPageServer(t, pages, &callCount)
+	defer srv.Close()
+
+	origTransport := http.DefaultTransport
+	http.DefaultTransport = rewriteHostTransport(srv.URL)
+	defer func() { http.DefaultTransport = origTransport }()
+
+	start := time.Now().AddDate(0, -1, 0)
+	end := time.Now()
+
+	txs, err := FetchTransactions(t.Context(), "test-key", start, end)
+	if err != nil {
+		t.Fatalf("FetchTransactions: %v", err)
+	}
+
+	wantTxs := 110 // 50 + 50 + 10 supported
+	if len(txs) != wantTxs {
+		t.Errorf("len(txs) = %d, want %d (all supported txs across 3 pages)", len(txs), wantTxs)
+	}
+	if callCount != 3 {
+		t.Errorf("HTTP calls = %d, want 3 (pagination must use raw page size, not filtered count)", callCount)
+	}
+	// Sanity: every returned tx must pass the filter.
+	for _, tx := range txs {
+		if tx.Status != mercuryStatusSent {
+			t.Errorf("tx %q: Status = %q, want %q", tx.ID, tx.Status, mercuryStatusSent)
+		}
+		if !isSupportedKind(tx.Kind) {
+			t.Errorf("tx %q: Kind = %q is not a supported kind", tx.ID, tx.Kind)
+		}
+	}
+}
+
 // rewriteHostTransport returns an http.RoundTripper that rewrites the host of
 // every outbound request to the given base URL. This lets tests point
 // FetchTransactions (which hard-codes the Mercury hostname) at an httptest.Server
