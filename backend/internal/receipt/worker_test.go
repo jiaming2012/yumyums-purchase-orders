@@ -2475,3 +2475,147 @@ func TestWorker_LineItemSumMismatch_RetriesWithFeedback(t *testing.T) {
 		t.Errorf("purchase_events count = %d, want 1", eventCount)
 	}
 }
+
+// TestWorker_PendingRow_HasPurchaseItemIDsPrefilled asserts that when
+// runIngestCycle routes a parsed receipt to pending_purchases (validate-fail
+// path), each item in the items JSONB column has its purchase_item_id
+// pre-populated for items whose name fuzzy-matches an existing purchase_items
+// catalog entry. This lets the FE pre-fill the dropdowns without any FE
+// changes — it already reads purchase_item_id from the JSONB.
+//
+// Setup:
+//   - Seed 3 purchase_items with known descriptions.
+//   - parseReceipt stub returns 3 items whose names exactly match 2 of the 3
+//     seeded catalog items (item 3 is a deliberate mismatch with no catalog
+//     entry so purchase_item_id is omitted on that one).
+//   - summary.Total deliberately DOES NOT match bank amount so validate fails
+//     → routePending is called → items JSONB is persisted.
+//
+// Assert: at least 2 of the 3 items in the persisted JSONB have a non-empty
+// purchase_item_id field.
+func TestWorker_PendingRow_HasPurchaseItemIDsPrefilled(t *testing.T) {
+	if testPool == nil {
+		t.Skip("DB_TEST_URL not reachable; skipping integration test")
+	}
+	resetReceiptFixtures(t)
+
+	// Seed 3 purchase_items. Their descriptions are used as exact-match keys
+	// by DerivePurchaseItemID (case-insensitive exact match is the first step).
+	var itemID1, itemID2, itemID3 string
+	if err := testPool.QueryRow(t.Context(),
+		`INSERT INTO purchase_items (description) VALUES ('FM HING HOAGIE 99HT1R') RETURNING id`,
+	).Scan(&itemID1); err != nil {
+		t.Fatalf("seed purchase_item 1: %v", err)
+	}
+	if err := testPool.QueryRow(t.Context(),
+		`INSERT INTO purchase_items (description) VALUES ('BF GROUND CHUK') RETURNING id`,
+	).Scan(&itemID2); err != nil {
+		t.Fatalf("seed purchase_item 2: %v", err)
+	}
+	// itemID3 is seeded but deliberately not referenced by any receipt item so
+	// we verify the "no match" path leaves purchase_item_id absent.
+	if err := testPool.QueryRow(t.Context(),
+		`INSERT INTO purchase_items (description) VALUES ('TOTALLY DIFFERENT ITEM') RETURNING id`,
+	).Scan(&itemID3); err != nil {
+		t.Fatalf("seed purchase_item 3: %v", err)
+	}
+	_ = itemID3 // not asserted — it just needs to be in the catalog
+
+	// Mercury debit; amount chosen so summary.Total ($999.99) != -bankAmount
+	// ($788.37), forcing validate to FAIL and the row to route to pending.
+	bankTxID := "T-prefill-pending"
+	stubs := &workerStubs{
+		txns: []MercuryTransaction{{
+			ID:        bankTxID,
+			Amount:    -788.37,
+			CreatedAt: "2026-06-17T10:00:00Z",
+			Attachments: []Attachment{
+				{URL: "http://fake/receipt.jpg", FileName: "receipt.jpg"},
+			},
+		}},
+		// Item 1 and 2 match seeded catalog descriptions exactly (case-insensitive).
+		// Item 3 ("COMPLETELY UNKNOWN ITEM XYZ") has no match → purchase_item_id omitted.
+		parseItems: []ReceiptItem{
+			{Name: "fm hing hoagie 99ht1r", Quantity: 1, Price: 400.00, IsCase: false},
+			{Name: "BF GROUND CHUK", Quantity: 1, Price: 399.99, IsCase: false},
+			{Name: "COMPLETELY UNKNOWN ITEM XYZ", Quantity: 1, Price: 199.99, IsCase: false},
+		},
+		// summary.Total ($999.98) != -bankAmount ($788.37) → validate fails → pending.
+		parseSummary: ReceiptSummary{
+			Vendor:     "Restaurant Depot",
+			Total:      999.98,
+			TotalUnits: 3,
+			TotalCases: 0,
+		},
+		// Feedback also fails (returns same wrong total) so the row stays pending
+		// after the retry loop.
+		feedbackItems: []ReceiptItem{
+			{Name: "fm hing hoagie 99ht1r", Quantity: 1, Price: 400.00, IsCase: false},
+			{Name: "BF GROUND CHUK", Quantity: 1, Price: 399.99, IsCase: false},
+			{Name: "COMPLETELY UNKNOWN ITEM XYZ", Quantity: 1, Price: 199.99, IsCase: false},
+		},
+		feedbackSummary: ReceiptSummary{
+			Vendor: "Restaurant Depot",
+			Total:  999.98,
+		},
+	}
+	installWorkerStubs(t, stubs)
+
+	result, err := runIngestCycle(t.Context(), WorkerConfig{
+		MercuryAPIKey:   "stub",
+		AnthropicAPIKey: "stub",
+		Pool:            testPool,
+		LookbackDays:    14,
+	})
+	if err != nil {
+		t.Fatalf("runIngestCycle: %v", err)
+	}
+
+	if result.PendingReview != 1 {
+		t.Errorf("PendingReview = %d, want 1", result.PendingReview)
+	}
+	if result.AutoCreated != 0 {
+		t.Errorf("AutoCreated = %d, want 0", result.AutoCreated)
+	}
+
+	// Read back the persisted items JSONB.
+	var itemsRaw []byte
+	if err := testPool.QueryRow(t.Context(),
+		`SELECT items FROM pending_purchases WHERE bank_tx_id = $1`, bankTxID,
+	).Scan(&itemsRaw); err != nil {
+		t.Fatalf("select pending items: %v", err)
+	}
+
+	var gotItems []ReceiptItem
+	if err := json.Unmarshal(itemsRaw, &gotItems); err != nil {
+		t.Fatalf("unmarshal items: %v", err)
+	}
+	if len(gotItems) != 3 {
+		t.Fatalf("expected 3 items in pending JSONB, got %d", len(gotItems))
+	}
+
+	// Count how many items have a non-nil purchase_item_id populated.
+	matchedCount := 0
+	for _, it := range gotItems {
+		if it.PurchaseItemID != nil && *it.PurchaseItemID != "" {
+			matchedCount++
+		}
+	}
+	if matchedCount < 2 {
+		t.Errorf("purchase_item_id pre-filled on %d items, want at least 2 (items 1+2 match catalog; item 3 does not)",
+			matchedCount)
+	}
+
+	// Spot-check: the first two items must have the correct IDs.
+	if gotItems[0].PurchaseItemID == nil || *gotItems[0].PurchaseItemID != itemID1 {
+		t.Errorf("items[0].purchase_item_id = %v, want %q (FM HING HOAGIE 99HT1R)", gotItems[0].PurchaseItemID, itemID1)
+	}
+	if gotItems[1].PurchaseItemID == nil || *gotItems[1].PurchaseItemID != itemID2 {
+		t.Errorf("items[1].purchase_item_id = %v, want %q (BF GROUND CHUK)", gotItems[1].PurchaseItemID, itemID2)
+	}
+	// Third item must have NO purchase_item_id (no catalog match).
+	if gotItems[2].PurchaseItemID != nil {
+		t.Errorf("items[2].purchase_item_id = %v, want nil (COMPLETELY UNKNOWN ITEM XYZ has no catalog match)",
+			gotItems[2].PurchaseItemID)
+	}
+}

@@ -41,11 +41,18 @@ type Attachment struct {
 // of failing the strict int decoder. The DB column purchase_line_items.quantity
 // is INTEGER — the int coercion happens at the single DB-write boundary in
 // worker.go (createPurchaseEvent) via math.Round.
+//
+// PurchaseItemID is populated by enrichItemsWithMatches (called in the worker
+// before the routePending / createPurchaseEvent branch split). When set, the FE
+// pre-fills the item dropdown on the pending-review card without any FE changes.
+// omitempty keeps legacy/unmatched items backward-compatible: nil → field absent
+// from JSON → FE shows "Tap to select item..." as before.
 type ReceiptItem struct {
-	Name     string  `json:"name"`
-	Quantity float64 `json:"quantity"`
-	Price    float64 `json:"price"`
-	IsCase   bool    `json:"is_case"`
+	Name           string  `json:"name"`
+	Quantity       float64 `json:"quantity"`
+	Price          float64 `json:"price"`
+	IsCase         bool    `json:"is_case"`
+	PurchaseItemID *string `json:"purchase_item_id,omitempty"`
 }
 
 // ReceiptSummary is the summary block parsed from a receipt.

@@ -371,6 +371,33 @@ func runIngestCycle(ctx context.Context, cfg WorkerConfig) (IngestResult, error)
 		// Use the best attempt (lowest score) for all downstream decisions.
 		items, summary, lastValidate := bestItems, bestSummary, bestValidate
 
+		// Pre-fill enrichment: fuzzy-match each item name against the existing
+		// purchase_items catalog and set PurchaseItemID on matched items BEFORE
+		// deciding the route (routePending vs createPurchaseEvent). This lets the
+		// FE pre-fill the dropdowns on pending-review cards without any FE change.
+		// Enrichment errors are non-fatal — log and proceed with unmatched items.
+		matchedCount, catalogSize, enrichErr := enrichItemsWithMatches(ctx, cfg.Pool, items)
+		if enrichErr != nil {
+			log.Printf("receipt worker: tx %s enrichItemsWithMatches: %v (continuing without match enrichment)", tx.ID, enrichErr)
+		} else {
+			log.Printf("receipt worker: tx %s matched %d/%d items to catalog", tx.ID, matchedCount, len(items))
+		}
+
+		// Low-match-rate sanity gate: when > 5 items but < 30% match the catalog
+		// and the catalog itself is healthy (≥ 20 entries), Claude likely returned
+		// plausible-sounding but hallucinated names. Force routePending so a human
+		// reviews before the row auto-creates. Skip the gate for small catalogs
+		// (defensive: production catalog has 106 entries) and for small receipts
+		// (< 5 items are statistically insignificant).
+		if enrichErr == nil && catalogSize >= 20 && len(items) > 5 &&
+			matchedCount*100 < len(items)*30 {
+			log.Printf("receipt worker: tx %s low catalog match rate (%d/%d items matched) — forcing pending review",
+				tx.ID, matchedCount, len(items))
+			lastValidate.Valid = false
+			lastValidate.Reason = fmt.Sprintf("Low catalog match rate (matched %d/%d items) — verify line items",
+				matchedCount, len(items))
+		}
+
 		// Sanity gate: never auto-create on empty items or trivially small item
 		// sums. Catches Claude's "regressed to empty" failure mode where validate
 		// passes vacuously (0 items, 0 sum, 0 tax matches a 0 bank amount).
@@ -811,6 +838,30 @@ func loadPurchaseItemsMap(ctx context.Context, pool *pgxpool.Pool) (map[string]s
 		m[desc] = id
 	}
 	return m, rows.Err()
+}
+
+// enrichItemsWithMatches populates each item's PurchaseItemID by fuzzy-matching
+// item.Name against the existing purchase_items catalog. Items with no confident
+// match (DerivePurchaseItemID returns isNew=true) are left unchanged
+// (PurchaseItemID stays nil → omitted from JSON → FE shows "Tap to select item").
+//
+// Returns the number of items that were matched and the catalog size so the
+// caller can apply the low-match-rate sanity check.
+func enrichItemsWithMatches(ctx context.Context, pool *pgxpool.Pool, items []ReceiptItem) (matched int, catalogSize int, err error) {
+	existingMap, err := loadPurchaseItemsMap(ctx, pool)
+	if err != nil {
+		return 0, 0, fmt.Errorf("enrichItemsWithMatches: %w", err)
+	}
+	catalogSize = len(existingMap)
+	for i := range items {
+		id, _, isNew := DerivePurchaseItemID(items[i].Name, existingMap)
+		if !isNew {
+			idCopy := id
+			items[i].PurchaseItemID = &idCopy
+			matched++
+		}
+	}
+	return matched, catalogSize, nil
 }
 
 // parseEventDate extracts a YYYY-MM-DD date string from a Mercury CreatedAt
