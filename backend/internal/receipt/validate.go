@@ -19,7 +19,11 @@ import (
 //   - Check 2 (items_sum vs subtotal) is REMOVED. It was redundant once items
 //     are the source of total — if derived total passes Check 1 the items are
 //     already consistent with the bank amount.
-//   - Check 3 (units+cases count) is unchanged.
+//   - Check 3 (units+cases count) is REMOVED. summary.TotalUnits/TotalCases are
+//     noisy Claude-reported fields that don't reflect data integrity. Items are
+//     the source of truth; the summary quantity block is unreliable (seen live:
+//     quantity sum=74, summary=53 on a correct parse). Same trust-the-items
+//     logic that justified dropping Check 2.
 func ValidateReceiptData(items []ReceiptItem, summary ReceiptSummary, bankAmount float64) ValidationResult {
 	// Check 1: derived total must match the negated bank transaction amount.
 	// derivedTotal = sum(item.Price * item.Quantity) + summary.Tax
@@ -36,25 +40,6 @@ func ValidateReceiptData(items []ReceiptItem, summary ReceiptSummary, bankAmount
 				"Receipt derived total $%.2f does not match transaction amount $%.2f (items_sum=$%.2f + tax=$%.2f)",
 				derivedTotal, -bankAmount, itemsSum, summary.Tax,
 			),
-		}
-	}
-
-	// Check 3: sum of item quantities must equal totalUnits + totalCases.
-	// item.Quantity AND summary.TotalUnits/.TotalCases are float64 (tolerate
-	// LLM-returned decimals like 40.0 / 85.56); round both sides to int for
-	// the comparison — this mirrors the DB-write rounding in createPurchaseEvent
-	// and matches the 260607-k1n Check 3 pattern (260607-l9m extends the
-	// widening from items to the summary block).
-	totalQty := 0.0
-	for _, item := range items {
-		totalQty += item.Quantity
-	}
-	roundedQty := int(math.Round(totalQty))
-	roundedSummary := int(math.Round(summary.TotalUnits + summary.TotalCases))
-	if roundedQty != roundedSummary {
-		return ValidationResult{
-			Valid:  false,
-			Reason: fmt.Sprintf("item count %d does not match summary units+cases %d", roundedQty, roundedSummary),
 		}
 	}
 

@@ -314,39 +314,79 @@ func runIngestCycle(ctx context.Context, cfg WorkerConfig) (IngestResult, error)
 			// Sonnet's output. items/summary/err are now populated by Sonnet.
 		}
 
-		// Goal-driven retry loop. Goal: summary.Total == -tx.Amount (Check 1 in
-		// validate.go). On a "Receipt total ..." mismatch, retry once with
-		// ParseReceiptWithFeedback so Claude sees the bank's ground truth and
-		// can find a missed refund / credit memo / etc. Other validation
-		// failures (items-sum, item-count) aren't fixable by re-asking — those
-		// reflect Claude's internal inconsistency, not missing context.
+		// Goal-driven retry loop with best-attempt tracking.
+		//
+		// Goal: derivedTotal (sum(price*qty) + tax) == -tx.Amount (Check 1 in
+		// validate.go). On failure, retry once with ParseReceiptWithFeedback so
+		// Claude sees the bank's ground truth and can find a missed refund / credit
+		// memo / etc. MAX_ATTEMPTS=2 caps cost.
+		//
+		// Best-attempt tracking: instead of always persisting the LAST attempt, we
+		// keep the attempt whose score is lowest (closest derivedTotal to -bankAmount,
+		// with a hard penalty for empty items). This prevents a feedback regression
+		// (Claude returning empty items or a worse parse) from overwriting a better
+		// attempt 1 result.
 		const maxParseAttempts = 2
-		var lastValidate ValidationResult
+		var bestItems []ReceiptItem
+		var bestSummary ReceiptSummary
+		var bestValidate ValidationResult
+		bestScore := math.MaxFloat64
 		var retryTrace []string
+
 		for attempt := 1; attempt <= maxParseAttempts; attempt++ {
-			lastValidate = ValidateReceiptData(items, summary, tx.Amount)
-			if lastValidate.Valid {
+			validate := ValidateReceiptData(items, summary, tx.Amount)
+			score := attemptScore(items, summary, tx.Amount)
+			log.Printf("receipt worker: tx %s attempt %d/%d valid=%v score=%.2f reason=%s",
+				tx.ID, attempt, maxParseAttempts, validate.Valid, score, validate.Reason)
+			retryTrace = append(retryTrace, fmt.Sprintf("attempt %d: score=%.2f total=%.2f reason=%s",
+				attempt, score, summary.Total, validate.Reason))
+
+			if score < bestScore {
+				bestItems = items
+				bestSummary = summary
+				bestValidate = validate
+				bestScore = score
+			}
+
+			if validate.Valid {
 				break
 			}
-			log.Printf("receipt worker: tx %s attempt %d/%d validate failed: %s",
-				tx.ID, attempt, maxParseAttempts, lastValidate.Reason)
-			retryTrace = append(retryTrace, fmt.Sprintf("attempt %d: total=%.2f reason=%s",
-				attempt, summary.Total, lastValidate.Reason))
 			if attempt == maxParseAttempts {
 				break
 			}
 			// Retry on ANY validation failure. The feedback prompt in
 			// ParseReceiptWithFeedback dispatches per-check guidance based on
 			// the full validate.Reason string, so Claude gets actionable hints
-			// regardless of which check failed. MAX_ATTEMPTS=2 caps cost.
+			// regardless of which check failed.
 			newItems, newSummary, feedbackErr := parseReceiptWithFeedback(
-				ctx, cfg.AnthropicAPIKey, blobs, summary.Total, tx.Amount, lastValidate.Reason)
+				ctx, cfg.AnthropicAPIKey, blobs, summary.Total, tx.Amount, validate.Reason)
 			if feedbackErr != nil {
 				log.Printf("receipt worker: tx %s feedback retry failed: %v — using prior attempt", tx.ID, feedbackErr)
 				retryTrace = append(retryTrace, fmt.Sprintf("feedback retry errored: %v", feedbackErr))
 				break
 			}
 			items, summary = newItems, newSummary
+		}
+
+		// Use the best attempt (lowest score) for all downstream decisions.
+		items, summary, lastValidate := bestItems, bestSummary, bestValidate
+
+		// Sanity gate: never auto-create on empty items or trivially small item
+		// sums. Catches Claude's "regressed to empty" failure mode where validate
+		// passes vacuously (0 items, 0 sum, 0 tax matches a 0 bank amount).
+		if lastValidate.Valid {
+			itemsSum := 0.0
+			for _, item := range items {
+				itemsSum += item.Price * item.Quantity
+			}
+			if len(items) == 0 || math.Abs(itemsSum) < 0.50 {
+				log.Printf("receipt worker: tx %s sanity gate FAILED (items=%d itemsSum=%.2f) — routing to review",
+					tx.ID, len(items), itemsSum)
+				lastValidate.Valid = false
+				if lastValidate.Reason == "" {
+					lastValidate.Reason = fmt.Sprintf("Sanity gate: items=%d itemsSum=%.2f", len(items), itemsSum)
+				}
+			}
 		}
 
 		if !lastValidate.Valid {
@@ -398,6 +438,22 @@ func runIngestCycle(ctx context.Context, cfg WorkerConfig) (IngestResult, error)
 		PendingReview: pendingReview,
 		Cached:        skippedCached,
 	}, nil
+}
+
+// attemptScore returns a quality score for a parse attempt. LOWER is better.
+// Primary: distance of derivedTotal from -bankAmount (in dollars).
+// Tiebreaker: empty items penalize hard (so non-empty always beats empty).
+func attemptScore(items []ReceiptItem, summary ReceiptSummary, bankAmount float64) float64 {
+	itemsSum := 0.0
+	for _, item := range items {
+		itemsSum += item.Price * item.Quantity
+	}
+	derived := itemsSum + summary.Tax
+	dist := math.Abs(derived - (-bankAmount))
+	if len(items) == 0 {
+		dist += 10000 // hard penalty so empty NEVER beats non-empty
+	}
+	return dist
 }
 
 // routePending dispatches the parse-fail / validate-fail / save-fail branches

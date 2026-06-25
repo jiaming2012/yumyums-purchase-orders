@@ -1828,37 +1828,33 @@ func TestRunIngestCycle_ScenarioTable(t *testing.T) {
 		}
 	})
 
-	t.Run("validation_check3_item_count_mismatch_retries_then_succeeds", func(t *testing.T) {
+	t.Run("validation_check3_removed_auto_creates_directly", func(t *testing.T) {
 		resetReceiptFixtures(t)
 
-		// Valid total + valid line-item sums BUT summary.total_units + total_cases != sum(quantity).
-		// First parse: sum(qty)=1, summary says 5 (Check 3 fail).
-		// Feedback retry returns corrected summary so sum(qty)=units+cases.
+		// Phase 260607-m3x: Check 3 (units+cases quantity match) is removed.
+		// Prior test exercised a Check 3 failure triggering a feedback retry.
+		// With Check 3 gone, a parse that was formerly a Check 3 mismatch
+		// (sum(qty)=1, summary.TotalUnits=5) now passes validation directly
+		// on attempt 1 because Check 1 (derived total) is the only remaining
+		// gate. No feedback retry fires — auto-create on the first attempt.
 		stubs := &workerStubs{
 			txns: []MercuryTransaction{{
-				ID:        "T-check3-retry-success",
+				ID:        "T-check3-removed",
 				Amount:    -50.00,
 				CreatedAt: "2026-06-24T10:00:00Z",
 				Attachments: []Attachment{
 					{URL: "http://fake/receipt.jpg", FileName: "receipt.jpg"},
 				},
 			}},
+			// derivedTotal = 1×50.00 + 0 = $50.00 == -(-50.00) → Check 1 passes.
+			// summary.TotalUnits=5 no longer triggers any check.
 			parseItems: []ReceiptItem{
 				{Name: "BEEF CHUCK", Quantity: 1, Price: 50.00, IsCase: false},
 			},
 			parseSummary: ReceiptSummary{
 				Vendor:     "Restaurant Depot",
 				Total:      50.00,
-				TotalUnits: 5, // mismatch: sum(qty)=1, but summary says 5
-				TotalCases: 0,
-			},
-			feedbackItems: []ReceiptItem{
-				{Name: "BEEF CHUCK", Quantity: 1, Price: 50.00, IsCase: false},
-			},
-			feedbackSummary: ReceiptSummary{
-				Vendor:     "Restaurant Depot",
-				Total:      50.00,
-				TotalUnits: 1, // corrected: matches sum(qty)
+				TotalUnits: 5, // formerly a Check 3 mismatch — now irrelevant
 				TotalCases: 0,
 			},
 		}
@@ -1875,13 +1871,14 @@ func TestRunIngestCycle_ScenarioTable(t *testing.T) {
 		}
 
 		if result.AutoCreated != 1 {
-			t.Errorf("AutoCreated = %d, want 1 (Check 3 retry must auto-create after feedback)", result.AutoCreated)
+			t.Errorf("AutoCreated = %d, want 1 (Check 3 removed: derived-total pass must auto-create without retry)", result.AutoCreated)
 		}
 		if result.PendingReview != 0 {
 			t.Errorf("PendingReview = %d, want 0", result.PendingReview)
 		}
-		if stubs.feedbackCallCount != 1 {
-			t.Errorf("feedbackCallCount = %d, want 1 (Check 3 must trigger ONE feedback retry)", stubs.feedbackCallCount)
+		// No feedback retry needed — attempt 1 passes Check 1.
+		if stubs.feedbackCallCount != 0 {
+			t.Errorf("feedbackCallCount = %d, want 0 (Check 3 removed: no retry should fire)", stubs.feedbackCallCount)
 		}
 	})
 
@@ -2209,6 +2206,170 @@ func TestWorker_DerivedTotal_AutoCreatesWhenItemsSumMatchesBank(t *testing.T) {
 	}
 	if lineCount != 2 {
 		t.Errorf("purchase_line_items count = %d, want 2", lineCount)
+	}
+}
+
+// TestWorker_RetryRegression_KeepsBestAttempt asserts that when attempt 2
+// (feedback) is WORSE than attempt 1 (initial parse), the worker persists the
+// BEST attempt (attempt 1) rather than blindly overwriting with attempt 2's
+// degraded data.
+//
+// Setup:
+//   - bank amount = -$788.37
+//   - attempt 1 (parseReceipt): derivedTotal=$790.00 (off by $1.63 — fails Check 1)
+//     items = [{price:773.40, qty:1}], tax=16.60 → derived = 790.00
+//   - attempt 2 (parseReceiptWithFeedback): Claude REGRESSES — returns items=[]
+//     tax=0 → derivedTotal=$0.00, score = 0 + 10000 (empty penalty) = extremely bad
+//   - Expected: both fail validate; best attempt (1) is stored in pending_purchases;
+//     items array in pending row is NON-EMPTY (attempt 1's items); parse_error trace
+//     contains both attempt labels.
+func TestWorker_RetryRegression_KeepsBestAttempt(t *testing.T) {
+	if testPool == nil {
+		t.Skip("DB_TEST_URL not reachable; skipping integration test")
+	}
+	resetReceiptFixtures(t)
+
+	stubs := &workerStubs{
+		txns: []MercuryTransaction{{
+			ID:        "T-regression-best",
+			Amount:    -788.37,
+			CreatedAt: "2026-06-17T10:00:00Z",
+			Attachments: []Attachment{
+				{URL: "http://fake/purchase.jpg", FileName: "purchase.jpg"},
+				{URL: "http://fake/refund.pdf", FileName: "refund.pdf"},
+			},
+		}},
+		// Attempt 1: close but fails Check 1 (derivedTotal=790.00 ≠ 788.37).
+		// score = |790.00 - 788.37| = 1.63 (close, items present).
+		parseItems: []ReceiptItem{
+			{Name: "PURCHASE BUCKET", Price: 773.40, Quantity: 1, IsCase: false},
+		},
+		parseSummary: ReceiptSummary{
+			Vendor: "Restaurant Depot",
+			Total:  790.00,
+			Tax:    16.60,
+		},
+		// Attempt 2 (feedback): Claude REGRESSES to empty items.
+		// score = |0.00 - 788.37| + 10000 (empty penalty) = extremely bad.
+		feedbackItems:   []ReceiptItem{},
+		feedbackSummary: ReceiptSummary{Vendor: "Restaurant Depot", Total: 0, Tax: 0},
+	}
+	installWorkerStubs(t, stubs)
+
+	result, err := runIngestCycle(t.Context(), WorkerConfig{
+		MercuryAPIKey:   "stub",
+		AnthropicAPIKey: "stub",
+		Pool:            testPool,
+		LookbackDays:    14,
+	})
+	if err != nil {
+		t.Fatalf("runIngestCycle: %v", err)
+	}
+
+	// Both attempts fail validation → routed to pending (not auto-created).
+	if result.AutoCreated != 0 {
+		t.Errorf("AutoCreated = %d, want 0 (no attempt should pass validation)", result.AutoCreated)
+	}
+	if result.PendingReview != 1 {
+		t.Errorf("PendingReview = %d, want 1", result.PendingReview)
+	}
+
+	// Both parse stubs were called.
+	if stubs.parseCallCount != 1 {
+		t.Errorf("parseCallCount = %d, want 1", stubs.parseCallCount)
+	}
+	if stubs.feedbackCallCount != 1 {
+		t.Errorf("feedbackCallCount = %d, want 1 (feedback retry should fire because attempt 1 failed)", stubs.feedbackCallCount)
+	}
+
+	// pending_purchases row must use BEST attempt (attempt 1) — items non-empty.
+	var itemsRaw []byte
+	var parseErr sql.NullString
+	if err := testPool.QueryRow(t.Context(),
+		`SELECT items, parse_error FROM pending_purchases WHERE bank_tx_id = $1`,
+		"T-regression-best",
+	).Scan(&itemsRaw, &parseErr); err != nil {
+		t.Fatalf("select pending row: %v", err)
+	}
+
+	var gotItems []ReceiptItem
+	if err := json.Unmarshal(itemsRaw, &gotItems); err != nil {
+		t.Fatalf("unmarshal items: %v", err)
+	}
+	if len(gotItems) == 0 {
+		t.Errorf("pending_purchases.items = [] (empty), want attempt 1's items (non-empty) — regression not tracked correctly")
+	}
+
+	// parse_error trace must mention both attempts.
+	if !parseErr.Valid || parseErr.String == "" {
+		t.Errorf("parse_error is NULL or empty, want retry trace with both attempts")
+	}
+	for _, want := range []string{"attempt 1:", "attempt 2:"} {
+		if !strings.Contains(parseErr.String, want) {
+			t.Errorf("parse_error %q missing substring %q", parseErr.String, want)
+		}
+	}
+}
+
+// TestWorker_SanityGate_BlocksAutoCreateOnEmptyItems asserts that even when
+// ValidateReceiptData would technically pass on vacuous/degenerate data, the
+// sanity gate in worker.go blocks auto-create when items are empty or the
+// item sum is trivially small (< $0.50). The row must be routed to
+// pending_purchases and the reason must mention "Sanity gate".
+//
+// Setup: bank amount = 0 (or any amount where empty items + tax=0 → derived=0 = -bankAmount)
+// to force Check 1 to pass vacuously. In practice: bankAmount=0, items=[], tax=0 →
+// derivedTotal=0 = -0 → Check 1 passes (|0 - 0| = 0 ≤ 0.01). Without the sanity gate
+// this would auto-create an empty event — a data quality disaster.
+func TestWorker_SanityGate_BlocksAutoCreateOnEmptyItems(t *testing.T) {
+	if testPool == nil {
+		t.Skip("DB_TEST_URL not reachable; skipping integration test")
+	}
+	resetReceiptFixtures(t)
+
+	stubs := &workerStubs{
+		txns: []MercuryTransaction{{
+			ID:        "T-sanity-empty",
+			Amount:    0, // vacuous: derived=0 would pass Check 1 with empty items
+			CreatedAt: "2026-06-17T10:00:00Z",
+			Attachments: []Attachment{
+				{URL: "http://fake/receipt.jpg", FileName: "receipt.jpg"},
+			},
+		}},
+		// Claude regressed to empty items — vacuously passes Check 1.
+		parseItems:   []ReceiptItem{},
+		parseSummary: ReceiptSummary{Vendor: "Restaurant Depot", Total: 0, Tax: 0},
+	}
+	installWorkerStubs(t, stubs)
+
+	result, err := runIngestCycle(t.Context(), WorkerConfig{
+		MercuryAPIKey:   "stub",
+		AnthropicAPIKey: "stub",
+		Pool:            testPool,
+		LookbackDays:    14,
+	})
+	if err != nil {
+		t.Fatalf("runIngestCycle: %v", err)
+	}
+
+	// Sanity gate must block auto-create and route to pending.
+	if result.AutoCreated != 0 {
+		t.Errorf("AutoCreated = %d, want 0 (sanity gate must block empty-items auto-create)", result.AutoCreated)
+	}
+	if result.PendingReview != 1 {
+		t.Errorf("PendingReview = %d, want 1 (sanity gate must route to pending)", result.PendingReview)
+	}
+
+	// The pending row's reason must contain "Sanity gate" or "sanity".
+	var reason sql.NullString
+	if err := testPool.QueryRow(t.Context(),
+		`SELECT reason FROM pending_purchases WHERE bank_tx_id = $1`,
+		"T-sanity-empty",
+	).Scan(&reason); err != nil {
+		t.Fatalf("select pending row: %v", err)
+	}
+	if !reason.Valid || !strings.Contains(strings.ToLower(reason.String), "sanity") {
+		t.Errorf("pending reason = %q, want substring %q (sanity gate reason)", reason.String, "sanity")
 	}
 }
 
