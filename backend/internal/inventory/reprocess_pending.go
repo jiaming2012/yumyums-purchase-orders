@@ -3,7 +3,8 @@ package inventory
 import (
 	"context"
 	"encoding/json"
-	"log"
+	"fmt"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -58,7 +59,7 @@ func ReprocessAllPendingHandler(pool *pgxpool.Pool, runner BatchReprocessRunner)
 			    AND discarded_at IS NULL
 			    AND receipt_url IS NOT NULL`)
 		if err != nil {
-			log.Printf("ReprocessAllPending query pending: %v", err)
+			slog.Info(fmt.Sprintf("ReprocessAllPending query pending: %v", err))
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -73,13 +74,13 @@ func ReprocessAllPendingHandler(pool *pgxpool.Pool, runner BatchReprocessRunner)
 			)
 			if scanErr := dbRows.Scan(&bankTxID, &bankTotal, &vendor, &eventDate, &urlsJSON); scanErr != nil {
 				dbRows.Close()
-				log.Printf("ReprocessAllPending scan: %v", scanErr)
+				slog.Info(fmt.Sprintf("ReprocessAllPending scan: %v", scanErr))
 				writeError(w, http.StatusInternalServerError, "internal_error")
 				return
 			}
 			var urls []string
 			if jsonErr := json.Unmarshal([]byte(urlsJSON), &urls); jsonErr != nil {
-				log.Printf("ReprocessAllPending parse receipt_urls for tx %s: %v (skipping)", bankTxID, jsonErr)
+				slog.Info(fmt.Sprintf("ReprocessAllPending parse receipt_urls for tx %s: %v (skipping)", bankTxID, jsonErr))
 				continue
 			}
 			// Filter rows where the URL list came out empty after COALESCE.
@@ -96,7 +97,7 @@ func ReprocessAllPendingHandler(pool *pgxpool.Pool, runner BatchReprocessRunner)
 		}
 		dbRows.Close()
 		if err := dbRows.Err(); err != nil {
-			log.Printf("ReprocessAllPending rows error: %v", err)
+			slog.Info(fmt.Sprintf("ReprocessAllPending rows error: %v", err))
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -120,7 +121,7 @@ func ReprocessAllPendingHandler(pool *pgxpool.Pool, runner BatchReprocessRunner)
 				})
 				return
 			}
-			log.Printf("ReprocessAllPending insert sync run: %v", err)
+			slog.Info(fmt.Sprintf("ReprocessAllPending insert sync run: %v", err))
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -149,13 +150,13 @@ func runReprocessGoroutine(pool *pgxpool.Pool, runner BatchReprocessRunner, id i
 				`UPDATE receipt_sync_runs
 				 SET status='failed', finished_at=now(), error=$1
 				 WHERE id=$2`, msg, id)
-			log.Printf("ReprocessAllPending goroutine panic for run %d: %v", id, rec)
+			slog.Info(fmt.Sprintf("ReprocessAllPending goroutine panic for run %d: %v", id, rec))
 		}
 	}()
 
 	results, runErr := runner(ctx, rows)
 	if runErr != nil {
-		log.Printf("ReprocessAllPending: batch runner error for run %d: %v", id, runErr)
+		slog.Info(fmt.Sprintf("ReprocessAllPending: batch runner error for run %d: %v", id, runErr))
 		_, _ = pool.Exec(ctx,
 			`UPDATE receipt_sync_runs
 			 SET status='failed', finished_at=now(), error=$1
@@ -177,8 +178,8 @@ func runReprocessGoroutine(pool *pgxpool.Pool, runner BatchReprocessRunner, id i
 		}
 	}
 
-	log.Printf("ReprocessAllPending: run %d done — auto_created=%d pending_review=%d no_attachments=%d errored=%d",
-		id, autoCreated, pendingReview, noAttachments, errored)
+	slog.Info(fmt.Sprintf("ReprocessAllPending: run %d done — auto_created=%d pending_review=%d no_attachments=%d errored=%d",
+		id, autoCreated, pendingReview, noAttachments, errored))
 
 	_, updErr := pool.Exec(ctx,
 		`UPDATE receipt_sync_runs
@@ -187,6 +188,6 @@ func runReprocessGoroutine(pool *pgxpool.Pool, runner BatchReprocessRunner, id i
 		 WHERE id=$5`,
 		len(rows), autoCreated, pendingReview, errored, id)
 	if updErr != nil {
-		log.Printf("ReprocessAllPending done-update for run %d: %v", id, updErr)
+		slog.Info(fmt.Sprintf("ReprocessAllPending done-update for run %d: %v", id, updErr))
 	}
 }

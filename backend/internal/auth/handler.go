@@ -2,7 +2,7 @@ package auth
 
 import (
 	"encoding/json"
-	"log"
+	"log/slog"
 	"net/http"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -27,7 +27,7 @@ func LoginHandler(pool *pgxpool.Pool, superadmins map[string]config.SuperadminEn
 
 		user, err := AuthenticateUser(r.Context(), pool, body.Email, body.Password, superadmins)
 		if err != nil {
-			log.Printf("authenticate user error: %v", err)
+			slog.Error("authenticate user error", "error", err)
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusInternalServerError)
 			w.Write([]byte(`{"error":"internal_error"}`))
@@ -42,7 +42,7 @@ func LoginHandler(pool *pgxpool.Pool, superadmins map[string]config.SuperadminEn
 
 		rawToken, err := CreateSession(r.Context(), pool, user.ID)
 		if err != nil {
-			log.Printf("create session error: %v", err)
+			slog.Error("create session error", "error", err)
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusInternalServerError)
 			w.Write([]byte(`{"error":"internal_error"}`))
@@ -90,7 +90,7 @@ func LogoutHandler(pool *pgxpool.Pool) http.HandlerFunc {
 
 		tokenHash := HashToken(cookie.Value)
 		if err := DeleteSessionByHash(r.Context(), pool, tokenHash); err != nil {
-			log.Printf("delete session error: %v", err)
+			slog.Error("delete session error", "error", err)
 		}
 
 		// Clear the cookie

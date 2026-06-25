@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"log"
+	"log/slog"
 	"net/http"
 	"strconv"
 
@@ -29,7 +29,7 @@ func WsHandler(hub *Hub, pool *pgxpool.Pool) http.HandlerFunc {
 			InsecureSkipVerify: true,
 		})
 		if err != nil {
-			log.Printf("ws: accept error for user %s: %v", user.ID, err)
+			slog.Error("ws accept error", "user_id", user.ID, "error", err)
 			return
 		}
 
@@ -47,7 +47,7 @@ func WsHandler(hub *Hub, pool *pgxpool.Pool) http.HandlerFunc {
 			ctx := context.Background()
 			for msg := range client.Send {
 				if err := conn.Write(ctx, websocket.MessageText, msg); err != nil {
-					log.Printf("ws: write error for user %s: %v", user.ID, err)
+					slog.Error("ws write error", "user_id", user.ID, "error", err)
 					conn.Close(websocket.StatusInternalError, "write error")
 					return
 				}
@@ -142,7 +142,7 @@ func OpHandler(pool *pgxpool.Pool, router OpRouter) http.HandlerFunc {
 				writeJSONError(w, routerErr.Status, routerErr.Message)
 				return
 			}
-			log.Printf("OpHandler router error: %v", err)
+			slog.Error("op handler router error", "error", err)
 			writeJSONError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -174,7 +174,7 @@ func OpHandler(pool *pgxpool.Pool, router OpRouter) http.HandlerFunc {
 			LamportTS:  req.LamportTS,
 		}
 
-		log.Printf("OpHandler: op_type=%s entity=%s device=%s lamport_ts=%d", req.OpType, req.EntityID, req.DeviceID, req.LamportTS)
+		slog.Info("op handler received op", "op_type", req.OpType, "entity_id", req.EntityID, "device_id", req.DeviceID, "lamport_ts", req.LamportTS)
 		opID, conflict, err := EmitOpWithConflictCheck(ctx, pool, opInput)
 		if err != nil {
 			if errors.Is(err, ErrConflict) && conflict != nil {
@@ -192,7 +192,7 @@ func OpHandler(pool *pgxpool.Pool, router OpRouter) http.HandlerFunc {
 			}
 			// Business logic succeeded but op recording failed — log and return success.
 			// The entity tables are consistent; only the op log missed an entry.
-			log.Printf("OpHandler InsertOpAndNotify error: %v", err)
+			slog.Error("op handler InsertOpAndNotify error", "error", err)
 			opID = ""
 		}
 
@@ -222,14 +222,14 @@ func OpsSinceHandler(pool *pgxpool.Pool) http.HandlerFunc {
 
 		ops, err := OpsSince(r.Context(), pool, user.ID, lamportTS)
 		if err != nil {
-			log.Printf("OpsSince error for user %s: %v", user.ID, err)
+			slog.Error("OpsSince error", "user_id", user.ID, "error", err)
 			http.Error(w, `{"error":"internal_error"}`, http.StatusInternalServerError)
 			return
 		}
 
 		w.Header().Set("Content-Type", "application/json")
 		if err := json.NewEncoder(w).Encode(ops); err != nil {
-			log.Printf("OpsSince encode error: %v", err)
+			slog.Error("OpsSince encode error", "error", err)
 		}
 	}
 }

@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"math"
 	"net/http"
 	"path/filepath"
@@ -55,7 +55,7 @@ type PendingRowForReprocess struct {
 // "errored", "no_attachments".
 func ReprocessFromSpaces(ctx context.Context, cfg WorkerConfig, row PendingRowForReprocess) (string, error) {
 	if len(row.ReceiptURLs) == 0 {
-		log.Printf("receipt worker: tx %s reprocess skipped — no receipt URLs stored", row.BankTxID)
+		slog.Info(fmt.Sprintf("receipt worker: tx %s reprocess skipped — no receipt URLs stored", row.BankTxID))
 		return "no_attachments", nil
 	}
 
@@ -88,7 +88,7 @@ func BatchReprocessFromSpaces(ctx context.Context, cfg WorkerConfig, rows []Pend
 	for _, row := range rows {
 		status, err := ReprocessFromSpaces(ctx, cfg, row)
 		if err != nil {
-			log.Printf("receipt worker: tx %s reprocess error: %v", row.BankTxID, err)
+			slog.Info(fmt.Sprintf("receipt worker: tx %s reprocess error: %v", row.BankTxID, err))
 			out[row.BankTxID] = "errored"
 			continue
 		}
@@ -102,7 +102,7 @@ func BatchReprocessFromSpaces(ctx context.Context, cfg WorkerConfig, rows []Pend
 // worker logs a warning and returns immediately (graceful skip).
 func StartWorker(ctx context.Context, cfg WorkerConfig) {
 	if cfg.MercuryAPIKey == "" || cfg.AnthropicAPIKey == "" {
-		log.Println("WARNING: receipt worker: skipping — missing API keys (MERCURY_API_KEY or ANTHROPIC_API_KEY not set)")
+		slog.Warn("receipt worker: skipping — missing API keys (MERCURY_API_KEY or ANTHROPIC_API_KEY not set)")
 		return
 	}
 
@@ -111,12 +111,12 @@ func StartWorker(ctx context.Context, cfg WorkerConfig) {
 		interval = 6 * time.Hour
 	}
 
-	log.Printf("receipt worker: starting (interval=%s, lookback=%dd)", interval, cfg.LookbackDays)
+	slog.Info("receipt worker: starting", "interval", interval, "lookback_days", cfg.LookbackDays)
 
 	go func() {
 		// Run immediately on start, then on each tick
 		if _, err := runIngestCycle(ctx, cfg); err != nil {
-			log.Printf("receipt worker: ingest cycle error: %v", err)
+			slog.Error("receipt worker: ingest cycle error", "error", err)
 		}
 
 		ticker := time.NewTicker(interval)
@@ -125,11 +125,11 @@ func StartWorker(ctx context.Context, cfg WorkerConfig) {
 		for {
 			select {
 			case <-ctx.Done():
-				log.Println("receipt worker: shutting down")
+				slog.Info("receipt worker: shutting down")
 				return
 			case <-ticker.C:
 				if _, err := runIngestCycle(ctx, cfg); err != nil {
-					log.Printf("receipt worker: ingest cycle error: %v", err)
+					slog.Error("receipt worker: ingest cycle error", "error", err)
 				}
 			}
 		}
@@ -169,7 +169,7 @@ func runIngestCycle(ctx context.Context, cfg WorkerConfig) (IngestResult, error)
 	}
 
 	if len(txns) == 0 {
-		log.Println("receipt worker: no supported transactions found")
+		slog.Info("receipt worker: no supported transactions found")
 		return IngestResult{}, nil
 	}
 
@@ -189,7 +189,7 @@ func runIngestCycle(ctx context.Context, cfg WorkerConfig) (IngestResult, error)
 				   AND (mercury_category IS DISTINCT FROM $1)`,
 				tx.CategoryData.Name, tx.ID)
 			if refreshErr != nil {
-				log.Printf("receipt worker: refresh mercury_category for tx %s: %v (continuing)", tx.ID, refreshErr)
+				slog.Warn("receipt worker: refresh mercury_category failed", "tx_id", tx.ID, "error", refreshErr)
 			}
 		}
 
@@ -206,7 +206,7 @@ func runIngestCycle(ctx context.Context, cfg WorkerConfig) (IngestResult, error)
 				   AND (mercury_category IS DISTINCT FROM $1)`,
 				tx.CategoryData.Name, tx.ID)
 			if refreshErr != nil {
-				log.Printf("receipt worker: refresh pending_purchases.mercury_category for tx %s: %v (continuing)", tx.ID, refreshErr)
+				slog.Warn("receipt worker: refresh pending_purchases.mercury_category failed", "tx_id", tx.ID, "error", refreshErr)
 			}
 		}
 
@@ -217,12 +217,13 @@ func runIngestCycle(ctx context.Context, cfg WorkerConfig) (IngestResult, error)
 		// window auto-backfill on the next poll. No separate one-shot
 		// migration.
 		if backfillErr := backfillPendingVendor(ctx, cfg.Pool, tx); backfillErr != nil {
-			log.Printf("receipt worker: backfill vendor for tx %s: %v (continuing)", tx.ID, backfillErr)
+			slog.Warn("receipt worker: backfill vendor failed", "tx_id", tx.ID, "error", backfillErr)
 		}
 
 		result, err := processSingleTx(ctx, cfg, tx, false)
 		if err != nil {
-			log.Printf("receipt worker: processSingleTx tx %s: %v", tx.ID, err)
+			slog.Error("receipt worker: processSingleTx failed", "tx_id", tx.ID, "error", err)
+			continue
 		}
 		switch result {
 		case "auto_created":
@@ -234,8 +235,8 @@ func runIngestCycle(ctx context.Context, cfg WorkerConfig) (IngestResult, error)
 		}
 	}
 
-	log.Printf("receipt worker: processed %d transactions, %d auto-created, %d pending review, %d already cached",
-		len(txns), autoCreated, pendingReview, skippedCached)
+	slog.Info("receipt worker: cycle complete",
+		"processed", len(txns), "auto_created", autoCreated, "pending_review", pendingReview, "cached", skippedCached)
 	return IngestResult{
 		Processed:     len(txns),
 		AutoCreated:   autoCreated,
@@ -264,7 +265,7 @@ func runIngestCycle(ctx context.Context, cfg WorkerConfig) (IngestResult, error)
 func processSingleTx(ctx context.Context, cfg WorkerConfig, tx MercuryTransaction, reprocess bool) (string, error) {
 	kind, existingReason, hasParseError, hasItems, err := classifyExistingTx(ctx, cfg.Pool, tx.ID)
 	if err != nil {
-		log.Printf("receipt worker: classifyExistingTx tx %s: %v", tx.ID, err)
+		slog.Info(fmt.Sprintf("receipt worker: classifyExistingTx tx %s: %v", tx.ID, err))
 		return "errored", err
 	}
 
@@ -273,12 +274,12 @@ func processSingleTx(ctx context.Context, cfg WorkerConfig, tx MercuryTransactio
 	case "event":
 		if reprocess {
 			// purchase_event already exists — pending row is residual. Clean it up.
-			log.Printf("receipt worker: tx %s already auto-created (reprocess found existing event) — clearing residual pending row", tx.ID)
+			slog.Info(fmt.Sprintf("receipt worker: tx %s already auto-created (reprocess found existing event) — clearing residual pending row", tx.ID))
 			if _, delErr := cfg.Pool.Exec(ctx,
 				`DELETE FROM pending_purchases WHERE bank_tx_id = $1 AND confirmed_at IS NULL AND discarded_at IS NULL`,
 				tx.ID,
 			); delErr != nil {
-				log.Printf("receipt worker: delete residual pending for tx %s: %v (continuing)", tx.ID, delErr)
+				slog.Info(fmt.Sprintf("receipt worker: delete residual pending for tx %s: %v (continuing)", tx.ID, delErr))
 			}
 		}
 		return "cached", nil
@@ -321,7 +322,7 @@ func processSingleTx(ctx context.Context, cfg WorkerConfig, tx MercuryTransactio
 				"no_attachment_on_bank_tx",
 				"", // parseError: no parse attempted on no-attachment branch
 			); routeErr != nil {
-				log.Printf("receipt worker: insertPendingPurchase (no-attachment) for tx %s: %v", tx.ID, routeErr)
+				slog.Info(fmt.Sprintf("receipt worker: insertPendingPurchase (no-attachment) for tx %s: %v", tx.ID, routeErr))
 			}
 			return "pending_review", nil
 		}
@@ -336,13 +337,13 @@ func processSingleTx(ctx context.Context, cfg WorkerConfig, tx MercuryTransactio
 	for _, att := range tx.Attachments {
 		fb, ct, dlErr := downloadReceiptFileFn(ctx, att.URL)
 		if dlErr != nil {
-			log.Printf("receipt worker: download attachment %s for tx %s: %v (skipping attachment)", att.URL, tx.ID, dlErr)
+			slog.Info(fmt.Sprintf("receipt worker: download attachment %s for tx %s: %v (skipping attachment)", att.URL, tx.ID, dlErr))
 			continue
 		}
 		blobs = append(blobs, FileBlob{Bytes: fb, ContentType: ct})
 	}
 	if len(blobs) == 0 {
-		log.Printf("receipt worker: all attachments failed to download for tx %s — skipping", tx.ID)
+		slog.Info(fmt.Sprintf("receipt worker: all attachments failed to download for tx %s — skipping", tx.ID))
 		return "errored", nil
 	}
 
@@ -363,24 +364,24 @@ func processSingleTx(ctx context.Context, cfg WorkerConfig, tx MercuryTransactio
 			key := fmt.Sprintf("receipts/%s/%d%s", tx.ID, i, ext)
 			presignedURL, uploadErr := photos.GeneratePresignedPutURL(ctx, cfg.SpacesPresigner, cfg.SpacesBucket, key, blob.ContentType, 15*time.Minute)
 			if uploadErr != nil {
-				log.Printf("receipt worker: presign slot %d for tx %s: %v (falling back to Mercury URL)", i, tx.ID, uploadErr)
+				slog.Info(fmt.Sprintf("receipt worker: presign slot %d for tx %s: %v (falling back to Mercury URL)", i, tx.ID, uploadErr))
 			} else {
 				putReq, reqErr := http.NewRequestWithContext(ctx, http.MethodPut, presignedURL, bytes.NewReader(blob.Bytes))
 				if reqErr != nil {
-					log.Printf("receipt worker: create PUT request slot %d for tx %s: %v (falling back to Mercury URL)", i, tx.ID, reqErr)
+					slog.Info(fmt.Sprintf("receipt worker: create PUT request slot %d for tx %s: %v (falling back to Mercury URL)", i, tx.ID, reqErr))
 				} else {
 					putReq.Header.Set("Content-Type", blob.ContentType)
 					putReq.Header.Set("x-amz-acl", "public-read")
 					putReq.ContentLength = int64(len(blob.Bytes))
 					putResp, putErr := (&http.Client{Timeout: 60 * time.Second}).Do(putReq)
 					if putErr != nil {
-						log.Printf("receipt worker: upload slot %d to Spaces for tx %s: %v (falling back to Mercury URL)", i, tx.ID, putErr)
+						slog.Info(fmt.Sprintf("receipt worker: upload slot %d to Spaces for tx %s: %v (falling back to Mercury URL)", i, tx.ID, putErr))
 					} else {
 						putResp.Body.Close()
 						if putResp.StatusCode >= 200 && putResp.StatusCode < 300 {
 							slotURL = photos.PublicURL(cfg.SpacesEndpoint, cfg.SpacesBucket, key)
 						} else {
-							log.Printf("receipt worker: Spaces PUT slot %d for tx %s returned %d (falling back to Mercury URL)", i, tx.ID, putResp.StatusCode)
+							slog.Info(fmt.Sprintf("receipt worker: Spaces PUT slot %d for tx %s returned %d (falling back to Mercury URL)", i, tx.ID, putResp.StatusCode))
 						}
 					}
 				}
@@ -401,13 +402,13 @@ func processSingleTx(ctx context.Context, cfg WorkerConfig, tx MercuryTransactio
 	items, summary, parseErr := parseReceipt(ctx, cfg.AnthropicAPIKey, blobs)
 	if parseErr != nil {
 		haikuErr := parseErr
-		log.Printf("receipt worker: Haiku failed for tx %s, retrying with Sonnet: %v", tx.ID, haikuErr)
+		slog.Info(fmt.Sprintf("receipt worker: Haiku failed for tx %s, retrying with Sonnet: %v", tx.ID, haikuErr))
 		items, summary, parseErr = parseReceiptWithSonnet(ctx, cfg.AnthropicAPIKey, blobs)
 		if parseErr != nil {
 			combined := fmt.Sprintf("haiku: %v; sonnet: %v", haikuErr, parseErr)
-			log.Printf("receipt worker: Sonnet also failed for tx %s: %v — routing to review queue", tx.ID, parseErr)
+			slog.Info(fmt.Sprintf("receipt worker: Sonnet also failed for tx %s: %v — routing to review queue", tx.ID, parseErr))
 			if routeErr := routePending(ctx, cfg.Pool, tx, items, summary, receiptURL, receiptURLs, "Receipt could not be parsed automatically", combined, isUpgrade); routeErr != nil {
-				log.Printf("receipt worker: routePending (parse-fail) for tx %s: %v", tx.ID, routeErr)
+				slog.Info(fmt.Sprintf("receipt worker: routePending (parse-fail) for tx %s: %v", tx.ID, routeErr))
 			}
 			return "pending_review", nil
 		}
@@ -437,8 +438,8 @@ func processSingleTx(ctx context.Context, cfg WorkerConfig, tx MercuryTransactio
 	for attempt := 1; attempt <= maxParseAttempts; attempt++ {
 		validate := ValidateReceiptData(items, summary, tx.Amount)
 		score := attemptScore(items, summary, tx.Amount)
-		log.Printf("receipt worker: tx %s attempt %d/%d valid=%v score=%.2f reason=%s",
-			tx.ID, attempt, maxParseAttempts, validate.Valid, score, validate.Reason)
+		slog.Info(fmt.Sprintf("receipt worker: tx %s attempt %d/%d valid=%v score=%.2f reason=%s",
+			tx.ID, attempt, maxParseAttempts, validate.Valid, score, validate.Reason))
 		retryTrace = append(retryTrace, fmt.Sprintf("attempt %d: score=%.2f total=%.2f reason=%s",
 			attempt, score, summary.Total, validate.Reason))
 
@@ -462,7 +463,7 @@ func processSingleTx(ctx context.Context, cfg WorkerConfig, tx MercuryTransactio
 		newItems, newSummary, feedbackErr := parseReceiptWithFeedback(
 			ctx, cfg.AnthropicAPIKey, blobs, summary.Total, tx.Amount, validate.Reason)
 		if feedbackErr != nil {
-			log.Printf("receipt worker: tx %s feedback retry failed: %v — using prior attempt", tx.ID, feedbackErr)
+			slog.Info(fmt.Sprintf("receipt worker: tx %s feedback retry failed: %v — using prior attempt", tx.ID, feedbackErr))
 			retryTrace = append(retryTrace, fmt.Sprintf("feedback retry errored: %v", feedbackErr))
 			break
 		}
@@ -479,9 +480,9 @@ func processSingleTx(ctx context.Context, cfg WorkerConfig, tx MercuryTransactio
 	// Enrichment errors are non-fatal — log and proceed with unmatched items.
 	matchedCount, catalogSize, enrichErr := enrichItemsWithMatches(ctx, cfg.Pool, items, cfg.AnthropicAPIKey)
 	if enrichErr != nil {
-		log.Printf("receipt worker: tx %s enrichItemsWithMatches: %v (continuing without match enrichment)", tx.ID, enrichErr)
+		slog.Info(fmt.Sprintf("receipt worker: tx %s enrichItemsWithMatches: %v (continuing without match enrichment)", tx.ID, enrichErr))
 	} else {
-		log.Printf("receipt worker: tx %s matched %d/%d items to catalog", tx.ID, matchedCount, len(items))
+		slog.Info(fmt.Sprintf("receipt worker: tx %s matched %d/%d items to catalog", tx.ID, matchedCount, len(items)))
 	}
 
 	// Low-match-rate sanity gate: when > 5 items but < 30% match the catalog
@@ -492,8 +493,8 @@ func processSingleTx(ctx context.Context, cfg WorkerConfig, tx MercuryTransactio
 	// (< 5 items are statistically insignificant).
 	if enrichErr == nil && catalogSize >= 20 && len(items) > 5 &&
 		matchedCount*100 < len(items)*30 {
-		log.Printf("receipt worker: tx %s low catalog match rate (%d/%d items matched) — forcing pending review",
-			tx.ID, matchedCount, len(items))
+		slog.Info(fmt.Sprintf("receipt worker: tx %s low catalog match rate (%d/%d items matched) — forcing pending review",
+			tx.ID, matchedCount, len(items)))
 		lastValidate.Valid = false
 		lastValidate.Reason = fmt.Sprintf("Low catalog match rate (matched %d/%d items) — verify line items",
 			matchedCount, len(items))
@@ -508,8 +509,8 @@ func processSingleTx(ctx context.Context, cfg WorkerConfig, tx MercuryTransactio
 			itemsSum += item.Price * item.Quantity
 		}
 		if len(items) == 0 || math.Abs(itemsSum) < 0.50 {
-			log.Printf("receipt worker: tx %s sanity gate FAILED (items=%d itemsSum=%.2f) — routing to review",
-				tx.ID, len(items), itemsSum)
+			slog.Info(fmt.Sprintf("receipt worker: tx %s sanity gate FAILED (items=%d itemsSum=%.2f) — routing to review",
+				tx.ID, len(items), itemsSum))
 			lastValidate.Valid = false
 			if lastValidate.Reason == "" {
 				lastValidate.Reason = fmt.Sprintf("Sanity gate: items=%d itemsSum=%.2f", len(items), itemsSum)
@@ -522,9 +523,9 @@ func processSingleTx(ctx context.Context, cfg WorkerConfig, tx MercuryTransactio
 		if len(retryTrace) > 0 {
 			parseErrForRow = strings.Join(retryTrace, "; ")
 		}
-		log.Printf("receipt worker: tx %s routed to review queue: %s", tx.ID, lastValidate.Reason)
+		slog.Info(fmt.Sprintf("receipt worker: tx %s routed to review queue: %s", tx.ID, lastValidate.Reason))
 		if routeErr := routePending(ctx, cfg.Pool, tx, items, summary, receiptURL, receiptURLs, lastValidate.Reason, parseErrForRow, isUpgrade); routeErr != nil {
-			log.Printf("receipt worker: routePending (validate-fail) for tx %s: %v", tx.ID, routeErr)
+			slog.Info(fmt.Sprintf("receipt worker: routePending (validate-fail) for tx %s: %v", tx.ID, routeErr))
 		}
 		return "pending_review", nil
 	}
@@ -552,9 +553,9 @@ func processSingleTx(ctx context.Context, cfg WorkerConfig, tx MercuryTransactio
 	// residual pending row and returns nil so we count it as auto_created
 	// (the event exists).
 	if err := createPurchaseEvent(ctx, cfg.Pool, tx, items, summary, receiptURL, receiptURLs, isUpgrade); err != nil {
-		log.Printf("receipt worker: createPurchaseEvent for tx %s: %v — routing to review queue", tx.ID, err)
+		slog.Info(fmt.Sprintf("receipt worker: createPurchaseEvent for tx %s: %v — routing to review queue", tx.ID, err))
 		if routeErr := routePending(ctx, cfg.Pool, tx, items, summary, receiptURL, receiptURLs, "Receipt could not be saved automatically", "", isUpgrade); routeErr != nil {
-			log.Printf("receipt worker: routePending (save-fail) for tx %s: %v", tx.ID, routeErr)
+			slog.Info(fmt.Sprintf("receipt worker: routePending (save-fail) for tx %s: %v", tx.ID, routeErr))
 		}
 		return "pending_review", nil
 	}
@@ -719,7 +720,7 @@ func createPurchaseEvent(ctx context.Context, pool *pgxpool.Pool, tx MercuryTran
 		// the residual pending row in a fresh connection from the pool.
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" && strings.Contains(pgErr.ConstraintName, "bank_tx_id") {
-			log.Printf("receipt worker: tx %s already auto-created (duplicate bank_tx_id) — clearing residual pending row", tx.ID)
+			slog.Info(fmt.Sprintf("receipt worker: tx %s already auto-created (duplicate bank_tx_id) — clearing residual pending row", tx.ID))
 			// Rollback the aborted transaction explicitly (defer above would also do
 			// it, but being explicit avoids a log-confusing error from the defer).
 			_ = dbTx.Rollback(ctx)
@@ -1013,7 +1014,7 @@ func enrichItemsWithMatches(ctx context.Context, pool *pgxpool.Pool, items []Rec
 	if len(unmatchedNames) > 0 && anthropicAPIKey != "" {
 		aiMatches, aiErr := matchItemsWithAI(ctx, anthropicAPIKey, unmatchedNames, existingMap)
 		if aiErr != nil {
-			log.Printf("receipt worker: AI item matching failed: %v (continuing with partial matches)", aiErr)
+			slog.Info(fmt.Sprintf("receipt worker: AI item matching failed: %v (continuing with partial matches)", aiErr))
 		} else {
 			for k, idx := range unmatchedIdx {
 				rawName := unmatchedNames[k]

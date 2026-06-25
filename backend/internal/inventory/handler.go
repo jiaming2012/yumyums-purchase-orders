@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"log"
+	"log/slog"
 	"math"
 	"net/http"
 	"strconv"
@@ -41,7 +41,7 @@ func ListVendorsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			`SELECT id, name, created_at FROM vendors ORDER BY name`,
 		)
 		if err != nil {
-			log.Printf("ListVendors query: %v", err)
+			slog.Error("ListVendors query failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -51,7 +51,7 @@ func ListVendorsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		for rows.Next() {
 			var v Vendor
 			if err := rows.Scan(&v.ID, &v.Name, &v.CreatedAt); err != nil {
-				log.Printf("ListVendors scan: %v", err)
+				slog.Error("ListVendors scan failed", "error", err)
 				writeError(w, http.StatusInternalServerError, "internal_error")
 				return
 			}
@@ -83,7 +83,7 @@ func CreateVendorHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			RETURNING id`, input.Name,
 		).Scan(&id)
 		if err != nil {
-			log.Printf("CreateVendor insert: %v", err)
+			slog.Error("CreateVendor insert failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -109,7 +109,7 @@ func UpdateVendorHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		input.Name = normalizeItemName(input.Name)
 		tag, err := pool.Exec(r.Context(), `UPDATE vendors SET name = $1 WHERE id = $2`, input.Name, input.ID)
 		if err != nil {
-			log.Printf("UpdateVendor update: %v", err)
+			slog.Error("UpdateVendor update failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -150,14 +150,14 @@ func MergeVendorsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		// Re-point purchase_events from source to target
 		_, err = tx.Exec(r.Context(), `UPDATE purchase_events SET vendor_id = $1 WHERE vendor_id = $2`, input.TargetID, input.SourceID)
 		if err != nil {
-			log.Printf("MergeVendors re-point events: %v", err)
+			slog.Error("MergeVendors re-point events failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
 		// Delete source vendor
 		tag, err := tx.Exec(r.Context(), `DELETE FROM vendors WHERE id = $1`, input.SourceID)
 		if err != nil {
-			log.Printf("MergeVendors delete source: %v", err)
+			slog.Error("MergeVendors delete source failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -202,7 +202,7 @@ func MergeItemsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		// Re-point purchase_line_items from source to target
 		_, err = tx.Exec(r.Context(), `UPDATE purchase_line_items SET purchase_item_id = $1 WHERE purchase_item_id = $2`, input.TargetID, input.SourceID)
 		if err != nil {
-			log.Printf("MergeItems re-point line_items: %v", err)
+			slog.Error("MergeItems re-point line_items failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -215,12 +215,12 @@ func MergeItemsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 		_, err = tx.Exec(r.Context(), `UPDATE purchase_line_items SET description = $1 WHERE purchase_item_id = $2`, targetDesc, input.TargetID)
 		if err != nil {
-			log.Printf("MergeItems update descriptions: %v", err)
+			slog.Error("MergeItems update descriptions failed", "error", err)
 		}
 		// Delete source item
 		tag, err := tx.Exec(r.Context(), `DELETE FROM purchase_items WHERE id = $1`, input.SourceID)
 		if err != nil {
-			log.Printf("MergeItems delete source: %v", err)
+			slog.Error("MergeItems delete source failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -256,7 +256,7 @@ func UpdatePendingItemsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			input.Items, input.ID,
 		)
 		if err != nil {
-			log.Printf("UpdatePendingItems: %v", err)
+			slog.Error("UpdatePendingItems failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -306,7 +306,7 @@ func ListPurchaseEventsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			)
 		}
 		if err != nil {
-			log.Printf("ListPurchaseEvents query: %v", err)
+			slog.Error("ListPurchaseEvents query failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -318,7 +318,7 @@ func ListPurchaseEventsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			var receiptURLsJSON []byte
 			if err := rows.Scan(&pe.ID, &pe.VendorID, &pe.VendorName, &pe.BankTxID,
 				&pe.EventDate, &pe.Tax, &pe.Total, &pe.ReceiptURL, &receiptURLsJSON, &pe.CreatedAt); err != nil {
-				log.Printf("ListPurchaseEvents scan: %v", err)
+				slog.Error("ListPurchaseEvents scan failed", "error", err)
 				writeError(w, http.StatusInternalServerError, "internal_error")
 				return
 			}
@@ -328,7 +328,7 @@ func ListPurchaseEventsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			events = append(events, pe)
 		}
 		if err := rows.Err(); err != nil {
-			log.Printf("ListPurchaseEvents rows err: %v", err)
+			slog.Error("ListPurchaseEvents rows iteration failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -343,7 +343,7 @@ func ListPurchaseEventsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				events[i].ID,
 			)
 			if err != nil {
-				log.Printf("ListPurchaseEvents line_items query: %v", err)
+				slog.Error("ListPurchaseEvents line_items query failed", "error", err)
 				writeError(w, http.StatusInternalServerError, "internal_error")
 				return
 			}
@@ -353,7 +353,7 @@ func ListPurchaseEventsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				var li LineItem
 				if err := liRows.Scan(&li.ID, &li.PurchaseEventID, &li.PurchaseItemID,
 					&li.Description, &li.Quantity, &li.Price, &li.IsCase); err != nil {
-					log.Printf("ListPurchaseEvents line_item scan: %v", err)
+					slog.Error("ListPurchaseEvents line_item scan failed", "error", err)
 					writeError(w, http.StatusInternalServerError, "internal_error")
 					return
 				}
@@ -409,7 +409,7 @@ func GetStockHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			ORDER BY sub.total_spend DESC`,
 		)
 		if err != nil {
-			log.Printf("GetStock query: %v", err)
+			slog.Error("GetStock query failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -425,7 +425,7 @@ func GetStockHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			if err := rows.Scan(&row.s.Description, &row.s.GroupName,
 				&row.s.TotalQuantity, &row.s.TotalSpend, &row.s.AvgPrice, &row.s.LastPurchaseDate,
 				&row.s.LowThreshold, &row.s.HighThreshold, &row.purchaseItemID); err != nil {
-				log.Printf("GetStock scan: %v", err)
+				slog.Error("GetStock scan failed", "error", err)
 				writeError(w, http.StatusInternalServerError, "internal_error")
 				return
 			}
@@ -433,7 +433,7 @@ func GetStockHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			rawRows = append(rawRows, row)
 		}
 		if err := rows.Err(); err != nil {
-			log.Printf("GetStock rows err: %v", err)
+			slog.Error("GetStock rows iteration failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -530,7 +530,7 @@ func UpdateStockCountHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			input.ItemDescription, input.Quantity, input.Reason,
 		)
 		if err != nil {
-			log.Printf("UpdateStockCount: %v", err)
+			slog.Error("UpdateStockCount failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -555,7 +555,7 @@ func CreatePurchaseEventHandler(pool *pgxpool.Pool) http.HandlerFunc {
 
 		tx, err := pool.Begin(r.Context())
 		if err != nil {
-			log.Printf("CreatePurchaseEvent begin tx: %v", err)
+			slog.Error("CreatePurchaseEvent begin tx failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -569,7 +569,7 @@ func CreatePurchaseEventHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			input.VendorID, input.BankTxID, input.EventDate, input.Tax, input.Total, input.ReceiptURL,
 		).Scan(&eventID)
 		if err != nil {
-			log.Printf("CreatePurchaseEvent insert event: %v", err)
+			slog.Error("CreatePurchaseEvent insert event failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -583,14 +583,14 @@ func CreatePurchaseEventHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				eventID, li.PurchaseItemID, desc, li.Quantity, li.Price, li.IsCase,
 			)
 			if err != nil {
-				log.Printf("CreatePurchaseEvent insert line_item: %v", err)
+				slog.Error("CreatePurchaseEvent insert line_item failed", "error", err)
 				writeError(w, http.StatusInternalServerError, "internal_error")
 				return
 			}
 		}
 
 		if err := tx.Commit(r.Context()); err != nil {
-			log.Printf("CreatePurchaseEvent commit: %v", err)
+			slog.Error("CreatePurchaseEvent commit failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -612,7 +612,7 @@ func ListPendingPurchasesHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			ORDER BY created_at DESC`,
 		)
 		if err != nil {
-			log.Printf("ListPendingPurchases query: %v", err)
+			slog.Error("ListPendingPurchases query failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -628,7 +628,7 @@ func ListPendingPurchasesHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				&p.Reason, &p.ParseError, &p.Items,
 				&p.ConfirmedAt, &p.ConfirmedBy, &p.DiscardedAt, &p.CreatedAt,
 			); err != nil {
-				log.Printf("ListPendingPurchases scan: %v", err)
+				slog.Error("ListPendingPurchases scan failed", "error", err)
 				writeError(w, http.StatusInternalServerError, "internal_error")
 				return
 			}
@@ -663,14 +663,14 @@ func ConfirmPendingPurchaseHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			input.VendorName,
 		).Scan(&vendorID)
 		if err != nil {
-			log.Printf("ConfirmPendingPurchase upsert vendor: %v", err)
+			slog.Error("ConfirmPendingPurchase upsert vendor failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
 
 		tx, err := pool.Begin(r.Context())
 		if err != nil {
-			log.Printf("ConfirmPendingPurchase begin tx: %v", err)
+			slog.Error("ConfirmPendingPurchase begin tx failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -752,7 +752,7 @@ func ConfirmPendingPurchaseHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			vendorID, bankTxID, input.EventDate, eventTax, eventTotal,
 		).Scan(&eventID)
 		if err != nil {
-			log.Printf("ConfirmPendingPurchase insert event: %v", err)
+			slog.Error("ConfirmPendingPurchase insert event failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -767,7 +767,7 @@ func ConfirmPendingPurchaseHandler(pool *pgxpool.Pool) http.HandlerFunc {
 					eventID, li.PurchaseItemID, desc, li.Quantity, li.Price, li.IsCase,
 				)
 				if err != nil {
-					log.Printf("ConfirmPendingPurchase insert line_item: %v", err)
+					slog.Error("ConfirmPendingPurchase insert line_item failed", "error", err)
 					writeError(w, http.StatusInternalServerError, "internal_error")
 					return
 				}
@@ -785,7 +785,7 @@ func ConfirmPendingPurchaseHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				eventID, noItemizedReceiptItemID, eventTotal,
 			)
 			if err != nil {
-				log.Printf("ConfirmPendingPurchase insert placeholder line_item: %v", err)
+				slog.Error("ConfirmPendingPurchase insert placeholder line_item failed", "error", err)
 				writeError(w, http.StatusInternalServerError, "internal_error")
 				return
 			}
@@ -797,13 +797,13 @@ func ConfirmPendingPurchaseHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			time.Now().UTC(), user.ID, input.ID,
 		)
 		if err != nil {
-			log.Printf("ConfirmPendingPurchase update confirmed_at: %v", err)
+			slog.Error("ConfirmPendingPurchase update confirmed_at failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
 
 		if err := tx.Commit(r.Context()); err != nil {
-			log.Printf("ConfirmPendingPurchase commit: %v", err)
+			slog.Error("ConfirmPendingPurchase commit failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -831,7 +831,7 @@ func DiscardPendingPurchaseHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			time.Now().UTC(), input.ID,
 		)
 		if err != nil {
-			log.Printf("DiscardPendingPurchase update: %v", err)
+			slog.Error("DiscardPendingPurchase update failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -951,12 +951,13 @@ func RetryParsePendingPurchaseHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				  WHERE id = $1`,
 				id,
 			); err != nil {
-				log.Printf("RetryParsePendingPurchase update: %v", err)
+				slog.Error("RetryParsePendingPurchase update failed", "error", err)
 				writeError(w, http.StatusInternalServerError, "internal_error")
 				return
 			}
-			log.Printf("RetryParse: row %s re-queued (had_parse_error=%v items_mismatch=%v line_total=%.2f bank_total=%.2f)",
-				id, hasParseError, itemsMismatch, lineTotal, absBank)
+			slog.Info("RetryParse: row re-queued",
+				"id", id, "had_parse_error", hasParseError, "items_mismatch", itemsMismatch,
+				"line_total", lineTotal, "bank_total", absBank)
 		default:
 			// parse_error NULL AND items match totals (or items empty) —
 			// nothing to retry.
@@ -971,7 +972,7 @@ func RetryParsePendingPurchaseHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		// ListPendingPurchasesHandler uses, so the FE response shape matches.
 		pending, ferr := fetchPendingPurchaseByID(r.Context(), pool, id)
 		if ferr != nil {
-			log.Printf("RetryParsePendingPurchase refetch: %v", ferr)
+			slog.Error("RetryParsePendingPurchase refetch failed", "error", ferr)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -1031,7 +1032,7 @@ func SeedPendingPurchaseHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			input.BankTxID, input.BankTotal, input.Vendor, input.EventDate, input.Reason, input.Items, input.ReceiptURL,
 		).Scan(&id)
 		if err != nil {
-			log.Printf("SeedPendingPurchase insert: %v", err)
+			slog.Error("SeedPendingPurchase insert failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -1048,7 +1049,7 @@ func ListItemsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			LEFT JOIN item_groups ig ON ig.id = pi.group_id
 			ORDER BY pi.description`)
 		if err != nil {
-			log.Printf("ListItems query: %v", err)
+			slog.Error("ListItems query failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -1058,7 +1059,7 @@ func ListItemsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		for rows.Next() {
 			var item PurchaseItem
 			if err := rows.Scan(&item.ID, &item.Description, &item.GroupID, &item.GroupName, &item.StoreLocation, &item.LocationInStore, &item.PhotoURL); err != nil {
-				log.Printf("ListItems scan: %v", err)
+				slog.Error("ListItems scan failed", "error", err)
 				writeError(w, http.StatusInternalServerError, "internal_error")
 				return
 			}
@@ -1098,7 +1099,7 @@ func CreateItemHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			input.Description, input.GroupID, input.StoreLocation,
 		).Scan(&id)
 		if err != nil {
-			log.Printf("CreateItem insert: %v", err)
+			slog.Error("CreateItem insert failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -1130,7 +1131,7 @@ func UpdateItemHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			input.Description, input.GroupID, input.StoreLocation, input.PhotoURL, input.LocationInStore, input.ID,
 		)
 		if err != nil {
-			log.Printf("UpdateItem update: %v", err)
+			slog.Error("UpdateItem update failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -1148,7 +1149,7 @@ func ListGroupsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		rows, err := pool.Query(r.Context(), `
 			SELECT id, name, par_days, low_threshold, high_threshold FROM item_groups ORDER BY name`)
 		if err != nil {
-			log.Printf("ListGroups query: %v", err)
+			slog.Error("ListGroups query failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -1158,7 +1159,7 @@ func ListGroupsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		for rows.Next() {
 			var g ItemGroup
 			if err := rows.Scan(&g.ID, &g.Name, &g.ParDays, &g.LowThreshold, &g.HighThreshold); err != nil {
-				log.Printf("ListGroups scan: %v", err)
+				slog.Error("ListGroups scan failed", "error", err)
 				writeError(w, http.StatusInternalServerError, "internal_error")
 				return
 			}
@@ -1172,7 +1173,7 @@ func ListGroupsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				JOIN item_group_tags igt ON igt.tag_id = t.id
 				WHERE igt.group_id = $1 ORDER BY t.name`, groups[i].ID)
 			if err != nil {
-				log.Printf("ListGroups tags query: %v", err)
+				slog.Error("ListGroups tags query failed", "error", err)
 				continue
 			}
 			for tagRows.Next() {
@@ -1209,7 +1210,7 @@ func CreateGroupHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			RETURNING id`, input.Name,
 		).Scan(&id)
 		if err != nil {
-			log.Printf("CreateGroup insert: %v", err)
+			slog.Error("CreateGroup insert failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -1246,7 +1247,7 @@ func UpdateGroupHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			input.LowThreshold, input.HighThreshold, input.ID,
 		)
 		if err != nil {
-			log.Printf("UpdateGroup update: %v", err)
+			slog.Error("UpdateGroup update failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -1263,7 +1264,7 @@ func ListTagsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		rows, err := pool.Query(r.Context(), `SELECT id, name FROM tags ORDER BY name`)
 		if err != nil {
-			log.Printf("ListTags query: %v", err)
+			slog.Error("ListTags query failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -1273,7 +1274,7 @@ func ListTagsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		for rows.Next() {
 			var t Tag
 			if err := rows.Scan(&t.ID, &t.Name); err != nil {
-				log.Printf("ListTags scan: %v", err)
+				slog.Error("ListTags scan failed", "error", err)
 				writeError(w, http.StatusInternalServerError, "internal_error")
 				return
 			}
@@ -1357,7 +1358,7 @@ func PeriodSummaryHandler(pool *pgxpool.Pool, cogsAllowlist []string) http.Handl
 				(SELECT COUNT(*) FROM events) + (SELECT event_count FROM pending)             AS event_count`,
 			fromStr, toStr, cogsAllowlist).Scan(&cogsExcl, &cogsIncl, &eventCount)
 		if err != nil {
-			log.Printf("PeriodSummary cogs query: %v", err)
+			slog.Error("PeriodSummary COGS query failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -1452,7 +1453,7 @@ func PeriodSummaryHandler(pool *pgxpool.Pool, cogsAllowlist []string) http.Handl
 			GROUP BY vendor_id, vendor_name
 			ORDER BY total_excl_tax DESC, vendor_name ASC`, fromStr, toStr, cogsAllowlist)
 		if err != nil {
-			log.Printf("PeriodSummary by-vendor query: %v", err)
+			slog.Error("PeriodSummary by-vendor query failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -1460,14 +1461,14 @@ func PeriodSummaryHandler(pool *pgxpool.Pool, cogsAllowlist []string) http.Handl
 		for rowsV.Next() {
 			var v VendorCOGS
 			if err := rowsV.Scan(&v.VendorID, &v.VendorName, &v.TotalExclTax, &v.TotalInclTax, &v.TripCount); err != nil {
-				log.Printf("PeriodSummary by-vendor scan: %v", err)
+				slog.Error("PeriodSummary by-vendor scan failed", "error", err)
 				writeError(w, http.StatusInternalServerError, "internal_error")
 				return
 			}
 			byVendor = append(byVendor, v)
 		}
 		if err := rowsV.Err(); err != nil {
-			log.Printf("PeriodSummary by-vendor rows.Err: %v", err)
+			slog.Error("PeriodSummary by-vendor rows iteration failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -1501,7 +1502,7 @@ func PeriodSummaryHandler(pool *pgxpool.Pool, cogsAllowlist []string) http.Handl
 			  AND reason = 'no_attachment_on_bank_tx'
 			ORDER BY COALESCE(event_date, (created_at AT TIME ZONE 'America/Chicago')::date), created_at`, fromStr, toStr, cogsAllowlist)
 		if err != nil {
-			log.Printf("PeriodSummary pending query: %v", err)
+			slog.Error("PeriodSummary pending query failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -1509,7 +1510,7 @@ func PeriodSummaryHandler(pool *pgxpool.Pool, cogsAllowlist []string) http.Handl
 		for rows.Next() {
 			var d PendingReviewDetail
 			if err := rows.Scan(&d.ID, &d.BankTxID, &d.Vendor, &d.EventDate, &d.BankTotal, &d.Reason); err != nil {
-				log.Printf("PeriodSummary pending scan: %v", err)
+				slog.Error("PeriodSummary pending scan failed", "error", err)
 				writeError(w, http.StatusInternalServerError, "internal_error")
 				return
 			}
@@ -1517,7 +1518,7 @@ func PeriodSummaryHandler(pool *pgxpool.Pool, cogsAllowlist []string) http.Handl
 			pendingDetails = append(pendingDetails, d)
 		}
 		if err := rows.Err(); err != nil {
-			log.Printf("PeriodSummary pending rows.Err: %v", err)
+			slog.Error("PeriodSummary pending rows iteration failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -1548,7 +1549,7 @@ func PeriodSummaryHandler(pool *pgxpool.Pool, cogsAllowlist []string) http.Handl
 			) AS tracked
 			ORDER BY bank_tx_id ASC`, fromStr, toStr)
 		if err != nil {
-			log.Printf("PeriodSummary tracked-tx-ids query: %v", err)
+			slog.Error("PeriodSummary tracked-tx-ids query failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -1556,14 +1557,14 @@ func PeriodSummaryHandler(pool *pgxpool.Pool, cogsAllowlist []string) http.Handl
 		for rowsT.Next() {
 			var id string
 			if err := rowsT.Scan(&id); err != nil {
-				log.Printf("PeriodSummary tracked-tx-ids scan: %v", err)
+				slog.Error("PeriodSummary tracked-tx-ids scan failed", "error", err)
 				writeError(w, http.StatusInternalServerError, "internal_error")
 				return
 			}
 			trackedTxIDs = append(trackedTxIDs, id)
 		}
 		if err := rowsT.Err(); err != nil {
-			log.Printf("PeriodSummary tracked-tx-ids rows.Err: %v", err)
+			slog.Error("PeriodSummary tracked-tx-ids rows iteration failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -1580,7 +1581,7 @@ func PeriodSummaryHandler(pool *pgxpool.Pool, cogsAllowlist []string) http.Handl
 			  AND pli.purchase_item_id IS NULL
 			ORDER BY pli.id`, fromStr, toStr)
 		if err != nil {
-			log.Printf("PeriodSummary unlinked query: %v", err)
+			slog.Error("PeriodSummary unlinked query failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -1588,14 +1589,14 @@ func PeriodSummaryHandler(pool *pgxpool.Pool, cogsAllowlist []string) http.Handl
 		for rows2.Next() {
 			var id string
 			if err := rows2.Scan(&id); err != nil {
-				log.Printf("PeriodSummary unlinked scan: %v", err)
+				slog.Error("PeriodSummary unlinked scan failed", "error", err)
 				writeError(w, http.StatusInternalServerError, "internal_error")
 				return
 			}
 			unlinkedIDs = append(unlinkedIDs, id)
 		}
 		if err := rows2.Err(); err != nil {
-			log.Printf("PeriodSummary unlinked rows.Err: %v", err)
+			slog.Error("PeriodSummary unlinked rows iteration failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}

@@ -6,7 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"log"
+	"log/slog"
 	"strings"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -203,7 +203,7 @@ func UpsertSuperadmins(ctx context.Context, pool *pgxpool.Pool, superadmins map[
 			}
 		}
 
-		log.Printf("Upserted superadmin: %s", email)
+		slog.Info("upserted superadmin", "email", email)
 	}
 	return nil
 }

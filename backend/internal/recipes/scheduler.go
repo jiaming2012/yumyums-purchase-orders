@@ -3,7 +3,7 @@ package recipes
 import (
 	"context"
 	"encoding/json"
-	"log"
+	"log/slog"
 	"os"
 	"time"
 
@@ -27,7 +27,7 @@ var timeNow = time.Now
 // Must be called AFTER SetAlertQueue if Cliq delivery is desired (nil-safe
 // otherwise — banner still renders on the next /drift fetch).
 func StartDriftScheduler(ctx context.Context, pool *pgxpool.Pool) {
-	log.Println("recipes drift scheduler: starting (15m tick, fires Monday 09:00 America/Chicago)")
+	slog.Info("recipes drift scheduler: starting (15m tick, fires Monday 09:00 America/Chicago)")
 	go func() {
 		// Boot-time tick — recovers a missed Monday if the server happened to be
 		// down at 09:00 (the tick is idempotent so a re-fire is a no-op).
@@ -37,7 +37,7 @@ func StartDriftScheduler(ctx context.Context, pool *pgxpool.Pool) {
 		for {
 			select {
 			case <-ctx.Done():
-				log.Println("recipes drift scheduler: shutting down")
+				slog.Info("recipes drift scheduler: shutting down")
 				return
 			case <-ticker.C:
 				runDriftTick(ctx, pool)
@@ -51,7 +51,7 @@ func StartDriftScheduler(ctx context.Context, pool *pgxpool.Pool) {
 func runDriftTick(ctx context.Context, pool *pgxpool.Pool) {
 	loc, err := time.LoadLocation("America/Chicago")
 	if err != nil {
-		log.Printf("recipes drift: TZ load: %v", err)
+		slog.Error("recipes drift: TZ load failed", "error", err)
 		return
 	}
 	now := timeNow().In(loc)
@@ -78,7 +78,7 @@ func runDriftWeek(ctx context.Context, pool *pgxpool.Pool, weekStart string) {
 		weekStart,
 	).Scan(&exists)
 	if err != nil {
-		log.Printf("recipes drift: idempotency check: %v", err)
+		slog.Error("recipes drift: idempotency check failed", "error", err)
 		return
 	}
 	if exists {
@@ -89,7 +89,7 @@ func runDriftWeek(ctx context.Context, pool *pgxpool.Pool, weekStart string) {
 	// for date math, then re-format both endpoints as YYYY-MM-DD strings.
 	ws, err := time.Parse("2006-01-02", weekStart)
 	if err != nil {
-		log.Printf("recipes drift: weekStart parse %q: %v", weekStart, err)
+		slog.Error("recipes drift: weekStart parse failed", "week_start", weekStart, "error", err)
 		return
 	}
 	priorFrom := ws.AddDate(0, 0, -7).Format("2006-01-02")
@@ -105,25 +105,24 @@ func runDriftWeek(ctx context.Context, pool *pgxpool.Pool, weekStart string) {
 		priorFrom, priorTo,
 	).Scan(&distinctDays)
 	if err != nil {
-		log.Printf("recipes drift: ingest-stale check: %v", err)
+		slog.Error("recipes drift: ingest-stale check failed", "error", err)
 		return
 	}
 	if distinctDays < 5 {
-		log.Printf("recipes drift: ingest stale (only %d of 7 days have sales data) — skipping week %s",
-			distinctDays, weekStart)
+		slog.Warn("recipes drift: ingest stale — skipping", "days_with_data", distinctDays, "week_start", weekStart)
 		return
 	}
 
 	result, err := computeDrift(ctx, pool, priorFrom, priorTo)
 	if err != nil {
-		log.Printf("recipes drift: compute: %v", err)
+		slog.Error("recipes drift: compute failed", "error", err)
 		return
 	}
 	result.WeekStart = weekStart
 
 	payload, err := json.Marshal(result)
 	if err != nil {
-		log.Printf("recipes drift: marshal: %v", err)
+		slog.Error("recipes drift: marshal failed", "error", err)
 		return
 	}
 
@@ -135,7 +134,7 @@ func runDriftWeek(ctx context.Context, pool *pgxpool.Pool, weekStart string) {
 		weekStart, payload,
 	)
 	if err != nil {
-		log.Printf("recipes drift: insert: %v", err)
+		slog.Error("recipes drift: insert failed", "error", err)
 		return
 	}
 
@@ -155,8 +154,8 @@ func runDriftWeek(ctx context.Context, pool *pgxpool.Pool, weekStart string) {
 				Message: msg,
 			})
 		} else {
-			log.Println("recipes drift scheduler: alertSink not configured — banner only")
+			slog.Warn("recipes drift scheduler: alertSink not configured — banner only")
 		}
 	}
-	log.Printf("recipes drift scheduler: week %s — %d flagged", weekStart, result.TotalFlagged())
+	slog.Info("recipes drift scheduler: week complete", "week_start", weekStart, "flagged", result.TotalFlagged())
 }

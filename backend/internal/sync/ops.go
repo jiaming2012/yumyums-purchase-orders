@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"log"
+	"log/slog"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -248,18 +248,17 @@ func EmitOp(pool *pgxpool.Pool, op OpInput) {
 		defer cancel()
 		ts, err := nextLamportTS(ctx, pool, op.EntityID, op.EntityType)
 		if err != nil {
-			log.Printf("EmitOp: error reading lamport_ts for entity %s: %v", op.EntityID, err)
+			slog.Error("EmitOp error reading lamport_ts", "entity_id", op.EntityID, "error", err)
 			return
 		}
 		op.LamportTS = ts
 		_, conflict, err := InsertOpAndNotify(ctx, pool, op)
 		if err != nil {
 			if errors.Is(err, ErrConflict) {
-				log.Printf("EmitOp: LWW conflict on entity %s (winner lamport_ts=%d device=%s)",
-					op.EntityID, conflict.WinnerLamportTS, conflict.WinnerDeviceID)
+				slog.Warn("EmitOp LWW conflict", "entity_id", op.EntityID, "winner_lamport_ts", conflict.WinnerLamportTS, "winner_device_id", conflict.WinnerDeviceID)
 				return
 			}
-			log.Printf("EmitOp: error inserting op for entity %s: %v", op.EntityID, err)
+			slog.Error("EmitOp error inserting op", "entity_id", op.EntityID, "error", err)
 		}
 	}()
 }

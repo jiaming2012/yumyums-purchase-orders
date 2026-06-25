@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -59,7 +59,7 @@ func SyncReceiptsHandler(pool *pgxpool.Pool, runner IngestRunner) http.HandlerFu
 				writeError(w, http.StatusConflict, "sync_already_running")
 				return
 			}
-			log.Printf("SyncReceipts insert: %v", err)
+			slog.Error("SyncReceipts insert failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -87,7 +87,7 @@ func runSyncGoroutine(pool *pgxpool.Pool, runner IngestRunner, id int64) {
 				`UPDATE receipt_sync_runs
 				 SET status='failed', finished_at=now(), error=$1
 				 WHERE id=$2`, msg, id)
-			log.Printf("SyncReceipts goroutine panic for run %d: %v", id, rec)
+			slog.Error("SyncReceipts goroutine panic", "run_id", id, "panic", rec)
 		}
 	}()
 
@@ -98,7 +98,7 @@ func runSyncGoroutine(pool *pgxpool.Pool, runner IngestRunner, id int64) {
 			 SET status='failed', finished_at=now(), error=$1
 			 WHERE id=$2`, err.Error(), id)
 		if updErr != nil {
-			log.Printf("SyncReceipts failed-update for run %d: %v", id, updErr)
+			slog.Error("SyncReceipts failed-update", "run_id", id, "error", updErr)
 		}
 		return
 	}
@@ -109,7 +109,7 @@ func runSyncGoroutine(pool *pgxpool.Pool, runner IngestRunner, id int64) {
 		 WHERE id=$5`,
 		result.Processed, result.AutoCreated, result.PendingReview, result.Cached, id)
 	if updErr != nil {
-		log.Printf("SyncReceipts done-update for run %d: %v", id, updErr)
+		slog.Error("SyncReceipts done-update failed", "run_id", id, "error", updErr)
 	}
 }
 
@@ -135,7 +135,7 @@ func SyncReceiptsStatusHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 		if err != nil {
-			log.Printf("SyncReceiptsStatus query: %v", err)
+			slog.Error("SyncReceiptsStatus query failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}

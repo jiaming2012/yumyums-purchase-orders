@@ -33,7 +33,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -47,26 +47,32 @@ import (
 var dateDirRe = regexp.MustCompile(`^\d{8}$`)
 
 func main() {
+	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stderr, nil)))
+
 	sourceFlag := flag.String("source", "", "Path to sales-processor archive root (required, no default)")
 	overwriteFlag := flag.Bool("overwrite", false, "Re-upload even if the Spaces key already exists (D-09)")
 	flag.Parse()
 
 	if *sourceFlag == "" {
 		flag.Usage()
-		log.Fatal("--source is required (no default — see D-08)")
+		slog.Error("--source is required (no default -- see D-08)")
+		os.Exit(1)
 	}
 
 	// Resolve to an absolute path and verify it's a directory.
 	sourceRoot, err := filepath.Abs(*sourceFlag)
 	if err != nil {
-		log.Fatalf("--source %q: cannot resolve: %v", *sourceFlag, err)
+		slog.Error("cannot resolve --source", "source", *sourceFlag, "error", err)
+		os.Exit(1)
 	}
 	st, err := os.Stat(sourceRoot)
 	if err != nil {
-		log.Fatalf("--source %q: stat: %v", sourceRoot, err)
+		slog.Error("stat --source failed", "source", sourceRoot, "error", err)
+		os.Exit(1)
 	}
 	if !st.IsDir() {
-		log.Fatalf("--source %q: not a directory", sourceRoot)
+		slog.Error("--source is not a directory", "source", sourceRoot)
+		os.Exit(1)
 	}
 
 	// Spaces config — all five env vars required, no defaults.
@@ -76,7 +82,8 @@ func main() {
 	region := os.Getenv("DO_SPACES_REGION")
 	bucket := os.Getenv("DO_SPACES_BUCKET")
 	if key == "" || secret == "" || endpoint == "" || region == "" || bucket == "" {
-		log.Fatal("DO_SPACES_KEY, DO_SPACES_SECRET, DO_SPACES_ENDPOINT, DO_SPACES_REGION, DO_SPACES_BUCKET must all be set")
+		slog.Error("DO_SPACES_KEY, DO_SPACES_SECRET, DO_SPACES_ENDPOINT, DO_SPACES_REGION, DO_SPACES_BUCKET must all be set")
+		os.Exit(1)
 	}
 
 	// Reuse the existing client factory (includes UsePathStyle: true — mandatory for hq.yumyums).
@@ -92,7 +99,8 @@ func main() {
 
 	entries, err := os.ReadDir(sourceRoot)
 	if err != nil {
-		log.Fatalf("read source dir %q: %v", sourceRoot, err)
+		slog.Error("read source dir failed", "dir", sourceRoot, "error", err)
+		os.Exit(1)
 	}
 
 	uploaded, skipped, missing, warned := 0, 0, 0, 0
@@ -102,14 +110,14 @@ func main() {
 
 		if !e.IsDir() {
 			// D-11: non-directory entries inside the archive root are unexpected.
-			log.Printf("WARN: skipping non-directory entry %q at archive root", name)
+			slog.Warn("skipping non-directory entry at archive root", "name", name)
 			warned++
 			continue
 		}
 
 		if !dateDirRe.MatchString(name) {
 			// D-11: directories whose name is not YYYYMMDD.
-			log.Printf("WARN: skipping non-date directory %q (expected YYYYMMDD)", name)
+			slog.Warn("skipping non-date directory (expected YYYYMMDD)", "name", name)
 			warned++
 			continue
 		}
@@ -128,10 +136,11 @@ func main() {
 		if !*overwriteFlag {
 			exists, err := toast.SpacesKeyExists(ctx, client, bucket, csvKey)
 			if err != nil {
-				log.Fatalf("HeadObject %s: %v", csvKey, err)
+				slog.Error("HeadObject failed", "key", csvKey, "error", err)
+				os.Exit(1)
 			}
 			if exists {
-				log.Printf("skip %s (already in Spaces)", dateDir)
+				slog.Info("skip date (already in Spaces)", "date", dateDir)
 				skipped++
 				continue
 			}
@@ -139,7 +148,7 @@ func main() {
 
 		data, err := os.ReadFile(csvPath)
 		if err != nil {
-			log.Printf("WARN: read %s: %v (skipping)", csvPath, err)
+			slog.Warn("read CSV failed, skipping", "path", csvPath, "error", err)
 			warned++
 			continue
 		}
@@ -151,7 +160,8 @@ func main() {
 			Body:        bytes.NewReader(data),
 			ContentType: aws.String("text/csv"),
 		}); err != nil {
-			log.Fatalf("PutObject %s: %v", csvKey, err)
+			slog.Error("PutObject failed", "key", csvKey, "error", err)
+			os.Exit(1)
 		}
 
 		// Sidecar (D-03 / D-10 — source: "migration"). Original filename is
@@ -161,7 +171,7 @@ func main() {
 		meta := toast.NewMetaSidecar("ItemSelectionDetails.csv", toast.MetaSourceMigration)
 		metaBytes, mErr := meta.Bytes()
 		if mErr != nil {
-			log.Printf("WARN: marshal sidecar for %s: %v (continuing)", dateDir, mErr)
+			slog.Warn("marshal sidecar failed, continuing", "date", dateDir, "error", mErr)
 		} else {
 			metaKey := toast.SpacesMetaKey(dateDir)
 			if _, err := client.PutObject(ctx, &s3.PutObjectInput{
@@ -170,14 +180,14 @@ func main() {
 				Body:        bytes.NewReader(metaBytes),
 				ContentType: aws.String("application/json"),
 			}); err != nil {
-				log.Printf("WARN: PutObject %s: %v (CSV is uploaded; sidecar best-effort)", metaKey, err)
+				slog.Warn("PutObject sidecar failed (CSV uploaded; best-effort)", "key", metaKey, "error", err)
 			}
 		}
 
 		uploaded++
-		log.Printf("uploaded %s -> %s (%d bytes)", csvPath, csvKey, len(data))
+		slog.Info("uploaded CSV", "source", csvPath, "key", csvKey, "bytes", len(data))
 	}
 
-	log.Printf("done. uploaded=%d skipped=%d missing=%d warned=%d", uploaded, skipped, missing, warned)
+	slog.Info("done", "uploaded", uploaded, "skipped", skipped, "missing", missing, "warned", warned)
 	fmt.Println("ok")
 }

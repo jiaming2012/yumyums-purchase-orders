@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"sort"
 	"strings"
 
@@ -102,7 +102,7 @@ Response format (raw JSON, no markdown fences):
 		// (e.g. "I notice the input was empty..."). This is an LLM quirk,
 		// not a fatal error — degrade gracefully so item matching falls back
 		// to human review rather than breaking the ingest pipeline.
-		log.Printf("MatchItemsWithAI: unmarshal failed (%.200s): %v — degrading to no matches", rawText, err)
+		slog.Info(fmt.Sprintf("MatchItemsWithAI: unmarshal failed (%.200s): %v — degrading to no matches", rawText, err))
 		return nil, nil
 	}
 
@@ -115,7 +115,7 @@ Response format (raw JSON, no markdown fences):
 		id, ok := catalog[m.CatalogName]
 		if !ok {
 			// AI returned a name not in the catalog — skip rather than corrupt.
-			log.Printf("receipt worker: AI matcher returned unknown catalog name %q for %q (skipping)", m.CatalogName, m.RawName)
+			slog.Info(fmt.Sprintf("receipt worker: AI matcher returned unknown catalog name %q for %q (skipping)", m.CatalogName, m.RawName))
 			continue
 		}
 		result[m.RawName] = id

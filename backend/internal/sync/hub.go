@@ -1,7 +1,7 @@
 package sync
 
 import (
-	"log"
+	"log/slog"
 
 	"github.com/coder/websocket"
 )
@@ -75,7 +75,7 @@ func (h *Hub) Run() {
 						active = append(active, c)
 					default:
 						// Send buffer full — disconnect this client.
-						log.Printf("hub: dropping slow client for user %s", uid)
+						slog.Warn("hub dropping slow client", "user_id", uid)
 						close(c.Send)
 					}
 				}

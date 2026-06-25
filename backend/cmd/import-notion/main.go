@@ -19,7 +19,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -89,6 +89,8 @@ func toSlug(s string) string {
 }
 
 func main() {
+	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stderr, nil)))
+
 	csvPath := flag.String("csv", "", "Path to Notion CSV export file (required)")
 	imagesDir := flag.String("images", "", "Path to 'All Items/' image directory (required)")
 	outputPath := flag.String("output", "internal/inventory/fixtures/purchase_items.yaml", "Output YAML path")
@@ -97,7 +99,8 @@ func main() {
 
 	if *csvPath == "" || *imagesDir == "" {
 		flag.Usage()
-		log.Fatal("--csv and --images are required")
+		slog.Error("--csv and --images are required")
+		os.Exit(1)
 	}
 
 	ctx := context.Background()
@@ -114,7 +117,8 @@ func main() {
 		bucket := os.Getenv("DO_SPACES_BUCKET")
 
 		if key == "" || secret == "" || endpoint == "" || region == "" || bucket == "" {
-			log.Fatal("DO_SPACES_KEY, DO_SPACES_SECRET, DO_SPACES_ENDPOINT, DO_SPACES_REGION, DO_SPACES_BUCKET must be set (or use --dry-run)")
+			slog.Error("DO_SPACES_KEY, DO_SPACES_SECRET, DO_SPACES_ENDPOINT, DO_SPACES_REGION, DO_SPACES_BUCKET must be set (or use --dry-run)")
+			os.Exit(1)
 		}
 
 		spacesEndpoint = endpoint
@@ -131,14 +135,16 @@ func main() {
 	// Parse CSV
 	f, err := os.Open(*csvPath)
 	if err != nil {
-		log.Fatalf("open csv: %v", err)
+		slog.Error("open CSV failed", "path", *csvPath, "error", err)
+		os.Exit(1)
 	}
 	defer f.Close()
 
 	r := csv.NewReader(f)
 	headers, err := r.Read()
 	if err != nil {
-		log.Fatalf("read csv header: %v", err)
+		slog.Error("read CSV header failed", "error", err)
+		os.Exit(1)
 	}
 
 	// Build column index map (strip UTF-8 BOM from first header if present)
@@ -154,7 +160,8 @@ func main() {
 	// Verify expected columns exist
 	for _, col := range []string{"Name", "Category", "Full Name", "Photo", "Store"} {
 		if _, ok := colIdx[col]; !ok {
-			log.Fatalf("CSV missing expected column %q. Found: %v", col, headers)
+			slog.Error("CSV missing expected column", "column", col, "found", headers)
+			os.Exit(1)
 		}
 	}
 
@@ -173,7 +180,8 @@ func main() {
 			break
 		}
 		if err != nil {
-			log.Fatalf("read csv row: %v", err)
+			slog.Error("read CSV row failed", "error", err)
+			os.Exit(1)
 		}
 
 		get := func(col string) string {
@@ -221,7 +229,7 @@ func main() {
 			// URL-decode the photo path (e.g. "All%20Items/Brisket%20Rolls/screenshot.png")
 			decoded, err := url.QueryUnescape(photoVal)
 			if err != nil {
-				log.Printf("WARN: url-decode photo %q: %v", photoVal, err)
+				slog.Warn("url-decode photo failed", "photo", photoVal, "error", err)
 				decoded = photoVal
 			}
 
@@ -239,16 +247,16 @@ func main() {
 				} else {
 					uploadedURL, err := uploadToSpaces(ctx, s3Client, spacesEndpoint, spacesBucket, s3Key, absImagePath)
 					if err != nil {
-						log.Printf("WARN: upload %q: %v — skipping photo", description, err)
+						slog.Warn("upload failed, skipping photo", "description", description, "error", err)
 						itemsWithoutPhotos++
 					} else {
 						photoURL = uploadedURL
 						itemsWithPhotos++
-						log.Printf("  uploaded: %s -> %s", filepath.Base(absImagePath), s3Key)
+						slog.Info("uploaded photo", "file", filepath.Base(absImagePath), "key", s3Key)
 					}
 				}
 			} else {
-				log.Printf("WARN: image file not found: %s", absImagePath)
+				slog.Warn("image file not found", "path", absImagePath)
 				itemsWithoutPhotos++
 			}
 		} else {
@@ -283,12 +291,14 @@ func main() {
 	enc := yaml.NewEncoder(&buf)
 	enc.SetIndent(2)
 	if err := enc.Encode(out); err != nil {
-		log.Fatalf("marshal yaml: %v", err)
+		slog.Error("marshal YAML failed", "error", err)
+		os.Exit(1)
 	}
 
 	// Write output file
 	if err := os.WriteFile(*outputPath, buf.Bytes(), 0644); err != nil {
-		log.Fatalf("write output: %v", err)
+		slog.Error("write output failed", "path", *outputPath, "error", err)
+		os.Exit(1)
 	}
 
 	// Print summary
@@ -318,7 +328,7 @@ func mapCategory(category string) string {
 		return defaultGroup
 	}
 	// Unknown category → default
-	log.Printf("WARN: unknown category %q, assigning to %q", category, defaultGroup)
+	slog.Warn("unknown category, assigning to default", "category", category, "default_group", defaultGroup)
 	return defaultGroup
 }
 

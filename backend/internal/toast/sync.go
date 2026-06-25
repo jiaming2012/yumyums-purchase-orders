@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"time"
@@ -51,7 +51,7 @@ func SyncDate(ctx context.Context, cfg Config, date time.Time) (bool, error) {
 	client, err := dialWithRetry(cfg, string(pkBytes))
 	if err != nil {
 		// Treat dial failure same as a SFTP miss (D-06 final bullet — graceful skip after retries).
-		log.Printf("toast sync: skip %s (sftp dial: %v)", dateDir, err)
+		slog.Warn("toast sync: skip (sftp dial failed)", "date", dateDir, "error", err)
 		return false, ErrSFTPMiss
 	}
 	defer client.Close()
@@ -96,12 +96,12 @@ func SyncDate(ctx context.Context, cfg Config, date time.Time) (bool, error) {
 	meta := NewMetaSidecar(origName, MetaSourceSFTP)
 	metaBytes, mErr := meta.Bytes()
 	if mErr != nil {
-		log.Printf("toast sync: %s sidecar marshal failed: %v (continuing)", dateDir, mErr)
+		slog.Warn("toast sync: sidecar marshal failed", "date", dateDir, "error", mErr)
 	} else {
 		// Write sidecar to cache (best-effort)
 		metaCachePath := CacheMetaPath(cfg.CacheDir, dateDir)
 		if err := os.WriteFile(metaCachePath, metaBytes, 0o644); err != nil {
-			log.Printf("toast sync: %s sidecar cache write failed: %v (continuing)", dateDir, err)
+			slog.Warn("toast sync: sidecar cache write failed", "date", dateDir, "error", err)
 		}
 		// Upload sidecar to Spaces (best-effort)
 		metaKey := SpacesMetaKey(dateDir)
@@ -111,11 +111,11 @@ func SyncDate(ctx context.Context, cfg Config, date time.Time) (bool, error) {
 			Body:        bytes.NewReader(metaBytes),
 			ContentType: aws.String("application/json"),
 		}); err != nil {
-			log.Printf("toast sync: %s sidecar put failed: %v (continuing)", dateDir, err)
+			slog.Warn("toast sync: sidecar put failed", "date", dateDir, "error", err)
 		}
 	}
 
-	log.Printf("toast sync: wrote %s (csv=%d bytes -> %s)", dateDir, len(csvBytes), csvKey)
+	slog.Info("toast sync: wrote", "date", dateDir, "csv_bytes", len(csvBytes), "key", csvKey)
 	return true, nil
 }
 
@@ -136,7 +136,7 @@ func dialWithRetry(cfg Config, pemKey string) (*Client, error) {
 		}
 		lastErr = err
 		if i < len(backoffs)-1 {
-			log.Printf("toast sync: SFTP dial attempt %d failed: %v — retrying in %s", i+1, err, wait)
+			slog.Warn("toast sync: SFTP dial attempt failed", "attempt", i+1, "error", err, "retry_in", wait)
 			time.Sleep(wait)
 		}
 	}

@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"slices"
 	"strconv"
@@ -162,7 +162,7 @@ func ListTemplatesHandler(pool *pgxpool.Pool) http.HandlerFunc {
 
 		templates, err := listTemplates(r.Context(), pool)
 		if err != nil {
-			log.Printf("listTemplates error: %v", err)
+			slog.Error("listTemplates error", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -203,7 +203,7 @@ func CreateTemplateHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				writeError(w, http.StatusUnprocessableEntity, "duplicate_name")
 				return
 			}
-			log.Printf("insertTemplate error: %v", err)
+			slog.Error("insertTemplate error", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -218,7 +218,7 @@ func CreateTemplateHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				LamportTS:  0,
 			})
 		} else {
-			log.Printf("CreateTemplateHandler: failed to marshal op payload: %v", merr)
+			slog.Error("CreateTemplateHandler failed to marshal op payload", "error", merr)
 		}
 		writeJSON(w, http.StatusCreated, map[string]string{"id": id})
 	}
@@ -259,7 +259,7 @@ func UpdateTemplateHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				writeError(w, http.StatusUnprocessableEntity, "duplicate_name")
 				return
 			}
-			log.Printf("replaceTemplate error: %v", err)
+			slog.Error("replaceTemplate error", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -274,7 +274,7 @@ func UpdateTemplateHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				LamportTS:  0,
 			})
 		} else {
-			log.Printf("UpdateTemplateHandler: failed to marshal op payload: %v", merr)
+			slog.Error("UpdateTemplateHandler failed to marshal op payload", "error", merr)
 		}
 		writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 	}
@@ -301,7 +301,7 @@ func ArchiveTemplateHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 
 		if err := archiveTemplate(r.Context(), pool, templateID); err != nil {
-			log.Printf("archiveTemplate error: %v", err)
+			slog.Error("archiveTemplate error", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -316,7 +316,7 @@ func ArchiveTemplateHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				LamportTS:  0,
 			})
 		} else {
-			log.Printf("ArchiveTemplateHandler: failed to marshal op payload: %v", merr)
+			slog.Error("ArchiveTemplateHandler failed to marshal op payload", "error", merr)
 		}
 		writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 	}
@@ -336,7 +336,7 @@ func MyChecklistsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		// Fire-and-forget draft cleanup
 		go func() {
 			if err := cleanupOldDrafts(r.Context(), pool); err != nil {
-				log.Printf("cleanupOldDrafts error: %v", err)
+				slog.Error("cleanupOldDrafts error", "error", err)
 			}
 		}()
 
@@ -349,13 +349,13 @@ func MyChecklistsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 		templates, submissions, err := myChecklists(r.Context(), pool, user.ID, clientDOW)
 		if err != nil {
-			log.Printf("myChecklists error: %v", err)
+			slog.Error("myChecklists error", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
 		drafts, err := myDrafts(r.Context(), pool, user.ID)
 		if err != nil {
-			log.Printf("myDrafts error: %v", err)
+			slog.Error("myDrafts error", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -388,7 +388,7 @@ func MyHistoryHandler(pool *pgxpool.Pool) http.HandlerFunc {
 
 		submissions, err := myHistory(r.Context(), pool, user.ID)
 		if err != nil {
-			log.Printf("myHistory error: %v", err)
+			slog.Error("myHistory error", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -416,7 +416,7 @@ func SaveResponseHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 
 		if err := saveResponse(r.Context(), pool, input.FieldID, input.Value, user.ID); err != nil {
-			log.Printf("saveResponse error: %v", err)
+			slog.Error("saveResponse error", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -431,7 +431,7 @@ func SaveResponseHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				LamportTS:  0,
 			})
 		} else {
-			log.Printf("SaveResponseHandler: failed to marshal op payload: %v", merr)
+			slog.Error("SaveResponseHandler failed to marshal op payload", "error", merr)
 		}
 		w.WriteHeader(http.StatusNoContent)
 	}
@@ -466,7 +466,7 @@ func SubmitChecklistHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				writeError(w, http.StatusConflict, "template_archived")
 				return
 			}
-			log.Printf("submitChecklist error: %v", err)
+			slog.Error("submitChecklist error", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -481,7 +481,7 @@ func SubmitChecklistHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				LamportTS:  0,
 			})
 		} else {
-			log.Printf("SubmitChecklistHandler: failed to marshal op payload: %v", merr)
+			slog.Error("SubmitChecklistHandler failed to marshal op payload", "error", merr)
 		}
 		writeJSON(w, http.StatusCreated, map[string]string{"id": id})
 	}
@@ -499,7 +499,7 @@ func PendingApprovalsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 
 		submissions, err := pendingApprovals(r.Context(), pool, user.ID)
 		if err != nil {
-			log.Printf("pendingApprovals error: %v", err)
+			slog.Error("pendingApprovals error", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -534,7 +534,7 @@ func ApproveSubmissionHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 
 		if err := approveSubmission(r.Context(), pool, body.SubmissionID, user.ID); err != nil {
-			log.Printf("approveSubmission error: %v", err)
+			slog.Error("approveSubmission error", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -549,7 +549,7 @@ func ApproveSubmissionHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				 ON CONFLICT DO NOTHING`,
 				body.SubmissionID, fb.FieldID, fb.Comment, fb.RequirePhoto, user.ID,
 			); err != nil {
-				log.Printf("save approval feedback: %v", err)
+				slog.Error("save approval feedback", "error", err)
 			}
 		}
 		if payload, merr := json.Marshal(map[string]any{"submission_id": body.SubmissionID}); merr == nil {
@@ -563,7 +563,7 @@ func ApproveSubmissionHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				LamportTS:  0,
 			})
 		} else {
-			log.Printf("ApproveSubmissionHandler: failed to marshal op payload: %v", merr)
+			slog.Error("ApproveSubmissionHandler failed to marshal op payload", "error", merr)
 		}
 		writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 	}
@@ -586,7 +586,7 @@ func RejectItemHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 
 		if err := rejectItem(r.Context(), pool, input, user.ID); err != nil {
-			log.Printf("rejectItem error: %v", err)
+			slog.Error("rejectItem error", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -601,7 +601,7 @@ func RejectItemHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				LamportTS:  0,
 			})
 		} else {
-			log.Printf("RejectItemHandler: failed to marshal op payload: %v", merr)
+			slog.Error("RejectItemHandler failed to marshal op payload", "error", merr)
 		}
 		writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 	}
@@ -630,7 +630,7 @@ func UnsubmitHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 
 		if err := unsubmitChecklist(r.Context(), pool, body.SubmissionID, user.ID); err != nil {
-			log.Printf("unsubmitChecklist error: %v", err)
+			slog.Error("unsubmitChecklist error", "error", err)
 			if err.Error() == "not the submitter" {
 				writeError(w, http.StatusForbidden, "not_submitter")
 				return

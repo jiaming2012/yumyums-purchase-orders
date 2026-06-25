@@ -2,7 +2,7 @@ package photos
 
 import (
 	"encoding/json"
-	"log"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -138,7 +138,7 @@ func UploadHandler(client *s3.Client, bucket, endpoint string) http.HandlerFunc 
 			ACL:         "public-read",
 		})
 		if err != nil {
-			log.Printf("UploadHandler PutObject %s: %v", key, err)
+			slog.Error("upload to spaces failed", "key", key, "error", err)
 			http.Error(w, `{"error":"upload failed"}`, http.StatusInternalServerError)
 			return
 		}

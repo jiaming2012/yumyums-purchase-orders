@@ -9,7 +9,7 @@ vars:
   DB_PORT: '{{.DB_PORT | default "5432"}}'
   DB_URL: '{{.DB_URL | default (printf "postgres://%s:%s@%s:%s/%s?sslmode=disable" .DB_USER .DB_PASS .DB_HOST .DB_PORT .DB_NAME)}}'
   DB_TEST_URL: '{{.DB_TEST_URL | default (printf "postgres://%s:%s@%s:%s/hq_test?sslmode=disable" .DB_USER .DB_PASS .DB_HOST .DB_PORT)}}'
-  PORT: '{{.PORT | default "8080"}}'
+  PORT: '{{.PORT | default "8484"}}'
   STATIC_DIR: '{{.STATIC_DIR | default ".."}}'
 
   # Network addresses
@@ -28,6 +28,17 @@ tasks:
       DB_URL: '{{.DB_URL}}'
       BASE_URL: 'http://{{.DEV_TS}}:{{.PORT}}'
       SUPERADMIN_CONFIG: config/superadmins.yaml
+
+  dev:log:
+    desc: Run the server with all log output written to a file
+    cmd: go run ./cmd/server
+    env:
+      STATIC_DIR: '{{.STATIC_DIR}}'
+      PORT: '{{.PORT}}'
+      DB_URL: '{{.DB_URL}}'
+      BASE_URL: 'http://{{.DEV_TS}}:{{.PORT}}'
+      SUPERADMIN_CONFIG: config/superadmins.yaml
+      LOG_TO_FILE: '1'
 
   dev:lan:
     desc: Run server against Windows box (LAN)
@@ -48,6 +59,17 @@ tasks:
       DB_URL: 'postgres://{{.DB_USER}}:{{.DB_PASS}}@{{.WIN_TS}}:{{.WIN_PORT}}/{{.DB_NAME}}?sslmode=disable'
       BASE_URL: 'http://{{.DEV_TS}}:{{.PORT}}'
       SUPERADMIN_CONFIG: config/superadmins.yaml
+
+  dev:tailscale:log:
+    desc: Run server against Windows box (Tailscale) with all log output written via LOG_TO_FILE (slog NDJSON to timestamped file)
+    cmd: go run ./cmd/server
+    env:
+      STATIC_DIR: '{{.STATIC_DIR}}'
+      PORT: '{{.PORT}}'
+      DB_URL: 'postgres://{{.DB_USER}}:{{.DB_PASS}}@{{.WIN_TS}}:{{.WIN_PORT}}/{{.DB_NAME}}?sslmode=disable'
+      BASE_URL: 'http://{{.DEV_TS}}:{{.PORT}}'
+      SUPERADMIN_CONFIG: config/superadmins.yaml
+      LOG_TO_FILE: '1'
 
   # ---------------------------------------------------------------------------
   # Migrations (goose). `go run` caches the binary per-version so the first run

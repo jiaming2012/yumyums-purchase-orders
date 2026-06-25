@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -568,13 +568,13 @@ func CompleteVendorSection(ctx context.Context, pool *pgxpool.Pool, sectionID st
 	// Record repurchase log entries for badge display (REP-01).
 	// Called after COMMIT — badge data is best-effort/cosmetic.
 	if repErr := RecordRepurchase(ctx, pool, sectionID); repErr != nil {
-		log.Printf("CompleteVendorSection: RecordRepurchase: %v", repErr)
+		slog.Error("CompleteVendorSection RecordRepurchase failed", "error", repErr)
 	}
 
 	// Send shopping completion alert to admins (D-11).
 	// Called after COMMIT — alerts are best-effort.
 	if notifyErr := NotifyVendorComplete(ctx, pool, listID); notifyErr != nil {
-		log.Printf("NotifyVendorComplete: %v", notifyErr)
+		slog.Error("NotifyVendorComplete failed", "error", notifyErr)
 	}
 
 	return listCompleted, nil
@@ -586,7 +586,7 @@ func CompleteVendorSection(ctx context.Context, pool *pgxpool.Pool, sectionID st
 // Errors are logged but do not affect the transaction — alerts are best-effort.
 func NotifyVendorComplete(ctx context.Context, pool *pgxpool.Pool, listID string) error {
 	if alertQueue == nil {
-		log.Printf("NotifyVendorComplete: alertQueue not configured — skipping alert for list %s", listID)
+		slog.Warn("NotifyVendorComplete alertQueue not configured, skipping alert", "list_id", listID)
 		return nil
 	}
 
@@ -635,7 +635,7 @@ func NotifyVendorComplete(ctx context.Context, pool *pgxpool.Pool, listID string
 	// Get admin contacts (D-12: admins + shopper — shopper wiring done via context if available).
 	contacts, err := users.GetUsersForAlerts(ctx, pool, alerts.TypeShoppingComplete)
 	if err != nil {
-		log.Printf("NotifyVendorComplete: GetUsersForAlerts: %v", err)
+		slog.Error("NotifyVendorComplete GetUsersForAlerts failed", "error", err)
 		// Don't fail the transaction — alerts are best-effort
 		return nil
 	}
@@ -698,7 +698,7 @@ func GetSuggestions(ctx context.Context, pool *pgxpool.Pool, poID string) ([]Ord
 		ORDER BY sub.group_name NULLS LAST, sub.item_name
 	`, poID)
 	if err != nil {
-		log.Printf("GetSuggestions query: %v", err)
+		slog.Error("GetSuggestions query failed", "error", err)
 		return nil, err
 	}
 	defer rows.Close()

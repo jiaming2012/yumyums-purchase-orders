@@ -2,14 +2,19 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
 	"embed"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/fs"
 	"log"
+	"log/slog"
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -55,7 +60,7 @@ func workflowOpRouter(pool *pgxpool.Pool) opsync.OpRouter {
 				return nil, routerErr(http.StatusBadRequest, "invalid_payload")
 			}
 			if err := workflow.SaveResponseFunc(ctx, pool, p.FieldID, p.Value, userID); err != nil {
-				log.Printf("OpRouter SET_FIELD error: %v", err)
+				slog.Error("OpRouter SET_FIELD", "error", err)
 				return nil, routerErr(http.StatusInternalServerError, "internal_error")
 			}
 
@@ -72,7 +77,7 @@ func workflowOpRouter(pool *pgxpool.Pool) opsync.OpRouter {
 				if errors.Is(err, workflow.ErrTemplateArchived) {
 					return nil, routerErr(http.StatusConflict, "template_archived")
 				}
-				log.Printf("OpRouter SUBMIT_CHECKLIST error: %v", err)
+				slog.Error("OpRouter SUBMIT_CHECKLIST", "error", err)
 				return nil, routerErr(http.StatusInternalServerError, "internal_error")
 			}
 			return &opsync.RouteOpResult{EntityID: id}, nil
@@ -85,7 +90,7 @@ func workflowOpRouter(pool *pgxpool.Pool) opsync.OpRouter {
 				return nil, routerErr(http.StatusBadRequest, "invalid_payload")
 			}
 			if err := workflow.ApproveSubmissionFunc(ctx, pool, body.SubmissionID, userID); err != nil {
-				log.Printf("OpRouter APPROVE_ITEM error: %v", err)
+				slog.Error("OpRouter APPROVE_ITEM", "error", err)
 				return nil, routerErr(http.StatusInternalServerError, "internal_error")
 			}
 
@@ -95,7 +100,7 @@ func workflowOpRouter(pool *pgxpool.Pool) opsync.OpRouter {
 				return nil, routerErr(http.StatusBadRequest, "invalid_payload")
 			}
 			if err := workflow.RejectItemFunc(ctx, pool, input, userID); err != nil {
-				log.Printf("OpRouter REJECT_ITEM error: %v", err)
+				slog.Error("OpRouter REJECT_ITEM", "error", err)
 				return nil, routerErr(http.StatusInternalServerError, "internal_error")
 			}
 
@@ -110,7 +115,7 @@ func workflowOpRouter(pool *pgxpool.Pool) opsync.OpRouter {
 					return nil, routerErr(http.StatusBadRequest, "invalid_payload")
 				}
 				if err := workflow.UpdateTemplateFunc(ctx, pool, peek.ID, input); err != nil {
-					log.Printf("OpRouter SAVE_TEMPLATE update error: %v", err)
+					slog.Error("OpRouter SAVE_TEMPLATE update", "error", err)
 					return nil, routerErr(http.StatusInternalServerError, "internal_error")
 				}
 			} else {
@@ -120,7 +125,7 @@ func workflowOpRouter(pool *pgxpool.Pool) opsync.OpRouter {
 				}
 				id, err := workflow.CreateTemplateFunc(ctx, pool, input, userID)
 				if err != nil {
-					log.Printf("OpRouter SAVE_TEMPLATE create error: %v", err)
+					slog.Error("OpRouter SAVE_TEMPLATE create", "error", err)
 					return nil, routerErr(http.StatusInternalServerError, "internal_error")
 				}
 				return &opsync.RouteOpResult{EntityID: id}, nil
@@ -128,7 +133,7 @@ func workflowOpRouter(pool *pgxpool.Pool) opsync.OpRouter {
 
 		case opsync.OpArchiveTemplate:
 			if err := workflow.ArchiveTemplateFunc(ctx, pool, req.EntityID); err != nil {
-				log.Printf("OpRouter ARCHIVE_TEMPLATE error: %v", err)
+				slog.Error("OpRouter ARCHIVE_TEMPLATE", "error", err)
 				return nil, routerErr(http.StatusInternalServerError, "internal_error")
 			}
 
@@ -144,24 +149,57 @@ func workflowOpRouter(pool *pgxpool.Pool) opsync.OpRouter {
 var embeddedFS embed.FS
 
 func main() {
+	// Configure structured JSON logging (NDJSON).
+	// LOG_TO_FILE=1 redirects all log output to a timestamped file in logs/
+	logOutput := os.Stderr
+	var logFile *os.File
+	if os.Getenv("LOG_TO_FILE") == "1" {
+		logDir := "logs"
+		if err := os.MkdirAll(logDir, 0o755); err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to create log directory: %v\n", err)
+			os.Exit(1)
+		}
+		randBytes := make([]byte, 4)
+		rand.Read(randBytes)
+		logName := fmt.Sprintf("hq_%s_%s.log",
+			time.Now().Format("20060102_150405"),
+			hex.EncodeToString(randBytes))
+		logPath := filepath.Join(logDir, logName)
+		var err error
+		logFile, err = os.Create(logPath)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to create log file: %v\n", err)
+			os.Exit(1)
+		}
+		defer logFile.Close()
+		logOutput = logFile
+		fmt.Println(logPath)
+	}
+	logger := slog.New(slog.NewJSONHandler(logOutput, nil))
+	slog.SetDefault(logger)
+	// Bridge standard log (used by chi middleware) to slog JSON output
+	log.SetFlags(0)
+	log.SetOutput(&slogBridge{logger: logger})
+
 	var staticFS fs.FS
 	if dir := os.Getenv("STATIC_DIR"); dir != "" {
 		// Dev: serve from disk — no rebuild needed for frontend changes
-		log.Printf("Serving static files from disk: %s", dir)
+		slog.Info("serving static files from disk", "dir", dir)
 		staticFS = os.DirFS(dir)
 	} else {
 		// Prod: serve from embedded FS (files baked into binary)
-		log.Println("Serving static files from embedded FS")
+		slog.Info("serving static files from embedded FS")
 		sub, err := fs.Sub(embeddedFS, "public")
 		if err != nil {
-			log.Fatalf("Failed to access embedded public dir: %v", err)
+			slog.Error("failed to access embedded public dir", "error", err)
+			os.Exit(1)
 		}
 		staticFS = sub
 	}
 
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "8080"
+		port = "8484"
 	}
 
 	// Load superadmin config
@@ -171,9 +209,10 @@ func main() {
 	}
 	superadmins, err := config.LoadSuperadmins(superadminPath)
 	if err != nil {
-		log.Fatalf("Failed to load superadmins: %v", err)
+		slog.Error("failed to load superadmins", "error", err)
+		os.Exit(1)
 	}
-	log.Printf("Loaded %d superadmin(s)", len(superadmins))
+	slog.Info("loaded superadmins", "count", len(superadmins))
 
 	// Load template seed config (optional — skip if file missing)
 	templatePath := os.Getenv("TEMPLATE_CONFIG")
@@ -183,37 +222,43 @@ func main() {
 	templateInputs, err := workflow.LoadTemplateConfig(templatePath)
 	if err != nil {
 		if !errors.Is(err, os.ErrNotExist) {
-			log.Fatalf("Failed to load template config: %v", err)
+			slog.Error("failed to load template config", "error", err)
+			os.Exit(1)
 		}
-		log.Println("No template seed config found — skipping")
+		slog.Info("no template seed config found, skipping")
 	}
 
 	// Connect to database
 	dbURL := os.Getenv("DB_URL")
 	if dbURL == "" {
-		log.Fatal("DB_URL environment variable is required")
+		slog.Error("DB_URL environment variable is required")
+		os.Exit(1)
 	}
 	ctx := context.Background()
 	pool, err := db.NewPool(ctx, dbURL)
 	if err != nil {
-		log.Fatalf("Failed to connect to database: %v", err)
+		slog.Error("failed to connect to database", "error", err)
+		os.Exit(1)
 	}
 	defer pool.Close()
-	log.Println("Connected to database")
+	slog.Info("connected to database")
 
 	// Run migrations
 	if err := db.Migrate(pool); err != nil {
-		log.Fatalf("Failed to run migrations: %v", err)
+		slog.Error("failed to run migrations", "error", err)
+		os.Exit(1)
 	}
 
 	// Upsert superadmins to users table on startup
 	if err := auth.UpsertSuperadmins(ctx, pool, superadmins); err != nil {
-		log.Fatalf("Failed to upsert superadmins: %v", err)
+		slog.Error("failed to upsert superadmins", "error", err)
+		os.Exit(1)
 	}
 
 	// Seed hq_apps if empty
 	if err := db.SeedHQApps(ctx, pool); err != nil {
-		log.Fatalf("Failed to seed hq_apps: %v", err)
+		slog.Error("failed to seed hq_apps", "error", err)
+		os.Exit(1)
 	}
 
 	// Seed templates if config was loaded
@@ -228,20 +273,23 @@ func main() {
 		}
 		if creatorID != "" {
 			if err := workflow.SeedTemplates(ctx, pool, templateInputs, creatorID); err != nil {
-				log.Fatalf("Failed to seed templates: %v", err)
+				slog.Error("failed to seed templates", "error", err)
+				os.Exit(1)
 			}
-			log.Printf("Seeded %d template(s)", len(templateInputs))
+			slog.Info("seeded templates", "count", len(templateInputs))
 		}
 	}
 
 	// Seed onboarding templates
 	if err := onboarding.SeedOnboardingTemplates(ctx, pool); err != nil {
-		log.Fatalf("Failed to seed onboarding templates: %v", err)
+		slog.Error("failed to seed onboarding templates", "error", err)
+		os.Exit(1)
 	}
 
 	// Seed inventory fixtures (vendors, item groups, tags, purchase items)
 	if err := inventory.SeedInventoryFixtures(ctx, pool); err != nil {
-		log.Fatalf("Failed to seed inventory fixtures: %v", err)
+		slog.Error("failed to seed inventory fixtures", "error", err)
+		os.Exit(1)
 	}
 
 	// Initialize DO Spaces presigner + client (optional — graceful degradation if env vars missing)
@@ -264,13 +312,13 @@ func main() {
 		spacesClient = photos.NewSpacesClient(spacesCfg)
 		p, err := photos.NewSpacesPresigner(spacesCfg)
 		if err != nil {
-			log.Printf("WARNING: Failed to initialize DO Spaces presigner: %v — photo and video upload endpoints will return 503", err)
+			slog.Warn("failed to initialize DO Spaces presigner, photo and video upload endpoints will return 503", "error", err)
 		} else {
 			spacesPresigner = p
-			log.Printf("DO Spaces presigner initialized (bucket: %s, endpoint: %s)", spacesBucket, spacesEndpoint)
+			slog.Info("DO Spaces presigner initialized", "bucket", spacesBucket, "endpoint", spacesEndpoint)
 		}
 	} else {
-		log.Println("WARNING: DO Spaces env vars not set (DO_SPACES_KEY, DO_SPACES_SECRET, DO_SPACES_BUCKET, DO_SPACES_REGION) — photo and video upload endpoints will return 503")
+		slog.Warn("DO Spaces env vars not set, photo and video upload endpoints will return 503", "required", "DO_SPACES_KEY, DO_SPACES_SECRET, DO_SPACES_BUCKET, DO_SPACES_REGION")
 	}
 
 	// Service-to-service token for sales-processor → /api/v1/inventory/period-summary
@@ -278,7 +326,7 @@ func main() {
 	// Empty value = endpoint returns 503 (fail-closed); see auth.ServiceTokenMiddleware.
 	serviceToken := os.Getenv("HQ_INVENTORY_SERVICE_TOKEN")
 	if serviceToken == "" {
-		log.Println("WARNING: HQ_INVENTORY_SERVICE_TOKEN not set — /api/v1/inventory/period-summary AND /api/v1/inventory/menu-cogs will return 503")
+		slog.Warn("HQ_INVENTORY_SERVICE_TOKEN not set, /api/v1/inventory/period-summary AND /api/v1/inventory/menu-cogs will return 503")
 	}
 
 	// Start WebSocket hub and Postgres LISTEN/NOTIFY pipeline
@@ -294,7 +342,7 @@ func main() {
 		if d, err := time.ParseDuration(intervalStr); err == nil {
 			workerInterval = d
 		} else {
-			log.Printf("WARNING: invalid RECEIPT_WORKER_INTERVAL %q — using 6h default", intervalStr)
+			slog.Warn("invalid RECEIPT_WORKER_INTERVAL, using 6h default", "value", intervalStr)
 		}
 	}
 	lookbackDays := 14
@@ -302,7 +350,7 @@ func main() {
 		if n, err := strconv.Atoi(lbStr); err == nil && n > 0 {
 			lookbackDays = n
 		} else {
-			log.Printf("WARNING: invalid MERCURY_LOOKBACK_DAYS %q — using 14 default", lbStr)
+			slog.Warn("invalid MERCURY_LOOKBACK_DAYS, using 14 default", "value", lbStr)
 		}
 	}
 	receiptCfg := receipt.WorkerConfig{
@@ -364,7 +412,7 @@ func main() {
 					userInfo = user.DisplayName + " (" + user.Email + ")"
 				}
 			}
-			log.Printf("[CLIENT %s] %s | user=%s | page=%s | ua=%s", strings.ToUpper(body.Level), body.Message, userInfo, body.URL, body.UA)
+			slog.Info("client log", "level", strings.ToUpper(body.Level), "message", body.Message, "user", userInfo, "page", body.URL, "ua", body.UA)
 			w.WriteHeader(http.StatusNoContent)
 		})
 		r.Post("/auth/login", auth.LoginHandler(pool, superadmins, secureCookie))
@@ -386,7 +434,7 @@ func main() {
 				cogsAllowlist = append(cogsAllowlist, t)
 			}
 		}
-		log.Printf("inventory: COGS category allowlist = %v", cogsAllowlist)
+		slog.Info("inventory COGS category allowlist", "allowlist", cogsAllowlist)
 
 		r.Group(func(r chi.Router) {
 			r.Use(auth.ServiceTokenMiddleware(serviceToken))
@@ -567,7 +615,7 @@ func main() {
 	alertQ := alerts.NewQueue(alertCfg)
 	alertQ.Start(ctx)
 	purchasing.SetAlertQueue(alertQ)
-	log.Println("Alert queue started")
+	slog.Info("alert queue started")
 
 	// Start cutoff scheduler — polls every 15m to auto-lock POs and send reminders
 	purchasing.StartScheduler(ctx, pool)
@@ -587,7 +635,8 @@ func main() {
 	{
 		toastCfg, err := toast.LoadConfigFromEnv()
 		if err != nil {
-			log.Fatalf("toast worker: %v", err)
+			slog.Error("toast worker config", "error", err)
+			os.Exit(1)
 		}
 		toastCfg.Pool = pool
 		toastCfg.SpacesClient = spacesClient
@@ -599,7 +648,7 @@ func main() {
 		toast.SetAlertQueue(alertQ)
 
 		if toastCfg.Interval == 0 {
-			log.Println("toast worker: TOAST_SYNC_INTERVAL=0 — in-process worker disabled (cmd/sync-toast remains available)")
+			slog.Info("toast worker disabled, cmd/sync-toast remains available", "reason", "TOAST_SYNC_INTERVAL=0")
 		} else {
 			toast.StartWorker(ctx, toastCfg)
 		}
@@ -610,20 +659,32 @@ func main() {
 	// picks them up). Avoids racing with background goroutine logs.
 	ln, err := net.Listen("tcp", ":"+port)
 	if err != nil {
-		log.Fatalf("listen :%s: %v", port, err)
+		slog.Error("listen failed", "port", port, "error", err)
+		os.Exit(1)
 	}
-	log.Printf("Yumyums HQ server listening on :%s", port)
+	slog.Info("server listening", "port", port)
 	if addrs, err := net.InterfaceAddrs(); err == nil {
 		for _, a := range addrs {
 			if ipnet, ok := a.(*net.IPNet); ok && !ipnet.IP.IsLoopback() && ipnet.IP.To4() != nil {
-				log.Printf("  → http://%s:%s", ipnet.IP, port)
+				slog.Info("reachable at", "url", fmt.Sprintf("http://%s:%s", ipnet.IP, port))
 			}
 		}
 	}
-	log.Println("=== Yumyums HQ ready — accepting connections ===")
+	slog.Info("Yumyums HQ ready, accepting connections")
 	if err := http.Serve(ln, r); err != nil {
-		log.Fatalf("Server failed: %v", err)
+		slog.Error("server failed", "error", err)
+		os.Exit(1)
 	}
+}
+
+// slogBridge adapts slog as an io.Writer so that standard log output
+// (e.g., chi middleware.Logger) is emitted as NDJSON.
+type slogBridge struct{ logger *slog.Logger }
+
+func (b *slogBridge) Write(p []byte) (int, error) {
+	msg := strings.TrimRight(string(p), "\n")
+	b.logger.Info(msg, "source", "stdlog")
+	return len(p), nil
 }
 
 // envOrDefault returns os.Getenv(k) if non-empty, else d. Used for optional
