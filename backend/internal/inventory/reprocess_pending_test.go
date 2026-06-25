@@ -1,12 +1,12 @@
 package inventory
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"net/http/httptest"
 	"testing"
 	"time"
-
-	"github.com/yumyums/hq/internal/receipt"
 )
 
 // resetPendingPurchases truncates pending_purchases to ensure clean state per test.
@@ -92,13 +92,21 @@ func fetchPendingRow(t *testing.T, id string) pendingRow {
 	return row
 }
 
-// TestReprocessAllPendingHandler_ResetsAndQueues verifies the happy path:
-// - 3 stuck rows → all reset to upgrade-eligible state
-// - 1 confirmed row → untouched
-// - 1 discarded row → untouched
-// - reset_count=3 in JSON response
+// stubPerRowRunnerOK returns a PerRowReprocessRunner that returns the given
+// result for all bank_tx_ids without any real Mercury/Anthropic calls.
+func stubPerRowRunnerOK(result string) PerRowReprocessRunner {
+	return func(ctx context.Context, bankTxID string) (string, error) {
+		return result, nil
+	}
+}
+
+// TestReprocessAllPendingHandler_QueuesPerRowProcessing verifies the happy path:
+// - 3 still-pending rows → runner called once per row
+// - 1 confirmed row → not passed to runner (excluded by WHERE clause)
+// - 1 discarded row → not passed to runner (excluded by WHERE clause)
+// - pending_count=3 in JSON response
 // - a receipt_sync_runs row inserted with triggered_by='reprocess_all'
-func TestReprocessAllPendingHandler_ResetsAndQueues(t *testing.T) {
+func TestReprocessAllPendingHandler_QueuesPerRowProcessing(t *testing.T) {
 	if testPool == nil {
 		t.Skip("DB_TEST_URL not reachable; skipping integration test")
 	}
@@ -106,21 +114,22 @@ func TestReprocessAllPendingHandler_ResetsAndQueues(t *testing.T) {
 	resetSyncRuns(t)
 
 	// Seed 3 stuck rows in various legacy states.
-	// Row A: items populated, reason is old mismatch message
-	idA := insertStuckPendingPurchase(t, "stuck-a", "Receipt total $42.00 doesn't match...", true, false)
-	// Row B: parse_error set, items empty
-	idB := insertStuckPendingPurchase(t, "stuck-b", "Line item sum $X doesn't match...", false, true)
-	// Row C: items empty, reason is another old mismatch
-	idC := insertStuckPendingPurchase(t, "stuck-c", "item count 3 doesn't match...", false, false)
+	_ = insertStuckPendingPurchase(t, "stuck-a", "Receipt total $42.00 doesn't match...", true, false)
+	_ = insertStuckPendingPurchase(t, "stuck-b", "Line item sum $X doesn't match...", false, true)
+	_ = insertStuckPendingPurchase(t, "stuck-c", "item count 3 doesn't match...", false, false)
 
-	// Seed 1 confirmed row — must NOT be affected.
-	idConfirmed := insertConfirmedPendingPurchase(t, "confirmed-1")
+	// Seed 1 confirmed row — must NOT be passed to the runner.
+	insertConfirmedPendingPurchase(t, "confirmed-1")
 
-	// Seed 1 discarded row — must NOT be affected.
-	idDiscarded := insertDiscardedPendingPurchase(t, "discarded-1")
+	// Seed 1 discarded row — must NOT be passed to the runner.
+	insertDiscardedPendingPurchase(t, "discarded-1")
 
-	// Stub runner: no actual Mercury/Anthropic calls.
-	runner := stubRunnerOK(receipt.IngestResult{Processed: 0})
+	// Count how many times the runner is invoked and which bank_tx_ids it sees.
+	var calledIDs []string
+	runner := PerRowReprocessRunner(func(ctx context.Context, bankTxID string) (string, error) {
+		calledIDs = append(calledIDs, bankTxID)
+		return "pending_review", nil
+	})
 
 	handler := ReprocessAllPendingHandler(testPool, runner)
 
@@ -137,10 +146,10 @@ func TestReprocessAllPendingHandler_ResetsAndQueues(t *testing.T) {
 		t.Fatalf("decode response: %v", err)
 	}
 
-	// Assert reset_count=3.
-	resetCount, _ := body["reset_count"].(float64)
-	if resetCount != 3 {
-		t.Errorf("reset_count = %v, want 3", resetCount)
+	// Assert pending_count=3.
+	pendingCount, _ := body["pending_count"].(float64)
+	if pendingCount != 3 {
+		t.Errorf("pending_count = %v, want 3", pendingCount)
 	}
 	if _, ok := body["sync_id"]; !ok {
 		t.Errorf("response missing sync_id field")
@@ -149,60 +158,35 @@ func TestReprocessAllPendingHandler_ResetsAndQueues(t *testing.T) {
 		t.Errorf("response status = %v, want running", body["status"])
 	}
 
-	// Assert: the 3 stuck rows were reset to upgrade-eligible state.
-	const wantItems = "[]"
-	const wantReason = "Receipt could not be parsed automatically"
-	for _, id := range []string{idA, idB, idC} {
-		row := fetchPendingRow(t, id)
-		if row.Items != wantItems {
-			t.Errorf("row %s items = %q, want %q", id, row.Items, wantItems)
-		}
-		if row.ParseError != nil {
-			t.Errorf("row %s parse_error = %q, want NULL", id, *row.ParseError)
-		}
-		if row.Reason == nil || *row.Reason != wantReason {
-			reason := "<nil>"
-			if row.Reason != nil {
-				reason = *row.Reason
-			}
-			t.Errorf("row %s reason = %q, want %q", id, reason, wantReason)
-		}
-	}
-
-	// Assert: confirmed row is unchanged.
-	rowConf := fetchPendingRow(t, idConfirmed)
-	if rowConf.Reason == nil || *rowConf.Reason != "already_confirmed" {
-		t.Errorf("confirmed row reason = %v, want 'already_confirmed' (must be unchanged)", rowConf.Reason)
-	}
-
-	// Assert: discarded row is unchanged.
-	rowDisc := fetchPendingRow(t, idDiscarded)
-	if rowDisc.Reason == nil || *rowDisc.Reason != "already_discarded" {
-		t.Errorf("discarded row reason = %v, want 'already_discarded' (must be unchanged)", rowDisc.Reason)
-	}
-
 	// Assert: a receipt_sync_runs row was inserted with triggered_by='reprocess_all'.
+	syncID, _ := body["sync_id"].(float64)
+	if syncID > 0 {
+		waitForTerminalStatus(t, int64(syncID), 2*time.Second)
+	}
+
+	// After goroutine finishes, runner must have been called exactly 3 times.
+	if len(calledIDs) != 3 {
+		t.Errorf("runner called %d times, want 3 (once per active pending row)", len(calledIDs))
+	}
+	for _, id := range calledIDs {
+		if id == "confirmed-1" || id == "discarded-1" {
+			t.Errorf("runner was called with %q — confirmed/discarded rows must be excluded", id)
+		}
+	}
+
 	var triggeredBy string
-	err := testPool.QueryRow(t.Context(),
-		`SELECT triggered_by FROM receipt_sync_runs ORDER BY started_at DESC LIMIT 1`).Scan(&triggeredBy)
-	if err != nil {
+	if err := testPool.QueryRow(t.Context(),
+		`SELECT triggered_by FROM receipt_sync_runs ORDER BY started_at DESC LIMIT 1`).Scan(&triggeredBy); err != nil {
 		t.Fatalf("select receipt_sync_runs: %v", err)
 	}
 	if triggeredBy != "reprocess_all" {
 		t.Errorf("triggered_by = %q, want 'reprocess_all'", triggeredBy)
 	}
-
-	// Wait for the goroutine to finish so it doesn't race with the next test's TRUNCATE.
-	syncID, _ := body["sync_id"].(float64)
-	if syncID > 0 {
-		waitForTerminalStatus(t, int64(syncID), 2*time.Second)
-	}
 }
 
 // TestReprocessAllPendingHandler_ReturnsConflictWhenSyncAlreadyRunning verifies
 // that when a sync run is already in flight, the handler returns 409 with
-// error='sync_already_running'. The UPDATE is allowed to have already run
-// (consistent with the non-transactional semantics: reset first, then insert).
+// error='sync_already_running'.
 func TestReprocessAllPendingHandler_ReturnsConflictWhenSyncAlreadyRunning(t *testing.T) {
 	if testPool == nil {
 		t.Skip("DB_TEST_URL not reachable; skipping integration test")
@@ -217,10 +201,10 @@ func TestReprocessAllPendingHandler_ReturnsConflictWhenSyncAlreadyRunning(t *tes
 		t.Fatalf("pre-insert running sync row: %v", err)
 	}
 
-	// Seed one stuck row so we can verify it was (or wasn't) touched.
+	// Seed one stuck row so there's something to process.
 	_ = insertStuckPendingPurchase(t, "stuck-conflict", "Receipt total $X doesn't match...", true, false)
 
-	runner := stubRunnerOK(receipt.IngestResult{})
+	runner := stubPerRowRunnerOK("pending_review")
 	handler := ReprocessAllPendingHandler(testPool, runner)
 
 	req := httptest.NewRequest("POST", "/inventory/purchases/reprocess-all", nil)
@@ -237,5 +221,116 @@ func TestReprocessAllPendingHandler_ReturnsConflictWhenSyncAlreadyRunning(t *tes
 	}
 	if body["error"] != "sync_already_running" {
 		t.Errorf("error = %v, want 'sync_already_running'", body["error"])
+	}
+}
+
+// TestReprocessAllPendingHandler_PerRowRefetch_RecoversOlderRow verifies that
+// reprocess-all fetches each pending row's tx individually (bypassing the
+// 14-day lookback window), so a row whose tx is 30 days old can still be
+// promoted to a purchase_event.
+func TestReprocessAllPendingHandler_PerRowRefetch_RecoversOlderRow(t *testing.T) {
+	if testPool == nil {
+		t.Skip("DB_TEST_URL not reachable; skipping integration test")
+	}
+	resetPendingPurchases(t)
+	resetSyncRuns(t)
+
+	// Seed: a pending row whose transaction is 30 days old — outside the
+	// normal 14-day Mercury lookback window. The old bulk-sync approach would
+	// never pick this up; per-row refetch must recover it.
+	const oldBankTxID = "tx-old-30d"
+	if _, err := testPool.Exec(t.Context(), `
+		INSERT INTO pending_purchases (bank_tx_id, bank_total, vendor, reason, items)
+		VALUES ($1, $2, $3, 'Receipt could not be parsed automatically', '[]'::jsonb)`,
+		oldBankTxID, -42.50, "Old Vendor",
+	); err != nil {
+		t.Fatalf("seed old pending: %v", err)
+	}
+
+	// Stub runner: auto_created=1 to simulate per-row fetch+parse+create succeeding.
+	// The per-row reprocess runner is called once per pending bank_tx_id.
+	callCount := 0
+	runner := PerRowReprocessRunner(func(ctx context.Context, bankTxID string) (string, error) {
+		callCount++
+		if bankTxID != oldBankTxID {
+			return "errored", fmt.Errorf("unexpected bankTxID %q", bankTxID)
+		}
+		// Simulate auto-create: insert a purchase_events row and delete the pending row.
+		var vendorID string
+		if err := testPool.QueryRow(ctx,
+			`INSERT INTO vendors (name) VALUES ('Old Vendor') ON CONFLICT (name) DO UPDATE SET name=EXCLUDED.name RETURNING id`,
+		).Scan(&vendorID); err != nil {
+			return "errored", err
+		}
+		if _, err := testPool.Exec(ctx,
+			`INSERT INTO purchase_events (vendor_id, bank_tx_id, event_date, total)
+			 VALUES ($1, $2, '2026-05-24', 42.50)`,
+			vendorID, bankTxID); err != nil {
+			return "errored", err
+		}
+		if _, err := testPool.Exec(ctx,
+			`DELETE FROM pending_purchases WHERE bank_tx_id = $1`, bankTxID); err != nil {
+			return "errored", err
+		}
+		return "auto_created", nil
+	})
+
+	handler := ReprocessAllPendingHandler(testPool, runner)
+
+	req := httptest.NewRequest("POST", "/inventory/purchases/reprocess-all", nil)
+	rec := httptest.NewRecorder()
+	handler(rec, req)
+
+	if rec.Code != 200 {
+		t.Fatalf("POST reprocess-all: status=%d body=%s want 200", rec.Code, rec.Body.String())
+	}
+
+	var body map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+
+	// Wait for the goroutine to finish before asserting DB state.
+	syncID, _ := body["sync_id"].(float64)
+	if syncID > 0 {
+		waitForTerminalStatus(t, int64(syncID), 2*time.Second)
+	}
+
+	// Assert runner was called exactly once (for the one pending row).
+	if callCount != 1 {
+		t.Errorf("runner callCount = %d, want 1", callCount)
+	}
+
+	// Assert the auto_created count was written to the sync run row.
+	var autoCreated int
+	if err := testPool.QueryRow(t.Context(),
+		`SELECT auto_created FROM receipt_sync_runs WHERE id = $1`, int64(syncID),
+	).Scan(&autoCreated); err != nil {
+		t.Fatalf("select auto_created from sync run: %v", err)
+	}
+	if autoCreated != 1 {
+		t.Errorf("sync_run.auto_created = %d, want 1", autoCreated)
+	}
+
+	// Assert the old pending row is gone.
+	var pendingCount int
+	if err := testPool.QueryRow(t.Context(),
+		`SELECT COUNT(*) FROM pending_purchases WHERE bank_tx_id = $1`, oldBankTxID,
+	).Scan(&pendingCount); err != nil {
+		t.Fatalf("count pending: %v", err)
+	}
+	if pendingCount != 0 {
+		t.Errorf("pending_purchases count = %d, want 0 (old row must be promoted)", pendingCount)
+	}
+
+	// Assert a purchase_event was created.
+	var eventCount int
+	if err := testPool.QueryRow(t.Context(),
+		`SELECT COUNT(*) FROM purchase_events WHERE bank_tx_id = $1`, oldBankTxID,
+	).Scan(&eventCount); err != nil {
+		t.Fatalf("count events: %v", err)
+	}
+	if eventCount != 1 {
+		t.Errorf("purchase_events count = %d, want 1", eventCount)
 	}
 }

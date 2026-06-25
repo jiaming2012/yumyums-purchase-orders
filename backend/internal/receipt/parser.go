@@ -125,16 +125,28 @@ func parseReceiptWithModel(ctx context.Context, apiKey string, blobs []FileBlob,
 	return items, summary, nil
 }
 
-// parseJSONBody extracts and parses the structured receipt JSON from Claude's response.
-// Handles both bare JSON and JSON wrapped in markdown code fences (including truncated
-// output where the closing ``` is missing — e.g. Haiku at 2048 maxTokens).
-func parseJSONBody(text string) ([]ReceiptItem, ReceiptSummary, error) {
+// StripJSONFence removes optional markdown code fences from a string so the
+// caller can safely pass the result to json.Unmarshal. Handles:
+//   - ```json … ```
+//   - ``` … ```
+//   - truncated output where the closing ``` is absent
+//
+// This is the single canonical implementation; both parseJSONBody and
+// MatchItemsWithAI call this helper so fence-stripping logic stays in one place.
+func StripJSONFence(text string) string {
 	text = strings.TrimSpace(text)
 	text = strings.TrimPrefix(text, "```json")
 	text = strings.TrimPrefix(text, "```")
 	text = strings.TrimSpace(text)
 	text = strings.TrimSuffix(text, "```")
-	text = strings.TrimSpace(text)
+	return strings.TrimSpace(text)
+}
+
+// parseJSONBody extracts and parses the structured receipt JSON from Claude's response.
+// Handles both bare JSON and JSON wrapped in markdown code fences (including truncated
+// output where the closing ``` is missing — e.g. Haiku at 2048 maxTokens).
+func parseJSONBody(text string) ([]ReceiptItem, ReceiptSummary, error) {
+	text = StripJSONFence(text)
 
 	var result struct {
 		Items   []ReceiptItem  `json:"items"`

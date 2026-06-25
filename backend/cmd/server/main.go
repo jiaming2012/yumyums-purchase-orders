@@ -466,8 +466,8 @@ func main() {
 					return receipt.RunIngestCycle(ctx, receiptCfg)
 				}))
 				r.Get("/sync-receipts/status", inventory.SyncReceiptsStatusHandler(pool))
-				r.Post("/purchases/reprocess-all", inventory.ReprocessAllPendingHandler(pool, func(ctx context.Context) (receipt.IngestResult, error) {
-					return receipt.RunIngestCycle(ctx, receiptCfg)
+				r.Post("/purchases/reprocess-all", inventory.ReprocessAllPendingHandler(pool, func(ctx context.Context, bankTxID string) (string, error) {
+					return receipt.ProcessSingleTxByID(ctx, receiptCfg, bankTxID)
 				}))
 				r.Post("/purchases/confirm", inventory.ConfirmPendingPurchaseHandler(pool))
 				r.Post("/purchases/discard", inventory.DiscardPendingPurchaseHandler(pool))

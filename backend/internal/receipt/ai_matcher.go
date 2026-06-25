@@ -90,19 +90,20 @@ Response format (raw JSON, no markdown fences):
 		return nil, fmt.Errorf("MatchItemsWithAI: empty response from API")
 	}
 
-	// Strip optional markdown code fences — same pattern as parseJSONBody.
-	rawText = strings.TrimSpace(rawText)
-	rawText = strings.TrimPrefix(rawText, "```json")
-	rawText = strings.TrimPrefix(rawText, "```")
-	rawText = strings.TrimSpace(rawText)
-	rawText = strings.TrimSuffix(rawText, "```")
-	rawText = strings.TrimSpace(rawText)
+	// Strip optional markdown code fences via the shared helper (same logic as
+	// parseJSONBody in parser.go — extracted into StripJSONFence to avoid duplication).
+	rawText = StripJSONFence(rawText)
 
 	var response struct {
 		Matches []ItemMatch `json:"matches"`
 	}
 	if err := json.Unmarshal([]byte(rawText), &response); err != nil {
-		return nil, fmt.Errorf("MatchItemsWithAI: unmarshal failed: %w (text: %.200s)", err, rawText)
+		// Claude occasionally returns natural language instead of JSON
+		// (e.g. "I notice the input was empty..."). This is an LLM quirk,
+		// not a fatal error — degrade gracefully so item matching falls back
+		// to human review rather than breaking the ingest pipeline.
+		log.Printf("MatchItemsWithAI: unmarshal failed (%.200s): %v — degrading to no matches", rawText, err)
+		return nil, nil
 	}
 
 	// Build result: only high-confidence matches, using catalog to look up ID.

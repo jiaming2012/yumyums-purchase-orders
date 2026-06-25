@@ -74,6 +74,47 @@ func FetchTransactions(ctx context.Context, apiKey string, startDate, endDate ti
 	return out, nil
 }
 
+// FetchTransactionByID fetches a single Mercury transaction by its ID using
+// the GET /api/v1/transactions/{id} endpoint. This bypasses the list
+// endpoint's date-range filter, so it can recover transactions older than
+// the worker's normal 14-day lookback window.
+//
+// Returns (nil, nil) when Mercury returns 404 (transaction not found or
+// deleted). All other non-2xx responses return a non-nil error.
+func FetchTransactionByID(ctx context.Context, apiKey string, txID string) (*MercuryTransaction, error) {
+	url := fmt.Sprintf("https://api.mercury.com/api/v1/transactions/%s", txID)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("Mercury FetchTransactionByID: failed to create request: %w", err)
+	}
+
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", apiKey))
+	req.Header.Set("Accept", "application/json;charset=utf-8")
+
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("Mercury FetchTransactionByID: request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusNotFound {
+		// Transaction not found — caller skips the row.
+		return nil, nil
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("Mercury FetchTransactionByID: non-200 response: %d", resp.StatusCode)
+	}
+
+	var tx MercuryTransaction
+	if err := json.NewDecoder(resp.Body).Decode(&tx); err != nil {
+		return nil, fmt.Errorf("Mercury FetchTransactionByID: failed to decode response: %w", err)
+	}
+
+	return &tx, nil
+}
+
 func isSupportedKind(kind string) bool {
 	switch kind {
 	case mercuryKindCreditCard, mercuryKindDebitCard,

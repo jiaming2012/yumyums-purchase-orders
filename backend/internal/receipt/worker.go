@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/yumyums/hq/internal/photos"
 )
@@ -27,13 +28,39 @@ import (
 // are introduced so the upgrade-path tests (no_attachment → re-sync with
 // receipt attached) can drive runIngestCycle end-to-end without hitting
 // Mercury / Anthropic / the receipt CDN.
+//
+// fetchTransactionByID is the seam for per-row reprocess (reprocess-all uses
+// this to bypass the list endpoint's date-range filter).
 var (
 	fetchTransactions          = FetchTransactions
+	fetchTransactionByID       = FetchTransactionByID
 	parseReceipt               = ParseReceipt
 	parseReceiptWithSonnet     = ParseReceiptWithSonnet
 	parseReceiptWithFeedback   = ParseReceiptWithFeedback
 	downloadReceiptFileFn      = downloadReceiptFile
 )
+
+// ProcessSingleTxByID fetches a single Mercury transaction by ID and runs the
+// full ingest pipeline for it via processSingleTx. Used by the per-row
+// reprocess handler so each pending row is refetched individually, bypassing
+// the list endpoint's date-range lookback limit.
+//
+// Returns the same enum as processSingleTx: "auto_created" | "pending_review"
+// | "cached" | "errored". Returns ("cached", nil) when Mercury returns 404
+// for the transaction ID (the tx no longer exists; leave the pending row alone).
+func ProcessSingleTxByID(ctx context.Context, cfg WorkerConfig, bankTxID string) (string, error) {
+	tx, err := fetchTransactionByID(ctx, cfg.MercuryAPIKey, bankTxID)
+	if err != nil {
+		log.Printf("receipt worker: FetchTransactionByID %s: %v", bankTxID, err)
+		return "errored", err
+	}
+	if tx == nil {
+		// Mercury returned 404 — transaction not found. Leave the pending row untouched.
+		log.Printf("receipt worker: tx %s not found in Mercury (404) — leaving pending row", bankTxID)
+		return "cached", nil
+	}
+	return processSingleTx(ctx, cfg, *tx, true)
+}
 
 // StartWorker launches a background goroutine that polls Mercury for new
 // transactions on the configured interval. If either API key is missing the
@@ -158,303 +185,18 @@ func runIngestCycle(ctx context.Context, cfg WorkerConfig) (IngestResult, error)
 			log.Printf("receipt worker: backfill vendor for tx %s: %v (continuing)", tx.ID, backfillErr)
 		}
 
-		// Idempotency: 3-way classify so we can detect the "stale no-attachment
-		// pending row whose Mercury tx now has a receipt" upgrade case.
-		// Phase 260607-co0: replaces the 2-way bankTxIDExists short-circuit
-		// that previously skipped these rows forever.
-		// Phase 260607-fxl: classifyExistingTx now also returns hasParseError
-		// + hasItems so the upgrade gate can retry pre-260607-e1c parse-failed
-		// rows once (parse_error NULL → never tried Sonnet) without clobbering
-		// user-edited rows (items non-empty).
-		kind, existingReason, hasParseError, hasItems, err := classifyExistingTx(ctx, cfg.Pool, tx.ID)
+		result, err := processSingleTx(ctx, cfg, tx, false)
 		if err != nil {
-			log.Printf("receipt worker: classifyExistingTx tx %s: %v", tx.ID, err)
-			continue
+			log.Printf("receipt worker: processSingleTx tx %s: %v", tx.ID, err)
 		}
-		isUpgrade := false
-		switch kind {
-		case "event":
-			// Already a purchase_event (or a confirmed pending) — done.
+		switch result {
+		case "auto_created":
+			autoCreated++
+		case "pending_review":
+			pendingReview++
+		case "cached":
 			skippedCached++
-			continue
-		case "pending":
-			// Two upgrade cases:
-			//  (a) Existing: no-attachment row whose Mercury tx now has a
-			//      receipt — promote it through the normal parse path.
-			//  (b) Phase 260607-fxl: pre-e1c parse-failed row that never
-			//      got a Sonnet attempt. Gate by parse_error IS NULL (NOT
-			//      both-models-failed already) AND items empty (operator
-			//      hasn't started editing). Requires attachments to retry
-			//      against.
-			noAttachmentUpgrade := existingReason == "no_attachment_on_bank_tx" && len(tx.Attachments) > 0
-			parseFailedRetry := existingReason == "Receipt could not be parsed automatically" &&
-				!hasParseError && !hasItems && len(tx.Attachments) > 0
-			if noAttachmentUpgrade || parseFailedRetry {
-				isUpgrade = true
-				// Fall through to download/parse path below.
-			} else {
-				skippedCached++
-				continue
-			}
-		case "none":
-			// New transaction — fall through to ingest.
 		}
-
-		// No-attachment branch: surface every unreceipted card swipe in
-		// pending_purchases so the completeness gate can block payroll on
-		// unresolved card spend. ON CONFLICT DO NOTHING on bank_tx_id keeps
-		// re-polls idempotent.
-		//
-		// isUpgrade is impossible here (we only set it when len(Attachments)>0),
-		// but the !isUpgrade guard is kept defensively so a future refactor
-		// can't accidentally re-INSERT over an existing row via this branch.
-		if len(tx.Attachments) == 0 {
-			if !isUpgrade {
-				if routeErr := insertPendingPurchase(
-					ctx, cfg.Pool, tx,
-					nil,              // items unknown without receipt
-					ReceiptSummary{}, // summary unknown without receipt
-					"",               // no receiptURL
-					nil,              // no receiptURLs
-					"no_attachment_on_bank_tx",
-					"", // parseError: no parse attempted on no-attachment branch
-				); routeErr != nil {
-					log.Printf("receipt worker: insertPendingPurchase (no-attachment) for tx %s: %v", tx.ID, routeErr)
-				}
-				pendingReview++
-			}
-			continue
-		}
-
-		// Download every attachment and collect FileBlobs so all receipts for
-		// this transaction are sent to Claude in a single multi-image prompt.
-		// This handles the purchase + refund case: both files are seen together,
-		// and Claude returns a single combined summary whose Total is the net.
-		var blobs []FileBlob
-		for _, att := range tx.Attachments {
-			fb, ct, dlErr := downloadReceiptFileFn(ctx, att.URL)
-			if dlErr != nil {
-				log.Printf("receipt worker: download attachment %s for tx %s: %v (skipping attachment)", att.URL, tx.ID, dlErr)
-				continue
-			}
-			blobs = append(blobs, FileBlob{Bytes: fb, ContentType: ct})
-		}
-		if len(blobs) == 0 {
-			log.Printf("receipt worker: all attachments failed to download for tx %s — skipping", tx.ID)
-			continue
-		}
-
-		// Upload all attachments to DO Spaces in order. Each gets a
-		// per-index key receipts/{tx.ID}/{i}{ext} so they can coexist.
-		// receiptURLs collects the final public (or fallback Mercury) URL
-		// for each slot. receiptURL (singular) is set to receiptURLs[0]
-		// for backward compat with the existing singular-column INSERT calls.
-		receiptURLs := make([]string, 0, len(blobs))
-		for i, blob := range blobs {
-			att := tx.Attachments[i]
-			slotURL := att.URL // fallback: original Mercury URL
-			if cfg.SpacesPresigner != nil && cfg.SpacesBucket != "" {
-				ext := strings.ToLower(filepath.Ext(att.FileName))
-				if ext == "" {
-					ext = ".jpg"
-				}
-				key := fmt.Sprintf("receipts/%s/%d%s", tx.ID, i, ext)
-				presignedURL, uploadErr := photos.GeneratePresignedPutURL(ctx, cfg.SpacesPresigner, cfg.SpacesBucket, key, blob.ContentType, 15*time.Minute)
-				if uploadErr != nil {
-					log.Printf("receipt worker: presign slot %d for tx %s: %v (falling back to Mercury URL)", i, tx.ID, uploadErr)
-				} else {
-					putReq, reqErr := http.NewRequestWithContext(ctx, http.MethodPut, presignedURL, bytes.NewReader(blob.Bytes))
-					if reqErr != nil {
-						log.Printf("receipt worker: create PUT request slot %d for tx %s: %v (falling back to Mercury URL)", i, tx.ID, reqErr)
-					} else {
-						putReq.Header.Set("Content-Type", blob.ContentType)
-						putReq.Header.Set("x-amz-acl", "public-read")
-						putReq.ContentLength = int64(len(blob.Bytes))
-						putResp, putErr := (&http.Client{Timeout: 60 * time.Second}).Do(putReq)
-						if putErr != nil {
-							log.Printf("receipt worker: upload slot %d to Spaces for tx %s: %v (falling back to Mercury URL)", i, tx.ID, putErr)
-						} else {
-							putResp.Body.Close()
-							if putResp.StatusCode >= 200 && putResp.StatusCode < 300 {
-								slotURL = photos.PublicURL(cfg.SpacesEndpoint, cfg.SpacesBucket, key)
-							} else {
-								log.Printf("receipt worker: Spaces PUT slot %d for tx %s returned %d (falling back to Mercury URL)", i, tx.ID, putResp.StatusCode)
-							}
-						}
-					}
-				}
-			}
-			receiptURLs = append(receiptURLs, slotURL)
-		}
-		receiptURL := ""
-		if len(receiptURLs) > 0 {
-			receiptURL = receiptURLs[0]
-		}
-
-		// Parse with Claude Haiku (via the parseReceipt seam). On Haiku failure,
-		// retry once with Sonnet (parseReceiptWithSonnet seam). If Sonnet ALSO
-		// fails, route to pending review with the concatenated parse_error so
-		// the owner can see WHY parsing failed on the FE pending card.
-		// Phase 260607-e1c.
-		items, summary, err := parseReceipt(ctx, cfg.AnthropicAPIKey, blobs)
-		if err != nil {
-			haikuErr := err
-			log.Printf("receipt worker: Haiku failed for tx %s, retrying with Sonnet: %v", tx.ID, haikuErr)
-			items, summary, err = parseReceiptWithSonnet(ctx, cfg.AnthropicAPIKey, blobs)
-			if err != nil {
-				combined := fmt.Sprintf("haiku: %v; sonnet: %v", haikuErr, err)
-				log.Printf("receipt worker: Sonnet also failed for tx %s: %v — routing to review queue", tx.ID, err)
-				if routeErr := routePending(ctx, cfg.Pool, tx, items, summary, receiptURL, receiptURLs, "Receipt could not be parsed automatically", combined, isUpgrade); routeErr != nil {
-					log.Printf("receipt worker: routePending (parse-fail) for tx %s: %v", tx.ID, routeErr)
-				}
-				pendingReview++
-				continue
-			}
-			// Sonnet succeeded — fall through to ValidateReceiptData with
-			// Sonnet's output. items/summary/err are now populated by Sonnet.
-		}
-
-		// Goal-driven retry loop with best-attempt tracking.
-		//
-		// Goal: derivedTotal (sum(price*qty) + tax) == -tx.Amount (Check 1 in
-		// validate.go). On failure, retry once with ParseReceiptWithFeedback so
-		// Claude sees the bank's ground truth and can find a missed refund / credit
-		// memo / etc. MAX_ATTEMPTS=2 caps cost.
-		//
-		// Best-attempt tracking: instead of always persisting the LAST attempt, we
-		// keep the attempt whose score is lowest (closest derivedTotal to -bankAmount,
-		// with a hard penalty for empty items). This prevents a feedback regression
-		// (Claude returning empty items or a worse parse) from overwriting a better
-		// attempt 1 result.
-		const maxParseAttempts = 2
-		var bestItems []ReceiptItem
-		var bestSummary ReceiptSummary
-		var bestValidate ValidationResult
-		bestScore := math.MaxFloat64
-		var retryTrace []string
-
-		for attempt := 1; attempt <= maxParseAttempts; attempt++ {
-			validate := ValidateReceiptData(items, summary, tx.Amount)
-			score := attemptScore(items, summary, tx.Amount)
-			log.Printf("receipt worker: tx %s attempt %d/%d valid=%v score=%.2f reason=%s",
-				tx.ID, attempt, maxParseAttempts, validate.Valid, score, validate.Reason)
-			retryTrace = append(retryTrace, fmt.Sprintf("attempt %d: score=%.2f total=%.2f reason=%s",
-				attempt, score, summary.Total, validate.Reason))
-
-			if score < bestScore {
-				bestItems = items
-				bestSummary = summary
-				bestValidate = validate
-				bestScore = score
-			}
-
-			if validate.Valid {
-				break
-			}
-			if attempt == maxParseAttempts {
-				break
-			}
-			// Retry on ANY validation failure. The feedback prompt in
-			// ParseReceiptWithFeedback dispatches per-check guidance based on
-			// the full validate.Reason string, so Claude gets actionable hints
-			// regardless of which check failed.
-			newItems, newSummary, feedbackErr := parseReceiptWithFeedback(
-				ctx, cfg.AnthropicAPIKey, blobs, summary.Total, tx.Amount, validate.Reason)
-			if feedbackErr != nil {
-				log.Printf("receipt worker: tx %s feedback retry failed: %v — using prior attempt", tx.ID, feedbackErr)
-				retryTrace = append(retryTrace, fmt.Sprintf("feedback retry errored: %v", feedbackErr))
-				break
-			}
-			items, summary = newItems, newSummary
-		}
-
-		// Use the best attempt (lowest score) for all downstream decisions.
-		items, summary, lastValidate := bestItems, bestSummary, bestValidate
-
-		// Pre-fill enrichment: fuzzy-match each item name against the existing
-		// purchase_items catalog and set PurchaseItemID on matched items BEFORE
-		// deciding the route (routePending vs createPurchaseEvent). This lets the
-		// FE pre-fill the dropdowns on pending-review cards without any FE change.
-		// Enrichment errors are non-fatal — log and proceed with unmatched items.
-		matchedCount, catalogSize, enrichErr := enrichItemsWithMatches(ctx, cfg.Pool, items, cfg.AnthropicAPIKey)
-		if enrichErr != nil {
-			log.Printf("receipt worker: tx %s enrichItemsWithMatches: %v (continuing without match enrichment)", tx.ID, enrichErr)
-		} else {
-			log.Printf("receipt worker: tx %s matched %d/%d items to catalog", tx.ID, matchedCount, len(items))
-		}
-
-		// Low-match-rate sanity gate: when > 5 items but < 30% match the catalog
-		// and the catalog itself is healthy (≥ 20 entries), Claude likely returned
-		// plausible-sounding but hallucinated names. Force routePending so a human
-		// reviews before the row auto-creates. Skip the gate for small catalogs
-		// (defensive: production catalog has 106 entries) and for small receipts
-		// (< 5 items are statistically insignificant).
-		if enrichErr == nil && catalogSize >= 20 && len(items) > 5 &&
-			matchedCount*100 < len(items)*30 {
-			log.Printf("receipt worker: tx %s low catalog match rate (%d/%d items matched) — forcing pending review",
-				tx.ID, matchedCount, len(items))
-			lastValidate.Valid = false
-			lastValidate.Reason = fmt.Sprintf("Low catalog match rate (matched %d/%d items) — verify line items",
-				matchedCount, len(items))
-		}
-
-		// Sanity gate: never auto-create on empty items or trivially small item
-		// sums. Catches Claude's "regressed to empty" failure mode where validate
-		// passes vacuously (0 items, 0 sum, 0 tax matches a 0 bank amount).
-		if lastValidate.Valid {
-			itemsSum := 0.0
-			for _, item := range items {
-				itemsSum += item.Price * item.Quantity
-			}
-			if len(items) == 0 || math.Abs(itemsSum) < 0.50 {
-				log.Printf("receipt worker: tx %s sanity gate FAILED (items=%d itemsSum=%.2f) — routing to review",
-					tx.ID, len(items), itemsSum)
-				lastValidate.Valid = false
-				if lastValidate.Reason == "" {
-					lastValidate.Reason = fmt.Sprintf("Sanity gate: items=%d itemsSum=%.2f", len(items), itemsSum)
-				}
-			}
-		}
-
-		if !lastValidate.Valid {
-			parseErrForRow := ""
-			if len(retryTrace) > 0 {
-				parseErrForRow = strings.Join(retryTrace, "; ")
-			}
-			log.Printf("receipt worker: tx %s routed to review queue: %s", tx.ID, lastValidate.Reason)
-			if routeErr := routePending(ctx, cfg.Pool, tx, items, summary, receiptURL, receiptURLs, lastValidate.Reason, parseErrForRow, isUpgrade); routeErr != nil {
-				log.Printf("receipt worker: routePending (validate-fail) for tx %s: %v", tx.ID, routeErr)
-			}
-			pendingReview++
-			continue
-		}
-
-		// Overwrite summary.Total with the derived value so the persisted
-		// purchase_events.total reflects the bank-matched amount, not whatever
-		// Claude reported. Claude's summary.Total may be purchase-only on a
-		// purchase+refund receipt (multi-image inconsistency); the derived value
-		// (itemsSum + tax) is what validate.go used to pass Check 1 and is
-		// guaranteed to match the bank amount within $0.01.
-		derivedItemsSum := 0.0
-		for _, item := range items {
-			derivedItemsSum += item.Price * item.Quantity
-		}
-		summary.Total = derivedItemsSum + summary.Tax
-
-		// Auto-create purchase event. isUpgrade=true causes the helper to
-		// DELETE the stale pending row inside the same DB transaction as
-		// the event INSERT — atomic upgrade with no window for a concurrent
-		// re-sync to see both rows.
-		if err := createPurchaseEvent(ctx, cfg.Pool, tx, items, summary, receiptURL, receiptURLs, isUpgrade); err != nil {
-			log.Printf("receipt worker: createPurchaseEvent for tx %s: %v — routing to review queue", tx.ID, err)
-			if routeErr := routePending(ctx, cfg.Pool, tx, items, summary, receiptURL, receiptURLs, "Receipt could not be saved automatically", "", isUpgrade); routeErr != nil {
-				log.Printf("receipt worker: routePending (save-fail) for tx %s: %v", tx.ID, routeErr)
-			}
-			pendingReview++
-			continue
-		}
-
-		autoCreated++
 	}
 
 	log.Printf("receipt worker: processed %d transactions, %d auto-created, %d pending review, %d already cached",
@@ -465,6 +207,324 @@ func runIngestCycle(ctx context.Context, cfg WorkerConfig) (IngestResult, error)
 		PendingReview: pendingReview,
 		Cached:        skippedCached,
 	}, nil
+}
+
+// processSingleTx runs the full ingest pipeline for one Mercury transaction:
+// classify → download → upload → parse → validate → persist.
+//
+// Returns a result enum:
+//
+//	"auto_created"  – the tx was ingested and a purchase_event row was created
+//	"pending_review" – the tx was routed to pending_purchases for human review
+//	"cached"        – the tx was already ingested (skipped idempotently)
+//	"errored"       – a non-fatal error occurred; caller should log
+//
+// reprocess=true modifies classify behaviour for the per-row reprocess path:
+//   - kind="event": the purchase_event already exists; the pending row is a
+//     residual artifact. Delete it and return "cached".
+//   - kind="pending": always treat as upgrade-eligible regardless of reason,
+//     parse_error, or items (the caller has already confirmed we want a fresh
+//     attempt, and the dup-key handler in createPurchaseEvent will clean up any
+//     residual pending row if the event INSERT fails with a duplicate key).
+func processSingleTx(ctx context.Context, cfg WorkerConfig, tx MercuryTransaction, reprocess bool) (string, error) {
+	kind, existingReason, hasParseError, hasItems, err := classifyExistingTx(ctx, cfg.Pool, tx.ID)
+	if err != nil {
+		log.Printf("receipt worker: classifyExistingTx tx %s: %v", tx.ID, err)
+		return "errored", err
+	}
+
+	isUpgrade := false
+	switch kind {
+	case "event":
+		if reprocess {
+			// purchase_event already exists — pending row is residual. Clean it up.
+			log.Printf("receipt worker: tx %s already auto-created (reprocess found existing event) — clearing residual pending row", tx.ID)
+			if _, delErr := cfg.Pool.Exec(ctx,
+				`DELETE FROM pending_purchases WHERE bank_tx_id = $1 AND confirmed_at IS NULL AND discarded_at IS NULL`,
+				tx.ID,
+			); delErr != nil {
+				log.Printf("receipt worker: delete residual pending for tx %s: %v (continuing)", tx.ID, delErr)
+			}
+		}
+		return "cached", nil
+	case "pending":
+		if reprocess {
+			// Reprocess forces the upgrade path regardless of the existing
+			// pending row state — we want a fresh attempt.
+			isUpgrade = true
+		} else {
+			// Normal worker path: only upgrade on the two known upgrade cases.
+			noAttachmentUpgrade := existingReason == "no_attachment_on_bank_tx" && len(tx.Attachments) > 0
+			parseFailedRetry := existingReason == "Receipt could not be parsed automatically" &&
+				!hasParseError && !hasItems && len(tx.Attachments) > 0
+			if noAttachmentUpgrade || parseFailedRetry {
+				isUpgrade = true
+			} else {
+				return "cached", nil
+			}
+		}
+	case "none":
+		// New transaction — fall through to ingest.
+	}
+
+	// No-attachment branch: surface every unreceipted card swipe in
+	// pending_purchases so the completeness gate can block payroll on
+	// unresolved card spend. ON CONFLICT DO NOTHING on bank_tx_id keeps
+	// re-polls idempotent.
+	//
+	// isUpgrade is impossible here (we only set it when len(Attachments)>0),
+	// but the !isUpgrade guard is kept defensively so a future refactor
+	// can't accidentally re-INSERT over an existing row via this branch.
+	if len(tx.Attachments) == 0 {
+		if !isUpgrade {
+			if routeErr := insertPendingPurchase(
+				ctx, cfg.Pool, tx,
+				nil,              // items unknown without receipt
+				ReceiptSummary{}, // summary unknown without receipt
+				"",               // no receiptURL
+				nil,              // no receiptURLs
+				"no_attachment_on_bank_tx",
+				"", // parseError: no parse attempted on no-attachment branch
+			); routeErr != nil {
+				log.Printf("receipt worker: insertPendingPurchase (no-attachment) for tx %s: %v", tx.ID, routeErr)
+			}
+			return "pending_review", nil
+		}
+		return "cached", nil
+	}
+
+	// Download every attachment and collect FileBlobs so all receipts for
+	// this transaction are sent to Claude in a single multi-image prompt.
+	// This handles the purchase + refund case: both files are seen together,
+	// and Claude returns a single combined summary whose Total is the net.
+	var blobs []FileBlob
+	for _, att := range tx.Attachments {
+		fb, ct, dlErr := downloadReceiptFileFn(ctx, att.URL)
+		if dlErr != nil {
+			log.Printf("receipt worker: download attachment %s for tx %s: %v (skipping attachment)", att.URL, tx.ID, dlErr)
+			continue
+		}
+		blobs = append(blobs, FileBlob{Bytes: fb, ContentType: ct})
+	}
+	if len(blobs) == 0 {
+		log.Printf("receipt worker: all attachments failed to download for tx %s — skipping", tx.ID)
+		return "errored", nil
+	}
+
+	// Upload all attachments to DO Spaces in order. Each gets a
+	// per-index key receipts/{tx.ID}/{i}{ext} so they can coexist.
+	// receiptURLs collects the final public (or fallback Mercury) URL
+	// for each slot. receiptURL (singular) is set to receiptURLs[0]
+	// for backward compat with the existing singular-column INSERT calls.
+	receiptURLs := make([]string, 0, len(blobs))
+	for i, blob := range blobs {
+		att := tx.Attachments[i]
+		slotURL := att.URL // fallback: original Mercury URL
+		if cfg.SpacesPresigner != nil && cfg.SpacesBucket != "" {
+			ext := strings.ToLower(filepath.Ext(att.FileName))
+			if ext == "" {
+				ext = ".jpg"
+			}
+			key := fmt.Sprintf("receipts/%s/%d%s", tx.ID, i, ext)
+			presignedURL, uploadErr := photos.GeneratePresignedPutURL(ctx, cfg.SpacesPresigner, cfg.SpacesBucket, key, blob.ContentType, 15*time.Minute)
+			if uploadErr != nil {
+				log.Printf("receipt worker: presign slot %d for tx %s: %v (falling back to Mercury URL)", i, tx.ID, uploadErr)
+			} else {
+				putReq, reqErr := http.NewRequestWithContext(ctx, http.MethodPut, presignedURL, bytes.NewReader(blob.Bytes))
+				if reqErr != nil {
+					log.Printf("receipt worker: create PUT request slot %d for tx %s: %v (falling back to Mercury URL)", i, tx.ID, reqErr)
+				} else {
+					putReq.Header.Set("Content-Type", blob.ContentType)
+					putReq.Header.Set("x-amz-acl", "public-read")
+					putReq.ContentLength = int64(len(blob.Bytes))
+					putResp, putErr := (&http.Client{Timeout: 60 * time.Second}).Do(putReq)
+					if putErr != nil {
+						log.Printf("receipt worker: upload slot %d to Spaces for tx %s: %v (falling back to Mercury URL)", i, tx.ID, putErr)
+					} else {
+						putResp.Body.Close()
+						if putResp.StatusCode >= 200 && putResp.StatusCode < 300 {
+							slotURL = photos.PublicURL(cfg.SpacesEndpoint, cfg.SpacesBucket, key)
+						} else {
+							log.Printf("receipt worker: Spaces PUT slot %d for tx %s returned %d (falling back to Mercury URL)", i, tx.ID, putResp.StatusCode)
+						}
+					}
+				}
+			}
+		}
+		receiptURLs = append(receiptURLs, slotURL)
+	}
+	receiptURL := ""
+	if len(receiptURLs) > 0 {
+		receiptURL = receiptURLs[0]
+	}
+
+	// Parse with Claude Haiku (via the parseReceipt seam). On Haiku failure,
+	// retry once with Sonnet (parseReceiptWithSonnet seam). If Sonnet ALSO
+	// fails, route to pending review with the concatenated parse_error so
+	// the owner can see WHY parsing failed on the FE pending card.
+	// Phase 260607-e1c.
+	items, summary, parseErr := parseReceipt(ctx, cfg.AnthropicAPIKey, blobs)
+	if parseErr != nil {
+		haikuErr := parseErr
+		log.Printf("receipt worker: Haiku failed for tx %s, retrying with Sonnet: %v", tx.ID, haikuErr)
+		items, summary, parseErr = parseReceiptWithSonnet(ctx, cfg.AnthropicAPIKey, blobs)
+		if parseErr != nil {
+			combined := fmt.Sprintf("haiku: %v; sonnet: %v", haikuErr, parseErr)
+			log.Printf("receipt worker: Sonnet also failed for tx %s: %v — routing to review queue", tx.ID, parseErr)
+			if routeErr := routePending(ctx, cfg.Pool, tx, items, summary, receiptURL, receiptURLs, "Receipt could not be parsed automatically", combined, isUpgrade); routeErr != nil {
+				log.Printf("receipt worker: routePending (parse-fail) for tx %s: %v", tx.ID, routeErr)
+			}
+			return "pending_review", nil
+		}
+		// Sonnet succeeded — fall through to ValidateReceiptData with
+		// Sonnet's output. items/summary are now populated by Sonnet.
+	}
+
+	// Goal-driven retry loop with best-attempt tracking.
+	//
+	// Goal: derivedTotal (sum(price*qty) + tax) == -tx.Amount (Check 1 in
+	// validate.go). On failure, retry once with ParseReceiptWithFeedback so
+	// Claude sees the bank's ground truth and can find a missed refund / credit
+	// memo / etc. MAX_ATTEMPTS=2 caps cost.
+	//
+	// Best-attempt tracking: instead of always persisting the LAST attempt, we
+	// keep the attempt whose score is lowest (closest derivedTotal to -bankAmount,
+	// with a hard penalty for empty items). This prevents a feedback regression
+	// (Claude returning empty items or a worse parse) from overwriting a better
+	// attempt 1 result.
+	const maxParseAttempts = 2
+	var bestItems []ReceiptItem
+	var bestSummary ReceiptSummary
+	var bestValidate ValidationResult
+	bestScore := math.MaxFloat64
+	var retryTrace []string
+
+	for attempt := 1; attempt <= maxParseAttempts; attempt++ {
+		validate := ValidateReceiptData(items, summary, tx.Amount)
+		score := attemptScore(items, summary, tx.Amount)
+		log.Printf("receipt worker: tx %s attempt %d/%d valid=%v score=%.2f reason=%s",
+			tx.ID, attempt, maxParseAttempts, validate.Valid, score, validate.Reason)
+		retryTrace = append(retryTrace, fmt.Sprintf("attempt %d: score=%.2f total=%.2f reason=%s",
+			attempt, score, summary.Total, validate.Reason))
+
+		if score < bestScore {
+			bestItems = items
+			bestSummary = summary
+			bestValidate = validate
+			bestScore = score
+		}
+
+		if validate.Valid {
+			break
+		}
+		if attempt == maxParseAttempts {
+			break
+		}
+		// Retry on ANY validation failure. The feedback prompt in
+		// ParseReceiptWithFeedback dispatches per-check guidance based on
+		// the full validate.Reason string, so Claude gets actionable hints
+		// regardless of which check failed.
+		newItems, newSummary, feedbackErr := parseReceiptWithFeedback(
+			ctx, cfg.AnthropicAPIKey, blobs, summary.Total, tx.Amount, validate.Reason)
+		if feedbackErr != nil {
+			log.Printf("receipt worker: tx %s feedback retry failed: %v — using prior attempt", tx.ID, feedbackErr)
+			retryTrace = append(retryTrace, fmt.Sprintf("feedback retry errored: %v", feedbackErr))
+			break
+		}
+		items, summary = newItems, newSummary
+	}
+
+	// Use the best attempt (lowest score) for all downstream decisions.
+	items, summary, lastValidate := bestItems, bestSummary, bestValidate
+
+	// Pre-fill enrichment: fuzzy-match each item name against the existing
+	// purchase_items catalog and set PurchaseItemID on matched items BEFORE
+	// deciding the route (routePending vs createPurchaseEvent). This lets the
+	// FE pre-fill the dropdowns on pending-review cards without any FE change.
+	// Enrichment errors are non-fatal — log and proceed with unmatched items.
+	matchedCount, catalogSize, enrichErr := enrichItemsWithMatches(ctx, cfg.Pool, items, cfg.AnthropicAPIKey)
+	if enrichErr != nil {
+		log.Printf("receipt worker: tx %s enrichItemsWithMatches: %v (continuing without match enrichment)", tx.ID, enrichErr)
+	} else {
+		log.Printf("receipt worker: tx %s matched %d/%d items to catalog", tx.ID, matchedCount, len(items))
+	}
+
+	// Low-match-rate sanity gate: when > 5 items but < 30% match the catalog
+	// and the catalog itself is healthy (≥ 20 entries), Claude likely returned
+	// plausible-sounding but hallucinated names. Force routePending so a human
+	// reviews before the row auto-creates. Skip the gate for small catalogs
+	// (defensive: production catalog has 106 entries) and for small receipts
+	// (< 5 items are statistically insignificant).
+	if enrichErr == nil && catalogSize >= 20 && len(items) > 5 &&
+		matchedCount*100 < len(items)*30 {
+		log.Printf("receipt worker: tx %s low catalog match rate (%d/%d items matched) — forcing pending review",
+			tx.ID, matchedCount, len(items))
+		lastValidate.Valid = false
+		lastValidate.Reason = fmt.Sprintf("Low catalog match rate (matched %d/%d items) — verify line items",
+			matchedCount, len(items))
+	}
+
+	// Sanity gate: never auto-create on empty items or trivially small item
+	// sums. Catches Claude's "regressed to empty" failure mode where validate
+	// passes vacuously (0 items, 0 sum, 0 tax matches a 0 bank amount).
+	if lastValidate.Valid {
+		itemsSum := 0.0
+		for _, item := range items {
+			itemsSum += item.Price * item.Quantity
+		}
+		if len(items) == 0 || math.Abs(itemsSum) < 0.50 {
+			log.Printf("receipt worker: tx %s sanity gate FAILED (items=%d itemsSum=%.2f) — routing to review",
+				tx.ID, len(items), itemsSum)
+			lastValidate.Valid = false
+			if lastValidate.Reason == "" {
+				lastValidate.Reason = fmt.Sprintf("Sanity gate: items=%d itemsSum=%.2f", len(items), itemsSum)
+			}
+		}
+	}
+
+	if !lastValidate.Valid {
+		parseErrForRow := ""
+		if len(retryTrace) > 0 {
+			parseErrForRow = strings.Join(retryTrace, "; ")
+		}
+		log.Printf("receipt worker: tx %s routed to review queue: %s", tx.ID, lastValidate.Reason)
+		if routeErr := routePending(ctx, cfg.Pool, tx, items, summary, receiptURL, receiptURLs, lastValidate.Reason, parseErrForRow, isUpgrade); routeErr != nil {
+			log.Printf("receipt worker: routePending (validate-fail) for tx %s: %v", tx.ID, routeErr)
+		}
+		return "pending_review", nil
+	}
+
+	// Overwrite summary.Total with the derived value so the persisted
+	// purchase_events.total reflects the bank-matched amount, not whatever
+	// Claude reported. Claude's summary.Total may be purchase-only on a
+	// purchase+refund receipt (multi-image inconsistency); the derived value
+	// (itemsSum + tax) is what validate.go used to pass Check 1 and is
+	// guaranteed to match the bank amount within $0.01.
+	derivedItemsSum := 0.0
+	for _, item := range items {
+		derivedItemsSum += item.Price * item.Quantity
+	}
+	summary.Total = derivedItemsSum + summary.Tax
+
+	// Auto-create purchase event. isUpgrade=true causes the helper to
+	// DELETE the stale pending row inside the same DB transaction as
+	// the event INSERT — atomic upgrade with no window for a concurrent
+	// re-sync to see both rows.
+	//
+	// nil return from createPurchaseEvent also covers the duplicate-key
+	// dead-letter path: if the INSERT fails with a unique violation on
+	// purchase_events_bank_tx_id_key, createPurchaseEvent deletes the
+	// residual pending row and returns nil so we count it as auto_created
+	// (the event exists).
+	if err := createPurchaseEvent(ctx, cfg.Pool, tx, items, summary, receiptURL, receiptURLs, isUpgrade); err != nil {
+		log.Printf("receipt worker: createPurchaseEvent for tx %s: %v — routing to review queue", tx.ID, err)
+		if routeErr := routePending(ctx, cfg.Pool, tx, items, summary, receiptURL, receiptURLs, "Receipt could not be saved automatically", "", isUpgrade); routeErr != nil {
+			log.Printf("receipt worker: routePending (save-fail) for tx %s: %v", tx.ID, routeErr)
+		}
+		return "pending_review", nil
+	}
+
+	return "auto_created", nil
 }
 
 // attemptScore returns a quality score for a parse attempt. LOWER is better.
@@ -617,6 +677,26 @@ func createPurchaseEvent(ctx context.Context, pool *pgxpool.Pool, tx MercuryTran
 		vendorID, tx.ID, eventDate, summary.Tax, summary.Total, nullableString(receiptURL), receiptURLsJSON(receiptURLs), nullableString(mercuryCategory),
 	).Scan(&eventID)
 	if err != nil {
+		// Duplicate bank_tx_id: a purchase_event for this tx was already created
+		// (e.g. by an earlier sync today). The pending row is a residual artifact.
+		// After a constraint violation, the pgx transaction is in an aborted state;
+		// no further commands can run on it. Roll it back explicitly, then clean up
+		// the residual pending row in a fresh connection from the pool.
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" && strings.Contains(pgErr.ConstraintName, "bank_tx_id") {
+			log.Printf("receipt worker: tx %s already auto-created (duplicate bank_tx_id) — clearing residual pending row", tx.ID)
+			// Rollback the aborted transaction explicitly (defer above would also do
+			// it, but being explicit avoids a log-confusing error from the defer).
+			_ = dbTx.Rollback(ctx)
+			// Delete the residual pending row via the pool (outside the aborted tx).
+			if _, delErr := pool.Exec(ctx,
+				`DELETE FROM pending_purchases WHERE bank_tx_id = $1 AND confirmed_at IS NULL AND discarded_at IS NULL`,
+				tx.ID,
+			); delErr != nil {
+				return fmt.Errorf("createPurchaseEvent: clear residual pending for duplicate tx %s: %w", tx.ID, delErr)
+			}
+			return nil
+		}
 		return fmt.Errorf("createPurchaseEvent: insert purchase_event: %w", err)
 	}
 
