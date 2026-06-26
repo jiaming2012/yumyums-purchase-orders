@@ -506,7 +506,12 @@ test.describe('Persistence', () => {
     await checkA.click();
     await expect(checkA).toHaveClass(/checked/, { timeout: 5000 });
     // Wait for auto-save to fire (400ms debounce + network)
-    await page.waitForTimeout(1500);
+    // Wait for autosave POST to complete (400ms debounce + network roundtrip).
+    // Replaces a hard waitForTimeout(1500) — deterministic and ~3x faster on CI.
+    await page.waitForResponse(
+      res => res.url().includes('/api/v1/workflow/ops') && res.request().method() === 'POST',
+      { timeout: 5000 }
+    );
 
     // Back to list
     await page.click('#fill-back');
@@ -560,7 +565,12 @@ test.describe('Persistence', () => {
     await page.click('[data-action="set-yes"]');
     const yesBtn = page.locator('[data-action="set-yes"]');
     await expect(yesBtn).toHaveClass(/on/, { timeout: 5000 });
-    await page.waitForTimeout(1500);
+    // Wait for autosave POST to complete (400ms debounce + network roundtrip).
+    // Replaces a hard waitForTimeout(1500) — deterministic and ~3x faster on CI.
+    await page.waitForResponse(
+      res => res.url().includes('/api/v1/workflow/ops') && res.request().method() === 'POST',
+      { timeout: 5000 }
+    );
 
     // Back to list and reopen
     await page.click('#fill-back');
@@ -604,7 +614,12 @@ test.describe('Persistence', () => {
     const textarea = page.locator('.fill-textarea').first();
     await textarea.fill('hello world');
     await textarea.blur();
-    await page.waitForTimeout(1500);
+    // Wait for autosave POST to complete (400ms debounce + network roundtrip).
+    // Replaces a hard waitForTimeout(1500) — deterministic and ~3x faster on CI.
+    await page.waitForResponse(
+      res => res.url().includes('/api/v1/workflow/ops') && res.request().method() === 'POST',
+      { timeout: 5000 }
+    );
 
     // Back and reopen
     await page.click('#fill-back');
@@ -642,7 +657,12 @@ test.describe('Persistence', () => {
     const textarea = page.locator('.fill-textarea').first();
     await textarea.fill('She said "hello" to me');
     await textarea.blur();
-    await page.waitForTimeout(1500);
+    // Wait for autosave POST to complete (400ms debounce + network roundtrip).
+    // Replaces a hard waitForTimeout(1500) — deterministic and ~3x faster on CI.
+    await page.waitForResponse(
+      res => res.url().includes('/api/v1/workflow/ops') && res.request().method() === 'POST',
+      { timeout: 5000 }
+    );
 
     // Back and reopen
     await page.click('#fill-back');
@@ -682,7 +702,12 @@ test.describe('Persistence', () => {
     const tempInput = page.locator('input[type="number"]').first();
     await tempInput.fill('375');
     await tempInput.dispatchEvent('change');
-    await page.waitForTimeout(1500);
+    // Wait for autosave POST to complete (400ms debounce + network roundtrip).
+    // Replaces a hard waitForTimeout(1500) — deterministic and ~3x faster on CI.
+    await page.waitForResponse(
+      res => res.url().includes('/api/v1/workflow/ops') && res.request().method() === 'POST',
+      { timeout: 5000 }
+    );
 
     // Back to list
     await page.locator('#fill-back').scrollIntoViewIfNeeded();
@@ -734,7 +759,12 @@ test.describe('Persistence', () => {
     await expect(subStepBtn).toBeVisible({ timeout: 5000 });
     await subStepBtn.click();
     await expect(subStepBtn).toHaveClass(/done/, { timeout: 5000 });
-    await page.waitForTimeout(1500);
+    // Wait for autosave POST to complete (400ms debounce + network roundtrip).
+    // Replaces a hard waitForTimeout(1500) — deterministic and ~3x faster on CI.
+    await page.waitForResponse(
+      res => res.url().includes('/api/v1/workflow/ops') && res.request().method() === 'POST',
+      { timeout: 5000 }
+    );
 
     // Back to list
     await page.locator('#fill-back').scrollIntoViewIfNeeded();
@@ -800,7 +830,12 @@ test.describe('Persistence', () => {
 
     // Select severity (Minor)
     await page.click('[data-action="set-severity"][data-severity="minor"]');
-    await page.waitForTimeout(1500);
+    // Wait for autosave POST to complete (400ms debounce + network roundtrip).
+    // Replaces a hard waitForTimeout(1500) — deterministic and ~3x faster on CI.
+    await page.waitForResponse(
+      res => res.url().includes('/api/v1/workflow/ops') && res.request().method() === 'POST',
+      { timeout: 5000 }
+    );
 
     // Back to list — scroll to top first to ensure back button is visible
     await page.locator('#fill-back').scrollIntoViewIfNeeded();

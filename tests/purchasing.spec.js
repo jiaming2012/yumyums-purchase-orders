@@ -24,18 +24,27 @@ async function poApiCall(page, method, path, body) {
   }, [method, path, body]);
 }
 
-// seedShoppingList: ensure an active shopping list exists (approve existing locked PO or create new one)
+// seedShoppingList: idempotent. Returns an existing active shopping list if one
+// exists; otherwise approves a locked PO (or creates → cutoffs → approves a
+// fresh one) and returns the resulting active list. Safe to call from every
+// test that needs a list — turns 26 conditional test.skip()s in this file
+// into real coverage (B-5).
 async function seedShoppingList(page) {
-  // Check if there's already a locked PO waiting for approval
+  // Already have an active list with items? Return it.
+  const existing = await poApiCall(page, 'GET', 'shopping/active').catch(() => null);
+  if (existing && existing.vendor_sections && existing.vendor_sections.length > 0) {
+    return existing;
+  }
+
+  // Approve a locked PO if one is waiting.
   let locked = await poApiCall(page, 'GET', 'orders?status=locked').catch(() => null);
   if (locked && locked.id) {
-    // Approve the existing locked PO
     await poApiCall(page, 'POST', 'orders/' + locked.id + '/approve');
     const active = await poApiCall(page, 'GET', 'shopping/active').catch(() => null);
     if (active && active.vendor_sections && active.vendor_sections.length > 0) return active;
   }
 
-  // Create a new draft PO with catalog items
+  // Otherwise create from scratch: draft → add items → cutoff → approve.
   const order = await page.evaluate(async () => {
     const res = await fetch('/api/v1/purchasing/orders', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
     return res.json();
@@ -119,20 +128,8 @@ test.describe('Shopping tab', () => {
   });
 
   test('shopping item check-off survives page reload', async ({ page }) => {
-    // Ensure there is an active shopping list
-    let shoppingList;
-    try {
-      shoppingList = await poApiCall(page, 'GET', 'shopping/active');
-    } catch(e) {
-      test.skip(!shoppingList, 'No active shopping list — skipping persistence test');
-      return;
-    }
-    if (!shoppingList || !shoppingList.vendor_sections || shoppingList.vendor_sections.length === 0) {
-      test.skip(true, 'No active shopping list with items');
-      return;
-    }
+    const shoppingList = await seedShoppingList(page);
     const firstItem = shoppingList.vendor_sections[0].items[0];
-    if (!firstItem) { test.skip(true, 'No items in shopping list'); return; }
 
     await page.click('#t2');
     await waitForShoppingContent(page);
@@ -158,18 +155,10 @@ test.describe('Shopping tab', () => {
   });
 
   test('vendor section completion persists after reload', async ({ page }) => {
-    let shoppingList;
-    try {
-      shoppingList = await poApiCall(page, 'GET', 'shopping/active');
-    } catch(e) { test.skip(true, 'No active shopping list'); return; }
-    if (!shoppingList || !shoppingList.vendor_sections || shoppingList.vendor_sections.length === 0) {
-      test.skip(true, 'No vendor sections');
-      return;
-    }
-
-    // Find a pending vendor section
+    const shoppingList = await seedShoppingList(page);
+    // Find a pending vendor section (seedShoppingList always produces at least one).
     const pendingSec = shoppingList.vendor_sections.find(s => s.status === 'pending');
-    if (!pendingSec) { test.skip(true, 'No pending vendor sections'); return; }
+    if (!pendingSec) { test.skip(true, 'Seeded list has no pending sections — unexpected state'); return; }
 
     // Check off all items in the section via API
     for (const item of pendingSec.items || []) {
@@ -207,16 +196,8 @@ test.describe('Shopping tab', () => {
   });
 
   test('store location edit persists after reload', async ({ page }) => {
-    let shoppingList;
-    try {
-      shoppingList = await poApiCall(page, 'GET', 'shopping/active');
-    } catch(e) { test.skip(true, 'No active shopping list'); return; }
-    if (!shoppingList || !shoppingList.vendor_sections || shoppingList.vendor_sections.length === 0) {
-      test.skip(true, 'No items');
-      return;
-    }
-    const firstItem = shoppingList.vendor_sections[0].items && shoppingList.vendor_sections[0].items[0];
-    if (!firstItem) { test.skip(true, 'No items'); return; }
+    const shoppingList = await seedShoppingList(page);
+    const firstItem = shoppingList.vendor_sections[0].items[0];
 
     await page.click('#t2');
     await waitForShoppingContent(page);
@@ -247,16 +228,8 @@ test.describe('Shopping tab', () => {
   });
 
   test('shopping aisle location does not overwrite catalog store_location', async ({ page }) => {
-    let shoppingList;
-    try {
-      shoppingList = await poApiCall(page, 'GET', 'shopping/active');
-    } catch(e) { test.skip(true, 'No active shopping list'); return; }
-    if (!shoppingList || !shoppingList.vendor_sections || shoppingList.vendor_sections.length === 0) {
-      test.skip(true, 'No items');
-      return;
-    }
-    const firstItem = shoppingList.vendor_sections[0].items && shoppingList.vendor_sections[0].items[0];
-    if (!firstItem) { test.skip(true, 'No items'); return; }
+    const shoppingList = await seedShoppingList(page);
+    const firstItem = shoppingList.vendor_sections[0].items[0];
 
     // Get the catalog item's current store_location via inventory API
     const catalogBefore = await page.evaluate(async (pid) => {
@@ -281,16 +254,9 @@ test.describe('Shopping tab', () => {
   });
 
   test('toast appears when checking item without photo', async ({ page }) => {
-    let shoppingList;
-    try {
-      shoppingList = await poApiCall(page, 'GET', 'shopping/active');
-    } catch(e) { test.skip(true, 'No active shopping list'); return; }
-    if (!shoppingList || !shoppingList.vendor_sections || shoppingList.vendor_sections.length === 0) {
-      test.skip(true, 'No items');
-      return;
-    }
+    const shoppingList = await seedShoppingList(page);
 
-    // Find an unchecked item without a photo
+    // Find an unchecked item without a photo (seeded items start unchecked + photoless).
     let targetItem = null;
     for (const sec of shoppingList.vendor_sections) {
       for (const item of (sec.items || [])) {
@@ -298,7 +264,7 @@ test.describe('Shopping tab', () => {
       }
       if (targetItem) break;
     }
-    if (!targetItem) { test.skip(true, 'No unchecked items without photo'); return; }
+    if (!targetItem) { test.skip(true, 'Seeded list has no unchecked photoless items — unexpected state'); return; }
 
     await page.click('#t2');
     await waitForShoppingContent(page);

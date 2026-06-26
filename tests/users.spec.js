@@ -95,7 +95,9 @@ test.describe('Invite Flow', () => {
     await page.fill('#f-first', 'Tester');
     await page.fill('#f-last', 'McTest');
     await page.fill('#f-email', email);
-    await page.selectOption('#f-role', 'team_member');
+    // Roles: team_member chip is "on" by default in the invite form
+    // (users.html:233). No interaction needed unless changing roles.
+    await expect(page.locator('#f-roles .role-chip[data-role="team_member"]')).toHaveClass(/on/);
 
     // Submit
     await page.click('[data-action="submit-invite"]');
@@ -151,7 +153,7 @@ test.describe('Accept Invite Flow', () => {
       first_name: 'Welcome',
       last_name: 'Test',
       email: `welcome.test.${Date.now()}@yumyums.kitchen`,
-      role: 'team_member',
+      roles: ['team_member'],
     });
     expect(result.invite_path).toBeTruthy();
     const invitePath = result.invite_path; // e.g. /login.html?token=...
@@ -179,7 +181,7 @@ test.describe('Accept Invite Flow', () => {
       first_name: 'Accept',
       last_name: 'Flow',
       email,
-      role: 'team_member',
+      roles: ['team_member'],
     });
     expect(result.invite_path).toBeTruthy();
 
@@ -223,7 +225,7 @@ test.describe('Edit User', () => {
       first_name: 'EditMe',
       last_name: 'Please',
       email: `edit.me.${ts}@yumyums.kitchen`,
-      role: 'team_member',
+      roles: ['team_member'],
     });
     expect(inviteResult.user).toBeTruthy();
     const userId = inviteResult.user.id;
@@ -257,13 +259,13 @@ test.describe('Edit User', () => {
       first_name: 'NickOne',
       last_name: 'Test',
       email: `nick1.${ts}@yumyums.kitchen`,
-      role: 'team_member',
+      roles: ['team_member'],
     });
     const user2 = await usersApiCall(page, 'POST', 'invite', {
       first_name: 'NickTwo',
       last_name: 'Test',
       email: `nick2.${ts}@yumyums.kitchen`,
-      role: 'team_member',
+      roles: ['team_member'],
     });
     expect(user1.user).toBeTruthy();
     expect(user2.user).toBeTruthy();
@@ -273,7 +275,7 @@ test.describe('Edit User', () => {
       await fetch(`/api/v1/users/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ first_name: 'NickOne', last_name: 'Test', nickname: 'UniqueName', role: 'team_member' }),
+        body: JSON.stringify({ first_name: 'NickOne', last_name: 'Test', nickname: 'UniqueName', roles: ['team_member'] }),
       });
     }, [user1.user.id]);
 
@@ -308,7 +310,7 @@ test.describe('Destructive Actions', () => {
       first_name: 'ForceOut',
       last_name: 'User',
       email: `force.out.${ts}@yumyums.kitchen`,
-      role: 'team_member',
+      roles: ['team_member'],
     });
     expect(inviteResult.user).toBeTruthy();
     const userId = inviteResult.user.id;
@@ -341,7 +343,7 @@ test.describe('Destructive Actions', () => {
       first_name: uniqueName,
       last_name: 'User',
       email: `delete.me.${ts}@yumyums.kitchen`,
-      role: 'team_member',
+      roles: ['team_member'],
     });
     expect(inviteResult.user).toBeTruthy();
     const userId = inviteResult.user.id;
@@ -381,7 +383,7 @@ test.describe('Password Reset', () => {
       first_name: 'ResetPw',
       last_name: 'User',
       email: `reset.pw.${ts}@yumyums.kitchen`,
-      role: 'team_member',
+      roles: ['team_member'],
     });
     expect(inviteResult.user).toBeTruthy();
     const userId = inviteResult.user.id;

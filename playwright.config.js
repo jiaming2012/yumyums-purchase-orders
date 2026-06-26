@@ -22,7 +22,10 @@ module.exports = defineConfig({
     serviceWorkers: 'block',
   },
   webServer: {
-    command: `cd backend && PORT=8089 DB_URL="${testDbUrl}" STATIC_DIR=../ SUPERADMIN_CONFIG=config/superadmins.yaml go run ./cmd/server/`,
+    // TOAST_SYNC_INTERVAL=0 disables the Toast in-process worker so the
+    // server starts without TOAST_SFTP_KEY_PATH credentials. The Toast
+    // worker is not exercised by E2E tests; cmd/sync-toast covers ingest.
+    command: `cd backend && PORT=8089 DB_URL="${testDbUrl}" STATIC_DIR=../ SUPERADMIN_CONFIG=config/superadmins.yaml TOAST_SYNC_INTERVAL=0 go run ./cmd/server/`,
     url: 'http://localhost:8089/api/v1/health',
     reuseExistingServer: !process.env.CI,
     timeout: 60000,

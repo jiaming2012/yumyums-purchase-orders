@@ -640,7 +640,10 @@ test.describe('Inventory', () => {
   // ── Back link and PWA boilerplate ────────────────────────────────────────
 
   test('back link navigates to HQ', async ({ page }) => {
-    const backLink = page.locator('a.back');
+    // The Setup tab contains a second a.back cross-linking to purchasing.html
+    // (line 285 of inventory.html). Scope to the page-level back link via the
+    // href to avoid strict-mode locator violations.
+    const backLink = page.locator('a.back[href="index.html"]');
     await expect(backLink).toBeVisible();
     await expect(backLink).toHaveAttribute('href', 'index.html');
   });
