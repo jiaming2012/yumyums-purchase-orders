@@ -10,13 +10,16 @@ import (
 )
 
 // setupTestDB connects to hq_test and TRUNCATES the recipes-relevant fixture tables
-// so each test starts clean. Mirrors the connection idiom in
-// backend/internal/inventory/period_summary_test.go.
+// so each test starts clean. Mirrors the TestMain-based connection idiom in
+// backend/internal/receipt/worker_test.go: any connect/ping failure causes the
+// test to t.Skip rather than t.Fatalf, so a missing or unreachable DB doesn't
+// register as a regression.
 //
-// Required env (checked in order): DB_TEST_URL, TEST_DATABASE_URL, DATABASE_URL.
-// The project's existing Taskfile sets DB_TEST_URL; the alternates are tolerated
-// for CI environments that use the more conventional names. Tests t.Skip()
-// when none is set.
+// Required env (checked in order): DB_TEST_URL, TEST_DATABASE_URL. The
+// project's Taskfile sets DB_TEST_URL; the alternate is tolerated for CI
+// environments using the more conventional name. DATABASE_URL is intentionally
+// NOT consulted — it's overloaded for live-dev connections in many shells and
+// pointing tests at the wrong DB has bitten the suite before.
 func setupTestDB(t *testing.T) *pgxpool.Pool {
 	t.Helper()
 	dbURL := os.Getenv("DB_TEST_URL")
@@ -24,22 +27,25 @@ func setupTestDB(t *testing.T) *pgxpool.Pool {
 		dbURL = os.Getenv("TEST_DATABASE_URL")
 	}
 	if dbURL == "" {
-		dbURL = os.Getenv("DATABASE_URL")
+		t.Skip("DB_TEST_URL / TEST_DATABASE_URL not set — skipping integration test")
 	}
-	if dbURL == "" {
-		t.Skip("DB_TEST_URL / TEST_DATABASE_URL / DATABASE_URL not set — skipping integration test")
-	}
-	pool, err := pgxpool.New(context.Background(), dbURL)
+	ctx := context.Background()
+	pool, err := pgxpool.New(ctx, dbURL)
 	if err != nil {
-		t.Fatalf("setupTestDB: %v", err)
+		t.Skipf("DB_TEST_URL not reachable (connect failed): %v", err)
+	}
+	if err := pool.Ping(ctx); err != nil {
+		pool.Close()
+		t.Skipf("DB_TEST_URL not reachable (ping failed): %v", err)
 	}
 	// Truncate in dependency order. CASCADE handles recipes/drift_check_results cleanup.
-	_, err = pool.Exec(context.Background(),
+	_, err = pool.Exec(ctx,
 		`TRUNCATE drift_check_results, recipes, daily_menu_sales,
 		          purchase_line_items, purchase_events, menu_items, purchase_items
 		 RESTART IDENTITY CASCADE`,
 	)
 	if err != nil {
+		pool.Close()
 		t.Fatalf("setupTestDB truncate: %v", err)
 	}
 	t.Cleanup(func() { pool.Close() })
