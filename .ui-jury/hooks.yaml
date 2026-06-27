@@ -1,0 +1,13 @@
+# .ui-jury/hooks.yaml — ui-jury hook configuration for hq
+#
+# db_reset is required by the v1 schema. db_reset_timeout defaults to 60s.
+# db_seed is omitted because hq's v1 ui-jury run uses a single default fixture
+# (no per-fixture divergent data yet). Add a `db_seed:` map when a state needs
+# something the default post-reset DB doesn't provide.
+#
+# The script is invoked by the /ui-jury orchestrator as:
+#   bash -- ./scripts/ui-jury/db-reset.sh
+# with cwd = repo root. See docs/db-reset-contract.md in the ui-jury repo for
+# the full contract (no args, no env, idempotent, exit 0 = success).
+
+db_reset: ./scripts/ui-jury/db-reset.sh

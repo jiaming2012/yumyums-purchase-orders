@@ -1,0 +1,78 @@
+# routes.yaml — ui-jury route declarations for hq
+#
+# Smoke command (after running `task backend:dev:log` in another terminal):
+#   /ui-jury http://localhost:8484 --backend-log-path /tmp/hq-server-8484.log
+#
+# See docs/ui-jury.md for the full setup checklist (password placeholder, etc.).
+# Schema reference: ui-jury/schema/routes.schema.json (v1).
+
+version: 1
+
+# 393×852 = iPhone 14 viewport. Matches hq's max-width 480px PWA shell
+# and the ui-jury mobile critic's lens (393×852 mobile-viewport).
+viewport:
+  width: 393
+  height: 852
+
+# Top-level setup runs once before the route loop and on every browser-context
+# recycle. Authenticates so /users.html, /workflows.html, /inventory.html etc.
+# are reachable without redirecting back to /login.html.
+#
+# PRE-RUN: replace <FILL-IN-BEFORE-RUNNING> below with a real test-account
+# password. ui-jury v1 routes.yaml does NOT support env-var substitution in
+# `value`, so the placeholder is a literal string. Committing a real password
+# here is a footgun; the placeholder makes the setup fail loudly if you forget.
+setup:
+  description: Sign in via login.html so authenticated pages render without redirecting.
+  url: /login.html
+  steps:
+    - action: fill
+      locator: { role: textbox, name: "you@yumyums.com" }
+      value: "jamal@yumyums.kitchen"
+    - action: fill
+      locator: { role: textbox, name: "Password" }
+      value: "<FILL-IN-BEFORE-RUNNING>"
+    - action: click
+      locator: { role: button, name: "Sign In" }
+
+routes:
+  # Launcher grid — the home screen tile of the PWA.
+  - path: /index.html
+    states:
+      - name: at-rest
+
+  # 3-tab layout. Default tab on load is "My Checklists".
+  - path: /workflows.html
+    states:
+      - name: at-rest
+
+  # 7-tab layout. Default tab on load is "Purchases" (receipt pending review queue).
+  - path: /inventory.html
+    states:
+      - name: at-rest
+
+  - path: /onboarding.html
+    states:
+      - name: at-rest
+
+  # Auth required. Covered by top-level setup.
+  - path: /users.html
+    states:
+      - name: at-rest
+
+  # Mockup page — included so the mobile critic flags any layout regressions.
+  - path: /purchasing.html
+    states:
+      - name: at-rest
+
+  # CAVEAT: per-route setup in v1 schema is ADDITIVE to top-level setup
+  # (Driver applies route-setup AFTER top-level-setup). It is NOT an override.
+  # So once top-level setup has logged us in, navigating to /login.html shows
+  # the post-login redirect target (likely the launcher), not the logged-out
+  # login form. To capture the logged-out state, run /ui-jury with the password
+  # placeholder above UNFILLED — top-level setup will fail and the Driver will
+  # capture login.html as-is. This will also cause the other routes to fail
+  # auth, so do it as a separate run.
+  - path: /login.html
+    states:
+      - name: at-rest
