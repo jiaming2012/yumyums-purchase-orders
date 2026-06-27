@@ -8,3 +8,7 @@ playwright-report/
 
 # Notion export source files (one-time import)
 notion-export/
+
+# ui-jury: rendered routes.yaml (built from routes.template.yaml) + secret env
+/routes.yaml
+/.ui-jury/.env

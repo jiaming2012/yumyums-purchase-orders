@@ -1,9 +1,15 @@
-# routes.yaml — ui-jury route declarations for hq
+# routes.template.yaml — ui-jury route declarations for hq (TEMPLATE)
 #
-# Smoke command (after running `task backend:dev:log` in another terminal):
+# Source of truth. Rendered → routes.yaml (gitignored) by:
+#   ./scripts/ui-jury/render-routes.sh
+#
+# The renderer reads HQ_TEST_PASSWORD from .ui-jury/.env (gitignored;
+# copy from .ui-jury/.env.example to get started) and substitutes it
+# into the placeholder on the password `value:` line below. After
+# rendering, run:
 #   /ui-jury http://localhost:8484 --backend-log-path /tmp/hq-server-8484.log
 #
-# See docs/ui-jury.md for the full setup checklist (password placeholder, etc.).
+# See docs/ui-jury.md for the full workflow.
 # Schema reference: ui-jury/schema/routes.schema.json (v1).
 
 version: 1
@@ -18,10 +24,10 @@ viewport:
 # recycle. Authenticates so /users.html, /workflows.html, /inventory.html etc.
 # are reachable without redirecting back to /login.html.
 #
-# PRE-RUN: replace <FILL-IN-BEFORE-RUNNING> below with a real test-account
-# password. ui-jury v1 routes.yaml does NOT support env-var substitution in
-# `value`, so the placeholder is a literal string. Committing a real password
-# here is a footgun; the placeholder makes the setup fail loudly if you forget.
+# The placeholder on the password line below is replaced at render time
+# from .ui-jury/.env before /ui-jury reads routes.yaml.
+# ui-jury itself does NOT expand env vars in `value`, so the substitution
+# MUST happen at render time (not at run time).
 setup:
   description: Sign in via login.html so authenticated pages render without redirecting.
   url: /login.html
@@ -31,7 +37,7 @@ setup:
       value: "jamal@yumyums.kitchen"
     - action: fill
       locator: { role: textbox, name: "Password" }
-      value: "<FILL-IN-BEFORE-RUNNING>"
+      value: "${HQ_TEST_PASSWORD}"
     - action: click
       locator: { role: button, name: "Sign In" }
 
