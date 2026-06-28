@@ -1,12 +1,11 @@
-# routes.template.yaml — ui-jury route declarations for hq (TEMPLATE)
+# .ui-jury/routes.template.yaml — ui-jury route declarations for hq (TEMPLATE)
 #
-# Source of truth. Rendered → routes.yaml (gitignored) by:
-#   ./scripts/ui-jury/render-routes.sh
+# Source of truth. Rendered → ./routes.yaml at repo root (gitignored) by:
+#   ./.ui-jury/scripts/render-routes.sh
 #
-# The renderer reads HQ_TEST_PASSWORD from .ui-jury/.env (gitignored;
-# copy from .ui-jury/.env.example to get started) and substitutes it
-# into the placeholder on the password `value:` line below. After
-# rendering, run:
+# The renderer reads variables declared in .ui-jury/.env (gitignored;
+# copy from .ui-jury/.env.example to get started) and substitutes every
+# ${VAR} placeholder whose VAR is declared in .env. After rendering, run:
 #   /ui-jury http://localhost:8484 --backend-log-path /tmp/hq-server-8484.log
 #
 # See docs/ui-jury.md for the full workflow.

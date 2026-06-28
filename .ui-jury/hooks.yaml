@@ -6,8 +6,8 @@
 # something the default post-reset DB doesn't provide.
 #
 # The script is invoked by the /ui-jury orchestrator as:
-#   bash -- ./scripts/ui-jury/db-reset.sh
+#   bash -- ./.ui-jury/scripts/db-reset.sh
 # with cwd = repo root. See docs/db-reset-contract.md in the ui-jury repo for
 # the full contract (no args, no env, idempotent, exit 0 = success).
 
-db_reset: ./scripts/ui-jury/db-reset.sh
+db_reset: ./.ui-jury/scripts/db-reset.sh
