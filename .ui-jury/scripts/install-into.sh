@@ -12,11 +12,14 @@
 #   .ui-jury/scripts/db-reset.sh        (no-op stub — customize for your DB)
 #   .ui-jury/routes.template.yaml       (starter template, single at-rest route)
 #   .ui-jury/.env.example               (starter — declares EXAMPLE_VAR)
+#   .ui-jury/.env                       (EMPTY — sits next to .env.example as
+#                                        the obvious "put your passwords here"
+#                                        file. Gitignored.)
 #   .ui-jury/hooks.yaml                 (declares db_reset path)
 #   .gitignore                          (appends /routes.yaml + /.ui-jury/.env)
 #
 # After install, in TARGET:
-#   1. cp .ui-jury/.env.example .ui-jury/.env  → edit the values
+#   1. edit .ui-jury/.env → paste VAR= lines from .env.example, fill in values
 #   2. edit .ui-jury/routes.template.yaml → declare your routes
 #   3. edit .ui-jury/scripts/db-reset.sh → wire to your real reset command
 #   4. ./.ui-jury/scripts/render-routes.sh
@@ -89,12 +92,7 @@ BODY
 # --- 3. Generate starter .env.example -----------------------------------
 DEST="$TARGET/.ui-jury/.env.example"
 write_if_absent "$DEST" <<'BODY'
-# .ui-jury/.env.example — copy to .ui-jury/.env and fill in real values.
-#
-#   cp .ui-jury/.env.example .ui-jury/.env
-#   # then edit .ui-jury/.env
-#
-# .ui-jury/.env is gitignored — DO NOT commit it.
+# .ui-jury/.env.example — reference for .ui-jury/.env (gitignored).
 #
 # Every VAR=value line below is auto-discovered by render-routes.sh and
 # becomes substitutable in routes.template.yaml as ${VAR}. Add your own
@@ -103,6 +101,18 @@ write_if_absent "$DEST" <<'BODY'
 
 EXAMPLE_VAR=
 BODY
+
+# --- 3b. Create empty .env so the user has an obvious "fill me in" file -
+# Side-by-side with .env.example so a casual ls .ui-jury/ shows both files.
+# Truly empty — render-routes.sh will exit with "no variable assignments"
+# until the user populates it from .env.example. That error IS the signal.
+DEST="$TARGET/.ui-jury/.env"
+if [ -e "$DEST" ]; then
+  echo "[skip] $DEST already exists"
+else
+  : > "$DEST"
+  echo "[ok]   $DEST  (empty — copy/paste lines from .env.example and fill in values)"
+fi
 
 # --- 4. Generate starter routes.template.yaml ---------------------------
 DEST="$TARGET/.ui-jury/routes.template.yaml"
@@ -184,10 +194,9 @@ cat <<NEXT
 [install-ui-jury] Done.
 
 Next steps in $TARGET:
-  1. cp .ui-jury/.env.example .ui-jury/.env
-  2. Edit .ui-jury/.env with your real values
-  3. Edit .ui-jury/routes.template.yaml — declare your routes + states
-  4. Edit .ui-jury/scripts/db-reset.sh — wire to your real DB reset command
-  5. ./.ui-jury/scripts/render-routes.sh
-  6. /ui-jury <dev-url> --backend-log-path <path>
+  1. Edit .ui-jury/.env — paste VAR= lines from .env.example, fill in values
+  2. Edit .ui-jury/routes.template.yaml — declare your routes + states
+  3. Edit .ui-jury/scripts/db-reset.sh — wire to your real DB reset command
+  4. ./.ui-jury/scripts/render-routes.sh
+  5. /ui-jury <dev-url> --backend-log-path <path>
 NEXT

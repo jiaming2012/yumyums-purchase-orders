@@ -75,7 +75,12 @@ with open(env_file) as f:
             declared.append(m.group(1))
 
 if not declared:
-    sys.stderr.write(f"ERROR: {env_file} has no variable assignments\n")
+    sys.stderr.write(
+        f"ERROR: {env_file} has no variable assignments.\n"
+        f"\n"
+        f"Add VAR=value lines — see .ui-jury/.env.example for the variables\n"
+        f"this project's routes.template.yaml expects.\n"
+    )
     sys.exit(1)
 
 # Every declared var must resolve to a non-empty value once .env is sourced.
