@@ -50,14 +50,26 @@ If you want a fully empty DB instead, point `db_reset` at a script that calls `t
 
 ## Reusing this layout in another project
 
-`.ui-jury/scripts/render-routes.sh` is project-agnostic — it auto-discovers variable names from `.env`. To reuse:
+`.ui-jury/scripts/render-routes.sh` is project-agnostic — it auto-discovers variable names from `.env`. To bootstrap a new project, run the installer with the target dir as its arg:
 
-1. Copy `.ui-jury/scripts/render-routes.sh` into the other project's `.ui-jury/scripts/`.
-2. Create `.ui-jury/.env.example` declaring your own variables (any names).
-3. Create `.ui-jury/routes.template.yaml` and reference your variables as `${YOUR_VAR}`.
-4. Add `/routes.yaml` and `/.ui-jury/.env` to that project's `.gitignore`.
+```sh
+# from this repo
+./.ui-jury/scripts/install-into.sh ../other-project
 
-No script edits needed — drop-in.
+# or, from inside the target project
+bash /Users/jamal/projects/yumyums/hq/.ui-jury/scripts/install-into.sh
+```
+
+The installer is idempotent — existing files are reported as `[skip]` and never overwritten. It creates:
+
+- `.ui-jury/scripts/render-routes.sh` (verbatim copy)
+- `.ui-jury/scripts/db-reset.sh` (no-op stub — customize for the target's DB)
+- `.ui-jury/routes.template.yaml` (single `at-rest` route at `/`, viewport 393×852, commented-out auth setup)
+- `.ui-jury/.env.example` (declares `EXAMPLE_VAR`)
+- `.ui-jury/hooks.yaml` (declares `db_reset` path)
+- `.gitignore` entries for `/routes.yaml` and `/.ui-jury/.env` (appended only if missing)
+
+After install, edit the four files marked in the installer's "Next steps" output, then `render-routes.sh` and `/ui-jury`.
 
 ## Known caveats (v1)
 
