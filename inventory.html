@@ -46,6 +46,8 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .sync-chip.err{color:var(--warn-tx);background:var(--warn-bg)}
 .sync-chip-dismiss{background:none;border:none;color:inherit;cursor:pointer;font-size:18px;line-height:1;padding:0 4px;min-width:24px;min-height:24px}
 .approval-badge{font-size:11px;font-weight:600;padding:3px 8px;border-radius:6px;background:var(--warn-bg);color:var(--warn-tx);white-space:nowrap}
+.approval-badge.missing{background:#fee2e2;color:#991b1b}
+@media(prefers-color-scheme:dark){.approval-badge.missing{background:#7f1d1d;color:#fca5a5}}
 .review-form{background:var(--card);border:0.5px solid var(--warn-tx);border-radius:12px;padding:16px;margin-bottom:8px}
 .review-form-title{font-size:14px;font-weight:600;color:var(--txt);margin-bottom:12px}
 .field-group{margin-bottom:12px}
@@ -623,7 +625,11 @@ function renderPendingCard(p){
     return renderReviewForm(p);
   }
   var vendorDisplay=titleCase(p.vendor||p.vendor_name||'Unknown Vendor');
-  var reasonHtml=p.reason?'&nbsp;&middot;&nbsp;'+escHtml(p.reason).replace(/\(diff (\$[\d.]+)\)/,'(<span style="color:var(--warn-tx);font-weight:600">diff $1</span>)'):'';
+  // 260630-mav: no-attachment pending rows render a red "Missing Receipt" badge
+  // and suppress the raw `no_attachment_on_bank_tx` sentinel from the meta row.
+  var isNoAttachment=p.reason==='no_attachment_on_bank_tx';
+  var reasonHtml=(p.reason && !isNoAttachment)?'&nbsp;&middot;&nbsp;'+escHtml(p.reason).replace(/\(diff (\$[\d.]+)\)/,'(<span style="color:var(--warn-tx);font-weight:600">diff $1</span>)'):'';
+  var pendingBadgeHtml=isNoAttachment?'<span class="approval-badge missing">Missing Receipt</span>':'<span class="approval-badge">Needs Review</span>';
   // Phase 260607-e1c: surface the actual parser error (haiku+sonnet concat)
   // on the pending card so the owner can see WHY parsing failed instead of
   // a generic "Receipt could not be parsed automatically" line.
@@ -656,7 +662,7 @@ function renderPendingCard(p){
   if(showRetry){
     parseErrHtml+='<button class="retry-parse-btn" data-action="retry-parse" data-id="'+p.id+'" data-mismatch="'+(itemsMismatch && !hasParseError?'1':'0')+'">Retry parse</button>';
   }
-  return '<div class="event-card" data-action="review-pending" data-id="'+p.id+'" style="position:relative;padding-right:110px"><div style="position:absolute;top:12px;right:12px"><span class="approval-badge">Needs Review</span></div><div class="event-vendor">'+vendorDisplay+'</div><div class="event-meta">'+formatDate(p.event_date)+reasonHtml+'</div>'+parseErrHtml+'<div class="event-total" style="margin-top:4px">$'+Number(p.bank_total||p.total||0).toFixed(2)+'</div></div>';
+  return '<div class="event-card" data-action="review-pending" data-id="'+p.id+'" style="position:relative;padding-right:110px"><div style="position:absolute;top:12px;right:12px">'+pendingBadgeHtml+'</div><div class="event-vendor">'+vendorDisplay+'</div><div class="event-meta">'+formatDate(p.event_date)+reasonHtml+'</div>'+parseErrHtml+'<div class="event-total" style="margin-top:4px">$'+Number(p.bank_total||p.total||0).toFixed(2)+'</div></div>';
 }
 
 function renderReviewForm(p){
