@@ -513,7 +513,7 @@ func main() {
 				r.Post("/sync-receipts", inventory.SyncReceiptsHandler(pool, func(ctx context.Context) (receipt.IngestResult, error) {
 					return receipt.RunIngestCycle(ctx, receiptCfg)
 				}))
-				r.Get("/sync-receipts/status", inventory.SyncReceiptsStatusHandler(pool))
+				r.Get("/sync-receipts/status", inventory.SyncReceiptsStatusHandler(pool, receiptCfg.LookbackDays))
 				r.Post("/purchases/reprocess-all", inventory.ReprocessAllPendingHandler(pool, func(ctx context.Context, rows []receipt.PendingRowForReprocess) (map[string]string, error) {
 					return receipt.BatchReprocessFromSpaces(ctx, receiptCfg, rows)
 				}))

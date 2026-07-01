@@ -15,6 +15,10 @@ import (
 )
 
 // syncRunRow mirrors a row in receipt_sync_runs for JSON marshaling.
+//
+// LookbackDays (260701-a23) is NOT stored in the DB — it's injected from
+// receiptCfg at handler construction so the frontend can compute the
+// "Synced from {Mon DD}" headline (started_at − lookback_days).
 type syncRunRow struct {
 	ID            int64      `json:"id"`
 	StartedAt     time.Time  `json:"started_at"`
@@ -26,6 +30,7 @@ type syncRunRow struct {
 	Cached        int        `json:"cached"`
 	Error         *string    `json:"error"`
 	TriggeredBy   string     `json:"triggered_by"`
+	LookbackDays  int        `json:"lookback_days"`
 }
 
 // IngestRunner is the function the sync handler calls to actually run the
@@ -116,7 +121,11 @@ func runSyncGoroutine(pool *pgxpool.Pool, runner IngestRunner, id int64) {
 // SyncReceiptsStatusHandler returns the latest receipt_sync_runs row as JSON,
 // or `null` (with 200) when the table is empty. The frontend polls this on a
 // 3s timer while the latest row is status='running'.
-func SyncReceiptsStatusHandler(pool *pgxpool.Pool) http.HandlerFunc {
+//
+// lookbackDays is injected into the row's LookbackDays field (not a DB
+// column — see syncRunRow). The frontend uses it to compute the sync-window
+// start date for the "Synced from {Mon DD}" chip copy (260701-a23).
+func SyncReceiptsStatusHandler(pool *pgxpool.Pool, lookbackDays int) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var row syncRunRow
 		err := pool.QueryRow(r.Context(),
@@ -139,6 +148,7 @@ func SyncReceiptsStatusHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
+		row.LookbackDays = lookbackDays
 		writeJSON(w, http.StatusOK, row)
 	}
 }

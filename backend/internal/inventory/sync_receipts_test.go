@@ -11,6 +11,53 @@ import (
 	"github.com/yumyums/hq/internal/receipt"
 )
 
+// TestSyncReceiptsStatus_ReturnsLookbackDays asserts that GET /sync-receipts/status
+// returns the injected lookback_days as an integer in the JSON body. This is a
+// display-only field (not a DB column) — the frontend uses it to compute the
+// sync window start date for the "Synced from {Mon DD}" chip copy (260701-a23).
+func TestSyncReceiptsStatus_ReturnsLookbackDays(t *testing.T) {
+	if testPool == nil {
+		t.Skip("DB_TEST_URL not reachable; skipping integration test")
+	}
+	resetSyncRuns(t)
+
+	// Seed one 'done' row directly — we're testing the status handler, not the
+	// full sync goroutine flow.
+	if _, err := testPool.Exec(t.Context(),
+		`INSERT INTO receipt_sync_runs
+		 (status, triggered_by, started_at, finished_at,
+		  processed, auto_created, pending_review, cached)
+		 VALUES ('done', 'manual', now(), now(), 5, 1, 1, 0)`); err != nil {
+		t.Fatalf("insert seed row: %v", err)
+	}
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/sync-receipts/status", nil)
+	SyncReceiptsStatusHandler(testPool, 14)(rec, req)
+
+	if rec.Code != 200 {
+		t.Fatalf("status handler: code=%d body=%s want 200", rec.Code, rec.Body.String())
+	}
+	var body map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode body: %v (raw=%s)", err, rec.Body.String())
+	}
+	// JSON ints decode into map[string]any as float64.
+	if got := body["lookback_days"]; got != float64(14) {
+		t.Errorf("lookback_days = %v (%T), want 14 (float64)", got, got)
+	}
+	// Regression safety: existing fields still present with expected values.
+	if got := body["triggered_by"]; got != "manual" {
+		t.Errorf("triggered_by = %v, want manual", got)
+	}
+	if got := body["processed"]; got != float64(5) {
+		t.Errorf("processed = %v, want 5", got)
+	}
+	if got := body["status"]; got != "done" {
+		t.Errorf("status = %v, want done", got)
+	}
+}
+
 // resetSyncRuns truncates the receipt_sync_runs table so each test starts
 // from id=1 with no rows.
 func resetSyncRuns(t *testing.T) {
