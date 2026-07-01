@@ -374,17 +374,47 @@ function renderSyncUI(){
   }
   if(s.status==='done'){
     if(SYNC_CHIP_DISMISSED_ID===s.id){chip.style.display='none';return;}
-    var mins=Math.max(0,Math.floor((Date.now()-new Date(s.finished_at||s.started_at).getTime())/60000));
-    var when=mins===0?'just now':(mins+'m ago');
-    // Phase 260607-co0: tail segments only appear when their count > 0.
-    // Format: 'Last synced X — N processed[, M auto-added][, K pending review][, C skipped]'.
-    var parts=[s.processed+' processed'];
-    if(s.auto_created>0)parts.push(s.auto_created+' auto-added');
-    if(s.pending_review>0)parts.push(s.pending_review+' pending review');
-    if(s.cached>0)parts.push(s.cached+' skipped');
+    var parts, headline;
+    // 260701-a23: branch on trigger so the chip says what actually happened.
+    // Manual runs read lookback_days off the row (added in
+    // backend/internal/inventory/sync_receipts.go). Legacy fallback below
+    // keeps the previous "Last synced X" copy so an un-rebuilt backend
+    // never renders "Synced from undefined".
+    if(s.triggered_by==='reprocess_all'){
+      // NOTE: on reprocess_all runs the `cached` column stores the *errored*
+      // count (see reprocess_pending.go ~L189 — semantic column overload).
+      // This branch is the one place we re-label it as "errored"; the column
+      // is not renamed because that would require a migration + backfill.
+      parts=[];
+      if(s.auto_created>0)parts.push(s.auto_created+' auto-added');
+      parts.push(s.pending_review+' still pending');
+      if(s.cached>0)parts.push(s.cached+' errored');
+      headline='Reprocessed '+s.processed+' pending';
+    } else if(typeof s.lookback_days==='number' && s.lookback_days>0){
+      // Manual / unknown trigger with a fresh backend — show the lookback start date.
+      var startMs=new Date(s.started_at).getTime() - s.lookback_days*86400*1000;
+      var d=new Date(startMs);
+      var months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      var fromLabel=months[d.getMonth()]+' '+d.getDate();
+      parts=[s.processed+' checked'];
+      if(s.auto_created>0)parts.push(s.auto_created+' auto-added');
+      if(s.pending_review>0)parts.push(s.pending_review+' pending review');
+      if(s.cached>0)parts.push(s.cached+' skipped');
+      headline='Synced from '+fromLabel;
+    } else {
+      // Legacy fallback — old backend hasn't been rebuilt yet or lookback_days
+      // is missing. Preserve the pre-a23 copy so nothing renders "undefined".
+      var mins=Math.max(0,Math.floor((Date.now()-new Date(s.finished_at||s.started_at).getTime())/60000));
+      var when=mins===0?'just now':(mins+'m ago');
+      parts=[s.processed+' processed'];
+      if(s.auto_created>0)parts.push(s.auto_created+' auto-added');
+      if(s.pending_review>0)parts.push(s.pending_review+' pending review');
+      if(s.cached>0)parts.push(s.cached+' skipped');
+      headline='Last synced '+when;
+    }
     chip.style.display='';
     chip.className='sync-chip ok';
-    chip.innerHTML='<span>Last synced '+when+' — '+parts.join(', ')+'</span>'+
+    chip.innerHTML='<span>'+syncEscapeHTML(headline+' — '+parts.join(', '))+'</span>'+
                   '<button class="sync-chip-dismiss" data-action="dismiss-sync-chip" aria-label="Dismiss">×</button>';
   }
 }

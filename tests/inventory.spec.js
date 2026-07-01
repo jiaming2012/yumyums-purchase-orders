@@ -2906,6 +2906,77 @@ test.describe('Receipt sync button', () => {
     await expect(chip).toContainText('1 pending review');
     await expect(chip).toContainText('5 skipped');
   });
+
+  // 260701-a23: manual trigger with lookback_days renders 'Synced from {Mon DD}'.
+  // Startedat is frozen so the computed lookback date is deterministic. The
+  // FE branch reads new Date(ms).getMonth()/getDate() on the client — CI
+  // browsers run in UTC-adjacent tz so the substring 'Jun 17' is stable.
+  test('manual sync chip shows Synced from {date} using lookback_days', async ({ page }) => {
+    const startedAt = new Date('2026-07-01T12:00:00Z');
+    const lookbackDays = 14;
+    await page.route('**/api/v1/inventory/sync-receipts/status', async route => {
+      await route.fulfill({
+        status: 200, contentType: 'application/json',
+        body: JSON.stringify({
+          id: 100, status: 'done',
+          started_at: startedAt.toISOString(),
+          finished_at: new Date(startedAt.getTime()+60000).toISOString(),
+          processed: 6, auto_created: 2, pending_review: 1, cached: 3,
+          error: null, triggered_by: 'manual', lookback_days: lookbackDays,
+        })
+      });
+    });
+
+    await page.goto('/inventory.html');
+    await page.waitForLoadState('networkidle');
+
+    const chip = page.locator('#sync-receipts-chip');
+    await expect(chip).toBeVisible();
+    // Headline: (Jul 1 UTC − 14 days) → Jun 17.
+    await expect(chip).toContainText('Synced from');
+    await expect(chip).toContainText('Jun 17');
+    // New verb: "checked" (was "processed" pre-a23).
+    await expect(chip).toContainText('6 checked');
+    await expect(chip).toContainText('2 auto-added');
+    await expect(chip).toContainText('1 pending review');
+    await expect(chip).toContainText('3 skipped');
+    // And explicitly NOT the reprocess-branch verbs.
+    await expect(chip).not.toContainText('Reprocessed');
+    await expect(chip).not.toContainText('still pending');
+  });
+
+  // 260701-a23: reprocess_all trigger renders 'Reprocessed N pending — ...'.
+  // On reprocess runs the `cached` column stores the *errored* count (semantic
+  // overload from reprocess_pending.go); the FE re-labels it as 'errored'.
+  test('reprocess_all sync chip shows Reprocessed N pending with correct semantics', async ({ page }) => {
+    await page.route('**/api/v1/inventory/sync-receipts/status', async route => {
+      await route.fulfill({
+        status: 200, contentType: 'application/json',
+        body: JSON.stringify({
+          id: 101, status: 'done',
+          started_at: new Date().toISOString(),
+          finished_at: new Date().toISOString(),
+          processed: 8, auto_created: 5, pending_review: 2, cached: 1,
+          error: null, triggered_by: 'reprocess_all', lookback_days: 14,
+        })
+      });
+    });
+
+    await page.goto('/inventory.html');
+    await page.waitForLoadState('networkidle');
+
+    const chip = page.locator('#sync-receipts-chip');
+    await expect(chip).toBeVisible();
+    await expect(chip).toContainText('Reprocessed 8 pending');
+    await expect(chip).toContainText('5 auto-added');
+    await expect(chip).toContainText('2 still pending');
+    // `cached: 1` renders as 'errored' on this branch.
+    await expect(chip).toContainText('1 errored');
+    // And explicitly NOT the manual-branch verbs.
+    await expect(chip).not.toContainText('Synced from');
+    await expect(chip).not.toContainText('skipped');
+    await expect(chip).not.toContainText('checked');
+  });
 });
 
 // ─── Phase 260607-e1c: parse_error display on pending card ───────────────────
