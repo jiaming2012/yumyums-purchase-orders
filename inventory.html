@@ -684,13 +684,21 @@ function renderPendingCard(p){
   // do NOT introduce a new constant.
   var itemsMismatch=hasItems && Math.abs(pLineTotal-pBankTotal)>0.01;
   var showRetry=hasParseError || itemsMismatch;
+  // Phase 260702-l67: when a retry has just been queued and SYNC_STATE is
+  // running, the row shows a "Reparsing…" pill + disabled button. The
+  // p.retryQueued flag is set in the click handler and is naturally cleared
+  // on the next loadHistory() call (fresh server payload has no such flag).
+  var reparsing=!!(SYNC_STATE && SYNC_STATE.status==='running' && p.retryQueued);
+  if(reparsing){
+    pendingBadgeHtml='<span class="approval-badge">Reparsing…</span>';
+  }
   var parseErrHtml='';
   if(hasParseError){
     var truncated=String(p.parse_error).slice(0,140);
     parseErrHtml='<div class="event-meta" style="font-style:italic;opacity:0.7;margin-top:2px">Parser error: '+escHtml(truncated)+'</div>';
   }
   if(showRetry){
-    parseErrHtml+='<button class="retry-parse-btn" data-action="retry-parse" data-id="'+p.id+'" data-mismatch="'+(itemsMismatch && !hasParseError?'1':'0')+'">Retry parse</button>';
+    parseErrHtml+='<button class="retry-parse-btn" data-action="retry-parse" data-id="'+p.id+'" data-mismatch="'+(itemsMismatch && !hasParseError?'1':'0')+'"'+(reparsing?' disabled':'')+'>'+(reparsing?'Reparsing…':'Retry parse')+'</button>';
   }
   return '<div class="event-card" data-action="review-pending" data-id="'+p.id+'" style="position:relative;padding-right:110px"><div style="position:absolute;top:12px;right:12px">'+pendingBadgeHtml+'</div><div class="event-vendor">'+vendorDisplay+'</div><div class="event-meta">'+formatDate(p.event_date)+reasonHtml+'</div>'+parseErrHtml+'<div class="event-total" style="margin-top:4px">$'+Number(p.bank_total||p.total||0).toFixed(2)+'</div></div>';
 }
@@ -1136,39 +1144,58 @@ document.getElementById('history-list').addEventListener('click',function(e){
   } else if(action==='retry-parse'){
     // Phase 260607-koi: clear parse_error server-side so the next worker
     // sync (260607-fxl parseFailedRetry branch) re-attempts the parse.
-    // The operator triggers Sync Receipts themselves — this endpoint does
-    // NOT kick off a sync. On 200 we optimistically clear parse_error in
-    // PENDING_PURCHASES so the card re-renders without the error line or
-    // button. The closest('[data-action]') lookup at the top of the
-    // delegate routes the click here (not 'review-pending') because the
-    // button is nested inside the card and innermost wins.
     // Phase 260607-s6r: items-mismatch path goes through confirm() first
     // because we're throwing away parsed line items. parse_error-only
     // path stays zero-friction (data-mismatch='0' skips the confirm).
+    // Phase 260702-l67: click now piggybacks on the existing SYNC_STATE
+    // machinery — after a successful /retry-parse POST we call triggerSync()
+    // directly so the operator doesn't have to click Sync Receipts as a
+    // second step. The per-row "Reparsing…" pill + disabled button (see
+    // renderPendingCard) carries the visual signal while the run is active;
+    // refreshSyncStatus() calls loadHistory() on running→done, which drops
+    // the transient retryQueued flag naturally.
+    if(el.disabled)return; // stale delegated event guard (mirrors L1138)
     var rid=id;
     var isMismatch=el.getAttribute('data-mismatch')==='1';
     if(isMismatch && !confirm('Discard parsed items and re-parse from receipt?')){
       return;
     }
+    var row=PENDING_PURCHASES.find(function(pp){return pp.id===rid;});
+    // Branch A: sync already running — skip the POST (idempotent no-op on
+    // the backend anyway) and just mark this row so it flips to the
+    // Reparsing… pill for the duration of the current run.
+    if(SYNC_STATE && SYNC_STATE.status==='running'){
+      if(row){row.retryQueued=true;}
+      showToastMessage('Reparse queued — sync already running');
+      renderHistoryList();
+      return;
+    }
+    // Branch B: fire the /retry-parse POST, then auto-trigger a sync. 200
+    // and 409 (already re-queued) both count as success — 409 is
+    // idempotent per the koi handler contract. Anything else surfaces via
+    // showToastMessage (no alert() — project convention, see L1591).
     fetch('/api/v1/inventory/purchases/pending/'+encodeURIComponent(rid)+'/retry-parse',{
       method:'POST',credentials:'include'
     }).then(function(resp){
-      if(resp.ok){
-        showToastMessage('Marked for retry. Click Sync Receipts to run now.');
-        var row=PENDING_PURCHASES.find(function(pp){return pp.id===rid;});
-        if(row){
+      if(resp.ok || resp.status===409){
+        if(resp.ok && row){
           row.parse_error='';
           if(isMismatch){
             row.items=[];
             row.reason='Receipt could not be parsed automatically';
           }
         }
+        if(row){row.retryQueued=true;}
         renderHistoryList();
+        // Fire-and-forget — triggerSync handles its own errors + 409
+        // (someone else beat us to the sync); no toast on success, the
+        // Reparsing… state on the row is the signal.
+        triggerSync();
       }else{
-        alert('Could not mark for retry: HTTP '+resp.status);
+        showToastMessage('Could not retry parse: HTTP '+resp.status);
       }
     }).catch(function(err){
-      alert('Could not mark for retry: '+err.message);
+      showToastMessage('Could not retry parse: '+err.message);
     });
   }
 });
