@@ -46,31 +46,32 @@ type FileBlob struct {
 	ContentType string
 }
 
-// ParseReceipt sends receipt file(s) to Claude Haiku and returns the parsed
+// ParseReceipt sends receipt file(s) to Claude Sonnet and returns the parsed
 // line items and summary. Thin wrapper around parseReceiptWithModel so the
-// Sonnet fallback (ParseReceiptWithSonnet) can share the same logic with a
-// different model + max_tokens. Error wrapping is done by parseReceiptWithModel
-// using the supplied label so call-site logs distinguish Haiku vs Sonnet
-// failures (the seam in worker.go logs both error strings on double-fail).
+// transient-error retry (ParseReceiptWithSonnet) can share the same logic.
+// Sonnet is the primary model because Haiku produced too many silent parsing
+// errors — hallucinated item names, wrong prices — that passed validation and
+// slipped through to auto-created purchases. Error wrapping uses the supplied
+// label so call-site logs identify which attempt failed.
 func ParseReceipt(ctx context.Context, apiKey string, blobs []FileBlob) ([]ReceiptItem, ReceiptSummary, error) {
-	return parseReceiptWithModel(ctx, apiKey, blobs, anthropic.ModelClaudeHaiku4_5, 4096, "ParseReceipt")
+	return parseReceiptWithModel(ctx, apiKey, blobs, anthropic.ModelClaudeSonnet4_6, 4096, "ParseReceipt")
 }
 
-// ParseReceiptWithSonnet is the Sonnet fallback used by the worker when
-// Haiku (via ParseReceipt) fails on a receipt. Uses claude-sonnet-4-6 with
-// MaxTokens=4096 — Sonnet handles complex multi-page or low-quality PDF
-// receipts that Haiku chokes on. Same return shape as ParseReceipt so the
-// caller can fall through to ValidateReceiptData on success.
+// ParseReceiptWithSonnet is the retry seam used by the worker when the primary
+// ParseReceipt call errors out (API failure, empty response, JSON parse
+// failure). Also uses claude-sonnet-4-6 with MaxTokens=4096, so this is a
+// transient-error retry rather than a model upgrade. Same return shape as
+// ParseReceipt so the caller can fall through to ValidateReceiptData on success.
 func ParseReceiptWithSonnet(ctx context.Context, apiKey string, blobs []FileBlob) ([]ReceiptItem, ReceiptSummary, error) {
 	return parseReceiptWithModel(ctx, apiKey, blobs, anthropic.ModelClaudeSonnet4_6, 4096, "ParseReceiptWithSonnet")
 }
 
 // parseReceiptWithModel is the shared implementation that both ParseReceipt
-// (Haiku) and ParseReceiptWithSonnet (Sonnet) call into. label is used to
-// prefix wrapped error messages so worker logs can attribute failures to
-// the correct model. blobs holds one entry per attachment; all blobs are
-// sent in a single Claude message so multi-receipt transactions (e.g. a
-// purchase + refund) are parsed together and produce a single combined total.
+// and ParseReceiptWithSonnet call into. label is used to prefix wrapped
+// error messages so worker logs can attribute failures to the correct
+// attempt. blobs holds one entry per attachment; all blobs are sent in a
+// single Claude message so multi-receipt transactions (e.g. a purchase +
+// refund) are parsed together and produce a single combined total.
 func parseReceiptWithModel(ctx context.Context, apiKey string, blobs []FileBlob, model anthropic.Model, maxTokens int64, label string) ([]ReceiptItem, ReceiptSummary, error) {
 	client := anthropic.NewClient(option.WithAPIKey(apiKey))
 

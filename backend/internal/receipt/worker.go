@@ -394,26 +394,27 @@ func processSingleTx(ctx context.Context, cfg WorkerConfig, tx MercuryTransactio
 		receiptURL = receiptURLs[0]
 	}
 
-	// Parse with Claude Haiku (via the parseReceipt seam). On Haiku failure,
-	// retry once with Sonnet (parseReceiptWithSonnet seam). If Sonnet ALSO
-	// fails, route to pending review with the concatenated parse_error so
-	// the owner can see WHY parsing failed on the FE pending card.
-	// Phase 260607-e1c.
+	// Parse with Claude Sonnet (via the parseReceipt seam). On transient
+	// failure, retry once (parseReceiptWithSonnet seam, also Sonnet). If the
+	// retry ALSO fails, route to pending review with the concatenated
+	// parse_error so the owner can see WHY parsing failed on the FE pending
+	// card. Phase 260607-e1c (originally Haiku→Sonnet; now Sonnet→Sonnet
+	// after Haiku was retired as primary for producing silent errors).
 	items, summary, parseErr := parseReceipt(ctx, cfg.AnthropicAPIKey, blobs)
 	if parseErr != nil {
-		haikuErr := parseErr
-		slog.Info(fmt.Sprintf("receipt worker: Haiku failed for tx %s, retrying with Sonnet: %v", tx.ID, haikuErr))
+		primaryErr := parseErr
+		slog.Info(fmt.Sprintf("receipt worker: Sonnet failed for tx %s, retrying: %v", tx.ID, primaryErr))
 		items, summary, parseErr = parseReceiptWithSonnet(ctx, cfg.AnthropicAPIKey, blobs)
 		if parseErr != nil {
-			combined := fmt.Sprintf("haiku: %v; sonnet: %v", haikuErr, parseErr)
-			slog.Info(fmt.Sprintf("receipt worker: Sonnet also failed for tx %s: %v — routing to review queue", tx.ID, parseErr))
+			combined := fmt.Sprintf("sonnet: %v; sonnet-retry: %v", primaryErr, parseErr)
+			slog.Info(fmt.Sprintf("receipt worker: Sonnet retry also failed for tx %s: %v — routing to review queue", tx.ID, parseErr))
 			if routeErr := routePending(ctx, cfg.Pool, tx, items, summary, receiptURL, receiptURLs, "Receipt could not be parsed automatically", combined, isUpgrade); routeErr != nil {
 				slog.Info(fmt.Sprintf("receipt worker: routePending (parse-fail) for tx %s: %v", tx.ID, routeErr))
 			}
 			return "pending_review", nil
 		}
-		// Sonnet succeeded — fall through to ValidateReceiptData with
-		// Sonnet's output. items/summary are now populated by Sonnet.
+		// Retry succeeded — fall through to ValidateReceiptData with
+		// the retry's output. items/summary are now populated by the retry.
 	}
 
 	// Goal-driven retry loop with best-attempt tracking.
