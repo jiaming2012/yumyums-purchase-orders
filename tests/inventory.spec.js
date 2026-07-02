@@ -3246,3 +3246,106 @@ test.describe('Confirm Receipt disabled state (260607-fxl)', () => {
     await expect(btn).toBeEnabled();
   });
 });
+
+// ─── Phase 260702-l67: retry-parse click auto-triggers receipt sync ─────────
+test.describe('Retry parse auto-sync (260702-l67)', () => {
+  test.beforeEach(async ({ page }) => { await login(page); });
+
+  test('retry-parse click auto-triggers sync and flips row to Reparsing…', async ({ page }) => {
+    // Mutable sync-status closure: idle → running → done, driven by
+    // page.evaluate(() => refreshSyncStatus()) so we don't wait 3s per poll.
+    let syncStatus = null; // idle
+    let retryParseCalls = 0;
+    let syncReceiptsCalls = 0;
+    const now = new Date().toISOString();
+
+    // Empty confirmed purchases so history-list renders only the pending row.
+    await page.route('**/api/v1/inventory/purchases?*', async route => {
+      if (route.request().method() !== 'GET') return route.continue();
+      await route.fulfill({
+        status: 200, contentType: 'application/json',
+        body: JSON.stringify([]),
+      });
+    });
+
+    // One pending row with parse_error so the Retry parse button surfaces.
+    await page.route('**/api/v1/inventory/purchases/pending', async route => {
+      if (route.request().method() !== 'GET') return route.continue();
+      await route.fulfill({
+        status: 200, contentType: 'application/json',
+        body: JSON.stringify([{
+          id: 'pend-1', bank_tx_id: 'tx-l67-1', bank_total: -42.00,
+          vendor: 'Test Vendor', event_date: '2026-07-01',
+          reason: 'Receipt could not be parsed automatically',
+          parse_error: 'haiku: timeout',
+          items: [], created_at: now,
+        }]),
+      });
+    });
+
+    // Sync-status endpoint reads current closure state.
+    await page.route('**/api/v1/inventory/sync-receipts/status', async route => {
+      await route.fulfill({
+        status: 200, contentType: 'application/json',
+        body: JSON.stringify(syncStatus),
+      });
+    });
+
+    // POST /retry-parse — 200 empty body, count calls.
+    await page.route('**/api/v1/inventory/purchases/pending/*/retry-parse', async route => {
+      if (route.request().method() !== 'POST') return route.continue();
+      retryParseCalls++;
+      await route.fulfill({
+        status: 200, contentType: 'application/json',
+        body: JSON.stringify({}),
+      });
+    });
+
+    // POST /sync-receipts — start a running run and count calls.
+    await page.route('**/api/v1/inventory/sync-receipts', async route => {
+      if (route.request().method() !== 'POST') return route.continue();
+      syncReceiptsCalls++;
+      syncStatus = { id: 'sync-1', status: 'running', started_at: now,
+        processed: 0, auto_created: 0, pending_review: 0, cached: 0 };
+      await route.fulfill({
+        status: 200, contentType: 'application/json',
+        body: JSON.stringify({ id: 'sync-1', started_at: now }),
+      });
+    });
+
+    await page.goto('/inventory.html');
+    await page.waitForLoadState('networkidle');
+
+    const card = page.locator('[data-action="review-pending"][data-id="pend-1"]');
+    await expect(card).toBeVisible();
+
+    // Baseline: pill = Needs Review, button = Retry parse (enabled).
+    const badge = card.locator('.approval-badge');
+    const btn = card.locator('[data-action="retry-parse"]');
+    await expect(badge).toContainText('Needs Review');
+    await expect(btn).toContainText('Retry parse');
+    await expect(btn).toBeEnabled();
+
+    await btn.click();
+
+    // Exactly one /retry-parse POST and one /sync-receipts POST fire from
+    // the single click (auto-sync piggyback).
+    await expect.poll(() => retryParseCalls, { timeout: 4000 }).toBe(1);
+    await expect.poll(() => syncReceiptsCalls, { timeout: 4000 }).toBe(1);
+
+    // triggerSync sets SYNC_STATE.status='running' locally on 200; the
+    // renderHistoryList() call in the retry-parse click branch fires
+    // BEFORE triggerSync completes, so we force a re-render after
+    // triggerSync's SYNC_STATE mutation by nudging refreshSyncStatus.
+    await page.waitForFunction(() =>
+      window.SYNC_STATE && window.SYNC_STATE.status === 'running');
+    await page.evaluate(() => window.renderHistoryList && window.renderHistoryList());
+
+    // The row now shows Reparsing… on both the pill and the button, and
+    // the button is disabled.
+    await expect(card.locator('.approval-badge')).toContainText('Reparsing…');
+    const reparsingBtn = card.locator('[data-action="retry-parse"]');
+    await expect(reparsingBtn).toContainText('Reparsing…');
+    await expect(reparsingBtn).toBeDisabled();
+  });
+});
