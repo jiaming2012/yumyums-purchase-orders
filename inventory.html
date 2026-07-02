@@ -683,12 +683,15 @@ function renderPendingCard(p){
   // and the backend ConfirmPendingPurchaseHandler total_mismatch check —
   // do NOT introduce a new constant.
   var itemsMismatch=hasItems && Math.abs(pLineTotal-pBankTotal)>0.01;
-  var showRetry=hasParseError || itemsMismatch;
   // Phase 260702-l67: when a retry has just been queued and SYNC_STATE is
   // running, the row shows a "Reparsing…" pill + disabled button. The
   // p.retryQueued flag is set in the click handler and is naturally cleared
   // on the next loadHistory() call (fresh server payload has no such flag).
+  // While reparsing, force the button to render (as disabled Reparsing…)
+  // even if we optimistically cleared parse_error in the click handler —
+  // the operator needs to see per-row state throughout the sync run.
   var reparsing=!!(SYNC_STATE && SYNC_STATE.status==='running' && p.retryQueued);
+  var showRetry=hasParseError || itemsMismatch || reparsing;
   if(reparsing){
     pendingBadgeHtml='<span class="approval-badge">Reparsing…</span>';
   }
