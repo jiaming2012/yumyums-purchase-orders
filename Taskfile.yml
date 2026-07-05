@@ -7,61 +7,26 @@ includes:
     taskfile: ./backend/Taskfile.yml
     dir: ./backend
 
+vars:
+  # Production deploy target (Windows box reachable via Tailscale).
+  PROD_SSH: '{{.PROD_SSH | default "jcole@100.70.200.55"}}'
+  PROD_REPO: '{{.PROD_REPO | default "~/projects/yumyums/hq"}}'
+  PROD_CONTAINER: '{{.PROD_CONTAINER | default "yumyums-hq"}}'
+  PROD_IMAGE: '{{.PROD_IMAGE | default "yumyums-hq:latest"}}'
+  PROD_PORT: '{{.PROD_PORT | default "8080"}}'
+  PROD_URL: '{{.PROD_URL | default "https://hq.yumyums.kitchen"}}'
+
 tasks:
-  deploy:
-    desc: Push to main and wait for Digital Ocean deployment to complete
-    deps: [sw]
-    cmds:
-      - git push origin main
-      - echo "Pushed to main. Waiting for Digital Ocean deployment..."
-      - |
-        APP_ID=$(doctl apps list --format ID,Spec.Name --no-header | grep yumyums-purchase-orders | awk '{print $1}')
-        if [ -z "$APP_ID" ]; then
-          echo "Error: Could not find app 'yumyums-purchase-orders' in doctl apps list"
-          exit 1
-        fi
-        echo "App ID: $APP_ID"
-
-        # Get the latest deployment
-        DEPLOY_ID=""
-        for i in $(seq 1 60); do
-          DEPLOY_ID=$(doctl apps list-deployments "$APP_ID" --format ID,Phase,Progress --no-header | head -1)
-          PHASE=$(echo "$DEPLOY_ID" | awk '{print $2}')
-          PROGRESS=$(echo "$DEPLOY_ID" | awk '{print $3}')
-
-          if [ "$PHASE" = "ACTIVE" ]; then
-            echo "Deployment is ACTIVE. Done!"
-            exit 0
-          fi
-
-          echo "[$i/60] Phase: $PHASE  Progress: $PROGRESS — waiting 10s..."
-          sleep 10
-        done
-
-        echo "Timed out after 10 minutes waiting for deployment."
-        exit 1
-
   sw:
     desc: Rebuild service worker with Workbox (content-hashed precache)
     cmds:
       - node build-sw.js
 
   test:
-    desc: Run Playwright E2E tests (headless)
+    desc: Run Playwright E2E tests (set HEADED=1 for visible browser)
     deps: [backend:db-test, sw]
     cmds:
-      - npx playwright test
-
-  test:sync:
-    desc: Run cross-device sync tests only
-    deps: [backend:db-test, sw]
-    cmds:
-      - npx playwright test tests/sync.spec.js
-
-  test:headed:
-    desc: Run Playwright E2E tests (visible browser)
-    cmds:
-      - npx playwright test --headed
+      - npx playwright test {{if eq (.HEADED | default "0") "1"}}--headed{{end}}
 
   test:ui:
     desc: Open Playwright UI mode for interactive debugging
@@ -74,34 +39,132 @@ tasks:
       - npx bddgen
 
   bdd:
-    desc: Run BDD/Gherkin tests only (uses Windows box DB)
+    desc: Run BDD/Gherkin tests (uses Windows box DB; set HEADED=1 for visible browser)
     deps: [sw, bdd:gen]
     env:
       DB_HOST: 100.70.200.55
       DB_PORT: '5433'
     cmds:
-      - npx playwright test --project=bdd
+      - npx playwright test --project=bdd {{if eq (.HEADED | default "0") "1"}}--headed{{end}}
 
   test:go:
-    desc: Run Go backend unit tests
+    desc: Run Go backend unit tests (against hq_test DB)
+    deps: [backend:db-test]
+    env:
+      DB_TEST_URL: 'postgres://yumyums:yumyums@{{.DB_HOST | default "localhost"}}:{{.DB_PORT | default "5432"}}/hq_test?sslmode=disable'
+      # Explicitly unset any external DATABASE_URL that leaks in from the user's shell.
+      DATABASE_URL: ''
+      TEST_DATABASE_URL: ''
     cmds:
-      - cd backend && go test ./...
+      # -p 1 forces packages to run serially. Multiple packages share hq_test
+      # and each TestMain truncates tables; parallel package execution makes
+      # them stomp on each other's data mid-test.
+      - cd backend && go test -p 1 ./...
 
   test:all:
-    desc: Run all tests (Go unit, Playwright E2E, BDD/Gherkin)
+    desc: Run all tests (Go unit, Playwright E2E, BDD/Gherkin) against the Windows box DB. Resets hq_test after the run completes.
     deps: [sw, bdd:gen]
     env:
       DB_HOST: 100.70.200.55
       DB_PORT: '5433'
+      # Same env scoping as test:go — see comments there.
+      DB_TEST_URL: 'postgres://yumyums:yumyums@100.70.200.55:5433/hq_test?sslmode=disable'
+      DATABASE_URL: ''
+      TEST_DATABASE_URL: ''
     cmds:
-      - cd backend && go test ./...
-      - npx playwright test
+      - |
+        set +e
+        # Reset hq_test on whichever DB the tests just ran against. Fires AFTER
+        # Playwright (and Go) finish printing their reports, regardless of exit
+        # status, so the next run starts clean (no accumulated users/sessions/
+        # templates from prior runs). The CREATE is a no-op on the very next
+        # boot because the server runs goose migrations on startup.
+        trap '
+          status=$?
+          echo ""
+          echo "── resetting hq_test on $DB_HOST:$DB_PORT ──"
+          psql "postgres://yumyums:yumyums@$DB_HOST:$DB_PORT/postgres?sslmode=disable" \
+            -c "DROP DATABASE IF EXISTS hq_test;" \
+            -c "CREATE DATABASE hq_test;" >/dev/null
+          exit $status
+        ' EXIT
+        cd backend && go test -p 1 ./... || exit $?
+        cd ..
+        npx playwright test
 
-  bdd:headed:
-    desc: Run BDD/Gherkin tests (visible browser, uses Windows box DB)
-    deps: [bdd:gen]
-    env:
-      DB_HOST: 100.70.200.55
-      DB_PORT: '5433'
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Production deploy — Windows box backend serves embedded frontend via
+  # Cloudflare Tunnel at {{.PROD_URL}}. Override host/repo/container/image via
+  # PROD_SSH, PROD_REPO, PROD_CONTAINER, PROD_IMAGE env vars.
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  version:
+    desc: Compare backend + frontend versions across local source, dev server, and prod
     cmds:
-      - npx playwright test --project=bdd --headed
+      - |
+        echo "── Local source ──────────────────────────────────────"
+        echo "  Frontend (package.json):  $(jq -r .version package.json)"
+        echo "  Frontend (version.json):  $(jq -r .frontend version.json 2>/dev/null || echo missing — run task sw)"
+        echo "  Backend  (version.go):    $(grep -E 'Backend\s*=' backend/internal/version/version.go | head -1 | sed 's/.*"\(.*\)".*/\1/')"
+        echo ""
+        echo "── Dev server (localhost:{{.PROD_PORT}}) ─────────────────────────"
+        curl -fsS --max-time 2 http://localhost:{{.PROD_PORT}}/api/v1/health | jq . 2>/dev/null || echo "  (not running)"
+        echo ""
+        echo "── Production ({{.PROD_URL}}) ─────────────────────────"
+        curl -fsS --max-time 5 {{.PROD_URL}}/api/v1/health | jq . 2>/dev/null || echo "  (unreachable)"
+
+  health:dev:
+    desc: Check /api/v1/health on the local dev server
+    cmd: curl -fsS http://localhost:{{.PROD_PORT}}/api/v1/health | jq .
+
+  health:prod:
+    desc: Check /api/v1/health on production
+    cmd: curl -fsS {{.PROD_URL}}/api/v1/health | jq .
+
+  prod:deploy:
+    desc: Deploy backend+frontend to prod (one container — backend embeds frontend)
+    deps: [sw]
+    cmds:
+      - task: prod:deploy-backend
+
+  prod:deploy-backend:
+    desc: SSH to Windows box, git pull, docker build with version metadata, restart container
+    cmds:
+      - |
+        ssh -o BatchMode=yes {{.PROD_SSH}} bash -s <<'EOF'
+        set -euo pipefail
+        cd {{.PROD_REPO}}
+        echo "── git pull ─────────────────────────"
+        git pull --ff-only origin main
+        echo "── task sw (regenerate version.json + service worker) ─────"
+        task sw
+        GIT_SHA=$(git rev-parse --short HEAD)
+        BUILT_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+        echo "── docker build ──────────────────────"
+        echo "  GIT_SHA=$GIT_SHA  BUILT_AT=$BUILT_AT"
+        docker build \
+          -f backend/Dockerfile \
+          --build-arg GIT_SHA="$GIT_SHA" \
+          --build-arg BUILT_AT="$BUILT_AT" \
+          -t {{.PROD_IMAGE}} .
+        echo "── restart container ────────────────"
+        docker rm -f {{.PROD_CONTAINER}} 2>/dev/null || true
+        docker run -d \
+          --name {{.PROD_CONTAINER}} \
+          --restart unless-stopped \
+          --env-file backend/.env \
+          -p {{.PROD_PORT}}:8080 \
+          {{.PROD_IMAGE}}
+        echo "── health check ─────────────────────"
+        sleep 2
+        curl -fsS http://localhost:{{.PROD_PORT}}/api/v1/health
+        EOF
+
+  prod:logs:
+    desc: Tail logs from the production container
+    cmd: ssh -o BatchMode=yes {{.PROD_SSH}} "docker logs --tail 100 -f {{.PROD_CONTAINER}}"
+
+  prod:ssh:
+    desc: Open an interactive shell on the production Windows box
+    interactive: true
+    cmd: ssh {{.PROD_SSH}}

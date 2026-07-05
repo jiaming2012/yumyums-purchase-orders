@@ -21,7 +21,9 @@ vars:
 tasks:
   dev:
     desc: Run the server in development mode
-    cmd: go run ./cmd/server 2>&1 | tee /tmp/hq-server.log
+    cmd: |
+      LOG_FILE=/tmp/hq-server-{{.PORT}}.log
+      { echo "[hq-server] logs → $LOG_FILE"; go run ./cmd/server 2>&1; } | tee "$LOG_FILE"
     env:
       STATIC_DIR: '{{.STATIC_DIR}}'
       PORT: '{{.PORT}}'
@@ -42,7 +44,9 @@ tasks:
 
   dev:lan:
     desc: Run server against Windows box (LAN)
-    cmd: go run ./cmd/server 2>&1 | tee /tmp/hq-server.log
+    cmd: |
+      LOG_FILE=/tmp/hq-server-{{.PORT}}.log
+      { echo "[hq-server] logs → $LOG_FILE"; go run ./cmd/server 2>&1; } | tee "$LOG_FILE"
     env:
       STATIC_DIR: '{{.STATIC_DIR}}'
       PORT: '{{.PORT}}'
@@ -52,7 +56,9 @@ tasks:
 
   dev:tailscale:
     desc: Run server against Windows box (Tailscale)
-    cmd: go run ./cmd/server 2>&1 | tee /tmp/hq-server.log
+    cmd: |
+      LOG_FILE=/tmp/hq-server-{{.PORT}}.log
+      { echo "[hq-server] logs → $LOG_FILE"; go run ./cmd/server 2>&1; } | tee "$LOG_FILE"
     env:
       STATIC_DIR: '{{.STATIC_DIR}}'
       PORT: '{{.PORT}}'
@@ -115,27 +121,41 @@ tasks:
       SUPERADMIN_CONFIG: config/superadmins.yaml
 
   build:
-    desc: Build the server binary with embedded frontend assets
+    desc: Build the server binary with embedded frontend assets (injects git SHA + built_at)
+    vars:
+      GIT_SHA:
+        sh: git rev-parse --short HEAD 2>/dev/null || echo unknown
+      BUILT_AT:
+        sh: date -u +%Y-%m-%dT%H:%M:%SZ
     cmds:
       - rm -rf cmd/server/public/*
       - cp ../*.html ../*.js ../manifest.json cmd/server/public/
+      - cp ../version.json cmd/server/public/ 2>/dev/null || true
       - cp -r ../icons cmd/server/public/ 2>/dev/null || true
       - cp -r ../lib cmd/server/public/ 2>/dev/null || true
-      - go build -o bin/server ./cmd/server
+      - >-
+        go build
+        -ldflags "-X github.com/yumyums/hq/internal/version.GitSHA={{.GIT_SHA}}
+        -X github.com/yumyums/hq/internal/version.BuiltAt={{.BUILT_AT}}"
+        -o bin/server ./cmd/server
 
   # ---------------------------------------------------------------------------
   # Local Docker (runs Postgres on this machine)
   # ---------------------------------------------------------------------------
   db-start:
-    desc: Start local PostgreSQL container
-    cmd: >-
-      docker run -d --name yumyums-pg
-      -e POSTGRES_USER={{.DB_USER}}
-      -e POSTGRES_PASSWORD={{.DB_PASS}}
-      -e POSTGRES_DB={{.DB_NAME}}
-      -p 5432:5432
-      -v yumyums-pgdata:/var/lib/postgresql/data
-      postgres:13
+    desc: Start local PostgreSQL container (idempotent — starts existing container or creates new one)
+    cmd: |
+      if docker ps -a --format '{{`{{.Names}}`}}' | grep -q '^yumyums-pg$'; then
+        docker start yumyums-pg
+      else
+        docker run -d --name yumyums-pg \
+          -e POSTGRES_USER={{.DB_USER}} \
+          -e POSTGRES_PASSWORD={{.DB_PASS}} \
+          -e POSTGRES_DB={{.DB_NAME}} \
+          -p 5432:5432 \
+          -v yumyums-pgdata:/var/lib/postgresql/data \
+          postgres:13
+      fi
 
   db-stop:
     desc: Stop and remove local PostgreSQL container
@@ -158,11 +178,8 @@ tasks:
 
   # ---------------------------------------------------------------------------
   # Remote Docker (Windows box — managed via infra repo)
+  # To start Postgres on the Windows box: cd infra/ && task yumyums:up
   # ---------------------------------------------------------------------------
-  db-remote-up:
-    desc: Show command to start Postgres on Windows box
-    cmd: echo "On the Windows box, run:\n  cd infra/ && task yumyums:up"
-
   db-ping:
     desc: Check connectivity to the configured Postgres
     cmd: psql "{{.DB_URL}}" -c "SELECT version();"
@@ -178,12 +195,6 @@ tasks:
   # ---------------------------------------------------------------------------
   # Data management (uses psql — works local or remote)
   # ---------------------------------------------------------------------------
-  seed:
-    desc: Run Go seed command
-    cmd: go run ./cmd/seed
-    env:
-      DB_URL: '{{.DB_URL}}'
-
   db-reset-purchasing:
     desc: Wipe purchasing data (POs, shopping lists) for re-testing cutoff flow
     cmd: >-
@@ -201,54 +212,6 @@ tasks:
   # ---------------------------------------------------------------------------
   # Utility
   # ---------------------------------------------------------------------------
-  import-notion:
-    desc: Import Notion catalog export — uploads photos to DO Spaces, writes purchase_items.yaml
-    cmd: >-
-      go run ./cmd/import-notion/
-      --csv ../notion-export/AllItems.csv
-      --images ../notion-export/AllItems/
-      --output internal/inventory/fixtures/purchase_items.yaml
-    env:
-      DO_SPACES_ENDPOINT: 'https://{{.DO_SPACES_REGION}}.digitaloceanspaces.com'
-
-  import-notion-dry:
-    desc: Dry-run Notion import (no upload, placeholder URLs)
-    cmd: >-
-      go run ./cmd/import-notion/
-      --csv ../notion-export/AllItems.csv
-      --images ../notion-export/AllItems/
-      --output internal/inventory/fixtures/purchase_items.yaml
-      --dry-run
-
-  migrate-toast:
-    desc: One-shot upload of sales-processor Toast archive to DO Spaces (idempotent via HeadObject; pass OVERWRITE=1 to re-upload)
-    cmd: >-
-      go run ./cmd/migrate-toast-archive
-      --source {{.SOURCE | default "/Users/jamal/projects/yumyums/sales-processor/output/toast_reports"}}
-      {{if eq (.OVERWRITE | default "0") "1"}}--overwrite{{end}}
-    env:
-      DO_SPACES_ENDPOINT: '{{.DO_SPACES_ENDPOINT | default (printf "https://%s.digitaloceanspaces.com" .DO_SPACES_REGION)}}'
-
-  migrate-toast:90-days:
-    desc: Migrate only the last 90 days of Toast archive (matches worker backfill window; pass OVERWRITE=1 to re-upload)
-    env:
-      DO_SPACES_ENDPOINT: '{{.DO_SPACES_ENDPOINT | default (printf "https://%s.digitaloceanspaces.com" .DO_SPACES_REGION)}}'
-    cmds:
-      - |
-        ARCHIVE="{{.SOURCE | default "/Users/jamal/projects/yumyums/sales-processor/output/toast_reports"}}"
-        CUTOFF=$(date -v-90d +%Y%m%d 2>/dev/null || date -d '90 days ago' +%Y%m%d)
-        STAGE=$(mktemp -d -t toast-migrate-90d.XXXXXX)
-        trap "rm -rf $STAGE" EXIT
-        COUNT=0
-        for d in $(ls "$ARCHIVE" | grep -E '^[0-9]{8}$' | awk -v c=$CUTOFF '$1 >= c'); do
-          [ -f "$ARCHIVE/$d/ItemSelectionDetails.csv" ] || continue
-          mkdir -p "$STAGE/$d"
-          ln "$ARCHIVE/$d/ItemSelectionDetails.csv" "$STAGE/$d/ItemSelectionDetails.csv"
-          COUNT=$((COUNT+1))
-        done
-        echo "Staged $COUNT date dirs from $CUTOFF onward at $STAGE"
-        go run ./cmd/migrate-toast-archive --source "$STAGE" {{if eq (.OVERWRITE | default "0") "1"}}--overwrite{{end}}
-
   sync-toast:
     desc: Replay Toast ingest for a date range, reading from DO Spaces (requires DB_URL + DO_SPACES_*; usage — task backend:sync-toast FROM=2026-05-01 TO=2026-05-31)
     cmd: >-
@@ -267,10 +230,3 @@ tasks:
       -H 'Content-Type: application/json'
       -d '{"email":"jamal@yumyums.kitchen","password":"test123"}'
       | python3 -m json.tool
-
-  simulate-cutoff:
-    desc: Trigger weekly cutoff — locks current draft PO and creates next week's draft
-    deps: [login]
-    cmd: >-
-      curl -s -X POST http://localhost:{{.PORT}}/api/v1/purchasing/simulate-cutoff
-      -b /tmp/yumcookie | python3 -m json.tool

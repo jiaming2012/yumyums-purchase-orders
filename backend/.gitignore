@@ -17,3 +17,13 @@ cache/
 
 # New cmd binary (Phase 22.1)
 /migrate-toast-archive
+
+# SSH private keys - never commit
+id_rsa
+id_rsa.pub
+*.pem
+
+# Generated embed copy of the frontend (populated by `task build` / Dockerfile).
+# Keep the directory itself so cp targets and go:embed have somewhere to land.
+/cmd/server/public/*
+!/cmd/server/public/.gitkeep

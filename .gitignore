@@ -2,9 +2,14 @@ node_modules/
 test-results/
 playwright-report/
 .planning/
-.claude/
+.claude/*
+!.claude/skills/
 *.map
 .features-gen/
+id_rsa
+backend/bin/
+backend/server
+version.json
 
 # Notion export source files (one-time import)
 notion-export/
@@ -12,3 +17,10 @@ notion-export/
 # ui-jury: rendered routes.yaml (built from routes.template.yaml) + secret env
 /routes.yaml
 /.ui-jury/.env
+routes.yaml.previous
+routes.yaml.*.bak
+.ui-jury/maps/
+.ui-jury/runs/
+
+# Playwright MCP session artifacts
+.playwright-mcp/
