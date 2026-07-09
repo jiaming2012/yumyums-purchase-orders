@@ -46,10 +46,16 @@ morning-triage sign-off*.
 | Card | Status | Depends on | KR |
 |---|---|---|---|
 | `ops-hardening-prd` (exemplar) | **DONE** ✅ signed 2026-07-09 | — | Product KR-1/2 |
-| `inventory-hardening-prd` | DRAFTING (overnight — awaiting triage sign-off) | exemplar | Product KR-1/2 |
-| `onboarding-hardening-prd` | DRAFTING (overnight — awaiting triage sign-off) | exemplar | Product KR-1/2 |
-| `users-hardening-prd` | DRAFTING (overnight — awaiting triage sign-off) | exemplar | Product KR-1/2 |
-| `purchasing-hardening-prd` | DRAFTING (overnight — awaiting triage sign-off) | exemplar | Product KR-1/2 |
+| `inventory-hardening-prd` | **DONE** ✅ signed 2026-07-10 | exemplar | Product KR-1/2 |
+| `onboarding-hardening-prd` | **DONE** ✅ signed 2026-07-10 | exemplar | Product KR-1/2 |
+| `users-hardening-prd` | **DONE** ✅ signed 2026-07-10 | exemplar | Product KR-1/2 |
+| `purchasing-hardening-prd` | **DONE** ✅ signed 2026-07-10 | exemplar | Product KR-1/2 |
+
+> ✅ **Activity 1 complete — 5/5 apps have a signed hardening PRD (Product KR-1 gate closed).**
+> All four overnight PRDs signed at morning triage 2026-07-10 (all G6-passed; the 3
+> confirmed-BROKEN citations re-verified at cited lines). **Activities 2–5 now unblock** —
+> they need localhost Postgres + the E2E suite, which the enumerate-only run deliberately
+> did not touch. Triage resolutions recorded in `ledger.md` (2026-07-10).
 
 > ✅ **Purchasing fork resolved 2026-07-09 → (a) enumerate + mark as a real app.**
 > The "bare mockup" premise was stale: Purchasing has a real, tested backend
@@ -100,6 +106,13 @@ The OKR closeout, across all five apps.
 Gate = **0 known-broken flows** · **full E2E suite green on localhost Postgres, 0
 pre-existing reds** · **vacuous tests 23 → 0** · **every repaired flow carries a
 red-first proof** · **median WO cycle time recorded over ≥5 WOs** (baseline).
+
+> **Waived from the "0 known-broken flows" denominator (triage 2026-07-10, D-3):**
+> Inventory FR-24 (Trends) + FR-25 (Cost) — confirmed-BROKEN `.coming-soon` stubs at
+> `inventory.html:993-999`. Waived as **unbuilt-future** (charts are net-new feature work,
+> not hardening); they ship as-is and are excluded from the Engineering-KR denominator by
+> explicit operator sign-off. Purchasing FR-18 (History) is **not** waived — it's a real
+> stub of a shipped feature (backend endpoint exists) → test-repair/build WO in Activity 4.
 
 ---
 

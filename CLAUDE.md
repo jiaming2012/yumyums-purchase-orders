@@ -14,7 +14,7 @@ A mobile-first PWA operations console for a food truck business. One app shell w
 | Inventory | Active (v2.0) | inventory.html |
 | Onboarding | Active (v2.1) | onboarding.html |
 | Users | Active (v2.0) | users.html |
-| Purchasing | Mockup | purchasing.html |
+| Purchasing | Active | purchasing.html |
 | Login | Active (v2.0) | login.html |
 | Payroll | Placeholder | — |
 | Scheduling | Placeholder | — |

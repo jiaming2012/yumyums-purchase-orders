@@ -1,5 +1,13 @@
 # HANDOFF — overnight-20260710 (for the morning of 2026-07-10)
 
+> **✅ TRIAGED 2026-07-10** — reviewed attended, merged to `dev` `--no-ff`, all 4 PRDs
+> signed (roadmap DRAFTING → DONE; Product KR-1 gate closed). Forks D-1..D-4 resolved,
+> recorded in `ledger.md` (2026-07-10). D-4 graduated to `BACKLOG.md`. `dev` pushed to origin.
+> **Standing flag (re-arms for Activities 2–5):** the attended E2E gate is UNRUN this cycle —
+> Activities 2–5 (confirm-absence, WORKING-audit, prove-&-fix, cycle-gate) require **localhost
+> Postgres + the full E2E suite green (0 pre-existing reds)**, which this enumerate-only run
+> deliberately did not touch. That gate must be run before the Activity-5 cycle closeout.
+
 > **Run:** `overnight-20260710` (cut from `dev`). **Branch never pushed; main untouched.**
 > **Slate:** `.night-crew/runs/2026-07-09-attended/slate-20260710.md` (batch-signed 2026-07-09).
 > **Depth:** enumerate + mark only — 4 PRD docs, no app code / no tests / no DB / no E2E.
