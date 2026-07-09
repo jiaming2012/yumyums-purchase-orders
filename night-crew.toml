@@ -1,0 +1,20 @@
+# night-crew.toml — target-repo configuration (scaffolded by `night-crew init`).
+#
+# Fill in the stanzas below and remove the comment markers. Parsing is strict:
+# an incomplete [env] table fails loudly rather than half-configuring a run, so
+# an unfilled config surfaces a named error instead of running against nothing.
+
+# [env] declares the environment inventory (environment-tiers spec). An
+# ephemeral env composes up a fresh stack per run, isolated by a Docker-assigned
+# host port (production is never touched). Point compose_file at a repo-relative
+# compose file and name the service + container port that is the env's public
+# face; the host port is intentionally omitted — Docker assigns it.
+[env.ephemeral]
+compose_file = "docker-compose.nc.yml"
+service = "app"
+port = 8080
+
+# [review] names the lens set the REVIEW stage applies (review-lenses spec). A
+# repo may add its own lens (e.g. "security") on top of the defaults.
+[review]
+lenses = ["adversarial", "edge-case"]

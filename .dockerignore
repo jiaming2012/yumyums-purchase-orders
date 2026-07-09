@@ -1,0 +1,28 @@
+# .dockerignore — keeps secrets and non-build cruft out of the Docker build
+# context. Docker's build context is NOT git-aware, so git-ignored files (keys,
+# .env) would otherwise be tarred up and, via `COPY backend ./backend`, baked
+# into the image. Added for the night-crew ephemeral env (repo-onboarding
+# contract: secrets excluded from the build context).
+
+# ── Secrets (never bake into an image) ──
+backend/id_rsa
+backend/.env
+.env
+.env.*
+**/*.pem
+**/*_rsa
+**/*.key
+
+# ── Not needed at runtime; shrink the context ──
+backend/seed
+**/*.pdf
+.git
+node_modules
+**/node_modules
+.night-crew
+.planning
+.playwright-mcp
+.ui-jury
+.features-gen
+*.bak
+routes.yaml.previous
