@@ -46,7 +46,7 @@ morning-triage sign-off*.
 | Card | Status | Depends on | KR |
 |---|---|---|---|
 | `ops-hardening-prd` (exemplar) | **DONE** ✅ signed 2026-07-09 | — | Product KR-1/2 |
-| `inventory-hardening-prd` | PLANNED (overnight draft) | exemplar | Product KR-1/2 |
+| `inventory-hardening-prd` | DRAFTING (overnight — awaiting triage sign-off) | exemplar | Product KR-1/2 |
 | `onboarding-hardening-prd` | DRAFTING (overnight — awaiting triage sign-off) | exemplar | Product KR-1/2 |
 | `users-hardening-prd` | DRAFTING (overnight — awaiting triage sign-off) | exemplar | Product KR-1/2 |
 | `purchasing-hardening-prd` | DRAFTING (overnight — awaiting triage sign-off) | exemplar | Product KR-1/2 |
