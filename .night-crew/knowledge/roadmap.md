@@ -48,7 +48,7 @@ morning-triage sign-off*.
 | `ops-hardening-prd` (exemplar) | **DONE** ✅ signed 2026-07-09 | — | Product KR-1/2 |
 | `inventory-hardening-prd` | PLANNED (overnight draft) | exemplar | Product KR-1/2 |
 | `onboarding-hardening-prd` | PLANNED (overnight draft) | exemplar | Product KR-1/2 |
-| `users-hardening-prd` | PLANNED (overnight draft) | exemplar | Product KR-1/2 |
+| `users-hardening-prd` | DRAFTING (overnight — awaiting triage sign-off) | exemplar | Product KR-1/2 |
 | `purchasing-hardening-prd` | PLANNED (overnight draft) | exemplar | Product KR-1/2 |
 
 > ✅ **Purchasing fork resolved 2026-07-09 → (a) enumerate + mark as a real app.**
