@@ -121,5 +121,10 @@ red-first proof** · **median WO cycle time recorded over ≥5 WOs** (baseline).
 - **Two enumeration passes minimum** (first + cross-check) — recall ≥ 90%.
 - **No orphan inputs** — every card's inputs trace to a produced upstream artifact.
 - **Enumerate + mark ≠ fix** — PRD cards list/mark; WO cards fix.
-- **Frozen tool** — night-crew stays at `e4b43ba` for the run; design changes
-  (PRD-verifier gate, cadence decision, roadmap-producer) are the post-run batch.
+- **Tool pin** — night-crew tracks `c55cbdd` (current `dev`). The prior `e4b43ba`
+  freeze held the tool steady through one run while the design-change batch
+  (PRD-verifier gate, cadence decision, roadmap-producer) was in flight; that batch
+  has landed and been triaged, so the freeze is lifted and the pin advanced to
+  current `dev` by operator decision (2026-07-10). E2E config support (`[e2e]`
+  parsing, the runner, the `NIGHTCREW_ENV_URL` handoff) predates `e4b43ba`, so the
+  E2E enablement does not depend on this re-pin.
