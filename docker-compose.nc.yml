@@ -36,6 +36,11 @@ services:
       # own Playwright DB_URL shape (hq_test, TimeZone).
       DB_URL: "postgres://yumyums:yumyums@postgres:5432/hq_test?sslmode=disable&TimeZone=America/New_York"
       PORT: "8080"
+      # TOAST_SYNC_INTERVAL=0 disables the Toast in-process worker so the app
+      # boots without TOAST_SFTP_KEY_PATH credentials (D-12) — same reason HQ's
+      # playwright.config.js sets it. Without this the app exits(1) on startup
+      # and the env never goes healthy. The Toast worker isn't exercised by E2E.
+      TOAST_SYNC_INTERVAL: "0"
     depends_on:
       postgres:
         condition: service_healthy
