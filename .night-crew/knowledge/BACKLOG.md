@@ -71,3 +71,11 @@
   are hardening flags, not drops. Replace each guard with a self-seeded fixture so a shape mismatch
   reddens instead of silently skipping. Rides the Onboarding Activity-4 test-hardening WO.
   · origin: overnight-20260712 onboarding-test-audit (G6-passed) · new
+- **Purchasing FR-7 vacuous shopping-tab test (dropped WORKING→UNPROVEN)** · `Shopping tab shows
+  stub when no active list exists` ends in `expect(text.trim().length).toBeGreaterThan(0)`
+  (`tests/purchasing.spec.js:127`) — a generic-content tautology (passes for stub, populated list,
+  or error string). Neither the empty-state stub text nor the grouped vendor-section render FR-7 names
+  is asserted anywhere. Activity-4 test-only WO: seed an active shopping list and assert (a) the
+  empty-state stub text with no list, and (b) grouped vendor sections + per-item check buttons +
+  thumbnails + aisle locations when populated. · origin: overnight-20260712 purchasing-test-audit
+  (G6-passed) · new

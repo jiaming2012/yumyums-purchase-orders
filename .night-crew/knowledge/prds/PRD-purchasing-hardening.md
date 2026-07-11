@@ -126,8 +126,16 @@ BROKEN (FR-18, the History tab), and it is cited to the exact stub line.
 - **FR-7** — When a shopping list is active, the tab renders it grouped into vendor
   sections with per-item check buttons, thumbnails, and aisle locations; when none
   is active it shows the "…after the PO is approved" stub. *(GET `/shopping/active`;
-  `service.go:277-297`, `purchasing.html:542-596`)* — **WORKING** (empty-state test +
-  `seedShoppingList` drives the populated render) — traces to Product KR-1, QA KR-2.
+  `service.go:277-297`, `purchasing.html:542-596`)* — **UNPROVEN** *(dropped
+  WORKING → UNPROVEN by the Activity-3 test-audit 2026-07-11, G6-confirmed: the only
+  dedicated FR-7 test (`Shopping tab shows stub when no active list exists`) ends in a
+  generic-content tautology `expect(text.trim().length).toBeGreaterThan(0)`
+  (`tests/purchasing.spec.js:127`, comment "both are valid states") — it asserts
+  neither the empty-state stub text nor the grouped vendor-section render FR-7 names;
+  the populated render is only exercised as a precondition of the FR-8/9/10/11 tests,
+  each of which asserts its own behavior, never FR-7's vendor-grouping contract. No
+  asserting test → present-but-unproven.)* — traces to Product KR-1, QA KR-2. **→
+  Activity-4 test-only WO (assert the stub text AND the grouped vendor-section render).**
 - **FR-8** — Checking/unchecking an item persists `checked`/`checked_by`/
   `checked_at` and survives reload. *(POST `/shopping/{id}/check`;
   `service.go:461-476 CheckShoppingItem`, `purchasing.html:610-637`)* — **WORKING**
@@ -368,17 +376,45 @@ Total requirements enumerated: **26** (24 FR + 2 NFR) — 18 first-pass (FR-1..F
 (FR-19..FR-24). **Every ID below is counted exactly once; the three counts sum to
 26.**
 
+**Updated by the Activity-3 test-audit sweep (2026-07-11, G6-passed).** FR-7 dropped
+WORKING → UNPROVEN — its only test ends in a generic-content tautology
+(`purchasing.spec.js:127`) and no test asserts its named behavior. Net: WORKING 7 → 6 ·
+UNPROVEN 18 → 19 · BROKEN 1 (unchanged). *(This is a measured QA-KR-1 vacuous test — one
+more toward the 23 → 0 count.)*
+
 | Status | Count | Flows |
 |---|---|---|
-| **WORKING** | 7 | FR-3, FR-5, FR-7, FR-8, FR-9, FR-10, FR-11 |
-| **UNPROVEN** | 18 | FR-1, FR-2, FR-4, FR-6, FR-12, FR-13, FR-14, FR-15, FR-16, FR-17, NFR-1, NFR-2, FR-19, FR-20, FR-21, FR-22, FR-23, FR-24 |
+| **WORKING** | 6 | FR-3, FR-5, FR-8, FR-9, FR-10, FR-11 |
+| **UNPROVEN** | 19 | FR-1, FR-2, FR-4, FR-6, FR-7, FR-12, FR-13, FR-14, FR-15, FR-16, FR-17, NFR-1, NFR-2, FR-19, FR-20, FR-21, FR-22, FR-23, FR-24 |
 | **BROKEN** | 1 | FR-18 *(History tab — confirmed static stub, `purchasing.html:156`; no `renderHistory`/`GET /shopping/history` in the frontend)* |
 
-*Sum check: 7 + 18 + 1 = **26** = total.* (18 UNPROVEN + 1 BROKEN = the 19-flow
+*Sum check: 6 + 19 + 1 = **26** = total.* (19 UNPROVEN + 1 BROKEN = the 20-flow
 candidate work-order backlog. Every one must have a shipped WO by cycle end —
 Delivery KR-1 — and reach 0 known-broken — Engineering KR-1. FR-18 is the only
 confirmed code-fix WO; the rest open as test-only WOs and graduate to a fix WO only
 if their red-first test fails. Recall denominator = 26.)
+
+### Activity-3 test-audit sweep record (2026-07-11, G6-passed)
+
+Two-pass static audit (pass 1 locate+read each of the 7 WORKING flows' assertions,
+pass 2 subtle-vacuousness cross-check) of `tests/purchasing.spec.js` (26 tests);
+adversarial G6 re-verification in both directions (drop holds + kept-6 aren't vacuous).
+**Result: 1 drop — FR-7 → UNPROVEN.** WORKING 7 → 6.
+
+- **FR-7 (dropped):** the dedicated `Shopping tab shows stub when no active list exists`
+  test ends in `expect(text.trim().length).toBeGreaterThan(0)` (`:127`) — passes for the
+  stub, a populated list, OR any error string alike (the same generic-content tautology
+  the PRD already flagged on FR-12). No test asserts the empty-state stub text nor the
+  grouped vendor-section render; the populated render is only *exercised* as a
+  precondition of the FR-8/9/10/11 tests. → Activity-4 test-only WO.
+- **6 kept WORKING** (FR-3, FR-5, FR-8, FR-9, FR-10, FR-11): each binds on its named
+  behavior with a non-tautological assertion — FR-3 `.pr-add`/`.pr-unassigned` +
+  group-header text + guard toast (`:534-535,603-609,688`), FR-5 exact URL hash +
+  edit-name equality (`:713-718`), FR-8 `✅` post-reload (`:154`), FR-9 reload location
+  text + catalog-unchanged (`:227,253`), FR-10 `hasImg`/badge transition (`:365-366`),
+  FR-11 toast regex + Add-Now (`:279,283`). The `.catch(()=>{})` calls are timing-only
+  on `waitForResponse`; the one `test.skip` guard (`:267`) is guaranteed non-firing given
+  `seedShoppingList`.
 
 ### Activity-2 confirm-absence sweep record (2026-07-11, G6-passed)
 
