@@ -164,8 +164,11 @@ BROKEN (FR-18, the History tab), and it is cited to the exact stub line.
 - **FR-13** — When a locked PO exists, the tab renders it read-only with a status
   badge (locked/approved/shopping). *(GET `/orders?status=locked`;
   `handler.go:431-456 GetOrdersByStatus`, `purchasing.html:292-352 renderPOTab`)* —
-  **WORKING** ("PO tab shows stub or locked PO" asserts content renders) — traces to
-  Product KR-1, QA KR-2.
+  **UNPROVEN** *(inline mark corrected WORKING → UNPROVEN by the Activity-2 sweep
+  2026-07-11, G6-confirmed, to match the authoritative tally: `renderPOTab` is present
+  and real, but the "PO tab shows stub or locked PO" test only asserts content renders
+  — it does not seed a locked PO and assert the read-only render + status badge, so it
+  fails the WORKING bar. Present-but-untested.)* — traces to Product KR-1, QA KR-2.
 - **FR-14** — An admin can edit a **locked** PO (add items via the PO-target
   picker, step quantities) — non-admins cannot; the edit path sends `allowLocked`
   (no `require_draft`). *(PUT `/orders/{id}/items`; `handler.go:82-99`,
@@ -376,6 +379,45 @@ candidate work-order backlog. Every one must have a shipped WO by cycle end —
 Delivery KR-1 — and reach 0 known-broken — Engineering KR-1. FR-18 is the only
 confirmed code-fix WO; the rest open as test-only WOs and graduate to a fix WO only
 if their red-first test fails. Recall denominator = 26.)
+
+### Activity-2 confirm-absence sweep record (2026-07-11, G6-passed)
+
+Two-pass static audit (pass 1 UI-flow, pass 2 scheduler/cron/state-machine cross-check)
+of all 18 UNPROVEN flows against `purchasing.html` + `backend/internal/purchasing/*`;
+adversarial G6 stub-hunt of every cron + `ApprovePO` + the 5 D-1 handlers. **Result: 0
+graduations — all 18 stay UNPROVEN; FR-18 remains the only BROKEN.** Tally unchanged:
+WORKING 7 · UNPROVEN 18 · BROKEN 1. **Pass 2 was load-bearing for NOT mis-marking** the
+backend-only cron/approve surface BROKEN: all four scheduler checks and `ApprovePO` are
+real implementations (no no-op/TODO/empty body), just untested.
+
+**D-1 honored:** the 5 no-UI admin/cron endpoints have real handler bodies
+(`SimulateCutoffHandler` `handler.go:373-429`, `LockPOHandler` `:460-491`,
+`UnlockPOHandler` `:495-530`, `RepurchaseResetHandler` `:568-586`,
+Get/Upsert-RepurchaseResetConfig `:590-655`) — absent UI is by-design, so they stay
+UNPROVEN, not BROKEN. **FR-13 inline mark corrected WORKING → UNPROVEN** (doc-consistency;
+tally was already correct). FR-18 stub re-confirmed at `purchasing.html:156` (grep for
+`renderHistory|history-content|shopping/history` → 0 frontend hits).
+
+| Flow | Present at | Confirm-note |
+|---|---|---|
+| FR-1 | `service.go:73-132` | `GetOrCreateOrder` roll-to-next-week branch real; untested |
+| FR-2 | `service.go:213-274`; `purchasing.html:784-836` | stepper debounced-save (delete-not-in-set + upsert) present |
+| FR-4 | `service.go:659-724`; `purchasing.html:477` | suggestions query + Add-Selected present |
+| FR-6 | `handler.go:335-369`; `purchasing.html:242,272` | admin-gated cutoff PUT (403) + form present |
+| FR-12 | `service.go:510-581`; `purchasing.html:670-696` | vendor-complete cascade→list→PO present (test tail vacuous) |
+| FR-13 | `purchasing.html:292-352` | `renderPOTab` present; inline mark reconciled to UNPROVEN |
+| FR-14 | `handler.go:82-99`; `service.go:232-234`; `purchasing.html:314-345` | admin locked-PO edit path + 403 present |
+| FR-15 | `purchasing.html:314,347-350` | approve button gated admin+locked present |
+| FR-16 | `service.go:851-969`; `handler.go:534-564` | `ApprovePO` snapshot + both 409s present |
+| FR-17 | `service.go:396-458`; `handler.go:153-172` | `GetShoppingListHistory` backend real (UI = FR-18 BROKEN) |
+| NFR-1 | `service.go:772-845` | `LockPO`/`UnlockPO` optimistic-lock state machine present |
+| NFR-2 | `service.go:43-56`; guards at `handler.go:342,380,467,502,541,575,597,624` | `isAdmin` on every admin handler present |
+| FR-19 | `scheduler.go:167-243` | `runCutoffCheck` (DST-safe auto-lock) real |
+| FR-20 | `scheduler.go:54-163` | `runReminderCheck` (idempotent `alert_log`) real |
+| FR-21 | `scheduler.go:247-360` | `runLowStockCheck` (idempotent `low_stock_alert_log`) real |
+| FR-22 | `repurchase.go:81-125,129-177` | reset config upsert + auto-reset real (D-1 no-UI) |
+| FR-23 | `handler.go:566-586`; `repurchase.go:60-77` | `TriggerRepurchaseReset` manual reset real (D-1 no-UI) |
+| FR-24 | `service.go:568-572`; `repurchase.go:16-55` | `RecordRepurchase` on vendor-complete real |
 
 ## Out of scope
 

@@ -43,6 +43,15 @@
   Fix: resolve the first *checkable unit* by item type (video_part / faq / sub_item / item) and delete
   its progress; red-first test on the seed's video-led Equipment Training §.
   · origin: overnight-20260712 onboarding-confirm-absence (G6-passed) · new
+- **Purchasing FR-18 — History tab is a static stub (frontend build WO)** · `#s4` is a hardcoded
+  stub (`purchasing.html:156` "Past shopping runs will appear here"); `show(n)` (`:776-782`) only
+  toggles display; there is no `renderHistory` and no `GET /shopping/history` call anywhere in the
+  frontend (grep = 0 hits). Backend `GetShoppingListHistory` (FR-17, `service.go:396-458`) works but
+  is never wired to the UI. **Confirmed-BROKEN at Activity-1 PRD-drafting; re-confirmed by the
+  overnight-20260712 sweep.** NOT waived (unlike Inventory Trends/Cost D-3) — the backend exists, so
+  the absent UI is a real gap in a shipped feature. Fix: implement `renderHistory` + wire
+  `/shopping/history` into the History tab, + rewrite the 4 dead History tests to drive the new UI.
+  · origin: PRD-purchasing-hardening Activity 1 (re-confirmed overnight-20260712) · new
 
 ## Test-hardening notes (from Activity-3 test-audits — ride the downstream prove-UNPROVEN/test WOs; not reclassifications)
 
