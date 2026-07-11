@@ -88,3 +88,10 @@
   `normalizeItemName` to both paths + assert title-cased output; the NFR-1 test-only WO should cover
   the 3 named surfaces AND these two gaps. Also correct FR-4's PRD text re vendor normalization.
   · origin: overnight-20260712 inventory-confirm-absence (G6-passed) · new
+- **Inventory ~40 data-dependent test guards (cleanup)** · `tests/inventory.spec.js` carries ~40
+  `if (await X.count() > 0) return;` / `if(count>0){…}` guards that silently pass when a seed is a
+  no-op (PRD §Verification). None drops a WORKING flow (each guarded assertion is backstopped by a
+  guaranteed real seed or an unguarded sibling), but they're QA-KR-1 cleanup: convert to unguarded
+  (or self-seed) so a seed miss reddens. Representative: FR-2 tax/grand-total at `:1039-1042,
+  1058-1061`. Rides the Inventory Activity-4 test-hardening WO. · origin: overnight-20260712
+  inventory-test-audit (G6-passed) · new

@@ -578,6 +578,34 @@ sub-claim is off).
 | NFR-8 | `inventory.html:2277-2303` | slider/chip/gradient rollback + inline error present |
 | NFR-9 | `inventory.html:2100-2106` | `loadRecipes` fetches live `/drift`, populates `DRIFT_BANNER` |
 
+### Activity-3 test-audit sweep record (2026-07-11, G6-passed)
+
+Two-pass static audit (pass 1 locate+read each of the 19 WORKING flows' Go and/or E2E
+proof per its [tag], pass 2 subtle-vacuousness cross-check) across
+`tests/inventory.spec.js` (~135), `tests/recipes.spec.js` (18), and the Go integration
+tests in `internal/{inventory,recipes}/*_test.go`; adversarial G6 re-verification of the
+highest-risk [E2E]-only (FR-17 synthetic, FR-2 guarded) and [Go]-only flows. **Result: 0
+drops — all 19 WORKING tests are non-vacuous.** WORKING stays 19.
+
+- **Go DB-guard skip is env-not-vacuous (confirmed):** every Go test's `if !dbReachable {
+  t.Skip("DB_TEST_URL...") }` (inventory) / `setupTestDB→t.Skip` (recipes,
+  `helpers_test.go:29-39`) is the sanctioned environment guard — under the mandated
+  localhost Postgres each runs and asserts real status/envelope/DB-row state. Correctly
+  NOT counted against any [Go]/[Go+E2E] flow.
+- **Synthetic-DOM tests drive real handlers (not injected literals):** FR-17 clicks a
+  synthetic Menu card but exercises the real `data-action="menu-card-to-recipes"` handler
+  and asserts a real tab-switch (`#t4` gains `on`, `#s4` visible) + summary replacement
+  (`inventory.spec.js:262-267`); FR-19's slider test drives the real `save-recipe-pct`
+  change listener and asserts a real PUT with `usage_pct:15` (`recipes.spec.js:255-257`),
+  and is also Go-proven.
+- **QA-KR-1 guard-cleanup candidate (NOT a drop):** FR-2's tax/grand-total assertions
+  (`inventory.spec.js:1039-1042,1058-1061`) sit inside `if (await pending.count()>0)`
+  guards, but the seed is a guaranteed real `/pending-seed` insert
+  (`handler.go:1008-1041` unconditional INSERT → 201), so `count>0` holds under the DB and
+  the assertions fire. Convert the `if(count>0){…}` to unguarded in the test-hardening WO
+  (part of the PRD's ~40-guard cleanup note). Not a G3 drop — the assertions are real, not
+  skipped-by-return.
+
 ## Out of scope
 
 - The other four apps (Operations, Onboarding, Users, Purchasing) — separate PRDs.

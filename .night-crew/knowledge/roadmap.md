@@ -90,7 +90,7 @@ Spot-audit every flow marked WORKING that its test actually asserts (no
 | `users-test-audit` | **DRAFTING** (overnight-20260712; G6-passed → 0 drops, 10 WORKING non-vacuous; stale-test fold-in confirmed for FR-16/17 test-repair WO) | `users-hardening-prd` | QA KR-1 |
 | `onboarding-test-audit` | **DRAFTING** (overnight-20260712; G6-passed → 0 drops, 23 WORKING non-vacuous; 6 conditional-skip guard flags for the test-hardening WO) | `onboarding-hardening-prd` | QA KR-1 |
 | `purchasing-test-audit` | **DRAFTING** (overnight-20260712; G6-passed → 1 drop: FR-7 → UNPROVEN (vacuous generic-content tail); 6 WORKING confirmed non-vacuous) | `purchasing-hardening-prd` | QA KR-1 |
-| `inventory-test-audit` | PLANNED | `inventory-hardening-prd` | QA KR-1 |
+| `inventory-test-audit` | **DRAFTING** (overnight-20260712; G6-passed → 0 drops, 19 WORKING non-vacuous; Go DB-guard = env-not-vacuous; FR-2 ~40-guard cleanup noted) | `inventory-hardening-prd` | QA KR-1 |
 
 ## Activity 4 — Prove & fix the UNPROVEN (the WO backlog) · *bulk delivery*
 
