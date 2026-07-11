@@ -9,7 +9,10 @@
   `#t3`/`#s3` DOM (removed in the 3-tab→2-tab refactor; Access now renders into `#s2`).
   Features work; tests can't run — marked UNPROVEN (stale-test), not BROKEN. Repoint
   `#t3`/`#s3` → `#t2`/`#s2`. Folds into the **Users Activity-4 prove-UNPROVEN WO** (low effort).
-  · origin: triage 2026-07-10 (D-4) · new
+  **Also (overnight-20260712 users-confirm-absence, G6-confirmed):** while repairing, rename the
+  misleading `s3` local var in `renderAccess` (`users.html:466`) — it fetches the live `#s2` node
+  but its name is a 3-tab holdover that likely seeded this bug. · origin: triage 2026-07-10 (D-4)
+  · updated 2026-07-11
 
 ## Activity-4 fix-cards (from Activity-2 confirm-absence graduations — code-fix + regression-test WOs)
 

@@ -367,6 +367,41 @@ the features render correctly into `#s2` and the tests merely point at dead DOM
 single-use) are the highest-value new assertions because they guard security
 invariants shared across all 8 admin handlers.*
 
+### Activity-2 confirm-absence sweep record (2026-07-11, G6-passed)
+
+Two-pass static audit (pass 1 UI-flow, pass 2 auth-enforcement cross-check) of all 16
+UNPROVEN flows against `users.html` + `backend/internal/users/*` + the router;
+adversarial G6 re-check of every citation at the cited line. **Result: 0
+graduations — all 16 stay UNPROVEN** (every behavior is present-but-untested; no
+missing handler, dead route, stub return, never-firing validation, or
+render-to-dead-node). Tally unchanged: WORKING 10 · UNPROVEN 16 · BROKEN 0.
+
+Two G3 subtleties confirmed: **FR-9** (email immutable) — the PATCH handler having no
+email field IS the immutability feature, not a broken flow. **FR-16/FR-17** — the
+render path (`renderAccess`, `users.html:466`) writes to the **live** `#s2` node (the
+variable is confusingly *named* `s3` — a holdover from the old 3-tab layout that
+likely seeded the stale-test bug); the toggle→PUT persistence chain is real, so these
+are stale-test (test-repair) UNPROVEN, not BROKEN.
+
+| Flow | Present at | Confirm-note |
+|---|---|---|
+| FR-2 | `users.html:159-163,212-213` | `renderError` + load catch "Could not load team." present |
+| FR-4 | `handler.go:80-83,94-98` | 422 `validation_error` + 409 `email_already_exists` present |
+| FR-6 | `users.html:574-592` | reinvite → POST reset-password → toast + URL cache present |
+| FR-9 | `users.html:360-361`; `handler.go:161-168` | email readonly + PATCH omits email = immutability by design (not broken) |
+| FR-10 | `users.html:366-367,400`; `db.go:292-305` | default-both-channels + client ≥1 guard + server 400 present |
+| FR-11 | `users.html:370-381`; `db.go:306-314` | tz select + `time.LoadLocation` invalid-zone 400 present |
+| FR-15 | `users.html:593-610` | inline get-invite-link → POST reset-password → render present |
+| FR-16 | `users.html:465-496` (renders into live `#s2`) | stale-test: feature renders; test targets dead `#t3`/`#s3` |
+| FR-17 | `users.html:619-628,498-506`; `handler.go:455`; `db.go:463-506` | toggle → savePermissions → PUT → `SetAppPermissions` txn present (stale test) |
+| FR-18 | `users.html:629-639`; `db.go:494-500` | add-grant → push → PUT → re-render present |
+| FR-19 | `users.html:640-648` | remove-grant → filter → PUT → re-render present |
+| NFR-1 | `handler.go:32-34` invoked at `40,63,154,224,283,305,435,458` | `isAdmin` 403 guard live in all 8 admin handlers (priority; no non-admin test) |
+| NFR-2 | `db.go:373-390,360-364`; `handler.go:368-377` | `ClaimInviteToken` single-use+expiry predicate + 7-day mint present (priority) |
+| NFR-3 | `db.go:463-506,431` | `SetAppPermissions` txn + `GetAppPermissions` feeding `/me/apps` present |
+| NFR-4 | `handler.go:500-564` (508,536); `main.go:461-462` | notification-pref admin-or-self + ≥1-channel present; frontend-orphaned (users.html:407 uses PATCH) |
+| NFR-5 | `users.html:139` | 401 → `/login.html` redirect present |
+
 ## Out of scope
 
 - The other four apps (Operations, Inventory, Onboarding, Purchasing) — separate PRDs.

@@ -74,7 +74,7 @@ BROKEN → a code-fix card.
 | Card | Status | Depends on | KR |
 |---|---|---|---|
 | `ops-confirm-absence` (FR-12 reject, NFR-3 photo-required) | **DRAFTING** (overnight-20260712; G6-passed → 2 BROKEN: FR-4, NFR-3; FR-12 confirm NEGATIVE) | `ops-hardening-prd` | Eng KR-1 |
-| `users-confirm-absence` | PLANNED | `users-hardening-prd` | Eng KR-1 |
+| `users-confirm-absence` | **DRAFTING** (overnight-20260712; G6-passed → 0 graduations, 16 stay UNPROVEN present-but-untested) | `users-hardening-prd` | Eng KR-1 |
 | `onboarding-confirm-absence` | PLANNED | `onboarding-hardening-prd` | Eng KR-1 |
 | `purchasing-confirm-absence` | PLANNED | `purchasing-hardening-prd` | Eng KR-1 |
 | `inventory-confirm-absence` | PLANNED | `inventory-hardening-prd` | Eng KR-1 |
