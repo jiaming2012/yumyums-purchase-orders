@@ -402,6 +402,33 @@ are stale-test (test-repair) UNPROVEN, not BROKEN.
 | NFR-4 | `handler.go:500-564` (508,536); `main.go:461-462` | notification-pref admin-or-self + ≥1-channel present; frontend-orphaned (users.html:407 uses PATCH) |
 | NFR-5 | `users.html:139` | 401 → `/login.html` redirect present |
 
+### Activity-3 test-audit sweep record (2026-07-11, G6-passed)
+
+Two-pass static audit (pass 1 locate+read each WORKING flow's assertion, pass 2
+tautology/subtle-vacuousness cross-check) of all 10 WORKING flows against
+`tests/users.spec.js` + `tests/multi-role.spec.js`; adversarial G6 re-check of every
+cited assertion incl. the hollow-visibility probes. **Result: 0 drops — all 10
+WORKING tests are non-vacuous.** WORKING stays 10.
+
+The visibility/text assertions most likely to be tautological were verified against
+`users.html` to require the real code path, not a static node:
+- **FR-8** `#nick-err` `toBeVisible()` — node is `display:none` by default
+  (`users.html:49`), `.show` added only on the 409 `nickname_taken` branch
+  (`users.html:416`) and removed at save start (`:402`) → requires a real 409.
+- **FR-13** `#toast` `toContainText('revoked')` — toast empty by default
+  (`users.html:127`), text "Session revoked" set only on revoke success (`:444`).
+- **FR-14** delete `.not.toBeVisible()` — targets the specific freshly-created
+  `data-user-id` row (proven to exist first), not an always-absent selector.
+- **FR-3/FR-5/FR-12** `/login.html?token=` — the token substring appears only when
+  the server mint succeeds (panel renders inside the success `try`,
+  `users.html:284-285`).
+
+**Stale-test fold-in confirmed (BACKLOG / FR-16-17):** the two Access-tab tests
+(`shows all apps…` `users.spec.js:464-467`, `can toggle a role…` `:484-488`) click a
+non-existent `#t3` and wait on the empty `#s3` div — dead DOM. They map to FR-16/FR-17
+(already UNPROVEN stale-test) and back **none** of the 10 WORKING flows. Activity-4
+test-repair pointer: `#t3`/`#s3` → `#t2`/`#s2`.
+
 ## Out of scope
 
 - The other four apps (Operations, Inventory, Onboarding, Purchasing) — separate PRDs.

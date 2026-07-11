@@ -87,7 +87,7 @@ Spot-audit every flow marked WORKING that its test actually asserts (no
 | Card | Status | Depends on | KR |
 |---|---|---|---|
 | `ops-test-audit` | **DRAFTING** (overnight-20260712; G6-passed → 0 drops, all 10 WORKING non-vacuous; FR-15 photo/builder-UI coverage gap noted for downstream WO) | `ops-hardening-prd` | QA KR-1 |
-| `users-test-audit` | PLANNED | `users-hardening-prd` | QA KR-1 |
+| `users-test-audit` | **DRAFTING** (overnight-20260712; G6-passed → 0 drops, 10 WORKING non-vacuous; stale-test fold-in confirmed for FR-16/17 test-repair WO) | `users-hardening-prd` | QA KR-1 |
 | `onboarding-test-audit` | PLANNED | `onboarding-hardening-prd` | QA KR-1 |
 | `purchasing-test-audit` | PLANNED | `purchasing-hardening-prd` | QA KR-1 |
 | `inventory-test-audit` | PLANNED | `inventory-hardening-prd` | QA KR-1 |
