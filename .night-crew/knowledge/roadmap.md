@@ -77,7 +77,7 @@ BROKEN → a code-fix card.
 | `users-confirm-absence` | **DRAFTING** (overnight-20260712; G6-passed → 0 graduations, 16 stay UNPROVEN present-but-untested) | `users-hardening-prd` | Eng KR-1 |
 | `onboarding-confirm-absence` | **DRAFTING** (overnight-20260712; G6-passed → 1 BROKEN: NFR-5 video-led reopen no-op; 10 UNPROVEN; FR-16 waiver recommended) | `onboarding-hardening-prd` | Eng KR-1 |
 | `purchasing-confirm-absence` | **DRAFTING** (overnight-20260712; G6-passed → 0 graduations, 18 stay UNPROVEN; FR-18 remains only BROKEN; D-1 honored; FR-13 inline mark reconciled) | `purchasing-hardening-prd` | Eng KR-1 |
-| `inventory-confirm-absence` | PLANNED | `inventory-hardening-prd` | Eng KR-1 |
+| `inventory-confirm-absence` | **DRAFTING** (overnight-20260712; G6-passed → 0 graduations, 19 stay UNPROVEN; FR-24/25 remain waived-BROKEN; NFR-1 double normalization-gap flagged for WO) | `inventory-hardening-prd` | Eng KR-1 |
 
 ## Activity 3 — Audit the WORKING (non-vacuous test check)
 

@@ -79,3 +79,12 @@
   empty-state stub text with no list, and (b) grouped vendor sections + per-item check buttons +
   thumbnails + aisle locations when populated. · origin: overnight-20260712 purchasing-test-audit
   (G6-passed) · new
+- **Inventory NFR-1 double name-normalization gap** · Two surfaces persist un-normalized text while
+  the rest title-case: (1) `UpdateItemHandler` (`backend/internal/inventory/handler.go:1129-1131`)
+  writes `input.Description` raw — item *edit* skips `normalizeItemName` (create/confirm/vendor-create
+  all normalize); (2) `ConfirmPendingPurchaseHandler` (`:660-664`) upserts the **vendor** raw while
+  receipt line-items ARE normalized (`:762`) — so FR-4's "vendor upserted title-cased" text is
+  inaccurate. Neither is a G3 BROKEN (behavior present, output just un-normalized). WO: add
+  `normalizeItemName` to both paths + assert title-cased output; the NFR-1 test-only WO should cover
+  the 3 named surfaces AND these two gaps. Also correct FR-4's PRD text re vendor normalization.
+  · origin: overnight-20260712 inventory-confirm-absence (G6-passed) · new
