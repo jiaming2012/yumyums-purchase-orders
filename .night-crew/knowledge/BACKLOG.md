@@ -55,3 +55,10 @@
   (`tests/workflows.spec.js:485-508`) wraps its whole body in `if (await flagBtn.isVisible())` with
   no `expect` — genuinely vacuous. Maps to FR-10/FR-12 (already UNPROVEN). Use as the starting point
   for the FR-12 test-only WO (the assertion to add). · origin: overnight-20260712 ops-test-audit · new
+- **Onboarding 6 conditional-skip guard sites** · `tests/onboarding.spec.js` has 6 guard/`return`
+  sites that skip an assertion when the seed shape differs: `:991` (FR-13, PRD-flagged), `:148-151`
+  (FR-3), `:250-259`+`:826-841` (FR-5), `:304-306` (FR-2), `:700-745` (FR-13 UI), `:2104-2107`+
+  `:2136-2139` (FR-15). All flows STAY WORKING (each has an unconditional sibling assertion) — these
+  are hardening flags, not drops. Replace each guard with a self-seeded fixture so a shape mismatch
+  reddens instead of silently skipping. Rides the Onboarding Activity-4 test-hardening WO.
+  · origin: overnight-20260712 onboarding-test-audit (G6-passed) · new

@@ -421,6 +421,35 @@ is a DB-key mismatch (`ob_items.id` vs `ob_video_parts.id`) invisible to a UI-fi
 | NFR-4 | `handler.go:548-551,603-606` | `presigner==nil → 503 video_storage_not_configured` present; untested |
 | **NFR-5** | **→ BROKEN** `db.go:1015-1017,1040` vs `645-651` | reopen deletes by parent `ob_items.id`, never `ob_video_parts.id` → video-led section stays complete |
 
+### Activity-3 test-audit sweep record (2026-07-11, G6-passed)
+
+Two-pass static audit (pass 1 locate+read each of the 23 WORKING flows' assertions,
+pass 2 subtle-vacuousness cross-check) of `tests/onboarding.spec.js` (44 tests);
+adversarial G6 re-check of every guard site and its claimed unconditional sibling.
+**Result: 0 drops — all 23 WORKING tests are non-vacuous.** WORKING stays 23. No
+`test.skip`/`test.fixme`/`test.only` and no swallowed `try/catch` anywhere in the file.
+
+**6 conditional-skip guard sites found — all flag-only (NOT drops):** each guarded
+assertion is redundantly proven by an unconditional sibling test of the same named
+behavior, so none is a false-green. They are WO-hardening flags (replace the guard with
+a self-seeded fixture so a seed-shape mismatch reddens instead of silently skipping):
+- `onboarding.spec.js:991` `if (signOffSections.length < 2) return;` (FR-13) — redundant
+  to `rejects missing rating` (`:1048-1049`) + the two attribution tests (`:781-785`,
+  `:1101`). *(This is the line the PRD §Verification already flagged.)*
+- `:148-151` `if (!activeSection) return;` (FR-3) — anchored by `progress survives
+  template edit` round-trip (`:460`).
+- `:250-259` / `:826-841` `if (video count>0)` (FR-5) — anchored by the unconditional API
+  test `checkedParts.length === video_parts.length` (`:948`).
+- `:304-306` `if (sectionCount>1)` (FR-2) — anchored by `completing a section unlocks
+  next` (`:906-908`, real UI gate, no guard).
+- `:700-745` UI sign-off (FR-13) — anchored by the API rating tests.
+- `:2104-2107` / `:2136-2139` `if (viewBtn.isVisible())` (FR-15) — guard wraps only a nav
+  click; the reject-button (`:2111/2143`) + header asserts (`:2119/2150`) run
+  unconditionally.
+
+*(No status change from this card. The 6 guard flags feed the Onboarding Activity-4
+test-hardening WO alongside the FR-13 line-991 fix already named in §Verification.)*
+
 ## Out of scope
 
 - The other four apps (Operations, Inventory, Users, Purchasing) — separate PRDs.
