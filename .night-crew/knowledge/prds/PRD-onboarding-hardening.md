@@ -285,15 +285,22 @@ missed** — the empirical basis for the recall note in §Success metrics. Each 
   `db.go:751-898` vs GET `/myTrainings` `db.go:687-749`)* — **UNPROVEN** (each side is
   tested in isolation; no test asserts the two progress numbers agree for the same
   hire/template) — traces to Engineering KR-1, QA KR-1.
-- **NFR-5 (Reopen picks the first item, not the last)** — `ReopenSection` deletes only
-  the *first* item's (or first sub-item's) progress to force the section incomplete; if
-  that first item is a video part or has a different progress_type, reopen could leave
-  the section still "complete." *(`ReopenSection` `db.go:1013-1047` — only handles
-  checkbox item + first sub-item, not a leading video_series/faq item)* — **UNPROVEN
-  (priority)** (confirm-absence step: does reopen actually revert a section whose first
-  item is a video_series or FAQ? the code path only unchecks an `ob_items`/`ob_sub_items`
-  row — a leading `ob_video_parts` part is not unchecked → graduates to BROKEN if a red
-  test shows the section stays complete) — traces to Engineering KR-1, QA KR-1.
+- **NFR-5 (Reopen a video-led section is a silent no-op)** — reopen/reject of a section
+  whose first item is a `video_series` does NOT revert it to active: the section stays
+  `complete`/`signed_off` and the handler still returns `{"ok":"true"}`, masking it. —
+  **BROKEN** *(confirm-absence sweep 2026-07-11, G6-confirmed at every causal link:
+  `ReopenSection` selects the first `ob_items` row with no type filter
+  (`db.go:1015-1017`), which per schema `0019_ob_items.sql:6` can be `video_series`;
+  it deletes progress by the parent `ob_items.id` (`db.go:1040`), but video progress is
+  keyed by `ob_video_parts.id` (written `db.go:970-978`, required for completeness at
+  `db.go:645-651`), so the DELETE matches zero video_part rows and `isSectionComplete`
+  still returns true. No `ob_video_parts` delete exists anywhere in `ReopenSection`
+  (1000-1048). FAQ-led sections are SAFE — faq progress is keyed by the faq item's own
+  `ob_items.id`, so the parent-keyed DELETE removes it. Shared defect: both
+  `/reopenSection` (FR-9, crew) and `/rejectSection` (FR-15, manager) call the same
+  `ReopenSection`.)* — traces to Engineering KR-1, QA KR-1. **→ Activity-4 fix-card
+  (resolve the first checkable unit by item type — video_part / faq / sub_item / item —
+  and delete its progress; red-first test on the seed's video-led Equipment Training §).**
 
 ## Acceptance criteria
 
@@ -373,18 +380,46 @@ state* (the WORKING bar).
 Total requirements enumerated: **34** (29 FR + 5 NFR) — 31 first-pass + 3 from the
 G5 cross-check.
 
+**Updated by the Activity-2 confirm-absence sweep (2026-07-11, G6-passed).** The
+priority-UNPROVEN **NFR-5 graduated to BROKEN** (reopen/reject of a video-led section is
+a confirmed silent no-op — every causal link verified at cited lines). FR-16 and NFR-3
+confirmed present-but-untested (FR-16 → recommended WAIVER, env-gated on S3+FFmpeg; NFR-3
+guards invoked at 12 call sites). Net: WORKING 23 · UNPROVEN 11 → 10 · BROKEN 0 → 1.
+
 | Status | Count | Flows |
 |---|---|---|
 | **WORKING** | 23 | FR-1, FR-2, FR-3, FR-4, FR-5, FR-6, FR-7, FR-8, FR-9, FR-11, FR-12, FR-13, FR-15, FR-17, FR-19, FR-20, FR-22, FR-23, FR-24, FR-25, FR-27, NFR-1, NFR-2 |
-| **UNPROVEN** | 11 | FR-10, FR-14, FR-18, FR-21, FR-26, FR-28, FR-29, NFR-4 · **priority:** FR-16, NFR-3, NFR-5 |
-| **BROKEN** | 0 | *(none confirmed; FR-16 / NFR-3 / NFR-5 each open with a confirm-absence step and graduate here only if it proves breakage — resolves G1)* |
+| **UNPROVEN** | 10 | FR-10, FR-14, FR-18, FR-21, FR-26, FR-28, FR-29, NFR-4 · **priority:** FR-16 (waiver candidate), NFR-3 |
+| **BROKEN** | 1 | **NFR-5** (reopen/reject of a video-led section is a silent no-op — `ReopenSection` deletes progress by parent `ob_items.id`, never `ob_video_parts.id`) → an Activity-4 fix-card |
 
-*(Verify: 23 WORKING + 11 UNPROVEN + 0 BROKEN = 34 total. The WORKING row lists 23
-IDs — 21 FR (FR-1…FR-9, FR-11…FR-13, FR-15, FR-17, FR-19, FR-20, FR-22…FR-25, FR-27)
-plus NFR-1/NFR-2. The 11 UNPROVEN flows = the candidate work-order backlog: 3 priority
-(video pipeline, auth-tier 403, reopen-a-video-led-section) + 8 standard (FR-10, FR-14,
-FR-18, FR-21, FR-26, FR-28, FR-29, NFR-4). Every one must have a shipped WO by cycle
-end — Delivery KR-1 — and reach 0 known-broken — Engineering KR-1.)*
+*(Verify: 23 WORKING + 10 UNPROVEN + 1 BROKEN = 34 total. The 10 UNPROVEN + 1 BROKEN =
+the candidate WO backlog. NFR-5 (BROKEN) = an Activity-4 code-fix + regression-test card
+and enters the Engineering-KR "0 known-broken" denominator. FR-16 is flagged for an
+explicit operator WAIVER decision at triage (environment-gated, like Inventory
+Trends/Cost D-3) — its pipeline is fully implemented (`video.go`), just untestable
+without S3 creds + an ffmpeg binary. Every UNPROVEN must have a shipped WO by cycle end —
+Delivery KR-1 — and reach 0 known-broken — Engineering KR-1.)*
+
+### Activity-2 confirm-absence sweep record (2026-07-11, G6-passed)
+
+Two-pass static audit (pass 1 UI-flow, pass 2 state-machine / video / seed cross-check)
+of all 11 UNPROVEN flows against `onboarding.html` + `backend/internal/onboarding/*`;
+adversarial G6 re-check of every citation. **Pass 2 was decisive on NFR-5** — the break
+is a DB-key mismatch (`ob_items.id` vs `ob_video_parts.id`) invisible to a UI-first pass.
+
+| Flow | Present at / verdict | Confirm-note |
+|---|---|---|
+| FR-10 | `onboarding.html:277`; `db.go:973-978` | proof-photo capture→upload→`saveProgress(value)` persists; present, untested |
+| FR-14 | `handler.go:260-282` | 403 `sign_off_role_required` guard + UI gate present; API refusal untested |
+| FR-16 | `handler.go:540-640`; `video.go:22-206` | **WAIVER candidate** — full presign→PUT→FFmpeg pipeline present; env-gated (S3+ffmpeg), not broken |
+| FR-18 | `onboarding.html:1192-1221` | custom-thumbnail presign→PUT→`part.thumbnail_url` present; untested |
+| FR-21 | `handler.go:527`; `db.go:252,723,870` | soft-delete `archived_at=now()` + all queries filter `archived_at IS NULL`; untested |
+| FR-26 | `db.go:1324-1330` | unassign deletes `ob_template_assignments` row; present, no test calls it |
+| FR-28 | `seed.go:98-124` | seed skip-if-name-exists + role-refresh present; re-seed untested |
+| FR-29 | `db.go:687-749` vs `751-898` | both progress-query paths present; agreement untested |
+| NFR-3 | `handler.go:39` invoked at `52,151,230,309,343,373,409,446,516,558,613` | `isManagerOrAdmin` wired on every manager endpoint; no team_member 403 test |
+| NFR-4 | `handler.go:548-551,603-606` | `presigner==nil → 503 video_storage_not_configured` present; untested |
+| **NFR-5** | **→ BROKEN** `db.go:1015-1017,1040` vs `645-651` | reopen deletes by parent `ob_items.id`, never `ob_video_parts.id` → video-led section stays complete |
 
 ## Out of scope
 

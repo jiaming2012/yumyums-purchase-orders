@@ -33,6 +33,16 @@
   photo gate (`handler.go:458`). `PhotoURL` is storable (`model.go:92`) but never required.
   Fix: block submit/resubmit until a required photo is attached, front+back, + red-first test.
   · origin: overnight-20260712 ops-confirm-absence (G6-passed) · new
+- **Onboarding NFR-5 — reopen/reject of a video-led section is a silent no-op** · A section
+  whose first `ob_items` row is a `video_series` never reverts to active on reopen or reject:
+  `ReopenSection` selects the first item with no type filter (`db.go:1015-1017`) and deletes progress
+  by the parent `ob_items.id` (`db.go:1040`), but video progress is keyed by `ob_video_parts.id`
+  (`db.go:970-978`, required for completeness at `db.go:645-651`), so the DELETE matches zero rows and
+  `isSectionComplete` stays true; handler returns `{"ok":"true"}` masking it. FAQ-led sections are
+  safe. Shared defect — hits BOTH `/reopenSection` (FR-9, crew) and `/rejectSection` (FR-15, manager).
+  Fix: resolve the first *checkable unit* by item type (video_part / faq / sub_item / item) and delete
+  its progress; red-first test on the seed's video-led Equipment Training §.
+  · origin: overnight-20260712 onboarding-confirm-absence (G6-passed) · new
 
 ## Test-hardening notes (from Activity-3 test-audits — ride the downstream prove-UNPROVEN/test WOs; not reclassifications)
 
