@@ -86,7 +86,11 @@ Spot-audit every flow marked WORKING that its test actually asserts (no
 
 | Card | Status | Depends on | KR |
 |---|---|---|---|
-| `<app>-test-audit` (×5) | PLANNED | that app's PRD | QA KR-1 |
+| `ops-test-audit` | **DRAFTING** (overnight-20260712; G6-passed → 0 drops, all 10 WORKING non-vacuous; FR-15 photo/builder-UI coverage gap noted for downstream WO) | `ops-hardening-prd` | QA KR-1 |
+| `users-test-audit` | PLANNED | `users-hardening-prd` | QA KR-1 |
+| `onboarding-test-audit` | PLANNED | `onboarding-hardening-prd` | QA KR-1 |
+| `purchasing-test-audit` | PLANNED | `purchasing-hardening-prd` | QA KR-1 |
+| `inventory-test-audit` | PLANNED | `inventory-hardening-prd` | QA KR-1 |
 
 ## Activity 4 — Prove & fix the UNPROVEN (the WO backlog) · *bulk delivery*
 

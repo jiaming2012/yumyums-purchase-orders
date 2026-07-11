@@ -30,3 +30,15 @@
   photo gate (`handler.go:458`). `PhotoURL` is storable (`model.go:92`) but never required.
   Fix: block submit/resubmit until a required photo is attached, front+back, + red-first test.
   · origin: overnight-20260712 ops-confirm-absence (G6-passed) · new
+
+## Test-hardening notes (from Activity-3 test-audits — ride the downstream prove-UNPROVEN/test WOs; not reclassifications)
+
+- **Operations FR-15 builder-UI coverage gap** · The six builder field types are proven only via
+  `POST /createTemplate` API calls, not the builder Add-Field UI; only 4/6 types covered (photo = 0,
+  sub-steps thin). Flow stays WORKING (real assertions exist; not statically vacuous) but is
+  under-proven vs. its claim ("add each type *via the builder*"). Add builder-UI Add-Field coverage
+  for all six types incl. photo. · origin: overnight-20260712 ops-test-audit (G6-passed) · new
+- **Operations FR-10/FR-12 vacuous reject test** · `reject item with comment`
+  (`tests/workflows.spec.js:485-508`) wraps its whole body in `if (await flagBtn.isVisible())` with
+  no `expect` — genuinely vacuous. Maps to FR-10/FR-12 (already UNPROVEN). Use as the starting point
+  for the FR-12 test-only WO (the assertion to add). · origin: overnight-20260712 ops-test-audit · new

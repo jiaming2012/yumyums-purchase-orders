@@ -313,6 +313,30 @@ present-but-untested, none stubbed):
 | NFR-6 | `handler.go:452,465-467`; `workflows.html:2473-2477` | archived-template submit → 409 `template_archived` present |
 | NFR-7 | `workflows.html:2791` | 401 → `/login.html` redirect present; drafts persist |
 
+### Activity-3 test-audit sweep record (2026-07-11)
+
+Two-pass static audit (pass 1 locate+read each WORKING flow's assertion, pass 2
+subtle-vacuousness cross-check for swallowed catches / unentered-`if` / tautological
+asserts) of all 10 WORKING flows against `tests/workflows.spec.js` +
+`tests/persistence.spec.js`; adversarial G6 re-check of every cited assertion.
+**Result: 0 drops — all 10 WORKING tests are non-vacuous** (each drives the real flow
+and makes an `expect` on observable DB/UI state; none skipped/guarded/swallowed).
+WORKING stays 10.
+
+Two notes carried to the downstream Operations test-hardening WO (not
+reclassifications — neither meets the G3 static-vacuousness drop bar):
+- **FR-15 coverage gap (QA KR-2):** the six builder field types are exercised via
+  `POST /createTemplate` API calls, **not** the builder Add-Field UI, and only 4/6
+  types are covered (`type` census: checkbox, temperature, text, yes_no — **photo =
+  0**, sub-steps thin). The flow the requirement literally names (adding each type
+  *via the builder*) is under-proven. Add builder-UI Add-Field coverage for all six
+  types incl. photo.
+- **FR-10/FR-12 intel:** the `reject item with comment` test
+  (`workflows.spec.js:485-508`) wraps its whole body in `if (await
+  flagBtn.isVisible())` with **no `expect` at all** — genuinely vacuous, but it maps
+  to FR-10/FR-12 (already UNPROVEN), so it drives no WORKING drop. Feed this to the
+  FR-12 test-only WO as the starting point (the assertion to add).
+
 ## Out of scope
 
 - The other four apps (Inventory, Onboarding, Users, Purchasing) — later passes.
