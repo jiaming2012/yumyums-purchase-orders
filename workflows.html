@@ -2415,6 +2415,26 @@ document.getElementById('fill-body').addEventListener('click', function(e) {
         return;
       }
 
+      // Validate: required photo fields must have a photo attached (a valid
+      // https:// URL as the response value). Also enforces resubmit when a
+      // rejection flagged require_photo for the field. Mirrors the backend
+      // photo_required gate in validateFailNotes.
+      var missingPhoto = allFlds.filter(function(f) {
+        var rejFlag = REJECTION_FLAGS[f.id];
+        var needsPhoto = (f.type === 'photo' && f.required) || (rejFlag && rejFlag.requirePhoto);
+        if (!needsPhoto) return false;
+        var resp = FIELD_RESPONSES[f.id];
+        var v = resp ? resp.value : null;
+        return !(typeof v === 'string' && v.indexOf('https://') === 0);
+      });
+      if (missingPhoto.length > 0) {
+        var photoNames = missingPhoto.map(function(f) { return f.label; }).join(', ');
+        showToast('Photo required for: ' + photoNames);
+        var firstPhoto = document.querySelector('[data-field-id="' + missingPhoto[0].id + '"]');
+        if (firstPhoto) firstPhoto.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+      }
+
       // Check if all items are complete — prompt if not
       var incompleteCount = allFlds.filter(function(f) { return !isFieldAnswered(f); }).length;
       if (incompleteCount > 0) {

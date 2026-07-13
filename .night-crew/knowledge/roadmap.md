@@ -112,7 +112,7 @@ graduate to a **fix WO only if the test goes red**. Operations alone = 17 UNPROV
 |---|---|---|---|
 | `hq-infra-docker-standardize` (Wave 0) | DRAFTING (overnight-20260714) | — | infra / DESIGN §15x |
 | `ops-fr4-no-enforcement` (fix) | DRAFTING (overnight-20260714) | ops confirm-absence | Eng KR-1 |
-| `ops-nfr3-photo-required` (fix) | PLANNED (slate-20260714) | ops confirm-absence | Eng KR-1 |
+| `ops-nfr3-photo-required` (fix) | DRAFTING (overnight-20260714) | ops confirm-absence | Eng KR-1 |
 | `purchasing-fr18-history` (fix) | PLANNED (slate-20260714) | purchasing confirm-absence | Eng KR-1 |
 | `onboarding-nfr5-video-reopen` (fix) | PLANNED (slate-20260714) | onboarding confirm-absence | Eng KR-1 |
 

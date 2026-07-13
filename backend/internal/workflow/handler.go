@@ -96,7 +96,50 @@ func validateFailNotes(ctx context.Context, pool *pgxpool.Pool, input SubmitChec
 			return fmt.Errorf("corrective_action_required")
 		}
 	}
+
+	// Photo gate: a required photo field must have a valid https:// URL as its
+	// response value before submit/resubmit. Iterate the template fields (not
+	// just the responses) so a required photo with no response at all is caught.
+	respValues := map[string]json.RawMessage{}
+	for _, resp := range input.Responses {
+		respValues[resp.FieldID] = resp.Value
+	}
+	for id, f := range fieldMap {
+		if f.Type != "photo" || !f.Required {
+			continue
+		}
+		if !isHTTPSPhotoValue(respValues[id]) {
+			return fmt.Errorf("photo_required")
+		}
+	}
 	return nil
+}
+
+// isHTTPSPhotoValue reports whether a response value is a JSON string that is a
+// valid https:// URL — i.e. a photo field with a captured photo. An absent
+// value (nil) or a non-string / non-https value is treated as "no photo".
+//
+// The fill UI double-encodes response values (JSON.stringify of the value,
+// which is itself then serialized in the request body), so a photo URL arrives
+// as a JSON string literal whose *content* is another JSON string, e.g.
+// `"\"https://…\""`. Peel up to two JSON string layers, mirroring how
+// isYesNoNo tolerates both encodings, before checking the https:// prefix.
+func isHTTPSPhotoValue(value json.RawMessage) bool {
+	if len(value) == 0 {
+		return false
+	}
+	var s string
+	if err := json.Unmarshal(value, &s); err != nil {
+		return false
+	}
+	// Peel a second JSON-string layer if the frontend double-encoded the value.
+	if strings.HasPrefix(s, "\"") {
+		var inner string
+		if err := json.Unmarshal([]byte(s), &inner); err == nil {
+			s = inner
+		}
+	}
+	return strings.HasPrefix(s, "https://")
 }
 
 // isYesNoNo reports whether a yes/no response value represents "No".
