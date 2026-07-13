@@ -2397,8 +2397,11 @@ document.getElementById('fill-body').addEventListener('click', function(e) {
       // Validate: fields with triggered fail conditions must have a corrective action
       var missingCorrective = allFlds.filter(function(f) {
         var resp = FIELD_RESPONSES[f.id];
-        if (!resp || !f.fail_trigger) return false;
-        var triggered = evaluateFailTrigger(f.fail_trigger, resp.value);
+        if (!resp) return false;
+        // A yes/no field answered "No" is a triggered fail requiring a corrective
+        // note — mirrors the corrective card the fill UI already renders on every "No".
+        var triggered = (f.type === 'yes_no' && (resp.value === false || resp.value === 'false'))
+          || (f.fail_trigger && evaluateFailTrigger(f.fail_trigger, resp.value));
         if (!triggered) return false;
         var fn = FAIL_NOTES[f.id];
         return !fn || !fn.note || !fn.note.trim() || !fn.severity;

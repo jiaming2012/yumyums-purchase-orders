@@ -73,19 +73,44 @@ func validateFailNotes(ctx context.Context, pool *pgxpool.Pool, input SubmitChec
 		}
 	}
 
-	// Check each response: if the field has a fail_trigger and the value triggers it,
-	// there must be a fail note
+	// Check each response: if the value triggers a fail condition, there must be a
+	// fail note. Two trigger sources:
+	//   1. A yes/no field answered "No" (mirrors the corrective card the fill UI
+	//      renders on every "No") — carries no fail_trigger config.
+	//   2. A field with a non-null fail_trigger whose value satisfies it (e.g.
+	//      temperature out_of_range).
 	for _, resp := range input.Responses {
 		f, ok := fieldMap[resp.FieldID]
-		if !ok || len(f.FailTrigger) == 0 || string(f.FailTrigger) == "null" {
+		if !ok {
 			continue
 		}
 
-		if evaluateFailTrigger(f.FailTrigger, resp.Value) && !failNoteMap[resp.FieldID] {
+		triggered := false
+		if f.Type == "yes_no" && isYesNoNo(resp.Value) {
+			triggered = true
+		} else if len(f.FailTrigger) > 0 && string(f.FailTrigger) != "null" {
+			triggered = evaluateFailTrigger(f.FailTrigger, resp.Value)
+		}
+
+		if triggered && !failNoteMap[resp.FieldID] {
 			return fmt.Errorf("corrective_action_required")
 		}
 	}
 	return nil
+}
+
+// isYesNoNo reports whether a yes/no response value represents "No".
+// Accepts both the JSON boolean false and the string "false".
+func isYesNoNo(value json.RawMessage) bool {
+	var b bool
+	if err := json.Unmarshal(value, &b); err == nil {
+		return !b
+	}
+	var s string
+	if err := json.Unmarshal(value, &s); err == nil {
+		return s == "false"
+	}
+	return false
 }
 
 // evaluateFailTrigger checks if a value triggers a fail condition.
