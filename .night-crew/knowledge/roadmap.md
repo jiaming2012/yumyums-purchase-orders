@@ -121,7 +121,7 @@ graduate to a **fix WO only if the test goes red**. Operations alone = 17 UNPROV
 | Card | Status | Depends on | KR |
 |---|---|---|---|
 | `purchasing-fr7-retest` (stretch) | DRAFTING (overnight-20260714) | purchasing test-audit | QA KR-1 |
-| `users-stale-e2e-repair` (stretch) | PLANNED (slate-20260714 stretch) | users test-audit | QA KR-1 |
+| `users-stale-e2e-repair` (stretch) | DRAFTING (overnight-20260714) | users test-audit | QA KR-1 |
 | `ops-prove-unproven` (15 flows) | PLANNED | ops confirm-absence + audit | Delivery/Eng/QA |
 | `<app>-prove-unproven` (×4) | PLANNED | that app's PRD-chain | Delivery/Eng/QA |
 
