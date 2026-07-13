@@ -2177,4 +2177,111 @@ test.describe('Reject and unsubmit sections', () => {
     // Cleanup
     await obApiCall(page, 'DELETE', 'deleteTemplate/' + tpl.id);
   });
+
+  // ─── NFR-5: reopen/reject of a video-led section must revert it to active ────
+  // Regression for the silent no-op: ReopenSection selected the first item with no
+  // type filter and deleted ob_progress keyed by the parent ob_items.id. But
+  // video_series progress is keyed by ob_video_parts.id (progress_type='video_part'),
+  // so the delete matched ZERO rows → isSectionComplete stayed true → the section
+  // never reverted (handler returned {"ok":"true"} masking it).
+
+  // Helper: create a sign-off template whose FIRST item is a video_series, assign,
+  // watch every video part so the section reads complete. Returns ids + video parts.
+  async function setupCompletedVideoSection(page) {
+    const me = await page.evaluate(async () => {
+      const res = await fetch('/api/v1/me');
+      return res.json();
+    });
+    const tpl = await obApiCall(page, 'POST', 'createTemplate', {
+      name: 'Video Reject Test ' + Date.now(),
+      roles: [],
+      sections: [{
+        title: 'Video Sign-off Section',
+        sort_order: 0,
+        requires_sign_off: true,
+        sign_off_roles: ['admin', 'manager'],
+        is_faq: false,
+        items: [{
+          type: 'video_series',
+          label: 'Equipment Videos',
+          sort_order: 0,
+          video_parts: [
+            { title: 'Part One', description: 'first', url: 'https://example.com/p1.mp4', sort_order: 0 },
+            { title: 'Part Two', description: 'second', url: 'https://example.com/p2.mp4', sort_order: 1 },
+          ],
+        }],
+      }],
+    });
+    await obApiCall(page, 'POST', 'assignTemplate', {
+      hire_id: me.id,
+      template_id: tpl.id,
+    });
+    const full = await obApiCall(page, 'GET', 'templates/' + tpl.id);
+    const vs = full.sections[0].items.find(i => i.type === 'video_series');
+    expect(vs).toBeTruthy();
+    expect(vs.video_parts.length).toBe(2);
+    // Watch every video part so the section becomes complete
+    for (const part of vs.video_parts) {
+      await obApiCall(page, 'POST', 'saveProgress', {
+        item_id: part.id,
+        progress_type: 'video_part',
+        checked: true,
+      });
+    }
+    return { me, tpl, full, secId: full.sections[0].id };
+  }
+
+  // Reads the computed section state for hire+template via GET hireTraining.
+  async function sectionState(page, hireId, templateId, sectionId) {
+    const training = await obApiCall(page, 'GET', 'hireTraining/' + hireId + '?templateId=' + templateId);
+    const sp = training.sections.find(s => s.id === sectionId || (s.section && s.section.id === sectionId));
+    return sp ? sp.state : null;
+  }
+
+  test('reopen reverts a video-led section to active (NFR-5)', async ({ page }) => {
+    await login(page);
+    const { me, tpl, secId } = await setupCompletedVideoSection(page);
+
+    // Precondition: the video section reads as complete (all parts watched).
+    expect(await sectionState(page, me.id, tpl.id, secId)).toBe('complete');
+
+    // Reopen (crew unsubmit — FR-9). On UNFIXED code this is a silent no-op.
+    const res = await obApiCall(page, 'POST', 'reopenSection', { section_id: secId });
+    expect(res.ok).toBe('true');
+
+    // The section MUST no longer be complete — it should revert to active.
+    const stateAfter = await sectionState(page, me.id, tpl.id, secId);
+    expect(stateAfter).not.toBe('complete');
+    expect(stateAfter).toBe('active');
+
+    // Cleanup
+    await obApiCall(page, 'DELETE', 'deleteTemplate/' + tpl.id);
+  });
+
+  test('reject reverts a video-led signed-off section to active (NFR-5 / FR-15)', async ({ page }) => {
+    await login(page);
+    const { me, tpl, secId } = await setupCompletedVideoSection(page);
+
+    // Sign off the completed video section.
+    await obApiCall(page, 'POST', 'signOff', {
+      section_id: secId,
+      hire_id: me.id,
+      notes: 'Looks good',
+      rating: 'ready',
+    });
+    expect(await sectionState(page, me.id, tpl.id, secId)).toBe('signed_off');
+
+    // Reject (manager — FR-15). Shares ReopenSection with the reopen path.
+    const res = await obApiCall(page, 'POST', 'rejectSection', { section_id: secId, hire_id: me.id });
+    expect(res.ok).toBe('true');
+
+    // The section MUST revert — not complete, not signed_off.
+    const stateAfter = await sectionState(page, me.id, tpl.id, secId);
+    expect(stateAfter).not.toBe('complete');
+    expect(stateAfter).not.toBe('signed_off');
+    expect(stateAfter).toBe('active');
+
+    // Cleanup
+    await obApiCall(page, 'DELETE', 'deleteTemplate/' + tpl.id);
+  });
 });

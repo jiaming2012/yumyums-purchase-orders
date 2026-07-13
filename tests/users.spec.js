@@ -461,14 +461,14 @@ test.describe('Access tab', () => {
     await page.goto('/users.html');
     await waitForUserList(page);
     // Click Access tab directly — no user selected
-    await page.click('#t3');
+    await page.click('#t2');
     await page.waitForFunction(() => {
-      const s3 = document.getElementById('s3');
-      return s3 && s3.querySelector('.access-card');
+      const s2 = document.getElementById('s2');
+      return s2 && s2.querySelector('.access-card');
     });
     // Should show "App Permissions" header, not "Select a user first"
-    await expect(page.locator('#s3')).toContainText('App Permissions');
-    await expect(page.locator('#s3')).not.toContainText('Select a user first');
+    await expect(page.locator('#s2')).toContainText('App Permissions');
+    await expect(page.locator('#s2')).not.toContainText('Select a user first');
     // Should have at least one app card with role toggles
     const cards = await page.locator('.access-card').count();
     expect(cards).toBeGreaterThanOrEqual(1);
@@ -481,10 +481,10 @@ test.describe('Access tab', () => {
     await login(page);
     await page.goto('/users.html');
     await waitForUserList(page);
-    await page.click('#t3');
+    await page.click('#t2');
     await page.waitForFunction(() => {
-      const s3 = document.getElementById('s3');
-      return s3 && s3.querySelector('.access-card');
+      const s2 = document.getElementById('s2');
+      return s2 && s2.querySelector('.access-card');
     });
     // Find the first toggle checkbox and get its initial state
     const firstToggle = page.locator('[data-action="toggle-perm"]').first();

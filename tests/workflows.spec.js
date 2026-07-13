@@ -647,6 +647,209 @@ test.describe('Access control', () => {
   });
 });
 
+// ─── E2. yes/no "No" corrective-note enforcement (ops-fr4) ───────────────────
+
+// createYesNoTemplate creates a template with a single yes/no field scheduled
+// for today and assigned to the test user's role so it shows in My Checklists.
+async function createYesNoTemplate(page, name, todayDOW) {
+  const input = {
+    name,
+    requires_approval: true,
+    sections: [
+      {
+        title: 'Section 1',
+        order: 0,
+        condition: null,
+        fields: [
+          {
+            type: 'yes_no',
+            label: 'Fridge under 40F?',
+            required: false,
+            order: 0,
+            config: {},
+            fail_trigger: null,
+            condition: null,
+          },
+        ],
+      },
+    ],
+    schedules: [{ active_days: [todayDOW] }],
+    assignments: [
+      { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' },
+      { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'approver' },
+    ],
+  };
+  return apiCall(page, 'POST', 'createTemplate', input);
+}
+
+test.describe('yes/no No enforcement', () => {
+  test.beforeEach(async ({ page }) => {
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await cleanupTemplates(page);
+  });
+
+  test('answering No without a corrective note blocks submit', async ({ page }) => {
+    const todayDOW = await getTodayDOW(page);
+    await createYesNoTemplate(page, 'YesNo Block Test', todayDOW);
+    await page.reload();
+
+    // Open the checklist
+    await page.click('[data-fill-template-id]');
+    await page.waitForSelector('#fill-body .fill-field', { timeout: 5000 });
+
+    // Answer "No" — the corrective fail card should render
+    await page.click('[data-action="set-no"]');
+    await expect(page.locator('.fail-card')).toBeVisible({ timeout: 5000 });
+
+    // Leave the note empty. Submit.
+    await page.click('[data-action="submit"]');
+
+    // BLOCKED: corrective toast appears and we stay on the fill view
+    // (submit button + fail card still present; list not restored).
+    await expect(page.locator('#toast')).toContainText('severity', { timeout: 5000 });
+    await expect(page.locator('#submit-btn')).toBeVisible();
+    await expect(page.locator('#fill-body .fill-field')).toBeVisible();
+    await expect(page.locator('#checklist-list .row')).toHaveCount(0);
+
+    // And no submission was created server-side.
+    const pending = await apiCall(page, 'GET', 'pendingApprovals');
+    const count = Array.isArray(pending) ? pending.length : 0;
+    expect(count).toBe(0);
+  });
+
+  test('answering No with note + severity allows submit', async ({ page }) => {
+    const todayDOW = await getTodayDOW(page);
+    await createYesNoTemplate(page, 'YesNo Pass Test', todayDOW);
+    await page.reload();
+
+    await page.click('[data-fill-template-id]');
+    await page.waitForSelector('#fill-body .fill-field', { timeout: 5000 });
+
+    // Answer "No", fill the corrective note + pick a severity.
+    await page.click('[data-action="set-no"]');
+    await expect(page.locator('.fail-card')).toBeVisible({ timeout: 5000 });
+    await page.fill('[data-action="fail-note-input"]', 'Adjusted thermostat, re-checked temp');
+    await page.click('[data-action="set-severity"][data-severity="major"]');
+
+    // Wait for the fail-note auto-save to persist (debounced).
+    await page.waitForTimeout(1800);
+
+    // Submit — should succeed and return to the list.
+    await page.click('[data-action="submit"]');
+    await expect(page.locator('#toast')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('#s1')).toBeVisible({ timeout: 8000 });
+
+    // A submission now exists server-side.
+    const pending = await apiCall(page, 'GET', 'pendingApprovals');
+    expect(Array.isArray(pending) && pending.length).toBeGreaterThan(0);
+  });
+});
+
+// ─── E3. required-photo submit gate (ops-nfr3) ───────────────────────────────
+
+// createPhotoTemplate creates a template with a single REQUIRED photo field,
+// scheduled for today and assigned to the test user's role so it shows in
+// My Checklists. A photo field's answered value is just an https:// URL string.
+async function createPhotoTemplate(page, name, todayDOW) {
+  const input = {
+    name,
+    requires_approval: true,
+    sections: [
+      {
+        title: 'Section 1',
+        order: 0,
+        condition: null,
+        fields: [
+          {
+            type: 'photo',
+            label: 'Photo of clean station',
+            required: true,
+            order: 0,
+            config: {},
+            fail_trigger: null,
+            condition: null,
+          },
+        ],
+      },
+    ],
+    schedules: [{ active_days: [todayDOW] }],
+    assignments: [
+      { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' },
+      { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'approver' },
+    ],
+  };
+  return apiCall(page, 'POST', 'createTemplate', input);
+}
+
+test.describe('required-photo submit gate', () => {
+  test.beforeEach(async ({ page }) => {
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await cleanupTemplates(page);
+  });
+
+  test('submit is blocked when a required photo is not attached', async ({ page }) => {
+    const todayDOW = await getTodayDOW(page);
+    await createPhotoTemplate(page, 'Photo Block Test', todayDOW);
+    await page.reload();
+
+    // Open the checklist. Do NOT attach a photo.
+    await page.click('[data-fill-template-id]');
+    await page.waitForSelector('#fill-body .fill-field', { timeout: 5000 });
+
+    // Submit with no photo.
+    await page.click('[data-action="submit"]');
+
+    // BLOCKED: photo-required toast appears and we stay on the fill view.
+    await expect(page.locator('#toast')).toContainText('Photo required', { timeout: 5000 });
+    await expect(page.locator('#submit-btn')).toBeVisible();
+    await expect(page.locator('#fill-body .fill-field')).toBeVisible();
+    await expect(page.locator('#checklist-list .row')).toHaveCount(0);
+
+    // And no submission was created server-side.
+    const pending = await apiCall(page, 'GET', 'pendingApprovals');
+    const count = Array.isArray(pending) ? pending.length : 0;
+    expect(count).toBe(0);
+  });
+
+  test('submit is allowed once a photo URL is attached', async ({ page }) => {
+    const todayDOW = await getTodayDOW(page);
+    await createPhotoTemplate(page, 'Photo Pass Test', todayDOW);
+    await page.reload();
+
+    await page.click('[data-fill-template-id]');
+    await page.waitForSelector('#fill-body .fill-field', { timeout: 5000 });
+
+    // Simulate a captured photo: a photo field's value is just its https:// URL.
+    // Persist it via the same save-response path the camera-upload flow uses,
+    // then mirror it into the live fill state so the submit handler sees it.
+    const fldId = await page.evaluate(() => {
+      const flds = fillState.activeTemplate.sections.flatMap(function (s) { return s.fields; });
+      const photoFld = flds.find(function (f) { return f.type === 'photo'; });
+      const url = 'https://example.com/photos/checklists/test.jpg';
+      FIELD_RESPONSES[photoFld.id] = { value: url, answeredBy: 'test', answeredAt: new Date() };
+      debouncedSaveField(photoFld.id, url);
+      return photoFld.id;
+    });
+    expect(fldId).toBeTruthy();
+    // Let the save-response persist.
+    await page.waitForTimeout(1800);
+
+    // Submit — should succeed (not blocked by the photo gate). The success
+    // path plays a confirmation animation before returning to the list.
+    await page.click('[data-action="submit"]');
+    await expect(page.locator('#toast')).toContainText('Submitted', { timeout: 8000 });
+
+    // A submission now exists server-side (poll — the POST resolves before the
+    // success animation finishes).
+    await expect.poll(async () => {
+      const pending = await apiCall(page, 'GET', 'pendingApprovals');
+      return Array.isArray(pending) ? pending.length : 0;
+    }, { timeout: 8000 }).toBeGreaterThan(0);
+  });
+});
+
 // ─── F. Navigation ──────────────────────────────────────────────────────────
 
 test.describe('Navigation', () => {

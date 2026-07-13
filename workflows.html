@@ -2397,8 +2397,11 @@ document.getElementById('fill-body').addEventListener('click', function(e) {
       // Validate: fields with triggered fail conditions must have a corrective action
       var missingCorrective = allFlds.filter(function(f) {
         var resp = FIELD_RESPONSES[f.id];
-        if (!resp || !f.fail_trigger) return false;
-        var triggered = evaluateFailTrigger(f.fail_trigger, resp.value);
+        if (!resp) return false;
+        // A yes/no field answered "No" is a triggered fail requiring a corrective
+        // note — mirrors the corrective card the fill UI already renders on every "No".
+        var triggered = (f.type === 'yes_no' && (resp.value === false || resp.value === 'false'))
+          || (f.fail_trigger && evaluateFailTrigger(f.fail_trigger, resp.value));
         if (!triggered) return false;
         var fn = FAIL_NOTES[f.id];
         return !fn || !fn.note || !fn.note.trim() || !fn.severity;
@@ -2409,6 +2412,26 @@ document.getElementById('fill-body').addEventListener('click', function(e) {
         // Scroll to first missing fail card
         var firstFld = document.querySelector('[data-field-id="' + missingCorrective[0].id + '"]');
         if (firstFld) firstFld.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+      }
+
+      // Validate: required photo fields must have a photo attached (a valid
+      // https:// URL as the response value). Also enforces resubmit when a
+      // rejection flagged require_photo for the field. Mirrors the backend
+      // photo_required gate in validateFailNotes.
+      var missingPhoto = allFlds.filter(function(f) {
+        var rejFlag = REJECTION_FLAGS[f.id];
+        var needsPhoto = (f.type === 'photo' && f.required) || (rejFlag && rejFlag.requirePhoto);
+        if (!needsPhoto) return false;
+        var resp = FIELD_RESPONSES[f.id];
+        var v = resp ? resp.value : null;
+        return !(typeof v === 'string' && v.indexOf('https://') === 0);
+      });
+      if (missingPhoto.length > 0) {
+        var photoNames = missingPhoto.map(function(f) { return f.label; }).join(', ');
+        showToast('Photo required for: ' + photoNames);
+        var firstPhoto = document.querySelector('[data-field-id="' + missingPhoto[0].id + '"]');
+        if (firstPhoto) firstPhoto.scrollIntoView({ behavior: 'smooth', block: 'center' });
         return;
       }
 

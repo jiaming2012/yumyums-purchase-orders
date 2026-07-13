@@ -1010,13 +1010,35 @@ func ReopenSection(ctx context.Context, pool *pgxpool.Pool, sectionID, hireID st
 		return "", fmt.Errorf("delete signoff: %w", err)
 	}
 
-	// Find first item in section
-	var itemID string
+	// Find first item in section (with its type — the checkable unit differs by type)
+	var itemID, itemType string
 	err = tx.QueryRow(ctx, `
-		SELECT id FROM ob_items WHERE section_id = $1 ORDER BY sort_order LIMIT 1
-	`, sectionID).Scan(&itemID)
+		SELECT id, type FROM ob_items WHERE section_id = $1 ORDER BY sort_order LIMIT 1
+	`, sectionID).Scan(&itemID, &itemType)
 	if err != nil {
 		return "", fmt.Errorf("find first item: %w", err)
+	}
+
+	// video_series progress is keyed by ob_video_parts.id (progress_type='video_part'),
+	// NOT the parent ob_items.id — so resolve the first video part and delete THAT
+	// progress. isSectionComplete returns false on the first missing part, so deleting
+	// the first part's progress is enough to revert the section to active.
+	if itemType == "video_series" {
+		var videoPartID string
+		err = tx.QueryRow(ctx, `
+			SELECT id FROM ob_video_parts WHERE item_id = $1 ORDER BY sort_order LIMIT 1
+		`, itemID).Scan(&videoPartID)
+		if err != nil {
+			return "", fmt.Errorf("find first video part: %w", err)
+		}
+		_, err = tx.Exec(ctx, `DELETE FROM ob_progress WHERE item_id = $1 AND hire_id = $2`, videoPartID, hireID)
+		if err != nil {
+			return "", fmt.Errorf("delete video part progress: %w", err)
+		}
+		if err := tx.Commit(ctx); err != nil {
+			return "", fmt.Errorf("commit: %w", err)
+		}
+		return videoPartID, nil
 	}
 
 	// Check if item has sub-items; if so, delete first sub-item's progress
