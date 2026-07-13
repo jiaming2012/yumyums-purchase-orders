@@ -73,8 +73,11 @@ BROKEN → a code-fix card.
 
 | Card | Status | Depends on | KR |
 |---|---|---|---|
-| `ops-confirm-absence` (FR-12 reject, NFR-3 photo-required) | PLANNED | `ops-hardening-prd` | Eng KR-1 |
-| `<app>-confirm-absence` (×4) | PLANNED | that app's PRD | Eng KR-1 |
+| `ops-confirm-absence` (FR-12 reject, NFR-3 photo-required) | **DRAFTING** (overnight-20260712; G6-passed → 2 BROKEN: FR-4, NFR-3; FR-12 confirm NEGATIVE) | `ops-hardening-prd` | Eng KR-1 |
+| `users-confirm-absence` | **DRAFTING** (overnight-20260712; G6-passed → 0 graduations, 16 stay UNPROVEN present-but-untested) | `users-hardening-prd` | Eng KR-1 |
+| `onboarding-confirm-absence` | **DRAFTING** (overnight-20260712; G6-passed → 1 BROKEN: NFR-5 video-led reopen no-op; 10 UNPROVEN; FR-16 waiver recommended) | `onboarding-hardening-prd` | Eng KR-1 |
+| `purchasing-confirm-absence` | **DRAFTING** (overnight-20260712; G6-passed → 0 graduations, 18 stay UNPROVEN; FR-18 remains only BROKEN; D-1 honored; FR-13 inline mark reconciled) | `purchasing-hardening-prd` | Eng KR-1 |
+| `inventory-confirm-absence` | **DRAFTING** (overnight-20260712; G6-passed → 0 graduations, 19 stay UNPROVEN; FR-24/25 remain waived-BROKEN; NFR-1 double normalization-gap flagged for WO) | `inventory-hardening-prd` | Eng KR-1 |
 
 ## Activity 3 — Audit the WORKING (non-vacuous test check)
 
@@ -83,7 +86,11 @@ Spot-audit every flow marked WORKING that its test actually asserts (no
 
 | Card | Status | Depends on | KR |
 |---|---|---|---|
-| `<app>-test-audit` (×5) | PLANNED | that app's PRD | QA KR-1 |
+| `ops-test-audit` | **DRAFTING** (overnight-20260712; G6-passed → 0 drops, all 10 WORKING non-vacuous; FR-15 photo/builder-UI coverage gap noted for downstream WO) | `ops-hardening-prd` | QA KR-1 |
+| `users-test-audit` | **DRAFTING** (overnight-20260712; G6-passed → 0 drops, 10 WORKING non-vacuous; stale-test fold-in confirmed for FR-16/17 test-repair WO) | `users-hardening-prd` | QA KR-1 |
+| `onboarding-test-audit` | **DRAFTING** (overnight-20260712; G6-passed → 0 drops, 23 WORKING non-vacuous; 6 conditional-skip guard flags for the test-hardening WO) | `onboarding-hardening-prd` | QA KR-1 |
+| `purchasing-test-audit` | **DRAFTING** (overnight-20260712; G6-passed → 1 drop: FR-7 → UNPROVEN (vacuous generic-content tail); 6 WORKING confirmed non-vacuous) | `purchasing-hardening-prd` | QA KR-1 |
+| `inventory-test-audit` | **DRAFTING** (overnight-20260712; G6-passed → 0 drops, 19 WORKING non-vacuous; Go DB-guard = env-not-vacuous; FR-2 ~40-guard cleanup noted) | `inventory-hardening-prd` | QA KR-1 |
 
 ## Activity 4 — Prove & fix the UNPROVEN (the WO backlog) · *bulk delivery*
 

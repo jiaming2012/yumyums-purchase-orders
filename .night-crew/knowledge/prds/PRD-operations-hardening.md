@@ -74,8 +74,15 @@ to BROKEN (a code-fix WO) if that step confirms the behavior is missing/stubbed.
   before submit. *(POST `/saveResponse`, `/submitChecklist` validation)* —
   **WORKING** (temperature path tested) — traces to Engineering KR-1, QA KR-2.
 - **FR-4** — A "No" answer on a yes/no field triggers the same corrective-action
-  card as FR-3. — **UNPROVEN** (yes/no fail trigger has no asserting test) —
-  traces to QA KR-1, QA KR-2.
+  card as FR-3. — **BROKEN** *(confirm-absence sweep 2026-07-11, G6-confirmed:
+  enforcement absent — `evaluateFailTrigger` handles only `out_of_range`
+  (`workflows.html:1656-1668`); yes/no fields are created with `fail_trigger:null`
+  and the builder sets no trigger for them (`workflows.html:558,724`); submit
+  validation short-circuits on `!f.fail_trigger` (`workflows.html:2398-2405`) and
+  server `validateFailNotes` only checks `out_of_range` (`handler.go:80,101`). The
+  "No" fail card renders (`workflows.html:2068`) but nothing blocks submit — a
+  cosmetic card, not enforcement.)* — traces to QA KR-1, QA KR-2. **→ Activity-4
+  fix-card (front+back enforcement + red-first AC-3 test).**
 - **FR-5** — Sub-steps (nested checkboxes) persist per-sub-step attribution and
   auto-check their parent when all children are checked, surviving reopen. —
   **WORKING** (tested) — traces to Product KR-1, QA KR-2.
@@ -103,10 +110,11 @@ to BROKEN (a code-fix WO) if that step confirms the behavior is missing/stubbed.
   comments. *(POST `/approveSubmission`)* — **WORKING** — traces to Product KR-1.
 - **FR-12** — A manager can reject a submission carrying one or more flagged items,
   each flagged item requiring a comment; the submission returns to the crew member
-  as corrective work. *(POST `/rejectItem`)* — **UNPROVEN (priority)** (the reject
-  E2E test stops before asserting the rejection outcome; confirm-absence step: does
-  the reject handler actually flip submission status + return it?) — traces to
-  Engineering KR-1, QA KR-1.
+  as corrective work. *(POST `/rejectItem`)* — **UNPROVEN** *(confirm-absence sweep
+  2026-07-11, G6-confirmed NEGATIVE: the reject handler DOES flip
+  `status='rejected'` + set reviewer in a tx (`repository.go:887-915`, esp.
+  902-909) — behavior present, so no BROKEN graduation; drops from priority to a
+  plain test-only WO.)* — traces to Engineering KR-1, QA KR-1.
 - **FR-13** — A rejected-and-returned checklist shows the crew member the manager's
   rejection feedback on the corrected checklist. — **UNPROVEN** (feedback-retrieval
   assertion incomplete) — traces to QA KR-2.
@@ -146,9 +154,16 @@ to BROKEN (a code-fix WO) if that step confirms the behavior is missing/stubbed.
   persistence not among the seven verified states) — traces to QA KR-1.
 - **NFR-3 (Photo-required enforcement)** — Where a template requires a photo for
   corrective action / rejection, submit/resubmit is blocked until a photo is
-  attached. — **UNPROVEN (priority)** (no enforcing validation *found* — absence
-  not yet confirmed; confirm-absence step: grep submit/resubmit validation for a
-  photo-required check) — traces to Engineering KR-1, QA KR-1.
+  attached. — **BROKEN** *(confirm-absence sweep 2026-07-11, G6-confirmed:
+  enforcement absent — frontend submit validation checks only note+severity, never
+  a photo (`workflows.html:2397-2419`); the `fld-photo-required` toggle + reject
+  `require_photo` only feed a render-time banner (`workflows.html:2024-2025`);
+  backend `validateFailNotes` checks only note+severity (`handler.go:54-88`, esp.
+  71); the submit handler runs exactly one validation with no photo gate
+  (`handler.go:458`) and there is no separate resubmit endpoint. `PhotoURL` is
+  storable (`model.go:92`) but never required.)* — traces to Engineering KR-1, QA
+  KR-1. **→ Activity-4 fix-card (block submit/resubmit until required photo
+  attached, front+back, + red-first test).**
 - **NFR-4 (Authorization tiers)** — admin / manager / team_member tiers gate
   template CRUD (admin), approvals (manager+), and unsubmit (submitter) —
   D-11/D-23. — **WORKING** for list-filtering; **UNPROVEN** for the unsubmit
@@ -251,18 +266,76 @@ assert-observable-state* (the WORKING bar).
 Total requirements enumerated: **27** (20 FR + 7 NFR) — 23 first-pass + 4 from the
 G5 cross-check.
 
+**Updated by the Activity-2 confirm-absence sweep (2026-07-11, G6-passed).** The two
+priority-UNPROVEN flows graduated to **BROKEN** (FR-4, NFR-3 — enforcement confirmed
+absent at cited lines); FR-12's confirm-absence step came back **NEGATIVE** (reject
+handler complete) so it stays UNPROVEN. Net: WORKING 10 · UNPROVEN 17 → 15 · BROKEN
+0 → 2.
+
 | Status | Count | Flows |
 |---|---|---|
 | **WORKING** | 10 | FR-1, FR-2, FR-3, FR-5, FR-9, FR-11, FR-14, FR-15, NFR-1, NFR-4 |
-| **UNPROVEN** | 17 | FR-4, FR-6, FR-7, FR-8, FR-10, FR-13, FR-16, FR-17, FR-18, FR-19, FR-20, NFR-2, NFR-5, NFR-6, NFR-7 · **priority:** FR-12, NFR-3 |
-| **BROKEN** | 0 | *(none confirmed; a priority-UNPROVEN graduates here only if a confirm-absence step proves breakage — resolves G1)* |
+| **UNPROVEN** | 15 | FR-6, FR-7, FR-8, FR-10, FR-12, FR-13, FR-16, FR-17, FR-18, FR-19, FR-20, NFR-2, NFR-5, NFR-6, NFR-7 |
+| **BROKEN** | 2 | **FR-4** (yes/no "No" corrective-action enforcement absent), **NFR-3** (photo-required-at-submit enforcement absent) — each → an Activity-4 fix-card |
 
-*(17 UNPROVEN flows = the candidate work-order backlog. Every one must have a
-shipped WO by cycle end — Delivery KR-1 — and reach 0 known-broken — Engineering
-KR-1. The 2 priority-UNPROVEN (FR-12, NFR-3) each open with a confirm-absence step
-— FR-18 was priority until the cross-check confirmed skip logic is present. NFR-4
-is WORKING for role-filtering but carries the FR-7 unsubmit-refusal gap, already
-counted under UNPROVEN.)*
+*(15 UNPROVEN flows = the candidate test-only work-order backlog; the 2 BROKEN
+(FR-4, NFR-3) each = an Activity-4 code-fix + regression-test card. Every one must
+have a shipped WO by cycle end — Delivery KR-1 — and reach 0 known-broken —
+Engineering KR-1. NFR-4 is WORKING for role-filtering but carries the FR-7
+unsubmit-refusal gap, already counted under UNPROVEN. The BROKEN count of 2 enters
+the Engineering-KR "0 known-broken" denominator.)*
+
+### Activity-2 confirm-absence sweep record (2026-07-11)
+
+Two-pass static audit (pass 1 UI-flow, pass 2 backend-only cross-check) of all 17
+UNPROVEN flows against `workflows.html` + `backend/internal/workflow/*`; adversarial
+G6 re-check of every citation at the cited line. **Pass 2 was decisive:** read from
+the UI alone, FR-4's visible "No" fail card and NFR-3's "Photo required" banner look
+like working enforcement — only the submit-validation / backend cross-check proved
+the enforcement absent. Confirm-notes for the 15 flows kept UNPROVEN (all
+present-but-untested, none stubbed):
+
+| Flow | Present at | Confirm-note |
+|---|---|---|
+| FR-6 | `repository.go:469-475` | idempotency upsert `ON CONFLICT (idempotency_key) DO UPDATE` present |
+| FR-7 | `repository.go:935-937` | unsubmit refuses non-submitter → 403 `not_submitter` present |
+| FR-8 | `repository.go:698-707`; `workflows.html:2220-2232` | history LIMIT 50 + fetch/render present |
+| FR-10 | `repository.go:894-909`; `workflows.html:2583-2589` | flag→reject wired with require_photo/comment |
+| FR-12 | `repository.go:902-909` | reject flips `status='rejected'` in a tx (confirm-absence NEGATIVE) |
+| FR-13 | `workflows.html:1404,1951-1956` | `FEEDBACK_NOTES` + `renderFeedbackNote` render manager comment |
+| FR-16 | `repository.go:620`; `workflows.html:1909-1910` | DOW scheduling `= ANY(cs.active_days)` present |
+| FR-17 | `workflows.html:1902-1904,1934-1935` | `isSectionVisible` present (day-based condition) |
+| FR-18 | `workflows.html:1907-1929` | skip logic `isFieldVisible` (equals/not_equals/_notempty) present |
+| FR-19 | `repository.go:455-459,470-475` | `template_snapshot` freeze on submit present |
+| FR-20 | `handler.go:128-135,195-197,252-254` | `hasApprover` gate → 400 `requires_approver` present |
+| NFR-2 | `workflows.html:1516-1573` | presign → PUT → public_url round-trip wired |
+| NFR-5 | `handler.go:337-341`; `workflows.html:2468-2472` | draft cleanup + offline queue + save-status present |
+| NFR-6 | `handler.go:452,465-467`; `workflows.html:2473-2477` | archived-template submit → 409 `template_archived` present |
+| NFR-7 | `workflows.html:2791` | 401 → `/login.html` redirect present; drafts persist |
+
+### Activity-3 test-audit sweep record (2026-07-11)
+
+Two-pass static audit (pass 1 locate+read each WORKING flow's assertion, pass 2
+subtle-vacuousness cross-check for swallowed catches / unentered-`if` / tautological
+asserts) of all 10 WORKING flows against `tests/workflows.spec.js` +
+`tests/persistence.spec.js`; adversarial G6 re-check of every cited assertion.
+**Result: 0 drops — all 10 WORKING tests are non-vacuous** (each drives the real flow
+and makes an `expect` on observable DB/UI state; none skipped/guarded/swallowed).
+WORKING stays 10.
+
+Two notes carried to the downstream Operations test-hardening WO (not
+reclassifications — neither meets the G3 static-vacuousness drop bar):
+- **FR-15 coverage gap (QA KR-2):** the six builder field types are exercised via
+  `POST /createTemplate` API calls, **not** the builder Add-Field UI, and only 4/6
+  types are covered (`type` census: checkbox, temperature, text, yes_no — **photo =
+  0**, sub-steps thin). The flow the requirement literally names (adding each type
+  *via the builder*) is under-proven. Add builder-UI Add-Field coverage for all six
+  types incl. photo.
+- **FR-10/FR-12 intel:** the `reject item with comment` test
+  (`workflows.spec.js:485-508`) wraps its whole body in `if (await
+  flagBtn.isVisible())` with **no `expect` at all** — genuinely vacuous, but it maps
+  to FR-10/FR-12 (already UNPROVEN), so it drives no WORKING drop. Feed this to the
+  FR-12 test-only WO as the starting point (the assertion to add).
 
 ## Out of scope
 

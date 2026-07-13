@@ -534,6 +534,78 @@ carries the UNPROVEN frontend-rollback half, tracked separately as NFR-8; FR-22 
 same, tracked as NFR-9 — no double-count, the FR sits in WORKING for its proven half
 and the NFR sits in UNPROVEN for its unproven half.)*
 
+### Activity-2 confirm-absence sweep record (2026-07-11, G6-passed)
+
+Two-pass static audit (pass 1 UI-flow, pass 2 backend-only / service-contract
+cross-check) of all 19 UNPROVEN flows against `inventory.html` +
+`backend/internal/{inventory,recipes,toast}/*`; adversarial G6 stub-hunt of every no-UI
+handler + the two frontend-half flows. **Result: 0 graduations — all 19 stay UNPROVEN;
+FR-24/25 remain the only (waived) BROKEN.** Tally unchanged: WORKING 19 · UNPROVEN 19 ·
+BROKEN 2. Every UNPROVEN flow's handler/render path has a real, present body (no stub,
+no no-op render, no never-firing validation, no dangling reference) — present-but-untested.
+
+**NFR-1 normalization ruling (G6-confirmed):** `normalizeItemName` IS called on all three
+NAMED contract surfaces — CreateVendor (`handler.go:78`), CreateItem (`:1092`), Confirm
+line-items (`:762`) — so the named contract is present-but-untested → UNPROVEN. **Two
+latent normalization gaps flagged for the NFR-1 WO (neither a G3 BROKEN):** (1)
+`UpdateItemHandler` (`:1129-1131`) writes `input.Description` raw — item *edit* doesn't
+normalize (edit isn't in the named contract); (2) `ConfirmPendingPurchaseHandler`
+upserts the **vendor** raw (`:660-664`) while line-items ARE normalized — FR-4's
+"vendor upserted title-cased" text is inaccurate for the vendor field. Both are text-drift
+gaps (behavior present, output un-normalized), folded into one NFR-1 WO note; FR-4 stays
+WORKING (its total-match/empty-items gates are Go-tested; only the vendor-normalization
+sub-claim is off).
+
+| Flow | Present at | Confirm-note |
+|---|---|---|
+| FR-3 | `handler.go:254-267` | `UpdatePendingItems` persists items JSONB (guarded, 404 on 0 rows) |
+| FR-5 | `handler.go:828-843` | discard sets `discarded_at`, drops from queue |
+| FR-11 | `handler.go:286-306` | vendor-filter + `LIMIT/OFFSET` pagination real |
+| FR-12 | `handler.go:380-432` | stock aggregation + group-threshold classify present |
+| FR-13 | `handler.go:384` | `COALESCE(sco.quantity, sub.total_quantity)` present |
+| FR-14 | `handler.go:522-529` | `reason_required` 400 gate + upsert on `item_description` |
+| FR-15 | `inventory.html:969,1398` | View-in-Setup + reorder `scrollIntoView` present |
+| FR-16 | `internal/toast/handler.go:43-63` | real `ListMenuItemsHandler` (live Toast+sales join, `since` validation) |
+| FR-23 | `inventory.html:2223-2233` | real cost-breakdown math (`alloc = spend*(pct/100)`) + clear |
+| FR-26 | `handler.go:1044,1073,1111` | ListItems/CreateItem/UpdateItem all real (list/edit half untested) |
+| FR-27 | `inventory.html:1744` | `photos/upload` POST present |
+| FR-28 | `handler.go:1194,1222-1242` | CreateGroup + UpdateGroup `low<high`/≥0 validation present |
+| FR-29 | `handler.go:38,65,95` | ListVendors/CreateVendor/UpdateVendor real (list/create/edit half untested) |
+| FR-30 | `handler.go:1263-1284` | `ListTags` real query + response |
+| FR-31 | `inventory.html:1764,1816` | repurchase-reset GET + PUT config present |
+| NFR-1 | `handler.go:78,762,1092` (present); `:1129-1131`, `:660-664` (gaps) | 3 named surfaces normalize; edit + confirm-vendor un-normalized → WO note |
+| NFR-3 | `inventory.html:316` | 401 → `/login.html` redirect present |
+| NFR-8 | `inventory.html:2277-2303` | slider/chip/gradient rollback + inline error present |
+| NFR-9 | `inventory.html:2100-2106` | `loadRecipes` fetches live `/drift`, populates `DRIFT_BANNER` |
+
+### Activity-3 test-audit sweep record (2026-07-11, G6-passed)
+
+Two-pass static audit (pass 1 locate+read each of the 19 WORKING flows' Go and/or E2E
+proof per its [tag], pass 2 subtle-vacuousness cross-check) across
+`tests/inventory.spec.js` (~135), `tests/recipes.spec.js` (18), and the Go integration
+tests in `internal/{inventory,recipes}/*_test.go`; adversarial G6 re-verification of the
+highest-risk [E2E]-only (FR-17 synthetic, FR-2 guarded) and [Go]-only flows. **Result: 0
+drops — all 19 WORKING tests are non-vacuous.** WORKING stays 19.
+
+- **Go DB-guard skip is env-not-vacuous (confirmed):** every Go test's `if !dbReachable {
+  t.Skip("DB_TEST_URL...") }` (inventory) / `setupTestDB→t.Skip` (recipes,
+  `helpers_test.go:29-39`) is the sanctioned environment guard — under the mandated
+  localhost Postgres each runs and asserts real status/envelope/DB-row state. Correctly
+  NOT counted against any [Go]/[Go+E2E] flow.
+- **Synthetic-DOM tests drive real handlers (not injected literals):** FR-17 clicks a
+  synthetic Menu card but exercises the real `data-action="menu-card-to-recipes"` handler
+  and asserts a real tab-switch (`#t4` gains `on`, `#s4` visible) + summary replacement
+  (`inventory.spec.js:262-267`); FR-19's slider test drives the real `save-recipe-pct`
+  change listener and asserts a real PUT with `usage_pct:15` (`recipes.spec.js:255-257`),
+  and is also Go-proven.
+- **QA-KR-1 guard-cleanup candidate (NOT a drop):** FR-2's tax/grand-total assertions
+  (`inventory.spec.js:1039-1042,1058-1061`) sit inside `if (await pending.count()>0)`
+  guards, but the seed is a guaranteed real `/pending-seed` insert
+  (`handler.go:1008-1041` unconditional INSERT → 201), so `count>0` holds under the DB and
+  the assertions fire. Convert the `if(count>0){…}` to unguarded in the test-hardening WO
+  (part of the PRD's ~40-guard cleanup note). Not a G3 drop — the assertions are real, not
+  skipped-by-return.
+
 ## Out of scope
 
 - The other four apps (Operations, Onboarding, Users, Purchasing) — separate PRDs.
