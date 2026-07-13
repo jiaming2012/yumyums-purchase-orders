@@ -89,4 +89,60 @@
   UI-first pass and only surfaced in the backend-only cross-check — matching the Activity-1
   finding that sub-90% recall hides in backend-only surfaces. Keep the pass-2 angle explicit
   in every card prompt.
-</content>
+
+## Run: overnight-20260714 (Activity 4 — first APP-CODE + red-first + E2E slate)
+
+> **What one "card" covers here (new shape — the first app-code cards):** a fresh IMPLEMENTER
+> subagent in a per-card git worktree brings up the ephemeral Docker stack
+> (`docker-compose.nc.yml`, postgres:16, Docker-assigned port, `NIGHTCREW_ENV_URL`), writes the
+> red-first regression test, captures it FAILING against the unfixed build, applies the fix,
+> **rebuilds the app image**, greens the new test, runs the affected seam subset for no-new-reds,
+> and tears the stack down `--volumes` — then a SEPARATE fresh G6 subagent reviews the diff +
+> red→green evidence, then the ORCHESTRATOR merges (squash → `task sw` if HTML → roadmap flip →
+> atomic commit → worktree remove). Serial, one ephemeral env at a time.
+> **Times below are subagent wall-clock.** "Implement" = the full implementer leg (env up +
+> baseline + test + up to 2 Docker builds + fix + green + no-new-reds + teardown). "G6" = the
+> reviewer leg. Orchestrator merge (squash + `node build-sw.js` + roadmap + commit + worktree
+> cleanup) ran ~1.5–3 min/card and is NOT separately instrumented.
+
+| Card | Type | Slate est. | Implement (agent) | G6 | Verdict | Notes |
+|---|---|---|---|---|---|---|
+| `hq-infra-docker-standardize` (Wave 0) | infra | 15–30 min | **6m36s** | 0m26s | PASS | Taskfile pg13→16 + remote→local; no app code; box env restored |
+| `ops-fr4-no-enforcement` | app fix (front+back) | 45–75 min | **17m23s** | 1m14s | PASS | yes/no "No" corrective gate; RED captured; 2 submit entrypoints |
+| `ops-nfr3-photo-required` | app fix (front+back) | 45–75 min | **23m23s** | 2m32s | PASS | photo gate; backend resubmit case DEFERRED (follow-up) |
+| `purchasing-fr18-history` | app build (frontend) | 60–90 min | **27m12s** | 1m11s | PASS | net-new UI + 4-test rewrite + API fixture (no SQL) |
+| `onboarding-nfr5-video-reopen` | app fix (backend) | 60–90 min | **21m27s** | 0m56s | PASS | video-part resolution; covers FR-9 + FR-15; seed had fixture |
+| `purchasing-fr7-retest` (stretch) | test-only | 30–45 min | **12m37s** | 0m53s | PASS | proved FR-7 WORKING; old test was baseline-RED, not just vacuous |
+| `users-stale-e2e-repair` (stretch) | test-repair | 30–45 min | **6m28s** | 0m49s | PASS | #t3/#s3→#t2/#s2 + var rename; users.spec 17/2 → 19/0 |
+| **Total (7 cards, serial)** | — | 3.25–5.5h + stretch | **~115 min implement** | **~8 min G6** | 7 PASS / 0 park | + ~14 min orchestrator merge ≈ **~2h20m active** |
+
+### Third-slate observations (the first app-code data — seed for future prove/fix slates)
+
+- **App-code + E2E cards land ~2–3× the docs-card wall-clock, and MUCH closer to slate estimate
+  than the doc runs did.** Docs-only cards came in 6–10× under estimate; these app-code cards came
+  in **~2–4× under** (e.g. ops-nfr3 23m vs 45–75m est). The Docker-build + E2E wall-clock is real
+  and non-compressible — it doesn't parallel-read away. **Carry the ~15–30 min/app-fix-card shape
+  forward**, not the doc-card minutes.
+- **The two Docker image builds per card dominate the floor.** Every fix-card pays: build#1 (unfixed,
+  for baseline + RED) + build#2 (rebuild with the fix, for GREEN). Frontend changes still require a
+  full image rebuild (frontend is embedded in the Go binary). This is why the frontend-only
+  `purchasing-fr18` (27m) ran LONGER than the backend `onboarding-nfr5` (21m) — net-new UI + a
+  4-test rewrite + seeding a completed shopping list, not build count.
+- **Fixture availability is a bigger time lever than logic subtlety.** The subtle-logic
+  `onboarding-nfr5` (a 30-line `db.go` branch) ran FASTER than `purchasing-fr18` (77-line new UI) —
+  because the seed already carried the video fixture, while fr18 had to build the render AND author a
+  completed-list fixture. Cards whose fixture pre-exists in the seed are cheapest; verify seed
+  coverage when sizing.
+- **G6 stayed cheap and flat (~0.5–2.5 min) even on app code.** Reviewing a diff + red→green evidence
+  is fast; the one longer G6 (ops-nfr3, 2m32s) was the double-JSON-encoding peel + the deferred-gate
+  assessment. Budget G6 ≈ 1–3 min/card regardless of card type.
+- **Zero REVISE, zero park, zero Docker crashes** across 14 subagent legs — the 2026-07-04 Docker
+  instability did NOT recur this run (v20.10.14, serial one-env-at-a-time). The ephemeral env held.
+- **Red-first was load-bearing and honest on all 5 fix/prove cards:** each new test was captured
+  FAILING against the unfixed build before the fix (ops-fr4 submit-succeeded, ops-nfr3
+  submission-created, onboarding-nfr5 stayed-complete, users-stale locator-timeout), then flipped
+  green — no test passed without its fix. `purchasing-fr7` inverted cleanly (proved WORKING; the old
+  test was actually broken, targeting a nonexistent `#shopping-content`).
+- **"No-new-reds vs baseline" is the right gate, not "clean suite."** HQ's ~37–41 documented flaky
+  reds (offline-sync, tab-persistence, cross-test DB-pollution) shifted run-to-run; every card
+  confirmed its flips in isolation. No card was judged on a globally-green suite.

@@ -14,14 +14,26 @@
   Spaces creds. ~4–5h test-infra build. · origin: triage 2026-07-13 (D-5, waive-now-but-preserve)
   · new
 
-- **Users stale-E2E repair** · `tests/users.spec.js` has two Access-tab tests navigating dead
-  `#t3`/`#s3` DOM (removed in the 3-tab→2-tab refactor; Access now renders into `#s2`).
-  Features work; tests can't run — marked UNPROVEN (stale-test), not BROKEN. Repoint
-  `#t3`/`#s3` → `#t2`/`#s2`. Folds into the **Users Activity-4 prove-UNPROVEN WO** (low effort).
-  **Also (overnight-20260712 users-confirm-absence, G6-confirmed):** while repairing, rename the
-  misleading `s3` local var in `renderAccess` (`users.html:466`) — it fetches the live `#s2` node
-  but its name is a 3-tab holdover that likely seeded this bug. · origin: triage 2026-07-10 (D-4)
-  · updated 2026-07-11
+- ~~**Users stale-E2E repair** · `tests/users.spec.js` two Access-tab tests navigating dead
+  `#t3`/`#s3` + rename the misleading `s3` var in `renderAccess`.~~ **DONE — promoted →
+  `users-stale-e2e-repair`, landed overnight-20260714 (`d32830d`, G6-PASS):** `#t3/#s3` → `#t2/#s2`
+  repoint + `s3`→`accessEl` rename; `users.spec.js` 17/2 → 19/0. · origin: triage 2026-07-10 (D-4)
+  · closed 2026-07-14
+
+- **Ops NFR-3 — backend resubmit `require_photo` gate** · The field-level required-photo gate ships
+  front+back (overnight-20260714, `ad105f7`), but the **rejection-driven resubmit** photo requirement
+  is **frontend-only** — `SubmitChecklistInput` (`backend/internal/workflow/model.go`) carries no
+  `submission_id`/rejection context, so `validateFailNotes` can't know a prior rejection set
+  `require_photo` on a field. A direct-API resubmit can bypass it. Fix: plumb rejection context into
+  the submit validation (a `submission_rejections` join keyed on the resubmitted submission) + a
+  red-first test that a rejected-with-require_photo field blocks resubmit server-side. Small fix-card.
+  · origin: overnight-20260714 ops-nfr3 (in-footprint deferral, G6-confirmed) · new
+
+- **Users `users.html:122` orphaned `<div id="s3">` cleanup** · After `users-stale-e2e-repair`
+  repointed the Access tests to `#s2` and renamed the `renderAccess` var, the dead `<div id="s3">`
+  at `users.html:122` (3-tab→2-tab refactor leftover) is now fully orphaned — nothing references it.
+  Trivial removal; fold into any future Users card. · origin: overnight-20260714 users-stale G6
+  (optional cleanup) · new
 
 ## Activity-4 fix-cards (from Activity-2 confirm-absence graduations — code-fix + regression-test WOs)
 
