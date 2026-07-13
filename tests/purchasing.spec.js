@@ -143,13 +143,88 @@ test.describe('Shopping tab', () => {
     await page.waitForLoadState('networkidle');
   });
 
-  test('Shopping tab shows stub when no active list exists', async ({ page }) => {
+  // FR-7 (a) — Empty state. renderShoppingTab() (purchasing.html:555) paints the
+  // Shopping tab directly into #s2 (there is NO #shopping-content element). With no
+  // active list (SHOPPING_LIST === null) it MUST render the specific empty-state
+  // copy from purchasing.html:558, not just "some non-empty text". This test proves
+  // the real empty-state contract instead of the old length>0 tautology.
+  test('Shopping tab shows specific empty-state stub when no active list exists', async ({ page }) => {
+    // Guarantee the no-active-list precondition: complete any list still active so
+    // shopping/active returns null (SHOPPING_LIST hydrates from that endpoint).
+    await completeShoppingList(page);
+    const active = await poApiCall(page, 'GET', 'shopping/active').catch(() => null);
+    if (active && active.id) { test.skip(true, 'Could not clear active list to force empty state'); return; }
+
+    // Re-hydrate the page against the now-empty state, then open the Shopping tab.
+    await page.reload();
+    await page.waitForLoadState('networkidle');
     await page.click('#t2');
-    await waitForShoppingContent(page);
-    const content = page.locator('#shopping-content');
-    const text = await content.textContent();
-    // Either shows active list or the stub — both are valid states
-    expect(text.trim().length).toBeGreaterThan(0);
+
+    // The empty-state stub is a .stub inside #s2 — assert the EXACT real copy.
+    const stub = page.locator('#s2 .stub');
+    await expect(stub).toBeVisible();
+    await expect(stub).toHaveText('Shopping list will appear here after the PO is approved');
+
+    // And prove it is the empty state, not a populated one: no vendor sections / items.
+    await expect(page.locator('#s2 .vendor-section')).toHaveCount(0);
+    await expect(page.locator('#s2 .shop-item')).toHaveCount(0);
+  });
+
+  // FR-7 (b) — Populated. Seed an active shopping list and assert the real render
+  // contract: grouped .vendor-section blocks (vendor name + item count), per-item
+  // .shop-check buttons, .item-thumb thumbnails, and a location cell (either the
+  // "Add location" affordance or a concrete store_location string). Concrete
+  // visibility + counts, never a length tautology.
+  test('Shopping tab renders grouped vendor sections with checks, thumbnails, and locations', async ({ page }) => {
+    let list;
+    try { list = await seedShoppingList(page); }
+    catch (e) { test.skip(true, 'No catalog items to seed an active shopping list'); return; }
+    expect(list).toBeTruthy();
+    expect(list.id).toBeTruthy();
+    const sections = list.vendor_sections || [];
+    expect(sections.length).toBeGreaterThan(0);
+
+    // Total item count across all seeded sections (used for check/thumb assertions).
+    const totalItems = sections.reduce((n, s) => n + (s.items || []).length, 0);
+    expect(totalItems).toBeGreaterThan(0);
+
+    await page.reload();
+    await page.waitForLoadState('networkidle');
+    await page.click('#t2');
+
+    // The empty-state stub must NOT be present now.
+    await expect(page.locator('#s2 .stub')).toHaveCount(0);
+
+    // Grouped vendor sections: one .vendor-section per seeded section.
+    const vendorSections = page.locator('#s2 .vendor-section');
+    await expect(vendorSections.first()).toBeVisible();
+    await expect(vendorSections).toHaveCount(sections.length);
+
+    // Each section header (.cat) names its vendor and reports its item count.
+    for (const sec of sections) {
+      const header = page.locator('#s2 .vendor-section .cat', { hasText: sec.vendor_name }).first();
+      await expect(header).toBeVisible();
+      const cnt = (sec.items || []).length;
+      await expect(header).toContainText(cnt + ' item');
+    }
+
+    // Per-item check buttons: one .shop-check per item (sections are pending on seed).
+    await expect(page.locator('#s2 .shop-check')).toHaveCount(totalItems);
+
+    // Item thumbnails: one .item-thumb per item.
+    await expect(page.locator('#s2 .item-thumb')).toHaveCount(totalItems);
+
+    // Location cell: each item shows either an "Add location" affordance (no
+    // store_location) or a concrete store_location string. Assert the first item
+    // concretely against its seeded data.
+    const firstItem = sections[0].items[0];
+    const firstRow = page.locator('#s2 .shop-item').first();
+    await expect(firstRow).toBeVisible();
+    if (firstItem.store_location) {
+      await expect(firstRow).toContainText(firstItem.store_location);
+    } else {
+      await expect(firstRow.locator('[data-action="shop-edit-loc"]')).toContainText('Add location');
+    }
   });
 
   test('shopping item check-off survives page reload', async ({ page }) => {
