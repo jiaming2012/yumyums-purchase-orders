@@ -106,9 +106,23 @@ Spot-audit every flow marked WORKING that its test actually asserts (no
 Per the sign-off policy: **test-only WO first** (write the red-first assertion);
 graduate to a **fix WO only if the test goes red**. Operations alone = 17 UNPROVEN.
 
+**First build slate (`slate-20260714`, serial, 6h) — Wave-0 infra + the 4 confirmed-BROKEN fix-cards:**
+
 | Card | Status | Depends on | KR |
 |---|---|---|---|
-| `ops-prove-unproven` (17 flows) | PLANNED | ops confirm-absence + audit | Delivery/Eng/QA |
+| `hq-infra-docker-standardize` (Wave 0) | PLANNED (slate-20260714) | — | infra / DESIGN §15x |
+| `ops-fr4-no-enforcement` (fix) | PLANNED (slate-20260714) | ops confirm-absence | Eng KR-1 |
+| `ops-nfr3-photo-required` (fix) | PLANNED (slate-20260714) | ops confirm-absence | Eng KR-1 |
+| `purchasing-fr18-history` (fix) | PLANNED (slate-20260714) | purchasing confirm-absence | Eng KR-1 |
+| `onboarding-nfr5-video-reopen` (fix) | PLANNED (slate-20260714) | onboarding confirm-absence | Eng KR-1 |
+
+**Test-only prove-UNPROVEN bulk (subsequent slates; 2 are stretch on slate-20260714):**
+
+| Card | Status | Depends on | KR |
+|---|---|---|---|
+| `purchasing-fr7-retest` (stretch) | PLANNED (slate-20260714 stretch) | purchasing test-audit | QA KR-1 |
+| `users-stale-e2e-repair` (stretch) | PLANNED (slate-20260714 stretch) | users test-audit | QA KR-1 |
+| `ops-prove-unproven` (15 flows) | PLANNED | ops confirm-absence + audit | Delivery/Eng/QA |
 | `<app>-prove-unproven` (×4) | PLANNED | that app's PRD-chain | Delivery/Eng/QA |
 
 ## Activity 5 — Cycle gate (closeout) · *serializes last*
