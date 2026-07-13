@@ -114,7 +114,7 @@ graduate to a **fix WO only if the test goes red**. Operations alone = 17 UNPROV
 | `ops-fr4-no-enforcement` (fix) | DRAFTING (overnight-20260714) | ops confirm-absence | Eng KR-1 |
 | `ops-nfr3-photo-required` (fix) | DRAFTING (overnight-20260714) | ops confirm-absence | Eng KR-1 |
 | `purchasing-fr18-history` (fix) | DRAFTING (overnight-20260714) | purchasing confirm-absence | Eng KR-1 |
-| `onboarding-nfr5-video-reopen` (fix) | PLANNED (slate-20260714) | onboarding confirm-absence | Eng KR-1 |
+| `onboarding-nfr5-video-reopen` (fix) | DRAFTING (overnight-20260714) | onboarding confirm-absence | Eng KR-1 |
 
 **Test-only prove-UNPROVEN bulk (subsequent slates; 2 are stretch on slate-20260714):**
 
