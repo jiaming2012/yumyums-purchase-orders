@@ -66,6 +66,31 @@ async function seedShoppingList(page) {
   return await poApiCall(page, 'GET', 'shopping/active');
 }
 
+// completeShoppingList seeds an active shopping list (via seedShoppingList) then
+// completes every vendor section so the list transitions to status='completed'.
+// Purely API-driven (no SQL, no migration) — reuses existing purchasing endpoints,
+// so it stays inside test-seed scope. Returns the completed list, or null if the
+// stack has no catalog items to seed from.
+async function completeShoppingList(page) {
+  let list;
+  try {
+    list = await seedShoppingList(page);
+  } catch (e) {
+    return null;
+  }
+  if (!list || !list.id || !(list.vendor_sections || []).length) return null;
+
+  // Complete each vendor section; the last one flips the list to 'completed'.
+  for (const sec of list.vendor_sections) {
+    if (sec.status === 'completed') continue;
+    await poApiCall(page, 'POST', 'shopping/' + list.id + '/vendors/' + sec.id + '/complete');
+  }
+
+  // Confirm it landed in history.
+  const history = await poApiCall(page, 'GET', 'shopping/history').catch(() => []);
+  return (history || []).find(h => h.id === list.id) || null;
+}
+
 // waitForShoppingContent waits until s2 (Shopping tab) renders shopping list or empty state
 async function waitForShoppingContent(page) {
   await page.waitForFunction(() => {
@@ -376,9 +401,10 @@ test.describe('History tab', () => {
     await page.waitForLoadState('networkidle');
   });
 
-  test('History tab shows empty state or completed lists', async ({ page }) => {
+  test('History tab renders #history-content container', async ({ page }) => {
     await page.click('#t4');
-    // Wait for content to load
+    // The rebuilt History tab always renders a #history-content container inside
+    // #s4 (empty state OR populated) — never leaves the raw stub in place.
     await page.waitForFunction(() => {
       const el = document.getElementById('history-content');
       if (!el) return false;
@@ -388,13 +414,10 @@ test.describe('History tab', () => {
     expect(text.trim().length).toBeGreaterThan(0);
   });
 
-  test('history tab shows completed shopping lists', async ({ page }) => {
-    // Check if there are completed lists via API
-    let history;
-    try {
-      history = await poApiCall(page, 'GET', 'shopping/history');
-    } catch(e) { test.skip(true, 'No history endpoint'); return; }
-
+  test('empty state shows "No completed" when there is no history', async ({ page }) => {
+    // Whether or not other tests have seeded, the wait accepts either the empty
+    // state text or a populated card. On a fresh DB (no completed lists) it must
+    // read "No completed".
     await page.click('#t4');
     await page.waitForFunction(() => {
       const el = document.getElementById('history-content');
@@ -402,48 +425,59 @@ test.describe('History tab', () => {
       return el.querySelector('.history-card') || el.textContent.includes('No completed');
     }, { timeout: 8000 });
 
+    const history = await poApiCall(page, 'GET', 'shopping/history').catch(() => []);
+    const text = await page.locator('#history-content').textContent();
     if (!history || history.length === 0) {
-      // Valid state: no completed lists yet
-      const text = await page.locator('#history-content').textContent();
       expect(text).toContain('No completed');
-      return;
+    } else {
+      // Something already seeded a completed list — the populated UI must render.
+      await expect(page.locator('.history-card').first()).toBeVisible();
     }
+  });
 
-    // Should show at least one history card with week label
+  test('history tab shows seeded completed shopping list with week label', async ({ page }) => {
+    const completed = await completeShoppingList(page);
+    test.skip(!completed, 'No catalog items to seed a completed shopping list');
+
+    await page.click('#t4');
+    await page.waitForSelector('.history-card', { timeout: 8000 });
+
     await expect(page.locator('.history-card').first()).toBeVisible();
     const cardText = await page.locator('.history-card').first().textContent();
     expect(cardText).toMatch(/Week of/);
   });
 
-  test('tapping history entry expands item detail', async ({ page }) => {
-    let history;
-    try {
-      history = await poApiCall(page, 'GET', 'shopping/history');
-    } catch(e) { test.skip(true, 'No history endpoint'); return; }
-    if (!history || history.length === 0) { test.skip(true, 'No completed shopping lists'); return; }
+  test('tapping history entry expands the vendor breakdown detail', async ({ page }) => {
+    const completed = await completeShoppingList(page);
+    test.skip(!completed, 'No catalog items to seed a completed shopping list');
 
     await page.click('#t4');
     await page.waitForSelector('.history-card', { timeout: 8000 });
 
-    // Click the first history entry to expand it
-    await page.locator('.history-hd').first().click();
+    // Detail should be collapsed initially.
+    expect(await page.locator('.history-detail').first().isVisible().catch(() => false)).toBe(false);
 
-    // Wait for detail to appear
-    await page.waitForSelector('.history-detail', { timeout: 5000 });
+    // Tap the header to expand.
+    await page.locator('.history-hd').first().click();
+    await page.waitForSelector('.history-detail', { state: 'visible', timeout: 5000 });
     await expect(page.locator('.history-detail').first()).toBeVisible();
+
+    // The detail must name at least one vendor from the seeded list.
+    const detailText = await page.locator('.history-detail').first().textContent();
+    expect(detailText.trim().length).toBeGreaterThan(0);
+    expect(completed.vendor_sections.length).toBeGreaterThan(0);
+    expect(detailText).toContain(completed.vendor_sections[0].vendor_name);
   });
 
-  test('history card shows vendor breakdown and missing count', async ({ page }) => {
-    let history;
-    try {
-      history = await poApiCall(page, 'GET', 'shopping/history');
-    } catch(e) { test.skip(true, 'No history endpoint'); return; }
-    if (!history || history.length === 0) { test.skip(true, 'No history'); return; }
+  test('history card shows vendor breakdown and section count', async ({ page }) => {
+    const completed = await completeShoppingList(page);
+    test.skip(!completed, 'No catalog items to seed a completed shopping list');
 
     await page.click('#t4');
     await page.waitForSelector('.history-card', { timeout: 8000 });
+
+    // The card header meta must report the vendor/section count.
     const metaText = await page.locator('.history-mt').first().textContent();
-    // Should contain vendor count: "N vendor(s)" or "N vendors"
     expect(metaText).toMatch(/vendor/i);
   });
 
