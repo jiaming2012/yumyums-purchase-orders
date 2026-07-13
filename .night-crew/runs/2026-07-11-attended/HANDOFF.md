@@ -108,6 +108,8 @@ reviewing this HANDOFF. Activities 4 (prove-&-fix WOs) and 5 (cycle gate) remain
 - **D-5 — waive Onboarding FR-16 + NFR-4 (video pipeline) as environment-gated?** Fully
   implemented (`video.go`), untestable without S3 creds + ffmpeg. Run recommends waive (parallels
   D-3 Trends/Cost). See `DECISIONS-NEEDED.md`. This is the **only** open fork — no cards parked.
+  **RESOLVED 2026-07-13 (triage, `ledger.md` T-8):** waived + Spaces/ffmpeg fixture preserved to
+  `BACKLOG.md`.
 
 ## Suggested triage order
 

@@ -73,11 +73,11 @@ BROKEN → a code-fix card.
 
 | Card | Status | Depends on | KR |
 |---|---|---|---|
-| `ops-confirm-absence` (FR-12 reject, NFR-3 photo-required) | **DRAFTING** (overnight-20260712; G6-passed → 2 BROKEN: FR-4, NFR-3; FR-12 confirm NEGATIVE) | `ops-hardening-prd` | Eng KR-1 |
-| `users-confirm-absence` | **DRAFTING** (overnight-20260712; G6-passed → 0 graduations, 16 stay UNPROVEN present-but-untested) | `users-hardening-prd` | Eng KR-1 |
-| `onboarding-confirm-absence` | **DRAFTING** (overnight-20260712; G6-passed → 1 BROKEN: NFR-5 video-led reopen no-op; 10 UNPROVEN; FR-16 waiver recommended) | `onboarding-hardening-prd` | Eng KR-1 |
-| `purchasing-confirm-absence` | **DRAFTING** (overnight-20260712; G6-passed → 0 graduations, 18 stay UNPROVEN; FR-18 remains only BROKEN; D-1 honored; FR-13 inline mark reconciled) | `purchasing-hardening-prd` | Eng KR-1 |
-| `inventory-confirm-absence` | **DRAFTING** (overnight-20260712; G6-passed → 0 graduations, 19 stay UNPROVEN; FR-24/25 remain waived-BROKEN; NFR-1 double normalization-gap flagged for WO) | `inventory-hardening-prd` | Eng KR-1 |
+| `ops-confirm-absence` (FR-12 reject, NFR-3 photo-required) | **DONE** ✅ signed 2026-07-13 (overnight-20260712; G6-passed → 2 BROKEN: FR-4, NFR-3; FR-12 confirm NEGATIVE) | `ops-hardening-prd` | Eng KR-1 |
+| `users-confirm-absence` | **DONE** ✅ signed 2026-07-13 (overnight-20260712; G6-passed → 0 graduations, 16 stay UNPROVEN present-but-untested) | `users-hardening-prd` | Eng KR-1 |
+| `onboarding-confirm-absence` | **DONE** ✅ signed 2026-07-13 (overnight-20260712; G6-passed → 1 BROKEN: NFR-5 video-led reopen no-op; 10 UNPROVEN; FR-16 waiver recommended) | `onboarding-hardening-prd` | Eng KR-1 |
+| `purchasing-confirm-absence` | **DONE** ✅ signed 2026-07-13 (overnight-20260712; G6-passed → 0 graduations, 18 stay UNPROVEN; FR-18 remains only BROKEN; D-1 honored; FR-13 inline mark reconciled) | `purchasing-hardening-prd` | Eng KR-1 |
+| `inventory-confirm-absence` | **DONE** ✅ signed 2026-07-13 (overnight-20260712; G6-passed → 0 graduations, 19 stay UNPROVEN; FR-24/25 remain waived-BROKEN; NFR-1 double normalization-gap flagged for WO) | `inventory-hardening-prd` | Eng KR-1 |
 
 ## Activity 3 — Audit the WORKING (non-vacuous test check)
 
@@ -86,11 +86,20 @@ Spot-audit every flow marked WORKING that its test actually asserts (no
 
 | Card | Status | Depends on | KR |
 |---|---|---|---|
-| `ops-test-audit` | **DRAFTING** (overnight-20260712; G6-passed → 0 drops, all 10 WORKING non-vacuous; FR-15 photo/builder-UI coverage gap noted for downstream WO) | `ops-hardening-prd` | QA KR-1 |
-| `users-test-audit` | **DRAFTING** (overnight-20260712; G6-passed → 0 drops, 10 WORKING non-vacuous; stale-test fold-in confirmed for FR-16/17 test-repair WO) | `users-hardening-prd` | QA KR-1 |
-| `onboarding-test-audit` | **DRAFTING** (overnight-20260712; G6-passed → 0 drops, 23 WORKING non-vacuous; 6 conditional-skip guard flags for the test-hardening WO) | `onboarding-hardening-prd` | QA KR-1 |
-| `purchasing-test-audit` | **DRAFTING** (overnight-20260712; G6-passed → 1 drop: FR-7 → UNPROVEN (vacuous generic-content tail); 6 WORKING confirmed non-vacuous) | `purchasing-hardening-prd` | QA KR-1 |
-| `inventory-test-audit` | **DRAFTING** (overnight-20260712; G6-passed → 0 drops, 19 WORKING non-vacuous; Go DB-guard = env-not-vacuous; FR-2 ~40-guard cleanup noted) | `inventory-hardening-prd` | QA KR-1 |
+| `ops-test-audit` | **DONE** ✅ signed 2026-07-13 (overnight-20260712; G6-passed → 0 drops, all 10 WORKING non-vacuous; FR-15 photo/builder-UI coverage gap noted for downstream WO) | `ops-hardening-prd` | QA KR-1 |
+| `users-test-audit` | **DONE** ✅ signed 2026-07-13 (overnight-20260712; G6-passed → 0 drops, 10 WORKING non-vacuous; stale-test fold-in confirmed for FR-16/17 test-repair WO) | `users-hardening-prd` | QA KR-1 |
+| `onboarding-test-audit` | **DONE** ✅ signed 2026-07-13 (overnight-20260712; G6-passed → 0 drops, 23 WORKING non-vacuous; 6 conditional-skip guard flags for the test-hardening WO) | `onboarding-hardening-prd` | QA KR-1 |
+| `purchasing-test-audit` | **DONE** ✅ signed 2026-07-13 (overnight-20260712; G6-passed → 1 drop: FR-7 → UNPROVEN (vacuous generic-content tail); 6 WORKING confirmed non-vacuous) | `purchasing-hardening-prd` | QA KR-1 |
+| `inventory-test-audit` | **DONE** ✅ signed 2026-07-13 (overnight-20260712; G6-passed → 0 drops, 19 WORKING non-vacuous; Go DB-guard = env-not-vacuous; FR-2 ~40-guard cleanup noted) | `inventory-hardening-prd` | QA KR-1 |
+
+> ✅ **Activities 2 & 3 complete — all 10 cards signed at morning triage 2026-07-13 (overnight-20260712).**
+> Every card G6-passed; docs-only run (footprint 100% under `.night-crew/`). Net movement:
+> **3 new confirmed-BROKEN** (Ops FR-4, Ops NFR-3, Onboarding NFR-5) + Purchasing FR-18 (re-confirmed)
+> = **Eng KR-1 known-broken denominator now exactly 4 built flows**; **1 WORKING→UNPROVEN drop**
+> (Purchasing FR-7, vacuous test — first QA KR-1 data point). All BROKEN citations re-verified at
+> cited lines. Fix-cards + test-hardening notes itemized in `BACKLOG.md`. Triage resolutions in
+> `ledger.md` (2026-07-13, T-7/T-8). **Activity 4 (prove & fix) now unblocks** — it needs localhost
+> Postgres + the E2E suite armed first (the standing DB flag bites there).
 
 ## Activity 4 — Prove & fix the UNPROVEN (the WO backlog) · *bulk delivery*
 
@@ -120,6 +129,16 @@ red-first proof** · **median WO cycle time recorded over ≥5 WOs** (baseline).
 > not hardening); they ship as-is and are excluded from the Engineering-KR denominator by
 > explicit operator sign-off. Purchasing FR-18 (History) is **not** waived — it's a real
 > stub of a shipped feature (backend endpoint exists) → test-repair/build WO in Activity 4.
+
+> **Waived from the "0 known-broken flows" denominator (triage 2026-07-13, D-5):**
+> Onboarding FR-16 (video presign→PUT→FFmpeg transcode/thumbnail) + NFR-4 (`503
+> video_storage_not_configured` fallback). **Fully implemented** (`handler.go:540-640`,
+> `video.go:22-206`) — **not broken**, only untestable in E2E without DO Spaces creds + an
+> `ffmpeg` binary. Both stay UNPROVEN and are excluded from the Engineering-KR denominator by
+> explicit operator sign-off (parallel to D-3). **Waive-now-but-preserve:** a BACKLOG item to
+> stand up a Spaces+ffmpeg E2E fixture and prove them is queued for when creds are available.
+> Contrast Onboarding NFR-5 (video-led reopen no-op) — **not** waived; a confirmed BROKEN in a
+> shipped flow → Activity-4 fix-card.
 
 ---
 

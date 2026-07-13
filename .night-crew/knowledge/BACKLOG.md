@@ -5,6 +5,15 @@
 > status`. Promote to a roadmap card with `promoted → <card>`; drop with `dropped — reason`
 > (struck through, kept as record).
 
+- **Onboarding video-pipeline E2E fixture (prove FR-16 + NFR-4)** · Stand up a DO Spaces bucket +
+  an `ffmpeg` binary on the E2E host so the video presign→PUT→FFmpeg transcode/thumbnail path
+  (FR-16, `handler.go:540-640`, `video.go:22-206`) and the `503 video_storage_not_configured`
+  fallback (NFR-4) can be exercised. Both are fully implemented and **waived** from the Eng-KR
+  denominator at triage 2026-07-13 (D-5) as env-gated — this fixture is the preserved prove-path:
+  when built, it flips FR-16/NFR-4 UNPROVEN→WORKING (or reddens them). Needs operator-supplied
+  Spaces creds. ~4–5h test-infra build. · origin: triage 2026-07-13 (D-5, waive-now-but-preserve)
+  · new
+
 - **Users stale-E2E repair** · `tests/users.spec.js` has two Access-tab tests navigating dead
   `#t3`/`#s3` DOM (removed in the 3-tab→2-tab refactor; Access now renders into `#s2`).
   Features work; tests can't run — marked UNPROVEN (stale-test), not BROKEN. Repoint

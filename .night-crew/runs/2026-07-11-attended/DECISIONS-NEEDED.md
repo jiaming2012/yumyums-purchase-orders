@@ -8,6 +8,11 @@
 
 ## D-5 (recommendation) — Waive Onboarding FR-16 + NFR-4 (video pipeline) as environment-gated?
 
+> **RESOLVED 2026-07-13 — recorded as `ledger.md` T-8 (Morning-triage resolutions 2026-07-13).**
+> Operator chose **waive-now-but-preserve**: FR-16 + NFR-4 waived from the Eng-KR "0 known-broken"
+> denominator (env-gated, parallel to D-3), AND a BACKLOG item queued to stand up a Spaces+ffmpeg
+> E2E fixture and prove them when creds are available. File kept as the analysis record.
+
 **What:** Onboarding FR-16 (video presign→PUT→FFmpeg transcode/thumbnail) and NFR-4
 (the `503 video_storage_not_configured` fallback + FFmpeg-missing path) are **fully
 implemented** — `handler.go:540-640`, `video.go:22-206` (real `convertToMP4`,

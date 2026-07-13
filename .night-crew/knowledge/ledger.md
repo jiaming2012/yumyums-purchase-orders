@@ -70,3 +70,38 @@ parked. Merged to `dev` `--no-ff`.
   (auth enforcement, crons, service-token contracts). Recommend the post-run design batch name
   that angle explicitly as a standing enumeration rule ("second pass must sweep backend-only
   surfaces"). Deferred — night-crew stays frozen this run.
+
+## Morning-triage resolutions (2026-07-13) — `overnight-20260712`
+
+Review verdict: 12 commits, all `docs(night-crew):`; diff 100% docs-only (695 insertions,
+10 files, all under `.night-crew/`; **0 Go files touched**); build+vet green; G4 discipline
+greps clean; `replay`/`testdata` untouched. `go test ./...` = one pre-existing env-gated red
+only — `internal/receipt TestRunIngestCycle_ScenarioTable` AI-matching subcases return 401
+(no `ANTHROPIC_API_KEY` in shell); not merge-introduced (0 Go changed, result identical to
+pre-merge `dev`). 0 cards parked; 10/10 cards G6-passed. Merged to `dev` `--no-ff`.
+
+- **T-7 — Sign off all 10 Activity-2/3 cards → DONE.** The five confirm-absence sweeps
+  (Activity 2, Eng KR-1) and five test-audits (Activity 3, QA KR-1) all cleared G6, and the
+  three new confirmed-BROKEN citations (Ops FR-4, Ops NFR-3, Onboarding NFR-5) were each
+  independently re-verified at the cited line. Signed at triage; roadmap rows flipped DRAFTING
+  → DONE. **Net cycle movement:** Eng KR-1 known-broken denominator is now exactly **4 built
+  flows** (Ops FR-4, Ops NFR-3, Onboarding NFR-5, Purchasing FR-18); QA KR-1 saw its first hard
+  data point — **1 WORKING→UNPROVEN drop** (Purchasing FR-7, a generic-content tautology test).
+  Chosen over holding any row for cold re-read: the two-pass + G6 gate plus the independent
+  BROKEN-citation re-verify is the evidence sign-off requires; the run added no code, only
+  honest reclassification.
+
+- **T-8 (D-5) — Onboarding FR-16 + NFR-4 (video pipeline) waived, fixture preserved to BACKLOG.**
+  Both are **fully implemented** (`handler.go:540-640`, `video.go:22-206`) but untestable in E2E
+  without DO Spaces creds + an `ffmpeg` binary — not broken, only unprovable-in-env. Waived from
+  the Engineering-KR "0 known-broken flows" denominator as **environment-gated** (parallel to D-3's
+  Trends/Cost waiver), so they ship as-is and don't block the cycle gate. Chosen as **waive-now-
+  but-preserve** over a plain waive: a BACKLOG item to stand up a Spaces+ffmpeg E2E fixture and
+  prove FR-16/NFR-4 is queued for when creds exist — the prove-path survives rather than being
+  dropped silently. Rejected building the fixture this cycle (net-new test-infra, ~4–5h + creds the
+  operator would supply — the cycle's remit is hardening, not env build-out). **Contrast:** NFR-5
+  (video-led reopen no-op) is **not** waived — real code, wrong behavior → Activity-4 fix-card.
+
+- **Standing DB flag re-armed for Activity 4 (unchanged).** This run touched no DB/E2E by design;
+  the localhost-Postgres + E2E-suite precondition (`brew postgresql@16`) bites at the next slate
+  (Activity 4 writes app code + runs red-first proofs). Arm it before the Activity-4 slate.
