@@ -39,11 +39,11 @@ tasks:
       - npx bddgen
 
   bdd:
-    desc: Run BDD/Gherkin tests (uses Windows box DB; set HEADED=1 for visible browser)
+    desc: Run BDD/Gherkin tests (uses local Docker DB; set HEADED=1 for visible browser)
     deps: [sw, bdd:gen]
     env:
-      DB_HOST: 100.70.200.55
-      DB_PORT: '5433'
+      DB_HOST: localhost
+      DB_PORT: '5432'
     cmds:
       - npx playwright test --project=bdd {{if eq (.HEADED | default "0") "1"}}--headed{{end}}
 
@@ -62,13 +62,13 @@ tasks:
       - cd backend && go test -p 1 ./...
 
   test:all:
-    desc: Run all tests (Go unit, Playwright E2E, BDD/Gherkin) against the Windows box DB. Resets hq_test after the run completes.
+    desc: Run all tests (Go unit, Playwright E2E, BDD/Gherkin) against the local Docker DB. Resets hq_test after the run completes.
     deps: [sw, bdd:gen]
     env:
-      DB_HOST: 100.70.200.55
-      DB_PORT: '5433'
+      DB_HOST: localhost
+      DB_PORT: '5432'
       # Same env scoping as test:go — see comments there.
-      DB_TEST_URL: 'postgres://yumyums:yumyums@100.70.200.55:5433/hq_test?sslmode=disable'
+      DB_TEST_URL: 'postgres://yumyums:yumyums@localhost:5432/hq_test?sslmode=disable'
       DATABASE_URL: ''
       TEST_DATABASE_URL: ''
     cmds:

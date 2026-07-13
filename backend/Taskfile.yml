@@ -154,7 +154,7 @@ tasks:
           -e POSTGRES_DB={{.DB_NAME}} \
           -p 5432:5432 \
           -v yumyums-pgdata:/var/lib/postgresql/data \
-          postgres:13
+          postgres:16
       fi
 
   db-stop:
