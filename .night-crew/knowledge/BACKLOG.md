@@ -27,6 +27,9 @@
   `require_photo` on a field. A direct-API resubmit can bypass it. Fix: plumb rejection context into
   the submit validation (a `submission_rejections` join keyed on the resubmitted submission) + a
   red-first test that a rejected-with-require_photo field blocks resubmit server-side. Small fix-card.
+  **Scheduling delegated to the planning agents** (PjM `/nc-slate-plan` / PM `/nc-pm-session` / eng) —
+  triage 2026-07-14 (ledger T-10) declined to hand-pick backlog-vs-slate placement; queue placement is
+  a planner call, not an operator triage pick. Stays a ready candidate here until they promote it.
   · origin: overnight-20260714 ops-nfr3 (in-footprint deferral, G6-confirmed) · new
 
 - **Users `users.html:122` orphaned `<div id="s3">` cleanup** · After `users-stale-e2e-repair`
@@ -40,39 +43,32 @@
 > Distinct from test-only prove-UNPROVEN WOs: these are **confirmed-BROKEN** flows where a cited
 > line proves the behavior absent. Each = code fix (front+back) + red-first regression test.
 
-- **Operations FR-4 — yes/no "No" corrective-action enforcement** · A "No" answer never blocks
-  submit: `evaluateFailTrigger` handles only `out_of_range` (`workflows.html:1656-1668`), yes/no
-  fields carry no `fail_trigger` (`workflows.html:558,724`), submit validation short-circuits on
-  `!f.fail_trigger` (`workflows.html:2398-2405`), server `validateFailNotes` checks only
-  `out_of_range` (`handler.go:80,101`). The "No" fail card (`workflows.html:2068`) is cosmetic.
-  Fix: make a failing "No" require a corrective fail note front+back (mirror the temperature path)
-  + red-first AC-3 test. · origin: overnight-20260712 ops-confirm-absence (G6-passed) · new
-- **Operations NFR-3 — photo-required-at-submit enforcement** · No photo gate on submit/resubmit:
-  frontend checks only note+severity (`workflows.html:2397-2419`), the `fld-photo-required` toggle
-  + reject `require_photo` feed a banner only (`workflows.html:2024-2025`), backend
-  `validateFailNotes` has no photo check (`handler.go:54-88`), submit runs one validation with no
-  photo gate (`handler.go:458`). `PhotoURL` is storable (`model.go:92`) but never required.
-  Fix: block submit/resubmit until a required photo is attached, front+back, + red-first test.
-  · origin: overnight-20260712 ops-confirm-absence (G6-passed) · new
-- **Onboarding NFR-5 — reopen/reject of a video-led section is a silent no-op** · A section
-  whose first `ob_items` row is a `video_series` never reverts to active on reopen or reject:
-  `ReopenSection` selects the first item with no type filter (`db.go:1015-1017`) and deletes progress
-  by the parent `ob_items.id` (`db.go:1040`), but video progress is keyed by `ob_video_parts.id`
-  (`db.go:970-978`, required for completeness at `db.go:645-651`), so the DELETE matches zero rows and
-  `isSectionComplete` stays true; handler returns `{"ok":"true"}` masking it. FAQ-led sections are
-  safe. Shared defect — hits BOTH `/reopenSection` (FR-9, crew) and `/rejectSection` (FR-15, manager).
-  Fix: resolve the first *checkable unit* by item type (video_part / faq / sub_item / item) and delete
-  its progress; red-first test on the seed's video-led Equipment Training §.
-  · origin: overnight-20260712 onboarding-confirm-absence (G6-passed) · new
-- **Purchasing FR-18 — History tab is a static stub (frontend build WO)** · `#s4` is a hardcoded
-  stub (`purchasing.html:156` "Past shopping runs will appear here"); `show(n)` (`:776-782`) only
-  toggles display; there is no `renderHistory` and no `GET /shopping/history` call anywhere in the
-  frontend (grep = 0 hits). Backend `GetShoppingListHistory` (FR-17, `service.go:396-458`) works but
-  is never wired to the UI. **Confirmed-BROKEN at Activity-1 PRD-drafting; re-confirmed by the
-  overnight-20260712 sweep.** NOT waived (unlike Inventory Trends/Cost D-3) — the backend exists, so
-  the absent UI is a real gap in a shipped feature. Fix: implement `renderHistory` + wire
-  `/shopping/history` into the History tab, + rewrite the 4 dead History tests to drive the new UI.
-  · origin: PRD-purchasing-hardening Activity 1 (re-confirmed overnight-20260712) · new
+- ~~**Operations FR-4 — yes/no "No" corrective-action enforcement** · A "No" answer never blocked
+  submit (`evaluateFailTrigger` handled only `out_of_range`; submit short-circuited on
+  `!f.fail_trigger`; server `validateFailNotes` checked only `out_of_range`).~~ **DONE — promoted →
+  `ops-fr4-no-enforcement`, landed overnight-20260714 (`2287947`, G6-PASS, red-first):** a failing
+  "No" now requires a corrective fail note front+back (`isYesNoNo` + trigger in `validateFailNotes`,
+  mirroring the temperature path). · origin: overnight-20260712 ops-confirm-absence · closed 2026-07-14
+- ~~**Operations NFR-3 — photo-required-at-submit enforcement** · No photo gate on submit/resubmit;
+  `PhotoURL` storable (`model.go:92`) but never required.~~ **DONE (field-level) — promoted →
+  `ops-nfr3-photo-required`, landed overnight-20260714 (`ad105f7`, G6-PASS, red-first):** submit now
+  blocks until a required photo field carries a valid `https://` value, front+back (`isHTTPSPhotoValue`
+  iterates template fields, not just responses). **Residual → F-1 below:** the rejection-driven
+  *resubmit* photo requirement stays frontend-only (no `submission_id`/rejection context in the submit
+  input). · origin: overnight-20260712 ops-confirm-absence · partially closed 2026-07-14
+- ~~**Onboarding NFR-5 — reopen/reject of a video-led section is a silent no-op** · Video progress
+  keyed by `ob_video_parts.id`, but `ReopenSection` deleted by parent `ob_items.id` → zero rows,
+  section stayed complete.~~ **DONE — promoted → `onboarding-nfr5-video-reopen`, landed
+  overnight-20260714 (`5d73b96`, G6-PASS, red-first):** `ReopenSection` resolves the first video part
+  for `video_series` items and deletes THAT progress, reverting the section to active. Covers FR-9
+  (crew reopen) + FR-15 (manager reject). · origin: overnight-20260712 onboarding-confirm-absence ·
+  closed 2026-07-14
+- ~~**Purchasing FR-18 — History tab is a static stub (frontend build WO)** · `#s4` hardcoded stub;
+  no `renderHistory`, no `GET /shopping/history` call; backend `GetShoppingListHistory` never wired
+  to the UI.~~ **DONE — promoted → `purchasing-fr18-history`, landed overnight-20260714 (`4cb57b7`,
+  G6-PASS, red-first):** `renderHistory` built + wired to `GET /shopping/history`; 5 History tests
+  pass (fixture via existing API, no SQL/migration). · origin: PRD-purchasing-hardening Activity 1 ·
+  closed 2026-07-14
 
 ## Test-hardening notes (from Activity-3 test-audits — ride the downstream prove-UNPROVEN/test WOs; not reclassifications)
 
@@ -92,14 +88,14 @@
   are hardening flags, not drops. Replace each guard with a self-seeded fixture so a shape mismatch
   reddens instead of silently skipping. Rides the Onboarding Activity-4 test-hardening WO.
   · origin: overnight-20260712 onboarding-test-audit (G6-passed) · new
-- **Purchasing FR-7 vacuous shopping-tab test (dropped WORKING→UNPROVEN)** · `Shopping tab shows
-  stub when no active list exists` ends in `expect(text.trim().length).toBeGreaterThan(0)`
-  (`tests/purchasing.spec.js:127`) — a generic-content tautology (passes for stub, populated list,
-  or error string). Neither the empty-state stub text nor the grouped vendor-section render FR-7 names
-  is asserted anywhere. Activity-4 test-only WO: seed an active shopping list and assert (a) the
-  empty-state stub text with no list, and (b) grouped vendor sections + per-item check buttons +
-  thumbnails + aisle locations when populated. · origin: overnight-20260712 purchasing-test-audit
-  (G6-passed) · new
+- ~~**Purchasing FR-7 vacuous shopping-tab test (dropped WORKING→UNPROVEN)** · `Shopping tab shows
+  stub when no active list exists` ended in `expect(text.trim().length).toBeGreaterThan(0)` — a
+  generic-content tautology.~~ **DONE — promoted → `purchasing-fr7-retest`, landed overnight-20260714
+  (`958a176`, G6-PASS):** real assertions replace the tautology — (a) exact empty-state stub copy with
+  no list, (b) grouped vendor sections + per-item check buttons + thumbnails + aisle locations when
+  populated. (Note: the old test was baseline-RED — it targeted a nonexistent `#shopping-content` —
+  not merely vacuous.) FR-7 UNPROVEN → WORKING. · origin: overnight-20260712 purchasing-test-audit ·
+  closed 2026-07-14
 - **Inventory NFR-1 double name-normalization gap** · Two surfaces persist un-normalized text while
   the rest title-case: (1) `UpdateItemHandler` (`backend/internal/inventory/handler.go:1129-1131`)
   writes `input.Description` raw — item *edit* skips `normalizeItemName` (create/confirm/vendor-create

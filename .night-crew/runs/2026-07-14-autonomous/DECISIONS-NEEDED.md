@@ -1,5 +1,12 @@
 # DECISIONS-NEEDED — overnight-20260714
 
+> **RESOLVED 2026-07-14 — recorded as `ledger.md` T-9 / T-10.** No fork blocked triage. All 7 cards
+> signed DRAFTING → DONE (T-9; Eng KR-1 4 → 0, QA KR-1 +3 hardened tests). F-1 (Ops NFR-3 backend
+> resubmit `require_photo` gate) stays in `BACKLOG.md`; its scheduling is **delegated to the planning
+> agents** (PjM/PM/eng) at slate-planning, not hand-picked at triage — operator rider, recorded as a
+> rule in T-10. F-2 (orphaned `users.html:122` div) stays backlogged, folds into a future Users card.
+> File kept below as the analysis record.
+
 > Operator forks and follow-ups surfaced by the run. The run **executes**, it does not decide —
 > anything requiring a judgment call is parked here for `/nc-morning-triage`.
 

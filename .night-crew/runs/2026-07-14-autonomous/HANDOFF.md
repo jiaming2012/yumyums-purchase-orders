@@ -1,5 +1,13 @@
 # HANDOFF — overnight-20260714 (for the morning of 2026-07-14)
 
+> **✅ TRIAGED 2026-07-14 (`/nc-morning-triage`).** Reviewed attended (build+vet green on the
+> merged tree; `go test` reds confined to pre-existing env-gated `receipt`+`inventory`, identical on
+> `dev`, neither touched by this run; G4 greps N/A; 3 backend fix diffs spot-checked). Merged →
+> `dev` `--no-ff` (`5890ac9`). All 7 cards signed DRAFTING → DONE (ledger T-9; Eng KR-1 **4 → 0**,
+> QA KR-1 **+3 hardened tests**). F-1 stays in BACKLOG, scheduling delegated to the planning agents
+> (ledger T-10). Standing DB flag consumed + superseded by the canonical pg16 Docker env. `dev`
+> pushed. Resolutions in `ledger.md` (2026-07-14) + `DECISIONS-NEEDED.md` (RESOLVED banner).
+
 > **Run branch:** `overnight-20260714` (cut from `dev`; never pushed, `main` untouched).
 > **Slate:** `.night-crew/knowledge/reference/slate-20260714.md` (batch-signed 2026-07-13).
 > **Scope:** Activity 4 — the **first APP-CODE + red-first + E2E slate**. Wave-0 infra

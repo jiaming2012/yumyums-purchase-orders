@@ -105,3 +105,58 @@ pre-merge `dev`). 0 cards parked; 10/10 cards G6-passed. Merged to `dev` `--no-f
 - **Standing DB flag re-armed for Activity 4 (unchanged).** This run touched no DB/E2E by design;
   the localhost-Postgres + E2E-suite precondition (`brew postgresql@16`) bites at the next slate
   (Activity 4 writes app code + runs red-first proofs). Arm it before the Activity-4 slate.
+
+## Morning-triage resolutions (2026-07-14) — `overnight-20260714`
+
+Review verdict: the **first app-code + red-first + E2E slate** — 7 atomic commits + 1 `docs`
+closeout; diff +907 / −84 across 17 files (2 backend `.go`, 4 HTML/`sw.js`, 4 spec.js, docs),
+per-card footprint clean. On the run's final tree **and** the merged tree: `go build ./...` +
+`go vet ./...` **green**. `go test ./...` = **pre-existing, environment-gated reds only**,
+confined to `internal/receipt` + `internal/inventory` (invalid `ANTHROPIC_API_KEY` → 401 AI
+matching + DB-dependent visibility tests) — **identical failures on pre-merge `dev`** (verified
+by checkout), and **neither package was touched by this run** (the only Go edits were
+`workflow/handler.go` and `onboarding/db.go`, both `[no test files]` in Go — their proof is the
+Playwright E2E suite, G6-reverified on the ephemeral pg16 stack). G4 discipline greps N/A
+(night-crew orchestration pkgs — `journal`/`orchestration`/`workorder` — don't exist in this app
+repo); `replay`/`testdata` absent. The 3 backend fix diffs were spot-checked attended (real
+red→green logic, well-commented, in-seam). 7/7 cards G6-PASS, 0 parked, 0 REVISE, 0 Docker
+crashes. Merged to `dev` `--no-ff`; re-ran build+vet+test on the merged tree — same env reds, no
+new failures.
+
+- **T-9 — Sign off all 7 `slate-20260714` cards → DONE.** Wave-0 `hq-infra-docker-standardize`
+  (local Docker DB → pg16, `test:all`/`bdd` repointed off the remote box) + the 4 confirmed-BROKEN
+  fix-cards (Ops **FR-4** yes/no-"No" corrective gate, Ops **NFR-3** photo-required gate, Purchasing
+  **FR-18** History tab, Onboarding **NFR-5** video-led reopen/reject) + the 2 stretch tests
+  (Purchasing **FR-7** proved WORKING, Users **stale-E2E** repaired 17/2 → 19/0). Every fix was
+  **red-first** — the new regression test was captured FAILING against the unfixed build before the
+  fix, then flipped green (no test passed without its fix); each was independently G6-reverified at
+  the diff + evidence, and I re-verified the 3 backend diffs and build/vet attended. **Net cycle
+  movement:** Eng KR-1 known-broken denominator **4 → 0**; QA KR-1 **+3 hardened tests** (1
+  vacuous→genuine, 2 stale→repaired). Chosen over holding any row for a cold re-read — red-first
+  capture + G6 diff-reverify + the attended backend spot-check is the evidence sign-off requires;
+  a cold re-read of honest, proven fixes adds no signal the gate didn't already produce. Roadmap
+  rows flipped DRAFTING → DONE.
+
+- **T-10 (F-1) — Ops NFR-3 backend resubmit `require_photo` gate: scheduling delegated to the
+  planning agents, not hand-picked at triage.** F-1 is the in-footprint deferral from `ops-nfr3`:
+  the field-level required-photo gate ships front+back (`ad105f7`), but the **rejection-driven
+  resubmit** case is frontend-only because `SubmitChecklistInput` carries no `submission_id`/
+  rejection context, so a direct-API resubmit can bypass it (fix = a `submission_rejections` join +
+  red-first test). **Operator rider (verbatim intent):** whether F-1 rides the next slate or waits
+  in backlog is a *throughput / queue-placement* decision that belongs to the PjM (`/nc-slate-plan`),
+  PM (`/nc-pm-session`), and engineering agents — not an operator hand-pick at triage — per "operator
+  owns the quality bar, not the throughput." **Resolution:** F-1 stays in `BACKLOG.md` as a scoped,
+  ready candidate; its promotion into a slate is decided by those agents at slate-planning time.
+  **Rule recorded:** backlog-vs-schedule (queue placement / cadence) is a planner decision — triage
+  surfaces the item + its scope + its risk, the planning agents decide *when* it runs. In the
+  meantime the frontend gate covers the normal path; the residual direct-API bypass is documented in
+  BACKLOG. (F-2, the orphaned `users.html:122` `<div id="s3">`, likewise stays backlogged — trivial,
+  folds into any future Users card; no decision.)
+
+- **Standing DB flag consumed + superseded by the ephemeral pg16 Docker env.** Activity 4 wrote app
+  code and ran red-first E2E proofs on `docker-compose.nc.yml` (pg16) with **zero Docker crashes** —
+  Wave-0 (`hq-infra-docker-standardize`) made that env the **canonical local DB path** (local Docker
+  DB standardized to `postgres:16`, matching prod + the ephemeral env; `task test:all`/`bdd`
+  repointed off the remote Windows box). The prior "arm localhost `brew postgresql@16`" flag is
+  therefore satisfied via Docker pg16 and no longer a precondition; it re-arms only if the
+  verify/merge DB path changes underneath it.

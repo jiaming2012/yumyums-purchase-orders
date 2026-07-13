@@ -110,18 +110,23 @@ graduate to a **fix WO only if the test goes red**. Operations alone = 17 UNPROV
 
 | Card | Status | Depends on | KR |
 |---|---|---|---|
-| `hq-infra-docker-standardize` (Wave 0) | DRAFTING (overnight-20260714) | — | infra / DESIGN §15x |
-| `ops-fr4-no-enforcement` (fix) | DRAFTING (overnight-20260714) | ops confirm-absence | Eng KR-1 |
-| `ops-nfr3-photo-required` (fix) | DRAFTING (overnight-20260714) | ops confirm-absence | Eng KR-1 |
-| `purchasing-fr18-history` (fix) | DRAFTING (overnight-20260714) | purchasing confirm-absence | Eng KR-1 |
-| `onboarding-nfr5-video-reopen` (fix) | DRAFTING (overnight-20260714) | onboarding confirm-absence | Eng KR-1 |
+| `hq-infra-docker-standardize` (Wave 0) | **DONE** ✅ signed 2026-07-14 (overnight-20260714; G6-PASS — local Docker DB → pg16, 70 migrations clean, `test:all`/`bdd` repointed off remote) | — | infra / ledger T-9 |
+| `ops-fr4-no-enforcement` (fix) | **DONE** ✅ signed 2026-07-14 (overnight-20260714; G6-PASS, red-first — yes/no "No" corrective gate front+back) | ops confirm-absence | Eng KR-1 |
+| `ops-nfr3-photo-required` (fix) | **DONE** ✅ signed 2026-07-14 (overnight-20260714; G6-PASS, red-first — required-photo gate front+back; resubmit-context case deferred → BACKLOG F-1) | ops confirm-absence | Eng KR-1 |
+| `purchasing-fr18-history` (fix) | **DONE** ✅ signed 2026-07-14 (overnight-20260714; G6-PASS, red-first — History tab built, `renderHistory` + `GET /shopping/history`) | purchasing confirm-absence | Eng KR-1 |
+| `onboarding-nfr5-video-reopen` (fix) | **DONE** ✅ signed 2026-07-14 (overnight-20260714; G6-PASS, red-first — video-led reopen/reject reverts to active; FR-9 + FR-15) | onboarding confirm-absence | Eng KR-1 |
 
-**Test-only prove-UNPROVEN bulk (subsequent slates; 2 are stretch on slate-20260714):**
+> ✅ **Eng KR-1 known-broken denominator: 4 → 0.** All four confirmed-BROKEN built flows fixed +
+> red-first guarded (Ops FR-4, Ops NFR-3, Onboarding NFR-5, Purchasing FR-18). What remains excluded
+> from the denominator is the two operator waivers only: Inventory FR-24/25 (D-3, unbuilt-future) and
+> Onboarding FR-16/NFR-4 (D-5, env-gated). Signed at triage 2026-07-14 (ledger T-9).
+
+**Test-only prove-UNPROVEN bulk (subsequent slates; 2 landed as stretch on slate-20260714):**
 
 | Card | Status | Depends on | KR |
 |---|---|---|---|
-| `purchasing-fr7-retest` (stretch) | DRAFTING (overnight-20260714) | purchasing test-audit | QA KR-1 |
-| `users-stale-e2e-repair` (stretch) | DRAFTING (overnight-20260714) | users test-audit | QA KR-1 |
+| `purchasing-fr7-retest` (stretch) | **DONE** ✅ signed 2026-07-14 (overnight-20260714; G6-PASS — Shopping-tab empty+populated render proven; vacuous tautology replaced) | purchasing test-audit | QA KR-1 |
+| `users-stale-e2e-repair` (stretch) | **DONE** ✅ signed 2026-07-14 (overnight-20260714; G6-PASS — 2 dead Access-tab tests repointed `#t3/#s3`→`#t2/#s2`; `users.spec.js` 17/2 → 19/0) | users test-audit | QA KR-1 |
 | `ops-prove-unproven` (15 flows) | PLANNED | ops confirm-absence + audit | Delivery/Eng/QA |
 | `<app>-prove-unproven` (×4) | PLANNED | that app's PRD-chain | Delivery/Eng/QA |
 
