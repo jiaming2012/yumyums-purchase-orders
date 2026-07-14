@@ -2707,3 +2707,167 @@ test.describe('Checklist submit/unsubmit/history (prove sweep)', () => {
     }
   });
 });
+
+// ─── Builder conditional-logic prove sweep (ops-prove-builder, Track A card 3) ──
+// FR-16 (DOW schedule visibility), FR-17 (section visibility condition),
+// FR-18 (skip logic show/hide). Red-first assertions naming the observable
+// DOM/list behavior against the CURRENT app. Appended LAST so this block runs
+// after all sibling tests. Fixtures use unique template names + cleanupTemplates
+// to avoid polluting sibling tests.
+test.describe('Builder conditional logic (prove sweep)', () => {
+  // FR-16 — A template's day-of-week schedule governs which days a checklist
+  // appears in the crew member's My Checklists list.
+  // Observable behavior asserted: a template scheduled for TODAY is present in
+  // the list; a template scheduled for a NON-today DOW is ABSENT. This exercises
+  // the server-side DOW gate (repository.go: active_days = ANY(...)).
+  test('FR-16 DOW schedule shows today-scheduled checklist and hides off-day one', async ({ page }) => {
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await cleanupTemplates(page);
+
+    const todayDOW = await getTodayDOW(page);
+    const offDay = (todayDOW + 3) % 7; // a day that is definitely not today
+
+    // Template A: scheduled for TODAY → should appear.
+    await apiCall(page, 'POST', 'createTemplate', {
+      name: 'FR16 Scheduled Today',
+      sections: [{ title: 'Tasks', order: 0, condition: null, fields: [
+        { type: 'checkbox', label: 'Do a thing', required: false, order: 0, config: null, fail_trigger: null, condition: null },
+      ]}],
+      schedules: [{ active_days: [todayDOW] }],
+      requires_approval: false,
+      assignments: [{ assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' }],
+    });
+
+    // Template B: scheduled for an OFF day (not today) → should be hidden.
+    await apiCall(page, 'POST', 'createTemplate', {
+      name: 'FR16 Scheduled Off Day',
+      sections: [{ title: 'Tasks', order: 0, condition: null, fields: [
+        { type: 'checkbox', label: 'Do a thing', required: false, order: 0, config: null, fail_trigger: null, condition: null },
+      ]}],
+      schedules: [{ active_days: [offDay] }],
+      requires_approval: false,
+      assignments: [{ assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' }],
+    });
+
+    await page.reload();
+    await page.waitForSelector('#checklist-list .row', { timeout: 10000 });
+
+    // Today-scheduled checklist is visible in the list.
+    await expect(
+      page.locator('#checklist-list .row', { hasText: 'FR16 Scheduled Today' }).first()
+    ).toBeVisible();
+
+    // Off-day checklist is NOT in the list at all.
+    await expect(
+      page.locator('#checklist-list .row', { hasText: 'FR16 Scheduled Off Day' })
+    ).toHaveCount(0);
+  });
+
+  // FR-17 — A template section's visibility condition shows/hides the whole
+  // section (and its fields) based on the condition. Observable behavior:
+  // a section whose day-condition excludes today renders NONE of its fields in
+  // the runner, while a sibling always-visible section renders its field.
+  test('FR-17 section day-condition hides the section and its fields in the runner', async ({ page }) => {
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await cleanupTemplates(page);
+
+    const todayDOW = await getTodayDOW(page);
+    const offDay = (todayDOW + 3) % 7;
+
+    await apiCall(page, 'POST', 'createTemplate', {
+      name: 'FR17 Section Condition',
+      sections: [
+        // Always-visible section (no condition).
+        { title: 'Open Section', order: 0, condition: null, fields: [
+          { type: 'checkbox', label: 'Always shown field', required: false, order: 0, config: null, fail_trigger: null, condition: null },
+        ]},
+        // Section gated to an off-day → hidden today.
+        { title: 'Weekend Only Section', order: 1, condition: { days: [offDay] }, fields: [
+          { type: 'checkbox', label: 'Hidden section field', required: false, order: 0, config: null, fail_trigger: null, condition: null },
+        ]},
+      ],
+      schedules: [{ active_days: [todayDOW] }],
+      requires_approval: false,
+      assignments: [{ assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' }],
+    });
+
+    await page.reload();
+    await page.waitForSelector('#checklist-list .row', { timeout: 10000 });
+    await page.locator('#checklist-list .row', { hasText: 'FR17 Section Condition' }).first().click();
+    await page.waitForSelector('#fill-body .fill-field');
+
+    // The open section's field is visible.
+    await expect(page.locator('.fill-field-label', { hasText: 'Always shown field' })).toBeVisible();
+
+    // The off-day section header AND its field are hidden.
+    await expect(page.locator('.sec-hd', { hasText: 'Weekend Only Section' })).toHaveCount(0);
+    await expect(page.locator('.fill-field-label', { hasText: 'Hidden section field' })).toHaveCount(0);
+
+    // Progress counts only the 1 visible field (hidden section not counted).
+    await expect(page.locator('.progress-line')).toContainText('0 of 1');
+  });
+
+  // FR-18 — Skip logic: a field's answer shows/hides a downstream field.
+  // Observable behavior: the dependent field is hidden until the source field
+  // equals the condition value, appears when it does, and HIDES AGAIN when the
+  // source answer changes away from the value (full show/hide round-trip DOM
+  // state). The slate flagged FR-18 as the likeliest RED — if the round-trip
+  // hide does not fire, this records RED.
+  test('FR-18 skip logic shows then re-hides a field as the source answer changes', async ({ page }) => {
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await cleanupTemplates(page);
+
+    const todayDOW = await getTodayDOW(page);
+
+    // Create with a yes/no source field so we can toggle its value both ways.
+    await apiCall(page, 'POST', 'createTemplate', {
+      name: 'FR18 Skip Logic Roundtrip',
+      sections: [{ title: 'Tasks', order: 0, condition: null, fields: [
+        { type: 'yes_no', label: 'Was there a spill', required: false, order: 0, config: null, fail_trigger: null, condition: null },
+      ]}],
+      schedules: [{ active_days: [todayDOW] }],
+      requires_approval: false,
+      assignments: [{ assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' }],
+    });
+
+    const templates = await apiCall(page, 'GET', 'templates');
+    const tpl = templates.find((t) => t.name === 'FR18 Skip Logic Roundtrip');
+    const sourceFieldId = tpl.sections[0].fields[0].id;
+
+    // Add a dependent field that shows only when the source == "yes".
+    await apiCall(page, 'PUT', 'updateTemplate/' + tpl.id, {
+      name: 'FR18 Skip Logic Roundtrip',
+      sections: [{ title: 'Tasks', order: 0, condition: null, fields: [
+        { id: sourceFieldId, type: 'yes_no', label: 'Was there a spill', required: false, order: 0, config: null, fail_trigger: null, condition: null },
+        { type: 'text', label: 'Describe the cleanup', required: false, order: 1, config: null, fail_trigger: null,
+          condition: { field_id: sourceFieldId, operator: 'equals', value: 'true' } },
+      ]}],
+      schedules: [{ active_days: [todayDOW] }],
+      requires_approval: false,
+      assignments: [{ assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' }],
+    });
+
+    await page.reload();
+    await page.waitForSelector('#checklist-list .row', { timeout: 10000 });
+    await page.locator('#checklist-list .row', { hasText: 'FR18 Skip Logic Roundtrip' }).first().click();
+    await page.waitForSelector('#fill-body .fill-field');
+
+    const dependent = page.locator('.fill-field-label', { hasText: 'Describe the cleanup' });
+
+    // Initially hidden — source not answered yet.
+    await expect(dependent).toHaveCount(0);
+
+    // Answer "Yes" → dependent field appears.
+    await page.locator('[data-action="set-yes"]').first().click();
+    await page.waitForTimeout(500);
+    await expect(dependent).toBeVisible({ timeout: 3000 });
+
+    // Change the answer to "No" → dependent field must HIDE again (round-trip).
+    await page.locator('[data-action="set-no"]').first().click();
+    await page.waitForTimeout(500);
+    await expect(dependent).toHaveCount(0);
+  });
+});
