@@ -613,3 +613,306 @@ test.describe('Alert Channel Defaults', () => {
     await emailChip.click();
   });
 });
+
+// ─── Security enforcement (NFR-1..NFR-5) ────────────────────────────────────
+//
+// Prove-sweep card: users-prove-security. Red-first assertions for the five
+// auth/permission NFRs. The non-admin (team_member) session is authored INLINE
+// here per tests/multi-role.spec.js — no shared helper module (runbook rule).
+//
+// Non-admin session lifecycle (all inline, API-driven):
+//   1. Log in as the superadmin.
+//   2. Invite a team_member  → capture { user.id, invite_path } (token in path).
+//   3. Clear the admin cookie, POST /api/v1/auth/accept-invite with the token +
+//      a password → server activates the user AND sets the hq_session cookie in
+//      THIS browser context. From that point `page` is the team_member.
+// FIXTURE GOTCHA honored: for role-dependent facts we read the authoritative
+// stored roles from the users-API (invite response / GET /api/v1/users), never
+// the masked GET /api/v1/me.
+
+const TEAM_MEMBER_PW = 'TeamMemberPass123';
+
+// tokenFromInvitePath extracts the raw token from "/login.html?token=XYZ".
+function tokenFromInvitePath(invitePath) {
+  return new URL(invitePath, 'http://x').searchParams.get('token');
+}
+
+// inviteTeamMember (as the currently-logged-in admin) creates a status='invited'
+// team_member and returns { id, email, invitePath, token }.
+async function inviteTeamMember(page, tag) {
+  const email = `sec-${tag}-${Date.now()}@yumyums.kitchen`;
+  const res = await page.evaluate(async (e) => {
+    const r = await fetch('/api/v1/users/invite', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ first_name: 'Sec', last_name: 'Member', email: e, roles: ['team_member'] }),
+    });
+    return { status: r.status, body: await r.json() };
+  }, email);
+  expect(res.status).toBe(201);
+  // Authoritative roles come from the users-API invite response, not /me.
+  expect(res.body.user.roles).toEqual(['team_member']);
+  return {
+    id: res.body.user.id,
+    email,
+    invitePath: res.body.invite_path,
+    token: tokenFromInvitePath(res.body.invite_path),
+  };
+}
+
+// becomeTeamMember clears the admin session and activates+logs-in as the invited
+// team_member by accepting their invite token. After this, `page` requests carry
+// the team_member's hq_session cookie.
+async function becomeTeamMember(page, token) {
+  await page.context().clearCookies();
+  const res = await page.evaluate(async (t) => {
+    const r = await fetch('/api/v1/auth/accept-invite', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: t, password: 'TeamMemberPass123' }),
+    });
+    return { status: r.status, body: await r.json().catch(() => null) };
+  }, token);
+  expect(res.status).toBe(200);
+  return res.body;
+}
+
+test.describe('Security enforcement', () => {
+  // ── NFR-1: every admin endpoint refuses a non-admin with 403 ──────────────
+  test('NFR-1: non-admin (team_member) is refused 403 across all 8 admin endpoints', async ({ page }) => {
+    await login(page); // admin
+    const victim = await inviteTeamMember(page, 'nfr1-victim'); // a second user to target
+    const me = await inviteTeamMember(page, 'nfr1-self');
+    await becomeTeamMember(page, me.token); // page is now the team_member
+
+    // Confirm the session is genuinely non-admin via the authoritative users-API
+    // role, not the masked /me. (A team_member cannot list users, so we assert
+    // the 403 on GET /users below IS the proof the guard fired.)
+    const calls = await page.evaluate(async ([victimId]) => {
+      const j = (r) => r.json().catch(() => null);
+      const results = {};
+      let r;
+      r = await fetch('/api/v1/users');
+      results.listUsers = { status: r.status, body: await j(r) };
+      r = await fetch('/api/v1/users/invite', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ first_name: 'X', last_name: 'Y', email: 'z@z.z', roles: ['team_member'] }) });
+      results.invite = { status: r.status, body: await j(r) };
+      r = await fetch(`/api/v1/users/${victimId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ first_name: 'Hacked' }) });
+      results.patchUser = { status: r.status, body: await j(r) };
+      r = await fetch(`/api/v1/users/${victimId}/reset-password`, { method: 'POST' });
+      results.resetPassword = { status: r.status, body: await j(r) };
+      r = await fetch(`/api/v1/users/${victimId}/revoke`, { method: 'POST' });
+      results.revoke = { status: r.status, body: await j(r) };
+      r = await fetch(`/api/v1/users/${victimId}`, { method: 'DELETE' });
+      results.deleteUser = { status: r.status, body: await j(r) };
+      r = await fetch('/api/v1/apps/permissions');
+      results.getPerms = { status: r.status, body: await j(r) };
+      r = await fetch('/api/v1/apps/purchasing/permissions', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ role_grants: [], user_grants: [] }) });
+      results.setPerms = { status: r.status, body: await j(r) };
+      return results;
+    }, [victim.id]);
+
+    // All 8 admin handlers must refuse with 403 forbidden.
+    for (const key of ['listUsers', 'invite', 'patchUser', 'resetPassword', 'revoke', 'deleteUser', 'getPerms', 'setPerms']) {
+      expect(calls[key].status, `${key} should be 403`).toBe(403);
+      expect(calls[key].body?.error, `${key} error body`).toBe('forbidden');
+    }
+
+    // And the refusal was real, not incidental: the victim was NOT patched/deleted.
+    // Re-login as admin to verify the victim still exists unmodified.
+    await page.context().clearCookies();
+    await login(page);
+    const victimAfter = await usersApiCall(page, 'GET', '');
+    const found = victimAfter.find(u => u.id === victim.id);
+    expect(found, 'victim still present after refused delete').toBeTruthy();
+    expect(found.first_name).toBe('Sec'); // not "Hacked"
+
+    // Cleanup
+    await usersApiCall(page, 'DELETE', victim.id);
+    await usersApiCall(page, 'DELETE', me.id);
+  });
+
+  // ── NFR-2: invite token is single-use (7-day expiry noted UNTESTABLE) ─────
+  test('NFR-2: invite token is single-use — second accept-invite is refused 400 token_expired', async ({ page }) => {
+    await login(page);
+    const u = await inviteTeamMember(page, 'nfr2');
+
+    // First accept activates the user and sets a session.
+    await page.context().clearCookies();
+    const first = await page.evaluate(async (t) => {
+      const r = await fetch('/api/v1/auth/accept-invite', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: t, password: 'FirstPass123' }),
+      });
+      return { status: r.status, body: await r.json().catch(() => null) };
+    }, u.token);
+    expect(first.status).toBe(200);
+    expect(first.body.user.status).toBe('active');
+
+    // Second accept with the SAME token must be refused — token already used.
+    await page.context().clearCookies();
+    const second = await page.evaluate(async (t) => {
+      const r = await fetch('/api/v1/auth/accept-invite', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: t, password: 'SecondPass456' }),
+      });
+      return { status: r.status, body: await r.json().catch(() => null) };
+    }, u.token);
+    expect(second.status).toBe(400);
+    expect(second.body?.error).toBe('token_expired');
+
+    // Only one activation occurred: password from the SECOND attempt did not stick.
+    // (We can't read the hash, but the second attempt returned no user + no session.)
+    expect(second.body?.user).toBeFalsy();
+
+    // NOTE: the 7-day EXPIRY-BOUNDARY leg (a token past expires_at → refused) is
+    // UNTESTABLE here without server time-control: InsertInviteToken hardcodes
+    // now()+7d and there is no fixture to backdate expires_at via the API. The
+    // single-use guarantee is proven fully above; the expiry predicate shares the
+    // same WHERE clause (used_at IS NULL AND expires_at > now()) in ClaimInviteToken.
+
+    // Cleanup
+    await login(page);
+    await usersApiCall(page, 'DELETE', u.id);
+  });
+
+  // ── NFR-3: grant write → /me/apps read round-trip ─────────────────────────
+  test('NFR-3: granting an app to a user makes it appear in that user\'s /me/apps, and removing it hides it', async ({ page }) => {
+    await login(page);
+    const u = await inviteTeamMember(page, 'nfr3');
+    await becomeTeamMember(page, u.token); // activate + get session
+
+    const slugsFor = async () => page.evaluate(async () => {
+      const r = await fetch('/api/v1/me/apps');
+      const apps = await r.json();
+      return apps.map(a => a.slug);
+    });
+
+    // Baseline: a fresh team_member with no grants sees NO 'purchasing' app.
+    const before = await slugsFor();
+    expect(before).not.toContain('purchasing');
+
+    // As admin, grant this specific user an individual user_grant on 'purchasing'.
+    await page.context().clearCookies();
+    await login(page);
+    const putGrant = await page.evaluate(async ([uid]) => {
+      const r = await fetch('/api/v1/apps/purchasing/permissions', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role_grants: [], user_grants: [uid] }),
+      });
+      return { status: r.status, body: await r.json() };
+    }, [u.id]);
+    expect(putGrant.status).toBe(200);
+    expect(putGrant.body.user_grants).toContain(u.id);
+
+    // Back as the team_member: /me/apps now reflects the grant — 'purchasing' appears.
+    await becomeTeamMember2(page, u.email);
+    const afterGrant = await slugsFor();
+    expect(afterGrant, 'purchasing appears after grant').toContain('purchasing');
+
+    // As admin, revoke the grant (empty user_grants replaces the set).
+    await page.context().clearCookies();
+    await login(page);
+    const putRevoke = await page.evaluate(async () => {
+      const r = await fetch('/api/v1/apps/purchasing/permissions', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role_grants: [], user_grants: [] }),
+      });
+      return { status: r.status, body: await r.json() };
+    });
+    expect(putRevoke.status).toBe(200);
+    expect(putRevoke.body.user_grants).not.toContain(u.id);
+
+    // Back as the team_member: 'purchasing' disappears again.
+    await becomeTeamMember2(page, u.email);
+    const afterRevoke = await slugsFor();
+    expect(afterRevoke, 'purchasing disappears after revoke').not.toContain('purchasing');
+
+    // Cleanup
+    await page.context().clearCookies();
+    await login(page);
+    await usersApiCall(page, 'DELETE', u.id);
+  });
+
+  // ── NFR-4: notification-preference admin-or-self + ≥1 channel ─────────────
+  test('NFR-4: notification-preference is admin-or-self and requires ≥1 channel', async ({ page }) => {
+    await login(page);
+    const self = await inviteTeamMember(page, 'nfr4-self');
+    const other = await inviteTeamMember(page, 'nfr4-other');
+    await becomeTeamMember(page, self.token); // page is now `self` (team_member)
+
+    const notif = await page.evaluate(async ([selfId, otherId]) => {
+      const j = (r) => r.json().catch(() => null);
+      const out = {};
+      let r;
+      // self may SET own preference (admin-or-self allow branch)
+      r = await fetch(`/api/v1/users/${selfId}/notification-preference`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ notification_channels: ['email'] }) });
+      out.selfSet = { status: r.status, body: await j(r) };
+      // self may READ own preference
+      r = await fetch(`/api/v1/users/${selfId}/notification-preference`);
+      out.selfGet = { status: r.status, body: await j(r) };
+      // self setting an EMPTY channel set must be refused 400
+      r = await fetch(`/api/v1/users/${selfId}/notification-preference`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ notification_channels: [] }) });
+      out.selfEmpty = { status: r.status, body: await j(r) };
+      // self touching ANOTHER user's preference must be refused 403 (not admin, not self)
+      r = await fetch(`/api/v1/users/${otherId}/notification-preference`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ notification_channels: ['email'] }) });
+      out.otherSet = { status: r.status, body: await j(r) };
+      return out;
+    }, [self.id, other.id]);
+
+    // self-allow branch
+    expect(notif.selfSet.status, 'self may set own pref').toBe(200);
+    expect(notif.selfSet.body.notification_channels).toEqual(['email']);
+    expect(notif.selfGet.status, 'self may read own pref').toBe(200);
+    expect(notif.selfGet.body.notification_channels).toContain('email');
+    // ≥1 channel required
+    expect(notif.selfEmpty.status, 'empty channel set refused').toBe(400);
+    // admin-or-self refuse branch
+    expect(notif.otherSet.status, 'non-admin cannot set another user pref').toBe(403);
+    expect(notif.otherSet.body?.error).toBe('forbidden');
+
+    // admin CAN set another user's pref (admin branch of admin-or-self)
+    await page.context().clearCookies();
+    await login(page);
+    const adminSet = await page.evaluate(async ([otherId]) => {
+      const r = await fetch(`/api/v1/users/${otherId}/notification-preference`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ notification_channels: ['zoho_cliq'] }) });
+      return { status: r.status, body: await r.json().catch(() => null) };
+    }, [other.id]);
+    expect(adminSet.status, 'admin may set any user pref').toBe(200);
+
+    // Cleanup
+    await usersApiCall(page, 'DELETE', self.id);
+    await usersApiCall(page, 'DELETE', other.id);
+  });
+
+  // ── NFR-5: an unauthenticated API call yields 401 and the UI redirects ────
+  test('NFR-5: unauthenticated request to an admin endpoint returns 401 and the UI redirects to login', async ({ page }) => {
+    // No login; ensure a clean unauthenticated context.
+    await page.goto('/login.html');
+    await page.context().clearCookies();
+
+    // Raw API call with no session cookie → 401.
+    const status = await page.evaluate(async () => {
+      const r = await fetch('/api/v1/users');
+      return r.status;
+    });
+    expect(status).toBe(401);
+
+    // UI leg: users.html on an unauthenticated session redirects to /login.html
+    // (users.html:139 — a 401 from its init fetch forces window.location to login).
+    await page.goto('/users.html');
+    await page.waitForURL(url => url.pathname.includes('login'), { timeout: 10000 });
+    expect(page.url()).toContain('login');
+  });
+});
+
+// becomeTeamMember2 re-establishes the team_member session by password login
+// (the user is already active from an earlier accept-invite). Used when NFR-3
+// needs to hop back to the team_member after admin operations.
+async function becomeTeamMember2(page, email) {
+  await page.context().clearCookies();
+  await page.goto('/login.html');
+  await page.fill('input[type="email"]', email);
+  await page.fill('input[type="password"]', TEAM_MEMBER_PW);
+  await page.click('button.btn');
+  await page.waitForURL(url => !url.pathname.includes('login'));
+}
