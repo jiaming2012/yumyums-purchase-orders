@@ -38,6 +38,29 @@
   Trivial removal; fold into any future Users card. · origin: overnight-20260714 users-stale G6
   (optional cleanup) · new
 
+- **`/nc-status` non-determinism — same repo, two machines, two reports** · Running `/nc-status`
+  on separate machines yields diverging output, which defeats the skill's whole purpose (a single
+  authoritative "you are here"). Root cause: the skill's §1 gather-commands hardcode paths that no
+  longer match this repo's layout, so each machine's agent silently improvises a *different*
+  substitute. Confirmed drift: (a) `grep -oE '"bg":"#..."' usm/roadmap.txt` — **no `usm/` dir
+  exists**; the roadmap is `.night-crew/knowledge/roadmap.md` (markdown, not TextUSM), so the
+  card-color signal returns empty and each agent re-derives progress differently. (b) `ls
+  reference/slate-*.md` — actual path is `.night-crew/knowledge/reference/slate-*.md`. (c) root
+  `BACKLOG.md` / `DECISIONS-NEEDED.md` don't exist — backlog is `.night-crew/knowledge/BACKLOG.md`
+  and DECISIONS-NEEDED files nest per-run under `.night-crew/runs/<date>/`, so one machine reported
+  "no DECISIONS-NEEDED in tree" while the resolved fork actually lives at
+  `.night-crew/runs/2026-07-15-autonomous/DECISIONS-NEEDED.md`. (d) the DONE count read 28 on one
+  machine vs 27 on the other because `grep -oE '\bDONE\b' roadmap.md` counts the **status-legend
+  line** (`- **Status:** \`DONE\` · …`) as a card. Fix: repoint the §1 gather block to the real
+  `.night-crew/` layout; make the color/progress signal read `roadmap.md`'s status tokens by
+  **card row, not word token** (exclude the legend line); and resolve DECISIONS-NEEDED by globbing
+  `.night-crew/runs/*/DECISIONS-NEEDED.md` and honoring the inline `> RESOLVED` marker (so a
+  triaged fork reads "present-and-resolved," never "absent"). Symmetry check: apply the same
+  layout truth to `/nc-help` and any `nc-progress` variant so all status surfaces agree. The skill
+  file lives outside this repo (`~/.claude/skills/nc-status/`), so this is a **framework/tooling
+  WO**, not a product card — but it must land or every future `/nc-status` cross-check is unreliable.
+  · origin: 2026-07-15 cross-machine `/nc-status` diff (operator-observed) · new
+
 ## Activity-4 fix-cards (from Activity-2 confirm-absence graduations — code-fix + regression-test WOs)
 
 > Distinct from test-only prove-UNPROVEN WOs: these are **confirmed-BROKEN** flows where a cited
