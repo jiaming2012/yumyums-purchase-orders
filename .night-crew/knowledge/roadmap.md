@@ -121,14 +121,26 @@ graduate to a **fix WO only if the test goes red**. Operations alone = 17 UNPROV
 > from the denominator is the two operator waivers only: Inventory FR-24/25 (D-3, unbuilt-future) and
 > Onboarding FR-16/NFR-4 (D-5, env-gated). Signed at triage 2026-07-14 (ledger T-9).
 
-**Test-only prove-UNPROVEN bulk (subsequent slates; 2 landed as stretch on slate-20260714):**
+**Test-only prove-UNPROVEN bulk (2 landed as stretch on slate-20260714; the full sweep is `slate-20260715`):**
 
 | Card | Status | Depends on | KR |
 |---|---|---|---|
 | `purchasing-fr7-retest` (stretch) | **DONE** ✅ signed 2026-07-14 (overnight-20260714; G6-PASS — Shopping-tab empty+populated render proven; vacuous tautology replaced) | purchasing test-audit | QA KR-1 |
 | `users-stale-e2e-repair` (stretch) | **DONE** ✅ signed 2026-07-14 (overnight-20260714; G6-PASS — 2 dead Access-tab tests repointed `#t3/#s3`→`#t2/#s2`; `users.spec.js` 17/2 → 19/0) | users test-audit | QA KR-1 |
-| `ops-prove-unproven` (15 flows) | PLANNED | ops confirm-absence + audit | Delivery/Eng/QA |
-| `<app>-prove-unproven` (×4) | PLANNED | that app's PRD-chain | Delivery/Eng/QA |
+
+**Prove-UNPROVEN sweep — `slate-20260715` (16 cards, 5 concurrent tracks, ~78 flows). Signed 2026-07-14; run branch `overnight-20260715`. Coarse `ops-prove-unproven`/`<app>-prove-unproven` placeholders fanned out below.**
+
+| Track | Cards | Flows | Status | KR |
+|---|---|---|---|---|
+| A · Operations | `ops-prove-checklists` · `ops-prove-approvals` · `ops-prove-builder` · `ops-prove-cross` | 15 | slated → overnight-20260715 | Delivery/Eng/QA |
+| B · Purchasing | `purchasing-prove-order` · `purchasing-prove-po-approval` · `purchasing-prove-shopping` · `purchasing-prove-state-auth-scheduler` | 18 | slated → overnight-20260715 | Delivery/Eng/QA |
+| C · Users | `users-prove-security` · `users-prove-ui-access` | 16 | slated → overnight-20260715 | Delivery/Eng/QA |
+| D · Onboarding | `onboarding-prove-assignments` · `onboarding-prove-progress` | 10 | slated → overnight-20260715 | Delivery/Eng/QA |
+| E · Inventory | `inventory-prove-purchases` · `inventory-prove-stock` · `inventory-prove-setup` · `inventory-prove-recipes-cross` | 19 | slated → overnight-20260715 | Delivery/Eng/QA |
+
+> Test-only WO first per flow; a RED assertion graduates to a fix WO (same footprint) — scoping
+> forecasts ~34–40 RED. Tonight = full prove sweep (guaranteed) + first fix wave (budget-gated
+> stretch, 6h floor). Fixes that don't fit park → next slate. See `reference/slate-20260715.md`.
 
 ## Activity 5 — Cycle gate (closeout) · *serializes last*
 
