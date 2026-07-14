@@ -2371,3 +2371,313 @@ test.describe('FR-26: unassign template', () => {
     await obApiCall(page, 'DELETE', 'deleteTemplate/' + tpl.id);
   });
 });
+
+// ─── prove-progress sweep (card onboarding-prove-progress) ──────────────────
+// Red-first prove assertions for the onboarding-hardening PRD's UNPROVEN flows:
+//   FR-10 (proof-photo URL round-trip), FR-14 (sign_off_role_required 403),
+//   FR-21 (archived template disappears), FR-29 (manager vs hire progress %
+//   agree), NFR-3 (team_member 403 sweep across manager endpoints).
+// FR-18 (custom-thumbnail UPLOAD) and FR-28 (seed idempotent re-seed) are PARKED
+//   / recorded UNTESTABLE below with their precise reasons — no forced assertion.
+// All non-admin sessions are authored INLINE (invite → accept-invite → login),
+// per tests/multi-role.spec.js — no shared helper module.
+
+test.describe('prove-progress sweep', () => {
+  // Invite a user with the given roles, accept the invite (sets password), and
+  // return { id, email }. IMPORTANT: /auth/accept-invite sets the hq_session cookie
+  // — it logs the BROWSER in as the newly-created user. So we re-login as ADMIN
+  // before returning, leaving the caller in a known admin session; the caller
+  // explicitly logs in as the invitee (login(page, email, 'test456')) when needed.
+  async function inviteUser(page, roles) {
+    const email = 'prove-prog-' + Date.now() + '-' + Math.floor(Math.random() * 1e6) + '@yumyums.kitchen';
+    const inviteRes = await page.evaluate(async ([em, rs]) => {
+      const res = await fetch('/api/v1/users/invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ first_name: 'Prove', last_name: 'Prog', email: em, roles: rs }),
+      });
+      return res.json();
+    }, [email, roles]);
+    const token = inviteRes.invite_path.split('token=')[1];
+    await page.evaluate(async (t) => {
+      await fetch('/api/v1/auth/accept-invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: t, password: 'test456' }),
+      });
+    }, token);
+    // accept-invite hijacked the session → restore the admin session.
+    await login(page);
+    return { id: inviteRes.user.id, email };
+  }
+
+  // POST a manager onboarding endpoint via fetch in the current session and return
+  // { status, body } so a caller can assert the 403 tier directly.
+  async function obRaw(page, method, path, body) {
+    return page.evaluate(async ([m, p, b]) => {
+      const opts = { method: m, headers: { 'Content-Type': 'application/json' } };
+      if (b) opts.body = JSON.stringify(b);
+      const res = await fetch('/api/v1/onboarding/' + p, opts);
+      let json = null;
+      try { json = await res.json(); } catch (e) { json = null; }
+      return { status: res.status, body: json };
+    }, [method, path, body]);
+  }
+
+  // ── FR-10 — proof-photo URL round-trips through ob_progress.value ──────────
+  // A hire uploads a proof photo on an item that requires one; the URL persists
+  // into ob_progress.value and comes back as proof_photo_url on reload. The
+  // round-trip of the URL STRING needs no S3/multipart — saveProgress carries a
+  // `value` and hireTraining surfaces it as item.proof_photo_url. (The client
+  // capture widget that PRODUCES the URL is separate; this proves the persistence
+  // contract the PRD names: value → ob_progress.value → proof_photo_url.)
+  test('FR-10: proof-photo URL persists via saveProgress value and round-trips on reload', async ({ page }) => {
+    await login(page);
+    const me = await page.evaluate(async () => (await (await fetch('/api/v1/me')).json()));
+
+    // Template with a single checkbox item that REQUIRES a proof photo.
+    const tpl = await obApiCall(page, 'POST', 'createTemplate', {
+      name: 'FR10 ProofPhoto ' + Date.now(),
+      roles: [],
+      sections: [{
+        title: 'Proof Section', sort_order: 0, requires_sign_off: false, sign_off_roles: [], is_faq: false,
+        items: [{ type: 'checkbox', label: 'Photograph the station', sort_order: 0, require_proof_photo: true, sub_items: [] }],
+      }],
+    });
+    await obApiCall(page, 'POST', 'assignTemplate', { hire_id: me.id, template_id: tpl.id });
+
+    const full = await obApiCall(page, 'GET', 'templates/' + tpl.id);
+    const item = full.sections[0].items[0];
+    expect(item.require_proof_photo).toBe(true);
+
+    const photoURL = 'https://spaces.example.com/onboarding/proof-' + Date.now() + '.jpg';
+    // Save progress carrying the proof-photo URL as `value` (mirrors the client's
+    // handleOBPhotoCaptureClick → saveProgress(value) path).
+    await obApiCall(page, 'POST', 'saveProgress', {
+      item_id: item.id, progress_type: 'item', checked: true, value: photoURL,
+    });
+
+    // Round-trip: re-fetch the hire's training and assert the proof URL comes back.
+    const training = await obApiCall(page, 'GET', 'hireTraining/' + me.id + '?templateId=' + tpl.id);
+    const gotItem = training.sections[0].items.find(i => i.id === item.id);
+    expect(gotItem).toBeTruthy();
+    expect(gotItem.checked).toBe(true);
+    // The observable behavior: the uploaded URL survives and is served back.
+    expect(gotItem.proof_photo_url).toBe(photoURL);
+
+    await obApiCall(page, 'DELETE', 'deleteTemplate/' + tpl.id);
+  });
+
+  // ── FR-14 — sign_off_role_required 403 at the API ─────────────────────────
+  // A section's sign_off_roles restricts who may sign off. A user who PASSES the
+  // manager tier (isManagerOrAdmin) but whose roles do NOT intersect
+  // sign_off_roles — and who isn't superadmin — is refused 403
+  // sign_off_role_required. We invite a plain `manager` (clears the tier gate),
+  // set sign_off_roles=['admin'] (no overlap), and assert the role-specific 403.
+  // NOTE: the tier gate fires FIRST, so a team_member would get 403 `forbidden`
+  // (that path is NFR-3, below); to reach `sign_off_role_required` the poster must
+  // be a manager lacking the required role.
+  test('FR-14: a manager lacking the sign_off role is refused 403 sign_off_role_required', async ({ page }) => {
+    await login(page);
+    const mgr = await inviteUser(page, ['manager']);
+
+    // Admin builds a template with an ADMIN-only sign-off section, assigns it to
+    // the manager as the hire (any hire works — the 403 fires before completeness).
+    const tpl = await obApiCall(page, 'POST', 'createTemplate', {
+      name: 'FR14 RoleGate ' + Date.now(),
+      roles: [],
+      sections: [{
+        title: 'Admin-only sign-off', sort_order: 0, requires_sign_off: true,
+        sign_off_roles: ['admin'], is_faq: false,
+        items: [{ type: 'checkbox', label: 'A', sort_order: 0, sub_items: [] }],
+      }],
+    });
+    const full = await obApiCall(page, 'GET', 'templates/' + tpl.id);
+    const secId = full.sections[0].id;
+
+    // Become the manager and POST /signOff — passes the manager tier, fails the
+    // admin-only role match → 403 sign_off_role_required.
+    await login(page, mgr.email, 'test456');
+    const res = await obRaw(page, 'POST', 'signOff', {
+      section_id: secId, hire_id: mgr.id, notes: '', rating: 'ready',
+    });
+    expect(res.status).toBe(403);
+    expect(res.body && res.body.error).toBe('sign_off_role_required');
+
+    // Cleanup (back as admin).
+    await login(page);
+    await obApiCall(page, 'DELETE', 'deleteTemplate/' + tpl.id);
+    await usersApiCall(page, 'DELETE', mgr.id);
+  });
+
+  // ── FR-21 — archived template disappears from the assignable/list surfaces ──
+  // Soft-delete (DELETE /deleteTemplate/{id} → archived_at=now()) must drop the
+  // template out of /templates AND /myTrainings while its rows survive
+  // (idempotent re-delete still returns ok). Previously used only as test cleanup.
+  test('FR-21: archived template disappears from /templates and /myTrainings', async ({ page }) => {
+    await login(page);
+    const me = await page.evaluate(async () => (await (await fetch('/api/v1/me')).json()));
+
+    const uniq = 'FR21 Archive ' + Date.now();
+    const tpl = await obApiCall(page, 'POST', 'createTemplate', {
+      name: uniq, roles: [],
+      sections: [{ title: 'S', sort_order: 0, requires_sign_off: false, sign_off_roles: [], is_faq: false,
+        items: [{ type: 'checkbox', label: 'A', sort_order: 0, sub_items: [] }] }],
+    });
+    await obApiCall(page, 'POST', 'assignTemplate', { hire_id: me.id, template_id: tpl.id });
+
+    // Before archive: present in BOTH the admin /templates list and the hire's list.
+    const listBefore = await obApiCall(page, 'GET', 'templates');
+    expect(listBefore.some(t => t.id === tpl.id)).toBe(true);
+    const myBefore = await obApiCall(page, 'GET', 'myTrainings');
+    expect(myBefore.some(t => t.template_id === tpl.id)).toBe(true);
+
+    // Archive (soft-delete).
+    await obApiCall(page, 'DELETE', 'deleteTemplate/' + tpl.id);
+
+    // After archive: GONE from both surfaces (archived_at IS NULL filter).
+    const listAfter = await obApiCall(page, 'GET', 'templates');
+    expect(listAfter.some(t => t.id === tpl.id)).toBe(false);
+    const myAfter = await obApiCall(page, 'GET', 'myTrainings');
+    expect(myAfter.some(t => t.template_id === tpl.id)).toBe(false);
+  });
+
+  // ── FR-29 — manager and hire report the SAME progress % for a template ─────
+  // /managerHires computes progress by a distinct, heavier query path than the
+  // hire's own /myTrainings. For the same hire+template they must agree. We build
+  // a 2-section template (1 completed, 1 not → 50%), assign to a fresh hire, have
+  // the hire complete section 1, then assert myTrainings.progress_percent ==
+  // managerHires → assigned_templates[thatTemplate].progress_pct == 50.
+  test('FR-29: manager and hire progress % agree for the same template', async ({ page }) => {
+    await login(page);
+    const hire = await inviteUser(page, []);
+
+    const tpl = await obApiCall(page, 'POST', 'createTemplate', {
+      name: 'FR29 ProgressAgree ' + Date.now(),
+      roles: [],
+      sections: [
+        { title: 'Sec 1', sort_order: 0, requires_sign_off: false, sign_off_roles: [], is_faq: false,
+          items: [{ type: 'checkbox', label: 'A1', sort_order: 0, sub_items: [] }] },
+        { title: 'Sec 2', sort_order: 1, requires_sign_off: false, sign_off_roles: [], is_faq: false,
+          items: [{ type: 'checkbox', label: 'B1', sort_order: 0, sub_items: [] }] },
+      ],
+    });
+    await obApiCall(page, 'POST', 'assignTemplate', { hire_id: hire.id, template_id: tpl.id });
+
+    // Admin-side truth: the manager progress for the hire on this template BEFORE
+    // any completion should be 0%.
+    let mgrHires = await obApiCall(page, 'GET', 'managerHires');
+    let hireRow = mgrHires.find(h => h.hire_id === hire.id);
+    expect(hireRow).toBeTruthy();
+    let mgrTpl = hireRow.assigned_templates.find(t => t.template_id === tpl.id);
+    expect(mgrTpl).toBeTruthy();
+    expect(mgrTpl.progress_pct).toBe(0);
+
+    // Become the hire and complete section 1 (1 of 2 sections → 50%).
+    await login(page, hire.email, 'test456');
+    const full = await obApiCall(page, 'GET', 'templates/' + tpl.id);
+    const sec1Item = full.sections[0].items[0];
+    await obApiCall(page, 'POST', 'saveProgress', { item_id: sec1Item.id, progress_type: 'item', checked: true });
+
+    // The hire's own myTrainings progress for this template.
+    const myList = await obApiCall(page, 'GET', 'myTrainings');
+    const myRow = myList.find(t => t.template_id === tpl.id);
+    expect(myRow).toBeTruthy();
+    expect(myRow.progress_percent).toBe(50);
+
+    // Back as admin: the manager's heavier query path must report the SAME number.
+    await login(page);
+    mgrHires = await obApiCall(page, 'GET', 'managerHires');
+    hireRow = mgrHires.find(h => h.hire_id === hire.id);
+    expect(hireRow).toBeTruthy();
+    mgrTpl = hireRow.assigned_templates.find(t => t.template_id === tpl.id);
+    expect(mgrTpl).toBeTruthy();
+    // The core FR-29 assertion: the two independent progress computations agree.
+    expect(mgrTpl.progress_pct).toBe(myRow.progress_percent);
+    expect(mgrTpl.progress_pct).toBe(50);
+
+    // Cleanup.
+    await obApiCall(page, 'DELETE', 'deleteTemplate/' + tpl.id);
+    await usersApiCall(page, 'DELETE', hire.id);
+  });
+
+  // ── NFR-3 — team_member gets 403 on every manager onboarding endpoint ──────
+  // The manager guards (isManagerOrAdmin) are wired on each manager endpoint, but
+  // no prior test posted as a team_member to assert the tier refusal. We invite a
+  // plain team_member, log in as them, and sweep the manager endpoints asserting
+  // 403 forbidden on each. Red-first: this would go RED if a guard were removed.
+  test('NFR-3: team_member is refused 403 across the manager onboarding endpoints', async ({ page }) => {
+    await login(page);
+    // Admin creates a real template so path params reference a live row (the guard
+    // fires regardless, but this avoids a 404-vs-403 ambiguity on id-bearing routes).
+    const tpl = await obApiCall(page, 'POST', 'createTemplate', {
+      name: 'NFR3 Guard ' + Date.now(), roles: [],
+      sections: [{ title: 'S', sort_order: 0, requires_sign_off: false, sign_off_roles: [], is_faq: false,
+        items: [{ type: 'checkbox', label: 'A', sort_order: 0, sub_items: [] }] }],
+    });
+    const member = await inviteUser(page, ['team_member']);
+
+    // Become the team_member.
+    await login(page, member.email, 'test456');
+
+    // GET manager surfaces.
+    for (const p of ['templates', 'managerHires']) {
+      const res = await obRaw(page, 'GET', p);
+      expect(res.status, 'GET ' + p + ' must 403 for team_member').toBe(403);
+      expect(res.body && res.body.error).toBe('forbidden');
+    }
+    // POST/PUT/DELETE manager mutations.
+    const posts = [
+      ['POST', 'signOff', { section_id: 'x', hire_id: 'y', rating: 'ready' }],
+      ['POST', 'rejectSection', { section_id: 'x', hire_id: 'y' }],
+      ['POST', 'createTemplate', { name: 'z', roles: [], sections: [] }],
+      ['PUT', 'updateTemplate/' + tpl.id, { name: 'z', roles: [], sections: [] }],
+      ['DELETE', 'deleteTemplate/' + tpl.id, null],
+      ['POST', 'assignTemplate', { hire_id: 'y', template_id: tpl.id }],
+      ['POST', 'unassignTemplate', { hire_id: 'y', template_id: tpl.id }],
+    ];
+    for (const [m, p, b] of posts) {
+      const res = await obRaw(page, m, p, b);
+      expect(res.status, m + ' ' + p + ' must 403 for team_member').toBe(403);
+      expect(res.body && res.body.error).toBe('forbidden');
+    }
+
+    // Cleanup as admin — template must still exist (all mutations were refused).
+    await login(page);
+    await obApiCall(page, 'DELETE', 'deleteTemplate/' + tpl.id);
+    await usersApiCall(page, 'DELETE', member.id);
+  });
+
+  // ── FR-28 — seed idempotent re-seed: recorded UNTESTABLE ──────────────────
+  // The idempotent re-seed (skip-if-name-exists + role-refresh in
+  // SeedOnboardingTemplates) runs once, post-boot, in the server process. It is
+  // not reachable from an E2E client: there is no endpoint to trigger a re-seed
+  // and no way to restart the server mid-test. Per the card we assert the flow
+  // INDIRECTLY — the seed's "Kitchen Basics Training" template is present after
+  // boot — and record the idempotency/role-refresh guarantee itself as UNTESTABLE
+  // (do NOT force it; do NOT graduate a fix from this).
+  test('FR-28: seed template is present after boot (indirect — idempotent re-seed itself is UNTESTABLE via E2E)', async ({ page }) => {
+    await login(page);
+    const templates = await obApiCall(page, 'GET', 'templates');
+    const kitchen = templates.find(t => t.name === 'Kitchen Basics Training');
+    // Indirect proof the seed ran: the named seed template exists.
+    expect(kitchen).toBeTruthy();
+    // The idempotent-re-seed / role-refresh behavior (seed.go:98-124) is NOT
+    // E2E-drivable — no client trigger, no in-test server restart. Recorded
+    // UNTESTABLE per PRD FR-28 / card instruction; this assertion only anchors the
+    // seed's PRESENCE, not its re-seed idempotency.
+  });
+
+  // ── FR-18 — custom-thumbnail UPLOAD: PARKED ───────────────────────────────
+  // FR-18's named behavior is a custom-thumbnail UPLOAD: client uploadCustomThumbnail
+  // presigns against /api/v1/photos/presign, PUTs the file to DO Spaces, then sets
+  // part.thumbnail_url from presignData.public_url. Proving the real flow needs
+  // multipart/file-input + a live Spaces presign+PUT — photo/thumbnail plumbing
+  // beyond a test fixture, which is this card's explicit PARK trigger. The
+  // thumbnail_url DB round-trip (via updateTemplate) is a DIFFERENT flow (FR-20,
+  // already WORKING) and would NOT prove FR-18's upload behavior, so it is not a
+  // substitute. PARKED — see the returned report for the precise reason.
+  test.skip('FR-18: custom-thumbnail upload persists/renders — PARKED (needs photos/presign + S3 PUT plumbing beyond a fixture)', async () => {
+    // Intentionally skipped: PARK trigger (photo/thumbnail plumbing beyond a fixture).
+  });
+});
