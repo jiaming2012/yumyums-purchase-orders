@@ -146,3 +146,62 @@
 - **"No-new-reds vs baseline" is the right gate, not "clean suite."** HQ's ~37–41 documented flaky
   reds (offline-sync, tab-persistence, cross-test DB-pollution) shifted run-to-run; every card
   confirmed its flips in isolation. No card was judged on a globally-green suite.
+
+## Run: overnight-20260715 (Activity 4 — the CONCURRENT prove-UNPROVEN sweep, all 5 apps)
+
+> **What one "card" covers here:** same shape as overnight-20260714 (fresh implementer subagent →
+> ephemeral pg16 Docker stack → red-first assertions → G1–G4 → separate fresh G6 → orchestrator
+> merge), but **CONCURRENT**: 5 tracks, the orchestrator held a **rolling 3 in-flight implementers**
+> (a deliberate throttle below the slate's authorized 5 — Docker 20.10.14, prudent strain mgmt).
+> 16 prove cards (test-only) + 1 graduated fix (the only RED). **Times = subagent wall-clock.**
+> "Impl" = full implementer leg (env up + build + red-first + classify + no-new-reds + teardown).
+
+| Card | Type | Slate est. | Impl (agent) | G6 | Verdict | Notes |
+|---|---|---|---|---|---|---|
+| ops-prove-checklists (A1) | test-only | ~20m | 13m08s | 1m35s | PASS | FR-6/7/8 GREEN |
+| ops-prove-approvals (A2) | test-only | ~25m | 10m00s | 1m54s | PASS | +rewrote vacuous flag test |
+| ops-prove-builder (A3) | test-only | ~30m | 25m51s | 1m37s | PASS | FR-16/17/18 GREEN |
+| ops-prove-cross (A4) | test-only | ~45m | 25m56s | 1m50s | PASS | 5 GREEN + 3 PARK (S3/IndexedDB) |
+| purchasing-prove-order (B1) | test-only | ~30m | 22m28s | 2m44s | PASS | FR-1/6 predicted-RED → GREEN |
+| purchasing-prove-po-approval (B2) | test-only | ~35m | 17m04s | 2m02s | PASS | FR-14/15/16 predicted-RED → GREEN |
+| purchasing-prove-shopping (B3) | test-only | ~25m | 32m26s | 1m39s | PASS | +rewrote vacuous tail (1 flaky, flagged) |
+| purchasing-prove-state-auth-scheduler (B4) | test + new Go | ~50m | 15m22s | 1m43s | PASS | NFR-1/2/FR-23 GREEN + 3 Go units; 4 crons PARK |
+| users-prove-security (C1) | test-only | ~30m | 8m26s | 2m21s | PASS | NFR-1..5 GREEN (fastest card) |
+| users-prove-ui-access (C2) | test-only | ~35m | 9m03s | 1m59s | PASS | 9 flows GREEN |
+| onboarding-prove-assignments (D1) | test-only | ~15m | 23m33s | 1m38s | PASS | FR-26 GREEN |
+| onboarding-prove-progress (D2) | test-only | ~40m | 27m04s | 2m08s | PASS | 5 GREEN + FR-18 PARK + FR-28 UNTESTABLE |
+| inventory-prove-purchases (E1) | test-only | ~20m | 28m54s | 2m32s | PASS | FR-3/5 predicted-RED → GREEN |
+| inventory-prove-stock (E2) | test-only | ~30m | 23m24s | 2m16s | PASS | PRIORITY FR-12/13/14 → all GREEN |
+| inventory-prove-setup (E3) | test-only | ~45m | 19m21s | 1m28s | PASS | 5 GREEN + FR-27 photo PARK |
+| inventory-prove-recipes-cross (E4) | test-only | ~35m | 32m44s | 2m12s | PASS | 5 GREEN + **NFR-1 RED** (the only one) |
+| inventory-nfr1-normalize-fix (FIX) | app fix (Go) | (graduated) | 28m19s | 1m35s | PASS | 2-line handler.go; NFR-1 RED→GREEN |
+| **Total (17 cards, ROLLING-3 CONCURRENT)** | — | serial ~8h30m | — | **~31m G6** | 17 PASS / 0 park-card / 0 REVISE | **~2h45m orchestrator wall-clock** |
+
+### Fourth-slate observations (the first CONCURRENT run — seed for future concurrent slates)
+
+- **Concurrency ≈ 3.5× throughput, at ~1.5–2× per-card latency.** Test-only cards ran **8–33 min**
+  here (median ~23m) vs. **6–13 min** on the prior SERIAL run — the same card is slower under load
+  because 3 concurrent Docker builds + 3 Playwright runs share CPU/IO. But total wall-clock was
+  **~2h45m for 17 cards** vs. the slate's serial estimate of **~8h30m**. **Size concurrent slates on
+  total-wall = (Σ impl)/3 + G6/merge tail, NOT on per-card minutes.** The per-card estimate inflates
+  under concurrency; don't read a 33-min card as "slow."
+- **G6 stayed cheap and flat (~1.5–2.7 min) regardless of concurrency** — it's a fresh-context diff
+  read, unaffected by Docker load. Budget G6 ≈ 2 min/card. One G6 mutation-verified a Go decision-rule
+  test (inverted the rule → RED) — worth the ~2 min.
+- **The forecast was wrong in the RIGHT direction: UNPROVEN ≈ UNTESTED, not BROKEN.** Scoping forecast
+  ~34–40 of ~78 RED; **actual = 1**. Every "likely RED" prediction (FR-1/6/14/15/16, FR-3/5,
+  FR-12/13/14, NFR-8, FR-18, FR-10/14) proved GREEN — the handlers existed and were correct, the
+  flows were merely untested. **Discount "likely RED" scoping guesses heavily for mature apps;** the
+  real RED surfaced only where create/edit paths genuinely diverged (NFR-1 normalization).
+- **Rolling-3 throttle held zero Docker incidents** across ~18 env cycles (17 cards, one card ran a
+  2nd baseline stack) on Docker 20.10.14. Pre-warming the build cache once up-front made per-worktree
+  builds seconds not minutes — **do both every concurrent run.** 4–5 concurrent is likely safe next
+  time given this margin.
+- **⚠ Shared-git-stash is a real concurrency hazard.** Worktrees share `refs/stash`; one early
+  `stash pop` pulled a concurrent card's WIP into the wrong tree (recovered, no loss). Fixed mid-run
+  by forbidding `git stash` in the implementer runbook (baseline-first / `cp` instead) — zero further
+  incidents. **This rule must live in the standing runbook for every concurrent run.**
+- **Only 1 card wrote Go (B4's new `*_test.go`) + the 1 fix (handler.go).** Adding `*_test.go` is a
+  clean way to prove pure-logic decision rules (parseCutoffTime, isAdmin, cutoff-rule) without an
+  E2E stack — but crons that read `time.Now()` inline are NOT unit-testable without a production
+  clock-seam (→ PARK + future WO, not a tonight fix).
