@@ -1088,3 +1088,274 @@ test.describe('Order tab prove-sweep (FR-1/2/4/6)', () => {
   });
 
 });
+
+// ── prove-sweep: PO-tab flows FR-13/14/15/16 (card purchasing-prove-po-approval) ──
+//
+// Red-first assertions naming the observable DB/UI behavior for the four PO-tab
+// (Tab 3) flows the PRD marks UNPROVEN: locked-PO read-only render + badge (FR-13),
+// admin-vs-non-admin locked-PO edit (FR-14), approve-button visibility gating
+// (FR-15), and approve snapshot + both 409 refusals (FR-16). Slate expects
+// FR-14/15/16 likely RED. Fixtures are isolated to this describe block and clean up
+// after themselves (FR-16 completes the list it approves so no active list leaks to
+// siblings). Non-admin session authored INLINE per the runbook (no shared helper).
+
+test.describe('PO tab prove-sweep (FR-13/14/15/16)', () => {
+
+  // status-aware fetch (poApiCall throws without exposing the code; the 403/409 flows
+  // need the numeric status + the error envelope). Mirrors the B1 poFetchStatus.
+  async function poFetchStatus(page, method, path, body) {
+    return page.evaluate(async ([m, p, b]) => {
+      const opts = { method: m, headers: { 'Content-Type': 'application/json' } };
+      if (b) opts.body = JSON.stringify(b);
+      const res = await fetch('/api/v1/purchasing/' + p, opts);
+      let json = null;
+      try { json = await res.json(); } catch (e) { json = null; }
+      return { status: res.status, ok: res.ok, body: json };
+    }, [method, path, body]);
+  }
+
+  // ensureLockedPO: return the current locked PO if one is pending approval;
+  // otherwise seed a fresh draft (2 catalog items) and simulate-cutoff to lock it.
+  // Returns the locked PO object, or null if the stack has no catalog items to seed.
+  async function ensureLockedPO(page) {
+    let locked = await poApiCall(page, 'GET', 'orders?status=locked').catch(() => null);
+    if (locked && locked.id) return locked;
+
+    const items = await page.evaluate(async () => (await fetch('/api/v1/inventory/items')).json());
+    if (!items || items.length < 2) return null;
+
+    const draft = await poApiCall(page, 'POST', 'orders');
+    await poApiCall(page, 'PUT', 'orders/' + draft.id + '/items', {
+      items: items.slice(0, 2).map(it => ({ purchase_item_id: it.id, quantity: 2, unit: '' })),
+    });
+    await poApiCall(page, 'POST', 'simulate-cutoff');
+    locked = await poApiCall(page, 'GET', 'orders?status=locked').catch(() => null);
+    return (locked && locked.id) ? locked : null;
+  }
+
+  // Complete every vendor section of an active list so shopping/active clears — used
+  // to keep the "one active list at a time" invariant from leaking between tests.
+  async function drainActiveList(page) {
+    const active = await poApiCall(page, 'GET', 'shopping/active').catch(() => null);
+    if (!active || !active.id) return;
+    for (const sec of active.vendor_sections || []) {
+      if (sec.status === 'completed') continue;
+      await poApiCall(page, 'POST', 'shopping/' + active.id + '/vendors/' + sec.id + '/complete').catch(() => {});
+    }
+  }
+
+  test.beforeEach(async ({ page }) => {
+    await login(page);
+    await page.goto('/purchasing.html');
+    await page.waitForLoadState('networkidle');
+  });
+
+  // FR-13 — A locked PO renders read-only on the PO tab with a status badge. Observable:
+  // #s3 shows a .status-badge.locked reading "Locked", the seeded item cards render, and
+  // every qty stepper button is `disabled` (read-only — not in edit mode). Asserting the
+  // read-only contract, not just "some content".
+  test('FR-13: locked PO renders read-only with a Locked status badge', async ({ page }) => {
+    const locked = await ensureLockedPO(page);
+    if (!locked) { test.skip(true, 'No catalog items to seed a locked PO'); return; }
+    expect(locked.status).toBe('locked');
+
+    await page.reload();
+    await page.waitForLoadState('networkidle');
+    await page.click('#t3');
+
+    // The status badge must be present and read "Locked".
+    const badge = page.locator('#s3 .status-badge.locked');
+    await expect(badge).toBeVisible();
+    await expect(badge).toHaveText('Locked');
+
+    // The seeded line items must render as item cards.
+    const cards = page.locator('#s3 .item-card');
+    await expect(cards.first()).toBeVisible();
+    const cardCount = await cards.count();
+    expect(cardCount).toBeGreaterThan(0);
+
+    // Read-only contract: NOT in edit mode, so every qty stepper button is disabled.
+    const stepBtns = page.locator('#s3 .item-card .stp button');
+    const total = await stepBtns.count();
+    expect(total).toBeGreaterThan(0);
+    const enabled = await stepBtns.evaluateAll(btns => btns.filter(b => !b.disabled).length);
+    expect(enabled).toBe(0);   // no editable stepper when the locked PO is read-only
+  });
+
+  // FR-14 — An admin can edit a locked PO (PUT /orders/{id}/items with allowLocked, i.e.
+  // WITHOUT require_draft) → 200; a non-admin (team_member) attempting the same edit is
+  // refused 403 po_locked_admin_only, and the PO line-item set is unchanged. The
+  // team_member session is authored INLINE per the runbook (invite -> accept-invite ->
+  // login), no shared helper.
+  test('FR-14: admin edits a locked PO (200) but a non-admin is refused 403', async ({ page }) => {
+    const locked = await ensureLockedPO(page);
+    if (!locked) { test.skip(true, 'No catalog items to seed a locked PO'); return; }
+    expect(locked.status).toBe('locked');
+
+    const items = await page.evaluate(async () => (await fetch('/api/v1/inventory/items')).json());
+    // Pick an item NOT already on the locked PO so the admin edit is an observable add.
+    const onPO = new Set((locked.line_items || []).map(x => x.purchase_item_id));
+    const addItem = items.find(it => !onPO.has(it.id));
+    if (!addItem) { test.skip(true, 'No off-PO catalog item to drive an admin edit'); return; }
+
+    // --- Admin path: PUT with allowLocked (no require_draft) adds the item to the locked PO. ---
+    const adminEdit = await poFetchStatus(page, 'PUT', 'orders/' + locked.id + '/items', {
+      items: [
+        ...(locked.line_items || []).map(x => ({ purchase_item_id: x.purchase_item_id, quantity: x.quantity, unit: x.unit || '' })),
+        { purchase_item_id: addItem.id, quantity: 4, unit: '' },
+      ],
+    });
+    expect(adminEdit.status).toBe(200);   // admin may edit a locked PO
+    const afterAdmin = await poApiCall(page, 'GET', 'orders/' + locked.id);
+    const added = (afterAdmin.line_items || []).find(x => x.purchase_item_id === addItem.id);
+    expect(added).toBeTruthy();
+    expect(added.quantity).toBe(4);
+
+    // --- Non-admin path: author a team_member inline, PUT the same locked PO -> 403. ---
+    const email = 'nc-fr14-teammember-' + Date.now() + '@yumyums.kitchen';
+    const invite = await page.evaluate(async (em) => {
+      const res = await fetch('/api/v1/users/invite', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ first_name: 'Locked', last_name: 'NonAdmin', email: em, roles: ['team_member'] }),
+      });
+      return res.json();
+    }, email);
+    const token = (invite.invite_path || '').split('token=')[1];
+    expect(token).toBeTruthy();
+    await page.evaluate(async (t) => {
+      await fetch('/api/v1/auth/accept-invite', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: t, password: 'test456' }),
+      });
+    }, token);
+
+    await login(page, email, 'test456');
+    await page.goto('/purchasing.html');
+    await page.waitForLoadState('networkidle');
+
+    // Non-admin edit of the locked PO — the allowLocked path is admin-only, so this is 403.
+    const nonAdminEdit = await poFetchStatus(page, 'PUT', 'orders/' + locked.id + '/items', {
+      items: [{ purchase_item_id: addItem.id, quantity: 9, unit: '' }],
+    });
+    expect(nonAdminEdit.status).toBe(403);                        // team_member cannot edit a locked PO
+    expect(nonAdminEdit.body && nonAdminEdit.body.error).toBe('po_locked_admin_only');
+
+    // And no state change: the admin-added item still reads qty 4.
+    await login(page);
+    await page.goto('/purchasing.html');
+    await page.waitForLoadState('networkidle');
+    const afterNonAdmin = await poApiCall(page, 'GET', 'orders/' + locked.id);
+    const still = (afterNonAdmin.line_items || []).find(x => x.purchase_item_id === addItem.id);
+    expect(still).toBeTruthy();
+    expect(still.quantity).toBe(4);
+  });
+
+  // FR-15 — The Approve button is shown ONLY to an admin AND only while the PO is locked.
+  // Observable: with a locked PO + admin session, [data-action="approve-po"] is visible;
+  // a non-admin (team_member) viewing the same locked PO does NOT see it.
+  test('FR-15: approve button visible for admin+locked, hidden for a non-admin', async ({ page }) => {
+    const locked = await ensureLockedPO(page);
+    if (!locked) { test.skip(true, 'No catalog items to seed a locked PO'); return; }
+    expect(locked.status).toBe('locked');
+
+    // --- Admin sees the Approve button on the locked PO tab. ---
+    await page.reload();
+    await page.waitForLoadState('networkidle');
+    await page.click('#t3');
+    const approveBtn = page.locator('#s3 [data-action="approve-po"]');
+    await expect(approveBtn).toBeVisible();
+
+    // --- Non-admin (team_member, inline) must NOT see the Approve button. ---
+    const email = 'nc-fr15-teammember-' + Date.now() + '@yumyums.kitchen';
+    const invite = await page.evaluate(async (em) => {
+      const res = await fetch('/api/v1/users/invite', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ first_name: 'Approve', last_name: 'NonAdmin', email: em, roles: ['team_member'] }),
+      });
+      return res.json();
+    }, email);
+    const token = (invite.invite_path || '').split('token=')[1];
+    expect(token).toBeTruthy();
+    await page.evaluate(async (t) => {
+      await fetch('/api/v1/auth/accept-invite', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: t, password: 'test456' }),
+      });
+    }, token);
+
+    await login(page, email, 'test456');
+    await page.goto('/purchasing.html');
+    await page.waitForLoadState('networkidle');
+    await page.click('#t3');
+    // Give the PO tab a beat to render whatever it renders for the non-admin.
+    await page.waitForFunction(() => {
+      const el = document.getElementById('s3');
+      return el && el.textContent.trim().length > 0;
+    }, { timeout: 8000 }).catch(() => {});
+    await expect(page.locator('#s3 [data-action="approve-po"]')).toHaveCount(0);
+  });
+
+  // FR-16 — Approving a locked PO transitions it locked -> shopping_active and creates an
+  // immutable snapshot: exactly one active shopping list with one vendor section per
+  // distinct PO vendor and items snapshotted from the PO line items. A second approve is
+  // refused 409 active_shopping_list_exists; approving a DIFFERENT non-locked PO (a fresh
+  // draft) is refused 409 po_not_locked. Cleans up by draining the list it creates.
+  test('FR-16: approve snapshots the PO and both 409 refusals fire', async ({ page }) => {
+    // Ensure no active list is leaking in from a sibling before we start.
+    await drainActiveList(page);
+
+    const locked = await ensureLockedPO(page);
+    if (!locked) { test.skip(true, 'No catalog items to seed a locked PO'); return; }
+    expect(locked.status).toBe('locked');
+
+    // Distinct vendors across the locked PO's line items (drives the vendor-section count).
+    const items = await page.evaluate(async () => (await fetch('/api/v1/inventory/items')).json());
+    const byId = new Map((items || []).map(it => [it.id, it]));
+    const distinctVendors = new Set((locked.line_items || []).map(li => {
+      const it = byId.get(li.purchase_item_id);
+      return it && it.vendor_id ? it.vendor_id : 'unassigned';
+    }));
+    const expectedSections = distinctVendors.size;
+    const expectedItems = (locked.line_items || []).length;
+    expect(expectedItems).toBeGreaterThan(0);
+
+    // --- Approve (happy path) → 200. ---
+    const approve = await poFetchStatus(page, 'POST', 'orders/' + locked.id + '/approve');
+    expect(approve.status).toBe(200);
+
+    // PO transitioned locked -> shopping_active.
+    const poAfter = await poApiCall(page, 'GET', 'orders/' + locked.id);
+    expect(poAfter.status).toBe('shopping_active');
+
+    // Exactly one active shopping list, snapshotted from the PO.
+    const active = await poApiCall(page, 'GET', 'shopping/active');
+    expect(active).toBeTruthy();
+    expect(active.po_id).toBe(locked.id);
+    const sections = active.vendor_sections || [];
+    expect(sections.length).toBe(expectedSections);          // one section per distinct vendor
+    const snapItems = sections.reduce((n, s) => n + (s.items || []).length, 0);
+    expect(snapItems).toBe(expectedItems);                   // every PO line item snapshotted
+
+    // Item fields are frozen from the PO line items (qty snapshot check on the first).
+    const firstLI = locked.line_items[0];
+    let snap = null;
+    for (const s of sections) { for (const it of (s.items || [])) { if (it.purchase_item_id === firstLI.purchase_item_id) snap = it; } }
+    expect(snap).toBeTruthy();
+    expect(snap.quantity).toBe(firstLI.quantity);            // qty frozen at approve time
+
+    // --- 409 #1: concurrent/second approve while a list is active → active_shopping_list_exists. ---
+    const secondApprove = await poFetchStatus(page, 'POST', 'orders/' + locked.id + '/approve');
+    expect(secondApprove.status).toBe(409);
+    expect(secondApprove.body && secondApprove.body.error).toBe('active_shopping_list_exists');
+
+    // --- 409 #2: approving a non-locked PO (a fresh draft) → po_not_locked. ---
+    // Drain the active list first so the active-list guard doesn't mask the not-locked guard.
+    await drainActiveList(page);
+    const draft = await poApiCall(page, 'POST', 'orders');   // fresh draft, status='draft'
+    expect(draft.status).toBe('draft');
+    const draftApprove = await poFetchStatus(page, 'POST', 'orders/' + draft.id + '/approve');
+    expect(draftApprove.status).toBe(409);
+    expect(draftApprove.body && draftApprove.body.error).toBe('po_not_locked');
+  });
+
+});
