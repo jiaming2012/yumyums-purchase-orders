@@ -482,12 +482,24 @@ test.describe('Approvals', () => {
     await expect(page.locator('text=Please double-check this item next time')).toBeVisible({ timeout: 5000 });
   });
 
-  test('reject item with comment', async ({ page }) => {
+  // FR-10 (flag→reject status) + FR-12 (reject+comment persists) + FR-13
+  // (rejection feedback renders back to the submitter). REWRITE of the former
+  // vacuous test which wrapped its whole body in `if (flagBtn.isVisible())`
+  // with NO expect — it never asserted a rejection occurred. This drives the
+  // real flow end-to-end and asserts observable state at every hop:
+  //   FR-10: flag an item, send rejection → submission.status flips to 'rejected'
+  //   FR-12: the flagged item's comment persists on submission.rejections[]
+  //   FR-13: reopening the checklist as the submitter renders the manager's
+  //          comment in the correction banner ("⚠ Rejected: <comment>").
+  // Single-user: admin is both submitter (createAndSubmitChecklist) and the
+  // approver (createTestTemplate assigns admin as approver), so the same page
+  // session sees the rejection feedback back on My Checklists.
+  test('FR-10/12/13 flag+reject flips status, persists comment, and renders feedback to submitter', async ({ page }) => {
     await login(page);
     await page.goto(BASE + '/workflows.html');
     await cleanupTemplates(page);
     await cleanupPendingApprovals(page);
-    await createAndSubmitChecklist(page);
+    const { id: templateId } = await createAndSubmitChecklist(page);
 
     await page.reload();
     await page.click('#t2');
@@ -496,16 +508,43 @@ test.describe('Approvals', () => {
     // Scope to #s2 to avoid strict mode violations with hidden tabs
     await expect(page.locator('#s2').locator('text=Approval Test')).toBeVisible({ timeout: 5000 });
 
-    // Flag a field item using the "Flag" button
-    const flagBtn = page.locator('[data-action="toggle-reject-item"]').first();
-    if (await flagBtn.isVisible()) {
-      await flagBtn.click();
-      // Enter comment in the reject-item-input textarea
-      const commentArea = page.locator('.reject-item-input').first();
-      await commentArea.fill('Needs correction');
-      // Send rejection via reject-submit button
-      await page.click('[data-action="reject-submit"]');
-    }
+    // Flag a field item using the "Flag" button — must actually be present
+    const flagBtn = page.locator('#s2 [data-action="toggle-reject-item"]').first();
+    await expect(flagBtn).toBeVisible({ timeout: 5000 });
+    await flagBtn.click();
+
+    // Enter comment in the reject-item-input textarea
+    const commentArea = page.locator('#s2 .reject-item-input').first();
+    await expect(commentArea).toBeVisible();
+    await commentArea.fill('Needs correction');
+
+    // Send rejection via reject-submit button
+    await page.click('#s2 [data-action="reject-submit"]');
+
+    // FR-10 + FR-12 — assert the submission flipped to rejected in the DB and
+    // the comment persisted on the rejection record (read back via the API).
+    await expect(page.locator('#toast')).toContainText('Rejected', { timeout: 5000 });
+    await page.waitForTimeout(500);
+    const submissions = await page.evaluate(async () => {
+      const r = await fetch('/api/v1/workflow/myChecklists?dow=' + new Date().getDay());
+      const data = await r.json();
+      return data.submissions || [];
+    });
+    const rejectedSub = submissions.find(s => s.status === 'rejected');
+    expect(rejectedSub, 'a submission with status=rejected must exist after reject-submit').toBeTruthy();
+    expect(rejectedSub.rejections.length).toBeGreaterThanOrEqual(1);
+    expect(rejectedSub.rejections.some(r => r.comment === 'Needs correction')).toBe(true);
+
+    // FR-13 — the submitter (same admin) reopens the checklist and sees the
+    // manager's rejection comment rendered in the correction banner.
+    await page.click('#t1');
+    await page.reload();
+    await page.waitForSelector('#checklist-list .row', { timeout: 10000 });
+    await page.locator('#checklist-list .row', { hasText: 'Approval Test' }).first().click();
+    await page.waitForSelector('#fill-body');
+    const banner = page.locator('.correction-banner', { hasText: 'Needs correction' });
+    await expect(banner).toBeVisible({ timeout: 5000 });
+    await expect(banner).toContainText('Rejected');
   });
 
   test('reject works after template update (field IDs change)', async ({ page }) => {
