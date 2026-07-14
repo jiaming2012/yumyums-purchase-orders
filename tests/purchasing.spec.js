@@ -289,10 +289,19 @@ test.describe('Shopping tab', () => {
     await page.click('#t2');
     await waitForShoppingContent(page);
 
-    // The section should show as completed (section-completed class or completion note)
-    const content = await page.locator('#shopping-content').textContent();
-    // Completed sections either show dimmed or show "Completed by"
-    expect(content).toBeTruthy();
+    // FR-12 (rewritten from a vacuous toBeTruthy tail): the completed section must
+    // persist as status='completed' in the DB. Assert it via the API (the render is
+    // reload-dependent DOM; the DB state is the authoritative contract).
+    const afterActive = await poApiCall(page, 'GET', 'shopping/active').catch(() => null);
+    const afterHistory = await poApiCall(page, 'GET', 'shopping/history').catch(() => []);
+    // The section lives in whichever list still holds it (active if others pending,
+    // history if this completion cascaded the whole list to completed).
+    const findSec = (list) => (list && list.vendor_sections || []).find(s => s.id === pendingSec.id);
+    const persistedSec = findSec(afterActive) ||
+      ((afterHistory || []).map(findSec).find(Boolean));
+    expect(persistedSec, 'the completed vendor section must be retrievable after reload').toBeTruthy();
+    expect(persistedSec.status).toBe('completed');
+    expect(persistedSec.completed_by, 'completed_by must be stamped').toBeTruthy();
   });
 
   test('store location edit persists after reload', async ({ page }) => {
@@ -466,6 +475,126 @@ test.describe('Shopping tab', () => {
     expect(itemState.hasNoPhotoBadge).toBe(false);
   });
 
+  // ─── FR-12: last-section-complete cascades list → completed AND PO → completed ──
+  // AC-4: completing the last pending vendor section flips the shopping list to
+  // 'completed' and its PO to 'completed' in the DB. Red-first, API-observed — this
+  // replaces the vacuous cascade coverage the PRD flagged on FR-12.
+  test('FR-12: completing the last vendor section cascades list and PO to completed', async ({ page }) => {
+    const list = await seedShoppingList(page);
+    test.skip(!list || !(list.vendor_sections || []).length, 'No catalog items to seed a shopping list');
+
+    const poId = list.po_id;
+    expect(poId, 'seeded list must carry its po_id').toBeTruthy();
+
+    // Sanity: before completion the list is active and the PO is shopping_active.
+    const poBefore = await poApiCall(page, 'GET', 'orders/' + poId);
+    expect(poBefore.status).toBe('shopping_active');
+
+    // Complete every pending vendor section; the LAST one triggers the cascade.
+    for (const sec of list.vendor_sections) {
+      if (sec.status === 'completed') continue;
+      await poApiCall(page, 'POST', 'shopping/' + list.id + '/vendors/' + sec.id + '/complete');
+    }
+
+    // Observable cascade 1: the shopping list is now 'completed' and shows in history.
+    const active = await poApiCall(page, 'GET', 'shopping/active').catch(() => null);
+    expect(active, 'no shopping list should be active after the last section completes').toBeFalsy();
+    const history = await poApiCall(page, 'GET', 'shopping/history').catch(() => []);
+    const inHistory = (history || []).find(h => h.id === list.id);
+    expect(inHistory, 'the completed list must land in history').toBeTruthy();
+    expect(inHistory.status).toBe('completed');
+
+    // Observable cascade 2: the associated PO transitioned draft/…→ completed.
+    const poAfter = await poApiCall(page, 'GET', 'orders/' + poId);
+    expect(poAfter.status).toBe('completed');
+  });
+
+  // ─── FR-24: completing a section records a repurchase_log row ──────────────────
+  // repurchase.go RecordRepurchase inserts one repurchase_log row per CHECKED item
+  // of a completed vendor section (best-effort, post-commit). The only read surface
+  // is GET /api/v1/inventory/items, which attaches a `repurchase_badge` to any item
+  // with a repurchase_log entry since the last reset (none configured here → all
+  // repurchased items badge). Assert the badge appears for the checked item after
+  // its section completes. Red-first, API-observed.
+  test('FR-24: completing a vendor section with checked items records a repurchase_log row', async ({ page }) => {
+    // Observable join: repurchase.go RecordRepurchase inserts a repurchase_log row
+    // per CHECKED item of a completed section; the only read surface is GET
+    // /inventory/stock, which aggregates by catalog description and attaches a
+    // repurchase_badge (no reset config → badges accumulate). A stock row only
+    // exists for items with real purchase history, so we must operate on a section
+    // item whose purchase_item_id maps to a catalog description present in /stock.
+    const catalog = await page.evaluate(async () => {
+      const r = await fetch('/api/v1/inventory/items'); return r.json(); // {id, description, store_location}
+    });
+    test.skip(!catalog || !catalog.length, 'No catalog items to seed from');
+    const descById = new Map((catalog || []).map(c => [c.id, c.description]));
+
+    // seedShoppingList builds its list from the first 2 located catalog items. Give
+    // those items real purchase history via POST /inventory/purchases so they appear
+    // in /stock and their repurchase_badge is joinable (pure API seed, no DB conn).
+    const vendors = await page.evaluate(async () => {
+      const r = await fetch('/api/v1/inventory/vendors'); return r.json();
+    });
+    const vendorId = vendors && vendors[0] && vendors[0].id;
+    test.skip(!vendorId, 'No vendor to attribute a purchase event to');
+    for (const c of catalog.slice(0, 2)) {
+      await page.evaluate(async ([vid, pid, desc]) => {
+        await fetch('/api/v1/inventory/purchases', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            vendor_id: vid, bank_tx_id: 'fr24-seed-' + pid, event_date: '2026-01-15',
+            tax: 0, total: 5,
+            line_items: [{ purchase_item_id: pid, description: desc, quantity: 1, price: 5, is_case: false }],
+          }),
+        });
+      }, [vendorId, c.id, c.description]);
+    }
+
+    const stockSeed = await page.evaluate(async () => {
+      const r = await fetch('/api/v1/inventory/stock'); return r.json();
+    });
+    const stockDescs = new Set((stockSeed || []).map(s => s.description));
+
+    // Reuse the same seed path the passing FR-12 tests use — robust against the
+    // suite's known leftover-state pollution.
+    const list = await seedShoppingList(page).catch(() => null);
+    test.skip(!list || !(list.vendor_sections || []).length, 'No catalog items to seed a shopping list');
+
+    // Find a PENDING section holding an item whose catalog description is in /stock.
+    let sec = null, item = null, desc = null;
+    for (const s of list.vendor_sections) {
+      if (s.status === 'completed') continue;
+      for (const it of (s.items || [])) {
+        const d = descById.get(it.purchase_item_id);
+        if (d && stockDescs.has(d)) { sec = s; item = it; desc = d; break; }
+      }
+      if (item) break;
+    }
+    test.skip(!item, 'Seeded list has no pending section item that also appears in /stock — cannot join the badge');
+
+    // Baseline badge qty (badges accumulate across runs → assert on the DELTA).
+    const stockBefore = await page.evaluate(async () => {
+      const r = await fetch('/api/v1/inventory/stock'); return r.json();
+    });
+    const before = (stockBefore || []).find(s => s.description === desc);
+    const qtyBefore = (before && before.repurchase_badge && before.repurchase_badge.qty) || 0;
+
+    // Check the item, then complete its vendor section → RecordRepurchase inserts a row.
+    await poApiCall(page, 'POST', 'shopping/' + list.id + '/check', { item_id: item.id, checked: true });
+    await poApiCall(page, 'POST', 'shopping/' + list.id + '/vendors/' + sec.id + '/complete');
+
+    // Observable: the item's aggregated stock row now carries a repurchase_badge
+    // sourced from the repurchase_log row RecordRepurchase wrote, and its qty grew by
+    // at least the checked quantity — proving a NEW repurchase_log row was recorded.
+    const stockAfter = await page.evaluate(async () => {
+      const r = await fetch('/api/v1/inventory/stock'); return r.json();
+    });
+    const after = (stockAfter || []).find(s => s.description === desc);
+    expect(after, 'the repurchased item must have an aggregated stock row').toBeTruthy();
+    expect(after.repurchase_badge, 'a repurchase_log row must surface as a repurchase_badge after complete').toBeTruthy();
+    expect(after.repurchase_badge.qty).toBeGreaterThanOrEqual(qtyBefore + item.quantity);
+  });
+
 });
 
 test.describe('History tab', () => {
@@ -554,6 +683,40 @@ test.describe('History tab', () => {
     // The card header meta must report the vendor/section count.
     const metaText = await page.locator('.history-mt').first().textContent();
     expect(metaText).toMatch(/vendor/i);
+  });
+
+  // ─── FR-17: GET /shopping/history returns the completed-list shape ─────────────
+  // The endpoint (service.go GetShoppingListHistory) is untested by the PRD. Assert
+  // the JSON shape it names: an array of completed shopping lists, each with id,
+  // week_start, status='completed', and vendor_sections[] carrying vendor_name +
+  // status. Red-first, API-only (independent of the FR-18 History UI stub).
+  test('FR-17: shopping/history returns completed lists with vendor-section shape', async ({ page }) => {
+    const completed = await completeShoppingList(page);
+    test.skip(!completed, 'No catalog items to seed a completed shopping list');
+
+    const history = await poApiCall(page, 'GET', 'shopping/history');
+    expect(Array.isArray(history), 'history must be a JSON array').toBe(true);
+    expect(history.length).toBeGreaterThan(0);
+
+    const row = history.find(h => h.id === completed.id);
+    expect(row, 'the just-completed list must appear in history').toBeTruthy();
+
+    // Only completed lists are returned.
+    for (const h of history) expect(h.status).toBe('completed');
+
+    // Shape of the returned row.
+    expect(typeof row.id).toBe('string');
+    expect(row.week_start).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(row.po_id, 'row must reference its PO').toBeTruthy();
+    expect(Array.isArray(row.vendor_sections)).toBe(true);
+    expect(row.vendor_sections.length).toBeGreaterThan(0);
+
+    // Each vendor section carries a vendor_name and a status.
+    for (const sec of row.vendor_sections) {
+      expect(typeof sec.vendor_name).toBe('string');
+      expect(sec.vendor_name.length).toBeGreaterThan(0);
+      expect(['pending', 'completed']).toContain(sec.status);
+    }
   });
 
 });
