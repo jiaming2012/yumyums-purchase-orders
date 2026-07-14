@@ -2871,3 +2871,247 @@ test.describe('Builder conditional logic (prove sweep)', () => {
     await expect(dependent).toHaveCount(0);
   });
 });
+
+// ─── Cross-cutting guarantees (prove sweep — Track A card 4) ─────────────────
+// NFR-2 (photo presign), NFR-6 (archived 409), NFR-7 (401 redirect), FR-19
+// (template-snapshot freeze), FR-20 (approval gate). NFR-5 (offline sync queue /
+// conflict / cleanup) is PARKed — see the note at the bottom of this block: it
+// needs IndexedDB + service-worker plumbing that Playwright blocks by config, and
+// the offline-sync flows are in HQ's known flaky-red pool. No honest fixture can
+// drive it here without S3/IndexedDB plumbing beyond a test fixture (PARK trigger).
+test.describe('Cross-cutting guarantees (prove sweep)', () => {
+  // apiPhotos performs a raw fetch against a non-workflow API path (e.g. photos,
+  // me) and returns { status, body } so we can assert the degraded/edge shapes
+  // the workflow apiCall() helper hides behind its /workflow/ prefix.
+  async function apiRaw(page, method, path, body) {
+    return page.evaluate(async ([m, p, b]) => {
+      const opts = { method: m, credentials: 'include', headers: {} };
+      if (b) { opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(b); }
+      const res = await fetch(p, opts);
+      const text = await res.text();
+      let json = null;
+      try { json = JSON.parse(text); } catch (e) { /* non-JSON */ }
+      return { status: res.status, text, json };
+    }, [method, path, body]);
+  }
+
+  // NFR-2 — Photo pipeline: the photo field presigns against
+  // POST /api/v1/photos/presign, then PUTs the file to S3/DO-Spaces and the
+  // public URL round-trips. The PUT + round-trip legs require a LIVE DO-Spaces
+  // client (bucket + creds); the ephemeral night-crew stack sets no SPACES_* env,
+  // so the presigner is nil. This test proves the presign REQUEST/response *shape*
+  // that is testable without S3: the endpoint is reachable behind auth and returns
+  // the documented degraded contract (503 {"error":"photo storage not configured"})
+  // when storage is unconfigured — instead of a presigned URL. The upload PUT +
+  // public-URL round-trip is PARKed (needs live S3 — beyond a test fixture).
+  test('NFR-2 photo presign returns the documented shape (503 degraded when S3 unset; PUT/round-trip PARKed)', async ({ page }) => {
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+
+    const resp = await apiRaw(page, 'POST', '/api/v1/photos/presign', {
+      path_prefix: 'checklists', id: 'nfr2-tpl', filename: 'nfr2.jpg',
+    });
+
+    // Authenticated request reaches the handler (not a 401/404 route miss).
+    expect(resp.status).not.toBe(401);
+    expect(resp.status).not.toBe(404);
+
+    if (resp.status === 200) {
+      // Storage IS configured (unexpected in the ephemeral stack): assert the
+      // full presign response shape — a PUT url + a permanent public_url.
+      expect(resp.json).toBeTruthy();
+      expect(typeof resp.json.url).toBe('string');
+      expect(resp.json.url.length).toBeGreaterThan(0);
+      expect(typeof resp.json.public_url).toBe('string');
+      expect(resp.json.public_url.length).toBeGreaterThan(0);
+    } else {
+      // Ephemeral stack: no SPACES_* env → presigner nil → documented 503 shape.
+      expect(resp.status).toBe(503);
+      expect(resp.json).toMatchObject({ error: 'photo storage not configured' });
+    }
+  });
+
+  // NFR-6 — Archived-while-offline: submitting a checklist for a template that
+  // was archived (soft-deleted) after the user opened it returns 409
+  // template_archived instead of failing silently. getTemplateByID filters
+  // archived_at IS NULL, so submit finds no template → ErrTemplateArchived → 409.
+  // Observable behavior asserted: the POST /submitChecklist envelope is
+  // status 409 with error 'template_archived', and NO submission is created.
+  test('NFR-6 submitting an archived template returns 409 template_archived and creates no submission', async ({ page }) => {
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await cleanupTemplates(page);
+    await cleanupPendingApprovals(page);
+
+    const todayDOW = await getTodayDOW(page);
+    const created = await apiCall(page, 'POST', 'createTemplate', {
+      name: 'NFR6 Archive Race',
+      sections: [{ title: 'Tasks', order: 0, condition: null, fields: [
+        { type: 'checkbox', label: 'Item A', required: false, order: 0, config: null, fail_trigger: null, condition: null },
+      ]}],
+      schedules: [{ active_days: [todayDOW] }],
+      requires_approval: true,
+      assignments: [
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' },
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'approver' },
+      ],
+    });
+    const tplId = created.id;
+
+    // Archive the template out from under the (would-be offline) user.
+    await apiCall(page, 'DELETE', 'archiveTemplate/' + tplId);
+
+    // Now submit against the archived template via a raw fetch so we can read
+    // the exact status + envelope the client sees.
+    const resp = await apiRaw(page, 'POST', '/api/v1/workflow/submitChecklist', {
+      template_id: tplId,
+      idempotency_key: generateUUID(),
+      responses: [],
+    });
+
+    expect(resp.status).toBe(409);
+    expect(resp.json).toMatchObject({ error: 'template_archived' });
+
+    // No submission surfaced anywhere (approvals empty for this template).
+    const pending = await apiCall(page, 'GET', 'pendingApprovals');
+    const forThis = Array.isArray(pending) ? pending.filter(s => s.template_id === tplId) : [];
+    expect(forThis.length).toBe(0);
+  });
+
+  // NFR-7 — Auth expiry mid-checklist: a 401 on an API call redirects the crew
+  // member to /login.html (workflows.html init() checks /api/v1/me → 401 →
+  // window.location='/login.html'; sync.js api() does the same for /workflow/*).
+  // Observable behavior asserted (redirect leg): with no session cookie, loading
+  // workflows.html lands on login.html. The "local drafts persist across the
+  // redirect" leg needs IndexedDB draft plumbing (hq_offline_v1 store) beyond a
+  // test fixture and Playwright blocks the service worker → PARKed (noted below).
+  test('NFR-7 an unauthenticated workflows load redirects to /login.html', async ({ page, context }) => {
+    // Establish then clear the session to simulate a 401 mid-session.
+    await login(page);
+    await context.clearCookies();
+
+    await page.goto(BASE + '/workflows.html');
+
+    // init() calls /api/v1/me → 401 → window.location='/login.html'.
+    await page.waitForURL(url => url.pathname.includes('login'), { timeout: 8000 });
+    expect(page.url()).toContain('login');
+  });
+
+  // FR-19 — Template snapshot freeze: on submit, the checklist freezes a JSONB
+  // snapshot of the template (checklist_submissions.template_snapshot) so a later
+  // admin rename/edit does NOT alter an already-submitted checklist. Observable
+  // behavior asserted: after submit, renaming the template changes the LIVE name
+  // (pendingApprovals.template_name from the join) but the frozen
+  // template_snapshot.name still holds the ORIGINAL name.
+  test('FR-19 a submitted checklist freezes a template snapshot that later edits do not change', async ({ page }) => {
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await cleanupTemplates(page);
+    await cleanupPendingApprovals(page);
+
+    const todayDOW = await getTodayDOW(page);
+    const created = await apiCall(page, 'POST', 'createTemplate', {
+      name: 'FR19 Original Name',
+      sections: [{ title: 'Tasks', order: 0, condition: null, fields: [
+        { type: 'checkbox', label: 'Item A', required: false, order: 0, config: null, fail_trigger: null, condition: null },
+      ]}],
+      schedules: [{ active_days: [todayDOW] }],
+      requires_approval: true,
+      assignments: [
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' },
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'approver' },
+      ],
+    });
+    const tplId = created.id;
+
+    // Submit while the template is still named "FR19 Original Name".
+    await submitChecklistViaAPI(page, tplId);
+
+    // Now rename the template (full-replace update). This must NOT touch the
+    // frozen snapshot on the already-submitted checklist.
+    await apiCall(page, 'PUT', 'updateTemplate/' + tplId, {
+      name: 'FR19 RENAMED After Submit',
+      sections: [{ title: 'Tasks', order: 0, condition: null, fields: [
+        { type: 'checkbox', label: 'Item A', required: false, order: 0, config: null, fail_trigger: null, condition: null },
+      ]}],
+      schedules: [{ active_days: [todayDOW] }],
+      requires_approval: true,
+      assignments: [
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' },
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'approver' },
+      ],
+    });
+
+    const pending = await apiCall(page, 'GET', 'pendingApprovals');
+    const sub = (Array.isArray(pending) ? pending : []).find(s => s.template_id === tplId);
+    expect(sub).toBeTruthy();
+
+    // The LIVE template name (from the join) reflects the rename...
+    expect(sub.template_name).toBe('FR19 RENAMED After Submit');
+
+    // ...but the FROZEN snapshot still carries the ORIGINAL name.
+    const snapshot = sub.template_snapshot;
+    expect(snapshot).toBeTruthy();
+    expect(snapshot.name).toBe('FR19 Original Name');
+  });
+
+  // FR-20 — Approval gate: saving a template with requires_approval ON is refused
+  // unless at least one assignment has assignment_role 'approver' (hasApprover).
+  // Observable behavior asserted: create WITHOUT an approver → 400 requires_approver
+  // and NO template row created; create WITH an approver → 200 and a row exists.
+  test('FR-20 requires_approval without an approver is refused (400 requires_approver); with one it is allowed', async ({ page }) => {
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await cleanupTemplates(page);
+
+    const todayDOW = await getTodayDOW(page);
+
+    // Case 1: requires_approval ON, only an assignee (no approver) → 400.
+    const noApprover = await apiRaw(page, 'POST', '/api/v1/workflow/createTemplate', {
+      name: 'FR20 No Approver',
+      sections: [{ title: 'Tasks', order: 0, condition: null, fields: [
+        { type: 'checkbox', label: 'Item A', required: false, order: 0, config: null, fail_trigger: null, condition: null },
+      ]}],
+      schedules: [{ active_days: [todayDOW] }],
+      requires_approval: true,
+      assignments: [
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' },
+      ],
+    });
+    expect(noApprover.status).toBe(400);
+    expect(noApprover.json).toMatchObject({ error: 'requires_approver' });
+
+    // The refused template must NOT have been created.
+    let templates = await apiCall(page, 'GET', 'templates');
+    expect((Array.isArray(templates) ? templates : []).find(t => t.name === 'FR20 No Approver')).toBeUndefined();
+
+    // Case 2: same template but WITH an approver assignment → allowed.
+    const withApprover = await apiRaw(page, 'POST', '/api/v1/workflow/createTemplate', {
+      name: 'FR20 With Approver',
+      sections: [{ title: 'Tasks', order: 0, condition: null, fields: [
+        { type: 'checkbox', label: 'Item A', required: false, order: 0, config: null, fail_trigger: null, condition: null },
+      ]}],
+      schedules: [{ active_days: [todayDOW] }],
+      requires_approval: true,
+      assignments: [
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' },
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'approver' },
+      ],
+    });
+    // createTemplate returns 201 Created on success.
+    expect(withApprover.status).toBeGreaterThanOrEqual(200);
+    expect(withApprover.status).toBeLessThan(300);
+    templates = await apiCall(page, 'GET', 'templates');
+    expect((Array.isArray(templates) ? templates : []).find(t => t.name === 'FR20 With Approver')).toBeTruthy();
+  });
+
+  // NFR-5 — Sync / offline / conflict / cleanup — PARKED.
+  // Reason: proving the offline queue (IndexedDB store hq_offline_v1 'submitQueue'),
+  // the pending/saved/error save-status indicator, concurrent-edit conflict
+  // resolution, and post-submit draft cleanup requires IndexedDB + service-worker
+  // plumbing beyond a test fixture. The Playwright config sets
+  // serviceWorkers:'block', and HQ's offline-sync specs are in the known
+  // flaky-red baseline pool. Per the runbook PARK trigger (IndexedDB/SW plumbing),
+  // this flow is PARKed for a dedicated offline-sync harness rather than forced
+  // into a dishonest classification here. No test authored for NFR-5.
+});
