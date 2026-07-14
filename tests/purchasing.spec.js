@@ -1522,3 +1522,213 @@ test.describe('PO tab prove-sweep (FR-13/14/15/16)', () => {
   });
 
 });
+
+// ─── Prove-sweep: NFR-1 (state machine + optimistic-lock 409), NFR-2 (admin
+// gate 403 across 5+ endpoints), FR-23 (manual repurchase-reset API) ──────────
+//
+// Card: purchasing-prove-state-auth-scheduler. E2E half — proves the state
+// transitions/refusals and the admin authorization tier against the live stack.
+// The cron DECISION logic (FR-19/20/21/22) is the Go-unit half and is PARKED
+// (no injectable clock — see backend/internal/purchasing/scheduler_prove_test.go).
+//
+// The non-admin (team_member) session is authored INLINE below per the runbook
+// rule (copy tests/multi-role.spec.js / tests/users.spec.js — no shared helper
+// module). Reuses the top-level login() and poApiCall() helpers.
+test.describe('Purchasing state/auth prove-sweep (NFR-1/NFR-2/FR-23)', () => {
+
+  const TEAM_MEMBER_PW = 'TeamMemberPass123';
+
+  function tokenFromInvitePath(invitePath) {
+    return new URL(invitePath, 'http://x').searchParams.get('token');
+  }
+
+  // inviteTeamMember (as the logged-in admin) creates a status='invited'
+  // team_member and returns { id, email, token }. Reads authoritative stored
+  // roles from the users-API invite response (not the masked /me).
+  async function inviteTeamMember(page, tag) {
+    const email = `purch-sec-${tag}-${Date.now()}@yumyums.kitchen`;
+    const res = await page.evaluate(async (e) => {
+      const r = await fetch('/api/v1/users/invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ first_name: 'Sec', last_name: 'Member', email: e, roles: ['team_member'] }),
+      });
+      return { status: r.status, body: await r.json().catch(() => null) };
+    }, email);
+    expect(res.status).toBe(201);
+    expect(res.body.user.roles).toEqual(['team_member']);
+    return { id: res.body.user.id, email, token: tokenFromInvitePath(res.body.invite_path) };
+  }
+
+  // becomeTeamMember clears the admin session and activates+logs-in as the
+  // invited team_member. After this, page requests carry the team_member cookie.
+  async function becomeTeamMember(page, token) {
+    await page.context().clearCookies();
+    const res = await page.evaluate(async ([t, pw]) => {
+      const r = await fetch('/api/v1/auth/accept-invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: t, password: pw }),
+      });
+      return { status: r.status, body: await r.json().catch(() => null) };
+    }, [token, TEAM_MEMBER_PW]);
+    expect(res.status).toBe(200);
+  }
+
+  async function usersApiCall(page, method, path) {
+    return page.evaluate(async ([m, p]) => {
+      const r = await fetch('/api/v1/users' + (p ? '/' + p : ''), { method: m });
+      if (r.status === 204) return null;
+      return r.json().catch(() => null);
+    }, [method, path]);
+  }
+
+  // poFetchStatus returns { status, body } (mirrors the B1/B2/B3 helper) so we
+  // can assert the exact status code (200/403/409) rather than throw on !ok.
+  async function poFetchStatus(page, method, path, body) {
+    return page.evaluate(async ([m, p, b]) => {
+      const opts = { method: m, headers: { 'Content-Type': 'application/json' } };
+      if (b) opts.body = JSON.stringify(b);
+      const r = await fetch('/api/v1/purchasing/' + p, opts);
+      let parsed = null;
+      try { parsed = await r.json(); } catch (_) { parsed = null; }
+      return { status: r.status, body: parsed };
+    }, [method, path, body]);
+  }
+
+  // ── NFR-1: draft→locked→shopping_active valid path + optimistic-lock 409 on a
+  //    stale/concurrent transition. Asserts BOTH the success AND the refusal. ──
+  test('NFR-1: PO state machine valid transitions + optimistic-lock 409 on stale transition', async ({ page }) => {
+    await login(page); // admin
+
+    // Clear any active list leaking from a sibling so the guards under test fire
+    // for the right reason.
+    const active = await poApiCall(page, 'GET', 'shopping/active').catch(() => null);
+    if (active && active.id) {
+      for (const s of (active.vendor_sections || [])) {
+        if (s.status !== 'completed') {
+          await poApiCall(page, 'POST', 'shopping/' + active.id + '/vendors/' + s.id + '/complete').catch(() => {});
+        }
+      }
+    }
+
+    // Ensure a fresh draft with items exists, then lock it via simulate-cutoff.
+    let locked = await poApiCall(page, 'GET', 'orders?status=locked').catch(() => null);
+    if (!locked || !locked.id) {
+      const order = await poApiCall(page, 'POST', 'orders');
+      const items = await page.evaluate(async () => (await fetch('/api/v1/inventory/items')).json());
+      if (!items || items.length === 0) { test.skip(true, 'No catalog items to seed a PO'); return; }
+      const toAdd = items.slice(0, 2).map(it => ({ purchase_item_id: it.id, quantity: 2, unit: '' }));
+      await poApiCall(page, 'PUT', 'orders/' + order.id + '/items', { items: toAdd });
+
+      // VALID transition #1: draft -> locked (simulate-cutoff = manual auto-lock).
+      const cut = await poFetchStatus(page, 'POST', 'simulate-cutoff');
+      expect(cut.status).toBe(200);
+      expect(cut.body.status).toBe('locked'); // observable state change asserted
+      locked = await poApiCall(page, 'GET', 'orders?status=locked');
+    }
+    expect(locked.status).toBe('locked');
+
+    // OPTIMISTIC-LOCK / illegal-transition 409: locking an already-locked PO
+    // (its status is no longer 'draft', so the WHERE status='draft' guard on
+    // LockPO fails) must be refused 409 po_not_draft — the concurrent/stale
+    // transition case (NFR-1 optimistic-lock: WHERE status = expected).
+    const relock = await poFetchStatus(page, 'POST', 'orders/' + locked.id + '/lock');
+    expect(relock.status).toBe(409);
+    expect(relock.body && relock.body.error).toBe('po_not_draft');
+
+    // VALID transition #2: locked -> draft via unlock, then the SAME unlock again
+    // is a stale transition (no longer locked) → 409 po_not_locked.
+    const unlock1 = await poFetchStatus(page, 'POST', 'orders/' + locked.id + '/unlock');
+    expect(unlock1.status).toBe(200);
+    expect(unlock1.body.status).toBe('draft'); // transitioned back to draft
+    const unlock2 = await poFetchStatus(page, 'POST', 'orders/' + locked.id + '/unlock');
+    expect(unlock2.status).toBe(409);
+    expect(unlock2.body && unlock2.body.error).toBe('po_not_locked');
+  });
+
+  // ── NFR-2: admin gate → non-admin (team_member) gets 403 across 5+ purchasing
+  //    admin endpoints; and the refusal is real (no state change). ────────────
+  test('NFR-2: non-admin (team_member) is refused 403 across 5+ purchasing admin endpoints', async ({ page }) => {
+    await login(page); // admin
+
+    // Seed a real PO id so the lock/unlock/approve routes hit their handler's
+    // admin gate (not a 404 for a bogus id). A fresh draft is fine — the gate
+    // fires before any status logic.
+    const draft = await poApiCall(page, 'POST', 'orders');
+    const poId = draft.id;
+    expect(poId).toBeTruthy();
+
+    // Snapshot the cutoff config BEFORE, to prove the refused PUT changed nothing.
+    const cutoffBefore = await poApiCall(page, 'GET', 'cutoff').catch(() => null);
+
+    // Become a non-admin.
+    const me = await inviteTeamMember(page, 'nfr2');
+    await becomeTeamMember(page, me.token); // page is now the team_member
+
+    const calls = {};
+    calls.cutoffPut = await poFetchStatus(page, 'PUT', 'cutoff', { day_of_week: 2, cutoff_time: '18:00', timezone: 'America/Chicago' });
+    calls.simulateCutoff = await poFetchStatus(page, 'POST', 'simulate-cutoff');
+    calls.lock = await poFetchStatus(page, 'POST', 'orders/' + poId + '/lock');
+    calls.unlock = await poFetchStatus(page, 'POST', 'orders/' + poId + '/unlock');
+    calls.approve = await poFetchStatus(page, 'POST', 'orders/' + poId + '/approve');
+    calls.repurchaseReset = await poFetchStatus(page, 'POST', 'repurchase-reset');
+    calls.repurchaseCfg = await poFetchStatus(page, 'PUT', 'repurchase-reset/config', { day_of_week: 1, reset_time: '06:00', timezone: 'America/Chicago' });
+
+    // 7 admin endpoints (>5) all refuse 403 forbidden for the non-admin.
+    for (const key of ['cutoffPut', 'simulateCutoff', 'lock', 'unlock', 'approve', 'repurchaseReset', 'repurchaseCfg']) {
+      expect(calls[key].status, `${key} should be 403`).toBe(403);
+      expect(calls[key].body && calls[key].body.error, `${key} error body`).toBe('forbidden');
+    }
+
+    // The refusal was real: back as admin, the cutoff config is unchanged and the
+    // PO is still a draft (the refused simulate-cutoff/lock did NOT transition it).
+    await page.context().clearCookies();
+    await login(page);
+    const cutoffAfter = await poApiCall(page, 'GET', 'cutoff').catch(() => null);
+    // If a cutoff existed before, the refused PUT must not have overwritten it to Tue/18:00.
+    if (cutoffBefore) {
+      const changedToAttack = cutoffAfter && cutoffAfter.day_of_week === 2 && String(cutoffAfter.cutoff_time).startsWith('18:00');
+      expect(changedToAttack, 'refused cutoff PUT must not have applied').toBe(false);
+    }
+    const poAfter = await poApiCall(page, 'GET', 'orders/' + poId);
+    expect(poAfter.status, 'refused lock/simulate must not have locked the PO').toBe('draft');
+
+    // Cleanup the non-admin.
+    await usersApiCall(page, 'DELETE', me.id);
+  });
+
+  // ── FR-23: admin manual repurchase-reset API works — asserts the observable
+  //    effect (last_reset_at advances to ~now on POST /repurchase-reset). ─────
+  test('FR-23: manual repurchase-reset advances last_reset_at (observable effect)', async ({ page }) => {
+    await login(page); // admin
+
+    // Seed a config with an OLD last_reset_at by upserting a schedule (fresh row
+    // has last_reset_at = NULL) — then the first POST must set it to ~now.
+    await poApiCall(page, 'PUT', 'repurchase-reset/config', { day_of_week: 1, reset_time: '06:00', timezone: 'America/Chicago' });
+    const before = await poApiCall(page, 'GET', 'repurchase-reset').catch(() => null);
+    // Fresh upsert leaves last_reset_at null (config row exists, never reset).
+    expect(before).toBeTruthy();
+
+    const t0 = Date.now();
+    // Manual reset — handler returns 204 No Content on success.
+    const reset = await poFetchStatus(page, 'POST', 'repurchase-reset');
+    expect(reset.status).toBe(204);
+
+    // Observable effect: last_reset_at is now set and is within a minute of now.
+    const after = await poApiCall(page, 'GET', 'repurchase-reset');
+    expect(after).toBeTruthy();
+    expect(after.last_reset_at, 'last_reset_at set after manual reset').toBeTruthy();
+    const resetMs = Date.parse(after.last_reset_at);
+    expect(Number.isNaN(resetMs)).toBe(false);
+    // within +/- 2 minutes of the request time (now() on the server).
+    expect(Math.abs(resetMs - t0)).toBeLessThan(120000);
+
+    // Idempotent second call: still 204, last_reset_at advances (>= previous).
+    const reset2 = await poFetchStatus(page, 'POST', 'repurchase-reset');
+    expect(reset2.status).toBe(204);
+    const after2 = await poApiCall(page, 'GET', 'repurchase-reset');
+    expect(Date.parse(after2.last_reset_at)).toBeGreaterThanOrEqual(resetMs);
+  });
+
+});
