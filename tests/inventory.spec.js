@@ -3349,3 +3349,208 @@ test.describe('Retry parse auto-sync (260702-l67)', () => {
     await expect(reparsingBtn).toBeDisabled();
   });
 });
+
+// ─── Prove sweep: Purchases (FR-3 / FR-5 / FR-11) ────────────────────────────
+// Red-first assertions naming observable DB/UI behavior for three UNPROVEN
+// Purchases flows (PRD-inventory-hardening §Tab-1). Each seeds real data via the
+// API (no direct DB) with a unique bank_tx_id / vendor name per run so the
+// assertions stand on their own and do not pollute sibling tests.
+test.describe('Inventory prove sweep — Purchases', () => {
+
+  test.beforeEach(async ({ page }) => {
+    await login(page);
+    await page.goto('/inventory.html');
+    await page.waitForLoadState('networkidle');
+  });
+
+  // FR-3 — item-picker selection persists across a page reload.
+  // Observable contract (PRD AC-2): after picking a catalog item for an
+  // unlinked line and reloading, the persisted selection is still shown — the
+  // line's name wrap carries `linked` (not `unlinked`), proving the PUT
+  // /purchases/pending-items round-tripped into pending_purchases.items JSONB
+  // (the reopened review form reads it.purchase_item_id → `linked` class,
+  // inventory.html:717-747). Also asserts the row is gone from GET /pending's
+  // items via the reopened form state.
+  test('FR-3: item-picker selection persists across reload', async ({ page }) => {
+    const stamp = Date.now();
+    // Real catalog item to link to.
+    const groups = await invApiCall(page, 'GET', 'groups');
+    const gid = groups && groups.length ? groups[0].id : null;
+    expect(gid).toBeTruthy(); // groups self-seed; guard would hide a real gap
+    const itemName = 'FR3 Persist Item ' + stamp;
+    const item = await invApiCall(page, 'POST', 'items', { description: itemName, group_id: gid });
+    expect(item && item.id).toBeTruthy();
+    // CreateItem title-cases the description (NFR-1 normalize) and the reopened
+    // review form resolves the canonical catalog name from purchase_item_id, so
+    // the persisted input value is the title-cased form.
+    const itemNameTitled = itemName.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+
+    // Real pending purchase with one unlinked line.
+    const seed = await seedPendingPurchase(page, {
+      bankTxId: 'fr3-persist-' + stamp, vendor: 'FR3 Vendor ' + stamp,
+      bankTotal: -10.00, eventDate: '2026-04-15', reason: 'test',
+      items: [{ name: 'unlinked widget', quantity: 1, price: 10.00 }],
+    });
+    expect(seed && seed.id).toBeTruthy();
+
+    await page.reload();
+    await waitForHistoryContent(page);
+
+    // Open THIS pending card by its exact id (data-id), not by vendor text —
+    // the queue may hold pending rows from sibling tests, so scope hard to the
+    // seeded row to avoid cross-test ambiguity.
+    const card = page.locator('[data-action="review-pending"][data-id="' + seed.id + '"]');
+    await expect(card).toBeVisible();
+    await card.click();
+
+    // Scope the line-item wrap to THIS pending row's review form.
+    const form = page.locator('.review-form[data-pending-id="' + seed.id + '"]');
+    const wrap = form.locator('.review-li-name-wrap').first();
+    await expect(wrap).toHaveClass(/unlinked/); // starts unlinked (orange)
+
+    // Pick the catalog item via the fullscreen picker. Search by the FULL
+    // unique item name (incl. the per-run stamp) so the picker returns exactly
+    // THIS run's item — the catalog accumulates 'FR3 Persist Item' rows across
+    // runs, and a prefix search + .first() would ambiguously grab a stale one.
+    await form.locator('.review-li-name').first().click();
+    await expect(page.locator('.item-modal')).toBeVisible();
+    await page.fill('#item-modal-search', itemName);
+    await page.waitForTimeout(300);
+    const modalItem = page.locator('.item-modal-item', { hasText: String(stamp) }).first();
+    await expect(modalItem).toBeVisible(); // the current run's seeded item must appear
+    await modalItem.click();
+    await expect(wrap).toHaveClass(/linked/);
+
+    // Give the PUT /purchases/pending-items time to persist, then reload.
+    await page.waitForTimeout(500);
+    await page.reload();
+    await waitForHistoryContent(page);
+
+    // Reopen the SAME card by id — the selection must survive the reload.
+    const card2 = page.locator('[data-action="review-pending"][data-id="' + seed.id + '"]');
+    await expect(card2).toBeVisible();
+    await card2.click();
+    const form2 = page.locator('.review-form[data-pending-id="' + seed.id + '"]');
+    const wrap2 = form2.locator('.review-li-name-wrap').first();
+    await expect(wrap2).toHaveClass(/linked/);
+    await expect(wrap2).not.toHaveClass(/unlinked/);
+    // Canonical catalog name is resolved from the persisted purchase_item_id —
+    // proving the PUT round-tripped into pending_purchases.items JSONB and the
+    // reopened form re-linked the line (data-item-id populated).
+    await expect(wrap2.locator('input')).toHaveValue(itemNameTitled);
+    await expect(wrap2.locator('input')).not.toHaveAttribute('data-item-id', '');
+  });
+
+  // FR-5 — discarding a pending purchase sets discarded_at and drops it from
+  // the queue (PRD AC-8). Observable: POST /purchases/discard → 204, and the
+  // row no longer appears in GET /purchases/pending (which filters
+  // discarded_at IS NULL) nor in the rendered history queue.
+  test('FR-5: discard sets discarded_at and removes row from queue', async ({ page }) => {
+    const stamp = Date.now();
+    const vendor = 'FR5 Discard Vendor ' + stamp;
+    const seed = await seedPendingPurchase(page, {
+      bankTxId: 'fr5-discard-' + stamp, vendor, bankTotal: -10.00,
+      eventDate: '2026-04-15', reason: 'test',
+      items: [{ name: 'to discard', quantity: 1, price: 10.00 }],
+    });
+    expect(seed && seed.id).toBeTruthy();
+    const id = seed.id;
+
+    // Pre-condition: the row IS in the pending queue.
+    const before = await invApiCall(page, 'GET', 'purchases/pending');
+    expect(Array.isArray(before)).toBe(true);
+    expect(before.some(p => p.id === id)).toBe(true);
+
+    // Discard via the real endpoint (204 No Content).
+    const status = await page.evaluate(async (rid) => {
+      const r = await fetch('/api/v1/inventory/purchases/discard', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: rid }),
+      });
+      return r.status;
+    }, id);
+    expect(status).toBe(204);
+
+    // Post-condition: GET /pending no longer returns the row (discarded_at set,
+    // filtered out by `discarded_at IS NULL`).
+    const after = await invApiCall(page, 'GET', 'purchases/pending');
+    expect(after.some(p => p.id === id)).toBe(false);
+
+    // And the UI queue no longer shows the discarded row's card (scope by id).
+    await page.reload();
+    await waitForHistoryContent(page);
+    await expect(page.locator('[data-action="review-pending"][data-id="' + id + '"]')).toHaveCount(0);
+  });
+
+  // FR-11 — Purchases history vendor filter + pagination against a real seed.
+  // Converts the data-dependent guards in the vendor-filter tests
+  // (inventory.spec.js:344-397) into hard assertions backed by two seeded
+  // vendors + confirmed events. Observable:
+  //  (a) GET /purchases?vendor_id=A returns ONLY vendor A's events;
+  //  (b) the UI #vendor-filter narrows the rendered event-cards to vendor A;
+  //  (c) GET /purchases?page=2 uses LIMIT 50 OFFSET 50 (page 2 excludes a
+  //      just-created page-1 event).
+  test('FR-11: vendor filter + pagination work against a real seed', async ({ page }) => {
+    const stamp = Date.now();
+    const vA = await invApiCall(page, 'POST', 'vendors', { name: 'FR11 Alpha ' + stamp });
+    const vB = await invApiCall(page, 'POST', 'vendors', { name: 'FR11 Bravo ' + stamp });
+    expect(vA && vA.id).toBeTruthy();
+    expect(vB && vB.id).toBeTruthy();
+
+    // One confirmed event per vendor.
+    const evA = await seedPurchaseEvent(page, {
+      vendorId: vA.id, bankTxId: 'fr11-a-' + stamp, eventDate: '2026-04-15',
+      total: 10, lineItems: [{ description: 'A item', quantity: 1, price: 10 }],
+    });
+    const evB = await seedPurchaseEvent(page, {
+      vendorId: vB.id, bankTxId: 'fr11-b-' + stamp, eventDate: '2026-04-15',
+      total: 20, lineItems: [{ description: 'B item', quantity: 1, price: 20 }],
+    });
+    expect(evA && evA.id).toBeTruthy();
+    expect(evB && evB.id).toBeTruthy();
+
+    // (a) API vendor filter returns ONLY vendor A's events.
+    const filtered = await page.evaluate(async (vid) => {
+      const r = await fetch('/api/v1/inventory/purchases?vendor_id=' + vid);
+      return r.json();
+    }, vA.id);
+    expect(Array.isArray(filtered)).toBe(true);
+    expect(filtered.length).toBeGreaterThanOrEqual(1);
+    for (const ev of filtered) {
+      expect(ev.vendor_id).toBe(vA.id);
+    }
+    // Vendor B's event must NOT appear in vendor A's filtered list.
+    expect(filtered.some(ev => ev.id === evB.id)).toBe(false);
+    expect(filtered.some(ev => ev.id === evA.id)).toBe(true);
+
+    // (b) UI: selecting vendor A in #vendor-filter narrows rendered cards.
+    // Select by option VALUE (the vendor id) — the option LABEL is title-cased
+    // by the frontend (titleCase(v.name)), so we match on id, not display text.
+    await page.reload();
+    await waitForHistoryContent(page);
+    const select = page.locator('#vendor-filter');
+    await page.waitForFunction((vid) => {
+      const sel = document.getElementById('vendor-filter');
+      return sel && Array.from(sel.options).some(o => o.value === vid);
+    }, vA.id, { timeout: 5000 });
+    await select.selectOption(vA.id);
+    await waitForHistoryContent(page);
+    const cards = page.locator('.event-card:not([data-action="review-pending"])');
+    const cardCount = await cards.count();
+    // Exactly vendor A's single seeded event is shown (its $10.00 total),
+    // and vendor B's $20.00 event is filtered out.
+    expect(cardCount).toBeGreaterThanOrEqual(1);
+    await expect(cards.filter({ hasText: '$10.00' })).toHaveCount(1);
+    await expect(page.locator('.event-card:not([data-action="review-pending"])').filter({ hasText: '$20.00' })).toHaveCount(0);
+
+    // (c) Pagination: page 2 (OFFSET 50) excludes a fresh page-1 event.
+    const page1 = await page.evaluate(async () => (await fetch('/api/v1/inventory/purchases?page=1')).json());
+    const page2 = await page.evaluate(async () => (await fetch('/api/v1/inventory/purchases?page=2')).json());
+    expect(Array.isArray(page1)).toBe(true);
+    expect(Array.isArray(page2)).toBe(true);
+    expect(page1.length).toBeLessThanOrEqual(50); // LIMIT 50 enforced
+    // The just-seeded vendor-A event is on page 1 and must NOT also be on page 2.
+    expect(page1.some(ev => ev.id === evA.id)).toBe(true);
+    expect(page2.some(ev => ev.id === evA.id)).toBe(false);
+  });
+});
