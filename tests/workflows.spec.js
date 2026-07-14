@@ -482,12 +482,24 @@ test.describe('Approvals', () => {
     await expect(page.locator('text=Please double-check this item next time')).toBeVisible({ timeout: 5000 });
   });
 
-  test('reject item with comment', async ({ page }) => {
+  // FR-10 (flag→reject status) + FR-12 (reject+comment persists) + FR-13
+  // (rejection feedback renders back to the submitter). REWRITE of the former
+  // vacuous test which wrapped its whole body in `if (flagBtn.isVisible())`
+  // with NO expect — it never asserted a rejection occurred. This drives the
+  // real flow end-to-end and asserts observable state at every hop:
+  //   FR-10: flag an item, send rejection → submission.status flips to 'rejected'
+  //   FR-12: the flagged item's comment persists on submission.rejections[]
+  //   FR-13: reopening the checklist as the submitter renders the manager's
+  //          comment in the correction banner ("⚠ Rejected: <comment>").
+  // Single-user: admin is both submitter (createAndSubmitChecklist) and the
+  // approver (createTestTemplate assigns admin as approver), so the same page
+  // session sees the rejection feedback back on My Checklists.
+  test('FR-10/12/13 flag+reject flips status, persists comment, and renders feedback to submitter', async ({ page }) => {
     await login(page);
     await page.goto(BASE + '/workflows.html');
     await cleanupTemplates(page);
     await cleanupPendingApprovals(page);
-    await createAndSubmitChecklist(page);
+    const { id: templateId } = await createAndSubmitChecklist(page);
 
     await page.reload();
     await page.click('#t2');
@@ -496,16 +508,43 @@ test.describe('Approvals', () => {
     // Scope to #s2 to avoid strict mode violations with hidden tabs
     await expect(page.locator('#s2').locator('text=Approval Test')).toBeVisible({ timeout: 5000 });
 
-    // Flag a field item using the "Flag" button
-    const flagBtn = page.locator('[data-action="toggle-reject-item"]').first();
-    if (await flagBtn.isVisible()) {
-      await flagBtn.click();
-      // Enter comment in the reject-item-input textarea
-      const commentArea = page.locator('.reject-item-input').first();
-      await commentArea.fill('Needs correction');
-      // Send rejection via reject-submit button
-      await page.click('[data-action="reject-submit"]');
-    }
+    // Flag a field item using the "Flag" button — must actually be present
+    const flagBtn = page.locator('#s2 [data-action="toggle-reject-item"]').first();
+    await expect(flagBtn).toBeVisible({ timeout: 5000 });
+    await flagBtn.click();
+
+    // Enter comment in the reject-item-input textarea
+    const commentArea = page.locator('#s2 .reject-item-input').first();
+    await expect(commentArea).toBeVisible();
+    await commentArea.fill('Needs correction');
+
+    // Send rejection via reject-submit button
+    await page.click('#s2 [data-action="reject-submit"]');
+
+    // FR-10 + FR-12 — assert the submission flipped to rejected in the DB and
+    // the comment persisted on the rejection record (read back via the API).
+    await expect(page.locator('#toast')).toContainText('Rejected', { timeout: 5000 });
+    await page.waitForTimeout(500);
+    const submissions = await page.evaluate(async () => {
+      const r = await fetch('/api/v1/workflow/myChecklists?dow=' + new Date().getDay());
+      const data = await r.json();
+      return data.submissions || [];
+    });
+    const rejectedSub = submissions.find(s => s.status === 'rejected');
+    expect(rejectedSub, 'a submission with status=rejected must exist after reject-submit').toBeTruthy();
+    expect(rejectedSub.rejections.length).toBeGreaterThanOrEqual(1);
+    expect(rejectedSub.rejections.some(r => r.comment === 'Needs correction')).toBe(true);
+
+    // FR-13 — the submitter (same admin) reopens the checklist and sees the
+    // manager's rejection comment rendered in the correction banner.
+    await page.click('#t1');
+    await page.reload();
+    await page.waitForSelector('#checklist-list .row', { timeout: 10000 });
+    await page.locator('#checklist-list .row', { hasText: 'Approval Test' }).first().click();
+    await page.waitForSelector('#fill-body');
+    const banner = page.locator('.correction-banner', { hasText: 'Needs correction' });
+    await expect(banner).toBeVisible({ timeout: 5000 });
+    await expect(banner).toContainText('Rejected');
   });
 
   test('reject works after template update (field IDs change)', async ({ page }) => {
@@ -2501,4 +2540,578 @@ test.describe('Approval Flow', () => {
     // Unsubmit button should NOT exist
     await expect(page.locator('[data-action="unsubmit"]')).not.toBeVisible();
   });
+});
+
+// ─── F. prove-UNPROVEN sweep (ops-prove-checklists) ──────────────────────────
+// Red-first assertions for three UNPROVEN flows: FR-6 (idempotent submit — no
+// duplicate submission row), FR-7 (unsubmit authorization — a non-submitter is
+// refused 403), FR-8 (History returns the last 50 submissions, DESC order).
+
+test.describe('Checklist submit/unsubmit/history (prove sweep)', () => {
+  // FR-6 — Submitting the same checklist twice (same idempotency key) is
+  // idempotent: exactly ONE submission row exists afterward. Asserts against
+  // myHistory (the durable submission record), not just pendingApprovals, so a
+  // second row would be caught even after approval/removal from the queue.
+  test('FR-6 duplicate submit with same idempotency key creates exactly one submission', async ({ page }) => {
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await cleanupTemplates(page);
+
+    const todayDOW = await getTodayDOW(page);
+    const result = await createTestTemplate(page, 'FR6 Idempotent', todayDOW);
+    const templateId = result.id;
+
+    // Baseline: how many prior submissions this user already has for this template.
+    const historyBefore = await apiCall(page, 'GET', 'myHistory');
+    const beforeCount = (Array.isArray(historyBefore) ? historyBefore : [])
+      .filter((s) => s.template_id === templateId).length;
+
+    // Submit twice with the SAME idempotency key.
+    const key = generateUUID();
+    const payload = { template_id: templateId, idempotency_key: key, responses: [] };
+    const status1 = await page.evaluate(async (p) => {
+      const res = await fetch('/api/v1/workflow/submitChecklist', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(p),
+      });
+      return res.status;
+    }, payload);
+    const status2 = await page.evaluate(async (p) => {
+      const res = await fetch('/api/v1/workflow/submitChecklist', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(p),
+      });
+      return res.status;
+    }, payload);
+
+    // Neither submit is an error; the second is deduped (not a fresh 500).
+    expect([200, 201]).toContain(status1);
+    expect([200, 201, 409]).toContain(status2);
+
+    // Observable DB state: exactly one NEW submission for this template.
+    const historyAfter = await apiCall(page, 'GET', 'myHistory');
+    const forTemplate = (Array.isArray(historyAfter) ? historyAfter : [])
+      .filter((s) => s.template_id === templateId);
+    expect(forTemplate.length - beforeCount).toBe(1);
+
+    // And all of them share the one idempotency key we submitted with.
+    const distinctIds = new Set(forTemplate.map((s) => s.id));
+    expect(distinctIds.size).toBe(forTemplate.length);
+    const newRows = forTemplate.filter((s) => s.idempotency_key === key);
+    expect(newRows.length).toBe(1);
+  });
+
+  // FR-7 — Unsubmit requires authorization: a user who did NOT submit the
+  // checklist (here a freshly-invited team_member, in a separate browser
+  // context so the admin session is untouched) is refused with 403 not_submitter,
+  // and the submission still exists afterward. Non-admin session authored INLINE
+  // per the multi-role invite/accept-invite idiom used elsewhere in this file.
+  test('FR-7 a non-submitter is refused (403) when unsubmitting', async ({ page, browser }) => {
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await cleanupTemplates(page);
+    await cleanupPendingApprovals(page);
+
+    // Admin creates + submits a checklist; capture its submission id via myHistory.
+    const todayDOW = await getTodayDOW(page);
+    const tpl = await createTestTemplate(page, 'FR7 Unsubmit Auth', todayDOW);
+    const templateId = tpl.id;
+    await submitChecklistViaAPI(page, templateId);
+    const adminHistory = await apiCall(page, 'GET', 'myHistory');
+    const sub = (Array.isArray(adminHistory) ? adminHistory : [])
+      .find((s) => s.template_id === templateId);
+    expect(sub && sub.id).toBeTruthy();
+    const submissionId = sub.id;
+
+    // Invite a team_member and activate them (INLINE — no shared helper).
+    const memberEmail = 'fr7-nonsubmitter-' + Date.now() + '@yumyums.kitchen';
+    const memberPassword = 'test456';
+    const inviteRes = await page.evaluate(async (email) => {
+      const res = await fetch('/api/v1/users/invite', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ first_name: 'Non', last_name: 'Submitter', email, roles: ['team_member'] }),
+      });
+      return res.json();
+    }, memberEmail);
+    const token = inviteRes.invite_path.split('token=')[1];
+    await page.evaluate(async ([t, pw]) => {
+      await fetch('/api/v1/auth/accept-invite', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: t, password: pw }),
+      });
+    }, [token, memberPassword]);
+
+    // In a fresh context, log in AS the team_member and attempt to unsubmit the
+    // admin's submission. Server must refuse: 403 not_submitter.
+    const memberCtx = await browser.newContext();
+    try {
+      const memberPage = await memberCtx.newPage();
+      await login(memberPage, memberEmail, memberPassword);
+      const { status, bodyText } = await memberPage.evaluate(async (sid) => {
+        const res = await fetch('/api/v1/workflow/unsubmitChecklist', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ submission_id: sid }),
+        });
+        return { status: res.status, bodyText: await res.text() };
+      }, submissionId);
+      expect(status).toBe(403);
+      expect(bodyText).toContain('not_submitter');
+    } finally {
+      await memberCtx.close();
+    }
+
+    // Re-login as admin on the main page: accept-invite above overwrote this
+    // page's session cookie with the team_member's session.
+    await login(page);
+
+    // The submission still exists (was NOT unsubmitted by the non-submitter).
+    const adminHistoryAfter = await apiCall(page, 'GET', 'myHistory');
+    const stillThere = (Array.isArray(adminHistoryAfter) ? adminHistoryAfter : [])
+      .some((s) => s.id === submissionId);
+    expect(stillThere).toBe(true);
+  });
+
+  // FR-8 — History shows the crew member's last 50 submissions, newest first.
+  // Create 52 submissions (unique idempotency keys → 52 distinct rows) and assert
+  // myHistory caps the result at 50 and orders by submitted_at DESC.
+  test('FR-8 myHistory returns at most the last 50 submissions in DESC order', async ({ page }) => {
+    test.setTimeout(120000);
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await cleanupTemplates(page);
+
+    const todayDOW = await getTodayDOW(page);
+    const tpl = await createTestTemplate(page, 'FR8 History Cap', todayDOW);
+    const templateId = tpl.id;
+
+    // Fire 52 submissions, each with a unique idempotency key → 52 distinct rows.
+    const N = 52;
+    for (let i = 0; i < N; i++) {
+      await submitChecklistViaAPI(page, templateId);
+    }
+
+    const history = await apiCall(page, 'GET', 'myHistory');
+    expect(Array.isArray(history)).toBe(true);
+
+    // Cap at 50 even though 52 were created.
+    expect(history.length).toBeLessThanOrEqual(50);
+    // And it IS capped (not fewer than 50) — proves the LIMIT is exercised.
+    expect(history.length).toBe(50);
+
+    // All returned rows are distinct submissions.
+    const ids = history.map((s) => s.id);
+    expect(new Set(ids).size).toBe(ids.length);
+
+    // Ordering: submitted_at is non-increasing (newest first).
+    const times = history.map((s) => new Date(s.submitted_at).getTime());
+    for (let i = 1; i < times.length; i++) {
+      expect(times[i]).toBeLessThanOrEqual(times[i - 1]);
+    }
+  });
+});
+
+// ─── Builder conditional-logic prove sweep (ops-prove-builder, Track A card 3) ──
+// FR-16 (DOW schedule visibility), FR-17 (section visibility condition),
+// FR-18 (skip logic show/hide). Red-first assertions naming the observable
+// DOM/list behavior against the CURRENT app. Appended LAST so this block runs
+// after all sibling tests. Fixtures use unique template names + cleanupTemplates
+// to avoid polluting sibling tests.
+test.describe('Builder conditional logic (prove sweep)', () => {
+  // FR-16 — A template's day-of-week schedule governs which days a checklist
+  // appears in the crew member's My Checklists list.
+  // Observable behavior asserted: a template scheduled for TODAY is present in
+  // the list; a template scheduled for a NON-today DOW is ABSENT. This exercises
+  // the server-side DOW gate (repository.go: active_days = ANY(...)).
+  test('FR-16 DOW schedule shows today-scheduled checklist and hides off-day one', async ({ page }) => {
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await cleanupTemplates(page);
+
+    const todayDOW = await getTodayDOW(page);
+    const offDay = (todayDOW + 3) % 7; // a day that is definitely not today
+
+    // Template A: scheduled for TODAY → should appear.
+    await apiCall(page, 'POST', 'createTemplate', {
+      name: 'FR16 Scheduled Today',
+      sections: [{ title: 'Tasks', order: 0, condition: null, fields: [
+        { type: 'checkbox', label: 'Do a thing', required: false, order: 0, config: null, fail_trigger: null, condition: null },
+      ]}],
+      schedules: [{ active_days: [todayDOW] }],
+      requires_approval: false,
+      assignments: [{ assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' }],
+    });
+
+    // Template B: scheduled for an OFF day (not today) → should be hidden.
+    await apiCall(page, 'POST', 'createTemplate', {
+      name: 'FR16 Scheduled Off Day',
+      sections: [{ title: 'Tasks', order: 0, condition: null, fields: [
+        { type: 'checkbox', label: 'Do a thing', required: false, order: 0, config: null, fail_trigger: null, condition: null },
+      ]}],
+      schedules: [{ active_days: [offDay] }],
+      requires_approval: false,
+      assignments: [{ assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' }],
+    });
+
+    await page.reload();
+    await page.waitForSelector('#checklist-list .row', { timeout: 10000 });
+
+    // Today-scheduled checklist is visible in the list.
+    await expect(
+      page.locator('#checklist-list .row', { hasText: 'FR16 Scheduled Today' }).first()
+    ).toBeVisible();
+
+    // Off-day checklist is NOT in the list at all.
+    await expect(
+      page.locator('#checklist-list .row', { hasText: 'FR16 Scheduled Off Day' })
+    ).toHaveCount(0);
+  });
+
+  // FR-17 — A template section's visibility condition shows/hides the whole
+  // section (and its fields) based on the condition. Observable behavior:
+  // a section whose day-condition excludes today renders NONE of its fields in
+  // the runner, while a sibling always-visible section renders its field.
+  test('FR-17 section day-condition hides the section and its fields in the runner', async ({ page }) => {
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await cleanupTemplates(page);
+
+    const todayDOW = await getTodayDOW(page);
+    const offDay = (todayDOW + 3) % 7;
+
+    await apiCall(page, 'POST', 'createTemplate', {
+      name: 'FR17 Section Condition',
+      sections: [
+        // Always-visible section (no condition).
+        { title: 'Open Section', order: 0, condition: null, fields: [
+          { type: 'checkbox', label: 'Always shown field', required: false, order: 0, config: null, fail_trigger: null, condition: null },
+        ]},
+        // Section gated to an off-day → hidden today.
+        { title: 'Weekend Only Section', order: 1, condition: { days: [offDay] }, fields: [
+          { type: 'checkbox', label: 'Hidden section field', required: false, order: 0, config: null, fail_trigger: null, condition: null },
+        ]},
+      ],
+      schedules: [{ active_days: [todayDOW] }],
+      requires_approval: false,
+      assignments: [{ assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' }],
+    });
+
+    await page.reload();
+    await page.waitForSelector('#checklist-list .row', { timeout: 10000 });
+    await page.locator('#checklist-list .row', { hasText: 'FR17 Section Condition' }).first().click();
+    await page.waitForSelector('#fill-body .fill-field');
+
+    // The open section's field is visible.
+    await expect(page.locator('.fill-field-label', { hasText: 'Always shown field' })).toBeVisible();
+
+    // The off-day section header AND its field are hidden.
+    await expect(page.locator('.sec-hd', { hasText: 'Weekend Only Section' })).toHaveCount(0);
+    await expect(page.locator('.fill-field-label', { hasText: 'Hidden section field' })).toHaveCount(0);
+
+    // Progress counts only the 1 visible field (hidden section not counted).
+    await expect(page.locator('.progress-line')).toContainText('0 of 1');
+  });
+
+  // FR-18 — Skip logic: a field's answer shows/hides a downstream field.
+  // Observable behavior: the dependent field is hidden until the source field
+  // equals the condition value, appears when it does, and HIDES AGAIN when the
+  // source answer changes away from the value (full show/hide round-trip DOM
+  // state). The slate flagged FR-18 as the likeliest RED — if the round-trip
+  // hide does not fire, this records RED.
+  test('FR-18 skip logic shows then re-hides a field as the source answer changes', async ({ page }) => {
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await cleanupTemplates(page);
+
+    const todayDOW = await getTodayDOW(page);
+
+    // Create with a yes/no source field so we can toggle its value both ways.
+    await apiCall(page, 'POST', 'createTemplate', {
+      name: 'FR18 Skip Logic Roundtrip',
+      sections: [{ title: 'Tasks', order: 0, condition: null, fields: [
+        { type: 'yes_no', label: 'Was there a spill', required: false, order: 0, config: null, fail_trigger: null, condition: null },
+      ]}],
+      schedules: [{ active_days: [todayDOW] }],
+      requires_approval: false,
+      assignments: [{ assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' }],
+    });
+
+    const templates = await apiCall(page, 'GET', 'templates');
+    const tpl = templates.find((t) => t.name === 'FR18 Skip Logic Roundtrip');
+    const sourceFieldId = tpl.sections[0].fields[0].id;
+
+    // Add a dependent field that shows only when the source == "yes".
+    await apiCall(page, 'PUT', 'updateTemplate/' + tpl.id, {
+      name: 'FR18 Skip Logic Roundtrip',
+      sections: [{ title: 'Tasks', order: 0, condition: null, fields: [
+        { id: sourceFieldId, type: 'yes_no', label: 'Was there a spill', required: false, order: 0, config: null, fail_trigger: null, condition: null },
+        { type: 'text', label: 'Describe the cleanup', required: false, order: 1, config: null, fail_trigger: null,
+          condition: { field_id: sourceFieldId, operator: 'equals', value: 'true' } },
+      ]}],
+      schedules: [{ active_days: [todayDOW] }],
+      requires_approval: false,
+      assignments: [{ assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' }],
+    });
+
+    await page.reload();
+    await page.waitForSelector('#checklist-list .row', { timeout: 10000 });
+    await page.locator('#checklist-list .row', { hasText: 'FR18 Skip Logic Roundtrip' }).first().click();
+    await page.waitForSelector('#fill-body .fill-field');
+
+    const dependent = page.locator('.fill-field-label', { hasText: 'Describe the cleanup' });
+
+    // Initially hidden — source not answered yet.
+    await expect(dependent).toHaveCount(0);
+
+    // Answer "Yes" → dependent field appears.
+    await page.locator('[data-action="set-yes"]').first().click();
+    await page.waitForTimeout(500);
+    await expect(dependent).toBeVisible({ timeout: 3000 });
+
+    // Change the answer to "No" → dependent field must HIDE again (round-trip).
+    await page.locator('[data-action="set-no"]').first().click();
+    await page.waitForTimeout(500);
+    await expect(dependent).toHaveCount(0);
+  });
+});
+
+// ─── Cross-cutting guarantees (prove sweep — Track A card 4) ─────────────────
+// NFR-2 (photo presign), NFR-6 (archived 409), NFR-7 (401 redirect), FR-19
+// (template-snapshot freeze), FR-20 (approval gate). NFR-5 (offline sync queue /
+// conflict / cleanup) is PARKed — see the note at the bottom of this block: it
+// needs IndexedDB + service-worker plumbing that Playwright blocks by config, and
+// the offline-sync flows are in HQ's known flaky-red pool. No honest fixture can
+// drive it here without S3/IndexedDB plumbing beyond a test fixture (PARK trigger).
+test.describe('Cross-cutting guarantees (prove sweep)', () => {
+  // apiPhotos performs a raw fetch against a non-workflow API path (e.g. photos,
+  // me) and returns { status, body } so we can assert the degraded/edge shapes
+  // the workflow apiCall() helper hides behind its /workflow/ prefix.
+  async function apiRaw(page, method, path, body) {
+    return page.evaluate(async ([m, p, b]) => {
+      const opts = { method: m, credentials: 'include', headers: {} };
+      if (b) { opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(b); }
+      const res = await fetch(p, opts);
+      const text = await res.text();
+      let json = null;
+      try { json = JSON.parse(text); } catch (e) { /* non-JSON */ }
+      return { status: res.status, text, json };
+    }, [method, path, body]);
+  }
+
+  // NFR-2 — Photo pipeline: the photo field presigns against
+  // POST /api/v1/photos/presign, then PUTs the file to S3/DO-Spaces and the
+  // public URL round-trips. The PUT + round-trip legs require a LIVE DO-Spaces
+  // client (bucket + creds); the ephemeral night-crew stack sets no SPACES_* env,
+  // so the presigner is nil. This test proves the presign REQUEST/response *shape*
+  // that is testable without S3: the endpoint is reachable behind auth and returns
+  // the documented degraded contract (503 {"error":"photo storage not configured"})
+  // when storage is unconfigured — instead of a presigned URL. The upload PUT +
+  // public-URL round-trip is PARKed (needs live S3 — beyond a test fixture).
+  test('NFR-2 photo presign returns the documented shape (503 degraded when S3 unset; PUT/round-trip PARKed)', async ({ page }) => {
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+
+    const resp = await apiRaw(page, 'POST', '/api/v1/photos/presign', {
+      path_prefix: 'checklists', id: 'nfr2-tpl', filename: 'nfr2.jpg',
+    });
+
+    // Authenticated request reaches the handler (not a 401/404 route miss).
+    expect(resp.status).not.toBe(401);
+    expect(resp.status).not.toBe(404);
+
+    if (resp.status === 200) {
+      // Storage IS configured (unexpected in the ephemeral stack): assert the
+      // full presign response shape — a PUT url + a permanent public_url.
+      expect(resp.json).toBeTruthy();
+      expect(typeof resp.json.url).toBe('string');
+      expect(resp.json.url.length).toBeGreaterThan(0);
+      expect(typeof resp.json.public_url).toBe('string');
+      expect(resp.json.public_url.length).toBeGreaterThan(0);
+    } else {
+      // Ephemeral stack: no SPACES_* env → presigner nil → documented 503 shape.
+      expect(resp.status).toBe(503);
+      expect(resp.json).toMatchObject({ error: 'photo storage not configured' });
+    }
+  });
+
+  // NFR-6 — Archived-while-offline: submitting a checklist for a template that
+  // was archived (soft-deleted) after the user opened it returns 409
+  // template_archived instead of failing silently. getTemplateByID filters
+  // archived_at IS NULL, so submit finds no template → ErrTemplateArchived → 409.
+  // Observable behavior asserted: the POST /submitChecklist envelope is
+  // status 409 with error 'template_archived', and NO submission is created.
+  test('NFR-6 submitting an archived template returns 409 template_archived and creates no submission', async ({ page }) => {
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await cleanupTemplates(page);
+    await cleanupPendingApprovals(page);
+
+    const todayDOW = await getTodayDOW(page);
+    const created = await apiCall(page, 'POST', 'createTemplate', {
+      name: 'NFR6 Archive Race',
+      sections: [{ title: 'Tasks', order: 0, condition: null, fields: [
+        { type: 'checkbox', label: 'Item A', required: false, order: 0, config: null, fail_trigger: null, condition: null },
+      ]}],
+      schedules: [{ active_days: [todayDOW] }],
+      requires_approval: true,
+      assignments: [
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' },
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'approver' },
+      ],
+    });
+    const tplId = created.id;
+
+    // Archive the template out from under the (would-be offline) user.
+    await apiCall(page, 'DELETE', 'archiveTemplate/' + tplId);
+
+    // Now submit against the archived template via a raw fetch so we can read
+    // the exact status + envelope the client sees.
+    const resp = await apiRaw(page, 'POST', '/api/v1/workflow/submitChecklist', {
+      template_id: tplId,
+      idempotency_key: generateUUID(),
+      responses: [],
+    });
+
+    expect(resp.status).toBe(409);
+    expect(resp.json).toMatchObject({ error: 'template_archived' });
+
+    // No submission surfaced anywhere (approvals empty for this template).
+    const pending = await apiCall(page, 'GET', 'pendingApprovals');
+    const forThis = Array.isArray(pending) ? pending.filter(s => s.template_id === tplId) : [];
+    expect(forThis.length).toBe(0);
+  });
+
+  // NFR-7 — Auth expiry mid-checklist: a 401 on an API call redirects the crew
+  // member to /login.html (workflows.html init() checks /api/v1/me → 401 →
+  // window.location='/login.html'; sync.js api() does the same for /workflow/*).
+  // Observable behavior asserted (redirect leg): with no session cookie, loading
+  // workflows.html lands on login.html. The "local drafts persist across the
+  // redirect" leg needs IndexedDB draft plumbing (hq_offline_v1 store) beyond a
+  // test fixture and Playwright blocks the service worker → PARKed (noted below).
+  test('NFR-7 an unauthenticated workflows load redirects to /login.html', async ({ page, context }) => {
+    // Establish then clear the session to simulate a 401 mid-session.
+    await login(page);
+    await context.clearCookies();
+
+    await page.goto(BASE + '/workflows.html');
+
+    // init() calls /api/v1/me → 401 → window.location='/login.html'.
+    await page.waitForURL(url => url.pathname.includes('login'), { timeout: 8000 });
+    expect(page.url()).toContain('login');
+  });
+
+  // FR-19 — Template snapshot freeze: on submit, the checklist freezes a JSONB
+  // snapshot of the template (checklist_submissions.template_snapshot) so a later
+  // admin rename/edit does NOT alter an already-submitted checklist. Observable
+  // behavior asserted: after submit, renaming the template changes the LIVE name
+  // (pendingApprovals.template_name from the join) but the frozen
+  // template_snapshot.name still holds the ORIGINAL name.
+  test('FR-19 a submitted checklist freezes a template snapshot that later edits do not change', async ({ page }) => {
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await cleanupTemplates(page);
+    await cleanupPendingApprovals(page);
+
+    const todayDOW = await getTodayDOW(page);
+    const created = await apiCall(page, 'POST', 'createTemplate', {
+      name: 'FR19 Original Name',
+      sections: [{ title: 'Tasks', order: 0, condition: null, fields: [
+        { type: 'checkbox', label: 'Item A', required: false, order: 0, config: null, fail_trigger: null, condition: null },
+      ]}],
+      schedules: [{ active_days: [todayDOW] }],
+      requires_approval: true,
+      assignments: [
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' },
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'approver' },
+      ],
+    });
+    const tplId = created.id;
+
+    // Submit while the template is still named "FR19 Original Name".
+    await submitChecklistViaAPI(page, tplId);
+
+    // Now rename the template (full-replace update). This must NOT touch the
+    // frozen snapshot on the already-submitted checklist.
+    await apiCall(page, 'PUT', 'updateTemplate/' + tplId, {
+      name: 'FR19 RENAMED After Submit',
+      sections: [{ title: 'Tasks', order: 0, condition: null, fields: [
+        { type: 'checkbox', label: 'Item A', required: false, order: 0, config: null, fail_trigger: null, condition: null },
+      ]}],
+      schedules: [{ active_days: [todayDOW] }],
+      requires_approval: true,
+      assignments: [
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' },
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'approver' },
+      ],
+    });
+
+    const pending = await apiCall(page, 'GET', 'pendingApprovals');
+    const sub = (Array.isArray(pending) ? pending : []).find(s => s.template_id === tplId);
+    expect(sub).toBeTruthy();
+
+    // The LIVE template name (from the join) reflects the rename...
+    expect(sub.template_name).toBe('FR19 RENAMED After Submit');
+
+    // ...but the FROZEN snapshot still carries the ORIGINAL name.
+    const snapshot = sub.template_snapshot;
+    expect(snapshot).toBeTruthy();
+    expect(snapshot.name).toBe('FR19 Original Name');
+  });
+
+  // FR-20 — Approval gate: saving a template with requires_approval ON is refused
+  // unless at least one assignment has assignment_role 'approver' (hasApprover).
+  // Observable behavior asserted: create WITHOUT an approver → 400 requires_approver
+  // and NO template row created; create WITH an approver → 200 and a row exists.
+  test('FR-20 requires_approval without an approver is refused (400 requires_approver); with one it is allowed', async ({ page }) => {
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await cleanupTemplates(page);
+
+    const todayDOW = await getTodayDOW(page);
+
+    // Case 1: requires_approval ON, only an assignee (no approver) → 400.
+    const noApprover = await apiRaw(page, 'POST', '/api/v1/workflow/createTemplate', {
+      name: 'FR20 No Approver',
+      sections: [{ title: 'Tasks', order: 0, condition: null, fields: [
+        { type: 'checkbox', label: 'Item A', required: false, order: 0, config: null, fail_trigger: null, condition: null },
+      ]}],
+      schedules: [{ active_days: [todayDOW] }],
+      requires_approval: true,
+      assignments: [
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' },
+      ],
+    });
+    expect(noApprover.status).toBe(400);
+    expect(noApprover.json).toMatchObject({ error: 'requires_approver' });
+
+    // The refused template must NOT have been created.
+    let templates = await apiCall(page, 'GET', 'templates');
+    expect((Array.isArray(templates) ? templates : []).find(t => t.name === 'FR20 No Approver')).toBeUndefined();
+
+    // Case 2: same template but WITH an approver assignment → allowed.
+    const withApprover = await apiRaw(page, 'POST', '/api/v1/workflow/createTemplate', {
+      name: 'FR20 With Approver',
+      sections: [{ title: 'Tasks', order: 0, condition: null, fields: [
+        { type: 'checkbox', label: 'Item A', required: false, order: 0, config: null, fail_trigger: null, condition: null },
+      ]}],
+      schedules: [{ active_days: [todayDOW] }],
+      requires_approval: true,
+      assignments: [
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' },
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'approver' },
+      ],
+    });
+    // createTemplate returns 201 Created on success.
+    expect(withApprover.status).toBeGreaterThanOrEqual(200);
+    expect(withApprover.status).toBeLessThan(300);
+    templates = await apiCall(page, 'GET', 'templates');
+    expect((Array.isArray(templates) ? templates : []).find(t => t.name === 'FR20 With Approver')).toBeTruthy();
+  });
+
+  // NFR-5 — Sync / offline / conflict / cleanup — PARKED.
+  // Reason: proving the offline queue (IndexedDB store hq_offline_v1 'submitQueue'),
+  // the pending/saved/error save-status indicator, concurrent-edit conflict
+  // resolution, and post-submit draft cleanup requires IndexedDB + service-worker
+  // plumbing beyond a test fixture. The Playwright config sets
+  // serviceWorkers:'block', and HQ's offline-sync specs are in the known
+  // flaky-red baseline pool. Per the runbook PARK trigger (IndexedDB/SW plumbing),
+  // this flow is PARKed for a dedicated offline-sync harness rather than forced
+  // into a dishonest classification here. No test authored for NFR-5.
 });

@@ -404,3 +404,174 @@ test.describe('Recipes tab — E2E', () => {
     expect(html, 'clear-menu-summary must restore the placeholder').toContain('Tap an ingredient to see how it breaks down by dish');
   });
 });
+
+// ─── Track E card 4 — Recipes cross-cutting prove sweep ────────────────────────
+// FR-23 (recipe cost math computes REAL COGS, not a placeholder), NFR-8 (slider
+// reach-past-100 → 422 → client ROLLBACK, PRIORITY), NFR-9 (drift banner reads
+// from a LIVE /drift fetch, not synthetic DRIFT_BANNER state). Every assertion is
+// red-first: it names the observable value/behavior and would fail if the flow
+// were broken. Appended at END of file to run last.
+test.describe('Recipes prove sweep — cross-cutting (FR-23 / NFR-8 / NFR-9)', () => {
+
+  test.beforeEach(async ({ page }) => {
+    await login(page);
+    await page.goto('/inventory.html');
+    await page.waitForLoadState('networkidle');
+  });
+
+  // FR-23 — the recipe cost SUMMARY computes real COGS: for the selected menu item
+  // each ingredient row shows alloc = last_week_spend * (usage_pct/100), and the
+  // total is the SUM of allocs. We seed RECIPES_DATA (the module global the
+  // renderer reads) with known spend + pct, select the menu item, call
+  // renderRecipeSummary(), and assert the DOLLAR MATH — not just the placeholder
+  // round-trip the old UNPROVEN test asserted.
+  test('FR-23: cost summary computes real per-ingredient COGS (spend × pct/100)', async ({ page }) => {
+    await page.click('#t4');
+    await page.waitForLoadState('networkidle');
+    // Ensure any late loadRecipes() resolution has settled BEFORE we seed, so it
+    // cannot clobber our injected RECIPES_DATA between render and assert.
+    await page.waitForTimeout(500);
+
+    // Seed known allocation state and render + READ the summary card in ONE
+    // evaluate (synchronous) so a stray async reload cannot overwrite it in the
+    // assertion window. Two ingredients allocate to the same menu item "Jerk Bowl":
+    // $100.00 @ 25% → $25.00, and $40.00 @ 10% → $4.00. Total $29.00.
+    const out = await page.evaluate(() => {
+      if (typeof RECIPES_DATA === 'undefined' || typeof renderRecipeSummary !== 'function') {
+        return { ok: false };
+      }
+      RECIPES_DATA = [
+        { purchase_item_id: 'pi-a', description: 'Chicken Thighs', last_week_spend: 100.0, sum_pct: 25,
+          recipes: [{ id: 'r-a', menu_item_id: 'mi-jerk', menu_item_name: 'Jerk Bowl', menu_group: 'Bowls', usage_pct: 25 }] },
+        { purchase_item_id: 'pi-b', description: 'Scotch Bonnet', last_week_spend: 40.0, sum_pct: 10,
+          recipes: [{ id: 'r-b', menu_item_id: 'mi-jerk', menu_item_name: 'Jerk Bowl', menu_group: 'Bowls', usage_pct: 10 }] },
+      ];
+      SELECTED_MENU_ITEM_ID = 'mi-jerk';
+      renderRecipeSummary();
+      const host = document.getElementById('recipes-summary-card');
+      const costs = Array.from(host.querySelectorAll('.ingredient-cost')).map(e => e.textContent);
+      const total = host.querySelector('.revenue-row') ? host.querySelector('.revenue-row').textContent : '';
+      return { ok: true, html: host.innerHTML, costs, total };
+    });
+    expect(out.ok, 'RECIPES_DATA + renderRecipeSummary must be reachable globals').toBe(true);
+
+    // Real math, not a placeholder: each ingredient's dollar cost + the summed total.
+    expect(out.html).toContain('Jerk Bowl');
+    expect(out.costs, 'two ingredient rows for the selected menu item').toHaveLength(2);
+    expect(out.costs).toContain('$25.00'); // 100.00 * 25/100
+    expect(out.costs).toContain('$4.00');  // 40.00 * 10/100
+    // Total ingredient cost = 25.00 + 4.00 = 29.00 (the summed COGS, not 0/placeholder).
+    expect(out.total).toContain('$29.00');
+    // And it is NOT the placeholder.
+    expect(out.html).not.toContain('Tap an ingredient to see how it breaks down by dish');
+  });
+
+  // NFR-8 (PRIORITY) — the slider rollback. When a slider RELEASE (change event)
+  // triggers a 422 sum_exceeds_100 from PUT /recipes/{id}, autoSaveRecipe MUST roll
+  // the slider value + chip back to old-pct and show the inline "Can't go above
+  // 100%" error naming the conflicting menu item. We inject a synthetic slider that
+  // mirrors renderIngredientDetail's markup, intercept the PUT to return the REAL
+  // 422 envelope {error:'sum_exceeds_100', conflict_menu_item, conflict_pct}, then
+  // drive the slider past its old value and assert the ROLLBACK is observable.
+  test('NFR-8: slider past-100 → 422 → slider value + chip roll back and inline error shows', async ({ page }) => {
+    await page.click('#t4');
+    await page.waitForLoadState('networkidle');
+    // Let any late loadRecipes() resolution settle BEFORE we inject the synthetic
+    // row, so its renderIngredientList() cannot overwrite #recipes-list (and our
+    // slider) after injection but before the change event fires.
+    await page.waitForTimeout(500);
+
+    // Intercept the PUT with the real server 422 envelope (server half is Go-proven
+    // under FR-20; this drives the FRONTEND rollback half deterministically).
+    await page.route('**/api/v1/inventory/recipes/nfr8-recipe-id', async route => {
+      if (route.request().method() === 'PUT') {
+        await route.fulfill({
+          status: 422,
+          contentType: 'application/json',
+          body: JSON.stringify({ error: 'sum_exceeds_100', conflict_menu_item: 'Curry Goat', conflict_pct: 80 }),
+        });
+      } else {
+        await route.continue();
+      }
+    });
+
+    // Inject a synthetic ingredient row + slider at 20% (old-pct=20).
+    await page.evaluate(() => {
+      const host = document.getElementById('recipes-list');
+      host.innerHTML = `
+        <div class="recipe-ingredient-row open" data-purchase-item-id="nfr8-pi">
+          <div class="recipe-detail" style="display:block">
+            <div class="recipe-allocation-row" data-recipe-id="nfr8-recipe-id" data-purchase-item-id="nfr8-pi">
+              <div class="recipe-alloc-head"><div><div class="recipe-alloc-name">Jerk Bowl</div></div><div class="recipe-pct-chip">20%</div></div>
+              <input type="range" id="nfr8-slider" class="recipe-slider" min="0" max="100" step="5" value="20"
+                     data-action="save-recipe-pct" data-recipe-id="nfr8-recipe-id" data-old-pct="20"
+                     style="background:linear-gradient(to right, var(--info-bg) 0% 20%, var(--brd) 20% 100%)">
+              <div class="recipe-inline-error" style="display:none"></div>
+              <div class="recipe-running-total" data-running-total-for="nfr8-pi">Unallocated: 0%</div>
+            </div>
+          </div>
+        </div>
+      `;
+      // The delegation change-listener is gated on ACTIVE_TAB===4; ensure we're on it.
+      if (typeof ACTIVE_TAB !== 'undefined') ACTIVE_TAB = 4;
+    });
+
+    // Drive the slider PAST its old value (20 → 40) and RELEASE (change event).
+    await page.evaluate(() => {
+      const s = document.getElementById('nfr8-slider');
+      s.value = '40';
+      s.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+
+    // ROLLBACK must be observable: the slider value reverts to 20, the chip reverts
+    // to 20%, and the inline error names the conflicting menu item + its pct. Wait
+    // for the async 422 catch to populate the error text first (the rollback signal),
+    // then assert the reverted slider/chip state.
+    const err = page.locator('.recipe-inline-error');
+    await expect(err).toContainText('Curry Goat', { timeout: 8000 });
+    await expect(err).toBeVisible();
+    await expect(err).toContainText('80%');
+    await expect(page.locator('#nfr8-slider')).toHaveValue('20');
+    await expect(page.locator('.recipe-pct-chip')).toHaveText('20%');
+  });
+
+  // NFR-9 — the drift banner reads from a LIVE GET /api/v1/inventory/recipes/drift
+  // fetch on Recipes-tab load, NOT a synthetic DRIFT_BANNER constant. We reload the
+  // tab with the /drift endpoint intercepted to return a real non-empty payload,
+  // and assert (1) the tab actually REQUESTED /drift, and (2) the rendered banner
+  // reflects THAT endpoint payload's content (proving live consumption end-to-end).
+  test('NFR-9: Recipes tab fetches live /drift and renders the returned payload', async ({ page }) => {
+    // Intercept the live drift endpoint with a real, distinctive payload.
+    let driftRequested = false;
+    await page.route('**/api/v1/inventory/recipes/drift', async route => {
+      driftRequested = true;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          week_start: '2026-05-25',
+          sections: [
+            { heading: 'Under-allocated', items: [{ purchase_item_id: 'pi-drift-1', label: 'Plantain (NFR9-DRIFT-MARKER)' }] },
+          ],
+        }),
+      });
+    });
+
+    // Re-enter the Recipes tab so loadRecipes() runs its live Promise.all fetch
+    // (recipes + drift). Go to another tab first to force a fresh load.
+    await page.click('#t1');
+    await page.waitForTimeout(100);
+    await page.click('#t4');
+    // loadRecipes fires GET /recipes and GET /drift; wait for the banner to populate.
+    await page.waitForFunction(() => {
+      const h = document.getElementById('recipes-drift-banner');
+      return h && h.innerHTML.trim().length > 0;
+    }, { timeout: 8000 });
+
+    expect(driftRequested, 'Recipes tab must actually FETCH /drift (live, not synthetic)').toBe(true);
+    const banner = page.locator('#recipes-drift-banner');
+    // The banner content must come FROM the live payload (our distinctive marker).
+    await expect(banner).toContainText('NFR9-DRIFT-MARKER');
+    await expect(banner).toContainText('drifted last week');
+  });
+});

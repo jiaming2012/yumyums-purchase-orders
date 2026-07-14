@@ -657,6 +657,7 @@ func ConfirmPendingPurchaseHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 
 		// Look up or create vendor
+		input.VendorName = normalizeItemName(input.VendorName)
 		var vendorID string
 		err := pool.QueryRow(r.Context(),
 			`INSERT INTO vendors (name) VALUES ($1) ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name RETURNING id`,
@@ -1126,6 +1127,7 @@ func UpdateItemHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			writeError(w, http.StatusBadRequest, "id_and_description_required")
 			return
 		}
+		input.Description = normalizeItemName(input.Description)
 		tag, err := pool.Exec(r.Context(), `
 			UPDATE purchase_items SET description = $1, group_id = $2, store_location = $3, photo_url = $4, location_in_store = $5 WHERE id = $6`,
 			input.Description, input.GroupID, input.StoreLocation, input.PhotoURL, input.LocationInStore, input.ID,
