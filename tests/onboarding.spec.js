@@ -2285,3 +2285,89 @@ test.describe('Reject and unsubmit sections', () => {
     await obApiCall(page, 'DELETE', 'deleteTemplate/' + tpl.id);
   });
 });
+
+// ─── FR-26: unassign a template from a hire ─────────────────────────────────
+// A manager unassigns a template from a hire, removing the explicit assignment
+// row. Two observable behaviors:
+//  (1) Unassign is idempotent — unassigning twice yields the same end state
+//      (template gone from the hire's list), no error, no throw on the 2nd call.
+//  (2) Role-auto-assign survives — if the template ALSO matches the hire's role
+//      (ot.roles && user.roles), removing the explicit assignment row must NOT
+//      remove the template from the hire's `myTrainings` list; the role match
+//      still surfaces it. (PRD FR-26: "a role-auto-assigned template still shows".)
+// No test previously called /unassignTemplate at all.
+test.describe('FR-26: unassign template', () => {
+  // Count how many times a template id appears in the current user's myTrainings.
+  async function myTrainingCount(page, templateId) {
+    const list = await obApiCall(page, 'GET', 'myTrainings');
+    return (Array.isArray(list) ? list : [])
+      .filter(t => t.template_id === templateId).length;
+  }
+
+  test('unassign is idempotent — second unassign is a no-op, template stays gone', async ({ page }) => {
+    await login(page);
+    const me = await page.evaluate(async () => (await (await fetch('/api/v1/me')).json()));
+
+    // Template with NO role match → it can ONLY reach the hire via explicit assign.
+    const tpl = await obApiCall(page, 'POST', 'createTemplate', {
+      name: 'FR26 Idempotent ' + Date.now(),
+      roles: [],
+      sections: [{ title: 'S', sort_order: 0, requires_sign_off: false, sign_off_roles: [], is_faq: false, items: [{ type: 'checkbox', label: 'A', sort_order: 0, sub_items: [] }] }],
+    });
+
+    // Explicit assign → template appears exactly once in myTrainings.
+    await obApiCall(page, 'POST', 'assignTemplate', { hire_id: me.id, template_id: tpl.id });
+    expect(await myTrainingCount(page, tpl.id)).toBe(1);
+
+    // First unassign → {ok:true}, template gone from the list.
+    const r1 = await obApiCall(page, 'POST', 'unassignTemplate', { hire_id: me.id, template_id: tpl.id });
+    expect(r1).toEqual({ ok: true });
+    expect(await myTrainingCount(page, tpl.id)).toBe(0);
+
+    // Second unassign → SAME end state, no error, still {ok:true} (idempotent DELETE).
+    const r2 = await obApiCall(page, 'POST', 'unassignTemplate', { hire_id: me.id, template_id: tpl.id });
+    expect(r2).toEqual({ ok: true });
+    expect(await myTrainingCount(page, tpl.id)).toBe(0);
+
+    // Cleanup
+    await obApiCall(page, 'DELETE', 'deleteTemplate/' + tpl.id);
+  });
+
+  test('unassign of an explicitly-assigned template leaves the role-auto-assign intact', async ({ page }) => {
+    await login(page);
+    const me = await page.evaluate(async () => (await (await fetch('/api/v1/me')).json()));
+    // GetMyTrainings matches template.roles against the users.roles COLUMN. Note
+    // /api/v1/me MASKS a superadmin's stored roles as ["superadmin"], but the DB
+    // column (what the query reads) is the real role set. Read it from the users
+    // API — the authoritative stored-roles source the query overlaps against.
+    const users = await usersApiCall(page, 'GET', '');
+    const dbMe = (Array.isArray(users) ? users : []).find(u => u.id === me.id);
+    const dbRoles = (dbMe && dbMe.roles) || [];
+    // The hire must have at least one stored role for the role-match edge to matter.
+    expect(dbRoles.length).toBeGreaterThan(0);
+
+    // Template whose roles OVERLAP the hire's stored roles → role-auto-assigned
+    // regardless of any explicit assignment row.
+    const tpl = await obApiCall(page, 'POST', 'createTemplate', {
+      name: 'FR26 RoleSurvives ' + Date.now(),
+      roles: dbRoles,
+      sections: [{ title: 'S', sort_order: 0, requires_sign_off: false, sign_off_roles: [], is_faq: false, items: [{ type: 'checkbox', label: 'A', sort_order: 0, sub_items: [] }] }],
+    });
+
+    // Role match alone surfaces it once (before any explicit assign).
+    expect(await myTrainingCount(page, tpl.id)).toBe(1);
+
+    // Now ALSO explicitly assign it — the LEFT JOIN + OR still yields exactly one row.
+    await obApiCall(page, 'POST', 'assignTemplate', { hire_id: me.id, template_id: tpl.id });
+    expect(await myTrainingCount(page, tpl.id)).toBe(1);
+
+    // Unassign removes ONLY the explicit ob_template_assignments row. The role match
+    // must keep the template in the hire's list — this is the FR-26 edge.
+    const r = await obApiCall(page, 'POST', 'unassignTemplate', { hire_id: me.id, template_id: tpl.id });
+    expect(r).toEqual({ ok: true });
+    expect(await myTrainingCount(page, tpl.id)).toBe(1);
+
+    // Cleanup
+    await obApiCall(page, 'DELETE', 'deleteTemplate/' + tpl.id);
+  });
+});
