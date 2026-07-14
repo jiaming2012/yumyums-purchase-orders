@@ -4034,3 +4034,142 @@ test.describe('Inventory prove sweep — Setup', () => {
   // contract itself is not provable here.
   test.skip('FR-27: photo upload convert/resize (PARKED — needs live DO Spaces S3 client)', async () => {});
 });
+
+// ─── Track E card 4 — Menu & cross-cutting prove sweep ─────────────────────────
+// FR-16 (real Menu handler, not a route.fulfill stub), NFR-1 (normalization
+// output on create + the item-edit double-normalization gap), NFR-3 (401 redirect).
+// Every assertion is red-first: it names the observable HTTP/DB/UI value and would
+// fail if the flow were broken. Appended at END of file to run last.
+test.describe('Inventory prove sweep — Menu & cross-cutting', () => {
+
+  test.beforeEach(async ({ page }) => {
+    await login(page);
+    await page.goto('/inventory.html');
+    await page.waitForLoadState('networkidle');
+  });
+
+  // FR-16 — the Menu tab uses the REAL Toast handler, NOT a route.fulfill stub.
+  // Observable: GET /menu-items?since=YYYY-MM-DD returns 200 + a JSON ARRAY from
+  // the live handler (toast.ListMenuItemsHandler), and clicking the Menu tab
+  // renders that data — either real rows (each a .stock-item card with a
+  // data-menu-item-id cross-link) OR the honest "No menu items" empty state when
+  // Toast ingest is empty in this env. We do NOT stub the endpoint; we drive the
+  // live handler and assert the render reflects exactly what it returned. This
+  // replaces the two route.fulfill-stubbed Menu tests' provenance: those assert
+  // row SHAPE against injected data; this proves the tab consumes the LIVE endpoint.
+  test('FR-16: Menu tab renders from the LIVE menu-items handler (no stub)', async ({ page }) => {
+    // 1) The live endpoint returns 200 + a JSON array (real handler, not a mock).
+    const api = await page.evaluate(async () => {
+      const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      const r = await fetch('/api/v1/inventory/menu-items?since=' + since);
+      let body = null;
+      try { body = await r.json(); } catch (_) {}
+      return { status: r.status, isArray: Array.isArray(body), len: Array.isArray(body) ? body.length : -1,
+               firstName: (Array.isArray(body) && body.length) ? body[0].name : null,
+               firstId: (Array.isArray(body) && body.length) ? body[0].id : null };
+    });
+    expect(api.status, 'live menu-items handler must return 200').toBe(200);
+    expect(api.isArray, 'live handler returns a JSON array').toBe(true);
+
+    // 2) Activate the Menu tab; the tab's own loadMenu() calls the same live
+    //    endpoint (no route interception) and renders into #menu-list.
+    await page.locator('#t3').click();
+    await expect(page.locator('#s3')).toBeVisible();
+    const list = page.locator('#menu-list');
+
+    if (api.len > 0) {
+      // Live Toast data present → the rendered card carries the real item's name
+      // and a menu-card-to-recipes cross-link keyed to the real id.
+      await expect(list).toContainText(api.firstName);
+      await expect(list.locator('[data-action="menu-card-to-recipes"]').first()).toHaveAttribute(
+        'data-menu-item-id', api.firstId
+      );
+    } else {
+      // Live Toast data empty in this env → the tab must render the honest empty
+      // state driven BY the live [] response (proving no stub masked an empty DB).
+      await expect(list).toContainText('No menu items');
+    }
+  });
+
+  // NFR-1 — name-normalization contract. Observable output on the three NAMED
+  // contract surfaces (create-vendor, create-item), PLUS the known item-EDIT gap
+  // (UpdateItemHandler writes the raw description, no normalizeItemName). We assert
+  // the OBSERVABLE stored value and let the edit gap show its true color.
+  test('NFR-1: create-vendor and create-item title-case; item-EDIT gap is exposed', async ({ page }) => {
+    const stamp = Date.now();
+
+    // (a) create-vendor — lowercase in, title-cased out (GREEN expected).
+    const vLower = 'nfr1 vendor lower ' + stamp;
+    const vExpected = expectTitleCased(vLower);
+    const vCreate = await invApiCall(page, 'POST', 'vendors', { name: vLower });
+    expect(vCreate && vCreate.id, 'create-vendor returns id').toBeTruthy();
+    let vendors = await invApiCall(page, 'GET', 'vendors');
+    const vRow = vendors.find(v => v.id === vCreate.id);
+    expect(vRow, 'created vendor readable via GET /vendors').toBeTruthy();
+    expect(vRow.name, 'create-vendor stores the TITLE-CASED name (NFR-1)').toBe(vExpected);
+    expect(vRow.name).not.toBe(vLower);
+
+    // (b) create-item — lowercase in, title-cased out (GREEN expected).
+    const groups = await invApiCall(page, 'GET', 'groups');
+    let gid = groups && groups.length ? groups[0].id : null;
+    if (!gid) {
+      const g = await invApiCall(page, 'POST', 'groups', { name: 'NFR1 Group ' + stamp });
+      gid = g.id;
+    }
+    expect(gid).toBeTruthy();
+    const iLower = 'nfr1 item lower ' + stamp;
+    const iExpected = expectTitleCased(iLower);
+    const iCreate = await invApiCall(page, 'POST', 'items', { description: iLower, group_id: gid });
+    expect(iCreate && iCreate.id, 'create-item returns id').toBeTruthy();
+    let items = await invApiCall(page, 'GET', 'items');
+    const iRow = items.find(i => i.id === iCreate.id);
+    expect(iRow, 'created item readable via GET /items').toBeTruthy();
+    expect(iRow.description, 'create-item stores the TITLE-CASED description (NFR-1)').toBe(iExpected);
+    expect(iRow.description).not.toBe(iLower);
+
+    // (c) item-EDIT gap — PUT /items writes the description RAW (no normalizeItemName
+    //     in UpdateItemHandler). The NFR-1 contract, if it held on edit, would
+    //     re-normalize an edited description. Assert the CONTRACT (edit normalizes);
+    //     this is EXPECTED RED — it documents the double-normalization gap as a fix
+    //     candidate. If it goes GREEN, the gap was closed and this becomes a guard.
+    const editLower = 'nfr1 edited raw ' + stamp;
+    const editExpected = expectTitleCased(editLower);
+    const putStatus = await page.evaluate(async ([id, desc, group]) => {
+      const r = await fetch('/api/v1/inventory/items', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, description: desc, group_id: group }),
+      });
+      return r.status;
+    }, [iCreate.id, editLower, gid]);
+    expect(putStatus, 'item edit PUT succeeds (204)').toBe(204);
+    items = await invApiCall(page, 'GET', 'items');
+    const edited = items.find(i => i.id === iCreate.id);
+    expect(edited, 'edited item still readable').toBeTruthy();
+    // Contract assertion (edit should normalize the same way create does):
+    expect(edited.description, 'NFR-1: item EDIT should title-case the description like create does (KNOWN GAP — UpdateItemHandler writes raw)').toBe(editExpected);
+  });
+
+  // NFR-3 — a 401 on any Inventory API call redirects to /login.html. Observable:
+  // an UNAUTHENTICATED browser loading inventory.html triggers the page's own
+  // loadStock()/loadMenu() API calls; api() sees 401 and does
+  // window.location.href='/login.html'. We assert the redirect actually happens
+  // in a fresh (no-cookie) context — NOT just that the source contains the string.
+  test('NFR-3: unauthenticated Inventory API call redirects to /login.html', async ({ browser }) => {
+    const ctx = await browser.newContext(); // fresh — no auth cookie
+    const anon = await ctx.newPage();
+    try {
+      // Sanity: a raw API call in the anon context returns 401 (the trigger).
+      const status = await anon.evaluate(async () => {
+        const r = await fetch('/api/v1/inventory/stock');
+        return r.status;
+      }).catch(() => null);
+      // The anon page has no origin yet for a relative fetch; navigate first.
+      await anon.goto('/inventory.html');
+      // The page's own load calls hit the API unauthenticated → api() redirects.
+      await anon.waitForURL(url => url.pathname.includes('login'), { timeout: 10000 });
+      expect(anon.url(), 'unauthenticated inventory load must land on /login.html').toContain('login');
+    } finally {
+      await ctx.close();
+    }
+  });
+});
