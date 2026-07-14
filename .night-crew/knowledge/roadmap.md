@@ -132,15 +132,20 @@ graduate to a **fix WO only if the test goes red**. Operations alone = 17 UNPROV
 
 | Track | Cards | Flows | Status | KR |
 |---|---|---|---|---|
-| A · Operations | `ops-prove-checklists` · `ops-prove-approvals` · `ops-prove-builder` · `ops-prove-cross` | 15 | slated → overnight-20260715 | Delivery/Eng/QA |
-| B · Purchasing | `purchasing-prove-order` · `purchasing-prove-po-approval` · `purchasing-prove-shopping` · `purchasing-prove-state-auth-scheduler` | 18 | slated → overnight-20260715 | Delivery/Eng/QA |
-| C · Users | `users-prove-security` · `users-prove-ui-access` | 16 | slated → overnight-20260715 | Delivery/Eng/QA |
-| D · Onboarding | `onboarding-prove-assignments` · `onboarding-prove-progress` | 10 | slated → overnight-20260715 | Delivery/Eng/QA |
-| E · Inventory | `inventory-prove-purchases` · `inventory-prove-stock` · `inventory-prove-setup` · `inventory-prove-recipes-cross` | 19 | slated → overnight-20260715 | Delivery/Eng/QA |
+| A · Operations | `ops-prove-checklists` · `ops-prove-approvals` · `ops-prove-builder` · `ops-prove-cross` | 15 | **DONE** ✅ signed 2026-07-15 (4/4 cards G6-PASS; all GREEN; PARK NFR-5/NFR-2-PUT/NFR-7-draft) | Delivery/Eng/QA |
+| B · Purchasing | `purchasing-prove-order` · `purchasing-prove-po-approval` · `purchasing-prove-shopping` · `purchasing-prove-state-auth-scheduler` | 18 | **DONE** ✅ signed 2026-07-15 (4/4 cards G6-PASS; all GREEN + 3 Go units; PARK FR-19/20/21/22 crons — clock-seam) | Delivery/Eng/QA |
+| C · Users | `users-prove-security` · `users-prove-ui-access` | 16 | **DONE** ✅ signed 2026-07-15 (2/2 cards G6-PASS; NFR-1..5 + 9 UI-access flows GREEN) | Delivery/Eng/QA |
+| D · Onboarding | `onboarding-prove-assignments` · `onboarding-prove-progress` | 10 | **DONE** ✅ signed 2026-07-15 (2/2 cards G6-PASS; GREEN; PARK FR-18 thumbnail; UNTESTABLE FR-28 re-seed) | Delivery/Eng/QA |
+| E · Inventory | `inventory-prove-purchases` · `inventory-prove-stock` · `inventory-prove-setup` · `inventory-prove-recipes-cross` | 19 | **DONE** ✅ signed 2026-07-15 (4/4 cards G6-PASS; PRIORITY NFR-8/Stock proved WORKING; NFR-1 RED→fixed; PARK FR-27 photo) | Delivery/Eng/QA |
 
-> Test-only WO first per flow; a RED assertion graduates to a fix WO (same footprint) — scoping
-> forecasts ~34–40 RED. Tonight = full prove sweep (guaranteed) + first fix wave (budget-gated
-> stretch, 6h floor). Fixes that don't fit park → next slate. See `reference/slate-20260715.md`.
+> ✅ **Prove-UNPROVEN sweep complete — 16/16 cards G6-PASS, signed morning-triage 2026-07-15**
+> (merged `overnight-20260715` → `dev` `--no-ff`). ~52 UNPROVEN flows now carry real red-first
+> assertions. The headline finding inverts the forecast: scoping expected ~34–40 RED; **actual =
+> exactly 1** (Inventory NFR-1 item-edit + confirm-vendor normalization) — the backlog was
+> **untested, not broken**. That one RED was **fixed the same night** (Eng KR-1 +1 → 0; 2-line
+> `internal/inventory/handler.go`). 11 flows PARKED honestly + 1 UNTESTABLE, all visible in the
+> suite. 3 future fix-WOs (cron clock-seam, photo-S3 harness, offline-IndexedDB harness) → `BACKLOG.md`
+> for the planners. Triage resolutions: `ledger.md` T-11/T-12. See `reference/slate-20260715.md`.
 
 ## Activity 5 — Cycle gate (closeout) · *serializes last*
 

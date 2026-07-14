@@ -160,3 +160,56 @@ new failures.
   repointed off the remote Windows box). The prior "arm localhost `brew postgresql@16`" flag is
   therefore satisfied via Docker pg16 and no longer a precondition; it re-arms only if the
   verify/merge DB path changes underneath it.
+
+## Morning-triage resolutions (2026-07-15) — `overnight-20260715`
+
+- **T-11 — Sign off all 16 prove-UNPROVEN cards + the 1 graduated fix → DONE; merge to `dev`.**
+  The full test-only prove sweep (`slate-20260715`, 5 concurrent tracks A–E) landed 16/16 cards,
+  every card G6-PASS, 0 REVISE, 0 Docker crashes. ~52 previously-UNPROVEN flows across Operations,
+  Purchasing, Users, Onboarding, Inventory now carry **real red-first assertions** naming an
+  observable DB/UI behavior; ≥4 vacuous/tautological tests were rewritten into genuine guards.
+  **The sweep's headline is that the forecast inverted:** scoping predicted ~34–40 of ~78 flows
+  would go RED, but **exactly 1** did (Inventory NFR-1) — the UNPROVEN backlog was *untested, not
+  broken*, including all four slate-flagged PRIORITY-risk flows (Inventory NFR-8 slider reach-past-100
+  rollback + Stock FR-12/13/14), which proved WORKING with strong assertions. **Verification at
+  triage (not trusting the closeout):** re-ran `go build ./...` + `go vet ./...` (CLEAN) and
+  `go test ./internal/purchasing/ ./internal/inventory/` (both `ok`) on the branch tree, then again
+  on the merged tree — same result. The G4 discipline greps in the triage skill target night-crew
+  *framework* files (`internal/journal`/`workorder`/`orchestration`, `replay_test.go`) that **do not
+  exist in this HQ app repo**, so they were N/A; the diff is `tests/*.spec.js` + one Go test file +
+  the 2-line fix + 3 `.night-crew` docs, no `*.html`/JS app file (so `task sw` correctly never ran).
+  Merged `overnight-20260715` → `dev` `--no-ff`. **Chosen over holding any card for a cold re-read** —
+  red-first capture + independent G6 diff-reverify + the attended build/vet/test on the merged tree is
+  the evidence sign-off requires; a cold re-read of honest, all-GREEN proofs adds no signal the gate
+  didn't already produce. Roadmap tracks A–E flipped slated → DONE. **Net cycle movement:** QA KR-1
+  +~52 asserted flows (≥4 vacuous→genuine); Delivery KR 16/16 cards, ~52 flows UNPROVEN → WORKING
+  [E2E-proven] (or honest PARK/UNTESTABLE); Eng KR-1 handled in T-12.
+
+- **T-12 — Inventory NFR-1 graduated fix accepted (Eng KR-1 +1 → 0); the 3 prove-sweep PARK fix-WOs
+  and 11 parked flows go to the planners, not an operator hand-pick.** The sweep's one deterministic
+  RED (Inventory NFR-1 item-edit + confirm-vendor normalization) was fixed the same night — a 2-line
+  `internal/inventory/handler.go` change adding `normalizeItemName` to the item-*edit* description
+  path (`:1130`) and the confirm-vendor upsert (`:660`), mirroring the create-path idiom. Verified
+  the diff directly at triage: minimal, idempotent (no create-path double-normalization), and the
+  RED→GREEN is genuine (E4 committed the failing test first; pristine binary returned the raw name,
+  fixed binary returns title-case). This closes BOTH surfaces the backlog NFR-1 item named in one
+  fix, so it's marked DONE in `BACKLOG.md` and FR-4's "vendor upserted title-cased" PRD text is now
+  accurate. The **11 PARKED flows** (photo/S3 ×3, offline/IndexedDB ×2, cron clock-seam ×4, thumbnail
+  ×1, confirm-vendor gap folded into the fix) + **1 UNTESTABLE** (Onboarding FR-28 boot re-seed) were
+  accepted as honest — each is a committed `test.skip`+reason or inline note, visible in the suite,
+  not a silent drop. The **3 future fix-WOs** the parks imply (`WO-cron-clock-seam`,
+  `WO-photo-s3-harness`, `WO-offline-indexeddb-harness`) graduated to `BACKLOG.md` as ready
+  candidates. **Rule reaffirmed (T-10 precedent):** whether each fix-WO rides the next slate or waits
+  is a *throughput / queue-placement* decision owned by the PjM (`/nc-slate-plan`) / PM
+  (`/nc-pm-session`) / eng agents — triage surfaces the item + scope + risk; the planners decide when
+  it runs. Chosen over scheduling them at triage because "operator owns the quality bar, not the
+  throughput."
+
+- **Standing flags after this run.** The DB flag stays satisfied (Docker pg16 canonical, unchanged
+  by this run; re-arms only if the verify/merge DB path changes). **New standing note:** the triage
+  build/vet/test spot-check covered only the two changed Go packages + a Go-level build — the full
+  Playwright E2E suite (`task test:all`) was **not** re-run attended at triage (it needs the live
+  pg16 stack and carries HQ's documented ~37–41 flaky-red pool). This is acceptable for a test-only
+  sweep whose every card already ran its affected-seam subset red-first against a fresh-DB baseline on
+  its own ephemeral stack; it re-arms as a triage requirement if a future run changes app code broadly
+  enough that a full-suite attended pass is the only trustworthy gate.

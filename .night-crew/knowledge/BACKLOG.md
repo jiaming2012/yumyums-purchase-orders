@@ -96,15 +96,15 @@
   populated. (Note: the old test was baseline-RED — it targeted a nonexistent `#shopping-content` —
   not merely vacuous.) FR-7 UNPROVEN → WORKING. · origin: overnight-20260712 purchasing-test-audit ·
   closed 2026-07-14
-- **Inventory NFR-1 double name-normalization gap** · Two surfaces persist un-normalized text while
-  the rest title-case: (1) `UpdateItemHandler` (`backend/internal/inventory/handler.go:1129-1131`)
-  writes `input.Description` raw — item *edit* skips `normalizeItemName` (create/confirm/vendor-create
-  all normalize); (2) `ConfirmPendingPurchaseHandler` (`:660-664`) upserts the **vendor** raw while
-  receipt line-items ARE normalized (`:762`) — so FR-4's "vendor upserted title-cased" text is
-  inaccurate. Neither is a G3 BROKEN (behavior present, output just un-normalized). WO: add
-  `normalizeItemName` to both paths + assert title-cased output; the NFR-1 test-only WO should cover
-  the 3 named surfaces AND these two gaps. Also correct FR-4's PRD text re vendor normalization.
-  · origin: overnight-20260712 inventory-confirm-absence (G6-passed) · new
+- ~~**Inventory NFR-1 double name-normalization gap** · Two surfaces persist un-normalized text while
+  the rest title-case: (1) `UpdateItemHandler` writes `input.Description` raw — item *edit* skips
+  `normalizeItemName`; (2) `ConfirmPendingPurchaseHandler` upserts the **vendor** raw while receipt
+  line-items ARE normalized.~~ **DONE — promoted → `inventory-nfr1-normalize-fix`, landed
+  overnight-20260715 (`748463c`, G6-PASS, red-first):** the E4 prove card committed the NFR-1 RED
+  first, then the fix added `normalizeItemName` to BOTH surfaces (`handler.go:660` vendor + `:1130`
+  description) — RED→GREEN on pristine-vs-fixed binaries. Both named gaps closed in one 2-line fix;
+  FR-4's "vendor upserted title-cased" PRD text is now accurate (no correction needed). Eng KR-1 +1 → 0.
+  · origin: overnight-20260712 inventory-confirm-absence · closed 2026-07-15
 - **Inventory ~40 data-dependent test guards (cleanup)** · `tests/inventory.spec.js` carries ~40
   `if (await X.count() > 0) return;` / `if(count>0){…}` guards that silently pass when a seed is a
   no-op (PRD §Verification). None drops a WORKING flow (each guarded assertion is backstopped by a
@@ -112,3 +112,27 @@
   (or self-seed) so a seed miss reddens. Representative: FR-2 tax/grand-total at `:1039-1042,
   1058-1061`. Rides the Inventory Activity-4 test-hardening WO. · origin: overnight-20260712
   inventory-test-audit (G6-passed) · new
+
+## Prove-sweep PARK fix-WOs (from overnight-20260715 — production refactor / new harness, beyond same-footprint test-only)
+
+> Surfaced by the prove-UNPROVEN sweep as the *fixes* the parked flows imply. Each needs a
+> production seam or a new test harness, so per the slate they were NOT graduated the same night.
+> Scheduling is the planners' call (queue placement per T-10). Unblocks the §A parks in
+> `runs/2026-07-15-autonomous/DECISIONS-NEEDED.md`.
+
+- **WO-cron-clock-seam** · Add a `now time.Time` (or package `nowFn`) seam to the 4 `run*Check`
+  funcs — `runReminderCheck`/`runCutoffCheck`/`runLowStockCheck` (`internal/purchasing/scheduler.go:54/167/247`)
+  + `runRepurchaseResetCheck` (`repurchase.go:129`), each currently reads `now := time.Now().In(loc)`
+  inline — then add real cron-decision unit tests (seed config + past-cutoff → assert transition, no
+  15-min wait). Adjacent pure logic already proven GREEN in `scheduler_prove_test.go`. **Unblocks P-6
+  (Purchasing FR-19/20/21/22).** · origin: overnight-20260715 purchasing-prove-state-auth-scheduler
+  (PARK) · new
+- **WO-photo-s3-harness** · A way to exercise photo presign→PUT→public-URL in E2E (mock S3 or a test
+  DO-Spaces bucket); the ephemeral stack sets no `SPACES_*` so `UploadHandler` returns 503. **Unblocks
+  P-1 (Onboarding FR-18), P-2 (Inventory FR-27), P-3 (Operations NFR-2 PUT leg)** — 3 flows in one
+  harness. Related to (but distinct from) the Onboarding video-pipeline fixture above (video vs item/
+  receipt photo). · origin: overnight-20260715 (A4/E3/D2 PARKs) · new
+- **WO-offline-indexeddb-harness** · A dedicated Playwright project with the service worker +
+  IndexedDB enabled (`playwright.config.js:29` blocks SWs today) to test offline sync/queue/conflict
+  + draft-persist-across-redirect. **Unblocks P-4 (Operations NFR-5), P-5 (Operations NFR-7 draft
+  leg).** · origin: overnight-20260715 ops-prove-cross (PARK) · new

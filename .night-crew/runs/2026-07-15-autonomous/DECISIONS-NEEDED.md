@@ -1,5 +1,12 @@
 # DECISIONS-NEEDED — overnight-20260715 (for the morning of 2026-07-15)
 
+> **RESOLVED 2026-07-15 — recorded in `ledger.md` T-11/T-12.** No fork gated the merge; the
+> sweep landed 16/16 and merged `overnight-20260715` → `dev` `--no-ff`. §A/§C parks accepted as
+> honest (visible in the suite). §B's 3 future fix-WOs (cron clock-seam, photo-S3 harness,
+> offline-IndexedDB harness) graduated to `BACKLOG.md` for the planners (queue placement is a
+> planner call per T-10). §D's graduated fix (Inventory NFR-1) verified at the diff + re-run green
+> on the merged tree. File kept as the analysis record.
+
 > **Run branch:** `overnight-20260715` (cut from `dev`; never pushed, `main` untouched).
 > **Slate:** `.night-crew/knowledge/reference/slate-20260715.md` (batch-signed 2026-07-14).
 
