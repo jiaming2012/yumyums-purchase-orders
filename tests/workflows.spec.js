@@ -2502,3 +2502,169 @@ test.describe('Approval Flow', () => {
     await expect(page.locator('[data-action="unsubmit"]')).not.toBeVisible();
   });
 });
+
+// ─── F. prove-UNPROVEN sweep (ops-prove-checklists) ──────────────────────────
+// Red-first assertions for three UNPROVEN flows: FR-6 (idempotent submit — no
+// duplicate submission row), FR-7 (unsubmit authorization — a non-submitter is
+// refused 403), FR-8 (History returns the last 50 submissions, DESC order).
+
+test.describe('Checklist submit/unsubmit/history (prove sweep)', () => {
+  // FR-6 — Submitting the same checklist twice (same idempotency key) is
+  // idempotent: exactly ONE submission row exists afterward. Asserts against
+  // myHistory (the durable submission record), not just pendingApprovals, so a
+  // second row would be caught even after approval/removal from the queue.
+  test('FR-6 duplicate submit with same idempotency key creates exactly one submission', async ({ page }) => {
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await cleanupTemplates(page);
+
+    const todayDOW = await getTodayDOW(page);
+    const result = await createTestTemplate(page, 'FR6 Idempotent', todayDOW);
+    const templateId = result.id;
+
+    // Baseline: how many prior submissions this user already has for this template.
+    const historyBefore = await apiCall(page, 'GET', 'myHistory');
+    const beforeCount = (Array.isArray(historyBefore) ? historyBefore : [])
+      .filter((s) => s.template_id === templateId).length;
+
+    // Submit twice with the SAME idempotency key.
+    const key = generateUUID();
+    const payload = { template_id: templateId, idempotency_key: key, responses: [] };
+    const status1 = await page.evaluate(async (p) => {
+      const res = await fetch('/api/v1/workflow/submitChecklist', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(p),
+      });
+      return res.status;
+    }, payload);
+    const status2 = await page.evaluate(async (p) => {
+      const res = await fetch('/api/v1/workflow/submitChecklist', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(p),
+      });
+      return res.status;
+    }, payload);
+
+    // Neither submit is an error; the second is deduped (not a fresh 500).
+    expect([200, 201]).toContain(status1);
+    expect([200, 201, 409]).toContain(status2);
+
+    // Observable DB state: exactly one NEW submission for this template.
+    const historyAfter = await apiCall(page, 'GET', 'myHistory');
+    const forTemplate = (Array.isArray(historyAfter) ? historyAfter : [])
+      .filter((s) => s.template_id === templateId);
+    expect(forTemplate.length - beforeCount).toBe(1);
+
+    // And all of them share the one idempotency key we submitted with.
+    const distinctIds = new Set(forTemplate.map((s) => s.id));
+    expect(distinctIds.size).toBe(forTemplate.length);
+    const newRows = forTemplate.filter((s) => s.idempotency_key === key);
+    expect(newRows.length).toBe(1);
+  });
+
+  // FR-7 — Unsubmit requires authorization: a user who did NOT submit the
+  // checklist (here a freshly-invited team_member, in a separate browser
+  // context so the admin session is untouched) is refused with 403 not_submitter,
+  // and the submission still exists afterward. Non-admin session authored INLINE
+  // per the multi-role invite/accept-invite idiom used elsewhere in this file.
+  test('FR-7 a non-submitter is refused (403) when unsubmitting', async ({ page, browser }) => {
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await cleanupTemplates(page);
+    await cleanupPendingApprovals(page);
+
+    // Admin creates + submits a checklist; capture its submission id via myHistory.
+    const todayDOW = await getTodayDOW(page);
+    const tpl = await createTestTemplate(page, 'FR7 Unsubmit Auth', todayDOW);
+    const templateId = tpl.id;
+    await submitChecklistViaAPI(page, templateId);
+    const adminHistory = await apiCall(page, 'GET', 'myHistory');
+    const sub = (Array.isArray(adminHistory) ? adminHistory : [])
+      .find((s) => s.template_id === templateId);
+    expect(sub && sub.id).toBeTruthy();
+    const submissionId = sub.id;
+
+    // Invite a team_member and activate them (INLINE — no shared helper).
+    const memberEmail = 'fr7-nonsubmitter-' + Date.now() + '@yumyums.kitchen';
+    const memberPassword = 'test456';
+    const inviteRes = await page.evaluate(async (email) => {
+      const res = await fetch('/api/v1/users/invite', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ first_name: 'Non', last_name: 'Submitter', email, roles: ['team_member'] }),
+      });
+      return res.json();
+    }, memberEmail);
+    const token = inviteRes.invite_path.split('token=')[1];
+    await page.evaluate(async ([t, pw]) => {
+      await fetch('/api/v1/auth/accept-invite', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: t, password: pw }),
+      });
+    }, [token, memberPassword]);
+
+    // In a fresh context, log in AS the team_member and attempt to unsubmit the
+    // admin's submission. Server must refuse: 403 not_submitter.
+    const memberCtx = await browser.newContext();
+    try {
+      const memberPage = await memberCtx.newPage();
+      await login(memberPage, memberEmail, memberPassword);
+      const { status, bodyText } = await memberPage.evaluate(async (sid) => {
+        const res = await fetch('/api/v1/workflow/unsubmitChecklist', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ submission_id: sid }),
+        });
+        return { status: res.status, bodyText: await res.text() };
+      }, submissionId);
+      expect(status).toBe(403);
+      expect(bodyText).toContain('not_submitter');
+    } finally {
+      await memberCtx.close();
+    }
+
+    // Re-login as admin on the main page: accept-invite above overwrote this
+    // page's session cookie with the team_member's session.
+    await login(page);
+
+    // The submission still exists (was NOT unsubmitted by the non-submitter).
+    const adminHistoryAfter = await apiCall(page, 'GET', 'myHistory');
+    const stillThere = (Array.isArray(adminHistoryAfter) ? adminHistoryAfter : [])
+      .some((s) => s.id === submissionId);
+    expect(stillThere).toBe(true);
+  });
+
+  // FR-8 — History shows the crew member's last 50 submissions, newest first.
+  // Create 52 submissions (unique idempotency keys → 52 distinct rows) and assert
+  // myHistory caps the result at 50 and orders by submitted_at DESC.
+  test('FR-8 myHistory returns at most the last 50 submissions in DESC order', async ({ page }) => {
+    test.setTimeout(120000);
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await cleanupTemplates(page);
+
+    const todayDOW = await getTodayDOW(page);
+    const tpl = await createTestTemplate(page, 'FR8 History Cap', todayDOW);
+    const templateId = tpl.id;
+
+    // Fire 52 submissions, each with a unique idempotency key → 52 distinct rows.
+    const N = 52;
+    for (let i = 0; i < N; i++) {
+      await submitChecklistViaAPI(page, templateId);
+    }
+
+    const history = await apiCall(page, 'GET', 'myHistory');
+    expect(Array.isArray(history)).toBe(true);
+
+    // Cap at 50 even though 52 were created.
+    expect(history.length).toBeLessThanOrEqual(50);
+    // And it IS capped (not fewer than 50) — proves the LIMIT is exercised.
+    expect(history.length).toBe(50);
+
+    // All returned rows are distinct submissions.
+    const ids = history.map((s) => s.id);
+    expect(new Set(ids).size).toBe(ids.length);
+
+    // Ordering: submitted_at is non-increasing (newest first).
+    const times = history.map((s) => new Date(s.submitted_at).getTime());
+    for (let i = 1; i < times.length; i++) {
+      expect(times[i]).toBeLessThanOrEqual(times[i - 1]);
+    }
+  });
+});
