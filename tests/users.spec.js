@@ -916,3 +916,319 @@ async function becomeTeamMember2(page, email) {
   await page.click('button.btn');
   await page.waitForURL(url => !url.pathname.includes('login'));
 }
+
+// ─── UI + Access hardening (FR-2,4,6,9,10,11,15,16,17,18,19) ─────────────────
+//
+// Prove-sweep card: users-prove-ui-access. Red-first assertions that name the
+// observable UI/DB behavior of the Users tool's UNPROVEN flows. All fixtures are
+// admin-session, API-seeded (superadmin login), inline — no shared helper module.
+
+test.describe('Users UI + Access hardening', () => {
+  // ── FR-2: list load-failure renders the inline error state ────────────────
+  test('FR-2: users list fetch failure renders "Could not load team." error state', async ({ page }) => {
+    await login(page);
+    // Force the list fetch to fail with a 500 BEFORE navigating to users.html.
+    await page.route('**/api/v1/users', route => {
+      route.fulfill({ status: 500, contentType: 'application/json', body: '{"error":"internal_error"}' });
+    });
+    await page.goto('/users.html');
+    // The load catch (users.html:213) calls renderError('user-list','Could not load team.')
+    // which writes a .error-msg node — the observable error-branch behavior.
+    const errMsg = page.locator('#user-list .error-msg');
+    await expect(errMsg).toBeVisible({ timeout: 5000 });
+    await expect(errMsg).toContainText('Could not load team.');
+  });
+
+  // ── FR-4: invite validation — 422 on missing fields, 409 on duplicate ─────
+  test('FR-4: invite is refused 422 on empty fields and 409 on duplicate email', async ({ page }) => {
+    await login(page);
+    const ts = Date.now();
+    const email = `dup.invite.${ts}@yumyums.kitchen`;
+
+    // 422 validation_error: missing first_name.
+    const empty = await page.evaluate(async (e) => {
+      const r = await fetch('/api/v1/users/invite', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ first_name: '', last_name: 'NoFirst', email: e, roles: ['team_member'] }),
+      });
+      return { status: r.status, body: await r.json().catch(() => null) };
+    }, `empty.${email}`);
+    expect(empty.status).toBe(422);
+    expect(empty.body.error).toBe('validation_error');
+
+    // Seed a real user, then re-invite the SAME email → 409 email_already_exists.
+    const first = await page.evaluate(async (e) => {
+      const r = await fetch('/api/v1/users/invite', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ first_name: 'Dup', last_name: 'Original', email: e, roles: ['team_member'] }),
+      });
+      return { status: r.status, body: await r.json() };
+    }, email);
+    expect(first.status).toBe(201);
+
+    const dup = await page.evaluate(async (e) => {
+      const r = await fetch('/api/v1/users/invite', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ first_name: 'Dup', last_name: 'Second', email: e, roles: ['team_member'] }),
+      });
+      return { status: r.status, body: await r.json().catch(() => null) };
+    }, email);
+    expect(dup.status).toBe(409);
+    expect(dup.body.error).toBe('email_already_exists');
+  });
+
+  // ── FR-6: reinvite from list issues a fresh token + shows a toast ─────────
+  test('FR-6: reinvite on an invited row mints a fresh reset token and shows a "resent" toast', async ({ page }) => {
+    await login(page);
+    const ts = Date.now();
+    const seed = await usersApiCall(page, 'POST', 'invite', {
+      first_name: 'Reinv', last_name: 'Target',
+      email: `reinvite.${ts}@yumyums.kitchen`, roles: ['team_member'],
+    });
+    expect(seed.user).toBeTruthy();
+    const userId = seed.user.id;
+    const originalToken = tokenFromInvitePath(seed.invite_path);
+
+    // Capture the reset-password response so we can assert a FRESH token was minted.
+    let mintedPath = null;
+    await page.route(`**/api/v1/users/${userId}/reset-password`, async route => {
+      const resp = await route.fetch();
+      const json = await resp.json().catch(() => ({}));
+      mintedPath = json.reset_path || null;
+      await route.fulfill({ response: resp });
+    });
+
+    await page.goto('/users.html');
+    await waitForUserList(page);
+
+    // Tap the row-level Reinvite button (only present on invited users).
+    const reinviteBtn = page.locator(`[data-action="reinvite"][data-user-id="${userId}"]`);
+    await expect(reinviteBtn).toBeVisible();
+    await reinviteBtn.click();
+
+    // A toast confirms the resend (users.html:587).
+    const toast = page.locator('#toast');
+    await expect(toast).toContainText('resent', { timeout: 3000 });
+
+    // The minted token must be a fresh one (different from the original invite token).
+    expect(mintedPath).toBeTruthy();
+    const freshToken = tokenFromInvitePath(mintedPath);
+    expect(freshToken).toBeTruthy();
+    expect(freshToken).not.toBe(originalToken);
+  });
+
+  // ── FR-9: email field is immutable (readonly) on the edit form ────────────
+  test('FR-9: edit form renders the email field read-only', async ({ page }) => {
+    await login(page);
+    const ts = Date.now();
+    const seed = await usersApiCall(page, 'POST', 'invite', {
+      first_name: 'Immut', last_name: 'Email',
+      email: `immut.email.${ts}@yumyums.kitchen`, roles: ['team_member'],
+    });
+    const userId = seed.user.id;
+
+    await page.goto('/users.html');
+    await waitForUserList(page);
+    await page.click(`[data-action="edit-user"][data-user-id="${userId}"]`);
+    await waitForEditCard(page);
+
+    // The email input must carry the readonly attribute — it cannot be changed.
+    const emailField = page.locator('#f-email');
+    await expect(emailField).toHaveAttribute('readonly', '');
+    await expect(emailField).not.toBeEditable();
+  });
+
+  // ── FR-10: server rejects an invalid notification channel with 400 ────────
+  test('FR-10: PATCH with an invalid notification channel returns 400', async ({ page }) => {
+    await login(page);
+    const ts = Date.now();
+    const seed = await usersApiCall(page, 'POST', 'invite', {
+      first_name: 'Chan', last_name: 'Bad',
+      email: `chan.bad.${ts}@yumyums.kitchen`, roles: ['team_member'],
+    });
+    const userId = seed.user.id;
+
+    // Empty channel set → 400 (server requires ≥1).
+    const emptyRes = await page.evaluate(async (id) => {
+      const r = await fetch(`/api/v1/users/${id}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notification_pref: [] }),
+      });
+      return r.status;
+    }, userId);
+    expect(emptyRes).toBe(400);
+
+    // Unknown channel value → 400.
+    const badRes = await page.evaluate(async (id) => {
+      const r = await fetch(`/api/v1/users/${id}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notification_pref: ['carrier_pigeon'] }),
+      });
+      return r.status;
+    }, userId);
+    expect(badRes).toBe(400);
+  });
+
+  // ── FR-11: server rejects an invalid IANA timezone with 400 ───────────────
+  test('FR-11: PATCH with an invalid IANA timezone returns 400', async ({ page }) => {
+    await login(page);
+    const ts = Date.now();
+    const seed = await usersApiCall(page, 'POST', 'invite', {
+      first_name: 'Tz', last_name: 'Bad',
+      email: `tz.bad.${ts}@yumyums.kitchen`, roles: ['team_member'],
+    });
+    const userId = seed.user.id;
+
+    const badTz = await page.evaluate(async (id) => {
+      const r = await fetch(`/api/v1/users/${id}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ timezone: 'Mars/Olympus_Mons' }),
+      });
+      return r.status;
+    }, userId);
+    expect(badTz).toBe(400);
+
+    // Sanity: a valid IANA zone is accepted (200) — proves the 400 above is the
+    // validation firing, not a blanket rejection.
+    const goodTz = await page.evaluate(async (id) => {
+      const r = await fetch(`/api/v1/users/${id}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ timezone: 'America/Chicago' }),
+      });
+      return r.status;
+    }, userId);
+    expect(goodTz).toBe(200);
+  });
+
+  // ── FR-15: inline "Get Invite Link" surfaces the link in the edit card ────
+  test('FR-15: inline Get Invite Link mints a token and renders the link inline', async ({ page }) => {
+    await login(page);
+    const ts = Date.now();
+    // An invited user with NO cached URL renders the "Get Invite Link" button.
+    const seed = await usersApiCall(page, 'POST', 'invite', {
+      first_name: 'Inline', last_name: 'Link',
+      email: `inline.link.${ts}@yumyums.kitchen`, roles: ['team_member'],
+    });
+    const userId = seed.user.id;
+
+    await page.goto('/users.html');
+    await waitForUserList(page);
+    await page.click(`[data-action="edit-user"][data-user-id="${userId}"]`);
+    await waitForEditCard(page);
+
+    // Before: the inline container shows the button and no link yet.
+    const getLinkBtn = page.locator('[data-action="get-invite-link"]');
+    await expect(getLinkBtn).toBeVisible();
+    await expect(page.locator('#invite-inline .invite-url')).toHaveCount(0);
+
+    await getLinkBtn.click();
+
+    // After: a link with a real /login.html?token= URL is rendered inline.
+    const inlineUrl = page.locator('#invite-inline .invite-url');
+    await expect(inlineUrl).toBeVisible({ timeout: 5000 });
+    await expect(inlineUrl).toContainText('/login.html?token=');
+  });
+
+  // ── FR-16/17: Access-tab role toggle persists across a reload ─────────────
+  test('FR-16/17: toggling a role permission persists via PUT and survives a reload', async ({ page }) => {
+    await login(page);
+    await page.goto('/users.html');
+    await waitForUserList(page);
+    await page.click('#t2');
+    await page.waitForFunction(() => {
+      const s2 = document.getElementById('s2');
+      return s2 && s2.querySelector('.access-card');
+    });
+
+    // Pick a stable, addressable toggle (first app's "manager" role) so we can
+    // re-locate the SAME toggle after reload by its slug+role data attributes.
+    const firstSlug = await page.locator('[data-action="toggle-perm"]').first().evaluate(el => el.dataset.slug);
+    const toggle = page.locator(`[data-action="toggle-perm"][data-slug="${firstSlug}"][data-role="manager"]`);
+    const wasChecked = await toggle.isChecked();
+
+    // Flip it. The handler pushes to APPS_PERMS then PUTs the full grant set.
+    await toggle.evaluate(el => el.click());
+    // Wait for the PUT to land (savePermissions is fire-and-forget on release).
+    await page.waitForResponse(r =>
+      r.url().includes(`/api/v1/apps/${firstSlug}/permissions`) && r.request().method() === 'PUT'
+    );
+
+    // Reload — the toggle state must now come from the persisted DB, not memory.
+    await page.reload();
+    await waitForUserList(page);
+    await page.click('#t2');
+    await page.waitForFunction(() => {
+      const s2 = document.getElementById('s2');
+      return s2 && s2.querySelector('.access-card');
+    });
+    const toggleAfter = page.locator(`[data-action="toggle-perm"][data-slug="${firstSlug}"][data-role="manager"]`);
+    expect(await toggleAfter.isChecked()).toBe(!wasChecked);
+
+    // Restore original state so sibling tests are not polluted.
+    await toggleAfter.evaluate(el => el.click());
+    await page.waitForResponse(r =>
+      r.url().includes(`/api/v1/apps/${firstSlug}/permissions`) && r.request().method() === 'PUT'
+    );
+  });
+
+  // ── FR-18/19: individual grant chip add + remove persist across reload ────
+  test('FR-18/19: adding then removing an individual user grant persists across reload', async ({ page }) => {
+    await login(page);
+    const ts = Date.now();
+    // Seed a distinctly-named user so we can find their grant chip by text.
+    const grantee = await usersApiCall(page, 'POST', 'invite', {
+      first_name: `Grantee${ts}`, last_name: 'Chip',
+      email: `grantee.${ts}@yumyums.kitchen`, roles: ['team_member'],
+    });
+    expect(grantee.user).toBeTruthy();
+    const granteeId = String(grantee.user.id);
+    const granteeName = `Grantee${ts}`; // display name is "Grantee<ts> C." — chip/opt text contains this substring
+
+    await page.goto('/users.html');
+    await waitForUserList(page);
+    await page.click('#t2');
+    await page.waitForFunction(() => {
+      const s2 = document.getElementById('s2');
+      return s2 && s2.querySelector('.access-card');
+    });
+
+    // Work against the first app card. Select the grantee in its picker + Add.
+    const firstSlug = await page.locator('.add-grant select').first().evaluate(el => el.id.replace('pick-', ''));
+    // Option value is the grantee's user id; label is the (abbreviated) display name.
+    await page.selectOption(`#pick-${firstSlug}`, granteeId);
+    await page.click(`[data-action="add-grant"][data-slug="${firstSlug}"]`);
+    await page.waitForResponse(r =>
+      r.url().includes(`/api/v1/apps/${firstSlug}/permissions`) && r.request().method() === 'PUT'
+    );
+
+    // FR-18: chip appears. Reload → chip STILL there (persisted).
+    const card = page.locator('.access-card').first();
+    await expect(card.locator('.chip', { hasText: granteeName })).toBeVisible();
+
+    await page.reload();
+    await waitForUserList(page);
+    await page.click('#t2');
+    await page.waitForFunction(() => {
+      const s2 = document.getElementById('s2');
+      return s2 && s2.querySelector('.access-card');
+    });
+    const cardAfterAdd = page.locator(`.access-card`).filter({ has: page.locator('.chip', { hasText: granteeName }) }).first();
+    await expect(cardAfterAdd.locator('.chip', { hasText: granteeName })).toBeVisible();
+
+    // FR-19: remove the chip via its × button. Reload → chip GONE (persisted).
+    await cardAfterAdd.locator('.chip', { hasText: granteeName }).locator('.chip-rm').click();
+    await page.waitForResponse(r =>
+      r.url().includes(`/api/v1/apps/${firstSlug}/permissions`) && r.request().method() === 'PUT'
+    );
+    await expect(page.locator('.chip', { hasText: granteeName })).toHaveCount(0);
+
+    await page.reload();
+    await waitForUserList(page);
+    await page.click('#t2');
+    await page.waitForFunction(() => {
+      const s2 = document.getElementById('s2');
+      return s2 && s2.querySelector('.access-card');
+    });
+    await expect(page.locator('.chip', { hasText: granteeName })).toHaveCount(0);
+  });
+});
