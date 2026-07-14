@@ -5,10 +5,10 @@ const ADMIN_PASSWORD = 'test123';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-async function login(page) {
+async function login(page, email, password) {
   await page.goto('/login.html');
-  await page.fill('input[type="email"]', ADMIN_EMAIL);
-  await page.fill('input[type="password"]', ADMIN_PASSWORD);
+  await page.fill('input[type="email"]', email || ADMIN_EMAIL);
+  await page.fill('input[type="password"]', password || ADMIN_PASSWORD);
   await page.click('button.btn');
   await page.waitForURL(url => !url.pathname.includes('login'));
 }
@@ -862,4 +862,229 @@ test.describe('Purchasing Suggestions', () => {
     expect(suggestionsLoaded.pageLoaded).toBeTruthy();
     expect(suggestionsLoaded.hasOrderContent).toBeTruthy();
   });
+});
+
+// ── prove-sweep: Order-tab flows FR-1, FR-2, FR-4, FR-6 (card purchasing-prove-order) ──
+//
+// Red-first assertions that name the observable DB/UI behavior for the four Order-tab
+// flows the PRD marks UNPROVEN. FR-1/FR-6 are expected RED per the slate. Fixtures are
+// isolated to this describe block; they never mutate state a sibling test depends on
+// (each seeds its own draft/purchase-event or authors its own non-admin session inline).
+
+test.describe('Order tab prove-sweep (FR-1/2/4/6)', () => {
+
+  // status-aware fetch (poApiCall throws without exposing status; FR-6 needs the code).
+  async function poFetchStatus(page, method, path, body) {
+    return page.evaluate(async ([m, p, b]) => {
+      const opts = { method: m, headers: { 'Content-Type': 'application/json' } };
+      if (b) opts.body = JSON.stringify(b);
+      const res = await fetch('/api/v1/purchasing/' + p, opts);
+      let json = null;
+      try { json = await res.json(); } catch (e) { json = null; }
+      return { status: res.status, ok: res.ok, body: json };
+    }, [method, path, body]);
+  }
+
+  // Ensure the current-week draft exists but is NOT yet locked. Returns the draft PO.
+  async function ensureDraft(page) {
+    return poApiCall(page, 'POST', 'orders');
+  }
+
+  test.beforeEach(async ({ page }) => {
+    await login(page);
+    await page.goto('/purchasing.html');
+    await page.waitForLoadState('networkidle');
+  });
+
+  // FR-1 — On load POST /orders always returns an editable DRAFT. When this week's PO
+  // is locked, the returned draft must roll to NEXT week (never hand back the locked PO).
+  // Observable: after simulate-cutoff locks this week, POST /orders returns status='draft'
+  // AND a week_start strictly after the locked PO's week_start.
+  test('FR-1: locked-week draft rolls to next week (POST /orders returns a next-week draft)', async ({ page }) => {
+    // Precondition: a locked PO must exist. Reuse an existing one if the stack already
+    // has one (idempotent — avoids the locked_po_pending_approval 409 from re-locking);
+    // otherwise seed a draft with an item and simulate-cutoff to create it.
+    let locked = await poApiCall(page, 'GET', 'orders?status=locked').catch(() => null);
+    if (!locked || !locked.id) {
+      const draft = await ensureDraft(page);
+      const items = await page.evaluate(async () => (await fetch('/api/v1/inventory/items')).json());
+      if (!items || !items.length) { test.skip(true, 'No catalog items to seed a draft'); return; }
+      await poApiCall(page, 'PUT', 'orders/' + draft.id + '/items', {
+        items: [{ purchase_item_id: items[0].id, quantity: 2, unit: '' }],
+      });
+      await poApiCall(page, 'POST', 'simulate-cutoff');
+      locked = await poApiCall(page, 'GET', 'orders?status=locked');
+    }
+    expect(locked).toBeTruthy();
+    expect(locked.status).toBe('locked');
+    const lockedWeek = locked.week_start;
+
+    // With this week locked, the Order tab must roll to an editable NEXT-week draft.
+    const rolled = await poApiCall(page, 'POST', 'orders');
+    expect(rolled).toBeTruthy();
+    expect(rolled.status).toBe('draft');                 // never a locked PO
+    expect(rolled.id).not.toBe(locked.id);               // a different order
+    // week_start must advance past the locked week (roll-to-next-week branch).
+    expect(new Date(rolled.week_start).getTime())
+      .toBeGreaterThan(new Date(lockedWeek).getTime());
+  });
+
+  // FR-2 — Stepping a line item persists across reload; stepping to qty 0 removes it.
+  // Observable: after debounced save + reload, GET /orders/{id} line_items shows the new
+  // qty for the stepped item; a qty-0 item is absent from the persisted set.
+  test('FR-2: qty stepper persists across reload and qty-0 removes the line', async ({ page }) => {
+    const items = await page.evaluate(async () => (await fetch('/api/v1/inventory/items')).json());
+    if (!items || items.length < 2) { test.skip(true, 'Need >=2 catalog items'); return; }
+    const keepItem = items[0];   // will be stepped up to 3 and kept
+    const dropItem = items[1];   // will be stepped down to 0 and removed
+
+    // Seed the current draft with both items at qty 2.
+    const draft = await ensureDraft(page);
+    await poApiCall(page, 'PUT', 'orders/' + draft.id + '/items', {
+      items: [
+        { purchase_item_id: keepItem.id, quantity: 2, unit: '' },
+        { purchase_item_id: dropItem.id, quantity: 2, unit: '' },
+      ],
+    });
+
+    await page.reload();
+    await page.waitForLoadState('networkidle');
+    await page.waitForSelector('#s1 .item-card[data-item-id="' + keepItem.id + '"]', { timeout: 8000 });
+
+    // Scope to the Order tab (#s1); the qty is the aria-labelled span in each card's stepper.
+    const keepQty = page.locator('#s1 .item-card[data-item-id="' + keepItem.id + '"] .stp span[aria-label]');
+    const dropQty = page.locator('#s1 .item-card[data-item-id="' + dropItem.id + '"] .stp span[aria-label]');
+
+    // Step keepItem UP by one (2 -> 3).
+    await page.locator('#s1 .item-card[data-item-id="' + keepItem.id + '"] [data-action="qty-inc"]').click();
+    await expect(keepQty).toHaveText('3');
+
+    // Step dropItem DOWN to 0 (2 -> 1 -> 0).
+    const decDrop = page.locator('#s1 .item-card[data-item-id="' + dropItem.id + '"] [data-action="qty-dec"]');
+    await decDrop.click();
+    await decDrop.click();
+    await expect(dropQty).toHaveText('0');
+
+    // Let the debounced save flush, then reload and read the PERSISTED set.
+    await page.waitForResponse(res => res.url().includes('/orders/') && res.url().includes('/items') && res.request().method() === 'PUT', { timeout: 6000 }).catch(() => {});
+    await page.waitForTimeout(1200);
+    await page.reload();
+    await page.waitForLoadState('networkidle');
+
+    const persisted = await poApiCall(page, 'GET', 'orders/' + draft.id);
+    const li = persisted.line_items || [];
+    const keep = li.find(x => x.purchase_item_id === keepItem.id);
+    const drop = li.find(x => x.purchase_item_id === dropItem.id);
+    expect(keep).toBeTruthy();
+    expect(keep.quantity).toBe(3);          // stepped-up qty persisted
+    expect(drop).toBeFalsy();               // qty-0 line removed from the persisted set
+  });
+
+  // FR-4 — Restock suggestions render and "Add Selected" bulk-adds them to the order.
+  // Seed a purchase event (gives a catalog item stock below its group threshold) so the
+  // suggestions query returns a concrete candidate, then drive the UI bulk-add and assert
+  // the item lands on the PERSISTED PO line-item set after reload.
+  test('FR-4: restock suggestions render and Add Selected persists them onto the order', async ({ page }) => {
+    // Fresh draft so the candidate item is guaranteed NOT already on the PO.
+    const draft = await ensureDraft(page);
+
+    // Pick a catalog item that is not currently a draft line item, and give it stock=2
+    // via a purchase event (2 < default high threshold 10, > 0 -> becomes a suggestion).
+    const items = await page.evaluate(async () => (await fetch('/api/v1/inventory/items')).json());
+    const vendors = await page.evaluate(async () => (await fetch('/api/v1/inventory/vendors')).json());
+    if (!items || !items.length || !vendors || !vendors.length) { test.skip(true, 'No catalog items/vendors to seed a suggestion'); return; }
+    const onPO = new Set((draft.line_items || []).map(x => x.purchase_item_id));
+    const candidate = items.find(it => !onPO.has(it.id));
+    if (!candidate) { test.skip(true, 'No off-PO catalog item to seed a suggestion'); return; }
+
+    await page.evaluate(async ([vid, pid]) => {
+      await fetch('/api/v1/inventory/purchases', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          vendor_id: vid, bank_tx_id: 'nc-fr4-' + Date.now(), event_date: '2026-07-01', total: 10,
+          line_items: [{ purchase_item_id: pid, description: 'fr4 seed', quantity: 2, price: 5 }],
+        }),
+      });
+    }, [vendors[0].id, candidate.id]);
+
+    // Confirm the suggestion is really produced for THIS draft (guards the fixture).
+    const suggestions = await poApiCall(page, 'GET', 'orders/' + draft.id + '/suggestions');
+    const sug = (suggestions || []).find(s => s.purchase_item_id === candidate.id);
+    expect(sug).toBeTruthy();   // fixture must yield a concrete suggestion, not an empty set
+
+    // Reload so the Order tab hydrates SUGGESTIONS, then open the suggestions card.
+    await page.reload();
+    await page.waitForLoadState('networkidle');
+    await page.waitForSelector('#s1 [data-action="toggle-suggestions"]', { timeout: 8000 });
+    await page.locator('#s1 [data-action="toggle-suggestions"]').first().click();
+
+    // The suggestion row for our candidate must render, then check it and Add Selected.
+    const cb = page.locator('.suggest-row input[data-suggest-id="' + candidate.id + '"]');
+    await expect(cb).toBeVisible();
+    await cb.check();
+    await page.locator('[data-action="add-selected"]').click();
+
+    // Persisted assertion: after the save + reload, the candidate is on the PO at its
+    // suggested qty.
+    await page.waitForResponse(res => res.url().includes('/orders/') && res.url().includes('/items') && res.request().method() === 'PUT', { timeout: 6000 }).catch(() => {});
+    await page.waitForTimeout(1000);
+    const persisted = await poApiCall(page, 'GET', 'orders/' + draft.id);
+    const added = (persisted.line_items || []).find(x => x.purchase_item_id === candidate.id);
+    expect(added).toBeTruthy();                         // bulk-add wrote the line item
+    expect(added.quantity).toBe(sug.suggested_qty);     // at the suggested qty
+  });
+
+  // FR-6 — Cutoff config is settable by an admin (round-trips) and returns 403 for a
+  // non-admin (team_member). The non-admin session is authored INLINE per the runbook
+  // (invite -> accept-invite -> login as them); no shared helper module.
+  test('FR-6: cutoff config is admin-settable and returns 403 for a non-admin', async ({ page }) => {
+    // --- Admin path: PUT /cutoff round-trips ---
+    const saved = await poApiCall(page, 'PUT', 'cutoff', {
+      day_of_week: 3, cutoff_time: '17:30', timezone: 'America/Chicago',
+    });
+    expect(saved).toBeTruthy();
+    expect(saved.day_of_week).toBe(3);
+    expect((saved.cutoff_time || '').slice(0, 5)).toBe('17:30');
+    const roundTrip = await poApiCall(page, 'GET', 'cutoff');
+    expect(roundTrip.day_of_week).toBe(3);
+    expect((roundTrip.cutoff_time || '').slice(0, 5)).toBe('17:30');
+
+    // --- Non-admin path: author a team_member session inline, PUT /cutoff -> 403 ---
+    const email = 'nc-fr6-teammember-' + Date.now() + '@yumyums.kitchen';
+    const invite = await page.evaluate(async (em) => {
+      const res = await fetch('/api/v1/users/invite', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ first_name: 'Cutoff', last_name: 'NonAdmin', email: em, roles: ['team_member'] }),
+      });
+      return res.json();
+    }, email);
+    const token = (invite.invite_path || '').split('token=')[1];
+    expect(token).toBeTruthy();
+    await page.evaluate(async (t) => {
+      await fetch('/api/v1/auth/accept-invite', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: t, password: 'test456' }),
+      });
+    }, token);
+
+    // Log in as the team_member (accept-invite already rotated the cookie, but log in
+    // explicitly to be certain the session is the non-admin's).
+    await login(page, email, 'test456');
+    await page.goto('/purchasing.html');
+    await page.waitForLoadState('networkidle');
+
+    const forbidden = await poFetchStatus(page, 'PUT', 'cutoff', {
+      day_of_week: 5, cutoff_time: '09:00', timezone: 'America/Chicago',
+    });
+    expect(forbidden.status).toBe(403);   // non-admin cannot save cutoff
+
+    // And no state change: the admin-saved config still reads day=3 17:30.
+    await login(page);
+    await page.goto('/purchasing.html');
+    await page.waitForLoadState('networkidle');
+    const after = await poApiCall(page, 'GET', 'cutoff');
+    expect(after.day_of_week).toBe(3);
+    expect((after.cutoff_time || '').slice(0, 5)).toBe('17:30');
+  });
+
 });
