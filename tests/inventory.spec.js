@@ -3554,3 +3554,230 @@ test.describe('Inventory prove sweep — Purchases', () => {
     expect(page2.some(ev => ev.id === evA.id)).toBe(false);
   });
 });
+
+// ─── Prove sweep — Stock (Track E, card 2: FR-12/13/14/15) ──────────────────
+//
+// These convert the count-dependent guards in the Stock-tab tests (the ones
+// that soft-pass when `stock-item` count is 0) into hard, red-first assertions
+// backed by a REAL seed: a vendor + (for FR-12) a group with custom thresholds
+// + item + a confirmed purchase_event with a known line-item quantity. The
+// Stock tab derives its levels from `GET /api/v1/inventory/stock`, which returns
+// the aggregated {total_quantity, low_threshold, high_threshold, level,
+// needs_reorder} per item description — so the classification (FR-12) and the
+// COALESCE override (FR-13) are asserted directly against that observable API
+// state, and the manual-count contract (FR-14) is asserted against the
+// `POST /stock/count` status + a follow-up `GET /stock` read. FR-15 (client-only
+// nav aids) drives the reorder-suggestion tap + the "View in Setup" magic-link
+// in the live UI and asserts the resulting expand/scroll/tab state.
+//
+// Appended at END of file to run last (no sibling-test pollution).
+test.describe('Inventory prove sweep — Stock', () => {
+
+  test.beforeEach(async ({ page }) => {
+    await login(page);
+    await page.goto('/inventory.html');
+    await page.waitForLoadState('networkidle');
+  });
+
+  // Helper: create a vendor, a group with the given thresholds, an item in that
+  // group, and a confirmed purchase_event whose single line item carries `qty`
+  // for that item's description. Returns the item description (the /stock join
+  // key) so the test can find its row in the /stock response.
+  async function seedStockItem(page, { stamp, groupName, itemDesc, qty, price, lowT, highT }) {
+    const vendor = await invApiCall(page, 'POST', 'vendors', { name: 'Stock Vendor ' + stamp });
+    expect(vendor && vendor.id).toBeTruthy();
+    const group = await invApiCall(page, 'POST', 'groups', { name: groupName });
+    expect(group && group.id).toBeTruthy();
+    if (lowT !== undefined && highT !== undefined) {
+      // 204 No Content on success — invApiCall returns null for 204.
+      await invApiCall(page, 'PUT', 'groups', { id: group.id, low_threshold: lowT, high_threshold: highT });
+    }
+    const item = await invApiCall(page, 'POST', 'items', { description: itemDesc, group_id: group.id });
+    expect(item && item.id).toBeTruthy();
+    // /stock groups by COALESCE(pi.description, pli.description); link the line
+    // item to the purchase_item so it inherits the group's thresholds.
+    const ev = await seedPurchaseEvent(page, {
+      vendorId: vendor.id, bankTxId: 'stock-' + stamp, eventDate: '2026-04-15',
+      total: qty * price,
+      lineItems: [{ description: itemDesc, quantity: qty, price, purchase_item_id: item.id }],
+    });
+    expect(ev && ev.id).toBeTruthy();
+    // CreateItem + CreatePurchaseEvent both title-case the description
+    // (normalizeItemName), so the /stock join key is the title-cased form.
+    const titled = itemDesc.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+    return { vendorId: vendor.id, groupId: group.id, itemId: item.id, description: titled };
+  }
+
+  async function getStockRow(page, description) {
+    const stock = await invApiCall(page, 'GET', 'stock');
+    expect(Array.isArray(stock)).toBe(true);
+    return stock.find(s => s.description === description);
+  }
+
+  // FR-12 — Stock levels are classified low/medium/high against the item
+  // group's thresholds (GetStockHandler's SQL aggregation + ClassifyStockLevel).
+  // The classifier unit test covers the 7 branches, but the *handler* (SQL
+  // aggregation + COALESCE threshold + level tag) had no test. Seed a group with
+  // low=5/high=20 and three items at qty 3 (≤low → low), qty 10 (>low,<high →
+  // medium), qty 25 (≥high → high); assert /stock returns the right level +
+  // needs_reorder per item, proving the join carries the group thresholds.
+  test('FR-12: /stock classifies low/medium/high against group thresholds', async ({ page }) => {
+    const stamp = Date.now();
+    // Same group (low=5/high=20) shared by all three items so the threshold
+    // source is unambiguous. Reuse the group id across seeds.
+    const vendor = await invApiCall(page, 'POST', 'vendors', { name: 'FR12 Vendor ' + stamp });
+    const group = await invApiCall(page, 'POST', 'groups', { name: 'FR12 Group ' + stamp });
+    expect(group && group.id).toBeTruthy();
+    await invApiCall(page, 'PUT', 'groups', { id: group.id, low_threshold: 5, high_threshold: 20 });
+
+    const cases = [
+      { desc: 'fr12 low ' + stamp, qty: 3, expLevel: 'low', expReorder: true },
+      { desc: 'fr12 mid ' + stamp, qty: 10, expLevel: 'medium', expReorder: true },
+      { desc: 'fr12 high ' + stamp, qty: 25, expLevel: 'high', expReorder: false },
+    ];
+    for (const c of cases) {
+      const item = await invApiCall(page, 'POST', 'items', { description: c.desc, group_id: group.id });
+      expect(item && item.id).toBeTruthy();
+      const ev = await seedPurchaseEvent(page, {
+        vendorId: vendor.id, bankTxId: 'fr12-' + c.expLevel + '-' + stamp, eventDate: '2026-04-15',
+        total: c.qty * 2, lineItems: [{ description: c.desc, quantity: c.qty, price: 2, purchase_item_id: item.id }],
+      });
+      expect(ev && ev.id).toBeTruthy();
+    }
+
+    const stock = await invApiCall(page, 'GET', 'stock');
+    expect(Array.isArray(stock)).toBe(true);
+    for (const c of cases) {
+      const titled = c.desc.toLowerCase().replace(/\b\w/g, ch => ch.toUpperCase());
+      const row = stock.find(s => s.description === titled);
+      expect(row, 'stock row for ' + titled + ' must exist').toBeTruthy();
+      // Thresholds carried from the group via the pi.group_id join.
+      expect(row.low_threshold).toBe(5);
+      expect(row.high_threshold).toBe(20);
+      expect(row.total_quantity).toBe(c.qty);
+      expect(row.level).toBe(c.expLevel);
+      expect(row.needs_reorder).toBe(c.expReorder);
+    }
+  });
+
+  // FR-13 — COALESCE(stock_count_overrides.quantity, SUM(line_item quantity)):
+  // a manual override wins over the derived sum. Seed a purchase summing to 12,
+  // read /stock (12), POST an override of 2 (with a reason), read /stock again
+  // and assert the override value (2) is returned — not the derived sum (12) —
+  // and that the level reclassifies against the group thresholds accordingly.
+  test('FR-13: stock override value wins over derived sum (COALESCE)', async ({ page }) => {
+    const stamp = Date.now();
+    const seed = await seedStockItem(page, {
+      stamp, groupName: 'FR13 Group ' + stamp, itemDesc: 'fr13 widget ' + stamp,
+      qty: 12, price: 3, lowT: 5, highT: 20,
+    });
+    // Pre-override: derived sum is 12 → medium (>low 5, <high 20).
+    const before = await getStockRow(page, seed.description);
+    expect(before, 'seeded stock row must exist').toBeTruthy();
+    expect(before.total_quantity).toBe(12);
+    expect(before.level).toBe('medium');
+
+    // Manual override to 2 (below low threshold → should flip to 'low').
+    const status = await page.evaluate(async ([desc, qty]) => {
+      const r = await fetch('/api/v1/inventory/stock/count', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ item_description: desc, quantity: qty, reason: 'Counted shelf' }),
+      });
+      return r.status;
+    }, [seed.description, 2]);
+    expect(status).toBe(204);
+
+    // Post-override: /stock returns the override (2), NOT the derived sum (12).
+    const after = await getStockRow(page, seed.description);
+    expect(after, 'stock row still present after override').toBeTruthy();
+    expect(after.total_quantity).toBe(2);   // COALESCE picks override over sum
+    expect(after.total_quantity).not.toBe(12);
+    expect(after.level).toBe('low');        // 2 ≤ low(5) → low
+  });
+
+  // FR-14 — A manual stock count requires a non-empty reason and persists.
+  // (a) POST /stock/count with an empty reason → 400 reason_required, and the
+  //     override is NOT written (a follow-up read shows the derived sum, not the
+  //     rejected quantity).
+  // (b) POST with a reason → 204, and GET /stock reflects the overridden count.
+  test('FR-14: manual count requires reason (400) and persists (204)', async ({ page }) => {
+    const stamp = Date.now();
+    const seed = await seedStockItem(page, {
+      stamp, groupName: 'FR14 Group ' + stamp, itemDesc: 'fr14 widget ' + stamp,
+      qty: 8, price: 2, lowT: 3, highT: 15,
+    });
+    const initial = await getStockRow(page, seed.description);
+    expect(initial.total_quantity).toBe(8); // derived sum baseline
+
+    // (a) Empty reason → 400 reason_required, no override written.
+    const noReason = await page.evaluate(async (desc) => {
+      const r = await fetch('/api/v1/inventory/stock/count', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ item_description: desc, quantity: 99, reason: '   ' }),
+      });
+      let body = null; try { body = await r.json(); } catch (e) {}
+      return { status: r.status, body };
+    }, seed.description);
+    expect(noReason.status).toBe(400);
+    expect(noReason.body && noReason.body.error).toBe('reason_required');
+    // The rejected quantity (99) must NOT have been persisted.
+    const afterReject = await getStockRow(page, seed.description);
+    expect(afterReject.total_quantity).toBe(8);
+    expect(afterReject.total_quantity).not.toBe(99);
+
+    // (b) With a reason → 204, and the override persists into /stock.
+    const withReason = await page.evaluate(async (desc) => {
+      const r = await fetch('/api/v1/inventory/stock/count', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ item_description: desc, quantity: 1, reason: 'Spoiled item' }),
+      });
+      return r.status;
+    }, seed.description);
+    expect(withReason).toBe(204);
+    const persisted = await getStockRow(page, seed.description);
+    expect(persisted.total_quantity).toBe(1); // override reflected in Stock
+  });
+
+  // FR-15 — Stock-tab navigation aids (client-only):
+  //  (a) tapping a reorder suggestion scrolls to + expands the stock item;
+  //  (b) "View in Setup" magic-links to the Setup tab (t7) with the item's
+  //      edit form opened.
+  // Backed by a real low-stock seed so the reorder-suggestions section renders
+  // (needs_reorder=true) and the stock item is present in the live UI.
+  test('FR-15: reorder-tap expands item + View-in-Setup jumps to Setup tab', async ({ page }) => {
+    const stamp = Date.now();
+    const seed = await seedStockItem(page, {
+      stamp, groupName: 'FR15 Group ' + stamp, itemDesc: 'fr15 widget ' + stamp,
+      qty: 2, price: 4, lowT: 5, highT: 20,  // qty 2 ≤ low 5 → low, needs_reorder=true
+    });
+
+    // Load the Stock tab (t2) fresh so it fetches /stock.
+    await page.goto('/inventory.html#tab=2');
+    await page.waitForLoadState('networkidle');
+    // Click the Stock tab explicitly in case the hash didn't activate it.
+    await page.locator('#t2').click();
+    await waitForStockContent(page);
+
+    // (a) The reorder-suggestions section renders our low item, and tapping it
+    // expands the corresponding stock item (its detail row becomes visible).
+    const reorderItem = page.locator('[data-action="scroll-to-stock-item"][data-stock-id="' + seed.description + '"]');
+    await expect(reorderItem).toBeVisible();
+    // The stock item detail starts collapsed (no .stock-detail sibling shown).
+    const stockItem = page.locator('.stock-item[data-group-id="' + seed.description + '"]');
+    await expect(stockItem).toBeVisible();
+    await reorderItem.click();
+    // After the tap, EXPANDED_STOCK_ITEMS[desc]=true → the "View in Setup"
+    // button (only rendered inside the expanded detail) is now present.
+    const viewInSetup = page.locator('[data-action="goto-setup-item"][data-item-desc="' + seed.description + '"]');
+    await expect(viewInSetup).toBeVisible();
+
+    // (b) "View in Setup" switches to the Setup tab (t7 gains 'on', s7 visible)
+    // and opens the item's edit form (ITEM_EDIT_ID set → .item-edit-form
+    // for this item id renders).
+    await viewInSetup.click();
+    await expect(page.locator('#t7')).toHaveClass(/on/);
+    await expect(page.locator('#s7')).toBeVisible();
+    // The Setup tab's items list loads and the seeded item's edit form opens.
+    await expect(page.locator('.item-edit-form[data-item-id="' + seed.itemId + '"]')).toBeVisible({ timeout: 5000 });
+  });
+});
