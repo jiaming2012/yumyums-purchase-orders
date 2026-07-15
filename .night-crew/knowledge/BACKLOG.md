@@ -5,6 +5,14 @@
 > status`. Promote to a roadmap card with `promoted → <card>`; drop with `dropped — reason`
 > (struck through, kept as record).
 
+> **🏁 Milestone boundary — HQ hardening cycle closed 2026-07-16 (cycle-gate signed off, ledger
+> T-14).** The `new` items below are now the **feedstock for the next cycle's `/nc-okr-session`**.
+> Nothing here was resolved by the read-only closeout run (it touched no code). The cycle's carried
+> residue in one place: the ~37–41 flaky/data-dependent + SW-blocked suite pool (declined "Stabilize
+> the suite," 2026-07-15) and the ~18 vacuous-test remainder are captured by the test-hardening notes
+> below; the 3 harness WOs, F-1, F-2, and the video-pipeline fixture are itemized as their own entries.
+> Per T-10/T-12, promotion/scheduling of any item is a planner call, not an operator hand-pick.
+
 - **Onboarding video-pipeline E2E fixture (prove FR-16 + NFR-4)** · Stand up a DO Spaces bucket +
   an `ffmpeg` binary on the E2E host so the video presign→PUT→FFmpeg transcode/thumbnail path
   (FR-16, `handler.go:540-640`, `video.go:22-206`) and the `503 video_storage_not_configured`

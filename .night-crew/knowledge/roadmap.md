@@ -155,7 +155,10 @@ The OKR closeout, across all five apps.
 |---|---|---|---|
 | `cycle-gate` | **DONE** ✅ attested 2026-07-16 (overnight-20260716; 3 cards G6-equiv PASS — suite-baseline · attestation · scorecard; **ATTEST & WAIVE** per operator 2026-07-15) | all Activity-4 cards | Eng KR-1/2, QA KR-1/2/3 |
 
-> ✅ **Activity 5 complete — CYCLE GATE ATTESTED (PASS). Milestone boundary reached.**
+> ✅ **Activity 5 complete — CYCLE GATE SIGNED OFF (PASS). Cycle closed. Milestone boundary reached.**
+> _Triage-ratified 2026-07-16 (ledger **T-14**); merged `overnight-20260716` → `dev` `--no-ff`
+> (`7f57d14`); merged-tree `go test` re-verified (5 ok + 1 documented env-gated red). Push held at
+> operator request. **This is the last activity of the HQ hardening cycle — the roadmap is complete.**_
 > Fanned into 3 read-only closeout cards, serial. **Scorecard: 6 PASS · 2 PARTIAL · 1 WAIVED**
 > (see `reference/cycle-closeout-20260716.md`). Attested: 0 known-broken flows (built 4→0 +1 NFR-1;
 > §1 confirms no repaired flow regressed) · every repaired flow red-first · median WO cycle time

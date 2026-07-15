@@ -1,5 +1,10 @@
 # DECISIONS-NEEDED — overnight-20260716
 
+> **RESOLVED 2026-07-16 — recorded as `ledger.md` T-14 (morning-triage resolutions
+> 2026-07-16).** No forks were parked (the PARK trigger did not fire); the cycle gate was
+> ratified and signed off, the run merged to `dev` `--no-ff` (`7f57d14`). Kept as the run's
+> analysis record. Milestone boundary — next move is `/nc-okr-session`.
+
 > Forks/exceptions surfaced by the cycle-gate closeout run that need an operator
 > decision at morning triage. Empty header = nothing parked.
 
