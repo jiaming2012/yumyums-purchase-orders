@@ -213,3 +213,49 @@ new failures.
   sweep whose every card already ran its affected-seam subset red-first against a fresh-DB baseline on
   its own ephemeral stack; it re-arms as a triage requirement if a future run changes app code broadly
   enough that a full-suite attended pass is the only trustworthy gate.
+
+## Cycle-gate closeout (overnight-20260716) — attested, pending triage ratification
+
+Autonomous closeout run for Activity 5 (`cycle-gate`) — the last activity. 3 read-only cards, serial,
+no app source touched (`*.html` / `internal/*` / `*.spec.js` all unedited; `task sw` never ran). Full
+record: `reference/cycle-closeout-20260716.md`. **This entry is the overnight closeout; the operator
+ratifies (or amends) it at `/nc-morning-triage`.**
+
+- **T-13 — CYCLE GATE ATTESTED (PASS) under the operator's 2026-07-15 "Attest & waive" posture.**
+  Scorecard **6 PASS · 2 PARTIAL · 1 WAIVED** across the 9 KRs. **Attested (3 criteria):** (1) *0
+  known-broken flows* — built denominator 4→0 (T-9) plus the graduated NFR-1 fix (T-12); the four
+  D-3/D-5 waivers are the only exclusions; the full-suite run independently confirmed all four
+  repaired flows' own tests are GREEN and none regressed. (2) *Every repaired flow red-first* — one
+  git-verifiable RED→GREEN pair (Inventory NFR-1: `1a0265e` precedes fix `77957c1`), four documented
+  on the `card-actuals.md` record (the Activity-4 squash merges bundle test+fix, so the pre-fix
+  failing commit is not standalone-reconstructable — **caveat carried, not hidden**). (3) *Median WO
+  cycle-time baseline* computed: **N=23, median 22m28s** (serial ~19.4m / concurrent rolling-3
+  ~23.4m; no pass/fail target this cycle). **Waived (2 criteria), carried to the next roadmap:**
+  (a) *"full E2E suite green / 0 pre-existing reds"* → attested substitute **"0 new uncategorized
+  reds vs the documented ~37–41 flaky baseline."** The bare full-suite run (isolated pg16, replicating
+  `task test:all`) landed **387 pass · 38 fail · 0 flaky · 6 skip** (Playwright) + **1 env-gated Go
+  red** (`internal/receipt`, no `ANTHROPIC_API_KEY`). Every red categorized against a documented cause
+  (SW-blocked/offline, reload/tab-persistence, cross-test DB-pollution, and the documented
+  data-dependent/persona fixture guards); a 7-test fix-adjacent isolation re-run confirmed the split
+  (1 pollution→green-in-isolation, 6 structural/seed). `serviceWorkers:'block'` (`playwright.config.js:29`)
+  makes a literal clean suite structurally unreachable. **0 uncategorized reds → PARK trigger did not
+  fire** (`runs/2026-07-16-autonomous/DECISIONS-NEEDED.md` empty). (b) *"vacuous tests 23→0"* → ~4–5
+  rewritten this cycle, ~18 remainder deferred as test-hardening WOs (`BACKLOG.md`). Chosen per the
+  operator's explicit 2026-07-15 "Attest & waive" over "Stabilize the suite" (declined): the two
+  unmeetable criteria collide with HQ's documented flaky pool + the SW-block + the deferred
+  test-hardening WOs, so they are formally waived and their work carried forward, extending the
+  D-3/D-5 waiver precedent.
+
+- **Milestone boundary reached — next move is NOT `/nc-slate-plan`.** Activity 5 is the last activity;
+  on this clean gate the morning path is `/nc-morning-triage` (review + merge `overnight-20260716` →
+  `dev`), then `/nc-okr-session` to open the next cycle and consume the carried-forward backlog. The
+  carried feedstock: the ~37–41 flaky/data-dependent + SW-blocked pool; the ~18 vacuous remainder
+  (Ops FR-10/12, Ops FR-15, Onboarding 6 guards, Inventory ~40 guards); the 3 harness WOs
+  (`WO-cron-clock-seam`, `WO-photo-s3-harness`, `WO-offline-indexeddb-harness`); F-1 (Ops NFR-3
+  resubmit gate); the Onboarding video-pipeline E2E fixture (D-5 prove-path); F-2 (`users.html:122`
+  orphaned `#s3`).
+
+- **Standing flags after this run.** DB flag stays satisfied (isolated Docker pg16; `localhost:5432`
+  untouched — held by unrelated `infra-postgres-1`, so this run stood up its own pg16 on port 5455 and
+  tore it down `--volumes`). No app code changed → nothing to re-verify beyond the gate evidence
+  itself.
