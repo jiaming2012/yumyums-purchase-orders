@@ -205,3 +205,40 @@
   clean way to prove pure-logic decision rules (parseCutoffTime, isAdmin, cutoff-rule) without an
   E2E stack — but crons that read `time.Now()` inline are NOT unit-testable without a production
   clock-seam (→ PARK + future WO, not a tonight fix).
+
+## Run: overnight-20260716 (Activity 5 — the CYCLE-GATE closeout; read-only, one full-suite run)
+
+> **New card shape:** read-only closeout, no app code. Card 1 = orchestrator-run full-suite baseline
+> on an isolated pg16 (Go units + Playwright + a fix-adjacent isolation re-run to categorize reds);
+> Cards 2 & 3 = fresh read-only audit subagents (PRD/git attestation; metric + KR scorecard) returning
+> their section as a report → the orchestrator assembled the closeout doc, flipped the roadmap, and
+> appended the ledger. **Serial.** No G6 leg per card (the suite run IS the evidence; the orchestrator
+> cross-verified — independently re-checked the median, spot-checked fix commits in `git log`, and ran
+> the 7-test isolation re-run to prove the red categorization).
+
+| Card | Type | Slate est. | Actual (wall-clock) | Verdict | Notes |
+|---|---|---|---|---|---|
+| `cycle-gate-suite-baseline` (Wave 0, gating) | read-only + 1 stack run | ~30–40 min | **~20 min** | ATTEST PASS | isolated pg16 (:5455, no touch to :5432); Go 5 ok + 1 env-gated red; Playwright **387 pass · 38 fail · 0 flaky · 6 skip** in **12.7m**; +~3m 7-test isolation re-run; all 38 reds categorized, 0 uncategorized → no PARK |
+| `cycle-gate-attestation` | read-only audit (subagent) | ~15–20 min | **~3m26s** | PASS | 4→0 built-broken; 1 git-verifiable red→green pair (NFR-1), 4 on ledger record (squash caveat surfaced) |
+| `cycle-gate-scorecard` | read-only compute (subagent) | ~15–20 min | **~2m09s** | PASS | median WO cycle time N=23, 22m28s; 9-KR scorecard 6 PASS · 2 PARTIAL · 1 WAIVED |
+| **Total (3 cards, serial)** | — | ~1h58m (critical path) | **~26m subagent/suite wall-clock** + orchestrator assembly | 3 attest/PASS / 0 park | + closeout doc + roadmap flip + ledger append |
+
+### Fifth-slate observations (seed for future closeout/gate cards)
+
+- **Closeout cards are audit-shaped, not build-shaped.** The two audit subagents came in **~2–3.5 min**
+  — same order as the Activity-2/3 audit cards, and again **6–8× under** the slate's first-of-kind
+  estimate. The cost center is the **one full-suite run** (Card 1, ~20m), which is real,
+  non-compressible Playwright wall-clock (12.7m suite + Docker + Go + the isolation re-run). Size a
+  gate/closeout night on **1 full-suite run (~15–25m) + a few-minute audit per evidence leg**, not on
+  the build-card shape.
+- **The isolation re-run is the load-bearing move on a gate.** `0 flaky` on the full run means every
+  red was deterministic-within-run, so "flaky" couldn't be assumed — a 7-test fix-adjacent re-run on a
+  fresh single-test DB was what actually separated cross-test pollution (1 greened alone) from
+  structural/seed causes (6 reproduced). Budget one targeted isolation re-run whenever a full-suite
+  gate must attest "0 new uncategorized reds" — it's the difference between an evidenced attestation
+  and a hand-wave.
+- **A bare `task test:all` reproduces the documented ~37–41 baseline (got 38).** The full suite seeds
+  only self-seeded superadmins; the per-card domain fixtures/personas prior prove cards used are absent,
+  so the reds concentrate in the data-dependent/persona guards + the SW-blocked/offline tests. This is
+  exactly why the gate criterion is judged "no-new-reds-vs-baseline," not "clean suite" — the bare
+  full-suite red count is a documented, stable property, not a regression signal.

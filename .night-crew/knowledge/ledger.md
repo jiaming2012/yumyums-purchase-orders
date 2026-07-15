@@ -213,3 +213,93 @@ new failures.
   sweep whose every card already ran its affected-seam subset red-first against a fresh-DB baseline on
   its own ephemeral stack; it re-arms as a triage requirement if a future run changes app code broadly
   enough that a full-suite attended pass is the only trustworthy gate.
+
+## Cycle-gate closeout (overnight-20260716) — attested, pending triage ratification
+
+Autonomous closeout run for Activity 5 (`cycle-gate`) — the last activity. 3 read-only cards, serial,
+no app source touched (`*.html` / `internal/*` / `*.spec.js` all unedited; `task sw` never ran). Full
+record: `reference/cycle-closeout-20260716.md`. **This entry is the overnight closeout; the operator
+ratifies (or amends) it at `/nc-morning-triage`.**
+
+- **T-13 — CYCLE GATE ATTESTED (PASS) under the operator's 2026-07-15 "Attest & waive" posture.**
+  Scorecard **6 PASS · 2 PARTIAL · 1 WAIVED** across the 9 KRs. **Attested (3 criteria):** (1) *0
+  known-broken flows* — built denominator 4→0 (T-9) plus the graduated NFR-1 fix (T-12); the four
+  D-3/D-5 waivers are the only exclusions; the full-suite run independently confirmed all four
+  repaired flows' own tests are GREEN and none regressed. (2) *Every repaired flow red-first* — one
+  git-verifiable RED→GREEN pair (Inventory NFR-1: `1a0265e` precedes fix `77957c1`), four documented
+  on the `card-actuals.md` record (the Activity-4 squash merges bundle test+fix, so the pre-fix
+  failing commit is not standalone-reconstructable — **caveat carried, not hidden**). (3) *Median WO
+  cycle-time baseline* computed: **N=23, median 22m28s** (serial ~19.4m / concurrent rolling-3
+  ~23.4m; no pass/fail target this cycle). **Waived (2 criteria), carried to the next roadmap:**
+  (a) *"full E2E suite green / 0 pre-existing reds"* → attested substitute **"0 new uncategorized
+  reds vs the documented ~37–41 flaky baseline."** The bare full-suite run (isolated pg16, replicating
+  `task test:all`) landed **387 pass · 38 fail · 0 flaky · 6 skip** (Playwright) + **1 env-gated Go
+  red** (`internal/receipt`, no `ANTHROPIC_API_KEY`). Every red categorized against a documented cause
+  (SW-blocked/offline, reload/tab-persistence, cross-test DB-pollution, and the documented
+  data-dependent/persona fixture guards); a 7-test fix-adjacent isolation re-run confirmed the split
+  (1 pollution→green-in-isolation, 6 structural/seed). `serviceWorkers:'block'` (`playwright.config.js:29`)
+  makes a literal clean suite structurally unreachable. **0 uncategorized reds → PARK trigger did not
+  fire** (`runs/2026-07-16-autonomous/DECISIONS-NEEDED.md` empty). (b) *"vacuous tests 23→0"* → ~4–5
+  rewritten this cycle, ~18 remainder deferred as test-hardening WOs (`BACKLOG.md`). Chosen per the
+  operator's explicit 2026-07-15 "Attest & waive" over "Stabilize the suite" (declined): the two
+  unmeetable criteria collide with HQ's documented flaky pool + the SW-block + the deferred
+  test-hardening WOs, so they are formally waived and their work carried forward, extending the
+  D-3/D-5 waiver precedent.
+
+- **Milestone boundary reached — next move is NOT `/nc-slate-plan`.** Activity 5 is the last activity;
+  on this clean gate the morning path is `/nc-morning-triage` (review + merge `overnight-20260716` →
+  `dev`), then `/nc-okr-session` to open the next cycle and consume the carried-forward backlog. The
+  carried feedstock: the ~37–41 flaky/data-dependent + SW-blocked pool; the ~18 vacuous remainder
+  (Ops FR-10/12, Ops FR-15, Onboarding 6 guards, Inventory ~40 guards); the 3 harness WOs
+  (`WO-cron-clock-seam`, `WO-photo-s3-harness`, `WO-offline-indexeddb-harness`); F-1 (Ops NFR-3
+  resubmit gate); the Onboarding video-pipeline E2E fixture (D-5 prove-path); F-2 (`users.html:122`
+  orphaned `#s3`).
+
+- **Standing flags after this run.** DB flag stays satisfied (isolated Docker pg16; `localhost:5432`
+  untouched — held by unrelated `infra-postgres-1`, so this run stood up its own pg16 on port 5455 and
+  tore it down `--volumes`). No app code changed → nothing to re-verify beyond the gate evidence
+  itself.
+
+## Morning-triage resolutions (2026-07-16) — `overnight-20260716`
+
+Review verdict: 1 commit (`0ba751a`, `docs(night-crew):`); diff 100% docs-only (304 insertions,
+1 deletion, 4 files, all under `.night-crew/`; **0 app-source files** — no `*.html` / `internal/*` /
+`*.spec.js`; `task sw` not run). Independently re-verified on the branch tree: `go build ./...` +
+`go vet ./...` **green**; G4 discipline greps **N/A** (the night-crew framework pkgs `internal/journal`
+/ `workorder` / `orchestration` and `replay_test.go` do not exist in this HQ app repo — same as T-1/
+T-7/T-11); `replay`/`testdata` untouched. `go test ./...` on the branch **and** re-run on the merged
+tree = **5 pkgs `ok` + one pre-existing env-gated red** (`internal/receipt TestRunIngestCycle_ScenarioTable`,
+AI-matching subcases with no `ANTHROPIC_API_KEY`) — identical to pre-merge `dev`, not merge-introduced
+(0 Go changed). 0 cards parked; `DECISIONS-NEEDED.md` empty. Merged to `dev` `--no-ff` (`7f57d14`);
+**push held at operator request** (dev staged, ready to push).
+
+- **T-14 — CYCLE GATE ratified → SIGNED OFF; cycle closed. Ratifies the overnight T-13 attestation.**
+  The 3 closeout cards (suite-baseline · attestation · scorecard) are accepted as attested; the gate's
+  own evidence — not the closeout narrative — was re-verified at triage: the full-suite baseline's
+  **387 pass · 38 fail · 0 flaky · 6 skip** (all 38 reds mapped to a documented category, 0
+  uncategorized, PARK trigger did not fire) plus the merged-tree `go test` (5 ok + the one documented
+  env-gated red) were reproduced attended, and all four repaired flows' own tests confirmed GREEN (no
+  regression). **Scorecard stands: 6 PASS · 2 PARTIAL · 1 WAIVED.** Two gate criteria are **formally
+  waived and carried** (extending the D-3/D-5 waiver precedent): "full suite green / 0 pre-existing
+  reds" → the honest substitute *"0 new uncategorized reds vs the documented ~37–41 flaky baseline"*
+  (met; `serviceWorkers:'block'` at `playwright.config.js:29` makes a literal clean suite structurally
+  unreachable), and "vacuous tests 23→0" → ~4–5 rewritten, ~18 remainder deferred to `BACKLOG.md`.
+  Chosen over holding the gate for a fuller clean-suite pass — the operator's 2026-07-15 "Attest &
+  waive" ruling already resolved that the two unmeetable criteria collide with HQ's documented flaky
+  pool + the SW-block + the deferred test-hardening WOs; forcing them now would either fail the gate on
+  a known pre-existing condition or pull ~4–5h of net-new test-infra the cycle's hardening remit didn't
+  ask for. **Net cycle close:** Product KR-1/2/3, Delivery KR-1/2, Engineering KR-1, QA KR-3 all PASS;
+  QA KR-1/KR-2 PARTIAL-and-carried; Engineering KR-2 WAIVED-and-carried. **Milestone boundary reached**
+  — the HQ hardening cycle is complete.
+
+- **Next move is `/nc-okr-session`, not `/nc-slate-plan` (milestone boundary).** Activity 5 was the
+  last activity; there is no next slate in this cycle. The next planning session opens a **new** cycle
+  and consumes the carried-forward backlog as its feedstock (enumerated in T-13 and in `BACKLOG.md`).
+  Per the standing T-10/T-12 rule, whether/when each carried item rides a future slate is a planner
+  decision (PjM/PM/eng), not an operator hand-pick — triage only surfaces the items + scope + risk.
+
+- **Standing flags after triage.** DB flag stays satisfied (Docker pg16 canonical; `localhost:5432`
+  left untouched — held by unrelated `infra-postgres-1`). No new flags armed. `dev` is ahead of
+  `origin/dev` by the merge (`7f57d14`) + the pre-existing slate-sign-off doc (`bdeb8b4`), **awaiting
+  the operator's push** (the one sanctioned push; held this run by choice). `dev → main` promotion
+  remains a separate decision, not folded into triage.
