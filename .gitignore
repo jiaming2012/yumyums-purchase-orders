@@ -25,4 +25,7 @@ routes.yaml.*.bak
 
 # Playwright MCP session artifacts
 .playwright-mcp/
-.night-crew/runs/
+# NOTE: .night-crew/runs/ is deliberately TRACKED — run records (briefs, sign-offs,
+# DECISIONS-NEEDED, handoffs, slates) are durable planning artifacts needed across
+# machines (/nc-status globs runs/*/DECISIONS-NEEDED.md). Ignored until 2026-07-16,
+# which orphaned the whole 2026-07-09 run record on one machine. Do not re-add.
