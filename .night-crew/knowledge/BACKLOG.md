@@ -69,6 +69,60 @@
   WO**, not a product card — but it must land or every future `/nc-status` cross-check is unreliable.
   · origin: 2026-07-15 cross-machine `/nc-status` diff (operator-observed) · new
 
+- **Ops P0 — template-edit data loss: field IDs churn on every `updateTemplate` (REPRODUCED)** ·
+  Editing a template (e.g. cutting a task from the Friday checklist) while crew devices have the
+  checklist open silently discards all their subsequent work. Mechanism, confirmed by deterministic
+  E2E repro: `replaceTemplate` (`backend/internal/workflow/repository.go:99-220`) deletes and
+  re-inserts every field with **new IDs** on any edit (drafts are remapped old→new at edit time,
+  but only once); open devices keep rendering the old IDs, and every later check/uncheck writes a
+  draft under a dead field id — accepted **silently** because the field_id FK was dropped
+  (migrations 0051/0053/0054). Optimistic UI shows the check; reload loses it; a device that opened
+  after the edit never sees the other's ops. Repro spec: `tests/repro-cut-task.spec.js` (untracked
+  on dev — asserts the DESIRED behavior, so it fails until fixed and then becomes the regression
+  test; baseline pre-edit sync passes, post-edit reload-persistence fails on both devices). Fix
+  stage 1 of 3 (operator-ratified direction 2026-07-16): (a) preserve field IDs on update — honor
+  the ids the Builder already sends (`toApiTemplate` includes them) via diff/upsert instead of
+  delete-reinsert; (b) make dead-id saves loud — `saveResponse` rejects unknown field ids via an
+  app-level existence check scoped to drafts (`submission_id IS NULL`; do NOT restore the FK —
+  submitted responses reference snapshot ids by design). Red-first: flip the repro spec in.
+  · origin: operator report 2026-07-16 (Friday checklist, two devices), reproduced + root-caused
+  same session · new
+
+- **Ops — template-updated broadcast: open devices re-render on edit** · Stage 2 of the
+  template-edit robustness roadmap. `SAVE_TEMPLATE` ops are already emitted on template edits and
+  already flow through both live WS and `wsCatchUp` replay — clients simply ignore them. Handle
+  them in `applyOp` (sync.js): re-fetch the template, re-render the open checklist with the new
+  shape/ids, preserve any in-progress input. Closes the staleness gap stage 1 leaves (devices
+  still rendering a cut field until reload; mixed old/new-device live sync) and covers offline
+  devices on reconnect for free via catch-up. Depends on stage 1 (stable ids make the re-render
+  a remap instead of a reset). Mind the silent-replay rule from `42eeb39`: a template re-render
+  triggered by catch-up must not toast. · origin: fix-direction session 2026-07-16 (stage 2 of 3)
+  · new
+
+- **Ops architecture — immutable template versions, run-pinned (stable field identity)** · Stage 3
+  end-state that deletes the stage-1/2 compensations: fields get client-generated UUIDs honored by
+  the server forever (identity as fact, not row artifact); every edit creates an immutable template
+  version with "the template" a head pointer; a checklist RUN pins the version current when the run
+  started (crews finish the run they started — mid-shift edits take effect next run, resolving
+  "what does cutting a task mean for a half-done checklist" by rule); responses key on
+  (run, field-uuid) so the existing op-log/Lamport sync layer can never target a dead id. Extends
+  the existing submit-time `template_snapshot` (LC-02) upstream to edit-time. Phase-sized (schema
+  migration + workflow backend rework + runner load path); slots naturally ahead of sync Phase 11 /
+  the reactive-store direction. · origin: fix-direction session 2026-07-16 (stage 3 of 3,
+  operator asked for the robust-architecture answer) · new
+
+- **Inventory — prod ghost catalog item check + cleanup** · The receipt pipeline auto-created a
+  `''`-description `purchase_items` row when Claude parsed a receipt with unnamed line items
+  (description is UNIQUE → every future unnamed line merges into the one ghost item; it renders as
+  a blank first row in the review picker). All creation paths are guarded as of `42eeb39`
+  (validate.go Check 0 routes unnamed receipts to review; worker.go never auto-creates from an
+  empty name), but the guard shipped AFTER real receipts flowed through prod — check prod:
+  `SELECT count(*) FROM purchase_items WHERE trim(description)='';` plus its linked
+  `purchase_line_items`, then rename or unlink+delete. **Prod data mutation — needs operator
+  sign-off on the handling, not just the WO.** Small card. · origin: 2026-07-16 test-failure
+  root-cause (empty item found in `hq_test_ui` from live Mercury ingest; prod exposure inferred)
+  · new
+
 ## Activity-4 fix-cards (from Activity-2 confirm-absence graduations — code-fix + regression-test WOs)
 
 > Distinct from test-only prove-UNPROVEN WOs: these are **confirmed-BROKEN** flows where a cited
