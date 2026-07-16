@@ -303,3 +303,51 @@ AI-matching subcases with no `ANTHROPIC_API_KEY`) — identical to pre-merge `de
   `origin/dev` by the merge (`7f57d14`) + the pre-existing slate-sign-off doc (`bdeb8b4`), **awaiting
   the operator's push** (the one sanctioned push; held this run by choice). `dev → main` promotion
   remains a separate decision, not folded into triage.
+
+## Evening PM-session + grill-back resolutions (2026-07-16) — "Nothing silently lost" cycle
+
+- **G-1 — Sequencing reversed at grill-back: straight to versioning; stages 1–2 deleted.**
+  The morning-ratified "stages 1–2 ship before the versioning build" rested on the premise that
+  crews were losing work in production *now*. At the grill-back the operator corrected the
+  premise: **production has no active Operations users**, and wiping prod Operations (workflow)
+  data is acceptable. With no bleeding to stop, stage 1's only unique value (speed-to-protection)
+  vanished — its code is subsumed by the versioning build (`replaceTemplate` →
+  create-new-version preserves identity by construction; dead-id rejection becomes the
+  pinned-version existence check) — and stage 2 was interim UX relief with no audience.
+  **Resolution (operator):** go straight to the versioning design gate + build. OKRs amended and
+  re-validated (`okr validate` green): Delivery stage-1/stage-2 KRs deleted, repro-spec KR
+  rewritten to the versioning semantic; Engineering stage-1a/1b KRs deleted, migration clause
+  relaxed to clean-ship + attended wipe/reseed; Product/QA untouched. Roadmap: `stage1-*` and
+  `stage2-template-updated-broadcast` tombstoned SUPERSEDED; two engine-trust fix cards added
+  (`engine-approval-feedback-loud`, `engine-conflict-refetch` — PRD FR-6/FR-7 from the pass-2
+  sweep). PRD rewritten and re-validated (`prd validate` green). FR-11 (prod orphan audit)
+  dropped — auditing rows destined for the wipe is busywork. Chosen over keeping the ratified
+  1→2→3: shipping interim protection to zero users buys nothing and double-touches
+  `replaceTemplate`; the one gate that matters is the operator-signed design before build.
+  *Rationale: sequence for the users that exist, not the ones imagined this morning.*
+
+- **G-2 — Semantic reversed at grill-back: FROZEN-AT-SUBMIT beats run-pinned versioning;
+  operator delegated, PM chose; versioning schema demoted to backlog.** Grilling the "run"
+  definition exposed that the two candidate semantics had never been put head-to-head: (A)
+  frozen-at-submit — an unsubmitted checklist always shows the current template on every device,
+  submit freezes the record forever, rejection reopens it live; (B) run-pinned immutable versions —
+  crews finish the run they started. The operator probed A's viability (two-device sync, manager
+  rejection), then **delegated the choice to the PM** with a hard UX bar: multi-device sync always
+  convergent — all 7 field types, sub-steps, submit/unsubmit, and list-view progress bars, every
+  edge case walked. **PM chose A.** Rationale: the operator is the editor and wants corrections
+  live; a 1–5 person single-kitchen crew doesn't need fleet-auditor run-pinning (B's home turf);
+  A needs **no schema migration** (submit-freeze already exists as `template_snapshot`, proven by
+  LC-02) and delivers the cycle theme as: loss is impossible (stable field identity), loud (422 +
+  runner surfacing), or an explicit warned operator action (cut-field discard, INV-6). Under the
+  delegated sync bar the PM also **promoted `EmitOp` fire-and-forget from backlog to requirement**
+  (FR-5, transactional op emission — delayed propagation IS a loss under "always in sync") and
+  upgraded the unsubmit/resubmit suspect to a convergence-matrix cell. Consequences: OKRs
+  re-amended + re-validated (Engineering objective now stable-identity / loud-rejection /
+  edit-propagation / convergence-matrix; no migration KR); roadmap Activities 4–5 renamed
+  `editprop-*` (design gate unchanged in force: operator signs the OpenSpec change before any
+  build card); stage-1/2 tombstones flipped to REVIVED-as-permanent; versioning backlog entry
+  demoted with reason; PRD rewritten around INV-3′ + INV-6 and re-validated. The G-1 wipe is moot
+  (no migration). Rejection rules recorded as PM proposals pending the FR-1 design sign-off:
+  frozen record · live redo carrying answers · moot flags dissolve visibly. *Rationale: the
+  architecture follows the semantic, not the reverse — and the semantic belongs to how this
+  business actually runs.*

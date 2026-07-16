@@ -89,8 +89,9 @@
   app-level existence check scoped to drafts (`submission_id IS NULL`; do NOT restore the FK —
   submitted responses reference snapshot ids by design). Red-first: flip the repro spec in.
   · origin: operator report 2026-07-16 (Friday checklist, two devices), reproduced + root-caused
-  same session · promoted → `stage1-field-id-preservation` + `stage1-dead-id-reject` (roadmap
-  Activity 2, OKR session 2026-07-16)
+  same session · promoted → ~~`stage1-*`~~ → **final (2026-07-16 grill-back, frozen-at-submit):**
+  `editprop-stable-field-identity` (roadmap Activity 5) — the stage-1 work as the *permanent*
+  architecture, not an interim
 
 - **Ops — template-updated broadcast: open devices re-render on edit** · Stage 2 of the
   template-edit robustness roadmap. `SAVE_TEMPLATE` ops are already emitted on template edits and
@@ -101,7 +102,10 @@
   devices on reconnect for free via catch-up. Depends on stage 1 (stable ids make the re-render
   a remap instead of a reset). Mind the silent-replay rule from `42eeb39`: a template re-render
   triggered by catch-up must not toast. · origin: fix-direction session 2026-07-16 (stage 2 of 3)
-  · promoted → `stage2-template-updated-broadcast` (roadmap Activity 3, OKR session 2026-07-16)
+  · promoted → ~~`stage2-template-updated-broadcast`~~ → **final (2026-07-16 grill-back,
+  frozen-at-submit):** `editprop-broadcast-rerender` (roadmap Activity 5) — live re-render on
+  edit is the chosen *permanent* semantic, not interim relief (briefly demoted mid-grill when
+  versioning was the plan; revived when frozen-at-submit won the head-to-head)
 
 - **Ops architecture — immutable template versions, run-pinned (stable field identity)** · Stage 3
   end-state that deletes the stage-1/2 compensations: fields get client-generated UUIDs honored by
@@ -113,8 +117,13 @@
   the existing submit-time `template_snapshot` (LC-02) upstream to edit-time. Phase-sized (schema
   migration + workflow backend rework + runner load path); slots naturally ahead of sync Phase 11 /
   the reactive-store direction. · origin: fix-direction session 2026-07-16 (stage 3 of 3,
-  operator asked for the robust-architecture answer) · promoted → `versioning-*` (roadmap
-  Activities 4–5, OKR session 2026-07-16 — operator chose design+build this cycle)
+  operator asked for the robust-architecture answer) · ~~promoted → `versioning-*`~~ **demoted
+  back to backlog at the 2026-07-16 evening grill-back:** weighed head-to-head against
+  frozen-at-submit (edits live on unsubmitted checklists; submit freezes) — the operator delegated
+  the semantic to the PM with a multi-device-sync bar, and frozen-at-submit won: the operator is
+  the editor and wants corrections live; a 1–5 person single-kitchen crew doesn't need
+  fleet-auditor run-pinning; and the chosen shape needs no schema migration. Kept as the future
+  evolution if a fleet-style crew ever materializes (ledger G-2). · deferred 2026-07-16
 
 - **Inventory — prod ghost catalog item check + cleanup** · The receipt pipeline auto-created a
   `''`-description `purchase_items` row when Claude parsed a receipt with unnamed line items
@@ -207,6 +216,45 @@
   1058-1061`. Rides the Inventory Activity-4 test-hardening WO. · origin: overnight-20260712
   inventory-test-audit (G6-passed) · promoted → rides `vacuous-tests-18-to-0` (roadmap Activity 6,
   OKR session 2026-07-16)
+
+## Pass-2 enumeration finds (from the 2026-07-16 evening PM session — `PRD-data-integrity` §Routing)
+
+> The data-integrity PRD's two-pass surface sweep found 10 loss-mode candidates; 5 folded into
+> the PRD (FR-9/FR-10/FR-11 + 2 subsumed), these 5 routed here. Full dispositions in
+> `prds/PRD-data-integrity.md` §Routing.
+
+- ~~**Sync op-log durability — `EmitOp` is fire-and-forget**~~ · After a successful business
+  write, the op row that tells other devices about it is inserted in a goroutine with errors
+  logged only (`backend/internal/sync/ops.go:245-264`). **PROMOTED same evening at the grill-back:**
+  under the operator's delegated UX bar ("devices are always in sync"), delayed propagation IS a
+  loss — folded into `PRD-data-integrity` FR-5 (transactional op emission), rides
+  `editprop-broadcast-rerender`. · origin: pm-session 2026-07-16 pass-2 sweep · promoted →
+  `editprop-broadcast-rerender` (grill-back 2026-07-16)
+
+- **Runner — failed photo upload leaves a partial saved value** · The photo-upload `.catch` blocks
+  (`workflows.html:1564-1572`, `:1635-1647`) render a retry UI but don't clear the partial value
+  from `FIELD_RESPONSES`/`DRAFT_RESPONSES`; a stale value can linger under the field. No durable
+  crew work is lost (the photo never existed server-side; submit validation blocks required-photo),
+  so this is stale-state hygiene, not a loss mode. Small frontend fix + persistence test.
+  · origin: pm-session 2026-07-16 pass-2 sweep · new
+
+- **Offline submit idempotency under IndexedDB failure (suspected, unverified)** · If the offline
+  submit queue's `idempotency_key` is lost to an IndexedDB write failure, reconnect drain
+  (`sync.js:466-494`) could duplicate a submission. Untestable without the offline harness — rides
+  `WO-offline-indexeddb-harness` (deferred this cycle) when it's built. · origin: pm-session
+  2026-07-16 pass-2 sweep · new
+
+- **Lamport clock corruption → catch-up gap (suspected, unverified)** · If the stored Lamport
+  clock in IndexedDB is cleared/corrupted, the next `wsCatchUp` (`sync.js:303-315`) may skip or
+  refetch ops, staling the UI. Same harness dependency — rides `WO-offline-indexeddb-harness`.
+  · origin: pm-session 2026-07-16 pass-2 sweep · new
+
+- ~~**Unsubmit → fast resubmit fail-note staleness (suspected, unverified)**~~ · If a user
+  unsubmits (`workflows.html:2372-2380`) and resubmits before the re-render, stale `FAIL_NOTES`
+  state may duplicate or drop fail notes. **UPGRADED same evening at the grill-back:** the operator
+  named submit/unsubmit explicitly in the convergence bar — becomes an FR-7 matrix cell
+  (`editprop-convergence-matrix`) instead of a queued suspect. · origin: pm-session 2026-07-16
+  pass-2 sweep · promoted → `editprop-convergence-matrix` (grill-back 2026-07-16)
 
 ## Prove-sweep PARK fix-WOs (from overnight-20260715 — production refactor / new harness, beyond same-footprint test-only)
 

@@ -18,10 +18,15 @@
 - **Status:** `DONE` · `DRAFTING` (overnight) · `PLANNED` (white) · `BLOCKED`.
 - **Cadence is the PjM's, not the operator's.** Cards-per-night is the planner's call
   against the night budget + quality bar (budget is a floor, not a ceiling).
-- **Sequencing rule (operator-ratified 2026-07-16):** stages 1–2 ship BEFORE the
-  versioning build — interim protection deploys to prod without waiting on a schema
-  migration. The `replaceTemplate` double-touch (stage-1 upsert now, versioning rework
-  later) is accepted cost.
+- **Sequencing rule (RE-AMENDED at the evening PM grill-back, operator 2026-07-16):**
+  the semantic was revisited head-to-head; the operator **delegated the choice to the PM**
+  with a hard UX bar (multi-device sync always convergent). PM chose **frozen-at-submit**:
+  an unsubmitted checklist always shows the current template on every device; submit
+  freezes the record forever; rejection reopens it live. The versioning schema is deleted —
+  no migration this cycle. The build is stable field identity + loud rejection + edit
+  broadcast (old stages 1–2 revived as the permanent architecture) + transactional op
+  emission + a device-convergence matrix. The only gate stays the signed design
+  (Activity 4) before any build card.
 - **Red-first is mandatory on every fix card** (QA KR2): the test fails before the fix,
   recorded in the WO record.
 
@@ -46,17 +51,22 @@
   mid-run edit semantic ("crews finish the run they started; edits take effect next run");
   the 8-item backlog routing record. → Product KR1, KR2, KR3. *(attended evening session)*
 
-## Activity 2 — Stop the bleeding (stage 1 + carried small fixes) · *after Activity 1; parallel tracks*
+## Activity 2 — Engine-trust fixes + carried small fixes · *after Activity 1; parallel tracks*
 
-- **`stage1-field-id-preservation`** · PLANNED · `replaceTemplate` upserts by the field IDs
-  the Builder already sends (diff: update kept / insert new / delete removed; conditions
-  remap for new fields only) instead of delete+reinsert. Flips `repro-cut-task.spec.js`
-  red→green and commits it to the suite. Footprint: workflow engine. → Eng KR "Stage 1a",
-  Delivery KR "Stage 1 ships first".
-- **`stage1-dead-id-reject`** · PLANNED · Draft saves (`submission_id IS NULL`) naming an
-  unknown field ID rejected with a distinct error envelope (app-level existence check —
-  NOT a restored FK; submitted responses reference snapshot IDs by design). Red-first Go
-  test. Footprint: workflow engine (backend only). → Eng KR "Stage 1b".
+> ~~`stage1-field-id-preservation`~~ · ~~`stage1-dead-id-reject`~~ — **REVIVED under new
+> names (2026-07-16 grill-back, frozen-at-submit decision):** the stage-1 work returned as
+> the *permanent* architecture — see Activity 5's `editprop-stable-field-identity`
+> (upsert + loud rejection). These tombstones stay so the morning's card names resolve.
+
+- **`engine-approval-feedback-loud`** · PLANNED · An approval with a feedback comment only
+  reports success if the comment is durably stored — today the `submission_rejections`
+  insert swallows failure (`handler.go:614-622`, `ON CONFLICT DO NOTHING`, error logged
+  not surfaced) while the approver sees "Approved". Red-first Go test forcing the failed
+  insert. Footprint: workflow engine (backend). → QA KR2, PRD FR-6 (INV-1).
+- **`engine-conflict-refetch`** · PLANNED · A device whose field write loses LWW (409)
+  re-fetches and renders the winning value instead of keeping the stale render
+  (`sync.js` conflict path). Red-first E2E. Footprint: workflow engine (`sync.js`).
+  → QA KR2, PRD FR-7 (INV-1).
 - **`ops-nfr3-resubmit-photo-gate`** · PLANNED · Carried fix-card: plumb rejection context
   into submit validation so a rejected-with-`require_photo` field blocks direct-API
   resubmit server-side; red-first. Footprint: workflow engine (backend). → QA KR2
@@ -65,39 +75,51 @@
   `<div id="s3">` at `users.html:122`. Footprint: Users (zero contention — free
   parallelism). → hygiene; no KR.
 
-## Activity 3 — Stage 2: template-updated broadcast · *after Activity 2*
+## Activity 3 — ~~Stage 2: template-updated broadcast~~ · *REVIVED under a new name*
 
-- **`stage2-template-updated-broadcast`** · PLANNED · Handle `SAVE_TEMPLATE` ops in
-  `applyOp` (they already flow through live WS + `wsCatchUp` — clients just ignore them):
-  re-fetch template, re-render the open checklist, preserve in-progress input, and stay
-  silent on catch-up replay (the `42eeb39` no-toast rule). Red-first E2E for the mixed
-  old/new-device case. Footprint: workflow engine (`sync.js` + `workflows.html`).
-  → Delivery KR "Stage 2 ships".
+> ~~`stage2-template-updated-broadcast`~~ — **REVIVED (2026-07-16 grill-back,
+> frozen-at-submit decision):** under the chosen semantic, live re-render on edit is the
+> *permanent* behavior, not interim relief — see Activity 5's
+> `editprop-broadcast-rerender`. This tombstone stays so the morning's card name resolves.
 
-## Activity 4 — Versioning design gate · *attended; blocks Activity 5*
+## Activity 4 — Edit-propagation design gate · *attended; blocks Activity 5*
 
-- **`versioning-openspec-design`** · PLANNED · The OpenSpec change for immutable
-  run-pinned template versions: stable field UUIDs honored forever; edits create versions
-  with "the template" a head pointer; runs pin the version current at run start; responses
-  key on (run, field-UUID). Extends submit-time `template_snapshot` upstream to edit-time.
+- **`editprop-openspec-design`** · PLANNED · The OpenSpec change for frozen-at-submit
+  edit propagation: stable field IDs honored forever; edits re-render open devices with
+  surviving answers intact; submit freezes the record (existing `template_snapshot`);
+  rejection rules (frozen record · live redo carrying answers · moot flags on cut fields
+  dissolve visibly); cut-field discard rule + Builder warning when today's unsubmitted
+  answers exist; the convergence contract (what "in sync" means per surface); day-boundary
+  schedule-change behavior (the C5 question); race handling in the edit→broadcast window.
   **Operator sign-off on the design is the gate — 0 build WOs dispatch before it**
-  (auditable from ledger timestamps). → Delivery KR "versioning design signed before build".
+  (auditable from ledger timestamps). → Delivery KR "edit-propagation design signed
+  before build".
 
-## Activity 5 — Versioning build · *serialized after Activity 4 sign-off*
+## Activity 5 — Edit-propagation build · *serialized after Activity 4 sign-off; no schema migration*
 
-- **`versioning-schema-migration`** · PLANNED · `template_versions` schema + head pointer +
-  run pinning columns; all existing templates/drafts migrate intact; down-migration proven
-  by an up→down→up cycle recorded in the WO. Footprint: workflow engine (migrations).
-  → Eng KR "Stage 3 built", QA KR "down-migration + backup".
-- **`versioning-backend-runtime`** · PLANNED · Runs pin their version; responses key on
-  (run, field-UUID); `replaceTemplate` becomes create-new-version. Footprint: workflow
-  engine (backend). → Eng KR "Stage 3 built".
-- **`versioning-runner-frontend`** · PLANNED · Runner loads the run's pinned version;
-  Builder edits never mutate an in-flight run's shape. Footprint: workflow engine
-  (frontend). → Eng KR "Stage 3 built".
-- **`versioning-e2e-semantics`** · PLANNED · The ≥ 2 acceptance tests encoding the signed
-  semantic: mid-run edit leaves the in-flight run untouched; the next run reflects the new
-  shape. Extends `repro-cut-task.spec.js`. → Product KR "mid-run edit semantic".
+- **`editprop-stable-field-identity`** · PLANNED · `updateTemplate` upserts by the field
+  IDs the Builder already sends (update kept / insert new / delete removed; conditions
+  remap for new fields only) instead of delete+reinsert; a write naming a field absent
+  from the current template → distinct 422 envelope, surfaced in the runner (no optimistic
+  checkmark survives a rejected save). Revives stages 1a+1b as permanent. Footprint:
+  workflow engine (backend + runner error path). → Eng KRs "stable identity" + "loud
+  rejection".
+- **`editprop-broadcast-rerender`** · PLANNED · Handle `SAVE_TEMPLATE` ops in `applyOp`
+  (they already flow through live WS + `wsCatchUp` — clients just ignore them): re-fetch
+  template, re-render the open checklist with surviving answers intact, dissolve moot
+  rejection flags visibly, stay silent on catch-up replay (the `42eeb39` no-toast rule);
+  Builder warns before a save that discards today's unsubmitted answers on cut fields.
+  Plus transactional op emission: the op row commits in the same transaction as the write
+  it describes (closes the `EmitOp` fire-and-forget gap, `sync/ops.go:245-264`). Footprint:
+  workflow engine (`sync.js` + `workflows.html` + backend sync). → Eng KR "edit
+  propagation".
+- **`editprop-convergence-matrix`** · PLANNED · The red-first multi-device E2E matrix
+  (the operator's delegated UX bar): all 7 field types + sub-steps + submit/unsubmit
+  transitions + list-view progress indicators converge across ≥ 2 devices; includes the
+  ≥ 2 semantic acceptance tests (mid-run edit re-renders open devices, surviving answers
+  intact; a submitted checklist is unaffected by later edits) via the rewritten
+  `repro-cut-task.spec.js`. → Eng KR "convergence matrix", Product KR "edit semantic",
+  Delivery KR "repro red→green pair".
 
 ## Activity 6 — Test-debt retirement · *independent parallel track (any time)*
 
@@ -133,11 +155,19 @@
 
 ## Backlog routing record (Product KR3 — 15/15 `new` items routed 2026-07-16)
 
+> **Amendment (2026-07-16 evening grill-back, final):** the semantic decision landed on
+> **frozen-at-submit** (operator-delegated, PM-chosen), so the destinations moved twice
+> tonight and settle as: stage-1 work → `editprop-stable-field-identity`; stage-2 work →
+> `editprop-broadcast-rerender` (both now the *permanent* architecture); the stage-3
+> versioning schema is **demoted to BACKLOG** (weighed head-to-head and not chosen; kept
+> as a future evolution if a fleet-style crew ever materializes). The rows record what the
+> morning session decided; this note records what changed and why.
+
 | Backlog item | Door | Destination |
 |---|---|---|
-| Ops P0 template-edit data loss (stage 1) | promoted | `stage1-field-id-preservation` + `stage1-dead-id-reject` |
-| Ops stage 2 broadcast | promoted | `stage2-template-updated-broadcast` |
-| Ops stage 3 immutable versions | promoted | Activities 4–5 (`versioning-*`) |
+| Ops P0 template-edit data loss (stage 1) | promoted | ~~`stage1-*`~~ → `editprop-stable-field-identity` |
+| Ops stage 2 broadcast | promoted | ~~`stage2-template-updated-broadcast`~~ → `editprop-broadcast-rerender` |
+| Ops stage 3 immutable versions | promoted | ~~Activities 4–5 (`versioning-*`)~~ → demoted to BACKLOG (frozen-at-submit chosen instead) |
 | Inventory prod ghost item | promoted | `prod-ghost-item-rename` |
 | Ops NFR-3 resubmit photo gate | promoted | `ops-nfr3-resubmit-photo-gate` |
 | Users `#s3` orphan cleanup | promoted | `users-s3-orphan-cleanup` |
