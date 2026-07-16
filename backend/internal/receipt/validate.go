@@ -3,6 +3,7 @@ package receipt
 import (
 	"fmt"
 	"math"
+	"strings"
 )
 
 // ValidateReceiptData validates the parsed receipt items and summary against
@@ -25,6 +26,24 @@ import (
 //     quantity sum=74, summary=53 on a correct parse). Same trust-the-items
 //     logic that justified dropping Check 2.
 func ValidateReceiptData(items []ReceiptItem, summary ReceiptSummary, bankAmount float64) ValidationResult {
+	// Check 0: every line item needs a non-empty name. An unnamed item would
+	// auto-create a purchase_items row with description='' — a ghost catalog
+	// item that all future unnamed lines merge into (description is UNIQUE)
+	// and a blank first row in the review item picker. Route to review
+	// instead so a human names the lines.
+	unnamed := 0
+	for _, item := range items {
+		if strings.TrimSpace(item.Name) == "" {
+			unnamed++
+		}
+	}
+	if unnamed > 0 {
+		return ValidationResult{
+			Valid:  false,
+			Reason: fmt.Sprintf("Receipt has %d unnamed line item(s) — verify line items", unnamed),
+		}
+	}
+
 	// Check 1: derived total must match the negated bank transaction amount.
 	// derivedTotal = sum(item.Price * item.Quantity) + summary.Tax
 	// Mercury records debits as negative values; we compare against -bankAmount.

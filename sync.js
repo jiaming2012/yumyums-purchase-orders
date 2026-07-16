@@ -309,7 +309,7 @@ async function wsCatchUp() {
     ops.sort((a, b) => a.lamport_ts - b.lamport_ts);
     for (const op of ops) {
       await LAMPORT_CLOCK.receive(op.lamport_ts);
-      applyOp(op);
+      applyOp(op, true); // silent: bulk historical replay, not live teammate edits
     }
   } catch(e) { console.error('catch-up error:', e); }
 }
@@ -394,7 +394,11 @@ window.renderFieldResponse = renderFieldResponse;
 // (FIELD_RESPONSES, DRAFT_RESPONSES, FAIL_NOTES, fillState, etc.).
 // In Plan 02 these become store references. Self-echo via device_id (Plan 03).
 
-function applyOp(op) {
+// `silent` suppresses the "updated by" toast + field flash. Catch-up replays the
+// entire historical op backlog on (re)connect; those are not live teammate edits
+// (and after a reload the device_id is regenerated, so the user's own past ops no
+// longer self-echo-suppress). Applying them silently avoids a toast flood.
+function applyOp(op, silent) {
   // Skip self-originated ops (already applied optimistically)
   if (typeof LAMPORT_CLOCK !== 'undefined' && LAMPORT_CLOCK && op.device_id === LAMPORT_CLOCK.deviceId) return;
 
@@ -427,8 +431,10 @@ function applyOp(op) {
       }
     }
     renderFieldResponse(field_id);
-    flashField(field_id);
-    enqueueSyncToast(op.user_id, displayName, [field_id]);
+    if (!silent) {
+      flashField(field_id);
+      enqueueSyncToast(op.user_id, displayName, [field_id]);
+    }
     // Update progress: runner bar if inside checklist, list page if on checklist list
     if (typeof fillState !== 'undefined' && fillState.activeTemplate) {
       if (typeof updateProgress === 'function') updateProgress();

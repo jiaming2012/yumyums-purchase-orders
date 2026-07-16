@@ -91,7 +91,7 @@ test.describe('Persistence', () => {
 
   // ─── Templates ──────────────────────────────────────────────────────────
 
-  test('template with sections and fields round-trips through API', async ({ page }) => {
+  test('template with sections and fields round-trips through API [BLD-17]', async ({ page }) => {
     const result = await apiCall(page, 'POST', 'createTemplate', {
       name: 'Round Trip Template',
       requires_approval: false,
@@ -121,7 +121,7 @@ test.describe('Persistence', () => {
 
   // ─── Assignments & Approvers ────────────────────────────────────────────
 
-  test('assignments and approvers persist', async ({ page }) => {
+  test('assignments and approvers persist [BLD-18]', async ({ page }) => {
     const todayDOW = await getTodayDOW(page);
     const result = await apiCall(page, 'POST', 'createTemplate', {
       name: 'Assignment Test',
@@ -157,7 +157,7 @@ test.describe('Persistence', () => {
 
   // ─── Submissions ───────────────────────────────────────────────────────
 
-  test('submitted checklist persists in pending approvals', async ({ page }) => {
+  test('submitted checklist persists in pending approvals [APR-02]', async ({ page }) => {
     const todayDOW = await getTodayDOW(page);
     const tpl = await apiCall(page, 'POST', 'createTemplate', {
       name: 'Submit Persist',
@@ -188,7 +188,7 @@ test.describe('Persistence', () => {
 
   // ─── Approval state ────────────────────────────────────────────────────
 
-  test('approved submission no longer appears in pending', async ({ page }) => {
+  test('approved submission no longer appears in pending [APR-11]', async ({ page }) => {
     const todayDOW = await getTodayDOW(page);
     const tpl = await apiCall(page, 'POST', 'createTemplate', {
       name: 'Approval State',
@@ -219,7 +219,7 @@ test.describe('Persistence', () => {
 
   // ─── Archive ───────────────────────────────────────────────────────────
 
-  test('archived template does not appear in template list', async ({ page }) => {
+  test('archived template does not appear in template list [BLD-15]', async ({ page }) => {
     const result = await apiCall(page, 'POST', 'createTemplate', {
       name: 'Archive Me',
       requires_approval: false,
@@ -239,7 +239,7 @@ test.describe('Persistence', () => {
 
   // ─── Template update ──────────────────────────────────────────────────
 
-  test('updated template reflects changes on next read', async ({ page }) => {
+  test('updated template reflects changes on next read [BLD-19]', async ({ page }) => {
     const result = await apiCall(page, 'POST', 'createTemplate', {
       name: 'Original Name',
       requires_approval: false,
@@ -275,7 +275,7 @@ test.describe('Persistence', () => {
 
   // ─── Section day visibility ────────────────────────────────────────
 
-  test('section with show-on-days matching today is visible in checklist runner', async ({ page }) => {
+  test('section with show-on-days matching today is visible in checklist runner [VIS-02]', async ({ page }) => {
     const todayDOW = await getTodayDOW(page);
     const result = await apiCall(page, 'POST', 'createTemplate', {
       name: 'Day Visible Test',
@@ -328,7 +328,7 @@ test.describe('Persistence', () => {
     await expect(page.locator('text=Always visible')).toBeVisible();
   });
 
-  test('section condition days persist through save and reload', async ({ page }) => {
+  test('section condition days persist through save and reload [VIS-02]', async ({ page }) => {
     const todayDOW = await getTodayDOW(page);
     const result = await apiCall(page, 'POST', 'createTemplate', {
       name: 'Day Persist Test',
@@ -350,7 +350,7 @@ test.describe('Persistence', () => {
 
   // ─── Draft response persistence ───────────────────────────────────
 
-  test('checked items persist after page reload', async ({ page }) => {
+  test('checked items persist after page reload [FLD-02]', async ({ page }) => {
     const todayDOW = await getTodayDOW(page);
     const tpl = await createTestTemplate(page, 'Draft Persist Test', todayDOW);
 
@@ -382,7 +382,7 @@ test.describe('Persistence', () => {
     await expect(firstCheckAfter).toHaveClass(/checked/, { timeout: 5000 });
   });
 
-  test('draft progress bar reflects saved items after reload', async ({ page }) => {
+  test('draft progress bar reflects saved items after reload [LST-03 RUN-02]', async ({ page }) => {
     const todayDOW = await getTodayDOW(page);
     const tpl = await createTestTemplate(page, 'Progress Persist Test', todayDOW);
 
@@ -403,7 +403,7 @@ test.describe('Persistence', () => {
 
   // ─── Submitted checklist persistence ──────────────────────────────
 
-  test('submitted checklist shows as submitted after reload', async ({ page }) => {
+  test('submitted checklist shows as submitted after reload [LST-06]', async ({ page }) => {
     const todayDOW = await getTodayDOW(page);
     const tpl = await createTestTemplate(page, 'Submit Reload Test', todayDOW);
 
@@ -438,7 +438,7 @@ test.describe('Persistence', () => {
     await expect(page.locator('text=✓')).toBeVisible({ timeout: 5000 });
   });
 
-  test('submitted checklist fields are not blank after reload', async ({ page }) => {
+  test('submitted checklist fields are not blank after reload [FLD-R3 FLD-R5]', async ({ page }) => {
     const todayDOW = await getTodayDOW(page);
     const tpl = await createTestTemplate(page, 'Fields Reload Test', todayDOW);
 
@@ -474,7 +474,7 @@ test.describe('Persistence', () => {
 
   // ─── Draft survives back-and-reopen ───────────────────────────────
 
-  test('checked field survives back-to-list and reopen without losing state', async ({ page }) => {
+  test('checked field survives back-to-list and reopen without losing state [FLD-02 RUN-18]', async ({ page }) => {
     const todayDOW = await getTodayDOW(page);
     // Create template with 2 fields
     const tpl = await apiCall(page, 'POST', 'createTemplate', {
@@ -540,7 +540,7 @@ test.describe('Persistence', () => {
 
   // ─── Yes/No button highlight ──────────────────────────────────────
 
-  test('yes/no button is highlighted after save and reopen', async ({ page }) => {
+  test('yes/no button is highlighted after save and reopen [FLD-06 FLD-07]', async ({ page }) => {
     const todayDOW = await getTodayDOW(page);
     const tpl = await apiCall(page, 'POST', 'createTemplate', {
       name: 'YesNo Highlight Test',
@@ -590,7 +590,7 @@ test.describe('Persistence', () => {
 
   // ─── Text field quote handling ────────────────────────────────────
 
-  test('text field without quotes renders without quotes after reload', async ({ page }) => {
+  test('text field without quotes renders without quotes after reload [FLD-09]', async ({ page }) => {
     const todayDOW = await getTodayDOW(page);
     const tpl = await apiCall(page, 'POST', 'createTemplate', {
       name: 'Text No Quotes',
@@ -633,7 +633,7 @@ test.describe('Persistence', () => {
     await expect(textareaAfter).toHaveValue('hello world');
   });
 
-  test('text field with quotes renders with quotes after reload', async ({ page }) => {
+  test('text field with quotes renders with quotes after reload [FLD-09]', async ({ page }) => {
     const todayDOW = await getTodayDOW(page);
     const tpl = await apiCall(page, 'POST', 'createTemplate', {
       name: 'Text With Quotes',
@@ -678,7 +678,7 @@ test.describe('Persistence', () => {
 
   // ─── Temperature back-and-reopen ───────────────────────────────────
 
-  test('temperature value survives back-to-list and reopen', async ({ page }) => {
+  test('temperature value survives back-to-list and reopen [FLD-11]', async ({ page }) => {
     const todayDOW = await getTodayDOW(page);
     const tpl = await apiCall(page, 'POST', 'createTemplate', {
       name: 'Temp Reopen Test',
@@ -729,7 +729,7 @@ test.describe('Persistence', () => {
 
   // ─── Sub-steps back-and-reopen ────────────────────────────────────
 
-  test('sub-step checks survive back-to-list and reopen', async ({ page }) => {
+  test('sub-step checks survive back-to-list and reopen [FLD-03]', async ({ page }) => {
     const todayDOW = await getTodayDOW(page);
     const tpl = await apiCall(page, 'POST', 'createTemplate', {
       name: 'SubStep Reopen Test',
@@ -787,7 +787,7 @@ test.describe('Persistence', () => {
 
   // ─── Fail note persistence ────────────────────────────────────────
 
-  test('corrective action note and severity survive back-and-reopen', async ({ page }) => {
+  test('corrective action note and severity survive back-and-reopen [FLD-15]', async ({ page }) => {
     const todayDOW = await getTodayDOW(page);
     // Create template with a temperature field that has a fail trigger
     const tpl = await apiCall(page, 'POST', 'createTemplate', {
@@ -860,7 +860,7 @@ test.describe('Persistence', () => {
     await expect(minorBtn).toHaveClass(/on/, { timeout: 5000 });
   });
 
-  test('fail photo survives back-to-list and reopen as https:// URL', async ({ page }) => {
+  test('fail photo survives back-to-list and reopen as https:// URL [FLD-16]', async ({ page }) => {
     const todayDOW = await getTodayDOW(page);
 
     // Create template with a yes/no field — selecting No triggers the fail card

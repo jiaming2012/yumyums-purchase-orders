@@ -170,11 +170,16 @@ tasks:
 
   db-test:
     desc: Ensure hq_test database exists (works local or remote)
+    # Connect to the always-present "postgres" maintenance DB — NOT DB_NAME
+    # ({{.DB_NAME}}), which may not exist on a local dev machine (it doesn't on a
+    # stock Homebrew Postgres) and made this task fail with `database "yumyums"
+    # does not exist`. CREATE DATABASE can't run from inside the DB being checked
+    # anyway, so a maintenance DB is the correct connection target.
     cmd: >-
-      psql "{{.DB_URL}}" -tc
+      psql "postgres://{{.DB_USER}}:{{.DB_PASS}}@{{.DB_HOST}}:{{.DB_PORT}}/postgres?sslmode=disable" -tc
       "SELECT 1 FROM pg_database WHERE datname = 'hq_test'"
       | grep -q 1
-      || psql "{{.DB_URL}}" -c "CREATE DATABASE hq_test"
+      || psql "postgres://{{.DB_USER}}:{{.DB_PASS}}@{{.DB_HOST}}:{{.DB_PORT}}/postgres?sslmode=disable" -c "CREATE DATABASE hq_test"
 
   # ---------------------------------------------------------------------------
   # Remote Docker (Windows box — managed via infra repo)

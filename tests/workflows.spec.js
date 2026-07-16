@@ -120,7 +120,7 @@ test.describe('Builder', () => {
     await page.reload();
   });
 
-  test('create template via Builder', async ({ page }) => {
+  test('create template via Builder [BLD-03 BLD-04]', async ({ page }) => {
     await page.click('#t3');
     await expect(page.locator('#s3')).toBeVisible();
 
@@ -141,7 +141,7 @@ test.describe('Builder', () => {
     await expect(toast).toBeVisible({ timeout: 5000 });
   });
 
-  test('saving template navigates back to builder list', async ({ page }) => {
+  test('saving template navigates back to builder list [BLD-11]', async ({ page }) => {
     await page.click('#t3');
     await expect(page.locator('#s3')).toBeVisible();
 
@@ -162,7 +162,7 @@ test.describe('Builder', () => {
     await expect(page.locator('text=Nav Test')).toBeVisible({ timeout: 5000 });
   });
 
-  test('archive checklist soft-deletes and removes from list', async ({ page }) => {
+  test('archive checklist soft-deletes and removes from list [BLD-15]', async ({ page }) => {
     // Create via API then reload so TEMPLATES is populated
     const result = await apiCall(page, 'POST', 'createTemplate', {
       name: 'Archive Test',
@@ -194,7 +194,7 @@ test.describe('Builder', () => {
     expect(templates.find(t => t.id === tplId)).toBeUndefined();
   });
 
-  test('archive navigates back to builder list', async ({ page }) => {
+  test('archive navigates back to builder list [BLD-15]', async ({ page }) => {
     const result = await apiCall(page, 'POST', 'createTemplate', {
       name: 'Archive Nav Test',
       sections: [{ title: 'S1', order: 0, condition: null, fields: [] }],
@@ -220,7 +220,7 @@ test.describe('Builder', () => {
     await expect(page.locator('[data-action="archive-template"]')).not.toBeVisible();
   });
 
-  test('duplicate checklist name shows error toast', async ({ page }) => {
+  test('duplicate checklist name shows error toast [BLD-12]', async ({ page }) => {
     // Create first template
     await apiCall(page, 'POST', 'createTemplate', {
       name: 'Unique Name Test',
@@ -241,7 +241,7 @@ test.describe('Builder', () => {
     await expect(page.locator('#toast')).toContainText('already exists', { timeout: 5000 });
   });
 
-  test('can reuse name of deleted checklist', async ({ page }) => {
+  test('can reuse name of deleted checklist [BLD-12]', async ({ page }) => {
     // Create and delete a template
     const result = await apiCall(page, 'POST', 'createTemplate', {
       name: 'Reuse Name Test',
@@ -260,7 +260,7 @@ test.describe('Builder', () => {
     await apiCall(page, 'DELETE', 'archiveTemplate/' + result2.id);
   });
 
-  test('saving with requires_approval but no approver shows error toast', async ({ page }) => {
+  test('saving with requires_approval but no approver shows error toast [BLD-13]', async ({ page }) => {
     await page.click('#t3');
     await expect(page.locator('#s3')).toBeVisible();
 
@@ -290,7 +290,7 @@ test.describe('Builder', () => {
     await expect(page.locator('#save-btn')).toBeVisible();
   });
 
-  test('empty builder shows empty state', async ({ page }) => {
+  test('empty builder shows empty state [BLD-02]', async ({ page }) => {
     await page.click('#t3');
     await expect(page.locator('#s3')).toBeVisible();
     // Empty state heading is "No templates yet"
@@ -298,7 +298,7 @@ test.describe('Builder', () => {
     await expect(emptyText).toBeVisible({ timeout: 5000 });
   });
 
-  test('edit existing template', async ({ page }) => {
+  test('edit existing template [BLD-04]', async ({ page }) => {
     // Create template via API
     await createTestTemplate(page, 'Edit Me');
     await page.reload();
@@ -315,7 +315,7 @@ test.describe('Builder', () => {
     await expect(page.locator('.editor-back')).toBeVisible({ timeout: 5000 });
   });
 
-  test('archive template', async ({ page }) => {
+  test('archive template [BLD-15]', async ({ page }) => {
     // Create template via API
     const result = await createTestTemplate(page, 'To Archive');
     const templateId = result.id;
@@ -346,17 +346,19 @@ test.describe('My Checklists', () => {
     await cleanupTemplates(page);
   });
 
-  test('today checklists appear from API', async ({ page }) => {
+  test('today checklists appear from API [LST-02]', async ({ page }) => {
     const todayDOW = await getTodayDOW(page);
     await createTestTemplate(page, 'Daily Checklist', todayDOW);
     await page.reload();
     // My Checklists tab should be active by default
     await expect(page.locator('#s1')).toBeVisible();
-    // Template should appear
-    await expect(page.locator('text=Daily Checklist')).toBeVisible({ timeout: 5000 });
+    // Template should appear in the My Checklists list. Scope to #checklist-list:
+    // the same template name is also rendered in the (hidden) #builder-list, so a
+    // bare text= selector is a strict-mode violation (matches 2 elements).
+    await expect(page.locator('#checklist-list').getByText('Daily Checklist')).toBeVisible({ timeout: 5000 });
   });
 
-  test('fill and submit checklist', async ({ page }) => {
+  test('fill and submit checklist [RUN-01 RUN-06]', async ({ page }) => {
     const todayDOW = await getTodayDOW(page);
     await createTestTemplate(page, 'Submit Test', todayDOW);
     await page.reload();
@@ -379,7 +381,7 @@ test.describe('My Checklists', () => {
     await expect(page.locator('#s1')).toBeVisible({ timeout: 8000 });
   });
 
-  test('checked item shows user display name, not undefined', async ({ page }) => {
+  test('checked item shows user display name, not undefined [RUN-03]', async ({ page }) => {
     const todayDOW = await getTodayDOW(page);
     await createTestTemplate(page, 'Name Test', todayDOW);
     await page.reload();
@@ -401,7 +403,7 @@ test.describe('My Checklists', () => {
     expect(text).toMatch(/\w+/); // at least one word character
   });
 
-  test('empty state when no checklists', async ({ page }) => {
+  test('empty state when no checklists [LST-01]', async ({ page }) => {
     // No templates, reload
     await page.reload();
     await expect(page.locator('#s1')).toBeVisible();
@@ -423,7 +425,7 @@ test.describe('Approvals', () => {
     return { id: templateId };
   }
 
-  test('approve submission', async ({ page }) => {
+  test('approve submission [APR-02 APR-11]', async ({ page }) => {
     await login(page);
     await page.goto(BASE + '/workflows.html');
     await cleanupTemplates(page);
@@ -445,7 +447,7 @@ test.describe('Approvals', () => {
     await expect(page.locator('#toast')).toBeVisible({ timeout: 5000 });
   });
 
-  test('approve with flag comment shows feedback on checklist', async ({ page }) => {
+  test('approve with flag comment shows feedback on checklist [APR-11 FLD-19]', async ({ page }) => {
     await login(page);
     await page.goto(BASE + '/workflows.html');
     await cleanupTemplates(page);
@@ -494,7 +496,7 @@ test.describe('Approvals', () => {
   // Single-user: admin is both submitter (createAndSubmitChecklist) and the
   // approver (createTestTemplate assigns admin as approver), so the same page
   // session sees the rejection feedback back on My Checklists.
-  test('FR-10/12/13 flag+reject flips status, persists comment, and renders feedback to submitter', async ({ page }) => {
+  test('FR-10/12/13 flag+reject flips status, persists comment, and renders feedback to submitter [APR-06 FLD-18 LC-01]', async ({ page }) => {
     await login(page);
     await page.goto(BASE + '/workflows.html');
     await cleanupTemplates(page);
@@ -547,7 +549,7 @@ test.describe('Approvals', () => {
     await expect(banner).toContainText('Rejected');
   });
 
-  test('reject works after template update (field IDs change)', async ({ page }) => {
+  test('reject works after template update (field IDs change) [APR-10]', async ({ page }) => {
     await login(page);
     await page.goto(BASE + '/workflows.html');
     await cleanupTemplates(page);
@@ -590,7 +592,7 @@ test.describe('Approvals', () => {
     await expect(page.locator('#toast')).toBeVisible({ timeout: 5000 });
   });
 
-  test('empty approvals shows caught up', async ({ page }) => {
+  test('empty approvals shows caught up [APR-01]', async ({ page }) => {
     await login(page);
     await page.goto(BASE + '/workflows.html');
     await cleanupTemplates(page);
@@ -606,7 +608,7 @@ test.describe('Approvals', () => {
 // ─── D. Offline sync ─────────────────────────────────────────────────────────
 
 test.describe('Offline sync', () => {
-  test('submit while offline queues in IndexedDB', async ({ page, context }) => {
+  test('submit while offline queues in IndexedDB [GATE-07 LST-15]', async ({ page, context }) => {
     await login(page);
     await page.goto(BASE + '/workflows.html');
     await cleanupTemplates(page);
@@ -617,6 +619,14 @@ test.describe('Offline sync', () => {
 
     // Open checklist
     await page.click('[data-fill-template-id]');
+
+    // Complete the checklist item first so submit doesn't trip the
+    // "N items not completed. Submit anyway?" confirm() (which Playwright
+    // auto-dismisses, aborting the submit before the offline-queue path).
+    const checkBtn = page.locator('.check-btn').first();
+    await checkBtn.click();
+    await expect(checkBtn).toHaveClass(/checked/, { timeout: 5000 });
+    await page.waitForTimeout(1500); // let the field auto-save
 
     // Go offline
     await context.setOffline(true);
@@ -637,7 +647,7 @@ test.describe('Offline sync', () => {
     await expect(page.locator('#sync-banner')).not.toBeVisible({ timeout: 10000 });
   });
 
-  test('duplicate submit prevented by idempotency key', async ({ page }) => {
+  test('duplicate submit prevented by idempotency key [GATE-08]', async ({ page }) => {
     await login(page);
     await page.goto(BASE + '/workflows.html');
     await cleanupTemplates(page);
@@ -676,7 +686,7 @@ test.describe('Offline sync', () => {
 // ─── E. Access control ───────────────────────────────────────────────────────
 
 test.describe('Access control', () => {
-  test('superadmin can access Builder tab', async ({ page }) => {
+  test('superadmin can access Builder tab [GLB-05]', async ({ page }) => {
     await login(page);
     await page.goto(BASE + '/workflows.html');
     await page.click('#t3');
@@ -728,7 +738,7 @@ test.describe('yes/no No enforcement', () => {
     await cleanupTemplates(page);
   });
 
-  test('answering No without a corrective note blocks submit', async ({ page }) => {
+  test('answering No without a corrective note blocks submit [FLD-08 GATE-01]', async ({ page }) => {
     const todayDOW = await getTodayDOW(page);
     await createYesNoTemplate(page, 'YesNo Block Test', todayDOW);
     await page.reload();
@@ -757,7 +767,7 @@ test.describe('yes/no No enforcement', () => {
     expect(count).toBe(0);
   });
 
-  test('answering No with note + severity allows submit', async ({ page }) => {
+  test('answering No with note + severity allows submit [GATE-02]', async ({ page }) => {
     const todayDOW = await getTodayDOW(page);
     await createYesNoTemplate(page, 'YesNo Pass Test', todayDOW);
     await page.reload();
@@ -828,7 +838,7 @@ test.describe('required-photo submit gate', () => {
     await cleanupTemplates(page);
   });
 
-  test('submit is blocked when a required photo is not attached', async ({ page }) => {
+  test('submit is blocked when a required photo is not attached [GATE-04]', async ({ page }) => {
     const todayDOW = await getTodayDOW(page);
     await createPhotoTemplate(page, 'Photo Block Test', todayDOW);
     await page.reload();
@@ -852,7 +862,7 @@ test.describe('required-photo submit gate', () => {
     expect(count).toBe(0);
   });
 
-  test('submit is allowed once a photo URL is attached', async ({ page }) => {
+  test('submit is allowed once a photo URL is attached [GATE-04]', async ({ page }) => {
     const todayDOW = await getTodayDOW(page);
     await createPhotoTemplate(page, 'Photo Pass Test', todayDOW);
     await page.reload();
@@ -892,7 +902,7 @@ test.describe('required-photo submit gate', () => {
 // ─── F. Navigation ──────────────────────────────────────────────────────────
 
 test.describe('Navigation', () => {
-  test('clicking My Checklists tab while runner is open returns to list', async ({ page }) => {
+  test('clicking My Checklists tab while runner is open returns to list [RUN-18]', async ({ page }) => {
     await login(page);
     await page.goto(BASE + '/workflows.html');
 
@@ -919,7 +929,7 @@ test.describe('Navigation', () => {
 // ─── Tab Persistence ────────────────────────────────────────────────────────
 
 test.describe('Tab Persistence', () => {
-  test('workflows tab persists on reload', async ({ page }) => {
+  test('workflows tab persists on reload [GLB-07]', async ({ page }) => {
     await login(page);
     await page.goto(BASE + '/workflows.html');
     await page.click('#t2');
@@ -957,21 +967,24 @@ test.describe('Tab Persistence', () => {
   });
 
   test('users tab persists on reload', async ({ page }) => {
+    // users.html has 2 top-level tabs since Edit was folded into the Users
+    // tab (commit 2083f20): #t1 Users (default), #t2 Access. Assert the
+    // non-default Access tab persists across reload via the #tab= hash.
     await login(page);
     await page.goto(BASE + '/users.html');
-    await page.click('#t3');
-    await expect(page.locator('#t3.on')).toBeVisible();
-    expect(page.url()).toContain('#tab=3');
+    await page.click('#t2');
+    await expect(page.locator('#t2.on')).toBeVisible();
+    expect(page.url()).toContain('#tab=2');
 
     await page.reload();
-    await expect(page.locator('#t3.on')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('#t2.on')).toBeVisible({ timeout: 5000 });
   });
 });
 
 // ─── G. Validation ──────────────────────────────────────────────────────────
 
 test.describe('Validation', () => {
-  test('submit is blocked when fail trigger fires but corrective action is empty', async ({ page }) => {
+  test('submit is blocked when fail trigger fires but corrective action is empty [FLD-12 GATE-01]', async ({ page }) => {
     await login(page);
     await page.goto(BASE + '/workflows.html');
     await cleanupTemplates(page);
@@ -1024,7 +1037,7 @@ test.describe('Validation', () => {
     await expect(submitBtn).toBeEnabled();
   });
 
-  test('server rejects submission with triggered fail but no corrective action', async ({ page }) => {
+  test('server rejects submission with triggered fail but no corrective action [GATE-03]', async ({ page }) => {
     await login(page);
     await page.goto(BASE + '/workflows.html');
     await cleanupTemplates(page);
@@ -1075,7 +1088,7 @@ test.describe('Validation', () => {
 // ─── G. Read-only after submit ────────────────────────────────────────────────
 
 test.describe('Read-only after submit', () => {
-  test('submitted checklist fields are not interactive', async ({ page }) => {
+  test('submitted checklist fields are not interactive [RUN-09 FLD-R1]', async ({ page }) => {
     await login(page);
     await page.goto(BASE + '/workflows.html');
     await cleanupTemplates(page);
@@ -1129,7 +1142,7 @@ test.describe('Read-only after submit', () => {
 // ─── H. Loading states ───────────────────────────────────────────────────────
 
 test.describe('Loading states', () => {
-  test('skeleton screens show during load', async ({ page }) => {
+  test('skeleton screens show during load [GLB-09]', async ({ page }) => {
     await login(page);
     // Navigate to workflows and check for skeleton elements
     const skeletonPromise = page.locator('.skeleton').first().waitFor({ state: 'visible', timeout: 2000 }).catch(() => null);
@@ -1138,7 +1151,7 @@ test.describe('Loading states', () => {
     await expect(page.locator('#t1')).toBeVisible({ timeout: 5000 });
   });
 
-  test('workflows page loads and shows tabs', async ({ page }) => {
+  test('workflows page loads and shows tabs [GLB-02]', async ({ page }) => {
     await login(page);
     await page.goto(BASE + '/workflows.html');
     await expect(page.locator('#t1')).toContainText('My Checklists');
@@ -1146,7 +1159,7 @@ test.describe('Loading states', () => {
     await expect(page.locator('#t3')).toContainText('Builder');
   });
 
-  test('checklist progress is shared across team members', async ({ page }) => {
+  test('checklist progress is shared across team members [LC-04]', async ({ page }) => {
     // Create a team_member user
     await login(page);
     const email2 = 'shared-checklist-' + Date.now() + '@yumyums.kitchen';
@@ -1215,7 +1228,7 @@ test.describe('Loading states', () => {
     expect(memberAnswered).toBe(adminAnswered); // <-- BUG: currently 0 because drafts filtered per-user
   });
 
-  test('field attribution shows who actually checked it, not the viewer', async ({ page }) => {
+  test('field attribution shows who actually checked it, not the viewer [RUN-03]', async ({ page }) => {
     // Create a team_member user
     await login(page);
     const email2 = 'attrib-test-' + Date.now() + '@yumyums.kitchen';
@@ -1276,7 +1289,7 @@ test.describe('Loading states', () => {
     expect(attrib2).not.toContain('Jamal');
   });
 
-  test('re-checking a field updates attribution to the new user', async ({ page, browser }) => {
+  test('re-checking a field updates attribution to the new user [RUN-03]', async ({ page, browser }) => {
     // Create a team_member user
     await login(page);
     const email2 = 'recheck-' + Date.now() + '@yumyums.kitchen';
@@ -1347,7 +1360,7 @@ test.describe('Loading states', () => {
     expect(attribAfter).not.toContain('Jamal');
   });
 
-  test('yes/no field attribution updates when different user answers', async ({ page }) => {
+  test('yes/no field attribution updates when different user answers [RUN-03]', async ({ page }) => {
     // Create team_member
     await login(page);
     const email2 = 'yn-attrib-' + Date.now() + '@yumyums.kitchen';
@@ -1413,7 +1426,7 @@ test.describe('Loading states', () => {
     expect(attribAfter).not.toContain('Jamal');
   });
 
-  test('sub-step completion attributes parent checkbox to the user who completed it', async ({ page }) => {
+  test('sub-step completion attributes parent checkbox to the user who completed it [FLD-04]', async ({ page }) => {
     // Create a team_member user
     await login(page);
     const email2 = 'substep-attrib-' + Date.now() + '@yumyums.kitchen';
@@ -1442,8 +1455,8 @@ test.describe('Loading states', () => {
       sections: [{ title: 'Inventory', order: 0, condition: null, fields: [
         { type: 'checkbox', label: 'Stock verified', required: false, order: 0, config: null, fail_trigger: null, condition: null,
           sub_steps: [
-            { id: 'sub1', label: 'Item A counted' },
-            { id: 'sub2', label: 'Item B counted' },
+            { type: 'checkbox', id: 'sub1', label: 'Item A counted' },
+            { type: 'checkbox', id: 'sub2', label: 'Item B counted' },
           ]
         }
       ]}],
@@ -1477,13 +1490,23 @@ test.describe('Loading states', () => {
     await subChecks.nth(1).click();
     await page.waitForTimeout(500);
 
-    // Parent auto-checks — attribution should show SubStep U., not Jamal
-    const attrib = await page.locator('.fill-attribution').first().textContent();
-    expect(attrib).toContain('SubStep U.');
-    expect(attrib).not.toContain('Jamal');
+    // Each sub-step is attributed to the user who actually checked it, not the
+    // current viewer. In the interactive runner the parent checkbox has no
+    // separate attribution row (see FLD-03) — attribution lives per sub-step:
+    // sub1 was checked by the admin (Jamal C.), sub2 (which completes the
+    // parent) was checked by the team_member (SubStep U.).
+    await expect(page.locator('.fill-attribution')).toHaveCount(2);
+    const sub1Attrib = await page.locator('.fill-attribution').nth(0).textContent();
+    const sub2Attrib = await page.locator('.fill-attribution').nth(1).textContent();
+    // The completing sub-step is credited to the team_member, NOT the viewer.
+    expect(sub2Attrib).toContain('SubStep U.');
+    expect(sub2Attrib).not.toContain('Jamal');
+    // And the earlier sub-step retains the admin's attribution (proving each
+    // completion is attributed to its own actor).
+    expect(sub1Attrib).toContain('Jamal');
   });
 
-  test('sub-step attribution appears before divider line', async ({ page }) => {
+  test('sub-step attribution appears before divider line [FLD-03 FLD-04]', async ({ page }) => {
     await login(page);
     await page.goto(BASE + '/workflows.html');
     await cleanupTemplates(page);
@@ -1527,7 +1550,7 @@ test.describe('Loading states', () => {
     expect(attribBorder).toBe('solid');
   });
 
-  test('sub-steps visible in read-only submitted view', async ({ page }) => {
+  test('sub-steps visible in read-only submitted view [FLD-R2]', async ({ page }) => {
     await login(page);
     await page.goto(BASE + '/workflows.html');
     await cleanupTemplates(page);
@@ -1578,7 +1601,7 @@ test.describe('Loading states', () => {
     await expect(page.locator('.sub-step-label-text').nth(1)).toContainText('Step Beta');
   });
 
-  test('sub-steps visible in approvals review tab', async ({ page }) => {
+  test('sub-steps visible in approvals review tab [APR-05]', async ({ page }) => {
     await login(page);
     await page.goto(BASE + '/workflows.html');
     await cleanupTemplates(page);
@@ -1629,7 +1652,7 @@ test.describe('Loading states', () => {
     await expect(parentItem.locator('.review-reject-btn')).toHaveCount(0);
   });
 
-  test('list view item count matches runner count with conditional fields', async ({ page }) => {
+  test('list view item count matches runner count with conditional fields [LST-05]', async ({ page }) => {
     await login(page);
     await page.goto(BASE + '/workflows.html');
     await cleanupTemplates(page);
@@ -1669,7 +1692,7 @@ test.describe('Loading states', () => {
     await expect(page.locator('.fill-field-label', { hasText: 'Hidden today' })).not.toBeVisible();
   });
 
-  test('conditional field appears after dependent checkbox is checked', async ({ page }) => {
+  test('conditional field appears after dependent checkbox is checked [VIS-06]', async ({ page }) => {
     await login(page);
     await page.goto(BASE + '/workflows.html');
     await cleanupTemplates(page);
@@ -1721,7 +1744,7 @@ test.describe('Loading states', () => {
     await expect(page.locator('.fill-field-label', { hasText: 'Field B' })).toBeVisible({ timeout: 3000 });
   });
 
-  test('conditional field appears after dependent text field is filled', async ({ page }) => {
+  test('conditional field appears after dependent text field is filled [VIS-07]', async ({ page }) => {
     await login(page);
     await page.goto(BASE + '/workflows.html');
     await cleanupTemplates(page);
@@ -1774,7 +1797,7 @@ test.describe('Loading states', () => {
     await expect(page.locator('.fill-field-label', { hasText: 'Follow up task' })).toBeVisible({ timeout: 3000 });
   });
 
-  test('submitted responses survive template update', async ({ page }) => {
+  test('submitted responses survive template update [LC-02]', async ({ page }) => {
     await login(page);
     await page.goto(BASE + '/workflows.html');
     await cleanupTemplates(page);
@@ -1834,7 +1857,7 @@ test.describe('Loading states', () => {
     await expect(page.locator('.progress-line')).toContainText('1 of 1');
   });
 
-  test('submitted checklist survives builder edit with assignment change', async ({ page }) => {
+  test('submitted checklist survives builder edit with assignment change [LC-02]', async ({ page }) => {
     await login(page);
     await page.goto(BASE + '/workflows.html');
     await cleanupTemplates(page);
@@ -1891,7 +1914,7 @@ test.describe('Loading states', () => {
     await expect(page.locator('.progress-line')).toContainText('1 of 1');
   });
 
-  test('draft responses survive template update (assignment change)', async ({ page }) => {
+  test('draft responses survive template update (assignment change) [LC-03]', async ({ page }) => {
     await login(page);
     await page.goto(BASE + '/workflows.html');
     await cleanupTemplates(page);
@@ -1945,7 +1968,7 @@ test.describe('Loading states', () => {
     await expect(page.locator('.check-btn.checked')).toBeVisible({ timeout: 5000 });
   });
 
-  test('unsubmit returns checklist to editable draft', async ({ page }) => {
+  test('unsubmit returns checklist to editable draft [RUN-10]', async ({ page }) => {
     await login(page);
     await page.goto(BASE + '/workflows.html');
     await cleanupTemplates(page);
@@ -1993,7 +2016,7 @@ test.describe('Loading states', () => {
     await expect(page.locator('.check-btn.checked')).toBeVisible();
   });
 
-  test('incomplete submit shows confirmation prompt', async ({ page }) => {
+  test('incomplete submit shows confirmation prompt [GATE-06]', async ({ page }) => {
     await login(page);
     await page.goto(BASE + '/workflows.html');
     await cleanupTemplates(page);
@@ -2030,7 +2053,7 @@ test.describe('Loading states', () => {
     await expect(page.locator('[data-action="submit"]')).toBeVisible();
   });
 
-  test('sub-step progress counts correctly in list view', async ({ page }) => {
+  test('sub-step progress counts correctly in list view [LST-04]', async ({ page }) => {
     await login(page);
     await page.goto(BASE + '/workflows.html');
     await cleanupTemplates(page);
@@ -2072,7 +2095,7 @@ test.describe('Loading states', () => {
     await expect(page.locator('.progress-line')).toContainText('1 of 2');
   });
 
-  test('skip logic condition persists after save and reload', async ({ page }) => {
+  test('skip logic condition persists after save and reload [BLD-07]', async ({ page }) => {
     await login(page);
     await page.goto(BASE + '/workflows.html');
     await cleanupTemplates(page);
@@ -2143,7 +2166,7 @@ test.describe('Loading states', () => {
     expect(selectedValue).not.toBe(''); // Should have a field selected, not empty
   });
 
-  test('new section defaults to Same as schedule', async ({ page }) => {
+  test('new section defaults to Same as schedule [BLD-07]', async ({ page }) => {
     await login(page);
     await page.goto(BASE + '/workflows.html');
     await cleanupTemplates(page);
@@ -2169,7 +2192,7 @@ test.describe('Loading states', () => {
     await expect(inheritBtn).toHaveClass(/on/);
   });
 
-  test('text field in read-only view shows answer below label', async ({ page }) => {
+  test('text field in read-only view shows answer below label [FLD-R4]', async ({ page }) => {
     await login(page);
     await page.goto(BASE + '/workflows.html');
     await cleanupTemplates(page);
@@ -2216,7 +2239,7 @@ test.describe('Loading states', () => {
     await expect(fieldRow).toHaveCount(0);
   });
 
-  test('team_member cannot see Builder tab', async ({ page }) => {
+  test('team_member cannot see Builder tab [GLB-03]', async ({ page }) => {
     // Create a team_member user via admin
     await login(page);
     const uniqueEmail = 'builder-test-' + Date.now() + '@yumyums.kitchen';
@@ -2322,7 +2345,7 @@ test.describe('Approval Flow', () => {
     });
   }
 
-  test('team member completes checklist, manager approves', async ({ page }) => {
+  test('team member completes checklist, manager approves [RUN-07 APR-11]', async ({ page }) => {
     // Setup: login as admin, create template, crew user, manager user
     await login(page);
     await cleanupTemplates(page);
@@ -2374,7 +2397,7 @@ test.describe('Approval Flow', () => {
     // Verify the approval list is now empty
   });
 
-  test('team member completes checklist, manager rejects 2 items, crew resubmits, manager approves', async ({ page }) => {
+  test('team member completes checklist, manager rejects 2 items, crew resubmits, manager approves [APR-09 FLD-18 LC-01]', async ({ page }) => {
     // Setup
     await login(page);
     await cleanupTemplates(page);
@@ -2484,7 +2507,7 @@ test.describe('Approval Flow', () => {
     await expect(page.locator('#toast')).toBeVisible({ timeout: 5000 });
   });
 
-  test('approved checklist shows Approved badge and cannot be resubmitted', async ({ page }) => {
+  test('approved checklist shows Approved badge and cannot be resubmitted [LST-08 RUN-08]', async ({ page }) => {
     // Setup
     await login(page);
     await cleanupTemplates(page);
@@ -2510,6 +2533,12 @@ test.describe('Approval Flow', () => {
     await page.waitForTimeout(2000);
     await page.click('[data-action="submit"]');
     await page.waitForTimeout(1000);
+
+    // Wait for the submission-confirmation toast before switching users. This
+    // proves the submitChecklist POST landed (and the pending-approval row
+    // exists) so the manager's Approvals list is populated deterministically —
+    // mirrors the passing "manager approves" sibling test above.
+    await expect(page.locator('#toast')).toBeVisible({ timeout: 5000 });
 
     // --- Manager: approve ---
     await login(page, mgr.email, mgr.password);
@@ -2552,7 +2581,7 @@ test.describe('Checklist submit/unsubmit/history (prove sweep)', () => {
   // idempotent: exactly ONE submission row exists afterward. Asserts against
   // myHistory (the durable submission record), not just pendingApprovals, so a
   // second row would be caught even after approval/removal from the queue.
-  test('FR-6 duplicate submit with same idempotency key creates exactly one submission', async ({ page }) => {
+  test('FR-6 duplicate submit with same idempotency key creates exactly one submission [GATE-08]', async ({ page }) => {
     await login(page);
     await page.goto(BASE + '/workflows.html');
     await cleanupTemplates(page);
@@ -2604,7 +2633,7 @@ test.describe('Checklist submit/unsubmit/history (prove sweep)', () => {
   // context so the admin session is untouched) is refused with 403 not_submitter,
   // and the submission still exists afterward. Non-admin session authored INLINE
   // per the multi-role invite/accept-invite idiom used elsewhere in this file.
-  test('FR-7 a non-submitter is refused (403) when unsubmitting', async ({ page, browser }) => {
+  test('FR-7 a non-submitter is refused (403) when unsubmitting [RUN-11]', async ({ page, browser }) => {
     await login(page);
     await page.goto(BASE + '/workflows.html');
     await cleanupTemplates(page);
@@ -2672,7 +2701,7 @@ test.describe('Checklist submit/unsubmit/history (prove sweep)', () => {
   // FR-8 — History shows the crew member's last 50 submissions, newest first.
   // Create 52 submissions (unique idempotency keys → 52 distinct rows) and assert
   // myHistory caps the result at 50 and orders by submitted_at DESC.
-  test('FR-8 myHistory returns at most the last 50 submissions in DESC order', async ({ page }) => {
+  test('FR-8 myHistory returns at most the last 50 submissions in DESC order [LST-13]', async ({ page }) => {
     test.setTimeout(120000);
     await login(page);
     await page.goto(BASE + '/workflows.html');
@@ -2720,7 +2749,7 @@ test.describe('Builder conditional logic (prove sweep)', () => {
   // Observable behavior asserted: a template scheduled for TODAY is present in
   // the list; a template scheduled for a NON-today DOW is ABSENT. This exercises
   // the server-side DOW gate (repository.go: active_days = ANY(...)).
-  test('FR-16 DOW schedule shows today-scheduled checklist and hides off-day one', async ({ page }) => {
+  test('FR-16 DOW schedule shows today-scheduled checklist and hides off-day one [LST-10]', async ({ page }) => {
     await login(page);
     await page.goto(BASE + '/workflows.html');
     await cleanupTemplates(page);
@@ -2768,7 +2797,7 @@ test.describe('Builder conditional logic (prove sweep)', () => {
   // section (and its fields) based on the condition. Observable behavior:
   // a section whose day-condition excludes today renders NONE of its fields in
   // the runner, while a sibling always-visible section renders its field.
-  test('FR-17 section day-condition hides the section and its fields in the runner', async ({ page }) => {
+  test('FR-17 section day-condition hides the section and its fields in the runner [VIS-03]', async ({ page }) => {
     await login(page);
     await page.goto(BASE + '/workflows.html');
     await cleanupTemplates(page);
@@ -2815,7 +2844,7 @@ test.describe('Builder conditional logic (prove sweep)', () => {
   // source answer changes away from the value (full show/hide round-trip DOM
   // state). The slate flagged FR-18 as the likeliest RED — if the round-trip
   // hide does not fire, this records RED.
-  test('FR-18 skip logic shows then re-hides a field as the source answer changes', async ({ page }) => {
+  test('FR-18 skip logic shows then re-hides a field as the source answer changes [VIS-05 VIS-08]', async ({ page }) => {
     await login(page);
     await page.goto(BASE + '/workflows.html');
     await cleanupTemplates(page);
@@ -2904,7 +2933,7 @@ test.describe('Cross-cutting guarantees (prove sweep)', () => {
   // the documented degraded contract (503 {"error":"photo storage not configured"})
   // when storage is unconfigured — instead of a presigned URL. The upload PUT +
   // public-URL round-trip is PARKed (needs live S3 — beyond a test fixture).
-  test('NFR-2 photo presign returns the documented shape (503 degraded when S3 unset; PUT/round-trip PARKed)', async ({ page }) => {
+  test('NFR-2 photo presign returns the documented shape (503 degraded when S3 unset; PUT/round-trip PARKed) [FLD-20]', async ({ page }) => {
     await login(page);
     await page.goto(BASE + '/workflows.html');
 
@@ -2937,7 +2966,7 @@ test.describe('Cross-cutting guarantees (prove sweep)', () => {
   // archived_at IS NULL, so submit finds no template → ErrTemplateArchived → 409.
   // Observable behavior asserted: the POST /submitChecklist envelope is
   // status 409 with error 'template_archived', and NO submission is created.
-  test('NFR-6 submitting an archived template returns 409 template_archived and creates no submission', async ({ page }) => {
+  test('NFR-6 submitting an archived template returns 409 template_archived and creates no submission [GATE-09]', async ({ page }) => {
     await login(page);
     await page.goto(BASE + '/workflows.html');
     await cleanupTemplates(page);
@@ -2985,7 +3014,7 @@ test.describe('Cross-cutting guarantees (prove sweep)', () => {
   // workflows.html lands on login.html. The "local drafts persist across the
   // redirect" leg needs IndexedDB draft plumbing (hq_offline_v1 store) beyond a
   // test fixture and Playwright blocks the service worker → PARKed (noted below).
-  test('NFR-7 an unauthenticated workflows load redirects to /login.html', async ({ page, context }) => {
+  test('NFR-7 an unauthenticated workflows load redirects to /login.html [GLB-01]', async ({ page, context }) => {
     // Establish then clear the session to simulate a 401 mid-session.
     await login(page);
     await context.clearCookies();
@@ -3003,7 +3032,7 @@ test.describe('Cross-cutting guarantees (prove sweep)', () => {
   // behavior asserted: after submit, renaming the template changes the LIVE name
   // (pendingApprovals.template_name from the join) but the frozen
   // template_snapshot.name still holds the ORIGINAL name.
-  test('FR-19 a submitted checklist freezes a template snapshot that later edits do not change', async ({ page }) => {
+  test('FR-19 a submitted checklist freezes a template snapshot that later edits do not change [LC-02]', async ({ page }) => {
     await login(page);
     await page.goto(BASE + '/workflows.html');
     await cleanupTemplates(page);
@@ -3059,7 +3088,7 @@ test.describe('Cross-cutting guarantees (prove sweep)', () => {
   // unless at least one assignment has assignment_role 'approver' (hasApprover).
   // Observable behavior asserted: create WITHOUT an approver → 400 requires_approver
   // and NO template row created; create WITH an approver → 200 and a row exists.
-  test('FR-20 requires_approval without an approver is refused (400 requires_approver); with one it is allowed', async ({ page }) => {
+  test('FR-20 requires_approval without an approver is refused (400 requires_approver); with one it is allowed [BLD-13]', async ({ page }) => {
     await login(page);
     await page.goto(BASE + '/workflows.html');
     await cleanupTemplates(page);

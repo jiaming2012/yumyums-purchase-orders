@@ -606,10 +606,27 @@ func main() {
 
 	r.Handle("/*", http.FileServerFS(staticFS))
 
+	// E2E_DISABLE_SCHEDULERS=1 turns off the background pollers (receipt
+	// ingest, cutoff auto-lock, drift check). All run an immediate check on
+	// start; the cutoff check auto-locks the current draft PO once the day's
+	// cutoff time has passed, which races E2E tests that exercise cutoff
+	// manually via /simulate-cutoff (they'd intermittently get 409
+	// locked_po_pending_approval depending on the wall-clock time of the run).
+	// The receipt worker is worse: with real MERCURY_API_KEY/ANTHROPIC_API_KEY
+	// leaked into a test stack (Taskfile dotenv loads backend/.env), it ingests
+	// LIVE Mercury transactions into the test database mid-suite. Mirrors
+	// TOAST_SYNC_INTERVAL=0. Prod leaves this unset, so scheduler behavior is
+	// unchanged.
+	schedulersDisabled := os.Getenv("E2E_DISABLE_SCHEDULERS") == "1"
+
 	// Start receipt ingestion background worker.
 	// Gracefully skips if MERCURY_API_KEY or ANTHROPIC_API_KEY is not set.
 	// receiptCfg was constructed above (hoisted so the sync handler can close over it).
-	receipt.StartWorker(ctx, receiptCfg)
+	if schedulersDisabled {
+		slog.Info("receipt worker disabled", "reason", "E2E_DISABLE_SCHEDULERS=1")
+	} else {
+		receipt.StartWorker(ctx, receiptCfg)
+	}
 
 	// Initialize and start alert queue — gracefully no-ops when env vars are not set
 	alertQ := alerts.NewQueue(alertCfg)
@@ -618,13 +635,19 @@ func main() {
 	slog.Info("alert queue started")
 
 	// Start cutoff scheduler — polls every 15m to auto-lock POs and send reminders
-	purchasing.StartScheduler(ctx, pool)
+	if schedulersDisabled {
+		slog.Info("cutoff scheduler disabled", "reason", "E2E_DISABLE_SCHEDULERS=1")
+	} else {
+		purchasing.StartScheduler(ctx, pool)
+	}
 
 	// Phase 999.2 Plan 04 — recipes drift scheduler.
 	// Polls every 15m; runs the actual drift check once on Monday 09:00 Chicago.
 	// SetAlertQueue MUST be called BEFORE StartDriftScheduler (mirrors toast pattern).
 	recipes.SetAlertQueue(alertQ)
-	recipes.StartDriftScheduler(ctx, pool)
+	if !schedulersDisabled {
+		recipes.StartDriftScheduler(ctx, pool)
+	}
 
 	// Toast ingest — Phase 22.1.
 	// Combined sync+ingest worker: SFTP→Spaces+cache per date, then Spaces→DB.

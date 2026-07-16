@@ -123,13 +123,14 @@ test.describe('Receipt overlay carousel', () => {
   test('multi attachment renders carousel with prev/next and counter', async ({ page }) => {
     const txId = 'carousel-multi-' + Date.now();
 
-    // Stub the purchases list to inject a pending row with receipt_urls so the
-    // test is independent of the seed endpoint's support for receipt_urls.
-    // Use page.route to intercept the GET /api/v1/inventory/purchases call that
-    // inventory.html fires and inject a synthetic pending row with receipt_urls.
-    await page.route('**/api/v1/inventory/purchases*', async route => {
-      const url = route.request().url();
-      // Only intercept GET (list) requests; let POST (create) through.
+    // Stub the pending-purchases list to inject a pending row with receipt_urls
+    // so the test is independent of the seed endpoint's support for
+    // receipt_urls. inventory.html fetches pending rows from the dedicated
+    // GET /api/v1/inventory/purchases/pending endpoint, which returns a PLAIN
+    // ARRAY (see loadHistory: PENDING_PURCHASES = pending || []). Mock only that
+    // endpoint — the main /purchases?page= list is a separate call and must not
+    // be intercepted, else PENDING_PURCHASES gets a non-array and render throws.
+    await page.route('**/api/v1/inventory/purchases/pending', async route => {
       if (route.request().method() !== 'GET') {
         await route.continue();
         return;
@@ -137,27 +138,24 @@ test.describe('Receipt overlay carousel', () => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({
-          purchase_events: [],
-          pending_purchases: [
-            {
-              id: 'fake-pending-' + txId,
-              bank_tx_id: txId,
-              vendor: 'Restaurant Depot',
-              bank_total: -788.37,
-              event_date: '2026-06-17',
-              reason: 'Receipt total mismatch',
-              items: [
-                { name: 'Case Chicken', quantity: 1, price: 804.49, is_case: true },
-                { name: 'Credit Memo', quantity: 1, price: -16.12, is_case: false },
-              ],
-              total: 788.37,
-              tax: 0,
-              receipt_url: 'https://example.com/a.pdf',
-              receipt_urls: ['https://example.com/a.pdf', 'https://example.com/b.pdf'],
-            },
-          ],
-        }),
+        body: JSON.stringify([
+          {
+            id: 'fake-pending-' + txId,
+            bank_tx_id: txId,
+            vendor: 'Restaurant Depot',
+            bank_total: -788.37,
+            event_date: '2026-06-17',
+            reason: 'Receipt total mismatch',
+            items: [
+              { name: 'Case Chicken', quantity: 1, price: 804.49, is_case: true },
+              { name: 'Credit Memo', quantity: 1, price: -16.12, is_case: false },
+            ],
+            total: 788.37,
+            tax: 0,
+            receipt_url: 'https://example.com/a.pdf',
+            receipt_urls: ['https://example.com/a.pdf', 'https://example.com/b.pdf'],
+          },
+        ]),
       });
     });
 

@@ -1071,7 +1071,7 @@ function renderPickerList(query) {
     }
   }
   if (q) {
-    html += '<div style="text-align:center;padding:12px 0;border-top:0.5px solid var(--brd);margin-top:8px"><a href="inventory.html#tab=5&newItem=' + encodeURIComponent(query || '') + '" style="display:inline-block;padding:10px 20px;background:var(--info-bg);color:var(--info-tx);border-radius:8px;font-size:14px;font-weight:500;text-decoration:none">+ Add Item to Inventory</a></div>';
+    html += '<div style="text-align:center;padding:12px 0;border-top:0.5px solid var(--brd);margin-top:8px"><a href="inventory.html#tab=7&newItem=' + encodeURIComponent(query || '') + '" style="display:inline-block;padding:10px 20px;background:var(--info-bg);color:var(--info-tx);border-radius:8px;font-size:14px;font-weight:500;text-decoration:none">+ Add Item to Inventory</a></div>';
   }
   document.getElementById('picker-list').innerHTML = html;
 }
@@ -1117,7 +1117,7 @@ document.addEventListener('click', function(e) {
   if (action === 'picker-inc') { updateQty(el.dataset.itemId, 1); renderPickerList(document.getElementById('picker-search').value); }
   if (action === 'picker-dec') { updateQty(el.dataset.itemId, -1); renderPickerList(document.getElementById('picker-search').value); }
   if (action === 'picker-item-on-po') showDuplicatePopup(el.dataset.itemId);
-  if (action === 'goto-setup') { window.location.href = 'inventory.html#tab=5&item=' + encodeURIComponent(el.dataset.itemDesc); }
+  if (action === 'goto-setup') { window.location.href = 'inventory.html#tab=7&item=' + encodeURIComponent(el.dataset.itemDesc); }
   if (action === 'goto-item') { gotoItem(DUP_ITEM_ID); }
   if (action === 'dismiss-dup') dismissDuplicatePopup();
   if (action === 'photo-zoom') openPhotoLightbox(el.dataset.photoUrl, el.dataset.photoName);

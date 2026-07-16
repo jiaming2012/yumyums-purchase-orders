@@ -747,6 +747,16 @@ func createPurchaseEvent(ctx context.Context, pool *pgxpool.Pool, tx MercuryTran
 	for _, item := range items {
 		itemID, itemName, isNew := DerivePurchaseItemID(item.Name, existingItems)
 
+		// Never auto-create a catalog item from an empty name — description
+		// is UNIQUE, so a single '' row would absorb every future unnamed
+		// line. Validation (Check 0 in validate.go) routes unnamed receipts
+		// to review before reaching here; this guard covers any other caller.
+		// nullableStringPtr maps the empty itemID to NULL, leaving the line
+		// unlinked instead.
+		if isNew && strings.TrimSpace(itemName) == "" {
+			isNew = false
+		}
+
 		if isNew {
 			// Auto-create the purchase item
 			err = dbTx.QueryRow(ctx,

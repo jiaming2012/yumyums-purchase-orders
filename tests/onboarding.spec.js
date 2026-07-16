@@ -161,7 +161,7 @@ test.describe('My Trainings tab', () => {
 
     await page.goto('/onboarding.html');
     await waitForMyList(page);
-    await page.locator('[data-action="open-my-training"]').first().click();
+    await page.locator(`[data-action="open-my-training"][data-template-id="${kitchenTemplate.id}"]`).click();
     await waitForTrainingRunner(page);
 
     // Find and expand the active section by its title
@@ -178,7 +178,7 @@ test.describe('My Trainings tab', () => {
 
     await page.goto('/onboarding.html');
     await waitForMyList(page);
-    await page.locator('[data-action="open-my-training"]').first().click();
+    await page.locator(`[data-action="open-my-training"][data-template-id="${kitchenTemplate.id}"]`).click();
     await waitForTrainingRunner(page);
 
     // Expand the active section again
@@ -196,7 +196,7 @@ test.describe('My Trainings tab', () => {
     // Reload and verify it persists
     await page.goto('/onboarding.html');
     await waitForMyList(page);
-    await page.locator('[data-action="open-my-training"]').first().click();
+    await page.locator(`[data-action="open-my-training"][data-template-id="${kitchenTemplate.id}"]`).click();
     await waitForTrainingRunner(page);
     const activeSectionHeader3 = page.locator('#my-body .sec-header').filter({ hasText: activeSection.title }).first();
     await activeSectionHeader3.click();
@@ -240,7 +240,7 @@ test.describe('My Trainings tab', () => {
     // Navigate to training
     await page.goto('/onboarding.html');
     await waitForMyList(page);
-    await page.locator('[data-action="open-my-training"]').first().click();
+    await page.locator(`[data-action="open-my-training"][data-template-id="${kitchenTemplate.id}"]`).click();
     await waitForTrainingRunner(page);
 
     // Expand section 2 (Equipment Training) — should be accessible
@@ -250,12 +250,17 @@ test.describe('My Trainings tab', () => {
     if (await sec2Header.count() > 0 && !(await sec2Header.first().getAttribute('class')).includes('locked')) {
       await sec2Header.first().click();
 
-      // Video part should show as checked
-      const checkedPart = page.locator('#my-body .ob-check.checked').first();
-      await expect(checkedPart).toBeVisible({ timeout: 5000 });
+      // Video parts have no checkbox — a watched part surfaces as a "Watched"
+      // marker and a .watched class on its play affordance. The part we marked
+      // watched via the API must show that persisted state after reload.
+      await expect(page.locator('#my-body [data-action="play-video"].watched').first())
+        .toBeVisible({ timeout: 5000 });
     } else {
-      // Section 2 is locked (sec1 not complete) — verify via training card that progress is counted
-      await expect(page.locator('[data-action="open-my-training"]').first()).toBeVisible();
+      // Section 2 is locked (sec1 not complete) — we're in the runner view; the
+      // watched state is not directly visible, but the runner must still render
+      // (proves the reload landed on the training, not an error state).
+      await expect(page.locator('#my-body [data-action="back-to-my-list"]')).toBeVisible();
+      await expect(sec2Header.first()).toBeVisible();
     }
   });
 
@@ -293,7 +298,7 @@ test.describe('My Trainings tab', () => {
     await waitForMyList(page);
 
     // Open the training
-    await page.locator('[data-action="open-my-training"]').first().click();
+    await page.locator(`[data-action="open-my-training"][data-template-id="${kitchenTemplate.id}"]`).click();
     await waitForTrainingRunner(page);
 
     // After completing section 1, section 2 should be unlocked
@@ -358,9 +363,10 @@ test.describe('My Trainings tab', () => {
     // Play button should be visible (either thumbnail wrap or fallback play button)
     await expect(page.locator('#my-body [data-action="play-video"]')).toBeVisible();
 
-    // Checkbox should be disabled (can't manually toggle video parts)
-    const checkbox = page.locator('#my-body input[type="checkbox"]').first();
-    await expect(checkbox).toBeDisabled();
+    // Video parts have NO manual checkbox — completion happens by watching the
+    // video (commit 1ec8725 redesigned video parts to drop the checkbox). The
+    // play affordance is the only way to mark a part complete.
+    await expect(page.locator('#my-body input[type="checkbox"]')).toHaveCount(0);
   });
 
   test('video modal close button dismisses the player', async ({ page }) => {
@@ -570,7 +576,7 @@ test.describe('My Trainings tab', () => {
     await waitForMyList(page);
 
     // Open training
-    await page.locator('[data-action="open-my-training"]').first().click();
+    await page.locator(`[data-action="open-my-training"][data-template-id="${kitchenTemplate.id}"]`).click();
     await waitForTrainingRunner(page);
 
     // FAQ section should be visible and not locked
@@ -604,6 +610,18 @@ test.describe('Manager tab', () => {
     });
     expect(inviteResult.user).toBeTruthy();
     const hireId = inviteResult.user.id;
+
+    // Accept the invite so the hire becomes status='active' — managerHires only
+    // surfaces active users. accept-invite hijacks the session, so re-login as admin.
+    const token = inviteResult.invite_path.split('token=')[1];
+    await page.evaluate(async (t) => {
+      await fetch('/api/v1/auth/accept-invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: t, password: 'test456' }),
+      });
+    }, token);
+    await login(page);
 
     // Assign Kitchen Basics template to the hire
     const templates = await obApiCall(page, 'GET', 'templates');
@@ -1405,16 +1423,20 @@ test.describe('Sign-off role assignment', () => {
     page.once('dialog', async d => await d.accept('Test Section'));
     await page.locator('[data-action="add-ob-section"]').click();
 
-    // Sign-off role picker should NOT be visible before enabling sign-off
-    await expect(page.locator('.signoff-roles')).toHaveCount(0);
-
-    // Enable Require Sign-off toggle
-    await page.locator('[data-action="toggle-signoff"]').first().click();
-
-    // Sign-off role picker SHOULD now be visible with role chips
+    // New sections default to Require Sign-off ENABLED, so the role picker is
+    // visible immediately with role chips.
     await expect(page.locator('.signoff-roles')).toHaveCount(1);
     const chips = await page.locator('.signoff-roles .role-chip').count();
     expect(chips).toBeGreaterThanOrEqual(2); // at least admin + manager
+
+    // Disabling Require Sign-off hides the role picker...
+    await page.locator('[data-action="toggle-signoff"]').first().click();
+    await expect(page.locator('.signoff-roles')).toHaveCount(0);
+
+    // ...and re-enabling it brings the picker back with role chips.
+    await page.locator('[data-action="toggle-signoff"]').first().click();
+    await expect(page.locator('.signoff-roles')).toHaveCount(1);
+    expect(await page.locator('.signoff-roles .role-chip').count()).toBeGreaterThanOrEqual(2);
   });
 
   test('sign-off role picker disappears when sign-off is disabled', async ({ page }) => {
@@ -1430,8 +1452,7 @@ test.describe('Sign-off role assignment', () => {
     page.once('dialog', async d => await d.accept('Section'));
     await page.locator('[data-action="add-ob-section"]').click();
 
-    // Enable sign-off
-    await page.locator('[data-action="toggle-signoff"]').first().click();
+    // New sections default to sign-off ENABLED — the role picker is present.
     await expect(page.locator('.signoff-roles')).toHaveCount(1);
 
     // Disable sign-off
@@ -1454,8 +1475,16 @@ test.describe('Sign-off role assignment', () => {
     page.once('dialog', async d => await d.accept('Section'));
     await page.locator('[data-action="add-ob-section"]').click();
 
-    // Enable sign-off and select 'manager' role
-    await page.locator('[data-action="toggle-signoff"]').first().click();
+    // New sections default to sign-off ENABLED with admin+manager selected.
+    // Toggle off then on to clear the default role selection, giving a clean
+    // slate, then select only 'manager'.
+    await expect(page.locator('.signoff-roles')).toHaveCount(1);
+    await page.locator('[data-action="toggle-signoff"]').first().click(); // disable → clears roles
+    await expect(page.locator('.signoff-roles')).toHaveCount(0);
+    await page.locator('[data-action="toggle-signoff"]').first().click(); // re-enable → no roles selected
+    await expect(page.locator('.signoff-roles .role-chip.on')).toHaveCount(0);
+
+    // Select only 'manager'
     await page.locator('.signoff-roles .role-chip', { hasText: 'manager' }).click();
     await expect(page.locator('.signoff-roles .role-chip.on')).toHaveCount(1);
 
@@ -1740,7 +1769,7 @@ test.describe('Builder tab', () => {
       var tpl = obBuilderState.localCopy;
       var sec = tpl.sections[0];
       var item = sec.items[0];
-      var part = item.parts[0];
+      var part = item.video_parts[0];
       part._pendingFile = new File(['test'], 'test.mp4', { type: 'video/mp4' });
       part._pendingFileName = 'test.mp4';
       part._uploadError = true;
@@ -1784,7 +1813,7 @@ test.describe('Builder tab', () => {
 
     // Set up failed upload state
     await page.evaluate(() => {
-      var part = obBuilderState.localCopy.sections[0].items[0].parts[0];
+      var part = obBuilderState.localCopy.sections[0].items[0].video_parts[0];
       part._pendingFile = new File(['test'], 'original.mov', { type: 'video/quicktime' });
       part._pendingFileName = 'original.mov';
       part._uploadError = true;
@@ -1866,7 +1895,9 @@ test.describe('Section completion with sub-items', () => {
     await page.goto('/onboarding.html');
     await waitForMyList(page);
 
-    const card = page.locator('.card').filter({ hasText: 'Sub-Item Completion Test' });
+    // Scope to #my-body — a roles:[] template also appears in the Builder list
+    // (#builder-body) card, so an unscoped .card matches two elements.
+    const card = page.locator('#my-body .card').filter({ hasText: 'Sub-Item Completion Test' });
     await expect(card).toBeVisible();
     await expect(card).toContainText('1 of 1 sections complete');
 
@@ -1925,12 +1956,16 @@ test.describe('Section completion with sub-items', () => {
     await page.click('#t2');
     await waitForManagerList(page);
 
-    // The hire card should show progress > 0%
-    const hireCard = page.locator('#mgr-body .card').first();
+    // Target THIS hire's own card by hire id — other hires from earlier tests
+    // may sort ahead of it. The card lists every assigned template, so assert
+    // against this template's own progress line, not the whole card.
+    const hireCard = page.locator('#mgr-body [data-action="open-hire"][data-hire-id="' + me.id + '"]').first();
     await expect(hireCard).toBeVisible();
-    // Progress text should NOT be 0%
     const progressText = await hireCard.textContent();
-    expect(progressText).not.toContain('0%');
+    // Sub-item completion must reflect as 100% (not 0%) for our template.
+    expect(progressText).toContain('Manager Sub-Item Test');
+    expect(progressText).toContain('Manager Sub-Item Test100%');
+    expect(progressText).not.toContain('Manager Sub-Item Test0%');
 
     // Cleanup
     await obApiCall(page, 'DELETE', 'deleteTemplate/' + tpl.id);
@@ -2050,17 +2085,44 @@ test.describe('Reject and unsubmit sections', () => {
     return { me, tpl, full };
   }
 
+  // Open a hire's detail card by hire id, searching the Active sub-tab first and
+  // the Completed sub-tab second. A hire lands in Completed when ALL their
+  // templates are 100% and signed off (e.g. a single signed-off section), so
+  // callers can't assume which sub-tab holds them.
+  async function openHireById(page, hireId) {
+    await page.click('#t2');
+    await waitForManagerList(page);
+    const sel = '#mgr-body [data-action="open-hire"][data-hire-id="' + hireId + '"]';
+    if (await page.locator(sel).count() === 0) {
+      // Not in Active — try Completed.
+      await page.click('.sub-tabs button:has-text("Completed")');
+      await page.waitForTimeout(300);
+    }
+    await page.locator(sel).first().waitFor({ state: 'visible' });
+    await page.locator(sel).first().click();
+    await page.waitForTimeout(500);
+  }
+
+  // From a hire detail view, open the training runner for a specific template id.
+  async function openTrainingByTemplateId(page, templateId) {
+    const viewBtn = page.locator('[data-action="view-training"][data-template-id="' + templateId + '"]').first();
+    await viewBtn.waitFor({ state: 'visible' });
+    await viewBtn.click();
+    await page.waitForTimeout(500);
+  }
+
   test('crew can unsubmit a completed section and re-edit', async ({ page }) => {
     await login(page);
     const { me, tpl } = await setupCompletedSignoffSection(page);
 
-    // Verify section shows "Waiting for Sign-Off" with "Go Back & Edit" button
+    // Verify section shows "Waiting for Sign-Off" with "Go Back & Edit" button.
+    // The card shows the template NAME, not its id — target the data attribute.
     await page.goto('/onboarding.html');
     await waitForMyList(page);
-    await page.locator('[data-action="open-my-training"]').filter({ hasText: tpl.id }).first().click();
+    await page.locator('[data-action="open-my-training"][data-template-id="' + tpl.id + '"]').first().click();
     await waitForTrainingRunner(page);
 
-    await expect(page.locator('.pill-warn')).toContainText('Waiting for Sign-Off');
+    await expect(page.locator('#my-body .pill-warn')).toContainText('Waiting for Sign-Off');
     const goBackBtn = page.locator('[data-action="reopen-section"]');
     await expect(goBackBtn).toBeVisible();
 
@@ -2090,21 +2152,11 @@ test.describe('Reject and unsubmit sections', () => {
       rating: 'ready',
     });
 
-    // Open Manager tab, navigate to hire training
+    // Open Manager tab, navigate to hire training. A single signed-off section
+    // makes the hire "complete", so they may be under the Completed sub-tab.
     await page.goto('/onboarding.html');
-    await page.click('#t2');
-    await waitForManagerList(page);
-
-    // Open hire detail
-    await page.locator('#mgr-body [data-action="open-hire"]').first().click();
-    await page.waitForTimeout(500);
-
-    // Open the training
-    const viewBtn = page.locator('[data-action="view-training"]').filter({ hasText: tpl.id }).first();
-    if (await viewBtn.isVisible()) {
-      await viewBtn.click();
-      await page.waitForTimeout(500);
-    }
+    await openHireById(page, me.id);
+    await openTrainingByTemplateId(page, tpl.id);
 
     // Should see "Reject & Reopen" button on signed-off section
     const rejectBtn = page.locator('[data-action="reject-section"]');
@@ -2126,17 +2178,12 @@ test.describe('Reject and unsubmit sections', () => {
     await login(page);
     const { me, tpl, full } = await setupCompletedSignoffSection(page);
 
-    // Open Manager tab → hire → training
+    // Open Manager tab → hire → training. Section is complete (awaiting sign-off,
+    // pending_signoff=true) so the hire stays under Active, but openHireById
+    // handles either sub-tab defensively.
     await page.goto('/onboarding.html');
-    await page.click('#t2');
-    await waitForManagerList(page);
-    await page.locator('#mgr-body [data-action="open-hire"]').first().click();
-    await page.waitForTimeout(500);
-    const viewBtn = page.locator('[data-action="view-training"]').filter({ hasText: tpl.id }).first();
-    if (await viewBtn.isVisible()) {
-      await viewBtn.click();
-      await page.waitForTimeout(500);
-    }
+    await openHireById(page, me.id);
+    await openTrainingByTemplateId(page, tpl.id);
 
     // Should see "Reject" button alongside "Sign Off Section"
     const rejectBtn = page.locator('[data-action="reject-section"]');
@@ -2161,10 +2208,10 @@ test.describe('Reject and unsubmit sections', () => {
     const full = await obApiCall(page, 'GET', 'templates/' + tpl.id);
     await obApiCall(page, 'POST', 'reopenSection', { section_id: full.sections[0].id });
 
-    // Load My Trainings and open training
+    // Load My Trainings and open training (target by data-template-id, not text).
     await page.goto('/onboarding.html');
     await waitForMyList(page);
-    await page.locator('[data-action="open-my-training"]').filter({ hasText: tpl.id }).first().click();
+    await page.locator('[data-action="open-my-training"][data-template-id="' + tpl.id + '"]').first().click();
     await waitForTrainingRunner(page);
 
     // Expand section

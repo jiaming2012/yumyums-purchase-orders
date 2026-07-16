@@ -203,6 +203,9 @@ test.describe('Inventory', () => {
     // The test is independent of RECIPES_DATA state.
     await page.click('#t4');
     await page.waitForLoadState('networkidle');
+    // show(4) fires an async loadRecipes() whose resolution re-renders
+    // #recipes-list, detaching injected synthetic DOM. Let it settle first.
+    await page.waitForTimeout(500);
 
     // Inject a synthetic allocation row matching the markup renderIngredientDetail emits.
     await page.evaluate(() => {
@@ -243,6 +246,10 @@ test.describe('Inventory', () => {
     // breakdown lives on the Recipes tab. Closes the loop with a cross-link.
     await page.click('#t3');
     await page.waitForLoadState('networkidle');
+    // show(3) fires an async menu load that re-renders #menu-list, detaching
+    // injected synthetic DOM. Let it settle before seeding (same guard the
+    // Recipes-tab tests use).
+    await page.waitForTimeout(500);
 
     // Inject a synthetic Menu card with the cross-link action.
     await page.evaluate(() => {
@@ -563,67 +570,64 @@ test.describe('Inventory', () => {
   // ── Receipt review queue (INVT-03) ───────────────────────────────────────
 
   test('pending review items show Needs Review badge', async ({ page }) => {
+    // Seed a needs-review pending purchase so the assertion actually runs
+    // rather than passing vacuously on an empty queue. reason !== the
+    // no-attachment sentinel, so it renders the "Needs Review" badge — NOT
+    // "Missing Receipt", which shares the .approval-badge class (260630-mav).
+    const txId = 'test-needs-review-' + Date.now();
+    await seedPendingPurchase(page, {
+      bankTxId: txId, vendor: 'Needs Review Vendor', bankTotal: -10.00,
+      eventDate: '2026-04-15', reason: 'test', items: [{ name: 'Widget', quantity: 1, price: 10.00 }],
+    });
+    await page.reload();
     await waitForHistoryContent(page);
-    // Check if there are any pending items showing Needs Review badge
-    const badges = page.locator('.approval-badge');
-    const count = await badges.count();
-    if (count > 0) {
-      await expect(badges.first()).toContainText('Needs Review');
-    }
-    // If no pending items, verify "All caught up" shows
-    // (empty pending queue is also a valid state in a fresh test DB)
-    const historyList = page.locator('#history-list');
-    const text = await historyList.textContent();
-    // Either we have badges OR we have the confirmed empty state for pending queue
-    expect(count > 0 || text.includes('All caught up') || text.includes('No purchases yet')).toBe(true);
+    // A pending review item shows the "Needs Review" badge. Scope by text so an
+    // ambient "Missing Receipt" card (also .approval-badge) can't shadow it —
+    // a bare .approval-badge.first() is order-dependent on the pending queue.
+    await expect(page.locator('.approval-badge', { hasText: 'Needs Review' }).first())
+      .toBeVisible({ timeout: 5000 });
   });
 
-  test('tapping pending card opens review form', async ({ page }) => {
+  // These review-queue tests seed their own needs-review pending purchase and
+  // target THAT card by data-id (clicking the vendor line, not the card centre —
+  // a mismatch/parse-error card renders a "Retry parse" button over the centre
+  // that would eat the click). This keeps them deterministic instead of passing
+  // vacuously on an empty queue and flaking against a populated one.
+  async function openSeededReviewForm(page, tag) {
+    const txId = 'test-' + tag + '-' + Date.now();
+    const seeded = await seedPendingPurchase(page, {
+      bankTxId: txId, vendor: 'Review Vendor', bankTotal: -10.00,
+      eventDate: '2026-04-15', reason: 'test', items: [{ name: 'Widget', quantity: 1, price: 10.00 }],
+    });
+    await page.reload();
     await waitForHistoryContent(page);
-    const pendingCards = page.locator('[data-action="review-pending"]');
-    const count = await pendingCards.count();
-    if (count > 0) {
-      await pendingCards.first().click();
-      await expect(page.locator('.review-form')).toBeVisible();
-      await expect(page.locator('.review-form')).toContainText('Review Receipt');
-    }
+    await page.locator(`[data-action="review-pending"][data-id="${seeded.id}"]`).locator('.event-vendor').click();
+  }
+
+  test('tapping pending card opens review form', async ({ page }) => {
+    await openSeededReviewForm(page, 'open-form');
+    await expect(page.locator('.review-form')).toBeVisible();
+    await expect(page.locator('.review-form')).toContainText('Review Receipt');
   });
 
   test('review form has confirm and discard buttons', async ({ page }) => {
-    await waitForHistoryContent(page);
-    const pendingCards = page.locator('[data-action="review-pending"]');
-    const count = await pendingCards.count();
-    if (count > 0) {
-      await pendingCards.first().click();
-      await expect(page.locator('[data-action="confirm-receipt"]')).toBeVisible();
-      await expect(page.locator('[data-action="discard-receipt"]')).toBeVisible();
-    }
+    await openSeededReviewForm(page, 'confirm-discard');
+    await expect(page.locator('[data-action="confirm-receipt"]')).toBeVisible();
+    await expect(page.locator('[data-action="discard-receipt"]')).toBeVisible();
   });
 
   test('review form shows pre-filled vendor and date fields', async ({ page }) => {
-    await waitForHistoryContent(page);
-    const pendingCards = page.locator('[data-action="review-pending"]');
-    const count = await pendingCards.count();
-    if (count > 0) {
-      await pendingCards.first().click();
-      const vendorInput = page.locator('.review-vendor');
-      const dateInput = page.locator('.review-date');
-      await expect(vendorInput).toBeVisible();
-      await expect(dateInput).toBeVisible();
-    }
+    await openSeededReviewForm(page, 'prefill');
+    await expect(page.locator('.review-vendor')).toBeVisible();
+    await expect(page.locator('.review-date')).toBeVisible();
   });
 
   test('review form allows adding a new line item', async ({ page }) => {
-    await waitForHistoryContent(page);
-    const pendingCards = page.locator('[data-action="review-pending"]');
-    const count = await pendingCards.count();
-    if (count > 0) {
-      await pendingCards.first().click();
-      const initialRows = await page.locator('.review-line-item-row').count();
-      await page.locator('[data-action="add-review-line"]').first().click();
-      const newRows = await page.locator('.review-line-item-row').count();
-      expect(newRows).toBe(initialRows + 1);
-    }
+    await openSeededReviewForm(page, 'add-line');
+    const initialRows = await page.locator('.review-line-item-row').count();
+    await page.locator('[data-action="add-review-line"]').first().click();
+    const newRows = await page.locator('.review-line-item-row').count();
+    expect(newRows).toBe(initialRows + 1);
   });
 
   test('All caught up shows when no pending items in review queue', async ({ page }) => {
@@ -767,15 +771,12 @@ test.describe('Inventory', () => {
     // Select first group
     await page.locator('#new-item-group').selectOption({ index: 1 });
     await page.click('[data-action="create-item"]');
-    // Wait for reload
-    await page.waitForFunction((name) => {
-      const rows = document.querySelectorAll('.item-row');
-      for (const r of rows) {
-        if (r.textContent.includes(name)) return true;
-      }
-      return false;
-    }, itemName, { timeout: 5000 });
-    await expect(page.locator('.item-row', { hasText: itemName })).toBeVisible();
+    // create-item now auto-opens the new item's edit form (to prompt for store
+    // location), so the fresh item renders as an .item-edit-form with its name
+    // in the .item-edit-name INPUT — not as a plain .item-row. Assert against
+    // the edit form, which proves the item was created AND the auto-open fired.
+    const editName = page.locator('.item-edit-form .item-edit-name');
+    await expect(editName).toHaveValue(itemName, { timeout: 5000 });
   });
 
   // ── Item dropdown in receipt review ────────────────────────────────────
@@ -998,15 +999,15 @@ test.describe('Inventory', () => {
 
   test('vendor dropdown item click fills the vendor field', async ({ page }) => {
     const txId = 'test-vendor-select-' + Date.now();
-    await seedPendingPurchase(page, {
+    const seeded = await seedPendingPurchase(page, {
       bankTxId: txId, vendor: '', bankTotal: -5.00,
       eventDate: '2026-04-15', reason: 'test', items: [],
     });
     await page.reload();
     await waitForHistoryContent(page);
-    const pending = page.locator('[data-action="review-pending"]').first();
+    const pending = page.locator(`[data-action="review-pending"][data-id="${seeded.id}"]`);
     if (await pending.count() > 0) {
-      await pending.click();
+      await pending.locator('.event-vendor').click();
       const vendorInput = page.locator('.review-vendor');
       await vendorInput.fill('');
       // Wait for vendors to be loaded, then type to trigger dropdown
@@ -1027,15 +1028,15 @@ test.describe('Inventory', () => {
 
   test('review form has tax field and grand total', async ({ page }) => {
     const txId = 'test-tax-field-' + Date.now();
-    await seedPendingPurchase(page, {
+    const seeded = await seedPendingPurchase(page, {
       bankTxId: txId, vendor: 'Tax Test Vendor', bankTotal: -12.00,
       eventDate: '2026-04-15', reason: 'test', items: [{ name: 'Widget', quantity: 1, price: 10.00 }],
     });
     await page.reload();
     await waitForHistoryContent(page);
-    const pending = page.locator('[data-action="review-pending"]').first();
+    const pending = page.locator(`[data-action="review-pending"][data-id="${seeded.id}"]`);
     if (await pending.count() > 0) {
-      await pending.click();
+      await pending.locator('.event-vendor').click();
       await expect(page.locator('.review-tax')).toBeVisible();
       await expect(page.locator('.grand-total-value')).toBeVisible();
       await expect(page.locator('.line-total-value')).toContainText('$10.00');
@@ -1045,15 +1046,15 @@ test.describe('Inventory', () => {
 
   test('editing tax updates grand total in real-time', async ({ page }) => {
     const txId = 'test-tax-update-' + Date.now();
-    await seedPendingPurchase(page, {
+    const seeded = await seedPendingPurchase(page, {
       bankTxId: txId, vendor: 'Tax Update Vendor', bankTotal: -12.00,
       eventDate: '2026-04-15', reason: 'test', items: [{ name: 'Widget', quantity: 1, price: 10.00 }],
     });
     await page.reload();
     await waitForHistoryContent(page);
-    const pending = page.locator('[data-action="review-pending"]').first();
+    const pending = page.locator(`[data-action="review-pending"][data-id="${seeded.id}"]`);
     if (await pending.count() > 0) {
-      await pending.click();
+      await pending.locator('.event-vendor').click();
       const taxInput = page.locator('.review-tax');
       await taxInput.fill('2.00');
       await taxInput.dispatchEvent('input');
@@ -1064,15 +1065,15 @@ test.describe('Inventory', () => {
 
   test('green match banner shows when total equals bank transaction', async ({ page }) => {
     const txId = 'test-match-banner-' + Date.now();
-    await seedPendingPurchase(page, {
+    const seeded = await seedPendingPurchase(page, {
       bankTxId: txId, vendor: 'Match Vendor', bankTotal: -10.00,
       eventDate: '2026-04-15', reason: 'test', items: [{ name: 'Widget', quantity: 1, price: 10.00 }],
     });
     await page.reload();
     await waitForHistoryContent(page);
-    const pending = page.locator('[data-action="review-pending"]').first();
+    const pending = page.locator(`[data-action="review-pending"][data-id="${seeded.id}"]`);
     if (await pending.count() > 0) {
-      await pending.click();
+      await pending.locator('.event-vendor').click();
       await expect(page.locator('.match-banner')).toBeVisible();
       await expect(page.locator('.match-banner')).toContainText('Amounts match');
       await expect(page.locator('.match-banner')).toContainText('Ready to confirm');
@@ -1082,15 +1083,15 @@ test.describe('Inventory', () => {
 
   test('yellow mismatch banner shows when total differs from bank transaction', async ({ page }) => {
     const txId = 'test-mismatch-banner-' + Date.now();
-    await seedPendingPurchase(page, {
+    const seeded = await seedPendingPurchase(page, {
       bankTxId: txId, vendor: 'Mismatch Vendor', bankTotal: -20.00,
       eventDate: '2026-04-15', reason: 'test', items: [{ name: 'Widget', quantity: 1, price: 10.00 }],
     });
     await page.reload();
     await waitForHistoryContent(page);
-    const pending = page.locator('[data-action="review-pending"]').first();
+    const pending = page.locator(`[data-action="review-pending"][data-id="${seeded.id}"]`);
     if (await pending.count() > 0) {
-      await pending.click();
+      await pending.locator('.event-vendor').click();
       await expect(page.locator('.correction-banner')).toBeVisible();
       await expect(page.locator('.correction-banner')).toContainText('doesn\'t match');
       await expect(page.locator('.match-banner')).toHaveCount(0);
@@ -1099,15 +1100,15 @@ test.describe('Inventory', () => {
 
   test('bank total displays as positive in mismatch banner', async ({ page }) => {
     const txId = 'test-positive-bank-' + Date.now();
-    await seedPendingPurchase(page, {
+    const seeded = await seedPendingPurchase(page, {
       bankTxId: txId, vendor: 'Positive Vendor', bankTotal: -25.00,
       eventDate: '2026-04-15', reason: 'test', items: [{ name: 'Widget', quantity: 1, price: 10.00 }],
     });
     await page.reload();
     await waitForHistoryContent(page);
-    const pending = page.locator('[data-action="review-pending"]').first();
+    const pending = page.locator(`[data-action="review-pending"][data-id="${seeded.id}"]`);
     if (await pending.count() > 0) {
-      await pending.click();
+      await pending.locator('.event-vendor').click();
       const bannerText = await page.locator('.correction-banner').textContent();
       expect(bannerText).toContain('$25.00');
       expect(bannerText).not.toContain('$-25.00');
@@ -1116,15 +1117,15 @@ test.describe('Inventory', () => {
 
   test('banner switches from mismatch to match when amounts are corrected', async ({ page }) => {
     const txId = 'test-banner-switch-' + Date.now();
-    await seedPendingPurchase(page, {
+    const seeded = await seedPendingPurchase(page, {
       bankTxId: txId, vendor: 'Switch Vendor', bankTotal: -12.00,
       eventDate: '2026-04-15', reason: 'test', items: [{ name: 'Widget', quantity: 1, price: 10.00 }],
     });
     await page.reload();
     await waitForHistoryContent(page);
-    const pending = page.locator('[data-action="review-pending"]').first();
+    const pending = page.locator(`[data-action="review-pending"][data-id="${seeded.id}"]`);
     if (await pending.count() > 0) {
-      await pending.click();
+      await pending.locator('.event-vendor').click();
       // Initially mismatched
       await expect(page.locator('.correction-banner')).toBeVisible();
       // Add tax to make it match
@@ -1139,15 +1140,15 @@ test.describe('Inventory', () => {
 
   test('price input is text type, not number (no spinner arrows)', async ({ page }) => {
     const txId = 'test-price-input-' + Date.now();
-    await seedPendingPurchase(page, {
+    const seeded = await seedPendingPurchase(page, {
       bankTxId: txId, vendor: 'Price Type Vendor', bankTotal: -10.00,
       eventDate: '2026-04-15', reason: 'test', items: [{ name: 'Widget', quantity: 1, price: 5.00 }],
     });
     await page.reload();
     await waitForHistoryContent(page);
-    const pending = page.locator('[data-action="review-pending"]').first();
+    const pending = page.locator(`[data-action="review-pending"][data-id="${seeded.id}"]`);
     if (await pending.count() > 0) {
-      await pending.click();
+      await pending.locator('.event-vendor').click();
       const priceInput = page.locator('.review-li-price').first();
       const type = await priceInput.getAttribute('type');
       expect(type).toBe('text');
@@ -1158,15 +1159,15 @@ test.describe('Inventory', () => {
 
   test('typing in price field does not lose focus', async ({ page }) => {
     const txId = 'test-price-focus-' + Date.now();
-    await seedPendingPurchase(page, {
+    const seeded = await seedPendingPurchase(page, {
       bankTxId: txId, vendor: 'Focus Vendor', bankTotal: -10.00,
       eventDate: '2026-04-15', reason: 'test', items: [{ name: 'Widget', quantity: 1, price: 0 }],
     });
     await page.reload();
     await waitForHistoryContent(page);
-    const pending = page.locator('[data-action="review-pending"]').first();
+    const pending = page.locator(`[data-action="review-pending"][data-id="${seeded.id}"]`);
     if (await pending.count() > 0) {
-      await pending.click();
+      await pending.locator('.event-vendor').click();
       const priceInput = page.locator('.review-li-price').first();
       await priceInput.fill('');
       await priceInput.type('12.50');
@@ -1457,8 +1458,11 @@ test.describe('Inventory', () => {
       const body = await r.json();
       return { status: r.status, error: body.error };
     }, seed.id);
-    expect(res.status).toBe(400);
-    expect(res.error).toContain('mismatch');
+    // Phase 260607-fxl upgraded the total-mismatch rejection from a 400 text
+    // response to a structured 422 envelope with error:"total_mismatch" so the
+    // FE can render line_total / bank_total without parsing prose.
+    expect(res.status).toBe(422);
+    expect(res.error).toBe('total_mismatch');
   });
 
   test('backend allows confirm when total matches bank transaction (positive)', async ({ page }) => {
@@ -2522,9 +2526,21 @@ test.describe('Inventory', () => {
     // Verify: item below low_threshold MUST appear in inventory reorder suggestions
     expect(reorderText.toLowerCase(), 'BoundaryLow should be in inventory reorder').toContain(lowItemDesc.toLowerCase());
 
-    // PO suggestions count must exactly match inventory reorder count
-    // (both represent the same set of items needing reorder)
-    expect(poSuggestions.length).toBe(inventoryCount);
+    // PO suggestions are inventory-reorder items "not already on the PO"
+    // (backend GetSuggestions, service.go). So PO suggestions must be a SUBSET
+    // of inventory reorder — every PO-suggested item appears in the inventory
+    // reorder list. (A global count-equality is NOT a valid invariant: any
+    // low-stock item already on the draft PO is excluded from suggestions but
+    // still counted by inventory reorder — which is why an accumulated-state
+    // run diverges even though the boundary behavior above is correct.)
+    for (const s of poSuggestions) {
+      expect(
+        reorderText.toLowerCase(),
+        `PO-suggested item "${s.item_name}" must also be an inventory reorder suggestion`
+      ).toContain(s.item_name.toLowerCase());
+    }
+    // Sanity: the inventory count is at least the PO suggestion count.
+    expect(inventoryCount).toBeGreaterThanOrEqual(poSuggestions.length);
   });
 
   // ── Regression: admin can upsert items on a locked PO ─────────────────
@@ -2760,9 +2776,16 @@ test.describe('Inventory', () => {
     expect(pillAttrs.hasAction).toBeTruthy();
     expect(pillAttrs.hasPillBtn).toBeTruthy();
 
-    // Verify the rendering code contract: non-admin path exists
-    // by checking that the HTML source has the conditional branch
-    const htmlSource = await page.evaluate(() => document.querySelector('script') ? document.querySelector('script').textContent : '');
+    // Verify the rendering code contract: non-admin path exists by checking the
+    // inline script for the conditional branch. purchasing.html now loads an
+    // external <script src="tab.js"> BEFORE its inline block, so the old
+    // querySelector('script') (first script) has empty textContent — scan ALL
+    // scripts and concatenate their inline source instead.
+    const htmlSource = await page.evaluate(() =>
+      Array.from(document.querySelectorAll('script'))
+        .map(s => s.textContent || '')
+        .join('\n')
+    );
     // The code should have: else if (CUTOFF_CONFIG) — meaning non-admin without config gets no pill
     expect(htmlSource).toContain('else if (CUTOFF_CONFIG)');
   });
@@ -3193,7 +3216,11 @@ test.describe('Confirm Receipt disabled state (260607-fxl)', () => {
     await page.waitForLoadState('networkidle');
     const card = page.locator('[data-action="review-pending"][data-id="fxl-mismatch"]');
     await expect(card).toBeVisible();
-    await card.click();
+    // Phase 260607-s6r added a nested "Retry parse" button to items-mismatch
+    // pending cards, which sits near the card's centre. Clicking the card body
+    // directly would route the delegated click to that button instead of
+    // review-pending, so target the vendor line to open the review form.
+    await card.locator('.event-vendor').click();
     const btn = page.locator('.btn-primary[data-action="confirm-receipt"][data-id="fxl-mismatch"]');
     await expect(btn).toBeVisible();
     await expect(btn).toBeDisabled();

@@ -1363,9 +1363,11 @@ func TestRunIngestCycle_FallsBackToSonnet(t *testing.T) {
 	}
 }
 
-// TestRunIngestCycle_BothModelsFail_StoresParseError covers the (haiku→sonnet)
-// double-fail path: pending row created with parse_error containing both
-// error strings concatenated as "haiku: <h>; sonnet: <s>".
+// TestRunIngestCycle_BothModelsFail_StoresParseError covers the double-fail
+// path: pending row created with parse_error containing both error strings
+// concatenated as "sonnet: <primary>; sonnet-retry: <retry>" (Sonnet is the
+// primary model now — see parser.go; the stub error text here happens to spell
+// "haiku"/"sonnet" so the substring checks still exercise both attempts).
 func TestRunIngestCycle_BothModelsFail_StoresParseError(t *testing.T) {
 	if testPool == nil {
 		t.Skip("DB_TEST_URL not reachable; skipping integration test")
@@ -1543,7 +1545,7 @@ func TestRunIngestCycle_ScenarioTable(t *testing.T) {
 			amount:            -42.50,
 			wantPendingReview: 1,
 			wantPendingReason: "Receipt could not be parsed automatically",
-			wantParseErrParts: []string{"haiku:", "sonnet:", "529 overloaded", "invalid character"},
+			wantParseErrParts: []string{"sonnet:", "sonnet-retry:", "529 overloaded", "invalid character"},
 			wantSonnetCalled:  true,
 		},
 		{
@@ -1555,7 +1557,7 @@ func TestRunIngestCycle_ScenarioTable(t *testing.T) {
 			wantPendingReview: 1,
 			wantPendingReason: "Receipt could not be parsed automatically",
 			// Locks in that today's exact error substring is preserved end-to-end.
-			wantParseErrParts: []string{"haiku:", "sonnet:", "40.0", "type int"},
+			wantParseErrParts: []string{"sonnet:", "sonnet-retry:", "40.0", "type int"},
 			wantSonnetCalled:  true,
 		},
 		{
@@ -1574,6 +1576,26 @@ func TestRunIngestCycle_ScenarioTable(t *testing.T) {
 			wantPendingReview: 1,
 			wantPendingReason: "does not match", // matches "Receipt derived total ... does not match"
 			wantParseErrParts: []string{"attempt 1:", "attempt 2:"}, // retry loop fires; both attempts logged
+		},
+		{
+			// Regression (2026-07-16): totals match the bank amount but one
+			// line item has an empty name. Check 0 in validate.go must route
+			// to review — before the fix this auto-created a purchase_items
+			// row with description='' (a ghost catalog item every future
+			// unnamed line merges into, and a blank first row in the review
+			// picker). Seen live on Mercury tx aef104e6-7d45-11f1.
+			name: "unnamed_item_routes_to_review",
+			parseItems: []ReceiptItem{
+				{Name: "Chicken Thighs", Quantity: 1, Price: 13.59, IsCase: false},
+				{Name: "", Quantity: 1, Price: 4.39, IsCase: false},
+				{Name: "Peppers", Quantity: 1, Price: 6.49, IsCase: false},
+			},
+			parseSummary:      ReceiptSummary{Vendor: "Acme", Tax: 0, Total: 24.47, TotalUnits: 3, TotalCases: 0},
+			bankTxID:          "T-scenario-unnamed-item",
+			amount:            -24.47,
+			wantPendingReview: 1,
+			wantPendingReason: "unnamed",
+			wantParseErrParts: []string{"attempt 1:", "attempt 2:"}, // validate-fail → feedback retry fires
 		},
 		{
 			// Multi-attachment net: a purchase receipt ($804.49) and a refund

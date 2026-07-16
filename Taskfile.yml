@@ -26,12 +26,38 @@ tasks:
     desc: Run Playwright E2E tests (set HEADED=1 for visible browser)
     deps: [backend:db-test, sw]
     cmds:
+      # Start from a clean hq_test. This suite shares ONE server + ONE database
+      # across all spec files; leftover users/templates/pending-purchases from a
+      # prior run make order-sensitive tests flake. The server re-runs goose
+      # migrations on startup, so a bare CREATE is enough. (Playwright itself
+      # runs serially — workers:1 in playwright.config.js — for the same reason.)
+      - |
+        DB_HOST="{{.DB_HOST | default "localhost"}}"; DB_PORT="{{.DB_PORT | default "5432"}}"
+        echo "── resetting hq_test on $DB_HOST:$DB_PORT ──"
+        psql "postgres://yumyums:yumyums@$DB_HOST:$DB_PORT/postgres?sslmode=disable" \
+          -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='hq_test' AND pid<>pg_backend_pid();" \
+          -c "DROP DATABASE IF EXISTS hq_test;" \
+          -c "CREATE DATABASE hq_test;" >/dev/null
       - npx playwright test {{if eq (.HEADED | default "0") "1"}}--headed{{end}}
 
   test:ui:
-    desc: Open Playwright UI mode for interactive debugging
+    desc: Open Playwright UI mode for interactive debugging (isolated clean stack on :8091 / hq_test_ui)
+    deps: [backend:db-test, sw]
     cmds:
-      - npx playwright test --ui
+      # Run UI mode on its OWN port + OWN freshly-reset database (hq_test_ui) so
+      # it NEVER (a) reuses a dev server you have running on :8089 —
+      # reuseExistingServer would attach to it and run the suite against, and
+      # mutate, your live dev data — or (b) collides with a `task test` run using
+      # hq_test on :8199. TEST_PORT + TEST_DB_NAME make playwright.config.js spawn
+      # a dedicated server on :8091 backed by hq_test_ui.
+      - |
+        DB_HOST="{{.DB_HOST | default "localhost"}}"; DB_PORT="{{.DB_PORT | default "5432"}}"
+        echo "── resetting hq_test_ui on $DB_HOST:$DB_PORT ──"
+        psql "postgres://yumyums:yumyums@$DB_HOST:$DB_PORT/postgres?sslmode=disable" \
+          -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='hq_test_ui' AND pid<>pg_backend_pid();" \
+          -c "DROP DATABASE IF EXISTS hq_test_ui;" \
+          -c "CREATE DATABASE hq_test_ui;" >/dev/null
+      - TEST_DB_NAME=hq_test_ui TEST_PORT=8091 TEST_OUTPUT_DIR=test-results-ui npx playwright test --ui
 
   bdd:gen:
     desc: Generate Playwright tests from Gherkin feature files

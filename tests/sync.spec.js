@@ -88,7 +88,7 @@ test.describe('Cross-device: shared checklist', () => {
     await cleanupTemplates(page);
   });
 
-  test('two contexts see the same checklist from My Checklists', async ({ browser, page }) => {
+  test('two contexts see the same checklist from My Checklists [LC-04]', async ({ browser, page }) => {
     const dow = await getTodayDOW(page);
     const tpl = await createTestTemplate(page, 'Shared Checklist', dow);
 
@@ -106,7 +106,7 @@ test.describe('Cross-device: shared checklist', () => {
     await ctxB.close();
   });
 
-  test('Device B sees field changes from Device A after reload', async ({ browser, page }) => {
+  test('Device B sees field changes from Device A after reload [SYN-03]', async ({ browser, page }) => {
     const dow = await getTodayDOW(page);
     await createTestTemplate(page, 'Cross-Device Test', dow);
     await page.reload();
@@ -143,7 +143,7 @@ test.describe('Cross-device: op log', () => {
     await cleanupTemplates(page);
   });
 
-  test('saving a field generates a SET_FIELD op visible via ops/since', async ({ page }) => {
+  test('saving a field generates a SET_FIELD op visible via ops/since [SYN-01]', async ({ page }) => {
     const dow = await getTodayDOW(page);
     await createTestTemplate(page, 'Ops Test', dow);
     await page.reload();
@@ -163,7 +163,7 @@ test.describe('Cross-device: op log', () => {
     expect(setFieldOp.entity_type).toBe('field_response');
   });
 
-  test('template creation generates SAVE_TEMPLATE op', async ({ page }) => {
+  test('template creation generates SAVE_TEMPLATE op [SYN-10]', async ({ page }) => {
     const dow = await getTodayDOW(page);
     const tpl = await createTestTemplate(page, 'Template Op Test', dow);
     await page.waitForTimeout(1500); // EmitOp is async
@@ -175,7 +175,7 @@ test.describe('Cross-device: op log', () => {
     expect(saveOp.entity_type).toBe('template');
   });
 
-  test('archiving template generates ARCHIVE_TEMPLATE op', async ({ page }) => {
+  test('archiving template generates ARCHIVE_TEMPLATE op [SYN-10]', async ({ page }) => {
     const dow = await getTodayDOW(page);
     const tpl = await createTestTemplate(page, 'Archive Op Test', dow);
     await page.waitForTimeout(1000);
@@ -188,7 +188,7 @@ test.describe('Cross-device: op log', () => {
     expect(archiveOp).toBeDefined();
   });
 
-  test('multiple ops on same entity have incrementing lamport_ts', async ({ page }) => {
+  test('multiple ops on same entity have incrementing lamport_ts [SYN-01]', async ({ page }) => {
     const dow = await getTodayDOW(page);
     const tpl = await createTestTemplate(page, 'Lamport Test', dow);
     await page.waitForTimeout(1000);
@@ -226,7 +226,7 @@ test.describe('Cross-device: regressions', () => {
     await cleanupTemplates(page);
   });
 
-  test('checking a field does not uncheck itself via WS echo', async ({ page }) => {
+  test('checking a field does not uncheck itself via WS echo [SYN-02]', async ({ page }) => {
     const dow = await getTodayDOW(page);
     await createTestTemplate(page, 'Echo Test', dow);
     await page.reload();
@@ -243,7 +243,7 @@ test.describe('Cross-device: regressions', () => {
     await expect(checkBtn).toHaveClass(/checked/);
   });
 
-  test('no "updated by" toast appears for own field saves', async ({ page }) => {
+  test('no "updated by" toast appears for own field saves [RUN-16 SYN-02]', async ({ page }) => {
     const dow = await getTodayDOW(page);
     await createTestTemplate(page, 'Toast Echo Test', dow);
     await page.reload();
@@ -260,7 +260,75 @@ test.describe('Cross-device: regressions', () => {
     expect(toastVisible).toBe(false);
   });
 
-  test('SET_FIELD op includes user_name in payload', async ({ page }) => {
+  test('catch-up replay of the op backlog shows no "updated by" toast flood [SYN-02]', async ({ page }) => {
+    // Regression (2026-07-16): wsCatchUp replayed the whole historical op
+    // backlog through applyOp as if the ops were live teammate edits. After a
+    // reload the device_id regenerates, so the user's OWN past ops no longer
+    // self-suppress — every checklist open fired an "N fields updated by X"
+    // toast flood. Catch-up must apply ops silently.
+    const dow = await getTodayDOW(page);
+    await createTestTemplate(page, 'CatchUp Silent Test', dow);
+    await page.reload();
+
+    await page.click('[data-fill-template-id]');
+    const checkBtn = page.locator('.check-btn').first();
+    await checkBtn.click();
+    await expect(checkBtn).toHaveClass(/checked/, { timeout: 5000 });
+    await page.waitForTimeout(2000); // auto-save + op persisted server-side
+
+    // Simulate the post-reload fresh-device state while still inside the
+    // checklist (the toast only renders inside a detail view): zero the
+    // Lamport clock and swap the device_id so nothing self-suppresses, then
+    // drive a real catch-up over the full backlog.
+    await page.evaluate(async () => {
+      LAMPORT_CLOCK._ts = 0;
+      LAMPORT_CLOCK._deviceId = 'test-fresh-device-' + Date.now();
+      await wsCatchUp();
+    });
+
+    // The toast queue flushes 500ms after enqueue and shows for 3s — poll
+    // through that whole window; it must never appear for replayed ops.
+    let sawToast = false;
+    for (let i = 0; i < 13; i++) {
+      if (await page.locator('.sync-toast.show').isVisible().catch(() => false)) { sawToast = true; break; }
+      await page.waitForTimeout(200);
+    }
+    expect(sawToast, 'catch-up replay must not fire "updated by" toasts').toBe(false);
+
+    // Silent must mean quiet, not skipped — the replayed state still applies.
+    await expect(checkBtn).toHaveClass(/checked/);
+  });
+
+  test('live field edit from another device still shows the "updated by" toast [SYN-02]', async ({ browser, page }) => {
+    // Positive control for the silent catch-up fix: only REPLAYED ops are
+    // silent. A live WS op from another device must still flash + toast.
+    const dow = await getTodayDOW(page);
+    await createTestTemplate(page, 'Live Toast Test', dow);
+    await page.reload();
+
+    // Device A (this page): open the checklist and stay on it.
+    await page.click('[data-fill-template-id]');
+    await page.waitForSelector('.check-btn', { timeout: 10000 });
+
+    // Device B: open the same checklist and check the field.
+    const ctxB = await browser.newContext();
+    const pageB = await ctxB.newPage();
+    await login(pageB);
+    await pageB.goto(BASE + '/workflows.html');
+    await expect(pageB.locator('#s1').getByText('Live Toast Test')).toBeVisible({ timeout: 10000 });
+    await pageB.click('[data-fill-template-id]');
+    const checkBtnB = pageB.locator('.check-btn').first();
+    await checkBtnB.click();
+    await expect(checkBtnB).toHaveClass(/checked/, { timeout: 5000 });
+
+    // Device A: the live op arrives over WS → toast must appear.
+    await expect(page.locator('.sync-toast.show')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('.sync-toast')).toContainText('updated by');
+
+    await ctxB.close();
+  });
+
+  test('SET_FIELD op includes user_name in payload [SYN-01]', async ({ page }) => {
     const dow = await getTodayDOW(page);
     await createTestTemplate(page, 'UserName Op Test', dow);
     await page.reload();
@@ -277,7 +345,7 @@ test.describe('Cross-device: regressions', () => {
     expect(setFieldOp.payload.user_name.length).toBeGreaterThan(0);
   });
 
-  test('save status clears after rapid field saves', async ({ page }) => {
+  test('save status clears after rapid field saves [RUN-04]', async ({ page }) => {
     const dow = await getTodayDOW(page);
     await createTestTemplate(page, 'SaveStatus Test', dow);
     await page.reload();
@@ -301,7 +369,7 @@ test.describe('Cross-device: regressions', () => {
     expect(text).not.toContain('Saving');
   });
 
-  test('field attribution shows user name not undefined after save', async ({ page }) => {
+  test('field attribution shows user name not undefined after save [RUN-03]', async ({ page }) => {
     const dow = await getTodayDOW(page);
     await createTestTemplate(page, 'Attribution Test', dow);
     await page.reload();
@@ -317,7 +385,7 @@ test.describe('Cross-device: regressions', () => {
     expect(attrText.length).toBeGreaterThan(2);
   });
 
-  test('unchecked field stays unchecked after navigating away and returning', async ({ page }) => {
+  test('unchecked field stays unchecked after navigating away and returning [FLD-01 RUN-18]', async ({ page }) => {
     const dow = await getTodayDOW(page);
     await createTestTemplate(page, 'Uncheck Persist', dow);
     await page.reload();
@@ -349,7 +417,7 @@ test.describe('Cross-device: regressions', () => {
     await expect(page.locator('.check-btn').first()).not.toHaveClass(/checked/);
   });
 
-  test('list page progress decrements when another device unchecks a field', async ({ browser, page }) => {
+  test('list page progress decrements when another device unchecks a field [LST-17]', async ({ browser, page }) => {
     const dow = await getTodayDOW(page);
     await createTestTemplate(page, 'Uncheck Sync', dow);
 
@@ -383,7 +451,7 @@ test.describe('Cross-device: regressions', () => {
     await ctxB.close();
   });
 
-  test('sub-step checks on Device A appear checked on Device B', async ({ browser, page }) => {
+  test('sub-step checks on Device A appear checked on Device B [SYN-03]', async ({ browser, page }) => {
     const dow = await getTodayDOW(page);
     const tpl = await apiCall(page, 'POST', 'createTemplate', {
       name: 'SubStep Sync',
@@ -430,7 +498,7 @@ test.describe('Cross-device: regressions', () => {
     await ctxB.close();
   });
 
-  test('submit on Device A updates runner view to submitted on Device B', async ({ browser, page }) => {
+  test('submit on Device A updates runner view to submitted on Device B [SYN-03]', async ({ browser, page }) => {
     const dow = await getTodayDOW(page);
     await createTestTemplate(page, 'Submit Runner Sync', dow);
     await page.reload();
@@ -475,7 +543,7 @@ test.describe('Cross-device: regressions', () => {
     await ctxB.close();
   });
 
-  test('temperature input keeps cursor position while typing', async ({ page }) => {
+  test('temperature input keeps cursor position while typing [SYN-09]', async ({ page }) => {
     const dow = await getTodayDOW(page);
     await apiCall(page, 'POST', 'createTemplate', {
       name: 'Temp Cursor Test',
@@ -505,7 +573,7 @@ test.describe('Cross-device: regressions', () => {
     expect(val).toBe('400');
   });
 
-  test('generateUUID works when crypto.randomUUID is unavailable', async ({ page }) => {
+  test('generateUUID works when crypto.randomUUID is unavailable [SYN-11]', async ({ page }) => {
     const dow = await getTodayDOW(page);
     await createTestTemplate(page, 'UUID Fallback', dow);
     await page.reload();
@@ -524,7 +592,7 @@ test.describe('Cross-device: regressions', () => {
     expect(uuid).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
   });
 
-  test('two tabs on same origin have different device_ids for sync', async ({ context, page }) => {
+  test('two tabs on same origin have different device_ids for sync [SYN-07]', async ({ context, page }) => {
     const dow = await getTodayDOW(page);
     await createTestTemplate(page, 'DeviceID Test', dow);
     await page.reload();
@@ -553,7 +621,7 @@ test.describe('Cross-device: regressions', () => {
     await pageB.close();
   });
 
-  test('list page progress updates when another device completes a field', async ({ browser, page }) => {
+  test('list page progress updates when another device completes a field [LST-17]', async ({ browser, page }) => {
     const dow = await getTodayDOW(page);
     await createTestTemplate(page, 'Progress Sync', dow);
 
@@ -587,7 +655,7 @@ test.describe('Cross-device: regressions', () => {
 // ─── D. Auth gates ──────────────────────────────────────────────────────────
 
 test.describe('Cross-device: auth', () => {
-  test('ops/since endpoint requires authentication', async ({ browser }) => {
+  test('ops/since endpoint requires authentication [SYN-08]', async ({ browser }) => {
     const ctx = await browser.newContext();
     const page = await ctx.newPage();
     const response = await page.request.get('/api/v1/workflow/ops/since?lamport_ts=0');
@@ -595,7 +663,7 @@ test.describe('Cross-device: auth', () => {
     await ctx.close();
   });
 
-  test('WebSocket endpoint requires authentication', async ({ browser }) => {
+  test('WebSocket endpoint requires authentication [SYN-08]', async ({ browser }) => {
     const ctx = await browser.newContext();
     const page = await ctx.newPage();
     await page.goto('/login.html');

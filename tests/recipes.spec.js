@@ -264,6 +264,10 @@ test.describe('Recipes tab — E2E', () => {
     // the backend during a drag.
     await page.click('#t4');
     await page.waitForLoadState('networkidle');
+    // show(4) fires loadRecipes() whose async resolution re-renders
+    // #recipes-list, detaching any synthetic DOM we inject. Let that settle
+    // before seeding (mirrors the FR-23 test's guard below).
+    await page.waitForTimeout(500);
 
     await page.evaluate(() => {
       const host = document.getElementById('recipes-list');
@@ -358,6 +362,10 @@ test.describe('Recipes tab — E2E', () => {
     // path (the X / dismiss action) restores the placeholder.
     await page.click('#t4');
     await page.waitForLoadState('networkidle');
+    // Let the async loadRecipes() re-render settle before injecting synthetic
+    // DOM, else #recipes-list is overwritten and the injected node detaches
+    // mid-click (mirrors the FR-23 test's guard).
+    await page.waitForTimeout(500);
 
     // Inject synthetic populated card to set SELECTED_MENU_ITEM_ID via a
     // view-menu-summary click.
