@@ -17,7 +17,7 @@ outside this repo). -->
 ### Objective: Every silent-loss mode in the checklist engine is enumerated, specified, and has a falsifiable acceptance test before build starts.
 - A data-integrity PRD (template-edit stages 1–3) is delivered as a blocking gate before WO build, with 100% of its requirements tracing to either a reproduced failure mode or a named invariant (trace table in the PRD; audited at cycle gate).
 - The mid-run edit semantic ("crews finish the run they started; edits take effect next run") is recorded as 1 operator-signed decision in the PRD and encoded as ≥ 2 passing acceptance tests: a mid-run edit leaves the in-flight run untouched, and the next run reflects the new shape.
-- 8/8 backlog items marked `new` at cycle open (2026-07-16) are routed through a door — folded into the PRD, promoted to a roadmap card, or deferred with a written reason in BACKLOG.md (routing count auditable from BACKLOG.md statuses at cycle end).
+- 15/15 backlog items marked `new` at cycle open (2026-07-16: 8 main-list + 4 test-hardening notes + 3 prove-sweep PARK fix-WOs) are routed through a door — folded into the PRD, promoted to a roadmap card, or deferred with a written reason in BACKLOG.md; 0 `· new` markers remain (auditable via `grep -c '· new' BACKLOG.md`).
 
 ## Delivery
 

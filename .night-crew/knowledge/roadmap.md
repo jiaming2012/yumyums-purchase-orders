@@ -105,8 +105,11 @@
   guard-return becomes a real seeded assertion or is deleted (denominator = the audit that
   produced the 18). Footprint: test-debt (audit-scoped). → QA KR1, retires carried
   waiver #2.
-- **`carried-fix-wos-sweep`** · PLANNED · The 3 fix-WOs queued at hardening-cycle close
-  (see closeout §scorecard, Delivery KR-1 note). Red-first each. → QA KR2.
+- **`carried-fix-wos-sweep`** · PLANNED · The carried prove-sweep fix-WO with no harness
+  dependency: `WO-cron-clock-seam` (a `now` seam in the 4 `run*Check` funcs + real
+  cron-decision unit tests — unblocks P-6, Purchasing FR-19/20/21/22). The other two
+  prove-sweep PARKs (photo-S3 harness, offline-IndexedDB harness) are deferred this cycle
+  — harness-infrastructure class, see routing record. Red-first. → QA KR2.
 
 ## Activity 7 — Prod ops · *operator-gated*
 
@@ -128,7 +131,7 @@
 
 ---
 
-## Backlog routing record (Product KR3 — 8/8 `new` items routed 2026-07-16)
+## Backlog routing record (Product KR3 — 15/15 `new` items routed 2026-07-16)
 
 | Backlog item | Door | Destination |
 |---|---|---|
@@ -140,3 +143,10 @@
 | Users `#s3` orphan cleanup | promoted | `users-s3-orphan-cleanup` |
 | Onboarding video-pipeline fixture | deferred | off-theme for this cycle; needs operator Spaces creds; revisit next cycle (operator 2026-07-16) |
 | `/nc-status` non-determinism | deferred | framework/tooling outside this repo; stays in backlog (operator 2026-07-16) |
+| Ops FR-15 builder-UI coverage gap | promoted | rides `vacuous-tests-18-to-0` |
+| Ops FR-10/FR-12 vacuous reject test | promoted | rides `vacuous-tests-18-to-0` |
+| Onboarding 6 conditional-skip guards | promoted | rides `vacuous-tests-18-to-0` |
+| Inventory ~40 data-dependent guards | promoted | rides `vacuous-tests-18-to-0` |
+| WO-cron-clock-seam | promoted | `carried-fix-wos-sweep` (pure code seam, no harness dependency) |
+| WO-photo-s3-harness | deferred | needs mock-S3/test-bucket harness + creds — same class as the video fixture; revisit next cycle |
+| WO-offline-indexeddb-harness | deferred | needs a new SW+IndexedDB Playwright project; off-theme this cycle |
