@@ -20,7 +20,7 @@
   denominator at triage 2026-07-13 (D-5) as env-gated — this fixture is the preserved prove-path:
   when built, it flips FR-16/NFR-4 UNPROVEN→WORKING (or reddens them). Needs operator-supplied
   Spaces creds. ~4–5h test-infra build. · origin: triage 2026-07-13 (D-5, waive-now-but-preserve)
-  · new
+  · deferred 2026-07-16 — off-theme for the "nothing silently lost" cycle; needs operator creds; revisit next cycle (OKR-session routing)
 
 - ~~**Users stale-E2E repair** · `tests/users.spec.js` two Access-tab tests navigating dead
   `#t3`/`#s3` + rename the misleading `s3` var in `renderAccess`.~~ **DONE — promoted →
@@ -38,13 +38,14 @@
   **Scheduling delegated to the planning agents** (PjM `/nc-slate-plan` / PM `/nc-pm-session` / eng) —
   triage 2026-07-14 (ledger T-10) declined to hand-pick backlog-vs-slate placement; queue placement is
   a planner call, not an operator triage pick. Stays a ready candidate here until they promote it.
-  · origin: overnight-20260714 ops-nfr3 (in-footprint deferral, G6-confirmed) · new
+  · origin: overnight-20260714 ops-nfr3 (in-footprint deferral, G6-confirmed) · promoted →
+  `ops-nfr3-resubmit-photo-gate` (roadmap Activity 2, OKR session 2026-07-16)
 
 - **Users `users.html:122` orphaned `<div id="s3">` cleanup** · After `users-stale-e2e-repair`
   repointed the Access tests to `#s2` and renamed the `renderAccess` var, the dead `<div id="s3">`
   at `users.html:122` (3-tab→2-tab refactor leftover) is now fully orphaned — nothing references it.
   Trivial removal; fold into any future Users card. · origin: overnight-20260714 users-stale G6
-  (optional cleanup) · new
+  (optional cleanup) · promoted → `users-s3-orphan-cleanup` (roadmap Activity 2, OKR session 2026-07-16)
 
 - **`/nc-status` non-determinism — same repo, two machines, two reports** · Running `/nc-status`
   on separate machines yields diverging output, which defeats the skill's whole purpose (a single
@@ -67,7 +68,9 @@
   layout truth to `/nc-help` and any `nc-progress` variant so all status surfaces agree. The skill
   file lives outside this repo (`~/.claude/skills/nc-status/`), so this is a **framework/tooling
   WO**, not a product card — but it must land or every future `/nc-status` cross-check is unreliable.
-  · origin: 2026-07-15 cross-machine `/nc-status` diff (operator-observed) · new
+  · origin: 2026-07-15 cross-machine `/nc-status` diff (operator-observed) · deferred 2026-07-16 —
+  framework/tooling outside this repo; stays in backlog until a night-crew dogfood pass picks it up
+  (operator decision, OKR-session routing)
 
 - **Ops P0 — template-edit data loss: field IDs churn on every `updateTemplate` (REPRODUCED)** ·
   Editing a template (e.g. cutting a task from the Friday checklist) while crew devices have the
@@ -86,7 +89,8 @@
   app-level existence check scoped to drafts (`submission_id IS NULL`; do NOT restore the FK —
   submitted responses reference snapshot ids by design). Red-first: flip the repro spec in.
   · origin: operator report 2026-07-16 (Friday checklist, two devices), reproduced + root-caused
-  same session · new
+  same session · promoted → `stage1-field-id-preservation` + `stage1-dead-id-reject` (roadmap
+  Activity 2, OKR session 2026-07-16)
 
 - **Ops — template-updated broadcast: open devices re-render on edit** · Stage 2 of the
   template-edit robustness roadmap. `SAVE_TEMPLATE` ops are already emitted on template edits and
@@ -97,7 +101,7 @@
   devices on reconnect for free via catch-up. Depends on stage 1 (stable ids make the re-render
   a remap instead of a reset). Mind the silent-replay rule from `42eeb39`: a template re-render
   triggered by catch-up must not toast. · origin: fix-direction session 2026-07-16 (stage 2 of 3)
-  · new
+  · promoted → `stage2-template-updated-broadcast` (roadmap Activity 3, OKR session 2026-07-16)
 
 - **Ops architecture — immutable template versions, run-pinned (stable field identity)** · Stage 3
   end-state that deletes the stage-1/2 compensations: fields get client-generated UUIDs honored by
@@ -109,7 +113,8 @@
   the existing submit-time `template_snapshot` (LC-02) upstream to edit-time. Phase-sized (schema
   migration + workflow backend rework + runner load path); slots naturally ahead of sync Phase 11 /
   the reactive-store direction. · origin: fix-direction session 2026-07-16 (stage 3 of 3,
-  operator asked for the robust-architecture answer) · new
+  operator asked for the robust-architecture answer) · promoted → `versioning-*` (roadmap
+  Activities 4–5, OKR session 2026-07-16 — operator chose design+build this cycle)
 
 - **Inventory — prod ghost catalog item check + cleanup** · The receipt pipeline auto-created a
   `''`-description `purchase_items` row when Claude parsed a receipt with unnamed line items
@@ -121,7 +126,8 @@
   `purchase_line_items`, then rename or unlink+delete. **Prod data mutation — needs operator
   sign-off on the handling, not just the WO.** Small card. · origin: 2026-07-16 test-failure
   root-cause (empty item found in `hq_test_ui` from live Mercury ingest; prod exposure inferred)
-  · new
+  · promoted → `prod-ghost-item-rename` (roadmap Activity 7, OKR session 2026-07-16 — operator
+  chose rename-keep-links handling)
 
 ## Activity-4 fix-cards (from Activity-2 confirm-absence graduations — code-fix + regression-test WOs)
 

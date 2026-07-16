@@ -1,209 +1,142 @@
-# Roadmap — HQ hardening cycle
+# Roadmap — "Nothing silently lost" cycle (checklist data integrity)
 
-> **Cycle:** HQ hardening — first night-crew guinea-pig run. **Traces to:**
-> `.night-crew/knowledge/okrs.md` (Product / Delivery / Engineering / QA).
-> **Produced:** 2026-07-09 attended session. *(Design note: this roadmap should be
-> produced by `/nc-okr-session` at cycle-planning time — see the run's
-> `design-findings.md`, "no orphan inputs." It was authored here to close that gap
-> retroactively; treat it as the artifact the corrected OKR session would emit.)*
+> **Cycle:** Nothing silently lost — every way the checklist engine can silently lose
+> crew-entered work is enumerated, fixed, and made structurally impossible.
+> **Traces to:** `.night-crew/knowledge/okrs.md` (Product / Delivery / Engineering / QA,
+> signed 2026-07-16). **Produced:** 2026-07-16 attended `/nc-okr-session` (the roadmap's
+> guaranteed producer, DESIGN §15u). Previous cycle's roadmap archived at
+> `reference/roadmap-2026-07-09-hq-hardening.md`.
+> **Trigger:** operator-reported, same-day-reproduced P0 — template edits silently discard
+> open-device crew work (repro: `tests/repro-cut-task.spec.js`, untracked until stage 1
+> flips it green; root cause: `replaceTemplate` field-ID churn + FK-dropped silent dead-id
+> writes; backlog entry has full cites).
 
 ## How this roadmap works
 
-- **Activity-level cards.** Each card is WO-sized-ish work the PjM/`nc-slate-plan`
-  sizes to a night. Cards carry a **module footprint** (for parallel tracks) and a
-  **KR trace**.
+- **Activity-level cards.** Each card is WO-sized-ish work the PjM/`nc-slate-plan` sizes
+  to a night. Cards carry a **module footprint** (for parallel tracks) and a **KR trace**.
 - **Status:** `DONE` · `DRAFTING` (overnight) · `PLANNED` (white) · `BLOCKED`.
-- **Cadence is the PjM's, not the operator's.** How many cards land per overnight
-  pass is the planner's call against the night budget + the quality bar. The
-  operator owns the *bar*, not the *throughput*.
-- **Two passes are mandatory.** Every app's flow enumeration = a first pass + an
-  independent cross-check. *(Empirical: single-pass recall ≈ 85% on Operations,
-  under the 90% KR — the cross-check found 4 missed flows. Non-negotiable for the
-  other four apps.)*
+- **Cadence is the PjM's, not the operator's.** Cards-per-night is the planner's call
+  against the night budget + quality bar (budget is a floor, not a ceiling).
+- **Sequencing rule (operator-ratified 2026-07-16):** stages 1–2 ship BEFORE the
+  versioning build — interim protection deploys to prod without waiting on a schema
+  migration. The `replaceTemplate` double-touch (stage-1 upsert now, versioning rework
+  later) is accepted cost.
+- **Red-first is mandatory on every fix card** (QA KR2): the test fails before the fix,
+  recorded in the WO record.
 
-## App footprints (independent → parallelizable)
+## Module footprints (independent → parallelizable)
 
-| App | Frontend | Backend | Tests |
+| Track | Frontend | Backend | Tests |
 |---|---|---|---|
-| Operations | `workflows.html` | `backend/internal/workflow` | `workflows.spec.js`, `persistence.spec.js` |
-| Inventory | `inventory.html` | `backend/internal/inventory` | `inventory.spec.js`, `recipes.spec.js` |
-| Onboarding | `onboarding.html` | `backend/internal/onboarding` | `onboarding.spec.js` |
-| Users | `users.html` | `backend/internal/users` | *(audit for tests)* |
-| Purchasing | `purchasing.html` | *(mockup — minimal backend)* | *(none yet)* |
-
-The five apps share no source files → their cards run as **parallel tracks** (only
-the cross-app cycle-gate card serializes at the end).
+| Workflow engine | `workflows.html`, `sync.js` | `backend/internal/workflow` | `workflows.spec.js`, `sync.spec.js`, `persistence.spec.js`, `repro-cut-task.spec.js` |
+| Users | `users.html` | `backend/internal/users` | `users.spec.js` |
+| Inventory (prod ops) | — | `backend/internal/inventory` | `inventory.spec.js` |
+| Test-debt | — | — | all spec files (audit-scoped) |
 
 ---
 
-## Activity 1 — Enumerate & mark (the PRD gate) · *blocking, first*
+## Activity 1 — PRD gate · *blocking, first*
 
-The OKR's early blocking gate: 5/5 apps get a hardening PRD (flow map + honest
-status) before WO build. **Exemplar-first** — Operations sets the pattern the other
-four copy. Each non-exemplar card = *first pass + cross-check → draft-for-sign-off →
-morning-triage sign-off*.
+> The stages 1–3 data-integrity PRD. No build WO dispatches before this lands.
+> Produced by the evening `/nc-pm-session` + `/nc-pm-grill-back`.
 
-| Card | Status | Depends on | KR |
-|---|---|---|---|
-| `ops-hardening-prd` (exemplar) | **DONE** ✅ signed 2026-07-09 | — | Product KR-1/2 |
-| `inventory-hardening-prd` | **DONE** ✅ signed 2026-07-10 | exemplar | Product KR-1/2 |
-| `onboarding-hardening-prd` | **DONE** ✅ signed 2026-07-10 | exemplar | Product KR-1/2 |
-| `users-hardening-prd` | **DONE** ✅ signed 2026-07-10 | exemplar | Product KR-1/2 |
-| `purchasing-hardening-prd` | **DONE** ✅ signed 2026-07-10 | exemplar | Product KR-1/2 |
+- **`prd-data-integrity`** · PLANNED · The PRD enumerating every silent-loss mode with a
+  requirement→(reproduced failure | named invariant) trace table; the operator-signed
+  mid-run edit semantic ("crews finish the run they started; edits take effect next run");
+  the 8-item backlog routing record. → Product KR1, KR2, KR3. *(attended evening session)*
 
-> ✅ **Activity 1 complete — 5/5 apps have a signed hardening PRD (Product KR-1 gate closed).**
-> All four overnight PRDs signed at morning triage 2026-07-10 (all G6-passed; the 3
-> confirmed-BROKEN citations re-verified at cited lines). **Activities 2–5 now unblock** —
-> they need localhost Postgres + the E2E suite, which the enumerate-only run deliberately
-> did not touch. Triage resolutions recorded in `ledger.md` (2026-07-10).
+## Activity 2 — Stop the bleeding (stage 1 + carried small fixes) · *after Activity 1; parallel tracks*
 
-> ✅ **Purchasing fork resolved 2026-07-09 → (a) enumerate + mark as a real app.**
-> The "bare mockup" premise was stale: Purchasing has a real, tested backend
-> (`backend/internal/purchasing/*` — ~20 endpoints), a 1,078-line `purchasing.html`,
-> and a 31 KB `tests/purchasing.spec.js`. Its hardening PRD copies the exemplar shape
-> and marks WORKING/UNPROVEN/BROKEN honestly (confirmed-only-BROKEN rule), same as the
-> other three; the PRD's scope note must correct CLAUDE.md's stale "Mockup" label.
-> Slated on `overnight-20260710`. (Recorded in `ledger.md`.)
+- **`stage1-field-id-preservation`** · PLANNED · `replaceTemplate` upserts by the field IDs
+  the Builder already sends (diff: update kept / insert new / delete removed; conditions
+  remap for new fields only) instead of delete+reinsert. Flips `repro-cut-task.spec.js`
+  red→green and commits it to the suite. Footprint: workflow engine. → Eng KR "Stage 1a",
+  Delivery KR "Stage 1 ships first".
+- **`stage1-dead-id-reject`** · PLANNED · Draft saves (`submission_id IS NULL`) naming an
+  unknown field ID rejected with a distinct error envelope (app-level existence check —
+  NOT a restored FK; submitted responses reference snapshot IDs by design). Red-first Go
+  test. Footprint: workflow engine (backend only). → Eng KR "Stage 1b".
+- **`ops-nfr3-resubmit-photo-gate`** · PLANNED · Carried fix-card: plumb rejection context
+  into submit validation so a rejected-with-`require_photo` field blocks direct-API
+  resubmit server-side; red-first. Footprint: workflow engine (backend). → QA KR2
+  (red-first denominator), carried from hardening cycle (ledger T-10).
+- **`users-s3-orphan-cleanup`** · PLANNED · Trivial carried card: remove dead
+  `<div id="s3">` at `users.html:122`. Footprint: Users (zero contention — free
+  parallelism). → hygiene; no KR.
 
-## Activity 2 — Confirm-absence sweeps
+## Activity 3 — Stage 2: template-updated broadcast · *after Activity 2*
 
-For each app's **priority-UNPROVEN** flows (the "we're not even sure it works"
-ones), a quick grep/inspect step; anything confirmed missing/stubbed graduates to
-BROKEN → a code-fix card.
+- **`stage2-template-updated-broadcast`** · PLANNED · Handle `SAVE_TEMPLATE` ops in
+  `applyOp` (they already flow through live WS + `wsCatchUp` — clients just ignore them):
+  re-fetch template, re-render the open checklist, preserve in-progress input, and stay
+  silent on catch-up replay (the `42eeb39` no-toast rule). Red-first E2E for the mixed
+  old/new-device case. Footprint: workflow engine (`sync.js` + `workflows.html`).
+  → Delivery KR "Stage 2 ships".
 
-| Card | Status | Depends on | KR |
-|---|---|---|---|
-| `ops-confirm-absence` (FR-12 reject, NFR-3 photo-required) | **DONE** ✅ signed 2026-07-13 (overnight-20260712; G6-passed → 2 BROKEN: FR-4, NFR-3; FR-12 confirm NEGATIVE) | `ops-hardening-prd` | Eng KR-1 |
-| `users-confirm-absence` | **DONE** ✅ signed 2026-07-13 (overnight-20260712; G6-passed → 0 graduations, 16 stay UNPROVEN present-but-untested) | `users-hardening-prd` | Eng KR-1 |
-| `onboarding-confirm-absence` | **DONE** ✅ signed 2026-07-13 (overnight-20260712; G6-passed → 1 BROKEN: NFR-5 video-led reopen no-op; 10 UNPROVEN; FR-16 waiver recommended) | `onboarding-hardening-prd` | Eng KR-1 |
-| `purchasing-confirm-absence` | **DONE** ✅ signed 2026-07-13 (overnight-20260712; G6-passed → 0 graduations, 18 stay UNPROVEN; FR-18 remains only BROKEN; D-1 honored; FR-13 inline mark reconciled) | `purchasing-hardening-prd` | Eng KR-1 |
-| `inventory-confirm-absence` | **DONE** ✅ signed 2026-07-13 (overnight-20260712; G6-passed → 0 graduations, 19 stay UNPROVEN; FR-24/25 remain waived-BROKEN; NFR-1 double normalization-gap flagged for WO) | `inventory-hardening-prd` | Eng KR-1 |
+## Activity 4 — Versioning design gate · *attended; blocks Activity 5*
 
-## Activity 3 — Audit the WORKING (non-vacuous test check)
+- **`versioning-openspec-design`** · PLANNED · The OpenSpec change for immutable
+  run-pinned template versions: stable field UUIDs honored forever; edits create versions
+  with "the template" a head pointer; runs pin the version current at run start; responses
+  key on (run, field-UUID). Extends submit-time `template_snapshot` upstream to edit-time.
+  **Operator sign-off on the design is the gate — 0 build WOs dispatch before it**
+  (auditable from ledger timestamps). → Delivery KR "versioning design signed before build".
 
-Spot-audit every flow marked WORKING that its test actually asserts (no
-`test.skip`, no guard-return). A vacuous test drops the flow to UNPROVEN.
+## Activity 5 — Versioning build · *serialized after Activity 4 sign-off*
 
-| Card | Status | Depends on | KR |
-|---|---|---|---|
-| `ops-test-audit` | **DONE** ✅ signed 2026-07-13 (overnight-20260712; G6-passed → 0 drops, all 10 WORKING non-vacuous; FR-15 photo/builder-UI coverage gap noted for downstream WO) | `ops-hardening-prd` | QA KR-1 |
-| `users-test-audit` | **DONE** ✅ signed 2026-07-13 (overnight-20260712; G6-passed → 0 drops, 10 WORKING non-vacuous; stale-test fold-in confirmed for FR-16/17 test-repair WO) | `users-hardening-prd` | QA KR-1 |
-| `onboarding-test-audit` | **DONE** ✅ signed 2026-07-13 (overnight-20260712; G6-passed → 0 drops, 23 WORKING non-vacuous; 6 conditional-skip guard flags for the test-hardening WO) | `onboarding-hardening-prd` | QA KR-1 |
-| `purchasing-test-audit` | **DONE** ✅ signed 2026-07-13 (overnight-20260712; G6-passed → 1 drop: FR-7 → UNPROVEN (vacuous generic-content tail); 6 WORKING confirmed non-vacuous) | `purchasing-hardening-prd` | QA KR-1 |
-| `inventory-test-audit` | **DONE** ✅ signed 2026-07-13 (overnight-20260712; G6-passed → 0 drops, 19 WORKING non-vacuous; Go DB-guard = env-not-vacuous; FR-2 ~40-guard cleanup noted) | `inventory-hardening-prd` | QA KR-1 |
+- **`versioning-schema-migration`** · PLANNED · `template_versions` schema + head pointer +
+  run pinning columns; all existing templates/drafts migrate intact; down-migration proven
+  by an up→down→up cycle recorded in the WO. Footprint: workflow engine (migrations).
+  → Eng KR "Stage 3 built", QA KR "down-migration + backup".
+- **`versioning-backend-runtime`** · PLANNED · Runs pin their version; responses key on
+  (run, field-UUID); `replaceTemplate` becomes create-new-version. Footprint: workflow
+  engine (backend). → Eng KR "Stage 3 built".
+- **`versioning-runner-frontend`** · PLANNED · Runner loads the run's pinned version;
+  Builder edits never mutate an in-flight run's shape. Footprint: workflow engine
+  (frontend). → Eng KR "Stage 3 built".
+- **`versioning-e2e-semantics`** · PLANNED · The ≥ 2 acceptance tests encoding the signed
+  semantic: mid-run edit leaves the in-flight run untouched; the next run reflects the new
+  shape. Extends `repro-cut-task.spec.js`. → Product KR "mid-run edit semantic".
 
-> ✅ **Activities 2 & 3 complete — all 10 cards signed at morning triage 2026-07-13 (overnight-20260712).**
-> Every card G6-passed; docs-only run (footprint 100% under `.night-crew/`). Net movement:
-> **3 new confirmed-BROKEN** (Ops FR-4, Ops NFR-3, Onboarding NFR-5) + Purchasing FR-18 (re-confirmed)
-> = **Eng KR-1 known-broken denominator now exactly 4 built flows**; **1 WORKING→UNPROVEN drop**
-> (Purchasing FR-7, vacuous test — first QA KR-1 data point). All BROKEN citations re-verified at
-> cited lines. Fix-cards + test-hardening notes itemized in `BACKLOG.md`. Triage resolutions in
-> `ledger.md` (2026-07-13, T-7/T-8). **Activity 4 (prove & fix) now unblocks** — it needs localhost
-> Postgres + the E2E suite armed first (the standing DB flag bites there).
+## Activity 6 — Test-debt retirement · *independent parallel track (any time)*
 
-## Activity 4 — Prove & fix the UNPROVEN (the WO backlog) · *bulk delivery*
+- **`vacuous-tests-18-to-0`** · PLANNED · Each remaining conditional `test.skip()` / silent
+  guard-return becomes a real seeded assertion or is deleted (denominator = the audit that
+  produced the 18). Footprint: test-debt (audit-scoped). → QA KR1, retires carried
+  waiver #2.
+- **`carried-fix-wos-sweep`** · PLANNED · The 3 fix-WOs queued at hardening-cycle close
+  (see closeout §scorecard, Delivery KR-1 note). Red-first each. → QA KR2.
 
-Per the sign-off policy: **test-only WO first** (write the red-first assertion);
-graduate to a **fix WO only if the test goes red**. Operations alone = 17 UNPROVEN.
+## Activity 7 — Prod ops · *operator-gated*
 
-**First build slate (`slate-20260714`, serial, 6h) — Wave-0 infra + the 4 confirmed-BROKEN fix-cards:**
+- **`prod-ghost-item-rename`** · PLANNED · Operator-chosen handling (2026-07-16): rename
+  `''` → `(Unnamed — needs review)`, KEEP line-item links. Verify: empty-description count
+  = 0 in prod AND previously-linked `purchase_line_items` count unchanged. **Prod data
+  mutation — runs attended or with explicit operator go.** Footprint: Inventory (prod DB).
+  → QA KR3.
+- **`prod-deploy-parity`** · PLANNED · Operator runs `task prod:deploy` (never automated);
+  card verifies `task version` shows prod == local `version.go` constants (includes
+  `42eeb39`). → Delivery KR "prod parity".
 
-| Card | Status | Depends on | KR |
-|---|---|---|---|
-| `hq-infra-docker-standardize` (Wave 0) | **DONE** ✅ signed 2026-07-14 (overnight-20260714; G6-PASS — local Docker DB → pg16, 70 migrations clean, `test:all`/`bdd` repointed off remote) | — | infra / ledger T-9 |
-| `ops-fr4-no-enforcement` (fix) | **DONE** ✅ signed 2026-07-14 (overnight-20260714; G6-PASS, red-first — yes/no "No" corrective gate front+back) | ops confirm-absence | Eng KR-1 |
-| `ops-nfr3-photo-required` (fix) | **DONE** ✅ signed 2026-07-14 (overnight-20260714; G6-PASS, red-first — required-photo gate front+back; resubmit-context case deferred → BACKLOG F-1) | ops confirm-absence | Eng KR-1 |
-| `purchasing-fr18-history` (fix) | **DONE** ✅ signed 2026-07-14 (overnight-20260714; G6-PASS, red-first — History tab built, `renderHistory` + `GET /shopping/history`) | purchasing confirm-absence | Eng KR-1 |
-| `onboarding-nfr5-video-reopen` (fix) | **DONE** ✅ signed 2026-07-14 (overnight-20260714; G6-PASS, red-first — video-led reopen/reject reverts to active; FR-9 + FR-15) | onboarding confirm-absence | Eng KR-1 |
+## Activity 8 — Cycle gate · *last, serialized*
 
-> ✅ **Eng KR-1 known-broken denominator: 4 → 0.** All four confirmed-BROKEN built flows fixed +
-> red-first guarded (Ops FR-4, Ops NFR-3, Onboarding NFR-5, Purchasing FR-18). What remains excluded
-> from the denominator is the two operator waivers only: Inventory FR-24/25 (D-3, unbuilt-future) and
-> Onboarding FR-16/NFR-4 (D-5, env-gated). Signed at triage 2026-07-14 (ledger T-9).
-
-**Test-only prove-UNPROVEN bulk (2 landed as stretch on slate-20260714; the full sweep is `slate-20260715`):**
-
-| Card | Status | Depends on | KR |
-|---|---|---|---|
-| `purchasing-fr7-retest` (stretch) | **DONE** ✅ signed 2026-07-14 (overnight-20260714; G6-PASS — Shopping-tab empty+populated render proven; vacuous tautology replaced) | purchasing test-audit | QA KR-1 |
-| `users-stale-e2e-repair` (stretch) | **DONE** ✅ signed 2026-07-14 (overnight-20260714; G6-PASS — 2 dead Access-tab tests repointed `#t3/#s3`→`#t2/#s2`; `users.spec.js` 17/2 → 19/0) | users test-audit | QA KR-1 |
-
-**Prove-UNPROVEN sweep — `slate-20260715` (16 cards, 5 concurrent tracks, ~78 flows). Signed 2026-07-14; run branch `overnight-20260715`. Coarse `ops-prove-unproven`/`<app>-prove-unproven` placeholders fanned out below.**
-
-| Track | Cards | Flows | Status | KR |
-|---|---|---|---|---|
-| A · Operations | `ops-prove-checklists` · `ops-prove-approvals` · `ops-prove-builder` · `ops-prove-cross` | 15 | **DONE** ✅ signed 2026-07-15 (4/4 cards G6-PASS; all GREEN; PARK NFR-5/NFR-2-PUT/NFR-7-draft) | Delivery/Eng/QA |
-| B · Purchasing | `purchasing-prove-order` · `purchasing-prove-po-approval` · `purchasing-prove-shopping` · `purchasing-prove-state-auth-scheduler` | 18 | **DONE** ✅ signed 2026-07-15 (4/4 cards G6-PASS; all GREEN + 3 Go units; PARK FR-19/20/21/22 crons — clock-seam) | Delivery/Eng/QA |
-| C · Users | `users-prove-security` · `users-prove-ui-access` | 16 | **DONE** ✅ signed 2026-07-15 (2/2 cards G6-PASS; NFR-1..5 + 9 UI-access flows GREEN) | Delivery/Eng/QA |
-| D · Onboarding | `onboarding-prove-assignments` · `onboarding-prove-progress` | 10 | **DONE** ✅ signed 2026-07-15 (2/2 cards G6-PASS; GREEN; PARK FR-18 thumbnail; UNTESTABLE FR-28 re-seed) | Delivery/Eng/QA |
-| E · Inventory | `inventory-prove-purchases` · `inventory-prove-stock` · `inventory-prove-setup` · `inventory-prove-recipes-cross` | 19 | **DONE** ✅ signed 2026-07-15 (4/4 cards G6-PASS; PRIORITY NFR-8/Stock proved WORKING; NFR-1 RED→fixed; PARK FR-27 photo) | Delivery/Eng/QA |
-
-> ✅ **Prove-UNPROVEN sweep complete — 16/16 cards G6-PASS, signed morning-triage 2026-07-15**
-> (merged `overnight-20260715` → `dev` `--no-ff`). ~52 UNPROVEN flows now carry real red-first
-> assertions. The headline finding inverts the forecast: scoping expected ~34–40 RED; **actual =
-> exactly 1** (Inventory NFR-1 item-edit + confirm-vendor normalization) — the backlog was
-> **untested, not broken**. That one RED was **fixed the same night** (Eng KR-1 +1 → 0; 2-line
-> `internal/inventory/handler.go`). 11 flows PARKED honestly + 1 UNTESTABLE, all visible in the
-> suite. 3 future fix-WOs (cron clock-seam, photo-S3 harness, offline-IndexedDB harness) → `BACKLOG.md`
-> for the planners. Triage resolutions: `ledger.md` T-11/T-12. See `reference/slate-20260715.md`.
-
-## Activity 5 — Cycle gate (closeout) · *serializes last*
-
-The OKR closeout, across all five apps.
-
-| Card | Status | Depends on | KR |
-|---|---|---|---|
-| `cycle-gate` | **DONE** ✅ attested 2026-07-16 (overnight-20260716; 3 cards G6-equiv PASS — suite-baseline · attestation · scorecard; **ATTEST & WAIVE** per operator 2026-07-15) | all Activity-4 cards | Eng KR-1/2, QA KR-1/2/3 |
-
-> ✅ **Activity 5 complete — CYCLE GATE SIGNED OFF (PASS). Cycle closed. Milestone boundary reached.**
-> _Triage-ratified 2026-07-16 (ledger **T-14**); merged `overnight-20260716` → `dev` `--no-ff`
-> (`7f57d14`); merged-tree `go test` re-verified (5 ok + 1 documented env-gated red). Push held at
-> operator request. **This is the last activity of the HQ hardening cycle — the roadmap is complete.**_
-> Fanned into 3 read-only closeout cards, serial. **Scorecard: 6 PASS · 2 PARTIAL · 1 WAIVED**
-> (see `reference/cycle-closeout-20260716.md`). Attested: 0 known-broken flows (built 4→0 +1 NFR-1;
-> §1 confirms no repaired flow regressed) · every repaired flow red-first · median WO cycle time
-> baseline recorded (**N=23, 22m28s**; serial ~19.4m / concurrent ~23.4m).
-> **Two criteria formally WAIVED** and carried to the next cycle's roadmap (extends D-3/D-5):
-> (a) "full suite green / 0 pre-existing reds" → attested substitute **"0 new uncategorized reds vs
-> the documented ~37–41 flaky baseline"** — full suite ran **387 pass · 38 fail · 0 flaky · 6 skip**,
-> all 38 categorized, 0 uncategorized, **PARK trigger did not fire** (`DECISIONS-NEEDED.md` empty);
-> `playwright.config.js:29` blocks SWs so a clean suite is structurally unreachable. (b) "vacuous
-> 23→0" → ~4–5 rewritten, ~18 remainder deferred (`BACKLOG.md`). **Next move on this clean gate:**
-> `/nc-morning-triage` then `/nc-okr-session` (consume carried-forward backlog) — **not**
-> `/nc-slate-plan`.
-
-Gate = **0 known-broken flows** · **full E2E suite green on localhost Postgres, 0
-pre-existing reds** · **vacuous tests 23 → 0** · **every repaired flow carries a
-red-first proof** · **median WO cycle time recorded over ≥5 WOs** (baseline).
-
-> **Waived from the "0 known-broken flows" denominator (triage 2026-07-10, D-3):**
-> Inventory FR-24 (Trends) + FR-25 (Cost) — confirmed-BROKEN `.coming-soon` stubs at
-> `inventory.html:993-999`. Waived as **unbuilt-future** (charts are net-new feature work,
-> not hardening); they ship as-is and are excluded from the Engineering-KR denominator by
-> explicit operator sign-off. Purchasing FR-18 (History) is **not** waived — it's a real
-> stub of a shipped feature (backend endpoint exists) → test-repair/build WO in Activity 4.
-
-> **Waived from the "0 known-broken flows" denominator (triage 2026-07-13, D-5):**
-> Onboarding FR-16 (video presign→PUT→FFmpeg transcode/thumbnail) + NFR-4 (`503
-> video_storage_not_configured` fallback). **Fully implemented** (`handler.go:540-640`,
-> `video.go:22-206`) — **not broken**, only untestable in E2E without DO Spaces creds + an
-> `ffmpeg` binary. Both stay UNPROVEN and are excluded from the Engineering-KR denominator by
-> explicit operator sign-off (parallel to D-3). **Waive-now-but-preserve:** a BACKLOG item to
-> stand up a Spaces+ffmpeg E2E fixture and prove them is queued for when creds are available.
-> Contrast Onboarding NFR-5 (video-led reopen no-op) — **not** waived; a confirmed BROKEN in a
-> shipped flow → Activity-4 fix-card.
+- **`cycle-gate`** · PLANNED · Suite-green attestation on the deterministic stack
+  (`task test` exit 0 — formally retires carried waiver #1); median WO cycle time vs the
+  recorded baseline (first cycle with a pass/fail target); per-KR scorecard; closeout doc.
+  → Eng KR "task test exits 0", Delivery KR "median WO cycle".
 
 ---
 
-## Standing method rules (apply to every card)
+## Backlog routing record (Product KR3 — 8/8 `new` items routed 2026-07-16)
 
-- **Two enumeration passes minimum** (first + cross-check) — recall ≥ 90%.
-- **No orphan inputs** — every card's inputs trace to a produced upstream artifact.
-- **Enumerate + mark ≠ fix** — PRD cards list/mark; WO cards fix.
-- **Tool pin** — night-crew tracks `c55cbdd` (current `dev`). The prior `e4b43ba`
-  freeze held the tool steady through one run while the design-change batch
-  (PRD-verifier gate, cadence decision, roadmap-producer) was in flight; that batch
-  has landed and been triaged, so the freeze is lifted and the pin advanced to
-  current `dev` by operator decision (2026-07-10). E2E config support (`[e2e]`
-  parsing, the runner, the `NIGHTCREW_ENV_URL` handoff) predates `e4b43ba`, so the
-  E2E enablement does not depend on this re-pin.
+| Backlog item | Door | Destination |
+|---|---|---|
+| Ops P0 template-edit data loss (stage 1) | promoted | `stage1-field-id-preservation` + `stage1-dead-id-reject` |
+| Ops stage 2 broadcast | promoted | `stage2-template-updated-broadcast` |
+| Ops stage 3 immutable versions | promoted | Activities 4–5 (`versioning-*`) |
+| Inventory prod ghost item | promoted | `prod-ghost-item-rename` |
+| Ops NFR-3 resubmit photo gate | promoted | `ops-nfr3-resubmit-photo-gate` |
+| Users `#s3` orphan cleanup | promoted | `users-s3-orphan-cleanup` |
+| Onboarding video-pipeline fixture | deferred | off-theme for this cycle; needs operator Spaces creds; revisit next cycle (operator 2026-07-16) |
+| `/nc-status` non-determinism | deferred | framework/tooling outside this repo; stays in backlog (operator 2026-07-16) |
