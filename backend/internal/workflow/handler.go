@@ -3,6 +3,7 @@ package workflow
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -43,8 +44,8 @@ var RejectItemFunc = rejectItem
 // CreateTemplateFunc is the exported alias for insertTemplate.
 var CreateTemplateFunc = insertTemplate
 
-// UpdateTemplateFunc is the exported alias for replaceTemplate.
-var UpdateTemplateFunc = replaceTemplate
+// UpdateTemplateFunc is the exported alias for updateTemplate.
+var UpdateTemplateFunc = updateTemplate
 
 // ArchiveTemplateFunc is the exported alias for archiveTemplate.
 var ArchiveTemplateFunc = archiveTemplate
@@ -322,12 +323,12 @@ func UpdateTemplateHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		if err := replaceTemplate(r.Context(), pool, templateID, input); err != nil {
+		if err := updateTemplate(r.Context(), pool, templateID, input); err != nil {
 			if isDuplicateNameErr(err) {
 				writeError(w, http.StatusUnprocessableEntity, "duplicate_name")
 				return
 			}
-			slog.Error("replaceTemplate error", "error", err)
+			slog.Error("updateTemplate error", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -484,6 +485,10 @@ func SaveResponseHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 
 		if err := saveResponse(r.Context(), pool, input.FieldID, input.Value, user.ID); err != nil {
+			if errors.Is(err, ErrUnknownField) {
+				writeError(w, http.StatusUnprocessableEntity, "unknown_field")
+				return
+			}
 			slog.Error("saveResponse error", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return

@@ -228,7 +228,23 @@ function debouncedSaveField(fieldId, value) {
       if (indicator) { indicator.textContent = 'Saved'; indicator.className = 'save-indicator saved'; setTimeout(() => { indicator.textContent = ''; indicator.className = 'save-indicator'; }, 800); }
       clearFieldError(fieldId);
     } catch (e) {
-      showFieldError(fieldId);
+      if (e && e.error === 'unknown_field') {
+        // Field was cut from the template by an edit (FR-3, INV-4). No optimistic
+        // checkmark survives a rejected save — drop the optimistic state and
+        // re-render so the field visibly returns to not-saved.
+        store.delete('fieldResponses', fieldId);
+        var drafts3 = store.get('draftResponses');
+        if (Array.isArray(drafts3)) {
+          var di = drafts3.findIndex(function(d) { return d.field_id === fieldId; });
+          if (di !== -1) { drafts3.splice(di, 1); store._notify('draftResponses'); }
+        }
+        renderFieldResponse(fieldId);
+        clearFieldError(fieldId);
+        if (typeof fillState !== 'undefined' && fillState.activeTemplate && typeof updateProgress === 'function') updateProgress();
+        showSyncToast('That field was removed from this checklist — your change was not saved.');
+      } else {
+        showFieldError(fieldId);
+      }
     }
     updateSaveStatus(-1);
   }, 400);

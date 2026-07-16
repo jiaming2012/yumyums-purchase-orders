@@ -9,17 +9,16 @@
 // under dead field ids (the field_id FK was dropped in 0051/0053/0054, so the
 // server accepts them silently). Nothing propagates; nothing survives reload.
 //
-// This file is NOT YET part of the suite's active coverage — committed
-// skip-guarded (2026-07-16) so the P0 reproduction survives across machines
-// instead of living untracked on one laptop. It fails by design against the
-// unfixed build if unskipped (that red IS the reproduction). The
-// edit-propagation build card (PRD-data-integrity FR-2..FR-7, roadmap
-// `editprop-convergence-matrix`) removes the .skip, EXTENDS the assertions to
-// the signed frozen-at-submit semantic (cut field disappears on the live
-// re-render; submitted records stay frozen), and records the red→green pair in
-// its WO record (Delivery KR). The three existing assertions — a check on a
-// SURVIVING field propagates live and survives reload on both devices — remain
-// the desired behavior under that semantic, unchanged.
+// ACTIVE as of the `editprop-stable-field-identity` card (FR-2/FR-3,
+// INV-2/INV-4). The .skip is removed: `updateTemplate` now diff-upserts by the
+// Builder-sent field ids, so a field that survives an edit keeps ONE permanent
+// checklist_fields.id for life. The three assertions below — a check on a
+// SURVIVING field propagates live and survives reload on both devices — are the
+// post-edit STABLE-IDENTITY check. They go RED on the delete-and-reinsert build
+// (field-id churn writes the save under a dead id; nothing propagates or
+// survives reload) and GREEN on the diff-upsert build. The frozen-at-submit /
+// cut-field-live-rerender semantic is layered on by the broadcast-rerender card,
+// which builds on this stable-identity foundation.
 
 const { test, expect } = require('@playwright/test');
 
@@ -57,7 +56,7 @@ async function getTodayDOW(page) {
   return page.evaluate(() => new Date().getDay());
 }
 
-test.describe.skip('REPRO: template edit while checklist is open on other devices', () => {
+test.describe('REPRO: template edit while checklist is open on other devices', () => {
   test('cut a task mid-run → cross-device sync and persistence of remaining fields', async ({ browser, page }) => {
     test.setTimeout(90000);
     await login(page);

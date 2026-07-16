@@ -13,6 +13,14 @@ import (
 // ErrTemplateArchived is returned when submitting a checklist for an archived template.
 var ErrTemplateArchived = errors.New("template is archived")
 
+// ErrUnknownField is returned when a response write names a field that does not
+// exist in the current template (FR-3, INV-4). The save-response path surfaces
+// it as HTTP 422 {"error":"unknown_field"} so the runner rolls the optimistic
+// checkmark back instead of writing under a dead field id. It is an app-level
+// existence check, NOT a restored FK — submitted responses reference
+// template_snapshot ids by design, and an FK would break them.
+var ErrUnknownField = errors.New("unknown_field")
+
 // insertTemplate inserts a full template (with sections, fields, schedules, assignments)
 // in a single transaction. Returns the new template UUID.
 func insertTemplate(ctx context.Context, pool *pgxpool.Pool, input TemplateInput, createdBy string) (string, error) {
@@ -34,7 +42,7 @@ func insertTemplate(ctx context.Context, pool *pgxpool.Pool, input TemplateInput
 }
 
 // insertTemplateInTx inserts template rows inside an existing transaction.
-// Used by both insertTemplate and replaceTemplate.
+// Used by insertTemplate.
 func insertTemplateInTx(ctx context.Context, tx pgx.Tx, input TemplateInput, createdBy string) (string, error) {
 	var templateID string
 	err := tx.QueryRow(ctx,
@@ -94,38 +102,26 @@ func insertTemplateInTx(ctx context.Context, tx pgx.Tx, input TemplateInput, cre
 	return templateID, nil
 }
 
-// replaceTemplate performs a full replace (D-09): deletes all child records for
-// the template and re-inserts from input. Template header row is updated in-place.
-func replaceTemplate(ctx context.Context, pool *pgxpool.Pool, templateID string, input TemplateInput) error {
+// updateTemplate diff-upserts a template's content against the field IDs the
+// Builder already sends in toApiTemplate (FR-2, INV-2). Fields named with an
+// existing id are UPDATED in place — keeping one permanent checklist_fields.id
+// for life — genuinely new fields are INSERTED, and fields absent from the input
+// are DELETED. Section rows are reused positionally so surviving fields keep a
+// valid home. Conditions are remapped for NEW fields only; kept fields keep
+// their id, so their draft responses, fail notes, and conditions never churn.
+//
+// This replaces the old delete-and-reinsert path that minted a fresh id for
+// every field on each edit — the Friday P0 root cause. With stable identity a
+// multi-device write always lands on the same real field, and field-id churn
+// becomes structurally impossible.
+func updateTemplate(ctx context.Context, pool *pgxpool.Pool, templateID string, input TemplateInput) error {
 	tx, err := pool.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("begin transaction: %w", err)
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck
 
-	// Draft responses and fail notes are preserved and remapped to new field IDs
-	// after re-insertion (see fieldIDMap remapping below).
-	// Submitted responses are also preserved — their field_ids reference old UUIDs
-	// which match the submission's template_snapshot for hydration.
-	// FK constraints on field_id were dropped in migrations 0051/0053/0054.
-	// Delete child records (sections cascade to fields; schedules and assignments have ON DELETE CASCADE)
-	if _, err := tx.Exec(ctx,
-		`DELETE FROM checklist_sections WHERE template_id = $1`, templateID,
-	); err != nil {
-		return fmt.Errorf("delete sections: %w", err)
-	}
-	if _, err := tx.Exec(ctx,
-		`DELETE FROM checklist_schedules WHERE template_id = $1`, templateID,
-	); err != nil {
-		return fmt.Errorf("delete schedules: %w", err)
-	}
-	if _, err := tx.Exec(ctx,
-		`DELETE FROM template_assignments WHERE template_id = $1`, templateID,
-	); err != nil {
-		return fmt.Errorf("delete assignments: %w", err)
-	}
-
-	// Update template header
+	// Update template header in place.
 	if _, err := tx.Exec(ctx,
 		`UPDATE checklist_templates SET name = $1, requires_approval = $2, updated_at = now() WHERE id = $3`,
 		input.Name, input.RequiresApproval, templateID,
@@ -133,7 +129,14 @@ func replaceTemplate(ctx context.Context, pool *pgxpool.Pool, templateID string,
 		return fmt.Errorf("update template: %w", err)
 	}
 
-	// Re-insert schedules
+	// Schedules and assignments carry no stable identity and are referenced by
+	// nothing — delete and re-insert wholesale.
+	if _, err := tx.Exec(ctx, `DELETE FROM checklist_schedules WHERE template_id = $1`, templateID); err != nil {
+		return fmt.Errorf("delete schedules: %w", err)
+	}
+	if _, err := tx.Exec(ctx, `DELETE FROM template_assignments WHERE template_id = $1`, templateID); err != nil {
+		return fmt.Errorf("delete assignments: %w", err)
+	}
 	for _, sched := range input.Schedules {
 		if _, err := tx.Exec(ctx,
 			`INSERT INTO checklist_schedules (template_id, active_days) VALUES ($1, $2)`,
@@ -142,8 +145,6 @@ func replaceTemplate(ctx context.Context, pool *pgxpool.Pool, templateID string,
 			return fmt.Errorf("insert schedule: %w", err)
 		}
 	}
-
-	// Re-insert assignments
 	for _, asgn := range input.Assignments {
 		if _, err := tx.Exec(ctx,
 			`INSERT INTO template_assignments (template_id, assignee_type, assignee_id, assignment_role)
@@ -154,36 +155,95 @@ func replaceTemplate(ctx context.Context, pool *pgxpool.Pool, templateID string,
 		}
 	}
 
-	// Re-insert sections and fields, tracking old→new field ID mapping
-	fieldIDMap := map[string]string{} // old ID → new ID
-	for _, sec := range input.Sections {
+	// Existing section ids (ordered, for positional reuse) and the set of field
+	// ids currently in the template (top-level + sub-steps).
+	existingSectionIDs, err := loadSectionIDs(ctx, tx, templateID)
+	if err != nil {
+		return err
+	}
+	existingFieldIDs, err := loadFieldIDs(ctx, tx, templateID)
+	if err != nil {
+		return err
+	}
+
+	keptFields := map[string]bool{}     // existing ids named in the input → UPDATE
+	remap := map[string]string{}        // new field client-id → generated id (conditions)
+	reusedSections := map[string]bool{} // section ids reused this pass
+
+	for i, sec := range input.Sections {
 		condJSON, err := marshalNullableJSON(sec.Condition)
 		if err != nil {
 			return fmt.Errorf("marshal section condition: %w", err)
 		}
 		var sectionID string
-		err = tx.QueryRow(ctx,
-			`INSERT INTO checklist_sections (template_id, title, "order", condition)
-			 VALUES ($1, $2, $3, $4)
-			 RETURNING id`,
-			templateID, sec.Title, sec.Order, condJSON,
-		).Scan(&sectionID)
-		if err != nil {
-			return fmt.Errorf("insert section %q: %w", sec.Title, err)
-		}
-		for _, field := range sec.Fields {
-			newID, err := insertField(ctx, tx, sectionID, nil, field)
-			if err != nil {
-				return fmt.Errorf("insert field %q: %w", field.Label, err)
+		if i < len(existingSectionIDs) {
+			sectionID = existingSectionIDs[i]
+			if _, err := tx.Exec(ctx,
+				`UPDATE checklist_sections SET title = $1, "order" = $2, condition = $3 WHERE id = $4`,
+				sec.Title, sec.Order, condJSON, sectionID,
+			); err != nil {
+				return fmt.Errorf("update section %q: %w", sec.Title, err)
 			}
-			if field.ID != "" {
-				fieldIDMap[field.ID] = newID
+		} else {
+			if err := tx.QueryRow(ctx,
+				`INSERT INTO checklist_sections (template_id, title, "order", condition)
+				 VALUES ($1, $2, $3, $4)
+				 RETURNING id`,
+				templateID, sec.Title, sec.Order, condJSON,
+			).Scan(&sectionID); err != nil {
+				return fmt.Errorf("insert section %q: %w", sec.Title, err)
+			}
+		}
+		reusedSections[sectionID] = true
+
+		for _, field := range sec.Fields {
+			if err := upsertField(ctx, tx, sectionID, nil, field, existingFieldIDs, keptFields, remap); err != nil {
+				return err
 			}
 		}
 	}
 
-	// Second pass: update condition field_id references to use new IDs
-	for oldID, newID := range fieldIDMap {
+	// Delete removed fields (existing − kept). Sub-steps first because
+	// checklist_fields.parent_field_id has no ON DELETE CASCADE.
+	var removed []string
+	for id := range existingFieldIDs {
+		if !keptFields[id] {
+			removed = append(removed, id)
+		}
+	}
+	if len(removed) > 0 {
+		if _, err := tx.Exec(ctx,
+			`DELETE FROM checklist_fields WHERE id = ANY($1) AND parent_field_id IS NOT NULL`, removed,
+		); err != nil {
+			return fmt.Errorf("delete removed sub-steps: %w", err)
+		}
+		if _, err := tx.Exec(ctx,
+			`DELETE FROM checklist_fields WHERE id = ANY($1)`, removed,
+		); err != nil {
+			return fmt.Errorf("delete removed fields: %w", err)
+		}
+	}
+
+	// Delete sections no longer used. Kept fields were re-pointed above, so any
+	// rows still in these sections are removed fields (already deleted); the
+	// ON DELETE CASCADE on section_id is a safety net only.
+	var unusedSections []string
+	for _, id := range existingSectionIDs {
+		if !reusedSections[id] {
+			unusedSections = append(unusedSections, id)
+		}
+	}
+	if len(unusedSections) > 0 {
+		if _, err := tx.Exec(ctx,
+			`DELETE FROM checklist_sections WHERE id = ANY($1)`, unusedSections,
+		); err != nil {
+			return fmt.Errorf("delete unused sections: %w", err)
+		}
+	}
+
+	// Remap condition field_id references for NEW fields only. Kept fields keep
+	// their id, so any condition referencing them is already correct.
+	for oldID, newID := range remap {
 		if _, err := tx.Exec(ctx,
 			`UPDATE checklist_fields SET condition = jsonb_set(condition, '{field_id}', to_jsonb($1::text))
 			 WHERE section_id IN (SELECT id FROM checklist_sections WHERE template_id = $2)
@@ -194,26 +254,98 @@ func replaceTemplate(ctx context.Context, pool *pgxpool.Pool, templateID string,
 		}
 	}
 
-	// Third pass: remap draft responses and fail notes to new field IDs
-	for oldID, newID := range fieldIDMap {
-		if _, err := tx.Exec(ctx,
-			`UPDATE submission_responses SET field_id = $1
-			 WHERE submission_id IS NULL AND field_id = $2`,
-			newID, oldID,
-		); err != nil {
-			return fmt.Errorf("remap draft response %s→%s: %w", oldID, newID, err)
-		}
-		if _, err := tx.Exec(ctx,
-			`UPDATE submission_fail_notes SET field_id = $1
-			 WHERE submission_id IS NULL AND field_id = $2`,
-			newID, oldID,
-		); err != nil {
-			return fmt.Errorf("remap draft fail note %s→%s: %w", oldID, newID, err)
-		}
-	}
-
 	if err := tx.Commit(ctx); err != nil {
 		return fmt.Errorf("commit transaction: %w", err)
+	}
+	return nil
+}
+
+// loadSectionIDs returns the template's section ids ordered by "order".
+func loadSectionIDs(ctx context.Context, tx pgx.Tx, templateID string) ([]string, error) {
+	rows, err := tx.Query(ctx,
+		`SELECT id FROM checklist_sections WHERE template_id = $1 ORDER BY "order"`, templateID)
+	if err != nil {
+		return nil, fmt.Errorf("load section ids: %w", err)
+	}
+	defer rows.Close()
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("scan section id: %w", err)
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
+// loadFieldIDs returns the set of field ids (top-level + sub-steps) in the template.
+func loadFieldIDs(ctx context.Context, tx pgx.Tx, templateID string) (map[string]bool, error) {
+	rows, err := tx.Query(ctx,
+		`SELECT f.id FROM checklist_fields f
+		 JOIN checklist_sections s ON s.id = f.section_id
+		 WHERE s.template_id = $1`, templateID)
+	if err != nil {
+		return nil, fmt.Errorf("load field ids: %w", err)
+	}
+	defer rows.Close()
+	ids := map[string]bool{}
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("scan field id: %w", err)
+		}
+		ids[id] = true
+	}
+	return ids, rows.Err()
+}
+
+// upsertField UPDATEs a field in place when the Builder names it with an id that
+// already exists (preserving its permanent checklist_fields.id and re-pointing
+// its section/parent), or INSERTs it as a new field. Recurses into sub-steps.
+// A new field carrying a client-provided id is recorded in remap so conditions
+// referencing that placeholder id can be rewritten to the generated id.
+func upsertField(ctx context.Context, tx pgx.Tx, sectionID string, parentFieldID *string, field FieldInput, existing, kept map[string]bool, remap map[string]string) error {
+	if field.ID != "" && existing[field.ID] {
+		configJSON, err := marshalNullableJSON(field.Config)
+		if err != nil {
+			return fmt.Errorf("marshal config: %w", err)
+		}
+		failTriggerJSON, err := marshalNullableJSON(field.FailTrigger)
+		if err != nil {
+			return fmt.Errorf("marshal fail_trigger: %w", err)
+		}
+		conditionJSON, err := marshalNullableJSON(field.Condition)
+		if err != nil {
+			return fmt.Errorf("marshal condition: %w", err)
+		}
+		if _, err := tx.Exec(ctx,
+			`UPDATE checklist_fields
+			 SET section_id = $1, parent_field_id = $2, type = $3, label = $4,
+			     required = $5, "order" = $6, config = $7, fail_trigger = $8, condition = $9
+			 WHERE id = $10`,
+			sectionID, parentFieldID, field.Type, field.Label,
+			field.Required, field.Order, configJSON, failTriggerJSON, conditionJSON, field.ID,
+		); err != nil {
+			return fmt.Errorf("update field %q: %w", field.Label, err)
+		}
+		kept[field.ID] = true
+		parentID := field.ID
+		for _, sub := range field.SubSteps {
+			if err := upsertField(ctx, tx, sectionID, &parentID, sub, existing, kept, remap); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
+	// Genuinely new field — insert with a fresh id (recurses into sub-steps).
+	newID, err := insertField(ctx, tx, sectionID, parentFieldID, field)
+	if err != nil {
+		return fmt.Errorf("insert field %q: %w", field.Label, err)
+	}
+	if field.ID != "" {
+		remap[field.ID] = newID
 	}
 	return nil
 }
@@ -522,6 +654,20 @@ func submitChecklist(ctx context.Context, pool *pgxpool.Pool, input SubmitCheckl
 
 // saveResponse upserts a draft response (submission_id IS NULL) for auto-save (D-21).
 func saveResponse(ctx context.Context, pool *pgxpool.Pool, fieldID string, value json.RawMessage, userID string) error {
+	// App-level existence check (FR-3, INV-4): a write naming a field absent from
+	// the current template is rejected loudly with ErrUnknownField (→ 422). The
+	// field_id FK was dropped (migrations 0051/0053/0054) so a dead-id write would
+	// otherwise be accepted silently — the churn-driven Friday P0 symptom.
+	var exists bool
+	if err := pool.QueryRow(ctx,
+		`SELECT EXISTS(SELECT 1 FROM checklist_fields WHERE id = $1)`, fieldID,
+	).Scan(&exists); err != nil {
+		return fmt.Errorf("check field exists: %w", err)
+	}
+	if !exists {
+		return ErrUnknownField
+	}
+
 	// Null value means "unchecked" — delete the draft response row.
 	if value == nil || string(value) == "null" {
 		_, err := pool.Exec(ctx,

@@ -60,6 +60,12 @@ func workflowOpRouter(pool *pgxpool.Pool) opsync.OpRouter {
 				return nil, routerErr(http.StatusBadRequest, "invalid_payload")
 			}
 			if err := workflow.SaveResponseFunc(ctx, pool, p.FieldID, p.Value, userID); err != nil {
+				if errors.Is(err, workflow.ErrUnknownField) {
+					// Field was cut from the template (FR-3, INV-4). Reject loudly so
+					// the runner rolls back the optimistic checkmark instead of writing
+					// under a dead field id.
+					return nil, routerErr(http.StatusUnprocessableEntity, "unknown_field")
+				}
 				slog.Error("OpRouter SET_FIELD", "error", err)
 				return nil, routerErr(http.StatusInternalServerError, "internal_error")
 			}

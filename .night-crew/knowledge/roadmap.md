@@ -97,7 +97,7 @@
 
 ## Activity 5 — Edit-propagation build · *serialized after Activity 4 sign-off; no schema migration*
 
-- **`editprop-stable-field-identity`** · PLANNED · `updateTemplate` upserts by the field
+- **`editprop-stable-field-identity`** · DONE ✅ overnight-20260717 (G6 PASS `6a483d1`; red→green re-verified independently — Go 422 + cross-device E2E identity; `replaceTemplate` reinsert path deleted; app-level existence check, no restored FK) · `updateTemplate` upserts by the field
   IDs the Builder already sends (update kept / insert new / delete removed; conditions
   remap for new fields only) instead of delete+reinsert; a write naming a field absent
   from the current template → distinct 422 envelope, surfaced in the runner (no optimistic
