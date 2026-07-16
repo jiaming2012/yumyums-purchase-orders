@@ -8,6 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	opsync "github.com/yumyums/hq/internal/sync"
 )
 
 // ErrTemplateArchived is returned when submitting a checklist for an archived template.
@@ -120,7 +121,56 @@ func updateTemplate(ctx context.Context, pool *pgxpool.Pool, templateID string, 
 		return fmt.Errorf("begin transaction: %w", err)
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck
+	if err := updateTemplateInTx(ctx, tx, templateID, input); err != nil {
+		return err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit transaction: %w", err)
+	}
+	return nil
+}
 
+// updateTemplateAndEmit performs the template write and emits its SAVE_TEMPLATE
+// op inside ONE transaction (FR-5, INV-1). The REST Builder-save path
+// (UpdateTemplateHandler) uses this so the op that tells other devices to
+// re-fetch + re-render is durably queued ATOMICALLY with the write — replacing
+// the fire-and-forget opsync.EmitOp goroutine that could leave an accepted write
+// with no queued op. The /ops OpRouter path keeps calling the bare
+// updateTemplate: its op is already recorded by the sync layer, so emitting here
+// too would double-queue.
+func updateTemplateAndEmit(ctx context.Context, pool *pgxpool.Pool, templateID string, input TemplateInput, userID string) error {
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin transaction: %w", err)
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+	if err := updateTemplateInTx(ctx, tx, templateID, input); err != nil {
+		return err
+	}
+	payload, err := json.Marshal(map[string]any{"template_id": templateID})
+	if err != nil {
+		return fmt.Errorf("marshal save_template op payload: %w", err)
+	}
+	if _, err := opsync.EmitOpTx(ctx, tx, opsync.OpInput{
+		DeviceID:   "server",
+		UserID:     userID,
+		EntityID:   templateID,
+		EntityType: "template",
+		OpType:     opsync.OpSaveTemplate,
+		Payload:    json.RawMessage(payload),
+	}); err != nil {
+		return fmt.Errorf("emit save_template op: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit transaction: %w", err)
+	}
+	return nil
+}
+
+// updateTemplateInTx is the transaction-scoped core of the template write. Both
+// updateTemplate (bare, used by the /ops OpRouter) and updateTemplateAndEmit
+// (REST Builder save, with a transactional op) drive it.
+func updateTemplateInTx(ctx context.Context, tx pgx.Tx, templateID string, input TemplateInput) error {
 	// Update template header in place.
 	if _, err := tx.Exec(ctx,
 		`UPDATE checklist_templates SET name = $1, requires_approval = $2, updated_at = now() WHERE id = $3`,
@@ -212,6 +262,17 @@ func updateTemplate(ctx context.Context, pool *pgxpool.Pool, templateID string, 
 		}
 	}
 	if len(removed) > 0 {
+		// Discard crew's UNSUBMITTED answers on the cut fields (INV-6: the Builder
+		// warned the admin, who confirmed — the loss is a warned operator action).
+		// The field_id FK was dropped (0051/0053/0054), so without this the draft
+		// rows would orphan and keep counting against the checklist. Only drafts
+		// (submission_id IS NULL) are removed — submitted responses are historical
+		// record and reference template-snapshot ids, so they are untouched.
+		if _, err := tx.Exec(ctx,
+			`DELETE FROM submission_responses WHERE field_id = ANY($1) AND submission_id IS NULL`, removed,
+		); err != nil {
+			return fmt.Errorf("discard removed-field drafts: %w", err)
+		}
 		if _, err := tx.Exec(ctx,
 			`DELETE FROM checklist_fields WHERE id = ANY($1) AND parent_field_id IS NOT NULL`, removed,
 		); err != nil {
@@ -254,9 +315,6 @@ func updateTemplate(ctx context.Context, pool *pgxpool.Pool, templateID string, 
 		}
 	}
 
-	if err := tx.Commit(ctx); err != nil {
-		return fmt.Errorf("commit transaction: %w", err)
-	}
 	return nil
 }
 
@@ -1118,6 +1176,31 @@ func unsubmitChecklist(ctx context.Context, pool *pgxpool.Pool, submissionID, us
 	}
 
 	return tx.Commit(ctx)
+}
+
+// countDraftHolders returns the number of DISTINCT crew members who have an
+// unsubmitted draft response (submission_id IS NULL) dated today on any of the
+// given field IDs. It powers the Builder's INV-6 discard warning: before a save
+// that cuts those fields (or, when passed the whole template's field set, drops
+// today from the schedule), the admin is told how many crew would lose answers.
+// "Today" mirrors cleanupOldDrafts (answered_at >= current_date) — drafts are
+// day-scoped. Read-only; returns 0 for an empty field set without a query.
+func countDraftHolders(ctx context.Context, pool *pgxpool.Pool, fieldIDs []string) (int, error) {
+	if len(fieldIDs) == 0 {
+		return 0, nil
+	}
+	var n int
+	if err := pool.QueryRow(ctx,
+		`SELECT count(DISTINCT answered_by)
+		 FROM submission_responses
+		 WHERE submission_id IS NULL
+		   AND answered_at >= current_date
+		   AND field_id = ANY($1::uuid[])`,
+		fieldIDs,
+	).Scan(&n); err != nil {
+		return 0, fmt.Errorf("count draft holders: %w", err)
+	}
+	return n, nil
 }
 
 // cleanupOldDrafts deletes abandoned draft responses from previous days (pitfall 1).

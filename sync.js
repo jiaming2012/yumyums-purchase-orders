@@ -444,9 +444,53 @@ function applyOp(op, silent) {
   } else if (op.op_type === 'APPROVE_ITEM' || op.op_type === 'REJECT_ITEM') {
     if (typeof loadPendingApprovals === 'function') loadPendingApprovals();
   } else if (op.op_type === 'SAVE_TEMPLATE' || op.op_type === 'ARCHIVE_TEMPLATE') {
+    // The Builder template list always refreshes.
     if (typeof loadTemplates === 'function') loadTemplates();
+    // If an unsubmitted checklist is open in the runner, re-fetch + re-render it
+    // to the template's new shape (FR-4, INV-3). Bulk catch-up replay is silent
+    // (INV-6, the 42eeb39 no-toast rule); a genuinely live teammate edit may
+    // surface a toast.
+    if (typeof fillState !== 'undefined' && fillState.activeTemplate) {
+      rerenderOpenChecklistAfterSave(op, silent);
+    }
   }
 }
+
+// rerenderOpenChecklistAfterSave handles a SAVE_TEMPLATE/ARCHIVE_TEMPLATE op that
+// lands while an unsubmitted checklist is open in the runner. It re-fetches
+// myChecklists and re-renders the open runner to the template's new shape.
+// Because hydrateFieldState keys by the stable checklist_fields.id, every
+// surviving field keeps its rendered answer across the re-render — all 7
+// persisted types + sub-steps + the photo-URL value (same code path as a reload);
+// a cut field's answer is dropped and a new field renders empty.
+//
+// If the edit dropped today from the schedule (C5) or archived the template, the
+// checklist leaves today's myChecklists list: the open runner is then removed
+// live (INV-6 warned-live-removal — the admin was warned in the Builder before
+// proceeding) and the device drops back to the checklist list.
+async function rerenderOpenChecklistAfterSave(op, silent) {
+  if (typeof fillState === 'undefined' || !fillState.activeTemplate) return;
+  const openId = fillState.activeTemplate.id;
+  // loadMyChecklists re-fetches today's list and, since a runner is open,
+  // re-renders it in place with surviving answers hydrated.
+  if (typeof loadMyChecklists === 'function') await loadMyChecklists();
+  const stillToday = Array.isArray(typeof MY_CHECKLISTS !== 'undefined' ? MY_CHECKLISTS : null)
+    && MY_CHECKLISTS.some(function(t) { return t.id === openId; });
+  if (!stillToday) {
+    // Schedule dropped today / template archived → remove the open checklist live.
+    fillState.view = 'list';
+    fillState.activeTemplate = null;
+    fillState.readonly = false;
+    if (typeof location !== 'undefined' && location.hash) location.hash = '';
+    if (typeof renderFillOut === 'function') renderFillOut();
+    if (!silent) showSyncToast('This checklist was removed');
+    return;
+  }
+  // Surviving live edit: the runner already re-rendered inside loadMyChecklists.
+  if (!silent && op.op_type === 'SAVE_TEMPLATE') showSyncToast('Checklist updated');
+}
+
+window.rerenderOpenChecklistAfterSave = rerenderOpenChecklistAfterSave;
 
 window.applyOp = applyOp;
 

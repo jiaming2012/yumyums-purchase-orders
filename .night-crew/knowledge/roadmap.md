@@ -104,7 +104,7 @@
   checkmark survives a rejected save). Revives stages 1a+1b as permanent. Footprint:
   workflow engine (backend + runner error path). → Eng KRs "stable identity" + "loud
   rejection".
-- **`editprop-broadcast-rerender`** · PLANNED · Handle `SAVE_TEMPLATE` ops in `applyOp`
+- **`editprop-broadcast-rerender`** · DONE ✅ overnight-20260717 (G6 PASS `0d49f27`+`1c7c73c`; all 5 sub-behaviors red→green re-verified — SAVE_TEMPLATE re-render surviving-answers, silent-on-catch-up, C5 warned live removal, transactional op emission in-txn, INV-6 discard warning naming the crew count + orphaned-draft delete scoped to unsubmitted) · Handle `SAVE_TEMPLATE` ops in `applyOp`
   (they already flow through live WS + `wsCatchUp` — clients just ignore them): re-fetch
   template, re-render the open checklist with surviving answers intact, dissolve moot
   rejection flags visibly, stay silent on catch-up replay (the `42eeb39` no-toast rule);

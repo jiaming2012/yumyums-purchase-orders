@@ -30,8 +30,8 @@ import (
 	"github.com/yumyums/hq/internal/inventory"
 	"github.com/yumyums/hq/internal/me"
 	"github.com/yumyums/hq/internal/onboarding"
-	"github.com/yumyums/hq/internal/purchasing"
 	"github.com/yumyums/hq/internal/photos"
+	"github.com/yumyums/hq/internal/purchasing"
 	"github.com/yumyums/hq/internal/receipt"
 	"github.com/yumyums/hq/internal/recipes"
 	opsync "github.com/yumyums/hq/internal/sync"
@@ -480,6 +480,7 @@ func main() {
 				r.Post("/createTemplate", workflow.CreateTemplateHandler(pool))
 				r.Put("/updateTemplate/{id}", workflow.UpdateTemplateHandler(pool))
 				r.Delete("/archiveTemplate/{id}", workflow.ArchiveTemplateHandler(pool))
+				r.Get("/draftHolderCount", workflow.DraftHolderCountHandler(pool))
 				r.Get("/myChecklists", workflow.MyChecklistsHandler(pool))
 				r.Get("/myHistory", workflow.MyHistoryHandler(pool))
 				r.Post("/saveResponse", workflow.SaveResponseHandler(pool))

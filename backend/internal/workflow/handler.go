@@ -323,7 +323,10 @@ func UpdateTemplateHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		if err := updateTemplate(r.Context(), pool, templateID, input); err != nil {
+		// updateTemplateAndEmit writes the template and queues its SAVE_TEMPLATE
+		// op in ONE transaction (FR-5, INV-1): the op that tells other devices to
+		// re-fetch + re-render can never be lost while the write is accepted.
+		if err := updateTemplateAndEmit(r.Context(), pool, templateID, input, user.ID); err != nil {
 			if isDuplicateNameErr(err) {
 				writeError(w, http.StatusUnprocessableEntity, "duplicate_name")
 				return
@@ -331,19 +334,6 @@ func UpdateTemplateHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			slog.Error("updateTemplate error", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
-		}
-		if payload, merr := json.Marshal(map[string]any{"template_id": templateID}); merr == nil {
-			opsync.EmitOp(pool, opsync.OpInput{
-				DeviceID:   "server",
-				UserID:     user.ID,
-				EntityID:   templateID,
-				EntityType: "template",
-				OpType:     opsync.OpSaveTemplate,
-				Payload:    json.RawMessage(payload),
-				LamportTS:  0,
-			})
-		} else {
-			slog.Error("UpdateTemplateHandler failed to marshal op payload", "error", merr)
 		}
 		writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 	}
@@ -388,6 +378,40 @@ func ArchiveTemplateHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			slog.Error("ArchiveTemplateHandler failed to marshal op payload", "error", merr)
 		}
 		writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+	}
+}
+
+// DraftHolderCountHandler handles GET /api/v1/workflow/draftHolderCount.
+// Admin-only, read-only. Given `field_ids` (comma-separated UUIDs) it returns
+// {"count": N} — the number of distinct crew members with an unsubmitted draft
+// answer dated today on any of those fields. Powers the Builder's INV-6 discard
+// warning before a save that cuts fields or drops today from the schedule.
+func DraftHolderCountHandler(pool *pgxpool.Pool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		user := auth.UserFromContext(r.Context())
+		if user == nil {
+			writeError(w, http.StatusUnauthorized, "unauthorized")
+			return
+		}
+		if !isAdmin(user) {
+			writeError(w, http.StatusForbidden, "forbidden")
+			return
+		}
+		var fieldIDs []string
+		if raw := strings.TrimSpace(r.URL.Query().Get("field_ids")); raw != "" {
+			for _, id := range strings.Split(raw, ",") {
+				if id = strings.TrimSpace(id); id != "" {
+					fieldIDs = append(fieldIDs, id)
+				}
+			}
+		}
+		n, err := countDraftHolders(r.Context(), pool, fieldIDs)
+		if err != nil {
+			slog.Error("countDraftHolders error", "error", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]int{"count": n})
 	}
 }
 

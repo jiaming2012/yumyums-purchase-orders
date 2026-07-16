@@ -269,6 +269,70 @@ func EmitOpWithConflictCheck(ctx context.Context, pool *pgxpool.Pool, op OpInput
 	return InsertOpAndNotify(ctx, pool, op)
 }
 
+// EmitOpTx records an op transactionally inside the caller's transaction: it
+// assigns a winning lamport_ts (current + 1), bumps the entity's lamport_ts,
+// inserts the op row, and queues the pg_notify — all on `tx`, with no commit of
+// its own. Because it shares the caller's transaction, the op commits ATOMICALLY
+// with the business write it describes (FR-5, INV-1): there is no window in which
+// an accepted write exists without its op durably queued for other devices. Use
+// this from a handler that already holds the write's transaction, in place of
+// the fire-and-forget EmitOp goroutine. The caller is responsible for Commit.
+func EmitOpTx(ctx context.Context, tx pgx.Tx, op OpInput) (string, error) {
+	ts, err := nextLamportTSTx(ctx, tx, op.EntityID, op.EntityType)
+	if err != nil {
+		return "", err
+	}
+	op.LamportTS = ts
+	if err := updateEntityLamportTS(ctx, tx, op.EntityID, op.EntityType, op.LamportTS); err != nil {
+		return "", err
+	}
+	var opID string
+	if err := tx.QueryRow(ctx,
+		`INSERT INTO ops (device_id, user_id, entity_id, entity_type, op_type, payload, lamport_ts)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7)
+		 RETURNING id`,
+		op.DeviceID, op.UserID, op.EntityID, op.EntityType, op.OpType, op.Payload, op.LamportTS,
+	).Scan(&opID); err != nil {
+		return "", err
+	}
+	notifyPayload, _ := json.Marshal(map[string]string{
+		"op_id":       opID,
+		"entity_id":   op.EntityID,
+		"entity_type": op.EntityType,
+		"user_id":     op.UserID,
+	})
+	if _, err := tx.Exec(ctx, `SELECT pg_notify('ops_channel', $1)`, string(notifyPayload)); err != nil {
+		return "", err
+	}
+	return opID, nil
+}
+
+// nextLamportTSTx is the transaction-scoped variant of nextLamportTS, reading
+// the entity's current lamport_ts on the caller's tx so the +1 assignment is
+// consistent with the write happening in the same transaction.
+func nextLamportTSTx(ctx context.Context, tx pgx.Tx, entityID, entityType string) (int64, error) {
+	var query string
+	switch entityType {
+	case "field_response":
+		query = `SELECT lamport_ts FROM submission_responses WHERE field_id = $1`
+	case "submission":
+		query = `SELECT lamport_ts FROM checklist_submissions WHERE id = $1`
+	case "template":
+		query = `SELECT lamport_ts FROM checklist_templates WHERE id = $1`
+	default:
+		return 1, nil
+	}
+	var current int64
+	err := tx.QueryRow(ctx, query, entityID).Scan(&current)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return 1, nil
+	}
+	if err != nil {
+		return 0, err
+	}
+	return current + 1, nil
+}
+
 // userAccessibleTemplates returns the template IDs that a user can access
 // based on their direct assignments or role-based assignments.
 func userAccessibleTemplates(ctx context.Context, pool *pgxpool.Pool, userID string) ([]string, error) {
