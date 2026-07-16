@@ -46,7 +46,7 @@
 > The stages 1–3 data-integrity PRD. No build WO dispatches before this lands.
 > Produced by the evening `/nc-pm-session` + `/nc-pm-grill-back`.
 
-- **`prd-data-integrity`** · PLANNED · The PRD enumerating every silent-loss mode with a
+- **`prd-data-integrity`** · **DONE** ✅ signed 2026-07-16 (evening PM session + grill-back; frozen-at-submit, 9 FR + 3 NFR, `prd validate` green) · The PRD enumerating every silent-loss mode with a
   requirement→(reproduced failure | named invariant) trace table; the operator-signed
   mid-run edit semantic ("crews finish the run they started; edits take effect next run");
   the 8-item backlog routing record. → Product KR1, KR2, KR3. *(attended evening session)*
@@ -84,7 +84,7 @@
 
 ## Activity 4 — Edit-propagation design gate · *attended; blocks Activity 5*
 
-- **`editprop-openspec-design`** · PLANNED · The OpenSpec change for frozen-at-submit
+- **`editprop-openspec-design`** · **DONE** ✅ signed 2026-07-16 (attended design gate; frozen-at-submit design, **C5 = warned-live-removal**; `designs/editprop-frozen-at-submit.md`) · The OpenSpec change for frozen-at-submit
   edit propagation: stable field IDs honored forever; edits re-render open devices with
   surviving answers intact; submit freezes the record (existing `template_snapshot`);
   rejection rules (frozen record · live redo carrying answers · moot flags on cut fields
