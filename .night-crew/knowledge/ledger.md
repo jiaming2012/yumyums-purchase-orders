@@ -549,3 +549,9 @@ AI-matching subcases with no `ANTHROPIC_API_KEY`) — identical to pre-merge `de
 - **Milestone boundary.** "Nothing silently lost" closed on dev-side evidence. Next: `/nc-morning-triage`
   (merge `overnight-20260719`), then attended **Activity 7** ship (flip the 2 PENDING prod KRs), then
   `/nc-okr-session`. `main` untouched; run branch never pushed.
+- **Operator resolution at run close (2026-07-19, attended).** Waiver-#1 last mile (DECISIONS-NEEDED
+  §C): operator chose **(a) graduate the test-hardening WO** to formally close waiver #1 — graduated
+  to `BACKLOG.md` as `suite-isolation-approved-checklist` (`new`, next-cycle `/nc-okr-session`
+  feedstock). Eng KR5 stays PARTIAL for this gate of record; flips to PASS when the WO lands literal
+  `task test` exit-0. Two fix-forwards also graduated to BACKLOG: per-card timing instrumentation
+  (Delivery-median) and `CI=1`+pre-migration gate run-mechanics.

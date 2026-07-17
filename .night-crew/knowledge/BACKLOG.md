@@ -324,3 +324,34 @@
   the guard isn't weakened — but a fixed wait is a small flake-surface. Switch to `waitForResponse`
   on the save POST in a future test-hardening pass. Low priority. · origin: triage 2026-07-17 (F-E,
   T-2 minor) · new
+
+## Waiver-#1 last mile (from overnight-20260719 cycle gate — operator chose "graduate" 2026-07-19)
+
+- **`suite-isolation-approved-checklist` — formally retire waiver #1** · The 2026-07-19 cycle gate
+  ran the deterministic stack green on an isolated pg16 (Go units exit-0; Playwright 450 pass · 1
+  fail · 0 flaky · 6 skip) EXCEPT one red: `tests/workflows.spec.js › approved checklist shows
+  Approved badge and cannot be resubmitted [LST-08 RUN-08]` — `expect(locator('#toast')).toBeVisible()`
+  gets `hidden` **in the full suite but PASSES in isolation** (fresh single-test DB, `--retries=0` →
+  `1 passed`; cycle-closeout-20260719.md §1). It is a **cross-test DB-pollution / test-isolation
+  defect, not a product defect**: some earlier spec sharing `hq_test` leaves approval/`#toast` state
+  that this test's assertion trips over. This single red is the ONLY thing keeping literal
+  `task test` from exit-0, so waiver #1 is currently **substantially retired (38 reds → 1) but not
+  formally**. **Fix:** isolate this test's state dependency (identify the polluting predecessor —
+  likely an approval/submission-rejection row or a `#toast` left visible — and either scope its
+  fixture teardown or make the assertion order-independent), then re-run the full suite to confirm
+  **literal `task test` exit-0**, which **formally retires carried waiver #1** (Eng KR5 PASS). Small
+  test-hardening WO (no production change; test-only footprint). Red-first: the full-suite red is the
+  baseline; green = literal exit-0. · origin: overnight-20260719 cycle gate (Eng KR5 PARTIAL) ·
+  **operator chose (a) graduate 2026-07-19** (DECISIONS-NEEDED §C) · new
+- **Per-card wall-clock instrumentation as a standing build-run output** · The 2026-07-19 gate could
+  not compute a this-cycle Delivery median (KR4 PARTIAL) because the 07-17 run's 9 build cards were
+  not per-card timed — only 07-18's single card was measured. `-0718` already re-adopted the
+  harness-measured table; make it the **invariant** for every build run so the ledger stays measured,
+  not narrated, and the next gate can compute a real median vs the T-14 baseline (N=23/22m28s).
+  · origin: overnight-20260719 cycle gate (Delivery KR4 PARTIAL, fix-forward) · new
+- **Gate run-mechanics: `CI=1` + explicit pre-migration by default** · Two run-to-run wall-clock
+  losses (07-18 G6, 07-19 gate) came from the same `:8199` `reuseExistingServer` foreign-server
+  latch and (07-19) an unmigrated isolated DB. Bake into the gate/G6 run-mechanics: always run the
+  suite with `CI=1` (forces `reuseExistingServer:false` → own webServer + teardown) AND pre-migrate
+  the isolated pg16 via a throwaway app boot before Go units. Run-mechanics doc/skill fix, not a code
+  change. · origin: overnight-20260719 cycle gate (card-actuals 8th-slate obs) · new

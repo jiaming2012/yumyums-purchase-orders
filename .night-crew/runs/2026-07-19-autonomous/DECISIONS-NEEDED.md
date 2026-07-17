@@ -52,6 +52,13 @@ ghost-item cleanup, then a short parity-confirm flips both KRs and **formally cl
 
 ## §C — Carried test-hardening call — waiver #1's last mile (Eng KR5)
 
+> **✅ RESOLVED 2026-07-19 (operator, attended at run close): chose (a) — GRADUATE the
+> test-hardening WO to formally close waiver #1.** Graduated to `BACKLOG.md` as
+> **`suite-isolation-approved-checklist`** (§"Waiver-#1 last mile", marked `new` → next-cycle
+> `/nc-okr-session` feedstock). It stays a next-cycle scope item; it did not hold this gate. Eng
+> KR5 remains PARTIAL for the 2026-07-19 gate of record; it flips to PASS when the WO lands literal
+> `task test` exit-0.
+
 **What.** Waiver #1 (`task test` exit-0) is **substantially retired (38 reds → 1)** but **not
 formally**: the one remaining Playwright red — `workflows.spec.js › approved checklist shows Approved
 badge and cannot be resubmitted [LST-08 RUN-08]` — is a **cross-test DB-pollution** artifact (it
