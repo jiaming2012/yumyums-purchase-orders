@@ -58,20 +58,20 @@
 > the *permanent* architecture — see Activity 5's `editprop-stable-field-identity`
 > (upsert + loud rejection). These tombstones stay so the morning's card names resolve.
 
-- **`engine-approval-feedback-loud`** · PLANNED · An approval with a feedback comment only
+- **`engine-approval-feedback-loud`** · DONE ✅ overnight-20260717 (G6 PASS `f1cf912`; red→green re-verified — failed submission_rejections persist now returns 500 feedback_persist_failed instead of false "Approved"; ON CONFLICT DO NOTHING removed, proven behavior-neutral. Follow-up logged: approval+feedback atomicity via tx through approveSubmission) · An approval with a feedback comment only
   reports success if the comment is durably stored — today the `submission_rejections`
   insert swallows failure (`handler.go:614-622`, `ON CONFLICT DO NOTHING`, error logged
   not surfaced) while the approver sees "Approved". Red-first Go test forcing the failed
   insert. Footprint: workflow engine (backend). → QA KR2, PRD FR-6 (INV-1).
-- **`engine-conflict-refetch`** · PLANNED · A device whose field write loses LWW (409)
+- **`engine-conflict-refetch`** · DONE ✅ overnight-20260717 (G6 PASS `363bafb`; red→green re-verified + deterministic 3/3 — LWW loser now re-renders the DB-winning value from the 409 body via applyOp; fixed a double-wrap in api()'s 409 return; no backend/schema change. Note: only text/textarea convergence is conflict-branch-tested) · A device whose field write loses LWW (409)
   re-fetches and renders the winning value instead of keeping the stale render
   (`sync.js` conflict path). Red-first E2E. Footprint: workflow engine (`sync.js`).
   → QA KR2, PRD FR-7 (INV-1).
-- **`ops-nfr3-resubmit-photo-gate`** · PLANNED · Carried fix-card: plumb rejection context
+- **`ops-nfr3-resubmit-photo-gate`** · DONE ✅ overnight-20260717 (G6 PASS `01c8f7e`; red→green re-verified — direct-API resubmit of a require_photo-rejected field: 201 bypass → 400 resubmit_photo_required; server-side gate resolved from submission_rejections on the authenticated submitter's most-recent prior submission, both direct-API submit paths; no client-controllable escape) · Carried fix-card: plumb rejection context
   into submit validation so a rejected-with-`require_photo` field blocks direct-API
   resubmit server-side; red-first. Footprint: workflow engine (backend). → QA KR2
   (red-first denominator), carried from hardening cycle (ledger T-10).
-- **`users-s3-orphan-cleanup`** · PLANNED · Trivial carried card: remove dead
+- **`users-s3-orphan-cleanup`** · DONE ✅ overnight-20260717 (`ee56f80`; single dead #s3 div removed, no #s3 refs remain in users.html, Users E2E 33/0; slate-scoped inline verification — no red-first per card spec) · Trivial carried card: remove dead
   `<div id="s3">` at `users.html:122`. Footprint: Users (zero contention — free
   parallelism). → hygiene; no KR.
 
@@ -97,14 +97,14 @@
 
 ## Activity 5 — Edit-propagation build · *serialized after Activity 4 sign-off; no schema migration*
 
-- **`editprop-stable-field-identity`** · PLANNED · `updateTemplate` upserts by the field
+- **`editprop-stable-field-identity`** · DONE ✅ overnight-20260717 (G6 PASS `6a483d1`; red→green re-verified independently — Go 422 + cross-device E2E identity; `replaceTemplate` reinsert path deleted; app-level existence check, no restored FK) · `updateTemplate` upserts by the field
   IDs the Builder already sends (update kept / insert new / delete removed; conditions
   remap for new fields only) instead of delete+reinsert; a write naming a field absent
   from the current template → distinct 422 envelope, surfaced in the runner (no optimistic
   checkmark survives a rejected save). Revives stages 1a+1b as permanent. Footprint:
   workflow engine (backend + runner error path). → Eng KRs "stable identity" + "loud
   rejection".
-- **`editprop-broadcast-rerender`** · PLANNED · Handle `SAVE_TEMPLATE` ops in `applyOp`
+- **`editprop-broadcast-rerender`** · DONE ✅ overnight-20260717 (G6 PASS `0d49f27`+`1c7c73c`; all 5 sub-behaviors red→green re-verified — SAVE_TEMPLATE re-render surviving-answers, silent-on-catch-up, C5 warned live removal, transactional op emission in-txn, INV-6 discard warning naming the crew count + orphaned-draft delete scoped to unsubmitted) · Handle `SAVE_TEMPLATE` ops in `applyOp`
   (they already flow through live WS + `wsCatchUp` — clients just ignore them): re-fetch
   template, re-render the open checklist with surviving answers intact, dissolve moot
   rejection flags visibly, stay silent on catch-up replay (the `42eeb39` no-toast rule);
@@ -113,7 +113,7 @@
   it describes (closes the `EmitOp` fire-and-forget gap, `sync/ops.go:245-264`). Footprint:
   workflow engine (`sync.js` + `workflows.html` + backend sync). → Eng KR "edit
   propagation".
-- **`editprop-convergence-matrix`** · PLANNED · The red-first multi-device E2E matrix
+- **`editprop-convergence-matrix`** · DONE ✅ overnight-20260717 (G6 FAIL-REVISE → revised → PASS `72fffba`+`6c3aafb`; full two-device matrix green — all 7 types + sub-steps + photo + submit/unsubmit + list-view progress + denominator, live + catch-up; AC-6a bug-guard + AC-6b frozen-snapshot lock red→green; surfaced+fixed unsubmit-broadcast gap in-footprint; suite reliably green under combined load, orchestrator re-verified 36/36) · The red-first multi-device E2E matrix
   (the operator's delegated UX bar): all 7 field types + sub-steps + submit/unsubmit
   transitions + list-view progress indicators converge across ≥ 2 devices; includes the
   ≥ 2 semantic acceptance tests (mid-run edit re-renders open devices, surviving answers
@@ -123,11 +123,11 @@
 
 ## Activity 6 — Test-debt retirement · *independent parallel track (any time)*
 
-- **`vacuous-tests-18-to-0`** · PLANNED · Each remaining conditional `test.skip()` / silent
+- **`vacuous-tests-18-to-0`** · DONE ✅ overnight-20260717 (G6 PASS `3f68cc9`; 18 = 16 converted here (Onboarding 6 + Inventory 10, each a real seeded assertion downstream of exercised state — G6-verified non-tautological) + 2 Ops workflow items already hardened at base. Tests-only; 204 passed/2 S3-parks/0 reds re-verified. Retires waiver #2) · Each remaining conditional `test.skip()` / silent
   guard-return becomes a real seeded assertion or is deleted (denominator = the audit that
   produced the 18). Footprint: test-debt (audit-scoped). → QA KR1, retires carried
   waiver #2.
-- **`carried-fix-wos-sweep`** · PLANNED · The carried prove-sweep fix-WO with no harness
+- **`carried-fix-wos-sweep`** · DONE ✅ overnight-20260717 (G6 PASS `0e49c20`; `now func() time.Time` seam on all 4 run*Check funcs — production still time.Now — + 13 mock-time cron-decision subtests, behavioral red→green re-verified. Unblocks Purchasing FR-19–22, PARKed in 07-15 B4 for lack of a clock seam) · The carried prove-sweep fix-WO with no harness
   dependency: `WO-cron-clock-seam` (a `now` seam in the 4 `run*Check` funcs + real
   cron-decision unit tests — unblocks P-6, Purchasing FR-19/20/21/22). The other two
   prove-sweep PARKs (photo-S3 harness, offline-IndexedDB harness) are deferred this cycle

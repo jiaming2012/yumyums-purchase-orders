@@ -1295,7 +1295,8 @@ test.describe('Inventory', () => {
     // Create two vendors
     const v1 = await invApiCall(page, 'POST', 'vendors', { name: 'Merge Source ' + Date.now() });
     const v2 = await invApiCall(page, 'POST', 'vendors', { name: 'Merge Target ' + Date.now() });
-    if (!v1 || !v2) return;
+    expect(v1 && v1.id, 'vendor create must return an id').toBeTruthy();
+    expect(v2 && v2.id, 'vendor create must return an id').toBeTruthy();
     // Create a purchase event under source vendor
     await invApiCall(page, 'POST', 'purchases', {
       vendor_id: v1.id, bank_tx_id: 'merge-test-' + Date.now(),
@@ -1318,7 +1319,7 @@ test.describe('Inventory', () => {
 
   test('merge vendors: cannot merge into self (negative)', async ({ page }) => {
     const v = await invApiCall(page, 'POST', 'vendors', { name: 'Self Merge ' + Date.now() });
-    if (!v) return;
+    expect(v && v.id, 'vendor create must return an id').toBeTruthy();
     const res = await page.evaluate(async (id) => {
       const r = await fetch('/api/v1/inventory/vendors/merge', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -1331,7 +1332,7 @@ test.describe('Inventory', () => {
 
   test('merge vendors: invalid source returns error (negative)', async ({ page }) => {
     const v = await invApiCall(page, 'POST', 'vendors', { name: 'Valid Target ' + Date.now() });
-    if (!v) return;
+    expect(v && v.id, 'vendor create must return an id').toBeTruthy();
     const res = await page.evaluate(async (tid) => {
       const r = await fetch('/api/v1/inventory/vendors/merge', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -1346,10 +1347,12 @@ test.describe('Inventory', () => {
 
   test('merge items: source deleted, line items migrated (positive)', async ({ page }) => {
     const groups = await invApiCall(page, 'GET', 'groups');
-    const gid = groups && groups.length ? groups[0].id : null;
+    expect(groups && groups.length, 'seed must provide item groups').toBeTruthy();
+    const gid = groups[0].id;
     const i1 = await invApiCall(page, 'POST', 'items', { description: 'Merge Src ' + Date.now(), group_id: gid });
     const i2 = await invApiCall(page, 'POST', 'items', { description: 'Merge Tgt ' + Date.now(), group_id: gid });
-    if (!i1 || !i2) return;
+    expect(i1 && i1.id, 'item create must return an id').toBeTruthy();
+    expect(i2 && i2.id, 'item create must return an id').toBeTruthy();
     const res = await page.evaluate(async ([sid, tid]) => {
       const r = await fetch('/api/v1/inventory/items/merge', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -1365,9 +1368,10 @@ test.describe('Inventory', () => {
 
   test('merge items: cannot merge into self (negative)', async ({ page }) => {
     const groups = await invApiCall(page, 'GET', 'groups');
-    const gid = groups && groups.length ? groups[0].id : null;
+    expect(groups && groups.length, 'seed must provide item groups').toBeTruthy();
+    const gid = groups[0].id;
     const i = await invApiCall(page, 'POST', 'items', { description: 'Self Item ' + Date.now(), group_id: gid });
-    if (!i) return;
+    expect(i && i.id, 'item create must return an id').toBeTruthy();
     const res = await page.evaluate(async (id) => {
       const r = await fetch('/api/v1/inventory/items/merge', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -1429,7 +1433,7 @@ test.describe('Inventory', () => {
 
   test('creating item with group succeeds (positive)', async ({ page }) => {
     const groups = await invApiCall(page, 'GET', 'groups');
-    if (!groups || !groups.length) return;
+    expect(groups && groups.length, 'seed must provide item groups').toBeTruthy();
     const res = await invApiCall(page, 'POST', 'items', {
       description: 'Grouped Item ' + Date.now(), group_id: groups[0].id
     });
@@ -1445,7 +1449,7 @@ test.describe('Inventory', () => {
       bankTxId: txId, vendor: 'Mismatch Vendor', bankTotal: -50.00,
       eventDate: '2026-04-15', reason: 'test', items: [{ name: 'Item', quantity: 1, price: 10.00 }],
     });
-    if (!seed) return;
+    expect(seed && seed.id, 'pending-purchase seed must return an id').toBeTruthy();
     const res = await page.evaluate(async (id) => {
       const r = await fetch('/api/v1/inventory/purchases/confirm', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -1471,7 +1475,7 @@ test.describe('Inventory', () => {
       bankTxId: txId, vendor: 'Match Vendor', bankTotal: -10.00,
       eventDate: '2026-04-15', reason: 'test', items: [{ name: 'Item', quantity: 1, price: 10.00 }],
     });
-    if (!seed) return;
+    expect(seed && seed.id, 'pending-purchase seed must return an id').toBeTruthy();
     const res = await page.evaluate(async (id) => {
       const r = await fetch('/api/v1/inventory/purchases/confirm', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -1544,7 +1548,7 @@ test.describe('Inventory', () => {
 
   test('creating duplicate group via API returns existing group (case-insensitive)', async ({ page }) => {
     const groups = await invApiCall(page, 'GET', 'groups');
-    if (!groups || !groups.length) return;
+    expect(groups && groups.length, 'seed must provide item groups').toBeTruthy();
     const existingName = groups[0].name;
     // Try creating with different casing
     const beforeCount = groups.length;
@@ -1558,7 +1562,7 @@ test.describe('Inventory', () => {
     await page.locator('#t7').click();
     await page.waitForFunction(() => document.getElementById('new-item-name'), { timeout: 5000 });
     const groups = await invApiCall(page, 'GET', 'groups');
-    if (!groups || !groups.length) return;
+    expect(groups && groups.length, 'seed must provide item groups').toBeTruthy();
     const existingName = groups[0].name;
     // Register dialog handler BEFORE triggering the select
     page.once('dialog', async dialog => {

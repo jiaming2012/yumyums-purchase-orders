@@ -30,8 +30,8 @@ import (
 	"github.com/yumyums/hq/internal/inventory"
 	"github.com/yumyums/hq/internal/me"
 	"github.com/yumyums/hq/internal/onboarding"
-	"github.com/yumyums/hq/internal/purchasing"
 	"github.com/yumyums/hq/internal/photos"
+	"github.com/yumyums/hq/internal/purchasing"
 	"github.com/yumyums/hq/internal/receipt"
 	"github.com/yumyums/hq/internal/recipes"
 	opsync "github.com/yumyums/hq/internal/sync"
@@ -60,6 +60,12 @@ func workflowOpRouter(pool *pgxpool.Pool) opsync.OpRouter {
 				return nil, routerErr(http.StatusBadRequest, "invalid_payload")
 			}
 			if err := workflow.SaveResponseFunc(ctx, pool, p.FieldID, p.Value, userID); err != nil {
+				if errors.Is(err, workflow.ErrUnknownField) {
+					// Field was cut from the template (FR-3, INV-4). Reject loudly so
+					// the runner rolls back the optimistic checkmark instead of writing
+					// under a dead field id.
+					return nil, routerErr(http.StatusUnprocessableEntity, "unknown_field")
+				}
 				slog.Error("OpRouter SET_FIELD", "error", err)
 				return nil, routerErr(http.StatusInternalServerError, "internal_error")
 			}
@@ -70,6 +76,9 @@ func workflowOpRouter(pool *pgxpool.Pool) opsync.OpRouter {
 				return nil, routerErr(http.StatusBadRequest, "invalid_payload")
 			}
 			if err := workflow.ValidateFailNotesFunc(ctx, pool, input); err != nil {
+				return nil, routerErr(http.StatusBadRequest, err.Error())
+			}
+			if err := workflow.ValidateResubmitPhotoFunc(ctx, pool, input, userID); err != nil {
 				return nil, routerErr(http.StatusBadRequest, err.Error())
 			}
 			id, err := workflow.SubmitChecklistFunc(ctx, pool, input, userID)
@@ -474,6 +483,7 @@ func main() {
 				r.Post("/createTemplate", workflow.CreateTemplateHandler(pool))
 				r.Put("/updateTemplate/{id}", workflow.UpdateTemplateHandler(pool))
 				r.Delete("/archiveTemplate/{id}", workflow.ArchiveTemplateHandler(pool))
+				r.Get("/draftHolderCount", workflow.DraftHolderCountHandler(pool))
 				r.Get("/myChecklists", workflow.MyChecklistsHandler(pool))
 				r.Get("/myHistory", workflow.MyHistoryHandler(pool))
 				r.Post("/saveResponse", workflow.SaveResponseHandler(pool))

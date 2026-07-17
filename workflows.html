@@ -207,8 +207,33 @@ function debouncedSaveField(fieldId, value) {
       }
       const result = await submitOp('SET_FIELD', fieldId, 'field_response', { value: saveValue, field_id: fieldId });
       if (result && result._conflict) {
-        const winner = result.winner;
-        store.set('fieldResponses', fieldId, { value: winner.value });
+        // LWW loss (FR-9, INV-1): the DB rejected our optimistic value. Converge
+        // the rendered field to the WINNING value so the screen never keeps
+        // showing a value the DB rejected. The 409 body carries the winning op
+        // (`winner.payload` — same {field_id, value, ...} shape our own SET_FIELD
+        // uses), so apply it through the exact path a live remote op takes: the
+        // loser converges identically to every observer. Silent — we surface our
+        // own "Conflict resolved" toast below instead of applyOp's "updated by".
+        // api() (sync.js:26-28) returns { _conflict, winner: <409-body> } and the
+        // body itself is { _conflict, winner: { device_id, lamport_ts, payload } },
+        // so the winning-op descriptor is nested one level in. Tolerate either
+        // shape defensively.
+        const body = result.winner || {};
+        const winner = body.winner || body;
+        if (winner.payload && typeof winner.payload === 'object') {
+          applyOp({
+            op_type: 'SET_FIELD',
+            device_id: winner.device_id,
+            lamport_ts: winner.lamport_ts,
+            server_ts: new Date().toISOString(),
+            payload: winner.payload,
+          }, true);
+        } else {
+          // Defensive: winning value absent from the body — re-fetch the
+          // checklist's current field state via the existing mechanism and
+          // re-render so the rejected optimistic value cannot survive.
+          await loadMyChecklists();
+        }
         renderFieldResponse(fieldId);
         flashField(fieldId);
         enqueueSyncToast(null, 'Conflict resolved', [fieldId]);
@@ -228,7 +253,23 @@ function debouncedSaveField(fieldId, value) {
       if (indicator) { indicator.textContent = 'Saved'; indicator.className = 'save-indicator saved'; setTimeout(() => { indicator.textContent = ''; indicator.className = 'save-indicator'; }, 800); }
       clearFieldError(fieldId);
     } catch (e) {
-      showFieldError(fieldId);
+      if (e && e.error === 'unknown_field') {
+        // Field was cut from the template by an edit (FR-3, INV-4). No optimistic
+        // checkmark survives a rejected save — drop the optimistic state and
+        // re-render so the field visibly returns to not-saved.
+        store.delete('fieldResponses', fieldId);
+        var drafts3 = store.get('draftResponses');
+        if (Array.isArray(drafts3)) {
+          var di = drafts3.findIndex(function(d) { return d.field_id === fieldId; });
+          if (di !== -1) { drafts3.splice(di, 1); store._notify('draftResponses'); }
+        }
+        renderFieldResponse(fieldId);
+        clearFieldError(fieldId);
+        if (typeof fillState !== 'undefined' && fillState.activeTemplate && typeof updateProgress === 'function') updateProgress();
+        showSyncToast('That field was removed from this checklist — your change was not saved.');
+      } else {
+        showFieldError(fieldId);
+      }
     }
     updateSaveStatus(-1);
   }, 400);
@@ -470,6 +511,46 @@ function wfBuilderHasUnsavedChanges() {
   if (!state.activeTemplate) return false;
   if (!state.originalTemplate) return true;
   return JSON.stringify(state.activeTemplate) !== JSON.stringify(state.originalTemplate);
+}
+
+// wfCollectFieldIds walks a template's sections → fields (+ sub-steps) and
+// returns every field id it contains.
+function wfCollectFieldIds(tpl) {
+  var ids = [];
+  (tpl && tpl.sections || []).forEach(function(sec) {
+    (sec.fields || []).forEach(function(f) {
+      if (f.id) ids.push(f.id);
+      (f.sub_steps || []).forEach(function(s) { if (s.id) ids.push(s.id); });
+    });
+  });
+  return ids;
+}
+
+// A persisted field carries a real UUID; a freshly-added Builder field carries a
+// generated `fld_…` id and can never hold a crew draft, so only UUIDs matter.
+function wfIsPersistedId(id) { return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id); }
+
+// wfDestructiveSaveCheck (INV-6, §4/§5) diffs the edited template against the
+// loaded original to decide whether the pending save is destructive: it CUTS a
+// persisted field, or its schedule DROPS today. Returns the set of field ids
+// whose crew drafts would be discarded (the removed fields, or — when today is
+// dropped — every persisted field, since the whole checklist leaves the device),
+// plus a dropsToday flag. An empty checkIds set means the save needs no warning
+// (INV-1 non-destructive branch, incl. the §5 corollary of ADDING a day).
+function wfDestructiveSaveCheck() {
+  if (!state.originalTemplate) return { checkIds: [], dropsToday: false };
+  var origIds = wfCollectFieldIds(state.originalTemplate).filter(wfIsPersistedId);
+  var editSet = {};
+  wfCollectFieldIds(state.activeTemplate).forEach(function(id) { editSet[id] = 1; });
+  var removed = origIds.filter(function(id) { return !editSet[id]; });
+  var dow = new Date().getDay();
+  var oDays = state.originalTemplate.active_days || [];
+  var nDays = state.activeTemplate.active_days || [];
+  var dropsToday = oDays.indexOf(dow) !== -1 && nDays.indexOf(dow) === -1;
+  // Dropping today discards ALL of today's answers on the checklist; a plain cut
+  // discards only the removed fields'.
+  var checkIds = dropsToday ? origIds : removed;
+  return { checkIds: checkIds, dropsToday: dropsToday };
 }
 
 function generateId(prefix) {
@@ -1140,37 +1221,67 @@ document.getElementById('builder-body').addEventListener('click', function(e) {
     var btn = e.target.closest('#save-btn');
     var tpl = state.activeTemplate;
     if (!tpl) return;
-    btn.textContent = 'Saving\u2026';
-    btn.disabled = true;
     var isNew = !TEMPLATES.find(function(t){return t.id===tpl.id});
-    var endpoint = isNew ? 'createTemplate' : ('updateTemplate/' + tpl.id);
-    var method = isNew ? 'POST' : 'PUT';
-    updateSaveStatus(1);
-    api(method, endpoint, toApiTemplate(tpl)).then(function(result) {
-      updateSaveStatus(-1);
-      if (isNew && result && result.id) tpl.id = result.id;
-      showToast('Checklist saved \u2713');
-      state.view = 'list';
-      state.activeTemplate = null;
-      state.originalTemplate = null;
-      state.expandedField = null;
-      state.fieldPickerSection = null;
-      renderBuilder();
-      loadTemplates();
-    }).catch(function(err) {
-      updateSaveStatus(-1);
-      btn.textContent = 'Save checklist';
-      btn.disabled = false;
-      if (err && err.status === 403) {
-        showToast(ADMIN_RESTRICTED);
-      } else if (err && err.error === 'requires_approver') {
-        showToast('Select at least one approver when approval is required.');
-      } else if (err && err.error === 'duplicate_name') {
-        showToast('A checklist with this name already exists.');
-      } else {
-        showToast(navigator.onLine ? 'Save failed. Please try again.' : 'Save failed. Check your connection.');
-      }
-    });
+
+    function doSaveTemplate() {
+      btn.textContent = 'Saving\u2026';
+      btn.disabled = true;
+      var endpoint = isNew ? 'createTemplate' : ('updateTemplate/' + tpl.id);
+      var method = isNew ? 'POST' : 'PUT';
+      updateSaveStatus(1);
+      api(method, endpoint, toApiTemplate(tpl)).then(function(result) {
+        updateSaveStatus(-1);
+        if (isNew && result && result.id) tpl.id = result.id;
+        showToast('Checklist saved \u2713');
+        state.view = 'list';
+        state.activeTemplate = null;
+        state.originalTemplate = null;
+        state.expandedField = null;
+        state.fieldPickerSection = null;
+        renderBuilder();
+        loadTemplates();
+      }).catch(function(err) {
+        updateSaveStatus(-1);
+        btn.textContent = 'Save checklist';
+        btn.disabled = false;
+        if (err && err.status === 403) {
+          showToast(ADMIN_RESTRICTED);
+        } else if (err && err.error === 'requires_approver') {
+          showToast('Select at least one approver when approval is required.');
+        } else if (err && err.error === 'duplicate_name') {
+          showToast('A checklist with this name already exists.');
+        } else {
+          showToast(navigator.onLine ? 'Save failed. Please try again.' : 'Save failed. Check your connection.');
+        }
+      });
+    }
+
+    // INV-6 / \u00a74-\u00a75: a save that CUTS a field or DROPS today from the schedule
+    // discards other crew's unsubmitted answers. Warn the admin naming the count
+    // and proceed only on explicit confirm \u2014 the INV-1 "loss is only ever a
+    // warned operator action" branch. Non-destructive saves (incl. ADDING a day)
+    // skip the check entirely.
+    var destr = !isNew ? wfDestructiveSaveCheck() : { checkIds: [], dropsToday: false };
+    if (destr.checkIds.length) {
+      updateSaveStatus(1);
+      api('GET', 'draftHolderCount?field_ids=' + destr.checkIds.join(',')).then(function(res) {
+        updateSaveStatus(-1);
+        var n = (res && res.count) || 0;
+        if (n > 0) {
+          var msg = destr.dropsToday
+            ? n + ' crew have this open today \u2014 saving removes it from their devices and discards their unsubmitted answers. Save anyway?'
+            : n + ' crew have unsubmitted answers on fields you\u2019re removing \u2014 saving discards them. Save anyway?';
+          if (!confirm(msg)) return; // admin cancelled \u2014 abort the save
+        }
+        doSaveTemplate();
+      }).catch(function() {
+        // The warning is best-effort; a count failure must not block a save.
+        updateSaveStatus(-1);
+        doSaveTemplate();
+      });
+      return;
+    }
+    doSaveTemplate();
     return;
   }
 

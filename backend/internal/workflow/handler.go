@@ -3,6 +3,7 @@ package workflow
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -34,6 +35,11 @@ var SubmitChecklistFunc = submitChecklist
 // ValidateFailNotesFunc is the exported alias for validateFailNotes.
 var ValidateFailNotesFunc = validateFailNotes
 
+// ValidateResubmitPhotoFunc is the exported alias for validateResubmitPhoto, so
+// the opsync submit path (cmd/server) enforces the same rejection-driven photo
+// gate as the REST SubmitChecklistHandler.
+var ValidateResubmitPhotoFunc = validateResubmitPhoto
+
 // ApproveSubmissionFunc is the exported alias for approveSubmission.
 var ApproveSubmissionFunc = approveSubmission
 
@@ -43,8 +49,8 @@ var RejectItemFunc = rejectItem
 // CreateTemplateFunc is the exported alias for insertTemplate.
 var CreateTemplateFunc = insertTemplate
 
-// UpdateTemplateFunc is the exported alias for replaceTemplate.
-var UpdateTemplateFunc = replaceTemplate
+// UpdateTemplateFunc is the exported alias for updateTemplate.
+var UpdateTemplateFunc = updateTemplate
 
 // ArchiveTemplateFunc is the exported alias for archiveTemplate.
 var ArchiveTemplateFunc = archiveTemplate
@@ -110,6 +116,71 @@ func validateFailNotes(ctx context.Context, pool *pgxpool.Pool, input SubmitChec
 		}
 		if !isHTTPSPhotoValue(respValues[id]) {
 			return fmt.Errorf("photo_required")
+		}
+	}
+	return nil
+}
+
+// validateResubmitPhoto closes the rejection-driven photo hole server-side.
+//
+// The field-level gate in validateFailNotes only covers photo-*type* fields.
+// This gate covers the *rejection* case: an approver can bounce ANY field back
+// with require_photo=true (a submission_rejections row). The fill UI then forces
+// the crew to attach a photo before resubmitting — but a direct-API resubmit
+// bypasses that UI, so the requirement must be enforced here too.
+//
+// A resubmit is a fresh submission, so the "this field was rejected with a photo
+// requirement" fact is resolved from the DB by lineage (template_id + submitter),
+// keyed to the submitter's MOST RECENT prior submission of this template —
+// mirroring the frontend's "no newer submission" rule. It is deliberately NOT
+// read from any client-supplied flag: a direct-API attacker controls the input,
+// so the gate trusts only submission_rejections.
+func validateResubmitPhoto(ctx context.Context, pool *pgxpool.Pool, input SubmitChecklistInput, userID string) error {
+	if input.TemplateID == "" || userID == "" {
+		return nil
+	}
+	rows, err := pool.Query(ctx,
+		`SELECT sr.field_id::text
+		   FROM submission_rejections sr
+		   JOIN checklist_submissions cs ON cs.id = sr.submission_id
+		  WHERE cs.template_id = $1
+		    AND cs.submitted_by = $2
+		    AND sr.require_photo = true
+		    AND cs.id = (
+		          SELECT id FROM checklist_submissions
+		           WHERE template_id = $1 AND submitted_by = $2
+		           ORDER BY submitted_at DESC
+		           LIMIT 1
+		        )`,
+		input.TemplateID, userID,
+	)
+	if err != nil {
+		return fmt.Errorf("load resubmit photo requirements: %w", err)
+	}
+	defer rows.Close()
+
+	requirePhoto := map[string]bool{}
+	for rows.Next() {
+		var fid string
+		if err := rows.Scan(&fid); err != nil {
+			return fmt.Errorf("scan resubmit photo requirement: %w", err)
+		}
+		requirePhoto[fid] = true
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("iterate resubmit photo requirements: %w", err)
+	}
+	if len(requirePhoto) == 0 {
+		return nil
+	}
+
+	respValues := map[string]json.RawMessage{}
+	for _, resp := range input.Responses {
+		respValues[resp.FieldID] = resp.Value
+	}
+	for fid := range requirePhoto {
+		if !isHTTPSPhotoValue(respValues[fid]) {
+			return fmt.Errorf("resubmit_photo_required")
 		}
 	}
 	return nil
@@ -322,27 +393,17 @@ func UpdateTemplateHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		if err := replaceTemplate(r.Context(), pool, templateID, input); err != nil {
+		// updateTemplateAndEmit writes the template and queues its SAVE_TEMPLATE
+		// op in ONE transaction (FR-5, INV-1): the op that tells other devices to
+		// re-fetch + re-render can never be lost while the write is accepted.
+		if err := updateTemplateAndEmit(r.Context(), pool, templateID, input, user.ID); err != nil {
 			if isDuplicateNameErr(err) {
 				writeError(w, http.StatusUnprocessableEntity, "duplicate_name")
 				return
 			}
-			slog.Error("replaceTemplate error", "error", err)
+			slog.Error("updateTemplate error", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
-		}
-		if payload, merr := json.Marshal(map[string]any{"template_id": templateID}); merr == nil {
-			opsync.EmitOp(pool, opsync.OpInput{
-				DeviceID:   "server",
-				UserID:     user.ID,
-				EntityID:   templateID,
-				EntityType: "template",
-				OpType:     opsync.OpSaveTemplate,
-				Payload:    json.RawMessage(payload),
-				LamportTS:  0,
-			})
-		} else {
-			slog.Error("UpdateTemplateHandler failed to marshal op payload", "error", merr)
 		}
 		writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 	}
@@ -387,6 +448,40 @@ func ArchiveTemplateHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			slog.Error("ArchiveTemplateHandler failed to marshal op payload", "error", merr)
 		}
 		writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+	}
+}
+
+// DraftHolderCountHandler handles GET /api/v1/workflow/draftHolderCount.
+// Admin-only, read-only. Given `field_ids` (comma-separated UUIDs) it returns
+// {"count": N} — the number of distinct crew members with an unsubmitted draft
+// answer dated today on any of those fields. Powers the Builder's INV-6 discard
+// warning before a save that cuts fields or drops today from the schedule.
+func DraftHolderCountHandler(pool *pgxpool.Pool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		user := auth.UserFromContext(r.Context())
+		if user == nil {
+			writeError(w, http.StatusUnauthorized, "unauthorized")
+			return
+		}
+		if !isAdmin(user) {
+			writeError(w, http.StatusForbidden, "forbidden")
+			return
+		}
+		var fieldIDs []string
+		if raw := strings.TrimSpace(r.URL.Query().Get("field_ids")); raw != "" {
+			for _, id := range strings.Split(raw, ",") {
+				if id = strings.TrimSpace(id); id != "" {
+					fieldIDs = append(fieldIDs, id)
+				}
+			}
+		}
+		n, err := countDraftHolders(r.Context(), pool, fieldIDs)
+		if err != nil {
+			slog.Error("countDraftHolders error", "error", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]int{"count": n})
 	}
 }
 
@@ -484,6 +579,10 @@ func SaveResponseHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 
 		if err := saveResponse(r.Context(), pool, input.FieldID, input.Value, user.ID); err != nil {
+			if errors.Is(err, ErrUnknownField) {
+				writeError(w, http.StatusUnprocessableEntity, "unknown_field")
+				return
+			}
 			slog.Error("saveResponse error", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
@@ -524,6 +623,14 @@ func SubmitChecklistHandler(pool *pgxpool.Pool) http.HandlerFunc {
 
 		// Validate: fields with triggered fail conditions must have a corrective action
 		if err := validateFailNotes(r.Context(), pool, input); err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+
+		// Validate: a field the approver bounced back with require_photo must carry
+		// a photo on resubmit — enforced server-side (resolved from the DB, not a
+		// client flag) so a direct-API resubmit cannot bypass the fill-UI gate.
+		if err := validateResubmitPhoto(r.Context(), pool, input, user.ID); err != nil {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
@@ -606,18 +713,24 @@ func ApproveSubmissionHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
-		// Save feedback comments as rejection records on the approved submission
+		// Save feedback comments as rejection records on the approved submission.
+		// INV-1/FR-8: the approval reports success only if the comment is durably
+		// stored. A failed insert must surface loudly — never a swallowed
+		// slog.Error behind a false "Approved". (No ON CONFLICT DO NOTHING: the
+		// table has no unique constraint to conflict on, so the clause only masked
+		// intent — every feedback row must persist or the caller is told.)
 		for _, fb := range body.Feedback {
 			if fb.FieldID == "" || fb.Comment == "" {
 				continue
 			}
 			if _, err := pool.Exec(r.Context(),
 				`INSERT INTO submission_rejections (submission_id, field_id, comment, require_photo, rejected_by)
-				 VALUES ($1, $2, $3, $4, $5)
-				 ON CONFLICT DO NOTHING`,
+				 VALUES ($1, $2, $3, $4, $5)`,
 				body.SubmissionID, fb.FieldID, fb.Comment, fb.RequirePhoto, user.ID,
 			); err != nil {
-				slog.Error("save approval feedback", "error", err)
+				slog.Error("save approval feedback", "error", err, "submission_id", body.SubmissionID, "field_id", fb.FieldID)
+				writeError(w, http.StatusInternalServerError, "feedback_persist_failed")
+				return
 			}
 		}
 		if payload, merr := json.Marshal(map[string]any{"submission_id": body.SubmissionID}); merr == nil {
@@ -697,6 +810,19 @@ func UnsubmitHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
+		// Capture the checklist's template BEFORE the unsubmit deletes the
+		// submission row. The re-sync broadcast below must resolve its audience via
+		// the template — once the submission row is gone, ResolveEntityAccess can no
+		// longer map a "submission" op to recipients, so a live broadcast keyed on
+		// the deleted submission would reach nobody.
+		var templateID string
+		if qerr := pool.QueryRow(r.Context(),
+			`SELECT template_id::text FROM checklist_submissions WHERE id = $1`,
+			body.SubmissionID,
+		).Scan(&templateID); qerr != nil {
+			templateID = "" // fall through; the broadcast is best-effort
+		}
+
 		if err := unsubmitChecklist(r.Context(), pool, body.SubmissionID, user.ID); err != nil {
 			slog.Error("unsubmitChecklist error", "error", err)
 			if err.Error() == "not the submitter" {
@@ -709,6 +835,31 @@ func UnsubmitHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			}
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
+		}
+		// Broadcast a submission-state-changed op so OTHER open devices converge
+		// live back to the fillable runner (W-3 §6 Convergence contract:
+		// submit/unsubmit transitions must converge on the observing device). We
+		// reuse OpSubmitChecklist as the "submission changed, re-sync" signal — its
+		// frontend handler (applyOp → loadMyChecklists) re-fetches and re-renders
+		// the open runner, which now reflects the removed submission (i.e. editable
+		// again). A dedicated UNSUBMIT op type would be a new op type (out of this
+		// card's footprint); the re-fetch is idempotent, so reusing this one is safe.
+		// The op is addressed to the TEMPLATE (entity_type "template") — the natural
+		// checklist audience — because the submission it undoes no longer exists.
+		if templateID != "" {
+			if payload, merr := json.Marshal(map[string]any{"submission_id": body.SubmissionID, "template_id": templateID}); merr == nil {
+				opsync.EmitOp(pool, opsync.OpInput{
+					DeviceID:   "server",
+					UserID:     user.ID,
+					EntityID:   templateID,
+					EntityType: "template",
+					OpType:     opsync.OpSubmitChecklist,
+					Payload:    json.RawMessage(payload),
+					LamportTS:  0,
+				})
+			} else {
+				slog.Error("UnsubmitHandler failed to marshal op payload", "error", merr)
+			}
 		}
 		writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 	}
