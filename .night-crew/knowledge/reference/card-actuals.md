@@ -311,3 +311,39 @@
   reachable only via a production `applyOp` change; the implementer parked rather than breach the
   declared footprint, and G6 confirmed the block was real. Parks-for-footprint are legitimate and
   should be read as discipline, not incompleteness — the residual rode to BACKLOG (D-1) intact.
+
+## Run: overnight-20260719 (Activity 8 — the CYCLE-GATE closeout; read-only, matches the 07-16 class)
+
+> 3 read-only cards + orchestrator closeout, serial, one isolated pg16. **Instrumentation recorded**
+> (per-card wall-clock below). Gate **PASS attested**; scorecard 11 PASS · 2 PARTIAL · 2 PENDING ·
+> 1 N/A. Evidence: `reference/cycle-closeout-20260719.md`.
+
+| Card | Type | Valid wall-clock | Verdict | Notes |
+|---|---|---|---|---|
+| `cycle-gate-attestation` (Card 2) | read-only subagent | **~4m31s** (270,482 ms) | done | 4/4 audit areas verified; corrected slate's dangling pre-squash SHAs → landed squashes |
+| `cycle-gate-scorecard` (Card 3) | read-only subagent | **~4m11s** (250,631 ms) | done | 16-KR table; median not computable (07-17 gap) → Delivery KR4 PARTIAL, none fabricated |
+| `cycle-gate-suite-baseline` (Card 1) | orchestrator-run suite | **~34.6m** valid | ATTEST (0 uncategorized) | migrate+Go ~2m · Playwright 16.3m (450/1/0/6) · isolation re-run 2.5m · convergence 3×4.6m. +~10–15m WASTED on 2 invalid attempts (below) |
+
+### Eighth-slate observations (second gate closeout — carry the shape, and STANDARDIZE the env fix)
+
+- **The gate class holds at ~35–45m suite wall-clock + ~10m assembly** (07-16 was ~20m for a
+  38-red suite; this run's suite was cleaner but added the convergence 3× streak (~14m) + isolation
+  re-run — so total suite wall grew even as red-count fell). Size future gates on **1 full suite +
+  a convergence-streak proof + 1–2 targeted isolation re-runs**, not on red-count.
+- **The `:8199` `reuseExistingServer` foreign-server hazard bit AGAIN — this is now the 2nd run to
+  lose wall-clock to it** (07-18 G6 hit the same latch). The fix is cheap and must be **standard**:
+  run any suite/G6 leg with **`CI=1`** (forces `reuseExistingServer:false` → own webServer + teardown)
+  **and** provision the isolated pg16 with an **explicit pre-migration boot** before Go units.
+  Both were missing from this orchestrator's first two passes → ~10–15m wasted. Bake into the gate
+  run-mechanics so the 3rd gate doesn't re-learn it. *(Recorded as a run-mechanics fix-forward; the
+  suite itself, once provisioned right, was clean.)*
+- **A cleaner suite than the sizing basis.** The documented ~37–41 flaky/data-dependent baseline
+  (07-16) is **gone** — this run saw exactly 1 red (cross-test pollution, isolation-green) and Go
+  exit-0. `42eeb39`'s "425/6/0 deterministic" + this cycle's editprop/vacuous work paid down the
+  baseline. **Implication for the next gate:** the sizing basis for "suite reds to categorize" is
+  now ~1–5, not ~40 — the categorization leg is fast; the streak-proof leg is the cost.
+- **Honesty over a clean scorecard.** Eng KR5 was pre-computed PASS by Card 3 but downgraded to
+  PARTIAL once §1 showed literal `task test` exit-1 (1 pollution red). The gate refused the
+  definitional carve-out that would have declared waiver #1 formally retired — waiver #1 is carried,
+  reduced 38→1. This is the pattern to keep: **let §1's real result reconcile the pre-computed
+  scorecard, downgrade in the open.**

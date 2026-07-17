@@ -1,0 +1,12 @@
+=== (A) ISOLATION RE-RUN: the single suite red on a fresh single-test DB (--retries=0) ===
+ISOLATION_EXIT=0
+  [1A[2K[WebServer] {"time":"2026-07-17T12:12:30.817552641-04:00","level":"ERROR","msg":"GetManagerHires failed","error":"iterate assigned templates for hire 97b2526c-f676-45aa-a28b-bc6a4909a94b: context canceled"}
+  [1A[2K[WebServer] {"time":"2026-07-17T12:12:31.232497779-04:00","level":"ERROR","msg":"GetMyTrainings failed","error":"context canceled"}
+  [1A[2K  1 passed (2.5m)
+
+=== (B) CONVERGENCE ZERO-FLAKE PROOF: sync.spec.js --retries=0, 3 consecutive fresh-DB runs ===
+  run#1: exit=0 | [1A[2K  39 passed (4.6m)
+  run#2: exit=0 | [1A[2K  39 passed (4.6m)
+  run#3: exit=0 | [1A[2K  39 passed (4.6m)
+
+=== DONE ===
