@@ -475,3 +475,23 @@ AI-matching subcases with no `ANTHROPIC_API_KEY`) — identical to pre-merge `de
   serialized card and is now unblocked. `dev` is ahead of `origin/dev` by the merge (`6291ef2`) +
   this docs commit — **pushed at triage close** (the one sanctioned push). `dev → main` promotion
   stays a separate decision.
+
+## Slate-plan resolutions (2026-07-17) — slate-20260719 (`cycle-gate`, Activity 8)
+
+> Recorded by `/nc-slate-plan cycle gate`. No DESIGN.md §15x in this repo — resolutions live here
+> (HANDOFF step-6 convention). One fork resolved inline before signing the slate.
+
+- **Activity 7 (prod ops) sequencing vs the cycle gate → "Gate now, prod KRs pending."** The gate's
+  2 prod-dependent KRs (Delivery "prod parity"; QA "prod ghost item resolved") cannot attest green
+  until Activity 7 (`prod-ghost-item-rename` + operator-run `task prod:deploy`) runs, and Activity 7
+  is operator-gated/attended. Operator chose to **dispatch the read-only gate tonight** (attest the
+  dev-side deterministic stack + score all dev-side KRs; mark the 2 prod KRs **PENDING** with exact
+  verify commands) and run **Activity 7 attended AFTER** as the milestone's ship step. Chosen over
+  *Activity-7-first-then-gate* (one complete scorecard, but the gate waits on attended prod work and
+  you'd deploy ahead of the formal green attestation) and *one-attended-close-no-overnight* (most
+  operator time). Rationale: correct order is attest-green-before-ship — the gate certifies the
+  deterministic stack green, THEN you deploy that attested build and confirm parity. The milestone
+  formally closes when the 2 PENDING KRs flip post-deploy.
+- **Batch sign-off** given 2026-07-17; slate is `reference/slate-20260719.md`. Dispatch mode
+  **serial** (degenerate — read-only closeout, one isolated env, no tracks). The `cycle-gate` card
+  fans mechanically into 3 read-only cards + orchestrator closeout (mirrors overnight-20260716).
