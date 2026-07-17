@@ -71,7 +71,7 @@
   into submit validation so a rejected-with-`require_photo` field blocks direct-API
   resubmit server-side; red-first. Footprint: workflow engine (backend). → QA KR2
   (red-first denominator), carried from hardening cycle (ledger T-10).
-- **`users-s3-orphan-cleanup`** · PLANNED · Trivial carried card: remove dead
+- **`users-s3-orphan-cleanup`** · DONE ✅ overnight-20260717 (`ee56f80`; single dead #s3 div removed, no #s3 refs remain in users.html, Users E2E 33/0; slate-scoped inline verification — no red-first per card spec) · Trivial carried card: remove dead
   `<div id="s3">` at `users.html:122`. Footprint: Users (zero contention — free
   parallelism). → hygiene; no KR.
 
