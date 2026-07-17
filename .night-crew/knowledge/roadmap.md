@@ -141,6 +141,9 @@
   reopen to hydrate the COMMITTED draft for the baseline, and wait on the post-cut myChecklists GET
   as the "SAVE_TEMPLATE applied" signal before asserting convergence. Proof under `--retries=0`:
   10/10 isolated + 0 target-cell failures across 8 whole-describe runs under CPU load.
+  **G6 PASS** (independent adversarial review of impl `14a36e8`; own no-retry streak 5/5 text,
+  6/6 temperature, 11/11 full W-3 describe; confirmed LIVE + CATCH-UP assertions intact and not
+  weakened; merged `9f4b84d`).
   **Half 2 conflict coverage LANDED (4 new types):** W-6b parameterizes the LWW-409/applyOp render
   over yes_no + temperature + sub-step + checkbox — each red→green (12/12 green ×3, `--retries=0`).
   **2 types PARKED (footprint-blocked, not abandoned):** fail-note text+severity and fail-note
