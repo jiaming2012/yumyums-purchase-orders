@@ -1,5 +1,12 @@
 # DECISIONS-NEEDED — overnight-20260718 (for the operator, morning of 2026-07-18)
 
+> **RESOLVED 2026-07-18 — recorded in `ledger.md` §"Morning-triage resolutions (2026-07-18)".**
+> D-1: operator chose **(a) accept + track in BACKLOG** (advisory "Fail-note conflict live-render
+> on the `applyOp`/409 path", bundle candidate with F-B) over graduating a roadmap card now. The
+> card `editprop-convergence-cell-hardening` is DONE, both halves landed, the no-retry rider is
+> retired, and `overnight-20260718` is merged to `dev` (`6291ef2`). File kept as the analysis
+> record.
+
 > The run **never decides — it executes** (launch contract). One bounded coverage residual
 > surfaced. It did **not** block the card: `editprop-convergence-cell-hardening` is **DONE**,
 > both halves landed, the operator rider is retired. This is a *should-we-follow-up* call, not a

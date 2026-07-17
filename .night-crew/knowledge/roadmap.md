@@ -121,7 +121,7 @@
   `repro-cut-task.spec.js`. → Eng KR "convergence matrix", Product KR "edit semantic",
   Delivery KR "repro red→green pair".
 
-## Activity 6 — Test-debt retirement · *independent parallel track (any time)*
+## Activity 6 — Test-debt retirement · *independent parallel track (any time)* · ✅ COMPLETE (all cards DONE, 2026-07-18)
 
 - **`vacuous-tests-18-to-0`** · DONE ✅ overnight-20260717 (G6 PASS `3f68cc9`; 18 = 16 converted here (Onboarding 6 + Inventory 10, each a real seeded assertion downstream of exercised state — G6-verified non-tautological) + 2 Ops workflow items already hardened at base. Tests-only; 204 passed/2 S3-parks/0 reds re-verified. Retires waiver #2) · Each remaining conditional `test.skip()` / silent
   guard-return becomes a real seeded assertion or is deleted (denominator = the audit that
@@ -159,7 +159,10 @@
   Chase the two-device WS timing to **zero-flake under no-retry**, AND extend the W-6 *conflict*
   branch coverage beyond text/textarea to the remaining field types (F-A: ~6 ride the same
   `applyOp` path untested there). **Operator rider: no card may lean on this suite as a no-retry
-  hard gate until this lands.** Footprint: workflow-engine tests (`sync.spec.js`,
+  hard gate until this lands.** — **✅ RIDER RETIRED at triage 2026-07-18: the suite is
+  demonstrably zero-flake under `--retries=0`, so `cycle-gate` (Activity 8) may now adopt the
+  no-retry hard gate. The 2 fail-note conflict types stay parked → BACKLOG (D-1, ledger
+  2026-07-18).** Footprint: workflow-engine tests (`sync.spec.js`,
   `repro-cut-task.spec.js`, `broadcast-rerender.spec.js`) + `sync.js` if a determinism seam is
   needed. → Delivery KR "convergence proof (no-retry hard gate)", Eng KR "convergence matrix".
   *(scheduled from overnight-20260717 F-A)*
@@ -180,7 +183,8 @@
 - **`cycle-gate`** · PLANNED · Suite-green attestation on the deterministic stack
   (`task test` exit 0 — formally retires carried waiver #1); median WO cycle time vs the
   recorded baseline (first cycle with a pass/fail target); per-KR scorecard; closeout doc.
-  → Eng KR "task test exits 0", Delivery KR "median WO cycle".
+  **No-retry hard gate now adoptable** — the convergence-suite rider was retired at triage
+  2026-07-18 (Activity 6 complete). → Eng KR "task test exits 0", Delivery KR "median WO cycle".
 
 ---
 

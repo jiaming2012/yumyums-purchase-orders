@@ -414,3 +414,64 @@ AI-matching subcases with no `ANTHROPIC_API_KEY`) — identical to pre-merge `de
   hard no-retry gate until it lands. `dev` is ahead of `origin/dev` by the merge (`22cb7dd`) +
   F-D (`3b1be67`) + this docs commit — **pushed at triage close** (the one sanctioned push).
   `dev → main` promotion stays a separate decision, not folded into triage.
+
+## Morning-triage resolutions (2026-07-18) — overnight-20260718
+
+> Triage resolutions recorded here (no DESIGN.md §15x in this repo — the run's HANDOFF step 6
+> names `ledger.md`). The run was **1/1 card DONE, G6 PASS, 0 open forks blocking triage** — the
+> single item below (D-1) is a bounded coverage residual the operator routed, not a fork the run
+> improvised around. This was the **last un-built card of Activity 6** (test-debt retirement).
+
+- **Review + merge.** Re-verified the run branch cold on its final tree, not trusting the closeout.
+  Footprint is **test-only + docs**: `tests/sync.spec.js` (+303/−21) and the run's `roadmap.md`
+  card flip + HANDOFF/DECISIONS-NEEDED — **`sync.js` and `workflows.html` diffs are empty**
+  (confirmed on both the impl commit and the merged tree), so no `task sw` and no production
+  behavior changed. Checks run: `node --check tests/sync.spec.js` parses; the claimed structures
+  are present (the `survivalCell` helper; a `W-6b` describe covering **exactly** yes_no +
+  temperature + sub-step + checkbox, with **no** fail-note cases — matching the 2-parked claim);
+  `go build ./...` + `go vet ./...` + `go test ./...` all green (backend unchanged — sanity only).
+  The G4 discipline greps and `replay`/`testdata` guards are **N/A in this subject repo** — they
+  guard the orchestrator internals (`internal/journal`/`workorder`/`orchestration`), which don't
+  exist here. Full E2E was **not** re-run in triage: the diff is test-only, HQ carries its known
+  ~37–41 pre-existing E2E reds, and the run's no-retry streak evidence (implementer 10/10 isolated
+  + 0 target-cell failures under load; G6 independent 5/5 text, 6/6 temperature, 11/11 W-3, 4/4
+  conflict ×2) is the load-bearing proof. Merged `overnight-20260718 → dev --no-ff` (`6291ef2`);
+  re-verified the merged tree (parse + build + vet + test) → green.
+
+- **Rider RETIRED — the no-retry hard-gate bar on the convergence suite is lifted.** The operator
+  rider from 07-17 triage ("no card may lean on this suite as a no-retry hard gate until
+  `editprop-convergence-cell-hardening` lands") is **discharged**: the card landed and the
+  two-device `text`/`temperature` convergence cells are now demonstrably zero-flake under
+  `--retries=0` (root cause was a stray WS-catch-up `loadMyChecklists` re-render clobbering a
+  not-yet-persisted input to empty; fixed with deterministic waits inside `survivalCell` — gate on
+  the autosave `POST /ops` 2xx commit signal, reopen to hydrate the committed draft for the
+  baseline, wait on the post-cut myChecklists GET — LIVE + CATCH-UP assertions both preserved,
+  G6-confirmed). This **unblocks `cycle-gate` (Activity 8, attended)** to adopt `task test` exit-0
+  on the deterministic stack as a hard gate.
+
+- **D-1 — 2 fail-note conflict-coverage types (footprint-blocked) → ACCEPT + track in BACKLOG,
+  over graduate-a-card-now or accept-untracked.** Half 2 extended the W-6 LWW-409/`applyOp`
+  conflict render from text-only to 4 answer types (yes_no, temperature, sub-step, checkbox — each
+  red→green, G6-verified) but could not reach `fail-note text+severity` and `fail-note photo-URL`:
+  `applyOp`'s `SET_FIELD` branch (`sync.js:405`) has no `_fail_note` unpack (that bundle is
+  unpacked only by `hydrateFieldState`, `workflows.html:1480`, on load/reopen), so covering them
+  needs an **out-of-footprint production change**. The implementer correctly declined to breach the
+  card's test-only footprint and parked; G6 independently confirmed the block is real. Operator
+  chose to **accept the residual and log it to BACKLOG** as an advisory (bundle candidate with F-B,
+  which also touches the op-emission/apply path) rather than commit a roadmap card now — the 4
+  common answer types are covered, fail-note concurrent-edit is a rare crew path, and server-side
+  data is never lost (reconciles on next reopen; only a live-render staleness window). Chosen over
+  *graduate-now* (a production card wants its own design/footprint/G6 next cycle, not test-debt —
+  premature for a rare path) and over *accept-untracked* (the residual is worth carrying so future
+  `sync.js` op-path work picks it up cheaply). Does not hold the card or the rider retirement.
+
+- **Standing flags after triage.** Rider flag **cleared** (no-retry-gate bar discharged; the
+  convergence suite is now an adoptable hard gate — `cycle-gate` owns exercising it). The attended
+  two-device convergence / `task sandbox:e2e` gate re-arms whenever the verify/merge path changes
+  underneath it — this run touched no production/verify path, so it stays satisfied. DB flag stays
+  satisfied (Docker pg16 canonical). Frontend semver left where it is (the bump belongs to
+  `/save-project` at deploy, not triage). Activity 6 is now **complete** (all test-debt cards
+  DONE); Activity 7 (prod ops) stays operator-gated; Activity 8 (`cycle-gate`) is the last
+  serialized card and is now unblocked. `dev` is ahead of `origin/dev` by the merge (`6291ef2`) +
+  this docs commit — **pushed at triage close** (the one sanctioned push). `dev → main` promotion
+  stays a separate decision.

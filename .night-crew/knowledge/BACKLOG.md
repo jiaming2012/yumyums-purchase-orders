@@ -299,6 +299,18 @@
   `EmitOpTx` (mirrors W-2's pattern; no schema change) for full INV-1 "0 accepted writes whose op
   is not durably queued" parity. Small follow-up card. · origin: triage 2026-07-17 (F-B, W-2
   follow-up) · new
+- **Fail-note conflict live-render on the `applyOp`/409 path (`_fail_note` unpack)** · The W-6b
+  conflict-coverage sweep (`editprop-convergence-cell-hardening`) hardened the LWW-409/`applyOp`
+  render for 4 answer types (yes_no, temperature, sub-step, checkbox) but could NOT reach the 2
+  fail-note types: `applyOp`'s `SET_FIELD` branch (`sync.js:405`) unpacks only `value`/`sub_steps`,
+  never `_fail_note` — that bundle is unpacked solely by `hydrateFieldState` (`workflows.html:1480`)
+  on load/reopen. So on a two-device conflict where a fail-note (value+note+severity, or photo URL)
+  loses LWW, the losing device shows a stale/malformed fail card until the next reopen (data never
+  lost server-side; a live-render staleness window on a rare concurrent path). Production card:
+  extend `applyOp` `SET_FIELD` to unpack `_fail_note` on the incoming-op/409 path, then land the 2
+  parked W-6b cells — own design/footprint/G6, NOT test-debt. **Bundle candidate with F-B above**
+  (both touch the op-emission/apply path). · origin: triage 2026-07-18 (D-1, overnight-20260718 —
+  operator chose accept + track over graduate-now) · new
 - **Atomic approval + feedback (`approveSubmission` tx)** · `approveSubmission` commits
   `status='approved'` *before* the feedback loop, so a feedback-persist failure correctly returns
   500 `feedback_persist_failed` (W-4's goal, requirement MET) but leaves the submission already

@@ -97,3 +97,25 @@ attended) from adopting `task test` exit 0 on the deterministic stack as a hard 
    that needs an operator call on whether it's worth an out-of-footprint follow-up. Details there.
 4. The operator rider is retired → `cycle-gate` (Activity 8) is unblocked to adopt the no-retry
    hard gate. Activity 7 (prod ops) remains operator-gated/attended as before.
+
+---
+
+## Triage disposition (2026-07-18) — merged, forks resolved
+
+> Resolved via `/nc-morning-triage`. Recorded in `ledger.md` §"Morning-triage resolutions
+> (2026-07-18)". Merged `overnight-20260718 → dev --no-ff` (`6291ef2`); merged tree re-verified
+> (spec parse + `go build`/`vet`/`test` green; `sync.js`/`workflows.html` diffs empty).
+
+**Standing flags after triage:**
+- **Rider CLEARED** — the no-retry hard-gate bar on the two-device convergence suite is discharged
+  (the card landed; suite is zero-flake under `--retries=0`). `cycle-gate` (Activity 8) may now
+  adopt `task test` exit-0 on the deterministic stack as a hard gate.
+- **Activity 6 COMPLETE** — all test-debt-retirement cards DONE.
+- Attended two-device convergence / `task sandbox:e2e` gate stays satisfied (this run touched no
+  production/verify path); re-arms whenever the verify/merge path changes underneath it.
+- DB flag satisfied (Docker pg16 canonical). Frontend semver unchanged (bump belongs to
+  `/save-project` at deploy). `dev` pushed to `origin/dev`; `dev → main` promotion stays separate.
+
+**D-1 (2 parked fail-note conflict types):** operator chose **accept + track in BACKLOG** (advisory
+"Fail-note conflict live-render on the `applyOp`/409 path", bundle candidate with F-B) over
+graduating a roadmap card now. Not a blocker; the card is DONE and the rider retired.

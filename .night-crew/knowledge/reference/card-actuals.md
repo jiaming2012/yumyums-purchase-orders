@@ -286,3 +286,28 @@
   under no-retry (F-A). Any future night leaning on that suite as a *hard no-retry gate* must first
   land `editprop-convergence-cell-hardening` (scheduled at triage). This is a distinct population
   from clean-path fix cards — treat convergence-hardening as its own size class when it's planned.
+
+## Run: overnight-20260718 (Activity 6 final card — convergence-cell de-flake + conflict coverage)
+
+> Single-card slate, serial by definition. **Instrumentation gap fixed** — the run recorded
+> harness-measured per-card wall-clock (the 07-17 note's ask). Merged `6291ef2` at triage.
+
+| Card | Type | Class | Impl (measured) | G6 (measured) | Merge | Verdict | Notes |
+|---|---|---|---|---|---|---|---|
+| `editprop-convergence-cell-hardening` | test-only (de-flake + conflict coverage) | convergence-hardening (own class) | **~73m** (4,387,969 ms) | **~16m** (964,145 ms) | ~2m | **PASS** | slate est. ~60–90m impl — inside band. Half 1 de-flake (survivalCell deterministic waits) + Half 2 W-6b conflict coverage (4 types landed, 2 fail-note types parked footprint-blocked → D-1). `sync.js` untouched. 0 footprint breach. |
+
+### Seventh-slate observations (convergence-hardening as its own size class — now measured)
+
+- **Convergence-hardening ran ~73m impl / ~16m G6 — the de-flake *proof* is the non-compressible
+  cost, exactly as the 07-17 note predicted.** Impl wall was dominated not by one red→green but by
+  the repeated `--retries=0` streak runs (10/10 isolated + 8 whole-describe under-load repros)
+  needed to *demonstrate* zero-flake. This confirms the sizing signal from 07-17: **treat
+  convergence/flake-hardening as its own size class (~60–90m impl), separate from clean-path fix
+  cards (~15–30m)** — proving determinism costs repeated Playwright wall-clock, not a single fix.
+- **G6 wall (~16m) included fighting a stale foreign server on `:8199` that `reuseExistingServer`
+  latched onto** — resolved by running G6 against its own ephemeral env. A harness-env hazard, not
+  a code cost; note it so future G6 legs on this stack budget for env isolation up front.
+- **A test-only footprint held under pressure.** The 2 fail-note conflict types were genuinely
+  reachable only via a production `applyOp` change; the implementer parked rather than breach the
+  declared footprint, and G6 confirmed the block was real. Parks-for-footprint are legitimate and
+  should be read as discipline, not incompleteness — the residual rode to BACKLOG (D-1) intact.
