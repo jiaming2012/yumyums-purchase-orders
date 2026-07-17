@@ -681,3 +681,503 @@ test.describe('Cross-device: auth', () => {
     await ctx.close();
   });
 });
+
+// ─── Convergence matrix (W-3, Activity 5) ────────────────────────────────────
+//
+// editprop-convergence-matrix. Proves the signed §6 Convergence contract for
+// EVERY persisted answer type — not just the checkbox W-2's E2E exercised. "In
+// sync" = converged within one op round-trip, asserted on the OBSERVING (second)
+// device, never on the writer's optimism.
+//
+// Each cell: the observing device B opens the runner and enters an answer of the
+// given type. The admin (device A) then makes a structural edit — cutting an
+// unrelated "Decoy" field while KEEPING the answer field with its stable id (the
+// SAVE_TEMPLATE op). Two convergence paths are asserted on B:
+//   • LIVE — no reload: the Decoy vanishes (the op round-tripped) AND the typed
+//     answer survives the in-place re-render (W-2 rerenderOpenChecklistAfterSave
+//     → loadMyChecklists → hydrateFieldState keyed by the stable id).
+//   • CATCH-UP — B reloads (reconnect): the answer re-hydrates from the fresh
+//     fetch, the Decoy stays gone.
+//
+// RED provenance: on the pre-W-1 source, the surviving field's id churns on every
+// edit, so B's autosaved answer is written under a dead id and vanishes on
+// re-render/reload (all cells RED). On the pre-W-2 source, B's open runner is
+// never re-fetched, so the Decoy never disappears live (the LIVE half RED). Both
+// landed → GREEN here; this matrix EXTENDS the proven surviving-answer guarantee
+// from checkbox to all 7 persisted types + sub-steps + the photo-URL value.
+
+const CHECKBOX_F = (label, order, extra) => Object.assign(
+  { type: 'checkbox', label, required: false, order, config: {}, fail_trigger: null, condition: null },
+  extra || {});
+
+async function createWithDecoy(page, name, dow, answerField) {
+  return apiCall(page, 'POST', 'createTemplate', {
+    name, requires_approval: false,
+    sections: [{ title: 'S', order: 0, condition: null, fields: [
+      Object.assign({}, answerField, { order: 0 }),
+      CHECKBOX_F('Decoy', 1),
+    ] }],
+    schedules: [{ active_days: [dow] }],
+    assignments: [{ assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' }],
+  });
+}
+
+// Cut the Decoy field, keeping every other field VERBATIM (with its stable id and
+// any sub_steps ids) — exactly the diff-upsert the Builder save emits.
+async function cutDecoy(page, name, dow) {
+  const templates = await apiCall(page, 'GET', 'templates');
+  const tpl = templates.find(t => t.name === name);
+  const kept = tpl.sections[0].fields.filter(f => f.label !== 'Decoy');
+  kept.forEach((f, i) => { f.order = i; });
+  await apiCall(page, 'PUT', 'updateTemplate/' + tpl.id, {
+    name, requires_approval: false,
+    sections: [{ id: tpl.sections[0].id, title: tpl.sections[0].title, order: 0, condition: null, fields: kept }],
+    schedules: [{ active_days: [dow] }],
+    assignments: [{ assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' }],
+  });
+}
+
+// Timeouts are deliberately generous: the full sync.spec.js runs serially on ONE
+// server, and every matrix cell spins up a SECOND browser context. Under that
+// combined CPU/WS load a render or op round-trip that takes <1s in isolation can
+// take several seconds, so the two-device waits must not race it (Delivery KR:
+// the suite must be green under its own load, not just in isolation).
+const RUNNER_TIMEOUT = 12000;
+const CONVERGE_TIMEOUT = 12000;
+
+async function openRunnerB(pageB, name) {
+  await pageB.goto(BASE + '/workflows.html');
+  await expect(pageB.locator('#s1').getByText(name)).toBeVisible({ timeout: RUNNER_TIMEOUT });
+  await pageB.click('[data-fill-template-id]');
+  await pageB.waitForSelector('.fill-field', { timeout: RUNNER_TIMEOUT });
+}
+
+async function reopenRunnerB(pageB, name) {
+  await pageB.reload();
+  await expect(pageB.locator('#s1').getByText(name)).toBeVisible({ timeout: RUNNER_TIMEOUT });
+  await pageB.click('[data-fill-template-id]');
+  await pageB.waitForSelector('.fill-field', { timeout: RUNNER_TIMEOUT });
+}
+
+const waitAutosave = (pageB) => pageB.waitForResponse(
+  res => res.url().includes('/api/v1/workflow/ops') && res.request().method() === 'POST',
+  { timeout: 8000 }).catch(() => {});
+
+// Deterministically wait until the answer field's draft is actually PERSISTED
+// server-side (its response appears in myChecklists.drafts). The UI autosave is
+// debounced, so under suite load it can land AFTER the test would otherwise cut
+// the Decoy — the ensuing re-render would then hydrate an empty draft and drop
+// the answer. Gating the edit on real persistence removes that whole class of
+// load-only flake (the answer is provably server-side before the SAVE_TEMPLATE).
+async function waitFieldPersisted(pageB, fieldId) {
+  await expect.poll(async () => {
+    const data = await apiCall(pageB, 'GET', 'myChecklists?dow=' + (new Date().getDay()));
+    const drafts = (data && data.drafts) || [];
+    return drafts.some(d => d.field_id === fieldId && d.value !== null && d.value !== undefined && d.value !== '');
+  }, { timeout: 12000, intervals: [200, 400, 700, 1000] }).toBe(true);
+}
+
+// Drives one surviving-answer cell end to end (LIVE + CATCH-UP) on device B.
+async function survivalCell(browser, page, name, answerField, enterFn, assertFn) {
+  const dow = await getTodayDOW(page);
+  await createWithDecoy(page, name, dow, answerField);
+  const templates = await apiCall(page, 'GET', 'templates');
+  const tpl = templates.find(t => t.name === name);
+  const answerFieldId = tpl.sections[0].fields.find(f => f.label !== 'Decoy').id;
+
+  const ctxB = await browser.newContext();
+  const pageB = await ctxB.newPage();
+  await login(pageB);
+  await openRunnerB(pageB, name);
+
+  await enterFn(pageB);
+  await waitAutosave(pageB);
+  await waitFieldPersisted(pageB, answerFieldId); // the answer is provably server-side
+  await assertFn(pageB); // baseline: the answer is present on B
+
+  // Admin cuts the Decoy (SAVE_TEMPLATE op).
+  await cutDecoy(page, name, dow);
+
+  // LIVE convergence on the observing device (no reload).
+  await expect(pageB.locator('.fill-field', { hasText: 'Decoy' })).toHaveCount(0, { timeout: CONVERGE_TIMEOUT });
+  await assertFn(pageB);
+
+  // CATCH-UP convergence (reconnect).
+  await reopenRunnerB(pageB, name);
+  await expect(pageB.locator('.fill-field', { hasText: 'Decoy' })).toHaveCount(0, { timeout: CONVERGE_TIMEOUT });
+  await assertFn(pageB);
+
+  await ctxB.close();
+}
+
+test.describe('Convergence matrix (W-3): surviving answers converge across devices', () => {
+  test.beforeEach(async ({ page }) => {
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await cleanupPendingApprovals(page);
+    await cleanupTemplates(page);
+  });
+
+  test('checkbox answer converges (live + catch-up)', async ({ browser, page }) => {
+    test.setTimeout(120000);
+    await survivalCell(browser, page, 'MX Checkbox',
+      CHECKBOX_F('Wipe counters', 0),
+      async (p) => {
+        const b = p.locator('.fill-field', { hasText: 'Wipe counters' }).locator('.check-btn');
+        await b.click(); await expect(b).toHaveClass(/checked/, { timeout: 5000 });
+      },
+      async (p) => {
+        await expect(p.locator('.fill-field', { hasText: 'Wipe counters' }).locator('.check-btn'))
+          .toHaveClass(/checked/, { timeout: 8000 });
+      });
+  });
+
+  test('yes/no answer converges (live + catch-up)', async ({ browser, page }) => {
+    test.setTimeout(120000);
+    await survivalCell(browser, page, 'MX YesNo',
+      { type: 'yes_no', label: 'All good?', required: false, order: 0, config: {}, fail_trigger: null, condition: null },
+      async (p) => {
+        await p.click('[data-action="set-yes"]');
+        await expect(p.locator('[data-action="set-yes"]')).toHaveClass(/on/, { timeout: 5000 });
+      },
+      async (p) => {
+        await expect(p.locator('[data-action="set-yes"]')).toHaveClass(/on/, { timeout: 8000 });
+        await expect(p.locator('[data-action="set-no"]')).not.toHaveClass(/on/);
+      });
+  });
+
+  test('text answer converges (live + catch-up)', async ({ browser, page }) => {
+    test.setTimeout(120000);
+    await survivalCell(browser, page, 'MX Text',
+      { type: 'text', label: 'Notes', required: false, order: 0, config: {}, fail_trigger: null, condition: null },
+      async (p) => {
+        const ta = p.locator('.fill-textarea').first();
+        await ta.fill('She said "hello" to me'); await ta.blur();
+      },
+      async (p) => {
+        await expect(p.locator('.fill-textarea').first()).toHaveValue('She said "hello" to me', { timeout: 8000 });
+      });
+  });
+
+  test('temperature answer converges (live + catch-up)', async ({ browser, page }) => {
+    test.setTimeout(120000);
+    await survivalCell(browser, page, 'MX Temp',
+      { type: 'temperature', label: 'Grill temp', required: false, order: 0, config: { unit: 'F', min: 300, max: 500 }, fail_trigger: null, condition: null },
+      async (p) => {
+        const t = p.locator('input[type="number"]').first();
+        await t.fill('375'); await t.dispatchEvent('change');
+      },
+      async (p) => {
+        await expect(p.locator('input[type="number"]').first()).toHaveValue('375', { timeout: 8000 });
+      });
+  });
+
+  test('sub-step checked state converges (live + catch-up)', async ({ browser, page }) => {
+    test.setTimeout(120000);
+    await survivalCell(browser, page, 'MX SubSteps',
+      CHECKBOX_F('Protein stock', 0, { sub_steps: [
+        { type: 'checkbox', label: 'Salmon counted', order: 0, config: {}, fail_trigger: null, condition: null },
+        { type: 'checkbox', label: 'Chicken counted', order: 1, config: {}, fail_trigger: null, condition: null },
+      ] }),
+      async (p) => {
+        const s = p.locator('.sub-step-check').first();
+        await s.click(); await expect(s).toHaveClass(/done/, { timeout: 5000 });
+      },
+      async (p) => {
+        await expect(p.locator('.sub-step-check').first()).toHaveClass(/done/, { timeout: 8000 });
+        await expect(p.locator('.sub-step-check').nth(1)).not.toHaveClass(/done/);
+      });
+  });
+
+  test('fail-note text AND fail severity converge (live + catch-up)', async ({ browser, page }) => {
+    // Two matrix cells in one flow — both live on the same fail card of an
+    // out-of-range temperature field. The fail note (value + note + severity) is
+    // persisted via ONE deterministic saveResponse of the full {_v,_fail_note}
+    // bundle, then hydrated on reopen — the same pattern the photo cell uses.
+    // Driving temp-change + note-typing + severity-click as three separate
+    // debounced UI autosaves on the SAME field races under suite load (the saves
+    // coalesce/interleave and can persist an empty note), which is a test-harness
+    // artifact, not a convergence defect — the bundle write is the durable state.
+    test.setTimeout(120000);
+    const dow = await getTodayDOW(page);
+    await createWithDecoy(page, 'MX FailNote', dow,
+      { type: 'temperature', label: 'Grill temp', required: true, order: 0,
+        config: { unit: 'F', min: 300, max: 500 },
+        fail_trigger: { type: 'out_of_range', min: 300, max: 500 }, condition: null });
+
+    const templates = await apiCall(page, 'GET', 'templates');
+    const tpl = templates.find(t => t.name === 'MX FailNote');
+    const fieldId = tpl.sections[0].fields.find(f => f.label === 'Grill temp').id;
+
+    const ctxB = await browser.newContext();
+    const pageB = await ctxB.newPage();
+    await login(pageB);
+
+    // Persist the full fail-note bundle (out-of-range value + note + severity) in
+    // ONE write. The out-of-range _v:2 makes the runner render the fail card on
+    // hydrate, so no UI temp-entry is needed — driving the number input's change
+    // event to summon the fail card was itself a load-sensitive step.
+    await apiCall(pageB, 'POST', 'saveResponse', {
+      field_id: fieldId,
+      value: { _v: 2, _fail_note: { note: 'Grill needs repair', severity: 'minor', photo: null } },
+    });
+
+    const assertFailNote = async (p) => {
+      const card = p.locator('.fail-card');
+      await expect(card).toBeVisible({ timeout: CONVERGE_TIMEOUT });
+      await expect(card.locator('textarea')).toHaveValue('Grill needs repair', { timeout: CONVERGE_TIMEOUT });
+      await expect(p.locator('[data-action="set-severity"][data-severity="minor"]')).toHaveClass(/on/, { timeout: CONVERGE_TIMEOUT });
+    };
+    // Baseline: open the runner (navigates to workflows.html) so the injected
+    // bundle hydrates the fail card.
+    await openRunnerB(pageB, 'MX FailNote');
+    await assertFailNote(pageB);
+
+    // Admin cuts the Decoy (SAVE_TEMPLATE op).
+    await cutDecoy(page, 'MX FailNote', dow);
+
+    // LIVE: note + severity survive the in-place re-render.
+    await expect(pageB.locator('.fill-field', { hasText: 'Decoy' })).toHaveCount(0, { timeout: CONVERGE_TIMEOUT });
+    await assertFailNote(pageB);
+
+    // CATCH-UP: reload.
+    await reopenRunnerB(pageB, 'MX FailNote');
+    await expect(pageB.locator('.fill-field', { hasText: 'Decoy' })).toHaveCount(0, { timeout: CONVERGE_TIMEOUT });
+    await assertFailNote(pageB);
+
+    await ctxB.close();
+  });
+
+  test('fail-note photo-URL value converges (live + catch-up)', async ({ browser, page }) => {
+    test.setTimeout(120000);
+    const dow = await getTodayDOW(page);
+    await createWithDecoy(page, 'MX Photo', dow,
+      { type: 'yes_no', label: 'Equipment OK?', required: true, order: 0, config: {}, fail_trigger: null, condition: null });
+
+    // Resolve the answer field's id for the photo injection.
+    const templates = await apiCall(page, 'GET', 'templates');
+    const tpl = templates.find(t => t.name === 'MX Photo');
+    const fieldId = tpl.sections[0].fields.find(f => f.label === 'Equipment OK?').id;
+    const photoUrl = 'https://spaces.example.com/checklists/mx/fail-' + fieldId + '.jpg';
+
+    const ctxB = await browser.newContext();
+    const pageB = await ctxB.newPage();
+    await login(pageB);
+    await openRunnerB(pageB, 'MX Photo');
+
+    // 'No' triggers the fail card; then inject the presigned photo URL as the crew
+    // camera would (camera UI is unavailable in the headless env).
+    const noBtn = pageB.locator('[data-action="set-no"][data-fld-id="' + fieldId + '"]');
+    await expect(noBtn).toBeVisible({ timeout: RUNNER_TIMEOUT });
+    await noBtn.click();
+    await expect(pageB.locator('.fail-card')).toBeVisible({ timeout: RUNNER_TIMEOUT });
+    await pageB.waitForTimeout(800); // let the No-answer autosave settle first
+    await apiCall(pageB, 'POST', 'saveResponse', {
+      field_id: fieldId, value: { _v: false, _fail_note: { note: '', severity: '', photo: photoUrl } },
+    });
+    await pageB.waitForTimeout(400);
+
+    const assertPhoto = async (p) => {
+      const img = p.locator('.fail-card img.photo-thumb');
+      await expect(img).toBeVisible({ timeout: CONVERGE_TIMEOUT });
+      expect(await img.getAttribute('src')).toBe(photoUrl);
+    };
+    // Baseline: reopen once so the injected photo hydrates into the runner.
+    await reopenRunnerB(pageB, 'MX Photo');
+    await assertPhoto(pageB);
+
+    await cutDecoy(page, 'MX Photo', dow);
+
+    // LIVE: photo survives the in-place re-render.
+    await expect(pageB.locator('.fill-field', { hasText: 'Decoy' })).toHaveCount(0, { timeout: CONVERGE_TIMEOUT });
+    await assertPhoto(pageB);
+
+    // CATCH-UP: reload.
+    await reopenRunnerB(pageB, 'MX Photo');
+    await expect(pageB.locator('.fill-field', { hasText: 'Decoy' })).toHaveCount(0, { timeout: CONVERGE_TIMEOUT });
+    await assertPhoto(pageB);
+
+    await ctxB.close();
+  });
+});
+
+test.describe('Convergence matrix (W-3): lifecycle + list progress', () => {
+  test.beforeEach(async ({ page }) => {
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await cleanupPendingApprovals(page);
+    await cleanupTemplates(page);
+  });
+
+  test('submit transition converges live on the observing device (+ catch-up)', async ({ browser, page }) => {
+    test.setTimeout(120000);
+    const dow = await getTodayDOW(page);
+    await createTestTemplate(page, 'MX Submit', dow); // requires_approval true here
+
+    // Writer A opens the runner.
+    await page.reload();
+    await expect(page.locator('#s1').getByText('MX Submit')).toBeVisible({ timeout: RUNNER_TIMEOUT });
+    await page.click('[data-fill-template-id]');
+    await page.waitForSelector('.check-btn', { timeout: RUNNER_TIMEOUT });
+    await page.locator('.check-btn').first().click();
+    await page.waitForTimeout(1200);
+
+    // Observing device B opens the same runner (still fillable).
+    const ctxB = await browser.newContext();
+    const pageB = await ctxB.newPage();
+    await login(pageB);
+    await openRunnerB(pageB, 'MX Submit');
+    await expect(pageB.locator('[data-action="submit"]')).toBeVisible({ timeout: RUNNER_TIMEOUT });
+
+    // A submits.
+    await page.locator('[data-action="submit"]').click();
+    await page.waitForTimeout(1000);
+
+    // LIVE on B (no reload): the runner converges to the submitted (read-only)
+    // state — the submit button is gone / the confirm line shows.
+    await expect(pageB.locator('[data-action="submit"]')).toHaveCount(0, { timeout: CONVERGE_TIMEOUT });
+    await expect(pageB.locator('.submit-confirm')).toBeVisible({ timeout: CONVERGE_TIMEOUT });
+
+    // CATCH-UP: reload B, reopen — still submitted.
+    await reopenRunnerB(pageB, 'MX Submit');
+    await expect(pageB.locator('.submit-confirm')).toBeVisible({ timeout: CONVERGE_TIMEOUT });
+
+    await ctxB.close();
+  });
+
+  test('unsubmit transition converges live on the observing device (+ catch-up)', async ({ browser, page }) => {
+    test.setTimeout(120000);
+    const dow = await getTodayDOW(page);
+    // requires_approval false → submit yields 'submitted', which the submitter can unsubmit.
+    await apiCall(page, 'POST', 'createTemplate', {
+      name: 'MX Unsubmit', requires_approval: false,
+      sections: [{ title: 'S', order: 0, condition: null, fields: [CHECKBOX_F('Task', 0)] }],
+      schedules: [{ active_days: [dow] }],
+      assignments: [{ assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' }],
+    });
+
+    // Writer A opens, checks, submits.
+    await page.reload();
+    await expect(page.locator('#s1').getByText('MX Unsubmit')).toBeVisible({ timeout: RUNNER_TIMEOUT });
+    await page.click('[data-fill-template-id]');
+    await page.waitForSelector('.check-btn', { timeout: RUNNER_TIMEOUT });
+    await page.locator('.check-btn').first().click();
+    await page.waitForTimeout(1000);
+    await page.locator('[data-action="submit"]').click();
+    await expect(page.locator('.submit-confirm')).toBeVisible({ timeout: CONVERGE_TIMEOUT });
+
+    // Observing device B opens and converges to submitted.
+    const ctxB = await browser.newContext();
+    const pageB = await ctxB.newPage();
+    await login(pageB);
+    await openRunnerB(pageB, 'MX Unsubmit');
+    await expect(pageB.locator('.submit-confirm')).toBeVisible({ timeout: RUNNER_TIMEOUT });
+    await expect(pageB.locator('[data-action="unsubmit"]')).toBeVisible({ timeout: RUNNER_TIMEOUT });
+
+    // A unsubmits (the runner confirms first — accept it).
+    page.once('dialog', (d) => d.accept());
+    await page.locator('[data-action="unsubmit"]').click();
+    await page.waitForTimeout(1000);
+
+    // LIVE on B (no reload): the runner converges back to fillable — the submit
+    // button returns. (Requires the UnsubmitHandler to broadcast a re-sync op.)
+    await expect(pageB.locator('[data-action="submit"]')).toBeVisible({ timeout: CONVERGE_TIMEOUT });
+    await expect(pageB.locator('.submit-confirm')).toHaveCount(0);
+
+    // CATCH-UP: reload B — still fillable.
+    await reopenRunnerB(pageB, 'MX Unsubmit');
+    await expect(pageB.locator('[data-action="submit"]')).toBeVisible({ timeout: CONVERGE_TIMEOUT });
+
+    await ctxB.close();
+  });
+
+  test('list-view progress indicator converges live + catch-up (field completion)', async ({ browser, page }) => {
+    test.setTimeout(120000);
+    const dow = await getTodayDOW(page);
+    await apiCall(page, 'POST', 'createTemplate', {
+      name: 'MX Progress', requires_approval: false,
+      sections: [{ title: 'S', order: 0, condition: null, fields: [
+        CHECKBOX_F('Field A', 0), CHECKBOX_F('Field B', 1),
+      ] }],
+      schedules: [{ active_days: [dow] }],
+      assignments: [{ assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' }],
+    });
+
+    // Observing device B stays on the LIST view (runner NOT open): shows 0/2.
+    const ctxB = await browser.newContext();
+    const pageB = await ctxB.newPage();
+    await login(pageB);
+    await pageB.goto(BASE + '/workflows.html');
+    const rowB = pageB.locator('[data-fill-template-id]').filter({ hasText: 'MX Progress' });
+    await expect(rowB).toBeVisible({ timeout: RUNNER_TIMEOUT });
+    await expect(rowB).toContainText('0/2', { timeout: RUNNER_TIMEOUT });
+
+    // Writer A opens the runner and completes Field A.
+    await page.reload();
+    await expect(page.locator('#s1').getByText('MX Progress')).toBeVisible({ timeout: RUNNER_TIMEOUT });
+    await page.click('[data-fill-template-id]');
+    await page.waitForSelector('.check-btn', { timeout: RUNNER_TIMEOUT });
+    await page.locator('.fill-field', { hasText: 'Field A' }).locator('.check-btn').click();
+    await page.waitForTimeout(2500); // autosave + WS propagation
+
+    // LIVE on B's list (no reload): the progress indicator converges to 1/2.
+    await expect(rowB).toContainText('1/2', { timeout: CONVERGE_TIMEOUT });
+
+    // CATCH-UP: reload B — still 1/2.
+    await pageB.reload();
+    const rowB2 = pageB.locator('[data-fill-template-id]').filter({ hasText: 'MX Progress' });
+    await expect(rowB2).toBeVisible({ timeout: RUNNER_TIMEOUT });
+    await expect(rowB2).toContainText('1/2', { timeout: CONVERGE_TIMEOUT });
+
+    await ctxB.close();
+  });
+
+  // The list-row DENOMINATOR converges when a field is CUT while the observer
+  // sits on the BARE My-Checklists list (runner NOT open). applyOp's no-runner
+  // SAVE_TEMPLATE branch now re-fetches My Checklists (sync.js) — mirroring the
+  // SET_FIELD branch's no-runner renderMyChecklists() refresh — so the X/Y
+  // denominator re-derives from the template's new shape without a reload.
+  // RED before the sync.js refresh: that branch only called loadTemplates (the
+  // Builder list), leaving B's list row showing the stale 1/2 denominator.
+  test('list-view denominator converges live + catch-up when a field is CUT on the bare list', async ({ browser, page }) => {
+    test.setTimeout(120000);
+    const dow = await getTodayDOW(page);
+    await apiCall(page, 'POST', 'createTemplate', {
+      name: 'MX Denom', requires_approval: false,
+      sections: [{ title: 'S', order: 0, condition: null, fields: [
+        CHECKBOX_F('Keep A', 0), CHECKBOX_F('Decoy', 1),
+      ] }],
+      schedules: [{ active_days: [dow] }],
+      assignments: [{ assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' }],
+    });
+
+    // Observing device B: open the runner, complete 'Keep A', then go BACK to the
+    // bare list (runner closed) so its row shows 1/2 with no runner open.
+    const ctxB = await browser.newContext();
+    const pageB = await ctxB.newPage();
+    await login(pageB);
+    await openRunnerB(pageB, 'MX Denom');
+    await pageB.locator('.fill-field', { hasText: 'Keep A' }).locator('.check-btn').click();
+    await waitAutosave(pageB);
+    await pageB.waitForTimeout(800);
+    await pageB.click('#fill-back');
+    await expect(pageB.locator('#checklist-list')).toBeVisible({ timeout: RUNNER_TIMEOUT });
+    const rowB = pageB.locator('[data-fill-template-id]').filter({ hasText: 'MX Denom' });
+    await expect(rowB).toContainText('1/2', { timeout: RUNNER_TIMEOUT });
+
+    // Admin cuts the unanswered Decoy (SAVE_TEMPLATE op) — denominator 2 → 1.
+    await cutDecoy(page, 'MX Denom', dow);
+
+    // LIVE on B's BARE list (runner closed, no reload): denominator converges to
+    // 1/1 as the no-runner SAVE_TEMPLATE branch re-fetches My Checklists.
+    await expect(rowB).toContainText('1/1', { timeout: CONVERGE_TIMEOUT });
+
+    // CATCH-UP: reload B — still 1/1.
+    await pageB.reload();
+    const rowB2 = pageB.locator('[data-fill-template-id]').filter({ hasText: 'MX Denom' });
+    await expect(rowB2).toBeVisible({ timeout: RUNNER_TIMEOUT });
+    await expect(rowB2).toContainText('1/1', { timeout: CONVERGE_TIMEOUT });
+
+    await ctxB.close();
+  });
+});

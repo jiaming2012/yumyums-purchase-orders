@@ -113,7 +113,7 @@
   it describes (closes the `EmitOp` fire-and-forget gap, `sync/ops.go:245-264`). Footprint:
   workflow engine (`sync.js` + `workflows.html` + backend sync). → Eng KR "edit
   propagation".
-- **`editprop-convergence-matrix`** · PLANNED · The red-first multi-device E2E matrix
+- **`editprop-convergence-matrix`** · DONE ✅ overnight-20260717 (G6 FAIL-REVISE → revised → PASS `72fffba`+`6c3aafb`; full two-device matrix green — all 7 types + sub-steps + photo + submit/unsubmit + list-view progress + denominator, live + catch-up; AC-6a bug-guard + AC-6b frozen-snapshot lock red→green; surfaced+fixed unsubmit-broadcast gap in-footprint; suite reliably green under combined load, orchestrator re-verified 36/36) · The red-first multi-device E2E matrix
   (the operator's delegated UX bar): all 7 field types + sub-steps + submit/unsubmit
   transitions + list-view progress indicators converge across ≥ 2 devices; includes the
   ≥ 2 semantic acceptance tests (mid-run edit re-renders open devices, surviving answers

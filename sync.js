@@ -452,6 +452,18 @@ function applyOp(op, silent) {
     // surface a toast.
     if (typeof fillState !== 'undefined' && fillState.activeTemplate) {
       rerenderOpenChecklistAfterSave(op, silent);
+    } else if (!silent && typeof loadMyChecklists === 'function') {
+      // No runner open, but the observer may be sitting on the My Checklists list:
+      // a LIVE edit that adds/cuts a field changes the list-row progress
+      // DENOMINATOR, so re-fetch today's list to converge it (mirrors the
+      // SET_FIELD branch's no-runner refresh — SET_FIELD only needs a local
+      // re-render because it already mutated state, whereas a structural edit
+      // must re-fetch the template's new shape). Gated to LIVE ops (!silent): a
+      // catch-up/reconnect replay must NOT fire a fetch per SAVE_TEMPLATE op —
+      // the page-load's own loadMyChecklists already reconciled the list, so
+      // replaying the backlog with per-op fetches would be a needless fetch storm
+      // that blocks the main thread.
+      loadMyChecklists();
     }
   }
 }

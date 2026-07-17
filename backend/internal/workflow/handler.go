@@ -726,6 +726,19 @@ func UnsubmitHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
+		// Capture the checklist's template BEFORE the unsubmit deletes the
+		// submission row. The re-sync broadcast below must resolve its audience via
+		// the template — once the submission row is gone, ResolveEntityAccess can no
+		// longer map a "submission" op to recipients, so a live broadcast keyed on
+		// the deleted submission would reach nobody.
+		var templateID string
+		if qerr := pool.QueryRow(r.Context(),
+			`SELECT template_id::text FROM checklist_submissions WHERE id = $1`,
+			body.SubmissionID,
+		).Scan(&templateID); qerr != nil {
+			templateID = "" // fall through; the broadcast is best-effort
+		}
+
 		if err := unsubmitChecklist(r.Context(), pool, body.SubmissionID, user.ID); err != nil {
 			slog.Error("unsubmitChecklist error", "error", err)
 			if err.Error() == "not the submitter" {
@@ -738,6 +751,31 @@ func UnsubmitHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			}
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
+		}
+		// Broadcast a submission-state-changed op so OTHER open devices converge
+		// live back to the fillable runner (W-3 §6 Convergence contract:
+		// submit/unsubmit transitions must converge on the observing device). We
+		// reuse OpSubmitChecklist as the "submission changed, re-sync" signal — its
+		// frontend handler (applyOp → loadMyChecklists) re-fetches and re-renders
+		// the open runner, which now reflects the removed submission (i.e. editable
+		// again). A dedicated UNSUBMIT op type would be a new op type (out of this
+		// card's footprint); the re-fetch is idempotent, so reusing this one is safe.
+		// The op is addressed to the TEMPLATE (entity_type "template") — the natural
+		// checklist audience — because the submission it undoes no longer exists.
+		if templateID != "" {
+			if payload, merr := json.Marshal(map[string]any{"submission_id": body.SubmissionID, "template_id": templateID}); merr == nil {
+				opsync.EmitOp(pool, opsync.OpInput{
+					DeviceID:   "server",
+					UserID:     user.ID,
+					EntityID:   templateID,
+					EntityType: "template",
+					OpType:     opsync.OpSubmitChecklist,
+					Payload:    json.RawMessage(payload),
+					LamportTS:  0,
+				})
+			} else {
+				slog.Error("UnsubmitHandler failed to marshal op payload", "error", merr)
+			}
 		}
 		writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 	}
