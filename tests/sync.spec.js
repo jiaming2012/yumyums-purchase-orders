@@ -763,40 +763,59 @@ const waitAutosave = (pageB) => pageB.waitForResponse(
   res => res.url().includes('/api/v1/workflow/ops') && res.request().method() === 'POST',
   { timeout: 8000 }).catch(() => {});
 
-// Deterministically wait until the answer field's draft is actually PERSISTED
-// server-side (its response appears in myChecklists.drafts). The UI autosave is
-// debounced, so under suite load it can land AFTER the test would otherwise cut
-// the Decoy — the ensuing re-render would then hydrate an empty draft and drop
-// the answer. Gating the edit on real persistence removes that whole class of
-// load-only flake (the answer is provably server-side before the SAVE_TEMPLATE).
-async function waitFieldPersisted(pageB, fieldId) {
-  await expect.poll(async () => {
-    const data = await apiCall(pageB, 'GET', 'myChecklists?dow=' + (new Date().getDay()));
-    const drafts = (data && data.drafts) || [];
-    return drafts.some(d => d.field_id === fieldId && d.value !== null && d.value !== undefined && d.value !== '');
-  }, { timeout: 12000, intervals: [200, 400, 700, 1000] }).toBe(true);
-}
+// Wait for a myChecklists GET on device B to LAND — the deterministic signal that
+// a re-fetch/re-render (initial load, WS catch-up, or a SAVE_TEMPLATE-driven
+// rerenderOpenChecklistAfterSave) has completed, rather than racing the visible DOM.
+const waitMyChecklistsGet = (pageB, timeout) => pageB.waitForResponse(
+  res => res.url().includes('/myChecklists') && res.request().method() === 'GET',
+  { timeout: timeout || CONVERGE_TIMEOUT });
 
 // Drives one surviving-answer cell end to end (LIVE + CATCH-UP) on device B.
+//
+// De-flake (no-retry hardening): the two INPUT cells (text, temperature) used to
+// flake because a freshly-TYPED but not-yet-persisted value lives only in the
+// optimistic control; a stray WS catch-up loadMyChecklists whose fetch predates
+// the debounced save can re-render the runner and CLOBBER that value to empty —
+// and, since nothing re-issues a fetch, it stays empty (the observed `Received
+// ""` at the baseline assert). The fix is deterministic and test-only:
+//   1. Gate on the autosave POST /ops response (2xx) — SaveResponseFunc commits
+//      the draft BEFORE the 200, so this is a race-free "draft is durable" signal
+//      (replaces the old myChecklists poll, which under load could itself time out).
+//   2. Reopen the runner for the baseline so it hydrates the COMMITTED draft, not
+//      the optimistic control — after commit every render reflects durable state,
+//      so no stray re-render can clobber it (same pattern the photo cell uses).
+//   3. Before asserting LIVE convergence, wait for B to APPLY the SAVE_TEMPLATE op
+//      — its rerenderOpenChecklistAfterSave re-fetch (GET myChecklists) — instead
+//      of only watching the visible Decoy count. The Decoy assertion below stays
+//      as the authoritative gate; this wait just stops us racing a partial apply.
 async function survivalCell(browser, page, name, answerField, enterFn, assertFn) {
   const dow = await getTodayDOW(page);
   await createWithDecoy(page, name, dow, answerField);
-  const templates = await apiCall(page, 'GET', 'templates');
-  const tpl = templates.find(t => t.name === name);
-  const answerFieldId = tpl.sections[0].fields.find(f => f.label !== 'Decoy').id;
 
   const ctxB = await browser.newContext();
   const pageB = await ctxB.newPage();
   await login(pageB);
   await openRunnerB(pageB, name);
 
+  // Register the commit wait BEFORE the edit so the debounced POST /ops can't be
+  // missed. A 2xx means the draft committed server-side (deterministic).
+  const committed = pageB.waitForResponse(
+    res => res.url().includes('/api/v1/workflow/ops') && res.request().method() === 'POST',
+    { timeout: 12000 });
   await enterFn(pageB);
-  await waitAutosave(pageB);
-  await waitFieldPersisted(pageB, answerFieldId); // the answer is provably server-side
-  await assertFn(pageB); // baseline: the answer is present on B
+  const commitRes = await committed;
+  expect(commitRes.ok(), 'answer autosave must commit (2xx) before proceeding').toBeTruthy();
 
-  // Admin cuts the Decoy (SAVE_TEMPLATE op).
+  // Re-hydrate from the committed draft — the baseline now reflects durable state,
+  // immune to the optimistic-clobber race described above.
+  await reopenRunnerB(pageB, name);
+  await assertFn(pageB); // baseline: the committed answer is present on B
+
+  // Admin cuts the Decoy (SAVE_TEMPLATE op). Wait until B has APPLIED it before
+  // asserting (deterministic "op applied" signal), then gate on the Decoy count.
+  const applied = waitMyChecklistsGet(pageB);
   await cutDecoy(page, name, dow);
+  await applied;
 
   // LIVE convergence on the observing device (no reload).
   await expect(pageB.locator('.fill-field', { hasText: 'Decoy' })).toHaveCount(0, { timeout: CONVERGE_TIMEOUT });
@@ -1267,5 +1286,249 @@ test.describe('Engine: LWW conflict re-renders the winning value (W-6)', () => {
 
     await ctxA.close();
     await ctxB.close();
+  });
+});
+
+// ─── W-6b: LWW conflict re-render across the non-text persisted types ─────────
+// The W-6 cell above proves ONLY text/textarea. The other persisted types ride
+// the SAME shared applyOp SET_FIELD path (sync.js:405) driven from the frontend
+// 409 handler (workflows.html:209) — but were untested there. Each cell below
+// seeds a WINNER value of one type on a live device, has the LOSING device (WS
+// stubbed dead, Lamport clock pinned stale) write a DIFFERENT value of that type,
+// asserts the 409, and asserts the loser RENDERS THE WINNER — never its own
+// rejected value. A broken applyOp/409 path would leave the loser showing its
+// rejected value; each assertion rules exactly that out (see the per-cell notes
+// on what a broken path would render).
+//
+// PARKED types (NOT covered here) — the conflict/applyOp path genuinely cannot
+// render them, so a red→green cell is impossible WITHOUT a production change that
+// the card's footprint forbids:
+//   • fail-note text + severity, and fail-note photo-URL — the `{_v,_fail_note}`
+//     bundle is unpacked into FAIL_NOTES ONLY by hydrateFieldState
+//     (workflows.html:1480-1482). applyOp (sync.js:405-441, the path the 409
+//     handler drives) has no _fail_note unpack, so a winning fail-note bundle
+//     applied via the conflict path renders as neither a value nor a fail card.
+//     Covering these would require teaching the apply path to unpack the bundle
+//     (a workflows.html / sync.js production behaviour change), which is out of
+//     footprint → PARKED, noted in the SUMMARY.
+
+// Stub WebSocket dead BEFORE load so no live op ever reaches the losing device:
+// its ONLY route to the winning value is the 409 response body.
+const CONFLICT_DEAD_SOCKET = () => {
+  class DeadSocket { constructor() { this.readyState = 3; } close() {} send() {} }
+  DeadSocket.CONNECTING = 0; DeadSocket.OPEN = 1; DeadSocket.CLOSING = 2; DeadSocket.CLOSED = 3;
+  window.WebSocket = DeadSocket;
+};
+
+// Pin the loser permanently stale: Lamport tick fixed at 1 (well below the
+// winner's 5000000) with catch-up + clock-receive neutralised so nothing can
+// climb it above the winner. Every write it makes loses LWW deterministically.
+const CONFLICT_PIN_STALE = () => {
+  window.wsCatchUp = async () => {};
+  if (window.LAMPORT_CLOCK) {
+    window.LAMPORT_CLOCK.receive = async () => {};
+    window.LAMPORT_CLOCK._ts = 0;
+    window.LAMPORT_CLOCK.tick = async () => 1;
+  }
+};
+
+// Stand up the LOSING device: dead WS, a template with a single field of the
+// given shape, the runner open on that field, and the clock pinned stale.
+// Returns the loser page, its ctx, and the resolved server-side field id (plus
+// the full template, so sub-step ids can be read).
+async function openConflictLoser(browser, name, field) {
+  const ctx = await browser.newContext();
+  await ctx.addInitScript(CONFLICT_DEAD_SOCKET);
+  const page = await ctx.newPage();
+  await login(page);
+  await page.goto(BASE + '/workflows.html');
+  await cleanupPendingApprovals(page);
+  await cleanupTemplates(page);
+  const dow = await getTodayDOW(page);
+  await apiCall(page, 'POST', 'createTemplate', {
+    name, requires_approval: false,
+    sections: [{ title: 'S', order: 0, condition: null, fields: [Object.assign({}, field, { order: 0 })] }],
+    schedules: [{ active_days: [dow] }],
+    assignments: [{ assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' }],
+  });
+  const templates = await apiCall(page, 'GET', 'templates');
+  const tpl = templates.find(t => t.name === name);
+  const fieldId = tpl.sections[0].fields[0].id;
+  await page.reload();
+  await expect(page.locator('#s1').getByText(name)).toBeVisible({ timeout: RUNNER_TIMEOUT });
+  await page.click('[data-fill-template-id]');
+  await page.waitForSelector('.fill-field', { timeout: RUNNER_TIMEOUT });
+  await page.evaluate(CONFLICT_PIN_STALE);
+  return { ctx, page, fieldId, tpl };
+}
+
+// Seed the WINNING value on a fresh live device (optionally a distinct user) with
+// a high Lamport ts so any later stale write from the loser loses LWW → 409 with
+// this value in the body. Returns the winner ctx to close.
+async function seedConflictWinner(browser, fieldId, value, email, password) {
+  const ctx = await browser.newContext();
+  const page = await ctx.newPage();
+  await login(page, email, password);
+  const res = await apiCall(page, 'POST', 'ops', {
+    op_type: 'SET_FIELD', entity_id: fieldId, entity_type: 'field_response',
+    payload: { field_id: fieldId, value }, lamport_ts: 5000000, device_id: 'zzz-winner-device',
+  });
+  expect(res && !res._conflict, 'winner seed must win, not conflict').toBeTruthy();
+  return ctx;
+}
+
+// Resolve when the loser's stale write is REJECTED (409) on the ops endpoint.
+function waitLoser409(page) {
+  return page.waitForResponse(
+    res => res.url().includes('/api/v1/workflow/ops') && res.request().method() === 'POST' && res.status() === 409,
+    { timeout: CONVERGE_TIMEOUT });
+}
+
+// Invite + accept a throwaway team_member so the winner can be seeded under a
+// DISTINCT user id — required only for the checkbox cell (see its note). Runs in
+// its OWN context: accept-invite logs the acceptor in as the new user, which must
+// NOT clobber the loser's admin session.
+async function createSecondUser(browser) {
+  const email = 'conflict-winner-' + Date.now() + '@yumyums.kitchen';
+  const ctx = await browser.newContext();
+  const page = await ctx.newPage();
+  await login(page); // admin, to issue the invite
+  const invite = await page.evaluate(async (e) => {
+    const res = await fetch('/api/v1/users/invite', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ first_name: 'Conflict', last_name: 'Winner', email: e, roles: ['team_member'] }),
+    });
+    return res.json();
+  }, email);
+  const token = invite.invite_path.split('token=')[1];
+  await page.evaluate(async (t) => {
+    await fetch('/api/v1/auth/accept-invite', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: t, password: 'test456' }),
+    });
+  }, token);
+  await ctx.close();
+  return { email, password: 'test456' };
+}
+
+test.describe('Engine: LWW conflict re-renders the winner across persisted types (W-6b)', () => {
+
+  test('yes/no: a losing No re-renders the winning Yes [FR-9 INV-1]', async ({ browser }) => {
+    test.setTimeout(120000);
+    const { ctx, page, fieldId } = await openConflictLoser(browser, 'MX Conflict YesNo',
+      { type: 'yes_no', label: 'All good?', required: false, config: {}, fail_trigger: null, condition: null });
+    // Winner answered YES (non-null → UPSERTs the draft row, keeping the winning
+    // Lamport ts so the loser's later stale write loses LWW → 409).
+    const winnerCtx = await seedConflictWinner(browser, fieldId, true);
+
+    const resp409 = waitLoser409(page);
+    const noBtn = page.locator('[data-action="set-no"][data-fld-id="' + fieldId + '"]');
+    await noBtn.click(); // loser answers No — optimistic, the value the DB rejects
+    await expect(noBtn).toHaveClass(/on/); // rejected value shown first
+    expect((await resp409).status(), 'loser No must lose LWW (409)').toBe(409);
+
+    // Converge: Yes on, No off — the WINNER. A broken 409/applyOp path would leave
+    // the loser's No 'on'.
+    await expect(page.locator('[data-action="set-yes"][data-fld-id="' + fieldId + '"]'))
+      .toHaveClass(/on/, { timeout: CONVERGE_TIMEOUT });
+    await expect(noBtn).not.toHaveClass(/on/);
+
+    await ctx.close(); await winnerCtx.close();
+  });
+
+  test('temperature: a losing 350 re-renders the winning 375 [FR-9 INV-1]', async ({ browser }) => {
+    test.setTimeout(120000);
+    const { ctx, page, fieldId } = await openConflictLoser(browser, 'MX Conflict Temp',
+      { type: 'temperature', label: 'Grill temp', required: false, config: { unit: 'F', min: 300, max: 500 }, fail_trigger: null, condition: null });
+    const winnerCtx = await seedConflictWinner(browser, fieldId, 375);
+
+    const resp409 = waitLoser409(page);
+    const inp = page.locator('input[type="number"][data-field-id="' + fieldId + '"]');
+    await inp.fill('350'); await inp.dispatchEvent('change'); // loser writes 350 — rejected
+    await expect(inp).toHaveValue('350'); // rejected value shown first
+    expect((await resp409).status(), 'loser 350 must lose LWW (409)').toBe(409);
+
+    // Converge to 375 — the WINNER. A broken path would keep showing 350.
+    await expect(page.locator('input[type="number"][data-field-id="' + fieldId + '"]'))
+      .toHaveValue('375', { timeout: CONVERGE_TIMEOUT });
+
+    await ctx.close(); await winnerCtx.close();
+  });
+
+  test('sub-step: a losing sub-step B re-renders the winning sub-step A [FR-9 INV-1]', async ({ browser }) => {
+    test.setTimeout(120000);
+    const { ctx, page, fieldId, tpl } = await openConflictLoser(browser, 'MX Conflict SubStep',
+      CHECKBOX_F('Protein stock', 0, { sub_steps: [
+        { type: 'checkbox', label: 'Salmon counted', order: 0, config: {}, fail_trigger: null, condition: null },
+        { type: 'checkbox', label: 'Chicken counted', order: 1, config: {}, fail_trigger: null, condition: null },
+      ] }));
+    const subs = tpl.sections[0].fields[0].sub_steps;
+    const subAId = subs[0].id;
+    // Winner checked sub-step A only. The {value,sub_steps} object is non-null, so
+    // it UPSERTs the draft row and keeps the winning Lamport ts.
+    const winnerCtx = await seedConflictWinner(browser, fieldId,
+      { value: false, sub_steps: { [subAId]: { by: 'Winner', at: new Date().toISOString() } } });
+
+    const resp409 = waitLoser409(page);
+    const subChecks = page.locator('.sub-step-check');
+    await subChecks.nth(1).click(); // loser checks sub-step B — rejected
+    await expect(subChecks.nth(1)).toHaveClass(/done/); // rejected value shown first
+    expect((await resp409).status(), 'loser sub-step B must lose LWW (409)').toBe(409);
+
+    // Converge: sub-step A done, B NOT — the WINNER. A broken path would keep B done.
+    await expect(page.locator('.sub-step-check').nth(0)).toHaveClass(/done/, { timeout: CONVERGE_TIMEOUT });
+    await expect(page.locator('.sub-step-check').nth(1)).not.toHaveClass(/done/);
+
+    await ctx.close(); await winnerCtx.close();
+  });
+
+  test('checkbox: a losing uncheck re-renders the winning checked box [FR-9 INV-1]', async ({ browser }) => {
+    test.setTimeout(120000);
+    // A plain checkbox has exactly ONE non-null value (`true`); the only value that
+    // DIFFERS from a checked winner is "unchecked", expressed as a `null`
+    // SET_FIELD. But the workflow op router runs SaveResponseFunc BEFORE the LWW
+    // guard (main.go:62 → handler.go:178) and a null value DELETEs the draft row
+    // (repository.go:730). So when the winner and loser are the SAME user, the
+    // loser's uncheck deletes the only row and CheckLWW then finds none → the
+    // uncheck WINS (no 409), never exercising the conflict path. Making the uncheck
+    // LOSE deterministically needs the WINNER's row to survive the loser's
+    // per-(field,user) DELETE — i.e. a DISTINCT winner user — AND a strict write
+    // ORDER, because the entity lamport is stored per-FIELD (ops.go:148 updates ALL
+    // rows for the field). So:
+    //   1. Loser CHECKS first on the empty field → wins (first write), field
+    //      lamport = 1, loser holds a row.
+    //   2. THEN a distinct user seeds the winning CHECKED box at lamport 5000000 →
+    //      beats the field's lamport 1 deterministically (incoming > current
+    //      regardless of which row CheckLWW's LIMIT 1 reads).
+    //   3. Loser UNCHECKS (null) → DELETEs only the loser's row; the winner's row
+    //      (lamport 5000000) is the sole remaining row, so CheckLWW returns it
+    //      deterministically → 409 with the winning `true` value.
+    const { ctx, page, fieldId } = await openConflictLoser(browser, 'MX Conflict Checkbox',
+      CHECKBOX_F('Wipe counters', 0));
+
+    // Step 1: loser CHECKS on the empty field — wins, and now holds a draft row.
+    const cb = page.locator('.check-btn[data-field-id="' + fieldId + '"]');
+    const firstWrite = page.waitForResponse(
+      res => res.url().includes('/api/v1/workflow/ops') && res.request().method() === 'POST',
+      { timeout: CONVERGE_TIMEOUT });
+    await cb.click();
+    await expect(cb).toHaveClass(/checked/);
+    await firstWrite;
+
+    // Step 2: a distinct user seeds the winning CHECKED box at a high Lamport ts.
+    const winner = await createSecondUser(browser);
+    const winnerCtx = await seedConflictWinner(browser, fieldId, true, winner.email, winner.password);
+
+    // Step 3: loser UNCHECKS — a stale null write that loses LWW to the winner.
+    const resp409 = waitLoser409(page);
+    await cb.click();
+    await expect(cb).not.toHaveClass(/checked/); // rejected uncheck shown first
+    expect((await resp409).status(), 'loser uncheck must lose LWW (409)').toBe(409);
+
+    // Converge back to CHECKED — the WINNER. A broken path would leave it unchecked.
+    await expect(page.locator('.check-btn[data-field-id="' + fieldId + '"]'))
+      .toHaveClass(/checked/, { timeout: CONVERGE_TIMEOUT });
+
+    await ctx.close(); await winnerCtx.close();
   });
 });
