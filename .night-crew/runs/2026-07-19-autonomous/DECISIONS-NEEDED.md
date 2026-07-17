@@ -1,5 +1,11 @@
 # DECISIONS-NEEDED — overnight-20260719 (for the operator, morning of 2026-07-19)
 
+> **RESOLVED 2026-07-19 — recorded in `ledger.md` §"Morning-triage resolutions (2026-07-19)" (T-16).**
+> Run merged to `dev` `--no-ff` (`a8854c3`). No open forks: §A empty (no PARK), §C resolved at run
+> close (operator chose graduate → BACKLOG `suite-isolation-approved-checklist`), §B (the 2 PENDING
+> prod KRs) **deferred** to the attended Activity-7 ship step (operator, 2026-07-19). Kept as the
+> run's analysis record.
+
 > Forks/exceptions from the cycle-gate closeout that need an operator decision or attended action.
 > **This run never decides — it executes** (launch contract). The gate PASSED attested; no card was
 > parked (the PARK trigger did not fire). What follows is **not** an improvised fork — it is the

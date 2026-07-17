@@ -86,3 +86,24 @@ suite-logs + this HANDOFF + DECISIONS-NEEDED).
    then `task version` parity + the `trim(description)=''` count. This formally closes the milestone.
 4. **Then `/nc-okr-session`** to open the next cycle and consume the carried backlog (waiver-#1 last
    mile · per-card timing instrumentation · editprop follow-ups F-B/F-C/F-E/D-1).
+
+## Triage disposition (2026-07-19) — merged, no open forks
+
+Merged to `dev` `--no-ff` (`a8854c3`) after attended review: `go build`+`go vet` green, diff
+planning-docs only (code tree identical to `dev`), G4/replay checks N/A for HQ. Recorded as
+`ledger.md` §"Morning-triage resolutions (2026-07-19)" (T-16). `dev` pushed to `origin/dev`.
+
+**Standing flags after triage:**
+- **No open forks.** §A empty (no PARK) · §C resolved at run close (waiver-#1 WO graduated →
+  BACKLOG) · §B (2 PENDING prod KRs) **deferred** to the attended Activity-7 ship step.
+- **Prod-deploy / attended-convergence flags: satisfied** — this run touched no verify/prod/DB path;
+  they re-arm when that path changes. **Convergence no-retry hard gate: discharged/adoptable**
+  (exercised at the gate, 39/39 × 3 under `--retries=0`). **DB flag: satisfied** (isolated pg16
+  canonical). **Frontend semver: untouched** (no asset change).
+- **Milestone stays formally open** until Activity 7 flips the 2 PENDING prod KRs. `main` untouched;
+  `dev → main` promotion is a separate decision.
+
+**Cards unblocked:** Activity 7 (`prod-ghost-item-rename`, `prod-deploy-parity`) is the only
+remaining milestone work — attended, deferred by operator choice. Next planning move is
+`/nc-okr-session` (milestone boundary; consume the carried backlog), **after** Activity 7 closes the
+2 PENDING KRs.

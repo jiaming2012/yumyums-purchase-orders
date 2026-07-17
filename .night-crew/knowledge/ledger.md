@@ -555,3 +555,43 @@ AI-matching subcases with no `ANTHROPIC_API_KEY`) — identical to pre-merge `de
   feedstock). Eng KR5 stays PARTIAL for this gate of record; flips to PASS when the WO lands literal
   `task test` exit-0. Two fix-forwards also graduated to BACKLOG: per-card timing instrumentation
   (Delivery-median) and `CI=1`+pre-migration gate run-mechanics.
+
+## Morning-triage resolutions (2026-07-19) — `overnight-20260719`
+
+> HQ records triage resolutions here (no `DESIGN.md §15x` in this repo — established convention
+> since 2026-07-10). This is the operator-attended review + merge of the cycle-gate run.
+
+Review verdict: 2 commits, both `docs(night-crew):`; diff **100% planning-docs** (20,524 insertions
+across 24 files — the bulk is the `pw-results.json` evidence artifact + suite logs; **0 code/frontend/
+test files touched**, code tree identical to `dev`). `go build ./...` + `go vet ./...` green on the
+branch and on the merged tree. G4 discipline greps + `replay_test`/`testdata` checks **N/A for HQ**
+(the night-crew orchestration packages those target — `internal/journal`, `internal/orchestration`,
+`internal/workorder`, `replay_test.go` — do not exist here). Full-suite evidence is the run's own
+Card 1 (450 pass · 1 fail · 0 flaky · 6 skip; the 1 red isolation-confirmed cross-test pollution;
+Go units exit-0) against code identical to `dev` — not re-run at triage (nothing to regress). **0
+cards parked** (PARK trigger did not fire). Merged to `dev` `--no-ff` (`a8854c3`).
+
+- **T-16 — Cycle gate ratified at triage; "Nothing silently lost" closed on dev-side evidence.**
+  The gate scorecard (11 PASS · 2 PARTIAL · 2 PENDING · 1 N/A, T-15) is accepted as the cycle's
+  record. Waiver #2 retired; waiver #1 carried (reduced 38→1) as the graduated WO. No open forks
+  remained at triage — DECISIONS-NEEDED §A empty, §C already resolved at run close (operator chose
+  graduate), §B is the planned attended Activity-7 step, not a fork. Chosen over holding the gate
+  for a cold full-suite re-run: the diff is docs-only, build+vet are green, and the run's Card 1 is
+  itself the independent full-suite evidence against identical code — a re-run would only reproduce
+  it (and re-spin the isolated pg16 for ~35m) with no new signal.
+- **Activity 7 (attended prod ship) — DEFERRED (operator, 2026-07-19).** The 2 PENDING prod KRs
+  (Delivery prod-parity, QA prod-ghost-item) stay PENDING; the operator chose to defer the attended
+  Activity-7 ship (`task prod:deploy` + prod ghost-item rename + 2 verify queries, ~15m attended)
+  rather than run it in the triage session. The milestone stays formally open until Activity 7 flips
+  both KRs. Exact commands preserved in `runs/2026-07-19-autonomous/DECISIONS-NEEDED.md §B`. Nothing
+  unattended is blocked by the defer. Chosen over do-now: operator attention budget — the ship is a
+  short attended task the operator can run when ready; the gate's green attestation (the precondition
+  for shipping) is already banked.
+- **Standing flags after triage.** This run touched **no production/verify/DB path** (read-only
+  closeout) — the attended two-device convergence / prod-deploy flags stay **satisfied** and re-arm
+  only when the verify/merge/prod path changes underneath them. DB flag stays satisfied (isolated
+  Docker pg16 is canonical). The **convergence no-retry hard gate** is now a discharged, adoptable
+  gate (`cycle-gate` exercised it: 39/39 × 3 under `--retries=0`). Frontend semver untouched (no
+  asset change; the bump belongs to `/save-project` at deploy, not triage). `dev` pushed to
+  `origin/dev` at triage close (the one sanctioned push); `dev → main` promotion stays a separate
+  decision. `main` untouched.
