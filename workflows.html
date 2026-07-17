@@ -207,8 +207,33 @@ function debouncedSaveField(fieldId, value) {
       }
       const result = await submitOp('SET_FIELD', fieldId, 'field_response', { value: saveValue, field_id: fieldId });
       if (result && result._conflict) {
-        const winner = result.winner;
-        store.set('fieldResponses', fieldId, { value: winner.value });
+        // LWW loss (FR-9, INV-1): the DB rejected our optimistic value. Converge
+        // the rendered field to the WINNING value so the screen never keeps
+        // showing a value the DB rejected. The 409 body carries the winning op
+        // (`winner.payload` — same {field_id, value, ...} shape our own SET_FIELD
+        // uses), so apply it through the exact path a live remote op takes: the
+        // loser converges identically to every observer. Silent — we surface our
+        // own "Conflict resolved" toast below instead of applyOp's "updated by".
+        // api() (sync.js:26-28) returns { _conflict, winner: <409-body> } and the
+        // body itself is { _conflict, winner: { device_id, lamport_ts, payload } },
+        // so the winning-op descriptor is nested one level in. Tolerate either
+        // shape defensively.
+        const body = result.winner || {};
+        const winner = body.winner || body;
+        if (winner.payload && typeof winner.payload === 'object') {
+          applyOp({
+            op_type: 'SET_FIELD',
+            device_id: winner.device_id,
+            lamport_ts: winner.lamport_ts,
+            server_ts: new Date().toISOString(),
+            payload: winner.payload,
+          }, true);
+        } else {
+          // Defensive: winning value absent from the body — re-fetch the
+          // checklist's current field state via the existing mechanism and
+          // re-render so the rejected optimistic value cannot survive.
+          await loadMyChecklists();
+        }
         renderFieldResponse(fieldId);
         flashField(fieldId);
         enqueueSyncToast(null, 'Conflict resolved', [fieldId]);

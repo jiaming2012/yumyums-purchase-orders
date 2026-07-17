@@ -63,7 +63,7 @@
   insert swallows failure (`handler.go:614-622`, `ON CONFLICT DO NOTHING`, error logged
   not surfaced) while the approver sees "Approved". Red-first Go test forcing the failed
   insert. Footprint: workflow engine (backend). → QA KR2, PRD FR-6 (INV-1).
-- **`engine-conflict-refetch`** · PLANNED · A device whose field write loses LWW (409)
+- **`engine-conflict-refetch`** · DONE ✅ overnight-20260717 (G6 PASS `363bafb`; red→green re-verified + deterministic 3/3 — LWW loser now re-renders the DB-winning value from the 409 body via applyOp; fixed a double-wrap in api()'s 409 return; no backend/schema change. Note: only text/textarea convergence is conflict-branch-tested) · A device whose field write loses LWW (409)
   re-fetches and renders the winning value instead of keeping the stale render
   (`sync.js` conflict path). Red-first E2E. Footprint: workflow engine (`sync.js`).
   → QA KR2, PRD FR-7 (INV-1).

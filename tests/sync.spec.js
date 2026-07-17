@@ -1181,3 +1181,91 @@ test.describe('Convergence matrix (W-3): lifecycle + list progress', () => {
     await ctxB.close();
   });
 });
+
+// ─── W-6: LWW conflict re-fetch/re-render ────────────────────────────────────
+// When a field write loses last-writer-wins (409, api() returns
+// {_conflict, winner}), the LOSING device must converge its RENDERED field to
+// the WINNING value carried in the 409 body — the screen must never keep
+// showing a value the DB rejected (FR-9, INV-1). Two-context E2E: context A is
+// the loser (WebSocket stubbed dead so its ONLY path to the winning value is
+// the conflict handler, not a live WS broadcast), context B seeds the winner.
+test.describe('Engine: LWW conflict re-renders the winning value (W-6)', () => {
+  test('losing device renders the winning field value after a 409, not its rejected value [FR-9 INV-1]', async ({ browser }) => {
+    test.setTimeout(120000);
+
+    // Context A — the LOSING device. Stub WebSocket BEFORE load so no live op
+    // ever reaches A: its only route to the winning value is the 409 response.
+    const ctxA = await browser.newContext();
+    await ctxA.addInitScript(() => {
+      class DeadSocket { constructor() { this.readyState = 3; } close() {} send() {} }
+      DeadSocket.CONNECTING = 0; DeadSocket.OPEN = 1; DeadSocket.CLOSING = 2; DeadSocket.CLOSED = 3;
+      window.WebSocket = DeadSocket;
+    });
+    const page = await ctxA.newPage();
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await cleanupPendingApprovals(page);
+    await cleanupTemplates(page);
+
+    const dow = await getTodayDOW(page);
+    await apiCall(page, 'POST', 'createTemplate', {
+      name: 'MX Conflict', requires_approval: false,
+      sections: [{ title: 'S', order: 0, condition: null, fields: [
+        { type: 'text', label: 'Notes', required: false, order: 0, config: {}, fail_trigger: null, condition: null },
+      ] }],
+      schedules: [{ active_days: [dow] }],
+      assignments: [{ assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' }],
+    });
+
+    // A opens the runner and locates the text field.
+    await page.reload();
+    await expect(page.locator('#s1').getByText('MX Conflict')).toBeVisible({ timeout: RUNNER_TIMEOUT });
+    await page.click('[data-fill-template-id]');
+    await page.waitForSelector('.fill-textarea', { timeout: RUNNER_TIMEOUT });
+    const fieldId = await page.locator('.fill-textarea').first().getAttribute('data-field-id');
+
+    // Force A permanently stale: pin its Lamport tick to 1 (well below the
+    // winner's 5000000) and neutralise catch-up + clock-receive so nothing can
+    // climb A above the winner. This makes A lose LWW deterministically — the
+    // whole point of the test is the LOSING branch.
+    await page.evaluate(() => {
+      window.wsCatchUp = async () => {};
+      if (window.LAMPORT_CLOCK) {
+        window.LAMPORT_CLOCK.receive = async () => {};
+        window.LAMPORT_CLOCK._ts = 0;
+        window.LAMPORT_CLOCK.tick = async () => 1;
+      }
+    });
+
+    // Context B — the WINNING device. Seed the winning value with a high Lamport
+    // timestamp so any later stale write from A loses LWW deterministically.
+    const ctxB = await browser.newContext();
+    const pageB = await ctxB.newPage();
+    await login(pageB);
+    const seedRes = await apiCall(pageB, 'POST', 'ops', {
+      op_type: 'SET_FIELD', entity_id: fieldId, entity_type: 'field_response',
+      payload: { field_id: fieldId, value: 'WINNER' },
+      lamport_ts: 5000000, device_id: 'zzz-winner-device',
+    });
+    expect(seedRes && !seedRes._conflict, 'seed write must win, not conflict').toBeTruthy();
+
+    // A writes its own (stale) value → optimistic UI shows 'LOSER' → server 409.
+    const opsResp = page.waitForResponse(
+      res => res.url().includes('/api/v1/workflow/ops') && res.request().method() === 'POST',
+      { timeout: CONVERGE_TIMEOUT }
+    );
+    const textarea = page.locator('.fill-textarea').first();
+    await textarea.fill('LOSER');
+    await textarea.blur(); // blur → debouncedSaveField('LOSER') → POST /ops → 409
+    await expect(textarea).toHaveValue('LOSER'); // optimistic: rejected value shown first
+    expect((await opsResp).status(), 'A must lose LWW (409)').toBe(409);
+
+    // After the 409 resolves, A's rendered field MUST show the WINNING value —
+    // never 'LOSER' and never an empty/undefined divergence.
+    const converged = page.locator('.fill-textarea[data-field-id="' + fieldId + '"]');
+    await expect(converged).toHaveValue('WINNER', { timeout: CONVERGE_TIMEOUT });
+
+    await ctxA.close();
+    await ctxB.close();
+  });
+});
