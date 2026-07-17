@@ -126,7 +126,7 @@ func UpsertRepurchaseResetConfig(ctx context.Context, pool *pgxpool.Pool, dayOfW
 
 // runRepurchaseResetCheck checks if the configured reset time has passed since last_reset_at
 // and resets badge visibility if so. Called from the scheduler tick.
-func runRepurchaseResetCheck(ctx context.Context, pool *pgxpool.Pool) {
+func runRepurchaseResetCheck(ctx context.Context, pool *pgxpool.Pool, now func() time.Time) {
 	cfg, err := GetRepurchaseResetConfig(ctx, pool)
 	if err != nil {
 		slog.Error("repurchase reset GetRepurchaseResetConfig error", "error", err)
@@ -148,17 +148,17 @@ func runRepurchaseResetCheck(ctx context.Context, pool *pgxpool.Pool) {
 		return
 	}
 
-	now := time.Now().In(loc)
+	nowT := now().In(loc)
 
 	// Find the most recent occurrence of (day_of_week, hour, minute) in the past
 	targetWeekday := time.Weekday(cfg.DayOfWeek)
-	daysBack := int(now.Weekday()) - int(targetWeekday)
+	daysBack := int(nowT.Weekday()) - int(targetWeekday)
 	if daysBack < 0 {
 		daysBack += 7
 	}
-	resetCandidate := time.Date(now.Year(), now.Month(), now.Day()-daysBack, hour, minute, 0, 0, loc)
+	resetCandidate := time.Date(nowT.Year(), nowT.Month(), nowT.Day()-daysBack, hour, minute, 0, 0, loc)
 
-	if !now.After(resetCandidate) {
+	if !nowT.After(resetCandidate) {
 		return // reset time hasn't passed this week
 	}
 

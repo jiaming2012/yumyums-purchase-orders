@@ -127,7 +127,7 @@
   guard-return becomes a real seeded assertion or is deleted (denominator = the audit that
   produced the 18). Footprint: test-debt (audit-scoped). → QA KR1, retires carried
   waiver #2.
-- **`carried-fix-wos-sweep`** · PLANNED · The carried prove-sweep fix-WO with no harness
+- **`carried-fix-wos-sweep`** · DONE ✅ overnight-20260717 (G6 PASS `0e49c20`; `now func() time.Time` seam on all 4 run*Check funcs — production still time.Now — + 13 mock-time cron-decision subtests, behavioral red→green re-verified. Unblocks Purchasing FR-19–22, PARKed in 07-15 B4 for lack of a clock seam) · The carried prove-sweep fix-WO with no harness
   dependency: `WO-cron-clock-seam` (a `now` seam in the 4 `run*Check` funcs + real
   cron-decision unit tests — unblocks P-6, Purchasing FR-19/20/21/22). The other two
   prove-sweep PARKs (photo-S3 harness, offline-IndexedDB harness) are deferred this cycle

@@ -42,16 +42,19 @@ func StartScheduler(ctx context.Context, pool *pgxpool.Pool) {
 }
 
 // runSchedulerTick runs cutoff check, reminder check, low-stock alert check, and repurchase reset check on each tick.
+//
+// Production passes time.Now as the injectable clock seam; unit tests inject a
+// frozen clock to assert cron decisions deterministically (carried-fix-wos-sweep).
 func runSchedulerTick(ctx context.Context, pool *pgxpool.Pool) {
-	runCutoffCheck(ctx, pool)
-	runReminderCheck(ctx, pool)
-	runLowStockCheck(ctx, pool)
-	runRepurchaseResetCheck(ctx, pool)
+	runCutoffCheck(ctx, pool, time.Now)
+	runReminderCheck(ctx, pool, time.Now)
+	runLowStockCheck(ctx, pool, time.Now)
+	runRepurchaseResetCheck(ctx, pool, time.Now)
 }
 
 // runReminderCheck sends a 24-hour cutoff reminder to crew members if it hasn't been
 // sent yet this week (D-08: single reminder, idempotent via alert_log table).
-func runReminderCheck(ctx context.Context, pool *pgxpool.Pool) {
+func runReminderCheck(ctx context.Context, pool *pgxpool.Pool, now func() time.Time) {
 	if alertQueue == nil {
 		return // alerts not configured — skip silently
 	}
@@ -77,30 +80,30 @@ func runReminderCheck(ctx context.Context, pool *pgxpool.Pool) {
 		return
 	}
 
-	now := time.Now().In(loc)
+	nowT := now().In(loc)
 
 	// Compute the cutoff time this week
 	targetWeekday := time.Weekday(config.DayOfWeek)
-	daysAhead := int(targetWeekday) - int(now.Weekday())
+	daysAhead := int(targetWeekday) - int(nowT.Weekday())
 	if daysAhead < 0 {
 		daysAhead += 7
 	}
-	cutoffTime := time.Date(now.Year(), now.Month(), now.Day()+daysAhead, hour, minute, 0, 0, loc)
+	cutoffTime := time.Date(nowT.Year(), nowT.Month(), nowT.Day()+daysAhead, hour, minute, 0, 0, loc)
 
 	// Reminder window: 24h to 23h before cutoff (check within a 1-hour window to match 15m tick)
 	reminderWindowStart := cutoffTime.Add(-24 * time.Hour)
 	reminderWindowEnd := cutoffTime.Add(-23 * time.Hour)
 
-	if now.Before(reminderWindowStart) || now.After(reminderWindowEnd) {
+	if nowT.Before(reminderWindowStart) || nowT.After(reminderWindowEnd) {
 		return // not in reminder window
 	}
 
 	// Determine week_start for this cutoff (Monday of the week the cutoff applies to)
-	weekday := int(now.Weekday())
+	weekday := int(nowT.Weekday())
 	if weekday == 0 {
 		weekday = 7
 	}
-	monday := now.AddDate(0, 0, -(weekday - 1))
+	monday := nowT.AddDate(0, 0, -(weekday - 1))
 	weekStart := monday.Format("2006-01-02")
 
 	// Idempotency check: was the reminder already sent this week?
@@ -164,7 +167,7 @@ func runReminderCheck(ctx context.Context, pool *pgxpool.Pool) {
 
 // runCutoffCheck loads the cutoff config, determines whether the cutoff time
 // has passed this week, and locks the current draft PO if so.
-func runCutoffCheck(ctx context.Context, pool *pgxpool.Pool) {
+func runCutoffCheck(ctx context.Context, pool *pgxpool.Pool, now func() time.Time) {
 	config, err := GetCutoffConfig(ctx, pool)
 	if err != nil {
 		slog.Error("cutoff scheduler GetCutoffConfig error", "error", err)
@@ -189,20 +192,20 @@ func runCutoffCheck(ctx context.Context, pool *pgxpool.Pool) {
 		return
 	}
 
-	now := time.Now().In(loc)
+	nowT := now().In(loc)
 
 	// Find the most recent occurrence of day_of_week + cutoff hour:minute in loc
 	// config.DayOfWeek: 0=Sunday, 6=Saturday (matches time.Weekday)
 	targetWeekday := time.Weekday(config.DayOfWeek)
-	daysBack := int(now.Weekday()) - int(targetWeekday)
+	daysBack := int(nowT.Weekday()) - int(targetWeekday)
 	if daysBack < 0 {
 		daysBack += 7
 	}
-	cutoffCandidate := time.Date(now.Year(), now.Month(), now.Day()-daysBack, hour, minute, 0, 0, loc)
+	cutoffCandidate := time.Date(nowT.Year(), nowT.Month(), nowT.Day()-daysBack, hour, minute, 0, 0, loc)
 
 	// If the cutoff is in the future (i.e., today is cutoff day but not yet time), it hasn't passed
-	if !now.After(cutoffCandidate) {
-		slog.Info("cutoff scheduler cutoff has not yet passed", "cutoff_at", cutoffCandidate.Format(time.RFC3339), "now", now.Format(time.RFC3339))
+	if !nowT.After(cutoffCandidate) {
+		slog.Info("cutoff scheduler cutoff has not yet passed", "cutoff_at", cutoffCandidate.Format(time.RFC3339), "now", nowT.Format(time.RFC3339))
 		return
 	}
 
@@ -244,7 +247,7 @@ func runCutoffCheck(ctx context.Context, pool *pgxpool.Pool) {
 
 // runLowStockCheck queries items below their group's low threshold and sends an alert for any
 // that haven't been alerted this week (ALRT-02 idempotency via low_stock_alert_log).
-func runLowStockCheck(ctx context.Context, pool *pgxpool.Pool) {
+func runLowStockCheck(ctx context.Context, pool *pgxpool.Pool, now func() time.Time) {
 	if alertQueue == nil {
 		return // alerts not configured — skip silently
 	}
@@ -263,20 +266,20 @@ func runLowStockCheck(ctx context.Context, pool *pgxpool.Pool) {
 		slog.Error("low-stock check invalid timezone", "timezone", tzName, "error", err)
 		loc, _ = time.LoadLocation(users.DefaultTimezone)
 	}
-	now := time.Now().In(loc)
-	weekday := int(now.Weekday())
+	nowT := now().In(loc)
+	weekday := int(nowT.Weekday())
 	if weekday == 0 {
 		weekday = 7
 	}
-	monday := now.AddDate(0, 0, -(weekday - 1))
+	monday := nowT.AddDate(0, 0, -(weekday - 1))
 	weekStart := monday.Format("2006-01-02")
 
 	// Query all stock items with their quantities and thresholds.
 	// Uses the same approach as GetSuggestions: purchase_line_items → purchase_items → item_groups.
 	type stockRow struct {
-		description  string
-		currentStock int
-		lowThreshold int
+		description   string
+		currentStock  int
+		lowThreshold  int
 		highThreshold int
 	}
 
