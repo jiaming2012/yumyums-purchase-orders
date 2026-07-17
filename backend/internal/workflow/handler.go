@@ -35,6 +35,11 @@ var SubmitChecklistFunc = submitChecklist
 // ValidateFailNotesFunc is the exported alias for validateFailNotes.
 var ValidateFailNotesFunc = validateFailNotes
 
+// ValidateResubmitPhotoFunc is the exported alias for validateResubmitPhoto, so
+// the opsync submit path (cmd/server) enforces the same rejection-driven photo
+// gate as the REST SubmitChecklistHandler.
+var ValidateResubmitPhotoFunc = validateResubmitPhoto
+
 // ApproveSubmissionFunc is the exported alias for approveSubmission.
 var ApproveSubmissionFunc = approveSubmission
 
@@ -111,6 +116,71 @@ func validateFailNotes(ctx context.Context, pool *pgxpool.Pool, input SubmitChec
 		}
 		if !isHTTPSPhotoValue(respValues[id]) {
 			return fmt.Errorf("photo_required")
+		}
+	}
+	return nil
+}
+
+// validateResubmitPhoto closes the rejection-driven photo hole server-side.
+//
+// The field-level gate in validateFailNotes only covers photo-*type* fields.
+// This gate covers the *rejection* case: an approver can bounce ANY field back
+// with require_photo=true (a submission_rejections row). The fill UI then forces
+// the crew to attach a photo before resubmitting — but a direct-API resubmit
+// bypasses that UI, so the requirement must be enforced here too.
+//
+// A resubmit is a fresh submission, so the "this field was rejected with a photo
+// requirement" fact is resolved from the DB by lineage (template_id + submitter),
+// keyed to the submitter's MOST RECENT prior submission of this template —
+// mirroring the frontend's "no newer submission" rule. It is deliberately NOT
+// read from any client-supplied flag: a direct-API attacker controls the input,
+// so the gate trusts only submission_rejections.
+func validateResubmitPhoto(ctx context.Context, pool *pgxpool.Pool, input SubmitChecklistInput, userID string) error {
+	if input.TemplateID == "" || userID == "" {
+		return nil
+	}
+	rows, err := pool.Query(ctx,
+		`SELECT sr.field_id::text
+		   FROM submission_rejections sr
+		   JOIN checklist_submissions cs ON cs.id = sr.submission_id
+		  WHERE cs.template_id = $1
+		    AND cs.submitted_by = $2
+		    AND sr.require_photo = true
+		    AND cs.id = (
+		          SELECT id FROM checklist_submissions
+		           WHERE template_id = $1 AND submitted_by = $2
+		           ORDER BY submitted_at DESC
+		           LIMIT 1
+		        )`,
+		input.TemplateID, userID,
+	)
+	if err != nil {
+		return fmt.Errorf("load resubmit photo requirements: %w", err)
+	}
+	defer rows.Close()
+
+	requirePhoto := map[string]bool{}
+	for rows.Next() {
+		var fid string
+		if err := rows.Scan(&fid); err != nil {
+			return fmt.Errorf("scan resubmit photo requirement: %w", err)
+		}
+		requirePhoto[fid] = true
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("iterate resubmit photo requirements: %w", err)
+	}
+	if len(requirePhoto) == 0 {
+		return nil
+	}
+
+	respValues := map[string]json.RawMessage{}
+	for _, resp := range input.Responses {
+		respValues[resp.FieldID] = resp.Value
+	}
+	for fid := range requirePhoto {
+		if !isHTTPSPhotoValue(respValues[fid]) {
+			return fmt.Errorf("resubmit_photo_required")
 		}
 	}
 	return nil
@@ -553,6 +623,14 @@ func SubmitChecklistHandler(pool *pgxpool.Pool) http.HandlerFunc {
 
 		// Validate: fields with triggered fail conditions must have a corrective action
 		if err := validateFailNotes(r.Context(), pool, input); err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+
+		// Validate: a field the approver bounced back with require_photo must carry
+		// a photo on resubmit — enforced server-side (resolved from the DB, not a
+		// client flag) so a direct-API resubmit cannot bypass the fill-UI gate.
+		if err := validateResubmitPhoto(r.Context(), pool, input, user.ID); err != nil {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}

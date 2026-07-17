@@ -67,7 +67,7 @@
   re-fetches and renders the winning value instead of keeping the stale render
   (`sync.js` conflict path). Red-first E2E. Footprint: workflow engine (`sync.js`).
   → QA KR2, PRD FR-7 (INV-1).
-- **`ops-nfr3-resubmit-photo-gate`** · PLANNED · Carried fix-card: plumb rejection context
+- **`ops-nfr3-resubmit-photo-gate`** · DONE ✅ overnight-20260717 (G6 PASS `01c8f7e`; red→green re-verified — direct-API resubmit of a require_photo-rejected field: 201 bypass → 400 resubmit_photo_required; server-side gate resolved from submission_rejections on the authenticated submitter's most-recent prior submission, both direct-API submit paths; no client-controllable escape) · Carried fix-card: plumb rejection context
   into submit validation so a rejected-with-`require_photo` field blocks direct-API
   resubmit server-side; red-first. Footprint: workflow engine (backend). → QA KR2
   (red-first denominator), carried from hardening cycle (ledger T-10).

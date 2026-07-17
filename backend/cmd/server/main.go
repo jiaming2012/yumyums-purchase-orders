@@ -78,6 +78,9 @@ func workflowOpRouter(pool *pgxpool.Pool) opsync.OpRouter {
 			if err := workflow.ValidateFailNotesFunc(ctx, pool, input); err != nil {
 				return nil, routerErr(http.StatusBadRequest, err.Error())
 			}
+			if err := workflow.ValidateResubmitPhotoFunc(ctx, pool, input, userID); err != nil {
+				return nil, routerErr(http.StatusBadRequest, err.Error())
+			}
 			id, err := workflow.SubmitChecklistFunc(ctx, pool, input, userID)
 			if err != nil {
 				if errors.Is(err, workflow.ErrTemplateArchived) {
