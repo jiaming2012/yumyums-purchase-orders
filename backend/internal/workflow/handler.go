@@ -635,18 +635,24 @@ func ApproveSubmissionHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
-		// Save feedback comments as rejection records on the approved submission
+		// Save feedback comments as rejection records on the approved submission.
+		// INV-1/FR-8: the approval reports success only if the comment is durably
+		// stored. A failed insert must surface loudly — never a swallowed
+		// slog.Error behind a false "Approved". (No ON CONFLICT DO NOTHING: the
+		// table has no unique constraint to conflict on, so the clause only masked
+		// intent — every feedback row must persist or the caller is told.)
 		for _, fb := range body.Feedback {
 			if fb.FieldID == "" || fb.Comment == "" {
 				continue
 			}
 			if _, err := pool.Exec(r.Context(),
 				`INSERT INTO submission_rejections (submission_id, field_id, comment, require_photo, rejected_by)
-				 VALUES ($1, $2, $3, $4, $5)
-				 ON CONFLICT DO NOTHING`,
+				 VALUES ($1, $2, $3, $4, $5)`,
 				body.SubmissionID, fb.FieldID, fb.Comment, fb.RequirePhoto, user.ID,
 			); err != nil {
-				slog.Error("save approval feedback", "error", err)
+				slog.Error("save approval feedback", "error", err, "submission_id", body.SubmissionID, "field_id", fb.FieldID)
+				writeError(w, http.StatusInternalServerError, "feedback_persist_failed")
+				return
 			}
 		}
 		if payload, merr := json.Marshal(map[string]any{"submission_id": body.SubmissionID}); merr == nil {

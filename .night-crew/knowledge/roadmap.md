@@ -58,7 +58,7 @@
 > the *permanent* architecture — see Activity 5's `editprop-stable-field-identity`
 > (upsert + loud rejection). These tombstones stay so the morning's card names resolve.
 
-- **`engine-approval-feedback-loud`** · PLANNED · An approval with a feedback comment only
+- **`engine-approval-feedback-loud`** · DONE ✅ overnight-20260717 (G6 PASS `f1cf912`; red→green re-verified — failed submission_rejections persist now returns 500 feedback_persist_failed instead of false "Approved"; ON CONFLICT DO NOTHING removed, proven behavior-neutral. Follow-up logged: approval+feedback atomicity via tx through approveSubmission) · An approval with a feedback comment only
   reports success if the comment is durably stored — today the `submission_rejections`
   insert swallows failure (`handler.go:614-622`, `ON CONFLICT DO NOTHING`, error logged
   not surfaced) while the approver sees "Approved". Red-first Go test forcing the failed
