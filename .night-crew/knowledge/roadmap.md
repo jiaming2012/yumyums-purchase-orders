@@ -180,11 +180,18 @@
 
 ## Activity 8 — Cycle gate · *last, serialized*
 
-- **`cycle-gate`** · PLANNED · Suite-green attestation on the deterministic stack
-  (`task test` exit 0 — formally retires carried waiver #1); median WO cycle time vs the
-  recorded baseline (first cycle with a pass/fail target); per-KR scorecard; closeout doc.
-  **No-retry hard gate now adoptable** — the convergence-suite rider was retired at triage
-  2026-07-18 (Activity 6 complete). → Eng KR "task test exits 0", Delivery KR "median WO cycle".
+- **`cycle-gate`** · **DONE** ✅ overnight-20260719 (gate **PASS attested**, "Gate now, prod KRs
+  pending" posture; `reference/cycle-closeout-20260719.md`) · **Milestone boundary — "Nothing
+  silently lost" closed on dev-side evidence.** Scorecard **11 PASS · 2 PARTIAL · 2 PENDING · 1
+  N/A** (16 KRs). Suite on isolated pg16: **Go units exit-0** + **Playwright 450 pass · 1 fail · 0
+  flaky · 6 skip**; the 1 red is isolation-confirmed cross-test DB-pollution (greens alone) → **0
+  uncategorized, no PARK**. Convergence suite **39/39 × 3 under `--retries=0`** (no-retry hard gate
+  proven). **Waiver #2 RETIRED** (`3fd4d3f`). **Waiver #1 substantially retired (38→1 red) but NOT
+  formally** — 1 pollution red keeps literal `task test` from exit-0 → Eng KR5 PARTIAL, carried.
+  **2 prod KRs PENDING → Activity 7** (attended ship: parity + ghost-item, exact commands in the
+  closeout + DECISIONS-NEEDED). Median WO cycle PARTIAL (07-17 per-card timing gap). Suite-green
+  attestation; median WO cycle vs baseline; per-KR scorecard; closeout doc — all delivered.
+  → Eng KR "task test exits 0" (PARTIAL), Delivery KR "median WO cycle" (PARTIAL).
 
 ---
 

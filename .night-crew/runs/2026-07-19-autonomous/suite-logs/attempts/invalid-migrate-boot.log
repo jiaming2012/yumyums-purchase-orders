@@ -1,0 +1,98 @@
+{"time":"2026-07-17T11:43:21.526220696-04:00","level":"INFO","msg":"serving static files from disk","dir":"../"}
+{"time":"2026-07-17T11:43:21.526645241-04:00","level":"INFO","msg":"loaded superadmins","count":1}
+{"time":"2026-07-17T11:43:21.547256905-04:00","level":"INFO","msg":"connected to database"}
+{"time":"2026-07-17T11:43:21.619148852-04:00","level":"INFO","msg":"OK   0001_users.sql (42.83ms)","source":"stdlog"}
+{"time":"2026-07-17T11:43:21.67481975-04:00","level":"INFO","msg":"OK   0002_sessions.sql (55.31ms)","source":"stdlog"}
+{"time":"2026-07-17T11:43:21.716759843-04:00","level":"INFO","msg":"OK   0003_invite_tokens.sql (41.85ms)","source":"stdlog"}
+{"time":"2026-07-17T11:43:21.756634446-04:00","level":"INFO","msg":"OK   0004_hq_apps.sql (39.78ms)","source":"stdlog"}
+{"time":"2026-07-17T11:43:21.81155777-04:00","level":"INFO","msg":"OK   0005_app_permissions.sql (54.71ms)","source":"stdlog"}
+{"time":"2026-07-17T11:43:21.843540439-04:00","level":"INFO","msg":"OK   0006_checklist_templates.sql (31.78ms)","source":"stdlog"}
+{"time":"2026-07-17T11:43:21.877277058-04:00","level":"INFO","msg":"OK   0007_checklist_schedules.sql (33.59ms)","source":"stdlog"}
+{"time":"2026-07-17T11:43:21.921478255-04:00","level":"INFO","msg":"OK   0008_template_assignments.sql (44.04ms)","source":"stdlog"}
+{"time":"2026-07-17T11:43:21.95457602-04:00","level":"INFO","msg":"OK   0009_checklist_sections.sql (32.98ms)","source":"stdlog"}
+{"time":"2026-07-17T11:43:21.987459999-04:00","level":"INFO","msg":"OK   0010_checklist_fields.sql (32.79ms)","source":"stdlog"}
+{"time":"2026-07-17T11:43:22.029973358-04:00","level":"INFO","msg":"OK   0011_checklist_submissions.sql (42.42ms)","source":"stdlog"}
+{"time":"2026-07-17T11:43:22.083557042-04:00","level":"INFO","msg":"OK   0012_submission_responses.sql (53.49ms)","source":"stdlog"}
+{"time":"2026-07-17T11:43:22.116455642-04:00","level":"INFO","msg":"OK   0013_submission_fail_notes.sql (32.81ms)","source":"stdlog"}
+{"time":"2026-07-17T11:43:22.150309754-04:00","level":"INFO","msg":"OK   0014_submission_rejections.sql (33.69ms)","source":"stdlog"}
+{"time":"2026-07-17T11:43:22.203855214-04:00","level":"INFO","msg":"OK   0015_ops.sql (53.42ms)","source":"stdlog"}
+{"time":"2026-07-17T11:43:22.219037616-04:00","level":"INFO","msg":"OK   0016_lamport_ts.sql (15.06ms)","source":"stdlog"}
+{"time":"2026-07-17T11:43:22.238874343-04:00","level":"INFO","msg":"OK   0017_users_naming.sql (19.73ms)","source":"stdlog"}
+{"time":"2026-07-17T11:43:22.300577325-04:00","level":"INFO","msg":"OK   0018_ob_templates.sql (61.49ms)","source":"stdlog"}
+{"time":"2026-07-17T11:43:22.374933614-04:00","level":"INFO","msg":"OK   0019_ob_items.sql (74.17ms)","source":"stdlog"}
+{"time":"2026-07-17T11:43:22.428453382-04:00","level":"INFO","msg":"OK   0020_ob_progress.sql (53.44ms)","source":"stdlog"}
+{"time":"2026-07-17T11:43:22.470483606-04:00","level":"INFO","msg":"OK   0021_ob_signoffs.sql (41.88ms)","source":"stdlog"}
+{"time":"2026-07-17T11:43:22.514643133-04:00","level":"INFO","msg":"OK   0022_ob_template_assignments.sql (44.06ms)","source":"stdlog"}
+{"time":"2026-07-17T11:43:22.584131102-04:00","level":"INFO","msg":"OK   0023_multi_role.sql (69.4ms)","source":"stdlog"}
+{"time":"2026-07-17T11:43:22.840978468-04:00","level":"INFO","msg":"OK   0024_inventory.sql (256.6ms)","source":"stdlog"}
+{"time":"2026-07-17T11:43:22.894166851-04:00","level":"INFO","msg":"OK   0025_pending_purchases.sql (53.01ms)","source":"stdlog"}
+{"time":"2026-07-17T11:43:22.905015035-04:00","level":"INFO","msg":"OK   0026_ob_progress_faq.sql (10.72ms)","source":"stdlog"}
+{"time":"2026-07-17T11:43:22.913254855-04:00","level":"INFO","msg":"OK   0027_ob_section_signoff_roles.sql (8.14ms)","source":"stdlog"}
+{"time":"2026-07-17T11:43:22.934957384-04:00","level":"INFO","msg":"OK   0028_ob_video_upgrade.sql (21.56ms)","source":"stdlog"}
+{"time":"2026-07-17T11:43:22.94895712-04:00","level":"INFO","msg":"OK   0029_ob_templates_archived_at.sql (13.89ms)","source":"stdlog"}
+{"time":"2026-07-17T11:43:22.982699691-04:00","level":"INFO","msg":"OK   0030_item_groups_unique_name.sql (33.55ms)","source":"stdlog"}
+{"time":"2026-07-17T11:43:22.994541821-04:00","level":"INFO","msg":"OK   0031_remove_placeholder_items.sql (11.69ms)","source":"stdlog"}
+{"time":"2026-07-17T11:43:23.0191653-04:00","level":"INFO","msg":"OK   0032_item_group_thresholds.sql (24.52ms)","source":"stdlog"}
+{"time":"2026-07-17T11:43:23.151820591-04:00","level":"INFO","msg":"OK   0033_stock_count_overrides.sql (132.39ms)","source":"stdlog"}
+{"time":"2026-07-17T11:43:23.334442948-04:00","level":"INFO","msg":"OK   0034_purchase_orders.sql (182.23ms)","source":"stdlog"}
+{"time":"2026-07-17T11:43:23.350447494-04:00","level":"INFO","msg":"OK   0035_purchase_items_photo_store.sql (15.86ms)","source":"stdlog"}
+{"time":"2026-07-17T11:43:23.363106963-04:00","level":"INFO","msg":"OK   0036_purchase_items_full_name.sql (12.58ms)","source":"stdlog"}
+{"time":"2026-07-17T11:43:23.398320454-04:00","level":"INFO","msg":"OK   0037_cutoff_config.sql (35.13ms)","source":"stdlog"}
+{"time":"2026-07-17T11:43:23.415509234-04:00","level":"INFO","msg":"OK   0038_po_status_extend.sql (17.08ms)","source":"stdlog"}
+{"time":"2026-07-17T11:43:23.438636938-04:00","level":"INFO","msg":"OK   0039_purchase_items_vendor.sql (23.03ms)","source":"stdlog"}
+{"time":"2026-07-17T11:43:23.551705842-04:00","level":"INFO","msg":"OK   0040_shopping_lists.sql (112.93ms)","source":"stdlog"}
+{"time":"2026-07-17T11:43:23.56585033-04:00","level":"INFO","msg":"OK   0041_notification_channel.sql (14.04ms)","source":"stdlog"}
+{"time":"2026-07-17T11:43:23.629534728-04:00","level":"INFO","msg":"OK   0042_repurchase_tracking.sql (63.53ms)","source":"stdlog"}
+{"time":"2026-07-17T11:43:23.680794541-04:00","level":"INFO","msg":"OK   0043_alert_log.sql (51.15ms)","source":"stdlog"}
+{"time":"2026-07-17T11:43:23.737584711-04:00","level":"INFO","msg":"OK   0044_low_stock_alert_log.sql (56.67ms)","source":"stdlog"}
+{"time":"2026-07-17T11:43:23.78820755-04:00","level":"INFO","msg":"OK   0045_notification_channel_array.sql (50.49ms)","source":"stdlog"}
+{"time":"2026-07-17T11:43:23.802760812-04:00","level":"INFO","msg":"OK   0046_user_timezone.sql (14.45ms)","source":"stdlog"}
+{"time":"2026-07-17T11:43:23.861446447-04:00","level":"INFO","msg":"OK   0047_employee_fields.sql (56.43ms)","source":"stdlog"}
+{"time":"2026-07-17T11:43:23.869353837-04:00","level":"INFO","msg":"OK   0048_notification_default_both.sql (7.78ms)","source":"stdlog"}
+{"time":"2026-07-17T11:43:23.912947513-04:00","level":"INFO","msg":"OK   0049_ob_sub_items.sql (43.51ms)","source":"stdlog"}
+{"time":"2026-07-17T11:43:23.922640079-04:00","level":"INFO","msg":"OK   0050_ob_progress_sub_item.sql (9.59ms)","source":"stdlog"}
+{"time":"2026-07-17T11:43:23.930605224-04:00","level":"INFO","msg":"OK   0051_rejection_field_fk.sql (7.88ms)","source":"stdlog"}
+{"time":"2026-07-17T11:43:23.947668573-04:00","level":"INFO","msg":"OK   0052_template_name_unique.sql (16.98ms)","source":"stdlog"}
+{"time":"2026-07-17T11:43:23.956876125-04:00","level":"INFO","msg":"OK   0053_response_field_fk.sql (9.13ms)","source":"stdlog"}
+{"time":"2026-07-17T11:43:23.965048059-04:00","level":"INFO","msg":"OK   0054_failnote_field_fk.sql (8.09ms)","source":"stdlog"}
+{"time":"2026-07-17T11:43:23.972447249-04:00","level":"INFO","msg":"OK   0055_item_location_in_store.sql (7.32ms)","source":"stdlog"}
+{"time":"2026-07-17T11:43:23.988796967-04:00","level":"INFO","msg":"OK   0056_ob_progress_photo.sql (16.17ms)","source":"stdlog"}
+{"time":"2026-07-17T11:43:24.00318062-04:00","level":"INFO","msg":"OK   0057_ob_items_photo_type.sql (14.27ms)","source":"stdlog"}
+{"time":"2026-07-17T11:43:24.017306517-04:00","level":"INFO","msg":"OK   0058_ob_sub_items_photos.sql (14.03ms)","source":"stdlog"}
+{"time":"2026-07-17T11:43:24.025322524-04:00","level":"INFO","msg":"OK   0059_cleanup_photo_items.sql (7.92ms)","source":"stdlog"}
+{"time":"2026-07-17T11:43:24.086391665-04:00","level":"INFO","msg":"OK   0060_menu_items.sql (60.96ms)","source":"stdlog"}
+{"time":"2026-07-17T11:43:24.125272009-04:00","level":"INFO","msg":"OK   0061_daily_menu_sales.sql (38.77ms)","source":"stdlog"}
+{"time":"2026-07-17T11:43:24.172186114-04:00","level":"INFO","msg":"OK   0062_recipes.sql (46.78ms)","source":"stdlog"}
+{"time":"2026-07-17T11:43:24.208280234-04:00","level":"INFO","msg":"OK   0063_drift_check_results.sql (35.99ms)","source":"stdlog"}
+{"time":"2026-07-17T11:43:24.224665252-04:00","level":"INFO","msg":"OK   0064_no_itemized_receipt_seed.sql (16.27ms)","source":"stdlog"}
+{"time":"2026-07-17T11:43:24.238496632-04:00","level":"INFO","msg":"OK   0065_mercury_category_on_purchase_events.sql (13.7ms)","source":"stdlog"}
+{"time":"2026-07-17T11:43:24.251589836-04:00","level":"INFO","msg":"OK   0066_mercury_category_on_pending_purchases.sql (13.01ms)","source":"stdlog"}
+{"time":"2026-07-17T11:43:24.307819901-04:00","level":"INFO","msg":"OK   0067_receipt_sync_runs.sql (56.13ms)","source":"stdlog"}
+{"time":"2026-07-17T11:43:24.33288192-04:00","level":"INFO","msg":"OK   0068_pending_purchases_bank_tx_uniq.sql (24.96ms)","source":"stdlog"}
+{"time":"2026-07-17T11:43:24.346381706-04:00","level":"INFO","msg":"OK   0069_pending_purchases_parse_error.sql (13.38ms)","source":"stdlog"}
+{"time":"2026-07-17T11:43:24.360848492-04:00","level":"INFO","msg":"OK   0070_receipt_urls.sql (14.39ms)","source":"stdlog"}
+{"time":"2026-07-17T11:43:24.360884628-04:00","level":"INFO","msg":"goose: successfully migrated database to version: 70","source":"stdlog"}
+{"time":"2026-07-17T11:43:24.360894236-04:00","level":"INFO","msg":"database migrations applied successfully"}
+{"time":"2026-07-17T11:43:24.443978702-04:00","level":"INFO","msg":"upserted superadmin","email":"jamal@yumyums.kitchen"}
+{"time":"2026-07-17T11:43:24.48190416-04:00","level":"INFO","msg":"seeded template","name":"Setup Checklist","id":"6ff080e8-f1be-474e-84f3-b307cc5304f1"}
+{"time":"2026-07-17T11:43:24.481950009-04:00","level":"INFO","msg":"seeded templates","count":1}
+{"time":"2026-07-17T11:43:24.520105546-04:00","level":"INFO","msg":"seeded onboarding template","name":"Kitchen Basics Training","id":"8477ab29-3ad1-4a05-8129-0f26d2ea6cac"}
+{"time":"2026-07-17T11:43:24.548366427-04:00","level":"INFO","msg":"inventory: seeded vendors","count":5}
+{"time":"2026-07-17T11:43:24.647376692-04:00","level":"INFO","msg":"inventory: seeded unique tags","count":19}
+{"time":"2026-07-17T11:43:24.790309407-04:00","level":"INFO","msg":"inventory: seeded item groups","count":10}
+{"time":"2026-07-17T11:43:25.340877479-04:00","level":"INFO","msg":"inventory: seeded purchase items from YAML","count":106}
+{"time":"2026-07-17T11:43:25.340934712-04:00","level":"WARN","msg":"DO Spaces env vars not set, photo and video upload endpoints will return 503","required":"DO_SPACES_KEY, DO_SPACES_SECRET, DO_SPACES_BUCKET, DO_SPACES_REGION"}
+{"time":"2026-07-17T11:43:25.340945364-04:00","level":"WARN","msg":"HQ_INVENTORY_SERVICE_TOKEN not set, /api/v1/inventory/period-summary AND /api/v1/inventory/menu-cogs will return 503"}
+{"time":"2026-07-17T11:43:25.341136279-04:00","level":"INFO","msg":"inventory COGS category allowlist","allowlist":["COGS"]}
+{"time":"2026-07-17T11:43:25.341525314-04:00","level":"INFO","msg":"receipt worker disabled","reason":"E2E_DISABLE_SCHEDULERS=1"}
+{"time":"2026-07-17T11:43:25.34158474-04:00","level":"INFO","msg":"alert queue started"}
+{"time":"2026-07-17T11:43:25.341603121-04:00","level":"INFO","msg":"cutoff scheduler disabled","reason":"E2E_DISABLE_SCHEDULERS=1"}
+{"time":"2026-07-17T11:43:25.341635706-04:00","level":"INFO","msg":"toast worker disabled, cmd/sync-toast remains available","reason":"TOAST_SYNC_INTERVAL=0"}
+{"time":"2026-07-17T11:43:25.341709336-04:00","level":"INFO","msg":"alerts queue started"}
+{"time":"2026-07-17T11:43:25.371767508-04:00","level":"INFO","msg":"server listening","port":"8290"}
+{"time":"2026-07-17T11:43:25.382065507-04:00","level":"INFO","msg":"reachable at","url":"http://10.255.255.254:8290"}
+{"time":"2026-07-17T11:43:25.382108118-04:00","level":"INFO","msg":"reachable at","url":"http://100.70.200.55:8290"}
+{"time":"2026-07-17T11:43:25.382116264-04:00","level":"INFO","msg":"reachable at","url":"http://192.168.8.164:8290"}
+{"time":"2026-07-17T11:43:25.382124933-04:00","level":"INFO","msg":"Yumyums HQ ready, accepting connections"}
+2026/07/17 11:43:26 "GET http://localhost:8290/api/v1/health HTTP/1.1" from 127.0.0.1:58115 - 200 106B in 96.501µs
+signal: killed

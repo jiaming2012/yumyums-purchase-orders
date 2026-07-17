@@ -1,0 +1,5 @@
+=== [194895s] STEP 1: reset + migrate isolated hq_test via a throwaway app boot (:8290) ===
+=== [194902s] migrate boot healthy at attempt 1 ===
+=== [194902s] migrated tables= ; drift_check_results= ===
+=== [194902s] ABORT: migration did not land schema (tables=). See migrate-boot.log. ===
+MIGRATE_FAILED=1

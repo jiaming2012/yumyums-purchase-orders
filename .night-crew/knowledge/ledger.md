@@ -495,3 +495,57 @@ AI-matching subcases with no `ANTHROPIC_API_KEY`) — identical to pre-merge `de
 - **Batch sign-off** given 2026-07-17; slate is `reference/slate-20260719.md`. Dispatch mode
   **serial** (degenerate — read-only closeout, one isolated env, no tracks). The `cycle-gate` card
   fans mechanically into 3 read-only cards + orchestrator closeout (mirrors overnight-20260716).
+
+## T-15 — Cycle gate ratified (2026-07-19, overnight-20260719) — "Nothing silently lost" closed
+
+> Recorded by the `overnight-20260719` cycle-gate closeout run. Evidence of record:
+> `reference/cycle-closeout-20260719.md`. Gate **PASS attested** under the 2026-07-17 "Gate now,
+> prod KRs pending" posture. No card parked (PARK trigger did not fire).
+
+- **Scorecard: 11 PASS · 2 PARTIAL · 2 PENDING · 1 N/A (16 KRs).** PASS: Product KR1/2/3, Delivery
+  KR1/2, Engineering KR1–4, QA KR1/2. PARTIAL: Engineering KR5 (waiver #1, below) + Delivery KR4
+  (median not computable — the 07-17 run's 9 cards were not per-card timed; only `-0718`'s single
+  card measured; baseline N=23/22m28s stands, **no median fabricated**; fix-forward = standing
+  per-card timing table). PENDING (→ Activity 7, attended): Delivery KR3 (prod parity) + QA KR3
+  (prod ghost item). N/A: QA KR4 (no schema migration shipped — frozen-at-submit deleted the
+  versioning schema; `git log 2931adc..HEAD -- backend/internal/db/migrations/` empty, highest is
+  `0070`).
+- **Suite baseline (Card 1, isolated pg16 on `127.0.0.1:57606`, host `:5432` never touched).**
+  Go units `go test -count=1 -p 1 ./...` → **all 7 pkgs ok, exit 0** (the 07-16 `internal/receipt`
+  env-gated red is **gone** — passed without `ANTHROPIC_API_KEY`). Playwright fresh webServer
+  (`CI=1`) → **450 pass · 1 fail · 0 flaky · 6 skip** (~16.3m). The 1 red
+  (`workflows.spec.js › approved checklist … [LST-08 RUN-08]`, `#toast` hidden) is **cross-test
+  DB-pollution** — an isolation re-run on a fresh single-test DB (`--retries=0`) **greened it
+  (1 passed)**, the 07-16 Category-3 diagnosis reconfirmed. **0 uncategorized reds → no PARK.**
+  Convergence suite `sync.spec.js` **39/39 passed × 3 consecutive `--retries=0` fresh-DB runs** —
+  no-retry hard gate proven determinate; validates the 2026-07-18 rider retirement at the gate.
+- **Waiver #2 (vacuous 18→0) — RETIRED.** Landed `3fd4d3f` (`vacuous-tests-18-to-0`). **SHA
+  correction:** the slate/roadmap cite `3f68cc9`, a superseded pre-squash worktree object **not in
+  `overnight-20260719` ancestry**; the branch-reachable landed commit is `3fd4d3f`. (Same class of
+  squash-provenance drift as the Engineering-KR SHAs — the slate's `6a483d1`/`0d49f27`/`1c7c73c`/
+  `72fffba`/`6c3aafb` are dangling pre-squash objects; landed squashes are `86bd09c` / `186e14c` /
+  `3e5b921`. §2 corrected the mapping — "loud rejection" + "transactional emission" citations were
+  scrambled; the behaviors are all landed and verified.)
+- **Waiver #1 (`task test` exit-0) — SUBSTANTIALLY but NOT formally retired → CARRIED.** The suite
+  fell from **38 reds (07-16 gate) → 1**, and the substitute criterion "0 new uncategorized reds vs
+  baseline" is met, but literal `task test` exit-0 is **not** reached (the 1 pollution red → PW
+  exit-1). Per the slate's explicit "mark PARTIAL, not PASS, never silently" clause, Eng KR5 = PARTIAL
+  and waiver #1 carries forward. **Carried WO (next cycle):** fix the `approved checklist …
+  [LST-08 RUN-08]` cross-test isolation so `task test` reaches literal exit-0 and formally retires
+  waiver #1.
+- **Red-first provenance (QA KR2) — attested on the WO/ledger record, NOT git.** The night-crew
+  squash protocol bundles each fix's test+fix into one landing commit, so **0 git-bisectable
+  red→green pairs exist this cycle** (unlike 07-16's single verifiable pair, Inventory NFR-1). The
+  repro baseline `421ceee` was committed skip-guarded (kept green on purpose). Carried, not hidden
+  (T-14 precedent) — corroborated by the per-card G6 re-reproduction in the 07-17/07-18 HANDOFFs.
+- **Instrumentation gap (fix the 07-17 miss).** This gate re-affirms per-card wall-clock timing as a
+  standing build-run output; `-0718` already re-adopted the harness-measured table. Until a fully
+  instrumented delivery run lands, the Delivery-median baseline (T-14) is the only computable median.
+- **Two invalid suite attempts, discarded and preserved** (`suite-logs/attempts/`): (1) Playwright
+  reused a leaked foreign test server from another session (`reuseExistingServer:!CI`) — fixed with
+  `CI=1`; (2) Go units ran against an unmigrated isolated DB (recipes `Fatalf` on missing
+  `drift_check_results`) — fixed by migrating first + `-count=1`. Harness-provisioning defects, not
+  product signals; recorded for the run's honesty.
+- **Milestone boundary.** "Nothing silently lost" closed on dev-side evidence. Next: `/nc-morning-triage`
+  (merge `overnight-20260719`), then attended **Activity 7** ship (flip the 2 PENDING prod KRs), then
+  `/nc-okr-session`. `main` untouched; run branch never pushed.

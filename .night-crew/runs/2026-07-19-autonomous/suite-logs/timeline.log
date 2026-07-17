@@ -1,0 +1,9 @@
+=== [195424s] STEP 1: reset + migrate isolated hq_test via a throwaway app boot (:8290) ===
+=== [195429s] migrate boot healthy at attempt 1 ===
+=== [195429s] migrated tables=48 ; drift_check_results=t ===
+=== [195431s] STEP 2: GO UNITS (go test -count=1 -p 1 ./...) against isolated pg :57606 ===
+GO_EXIT=0
+=== [195502s] STEP 3: reset hq_test fresh for Playwright ===
+=== [195503s] STEP 4: PLAYWRIGHT full suite (CI=1 → own fresh webServer on :8199 vs isolated pg) ===
+PW_EXIT=1
+=== [196482s] SUITE DONE ===
