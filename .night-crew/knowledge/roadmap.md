@@ -123,7 +123,7 @@
 
 ## Activity 6 — Test-debt retirement · *independent parallel track (any time)*
 
-- **`vacuous-tests-18-to-0`** · PLANNED · Each remaining conditional `test.skip()` / silent
+- **`vacuous-tests-18-to-0`** · DONE ✅ overnight-20260717 (G6 PASS `3f68cc9`; 18 = 16 converted here (Onboarding 6 + Inventory 10, each a real seeded assertion downstream of exercised state — G6-verified non-tautological) + 2 Ops workflow items already hardened at base. Tests-only; 204 passed/2 S3-parks/0 reds re-verified. Retires waiver #2) · Each remaining conditional `test.skip()` / silent
   guard-return becomes a real seeded assertion or is deleted (denominator = the audit that
   produced the 18). Footprint: test-debt (audit-scoped). → QA KR1, retires carried
   waiver #2.
