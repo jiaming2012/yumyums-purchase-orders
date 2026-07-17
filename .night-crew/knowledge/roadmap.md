@@ -132,7 +132,23 @@
   cron-decision unit tests — unblocks P-6, Purchasing FR-19/20/21/22). The other two
   prove-sweep PARKs (photo-S3 harness, offline-IndexedDB harness) are deferred this cycle
   — harness-infrastructure class, see routing record. Red-first. → QA KR2.
-- **`editprop-convergence-cell-hardening`** · PLANNED · Scheduled at morning triage 2026-07-17
+- **`editprop-convergence-cell-hardening`** · DONE ✅ overnight-20260718 (test-only, `sync.js`
+  UNTOUCHED — no `task sw` needed. **Half 1 de-flake LANDED:** root cause was a stray WS-catch-up
+  `loadMyChecklists` re-render clobbering the freshly-TYPED, not-yet-persisted text/temperature
+  input to empty (observed `Received ""` at the baseline assert), with nothing re-issuing a fetch.
+  Fixed with deterministic waits in `survivalCell`: gate on the autosave `POST /ops` 2xx (a
+  commit signal — SaveResponseFunc commits before the 200 — replacing the racy myChecklists poll),
+  reopen to hydrate the COMMITTED draft for the baseline, and wait on the post-cut myChecklists GET
+  as the "SAVE_TEMPLATE applied" signal before asserting convergence. Proof under `--retries=0`:
+  10/10 isolated + 0 target-cell failures across 8 whole-describe runs under CPU load.
+  **Half 2 conflict coverage LANDED (4 new types):** W-6b parameterizes the LWW-409/applyOp render
+  over yes_no + temperature + sub-step + checkbox — each red→green (12/12 green ×3, `--retries=0`).
+  **2 types PARKED (footprint-blocked, not abandoned):** fail-note text+severity and fail-note
+  photo-URL — the `{_v,_fail_note}` bundle is unpacked ONLY by hydrateFieldState
+  (workflows.html:1480), NOT by the applyOp path the 409 handler drives (sync.js:405), so covering
+  them would need an out-of-footprint production change. Checkbox needed a distinct winner user +
+  strict write order (per-field shared lamport). Pre-existing `unsubmit` cell #9 flake is unrelated
+  and out of scope.) · Scheduled at morning triage 2026-07-17
   (F-A — operator chose schedule-now over accept-to-BACKLOG). The convergence-matrix suite is
   green under the shipped `retries:1` (orchestrator 36/36 twice) but the two-device
   `text`/`temperature converges` cells fail ~3/6 under **no-retry** (harness WS-timing
