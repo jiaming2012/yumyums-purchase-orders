@@ -1,5 +1,13 @@
 # DECISIONS NEEDED — overnight-20260717
 
+> **RESOLVED 2026-07-17 — recorded in `ledger.md` §"Morning-triage resolutions (2026-07-17)".**
+> Merged `overnight-20260717 → dev --no-ff` (`22cb7dd`) after cold re-verification (build/vet/
+> tests green, G4 greps N/A in subject repo, replay/testdata + package.json untouched).
+> **F-A** → scheduled as roadmap card `editprop-convergence-cell-hardening` (Activity 6, PLANNED)
+> with the operator rider "no no-retry hard gate on this suite until it lands." **F-D** → fixed
+> now (`chore(build)` `3b1be67`, `workbox-build ^7.4.1` declared + lockfile). **F-B / F-C / F-E**
+> → graduated to BACKLOG. This file is kept as the analysis record.
+
 > **No open forks block triage. 0 cards parked. All 9 slate cards landed G6-verified.**
 > Everything below is a **surfaced follow-up** — an out-of-footprint scoped deferral or a
 > test-hardening note. None blocks merging `overnight-20260717` → `dev`. Each is a clean candidate

@@ -351,3 +351,66 @@ AI-matching subcases with no `ANTHROPIC_API_KEY`) — identical to pre-merge `de
   frozen record · live redo carrying answers · moot flags dissolve visibly. *Rationale: the
   architecture follows the semantic, not the reverse — and the semantic belongs to how this
   business actually runs.*
+
+## Morning-triage resolutions (2026-07-17) — overnight-20260717
+
+> This project records triage resolutions here (not a DESIGN.md §15x — no DESIGN.md exists in
+> this repo; the run's HANDOFF step 6 names `ledger.md` as the destination). The run was
+> **9/9 cards G6-verified, 0 parked, 0 open forks blocking triage** — the 5 items below are
+> surfaced follow-ups the operator routed at triage.
+
+- **Review + merge.** Re-verified the run branch cold on its final tree (not trusting the
+  closeout): `go build ./...` + `go vet ./...` clean; `go test ./...` all packages `ok`; the
+  G4 discipline greps are **N/A in this subject repo** — the orchestrator internals they guard
+  (`internal/journal` / `internal/workorder` / `internal/orchestration`) don't exist here, so
+  they trivially pass; `replay`/`testdata` untouched; `package.json`/lockfile untouched (the
+  run's transient `workbox-build --no-save` install was NOT committed — confirmed by empty
+  diff). Merged `overnight-20260717 → dev --no-ff` (`22cb7dd`); re-ran `go test ./...` on the
+  merged tree → green. Frontend semver left at 1.0.3 (the bump belongs to `/save-project` at
+  deploy, not triage). `dev` is ready for a normal `task prod:deploy`.
+
+- **F-A — two-device convergence-cell no-retry flake → SCHEDULED as a roadmap card, over
+  accept-to-BACKLOG.** The convergence-matrix suite (FR-7/A-5 proof, the Delivery KR) is green
+  under the shipped `retries:1` (orchestrator re-verified 36/36 twice, incl. on an accumulated
+  DB), but the two-device `text`/`temperature converges` cells fail ~3/6 under **no-retry** — a
+  harness WS-timing sensitivity reproduced on base `733fa16`, so pre-existing to W-6, NOT a
+  product defect. Operator chose to **schedule the hardening now** rather than backlog it: added
+  `editprop-convergence-cell-hardening` (PLANNED) to roadmap Activity 6 — chase two-device WS
+  timing to zero-flake under no-retry AND extend the W-6 *conflict* branch coverage beyond
+  text/textarea to the remaining field types (F-A: ~6 ride the same `applyOp` path untested
+  there). **Operator rider (recorded as a rule): no card may lean on this suite as a no-retry
+  hard gate until this card lands.** Chosen over BACKLOG because the operator wants the
+  Delivery-KR convergence proof trustworthy as a hard gate before other work leans on it,
+  accepting the delay to other Delivery-KR cards. *Rationale: a convergence proof you have to
+  retry isn't a proof.*
+
+- **F-D — undeclared `workbox-build` devDependency → FIXED NOW (attended), over backlog.**
+  `build-sw.js` `require`s `workbox-build` but it was undeclared and absent from clean
+  checkouts, breaking `task sw` / `task test` / `task prod:deploy` on a fresh clone (prod
+  already had it — deploy was never at risk; a clean-checkout gap only). Operator chose
+  fix-now: declared `workbox-build ^7.4.1` (7.4.1 resolved) in `package.json` devDependencies +
+  regenerated the lockfile; verified `node build-sw.js` runs clean and was idempotent (no
+  `sw.js` drift, confirming the merged tree's SW was already consistent). Committed as
+  `chore(build)` `3b1be67`, separate from this docs commit. Chosen over backlog because it's a
+  ~3-min mechanical fix that unblocks every clean checkout.
+
+- **F-B / F-C / F-E → graduated to BACKLOG** (operator: backlog; no competing option worth an
+  operator pick — queue placement is a planner call per T-10/T-12). **F-B** — convert
+  `CreateTemplateHandler` / `ArchiveTemplateHandler` from fire-and-forget `EmitOp` to the
+  transactional `EmitOpTx` W-2 established (full INV-1 "0 accepted writes whose op is not
+  durably queued" parity; no schema change). **F-C** — thread a `tx` through `approveSubmission`
+  (repository.go) so `status='approved'` + feedback commit atomically (today status commits
+  before the feedback loop, so a feedback-persist failure returns 500 `feedback_persist_failed`
+  but leaves a partial commit — the card's requirement was still MET; atomicity is the
+  follow-up). **F-E** — switch two onboarding persistence tests from `waitForTimeout(1500)` to
+  `waitForResponse('/saveProgress')` (the post-reload assertion is still load-bearing; a fixed
+  wait is a small flake-surface).
+
+- **Standing flags after triage.** DB flag stays satisfied (Docker pg16 canonical; `:5432`
+  left untouched). The **`workbox-build` clean-checkout flag is cleared** (F-D committed). The
+  attended two-device convergence / `task sandbox:e2e` gate re-arms whenever the verify/merge
+  path changes underneath it; `editprop-convergence-cell-hardening` (F-A) is now the tracked
+  owner of the no-retry determinism, and the operator rider bars leaning on that suite as a
+  hard no-retry gate until it lands. `dev` is ahead of `origin/dev` by the merge (`22cb7dd`) +
+  F-D (`3b1be67`) + this docs commit — **pushed at triage close** (the one sanctioned push).
+  `dev → main` promotion stays a separate decision, not folded into triage.

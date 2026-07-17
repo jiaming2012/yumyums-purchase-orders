@@ -132,6 +132,18 @@
   cron-decision unit tests — unblocks P-6, Purchasing FR-19/20/21/22). The other two
   prove-sweep PARKs (photo-S3 harness, offline-IndexedDB harness) are deferred this cycle
   — harness-infrastructure class, see routing record. Red-first. → QA KR2.
+- **`editprop-convergence-cell-hardening`** · PLANNED · Scheduled at morning triage 2026-07-17
+  (F-A — operator chose schedule-now over accept-to-BACKLOG). The convergence-matrix suite is
+  green under the shipped `retries:1` (orchestrator 36/36 twice) but the two-device
+  `text`/`temperature converges` cells fail ~3/6 under **no-retry** (harness WS-timing
+  sensitivity, reproduced on base `733fa16` so pre-existing to W-6 — not a product defect).
+  Chase the two-device WS timing to **zero-flake under no-retry**, AND extend the W-6 *conflict*
+  branch coverage beyond text/textarea to the remaining field types (F-A: ~6 ride the same
+  `applyOp` path untested there). **Operator rider: no card may lean on this suite as a no-retry
+  hard gate until this lands.** Footprint: workflow-engine tests (`sync.spec.js`,
+  `repro-cut-task.spec.js`, `broadcast-rerender.spec.js`) + `sync.js` if a determinism seam is
+  needed. → Delivery KR "convergence proof (no-retry hard gate)", Eng KR "convergence matrix".
+  *(scheduled from overnight-20260717 F-A)*
 
 ## Activity 7 — Prod ops · *operator-gated*
 

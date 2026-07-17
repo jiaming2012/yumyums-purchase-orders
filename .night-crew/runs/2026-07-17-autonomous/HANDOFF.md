@@ -1,5 +1,13 @@
 # HANDOFF — overnight-20260717 (for the morning of 2026-07-17)
 
+> **✅ TRIAGED 2026-07-17** (`/nc-morning-triage`) — merged `→ dev --no-ff` (`22cb7dd`) after cold
+> re-verification (build/vet/tests green; G4 greps N/A in subject repo; replay/testdata +
+> package.json untouched). Flags updated: the **⚠️ #2 `workbox-build` gap is CLEARED** (F-D fixed
+> now — `chore(build)` `3b1be67`, `^7.4.1` declared + lockfile). **F-A** convergence-cell flake →
+> scheduled as roadmap card `editprop-convergence-cell-hardening` (Activity 6) with the operator
+> rider "no no-retry hard gate on this suite until it lands"; **F-B/F-C/F-E** → BACKLOG. Full
+> record: `ledger.md` §"Morning-triage resolutions (2026-07-17)". `dev` pushed at triage close.
+
 > **Run branch:** `overnight-20260717` (cut from `dev`; never pushed, `main` untouched).
 > **Slate:** `.night-crew/knowledge/reference/slate-20260717.md` (batch-signed 2026-07-16).
 > **Design gate:** FR-1 edit-propagation design operator-signed 2026-07-16

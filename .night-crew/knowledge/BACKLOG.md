@@ -284,3 +284,31 @@
   leg).** · origin: overnight-20260715 ops-prove-cross (PARK) · deferred 2026-07-16 — needs a new
   SW+IndexedDB Playwright project (structural harness build), off-theme for this cycle; revisit
   next cycle (OKR-session routing)
+
+## Editprop follow-ups (from overnight-20260717 morning triage — same-pattern tidy-ups, planner-scheduled)
+
+> Surfaced as out-of-footprint follow-ups on the editprop build; operator routed to BACKLOG at
+> triage 2026-07-17 (no competing option — queue placement is a planner call per T-10/T-12). The
+> substantive convergence-cell item (F-A) was NOT backlogged — it went straight to roadmap card
+> `editprop-convergence-cell-hardening` (Activity 6). The `workbox-build` gap (F-D) was fixed at
+> triage (`3b1be67`), not backlogged.
+
+- **Transactional op emission for Create/Archive (INV-1 parity)** · W-2 moved `updateTemplate`'s
+  op emission into the write txn (`EmitOpTx`), but `CreateTemplateHandler` and
+  `ArchiveTemplateHandler` still use the fire-and-forget `EmitOp` goroutine. Convert both to
+  `EmitOpTx` (mirrors W-2's pattern; no schema change) for full INV-1 "0 accepted writes whose op
+  is not durably queued" parity. Small follow-up card. · origin: triage 2026-07-17 (F-B, W-2
+  follow-up) · new
+- **Atomic approval + feedback (`approveSubmission` tx)** · `approveSubmission` commits
+  `status='approved'` *before* the feedback loop, so a feedback-persist failure correctly returns
+  500 `feedback_persist_failed` (W-4's goal, requirement MET) but leaves the submission already
+  `approved` — a partial commit. Thread a `tx` through `approveSubmission` (repository.go) so
+  status + feedback commit atomically; also removes the less-specific `internal_error` a retrying
+  approver sees on the 2nd attempt (idempotent via the `status='pending'` guard). · origin: triage
+  2026-07-17 (F-C, W-4 follow-up) · new
+- **Onboarding persistence tests: `waitForResponse` over fixed flush wait** · Two converted
+  persistence tests in `tests/onboarding.spec.js` use `waitForTimeout(1500)` instead of
+  `waitForResponse('/saveProgress')`. The post-reload assertion is still the load-bearing proof, so
+  the guard isn't weakened — but a fixed wait is a small flake-surface. Switch to `waitForResponse`
+  on the save POST in a future test-hardening pass. Low priority. · origin: triage 2026-07-17 (F-E,
+  T-2 minor) · new

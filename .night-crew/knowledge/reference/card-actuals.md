@@ -242,3 +242,47 @@
   so the reds concentrate in the data-dependent/persona guards + the SW-blocked/offline tests. This is
   exactly why the gate criterion is judged "no-new-reds-vs-baseline," not "clean suite" — the bare
   full-suite red count is a documented, stable property, not a regression signal.
+
+## Run: overnight-20260717 (new cycle — editprop build + engine-trust + carried fixes + test-debt)
+
+> **Card shape:** back to build cards (fresh implementer per card → ephemeral pg16 worktree →
+> red-first → G1–G4 → separate fresh G6 → orchestrator merge), **SERIAL** (one in-flight card at a
+> time), 9 cards. **⚠ Per-card wall-clock was NOT separately instrumented this run** — the closeout
+> HANDOFF recorded verdicts + evidence but only *qualitative* sizing (below), not per-card minutes.
+> The times column records what the HANDOFF asserts; treat the ranges as sizing signal, not
+> measured actuals. (Fix forward: future runs should emit per-card impl/G6 wall-clock like the
+> 07-14/07-15 tables so this ledger stays measured, not narrated.)
+
+| Card | Type | Class | Passes | G6 verdict | Sizing signal (HANDOFF — not instrumented) |
+|---|---|---|---|---|---|
+| W-1 `editprop-stable-field-identity` | app fix + Go/E2E (backend + runner) | XL (first-of-kind structural) | — | PASS | XL structural; `replaceTemplate` deleted, 422 path + cross-device E2E |
+| W-2 `editprop-broadcast-rerender` | app fix + Go/E2E (front + back sync) | XL | 2 (1 REVISE→PASS) | PASS | **longest**; 5 sub-behaviors; INV-6 sent back into scope (revision) |
+| W-3 `editprop-convergence-matrix` | E2E matrix (two-device) | XL | 2 (G6 FAIL-REVISE→PASS) | PASS | **longest**; 36-cell two-device matrix; revision landed denominator cell + de-flaked |
+| W-4 `engine-approval-feedback-loud` | app fix (Go) | S (red-first fix) | — | PASS | ~15–30m class; 200→500 red→green |
+| W-5 `ops-nfr3-resubmit-photo-gate` | app fix (Go, carried) | S | — | PASS | ~15–30m class; 201→400 both submit paths |
+| W-6 `engine-conflict-refetch` | app fix (`sync.js`) | S | — | PASS | ~15–30m class; deterministic 3/3; 409 double-wrap fix |
+| U-1 `users-s3-orphan-cleanup` | hygiene (no behavior change) | XS | — | DONE (inline verify) | trivial; dead `#s3` div removed, no red-first per spec |
+| T-1 `carried-fix-wos-sweep` | test + new Go (clock seam) | M | — | PASS | clock seam + 13 mock-time cron subtests; unblocks Purchasing FR-19–22 |
+| T-2 `vacuous-tests-18-to-0` | test-only (16 conversions) | M | — | PASS | 18 = 16 converted + 2 already-hardened; retires waiver #2 |
+| **Total (9 cards, SERIAL)** | — | — | 2 cards took 1 revision loop each | **9/9 G6-verified · 0 park · 0 footprint breach** | 9 atomic commits; per-card minutes not captured |
+
+### Sixth-slate observations (build cards return; carry the *shape*, and fix the instrumentation gap)
+
+- **Instrumentation regressed vs 07-14/07-15.** Those runs tabled per-card impl + G6 wall-clock;
+  this run's HANDOFF recorded only verdicts + qualitative sizing ("app-fix + red-first cards ran
+  ~15–30m impl; the two XL editprop cards ran longest and each needed one revision loop"). The
+  ledger's whole value is *measured* actuals — future build runs should re-adopt the per-card
+  timing table so estimates don't drift back onto narration.
+- **First-of-kind structural cards carry a real revision cost — budget it.** Both XL editprop
+  cards (W-2 broadcast, W-3 matrix) took exactly one G6-driven REVISE loop before PASS, and both
+  revisions were *in-scope work the first pass under-delivered* (W-2's INV-6 discard warning
+  parked as "out of footprint" then sent back; W-3's parked denominator cell + two-device
+  de-flake), NOT bookkeeping. Contrast Activity-1's REVISE loops, which were tally/status
+  bookkeeping. **On a first-of-kind structural card, budget one substantive revision round.**
+- **Small red-first fix cards stayed the cheap, reliable population** (W-4/W-5/W-6, all clean
+  first-pass PASS, ~15–30m class) — the same profile as 07-14's fix cards. Serial dispatch on a
+  9-card slate with 3 XL cards is a full night; the XL cards dominate the critical path.
+- **The two-device WS-convergence E2E cells are timing-sensitive** — green under `retries:1`, ~3/6
+  under no-retry (F-A). Any future night leaning on that suite as a *hard no-retry gate* must first
+  land `editprop-convergence-cell-hardening` (scheduled at triage). This is a distinct population
+  from clean-path fix cards — treat convergence-hardening as its own size class when it's planned.
