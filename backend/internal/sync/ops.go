@@ -510,18 +510,24 @@ func ResolveEntityAccess(ctx context.Context, pool *pgxpool.Pool, entityID, enti
 		return []string{}, nil
 	}
 
-	// Resolve assignments to user IDs. Assignments can be:
-	//   assignee_type='user', assignee_id=<user UUID>
-	//   assignee_type='role', assignee_id=<role name like 'admin'>
-	// For role-based assignments, join with users table to get actual user IDs.
+	// Resolve who receives this template's live ops:
+	//   • the template's assignees — assignee_type='user' (a user UUID) or
+	//     assignee_type='role' (a role like 'team_member', joined to users by role), AND
+	//   • all admins/superadmins — they can VIEW every checklist (myChecklists grants
+	//     `roles && {admin,superadmin}` view-all), so live sync MUST mirror that access.
+	//     Without this, an admin editing a checklist they aren't assigned to never sees
+	//     their own edit converge on their other devices (the field_response op fans out
+	//     only to the assignees). The listener additionally always includes the op author.
 	rows, err := pool.Query(ctx,
 		`SELECT DISTINCT u.id::text
-		 FROM template_assignments ta
-		 JOIN users u ON (
-		   (ta.assignee_type = 'user' AND u.id::text = ta.assignee_id)
-		   OR (ta.assignee_type = 'role' AND ta.assignee_id = ANY(u.roles))
-		 )
-		 WHERE ta.template_id = $1::uuid`,
+		 FROM users u
+		 WHERE u.roles && ARRAY['admin','superadmin']
+		    OR EXISTS (
+		         SELECT 1 FROM template_assignments ta
+		         WHERE ta.template_id = $1::uuid
+		           AND ( (ta.assignee_type = 'user' AND u.id::text = ta.assignee_id)
+		              OR (ta.assignee_type = 'role' AND ta.assignee_id = ANY(u.roles)) )
+		       )`,
 		templateID,
 	)
 	if err != nil {

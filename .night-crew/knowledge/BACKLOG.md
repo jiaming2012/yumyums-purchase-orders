@@ -355,3 +355,17 @@
   suite with `CI=1` (forces `reuseExistingServer:false` → own webServer + teardown) AND pre-migrate
   the isolated pg16 via a throwaway app boot before Go units. Run-mechanics doc/skill fix, not a code
   change. · origin: overnight-20260719 cycle gate (card-actuals 8th-slate obs) · new
+
+## Escaped defect + QA gap (found 2026-07-17 on dev, operator play)
+
+- **Cross-user live-sync access matrix + `sync`-package unit coverage** · An escaped defect
+  (live-sync ops fanned out only to a checklist's assignees, excluding non-assignee editors incl.
+  admins/superadmins → the operator's own edits never reached their 2nd device; fixed red-first,
+  `sync/ops.go` `ResolveEntityAccess` unions admins + `listener.go` always includes the author,
+  regression test `sync/access_test.go`) revealed a QA hole: **every convergence/live-sync test
+  drives the assignee editing their own checklist**, so the recipient-resolution for a *non-assignee
+  editor* was never tested, AND the whole `sync` package had **zero Go tests**. WO: add a cross-user
+  access matrix ({who views}×{who edits}×{who observes}×{role/assignment}, asserting access AND
+  live-op propagation) + `sync`-package unit coverage for `ResolveEntityAccess` across all
+  role/assignment combos. Full write-up: `reference/qa-gap-20260717-live-sync-access.md`.
+  · origin: 2026-07-17 operator-found live-sync bug (dev play, post cycle-gate) · new

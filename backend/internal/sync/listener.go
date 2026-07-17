@@ -56,9 +56,19 @@ func StartListener(ctx context.Context, connStr string, hub *Hub, pool *pgxpool.
 			return nil
 		}
 
-		if len(userIDs) == 0 {
-			// Always include the op author even if no template_assignments found.
-			userIDs = []string{op.UserID}
+		// Always include the op author so a user's own edits converge on their other
+		// devices, even when they are not an assignee (e.g. an admin/superadmin editing
+		// a checklist they can view but aren't assigned to). ResolveEntityAccess already
+		// unions in admins; this guarantees the author regardless of role/assignment.
+		authorPresent := false
+		for _, uid := range userIDs {
+			if uid == op.UserID {
+				authorPresent = true
+				break
+			}
+		}
+		if !authorPresent {
+			userIDs = append(userIDs, op.UserID)
 		}
 
 		data, err := json.Marshal(op)

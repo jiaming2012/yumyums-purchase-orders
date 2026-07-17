@@ -451,6 +451,125 @@ test.describe('Cross-device: regressions', () => {
     await ctxB.close();
   });
 
+  // Reproduction (operator-found on dev, 2026-07-17): with device B's checklist
+  // OPEN IN THE RUNNER, an uncheck on device A does NOT live-uncheck on B — B only
+  // shows it after a manual reload. Existing coverage tested B on the LIST page
+  // (LST-17) or a single-device reload (FLD-01), never the two-device OPEN-RUNNER
+  // case. Faithful to the operator's "Friday checklist": ONE section with FOUR
+  // checkboxes (Cut the check / Do A / Do B / Do C) + a text field — the multi-box
+  // structure a single-checkbox repro doesn't hit. Uncheck "Do C" (a non-first box)
+  // on A; B's open runner must reflect it live. The check leg is a diagnostic — if
+  // it passes and the uncheck leg fails, the bug is uncheck-specific.
+  test('unchecking "Do C" on Device A live-unchecks it on Device B\'s OPEN runner (Friday-checklist shape) [FLD-LIVE-01]', async ({ browser, page }) => {
+    test.setTimeout(120000);
+    const dow = await getTodayDOW(page);
+    const CB = (label, order) => ({ type: 'checkbox', label, required: false, order, config: {}, fail_trigger: null, condition: null });
+    await apiCall(page, 'POST', 'createTemplate', {
+      name: 'Friday Repro', requires_approval: false,
+      sections: [{ title: 'Make money', order: 0, condition: null, fields: [
+        CB('Cut the check', 0), CB('Do A', 0), CB('Do B', 0), CB('Do C', 0),
+        { type: 'text', label: 'A text note', required: false, order: 1, config: {}, fail_trigger: null, condition: null },
+      ] }],
+      schedules: [{ active_days: [dow] }],
+      assignments: [{ assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' }],
+    });
+    const doCA = () => page.locator('.fill-field', { hasText: 'Do C' }).locator('.check-btn');
+    const doCB = (p) => p.locator('.fill-field', { hasText: 'Do C' }).locator('.check-btn');
+
+    // Device A: open the runner and CHECK all four boxes (as the operator did).
+    await page.reload();
+    await page.click('[data-fill-template-id]');
+    await page.waitForSelector('.fill-field', { timeout: 12000 });
+    for (const label of ['Cut the check', 'Do A', 'Do B', 'Do C']) {
+      const b = page.locator('.fill-field', { hasText: label }).locator('.check-btn');
+      await b.click(); await expect(b).toHaveClass(/checked/, { timeout: 5000 });
+    }
+    await page.waitForTimeout(2500); // debounce + saves + EmitOp
+
+    // Device B: open the SAME checklist; baseline — Do C checked (hydrated draft).
+    const ctxB = await browser.newContext();
+    const pageB = await ctxB.newPage();
+    await login(pageB);
+    await pageB.goto(BASE + '/workflows.html');
+    await expect(pageB.locator('#s1').getByText('Friday Repro')).toBeVisible({ timeout: 12000 });
+    await pageB.click('[data-fill-template-id]');
+    await pageB.waitForSelector('.fill-field', { timeout: 12000 });
+    await expect(doCB(pageB), 'baseline: Do C checked on B').toHaveClass(/checked/, { timeout: 12000 });
+
+    // Device A UNCHECKS "Do C" while B's runner is open. Wait for A's op to emit.
+    await doCA().click();
+    await expect(doCA()).not.toHaveClass(/checked/, { timeout: 5000 });
+    await page.waitForTimeout(3000); // debounce + save (DELETE) + EmitOp + WS propagation
+
+    // LIVE assertion (the bug): B's OPEN runner must show Do C unchecked WITHOUT a
+    // reload; the other three boxes must stay checked.
+    await expect(doCB(pageB), 'Device B open runner must live-UNCHECK Do C (no reload)').not.toHaveClass(/checked/, { timeout: 12000 });
+    await expect(pageB.locator('.fill-field', { hasText: 'Do A' }).locator('.check-btn'), 'Do A stays checked on B').toHaveClass(/checked/, { timeout: 5000 });
+
+    // Sanity (matches operator report): after a manual reload B shows Do C unchecked,
+    // proving the server DELETE persisted and only the LIVE re-render was missing.
+    await pageB.reload();
+    await expect(pageB.locator('#s1').getByText('Friday Repro')).toBeVisible({ timeout: 12000 });
+    await pageB.click('[data-fill-template-id]');
+    await pageB.waitForSelector('.fill-field', { timeout: 12000 });
+    await expect(doCB(pageB), 'after reload B shows Do C unchecked (DELETE persisted)').not.toHaveClass(/checked/, { timeout: 12000 });
+
+    await ctxB.close();
+  });
+
+  // Same-browser TWO-TAB variant (shared IndexedDB → shared lamport clock). This is
+  // the most likely real-world "two devices" config when testing on one machine.
+  // LamportClock._ts is seeded from shared IndexedDB (sync.js:116-118) but each tab
+  // keeps its own in-memory copy, so two tabs can tick to the SAME lamport_ts and
+  // collide on the server's LWW — a hazard the separate-context test can't hit.
+  test('two TABS same browser: unchecking Do C on tab A live-unchecks tab B (shared IndexedDB) [FLD-LIVE-02]', async ({ browser, page }) => {
+    test.setTimeout(120000);
+    const dow = await getTodayDOW(page);
+    const CB = (label, order) => ({ type: 'checkbox', label, required: false, order, config: {}, fail_trigger: null, condition: null });
+    await apiCall(page, 'POST', 'createTemplate', {
+      name: 'Friday TwoTab', requires_approval: false,
+      sections: [{ title: 'Make money', order: 0, condition: null, fields: [
+        CB('Cut the check', 0), CB('Do A', 0), CB('Do B', 0), CB('Do C', 0),
+        { type: 'text', label: 'A text note', required: false, order: 1, config: {}, fail_trigger: null, condition: null },
+      ] }],
+      schedules: [{ active_days: [dow] }],
+      assignments: [{ assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' }],
+    });
+
+    // ONE shared context = two tabs of the same browser (shared IndexedDB + cookies).
+    const ctx = await browser.newContext();
+    const tabA = await ctx.newPage();
+    const tabB = await ctx.newPage();
+    await login(tabA); // shared cookies → tabB is logged in too
+    const doC = (p) => p.locator('.fill-field', { hasText: 'Do C' }).locator('.check-btn');
+    const openRunner = async (p) => {
+      await p.goto(BASE + '/workflows.html');
+      await expect(p.locator('#s1').getByText('Friday TwoTab')).toBeVisible({ timeout: 12000 });
+      await p.click('[data-fill-template-id]');
+      await p.waitForSelector('.fill-field', { timeout: 12000 });
+    };
+
+    // Both tabs open the runner. Tab A checks all four boxes.
+    await openRunner(tabA);
+    for (const label of ['Cut the check', 'Do A', 'Do B', 'Do C']) {
+      const b = tabA.locator('.fill-field', { hasText: label }).locator('.check-btn');
+      await b.click(); await expect(b).toHaveClass(/checked/, { timeout: 5000 });
+    }
+    await tabA.waitForTimeout(2500);
+    await openRunner(tabB);
+    await expect(doC(tabB), 'baseline: Do C checked on tab B').toHaveClass(/checked/, { timeout: 12000 });
+
+    // Tab A UNCHECKS Do C while tab B's runner is open.
+    await doC(tabA).click();
+    await expect(doC(tabA)).not.toHaveClass(/checked/, { timeout: 5000 });
+    await tabA.waitForTimeout(3000);
+
+    // LIVE assertion: tab B must reflect the uncheck WITHOUT a reload.
+    await expect(doC(tabB), 'tab B must live-UNCHECK Do C (no reload)').not.toHaveClass(/checked/, { timeout: 12000 });
+
+    await ctx.close();
+  });
+
   test('sub-step checks on Device A appear checked on Device B [SYN-03]', async ({ browser, page }) => {
     const dow = await getTodayDOW(page);
     const tpl = await apiCall(page, 'POST', 'createTemplate', {
