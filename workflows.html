@@ -202,8 +202,11 @@ function debouncedSaveField(fieldId, value) {
     try {
       var saveValue = value;
       var fn = store.get('failNotes', fieldId);
-      if (fn && (fn.note || fn.severity || fn.photo)) {
-        saveValue = { _v: value, _fail_note: { note: fn.note, severity: fn.severity, photo: fn.photo || null } };
+      var cp = CORRECTION_PHOTOS[fieldId];
+      if ((fn && (fn.note || fn.severity || fn.photo)) || cp) {
+        saveValue = { _v: value };
+        if (fn && (fn.note || fn.severity || fn.photo)) saveValue._fail_note = { note: fn.note, severity: fn.severity, photo: fn.photo || null };
+        if (cp) saveValue._correction_photo = cp;
       }
       const result = await submitOp('SET_FIELD', fieldId, 'field_response', { value: saveValue, field_id: fieldId });
       if (result && result._conflict) {
@@ -1470,15 +1473,17 @@ function hydrateFieldState(filterFieldIds) {
   Object.keys(FAIL_NOTES).forEach(function(k) { delete FAIL_NOTES[k]; });
   Object.keys(REJECTION_FLAGS).forEach(function(k) { delete REJECTION_FLAGS[k]; });
   Object.keys(FEEDBACK_NOTES).forEach(function(k) { delete FEEDBACK_NOTES[k]; });
+  Object.keys(CORRECTION_PHOTOS).forEach(function(k) { delete CORRECTION_PHOTOS[k]; });
   // 1. Draft responses (in-progress, not yet submitted)
   (DRAFT_RESPONSES || []).forEach(function(d) {
     if (!filterFieldIds || filterFieldIds.has(d.field_id)) {
       if (d.value === null || d.value === undefined) return; // unchecked — no entry
       var val = unwrapValue(d.value);
       var subSteps = null;
-      // Unpack bundled fail note if present
+      // Unpack bundled fail note + correction photo if present
       if (val && typeof val === 'object' && val._v !== undefined) {
         if (val._fail_note) FAIL_NOTES[d.field_id] = { note: val._fail_note.note || '', severity: val._fail_note.severity || '', photo: val._fail_note.photo || null };
+        if (val._correction_photo) CORRECTION_PHOTOS[d.field_id] = val._correction_photo;
         val = val._v;
       }
       // Unpack sub-step objects: { value: bool, sub_steps: {...} }
@@ -1486,6 +1491,10 @@ function hydrateFieldState(filterFieldIds) {
         subSteps = val.sub_steps;
         val = val.value;
       }
+      // A photo-only correction draft ({_v:null, _correction_photo}) records the
+      // photo (above) but must NOT mark the field answered — the crew still owes
+      // the actual answer.
+      if (val === null || val === undefined) return;
       var entry = { value: val, answeredBy: d.answered_by_name || getUserName(), answeredAt: new Date(d.answered_at) };
       if (subSteps) entry.sub_steps = subSteps;
       FIELD_RESPONSES[d.field_id] = entry;
@@ -1497,6 +1506,13 @@ function hydrateFieldState(filterFieldIds) {
       if (!filterFieldIds || filterFieldIds.has(r.field_id)) {
         var val = unwrapValue(r.value);
         var subSteps = null;
+        // A resubmitted field may carry the `_correction_photo` (and/or `_fail_note`)
+        // value bundle; unwrap it the same way the draft path does.
+        if (val && typeof val === 'object' && val._v !== undefined) {
+          if (val._fail_note) FAIL_NOTES[r.field_id] = { note: val._fail_note.note || '', severity: val._fail_note.severity || '', photo: val._fail_note.photo || null };
+          if (val._correction_photo) CORRECTION_PHOTOS[r.field_id] = val._correction_photo;
+          val = val._v;
+        }
         if (val && typeof val === 'object' && val.sub_steps !== undefined) {
           subSteps = val.sub_steps;
           val = val.value;
@@ -1536,15 +1552,28 @@ function hydrateFieldState(filterFieldIds) {
 // FAIL_NOTES is registered in store above and aliased at the top.
 const REJECTION_FLAGS = {}; // { [fldId]: { comment, requirePhoto } } — TODO: load from submission.rejections[] on checklist open
 const FEEDBACK_NOTES = {}; // { [fldId]: { comment, by, at } } — feedback from approved submissions
+// CORRECTION_PHOTOS holds the crew's evidence photo for a field the approver
+// bounced back with require_photo=true. It lives in a slot SEPARATE from the
+// field's answer (a checkbox can't hold both its boolean and a photo URL), and
+// is persisted by bundling `_correction_photo` into the field's saved value
+// (mirrors the `_fail_note` bundle) — see debouncedSaveField/submit/hydrate.
+const CORRECTION_PHOTOS = {}; // { [fldId]: httpsUrl }
+
+// fieldHasRequiredPhoto reports whether a require-photo rejection is satisfied
+// for a field: either a dedicated correction photo, or (photo-type fields) the
+// answer value itself being a photo URL.
+function fieldHasRequiredPhoto(fldId) {
+  if (CORRECTION_PHOTOS[fldId]) return true;
+  var resp = FIELD_RESPONSES[fldId];
+  return !!(resp && typeof resp.value === 'string' && resp.value.startsWith('https://'));
+}
 
 // Named mutation helpers (used inline in event handlers and referenced by name for traceability)
 function clearRejectionFlag(fldId) {
   if (!REJECTION_FLAGS[fldId]) return;
   // Keep the flag if photo is required but not yet provided
-  if (REJECTION_FLAGS[fldId].requirePhoto) {
-    var resp = FIELD_RESPONSES[fldId];
-    var hasPhoto = resp && resp.value && typeof resp.value === 'string' && resp.value.startsWith('https://');
-    if (!hasPhoto) return; // keep flag — photo still needed
+  if (REJECTION_FLAGS[fldId].requirePhoto && !fieldHasRequiredPhoto(fldId)) {
+    return; // keep flag — photo still needed
   }
   delete REJECTION_FLAGS[fldId];
 }
@@ -1597,9 +1626,17 @@ async function submitChecklistToAPI(tplId, allFlds, isReapproval) {
   var responses = allFlds.map(function(f) {
     var resp = FIELD_RESPONSES[f.id];
     var failNote = FAIL_NOTES[f.id];
+    var rawVal = null;
+    if (resp) {
+      var base = resp.sub_steps ? { value: resp.value, sub_steps: resp.sub_steps } : resp.value;
+      // Bundle the correction photo into the submitted value so the resubmit
+      // gate (frontend + backend) sees it and the manager can review it. The
+      // hydrate paths unwrap `_correction_photo`/`_v` symmetrically.
+      rawVal = CORRECTION_PHOTOS[f.id] ? { _v: base, _correction_photo: CORRECTION_PHOTOS[f.id] } : base;
+    }
     return {
       field_id: f.id,
-      value: resp ? JSON.stringify(resp.sub_steps ? { value: resp.value, sub_steps: resp.sub_steps } : resp.value) : null,
+      value: resp ? JSON.stringify(rawVal) : null,
       fail_note: failNote ? failNote.note : null,
       fail_severity: failNote ? failNote.severity : null
     };
@@ -1685,6 +1722,53 @@ function handlePhotoCaptureClick(fldId) {
       // User retook — revoke old blob and re-open camera
       URL.revokeObjectURL(objectURL);
       handlePhotoCaptureClick(fldId);
+    });
+  });
+}
+
+// handleCorrectionPhotoCaptureClick attaches the evidence photo an approver
+// required when bouncing a NON-photo field back. It stores the URL in the
+// dedicated CORRECTION_PHOTOS slot (NOT the field's answer value) and persists
+// it via debouncedSaveField, which bundles `_correction_photo` into the saved
+// value. Mirrors handlePhotoCaptureClick's presign+PUT upload.
+function handleCorrectionPhotoCaptureClick(fldId) {
+  openCamera(function(file) {
+    var objectURL = URL.createObjectURL(file);
+    showPhotoPreview(objectURL, function() {
+      var area = document.querySelector('.correction-photo-area[data-correction-photo-fld="' + fldId + '"]');
+      if (area) area.innerHTML = '<div class="photo-uploading"><div class="photo-spinner"></div>Uploading...</div>';
+      var tpl = fillState.activeTemplate;
+      var tplId = tpl ? tpl.id : 'unknown';
+      fetch('/api/v1/photos/presign', {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path_prefix: 'checklists', id: tplId, filename: fldId + '-correction.jpg' })
+      }).then(function(r) {
+        if (r.status === 401) { location.href = 'login.html'; throw new Error('unauthorized'); }
+        if (!r.ok) throw new Error('presign failed: ' + r.status);
+        return r.json();
+      }).then(function(presignResp) {
+        return fetch(presignResp.url, { method: 'PUT', body: file, headers: { 'Content-Type': 'image/jpeg' } })
+          .then(function(putResp) { if (!putResp.ok) throw new Error('PUT failed: ' + putResp.status); return presignResp.public_url; });
+      }).then(function(publicUrl) {
+        URL.revokeObjectURL(objectURL);
+        CORRECTION_PHOTOS[fldId] = publicUrl;
+        // Persist via the value bundle. Pass the current answer (or null if the
+        // field isn't answered yet — hydrate records the photo without marking
+        // the field answered).
+        var resp = FIELD_RESPONSES[fldId];
+        debouncedSaveField(fldId, resp ? resp.value : null);
+        // Re-render the field so the banner flips to "✓ Photo uploaded" and the
+        // thumbnail replaces the capture button.
+        renderFieldResponse(fldId);
+      }).catch(function(err) {
+        console.error('Correction photo upload failed:', err);
+        URL.revokeObjectURL(objectURL);
+        if (area) area.innerHTML = '<button class="photo-capture-btn" data-action="correction-photo-capture" data-fld-id="' + fldId + '">📷 Add photo</button><div class="photo-field-error" data-action="correction-photo-capture" data-fld-id="' + fldId + '">Upload failed. Tap to retry.</div>';
+      });
+    }, function() {
+      URL.revokeObjectURL(objectURL);
+      handleCorrectionPhotoCaptureClick(fldId);
     });
   });
 }
@@ -1859,7 +1943,15 @@ function renderApprovals() {
           var val = respMap[f.id];
           // Unwrap JSON-encoded value strings
           if (typeof val === 'string') { try { val = JSON.parse(val); } catch(e) {} }
+          // Unwrap the `_correction_photo`/`_fail_note` value bundle so the
+          // reviewer sees the real answer, and surface the correction photo.
+          var correctionPhoto = null;
+          if (val && typeof val === 'object' && val._v !== undefined) {
+            if (val._correction_photo) correctionPhoto = val._correction_photo;
+            val = val._v;
+          }
           var field = { id: f.id, label: f.label || f.type, type: f.type, value: val !== undefined ? val : null };
+          if (correctionPhoto) field.correctionPhoto = correctionPhoto;
           if (f.sub_steps && f.sub_steps.length > 0) field.sub_steps = f.sub_steps;
           submission.fields.push(field);
         });
@@ -1873,10 +1965,12 @@ function renderApprovals() {
         '<div class="reject-item-form">' +
         '<textarea class="reject-item-input" name="reject-' + fld.id + '" data-reject-fld="' + fld.id + '" placeholder="Comment for crew\u2026" rows="2">' + escapeHtml(fld._rejectComment || '') + '</textarea>' +
         '<label class="require-photo-toggle"><input type="checkbox" name="reject-photo-' + fld.id + '" data-reject-photo-fld="' + fld.id + '" ' + (fld._rejectRequirePhoto ? 'checked' : '') + '> Require photo evidence</label></div>' : '';
-      // Show photo thumbnail inline if the field value is a Spaces URL
+      // Show photo thumbnail inline if the field value is a Spaces URL, or if a
+      // correction photo was attached to satisfy a require-photo rejection.
       var photoThumb = '';
-      if (answered && typeof fld.value === 'string' && fld.value.startsWith('https://')) {
-        photoThumb = '<a class="photo-thumb-link" href="' + fld.value + '" target="_blank" style="display:block;margin:6px 0 0 0"><img class="approvals-photo-thumb" src="' + fld.value + '" alt="Photo evidence"></a>';
+      var thumbUrl = (answered && typeof fld.value === 'string' && fld.value.startsWith('https://')) ? fld.value : (fld.correctionPhoto || null);
+      if (thumbUrl) {
+        photoThumb = '<a class="photo-thumb-link" href="' + thumbUrl + '" target="_blank" style="display:block;margin:6px 0 0 0"><img class="approvals-photo-thumb" src="' + thumbUrl + '" alt="Photo evidence"></a>';
       }
       var hasSubs = fld.sub_steps && fld.sub_steps.length > 0;
       var subsHtml = '';
@@ -2075,11 +2169,29 @@ function renderFeedbackNote(fldId) {
 function correctionBannerFor(fieldId, resp) {
   var rejFlag = REJECTION_FLAGS[fieldId];
   if (!rejFlag) return '';
-  var hasPhoto = resp && typeof resp.value === 'string' && resp.value.startsWith('https://');
   var photoSuffix = rejFlag.requirePhoto
-    ? (hasPhoto ? ' · ✓ Photo uploaded' : ' · 📷 Photo required before resubmit')
+    ? (fieldHasRequiredPhoto(fieldId) ? ' · ✓ Photo uploaded' : ' · 📷 Photo required before resubmit')
     : '';
   return '<div class="correction-banner">⚠ Rejected: ' + escapeHtml(rejFlag.comment) + photoSuffix + '</div>';
+}
+
+// correctionPhotoUI renders the capture control that lets the crew attach the
+// photo an approver required when bouncing a NON-photo field back. Photo-type
+// fields satisfy require_photo through their own answer value, so they get no
+// second control here. The captured URL lives in CORRECTION_PHOTOS[fieldId]
+// (persisted via the `_correction_photo` value bundle), separate from the
+// field's answer, so a checkbox can be both checked AND carry its evidence.
+function correctionPhotoUI(fieldId, fieldType) {
+  var rejFlag = REJECTION_FLAGS[fieldId];
+  if (!rejFlag || !rejFlag.requirePhoto || fieldType === 'photo') return '';
+  var url = CORRECTION_PHOTOS[fieldId];
+  var inner = url
+    ? '<div class="photo-thumb-wrap">' +
+      '<a class="photo-thumb-link" href="' + url + '" target="_blank"><img class="photo-thumb" src="' + url + '" alt="Correction photo"></a>' +
+      '<button class="photo-retake-link" data-action="correction-photo-retake" data-fld-id="' + fieldId + '">Retake</button>' +
+      '</div>'
+    : '<button class="photo-capture-btn" data-action="correction-photo-capture" data-fld-id="' + fieldId + '">📷 Add photo</button>';
+  return '<div class="correction-photo-area" data-correction-photo-fld="' + fieldId + '" style="margin:0 0 8px">' + inner + '</div>';
 }
 
 function renderRunnerField(fld) {
@@ -2147,7 +2259,7 @@ function renderRunnerField(fld) {
 </div>`;
   }
 
-  const correctionBanner = correctionBannerFor(fld.id, resp);
+  const correctionBanner = correctionBannerFor(fld.id, resp) + correctionPhotoUI(fld.id, fld.type);
 
   if (fld.type === 'checkbox') {
     var subs = fld.sub_steps && fld.sub_steps.length > 0 ? fld.sub_steps : null;
@@ -2492,6 +2604,11 @@ document.getElementById('fill-body').addEventListener('click', function(e) {
       return;
     }
 
+    if (action === 'correction-photo-capture' || action === 'correction-photo-retake') {
+      handleCorrectionPhotoCaptureClick(fldId);
+      return;
+    }
+
     if (action === 'unsubmit') {
       var submissionId = actionEl.dataset.submissionId;
       if (!submissionId) { showToast('No submission to unsubmit'); return; }
@@ -2552,9 +2669,9 @@ document.getElementById('fill-body').addEventListener('click', function(e) {
         var rejFlag = REJECTION_FLAGS[f.id];
         var needsPhoto = (f.type === 'photo' && f.required) || (rejFlag && rejFlag.requirePhoto);
         if (!needsPhoto) return false;
-        var resp = FIELD_RESPONSES[f.id];
-        var v = resp ? resp.value : null;
-        return !(typeof v === 'string' && v.indexOf('https://') === 0);
+        // Satisfied by the field's own photo value (photo-type fields) OR the
+        // dedicated correction-photo slot (any other field type).
+        return !fieldHasRequiredPhoto(f.id);
       });
       if (missingPhoto.length > 0) {
         var photoNames = missingPhoto.map(function(f) { return f.label; }).join(', ');

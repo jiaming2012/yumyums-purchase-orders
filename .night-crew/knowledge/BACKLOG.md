@@ -395,12 +395,17 @@
   field-id filter (`tplFieldIds`) never even included sub-step ids. Fixed red-first: shared
   `correctionBannerFor(id, resp)` helper renders on parent AND sub-step rows, and `tplFieldIds` now
   includes sub-step ids (both open paths). Test: `tests/workflows.spec.js` `APR-SUBSTEP-0718`.
-  **STILL OPEN — the require-photo DEAD-END:** a non-photo field (checkbox/text/yes-no/temp) rejected
-  with `require_photo=true` shows "📷 Photo required before resubmit" but offers NO capture control,
-  while the top-level resubmit gate (`workflows.html` ~2534) demands the field's *value* be an
-  `https://` URL — impossible for a checkbox (its value is boolean). A proper fix needs a persisted
-  **correction-photo slot separate from the field's answer** (a checkbox can't hold both) + a gate
-  that checks that slot. Documented `test.fixme` `APR-DEADEND-0718`. Note: for a rejected SUB-STEP the
-  gate doesn't fire, so the requirement is advisory there and now renders. WO: **"correction-photo
-  slot for require-photo on non-photo fields (capture UI + persistence + gate)."**
-  · origin: 2026-07-18 operator-found sub-step rejection bug (dev play) · new
+  **RESOLVED 2026-07-18 — the require-photo DEAD-END + correction-photo slot.** A non-photo field
+  rejected with `require_photo=true` used to show "📷 Photo required before resubmit" with NO capture
+  control, while both gates demanded the field's *value* be an `https://` URL — impossible for a
+  checkbox (its value is boolean). Built a dedicated **correction-photo slot** (`CORRECTION_PHOTOS`),
+  persisted by bundling `_correction_photo` into the saved value (separate from the answer, mirroring
+  `_fail_note`): capture UI on any non-photo require-photo field, unpacked on hydrate (draft +
+  submission) and in the manager review view, and honored by the frontend gate + a new backend
+  `hasResubmitPhoto`. Also fixed a latent **hard-block**: a sub-step `require_photo` matched the
+  backend resubmit gate but was unsatisfiable (sub-steps aren't sent as top-level responses) → the
+  gate now excludes `parent_field_id` fields (sub-step require-photo is advisory). Tests: backend
+  `TestResubmit_..._SucceedsWithCorrectionPhoto` + `..._SubStepRequirePhoto_NotBlocked`; E2E
+  `APR-DEADEND-0718`; persistence `FLD-CORRECTION-PHOTO`. Parked-by-convention: the presign+PUT camera
+  plumbing itself (injected in tests, like onboarding FR-18).
+  · origin: 2026-07-18 operator-found sub-step rejection bug (dev play) · resolved 2026-07-18

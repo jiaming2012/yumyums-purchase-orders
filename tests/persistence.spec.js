@@ -939,6 +939,66 @@ test.describe('Persistence', () => {
     expect(imgSrc).toBe(fakePublicUrl);
   });
 
+  // Correction-photo slot (built 2026-07-18): the evidence photo a crew attaches
+  // to satisfy a require_photo rejection lives in a slot SEPARATE from the field's
+  // answer, persisted by bundling `_correction_photo` into the saved value. This
+  // is the required back-and-reopen test: it must survive as an https:// URL.
+  test('correction photo survives back-to-list and reopen as https:// URL [FLD-CORRECTION-PHOTO]', async ({ page }) => {
+    const todayDOW = await getTodayDOW(page);
+    const tpl = await apiCall(page, 'POST', 'createTemplate', {
+      name: 'Correction Photo Test', requires_approval: true,
+      sections: [{ title: 'Close', order: 0, condition: null,
+        fields: [{ type: 'checkbox', label: 'Lock the truck', required: false, order: 0, config: {}, fail_trigger: null, condition: null }] }],
+      assignments: [
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' },
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'approver' },
+      ],
+      schedules: [{ active_days: [todayDOW] }],
+    });
+    const templates = await apiCall(page, 'GET', 'templates');
+    const fieldId = templates.find(t => t.id === tpl.id).sections[0].fields[0].id;
+    const fakeUrl = 'https://spaces.example.com/checklists/test/correction-' + fieldId + '.jpg';
+
+    // Submit, then the approver rejects the checkbox demanding a photo.
+    await apiCall(page, 'POST', 'submitChecklist', {
+      template_id: tpl.id, idempotency_key: generateUUID(),
+      responses: [{ field_id: fieldId, value: JSON.stringify(true) }],
+    });
+    const pending = await apiCall(page, 'GET', 'pendingApprovals');
+    const sub = pending.find(s => s.template_id === tpl.id) || pending[0];
+    await apiCall(page, 'POST', 'rejectItem', { submission_id: sub.id, field_id: fieldId, comment: 'Photo please', require_photo: true });
+
+    // Open the rejected checklist and inject the attached correction photo
+    // (simulating a successful presign upload — camera UI isn't available in test).
+    await page.goto(BASE + '/workflows.html');
+    const row = page.locator('[data-fill-template-id="' + tpl.id + '"]');
+    await expect(row).toBeVisible({ timeout: 10000 });
+    await row.click();
+    await page.waitForSelector('#fill-body');
+    await apiCall(page, 'POST', 'saveResponse', {
+      field_id: fieldId,
+      value: { _v: true, _correction_photo: fakeUrl },
+    });
+    await page.waitForTimeout(200);
+
+    // Back to list, then reopen.
+    await page.locator('#fill-back').scrollIntoViewIfNeeded();
+    await page.click('#fill-back');
+    await expect(page.locator('#checklist-list')).toBeVisible({ timeout: 5000 });
+    await page.locator('[data-fill-template-id="' + tpl.id + '"]').click();
+    await page.waitForSelector('#fill-body');
+
+    // The correction photo persists as an https:// thumbnail, and the banner
+    // reflects it as uploaded (not "required").
+    const field = page.locator('.fill-field', { has: page.locator('.correction-banner') }).first();
+    const img = field.locator('.correction-photo-area img.photo-thumb');
+    await expect(img).toBeVisible({ timeout: 5000 });
+    const src = await img.getAttribute('src');
+    expect(src).toBe(fakeUrl);
+    expect(src).not.toMatch(/^blob:/);
+    await expect(field.locator('.correction-banner')).toContainText('Photo uploaded');
+  });
+
   // --- Video watch progress persistence ---
 
   test('video max_watched_time survives back-to-list and reopen', async ({ page }) => {

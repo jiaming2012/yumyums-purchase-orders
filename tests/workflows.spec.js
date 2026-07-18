@@ -615,21 +615,21 @@ test.describe('Approvals', () => {
   // the requirement — "the photo is not added to the checklist". This asserts
   // the dead-end so the fix (render a capture affordance on any require-photo
   // field) has a red anchor.
-  // KNOWN GAP (not yet fixed) — a proper fix needs a persisted correction-photo
-  // slot separate from the field's answer value (a checkbox can't hold both its
-  // boolean and a photo URL), plus a gate change. Tracked in BACKLOG. Marked
-  // fixme so it documents the dead-end without failing the suite; flip to a real
-  // test when the correction-photo slot lands. Note: for the operator's actual
-  // scenario (a rejected SUB-STEP) the resubmit gate does not fire, so the photo
-  // requirement is advisory there and now renders correctly (APR-SUBSTEP-0718).
-  test.fixme('checkbox rejected with require-photo has no way to attach the required photo [APR-DEADEND-0718]', async ({ page }) => {
+  // The correction-photo slot (built 2026-07-18): a checkbox rejected with
+  // require_photo now offers a capture control, and the attached photo (stored in
+  // a slot SEPARATE from the checkbox's boolean answer) satisfies both the
+  // frontend and backend resubmit gates. Photo capture itself is injected (the
+  // presign+PUT camera plumbing is parked by convention, like onboarding FR-18);
+  // this drives everything around it: control renders → attach → banner flips →
+  // resubmit succeeds.
+  test('checkbox rejected with require-photo: attach correction photo unblocks resubmit [APR-DEADEND-0718]', async ({ page }) => {
+    page.on('dialog', d => d.accept());
     await login(page);
     await page.goto(BASE + '/workflows.html');
     await cleanupTemplates(page);
     await cleanupPendingApprovals(page);
     const { id: templateId } = await createAndSubmitChecklist(page); // single checkbox "Check this"
 
-    // Reject the checkbox with require_photo via API (isolates the DISPLAY bug).
     const subs = await page.evaluate(async () => {
       const r = await fetch('/api/v1/workflow/myChecklists?dow=' + new Date().getDay());
       return (await r.json()).submissions || [];
@@ -646,12 +646,37 @@ test.describe('Approvals', () => {
     await page.locator('#checklist-list .row', { hasText: 'Approval Test' }).first().click();
     await page.waitForSelector('#fill-body');
 
-    // The banner demands a photo…
+    // The banner demands a photo AND now offers a capture control (dead-end gone).
     const field = page.locator('.fill-field', { has: page.locator('.correction-banner') }).first();
     await expect(field.locator('.correction-banner')).toContainText('Photo required', { timeout: 5000 });
-    // …but there is NO capture control on the field to satisfy it (the dead-end).
-    await expect(field.locator('.photo-capture-btn'),
+    await expect(field.locator('[data-action="correction-photo-capture"]'),
       'a require-photo field must offer a way to attach the photo').toHaveCount(1);
+
+    // Re-check the box (redo the item) then attach the correction photo (inject the
+    // uploaded URL, simulating a successful presign+PUT — the test convention).
+    await field.locator('.check-btn').click();
+    await page.evaluate((fid) => {
+      CORRECTION_PHOTOS[fid] = 'https://cdn.example.com/correction.jpg';
+      var resp = FIELD_RESPONSES[fid];
+      debouncedSaveField(fid, resp ? resp.value : null);
+      renderFieldResponse(fid);
+    }, fieldId);
+    await page.waitForTimeout(2000); // debounce save
+
+    // Banner flips to "✓ Photo uploaded" and a thumbnail replaces the button.
+    await expect(field.locator('.correction-banner')).toContainText('Photo uploaded', { timeout: 5000 });
+    await expect(field.locator('[data-action="correction-photo-retake"]')).toBeVisible();
+
+    // Resubmit now succeeds — no "Photo required" block, submission goes pending.
+    await page.click('#submit-btn');
+    await expect(page.locator('#toast')).not.toContainText('Photo required', { timeout: 3000 });
+    await page.waitForTimeout(1000);
+    const after = await page.evaluate(async () => {
+      const r = await fetch('/api/v1/workflow/myChecklists?dow=' + new Date().getDay());
+      return (await r.json()).submissions || [];
+    });
+    expect(after.some(s => s.status === 'pending_approval' || s.status === 'pending' || s.status === 'submitted'),
+      'resubmit succeeded with the correction photo').toBe(true);
   });
 
   // Operator-found (dev, 2026-07-18) — THE comment-vanish repro. The operator's

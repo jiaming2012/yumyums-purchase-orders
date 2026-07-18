@@ -139,10 +139,16 @@ func validateResubmitPhoto(ctx context.Context, pool *pgxpool.Pool, input Submit
 	if input.TemplateID == "" || userID == "" {
 		return nil
 	}
+	// The JOIN to checklist_fields with parent_field_id IS NULL excludes SUB-STEPS
+	// (and fields deleted by a template edit): a sub-step is never sent as a
+	// top-level response, so gating on it would hard-block resubmit with no way to
+	// satisfy it. For sub-steps require_photo is advisory (rendered in the fill UI
+	// banner); only top-level fields are gate-enforced.
 	rows, err := pool.Query(ctx,
 		`SELECT sr.field_id::text
 		   FROM submission_rejections sr
 		   JOIN checklist_submissions cs ON cs.id = sr.submission_id
+		   JOIN checklist_fields cf ON cf.id = sr.field_id AND cf.parent_field_id IS NULL
 		  WHERE cs.template_id = $1
 		    AND cs.submitted_by = $2
 		    AND sr.require_photo = true
@@ -179,11 +185,43 @@ func validateResubmitPhoto(ctx context.Context, pool *pgxpool.Pool, input Submit
 		respValues[resp.FieldID] = resp.Value
 	}
 	for fid := range requirePhoto {
-		if !isHTTPSPhotoValue(respValues[fid]) {
+		if !hasResubmitPhoto(respValues[fid]) {
 			return fmt.Errorf("resubmit_photo_required")
 		}
 	}
 	return nil
+}
+
+// hasResubmitPhoto reports whether a resubmitted response value satisfies a
+// require_photo rejection — either the value IS a photo URL (a photo-type field),
+// or it carries a `_correction_photo` bundle: a non-photo field can't hold both
+// its answer and a photo, so the fill UI bundles the evidence photo as
+// {"_v":<answer>,"_correction_photo":"https://…"} (mirrors the frontend
+// fieldHasRequiredPhoto check).
+func hasResubmitPhoto(value json.RawMessage) bool {
+	if isHTTPSPhotoValue(value) {
+		return true
+	}
+	if len(value) == 0 {
+		return false
+	}
+	// The fill UI JSON-stringifies the value, so the bundle object arrives as a
+	// JSON string literal. Peel up to two string layers to reach the object.
+	raw := []byte(value)
+	for i := 0; i < 2; i++ {
+		var s string
+		if err := json.Unmarshal(raw, &s); err != nil {
+			break
+		}
+		raw = []byte(s)
+	}
+	var obj struct {
+		CorrectionPhoto string `json:"_correction_photo"`
+	}
+	if err := json.Unmarshal(raw, &obj); err != nil {
+		return false
+	}
+	return strings.HasPrefix(obj.CorrectionPhoto, "https://")
 }
 
 // isHTTPSPhotoValue reports whether a response value is a JSON string that is a
