@@ -61,3 +61,63 @@ minimum for the checklist engine:
 Graduate as a test-hardening WO (backlog): **"cross-user live-sync access matrix + `sync`-package
 unit coverage."** Pair the E2E matrix with Go unit tests on `ResolveEntityAccess` for every
 role/assignment combination.
+
+---
+
+## § 2026-07-18 addendum — two more escaped defects, same class (approval-state ops)
+
+Continued operator play on `dev` surfaced two further live-sync escapes of the **same root class**
+(a live op arrives but the client re-renders from a **stale in-memory cache** instead of reconciling
+the changed state). Recorded here so the WO above is scoped correctly.
+
+### The defects (fixed, red-first)
+
+1. **Rejection reason never reaches the submitter's other device live.** A manager rejects an item
+   with a comment. The backend emits a `REJECT_ITEM` op and it *does* reach the submitter's device,
+   but `applyOp`'s `REJECT_ITEM` branch called **only `loadPendingApprovals()`** — the approver's
+   queue, a no-op for a non-approver. It never refreshed `MY_SUBMISSIONS`, so `hydrateFieldState`
+   (which builds the `REJECTION_FLAGS` `⚠ Rejected` correction banner **only** from a submission whose
+   status is `rejected`) never ran. The reason stayed invisible until a hard reload — and even an
+   in-app reopen missed it, because the runner re-opens from the stale cached submission
+   (`workflows.html` row-click reads `MY_SUBMISSIONS`, still `pending_approval`).
+
+2. **Observer's list count frozen on the submission snapshot.** For a `pending_approval` /
+   `submitted` / `approved` submission, `getProgress` counts the **frozen `submission.responses`
+   snapshot**, not live state. After a rejection the submitter goes back to editing and unchecks a
+   field; that `SET_FIELD` op reaches the observer and re-renders their list, but `getProgress` still
+   reads the stale frozen snapshot (the observer's cached submission is still `pending_approval`,
+   never refreshed to `rejected`), so the count never moves off the pre-rejection number.
+
+**Fix (broad, operator-chosen):** `applyOp` now routes `APPROVE_ITEM` / `REJECT_ITEM` through
+`loadMyChecklists` (in addition to `loadPendingApprovals`), gated like the `SAVE_TEMPLATE` branch to
+avoid a catch-up fetch storm. `loadMyChecklists` re-fetches `MY_SUBMISSIONS`, re-hydrates
+field/rejection state, re-renders the list, and re-renders an open runner in place — so on every
+receiving device the correction banner, edit-vs-readonly mode, and list progress count all converge
+live. Regression tests: `tests/sync.spec.js` `RJT-LIVE-01` (rejection reason live), `RJT-LIVE-02`
+(observer count not frozen), `RJT-LIVE-03` (approval live). RED before, GREEN after; full `sync`
+suite (43) green, no regressions.
+
+### The QA gap this widens
+
+The 2026-07-17 gap was "no cross-user access matrix." This addendum shows a second axis was missing:
+**op type.** Every convergence test drove `SET_FIELD` (field-edit) ops. The **submission-lifecycle**
+ops — submit / approve / reject — were **never tested cross-device**, and no test asserted that a
+status change reconciles a *derived* view (the correction banner, readonly mode, or the list progress
+count) on a second device. Both bugs lived in exactly that untested intersection: a lifecycle op ×
+a derived view × an observer who isn't the actor.
+
+### Recommendation update (feeds the same WO)
+
+Extend the cross-user access matrix with an **op-type axis** and assert **live convergence of derived
+views**, not just the raw field value:
+
+| Op type | Actor | Observer | Derived view that must converge live |
+|---|---|---|---|
+| `SET_FIELD` | assignee | 2nd device / admin | field value + list count (was tested) |
+| `REJECT_ITEM` | approver | submitter's 2nd device | correction banner + edit mode (was NOT tested) |
+| `REJECT_ITEM` | approver | admin/manager observer | list progress count off the frozen snapshot (was NOT tested) |
+| `APPROVE_ITEM` | approver | submitter's 2nd device | Approved badge / approved readonly state (was NOT tested) |
+| `SUBMIT_CHECKLIST` | submitter | approver + 2nd device | Approvals queue + pending badge |
+
+The single WO now reads: **"cross-user × op-type live-sync matrix (assert derived-view convergence)
++ `sync`-package unit coverage."**

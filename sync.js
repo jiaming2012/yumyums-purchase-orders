@@ -442,7 +442,30 @@ function applyOp(op, silent) {
   } else if (op.op_type === 'SUBMIT_CHECKLIST') {
     if (typeof loadMyChecklists === 'function') loadMyChecklists(); // re-fetches data + re-renders runner if open
   } else if (op.op_type === 'APPROVE_ITEM' || op.op_type === 'REJECT_ITEM') {
+    // The approvers' queue always refreshes.
     if (typeof loadPendingApprovals === 'function') loadPendingApprovals();
+    // The submitter's / observer's OWN checklist view must ALSO reconcile. An
+    // approve/reject changes the submission's status, and that status drives
+    // three things the old (approvals-only) refresh left stale on every
+    // non-approver device until a hard reload (operator-found 2026-07-18):
+    //   • the ⚠ Rejected correction banner (hydrateFieldState only builds
+    //     REJECTION_FLAGS from a submission whose status is 'rejected'),
+    //   • edit-vs-readonly mode (renderRunner derives fillState.readonly from
+    //     the submission status), and
+    //   • the My-Checklists list progress count (getProgress counts the frozen
+    //     submission snapshot while status is pending/submitted/approved, so it
+    //     never moves off the pre-rejection number until the status refreshes).
+    // loadMyChecklists re-fetches MY_SUBMISSIONS, re-hydrates field/rejection
+    // state, re-renders the list, AND re-renders an open runner in place — so
+    // both symptoms converge live. Gate it like the SAVE_TEMPLATE branch below:
+    // reconcile when a runner is open (flip the open checklist live) or for a
+    // live op (converge the list); skip a silent catch-up replay with no runner
+    // open, since the page-load's own loadMyChecklists already reconciled it and
+    // replaying the backlog per-op would be a needless fetch storm.
+    if (typeof loadMyChecklists === 'function' &&
+        ((typeof fillState !== 'undefined' && fillState.activeTemplate) || !silent)) {
+      loadMyChecklists();
+    }
   } else if (op.op_type === 'SAVE_TEMPLATE' || op.op_type === 'ARCHIVE_TEMPLATE') {
     // The Builder template list always refreshes.
     if (typeof loadTemplates === 'function') loadTemplates();

@@ -570,6 +570,206 @@ test.describe('Cross-device: regressions', () => {
     await ctx.close();
   });
 
+  // ─── Operator-found (dev, 2026-07-18): approval-state ops don't refresh the
+  // receiving device's checklist ──────────────────────────────────────────────
+  // Same root class as the 07-17 live-uncheck bug: a live op arrives but the
+  // client re-renders from a STALE in-memory cache (MY_SUBMISSIONS) instead of
+  // reconciling the changed submission/approval state. Two symptoms:
+  //   RJT-LIVE-01 — a manager's rejection reason never reaches the submitter's
+  //     other device live (applyOp REJECT_ITEM only calls loadPendingApprovals,
+  //     which is a no-op for a non-approver; MY_SUBMISSIONS stays pending_approval
+  //     so hydrateFieldState never builds the REJECTION_FLAGS correction banner).
+  //   RJT-LIVE-02 — an observer's list count stays frozen on the pre-rejection
+  //     submission SNAPSHOT (getProgress counts submission.responses for a
+  //     pending_approval submission); later live unchecks re-render the list but
+  //     getProgress still reads the stale frozen snapshot, so the count never moves.
+  // Helper: pull a field id by label out of a pending submission's snapshot.
+  const fieldIdByLabel = (sub, label) => {
+    const snap = typeof sub.template_snapshot === 'string' ? JSON.parse(sub.template_snapshot) : sub.template_snapshot;
+    for (const s of (snap.sections || [])) for (const f of (s.fields || [])) if (f.label === label) return f.id;
+    return null;
+  };
+
+  test('rejection reason live-reaches the submitter\'s other device without reload [RJT-LIVE-01]', async ({ browser, page }) => {
+    test.setTimeout(120000);
+    page.on('dialog', d => d.accept());
+    const dow = await getTodayDOW(page);
+    const CB = (label) => ({ type: 'checkbox', label, required: false, order: 0, config: {}, fail_trigger: null, condition: null });
+    await apiCall(page, 'POST', 'createTemplate', {
+      name: 'Reject Repro', requires_approval: true,
+      sections: [{ title: 'Cut the check', order: 0, condition: null, fields: [
+        CB('Cut the check'), CB('Do A'), CB('Do B'), CB('Do C'),
+      ] }],
+      schedules: [{ active_days: [dow] }],
+      assignments: [
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' },
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'approver' },
+      ],
+    });
+
+    // Device A (submitter): open runner, check all four, submit.
+    await page.reload();
+    await page.click('[data-fill-template-id]');
+    await page.waitForSelector('.fill-field', { timeout: 12000 });
+    for (const label of ['Cut the check', 'Do A', 'Do B', 'Do C']) {
+      const b = page.locator('.fill-field', { hasText: label }).locator('.check-btn');
+      await b.click(); await expect(b).toHaveClass(/checked/, { timeout: 5000 });
+    }
+    await page.waitForTimeout(2000);
+    await page.click('#submit-btn');
+    await page.waitForTimeout(2500);
+
+    const pending = await apiCall(page, 'GET', 'pendingApprovals');
+    expect(Array.isArray(pending) && pending.length > 0, 'submission is pending approval').toBeTruthy();
+    const sub = pending[0];
+    const doBId = fieldIdByLabel(sub, 'Do B');
+    expect(doBId, 'resolved Do B field id from snapshot').toBeTruthy();
+
+    // Device B (submitter's 2nd device): open the same checklist and watch it.
+    const ctxB = await browser.newContext();
+    const pageB = await ctxB.newPage();
+    pageB.on('dialog', d => d.accept());
+    await login(pageB);
+    await pageB.goto(BASE + '/workflows.html');
+    await expect(pageB.locator('#s1').getByText('Reject Repro')).toBeVisible({ timeout: 12000 });
+    await pageB.click('[data-fill-template-id]');
+    await pageB.waitForTimeout(1500);
+    await expect(pageB.locator('.correction-banner'), 'no rejection banner before the reject').toHaveCount(0);
+
+    // Approver (same admin identity, Device A) rejects "Do B" with a reason.
+    await apiCall(page, 'POST', 'rejectItem', { submission_id: sub.id, field_id: doBId, comment: 'Please redo Do B', require_photo: false });
+    await page.waitForTimeout(3500); // REJECT_ITEM op + WS propagation
+
+    // THE BUG: Device B's open runner must surface the rejection reason live (no reload).
+    await expect(pageB.locator('.correction-banner'), 'Device B must live-show the rejection reason without reload')
+      .toContainText('Please redo Do B', { timeout: 12000 });
+
+    // A hard reload also shows it (proves the reject persisted; only the live
+    // re-render was missing) — matches the operator report.
+    await pageB.reload();
+    await expect(pageB.locator('#s1').getByText('Reject Repro')).toBeVisible({ timeout: 12000 });
+    await pageB.click('[data-fill-template-id]');
+    await expect(pageB.locator('.correction-banner')).toContainText('Please redo Do B', { timeout: 12000 });
+
+    await ctxB.close();
+  });
+
+  test('observer list count reflects live state after a rejection, not the frozen submission snapshot [RJT-LIVE-02]', async ({ browser, page }) => {
+    test.setTimeout(120000);
+    page.on('dialog', d => d.accept());
+    const dow = await getTodayDOW(page);
+    const CB = (label) => ({ type: 'checkbox', label, required: false, order: 0, config: {}, fail_trigger: null, condition: null });
+    await apiCall(page, 'POST', 'createTemplate', {
+      name: 'Count Repro', requires_approval: true,
+      sections: [{ title: 'Cut the check', order: 0, condition: null, fields: [
+        CB('Cut the check'), CB('Do A'), CB('Do B'),
+      ] }],
+      schedules: [{ active_days: [dow] }],
+      assignments: [
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' },
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'approver' },
+      ],
+    });
+
+    // Device A (submitter): check 2 of 3, submit (confirm "1 not completed" dialog auto-accepts).
+    await page.reload();
+    await page.click('[data-fill-template-id]');
+    await page.waitForSelector('.fill-field', { timeout: 12000 });
+    for (const label of ['Cut the check', 'Do A']) {
+      const b = page.locator('.fill-field', { hasText: label }).locator('.check-btn');
+      await b.click(); await expect(b).toHaveClass(/checked/, { timeout: 5000 });
+    }
+    await page.waitForTimeout(2000);
+    await page.click('#submit-btn');
+    await page.waitForTimeout(2500);
+
+    // Device B (observer): open My Checklists list — shows the frozen snapshot count "2/3".
+    const ctxB = await browser.newContext();
+    const pageB = await ctxB.newPage();
+    pageB.on('dialog', d => d.accept());
+    await login(pageB);
+    await pageB.goto(BASE + '/workflows.html');
+    await expect(pageB.locator('#s1').getByText('Count Repro')).toBeVisible({ timeout: 12000 });
+    const before = await pageB.locator('[data-fill-template-id]').first().textContent();
+    expect(before, 'observer sees the submitted 2/3 count').toContain('2/3');
+
+    // Approver rejects "Do A" — submission → rejected, submitter goes back to edit mode.
+    const pending = await apiCall(page, 'GET', 'pendingApprovals');
+    const doAId = fieldIdByLabel(pending[0], 'Do A');
+    await apiCall(page, 'POST', 'rejectItem', { submission_id: pending[0].id, field_id: doAId, comment: 'redo Do A', require_photo: false });
+    await page.waitForTimeout(2500);
+
+    // Device A refreshes into rejected/edit mode and UNCHECKS "Cut the check".
+    await page.reload();
+    await page.click('[data-fill-template-id]');
+    await page.waitForSelector('.fill-field', { timeout: 12000 });
+    const cut = page.locator('.fill-field', { hasText: 'Cut the check' }).locator('.check-btn');
+    await expect(cut).toHaveClass(/checked/, { timeout: 8000 });
+    await cut.click();
+    await expect(cut).not.toHaveClass(/checked/, { timeout: 5000 });
+    await page.waitForTimeout(3000); // reject op + SET_FIELD delete both propagate to B
+
+    // THE BUG: Device B's list count must NOT stay frozen on the pre-rejection
+    // "2/3" snapshot — it should reconcile to live state once the submission is
+    // no longer pending. (After the fix it reads live: Do A hidden by the
+    // rejection flag, Cut the check now unchecked → no longer "2/3".)
+    await pageB.waitForTimeout(2000);
+    const after = await pageB.locator('[data-fill-template-id]').first().textContent();
+    expect(after, 'observer count must not stay frozen on the submission snapshot').not.toContain('2/3');
+
+    await ctxB.close();
+  });
+
+  test('approval live-updates the submitter\'s other device to Approved without reload [RJT-LIVE-03]', async ({ browser, page }) => {
+    test.setTimeout(120000);
+    page.on('dialog', d => d.accept());
+    const dow = await getTodayDOW(page);
+    const CB = (label) => ({ type: 'checkbox', label, required: false, order: 0, config: {}, fail_trigger: null, condition: null });
+    await apiCall(page, 'POST', 'createTemplate', {
+      name: 'Approve Repro', requires_approval: true,
+      sections: [{ title: 'Cut the check', order: 0, condition: null, fields: [ CB('Cut the check'), CB('Do A') ] }],
+      schedules: [{ active_days: [dow] }],
+      assignments: [
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' },
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'approver' },
+      ],
+    });
+
+    // Device A (submitter): fill both, submit.
+    await page.reload();
+    await page.click('[data-fill-template-id]');
+    await page.waitForSelector('.fill-field', { timeout: 12000 });
+    for (const label of ['Cut the check', 'Do A']) {
+      const b = page.locator('.fill-field', { hasText: label }).locator('.check-btn');
+      await b.click(); await expect(b).toHaveClass(/checked/, { timeout: 5000 });
+    }
+    await page.waitForTimeout(2000);
+    await page.click('#submit-btn');
+    await page.waitForTimeout(2500);
+
+    // Device B (submitter's 2nd device): open the checklist — pending review, not approved.
+    const ctxB = await browser.newContext();
+    const pageB = await ctxB.newPage();
+    pageB.on('dialog', d => d.accept());
+    await login(pageB);
+    await pageB.goto(BASE + '/workflows.html');
+    await expect(pageB.locator('#s1').getByText('Approve Repro')).toBeVisible({ timeout: 12000 });
+    await pageB.click('[data-fill-template-id]');
+    await pageB.waitForSelector('.fill-field', { timeout: 12000 });
+    await expect(pageB.locator('#fill-body')).not.toContainText('Approved', { timeout: 5000 });
+
+    // Approver (Device A) approves the submission.
+    const pending = await apiCall(page, 'GET', 'pendingApprovals');
+    await apiCall(page, 'POST', 'approveSubmission', { submission_id: pending[0].id, feedback: [] });
+    await page.waitForTimeout(3000); // APPROVE_ITEM op + WS propagation
+
+    // THE BROAD FIX: Device B's open runner must reflect Approved live (no reload).
+    await expect(pageB.locator('#fill-body'), 'Device B must live-show Approved without reload')
+      .toContainText('Approved', { timeout: 12000 });
+
+    await ctxB.close();
+  });
+
   test('sub-step checks on Device A appear checked on Device B [SYN-03]', async ({ browser, page }) => {
     const dow = await getTodayDOW(page);
     const tpl = await apiCall(page, 'POST', 'createTemplate', {

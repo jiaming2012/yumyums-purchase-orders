@@ -369,3 +369,21 @@
   live-op propagation) + `sync`-package unit coverage for `ResolveEntityAccess` across all
   role/assignment combos. Full write-up: `reference/qa-gap-20260717-live-sync-access.md`.
   · origin: 2026-07-17 operator-found live-sync bug (dev play, post cycle-gate) · new
+
+- **Live approval-state convergence coverage** · Two MORE escaped defects of the SAME class found
+  2026-07-18 in continued operator play: an approve/reject op reached the receiving device but the
+  client re-rendered from a **stale `MY_SUBMISSIONS` cache** instead of reconciling the changed
+  submission status. Symptoms: (1) a manager's rejection reason never reached the submitter's other
+  device live (`applyOp` `REJECT_ITEM` only refreshed the Approvals tab — a no-op for a non-approver),
+  and (2) an observer's list count stayed frozen on the pre-rejection submission **snapshot**
+  (`getProgress` counts `submission.responses` while status is pending/submitted/approved). Fixed
+  red-first (broad refresh-on-op: `applyOp` routes `APPROVE_ITEM`/`REJECT_ITEM` through
+  `loadMyChecklists` so every receiving device reconciles submission status → correction banner,
+  edit-vs-readonly mode, and list count all converge live). Regression tests: `tests/sync.spec.js`
+  `RJT-LIVE-01/02/03`. **QA hole this widens:** the convergence matrix tested only `SET_FIELD`
+  ops — never the *submission-lifecycle* ops (submit/approve/reject) cross-device, and never asserted
+  that a status change reconciles the observer's list count / an open runner. Fold into the WO above:
+  the access matrix must also vary the **op type** (field edit vs submit/approve/reject) and assert
+  **live convergence of derived views** (banner, readonly, progress count), not just the field value.
+  Full write-up: `reference/qa-gap-20260717-live-sync-access.md` (§ 2026-07-18 addendum).
+  · origin: 2026-07-18 operator-found approval-sync bugs (dev play) · new
