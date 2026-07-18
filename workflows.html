@@ -377,7 +377,7 @@ async function loadMyChecklists() {
     if (fillState.activeTemplate) {
       var updated = MY_CHECKLISTS.find(function(t) { return t.id === fillState.activeTemplate.id; });
       if (updated) fillState.activeTemplate = updated;
-      var tplFieldIds = new Set((fillState.activeTemplate.sections || []).flatMap(function(s) { return (s.fields || []).map(function(f) { return f.id; }); }));
+      var tplFieldIds = new Set((fillState.activeTemplate.sections || []).flatMap(function(s) { return (s.fields || []).flatMap(function(f) { return [f.id].concat((f.sub_steps || []).map(function(ss) { return ss.id; })); }); }));
       hydrateFieldState(tplFieldIds);
       var fillBody = document.getElementById('fill-body');
       if (fillBody) fillBody.innerHTML = renderRunner();
@@ -2066,6 +2066,22 @@ function renderFeedbackNote(fldId) {
     '<span style="font-weight:600">Feedback:</span> ' + escapeHtml(fb.comment) + '</div>';
 }
 
+// correctionBannerFor renders the "⚠ Rejected: <comment>" banner for a rejected
+// field OR sub-step. Keyed by id so it works for both top-level fields (which
+// have a FIELD_RESPONSES entry) and sub-steps (which don't — pass resp=null).
+// A rejection's comment and photo requirement must render wherever the rejected
+// item lives; before this, sub-step rows rendered no banner, so a sub-step
+// rejection's comment silently vanished (operator-found 2026-07-18).
+function correctionBannerFor(fieldId, resp) {
+  var rejFlag = REJECTION_FLAGS[fieldId];
+  if (!rejFlag) return '';
+  var hasPhoto = resp && typeof resp.value === 'string' && resp.value.startsWith('https://');
+  var photoSuffix = rejFlag.requirePhoto
+    ? (hasPhoto ? ' · ✓ Photo uploaded' : ' · 📷 Photo required before resubmit')
+    : '';
+  return '<div class="correction-banner">⚠ Rejected: ' + escapeHtml(rejFlag.comment) + photoSuffix + '</div>';
+}
+
 function renderRunnerField(fld) {
   const answered = FIELD_RESPONSES[fld.id] !== undefined;
   const resp = answered ? FIELD_RESPONSES[fld.id] : null;
@@ -2131,9 +2147,7 @@ function renderRunnerField(fld) {
 </div>`;
   }
 
-  const rejFlag = REJECTION_FLAGS[fld.id];
-  const photoNeeded = rejFlag && rejFlag.requirePhoto && (!resp || !resp.value || typeof resp.value !== 'string' || !resp.value.startsWith('https://'));
-  const correctionBanner = rejFlag ? `<div class="correction-banner">⚠ Rejected: ${escapeHtml(rejFlag.comment)}${photoNeeded ? ' · 📷 Photo required before resubmit' : rejFlag.requirePhoto ? ' · ✓ Photo uploaded' : ''}</div>` : '';
+  const correctionBanner = correctionBannerFor(fld.id, resp);
 
   if (fld.type === 'checkbox') {
     var subs = fld.sub_steps && fld.sub_steps.length > 0 ? fld.sub_steps : null;
@@ -2149,7 +2163,11 @@ function renderRunnerField(fld) {
         if (done && subVal && typeof subVal === 'object' && subVal.by) {
           subAttrib = '<div class="fill-attribution" style="padding:2px 0 8px 24px;font-size:11px;border-bottom:0.5px solid var(--brd)">' + escapeHtml(subVal.by) + ' \u00b7 ' + formatTime(new Date(subVal.at)) + '</div>';
         }
-        return '<div class="sub-step-row"' + (subAttrib ? ' style="border-bottom:none"' : '') + '><span class="sub-step-label-text' + (done ? ' style="text-decoration:line-through;color:var(--mut)"' : '') + '">' + escapeHtml(s.label) + '</span>' +
+        // A rejected sub-step renders its own correction banner (comment +
+        // photo requirement) above its row — before this, sub-step rejection
+        // feedback rendered nowhere and silently vanished (2026-07-18).
+        return correctionBannerFor(s.id, null) +
+          '<div class="sub-step-row"' + (subAttrib ? ' style="border-bottom:none"' : '') + '><span class="sub-step-label-text' + (done ? ' style="text-decoration:line-through;color:var(--mut)"' : '') + '">' + escapeHtml(s.label) + '</span>' +
           '<button class="sub-step-check ' + (done ? 'done' : '') + '" data-action="toggle-sub-step" data-field-id="' + fld.id + '" data-sub-id="' + s.id + '">' + (done ? '✓' : '') + '</button></div>' + subAttrib;
       }).join('');
       // For sub-step checkboxes, parent is auto-checked when all subs done
@@ -2316,7 +2334,7 @@ document.getElementById('fill-body').addEventListener('click', function(e) {
         if (snap && snap.sections) tpl.sections = snap.sections;
       }
       // Restore field state (including fail notes) for this template's fields
-      var tplFieldIds = new Set((tpl.sections || []).flatMap(function(s) { return (s.fields || []).map(function(f) { return f.id; }); }));
+      var tplFieldIds = new Set((tpl.sections || []).flatMap(function(s) { return (s.fields || []).flatMap(function(f) { return [f.id].concat((f.sub_steps || []).map(function(ss) { return ss.id; })); }); }));
       hydrateFieldState(tplFieldIds);
       renderFillOut();
     }

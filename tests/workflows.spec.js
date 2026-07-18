@@ -549,6 +549,174 @@ test.describe('Approvals', () => {
     await expect(banner).toContainText('Rejected');
   });
 
+  // Operator-found (dev, 2026-07-18): rejecting with a comment AND "Require
+  // photo evidence" checked — the comment and/or the photo requirement do not
+  // land on the original checklist. The existing FR-10/12/13 test flags+comments
+  // but NEVER checks the require-photo box, so this path was uncovered. Drives
+  // the exact UI flow: flag → comment → check "Require photo evidence" → send,
+  // then reopens as the submitter and asserts (a) the persisted rejection row
+  // carries require_photo=true and (b) the correction banner shows the comment
+  // AND the "Photo required before resubmit" requirement.
+  test('rejecting with require-photo lands the comment + photo requirement on the checklist [APR-REPRO-0718]', async ({ page }) => {
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await cleanupTemplates(page);
+    await cleanupPendingApprovals(page);
+    await createAndSubmitChecklist(page);
+
+    // Approver flags the item, adds a comment, and checks "Require photo evidence".
+    await page.reload();
+    await page.click('#t2');
+    await expect(page.locator('#s2')).toBeVisible();
+    await expect(page.locator('#s2').locator('text=Approval Test')).toBeVisible({ timeout: 5000 });
+
+    const flagBtn = page.locator('#s2 [data-action="toggle-reject-item"]').first();
+    await expect(flagBtn).toBeVisible({ timeout: 5000 });
+    await flagBtn.click();
+    await page.locator('#s2 .reject-item-input').first().fill('Redo with a photo');
+    const photoToggle = page.locator('#s2 [data-reject-photo-fld]').first();
+    await expect(photoToggle, 'require-photo checkbox is present in the reject form').toBeVisible({ timeout: 5000 });
+    await photoToggle.check();
+    await expect(photoToggle).toBeChecked();
+
+    await page.click('#s2 [data-action="reject-submit"]');
+    await expect(page.locator('#toast')).toContainText('Rejected', { timeout: 5000 });
+    await page.waitForTimeout(500);
+
+    // (a) Persistence: the rejection row must carry require_photo=true AND the comment.
+    const submissions = await page.evaluate(async () => {
+      const r = await fetch('/api/v1/workflow/myChecklists?dow=' + new Date().getDay());
+      return (await r.json()).submissions || [];
+    });
+    const rejectedSub = submissions.find(s => s.status === 'rejected');
+    expect(rejectedSub, 'a rejected submission must exist').toBeTruthy();
+    const rej = (rejectedSub.rejections || [])[0];
+    expect(rej, 'a rejection row must exist').toBeTruthy();
+    expect(rej.comment, 'comment persisted').toBe('Redo with a photo');
+    expect(rej.require_photo, 'require_photo persisted as true').toBe(true);
+
+    // (b) Display: reopen as submitter — banner shows the comment AND the photo requirement.
+    await page.click('#t1');
+    await page.reload();
+    await page.waitForSelector('#checklist-list .row', { timeout: 10000 });
+    await page.locator('#checklist-list .row', { hasText: 'Approval Test' }).first().click();
+    await page.waitForSelector('#fill-body');
+    const banner = page.locator('.correction-banner');
+    await expect(banner, 'correction banner shows the comment').toContainText('Redo with a photo', { timeout: 5000 });
+    await expect(banner, 'correction banner shows the photo requirement').toContainText('Photo required', { timeout: 5000 });
+  });
+
+  // Operator-found (dev, 2026-07-18) — the photo DEAD-END. When a non-photo
+  // field (checkbox here) is rejected with require_photo=true, the reopened
+  // checklist shows "📷 Photo required before resubmit" but renders NO way to
+  // attach a photo (only type:'photo' fields get a capture button), while the
+  // submit gate (workflows.html ~2534) refuses resubmit until the field has an
+  // https:// photo URL. Result: the crew is blocked with no control to satisfy
+  // the requirement — "the photo is not added to the checklist". This asserts
+  // the dead-end so the fix (render a capture affordance on any require-photo
+  // field) has a red anchor.
+  // KNOWN GAP (not yet fixed) — a proper fix needs a persisted correction-photo
+  // slot separate from the field's answer value (a checkbox can't hold both its
+  // boolean and a photo URL), plus a gate change. Tracked in BACKLOG. Marked
+  // fixme so it documents the dead-end without failing the suite; flip to a real
+  // test when the correction-photo slot lands. Note: for the operator's actual
+  // scenario (a rejected SUB-STEP) the resubmit gate does not fire, so the photo
+  // requirement is advisory there and now renders correctly (APR-SUBSTEP-0718).
+  test.fixme('checkbox rejected with require-photo has no way to attach the required photo [APR-DEADEND-0718]', async ({ page }) => {
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await cleanupTemplates(page);
+    await cleanupPendingApprovals(page);
+    const { id: templateId } = await createAndSubmitChecklist(page); // single checkbox "Check this"
+
+    // Reject the checkbox with require_photo via API (isolates the DISPLAY bug).
+    const subs = await page.evaluate(async () => {
+      const r = await fetch('/api/v1/workflow/myChecklists?dow=' + new Date().getDay());
+      return (await r.json()).submissions || [];
+    });
+    const sub = subs[0];
+    const snap = typeof sub.template_snapshot === 'string' ? JSON.parse(sub.template_snapshot) : sub.template_snapshot;
+    const fieldId = snap.sections[0].fields[0].id;
+    await apiCall(page, 'POST', 'rejectItem', { submission_id: sub.id, field_id: fieldId, comment: 'Photo please', require_photo: true });
+
+    // Reopen as submitter.
+    await page.click('#t1');
+    await page.reload();
+    await page.waitForSelector('#checklist-list .row', { timeout: 10000 });
+    await page.locator('#checklist-list .row', { hasText: 'Approval Test' }).first().click();
+    await page.waitForSelector('#fill-body');
+
+    // The banner demands a photo…
+    const field = page.locator('.fill-field', { has: page.locator('.correction-banner') }).first();
+    await expect(field.locator('.correction-banner')).toContainText('Photo required', { timeout: 5000 });
+    // …but there is NO capture control on the field to satisfy it (the dead-end).
+    await expect(field.locator('.photo-capture-btn'),
+      'a require-photo field must offer a way to attach the photo').toHaveCount(1);
+  });
+
+  // Operator-found (dev, 2026-07-18) — THE comment-vanish repro. The operator's
+  // "Friday checklist → Cut the check → Do C" is a checkbox ("Cut the check")
+  // with SUB-STEPS (Do A/B/C). Rejecting a SUB-STEP stores the comment (and any
+  // require_photo) against the sub-step's id, but the runner renders the
+  // correction banner only at the PARENT field level (REJECTION_FLAGS[parentId])
+  // — sub-step rows (workflows.html ~2144-2153) render NO banner. So a sub-step
+  // rejection's comment AND photo requirement both silently vanish on the
+  // reopened checklist. This asserts they should surface.
+  test('rejecting a SUB-STEP surfaces its comment + photo requirement on the checklist [APR-SUBSTEP-0718]', async ({ page }) => {
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await cleanupTemplates(page);
+    await cleanupPendingApprovals(page);
+
+    const todayDOW = await getTodayDOW(page);
+    const sub = (label, order) => ({ type: 'checkbox', label, order, config: {}, fail_trigger: null, condition: null });
+    const tpl = await apiCall(page, 'POST', 'createTemplate', {
+      name: 'Substep Reject', requires_approval: true,
+      sections: [{ title: 'Make money', order: 0, condition: null, fields: [
+        { type: 'checkbox', label: 'Cut the check', required: false, order: 0, config: {}, fail_trigger: null, condition: null,
+          sub_steps: [ sub('Do A', 0), sub('Do B', 1), sub('Do C', 2) ] },
+      ] }],
+      schedules: [{ active_days: [todayDOW] }],
+      assignments: [
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' },
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'approver' },
+      ],
+    });
+    await submitChecklistViaAPI(page, tpl.id);
+
+    // Find the "Do B" sub-step id from the pending submission's snapshot.
+    const subs = await page.evaluate(async () => {
+      const r = await fetch('/api/v1/workflow/myChecklists?dow=' + new Date().getDay());
+      return (await r.json()).submissions || [];
+    });
+    const submission = subs[0];
+    const snap = typeof submission.template_snapshot === 'string' ? JSON.parse(submission.template_snapshot) : submission.template_snapshot;
+    const parent = snap.sections[0].fields[0];
+    const doB = (parent.sub_steps || []).find(s => s.label === 'Do B');
+    expect(doB, 'Do B sub-step id resolved from snapshot').toBeTruthy();
+
+    // Reject the SUB-STEP with a comment and require_photo.
+    await apiCall(page, 'POST', 'rejectItem', { submission_id: submission.id, field_id: doB.id, comment: 'Redo step Do B', require_photo: true });
+
+    // Persistence sanity: the rejection row exists against the sub-step id.
+    const after = await page.evaluate(async () => {
+      const r = await fetch('/api/v1/workflow/myChecklists?dow=' + new Date().getDay());
+      return (await r.json()).submissions || [];
+    });
+    const rejSub = after.find(s => s.status === 'rejected');
+    expect(rejSub && (rejSub.rejections || []).some(r => r.comment === 'Redo step Do B'), 'sub-step rejection persisted').toBe(true);
+
+    // Reopen as submitter — the sub-step's comment must be visible somewhere in the runner.
+    await page.click('#t1');
+    await page.reload();
+    await page.waitForSelector('#checklist-list .row', { timeout: 10000 });
+    await page.locator('#checklist-list .row', { hasText: 'Substep Reject' }).first().click();
+    await page.waitForSelector('#fill-body');
+    const subBanner = page.locator('.correction-banner', { hasText: 'Redo step Do B' });
+    await expect(subBanner, 'sub-step rejection comment must surface on the checklist').toBeVisible({ timeout: 5000 });
+    await expect(subBanner, 'sub-step photo requirement must surface too').toContainText('Photo required');
+  });
+
   test('reject works after template update (field IDs change) [APR-10]', async ({ page }) => {
     await login(page);
     await page.goto(BASE + '/workflows.html');

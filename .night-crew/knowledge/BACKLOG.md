@@ -387,3 +387,20 @@
   **live convergence of derived views** (banner, readonly, progress count), not just the field value.
   Full write-up: `reference/qa-gap-20260717-live-sync-access.md` (§ 2026-07-18 addendum).
   · origin: 2026-07-18 operator-found approval-sync bugs (dev play) · new
+
+- **Rejection feedback on SUB-STEPS (fixed) + the require-photo dead-end (open).** Operator play
+  (dev, 2026-07-18) found rejecting a **sub-step** (e.g. "Cut the check → Do B") stored the comment
+  + require_photo but rendered them NOWHERE — the runner drew the correction banner only at the
+  PARENT field level (`REJECTION_FLAGS[parentId]`), sub-step rows had none, and `hydrateFieldState`'s
+  field-id filter (`tplFieldIds`) never even included sub-step ids. Fixed red-first: shared
+  `correctionBannerFor(id, resp)` helper renders on parent AND sub-step rows, and `tplFieldIds` now
+  includes sub-step ids (both open paths). Test: `tests/workflows.spec.js` `APR-SUBSTEP-0718`.
+  **STILL OPEN — the require-photo DEAD-END:** a non-photo field (checkbox/text/yes-no/temp) rejected
+  with `require_photo=true` shows "📷 Photo required before resubmit" but offers NO capture control,
+  while the top-level resubmit gate (`workflows.html` ~2534) demands the field's *value* be an
+  `https://` URL — impossible for a checkbox (its value is boolean). A proper fix needs a persisted
+  **correction-photo slot separate from the field's answer** (a checkbox can't hold both) + a gate
+  that checks that slot. Documented `test.fixme` `APR-DEADEND-0718`. Note: for a rejected SUB-STEP the
+  gate doesn't fire, so the requirement is advisory there and now renders. WO: **"correction-photo
+  slot for require-photo on non-photo fields (capture UI + persistence + gate)."**
+  · origin: 2026-07-18 operator-found sub-step rejection bug (dev play) · new
