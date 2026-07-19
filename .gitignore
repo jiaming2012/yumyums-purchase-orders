@@ -12,6 +12,10 @@ backend/bin/
 backend/server
 version.json
 
+# Production secrets — .env.prod lives only in the prod clone, never committed
+.env
+.env.*
+
 # Notion export source files (one-time import)
 notion-export/
 

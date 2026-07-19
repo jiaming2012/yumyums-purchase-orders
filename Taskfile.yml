@@ -168,9 +168,11 @@ tasks:
         set -euo pipefail
         cd "{{.PROD_REPO}}"
         echo "── prod clone: $(pwd) ───────────────"
-        if [ -n "$(git status --porcelain)" ]; then
-          echo "ERROR: prod clone has uncommitted changes; refusing to pull. Resolve first:" >&2
-          git status --short >&2
+        # Only tracked-file modifications block a ff-pull. Untracked files
+        # (notably the git-ignored .env.prod secrets) must NOT abort the deploy.
+        if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+          echo "ERROR: prod clone has uncommitted changes to tracked files; refusing to pull. Resolve first:" >&2
+          git status --short --untracked-files=no >&2
           exit 1
         fi
         git checkout main
