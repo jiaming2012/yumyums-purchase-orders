@@ -157,27 +157,34 @@ tasks:
     cmd: curl -fsS {{.PROD_URL}}/api/v1/health | jq .
 
   prod:deploy:
-    desc: Deploy to prod — pull origin/main in the prod clone, rebuild + restart the compose stack
+    desc: Deploy to prod — sync the prod clone to origin/main, rebuild + restart the compose stack
     cmds:
       - task: prod:deploy-backend
 
   prod:deploy-backend:
-    desc: Pull main in the prod clone, tag the current image for rollback, rebuild + restart, health-check
+    desc: Hard-sync the prod clone to origin/main, tag the current image for rollback, rebuild + restart, health-check
     cmds:
       - |
         set -euo pipefail
         cd "{{.PROD_REPO}}"
         echo "── prod clone: $(pwd) ───────────────"
-        # Only tracked-file modifications block a ff-pull. Untracked files
-        # (notably the git-ignored .env.prod secrets) must NOT abort the deploy.
-        if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
-          echo "ERROR: prod clone has uncommitted changes to tracked files; refusing to pull. Resolve first:" >&2
-          git status --short --untracked-files=no >&2
+        # The prod clone is a deploy artifact that must EXACTLY mirror
+        # origin/main. It lives on a Windows filesystem and was checked out by
+        # Windows Git, so from WSL the working tree shows spurious line-ending
+        # drift — a plain `git pull` would refuse. We therefore fetch + hard
+        # reset. Guard: refuse only if HEAD carries commits not on origin/main
+        # (a reset would silently discard real local work). Untracked files —
+        # notably the git-ignored .env.prod secrets — survive `reset --hard`.
+        echo "── git fetch origin main ────────────"
+        git fetch origin main
+        if ! git merge-base --is-ancestor HEAD origin/main; then
+          echo "ERROR: prod clone HEAD has commits not on origin/main; refusing to hard-reset." >&2
+          echo "       Reconcile the prod clone manually before deploying." >&2
           exit 1
         fi
-        git checkout main
-        echo "── git pull --ff-only origin main ───"
-        git pull --ff-only origin main
+        echo "── git reset --hard origin/main ─────"
+        git reset --hard origin/main
+        git checkout -B main origin/main >/dev/null 2>&1 || true
         echo "  HEAD now: $(git rev-parse --short HEAD)"
         echo "── tag current image for rollback ───"
         docker image tag {{.PROD_IMAGE}} {{.PROD_IMAGE}}-rollback 2>/dev/null \
