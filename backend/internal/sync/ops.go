@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"log"
+	"log/slog"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -248,18 +248,17 @@ func EmitOp(pool *pgxpool.Pool, op OpInput) {
 		defer cancel()
 		ts, err := nextLamportTS(ctx, pool, op.EntityID, op.EntityType)
 		if err != nil {
-			log.Printf("EmitOp: error reading lamport_ts for entity %s: %v", op.EntityID, err)
+			slog.Error("EmitOp error reading lamport_ts", "entity_id", op.EntityID, "error", err)
 			return
 		}
 		op.LamportTS = ts
 		_, conflict, err := InsertOpAndNotify(ctx, pool, op)
 		if err != nil {
 			if errors.Is(err, ErrConflict) {
-				log.Printf("EmitOp: LWW conflict on entity %s (winner lamport_ts=%d device=%s)",
-					op.EntityID, conflict.WinnerLamportTS, conflict.WinnerDeviceID)
+				slog.Warn("EmitOp LWW conflict", "entity_id", op.EntityID, "winner_lamport_ts", conflict.WinnerLamportTS, "winner_device_id", conflict.WinnerDeviceID)
 				return
 			}
-			log.Printf("EmitOp: error inserting op for entity %s: %v", op.EntityID, err)
+			slog.Error("EmitOp error inserting op", "entity_id", op.EntityID, "error", err)
 		}
 	}()
 }
@@ -268,6 +267,70 @@ func EmitOp(pool *pgxpool.Pool, op OpInput) {
 // handlers that need to return 409 to the client when an op is stale.
 func EmitOpWithConflictCheck(ctx context.Context, pool *pgxpool.Pool, op OpInput) (string, *ConflictResult, error) {
 	return InsertOpAndNotify(ctx, pool, op)
+}
+
+// EmitOpTx records an op transactionally inside the caller's transaction: it
+// assigns a winning lamport_ts (current + 1), bumps the entity's lamport_ts,
+// inserts the op row, and queues the pg_notify — all on `tx`, with no commit of
+// its own. Because it shares the caller's transaction, the op commits ATOMICALLY
+// with the business write it describes (FR-5, INV-1): there is no window in which
+// an accepted write exists without its op durably queued for other devices. Use
+// this from a handler that already holds the write's transaction, in place of
+// the fire-and-forget EmitOp goroutine. The caller is responsible for Commit.
+func EmitOpTx(ctx context.Context, tx pgx.Tx, op OpInput) (string, error) {
+	ts, err := nextLamportTSTx(ctx, tx, op.EntityID, op.EntityType)
+	if err != nil {
+		return "", err
+	}
+	op.LamportTS = ts
+	if err := updateEntityLamportTS(ctx, tx, op.EntityID, op.EntityType, op.LamportTS); err != nil {
+		return "", err
+	}
+	var opID string
+	if err := tx.QueryRow(ctx,
+		`INSERT INTO ops (device_id, user_id, entity_id, entity_type, op_type, payload, lamport_ts)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7)
+		 RETURNING id`,
+		op.DeviceID, op.UserID, op.EntityID, op.EntityType, op.OpType, op.Payload, op.LamportTS,
+	).Scan(&opID); err != nil {
+		return "", err
+	}
+	notifyPayload, _ := json.Marshal(map[string]string{
+		"op_id":       opID,
+		"entity_id":   op.EntityID,
+		"entity_type": op.EntityType,
+		"user_id":     op.UserID,
+	})
+	if _, err := tx.Exec(ctx, `SELECT pg_notify('ops_channel', $1)`, string(notifyPayload)); err != nil {
+		return "", err
+	}
+	return opID, nil
+}
+
+// nextLamportTSTx is the transaction-scoped variant of nextLamportTS, reading
+// the entity's current lamport_ts on the caller's tx so the +1 assignment is
+// consistent with the write happening in the same transaction.
+func nextLamportTSTx(ctx context.Context, tx pgx.Tx, entityID, entityType string) (int64, error) {
+	var query string
+	switch entityType {
+	case "field_response":
+		query = `SELECT lamport_ts FROM submission_responses WHERE field_id = $1`
+	case "submission":
+		query = `SELECT lamport_ts FROM checklist_submissions WHERE id = $1`
+	case "template":
+		query = `SELECT lamport_ts FROM checklist_templates WHERE id = $1`
+	default:
+		return 1, nil
+	}
+	var current int64
+	err := tx.QueryRow(ctx, query, entityID).Scan(&current)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return 1, nil
+	}
+	if err != nil {
+		return 0, err
+	}
+	return current + 1, nil
 }
 
 // userAccessibleTemplates returns the template IDs that a user can access
@@ -447,18 +510,24 @@ func ResolveEntityAccess(ctx context.Context, pool *pgxpool.Pool, entityID, enti
 		return []string{}, nil
 	}
 
-	// Resolve assignments to user IDs. Assignments can be:
-	//   assignee_type='user', assignee_id=<user UUID>
-	//   assignee_type='role', assignee_id=<role name like 'admin'>
-	// For role-based assignments, join with users table to get actual user IDs.
+	// Resolve who receives this template's live ops:
+	//   • the template's assignees — assignee_type='user' (a user UUID) or
+	//     assignee_type='role' (a role like 'team_member', joined to users by role), AND
+	//   • all admins/superadmins — they can VIEW every checklist (myChecklists grants
+	//     `roles && {admin,superadmin}` view-all), so live sync MUST mirror that access.
+	//     Without this, an admin editing a checklist they aren't assigned to never sees
+	//     their own edit converge on their other devices (the field_response op fans out
+	//     only to the assignees). The listener additionally always includes the op author.
 	rows, err := pool.Query(ctx,
 		`SELECT DISTINCT u.id::text
-		 FROM template_assignments ta
-		 JOIN users u ON (
-		   (ta.assignee_type = 'user' AND u.id::text = ta.assignee_id)
-		   OR (ta.assignee_type = 'role' AND ta.assignee_id = ANY(u.roles))
-		 )
-		 WHERE ta.template_id = $1::uuid`,
+		 FROM users u
+		 WHERE u.roles && ARRAY['admin','superadmin']
+		    OR EXISTS (
+		         SELECT 1 FROM template_assignments ta
+		         WHERE ta.template_id = $1::uuid
+		           AND ( (ta.assignee_type = 'user' AND u.id::text = ta.assignee_id)
+		              OR (ta.assignee_type = 'role' AND ta.assignee_id = ANY(u.roles)) )
+		       )`,
 		templateID,
 	)
 	if err != nil {

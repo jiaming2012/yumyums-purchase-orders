@@ -1,0 +1,478 @@
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:43.175710249-04:00","level":"INFO","msg":"serving static files from disk","dir":"../"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:43.176311334-04:00","level":"INFO","msg":"loaded superadmins","count":1}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:43.198722569-04:00","level":"INFO","msg":"connected to database"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:43.270465037-04:00","level":"INFO","msg":"OK   0001_users.sql (41.26ms)","source":"stdlog"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:43.318912285-04:00","level":"INFO","msg":"OK   0002_sessions.sql (47.92ms)","source":"stdlog"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:43.355358297-04:00","level":"INFO","msg":"OK   0003_invite_tokens.sql (36.2ms)","source":"stdlog"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:43.379403256-04:00","level":"INFO","msg":"OK   0004_hq_apps.sql (23.86ms)","source":"stdlog"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:43.499511338-04:00","level":"INFO","msg":"OK   0005_app_permissions.sql (119.85ms)","source":"stdlog"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:43.563239898-04:00","level":"INFO","msg":"OK   0006_checklist_templates.sql (63.61ms)","source":"stdlog"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:43.595295632-04:00","level":"INFO","msg":"OK   0007_checklist_schedules.sql (31.95ms)","source":"stdlog"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:43.637592357-04:00","level":"INFO","msg":"OK   0008_template_assignments.sql (42.13ms)","source":"stdlog"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:43.671902733-04:00","level":"INFO","msg":"OK   0009_checklist_sections.sql (34.17ms)","source":"stdlog"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:43.709316974-04:00","level":"INFO","msg":"OK   0010_checklist_fields.sql (37.29ms)","source":"stdlog"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:43.759358485-04:00","level":"INFO","msg":"OK   0011_checklist_submissions.sql (49.89ms)","source":"stdlog"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:43.813300575-04:00","level":"INFO","msg":"OK   0012_submission_responses.sql (53.74ms)","source":"stdlog"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:43.846491981-04:00","level":"INFO","msg":"OK   0013_submission_fail_notes.sql (33.04ms)","source":"stdlog"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:43.883543149-04:00","level":"INFO","msg":"OK   0014_submission_rejections.sql (36.92ms)","source":"stdlog"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:43.949452861-04:00","level":"INFO","msg":"OK   0015_ops.sql (65.71ms)","source":"stdlog"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:43.96892162-04:00","level":"INFO","msg":"OK   0016_lamport_ts.sql (19.26ms)","source":"stdlog"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:43.988832267-04:00","level":"INFO","msg":"OK   0017_users_naming.sql (19.76ms)","source":"stdlog"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:44.055678368-04:00","level":"INFO","msg":"OK   0018_ob_templates.sql (66.71ms)","source":"stdlog"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:44.137883136-04:00","level":"INFO","msg":"OK   0019_ob_items.sql (82.06ms)","source":"stdlog"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:44.192240077-04:00","level":"INFO","msg":"OK   0020_ob_progress.sql (54.23ms)","source":"stdlog"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:44.234357666-04:00","level":"INFO","msg":"OK   0021_ob_signoffs.sql (42ms)","source":"stdlog"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:44.277094295-04:00","level":"INFO","msg":"OK   0022_ob_template_assignments.sql (42.6ms)","source":"stdlog"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:44.34553539-04:00","level":"INFO","msg":"OK   0023_multi_role.sql (68.31ms)","source":"stdlog"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:44.575142689-04:00","level":"INFO","msg":"OK   0024_inventory.sql (229.39ms)","source":"stdlog"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:44.617062978-04:00","level":"INFO","msg":"OK   0025_pending_purchases.sql (41.75ms)","source":"stdlog"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:44.625421794-04:00","level":"INFO","msg":"OK   0026_ob_progress_faq.sql (8.23ms)","source":"stdlog"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:44.632578963-04:00","level":"INFO","msg":"OK   0027_ob_section_signoff_roles.sql (7.08ms)","source":"stdlog"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:44.649375619-04:00","level":"INFO","msg":"OK   0028_ob_video_upgrade.sql (16.7ms)","source":"stdlog"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:44.656524645-04:00","level":"INFO","msg":"OK   0029_ob_templates_archived_at.sql (7.04ms)","source":"stdlog"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:44.682866002-04:00","level":"INFO","msg":"OK   0030_item_groups_unique_name.sql (26.2ms)","source":"stdlog"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:44.693046341-04:00","level":"INFO","msg":"OK   0031_remove_placeholder_items.sql (10.05ms)","source":"stdlog"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:44.707700784-04:00","level":"INFO","msg":"OK   0032_item_group_thresholds.sql (14.56ms)","source":"stdlog"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:44.747769591-04:00","level":"INFO","msg":"OK   0033_stock_count_overrides.sql (39.91ms)","source":"stdlog"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:44.849705244-04:00","level":"INFO","msg":"OK   0034_purchase_orders.sql (101.52ms)","source":"stdlog"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:44.874536999-04:00","level":"INFO","msg":"OK   0035_purchase_items_photo_store.sql (24.5ms)","source":"stdlog"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:44.891197738-04:00","level":"INFO","msg":"OK   0036_purchase_items_full_name.sql (16.52ms)","source":"stdlog"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:44.34951566-04:00","level":"INFO","msg":"OK   0037_cutoff_config.sql (47.29ms)","source":"stdlog"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:44.37146392-04:00","level":"INFO","msg":"OK   0038_po_status_extend.sql (21.83ms)","source":"stdlog"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:44.399745806-04:00","level":"INFO","msg":"OK   0039_purchase_items_vendor.sql (28.18ms)","source":"stdlog"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:43.962612045-04:00","level":"INFO","msg":"OK   0040_shopping_lists.sql (260.32ms)","source":"stdlog"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:43.98810658-04:00","level":"INFO","msg":"OK   0041_notification_channel.sql (25.38ms)","source":"stdlog"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:44.056438168-04:00","level":"INFO","msg":"OK   0042_repurchase_tracking.sql (68.14ms)","source":"stdlog"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:44.10466348-04:00","level":"INFO","msg":"OK   0043_alert_log.sql (48.08ms)","source":"stdlog"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:44.153908695-04:00","level":"INFO","msg":"OK   0044_low_stock_alert_log.sql (49.06ms)","source":"stdlog"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:44.200664387-04:00","level":"INFO","msg":"OK   0045_notification_channel_array.sql (46.64ms)","source":"stdlog"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:44.208533817-04:00","level":"INFO","msg":"OK   0046_user_timezone.sql (7.76ms)","source":"stdlog"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:44.261162665-04:00","level":"INFO","msg":"OK   0047_employee_fields.sql (52.49ms)","source":"stdlog"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:44.268997541-04:00","level":"INFO","msg":"OK   0048_notification_default_both.sql (7.74ms)","source":"stdlog"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:44.31110323-04:00","level":"INFO","msg":"OK   0049_ob_sub_items.sql (41.99ms)","source":"stdlog"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:44.320214915-04:00","level":"INFO","msg":"OK   0050_ob_progress_sub_item.sql (8.98ms)","source":"stdlog"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:44.328175583-04:00","level":"INFO","msg":"OK   0051_rejection_field_fk.sql (7.88ms)","source":"stdlog"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:44.344725563-04:00","level":"INFO","msg":"OK   0052_template_name_unique.sql (16.46ms)","source":"stdlog"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:44.352568477-04:00","level":"INFO","msg":"OK   0053_response_field_fk.sql (7.73ms)","source":"stdlog"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:44.360490416-04:00","level":"INFO","msg":"OK   0054_failnote_field_fk.sql (7.84ms)","source":"stdlog"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:44.369891474-04:00","level":"INFO","msg":"OK   0055_item_location_in_store.sql (9.28ms)","source":"stdlog"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:44.386544384-04:00","level":"INFO","msg":"OK   0056_ob_progress_photo.sql (16.52ms)","source":"stdlog"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:44.401810143-04:00","level":"INFO","msg":"OK   0057_ob_items_photo_type.sql (15.13ms)","source":"stdlog"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:44.416704895-04:00","level":"INFO","msg":"OK   0058_ob_sub_items_photos.sql (14.79ms)","source":"stdlog"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:44.424381932-04:00","level":"INFO","msg":"OK   0059_cleanup_photo_items.sql (7.57ms)","source":"stdlog"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:44.484879896-04:00","level":"INFO","msg":"OK   0060_menu_items.sql (60.37ms)","source":"stdlog"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:44.517490574-04:00","level":"INFO","msg":"OK   0061_daily_menu_sales.sql (32.46ms)","source":"stdlog"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:44.561189064-04:00","level":"INFO","msg":"OK   0062_recipes.sql (43.56ms)","source":"stdlog"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:44.597405938-04:00","level":"INFO","msg":"OK   0063_drift_check_results.sql (36.08ms)","source":"stdlog"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:44.614049765-04:00","level":"INFO","msg":"OK   0064_no_itemized_receipt_seed.sql (16.53ms)","source":"stdlog"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:44.628125255-04:00","level":"INFO","msg":"OK   0065_mercury_category_on_purchase_events.sql (13.96ms)","source":"stdlog"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:44.641248905-04:00","level":"INFO","msg":"OK   0066_mercury_category_on_pending_purchases.sql (13.03ms)","source":"stdlog"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:44.694367661-04:00","level":"INFO","msg":"OK   0067_receipt_sync_runs.sql (53ms)","source":"stdlog"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:44.718974558-04:00","level":"INFO","msg":"OK   0068_pending_purchases_bank_tx_uniq.sql (24.48ms)","source":"stdlog"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:44.731831802-04:00","level":"INFO","msg":"OK   0069_pending_purchases_parse_error.sql (12.76ms)","source":"stdlog"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:44.745984541-04:00","level":"INFO","msg":"OK   0070_receipt_urls.sql (13.99ms)","source":"stdlog"}
+[WebServer] {"time":"2026-07-17T12:14:44.746057719-04:00","level":"INFO","msg":"goose: successfully migrated database to version: 70","source":"stdlog"}
+[WebServer] {"time":"2026-07-17T12:14:44.74607129-04:00","level":"INFO","msg":"database migrations applied successfully"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:44.832598482-04:00","level":"INFO","msg":"upserted superadmin","email":"jamal@yumyums.kitchen"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:44.868655845-04:00","level":"INFO","msg":"seeded template","name":"Setup Checklist","id":"8bd8621a-7082-4caa-b8ff-4520bce5e20b"}
+[WebServer] {"time":"2026-07-17T12:14:44.868717645-04:00","level":"INFO","msg":"seeded templates","count":1}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:44.904117761-04:00","level":"INFO","msg":"seeded onboarding template","name":"Kitchen Basics Training","id":"1b192da5-6960-4eac-9404-e2c71860cf39"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:44.928111881-04:00","level":"INFO","msg":"inventory: seeded vendors","count":5}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:45.015729127-04:00","level":"INFO","msg":"inventory: seeded unique tags","count":19}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:45.151650499-04:00","level":"INFO","msg":"inventory: seeded item groups","count":10}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:45.671545643-04:00","level":"INFO","msg":"inventory: seeded purchase items from YAML","count":106}
+[WebServer] {"time":"2026-07-17T12:14:45.671610783-04:00","level":"WARN","msg":"DO Spaces env vars not set, photo and video upload endpoints will return 503","required":"DO_SPACES_KEY, DO_SPACES_SECRET, DO_SPACES_BUCKET, DO_SPACES_REGION"}
+[WebServer] {"time":"2026-07-17T12:14:45.671625084-04:00","level":"WARN","msg":"HQ_INVENTORY_SERVICE_TOKEN not set, /api/v1/inventory/period-summary AND /api/v1/inventory/menu-cogs will return 503"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:45.671777287-04:00","level":"INFO","msg":"inventory COGS category allowlist","allowlist":["COGS"]}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:45.672455934-04:00","level":"INFO","msg":"receipt worker disabled","reason":"E2E_DISABLE_SCHEDULERS=1"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:45.672568677-04:00","level":"INFO","msg":"alert queue started"}
+[WebServer] {"time":"2026-07-17T12:14:45.672591538-04:00","level":"INFO","msg":"cutoff scheduler disabled","reason":"E2E_DISABLE_SCHEDULERS=1"}
+[WebServer] {"time":"2026-07-17T12:14:45.672614087-04:00","level":"INFO","msg":"alerts queue started"}
+[WebServer] {"time":"2026-07-17T12:14:45.672656574-04:00","level":"INFO","msg":"toast worker disabled, cmd/sync-toast remains available","reason":"TOAST_SYNC_INTERVAL=0"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:45.696603405-04:00","level":"INFO","msg":"server listening","port":"8199"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:45.707204127-04:00","level":"INFO","msg":"reachable at","url":"http://10.255.255.254:8199"}
+[WebServer] {"time":"2026-07-17T12:14:45.707270938-04:00","level":"INFO","msg":"reachable at","url":"http://100.70.200.55:8199"}
+[WebServer] {"time":"2026-07-17T12:14:45.707284091-04:00","level":"INFO","msg":"reachable at","url":"http://192.168.8.164:8199"}
+[WebServer] {"time":"2026-07-17T12:14:45.707294843-04:00","level":"INFO","msg":"Yumyums HQ ready, accepting connections"}
+
+
+Running 39 tests using 1 worker
+
+[1A[2K[1/39] [chromium] › tests/sync.spec.js:91:3 › Cross-device: shared checklist › two contexts see the same checklist from My Checklists [LC-04]
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:48.128310379-04:00","level":"ERROR","msg":"cleanupOldDrafts error","error":"cleanup old drafts: context canceled"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:48.13418437-04:00","level":"INFO","msg":"client log","level":"ERROR","message":"loadMyChecklists error: Failed to fetch\nTypeError: Failed to fetch\n    at api (http://localhost:8199/sync.js:24:21)\n    at loadMyChecklists (http://localhost:8199/workflows.html:360:24)\n    at applyOp (http://localhost:8199/sync.js:466:7)\n    at _ws.onmessage (http://localhost:8199/sync.js:275:7)","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/workflows.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[2/39] [chromium] › tests/sync.spec.js:109:3 › Cross-device: shared checklist › Device B sees field changes from Device A after reload [SYN-03]
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:50.210842405-04:00","level":"INFO","msg":"op handler received op","op_type":"SET_FIELD","entity_id":"52d672bd-6491-4fd0-883f-7f5bae708c90","device_id":"8e43c0bc-570b-4e42-9159-3bc0d7a1447e","lamport_ts":5}
+
+[1A[2K[3/39] [chromium] › tests/sync.spec.js:146:3 › Cross-device: op log › saving a field generates a SET_FIELD op visible via ops/since [SYN-01]
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:52.909623406-04:00","level":"ERROR","msg":"GetMyTrainings failed","error":"context canceled"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:53.158544751-04:00","level":"ERROR","msg":"cleanupOldDrafts error","error":"cleanup old drafts: context canceled"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:53.228985212-04:00","level":"ERROR","msg":"cleanupOldDrafts error","error":"cleanup old drafts: context canceled"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:14:53.824996982-04:00","level":"INFO","msg":"op handler received op","op_type":"SET_FIELD","entity_id":"84a6d439-019e-40e4-9bfa-d2030e143605","device_id":"e4514b99-0d2c-4ee0-a336-64ea75f1b463","lamport_ts":8}
+
+[1A[2K[4/39] [chromium] › tests/sync.spec.js:166:3 › Cross-device: op log › template creation generates SAVE_TEMPLATE op [SYN-10]
+[1A[2K[5/39] [chromium] › tests/sync.spec.js:178:3 › Cross-device: op log › archiving template generates ARCHIVE_TEMPLATE op [SYN-10]
+[1A[2K[6/39] [chromium] › tests/sync.spec.js:191:3 › Cross-device: op log › multiple ops on same entity have incrementing lamport_ts [SYN-01]
+[1A[2K[7/39] [chromium] › tests/sync.spec.js:229:3 › Cross-device: regressions › checking a field does not uncheck itself via WS echo [SYN-02]
+[1A[2K[WebServer] {"time":"2026-07-17T12:15:05.963150746-04:00","level":"INFO","msg":"op handler received op","op_type":"SET_FIELD","entity_id":"26c28525-2daa-4d7b-ae20-328d6f2349c7","device_id":"e23493d8-a392-49dd-8fcb-05b7c2a37f31","lamport_ts":18}
+
+[1A[2K[8/39] [chromium] › tests/sync.spec.js:246:3 › Cross-device: regressions › no "updated by" toast appears for own field saves [RUN-16 SYN-02]
+[1A[2K[WebServer] {"time":"2026-07-17T12:15:09.55944509-04:00","level":"ERROR","msg":"cleanupOldDrafts error","error":"cleanup old drafts: context canceled"}
+[WebServer] {"time":"2026-07-17T12:15:09.559597215-04:00","level":"ERROR","msg":"myChecklists error","error":"get user role: context canceled"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:15:09.559796639-04:00","level":"ERROR","msg":"listTemplates error","error":"iterate templates: context canceled"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:15:09.56725788-04:00","level":"INFO","msg":"client log","level":"ERROR","message":"loadMyChecklists error: Failed to fetch\nTypeError: Failed to fetch\n    at api (http://localhost:8199/sync.js:24:21)\n    at loadMyChecklists (http://localhost:8199/workflows.html:360:24)\n    at applyOp (http://localhost:8199/sync.js:466:7)\n    at _ws.onmessage (http://localhost:8199/sync.js:275:7)","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/workflows.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:15:09.626736796-04:00","level":"ERROR","msg":"cleanupOldDrafts error","error":"cleanup old drafts: context canceled"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:15:10.143040038-04:00","level":"INFO","msg":"op handler received op","op_type":"SET_FIELD","entity_id":"c7ce6050-014d-42ba-a26c-a1caaeb7d86a","device_id":"d4662a9d-4bd0-42c4-ac05-031385b43299","lamport_ts":22}
+
+[1A[2K[9/39] [chromium] › tests/sync.spec.js:263:3 › Cross-device: regressions › catch-up replay of the op backlog shows no "updated by" toast flood [SYN-02]
+[1A[2K[WebServer] {"time":"2026-07-17T12:15:13.571790455-04:00","level":"ERROR","msg":"cleanupOldDrafts error","error":"cleanup old drafts: context canceled"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:15:13.59285454-04:00","level":"ERROR","msg":"listTemplates error","error":"iterate schedules: context canceled"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:15:12.903843224-04:00","level":"INFO","msg":"op handler received op","op_type":"SET_FIELD","entity_id":"56aabab8-1a28-44de-a5c9-c695134b3a15","device_id":"ab88722d-a10c-47af-8e16-9ea3a5dad77e","lamport_ts":25}
+
+[1A[2K[10/39] [chromium] › tests/sync.spec.js:302:3 › Cross-device: regressions › live field edit from another device still shows the "updated by" toast [SYN-02]
+[1A[2K[WebServer] {"time":"2026-07-17T12:15:17.78748747-04:00","level":"ERROR","msg":"GetMyTrainings failed","error":"context canceled"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:15:18.097233582-04:00","level":"ERROR","msg":"myChecklists error","error":"iterate templates: context canceled"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:15:18.100679657-04:00","level":"INFO","msg":"client log","level":"ERROR","message":"loadMyChecklists error: Failed to fetch\nTypeError: Failed to fetch\n    at api (http://localhost:8199/sync.js:24:21)\n    at loadMyChecklists (http://localhost:8199/workflows.html:360:24)\n    at applyOp (http://localhost:8199/sync.js:466:7)\n    at _ws.onmessage (http://localhost:8199/sync.js:275:7)","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/workflows.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:15:18.92129719-04:00","level":"ERROR","msg":"cleanupOldDrafts error","error":"cleanup old drafts: context canceled"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:15:18.948391291-04:00","level":"ERROR","msg":"cleanupOldDrafts error","error":"cleanup old drafts: context canceled"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:15:19.491620627-04:00","level":"INFO","msg":"op handler received op","op_type":"SET_FIELD","entity_id":"9858550c-d75f-40b3-bf7b-19c8f947d6cb","device_id":"adc67111-ef28-4248-a9b0-6c6c80261f36","lamport_ts":28}
+
+[1A[2K[11/39] [chromium] › tests/sync.spec.js:331:3 › Cross-device: regressions › SET_FIELD op includes user_name in payload [SYN-01]
+[1A[2K[WebServer] {"time":"2026-07-17T12:15:21.399986957-04:00","level":"ERROR","msg":"GetMyTrainings failed","error":"context canceled"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:15:21.681289986-04:00","level":"ERROR","msg":"cleanupOldDrafts error","error":"cleanup old drafts: context canceled"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:15:21.702608524-04:00","level":"ERROR","msg":"listTemplates error","error":"iterate templates: context canceled"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:15:21.706142464-04:00","level":"INFO","msg":"client log","level":"ERROR","message":"loadMyChecklists error: Failed to fetch\nTypeError: Failed to fetch\n    at api (http://localhost:8199/sync.js:24:21)\n    at loadMyChecklists (http://localhost:8199/workflows.html:360:24)\n    at applyOp (http://localhost:8199/sync.js:466:7)\n    at _ws.onmessage (http://localhost:8199/sync.js:275:7)","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/workflows.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:15:22.266014871-04:00","level":"INFO","msg":"op handler received op","op_type":"SET_FIELD","entity_id":"b458eb02-5356-4d31-9c72-de69866f8ace","device_id":"0ffca20e-04ad-4ea8-8147-b49830c9aec5","lamport_ts":31}
+
+[1A[2K[12/39] [chromium] › tests/sync.spec.js:348:3 › Cross-device: regressions › save status clears after rapid field saves [RUN-04]
+[1A[2K[WebServer] {"time":"2026-07-17T12:15:24.773858894-04:00","level":"ERROR","msg":"cleanupOldDrafts error","error":"cleanup old drafts: context canceled"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:15:24.834623326-04:00","level":"ERROR","msg":"cleanupOldDrafts error","error":"cleanup old drafts: context canceled"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:15:25.686041679-04:00","level":"INFO","msg":"op handler received op","op_type":"SET_FIELD","entity_id":"9a255af1-3399-413a-846b-911c02046e2c","device_id":"a4e36b84-4b0d-4e8c-8088-a2c89189e882","lamport_ts":33}
+
+[1A[2K[13/39] [chromium] › tests/sync.spec.js:372:3 › Cross-device: regressions › field attribution shows user name not undefined after save [RUN-03]
+[1A[2K[WebServer] {"time":"2026-07-17T12:15:31.015758584-04:00","level":"ERROR","msg":"listTemplates error","error":"iterate templates: context canceled"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:15:31.60457342-04:00","level":"INFO","msg":"op handler received op","op_type":"SET_FIELD","entity_id":"397ed8a3-5a4d-46e9-b0cf-cb2e340da550","device_id":"01685a33-6924-48b9-8503-fb21b9c96f36","lamport_ts":35}
+
+[1A[2K[14/39] [chromium] › tests/sync.spec.js:388:3 › Cross-device: regressions › unchecked field stays unchecked after navigating away and returning [FLD-01 RUN-18]
+[1A[2K[WebServer] {"time":"2026-07-17T12:15:33.794540278-04:00","level":"ERROR","msg":"cleanupOldDrafts error","error":"cleanup old drafts: context canceled"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:15:34.473059863-04:00","level":"INFO","msg":"op handler received op","op_type":"SET_FIELD","entity_id":"c65934d8-6d11-4c20-8a70-253311b6a302","device_id":"043d69b5-5bbf-4d03-8bb8-67042c70ac85","lamport_ts":37}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:15:36.0191217-04:00","level":"INFO","msg":"op handler received op","op_type":"SET_FIELD","entity_id":"c65934d8-6d11-4c20-8a70-253311b6a302","device_id":"043d69b5-5bbf-4d03-8bb8-67042c70ac85","lamport_ts":39}
+
+[1A[2K[15/39] [chromium] › tests/sync.spec.js:420:3 › Cross-device: regressions › list page progress decrements when another device unchecks a field [LST-17]
+[1A[2K[WebServer] {"time":"2026-07-17T12:15:39.173454117-04:00","level":"ERROR","msg":"GetMyTrainings failed","error":"get user roles: context canceled"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:15:40.079936968-04:00","level":"INFO","msg":"op handler received op","op_type":"SET_FIELD","entity_id":"833bd36e-6e42-4b59-95cf-741e7e9ecda4","device_id":"d1422a5e-18a8-41a6-8328-fa6fbf5032a6","lamport_ts":41}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:15:41.501676302-04:00","level":"INFO","msg":"op handler received op","op_type":"SET_FIELD","entity_id":"833bd36e-6e42-4b59-95cf-741e7e9ecda4","device_id":"d1422a5e-18a8-41a6-8328-fa6fbf5032a6","lamport_ts":43}
+
+[1A[2K[16/39] [chromium] › tests/sync.spec.js:454:3 › Cross-device: regressions › sub-step checks on Device A appear checked on Device B [SYN-03]
+[1A[2K[WebServer] {"time":"2026-07-17T12:15:47.851466952-04:00","level":"INFO","msg":"client log","level":"ERROR","message":"loadMyChecklists error: Failed to fetch\nTypeError: Failed to fetch\n    at api (http://localhost:8199/sync.js:24:21)\n    at loadMyChecklists (http://localhost:8199/workflows.html:360:24)\n    at applyOp (http://localhost:8199/sync.js:466:7)\n    at _ws.onmessage (http://localhost:8199/sync.js:275:7)","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/workflows.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:15:49.334738694-04:00","level":"INFO","msg":"op handler received op","op_type":"SET_FIELD","entity_id":"9fb88d0a-404e-4eee-b3de-3624877b9a7b","device_id":"93f74dfd-d907-4e8b-a3b2-4182ae5fd761","lamport_ts":45}
+
+[1A[2K[17/39] [chromium] › tests/sync.spec.js:501:3 › Cross-device: regressions › submit on Device A updates runner view to submitted on Device B [SYN-03]
+[1A[2K[WebServer] {"time":"2026-07-17T12:15:55.553985065-04:00","level":"ERROR","msg":"cleanupOldDrafts error","error":"cleanup old drafts: context canceled"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:15:55.634836444-04:00","level":"ERROR","msg":"listTemplates error","error":"list fields: context canceled"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:15:55.635264446-04:00","level":"ERROR","msg":"cleanupOldDrafts error","error":"cleanup old drafts: context canceled"}
+[WebServer] {"time":"2026-07-17T12:15:55.635356042-04:00","level":"ERROR","msg":"myChecklists error","error":"get user role: context canceled"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:15:55.638996886-04:00","level":"INFO","msg":"client log","level":"ERROR","message":"loadMyChecklists error: Failed to fetch\nTypeError: Failed to fetch\n    at api (http://localhost:8199/sync.js:24:21)\n    at loadMyChecklists (http://localhost:8199/workflows.html:360:24)\n    at applyOp (http://localhost:8199/sync.js:466:7)\n    at _ws.onmessage (http://localhost:8199/sync.js:275:7)","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/workflows.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:15:55.688028585-04:00","level":"ERROR","msg":"cleanupOldDrafts error","error":"cleanup old drafts: context canceled"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:15:56.268957576-04:00","level":"INFO","msg":"op handler received op","op_type":"SET_FIELD","entity_id":"4ad40143-3dc7-4118-b9ed-fa6289cb12b4","device_id":"1ed021d8-c731-436b-8c3a-ae8f7bd0ef34","lamport_ts":47}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:15:58.755571006-04:00","level":"ERROR","msg":"cleanupOldDrafts error","error":"cleanup old drafts: context canceled"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:15:59.867860457-04:00","level":"INFO","msg":"client log","level":"ERROR","message":"Uncaught IndexSizeError: Failed to execute 'arc' on 'CanvasRenderingContext2D': The radius provided (-0.0125066) is negative. at http://localhost:8199/workflows.html:443","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/workflows.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[18/39] [chromium] › tests/sync.spec.js:546:3 › Cross-device: regressions › temperature input keeps cursor position while typing [SYN-09]
+[1A[2K[WebServer] {"time":"2026-07-17T12:16:03.749999748-04:00","level":"ERROR","msg":"GetMyTrainings failed","error":"context canceled"}
+
+[1A[2K[19/39] [chromium] › tests/sync.spec.js:576:3 › Cross-device: regressions › generateUUID works when crypto.randomUUID is unavailable [SYN-11]
+[1A[2K[WebServer] {"time":"2026-07-17T12:16:05.361938321-04:00","level":"ERROR","msg":"GetMyTrainings failed","error":"context canceled"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:16:05.667066126-04:00","level":"INFO","msg":"client log","level":"ERROR","message":"loadMyChecklists error: Failed to fetch\nTypeError: Failed to fetch","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/workflows.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:16:05.707212732-04:00","level":"ERROR","msg":"myChecklists error","error":"iterate fail notes: context canceled"}
+
+[1A[2K[20/39] [chromium] › tests/sync.spec.js:595:3 › Cross-device: regressions › two tabs on same origin have different device_ids for sync [SYN-07]
+[1A[2K[WebServer] {"time":"2026-07-17T12:16:06.360751558-04:00","level":"ERROR","msg":"cleanupOldDrafts error","error":"cleanup old drafts: context canceled"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:16:06.392224773-04:00","level":"ERROR","msg":"listTemplates error","error":"list assignments: context canceled"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:16:06.392838103-04:00","level":"ERROR","msg":"myChecklists error","error":"iterate submissions: context canceled"}
+[WebServer] {"time":"2026-07-17T12:16:06.393116054-04:00","level":"ERROR","msg":"cleanupOldDrafts error","error":"cleanup old drafts: context canceled"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:16:06.396554734-04:00","level":"INFO","msg":"client log","level":"ERROR","message":"loadMyChecklists error: Failed to fetch\nTypeError: Failed to fetch\n    at api (http://localhost:8199/sync.js:24:21)\n    at loadMyChecklists (http://localhost:8199/workflows.html:360:24)\n    at applyOp (http://localhost:8199/sync.js:443:49)\n    at wsCatchUp (http://localhost:8199/sync.js:312:7)","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/workflows.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[21/39] [chromium] › tests/sync.spec.js:624:3 › Cross-device: regressions › list page progress updates when another device completes a field [LST-17]
+[1A[2K[WebServer] {"time":"2026-07-17T12:16:07.920458914-04:00","level":"ERROR","msg":"GetMyTrainings failed","error":"context canceled"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:16:08.901950428-04:00","level":"INFO","msg":"op handler received op","op_type":"SET_FIELD","entity_id":"e013e4a8-2071-4ac4-bed5-bbd741c1bca6","device_id":"862bb26a-29aa-42a9-89f0-7d88558a6dd5","lamport_ts":62}
+
+[1A[2K[22/39] [chromium] › tests/sync.spec.js:658:3 › Cross-device: auth › ops/since endpoint requires authentication [SYN-08]
+[1A[2K[23/39] [chromium] › tests/sync.spec.js:666:3 › Cross-device: auth › WebSocket endpoint requires authentication [SYN-08]
+[1A[2K[24/39] [chromium] › tests/sync.spec.js:840:3 › Convergence matrix (W-3): surviving answers converge across devices › checkbox answer converges (live + catch-up)
+[1A[2K[WebServer] {"time":"2026-07-17T12:16:13.197582141-04:00","level":"ERROR","msg":"cleanupOldDrafts error","error":"cleanup old drafts: context canceled"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:16:15.345733925-04:00","level":"INFO","msg":"op handler received op","op_type":"SET_FIELD","entity_id":"6db0afde-6560-4410-9750-116b53a9b273","device_id":"5943effe-41df-4242-91ca-3fd32399d0af","lamport_ts":65}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:16:15.609348682-04:00","level":"ERROR","msg":"cleanupOldDrafts error","error":"cleanup old drafts: context canceled"}
+[WebServer] {"time":"2026-07-17T12:16:15.610348612-04:00","level":"ERROR","msg":"cleanupOldDrafts error","error":"cleanup old drafts: context canceled"}
+
+[1A[2K[25/39] [chromium] › tests/sync.spec.js:854:3 › Convergence matrix (W-3): surviving answers converge across devices › yes/no answer converges (live + catch-up)
+[1A[2K[WebServer] {"time":"2026-07-17T12:16:16.984411182-04:00","level":"ERROR","msg":"GetMyTrainings failed","error":"context canceled"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:16:17.448999056-04:00","level":"ERROR","msg":"cleanupOldDrafts error","error":"cleanup old drafts: context canceled"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:16:18.870928469-04:00","level":"INFO","msg":"op handler received op","op_type":"SET_FIELD","entity_id":"2467d938-9446-4de2-a06e-8167f432fbcd","device_id":"df8996f9-2957-405d-8cc2-1b70a2aaca2b","lamport_ts":69}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:16:19.125979775-04:00","level":"ERROR","msg":"cleanupOldDrafts error","error":"cleanup old drafts: context canceled"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:16:19.12642508-04:00","level":"ERROR","msg":"cleanupOldDrafts error","error":"cleanup old drafts: context canceled"}
+
+[1A[2K[26/39] [chromium] › tests/sync.spec.js:868:3 › Convergence matrix (W-3): surviving answers converge across devices › text answer converges (live + catch-up)
+[1A[2K[WebServer] {"time":"2026-07-17T12:16:21.492745694-04:00","level":"INFO","msg":"op handler received op","op_type":"SET_FIELD","entity_id":"f90c8997-bb45-41ad-93c0-55aa1a6fa0e0","device_id":"372dd12a-fa1e-4412-a85b-f8a116278a94","lamport_ts":73}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:16:21.830620821-04:00","level":"ERROR","msg":"cleanupOldDrafts error","error":"cleanup old drafts: context canceled"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:16:21.832207973-04:00","level":"ERROR","msg":"cleanupOldDrafts error","error":"cleanup old drafts: context canceled"}
+
+[1A[2K[27/39] [chromium] › tests/sync.spec.js:881:3 › Convergence matrix (W-3): surviving answers converge across devices › temperature answer converges (live + catch-up)
+[1A[2K[WebServer] {"time":"2026-07-17T12:16:23.980372349-04:00","level":"INFO","msg":"op handler received op","op_type":"SET_FIELD","entity_id":"5212c7ce-a0ec-4fca-8e07-450cf990da01","device_id":"3463ddbf-a8e7-4bd0-abde-e28f76b6ba0b","lamport_ts":77}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:16:24.029398678-04:00","level":"INFO","msg":"client log","level":"ERROR","message":"loadMyChecklists error: Failed to fetch\nTypeError: Failed to fetch\n    at api (http://localhost:8199/sync.js:24:21)\n    at loadMyChecklists (http://localhost:8199/workflows.html:360:24)\n    at rerenderOpenChecklistAfterSave (http://localhost:8199/sync.js:488:53)\n    at applyOp (http://localhost:8199/sync.js:454:7)\n    at wsCatchUp (http://localhost:8199/sync.js:312:7)","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/workflows.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:16:24.031027841-04:00","level":"INFO","msg":"client log","level":"ERROR","message":"loadMyChecklists error: Failed to fetch\nTypeError: Failed to fetch\n    at api (http://localhost:8199/sync.js:24:21)\n    at loadMyChecklists (http://localhost:8199/workflows.html:360:24)\n    at rerenderOpenChecklistAfterSave (http://localhost:8199/sync.js:488:53)\n    at applyOp (http://localhost:8199/sync.js:454:7)\n    at wsCatchUp (http://localhost:8199/sync.js:312:7)","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/workflows.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:16:24.03548497-04:00","level":"INFO","msg":"client log","level":"ERROR","message":"loadMyChecklists error: Failed to fetch\nTypeError: Failed to fetch\n    at api (http://localhost:8199/sync.js:24:21)\n    at loadMyChecklists (http://localhost:8199/workflows.html:360:24)\n    at rerenderOpenChecklistAfterSave (http://localhost:8199/sync.js:488:53)\n    at applyOp (http://localhost:8199/sync.js:454:7)\n    at wsCatchUp (http://localhost:8199/sync.js:312:7)","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/workflows.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:16:24.036809181-04:00","level":"INFO","msg":"client log","level":"ERROR","message":"loadMyChecklists error: Failed to fetch\nTypeError: Failed to fetch\n    at api (http://localhost:8199/sync.js:24:21)\n    at loadMyChecklists (http://localhost:8199/workflows.html:360:24)\n    at rerenderOpenChecklistAfterSave (http://localhost:8199/sync.js:488:53)\n    at applyOp (http://localhost:8199/sync.js:454:7)\n    at wsCatchUp (http://localhost:8199/sync.js:312:7)","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/workflows.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:16:24.044355022-04:00","level":"INFO","msg":"client log","level":"ERROR","message":"loadMyChecklists error: Failed to fetch\nTypeError: Failed to fetch\n    at api (http://localhost:8199/sync.js:24:21)\n    at loadMyChecklists (http://localhost:8199/workflows.html:360:24)\n    at rerenderOpenChecklistAfterSave (http://localhost:8199/sync.js:488:53)\n    at applyOp (http://localhost:8199/sync.js:454:7)\n    at wsCatchUp (http://localhost:8199/sync.js:312:7)","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/workflows.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:16:24.044511156-04:00","level":"INFO","msg":"client log","level":"ERROR","message":"loadMyChecklists error: Failed to fetch\nTypeError: Failed to fetch\n    at api (http://localhost:8199/sync.js:24:21)\n    at loadMyChecklists (http://localhost:8199/workflows.html:360:24)\n    at rerenderOpenChecklistAfterSave (http://localhost:8199/sync.js:488:53)\n    at applyOp (http://localhost:8199/sync.js:454:7)\n    at wsCatchUp (http://localhost:8199/sync.js:312:7)","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/workflows.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+[WebServer] {"time":"2026-07-17T12:16:24.045128375-04:00","level":"INFO","msg":"client log","level":"ERROR","message":"loadMyChecklists error: Failed to fetch\nTypeError: Failed to fetch\n    at api (http://localhost:8199/sync.js:24:21)\n    at loadMyChecklists (http://localhost:8199/workflows.html:360:24)\n    at rerenderOpenChecklistAfterSave (http://localhost:8199/sync.js:488:53)\n    at applyOp (http://localhost:8199/sync.js:454:7)\n    at wsCatchUp (http://localhost:8199/sync.js:312:7)","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/workflows.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:16:24.049252649-04:00","level":"INFO","msg":"client log","level":"ERROR","message":"loadMyChecklists error: Failed to fetch\nTypeError: Failed to fetch\n    at api (http://localhost:8199/sync.js:24:21)\n    at loadMyChecklists (http://localhost:8199/workflows.html:360:24)\n    at rerenderOpenChecklistAfterSave (http://localhost:8199/sync.js:488:53)\n    at applyOp (http://localhost:8199/sync.js:454:7)\n    at wsCatchUp (http://localhost:8199/sync.js:312:7)","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/workflows.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:16:24.050903027-04:00","level":"INFO","msg":"client log","level":"ERROR","message":"loadMyChecklists error: Failed to fetch\nTypeError: Failed to fetch\n    at api (http://localhost:8199/sync.js:24:21)\n    at loadMyChecklists (http://localhost:8199/workflows.html:360:24)\n    at rerenderOpenChecklistAfterSave (http://localhost:8199/sync.js:488:53)\n    at applyOp (http://localhost:8199/sync.js:454:7)\n    at wsCatchUp (http://localhost:8199/sync.js:312:7)","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/workflows.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+[WebServer] {"time":"2026-07-17T12:16:24.050959147-04:00","level":"INFO","msg":"client log","level":"ERROR","message":"loadMyChecklists error: Failed to fetch\nTypeError: Failed to fetch\n    at api (http://localhost:8199/sync.js:24:21)\n    at loadMyChecklists (http://localhost:8199/workflows.html:360:24)\n    at rerenderOpenChecklistAfterSave (http://localhost:8199/sync.js:488:53)\n    at applyOp (http://localhost:8199/sync.js:454:7)\n    at wsCatchUp (http://localhost:8199/sync.js:312:7)","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/workflows.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:16:24.052009968-04:00","level":"INFO","msg":"client log","level":"ERROR","message":"loadMyChecklists error: Failed to fetch\nTypeError: Failed to fetch\n    at api (http://localhost:8199/sync.js:24:21)\n    at loadMyChecklists (http://localhost:8199/workflows.html:360:24)\n    at rerenderOpenChecklistAfterSave (http://localhost:8199/sync.js:488:53)\n    at applyOp (http://localhost:8199/sync.js:454:7)\n    at wsCatchUp (http://localhost:8199/sync.js:312:7)","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/workflows.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:16:24.060364485-04:00","level":"INFO","msg":"client log","level":"ERROR","message":"loadMyChecklists error: Failed to fetch\nTypeError: Failed to fetch\n    at api (http://localhost:8199/sync.js:24:21)\n    at loadMyChecklists (http://localhost:8199/workflows.html:360:24)\n    at rerenderOpenChecklistAfterSave (http://localhost:8199/sync.js:488:53)\n    at applyOp (http://localhost:8199/sync.js:454:7)\n    at wsCatchUp (http://localhost:8199/sync.js:312:7)","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/workflows.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:16:24.067319441-04:00","level":"INFO","msg":"client log","level":"ERROR","message":"loadMyChecklists error: Failed to fetch\nTypeError: Failed to fetch\n    at api (http://localhost:8199/sync.js:24:21)\n    at loadMyChecklists (http://localhost:8199/workflows.html:360:24)\n    at rerenderOpenChecklistAfterSave (http://localhost:8199/sync.js:488:53)\n    at applyOp (http://localhost:8199/sync.js:454:7)\n    at wsCatchUp (http://localhost:8199/sync.js:312:7)","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/workflows.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:16:24.06786894-04:00","level":"INFO","msg":"client log","level":"ERROR","message":"loadMyChecklists error: Failed to fetch\nTypeError: Failed to fetch\n    at api (http://localhost:8199/sync.js:24:21)\n    at loadMyChecklists (http://localhost:8199/workflows.html:360:24)\n    at rerenderOpenChecklistAfterSave (http://localhost:8199/sync.js:488:53)\n    at applyOp (http://localhost:8199/sync.js:454:7)\n    at wsCatchUp (http://localhost:8199/sync.js:312:7)","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/workflows.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[28/39] [chromium] › tests/sync.spec.js:894:3 › Convergence matrix (W-3): surviving answers converge across devices › sub-step checked state converges (live + catch-up)
+[1A[2K[WebServer] {"time":"2026-07-17T12:16:25.341830723-04:00","level":"ERROR","msg":"GetMyTrainings failed","error":"context canceled"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:16:27.94532428-04:00","level":"INFO","msg":"op handler received op","op_type":"SET_FIELD","entity_id":"39c66153-75ab-4720-b4f0-64f20b891bc9","device_id":"9c971ec4-342d-4280-8658-31a5e144ff17","lamport_ts":81}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:16:28.290997371-04:00","level":"ERROR","msg":"cleanupOldDrafts error","error":"cleanup old drafts: context canceled"}
+
+[1A[2K[29/39] [chromium] › tests/sync.spec.js:911:3 › Convergence matrix (W-3): surviving answers converge across devices › fail-note text AND fail severity converge (live + catch-up)
+[1A[2K[WebServer] {"time":"2026-07-17T12:16:30.550761458-04:00","level":"ERROR","msg":"listTemplates error","error":"iterate assignments: context canceled"}
+
+[1A[2K[30/39] [chromium] › tests/sync.spec.js:970:3 › Convergence matrix (W-3): surviving answers converge across devices › fail-note photo-URL value converges (live + catch-up)
+[1A[2K[WebServer] {"time":"2026-07-17T12:16:32.843937018-04:00","level":"INFO","msg":"op handler received op","op_type":"SET_FIELD","entity_id":"698c4225-331c-45f3-acfa-ef378d1b0e59","device_id":"9552923a-883f-404c-a7d1-7370bf2c5a83","lamport_ts":89}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:16:33.921176464-04:00","level":"ERROR","msg":"cleanupOldDrafts error","error":"cleanup old drafts: context canceled"}
+
+[1A[2K[31/39] [chromium] › tests/sync.spec.js:1031:3 › Convergence matrix (W-3): lifecycle + list progress › submit transition converges live on the observing device (+ catch-up)
+[1A[2K[WebServer] {"time":"2026-07-17T12:16:34.763010706-04:00","level":"ERROR","msg":"GetMyTrainings failed","error":"context canceled"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:16:35.249351503-04:00","level":"ERROR","msg":"listTemplates error","error":"iterate templates: context canceled"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:16:35.852037778-04:00","level":"INFO","msg":"op handler received op","op_type":"SET_FIELD","entity_id":"47d0f9dc-5415-4814-ae8d-d1a9e12a60a9","device_id":"616e69b4-b559-4e24-8c8a-f7008891fced","lamport_ts":92}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:16:38.604993079-04:00","level":"ERROR","msg":"myChecklists error","error":"iterate responses: context canceled"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:16:38.610838489-04:00","level":"INFO","msg":"client log","level":"ERROR","message":"loadMyChecklists error: Failed to fetch\nTypeError: Failed to fetch\n    at api (http://localhost:8199/sync.js:24:21)\n    at loadMyChecklists (http://localhost:8199/workflows.html:360:24)\n    at rerenderOpenChecklistAfterSave (http://localhost:8199/sync.js:488:53)\n    at applyOp (http://localhost:8199/sync.js:454:7)\n    at wsCatchUp (http://localhost:8199/sync.js:312:7)","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/workflows.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:16:38.615441991-04:00","level":"INFO","msg":"client log","level":"ERROR","message":"loadMyChecklists error: Failed to fetch\nTypeError: Failed to fetch\n    at api (http://localhost:8199/sync.js:24:21)\n    at loadMyChecklists (http://localhost:8199/workflows.html:360:24)\n    at rerenderOpenChecklistAfterSave (http://localhost:8199/sync.js:488:53)\n    at applyOp (http://localhost:8199/sync.js:454:7)\n    at wsCatchUp (http://localhost:8199/sync.js:312:7)","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/workflows.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:16:38.617924243-04:00","level":"INFO","msg":"client log","level":"ERROR","message":"loadMyChecklists error: Failed to fetch\nTypeError: Failed to fetch\n    at api (http://localhost:8199/sync.js:24:21)\n    at loadMyChecklists (http://localhost:8199/workflows.html:360:24)\n    at rerenderOpenChecklistAfterSave (http://localhost:8199/sync.js:488:53)\n    at applyOp (http://localhost:8199/sync.js:454:7)\n    at wsCatchUp (http://localhost:8199/sync.js:312:7)","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/workflows.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:16:38.63131292-04:00","level":"INFO","msg":"client log","level":"ERROR","message":"loadMyChecklists error: Failed to fetch\nTypeError: Failed to fetch\n    at api (http://localhost:8199/sync.js:24:21)\n    at loadMyChecklists (http://localhost:8199/workflows.html:360:24)\n    at rerenderOpenChecklistAfterSave (http://localhost:8199/sync.js:488:53)\n    at applyOp (http://localhost:8199/sync.js:454:7)\n    at wsCatchUp (http://localhost:8199/sync.js:312:7)","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/workflows.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:16:38.633702939-04:00","level":"INFO","msg":"client log","level":"ERROR","message":"loadMyChecklists error: Failed to fetch\nTypeError: Failed to fetch\n    at api (http://localhost:8199/sync.js:24:21)\n    at loadMyChecklists (http://localhost:8199/workflows.html:360:24)\n    at rerenderOpenChecklistAfterSave (http://localhost:8199/sync.js:488:53)\n    at applyOp (http://localhost:8199/sync.js:454:7)\n    at wsCatchUp (http://localhost:8199/sync.js:312:7)","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/workflows.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:16:38.634269482-04:00","level":"INFO","msg":"client log","level":"ERROR","message":"loadMyChecklists error: Failed to fetch\nTypeError: Failed to fetch\n    at api (http://localhost:8199/sync.js:24:21)\n    at loadMyChecklists (http://localhost:8199/workflows.html:360:24)\n    at rerenderOpenChecklistAfterSave (http://localhost:8199/sync.js:488:53)\n    at applyOp (http://localhost:8199/sync.js:454:7)\n    at wsCatchUp (http://localhost:8199/sync.js:312:7)","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/workflows.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:16:38.63556241-04:00","level":"INFO","msg":"client log","level":"ERROR","message":"loadMyChecklists error: Failed to fetch\nTypeError: Failed to fetch\n    at api (http://localhost:8199/sync.js:24:21)\n    at loadMyChecklists (http://localhost:8199/workflows.html:360:24)\n    at rerenderOpenChecklistAfterSave (http://localhost:8199/sync.js:488:53)\n    at applyOp (http://localhost:8199/sync.js:454:7)\n    at wsCatchUp (http://localhost:8199/sync.js:312:7)","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/workflows.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:16:38.638051861-04:00","level":"INFO","msg":"client log","level":"ERROR","message":"loadMyChecklists error: Failed to fetch\nTypeError: Failed to fetch\n    at api (http://localhost:8199/sync.js:24:21)\n    at loadMyChecklists (http://localhost:8199/workflows.html:360:24)\n    at rerenderOpenChecklistAfterSave (http://localhost:8199/sync.js:488:53)\n    at applyOp (http://localhost:8199/sync.js:454:7)\n    at wsCatchUp (http://localhost:8199/sync.js:312:7)","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/workflows.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:16:38.812748823-04:00","level":"INFO","msg":"client log","level":"ERROR","message":"Uncaught IndexSizeError: Failed to execute 'arc' on 'CanvasRenderingContext2D': The radius provided (-0.0248446) is negative. at http://localhost:8199/workflows.html:443","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/workflows.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[32/39] [chromium] › tests/sync.spec.js:1067:3 › Convergence matrix (W-3): lifecycle + list progress › unsubmit transition converges live on the observing device (+ catch-up)
+[1A[2K[WebServer] {"time":"2026-07-17T12:16:38.825143853-04:00","level":"ERROR","msg":"cleanupOldDrafts error","error":"cleanup old drafts: context canceled"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:16:38.916400177-04:00","level":"ERROR","msg":"cleanupOldDrafts error","error":"cleanup old drafts: context canceled"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:16:38.960587306-04:00","level":"ERROR","msg":"listTemplates error","error":"list schedules: context canceled"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:16:38.961272583-04:00","level":"ERROR","msg":"myChecklists error","error":"iterate fail notes: context canceled"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:16:38.965038374-04:00","level":"INFO","msg":"client log","level":"ERROR","message":"loadMyChecklists error: Failed to fetch\nTypeError: Failed to fetch\n    at api (http://localhost:8199/sync.js:24:21)\n    at loadMyChecklists (http://localhost:8199/workflows.html:360:24)\n    at applyOp (http://localhost:8199/sync.js:443:49)\n    at wsCatchUp (http://localhost:8199/sync.js:312:7)","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/workflows.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:16:39.012591582-04:00","level":"ERROR","msg":"cleanupOldDrafts error","error":"cleanup old drafts: context canceled"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:16:39.577809743-04:00","level":"INFO","msg":"op handler received op","op_type":"SET_FIELD","entity_id":"3247424c-fea0-4526-9bb1-b0c16c31d1f5","device_id":"903bd787-5779-4613-8021-9a1356b39f8c","lamport_ts":94}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:16:41.335363284-04:00","level":"INFO","msg":"client log","level":"ERROR","message":"Uncaught IndexSizeError: Failed to execute 'arc' on 'CanvasRenderingContext2D': The radius provided (-0.0135221) is negative. at http://localhost:8199/workflows.html:443","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/workflows.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+
+[1A[2K[33/39] [chromium] › tests/sync.spec.js:1113:3 › Convergence matrix (W-3): lifecycle + list progress › list-view progress indicator converges live + catch-up (field completion)
+[1A[2K[WebServer] {"time":"2026-07-17T12:16:45.401804197-04:00","level":"INFO","msg":"op handler received op","op_type":"SET_FIELD","entity_id":"b2a167d9-631b-4178-8072-cba092c4ded6","device_id":"729dfbd8-255f-42a0-84ab-3628ce68e45a","lamport_ts":104}
+
+[1A[2K[34/39] [chromium] › tests/sync.spec.js:1161:3 › Convergence matrix (W-3): lifecycle + list progress › list-view denominator converges live + catch-up when a field is CUT on the bare list
+[1A[2K[WebServer] {"time":"2026-07-17T12:16:49.967115838-04:00","level":"INFO","msg":"op handler received op","op_type":"SET_FIELD","entity_id":"1a531f71-0079-4701-86ca-f15722f1a6d4","device_id":"a8524c2d-2628-478f-8cb9-eaf485194ccf","lamport_ts":107}
+
+[1A[2K[35/39] [chromium] › tests/sync.spec.js:1212:3 › Engine: LWW conflict re-renders the winning value (W-6) › losing device renders the winning field value after a 409, not its rejected value [FR-9 INV-1]
+[1A[2K[WebServer] {"time":"2026-07-17T12:16:52.508705546-04:00","level":"INFO","msg":"op handler received op","op_type":"SET_FIELD","entity_id":"075605e6-8144-4ddf-825f-ba9d343fd5c8","device_id":"zzz-winner-device","lamport_ts":5000000}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:16:52.970201926-04:00","level":"INFO","msg":"op handler received op","op_type":"SET_FIELD","entity_id":"075605e6-8144-4ddf-825f-ba9d343fd5c8","device_id":"23909d96-5aa5-4b86-8112-ced74a370541","lamport_ts":1}
+
+[1A[2K[36/39] [chromium] › tests/sync.spec.js:1416:3 › Engine: LWW conflict re-renders the winner across persisted types (W-6b) › yes/no: a losing No re-renders the winning Yes [FR-9 INV-1]
+[1A[2K[WebServer] {"time":"2026-07-17T12:16:53.395029099-04:00","level":"ERROR","msg":"GetMyTrainings failed","error":"get user roles: context canceled"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:16:54.166706335-04:00","level":"INFO","msg":"op handler received op","op_type":"SET_FIELD","entity_id":"55c44b95-70e6-48e2-b000-fe4f2702f0dc","device_id":"zzz-winner-device","lamport_ts":5000000}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:16:54.640616298-04:00","level":"INFO","msg":"op handler received op","op_type":"SET_FIELD","entity_id":"55c44b95-70e6-48e2-b000-fe4f2702f0dc","device_id":"95b34b43-a58f-4878-9da2-0a84bb31e81d","lamport_ts":1}
+
+[1A[2K[37/39] [chromium] › tests/sync.spec.js:1439:3 › Engine: LWW conflict re-renders the winner across persisted types (W-6b) › temperature: a losing 350 re-renders the winning 375 [FR-9 INV-1]
+[1A[2K[WebServer] {"time":"2026-07-17T12:16:55.075784272-04:00","level":"ERROR","msg":"GetMyTrainings failed","error":"context canceled"}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:16:55.884587152-04:00","level":"INFO","msg":"op handler received op","op_type":"SET_FIELD","entity_id":"4e4f1745-33cd-496d-b463-52a8906c71ae","device_id":"zzz-winner-device","lamport_ts":5000000}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:16:56.329334956-04:00","level":"INFO","msg":"op handler received op","op_type":"SET_FIELD","entity_id":"4e4f1745-33cd-496d-b463-52a8906c71ae","device_id":"3cb78691-9882-468b-ae58-bcc30f5ef88f","lamport_ts":1}
+
+[1A[2K[38/39] [chromium] › tests/sync.spec.js:1458:3 › Engine: LWW conflict re-renders the winner across persisted types (W-6b) › sub-step: a losing sub-step B re-renders the winning sub-step A [FR-9 INV-1]
+[1A[2K[WebServer] {"time":"2026-07-17T12:16:57.693636776-04:00","level":"INFO","msg":"op handler received op","op_type":"SET_FIELD","entity_id":"11b112e9-1d3a-4dc9-8e1d-5864c5ba422f","device_id":"zzz-winner-device","lamport_ts":5000000}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:16:58.170073656-04:00","level":"INFO","msg":"op handler received op","op_type":"SET_FIELD","entity_id":"11b112e9-1d3a-4dc9-8e1d-5864c5ba422f","device_id":"b117a7df-1dd4-4552-a29d-118a794a3c34","lamport_ts":1}
+
+[1A[2K[39/39] [chromium] › tests/sync.spec.js:1485:3 › Engine: LWW conflict re-renders the winner across persisted types (W-6b) › checkbox: a losing uncheck re-renders the winning checked box [FR-9 INV-1]
+[1A[2K[WebServer] {"time":"2026-07-17T12:16:59.513057108-04:00","level":"INFO","msg":"op handler received op","op_type":"SET_FIELD","entity_id":"b2ac3553-3c2f-4610-8ae0-929b0c337a8b","device_id":"0f681989-da24-4c9d-af82-16168c0793a4","lamport_ts":1}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:17:00.35293311-04:00","level":"INFO","msg":"op handler received op","op_type":"SET_FIELD","entity_id":"b2ac3553-3c2f-4610-8ae0-929b0c337a8b","device_id":"zzz-winner-device","lamport_ts":5000000}
+
+[1A[2K[WebServer] {"time":"2026-07-17T12:17:00.81244735-04:00","level":"INFO","msg":"op handler received op","op_type":"SET_FIELD","entity_id":"b2ac3553-3c2f-4610-8ae0-929b0c337a8b","device_id":"0f681989-da24-4c9d-af82-16168c0793a4","lamport_ts":1}
+
+[1A[2K  39 passed (4.6m)

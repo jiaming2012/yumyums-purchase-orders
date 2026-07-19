@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/exec"
@@ -201,6 +201,6 @@ func processVideo(ctx context.Context, presigner *s3.PresignClient, bucket, endp
 		return nil, fmt.Errorf("update thumbnail url: %w", err)
 	}
 
-	log.Printf("processVideo: completed part %s — video %s, thumb %s", partID, finalVideoURL, thumbPublicURL)
+	slog.Info("processVideo completed", "part_id", partID, "video_url", finalVideoURL, "thumbnail_url", thumbPublicURL)
 	return &ProcessResult{VideoURL: finalVideoURL, ThumbnailURL: thumbPublicURL}, nil
 }

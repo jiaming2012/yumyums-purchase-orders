@@ -3,8 +3,9 @@ package workflow
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"slices"
 	"strconv"
@@ -34,6 +35,11 @@ var SubmitChecklistFunc = submitChecklist
 // ValidateFailNotesFunc is the exported alias for validateFailNotes.
 var ValidateFailNotesFunc = validateFailNotes
 
+// ValidateResubmitPhotoFunc is the exported alias for validateResubmitPhoto, so
+// the opsync submit path (cmd/server) enforces the same rejection-driven photo
+// gate as the REST SubmitChecklistHandler.
+var ValidateResubmitPhotoFunc = validateResubmitPhoto
+
 // ApproveSubmissionFunc is the exported alias for approveSubmission.
 var ApproveSubmissionFunc = approveSubmission
 
@@ -43,8 +49,8 @@ var RejectItemFunc = rejectItem
 // CreateTemplateFunc is the exported alias for insertTemplate.
 var CreateTemplateFunc = insertTemplate
 
-// UpdateTemplateFunc is the exported alias for replaceTemplate.
-var UpdateTemplateFunc = replaceTemplate
+// UpdateTemplateFunc is the exported alias for updateTemplate.
+var UpdateTemplateFunc = updateTemplate
 
 // ArchiveTemplateFunc is the exported alias for archiveTemplate.
 var ArchiveTemplateFunc = archiveTemplate
@@ -73,19 +79,190 @@ func validateFailNotes(ctx context.Context, pool *pgxpool.Pool, input SubmitChec
 		}
 	}
 
-	// Check each response: if the field has a fail_trigger and the value triggers it,
-	// there must be a fail note
+	// Check each response: if the value triggers a fail condition, there must be a
+	// fail note. Two trigger sources:
+	//   1. A yes/no field answered "No" (mirrors the corrective card the fill UI
+	//      renders on every "No") — carries no fail_trigger config.
+	//   2. A field with a non-null fail_trigger whose value satisfies it (e.g.
+	//      temperature out_of_range).
 	for _, resp := range input.Responses {
 		f, ok := fieldMap[resp.FieldID]
-		if !ok || len(f.FailTrigger) == 0 || string(f.FailTrigger) == "null" {
+		if !ok {
 			continue
 		}
 
-		if evaluateFailTrigger(f.FailTrigger, resp.Value) && !failNoteMap[resp.FieldID] {
+		triggered := false
+		if f.Type == "yes_no" && isYesNoNo(resp.Value) {
+			triggered = true
+		} else if len(f.FailTrigger) > 0 && string(f.FailTrigger) != "null" {
+			triggered = evaluateFailTrigger(f.FailTrigger, resp.Value)
+		}
+
+		if triggered && !failNoteMap[resp.FieldID] {
 			return fmt.Errorf("corrective_action_required")
 		}
 	}
+
+	// Photo gate: a required photo field must have a valid https:// URL as its
+	// response value before submit/resubmit. Iterate the template fields (not
+	// just the responses) so a required photo with no response at all is caught.
+	respValues := map[string]json.RawMessage{}
+	for _, resp := range input.Responses {
+		respValues[resp.FieldID] = resp.Value
+	}
+	for id, f := range fieldMap {
+		if f.Type != "photo" || !f.Required {
+			continue
+		}
+		if !isHTTPSPhotoValue(respValues[id]) {
+			return fmt.Errorf("photo_required")
+		}
+	}
 	return nil
+}
+
+// validateResubmitPhoto closes the rejection-driven photo hole server-side.
+//
+// The field-level gate in validateFailNotes only covers photo-*type* fields.
+// This gate covers the *rejection* case: an approver can bounce ANY field back
+// with require_photo=true (a submission_rejections row). The fill UI then forces
+// the crew to attach a photo before resubmitting — but a direct-API resubmit
+// bypasses that UI, so the requirement must be enforced here too.
+//
+// A resubmit is a fresh submission, so the "this field was rejected with a photo
+// requirement" fact is resolved from the DB by lineage (template_id + submitter),
+// keyed to the submitter's MOST RECENT prior submission of this template —
+// mirroring the frontend's "no newer submission" rule. It is deliberately NOT
+// read from any client-supplied flag: a direct-API attacker controls the input,
+// so the gate trusts only submission_rejections.
+func validateResubmitPhoto(ctx context.Context, pool *pgxpool.Pool, input SubmitChecklistInput, userID string) error {
+	if input.TemplateID == "" || userID == "" {
+		return nil
+	}
+	// The JOIN to checklist_fields with parent_field_id IS NULL excludes SUB-STEPS
+	// (and fields deleted by a template edit): a sub-step is never sent as a
+	// top-level response, so gating on it would hard-block resubmit with no way to
+	// satisfy it. For sub-steps require_photo is advisory (rendered in the fill UI
+	// banner); only top-level fields are gate-enforced.
+	rows, err := pool.Query(ctx,
+		`SELECT sr.field_id::text
+		   FROM submission_rejections sr
+		   JOIN checklist_submissions cs ON cs.id = sr.submission_id
+		   JOIN checklist_fields cf ON cf.id = sr.field_id AND cf.parent_field_id IS NULL
+		  WHERE cs.template_id = $1
+		    AND cs.submitted_by = $2
+		    AND sr.require_photo = true
+		    AND cs.id = (
+		          SELECT id FROM checklist_submissions
+		           WHERE template_id = $1 AND submitted_by = $2
+		           ORDER BY submitted_at DESC
+		           LIMIT 1
+		        )`,
+		input.TemplateID, userID,
+	)
+	if err != nil {
+		return fmt.Errorf("load resubmit photo requirements: %w", err)
+	}
+	defer rows.Close()
+
+	requirePhoto := map[string]bool{}
+	for rows.Next() {
+		var fid string
+		if err := rows.Scan(&fid); err != nil {
+			return fmt.Errorf("scan resubmit photo requirement: %w", err)
+		}
+		requirePhoto[fid] = true
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("iterate resubmit photo requirements: %w", err)
+	}
+	if len(requirePhoto) == 0 {
+		return nil
+	}
+
+	respValues := map[string]json.RawMessage{}
+	for _, resp := range input.Responses {
+		respValues[resp.FieldID] = resp.Value
+	}
+	for fid := range requirePhoto {
+		if !hasResubmitPhoto(respValues[fid]) {
+			return fmt.Errorf("resubmit_photo_required")
+		}
+	}
+	return nil
+}
+
+// hasResubmitPhoto reports whether a resubmitted response value satisfies a
+// require_photo rejection — either the value IS a photo URL (a photo-type field),
+// or it carries a `_correction_photo` bundle: a non-photo field can't hold both
+// its answer and a photo, so the fill UI bundles the evidence photo as
+// {"_v":<answer>,"_correction_photo":"https://…"} (mirrors the frontend
+// fieldHasRequiredPhoto check).
+func hasResubmitPhoto(value json.RawMessage) bool {
+	if isHTTPSPhotoValue(value) {
+		return true
+	}
+	if len(value) == 0 {
+		return false
+	}
+	// The fill UI JSON-stringifies the value, so the bundle object arrives as a
+	// JSON string literal. Peel up to two string layers to reach the object.
+	raw := []byte(value)
+	for i := 0; i < 2; i++ {
+		var s string
+		if err := json.Unmarshal(raw, &s); err != nil {
+			break
+		}
+		raw = []byte(s)
+	}
+	var obj struct {
+		CorrectionPhoto string `json:"_correction_photo"`
+	}
+	if err := json.Unmarshal(raw, &obj); err != nil {
+		return false
+	}
+	return strings.HasPrefix(obj.CorrectionPhoto, "https://")
+}
+
+// isHTTPSPhotoValue reports whether a response value is a JSON string that is a
+// valid https:// URL — i.e. a photo field with a captured photo. An absent
+// value (nil) or a non-string / non-https value is treated as "no photo".
+//
+// The fill UI double-encodes response values (JSON.stringify of the value,
+// which is itself then serialized in the request body), so a photo URL arrives
+// as a JSON string literal whose *content* is another JSON string, e.g.
+// `"\"https://…\""`. Peel up to two JSON string layers, mirroring how
+// isYesNoNo tolerates both encodings, before checking the https:// prefix.
+func isHTTPSPhotoValue(value json.RawMessage) bool {
+	if len(value) == 0 {
+		return false
+	}
+	var s string
+	if err := json.Unmarshal(value, &s); err != nil {
+		return false
+	}
+	// Peel a second JSON-string layer if the frontend double-encoded the value.
+	if strings.HasPrefix(s, "\"") {
+		var inner string
+		if err := json.Unmarshal([]byte(s), &inner); err == nil {
+			s = inner
+		}
+	}
+	return strings.HasPrefix(s, "https://")
+}
+
+// isYesNoNo reports whether a yes/no response value represents "No".
+// Accepts both the JSON boolean false and the string "false".
+func isYesNoNo(value json.RawMessage) bool {
+	var b bool
+	if err := json.Unmarshal(value, &b); err == nil {
+		return !b
+	}
+	var s string
+	if err := json.Unmarshal(value, &s); err == nil {
+		return s == "false"
+	}
+	return false
 }
 
 // evaluateFailTrigger checks if a value triggers a fail condition.
@@ -162,7 +339,7 @@ func ListTemplatesHandler(pool *pgxpool.Pool) http.HandlerFunc {
 
 		templates, err := listTemplates(r.Context(), pool)
 		if err != nil {
-			log.Printf("listTemplates error: %v", err)
+			slog.Error("listTemplates error", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -203,7 +380,7 @@ func CreateTemplateHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				writeError(w, http.StatusUnprocessableEntity, "duplicate_name")
 				return
 			}
-			log.Printf("insertTemplate error: %v", err)
+			slog.Error("insertTemplate error", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -218,7 +395,7 @@ func CreateTemplateHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				LamportTS:  0,
 			})
 		} else {
-			log.Printf("CreateTemplateHandler: failed to marshal op payload: %v", merr)
+			slog.Error("CreateTemplateHandler failed to marshal op payload", "error", merr)
 		}
 		writeJSON(w, http.StatusCreated, map[string]string{"id": id})
 	}
@@ -254,27 +431,17 @@ func UpdateTemplateHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		if err := replaceTemplate(r.Context(), pool, templateID, input); err != nil {
+		// updateTemplateAndEmit writes the template and queues its SAVE_TEMPLATE
+		// op in ONE transaction (FR-5, INV-1): the op that tells other devices to
+		// re-fetch + re-render can never be lost while the write is accepted.
+		if err := updateTemplateAndEmit(r.Context(), pool, templateID, input, user.ID); err != nil {
 			if isDuplicateNameErr(err) {
 				writeError(w, http.StatusUnprocessableEntity, "duplicate_name")
 				return
 			}
-			log.Printf("replaceTemplate error: %v", err)
+			slog.Error("updateTemplate error", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
-		}
-		if payload, merr := json.Marshal(map[string]any{"template_id": templateID}); merr == nil {
-			opsync.EmitOp(pool, opsync.OpInput{
-				DeviceID:   "server",
-				UserID:     user.ID,
-				EntityID:   templateID,
-				EntityType: "template",
-				OpType:     opsync.OpSaveTemplate,
-				Payload:    json.RawMessage(payload),
-				LamportTS:  0,
-			})
-		} else {
-			log.Printf("UpdateTemplateHandler: failed to marshal op payload: %v", merr)
 		}
 		writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 	}
@@ -301,7 +468,7 @@ func ArchiveTemplateHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 
 		if err := archiveTemplate(r.Context(), pool, templateID); err != nil {
-			log.Printf("archiveTemplate error: %v", err)
+			slog.Error("archiveTemplate error", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -316,9 +483,43 @@ func ArchiveTemplateHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				LamportTS:  0,
 			})
 		} else {
-			log.Printf("ArchiveTemplateHandler: failed to marshal op payload: %v", merr)
+			slog.Error("ArchiveTemplateHandler failed to marshal op payload", "error", merr)
 		}
 		writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+	}
+}
+
+// DraftHolderCountHandler handles GET /api/v1/workflow/draftHolderCount.
+// Admin-only, read-only. Given `field_ids` (comma-separated UUIDs) it returns
+// {"count": N} — the number of distinct crew members with an unsubmitted draft
+// answer dated today on any of those fields. Powers the Builder's INV-6 discard
+// warning before a save that cuts fields or drops today from the schedule.
+func DraftHolderCountHandler(pool *pgxpool.Pool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		user := auth.UserFromContext(r.Context())
+		if user == nil {
+			writeError(w, http.StatusUnauthorized, "unauthorized")
+			return
+		}
+		if !isAdmin(user) {
+			writeError(w, http.StatusForbidden, "forbidden")
+			return
+		}
+		var fieldIDs []string
+		if raw := strings.TrimSpace(r.URL.Query().Get("field_ids")); raw != "" {
+			for _, id := range strings.Split(raw, ",") {
+				if id = strings.TrimSpace(id); id != "" {
+					fieldIDs = append(fieldIDs, id)
+				}
+			}
+		}
+		n, err := countDraftHolders(r.Context(), pool, fieldIDs)
+		if err != nil {
+			slog.Error("countDraftHolders error", "error", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]int{"count": n})
 	}
 }
 
@@ -336,7 +537,7 @@ func MyChecklistsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		// Fire-and-forget draft cleanup
 		go func() {
 			if err := cleanupOldDrafts(r.Context(), pool); err != nil {
-				log.Printf("cleanupOldDrafts error: %v", err)
+				slog.Error("cleanupOldDrafts error", "error", err)
 			}
 		}()
 
@@ -349,13 +550,13 @@ func MyChecklistsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 		templates, submissions, err := myChecklists(r.Context(), pool, user.ID, clientDOW)
 		if err != nil {
-			log.Printf("myChecklists error: %v", err)
+			slog.Error("myChecklists error", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
 		drafts, err := myDrafts(r.Context(), pool, user.ID)
 		if err != nil {
-			log.Printf("myDrafts error: %v", err)
+			slog.Error("myDrafts error", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -388,7 +589,7 @@ func MyHistoryHandler(pool *pgxpool.Pool) http.HandlerFunc {
 
 		submissions, err := myHistory(r.Context(), pool, user.ID)
 		if err != nil {
-			log.Printf("myHistory error: %v", err)
+			slog.Error("myHistory error", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -416,7 +617,11 @@ func SaveResponseHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 
 		if err := saveResponse(r.Context(), pool, input.FieldID, input.Value, user.ID); err != nil {
-			log.Printf("saveResponse error: %v", err)
+			if errors.Is(err, ErrUnknownField) {
+				writeError(w, http.StatusUnprocessableEntity, "unknown_field")
+				return
+			}
+			slog.Error("saveResponse error", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -431,7 +636,7 @@ func SaveResponseHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				LamportTS:  0,
 			})
 		} else {
-			log.Printf("SaveResponseHandler: failed to marshal op payload: %v", merr)
+			slog.Error("SaveResponseHandler failed to marshal op payload", "error", merr)
 		}
 		w.WriteHeader(http.StatusNoContent)
 	}
@@ -460,13 +665,21 @@ func SubmitChecklistHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
+		// Validate: a field the approver bounced back with require_photo must carry
+		// a photo on resubmit — enforced server-side (resolved from the DB, not a
+		// client flag) so a direct-API resubmit cannot bypass the fill-UI gate.
+		if err := validateResubmitPhoto(r.Context(), pool, input, user.ID); err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+
 		id, err := submitChecklist(r.Context(), pool, input, user.ID)
 		if err != nil {
 			if err == ErrTemplateArchived {
 				writeError(w, http.StatusConflict, "template_archived")
 				return
 			}
-			log.Printf("submitChecklist error: %v", err)
+			slog.Error("submitChecklist error", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -481,7 +694,7 @@ func SubmitChecklistHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				LamportTS:  0,
 			})
 		} else {
-			log.Printf("SubmitChecklistHandler: failed to marshal op payload: %v", merr)
+			slog.Error("SubmitChecklistHandler failed to marshal op payload", "error", merr)
 		}
 		writeJSON(w, http.StatusCreated, map[string]string{"id": id})
 	}
@@ -499,7 +712,7 @@ func PendingApprovalsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 
 		submissions, err := pendingApprovals(r.Context(), pool, user.ID)
 		if err != nil {
-			log.Printf("pendingApprovals error: %v", err)
+			slog.Error("pendingApprovals error", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -534,22 +747,28 @@ func ApproveSubmissionHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 
 		if err := approveSubmission(r.Context(), pool, body.SubmissionID, user.ID); err != nil {
-			log.Printf("approveSubmission error: %v", err)
+			slog.Error("approveSubmission error", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
-		// Save feedback comments as rejection records on the approved submission
+		// Save feedback comments as rejection records on the approved submission.
+		// INV-1/FR-8: the approval reports success only if the comment is durably
+		// stored. A failed insert must surface loudly — never a swallowed
+		// slog.Error behind a false "Approved". (No ON CONFLICT DO NOTHING: the
+		// table has no unique constraint to conflict on, so the clause only masked
+		// intent — every feedback row must persist or the caller is told.)
 		for _, fb := range body.Feedback {
 			if fb.FieldID == "" || fb.Comment == "" {
 				continue
 			}
 			if _, err := pool.Exec(r.Context(),
 				`INSERT INTO submission_rejections (submission_id, field_id, comment, require_photo, rejected_by)
-				 VALUES ($1, $2, $3, $4, $5)
-				 ON CONFLICT DO NOTHING`,
+				 VALUES ($1, $2, $3, $4, $5)`,
 				body.SubmissionID, fb.FieldID, fb.Comment, fb.RequirePhoto, user.ID,
 			); err != nil {
-				log.Printf("save approval feedback: %v", err)
+				slog.Error("save approval feedback", "error", err, "submission_id", body.SubmissionID, "field_id", fb.FieldID)
+				writeError(w, http.StatusInternalServerError, "feedback_persist_failed")
+				return
 			}
 		}
 		if payload, merr := json.Marshal(map[string]any{"submission_id": body.SubmissionID}); merr == nil {
@@ -563,7 +782,7 @@ func ApproveSubmissionHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				LamportTS:  0,
 			})
 		} else {
-			log.Printf("ApproveSubmissionHandler: failed to marshal op payload: %v", merr)
+			slog.Error("ApproveSubmissionHandler failed to marshal op payload", "error", merr)
 		}
 		writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 	}
@@ -586,7 +805,7 @@ func RejectItemHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 
 		if err := rejectItem(r.Context(), pool, input, user.ID); err != nil {
-			log.Printf("rejectItem error: %v", err)
+			slog.Error("rejectItem error", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -601,7 +820,7 @@ func RejectItemHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				LamportTS:  0,
 			})
 		} else {
-			log.Printf("RejectItemHandler: failed to marshal op payload: %v", merr)
+			slog.Error("RejectItemHandler failed to marshal op payload", "error", merr)
 		}
 		writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 	}
@@ -629,8 +848,21 @@ func UnsubmitHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
+		// Capture the checklist's template BEFORE the unsubmit deletes the
+		// submission row. The re-sync broadcast below must resolve its audience via
+		// the template — once the submission row is gone, ResolveEntityAccess can no
+		// longer map a "submission" op to recipients, so a live broadcast keyed on
+		// the deleted submission would reach nobody.
+		var templateID string
+		if qerr := pool.QueryRow(r.Context(),
+			`SELECT template_id::text FROM checklist_submissions WHERE id = $1`,
+			body.SubmissionID,
+		).Scan(&templateID); qerr != nil {
+			templateID = "" // fall through; the broadcast is best-effort
+		}
+
 		if err := unsubmitChecklist(r.Context(), pool, body.SubmissionID, user.ID); err != nil {
-			log.Printf("unsubmitChecklist error: %v", err)
+			slog.Error("unsubmitChecklist error", "error", err)
 			if err.Error() == "not the submitter" {
 				writeError(w, http.StatusForbidden, "not_submitter")
 				return
@@ -641,6 +873,31 @@ func UnsubmitHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			}
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
+		}
+		// Broadcast a submission-state-changed op so OTHER open devices converge
+		// live back to the fillable runner (W-3 §6 Convergence contract:
+		// submit/unsubmit transitions must converge on the observing device). We
+		// reuse OpSubmitChecklist as the "submission changed, re-sync" signal — its
+		// frontend handler (applyOp → loadMyChecklists) re-fetches and re-renders
+		// the open runner, which now reflects the removed submission (i.e. editable
+		// again). A dedicated UNSUBMIT op type would be a new op type (out of this
+		// card's footprint); the re-fetch is idempotent, so reusing this one is safe.
+		// The op is addressed to the TEMPLATE (entity_type "template") — the natural
+		// checklist audience — because the submission it undoes no longer exists.
+		if templateID != "" {
+			if payload, merr := json.Marshal(map[string]any{"submission_id": body.SubmissionID, "template_id": templateID}); merr == nil {
+				opsync.EmitOp(pool, opsync.OpInput{
+					DeviceID:   "server",
+					UserID:     user.ID,
+					EntityID:   templateID,
+					EntityType: "template",
+					OpType:     opsync.OpSubmitChecklist,
+					Payload:    json.RawMessage(payload),
+					LamportTS:  0,
+				})
+			} else {
+				slog.Error("UnsubmitHandler failed to marshal op payload", "error", merr)
+			}
 		}
 		writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 	}

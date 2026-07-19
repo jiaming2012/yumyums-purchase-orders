@@ -18,7 +18,7 @@
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
 body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg);color:var(--txt);padding:env(safe-area-inset-top) 12px env(safe-area-inset-bottom)}
 .app{max-width:480px;margin:0 auto;padding-top:12px}
-.back{display:flex;align-items:center;gap:6px;margin-bottom:12px;color:var(--info-tx);font-size:14px;font-weight:500;text-decoration:none;-webkit-tap-highlight-color:transparent}
+.back{display:inline-flex;align-items:center;gap:6px;color:var(--info-tx);text-decoration:none;font-size:16px;font-weight:500;margin-bottom:12px;cursor:pointer;min-height:44px;padding:4px 8px 4px 0;-webkit-tap-highlight-color:transparent}
 .back::before{content:'‹';font-size:20px;line-height:1;margin-top:-1px}
 .tabs{display:flex;gap:4px;background:var(--card);border-radius:10px;padding:4px;margin-bottom:12px}
 .tabs button{flex:1;border:none;padding:10px;font-size:13px;border-radius:7px;background:transparent;color:var(--txt);font-weight:500}
@@ -202,13 +202,41 @@ function debouncedSaveField(fieldId, value) {
     try {
       var saveValue = value;
       var fn = store.get('failNotes', fieldId);
-      if (fn && (fn.note || fn.severity || fn.photo)) {
-        saveValue = { _v: value, _fail_note: { note: fn.note, severity: fn.severity, photo: fn.photo || null } };
+      var cp = CORRECTION_PHOTOS[fieldId];
+      if ((fn && (fn.note || fn.severity || fn.photo)) || cp) {
+        saveValue = { _v: value };
+        if (fn && (fn.note || fn.severity || fn.photo)) saveValue._fail_note = { note: fn.note, severity: fn.severity, photo: fn.photo || null };
+        if (cp) saveValue._correction_photo = cp;
       }
       const result = await submitOp('SET_FIELD', fieldId, 'field_response', { value: saveValue, field_id: fieldId });
       if (result && result._conflict) {
-        const winner = result.winner;
-        store.set('fieldResponses', fieldId, { value: winner.value });
+        // LWW loss (FR-9, INV-1): the DB rejected our optimistic value. Converge
+        // the rendered field to the WINNING value so the screen never keeps
+        // showing a value the DB rejected. The 409 body carries the winning op
+        // (`winner.payload` — same {field_id, value, ...} shape our own SET_FIELD
+        // uses), so apply it through the exact path a live remote op takes: the
+        // loser converges identically to every observer. Silent — we surface our
+        // own "Conflict resolved" toast below instead of applyOp's "updated by".
+        // api() (sync.js:26-28) returns { _conflict, winner: <409-body> } and the
+        // body itself is { _conflict, winner: { device_id, lamport_ts, payload } },
+        // so the winning-op descriptor is nested one level in. Tolerate either
+        // shape defensively.
+        const body = result.winner || {};
+        const winner = body.winner || body;
+        if (winner.payload && typeof winner.payload === 'object') {
+          applyOp({
+            op_type: 'SET_FIELD',
+            device_id: winner.device_id,
+            lamport_ts: winner.lamport_ts,
+            server_ts: new Date().toISOString(),
+            payload: winner.payload,
+          }, true);
+        } else {
+          // Defensive: winning value absent from the body — re-fetch the
+          // checklist's current field state via the existing mechanism and
+          // re-render so the rejected optimistic value cannot survive.
+          await loadMyChecklists();
+        }
         renderFieldResponse(fieldId);
         flashField(fieldId);
         enqueueSyncToast(null, 'Conflict resolved', [fieldId]);
@@ -228,7 +256,23 @@ function debouncedSaveField(fieldId, value) {
       if (indicator) { indicator.textContent = 'Saved'; indicator.className = 'save-indicator saved'; setTimeout(() => { indicator.textContent = ''; indicator.className = 'save-indicator'; }, 800); }
       clearFieldError(fieldId);
     } catch (e) {
-      showFieldError(fieldId);
+      if (e && e.error === 'unknown_field') {
+        // Field was cut from the template by an edit (FR-3, INV-4). No optimistic
+        // checkmark survives a rejected save — drop the optimistic state and
+        // re-render so the field visibly returns to not-saved.
+        store.delete('fieldResponses', fieldId);
+        var drafts3 = store.get('draftResponses');
+        if (Array.isArray(drafts3)) {
+          var di = drafts3.findIndex(function(d) { return d.field_id === fieldId; });
+          if (di !== -1) { drafts3.splice(di, 1); store._notify('draftResponses'); }
+        }
+        renderFieldResponse(fieldId);
+        clearFieldError(fieldId);
+        if (typeof fillState !== 'undefined' && fillState.activeTemplate && typeof updateProgress === 'function') updateProgress();
+        showSyncToast('That field was removed from this checklist — your change was not saved.');
+      } else {
+        showFieldError(fieldId);
+      }
     }
     updateSaveStatus(-1);
   }, 400);
@@ -336,7 +380,7 @@ async function loadMyChecklists() {
     if (fillState.activeTemplate) {
       var updated = MY_CHECKLISTS.find(function(t) { return t.id === fillState.activeTemplate.id; });
       if (updated) fillState.activeTemplate = updated;
-      var tplFieldIds = new Set((fillState.activeTemplate.sections || []).flatMap(function(s) { return (s.fields || []).map(function(f) { return f.id; }); }));
+      var tplFieldIds = new Set((fillState.activeTemplate.sections || []).flatMap(function(s) { return (s.fields || []).flatMap(function(f) { return [f.id].concat((f.sub_steps || []).map(function(ss) { return ss.id; })); }); }));
       hydrateFieldState(tplFieldIds);
       var fillBody = document.getElementById('fill-body');
       if (fillBody) fillBody.innerHTML = renderRunner();
@@ -470,6 +514,46 @@ function wfBuilderHasUnsavedChanges() {
   if (!state.activeTemplate) return false;
   if (!state.originalTemplate) return true;
   return JSON.stringify(state.activeTemplate) !== JSON.stringify(state.originalTemplate);
+}
+
+// wfCollectFieldIds walks a template's sections → fields (+ sub-steps) and
+// returns every field id it contains.
+function wfCollectFieldIds(tpl) {
+  var ids = [];
+  (tpl && tpl.sections || []).forEach(function(sec) {
+    (sec.fields || []).forEach(function(f) {
+      if (f.id) ids.push(f.id);
+      (f.sub_steps || []).forEach(function(s) { if (s.id) ids.push(s.id); });
+    });
+  });
+  return ids;
+}
+
+// A persisted field carries a real UUID; a freshly-added Builder field carries a
+// generated `fld_…` id and can never hold a crew draft, so only UUIDs matter.
+function wfIsPersistedId(id) { return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id); }
+
+// wfDestructiveSaveCheck (INV-6, §4/§5) diffs the edited template against the
+// loaded original to decide whether the pending save is destructive: it CUTS a
+// persisted field, or its schedule DROPS today. Returns the set of field ids
+// whose crew drafts would be discarded (the removed fields, or — when today is
+// dropped — every persisted field, since the whole checklist leaves the device),
+// plus a dropsToday flag. An empty checkIds set means the save needs no warning
+// (INV-1 non-destructive branch, incl. the §5 corollary of ADDING a day).
+function wfDestructiveSaveCheck() {
+  if (!state.originalTemplate) return { checkIds: [], dropsToday: false };
+  var origIds = wfCollectFieldIds(state.originalTemplate).filter(wfIsPersistedId);
+  var editSet = {};
+  wfCollectFieldIds(state.activeTemplate).forEach(function(id) { editSet[id] = 1; });
+  var removed = origIds.filter(function(id) { return !editSet[id]; });
+  var dow = new Date().getDay();
+  var oDays = state.originalTemplate.active_days || [];
+  var nDays = state.activeTemplate.active_days || [];
+  var dropsToday = oDays.indexOf(dow) !== -1 && nDays.indexOf(dow) === -1;
+  // Dropping today discards ALL of today's answers on the checklist; a plain cut
+  // discards only the removed fields'.
+  var checkIds = dropsToday ? origIds : removed;
+  return { checkIds: checkIds, dropsToday: dropsToday };
 }
 
 function generateId(prefix) {
@@ -1140,37 +1224,67 @@ document.getElementById('builder-body').addEventListener('click', function(e) {
     var btn = e.target.closest('#save-btn');
     var tpl = state.activeTemplate;
     if (!tpl) return;
-    btn.textContent = 'Saving\u2026';
-    btn.disabled = true;
     var isNew = !TEMPLATES.find(function(t){return t.id===tpl.id});
-    var endpoint = isNew ? 'createTemplate' : ('updateTemplate/' + tpl.id);
-    var method = isNew ? 'POST' : 'PUT';
-    updateSaveStatus(1);
-    api(method, endpoint, toApiTemplate(tpl)).then(function(result) {
-      updateSaveStatus(-1);
-      if (isNew && result && result.id) tpl.id = result.id;
-      showToast('Checklist saved \u2713');
-      state.view = 'list';
-      state.activeTemplate = null;
-      state.originalTemplate = null;
-      state.expandedField = null;
-      state.fieldPickerSection = null;
-      renderBuilder();
-      loadTemplates();
-    }).catch(function(err) {
-      updateSaveStatus(-1);
-      btn.textContent = 'Save checklist';
-      btn.disabled = false;
-      if (err && err.status === 403) {
-        showToast(ADMIN_RESTRICTED);
-      } else if (err && err.error === 'requires_approver') {
-        showToast('Select at least one approver when approval is required.');
-      } else if (err && err.error === 'duplicate_name') {
-        showToast('A checklist with this name already exists.');
-      } else {
-        showToast(navigator.onLine ? 'Save failed. Please try again.' : 'Save failed. Check your connection.');
-      }
-    });
+
+    function doSaveTemplate() {
+      btn.textContent = 'Saving\u2026';
+      btn.disabled = true;
+      var endpoint = isNew ? 'createTemplate' : ('updateTemplate/' + tpl.id);
+      var method = isNew ? 'POST' : 'PUT';
+      updateSaveStatus(1);
+      api(method, endpoint, toApiTemplate(tpl)).then(function(result) {
+        updateSaveStatus(-1);
+        if (isNew && result && result.id) tpl.id = result.id;
+        showToast('Checklist saved \u2713');
+        state.view = 'list';
+        state.activeTemplate = null;
+        state.originalTemplate = null;
+        state.expandedField = null;
+        state.fieldPickerSection = null;
+        renderBuilder();
+        loadTemplates();
+      }).catch(function(err) {
+        updateSaveStatus(-1);
+        btn.textContent = 'Save checklist';
+        btn.disabled = false;
+        if (err && err.status === 403) {
+          showToast(ADMIN_RESTRICTED);
+        } else if (err && err.error === 'requires_approver') {
+          showToast('Select at least one approver when approval is required.');
+        } else if (err && err.error === 'duplicate_name') {
+          showToast('A checklist with this name already exists.');
+        } else {
+          showToast(navigator.onLine ? 'Save failed. Please try again.' : 'Save failed. Check your connection.');
+        }
+      });
+    }
+
+    // INV-6 / \u00a74-\u00a75: a save that CUTS a field or DROPS today from the schedule
+    // discards other crew's unsubmitted answers. Warn the admin naming the count
+    // and proceed only on explicit confirm \u2014 the INV-1 "loss is only ever a
+    // warned operator action" branch. Non-destructive saves (incl. ADDING a day)
+    // skip the check entirely.
+    var destr = !isNew ? wfDestructiveSaveCheck() : { checkIds: [], dropsToday: false };
+    if (destr.checkIds.length) {
+      updateSaveStatus(1);
+      api('GET', 'draftHolderCount?field_ids=' + destr.checkIds.join(',')).then(function(res) {
+        updateSaveStatus(-1);
+        var n = (res && res.count) || 0;
+        if (n > 0) {
+          var msg = destr.dropsToday
+            ? n + ' crew have this open today \u2014 saving removes it from their devices and discards their unsubmitted answers. Save anyway?'
+            : n + ' crew have unsubmitted answers on fields you\u2019re removing \u2014 saving discards them. Save anyway?';
+          if (!confirm(msg)) return; // admin cancelled \u2014 abort the save
+        }
+        doSaveTemplate();
+      }).catch(function() {
+        // The warning is best-effort; a count failure must not block a save.
+        updateSaveStatus(-1);
+        doSaveTemplate();
+      });
+      return;
+    }
+    doSaveTemplate();
     return;
   }
 
@@ -1359,15 +1473,17 @@ function hydrateFieldState(filterFieldIds) {
   Object.keys(FAIL_NOTES).forEach(function(k) { delete FAIL_NOTES[k]; });
   Object.keys(REJECTION_FLAGS).forEach(function(k) { delete REJECTION_FLAGS[k]; });
   Object.keys(FEEDBACK_NOTES).forEach(function(k) { delete FEEDBACK_NOTES[k]; });
+  Object.keys(CORRECTION_PHOTOS).forEach(function(k) { delete CORRECTION_PHOTOS[k]; });
   // 1. Draft responses (in-progress, not yet submitted)
   (DRAFT_RESPONSES || []).forEach(function(d) {
     if (!filterFieldIds || filterFieldIds.has(d.field_id)) {
       if (d.value === null || d.value === undefined) return; // unchecked — no entry
       var val = unwrapValue(d.value);
       var subSteps = null;
-      // Unpack bundled fail note if present
+      // Unpack bundled fail note + correction photo if present
       if (val && typeof val === 'object' && val._v !== undefined) {
         if (val._fail_note) FAIL_NOTES[d.field_id] = { note: val._fail_note.note || '', severity: val._fail_note.severity || '', photo: val._fail_note.photo || null };
+        if (val._correction_photo) CORRECTION_PHOTOS[d.field_id] = val._correction_photo;
         val = val._v;
       }
       // Unpack sub-step objects: { value: bool, sub_steps: {...} }
@@ -1375,6 +1491,10 @@ function hydrateFieldState(filterFieldIds) {
         subSteps = val.sub_steps;
         val = val.value;
       }
+      // A photo-only correction draft ({_v:null, _correction_photo}) records the
+      // photo (above) but must NOT mark the field answered — the crew still owes
+      // the actual answer.
+      if (val === null || val === undefined) return;
       var entry = { value: val, answeredBy: d.answered_by_name || getUserName(), answeredAt: new Date(d.answered_at) };
       if (subSteps) entry.sub_steps = subSteps;
       FIELD_RESPONSES[d.field_id] = entry;
@@ -1386,6 +1506,13 @@ function hydrateFieldState(filterFieldIds) {
       if (!filterFieldIds || filterFieldIds.has(r.field_id)) {
         var val = unwrapValue(r.value);
         var subSteps = null;
+        // A resubmitted field may carry the `_correction_photo` (and/or `_fail_note`)
+        // value bundle; unwrap it the same way the draft path does.
+        if (val && typeof val === 'object' && val._v !== undefined) {
+          if (val._fail_note) FAIL_NOTES[r.field_id] = { note: val._fail_note.note || '', severity: val._fail_note.severity || '', photo: val._fail_note.photo || null };
+          if (val._correction_photo) CORRECTION_PHOTOS[r.field_id] = val._correction_photo;
+          val = val._v;
+        }
         if (val && typeof val === 'object' && val.sub_steps !== undefined) {
           subSteps = val.sub_steps;
           val = val.value;
@@ -1414,7 +1541,16 @@ function hydrateFieldState(filterFieldIds) {
         sub.rejections.forEach(function(rej) {
           if (!filterFieldIds || filterFieldIds.has(rej.field_id)) {
             REJECTION_FLAGS[rej.field_id] = { comment: rej.comment || '', requirePhoto: !!rej.require_photo };
-            delete FIELD_RESPONSES[rej.field_id]; // uncheck so crew must redo
+            delete FIELD_RESPONSES[rej.field_id]; // uncheck a top-level field so crew must redo
+            // A rejected SUB-STEP's done-state lives in its PARENT's sub_steps
+            // map (not FIELD_RESPONSES[subId]); clear it there too so the crew
+            // must redo it — and the parent auto-checkbox drops out of all-done.
+            Object.keys(FIELD_RESPONSES).forEach(function(pid) {
+              var pr = FIELD_RESPONSES[pid];
+              if (pr && pr.sub_steps && Object.prototype.hasOwnProperty.call(pr.sub_steps, rej.field_id)) {
+                delete pr.sub_steps[rej.field_id];
+              }
+            });
           }
         });
       }
@@ -1425,15 +1561,28 @@ function hydrateFieldState(filterFieldIds) {
 // FAIL_NOTES is registered in store above and aliased at the top.
 const REJECTION_FLAGS = {}; // { [fldId]: { comment, requirePhoto } } — TODO: load from submission.rejections[] on checklist open
 const FEEDBACK_NOTES = {}; // { [fldId]: { comment, by, at } } — feedback from approved submissions
+// CORRECTION_PHOTOS holds the crew's evidence photo for a field the approver
+// bounced back with require_photo=true. It lives in a slot SEPARATE from the
+// field's answer (a checkbox can't hold both its boolean and a photo URL), and
+// is persisted by bundling `_correction_photo` into the field's saved value
+// (mirrors the `_fail_note` bundle) — see debouncedSaveField/submit/hydrate.
+const CORRECTION_PHOTOS = {}; // { [fldId]: httpsUrl }
+
+// fieldHasRequiredPhoto reports whether a require-photo rejection is satisfied
+// for a field: either a dedicated correction photo, or (photo-type fields) the
+// answer value itself being a photo URL.
+function fieldHasRequiredPhoto(fldId) {
+  if (CORRECTION_PHOTOS[fldId]) return true;
+  var resp = FIELD_RESPONSES[fldId];
+  return !!(resp && typeof resp.value === 'string' && resp.value.startsWith('https://'));
+}
 
 // Named mutation helpers (used inline in event handlers and referenced by name for traceability)
 function clearRejectionFlag(fldId) {
   if (!REJECTION_FLAGS[fldId]) return;
   // Keep the flag if photo is required but not yet provided
-  if (REJECTION_FLAGS[fldId].requirePhoto) {
-    var resp = FIELD_RESPONSES[fldId];
-    var hasPhoto = resp && resp.value && typeof resp.value === 'string' && resp.value.startsWith('https://');
-    if (!hasPhoto) return; // keep flag — photo still needed
+  if (REJECTION_FLAGS[fldId].requirePhoto && !fieldHasRequiredPhoto(fldId)) {
+    return; // keep flag — photo still needed
   }
   delete REJECTION_FLAGS[fldId];
 }
@@ -1486,9 +1635,17 @@ async function submitChecklistToAPI(tplId, allFlds, isReapproval) {
   var responses = allFlds.map(function(f) {
     var resp = FIELD_RESPONSES[f.id];
     var failNote = FAIL_NOTES[f.id];
+    var rawVal = null;
+    if (resp) {
+      var base = resp.sub_steps ? { value: resp.value, sub_steps: resp.sub_steps } : resp.value;
+      // Bundle the correction photo into the submitted value so the resubmit
+      // gate (frontend + backend) sees it and the manager can review it. The
+      // hydrate paths unwrap `_correction_photo`/`_v` symmetrically.
+      rawVal = CORRECTION_PHOTOS[f.id] ? { _v: base, _correction_photo: CORRECTION_PHOTOS[f.id] } : base;
+    }
     return {
       field_id: f.id,
-      value: resp ? JSON.stringify(resp.sub_steps ? { value: resp.value, sub_steps: resp.sub_steps } : resp.value) : null,
+      value: resp ? JSON.stringify(rawVal) : null,
       fail_note: failNote ? failNote.note : null,
       fail_severity: failNote ? failNote.severity : null
     };
@@ -1574,6 +1731,53 @@ function handlePhotoCaptureClick(fldId) {
       // User retook — revoke old blob and re-open camera
       URL.revokeObjectURL(objectURL);
       handlePhotoCaptureClick(fldId);
+    });
+  });
+}
+
+// handleCorrectionPhotoCaptureClick attaches the evidence photo an approver
+// required when bouncing a NON-photo field back. It stores the URL in the
+// dedicated CORRECTION_PHOTOS slot (NOT the field's answer value) and persists
+// it via debouncedSaveField, which bundles `_correction_photo` into the saved
+// value. Mirrors handlePhotoCaptureClick's presign+PUT upload.
+function handleCorrectionPhotoCaptureClick(fldId) {
+  openCamera(function(file) {
+    var objectURL = URL.createObjectURL(file);
+    showPhotoPreview(objectURL, function() {
+      var area = document.querySelector('.correction-photo-area[data-correction-photo-fld="' + fldId + '"]');
+      if (area) area.innerHTML = '<div class="photo-uploading"><div class="photo-spinner"></div>Uploading...</div>';
+      var tpl = fillState.activeTemplate;
+      var tplId = tpl ? tpl.id : 'unknown';
+      fetch('/api/v1/photos/presign', {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path_prefix: 'checklists', id: tplId, filename: fldId + '-correction.jpg' })
+      }).then(function(r) {
+        if (r.status === 401) { location.href = 'login.html'; throw new Error('unauthorized'); }
+        if (!r.ok) throw new Error('presign failed: ' + r.status);
+        return r.json();
+      }).then(function(presignResp) {
+        return fetch(presignResp.url, { method: 'PUT', body: file, headers: { 'Content-Type': 'image/jpeg' } })
+          .then(function(putResp) { if (!putResp.ok) throw new Error('PUT failed: ' + putResp.status); return presignResp.public_url; });
+      }).then(function(publicUrl) {
+        URL.revokeObjectURL(objectURL);
+        CORRECTION_PHOTOS[fldId] = publicUrl;
+        // Persist via the value bundle. Pass the current answer (or null if the
+        // field isn't answered yet — hydrate records the photo without marking
+        // the field answered).
+        var resp = FIELD_RESPONSES[fldId];
+        debouncedSaveField(fldId, resp ? resp.value : null);
+        // Re-render the field so the banner flips to "✓ Photo uploaded" and the
+        // thumbnail replaces the capture button.
+        renderFieldResponse(fldId);
+      }).catch(function(err) {
+        console.error('Correction photo upload failed:', err);
+        URL.revokeObjectURL(objectURL);
+        if (area) area.innerHTML = '<button class="photo-capture-btn" data-action="correction-photo-capture" data-fld-id="' + fldId + '">📷 Add photo</button><div class="photo-field-error" data-action="correction-photo-capture" data-fld-id="' + fldId + '">Upload failed. Tap to retry.</div>';
+      });
+    }, function() {
+      URL.revokeObjectURL(objectURL);
+      handleCorrectionPhotoCaptureClick(fldId);
     });
   });
 }
@@ -1748,7 +1952,15 @@ function renderApprovals() {
           var val = respMap[f.id];
           // Unwrap JSON-encoded value strings
           if (typeof val === 'string') { try { val = JSON.parse(val); } catch(e) {} }
+          // Unwrap the `_correction_photo`/`_fail_note` value bundle so the
+          // reviewer sees the real answer, and surface the correction photo.
+          var correctionPhoto = null;
+          if (val && typeof val === 'object' && val._v !== undefined) {
+            if (val._correction_photo) correctionPhoto = val._correction_photo;
+            val = val._v;
+          }
           var field = { id: f.id, label: f.label || f.type, type: f.type, value: val !== undefined ? val : null };
+          if (correctionPhoto) field.correctionPhoto = correctionPhoto;
           if (f.sub_steps && f.sub_steps.length > 0) field.sub_steps = f.sub_steps;
           submission.fields.push(field);
         });
@@ -1762,10 +1974,12 @@ function renderApprovals() {
         '<div class="reject-item-form">' +
         '<textarea class="reject-item-input" name="reject-' + fld.id + '" data-reject-fld="' + fld.id + '" placeholder="Comment for crew\u2026" rows="2">' + escapeHtml(fld._rejectComment || '') + '</textarea>' +
         '<label class="require-photo-toggle"><input type="checkbox" name="reject-photo-' + fld.id + '" data-reject-photo-fld="' + fld.id + '" ' + (fld._rejectRequirePhoto ? 'checked' : '') + '> Require photo evidence</label></div>' : '';
-      // Show photo thumbnail inline if the field value is a Spaces URL
+      // Show photo thumbnail inline if the field value is a Spaces URL, or if a
+      // correction photo was attached to satisfy a require-photo rejection.
       var photoThumb = '';
-      if (answered && typeof fld.value === 'string' && fld.value.startsWith('https://')) {
-        photoThumb = '<a class="photo-thumb-link" href="' + fld.value + '" target="_blank" style="display:block;margin:6px 0 0 0"><img class="approvals-photo-thumb" src="' + fld.value + '" alt="Photo evidence"></a>';
+      var thumbUrl = (answered && typeof fld.value === 'string' && fld.value.startsWith('https://')) ? fld.value : (fld.correctionPhoto || null);
+      if (thumbUrl) {
+        photoThumb = '<a class="photo-thumb-link" href="' + thumbUrl + '" target="_blank" style="display:block;margin:6px 0 0 0"><img class="approvals-photo-thumb" src="' + thumbUrl + '" alt="Photo evidence"></a>';
       }
       var hasSubs = fld.sub_steps && fld.sub_steps.length > 0;
       var subsHtml = '';
@@ -1955,6 +2169,40 @@ function renderFeedbackNote(fldId) {
     '<span style="font-weight:600">Feedback:</span> ' + escapeHtml(fb.comment) + '</div>';
 }
 
+// correctionBannerFor renders the "⚠ Rejected: <comment>" banner for a rejected
+// field OR sub-step. Keyed by id so it works for both top-level fields (which
+// have a FIELD_RESPONSES entry) and sub-steps (which don't — pass resp=null).
+// A rejection's comment and photo requirement must render wherever the rejected
+// item lives; before this, sub-step rows rendered no banner, so a sub-step
+// rejection's comment silently vanished (operator-found 2026-07-18).
+function correctionBannerFor(fieldId, resp) {
+  var rejFlag = REJECTION_FLAGS[fieldId];
+  if (!rejFlag) return '';
+  var photoSuffix = rejFlag.requirePhoto
+    ? (fieldHasRequiredPhoto(fieldId) ? ' · ✓ Photo uploaded' : ' · 📷 Photo required before resubmit')
+    : '';
+  return '<div class="correction-banner">⚠ Rejected: ' + escapeHtml(rejFlag.comment) + photoSuffix + '</div>';
+}
+
+// correctionPhotoUI renders the capture control that lets the crew attach the
+// photo an approver required when bouncing a NON-photo field back. Photo-type
+// fields satisfy require_photo through their own answer value, so they get no
+// second control here. The captured URL lives in CORRECTION_PHOTOS[fieldId]
+// (persisted via the `_correction_photo` value bundle), separate from the
+// field's answer, so a checkbox can be both checked AND carry its evidence.
+function correctionPhotoUI(fieldId, fieldType) {
+  var rejFlag = REJECTION_FLAGS[fieldId];
+  if (!rejFlag || !rejFlag.requirePhoto || fieldType === 'photo') return '';
+  var url = CORRECTION_PHOTOS[fieldId];
+  var inner = url
+    ? '<div class="photo-thumb-wrap">' +
+      '<a class="photo-thumb-link" href="' + url + '" target="_blank"><img class="photo-thumb" src="' + url + '" alt="Correction photo"></a>' +
+      '<button class="photo-retake-link" data-action="correction-photo-retake" data-fld-id="' + fieldId + '">Retake</button>' +
+      '</div>'
+    : '<button class="photo-capture-btn" data-action="correction-photo-capture" data-fld-id="' + fieldId + '">📷 Add photo</button>';
+  return '<div class="correction-photo-area" data-correction-photo-fld="' + fieldId + '" style="margin:0 0 8px">' + inner + '</div>';
+}
+
 function renderRunnerField(fld) {
   const answered = FIELD_RESPONSES[fld.id] !== undefined;
   const resp = answered ? FIELD_RESPONSES[fld.id] : null;
@@ -2020,9 +2268,7 @@ function renderRunnerField(fld) {
 </div>`;
   }
 
-  const rejFlag = REJECTION_FLAGS[fld.id];
-  const photoNeeded = rejFlag && rejFlag.requirePhoto && (!resp || !resp.value || typeof resp.value !== 'string' || !resp.value.startsWith('https://'));
-  const correctionBanner = rejFlag ? `<div class="correction-banner">⚠ Rejected: ${escapeHtml(rejFlag.comment)}${photoNeeded ? ' · 📷 Photo required before resubmit' : rejFlag.requirePhoto ? ' · ✓ Photo uploaded' : ''}</div>` : '';
+  const correctionBanner = correctionBannerFor(fld.id, resp) + correctionPhotoUI(fld.id, fld.type);
 
   if (fld.type === 'checkbox') {
     var subs = fld.sub_steps && fld.sub_steps.length > 0 ? fld.sub_steps : null;
@@ -2038,7 +2284,11 @@ function renderRunnerField(fld) {
         if (done && subVal && typeof subVal === 'object' && subVal.by) {
           subAttrib = '<div class="fill-attribution" style="padding:2px 0 8px 24px;font-size:11px;border-bottom:0.5px solid var(--brd)">' + escapeHtml(subVal.by) + ' \u00b7 ' + formatTime(new Date(subVal.at)) + '</div>';
         }
-        return '<div class="sub-step-row"' + (subAttrib ? ' style="border-bottom:none"' : '') + '><span class="sub-step-label-text' + (done ? ' style="text-decoration:line-through;color:var(--mut)"' : '') + '">' + escapeHtml(s.label) + '</span>' +
+        // A rejected sub-step renders its own correction banner (comment +
+        // photo requirement) above its row — before this, sub-step rejection
+        // feedback rendered nowhere and silently vanished (2026-07-18).
+        return correctionBannerFor(s.id, null) +
+          '<div class="sub-step-row"' + (subAttrib ? ' style="border-bottom:none"' : '') + '><span class="sub-step-label-text' + (done ? ' style="text-decoration:line-through;color:var(--mut)"' : '') + '">' + escapeHtml(s.label) + '</span>' +
           '<button class="sub-step-check ' + (done ? 'done' : '') + '" data-action="toggle-sub-step" data-field-id="' + fld.id + '" data-sub-id="' + s.id + '">' + (done ? '✓' : '') + '</button></div>' + subAttrib;
       }).join('');
       // For sub-step checkboxes, parent is auto-checked when all subs done
@@ -2205,7 +2455,7 @@ document.getElementById('fill-body').addEventListener('click', function(e) {
         if (snap && snap.sections) tpl.sections = snap.sections;
       }
       // Restore field state (including fail notes) for this template's fields
-      var tplFieldIds = new Set((tpl.sections || []).flatMap(function(s) { return (s.fields || []).map(function(f) { return f.id; }); }));
+      var tplFieldIds = new Set((tpl.sections || []).flatMap(function(s) { return (s.fields || []).flatMap(function(f) { return [f.id].concat((f.sub_steps || []).map(function(ss) { return ss.id; })); }); }));
       hydrateFieldState(tplFieldIds);
       renderFillOut();
     }
@@ -2363,6 +2613,11 @@ document.getElementById('fill-body').addEventListener('click', function(e) {
       return;
     }
 
+    if (action === 'correction-photo-capture' || action === 'correction-photo-retake') {
+      handleCorrectionPhotoCaptureClick(fldId);
+      return;
+    }
+
     if (action === 'unsubmit') {
       var submissionId = actionEl.dataset.submissionId;
       if (!submissionId) { showToast('No submission to unsubmit'); return; }
@@ -2397,8 +2652,11 @@ document.getElementById('fill-body').addEventListener('click', function(e) {
       // Validate: fields with triggered fail conditions must have a corrective action
       var missingCorrective = allFlds.filter(function(f) {
         var resp = FIELD_RESPONSES[f.id];
-        if (!resp || !f.fail_trigger) return false;
-        var triggered = evaluateFailTrigger(f.fail_trigger, resp.value);
+        if (!resp) return false;
+        // A yes/no field answered "No" is a triggered fail requiring a corrective
+        // note — mirrors the corrective card the fill UI already renders on every "No".
+        var triggered = (f.type === 'yes_no' && (resp.value === false || resp.value === 'false'))
+          || (f.fail_trigger && evaluateFailTrigger(f.fail_trigger, resp.value));
         if (!triggered) return false;
         var fn = FAIL_NOTES[f.id];
         return !fn || !fn.note || !fn.note.trim() || !fn.severity;
@@ -2409,6 +2667,26 @@ document.getElementById('fill-body').addEventListener('click', function(e) {
         // Scroll to first missing fail card
         var firstFld = document.querySelector('[data-field-id="' + missingCorrective[0].id + '"]');
         if (firstFld) firstFld.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+      }
+
+      // Validate: required photo fields must have a photo attached (a valid
+      // https:// URL as the response value). Also enforces resubmit when a
+      // rejection flagged require_photo for the field. Mirrors the backend
+      // photo_required gate in validateFailNotes.
+      var missingPhoto = allFlds.filter(function(f) {
+        var rejFlag = REJECTION_FLAGS[f.id];
+        var needsPhoto = (f.type === 'photo' && f.required) || (rejFlag && rejFlag.requirePhoto);
+        if (!needsPhoto) return false;
+        // Satisfied by the field's own photo value (photo-type fields) OR the
+        // dedicated correction-photo slot (any other field type).
+        return !fieldHasRequiredPhoto(f.id);
+      });
+      if (missingPhoto.length > 0) {
+        var photoNames = missingPhoto.map(function(f) { return f.label; }).join(', ');
+        showToast('Photo required for: ' + photoNames);
+        var firstPhoto = document.querySelector('[data-field-id="' + missingPhoto[0].id + '"]');
+        if (firstPhoto) firstPhoto.scrollIntoView({ behavior: 'smooth', block: 'center' });
         return;
       }
 

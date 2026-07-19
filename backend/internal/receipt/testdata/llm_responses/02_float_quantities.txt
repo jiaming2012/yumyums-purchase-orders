@@ -1,0 +1,1 @@
+{"items":[{"name":"Chicken Thighs","quantity":40.0,"price":1.00,"is_case":false},{"name":"Lemons","quantity":10.0,"price":0.50,"is_case":false}],"summary":{"vendor":"Restaurant Depot","total_units":50,"total_cases":0,"tax":0.00,"total":45.00}}

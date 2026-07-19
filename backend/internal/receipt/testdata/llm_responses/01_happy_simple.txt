@@ -1,0 +1,1 @@
+{"items":[{"name":"Milk","quantity":2,"price":3.50,"is_case":false},{"name":"Eggs","quantity":1,"price":5.00,"is_case":false},{"name":"Bread","quantity":3,"price":2.00,"is_case":false}],"summary":{"vendor":"Local Market","total_units":6,"total_cases":0,"tax":0.00,"total":18.00}}

@@ -4,7 +4,7 @@ import (
 	"context"
 	_ "embed"
 	"fmt"
-	"log"
+	"log/slog"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"gopkg.in/yaml.v3"
@@ -78,7 +78,7 @@ func SeedInventoryFixtures(ctx context.Context, pool *pgxpool.Pool) error {
 			return fmt.Errorf("inventory: seed vendor %q: %w", v.Name, err)
 		}
 	}
-	log.Printf("inventory: seeded %d vendor(s)", len(f.Vendors))
+	slog.Info("inventory: seeded vendors", "count", len(f.Vendors))
 
 	// Collect all unique tags across all item groups
 	tagSet := map[string]struct{}{}
@@ -96,7 +96,7 @@ func SeedInventoryFixtures(ctx context.Context, pool *pgxpool.Pool) error {
 			return fmt.Errorf("inventory: seed tag %q: %w", tag, err)
 		}
 	}
-	log.Printf("inventory: seeded %d unique tag(s)", len(tagSet))
+	slog.Info("inventory: seeded unique tags", "count", len(tagSet))
 
 	// Seed item groups, group-tag links, and purchase items
 	for _, g := range f.ItemGroups {
@@ -142,7 +142,7 @@ func SeedInventoryFixtures(ctx context.Context, pool *pgxpool.Pool) error {
 			}
 		}
 	}
-	log.Printf("inventory: seeded %d item_group(s)", len(f.ItemGroups))
+	slog.Info("inventory: seeded item groups", "count", len(f.ItemGroups))
 
 	// Seed purchase items from purchase_items.yaml
 	var items itemsFile
@@ -171,7 +171,7 @@ func SeedInventoryFixtures(ctx context.Context, pool *pgxpool.Pool) error {
 			`SELECT id FROM item_groups WHERE name = $1`, g.Group,
 		).Scan(&groupID)
 		if err != nil {
-			log.Printf("inventory: warning: group %q not found, skipping %d items", g.Group, len(g.PurchaseItems))
+			slog.Warn("inventory: group not found, skipping items", "group", g.Group, "skipped_count", len(g.PurchaseItems))
 			continue
 		}
 
@@ -198,7 +198,7 @@ func SeedInventoryFixtures(ctx context.Context, pool *pgxpool.Pool) error {
 			itemCount++
 		}
 	}
-	log.Printf("inventory: seeded %d purchase item(s) from YAML", itemCount)
+	slog.Info("inventory: seeded purchase items from YAML", "count", itemCount)
 
 	return nil
 }

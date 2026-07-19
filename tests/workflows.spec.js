@@ -120,7 +120,7 @@ test.describe('Builder', () => {
     await page.reload();
   });
 
-  test('create template via Builder', async ({ page }) => {
+  test('create template via Builder [BLD-03 BLD-04]', async ({ page }) => {
     await page.click('#t3');
     await expect(page.locator('#s3')).toBeVisible();
 
@@ -141,7 +141,7 @@ test.describe('Builder', () => {
     await expect(toast).toBeVisible({ timeout: 5000 });
   });
 
-  test('saving template navigates back to builder list', async ({ page }) => {
+  test('saving template navigates back to builder list [BLD-11]', async ({ page }) => {
     await page.click('#t3');
     await expect(page.locator('#s3')).toBeVisible();
 
@@ -162,7 +162,7 @@ test.describe('Builder', () => {
     await expect(page.locator('text=Nav Test')).toBeVisible({ timeout: 5000 });
   });
 
-  test('archive checklist soft-deletes and removes from list', async ({ page }) => {
+  test('archive checklist soft-deletes and removes from list [BLD-15]', async ({ page }) => {
     // Create via API then reload so TEMPLATES is populated
     const result = await apiCall(page, 'POST', 'createTemplate', {
       name: 'Archive Test',
@@ -194,7 +194,7 @@ test.describe('Builder', () => {
     expect(templates.find(t => t.id === tplId)).toBeUndefined();
   });
 
-  test('archive navigates back to builder list', async ({ page }) => {
+  test('archive navigates back to builder list [BLD-15]', async ({ page }) => {
     const result = await apiCall(page, 'POST', 'createTemplate', {
       name: 'Archive Nav Test',
       sections: [{ title: 'S1', order: 0, condition: null, fields: [] }],
@@ -220,7 +220,7 @@ test.describe('Builder', () => {
     await expect(page.locator('[data-action="archive-template"]')).not.toBeVisible();
   });
 
-  test('duplicate checklist name shows error toast', async ({ page }) => {
+  test('duplicate checklist name shows error toast [BLD-12]', async ({ page }) => {
     // Create first template
     await apiCall(page, 'POST', 'createTemplate', {
       name: 'Unique Name Test',
@@ -241,7 +241,7 @@ test.describe('Builder', () => {
     await expect(page.locator('#toast')).toContainText('already exists', { timeout: 5000 });
   });
 
-  test('can reuse name of deleted checklist', async ({ page }) => {
+  test('can reuse name of deleted checklist [BLD-12]', async ({ page }) => {
     // Create and delete a template
     const result = await apiCall(page, 'POST', 'createTemplate', {
       name: 'Reuse Name Test',
@@ -260,7 +260,7 @@ test.describe('Builder', () => {
     await apiCall(page, 'DELETE', 'archiveTemplate/' + result2.id);
   });
 
-  test('saving with requires_approval but no approver shows error toast', async ({ page }) => {
+  test('saving with requires_approval but no approver shows error toast [BLD-13]', async ({ page }) => {
     await page.click('#t3');
     await expect(page.locator('#s3')).toBeVisible();
 
@@ -290,7 +290,7 @@ test.describe('Builder', () => {
     await expect(page.locator('#save-btn')).toBeVisible();
   });
 
-  test('empty builder shows empty state', async ({ page }) => {
+  test('empty builder shows empty state [BLD-02]', async ({ page }) => {
     await page.click('#t3');
     await expect(page.locator('#s3')).toBeVisible();
     // Empty state heading is "No templates yet"
@@ -298,7 +298,7 @@ test.describe('Builder', () => {
     await expect(emptyText).toBeVisible({ timeout: 5000 });
   });
 
-  test('edit existing template', async ({ page }) => {
+  test('edit existing template [BLD-04]', async ({ page }) => {
     // Create template via API
     await createTestTemplate(page, 'Edit Me');
     await page.reload();
@@ -315,7 +315,7 @@ test.describe('Builder', () => {
     await expect(page.locator('.editor-back')).toBeVisible({ timeout: 5000 });
   });
 
-  test('archive template', async ({ page }) => {
+  test('archive template [BLD-15]', async ({ page }) => {
     // Create template via API
     const result = await createTestTemplate(page, 'To Archive');
     const templateId = result.id;
@@ -346,17 +346,19 @@ test.describe('My Checklists', () => {
     await cleanupTemplates(page);
   });
 
-  test('today checklists appear from API', async ({ page }) => {
+  test('today checklists appear from API [LST-02]', async ({ page }) => {
     const todayDOW = await getTodayDOW(page);
     await createTestTemplate(page, 'Daily Checklist', todayDOW);
     await page.reload();
     // My Checklists tab should be active by default
     await expect(page.locator('#s1')).toBeVisible();
-    // Template should appear
-    await expect(page.locator('text=Daily Checklist')).toBeVisible({ timeout: 5000 });
+    // Template should appear in the My Checklists list. Scope to #checklist-list:
+    // the same template name is also rendered in the (hidden) #builder-list, so a
+    // bare text= selector is a strict-mode violation (matches 2 elements).
+    await expect(page.locator('#checklist-list').getByText('Daily Checklist')).toBeVisible({ timeout: 5000 });
   });
 
-  test('fill and submit checklist', async ({ page }) => {
+  test('fill and submit checklist [RUN-01 RUN-06]', async ({ page }) => {
     const todayDOW = await getTodayDOW(page);
     await createTestTemplate(page, 'Submit Test', todayDOW);
     await page.reload();
@@ -379,7 +381,7 @@ test.describe('My Checklists', () => {
     await expect(page.locator('#s1')).toBeVisible({ timeout: 8000 });
   });
 
-  test('checked item shows user display name, not undefined', async ({ page }) => {
+  test('checked item shows user display name, not undefined [RUN-03]', async ({ page }) => {
     const todayDOW = await getTodayDOW(page);
     await createTestTemplate(page, 'Name Test', todayDOW);
     await page.reload();
@@ -401,7 +403,7 @@ test.describe('My Checklists', () => {
     expect(text).toMatch(/\w+/); // at least one word character
   });
 
-  test('empty state when no checklists', async ({ page }) => {
+  test('empty state when no checklists [LST-01]', async ({ page }) => {
     // No templates, reload
     await page.reload();
     await expect(page.locator('#s1')).toBeVisible();
@@ -423,7 +425,7 @@ test.describe('Approvals', () => {
     return { id: templateId };
   }
 
-  test('approve submission', async ({ page }) => {
+  test('approve submission [APR-02 APR-11]', async ({ page }) => {
     await login(page);
     await page.goto(BASE + '/workflows.html');
     await cleanupTemplates(page);
@@ -445,7 +447,7 @@ test.describe('Approvals', () => {
     await expect(page.locator('#toast')).toBeVisible({ timeout: 5000 });
   });
 
-  test('approve with flag comment shows feedback on checklist', async ({ page }) => {
+  test('approve with flag comment shows feedback on checklist [APR-11 FLD-19]', async ({ page }) => {
     await login(page);
     await page.goto(BASE + '/workflows.html');
     await cleanupTemplates(page);
@@ -482,12 +484,24 @@ test.describe('Approvals', () => {
     await expect(page.locator('text=Please double-check this item next time')).toBeVisible({ timeout: 5000 });
   });
 
-  test('reject item with comment', async ({ page }) => {
+  // FR-10 (flag→reject status) + FR-12 (reject+comment persists) + FR-13
+  // (rejection feedback renders back to the submitter). REWRITE of the former
+  // vacuous test which wrapped its whole body in `if (flagBtn.isVisible())`
+  // with NO expect — it never asserted a rejection occurred. This drives the
+  // real flow end-to-end and asserts observable state at every hop:
+  //   FR-10: flag an item, send rejection → submission.status flips to 'rejected'
+  //   FR-12: the flagged item's comment persists on submission.rejections[]
+  //   FR-13: reopening the checklist as the submitter renders the manager's
+  //          comment in the correction banner ("⚠ Rejected: <comment>").
+  // Single-user: admin is both submitter (createAndSubmitChecklist) and the
+  // approver (createTestTemplate assigns admin as approver), so the same page
+  // session sees the rejection feedback back on My Checklists.
+  test('FR-10/12/13 flag+reject flips status, persists comment, and renders feedback to submitter [APR-06 FLD-18 LC-01]', async ({ page }) => {
     await login(page);
     await page.goto(BASE + '/workflows.html');
     await cleanupTemplates(page);
     await cleanupPendingApprovals(page);
-    await createAndSubmitChecklist(page);
+    const { id: templateId } = await createAndSubmitChecklist(page);
 
     await page.reload();
     await page.click('#t2');
@@ -496,19 +510,298 @@ test.describe('Approvals', () => {
     // Scope to #s2 to avoid strict mode violations with hidden tabs
     await expect(page.locator('#s2').locator('text=Approval Test')).toBeVisible({ timeout: 5000 });
 
-    // Flag a field item using the "Flag" button
-    const flagBtn = page.locator('[data-action="toggle-reject-item"]').first();
-    if (await flagBtn.isVisible()) {
-      await flagBtn.click();
-      // Enter comment in the reject-item-input textarea
-      const commentArea = page.locator('.reject-item-input').first();
-      await commentArea.fill('Needs correction');
-      // Send rejection via reject-submit button
-      await page.click('[data-action="reject-submit"]');
-    }
+    // Flag a field item using the "Flag" button — must actually be present
+    const flagBtn = page.locator('#s2 [data-action="toggle-reject-item"]').first();
+    await expect(flagBtn).toBeVisible({ timeout: 5000 });
+    await flagBtn.click();
+
+    // Enter comment in the reject-item-input textarea
+    const commentArea = page.locator('#s2 .reject-item-input').first();
+    await expect(commentArea).toBeVisible();
+    await commentArea.fill('Needs correction');
+
+    // Send rejection via reject-submit button
+    await page.click('#s2 [data-action="reject-submit"]');
+
+    // FR-10 + FR-12 — assert the submission flipped to rejected in the DB and
+    // the comment persisted on the rejection record (read back via the API).
+    await expect(page.locator('#toast')).toContainText('Rejected', { timeout: 5000 });
+    await page.waitForTimeout(500);
+    const submissions = await page.evaluate(async () => {
+      const r = await fetch('/api/v1/workflow/myChecklists?dow=' + new Date().getDay());
+      const data = await r.json();
+      return data.submissions || [];
+    });
+    const rejectedSub = submissions.find(s => s.status === 'rejected');
+    expect(rejectedSub, 'a submission with status=rejected must exist after reject-submit').toBeTruthy();
+    expect(rejectedSub.rejections.length).toBeGreaterThanOrEqual(1);
+    expect(rejectedSub.rejections.some(r => r.comment === 'Needs correction')).toBe(true);
+
+    // FR-13 — the submitter (same admin) reopens the checklist and sees the
+    // manager's rejection comment rendered in the correction banner.
+    await page.click('#t1');
+    await page.reload();
+    await page.waitForSelector('#checklist-list .row', { timeout: 10000 });
+    await page.locator('#checklist-list .row', { hasText: 'Approval Test' }).first().click();
+    await page.waitForSelector('#fill-body');
+    const banner = page.locator('.correction-banner', { hasText: 'Needs correction' });
+    await expect(banner).toBeVisible({ timeout: 5000 });
+    await expect(banner).toContainText('Rejected');
   });
 
-  test('reject works after template update (field IDs change)', async ({ page }) => {
+  // Operator-found (dev, 2026-07-18): rejecting with a comment AND "Require
+  // photo evidence" checked — the comment and/or the photo requirement do not
+  // land on the original checklist. The existing FR-10/12/13 test flags+comments
+  // but NEVER checks the require-photo box, so this path was uncovered. Drives
+  // the exact UI flow: flag → comment → check "Require photo evidence" → send,
+  // then reopens as the submitter and asserts (a) the persisted rejection row
+  // carries require_photo=true and (b) the correction banner shows the comment
+  // AND the "Photo required before resubmit" requirement.
+  test('rejecting with require-photo lands the comment + photo requirement on the checklist [APR-REPRO-0718]', async ({ page }) => {
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await cleanupTemplates(page);
+    await cleanupPendingApprovals(page);
+    await createAndSubmitChecklist(page);
+
+    // Approver flags the item, adds a comment, and checks "Require photo evidence".
+    await page.reload();
+    await page.click('#t2');
+    await expect(page.locator('#s2')).toBeVisible();
+    await expect(page.locator('#s2').locator('text=Approval Test')).toBeVisible({ timeout: 5000 });
+
+    const flagBtn = page.locator('#s2 [data-action="toggle-reject-item"]').first();
+    await expect(flagBtn).toBeVisible({ timeout: 5000 });
+    await flagBtn.click();
+    await page.locator('#s2 .reject-item-input').first().fill('Redo with a photo');
+    const photoToggle = page.locator('#s2 [data-reject-photo-fld]').first();
+    await expect(photoToggle, 'require-photo checkbox is present in the reject form').toBeVisible({ timeout: 5000 });
+    await photoToggle.check();
+    await expect(photoToggle).toBeChecked();
+
+    await page.click('#s2 [data-action="reject-submit"]');
+    await expect(page.locator('#toast')).toContainText('Rejected', { timeout: 5000 });
+    await page.waitForTimeout(500);
+
+    // (a) Persistence: the rejection row must carry require_photo=true AND the comment.
+    const submissions = await page.evaluate(async () => {
+      const r = await fetch('/api/v1/workflow/myChecklists?dow=' + new Date().getDay());
+      return (await r.json()).submissions || [];
+    });
+    const rejectedSub = submissions.find(s => s.status === 'rejected');
+    expect(rejectedSub, 'a rejected submission must exist').toBeTruthy();
+    const rej = (rejectedSub.rejections || [])[0];
+    expect(rej, 'a rejection row must exist').toBeTruthy();
+    expect(rej.comment, 'comment persisted').toBe('Redo with a photo');
+    expect(rej.require_photo, 'require_photo persisted as true').toBe(true);
+
+    // (b) Display: reopen as submitter — banner shows the comment AND the photo requirement.
+    await page.click('#t1');
+    await page.reload();
+    await page.waitForSelector('#checklist-list .row', { timeout: 10000 });
+    await page.locator('#checklist-list .row', { hasText: 'Approval Test' }).first().click();
+    await page.waitForSelector('#fill-body');
+    const banner = page.locator('.correction-banner');
+    await expect(banner, 'correction banner shows the comment').toContainText('Redo with a photo', { timeout: 5000 });
+    await expect(banner, 'correction banner shows the photo requirement').toContainText('Photo required', { timeout: 5000 });
+  });
+
+  // Operator-found (dev, 2026-07-18) — the photo DEAD-END. When a non-photo
+  // field (checkbox here) is rejected with require_photo=true, the reopened
+  // checklist shows "📷 Photo required before resubmit" but renders NO way to
+  // attach a photo (only type:'photo' fields get a capture button), while the
+  // submit gate (workflows.html ~2534) refuses resubmit until the field has an
+  // https:// photo URL. Result: the crew is blocked with no control to satisfy
+  // the requirement — "the photo is not added to the checklist". This asserts
+  // the dead-end so the fix (render a capture affordance on any require-photo
+  // field) has a red anchor.
+  // The correction-photo slot (built 2026-07-18): a checkbox rejected with
+  // require_photo now offers a capture control, and the attached photo (stored in
+  // a slot SEPARATE from the checkbox's boolean answer) satisfies both the
+  // frontend and backend resubmit gates. Photo capture itself is injected (the
+  // presign+PUT camera plumbing is parked by convention, like onboarding FR-18);
+  // this drives everything around it: control renders → attach → banner flips →
+  // resubmit succeeds.
+  test('checkbox rejected with require-photo: attach correction photo unblocks resubmit [APR-DEADEND-0718]', async ({ page }) => {
+    page.on('dialog', d => d.accept());
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await cleanupTemplates(page);
+    await cleanupPendingApprovals(page);
+    const { id: templateId } = await createAndSubmitChecklist(page); // single checkbox "Check this"
+
+    const subs = await page.evaluate(async () => {
+      const r = await fetch('/api/v1/workflow/myChecklists?dow=' + new Date().getDay());
+      return (await r.json()).submissions || [];
+    });
+    const sub = subs[0];
+    const snap = typeof sub.template_snapshot === 'string' ? JSON.parse(sub.template_snapshot) : sub.template_snapshot;
+    const fieldId = snap.sections[0].fields[0].id;
+    await apiCall(page, 'POST', 'rejectItem', { submission_id: sub.id, field_id: fieldId, comment: 'Photo please', require_photo: true });
+
+    // Reopen as submitter.
+    await page.click('#t1');
+    await page.reload();
+    await page.waitForSelector('#checklist-list .row', { timeout: 10000 });
+    await page.locator('#checklist-list .row', { hasText: 'Approval Test' }).first().click();
+    await page.waitForSelector('#fill-body');
+
+    // The banner demands a photo AND now offers a capture control (dead-end gone).
+    const field = page.locator('.fill-field', { has: page.locator('.correction-banner') }).first();
+    await expect(field.locator('.correction-banner')).toContainText('Photo required', { timeout: 5000 });
+    await expect(field.locator('[data-action="correction-photo-capture"]'),
+      'a require-photo field must offer a way to attach the photo').toHaveCount(1);
+
+    // Re-check the box (redo the item) then attach the correction photo (inject the
+    // uploaded URL, simulating a successful presign+PUT — the test convention).
+    await field.locator('.check-btn').click();
+    await page.evaluate((fid) => {
+      CORRECTION_PHOTOS[fid] = 'https://cdn.example.com/correction.jpg';
+      var resp = FIELD_RESPONSES[fid];
+      debouncedSaveField(fid, resp ? resp.value : null);
+      renderFieldResponse(fid);
+    }, fieldId);
+    await page.waitForTimeout(2000); // debounce save
+
+    // Banner flips to "✓ Photo uploaded" and a thumbnail replaces the button.
+    await expect(field.locator('.correction-banner')).toContainText('Photo uploaded', { timeout: 5000 });
+    await expect(field.locator('[data-action="correction-photo-retake"]')).toBeVisible();
+
+    // Resubmit now succeeds — no "Photo required" block, submission goes pending.
+    await page.click('#submit-btn');
+    await expect(page.locator('#toast')).not.toContainText('Photo required', { timeout: 3000 });
+    await page.waitForTimeout(1000);
+    const after = await page.evaluate(async () => {
+      const r = await fetch('/api/v1/workflow/myChecklists?dow=' + new Date().getDay());
+      return (await r.json()).submissions || [];
+    });
+    expect(after.some(s => s.status === 'pending_approval' || s.status === 'pending' || s.status === 'submitted'),
+      'resubmit succeeded with the correction photo').toBe(true);
+  });
+
+  // Operator-found (dev, 2026-07-18) — THE comment-vanish repro. The operator's
+  // "Friday checklist → Cut the check → Do C" is a checkbox ("Cut the check")
+  // with SUB-STEPS (Do A/B/C). Rejecting a SUB-STEP stores the comment (and any
+  // require_photo) against the sub-step's id, but the runner renders the
+  // correction banner only at the PARENT field level (REJECTION_FLAGS[parentId])
+  // — sub-step rows (workflows.html ~2144-2153) render NO banner. So a sub-step
+  // rejection's comment AND photo requirement both silently vanish on the
+  // reopened checklist. This asserts they should surface.
+  test('rejecting a SUB-STEP surfaces its comment + photo requirement on the checklist [APR-SUBSTEP-0718]', async ({ page }) => {
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await cleanupTemplates(page);
+    await cleanupPendingApprovals(page);
+
+    const todayDOW = await getTodayDOW(page);
+    const sub = (label, order) => ({ type: 'checkbox', label, order, config: {}, fail_trigger: null, condition: null });
+    const tpl = await apiCall(page, 'POST', 'createTemplate', {
+      name: 'Substep Reject', requires_approval: true,
+      sections: [{ title: 'Make money', order: 0, condition: null, fields: [
+        { type: 'checkbox', label: 'Cut the check', required: false, order: 0, config: {}, fail_trigger: null, condition: null,
+          sub_steps: [ sub('Do A', 0), sub('Do B', 1), sub('Do C', 2) ] },
+      ] }],
+      schedules: [{ active_days: [todayDOW] }],
+      assignments: [
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' },
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'approver' },
+      ],
+    });
+    await submitChecklistViaAPI(page, tpl.id);
+
+    // Find the "Do B" sub-step id from the pending submission's snapshot.
+    const subs = await page.evaluate(async () => {
+      const r = await fetch('/api/v1/workflow/myChecklists?dow=' + new Date().getDay());
+      return (await r.json()).submissions || [];
+    });
+    const submission = subs[0];
+    const snap = typeof submission.template_snapshot === 'string' ? JSON.parse(submission.template_snapshot) : submission.template_snapshot;
+    const parent = snap.sections[0].fields[0];
+    const doB = (parent.sub_steps || []).find(s => s.label === 'Do B');
+    expect(doB, 'Do B sub-step id resolved from snapshot').toBeTruthy();
+
+    // Reject the SUB-STEP with a comment and require_photo.
+    await apiCall(page, 'POST', 'rejectItem', { submission_id: submission.id, field_id: doB.id, comment: 'Redo step Do B', require_photo: true });
+
+    // Persistence sanity: the rejection row exists against the sub-step id.
+    const after = await page.evaluate(async () => {
+      const r = await fetch('/api/v1/workflow/myChecklists?dow=' + new Date().getDay());
+      return (await r.json()).submissions || [];
+    });
+    const rejSub = after.find(s => s.status === 'rejected');
+    expect(rejSub && (rejSub.rejections || []).some(r => r.comment === 'Redo step Do B'), 'sub-step rejection persisted').toBe(true);
+
+    // Reopen as submitter — the sub-step's comment must be visible somewhere in the runner.
+    await page.click('#t1');
+    await page.reload();
+    await page.waitForSelector('#checklist-list .row', { timeout: 10000 });
+    await page.locator('#checklist-list .row', { hasText: 'Substep Reject' }).first().click();
+    await page.waitForSelector('#fill-body');
+    const subBanner = page.locator('.correction-banner', { hasText: 'Redo step Do B' });
+    await expect(subBanner, 'sub-step rejection comment must surface on the checklist').toBeVisible({ timeout: 5000 });
+    await expect(subBanner, 'sub-step photo requirement must surface too').toContainText('Photo required');
+  });
+
+  // Operator-found (dev, 2026-07-18): a rejected SUB-STEP came back still CHECKED.
+  // Top-level rejected fields are unchecked on reopen (hydrateFieldState clears
+  // FIELD_RESPONSES[field]), but a sub-step's done-state lives in the PARENT's
+  // sub_steps map, which that clear never touched — so the crew wasn't forced to
+  // redo it. This asserts a rejected sub-step returns UNCHECKED (like top-level).
+  test('rejecting a SUB-STEP unchecks it on reopen so the crew must redo it [APR-SUBSTEP-UNCHECK]', async ({ page }) => {
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await cleanupTemplates(page);
+    await cleanupPendingApprovals(page);
+
+    const todayDOW = await getTodayDOW(page);
+    const sub = (label, order) => ({ type: 'checkbox', label, order, config: {}, fail_trigger: null, condition: null });
+    const tpl = await apiCall(page, 'POST', 'createTemplate', {
+      name: 'Substep Uncheck', requires_approval: true,
+      sections: [{ title: 'Make money', order: 0, condition: null, fields: [
+        { type: 'checkbox', label: 'Cut the check', required: false, order: 0, config: {}, fail_trigger: null, condition: null,
+          sub_steps: [ sub('Do A', 0), sub('Do B', 1) ] },
+      ] }],
+      schedules: [{ active_days: [todayDOW] }],
+      assignments: [
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' },
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'approver' },
+      ],
+    });
+    const full = (await apiCall(page, 'GET', 'templates')).find(t => t.id === tpl.id);
+    const parentId = full.sections[0].fields[0].id;
+    const subs = full.sections[0].fields[0].sub_steps;
+    const doA = subs.find(s => s.label === 'Do A').id;
+    const doB = subs.find(s => s.label === 'Do B').id;
+
+    // Submit with BOTH sub-steps checked (parent value carries the sub_steps map).
+    await apiCall(page, 'POST', 'submitChecklist', {
+      template_id: tpl.id, idempotency_key: generateUUID(),
+      responses: [{ field_id: parentId, value: JSON.stringify({ value: true, sub_steps: { [doA]: true, [doB]: true } }) }],
+    });
+    const pending = await apiCall(page, 'GET', 'pendingApprovals');
+    const subm = pending.find(s => s.template_id === tpl.id) || pending[0];
+    // Reject only "Do B".
+    await apiCall(page, 'POST', 'rejectItem', { submission_id: subm.id, field_id: doB, comment: 'redo Do B', require_photo: false });
+
+    // Reopen as submitter.
+    await page.click('#t1');
+    await page.reload();
+    await page.waitForSelector('#checklist-list .row', { timeout: 10000 });
+    await page.locator('#checklist-list .row', { hasText: 'Substep Uncheck' }).first().click();
+    await page.waitForSelector('#fill-body');
+
+    // The rejected sub-step (Do B) must come back UNCHECKED; the non-rejected one
+    // (Do A) stays checked.
+    const doBCheck = page.locator('.sub-step-row', { hasText: 'Do B' }).locator('.sub-step-check');
+    const doACheck = page.locator('.sub-step-row', { hasText: 'Do A' }).locator('.sub-step-check');
+    await expect(doBCheck, 'rejected sub-step Do B must be unchecked').not.toHaveClass(/done/, { timeout: 5000 });
+    await expect(doACheck, 'non-rejected sub-step Do A stays checked').toHaveClass(/done/);
+    // The parent auto-checkbox must no longer read as fully done.
+    await expect(page.locator('.fill-field', { hasText: 'Cut the check' }).locator('.check-btn').first(),
+      'parent no longer all-done').not.toHaveClass(/checked/);
+  });
+
+  test('reject works after template update (field IDs change) [APR-10]', async ({ page }) => {
     await login(page);
     await page.goto(BASE + '/workflows.html');
     await cleanupTemplates(page);
@@ -551,7 +844,7 @@ test.describe('Approvals', () => {
     await expect(page.locator('#toast')).toBeVisible({ timeout: 5000 });
   });
 
-  test('empty approvals shows caught up', async ({ page }) => {
+  test('empty approvals shows caught up [APR-01]', async ({ page }) => {
     await login(page);
     await page.goto(BASE + '/workflows.html');
     await cleanupTemplates(page);
@@ -567,7 +860,7 @@ test.describe('Approvals', () => {
 // ─── D. Offline sync ─────────────────────────────────────────────────────────
 
 test.describe('Offline sync', () => {
-  test('submit while offline queues in IndexedDB', async ({ page, context }) => {
+  test('submit while offline queues in IndexedDB [GATE-07 LST-15]', async ({ page, context }) => {
     await login(page);
     await page.goto(BASE + '/workflows.html');
     await cleanupTemplates(page);
@@ -578,6 +871,14 @@ test.describe('Offline sync', () => {
 
     // Open checklist
     await page.click('[data-fill-template-id]');
+
+    // Complete the checklist item first so submit doesn't trip the
+    // "N items not completed. Submit anyway?" confirm() (which Playwright
+    // auto-dismisses, aborting the submit before the offline-queue path).
+    const checkBtn = page.locator('.check-btn').first();
+    await checkBtn.click();
+    await expect(checkBtn).toHaveClass(/checked/, { timeout: 5000 });
+    await page.waitForTimeout(1500); // let the field auto-save
 
     // Go offline
     await context.setOffline(true);
@@ -598,7 +899,7 @@ test.describe('Offline sync', () => {
     await expect(page.locator('#sync-banner')).not.toBeVisible({ timeout: 10000 });
   });
 
-  test('duplicate submit prevented by idempotency key', async ({ page }) => {
+  test('duplicate submit prevented by idempotency key [GATE-08]', async ({ page }) => {
     await login(page);
     await page.goto(BASE + '/workflows.html');
     await cleanupTemplates(page);
@@ -637,7 +938,7 @@ test.describe('Offline sync', () => {
 // ─── E. Access control ───────────────────────────────────────────────────────
 
 test.describe('Access control', () => {
-  test('superadmin can access Builder tab', async ({ page }) => {
+  test('superadmin can access Builder tab [GLB-05]', async ({ page }) => {
     await login(page);
     await page.goto(BASE + '/workflows.html');
     await page.click('#t3');
@@ -647,10 +948,213 @@ test.describe('Access control', () => {
   });
 });
 
+// ─── E2. yes/no "No" corrective-note enforcement (ops-fr4) ───────────────────
+
+// createYesNoTemplate creates a template with a single yes/no field scheduled
+// for today and assigned to the test user's role so it shows in My Checklists.
+async function createYesNoTemplate(page, name, todayDOW) {
+  const input = {
+    name,
+    requires_approval: true,
+    sections: [
+      {
+        title: 'Section 1',
+        order: 0,
+        condition: null,
+        fields: [
+          {
+            type: 'yes_no',
+            label: 'Fridge under 40F?',
+            required: false,
+            order: 0,
+            config: {},
+            fail_trigger: null,
+            condition: null,
+          },
+        ],
+      },
+    ],
+    schedules: [{ active_days: [todayDOW] }],
+    assignments: [
+      { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' },
+      { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'approver' },
+    ],
+  };
+  return apiCall(page, 'POST', 'createTemplate', input);
+}
+
+test.describe('yes/no No enforcement', () => {
+  test.beforeEach(async ({ page }) => {
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await cleanupTemplates(page);
+  });
+
+  test('answering No without a corrective note blocks submit [FLD-08 GATE-01]', async ({ page }) => {
+    const todayDOW = await getTodayDOW(page);
+    await createYesNoTemplate(page, 'YesNo Block Test', todayDOW);
+    await page.reload();
+
+    // Open the checklist
+    await page.click('[data-fill-template-id]');
+    await page.waitForSelector('#fill-body .fill-field', { timeout: 5000 });
+
+    // Answer "No" — the corrective fail card should render
+    await page.click('[data-action="set-no"]');
+    await expect(page.locator('.fail-card')).toBeVisible({ timeout: 5000 });
+
+    // Leave the note empty. Submit.
+    await page.click('[data-action="submit"]');
+
+    // BLOCKED: corrective toast appears and we stay on the fill view
+    // (submit button + fail card still present; list not restored).
+    await expect(page.locator('#toast')).toContainText('severity', { timeout: 5000 });
+    await expect(page.locator('#submit-btn')).toBeVisible();
+    await expect(page.locator('#fill-body .fill-field')).toBeVisible();
+    await expect(page.locator('#checklist-list .row')).toHaveCount(0);
+
+    // And no submission was created server-side.
+    const pending = await apiCall(page, 'GET', 'pendingApprovals');
+    const count = Array.isArray(pending) ? pending.length : 0;
+    expect(count).toBe(0);
+  });
+
+  test('answering No with note + severity allows submit [GATE-02]', async ({ page }) => {
+    const todayDOW = await getTodayDOW(page);
+    await createYesNoTemplate(page, 'YesNo Pass Test', todayDOW);
+    await page.reload();
+
+    await page.click('[data-fill-template-id]');
+    await page.waitForSelector('#fill-body .fill-field', { timeout: 5000 });
+
+    // Answer "No", fill the corrective note + pick a severity.
+    await page.click('[data-action="set-no"]');
+    await expect(page.locator('.fail-card')).toBeVisible({ timeout: 5000 });
+    await page.fill('[data-action="fail-note-input"]', 'Adjusted thermostat, re-checked temp');
+    await page.click('[data-action="set-severity"][data-severity="major"]');
+
+    // Wait for the fail-note auto-save to persist (debounced).
+    await page.waitForTimeout(1800);
+
+    // Submit — should succeed and return to the list.
+    await page.click('[data-action="submit"]');
+    await expect(page.locator('#toast')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('#s1')).toBeVisible({ timeout: 8000 });
+
+    // A submission now exists server-side.
+    const pending = await apiCall(page, 'GET', 'pendingApprovals');
+    expect(Array.isArray(pending) && pending.length).toBeGreaterThan(0);
+  });
+});
+
+// ─── E3. required-photo submit gate (ops-nfr3) ───────────────────────────────
+
+// createPhotoTemplate creates a template with a single REQUIRED photo field,
+// scheduled for today and assigned to the test user's role so it shows in
+// My Checklists. A photo field's answered value is just an https:// URL string.
+async function createPhotoTemplate(page, name, todayDOW) {
+  const input = {
+    name,
+    requires_approval: true,
+    sections: [
+      {
+        title: 'Section 1',
+        order: 0,
+        condition: null,
+        fields: [
+          {
+            type: 'photo',
+            label: 'Photo of clean station',
+            required: true,
+            order: 0,
+            config: {},
+            fail_trigger: null,
+            condition: null,
+          },
+        ],
+      },
+    ],
+    schedules: [{ active_days: [todayDOW] }],
+    assignments: [
+      { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' },
+      { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'approver' },
+    ],
+  };
+  return apiCall(page, 'POST', 'createTemplate', input);
+}
+
+test.describe('required-photo submit gate', () => {
+  test.beforeEach(async ({ page }) => {
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await cleanupTemplates(page);
+  });
+
+  test('submit is blocked when a required photo is not attached [GATE-04]', async ({ page }) => {
+    const todayDOW = await getTodayDOW(page);
+    await createPhotoTemplate(page, 'Photo Block Test', todayDOW);
+    await page.reload();
+
+    // Open the checklist. Do NOT attach a photo.
+    await page.click('[data-fill-template-id]');
+    await page.waitForSelector('#fill-body .fill-field', { timeout: 5000 });
+
+    // Submit with no photo.
+    await page.click('[data-action="submit"]');
+
+    // BLOCKED: photo-required toast appears and we stay on the fill view.
+    await expect(page.locator('#toast')).toContainText('Photo required', { timeout: 5000 });
+    await expect(page.locator('#submit-btn')).toBeVisible();
+    await expect(page.locator('#fill-body .fill-field')).toBeVisible();
+    await expect(page.locator('#checklist-list .row')).toHaveCount(0);
+
+    // And no submission was created server-side.
+    const pending = await apiCall(page, 'GET', 'pendingApprovals');
+    const count = Array.isArray(pending) ? pending.length : 0;
+    expect(count).toBe(0);
+  });
+
+  test('submit is allowed once a photo URL is attached [GATE-04]', async ({ page }) => {
+    const todayDOW = await getTodayDOW(page);
+    await createPhotoTemplate(page, 'Photo Pass Test', todayDOW);
+    await page.reload();
+
+    await page.click('[data-fill-template-id]');
+    await page.waitForSelector('#fill-body .fill-field', { timeout: 5000 });
+
+    // Simulate a captured photo: a photo field's value is just its https:// URL.
+    // Persist it via the same save-response path the camera-upload flow uses,
+    // then mirror it into the live fill state so the submit handler sees it.
+    const fldId = await page.evaluate(() => {
+      const flds = fillState.activeTemplate.sections.flatMap(function (s) { return s.fields; });
+      const photoFld = flds.find(function (f) { return f.type === 'photo'; });
+      const url = 'https://example.com/photos/checklists/test.jpg';
+      FIELD_RESPONSES[photoFld.id] = { value: url, answeredBy: 'test', answeredAt: new Date() };
+      debouncedSaveField(photoFld.id, url);
+      return photoFld.id;
+    });
+    expect(fldId).toBeTruthy();
+    // Let the save-response persist.
+    await page.waitForTimeout(1800);
+
+    // Submit — should succeed (not blocked by the photo gate). The success
+    // path plays a confirmation animation before returning to the list.
+    await page.click('[data-action="submit"]');
+    await expect(page.locator('#toast')).toContainText('Submitted', { timeout: 8000 });
+
+    // A submission now exists server-side (poll — the POST resolves before the
+    // success animation finishes).
+    await expect.poll(async () => {
+      const pending = await apiCall(page, 'GET', 'pendingApprovals');
+      return Array.isArray(pending) ? pending.length : 0;
+    }, { timeout: 8000 }).toBeGreaterThan(0);
+  });
+});
+
 // ─── F. Navigation ──────────────────────────────────────────────────────────
 
 test.describe('Navigation', () => {
-  test('clicking My Checklists tab while runner is open returns to list', async ({ page }) => {
+  test('clicking My Checklists tab while runner is open returns to list [RUN-18]', async ({ page }) => {
     await login(page);
     await page.goto(BASE + '/workflows.html');
 
@@ -677,7 +1181,7 @@ test.describe('Navigation', () => {
 // ─── Tab Persistence ────────────────────────────────────────────────────────
 
 test.describe('Tab Persistence', () => {
-  test('workflows tab persists on reload', async ({ page }) => {
+  test('workflows tab persists on reload [GLB-07]', async ({ page }) => {
     await login(page);
     await page.goto(BASE + '/workflows.html');
     await page.click('#t2');
@@ -715,21 +1219,24 @@ test.describe('Tab Persistence', () => {
   });
 
   test('users tab persists on reload', async ({ page }) => {
+    // users.html has 2 top-level tabs since Edit was folded into the Users
+    // tab (commit 2083f20): #t1 Users (default), #t2 Access. Assert the
+    // non-default Access tab persists across reload via the #tab= hash.
     await login(page);
     await page.goto(BASE + '/users.html');
-    await page.click('#t3');
-    await expect(page.locator('#t3.on')).toBeVisible();
-    expect(page.url()).toContain('#tab=3');
+    await page.click('#t2');
+    await expect(page.locator('#t2.on')).toBeVisible();
+    expect(page.url()).toContain('#tab=2');
 
     await page.reload();
-    await expect(page.locator('#t3.on')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('#t2.on')).toBeVisible({ timeout: 5000 });
   });
 });
 
 // ─── G. Validation ──────────────────────────────────────────────────────────
 
 test.describe('Validation', () => {
-  test('submit is blocked when fail trigger fires but corrective action is empty', async ({ page }) => {
+  test('submit is blocked when fail trigger fires but corrective action is empty [FLD-12 GATE-01]', async ({ page }) => {
     await login(page);
     await page.goto(BASE + '/workflows.html');
     await cleanupTemplates(page);
@@ -782,7 +1289,7 @@ test.describe('Validation', () => {
     await expect(submitBtn).toBeEnabled();
   });
 
-  test('server rejects submission with triggered fail but no corrective action', async ({ page }) => {
+  test('server rejects submission with triggered fail but no corrective action [GATE-03]', async ({ page }) => {
     await login(page);
     await page.goto(BASE + '/workflows.html');
     await cleanupTemplates(page);
@@ -833,7 +1340,7 @@ test.describe('Validation', () => {
 // ─── G. Read-only after submit ────────────────────────────────────────────────
 
 test.describe('Read-only after submit', () => {
-  test('submitted checklist fields are not interactive', async ({ page }) => {
+  test('submitted checklist fields are not interactive [RUN-09 FLD-R1]', async ({ page }) => {
     await login(page);
     await page.goto(BASE + '/workflows.html');
     await cleanupTemplates(page);
@@ -887,7 +1394,7 @@ test.describe('Read-only after submit', () => {
 // ─── H. Loading states ───────────────────────────────────────────────────────
 
 test.describe('Loading states', () => {
-  test('skeleton screens show during load', async ({ page }) => {
+  test('skeleton screens show during load [GLB-09]', async ({ page }) => {
     await login(page);
     // Navigate to workflows and check for skeleton elements
     const skeletonPromise = page.locator('.skeleton').first().waitFor({ state: 'visible', timeout: 2000 }).catch(() => null);
@@ -896,7 +1403,7 @@ test.describe('Loading states', () => {
     await expect(page.locator('#t1')).toBeVisible({ timeout: 5000 });
   });
 
-  test('workflows page loads and shows tabs', async ({ page }) => {
+  test('workflows page loads and shows tabs [GLB-02]', async ({ page }) => {
     await login(page);
     await page.goto(BASE + '/workflows.html');
     await expect(page.locator('#t1')).toContainText('My Checklists');
@@ -904,7 +1411,7 @@ test.describe('Loading states', () => {
     await expect(page.locator('#t3')).toContainText('Builder');
   });
 
-  test('checklist progress is shared across team members', async ({ page }) => {
+  test('checklist progress is shared across team members [LC-04]', async ({ page }) => {
     // Create a team_member user
     await login(page);
     const email2 = 'shared-checklist-' + Date.now() + '@yumyums.kitchen';
@@ -973,7 +1480,7 @@ test.describe('Loading states', () => {
     expect(memberAnswered).toBe(adminAnswered); // <-- BUG: currently 0 because drafts filtered per-user
   });
 
-  test('field attribution shows who actually checked it, not the viewer', async ({ page }) => {
+  test('field attribution shows who actually checked it, not the viewer [RUN-03]', async ({ page }) => {
     // Create a team_member user
     await login(page);
     const email2 = 'attrib-test-' + Date.now() + '@yumyums.kitchen';
@@ -1034,7 +1541,7 @@ test.describe('Loading states', () => {
     expect(attrib2).not.toContain('Jamal');
   });
 
-  test('re-checking a field updates attribution to the new user', async ({ page, browser }) => {
+  test('re-checking a field updates attribution to the new user [RUN-03]', async ({ page, browser }) => {
     // Create a team_member user
     await login(page);
     const email2 = 'recheck-' + Date.now() + '@yumyums.kitchen';
@@ -1105,7 +1612,7 @@ test.describe('Loading states', () => {
     expect(attribAfter).not.toContain('Jamal');
   });
 
-  test('yes/no field attribution updates when different user answers', async ({ page }) => {
+  test('yes/no field attribution updates when different user answers [RUN-03]', async ({ page }) => {
     // Create team_member
     await login(page);
     const email2 = 'yn-attrib-' + Date.now() + '@yumyums.kitchen';
@@ -1171,7 +1678,7 @@ test.describe('Loading states', () => {
     expect(attribAfter).not.toContain('Jamal');
   });
 
-  test('sub-step completion attributes parent checkbox to the user who completed it', async ({ page }) => {
+  test('sub-step completion attributes parent checkbox to the user who completed it [FLD-04]', async ({ page }) => {
     // Create a team_member user
     await login(page);
     const email2 = 'substep-attrib-' + Date.now() + '@yumyums.kitchen';
@@ -1200,8 +1707,8 @@ test.describe('Loading states', () => {
       sections: [{ title: 'Inventory', order: 0, condition: null, fields: [
         { type: 'checkbox', label: 'Stock verified', required: false, order: 0, config: null, fail_trigger: null, condition: null,
           sub_steps: [
-            { id: 'sub1', label: 'Item A counted' },
-            { id: 'sub2', label: 'Item B counted' },
+            { type: 'checkbox', id: 'sub1', label: 'Item A counted' },
+            { type: 'checkbox', id: 'sub2', label: 'Item B counted' },
           ]
         }
       ]}],
@@ -1235,13 +1742,23 @@ test.describe('Loading states', () => {
     await subChecks.nth(1).click();
     await page.waitForTimeout(500);
 
-    // Parent auto-checks — attribution should show SubStep U., not Jamal
-    const attrib = await page.locator('.fill-attribution').first().textContent();
-    expect(attrib).toContain('SubStep U.');
-    expect(attrib).not.toContain('Jamal');
+    // Each sub-step is attributed to the user who actually checked it, not the
+    // current viewer. In the interactive runner the parent checkbox has no
+    // separate attribution row (see FLD-03) — attribution lives per sub-step:
+    // sub1 was checked by the admin (Jamal C.), sub2 (which completes the
+    // parent) was checked by the team_member (SubStep U.).
+    await expect(page.locator('.fill-attribution')).toHaveCount(2);
+    const sub1Attrib = await page.locator('.fill-attribution').nth(0).textContent();
+    const sub2Attrib = await page.locator('.fill-attribution').nth(1).textContent();
+    // The completing sub-step is credited to the team_member, NOT the viewer.
+    expect(sub2Attrib).toContain('SubStep U.');
+    expect(sub2Attrib).not.toContain('Jamal');
+    // And the earlier sub-step retains the admin's attribution (proving each
+    // completion is attributed to its own actor).
+    expect(sub1Attrib).toContain('Jamal');
   });
 
-  test('sub-step attribution appears before divider line', async ({ page }) => {
+  test('sub-step attribution appears before divider line [FLD-03 FLD-04]', async ({ page }) => {
     await login(page);
     await page.goto(BASE + '/workflows.html');
     await cleanupTemplates(page);
@@ -1285,7 +1802,7 @@ test.describe('Loading states', () => {
     expect(attribBorder).toBe('solid');
   });
 
-  test('sub-steps visible in read-only submitted view', async ({ page }) => {
+  test('sub-steps visible in read-only submitted view [FLD-R2]', async ({ page }) => {
     await login(page);
     await page.goto(BASE + '/workflows.html');
     await cleanupTemplates(page);
@@ -1336,7 +1853,7 @@ test.describe('Loading states', () => {
     await expect(page.locator('.sub-step-label-text').nth(1)).toContainText('Step Beta');
   });
 
-  test('sub-steps visible in approvals review tab', async ({ page }) => {
+  test('sub-steps visible in approvals review tab [APR-05]', async ({ page }) => {
     await login(page);
     await page.goto(BASE + '/workflows.html');
     await cleanupTemplates(page);
@@ -1387,7 +1904,7 @@ test.describe('Loading states', () => {
     await expect(parentItem.locator('.review-reject-btn')).toHaveCount(0);
   });
 
-  test('list view item count matches runner count with conditional fields', async ({ page }) => {
+  test('list view item count matches runner count with conditional fields [LST-05]', async ({ page }) => {
     await login(page);
     await page.goto(BASE + '/workflows.html');
     await cleanupTemplates(page);
@@ -1427,7 +1944,7 @@ test.describe('Loading states', () => {
     await expect(page.locator('.fill-field-label', { hasText: 'Hidden today' })).not.toBeVisible();
   });
 
-  test('conditional field appears after dependent checkbox is checked', async ({ page }) => {
+  test('conditional field appears after dependent checkbox is checked [VIS-06]', async ({ page }) => {
     await login(page);
     await page.goto(BASE + '/workflows.html');
     await cleanupTemplates(page);
@@ -1479,7 +1996,7 @@ test.describe('Loading states', () => {
     await expect(page.locator('.fill-field-label', { hasText: 'Field B' })).toBeVisible({ timeout: 3000 });
   });
 
-  test('conditional field appears after dependent text field is filled', async ({ page }) => {
+  test('conditional field appears after dependent text field is filled [VIS-07]', async ({ page }) => {
     await login(page);
     await page.goto(BASE + '/workflows.html');
     await cleanupTemplates(page);
@@ -1532,7 +2049,7 @@ test.describe('Loading states', () => {
     await expect(page.locator('.fill-field-label', { hasText: 'Follow up task' })).toBeVisible({ timeout: 3000 });
   });
 
-  test('submitted responses survive template update', async ({ page }) => {
+  test('submitted responses survive template update [LC-02]', async ({ page }) => {
     await login(page);
     await page.goto(BASE + '/workflows.html');
     await cleanupTemplates(page);
@@ -1592,7 +2109,7 @@ test.describe('Loading states', () => {
     await expect(page.locator('.progress-line')).toContainText('1 of 1');
   });
 
-  test('submitted checklist survives builder edit with assignment change', async ({ page }) => {
+  test('submitted checklist survives builder edit with assignment change [LC-02]', async ({ page }) => {
     await login(page);
     await page.goto(BASE + '/workflows.html');
     await cleanupTemplates(page);
@@ -1649,7 +2166,7 @@ test.describe('Loading states', () => {
     await expect(page.locator('.progress-line')).toContainText('1 of 1');
   });
 
-  test('draft responses survive template update (assignment change)', async ({ page }) => {
+  test('draft responses survive template update (assignment change) [LC-03]', async ({ page }) => {
     await login(page);
     await page.goto(BASE + '/workflows.html');
     await cleanupTemplates(page);
@@ -1703,7 +2220,7 @@ test.describe('Loading states', () => {
     await expect(page.locator('.check-btn.checked')).toBeVisible({ timeout: 5000 });
   });
 
-  test('unsubmit returns checklist to editable draft', async ({ page }) => {
+  test('unsubmit returns checklist to editable draft [RUN-10]', async ({ page }) => {
     await login(page);
     await page.goto(BASE + '/workflows.html');
     await cleanupTemplates(page);
@@ -1751,7 +2268,7 @@ test.describe('Loading states', () => {
     await expect(page.locator('.check-btn.checked')).toBeVisible();
   });
 
-  test('incomplete submit shows confirmation prompt', async ({ page }) => {
+  test('incomplete submit shows confirmation prompt [GATE-06]', async ({ page }) => {
     await login(page);
     await page.goto(BASE + '/workflows.html');
     await cleanupTemplates(page);
@@ -1788,7 +2305,7 @@ test.describe('Loading states', () => {
     await expect(page.locator('[data-action="submit"]')).toBeVisible();
   });
 
-  test('sub-step progress counts correctly in list view', async ({ page }) => {
+  test('sub-step progress counts correctly in list view [LST-04]', async ({ page }) => {
     await login(page);
     await page.goto(BASE + '/workflows.html');
     await cleanupTemplates(page);
@@ -1830,7 +2347,7 @@ test.describe('Loading states', () => {
     await expect(page.locator('.progress-line')).toContainText('1 of 2');
   });
 
-  test('skip logic condition persists after save and reload', async ({ page }) => {
+  test('skip logic condition persists after save and reload [BLD-07]', async ({ page }) => {
     await login(page);
     await page.goto(BASE + '/workflows.html');
     await cleanupTemplates(page);
@@ -1901,7 +2418,7 @@ test.describe('Loading states', () => {
     expect(selectedValue).not.toBe(''); // Should have a field selected, not empty
   });
 
-  test('new section defaults to Same as schedule', async ({ page }) => {
+  test('new section defaults to Same as schedule [BLD-07]', async ({ page }) => {
     await login(page);
     await page.goto(BASE + '/workflows.html');
     await cleanupTemplates(page);
@@ -1927,7 +2444,7 @@ test.describe('Loading states', () => {
     await expect(inheritBtn).toHaveClass(/on/);
   });
 
-  test('text field in read-only view shows answer below label', async ({ page }) => {
+  test('text field in read-only view shows answer below label [FLD-R4]', async ({ page }) => {
     await login(page);
     await page.goto(BASE + '/workflows.html');
     await cleanupTemplates(page);
@@ -1974,7 +2491,7 @@ test.describe('Loading states', () => {
     await expect(fieldRow).toHaveCount(0);
   });
 
-  test('team_member cannot see Builder tab', async ({ page }) => {
+  test('team_member cannot see Builder tab [GLB-03]', async ({ page }) => {
     // Create a team_member user via admin
     await login(page);
     const uniqueEmail = 'builder-test-' + Date.now() + '@yumyums.kitchen';
@@ -2080,7 +2597,7 @@ test.describe('Approval Flow', () => {
     });
   }
 
-  test('team member completes checklist, manager approves', async ({ page }) => {
+  test('team member completes checklist, manager approves [RUN-07 APR-11]', async ({ page }) => {
     // Setup: login as admin, create template, crew user, manager user
     await login(page);
     await cleanupTemplates(page);
@@ -2132,7 +2649,7 @@ test.describe('Approval Flow', () => {
     // Verify the approval list is now empty
   });
 
-  test('team member completes checklist, manager rejects 2 items, crew resubmits, manager approves', async ({ page }) => {
+  test('team member completes checklist, manager rejects 2 items, crew resubmits, manager approves [APR-09 FLD-18 LC-01]', async ({ page }) => {
     // Setup
     await login(page);
     await cleanupTemplates(page);
@@ -2242,7 +2759,7 @@ test.describe('Approval Flow', () => {
     await expect(page.locator('#toast')).toBeVisible({ timeout: 5000 });
   });
 
-  test('approved checklist shows Approved badge and cannot be resubmitted', async ({ page }) => {
+  test('approved checklist shows Approved badge and cannot be resubmitted [LST-08 RUN-08]', async ({ page }) => {
     // Setup
     await login(page);
     await cleanupTemplates(page);
@@ -2268,6 +2785,12 @@ test.describe('Approval Flow', () => {
     await page.waitForTimeout(2000);
     await page.click('[data-action="submit"]');
     await page.waitForTimeout(1000);
+
+    // Wait for the submission-confirmation toast before switching users. This
+    // proves the submitChecklist POST landed (and the pending-approval row
+    // exists) so the manager's Approvals list is populated deterministically —
+    // mirrors the passing "manager approves" sibling test above.
+    await expect(page.locator('#toast')).toBeVisible({ timeout: 5000 });
 
     // --- Manager: approve ---
     await login(page, mgr.email, mgr.password);
@@ -2298,4 +2821,578 @@ test.describe('Approval Flow', () => {
     // Unsubmit button should NOT exist
     await expect(page.locator('[data-action="unsubmit"]')).not.toBeVisible();
   });
+});
+
+// ─── F. prove-UNPROVEN sweep (ops-prove-checklists) ──────────────────────────
+// Red-first assertions for three UNPROVEN flows: FR-6 (idempotent submit — no
+// duplicate submission row), FR-7 (unsubmit authorization — a non-submitter is
+// refused 403), FR-8 (History returns the last 50 submissions, DESC order).
+
+test.describe('Checklist submit/unsubmit/history (prove sweep)', () => {
+  // FR-6 — Submitting the same checklist twice (same idempotency key) is
+  // idempotent: exactly ONE submission row exists afterward. Asserts against
+  // myHistory (the durable submission record), not just pendingApprovals, so a
+  // second row would be caught even after approval/removal from the queue.
+  test('FR-6 duplicate submit with same idempotency key creates exactly one submission [GATE-08]', async ({ page }) => {
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await cleanupTemplates(page);
+
+    const todayDOW = await getTodayDOW(page);
+    const result = await createTestTemplate(page, 'FR6 Idempotent', todayDOW);
+    const templateId = result.id;
+
+    // Baseline: how many prior submissions this user already has for this template.
+    const historyBefore = await apiCall(page, 'GET', 'myHistory');
+    const beforeCount = (Array.isArray(historyBefore) ? historyBefore : [])
+      .filter((s) => s.template_id === templateId).length;
+
+    // Submit twice with the SAME idempotency key.
+    const key = generateUUID();
+    const payload = { template_id: templateId, idempotency_key: key, responses: [] };
+    const status1 = await page.evaluate(async (p) => {
+      const res = await fetch('/api/v1/workflow/submitChecklist', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(p),
+      });
+      return res.status;
+    }, payload);
+    const status2 = await page.evaluate(async (p) => {
+      const res = await fetch('/api/v1/workflow/submitChecklist', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(p),
+      });
+      return res.status;
+    }, payload);
+
+    // Neither submit is an error; the second is deduped (not a fresh 500).
+    expect([200, 201]).toContain(status1);
+    expect([200, 201, 409]).toContain(status2);
+
+    // Observable DB state: exactly one NEW submission for this template.
+    const historyAfter = await apiCall(page, 'GET', 'myHistory');
+    const forTemplate = (Array.isArray(historyAfter) ? historyAfter : [])
+      .filter((s) => s.template_id === templateId);
+    expect(forTemplate.length - beforeCount).toBe(1);
+
+    // And all of them share the one idempotency key we submitted with.
+    const distinctIds = new Set(forTemplate.map((s) => s.id));
+    expect(distinctIds.size).toBe(forTemplate.length);
+    const newRows = forTemplate.filter((s) => s.idempotency_key === key);
+    expect(newRows.length).toBe(1);
+  });
+
+  // FR-7 — Unsubmit requires authorization: a user who did NOT submit the
+  // checklist (here a freshly-invited team_member, in a separate browser
+  // context so the admin session is untouched) is refused with 403 not_submitter,
+  // and the submission still exists afterward. Non-admin session authored INLINE
+  // per the multi-role invite/accept-invite idiom used elsewhere in this file.
+  test('FR-7 a non-submitter is refused (403) when unsubmitting [RUN-11]', async ({ page, browser }) => {
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await cleanupTemplates(page);
+    await cleanupPendingApprovals(page);
+
+    // Admin creates + submits a checklist; capture its submission id via myHistory.
+    const todayDOW = await getTodayDOW(page);
+    const tpl = await createTestTemplate(page, 'FR7 Unsubmit Auth', todayDOW);
+    const templateId = tpl.id;
+    await submitChecklistViaAPI(page, templateId);
+    const adminHistory = await apiCall(page, 'GET', 'myHistory');
+    const sub = (Array.isArray(adminHistory) ? adminHistory : [])
+      .find((s) => s.template_id === templateId);
+    expect(sub && sub.id).toBeTruthy();
+    const submissionId = sub.id;
+
+    // Invite a team_member and activate them (INLINE — no shared helper).
+    const memberEmail = 'fr7-nonsubmitter-' + Date.now() + '@yumyums.kitchen';
+    const memberPassword = 'test456';
+    const inviteRes = await page.evaluate(async (email) => {
+      const res = await fetch('/api/v1/users/invite', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ first_name: 'Non', last_name: 'Submitter', email, roles: ['team_member'] }),
+      });
+      return res.json();
+    }, memberEmail);
+    const token = inviteRes.invite_path.split('token=')[1];
+    await page.evaluate(async ([t, pw]) => {
+      await fetch('/api/v1/auth/accept-invite', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: t, password: pw }),
+      });
+    }, [token, memberPassword]);
+
+    // In a fresh context, log in AS the team_member and attempt to unsubmit the
+    // admin's submission. Server must refuse: 403 not_submitter.
+    const memberCtx = await browser.newContext();
+    try {
+      const memberPage = await memberCtx.newPage();
+      await login(memberPage, memberEmail, memberPassword);
+      const { status, bodyText } = await memberPage.evaluate(async (sid) => {
+        const res = await fetch('/api/v1/workflow/unsubmitChecklist', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ submission_id: sid }),
+        });
+        return { status: res.status, bodyText: await res.text() };
+      }, submissionId);
+      expect(status).toBe(403);
+      expect(bodyText).toContain('not_submitter');
+    } finally {
+      await memberCtx.close();
+    }
+
+    // Re-login as admin on the main page: accept-invite above overwrote this
+    // page's session cookie with the team_member's session.
+    await login(page);
+
+    // The submission still exists (was NOT unsubmitted by the non-submitter).
+    const adminHistoryAfter = await apiCall(page, 'GET', 'myHistory');
+    const stillThere = (Array.isArray(adminHistoryAfter) ? adminHistoryAfter : [])
+      .some((s) => s.id === submissionId);
+    expect(stillThere).toBe(true);
+  });
+
+  // FR-8 — History shows the crew member's last 50 submissions, newest first.
+  // Create 52 submissions (unique idempotency keys → 52 distinct rows) and assert
+  // myHistory caps the result at 50 and orders by submitted_at DESC.
+  test('FR-8 myHistory returns at most the last 50 submissions in DESC order [LST-13]', async ({ page }) => {
+    test.setTimeout(120000);
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await cleanupTemplates(page);
+
+    const todayDOW = await getTodayDOW(page);
+    const tpl = await createTestTemplate(page, 'FR8 History Cap', todayDOW);
+    const templateId = tpl.id;
+
+    // Fire 52 submissions, each with a unique idempotency key → 52 distinct rows.
+    const N = 52;
+    for (let i = 0; i < N; i++) {
+      await submitChecklistViaAPI(page, templateId);
+    }
+
+    const history = await apiCall(page, 'GET', 'myHistory');
+    expect(Array.isArray(history)).toBe(true);
+
+    // Cap at 50 even though 52 were created.
+    expect(history.length).toBeLessThanOrEqual(50);
+    // And it IS capped (not fewer than 50) — proves the LIMIT is exercised.
+    expect(history.length).toBe(50);
+
+    // All returned rows are distinct submissions.
+    const ids = history.map((s) => s.id);
+    expect(new Set(ids).size).toBe(ids.length);
+
+    // Ordering: submitted_at is non-increasing (newest first).
+    const times = history.map((s) => new Date(s.submitted_at).getTime());
+    for (let i = 1; i < times.length; i++) {
+      expect(times[i]).toBeLessThanOrEqual(times[i - 1]);
+    }
+  });
+});
+
+// ─── Builder conditional-logic prove sweep (ops-prove-builder, Track A card 3) ──
+// FR-16 (DOW schedule visibility), FR-17 (section visibility condition),
+// FR-18 (skip logic show/hide). Red-first assertions naming the observable
+// DOM/list behavior against the CURRENT app. Appended LAST so this block runs
+// after all sibling tests. Fixtures use unique template names + cleanupTemplates
+// to avoid polluting sibling tests.
+test.describe('Builder conditional logic (prove sweep)', () => {
+  // FR-16 — A template's day-of-week schedule governs which days a checklist
+  // appears in the crew member's My Checklists list.
+  // Observable behavior asserted: a template scheduled for TODAY is present in
+  // the list; a template scheduled for a NON-today DOW is ABSENT. This exercises
+  // the server-side DOW gate (repository.go: active_days = ANY(...)).
+  test('FR-16 DOW schedule shows today-scheduled checklist and hides off-day one [LST-10]', async ({ page }) => {
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await cleanupTemplates(page);
+
+    const todayDOW = await getTodayDOW(page);
+    const offDay = (todayDOW + 3) % 7; // a day that is definitely not today
+
+    // Template A: scheduled for TODAY → should appear.
+    await apiCall(page, 'POST', 'createTemplate', {
+      name: 'FR16 Scheduled Today',
+      sections: [{ title: 'Tasks', order: 0, condition: null, fields: [
+        { type: 'checkbox', label: 'Do a thing', required: false, order: 0, config: null, fail_trigger: null, condition: null },
+      ]}],
+      schedules: [{ active_days: [todayDOW] }],
+      requires_approval: false,
+      assignments: [{ assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' }],
+    });
+
+    // Template B: scheduled for an OFF day (not today) → should be hidden.
+    await apiCall(page, 'POST', 'createTemplate', {
+      name: 'FR16 Scheduled Off Day',
+      sections: [{ title: 'Tasks', order: 0, condition: null, fields: [
+        { type: 'checkbox', label: 'Do a thing', required: false, order: 0, config: null, fail_trigger: null, condition: null },
+      ]}],
+      schedules: [{ active_days: [offDay] }],
+      requires_approval: false,
+      assignments: [{ assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' }],
+    });
+
+    await page.reload();
+    await page.waitForSelector('#checklist-list .row', { timeout: 10000 });
+
+    // Today-scheduled checklist is visible in the list.
+    await expect(
+      page.locator('#checklist-list .row', { hasText: 'FR16 Scheduled Today' }).first()
+    ).toBeVisible();
+
+    // Off-day checklist is NOT in the list at all.
+    await expect(
+      page.locator('#checklist-list .row', { hasText: 'FR16 Scheduled Off Day' })
+    ).toHaveCount(0);
+  });
+
+  // FR-17 — A template section's visibility condition shows/hides the whole
+  // section (and its fields) based on the condition. Observable behavior:
+  // a section whose day-condition excludes today renders NONE of its fields in
+  // the runner, while a sibling always-visible section renders its field.
+  test('FR-17 section day-condition hides the section and its fields in the runner [VIS-03]', async ({ page }) => {
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await cleanupTemplates(page);
+
+    const todayDOW = await getTodayDOW(page);
+    const offDay = (todayDOW + 3) % 7;
+
+    await apiCall(page, 'POST', 'createTemplate', {
+      name: 'FR17 Section Condition',
+      sections: [
+        // Always-visible section (no condition).
+        { title: 'Open Section', order: 0, condition: null, fields: [
+          { type: 'checkbox', label: 'Always shown field', required: false, order: 0, config: null, fail_trigger: null, condition: null },
+        ]},
+        // Section gated to an off-day → hidden today.
+        { title: 'Weekend Only Section', order: 1, condition: { days: [offDay] }, fields: [
+          { type: 'checkbox', label: 'Hidden section field', required: false, order: 0, config: null, fail_trigger: null, condition: null },
+        ]},
+      ],
+      schedules: [{ active_days: [todayDOW] }],
+      requires_approval: false,
+      assignments: [{ assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' }],
+    });
+
+    await page.reload();
+    await page.waitForSelector('#checklist-list .row', { timeout: 10000 });
+    await page.locator('#checklist-list .row', { hasText: 'FR17 Section Condition' }).first().click();
+    await page.waitForSelector('#fill-body .fill-field');
+
+    // The open section's field is visible.
+    await expect(page.locator('.fill-field-label', { hasText: 'Always shown field' })).toBeVisible();
+
+    // The off-day section header AND its field are hidden.
+    await expect(page.locator('.sec-hd', { hasText: 'Weekend Only Section' })).toHaveCount(0);
+    await expect(page.locator('.fill-field-label', { hasText: 'Hidden section field' })).toHaveCount(0);
+
+    // Progress counts only the 1 visible field (hidden section not counted).
+    await expect(page.locator('.progress-line')).toContainText('0 of 1');
+  });
+
+  // FR-18 — Skip logic: a field's answer shows/hides a downstream field.
+  // Observable behavior: the dependent field is hidden until the source field
+  // equals the condition value, appears when it does, and HIDES AGAIN when the
+  // source answer changes away from the value (full show/hide round-trip DOM
+  // state). The slate flagged FR-18 as the likeliest RED — if the round-trip
+  // hide does not fire, this records RED.
+  test('FR-18 skip logic shows then re-hides a field as the source answer changes [VIS-05 VIS-08]', async ({ page }) => {
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await cleanupTemplates(page);
+
+    const todayDOW = await getTodayDOW(page);
+
+    // Create with a yes/no source field so we can toggle its value both ways.
+    await apiCall(page, 'POST', 'createTemplate', {
+      name: 'FR18 Skip Logic Roundtrip',
+      sections: [{ title: 'Tasks', order: 0, condition: null, fields: [
+        { type: 'yes_no', label: 'Was there a spill', required: false, order: 0, config: null, fail_trigger: null, condition: null },
+      ]}],
+      schedules: [{ active_days: [todayDOW] }],
+      requires_approval: false,
+      assignments: [{ assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' }],
+    });
+
+    const templates = await apiCall(page, 'GET', 'templates');
+    const tpl = templates.find((t) => t.name === 'FR18 Skip Logic Roundtrip');
+    const sourceFieldId = tpl.sections[0].fields[0].id;
+
+    // Add a dependent field that shows only when the source == "yes".
+    await apiCall(page, 'PUT', 'updateTemplate/' + tpl.id, {
+      name: 'FR18 Skip Logic Roundtrip',
+      sections: [{ title: 'Tasks', order: 0, condition: null, fields: [
+        { id: sourceFieldId, type: 'yes_no', label: 'Was there a spill', required: false, order: 0, config: null, fail_trigger: null, condition: null },
+        { type: 'text', label: 'Describe the cleanup', required: false, order: 1, config: null, fail_trigger: null,
+          condition: { field_id: sourceFieldId, operator: 'equals', value: 'true' } },
+      ]}],
+      schedules: [{ active_days: [todayDOW] }],
+      requires_approval: false,
+      assignments: [{ assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' }],
+    });
+
+    await page.reload();
+    await page.waitForSelector('#checklist-list .row', { timeout: 10000 });
+    await page.locator('#checklist-list .row', { hasText: 'FR18 Skip Logic Roundtrip' }).first().click();
+    await page.waitForSelector('#fill-body .fill-field');
+
+    const dependent = page.locator('.fill-field-label', { hasText: 'Describe the cleanup' });
+
+    // Initially hidden — source not answered yet.
+    await expect(dependent).toHaveCount(0);
+
+    // Answer "Yes" → dependent field appears.
+    await page.locator('[data-action="set-yes"]').first().click();
+    await page.waitForTimeout(500);
+    await expect(dependent).toBeVisible({ timeout: 3000 });
+
+    // Change the answer to "No" → dependent field must HIDE again (round-trip).
+    await page.locator('[data-action="set-no"]').first().click();
+    await page.waitForTimeout(500);
+    await expect(dependent).toHaveCount(0);
+  });
+});
+
+// ─── Cross-cutting guarantees (prove sweep — Track A card 4) ─────────────────
+// NFR-2 (photo presign), NFR-6 (archived 409), NFR-7 (401 redirect), FR-19
+// (template-snapshot freeze), FR-20 (approval gate). NFR-5 (offline sync queue /
+// conflict / cleanup) is PARKed — see the note at the bottom of this block: it
+// needs IndexedDB + service-worker plumbing that Playwright blocks by config, and
+// the offline-sync flows are in HQ's known flaky-red pool. No honest fixture can
+// drive it here without S3/IndexedDB plumbing beyond a test fixture (PARK trigger).
+test.describe('Cross-cutting guarantees (prove sweep)', () => {
+  // apiPhotos performs a raw fetch against a non-workflow API path (e.g. photos,
+  // me) and returns { status, body } so we can assert the degraded/edge shapes
+  // the workflow apiCall() helper hides behind its /workflow/ prefix.
+  async function apiRaw(page, method, path, body) {
+    return page.evaluate(async ([m, p, b]) => {
+      const opts = { method: m, credentials: 'include', headers: {} };
+      if (b) { opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(b); }
+      const res = await fetch(p, opts);
+      const text = await res.text();
+      let json = null;
+      try { json = JSON.parse(text); } catch (e) { /* non-JSON */ }
+      return { status: res.status, text, json };
+    }, [method, path, body]);
+  }
+
+  // NFR-2 — Photo pipeline: the photo field presigns against
+  // POST /api/v1/photos/presign, then PUTs the file to S3/DO-Spaces and the
+  // public URL round-trips. The PUT + round-trip legs require a LIVE DO-Spaces
+  // client (bucket + creds); the ephemeral night-crew stack sets no SPACES_* env,
+  // so the presigner is nil. This test proves the presign REQUEST/response *shape*
+  // that is testable without S3: the endpoint is reachable behind auth and returns
+  // the documented degraded contract (503 {"error":"photo storage not configured"})
+  // when storage is unconfigured — instead of a presigned URL. The upload PUT +
+  // public-URL round-trip is PARKed (needs live S3 — beyond a test fixture).
+  test('NFR-2 photo presign returns the documented shape (503 degraded when S3 unset; PUT/round-trip PARKed) [FLD-20]', async ({ page }) => {
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+
+    const resp = await apiRaw(page, 'POST', '/api/v1/photos/presign', {
+      path_prefix: 'checklists', id: 'nfr2-tpl', filename: 'nfr2.jpg',
+    });
+
+    // Authenticated request reaches the handler (not a 401/404 route miss).
+    expect(resp.status).not.toBe(401);
+    expect(resp.status).not.toBe(404);
+
+    if (resp.status === 200) {
+      // Storage IS configured (unexpected in the ephemeral stack): assert the
+      // full presign response shape — a PUT url + a permanent public_url.
+      expect(resp.json).toBeTruthy();
+      expect(typeof resp.json.url).toBe('string');
+      expect(resp.json.url.length).toBeGreaterThan(0);
+      expect(typeof resp.json.public_url).toBe('string');
+      expect(resp.json.public_url.length).toBeGreaterThan(0);
+    } else {
+      // Ephemeral stack: no SPACES_* env → presigner nil → documented 503 shape.
+      expect(resp.status).toBe(503);
+      expect(resp.json).toMatchObject({ error: 'photo storage not configured' });
+    }
+  });
+
+  // NFR-6 — Archived-while-offline: submitting a checklist for a template that
+  // was archived (soft-deleted) after the user opened it returns 409
+  // template_archived instead of failing silently. getTemplateByID filters
+  // archived_at IS NULL, so submit finds no template → ErrTemplateArchived → 409.
+  // Observable behavior asserted: the POST /submitChecklist envelope is
+  // status 409 with error 'template_archived', and NO submission is created.
+  test('NFR-6 submitting an archived template returns 409 template_archived and creates no submission [GATE-09]', async ({ page }) => {
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await cleanupTemplates(page);
+    await cleanupPendingApprovals(page);
+
+    const todayDOW = await getTodayDOW(page);
+    const created = await apiCall(page, 'POST', 'createTemplate', {
+      name: 'NFR6 Archive Race',
+      sections: [{ title: 'Tasks', order: 0, condition: null, fields: [
+        { type: 'checkbox', label: 'Item A', required: false, order: 0, config: null, fail_trigger: null, condition: null },
+      ]}],
+      schedules: [{ active_days: [todayDOW] }],
+      requires_approval: true,
+      assignments: [
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' },
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'approver' },
+      ],
+    });
+    const tplId = created.id;
+
+    // Archive the template out from under the (would-be offline) user.
+    await apiCall(page, 'DELETE', 'archiveTemplate/' + tplId);
+
+    // Now submit against the archived template via a raw fetch so we can read
+    // the exact status + envelope the client sees.
+    const resp = await apiRaw(page, 'POST', '/api/v1/workflow/submitChecklist', {
+      template_id: tplId,
+      idempotency_key: generateUUID(),
+      responses: [],
+    });
+
+    expect(resp.status).toBe(409);
+    expect(resp.json).toMatchObject({ error: 'template_archived' });
+
+    // No submission surfaced anywhere (approvals empty for this template).
+    const pending = await apiCall(page, 'GET', 'pendingApprovals');
+    const forThis = Array.isArray(pending) ? pending.filter(s => s.template_id === tplId) : [];
+    expect(forThis.length).toBe(0);
+  });
+
+  // NFR-7 — Auth expiry mid-checklist: a 401 on an API call redirects the crew
+  // member to /login.html (workflows.html init() checks /api/v1/me → 401 →
+  // window.location='/login.html'; sync.js api() does the same for /workflow/*).
+  // Observable behavior asserted (redirect leg): with no session cookie, loading
+  // workflows.html lands on login.html. The "local drafts persist across the
+  // redirect" leg needs IndexedDB draft plumbing (hq_offline_v1 store) beyond a
+  // test fixture and Playwright blocks the service worker → PARKed (noted below).
+  test('NFR-7 an unauthenticated workflows load redirects to /login.html [GLB-01]', async ({ page, context }) => {
+    // Establish then clear the session to simulate a 401 mid-session.
+    await login(page);
+    await context.clearCookies();
+
+    await page.goto(BASE + '/workflows.html');
+
+    // init() calls /api/v1/me → 401 → window.location='/login.html'.
+    await page.waitForURL(url => url.pathname.includes('login'), { timeout: 8000 });
+    expect(page.url()).toContain('login');
+  });
+
+  // FR-19 — Template snapshot freeze: on submit, the checklist freezes a JSONB
+  // snapshot of the template (checklist_submissions.template_snapshot) so a later
+  // admin rename/edit does NOT alter an already-submitted checklist. Observable
+  // behavior asserted: after submit, renaming the template changes the LIVE name
+  // (pendingApprovals.template_name from the join) but the frozen
+  // template_snapshot.name still holds the ORIGINAL name.
+  test('FR-19 a submitted checklist freezes a template snapshot that later edits do not change [LC-02]', async ({ page }) => {
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await cleanupTemplates(page);
+    await cleanupPendingApprovals(page);
+
+    const todayDOW = await getTodayDOW(page);
+    const created = await apiCall(page, 'POST', 'createTemplate', {
+      name: 'FR19 Original Name',
+      sections: [{ title: 'Tasks', order: 0, condition: null, fields: [
+        { type: 'checkbox', label: 'Item A', required: false, order: 0, config: null, fail_trigger: null, condition: null },
+      ]}],
+      schedules: [{ active_days: [todayDOW] }],
+      requires_approval: true,
+      assignments: [
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' },
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'approver' },
+      ],
+    });
+    const tplId = created.id;
+
+    // Submit while the template is still named "FR19 Original Name".
+    await submitChecklistViaAPI(page, tplId);
+
+    // Now rename the template (full-replace update). This must NOT touch the
+    // frozen snapshot on the already-submitted checklist.
+    await apiCall(page, 'PUT', 'updateTemplate/' + tplId, {
+      name: 'FR19 RENAMED After Submit',
+      sections: [{ title: 'Tasks', order: 0, condition: null, fields: [
+        { type: 'checkbox', label: 'Item A', required: false, order: 0, config: null, fail_trigger: null, condition: null },
+      ]}],
+      schedules: [{ active_days: [todayDOW] }],
+      requires_approval: true,
+      assignments: [
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' },
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'approver' },
+      ],
+    });
+
+    const pending = await apiCall(page, 'GET', 'pendingApprovals');
+    const sub = (Array.isArray(pending) ? pending : []).find(s => s.template_id === tplId);
+    expect(sub).toBeTruthy();
+
+    // The LIVE template name (from the join) reflects the rename...
+    expect(sub.template_name).toBe('FR19 RENAMED After Submit');
+
+    // ...but the FROZEN snapshot still carries the ORIGINAL name.
+    const snapshot = sub.template_snapshot;
+    expect(snapshot).toBeTruthy();
+    expect(snapshot.name).toBe('FR19 Original Name');
+  });
+
+  // FR-20 — Approval gate: saving a template with requires_approval ON is refused
+  // unless at least one assignment has assignment_role 'approver' (hasApprover).
+  // Observable behavior asserted: create WITHOUT an approver → 400 requires_approver
+  // and NO template row created; create WITH an approver → 200 and a row exists.
+  test('FR-20 requires_approval without an approver is refused (400 requires_approver); with one it is allowed [BLD-13]', async ({ page }) => {
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await cleanupTemplates(page);
+
+    const todayDOW = await getTodayDOW(page);
+
+    // Case 1: requires_approval ON, only an assignee (no approver) → 400.
+    const noApprover = await apiRaw(page, 'POST', '/api/v1/workflow/createTemplate', {
+      name: 'FR20 No Approver',
+      sections: [{ title: 'Tasks', order: 0, condition: null, fields: [
+        { type: 'checkbox', label: 'Item A', required: false, order: 0, config: null, fail_trigger: null, condition: null },
+      ]}],
+      schedules: [{ active_days: [todayDOW] }],
+      requires_approval: true,
+      assignments: [
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' },
+      ],
+    });
+    expect(noApprover.status).toBe(400);
+    expect(noApprover.json).toMatchObject({ error: 'requires_approver' });
+
+    // The refused template must NOT have been created.
+    let templates = await apiCall(page, 'GET', 'templates');
+    expect((Array.isArray(templates) ? templates : []).find(t => t.name === 'FR20 No Approver')).toBeUndefined();
+
+    // Case 2: same template but WITH an approver assignment → allowed.
+    const withApprover = await apiRaw(page, 'POST', '/api/v1/workflow/createTemplate', {
+      name: 'FR20 With Approver',
+      sections: [{ title: 'Tasks', order: 0, condition: null, fields: [
+        { type: 'checkbox', label: 'Item A', required: false, order: 0, config: null, fail_trigger: null, condition: null },
+      ]}],
+      schedules: [{ active_days: [todayDOW] }],
+      requires_approval: true,
+      assignments: [
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' },
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'approver' },
+      ],
+    });
+    // createTemplate returns 201 Created on success.
+    expect(withApprover.status).toBeGreaterThanOrEqual(200);
+    expect(withApprover.status).toBeLessThan(300);
+    templates = await apiCall(page, 'GET', 'templates');
+    expect((Array.isArray(templates) ? templates : []).find(t => t.name === 'FR20 With Approver')).toBeTruthy();
+  });
+
+  // NFR-5 — Sync / offline / conflict / cleanup — PARKED.
+  // Reason: proving the offline queue (IndexedDB store hq_offline_v1 'submitQueue'),
+  // the pending/saved/error save-status indicator, concurrent-edit conflict
+  // resolution, and post-submit draft cleanup requires IndexedDB + service-worker
+  // plumbing beyond a test fixture. The Playwright config sets
+  // serviceWorkers:'block', and HQ's offline-sync specs are in the known
+  // flaky-red baseline pool. Per the runbook PARK trigger (IndexedDB/SW plumbing),
+  // this flow is PARKed for a dedicated offline-sync harness rather than forced
+  // into a dishonest classification here. No test authored for NFR-5.
 });

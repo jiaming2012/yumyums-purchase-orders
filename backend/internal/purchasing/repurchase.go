@@ -3,7 +3,7 @@ package purchasing
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -47,7 +47,7 @@ func RecordRepurchase(ctx context.Context, pool *pgxpool.Pool, sectionID string)
 			INSERT INTO repurchase_log (purchase_item_id, shopping_list_id, quantity)
 			VALUES ($1, $2, $3)
 		`, it.purchaseItemID, it.listID, it.qty); err != nil {
-			log.Printf("RecordRepurchase: insert log for item %s: %v", it.purchaseItemID, err)
+			slog.Error("RecordRepurchase insert log failed", "purchase_item_id", it.purchaseItemID, "error", err)
 			// Continue — other items should still be recorded
 		}
 	}
@@ -126,10 +126,10 @@ func UpsertRepurchaseResetConfig(ctx context.Context, pool *pgxpool.Pool, dayOfW
 
 // runRepurchaseResetCheck checks if the configured reset time has passed since last_reset_at
 // and resets badge visibility if so. Called from the scheduler tick.
-func runRepurchaseResetCheck(ctx context.Context, pool *pgxpool.Pool) {
+func runRepurchaseResetCheck(ctx context.Context, pool *pgxpool.Pool, now func() time.Time) {
 	cfg, err := GetRepurchaseResetConfig(ctx, pool)
 	if err != nil {
-		log.Printf("repurchase reset: GetRepurchaseResetConfig error: %v", err)
+		slog.Error("repurchase reset GetRepurchaseResetConfig error", "error", err)
 		return
 	}
 	if cfg == nil {
@@ -138,27 +138,27 @@ func runRepurchaseResetCheck(ctx context.Context, pool *pgxpool.Pool) {
 
 	loc, err := time.LoadLocation(cfg.Timezone)
 	if err != nil {
-		log.Printf("repurchase reset: invalid timezone %q: %v", cfg.Timezone, err)
+		slog.Error("repurchase reset invalid timezone", "timezone", cfg.Timezone, "error", err)
 		return
 	}
 
 	hour, minute, err := parseCutoffTime(cfg.ResetTime)
 	if err != nil {
-		log.Printf("repurchase reset: parse reset_time %q: %v", cfg.ResetTime, err)
+		slog.Error("repurchase reset parse reset_time failed", "reset_time", cfg.ResetTime, "error", err)
 		return
 	}
 
-	now := time.Now().In(loc)
+	nowT := now().In(loc)
 
 	// Find the most recent occurrence of (day_of_week, hour, minute) in the past
 	targetWeekday := time.Weekday(cfg.DayOfWeek)
-	daysBack := int(now.Weekday()) - int(targetWeekday)
+	daysBack := int(nowT.Weekday()) - int(targetWeekday)
 	if daysBack < 0 {
 		daysBack += 7
 	}
-	resetCandidate := time.Date(now.Year(), now.Month(), now.Day()-daysBack, hour, minute, 0, 0, loc)
+	resetCandidate := time.Date(nowT.Year(), nowT.Month(), nowT.Day()-daysBack, hour, minute, 0, 0, loc)
 
-	if !now.After(resetCandidate) {
+	if !nowT.After(resetCandidate) {
 		return // reset time hasn't passed this week
 	}
 
@@ -170,8 +170,8 @@ func runRepurchaseResetCheck(ctx context.Context, pool *pgxpool.Pool) {
 	if _, err := pool.Exec(ctx, `
 		UPDATE repurchase_reset_config SET last_reset_at = $1, updated_at = now()
 	`, resetCandidate); err != nil {
-		log.Printf("repurchase reset: update error: %v", err)
+		slog.Error("repurchase reset update error", "error", err)
 		return
 	}
-	log.Printf("repurchase reset: triggered automatic badge reset at %s", resetCandidate.Format(time.RFC3339))
+	slog.Info("repurchase reset triggered automatic badge reset", "reset_at", resetCandidate.Format(time.RFC3339))
 }

@@ -17,7 +17,8 @@
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
 body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg);color:var(--txt);padding:env(safe-area-inset-top) 16px env(safe-area-inset-bottom)}
 .app{max-width:480px;margin:0 auto;padding-top:20px}
-.back{display:inline-flex;align-items:center;gap:4px;color:var(--info-tx);text-decoration:none;font-size:14px;font-weight:500;margin-bottom:16px;cursor:pointer}
+.back{display:inline-flex;align-items:center;gap:6px;color:var(--info-tx);text-decoration:none;font-size:16px;font-weight:500;margin-bottom:12px;cursor:pointer;min-height:44px;padding:4px 8px 4px 0;-webkit-tap-highlight-color:transparent}
+.back::before{content:'‹';font-size:20px;line-height:1;margin-top:-1px}
 .tabs{display:flex;gap:0;background:var(--card);border-radius:10px;padding:3px;border:0.5px solid var(--brd);margin-bottom:16px}
 .tabs button{flex:1;border:none;background:transparent;padding:12px 0;font-size:14px;font-weight:500;color:var(--mut);border-radius:8px;cursor:pointer}
 .tabs button.on{background:var(--info-bg);color:var(--info-tx)}
@@ -96,11 +97,24 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .video-player-modal{position:fixed;top:0;left:0;width:100%;height:100%;background:#000;z-index:9999;display:none}
 .video-player-modal video{width:100%;height:100%;object-fit:contain}
 .video-player-close{position:absolute;top:12px;right:16px;color:#fff;font-size:24px;cursor:pointer;z-index:10000;background:rgba(0,0,0,0.5);border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center}
+.photo-modal{position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.85);z-index:1000;display:flex;align-items:center;justify-content:center;flex-direction:column}
+.photo-preview{max-width:100%;max-height:70vh;object-fit:contain}
+.photo-modal-actions{position:fixed;bottom:32px;left:0;right:0;display:flex;justify-content:center;gap:16px;align-items:center}
+.photo-confirm-btn{min-width:56px;min-height:56px;border-radius:28px;background:var(--info-bg);color:var(--info-tx);border:none;font-size:24px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.photo-retake-btn{padding:12px 16px;background:transparent;color:var(--info-tx);border:none;font-size:14px;font-weight:500;cursor:pointer;min-height:44px;font-family:inherit}
+.photo-thumb{width:48px;height:48px;border-radius:6px;object-fit:cover;border:0.5px solid var(--brd)}
+.photo-capture-btn{padding:8px 12px;background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;font-size:14px;cursor:pointer;font-family:inherit;color:var(--txt)}
+.photo-retake-link{background:none;border:none;color:var(--info-tx);font-size:12px;cursor:pointer;padding:0;font-family:inherit}
+.photo-uploading{display:flex;align-items:center;gap:10px;padding:8px 0;font-size:13px;color:var(--mut)}
+.photo-spinner{width:18px;height:18px;border:2px solid var(--brd);border-top-color:var(--info-tx);border-radius:50%;animation:photo-spin 0.8s linear infinite;flex-shrink:0}
+@keyframes photo-spin{to{transform:rotate(360deg)}}
+.photo-thumb-wrap{display:flex;gap:6px;align-items:center;padding:2px 0}
+.photo-thumb-link{display:block;cursor:pointer}
 </style>
 </head>
 <body>
 <div class="app">
-  <a class="back" href="index.html" id="hq-back">&#8249; HQ &nbsp;&#183;&nbsp; Onboarding</a>
+  <a class="back" href="index.html" id="hq-back">HQ &nbsp;&#183;&nbsp; Onboarding</a>
   <div class="tabs">
     <button id="t1" class="on" onclick="show(1)">My Trainings</button>
     <button id="t2" onclick="show(2)">Manager</button>
@@ -194,6 +208,92 @@ function formatDateTime(dateStr) {
   return months[d.getMonth()] + ' ' + d.getDate() + ', ' + h + ':' + (m < 10 ? '0' : '') + m + ap;
 }
 
+// === Photo utilities ===
+function openCamera(onCapture) {
+  var inp = document.createElement('input');
+  inp.type = 'file';
+  inp.accept = 'image/*';
+  inp.capture = 'environment';
+  inp.style.cssText = 'position:fixed;top:-100px;left:-100px;opacity:0;pointer-events:none';
+  document.body.appendChild(inp);
+  var cleanup = setTimeout(function() { if (inp.parentNode) inp.parentNode.removeChild(inp); }, 30000);
+  inp.addEventListener('change', function() {
+    clearTimeout(cleanup);
+    var file = inp.files && inp.files[0];
+    if (inp.parentNode) inp.parentNode.removeChild(inp);
+    if (file) onCapture(file);
+  });
+  inp.click();
+}
+
+function showPhotoPreview(objectURL, onConfirm, onRetake) {
+  var modal = document.createElement('div');
+  modal.className = 'photo-modal';
+  modal.innerHTML = '<img class="photo-preview" src="' + objectURL + '">' +
+    '<div class="photo-modal-actions">' +
+    '<button class="photo-confirm-btn" aria-label="Confirm photo">\u2713</button>' +
+    '<button class="photo-retake-btn">\u21bb Retake</button>' +
+    '</div>';
+  document.body.appendChild(modal);
+  modal.querySelector('.photo-confirm-btn').onclick = function() {
+    modal.remove(); onConfirm(objectURL);
+  };
+  modal.querySelector('.photo-retake-btn').onclick = function() {
+    modal.remove(); onRetake();
+  };
+}
+
+function showFullPhoto(url) {
+  var modal = document.createElement('div');
+  modal.className = 'photo-modal';
+  modal.innerHTML = '<img class="photo-preview" src="' + url + '">' +
+    '<div style="position:fixed;top:12px;left:16px;z-index:1001"><button style="background:rgba(0,0,0,0.5);color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:14px;font-weight:500;cursor:pointer;font-family:inherit">Back</button></div>';
+  document.body.appendChild(modal);
+  modal.querySelector('button').onclick = function() { modal.remove(); };
+  modal.addEventListener('click', function(e) { if (e.target === modal) modal.remove(); });
+}
+
+function handleOBPhotoCaptureClick(itemId, hireId, secId, sections) {
+  openCamera(function(file) {
+    // Skip custom preview — iOS/Android camera already has review/retake
+    var captureArea = document.querySelector('[data-action="ob-photo-capture"][data-item-id="' + itemId + '"]');
+    if (captureArea && captureArea.parentNode) {
+      captureArea.parentNode.innerHTML = '<div class="photo-uploading"><div class="photo-spinner"></div>Uploading...</div>';
+    }
+    var formData = new FormData();
+    formData.append('path_prefix', 'onboarding');
+    formData.append('id', hireId);
+    formData.append('filename', itemId + '.jpg');
+    formData.append('file', file);
+    fetch('/api/v1/photos/upload', {
+      method: 'POST',
+      credentials: 'include',
+      body: formData
+    }).then(function(r) {
+      if (r.status === 401) { location.href = 'login.html'; throw new Error('unauthorized'); }
+      if (!r.ok) throw new Error('upload failed: ' + r.status);
+      return r.json();
+    }).then(function(resp) {
+      saveProgress(itemId, 'photo', true, sections, hireId, resp.public_url);
+      (sections || []).forEach(function(sec) {
+        (sec.items || []).forEach(function(item) {
+          if (item.id === itemId) { item.proof_photo_url = resp.public_url; }
+          (item.sub_items || []).forEach(function(sub) {
+            if (sub.id === itemId) { sub.proof_photo_url = resp.public_url; }
+          });
+        });
+      });
+      renderMyRunner();
+    }).catch(function(err) {
+      console.error('Photo upload failed:', err);
+      var area = document.querySelector('.photo-uploading');
+      if (area && area.parentNode) {
+        area.parentNode.innerHTML = '<button class="photo-capture-btn" data-action="ob-photo-capture" data-item-id="' + itemId + '" data-sec-id="' + secId + '" data-hire-id="' + hireId + '">&#128247; Take Proof Photo</button>';
+      }
+    });
+  });
+}
+
 // === Tab switching ===
 var _activeTab = 1;
 function show(n) {
@@ -263,7 +363,7 @@ async function openMyTraining(templateId) {
 function renderMyRunner() {
   if (!CURRENT_TRAINING) { loadMyTrainings(); return; }
   var html = '';
-  html += '<span class="back" data-action="back-to-my-list" style="display:inline-flex;align-items:center;gap:4px;color:var(--info-tx);font-size:14px;font-weight:500;margin-bottom:16px;cursor:pointer">&#8249; My Trainings</span>';
+  html += '<span class="back" data-action="back-to-my-list" style="cursor:pointer">My Trainings</span>';
   html += '<div style="font-size:14px;font-weight:600;color:var(--txt);margin-bottom:16px">'+escapeOBAttr(CURRENT_TRAINING.template.name)+'</div>';
   html += renderSections(CURRENT_TRAINING.sections, CURRENT_USER.id, false);
   document.getElementById('my-body').innerHTML = html;
@@ -337,19 +437,49 @@ function renderSections(sections, hireId, readOnly) {
             } else {
               html += '<div class="'+checkClass+'"'+checkable+(readOnly?' style="cursor:default"':'')+'>'+(checked?'&#10003;':'')+'</div>';
             }
+            html += '<div style="flex:1;display:flex;gap:8px;align-items:flex-start">';
+            if (item.reference_photo_url) {
+              html += '<img class="photo-thumb" src="'+item.reference_photo_url+'" alt="" data-action="ob-view-photo" data-photo-url="'+escapeOBAttr(item.reference_photo_url)+'" style="flex-shrink:0;margin-top:2px">';
+            }
             html += '<div style="flex:1"><div style="font-size:14px;font-weight:500">'+escapeOBAttr(item.label)+'</div>';
             if (hasSubs) {
               subs.forEach(function(sub) {
                 var subChecked = sub.checked === true;
                 var subCheckClass = 'ob-check' + (subChecked ? ' checked' : '');
                 var subCheckable = (!readOnly && state === 'active') ? ' data-action="toggle-sub-item" data-sub-id="'+sub.id+'" data-item-id="'+item.id+'" data-sec-id="'+sec.id+'" data-hire-id="'+hireId+'"' : '';
-                html += '<div style="display:flex;align-items:center;gap:8px;padding:8px 0 0 4px">';
-                html += '<div class="'+subCheckClass+'" style="width:18px;height:18px;border-radius:4px;font-size:11px"'+subCheckable+(readOnly?' style="cursor:default"':'')+'>'+(subChecked?'&#10003;':'')+'</div>';
-                html += '<span style="font-size:13px;'+(subChecked?'text-decoration:line-through;color:var(--mut)':'')+'">'+escapeOBAttr(sub.label)+'</span>';
-                html += '</div>';
+                html += '<div style="display:flex;gap:6px;align-items:flex-start;padding:4px 0 0 4px">';
+                html += '<div class="'+subCheckClass+'" style="width:18px;height:18px;border-radius:4px;font-size:11px;flex-shrink:0;margin-top:1px"'+subCheckable+(readOnly?' style="cursor:default"':'')+'>'+(subChecked?'&#10003;':'')+'</div>';
+                if (sub.reference_photo_url) {
+                  html += '<img class="photo-thumb" src="'+sub.reference_photo_url+'" alt="" data-action="ob-view-photo" data-photo-url="'+escapeOBAttr(sub.reference_photo_url)+'" style="width:32px;height:32px;border-radius:4px;flex-shrink:0">';
+                }
+                html += '<div style="flex:1"><span style="font-size:13px;'+(subChecked?'text-decoration:line-through;color:var(--mut)':'')+'">'+escapeOBAttr(sub.label)+'</span>';
+                if (sub.require_proof_photo || sub.proof_photo_url) {
+                  if (sub.proof_photo_url) {
+                    html += '<div class="photo-thumb-wrap"><img class="photo-thumb" src="'+sub.proof_photo_url+'" alt="" data-action="ob-view-photo" data-photo-url="'+escapeOBAttr(sub.proof_photo_url)+'" style="width:32px;height:32px;border-radius:4px">';
+                    if (!readOnly && state === 'active') html += '<button class="photo-retake-link" data-action="ob-photo-capture" data-item-id="'+sub.id+'" data-sec-id="'+sec.id+'" data-hire-id="'+hireId+'">Retake</button>';
+                    html += '</div>';
+                  } else if (!readOnly && state === 'active') {
+                    html += '<button class="photo-capture-btn" data-action="ob-photo-capture" data-item-id="'+sub.id+'" data-sec-id="'+sec.id+'" data-hire-id="'+hireId+'" style="margin-top:2px;font-size:11px;padding:4px 8px">&#128247; Proof</button>';
+                  } else if (readOnly) {
+                    html += '<span style="font-size:13px;color:#c0392b;display:block;padding:2px 0">No photo taken</span>';
+                  }
+                }
+                html += '</div></div>';
               });
             }
             if (checked && item.checked_by) html += '<div class="attribution">Checked by '+escapeOBAttr(item.checked_by)+'</div>';
+            if (item.require_proof_photo || item.proof_photo_url) {
+              if (item.proof_photo_url) {
+                html += '<div class="photo-thumb-wrap"><img class="photo-thumb" src="'+item.proof_photo_url+'" alt="" data-action="ob-view-photo" data-photo-url="'+escapeOBAttr(item.proof_photo_url)+'" style="width:32px;height:32px;border-radius:4px">';
+                if (canInteract) html += '<button class="photo-retake-link" data-action="ob-photo-capture" data-item-id="'+item.id+'" data-sec-id="'+sec.id+'" data-hire-id="'+hireId+'">Retake</button>';
+                html += '</div>';
+              } else if (canInteract) {
+                html += '<button class="photo-capture-btn" data-action="ob-photo-capture" data-item-id="'+item.id+'" data-sec-id="'+sec.id+'" data-hire-id="'+hireId+'" style="margin-top:2px;font-size:11px;padding:4px 8px">&#128247; Proof Photo</button>';
+              } else if (readOnly) {
+                html += '<span style="font-size:13px;color:#c0392b;display:block;padding:2px 0">No photo taken</span>';
+              }
+            }
+            html += '</div>';
             if (item._saveErr) html += '<span class="field-err">'+escapeOBAttr(item._saveErr)+' <span data-action="retry-item" data-item-id="'+item.id+'" data-sec-id="'+sec.id+'" data-hire-id="'+hireId+'" style="cursor:pointer;text-decoration:underline">Tap to retry.</span></span>';
             html += '</div></div>';
           } else if (item.type === 'video_series') {
@@ -391,19 +521,33 @@ function renderSections(sections, hireId, readOnly) {
         html += '</div>';
       }
     }
-    // Sign-off actions — OUTSIDE the expandable area so always visible
-    if (readOnly && state !== 'signed_off' && sec.requires_sign_off && state === 'complete') {
-      var canSignOff = true;
-      if (sec.sign_off_roles && sec.sign_off_roles.length > 0) {
-        var userRoles = (CURRENT_USER && CURRENT_USER.roles) || [];
-        canSignOff = CURRENT_USER.is_superadmin || sec.sign_off_roles.some(function(r) { return userRoles.includes(r); });
-      }
-      if (canSignOff) {
-        var sfKey = hireId + '_' + sec.id;
-        if (SIGNOFF_FORM[sfKey]) {
-          html += renderSignOffForm(sec, hireId);
-        } else {
-          html += '<div class="sec-actions"><button class="btn-approve" data-action="show-signoff-form" data-sec-id="'+sec.id+'" data-hire-id="'+hireId+'">Sign Off Section</button></div>';
+    // Crew: "Go Back & Edit" on complete sections awaiting sign-off
+    if (!readOnly && state === 'complete' && sec.requires_sign_off) {
+      html += '<div class="sec-actions"><button class="btn-secondary" data-action="reopen-section" data-sec-id="'+sec.id+'">Go Back &amp; Edit</button></div>';
+    }
+    // Manager: sign-off and reject actions
+    if (readOnly && sec.requires_sign_off) {
+      if (state === 'complete') {
+        var canSignOff = true;
+        if (sec.sign_off_roles && sec.sign_off_roles.length > 0) {
+          var userRoles = (CURRENT_USER && CURRENT_USER.roles) || [];
+          canSignOff = CURRENT_USER.is_superadmin || sec.sign_off_roles.some(function(r) { return userRoles.includes(r); });
+        }
+        if (canSignOff) {
+          var sfKey = hireId + '_' + sec.id;
+          if (SIGNOFF_FORM[sfKey]) {
+            html += renderSignOffForm(sec, hireId);
+          } else {
+            html += '<div class="sec-actions">';
+            html += '<button class="btn-approve" data-action="show-signoff-form" data-sec-id="'+sec.id+'" data-hire-id="'+hireId+'">Sign Off Section</button>';
+            html += '<button class="btn-danger" data-action="reject-section" data-sec-id="'+sec.id+'" data-hire-id="'+hireId+'">Reject</button>';
+            html += '</div>';
+          }
+        }
+      } else if (state === 'signed_off') {
+        var canReject = CURRENT_USER.is_superadmin || (CURRENT_USER.roles || []).some(function(r) { return r === 'admin' || r === 'manager'; });
+        if (canReject) {
+          html += '<div class="sec-actions"><button class="btn-danger" data-action="reject-section" data-sec-id="'+sec.id+'" data-hire-id="'+hireId+'">Reject &amp; Reopen</button></div>';
         }
       }
     }
@@ -453,9 +597,11 @@ function findItemInTraining(training, itemId, isSec) {
   return null;
 }
 
-async function saveProgress(itemId, progressType, checked, sections, hireId) {
+async function saveProgress(itemId, progressType, checked, sections, hireId, value) {
   try {
-    await api('POST', '/api/v1/onboarding/saveProgress', { item_id: itemId, progress_type: progressType, checked: checked });
+    var body = { item_id: itemId, progress_type: progressType, checked: checked };
+    if (value) body.value = value;
+    await api('POST', '/api/v1/onboarding/saveProgress', body);
     SAVE_RETRY[itemId] = 0;
     return true;
   } catch(e) {
@@ -574,7 +720,7 @@ async function openHireTraining(hireId, hireName, templateId) {
 function renderMgrRunner() {
   if (!CURRENT_TRAINING) { loadManagerHires(); return; }
   var html = '';
-  html += '<span class="back" data-action="back-to-hires" style="display:inline-flex;align-items:center;gap:4px;color:var(--info-tx);font-size:14px;font-weight:500;margin-bottom:16px;cursor:pointer">&#8249; All Hires</span>';
+  html += '<span class="back" data-action="back-to-hires" style="cursor:pointer">All Hires</span>';
   html += '<div style="font-size:14px;font-weight:600;color:var(--txt);margin-bottom:16px">'+escapeOBAttr(mgrState.activeHireName)+' &mdash; '+escapeOBAttr(CURRENT_TRAINING.template.name)+'</div>';
   html += renderSections(CURRENT_TRAINING.sections, mgrState.activeHireId, true);
   document.getElementById('mgr-body').innerHTML = html;
@@ -582,7 +728,7 @@ function renderMgrRunner() {
 
 function renderHireDetail(hire) {
   var html = '';
-  html += '<span class="back" data-action="back-to-hires" style="display:inline-flex;align-items:center;gap:4px;color:var(--info-tx);font-size:14px;font-weight:500;margin-bottom:16px;cursor:pointer">&#8249; All Hires</span>';
+  html += '<span class="back" data-action="back-to-hires" style="cursor:pointer">All Hires</span>';
   html += '<div style="font-size:16px;font-weight:600;color:var(--txt);margin-bottom:16px">' + escapeOBAttr(hire.display_name) + '</div>';
   var assigned = hire.assigned_templates || [];
   if (assigned.length === 0) {
@@ -611,7 +757,7 @@ function renderHireDetail(hire) {
 function renderAssignPicker(hireId, assignedIds) {
   var available = (TEMPLATES || []).filter(function(t) { return !assignedIds.includes(t.id); });
   var html = '';
-  html += '<span class="back" data-action="back-to-hire-detail" data-hire-id="' + hireId + '" style="display:inline-flex;align-items:center;gap:4px;color:var(--info-tx);font-size:14px;font-weight:500;margin-bottom:16px;cursor:pointer">&#8249; Back</span>';
+  html += '<span class="back" data-action="back-to-hire-detail" data-hire-id="' + hireId + '" style="cursor:pointer">Back</span>';
   html += '<div style="font-size:14px;font-weight:600;margin-bottom:12px">Assign Template</div>';
   if (available.length === 0) {
     html += '<div class="empty"><p>All templates are already assigned.</p></div>';
@@ -704,12 +850,34 @@ function renderOBCheckboxItem(item, secId, idx) {
   var subItems = item.sub_items || item.subItems || [];
   html += '<div class="ob-item-body">';
   subItems.forEach(function(sub, subIdx) {
-    html += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">';
+    html += '<div style="margin-bottom:6px;padding:4px 0;border-bottom:0.5px solid var(--brd)">';
+    html += '<div style="display:flex;align-items:center;gap:6px">';
     html += '<input type="text" value="'+escapeOBAttr(sub.label)+'" data-action="sub-item-label-input" data-sec-id="'+secId+'" data-item-idx="'+idx+'" data-sub-idx="'+subIdx+'" placeholder="Sub-item label" style="flex:1;padding:4px 8px;background:var(--card);border:0.5px solid var(--brd);border-radius:6px;font-size:12px;color:var(--txt);font-family:inherit;outline:none">';
     html += '<span data-action="delete-sub-item" data-sec-id="'+secId+'" data-item-idx="'+idx+'" data-sub-idx="'+subIdx+'" style="color:#c0392b;cursor:pointer;font-size:12px">&#10005;</span>';
     html += '</div>';
+    // Sub-item photo options
+    html += '<div style="padding:4px 0 0 4px;display:flex;flex-wrap:wrap;gap:6px;align-items:center">';
+    if (sub.reference_photo_url) {
+      html += '<img class="photo-thumb" src="'+escapeOBAttr(sub.reference_photo_url)+'" alt="Ref" style="width:36px;height:36px;border-radius:4px">';
+      html += '<button class="photo-retake-link" data-action="ob-builder-sub-ref-photo" data-sec-id="'+secId+'" data-item-idx="'+idx+'" data-sub-idx="'+subIdx+'">Change</button>';
+      html += '<button class="photo-retake-link" data-action="ob-builder-remove-sub-ref-photo" data-sec-id="'+secId+'" data-item-idx="'+idx+'" data-sub-idx="'+subIdx+'" style="color:#c0392b">Remove</button>';
+    } else {
+      html += '<button class="photo-capture-btn" data-action="ob-builder-sub-ref-photo" data-sec-id="'+secId+'" data-item-idx="'+idx+'" data-sub-idx="'+subIdx+'" style="font-size:11px;padding:4px 8px">&#128247; Ref photo</button>';
+    }
+    html += '<label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--mut);cursor:pointer"><input type="checkbox" data-action="ob-builder-sub-proof-toggle" data-sec-id="'+secId+'" data-item-idx="'+idx+'" data-sub-idx="'+subIdx+'"'+(sub.require_proof_photo?' checked':'')+' style="width:14px;height:14px"> Proof</label>';
+    html += '</div>';
+    html += '</div>';
   });
   html += '<button data-action="add-sub-item" data-sec-id="'+secId+'" data-item-idx="'+idx+'" style="padding:4px 10px;background:var(--info-bg);color:var(--info-tx);border:none;border-radius:6px;font-size:11px;font-weight:500;cursor:pointer;margin-top:2px">+ Sub-item</button>';
+  // Photo options
+  html += '<div style="margin-top:8px;padding-top:8px;border-top:0.5px solid var(--brd)">';
+  if (item.reference_photo_url) {
+    html += '<div class="photo-thumb-wrap" style="margin-bottom:6px"><img class="photo-thumb" src="'+escapeOBAttr(item.reference_photo_url)+'" alt="Reference"><button class="photo-retake-link" data-action="ob-builder-ref-photo" data-sec-id="'+secId+'" data-item-idx="'+idx+'">Change</button> <button class="photo-retake-link" data-action="ob-builder-remove-ref-photo" data-sec-id="'+secId+'" data-item-idx="'+idx+'" style="color:#c0392b">Remove</button></div>';
+  } else {
+    html += '<button class="photo-capture-btn" data-action="ob-builder-ref-photo" data-sec-id="'+secId+'" data-item-idx="'+idx+'" style="font-size:12px;margin-bottom:6px">&#128247; Add reference photo</button>';
+  }
+  html += '<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--mut);cursor:pointer"><input type="checkbox" data-action="ob-builder-proof-toggle" data-sec-id="'+secId+'" data-item-idx="'+idx+'"'+(item.require_proof_photo?' checked':'')+' style="width:16px;height:16px"> Require proof photo</label>';
+  html += '</div>';
   html += '</div>';
   html += '</div>';
   return html;
@@ -855,7 +1023,7 @@ function renderOBEditor() {
   var tpl = obBuilderState.localCopy;
   if (!tpl) return '';
   var html = '';
-  html += '<span class="back" data-action="back-to-templates" style="display:inline-flex;align-items:center;gap:4px;font-size:14px;font-weight:500;margin-bottom:16px;cursor:pointer">&#8249; Templates</span>';
+  html += '<span class="back" data-action="back-to-templates" style="cursor:pointer">Templates</span>';
   html += '<input type="text" value="'+escapeOBAttr(tpl.name)+'" data-action="tpl-name-input" placeholder="Template name" style="width:100%;padding:10px 12px;background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;font-size:14px;color:var(--txt);font-family:inherit;outline:none;margin-bottom:8px">';
   var tplRoles = tpl.roles||[];
   html += '<div style="margin-bottom:16px">';
@@ -1333,6 +1501,36 @@ document.getElementById('my-body').addEventListener('click', async function(e) {
     if (ok) { part._saveErr = null; }
     else { part._saveErr = "Couldn't save."; }
     renderMyRunner();
+  } else if (action === 'ob-photo-capture' || action === 'ob-photo-retake') {
+    var itemId = btn.dataset.itemId;
+    var secId = btn.dataset.secId;
+    var hireId = btn.dataset.hireId;
+    handleOBPhotoCaptureClick(itemId, hireId, secId, CURRENT_TRAINING ? CURRENT_TRAINING.sections : []);
+  } else if (action === 'ob-view-photo') {
+    showFullPhoto(btn.dataset.photoUrl);
+  } else if (action === 'reopen-section') {
+    if (!confirm('Go back and edit this section? It will need to be re-completed for sign-off.')) return;
+    var secId = btn.dataset.secId;
+    try {
+      var resp = await api('POST', '/api/v1/onboarding/reopenSection', { section_id: secId });
+      // Uncheck the item locally to match backend state
+      if (resp && resp.unchecked_item_id && CURRENT_TRAINING) {
+        var uncheckedId = resp.unchecked_item_id;
+        CURRENT_TRAINING.sections.forEach(function(sec) {
+          (sec.items || []).forEach(function(item) {
+            if (item.id === uncheckedId) { item.checked = false; }
+            (item.sub_items || []).forEach(function(sub) {
+              if (sub.id === uncheckedId) { sub.checked = false; }
+            });
+          });
+          if (sec.id === secId) { sec.state = 'active'; sec.sign_off = null; delete sec.completed_at; }
+        });
+      }
+      EXPANDED_SECTIONS[secId] = true;
+      renderMyRunner();
+    } catch(e) {
+      alert('Could not reopen section. Try again.');
+    }
   }
 });
 
@@ -1464,6 +1662,35 @@ document.getElementById('mgr-body').addEventListener('click', async function(e) 
       if (!SIGNOFF_FORM[sfKey]) SIGNOFF_FORM[sfKey] = formState;
       SIGNOFF_FORM[sfKey].err = 'Something went wrong. Try again.';
       renderMgrRunner();
+    }
+  } else if (action === 'ob-view-photo') {
+    showFullPhoto(btn.dataset.photoUrl);
+  } else if (action === 'reject-section') {
+    if (!confirm('Reject this section? The crew member will need to re-do it.')) return;
+    var secId = btn.dataset.secId;
+    var hireId = btn.dataset.hireId;
+    try {
+      var resp = await api('POST', '/api/v1/onboarding/rejectSection', { section_id: secId, hire_id: hireId });
+      if (CURRENT_TRAINING) {
+        var uncheckedId = resp && resp.unchecked_item_id;
+        CURRENT_TRAINING.sections.forEach(function(sec) {
+          if (sec.id === secId) {
+            sec.state = 'active';
+            sec.sign_off = null;
+            delete sec.completed_at;
+          }
+          (sec.items || []).forEach(function(item) {
+            if (item.id === uncheckedId) { item.checked = false; }
+            (item.sub_items || []).forEach(function(sub) {
+              if (sub.id === uncheckedId) { sub.checked = false; }
+            });
+          });
+        });
+      }
+      EXPANDED_SECTIONS[secId] = true;
+      renderMgrRunner();
+    } catch(e) {
+      alert('Could not reject section. Try again.');
     }
   }
 });
@@ -1625,6 +1852,93 @@ document.getElementById('builder-body').addEventListener('click', async function
     if (sec) {
       var item = sec.items[+btn.dataset.itemIdx];
       if (item && item.sub_items) { item.sub_items.splice(+btn.dataset.subIdx, 1); renderOBBuilder(); }
+    }
+  } else if (action === 'ob-builder-ref-photo') {
+    var sec = (obBuilderState.localCopy.sections||[]).find(function(s) { return s.id === btn.dataset.secId; });
+    if (sec) {
+      var item = sec.items[+btn.dataset.itemIdx];
+      if (item) {
+        openCamera(function(file) {
+            var tplId = obBuilderState.localCopy.id || 'new';
+            var filename = 'ref-' + item.id + '.jpg';
+            var formData = new FormData();
+            formData.append('path_prefix', 'onboarding');
+            formData.append('id', tplId);
+            formData.append('filename', filename);
+            formData.append('file', file);
+            fetch('/api/v1/photos/upload', {
+              method: 'POST', credentials: 'include',
+              body: formData
+            }).then(function(r) {
+              if (r.status === 401) { location.href = 'login.html'; throw new Error('unauthorized'); }
+              if (!r.ok) throw new Error('upload failed');
+              return r.json();
+            }).then(function(resp) {
+              item.reference_photo_url = resp.public_url;
+              renderOBBuilder();
+            }).catch(function(err) {
+              console.error('Reference photo upload failed:', err);
+              alert('Upload failed. Try again.');
+            });
+        });
+      }
+    }
+  } else if (action === 'ob-builder-remove-ref-photo') {
+    var sec = (obBuilderState.localCopy.sections||[]).find(function(s) { return s.id === btn.dataset.secId; });
+    if (sec) {
+      var item = sec.items[+btn.dataset.itemIdx];
+      if (item) { item.reference_photo_url = null; renderOBBuilder(); }
+    }
+  } else if (action === 'ob-builder-proof-toggle') {
+    var sec = (obBuilderState.localCopy.sections||[]).find(function(s) { return s.id === btn.dataset.secId; });
+    if (sec) {
+      var item = sec.items[+btn.dataset.itemIdx];
+      if (item) { item.require_proof_photo = btn.checked; }
+    }
+  } else if (action === 'ob-builder-sub-ref-photo') {
+    var sec = (obBuilderState.localCopy.sections||[]).find(function(s) { return s.id === btn.dataset.secId; });
+    if (sec) {
+      var item = sec.items[+btn.dataset.itemIdx];
+      var sub = item && (item.sub_items || [])[+btn.dataset.subIdx];
+      if (sub) {
+        openCamera(function(file) {
+            var tplId = obBuilderState.localCopy.id || 'new';
+            var filename = 'ref-' + sub.id + '.jpg';
+            var formData = new FormData();
+            formData.append('path_prefix', 'onboarding');
+            formData.append('id', tplId);
+            formData.append('filename', filename);
+            formData.append('file', file);
+            fetch('/api/v1/photos/upload', {
+              method: 'POST', credentials: 'include',
+              body: formData
+            }).then(function(r) {
+              if (r.status === 401) { location.href = 'login.html'; throw new Error('unauthorized'); }
+              if (!r.ok) throw new Error('upload failed');
+              return r.json();
+            }).then(function(resp) {
+              sub.reference_photo_url = resp.public_url;
+              renderOBBuilder();
+            }).catch(function(err) {
+              console.error('Sub-item ref photo upload failed:', err);
+              alert('Upload failed. Try again.');
+            });
+        });
+      }
+    }
+  } else if (action === 'ob-builder-remove-sub-ref-photo') {
+    var sec = (obBuilderState.localCopy.sections||[]).find(function(s) { return s.id === btn.dataset.secId; });
+    if (sec) {
+      var item = sec.items[+btn.dataset.itemIdx];
+      var sub = item && (item.sub_items || [])[+btn.dataset.subIdx];
+      if (sub) { sub.reference_photo_url = null; renderOBBuilder(); }
+    }
+  } else if (action === 'ob-builder-sub-proof-toggle') {
+    var sec = (obBuilderState.localCopy.sections||[]).find(function(s) { return s.id === btn.dataset.secId; });
+    if (sec) {
+      var item = sec.items[+btn.dataset.itemIdx];
+      var sub = item && (item.sub_items || [])[+btn.dataset.subIdx];
+      if (sub) { sub.require_proof_photo = btn.checked; }
     }
   } else if (action === 'add-video-part') {
     var sec = (obBuilderState.localCopy.sections||[]).find(function(s) { return s.id === btn.dataset.secId; });

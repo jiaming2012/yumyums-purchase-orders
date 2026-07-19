@@ -3,7 +3,7 @@ package sync
 import (
 	"context"
 	"encoding/json"
-	"log"
+	"log/slog"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -31,39 +31,49 @@ func StartListener(ctx context.Context, connStr string, hub *Hub, pool *pgxpool.
 		},
 		ReconnectDelay: 5 * time.Second,
 		LogError: func(ctx context.Context, err error) {
-			log.Printf("pgxlisten: %v", err)
+			slog.Error("pgxlisten error", "error", err)
 		},
 	}
 
 	listener.Handle("ops_channel", pgxlisten.HandlerFunc(func(ctx context.Context, notification *pgconn.Notification, conn *pgx.Conn) error {
 		var n notifyPayload
 		if err := json.Unmarshal([]byte(notification.Payload), &n); err != nil {
-			log.Printf("listener: bad notify payload: %v", err)
+			slog.Error("listener bad notify payload", "error", err)
 			return nil
 		}
 
 		// Fetch full op row from the pool (not the LISTEN-dedicated conn).
 		op, err := GetOpByID(ctx, pool, n.OpID)
 		if err != nil {
-			log.Printf("listener: GetOpByID %s: %v", n.OpID, err)
+			slog.Error("listener GetOpByID failed", "op_id", n.OpID, "error", err)
 			return nil
 		}
 
 		// Resolve which users should receive this op.
 		userIDs, err := ResolveEntityAccess(ctx, pool, n.EntityID, n.EntityType)
 		if err != nil {
-			log.Printf("listener: ResolveEntityAccess entity=%s type=%s: %v", n.EntityID, n.EntityType, err)
+			slog.Error("listener ResolveEntityAccess failed", "entity_id", n.EntityID, "entity_type", n.EntityType, "error", err)
 			return nil
 		}
 
-		if len(userIDs) == 0 {
-			// Always include the op author even if no template_assignments found.
-			userIDs = []string{op.UserID}
+		// Always include the op author so a user's own edits converge on their other
+		// devices, even when they are not an assignee (e.g. an admin/superadmin editing
+		// a checklist they can view but aren't assigned to). ResolveEntityAccess already
+		// unions in admins; this guarantees the author regardless of role/assignment.
+		authorPresent := false
+		for _, uid := range userIDs {
+			if uid == op.UserID {
+				authorPresent = true
+				break
+			}
+		}
+		if !authorPresent {
+			userIDs = append(userIDs, op.UserID)
 		}
 
 		data, err := json.Marshal(op)
 		if err != nil {
-			log.Printf("listener: marshal op %s: %v", op.ID, err)
+			slog.Error("listener marshal op failed", "op_id", op.ID, "error", err)
 			return nil
 		}
 
@@ -76,7 +86,7 @@ func StartListener(ctx context.Context, connStr string, hub *Hub, pool *pgxpool.
 
 	go func() {
 		if err := listener.Listen(ctx); err != nil && ctx.Err() == nil {
-			log.Printf("pgxlisten exited unexpectedly: %v", err)
+			slog.Error("pgxlisten exited unexpectedly", "error", err)
 		}
 	}()
 }

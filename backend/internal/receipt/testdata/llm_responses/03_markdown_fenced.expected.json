@@ -1,0 +1,4 @@
+{
+  "items": [{"name": "Soup", "quantity": 1, "price": 4.99, "is_case": false}],
+  "summary": {"vendor": "Cafe", "total_units": 1, "total_cases": 0, "tax": 0.00, "total": 4.99}
+}

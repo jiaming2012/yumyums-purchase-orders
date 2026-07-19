@@ -1,10 +1,35 @@
 node_modules/
 test-results/
+test-results-ui/
 playwright-report/
 .planning/
-.claude/
+.claude/*
+!.claude/skills/
 *.map
 .features-gen/
+id_rsa
+backend/bin/
+backend/server
+version.json
+
+# Production secrets — .env.prod lives only in the prod clone, never committed
+.env
+.env.*
 
 # Notion export source files (one-time import)
 notion-export/
+
+# ui-jury: rendered routes.yaml (built from routes.template.yaml) + secret env
+/routes.yaml
+/.ui-jury/.env
+routes.yaml.previous
+routes.yaml.*.bak
+.ui-jury/maps/
+.ui-jury/runs/
+
+# Playwright MCP session artifacts
+.playwright-mcp/
+# NOTE: .night-crew/runs/ is deliberately TRACKED — run records (briefs, sign-offs,
+# DECISIONS-NEEDED, handoffs, slates) are durable planning artifacts needed across
+# machines (/nc-status globs runs/*/DECISIONS-NEEDED.md). Ignored until 2026-07-16,
+# which orphaned the whole 2026-07-09 run record on one machine. Do not re-add.

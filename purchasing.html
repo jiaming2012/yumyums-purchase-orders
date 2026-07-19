@@ -18,7 +18,7 @@
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
 body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg);color:var(--txt);padding:env(safe-area-inset-top) 12px env(safe-area-inset-bottom)}
 .app{max-width:480px;margin:0 auto;padding-top:12px}
-.back{display:flex;align-items:center;gap:6px;margin-bottom:12px;color:var(--info-tx);font-size:14px;font-weight:500;text-decoration:none;-webkit-tap-highlight-color:transparent}
+.back{display:inline-flex;align-items:center;gap:6px;color:var(--info-tx);text-decoration:none;font-size:16px;font-weight:500;margin-bottom:12px;cursor:pointer;min-height:44px;padding:4px 8px 4px 0;-webkit-tap-highlight-color:transparent}
 .back::before{content:'‹';font-size:20px;line-height:1;margin-top:-1px}
 .tabs{display:flex;gap:4px;background:var(--card);border-radius:10px;padding:4px;margin-bottom:12px}
 .tabs button{flex:1;border:none;padding:10px;font-size:13px;border-radius:7px;background:transparent;color:var(--txt);font-weight:500}
@@ -138,6 +138,17 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .shop-toast{position:fixed;bottom:70px;left:16px;right:16px;max-width:480px;margin:0 auto;background:var(--warn-bg);color:var(--warn-tx);padding:12px 16px;border-radius:12px;display:flex;justify-content:space-between;align-items:center;font-size:13px;z-index:500;box-shadow:0 4px 12px rgba(0,0,0,0.2)}
 .shop-toast button{background:none;border:none;color:var(--warn-tx);font-weight:600;font-size:13px;cursor:pointer;white-space:nowrap;padding:0 0 0 12px}
 .loc-input{width:100%;padding:6px 8px;border:1px solid var(--brd);border-radius:6px;font-size:12px;background:var(--card);color:var(--txt);margin-top:4px;font-family:inherit}
+.history-card{padding:0;overflow:hidden}
+.history-hd{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;cursor:pointer}
+.history-info{flex:1;min-width:0}
+.history-info .nm{font-size:15px;font-weight:600;line-height:1.2}
+.history-mt{font-size:12px;color:var(--mut);margin-top:2px}
+.history-chevron{font-size:14px;color:var(--mut);padding-left:12px}
+.history-detail{border-top:1px solid var(--brd);padding:8px 16px 12px}
+.history-vendor{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--brd)}
+.history-vendor:last-child{border-bottom:none}
+.history-vendor-nm{font-size:14px;font-weight:500}
+.history-vendor-st{font-size:12px;color:var(--mut)}
 </style>
 </head>
 <body>
@@ -153,7 +164,7 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 <div id="s1" style="display:none"><!-- Order tab: rendered by JS --></div>
 <div id="s2" style="display:none"><!-- Shopping tab: rendered by JS --></div>
 <div id="s3" style="display:none"><!-- PO tab: rendered by JS --></div>
-<div id="s4" style="display:none"><div class="card"><div class="stub">Past shopping runs will appear here</div></div></div>
+<div id="s4" style="display:none"><div id="history-content"></div></div>
 <script src="tab.js" data-tabs="4"></script>
 </div>
 
@@ -185,6 +196,8 @@ let SUGGESTION_OPEN = false;
 let DEBOUNCE_TIMER = null;
 let DUP_ITEM_ID = null;
 let PICKER_TARGET = 'order'; // 'order' or 'po' — which PO the picker adds items to
+let HISTORY_LISTS = null; // completed shopping runs (lazy-loaded on first History tab open)
+let HISTORY_EXPANDED = {}; // listId -> bool (which history cards are expanded)
 const DEBOUNCE_MS = 600;
 const SEARCH_DEBOUNCE_MS = 300;
 let CUTOFF_CONFIG = null;
@@ -596,6 +609,66 @@ function renderShoppingTab() {
   s2.innerHTML = html;
 }
 
+// loadHistory fetches completed shopping runs (once) then renders. Called lazily
+// when the History tab is first opened, and re-callable to refresh.
+async function loadHistory(force) {
+  var el = document.getElementById('history-content');
+  if (HISTORY_LISTS === null || force) {
+    if (HISTORY_LISTS === null) el.innerHTML = '<div class="card"><div class="stub">Loading…</div></div>';
+    try {
+      HISTORY_LISTS = await api('/api/v1/purchasing/shopping/history') || [];
+    } catch (e) {
+      HISTORY_LISTS = [];
+      el.innerHTML = '<div class="error-card">Couldn\'t load history. Pull down to refresh.</div>';
+      return;
+    }
+  }
+  renderHistory();
+}
+
+// renderHistory paints completed shopping runs into #history-content. Each run is
+// a .history-card with a tappable .history-hd header (week label + vendor count);
+// tapping expands a .history-detail with the per-vendor breakdown.
+function renderHistory() {
+  var el = document.getElementById('history-content');
+  var lists = HISTORY_LISTS || [];
+  if (lists.length === 0) {
+    el.innerHTML = '<div class="card"><div class="stub">No completed shopping runs yet</div></div>';
+    return;
+  }
+  var html = '';
+  lists.forEach(function(list) {
+    var sections = list.vendor_sections || [];
+    var vendorCount = sections.length;
+    var expanded = !!HISTORY_EXPANDED[list.id];
+    html += '<div class="card history-card">';
+    html += '<div class="history-hd" data-action="toggle-history" data-list-id="' + list.id + '">';
+    html += '<div class="history-info"><div class="nm">' + weekLabel(list.week_start) + '</div>';
+    html += '<div class="history-mt">' + vendorCount + ' vendor' + (vendorCount === 1 ? '' : 's') + '</div></div>';
+    html += '<span class="history-chevron">' + (expanded ? '▾' : '▸') + '</span>';
+    html += '</div>';
+    if (expanded) {
+      html += '<div class="history-detail">';
+      if (sections.length === 0) {
+        html += '<div class="stub">No vendor sections.</div>';
+      } else {
+        sections.forEach(function(sec) {
+          var done = sec.status === 'completed';
+          html += '<div class="history-vendor">';
+          html += '<span class="history-vendor-nm">' + escHtml(sec.vendor_name) + '</span>';
+          html += '<span class="history-vendor-st">' + (done ? 'Completed' : escHtml(sec.status || 'pending'));
+          if (done && sec.completed_by_name) html += ' · ' + escHtml(sec.completed_by_name);
+          html += '</span>';
+          html += '</div>';
+        });
+      }
+      html += '</div>';
+    }
+    html += '</div>';
+  });
+  el.innerHTML = html;
+}
+
 function showShoppingToast(itemName) {
   clearTimeout(SHOP_TOAST_TIMER);
   var existing = document.querySelector('.shop-toast');
@@ -779,6 +852,7 @@ function show(n) {
     document.getElementById('t'+i).className = i===n ? 'on' : '';
   });
   location.hash = 'tab=' + n;
+  if (n === 4) loadHistory();
 }
 
 function updateQty(itemId, delta) {
@@ -996,6 +1070,9 @@ function renderPickerList(query) {
       });
     }
   }
+  if (q) {
+    html += '<div style="text-align:center;padding:12px 0;border-top:0.5px solid var(--brd);margin-top:8px"><a href="inventory.html#tab=7&newItem=' + encodeURIComponent(query || '') + '" style="display:inline-block;padding:10px 20px;background:var(--info-bg);color:var(--info-tx);border-radius:8px;font-size:14px;font-weight:500;text-decoration:none">+ Add Item to Inventory</a></div>';
+  }
   document.getElementById('picker-list').innerHTML = html;
 }
 
@@ -1040,7 +1117,7 @@ document.addEventListener('click', function(e) {
   if (action === 'picker-inc') { updateQty(el.dataset.itemId, 1); renderPickerList(document.getElementById('picker-search').value); }
   if (action === 'picker-dec') { updateQty(el.dataset.itemId, -1); renderPickerList(document.getElementById('picker-search').value); }
   if (action === 'picker-item-on-po') showDuplicatePopup(el.dataset.itemId);
-  if (action === 'goto-setup') { window.location.href = 'inventory.html#tab=5&item=' + encodeURIComponent(el.dataset.itemDesc); }
+  if (action === 'goto-setup') { window.location.href = 'inventory.html#tab=7&item=' + encodeURIComponent(el.dataset.itemDesc); }
   if (action === 'goto-item') { gotoItem(DUP_ITEM_ID); }
   if (action === 'dismiss-dup') dismissDuplicatePopup();
   if (action === 'photo-zoom') openPhotoLightbox(el.dataset.photoUrl, el.dataset.photoName);
@@ -1057,6 +1134,7 @@ document.addEventListener('click', function(e) {
   if (action === 'shop-edit-loc') handleShopEditLoc(el.dataset.itemId);
   if (action === 'shop-complete-vendor') handleCompleteVendor(el.dataset.sectionId);
   if (action === 'dismiss-shop-toast') { var t = document.querySelector('.shop-toast'); if (t) t.remove(); }
+  if (action === 'toggle-history') { var lid = el.dataset.listId; HISTORY_EXPANDED[lid] = !HISTORY_EXPANDED[lid]; renderHistory(); }
 });
 
 var searchTimer = null;

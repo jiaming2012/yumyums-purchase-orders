@@ -17,7 +17,8 @@
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
 body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg);color:var(--txt);padding:env(safe-area-inset-top) 16px env(safe-area-inset-bottom)}
 .app{max-width:480px;margin:0 auto;padding-top:20px}
-.back{display:inline-flex;align-items:center;gap:4px;color:var(--info-tx);text-decoration:none;font-size:14px;font-weight:500;margin-bottom:16px;cursor:pointer}
+.back{display:inline-flex;align-items:center;gap:6px;color:var(--info-tx);text-decoration:none;font-size:16px;font-weight:500;margin-bottom:12px;cursor:pointer;min-height:44px;padding:4px 8px 4px 0;-webkit-tap-highlight-color:transparent}
+.back::before{content:'‹';font-size:20px;line-height:1;margin-top:-1px}
 .tabs{display:flex;gap:0;background:var(--card);border-radius:10px;padding:3px;border:0.5px solid var(--brd);margin-bottom:16px}
 .tabs button{flex:1;border:none;background:transparent;padding:12px 0;font-size:14px;font-weight:500;color:var(--mut);border-radius:8px;cursor:pointer}
 .tabs button.on{background:var(--info-bg);color:var(--info-tx)}
@@ -36,7 +37,17 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .line-item-price{font-size:13px;font-weight:500;color:var(--txt);white-space:nowrap}
 .case-badge{font-size:10px;background:var(--warn-bg);color:var(--warn-tx);padding:1px 6px;border-radius:4px;margin-left:4px;vertical-align:middle}
 .filter-select{width:100%;padding:10px 12px;background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;font-size:14px;color:var(--txt);margin-bottom:12px;font-family:inherit;appearance:none;-webkit-appearance:none}
+.sync-bar{display:flex;flex-direction:column;gap:8px;margin-bottom:12px}
+.sync-btn{width:100%;padding:11px 14px;background:#dcfce7;color:#14532d;border:0.5px solid var(--brd);border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;min-height:44px}
+@media(prefers-color-scheme:dark){.sync-btn{background:#14532d;color:#86efac}}
+.sync-btn:disabled{opacity:0.6;cursor:default}
+.sync-chip{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 12px;background:var(--card);border:0.5px solid var(--brd);border-radius:8px;font-size:13px;color:var(--mut)}
+.sync-chip.ok{color:var(--info-tx);background:var(--info-bg)}
+.sync-chip.err{color:var(--warn-tx);background:var(--warn-bg)}
+.sync-chip-dismiss{background:none;border:none;color:inherit;cursor:pointer;font-size:18px;line-height:1;padding:0 4px;min-width:24px;min-height:24px}
 .approval-badge{font-size:11px;font-weight:600;padding:3px 8px;border-radius:6px;background:var(--warn-bg);color:var(--warn-tx);white-space:nowrap}
+.approval-badge.missing{background:#fee2e2;color:#991b1b}
+@media(prefers-color-scheme:dark){.approval-badge.missing{background:#7f1d1d;color:#fca5a5}}
 .review-form{background:var(--card);border:0.5px solid var(--warn-tx);border-radius:12px;padding:16px;margin-bottom:8px}
 .review-form-title{font-size:14px;font-weight:600;color:var(--txt);margin-bottom:12px}
 .field-group{margin-bottom:12px}
@@ -58,12 +69,17 @@ select.field-input{appearance:none;-webkit-appearance:none;padding-right:36px;ba
 .add-line-btn{width:100%;padding:8px;background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;font-size:13px;color:var(--info-tx);font-weight:500;cursor:pointer;font-family:inherit;margin-bottom:12px}
 .review-actions{display:flex;gap:8px;margin-top:4px}
 .btn-primary{flex:1;padding:12px;background:var(--info-bg);color:var(--info-tx);border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit}
+.btn-primary:disabled{opacity:0.5;cursor:not-allowed}
 .btn-secondary{flex:1;padding:12px;background:var(--bg);color:var(--mut);border:0.5px solid var(--brd);border-radius:10px;font-size:14px;font-weight:500;cursor:pointer;font-family:inherit}
 .inline-error{font-size:13px;color:#c0392b;margin-top:8px;text-align:center}
 .view-receipt-btn{width:100%;padding:10px;background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;font-size:13px;color:var(--info-tx);font-weight:500;cursor:pointer;font-family:inherit;margin-top:8px;text-align:center}
+.retry-parse-btn{width:100%;padding:10px;background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;font-size:13px;color:var(--info-tx);font-weight:500;cursor:pointer;font-family:inherit;margin-top:6px;text-align:center}
 .receipt-overlay{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.92);display:flex;flex-direction:column;align-items:center;justify-content:center}
 .receipt-overlay img{max-width:100%;max-height:calc(100% - 60px);object-fit:contain}
+.receipt-overlay iframe{width:100%;height:calc(100% - 50px);border:0;background:#fff;margin-top:50px;color-scheme:light}
 .receipt-overlay .close-receipt{position:absolute;top:12px;right:16px;background:none;border:none;color:#fff;font-size:28px;cursor:pointer;padding:8px;z-index:1}
+.receipt-overlay .nav-bar{position:absolute;bottom:12px;left:0;right:0;display:flex;justify-content:center;align-items:center;gap:16px;color:#fff;font-size:14px;z-index:2}
+.receipt-overlay .nav-bar button{background:rgba(255,255,255,0.15);border:0;color:#fff;font-size:20px;width:44px;height:44px;border-radius:22px;cursor:pointer}
 .vendor-search-wrap{position:relative;display:flex;gap:6px;align-items:center}
 .vendor-search-wrap input{flex:1}
 .vendor-add-btn{width:38px;height:38px;border:0.5px solid var(--brd);border-radius:8px;background:var(--bg);color:var(--info-tx);font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
@@ -173,20 +189,65 @@ select.field-input{appearance:none;-webkit-appearance:none;padding-right:36px;ba
 .day-chips{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:10px}
 .day-chip{padding:5px 10px;border-radius:12px;border:0.5px solid var(--brd);background:var(--bg);color:var(--mut);font-size:12px;font-weight:500;cursor:pointer;user-select:none}
 .day-chip.on{background:var(--info-bg);color:var(--info-tx);border-color:var(--info-tx)}
+/* Phase 999.2 — Recipes tab */
+.recipe-ingredient-row{background:var(--card);border:0.5px solid var(--brd);border-radius:12px;padding:14px 16px;margin-bottom:6px;cursor:pointer}
+.recipe-ingredient-row .arrow{display:inline-block;width:14px;color:var(--mut);transition:transform 0.2s}
+.recipe-ingredient-row.open .arrow{transform:rotate(90deg)}
+.recipe-row-head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.recipe-row-name{font-size:15px;font-weight:600;color:var(--txt)}
+.recipe-row-spend{font-size:12px;color:var(--mut);margin-top:2px}
+.recipe-status-chip{display:inline-block;padding:3px 8px;border-radius:10px;font-size:12px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+.recipe-status-chip-warn{background:var(--warn-bg);color:var(--warn-tx)}
+.recipe-status-chip-ok{background:#dcfce7;color:#166534}
+@media(prefers-color-scheme:dark){.recipe-status-chip-ok{background:#14532d;color:#86efac}}
+.recipe-detail{display:none;padding-top:12px;border-top:0.5px solid var(--brd);margin-top:12px}
+.recipe-ingredient-row.open .recipe-detail{display:block}
+.recipe-allocation-row{padding:12px 0;border-bottom:0.5px solid var(--brd)}
+.recipe-allocation-row:last-of-type{border-bottom:0}
+.recipe-alloc-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.recipe-alloc-name{font-size:14px;font-weight:600;color:var(--txt);cursor:pointer}
+.recipe-alloc-group{font-size:12px;color:var(--mut);margin-top:2px}
+.recipe-pct-chip{font-size:14px;font-weight:600;color:var(--txt);font-variant-numeric:tabular-nums}
+.recipe-slider{-webkit-appearance:none;appearance:none;width:100%;height:44px;background:transparent;padding:0;margin:8px 0 0 0}
+.recipe-slider::-webkit-slider-runnable-track{height:6px;background:var(--brd);border-radius:3px}
+.recipe-slider::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:28px;height:28px;border-radius:50%;background:var(--info-tx);border:2px solid #fff;box-shadow:0 2px 4px rgba(0,0,0,0.2);margin-top:-11px;cursor:pointer}
+.recipe-slider::-moz-range-track{height:6px;background:var(--brd);border-radius:3px}
+.recipe-slider::-moz-range-thumb{width:28px;height:28px;border-radius:50%;background:var(--info-tx);border:2px solid #fff;box-shadow:0 2px 4px rgba(0,0,0,0.2);cursor:pointer}
+.recipe-slider:focus{outline:none}
+.recipe-slider:focus::-webkit-slider-thumb{box-shadow:0 0 0 3px var(--info-bg)}
+.recipe-running-total{font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;margin-top:12px}
+.recipe-running-total.warn{color:var(--warn-tx)}
+.recipe-running-total.mut{color:var(--mut)}
+.recipe-running-total.ok{color:#166534}
+@media(prefers-color-scheme:dark){.recipe-running-total.ok{color:#86efac}}
+.recipe-add-btn{display:block;width:100%;margin-top:12px;background:var(--bg);border:0.5px solid var(--brd);color:var(--info-tx);padding:12px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;text-align:center;font-family:inherit}
+.recipe-drift-banner{background:var(--warn-bg);color:var(--warn-tx);border-radius:12px;padding:16px;margin-bottom:16px}
+.recipe-drift-headline{font-size:15px;font-weight:600;margin-bottom:8px}
+.recipe-drift-section{font-size:13px;line-height:1.4;margin-bottom:4px}
+.recipe-drift-link{color:var(--warn-tx);text-decoration:underline;cursor:pointer}
+.recipe-summary-empty{text-align:center;color:var(--mut);padding:60px 16px;font-size:13px}
+.recipe-inline-error{color:#c0392b;font-size:12px;margin-top:6px}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
 </style>
 </head>
 <body>
 <div class="app">
-  <a class="back" href="index.html">&#8249; HQ &nbsp;&#183;&nbsp; Inventory</a>
+  <a class="back" href="index.html">HQ &nbsp;&#183;&nbsp; Inventory</a>
   <div class="tabs">
     <button id="t1" class="on" onclick="show(1)">Purchases</button>
     <button id="t2" onclick="show(2)">Stock</button>
-    <button id="t3" onclick="show(3)">Trends</button>
-    <button id="t4" onclick="show(4)">Cost</button>
-    <button id="t5" onclick="show(5)">Setup</button>
+    <button id="t3" onclick="show(3)">Menu</button>
+    <button id="t4" onclick="show(4)">Recipes</button>
+    <button id="t5" onclick="show(5)">Trends</button>
+    <button id="t6" onclick="show(6)">Cost</button>
+    <button id="t7" onclick="show(7)">Setup</button>
   </div>
   <div id="s1" style="display:none">
+    <div class="sync-bar">
+      <button id="sync-receipts-btn" class="sync-btn" type="button">Sync Receipts</button>
+      <button id="reprocess-all-btn" class="sync-btn" type="button" style="display:none">Reprocess All Pending</button>
+      <div id="sync-receipts-chip" style="display:none"></div>
+    </div>
     <select id="vendor-filter" class="filter-select">
       <option value="">All Vendors</option>
     </select>
@@ -197,21 +258,33 @@ select.field-input{appearance:none;-webkit-appearance:none;padding-right:36px;ba
     <div id="stock-list"></div>
   </div>
   <div id="s3" style="display:none">
+    <div id="menu-list"></div>
+  </div>
+  <div id="s4" style="display:none">
+    <div id="recipes-drift-banner"><!-- populated by renderRecipes from DRIFT_BANNER state --></div>
+    <div id="recipes-list"><!-- ingredient cards rendered here --></div>
+    <div id="recipes-summary-section" style="margin-top:24px;border-left:3px solid var(--info-tx);padding-left:12px">
+      <div style="font-size:15px;font-weight:600;color:var(--txt)">Menu item summary</div>
+      <div style="font-size:12px;color:var(--mut);margin-bottom:8px">Read-only &mdash; edit by ingredient above</div>
+      <div id="recipes-summary-card"><!-- populated by renderRecipeSummary --></div>
+    </div>
+  </div>
+  <div id="s5" style="display:none">
     <!-- TODO: gate Trends to manager+ via backend roles (INTG-01) -->
     <div id="trends-container" class="coming-soon">
       <h3>Spending Trends</h3>
       <p>Category breakdown and monthly spending charts coming soon.</p>
     </div>
   </div>
-  <div id="s4" style="display:none">
+  <div id="s6" style="display:none">
     <!-- TODO: gate Cost to manager+ via backend roles (INTG-01) -->
     <div id="cost-container" class="coming-soon">
       <h3>Food Cost Intelligence</h3>
       <p>Menu item cost estimates and ingredient analysis coming soon.</p>
     </div>
   </div>
-  <div id="s5" style="display:none">
-    <a class="back" href="purchasing.html" style="margin-bottom:8px">&#8249; Purchase Orders</a>
+  <div id="s7" style="display:none">
+    <a class="back" href="purchasing.html" style="margin-bottom:8px">Purchase Orders</a>
     <div id="badge-reset-section" style="display:none"></div>
     <div class="sub-tabs">
       <button id="st1" class="on" onclick="showSetupSub(1)">Items</button>
@@ -231,7 +304,7 @@ select.field-input{appearance:none;-webkit-appearance:none;padding-right:36px;ba
     </div>
   </div>
 </div>
-<script src="tab.js" data-tabs="5"></script>
+<script src="tab.js" data-tabs="7"></script>
 <script>
 function parseLocalDate(str){
   const [y,m,d]=str.split('-').map(Number);
@@ -267,27 +340,212 @@ let CURRENT_USER=null;
 let BADGE_RESET_CONFIG=null;
 let BADGE_RESET_FORM_OPEN=false;
 
+// ─── Receipt sync (260607-bir) ─────────────────────────────────────────
+// SYNC_STATE mirrors the latest receipt_sync_runs row (or null when empty).
+// Polling is visibility-aware: we stop on document.hidden and resume on
+// visible. Status survives reload because it's read from the server.
+var SYNC_STATE=null;
+var SYNC_POLL_TIMER=null;
+var SYNC_CHIP_DISMISSED_ID=null;
+var SYNC_POLL_MS=3000;
+
+function syncEscapeHTML(str){
+  return String(str).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});
+}
+
+function renderSyncUI(){
+  var btn=document.getElementById('sync-receipts-btn');
+  var chip=document.getElementById('sync-receipts-chip');
+  if(!btn||!chip)return;
+  var s=SYNC_STATE;
+  var running=s&&s.status==='running';
+  btn.disabled=!!running;
+  btn.textContent=running?'Syncing…':'Sync Receipts';
+  // Chip rules:
+  //  - running: hide chip (button label carries the state)
+  //  - failed: red chip, not dismissable until user retries
+  //  - done: green chip with summary + ×; hide if user already dismissed this run id
+  if(!s||running){chip.style.display='none';chip.className='';chip.innerHTML='';return;}
+  if(s.status==='failed'){
+    chip.style.display='';
+    chip.className='sync-chip err';
+    chip.innerHTML='<span>Sync failed: '+syncEscapeHTML(s.error||'unknown error')+'</span>';
+    return;
+  }
+  if(s.status==='done'){
+    if(SYNC_CHIP_DISMISSED_ID===s.id){chip.style.display='none';return;}
+    var parts, headline;
+    // 260701-a23: branch on trigger so the chip says what actually happened.
+    // Manual runs read lookback_days off the row (added in
+    // backend/internal/inventory/sync_receipts.go). Legacy fallback below
+    // keeps the previous "Last synced X" copy so an un-rebuilt backend
+    // never renders "Synced from undefined".
+    if(s.triggered_by==='reprocess_all'){
+      // NOTE: on reprocess_all runs the `cached` column stores the *errored*
+      // count (see reprocess_pending.go ~L189 — semantic column overload).
+      // This branch is the one place we re-label it as "errored"; the column
+      // is not renamed because that would require a migration + backfill.
+      parts=[];
+      if(s.auto_created>0)parts.push(s.auto_created+' auto-added');
+      parts.push(s.pending_review+' still pending');
+      if(s.cached>0)parts.push(s.cached+' errored');
+      headline='Reprocessed '+s.processed+' pending';
+    } else if(typeof s.lookback_days==='number' && s.lookback_days>0){
+      // Manual / unknown trigger with a fresh backend — show the lookback start date.
+      var startMs=new Date(s.started_at).getTime() - s.lookback_days*86400*1000;
+      var d=new Date(startMs);
+      var months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      var fromLabel=months[d.getMonth()]+' '+d.getDate();
+      parts=[s.processed+' checked'];
+      if(s.auto_created>0)parts.push(s.auto_created+' auto-added');
+      if(s.pending_review>0)parts.push(s.pending_review+' pending review');
+      if(s.cached>0)parts.push(s.cached+' skipped');
+      headline='Synced from '+fromLabel;
+    } else {
+      // Legacy fallback — old backend hasn't been rebuilt yet or lookback_days
+      // is missing. Preserve the pre-a23 copy so nothing renders "undefined".
+      var mins=Math.max(0,Math.floor((Date.now()-new Date(s.finished_at||s.started_at).getTime())/60000));
+      var when=mins===0?'just now':(mins+'m ago');
+      parts=[s.processed+' processed'];
+      if(s.auto_created>0)parts.push(s.auto_created+' auto-added');
+      if(s.pending_review>0)parts.push(s.pending_review+' pending review');
+      if(s.cached>0)parts.push(s.cached+' skipped');
+      headline='Last synced '+when;
+    }
+    chip.style.display='';
+    chip.className='sync-chip ok';
+    chip.innerHTML='<span>'+syncEscapeHTML(headline+' — '+parts.join(', '))+'</span>'+
+                  '<button class="sync-chip-dismiss" data-action="dismiss-sync-chip" aria-label="Dismiss">×</button>';
+  }
+}
+
+async function refreshSyncStatus(){
+  try{
+    var res=await fetch('/api/v1/inventory/sync-receipts/status',{credentials:'include'});
+    if(!res.ok)return;
+    var body=await res.json();
+    var prev=SYNC_STATE;
+    SYNC_STATE=body; // server returns the row object or null
+    renderSyncUI();
+    if(SYNC_STATE&&SYNC_STATE.status==='running'){startSyncPoll();}
+    else{
+      stopSyncPoll();
+      // Re-enable the reprocess button when the sync finishes.
+      var reprBtn=document.getElementById('reprocess-all-btn');
+      if(reprBtn)reprBtn.disabled=false;
+      // Refresh the purchases list when a run transitions from running → done
+      // so newly-ingested rows appear without a full page reload.
+      if(SYNC_STATE&&SYNC_STATE.status==='done'&&prev&&prev.status==='running'&&typeof loadHistory==='function'){
+        loadHistory();
+      }
+    }
+  }catch(e){/* offline / transient; no UI noise */}
+}
+
+function startSyncPoll(){
+  if(SYNC_POLL_TIMER)return;
+  if(document.hidden)return; // visibilitychange listener will start it later
+  SYNC_POLL_TIMER=setInterval(refreshSyncStatus,SYNC_POLL_MS);
+}
+function stopSyncPoll(){
+  if(SYNC_POLL_TIMER){clearInterval(SYNC_POLL_TIMER);SYNC_POLL_TIMER=null;}
+}
+
+document.addEventListener('visibilitychange',function(){
+  if(document.hidden){stopSyncPoll();}
+  else if(SYNC_STATE&&SYNC_STATE.status==='running'){startSyncPoll();refreshSyncStatus();}
+});
+
+async function triggerSync(){
+  var btn=document.getElementById('sync-receipts-btn');
+  if(btn)btn.disabled=true;
+  try{
+    var res=await fetch('/api/v1/inventory/sync-receipts',{method:'POST',credentials:'include'});
+    if(res.status===409){
+      // another tab already started a run — pick up its state
+      await refreshSyncStatus();
+      return;
+    }
+    if(!res.ok)throw new Error('HTTP '+res.status);
+    var body=await res.json();
+    SYNC_STATE={id:body.id,status:'running',started_at:body.started_at,processed:0,auto_created:0,pending_review:0,cached:0};
+    SYNC_CHIP_DISMISSED_ID=null;
+    renderSyncUI();
+    startSyncPoll();
+  }catch(e){
+    if(btn)btn.disabled=false;
+    alert('Could not start sync: '+e.message);
+  }
+}
+
+// showReprocessBtn shows the "Reprocess All Pending" button only for admins/superadmins.
+// Called after CURRENT_USER is loaded and after each renderHistoryList so the
+// button visibility stays in sync with the user's role.
+function showReprocessBtn(){
+  var btn=document.getElementById('reprocess-all-btn');
+  if(!btn)return;
+  btn.style.display=isAdmin()?'':'none';
+}
+
+async function triggerReprocessAll(){
+  var btn=document.getElementById('reprocess-all-btn');
+  var pendingCount=PENDING_PURCHASES.length;
+  if(!confirm('Reset and re-process all '+pendingCount+' pending receipts? This will overwrite any partial edits. Continue?'))return;
+  if(btn)btn.disabled=true;
+  try{
+    var res=await fetch('/api/v1/inventory/purchases/reprocess-all',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'}});
+    var j=await res.json();
+    if(j.error){showToastMessage('Reprocess failed: '+j.error);if(btn)btn.disabled=false;return;}
+    showToastMessage('Reset '+j.reset_count+' rows. Sync running…');
+    SYNC_STATE={id:j.sync_id,status:'running',started_at:j.started_at,processed:0,auto_created:0,pending_review:0,cached:0};
+    SYNC_CHIP_DISMISSED_ID=null;
+    renderSyncUI();
+    startSyncPoll();
+  }catch(e){
+    if(btn)btn.disabled=false;
+    showToastMessage('Reprocess failed: '+e.message);
+  }
+}
+
+// Event delegation for the sync button + chip dismiss × — keep with existing
+// document-level click wiring style used elsewhere in this file.
+document.addEventListener('click',function(e){
+  var t=e.target;
+  if(!t)return;
+  if(t.id==='sync-receipts-btn'){triggerSync();return;}
+  if(t.id==='reprocess-all-btn'){triggerReprocessAll();return;}
+  if(t.getAttribute&&t.getAttribute('data-action')==='dismiss-sync-chip'){
+    if(SYNC_STATE)SYNC_CHIP_DISMISSED_ID=SYNC_STATE.id;
+    renderSyncUI();
+    return;
+  }
+});
+
 function show(n){
-  [1,2,3,4,5].forEach(i=>{
-    document.getElementById('s'+i).style.display=i===n?'':'none';
+  [1,2,3,4,5,6,7].forEach(i=>{
+    var el=document.getElementById('s'+i); if(el)el.style.display=i===n?'':'none';
     var btn=document.getElementById('t'+i);
     if(btn)btn.className=i===n?'on':'';
   });
   ACTIVE_TAB=n;
   location.hash='tab='+n;
   // Reload fresh data when switching tabs
-  if(n===1){loadHistory();}
+  if(n===1){loadHistory();refreshSyncStatus();}
   if(n===2){loadStock();}
-  if(n===5){loadItems();if(isAdmin())loadBadgeResetConfig();}
+  if(n===3){loadMenu();}
+  if(n===4){loadRecipes();}
+  if(n===7){loadItems();if(isAdmin())loadBadgeResetConfig();}
   render();
 }
 
 function render(){
   if(ACTIVE_TAB===1)renderHistoryList();
   if(ACTIVE_TAB===2)renderStock();
-  if(ACTIVE_TAB===3)renderTrends();
-  if(ACTIVE_TAB===4)renderCost();
-  if(ACTIVE_TAB===5){
+  if(ACTIVE_TAB===3)renderMenu();
+  if(ACTIVE_TAB===4)renderRecipes();
+  if(ACTIVE_TAB===5)renderTrends();
+  if(ACTIVE_TAB===6)renderCost();
+  if(ACTIVE_TAB===7){
     if(CATALOG_SUB===1)renderItemsList();
     else if(CATALOG_SUB===2)renderVendorsList();
   }
@@ -295,11 +553,13 @@ function render(){
 
 let PURCHASES=[];
 let STOCK_DATA=[];
+let MENU_DATA=[];
 let PENDING_PURCHASES=[];
 let ALL_ITEMS=[];
 let ITEM_GROUPS=[];
 let ITEM_SEARCH='';
 let ITEM_EDIT_ID=null;
+let PREFILL_NEW_ITEM=null;
 let ITEM_PHOTO_EDIT_ID=null;
 let CATALOG_SUB=1;
 let VENDOR_EDIT_ID=null;
@@ -378,7 +638,10 @@ function renderPurchaseEvent(evt){
   var expanded=EXPANDED_EVENTS[evt.id];
   var detail='';
   if(expanded&&evt.line_items&&evt.line_items.length){
-    var receiptLink=evt.receipt_url?'<button class="view-receipt-btn" data-action="view-receipt" data-url="'+escHtml(evt.receipt_url)+'" style="margin-top:12px">View Original Receipt</button>':'';
+    var _ruEvt=evt.receipt_urls&&evt.receipt_urls.length>0?evt.receipt_urls:null;
+    var _urlEvt=evt.receipt_url||(_ruEvt?_ruEvt[0]:'');
+    var _urlsAttrEvt=_ruEvt?' data-urls="'+escHtml(JSON.stringify(_ruEvt))+'"':'';
+    var receiptLink=_urlEvt?'<button class="view-receipt-btn" data-action="view-receipt" data-url="'+escHtml(_urlEvt)+'"'+_urlsAttrEvt+' style="margin-top:12px">View Original Receipt</button>':'';
     detail='<div class="event-detail" style="display:block">'+evt.line_items.map(p=>{
       var desc=p.description||p.name||'';
       return '<div class="line-item"><div style="flex:1"><div style="font-size:13px;font-weight:500">'+desc+(p.is_case?' <span class="case-badge">CASE</span>':'')+'</div><div style="font-size:12px;color:var(--mut);margin-top:2px">Qty: '+p.quantity+'</div></div><div style="font-size:14px;font-weight:500">$'+Number(p.price).toFixed(2)+'</div></div>';
@@ -392,8 +655,55 @@ function renderPendingCard(p){
     return renderReviewForm(p);
   }
   var vendorDisplay=titleCase(p.vendor||p.vendor_name||'Unknown Vendor');
-  var reasonHtml=p.reason?'&nbsp;&middot;&nbsp;'+escHtml(p.reason).replace(/\(diff (\$[\d.]+)\)/,'(<span style="color:var(--warn-tx);font-weight:600">diff $1</span>)'):'';
-  return '<div class="event-card" data-action="review-pending" data-id="'+p.id+'" style="position:relative;padding-right:110px"><div style="position:absolute;top:12px;right:12px"><span class="approval-badge">Needs Review</span></div><div class="event-vendor">'+vendorDisplay+'</div><div class="event-meta">'+formatDate(p.event_date)+reasonHtml+'</div><div class="event-total" style="margin-top:4px">$'+Number(p.bank_total||p.total||0).toFixed(2)+'</div></div>';
+  // 260630-mav: no-attachment pending rows render a red "Missing Receipt" badge
+  // and suppress the raw `no_attachment_on_bank_tx` sentinel from the meta row.
+  var isNoAttachment=p.reason==='no_attachment_on_bank_tx';
+  var reasonHtml=(p.reason && !isNoAttachment)?'&nbsp;&middot;&nbsp;'+escHtml(p.reason).replace(/\(diff (\$[\d.]+)\)/,'(<span style="color:var(--warn-tx);font-weight:600">diff $1</span>)'):'';
+  var pendingBadgeHtml=isNoAttachment?'<span class="approval-badge missing">Missing Receipt</span>':'<span class="approval-badge">Needs Review</span>';
+  // Phase 260607-e1c: surface the actual parser error (haiku+sonnet concat)
+  // on the pending card so the owner can see WHY parsing failed instead of
+  // a generic "Receipt could not be parsed automatically" line.
+  // Phase 260607-koi: the Retry parse button renders when there's something
+  // to clear server-side. It carries its own data-action so the history-list
+  // closest('[data-action]') delegate routes button clicks to 'retry-parse'
+  // rather than the outer 'review-pending' card click.
+  // Phase 260607-s6r: broadened to also cover the items-mismatch case
+  // (parse_error NULL but parsed items don't sum to bank_total — wrong
+  // receipt paired to bank tx). The data-mismatch flag tells the click
+  // handler whether to confirm() before POSTing — parse-error-only stays
+  // zero-friction (koi behavior preserved).
+  var hasParseError=p.reason==='Receipt could not be parsed automatically' && p.parse_error;
+  var itemsArr=Array.isArray(p.items)?p.items:[];
+  var hasItems=itemsArr.length>0;
+  var pLineTotal=itemsArr.reduce(function(s,it){
+    return s+Number(it.quantity||0)*Number(it.price||0);
+  },0);
+  var pBankTotal=Math.abs(Number(p.bank_total||p.total||0));
+  // Reuse the 0.01 epsilon from the review-form mismatch banner (line 631)
+  // and the backend ConfirmPendingPurchaseHandler total_mismatch check —
+  // do NOT introduce a new constant.
+  var itemsMismatch=hasItems && Math.abs(pLineTotal-pBankTotal)>0.01;
+  // Phase 260702-l67: when a retry has just been queued and SYNC_STATE is
+  // running, the row shows a "Reparsing…" pill + disabled button. The
+  // p.retryQueued flag is set in the click handler and is naturally cleared
+  // on the next loadHistory() call (fresh server payload has no such flag).
+  // While reparsing, force the button to render (as disabled Reparsing…)
+  // even if we optimistically cleared parse_error in the click handler —
+  // the operator needs to see per-row state throughout the sync run.
+  var reparsing=!!(SYNC_STATE && SYNC_STATE.status==='running' && p.retryQueued);
+  var showRetry=hasParseError || itemsMismatch || reparsing;
+  if(reparsing){
+    pendingBadgeHtml='<span class="approval-badge">Reparsing…</span>';
+  }
+  var parseErrHtml='';
+  if(hasParseError){
+    var truncated=String(p.parse_error).slice(0,140);
+    parseErrHtml='<div class="event-meta" style="font-style:italic;opacity:0.7;margin-top:2px">Parser error: '+escHtml(truncated)+'</div>';
+  }
+  if(showRetry){
+    parseErrHtml+='<button class="retry-parse-btn" data-action="retry-parse" data-id="'+p.id+'" data-mismatch="'+(itemsMismatch && !hasParseError?'1':'0')+'"'+(reparsing?' disabled':'')+'>'+(reparsing?'Reparsing…':'Retry parse')+'</button>';
+  }
+  return '<div class="event-card" data-action="review-pending" data-id="'+p.id+'" style="position:relative;padding-right:110px"><div style="position:absolute;top:12px;right:12px">'+pendingBadgeHtml+'</div><div class="event-vendor">'+vendorDisplay+'</div><div class="event-meta">'+formatDate(p.event_date)+reasonHtml+'</div>'+parseErrHtml+'<div class="event-total" style="margin-top:4px">$'+Number(p.bank_total||p.total||0).toFixed(2)+'</div></div>';
 }
 
 function renderReviewForm(p){
@@ -424,6 +734,14 @@ function renderReviewForm(p){
   var bankTotal=Math.abs(Number(state.bank_total));
   var mismatch=Math.abs(grandTotal-bankTotal)>0.01;
   var mismatchBanner=mismatch?'<div class="correction-banner">Total ($'+grandTotal.toFixed(2)+') doesn\'t match bank transaction ($'+bankTotal.toFixed(2)+'). Check amounts before saving.</div>':'<div class="match-banner">Amounts match ($'+grandTotal.toFixed(2)+'). Ready to confirm.</div>';
+  // Phase 260607-fxl: Confirm Receipt is enabled only when (items present AND
+  // totals match) OR (items empty AND reason is the no-attachment sentinel —
+  // the 260605-pk1 flow). Parse-failed rows with no items, or any row whose
+  // totals don't match, render the button disabled.
+  var hasItems=state.line_items.length>0;
+  var isNoAttachment=p.reason==='no_attachment_on_bank_tx';
+  var matches=!mismatch;
+  var canConfirm=(hasItems&&matches)||(!hasItems&&isNoAttachment);
   var linesHtml=state.line_items.map(function(li,i){
     return '<div class="review-line-item-row">'+
       '<div class="review-li-name-wrap '+(li.purchase_item_id?'linked':'unlinked')+'"><input type="text" class="review-li-name" data-idx="'+i+'" data-item-id="'+(li.purchase_item_id||'')+'" value="'+escHtml(li.name)+'" placeholder="Tap to select item..." autocomplete="off" readonly></div>'+
@@ -434,7 +752,10 @@ function renderReviewForm(p){
     '</div>';
   }).join('');
   var errorHtml=REVIEW_FORM_STATE[p.id]._error?'<div class="inline-error">'+escHtml(REVIEW_FORM_STATE[p.id]._error)+'</div>':'';
-  var receiptBtn=p.receipt_url?'<button class="view-receipt-btn" data-action="view-receipt" data-url="'+escHtml(p.receipt_url)+'">View Original Receipt</button>':'';
+  var _ruPend=p.receipt_urls&&p.receipt_urls.length>0?p.receipt_urls:null;
+  var _urlPend=p.receipt_url||(_ruPend?_ruPend[0]:'');
+  var _urlsAttrPend=_ruPend?' data-urls="'+escHtml(JSON.stringify(_ruPend))+'"':'';
+  var receiptBtn=_urlPend?'<button class="view-receipt-btn" data-action="view-receipt" data-url="'+escHtml(_urlPend)+'"'+_urlsAttrPend+'>View Original Receipt</button>':'';
   return '<div class="review-form" data-pending-id="'+p.id+'">'+
     '<div class="review-form-title">Review Receipt</div>'+
     mismatchBanner+
@@ -448,7 +769,7 @@ function renderReviewForm(p){
     '<button class="add-line-btn" data-action="add-review-line" data-id="'+p.id+'">+ Add Line Item</button>'+
     errorHtml+
     '<div class="review-actions">'+
-      '<button class="btn-primary" data-action="confirm-receipt" data-id="'+p.id+'">Confirm Receipt</button>'+
+      '<button class="btn-primary" data-action="confirm-receipt" data-id="'+p.id+'"'+(canConfirm?'':' disabled')+'>Confirm Receipt</button>'+
       '<button class="btn-secondary" data-action="discard-receipt" data-id="'+p.id+'">Discard Receipt</button>'+
     '</div>'+
     receiptBtn+
@@ -542,6 +863,43 @@ function loadMore(){
   if(!HISTORY_HAS_MORE||HISTORY_LOADING)return;
   HISTORY_PAGE++;
   loadHistory(true);
+}
+
+async function loadMenu(){
+  showSkeleton('menu-list');
+  try{
+    var since=new Date(Date.now()-7*24*60*60*1000).toISOString().slice(0,10);
+    var data=await api('/api/v1/inventory/menu-items?since='+since);
+    MENU_DATA=data||[];
+    renderMenu();
+  }catch(e){
+    if(e.message==='unauthorized')return;
+    showInlineError('menu-list','Couldn\u2019t load menu items.','loadMenu()');
+  }
+}
+
+function renderMenu(){
+  var list=document.getElementById('menu-list');
+  if(!list)return;
+  if(!MENU_DATA.length){
+    list.innerHTML='<div class="empty"><h3 style="font-size:15px;font-weight:500;margin:0 0 6px">No menu items</h3><p>Toast ingest has not populated the menu yet. Run <code>sync-toast</code> or wait for the next 12h cycle.</p></div>';
+    return;
+  }
+  var html='';
+  MENU_DATA.forEach(function(m){
+    var subgroup=m.menu_subgroup?' &middot; '+escHtml(m.menu_subgroup):'';
+    html+='<div class="stock-item" data-action="menu-card-to-recipes" data-menu-item-id="'+escHtml(m.id)+'" style="display:flex;align-items:center;gap:12px;padding:12px;border-bottom:1px solid var(--brd);cursor:pointer">'+
+      '<div style="flex:1;min-width:0">'+
+        '<div class="stock-item-name" style="font-weight:500">'+escHtml(m.name)+'</div>'+
+        '<div style="font-size:12px;color:var(--mut);margin-top:2px">'+escHtml(m.menu_group||'')+subgroup+' &middot; last sold '+formatDate(m.last_seen)+'</div>'+
+      '</div>'+
+      '<div style="text-align:right">'+
+        '<div style="font-weight:500">'+(m.units_sold_this_week||0)+'</div>'+
+        '<div style="font-size:11px;color:var(--mut)">this week</div>'+
+      '</div>'+
+    '</div>';
+  });
+  list.innerHTML=html;
 }
 
 async function loadStock(){
@@ -670,12 +1028,102 @@ document.getElementById('history-list').addEventListener('click',function(e){
   } else if(action==='view-receipt'){
     var url=el.dataset.url;
     if(url){
+      // Parse the URL list: data-urls takes priority; fall back to the
+      // single data-url so single-attachment rows work as before.
+      var urls=el.dataset.urls?JSON.parse(el.dataset.urls):[url];
+      if(!urls||!urls.length)urls=[url];
+
+      // Phase 260607-e1c: branch on .pdf so PDFs render via <iframe>.
+      // Strip querystring/fragment before the extension check so
+      // signed/presigned URLs like ...receipt.pdf?X-Amz-Signature=…
+      // still match.
+      function isPdfUrl(u){
+        var bare=String(u).split('?')[0].split('#')[0].toLowerCase();
+        return bare.endsWith('.pdf');
+      }
+      function buildMediaEl(u){
+        if(isPdfUrl(u)){
+          var fr=document.createElement('iframe');
+          fr.src=u;
+          fr.style.cssText='width:100%;height:100%;border:0;background:#fff;color-scheme:light';
+          return fr;
+        }
+        var im=document.createElement('img');
+        im.src=u;
+        im.alt='Receipt';
+        im.onerror=function(){im.style.display='none';var msg=document.createElement('div');msg.style.cssText='color:#fff;font-size:15px;text-align:center;padding:20px';msg.textContent='Receipt image unavailable';overlay.appendChild(msg);};
+        return im;
+      }
+
       var overlay=document.createElement('div');
       overlay.className='receipt-overlay';
-      overlay.innerHTML='<button class="close-receipt" aria-label="Close">&times;</button><img src="'+escHtml(url)+'" alt="Receipt">';
-      var img=overlay.querySelector('img');
-      img.onerror=function(){img.style.display='none';var msg=document.createElement('div');msg.style.cssText='color:#fff;font-size:15px;text-align:center;padding:20px';msg.textContent='Receipt image unavailable';overlay.appendChild(msg);};
-      overlay.addEventListener('click',function(ev){if(ev.target===overlay||ev.target.classList.contains('close-receipt'))overlay.remove();});
+
+      var closeBtn=document.createElement('button');
+      closeBtn.className='close-receipt';
+      closeBtn.setAttribute('aria-label','Close');
+      closeBtn.innerHTML='&times;';
+      overlay.appendChild(closeBtn);
+
+      var openLink=document.createElement('a');
+      openLink.className='open-receipt-link';
+      openLink.target='_blank';
+      openLink.rel='noopener';
+      openLink.style.cssText='position:absolute;top:12px;left:12px;color:#fff;font-size:13px;text-decoration:underline;z-index:2';
+      openLink.textContent='Open in new tab';
+      overlay.appendChild(openLink);
+
+      // Media container — swapped by carousel navigation.
+      var mediaWrap=document.createElement('div');
+      mediaWrap.style.cssText='width:100%;height:100%;display:flex;align-items:center;justify-content:center;pointer-events:none';
+      overlay.appendChild(mediaWrap);
+
+      var curIdx=0;
+      function showSlide(idx){
+        curIdx=idx;
+        var u=urls[curIdx];
+        openLink.href=u;
+        // Clear previous child and insert new media element.
+        while(mediaWrap.firstChild)mediaWrap.removeChild(mediaWrap.firstChild);
+        var el2=buildMediaEl(u);
+        el2.style.pointerEvents='auto';
+        mediaWrap.appendChild(el2);
+        if(navBar)counter.textContent=(curIdx+1)+' / '+urls.length;
+      }
+
+      // Nav bar (only rendered for multi-attachment rows).
+      var navBar=null;
+      var counter=null;
+      if(urls.length>1){
+        navBar=document.createElement('div');
+        navBar.className='nav-bar';
+        var prevBtn=document.createElement('button');
+        prevBtn.textContent='«';
+        prevBtn.setAttribute('aria-label','Previous');
+        prevBtn.addEventListener('click',function(ev){
+          ev.stopPropagation();
+          showSlide((curIdx-1+urls.length)%urls.length);
+        });
+        counter=document.createElement('span');
+        var nextBtn=document.createElement('button');
+        nextBtn.textContent='»';
+        nextBtn.setAttribute('aria-label','Next');
+        nextBtn.addEventListener('click',function(ev){
+          ev.stopPropagation();
+          showSlide((curIdx+1)%urls.length);
+        });
+        navBar.appendChild(prevBtn);
+        navBar.appendChild(counter);
+        navBar.appendChild(nextBtn);
+        overlay.appendChild(navBar);
+      }
+
+      showSlide(0);
+
+      overlay.addEventListener('click',function(ev){
+        // Clicking the Open-in-new-tab link MUST NOT close the overlay.
+        if(ev.target===openLink||openLink.contains(ev.target))return;
+        if(ev.target===overlay||ev.target===closeBtn)overlay.remove();
+      });
       document.body.appendChild(overlay);
     }
   } else if(action==='add-vendor'){
@@ -687,11 +1135,71 @@ document.getElementById('history-list').addEventListener('click',function(e){
       if(REVIEW_FORM_STATE[id])REVIEW_FORM_STATE[id].vendor_name=vendorName;
     }
   } else if(action==='confirm-receipt'){
+    // Phase 260607-fxl: disabled-state click guard. Browsers normally suppress
+    // clicks on a disabled <button>, but this is a delegated handler — guard
+    // in JS too so a stale event can't slip through.
+    if(el.disabled)return;
     captureReviewFormInputs(id);
     confirmReceipt(id);
   } else if(action==='discard-receipt'){
     captureReviewFormInputs(id);
     discardReceipt(id);
+  } else if(action==='retry-parse'){
+    // Phase 260607-koi: clear parse_error server-side so the next worker
+    // sync (260607-fxl parseFailedRetry branch) re-attempts the parse.
+    // Phase 260607-s6r: items-mismatch path goes through confirm() first
+    // because we're throwing away parsed line items. parse_error-only
+    // path stays zero-friction (data-mismatch='0' skips the confirm).
+    // Phase 260702-l67: click now piggybacks on the existing SYNC_STATE
+    // machinery — after a successful /retry-parse POST we call triggerSync()
+    // directly so the operator doesn't have to click Sync Receipts as a
+    // second step. The per-row "Reparsing…" pill + disabled button (see
+    // renderPendingCard) carries the visual signal while the run is active;
+    // refreshSyncStatus() calls loadHistory() on running→done, which drops
+    // the transient retryQueued flag naturally.
+    if(el.disabled)return; // stale delegated event guard (mirrors L1138)
+    var rid=id;
+    var isMismatch=el.getAttribute('data-mismatch')==='1';
+    if(isMismatch && !confirm('Discard parsed items and re-parse from receipt?')){
+      return;
+    }
+    var row=PENDING_PURCHASES.find(function(pp){return pp.id===rid;});
+    // Branch A: sync already running — skip the POST (idempotent no-op on
+    // the backend anyway) and just mark this row so it flips to the
+    // Reparsing… pill for the duration of the current run.
+    if(SYNC_STATE && SYNC_STATE.status==='running'){
+      if(row){row.retryQueued=true;}
+      showToastMessage('Reparse queued — sync already running');
+      renderHistoryList();
+      return;
+    }
+    // Branch B: fire the /retry-parse POST, then auto-trigger a sync. 200
+    // and 409 (already re-queued) both count as success — 409 is
+    // idempotent per the koi handler contract. Anything else surfaces via
+    // showToastMessage (no alert() — project convention, see L1591).
+    fetch('/api/v1/inventory/purchases/pending/'+encodeURIComponent(rid)+'/retry-parse',{
+      method:'POST',credentials:'include'
+    }).then(function(resp){
+      if(resp.ok || resp.status===409){
+        if(resp.ok && row){
+          row.parse_error='';
+          if(isMismatch){
+            row.items=[];
+            row.reason='Receipt could not be parsed automatically';
+          }
+        }
+        if(row){row.retryQueued=true;}
+        renderHistoryList();
+        // Fire-and-forget — triggerSync handles its own errors + 409
+        // (someone else beat us to the sync); no toast on success, the
+        // Reparsing… state on the row is the signal.
+        triggerSync();
+      }else{
+        showToastMessage('Could not retry parse: HTTP '+resp.status);
+      }
+    }).catch(function(err){
+      showToastMessage('Could not retry parse: '+err.message);
+    });
   }
 });
 
@@ -741,6 +1249,17 @@ document.getElementById('history-list').addEventListener('input',function(e){
       } else {
         matchBanner.textContent='Amounts match ($'+grandTotal.toFixed(2)+'). Ready to confirm.';
       }
+    }
+    // Phase 260607-fxl: keep Confirm Receipt button disabled state in sync
+    // with live inputs. canConfirm follows the same rule used at render time.
+    var hasItemsNow=state.line_items.length>0;
+    var pendingRow=PENDING_PURCHASES.find(function(pp){return pp.id===pid;});
+    var isNoAttachmentNow=pendingRow&&pendingRow.reason==='no_attachment_on_bank_tx';
+    var canConfirmNow=(hasItemsNow&&!mismatch)||(!hasItemsNow&&isNoAttachmentNow);
+    var confirmBtn=form.querySelector('.btn-primary[data-action="confirm-receipt"]');
+    if(confirmBtn){
+      if(canConfirmNow)confirmBtn.removeAttribute('disabled');
+      else confirmBtn.setAttribute('disabled','');
     }
   }
 });
@@ -886,11 +1405,11 @@ document.addEventListener('click',function(e){
     ITEM_SEARCH='';
     var searchEl=document.getElementById('item-search');
     if(searchEl)searchEl.value='';
-    // Switch to Setup tab, load fresh items, then expand the target item
-    ACTIVE_TAB=5;
-    [1,2,3,4,5].forEach(function(i){
-      document.getElementById('s'+i).style.display=i===5?'':'none';
-      var btn=document.getElementById('t'+i);if(btn)btn.className=i===5?'on':'';
+    // Switch to Setup tab (now t7/s7 — Recipes inserted as tab 4 in Phase 999.2 pushed Setup to 7)
+    ACTIVE_TAB=7;
+    [1,2,3,4,5,6,7].forEach(function(i){
+      var el=document.getElementById('s'+i); if(el)el.style.display=i===7?'':'none';
+      var btn=document.getElementById('t'+i);if(btn)btn.className=i===7?'on':'';
     });
     showSetupSub(1);
     api('/api/v1/inventory/items').then(function(data){
@@ -1042,8 +1561,16 @@ function renderItemsList(){
   }
 
   list.innerHTML=html;
+  // Apply prefill from cross-page navigation (PO → Inventory Setup)
+  if(PREFILL_NEW_ITEM){
+    var inp=document.getElementById('new-item-name');
+    if(inp){inp.value=PREFILL_NEW_ITEM;inp.focus();}
+  }
 }
 
+document.getElementById('items-list').addEventListener('input',function(e){
+  if(e.target.id==='new-item-name')PREFILL_NEW_ITEM=null;
+});
 document.getElementById('item-search').addEventListener('input',function(e){
   ITEM_SEARCH=e.target.value;
   renderItemsList();
@@ -1116,6 +1643,7 @@ document.getElementById('items-list').addEventListener('click',function(e){
   if(!el)return;
   var action=el.dataset.action;
   if(action==='create-item'){
+    PREFILL_NEW_ITEM=null;
     var nameEl=document.getElementById('new-item-name');
     var groupEl=document.getElementById('new-item-group');
     var name=nameEl.value.trim();
@@ -1386,12 +1914,15 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');
 
 document.addEventListener('DOMContentLoaded',async function(){
   try{CURRENT_USER=await api('/api/v1/me');}catch(e){return;}
+  showReprocessBtn();
   // Preload items for review form dropdowns
   try{var data=await api('/api/v1/inventory/items');ALL_ITEMS=data||[];}catch(e){}
   try{var g=await api('/api/v1/inventory/groups');ITEM_GROUPS=g||[];}catch(e){}
   try{var v=await api('/api/v1/inventory/vendors');VENDORS=v||[];}catch(e){}
   var hashTab=(location.hash.match(/tab=(\d+)/)||[])[1];
   var hashItem=decodeURIComponent((location.hash.match(/item=([^&]+)/)||[])[1]||'');
+  var hashNewItem=decodeURIComponent((location.hash.match(/newItem=([^&]+)/)||[])[1]||'');
+  if(hashNewItem){hashTab='7';PREFILL_NEW_ITEM=hashNewItem;}
   if(hashItem&&ALL_ITEMS.length){
     var match=ALL_ITEMS.find(function(it){return it.description===hashItem;});
     if(match)ITEM_EDIT_ID=match.id;
@@ -1405,6 +1936,7 @@ document.addEventListener('DOMContentLoaded',async function(){
   }
   loadVendors();
   loadHistory();
+  refreshSyncStatus();
   loadStock();
 });
 
@@ -1555,6 +2087,410 @@ function closeItemModal(){
   var modal=document.getElementById('item-modal');
   if(modal)modal.remove();
   ITEM_MODAL_TARGET=null;
+}
+
+// ── Phase 999.2 — Recipes tab ──────────────────────────────────────────
+let RECIPES_DATA=[];           // [{purchase_item_id, description, last_week_spend, sum_pct, recipes:[...]}]
+let EXPANDED_INGREDIENTS={};   // purchase_item_id -> bool
+let SELECTED_MENU_ITEM_ID=null;
+let DRIFT_BANNER=null;         // {week_start, sections:[]} or null
+
+async function loadRecipes(){
+  try{
+    var results=await Promise.all([
+      api('/api/v1/inventory/recipes'),
+      api('/api/v1/inventory/recipes/drift')
+    ]);
+    var data=results[0], drift=results[1];
+    RECIPES_DATA=(data&&data.ingredients)||[];
+    DRIFT_BANNER=(drift&&drift.sections&&drift.sections.length>0)?drift:null;
+    renderRecipes();
+  }catch(e){
+    if(e.message!=='unauthorized'){
+      showInlineError('recipes-list','Couldn’t load recipes.','loadRecipes()');
+    }
+  }
+}
+
+function renderRecipes(){
+  renderDriftBanner();
+  renderIngredientList();
+  renderRecipeSummary();
+}
+
+function renderDriftBanner(){
+  var host=document.getElementById('recipes-drift-banner');
+  if(!host)return;
+  if(!DRIFT_BANNER){host.innerHTML='';return;}
+  var total=DRIFT_BANNER.sections.reduce(function(s,sec){return s+(sec.items||[]).length;},0);
+  var html='<div class="recipe-drift-banner" role="status" aria-live="polite">';
+  html+='<div class="recipe-drift-headline">⚠ '+total+' ingredient'+(total===1?'':'s')+' drifted last week</div>';
+  DRIFT_BANNER.sections.forEach(function(sec){
+    var labels=(sec.items||[]).map(function(it){
+      var id=it.purchase_item_id||it.menu_item_id||'';
+      return '<a class="recipe-drift-link" data-action="scroll-to-recipe-row" data-purchase-item-id="'+escHtml(id)+'">'+escHtml(it.label)+'</a>';
+    }).join(', ');
+    html+='<div class="recipe-drift-section">'+escHtml(sec.heading)+': '+labels+'</div>';
+  });
+  html+='</div>';
+  host.innerHTML=html;
+}
+
+function renderIngredientList(){
+  var host=document.getElementById('recipes-list');
+  if(!host)return;
+  if(RECIPES_DATA.length===0){
+    host.innerHTML='<div class="empty"><h3 style="font-size:15px;font-weight:500;margin:0 0 6px">No ingredients yet</h3><p>Confirm a receipt on the Purchases tab and the items will show up here for allocation.</p></div>';
+    return;
+  }
+  // Sort by last_week_spend DESC; items with 0 spend go to bottom alphabetically.
+  var sorted=RECIPES_DATA.slice().sort(function(a,b){
+    var aSpend=+a.last_week_spend||0, bSpend=+b.last_week_spend||0;
+    if(aSpend===0&&bSpend===0)return (a.description||'').localeCompare(b.description||'');
+    if(aSpend===0)return 1;
+    if(bSpend===0)return -1;
+    return bSpend-aSpend;
+  });
+  var html=sorted.map(function(ing){
+    var open=!!EXPANDED_INGREDIENTS[ing.purchase_item_id];
+    var sumPct=+ing.sum_pct||0;
+    var unalloc=100-sumPct;
+    var chip;
+    if(sumPct===100){
+      chip='<span class="recipe-status-chip recipe-status-chip-ok">Allocated 100%</span>';
+    }else if(sumPct>0&&sumPct<100){
+      chip='<span class="recipe-status-chip recipe-status-chip-warn">Unallocated: '+unalloc.toFixed(0)+'%</span>';
+    }else if(sumPct===0&&(ing.recipes||[]).length===0){
+      chip=''; // never-allocated, no chip per UI-SPEC
+    }else{
+      chip='<span class="recipe-status-chip recipe-status-chip-warn">Unallocated: '+unalloc.toFixed(0)+'%</span>';
+    }
+    var spend=((+ing.last_week_spend||0)>0)
+      ? 'Last week: $'+(+ing.last_week_spend).toFixed(2)
+      : 'Last week: no purchases';
+    var rowHtml='<div class="recipe-ingredient-row'+(open?' open':'')+'" data-action="toggle-recipe-row" data-purchase-item-id="'+escHtml(ing.purchase_item_id)+'" aria-expanded="'+(open?'true':'false')+'">';
+    rowHtml+='<div class="recipe-row-head">';
+    rowHtml+='<div><span class="arrow">▶</span> <span class="recipe-row-name">'+escHtml(ing.description)+'</span><div class="recipe-row-spend">'+spend+'</div></div>';
+    rowHtml+='<div>'+chip+'</div>';
+    rowHtml+='</div>';
+    if(open){rowHtml+='<div class="recipe-detail">'+renderIngredientDetail(ing)+'</div>';}
+    rowHtml+='</div>';
+    return rowHtml;
+  }).join('');
+  host.innerHTML=html;
+}
+
+function renderIngredientDetail(ing){
+  var rows=(ing.recipes||[]).map(function(r){
+    var sub=r.menu_subgroup?' · '+escHtml(r.menu_subgroup):'';
+    var pct=+r.usage_pct||0;
+    var fillPct=pct;
+    return '<div class="recipe-allocation-row" data-recipe-id="'+escHtml(r.id)+'" data-purchase-item-id="'+escHtml(ing.purchase_item_id)+'">'+
+      '<div class="recipe-alloc-head">'+
+        '<div><div class="recipe-alloc-name" data-action="view-menu-summary" data-menu-item-id="'+escHtml(r.menu_item_id)+'">'+escHtml(r.menu_item_name)+'</div><div class="recipe-alloc-group">'+escHtml(r.menu_group||'')+sub+'</div></div>'+
+        '<div class="recipe-pct-chip">'+pct.toFixed(0)+'%</div>'+
+      '</div>'+
+      '<input type="range" class="recipe-slider" min="0" max="100" step="5" value="'+pct+'" data-action="save-recipe-pct" data-recipe-id="'+escHtml(r.id)+'" data-old-pct="'+pct+'" aria-valuetext="'+pct+'%" style="background:linear-gradient(to right, var(--info-bg) 0% '+fillPct+'%, var(--brd) '+fillPct+'% 100%)">'+
+      '<div class="recipe-inline-error" style="display:none"></div>'+
+    '</div>';
+  }).join('');
+
+  var sumPct=+ing.sum_pct||0;
+  var unalloc=100-sumPct;
+  var totalCls=sumPct===100?'ok':(unalloc>10?'warn':'mut');
+  var totalTxt;
+  if(sumPct===100){totalTxt='Allocated 100%';}
+  else if(unalloc>0){totalTxt='Unallocated: '+unalloc.toFixed(0)+'%';}
+  else{totalTxt='Over-allocated by '+(-unalloc).toFixed(0)+'% — reduce one of these to save';}
+
+  return rows+
+    '<div class="recipe-running-total '+totalCls+'" data-running-total-for="'+escHtml(ing.purchase_item_id)+'">'+totalTxt+'</div>'+
+    '<button class="recipe-add-btn" data-action="open-menu-picker" data-purchase-item-id="'+escHtml(ing.purchase_item_id)+'">+ Add menu item</button>';
+}
+
+function renderRecipeSummary(){
+  var host=document.getElementById('recipes-summary-card');
+  if(!host)return;
+  if(!SELECTED_MENU_ITEM_ID){
+    host.innerHTML='<div class="recipe-summary-empty">Tap an ingredient to see how it breaks down by dish</div>';
+    return;
+  }
+  var menuName='';
+  var menuGroup='';
+  var menuSubgroup='';
+  var rowsHTML='';
+  var total=0;
+  RECIPES_DATA.forEach(function(ing){
+    (ing.recipes||[]).forEach(function(r){
+      if(r.menu_item_id===SELECTED_MENU_ITEM_ID){
+        menuName=r.menu_item_name;menuGroup=r.menu_group||'';menuSubgroup=r.menu_subgroup||'';
+        var pct=+r.usage_pct||0;
+        var alloc=(+ing.last_week_spend||0)*(pct/100);
+        total+=alloc;
+        rowsHTML+='<div class="ingredient-row"><span class="ingredient-name">'+escHtml(ing.description)+'</span><span class="ingredient-pct">'+pct.toFixed(0)+'%</span><span class="ingredient-cost">$'+alloc.toFixed(2)+'</span></div>';
+      }
+    });
+  });
+  if(!menuName){
+    host.innerHTML='<div class="recipe-summary-empty">No allocations for this menu item.</div>';
+    return;
+  }
+  var sub=menuSubgroup?' · '+escHtml(menuSubgroup):'';
+  host.innerHTML='<div class="menu-card">'+
+    '<div style="display:flex;justify-content:space-between;align-items:flex-start"><div><div class="menu-card-name">'+escHtml(menuName)+'</div><div class="event-meta">'+escHtml(menuGroup)+sub+'</div></div><div data-action="clear-menu-summary" style="font-size:18px;color:var(--mut);cursor:pointer">×</div></div>'+
+    '<div style="margin-top:8px">'+rowsHTML+'</div>'+
+    '<div class="revenue-row"><span>Total ingredient cost</span><span>$'+total.toFixed(2)+'</span></div>'+
+  '</div>';
+}
+
+function updateRecipeRunningTotal(purchaseItemID){
+  var row=document.querySelector('.recipe-ingredient-row[data-purchase-item-id="'+CSS.escape(purchaseItemID)+'"]');
+  if(!row)return;
+  var sliders=row.querySelectorAll('.recipe-slider');
+  var sum=0;
+  sliders.forEach(function(s){sum+=+s.value;});
+  var unalloc=100-sum;
+  var totalEl=row.querySelector('[data-running-total-for]');
+  if(!totalEl)return;
+  totalEl.className='recipe-running-total '+(sum===100?'ok':(unalloc>10?'warn':'mut'));
+  if(sum===100){totalEl.textContent='Allocated 100%';}
+  else if(unalloc>0){totalEl.textContent='Unallocated: '+unalloc.toFixed(0)+'%';}
+  else{totalEl.textContent='Over-allocated by '+(-unalloc).toFixed(0)+'% — reduce one of these to save';}
+}
+
+async function autoSaveRecipe(recipeID,oldPct,newPct){
+  // Per CLAUDE.md persistence rule: every user value goes through the API.
+  try{
+    await api('/api/v1/inventory/recipes/'+recipeID,{
+      method:'PUT',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({usage_pct:newPct})
+    });
+    // Update RECIPES_DATA in place so re-render shows the new value.
+    RECIPES_DATA.forEach(function(ing){
+      (ing.recipes||[]).forEach(function(r){
+        if(r.id===recipeID){r.usage_pct=newPct;}
+      });
+      ing.sum_pct=(ing.recipes||[]).reduce(function(s,r){return s+(+r.usage_pct||0);},0);
+    });
+  }catch(e){
+    if(e&&e.status===422&&e.data&&e.data.error==='sum_exceeds_100'){
+      // Roll back slider + chip + show inline error per UI-SPEC error states.
+      var row=document.querySelector('.recipe-allocation-row[data-recipe-id="'+CSS.escape(recipeID)+'"]');
+      if(row){
+        var slider=row.querySelector('.recipe-slider');
+        if(slider){
+          slider.value=oldPct;
+          slider.dataset.oldPct=oldPct;
+          slider.style.background='linear-gradient(to right, var(--info-bg) 0% '+oldPct+'%, var(--brd) '+oldPct+'% 100%)';
+        }
+        var chip=row.querySelector('.recipe-pct-chip');
+        if(chip){chip.textContent=(+oldPct).toFixed(0)+'%';}
+        var errEl=row.querySelector('.recipe-inline-error');
+        if(errEl){
+          errEl.style.display='';
+          errEl.textContent='Can’t go above 100% — '+(e.data.conflict_menu_item||'another menu item')+' is already at '+(+(e.data.conflict_pct||0)).toFixed(0)+'%. Reduce that first.';
+        }
+        // Roll RECIPES_DATA back too so re-render reflects truth
+        RECIPES_DATA.forEach(function(ing){
+          (ing.recipes||[]).forEach(function(r){
+            if(r.id===recipeID){r.usage_pct=oldPct;}
+          });
+          ing.sum_pct=(ing.recipes||[]).reduce(function(s,r){return s+(+r.usage_pct||0);},0);
+        });
+        var pid=row.dataset.purchaseItemId;
+        if(pid)updateRecipeRunningTotal(pid);
+      }
+    }else if(e&&e.message!=='unauthorized'){
+      var row2=document.querySelector('.recipe-allocation-row[data-recipe-id="'+CSS.escape(recipeID)+'"]');
+      if(row2){
+        var errEl2=row2.querySelector('.recipe-inline-error');
+        if(errEl2){errEl2.style.display='';errEl2.textContent='Couldn’t save — tap to retry';}
+      }
+    }
+  }
+}
+
+// ── Recipes tab event delegation ──────────────────────────────────────
+document.addEventListener('click',function(e){
+  if(typeof ACTIVE_TAB!=='undefined'&&ACTIVE_TAB!==4)return;
+  var el=e.target.closest('[data-action]');
+  if(!el)return;
+  // Ignore clicks inside the menu-picker modal — it has its own listener.
+  if(el.closest('#recipe-menu-picker'))return;
+  var action=el.dataset.action;
+  if(action==='toggle-recipe-row'){
+    // Don't toggle if click was on an inner data-action element (e.g. slider, add btn, alloc name).
+    var inner=e.target.closest('[data-action]');
+    if(inner&&inner!==el)return;
+    var pid=el.dataset.purchaseItemId;
+    EXPANDED_INGREDIENTS[pid]=!EXPANDED_INGREDIENTS[pid];
+    renderRecipes();
+  }else if(action==='open-menu-picker'){
+    e.stopPropagation();
+    openMenuItemPicker(el.dataset.purchaseItemId);
+  }else if(action==='view-menu-summary'){
+    e.stopPropagation();
+    SELECTED_MENU_ITEM_ID=el.dataset.menuItemId;
+    renderRecipeSummary();
+  }else if(action==='clear-menu-summary'){
+    e.stopPropagation();
+    SELECTED_MENU_ITEM_ID=null;
+    renderRecipeSummary();
+  }else if(action==='scroll-to-recipe-row'){
+    e.stopPropagation();
+    var pid2=el.dataset.purchaseItemId;
+    EXPANDED_INGREDIENTS[pid2]=true;
+    renderRecipes();
+    setTimeout(function(){
+      var target=document.querySelector('.recipe-ingredient-row[data-purchase-item-id="'+CSS.escape(pid2)+'"]');
+      if(target)target.scrollIntoView({behavior:'smooth',block:'center'});
+    },100);
+  }
+});
+
+// Menu tab → Recipes cross-link. Not gated on ACTIVE_TAB since the source is tab 3.
+document.addEventListener('click',function(e){
+  var el=e.target.closest('[data-action="menu-card-to-recipes"]');
+  if(!el)return;
+  var menuItemID=el.dataset.menuItemId;
+  if(!menuItemID)return;
+  show(4);
+  SELECTED_MENU_ITEM_ID=menuItemID;
+  renderRecipeSummary();
+  setTimeout(function(){
+    var card=document.getElementById('recipes-summary-card');
+    if(card)card.scrollIntoView({behavior:'smooth',block:'center'});
+  },100);
+});
+
+document.addEventListener('input',function(e){
+  if(typeof ACTIVE_TAB!=='undefined'&&ACTIVE_TAB!==4)return;
+  if(!e.target||e.target.dataset.action!=='save-recipe-pct')return;
+  var newPct=+e.target.value;
+  var row=e.target.closest('.recipe-allocation-row');
+  if(!row)return;
+  var chip=row.querySelector('.recipe-pct-chip');
+  if(chip)chip.textContent=newPct.toFixed(0)+'%';
+  e.target.style.background='linear-gradient(to right, var(--info-bg) 0% '+newPct+'%, var(--brd) '+newPct+'% 100%)';
+  e.target.setAttribute('aria-valuetext',newPct+'%');
+  var pid=row.dataset.purchaseItemId;
+  if(pid){
+    var rid=row.dataset.recipeId;
+    RECIPES_DATA.forEach(function(ing){
+      if(ing.purchase_item_id!==pid)return;
+      (ing.recipes||[]).forEach(function(r){if(r.id===rid)r.usage_pct=newPct;});
+    });
+    updateRecipeRunningTotal(pid);
+  }
+});
+
+document.addEventListener('change',function(e){
+  if(typeof ACTIVE_TAB!=='undefined'&&ACTIVE_TAB!==4)return;
+  if(!e.target||e.target.dataset.action!=='save-recipe-pct')return;
+  var newPct=+e.target.value;
+  var recipeID=e.target.dataset.recipeId;
+  var oldPct=+e.target.dataset.oldPct;
+  if(oldPct===newPct)return;
+  var row=e.target.closest('.recipe-allocation-row');
+  if(row){var errEl=row.querySelector('.recipe-inline-error');if(errEl){errEl.style.display='none';errEl.textContent='';}}
+  if(newPct===0){
+    api('/api/v1/inventory/recipes/'+recipeID,{method:'DELETE'}).then(function(){
+      loadRecipes();
+    }).catch(function(err){
+      if(err&&err.message!=='unauthorized'){
+        e.target.value=oldPct;
+        var c=e.target.closest('.recipe-allocation-row').querySelector('.recipe-pct-chip');
+        if(c)c.textContent=(+oldPct).toFixed(0)+'%';
+        var errEl3=e.target.closest('.recipe-allocation-row').querySelector('.recipe-inline-error');
+        if(errEl3){errEl3.style.display='';errEl3.textContent='Couldn’t save — tap to retry';}
+      }
+    });
+    return;
+  }
+  autoSaveRecipe(recipeID,oldPct,newPct);
+  e.target.dataset.oldPct=newPct;
+});
+
+// ── Menu item picker (reuse .item-modal classes) ──────────────────────
+async function openMenuItemPicker(purchaseItemID){
+  var ing=RECIPES_DATA.find(function(i){return i.purchase_item_id===purchaseItemID;});
+  if(!ing)return;
+  var alreadyAllocated={};
+  (ing.recipes||[]).forEach(function(r){alreadyAllocated[r.menu_item_id]=true;});
+  var menuItems;
+  try{
+    // Backend expects since as YYYY-MM-DD; default window is 7 days which hides
+    // menu items with recipes but no sales in the last week. Pass 90 days back
+    // so D-07 stale menu items still surface.
+    var sinceDate=new Date(Date.now()-90*24*60*60*1000).toISOString().slice(0,10);
+    var resp=await api('/api/v1/inventory/menu-items?since='+sinceDate);
+    menuItems=(resp&&resp.menu_items)||resp||[];
+  }catch(e){
+    if(e&&e.message==='unauthorized')return;
+    alert('Menu items unavailable. The picker needs Toast ingest to be running.');
+    return;
+  }
+  var filtered=menuItems.filter(function(m){return !alreadyAllocated[m.id];});
+
+  var modal=document.createElement('div');
+  modal.className='item-modal';
+  modal.id='recipe-menu-picker';
+  var listHTML=filtered.length===0
+    ? '<div class="empty" style="padding-top:60px"><h3 style="font-size:15px;font-weight:500;margin:0 0 6px">All menu items linked</h3><p>Every menu item is already allocated to this ingredient. Edit an existing % below to redistribute.</p></div>'
+    : filtered.map(function(m){
+        var sub=m.menu_subgroup?' · '+escHtml(m.menu_subgroup):'';
+        return '<div class="item-modal-item" data-action="pick-menu-item" data-menu-item-id="'+escHtml(m.id)+'" data-purchase-item-id="'+escHtml(purchaseItemID)+'">'+
+          '<div class="item-modal-item-name">'+escHtml(m.name||m.menu_item_name||'')+'</div>'+
+          '<div class="item-modal-item-group">'+escHtml(m.menu_group||'')+sub+'</div>'+
+        '</div>';
+      }).join('');
+  modal.innerHTML='<div class="item-modal-header"><input type="text" class="recipe-picker-search" placeholder="Search menu items..." autofocus autocomplete="off"><button class="item-modal-cancel" data-action="close-menu-picker">Cancel</button></div><div class="item-modal-list">'+listHTML+'</div>';
+  document.body.appendChild(modal);
+
+  modal.addEventListener('click',function(ev){
+    var t=ev.target.closest('[data-action]');
+    if(!t)return;
+    var act=t.dataset.action;
+    if(act==='close-menu-picker'){modal.remove();return;}
+    if(act==='pick-menu-item'){
+      var menuItemID=t.dataset.menuItemId;
+      var pid=t.dataset.purchaseItemId;
+      modal.remove();
+      api('/api/v1/inventory/recipes',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({menu_item_id:menuItemID,purchase_item_id:pid,usage_pct:5})
+      }).then(function(){
+        // Ensure the ingredient row stays expanded after the reload.
+        EXPANDED_INGREDIENTS[pid]=true;
+        loadRecipes();
+      }).catch(function(err){
+        if(err&&err.message==='unauthorized')return;
+        if(err&&err.status===422&&err.data&&err.data.error==='sum_exceeds_100'){
+          alert('Can’t add — '+(err.data.conflict_menu_item||'another menu item')+' is already at '+(+(err.data.conflict_pct||0)).toFixed(0)+'%. Reduce that first.');
+        }else if(err&&err.status===409){
+          alert('That menu item is already allocated.');
+        }else{
+          alert('Couldn’t add menu item.');
+        }
+      });
+    }
+  });
+  var search=modal.querySelector('.recipe-picker-search');
+  var listContainer=modal.querySelector('.item-modal-list');
+  if(search){
+    search.addEventListener('input',function(){
+      var q=search.value.toLowerCase();
+      var items=listContainer.querySelectorAll('.item-modal-item');
+      items.forEach(function(it){
+        var nameEl=it.querySelector('.item-modal-item-name');
+        var name=nameEl?nameEl.textContent:'';
+        it.style.display=name.toLowerCase().indexOf(q)>=0?'':'none';
+      });
+    });
+    setTimeout(function(){search.focus();},50);
+  }
 }
 </script>
 <script src="log.js"></script><script src="ptr.js"></script>

@@ -3,7 +3,7 @@ package purchasing
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -20,7 +20,7 @@ import (
 //
 // Follows the same goroutine pattern as receipt.StartWorker.
 func StartScheduler(ctx context.Context, pool *pgxpool.Pool) {
-	log.Println("cutoff scheduler: starting (15m tick)")
+	slog.Info("cutoff scheduler starting", "tick_interval", "15m")
 
 	go func() {
 		// Run immediately on start
@@ -32,7 +32,7 @@ func StartScheduler(ctx context.Context, pool *pgxpool.Pool) {
 		for {
 			select {
 			case <-ctx.Done():
-				log.Println("cutoff scheduler: shutting down")
+				slog.Info("cutoff scheduler shutting down")
 				return
 			case <-ticker.C:
 				runSchedulerTick(ctx, pool)
@@ -42,23 +42,26 @@ func StartScheduler(ctx context.Context, pool *pgxpool.Pool) {
 }
 
 // runSchedulerTick runs cutoff check, reminder check, low-stock alert check, and repurchase reset check on each tick.
+//
+// Production passes time.Now as the injectable clock seam; unit tests inject a
+// frozen clock to assert cron decisions deterministically (carried-fix-wos-sweep).
 func runSchedulerTick(ctx context.Context, pool *pgxpool.Pool) {
-	runCutoffCheck(ctx, pool)
-	runReminderCheck(ctx, pool)
-	runLowStockCheck(ctx, pool)
-	runRepurchaseResetCheck(ctx, pool)
+	runCutoffCheck(ctx, pool, time.Now)
+	runReminderCheck(ctx, pool, time.Now)
+	runLowStockCheck(ctx, pool, time.Now)
+	runRepurchaseResetCheck(ctx, pool, time.Now)
 }
 
 // runReminderCheck sends a 24-hour cutoff reminder to crew members if it hasn't been
 // sent yet this week (D-08: single reminder, idempotent via alert_log table).
-func runReminderCheck(ctx context.Context, pool *pgxpool.Pool) {
+func runReminderCheck(ctx context.Context, pool *pgxpool.Pool, now func() time.Time) {
 	if alertQueue == nil {
 		return // alerts not configured — skip silently
 	}
 
 	config, err := GetCutoffConfig(ctx, pool)
 	if err != nil {
-		log.Printf("reminder check: GetCutoffConfig error: %v", err)
+		slog.Error("reminder check GetCutoffConfig error", "error", err)
 		return
 	}
 	if config == nil {
@@ -67,40 +70,40 @@ func runReminderCheck(ctx context.Context, pool *pgxpool.Pool) {
 
 	loc, err := time.LoadLocation(config.Timezone)
 	if err != nil {
-		log.Printf("reminder check: invalid timezone %q: %v", config.Timezone, err)
+		slog.Error("reminder check invalid timezone", "timezone", config.Timezone, "error", err)
 		return
 	}
 
 	hour, minute, err := parseCutoffTime(config.CutoffTime)
 	if err != nil {
-		log.Printf("reminder check: parse cutoff_time %q: %v", config.CutoffTime, err)
+		slog.Error("reminder check parse cutoff_time failed", "cutoff_time", config.CutoffTime, "error", err)
 		return
 	}
 
-	now := time.Now().In(loc)
+	nowT := now().In(loc)
 
 	// Compute the cutoff time this week
 	targetWeekday := time.Weekday(config.DayOfWeek)
-	daysAhead := int(targetWeekday) - int(now.Weekday())
+	daysAhead := int(targetWeekday) - int(nowT.Weekday())
 	if daysAhead < 0 {
 		daysAhead += 7
 	}
-	cutoffTime := time.Date(now.Year(), now.Month(), now.Day()+daysAhead, hour, minute, 0, 0, loc)
+	cutoffTime := time.Date(nowT.Year(), nowT.Month(), nowT.Day()+daysAhead, hour, minute, 0, 0, loc)
 
 	// Reminder window: 24h to 23h before cutoff (check within a 1-hour window to match 15m tick)
 	reminderWindowStart := cutoffTime.Add(-24 * time.Hour)
 	reminderWindowEnd := cutoffTime.Add(-23 * time.Hour)
 
-	if now.Before(reminderWindowStart) || now.After(reminderWindowEnd) {
+	if nowT.Before(reminderWindowStart) || nowT.After(reminderWindowEnd) {
 		return // not in reminder window
 	}
 
 	// Determine week_start for this cutoff (Monday of the week the cutoff applies to)
-	weekday := int(now.Weekday())
+	weekday := int(nowT.Weekday())
 	if weekday == 0 {
 		weekday = 7
 	}
-	monday := now.AddDate(0, 0, -(weekday - 1))
+	monday := nowT.AddDate(0, 0, -(weekday - 1))
 	weekStart := monday.Format("2006-01-02")
 
 	// Idempotency check: was the reminder already sent this week?
@@ -109,7 +112,7 @@ func runReminderCheck(ctx context.Context, pool *pgxpool.Pool) {
 		SELECT EXISTS(SELECT 1 FROM alert_log WHERE alert_type = 'cutoff_reminder' AND week_start = $1)
 	`, weekStart).Scan(&exists)
 	if err != nil {
-		log.Printf("reminder check: idempotency query error: %v", err)
+		slog.Error("reminder check idempotency query error", "error", err)
 		return
 	}
 	if exists {
@@ -135,7 +138,7 @@ func runReminderCheck(ctx context.Context, pool *pgxpool.Pool) {
 	// Get crew members who can add to PO (D-09)
 	contacts, err := users.GetUsersForAlerts(ctx, pool, alerts.TypeCutoffReminder)
 	if err != nil {
-		log.Printf("reminder check: GetUsersForAlerts: %v", err)
+		slog.Error("reminder check GetUsersForAlerts error", "error", err)
 		return
 	}
 
@@ -156,18 +159,18 @@ func runReminderCheck(ctx context.Context, pool *pgxpool.Pool) {
 		ON CONFLICT (alert_type, week_start) DO NOTHING
 	`, weekStart)
 	if err != nil {
-		log.Printf("reminder check: insert alert_log: %v", err)
+		slog.Error("reminder check insert alert_log error", "error", err)
 	}
 
-	log.Printf("reminder check: sent cutoff reminder for week %s (%d recipients)", weekStart, len(contacts))
+	slog.Info("reminder check sent cutoff reminder", "week_start", weekStart, "recipients", len(contacts))
 }
 
 // runCutoffCheck loads the cutoff config, determines whether the cutoff time
 // has passed this week, and locks the current draft PO if so.
-func runCutoffCheck(ctx context.Context, pool *pgxpool.Pool) {
+func runCutoffCheck(ctx context.Context, pool *pgxpool.Pool, now func() time.Time) {
 	config, err := GetCutoffConfig(ctx, pool)
 	if err != nil {
-		log.Printf("cutoff scheduler: GetCutoffConfig error: %v", err)
+		slog.Error("cutoff scheduler GetCutoffConfig error", "error", err)
 		return
 	}
 	if config == nil {
@@ -178,31 +181,31 @@ func runCutoffCheck(ctx context.Context, pool *pgxpool.Pool) {
 	// Load timezone (DST-safe via time.LoadLocation — Pitfall 1)
 	loc, err := time.LoadLocation(config.Timezone)
 	if err != nil {
-		log.Printf("cutoff scheduler: invalid timezone %q: %v", config.Timezone, err)
+		slog.Error("cutoff scheduler invalid timezone", "timezone", config.Timezone, "error", err)
 		return
 	}
 
 	// Parse cutoff time HH:MM (or HH:MM:SS from Postgres TIME cast)
 	hour, minute, err := parseCutoffTime(config.CutoffTime)
 	if err != nil {
-		log.Printf("cutoff scheduler: parse cutoff_time %q: %v", config.CutoffTime, err)
+		slog.Error("cutoff scheduler parse cutoff_time failed", "cutoff_time", config.CutoffTime, "error", err)
 		return
 	}
 
-	now := time.Now().In(loc)
+	nowT := now().In(loc)
 
 	// Find the most recent occurrence of day_of_week + cutoff hour:minute in loc
 	// config.DayOfWeek: 0=Sunday, 6=Saturday (matches time.Weekday)
 	targetWeekday := time.Weekday(config.DayOfWeek)
-	daysBack := int(now.Weekday()) - int(targetWeekday)
+	daysBack := int(nowT.Weekday()) - int(targetWeekday)
 	if daysBack < 0 {
 		daysBack += 7
 	}
-	cutoffCandidate := time.Date(now.Year(), now.Month(), now.Day()-daysBack, hour, minute, 0, 0, loc)
+	cutoffCandidate := time.Date(nowT.Year(), nowT.Month(), nowT.Day()-daysBack, hour, minute, 0, 0, loc)
 
 	// If the cutoff is in the future (i.e., today is cutoff day but not yet time), it hasn't passed
-	if !now.After(cutoffCandidate) {
-		log.Printf("cutoff scheduler: cutoff at %s has not yet passed (now: %s)", cutoffCandidate.Format(time.RFC3339), now.Format(time.RFC3339))
+	if !nowT.After(cutoffCandidate) {
+		slog.Info("cutoff scheduler cutoff has not yet passed", "cutoff_at", cutoffCandidate.Format(time.RFC3339), "now", nowT.Format(time.RFC3339))
 		return
 	}
 
@@ -210,7 +213,7 @@ func runCutoffCheck(ctx context.Context, pool *pgxpool.Pool) {
 	var lockedCount int
 	_ = pool.QueryRow(ctx, `SELECT COUNT(*) FROM purchase_orders WHERE status = 'locked'`).Scan(&lockedCount)
 	if lockedCount > 0 {
-		log.Println("cutoff scheduler: locked PO pending approval — skipping auto-lock")
+		slog.Info("cutoff scheduler locked PO pending approval, skipping auto-lock")
 		return
 	}
 
@@ -221,10 +224,10 @@ func runCutoffCheck(ctx context.Context, pool *pgxpool.Pool) {
 	`).Scan(&draftID)
 	if err != nil {
 		if err == pgx.ErrNoRows {
-			log.Println("cutoff scheduler: no draft PO found — nothing to lock")
+			slog.Info("cutoff scheduler no draft PO found, nothing to lock")
 			return
 		}
-		log.Printf("cutoff scheduler: query draft PO: %v", err)
+		slog.Error("cutoff scheduler query draft PO failed", "error", err)
 		return
 	}
 
@@ -232,19 +235,19 @@ func runCutoffCheck(ctx context.Context, pool *pgxpool.Pool) {
 	if err := LockPO(ctx, pool, draftID); err != nil {
 		if err == ErrPONotDraft {
 			// Already locked or transitioned — not an error
-			log.Printf("cutoff scheduler: draft PO %s is no longer draft — skipping", draftID)
+			slog.Info("cutoff scheduler draft PO is no longer draft, skipping", "po_id", draftID)
 			return
 		}
-		log.Printf("cutoff scheduler: LockPO %s: %v", draftID, err)
+		slog.Error("cutoff scheduler LockPO failed", "po_id", draftID, "error", err)
 		return
 	}
 
-	log.Printf("cutoff scheduler: locked PO %s (cutoff passed at %s)", draftID, cutoffCandidate.Format(time.RFC3339))
+	slog.Info("cutoff scheduler locked PO", "po_id", draftID, "cutoff_at", cutoffCandidate.Format(time.RFC3339))
 }
 
 // runLowStockCheck queries items below their group's low threshold and sends an alert for any
 // that haven't been alerted this week (ALRT-02 idempotency via low_stock_alert_log).
-func runLowStockCheck(ctx context.Context, pool *pgxpool.Pool) {
+func runLowStockCheck(ctx context.Context, pool *pgxpool.Pool, now func() time.Time) {
 	if alertQueue == nil {
 		return // alerts not configured — skip silently
 	}
@@ -254,29 +257,29 @@ func runLowStockCheck(ctx context.Context, pool *pgxpool.Pool) {
 	tzName := users.DefaultTimezone
 	config, err := GetCutoffConfig(ctx, pool)
 	if err != nil {
-		log.Printf("low-stock check: GetCutoffConfig error: %v", err)
+		slog.Error("low-stock check GetCutoffConfig error", "error", err)
 	} else if config != nil && config.Timezone != "" {
 		tzName = config.Timezone
 	}
 	loc, err := time.LoadLocation(tzName)
 	if err != nil {
-		log.Printf("low-stock check: invalid timezone %q: %v", tzName, err)
+		slog.Error("low-stock check invalid timezone", "timezone", tzName, "error", err)
 		loc, _ = time.LoadLocation(users.DefaultTimezone)
 	}
-	now := time.Now().In(loc)
-	weekday := int(now.Weekday())
+	nowT := now().In(loc)
+	weekday := int(nowT.Weekday())
 	if weekday == 0 {
 		weekday = 7
 	}
-	monday := now.AddDate(0, 0, -(weekday - 1))
+	monday := nowT.AddDate(0, 0, -(weekday - 1))
 	weekStart := monday.Format("2006-01-02")
 
 	// Query all stock items with their quantities and thresholds.
 	// Uses the same approach as GetSuggestions: purchase_line_items → purchase_items → item_groups.
 	type stockRow struct {
-		description  string
-		currentStock int
-		lowThreshold int
+		description   string
+		currentStock  int
+		lowThreshold  int
 		highThreshold int
 	}
 
@@ -295,7 +298,7 @@ func runLowStockCheck(ctx context.Context, pool *pgxpool.Pool) {
 		GROUP BY COALESCE(pi.description, pli.description), sco.quantity, ig.low_threshold, ig.high_threshold
 	`)
 	if err != nil {
-		log.Printf("low-stock check: query stock: %v", err)
+		slog.Error("low-stock check query stock error", "error", err)
 		return
 	}
 	defer rows.Close()
@@ -304,7 +307,7 @@ func runLowStockCheck(ctx context.Context, pool *pgxpool.Pool) {
 	for rows.Next() {
 		var sr stockRow
 		if err := rows.Scan(&sr.description, &sr.currentStock, &sr.lowThreshold, &sr.highThreshold); err != nil {
-			log.Printf("low-stock check: scan row: %v", err)
+			slog.Error("low-stock check scan row error", "error", err)
 			continue
 		}
 
@@ -319,7 +322,7 @@ func runLowStockCheck(ctx context.Context, pool *pgxpool.Pool) {
 			ON CONFLICT (item_description, week_start) DO NOTHING
 		`, sr.description, weekStart)
 		if err != nil {
-			log.Printf("low-stock check: insert log for %q: %v", sr.description, err)
+			slog.Error("low-stock check insert log error", "item", sr.description, "error", err)
 			continue
 		}
 		if tag.RowsAffected() > 0 {
@@ -328,7 +331,7 @@ func runLowStockCheck(ctx context.Context, pool *pgxpool.Pool) {
 		}
 	}
 	if err := rows.Err(); err != nil {
-		log.Printf("low-stock check: rows err: %v", err)
+		slog.Error("low-stock check rows error", "error", err)
 	}
 
 	if len(lowItems) == 0 {
@@ -341,7 +344,7 @@ func runLowStockCheck(ctx context.Context, pool *pgxpool.Pool) {
 	// Get admin recipients
 	contacts, err := users.GetUsersForAlerts(ctx, pool, alerts.TypeShoppingComplete) // admins only
 	if err != nil {
-		log.Printf("low-stock check: GetUsersForAlerts: %v", err)
+		slog.Error("low-stock check GetUsersForAlerts error", "error", err)
 		return
 	}
 
@@ -356,7 +359,7 @@ func runLowStockCheck(ctx context.Context, pool *pgxpool.Pool) {
 		}
 	}
 
-	log.Printf("low-stock check: sent alert for %d new low-stock item(s) for week %s", len(lowItems), weekStart)
+	slog.Info("low-stock check sent alert", "count", len(lowItems), "week_start", weekStart)
 }
 
 // parseCutoffTime splits "HH:MM" or "HH:MM:SS" into hour and minute integers.

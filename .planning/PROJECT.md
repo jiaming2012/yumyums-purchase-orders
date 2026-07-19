@@ -69,9 +69,31 @@ Operational tools that let the owner manage crew workflows and training from one
 - ✓ Multi-channel alerts (Zoho Cliq + email) with per-user preference — v3.0 Phase 17
 - ✓ Per-user timezone setting for scheduler and alerts — v3.0 Phase 17
 
+- ✓ Recipe/BOM mapping table (purchase_item × menu_item × usage_pct) with sum-constraint enforcement — Phase 999.2
+- ✓ GET /api/v1/inventory/menu-cogs endpoint (service-token auth) for sales-processor consumption — Phase 999.2
+- ✓ Recipes tab UI with ingredients-first list, 5%-snap slider, fullscreen menu-item picker, drift banner — Phase 999.2
+- ✓ Weekly drift-check scheduler (Sunday 03:00 Chicago) with Cliq alert sink — Phase 999.2
+- ✓ Menu→Recipes cross-link summary card (extension during human-verify) — Phase 999.2
+- ✓ Sales-processor contract handoff doc for per-menu-item COGS attribution — Phase 999.2
+
 ### Active
 
-None — v3.0 milestone complete.
+None — v3.1 milestone complete.
+
+## Current Milestone: v3.1 Toast Integration & COGS Pipeline (shipped 2026-06-05)
+
+**Goal:** Make HQ a self-contained Toast SFTP consumer, ship the COGS pipeline to sales-processor, and add per-menu-item COGS attribution via recipe/BOM mapping — closing the loop between purchases (purchase_items), sales (menu_items), and weekly payroll.
+
+**Shipped:**
+- Phase 18: Photos on onboarding checklists
+- Phase 20: Store location enforcement on PO (renumbered from 19)
+- Phase 21: COGS in sales-processor report + receipt completeness gate before payroll
+- Phase 22: HQ Toast SFTP ingest — menu_items + daily sales aggregate
+- Phase 22.1: Toast ingest re-architecture — Spaces-first ingest worker + sync CLI
+- Phase 999.2: Per-menu-item COGS attribution via recipe/BOM mapping
+
+**Parked / backlog (not in v3.1):**
+- Phase 999.1: Tab persistence on refresh (carried forward)
 
 ### Out of Scope
 
@@ -149,4 +171,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-23 after v3.0 milestone completion*
+*Last updated: 2026-06-05 — relabeled post-v3.0 work as v3.1 Toast Integration & COGS Pipeline milestone, ready to close*

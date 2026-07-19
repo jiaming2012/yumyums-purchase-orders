@@ -1,6 +1,6 @@
 {
   "name": "hq",
-  "version": "1.0.0",
+  "version": "1.0.3",
   "description": "Weekly collaborative purchasing workflow for Yumyums. Team members add items to a shared weekly requisition throughout the week; a Sunday cutoff locks the list and generates per-vendor purchase orders.",
   "main": "ptr.js",
   "directories": {
@@ -15,6 +15,7 @@
   "license": "ISC",
   "devDependencies": {
     "@playwright/test": "^1.59.1",
-    "playwright-bdd": "^8.5.1"
+    "playwright-bdd": "^8.5.1",
+    "workbox-build": "^7.4.1"
   }
 }

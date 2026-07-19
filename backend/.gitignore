@@ -1,3 +1,29 @@
 # Build output
 bin/
+
+# Server log files
+logs/
 .env
+
+# Stray `go build ./cmd/...` artifacts (binaries named after cmd dir, dropped
+# into backend/ when -o is omitted). Add new ones here as cmd binaries grow.
+/sync-toast
+/import-notion
+/seed
+/server
+
+# Toast CSV cache (Phase 22.1 D-12 — forensic/inspection only; reads always come from DO Spaces)
+cache/
+
+# New cmd binary (Phase 22.1)
+/migrate-toast-archive
+
+# SSH private keys - never commit
+id_rsa
+id_rsa.pub
+*.pem
+
+# Generated embed copy of the frontend (populated by `task build` / Dockerfile).
+# Keep the directory itself so cp targets and go:embed have somewhere to land.
+/cmd/server/public/*
+!/cmd/server/public/.gitkeep

@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"slices"
@@ -44,7 +44,7 @@ func ListUsersHandler(pool *pgxpool.Pool) http.HandlerFunc {
 
 		users, err := ListUsers(r.Context(), pool)
 		if err != nil {
-			log.Printf("ListUsersHandler error: %v", err)
+			slog.Error("list users failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -96,27 +96,27 @@ func InviteHandler(pool *pgxpool.Pool, alertCfg alerts.Config) http.HandlerFunc 
 				writeError(w, http.StatusConflict, "email_already_exists")
 				return
 			}
-			log.Printf("InviteHandler CreateInvitedUser error: %v", err)
+			slog.Error("create invited user failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
 
 		rawToken, hash, err := auth.GenerateToken()
 		if err != nil {
-			log.Printf("InviteHandler GenerateToken error: %v", err)
+			slog.Error("generate invite token failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
 
 		if err := InsertInviteToken(r.Context(), pool, userID, hash, 7); err != nil {
-			log.Printf("InviteHandler InsertInviteToken error: %v", err)
+			slog.Error("insert invite token failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
 
 		newUser, err := GetUser(r.Context(), pool, userID)
 		if err != nil || newUser == nil {
-			log.Printf("InviteHandler GetUser error: %v", err)
+			slog.Error("get invited user failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -132,9 +132,9 @@ func InviteHandler(pool *pgxpool.Pool, alertCfg alerts.Config) http.HandlerFunc 
 			emailBody := fmt.Sprintf("Hi %s,\n\nYou've been invited to Yumyums HQ! Click the link below to set your password and get started:\n\n%s%s\n\nThis link expires in 7 days.\n\n— Yumyums HQ",
 				body.FirstName, baseURL, invitePath)
 			if err := alerts.SendEmail(alertCfg.SMTPAddr, alertCfg.SMTPUsername, alertCfg.SMTPPassword, alertCfg.SMTPFrom, body.Email, "Yumyums HQ — You're Invited", emailBody); err != nil {
-				log.Printf("InviteHandler email error: %v", err)
+				slog.Error("send invite email failed", "email", body.Email, "error", err)
 			} else {
-				log.Printf("Sent invite email to %s", body.Email)
+				slog.Info("sent invite email", "email", body.Email)
 			}
 		}
 
@@ -175,7 +175,7 @@ func UpdateUserHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		if body.Nickname != nil && *body.Nickname != "" {
 			colliding, err := CheckNicknameCollision(r.Context(), pool, *body.Nickname, userID)
 			if err != nil {
-				log.Printf("UpdateUserHandler CheckNicknameCollision error: %v", err)
+				slog.Error("check nickname collision failed", "error", err)
 				writeError(w, http.StatusInternalServerError, "internal_error")
 				return
 			}
@@ -200,14 +200,14 @@ func UpdateUserHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				writeError(w, http.StatusBadRequest, err.Error())
 				return
 			}
-			log.Printf("UpdateUserHandler UpdateUser error: %v", err)
+			slog.Error("update user failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
 
 		updated, err := GetUser(r.Context(), pool, userID)
 		if err != nil || updated == nil {
-			log.Printf("UpdateUserHandler GetUser error: %v", err)
+			slog.Error("get updated user failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -236,13 +236,13 @@ func ResetPasswordHandler(pool *pgxpool.Pool, alertCfg alerts.Config) http.Handl
 
 		rawToken, hash, err := auth.GenerateToken()
 		if err != nil {
-			log.Printf("ResetPasswordHandler GenerateToken error: %v", err)
+			slog.Error("generate reset token failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
 
 		if err := InsertInviteToken(r.Context(), pool, userID, hash, 7); err != nil {
-			log.Printf("ResetPasswordHandler InsertInviteToken error: %v", err)
+			slog.Error("insert reset token failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -262,10 +262,10 @@ func ResetPasswordHandler(pool *pgxpool.Pool, alertCfg alerts.Config) http.Handl
 			body := fmt.Sprintf("Hi %s,\n\nClick the link below to set your password and access Yumyums HQ:\n\n%s%s\n\nThis link expires in 7 days.\n\n— Yumyums HQ",
 				u.FirstName, baseURL, invitePath)
 			if err := alerts.SendEmail(alertCfg.SMTPAddr, alertCfg.SMTPUsername, alertCfg.SMTPPassword, alertCfg.SMTPFrom, u.Email, subject, body); err != nil {
-				log.Printf("ResetPasswordHandler email error: %v", err)
+				slog.Error("send reset email failed", "email", u.Email, "error", err)
 				// Don't fail the request — link is still returned
 			} else {
-				log.Printf("Sent %s email to %s", subject, u.Email)
+				slog.Info("sent reset email", "email", u.Email, "subject", subject)
 			}
 		}
 
@@ -288,7 +288,7 @@ func RevokeHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		userID := chi.URLParam(r, "id")
 
 		if err := auth.DeleteAllSessionsByUserID(r.Context(), pool, userID); err != nil {
-			log.Printf("RevokeHandler error: %v", err)
+			slog.Error("revoke sessions failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -310,7 +310,7 @@ func DeleteUserHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		userID := chi.URLParam(r, "id")
 
 		if err := DeleteUser(r.Context(), pool, userID); err != nil {
-			log.Printf("DeleteUserHandler error: %v", err)
+			slog.Error("delete user failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -336,7 +336,7 @@ func InviteInfoHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				writeError(w, http.StatusBadRequest, "token_expired")
 				return
 			}
-			log.Printf("InviteInfoHandler error: %v", err)
+			slog.Error("invite info lookup failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -371,14 +371,14 @@ func AcceptInviteHandler(pool *pgxpool.Pool, secureCookie bool) http.HandlerFunc
 				writeError(w, http.StatusBadRequest, "token_expired")
 				return
 			}
-			log.Printf("AcceptInviteHandler ClaimInviteToken error: %v", err)
+			slog.Error("claim invite token failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
 
 		passwordHash, err := auth.HashPassword(body.Password)
 		if err != nil {
-			log.Printf("AcceptInviteHandler HashPassword error: %v", err)
+			slog.Error("hash password failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -390,14 +390,14 @@ func AcceptInviteHandler(pool *pgxpool.Pool, secureCookie bool) http.HandlerFunc
 			CashAppID:      body.CashAppID,
 			PhoneNumber:    body.PhoneNumber,
 		}); err != nil {
-			log.Printf("AcceptInviteHandler ActivateUser error: %v", err)
+			slog.Error("activate user failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
 
 		rawToken, err := auth.CreateSession(r.Context(), pool, userID)
 		if err != nil {
-			log.Printf("AcceptInviteHandler CreateSession error: %v", err)
+			slog.Error("create session failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -419,7 +419,7 @@ func AcceptInviteHandler(pool *pgxpool.Pool, secureCookie bool) http.HandlerFunc
 
 		user, err := GetUser(r.Context(), pool, userID)
 		if err != nil || user == nil {
-			log.Printf("AcceptInviteHandler GetUser error: %v", err)
+			slog.Error("get accepted user failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -439,7 +439,7 @@ func GetAppPermissionsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 
 		perms, err := GetAppPermissions(r.Context(), pool)
 		if err != nil {
-			log.Printf("GetAppPermissionsHandler error: %v", err)
+			slog.Error("get app permissions failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -473,7 +473,7 @@ func SetAppPermissionsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				writeError(w, http.StatusNotFound, "not_found")
 				return
 			}
-			log.Printf("SetAppPermissionsHandler error: %v", err)
+			slog.Error("set app permissions failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -481,7 +481,7 @@ func SetAppPermissionsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		// Return updated permissions for this app
 		perms, err := GetAppPermissions(r.Context(), pool)
 		if err != nil {
-			log.Printf("SetAppPermissionsHandler GetAppPermissions error: %v", err)
+			slog.Error("get app permissions after set failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -511,7 +511,7 @@ func GetNotificationPreferenceHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 		channels, err := GetNotificationPreference(r.Context(), pool, targetID)
 		if err != nil {
-			log.Printf("GetNotificationPreferenceHandler: %v", err)
+			slog.Error("get notification preference failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -555,7 +555,7 @@ func UpdateNotificationPreferenceHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				writeError(w, http.StatusNotFound, "user_not_found")
 				return
 			}
-			log.Printf("UpdateNotificationPreferenceHandler: %v", err)
+			slog.Error("update notification preference failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}

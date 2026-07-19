@@ -91,7 +91,7 @@ test.describe('Persistence', () => {
 
   // ─── Templates ──────────────────────────────────────────────────────────
 
-  test('template with sections and fields round-trips through API', async ({ page }) => {
+  test('template with sections and fields round-trips through API [BLD-17]', async ({ page }) => {
     const result = await apiCall(page, 'POST', 'createTemplate', {
       name: 'Round Trip Template',
       requires_approval: false,
@@ -121,7 +121,7 @@ test.describe('Persistence', () => {
 
   // ─── Assignments & Approvers ────────────────────────────────────────────
 
-  test('assignments and approvers persist', async ({ page }) => {
+  test('assignments and approvers persist [BLD-18]', async ({ page }) => {
     const todayDOW = await getTodayDOW(page);
     const result = await apiCall(page, 'POST', 'createTemplate', {
       name: 'Assignment Test',
@@ -157,7 +157,7 @@ test.describe('Persistence', () => {
 
   // ─── Submissions ───────────────────────────────────────────────────────
 
-  test('submitted checklist persists in pending approvals', async ({ page }) => {
+  test('submitted checklist persists in pending approvals [APR-02]', async ({ page }) => {
     const todayDOW = await getTodayDOW(page);
     const tpl = await apiCall(page, 'POST', 'createTemplate', {
       name: 'Submit Persist',
@@ -188,7 +188,7 @@ test.describe('Persistence', () => {
 
   // ─── Approval state ────────────────────────────────────────────────────
 
-  test('approved submission no longer appears in pending', async ({ page }) => {
+  test('approved submission no longer appears in pending [APR-11]', async ({ page }) => {
     const todayDOW = await getTodayDOW(page);
     const tpl = await apiCall(page, 'POST', 'createTemplate', {
       name: 'Approval State',
@@ -219,7 +219,7 @@ test.describe('Persistence', () => {
 
   // ─── Archive ───────────────────────────────────────────────────────────
 
-  test('archived template does not appear in template list', async ({ page }) => {
+  test('archived template does not appear in template list [BLD-15]', async ({ page }) => {
     const result = await apiCall(page, 'POST', 'createTemplate', {
       name: 'Archive Me',
       requires_approval: false,
@@ -239,7 +239,7 @@ test.describe('Persistence', () => {
 
   // ─── Template update ──────────────────────────────────────────────────
 
-  test('updated template reflects changes on next read', async ({ page }) => {
+  test('updated template reflects changes on next read [BLD-19]', async ({ page }) => {
     const result = await apiCall(page, 'POST', 'createTemplate', {
       name: 'Original Name',
       requires_approval: false,
@@ -275,7 +275,7 @@ test.describe('Persistence', () => {
 
   // ─── Section day visibility ────────────────────────────────────────
 
-  test('section with show-on-days matching today is visible in checklist runner', async ({ page }) => {
+  test('section with show-on-days matching today is visible in checklist runner [VIS-02]', async ({ page }) => {
     const todayDOW = await getTodayDOW(page);
     const result = await apiCall(page, 'POST', 'createTemplate', {
       name: 'Day Visible Test',
@@ -328,7 +328,7 @@ test.describe('Persistence', () => {
     await expect(page.locator('text=Always visible')).toBeVisible();
   });
 
-  test('section condition days persist through save and reload', async ({ page }) => {
+  test('section condition days persist through save and reload [VIS-02]', async ({ page }) => {
     const todayDOW = await getTodayDOW(page);
     const result = await apiCall(page, 'POST', 'createTemplate', {
       name: 'Day Persist Test',
@@ -350,7 +350,7 @@ test.describe('Persistence', () => {
 
   // ─── Draft response persistence ───────────────────────────────────
 
-  test('checked items persist after page reload', async ({ page }) => {
+  test('checked items persist after page reload [FLD-02]', async ({ page }) => {
     const todayDOW = await getTodayDOW(page);
     const tpl = await createTestTemplate(page, 'Draft Persist Test', todayDOW);
 
@@ -382,7 +382,7 @@ test.describe('Persistence', () => {
     await expect(firstCheckAfter).toHaveClass(/checked/, { timeout: 5000 });
   });
 
-  test('draft progress bar reflects saved items after reload', async ({ page }) => {
+  test('draft progress bar reflects saved items after reload [LST-03 RUN-02]', async ({ page }) => {
     const todayDOW = await getTodayDOW(page);
     const tpl = await createTestTemplate(page, 'Progress Persist Test', todayDOW);
 
@@ -403,7 +403,7 @@ test.describe('Persistence', () => {
 
   // ─── Submitted checklist persistence ──────────────────────────────
 
-  test('submitted checklist shows as submitted after reload', async ({ page }) => {
+  test('submitted checklist shows as submitted after reload [LST-06]', async ({ page }) => {
     const todayDOW = await getTodayDOW(page);
     const tpl = await createTestTemplate(page, 'Submit Reload Test', todayDOW);
 
@@ -438,7 +438,7 @@ test.describe('Persistence', () => {
     await expect(page.locator('text=✓')).toBeVisible({ timeout: 5000 });
   });
 
-  test('submitted checklist fields are not blank after reload', async ({ page }) => {
+  test('submitted checklist fields are not blank after reload [FLD-R3 FLD-R5]', async ({ page }) => {
     const todayDOW = await getTodayDOW(page);
     const tpl = await createTestTemplate(page, 'Fields Reload Test', todayDOW);
 
@@ -474,7 +474,7 @@ test.describe('Persistence', () => {
 
   // ─── Draft survives back-and-reopen ───────────────────────────────
 
-  test('checked field survives back-to-list and reopen without losing state', async ({ page }) => {
+  test('checked field survives back-to-list and reopen without losing state [FLD-02 RUN-18]', async ({ page }) => {
     const todayDOW = await getTodayDOW(page);
     // Create template with 2 fields
     const tpl = await apiCall(page, 'POST', 'createTemplate', {
@@ -506,7 +506,12 @@ test.describe('Persistence', () => {
     await checkA.click();
     await expect(checkA).toHaveClass(/checked/, { timeout: 5000 });
     // Wait for auto-save to fire (400ms debounce + network)
-    await page.waitForTimeout(1500);
+    // Wait for autosave POST to complete (400ms debounce + network roundtrip).
+    // Replaces a hard waitForTimeout(1500) — deterministic and ~3x faster on CI.
+    await page.waitForResponse(
+      res => res.url().includes('/api/v1/workflow/ops') && res.request().method() === 'POST',
+      { timeout: 5000 }
+    );
 
     // Back to list
     await page.click('#fill-back');
@@ -535,7 +540,7 @@ test.describe('Persistence', () => {
 
   // ─── Yes/No button highlight ──────────────────────────────────────
 
-  test('yes/no button is highlighted after save and reopen', async ({ page }) => {
+  test('yes/no button is highlighted after save and reopen [FLD-06 FLD-07]', async ({ page }) => {
     const todayDOW = await getTodayDOW(page);
     const tpl = await apiCall(page, 'POST', 'createTemplate', {
       name: 'YesNo Highlight Test',
@@ -560,7 +565,12 @@ test.describe('Persistence', () => {
     await page.click('[data-action="set-yes"]');
     const yesBtn = page.locator('[data-action="set-yes"]');
     await expect(yesBtn).toHaveClass(/on/, { timeout: 5000 });
-    await page.waitForTimeout(1500);
+    // Wait for autosave POST to complete (400ms debounce + network roundtrip).
+    // Replaces a hard waitForTimeout(1500) — deterministic and ~3x faster on CI.
+    await page.waitForResponse(
+      res => res.url().includes('/api/v1/workflow/ops') && res.request().method() === 'POST',
+      { timeout: 5000 }
+    );
 
     // Back to list and reopen
     await page.click('#fill-back');
@@ -580,7 +590,7 @@ test.describe('Persistence', () => {
 
   // ─── Text field quote handling ────────────────────────────────────
 
-  test('text field without quotes renders without quotes after reload', async ({ page }) => {
+  test('text field without quotes renders without quotes after reload [FLD-09]', async ({ page }) => {
     const todayDOW = await getTodayDOW(page);
     const tpl = await apiCall(page, 'POST', 'createTemplate', {
       name: 'Text No Quotes',
@@ -604,7 +614,12 @@ test.describe('Persistence', () => {
     const textarea = page.locator('.fill-textarea').first();
     await textarea.fill('hello world');
     await textarea.blur();
-    await page.waitForTimeout(1500);
+    // Wait for autosave POST to complete (400ms debounce + network roundtrip).
+    // Replaces a hard waitForTimeout(1500) — deterministic and ~3x faster on CI.
+    await page.waitForResponse(
+      res => res.url().includes('/api/v1/workflow/ops') && res.request().method() === 'POST',
+      { timeout: 5000 }
+    );
 
     // Back and reopen
     await page.click('#fill-back');
@@ -618,7 +633,7 @@ test.describe('Persistence', () => {
     await expect(textareaAfter).toHaveValue('hello world');
   });
 
-  test('text field with quotes renders with quotes after reload', async ({ page }) => {
+  test('text field with quotes renders with quotes after reload [FLD-09]', async ({ page }) => {
     const todayDOW = await getTodayDOW(page);
     const tpl = await apiCall(page, 'POST', 'createTemplate', {
       name: 'Text With Quotes',
@@ -642,7 +657,12 @@ test.describe('Persistence', () => {
     const textarea = page.locator('.fill-textarea').first();
     await textarea.fill('She said "hello" to me');
     await textarea.blur();
-    await page.waitForTimeout(1500);
+    // Wait for autosave POST to complete (400ms debounce + network roundtrip).
+    // Replaces a hard waitForTimeout(1500) — deterministic and ~3x faster on CI.
+    await page.waitForResponse(
+      res => res.url().includes('/api/v1/workflow/ops') && res.request().method() === 'POST',
+      { timeout: 5000 }
+    );
 
     // Back and reopen
     await page.click('#fill-back');
@@ -658,7 +678,7 @@ test.describe('Persistence', () => {
 
   // ─── Temperature back-and-reopen ───────────────────────────────────
 
-  test('temperature value survives back-to-list and reopen', async ({ page }) => {
+  test('temperature value survives back-to-list and reopen [FLD-11]', async ({ page }) => {
     const todayDOW = await getTodayDOW(page);
     const tpl = await apiCall(page, 'POST', 'createTemplate', {
       name: 'Temp Reopen Test',
@@ -682,7 +702,12 @@ test.describe('Persistence', () => {
     const tempInput = page.locator('input[type="number"]').first();
     await tempInput.fill('375');
     await tempInput.dispatchEvent('change');
-    await page.waitForTimeout(1500);
+    // Wait for autosave POST to complete (400ms debounce + network roundtrip).
+    // Replaces a hard waitForTimeout(1500) — deterministic and ~3x faster on CI.
+    await page.waitForResponse(
+      res => res.url().includes('/api/v1/workflow/ops') && res.request().method() === 'POST',
+      { timeout: 5000 }
+    );
 
     // Back to list
     await page.locator('#fill-back').scrollIntoViewIfNeeded();
@@ -704,7 +729,7 @@ test.describe('Persistence', () => {
 
   // ─── Sub-steps back-and-reopen ────────────────────────────────────
 
-  test('sub-step checks survive back-to-list and reopen', async ({ page }) => {
+  test('sub-step checks survive back-to-list and reopen [FLD-03]', async ({ page }) => {
     const todayDOW = await getTodayDOW(page);
     const tpl = await apiCall(page, 'POST', 'createTemplate', {
       name: 'SubStep Reopen Test',
@@ -734,7 +759,12 @@ test.describe('Persistence', () => {
     await expect(subStepBtn).toBeVisible({ timeout: 5000 });
     await subStepBtn.click();
     await expect(subStepBtn).toHaveClass(/done/, { timeout: 5000 });
-    await page.waitForTimeout(1500);
+    // Wait for autosave POST to complete (400ms debounce + network roundtrip).
+    // Replaces a hard waitForTimeout(1500) — deterministic and ~3x faster on CI.
+    await page.waitForResponse(
+      res => res.url().includes('/api/v1/workflow/ops') && res.request().method() === 'POST',
+      { timeout: 5000 }
+    );
 
     // Back to list
     await page.locator('#fill-back').scrollIntoViewIfNeeded();
@@ -757,7 +787,7 @@ test.describe('Persistence', () => {
 
   // ─── Fail note persistence ────────────────────────────────────────
 
-  test('corrective action note and severity survive back-and-reopen', async ({ page }) => {
+  test('corrective action note and severity survive back-and-reopen [FLD-15]', async ({ page }) => {
     const todayDOW = await getTodayDOW(page);
     // Create template with a temperature field that has a fail trigger
     const tpl = await apiCall(page, 'POST', 'createTemplate', {
@@ -800,7 +830,12 @@ test.describe('Persistence', () => {
 
     // Select severity (Minor)
     await page.click('[data-action="set-severity"][data-severity="minor"]');
-    await page.waitForTimeout(1500);
+    // Wait for autosave POST to complete (400ms debounce + network roundtrip).
+    // Replaces a hard waitForTimeout(1500) — deterministic and ~3x faster on CI.
+    await page.waitForResponse(
+      res => res.url().includes('/api/v1/workflow/ops') && res.request().method() === 'POST',
+      { timeout: 5000 }
+    );
 
     // Back to list — scroll to top first to ensure back button is visible
     await page.locator('#fill-back').scrollIntoViewIfNeeded();
@@ -825,7 +860,7 @@ test.describe('Persistence', () => {
     await expect(minorBtn).toHaveClass(/on/, { timeout: 5000 });
   });
 
-  test('fail photo survives back-to-list and reopen as https:// URL', async ({ page }) => {
+  test('fail photo survives back-to-list and reopen as https:// URL [FLD-16]', async ({ page }) => {
     const todayDOW = await getTodayDOW(page);
 
     // Create template with a yes/no field — selecting No triggers the fail card
@@ -902,6 +937,66 @@ test.describe('Persistence', () => {
     expect(imgSrc).toMatch(/^https:\/\//);
     expect(imgSrc).not.toMatch(/^blob:/);
     expect(imgSrc).toBe(fakePublicUrl);
+  });
+
+  // Correction-photo slot (built 2026-07-18): the evidence photo a crew attaches
+  // to satisfy a require_photo rejection lives in a slot SEPARATE from the field's
+  // answer, persisted by bundling `_correction_photo` into the saved value. This
+  // is the required back-and-reopen test: it must survive as an https:// URL.
+  test('correction photo survives back-to-list and reopen as https:// URL [FLD-CORRECTION-PHOTO]', async ({ page }) => {
+    const todayDOW = await getTodayDOW(page);
+    const tpl = await apiCall(page, 'POST', 'createTemplate', {
+      name: 'Correction Photo Test', requires_approval: true,
+      sections: [{ title: 'Close', order: 0, condition: null,
+        fields: [{ type: 'checkbox', label: 'Lock the truck', required: false, order: 0, config: {}, fail_trigger: null, condition: null }] }],
+      assignments: [
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' },
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'approver' },
+      ],
+      schedules: [{ active_days: [todayDOW] }],
+    });
+    const templates = await apiCall(page, 'GET', 'templates');
+    const fieldId = templates.find(t => t.id === tpl.id).sections[0].fields[0].id;
+    const fakeUrl = 'https://spaces.example.com/checklists/test/correction-' + fieldId + '.jpg';
+
+    // Submit, then the approver rejects the checkbox demanding a photo.
+    await apiCall(page, 'POST', 'submitChecklist', {
+      template_id: tpl.id, idempotency_key: generateUUID(),
+      responses: [{ field_id: fieldId, value: JSON.stringify(true) }],
+    });
+    const pending = await apiCall(page, 'GET', 'pendingApprovals');
+    const sub = pending.find(s => s.template_id === tpl.id) || pending[0];
+    await apiCall(page, 'POST', 'rejectItem', { submission_id: sub.id, field_id: fieldId, comment: 'Photo please', require_photo: true });
+
+    // Open the rejected checklist and inject the attached correction photo
+    // (simulating a successful presign upload — camera UI isn't available in test).
+    await page.goto(BASE + '/workflows.html');
+    const row = page.locator('[data-fill-template-id="' + tpl.id + '"]');
+    await expect(row).toBeVisible({ timeout: 10000 });
+    await row.click();
+    await page.waitForSelector('#fill-body');
+    await apiCall(page, 'POST', 'saveResponse', {
+      field_id: fieldId,
+      value: { _v: true, _correction_photo: fakeUrl },
+    });
+    await page.waitForTimeout(200);
+
+    // Back to list, then reopen.
+    await page.locator('#fill-back').scrollIntoViewIfNeeded();
+    await page.click('#fill-back');
+    await expect(page.locator('#checklist-list')).toBeVisible({ timeout: 5000 });
+    await page.locator('[data-fill-template-id="' + tpl.id + '"]').click();
+    await page.waitForSelector('#fill-body');
+
+    // The correction photo persists as an https:// thumbnail, and the banner
+    // reflects it as uploaded (not "required").
+    const field = page.locator('.fill-field', { has: page.locator('.correction-banner') }).first();
+    const img = field.locator('.correction-photo-area img.photo-thumb');
+    await expect(img).toBeVisible({ timeout: 5000 });
+    const src = await img.getAttribute('src');
+    expect(src).toBe(fakeUrl);
+    expect(src).not.toMatch(/^blob:/);
+    await expect(field.locator('.correction-banner')).toContainText('Photo uploaded');
   });
 
   // --- Video watch progress persistence ---
@@ -1172,5 +1267,127 @@ test.describe('Persistence', () => {
 
     // max_watched_time persists alongside completion
     expect(videoPartAfter.max_watched_time).toBeGreaterThanOrEqual(knownMaxWatched);
+  });
+
+  // ─── Recipes (Phase 999.2) ──────────────────────────────────────────────
+  //
+  // Per CLAUDE.md persistence rule: every user-entered value must round-trip
+  // through the API. The Recipes tab's slider writes usage_pct via
+  // PUT /api/v1/inventory/recipes/{id}. This test proves the value survives
+  // the round-trip — write a new value, GET, assert the value persisted.
+  //
+  // The Recipes tab's slider snaps to 5% increments and validateUsagePct
+  // (Plan 03) enforces this server-side. The PUT contract is
+  // {usage_pct: <multiple of 5, 0..100>}; sum-constraint 422 envelope is
+  // covered by tests/recipes.spec.js.
+
+  test('recipe usage_pct round-trips through PUT and GET', async ({ page }) => {
+    // Setup: this test needs an existing menu_item + purchase_item to create
+    // a recipe row. menu_items are populated by the Toast ingest worker; in
+    // the test environment they may be absent. We gracefully skip if no menu
+    // items exist — the snap-invariant / 404 / merge contract assertions in
+    // tests/recipes.spec.js cover the always-on surface.
+
+    const menuItems = await page.evaluate(async () => {
+      // 365-day window — broad enough to surface ANY seeded menu items.
+      const since = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      const r = await fetch('/api/v1/inventory/menu-items?since=' + since);
+      if (!r.ok) return [];
+      const body = await r.json();
+      return Array.isArray(body) ? body : (body.menu_items || []);
+    });
+    test.skip(menuItems.length === 0, 'no menu_items in test DB — skipping recipe round-trip (Toast ingest disabled)');
+
+    const purchaseItems = await page.evaluate(async () => {
+      const r = await fetch('/api/v1/inventory/items');
+      if (!r.ok) return [];
+      const body = await r.json();
+      return Array.isArray(body) ? body : (body.items || []);
+    });
+    test.skip(purchaseItems.length === 0, 'no purchase_items in test DB');
+
+    const menuItemID = menuItems[0].id;
+    const purchaseItemID = purchaseItems[0].id;
+
+    // Clean up any prior recipe on the same (menu_item, purchase_item) pair —
+    // the table has UNIQUE (menu_item_id, purchase_item_id) per migration 0062.
+    // We list and delete by id if the pair already exists.
+    const existing = await page.evaluate(async () => {
+      const r = await fetch('/api/v1/inventory/recipes/');
+      if (!r.ok) return { ingredients: [] };
+      return r.json();
+    });
+    for (const ing of (existing.ingredients || [])) {
+      if (ing.purchase_item_id !== purchaseItemID) continue;
+      for (const r of (ing.recipes || [])) {
+        if (r.menu_item_id !== menuItemID) continue;
+        await page.evaluate(async (rid) => {
+          await fetch('/api/v1/inventory/recipes/' + rid, { method: 'DELETE' });
+        }, r.id);
+      }
+    }
+
+    // Step 1 — POST: create recipe with usage_pct=5 (the default Plan 05 uses
+    // when the slider thumb is first added via the menu-item picker).
+    const created = await page.evaluate(async ([miID, piID]) => {
+      const r = await fetch('/api/v1/inventory/recipes/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ menu_item_id: miID, purchase_item_id: piID, usage_pct: 5 }),
+      });
+      return { status: r.status, body: await r.json() };
+    }, [menuItemID, purchaseItemID]);
+    expect(created.status).toBe(201);
+    expect(created.body).toHaveProperty('id');
+    const recipeID = created.body.id;
+
+    // Step 2 — GET: confirm initial value persisted (5%).
+    let listed = await page.evaluate(async () => {
+      const r = await fetch('/api/v1/inventory/recipes/');
+      return r.json();
+    });
+    let found = null;
+    for (const ing of (listed.ingredients || [])) {
+      for (const r of (ing.recipes || [])) {
+        if (r.id === recipeID) { found = r; break; }
+      }
+      if (found) break;
+    }
+    expect(found, 'created recipe must appear in /recipes GET').not.toBeNull();
+    expect(+found.usage_pct).toBe(5);
+
+    // Step 3 — PUT: simulate slider release to 25%.
+    const updated = await page.evaluate(async (rid) => {
+      const r = await fetch('/api/v1/inventory/recipes/' + rid, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ usage_pct: 25 }),
+      });
+      let body = null;
+      try { body = await r.json(); } catch (_) {}
+      return { status: r.status, body };
+    }, recipeID);
+    // 200 with body or 204 (handler may use either; Plan 03 SUMMARY says 204).
+    expect([200, 204]).toContain(updated.status);
+
+    // Step 4 — GET: confirm NEW value persisted (25%, NOT 5%).
+    listed = await page.evaluate(async () => {
+      const r = await fetch('/api/v1/inventory/recipes/');
+      return r.json();
+    });
+    found = null;
+    for (const ing of (listed.ingredients || [])) {
+      for (const r of (ing.recipes || [])) {
+        if (r.id === recipeID) { found = r; break; }
+      }
+      if (found) break;
+    }
+    expect(found, 'recipe must still appear in /recipes GET after PUT').not.toBeNull();
+    expect(+found.usage_pct, 'usage_pct must persist as 25 after PUT — slider release contract').toBe(25);
+
+    // Cleanup: delete the recipe so the test is idempotent across runs.
+    await page.evaluate(async (rid) => {
+      await fetch('/api/v1/inventory/recipes/' + rid, { method: 'DELETE' });
+    }, recipeID);
   });
 });

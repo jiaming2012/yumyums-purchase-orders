@@ -5,10 +5,10 @@ const ADMIN_PASSWORD = 'test123';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-async function login(page) {
+async function login(page, email, password) {
   await page.goto('/login.html');
-  await page.fill('input[type="email"]', ADMIN_EMAIL);
-  await page.fill('input[type="password"]', ADMIN_PASSWORD);
+  await page.fill('input[type="email"]', email || ADMIN_EMAIL);
+  await page.fill('input[type="password"]', password || ADMIN_PASSWORD);
   await page.click('button.btn');
   await page.waitForURL(url => !url.pathname.includes('login'));
 }
@@ -24,18 +24,40 @@ async function poApiCall(page, method, path, body) {
   }, [method, path, body]);
 }
 
-// seedShoppingList: ensure an active shopping list exists (approve existing locked PO or create new one)
+// seedShoppingList: idempotent. Returns an existing active shopping list if one
+// exists; otherwise approves a locked PO (or creates → cutoffs → approves a
+// fresh one) and returns the resulting active list. Safe to call from every
+// test that needs a list — turns 26 conditional test.skip()s in this file
+// into real coverage (B-5).
 async function seedShoppingList(page) {
-  // Check if there's already a locked PO waiting for approval
+  // Already have an active list with items? Return it.
+  const existing = await poApiCall(page, 'GET', 'shopping/active').catch(() => null);
+  if (existing && existing.vendor_sections && existing.vendor_sections.length > 0) {
+    return existing;
+  }
+
+  // approveOrRecover approves a locked PO, but tolerates a pre-existing active list:
+  // the backend refuses a second approve with 409 active_shopping_list_exists — in
+  // that case the already-active list IS the seed we want, so recover and return it.
+  // This keeps seeding deterministic even when a prior test left an active list
+  // behind (the shared-suite fragility this helper is meant to absorb).
+  async function approveOrRecover(poId) {
+    try {
+      await poApiCall(page, 'POST', 'orders/' + poId + '/approve');
+    } catch (e) {
+      if (!String(e.message || '').includes('active_shopping_list_exists')) throw e;
+    }
+    return poApiCall(page, 'GET', 'shopping/active').catch(() => null);
+  }
+
+  // Approve a locked PO if one is waiting.
   let locked = await poApiCall(page, 'GET', 'orders?status=locked').catch(() => null);
   if (locked && locked.id) {
-    // Approve the existing locked PO
-    await poApiCall(page, 'POST', 'orders/' + locked.id + '/approve');
-    const active = await poApiCall(page, 'GET', 'shopping/active').catch(() => null);
+    const active = await approveOrRecover(locked.id);
     if (active && active.vendor_sections && active.vendor_sections.length > 0) return active;
   }
 
-  // Create a new draft PO with catalog items
+  // Otherwise create from scratch: draft → add items → cutoff → approve.
   const order = await page.evaluate(async () => {
     const res = await fetch('/api/v1/purchasing/orders', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
     return res.json();
@@ -53,8 +75,34 @@ async function seedShoppingList(page) {
   await poApiCall(page, 'POST', 'simulate-cutoff');
   locked = await poApiCall(page, 'GET', 'orders?status=locked');
   if (!locked) throw new Error('No locked PO after simulate-cutoff');
-  await poApiCall(page, 'POST', 'orders/' + locked.id + '/approve');
-  return await poApiCall(page, 'GET', 'shopping/active');
+  const active = await approveOrRecover(locked.id);
+  if (active && active.vendor_sections && active.vendor_sections.length > 0) return active;
+  return active;
+}
+
+// completeShoppingList seeds an active shopping list (via seedShoppingList) then
+// completes every vendor section so the list transitions to status='completed'.
+// Purely API-driven (no SQL, no migration) — reuses existing purchasing endpoints,
+// so it stays inside test-seed scope. Returns the completed list, or null if the
+// stack has no catalog items to seed from.
+async function completeShoppingList(page) {
+  let list;
+  try {
+    list = await seedShoppingList(page);
+  } catch (e) {
+    return null;
+  }
+  if (!list || !list.id || !(list.vendor_sections || []).length) return null;
+
+  // Complete each vendor section; the last one flips the list to 'completed'.
+  for (const sec of list.vendor_sections) {
+    if (sec.status === 'completed') continue;
+    await poApiCall(page, 'POST', 'shopping/' + list.id + '/vendors/' + sec.id + '/complete');
+  }
+
+  // Confirm it landed in history.
+  const history = await poApiCall(page, 'GET', 'shopping/history').catch(() => []);
+  return (history || []).find(h => h.id === list.id) || null;
 }
 
 // waitForShoppingContent waits until s2 (Shopping tab) renders shopping list or empty state
@@ -109,31 +157,98 @@ test.describe('Shopping tab', () => {
     await page.waitForLoadState('networkidle');
   });
 
-  test('Shopping tab shows stub when no active list exists', async ({ page }) => {
+  // FR-7 (a) — Empty state. renderShoppingTab() (purchasing.html:555) paints the
+  // Shopping tab directly into #s2 (there is NO #shopping-content element). With no
+  // active list (SHOPPING_LIST === null) it MUST render the specific empty-state
+  // copy from purchasing.html:558, not just "some non-empty text". This test proves
+  // the real empty-state contract instead of the old length>0 tautology.
+  test('Shopping tab shows specific empty-state stub when no active list exists', async ({ page }) => {
+    // Guarantee the no-active-list precondition: complete any list still active so
+    // shopping/active returns null (SHOPPING_LIST hydrates from that endpoint).
+    await completeShoppingList(page);
+    const active = await poApiCall(page, 'GET', 'shopping/active').catch(() => null);
+    if (active && active.id) { test.skip(true, 'Could not clear active list to force empty state'); return; }
+
+    // Re-hydrate the page against the now-empty state, then open the Shopping tab.
+    await page.reload();
+    await page.waitForLoadState('networkidle');
     await page.click('#t2');
-    await waitForShoppingContent(page);
-    const content = page.locator('#shopping-content');
-    const text = await content.textContent();
-    // Either shows active list or the stub — both are valid states
-    expect(text.trim().length).toBeGreaterThan(0);
+
+    // The empty-state stub is a .stub inside #s2 — assert the EXACT real copy.
+    const stub = page.locator('#s2 .stub');
+    await expect(stub).toBeVisible();
+    await expect(stub).toHaveText('Shopping list will appear here after the PO is approved');
+
+    // And prove it is the empty state, not a populated one: no vendor sections / items.
+    await expect(page.locator('#s2 .vendor-section')).toHaveCount(0);
+    await expect(page.locator('#s2 .shop-item')).toHaveCount(0);
+  });
+
+  // FR-7 (b) — Populated. Seed an active shopping list and assert the real render
+  // contract: grouped .vendor-section blocks (vendor name + item count), per-item
+  // .shop-check buttons, .item-thumb thumbnails, and a location cell (either the
+  // "Add location" affordance or a concrete store_location string). Concrete
+  // visibility + counts, never a length tautology.
+  test('Shopping tab renders grouped vendor sections with checks, thumbnails, and locations', async ({ page }) => {
+    let list;
+    try { list = await seedShoppingList(page); }
+    catch (e) { test.skip(true, 'No catalog items to seed an active shopping list'); return; }
+    expect(list).toBeTruthy();
+    expect(list.id).toBeTruthy();
+    const sections = list.vendor_sections || [];
+    expect(sections.length).toBeGreaterThan(0);
+
+    // Total item count across all seeded sections (used for check/thumb assertions).
+    const totalItems = sections.reduce((n, s) => n + (s.items || []).length, 0);
+    expect(totalItems).toBeGreaterThan(0);
+
+    await page.reload();
+    await page.waitForLoadState('networkidle');
+    await page.click('#t2');
+
+    // The empty-state stub must NOT be present now.
+    await expect(page.locator('#s2 .stub')).toHaveCount(0);
+
+    // Grouped vendor sections: one .vendor-section per seeded section.
+    const vendorSections = page.locator('#s2 .vendor-section');
+    await expect(vendorSections.first()).toBeVisible();
+    await expect(vendorSections).toHaveCount(sections.length);
+
+    // Each section header (.cat) names its vendor and reports its item count.
+    for (const sec of sections) {
+      const header = page.locator('#s2 .vendor-section .cat', { hasText: sec.vendor_name }).first();
+      await expect(header).toBeVisible();
+      const cnt = (sec.items || []).length;
+      await expect(header).toContainText(cnt + ' item');
+    }
+
+    // Per-item check buttons: one .shop-check per item (sections are pending on seed).
+    await expect(page.locator('#s2 .shop-check')).toHaveCount(totalItems);
+
+    // Item thumbnails: one .item-thumb per item.
+    await expect(page.locator('#s2 .item-thumb')).toHaveCount(totalItems);
+
+    // Location cell: each item shows either an "Add location" affordance (no
+    // store_location) or a concrete store_location string. Assert the first item
+    // concretely against its seeded data.
+    const firstItem = sections[0].items[0];
+    const firstRow = page.locator('#s2 .shop-item').first();
+    await expect(firstRow).toBeVisible();
+    if (firstItem.store_location) {
+      await expect(firstRow).toContainText(firstItem.store_location);
+    } else {
+      await expect(firstRow.locator('[data-action="shop-edit-loc"]')).toContainText('Add location');
+    }
   });
 
   test('shopping item check-off survives page reload', async ({ page }) => {
-    // Ensure there is an active shopping list
-    let shoppingList;
-    try {
-      shoppingList = await poApiCall(page, 'GET', 'shopping/active');
-    } catch(e) {
-      test.skip(!shoppingList, 'No active shopping list — skipping persistence test');
-      return;
-    }
-    if (!shoppingList || !shoppingList.vendor_sections || shoppingList.vendor_sections.length === 0) {
-      test.skip(true, 'No active shopping list with items');
-      return;
-    }
+    const shoppingList = await seedShoppingList(page);
     const firstItem = shoppingList.vendor_sections[0].items[0];
-    if (!firstItem) { test.skip(true, 'No items in shopping list'); return; }
 
+    // beforeEach loaded the page before the list existed, so SHOPPING_LIST is null
+    // in-page — reload so the Shopping tab renders the seeded list.
+    await page.reload();
+    await page.waitForLoadState('networkidle');
     await page.click('#t2');
     await waitForShoppingContent(page);
 
@@ -151,25 +266,19 @@ test.describe('Shopping tab', () => {
     await page.click('#t2');
     await waitForShoppingContent(page);
 
-    // Verify the item is still checked (shows ✅ checkmark)
+    // Verify the item is still checked: renderShoppingTab paints a ✓ glyph and adds
+    // the `.on` class to the check button when item.checked is true.
     const checkElAfter = page.locator('[data-action="shop-check"][data-item-id="' + firstItem.id + '"]');
+    await expect(checkElAfter).toHaveClass(/\bon\b/);
     const checkText = await checkElAfter.textContent();
-    expect(checkText).toContain('✅');
+    expect(checkText).toContain('✓');
   });
 
   test('vendor section completion persists after reload', async ({ page }) => {
-    let shoppingList;
-    try {
-      shoppingList = await poApiCall(page, 'GET', 'shopping/active');
-    } catch(e) { test.skip(true, 'No active shopping list'); return; }
-    if (!shoppingList || !shoppingList.vendor_sections || shoppingList.vendor_sections.length === 0) {
-      test.skip(true, 'No vendor sections');
-      return;
-    }
-
-    // Find a pending vendor section
+    const shoppingList = await seedShoppingList(page);
+    // Find a pending vendor section (seedShoppingList always produces at least one).
     const pendingSec = shoppingList.vendor_sections.find(s => s.status === 'pending');
-    if (!pendingSec) { test.skip(true, 'No pending vendor sections'); return; }
+    if (!pendingSec) { test.skip(true, 'Seeded list has no pending sections — unexpected state'); return; }
 
     // Check off all items in the section via API
     for (const item of pendingSec.items || []) {
@@ -200,63 +309,68 @@ test.describe('Shopping tab', () => {
     await page.click('#t2');
     await waitForShoppingContent(page);
 
-    // The section should show as completed (section-completed class or completion note)
-    const content = await page.locator('#shopping-content').textContent();
-    // Completed sections either show dimmed or show "Completed by"
-    expect(content).toBeTruthy();
+    // FR-12 (rewritten from a vacuous toBeTruthy tail): the completed section must
+    // persist as status='completed' in the DB. Assert it via the API (the render is
+    // reload-dependent DOM; the DB state is the authoritative contract).
+    const afterActive = await poApiCall(page, 'GET', 'shopping/active').catch(() => null);
+    const afterHistory = await poApiCall(page, 'GET', 'shopping/history').catch(() => []);
+    // The section lives in whichever list still holds it (active if others pending,
+    // history if this completion cascaded the whole list to completed).
+    const findSec = (list) => (list && list.vendor_sections || []).find(s => s.id === pendingSec.id);
+    const persistedSec = findSec(afterActive) ||
+      ((afterHistory || []).map(findSec).find(Boolean));
+    expect(persistedSec, 'the completed vendor section must be retrievable after reload').toBeTruthy();
+    expect(persistedSec.status).toBe('completed');
+    expect(persistedSec.completed_by, 'completed_by must be stamped').toBeTruthy();
   });
 
   test('store location edit persists after reload', async ({ page }) => {
-    let shoppingList;
-    try {
-      shoppingList = await poApiCall(page, 'GET', 'shopping/active');
-    } catch(e) { test.skip(true, 'No active shopping list'); return; }
-    if (!shoppingList || !shoppingList.vendor_sections || shoppingList.vendor_sections.length === 0) {
-      test.skip(true, 'No items');
-      return;
+    const shoppingList = await seedShoppingList(page);
+    // Pick an item with no store_location so the "Add location" affordance renders.
+    let firstItem = null;
+    for (const sec of shoppingList.vendor_sections) {
+      for (const item of (sec.items || [])) {
+        if (!item.store_location) { firstItem = item; break; }
+      }
+      if (firstItem) break;
     }
-    const firstItem = shoppingList.vendor_sections[0].items && shoppingList.vendor_sections[0].items[0];
-    if (!firstItem) { test.skip(true, 'No items'); return; }
+    if (!firstItem) { test.skip(true, 'Seeded list has no item without a store_location'); return; }
 
-    await page.click('#t2');
-    await waitForShoppingContent(page);
-
-    // Tap the location element for the first item
-    const locEl = page.locator('.shop-item[data-item-id="' + firstItem.id + '"] .shop-loc');
-    await locEl.click();
-
-    // Type a location
-    const testLoc = 'Aisle 7B';
-    const inp = page.locator('.shop-item[data-item-id="' + firstItem.id + '"] .shop-loc input');
-    await inp.fill(testLoc);
-    await inp.press('Enter');
-
-    // Wait for API save
-    await page.waitForResponse(res => res.url().includes('/items/') && res.url().includes('/location'), { timeout: 5000 }).catch(() => {});
-    await page.waitForTimeout(500);
-
-    // Reload and verify location persists
+    // beforeEach loaded the page before the list existed — reload to render it.
     await page.reload();
     await page.waitForLoadState('networkidle');
     await page.click('#t2');
     await waitForShoppingContent(page);
 
-    const locElAfter = page.locator('.shop-item[data-item-id="' + firstItem.id + '"] .shop-loc');
-    const locText = await locElAfter.textContent();
-    expect(locText).toContain(testLoc);
+    // Location editing uses a native prompt(); pre-accept it with the new value.
+    const testLoc = 'Aisle 7B';
+    page.once('dialog', dialog => dialog.accept(testLoc));
+
+    // Tap the "Add location" affordance for the item (data-action="shop-edit-loc").
+    const editLoc = page.locator('[data-action="shop-edit-loc"][data-item-id="' + firstItem.id + '"]');
+    await editLoc.click();
+
+    // Wait for API save
+    await page.waitForResponse(res => res.url().includes('/items/') && res.url().includes('/location'), { timeout: 5000 }).catch(() => {});
+    await page.waitForTimeout(500);
+
+    // Reload and verify location persists (rendered as plain text in the item row).
+    await page.reload();
+    await page.waitForLoadState('networkidle');
+    await page.click('#t2');
+    await waitForShoppingContent(page);
+
+    // Scope to the specific item's row via its check button (rows carry no id,
+    // but the check button does), then assert the saved location text renders.
+    const locRow = page.locator('#s2 .shop-item', {
+      has: page.locator('[data-action="shop-check"][data-item-id="' + firstItem.id + '"]'),
+    });
+    await expect(locRow).toContainText(testLoc);
   });
 
   test('shopping aisle location does not overwrite catalog store_location', async ({ page }) => {
-    let shoppingList;
-    try {
-      shoppingList = await poApiCall(page, 'GET', 'shopping/active');
-    } catch(e) { test.skip(true, 'No active shopping list'); return; }
-    if (!shoppingList || !shoppingList.vendor_sections || shoppingList.vendor_sections.length === 0) {
-      test.skip(true, 'No items');
-      return;
-    }
-    const firstItem = shoppingList.vendor_sections[0].items && shoppingList.vendor_sections[0].items[0];
-    if (!firstItem) { test.skip(true, 'No items'); return; }
+    const shoppingList = await seedShoppingList(page);
+    const firstItem = shoppingList.vendor_sections[0].items[0];
 
     // Get the catalog item's current store_location via inventory API
     const catalogBefore = await page.evaluate(async (pid) => {
@@ -281,16 +395,9 @@ test.describe('Shopping tab', () => {
   });
 
   test('toast appears when checking item without photo', async ({ page }) => {
-    let shoppingList;
-    try {
-      shoppingList = await poApiCall(page, 'GET', 'shopping/active');
-    } catch(e) { test.skip(true, 'No active shopping list'); return; }
-    if (!shoppingList || !shoppingList.vendor_sections || shoppingList.vendor_sections.length === 0) {
-      test.skip(true, 'No items');
-      return;
-    }
+    const shoppingList = await seedShoppingList(page);
 
-    // Find an unchecked item without a photo
+    // Find an unchecked item without a photo (seeded items start unchecked + photoless).
     let targetItem = null;
     for (const sec of shoppingList.vendor_sections) {
       for (const item of (sec.items || [])) {
@@ -298,8 +405,11 @@ test.describe('Shopping tab', () => {
       }
       if (targetItem) break;
     }
-    if (!targetItem) { test.skip(true, 'No unchecked items without photo'); return; }
+    if (!targetItem) { test.skip(true, 'Seeded list has no unchecked photoless items — unexpected state'); return; }
 
+    // beforeEach loaded the page before the list existed — reload to render it.
+    await page.reload();
+    await page.waitForLoadState('networkidle');
     await page.click('#t2');
     await waitForShoppingContent(page);
 
@@ -307,14 +417,14 @@ test.describe('Shopping tab', () => {
     const checkEl = page.locator('[data-action="shop-check"][data-item-id="' + targetItem.id + '"]');
     await checkEl.click();
 
-    // Wait for toast to appear
-    await page.waitForSelector('#shop-toast', { state: 'visible', timeout: 5000 });
-    const toastText = await page.locator('#shop-toast').textContent();
-    expect(toastText).toMatch(/photo|location/i);
+    // showShoppingToast() appends a .shop-toast div reading "<name> needs photo & location".
+    const toast = page.locator('.shop-toast');
+    await expect(toast).toBeVisible({ timeout: 5000 });
+    await expect(toast).toContainText(/photo|location/i);
 
-    // Verify "Add Now" button is in the toast
-    const addNowBtn = page.locator('[data-action="toast-add-now"]');
-    await expect(addNowBtn).toBeVisible();
+    // The toast carries a dismiss button (data-action="dismiss-shop-toast").
+    const dismissBtn = toast.locator('[data-action="dismiss-shop-toast"]');
+    await expect(dismissBtn).toBeVisible();
   });
 
   test('No photo badge shows on checked item without photo and disappears after photo upload', async ({ page }) => {
@@ -400,6 +510,126 @@ test.describe('Shopping tab', () => {
     expect(itemState.hasNoPhotoBadge).toBe(false);
   });
 
+  // ─── FR-12: last-section-complete cascades list → completed AND PO → completed ──
+  // AC-4: completing the last pending vendor section flips the shopping list to
+  // 'completed' and its PO to 'completed' in the DB. Red-first, API-observed — this
+  // replaces the vacuous cascade coverage the PRD flagged on FR-12.
+  test('FR-12: completing the last vendor section cascades list and PO to completed', async ({ page }) => {
+    const list = await seedShoppingList(page);
+    test.skip(!list || !(list.vendor_sections || []).length, 'No catalog items to seed a shopping list');
+
+    const poId = list.po_id;
+    expect(poId, 'seeded list must carry its po_id').toBeTruthy();
+
+    // Sanity: before completion the list is active and the PO is shopping_active.
+    const poBefore = await poApiCall(page, 'GET', 'orders/' + poId);
+    expect(poBefore.status).toBe('shopping_active');
+
+    // Complete every pending vendor section; the LAST one triggers the cascade.
+    for (const sec of list.vendor_sections) {
+      if (sec.status === 'completed') continue;
+      await poApiCall(page, 'POST', 'shopping/' + list.id + '/vendors/' + sec.id + '/complete');
+    }
+
+    // Observable cascade 1: the shopping list is now 'completed' and shows in history.
+    const active = await poApiCall(page, 'GET', 'shopping/active').catch(() => null);
+    expect(active, 'no shopping list should be active after the last section completes').toBeFalsy();
+    const history = await poApiCall(page, 'GET', 'shopping/history').catch(() => []);
+    const inHistory = (history || []).find(h => h.id === list.id);
+    expect(inHistory, 'the completed list must land in history').toBeTruthy();
+    expect(inHistory.status).toBe('completed');
+
+    // Observable cascade 2: the associated PO transitioned draft/…→ completed.
+    const poAfter = await poApiCall(page, 'GET', 'orders/' + poId);
+    expect(poAfter.status).toBe('completed');
+  });
+
+  // ─── FR-24: completing a section records a repurchase_log row ──────────────────
+  // repurchase.go RecordRepurchase inserts one repurchase_log row per CHECKED item
+  // of a completed vendor section (best-effort, post-commit). The only read surface
+  // is GET /api/v1/inventory/items, which attaches a `repurchase_badge` to any item
+  // with a repurchase_log entry since the last reset (none configured here → all
+  // repurchased items badge). Assert the badge appears for the checked item after
+  // its section completes. Red-first, API-observed.
+  test('FR-24: completing a vendor section with checked items records a repurchase_log row', async ({ page }) => {
+    // Observable join: repurchase.go RecordRepurchase inserts a repurchase_log row
+    // per CHECKED item of a completed section; the only read surface is GET
+    // /inventory/stock, which aggregates by catalog description and attaches a
+    // repurchase_badge (no reset config → badges accumulate). A stock row only
+    // exists for items with real purchase history, so we must operate on a section
+    // item whose purchase_item_id maps to a catalog description present in /stock.
+    const catalog = await page.evaluate(async () => {
+      const r = await fetch('/api/v1/inventory/items'); return r.json(); // {id, description, store_location}
+    });
+    test.skip(!catalog || !catalog.length, 'No catalog items to seed from');
+    const descById = new Map((catalog || []).map(c => [c.id, c.description]));
+
+    // seedShoppingList builds its list from the first 2 located catalog items. Give
+    // those items real purchase history via POST /inventory/purchases so they appear
+    // in /stock and their repurchase_badge is joinable (pure API seed, no DB conn).
+    const vendors = await page.evaluate(async () => {
+      const r = await fetch('/api/v1/inventory/vendors'); return r.json();
+    });
+    const vendorId = vendors && vendors[0] && vendors[0].id;
+    test.skip(!vendorId, 'No vendor to attribute a purchase event to');
+    for (const c of catalog.slice(0, 2)) {
+      await page.evaluate(async ([vid, pid, desc]) => {
+        await fetch('/api/v1/inventory/purchases', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            vendor_id: vid, bank_tx_id: 'fr24-seed-' + pid, event_date: '2026-01-15',
+            tax: 0, total: 5,
+            line_items: [{ purchase_item_id: pid, description: desc, quantity: 1, price: 5, is_case: false }],
+          }),
+        });
+      }, [vendorId, c.id, c.description]);
+    }
+
+    const stockSeed = await page.evaluate(async () => {
+      const r = await fetch('/api/v1/inventory/stock'); return r.json();
+    });
+    const stockDescs = new Set((stockSeed || []).map(s => s.description));
+
+    // Reuse the same seed path the passing FR-12 tests use — robust against the
+    // suite's known leftover-state pollution.
+    const list = await seedShoppingList(page).catch(() => null);
+    test.skip(!list || !(list.vendor_sections || []).length, 'No catalog items to seed a shopping list');
+
+    // Find a PENDING section holding an item whose catalog description is in /stock.
+    let sec = null, item = null, desc = null;
+    for (const s of list.vendor_sections) {
+      if (s.status === 'completed') continue;
+      for (const it of (s.items || [])) {
+        const d = descById.get(it.purchase_item_id);
+        if (d && stockDescs.has(d)) { sec = s; item = it; desc = d; break; }
+      }
+      if (item) break;
+    }
+    test.skip(!item, 'Seeded list has no pending section item that also appears in /stock — cannot join the badge');
+
+    // Baseline badge qty (badges accumulate across runs → assert on the DELTA).
+    const stockBefore = await page.evaluate(async () => {
+      const r = await fetch('/api/v1/inventory/stock'); return r.json();
+    });
+    const before = (stockBefore || []).find(s => s.description === desc);
+    const qtyBefore = (before && before.repurchase_badge && before.repurchase_badge.qty) || 0;
+
+    // Check the item, then complete its vendor section → RecordRepurchase inserts a row.
+    await poApiCall(page, 'POST', 'shopping/' + list.id + '/check', { item_id: item.id, checked: true });
+    await poApiCall(page, 'POST', 'shopping/' + list.id + '/vendors/' + sec.id + '/complete');
+
+    // Observable: the item's aggregated stock row now carries a repurchase_badge
+    // sourced from the repurchase_log row RecordRepurchase wrote, and its qty grew by
+    // at least the checked quantity — proving a NEW repurchase_log row was recorded.
+    const stockAfter = await page.evaluate(async () => {
+      const r = await fetch('/api/v1/inventory/stock'); return r.json();
+    });
+    const after = (stockAfter || []).find(s => s.description === desc);
+    expect(after, 'the repurchased item must have an aggregated stock row').toBeTruthy();
+    expect(after.repurchase_badge, 'a repurchase_log row must surface as a repurchase_badge after complete').toBeTruthy();
+    expect(after.repurchase_badge.qty).toBeGreaterThanOrEqual(qtyBefore + item.quantity);
+  });
+
 });
 
 test.describe('History tab', () => {
@@ -410,9 +640,10 @@ test.describe('History tab', () => {
     await page.waitForLoadState('networkidle');
   });
 
-  test('History tab shows empty state or completed lists', async ({ page }) => {
+  test('History tab renders #history-content container', async ({ page }) => {
     await page.click('#t4');
-    // Wait for content to load
+    // The rebuilt History tab always renders a #history-content container inside
+    // #s4 (empty state OR populated) — never leaves the raw stub in place.
     await page.waitForFunction(() => {
       const el = document.getElementById('history-content');
       if (!el) return false;
@@ -422,13 +653,10 @@ test.describe('History tab', () => {
     expect(text.trim().length).toBeGreaterThan(0);
   });
 
-  test('history tab shows completed shopping lists', async ({ page }) => {
-    // Check if there are completed lists via API
-    let history;
-    try {
-      history = await poApiCall(page, 'GET', 'shopping/history');
-    } catch(e) { test.skip(true, 'No history endpoint'); return; }
-
+  test('empty state shows "No completed" when there is no history', async ({ page }) => {
+    // Whether or not other tests have seeded, the wait accepts either the empty
+    // state text or a populated card. On a fresh DB (no completed lists) it must
+    // read "No completed".
     await page.click('#t4');
     await page.waitForFunction(() => {
       const el = document.getElementById('history-content');
@@ -436,49 +664,94 @@ test.describe('History tab', () => {
       return el.querySelector('.history-card') || el.textContent.includes('No completed');
     }, { timeout: 8000 });
 
+    const history = await poApiCall(page, 'GET', 'shopping/history').catch(() => []);
+    const text = await page.locator('#history-content').textContent();
     if (!history || history.length === 0) {
-      // Valid state: no completed lists yet
-      const text = await page.locator('#history-content').textContent();
       expect(text).toContain('No completed');
-      return;
+    } else {
+      // Something already seeded a completed list — the populated UI must render.
+      await expect(page.locator('.history-card').first()).toBeVisible();
     }
+  });
 
-    // Should show at least one history card with week label
+  test('history tab shows seeded completed shopping list with week label', async ({ page }) => {
+    const completed = await completeShoppingList(page);
+    test.skip(!completed, 'No catalog items to seed a completed shopping list');
+
+    await page.click('#t4');
+    await page.waitForSelector('.history-card', { timeout: 8000 });
+
     await expect(page.locator('.history-card').first()).toBeVisible();
     const cardText = await page.locator('.history-card').first().textContent();
     expect(cardText).toMatch(/Week of/);
   });
 
-  test('tapping history entry expands item detail', async ({ page }) => {
-    let history;
-    try {
-      history = await poApiCall(page, 'GET', 'shopping/history');
-    } catch(e) { test.skip(true, 'No history endpoint'); return; }
-    if (!history || history.length === 0) { test.skip(true, 'No completed shopping lists'); return; }
+  test('tapping history entry expands the vendor breakdown detail', async ({ page }) => {
+    const completed = await completeShoppingList(page);
+    test.skip(!completed, 'No catalog items to seed a completed shopping list');
 
     await page.click('#t4');
     await page.waitForSelector('.history-card', { timeout: 8000 });
 
-    // Click the first history entry to expand it
-    await page.locator('.history-hd').first().click();
+    // Detail should be collapsed initially.
+    expect(await page.locator('.history-detail').first().isVisible().catch(() => false)).toBe(false);
 
-    // Wait for detail to appear
-    await page.waitForSelector('.history-detail', { timeout: 5000 });
+    // Tap the header to expand.
+    await page.locator('.history-hd').first().click();
+    await page.waitForSelector('.history-detail', { state: 'visible', timeout: 5000 });
     await expect(page.locator('.history-detail').first()).toBeVisible();
+
+    // The detail must name at least one vendor from the seeded list.
+    const detailText = await page.locator('.history-detail').first().textContent();
+    expect(detailText.trim().length).toBeGreaterThan(0);
+    expect(completed.vendor_sections.length).toBeGreaterThan(0);
+    expect(detailText).toContain(completed.vendor_sections[0].vendor_name);
   });
 
-  test('history card shows vendor breakdown and missing count', async ({ page }) => {
-    let history;
-    try {
-      history = await poApiCall(page, 'GET', 'shopping/history');
-    } catch(e) { test.skip(true, 'No history endpoint'); return; }
-    if (!history || history.length === 0) { test.skip(true, 'No history'); return; }
+  test('history card shows vendor breakdown and section count', async ({ page }) => {
+    const completed = await completeShoppingList(page);
+    test.skip(!completed, 'No catalog items to seed a completed shopping list');
 
     await page.click('#t4');
     await page.waitForSelector('.history-card', { timeout: 8000 });
+
+    // The card header meta must report the vendor/section count.
     const metaText = await page.locator('.history-mt').first().textContent();
-    // Should contain vendor count: "N vendor(s)" or "N vendors"
     expect(metaText).toMatch(/vendor/i);
+  });
+
+  // ─── FR-17: GET /shopping/history returns the completed-list shape ─────────────
+  // The endpoint (service.go GetShoppingListHistory) is untested by the PRD. Assert
+  // the JSON shape it names: an array of completed shopping lists, each with id,
+  // week_start, status='completed', and vendor_sections[] carrying vendor_name +
+  // status. Red-first, API-only (independent of the FR-18 History UI stub).
+  test('FR-17: shopping/history returns completed lists with vendor-section shape', async ({ page }) => {
+    const completed = await completeShoppingList(page);
+    test.skip(!completed, 'No catalog items to seed a completed shopping list');
+
+    const history = await poApiCall(page, 'GET', 'shopping/history');
+    expect(Array.isArray(history), 'history must be a JSON array').toBe(true);
+    expect(history.length).toBeGreaterThan(0);
+
+    const row = history.find(h => h.id === completed.id);
+    expect(row, 'the just-completed list must appear in history').toBeTruthy();
+
+    // Only completed lists are returned.
+    for (const h of history) expect(h.status).toBe('completed');
+
+    // Shape of the returned row.
+    expect(typeof row.id).toBe('string');
+    expect(row.week_start).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(row.po_id, 'row must reference its PO').toBeTruthy();
+    expect(Array.isArray(row.vendor_sections)).toBe(true);
+    expect(row.vendor_sections.length).toBeGreaterThan(0);
+
+    // Each vendor section carries a vendor_name and a status.
+    for (const sec of row.vendor_sections) {
+      expect(typeof sec.vendor_name).toBe('string');
+      expect(sec.vendor_name.length).toBeGreaterThan(0);
+      expect(['pending', 'completed']).toContain(sec.status);
+    }
   });
 
 });
@@ -493,11 +766,13 @@ test.describe('PO tab', () => {
 
   test('PO tab shows stub or locked PO', async ({ page }) => {
     await page.click('#t3');
+    // renderPOTab() paints the PO tab into #s3 — either the "No locked PO yet" stub
+    // or the locked PO card. (There is no #po-content element.)
     await page.waitForFunction(() => {
-      const el = document.getElementById('po-content');
+      const el = document.getElementById('s3');
       return el && el.textContent.trim().length > 0;
     }, { timeout: 8000 });
-    const text = await page.locator('#po-content').textContent();
+    const text = await page.locator('#s3').textContent();
     expect(text.trim().length).toBeGreaterThan(0);
   });
 
@@ -510,7 +785,7 @@ test.describe('PO tab', () => {
 
     await page.click('#t3');
     await page.waitForFunction(() => {
-      const el = document.getElementById('po-content');
+      const el = document.getElementById('s3');
       return el && el.textContent.trim().length > 0;
     }, { timeout: 8000 });
 
@@ -552,6 +827,10 @@ test.describe('Item picker store_location enforcement', () => {
     const ts = Date.now();
     const itemName = 'NoLoc Item ' + ts;
     await invApiCall(page, 'POST', 'items', { description: itemName, group_id: gid });
+
+    // The picker renders from ALL_ITEMS, loaded at init — reload to include the new item.
+    await page.reload();
+    await page.waitForLoadState('networkidle');
 
     // Open item picker
     await page.waitForSelector('[data-action="open-picker"]', { timeout: 5000 });
@@ -629,16 +908,19 @@ test.describe('Item picker store_location enforcement', () => {
     await page.fill('#picker-search', 'Pick');
     await page.waitForTimeout(300);
 
-    // Verify group headers appear
+    // Verify group headers appear. renderPickerList() groups by (store_location,
+    // group_name) and renders headers as "<store>, <category>"; the location-less
+    // item lands under a plain "Unassigned" header pinned to the bottom.
     const headers = await page.evaluate(() => {
       return Array.from(document.querySelectorAll('.picker-group-header')).map(h => h.textContent);
     });
 
-    expect(headers).toContain('Giant');
-    expect(headers).toContain('Restaurant Depot');
+    // A header for the Giant-located item and one for the Restaurant Depot item.
+    expect(headers.some(h => h.startsWith('Giant,'))).toBe(true);
+    expect(headers.some(h => h.startsWith('Restaurant Depot,'))).toBe(true);
     expect(headers).toContain('Unassigned');
 
-    // Verify "Unassigned" is last
+    // "Unassigned" is always rendered last.
     const unassignedIdx = headers.indexOf('Unassigned');
     expect(unassignedIdx).toBe(headers.length - 1);
   });
@@ -734,6 +1016,23 @@ test.describe('Item card Setup deep link', () => {
   });
 
   test('clicking item info on Order tab navigates to Inventory Setup with item expanded', async ({ page }) => {
+    // A fresh draft Order has no line items, so renderOrder() shows the empty state
+    // and no .item-info card exists. Seed one item onto the current draft PO, then
+    // reload so the Order tab renders an item card with the goto-setup affordance.
+    const orderId = await page.evaluate(async () => {
+      const res = await fetch('/api/v1/purchasing/orders', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+      const po = await res.json();
+      return po.id;
+    });
+    const items = await page.evaluate(async () => {
+      const res = await fetch('/api/v1/inventory/items');
+      return res.json();
+    });
+    expect(items.length).toBeGreaterThan(0);
+    await poApiCall(page, 'PUT', 'orders/' + orderId + '/items', { items: [{ purchase_item_id: items[0].id, quantity: 2, unit: '' }] });
+    await page.reload();
+    await page.waitForLoadState('networkidle');
+
     // Wait for order to render with at least one item
     const itemInfo = page.locator('.item-info[data-action="goto-setup"]').first();
     await expect(itemInfo).toBeVisible({ timeout: 10000 });
@@ -742,9 +1041,10 @@ test.describe('Item card Setup deep link', () => {
     await itemInfo.click();
     // Should navigate to inventory.html
     await page.waitForURL(/inventory\.html/, { timeout: 5000 });
-    // URL hash should contain the item name
+    // URL hash targets the Inventory Setup tab (tab=7 — Recipes was inserted as
+    // tab 4 in Phase 999.2, which pushed Setup from 5 to 7) plus the item slug.
     const hash = await page.evaluate(() => location.hash);
-    expect(hash).toContain('tab=5');
+    expect(hash).toContain('tab=7');
     expect(hash).toContain('item=');
     // Setup tab should be visible with the item edit form
     await page.waitForSelector('.item-edit-form', { timeout: 10000 });
@@ -787,4 +1087,712 @@ test.describe('Purchasing Suggestions', () => {
     expect(suggestionsLoaded.pageLoaded).toBeTruthy();
     expect(suggestionsLoaded.hasOrderContent).toBeTruthy();
   });
+});
+
+// ── prove-sweep: Order-tab flows FR-1, FR-2, FR-4, FR-6 (card purchasing-prove-order) ──
+//
+// Red-first assertions that name the observable DB/UI behavior for the four Order-tab
+// flows the PRD marks UNPROVEN. FR-1/FR-6 are expected RED per the slate. Fixtures are
+// isolated to this describe block; they never mutate state a sibling test depends on
+// (each seeds its own draft/purchase-event or authors its own non-admin session inline).
+
+test.describe('Order tab prove-sweep (FR-1/2/4/6)', () => {
+
+  // status-aware fetch (poApiCall throws without exposing status; FR-6 needs the code).
+  async function poFetchStatus(page, method, path, body) {
+    return page.evaluate(async ([m, p, b]) => {
+      const opts = { method: m, headers: { 'Content-Type': 'application/json' } };
+      if (b) opts.body = JSON.stringify(b);
+      const res = await fetch('/api/v1/purchasing/' + p, opts);
+      let json = null;
+      try { json = await res.json(); } catch (e) { json = null; }
+      return { status: res.status, ok: res.ok, body: json };
+    }, [method, path, body]);
+  }
+
+  // Ensure the current-week draft exists but is NOT yet locked. Returns the draft PO.
+  async function ensureDraft(page) {
+    return poApiCall(page, 'POST', 'orders');
+  }
+
+  test.beforeEach(async ({ page }) => {
+    await login(page);
+    await page.goto('/purchasing.html');
+    await page.waitForLoadState('networkidle');
+  });
+
+  // FR-1 — On load POST /orders always returns an editable DRAFT. When this week's PO
+  // is locked, the returned draft must roll to NEXT week (never hand back the locked PO).
+  // Observable: after simulate-cutoff locks this week, POST /orders returns status='draft'
+  // AND a week_start strictly after the locked PO's week_start.
+  test('FR-1: locked-week draft rolls to next week (POST /orders returns a next-week draft)', async ({ page }) => {
+    // Precondition: a locked PO must exist. Reuse an existing one if the stack already
+    // has one (idempotent — avoids the locked_po_pending_approval 409 from re-locking);
+    // otherwise seed a draft with an item and simulate-cutoff to create it.
+    let locked = await poApiCall(page, 'GET', 'orders?status=locked').catch(() => null);
+    if (!locked || !locked.id) {
+      const draft = await ensureDraft(page);
+      const items = await page.evaluate(async () => (await fetch('/api/v1/inventory/items')).json());
+      if (!items || !items.length) { test.skip(true, 'No catalog items to seed a draft'); return; }
+      await poApiCall(page, 'PUT', 'orders/' + draft.id + '/items', {
+        items: [{ purchase_item_id: items[0].id, quantity: 2, unit: '' }],
+      });
+      await poApiCall(page, 'POST', 'simulate-cutoff');
+      locked = await poApiCall(page, 'GET', 'orders?status=locked');
+    }
+    expect(locked).toBeTruthy();
+    expect(locked.status).toBe('locked');
+    const lockedWeek = locked.week_start;
+
+    // With this week locked, the Order tab must roll to an editable NEXT-week draft.
+    const rolled = await poApiCall(page, 'POST', 'orders');
+    expect(rolled).toBeTruthy();
+    expect(rolled.status).toBe('draft');                 // never a locked PO
+    expect(rolled.id).not.toBe(locked.id);               // a different order
+    // week_start must advance past the locked week (roll-to-next-week branch).
+    expect(new Date(rolled.week_start).getTime())
+      .toBeGreaterThan(new Date(lockedWeek).getTime());
+  });
+
+  // FR-2 — Stepping a line item persists across reload; stepping to qty 0 removes it.
+  // Observable: after debounced save + reload, GET /orders/{id} line_items shows the new
+  // qty for the stepped item; a qty-0 item is absent from the persisted set.
+  test('FR-2: qty stepper persists across reload and qty-0 removes the line', async ({ page }) => {
+    const items = await page.evaluate(async () => (await fetch('/api/v1/inventory/items')).json());
+    if (!items || items.length < 2) { test.skip(true, 'Need >=2 catalog items'); return; }
+    const keepItem = items[0];   // will be stepped up to 3 and kept
+    const dropItem = items[1];   // will be stepped down to 0 and removed
+
+    // Seed the current draft with both items at qty 2.
+    const draft = await ensureDraft(page);
+    await poApiCall(page, 'PUT', 'orders/' + draft.id + '/items', {
+      items: [
+        { purchase_item_id: keepItem.id, quantity: 2, unit: '' },
+        { purchase_item_id: dropItem.id, quantity: 2, unit: '' },
+      ],
+    });
+
+    await page.reload();
+    await page.waitForLoadState('networkidle');
+    await page.waitForSelector('#s1 .item-card[data-item-id="' + keepItem.id + '"]', { timeout: 8000 });
+
+    // Scope to the Order tab (#s1); the qty is the aria-labelled span in each card's stepper.
+    const keepQty = page.locator('#s1 .item-card[data-item-id="' + keepItem.id + '"] .stp span[aria-label]');
+    const dropQty = page.locator('#s1 .item-card[data-item-id="' + dropItem.id + '"] .stp span[aria-label]');
+
+    // Step keepItem UP by one (2 -> 3).
+    await page.locator('#s1 .item-card[data-item-id="' + keepItem.id + '"] [data-action="qty-inc"]').click();
+    await expect(keepQty).toHaveText('3');
+
+    // Step dropItem DOWN to 0 (2 -> 1 -> 0).
+    const decDrop = page.locator('#s1 .item-card[data-item-id="' + dropItem.id + '"] [data-action="qty-dec"]');
+    await decDrop.click();
+    await decDrop.click();
+    await expect(dropQty).toHaveText('0');
+
+    // Let the debounced save flush, then reload and read the PERSISTED set.
+    await page.waitForResponse(res => res.url().includes('/orders/') && res.url().includes('/items') && res.request().method() === 'PUT', { timeout: 6000 }).catch(() => {});
+    await page.waitForTimeout(1200);
+    await page.reload();
+    await page.waitForLoadState('networkidle');
+
+    const persisted = await poApiCall(page, 'GET', 'orders/' + draft.id);
+    const li = persisted.line_items || [];
+    const keep = li.find(x => x.purchase_item_id === keepItem.id);
+    const drop = li.find(x => x.purchase_item_id === dropItem.id);
+    expect(keep).toBeTruthy();
+    expect(keep.quantity).toBe(3);          // stepped-up qty persisted
+    expect(drop).toBeFalsy();               // qty-0 line removed from the persisted set
+  });
+
+  // FR-4 — Restock suggestions render and "Add Selected" bulk-adds them to the order.
+  // Seed a purchase event (gives a catalog item stock below its group threshold) so the
+  // suggestions query returns a concrete candidate, then drive the UI bulk-add and assert
+  // the item lands on the PERSISTED PO line-item set after reload.
+  test('FR-4: restock suggestions render and Add Selected persists them onto the order', async ({ page }) => {
+    // Fresh draft so the candidate item is guaranteed NOT already on the PO.
+    const draft = await ensureDraft(page);
+
+    // Pick a catalog item that is not currently a draft line item, and give it stock=2
+    // via a purchase event (2 < default high threshold 10, > 0 -> becomes a suggestion).
+    const items = await page.evaluate(async () => (await fetch('/api/v1/inventory/items')).json());
+    const vendors = await page.evaluate(async () => (await fetch('/api/v1/inventory/vendors')).json());
+    if (!items || !items.length || !vendors || !vendors.length) { test.skip(true, 'No catalog items/vendors to seed a suggestion'); return; }
+    const onPO = new Set((draft.line_items || []).map(x => x.purchase_item_id));
+    const candidate = items.find(it => !onPO.has(it.id));
+    if (!candidate) { test.skip(true, 'No off-PO catalog item to seed a suggestion'); return; }
+
+    await page.evaluate(async ([vid, pid]) => {
+      await fetch('/api/v1/inventory/purchases', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          vendor_id: vid, bank_tx_id: 'nc-fr4-' + Date.now(), event_date: '2026-07-01', total: 10,
+          line_items: [{ purchase_item_id: pid, description: 'fr4 seed', quantity: 2, price: 5 }],
+        }),
+      });
+    }, [vendors[0].id, candidate.id]);
+
+    // Confirm the suggestion is really produced for THIS draft (guards the fixture).
+    const suggestions = await poApiCall(page, 'GET', 'orders/' + draft.id + '/suggestions');
+    const sug = (suggestions || []).find(s => s.purchase_item_id === candidate.id);
+    expect(sug).toBeTruthy();   // fixture must yield a concrete suggestion, not an empty set
+
+    // Reload so the Order tab hydrates SUGGESTIONS, then open the suggestions card.
+    await page.reload();
+    await page.waitForLoadState('networkidle');
+    await page.waitForSelector('#s1 [data-action="toggle-suggestions"]', { timeout: 8000 });
+    await page.locator('#s1 [data-action="toggle-suggestions"]').first().click();
+
+    // The suggestion row for our candidate must render, then check it and Add Selected.
+    const cb = page.locator('.suggest-row input[data-suggest-id="' + candidate.id + '"]');
+    await expect(cb).toBeVisible();
+    await cb.check();
+    await page.locator('[data-action="add-selected"]').click();
+
+    // Persisted assertion: after the save + reload, the candidate is on the PO at its
+    // suggested qty.
+    await page.waitForResponse(res => res.url().includes('/orders/') && res.url().includes('/items') && res.request().method() === 'PUT', { timeout: 6000 }).catch(() => {});
+    await page.waitForTimeout(1000);
+    const persisted = await poApiCall(page, 'GET', 'orders/' + draft.id);
+    const added = (persisted.line_items || []).find(x => x.purchase_item_id === candidate.id);
+    expect(added).toBeTruthy();                         // bulk-add wrote the line item
+    expect(added.quantity).toBe(sug.suggested_qty);     // at the suggested qty
+  });
+
+  // FR-6 — Cutoff config is settable by an admin (round-trips) and returns 403 for a
+  // non-admin (team_member). The non-admin session is authored INLINE per the runbook
+  // (invite -> accept-invite -> login as them); no shared helper module.
+  test('FR-6: cutoff config is admin-settable and returns 403 for a non-admin', async ({ page }) => {
+    // --- Admin path: PUT /cutoff round-trips ---
+    const saved = await poApiCall(page, 'PUT', 'cutoff', {
+      day_of_week: 3, cutoff_time: '17:30', timezone: 'America/Chicago',
+    });
+    expect(saved).toBeTruthy();
+    expect(saved.day_of_week).toBe(3);
+    expect((saved.cutoff_time || '').slice(0, 5)).toBe('17:30');
+    const roundTrip = await poApiCall(page, 'GET', 'cutoff');
+    expect(roundTrip.day_of_week).toBe(3);
+    expect((roundTrip.cutoff_time || '').slice(0, 5)).toBe('17:30');
+
+    // --- Non-admin path: author a team_member session inline, PUT /cutoff -> 403 ---
+    const email = 'nc-fr6-teammember-' + Date.now() + '@yumyums.kitchen';
+    const invite = await page.evaluate(async (em) => {
+      const res = await fetch('/api/v1/users/invite', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ first_name: 'Cutoff', last_name: 'NonAdmin', email: em, roles: ['team_member'] }),
+      });
+      return res.json();
+    }, email);
+    const token = (invite.invite_path || '').split('token=')[1];
+    expect(token).toBeTruthy();
+    await page.evaluate(async (t) => {
+      await fetch('/api/v1/auth/accept-invite', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: t, password: 'test456' }),
+      });
+    }, token);
+
+    // Log in as the team_member (accept-invite already rotated the cookie, but log in
+    // explicitly to be certain the session is the non-admin's).
+    await login(page, email, 'test456');
+    await page.goto('/purchasing.html');
+    await page.waitForLoadState('networkidle');
+
+    const forbidden = await poFetchStatus(page, 'PUT', 'cutoff', {
+      day_of_week: 5, cutoff_time: '09:00', timezone: 'America/Chicago',
+    });
+    expect(forbidden.status).toBe(403);   // non-admin cannot save cutoff
+
+    // And no state change: the admin-saved config still reads day=3 17:30.
+    await login(page);
+    await page.goto('/purchasing.html');
+    await page.waitForLoadState('networkidle');
+    const after = await poApiCall(page, 'GET', 'cutoff');
+    expect(after.day_of_week).toBe(3);
+    expect((after.cutoff_time || '').slice(0, 5)).toBe('17:30');
+  });
+
+});
+
+// ── prove-sweep: PO-tab flows FR-13/14/15/16 (card purchasing-prove-po-approval) ──
+//
+// Red-first assertions naming the observable DB/UI behavior for the four PO-tab
+// (Tab 3) flows the PRD marks UNPROVEN: locked-PO read-only render + badge (FR-13),
+// admin-vs-non-admin locked-PO edit (FR-14), approve-button visibility gating
+// (FR-15), and approve snapshot + both 409 refusals (FR-16). Slate expects
+// FR-14/15/16 likely RED. Fixtures are isolated to this describe block and clean up
+// after themselves (FR-16 completes the list it approves so no active list leaks to
+// siblings). Non-admin session authored INLINE per the runbook (no shared helper).
+
+test.describe('PO tab prove-sweep (FR-13/14/15/16)', () => {
+
+  // status-aware fetch (poApiCall throws without exposing the code; the 403/409 flows
+  // need the numeric status + the error envelope). Mirrors the B1 poFetchStatus.
+  async function poFetchStatus(page, method, path, body) {
+    return page.evaluate(async ([m, p, b]) => {
+      const opts = { method: m, headers: { 'Content-Type': 'application/json' } };
+      if (b) opts.body = JSON.stringify(b);
+      const res = await fetch('/api/v1/purchasing/' + p, opts);
+      let json = null;
+      try { json = await res.json(); } catch (e) { json = null; }
+      return { status: res.status, ok: res.ok, body: json };
+    }, [method, path, body]);
+  }
+
+  // ensureLockedPO: return the current locked PO if one is pending approval;
+  // otherwise seed a fresh draft (2 catalog items) and simulate-cutoff to lock it.
+  // Returns the locked PO object, or null if the stack has no catalog items to seed.
+  async function ensureLockedPO(page) {
+    let locked = await poApiCall(page, 'GET', 'orders?status=locked').catch(() => null);
+    if (locked && locked.id) return locked;
+
+    const items = await page.evaluate(async () => (await fetch('/api/v1/inventory/items')).json());
+    if (!items || items.length < 2) return null;
+
+    const draft = await poApiCall(page, 'POST', 'orders');
+    await poApiCall(page, 'PUT', 'orders/' + draft.id + '/items', {
+      items: items.slice(0, 2).map(it => ({ purchase_item_id: it.id, quantity: 2, unit: '' })),
+    });
+    await poApiCall(page, 'POST', 'simulate-cutoff');
+    locked = await poApiCall(page, 'GET', 'orders?status=locked').catch(() => null);
+    return (locked && locked.id) ? locked : null;
+  }
+
+  // Complete every vendor section of an active list so shopping/active clears — used
+  // to keep the "one active list at a time" invariant from leaking between tests.
+  async function drainActiveList(page) {
+    const active = await poApiCall(page, 'GET', 'shopping/active').catch(() => null);
+    if (!active || !active.id) return;
+    for (const sec of active.vendor_sections || []) {
+      if (sec.status === 'completed') continue;
+      await poApiCall(page, 'POST', 'shopping/' + active.id + '/vendors/' + sec.id + '/complete').catch(() => {});
+    }
+  }
+
+  test.beforeEach(async ({ page }) => {
+    await login(page);
+    await page.goto('/purchasing.html');
+    await page.waitForLoadState('networkidle');
+  });
+
+  // FR-13 — A locked PO renders read-only on the PO tab with a status badge. Observable:
+  // #s3 shows a .status-badge.locked reading "Locked", the seeded item cards render, and
+  // every qty stepper button is `disabled` (read-only — not in edit mode). Asserting the
+  // read-only contract, not just "some content".
+  test('FR-13: locked PO renders read-only with a Locked status badge', async ({ page }) => {
+    const locked = await ensureLockedPO(page);
+    if (!locked) { test.skip(true, 'No catalog items to seed a locked PO'); return; }
+    expect(locked.status).toBe('locked');
+
+    await page.reload();
+    await page.waitForLoadState('networkidle');
+    await page.click('#t3');
+
+    // The status badge must be present and read "Locked".
+    const badge = page.locator('#s3 .status-badge.locked');
+    await expect(badge).toBeVisible();
+    await expect(badge).toHaveText('Locked');
+
+    // The seeded line items must render as item cards.
+    const cards = page.locator('#s3 .item-card');
+    await expect(cards.first()).toBeVisible();
+    const cardCount = await cards.count();
+    expect(cardCount).toBeGreaterThan(0);
+
+    // Read-only contract: NOT in edit mode, so every qty stepper button is disabled.
+    const stepBtns = page.locator('#s3 .item-card .stp button');
+    const total = await stepBtns.count();
+    expect(total).toBeGreaterThan(0);
+    const enabled = await stepBtns.evaluateAll(btns => btns.filter(b => !b.disabled).length);
+    expect(enabled).toBe(0);   // no editable stepper when the locked PO is read-only
+  });
+
+  // FR-14 — An admin can edit a locked PO (PUT /orders/{id}/items with allowLocked, i.e.
+  // WITHOUT require_draft) → 200; a non-admin (team_member) attempting the same edit is
+  // refused 403 po_locked_admin_only, and the PO line-item set is unchanged. The
+  // team_member session is authored INLINE per the runbook (invite -> accept-invite ->
+  // login), no shared helper.
+  test('FR-14: admin edits a locked PO (200) but a non-admin is refused 403', async ({ page }) => {
+    const locked = await ensureLockedPO(page);
+    if (!locked) { test.skip(true, 'No catalog items to seed a locked PO'); return; }
+    expect(locked.status).toBe('locked');
+
+    const items = await page.evaluate(async () => (await fetch('/api/v1/inventory/items')).json());
+    // Pick an item NOT already on the locked PO so the admin edit is an observable add.
+    const onPO = new Set((locked.line_items || []).map(x => x.purchase_item_id));
+    const addItem = items.find(it => !onPO.has(it.id));
+    if (!addItem) { test.skip(true, 'No off-PO catalog item to drive an admin edit'); return; }
+
+    // --- Admin path: PUT with allowLocked (no require_draft) adds the item to the locked PO. ---
+    const adminEdit = await poFetchStatus(page, 'PUT', 'orders/' + locked.id + '/items', {
+      items: [
+        ...(locked.line_items || []).map(x => ({ purchase_item_id: x.purchase_item_id, quantity: x.quantity, unit: x.unit || '' })),
+        { purchase_item_id: addItem.id, quantity: 4, unit: '' },
+      ],
+    });
+    expect(adminEdit.status).toBe(200);   // admin may edit a locked PO
+    const afterAdmin = await poApiCall(page, 'GET', 'orders/' + locked.id);
+    const added = (afterAdmin.line_items || []).find(x => x.purchase_item_id === addItem.id);
+    expect(added).toBeTruthy();
+    expect(added.quantity).toBe(4);
+
+    // --- Non-admin path: author a team_member inline, PUT the same locked PO -> 403. ---
+    const email = 'nc-fr14-teammember-' + Date.now() + '@yumyums.kitchen';
+    const invite = await page.evaluate(async (em) => {
+      const res = await fetch('/api/v1/users/invite', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ first_name: 'Locked', last_name: 'NonAdmin', email: em, roles: ['team_member'] }),
+      });
+      return res.json();
+    }, email);
+    const token = (invite.invite_path || '').split('token=')[1];
+    expect(token).toBeTruthy();
+    await page.evaluate(async (t) => {
+      await fetch('/api/v1/auth/accept-invite', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: t, password: 'test456' }),
+      });
+    }, token);
+
+    await login(page, email, 'test456');
+    await page.goto('/purchasing.html');
+    await page.waitForLoadState('networkidle');
+
+    // Non-admin edit of the locked PO — the allowLocked path is admin-only, so this is 403.
+    const nonAdminEdit = await poFetchStatus(page, 'PUT', 'orders/' + locked.id + '/items', {
+      items: [{ purchase_item_id: addItem.id, quantity: 9, unit: '' }],
+    });
+    expect(nonAdminEdit.status).toBe(403);                        // team_member cannot edit a locked PO
+    expect(nonAdminEdit.body && nonAdminEdit.body.error).toBe('po_locked_admin_only');
+
+    // And no state change: the admin-added item still reads qty 4.
+    await login(page);
+    await page.goto('/purchasing.html');
+    await page.waitForLoadState('networkidle');
+    const afterNonAdmin = await poApiCall(page, 'GET', 'orders/' + locked.id);
+    const still = (afterNonAdmin.line_items || []).find(x => x.purchase_item_id === addItem.id);
+    expect(still).toBeTruthy();
+    expect(still.quantity).toBe(4);
+  });
+
+  // FR-15 — The Approve button is shown ONLY to an admin AND only while the PO is locked.
+  // Observable: with a locked PO + admin session, [data-action="approve-po"] is visible;
+  // a non-admin (team_member) viewing the same locked PO does NOT see it.
+  test('FR-15: approve button visible for admin+locked, hidden for a non-admin', async ({ page }) => {
+    const locked = await ensureLockedPO(page);
+    if (!locked) { test.skip(true, 'No catalog items to seed a locked PO'); return; }
+    expect(locked.status).toBe('locked');
+
+    // --- Admin sees the Approve button on the locked PO tab. ---
+    await page.reload();
+    await page.waitForLoadState('networkidle');
+    await page.click('#t3');
+    const approveBtn = page.locator('#s3 [data-action="approve-po"]');
+    await expect(approveBtn).toBeVisible();
+
+    // --- Non-admin (team_member, inline) must NOT see the Approve button. ---
+    const email = 'nc-fr15-teammember-' + Date.now() + '@yumyums.kitchen';
+    const invite = await page.evaluate(async (em) => {
+      const res = await fetch('/api/v1/users/invite', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ first_name: 'Approve', last_name: 'NonAdmin', email: em, roles: ['team_member'] }),
+      });
+      return res.json();
+    }, email);
+    const token = (invite.invite_path || '').split('token=')[1];
+    expect(token).toBeTruthy();
+    await page.evaluate(async (t) => {
+      await fetch('/api/v1/auth/accept-invite', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: t, password: 'test456' }),
+      });
+    }, token);
+
+    await login(page, email, 'test456');
+    await page.goto('/purchasing.html');
+    await page.waitForLoadState('networkidle');
+    await page.click('#t3');
+    // Give the PO tab a beat to render whatever it renders for the non-admin.
+    await page.waitForFunction(() => {
+      const el = document.getElementById('s3');
+      return el && el.textContent.trim().length > 0;
+    }, { timeout: 8000 }).catch(() => {});
+    await expect(page.locator('#s3 [data-action="approve-po"]')).toHaveCount(0);
+  });
+
+  // FR-16 — Approving a locked PO transitions it locked -> shopping_active and creates an
+  // immutable snapshot: exactly one active shopping list with one vendor section per
+  // distinct PO vendor and items snapshotted from the PO line items. A second approve is
+  // refused 409 active_shopping_list_exists; approving a DIFFERENT non-locked PO (a fresh
+  // draft) is refused 409 po_not_locked. Cleans up by draining the list it creates.
+  test('FR-16: approve snapshots the PO and both 409 refusals fire', async ({ page }) => {
+    // Ensure no active list is leaking in from a sibling before we start.
+    await drainActiveList(page);
+
+    const locked = await ensureLockedPO(page);
+    if (!locked) { test.skip(true, 'No catalog items to seed a locked PO'); return; }
+    expect(locked.status).toBe('locked');
+
+    // Every PO line item must be snapshotted. (The number of vendor SECTIONS is
+    // driven by each purchase_item's vendor_id, which the /inventory/items API does
+    // NOT expose — so we assert the section count against the snapshot's own
+    // authoritative grouping below, not against a client-side vendor guess.)
+    const expectedItems = (locked.line_items || []).length;
+    expect(expectedItems).toBeGreaterThan(0);
+
+    // --- Approve (happy path) → 200. ---
+    const approve = await poFetchStatus(page, 'POST', 'orders/' + locked.id + '/approve');
+    expect(approve.status).toBe(200);
+
+    // PO transitioned locked -> shopping_active.
+    const poAfter = await poApiCall(page, 'GET', 'orders/' + locked.id);
+    expect(poAfter.status).toBe('shopping_active');
+
+    // Exactly one active shopping list, snapshotted from the PO.
+    const active = await poApiCall(page, 'GET', 'shopping/active');
+    expect(active).toBeTruthy();
+    expect(active.po_id).toBe(locked.id);
+    const sections = active.vendor_sections || [];
+    expect(sections.length).toBeGreaterThan(0);
+    // One section per distinct vendor: no two sections share the same vendor
+    // identity (vendor_id when set, else the 'Unassigned' bucket). The snapshot's
+    // grouping is authoritative here — the server groups PO line items by
+    // COALESCE(vendor_id, 'unassigned').
+    const vendorKeys = sections.map(s => s.vendor_id || 'unassigned');
+    expect(new Set(vendorKeys).size).toBe(sections.length);
+    const snapItems = sections.reduce((n, s) => n + (s.items || []).length, 0);
+    expect(snapItems).toBe(expectedItems);                   // every PO line item snapshotted
+
+    // Item fields are frozen from the PO line items (qty snapshot check on the first).
+    const firstLI = locked.line_items[0];
+    let snap = null;
+    for (const s of sections) { for (const it of (s.items || [])) { if (it.purchase_item_id === firstLI.purchase_item_id) snap = it; } }
+    expect(snap).toBeTruthy();
+    expect(snap.quantity).toBe(firstLI.quantity);            // qty frozen at approve time
+
+    // --- 409 #1: concurrent/second approve while a list is active → active_shopping_list_exists. ---
+    const secondApprove = await poFetchStatus(page, 'POST', 'orders/' + locked.id + '/approve');
+    expect(secondApprove.status).toBe(409);
+    expect(secondApprove.body && secondApprove.body.error).toBe('active_shopping_list_exists');
+
+    // --- 409 #2: approving a non-locked PO (a fresh draft) → po_not_locked. ---
+    // Drain the active list first so the active-list guard doesn't mask the not-locked guard.
+    await drainActiveList(page);
+    const draft = await poApiCall(page, 'POST', 'orders');   // fresh draft, status='draft'
+    expect(draft.status).toBe('draft');
+    const draftApprove = await poFetchStatus(page, 'POST', 'orders/' + draft.id + '/approve');
+    expect(draftApprove.status).toBe(409);
+    expect(draftApprove.body && draftApprove.body.error).toBe('po_not_locked');
+  });
+
+});
+
+// ─── Prove-sweep: NFR-1 (state machine + optimistic-lock 409), NFR-2 (admin
+// gate 403 across 5+ endpoints), FR-23 (manual repurchase-reset API) ──────────
+//
+// Card: purchasing-prove-state-auth-scheduler. E2E half — proves the state
+// transitions/refusals and the admin authorization tier against the live stack.
+// The cron DECISION logic (FR-19/20/21/22) is the Go-unit half and is PARKED
+// (no injectable clock — see backend/internal/purchasing/scheduler_prove_test.go).
+//
+// The non-admin (team_member) session is authored INLINE below per the runbook
+// rule (copy tests/multi-role.spec.js / tests/users.spec.js — no shared helper
+// module). Reuses the top-level login() and poApiCall() helpers.
+test.describe('Purchasing state/auth prove-sweep (NFR-1/NFR-2/FR-23)', () => {
+
+  const TEAM_MEMBER_PW = 'TeamMemberPass123';
+
+  function tokenFromInvitePath(invitePath) {
+    return new URL(invitePath, 'http://x').searchParams.get('token');
+  }
+
+  // inviteTeamMember (as the logged-in admin) creates a status='invited'
+  // team_member and returns { id, email, token }. Reads authoritative stored
+  // roles from the users-API invite response (not the masked /me).
+  async function inviteTeamMember(page, tag) {
+    const email = `purch-sec-${tag}-${Date.now()}@yumyums.kitchen`;
+    const res = await page.evaluate(async (e) => {
+      const r = await fetch('/api/v1/users/invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ first_name: 'Sec', last_name: 'Member', email: e, roles: ['team_member'] }),
+      });
+      return { status: r.status, body: await r.json().catch(() => null) };
+    }, email);
+    expect(res.status).toBe(201);
+    expect(res.body.user.roles).toEqual(['team_member']);
+    return { id: res.body.user.id, email, token: tokenFromInvitePath(res.body.invite_path) };
+  }
+
+  // becomeTeamMember clears the admin session and activates+logs-in as the
+  // invited team_member. After this, page requests carry the team_member cookie.
+  async function becomeTeamMember(page, token) {
+    await page.context().clearCookies();
+    const res = await page.evaluate(async ([t, pw]) => {
+      const r = await fetch('/api/v1/auth/accept-invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: t, password: pw }),
+      });
+      return { status: r.status, body: await r.json().catch(() => null) };
+    }, [token, TEAM_MEMBER_PW]);
+    expect(res.status).toBe(200);
+  }
+
+  async function usersApiCall(page, method, path) {
+    return page.evaluate(async ([m, p]) => {
+      const r = await fetch('/api/v1/users' + (p ? '/' + p : ''), { method: m });
+      if (r.status === 204) return null;
+      return r.json().catch(() => null);
+    }, [method, path]);
+  }
+
+  // poFetchStatus returns { status, body } (mirrors the B1/B2/B3 helper) so we
+  // can assert the exact status code (200/403/409) rather than throw on !ok.
+  async function poFetchStatus(page, method, path, body) {
+    return page.evaluate(async ([m, p, b]) => {
+      const opts = { method: m, headers: { 'Content-Type': 'application/json' } };
+      if (b) opts.body = JSON.stringify(b);
+      const r = await fetch('/api/v1/purchasing/' + p, opts);
+      let parsed = null;
+      try { parsed = await r.json(); } catch (_) { parsed = null; }
+      return { status: r.status, body: parsed };
+    }, [method, path, body]);
+  }
+
+  // ── NFR-1: draft→locked→shopping_active valid path + optimistic-lock 409 on a
+  //    stale/concurrent transition. Asserts BOTH the success AND the refusal. ──
+  test('NFR-1: PO state machine valid transitions + optimistic-lock 409 on stale transition', async ({ page }) => {
+    await login(page); // admin
+
+    // Clear any active list leaking from a sibling so the guards under test fire
+    // for the right reason.
+    const active = await poApiCall(page, 'GET', 'shopping/active').catch(() => null);
+    if (active && active.id) {
+      for (const s of (active.vendor_sections || [])) {
+        if (s.status !== 'completed') {
+          await poApiCall(page, 'POST', 'shopping/' + active.id + '/vendors/' + s.id + '/complete').catch(() => {});
+        }
+      }
+    }
+
+    // Ensure a fresh draft with items exists, then lock it via simulate-cutoff.
+    let locked = await poApiCall(page, 'GET', 'orders?status=locked').catch(() => null);
+    if (!locked || !locked.id) {
+      const order = await poApiCall(page, 'POST', 'orders');
+      const items = await page.evaluate(async () => (await fetch('/api/v1/inventory/items')).json());
+      if (!items || items.length === 0) { test.skip(true, 'No catalog items to seed a PO'); return; }
+      const toAdd = items.slice(0, 2).map(it => ({ purchase_item_id: it.id, quantity: 2, unit: '' }));
+      await poApiCall(page, 'PUT', 'orders/' + order.id + '/items', { items: toAdd });
+
+      // VALID transition #1: draft -> locked (simulate-cutoff = manual auto-lock).
+      const cut = await poFetchStatus(page, 'POST', 'simulate-cutoff');
+      expect(cut.status).toBe(200);
+      expect(cut.body.status).toBe('locked'); // observable state change asserted
+      locked = await poApiCall(page, 'GET', 'orders?status=locked');
+    }
+    expect(locked.status).toBe('locked');
+
+    // OPTIMISTIC-LOCK / illegal-transition 409: locking an already-locked PO
+    // (its status is no longer 'draft', so the WHERE status='draft' guard on
+    // LockPO fails) must be refused 409 po_not_draft — the concurrent/stale
+    // transition case (NFR-1 optimistic-lock: WHERE status = expected).
+    const relock = await poFetchStatus(page, 'POST', 'orders/' + locked.id + '/lock');
+    expect(relock.status).toBe(409);
+    expect(relock.body && relock.body.error).toBe('po_not_draft');
+
+    // VALID transition #2: locked -> draft via unlock, then the SAME unlock again
+    // is a stale transition (no longer locked) → 409 po_not_locked.
+    const unlock1 = await poFetchStatus(page, 'POST', 'orders/' + locked.id + '/unlock');
+    expect(unlock1.status).toBe(200);
+    expect(unlock1.body.status).toBe('draft'); // transitioned back to draft
+    const unlock2 = await poFetchStatus(page, 'POST', 'orders/' + locked.id + '/unlock');
+    expect(unlock2.status).toBe(409);
+    expect(unlock2.body && unlock2.body.error).toBe('po_not_locked');
+  });
+
+  // ── NFR-2: admin gate → non-admin (team_member) gets 403 across 5+ purchasing
+  //    admin endpoints; and the refusal is real (no state change). ────────────
+  test('NFR-2: non-admin (team_member) is refused 403 across 5+ purchasing admin endpoints', async ({ page }) => {
+    await login(page); // admin
+
+    // Seed a real PO id so the lock/unlock/approve routes hit their handler's
+    // admin gate (not a 404 for a bogus id). A fresh draft is fine — the gate
+    // fires before any status logic.
+    const draft = await poApiCall(page, 'POST', 'orders');
+    const poId = draft.id;
+    expect(poId).toBeTruthy();
+
+    // Snapshot the cutoff config BEFORE, to prove the refused PUT changed nothing.
+    const cutoffBefore = await poApiCall(page, 'GET', 'cutoff').catch(() => null);
+
+    // Become a non-admin.
+    const me = await inviteTeamMember(page, 'nfr2');
+    await becomeTeamMember(page, me.token); // page is now the team_member
+
+    const calls = {};
+    calls.cutoffPut = await poFetchStatus(page, 'PUT', 'cutoff', { day_of_week: 2, cutoff_time: '18:00', timezone: 'America/Chicago' });
+    calls.simulateCutoff = await poFetchStatus(page, 'POST', 'simulate-cutoff');
+    calls.lock = await poFetchStatus(page, 'POST', 'orders/' + poId + '/lock');
+    calls.unlock = await poFetchStatus(page, 'POST', 'orders/' + poId + '/unlock');
+    calls.approve = await poFetchStatus(page, 'POST', 'orders/' + poId + '/approve');
+    calls.repurchaseReset = await poFetchStatus(page, 'POST', 'repurchase-reset');
+    calls.repurchaseCfg = await poFetchStatus(page, 'PUT', 'repurchase-reset/config', { day_of_week: 1, reset_time: '06:00', timezone: 'America/Chicago' });
+
+    // 7 admin endpoints (>5) all refuse 403 forbidden for the non-admin.
+    for (const key of ['cutoffPut', 'simulateCutoff', 'lock', 'unlock', 'approve', 'repurchaseReset', 'repurchaseCfg']) {
+      expect(calls[key].status, `${key} should be 403`).toBe(403);
+      expect(calls[key].body && calls[key].body.error, `${key} error body`).toBe('forbidden');
+    }
+
+    // The refusal was real: back as admin, the cutoff config is unchanged and the
+    // PO is still a draft (the refused simulate-cutoff/lock did NOT transition it).
+    await page.context().clearCookies();
+    await login(page);
+    const cutoffAfter = await poApiCall(page, 'GET', 'cutoff').catch(() => null);
+    // If a cutoff existed before, the refused PUT must not have overwritten it to Tue/18:00.
+    if (cutoffBefore) {
+      const changedToAttack = cutoffAfter && cutoffAfter.day_of_week === 2 && String(cutoffAfter.cutoff_time).startsWith('18:00');
+      expect(changedToAttack, 'refused cutoff PUT must not have applied').toBe(false);
+    }
+    const poAfter = await poApiCall(page, 'GET', 'orders/' + poId);
+    expect(poAfter.status, 'refused lock/simulate must not have locked the PO').toBe('draft');
+
+    // Cleanup the non-admin.
+    await usersApiCall(page, 'DELETE', me.id);
+  });
+
+  // ── FR-23: admin manual repurchase-reset API works — asserts the observable
+  //    effect (last_reset_at advances to ~now on POST /repurchase-reset). ─────
+  test('FR-23: manual repurchase-reset advances last_reset_at (observable effect)', async ({ page }) => {
+    await login(page); // admin
+
+    // Seed a config with an OLD last_reset_at by upserting a schedule (fresh row
+    // has last_reset_at = NULL) — then the first POST must set it to ~now.
+    await poApiCall(page, 'PUT', 'repurchase-reset/config', { day_of_week: 1, reset_time: '06:00', timezone: 'America/Chicago' });
+    const before = await poApiCall(page, 'GET', 'repurchase-reset').catch(() => null);
+    // Fresh upsert leaves last_reset_at null (config row exists, never reset).
+    expect(before).toBeTruthy();
+
+    const t0 = Date.now();
+    // Manual reset — handler returns 204 No Content on success.
+    const reset = await poFetchStatus(page, 'POST', 'repurchase-reset');
+    expect(reset.status).toBe(204);
+
+    // Observable effect: last_reset_at is now set and is within a minute of now.
+    const after = await poApiCall(page, 'GET', 'repurchase-reset');
+    expect(after).toBeTruthy();
+    expect(after.last_reset_at, 'last_reset_at set after manual reset').toBeTruthy();
+    const resetMs = Date.parse(after.last_reset_at);
+    expect(Number.isNaN(resetMs)).toBe(false);
+    // within +/- 2 minutes of the request time (now() on the server).
+    expect(Math.abs(resetMs - t0)).toBeLessThan(120000);
+
+    // Idempotent second call: still 204, last_reset_at advances (>= previous).
+    const reset2 = await poFetchStatus(page, 'POST', 'repurchase-reset');
+    expect(reset2.status).toBe(204);
+    const after2 = await poApiCall(page, 'GET', 'repurchase-reset');
+    expect(Date.parse(after2.last_reset_at)).toBeGreaterThanOrEqual(resetMs);
+  });
+
 });

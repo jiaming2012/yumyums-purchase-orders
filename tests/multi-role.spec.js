@@ -128,7 +128,7 @@ test.describe('Multi-role support', () => {
     expect(me.roles.length).toBeGreaterThan(0);
   });
 
-  test('users.html role checkboxes render for edit form', async ({ page }) => {
+  test('users.html role chips render for edit form', async ({ page }) => {
     await login(page);
     // Load users page
     await page.goto('/users.html');
@@ -145,17 +145,17 @@ test.describe('Multi-role support', () => {
       const card = document.getElementById('edit-card');
       return card && card.querySelector('#f-roles');
     });
-    // Verify checkboxes are present
-    const roleChecks = page.locator('#f-roles input[type="checkbox"]');
-    await expect(roleChecks).toHaveCount(3);
-    // Verify values
-    const values = await roleChecks.evaluateAll(inputs => inputs.map(i => i.value));
+    // Verify role chips are present (users.html uses <button class="role-chip">
+    // not native <input type="checkbox">; see users.html:230 / :338).
+    const chips = page.locator('#f-roles .role-chip');
+    await expect(chips).toHaveCount(3);
+    const values = await chips.evaluateAll(btns => btns.map(b => b.dataset.role));
     expect(values).toContain('admin');
     expect(values).toContain('manager');
     expect(values).toContain('team_member');
   });
 
-  test('users.html invite form shows role checkboxes', async ({ page }) => {
+  test('users.html invite form shows role chips with team_member selected by default', async ({ page }) => {
     await login(page);
     await page.goto('/users.html');
     // Wait for user list to load
@@ -171,15 +171,14 @@ test.describe('Multi-role support', () => {
       const card = document.getElementById('edit-card');
       return card && card.querySelector('#f-roles');
     });
-    // Verify checkboxes exist
-    const roleChecks = page.locator('#f-roles input[type="checkbox"]');
-    await expect(roleChecks).toHaveCount(3);
-    // team_member should be checked by default
-    const teamMemberCheck = page.locator('#f-roles input[value="team_member"]');
-    await expect(teamMemberCheck).toBeChecked();
+    const chips = page.locator('#f-roles .role-chip');
+    await expect(chips).toHaveCount(3);
+    // team_member chip should be "on" by default (users.html:233 hardcodes it).
+    const teamMemberChip = page.locator('#f-roles .role-chip[data-role="team_member"]');
+    await expect(teamMemberChip).toHaveClass(/on/);
   });
 
-  test('onboarding.html builder shows role checkboxes', async ({ page }) => {
+  test('onboarding.html builder shows role chips', async ({ page }) => {
     await login(page);
     await page.goto('/onboarding.html');
     // Wait for page to init
@@ -191,33 +190,23 @@ test.describe('Multi-role support', () => {
       const body = document.getElementById('builder-body');
       return body && (body.querySelector('[data-action="new-template"]') || body.querySelector('[data-action="open-template"]') || body.querySelector('.empty'));
     });
-    // Open or create a template
+    // Open an existing template (skip create-flow since it triggers a prompt).
     const openBtn = page.locator('[data-action="open-template"]').first();
-    const newBtn = page.locator('[data-action="new-template"]').first();
     const openCount = await openBtn.count();
-    if (openCount > 0) {
-      await openBtn.click();
-    } else {
-      // Enter template name in prompt-style flow
-      await page.evaluate(() => {
-        // Simulate entering a template name via the new-template flow
-        const btn = document.querySelector('[data-action="new-template"]');
-        if (btn) btn.click();
-      });
-      // Handle any prompt dialogs
+    if (openCount === 0) {
+      test.skip(true, 'No existing onboarding template — skipping role-chip render assertion');
+      return;
     }
-    // Wait for editor with role-checks
+    await openBtn.click();
+    // Wait for editor with role-chips (onboarding.html:1031 — .role-chips
+    // container with .role-chip[data-action="tpl-role-chip"] buttons).
     await page.waitForFunction(() => {
       const body = document.getElementById('builder-body');
-      return body && body.querySelector('.role-checks');
-    }, { timeout: 5000 }).catch(() => {
-      // May not have opened editor — skip assertion
-    });
-    const roleChecks = page.locator('#builder-body .role-checks input[type="checkbox"]');
-    const count = await roleChecks.count();
-    if (count > 0) {
-      expect(count).toBe(4); // line_cook, cashier, manager, admin
-    }
+      return body && body.querySelector('[data-action="tpl-role-chip"]');
+    }, { timeout: 5000 });
+    const chips = page.locator('#builder-body [data-action="tpl-role-chip"]');
+    // onboarding.html:1032 hard-codes 3 target roles (team_member, manager, admin).
+    await expect(chips).toHaveCount(3);
   });
 
 });

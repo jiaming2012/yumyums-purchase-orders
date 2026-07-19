@@ -1,0 +1,1 @@
+{"items":[{"name":"Item A","quantity":1,"price":1.00,"is_case":false},{"name":"Item B","quantity":2,"price":2.00,"is_case":false},{"name":"Item

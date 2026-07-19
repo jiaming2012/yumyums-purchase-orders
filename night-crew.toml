@@ -1,0 +1,62 @@
+# night-crew.toml — target-repo configuration (scaffolded by `night-crew init`).
+#
+# Fill in the stanzas below and remove the comment markers. Parsing is strict:
+# an incomplete [env] table fails loudly rather than half-configuring a run, so
+# an unfilled config surfaces a named error instead of running against nothing.
+
+# [env] declares the environment inventory (environment-tiers spec). An
+# ephemeral env composes up a fresh stack per run, isolated by a Docker-assigned
+# host port (production is never touched). Point compose_file at a repo-relative
+# compose file and name the service + container port that is the env's public
+# face; the host port is intentionally omitted — Docker assigns it.
+[env.ephemeral]
+compose_file = "docker-compose.nc.yml"
+service = "app"
+port = 8080
+
+# [review] names the lens set the REVIEW stage applies (review-lenses spec). A
+# repo may add its own lens (e.g. "security") on top of the defaults.
+[review]
+lenses = ["adversarial", "edge-case"]
+
+# [e2e] declares the browser suite night-crew runs after each merge (e2e-execution
+# spec). The suite runs against the ephemeral env above: the env module hands its
+# base URL to the suite as NIGHTCREW_ENV_URL, and playwright.config.js targets that
+# URL and skips its own webServer. `suite` is the full run; `timeout` defaults to
+# 30m when omitted. `subset` + [e2e.seams] are an optimization — when every file a
+# card changed sits under a declared seam, night-crew runs only that app's specs
+# (the touched seams' tags are unioned, sorted, joined with `|`, and substituted
+# for {tags}). Playwright reads a positional arg as a path regex, so an expansion
+# like `inventory|recipes` selects tests/inventory.spec.js + tests/recipes.spec.js.
+# Anything touching a shared or undeclared file falls back to the full suite.
+[e2e]
+suite = "npx playwright test"
+subset = 'npx playwright test "{tags}"'
+
+# Seams map HQ's five disjoint apps (roadmap "App footprints") to the specs their
+# changes can affect. Keys are repo-relative path prefixes covering each app's
+# backend package, its frontend page, and its own spec files; values are the spec
+# name-stems Playwright should match. Under-listing a tag would let a confined card
+# miss a regression, so each app maps to every spec its footprint owns — recipes
+# folds into the Inventory app, persistence into Operations. Cross-app specs
+# (multi-role, index) and shared/undeclared packages (auth, db, sync, receipt, …)
+# are intentionally unmapped: touching them de-confines the card → full suite.
+[e2e.seams]
+"backend/internal/inventory"  = ["inventory", "recipes"]
+"backend/internal/recipes"    = ["inventory", "recipes"]
+"inventory.html"              = ["inventory", "recipes"]
+"tests/inventory.spec.js"     = ["inventory", "recipes"]
+"tests/recipes.spec.js"       = ["inventory", "recipes"]
+"backend/internal/workflow"   = ["workflows", "persistence"]
+"workflows.html"              = ["workflows", "persistence"]
+"tests/workflows.spec.js"     = ["workflows", "persistence"]
+"tests/persistence.spec.js"   = ["workflows", "persistence"]
+"backend/internal/onboarding" = ["onboarding"]
+"onboarding.html"             = ["onboarding"]
+"tests/onboarding.spec.js"    = ["onboarding"]
+"backend/internal/users"      = ["users"]
+"users.html"                  = ["users"]
+"tests/users.spec.js"         = ["users"]
+"backend/internal/purchasing" = ["purchasing"]
+"purchasing.html"             = ["purchasing"]
+"tests/purchasing.spec.js"    = ["purchasing"]

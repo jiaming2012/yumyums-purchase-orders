@@ -1,0 +1,83 @@
+# .ui-jury/routes.template.yaml — ui-jury route declarations for hq (TEMPLATE)
+#
+# Source of truth. Rendered → ./routes.yaml at repo root (gitignored) by:
+#   ./.ui-jury/scripts/render-routes.sh
+#
+# The renderer reads variables declared in .ui-jury/.env (gitignored;
+# copy from .ui-jury/.env.example to get started) and substitutes every
+# ${VAR} placeholder whose VAR is declared in .env. After rendering, run:
+#   /ui-jury http://localhost:8484 --backend-log-path /tmp/hq-server-8484.log
+#
+# See docs/ui-jury.md for the full workflow.
+# Schema reference: ui-jury/schema/routes.schema.json (v1).
+
+version: 1
+
+# 393×852 = iPhone 14 viewport. Matches hq's max-width 480px PWA shell
+# and the ui-jury mobile critic's lens (393×852 mobile-viewport).
+viewport:
+  width: 393
+  height: 852
+
+# Top-level setup runs once before the route loop and on every browser-context
+# recycle. Authenticates so /users.html, /workflows.html, /inventory.html etc.
+# are reachable without redirecting back to /login.html.
+#
+# The placeholder on the password line below is replaced at render time
+# from .ui-jury/.env before /ui-jury reads routes.yaml.
+# ui-jury itself does NOT expand env vars in `value`, so the substitution
+# MUST happen at render time (not at run time).
+setup:
+  description: Sign in via login.html so authenticated pages render without redirecting.
+  url: /login.html
+  steps:
+    - action: fill
+      locator: { role: textbox, name: "you@yumyums.com" }
+      value: "jamal@yumyums.kitchen"
+    - action: fill
+      locator: { role: textbox, name: "Password" }
+      value: "${HQ_TEST_PASSWORD}"
+    - action: click
+      locator: { role: button, name: "Sign In" }
+
+routes:
+  # Launcher grid — the home screen tile of the PWA.
+  - path: /index.html
+    states:
+      - name: at-rest
+
+  # 3-tab layout. Default tab on load is "My Checklists".
+  - path: /workflows.html
+    states:
+      - name: at-rest
+
+  # 7-tab layout. Default tab on load is "Purchases" (receipt pending review queue).
+  - path: /inventory.html
+    states:
+      - name: at-rest
+
+  - path: /onboarding.html
+    states:
+      - name: at-rest
+
+  # Auth required. Covered by top-level setup.
+  - path: /users.html
+    states:
+      - name: at-rest
+
+  # Mockup page — included so the mobile critic flags any layout regressions.
+  - path: /purchasing.html
+    states:
+      - name: at-rest
+
+  # CAVEAT: per-route setup in v1 schema is ADDITIVE to top-level setup
+  # (Driver applies route-setup AFTER top-level-setup). It is NOT an override.
+  # So once top-level setup has logged us in, navigating to /login.html shows
+  # the post-login redirect target (likely the launcher), not the logged-out
+  # login form. To capture the logged-out state, run /ui-jury with the password
+  # placeholder above UNFILLED — top-level setup will fail and the Driver will
+  # capture login.html as-is. This will also cause the other routes to fail
+  # auth, so do it as a separate run.
+  - path: /login.html
+    states:
+      - name: at-rest

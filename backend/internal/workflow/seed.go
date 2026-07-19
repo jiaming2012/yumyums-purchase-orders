@@ -3,7 +3,7 @@ package workflow
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 
 	"github.com/jackc/pgx/v5"
@@ -52,7 +52,7 @@ func seedTemplate(ctx context.Context, pool *pgxpool.Pool, tmpl TemplateInput, c
 		return fmt.Errorf("check existing template: %w", err)
 	}
 	if existing > 0 {
-		log.Printf("Template %q already exists, skipping", tmpl.Name)
+		slog.Info("template already exists, skipping", "name", tmpl.Name)
 		return nil
 	}
 
@@ -125,7 +125,7 @@ func seedTemplate(ctx context.Context, pool *pgxpool.Pool, tmpl TemplateInput, c
 	if err := tx.Commit(ctx); err != nil {
 		return fmt.Errorf("commit transaction: %w", err)
 	}
-	log.Printf("Seeded template %q (id=%s)", tmpl.Name, templateID)
+	slog.Info("seeded template", "name", tmpl.Name, "id", templateID)
 	return nil
 }
 

@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 	"net/smtp"
 	"net/url"
@@ -66,7 +66,7 @@ func (t *zohoToken) getAccessToken() (string, error) {
 	t.accessToken = result.AccessToken
 	// Refresh 5 minutes early to avoid edge-case expiry
 	t.expiresAt = time.Now().Add(time.Duration(result.ExpiresIn-300) * time.Second)
-	log.Printf("alerts: zoho access token refreshed (expires in %ds)", result.ExpiresIn)
+	slog.Info("zoho access token refreshed", "expires_in_seconds", result.ExpiresIn)
 
 	return t.accessToken, nil
 }
@@ -90,11 +90,11 @@ func getZohoToken(cfg Config) *zohoToken {
 // Returns nil without sending if credentials are not configured (graceful no-op for dev).
 func SendZohoCliq(cfg Config, message string) error {
 	if cfg.ZohoCliqClientID == "" || cfg.ZohoCliqRefreshToken == "" {
-		log.Printf("alerts: zoho_cliq not configured — skipping delivery")
+		slog.Warn("zoho_cliq not configured, skipping delivery")
 		return nil
 	}
 	if cfg.ZohoCliqChannel == "" {
-		log.Printf("alerts: zoho_cliq channel not set — skipping delivery")
+		slog.Warn("zoho_cliq channel not set, skipping delivery")
 		return nil
 	}
 
@@ -136,7 +136,7 @@ func SendZohoCliq(cfg Config, message string) error {
 // Returns nil without sending if smtpAddr or from is empty (graceful no-op for dev).
 func SendEmail(smtpAddr, username, password, from, to, subject, body string) error {
 	if smtpAddr == "" || from == "" {
-		log.Printf("alerts: SMTP not configured — skipping email to %s", to)
+		slog.Warn("SMTP not configured, skipping email", "recipient", to)
 		return nil
 	}
 

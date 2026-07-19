@@ -24,6 +24,9 @@ test('logout button redirects to login.html', async ({ page }) => {
   await login(page);
   await page.goto('/index.html');
   await page.waitForSelector('.user-bar');
+  // index.html logout uses native confirm(); Playwright auto-dismisses unhandled
+  // dialogs, so we must accept it explicitly for logout to proceed.
+  page.on('dialog', dialog => dialog.accept());
   await page.click('#btn-logout');
   await page.waitForURL(url => url.pathname.includes('login'));
   expect(page.url()).toContain('login.html');
@@ -167,6 +170,7 @@ test('after logout, visiting index.html redirects to login.html (session cleared
   await login(page);
   await page.goto('/index.html');
   await page.waitForSelector('.user-bar');
+  page.on('dialog', dialog => dialog.accept());
   await page.click('#btn-logout');
   await page.waitForURL(url => url.pathname.includes('login'));
   // Now navigate directly to index.html — session should be gone

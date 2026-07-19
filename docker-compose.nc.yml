@@ -1,0 +1,58 @@
+# docker-compose.nc.yml — night-crew ephemeral environment for HQ.
+#
+# A throwaway app + Postgres stack, brought up fresh per run and torn down with
+# `down --volumes`. HQ's real database is NEVER touched — this Postgres is a
+# disposable container, and the app points at it, not HQ's .env. Host ports are
+# left to Docker (no `:host` mapping) so concurrent night-crew envs stay
+# isolated; night-crew resolves the assigned port via `docker compose port`.
+#
+# The app auto-migrates on startup (goose, embedded migrations) and upserts the
+# superadmins from the baked config/superadmins.yaml — so the admin identities
+# self-seed. Non-superadmin test personas are seeded separately (see
+# .night-crew/qa/test-users/).
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: yumyums
+      POSTGRES_PASSWORD: yumyums
+      POSTGRES_DB: hq_test
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U yumyums -d hq_test"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  app:
+    build:
+      # HQ's Dockerfile requires the repo root as build context (it reaches
+      # ../*.html etc. for the embedded frontend). Secrets are kept out by
+      # .dockerignore.
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      # Point the app at the compose Postgres (not HQ's real DB). Matches HQ's
+      # own Playwright DB_URL shape (hq_test, TimeZone).
+      DB_URL: "postgres://yumyums:yumyums@postgres:5432/hq_test?sslmode=disable&TimeZone=America/New_York"
+      PORT: "8080"
+      # TOAST_SYNC_INTERVAL=0 disables the Toast in-process worker so the app
+      # boots without TOAST_SFTP_KEY_PATH credentials (D-12) — same reason HQ's
+      # playwright.config.js sets it. Without this the app exits(1) on startup
+      # and the env never goes healthy. The Toast worker isn't exercised by E2E.
+      TOAST_SYNC_INTERVAL: "0"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      # Container port 8080 is the env's public face; Docker assigns the host
+      # port. This is the `port` night-crew.toml [env.ephemeral] declares.
+      - "8080"
+    healthcheck:
+      # busybox wget (alpine runtime). login.html is an embedded static asset;
+      # adjust the path if HQ's health/landing route differs.
+      test: ["CMD-SHELL", "wget -qO /dev/null http://localhost:8080/login.html || exit 1"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+      start_period: 10s

@@ -2,7 +2,7 @@ package onboarding
 
 import (
 	"encoding/json"
-	"log"
+	"log/slog"
 	"net/http"
 	"slices"
 	"time"
@@ -56,7 +56,7 @@ func ListTemplatesHandler(pool *pgxpool.Pool) http.HandlerFunc {
 
 		templates, err := GetTemplates(r.Context(), pool)
 		if err != nil {
-			log.Printf("GetTemplates error: %v", err)
+			slog.Error("GetTemplates failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -80,7 +80,7 @@ func GetTemplateHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		id := chi.URLParam(r, "id")
 		tmpl, err := GetTemplate(r.Context(), pool, id)
 		if err != nil {
-			log.Printf("GetTemplate error: %v", err)
+			slog.Error("GetTemplate failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -100,7 +100,7 @@ func MyTrainingsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 
 		trainings, err := GetMyTrainings(r.Context(), pool, user.ID)
 		if err != nil {
-			log.Printf("GetMyTrainings error: %v", err)
+			slog.Error("GetMyTrainings failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -131,7 +131,7 @@ func HireTrainingHandler(pool *pgxpool.Pool) http.HandlerFunc {
 
 		training, err := GetHireTraining(r.Context(), pool, hireID, templateID)
 		if err != nil {
-			log.Printf("GetHireTraining error: %v", err)
+			slog.Error("GetHireTraining failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -155,7 +155,7 @@ func ManagerHiresHandler(pool *pgxpool.Pool) http.HandlerFunc {
 
 		hires, err := GetManagerHires(r.Context(), pool)
 		if err != nil {
-			log.Printf("GetManagerHires error: %v", err)
+			slog.Error("GetManagerHires failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -181,6 +181,7 @@ func SaveProgressHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			ProgressType   string   `json:"progress_type"`
 			Checked        bool     `json:"checked"`
 			MaxWatchedTime *float64 `json:"max_watched_time,omitempty"`
+			Value          *string  `json:"value,omitempty"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid_body")
@@ -199,7 +200,7 @@ func SaveProgressHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		if !body.Checked {
 			locked, err := IsSectionLockedForEdits(r.Context(), pool, user.ID, body.ItemID, body.ProgressType)
 			if err != nil {
-				log.Printf("IsSectionLockedForEdits error: %v", err)
+				slog.Error("IsSectionLockedForEdits failed", "error", err)
 			}
 			if locked {
 				writeError(w, http.StatusBadRequest, "section_awaiting_signoff")
@@ -207,8 +208,8 @@ func SaveProgressHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			}
 		}
 
-		if err := SaveProgress(r.Context(), pool, user.ID, body.ItemID, body.ProgressType, body.Checked, body.MaxWatchedTime); err != nil {
-			log.Printf("SaveProgress error: %v", err)
+		if err := SaveProgress(r.Context(), pool, user.ID, body.ItemID, body.ProgressType, body.Checked, body.MaxWatchedTime, body.Value); err != nil {
+			slog.Error("SaveProgress failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -288,7 +289,7 @@ func SignOffHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			Rating:    body.Rating,
 		}
 		if err := SignOff(r.Context(), pool, input); err != nil {
-			log.Printf("SignOff error: %v", err)
+			slog.Error("SignOff failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -322,7 +323,7 @@ func CreateTemplateHandler(pool *pgxpool.Pool) http.HandlerFunc {
 
 		id, err := CreateTemplate(r.Context(), pool, input)
 		if err != nil {
-			log.Printf("CreateTemplate error: %v", err)
+			slog.Error("CreateTemplate failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -352,7 +353,7 @@ func UpdateTemplateHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 
 		if err := UpdateTemplate(r.Context(), pool, id, input); err != nil {
-			log.Printf("UpdateTemplate error: %v", err)
+			slog.Error("UpdateTemplate failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -388,7 +389,7 @@ func AssignTemplateHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 
 		if err := AssignTemplate(r.Context(), pool, body.HireID, body.TemplateID, user.ID); err != nil {
-			log.Printf("AssignTemplate error: %v", err)
+			slog.Error("AssignTemplate failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -424,11 +425,82 @@ func UnassignTemplateHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 
 		if err := UnassignTemplate(r.Context(), pool, body.HireID, body.TemplateID); err != nil {
-			log.Printf("UnassignTemplate error: %v", err)
+			slog.Error("UnassignTemplate failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+	}
+}
+
+// RejectSectionHandler handles POST /api/v1/onboarding/rejectSection.
+// Manager/admin rejects a section, reverting it to active so the crew can re-edit.
+// Deletes sign-off (if any) and unchecks the first item to force active state.
+func RejectSectionHandler(pool *pgxpool.Pool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		user := auth.UserFromContext(r.Context())
+		if user == nil {
+			writeError(w, http.StatusUnauthorized, "unauthorized")
+			return
+		}
+		if !isManagerOrAdmin(user) {
+			writeError(w, http.StatusForbidden, "forbidden")
+			return
+		}
+
+		var body struct {
+			SectionID string `json:"section_id"`
+			HireID    string `json:"hire_id"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_body")
+			return
+		}
+		if body.SectionID == "" || body.HireID == "" {
+			writeError(w, http.StatusBadRequest, "section_id_and_hire_id_required")
+			return
+		}
+
+		uncheckedID, err := ReopenSection(r.Context(), pool, body.SectionID, body.HireID)
+		if err != nil {
+			slog.Error("RejectSection failed", "error", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]string{"ok": "true", "unchecked_item_id": uncheckedID})
+	}
+}
+
+// ReopenSectionHandler handles POST /api/v1/onboarding/reopenSection.
+// Crew member reopens their own section to make edits (unsubmit).
+// Deletes sign-off (if any) and unchecks the first item to force active state.
+func ReopenSectionHandler(pool *pgxpool.Pool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		user := auth.UserFromContext(r.Context())
+		if user == nil {
+			writeError(w, http.StatusUnauthorized, "unauthorized")
+			return
+		}
+
+		var body struct {
+			SectionID string `json:"section_id"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_body")
+			return
+		}
+		if body.SectionID == "" {
+			writeError(w, http.StatusBadRequest, "section_id_required")
+			return
+		}
+
+		uncheckedID, err := ReopenSection(r.Context(), pool, body.SectionID, user.ID)
+		if err != nil {
+			slog.Error("ReopenSection failed", "error", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]string{"ok": "true", "unchecked_item_id": uncheckedID})
 	}
 }
 
@@ -454,7 +526,7 @@ func DeleteTemplateHandler(pool *pgxpool.Pool) http.HandlerFunc {
 
 		_, err := pool.Exec(r.Context(), `UPDATE ob_templates SET archived_at = now() WHERE id = $1`, id)
 		if err != nil {
-			log.Printf("DeleteTemplate error: %v", err)
+			slog.Error("DeleteTemplate failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -510,7 +582,7 @@ func VideoPresignHandler(presigner *s3.PresignClient, bucket, endpoint string) h
 		key := "videos/onboarding/" + body.TemplateID + "/" + body.PartID + "/" + body.Filename
 		putURL, err := photos.GeneratePresignedPutURL(r.Context(), presigner, bucket, key, body.ContentType, 30*time.Minute)
 		if err != nil {
-			log.Printf("VideoPresignHandler presign error: %v", err)
+			slog.Error("VideoPresignHandler presign failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -558,7 +630,7 @@ func VideoProcessHandler(presigner *s3.PresignClient, bucket, endpoint string, p
 
 		result, err := processVideo(r.Context(), presigner, bucket, endpoint, pool, body.PartID, body.ObjectKey)
 		if err != nil {
-			log.Printf("VideoProcessHandler error (part %s): %v", body.PartID, err)
+			slog.Error("VideoProcessHandler failed", "part_id", body.PartID, "error", err)
 			writeError(w, http.StatusInternalServerError, "processing_failed")
 			return
 		}

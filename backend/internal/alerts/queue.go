@@ -2,7 +2,7 @@ package alerts
 
 import (
 	"context"
-	"log"
+	"log/slog"
 )
 
 // Queue is an async dispatch queue for alert delivery.
@@ -23,11 +23,11 @@ func NewQueue(cfg Config) *Queue {
 // Start launches the background delivery goroutine. Call once at server startup.
 func (q *Queue) Start(ctx context.Context) {
 	go func() {
-		log.Println("alerts: queue started")
+		slog.Info("alerts queue started")
 		for {
 			select {
 			case <-ctx.Done():
-				log.Println("alerts: queue shutting down")
+				slog.Info("alerts queue shutting down")
 				return
 			case a := <-q.ch:
 				q.deliver(a)
@@ -42,7 +42,7 @@ func (q *Queue) Enqueue(a Alert) {
 	select {
 	case q.ch <- a:
 	default:
-		log.Printf("alerts: queue full — dropping %q alert to %s", a.Channel, a.RecipientEmail)
+		slog.Warn("alerts queue full, dropping alert", "channel", a.Channel, "recipient", a.RecipientEmail)
 	}
 }
 
@@ -55,10 +55,10 @@ func (q *Queue) deliver(a Alert) {
 	case ChannelEmail:
 		err = SendEmail(q.cfg.SMTPAddr, q.cfg.SMTPUsername, q.cfg.SMTPPassword, q.cfg.SMTPFrom, a.RecipientEmail, a.Subject, a.Message)
 	default:
-		log.Printf("alerts: unknown channel %q — falling back to zoho_cliq", a.Channel)
+		slog.Warn("alerts unknown channel, falling back to zoho_cliq", "channel", a.Channel)
 		err = SendZohoCliq(q.cfg, a.Message)
 	}
 	if err != nil {
-		log.Printf("alerts: delivery error (channel=%s recipient=%s): %v", a.Channel, a.RecipientEmail, err)
+		slog.Error("alerts delivery error", "channel", a.Channel, "recipient", a.RecipientEmail, "error", err)
 	}
 }

@@ -95,7 +95,9 @@ test.describe('Invite Flow', () => {
     await page.fill('#f-first', 'Tester');
     await page.fill('#f-last', 'McTest');
     await page.fill('#f-email', email);
-    await page.selectOption('#f-role', 'team_member');
+    // Roles: team_member chip is "on" by default in the invite form
+    // (users.html:233). No interaction needed unless changing roles.
+    await expect(page.locator('#f-roles .role-chip[data-role="team_member"]')).toHaveClass(/on/);
 
     // Submit
     await page.click('[data-action="submit-invite"]');
@@ -151,7 +153,7 @@ test.describe('Accept Invite Flow', () => {
       first_name: 'Welcome',
       last_name: 'Test',
       email: `welcome.test.${Date.now()}@yumyums.kitchen`,
-      role: 'team_member',
+      roles: ['team_member'],
     });
     expect(result.invite_path).toBeTruthy();
     const invitePath = result.invite_path; // e.g. /login.html?token=...
@@ -179,7 +181,7 @@ test.describe('Accept Invite Flow', () => {
       first_name: 'Accept',
       last_name: 'Flow',
       email,
-      role: 'team_member',
+      roles: ['team_member'],
     });
     expect(result.invite_path).toBeTruthy();
 
@@ -223,7 +225,7 @@ test.describe('Edit User', () => {
       first_name: 'EditMe',
       last_name: 'Please',
       email: `edit.me.${ts}@yumyums.kitchen`,
-      role: 'team_member',
+      roles: ['team_member'],
     });
     expect(inviteResult.user).toBeTruthy();
     const userId = inviteResult.user.id;
@@ -257,13 +259,13 @@ test.describe('Edit User', () => {
       first_name: 'NickOne',
       last_name: 'Test',
       email: `nick1.${ts}@yumyums.kitchen`,
-      role: 'team_member',
+      roles: ['team_member'],
     });
     const user2 = await usersApiCall(page, 'POST', 'invite', {
       first_name: 'NickTwo',
       last_name: 'Test',
       email: `nick2.${ts}@yumyums.kitchen`,
-      role: 'team_member',
+      roles: ['team_member'],
     });
     expect(user1.user).toBeTruthy();
     expect(user2.user).toBeTruthy();
@@ -273,7 +275,7 @@ test.describe('Edit User', () => {
       await fetch(`/api/v1/users/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ first_name: 'NickOne', last_name: 'Test', nickname: 'UniqueName', role: 'team_member' }),
+        body: JSON.stringify({ first_name: 'NickOne', last_name: 'Test', nickname: 'UniqueName', roles: ['team_member'] }),
       });
     }, [user1.user.id]);
 
@@ -308,7 +310,7 @@ test.describe('Destructive Actions', () => {
       first_name: 'ForceOut',
       last_name: 'User',
       email: `force.out.${ts}@yumyums.kitchen`,
-      role: 'team_member',
+      roles: ['team_member'],
     });
     expect(inviteResult.user).toBeTruthy();
     const userId = inviteResult.user.id;
@@ -341,7 +343,7 @@ test.describe('Destructive Actions', () => {
       first_name: uniqueName,
       last_name: 'User',
       email: `delete.me.${ts}@yumyums.kitchen`,
-      role: 'team_member',
+      roles: ['team_member'],
     });
     expect(inviteResult.user).toBeTruthy();
     const userId = inviteResult.user.id;
@@ -381,7 +383,7 @@ test.describe('Password Reset', () => {
       first_name: 'ResetPw',
       last_name: 'User',
       email: `reset.pw.${ts}@yumyums.kitchen`,
-      role: 'team_member',
+      roles: ['team_member'],
     });
     expect(inviteResult.user).toBeTruthy();
     const userId = inviteResult.user.id;
@@ -459,14 +461,14 @@ test.describe('Access tab', () => {
     await page.goto('/users.html');
     await waitForUserList(page);
     // Click Access tab directly — no user selected
-    await page.click('#t3');
+    await page.click('#t2');
     await page.waitForFunction(() => {
-      const s3 = document.getElementById('s3');
-      return s3 && s3.querySelector('.access-card');
+      const s2 = document.getElementById('s2');
+      return s2 && s2.querySelector('.access-card');
     });
     // Should show "App Permissions" header, not "Select a user first"
-    await expect(page.locator('#s3')).toContainText('App Permissions');
-    await expect(page.locator('#s3')).not.toContainText('Select a user first');
+    await expect(page.locator('#s2')).toContainText('App Permissions');
+    await expect(page.locator('#s2')).not.toContainText('Select a user first');
     // Should have at least one app card with role toggles
     const cards = await page.locator('.access-card').count();
     expect(cards).toBeGreaterThanOrEqual(1);
@@ -479,10 +481,10 @@ test.describe('Access tab', () => {
     await login(page);
     await page.goto('/users.html');
     await waitForUserList(page);
-    await page.click('#t3');
+    await page.click('#t2');
     await page.waitForFunction(() => {
-      const s3 = document.getElementById('s3');
-      return s3 && s3.querySelector('.access-card');
+      const s2 = document.getElementById('s2');
+      return s2 && s2.querySelector('.access-card');
     });
     // Find the first toggle checkbox and get its initial state
     const firstToggle = page.locator('[data-action="toggle-perm"]').first();
@@ -609,5 +611,624 @@ test.describe('Alert Channel Defaults', () => {
     // Toggle both back to restore
     await zohoChip.click();
     await emailChip.click();
+  });
+});
+
+// ─── Security enforcement (NFR-1..NFR-5) ────────────────────────────────────
+//
+// Prove-sweep card: users-prove-security. Red-first assertions for the five
+// auth/permission NFRs. The non-admin (team_member) session is authored INLINE
+// here per tests/multi-role.spec.js — no shared helper module (runbook rule).
+//
+// Non-admin session lifecycle (all inline, API-driven):
+//   1. Log in as the superadmin.
+//   2. Invite a team_member  → capture { user.id, invite_path } (token in path).
+//   3. Clear the admin cookie, POST /api/v1/auth/accept-invite with the token +
+//      a password → server activates the user AND sets the hq_session cookie in
+//      THIS browser context. From that point `page` is the team_member.
+// FIXTURE GOTCHA honored: for role-dependent facts we read the authoritative
+// stored roles from the users-API (invite response / GET /api/v1/users), never
+// the masked GET /api/v1/me.
+
+const TEAM_MEMBER_PW = 'TeamMemberPass123';
+
+// tokenFromInvitePath extracts the raw token from "/login.html?token=XYZ".
+function tokenFromInvitePath(invitePath) {
+  return new URL(invitePath, 'http://x').searchParams.get('token');
+}
+
+// inviteTeamMember (as the currently-logged-in admin) creates a status='invited'
+// team_member and returns { id, email, invitePath, token }.
+async function inviteTeamMember(page, tag) {
+  const email = `sec-${tag}-${Date.now()}@yumyums.kitchen`;
+  const res = await page.evaluate(async (e) => {
+    const r = await fetch('/api/v1/users/invite', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ first_name: 'Sec', last_name: 'Member', email: e, roles: ['team_member'] }),
+    });
+    return { status: r.status, body: await r.json() };
+  }, email);
+  expect(res.status).toBe(201);
+  // Authoritative roles come from the users-API invite response, not /me.
+  expect(res.body.user.roles).toEqual(['team_member']);
+  return {
+    id: res.body.user.id,
+    email,
+    invitePath: res.body.invite_path,
+    token: tokenFromInvitePath(res.body.invite_path),
+  };
+}
+
+// becomeTeamMember clears the admin session and activates+logs-in as the invited
+// team_member by accepting their invite token. After this, `page` requests carry
+// the team_member's hq_session cookie.
+async function becomeTeamMember(page, token) {
+  await page.context().clearCookies();
+  const res = await page.evaluate(async (t) => {
+    const r = await fetch('/api/v1/auth/accept-invite', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: t, password: 'TeamMemberPass123' }),
+    });
+    return { status: r.status, body: await r.json().catch(() => null) };
+  }, token);
+  expect(res.status).toBe(200);
+  return res.body;
+}
+
+test.describe('Security enforcement', () => {
+  // ── NFR-1: every admin endpoint refuses a non-admin with 403 ──────────────
+  test('NFR-1: non-admin (team_member) is refused 403 across all 8 admin endpoints', async ({ page }) => {
+    await login(page); // admin
+    const victim = await inviteTeamMember(page, 'nfr1-victim'); // a second user to target
+    const me = await inviteTeamMember(page, 'nfr1-self');
+    await becomeTeamMember(page, me.token); // page is now the team_member
+
+    // Confirm the session is genuinely non-admin via the authoritative users-API
+    // role, not the masked /me. (A team_member cannot list users, so we assert
+    // the 403 on GET /users below IS the proof the guard fired.)
+    const calls = await page.evaluate(async ([victimId]) => {
+      const j = (r) => r.json().catch(() => null);
+      const results = {};
+      let r;
+      r = await fetch('/api/v1/users');
+      results.listUsers = { status: r.status, body: await j(r) };
+      r = await fetch('/api/v1/users/invite', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ first_name: 'X', last_name: 'Y', email: 'z@z.z', roles: ['team_member'] }) });
+      results.invite = { status: r.status, body: await j(r) };
+      r = await fetch(`/api/v1/users/${victimId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ first_name: 'Hacked' }) });
+      results.patchUser = { status: r.status, body: await j(r) };
+      r = await fetch(`/api/v1/users/${victimId}/reset-password`, { method: 'POST' });
+      results.resetPassword = { status: r.status, body: await j(r) };
+      r = await fetch(`/api/v1/users/${victimId}/revoke`, { method: 'POST' });
+      results.revoke = { status: r.status, body: await j(r) };
+      r = await fetch(`/api/v1/users/${victimId}`, { method: 'DELETE' });
+      results.deleteUser = { status: r.status, body: await j(r) };
+      r = await fetch('/api/v1/apps/permissions');
+      results.getPerms = { status: r.status, body: await j(r) };
+      r = await fetch('/api/v1/apps/purchasing/permissions', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ role_grants: [], user_grants: [] }) });
+      results.setPerms = { status: r.status, body: await j(r) };
+      return results;
+    }, [victim.id]);
+
+    // All 8 admin handlers must refuse with 403 forbidden.
+    for (const key of ['listUsers', 'invite', 'patchUser', 'resetPassword', 'revoke', 'deleteUser', 'getPerms', 'setPerms']) {
+      expect(calls[key].status, `${key} should be 403`).toBe(403);
+      expect(calls[key].body?.error, `${key} error body`).toBe('forbidden');
+    }
+
+    // And the refusal was real, not incidental: the victim was NOT patched/deleted.
+    // Re-login as admin to verify the victim still exists unmodified.
+    await page.context().clearCookies();
+    await login(page);
+    const victimAfter = await usersApiCall(page, 'GET', '');
+    const found = victimAfter.find(u => u.id === victim.id);
+    expect(found, 'victim still present after refused delete').toBeTruthy();
+    expect(found.first_name).toBe('Sec'); // not "Hacked"
+
+    // Cleanup
+    await usersApiCall(page, 'DELETE', victim.id);
+    await usersApiCall(page, 'DELETE', me.id);
+  });
+
+  // ── NFR-2: invite token is single-use (7-day expiry noted UNTESTABLE) ─────
+  test('NFR-2: invite token is single-use — second accept-invite is refused 400 token_expired', async ({ page }) => {
+    await login(page);
+    const u = await inviteTeamMember(page, 'nfr2');
+
+    // First accept activates the user and sets a session.
+    await page.context().clearCookies();
+    const first = await page.evaluate(async (t) => {
+      const r = await fetch('/api/v1/auth/accept-invite', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: t, password: 'FirstPass123' }),
+      });
+      return { status: r.status, body: await r.json().catch(() => null) };
+    }, u.token);
+    expect(first.status).toBe(200);
+    expect(first.body.user.status).toBe('active');
+
+    // Second accept with the SAME token must be refused — token already used.
+    await page.context().clearCookies();
+    const second = await page.evaluate(async (t) => {
+      const r = await fetch('/api/v1/auth/accept-invite', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: t, password: 'SecondPass456' }),
+      });
+      return { status: r.status, body: await r.json().catch(() => null) };
+    }, u.token);
+    expect(second.status).toBe(400);
+    expect(second.body?.error).toBe('token_expired');
+
+    // Only one activation occurred: password from the SECOND attempt did not stick.
+    // (We can't read the hash, but the second attempt returned no user + no session.)
+    expect(second.body?.user).toBeFalsy();
+
+    // NOTE: the 7-day EXPIRY-BOUNDARY leg (a token past expires_at → refused) is
+    // UNTESTABLE here without server time-control: InsertInviteToken hardcodes
+    // now()+7d and there is no fixture to backdate expires_at via the API. The
+    // single-use guarantee is proven fully above; the expiry predicate shares the
+    // same WHERE clause (used_at IS NULL AND expires_at > now()) in ClaimInviteToken.
+
+    // Cleanup
+    await login(page);
+    await usersApiCall(page, 'DELETE', u.id);
+  });
+
+  // ── NFR-3: grant write → /me/apps read round-trip ─────────────────────────
+  test('NFR-3: granting an app to a user makes it appear in that user\'s /me/apps, and removing it hides it', async ({ page }) => {
+    await login(page);
+    const u = await inviteTeamMember(page, 'nfr3');
+    await becomeTeamMember(page, u.token); // activate + get session
+
+    const slugsFor = async () => page.evaluate(async () => {
+      const r = await fetch('/api/v1/me/apps');
+      const apps = await r.json();
+      return apps.map(a => a.slug);
+    });
+
+    // Baseline: a fresh team_member with no grants sees NO 'purchasing' app.
+    const before = await slugsFor();
+    expect(before).not.toContain('purchasing');
+
+    // As admin, grant this specific user an individual user_grant on 'purchasing'.
+    await page.context().clearCookies();
+    await login(page);
+    const putGrant = await page.evaluate(async ([uid]) => {
+      const r = await fetch('/api/v1/apps/purchasing/permissions', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role_grants: [], user_grants: [uid] }),
+      });
+      return { status: r.status, body: await r.json() };
+    }, [u.id]);
+    expect(putGrant.status).toBe(200);
+    expect(putGrant.body.user_grants).toContain(u.id);
+
+    // Back as the team_member: /me/apps now reflects the grant — 'purchasing' appears.
+    await becomeTeamMember2(page, u.email);
+    const afterGrant = await slugsFor();
+    expect(afterGrant, 'purchasing appears after grant').toContain('purchasing');
+
+    // As admin, revoke the grant (empty user_grants replaces the set).
+    await page.context().clearCookies();
+    await login(page);
+    const putRevoke = await page.evaluate(async () => {
+      const r = await fetch('/api/v1/apps/purchasing/permissions', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role_grants: [], user_grants: [] }),
+      });
+      return { status: r.status, body: await r.json() };
+    });
+    expect(putRevoke.status).toBe(200);
+    expect(putRevoke.body.user_grants).not.toContain(u.id);
+
+    // Back as the team_member: 'purchasing' disappears again.
+    await becomeTeamMember2(page, u.email);
+    const afterRevoke = await slugsFor();
+    expect(afterRevoke, 'purchasing disappears after revoke').not.toContain('purchasing');
+
+    // Cleanup
+    await page.context().clearCookies();
+    await login(page);
+    await usersApiCall(page, 'DELETE', u.id);
+  });
+
+  // ── NFR-4: notification-preference admin-or-self + ≥1 channel ─────────────
+  test('NFR-4: notification-preference is admin-or-self and requires ≥1 channel', async ({ page }) => {
+    await login(page);
+    const self = await inviteTeamMember(page, 'nfr4-self');
+    const other = await inviteTeamMember(page, 'nfr4-other');
+    await becomeTeamMember(page, self.token); // page is now `self` (team_member)
+
+    const notif = await page.evaluate(async ([selfId, otherId]) => {
+      const j = (r) => r.json().catch(() => null);
+      const out = {};
+      let r;
+      // self may SET own preference (admin-or-self allow branch)
+      r = await fetch(`/api/v1/users/${selfId}/notification-preference`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ notification_channels: ['email'] }) });
+      out.selfSet = { status: r.status, body: await j(r) };
+      // self may READ own preference
+      r = await fetch(`/api/v1/users/${selfId}/notification-preference`);
+      out.selfGet = { status: r.status, body: await j(r) };
+      // self setting an EMPTY channel set must be refused 400
+      r = await fetch(`/api/v1/users/${selfId}/notification-preference`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ notification_channels: [] }) });
+      out.selfEmpty = { status: r.status, body: await j(r) };
+      // self touching ANOTHER user's preference must be refused 403 (not admin, not self)
+      r = await fetch(`/api/v1/users/${otherId}/notification-preference`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ notification_channels: ['email'] }) });
+      out.otherSet = { status: r.status, body: await j(r) };
+      return out;
+    }, [self.id, other.id]);
+
+    // self-allow branch
+    expect(notif.selfSet.status, 'self may set own pref').toBe(200);
+    expect(notif.selfSet.body.notification_channels).toEqual(['email']);
+    expect(notif.selfGet.status, 'self may read own pref').toBe(200);
+    expect(notif.selfGet.body.notification_channels).toContain('email');
+    // ≥1 channel required
+    expect(notif.selfEmpty.status, 'empty channel set refused').toBe(400);
+    // admin-or-self refuse branch
+    expect(notif.otherSet.status, 'non-admin cannot set another user pref').toBe(403);
+    expect(notif.otherSet.body?.error).toBe('forbidden');
+
+    // admin CAN set another user's pref (admin branch of admin-or-self)
+    await page.context().clearCookies();
+    await login(page);
+    const adminSet = await page.evaluate(async ([otherId]) => {
+      const r = await fetch(`/api/v1/users/${otherId}/notification-preference`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ notification_channels: ['zoho_cliq'] }) });
+      return { status: r.status, body: await r.json().catch(() => null) };
+    }, [other.id]);
+    expect(adminSet.status, 'admin may set any user pref').toBe(200);
+
+    // Cleanup
+    await usersApiCall(page, 'DELETE', self.id);
+    await usersApiCall(page, 'DELETE', other.id);
+  });
+
+  // ── NFR-5: an unauthenticated API call yields 401 and the UI redirects ────
+  test('NFR-5: unauthenticated request to an admin endpoint returns 401 and the UI redirects to login', async ({ page }) => {
+    // No login; ensure a clean unauthenticated context.
+    await page.goto('/login.html');
+    await page.context().clearCookies();
+
+    // Raw API call with no session cookie → 401.
+    const status = await page.evaluate(async () => {
+      const r = await fetch('/api/v1/users');
+      return r.status;
+    });
+    expect(status).toBe(401);
+
+    // UI leg: users.html on an unauthenticated session redirects to /login.html
+    // (users.html:139 — a 401 from its init fetch forces window.location to login).
+    await page.goto('/users.html');
+    await page.waitForURL(url => url.pathname.includes('login'), { timeout: 10000 });
+    expect(page.url()).toContain('login');
+  });
+});
+
+// becomeTeamMember2 re-establishes the team_member session by password login
+// (the user is already active from an earlier accept-invite). Used when NFR-3
+// needs to hop back to the team_member after admin operations.
+async function becomeTeamMember2(page, email) {
+  await page.context().clearCookies();
+  await page.goto('/login.html');
+  await page.fill('input[type="email"]', email);
+  await page.fill('input[type="password"]', TEAM_MEMBER_PW);
+  await page.click('button.btn');
+  await page.waitForURL(url => !url.pathname.includes('login'));
+}
+
+// ─── UI + Access hardening (FR-2,4,6,9,10,11,15,16,17,18,19) ─────────────────
+//
+// Prove-sweep card: users-prove-ui-access. Red-first assertions that name the
+// observable UI/DB behavior of the Users tool's UNPROVEN flows. All fixtures are
+// admin-session, API-seeded (superadmin login), inline — no shared helper module.
+
+test.describe('Users UI + Access hardening', () => {
+  // ── FR-2: list load-failure renders the inline error state ────────────────
+  test('FR-2: users list fetch failure renders "Could not load team." error state', async ({ page }) => {
+    await login(page);
+    // Force the list fetch to fail with a 500 BEFORE navigating to users.html.
+    await page.route('**/api/v1/users', route => {
+      route.fulfill({ status: 500, contentType: 'application/json', body: '{"error":"internal_error"}' });
+    });
+    await page.goto('/users.html');
+    // The load catch (users.html:213) calls renderError('user-list','Could not load team.')
+    // which writes a .error-msg node — the observable error-branch behavior.
+    const errMsg = page.locator('#user-list .error-msg');
+    await expect(errMsg).toBeVisible({ timeout: 5000 });
+    await expect(errMsg).toContainText('Could not load team.');
+  });
+
+  // ── FR-4: invite validation — 422 on missing fields, 409 on duplicate ─────
+  test('FR-4: invite is refused 422 on empty fields and 409 on duplicate email', async ({ page }) => {
+    await login(page);
+    const ts = Date.now();
+    const email = `dup.invite.${ts}@yumyums.kitchen`;
+
+    // 422 validation_error: missing first_name.
+    const empty = await page.evaluate(async (e) => {
+      const r = await fetch('/api/v1/users/invite', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ first_name: '', last_name: 'NoFirst', email: e, roles: ['team_member'] }),
+      });
+      return { status: r.status, body: await r.json().catch(() => null) };
+    }, `empty.${email}`);
+    expect(empty.status).toBe(422);
+    expect(empty.body.error).toBe('validation_error');
+
+    // Seed a real user, then re-invite the SAME email → 409 email_already_exists.
+    const first = await page.evaluate(async (e) => {
+      const r = await fetch('/api/v1/users/invite', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ first_name: 'Dup', last_name: 'Original', email: e, roles: ['team_member'] }),
+      });
+      return { status: r.status, body: await r.json() };
+    }, email);
+    expect(first.status).toBe(201);
+
+    const dup = await page.evaluate(async (e) => {
+      const r = await fetch('/api/v1/users/invite', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ first_name: 'Dup', last_name: 'Second', email: e, roles: ['team_member'] }),
+      });
+      return { status: r.status, body: await r.json().catch(() => null) };
+    }, email);
+    expect(dup.status).toBe(409);
+    expect(dup.body.error).toBe('email_already_exists');
+  });
+
+  // ── FR-6: reinvite from list issues a fresh token + shows a toast ─────────
+  test('FR-6: reinvite on an invited row mints a fresh reset token and shows a "resent" toast', async ({ page }) => {
+    await login(page);
+    const ts = Date.now();
+    const seed = await usersApiCall(page, 'POST', 'invite', {
+      first_name: 'Reinv', last_name: 'Target',
+      email: `reinvite.${ts}@yumyums.kitchen`, roles: ['team_member'],
+    });
+    expect(seed.user).toBeTruthy();
+    const userId = seed.user.id;
+    const originalToken = tokenFromInvitePath(seed.invite_path);
+
+    // Capture the reset-password response so we can assert a FRESH token was minted.
+    let mintedPath = null;
+    await page.route(`**/api/v1/users/${userId}/reset-password`, async route => {
+      const resp = await route.fetch();
+      const json = await resp.json().catch(() => ({}));
+      mintedPath = json.reset_path || null;
+      await route.fulfill({ response: resp });
+    });
+
+    await page.goto('/users.html');
+    await waitForUserList(page);
+
+    // Tap the row-level Reinvite button (only present on invited users).
+    const reinviteBtn = page.locator(`[data-action="reinvite"][data-user-id="${userId}"]`);
+    await expect(reinviteBtn).toBeVisible();
+    await reinviteBtn.click();
+
+    // A toast confirms the resend (users.html:587).
+    const toast = page.locator('#toast');
+    await expect(toast).toContainText('resent', { timeout: 3000 });
+
+    // The minted token must be a fresh one (different from the original invite token).
+    expect(mintedPath).toBeTruthy();
+    const freshToken = tokenFromInvitePath(mintedPath);
+    expect(freshToken).toBeTruthy();
+    expect(freshToken).not.toBe(originalToken);
+  });
+
+  // ── FR-9: email field is immutable (readonly) on the edit form ────────────
+  test('FR-9: edit form renders the email field read-only', async ({ page }) => {
+    await login(page);
+    const ts = Date.now();
+    const seed = await usersApiCall(page, 'POST', 'invite', {
+      first_name: 'Immut', last_name: 'Email',
+      email: `immut.email.${ts}@yumyums.kitchen`, roles: ['team_member'],
+    });
+    const userId = seed.user.id;
+
+    await page.goto('/users.html');
+    await waitForUserList(page);
+    await page.click(`[data-action="edit-user"][data-user-id="${userId}"]`);
+    await waitForEditCard(page);
+
+    // The email input must carry the readonly attribute — it cannot be changed.
+    const emailField = page.locator('#f-email');
+    await expect(emailField).toHaveAttribute('readonly', '');
+    await expect(emailField).not.toBeEditable();
+  });
+
+  // ── FR-10: server rejects an invalid notification channel with 400 ────────
+  test('FR-10: PATCH with an invalid notification channel returns 400', async ({ page }) => {
+    await login(page);
+    const ts = Date.now();
+    const seed = await usersApiCall(page, 'POST', 'invite', {
+      first_name: 'Chan', last_name: 'Bad',
+      email: `chan.bad.${ts}@yumyums.kitchen`, roles: ['team_member'],
+    });
+    const userId = seed.user.id;
+
+    // Empty channel set → 400 (server requires ≥1).
+    const emptyRes = await page.evaluate(async (id) => {
+      const r = await fetch(`/api/v1/users/${id}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notification_pref: [] }),
+      });
+      return r.status;
+    }, userId);
+    expect(emptyRes).toBe(400);
+
+    // Unknown channel value → 400.
+    const badRes = await page.evaluate(async (id) => {
+      const r = await fetch(`/api/v1/users/${id}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notification_pref: ['carrier_pigeon'] }),
+      });
+      return r.status;
+    }, userId);
+    expect(badRes).toBe(400);
+  });
+
+  // ── FR-11: server rejects an invalid IANA timezone with 400 ───────────────
+  test('FR-11: PATCH with an invalid IANA timezone returns 400', async ({ page }) => {
+    await login(page);
+    const ts = Date.now();
+    const seed = await usersApiCall(page, 'POST', 'invite', {
+      first_name: 'Tz', last_name: 'Bad',
+      email: `tz.bad.${ts}@yumyums.kitchen`, roles: ['team_member'],
+    });
+    const userId = seed.user.id;
+
+    const badTz = await page.evaluate(async (id) => {
+      const r = await fetch(`/api/v1/users/${id}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ timezone: 'Mars/Olympus_Mons' }),
+      });
+      return r.status;
+    }, userId);
+    expect(badTz).toBe(400);
+
+    // Sanity: a valid IANA zone is accepted (200) — proves the 400 above is the
+    // validation firing, not a blanket rejection.
+    const goodTz = await page.evaluate(async (id) => {
+      const r = await fetch(`/api/v1/users/${id}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ timezone: 'America/Chicago' }),
+      });
+      return r.status;
+    }, userId);
+    expect(goodTz).toBe(200);
+  });
+
+  // ── FR-15: inline "Get Invite Link" surfaces the link in the edit card ────
+  test('FR-15: inline Get Invite Link mints a token and renders the link inline', async ({ page }) => {
+    await login(page);
+    const ts = Date.now();
+    // An invited user with NO cached URL renders the "Get Invite Link" button.
+    const seed = await usersApiCall(page, 'POST', 'invite', {
+      first_name: 'Inline', last_name: 'Link',
+      email: `inline.link.${ts}@yumyums.kitchen`, roles: ['team_member'],
+    });
+    const userId = seed.user.id;
+
+    await page.goto('/users.html');
+    await waitForUserList(page);
+    await page.click(`[data-action="edit-user"][data-user-id="${userId}"]`);
+    await waitForEditCard(page);
+
+    // Before: the inline container shows the button and no link yet.
+    const getLinkBtn = page.locator('[data-action="get-invite-link"]');
+    await expect(getLinkBtn).toBeVisible();
+    await expect(page.locator('#invite-inline .invite-url')).toHaveCount(0);
+
+    await getLinkBtn.click();
+
+    // After: a link with a real /login.html?token= URL is rendered inline.
+    const inlineUrl = page.locator('#invite-inline .invite-url');
+    await expect(inlineUrl).toBeVisible({ timeout: 5000 });
+    await expect(inlineUrl).toContainText('/login.html?token=');
+  });
+
+  // ── FR-16/17: Access-tab role toggle persists across a reload ─────────────
+  test('FR-16/17: toggling a role permission persists via PUT and survives a reload', async ({ page }) => {
+    await login(page);
+    await page.goto('/users.html');
+    await waitForUserList(page);
+    await page.click('#t2');
+    await page.waitForFunction(() => {
+      const s2 = document.getElementById('s2');
+      return s2 && s2.querySelector('.access-card');
+    });
+
+    // Pick a stable, addressable toggle (first app's "manager" role) so we can
+    // re-locate the SAME toggle after reload by its slug+role data attributes.
+    const firstSlug = await page.locator('[data-action="toggle-perm"]').first().evaluate(el => el.dataset.slug);
+    const toggle = page.locator(`[data-action="toggle-perm"][data-slug="${firstSlug}"][data-role="manager"]`);
+    const wasChecked = await toggle.isChecked();
+
+    // Flip it. The handler pushes to APPS_PERMS then PUTs the full grant set.
+    await toggle.evaluate(el => el.click());
+    // Wait for the PUT to land (savePermissions is fire-and-forget on release).
+    await page.waitForResponse(r =>
+      r.url().includes(`/api/v1/apps/${firstSlug}/permissions`) && r.request().method() === 'PUT'
+    );
+
+    // Reload — the toggle state must now come from the persisted DB, not memory.
+    await page.reload();
+    await waitForUserList(page);
+    await page.click('#t2');
+    await page.waitForFunction(() => {
+      const s2 = document.getElementById('s2');
+      return s2 && s2.querySelector('.access-card');
+    });
+    const toggleAfter = page.locator(`[data-action="toggle-perm"][data-slug="${firstSlug}"][data-role="manager"]`);
+    expect(await toggleAfter.isChecked()).toBe(!wasChecked);
+
+    // Restore original state so sibling tests are not polluted.
+    await toggleAfter.evaluate(el => el.click());
+    await page.waitForResponse(r =>
+      r.url().includes(`/api/v1/apps/${firstSlug}/permissions`) && r.request().method() === 'PUT'
+    );
+  });
+
+  // ── FR-18/19: individual grant chip add + remove persist across reload ────
+  test('FR-18/19: adding then removing an individual user grant persists across reload', async ({ page }) => {
+    await login(page);
+    const ts = Date.now();
+    // Seed a distinctly-named user so we can find their grant chip by text.
+    const grantee = await usersApiCall(page, 'POST', 'invite', {
+      first_name: `Grantee${ts}`, last_name: 'Chip',
+      email: `grantee.${ts}@yumyums.kitchen`, roles: ['team_member'],
+    });
+    expect(grantee.user).toBeTruthy();
+    const granteeId = String(grantee.user.id);
+    const granteeName = `Grantee${ts}`; // display name is "Grantee<ts> C." — chip/opt text contains this substring
+
+    await page.goto('/users.html');
+    await waitForUserList(page);
+    await page.click('#t2');
+    await page.waitForFunction(() => {
+      const s2 = document.getElementById('s2');
+      return s2 && s2.querySelector('.access-card');
+    });
+
+    // Work against the first app card. Select the grantee in its picker + Add.
+    const firstSlug = await page.locator('.add-grant select').first().evaluate(el => el.id.replace('pick-', ''));
+    // Option value is the grantee's user id; label is the (abbreviated) display name.
+    await page.selectOption(`#pick-${firstSlug}`, granteeId);
+    await page.click(`[data-action="add-grant"][data-slug="${firstSlug}"]`);
+    await page.waitForResponse(r =>
+      r.url().includes(`/api/v1/apps/${firstSlug}/permissions`) && r.request().method() === 'PUT'
+    );
+
+    // FR-18: chip appears. Reload → chip STILL there (persisted).
+    const card = page.locator('.access-card').first();
+    await expect(card.locator('.chip', { hasText: granteeName })).toBeVisible();
+
+    await page.reload();
+    await waitForUserList(page);
+    await page.click('#t2');
+    await page.waitForFunction(() => {
+      const s2 = document.getElementById('s2');
+      return s2 && s2.querySelector('.access-card');
+    });
+    const cardAfterAdd = page.locator(`.access-card`).filter({ has: page.locator('.chip', { hasText: granteeName }) }).first();
+    await expect(cardAfterAdd.locator('.chip', { hasText: granteeName })).toBeVisible();
+
+    // FR-19: remove the chip via its × button. Reload → chip GONE (persisted).
+    await cardAfterAdd.locator('.chip', { hasText: granteeName }).locator('.chip-rm').click();
+    await page.waitForResponse(r =>
+      r.url().includes(`/api/v1/apps/${firstSlug}/permissions`) && r.request().method() === 'PUT'
+    );
+    await expect(page.locator('.chip', { hasText: granteeName })).toHaveCount(0);
+
+    await page.reload();
+    await waitForUserList(page);
+    await page.click('#t2');
+    await page.waitForFunction(() => {
+      const s2 = document.getElementById('s2');
+      return s2 && s2.querySelector('.access-card');
+    });
+    await expect(page.locator('.chip', { hasText: granteeName })).toHaveCount(0);
   });
 });

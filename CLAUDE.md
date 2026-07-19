@@ -14,7 +14,7 @@ A mobile-first PWA operations console for a food truck business. One app shell w
 | Inventory | Active (v2.0) | inventory.html |
 | Onboarding | Active (v2.1) | onboarding.html |
 | Users | Active (v2.0) | users.html |
-| Purchasing | Mockup | purchasing.html |
+| Purchasing | Active | purchasing.html |
 | Login | Active (v2.0) | login.html |
 | Payroll | Placeholder | — |
 | Scheduling | Placeholder | — |
@@ -30,9 +30,11 @@ A mobile-first PWA operations console for a food truck business. One app shell w
 - **Auto-reload:** `ptr.js` listens for `controllerchange` to reload on new SW deploy
 - **Manifest:** `manifest.json` — "Yumyums HQ", standalone display, portrait orientation
 - **Styling:** Shared CSS variables with automatic dark mode, mobile-first (max-width 480px)
-- **Inventory:** `inventory.html` — 5-tab layout (Purchases / Stock / Trends / Cost / Setup), receipt review pipeline, item catalog with groups/tags, stock level thresholds
+- **Inventory:** `inventory.html` — 7-tab layout (Purchases / Stock / Menu / Recipes / Trends / Cost / Setup), receipt review pipeline, item catalog with groups/tags, stock level thresholds, recipe/BOM editing for per-menu-item COGS
 - **Receipt pipeline:** Mercury banking → receipt download → DO Spaces upload → Claude Haiku parse → validate → pending review queue → manual confirm
-- **Testing:** 170+ Playwright E2E tests across `tests/workflows.spec.js`, `tests/persistence.spec.js`, `tests/inventory.spec.js`, `tests/onboarding.spec.js`
+- **Period summary endpoint (Phase 21):** GET /api/v1/inventory/period-summary returns COGS + completeness gate for sales-processor's weekly payroll. Auth via HQ_INVENTORY_SERVICE_TOKEN (Bearer); unset → 503. See .planning/phases/21-cogs-in-sales-processor-report-receipt-completeness-gate-bef/21-SALES-PROCESSOR-CONTRACT.md.
+- **Menu-COGS endpoint (Phase 999.2):** GET /api/v1/inventory/menu-cogs?from=YYYY-MM-DD&to=YYYY-MM-DD returns per-menu-item COGS attribution (units_sold + ingredient_cost_per_unit + ingredient_cost_total) for sales-processor's weekly report. Optional `?breakdown=true` adds per-ingredient detail per menu item. Auth via the SAME HQ_INVENTORY_SERVICE_TOKEN (Bearer) Phase 21 uses; unset → 503. HQ is truth source for units_sold (joins recipes → menu_items → daily_menu_sales internally). No completeness gate — drift surfaces in-app via the Recipes-tab banner + weekly Cliq alert. See .planning/phases/999.2-per-menu-item-cogs-attribution-via-recipe-bom-mapping/999.2-SALES-PROCESSOR-CONTRACT.md.
+- **Testing:** 170+ Playwright E2E tests across `tests/workflows.spec.js`, `tests/persistence.spec.js`, `tests/inventory.spec.js`, `tests/onboarding.spec.js`, `tests/recipes.spec.js`
 - **Backend:** Go + Postgres, REST API at `/api/v1/workflow/*`, `/api/v1/inventory/*`, `/api/v1/auth/*`, `/api/v1/onboarding/*`, `/api/v1/users/*`
 - **Data flow:** See `docs/data-flow-audit.md` for the full state persistence inventory
 
@@ -45,15 +47,16 @@ A mobile-first PWA operations console for a food truck business. One app shell w
 
 ### inventory.html Key Concepts
 
-- **5-tab layout:** Purchases (purchase events + pending review), Stock (levels + reorder suggestions), Trends (coming soon), Cost (coming soon), Setup (items + vendors management)
+- **7-tab layout:** Purchases (purchase events + pending review), Stock (levels + reorder suggestions), Menu (Toast menu items, read-only), Recipes (BOM editing — ingredient-first slider allocation for per-menu-item COGS), Trends (coming soon), Cost (coming soon), Setup (items + vendors management)
 - **Receipt review pipeline:** Pending purchases from Mercury receipt worker → user reviews line items → links each to catalog item via fullscreen picker modal → confirms when total matches bank transaction
 - **Item catalog:** Items are created from actual receipts (not pre-seeded). Each item belongs to a group (Proteins, Beverages, etc.). Groups have configurable stock level thresholds (low/high).
 - **Auto-match:** When review form opens, line item names are matched case-insensitively against catalog. Matched items show no border; unlinked items show orange warning border.
 - **Item selection persistence:** Selecting an item in the picker modal saves to `pending_purchases.items` JSONB via `PUT /purchases/pending-items` so selections survive page reloads.
 - **Stock count overrides:** `stock_count_overrides` table stores manual quantity counts. Stock query uses `COALESCE(override, sum)`. Reason is required (preset chips: Counted shelf, Spoiled item, Damaged item).
 - **Name normalization:** `normalizeItemName()` in Go uses `cases.Title(language.English)` for title case. Applied on confirm, item create, and vendor create. Frontend `titleCase()` mirrors this.
-- **Merge:** Vendors and items can be merged (re-points all FKs, deletes source). Cannot merge into self.
-- **Magic links:** Stock item detail → "View in Setup" navigates to Setup tab with item expanded. Reorder suggestion tap scrolls to and expands the stock item below.
+- **Merge:** Vendors and items can be merged (re-points all FKs, deletes source). Cannot merge into self. Menu items in the Recipes tab can be merged the same way.
+- **Magic links:** Stock item detail → "View in Setup" navigates to Setup tab with item expanded. Reorder suggestion tap scrolls to and expands the stock item below. Menu tab card tap → jumps to Recipes tab with that menu item's cost summary auto-selected.
+- **Recipes (Phase 999.2):** Each ingredient (purchase_item) has a collapsed row showing last-week spend + unallocated %. Expand to edit `recipes.usage_pct` per menu item via 5%-snap sliders (autosave on release via PUT /api/v1/inventory/recipes/{id}). Server enforces sum-per-purchase_item ≤ 100 — 422 envelope `{error:"sum_exceeds_100",conflict_menu_item,conflict_pct}` triggers slider rollback + inline error. Weekly drift check (Monday 09:00 Chicago) writes to `drift_check_results` + fires Cliq message; banner reads from /api/v1/inventory/recipes/drift (200 `{}` when clean).
 
 ### Workflows Data Persistence Rule
 
@@ -100,7 +103,40 @@ Add this test to `tests/persistence.spec.js` under the "Draft response persisten
 - Static assets: precached with content hashes — **no manual version bumps**
 - API calls: network-first with offline JSON fallback
 - Run `task sw` to rebuild after changing any HTML/JS files
-- `task test` and `task deploy` auto-run `task sw` as a dependency
+- `task test` and `task prod:deploy` auto-run `task sw` as a dependency
+- `build-sw.js` also writes `version.json` (frontend semver from `package.json`) which the SW precaches
+
+### Versioning & Deployment
+
+**Versioning model** — two independently-bumpable semvers, one per side:
+
+- `backend/internal/version/version.go` — `Backend` and `Frontend` constants (**authoritative**)
+- `package.json` `"version"` — **must mirror** the `Frontend` constant exactly
+- Build-time injection — `task backend:build` and `backend/Dockerfile` pass `-ldflags` to set `version.GitSHA` and `version.BuiltAt`
+- Runtime surfacing — `GET /api/v1/health` returns `{status, backend_version, frontend_version, git_sha, built_at}`
+
+**Bumping versions** — done by `.claude/skills/save-project/SKILL.md` (invoke `/save-project`). It detects which side(s) the diff touched and applies semver rules. Never bump `package.json` and `version.go` separately.
+
+**Deploying to prod** — single command:
+
+```
+task prod:deploy   # SSH to Windows box (Tailscale) → git pull → task sw → docker build → restart container
+task prod:logs     # tail container logs
+task prod:ssh      # interactive shell on the box
+```
+
+The Windows box runs the backend in Docker (container name `yumyums-hq`); the backend embeds the frontend; Cloudflare Tunnel routes `https://hq.yumyums.kitchen` to it. There is no separate frontend host — both ship as one image.
+
+**Verifying after deploy**:
+
+```
+task version       # diffs local source / dev server / prod /api/v1/health side-by-side
+task health:prod   # raw /api/v1/health JSON from prod
+```
+
+If `task version` shows the local `Backend` / `Frontend` constants ahead of the prod values, the running container is stale — re-run `task prod:deploy`.
+
+**Override deploy targets** via env vars: `PROD_SSH`, `PROD_REPO`, `PROD_CONTAINER`, `PROD_IMAGE`, `PROD_PORT`, `PROD_URL`. Defaults are in the root `Taskfile.yml` `vars:` block.
 
 ### Adding a New Tool
 
@@ -124,6 +160,21 @@ Add this test to `tests/persistence.spec.js` under the "Draft response persisten
 - **Persistence rule:** Every user-entered value → `autoSaveField` → `DRAFT_RESPONSES` → `hydrateFieldState` (see docs/data-flow-audit.md)
 - **Required test:** Every new field type or data entry feature MUST have a back-and-reopen test in `tests/persistence.spec.js` — enter data → back → reopen → data still there. Feature is not complete without this test.
 - **Bug fix protocol (approval phase):** When a bug is found during human verification, write the regression test FIRST — before applying the fix. The test must fail (proving it captures the bug), then apply the fix, then verify the test passes. Only run the new test(s) during iteration, not the full suite: `npx playwright test tests/<file>.spec.js -g "<test name>"`. This ensures the test actually guards against the regression, not just passing by coincidence.
+
+### Definition of Done
+
+Templates for all blocks below live in `.planning/PLANNING-TEMPLATES.md`.
+
+- **`done_when:` block required in every PLAN.md and UI-SPEC.md.** Every criterion names the observable behavior AND the check that proves it ("Empty state renders 'No X yet' when DB returns [] — load page with empty fixture, screenshot"). Banned words: "looks good," "feels right," "polished," "clean," "nice."
+- **State Enumeration Table required in every UI-SPEC.md.** One table covering empty, loading, error, success, plus **at least 2 phase-specific edge rows** (long content, offline, 409 conflict, race — whichever apply). Each row names the trigger and the visual contract. The table is incomplete without the edge rows.
+- **Self-verification ritual before declaring a UI phase done.** This environment is headless — verify via screenshots, not imagination:
+  1. Write/extend a Playwright spec at `tests/states-<phase>.spec.js` that forces each State Enumeration Table row (fixture/mock/DB seed), navigates, and screenshots.
+  2. Run it (`--update-snapshots` first run; without it thereafter, as a regression suite).
+  3. Read the PNGs back with the Read tool (multimodal) and compare row-by-row against the visual contract.
+  4. Report what was *observed* — not what was intended — in the phase SUMMARY.md, with screenshots referenced.
+  5. If the dev server / DB / creds aren't available, say so explicitly and stop. Never declare done from code reading alone.
+- **Mockup sign-off before UI code on phases introducing new components.** Commit the mockup (HTML or annotated screenshot) at `.planning/.../<phase>/mockup.html` and wait for an explicit human "ok, build this" before touching production code. Note any deviation from the approved mockup in SUMMARY.md.
+- **Verifier subagent gate between build and SUMMARY.md on UI phases.** Spawn one verifier subagent whose inputs are ONLY: the UI-SPEC.md, the `done_when:` block, the diff, and the self-verify screenshots — not the planning conversation or the implementer's reasoning. It outputs pass/fail per `done_when:` row plus issues beyond the contract. SUMMARY.md may not be written until every row passes or is explicitly waived (waiver + reason noted in SUMMARY.md, e.g. "requires live Mercury creds").
 
 <!-- GSD:project-start source:PROJECT.md -->
 ## Project
@@ -172,16 +223,14 @@ A mobile-first PWA operations console for a food truck business. One app shell w
 - No environment variables (static frontend only)
 - No `.env` file present
 - None - no build config files
-- Deployment config: `.do/app.yaml` (Digital Ocean App Platform spec)
-- Cache key in `sw.js`: `const CACHE = 'yumyums-v5'` — must be bumped manually on deploy to invalidate cached assets
-- Cached assets list: `['./','./index.html','./purchasing.html','./users.html','./login.html','./ptr.js','./manifest.json']`
+- Deployment config: `backend/Dockerfile` (multi-stage Go build embedding frontend assets)
+- Service worker: generated by `node build-sw.js` (Workbox content-hashed precache, no manual cache key)
 ## Platform Requirements
 - Any HTTP server (HTTPS required for iOS PWA install prompt and service worker)
 - No local tooling required — files can be opened directly or served with `python3 -m http.server`
-- Static file host with HTTPS
-- Currently: Digital Ocean App Platform (static site), auto-deploy on push to `main` branch of GitHub repo `jiaming2012/yumyums-purchase-orders`
-- Live URL: `https://yumyums-purchase-orders-4iuwf.ondigitalocean.app`
-- Planned production: Hetzner box with Caddy reverse proxy at `order.yumyums.com`
+- Production: Go backend in Docker on Windows box, frontend embedded into the binary, served via Cloudflare Tunnel
+- Live URL: `https://hq.yumyums.kitchen`
+- Deploy: `task prod:deploy` (SSH over Tailscale → git pull → docker build → restart container)
 ## Planned Backend Stack (not yet built)
 - **Language:** Go
 - **Database:** PostgreSQL (separate schema on existing Hetzner box)

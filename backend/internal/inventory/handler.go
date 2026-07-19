@@ -1,14 +1,17 @@
 package inventory
 
 import (
+	"context"
+	"database/sql"
 	"encoding/json"
-	"fmt"
-	"log"
+	"log/slog"
+	"math"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/yumyums/hq/internal/auth"
@@ -38,7 +41,7 @@ func ListVendorsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			`SELECT id, name, created_at FROM vendors ORDER BY name`,
 		)
 		if err != nil {
-			log.Printf("ListVendors query: %v", err)
+			slog.Error("ListVendors query failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -48,7 +51,7 @@ func ListVendorsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		for rows.Next() {
 			var v Vendor
 			if err := rows.Scan(&v.ID, &v.Name, &v.CreatedAt); err != nil {
-				log.Printf("ListVendors scan: %v", err)
+				slog.Error("ListVendors scan failed", "error", err)
 				writeError(w, http.StatusInternalServerError, "internal_error")
 				return
 			}
@@ -80,7 +83,7 @@ func CreateVendorHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			RETURNING id`, input.Name,
 		).Scan(&id)
 		if err != nil {
-			log.Printf("CreateVendor insert: %v", err)
+			slog.Error("CreateVendor insert failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -106,7 +109,7 @@ func UpdateVendorHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		input.Name = normalizeItemName(input.Name)
 		tag, err := pool.Exec(r.Context(), `UPDATE vendors SET name = $1 WHERE id = $2`, input.Name, input.ID)
 		if err != nil {
-			log.Printf("UpdateVendor update: %v", err)
+			slog.Error("UpdateVendor update failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -147,14 +150,14 @@ func MergeVendorsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		// Re-point purchase_events from source to target
 		_, err = tx.Exec(r.Context(), `UPDATE purchase_events SET vendor_id = $1 WHERE vendor_id = $2`, input.TargetID, input.SourceID)
 		if err != nil {
-			log.Printf("MergeVendors re-point events: %v", err)
+			slog.Error("MergeVendors re-point events failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
 		// Delete source vendor
 		tag, err := tx.Exec(r.Context(), `DELETE FROM vendors WHERE id = $1`, input.SourceID)
 		if err != nil {
-			log.Printf("MergeVendors delete source: %v", err)
+			slog.Error("MergeVendors delete source failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -199,7 +202,7 @@ func MergeItemsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		// Re-point purchase_line_items from source to target
 		_, err = tx.Exec(r.Context(), `UPDATE purchase_line_items SET purchase_item_id = $1 WHERE purchase_item_id = $2`, input.TargetID, input.SourceID)
 		if err != nil {
-			log.Printf("MergeItems re-point line_items: %v", err)
+			slog.Error("MergeItems re-point line_items failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -212,12 +215,12 @@ func MergeItemsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 		_, err = tx.Exec(r.Context(), `UPDATE purchase_line_items SET description = $1 WHERE purchase_item_id = $2`, targetDesc, input.TargetID)
 		if err != nil {
-			log.Printf("MergeItems update descriptions: %v", err)
+			slog.Error("MergeItems update descriptions failed", "error", err)
 		}
 		// Delete source item
 		tag, err := tx.Exec(r.Context(), `DELETE FROM purchase_items WHERE id = $1`, input.SourceID)
 		if err != nil {
-			log.Printf("MergeItems delete source: %v", err)
+			slog.Error("MergeItems delete source failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -253,7 +256,7 @@ func UpdatePendingItemsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			input.Items, input.ID,
 		)
 		if err != nil {
-			log.Printf("UpdatePendingItems: %v", err)
+			slog.Error("UpdatePendingItems failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -283,7 +286,7 @@ func ListPurchaseEventsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		if vendorID != "" {
 			rows, err = pool.Query(r.Context(), `
 				SELECT pe.id, pe.vendor_id, v.name, pe.bank_tx_id,
-				       pe.event_date::text, pe.tax, pe.total, pe.receipt_url, pe.created_at
+				       pe.event_date::text, pe.tax, pe.total, pe.receipt_url, pe.receipt_urls, pe.created_at
 				FROM purchase_events pe
 				JOIN vendors v ON v.id = pe.vendor_id
 				WHERE pe.vendor_id = $1
@@ -294,7 +297,7 @@ func ListPurchaseEventsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		} else {
 			rows, err = pool.Query(r.Context(), `
 				SELECT pe.id, pe.vendor_id, v.name, pe.bank_tx_id,
-				       pe.event_date::text, pe.tax, pe.total, pe.receipt_url, pe.created_at
+				       pe.event_date::text, pe.tax, pe.total, pe.receipt_url, pe.receipt_urls, pe.created_at
 				FROM purchase_events pe
 				JOIN vendors v ON v.id = pe.vendor_id
 				ORDER BY pe.event_date DESC
@@ -303,7 +306,7 @@ func ListPurchaseEventsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			)
 		}
 		if err != nil {
-			log.Printf("ListPurchaseEvents query: %v", err)
+			slog.Error("ListPurchaseEvents query failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -312,16 +315,20 @@ func ListPurchaseEventsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		events := []PurchaseEvent{}
 		for rows.Next() {
 			var pe PurchaseEvent
+			var receiptURLsJSON []byte
 			if err := rows.Scan(&pe.ID, &pe.VendorID, &pe.VendorName, &pe.BankTxID,
-				&pe.EventDate, &pe.Tax, &pe.Total, &pe.ReceiptURL, &pe.CreatedAt); err != nil {
-				log.Printf("ListPurchaseEvents scan: %v", err)
+				&pe.EventDate, &pe.Tax, &pe.Total, &pe.ReceiptURL, &receiptURLsJSON, &pe.CreatedAt); err != nil {
+				slog.Error("ListPurchaseEvents scan failed", "error", err)
 				writeError(w, http.StatusInternalServerError, "internal_error")
 				return
+			}
+			if len(receiptURLsJSON) > 0 {
+				_ = json.Unmarshal(receiptURLsJSON, &pe.ReceiptURLs)
 			}
 			events = append(events, pe)
 		}
 		if err := rows.Err(); err != nil {
-			log.Printf("ListPurchaseEvents rows err: %v", err)
+			slog.Error("ListPurchaseEvents rows iteration failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -336,7 +343,7 @@ func ListPurchaseEventsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				events[i].ID,
 			)
 			if err != nil {
-				log.Printf("ListPurchaseEvents line_items query: %v", err)
+				slog.Error("ListPurchaseEvents line_items query failed", "error", err)
 				writeError(w, http.StatusInternalServerError, "internal_error")
 				return
 			}
@@ -346,7 +353,7 @@ func ListPurchaseEventsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				var li LineItem
 				if err := liRows.Scan(&li.ID, &li.PurchaseEventID, &li.PurchaseItemID,
 					&li.Description, &li.Quantity, &li.Price, &li.IsCase); err != nil {
-					log.Printf("ListPurchaseEvents line_item scan: %v", err)
+					slog.Error("ListPurchaseEvents line_item scan failed", "error", err)
 					writeError(w, http.StatusInternalServerError, "internal_error")
 					return
 				}
@@ -402,7 +409,7 @@ func GetStockHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			ORDER BY sub.total_spend DESC`,
 		)
 		if err != nil {
-			log.Printf("GetStock query: %v", err)
+			slog.Error("GetStock query failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -418,7 +425,7 @@ func GetStockHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			if err := rows.Scan(&row.s.Description, &row.s.GroupName,
 				&row.s.TotalQuantity, &row.s.TotalSpend, &row.s.AvgPrice, &row.s.LastPurchaseDate,
 				&row.s.LowThreshold, &row.s.HighThreshold, &row.purchaseItemID); err != nil {
-				log.Printf("GetStock scan: %v", err)
+				slog.Error("GetStock scan failed", "error", err)
 				writeError(w, http.StatusInternalServerError, "internal_error")
 				return
 			}
@@ -426,7 +433,7 @@ func GetStockHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			rawRows = append(rawRows, row)
 		}
 		if err := rows.Err(); err != nil {
-			log.Printf("GetStock rows err: %v", err)
+			slog.Error("GetStock rows iteration failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -523,7 +530,7 @@ func UpdateStockCountHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			input.ItemDescription, input.Quantity, input.Reason,
 		)
 		if err != nil {
-			log.Printf("UpdateStockCount: %v", err)
+			slog.Error("UpdateStockCount failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -548,7 +555,7 @@ func CreatePurchaseEventHandler(pool *pgxpool.Pool) http.HandlerFunc {
 
 		tx, err := pool.Begin(r.Context())
 		if err != nil {
-			log.Printf("CreatePurchaseEvent begin tx: %v", err)
+			slog.Error("CreatePurchaseEvent begin tx failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -562,7 +569,7 @@ func CreatePurchaseEventHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			input.VendorID, input.BankTxID, input.EventDate, input.Tax, input.Total, input.ReceiptURL,
 		).Scan(&eventID)
 		if err != nil {
-			log.Printf("CreatePurchaseEvent insert event: %v", err)
+			slog.Error("CreatePurchaseEvent insert event failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -576,14 +583,14 @@ func CreatePurchaseEventHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				eventID, li.PurchaseItemID, desc, li.Quantity, li.Price, li.IsCase,
 			)
 			if err != nil {
-				log.Printf("CreatePurchaseEvent insert line_item: %v", err)
+				slog.Error("CreatePurchaseEvent insert line_item failed", "error", err)
 				writeError(w, http.StatusInternalServerError, "internal_error")
 				return
 			}
 		}
 
 		if err := tx.Commit(r.Context()); err != nil {
-			log.Printf("CreatePurchaseEvent commit: %v", err)
+			slog.Error("CreatePurchaseEvent commit failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -597,14 +604,15 @@ func ListPendingPurchasesHandler(pool *pgxpool.Pool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		rows, err := pool.Query(r.Context(), `
 			SELECT id, bank_tx_id, bank_total, vendor, event_date::text,
-			       tax, total, total_units, total_cases, receipt_url,
-			       reason, items, confirmed_at, confirmed_by, discarded_at, created_at
+			       tax, total, total_units, total_cases, receipt_url, receipt_urls,
+			       reason, parse_error, items,
+			       confirmed_at, confirmed_by, discarded_at, created_at
 			FROM pending_purchases
 			WHERE confirmed_at IS NULL AND discarded_at IS NULL
 			ORDER BY created_at DESC`,
 		)
 		if err != nil {
-			log.Printf("ListPendingPurchases query: %v", err)
+			slog.Error("ListPendingPurchases query failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -613,14 +621,19 @@ func ListPendingPurchasesHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		pending := []PendingPurchase{}
 		for rows.Next() {
 			var p PendingPurchase
+			var receiptURLsJSON []byte
 			if err := rows.Scan(
 				&p.ID, &p.BankTxID, &p.BankTotal, &p.Vendor, &p.EventDate,
-				&p.Tax, &p.Total, &p.TotalUnits, &p.TotalCases, &p.ReceiptURL,
-				&p.Reason, &p.Items, &p.ConfirmedAt, &p.ConfirmedBy, &p.DiscardedAt, &p.CreatedAt,
+				&p.Tax, &p.Total, &p.TotalUnits, &p.TotalCases, &p.ReceiptURL, &receiptURLsJSON,
+				&p.Reason, &p.ParseError, &p.Items,
+				&p.ConfirmedAt, &p.ConfirmedBy, &p.DiscardedAt, &p.CreatedAt,
 			); err != nil {
-				log.Printf("ListPendingPurchases scan: %v", err)
+				slog.Error("ListPendingPurchases scan failed", "error", err)
 				writeError(w, http.StatusInternalServerError, "internal_error")
 				return
+			}
+			if len(receiptURLsJSON) > 0 {
+				_ = json.Unmarshal(receiptURLsJSON, &p.ReceiptURLs)
 			}
 			pending = append(pending, p)
 		}
@@ -644,49 +657,91 @@ func ConfirmPendingPurchaseHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		}
 
 		// Look up or create vendor
+		input.VendorName = normalizeItemName(input.VendorName)
 		var vendorID string
 		err := pool.QueryRow(r.Context(),
 			`INSERT INTO vendors (name) VALUES ($1) ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name RETURNING id`,
 			input.VendorName,
 		).Scan(&vendorID)
 		if err != nil {
-			log.Printf("ConfirmPendingPurchase upsert vendor: %v", err)
+			slog.Error("ConfirmPendingPurchase upsert vendor failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
 
 		tx, err := pool.Begin(r.Context())
 		if err != nil {
-			log.Printf("ConfirmPendingPurchase begin tx: %v", err)
+			slog.Error("ConfirmPendingPurchase begin tx failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
 		defer tx.Rollback(r.Context()) //nolint:errcheck
 
-		// Fetch the pending purchase to get bank_tx_id and bank_total
+		// Fetch the pending purchase to get bank_tx_id, bank_total, and reason.
+		// Phase 260607-fxl: reason is needed to gate the empty-items branch —
+		// it's only safe when the row was a no-attachment placeholder (the
+		// 260605-pk1 flow). Parse-failed rows must be itemized or discarded.
 		var bankTxID string
 		var bankTotal float64
+		var pendingReason sql.NullString
 		err = tx.QueryRow(r.Context(),
-			`SELECT bank_tx_id, bank_total FROM pending_purchases WHERE id = $1 AND confirmed_at IS NULL AND discarded_at IS NULL`,
+			`SELECT bank_tx_id, bank_total, reason FROM pending_purchases WHERE id = $1 AND confirmed_at IS NULL AND discarded_at IS NULL`,
 			input.ID,
-		).Scan(&bankTxID, &bankTotal)
+		).Scan(&bankTxID, &bankTotal, &pendingReason)
 		if err != nil {
 			writeError(w, http.StatusNotFound, "pending_purchase_not_found")
 			return
 		}
-
-		// Validate total matches bank transaction (bank_total is negative for debits)
-		lineTotal := input.Tax
-		for _, li := range input.LineItems {
-			lineTotal += li.Price * float64(li.Quantity)
+		reasonStr := ""
+		if pendingReason.Valid {
+			reasonStr = pendingReason.String
 		}
+
+		// Compute abs(bank_total) — bank_total is negative for debits.
 		absBankTotal := bankTotal
 		if absBankTotal < 0 {
 			absBankTotal = -absBankTotal
 		}
-		if absBankTotal-lineTotal > 0.01 || lineTotal-absBankTotal > 0.01 {
-			writeError(w, http.StatusBadRequest, fmt.Sprintf("total_mismatch: receipt total $%.2f does not match bank transaction $%.2f", lineTotal, absBankTotal))
+
+		// Phase 260607-fxl: empty items only allowed for explicit no-attachment
+		// rows. Parse-failed rows (where a receipt IS attached) must be
+		// itemized or discarded — the operator should not be able to write the
+		// placeholder $bank_total into cogs and bypass the line-item review.
+		if len(input.LineItems) == 0 && reasonStr != "no_attachment_on_bank_tx" {
+			writeJSON(w, http.StatusUnprocessableEntity, map[string]string{
+				"error":  "empty_items_not_allowed",
+				"reason": "add at least one line item or set pending reason to no_attachment_on_bank_tx",
+			})
 			return
+		}
+
+		// Empty-items resolution: operator is confirming "this was food, no
+		// receipt available". Skip the mismatch check, use abs(bank_total) as
+		// the event total, force tax=0, and skip the line-item loop entirely.
+		emptyResolution := len(input.LineItems) == 0
+		var eventTax, eventTotal float64
+		if emptyResolution {
+			eventTax = 0
+			eventTotal = absBankTotal
+		} else {
+			// Validate receipt-parsed total matches bank transaction.
+			lineTotal := input.Tax
+			for _, li := range input.LineItems {
+				lineTotal += li.Price * float64(li.Quantity)
+			}
+			if absBankTotal-lineTotal > 0.01 || lineTotal-absBankTotal > 0.01 {
+				// Phase 260607-fxl: upgrade 400 text → structured 422 envelope
+				// so the FE can render line_total / bank_total without parsing
+				// the text. Round to 2dp to avoid floating-point noise.
+				writeJSON(w, http.StatusUnprocessableEntity, map[string]any{
+					"error":      "total_mismatch",
+					"line_total": math.Round(lineTotal*100) / 100,
+					"bank_total": math.Round(absBankTotal*100) / 100,
+				})
+				return
+			}
+			eventTax = input.Tax
+			eventTotal = input.Total
 		}
 
 		// Create the real purchase event
@@ -695,24 +750,43 @@ func ConfirmPendingPurchaseHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			INSERT INTO purchase_events (vendor_id, bank_tx_id, event_date, tax, total)
 			VALUES ($1, $2, $3, $4, $5)
 			RETURNING id`,
-			vendorID, bankTxID, input.EventDate, input.Tax, input.Total,
+			vendorID, bankTxID, input.EventDate, eventTax, eventTotal,
 		).Scan(&eventID)
 		if err != nil {
-			log.Printf("ConfirmPendingPurchase insert event: %v", err)
+			slog.Error("ConfirmPendingPurchase insert event failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
 
-		for _, li := range input.LineItems {
-			desc := normalizeItemName(li.Description)
+		if !emptyResolution {
+			for _, li := range input.LineItems {
+				desc := normalizeItemName(li.Description)
+				_, err := tx.Exec(r.Context(), `
+					INSERT INTO purchase_line_items
+					(purchase_event_id, purchase_item_id, description, quantity, price, is_case)
+					VALUES ($1, $2, $3, $4, $5, $6)`,
+					eventID, li.PurchaseItemID, desc, li.Quantity, li.Price, li.IsCase,
+				)
+				if err != nil {
+					slog.Error("ConfirmPendingPurchase insert line_item failed", "error", err)
+					writeError(w, http.StatusInternalServerError, "internal_error")
+					return
+				}
+			}
+		} else {
+			// Empty-items resolution: insert a single placeholder line item so
+			// the bank total contributes to cogs_excl_tax. Linked to the seed
+			// purchase_items row (see migration 0064_no_itemized_receipt_seed.sql)
+			// so unlinked_line_item_ids stays empty.
+			const noItemizedReceiptItemID = "00000000-0000-0000-0000-000000000001"
 			_, err := tx.Exec(r.Context(), `
 				INSERT INTO purchase_line_items
 				(purchase_event_id, purchase_item_id, description, quantity, price, is_case)
-				VALUES ($1, $2, $3, $4, $5, $6)`,
-				eventID, li.PurchaseItemID, desc, li.Quantity, li.Price, li.IsCase,
+				VALUES ($1, $2, '(no itemized receipt)', 1, $3, false)`,
+				eventID, noItemizedReceiptItemID, eventTotal,
 			)
 			if err != nil {
-				log.Printf("ConfirmPendingPurchase insert line_item: %v", err)
+				slog.Error("ConfirmPendingPurchase insert placeholder line_item failed", "error", err)
 				writeError(w, http.StatusInternalServerError, "internal_error")
 				return
 			}
@@ -724,13 +798,13 @@ func ConfirmPendingPurchaseHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			time.Now().UTC(), user.ID, input.ID,
 		)
 		if err != nil {
-			log.Printf("ConfirmPendingPurchase update confirmed_at: %v", err)
+			slog.Error("ConfirmPendingPurchase update confirmed_at failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
 
 		if err := tx.Commit(r.Context()); err != nil {
-			log.Printf("ConfirmPendingPurchase commit: %v", err)
+			slog.Error("ConfirmPendingPurchase commit failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -758,7 +832,7 @@ func DiscardPendingPurchaseHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			time.Now().UTC(), input.ID,
 		)
 		if err != nil {
-			log.Printf("DiscardPendingPurchase update: %v", err)
+			slog.Error("DiscardPendingPurchase update failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -769,6 +843,167 @@ func DiscardPendingPurchaseHandler(pool *pgxpool.Pool) http.HandlerFunc {
 
 		w.WriteHeader(http.StatusNoContent)
 	}
+}
+
+// RetryParsePendingPurchaseHandler re-arms a pending row so the next worker
+// sync cycle (260607-fxl parseFailedRetry branch) will re-attempt parsing
+// through Sonnet. Used to recover stuck rows without DB access.
+//
+// Two branches, picked from the row's current state:
+//
+//  1. parse_error branch (260607-koi): row has a non-empty parse_error string.
+//     UPDATE sets parse_error=NULL. Existing items + reason left untouched.
+//     Used to recover rows like Restaurant Depot $391.96 after 260607-k1n's
+//     float64 quantity fix.
+//
+//  2. items-mismatch branch (260607-s6r): row has parse_error=NULL but items
+//     are populated AND SUM(quantity*price) doesn't match abs(bank_total).
+//     UPDATE clears items to '[]'::jsonb and sets reason to the parse-failed
+//     sentinel so worker.parseFailedRetry matches on next sync. Used to
+//     recover rows where parse technically succeeded but matched the wrong
+//     receipt (e.g. Amazon $65.62 bank tx paired to a $1515.16 receipt).
+//
+// Endpoint:  POST /api/v1/inventory/purchases/pending/{id}/retry-parse
+// Auth:      Inside the auth-gated inventory route group — same as confirm/discard.
+// Response:  200 + full PendingPurchase row (matches /purchases/pending shape)
+//
+//	404 pending_purchase_not_found     — id does not exist
+//	422 row_not_pending                — row already confirmed/discarded
+//	422 nothing_to_retry               — parse_error NULL AND items match totals
+func RetryParsePendingPurchaseHandler(pool *pgxpool.Pool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := chi.URLParam(r, "id")
+		if id == "" {
+			writeError(w, http.StatusBadRequest, "id_required")
+			return
+		}
+
+		// Read current row state to decide which branch to take.
+		var (
+			confirmedAt sql.NullTime
+			discardedAt sql.NullTime
+			parseError  sql.NullString
+			itemsJSON   []byte
+			bankTotal   float64
+		)
+		err := pool.QueryRow(r.Context(),
+			`SELECT confirmed_at, discarded_at, parse_error, items, bank_total
+			   FROM pending_purchases WHERE id = $1`,
+			id,
+		).Scan(&confirmedAt, &discardedAt, &parseError, &itemsJSON, &bankTotal)
+		if err != nil {
+			// pgx.ErrNoRows OR any other read error — match the
+			// UpdatePendingItemsHandler convention: 404 pending_purchase_not_found.
+			writeError(w, http.StatusNotFound, "pending_purchase_not_found")
+			return
+		}
+		if confirmedAt.Valid || discardedAt.Valid {
+			writeJSON(w, http.StatusUnprocessableEntity, map[string]string{
+				"error":  "row_not_pending",
+				"reason": "row is already confirmed or discarded",
+			})
+			return
+		}
+
+		// Compute items-mismatch eligibility for the new s6r branch.
+		// Tolerate the legacy 'null' literal that pre-260607-dg9 rows
+		// sometimes carry — treat as empty. Malformed items get the
+		// same treatment rather than 500ing; the parse_error branch
+		// still works.
+		type retryParseItem struct {
+			Quantity float64 `json:"quantity"`
+			Price    float64 `json:"price"`
+		}
+		var items []retryParseItem
+		if len(itemsJSON) > 0 && string(itemsJSON) != "null" {
+			if uerr := json.Unmarshal(itemsJSON, &items); uerr != nil {
+				items = nil
+			}
+		}
+		var lineTotal float64
+		for _, it := range items {
+			lineTotal += it.Quantity * it.Price
+		}
+		// Bank tx amounts arrive negative for outflow; compare absolute values
+		// to match the FE banner + ConfirmPendingPurchaseHandler convention.
+		// Reuse the SAME 0.01 epsilon used by inventory.html's review-form
+		// mismatch banner — do NOT introduce a new constant.
+		absBank := math.Abs(bankTotal)
+		itemsMismatch := len(items) > 0 && math.Abs(lineTotal-absBank) > 0.01
+
+		hasParseError := parseError.Valid && parseError.String != ""
+
+		switch {
+		case hasParseError || itemsMismatch:
+			// Unified retry reset: clear items + reason + parse_error so the
+			// row matches the worker's parseFailedRetry upgrade gate, which
+			// requires reason='Receipt could not be parsed automatically'
+			// AND items=[] AND parse_error IS NULL. Previously the two
+			// branches were mutually exclusive — a row with BOTH
+			// parse_error set AND items populated (the state c43ff15's
+			// retry-loop persistence creates on validate-fail) would only
+			// clear parse_error, leaving items + the validate-fail reason
+			// in place; the worker would then skip on the next sync.
+			if _, err := pool.Exec(r.Context(),
+				`UPDATE pending_purchases
+				    SET items = '[]'::jsonb,
+				        reason = 'Receipt could not be parsed automatically',
+				        parse_error = NULL
+				  WHERE id = $1`,
+				id,
+			); err != nil {
+				slog.Error("RetryParsePendingPurchase update failed", "error", err)
+				writeError(w, http.StatusInternalServerError, "internal_error")
+				return
+			}
+			slog.Info("RetryParse: row re-queued",
+				"id", id, "had_parse_error", hasParseError, "items_mismatch", itemsMismatch,
+				"line_total", lineTotal, "bank_total", absBank)
+		default:
+			// parse_error NULL AND items match totals (or items empty) —
+			// nothing to retry.
+			writeJSON(w, http.StatusUnprocessableEntity, map[string]string{
+				"error":  "nothing_to_retry",
+				"reason": "row has no parse_error to clear and items match bank_total",
+			})
+			return
+		}
+
+		// Re-fetch and return the updated row using the same projection
+		// ListPendingPurchasesHandler uses, so the FE response shape matches.
+		pending, ferr := fetchPendingPurchaseByID(r.Context(), pool, id)
+		if ferr != nil {
+			slog.Error("RetryParsePendingPurchase refetch failed", "error", ferr)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		writeJSON(w, http.StatusOK, pending)
+	}
+}
+
+// fetchPendingPurchaseByID returns a single PendingPurchase row by id using
+// the same column projection as ListPendingPurchasesHandler. Used by the
+// retry-parse handler to return the refreshed row in the 200 response body.
+func fetchPendingPurchaseByID(ctx context.Context, pool *pgxpool.Pool, id string) (PendingPurchase, error) {
+	var p PendingPurchase
+	var receiptURLsJSON []byte
+	err := pool.QueryRow(ctx, `
+		SELECT id, bank_tx_id, bank_total, vendor, event_date::text,
+		       tax, total, total_units, total_cases, receipt_url, receipt_urls,
+		       reason, parse_error, items,
+		       confirmed_at, confirmed_by, discarded_at, created_at
+		FROM pending_purchases
+		WHERE id = $1`, id,
+	).Scan(
+		&p.ID, &p.BankTxID, &p.BankTotal, &p.Vendor, &p.EventDate,
+		&p.Tax, &p.Total, &p.TotalUnits, &p.TotalCases, &p.ReceiptURL, &receiptURLsJSON,
+		&p.Reason, &p.ParseError, &p.Items,
+		&p.ConfirmedAt, &p.ConfirmedBy, &p.DiscardedAt, &p.CreatedAt,
+	)
+	if err == nil && len(receiptURLsJSON) > 0 {
+		_ = json.Unmarshal(receiptURLsJSON, &p.ReceiptURLs)
+	}
+	return p, err
 }
 
 // SeedPendingPurchaseHandler inserts a pending purchase for testing.
@@ -798,7 +1033,7 @@ func SeedPendingPurchaseHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			input.BankTxID, input.BankTotal, input.Vendor, input.EventDate, input.Reason, input.Items, input.ReceiptURL,
 		).Scan(&id)
 		if err != nil {
-			log.Printf("SeedPendingPurchase insert: %v", err)
+			slog.Error("SeedPendingPurchase insert failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -815,7 +1050,7 @@ func ListItemsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			LEFT JOIN item_groups ig ON ig.id = pi.group_id
 			ORDER BY pi.description`)
 		if err != nil {
-			log.Printf("ListItems query: %v", err)
+			slog.Error("ListItems query failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -825,7 +1060,7 @@ func ListItemsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		for rows.Next() {
 			var item PurchaseItem
 			if err := rows.Scan(&item.ID, &item.Description, &item.GroupID, &item.GroupName, &item.StoreLocation, &item.LocationInStore, &item.PhotoURL); err != nil {
-				log.Printf("ListItems scan: %v", err)
+				slog.Error("ListItems scan failed", "error", err)
 				writeError(w, http.StatusInternalServerError, "internal_error")
 				return
 			}
@@ -865,7 +1100,7 @@ func CreateItemHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			input.Description, input.GroupID, input.StoreLocation,
 		).Scan(&id)
 		if err != nil {
-			log.Printf("CreateItem insert: %v", err)
+			slog.Error("CreateItem insert failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -892,12 +1127,13 @@ func UpdateItemHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			writeError(w, http.StatusBadRequest, "id_and_description_required")
 			return
 		}
+		input.Description = normalizeItemName(input.Description)
 		tag, err := pool.Exec(r.Context(), `
 			UPDATE purchase_items SET description = $1, group_id = $2, store_location = $3, photo_url = $4, location_in_store = $5 WHERE id = $6`,
 			input.Description, input.GroupID, input.StoreLocation, input.PhotoURL, input.LocationInStore, input.ID,
 		)
 		if err != nil {
-			log.Printf("UpdateItem update: %v", err)
+			slog.Error("UpdateItem update failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -915,7 +1151,7 @@ func ListGroupsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		rows, err := pool.Query(r.Context(), `
 			SELECT id, name, par_days, low_threshold, high_threshold FROM item_groups ORDER BY name`)
 		if err != nil {
-			log.Printf("ListGroups query: %v", err)
+			slog.Error("ListGroups query failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -925,7 +1161,7 @@ func ListGroupsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		for rows.Next() {
 			var g ItemGroup
 			if err := rows.Scan(&g.ID, &g.Name, &g.ParDays, &g.LowThreshold, &g.HighThreshold); err != nil {
-				log.Printf("ListGroups scan: %v", err)
+				slog.Error("ListGroups scan failed", "error", err)
 				writeError(w, http.StatusInternalServerError, "internal_error")
 				return
 			}
@@ -939,7 +1175,7 @@ func ListGroupsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 				JOIN item_group_tags igt ON igt.tag_id = t.id
 				WHERE igt.group_id = $1 ORDER BY t.name`, groups[i].ID)
 			if err != nil {
-				log.Printf("ListGroups tags query: %v", err)
+				slog.Error("ListGroups tags query failed", "error", err)
 				continue
 			}
 			for tagRows.Next() {
@@ -976,7 +1212,7 @@ func CreateGroupHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			RETURNING id`, input.Name,
 		).Scan(&id)
 		if err != nil {
-			log.Printf("CreateGroup insert: %v", err)
+			slog.Error("CreateGroup insert failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -1013,7 +1249,7 @@ func UpdateGroupHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			input.LowThreshold, input.HighThreshold, input.ID,
 		)
 		if err != nil {
-			log.Printf("UpdateGroup update: %v", err)
+			slog.Error("UpdateGroup update failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -1030,7 +1266,7 @@ func ListTagsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		rows, err := pool.Query(r.Context(), `SELECT id, name FROM tags ORDER BY name`)
 		if err != nil {
-			log.Printf("ListTags query: %v", err)
+			slog.Error("ListTags query failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
@@ -1040,12 +1276,348 @@ func ListTagsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		for rows.Next() {
 			var t Tag
 			if err := rows.Scan(&t.ID, &t.Name); err != nil {
-				log.Printf("ListTags scan: %v", err)
+				slog.Error("ListTags scan failed", "error", err)
 				writeError(w, http.StatusInternalServerError, "internal_error")
 				return
 			}
 			tags = append(tags, t)
 		}
 		writeJSON(w, http.StatusOK, tags)
+	}
+}
+
+// PeriodSummaryHandler returns aggregated COGS and receipt-completeness data for a
+// date range. Intended for service-to-service callers (sales-processor) — wired
+// behind auth.ServiceTokenMiddleware in main.go, NOT the cookie-auth group.
+//
+// Query params (both required, inclusive, format YYYY-MM-DD):
+//   from — start date (interpreted in America/Chicago for the completeness gate;
+//          plain DATE comparison for COGS since purchase_events.event_date is DATE).
+//   to   — end date.
+//
+// Response (200): inventory.PeriodSummary JSON.
+// Errors: 400 on malformed dates or from > to; 500 on internal DB error.
+func PeriodSummaryHandler(pool *pgxpool.Pool, cogsAllowlist []string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		fromStr := r.URL.Query().Get("from")
+		toStr := r.URL.Query().Get("to")
+		if _, err := time.Parse("2006-01-02", fromStr); err != nil {
+			writeError(w, http.StatusBadRequest, "from must be YYYY-MM-DD")
+			return
+		}
+		if _, err := time.Parse("2006-01-02", toStr); err != nil {
+			writeError(w, http.StatusBadRequest, "to must be YYYY-MM-DD")
+			return
+		}
+		if fromStr > toStr {
+			writeError(w, http.StatusBadRequest, "from must be <= to")
+			return
+		}
+
+		// 1) COGS aggregate. event_date is DATE (no TZ cast needed).
+		//    cogs_excl_tax = SUM(confirmed line items) + SUM(ABS(bank_total)) of
+		//    non-blocking eligible pending (COGS-category, receipt attached but
+		//    parse-failed, in period, unconfirmed, undiscarded).
+		//    cogs_incl_tax adds SUM(tax) over confirmed purchase_events only;
+		//    pending rows contribute bank_total to both (≈5% inaccuracy per
+		//    pending row vs. excluding entirely; operator confirming flips it).
+		//    Non-blocking pending excludes reason = 'no_attachment_on_bank_tx'
+		//    so blocking rows (food + no receipt) stay out of COGS — they'd be
+		//    moot since Ready=false anyway, but keeps the data model honest.
+		var cogsExcl float64
+		var cogsIncl float64
+		var eventCount int
+		err := pool.QueryRow(r.Context(), `
+			WITH events AS (
+				SELECT id, tax
+				FROM purchase_events
+				WHERE event_date BETWEEN $1 AND $2
+				  AND mercury_category = ANY($3)
+			),
+			lines AS (
+				SELECT ROUND(COALESCE(SUM(pli.quantity * pli.price), 0)::numeric, 2) AS total
+				FROM purchase_line_items pli
+				WHERE pli.purchase_event_id IN (SELECT id FROM events)
+			),
+			pending AS (
+				SELECT ROUND(COALESCE(SUM(ABS(bank_total)), 0)::numeric, 2) AS total,
+				       COUNT(*)                                              AS event_count
+				FROM pending_purchases
+				WHERE COALESCE(event_date, (created_at AT TIME ZONE 'America/Chicago')::date)
+				        BETWEEN $1 AND $2
+				  AND confirmed_at IS NULL
+				  AND discarded_at IS NULL
+				  AND mercury_category = ANY($3)
+				  AND reason != 'no_attachment_on_bank_tx'
+			),
+			event_tax AS (
+				SELECT COALESCE(SUM(tax), 0)::numeric AS total FROM events
+			)
+			SELECT
+				(SELECT total FROM lines) + (SELECT total FROM pending)                       AS cogs_excl_tax,
+				(SELECT total FROM lines) + (SELECT total FROM pending)
+				    + (SELECT total FROM event_tax)                                           AS cogs_incl_tax,
+				(SELECT COUNT(*) FROM events) + (SELECT event_count FROM pending)             AS event_count`,
+			fromStr, toStr, cogsAllowlist).Scan(&cogsExcl, &cogsIncl, &eventCount)
+		if err != nil {
+			slog.Error("PeriodSummary COGS query failed", "error", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+
+		// 2) Per-vendor COGS breakdown. Three CTEs:
+		//      - confirmed: existing by-vendor sum over purchase_events +
+		//        purchase_line_items (LEFT JOIN so a vendor with a purchase_event
+		//        but no lines still appears; tax via correlated subquery so it
+		//        isn't multiplied by the line-item join cardinality).
+		//      - pending_matched: non-blocking eligible pending whose vendor
+		//        text matches an existing vendors.name (LOWER(TRIM()) join).
+		//        Their ABS(bank_total) folds into the matched vendor row.
+		//      - pending_unmatched: non-blocking eligible pending whose vendor
+		//        text has no vendors.name match — each goes into its own row
+		//        with vendor_id = ''. Operator can promote via the UI.
+		//    Outer GROUP BY collapses confirmed + matched-pending into one row
+		//    per real vendor. Order: spend desc, name asc for deterministic
+		//    test + PDF output.
+		byVendor := []VendorCOGS{}
+		rowsV, err := pool.Query(r.Context(), `
+			WITH confirmed AS (
+				SELECT
+				    v.id::text                                                                AS vendor_id,
+				    v.name                                                                    AS vendor_name,
+				    ROUND(COALESCE(SUM(pli.quantity * pli.price), 0)::numeric, 2)             AS total_excl_tax,
+				    ROUND(
+				      COALESCE(SUM(pli.quantity * pli.price), 0)::numeric
+				      + COALESCE(
+				          (SELECT SUM(pe2.tax)
+				             FROM purchase_events pe2
+				            WHERE pe2.vendor_id = v.id
+				              AND pe2.event_date BETWEEN $1 AND $2
+				              AND pe2.mercury_category = ANY($3)),
+				          0
+				        )::numeric,
+				      2
+				    )                                                                         AS total_incl_tax,
+				    COUNT(DISTINCT pe.id)                                                     AS trip_count
+				FROM purchase_events pe
+				JOIN vendors v                    ON v.id = pe.vendor_id
+				LEFT JOIN purchase_line_items pli ON pli.purchase_event_id = pe.id
+				WHERE pe.event_date BETWEEN $1 AND $2
+				  AND pe.mercury_category = ANY($3)
+				GROUP BY v.id, v.name
+			),
+			pending_eligible AS (
+				SELECT id, bank_total, vendor
+				FROM pending_purchases
+				WHERE COALESCE(event_date, (created_at AT TIME ZONE 'America/Chicago')::date)
+				        BETWEEN $1 AND $2
+				  AND confirmed_at IS NULL
+				  AND discarded_at IS NULL
+				  AND mercury_category = ANY($3)
+				  AND reason != 'no_attachment_on_bank_tx'
+			),
+			pending_matched AS (
+				SELECT
+				    v.id::text                                            AS vendor_id,
+				    v.name                                                AS vendor_name,
+				    ROUND(SUM(ABS(pe.bank_total))::numeric, 2)            AS total_excl_tax,
+				    ROUND(SUM(ABS(pe.bank_total))::numeric, 2)            AS total_incl_tax,
+				    COUNT(*)                                              AS trip_count
+				FROM pending_eligible pe
+				JOIN vendors v ON LOWER(TRIM(v.name)) = LOWER(TRIM(pe.vendor))
+				GROUP BY v.id, v.name
+			),
+			pending_unmatched AS (
+				SELECT
+				    ''::text                                                                  AS vendor_id,
+				    COALESCE(NULLIF(TRIM(pe.vendor), ''), '(unknown vendor)')                 AS vendor_name,
+				    ROUND(SUM(ABS(pe.bank_total))::numeric, 2)                                AS total_excl_tax,
+				    ROUND(SUM(ABS(pe.bank_total))::numeric, 2)                                AS total_incl_tax,
+				    COUNT(*)                                                                  AS trip_count
+				FROM pending_eligible pe
+				WHERE NOT EXISTS (
+				    SELECT 1 FROM vendors v
+				    WHERE LOWER(TRIM(v.name)) = LOWER(TRIM(pe.vendor))
+				)
+				GROUP BY pe.vendor
+			)
+			SELECT vendor_id, vendor_name,
+			       SUM(total_excl_tax)  AS total_excl_tax,
+			       SUM(total_incl_tax)  AS total_incl_tax,
+			       SUM(trip_count)::int AS trip_count
+			FROM (
+			    SELECT vendor_id, vendor_name, total_excl_tax, total_incl_tax, trip_count FROM confirmed
+			    UNION ALL
+			    SELECT vendor_id, vendor_name, total_excl_tax, total_incl_tax, trip_count FROM pending_matched
+			    UNION ALL
+			    SELECT vendor_id, vendor_name, total_excl_tax, total_incl_tax, trip_count FROM pending_unmatched
+			) combined
+			GROUP BY vendor_id, vendor_name
+			ORDER BY total_excl_tax DESC, vendor_name ASC`, fromStr, toStr, cogsAllowlist)
+		if err != nil {
+			slog.Error("PeriodSummary by-vendor query failed", "error", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		defer rowsV.Close()
+		for rowsV.Next() {
+			var v VendorCOGS
+			if err := rowsV.Scan(&v.VendorID, &v.VendorName, &v.TotalExclTax, &v.TotalInclTax, &v.TripCount); err != nil {
+				slog.Error("PeriodSummary by-vendor scan failed", "error", err)
+				writeError(w, http.StatusInternalServerError, "internal_error")
+				return
+			}
+			byVendor = append(byVendor, v)
+		}
+		if err := rowsV.Err(); err != nil {
+			slog.Error("PeriodSummary by-vendor rows iteration failed", "error", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+
+		// 3) Pending review IDs — only *blocking* pending rows: receipts whose
+		//    business date falls in the period, have not been confirmed or
+		//    discarded, are COGS-category (mercury_category in allowlist),
+		//    AND have no attached receipt (reason = 'no_attachment_on_bank_tx').
+		//    Non-blocking pending (food + parse-failed, non-food, NULL category)
+		//    are intentionally excluded — they don't block payroll. They still
+		//    surface in the operator's Inventory UI via ListPendingPurchasesHandler.
+		//    Date filter on COALESCE(event_date, created_at::Chicago::date):
+		//    event_date wins because it reflects when the purchase actually
+		//    happened (the receipt worker's 14-day lookback can ingest May
+		//    receipts in June); created_at is the fallback for rows where
+		//    event_date was not extracted. Chicago cast matches repurchase.go:71.
+		pendingIDs := []string{}
+		pendingDetails := []PendingReviewDetail{}
+		rows, err := pool.Query(r.Context(), `
+			SELECT id::text,
+			       bank_tx_id,
+			       COALESCE(vendor, '') AS vendor,
+			       COALESCE(event_date, (created_at AT TIME ZONE 'America/Chicago')::date)::text AS event_date,
+			       bank_total,
+			       reason
+			FROM pending_purchases
+			WHERE COALESCE(event_date, (created_at AT TIME ZONE 'America/Chicago')::date) BETWEEN $1 AND $2
+			  AND confirmed_at IS NULL
+			  AND discarded_at IS NULL
+			  AND mercury_category = ANY($3)
+			  AND reason = 'no_attachment_on_bank_tx'
+			ORDER BY COALESCE(event_date, (created_at AT TIME ZONE 'America/Chicago')::date), created_at`, fromStr, toStr, cogsAllowlist)
+		if err != nil {
+			slog.Error("PeriodSummary pending query failed", "error", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var d PendingReviewDetail
+			if err := rows.Scan(&d.ID, &d.BankTxID, &d.Vendor, &d.EventDate, &d.BankTotal, &d.Reason); err != nil {
+				slog.Error("PeriodSummary pending scan failed", "error", err)
+				writeError(w, http.StatusInternalServerError, "internal_error")
+				return
+			}
+			pendingIDs = append(pendingIDs, d.ID)
+			pendingDetails = append(pendingDetails, d)
+		}
+		if err := rows.Err(); err != nil {
+			slog.Error("PeriodSummary pending rows iteration failed", "error", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+
+		// 3b) Tracked bank_tx_ids — every bank_tx_id HQ has touched for
+		//     the period, across all states (confirmed in purchase_events,
+		//     pending/confirmed/discarded in pending_purchases). Consumers
+		//     diff this against Mercury's own transaction list for the
+		//     same period to detect "Mercury has it, HQ hasn't ingested it
+		//     yet" gaps. UNION (not UNION ALL) collapses the confirm path
+		//     where a bank_tx_id appears in both tables. No mercury_category
+		//     filter — this list is for completeness detection, not COGS
+		//     aggregation. Date filter on the pending half mirrors step 3
+		//     so both queries decide period membership the same way.
+		trackedTxIDs := []string{}
+		rowsT, err := pool.Query(r.Context(), `
+			SELECT DISTINCT bank_tx_id
+			FROM (
+				SELECT bank_tx_id
+				FROM purchase_events
+				WHERE event_date BETWEEN $1 AND $2
+
+				UNION
+
+				SELECT bank_tx_id
+				FROM pending_purchases
+				WHERE COALESCE(event_date, (created_at AT TIME ZONE 'America/Chicago')::date) BETWEEN $1 AND $2
+			) AS tracked
+			ORDER BY bank_tx_id ASC`, fromStr, toStr)
+		if err != nil {
+			slog.Error("PeriodSummary tracked-tx-ids query failed", "error", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		defer rowsT.Close()
+		for rowsT.Next() {
+			var id string
+			if err := rowsT.Scan(&id); err != nil {
+				slog.Error("PeriodSummary tracked-tx-ids scan failed", "error", err)
+				writeError(w, http.StatusInternalServerError, "internal_error")
+				return
+			}
+			trackedTxIDs = append(trackedTxIDs, id)
+		}
+		if err := rowsT.Err(); err != nil {
+			slog.Error("PeriodSummary tracked-tx-ids rows iteration failed", "error", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+
+		// 4) Unlinked line items in confirmed events within range. A line item
+		//    is "unlinked" when purchase_item_id IS NULL — i.e. the receipt was
+		//    confirmed but the description never got mapped to a catalog item.
+		unlinkedIDs := []string{}
+		rows2, err := pool.Query(r.Context(), `
+			SELECT pli.id::text
+			FROM purchase_line_items pli
+			JOIN purchase_events pe ON pe.id = pli.purchase_event_id
+			WHERE pe.event_date BETWEEN $1 AND $2
+			  AND pli.purchase_item_id IS NULL
+			ORDER BY pli.id`, fromStr, toStr)
+		if err != nil {
+			slog.Error("PeriodSummary unlinked query failed", "error", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		defer rows2.Close()
+		for rows2.Next() {
+			var id string
+			if err := rows2.Scan(&id); err != nil {
+				slog.Error("PeriodSummary unlinked scan failed", "error", err)
+				writeError(w, http.StatusInternalServerError, "internal_error")
+				return
+			}
+			unlinkedIDs = append(unlinkedIDs, id)
+		}
+		if err := rows2.Err(); err != nil {
+			slog.Error("PeriodSummary unlinked rows iteration failed", "error", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+
+		resp := PeriodSummary{
+			From:               fromStr,
+			To:                 toStr,
+			COGSExclTax:        cogsExcl,
+			COGSInclTax:        cogsIncl,
+			PurchaseEventCount: eventCount,
+			ByVendor:           byVendor,
+			TrackedBankTxIDs:   trackedTxIDs,
+			Completeness: CompletenessBlock{
+				Ready:                len(pendingIDs) == 0 && len(unlinkedIDs) == 0,
+				PendingReviewIDs:     pendingIDs,
+				PendingReviewDetails: pendingDetails,
+				UnlinkedLineItemIDs:  unlinkedIDs,
+			},
+		}
+		writeJSON(w, http.StatusOK, resp)
 	}
 }

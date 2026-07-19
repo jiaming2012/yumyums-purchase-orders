@@ -1,0 +1,15 @@
+# Example test-user fixture (scaffolded by `night-crew init`).
+#
+# Copy this file to NN-<persona>.toml (e.g. 01-owner.toml), fill in the fields,
+# and leave this .sample in place — the test-user loader reads only *.toml, so a
+# forgotten example can never break a run by decoding to an empty persona.
+#
+# Fixtures load in lexical filename order, so prefix with NN- when one persona's
+# seed depends on another's already existing.
+#
+#   name: the persona's identity (must be unique across fixtures).
+#   seed: a shell command run in the repo root with $NIGHTCREW_ENV_URL exported,
+#         that provisions this persona into the freshly created environment.
+#
+# name = "owner"
+# seed = "curl -fsS -X POST $NIGHTCREW_ENV_URL/test/seed-user -d role=owner"

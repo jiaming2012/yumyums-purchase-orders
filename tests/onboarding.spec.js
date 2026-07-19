@@ -130,25 +130,35 @@ test.describe('My Trainings tab', () => {
       if (!res.ok) return null;
       return res.json();
     });
-    const templates = await obApiCall(page, 'GET', 'templates');
-    const kitchenTemplate = templates.find(t => t.name === 'Kitchen Basics Training');
-    expect(kitchenTemplate).toBeTruthy();
-
-    const fullTemplate = await obApiCall(page, 'GET', 'templates/' + kitchenTemplate.id);
-
-    // Assign template to current user (idempotent)
+    // Seed a dedicated template so the active checkbox section is deterministic
+    // (no dependency on shared-seed sign-off state — the former test guard-returned
+    // when Kitchen Basics had all sections signed off from prior tests).
+    const titleTag = 'Persist Section ' + Date.now();
+    const tpl = await obApiCall(page, 'POST', 'createTemplate', {
+      name: 'Checkbox Persist ' + Date.now(),
+      roles: [],
+      sections: [{
+        title: titleTag, sort_order: 0,
+        requires_sign_off: false, sign_off_roles: [], is_faq: false,
+        // Multiple items so toggling ONE never completes the section (a complete
+        // section goes read-only and drops the toggle-item affordance).
+        items: [
+          { type: 'checkbox', label: 'Persisted task', sort_order: 0, sub_items: [] },
+          { type: 'checkbox', label: 'Second task', sort_order: 1, sub_items: [] },
+          { type: 'checkbox', label: 'Third task', sort_order: 2, sub_items: [] },
+        ],
+      }],
+    });
+    expect(tpl && tpl.id, 'createTemplate must return an id').toBeTruthy();
     await obApiCall(page, 'POST', 'assignTemplate', {
       hire_id: me.id,
-      template_id: kitchenTemplate.id,
+      template_id: tpl.id,
     });
 
-    // Get current training state to find an active section (resilient to prior sign-offs)
-    const trainingState = await obApiCall(page, 'GET', 'hireTraining/' + me.id + '?templateId=' + kitchenTemplate.id);
+    // The first section of a freshly-assigned template is always active.
+    const trainingState = await obApiCall(page, 'GET', 'hireTraining/' + me.id + '?templateId=' + tpl.id);
     const activeSection = trainingState.sections.find(s => s.state === 'active' && !s.is_faq && s.items && s.items.some(i => i.type === 'checkbox'));
-    if (!activeSection) {
-      // All sections are signed_off or locked — cannot test toggle, skip
-      return;
-    }
+    expect(activeSection, 'seeded template must expose an active checkbox section').toBeTruthy();
     const testItem = activeSection.items.find(i => i.type === 'checkbox');
     expect(testItem).toBeTruthy();
 
@@ -161,7 +171,7 @@ test.describe('My Trainings tab', () => {
 
     await page.goto('/onboarding.html');
     await waitForMyList(page);
-    await page.locator('[data-action="open-my-training"]').first().click();
+    await page.locator(`[data-action="open-my-training"][data-template-id="${tpl.id}"]`).click();
     await waitForTrainingRunner(page);
 
     // Find and expand the active section by its title
@@ -178,7 +188,7 @@ test.describe('My Trainings tab', () => {
 
     await page.goto('/onboarding.html');
     await waitForMyList(page);
-    await page.locator('[data-action="open-my-training"]').first().click();
+    await page.locator(`[data-action="open-my-training"][data-template-id="${tpl.id}"]`).click();
     await waitForTrainingRunner(page);
 
     // Expand the active section again
@@ -191,17 +201,22 @@ test.describe('My Trainings tab', () => {
     await expect(toggleItem).toHaveClass(/checked/);
 
     // Wait for save
-    await page.waitForResponse(res => res.url().includes('/saveProgress'));
+    // Let the autosave POST flush (the .ob-check.checked assertion above already
+    // proved the toggle applied optimistically; the real persistence proof is the
+    // post-reload assertion below).
+    await page.waitForTimeout(1500);
 
     // Reload and verify it persists
     await page.goto('/onboarding.html');
     await waitForMyList(page);
-    await page.locator('[data-action="open-my-training"]').first().click();
+    await page.locator(`[data-action="open-my-training"][data-template-id="${tpl.id}"]`).click();
     await waitForTrainingRunner(page);
     const activeSectionHeader3 = page.locator('#my-body .sec-header').filter({ hasText: activeSection.title }).first();
     await activeSectionHeader3.click();
 
     await expect(page.locator('#my-body .ob-check.checked').first()).toBeVisible();
+
+    await obApiCall(page, 'DELETE', 'deleteTemplate/' + tpl.id);
   });
 
   test('video part watched state persists after page reload', async ({ page }) => {
@@ -211,15 +226,26 @@ test.describe('My Trainings tab', () => {
       if (!res.ok) return null;
       return res.json();
     });
-    const templates = await obApiCall(page, 'GET', 'templates');
-    const kitchenTemplate = templates.find(t => t.name === 'Kitchen Basics Training');
-    expect(kitchenTemplate).toBeTruthy();
+    // Seed a dedicated template whose video series lives in the FIRST section, so
+    // it is always active (unlocked) — the former test wrapped its watched-marker
+    // assertion in an if/else that degraded to a no-op check whenever the shared
+    // seed's Equipment Training section was locked.
+    const secTitle = 'Watch First ' + Date.now();
+    const tpl = await obApiCall(page, 'POST', 'createTemplate', {
+      name: 'Video Watched Persist ' + Date.now(),
+      roles: [],
+      sections: [{ title: secTitle, sort_order: 0, requires_sign_off: false, sign_off_roles: [], is_faq: false, items: [
+        { type: 'video_series', label: 'Training Videos', sort_order: 0, video_parts: [
+          { title: 'Intro Video', description: 'Welcome', url: 'https://example.com/test-video.mp4', sort_order: 0 }
+        ]}
+      ]}]
+    });
+    expect(tpl && tpl.id, 'createTemplate must return an id').toBeTruthy();
 
-    // Get full template to find the video series parts in Equipment Training
-    const fullTemplate = await obApiCall(page, 'GET', 'templates/' + kitchenTemplate.id);
-    const sec2 = fullTemplate.sections.find(s => s.title === 'Equipment Training');
-    expect(sec2).toBeTruthy();
-    const videoSeries = sec2.items.find(i => i.type === 'video_series');
+    const fullTemplate = await obApiCall(page, 'GET', 'templates/' + tpl.id);
+    const sec = fullTemplate.sections.find(s => s.title === secTitle);
+    expect(sec).toBeTruthy();
+    const videoSeries = sec.items.find(i => i.type === 'video_series');
     expect(videoSeries).toBeTruthy();
     const firstPart = videoSeries.video_parts[0];
     expect(firstPart).toBeTruthy();
@@ -227,7 +253,7 @@ test.describe('My Trainings tab', () => {
     // Assign template
     await obApiCall(page, 'POST', 'assignTemplate', {
       hire_id: me.id,
-      template_id: kitchenTemplate.id,
+      template_id: tpl.id,
     });
 
     // Set video part as watched via API
@@ -240,23 +266,18 @@ test.describe('My Trainings tab', () => {
     // Navigate to training
     await page.goto('/onboarding.html');
     await waitForMyList(page);
-    await page.locator('[data-action="open-my-training"]').first().click();
+    await page.locator(`[data-action="open-my-training"][data-template-id="${tpl.id}"]`).click();
     await waitForTrainingRunner(page);
 
-    // Expand section 2 (Equipment Training) — should be accessible
-    // (server only locks based on complete state, not partial)
-    const sections = page.locator('#my-body .sec-header');
-    const sec2Header = sections.filter({ hasText: 'Equipment Training' });
-    if (await sec2Header.count() > 0 && !(await sec2Header.first().getAttribute('class')).includes('locked')) {
-      await sec2Header.first().click();
+    // Expand the first section (always active/unlocked) and assert the watched
+    // marker persisted. Video parts have no checkbox — a watched part surfaces
+    // as a .watched class on its play affordance.
+    const secHeader = page.locator('#my-body .sec-header').filter({ hasText: secTitle }).first();
+    await secHeader.click();
+    await expect(page.locator('#my-body [data-action="play-video"].watched').first())
+      .toBeVisible({ timeout: 5000 });
 
-      // Video part should show as checked
-      const checkedPart = page.locator('#my-body .ob-check.checked').first();
-      await expect(checkedPart).toBeVisible({ timeout: 5000 });
-    } else {
-      // Section 2 is locked (sec1 not complete) — verify via training card that progress is counted
-      await expect(page.locator('[data-action="open-my-training"]').first()).toBeVisible();
-    }
+    await obApiCall(page, 'DELETE', 'deleteTemplate/' + tpl.id);
   });
 
   test('section unlocks after completing all items in previous section', async ({ page }) => {
@@ -293,7 +314,7 @@ test.describe('My Trainings tab', () => {
     await waitForMyList(page);
 
     // Open the training
-    await page.locator('[data-action="open-my-training"]').first().click();
+    await page.locator(`[data-action="open-my-training"][data-template-id="${kitchenTemplate.id}"]`).click();
     await waitForTrainingRunner(page);
 
     // After completing section 1, section 2 should be unlocked
@@ -358,9 +379,10 @@ test.describe('My Trainings tab', () => {
     // Play button should be visible (either thumbnail wrap or fallback play button)
     await expect(page.locator('#my-body [data-action="play-video"]')).toBeVisible();
 
-    // Checkbox should be disabled (can't manually toggle video parts)
-    const checkbox = page.locator('#my-body input[type="checkbox"]').first();
-    await expect(checkbox).toBeDisabled();
+    // Video parts have NO manual checkbox — completion happens by watching the
+    // video (commit 1ec8725 redesigned video parts to drop the checkbox). The
+    // play affordance is the only way to mark a part complete.
+    await expect(page.locator('#my-body input[type="checkbox"]')).toHaveCount(0);
   });
 
   test('video modal close button dismisses the player', async ({ page }) => {
@@ -570,7 +592,7 @@ test.describe('My Trainings tab', () => {
     await waitForMyList(page);
 
     // Open training
-    await page.locator('[data-action="open-my-training"]').first().click();
+    await page.locator(`[data-action="open-my-training"][data-template-id="${kitchenTemplate.id}"]`).click();
     await waitForTrainingRunner(page);
 
     // FAQ section should be visible and not locked
@@ -605,6 +627,18 @@ test.describe('Manager tab', () => {
     expect(inviteResult.user).toBeTruthy();
     const hireId = inviteResult.user.id;
 
+    // Accept the invite so the hire becomes status='active' — managerHires only
+    // surfaces active users. accept-invite hijacks the session, so re-login as admin.
+    const token = inviteResult.invite_path.split('token=')[1];
+    await page.evaluate(async (t) => {
+      await fetch('/api/v1/auth/accept-invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: t, password: 'test456' }),
+      });
+    }, token);
+    await login(page);
+
     // Assign Kitchen Basics template to the hire
     const templates = await obApiCall(page, 'GET', 'templates');
     const kitchenTemplate = templates.find(t => t.name === 'Kitchen Basics Training');
@@ -627,122 +661,88 @@ test.describe('Manager tab', () => {
 
   test('sign-off form requires readiness rating (notes optional)', async ({ page }) => {
     await login(page);
-
-    const templates = await obApiCall(page, 'GET', 'templates');
-    const kitchenTemplate = templates.find(t => t.name === 'Kitchen Basics Training');
-    const fullTemplate = await obApiCall(page, 'GET', 'templates/' + kitchenTemplate.id);
-    const sec1 = fullTemplate.sections.find(s => s.title === 'Safety & Hygiene');
-
-    // Use a fresh hired user so sign-off doesn't pollute admin state
-    const inviteResult = await usersApiCall(page, 'POST', 'invite', {
-      first_name: 'SignOff',
-      last_name: 'TestUser',
-      email: 'signoff.test.' + Date.now() + '@yumyums.kitchen',
-      roles: ['team_member'],
-    });
-    expect(inviteResult.user).toBeTruthy();
-    const hireId = inviteResult.user.id;
-
-    // Assign template to fresh hire
-    await obApiCall(page, 'POST', 'assignTemplate', {
-      hire_id: hireId,
-      template_id: kitchenTemplate.id,
-    });
-
-    // Complete section 1 items for the hire via API
-    for (const item of sec1.items) {
-      if (item.type === 'checkbox') {
-        await page.evaluate(async ([itemId]) => {
-          const res = await fetch('/api/v1/onboarding/saveProgressForHire', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ item_id: itemId, progress_type: 'item', checked: true }),
-          });
-          return res.ok;
-        }, [item.id]);
-      }
-    }
-
-    // Since we can't log in as the hire to save progress, use API directly with admin session
-    // The saveProgress endpoint saves for the current user. Use assignTemplate + direct DB setup.
-    // Workaround: get admin to save progress on behalf of hire via the hireTraining mechanism.
-    // Actually, we just need section 1 complete. Use admin's own progress for this test:
     const me = await page.evaluate(async () => {
       const res = await fetch('/api/v1/me');
       if (!res.ok) return null;
       return res.json();
     });
 
-    // Reassign template to admin so admin can complete the section
-    await obApiCall(page, 'POST', 'assignTemplate', {
-      hire_id: me.id,
-      template_id: kitchenTemplate.id,
+    // Seed a dedicated template with one sign-off section and complete it for the
+    // admin-as-hire, so the sign-off button DETERMINISTICALLY appears in the
+    // Manager tab. The former test wrapped every assertion in
+    // `if (signOffBtn.isVisible())` behind a `hireCardCount === 0` guard-return,
+    // so it asserted nothing whenever the shared Kitchen Basics section wasn't
+    // complete for a discovered hire card.
+    const secTitle = 'Readiness Section ' + Date.now();
+    const tpl = await obApiCall(page, 'POST', 'createTemplate', {
+      name: 'Readiness Signoff ' + Date.now(),
+      roles: [],
+      sections: [{
+        title: secTitle, sort_order: 0, requires_sign_off: true,
+        sign_off_roles: ['admin', 'manager', 'superadmin'], is_faq: false,
+        items: [
+          { type: 'checkbox', label: 'Task A', sort_order: 0, sub_items: [] },
+          { type: 'checkbox', label: 'Task B', sort_order: 1, sub_items: [] },
+        ],
+      }],
     });
-    for (const item of sec1.items) {
-      if (item.type === 'checkbox') {
-        await obApiCall(page, 'POST', 'saveProgress', {
-          item_id: item.id,
-          progress_type: 'item',
-          checked: true,
-        });
-      }
+    expect(tpl && tpl.id, 'createTemplate must return an id').toBeTruthy();
+    await obApiCall(page, 'POST', 'assignTemplate', { hire_id: me.id, template_id: tpl.id });
+
+    const full = await obApiCall(page, 'GET', 'templates/' + tpl.id);
+    for (const item of full.sections[0].items) {
+      await obApiCall(page, 'POST', 'saveProgress', { item_id: item.id, progress_type: 'item', checked: true });
     }
 
-    // Navigate to Manager tab
+    // Navigate to Manager tab and open the admin-as-hire card + this template's training.
     await page.goto('/onboarding.html');
     await waitForManagerTab(page);
     await page.click('#t2');
     await waitForManagerList(page);
 
-    // Find the hire card by name and click it
-    const hireCard = page.locator('#mgr-body .card').filter({ hasText: 'SignOff' }).first();
-    const hireCardCount = await hireCard.count();
-    if (hireCardCount === 0) {
-      // Section not complete yet for the hire — skip signoff form assertions
-      return;
+    // A single complete-but-unsigned section keeps the hire in Active; fall back
+    // to Completed defensively (still deterministic — the card must exist).
+    const hireSel = '#mgr-body [data-action="open-hire"][data-hire-id="' + me.id + '"]';
+    if (await page.locator(hireSel).count() === 0) {
+      await page.click('.sub-tabs button:has-text("Completed")');
+      await page.waitForTimeout(300);
     }
+    await page.locator(hireSel).first().waitFor({ state: 'visible' });
+    await page.locator(hireSel).first().click();
+    await page.waitForTimeout(500);
 
-    // Click any hire card that leads to a training with a complete section
-    const hireCards = page.locator('#mgr-body .card');
-    await hireCards.first().click();
-    await page.waitForFunction(() => {
-      const body = document.getElementById('mgr-body');
-      return body && body.querySelector('.sec-header');
-    });
+    const viewBtn = page.locator('[data-action="view-training"][data-template-id="' + tpl.id + '"]').first();
+    await viewBtn.waitFor({ state: 'visible' });
+    await viewBtn.click();
+    await page.waitForTimeout(500);
 
-    // Look for a Sign Off button — appears when section is complete and requires_sign_off
-    // Expand all sections to find one with a sign-off button
-    const secHeaders = page.locator('#mgr-body .sec-header');
-    const headerCount = await secHeaders.count();
-    for (let i = 0; i < headerCount; i++) {
-      await secHeaders.nth(i).click();
-    }
+    // Expand the section and assert the sign-off button appears (section complete
+    // + requires_sign_off + admin holds the role) — no longer conditional.
+    const secHeader = page.locator('#mgr-body .sec-header').filter({ hasText: secTitle }).first();
+    await secHeader.click();
 
     const signOffBtn = page.locator('#mgr-body [data-action="show-signoff-form"]').first();
-    if (await signOffBtn.isVisible({ timeout: 3000 })) {
-      await signOffBtn.click();
+    await expect(signOffBtn).toBeVisible({ timeout: 5000 });
+    await signOffBtn.click();
 
-      // Sign-off form should be visible
-      const signOffForm = page.locator('#mgr-body .signoff-form').first();
-      await expect(signOffForm).toBeVisible();
+    // Sign-off form should be visible
+    const signOffForm = page.locator('#mgr-body .signoff-form').first();
+    await expect(signOffForm).toBeVisible();
+    const confirmBtn = page.locator('#mgr-body [data-action="confirm-signoff"]').first();
+    await expect(confirmBtn).toBeVisible();
 
-      // Confirm button should be visible and clickable (not disabled)
-      const confirmBtn = page.locator('#mgr-body [data-action="confirm-signoff"]').first();
-      await expect(confirmBtn).toBeVisible();
+    // Confirm without selecting rating — readiness-required error must show.
+    await confirmBtn.click();
+    await page.waitForTimeout(500);
+    await expect(page.locator('.signoff-form')).toContainText('Readiness is required');
 
-      // Click Confirm without selecting rating — should show error
-      await confirmBtn.click();
-      await page.waitForTimeout(500);
-      await expect(page.locator('.signoff-form')).toContainText('Readiness is required');
+    // Select rating — error clears and confirm signs off the section.
+    await page.locator('#mgr-body .rating-btn').first().click();
+    await confirmBtn.click();
+    await page.waitForTimeout(2000);
+    await expect(page.locator('#mgr-body')).toContainText('Signed Off');
 
-      // Select rating — error should clear and confirm should work
-      await page.locator('#mgr-body .rating-btn').first().click();
-      await confirmBtn.click();
-      await page.waitForTimeout(2000);
-
-      // Section should now show "Signed Off" status
-      await expect(page.locator('#mgr-body')).toContainText('Signed Off');
-    }
+    await obApiCall(page, 'DELETE', 'deleteTemplate/' + tpl.id);
   });
 
   test('signed-off section shows "By {manager} @ {datetime}" attribution', async ({ page }) => {
@@ -787,58 +787,67 @@ test.describe('Manager tab', () => {
 
   test('video part progress persists after page reload', async ({ page }) => {
     await login(page);
-    const templates = await obApiCall(page, 'GET', 'templates');
-    const kitchenTemplate = templates.find(t => t.name === 'Kitchen Basics Training');
     const me = await page.evaluate(async () => (await (await fetch('/api/v1/me')).json()));
 
-    await obApiCall(page, 'POST', 'assignTemplate', { hire_id: me.id, template_id: kitchenTemplate.id });
+    // Seed a two-section template: section 1 is a sign-off gate, section 2 (a
+    // checkbox section) unlocks only after section 1 is signed off. The former
+    // test relied on the shared Kitchen Basics EQUIPMENT section rendering an
+    // .ob-check (video parts actually render as .video-thumb-wrap, so it was
+    // really a checkbox item) and wrapped its persistence assertion in
+    // `if (count > 0)`, asserting nothing when that section had no checkbox item.
+    const sec1Title = 'Gate Section ' + Date.now();
+    const sec2Title = 'Unlocked Section ' + Date.now();
+    const tpl = await obApiCall(page, 'POST', 'createTemplate', {
+      name: 'Unlock Persist ' + Date.now(),
+      roles: [],
+      sections: [
+        { title: sec1Title, sort_order: 0, requires_sign_off: true, sign_off_roles: ['admin', 'manager', 'superadmin'], is_faq: false,
+          items: [{ type: 'checkbox', label: 'Gate task', sort_order: 0, sub_items: [] }] },
+        { title: sec2Title, sort_order: 1, requires_sign_off: false, sign_off_roles: [], is_faq: false,
+          // Multiple items so toggling ONE keeps the section active (interactive).
+          items: [
+            { type: 'checkbox', label: 'Unlocked task', sort_order: 0, sub_items: [] },
+            { type: 'checkbox', label: 'Unlocked task 2', sort_order: 1, sub_items: [] },
+          ] },
+      ],
+    });
+    expect(tpl && tpl.id, 'createTemplate must return an id').toBeTruthy();
+    await obApiCall(page, 'POST', 'assignTemplate', { hire_id: me.id, template_id: tpl.id });
 
-    // Navigate to training, expand Equipment Training section, check a video part
-    await page.goto('/onboarding.html');
-    await page.waitForFunction(() => document.getElementById('my-body') && document.getElementById('my-body').querySelector('.card'));
-    await page.locator('#my-body .card', { hasText: 'Kitchen Basics' }).first().click();
-    await page.waitForSelector('.sec-header');
-
-    // Complete section 1 first (Safety & Hygiene) so section 2 unlocks
-    const fullTemplate = await obApiCall(page, 'GET', 'templates/' + kitchenTemplate.id);
-    const sec1 = fullTemplate.sections.find(s => s.title === 'Safety & Hygiene');
+    // Complete + sign off section 1 so section 2 unlocks.
+    const full = await obApiCall(page, 'GET', 'templates/' + tpl.id);
+    const sec1 = full.sections.find(s => s.title === sec1Title);
     for (const item of sec1.items) {
-      if (item.type === 'checkbox') {
-        await obApiCall(page, 'POST', 'saveProgress', { item_id: item.id, progress_type: 'item', checked: true });
-      }
+      await obApiCall(page, 'POST', 'saveProgress', { item_id: item.id, progress_type: 'item', checked: true });
     }
-    // Sign off section 1 so section 2 unlocks
     await obApiCall(page, 'POST', 'signOff', { section_id: sec1.id, hire_id: me.id, notes: '', rating: 'ready' });
 
-    // Reload to see updated section states
+    // Open the training, expand the now-unlocked section 2, check its item via UI.
     await page.goto('/onboarding.html');
     await page.waitForFunction(() => document.getElementById('my-body') && document.getElementById('my-body').querySelector('.card'));
-    await page.locator('#my-body .card', { hasText: 'Kitchen Basics' }).first().click();
+    await page.locator(`[data-action="open-my-training"][data-template-id="${tpl.id}"]`).first().click();
     await page.waitForSelector('.sec-header');
+    const sec2Header = page.locator('#my-body .sec-header').filter({ hasText: sec2Title }).first();
+    await sec2Header.click();
+    await page.waitForTimeout(300);
 
-    // Find Equipment Training section (section 2) and expand it
-    const eqHeader = page.locator('.sec-header', { hasText: 'EQUIPMENT' });
-    await eqHeader.click();
-    await page.waitForTimeout(500);
+    const check = page.locator('#my-body [data-action="toggle-item"]').first();
+    await check.click();
+    await expect(page.locator('#my-body .ob-check.checked').first()).toBeVisible({ timeout: 5000 });
+    // Let the autosave POST flush (the .ob-check.checked assertion above already
+    // proved the toggle applied optimistically; the real persistence proof is the
+    // post-reload assertion below).
+    await page.waitForTimeout(1500);
 
-    // Check the first video part checkbox
-    const videoCheck = page.locator('.ob-check').first();
-    if (await videoCheck.count() > 0) {
-      await videoCheck.click();
-      await page.waitForTimeout(2000); // wait for save
+    // Reload and verify persistence.
+    await page.goto('/onboarding.html');
+    await page.waitForFunction(() => document.getElementById('my-body') && document.getElementById('my-body').querySelector('.card'));
+    await page.locator(`[data-action="open-my-training"][data-template-id="${tpl.id}"]`).first().click();
+    await page.waitForSelector('.sec-header');
+    await page.locator('#my-body .sec-header').filter({ hasText: sec2Title }).first().click();
+    await expect(page.locator('#my-body .ob-check.checked').first()).toBeVisible();
 
-      // Reload and reopen
-      await page.goto('/onboarding.html');
-      await page.waitForFunction(() => document.getElementById('my-body') && document.getElementById('my-body').querySelector('.card'));
-      await page.locator('#my-body .card', { hasText: 'Kitchen Basics' }).first().click();
-      await page.waitForSelector('.sec-header');
-      await page.locator('.sec-header', { hasText: 'EQUIPMENT' }).click();
-      await page.waitForTimeout(500);
-
-      // Video part should still be checked
-      const checkedParts = await page.locator('.ob-check.checked').count();
-      expect(checkedParts).toBeGreaterThanOrEqual(1);
-    }
+    await obApiCall(page, 'DELETE', 'deleteTemplate/' + tpl.id);
   });
 
   test('completing a section unlocks next section and collapses completed one', async ({ page }) => {
@@ -982,44 +991,45 @@ test.describe('Manager tab', () => {
 
   test('sign-off succeeds with rating only (notes optional)', async ({ page }) => {
     await login(page);
-
-    const templates = await obApiCall(page, 'GET', 'templates');
-    const kitchenTemplate = templates.find(t => t.name === 'Kitchen Basics Training');
-    const fullTemplate = await obApiCall(page, 'GET', 'templates/' + kitchenTemplate.id);
-    // Find a section that requires sign-off and hasn't been signed off yet
-    const signOffSections = fullTemplate.sections.filter(s => s.requires_sign_off);
-    if (signOffSections.length < 2) return; // need at least 2 sign-off sections for this test
-
-    const sec2 = signOffSections[1]; // use second section (first may already be signed off)
     const me = await page.evaluate(async () => {
       const res = await fetch('/api/v1/me');
       return res.json();
     });
 
-    // Assign and complete all items in section 2
-    await obApiCall(page, 'POST', 'assignTemplate', {
-      hire_id: me.id,
-      template_id: kitchenTemplate.id,
+    // Seed a dedicated template with one sign-off section so the sign-off flow is
+    // deterministic. The former test guard-returned whenever Kitchen Basics had
+    // fewer than 2 sign-off sections available, asserting nothing.
+    const tpl = await obApiCall(page, 'POST', 'createTemplate', {
+      name: 'Rating Only Signoff ' + Date.now(),
+      roles: [],
+      sections: [{
+        title: 'Rating Only Section ' + Date.now(), sort_order: 0,
+        requires_sign_off: true, sign_off_roles: ['admin', 'manager', 'superadmin'], is_faq: false,
+        items: [
+          { type: 'checkbox', label: 'Task A', sort_order: 0, sub_items: [] },
+          { type: 'checkbox', label: 'Task B', sort_order: 1, sub_items: [] },
+        ],
+      }],
     });
-    for (const item of sec2.items) {
-      const ptype = item.type === 'video_series' ? 'video_part' : 'item';
-      if (item.type === 'video_series') {
-        for (const part of (item.video_parts || [])) {
-          await obApiCall(page, 'POST', 'saveProgress', { item_id: part.id, progress_type: 'video_part', checked: true });
-        }
-      } else if (item.type === 'checkbox') {
-        await obApiCall(page, 'POST', 'saveProgress', { item_id: item.id, progress_type: 'item', checked: true });
-      }
+    expect(tpl && tpl.id, 'createTemplate must return an id').toBeTruthy();
+    await obApiCall(page, 'POST', 'assignTemplate', { hire_id: me.id, template_id: tpl.id });
+
+    const full = await obApiCall(page, 'GET', 'templates/' + tpl.id);
+    const sec = full.sections[0];
+    for (const item of sec.items) {
+      await obApiCall(page, 'POST', 'saveProgress', { item_id: item.id, progress_type: 'item', checked: true });
     }
 
-    // Sign off via API with NO notes — should succeed (notes optional)
+    // Sign off via API with NO notes — should succeed (notes optional).
     const result = await obApiCall(page, 'POST', 'signOff', {
-      section_id: sec2.id,
+      section_id: sec.id,
       hire_id: me.id,
       notes: '',
       rating: 'ready',
     });
     expect(result.ok).toBeTruthy();
+
+    await obApiCall(page, 'DELETE', 'deleteTemplate/' + tpl.id);
   });
 
   test('sign-off via API rejects missing rating', async ({ page }) => {
@@ -1405,16 +1415,20 @@ test.describe('Sign-off role assignment', () => {
     page.once('dialog', async d => await d.accept('Test Section'));
     await page.locator('[data-action="add-ob-section"]').click();
 
-    // Sign-off role picker should NOT be visible before enabling sign-off
-    await expect(page.locator('.signoff-roles')).toHaveCount(0);
-
-    // Enable Require Sign-off toggle
-    await page.locator('[data-action="toggle-signoff"]').first().click();
-
-    // Sign-off role picker SHOULD now be visible with role chips
+    // New sections default to Require Sign-off ENABLED, so the role picker is
+    // visible immediately with role chips.
     await expect(page.locator('.signoff-roles')).toHaveCount(1);
     const chips = await page.locator('.signoff-roles .role-chip').count();
     expect(chips).toBeGreaterThanOrEqual(2); // at least admin + manager
+
+    // Disabling Require Sign-off hides the role picker...
+    await page.locator('[data-action="toggle-signoff"]').first().click();
+    await expect(page.locator('.signoff-roles')).toHaveCount(0);
+
+    // ...and re-enabling it brings the picker back with role chips.
+    await page.locator('[data-action="toggle-signoff"]').first().click();
+    await expect(page.locator('.signoff-roles')).toHaveCount(1);
+    expect(await page.locator('.signoff-roles .role-chip').count()).toBeGreaterThanOrEqual(2);
   });
 
   test('sign-off role picker disappears when sign-off is disabled', async ({ page }) => {
@@ -1430,8 +1444,7 @@ test.describe('Sign-off role assignment', () => {
     page.once('dialog', async d => await d.accept('Section'));
     await page.locator('[data-action="add-ob-section"]').click();
 
-    // Enable sign-off
-    await page.locator('[data-action="toggle-signoff"]').first().click();
+    // New sections default to sign-off ENABLED — the role picker is present.
     await expect(page.locator('.signoff-roles')).toHaveCount(1);
 
     // Disable sign-off
@@ -1454,8 +1467,16 @@ test.describe('Sign-off role assignment', () => {
     page.once('dialog', async d => await d.accept('Section'));
     await page.locator('[data-action="add-ob-section"]').click();
 
-    // Enable sign-off and select 'manager' role
-    await page.locator('[data-action="toggle-signoff"]').first().click();
+    // New sections default to sign-off ENABLED with admin+manager selected.
+    // Toggle off then on to clear the default role selection, giving a clean
+    // slate, then select only 'manager'.
+    await expect(page.locator('.signoff-roles')).toHaveCount(1);
+    await page.locator('[data-action="toggle-signoff"]').first().click(); // disable → clears roles
+    await expect(page.locator('.signoff-roles')).toHaveCount(0);
+    await page.locator('[data-action="toggle-signoff"]').first().click(); // re-enable → no roles selected
+    await expect(page.locator('.signoff-roles .role-chip.on')).toHaveCount(0);
+
+    // Select only 'manager'
     await page.locator('.signoff-roles .role-chip', { hasText: 'manager' }).click();
     await expect(page.locator('.signoff-roles .role-chip.on')).toHaveCount(1);
 
@@ -1650,14 +1671,15 @@ test.describe('Builder tab', () => {
     });
     await page.locator('[data-action="add-ob-section"]').click();
 
-    // Add a checkbox item to that section
+    // Add a checkbox item to that section — the button must be present after a
+    // section is added (the former test wrapped the item-add in an isVisible()
+    // guard, so it silently skipped adding the item and only asserted the name).
     const addCheckboxBtn = page.locator('[data-action="add-ob-item"][data-item-type="checkbox"]').first();
-    if (await addCheckboxBtn.isVisible({ timeout: 3000 })) {
-      await addCheckboxBtn.click();
-      // Fill in label
-      const labelInput = page.locator('[data-action="item-label-input"]').last();
-      await labelInput.fill('First checkbox item');
-    }
+    await expect(addCheckboxBtn).toBeVisible({ timeout: 3000 });
+    await addCheckboxBtn.click();
+    // Fill in label
+    const labelInput = page.locator('[data-action="item-label-input"]').last();
+    await labelInput.fill('First checkbox item');
 
     // Save the template
     await page.locator('[data-action="save-template"]').click();
@@ -1667,6 +1689,22 @@ test.describe('Builder tab', () => {
 
     // Template should appear in the list
     await expect(page.locator('#builder-body')).toContainText('E2E Test Template');
+
+    // And the saved template must actually contain the section + checkbox item
+    // added through the builder UI (proves the item-add persisted, not just the
+    // template name).
+    const templates = await obApiCall(page, 'GET', 'templates');
+    const created = templates.find(t => t.name === 'E2E Test Template');
+    expect(created, 'created template must be listed via API').toBeTruthy();
+    const fullCreated = await obApiCall(page, 'GET', 'templates/' + created.id);
+    const sec = fullCreated.sections.find(s => s.title === 'Test Section');
+    expect(sec, 'builder-added section must persist').toBeTruthy();
+    expect(
+      sec.items.some(i => i.type === 'checkbox' && i.label === 'First checkbox item'),
+      'builder-added checkbox item must persist'
+    ).toBe(true);
+
+    await obApiCall(page, 'DELETE', 'deleteTemplate/' + created.id);
   });
 
   test('sub-items persist after save and reopen', async ({ page }) => {
@@ -1740,7 +1778,7 @@ test.describe('Builder tab', () => {
       var tpl = obBuilderState.localCopy;
       var sec = tpl.sections[0];
       var item = sec.items[0];
-      var part = item.parts[0];
+      var part = item.video_parts[0];
       part._pendingFile = new File(['test'], 'test.mp4', { type: 'video/mp4' });
       part._pendingFileName = 'test.mp4';
       part._uploadError = true;
@@ -1784,7 +1822,7 @@ test.describe('Builder tab', () => {
 
     // Set up failed upload state
     await page.evaluate(() => {
-      var part = obBuilderState.localCopy.sections[0].items[0].parts[0];
+      var part = obBuilderState.localCopy.sections[0].items[0].video_parts[0];
       part._pendingFile = new File(['test'], 'original.mov', { type: 'video/quicktime' });
       part._pendingFileName = 'original.mov';
       part._uploadError = true;
@@ -1804,5 +1842,898 @@ test.describe('Builder tab', () => {
 
     // Filename should use the part title, not the original filename
     expect(download.suggestedFilename()).toBe('Grill-Pre-heat.mov');
+  });
+});
+
+// ─── Section completion with sub-items ──────────────────────────────────────
+
+test.describe('Section completion with sub-items', () => {
+  test('completing all sub-items marks section complete on My Trainings list', async ({ page }) => {
+    // Regression: sectionIncompleteItem SQL checked progress on parent item ID,
+    // but sub-item progress uses sub_item.id. Sections with sub-items could never
+    // appear complete in the list view.
+    await login(page);
+    const me = await page.evaluate(async () => {
+      const res = await fetch('/api/v1/me');
+      return res.json();
+    });
+
+    // Create a template with one section containing a checkbox with sub-items
+    const tpl = await obApiCall(page, 'POST', 'createTemplate', {
+      name: 'Sub-Item Completion Test',
+      roles: [],
+      sections: [{
+        title: 'Section With Subs',
+        sort_order: 0,
+        requires_sign_off: false,
+        sign_off_roles: [],
+        is_faq: false,
+        items: [{
+          type: 'checkbox',
+          label: 'Parent item',
+          sort_order: 0,
+          sub_items: [
+            { label: 'Sub A', sort_order: 0 },
+            { label: 'Sub B', sort_order: 1 },
+          ],
+        }],
+      }],
+    });
+
+    // Assign to self
+    await obApiCall(page, 'POST', 'assignTemplate', {
+      hire_id: me.id,
+      template_id: tpl.id,
+    });
+
+    // Get the template to find sub-item IDs
+    const full = await obApiCall(page, 'GET', 'templates/' + tpl.id);
+    const subs = full.sections[0].items[0].sub_items;
+    expect(subs.length).toBe(2);
+
+    // Complete both sub-items via API
+    for (const sub of subs) {
+      await obApiCall(page, 'POST', 'saveProgress', {
+        item_id: sub.id,
+        progress_type: 'sub_item',
+        checked: true,
+      });
+    }
+
+    // Load My Trainings and verify section count shows 1 of 1 complete
+    await page.goto('/onboarding.html');
+    await waitForMyList(page);
+
+    // Scope to #my-body — a roles:[] template also appears in the Builder list
+    // (#builder-body) card, so an unscoped .card matches two elements.
+    const card = page.locator('#my-body .card').filter({ hasText: 'Sub-Item Completion Test' });
+    await expect(card).toBeVisible();
+    await expect(card).toContainText('1 of 1 sections complete');
+
+    // Cleanup
+    await obApiCall(page, 'DELETE', 'deleteTemplate/' + tpl.id);
+  });
+
+  test('Manager tab shows correct completion for sub-item checkboxes', async ({ page }) => {
+    // Regression: same sectionIncompleteItem bug affected manager hires view
+    await login(page);
+    const me = await page.evaluate(async () => {
+      const res = await fetch('/api/v1/me');
+      return res.json();
+    });
+
+    const tpl = await obApiCall(page, 'POST', 'createTemplate', {
+      name: 'Manager Sub-Item Test',
+      roles: [],
+      sections: [{
+        title: 'Tasks With Subs',
+        sort_order: 0,
+        requires_sign_off: false,
+        sign_off_roles: [],
+        is_faq: false,
+        items: [{
+          type: 'checkbox',
+          label: 'Do the thing',
+          sort_order: 0,
+          sub_items: [
+            { label: 'Step 1', sort_order: 0 },
+            { label: 'Step 2', sort_order: 1 },
+          ],
+        }],
+      }],
+    });
+
+    await obApiCall(page, 'POST', 'assignTemplate', {
+      hire_id: me.id,
+      template_id: tpl.id,
+    });
+
+    const full = await obApiCall(page, 'GET', 'templates/' + tpl.id);
+    const subs = full.sections[0].items[0].sub_items;
+
+    // Complete all sub-items
+    for (const sub of subs) {
+      await obApiCall(page, 'POST', 'saveProgress', {
+        item_id: sub.id,
+        progress_type: 'sub_item',
+        checked: true,
+      });
+    }
+
+    // Check Manager tab
+    await page.goto('/onboarding.html');
+    await page.click('#t2');
+    await waitForManagerList(page);
+
+    // Target THIS hire's own card by hire id — other hires from earlier tests
+    // may sort ahead of it. The card lists every assigned template, so assert
+    // against this template's own progress line, not the whole card.
+    const hireCard = page.locator('#mgr-body [data-action="open-hire"][data-hire-id="' + me.id + '"]').first();
+    await expect(hireCard).toBeVisible();
+    const progressText = await hireCard.textContent();
+    // Sub-item completion must reflect as 100% (not 0%) for our template.
+    expect(progressText).toContain('Manager Sub-Item Test');
+    expect(progressText).toContain('Manager Sub-Item Test100%');
+    expect(progressText).not.toContain('Manager Sub-Item Test0%');
+
+    // Cleanup
+    await obApiCall(page, 'DELETE', 'deleteTemplate/' + tpl.id);
+  });
+
+  test('reference photo URL persists through template save and displays in training', async ({ page }) => {
+    // Regression: reference_photo_url on items must survive save/reload cycle
+    await login(page);
+    const me = await page.evaluate(async () => {
+      const res = await fetch('/api/v1/me');
+      return res.json();
+    });
+
+    const refUrl = 'https://example.com/test-reference.jpg';
+
+    const tpl = await obApiCall(page, 'POST', 'createTemplate', {
+      name: 'Ref Photo Test',
+      roles: [],
+      sections: [{
+        title: 'Photo Section',
+        sort_order: 0,
+        requires_sign_off: false,
+        sign_off_roles: [],
+        is_faq: false,
+        items: [{
+          type: 'checkbox',
+          label: 'Check with photo',
+          sort_order: 0,
+          reference_photo_url: refUrl,
+          require_proof_photo: true,
+          sub_items: [],
+        }],
+      }],
+    });
+
+    // Verify it persists by re-fetching the template
+    const full = await obApiCall(page, 'GET', 'templates/' + tpl.id);
+    expect(full.sections[0].items[0].reference_photo_url).toBe(refUrl);
+    expect(full.sections[0].items[0].require_proof_photo).toBe(true);
+
+    // Assign and check it appears in hire training API
+    await obApiCall(page, 'POST', 'assignTemplate', {
+      hire_id: me.id,
+      template_id: tpl.id,
+    });
+
+    const training = await obApiCall(page, 'GET', 'hireTraining/' + me.id + '?templateId=' + tpl.id);
+    const item = training.sections[0].items[0];
+    expect(item.reference_photo_url).toBe(refUrl);
+    expect(item.require_proof_photo).toBe(true);
+
+    // Load page and verify photo thumbnail renders
+    await page.goto('/onboarding.html');
+    await waitForMyList(page);
+    await page.locator('[data-action="open-my-training"]').filter({ hasText: 'Ref Photo Test' }).click();
+    await waitForTrainingRunner(page);
+
+    // Expand section
+    await page.locator('.sec-header').first().click();
+
+    // Photo thumbnail should be visible
+    await expect(page.locator('img.photo-thumb[src="' + refUrl + '"]')).toBeVisible();
+
+    // Proof photo button should be visible (require_proof_photo = true)
+    await expect(page.locator('[data-action="ob-photo-capture"]')).toBeVisible();
+
+    // Cleanup
+    await obApiCall(page, 'DELETE', 'deleteTemplate/' + tpl.id);
+  });
+});
+
+// ─── Reject and Unsubmit ────────────────────────────────────────────────────
+
+test.describe('Reject and unsubmit sections', () => {
+  // Helper: create a template with one sign-off section, assign, complete all items
+  async function setupCompletedSignoffSection(page) {
+    const me = await page.evaluate(async () => {
+      const res = await fetch('/api/v1/me');
+      return res.json();
+    });
+    const tpl = await obApiCall(page, 'POST', 'createTemplate', {
+      name: 'Reject Test ' + Date.now(),
+      roles: [],
+      sections: [{
+        title: 'Sign-off Section',
+        sort_order: 0,
+        requires_sign_off: true,
+        sign_off_roles: ['admin', 'manager'],
+        is_faq: false,
+        items: [{
+          type: 'checkbox',
+          label: 'Task A',
+          sort_order: 0,
+          require_proof_photo: true,
+          sub_items: [],
+        }, {
+          type: 'checkbox',
+          label: 'Task B',
+          sort_order: 1,
+          sub_items: [],
+        }],
+      }],
+    });
+    await obApiCall(page, 'POST', 'assignTemplate', {
+      hire_id: me.id,
+      template_id: tpl.id,
+    });
+    const full = await obApiCall(page, 'GET', 'templates/' + tpl.id);
+    // Complete both items
+    for (const item of full.sections[0].items) {
+      await obApiCall(page, 'POST', 'saveProgress', {
+        item_id: item.id,
+        progress_type: 'item',
+        checked: true,
+      });
+    }
+    return { me, tpl, full };
+  }
+
+  // Open a hire's detail card by hire id, searching the Active sub-tab first and
+  // the Completed sub-tab second. A hire lands in Completed when ALL their
+  // templates are 100% and signed off (e.g. a single signed-off section), so
+  // callers can't assume which sub-tab holds them.
+  async function openHireById(page, hireId) {
+    await page.click('#t2');
+    await waitForManagerList(page);
+    const sel = '#mgr-body [data-action="open-hire"][data-hire-id="' + hireId + '"]';
+    if (await page.locator(sel).count() === 0) {
+      // Not in Active — try Completed.
+      await page.click('.sub-tabs button:has-text("Completed")');
+      await page.waitForTimeout(300);
+    }
+    await page.locator(sel).first().waitFor({ state: 'visible' });
+    await page.locator(sel).first().click();
+    await page.waitForTimeout(500);
+  }
+
+  // From a hire detail view, open the training runner for a specific template id.
+  async function openTrainingByTemplateId(page, templateId) {
+    const viewBtn = page.locator('[data-action="view-training"][data-template-id="' + templateId + '"]').first();
+    await viewBtn.waitFor({ state: 'visible' });
+    await viewBtn.click();
+    await page.waitForTimeout(500);
+  }
+
+  test('crew can unsubmit a completed section and re-edit', async ({ page }) => {
+    await login(page);
+    const { me, tpl } = await setupCompletedSignoffSection(page);
+
+    // Verify section shows "Waiting for Sign-Off" with "Go Back & Edit" button.
+    // The card shows the template NAME, not its id — target the data attribute.
+    await page.goto('/onboarding.html');
+    await waitForMyList(page);
+    await page.locator('[data-action="open-my-training"][data-template-id="' + tpl.id + '"]').first().click();
+    await waitForTrainingRunner(page);
+
+    await expect(page.locator('#my-body .pill-warn')).toContainText('Waiting for Sign-Off');
+    const goBackBtn = page.locator('[data-action="reopen-section"]');
+    await expect(goBackBtn).toBeVisible();
+
+    // Accept the confirmation dialog
+    page.on('dialog', dialog => dialog.accept());
+    await goBackBtn.click();
+
+    // Section should now be active — items should be interactive
+    await page.waitForTimeout(500);
+    // The section should be expanded and show toggle-item buttons
+    await expect(page.locator('[data-action="toggle-item"]').first()).toBeVisible();
+
+    // Cleanup
+    await obApiCall(page, 'DELETE', 'deleteTemplate/' + tpl.id);
+  });
+
+  test('manager can reject a signed-off section', async ({ page }) => {
+    await login(page);
+    const { me, tpl, full } = await setupCompletedSignoffSection(page);
+    const secId = full.sections[0].id;
+
+    // Sign off the section via API
+    await obApiCall(page, 'POST', 'signOff', {
+      section_id: secId,
+      hire_id: me.id,
+      notes: 'Looks good',
+      rating: 'ready',
+    });
+
+    // Open Manager tab, navigate to hire training. A single signed-off section
+    // makes the hire "complete", so they may be under the Completed sub-tab.
+    await page.goto('/onboarding.html');
+    await openHireById(page, me.id);
+    await openTrainingByTemplateId(page, tpl.id);
+
+    // Should see "Reject & Reopen" button on signed-off section
+    const rejectBtn = page.locator('[data-action="reject-section"]');
+    await expect(rejectBtn.first()).toBeVisible();
+
+    // Accept confirmation and reject
+    page.on('dialog', dialog => dialog.accept());
+    await rejectBtn.first().click();
+    await page.waitForTimeout(500);
+
+    // Section should now show as active (no longer signed off)
+    await expect(page.locator('.sec-header').first()).not.toContainText('Signed Off');
+
+    // Cleanup
+    await obApiCall(page, 'DELETE', 'deleteTemplate/' + tpl.id);
+  });
+
+  test('manager can reject before sign-off (complete section)', async ({ page }) => {
+    await login(page);
+    const { me, tpl, full } = await setupCompletedSignoffSection(page);
+
+    // Open Manager tab → hire → training. Section is complete (awaiting sign-off,
+    // pending_signoff=true) so the hire stays under Active, but openHireById
+    // handles either sub-tab defensively.
+    await page.goto('/onboarding.html');
+    await openHireById(page, me.id);
+    await openTrainingByTemplateId(page, tpl.id);
+
+    // Should see "Reject" button alongside "Sign Off Section"
+    const rejectBtn = page.locator('[data-action="reject-section"]');
+    await expect(rejectBtn.first()).toBeVisible();
+
+    page.on('dialog', dialog => dialog.accept());
+    await rejectBtn.first().click();
+    await page.waitForTimeout(500);
+
+    // Section should revert to active
+    await expect(page.locator('.sec-header').first()).not.toContainText('Waiting for Sign-Off');
+
+    // Cleanup
+    await obApiCall(page, 'DELETE', 'deleteTemplate/' + tpl.id);
+  });
+
+  test('unsubmitted section allows proof photo capture button', async ({ page }) => {
+    await login(page);
+    const { me, tpl } = await setupCompletedSignoffSection(page);
+
+    // Reopen via API
+    const full = await obApiCall(page, 'GET', 'templates/' + tpl.id);
+    await obApiCall(page, 'POST', 'reopenSection', { section_id: full.sections[0].id });
+
+    // Load My Trainings and open training (target by data-template-id, not text).
+    await page.goto('/onboarding.html');
+    await waitForMyList(page);
+    await page.locator('[data-action="open-my-training"][data-template-id="' + tpl.id + '"]').first().click();
+    await waitForTrainingRunner(page);
+
+    // Expand section
+    await page.locator('.sec-header').first().click();
+    await page.waitForTimeout(300);
+
+    // Proof photo button should be visible on items with require_proof_photo
+    await expect(page.locator('[data-action="ob-photo-capture"]').first()).toBeVisible();
+
+    // Cleanup
+    await obApiCall(page, 'DELETE', 'deleteTemplate/' + tpl.id);
+  });
+
+  // ─── NFR-5: reopen/reject of a video-led section must revert it to active ────
+  // Regression for the silent no-op: ReopenSection selected the first item with no
+  // type filter and deleted ob_progress keyed by the parent ob_items.id. But
+  // video_series progress is keyed by ob_video_parts.id (progress_type='video_part'),
+  // so the delete matched ZERO rows → isSectionComplete stayed true → the section
+  // never reverted (handler returned {"ok":"true"} masking it).
+
+  // Helper: create a sign-off template whose FIRST item is a video_series, assign,
+  // watch every video part so the section reads complete. Returns ids + video parts.
+  async function setupCompletedVideoSection(page) {
+    const me = await page.evaluate(async () => {
+      const res = await fetch('/api/v1/me');
+      return res.json();
+    });
+    const tpl = await obApiCall(page, 'POST', 'createTemplate', {
+      name: 'Video Reject Test ' + Date.now(),
+      roles: [],
+      sections: [{
+        title: 'Video Sign-off Section',
+        sort_order: 0,
+        requires_sign_off: true,
+        sign_off_roles: ['admin', 'manager'],
+        is_faq: false,
+        items: [{
+          type: 'video_series',
+          label: 'Equipment Videos',
+          sort_order: 0,
+          video_parts: [
+            { title: 'Part One', description: 'first', url: 'https://example.com/p1.mp4', sort_order: 0 },
+            { title: 'Part Two', description: 'second', url: 'https://example.com/p2.mp4', sort_order: 1 },
+          ],
+        }],
+      }],
+    });
+    await obApiCall(page, 'POST', 'assignTemplate', {
+      hire_id: me.id,
+      template_id: tpl.id,
+    });
+    const full = await obApiCall(page, 'GET', 'templates/' + tpl.id);
+    const vs = full.sections[0].items.find(i => i.type === 'video_series');
+    expect(vs).toBeTruthy();
+    expect(vs.video_parts.length).toBe(2);
+    // Watch every video part so the section becomes complete
+    for (const part of vs.video_parts) {
+      await obApiCall(page, 'POST', 'saveProgress', {
+        item_id: part.id,
+        progress_type: 'video_part',
+        checked: true,
+      });
+    }
+    return { me, tpl, full, secId: full.sections[0].id };
+  }
+
+  // Reads the computed section state for hire+template via GET hireTraining.
+  async function sectionState(page, hireId, templateId, sectionId) {
+    const training = await obApiCall(page, 'GET', 'hireTraining/' + hireId + '?templateId=' + templateId);
+    const sp = training.sections.find(s => s.id === sectionId || (s.section && s.section.id === sectionId));
+    return sp ? sp.state : null;
+  }
+
+  test('reopen reverts a video-led section to active (NFR-5)', async ({ page }) => {
+    await login(page);
+    const { me, tpl, secId } = await setupCompletedVideoSection(page);
+
+    // Precondition: the video section reads as complete (all parts watched).
+    expect(await sectionState(page, me.id, tpl.id, secId)).toBe('complete');
+
+    // Reopen (crew unsubmit — FR-9). On UNFIXED code this is a silent no-op.
+    const res = await obApiCall(page, 'POST', 'reopenSection', { section_id: secId });
+    expect(res.ok).toBe('true');
+
+    // The section MUST no longer be complete — it should revert to active.
+    const stateAfter = await sectionState(page, me.id, tpl.id, secId);
+    expect(stateAfter).not.toBe('complete');
+    expect(stateAfter).toBe('active');
+
+    // Cleanup
+    await obApiCall(page, 'DELETE', 'deleteTemplate/' + tpl.id);
+  });
+
+  test('reject reverts a video-led signed-off section to active (NFR-5 / FR-15)', async ({ page }) => {
+    await login(page);
+    const { me, tpl, secId } = await setupCompletedVideoSection(page);
+
+    // Sign off the completed video section.
+    await obApiCall(page, 'POST', 'signOff', {
+      section_id: secId,
+      hire_id: me.id,
+      notes: 'Looks good',
+      rating: 'ready',
+    });
+    expect(await sectionState(page, me.id, tpl.id, secId)).toBe('signed_off');
+
+    // Reject (manager — FR-15). Shares ReopenSection with the reopen path.
+    const res = await obApiCall(page, 'POST', 'rejectSection', { section_id: secId, hire_id: me.id });
+    expect(res.ok).toBe('true');
+
+    // The section MUST revert — not complete, not signed_off.
+    const stateAfter = await sectionState(page, me.id, tpl.id, secId);
+    expect(stateAfter).not.toBe('complete');
+    expect(stateAfter).not.toBe('signed_off');
+    expect(stateAfter).toBe('active');
+
+    // Cleanup
+    await obApiCall(page, 'DELETE', 'deleteTemplate/' + tpl.id);
+  });
+});
+
+// ─── FR-26: unassign a template from a hire ─────────────────────────────────
+// A manager unassigns a template from a hire, removing the explicit assignment
+// row. Two observable behaviors:
+//  (1) Unassign is idempotent — unassigning twice yields the same end state
+//      (template gone from the hire's list), no error, no throw on the 2nd call.
+//  (2) Role-auto-assign survives — if the template ALSO matches the hire's role
+//      (ot.roles && user.roles), removing the explicit assignment row must NOT
+//      remove the template from the hire's `myTrainings` list; the role match
+//      still surfaces it. (PRD FR-26: "a role-auto-assigned template still shows".)
+// No test previously called /unassignTemplate at all.
+test.describe('FR-26: unassign template', () => {
+  // Count how many times a template id appears in the current user's myTrainings.
+  async function myTrainingCount(page, templateId) {
+    const list = await obApiCall(page, 'GET', 'myTrainings');
+    return (Array.isArray(list) ? list : [])
+      .filter(t => t.template_id === templateId).length;
+  }
+
+  test('unassign is idempotent — second unassign is a no-op, template stays gone', async ({ page }) => {
+    await login(page);
+    const me = await page.evaluate(async () => (await (await fetch('/api/v1/me')).json()));
+
+    // Template with NO role match → it can ONLY reach the hire via explicit assign.
+    const tpl = await obApiCall(page, 'POST', 'createTemplate', {
+      name: 'FR26 Idempotent ' + Date.now(),
+      roles: [],
+      sections: [{ title: 'S', sort_order: 0, requires_sign_off: false, sign_off_roles: [], is_faq: false, items: [{ type: 'checkbox', label: 'A', sort_order: 0, sub_items: [] }] }],
+    });
+
+    // Explicit assign → template appears exactly once in myTrainings.
+    await obApiCall(page, 'POST', 'assignTemplate', { hire_id: me.id, template_id: tpl.id });
+    expect(await myTrainingCount(page, tpl.id)).toBe(1);
+
+    // First unassign → {ok:true}, template gone from the list.
+    const r1 = await obApiCall(page, 'POST', 'unassignTemplate', { hire_id: me.id, template_id: tpl.id });
+    expect(r1).toEqual({ ok: true });
+    expect(await myTrainingCount(page, tpl.id)).toBe(0);
+
+    // Second unassign → SAME end state, no error, still {ok:true} (idempotent DELETE).
+    const r2 = await obApiCall(page, 'POST', 'unassignTemplate', { hire_id: me.id, template_id: tpl.id });
+    expect(r2).toEqual({ ok: true });
+    expect(await myTrainingCount(page, tpl.id)).toBe(0);
+
+    // Cleanup
+    await obApiCall(page, 'DELETE', 'deleteTemplate/' + tpl.id);
+  });
+
+  test('unassign of an explicitly-assigned template leaves the role-auto-assign intact', async ({ page }) => {
+    await login(page);
+    const me = await page.evaluate(async () => (await (await fetch('/api/v1/me')).json()));
+    // GetMyTrainings matches template.roles against the users.roles COLUMN. Note
+    // /api/v1/me MASKS a superadmin's stored roles as ["superadmin"], but the DB
+    // column (what the query reads) is the real role set. Read it from the users
+    // API — the authoritative stored-roles source the query overlaps against.
+    const users = await usersApiCall(page, 'GET', '');
+    const dbMe = (Array.isArray(users) ? users : []).find(u => u.id === me.id);
+    const dbRoles = (dbMe && dbMe.roles) || [];
+    // The hire must have at least one stored role for the role-match edge to matter.
+    expect(dbRoles.length).toBeGreaterThan(0);
+
+    // Template whose roles OVERLAP the hire's stored roles → role-auto-assigned
+    // regardless of any explicit assignment row.
+    const tpl = await obApiCall(page, 'POST', 'createTemplate', {
+      name: 'FR26 RoleSurvives ' + Date.now(),
+      roles: dbRoles,
+      sections: [{ title: 'S', sort_order: 0, requires_sign_off: false, sign_off_roles: [], is_faq: false, items: [{ type: 'checkbox', label: 'A', sort_order: 0, sub_items: [] }] }],
+    });
+
+    // Role match alone surfaces it once (before any explicit assign).
+    expect(await myTrainingCount(page, tpl.id)).toBe(1);
+
+    // Now ALSO explicitly assign it — the LEFT JOIN + OR still yields exactly one row.
+    await obApiCall(page, 'POST', 'assignTemplate', { hire_id: me.id, template_id: tpl.id });
+    expect(await myTrainingCount(page, tpl.id)).toBe(1);
+
+    // Unassign removes ONLY the explicit ob_template_assignments row. The role match
+    // must keep the template in the hire's list — this is the FR-26 edge.
+    const r = await obApiCall(page, 'POST', 'unassignTemplate', { hire_id: me.id, template_id: tpl.id });
+    expect(r).toEqual({ ok: true });
+    expect(await myTrainingCount(page, tpl.id)).toBe(1);
+
+    // Cleanup
+    await obApiCall(page, 'DELETE', 'deleteTemplate/' + tpl.id);
+  });
+});
+
+// ─── prove-progress sweep (card onboarding-prove-progress) ──────────────────
+// Red-first prove assertions for the onboarding-hardening PRD's UNPROVEN flows:
+//   FR-10 (proof-photo URL round-trip), FR-14 (sign_off_role_required 403),
+//   FR-21 (archived template disappears), FR-29 (manager vs hire progress %
+//   agree), NFR-3 (team_member 403 sweep across manager endpoints).
+// FR-18 (custom-thumbnail UPLOAD) and FR-28 (seed idempotent re-seed) are PARKED
+//   / recorded UNTESTABLE below with their precise reasons — no forced assertion.
+// All non-admin sessions are authored INLINE (invite → accept-invite → login),
+// per tests/multi-role.spec.js — no shared helper module.
+
+test.describe('prove-progress sweep', () => {
+  // Invite a user with the given roles, accept the invite (sets password), and
+  // return { id, email }. IMPORTANT: /auth/accept-invite sets the hq_session cookie
+  // — it logs the BROWSER in as the newly-created user. So we re-login as ADMIN
+  // before returning, leaving the caller in a known admin session; the caller
+  // explicitly logs in as the invitee (login(page, email, 'test456')) when needed.
+  async function inviteUser(page, roles) {
+    const email = 'prove-prog-' + Date.now() + '-' + Math.floor(Math.random() * 1e6) + '@yumyums.kitchen';
+    const inviteRes = await page.evaluate(async ([em, rs]) => {
+      const res = await fetch('/api/v1/users/invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ first_name: 'Prove', last_name: 'Prog', email: em, roles: rs }),
+      });
+      return res.json();
+    }, [email, roles]);
+    const token = inviteRes.invite_path.split('token=')[1];
+    await page.evaluate(async (t) => {
+      await fetch('/api/v1/auth/accept-invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: t, password: 'test456' }),
+      });
+    }, token);
+    // accept-invite hijacked the session → restore the admin session.
+    await login(page);
+    return { id: inviteRes.user.id, email };
+  }
+
+  // POST a manager onboarding endpoint via fetch in the current session and return
+  // { status, body } so a caller can assert the 403 tier directly.
+  async function obRaw(page, method, path, body) {
+    return page.evaluate(async ([m, p, b]) => {
+      const opts = { method: m, headers: { 'Content-Type': 'application/json' } };
+      if (b) opts.body = JSON.stringify(b);
+      const res = await fetch('/api/v1/onboarding/' + p, opts);
+      let json = null;
+      try { json = await res.json(); } catch (e) { json = null; }
+      return { status: res.status, body: json };
+    }, [method, path, body]);
+  }
+
+  // ── FR-10 — proof-photo URL round-trips through ob_progress.value ──────────
+  // A hire uploads a proof photo on an item that requires one; the URL persists
+  // into ob_progress.value and comes back as proof_photo_url on reload. The
+  // round-trip of the URL STRING needs no S3/multipart — saveProgress carries a
+  // `value` and hireTraining surfaces it as item.proof_photo_url. (The client
+  // capture widget that PRODUCES the URL is separate; this proves the persistence
+  // contract the PRD names: value → ob_progress.value → proof_photo_url.)
+  test('FR-10: proof-photo URL persists via saveProgress value and round-trips on reload', async ({ page }) => {
+    await login(page);
+    const me = await page.evaluate(async () => (await (await fetch('/api/v1/me')).json()));
+
+    // Template with a single checkbox item that REQUIRES a proof photo.
+    const tpl = await obApiCall(page, 'POST', 'createTemplate', {
+      name: 'FR10 ProofPhoto ' + Date.now(),
+      roles: [],
+      sections: [{
+        title: 'Proof Section', sort_order: 0, requires_sign_off: false, sign_off_roles: [], is_faq: false,
+        items: [{ type: 'checkbox', label: 'Photograph the station', sort_order: 0, require_proof_photo: true, sub_items: [] }],
+      }],
+    });
+    await obApiCall(page, 'POST', 'assignTemplate', { hire_id: me.id, template_id: tpl.id });
+
+    const full = await obApiCall(page, 'GET', 'templates/' + tpl.id);
+    const item = full.sections[0].items[0];
+    expect(item.require_proof_photo).toBe(true);
+
+    const photoURL = 'https://spaces.example.com/onboarding/proof-' + Date.now() + '.jpg';
+    // Save progress carrying the proof-photo URL as `value` (mirrors the client's
+    // handleOBPhotoCaptureClick → saveProgress(value) path).
+    await obApiCall(page, 'POST', 'saveProgress', {
+      item_id: item.id, progress_type: 'item', checked: true, value: photoURL,
+    });
+
+    // Round-trip: re-fetch the hire's training and assert the proof URL comes back.
+    const training = await obApiCall(page, 'GET', 'hireTraining/' + me.id + '?templateId=' + tpl.id);
+    const gotItem = training.sections[0].items.find(i => i.id === item.id);
+    expect(gotItem).toBeTruthy();
+    expect(gotItem.checked).toBe(true);
+    // The observable behavior: the uploaded URL survives and is served back.
+    expect(gotItem.proof_photo_url).toBe(photoURL);
+
+    await obApiCall(page, 'DELETE', 'deleteTemplate/' + tpl.id);
+  });
+
+  // ── FR-14 — sign_off_role_required 403 at the API ─────────────────────────
+  // A section's sign_off_roles restricts who may sign off. A user who PASSES the
+  // manager tier (isManagerOrAdmin) but whose roles do NOT intersect
+  // sign_off_roles — and who isn't superadmin — is refused 403
+  // sign_off_role_required. We invite a plain `manager` (clears the tier gate),
+  // set sign_off_roles=['admin'] (no overlap), and assert the role-specific 403.
+  // NOTE: the tier gate fires FIRST, so a team_member would get 403 `forbidden`
+  // (that path is NFR-3, below); to reach `sign_off_role_required` the poster must
+  // be a manager lacking the required role.
+  test('FR-14: a manager lacking the sign_off role is refused 403 sign_off_role_required', async ({ page }) => {
+    await login(page);
+    const mgr = await inviteUser(page, ['manager']);
+
+    // Admin builds a template with an ADMIN-only sign-off section, assigns it to
+    // the manager as the hire (any hire works — the 403 fires before completeness).
+    const tpl = await obApiCall(page, 'POST', 'createTemplate', {
+      name: 'FR14 RoleGate ' + Date.now(),
+      roles: [],
+      sections: [{
+        title: 'Admin-only sign-off', sort_order: 0, requires_sign_off: true,
+        sign_off_roles: ['admin'], is_faq: false,
+        items: [{ type: 'checkbox', label: 'A', sort_order: 0, sub_items: [] }],
+      }],
+    });
+    const full = await obApiCall(page, 'GET', 'templates/' + tpl.id);
+    const secId = full.sections[0].id;
+
+    // Become the manager and POST /signOff — passes the manager tier, fails the
+    // admin-only role match → 403 sign_off_role_required.
+    await login(page, mgr.email, 'test456');
+    const res = await obRaw(page, 'POST', 'signOff', {
+      section_id: secId, hire_id: mgr.id, notes: '', rating: 'ready',
+    });
+    expect(res.status).toBe(403);
+    expect(res.body && res.body.error).toBe('sign_off_role_required');
+
+    // Cleanup (back as admin).
+    await login(page);
+    await obApiCall(page, 'DELETE', 'deleteTemplate/' + tpl.id);
+    await usersApiCall(page, 'DELETE', mgr.id);
+  });
+
+  // ── FR-21 — archived template disappears from the assignable/list surfaces ──
+  // Soft-delete (DELETE /deleteTemplate/{id} → archived_at=now()) must drop the
+  // template out of /templates AND /myTrainings while its rows survive
+  // (idempotent re-delete still returns ok). Previously used only as test cleanup.
+  test('FR-21: archived template disappears from /templates and /myTrainings', async ({ page }) => {
+    await login(page);
+    const me = await page.evaluate(async () => (await (await fetch('/api/v1/me')).json()));
+
+    const uniq = 'FR21 Archive ' + Date.now();
+    const tpl = await obApiCall(page, 'POST', 'createTemplate', {
+      name: uniq, roles: [],
+      sections: [{ title: 'S', sort_order: 0, requires_sign_off: false, sign_off_roles: [], is_faq: false,
+        items: [{ type: 'checkbox', label: 'A', sort_order: 0, sub_items: [] }] }],
+    });
+    await obApiCall(page, 'POST', 'assignTemplate', { hire_id: me.id, template_id: tpl.id });
+
+    // Before archive: present in BOTH the admin /templates list and the hire's list.
+    const listBefore = await obApiCall(page, 'GET', 'templates');
+    expect(listBefore.some(t => t.id === tpl.id)).toBe(true);
+    const myBefore = await obApiCall(page, 'GET', 'myTrainings');
+    expect(myBefore.some(t => t.template_id === tpl.id)).toBe(true);
+
+    // Archive (soft-delete).
+    await obApiCall(page, 'DELETE', 'deleteTemplate/' + tpl.id);
+
+    // After archive: GONE from both surfaces (archived_at IS NULL filter).
+    const listAfter = await obApiCall(page, 'GET', 'templates');
+    expect(listAfter.some(t => t.id === tpl.id)).toBe(false);
+    const myAfter = await obApiCall(page, 'GET', 'myTrainings');
+    expect(myAfter.some(t => t.template_id === tpl.id)).toBe(false);
+  });
+
+  // ── FR-29 — manager and hire report the SAME progress % for a template ─────
+  // /managerHires computes progress by a distinct, heavier query path than the
+  // hire's own /myTrainings. For the same hire+template they must agree. We build
+  // a 2-section template (1 completed, 1 not → 50%), assign to a fresh hire, have
+  // the hire complete section 1, then assert myTrainings.progress_percent ==
+  // managerHires → assigned_templates[thatTemplate].progress_pct == 50.
+  test('FR-29: manager and hire progress % agree for the same template', async ({ page }) => {
+    await login(page);
+    const hire = await inviteUser(page, []);
+
+    const tpl = await obApiCall(page, 'POST', 'createTemplate', {
+      name: 'FR29 ProgressAgree ' + Date.now(),
+      roles: [],
+      sections: [
+        { title: 'Sec 1', sort_order: 0, requires_sign_off: false, sign_off_roles: [], is_faq: false,
+          items: [{ type: 'checkbox', label: 'A1', sort_order: 0, sub_items: [] }] },
+        { title: 'Sec 2', sort_order: 1, requires_sign_off: false, sign_off_roles: [], is_faq: false,
+          items: [{ type: 'checkbox', label: 'B1', sort_order: 0, sub_items: [] }] },
+      ],
+    });
+    await obApiCall(page, 'POST', 'assignTemplate', { hire_id: hire.id, template_id: tpl.id });
+
+    // Admin-side truth: the manager progress for the hire on this template BEFORE
+    // any completion should be 0%.
+    let mgrHires = await obApiCall(page, 'GET', 'managerHires');
+    let hireRow = mgrHires.find(h => h.hire_id === hire.id);
+    expect(hireRow).toBeTruthy();
+    let mgrTpl = hireRow.assigned_templates.find(t => t.template_id === tpl.id);
+    expect(mgrTpl).toBeTruthy();
+    expect(mgrTpl.progress_pct).toBe(0);
+
+    // Become the hire and complete section 1 (1 of 2 sections → 50%).
+    await login(page, hire.email, 'test456');
+    const full = await obApiCall(page, 'GET', 'templates/' + tpl.id);
+    const sec1Item = full.sections[0].items[0];
+    await obApiCall(page, 'POST', 'saveProgress', { item_id: sec1Item.id, progress_type: 'item', checked: true });
+
+    // The hire's own myTrainings progress for this template.
+    const myList = await obApiCall(page, 'GET', 'myTrainings');
+    const myRow = myList.find(t => t.template_id === tpl.id);
+    expect(myRow).toBeTruthy();
+    expect(myRow.progress_percent).toBe(50);
+
+    // Back as admin: the manager's heavier query path must report the SAME number.
+    await login(page);
+    mgrHires = await obApiCall(page, 'GET', 'managerHires');
+    hireRow = mgrHires.find(h => h.hire_id === hire.id);
+    expect(hireRow).toBeTruthy();
+    mgrTpl = hireRow.assigned_templates.find(t => t.template_id === tpl.id);
+    expect(mgrTpl).toBeTruthy();
+    // The core FR-29 assertion: the two independent progress computations agree.
+    expect(mgrTpl.progress_pct).toBe(myRow.progress_percent);
+    expect(mgrTpl.progress_pct).toBe(50);
+
+    // Cleanup.
+    await obApiCall(page, 'DELETE', 'deleteTemplate/' + tpl.id);
+    await usersApiCall(page, 'DELETE', hire.id);
+  });
+
+  // ── NFR-3 — team_member gets 403 on every manager onboarding endpoint ──────
+  // The manager guards (isManagerOrAdmin) are wired on each manager endpoint, but
+  // no prior test posted as a team_member to assert the tier refusal. We invite a
+  // plain team_member, log in as them, and sweep the manager endpoints asserting
+  // 403 forbidden on each. Red-first: this would go RED if a guard were removed.
+  test('NFR-3: team_member is refused 403 across the manager onboarding endpoints', async ({ page }) => {
+    await login(page);
+    // Admin creates a real template so path params reference a live row (the guard
+    // fires regardless, but this avoids a 404-vs-403 ambiguity on id-bearing routes).
+    const tpl = await obApiCall(page, 'POST', 'createTemplate', {
+      name: 'NFR3 Guard ' + Date.now(), roles: [],
+      sections: [{ title: 'S', sort_order: 0, requires_sign_off: false, sign_off_roles: [], is_faq: false,
+        items: [{ type: 'checkbox', label: 'A', sort_order: 0, sub_items: [] }] }],
+    });
+    const member = await inviteUser(page, ['team_member']);
+
+    // Become the team_member.
+    await login(page, member.email, 'test456');
+
+    // GET manager surfaces.
+    for (const p of ['templates', 'managerHires']) {
+      const res = await obRaw(page, 'GET', p);
+      expect(res.status, 'GET ' + p + ' must 403 for team_member').toBe(403);
+      expect(res.body && res.body.error).toBe('forbidden');
+    }
+    // POST/PUT/DELETE manager mutations.
+    const posts = [
+      ['POST', 'signOff', { section_id: 'x', hire_id: 'y', rating: 'ready' }],
+      ['POST', 'rejectSection', { section_id: 'x', hire_id: 'y' }],
+      ['POST', 'createTemplate', { name: 'z', roles: [], sections: [] }],
+      ['PUT', 'updateTemplate/' + tpl.id, { name: 'z', roles: [], sections: [] }],
+      ['DELETE', 'deleteTemplate/' + tpl.id, null],
+      ['POST', 'assignTemplate', { hire_id: 'y', template_id: tpl.id }],
+      ['POST', 'unassignTemplate', { hire_id: 'y', template_id: tpl.id }],
+    ];
+    for (const [m, p, b] of posts) {
+      const res = await obRaw(page, m, p, b);
+      expect(res.status, m + ' ' + p + ' must 403 for team_member').toBe(403);
+      expect(res.body && res.body.error).toBe('forbidden');
+    }
+
+    // Cleanup as admin — template must still exist (all mutations were refused).
+    await login(page);
+    await obApiCall(page, 'DELETE', 'deleteTemplate/' + tpl.id);
+    await usersApiCall(page, 'DELETE', member.id);
+  });
+
+  // ── FR-28 — seed idempotent re-seed: recorded UNTESTABLE ──────────────────
+  // The idempotent re-seed (skip-if-name-exists + role-refresh in
+  // SeedOnboardingTemplates) runs once, post-boot, in the server process. It is
+  // not reachable from an E2E client: there is no endpoint to trigger a re-seed
+  // and no way to restart the server mid-test. Per the card we assert the flow
+  // INDIRECTLY — the seed's "Kitchen Basics Training" template is present after
+  // boot — and record the idempotency/role-refresh guarantee itself as UNTESTABLE
+  // (do NOT force it; do NOT graduate a fix from this).
+  test('FR-28: seed template is present after boot (indirect — idempotent re-seed itself is UNTESTABLE via E2E)', async ({ page }) => {
+    await login(page);
+    const templates = await obApiCall(page, 'GET', 'templates');
+    const kitchen = templates.find(t => t.name === 'Kitchen Basics Training');
+    // Indirect proof the seed ran: the named seed template exists.
+    expect(kitchen).toBeTruthy();
+    // The idempotent-re-seed / role-refresh behavior (seed.go:98-124) is NOT
+    // E2E-drivable — no client trigger, no in-test server restart. Recorded
+    // UNTESTABLE per PRD FR-28 / card instruction; this assertion only anchors the
+    // seed's PRESENCE, not its re-seed idempotency.
+  });
+
+  // ── FR-18 — custom-thumbnail UPLOAD: PARKED ───────────────────────────────
+  // FR-18's named behavior is a custom-thumbnail UPLOAD: client uploadCustomThumbnail
+  // presigns against /api/v1/photos/presign, PUTs the file to DO Spaces, then sets
+  // part.thumbnail_url from presignData.public_url. Proving the real flow needs
+  // multipart/file-input + a live Spaces presign+PUT — photo/thumbnail plumbing
+  // beyond a test fixture, which is this card's explicit PARK trigger. The
+  // thumbnail_url DB round-trip (via updateTemplate) is a DIFFERENT flow (FR-20,
+  // already WORKING) and would NOT prove FR-18's upload behavior, so it is not a
+  // substitute. PARKED — see the returned report for the precise reason.
+  test.skip('FR-18: custom-thumbnail upload persists/renders — PARKED (needs photos/presign + S3 PUT plumbing beyond a fixture)', async () => {
+    // Intentionally skipped: PARK trigger (photo/thumbnail plumbing beyond a fixture).
   });
 });

@@ -1,6 +1,19 @@
 const { generateSW } = require('workbox-build');
+const fs = require('fs');
+
+// Write version.json so the frontend can read its own version without hitting the API.
+// Semver only — dynamic fields (git_sha, built_at) live in /api/v1/health.
+// package.json "version" mirrors the Frontend constant in backend/internal/version/version.go.
+function writeVersionJson() {
+  const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+  const payload = { frontend: pkg.version };
+  fs.writeFileSync('version.json', JSON.stringify(payload) + '\n');
+  return payload;
+}
 
 async function build() {
+  const version = writeVersionJson();
+
   const { count, size } = await generateSW({
     swDest: 'sw.js',
     globDirectory: '.',
@@ -9,6 +22,7 @@ async function build() {
       'ptr.js',
       'sync.js',
       'manifest.json',
+      'version.json',
       'icons/**/*.png',
     ],
     globIgnores: [
@@ -50,6 +64,7 @@ async function build() {
   });
 
   console.log(`SW built: ${count} files precached (${(size / 1024).toFixed(1)} KB)`);
+  console.log(`Frontend version: ${version.frontend}`);
 }
 
 build().catch(err => {

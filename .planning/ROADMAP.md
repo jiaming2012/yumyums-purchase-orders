@@ -7,6 +7,7 @@
 - ✅ **v2.0 Backend** — Phases 9-13 (shipped 2026-04-19) — [Archive](milestones/v2.0-ROADMAP.md)
 - ✅ **v2.1 Onboarding Video Upgrade** — Phase 1 (shipped 2026-04-20) — [Archive](milestones/v2.1-ROADMAP.md)
 - ✅ **v3.0 Purchase Orders & Shopping Lists** — Phases 14-17 (shipped 2026-04-23) — [Archive](milestones/v3.0-ROADMAP.md)
+- ✅ **v3.1 Toast Integration & COGS Pipeline** — Phases 18, 20, 21, 22, 22.1, 999.2 (shipped 2026-06-05) — [Archive](milestones/v3.1-ROADMAP.md)
 
 ## Phases
 
@@ -60,21 +61,30 @@
 
 </details>
 
+<details>
+<summary>✅ v3.1 Toast Integration & COGS Pipeline (Phases 18, 20, 21, 22, 22.1, 999.2) — SHIPPED 2026-06-05</summary>
+
+- [x] Phase 18: Add photos to onboarding checklists (2/2 plans) — completed 2026-05
+- [x] Phase 20: Require store location before adding item to PO (2/2 plans) — completed 2026-05
+- [x] Phase 21: COGS in sales-processor + receipt completeness gate (3/3 plans) — completed 2026-05
+- [x] Phase 22: HQ Toast SFTP ingest — menu_items + daily sales aggregate (6/6 plans) — completed 2026-05
+- [x] Phase 22.1: HQ Toast ingest re-architecture (Spaces-first) (5/5 plans) — completed 2026-05
+- [x] Phase 999.2: Per-menu-item COGS attribution via recipe/BOM mapping (6/6 plans) — completed 2026-06-05
+
+</details>
+
 ## Active
 
-### Phase 18: Tab persistence on refresh
+### Phase 999.1: Tab persistence on refresh (parked)
 
 **Goal:** Persist active tab across page refresh for all apps using URL hash. When a tab is tapped, update `location.hash`. On page load, read the hash and activate the matching tab.
 **Requirements:** TBD
-**Plans:** 0 plans
-
-### Phase 19: Require store location before adding item to PO
-
-**Goal:** Items without a store_location should appear in the catalog/item picker under an "Unassigned" section but be blocked from being added to a purchase order until a store location is set. This prevents shopping list items from having no location context.
-**Depends on:** Phase 16 (Shopping List)
-**Requirements:** TBD
-**Plans:** 0 plans
+**Plans:** 0 plans (parked — not in v3.1; promote with /gsd-review-backlog when ready)
 
 ## Backlog
 
-(empty)
+Empty. Next milestone TBD.
+
+## Notes
+
+- Phase 19 directory orphaned (renumbered to Phase 20 mid-cycle during v3.1). Safe to delete in cleanup.
