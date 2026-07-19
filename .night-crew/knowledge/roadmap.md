@@ -11,6 +11,14 @@
 > flips it green; root cause: `replaceTemplate` field-ID churn + FK-dropped silent dead-id
 > writes; backlog entry has full cites).
 
+> **✅ MILESTONE CLOSED — 2026-07-19 (attended, markdown close).** All activities DONE. The two
+> operator-gated Activity-7 cards shipped, flipping the last 2 PENDING KRs (Delivery prod-parity,
+> QA prod-ghost-item) to **PASS**. Final scorecard: **13 PASS · 2 PARTIAL · 1 N/A** (16 KRs); the
+> 2 PARTIAL (Eng "task test exits 0" — 1 isolation-confirmed pollution red; Delivery "median WO
+> cycle") carry to the next cycle. Prod live at `backend 0.1.3 / frontend 1.0.3`. Close recorded in
+> `ledger.md §T-17`. (This run predates the `night-crew` CLI scorecard instrumentation, so the
+> close is markdown-mode, not `/nc-milestone-close`.)
+
 ## How this roadmap works
 
 - **Activity-level cards.** Each card is WO-sized-ish work the PjM/`nc-slate-plan` sizes
@@ -169,14 +177,18 @@
 
 ## Activity 7 — Prod ops · *operator-gated*
 
-- **`prod-ghost-item-rename`** · PLANNED · Operator-chosen handling (2026-07-16): rename
-  `''` → `(Unnamed — needs review)`, KEEP line-item links. Verify: empty-description count
-  = 0 in prod AND previously-linked `purchase_line_items` count unchanged. **Prod data
-  mutation — runs attended or with explicit operator go.** Footprint: Inventory (prod DB).
-  → QA KR3.
-- **`prod-deploy-parity`** · PLANNED · Operator runs `task prod:deploy` (never automated);
-  card verifies `task version` shows prod == local `version.go` constants (includes
-  `42eeb39`). → Delivery KR "prod parity".
+- **`prod-ghost-item-rename`** · **DONE** ✅ 2026-07-19 (attended) · **Verified no-op in prod** —
+  the production schema had **0** empty-description `purchase_items` (115 clean items); the ghost
+  item lived only in **dev** (public schema). Renamed the dev instance `'' → (Unnamed — needs
+  review)` in a transaction: empty-count `1 → 0`, all **61** linked `purchase_line_items` preserved
+  (id unchanged). Prod criterion (empty-count = 0, links unchanged) satisfied. → QA KR3 **PASS**.
+- **`prod-deploy-parity`** · **DONE** ✅ 2026-07-19 (attended) · Prod was **405 commits / 2 months
+  stale** (running May `b89c202`) and the documented `task prod:deploy` never matched the real
+  compose stack. Fixed the deploy tooling (`docker-compose.prod.yml` + compose-based hard-sync
+  `prod:deploy`), merged `dev → main` (405 commits, merge `6f45af5`), and shipped. `task version`
+  now shows prod == local == `backend 0.1.3 / frontend 1.0.3`; migrations `56→70` applied to the
+  `production` schema; public tunnel serves the new build; rollback image + schema backup banked.
+  → Delivery KR "prod parity" **PASS**.
 
 ## Activity 8 — Cycle gate · *last, serialized*
 

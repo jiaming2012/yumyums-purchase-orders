@@ -595,3 +595,40 @@ cards parked** (PARK trigger did not fire). Merged to `dev` `--no-ff` (`a8854c3`
   asset change; the bump belongs to `/save-project` at deploy, not triage). `dev` pushed to
   `origin/dev` at triage close (the one sanctioned push); `dev → main` promotion stays a separate
   decision. `main` untouched.
+
+## T-17 — Activity 7 shipped + milestone closed (2026-07-19, attended)
+
+The attended Activity-7 ship the gate deferred (§T-15/T-16). Milestone **"Nothing silently lost"
+now fully closed** — markdown-mode close (this run predates the `night-crew` CLI scorecard
+instrumentation, so `/nc-milestone-close` does not apply: `night-crew scorecard`/`okr grade` return
+"no scorecard data / no metrics.jsonl"). Roadmap banner + both Activity-7 cards flipped to DONE.
+
+- **Discovery — the deploy tooling was fiction.** `task prod:deploy` SSH'd the box to itself,
+  targeted a nonexistent repo path (`~/projects/yumyums/hq`), and used container/image names
+  (`yumyums-hq`) that never matched the running prod (`yumyums-prod` / `yumyums-purchase-orders:prod`,
+  a Docker-Compose stack building from a **separate Windows clone** pinned to `main`). Prod was
+  **405 commits / 2 months stale** (running May `b89c202`); `main` had never received the cycle.
+- **Tooling fixed (commits on `dev`+`main`).** Added tracked `docker-compose.prod.yml` (context `.`,
+  `backend/Dockerfile`, exact production `DB_URL` = `yumyums-dev-pg` + `search_path=production`,
+  external `yumyums_default` net, `.env.prod` env_file). Rewrote `prod:deploy` to drive compose
+  locally and **hard-sync** the prod clone to `origin/main` (a plain pull can't survive the Windows
+  checkout's line-ending drift). Added `prod:rollback`; git-ignored `.env.prod`; wired
+  `GIT_SHA`/`BUILT_AT` build-args.
+- **Released.** Merged `dev → main` (405 commits, merge `6f45af5`; b89c202's stale scaffolding —
+  root Dockerfile/`docker-compose.yml`/`prod/Taskfile.yml` — removed). Deployed. One crash-loop
+  fixed: the Toast worker fail-fasts on the SFTP key that `.dockerignore` keeps out of the image →
+  set `TOAST_SYNC_INTERVAL=0` in `.env.prod` (Toast inert in prod until a key is mounted).
+- **Verified.** `task version` shows local == prod == `backend 0.1.3 / frontend 1.0.3`; public
+  tunnel `https://hq.yumyums.kitchen/api/v1/health` serves it; migrations `56→70` applied to the
+  `production` schema; app smoke-tested (shell 200, auth 401). Rollback image (`:prod-rollback` =
+  the May build) + a pre-deploy `production`-schema `pg_dump` banked. → **Delivery prod-parity KR:
+  PASS.**
+- **`prod-ghost-item-rename`: verified no-op in prod.** Production had **0** empty-description
+  items; the ghost item was in **dev** (public schema). Renamed the dev instance
+  `'' → (Unnamed — needs review)`, 61 links preserved. → **QA KR3: PASS.**
+- **Scorecard now 13 PASS · 2 PARTIAL · 1 N/A** (16 KRs). Carrying to next cycle: Eng "task test
+  exits 0" (1 isolation-confirmed pollution red) and Delivery "median WO cycle".
+- **Standing note — prod integrations now live.** `.env.prod` was provisioned "full" (operator
+  choice): the Mercury receipt worker, alert queue, and Zoho Cliq now run in prod against the SAME
+  external accounts as dev. **Watch the Cliq channel for duplicate alerts**; disable one side if they
+  appear. Next move: `/nc-okr-session` for the next cycle (fold in the QA-coverage findings).
