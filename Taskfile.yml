@@ -8,11 +8,14 @@ includes:
     dir: ./backend
 
 vars:
-  # Production deploy target (Windows box reachable via Tailscale).
-  PROD_SSH: '{{.PROD_SSH | default "jcole@100.70.200.55"}}'
-  PROD_REPO: '{{.PROD_REPO | default "~/projects/yumyums/hq"}}'
-  PROD_CONTAINER: '{{.PROD_CONTAINER | default "yumyums-hq"}}'
-  PROD_IMAGE: '{{.PROD_IMAGE | default "yumyums-hq:latest"}}'
+  # Production deploy target. Prod runs in Docker on THIS box (Docker Desktop),
+  # served to the public via Cloudflare Tunnel. It builds from a separate clone
+  # pinned to origin/main (the "prod clone"), so prod only ever runs pushed
+  # code. `task prod:deploy` pulls main there and rebuilds the compose stack.
+  PROD_REPO: '{{.PROD_REPO | default "/mnt/c/Users/jcole/projects/yumyums-purchase-orders"}}'
+  PROD_COMPOSE: '{{.PROD_COMPOSE | default "docker-compose.prod.yml"}}'
+  PROD_CONTAINER: '{{.PROD_CONTAINER | default "yumyums-prod"}}'
+  PROD_IMAGE: '{{.PROD_IMAGE | default "yumyums-purchase-orders:prod"}}'
   PROD_PORT: '{{.PROD_PORT | default "8080"}}'
   PROD_URL: '{{.PROD_URL | default "https://hq.yumyums.kitchen"}}'
 
@@ -119,9 +122,15 @@ tasks:
         npx playwright test
 
   # ─────────────────────────────────────────────────────────────────────────────
-  # Production deploy — Windows box backend serves embedded frontend via
-  # Cloudflare Tunnel at {{.PROD_URL}}. Override host/repo/container/image via
-  # PROD_SSH, PROD_REPO, PROD_CONTAINER, PROD_IMAGE env vars.
+  # Production deploy — one container (backend embeds frontend), served to the
+  # public via Cloudflare Tunnel at {{.PROD_URL}}. Prod runs in Docker on THIS
+  # box and builds from the prod clone ({{.PROD_REPO}}), pinned to origin/main.
+  # sw.js is a committed artifact, so the prod clone needs only git + docker.
+  # Override repo/compose/container/image via PROD_REPO, PROD_COMPOSE,
+  # PROD_CONTAINER, PROD_IMAGE env vars.
+  #
+  # Release flow: commit a fresh sw.js on dev → merge dev→main → push →
+  # `task prod:deploy` (pulls main in the prod clone, rebuilds, restarts).
   # ─────────────────────────────────────────────────────────────────────────────
 
   version:
@@ -148,49 +157,50 @@ tasks:
     cmd: curl -fsS {{.PROD_URL}}/api/v1/health | jq .
 
   prod:deploy:
-    desc: Deploy backend+frontend to prod (one container — backend embeds frontend)
-    deps: [sw]
+    desc: Deploy to prod — pull origin/main in the prod clone, rebuild + restart the compose stack
     cmds:
       - task: prod:deploy-backend
 
   prod:deploy-backend:
-    desc: SSH to Windows box, git pull, docker build with version metadata, restart container
+    desc: Pull main in the prod clone, tag the current image for rollback, rebuild + restart, health-check
     cmds:
       - |
-        ssh -o BatchMode=yes {{.PROD_SSH}} bash -s <<'EOF'
         set -euo pipefail
-        cd {{.PROD_REPO}}
-        echo "── git pull ─────────────────────────"
+        cd "{{.PROD_REPO}}"
+        echo "── prod clone: $(pwd) ───────────────"
+        if [ -n "$(git status --porcelain)" ]; then
+          echo "ERROR: prod clone has uncommitted changes; refusing to pull. Resolve first:" >&2
+          git status --short >&2
+          exit 1
+        fi
+        git checkout main
+        echo "── git pull --ff-only origin main ───"
         git pull --ff-only origin main
-        echo "── task sw (regenerate version.json + service worker) ─────"
-        task sw
-        GIT_SHA=$(git rev-parse --short HEAD)
-        BUILT_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-        echo "── docker build ──────────────────────"
-        echo "  GIT_SHA=$GIT_SHA  BUILT_AT=$BUILT_AT"
-        docker build \
-          -f backend/Dockerfile \
-          --build-arg GIT_SHA="$GIT_SHA" \
-          --build-arg BUILT_AT="$BUILT_AT" \
-          -t {{.PROD_IMAGE}} .
-        echo "── restart container ────────────────"
-        docker rm -f {{.PROD_CONTAINER}} 2>/dev/null || true
-        docker run -d \
-          --name {{.PROD_CONTAINER}} \
-          --restart unless-stopped \
-          --env-file backend/.env \
-          -p {{.PROD_PORT}}:8080 \
-          {{.PROD_IMAGE}}
+        echo "  HEAD now: $(git rev-parse --short HEAD)"
+        echo "── tag current image for rollback ───"
+        docker image tag {{.PROD_IMAGE}} {{.PROD_IMAGE}}-rollback 2>/dev/null \
+          && echo "  {{.PROD_IMAGE}} → {{.PROD_IMAGE}}-rollback" \
+          || echo "  (no current image to tag — first deploy)"
+        echo "── docker compose build ─────────────"
+        docker compose -f {{.PROD_COMPOSE}} build
+        echo "── docker compose up -d ─────────────"
+        docker compose -f {{.PROD_COMPOSE}} up -d
         echo "── health check ─────────────────────"
-        sleep 2
-        curl -fsS http://localhost:{{.PROD_PORT}}/api/v1/health
-        EOF
+        sleep 3
+        curl -fsS http://localhost:{{.PROD_PORT}}/api/v1/health; echo
+
+  prod:rollback:
+    desc: Restore the previous prod image (the :-rollback tag from the last deploy) and restart
+    cmds:
+      - |
+        set -euo pipefail
+        cd "{{.PROD_REPO}}"
+        echo "── restoring {{.PROD_IMAGE}}-rollback → {{.PROD_IMAGE}} ──"
+        docker image tag {{.PROD_IMAGE}}-rollback {{.PROD_IMAGE}}
+        docker compose -f {{.PROD_COMPOSE}} up -d --no-build
+        sleep 3
+        curl -fsS http://localhost:{{.PROD_PORT}}/api/v1/health; echo
 
   prod:logs:
     desc: Tail logs from the production container
-    cmd: ssh -o BatchMode=yes {{.PROD_SSH}} "docker logs --tail 100 -f {{.PROD_CONTAINER}}"
-
-  prod:ssh:
-    desc: Open an interactive shell on the production Windows box
-    interactive: true
-    cmd: ssh {{.PROD_SSH}}
+    cmd: docker logs --tail 100 -f {{.PROD_CONTAINER}}

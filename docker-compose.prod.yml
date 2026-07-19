@@ -1,0 +1,49 @@
+# docker-compose.prod.yml — production stack for Yumyums HQ.
+#
+# ONE container (the Go backend embeds the frontend), exposed to the public via
+# Cloudflare Tunnel at https://hq.yumyums.kitchen. Prod runs on the SAME box as
+# dev; `task prod:deploy` pulls origin/main into the prod clone and rebuilds
+# this stack from it. Prod therefore only ever runs pushed-to-main code.
+#
+# Build context is the repo ROOT (the Dockerfile reaches ../*.html etc. for the
+# embedded frontend); the Dockerfile lives at backend/Dockerfile. `sw.js` is a
+# committed artifact, so no Node toolchain is needed in the prod clone — only
+# git + docker.
+#
+# DB: shares the yumyums-dev-pg Postgres container but is ISOLATED to the
+# `production` schema via search_path — dev data lives in a different schema on
+# the same instance. Keep the DB_URL below EXACT; it is the only thing keeping
+# prod and dev data apart. The app auto-migrates (goose, embedded) on startup.
+#
+# Secrets (Anthropic / Mercury / DO Spaces / SMTP / Toast / Zoho / service
+# token) come from a git-ignored .env.prod placed next to this file. Without it
+# the app still boots, but those integrations are inert.
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    image: yumyums-purchase-orders:prod
+    container_name: yumyums-prod
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: 8080
+      # Production schema on the shared Postgres. Do NOT change without
+      # migrating data — this is what separates prod from dev on yumyums-dev-pg.
+      DB_URL: "postgres://yumyums:yumyums@yumyums-dev-pg:5432/yumyums?sslmode=disable&search_path=production"
+      BASE_URL: "${BASE_URL:-https://hq.yumyums.kitchen}"
+      SUPERADMIN_CONFIG: /app/config/superadmins.yaml
+      TEMPLATE_CONFIG: /app/config/templates.yaml
+    env_file:
+      - path: .env.prod
+        required: false
+    networks:
+      - yumyums
+
+networks:
+  yumyums:
+    name: yumyums_default
+    external: true
