@@ -191,6 +191,9 @@ tasks:
           && echo "  {{.PROD_IMAGE}} → {{.PROD_IMAGE}}-rollback" \
           || echo "  (no current image to tag — first deploy)"
         echo "── docker compose build ─────────────"
+        export GIT_SHA="$(git rev-parse --short HEAD)"
+        export BUILT_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+        echo "  GIT_SHA=$GIT_SHA  BUILT_AT=$BUILT_AT"
         docker compose -f {{.PROD_COMPOSE}} build
         echo "── docker compose up -d ─────────────"
         docker compose -f {{.PROD_COMPOSE}} up -d

@@ -24,6 +24,11 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
+      # Populated by `task prod:deploy` (exports GIT_SHA/BUILT_AT before build)
+      # so /api/v1/health and `task version` report the deployed commit.
+      args:
+        GIT_SHA: "${GIT_SHA:-unknown}"
+        BUILT_AT: "${BUILT_AT:-unknown}"
     image: yumyums-purchase-orders:prod
     container_name: yumyums-prod
     restart: unless-stopped
