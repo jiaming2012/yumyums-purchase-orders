@@ -742,6 +742,65 @@ test.describe('Approvals', () => {
     await expect(subBanner, 'sub-step photo requirement must surface too').toContainText('Photo required');
   });
 
+  // Operator-found (dev, 2026-07-18): a rejected SUB-STEP came back still CHECKED.
+  // Top-level rejected fields are unchecked on reopen (hydrateFieldState clears
+  // FIELD_RESPONSES[field]), but a sub-step's done-state lives in the PARENT's
+  // sub_steps map, which that clear never touched — so the crew wasn't forced to
+  // redo it. This asserts a rejected sub-step returns UNCHECKED (like top-level).
+  test('rejecting a SUB-STEP unchecks it on reopen so the crew must redo it [APR-SUBSTEP-UNCHECK]', async ({ page }) => {
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await cleanupTemplates(page);
+    await cleanupPendingApprovals(page);
+
+    const todayDOW = await getTodayDOW(page);
+    const sub = (label, order) => ({ type: 'checkbox', label, order, config: {}, fail_trigger: null, condition: null });
+    const tpl = await apiCall(page, 'POST', 'createTemplate', {
+      name: 'Substep Uncheck', requires_approval: true,
+      sections: [{ title: 'Make money', order: 0, condition: null, fields: [
+        { type: 'checkbox', label: 'Cut the check', required: false, order: 0, config: {}, fail_trigger: null, condition: null,
+          sub_steps: [ sub('Do A', 0), sub('Do B', 1) ] },
+      ] }],
+      schedules: [{ active_days: [todayDOW] }],
+      assignments: [
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' },
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'approver' },
+      ],
+    });
+    const full = (await apiCall(page, 'GET', 'templates')).find(t => t.id === tpl.id);
+    const parentId = full.sections[0].fields[0].id;
+    const subs = full.sections[0].fields[0].sub_steps;
+    const doA = subs.find(s => s.label === 'Do A').id;
+    const doB = subs.find(s => s.label === 'Do B').id;
+
+    // Submit with BOTH sub-steps checked (parent value carries the sub_steps map).
+    await apiCall(page, 'POST', 'submitChecklist', {
+      template_id: tpl.id, idempotency_key: generateUUID(),
+      responses: [{ field_id: parentId, value: JSON.stringify({ value: true, sub_steps: { [doA]: true, [doB]: true } }) }],
+    });
+    const pending = await apiCall(page, 'GET', 'pendingApprovals');
+    const subm = pending.find(s => s.template_id === tpl.id) || pending[0];
+    // Reject only "Do B".
+    await apiCall(page, 'POST', 'rejectItem', { submission_id: subm.id, field_id: doB, comment: 'redo Do B', require_photo: false });
+
+    // Reopen as submitter.
+    await page.click('#t1');
+    await page.reload();
+    await page.waitForSelector('#checklist-list .row', { timeout: 10000 });
+    await page.locator('#checklist-list .row', { hasText: 'Substep Uncheck' }).first().click();
+    await page.waitForSelector('#fill-body');
+
+    // The rejected sub-step (Do B) must come back UNCHECKED; the non-rejected one
+    // (Do A) stays checked.
+    const doBCheck = page.locator('.sub-step-row', { hasText: 'Do B' }).locator('.sub-step-check');
+    const doACheck = page.locator('.sub-step-row', { hasText: 'Do A' }).locator('.sub-step-check');
+    await expect(doBCheck, 'rejected sub-step Do B must be unchecked').not.toHaveClass(/done/, { timeout: 5000 });
+    await expect(doACheck, 'non-rejected sub-step Do A stays checked').toHaveClass(/done/);
+    // The parent auto-checkbox must no longer read as fully done.
+    await expect(page.locator('.fill-field', { hasText: 'Cut the check' }).locator('.check-btn').first(),
+      'parent no longer all-done').not.toHaveClass(/checked/);
+  });
+
   test('reject works after template update (field IDs change) [APR-10]', async ({ page }) => {
     await login(page);
     await page.goto(BASE + '/workflows.html');

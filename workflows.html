@@ -1541,7 +1541,16 @@ function hydrateFieldState(filterFieldIds) {
         sub.rejections.forEach(function(rej) {
           if (!filterFieldIds || filterFieldIds.has(rej.field_id)) {
             REJECTION_FLAGS[rej.field_id] = { comment: rej.comment || '', requirePhoto: !!rej.require_photo };
-            delete FIELD_RESPONSES[rej.field_id]; // uncheck so crew must redo
+            delete FIELD_RESPONSES[rej.field_id]; // uncheck a top-level field so crew must redo
+            // A rejected SUB-STEP's done-state lives in its PARENT's sub_steps
+            // map (not FIELD_RESPONSES[subId]); clear it there too so the crew
+            // must redo it — and the parent auto-checkbox drops out of all-done.
+            Object.keys(FIELD_RESPONSES).forEach(function(pid) {
+              var pr = FIELD_RESPONSES[pid];
+              if (pr && pr.sub_steps && Object.prototype.hasOwnProperty.call(pr.sub_steps, rej.field_id)) {
+                delete pr.sub_steps[rej.field_id];
+              }
+            });
           }
         });
       }
