@@ -209,12 +209,25 @@ test.describe('Cost tab (#s6) — State Enumeration', () => {
     await expect(page.locator('.cost-mover-strip[data-strip="food_cost_pct"]')).toBeVisible();
     await expect(page.locator('.cost-mover-strip[data-strip="margin"]')).toBeVisible();
 
-    // Movers are sliced client-side from the FULL ordering (top 3).
+    // Movers are sliced client-side from the FULL ordering, capped at 3 a side.
     const bestPct = page.locator('.cost-mover-strip[data-strip="food_cost_pct"] .cost-mover-row[data-side="best"]');
-    await expect(bestPct).toHaveCount(3);
     await expect(bestPct.first()).toContainText('House Lemonade');
     const worstPct = page.locator('.cost-mover-strip[data-strip="food_cost_pct"] .cost-mover-row[data-side="worst"]');
     await expect(worstPct.first()).toContainText('Truffle Fries');
+
+    // No item may appear on BOTH sides of a strip. With a short ordering a
+    // naive top-3-of-each does exactly that (4 rankable rows -> Salmon Bowl
+    // both "best" and "worst"), which is a contradiction, not a ranking.
+    for (const strip of ['food_cost_pct', 'margin']) {
+      const sel = '.cost-mover-strip[data-strip="' + strip + '"] .cost-mover-row';
+      const best = await page.locator(sel + '[data-side="best"]').evaluateAll(
+        els => els.map(e => e.getAttribute('data-menu-item-id')));
+      const worst = await page.locator(sel + '[data-side="worst"]').evaluateAll(
+        els => els.map(e => e.getAttribute('data-menu-item-id')));
+      expect(best.length).toBeLessThanOrEqual(3);
+      expect(worst.length).toBeLessThanOrEqual(3);
+      expect(best.filter(id => worst.includes(id))).toEqual([]);
+    }
 
     // A negative-margin row legitimately leads the worst-margin strip.
     const worstMargin = page.locator('.cost-mover-strip[data-strip="margin"] .cost-mover-row[data-side="worst"]');
