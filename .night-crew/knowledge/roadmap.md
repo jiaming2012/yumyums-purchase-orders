@@ -85,7 +85,7 @@
   resolution unions admins + author + assignees; the escaped cross-user access defect carries a
   red-first unit test on the pre-fix code. Footprint: `backend/internal/sync` (+ `sync/access_test.go`).
   → QA KR1. *(from BACKLOG "Cross-user live-sync access matrix + sync-package unit coverage")*
-- **`convergence-matrix-systematic`** · **DRAFTING** (overnight-20260721) · Extend the convergence E2E matrix from
+- **`convergence-matrix-systematic`** · **DONE** (overnight-20260721 impl `c7b4ccd`, G6 PASS, merged `8249209`; 32-cell matrix: 24 covered / 8 N/A-with-reason; 13 new `MTX-*` cells; 65/65 ×3 fresh-DB `--retries=0` + independent G6 re-run; test-only, 0 cells PARKed) · Extend the convergence E2E matrix from
   SET_FIELD-only to {op-type ∈ field / submit / approve / reject} × {editor ∈ assignee /
   non-assignee-admin} × {derived-view ∈ field-value / correction-banner / readonly-mode / list
   progress-count}; each cell red-first then green across ≥2 devices; the 3 escaped defects each
