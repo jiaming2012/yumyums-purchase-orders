@@ -73,7 +73,7 @@
 
 ## Activity 3 — Trust track · *parallel; independent modules; may start once the PRD lands (no design-gate dependency)*
 
-- **`waiver1-isolation-fix`** · **DRAFTING** (overnight-20260721) · Fix the 1 isolation-confirmed cross-test
+- **`waiver1-isolation-fix`** · **DONE** (overnight-20260721 impl `544e68b`+`08c1bef`, G6 PASS, merged `24358f8`; root cause = ops-journal replay fetch storm, ungated `SUBMIT_CHECKLIST` re-fetch `sync.js:443`; literal `task test` exit-0 achieved + independently reproduced (473·0·6) — **waiver #1 formally retired**; NOTE: successor intermittent `sync.spec.js:1198` observed 1-of-2 G6 full runs → exit-0 not asserted deterministic, fork in DECISIONS-NEEDED) · Fix the 1 isolation-confirmed cross-test
   DB-pollution red (`tests/workflows.spec.js › approved checklist shows Approved badge and cannot
   be resubmitted` LST-08 — passes in isolation, `#toast` hidden in the full suite) by isolating
   its state dependency, then re-run the full suite to confirm **literal `task test` exit-0** —
