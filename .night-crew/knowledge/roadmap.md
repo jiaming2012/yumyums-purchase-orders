@@ -80,7 +80,7 @@
   FORMALLY retires carried waiver #1 (Eng KR5 PARTIAL → PASS). Red-first: full-suite red is the
   baseline. Footprint: workflow-engine tests (test-only, no production change). → Eng KR5.
   *(carried from BACKLOG "Waiver-#1 last mile"; operator chose graduate 2026-07-19)*
-- **`sync-pkg-unit-coverage`** · **DRAFTING** (overnight-20260721) · The `sync` package (0 Go tests today) gets
+- **`sync-pkg-unit-coverage`** · **DONE** (overnight-20260721 impl `0ebc81d`, G6 PASS, merged `38f2060`; 10-combo cartesian + entity-branch/dedup/negative coverage; superadmin N/A per `users_roles_check`; ESC-1 regression unweakened; approver-inclusion contract question surfaced → DECISIONS-NEEDED) · The `sync` package (0 Go tests today) gets
   `ResolveEntityAccess` coverage across all {role}×{assignment} combos, asserting recipient
   resolution unions admins + author + assignees; the escaped cross-user access defect carries a
   red-first unit test on the pre-fix code. Footprint: `backend/internal/sync` (+ `sync/access_test.go`).
