@@ -134,9 +134,33 @@ func costWindow(now time.Time) (string, string, int) {
 //     on the numbers the client actually receives, then each is itself rounded
 //     to 2 decimals.
 //
-// The zero-revenue guard is an explicit `WHEN revenue = 0 THEN NULL`, not
-// NULLIF: revenue stays in the numeric domain (exact), and a NULLIF-style guard
-// risks yielding a silent 0 rather than the specified null.
+// The non-positive-revenue guard is an explicit `WHEN revenue <= 0 THEN NULL`,
+// not NULLIF: revenue stays in the numeric domain (exact), and a NULLIF-style
+// guard risks yielding a silent 0 rather than the specified null.
+//
+// Signed §2.3 words the rule as "zero-revenue -> NULL". The `<= 0` here EXTENDS
+// it to negative revenue, which refunds produce (SUM(gross_amount) can go
+// negative). With a bare `= 0` guard a refunded dish published
+// food_cost_pct = -500000 and, because by_food_cost_pct.best ranks lowest-first,
+// sorted to the top of the "best food cost %" strip. Reading the extension as
+// the design's evident intent ("never a divide-by-zero or Inf", "never a silent
+// 0") rather than a new decision — flagged for operator ratification at triage.
+//
+// ── KNOWN GAP, DELIBERATELY NOT FIXED HERE (routed to the operator) ──
+// A menu item that HAS recipe rows but whose ingredients saw NO purchases inside
+// the window yields alloc_cost = 0, so this query publishes
+// ingredient_cost_total = 0, margin = revenue, food_cost_pct = 0 — i.e. a
+// flattering 0% food cost / 100% margin presented as fact. That is the same
+// class of meaningless number that justified returning NULL (not 0) for the
+// no-recipe case above, and it is arguably the MORE likely production case,
+// since bulk buys routinely land outside a rolling 12-week window.
+//
+// It is not fixed here because the honest fix needs a reason string, and
+// menu-cogs's vocabulary supplies only "no recipe" and "partial allocation
+// (X%)" — neither covers "recipe exists, zero window spend". Coining a third
+// string is a design amendment to §2.3, not an implementation choice, so the
+// behavior is left as-is pending that decision. Do not mistake the current
+// output for intended behavior.
 const costQuery = `
 WITH
 window_spend AS (
@@ -193,7 +217,7 @@ SELECT
        ELSE ROUND(revenue - ingredient_cost_total, 2)
   END AS margin,
   CASE WHEN ingredient_cost_total IS NULL THEN NULL
-       WHEN revenue = 0                   THEN NULL
+       WHEN revenue <= 0                  THEN NULL
        ELSE ROUND(ingredient_cost_total / revenue * 100, 2)
   END AS food_cost_pct,
   CASE WHEN ingredient_cost_total IS NULL THEN 'no recipe'
@@ -241,7 +265,11 @@ func queryCost(ctx context.Context, pool *pgxpool.Pool, from, to string) (CostRe
 // computeMovers builds both orderings per §2.3.
 //
 //   - by_food_cost_pct: best = lowest %, worst = highest %. Rows with a null %
-//     (zero revenue, or no recipe) are EXCLUDED — there is no % to rank on.
+//     (non-positive revenue, or no recipe) are EXCLUDED — there is no % to rank
+//     on. The `Revenue > 0` half of the guard is redundant with the SQL's
+//     `revenue <= 0 -> NULL` and is kept deliberately: ranking is where a bogus
+//     % does real damage (a -500000% refund sorts to "best"), so the invariant
+//     is enforced locally rather than trusted from one query away.
 //   - by_margin: best = highest dollars, worst = lowest. Rows with a null margin
 //     (no recipe) are excluded, but zero-revenue rows DO participate: a negative
 //     margin is a real worst-mover.
@@ -278,7 +306,7 @@ func computeMovers(rows []CostRow) CostMovers {
 	pctItems := make([]entry, 0, len(rows))
 	marginItems := make([]entry, 0, len(rows))
 	for _, r := range rows {
-		if r.FoodCostPct != nil {
+		if r.FoodCostPct != nil && r.Revenue > 0 {
 			pctItems = append(pctItems, entry{r.MenuItemID, r.MenuItemName, *r.FoodCostPct})
 		}
 		if r.Margin != nil {
