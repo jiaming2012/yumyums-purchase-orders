@@ -1520,9 +1520,23 @@ test.describe('Convergence matrix (W-3): lifecycle + list progress', () => {
     const pageB = await ctxB.newPage();
     await login(pageB);
     await openRunnerB(pageB, 'MX Denom');
-    await pageB.locator('.fill-field', { hasText: 'Keep A' }).locator('.check-btn').click();
-    await waitAutosave(pageB);
-    await pageB.waitForTimeout(800);
+    // Deterministic pre-state (de-flake 2026-07-22): register the autosave wait
+    // BEFORE the click and REQUIRE a 2xx, rather than the old post-hoc
+    // waitAutosave(...) — which registered after the click, swallowed its own
+    // timeout via .catch(() => {}), and leaned on a magic 800ms buffer. Under
+    // cross-track load that buffer was not enough: the POST /ops landed late,
+    // the row was still '0/2' when the 12s pre-state expect expired, and the
+    // test failed BEFORE reaching the SAVE_TEMPLATE convergence it exists to
+    // prove (observed leg 2, machine load avg 5.4). Same commit-gated shape
+    // mtxCheckFields already uses.
+    const keepASaved = pageB.waitForResponse(
+      res => res.url().includes('/api/v1/workflow/ops') && res.request().method() === 'POST',
+      { timeout: 15000 });
+    const keepA = pageB.locator('.fill-field', { hasText: 'Keep A' }).locator('.check-btn');
+    await keepA.click();
+    await expect(keepA).toHaveClass(/checked/, { timeout: RUNNER_TIMEOUT });
+    const keepARes = await keepASaved;
+    expect(keepARes.ok(), 'Keep A autosave must commit (2xx) before leaving the runner').toBeTruthy();
     await pageB.click('#fill-back');
     await expect(pageB.locator('#checklist-list')).toBeVisible({ timeout: RUNNER_TIMEOUT });
     const rowB = pageB.locator('[data-fill-template-id]').filter({ hasText: 'MX Denom' });
