@@ -132,7 +132,7 @@
   table, ~8–12 week window. Ships with `tests/states-trends.spec.js` (State-Enumeration: empty /
   loading / error / populated + no-data + ungated edges, screenshots read back). Footprint:
   `inventory.html`. → Delivery KR2, QA KR3.
-- **`cost-margin-endpoint`** · **PLANNED** · The margin join: extend `menu-cogs` (or a new
+- **`cost-margin-endpoint`** · **DRAFTING** (built 2026-07-22, G6 PASS-WITH-FINDINGS; 2 forks open — see DECISIONS-NEEDED F2-a/F2-b) · The margin join: extend `menu-cogs` (or a new
   endpoint) to also select `SUM(gross_amount)` (revenue) and compute `margin = gross_amount −
   ingredient_cost_total` and `food_cost_% = ingredient_cost_total / gross_amount`, plus top/bottom
   movers ordering. Red-first Go test matching a hand-computed fixture to the cent. Footprint:
