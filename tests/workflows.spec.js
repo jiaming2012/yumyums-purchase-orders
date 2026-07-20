@@ -2760,6 +2760,9 @@ test.describe('Approval Flow', () => {
   });
 
   test('approved checklist shows Approved badge and cannot be resubmitted [LST-08 RUN-08]', async ({ page }) => {
+    // Three logins + the networkidle catch-up drain below can exceed the 30s
+    // default when the shared-DB ops journal is large (full-suite position).
+    test.setTimeout(60000);
     // Setup
     await login(page);
     await cleanupTemplates(page);
@@ -2774,6 +2777,18 @@ test.describe('Approval Flow', () => {
     // --- Crew: complete and submit ---
     await login(page, crew.email, crew.password);
     await page.goto(BASE + '/workflows.html');
+    // Order-independence guard (carried waiver #1, full-suite-only red): a
+    // fresh browser context starts its Lamport clock at 0, so sync.js's
+    // wsCatchUp replays the ENTIRE ops journal accumulated in shared hq_test
+    // by earlier spec files (sync.spec.js is the dominant producer). The
+    // SUBMIT_CHECKLIST / APPROVE_ITEM replay branches each fire a
+    // loadMyChecklists() re-fetch; a stale drafts snapshot resolving mid-fill
+    // re-hydrates the open runner and clobbers an optimistic checkbox answer
+    // (observed: "3 of 4 items complete" after clicking all 4). The submit then
+    // falls into the "1 item not completed. Submit anyway?" confirm() — which
+    // Playwright auto-dismisses — and returns WITHOUT ever showing a toast.
+    // Draining the replay fetch storm before interacting removes the race.
+    await page.waitForLoadState('networkidle');
     await page.waitForSelector('#checklist-list .row');
     await page.locator('#checklist-list .row', { hasText: appName }).first().click();
     await page.waitForSelector('#fill-body .fill-field');
@@ -2783,6 +2798,20 @@ test.describe('Approval Flow', () => {
       await page.waitForTimeout(300);
     }
     await page.waitForTimeout(2000);
+    // Repair pass: if a straggler stale re-render still unchecked a box,
+    // re-click it (same isChecked guard as the rejection test above), then
+    // require all 4 checked before submitting — the submit-toast assertion
+    // below is the contract for a FULLY-completed submit, so the precondition
+    // must hold order-independently.
+    const totalCheckBtns = await checkBtns.count();
+    for (let i = 0; i < totalCheckBtns; i++) {
+      const isChecked = await checkBtns.nth(i).evaluate(el => el.classList.contains('checked'));
+      if (!isChecked) {
+        await checkBtns.nth(i).click();
+        await page.waitForTimeout(300);
+      }
+    }
+    await expect(page.locator('.check-btn.checked')).toHaveCount(4);
     await page.click('[data-action="submit"]');
     await page.waitForTimeout(1000);
 
