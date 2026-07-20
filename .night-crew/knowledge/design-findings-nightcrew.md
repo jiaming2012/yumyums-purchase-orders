@@ -65,10 +65,25 @@
   main." Target-repo rituals must only depend on main-deployed tool features; a skill step naming
   an undeployed subcommand is skipped-with-reason, never satisfied by rebuilding the CLI from dev
   mid-ritual (this happened briefly at this triage and was reverted the same session).
-- **Fix candidates (night-crew main):** (a) promote the preferences/decisions work dev → main so
-  the skill and tool re-align; (b) until then, gate those skill steps on a capability probe
-  (`night-crew <sub> --help` exit status or usage grep) with an explicit "not deployed — skipped"
-  report line; (c) the skill-release checklist gains "every named subcommand exists on main."
+- **ROOT CAUSE (corrected same day, attended follow-up):** the skill did not "get ahead of
+  main" — **the `nc:update` pin is defeated by the clone's checkout.** `nc:update` = fetch +
+  `git checkout main` + ff-only merge + `install.sh`, and `install.sh` symlinks every
+  `~/.claude/skills/nc-*` **into the clone's working tree** ("so `git pull` updates them in
+  place"). The pin therefore holds only while the clone stays checked out on `main`. The WSL
+  clone is checked out on `dev` (56+ ahead, dirty) for night-crew's own development — so every
+  nc-* skill has silently served **dev** text since that checkout, while the installed binary
+  remained main-vintage. Verified: `git show main:.claude/skills/nc-morning-triage/SKILL.md`
+  has **0** mentions of `preferences propose`/`decisions audit`; the working tree (what the
+  symlink serves) has 2. Binary-vs-skill skew was the *symptom*; working-tree-tracking
+  symlinks are the defect.
+- **Fix candidates (night-crew main):** (a) `install.sh` symlinks into a **main-pinned
+  worktree** (`git worktree add ../night-crew-main main`) instead of the development checkout —
+  the pin then survives any branch switching in the dev clone; (b) or `nc:install` COPIES the
+  skills at install time so they change only when `nc:update` runs (loses the pull-updates-
+  in-place property, gains checkout independence); (c) or keep the rule "the installed clone
+  never checks out anything but main" and do night-crew development in a separate clone/
+  worktree; (d) independently: promote preferences/decisions dev → main, and add a capability
+  probe to skill steps naming subcommands ("not deployed — skipped" report line).
 - **Cost of the gap:** two operator-answered riders (umbrella grants; everyone-sees-live-ops)
   could not enter the preference pending queue and live only in the target repo's ledger/design —
   re-offer them if/when the machinery ships.
