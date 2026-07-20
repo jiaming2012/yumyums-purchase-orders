@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"testing"
 	"time"
 
@@ -615,5 +616,199 @@ func TestCost_EmptyDataset_ReturnsEmptyArrays(t *testing.T) {
 	}
 	if string(probe.Movers.ByMargin.Best) != "[]" {
 		t.Errorf("movers.by_margin.best on the wire = %s, want []", string(probe.Movers.ByMargin.Best))
+	}
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// G6 FIX 1 — negative revenue must be treated exactly like zero revenue.
+//
+// A refund can drive SUM(gross_amount) negative. A `revenue = 0` guard does not
+// catch it, so the row published food_cost_pct = -500000 (cost 50 / revenue
+// -0.01). Because by_food_cost_pct.best is ordered lowest-%-first, that nonsense
+// value sorted to position 0 and would have top-billed a refunded dish as the
+// BEST food-cost performer on the tab.
+//
+// The signed §2.3 rule reads "zero-revenue -> NULL"; this extends it to
+// non-positive revenue, on the design's own stated intent ("never a
+// divide-by-zero or Inf", "never a silent 0"). Flagged for operator ratification.
+// ─────────────────────────────────────────────────────────────────────────────
+func TestCost_NegativeRevenue_PctNullAndExcludedFromMovers(t *testing.T) {
+	pool := setupTestDB(t)
+
+	vendorID := seedVendor(t, pool, "F2-Refund-Vendor")
+	pi := seedPurchaseItem(t, pool, "Refund Salmon")
+	ev := seedPurchaseEventCat(t, pool, vendorID, "2026-05-11", 0.00, 100.00, nil)
+	seedPurchaseLineItem(t, pool, ev, pi, "Refund Salmon", 1, 100.00)
+
+	// Refunded Dish: 50% of 100.00 = 50.00 cost, against a NEGATIVE net revenue.
+	refunded := seedMenuItemFull(t, pool, "Refunded Dish", "Specials")
+	seedRecipe(t, pool, refunded, pi, 50.0)
+	seedDailyMenuSales(t, pool, refunded, "2026-05-11", 1, -0.01)
+
+	// A healthy row so the movers lists are non-trivial and we can prove the
+	// refunded row is excluded rather than the lists just being empty.
+	healthy := seedMenuItemFull(t, pool, "Healthy Dish", "Bowls")
+	seedRecipe(t, pool, healthy, pi, 25.0) // 25.00 cost
+	seedDailyMenuSales(t, pool, healthy, "2026-05-11", 10, 100.00)
+
+	resp, err := queryCost(context.Background(), pool, costFixtureFrom, costFixtureTo)
+	if err != nil {
+		t.Fatalf("queryCost: %v", err)
+	}
+
+	// (i) food_cost_pct is JSON null on the wire.
+	raw, err := json.Marshal(resp)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	var envelope struct {
+		Rows []map[string]json.RawMessage `json:"rows"`
+	}
+	if err := json.Unmarshal(raw, &envelope); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	found := false
+	for _, r := range envelope.Rows {
+		var name string
+		_ = json.Unmarshal(r["menu_item_name"], &name)
+		if name != "Refunded Dish" {
+			continue
+		}
+		found = true
+		if got := string(r["food_cost_pct"]); got != "null" {
+			t.Errorf("Refunded Dish food_cost_pct on the wire = %s, want null", got)
+		}
+		// The row keeps its real cost and its real (negative) margin.
+		var margin float64
+		if err := json.Unmarshal(r["margin"], &margin); err != nil {
+			t.Fatalf("margin not a number: %s", string(r["margin"]))
+		}
+		if !centsEqual(margin, -50.01) {
+			t.Errorf("Refunded Dish margin = %v, want -50.01", margin)
+		}
+	}
+	if !found {
+		t.Fatal("Refunded Dish row missing from the wire payload")
+	}
+
+	// (ii) absent from BOTH by_food_cost_pct lists.
+	refundedRow := rowByName(t, resp, "Refunded Dish")
+	for _, id := range resp.Movers.ByFoodCostPct.Best {
+		if id == refundedRow.MenuItemID {
+			t.Errorf("negative-revenue row must not appear in by_food_cost_pct.best (got %v)", resp.Movers.ByFoodCostPct.Best)
+		}
+	}
+	for _, id := range resp.Movers.ByFoodCostPct.Worst {
+		if id == refundedRow.MenuItemID {
+			t.Errorf("negative-revenue row must not appear in by_food_cost_pct.worst (got %v)", resp.Movers.ByFoodCostPct.Worst)
+		}
+	}
+	// The healthy row is still ranked, so exclusion is targeted not blanket.
+	healthyRow := rowByName(t, resp, "Healthy Dish")
+	if len(resp.Movers.ByFoodCostPct.Best) != 1 || resp.Movers.ByFoodCostPct.Best[0] != healthyRow.MenuItemID {
+		t.Errorf("by_food_cost_pct.best = %v, want exactly [Healthy Dish]", resp.Movers.ByFoodCostPct.Best)
+	}
+	// Negative margin still participates in by_margin (a real worst-mover).
+	if len(resp.Movers.ByMargin.Worst) == 0 || resp.Movers.ByMargin.Worst[0] != refundedRow.MenuItemID {
+		t.Errorf("by_margin.worst[0] = %v, want Refunded Dish (negative margins DO rank)", resp.Movers.ByMargin.Worst)
+	}
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// G6 FIX 2 — the movers tie-break was unproven (reviewer mutation M3 survived:
+// no fixture created a tie in either ordering).
+//
+// Note the subtlety that made M3 survive: the SQL already emits rows
+// ORDER BY menu_item_name, and sort.SliceStable preserves input order, so with
+// DB-ordered input the explicit name tie-break is redundant and invisible. This
+// unit test therefore feeds computeMovers rows in DELIBERATELY NON-NAME ORDER,
+// which is the only way to actually observe (and thus protect) the tie-break.
+// ─────────────────────────────────────────────────────────────────────────────
+func TestComputeMovers_TieBreakOnName_IndependentOfInputOrder(t *testing.T) {
+	f := func(v float64) *float64 { return &v }
+
+	// Three-way tie in BOTH orderings: identical margin AND identical pct.
+	// Supplied in reverse-name order to defeat sort stability.
+	rows := []CostRow{
+		{MenuItemID: "id-charlie", MenuItemName: "Charlie", Revenue: 100, IngredientCostTotal: f(25), Margin: f(75), FoodCostPct: f(25)},
+		{MenuItemID: "id-bravo", MenuItemName: "Bravo", Revenue: 100, IngredientCostTotal: f(25), Margin: f(75), FoodCostPct: f(25)},
+		{MenuItemID: "id-alpha", MenuItemName: "Alpha", Revenue: 100, IngredientCostTotal: f(25), Margin: f(75), FoodCostPct: f(25)},
+	}
+
+	m := computeMovers(rows)
+
+	wantBest := []string{"id-alpha", "id-bravo", "id-charlie"}
+	wantWorst := []string{"id-charlie", "id-bravo", "id-alpha"}
+
+	eq := func(label string, got, want []string) {
+		if len(got) != len(want) {
+			t.Errorf("%s: len = %d, want %d (got %v)", label, len(got), len(want), got)
+			return
+		}
+		for i := range want {
+			if got[i] != want[i] {
+				t.Errorf("%s[%d] = %s, want %s (full: %v)", label, i, got[i], want[i], got)
+			}
+		}
+	}
+	eq("tie by_food_cost_pct.best", m.ByFoodCostPct.Best, wantBest)
+	eq("tie by_food_cost_pct.worst", m.ByFoodCostPct.Worst, wantWorst)
+	eq("tie by_margin.best", m.ByMargin.Best, wantBest)
+	eq("tie by_margin.worst", m.ByMargin.Worst, wantWorst)
+
+	// Repeated calls must be byte-identical (no map iteration leaking in).
+	for i := 0; i < 5; i++ {
+		again := computeMovers(rows)
+		eq("repeat by_margin.best", again.ByMargin.Best, wantBest)
+		eq("repeat by_food_cost_pct.best", again.ByFoodCostPct.Best, wantBest)
+	}
+}
+
+// End-to-end tie determinism through the DB path, across repeated calls.
+func TestCost_TiedRows_DeterministicAcrossCalls(t *testing.T) {
+	pool := setupTestDB(t)
+
+	vendorID := seedVendor(t, pool, "F2-Tie-Vendor")
+	pi := seedPurchaseItem(t, pool, "Tie Ingredient")
+	ev := seedPurchaseEventCat(t, pool, vendorID, "2026-05-11", 0.00, 100.00, nil)
+	seedPurchaseLineItem(t, pool, ev, pi, "Tie Ingredient", 1, 100.00)
+
+	// Two items, identical allocation and identical revenue -> identical margin
+	// AND identical food_cost_pct. Seeded in reverse-name order on purpose.
+	beta := seedMenuItemFull(t, pool, "Tie Beta", "Bowls")
+	alpha := seedMenuItemFull(t, pool, "Tie Alpha", "Bowls")
+	seedRecipe(t, pool, beta, pi, 25.0)
+	seedRecipe(t, pool, alpha, pi, 25.0)
+	seedDailyMenuSales(t, pool, beta, "2026-05-11", 10, 100.00)
+	seedDailyMenuSales(t, pool, alpha, "2026-05-11", 10, 100.00)
+
+	var first CostResponse
+	for i := 0; i < 5; i++ {
+		resp, err := queryCost(context.Background(), pool, costFixtureFrom, costFixtureTo)
+		if err != nil {
+			t.Fatalf("queryCost call %d: %v", i, err)
+		}
+		// Confirm the tie is real before asserting the tie-break.
+		a := rowByName(t, resp, "Tie Alpha")
+		b := rowByName(t, resp, "Tie Beta")
+		if a.Margin == nil || b.Margin == nil || !centsEqual(*a.Margin, *b.Margin) {
+			t.Fatalf("fixture precondition: margins are not tied (%v vs %v)", a.Margin, b.Margin)
+		}
+		if a.FoodCostPct == nil || b.FoodCostPct == nil || !centsEqual(*a.FoodCostPct, *b.FoodCostPct) {
+			t.Fatalf("fixture precondition: pcts are not tied (%v vs %v)", a.FoodCostPct, b.FoodCostPct)
+		}
+		if i == 0 {
+			first = resp
+			if got := resp.Movers.ByMargin.Best; len(got) != 2 || got[0] != alpha || got[1] != beta {
+				t.Errorf("tied by_margin.best = %v, want [Tie Alpha, Tie Beta] (name-ascending tie-break)", got)
+			}
+			if got := resp.Movers.ByFoodCostPct.Best; len(got) != 2 || got[0] != alpha || got[1] != beta {
+				t.Errorf("tied by_food_cost_pct.best = %v, want [Tie Alpha, Tie Beta]", got)
+			}
+			continue
+		}
+		if !reflect.DeepEqual(resp.Movers, first.Movers) {
+			t.Fatalf("movers not deterministic across calls: call0=%+v call%d=%+v", first.Movers, i, resp.Movers)
+		}
 	}
 }
