@@ -59,7 +59,7 @@
 
 ## Activity 2 — Design gate · *attended; blocks the Feature build track (Activity 4)*
 
-- **`prove-surface-openspec-design`** · **PLANNED** · The OpenSpec change for: (a) the **gating
+- **`prove-surface-openspec-design`** · **DRAFTING** (draft-only overnight-20260721; A4 open; sign-off attended) · The OpenSpec change for: (a) the **gating
   model** — how a tab-level grant is represented in `app_permissions` (dedicated slug vs a
   sub-permission column) AND the net-new **enforcement path** (a `RequirePermission`-style check
   on the Trends/Cost data endpoints — there is no permission middleware today, only
@@ -73,19 +73,19 @@
 
 ## Activity 3 — Trust track · *parallel; independent modules; may start once the PRD lands (no design-gate dependency)*
 
-- **`waiver1-isolation-fix`** · **PLANNED** · Fix the 1 isolation-confirmed cross-test
+- **`waiver1-isolation-fix`** · **DRAFTING** (overnight-20260721) · Fix the 1 isolation-confirmed cross-test
   DB-pollution red (`tests/workflows.spec.js › approved checklist shows Approved badge and cannot
   be resubmitted` LST-08 — passes in isolation, `#toast` hidden in the full suite) by isolating
   its state dependency, then re-run the full suite to confirm **literal `task test` exit-0** —
   FORMALLY retires carried waiver #1 (Eng KR5 PARTIAL → PASS). Red-first: full-suite red is the
   baseline. Footprint: workflow-engine tests (test-only, no production change). → Eng KR5.
   *(carried from BACKLOG "Waiver-#1 last mile"; operator chose graduate 2026-07-19)*
-- **`sync-pkg-unit-coverage`** · **PLANNED** · The `sync` package (0 Go tests today) gets
+- **`sync-pkg-unit-coverage`** · **DRAFTING** (overnight-20260721) · The `sync` package (0 Go tests today) gets
   `ResolveEntityAccess` coverage across all {role}×{assignment} combos, asserting recipient
   resolution unions admins + author + assignees; the escaped cross-user access defect carries a
   red-first unit test on the pre-fix code. Footprint: `backend/internal/sync` (+ `sync/access_test.go`).
   → QA KR1. *(from BACKLOG "Cross-user live-sync access matrix + sync-package unit coverage")*
-- **`convergence-matrix-systematic`** · **PLANNED** · Extend the convergence E2E matrix from
+- **`convergence-matrix-systematic`** · **DRAFTING** (overnight-20260721) · Extend the convergence E2E matrix from
   SET_FIELD-only to {op-type ∈ field / submit / approve / reject} × {editor ∈ assignee /
   non-assignee-admin} × {derived-view ∈ field-value / correction-banner / readonly-mode / list
   progress-count}; each cell red-first then green across ≥2 devices; the 3 escaped defects each
@@ -93,7 +93,7 @@
   (`sync.spec.js`, `repro-cut-task.spec.js`, `broadcast-rerender.spec.js`; `sync.js`/`workflows.html`
   only if a determinism seam is needed). → Eng KR4, Product KR2, QA. *(from BACKLOG "Live
   approval-state convergence coverage" — the QA hole both escaped defects widened)*
-- **`percard-timing-instrumentation`** · **PLANNED** · Make per-card wall-clock timing the
+- **`percard-timing-instrumentation`** · **DRAFTING** (standing run-mechanic, active from overnight-20260721) · Make per-card wall-clock timing the
   invariant build-run output for every build card this cycle (the `-0718` harness-measured table
   as standing practice) so the cycle gate can compute a real median vs the T-14 baseline
   (N=23 / 22m28s). Footprint: run-mechanics / process (no product code). → Delivery KR3.
