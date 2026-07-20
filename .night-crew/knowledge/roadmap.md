@@ -137,7 +137,7 @@
   ingredient_cost_total` and `food_cost_% = ingredient_cost_total / gross_amount`, plus top/bottom
   movers ordering. Red-first Go test matching a hand-computed fixture to the cent. Footprint:
   `backend/internal/recipes` (+ `inventory`). → Eng KR2, Delivery KR2.
-- **`cost-tab-frontend`** · **PLANNED** · Build the Cost tab (`#s6`, replacing the cost render
+- **`cost-tab-frontend`** · **DRAFTING** (built 2026-07-22, G6 PASS-WITH-FINDINGS; 1 fork open — row-level loss-red, see DECISIONS-NEEDED) · Build the Cost tab (`#s6`, replacing the cost render
   stub at `inventory.html:997-998`): sortable per-menu-item food-cost table (units / revenue /
   ingredient cost / margin / food-cost %) + a top/bottom movers highlight; inline SVG/CSS bars;
   honest empty/low-data state where Toast sales are absent (accept-sparse-prod). Ships with
