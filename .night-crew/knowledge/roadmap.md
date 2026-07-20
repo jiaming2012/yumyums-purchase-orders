@@ -98,7 +98,7 @@
   as standing practice) so the cycle gate can compute a real median vs the T-14 baseline
   (N=23 / 22m28s). Footprint: run-mechanics / process (no product code). → Delivery KR3.
   *(from BACKLOG "Per-card wall-clock instrumentation as a standing build-run output")*
-- **`replay-fetchstorm-gate`** · **PLANNED** (promoted at triage 2026-07-20, ledger T-18 — operator: "promote it"; pairs DECISIONS-NEEDED §B2+§B3, same root cause) · Gate the ungated
+- **`replay-fetchstorm-gate`** · **DRAFTING** (built 2026-07-22, G6 PASS-WITH-FINDINGS; PARTIAL — de-flake tail (b) PARKED, storm class not fully closed) (promoted at triage 2026-07-20, ledger T-18 — operator: "promote it"; pairs DECISIONS-NEEDED §B2+§B3, same root cause) · Gate the ungated
   `SUBMIT_CHECKLIST` replay re-fetch (`sync.js:443`) with the proven in-file pattern
   (`(runner open) ∨ !silent`, as the `APPROVE_ITEM`/`SAVE_TEMPLATE` branches already do) so a
   fresh-context catch-up no longer fires `loadMyChecklists()` per replayed op — kills the
