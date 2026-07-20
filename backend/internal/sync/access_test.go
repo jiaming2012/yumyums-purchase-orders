@@ -399,13 +399,18 @@ func TestResolveEntityAccess_MissingEntityRows(t *testing.T) {
 	}
 }
 
-// TestResolveEntityAccess_ApproverIncluded_CurrentBehavior pins CURRENT observed
-// behavior: the recipient query (ops.go) matches template_assignments rows
-// WITHOUT filtering assignment_role, so an 'approver'-linked user receives live
-// ops exactly like an 'assignee'. NOTE for reviewers: the stated contract says
-// "assignees"; whether approvers belong in the live-sync fan-out is a contract
-// question, not settled here — this test locks in today's behavior so any future
-// change to it is deliberate, not accidental.
+// TestResolveEntityAccess_ApproverIncluded_CurrentBehavior pins the CONTRACT:
+// the recipient query (ops.go) matches template_assignments rows WITHOUT
+// filtering assignment_role, so an 'approver'-linked user receives live ops
+// exactly like an 'assignee'.
+//
+// This was previously a reviewer-NOTE flagging approver inclusion as an open
+// contract question ("the stated contract says assignees"). That question is
+// settled: signed decision B4 — "everyone with entity access sees live ops."
+// Approver fan-out is therefore INTENDED behavior, not merely observed
+// behavior, and this test is a contract pin. Narrowing the fan-out to
+// assignee-only would be a deliberate contract change requiring a new
+// decision, not a bug fix.
 func TestResolveEntityAccess_ApproverIncluded_CurrentBehavior(t *testing.T) {
 	pool := setupAccessTestDB(t)
 	ctx := context.Background()

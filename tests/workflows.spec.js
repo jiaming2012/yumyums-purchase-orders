@@ -2601,24 +2601,32 @@ test.describe('Approval Flow', () => {
   // fresh browser context starts its Lamport clock at 0, so sync.js's
   // wsCatchUp replays the ENTIRE ops journal accumulated in the shared
   // hq_test by earlier spec files (sync.spec.js is the dominant producer).
-  // The SUBMIT_CHECKLIST / APPROVE_ITEM replay branches each fire a
+  // The SUBMIT_CHECKLIST / APPROVE_ITEM replay branches USED TO each fire a
   // loadMyChecklists() re-fetch; a stale drafts snapshot resolving mid-fill
-  // re-hydrates the open runner and clobbers an optimistic checkbox answer
+  // re-hydrated the open runner and clobbered an optimistic checkbox answer
   // (observed: "3 of 4 items complete" right after clicking all 4). The
-  // submit then falls into the "1 item not completed. Submit anyway?"
-  // confirm() — which Playwright auto-dismisses — and returns WITHOUT ever
-  // showing a toast. Draining the replay fetch storm after page load, before
-  // interacting, removes the race. Call after every goto in multi-user flows.
+  // submit then fell into the "1 item not completed. Submit anyway?"
+  // confirm() — which Playwright auto-dismisses — and returned WITHOUT ever
+  // showing a toast.
+  //
+  // Both branches are now gated on (runner open) ∨ !silent (T-18), so the
+  // storm itself is gone and the clobber with it. This drain is kept as a
+  // cheap settle after page load in multi-user flows — it is no longer load-
+  // bearing against that specific race.
   async function drainOpsReplay(page) {
     await page.waitForLoadState('networkidle');
   }
 
-  // Click every checkbox in the open runner, wait for auto-save, then repair
-  // any answer a straggler stale re-render un-checked (same isChecked guard
-  // the resubmit flow uses) and require all `expected` checked before
-  // returning — the submit-toast assertions are the contract for a FULLY
-  // completed submit, so the precondition must hold order-independently.
-  async function checkAllWithRepair(page, expected) {
+  // Click every checkbox in the open runner and require all `expected` checked
+  // before returning — the submit-toast assertions are the contract for a FULLY
+  // completed submit, so the precondition must hold.
+  //
+  // This used to carry a second "repair" pass that re-clicked any answer a
+  // straggler stale re-render had un-checked. That workaround is dead as of the
+  // T-18 gate: the SUBMIT_CHECKLIST replay branch no longer fires a
+  // loadMyChecklists() per replayed op, so there is no stale snapshot to land
+  // mid-fill and clobber an optimistic answer. Plain clicks again.
+  async function checkAll(page, expected) {
     const checkBtns = page.locator('.check-btn');
     const count = await checkBtns.count();
     expect(count).toBe(expected);
@@ -2627,13 +2635,6 @@ test.describe('Approval Flow', () => {
       await page.waitForTimeout(300);
     }
     await page.waitForTimeout(2000); // auto-save
-    for (let i = 0; i < count; i++) {
-      const isChecked = await checkBtns.nth(i).evaluate(el => el.classList.contains('checked'));
-      if (!isChecked) {
-        await checkBtns.nth(i).click();
-        await page.waitForTimeout(300);
-      }
-    }
     await expect(page.locator('.check-btn.checked')).toHaveCount(expected);
   }
 
@@ -2659,7 +2660,7 @@ test.describe('Approval Flow', () => {
     await page.waitForSelector('#fill-body .fill-field');
 
     // Check all 4 checkboxes (with clobber-repair — see drainOpsReplay)
-    await checkAllWithRepair(page, 4);
+    await checkAll(page, 4); // plain clicks (T-18 gate removed the clobber)
 
     // Submit
     await page.click('[data-action="submit"]');
@@ -2705,7 +2706,7 @@ test.describe('Approval Flow', () => {
     await page.waitForSelector('#fill-body .fill-field');
 
     // Check all 4 checkboxes (with clobber-repair — see drainOpsReplay)
-    await checkAllWithRepair(page, 4);
+    await checkAll(page, 4); // plain clicks (T-18 gate removed the clobber)
     await page.click('[data-action="submit"]');
     await page.waitForTimeout(1000);
 
@@ -2818,7 +2819,7 @@ test.describe('Approval Flow', () => {
     await page.locator('#checklist-list .row', { hasText: appName }).first().click();
     await page.waitForSelector('#fill-body .fill-field');
     // Check all 4 checkboxes (with clobber-repair — see drainOpsReplay)
-    await checkAllWithRepair(page, 4);
+    await checkAll(page, 4); // plain clicks (T-18 gate removed the clobber)
     await page.click('[data-action="submit"]');
     await page.waitForTimeout(1000);
 
