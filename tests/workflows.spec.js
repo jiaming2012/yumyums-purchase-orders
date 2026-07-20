@@ -2597,7 +2597,48 @@ test.describe('Approval Flow', () => {
     });
   }
 
+  // Order-independence guard (carried waiver #1, full-suite-only reds): a
+  // fresh browser context starts its Lamport clock at 0, so sync.js's
+  // wsCatchUp replays the ENTIRE ops journal accumulated in the shared
+  // hq_test by earlier spec files (sync.spec.js is the dominant producer).
+  // The SUBMIT_CHECKLIST / APPROVE_ITEM replay branches each fire a
+  // loadMyChecklists() re-fetch; a stale drafts snapshot resolving mid-fill
+  // re-hydrates the open runner and clobbers an optimistic checkbox answer
+  // (observed: "3 of 4 items complete" right after clicking all 4). The
+  // submit then falls into the "1 item not completed. Submit anyway?"
+  // confirm() — which Playwright auto-dismisses — and returns WITHOUT ever
+  // showing a toast. Draining the replay fetch storm after page load, before
+  // interacting, removes the race. Call after every goto in multi-user flows.
+  async function drainOpsReplay(page) {
+    await page.waitForLoadState('networkidle');
+  }
+
+  // Click every checkbox in the open runner, wait for auto-save, then repair
+  // any answer a straggler stale re-render un-checked (same isChecked guard
+  // the resubmit flow uses) and require all `expected` checked before
+  // returning — the submit-toast assertions are the contract for a FULLY
+  // completed submit, so the precondition must hold order-independently.
+  async function checkAllWithRepair(page, expected) {
+    const checkBtns = page.locator('.check-btn');
+    const count = await checkBtns.count();
+    expect(count).toBe(expected);
+    for (let i = 0; i < count; i++) {
+      await checkBtns.nth(i).click();
+      await page.waitForTimeout(300);
+    }
+    await page.waitForTimeout(2000); // auto-save
+    for (let i = 0; i < count; i++) {
+      const isChecked = await checkBtns.nth(i).evaluate(el => el.classList.contains('checked'));
+      if (!isChecked) {
+        await checkBtns.nth(i).click();
+        await page.waitForTimeout(300);
+      }
+    }
+    await expect(page.locator('.check-btn.checked')).toHaveCount(expected);
+  }
+
   test('team member completes checklist, manager approves [RUN-07 APR-11]', async ({ page }) => {
+    test.setTimeout(60000); // 3 logins + networkidle catch-up drains
     // Setup: login as admin, create template, crew user, manager user
     await login(page);
     await cleanupTemplates(page);
@@ -2612,21 +2653,13 @@ test.describe('Approval Flow', () => {
     // --- User A (crew): open checklist, check all 4 items, submit ---
     await login(page, crew.email, crew.password);
     await page.goto(BASE + '/workflows.html');
+    await drainOpsReplay(page);
     await page.waitForSelector('#checklist-list .row');
     await page.locator('#checklist-list .row', { hasText: tplName }).first().click();
     await page.waitForSelector('#fill-body .fill-field');
 
-    // Check all 4 checkboxes
-    const checkBtns = page.locator('.check-btn');
-    const count = await checkBtns.count();
-    expect(count).toBe(4);
-    for (let i = 0; i < count; i++) {
-      await checkBtns.nth(i).click();
-      await page.waitForTimeout(300);
-    }
-
-    // Wait for auto-save
-    await page.waitForTimeout(2000);
+    // Check all 4 checkboxes (with clobber-repair — see drainOpsReplay)
+    await checkAllWithRepair(page, 4);
 
     // Submit
     await page.click('[data-action="submit"]');
@@ -2638,6 +2671,7 @@ test.describe('Approval Flow', () => {
     // --- User B (manager): approve ---
     await login(page, mgr.email, mgr.password);
     await page.goto(BASE + '/workflows.html');
+    await drainOpsReplay(page);
     await page.click('#t2'); // Approvals tab
     await expect(page.locator('#s2')).toBeVisible();
     await expect(page.locator('#s2').locator('text=' + tplName + '')).toBeVisible({ timeout: 5000 });
@@ -2650,6 +2684,7 @@ test.describe('Approval Flow', () => {
   });
 
   test('team member completes checklist, manager rejects 2 items, crew resubmits, manager approves [APR-09 FLD-18 LC-01]', async ({ page }) => {
+    test.setTimeout(90000); // 5 logins + networkidle catch-up drains
     // Setup
     await login(page);
     await cleanupTemplates(page);
@@ -2664,24 +2699,20 @@ test.describe('Approval Flow', () => {
     // --- User A (crew): complete all items and submit ---
     await login(page, crew.email, crew.password);
     await page.goto(BASE + '/workflows.html');
+    await drainOpsReplay(page);
     await page.waitForSelector('#checklist-list .row');
     await page.locator('#checklist-list .row', { hasText: rejName }).first().click();
     await page.waitForSelector('#fill-body .fill-field');
 
-    const checkBtns = page.locator('.check-btn');
-    const totalFields = await checkBtns.count();
-    expect(totalFields).toBe(4);
-    for (let i = 0; i < totalFields; i++) {
-      await checkBtns.nth(i).click();
-      await page.waitForTimeout(300);
-    }
-    await page.waitForTimeout(2000);
+    // Check all 4 checkboxes (with clobber-repair — see drainOpsReplay)
+    await checkAllWithRepair(page, 4);
     await page.click('[data-action="submit"]');
     await page.waitForTimeout(1000);
 
     // --- User B (manager): flag 2 items with comments, reject ---
     await login(page, mgr.email, mgr.password);
     await page.goto(BASE + '/workflows.html');
+    await drainOpsReplay(page);
     await page.click('#t2');
     await expect(page.locator('#s2').locator('text=' + rejName + '').first()).toBeVisible({ timeout: 5000 });
 
@@ -2710,6 +2741,7 @@ test.describe('Approval Flow', () => {
     // --- User A (crew): sees rejected items ---
     await login(page, crew.email, crew.password);
     await page.goto(BASE + '/workflows.html');
+    await drainOpsReplay(page);
     await page.waitForSelector('#checklist-list .row');
 
     // Verify the submission is rejected via API
@@ -2740,6 +2772,9 @@ test.describe('Approval Flow', () => {
       }
     }
     await page.waitForTimeout(2000);
+    // Repair precondition (see drainOpsReplay) — all 4 must be checked before
+    // resubmitting or the confirm() prompt silently aborts the submit.
+    await expect(page.locator('.check-btn.checked')).toHaveCount(4);
 
     // Resubmit — view auto-returns to list after success animation
     await page.click('[data-action="submit"]');
@@ -2753,6 +2788,7 @@ test.describe('Approval Flow', () => {
     // --- User B (manager): approve the resubmission ---
     await login(page, mgr.email, mgr.password);
     await page.goto(BASE + '/workflows.html');
+    await drainOpsReplay(page);
     await page.click('#t2');
     await expect(page.locator('#s2').locator('text=' + rejName + '').first()).toBeVisible({ timeout: 5000 });
     await page.click('[data-action="approve"]');
@@ -2777,41 +2813,12 @@ test.describe('Approval Flow', () => {
     // --- Crew: complete and submit ---
     await login(page, crew.email, crew.password);
     await page.goto(BASE + '/workflows.html');
-    // Order-independence guard (carried waiver #1, full-suite-only red): a
-    // fresh browser context starts its Lamport clock at 0, so sync.js's
-    // wsCatchUp replays the ENTIRE ops journal accumulated in shared hq_test
-    // by earlier spec files (sync.spec.js is the dominant producer). The
-    // SUBMIT_CHECKLIST / APPROVE_ITEM replay branches each fire a
-    // loadMyChecklists() re-fetch; a stale drafts snapshot resolving mid-fill
-    // re-hydrates the open runner and clobbers an optimistic checkbox answer
-    // (observed: "3 of 4 items complete" after clicking all 4). The submit then
-    // falls into the "1 item not completed. Submit anyway?" confirm() — which
-    // Playwright auto-dismisses — and returns WITHOUT ever showing a toast.
-    // Draining the replay fetch storm before interacting removes the race.
-    await page.waitForLoadState('networkidle');
+    await drainOpsReplay(page);
     await page.waitForSelector('#checklist-list .row');
     await page.locator('#checklist-list .row', { hasText: appName }).first().click();
     await page.waitForSelector('#fill-body .fill-field');
-    const checkBtns = page.locator('.check-btn');
-    for (let i = 0; i < await checkBtns.count(); i++) {
-      await checkBtns.nth(i).click();
-      await page.waitForTimeout(300);
-    }
-    await page.waitForTimeout(2000);
-    // Repair pass: if a straggler stale re-render still unchecked a box,
-    // re-click it (same isChecked guard as the rejection test above), then
-    // require all 4 checked before submitting — the submit-toast assertion
-    // below is the contract for a FULLY-completed submit, so the precondition
-    // must hold order-independently.
-    const totalCheckBtns = await checkBtns.count();
-    for (let i = 0; i < totalCheckBtns; i++) {
-      const isChecked = await checkBtns.nth(i).evaluate(el => el.classList.contains('checked'));
-      if (!isChecked) {
-        await checkBtns.nth(i).click();
-        await page.waitForTimeout(300);
-      }
-    }
-    await expect(page.locator('.check-btn.checked')).toHaveCount(4);
+    // Check all 4 checkboxes (with clobber-repair — see drainOpsReplay)
+    await checkAllWithRepair(page, 4);
     await page.click('[data-action="submit"]');
     await page.waitForTimeout(1000);
 
@@ -2824,6 +2831,7 @@ test.describe('Approval Flow', () => {
     // --- Manager: approve ---
     await login(page, mgr.email, mgr.password);
     await page.goto(BASE + '/workflows.html');
+    await drainOpsReplay(page);
     await page.click('#t2');
     await expect(page.locator('#s2').locator('text=' + appName + '').first()).toBeVisible({ timeout: 5000 });
     await page.click('[data-action="approve"]');
@@ -2832,6 +2840,7 @@ test.describe('Approval Flow', () => {
     // --- Crew: verify "Approved ✓" badge on My Checklists list ---
     await login(page, crew.email, crew.password);
     await page.goto(BASE + '/workflows.html');
+    await drainOpsReplay(page);
     await page.waitForSelector('#checklist-list .row');
     const row = page.locator('#checklist-list .row', { hasText: appName }).first();
     await expect(row).toBeVisible();
