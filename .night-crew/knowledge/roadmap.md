@@ -46,7 +46,7 @@
 > The "Prove & surface" PRD. No build WO dispatches before this lands.
 > Produced by the evening `/nc-pm-session` + `/nc-pm-grill-back`.
 
-- **`prd-prove-and-surface`** · **PLANNED** · A single cycle PRD covering BOTH halves:
+- **`prd-prove-and-surface`** · **DONE** (signed 2026-07-19, `runs/2026-07-19-attended/sign-off.md`) · A single cycle PRD covering BOTH halves:
   (a) **Feature** — Trends/Cost per-tab State-Enumeration tables + `done_when` observable
   behaviors (Trends = weekly-spend-by-group chart+table; Cost = per-menu-item margin table +
   top/bottom movers; inline SVG/CSS; accept-sparse-prod for Cost margin);

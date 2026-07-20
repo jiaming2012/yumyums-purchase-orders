@@ -236,18 +236,18 @@
   from `FIELD_RESPONSES`/`DRAFT_RESPONSES`; a stale value can linger under the field. No durable
   crew work is lost (the photo never existed server-side; submit validation blocks required-photo),
   so this is stale-state hygiene, not a loss mode. Small frontend fix + persistence test.
-  · origin: pm-session 2026-07-16 pass-2 sweep · new
+  · origin: pm-session 2026-07-16 pass-2 sweep · deferred 2026-07-19 (PM-session routing — off-theme / harness-dependent; reason per item in PRD-prove-and-surface §Routing items 10 & 12)
 
 - **Offline submit idempotency under IndexedDB failure (suspected, unverified)** · If the offline
   submit queue's `idempotency_key` is lost to an IndexedDB write failure, reconnect drain
   (`sync.js:466-494`) could duplicate a submission. Untestable without the offline harness — rides
   `WO-offline-indexeddb-harness` (deferred this cycle) when it's built. · origin: pm-session
-  2026-07-16 pass-2 sweep · new
+  2026-07-16 pass-2 sweep · deferred 2026-07-19 (PM-session routing — needs the offline-IndexedDB harness, not built this cycle; PRD-prove-and-surface §Routing item 11)
 
 - **Lamport clock corruption → catch-up gap (suspected, unverified)** · If the stored Lamport
   clock in IndexedDB is cleared/corrupted, the next `wsCatchUp` (`sync.js:303-315`) may skip or
   refetch ops, staling the UI. Same harness dependency — rides `WO-offline-indexeddb-harness`.
-  · origin: pm-session 2026-07-16 pass-2 sweep · new
+  · origin: pm-session 2026-07-16 pass-2 sweep · deferred 2026-07-19 (PM-session routing — off-theme / harness-dependent; reason per item in PRD-prove-and-surface §Routing items 10 & 12)
 
 - ~~**Unsubmit → fast resubmit fail-note staleness (suspected, unverified)**~~ · If a user
   unsubmits (`workflows.html:2372-2380`) and resubmits before the re-render, stale `FAIL_NOTES`
@@ -298,7 +298,7 @@
   `ArchiveTemplateHandler` still use the fire-and-forget `EmitOp` goroutine. Convert both to
   `EmitOpTx` (mirrors W-2's pattern; no schema change) for full INV-1 "0 accepted writes whose op
   is not durably queued" parity. Small follow-up card. · origin: triage 2026-07-17 (F-B, W-2
-  follow-up) · new
+  follow-up) · deferred 2026-07-19 (PM-session routing — editprop tidy-up, stays BACKLOG not a KR this cycle; PRD-prove-and-surface §Routing item 6)
 - **Fail-note conflict live-render on the `applyOp`/409 path (`_fail_note` unpack)** · The W-6b
   conflict-coverage sweep (`editprop-convergence-cell-hardening`) hardened the LWW-409/`applyOp`
   render for 4 answer types (yes_no, temperature, sub-step, checkbox) but could NOT reach the 2
@@ -310,20 +310,20 @@
   extend `applyOp` `SET_FIELD` to unpack `_fail_note` on the incoming-op/409 path, then land the 2
   parked W-6b cells — own design/footprint/G6, NOT test-debt. **Bundle candidate with F-B above**
   (both touch the op-emission/apply path). · origin: triage 2026-07-18 (D-1, overnight-20260718 —
-  operator chose accept + track over graduate-now) · new
+  operator chose accept + track over graduate-now) · deferred 2026-07-19 (PM-session routing — out-of-footprint editprop tidy-up, needs `_fail_note` unpack on apply path; PRD-prove-and-surface §Routing item 7)
 - **Atomic approval + feedback (`approveSubmission` tx)** · `approveSubmission` commits
   `status='approved'` *before* the feedback loop, so a feedback-persist failure correctly returns
   500 `feedback_persist_failed` (W-4's goal, requirement MET) but leaves the submission already
   `approved` — a partial commit. Thread a `tx` through `approveSubmission` (repository.go) so
   status + feedback commit atomically; also removes the less-specific `internal_error` a retrying
   approver sees on the 2nd attempt (idempotent via the `status='pending'` guard). · origin: triage
-  2026-07-17 (F-C, W-4 follow-up) · new
+  2026-07-17 (F-C, W-4 follow-up) · deferred 2026-07-19 (PM-session routing — editprop tidy-up, not a KR this cycle; PRD-prove-and-surface §Routing item 8)
 - **Onboarding persistence tests: `waitForResponse` over fixed flush wait** · Two converted
   persistence tests in `tests/onboarding.spec.js` use `waitForTimeout(1500)` instead of
   `waitForResponse('/saveProgress')`. The post-reload assertion is still the load-bearing proof, so
   the guard isn't weakened — but a fixed wait is a small flake-surface. Switch to `waitForResponse`
   on the save POST in a future test-hardening pass. Low priority. · origin: triage 2026-07-17 (F-E,
-  T-2 minor) · new
+  T-2 minor) · deferred 2026-07-19 (PM-session routing — low-priority test-hardening; PRD-prove-and-surface §Routing item 9)
 
 ## Waiver-#1 last mile (from overnight-20260719 cycle gate — operator chose "graduate" 2026-07-19)
 
@@ -342,19 +342,19 @@
   **literal `task test` exit-0**, which **formally retires carried waiver #1** (Eng KR5 PASS). Small
   test-hardening WO (no production change; test-only footprint). Red-first: the full-suite red is the
   baseline; green = literal exit-0. · origin: overnight-20260719 cycle gate (Eng KR5 PARTIAL) ·
-  **operator chose (a) graduate 2026-07-19** (DECISIONS-NEEDED §C) · new
+  **operator chose (a) graduate 2026-07-19** (DECISIONS-NEEDED §C) · promoted → `waiver1-isolation-fix` (Activity 3; PM-session routing 2026-07-19, PRD-prove-and-surface §Routing / FR-10)
 - **Per-card wall-clock instrumentation as a standing build-run output** · The 2026-07-19 gate could
   not compute a this-cycle Delivery median (KR4 PARTIAL) because the 07-17 run's 9 build cards were
   not per-card timed — only 07-18's single card was measured. `-0718` already re-adopted the
   harness-measured table; make it the **invariant** for every build run so the ledger stays measured,
   not narrated, and the next gate can compute a real median vs the T-14 baseline (N=23/22m28s).
-  · origin: overnight-20260719 cycle gate (Delivery KR4 PARTIAL, fix-forward) · new
+  · origin: overnight-20260719 cycle gate (Delivery KR4 PARTIAL, fix-forward) · promoted → `percard-timing-instrumentation` (Activity 3; PM-session routing 2026-07-19, PRD-prove-and-surface §Routing / FR-11)
 - **Gate run-mechanics: `CI=1` + explicit pre-migration by default** · Two run-to-run wall-clock
   losses (07-18 G6, 07-19 gate) came from the same `:8199` `reuseExistingServer` foreign-server
   latch and (07-19) an unmigrated isolated DB. Bake into the gate/G6 run-mechanics: always run the
   suite with `CI=1` (forces `reuseExistingServer:false` → own webServer + teardown) AND pre-migrate
   the isolated pg16 via a throwaway app boot before Go units. Run-mechanics doc/skill fix, not a code
-  change. · origin: overnight-20260719 cycle gate (card-actuals 8th-slate obs) · new
+  change. · origin: overnight-20260719 cycle gate (card-actuals 8th-slate obs) · folded → rides `percard-timing-instrumentation` / cycle-gate run-mechanics (PM-session routing 2026-07-19, PRD-prove-and-surface §Routing / FR-11)
 
 ## Escaped defect + QA gap (found 2026-07-17 on dev, operator play)
 
@@ -368,7 +368,7 @@
   access matrix ({who views}×{who edits}×{who observes}×{role/assignment}, asserting access AND
   live-op propagation) + `sync`-package unit coverage for `ResolveEntityAccess` across all
   role/assignment combos. Full write-up: `reference/qa-gap-20260717-live-sync-access.md`.
-  · origin: 2026-07-17 operator-found live-sync bug (dev play, post cycle-gate) · new
+  · origin: 2026-07-17 operator-found live-sync bug (dev play, post cycle-gate) · promoted → `sync-pkg-unit-coverage` + `convergence-matrix-systematic` (Activity 3; PM-session routing 2026-07-19, PRD-prove-and-surface §Routing / FR-7·FR-8·FR-9)
 
 - **Live approval-state convergence coverage** · Two MORE escaped defects of the SAME class found
   2026-07-18 in continued operator play: an approve/reject op reached the receiving device but the
@@ -386,7 +386,7 @@
   the access matrix must also vary the **op type** (field edit vs submit/approve/reject) and assert
   **live convergence of derived views** (banner, readonly, progress count), not just the field value.
   Full write-up: `reference/qa-gap-20260717-live-sync-access.md` (§ 2026-07-18 addendum).
-  · origin: 2026-07-18 operator-found approval-sync bugs (dev play) · new
+  · origin: 2026-07-18 operator-found approval-sync bugs (dev play) · promoted → `convergence-matrix-systematic` (Activity 3; PM-session routing 2026-07-19, PRD-prove-and-surface §Routing / FR-8·FR-9 ESC-2)
 
 - **Rejection feedback on SUB-STEPS (fixed) + the require-photo dead-end (open).** Operator play
   (dev, 2026-07-18) found rejecting a **sub-step** (e.g. "Cut the check → Do B") stored the comment
