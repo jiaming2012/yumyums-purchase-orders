@@ -1215,6 +1215,20 @@ function renderCostTable(rows){
       ?costDash():costMoney(r.ingredient_cost_total);
     var margin=(r.margin===null||r.margin===undefined)
       ?costDash()
+      // ── KNOWN INCONSISTENCY, DELIBERATELY NOT FIXED HERE (routed to the
+      // operator, same pattern as cost.go's 0%-food-cost gap) ──
+      // The loss-red rule below is WINDOW-level (`noSales`), not ROW-level. So
+      // in a populated window a single zero-revenue row — a comped or retired
+      // dish — still renders its negative margin in loss-red, even though by
+      // this card's own reasoning ("with no revenue to net against, margin is
+      // simply minus the cost… these are not losses") that row is no more a
+      // loss than the all-sparse case. Visible in the populated fixture as
+      // Comped Special's -$11.20.
+      //
+      // Not fixed here because extending the rule row-level CHANGES rendering
+      // in the PRD's "Populated" state, and whether the Cost State-Enumeration
+      // table intends that is an operator call, not an implementer's. Flagged
+      // at G6 review; do not mistake the current output for a settled decision.
       :'<span class="'+((r.margin<0&&!noSales)?'cost-neg':'')+'">'+costMoney(r.margin)+'</span>';
     var pct=(r.food_cost_pct===null||r.food_cost_pct===undefined)
       ?costDash():costPct(r.food_cost_pct);
@@ -1282,9 +1296,18 @@ function renderCost(){
   host.innerHTML=winLine+sparseNote+strips+renderCostTable(rows);
 }
 
-// Sort on header tap. Delegated on the container so it survives every re-render.
-document.getElementById('cost-container').addEventListener('click',function(e){
-  var th=e.target.closest('th[data-sort]');
+// Sort on header tap.
+//
+// Bound on `document`, NOT on #cost-container, deliberately. F5 (tab gating)
+// removes the Cost tab's markup for un-granted users; a top-level
+// getElementById('cost-container').addEventListener would then throw a
+// TypeError at parse time and take down the ENTIRE inventory page — every tab,
+// not just Cost — for exactly those users. Delegating from a node that always
+// exists makes the handler inert when the tab is absent instead of fatal.
+// The #cost-container scope check keeps it from firing on other tables.
+document.addEventListener('click',function(e){
+  if(!e.target||!e.target.closest)return;
+  var th=e.target.closest('#cost-container th[data-sort]');
   if(!th)return;
   var col=th.dataset.sort;
   if(COST_SORT.col===col){

@@ -134,6 +134,27 @@ const PARTIALLY_SPARSE = {
   },
 };
 
+// Exactly ONE rankable row (the second has no recipe, so it participates in
+// neither ordering). Guards the n<=1 movers branch: a single participant is
+// shown once as "Best" and never mirrored into "Worst" — calling the only data
+// point both the best and the worst says nothing true.
+const SINGLE_MOVER = {
+  window: WINDOW,
+  rows: [
+    { menu_item_id: ID.wrap, menu_item_name: 'Chicken Wrap', menu_group: 'Wraps',
+      units_sold: 240, revenue: 1800.00, ingredient_cost_total: 522.00,
+      margin: 1278.00, food_cost_pct: 29.00, unallocated: null },
+    { menu_item_id: ID.longname, menu_item_name: 'Unmapped Daily Special',
+      menu_group: 'Specials', units_sold: 12, revenue: 96.00,
+      ingredient_cost_total: null, margin: null, food_cost_pct: null,
+      unallocated: 'no recipe' },
+  ],
+  movers: {
+    by_food_cost_pct: { best: [ID.wrap], worst: [ID.wrap] },
+    by_margin: { best: [ID.wrap], worst: [ID.wrap] },
+  },
+};
+
 function mockCost(page, body, opts = {}) {
   return page.route('**/api/v1/inventory/cost*', async route => {
     if (opts.delayMs) await new Promise(r => setTimeout(r, opts.delayMs));
@@ -331,6 +352,62 @@ test.describe('Cost tab (#s6) — State Enumeration', () => {
     await shot(page, 'edge-partially-sparse');
   });
 
+  // ── The loss-red semantic, guarded in BOTH directions ──────────────────
+  //
+  // This is the rule the screenshot ritual caught and it was, embarrassingly,
+  // the one behavior the first version of this spec did not assert: a mutation
+  // sweep found that BOTH "never apply loss-red at all" and "restore loss-red
+  // under partial sparsity" left the suite green. Asserting only one direction
+  // is not enough — the rule is a discrimination between two cases, so both
+  // sides have to be pinned or the discrimination is unguarded.
+  test('Loss-red marks a REAL loss in a populated window', async ({ page }) => {
+    await mockCost(page, POPULATED);
+    await openCostTab(page);
+
+    // Comped Special: revenue 0 inside a window that HAS sales elsewhere.
+    // Its negative margin is currently styled as a loss (see the known
+    // row-level-vs-window-level inconsistency noted at the render site).
+    const comped = page.locator('.cost-table tbody tr[data-menu-item-id="' + ID.comped + '"]');
+    await expect(comped.locator('[data-col="margin"] .cost-neg')).toHaveCount(1);
+    await expect(comped.locator('[data-col="margin"] .cost-neg')).toContainText('11.20');
+
+    // Positive margins are never dressed as losses.
+    const wrap = page.locator('.cost-table tbody tr[data-menu-item-id="' + ID.wrap + '"]');
+    await expect(wrap.locator('[data-col="margin"] .cost-neg')).toHaveCount(0);
+  });
+
+  test('Loss-red is WITHHELD when the window has no sales at all', async ({ page }) => {
+    await mockCost(page, PARTIALLY_SPARSE);
+    await openCostTab(page);
+
+    // Every margin here is negative, and NONE of them may be styled as a loss:
+    // with no revenue anywhere in the window these are just "minus the cost".
+    await expect(page.locator('.cost-table .cost-neg')).toHaveCount(0);
+
+    // ...while the negative numbers themselves are still fully shown. The
+    // colour is withheld; the data is not.
+    const wrap = page.locator('.cost-table tbody tr[data-menu-item-id="' + ID.wrap + '"]');
+    await expect(wrap.locator('[data-col="margin"]')).toContainText('-$522.00');
+  });
+
+  // ── Phase-specific edge: single-participant movers ─────────────────────
+  test('Edge: one rankable row — shown once as Best, never mirrored into Worst', async ({ page }) => {
+    await mockCost(page, SINGLE_MOVER);
+    await openCostTab(page);
+
+    for (const strip of ['food_cost_pct', 'margin']) {
+      const sel = '.cost-mover-strip[data-strip="' + strip + '"] .cost-mover-row';
+      await expect(page.locator(sel + '[data-side="best"]')).toHaveCount(1);
+      await expect(page.locator(sel + '[data-side="worst"]')).toHaveCount(0);
+      // The item must appear exactly once in the strip, not twice.
+      await expect(page.locator(sel + '[data-menu-item-id="' + ID.wrap + '"]')).toHaveCount(1);
+    }
+    // The "Worst" heading must not be rendered with nothing under it.
+    await expect(page.locator('.cost-mover-strip', { hasText: 'Worst' })).toHaveCount(0);
+
+    await shot(page, 'edge-single-mover');
+  });
+
   // ── Phase-specific edge: long menu item name ───────────────────────────
   test('Edge: long menu item name — does not blow out the 480px mobile shell', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
@@ -342,6 +419,43 @@ test.describe('Cost tab (#s6) — State Enumeration', () => {
     expect(overflow).toBeLessThanOrEqual(1);
 
     await shot(page, 'edge-long-name');
+  });
+
+  // ── F5 forward-compatibility: the tab's markup may be REMOVED ──────────
+  //
+  // F5 (inventory-tab-gating) hides #s6 for un-granted users. If this file's
+  // sort handler were bound via getElementById('cost-container').addEventListener
+  // at top level, that removal would throw a TypeError during script parse and
+  // break the ENTIRE inventory page — every tab — for exactly those users. This
+  // pins the handler as inert-when-absent rather than fatal.
+  test('Page still works when #cost-container is absent from the DOM', async ({ page }) => {
+    const errors = [];
+    page.on('pageerror', e => errors.push(e.message));
+
+    // Strip the cost tab's markup before any script runs — the shape F5 will
+    // produce server-side for an un-granted user.
+    await page.addInitScript(() => {
+      document.addEventListener('readystatechange', () => {
+        const el = document.getElementById('cost-container');
+        if (el) el.remove();
+      }, true);
+    });
+
+    await page.goto('/inventory.html');
+    await page.waitForLoadState('networkidle');
+
+    // No parse-time or runtime explosion...
+    expect(errors).toEqual([]);
+    // ...and the rest of the page is fully functional: other tabs still switch.
+    await expect(page.locator('#cost-container')).toHaveCount(0);
+    await page.click('#t2');
+    await expect(page.locator('#s2')).toBeVisible();
+    await page.click('#t1');
+    await expect(page.locator('#s1')).toBeVisible();
+
+    // A stray click must not throw now that the container is gone.
+    await page.click('body', { position: { x: 5, y: 5 } });
+    expect(errors).toEqual([]);
   });
 
   // ── Phase-specific edge: the KNOWN 0%-food-cost gap ────────────────────
