@@ -108,6 +108,47 @@ select.field-input{appearance:none;-webkit-appearance:none;padding-right:36px;ba
 .coming-soon h3{font-size:16px;font-weight:500;color:var(--txt);margin:0 0 8px}
 .coming-soon p{font-size:13px;margin:0;line-height:1.5}
 .chart-wrap{position:relative;width:100%;height:220px}
+/* ── Cost tab (#s6) — FR-4. Inline CSS bars only, no charting dependency. ── */
+.cost-window{font-size:12px;color:var(--mut);margin:0 0 12px}
+.cost-empty{background:var(--card);border:0.5px solid var(--brd);border-radius:12px;padding:32px 20px;text-align:center}
+.cost-empty h3{font-size:16px;font-weight:600;color:var(--txt);margin:0 0 8px}
+.cost-empty p{font-size:13px;color:var(--mut);margin:0 0 6px;line-height:1.5}
+.cost-empty p:last-child{margin-bottom:0}
+.cost-sparse-note{background:var(--info-bg);color:var(--info-tx);border-radius:10px;padding:12px 14px;margin-bottom:12px}
+.cost-sparse-note strong{display:block;font-size:13px;font-weight:600;margin-bottom:3px}
+.cost-sparse-note span{font-size:12px;line-height:1.45;display:block;opacity:.85}
+.cost-mover-strip{background:var(--card);border:0.5px solid var(--brd);border-radius:12px;padding:14px 16px;margin-bottom:8px}
+.cost-mover-title{font-size:13px;font-weight:600;color:var(--txt);margin-bottom:2px}
+.cost-mover-sub{font-size:11px;color:var(--mut);margin-bottom:10px}
+.cost-mover-side{font-size:11px;font-weight:600;color:var(--mut);text-transform:uppercase;letter-spacing:.04em;margin:10px 0 6px}
+.cost-mover-side:first-of-type{margin-top:0}
+.cost-mover-row{margin-bottom:8px}
+.cost-mover-row:last-child{margin-bottom:0}
+.cost-mover-head{display:flex;justify-content:space-between;gap:8px;font-size:12px;margin-bottom:3px}
+.cost-mover-name{color:var(--txt);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.cost-mover-val{color:var(--txt);font-weight:600;white-space:nowrap}
+.cost-mover-track{height:6px;border-radius:3px;background:var(--brd);overflow:hidden}
+.cost-mover-fill{height:100%;border-radius:3px;background:var(--info-tx);display:block}
+.cost-mover-fill.neg{background:#b91c1c}
+@media(prefers-color-scheme:dark){.cost-mover-fill{background:var(--info-tx)}.cost-mover-fill.neg{background:#f87171}}
+.cost-table-wrap{background:var(--card);border:0.5px solid var(--brd);border-radius:12px;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.cost-table{width:100%;border-collapse:collapse;font-size:12px}
+.cost-table th{font-size:11px;font-weight:600;color:var(--mut);text-align:right;padding:10px 5px;border-bottom:0.5px solid var(--brd);white-space:nowrap;cursor:pointer;user-select:none}
+.cost-table th:first-child{text-align:left;padding-left:12px}
+.cost-table th:last-child{padding-right:12px}
+.cost-table th .cost-arrow{opacity:.45;font-size:9px;margin-left:2px}
+.cost-table th.sorted{color:var(--info-tx)}
+.cost-table th.sorted .cost-arrow{opacity:1}
+.cost-table td{padding:10px 5px;text-align:right;color:var(--txt);white-space:nowrap;border-bottom:0.5px solid var(--brd);vertical-align:top}
+.cost-table td:first-child{text-align:left;padding-left:12px;white-space:normal}
+.cost-table td:last-child{padding-right:12px}
+.cost-table tbody tr:last-child td{border-bottom:none}
+.cost-item-name{font-weight:500;color:var(--txt);min-width:92px;max-width:130px;overflow-wrap:break-word}
+.cost-item-group{font-size:11px;color:var(--mut);margin-top:1px}
+.cost-null{color:var(--mut)}
+.cost-neg{color:#b91c1c}
+@media(prefers-color-scheme:dark){.cost-neg{color:#f87171}}
+.cost-unalloc{display:inline-block;font-size:10px;font-weight:600;background:var(--warn-bg);color:var(--warn-tx);padding:1px 6px;border-radius:4px;margin-top:3px}
 .empty{text-align:center;padding:40px 20px;color:var(--mut)}
 .empty p{font-size:13px;margin:0}
 .stock-badge{display:inline-block;font-size:11px;font-weight:600;padding:2px 8px;border-radius:6px}.stock-badge+.stock-badge{margin-left:4px}
@@ -277,11 +318,7 @@ select.field-input{appearance:none;-webkit-appearance:none;padding-right:36px;ba
     </div>
   </div>
   <div id="s6" style="display:none">
-    <!-- TODO: gate Cost to manager+ via backend roles (INTG-01) -->
-    <div id="cost-container" class="coming-soon">
-      <h3>Food Cost Intelligence</h3>
-      <p>Menu item cost estimates and ingredient analysis coming soon.</p>
-    </div>
+    <div id="cost-container"><!-- populated by renderCost from COST_DATA / COST_STATE --></div>
   </div>
   <div id="s7" style="display:none">
     <a class="back" href="purchasing.html" style="margin-bottom:8px">Purchase Orders</a>
@@ -534,6 +571,7 @@ function show(n){
   if(n===2){loadStock();}
   if(n===3){loadMenu();}
   if(n===4){loadRecipes();}
+  if(n===6){loadCost();}
   if(n===7){loadItems();if(isAdmin())loadBadgeResetConfig();}
   render();
 }
@@ -994,9 +1032,295 @@ function renderTrends(){
   document.getElementById('trends-container').innerHTML='<div class="coming-soon"><h3>Spending Trends</h3><p>Trends require sales data integration. Coming in a future update.</p></div>';
 }
 
-function renderCost(){
-  document.getElementById('cost-container').innerHTML='<div class="coming-soon"><h3>Food Cost Intelligence</h3><p>Trends require sales data integration. Coming in a future update.</p></div>';
+// ── Cost tab (#s6) — FR-4 / AC-4 ────────────────────────────────────────────
+//
+// Renders GET /api/v1/inventory/cost (design §2.3). Three things this render
+// path is deliberately careful about, all of them contract, not taste:
+//
+//  1. NULLS ARE NOT ZEROS. ingredient_cost_total / margin / food_cost_pct are
+//     nullable. A null renders as an em-dash, never as $0.00 or 0% — showing a
+//     zero where the server said "I don't know" is the exact false number
+//     INV-B forbids. `unallocated` (e.g. "no recipe") is surfaced verbatim
+//     next to the item so the reason is visible, not inferred.
+//  2. MOVERS ARE FULL ORDERINGS. The server returns every participating id in
+//     rank order; the strips slice to COST_MOVER_N client-side. Rows with a
+//     null pct are absent from by_food_cost_pct; rows with a null margin are
+//     absent from by_margin. A negative-margin row leading by_margin.worst is
+//     correct and is rendered as such.
+//  3. SPARSE IS THE EXPECTED PROD STATE (accept-sparse-prod, A7). Two shapes:
+//     rows:[] -> the honest low-data card; and rows-with-costs-but-no-sales ->
+//     the table plus a sparse note, with the movers strips SUPPRESSED. Ranking
+//     "worst margin" across items that simply have no sales yet would read as
+//     "everything is losing money" when the truth is "no sales data yet".
+//
+// KNOWN GAP (routed to the operator, not papered over here): a menu item with
+// a recipe but zero in-window ingredient spend arrives as cost 0 / margin =
+// full revenue / pct 0 — a flattering 0% food cost. Rendering it as "—" would
+// misrepresent genuinely zero-cost items, so it is shown as the data says. The
+// honest fix needs a new `unallocated` reason string, which is a §2.3 design
+// amendment and therefore not this card's to make.
+let COST_DATA=null;
+let COST_STATE='idle'; // 'idle' | 'loading' | 'error' | 'ready'
+let COST_SORT={col:'revenue',dir:'desc'};
+const COST_MOVER_N=3;
+
+async function loadCost(){
+  COST_STATE='loading';
+  renderCost();
+  try{
+    var data=await api('/api/v1/inventory/cost');
+    COST_DATA=data||null;
+    COST_STATE='ready';
+    renderCost();
+  }catch(e){
+    if(e.message==='unauthorized')return;
+    COST_STATE='error';
+    renderCost();
+  }
 }
+
+function costMoney(n){
+  var neg=n<0;
+  var s='$'+Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  return neg?'-'+s:s;
+}
+function costUnits(n){
+  return Number(n).toLocaleString('en-US',{maximumFractionDigits:Number(n)%1?2:0});
+}
+function costPct(n){return Number(n).toFixed(1)+'%';}
+// A null from the wire is "unknown", and must look different from a real zero.
+function costDash(){return '<span class="cost-null">&mdash;</span>';}
+
+function costSortValue(row,col){
+  if(col==='name')return row.menu_item_name||'';
+  if(col==='units')return row.units_sold;
+  if(col==='revenue')return row.revenue;
+  if(col==='cost')return row.ingredient_cost_total;
+  if(col==='margin')return row.margin;
+  if(col==='pct')return row.food_cost_pct;
+  return 0;
+}
+
+// Nulls always sink to the bottom regardless of direction — an unknown is not
+// "the smallest value", and letting it lead a sorted column would read as a
+// ranking claim the data doesn't support.
+function costSortRows(rows){
+  var col=COST_SORT.col,dir=COST_SORT.dir==='asc'?1:-1;
+  return rows.slice().sort(function(a,b){
+    var av=costSortValue(a,col),bv=costSortValue(b,col);
+    var an=(av===null||av===undefined),bn=(bv===null||bv===undefined);
+    if(an&&bn)return (a.menu_item_name||'').localeCompare(b.menu_item_name||'');
+    if(an)return 1;
+    if(bn)return -1;
+    if(typeof av==='string')return av.localeCompare(bv)*dir;
+    if(av===bv)return (a.menu_item_name||'').localeCompare(b.menu_item_name||'');
+    return (av<bv?-1:1)*dir;
+  });
+}
+
+function costWindowLabel(w){
+  if(!w)return '';
+  // Displayed straight from the server envelope — the window is computed in
+  // America/Chicago server-side and must never be recomputed on the client.
+  var opts={month:'short',day:'numeric'};
+  var from=parseLocalDate(w.from).toLocaleDateString('en-US',opts);
+  var to=parseLocalDate(w.to).toLocaleDateString('en-US',opts);
+  return w.weeks+' weeks &middot; '+from+' &ndash; '+to;
+}
+
+function renderCostMoverRow(row,side,maxAbs,kind){
+  var val,cls='',frac;
+  if(kind==='pct'){
+    val=costPct(row.food_cost_pct);
+    frac=Math.min(Math.abs(row.food_cost_pct)/100,1);
+  }else{
+    val=costMoney(row.margin);
+    cls=row.margin<0?' neg':'';
+    frac=maxAbs?Math.min(Math.abs(row.margin)/maxAbs,1):0;
+  }
+  return '<div class="cost-mover-row" data-side="'+side+'" data-menu-item-id="'+escHtml(row.menu_item_id)+'">'+
+    '<div class="cost-mover-head"><span class="cost-mover-name">'+escHtml(row.menu_item_name)+'</span>'+
+    '<span class="cost-mover-val">'+val+'</span></div>'+
+    '<div class="cost-mover-track"><span class="cost-mover-fill'+cls+'" style="width:'+
+    (Math.max(frac,0.02)*100).toFixed(1)+'%"></span></div></div>';
+}
+
+function renderCostMoverStrip(key,title,sub,pair,byId,kind){
+  // pair.best / pair.worst are FULL orderings from the server (reversed views of
+  // the same participating set) — the slice happens here.
+  //
+  // The slice is capped at half the participating set, not just COST_MOVER_N.
+  // With a short ordering a naive top-3-of-each puts the SAME item under both
+  // "Best" and "Worst" (observed in the populated screenshot: 4 rankable items
+  // -> Salmon Bowl appeared on both sides). That is not a ranking, it is a
+  // contradiction, so the strip narrows rather than double-counts.
+  var ids=(pair&&pair.best)||[];
+  var n=ids.length;
+  var per=n<=1?n:Math.min(COST_MOVER_N,Math.floor(n/2));
+  var pick=function(list){
+    return (list||[]).slice(0,per).map(function(id){return byId[id];})
+      .filter(function(r){return !!r;});
+  };
+  var best=pick(pair&&pair.best);
+  // A single participating item is shown once, as "Best" — calling the only
+  // data point both the best and the worst says nothing true.
+  var worst=n<=1?[]:pick(pair&&pair.worst);
+  if(!best.length&&!worst.length)return '';
+  var maxAbs=0;
+  if(kind==='margin'){
+    best.concat(worst).forEach(function(r){maxAbs=Math.max(maxAbs,Math.abs(r.margin));});
+  }
+  var body='';
+  if(best.length){
+    body+='<div class="cost-mover-side">Best</div>'+
+      best.map(function(r){return renderCostMoverRow(r,'best',maxAbs,kind);}).join('');
+  }
+  if(worst.length){
+    body+='<div class="cost-mover-side">Worst</div>'+
+      worst.map(function(r){return renderCostMoverRow(r,'worst',maxAbs,kind);}).join('');
+  }
+  return '<div class="cost-mover-strip" data-strip="'+key+'">'+
+    '<div class="cost-mover-title">'+title+'</div>'+
+    '<div class="cost-mover-sub">'+sub+'</div>'+body+'</div>';
+}
+
+// True when nothing in the window has revenue. In that case a negative margin
+// is not a loss — it is just "minus the ingredient cost" with no sales to net
+// against — so the table drops the loss-red styling. The NUMBER is still shown
+// (it is a real server value); only the alarm colour, which would assert a loss
+// that has not happened, is withheld.
+function costNoSalesAtAll(rows){
+  return !rows.some(function(r){return Number(r.revenue)>0;});
+}
+
+function renderCostTable(rows){
+  var noSales=costNoSalesAtAll(rows);
+  var cols=[
+    {k:'name',label:'Item'},
+    {k:'units',label:'Units'},
+    {k:'revenue',label:'Revenue'},
+    {k:'cost',label:'Cost'},
+    {k:'margin',label:'Margin'},
+    {k:'pct',label:'FC %'}
+  ];
+  var head=cols.map(function(c){
+    var on=COST_SORT.col===c.k;
+    var arrow=on?(COST_SORT.dir==='asc'?'&#9650;':'&#9660;'):'&#9662;';
+    return '<th data-sort="'+c.k+'"'+(on?' class="sorted"':'')+
+      ' aria-sort="'+(on?(COST_SORT.dir==='asc'?'ascending':'descending'):'none')+'">'+
+      c.label+'<span class="cost-arrow">'+arrow+'</span></th>';
+  }).join('');
+  var body=costSortRows(rows).map(function(r){
+    var cost=(r.ingredient_cost_total===null||r.ingredient_cost_total===undefined)
+      ?costDash():costMoney(r.ingredient_cost_total);
+    var margin=(r.margin===null||r.margin===undefined)
+      ?costDash()
+      // ── KNOWN INCONSISTENCY, DELIBERATELY NOT FIXED HERE (routed to the
+      // operator, same pattern as cost.go's 0%-food-cost gap) ──
+      // The loss-red rule below is WINDOW-level (`noSales`), not ROW-level. So
+      // in a populated window a single zero-revenue row — a comped or retired
+      // dish — still renders its negative margin in loss-red, even though by
+      // this card's own reasoning ("with no revenue to net against, margin is
+      // simply minus the cost… these are not losses") that row is no more a
+      // loss than the all-sparse case. Visible in the populated fixture as
+      // Comped Special's -$11.20.
+      //
+      // Not fixed here because extending the rule row-level CHANGES rendering
+      // in the PRD's "Populated" state, and whether the Cost State-Enumeration
+      // table intends that is an operator call, not an implementer's. Flagged
+      // at G6 review; do not mistake the current output for a settled decision.
+      :'<span class="'+((r.margin<0&&!noSales)?'cost-neg':'')+'">'+costMoney(r.margin)+'</span>';
+    var pct=(r.food_cost_pct===null||r.food_cost_pct===undefined)
+      ?costDash():costPct(r.food_cost_pct);
+    var reason=r.unallocated?'<div class="cost-unalloc">'+escHtml(r.unallocated)+'</div>':'';
+    return '<tr data-menu-item-id="'+escHtml(r.menu_item_id)+'">'+
+      '<td data-col="name"><div class="cost-item-name">'+escHtml(r.menu_item_name)+'</div>'+
+      (r.menu_group?'<div class="cost-item-group">'+escHtml(r.menu_group)+'</div>':'')+reason+'</td>'+
+      '<td data-col="units">'+costUnits(r.units_sold)+'</td>'+
+      '<td data-col="revenue">'+costMoney(r.revenue)+'</td>'+
+      '<td data-col="cost">'+cost+'</td>'+
+      '<td data-col="margin">'+margin+'</td>'+
+      '<td data-col="pct">'+pct+'</td></tr>';
+  }).join('');
+  return '<div class="cost-table-wrap"><table class="cost-table"><thead><tr>'+head+
+    '</tr></thead><tbody>'+body+'</tbody></table></div>';
+}
+
+function renderCost(){
+  var host=document.getElementById('cost-container');
+  if(!host)return;
+
+  if(COST_STATE==='loading'){showSkeleton('cost-container');return;}
+  if(COST_STATE==='error'){
+    showInlineError('cost-container','Couldn’t load food cost.','loadCost()');
+    return;
+  }
+  if(COST_STATE!=='ready'){host.innerHTML='';return;}
+
+  var rows=(COST_DATA&&COST_DATA.rows)||[];
+  var win=COST_DATA&&COST_DATA.window;
+  var winLine=win?'<p id="cost-window" class="cost-window">'+costWindowLabel(win)+'</p>':'';
+
+  // Empty — the accepted prod state (A7). Say what is actually true rather
+  // than implying the tab is broken or that the numbers are zero.
+  if(!rows.length){
+    host.innerHTML=winLine+
+      '<div class="cost-empty"><h3>No sales data yet</h3>'+
+      '<p>Food cost appears here once sales sync.</p>'+
+      '<p>Ingredient spend is still being recorded on the Purchases tab.</p></div>';
+    return;
+  }
+
+  // Partially sparse: purchases landed, Toast sales did not. Every row has zero
+  // revenue, so every margin is the negative of its cost. Suppress the movers
+  // strips — there is nothing meaningful to rank, and a "worst margin" ranking
+  // here would read as a loss verdict rather than a missing-data notice.
+  var anyRevenue=!costNoSalesAtAll(rows);
+  var sparseNote=anyRevenue?'':
+    '<div class="cost-sparse-note"><strong>No sales data yet</strong>'+
+    '<span>Ingredient spend below is real; sales are not synced yet. With no '+
+    'revenue to net against, margin is simply minus the cost and food-cost % '+
+    'has nothing to divide by &mdash; these are not losses.</span></div>';
+
+  var byId={};
+  rows.forEach(function(r){byId[r.menu_item_id]=r;});
+  var movers=(COST_DATA&&COST_DATA.movers)||{};
+  var strips='';
+  if(anyRevenue){
+    strips=renderCostMoverStrip('food_cost_pct','Food cost %',
+      'Lowest = most efficient plate',movers.by_food_cost_pct,byId,'pct')+
+      renderCostMoverStrip('margin','Margin dollars',
+      'Highest = biggest absolute earner',movers.by_margin,byId,'margin');
+  }
+
+  host.innerHTML=winLine+sparseNote+strips+renderCostTable(rows);
+}
+
+// Sort on header tap.
+//
+// Bound on `document`, NOT on #cost-container, deliberately. F5 (tab gating)
+// removes the Cost tab's markup for un-granted users; a top-level
+// getElementById('cost-container').addEventListener would then throw a
+// TypeError at parse time and take down the ENTIRE inventory page — every tab,
+// not just Cost — for exactly those users. Delegating from a node that always
+// exists makes the handler inert when the tab is absent instead of fatal.
+// The #cost-container scope check keeps it from firing on other tables.
+document.addEventListener('click',function(e){
+  if(!e.target||!e.target.closest)return;
+  var th=e.target.closest('#cost-container th[data-sort]');
+  if(!th)return;
+  var col=th.dataset.sort;
+  if(COST_SORT.col===col){
+    COST_SORT.dir=COST_SORT.dir==='asc'?'desc':'asc';
+  }else{
+    COST_SORT.col=col;
+    // Names read naturally A->Z; every numeric column is most interesting at
+    // its extreme, so those open descending — except food-cost %, where the
+    // useful end is the cheap one.
+    COST_SORT.dir=(col==='name'||col==='pct')?'asc':'desc';
+  }
+  renderCost();
+});
 
 document.getElementById('vendor-filter').addEventListener('change',function(e){
   VENDOR_FILTER=e.target.value;

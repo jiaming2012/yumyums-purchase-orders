@@ -544,6 +544,7 @@ func main() {
 				r.Get("/tags", inventory.ListTagsHandler(pool))
 				// Toast menu items + this-week aggregate (Phase 22). Cookie-auth, not service-token.
 				r.Get("/menu-items", toast.ListMenuItemsHandler(pool))
+				r.Get("/cost", recipes.CostHandler(pool)) // design §2.3 — cost/margin/food-cost-%
 			})
 
 			// Phase 999.2 — recipes CRUD (cookie-auth; any authenticated user can edit).

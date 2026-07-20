@@ -1520,9 +1520,23 @@ test.describe('Convergence matrix (W-3): lifecycle + list progress', () => {
     const pageB = await ctxB.newPage();
     await login(pageB);
     await openRunnerB(pageB, 'MX Denom');
-    await pageB.locator('.fill-field', { hasText: 'Keep A' }).locator('.check-btn').click();
-    await waitAutosave(pageB);
-    await pageB.waitForTimeout(800);
+    // Deterministic pre-state (de-flake 2026-07-22): register the autosave wait
+    // BEFORE the click and REQUIRE a 2xx, rather than the old post-hoc
+    // waitAutosave(...) — which registered after the click, swallowed its own
+    // timeout via .catch(() => {}), and leaned on a magic 800ms buffer. Under
+    // cross-track load that buffer was not enough: the POST /ops landed late,
+    // the row was still '0/2' when the 12s pre-state expect expired, and the
+    // test failed BEFORE reaching the SAVE_TEMPLATE convergence it exists to
+    // prove (observed leg 2, machine load avg 5.4). Same commit-gated shape
+    // mtxCheckFields already uses.
+    const keepASaved = pageB.waitForResponse(
+      res => res.url().includes('/api/v1/workflow/ops') && res.request().method() === 'POST',
+      { timeout: 15000 });
+    const keepA = pageB.locator('.fill-field', { hasText: 'Keep A' }).locator('.check-btn');
+    await keepA.click();
+    await expect(keepA).toHaveClass(/checked/, { timeout: RUNNER_TIMEOUT });
+    const keepARes = await keepASaved;
+    expect(keepARes.ok(), 'Keep A autosave must commit (2xx) before leaving the runner').toBeTruthy();
     await pageB.click('#fill-back');
     await expect(pageB.locator('#checklist-list')).toBeVisible({ timeout: RUNNER_TIMEOUT });
     const rowB = pageB.locator('[data-fill-template-id]').filter({ hasText: 'MX Denom' });
@@ -2462,6 +2476,98 @@ test.describe('Convergence matrix (systematic): op-type × editor × derived vie
     await assertSubStepRejected();
     await reopenRunnerB(pageB, 'MTX SubStep Reject');
     await assertSubStepRejected();
+
+    await ctxB.close();
+  });
+});
+
+// ─── Catch-up replay fetch storm (T-18 / S1) ─────────────────────────────────
+//
+// Root cause (diagnosed 2026-07-21): a fresh context starts at Lamport 0, so
+// wsCatchUp() replays the ENTIRE historical ops journal. The SUBMIT_CHECKLIST
+// branch of applyOp fired an UNGATED loadMyChecklists() for every replayed op —
+// N queued SUBMIT ops meant N full myChecklists re-fetches on every page load.
+// The storm is not merely wasteful: a stale snapshot landing mid-fill clobbers
+// an optimistic checkbox (the A2 symptom), and it is the load source behind the
+// `:1198` intermittent.
+//
+// The fix gates that re-fetch with the pattern the APPROVE_ITEM / SAVE_TEMPLATE
+// branches already use: reconcile when a runner is open (flip the open checklist
+// live) or for a genuinely live op (!silent) — but skip a SILENT catch-up replay
+// with no runner open, because the page-load's own loadMyChecklists already
+// reconciled that view.
+//
+// This test pins the invariant as a fetch-COUNT assertion: with N SUBMIT ops in
+// the journal, a fresh device landing on the bare My-Checklists list must issue
+// a bounded number of myChecklists GETs — not one per replayed op.
+test.describe('Catch-up replay: SUBMIT_CHECKLIST does not fetch-storm myChecklists', () => {
+  test('N queued SUBMIT ops replay into a bounded myChecklists fetch count', async ({ browser, page }) => {
+    test.setTimeout(120000);
+    page.on('dialog', d => d.accept());
+    await login(page);
+    await cleanupTemplates(page);
+    await cleanupPendingApprovals(page);
+
+    const dow = await getTodayDOW(page);
+    const N = 4;
+    const stamp = Date.now();
+
+    // Seed N SUBMIT_CHECKLIST ops into the journal. submitChecklist emits the op
+    // server-side, so an API-direct submit produces exactly the same journal
+    // entry the runner's submit button does — one op per template.
+    for (let i = 0; i < N; i++) {
+      const tpl = await mtxCreate(page, 'Storm ' + stamp + ' ' + i, dow, 'ASG',
+        [CHECKBOX_F('Task A', 0)]);
+      const res = await apiCall(page, 'POST', 'submitChecklist', {
+        id: randomUUID(),
+        template_id: tpl.id,
+        idempotency_key: randomUUID(),
+        responses: [],
+        fail_notes: [],
+      });
+      expect(res, 'seed submit ' + i + ' must succeed').toBeTruthy();
+    }
+
+    // Fresh context = fresh device_id + Lamport 0 => full journal replay, and
+    // none of the seeded ops self-echo-suppress.
+    const ctxB = await browser.newContext();
+    const pageB = await ctxB.newPage();
+    pageB.on('dialog', d => d.accept());
+    await login(pageB);
+
+    // Count myChecklists GETs issued from the moment the list page loads.
+    let myChecklistGets = 0;
+    pageB.on('request', req => {
+      if (req.method() === 'GET' && req.url().includes('/myChecklists')) myChecklistGets++;
+    });
+
+    // Land on the BARE My-Checklists list — no runner open. Gate on the catch-up
+    // request itself landing, so the replay has demonstrably run before we count.
+    const caughtUp = pageB.waitForResponse(
+      res => res.url().includes('/ops/since') && res.request().method() === 'GET',
+      { timeout: 20000 });
+    await pageB.goto(BASE + '/workflows.html');
+    await expect(pageB.locator('[data-fill-template-id]').filter({ hasText: 'Storm ' + stamp }).first())
+      .toBeVisible({ timeout: RUNNER_TIMEOUT });
+    await caughtUp;
+    await pageB.waitForLoadState('networkidle');
+
+    // Non-vacuity: the replay really did carry the seeded SUBMIT ops.
+    const replayed = await pageB.evaluate(async () => {
+      const r = await fetch('/api/v1/workflow/ops/since?lamport_ts=0');
+      const ops = await r.json();
+      return Array.isArray(ops) ? ops.filter(o => o.op_type === 'SUBMIT_CHECKLIST').length : -1;
+    });
+    expect(replayed, 'journal must hold the seeded SUBMIT ops for the replay to be non-vacuous')
+      .toBeGreaterThanOrEqual(N);
+
+    // The contract. Pre-gate this is 1 (page load) + one per replayed SUBMIT op.
+    // Post-gate the silent, runner-less replay adds none. The bound of 2 leaves
+    // room for the page's own load plus one incidental refresh; it does NOT leave
+    // room for a per-op storm.
+    expect(myChecklistGets,
+      'silent catch-up replay of ' + replayed + ' SUBMIT ops must not re-fetch myChecklists per op')
+      .toBeLessThanOrEqual(2);
 
     await ctxB.close();
   });

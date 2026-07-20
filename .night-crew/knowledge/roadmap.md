@@ -98,7 +98,7 @@
   as standing practice) so the cycle gate can compute a real median vs the T-14 baseline
   (N=23 / 22m28s). Footprint: run-mechanics / process (no product code). → Delivery KR3.
   *(from BACKLOG "Per-card wall-clock instrumentation as a standing build-run output")*
-- **`replay-fetchstorm-gate`** · **PLANNED** (promoted at triage 2026-07-20, ledger T-18 — operator: "promote it"; pairs DECISIONS-NEEDED §B2+§B3, same root cause) · Gate the ungated
+- **`replay-fetchstorm-gate`** · **DRAFTING** (built 2026-07-22, G6 PASS-WITH-FINDINGS; PARTIAL — de-flake tail (b) PARKED, storm class not fully closed) (promoted at triage 2026-07-20, ledger T-18 — operator: "promote it"; pairs DECISIONS-NEEDED §B2+§B3, same root cause) · Gate the ungated
   `SUBMIT_CHECKLIST` replay re-fetch (`sync.js:443`) with the proven in-file pattern
   (`(runner open) ∨ !silent`, as the `APPROVE_ITEM`/`SAVE_TEMPLATE` branches already do) so a
   fresh-context catch-up no longer fires `loadMyChecklists()` per replayed op — kills the
@@ -132,12 +132,12 @@
   table, ~8–12 week window. Ships with `tests/states-trends.spec.js` (State-Enumeration: empty /
   loading / error / populated + no-data + ungated edges, screenshots read back). Footprint:
   `inventory.html`. → Delivery KR2, QA KR3.
-- **`cost-margin-endpoint`** · **PLANNED** · The margin join: extend `menu-cogs` (or a new
+- **`cost-margin-endpoint`** · **DRAFTING** (built 2026-07-22, G6 PASS-WITH-FINDINGS; 2 forks open — see DECISIONS-NEEDED F2-a/F2-b) · The margin join: extend `menu-cogs` (or a new
   endpoint) to also select `SUM(gross_amount)` (revenue) and compute `margin = gross_amount −
   ingredient_cost_total` and `food_cost_% = ingredient_cost_total / gross_amount`, plus top/bottom
   movers ordering. Red-first Go test matching a hand-computed fixture to the cent. Footprint:
   `backend/internal/recipes` (+ `inventory`). → Eng KR2, Delivery KR2.
-- **`cost-tab-frontend`** · **PLANNED** · Build the Cost tab (`#s6`, replacing the cost render
+- **`cost-tab-frontend`** · **DRAFTING** (built 2026-07-22, G6 PASS-WITH-FINDINGS; 1 fork open — row-level loss-red, see DECISIONS-NEEDED) · Build the Cost tab (`#s6`, replacing the cost render
   stub at `inventory.html:997-998`): sortable per-menu-item food-cost table (units / revenue /
   ingredient cost / margin / food-cost %) + a top/bottom movers highlight; inline SVG/CSS bars;
   honest empty/low-data state where Toast sales are absent (accept-sparse-prod). Ships with

@@ -512,10 +512,18 @@ test.describe('Inventory', () => {
 
   // ── Cost tab ────────────────────────────────────────────────────────────
 
-  test('Cost tab shows coming soon content', async ({ page }) => {
+  // Retargeted by the F4 cost-tab-frontend card: the 'coming soon' stub this
+  // test used to assert no longer exists — #s6 now renders the real Cost tab
+  // (FR-4). Full State-Enumeration coverage lives in tests/states-cost.spec.js;
+  // this stays a smoke test that the tab mounts and loads.
+  test('Cost tab renders the cost surface', async ({ page }) => {
     await page.click('#t6');
     await expect(page.locator('#s6')).toBeVisible();
-    await expect(page.locator('#s6')).toContainText('Food Cost Intelligence');
+    // The test DB has no daily_menu_sales rows, so the honest low-data card is
+    // the expected surface here (accept-sparse-prod).
+    await expect(page.locator('#s6 .cost-empty')).toBeVisible();
+    await expect(page.locator('#s6')).toContainText('No sales data yet');
+    await expect(page.locator('#s6')).not.toContainText('Food Cost Intelligence');
   });
 
   // ── Menu tab (Phase 22 — Toast ingest) ──────────────────────────────────
