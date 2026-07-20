@@ -59,7 +59,7 @@
 
 ## Activity 2 — Design gate · *attended; blocks the Feature build track (Activity 4)*
 
-- **`prove-surface-openspec-design`** · **DRAFTING** (draft-only overnight-20260721; A4 open; sign-off attended) · The OpenSpec change for: (a) the **gating
+- **`prove-surface-openspec-design`** · **DRAFTING — draft LANDED, sign-off PENDING** (draft `08e81e1` merged `3d5fc17` overnight-20260721: `designs/prove-surface-gating-and-endpoints.md`, G6 PASS; **A4 open** (two slugs vs sub-permission column, advisory rec = two slugs) **+ new sub-decision D2** (linked-but-groupless sentinel lines → "Ungrouped" pseudo-group?); the attended sign-off is the gate — this card does NOT flip DONE until the operator signs) · The OpenSpec change for: (a) the **gating
   model** — how a tab-level grant is represented in `app_permissions` (dedicated slug vs a
   sub-permission column) AND the net-new **enforcement path** (a `RequirePermission`-style check
   on the Trends/Cost data endpoints — there is no permission middleware today, only
@@ -73,19 +73,19 @@
 
 ## Activity 3 — Trust track · *parallel; independent modules; may start once the PRD lands (no design-gate dependency)*
 
-- **`waiver1-isolation-fix`** · **DRAFTING** (overnight-20260721) · Fix the 1 isolation-confirmed cross-test
+- **`waiver1-isolation-fix`** · **DONE** (overnight-20260721 impl `544e68b`+`08c1bef`, G6 PASS, merged `24358f8`; root cause = ops-journal replay fetch storm, ungated `SUBMIT_CHECKLIST` re-fetch `sync.js:443`; literal `task test` exit-0 achieved + independently reproduced (473·0·6) — **waiver #1 formally retired**; NOTE: successor intermittent `sync.spec.js:1198` observed 1-of-2 G6 full runs → exit-0 not asserted deterministic, fork in DECISIONS-NEEDED) · Fix the 1 isolation-confirmed cross-test
   DB-pollution red (`tests/workflows.spec.js › approved checklist shows Approved badge and cannot
   be resubmitted` LST-08 — passes in isolation, `#toast` hidden in the full suite) by isolating
   its state dependency, then re-run the full suite to confirm **literal `task test` exit-0** —
   FORMALLY retires carried waiver #1 (Eng KR5 PARTIAL → PASS). Red-first: full-suite red is the
   baseline. Footprint: workflow-engine tests (test-only, no production change). → Eng KR5.
   *(carried from BACKLOG "Waiver-#1 last mile"; operator chose graduate 2026-07-19)*
-- **`sync-pkg-unit-coverage`** · **DRAFTING** (overnight-20260721) · The `sync` package (0 Go tests today) gets
+- **`sync-pkg-unit-coverage`** · **DONE** (overnight-20260721 impl `0ebc81d`, G6 PASS, merged `38f2060`; 10-combo cartesian + entity-branch/dedup/negative coverage; superadmin N/A per `users_roles_check`; ESC-1 regression unweakened; approver-inclusion contract question surfaced → DECISIONS-NEEDED) · The `sync` package (0 Go tests today) gets
   `ResolveEntityAccess` coverage across all {role}×{assignment} combos, asserting recipient
   resolution unions admins + author + assignees; the escaped cross-user access defect carries a
   red-first unit test on the pre-fix code. Footprint: `backend/internal/sync` (+ `sync/access_test.go`).
   → QA KR1. *(from BACKLOG "Cross-user live-sync access matrix + sync-package unit coverage")*
-- **`convergence-matrix-systematic`** · **DRAFTING** (overnight-20260721) · Extend the convergence E2E matrix from
+- **`convergence-matrix-systematic`** · **DONE** (overnight-20260721 impl `c7b4ccd`, G6 PASS, merged `8249209`; 32-cell matrix: 24 covered / 8 N/A-with-reason; 13 new `MTX-*` cells; 65/65 ×3 fresh-DB `--retries=0` + independent G6 re-run; test-only, 0 cells PARKed) · Extend the convergence E2E matrix from
   SET_FIELD-only to {op-type ∈ field / submit / approve / reject} × {editor ∈ assignee /
   non-assignee-admin} × {derived-view ∈ field-value / correction-banner / readonly-mode / list
   progress-count}; each cell red-first then green across ≥2 devices; the 3 escaped defects each

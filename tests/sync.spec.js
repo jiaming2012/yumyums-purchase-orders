@@ -1,4 +1,5 @@
 const { test, expect } = require('@playwright/test');
+const { randomUUID } = require('crypto');
 
 const BASE = '';
 const ADMIN_EMAIL = 'jamal@yumyums.kitchen';
@@ -435,18 +436,17 @@ test.describe('Cross-device: regressions', () => {
     await login(pageB);
     await pageB.goto(BASE + '/workflows.html');
     await expect(pageB.locator('#s1').getByText('Uncheck Sync')).toBeVisible({ timeout: 10000 });
-    const beforeText = await pageB.locator('[data-fill-template-id]').first().textContent();
-    expect(beforeText).toContain('1/1');
+    // De-flake (found in this card's fresh-DB --retries=0 determinism runs):
+    // the one-shot textContent() + toContain pattern raced op propagation under
+    // load — auto-retrying toContainText asserts the SAME content, retried.
+    await expect(pageB.locator('[data-fill-template-id]').first()).toContainText('1/1', { timeout: 12000 });
 
     // Device A: now UNCHECK the checkbox
     await checkBtn.click();
     await expect(checkBtn).not.toHaveClass(/checked/, { timeout: 5000 });
-    await page.waitForTimeout(3000); // auto-save + WS propagation
 
-    // Device B: list page should now show 0/1
-    await pageB.waitForTimeout(3000);
-    const afterText = await pageB.locator('[data-fill-template-id]').first().textContent();
-    expect(afterText).toContain('0/1');
+    // Device B: list page should now show 0/1 (live, no reload)
+    await expect(pageB.locator('[data-fill-template-id]').first()).toContainText('0/1', { timeout: 12000 });
 
     await ctxB.close();
   });
@@ -713,9 +713,10 @@ test.describe('Cross-device: regressions', () => {
     // "2/3" snapshot — it should reconcile to live state once the submission is
     // no longer pending. (After the fix it reads live: Do A hidden by the
     // rejection flag, Cut the check now unchecked → no longer "2/3".)
-    await pageB.waitForTimeout(2000);
-    const after = await pageB.locator('[data-fill-template-id]').first().textContent();
-    expect(after, 'observer count must not stay frozen on the submission snapshot').not.toContain('2/3');
+    // De-flake: auto-retrying not.toContainText replaces the one-shot
+    // textContent() read (same content asserted, retried until convergence).
+    await expect(pageB.locator('[data-fill-template-id]').first(),
+      'observer count must not stay frozen on the submission snapshot').not.toContainText('2/3', { timeout: 12000 });
 
     await ctxB.close();
   });
@@ -950,8 +951,9 @@ test.describe('Cross-device: regressions', () => {
     await login(pageB);
     await pageB.goto(BASE + '/workflows.html');
     await expect(pageB.locator('#s1').getByText('Progress Sync')).toBeVisible({ timeout: 10000 });
-    const beforeText = await pageB.locator('[data-fill-template-id]').first().textContent();
-    expect(beforeText).toContain('0/1');
+    // De-flake: auto-retrying toContainText replaces the one-shot textContent()
+    // + toContain pattern (same content asserted — see LST-17 uncheck variant).
+    await expect(pageB.locator('[data-fill-template-id]').first()).toContainText('0/1', { timeout: 12000 });
 
     // Device A: open checklist and check the checkbox
     await page.reload();
@@ -959,13 +961,9 @@ test.describe('Cross-device: regressions', () => {
     const checkBtn = page.locator('.check-btn').first();
     await checkBtn.click();
     await expect(checkBtn).toHaveClass(/checked/, { timeout: 5000 });
-    await page.waitForTimeout(2000); // auto-save + WS propagation
 
     // Device B: list page should now show 1/1 (updated via WS without reload)
-    // Wait for WS delivery + re-render
-    await pageB.waitForTimeout(3000);
-    const afterText = await pageB.locator('[data-fill-template-id]').first().textContent();
-    expect(afterText).toContain('1/1');
+    await expect(pageB.locator('[data-fill-template-id]').first()).toContainText('1/1', { timeout: 12000 });
 
     await ctxB.close();
   });
@@ -1305,15 +1303,28 @@ test.describe('Convergence matrix (W-3): surviving answers converge across devic
 
     // 'No' triggers the fail card; then inject the presigned photo URL as the crew
     // camera would (camera UI is unavailable in the headless env).
+    //
+    // De-flake (found in this card's fresh-DB --retries=0 determinism runs):
+    // asserting the fail card in the OPTIMISTIC window (before the No-answer's
+    // debounced save committed) raced the same clobber the W-3 text/temp cells
+    // documented above — a silent catch-up SAVE_TEMPLATE replay (from the
+    // beforeEach create/archive backlog) can re-render the just-opened runner
+    // from durable (still-empty) state and wipe the optimistic No + fail card.
+    // Deterministic fix, same pattern as those cells: gate on the autosave POST
+    // /ops committing (2xx) instead of a blind wait + optimistic assert. The
+    // fail card's visibility is still asserted — from durable state — by
+    // assertPhoto after the baseline reopen below (.fail-card img.photo-thumb).
     const noBtn = pageB.locator('[data-action="set-no"][data-fld-id="' + fieldId + '"]');
     await expect(noBtn).toBeVisible({ timeout: RUNNER_TIMEOUT });
+    const noCommitted = pageB.waitForResponse(
+      res => res.url().includes('/api/v1/workflow/ops') && res.request().method() === 'POST',
+      { timeout: 12000 });
     await noBtn.click();
-    await expect(pageB.locator('.fail-card')).toBeVisible({ timeout: RUNNER_TIMEOUT });
-    await pageB.waitForTimeout(800); // let the No-answer autosave settle first
+    const noRes = await noCommitted;
+    expect(noRes.ok(), 'No-answer autosave must commit (2xx) before the bundle write').toBeTruthy();
     await apiCall(pageB, 'POST', 'saveResponse', {
       field_id: fieldId, value: { _v: false, _fail_note: { note: '', severity: '', photo: photoUrl } },
     });
-    await pageB.waitForTimeout(400);
 
     const assertPhoto = async (p) => {
       const img = p.locator('.fail-card img.photo-thumb');
@@ -1413,6 +1424,20 @@ test.describe('Convergence matrix (W-3): lifecycle + list progress', () => {
     await expect(pageB.locator('[data-action="unsubmit"]')).toBeVisible({ timeout: RUNNER_TIMEOUT });
 
     // A unsubmits (the runner confirms first — accept it).
+    //
+    // De-flake (found in this card's fresh-DB --retries=0 determinism runs):
+    // after the submit, A's runner auto-navigates back to the list ~2.5s later
+    // (the all-done fireworks timer). Whether A still shows the unsubmit button
+    // here depended on device B's whole context setup finishing inside that
+    // window — a pure timing race (under load the click waited on a runner that
+    // no longer existed and timed out). Deterministic fix: reopen A's runner
+    // first — the pending submission renders the unsubmit button from durable
+    // server state, whichever view the fireworks timer left A on. No assertion
+    // is weakened: B's live-convergence asserts below are unchanged.
+    await page.reload();
+    await expect(page.locator('#s1').getByText('MX Unsubmit')).toBeVisible({ timeout: RUNNER_TIMEOUT });
+    await page.click('[data-fill-template-id]');
+    await expect(page.locator('[data-action="unsubmit"]')).toBeVisible({ timeout: RUNNER_TIMEOUT });
     page.once('dialog', (d) => d.accept());
     await page.locator('[data-action="unsubmit"]').click();
     await page.waitForTimeout(1000);
@@ -1849,5 +1874,595 @@ test.describe('Engine: LWW conflict re-renders the winner across persisted types
       .toHaveClass(/checked/, { timeout: CONVERGE_TIMEOUT });
 
     await ctx.close(); await winnerCtx.close();
+  });
+});
+
+// ─── Systematic convergence matrix (convergence-matrix-systematic, FR-8/FR-9) ─
+//
+// Completes the op-type × editor × derived-view matrix (AC-8/AC-9):
+//   op-type ∈ {SET_FIELD (FLD), SUBMIT_CHECKLIST (SUB), APPROVE_ITEM (APR),
+//              REJECT_ITEM (RJT)}
+//   editor  ∈ {assignee (ASG), non-assignee admin (ADM)}
+//   view    ∈ {field-value (VAL), correction-banner (BAN),
+//              edit-vs-readonly (ERO), list-progress-count (CNT)}
+// Every cell asserts the SECOND device's derived view — live (no reload) and
+// after catch-up (reload/reopen). Cells are tagged MTX-<op>-<editor>-<view>.
+//
+// Editor mechanics (why the two columns differ at the ACCESS layer, not the UI):
+//   • ASG — jamal's DB roles are ['admin'] (auth.UpsertSuperadmins inserts
+//     ARRAY['admin']), so a template assigned to role 'admin' makes him a
+//     GENUINE role-matched assignee: both myChecklists' assignment branch and
+//     ResolveEntityAccess's assignment branch match him.
+//   • ADM — the template is assigned to role 'team_member' ONLY. jamal matches
+//     neither assignment; he reaches the checklist purely via the admin
+//     view-all clause (myChecklists) and receives its live ops purely via the
+//     admins-union + author-inclusion fan-out that the ESC-1 fix (5c423ac)
+//     added to ResolveEntityAccess/StartListener. On the pre-fix build every
+//     ADM cell reddens: the op never reached the second device (AC-9 / A6 —
+//     recorded historical red-first evidence: sync/access_test.go,
+//     TestResolveEntityAccess_AdminReceivesLiveOps).
+//
+// Full 32-cell coverage map (8 N/A cells carry their reason; a named test may
+// prove multiple cells of one flow):
+//   FLD-ASG-VAL  pre-existing  SYN-03 'Device B sees field changes' + FLD-LIVE-01/02
+//                              + the W-3 per-type matrix (checkbox…photo)
+//   FLD-ASG-BAN  N/A           a SET_FIELD op carries no rejection-state change:
+//                              REJECTION_FLAGS derive solely from
+//                              submission.rejections (hydrateFieldState), which
+//                              only REJECT_ITEM creates and a resubmission
+//                              supersedes; clearRejectionFlag on answering is
+//                              device-local UX with no durable state to converge
+//   FLD-ASG-ERO  N/A           fillState.readonly derives only from submission
+//                              status (renderRunner); SET_FIELD never changes it
+//   FLD-ASG-CNT  pre-existing  LST-17 (check + uncheck) + 'MX Progress' + 'MX Denom'
+//   SUB-ASG-VAL  new           MTX-SUB-ASG-VAL/ERO
+//   SUB-ASG-BAN  new           MTX-RJT-ASG cycle (resubmit leg clears the banner)
+//   SUB-ASG-ERO  pre-existing  'MX Submit' + 'MX Unsubmit' (+ re-proven in
+//                              MTX-SUB-ASG-VAL/ERO)
+//   SUB-ASG-CNT  new           MTX-SUB-ASG-CNT
+//   APR-ASG-VAL  N/A           APPROVE_ITEM mutates no field_response rows — no
+//                              field value can change under it
+//   APR-ASG-BAN  N/A           the ⚠ correction banner renders only for status
+//                              'rejected' (hydrateFieldState); an approval can
+//                              never produce one (approval feedback renders as
+//                              FEEDBACK_NOTES, a distinct non-matrix view)
+//   APR-ASG-ERO  pre-existing  RJT-LIVE-03 (Approved flips live on device B)
+//   APR-ASG-CNT  new           MTX-APR-ASG-CNT
+//   RJT-ASG-VAL  new           MTX-RJT-ASG cycle (rejected field cleared on B)
+//   RJT-ASG-BAN  pre-existing  RJT-LIVE-01 [ESC-2a] + new sub-step variant
+//                              MTX-RJT-ASG-BAN-SUBSTEP [ESC-3]
+//   RJT-ASG-ERO  new           MTX-RJT-ASG cycle (edit mode returns on B) [ESC-2a]
+//   RJT-ASG-CNT  pre-existing  RJT-LIVE-02 [ESC-2b]
+//   FLD-ADM-VAL  new           MTX-FLD-ADM-VAL [ESC-1]
+//   FLD-ADM-BAN  N/A           same reason as FLD-ASG-BAN
+//   FLD-ADM-ERO  N/A           same reason as FLD-ASG-ERO
+//   FLD-ADM-CNT  new           MTX-FLD-ADM-CNT
+//   SUB-ADM-VAL  new           MTX-SUB-ADM-VAL/ERO
+//   SUB-ADM-BAN  new           MTX-RJT-ADM cycle (resubmit leg clears the banner)
+//   SUB-ADM-ERO  new           MTX-SUB-ADM-VAL/ERO
+//   SUB-ADM-CNT  new           MTX-SUB-ADM-CNT
+//   APR-ADM-VAL  N/A           same reason as APR-ASG-VAL
+//   APR-ADM-BAN  N/A           same reason as APR-ASG-BAN
+//   APR-ADM-ERO  new           MTX-APR-ADM-ERO
+//   APR-ADM-CNT  new           MTX-APR-ADM-CNT
+//   RJT-ADM-VAL  new           MTX-RJT-ADM cycle
+//   RJT-ADM-BAN  new           MTX-RJT-ADM cycle
+//   RJT-ADM-ERO  new           MTX-RJT-ADM cycle
+//   RJT-ADM-CNT  new           MTX-RJT-ADM-CNT
+// (SAVE_TEMPLATE/ARCHIVE_TEMPLATE sit outside this 4-op matrix; they are covered
+// by the W-3 blocks above plus repro-cut-task.spec.js / broadcast-rerender.spec.js.)
+//
+// Red-first discipline for the NEW cells: every test asserts the PRE-op state of
+// the exact locator whose convergence it then asserts (submit button visible
+// before the submit that removes it, banner count 0 before the reject that adds
+// it, badge absent before it appears, checkbox unchecked before it checks…), so
+// a broken convergence path cannot pass vacuously — the post-op assertion
+// demands the OPPOSITE of a state the same test just proved. The ESC-mapped
+// cells additionally carry the recorded historical red-first runs (A6):
+// ESC-1 → access_test.go, ESC-2a/2b → RJT-LIVE-01/02, ESC-3 → APR-SUBSTEP-0718.
+
+const MTX_ASSIGN = {
+  ASG: [
+    { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' },
+    { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'approver' },
+  ],
+  ADM: [
+    { assignee_type: 'role', assignee_id: 'team_member', assignment_role: 'assignee' },
+    { assignee_type: 'role', assignee_id: 'team_member', assignment_role: 'approver' },
+  ],
+};
+
+function mtxCreate(page, name, dow, editor, fields, requiresApproval) {
+  return apiCall(page, 'POST', 'createTemplate', {
+    name,
+    requires_approval: requiresApproval !== false,
+    sections: [{ title: 'S', order: 0, condition: null, fields }],
+    schedules: [{ active_days: [dow] }],
+    assignments: MTX_ASSIGN[editor],
+  });
+}
+
+// Pending-submission lookup that works for BOTH editor columns. jamal's
+// pendingApprovals queue is EMPTY when the approver assignment is
+// 'team_member' (that query has no admin override), so the ADM cells resolve
+// the submission from myChecklists' submissions instead — checklists are team
+// objects, all members see all of today's submissions.
+async function mtxPendingSubmission(page, tplId) {
+  const subs = await page.evaluate(async () => {
+    const r = await fetch('/api/v1/workflow/myChecklists?dow=' + new Date().getDay());
+    return (await r.json()).submissions || [];
+  });
+  return subs.find(s => s.template_id === tplId &&
+    (s.status === 'pending' || s.status === 'pending_approval')) || null;
+}
+
+// Resolve a field OR sub-step id by label from a submission's template snapshot.
+function mtxFieldId(sub, label) {
+  const snap = typeof sub.template_snapshot === 'string'
+    ? JSON.parse(sub.template_snapshot) : sub.template_snapshot;
+  for (const s of (snap.sections || [])) {
+    for (const f of (s.fields || [])) {
+      if (f.label === label) return f.id;
+      for (const ss of (f.sub_steps || [])) if (ss.label === label) return ss.id;
+    }
+  }
+  return null;
+}
+
+// Editor device A: (re)open the runner for the named checklist.
+async function mtxOpenA(page, name) {
+  await page.reload();
+  await expect(page.locator('#s1').getByText(name)).toBeVisible({ timeout: RUNNER_TIMEOUT });
+  await page.click('[data-fill-template-id]');
+  await page.waitForSelector('.fill-field', { timeout: RUNNER_TIMEOUT });
+}
+
+// Observer device B: fresh context with the runner open on the named checklist.
+async function mtxOpenB(browser, name) {
+  const ctxB = await browser.newContext();
+  const pageB = await ctxB.newPage();
+  pageB.on('dialog', d => d.accept());
+  await login(pageB);
+  await openRunnerB(pageB, name);
+  return { ctxB, pageB };
+}
+
+// Observer device B: fresh context sitting on the BARE My-Checklists list.
+async function mtxListB(browser, name) {
+  const ctxB = await browser.newContext();
+  const pageB = await ctxB.newPage();
+  pageB.on('dialog', d => d.accept());
+  await login(pageB);
+  await pageB.goto(BASE + '/workflows.html');
+  const rowB = pageB.locator('[data-fill-template-id]').filter({ hasText: name });
+  await expect(rowB).toBeVisible({ timeout: RUNNER_TIMEOUT });
+  return { ctxB, pageB, rowB };
+}
+
+const mtxRow = (pageB, name) => pageB.locator('[data-fill-template-id]').filter({ hasText: name });
+
+// Check the labelled checkboxes on the editor device, gating each on its
+// autosave POST /ops committing (2xx) — the race-free "draft is durable" signal
+// the W-3 de-flake established.
+async function mtxCheckFields(page, labels) {
+  for (const label of labels) {
+    const committed = page.waitForResponse(
+      res => res.url().includes('/api/v1/workflow/ops') && res.request().method() === 'POST',
+      { timeout: 12000 });
+    const b = page.locator('.fill-field', { hasText: label }).locator('.check-btn').first();
+    await b.click();
+    await expect(b).toHaveClass(/checked/, { timeout: 5000 });
+    const res = await committed;
+    expect(res.ok(), 'autosave for "' + label + '" must commit (2xx)').toBeTruthy();
+  }
+}
+
+// Submit via the runner UI on the editor device, gated on the submitChecklist
+// POST succeeding (the SUBMIT_CHECKLIST op is emitted server-side inside it).
+async function mtxSubmitUI(page) {
+  const submitted = page.waitForResponse(
+    res => res.url().includes('/submitChecklist') && res.request().method() === 'POST',
+    { timeout: 12000 });
+  await page.click('#submit-btn');
+  const res = await submitted;
+  expect(res.ok(), 'submitChecklist must succeed (2xx)').toBeTruthy();
+}
+
+// One SUBMIT cell: editor fills + submits while device B's runner is open.
+// Proves MTX-SUB-<ed>-VAL (the answered value survives into the submitted view)
+// and MTX-SUB-<ed>-ERO (edit → readonly flips live), live + catch-up.
+async function mtxSubmitCell(browser, page, editor) {
+  const name = 'MTX Submit ' + editor;
+  page.on('dialog', d => d.accept());
+  const dow = await getTodayDOW(page);
+  await mtxCreate(page, name, dow, editor, [CHECKBOX_F('Task A', 0)]);
+  await mtxOpenA(page, name);
+  await mtxCheckFields(page, ['Task A']);
+
+  const { ctxB, pageB } = await mtxOpenB(browser, name);
+  // Pre-state (non-vacuous): B is EDITABLE and shows the committed value.
+  await expect(pageB.locator('#submit-btn')).toBeVisible({ timeout: RUNNER_TIMEOUT });
+  await expect(pageB.locator('.submit-confirm')).toHaveCount(0);
+  await expect(pageB.locator('.fill-field', { hasText: 'Task A' }).locator('.check-btn'))
+    .toHaveClass(/checked/, { timeout: RUNNER_TIMEOUT });
+
+  await mtxSubmitUI(page);
+
+  // LIVE: readonly flips (ERO) and the value survives the flip (VAL). The
+  // readonly renderer shows an answered checkbox as a green ✓ (no .check-btn
+  // controls exist in readonly mode) — an unanswered one would show ✗.
+  await expect(pageB.locator('#submit-btn')).toHaveCount(0, { timeout: CONVERGE_TIMEOUT });
+  await expect(pageB.locator('.submit-confirm')).toBeVisible({ timeout: CONVERGE_TIMEOUT });
+  await expect(pageB.locator('.fill-field', { hasText: 'Task A' }))
+    .toContainText('✓', { timeout: CONVERGE_TIMEOUT });
+  await expect(pageB.locator('.fill-field', { hasText: 'Task A' })).not.toContainText('✗');
+
+  // CATCH-UP: reload + reopen — same converged state.
+  await reopenRunnerB(pageB, name);
+  await expect(pageB.locator('#submit-btn')).toHaveCount(0, { timeout: CONVERGE_TIMEOUT });
+  await expect(pageB.locator('.submit-confirm')).toBeVisible({ timeout: CONVERGE_TIMEOUT });
+  await expect(pageB.locator('.fill-field', { hasText: 'Task A' }))
+    .toContainText('✓', { timeout: CONVERGE_TIMEOUT });
+  await expect(pageB.locator('.fill-field', { hasText: 'Task A' })).not.toContainText('✗');
+
+  await ctxB.close();
+}
+
+// One SUBMIT list-count cell: device B sits on the BARE list; the editor
+// submits; B's row grows the Pending Approval badge live. MTX-SUB-<ed>-CNT.
+async function mtxSubmitCountCell(browser, page, editor) {
+  const name = 'MTX SubCnt ' + editor;
+  page.on('dialog', d => d.accept());
+  const dow = await getTodayDOW(page);
+  await mtxCreate(page, name, dow, editor, [CHECKBOX_F('Task A', 0)]);
+  await mtxOpenA(page, name);
+  await mtxCheckFields(page, ['Task A']);
+
+  const { ctxB, pageB, rowB } = await mtxListB(browser, name);
+  // Pre-state (non-vacuous): full count, NO approval badge yet.
+  await expect(rowB).toContainText('1/1', { timeout: RUNNER_TIMEOUT });
+  await expect(rowB.locator('.approval-badge')).toHaveCount(0);
+
+  await mtxSubmitUI(page);
+
+  // LIVE: the badge appears on the bare list without a reload.
+  await expect(rowB.locator('.approval-badge')).toHaveText('Pending Approval', { timeout: CONVERGE_TIMEOUT });
+
+  // CATCH-UP: reload — badge still there.
+  await pageB.reload();
+  const rowB2 = mtxRow(pageB, name);
+  await expect(rowB2).toBeVisible({ timeout: RUNNER_TIMEOUT });
+  await expect(rowB2.locator('.approval-badge')).toHaveText('Pending Approval', { timeout: CONVERGE_TIMEOUT });
+
+  await ctxB.close();
+}
+
+// One APPROVE list-count cell: device B watches the bare list's Pending badge
+// become Approved ✓ live. MTX-APR-<ed>-CNT.
+async function mtxApproveCountCell(browser, page, editor) {
+  const name = 'MTX AprCnt ' + editor;
+  page.on('dialog', d => d.accept());
+  const dow = await getTodayDOW(page);
+  const tpl = await mtxCreate(page, name, dow, editor, [CHECKBOX_F('Task A', 0)]);
+  await mtxOpenA(page, name);
+  await mtxCheckFields(page, ['Task A']);
+  await mtxSubmitUI(page);
+  const sub = await mtxPendingSubmission(page, tpl.id);
+  expect(sub, 'submission is pending approval').toBeTruthy();
+
+  const { ctxB, pageB, rowB } = await mtxListB(browser, name);
+  // Pre-state (non-vacuous): pending badge shows, no Approved mark.
+  await expect(rowB.locator('.approval-badge')).toBeVisible({ timeout: RUNNER_TIMEOUT });
+  await expect(rowB).not.toContainText('Approved');
+
+  await apiCall(page, 'POST', 'approveSubmission', { submission_id: sub.id, feedback: [] });
+
+  // LIVE: Approved ✓ replaces the pending badge on the bare list.
+  await expect(rowB).toContainText('Approved ✓', { timeout: CONVERGE_TIMEOUT });
+  await expect(rowB.locator('.approval-badge')).toHaveCount(0, { timeout: CONVERGE_TIMEOUT });
+
+  // CATCH-UP: reload — still Approved.
+  await pageB.reload();
+  const rowB2 = mtxRow(pageB, name);
+  await expect(rowB2).toBeVisible({ timeout: RUNNER_TIMEOUT });
+  await expect(rowB2).toContainText('Approved ✓', { timeout: CONVERGE_TIMEOUT });
+
+  await ctxB.close();
+}
+
+// One REJECT→fix→RESUBMIT cycle: proves four cells of one editor column in a
+// single realistic flow, each leg live + catch-up on device B:
+//   reject  → MTX-RJT-<ed>-BAN (banner appears), MTX-RJT-<ed>-ERO (edit mode
+//             returns), MTX-RJT-<ed>-VAL (rejected value cleared, kept field
+//             stays answered)
+//   resubmit→ MTX-SUB-<ed>-BAN (banner cleared by the superseding submission)
+async function mtxRejectCycleCell(browser, page, editor) {
+  const name = 'MTX Reject ' + editor;
+  page.on('dialog', d => d.accept());
+  const dow = await getTodayDOW(page);
+  const tpl = await mtxCreate(page, name, dow, editor,
+    [CHECKBOX_F('Cut the check', 0), CHECKBOX_F('Do B', 1)]);
+  await mtxOpenA(page, name);
+  await mtxCheckFields(page, ['Cut the check', 'Do B']);
+  await mtxSubmitUI(page);
+  const sub = await mtxPendingSubmission(page, tpl.id);
+  expect(sub, 'submission is pending approval').toBeTruthy();
+  const doBId = mtxFieldId(sub, 'Do B');
+  expect(doBId, 'resolved Do B field id from snapshot').toBeTruthy();
+
+  const { ctxB, pageB } = await mtxOpenB(browser, name);
+  // Pre-state (non-vacuous): B is READONLY-pending, banner-free, Do B answered
+  // (the readonly renderer shows an answered checkbox as ✓ — no .check-btn).
+  await expect(pageB.locator('.submit-confirm')).toBeVisible({ timeout: RUNNER_TIMEOUT });
+  await expect(pageB.locator('#submit-btn')).toHaveCount(0);
+  await expect(pageB.locator('.correction-banner')).toHaveCount(0);
+  await expect(pageB.locator('.fill-field', { hasText: 'Do B' }))
+    .toContainText('✓', { timeout: RUNNER_TIMEOUT });
+
+  // The approver rejects Do B (REJECT_ITEM op is emitted server-side).
+  await apiCall(page, 'POST', 'rejectItem',
+    { submission_id: sub.id, field_id: doBId, comment: 'Please redo Do B', require_photo: false });
+
+  const assertRejected = async () => {
+    await expect(pageB.locator('.correction-banner'), 'rejection banner must reach device B')
+      .toContainText('Please redo Do B', { timeout: CONVERGE_TIMEOUT });
+    await expect(pageB.locator('#submit-btn'), 'device B must flip back to EDIT mode')
+      .toBeVisible({ timeout: CONVERGE_TIMEOUT });
+    await expect(pageB.locator('.fill-field', { hasText: 'Do B' }).locator('.check-btn'),
+      'rejected field must come back unanswered').not.toHaveClass(/checked/, { timeout: CONVERGE_TIMEOUT });
+    await expect(pageB.locator('.fill-field', { hasText: 'Cut the check' }).locator('.check-btn'),
+      'non-rejected field keeps its answer').toHaveClass(/checked/, { timeout: CONVERGE_TIMEOUT });
+  };
+  // LIVE, then CATCH-UP.
+  await assertRejected();
+  await reopenRunnerB(pageB, name);
+  await assertRejected();
+
+  // Resubmit leg (SUB-<ed>-BAN): the editor fixes Do B and resubmits — the new
+  // pending submission supersedes the rejection, so B's banner clears and the
+  // runner returns to readonly.
+  await mtxOpenA(page, name);
+  await expect(page.locator('#submit-btn')).toBeVisible({ timeout: RUNNER_TIMEOUT });
+  await mtxCheckFields(page, ['Do B']);
+  await mtxSubmitUI(page);
+
+  const assertResubmitted = async () => {
+    await expect(pageB.locator('.correction-banner'), 'banner must clear after the resubmission')
+      .toHaveCount(0, { timeout: CONVERGE_TIMEOUT });
+    await expect(pageB.locator('.submit-confirm')).toBeVisible({ timeout: CONVERGE_TIMEOUT });
+    await expect(pageB.locator('#submit-btn')).toHaveCount(0, { timeout: CONVERGE_TIMEOUT });
+  };
+  await assertResubmitted();
+  await reopenRunnerB(pageB, name);
+  await assertResubmitted();
+
+  await ctxB.close();
+}
+
+test.describe('Convergence matrix (systematic): op-type × editor × derived view', () => {
+  test.beforeEach(async ({ page }) => {
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await cleanupPendingApprovals(page);
+    await cleanupTemplates(page);
+  });
+
+  // ── SET_FIELD × non-assignee admin (the ESC-1 column) ──────────────────────
+
+  test('MTX-FLD-ADM-VAL: non-assignee admin field edit converges on the same admin\'s 2nd device (live + catch-up) [ESC-1]', async ({ browser, page }) => {
+    test.setTimeout(120000);
+    const dow = await getTodayDOW(page);
+    await mtxCreate(page, 'MTX Field ADM', dow, 'ADM', [CHECKBOX_F('Wipe counters', 0)], false);
+
+    // Observer B opens the runner FIRST. Pre-state (non-vacuous): unchecked.
+    const { ctxB, pageB } = await mtxOpenB(browser, 'MTX Field ADM');
+    const cbB = pageB.locator('.fill-field', { hasText: 'Wipe counters' }).locator('.check-btn');
+    await expect(cbB).not.toHaveClass(/checked/);
+
+    // Editor A (admin, NOT an assignee — template belongs to team_member) checks.
+    await mtxOpenA(page, 'MTX Field ADM');
+    await mtxCheckFields(page, ['Wipe counters']);
+
+    // LIVE: the op must reach the admin's 2nd device (pre-ESC-1-fix it never did).
+    await expect(cbB, 'non-assignee admin edit must converge live on the 2nd device')
+      .toHaveClass(/checked/, { timeout: CONVERGE_TIMEOUT });
+
+    // CATCH-UP: reload + reopen — still checked.
+    await reopenRunnerB(pageB, 'MTX Field ADM');
+    await expect(pageB.locator('.fill-field', { hasText: 'Wipe counters' }).locator('.check-btn'))
+      .toHaveClass(/checked/, { timeout: CONVERGE_TIMEOUT });
+
+    await ctxB.close();
+  });
+
+  test('MTX-FLD-ADM-CNT: non-assignee admin field edit converges the 2nd device\'s list count (live + catch-up)', async ({ browser, page }) => {
+    test.setTimeout(120000);
+    const dow = await getTodayDOW(page);
+    await mtxCreate(page, 'MTX FieldCnt ADM', dow, 'ADM', [CHECKBOX_F('Wipe counters', 0)], false);
+
+    // Observer B sits on the BARE list. Pre-state: 0/1.
+    const { ctxB, pageB, rowB } = await mtxListB(browser, 'MTX FieldCnt ADM');
+    await expect(rowB).toContainText('0/1', { timeout: RUNNER_TIMEOUT });
+
+    await mtxOpenA(page, 'MTX FieldCnt ADM');
+    await mtxCheckFields(page, ['Wipe counters']);
+
+    // LIVE: list count converges without a reload.
+    await expect(rowB).toContainText('1/1', { timeout: CONVERGE_TIMEOUT });
+
+    // CATCH-UP: reload — still 1/1.
+    await pageB.reload();
+    const rowB2 = mtxRow(pageB, 'MTX FieldCnt ADM');
+    await expect(rowB2).toBeVisible({ timeout: RUNNER_TIMEOUT });
+    await expect(rowB2).toContainText('1/1', { timeout: CONVERGE_TIMEOUT });
+
+    await ctxB.close();
+  });
+
+  // ── SUBMIT_CHECKLIST × editor ──────────────────────────────────────────────
+
+  test('MTX-SUB-ASG-VAL/ERO: assignee submit converges value + readonly on device B (live + catch-up)', async ({ browser, page }) => {
+    test.setTimeout(120000);
+    await mtxSubmitCell(browser, page, 'ASG');
+  });
+
+  test('MTX-SUB-ADM-VAL/ERO: non-assignee-admin submit converges value + readonly on device B (live + catch-up)', async ({ browser, page }) => {
+    test.setTimeout(120000);
+    await mtxSubmitCell(browser, page, 'ADM');
+  });
+
+  test('MTX-SUB-ASG-CNT: assignee submit surfaces the Pending Approval badge on device B\'s bare list (live + catch-up)', async ({ browser, page }) => {
+    test.setTimeout(120000);
+    await mtxSubmitCountCell(browser, page, 'ASG');
+  });
+
+  test('MTX-SUB-ADM-CNT: non-assignee-admin submit surfaces the Pending Approval badge on device B\'s bare list (live + catch-up)', async ({ browser, page }) => {
+    test.setTimeout(120000);
+    await mtxSubmitCountCell(browser, page, 'ADM');
+  });
+
+  // ── APPROVE_ITEM × editor ──────────────────────────────────────────────────
+
+  test('MTX-APR-ADM-ERO: non-assignee-admin approval flips device B\'s open runner to Approved (live + catch-up)', async ({ browser, page }) => {
+    test.setTimeout(120000);
+    page.on('dialog', d => d.accept());
+    const dow = await getTodayDOW(page);
+    const tpl = await mtxCreate(page, 'MTX Approve ADM', dow, 'ADM', [CHECKBOX_F('Task A', 0)]);
+    await mtxOpenA(page, 'MTX Approve ADM');
+    await mtxCheckFields(page, ['Task A']);
+    await mtxSubmitUI(page);
+    const sub = await mtxPendingSubmission(page, tpl.id);
+    expect(sub, 'submission is pending approval').toBeTruthy();
+
+    // Observer B: open runner. Pre-state: pending-review, NOT approved.
+    const { ctxB, pageB } = await mtxOpenB(browser, 'MTX Approve ADM');
+    await expect(pageB.locator('.submit-confirm')).toContainText('Waiting for manager review', { timeout: RUNNER_TIMEOUT });
+    await expect(pageB.locator('#fill-body')).not.toContainText('Approved');
+
+    // The admin approves (rejectItem/approveSubmission carry no assignment gate;
+    // the ADM column's approver assignment is team_member, so the queue-less
+    // direct call is the non-assignee-admin approval path).
+    await apiCall(page, 'POST', 'approveSubmission', { submission_id: sub.id, feedback: [] });
+
+    // LIVE: Approved flips on B without a reload.
+    await expect(pageB.locator('#fill-body'), 'device B must live-show Approved')
+      .toContainText('Approved', { timeout: CONVERGE_TIMEOUT });
+
+    // CATCH-UP: reload + reopen — still Approved.
+    await reopenRunnerB(pageB, 'MTX Approve ADM');
+    await expect(pageB.locator('#fill-body')).toContainText('Approved', { timeout: CONVERGE_TIMEOUT });
+
+    await ctxB.close();
+  });
+
+  test('MTX-APR-ASG-CNT: approval surfaces Approved ✓ on device B\'s bare list (live + catch-up)', async ({ browser, page }) => {
+    test.setTimeout(120000);
+    await mtxApproveCountCell(browser, page, 'ASG');
+  });
+
+  test('MTX-APR-ADM-CNT: non-assignee-admin approval surfaces Approved ✓ on device B\'s bare list (live + catch-up)', async ({ browser, page }) => {
+    test.setTimeout(120000);
+    await mtxApproveCountCell(browser, page, 'ADM');
+  });
+
+  // ── REJECT_ITEM × editor ───────────────────────────────────────────────────
+
+  test('MTX-RJT-ASG-BAN/ERO/VAL + MTX-SUB-ASG-BAN: reject→fix→resubmit cycle converges on device B (live + catch-up) [ESC-2a]', async ({ browser, page }) => {
+    test.setTimeout(180000);
+    await mtxRejectCycleCell(browser, page, 'ASG');
+  });
+
+  test('MTX-RJT-ADM-BAN/ERO/VAL + MTX-SUB-ADM-BAN: non-assignee-admin reject→fix→resubmit cycle converges on device B (live + catch-up)', async ({ browser, page }) => {
+    test.setTimeout(180000);
+    await mtxRejectCycleCell(browser, page, 'ADM');
+  });
+
+  test('MTX-RJT-ADM-CNT: non-assignee-admin rejection clears the pending badge and re-derives the live count on device B\'s bare list (live + catch-up)', async ({ browser, page }) => {
+    test.setTimeout(120000);
+    page.on('dialog', d => d.accept());
+    const dow = await getTodayDOW(page);
+    const tpl = await mtxCreate(page, 'MTX RjtCnt ADM', dow, 'ADM',
+      [CHECKBOX_F('Cut the check', 0), CHECKBOX_F('Do B', 1)]);
+    await mtxOpenA(page, 'MTX RjtCnt ADM');
+    await mtxCheckFields(page, ['Cut the check', 'Do B']);
+    await mtxSubmitUI(page);
+    const sub = await mtxPendingSubmission(page, tpl.id);
+    expect(sub, 'submission is pending approval').toBeTruthy();
+    const doBId = mtxFieldId(sub, 'Do B');
+    expect(doBId, 'resolved Do B field id from snapshot').toBeTruthy();
+
+    // Observer B on the BARE list. Pre-state: frozen snapshot count + badge.
+    const { ctxB, pageB, rowB } = await mtxListB(browser, 'MTX RjtCnt ADM');
+    await expect(rowB).toContainText('2/2', { timeout: RUNNER_TIMEOUT });
+    await expect(rowB.locator('.approval-badge')).toBeVisible({ timeout: RUNNER_TIMEOUT });
+
+    await apiCall(page, 'POST', 'rejectItem',
+      { submission_id: sub.id, field_id: doBId, comment: 'redo Do B', require_photo: false });
+
+    // LIVE: badge drops and the count re-derives from live state (the rejected
+    // Do B is cleared, Cut the check keeps its answer → 1/2), no reload.
+    await expect(rowB.locator('.approval-badge')).toHaveCount(0, { timeout: CONVERGE_TIMEOUT });
+    await expect(rowB).toContainText('1/2', { timeout: CONVERGE_TIMEOUT });
+
+    // CATCH-UP: reload — same derived state.
+    await pageB.reload();
+    const rowB2 = mtxRow(pageB, 'MTX RjtCnt ADM');
+    await expect(rowB2).toBeVisible({ timeout: RUNNER_TIMEOUT });
+    await expect(rowB2.locator('.approval-badge')).toHaveCount(0, { timeout: CONVERGE_TIMEOUT });
+    await expect(rowB2).toContainText('1/2', { timeout: CONVERGE_TIMEOUT });
+
+    await ctxB.close();
+  });
+
+  test('MTX-RJT-ASG-BAN-SUBSTEP: rejecting a SUB-STEP surfaces its correction banner live on the submitter\'s 2nd device (live + catch-up) [ESC-3]', async ({ browser, page }) => {
+    test.setTimeout(120000);
+    page.on('dialog', d => d.accept());
+    const dow = await getTodayDOW(page);
+    const SS = (label, order) => ({ type: 'checkbox', label, order, config: {}, fail_trigger: null, condition: null });
+    const tpl = await mtxCreate(page, 'MTX SubStep Reject', dow, 'ASG', [
+      CHECKBOX_F('Cut the check', 0, { sub_steps: [SS('Do A', 0), SS('Do B', 1)] }),
+    ]);
+    const full = (await apiCall(page, 'GET', 'templates')).find(t => t.id === tpl.id);
+    const parentId = full.sections[0].fields[0].id;
+    const doAId = full.sections[0].fields[0].sub_steps.find(s => s.label === 'Do A').id;
+    const doBId = full.sections[0].fields[0].sub_steps.find(s => s.label === 'Do B').id;
+
+    // Submit with BOTH sub-steps done (the parent value carries the sub_steps
+    // map — same shape the runner persists).
+    await apiCall(page, 'POST', 'submitChecklist', {
+      template_id: tpl.id, idempotency_key: randomUUID(),
+      responses: [{ field_id: parentId, value: JSON.stringify({ value: true, sub_steps: { [doAId]: true, [doBId]: true } }) }],
+    });
+    const sub = await mtxPendingSubmission(page, tpl.id);
+    expect(sub, 'submission is pending approval').toBeTruthy();
+
+    // Observer B (submitter's 2nd device): open runner. Pre-state: readonly,
+    // banner-free, both sub-steps done.
+    const { ctxB, pageB } = await mtxOpenB(browser, 'MTX SubStep Reject');
+    await expect(pageB.locator('.submit-confirm')).toBeVisible({ timeout: RUNNER_TIMEOUT });
+    await expect(pageB.locator('.correction-banner')).toHaveCount(0);
+    const doBCheck = pageB.locator('.sub-step-row', { hasText: 'Do B' }).locator('.sub-step-check');
+    await expect(doBCheck).toHaveClass(/done/, { timeout: RUNNER_TIMEOUT });
+
+    // The approver rejects the SUB-STEP itself (ESC-3's exact shape).
+    await apiCall(page, 'POST', 'rejectItem',
+      { submission_id: sub.id, field_id: doBId, comment: 'Redo step Do B', require_photo: false });
+
+    const assertSubStepRejected = async () => {
+      await expect(pageB.locator('.correction-banner', { hasText: 'Redo step Do B' }),
+        'sub-step rejection banner must reach device B').toBeVisible({ timeout: CONVERGE_TIMEOUT });
+      await expect(pageB.locator('.sub-step-row', { hasText: 'Do B' }).locator('.sub-step-check'),
+        'rejected sub-step must come back un-done').not.toHaveClass(/done/, { timeout: CONVERGE_TIMEOUT });
+      await expect(pageB.locator('.sub-step-row', { hasText: 'Do A' }).locator('.sub-step-check'),
+        'non-rejected sub-step stays done').toHaveClass(/done/, { timeout: CONVERGE_TIMEOUT });
+      await expect(pageB.locator('#submit-btn'), 'device B back in edit mode')
+        .toBeVisible({ timeout: CONVERGE_TIMEOUT });
+    };
+    // LIVE, then CATCH-UP.
+    await assertSubStepRejected();
+    await reopenRunnerB(pageB, 'MTX SubStep Reject');
+    await assertSubStepRejected();
+
+    await ctxB.close();
   });
 });
