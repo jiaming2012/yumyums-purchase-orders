@@ -59,7 +59,7 @@
 
 ## Activity 2 — Design gate · *attended; blocks the Feature build track (Activity 4)*
 
-- **`prove-surface-openspec-design`** · **DRAFTING** (draft-only overnight-20260721; A4 open; sign-off attended) · The OpenSpec change for: (a) the **gating
+- **`prove-surface-openspec-design`** · **DRAFTING — draft LANDED, sign-off PENDING** (draft `08e81e1` merged `3d5fc17` overnight-20260721: `designs/prove-surface-gating-and-endpoints.md`, G6 PASS; **A4 open** (two slugs vs sub-permission column, advisory rec = two slugs) **+ new sub-decision D2** (linked-but-groupless sentinel lines → "Ungrouped" pseudo-group?); the attended sign-off is the gate — this card does NOT flip DONE until the operator signs) · The OpenSpec change for: (a) the **gating
   model** — how a tab-level grant is represented in `app_permissions` (dedicated slug vs a
   sub-permission column) AND the net-new **enforcement path** (a `RequirePermission`-style check
   on the Trends/Cost data endpoints — there is no permission middleware today, only
