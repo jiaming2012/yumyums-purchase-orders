@@ -106,3 +106,26 @@ changed). Frontend semver untouched (no asset change). DB flag satisfied (epheme
 `percard-timing-instrumentation` roadmap card: this run's table above IS the standing output —
 consider flipping it DONE at triage (it's a run-mechanic, not a code card; the orchestrator left
 it for your call since the card spans the whole cycle).
+
+## Triage disposition (2026-07-20) — merged, all 5 forks resolved, design SIGNED
+
+Merged to `dev` `--no-ff` (`e1d22ad`) after attended review: build+vet green, `go test` all
+packages ok on branch + merged tree (DB-backed sync tests skip without pg; the run's 2× ephemeral
+pg16 legs are the DB evidence), G4/replay checks N/A for HQ, footprint = test-only + docs, zero
+production files. Recorded as `ledger.md` §T-18. `dev` pushed to `origin/dev`.
+
+**Resolutions:** B1 design SIGNED (A4 = Option (i) · D2 = Ungrouped · rider (b) → umbrella
+semantics · rider (c) expected) → **Activity 4 UNBLOCKED**. B2+B3 → `replay-fetchstorm-gate`
+card promoted (Activity 3). B4 → "everyone with entity access sees live ops" ratified. B5 →
+folded into `inventory-tab-gating`. `percard-timing-instrumentation` → DONE. Preference
+capture/decisions audit skipped — not deployed to night-crew `main` (NF-3).
+
+**Standing flags after triage:** prod-deploy / attended-convergence flags **satisfied** — this run
+touched no verify/prod/DB path; the convergence flag **re-arms when `replay-fetchstorm-gate`
+lands** (it changes `sync.js`, the live-sync path under the flag). DB flag satisfied (ephemeral
+pg16 canonical). Frontend semver untouched. `main` untouched; dev → main promotion separate.
+FR-12 Cliq-dup watch continues.
+
+**Cards unblocked:** all 5 Activity-4 Feature WOs (`inventory-tab-gating` first — endpoints mount
+inside its groups) + `replay-fetchstorm-gate` (Activity 3). Next move: `/nc-slate-plan` — the
+queue is decided; no open forks remain.

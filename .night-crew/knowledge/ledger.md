@@ -632,3 +632,78 @@ instrumentation, so `/nc-milestone-close` does not apply: `night-crew scorecard`
   choice): the Mercury receipt worker, alert queue, and Zoho Cliq now run in prod against the SAME
   external accounts as dev. **Watch the Cliq channel for duplicate alerts**; disable one side if they
   appear. Next move: `/nc-okr-session` for the next cycle (fold in the QA-coverage findings).
+
+## T-18 — Morning-triage resolutions (2026-07-20, overnight-20260721)
+
+Run merged to `dev` `--no-ff` (`e1d22ad`) after attended review: `go build` +
+`go vet` green; `go test -count=1 -p 1 ./...` all packages ok on branch and merged tree (DB-backed
+sync tests skip without a live pg — the DB legs' evidence is the run's own 2× ephemeral-pg16 runs,
+impl + independent G6); G4/replay checks N/A for HQ (07-19 precedent); footprint diff matches the
+closeout exactly — test-only + docs, **zero production files**. 4/4 cards DONE, 4/4 G6 PASS, 0
+parks. Waiver #1 formally retired (Eng KR5 PARTIAL → PASS). Per-card actuals appended to
+`reference/card-actuals.md`. Resolutions below answer DECISIONS-NEEDED §B1–B5 plus the two items
+HANDOFF left to the operator.
+
+- **B1 — Activity-2 design SIGNED (2026-07-20): A4 = Option (i), D2 = Ungrouped, rider (b)
+  REWRITTEN to umbrella semantics.** `designs/prove-surface-gating-and-endpoints.md` §8 now records
+  the signature; Activity 4 (5 Feature WOs) is unblocked. **A4:** two dedicated per-tab slugs
+  (`inventory-trends`, `inventory-cost` in `hq_apps` via `SeedHQApps`) — chosen over the
+  `app_permissions.tab` column for zero schema risk (no migration → no NFR-3 down-migration proof /
+  pre-deploy backup), zero `/me`+Users-UI backend change, and trivially reversible seed rows; the
+  draft, implementer, and G6 all converged here. **D2:** linked-but-groupless lines (the
+  `'(no itemized receipt)'` sentinel, group-deleted items) bucket as an explicit **"Ungrouped"**
+  pseudo-group — chosen over folding into "Unlinked $X" (would misstate the completeness note) and
+  over dropping (breaks the AC-6 reconciliation identity). **Riders:** (a) per-week `unlinked`
+  array KEPT; (b) **REWRITTEN by operator rider — "App grant = All tabs granted. They should not be
+  considered separate objects."** The signed semantics are UMBRELLA: a whole-app grant includes
+  every gated tab of that app automatically; per-tab grants exist for narrower tab-only access; the
+  `RequirePermission` check passes on (tab slug ∨ whole-app slug ∨ superadmin). This rewrites the
+  draft's strict reading (which the operator explicitly rejected) while keeping per-tab granularity
+  as the go-forward convention. (c) tab-grant-without-app-grant (tile hidden, direct URL works)
+  SIGNED as expected behavior — tab grant is the gate, tile is launcher UX; Users UI should nudge
+  admins to co-grant.
+- **B5 folded into the gating card (operator: "fold into gating card").** The
+  `inventory-tab-gating` WO's scope now includes an authz gate on
+  `ApproveSubmissionHandler`/`RejectItemHandler` (`backend/internal/workflow/handler.go:728-753,
+  793+` — today any authenticated role can approve/reject). Chosen over a backlog entry (closes
+  sooner, same middleware work) and over accept-as-is. The exact role rule is specified at slate
+  time (expected: approvers + admins/superadmins).
+- **B2+B3 — one production card promoted to the next slate: `replay-fetchstorm-gate`.** Operator:
+  "promote it." The ungated `SUBMIT_CHECKLIST` replay re-fetch (`sync.js:443`) gets the same
+  `(runner open) ∨ !silent` gate its `APPROVE_ITEM`/`SAVE_TEMPLATE` siblings already carry
+  (production one-liner, pattern proven in-file since the 2026-07-18 fix); the same card hardens
+  the successor intermittent `sync.spec.js:1198` (pre-existing, load-sensitive, red 2-of-3 G6 legs
+  that included it — sits directly downstream of the storm) and reverts A2's test-side
+  `checkAllWithRepair` workaround to plain clicks once the storm is gone. Chosen over
+  backlog-and-wait (phones keep the reconnect fetch-flood + mid-fill clobber window) and over a new
+  narrow waiver (recreates the machinery this run just retired). Exit-0 status stays honestly
+  "achieved-and-reproduced, not asserted deterministic" until this card lands.
+- **B4 — operator rider, recorded verbatim: "Everyone should see live ops."** The live-sync
+  fan-out contract becomes: every user with access to the entity receives its live ops — no
+  filtering by role or assignment type. This RATIFIES deployed behavior (the recipient query,
+  `ops.go:521-530`, already does not filter `assignment_role`) and supersedes FR-7's narrower
+  "admins ∪ assignees" wording; approver inclusion is intended, not accidental. The
+  `TestResolveEntityAccess_ApproverIncluded_CurrentBehavior` pin flips from reviewer-NOTE to
+  contract (comment update rides `replay-fetchstorm-gate` or the next sync card). Chosen over
+  excluding approvers (a production change with no user benefit on a 1–5 person crew).
+- **`percard-timing-instrumentation` flipped DONE (operator).** The run's harness-measured
+  per-card table (impl/G6/merge legs, epoch-stamped `timings.log`) is exactly the standing output
+  the card asked for; future build runs keep producing it as standing practice, and the cycle gate
+  computes the Delivery-KR3 median from the accumulating `card-actuals.md` rows.
+- **Preference capture + decisions audit SKIPPED — not deployed to night-crew `main` (operator
+  rule, recorded).** The triage skill's capture-on-answer step names `night-crew preferences
+  propose` / `night-crew decisions audit`, but both exist only on night-crew `dev` (57 commits
+  ahead); hq's tooling tracks `main` (`nc:update`). Operator: **"Only should consider whats been
+  deployed to main."** Both candidate preferences (umbrella grants; everyone-sees-live-ops) were
+  offered and are withdrawn as not-applicable — the riders live in this section and the signed
+  design instead; they can be re-offered if/when the preferences machinery ships to main. The
+  skill-vs-deployed-tool skew is recorded as `design-findings-nightcrew.md` NF-3. (Triage-process
+  note: the installed CLI was briefly rebuilt from dev mid-session to inspect the subcommands —
+  reverted to a `main` build the same session.)
+- **Standing flags after triage.** Test-only + docs run: prod-deploy / attended-convergence flags
+  stay **satisfied** (no verify/merge/prod/DB path changed; they re-arm when that path changes —
+  note `replay-fetchstorm-gate` WILL touch `sync.js`, so the attended two-device convergence flag
+  re-arms when that card lands). DB flag satisfied (ephemeral pg16 canonical). Frontend semver
+  untouched (no asset change). `dev` pushed to `origin/dev` at triage close (the one sanctioned
+  push); `main` untouched — `dev → main` promotion remains a separate decision. FR-12 Cliq-dup
+  watch continues over the cycle (nothing observed this run).

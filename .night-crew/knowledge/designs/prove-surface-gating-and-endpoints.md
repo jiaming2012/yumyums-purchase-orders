@@ -2,9 +2,9 @@
 
 > **Cycle:** "Prove & surface" — trust the sync, surface the numbers (opened 2026-07-19).
 > **Role:** the roadmap **Activity-2 design gate** artifact, PRD **FR-0** — drafted by the
-> overnight run, **signed by the operator**. **STATUS: DRAFT — NOT SIGNED.** This document is
-> the operator's signable INPUT; its landing does **not** authorize any Feature build WO.
-> Activity 4 (the Feature track) stays blocked until the operator signs §5 + §8. The Trust
+> overnight run, **signed by the operator**. **STATUS: ✅ SIGNED 2026-07-20 (§8; ledger
+> T-18) — A4 = Option (i), D2 = Ungrouped, rider (b) rewritten to umbrella semantics,
+> B5 authz gate folded into the gating WO. Activity 4 is UNBLOCKED.** The Trust
 > track (FR-7/8/9/10) has no dependency on this gate (PRD NFR-5) and is already landing.
 > **Traces to:** PRD `.night-crew/knowledge/prds/PRD-prove-and-surface.md` — FR-0/FR-1/FR-3/
 > FR-5/FR-6, AC-1/AC-3/AC-5/AC-6, INV-A/B/C, Assumptions A1–A4/A7.
@@ -482,8 +482,8 @@ violation of this contract, auditable at any cycle gate.
 The observable per-tab rule (§1.2) and the FR-5 test obligations (§1.7) are identical
 under both options; only the storage/query/UI mechanics differ. **Check exactly one:**
 
-- [ ] **Option (i) — two dedicated per-tab slugs** (`inventory-trends`,
-  `inventory-cost` in `hq_apps`; no migration; §1.4)
+- [x] **Option (i) — two dedicated per-tab slugs** (`inventory-trends`,
+  `inventory-cost` in `hq_apps`; no migration; §1.4) ← **SIGNED 2026-07-20**
 - [ ] **Option (ii) — per-tab sub-permission column** (`app_permissions.tab`;
   migration + down-migration + up→down→up proof + pre-deploy backup per NFR-3/INV-E; §1.5)
 
@@ -499,8 +499,8 @@ under (i) ever grates, migrating to (ii) later is a mechanical data move.
 
 **D2 (small, surfaced by §4 flag 3) — linked-but-groupless lines in Trends:**
 
-- [ ] Bucket as an explicit `"Ungrouped"` pseudo-group (recommended — keeps the AC-6
-  identity and the "Unlinked $X" note truthful)
+- [x] Bucket as an explicit `"Ungrouped"` pseudo-group (recommended — keeps the AC-6
+  identity and the "Unlinked $X" note truthful) ← **SIGNED 2026-07-20**
 - [ ] Other: ____________
 
 ## 6. What signing this authorizes (and what it does not)
@@ -556,6 +556,26 @@ with a migration and more moving parts. Cost may ship to prod as an honest empty
 cookie-auth endpoints; service-token contracts untouched), A7 (accept-sparse-prod);
 A4 is the open decision above.
 
-**Status:** ⏳ **DRAFT — awaiting operator sign-off.** No Feature build WO dispatches
-until this section records the operator's signature and the §5 boxes are checked
-(auditable from ledger timestamps, per PRD AC-0).
+**Status:** ✅ **SIGNED — operator, 2026-07-20 morning triage (ledger T-18).** §5 boxes
+checked: **A4 = Option (i)** (two per-tab slugs) · **D2 = "Ungrouped" pseudo-group**.
+Activity 4 (the 5 Feature build WOs, §6) is unblocked. Signature amendments — these
+supersede the corresponding draft text above:
+
+1. **Rider (b) REWRITTEN — umbrella grant semantics (operator rider, verbatim: "App
+   grant = All tabs granted. They should not be considered separate objects.").** A
+   whole-app grant includes every gated tab of that app automatically; per-tab grants
+   exist to give narrower, tab-only access. `RequirePermission` therefore passes on
+   **(tab slug ∨ whole-app `inventory` slug ∨ superadmin)** — the §1.4 middleware EXISTS
+   query checks both slugs, not the tab slug alone. This replaces the draft's strict
+   "whole-app grant does NOT imply tab grants" reading wherever it appears (§1.5
+   trade-off text included).
+2. **Rider (a) KEPT** — per-week `unlinked` array stands as drafted (§2.2).
+3. **Rider (c) SIGNED as expected behavior** — tab grant without app grant: tile hidden,
+   direct URL works (§1.6); the Users UI nudge stands.
+4. **B5 fold-in — the `inventory-tab-gating` WO (§6 card 1) additionally gates the
+   approve/reject endpoints** (`ApproveSubmissionHandler`/`RejectItemHandler`,
+   `backend/internal/workflow/handler.go:728-753, 793+` — today ungated beyond login).
+   Role rule specified at slate time (expected: approvers + admins/superadmins).
+
+Per PRD AC-0, auditable from ledger timestamps: draft landed overnight-20260721
+(`08e81e1`, merged `3d5fc17`), signed at the 2026-07-20 morning triage.

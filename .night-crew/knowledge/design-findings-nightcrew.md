@@ -54,3 +54,33 @@
   findings) or a closeout step in `/nc-morning-triage` / a new cycle-complete skill. Make this
   standing file (`knowledge/design-findings-nightcrew.md`) the canonical target, scaffolded by
   `night-crew init` alongside the other knowledge files.
+
+### NF-3 · `/nc-morning-triage` skill references CLI features not deployed to night-crew `main` (skill/tool skew)
+- **Symptom (hit at triage 2026-07-20):** the skill's capture-on-answer step (§3.4) instructs
+  running `night-crew preferences propose --repo <target-repo>`, and §4.7 instructs
+  `night-crew decisions audit`. Neither subcommand exists in the installed CLI — both live only
+  on night-crew `dev` (57 commits ahead of `main` at the time), while hq's tooling tracks `main`
+  (`nc:update tracks main`, commit `65ddf9a`). The triage had to skip both steps.
+- **Operator rule (2026-07-20, verbatim intent):** "Only should consider whats been deployed to
+  main." Target-repo rituals must only depend on main-deployed tool features; a skill step naming
+  an undeployed subcommand is skipped-with-reason, never satisfied by rebuilding the CLI from dev
+  mid-ritual (this happened briefly at this triage and was reverted the same session).
+- **Fix candidates (night-crew main):** (a) promote the preferences/decisions work dev → main so
+  the skill and tool re-align; (b) until then, gate those skill steps on a capability probe
+  (`night-crew <sub> --help` exit status or usage grep) with an explicit "not deployed — skipped"
+  report line; (c) the skill-release checklist gains "every named subcommand exists on main."
+- **Cost of the gap:** two operator-answered riders (umbrella grants; everyone-sees-live-ops)
+  could not enter the preference pending queue and live only in the target repo's ledger/design —
+  re-offer them if/when the machinery ships.
+
+### NF-4 · Run-mechanics defects surfaced by overnight-20260721 (brief-template candidates)
+- **Never-background rule (cost ~25–30m):** A1's implementer twice suspended itself by
+  backgrounding long suite runs and had to be resumed by the orchestrator. The run fixed it
+  forward in every later brief ("never background; foreground legs ≤10m, detach+`tail --pid` for
+  longer") — graduate that sentence into the standing brief template so no future run re-learns it.
+- **Compose pg publishes no host port:** target-repo ephemeral pg16 legs needed a scratchpad
+  compose override adding `ports:` — 5 of 6 agents used the same workaround independently. Add a
+  commented-out ports stanza or a documented override file to the sandbox/brief so it's one copy
+  step, not six rediscoveries.
+- **`task test` surfaces Playwright failure as go-task exit 201, not 1** (INFO): gate logic should
+  grep the Playwright summary line, not name the exit code.

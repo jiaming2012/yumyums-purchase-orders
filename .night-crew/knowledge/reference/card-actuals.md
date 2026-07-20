@@ -347,3 +347,25 @@
   definitional carve-out that would have declared waiver #1 formally retired — waiver #1 is carried,
   reduced 38→1. This is the pattern to keep: **let §1's real result reconcile the pre-computed
   scorecard, downgrade in the open.**
+
+## overnight-20260721 (Trust track + design draft; serial dispatch, per-card worktree + fresh G6, ephemeral pg16 per leg)
+
+| Card | Class | Implement | G6 | Land (merge+flip) | Card cycle |
+|---|---|---|---|---|---|
+| `convergence-matrix-systematic` (A1) | XL (test matrix) | 101m15s ⚠ | 9m15s | ~1m | ~111m |
+| `sync-pkg-unit-coverage` (B1) | S–M (Go unit) | 8m11s | 4m27s | <1m | ~13m |
+| `prove-surface-design-draft` (C1) | M (design doc) | 7m30s | 4m49s | <1m | ~13m |
+| `waiver1-isolation-fix` (A2) | S + exit-0 proof | 88m00s | 57m34s | <1m | ~146m |
+
+- **A1 ⚠ — ~25–30m of the impl leg was orchestration stall, not work:** the implementer twice
+  backgrounded its suite runs and had to be resumed. Productive wall ~70–75m — INSIDE the slate's
+  70–90m estimate. Sizing lesson: the XL estimate held; the stall is a run-mechanics defect (brief
+  rule now: never background; foreground ≤10m, detach+`tail --pid` beyond).
+- **A2 — the outlier is the PROOF, not the fix:** the fix itself was small; the card class
+  "S + full-suite exit-0 proof" costs 2 complete `task test` runs in G6 alone (18.8m + 19.1m).
+  Treat "literal exit-0 headline" as its own ~60m G6 class; that spend is what surfaced the
+  successor intermittent (§B2 → `replay-fetchstorm-gate`).
+- **Clean-path population:** B1/C1 (~13m card cycles) extend the S–M clean-path band established
+  by prior slates; no repair cycles this run (0 parks).
+- Run total 08:27 → 13:10 (~4h43m) vs serial estimate ~175m + 30m closeout — overage is A1 stall
+  + A2's double-suite G6, both now priced classes.

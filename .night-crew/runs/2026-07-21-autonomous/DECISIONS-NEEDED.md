@@ -1,5 +1,14 @@
 # DECISIONS-NEEDED — overnight-20260721
 
+> **RESOLVED 2026-07-20 — recorded as `ledger.md` §T-18.** Run merged to `dev` `--no-ff`
+> (`e1d22ad`). **B1:** design SIGNED — A4 = Option (i) two slugs · D2 = Ungrouped · rider (a)
+> kept · rider (b) REWRITTEN to umbrella semantics (operator: "App grant = All tabs granted.
+> They should not be considered separate objects.") · rider (c) signed expected → Activity 4
+> UNBLOCKED. **B2+B3:** promoted as one card, `replay-fetchstorm-gate` (operator: "promote it").
+> **B4:** ratified WIDER than drafted (operator: "Everyone should see live ops" — fan-out =
+> everyone with entity access). **B5:** folded into `inventory-tab-gating`. Kept as the run's
+> analysis record.
+
 > Read with HANDOFF.md. §A = parked work (none tonight). §B = operator decisions the run
 > surfaced but — per the standing rule — did not make. Resolve via `/nc-morning-triage`.
 

@@ -409,3 +409,18 @@
   `APR-DEADEND-0718`; persistence `FLD-CORRECTION-PHOTO`. Parked-by-convention: the presign+PUT camera
   plumbing itself (injected in tests, like onboarding FR-18).
   · origin: 2026-07-18 operator-found sub-step rejection bug (dev play) · resolved 2026-07-18
+
+> **Triage 2026-07-20 (overnight-20260721, ledger T-18) graduations.** §B items were routed at
+> triage (B2+B3 → `replay-fetchstorm-gate` card; B4 ratified; B5 folded into
+> `inventory-tab-gating`) and do NOT appear below. These are the run's §C durable observations
+> that ride future cards:
+
+- **`checklist_submissions.status` never set for `requires_approval:false` submissions** ·
+  Defaults `'pending'` and `submitChecklist` never updates it, so no-approval submissions read
+  `'pending'` server-side forever. Harmless today (UI derives from other fields) but a trap for
+  any future server-side status consumer — normalize on submit or document the invariant. ·
+  origin: overnight-20260721 A1 impl (§C) · new
+- **Rejected-field hydrate quirk: new answer visually clears on reload until resubmission** ·
+  Answering a rejected field then reloading blanks the new answer visually
+  (`workflows.html:1544` hydrate branch prefers the rejection snapshot); device-local, LOW.
+  Rides any future runner-hydration card. · origin: overnight-20260721 A1 G6 (§C) · new

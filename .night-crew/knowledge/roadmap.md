@@ -59,7 +59,7 @@
 
 ## Activity 2 — Design gate · *attended; blocks the Feature build track (Activity 4)*
 
-- **`prove-surface-openspec-design`** · **DRAFTING — draft LANDED, sign-off PENDING** (draft `08e81e1` merged `3d5fc17` overnight-20260721: `designs/prove-surface-gating-and-endpoints.md`, G6 PASS; **A4 open** (two slugs vs sub-permission column, advisory rec = two slugs) **+ new sub-decision D2** (linked-but-groupless sentinel lines → "Ungrouped" pseudo-group?); the attended sign-off is the gate — this card does NOT flip DONE until the operator signs) · The OpenSpec change for: (a) the **gating
+- **`prove-surface-openspec-design`** · **DONE — SIGNED 2026-07-20** (draft `08e81e1` merged `3d5fc17` overnight-20260721, G6 PASS; signed at morning triage, ledger T-18: **A4 = Option (i)** two per-tab slugs · **D2 = "Ungrouped" pseudo-group** · rider (b) rewritten to **umbrella semantics** (whole-app grant implies its tabs; per-tab grants for narrower access) · rider (c) signed expected · **B5 fold-in:** the gating WO also gates approve/reject endpoints. `designs/prove-surface-gating-and-endpoints.md` §8 is the signature record. **Activity 4 UNBLOCKED**) · The OpenSpec change for: (a) the **gating
   model** — how a tab-level grant is represented in `app_permissions` (dedicated slug vs a
   sub-permission column) AND the net-new **enforcement path** (a `RequirePermission`-style check
   on the Trends/Cost data endpoints — there is no permission middleware today, only
@@ -93,11 +93,24 @@
   (`sync.spec.js`, `repro-cut-task.spec.js`, `broadcast-rerender.spec.js`; `sync.js`/`workflows.html`
   only if a determinism seam is needed). → Eng KR4, Product KR2, QA. *(from BACKLOG "Live
   approval-state convergence coverage" — the QA hole both escaped defects widened)*
-- **`percard-timing-instrumentation`** · **DRAFTING** (standing run-mechanic, active from overnight-20260721) · Make per-card wall-clock timing the
+- **`percard-timing-instrumentation`** · **DONE** (flipped at triage 2026-07-20, ledger T-18 — overnight-20260721's harness-measured per-card table (impl/G6/merge legs, epoch-stamped `timings.log`) IS the standing output; future build runs keep producing it and the cycle gate computes the KR3 median from `reference/card-actuals.md`) · Make per-card wall-clock timing the
   invariant build-run output for every build card this cycle (the `-0718` harness-measured table
   as standing practice) so the cycle gate can compute a real median vs the T-14 baseline
   (N=23 / 22m28s). Footprint: run-mechanics / process (no product code). → Delivery KR3.
   *(from BACKLOG "Per-card wall-clock instrumentation as a standing build-run output")*
+- **`replay-fetchstorm-gate`** · **PLANNED** (promoted at triage 2026-07-20, ledger T-18 — operator: "promote it"; pairs DECISIONS-NEEDED §B2+§B3, same root cause) · Gate the ungated
+  `SUBMIT_CHECKLIST` replay re-fetch (`sync.js:443`) with the proven in-file pattern
+  (`(runner open) ∨ !silent`, as the `APPROVE_ITEM`/`SAVE_TEMPLATE` branches already do) so a
+  fresh-context catch-up no longer fires `loadMyChecklists()` per replayed op — kills the
+  reconnect fetch flood + mid-fill clobber window on real phones. Same card: harden the successor
+  intermittent `sync.spec.js:1198 › temperature answer converges` (pre-existing, load-sensitive,
+  downstream of the storm), revert A2's test-side `checkAllWithRepair` to plain clicks, optionally
+  add the fetch-abort guard in `sync.js api()` (silences suite-teardown noise, §C), and flip the
+  approver-inclusion pin comment (`access_test.go:402-425`) from reviewer-NOTE to contract per the
+  signed B4 rider ("Everyone should see live ops" — fan-out = everyone with entity access).
+  Red-first; production `sync.js` change → `task sw` + the attended two-device convergence flag
+  re-arms on land. Footprint: sync trust (`sync.js`, `sync.spec.js`, `workflows.spec.js`,
+  `access_test.go` comment). → Eng KR5 (determinism), QA. *(from DECISIONS-NEEDED-20260721 §B2/§B3)*
 - **`prod-alert-dup-guard`** · **PLANNED** · With Mercury receipt worker / alert queue / Zoho
   Cliq now live in prod against the SAME external accounts as dev, guard against duplicate alerts:
   observe the Cliq channel over the cycle and either confirm 0 duplicates OR disable one side.
@@ -109,7 +122,9 @@
 - **`trends-spend-by-group-endpoint`** · **PLANNED** · New backend aggregation: total spend
   bucketed by `date_trunc('week', event_date)` × `purchase_items.group_id` over a window,
   tax-prorated consistently with `period-summary`, with the signed NULL-`purchase_item_id`
-  (unlinked line item) handling rule. Red-first Go test: every week×group cell = SUM of matching
+  (unlinked line item) handling rule + the signed **D2 rule** (linked-but-groupless lines →
+  explicit "Ungrouped" pseudo-group) + per-week `unlinked` array (rider (a), signed).
+  Red-first Go test: every week×group cell = SUM of matching
   line-item spend on a ≥8-week/≥2-group seeded fixture. Footprint: `backend/internal/inventory`.
   → Eng KR1, Delivery KR2.
 - **`trends-tab-frontend`** · **PLANNED** · Build the Trends tab (`#s5`, replacing the
@@ -127,14 +142,18 @@
   ingredient cost / margin / food-cost %) + a top/bottom movers highlight; inline SVG/CSS bars;
   honest empty/low-data state where Toast sales are absent (accept-sparse-prod). Ships with
   `tests/states-cost.spec.js`. Footprint: `inventory.html`. → Delivery KR2, QA KR3.
-- **`inventory-tab-gating`** · **PLANNED** · Server-enforced tab-level gate via the Users
-  `app_permissions` model (per the signed design): a session user WITHOUT the grant gets a
-  distinct 403 from the Trends/Cost data endpoints AND the tabs do not render; a granted user
-  gets 200 + tabs. Wires the grant through the Users admin UI + the `/me`-style resolver +
-  a `RequirePermission`-style check. Red-first with-grant/without-grant test pair; 0 logged-in-only
-  bypass. If a sub-permission column is added, it carries a proven up→down→up down-migration
-  (QA KR4). Footprint: gating (`users.html`, `backend/internal/users`, `me`, `auth` middleware,
-  `inventory.html` tab render). → Eng KR3, Product KR3, QA KR4.
+- **`inventory-tab-gating`** · **PLANNED** (design signed 2026-07-20: **Option (i)** two per-tab
+  slugs via `SeedHQApps` — NO migration, QA-KR4 down-migration clause is N/A; **umbrella
+  semantics** — `RequirePermission` passes on (tab slug ∨ whole-app `inventory` slug ∨ superadmin);
+  **+ B5 fold-in:** also gate `ApproveSubmissionHandler`/`RejectItemHandler`
+  (`workflow/handler.go:728-753, 793+`), role rule specified at slate time) · Server-enforced
+  tab-level gate via the Users `app_permissions` model (per the signed design): a session user
+  WITHOUT the grant gets a distinct 403 from the Trends/Cost data endpoints AND the tabs do not
+  render; a granted user gets 200 + tabs. Wires the grant through the Users admin UI + the
+  `/me`-style resolver + a `RequirePermission`-style check. Red-first with-grant/without-grant test
+  pair incl. the mixed Trends-only case; 0 logged-in-only bypass. Footprint: gating (`users.html`,
+  `backend/internal/users`, `me`, `auth` middleware, `inventory.html` tab render,
+  `backend/internal/workflow` handlers). → Eng KR3, Product KR3, QA KR4.
 
 ## Activity 5 — Cycle gate · *last, serialized*
 
