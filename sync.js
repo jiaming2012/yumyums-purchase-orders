@@ -440,7 +440,22 @@ function applyOp(op, silent) {
       if (typeof updateProgress === 'function') updateProgress();
     } else if (typeof renderMyChecklists === 'function') { renderMyChecklists(); }
   } else if (op.op_type === 'SUBMIT_CHECKLIST') {
-    if (typeof loadMyChecklists === 'function') loadMyChecklists(); // re-fetches data + re-renders runner if open
+    // Gate the re-fetch exactly like the APPROVE_ITEM / SAVE_TEMPLATE branches
+    // below: reconcile when a runner is open (flip the open checklist live to
+    // its submitted/readonly shape) or for a genuinely LIVE op (converge the
+    // list's progress + Pending Approval badge). SKIP a silent catch-up replay
+    // with no runner open.
+    //
+    // Ungated, this was a fetch storm (T-18, root-caused 2026-07-21): a fresh
+    // context starts at Lamport 0, so wsCatchUp replays the ENTIRE historical
+    // ops journal, and every replayed SUBMIT fired a full myChecklists
+    // re-fetch. Beyond the wasted requests, a stale snapshot landing mid-fill
+    // clobbers an optimistic checkbox. The page-load's own loadMyChecklists has
+    // already reconciled the list, so the replayed fetches add nothing.
+    if (typeof loadMyChecklists === 'function' &&
+        ((typeof fillState !== 'undefined' && fillState.activeTemplate) || !silent)) {
+      loadMyChecklists(); // re-fetches data + re-renders runner if open
+    }
   } else if (op.op_type === 'APPROVE_ITEM' || op.op_type === 'REJECT_ITEM') {
     // The approvers' queue always refreshes.
     if (typeof loadPendingApprovals === 'function') loadPendingApprovals();
