@@ -431,7 +431,10 @@
   budget vs the real WS round trip. **Scope must also include `:525 FLD-LIVE-02`**, which G6
   found fails 3/3 in isolation *and at the pre-gate baseline* — a pre-existing
   order-dependent test. The flake surface is broader than "just `:1198`". ·
-  origin: overnight-20260722 S1 PARK (b) + quiet streak · new
+  origin: overnight-20260722 S1 PARK (b) + quiet streak ·
+  **promoted → `syncspec-deflake` (D1, slate-20260720c)** — cleared the §15k architecture-blocking
+  bar: the `cycle-gate` card promises no-retry suite-green attestation, which cannot pass while
+  `:1198` is proven-flaky and `:525` reds at baseline.
 - **Replay fetch-storm class is NOT fully closed** ·
   S1 gated `SUBMIT_CHECKLIST`, but G6's enumeration of every branch in `applyOp` found
   `loadPendingApprovals()` and `loadTemplates()` still fire an **ungated per-op re-fetch** —

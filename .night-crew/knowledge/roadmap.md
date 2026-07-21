@@ -111,6 +111,18 @@
   Red-first; production `sync.js` change → `task sw` + the attended two-device convergence flag
   re-arms on land. Footprint: sync trust (`sync.js`, `sync.spec.js`, `workflows.spec.js`,
   `access_test.go` comment). → Eng KR5 (determinism), QA. *(from DECISIONS-NEEDED-20260721 §B2/§B3)*
+- **`syncspec-deflake`** · **PLANNED** (promoted from BACKLOG at `slate-20260720c` under the §15k
+  architecture-blocking bar — the `cycle-gate` card's no-retry attestation cannot pass while these
+  two reds stand) · De-flake `tests/sync.spec.js` on two fronts: `:1198 temperature answer
+  converges`, **proven flaky on a quiet box** (red 1-of-2 `--retries=0` legs at load 0.84,
+  orchestrator-run streak 2026-07-22 — not load-caused, as two prior runs assumed; next step is
+  structural, `survivalCell`'s 12s `CONVERGE_TIMEOUT` vs the real WS round trip), and
+  `:525 FLD-LIVE-02`, which fails 3/3 in isolation *and at the pre-gate baseline* — a pre-existing
+  order-dependent test that must be fixed as order-dependence, not reordered around. Deliverable is
+  a `--retries=0` streak proof on a quiet box, not merely a green run. Footprint: sync trust
+  (`tests/sync.spec.js`; `sync.js`/`workflows.html` only if a determinism seam is unavoidable —
+  which would re-arm the attended two-device check). → Eng KR5 (determinism), QA, unblocks
+  `cycle-gate`. *(from BACKLOG "sync.spec.js de-flake: `:1198` + `:525`")*
 - **`prod-alert-dup-guard`** · **PLANNED** · With Mercury receipt worker / alert queue / Zoho
   Cliq now live in prod against the SAME external accounts as dev, guard against duplicate alerts:
   observe the Cliq channel over the cycle and either confirm 0 duplicates OR disable one side.

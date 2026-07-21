@@ -242,6 +242,126 @@ additionally owes the `SetAppPermissions` no-wipe regression (§1.5).
 
 ### 2.2 `GET /api/v1/inventory/trends` (FR-1, FR-6b)
 
+> ## ⚠ AMENDED 2026-07-20 — decisions 29, 30, 31 (`ledger.md` §T-19)
+>
+> **This section as originally signed (2026-07-20) is DEFECTIVE and must not be implemented
+> verbatim.** F1 was dispatched faithfully against the text below on overnight-20260722 and
+> **PARKED at G6**, which broke its AC-6 reconciliation five ways with realistic fixtures. The
+> implementer was correct to follow the sketch and flag rather than silently patch — the defect
+> was in this design. The amendments below are the operator decisions taken at triage; they are
+> what un-park F1. Where they conflict with the original text, **the amendments win.**
+>
+> ### Amendment 1 (Decision 29) — filter to the COGS allowlist
+>
+> The signed SQL has **no `mercury_category` filter**, so a chart titled "spend by group" would
+> render rent, insurance, software and fuel as groups and over-report against payroll by an
+> unbounded amount (G6 measured +500.00 on a two-event synthetic). Trends MUST filter to the
+> **same allowlist `period-summary` is constructed with**:
+>
+> ```sql
+> AND pe.mercury_category = ANY($3)   -- $3 = cogsAllowlist
+> ```
+>
+> - **Source of truth:** `cogsAllowlist`, built in `cmd/server/main.go:438-445` from
+>   `HQ_COGS_CATEGORY_ALLOWLIST` (comma-separated, default `"COGS"`). Do **not** re-derive or
+>   hardcode it.
+> - **Integration note (saves the implementer a discovery):** `cogsAllowlist` is currently
+>   constructed *inside* the service-token router group (`main.go:430-451`). Trends is a
+>   **cookie-auth** endpoint in a different group — hoist the construction above both groups and
+>   pass the same slice to each. Do not build a second copy.
+> - **Consequence, stated explicitly:** `mercury_category = ANY($3)` does **not** match SQL NULL,
+>   so NULL-category events are **excluded** — same as `period-summary`. This is intended. Note
+>   that `menu-cogs`/Cost do **not** filter this way (`recipes/cost.go:29-30`), so Trends and Cost
+>   legitimately disagree on this axis; that divergence is documented, not a bug to reconcile.
+>
+> ### Amendment 2 (Decision 30) — unreviewed receipts are a note, never a bar
+>
+> Unreviewed receipts have **no linked line items** — linking is precisely what review does — so
+> they cannot be bucketed into a week×group cell at all. They are **excluded from `cells`** and
+> surfaced as a **completeness figure**, mirroring the existing `unlinked` idiom rather than
+> inventing a second one. An "unreviewed" pseudo-group bar was considered and declined.
+>
+> The eligible-pending population is defined by `period-summary` and MUST be matched exactly
+> (`handler.go:1345-1351`): `confirmed_at IS NULL` · `discarded_at IS NULL` ·
+> `mercury_category = ANY($3)` · `reason != 'no_attachment_on_bank_tx'` · dated by
+> `COALESCE(event_date, (created_at AT TIME ZONE 'America/Chicago')::date)`. Amount is
+> `SUM(ABS(bank_total))`.
+>
+> ### Amendment 3 (Decision 31) — attributed spend; NO proration
+>
+> **Delete the tax-proration factor entirely.** The signed sketch scales every line by
+> `COALESCE(pe.total / NULLIF(pe.total - pe.tax, 0), 1)`. `period-summary` does no such thing —
+> `cogs_excl_tax` sums line items at **face value** and accounts tax as a separate term
+> (`handler.go:1356-1359`). The proration was the mechanism that inflated every food line to
+> swallow an unitemized remainder, silently overstating per-group numbers with nothing on screen
+> indicating by how much. G6's minimal breaker was **a receipt with an unitemized delivery fee —
+> the normal case, not an edge case.**
+>
+> Cell spend is therefore simply `SUM(pli.quantity * pli.price)`.
+>
+> Unattributed money is **surfaced, not smeared**. The per-event **unitemized remainder** —
+> `(pe.total - pe.tax) - Σ(that event's line items)` — is reported as its own completeness figure.
+> It is deliberately **not** an addend to the payroll identity, because `period-summary` does not
+> count it either; it exists to explain receipt-total vs line-item coverage to the operator.
+>
+> ### Amended response shape
+>
+> The signed envelope below carries no home for the Amendment 2/3 figures. It gains a
+> `completeness` object; everything else is unchanged:
+>
+> ```json
+> {
+>   "window": { "from": "2026-04-27", "to": "2026-07-19", "weeks": 12 },
+>   "groups": [ { "id": "…uuid…", "name": "Proteins" } ],
+>   "cells":   [ { "week_start": "2026-07-13", "group_id": "…uuid…", "spend": 412.87 } ],
+>   "unlinked":[ { "week_start": "2026-07-13", "spend": 63.10 } ],
+>   "unlinked_total": 63.10,
+>   "completeness": {
+>     "pending_total": 240.00,
+>     "pending_count": 3,
+>     "unitemized_remainder": 18.45,
+>     "reconciles_to_cogs_excl_tax": 4102.55
+>   }
+> }
+> ```
+>
+> - `pending_total` / `pending_count` — Amendment 2 (unreviewed receipts).
+> - `unitemized_remainder` — Amendment 3, window-summed. **Not** an addend to the identity.
+> - `reconciles_to_cogs_excl_tax` — the endpoint's own computed
+>   `Σcells + Σunlinked + pending_total`, published so the client can display the identity's
+>   left side without re-summing, and so a mismatch is visible in the response itself.
+> - The **D2 "Ungrouped" pseudo-group** (signed 2026-07-20) is unchanged by these amendments:
+>   linked-but-groupless items get an explicit Ungrouped bucket in `groups`/`cells`, and are
+>   **not** folded into `unlinked` (which means `purchase_item_id IS NULL` only).
+>
+> ### The reconciliation identity — exact, and what AC-6 must now assert
+>
+> Because `cells + unlinked` is exactly `period-summary`'s `lines` term once Amendments 1–3 hold:
+>
+> ```
+> Σcells + Σunlinked + pending  ==  period_summary.cogs_excl_tax
+> ```
+>
+> This is an **exact equality on the same window**, not an approximation — the old identity
+> could not hold on messy real receipts, and this one does. Tax is excluded from both sides;
+> reconcile against `cogs_excl_tax`, **not** `cogs_incl_tax`.
+>
+> ### Test obligation, hardened (supersedes the AC-1/AC-6 bullet below)
+>
+> The parked card's red-first fixture was **rigged on every axis simultaneously** — the identity
+> held on the authored fixture and broke on honest ones. The re-dispatch MUST:
+>
+> 1. Assert the identity by **calling `period-summary` itself** in the same test against the same
+>    window and comparing responses — **never** against a hand-computed constant. A constant is
+>    what let the rig survive.
+> 2. Include, as distinct fixture cases, G6's five ready-made breakers — at minimum: a receipt with
+>    an **unitemized delivery fee** (B1, the minimal breaker), a **non-COGS-category** event, a
+>    **NULL-category** event, an **eligible pending** row, and a **linked-but-groupless** item
+>    (the D2 "Ungrouped" pseudo-group, signed).
+> 3. Keep the `period-summary` response **byte-unchanged** (regression guard).
+>
+> *(Original signed text follows, retained for provenance. Read it through the amendments above.)*
+
 **Response shape:**
 
 ```json
