@@ -55,10 +55,82 @@ const OPS_GO = path.join(__dirname, '..', 'backend', 'internal', 'sync', 'ops.go
 
 // ─── Derivation: what op types does the router ACTUALLY handle? ──────────────
 //
-// Source of truth is the switch in workflowOpRouter, not the constant block —
-// a constant with no `case` falls through to `default:` (400 unknown_op_type)
-// and opens no door. Every failure mode of this parser throws loudly; it must
-// never degrade into "found nothing, therefore nothing to check".
+// Source of truth is the `switch req.OpType` inside workflowOpRouter, not the
+// constant block — a constant with no `case` falls through to `default:`
+// (400 unknown_op_type) and opens no door.
+//
+// WHAT THIS PARSER ACTUALLY GUARANTEES (stated precisely, because an
+// overstated loudness claim is the same failure class as a stale exception —
+// a lie about the system that reassures instead of warning):
+//
+//   Handled correctly, each verified by mutation:
+//     • trailing comments after the colon — `case opsync.OpX: // TODO`
+//     • an inline statement after the colon — `case opsync.OpX: return nil, nil`
+//     • grouped labels — `case opsync.OpA, opsync.OpB:`
+//     • labels spanning multiple lines
+//     • `case`/`switch` keywords appearing inside comments or string literals
+//       (both are stripped before scanning)
+//   Loud failure, never silent:
+//     • router function or its switch not found
+//     • a case label that is not `opsync.OpSomething`
+//     • a case naming a constant with no string value
+//     • fewer than MIN_ROUTED_OPS ops derived (the floor below)
+//
+//   RESIDUAL BRITTLENESS — named, not papered over: this is a SOURCE parse of
+//   one switch statement. If dispatch ever moves to a map, a table, a second
+//   router, or a helper called from `default:`, those ops would be invisible
+//   here and this guard would go quietly green. The floor catches narrowing,
+//   not relocation. Anyone changing HOW the router dispatches must revisit
+//   this function — a comment cannot enforce that, so it is called out in
+//   DECISIONS-NEEDED §1 as well.
+
+// The router handles six ops today. The floor exists so that a future parser
+// regression which silently NARROWS the derived set trips regardless of cause,
+// rather than shrinking toward a vacuous pass. Raise it when ops are added;
+// never lower it to make a red go away.
+const MIN_ROUTED_OPS = 6;
+
+// stripGoCommentsAndStrings blanks comments and string/rune literals so that a
+// `case` inside either cannot be mistaken for a real branch, and so brace
+// matching cannot be thrown off by a brace inside a literal. Offsets are not
+// preserved; only structure is.
+function stripGoCommentsAndStrings(src) {
+  let out = '';
+  let i = 0;
+  while (i < src.length) {
+    const two = src.slice(i, i + 2);
+    if (two === '//') {
+      const nl = src.indexOf('\n', i);
+      if (nl < 0) { out += '\n'; break; }
+      out += '\n';
+      i = nl + 1;
+      continue;
+    }
+    if (two === '/*') {
+      const end = src.indexOf('*/', i + 2);
+      if (end < 0) { out += ' '; break; }
+      // Preserve newlines so line-oriented error messages stay roughly honest.
+      out += src.slice(i, end + 2).replace(/[^\n]/g, ' ');
+      i = end + 2;
+      continue;
+    }
+    const c = src[i];
+    if (c === '"' || c === '`' || c === "'") {
+      i++;
+      while (i < src.length) {
+        if (c !== '`' && src[i] === '\\') { i += 2; continue; }
+        if (src[i] === c) { i++; break; }
+        if (src[i] === '\n' && c === '`') { out += '\n'; }
+        i++;
+      }
+      out += '_';
+      continue;
+    }
+    out += c;
+    i++;
+  }
+  return out;
+}
 
 function routerOpTypes() {
   const mainGo = fs.readFileSync(MAIN_GO, 'utf8');
@@ -73,23 +145,50 @@ function routerOpTypes() {
       'The derivation is broken — fix the parser, do not delete this assertion.');
   }
 
-  const start = mainGo.indexOf('func workflowOpRouter(');
+  const clean = stripGoCommentsAndStrings(mainGo);
+
+  const start = clean.indexOf('func workflowOpRouter(');
   if (start < 0) {
     throw new Error(`ops-authz-coverage: could not find func workflowOpRouter in ${MAIN_GO}. ` +
       'If the router was renamed or moved, update this parser — the coverage guard ' +
       'is worthless the moment it stops finding the router.');
   }
-  const after = mainGo.slice(start);
-  const endRel = after.search(/\n\}\n/);
-  if (endRel < 0) {
-    throw new Error('ops-authz-coverage: could not find the end of workflowOpRouter.');
-  }
-  const body = after.slice(0, endRel);
 
+  // Scope to the op-type switch and brace-match its body, so a `case` belonging
+  // to some unrelated switch added to this function later cannot leak in, and
+  // so the scan cannot run off the end of the function.
+  const swRel = clean.slice(start).search(/switch\s+req\.OpType\s*\{/);
+  if (swRel < 0) {
+    throw new Error('ops-authz-coverage: found workflowOpRouter but not its `switch req.OpType` — ' +
+      'dispatch appears to have changed shape. Re-derive the op set before trusting this guard.');
+  }
+  const open = clean.indexOf('{', start + swRel);
+  let depth = 0;
+  let close = -1;
+  for (let i = open; i < clean.length; i++) {
+    if (clean[i] === '{') depth++;
+    else if (clean[i] === '}') {
+      depth--;
+      if (depth === 0) { close = i; break; }
+    }
+  }
+  if (close < 0) {
+    throw new Error('ops-authz-coverage: could not brace-match the body of `switch req.OpType`.');
+  }
+  const body = clean.slice(open + 1, close);
+
+  // Match `case` at a statement boundary through to the colon that terminates
+  // the label — NOT to end-of-line. Anchoring to `$` made a trailing comment or
+  // an inline statement invisible rather than an error: the op landed in
+  // neither the routed nor the covered set, both diffs came back empty, and the
+  // suite went green with a live uncovered door. Only `default:` may be skipped.
   const found = [];
-  for (const m of body.matchAll(/^\s*case\s+([^:\n]+):\s*$/gm)) {
-    for (const raw of m[1].split(',')) {
+  let sawDefault = false;
+  for (const m of body.matchAll(/(?:^|[\n;{])\s*(case\s+([\s\S]*?)|default\s*)\s*:/g)) {
+    if (m[2] === undefined) { sawDefault = true; continue; }
+    for (const raw of m[2].split(',')) {
       const label = raw.trim();
+      if (label === '') continue;
       const cm = /^opsync\.(Op[A-Za-z0-9_]*)$/.exec(label);
       if (!cm) {
         throw new Error(`ops-authz-coverage: unparsable case label "${label}" in workflowOpRouter. ` +
@@ -102,9 +201,20 @@ function routerOpTypes() {
       found.push(value);
     }
   }
-  if (found.length === 0) {
-    throw new Error('ops-authz-coverage: derived ZERO op types from the router switch. ' +
-      'A green run on an empty derived set is exactly the vacuous pass this file exists to prevent.');
+
+  if (!sawDefault) {
+    throw new Error('ops-authz-coverage: no `default:` branch found in `switch req.OpType`. ' +
+      'The guard assumes unhandled op types are rejected there; if that changed, an ' +
+      'unlisted op may no longer be a closed door.');
+  }
+  if (found.length < MIN_ROUTED_OPS) {
+    throw new Error(`ops-authz-coverage: derived only ${found.length} op type(s) from the router switch, ` +
+      `below the floor of ${MIN_ROUTED_OPS}. Either ops were genuinely removed (lower the floor ` +
+      'deliberately, in the same commit) or this parser has silently narrowed. A shrinking derived ' +
+      'set is exactly the vacuous pass this file exists to prevent.');
+  }
+  if (new Set(found).size !== found.length) {
+    throw new Error(`ops-authz-coverage: the router switch lists a duplicate op type: ${found.join(', ')}.`);
   }
   return found.sort();
 }
@@ -265,6 +375,14 @@ const PARITY_GATED = {
   },
 };
 
+// NOTE on PARITY_OPEN, for whoever reads this next: both of these ops succeed
+// against templates the caller is NOT assigned to. The REST twins behave
+// identically, so the parity invariant this file guards genuinely holds and the
+// ✅ is correct — neither op carries an attribution field, so the row is always
+// written as the caller and there is no escalation here. But whether unassigned
+// crew SHOULD be able to submit against an arbitrary template is a scope
+// question nobody has asked. Filed as a backlog note in DECISIONS-NEEDED §1;
+// it is explicitly NOT what these two tests assert.
 const PARITY_OPEN = {
   // saveResponse — upserts a DRAFT response row keyed (field_id, answered_by).
   // The caller can only ever write their own draft; REST enforces authn only.
@@ -289,11 +407,11 @@ const EXCEPTIONS = {
   // /ops branch carries NO check, so any authenticated crew member can author
   // or rewrite a template through the side door.
   //
-  // OPEN DECISION: DECISIONS-NEEDED §1(b) of run 2026-07-20c — "whether template
+  // OPEN DECISION: DECISIONS-NEEDED §1-B of run 2026-07-20c — "whether template
   // mutation needs any gate at all" is a PRODUCT question and has NOT been
   // answered. This entry is the living form of that question, not a waiver.
   SAVE_TEMPLATE: {
-    decision: 'run 2026-07-20c DECISIONS-NEEDED §1(b) — is template mutation meant to be crew-writable?',
+    decision: 'run 2026-07-20c DECISIONS-NEEDED §1-B — is template mutation meant to be crew-writable?',
     rest: (p, fx) => rest(p, 'POST', '/api/v1/workflow/createTemplate', minimalTemplate(`Cov Forge ${Date.now()}`)),
     ops: (p, fx) => op(p, 'SAVE_TEMPLATE', 'template', '', minimalTemplate(`Cov Forge Ops ${Date.now()}`)),
   },
@@ -302,9 +420,9 @@ const EXCEPTIONS = {
   // /ops branch carries no check, so any authenticated crew member can archive
   // any template by id — including one they cannot see.
   //
-  // OPEN DECISION: same fork, DECISIONS-NEEDED §1(b).
+  // OPEN DECISION: same fork, DECISIONS-NEEDED §1-B.
   ARCHIVE_TEMPLATE: {
-    decision: 'run 2026-07-20c DECISIONS-NEEDED §1(b) — is template mutation meant to be crew-writable?',
+    decision: 'run 2026-07-20c DECISIONS-NEEDED §1-B — is template mutation meant to be crew-writable?',
     rest: (p, fx) => rest(p, 'DELETE', '/api/v1/workflow/archiveTemplate/' + fx.throwawayRest, null),
     ops: (p, fx) => op(p, 'ARCHIVE_TEMPLATE', 'template', fx.throwawayOps, { template_id: fx.throwawayOps }),
   },
@@ -318,6 +436,16 @@ test.describe('/ops ↔ REST authz parity coverage', () => {
   // These tests deliberately leave forged artefacts behind (that IS the proof),
   // so clean up after each one — an un-approved submission or a live template
   // named by this file must not surface in another spec's listings.
+  //
+  // CAVEAT, deliberate: the submission sweep approves EVERY pending submission
+  // in the shared database, not only the ones this file created — the same
+  // shortcut `cleanupPendingApprovals` takes in workflows.spec.js, because the
+  // server does not scope pendingApprovals by creator. That is harmless while
+  // the suite runs serially (workers:1, the configured default) since no other
+  // spec's submissions are in flight concurrently. It becomes real cross-file
+  // interference under PW_WORKERS>1. If this suite is ever parallelised, give
+  // each worker its own stack (TEST_DB_NAME + TEST_PORT, as playwright.config.js
+  // documents) or narrow this sweep to submissions on this file's templates.
   test.afterEach(async ({ page }) => {
     try {
       await login(page);

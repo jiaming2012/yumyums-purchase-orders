@@ -92,12 +92,14 @@ either environment-specific to the implementer's stack or already resolved.
 
 ---
 
-## 1. `/ops` ↔ REST authorization parity — the complete enumeration
+## 1. `/ops` ↔ REST authorization parity — complete enumeration, one HIGH defect, one product fork
 
 **Found by:** F5's G6 reviewer (incidentally, 2 items). **Enumerated exhaustively:** follow-up
 sweep `followup/ops-authz-coverage-20260721`, 2026-07-21.
 **Status:** enumerated and now guarded by a standing test. **Nothing was fixed** — no production
-code was touched by the sweep. The product question in (b) below is still yours.
+code was touched by the sweep. Two things came out of it and they are kept structurally apart:
+one **HIGH defect** that needs a fix and no decision, and one **product fork** (§1-B) that is
+still yours and on which the sweep holds no view.
 
 The class: `POST /api/v1/workflow/ops` dispatches through `workflowOpRouter`
 (`backend/cmd/server/main.go`) to the same workflow mutations the REST routes call, from the
@@ -136,23 +138,40 @@ decision list is withdrawn — there is nothing to decide there.**
 Whether ownership is the *right* rule (vs. also letting an approver pull a submission back out of
 the queue) is a separate product question and is not raised here.
 
-### Two further divergences on the same door, beyond authz
+### ⛔ DEFECT (HIGH) — not a decision: `/ops` `SAVE_TEMPLATE` skips the `requires_approval` invariant
 
-Both ride on the ungated `SAVE_TEMPLATE` branch and would be closed incidentally by any decision
-that gates it. Recorded so they are not lost if it is not:
+**This is separated from the product question below on purpose. It is a defect awaiting a fix, not
+a decision awaiting an operator.** No product answer to §1-B makes "a template that demands
+approval but names no approver" correct, so nothing here is blocked on that fork — it is
+independently fixable today.
 
-1. **The `requires_approval` invariant is not enforced on the `/ops` path.** Both REST twins reject
-   `requires_approval: true` with no `approver` assignment (400 `requires_approver`). The `/ops`
-   branch skips that validation entirely, so a template can be created that demands approval and
-   has nobody able to give it — its submissions land in no one's Approvals queue and can never be
-   approved. This is a data-integrity hole, not a privilege one, and it is reachable by any
-   authenticated user today.
-2. **The `/ops` update branch skips the transactional op-emit.** `PUT /updateTemplate/{id}` calls
-   `updateTemplateAndEmit`, which writes the template and queues its `SAVE_TEMPLATE` re-render op
-   in ONE transaction (FR-5, INV-1 — the op that tells other devices to re-fetch can never be lost
-   while the write is accepted). The `/ops` branch calls plain `updateTemplate` and relies on
-   `OpHandler` recording the op afterwards, outside the write's transaction. A convergence gap, not
-   a security one.
+Both REST twins reject `requires_approval: true` with no `approver` assignment (400
+`requires_approver`). The `/ops` `SAVE_TEMPLATE` branch skips that validation entirely.
+
+**Proven end-to-end by G6**, not inferred: an unprivileged `team_member` created a template with
+`requires_approval=true` and zero approver assignments (200 via `/ops`, 400 via REST); a submission
+against that template was accepted (201); and the submission **does not appear in the admin's
+`pendingApprovals`**. It sits `pending` in nobody's queue, with no in-app path to resolution.
+
+Graded **high**, above the authz divergence below, because:
+
+- it is **silent** — nothing surfaces to the crew member or the admin;
+- it is **persistent** — the stuck submission does not age out or resolve;
+- it **corrupts the approval ledger** rather than merely widening write access;
+- it **self-inflicts on ordinary crew** who never touch `/ops` deliberately — the frontend routes
+  template saves through `/ops`, so this does not require an attacker.
+
+Not fixed here (the sweep was tests + docs only, by rule). Whoever fixes it: the check is
+`hasApprover(input.Assignments)` when `input.RequiresApproval`, already written and used by both
+REST handlers — the `/ops` branch simply never calls it.
+
+### Also on the same door (low) — the `/ops` update branch skips the transactional op-emit
+
+`PUT /updateTemplate/{id}` calls `updateTemplateAndEmit`, which writes the template and queues its
+`SAVE_TEMPLATE` re-render op in ONE transaction (FR-5, INV-1 — the op that tells other devices to
+re-fetch can never be lost while the write is accepted). The `/ops` branch calls plain
+`updateTemplate` and relies on `OpHandler` recording the op afterwards, outside the write's
+transaction. A convergence gap, not a security one.
 
 ### What the sweep landed instead of a fix
 
@@ -163,8 +182,8 @@ that gates it. Recorded so they are not lost if it is not:
 - `PARITY_OPEN` (`SET_FIELD`, `SUBMIT_CHECKLIST`) — both doors must accept. If either side is
   gated later without the other, this goes red too.
 - `EXCEPTIONS` (`SAVE_TEMPLATE`, `ARCHIVE_TEMPLATE`) — documented divergence, each entry naming
-  **this section** as the open decision. The exception list is the living form of the question
-  below; it is a record, not a waiver.
+  **§1-B below** as the open decision. The exception list is the living form of that question;
+  it is a record, not a waiver.
 
 Three anti-rot properties, each proven red before the file was committed:
 
@@ -176,28 +195,48 @@ Three anti-rot properties, each proven red before the file was committed:
 - Exceptions assert the `/ops` path is **still open**, so a stale entry cannot pass as fiction
   (proven: gated `SAVE_TEMPLATE` while leaving its exception in place → red).
 - Neutralising the derivation fails loudly rather than passing empty (proven → red).
+- The derivation itself cannot pass vacuously. G6 defeated the first version — an end-of-line
+  anchor made `case opsync.OpX: // comment`, `case opsync.OpX: return nil, nil`, and multi-line
+  grouped labels *invisible* rather than erroneous, so the suite went green with a live uncovered
+  door. Fixed by stripping Go comments and string literals, brace-matching the switch body, and
+  matching each label up to its terminating colon rather than to end-of-line; plus a
+  `MIN_ROUTED_OPS` floor so any future silent narrowing trips regardless of cause. All three
+  variants and the floor re-proven red.
 
 The guard is HTTP-level because `workflowOpRouter` lives in `package main`, which has no test files
 and cannot be imported; and because "is this path actually ungated?" is a runtime question that no
 amount of source reading answers.
 
-### Decision needed
+### Decision needed — the product question (and only the product question)
 
-**(b) Should crew be able to mutate templates at all?** This is a product question and the sweep
-did **not** answer it, did not recommend an answer, and holds no view. The observable facts are
-above; the call is yours. Note the two shapes are separable — *authoring/editing* a template
-(`SAVE_TEMPLATE`) and *archiving anyone's template by id* (`ARCHIVE_TEMPLATE`) may not deserve the
-same answer. Whatever you decide, the `requires_approval` gap in (1) above needs an answer too:
-if the `/ops` branch stays open, it should still refuse a template that requires an approver and
-names none.
+Everything above this line is fact or defect. Everything below is genuinely yours.
 
-**(c) Should the `/ops` router carry a standing rule** that every op branch enforces the same authz
+**(B) Should crew be able to mutate templates at all?** The sweep did **not** answer this, did not
+recommend an answer, and holds no view. The observable facts are in the enumeration; the call is
+yours. Note the two shapes are separable — *authoring/editing* a template (`SAVE_TEMPLATE`) and
+*archiving anyone's template by id* (`ARCHIVE_TEMPLATE`) may well not deserve the same answer.
+
+**(C) Should the `/ops` router carry a standing rule** that every op branch enforces the same authz
 as its REST twin? The guard now *measures* parity and forces a deliberate entry either way — but
 whether a divergence is ever permissible is still a policy call. If the answer is "never,"
-`EXCEPTIONS` should be emptied by gating (b), and the bucket kept only so the next divergence
+`EXCEPTIONS` should be emptied by resolving (B), and the bucket kept only so the next divergence
 cannot ship silently.
 
-**(a) is withdrawn** — see the `unsubmitChecklist` correction above.
+**(A) is withdrawn** — see the `unsubmitChecklist` correction above. There is nothing to decide.
+
+### Backlog notes (raised, not decisions for now)
+
+- **Unassigned crew can fill and submit against any template.** `SET_FIELD` and `SUBMIT_CHECKLIST`
+  succeed against templates the caller holds no assignment on. Both doors behave identically, so
+  the parity invariant holds and their ✅ above is correct — and neither op carries an attribution
+  field, so nothing can be written as another user. But whether unassigned crew *should* be able to
+  submit against an arbitrary template is a scope question nobody has asked. Verified safe at the
+  DB row level; raised only so it is on the record.
+- **The guard is a source parse of one `switch`.** If dispatch ever moves to a map, a table, a
+  second router, or a helper called from `default:`, those ops become invisible to
+  `tests/ops-authz-coverage.spec.js` and it would go quietly green. Its `MIN_ROUTED_OPS` floor
+  catches silent *narrowing*, not *relocation*. Anyone changing how `workflowOpRouter` dispatches
+  must revisit that parser; this note exists because a code comment alone cannot enforce it.
 
 ---
 
