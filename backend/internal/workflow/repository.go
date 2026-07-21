@@ -19,6 +19,10 @@ var ErrNotAuthorized = errors.New("not authorized to review this submission")
 // ErrTemplateArchived is returned when submitting a checklist for an archived template.
 var ErrTemplateArchived = errors.New("template is archived")
 
+// ErrRequiresApprover is returned by the template write when the input sets
+// requires_approval=true but names no assignment with role "approver".
+var ErrRequiresApprover = errors.New("requires_approver")
+
 // ErrUnknownField is returned when a response write names a field that does not
 // exist in the current template (FR-3, INV-4). The save-response path surfaces
 // it as HTTP 422 {"error":"unknown_field"} so the runner rolls the optimistic
