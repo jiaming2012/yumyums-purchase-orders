@@ -429,3 +429,206 @@ test.describe('Trends tab (#s5) — State Enumeration', () => {
     await shot(page, 'hazard-nodes-removed');
   });
 });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// F5 · inventory-tab-gating — the "ungated user" State-Enumeration row
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Design §1.2 (the observable rule), §1.4 (Option (i): per-tab hq_apps slugs),
+// §1.6 (the mixed Trends-only case), §8 amendment 1 (umbrella: an `inventory`
+// app grant covers every gated tab of that app).
+//
+// The pair this block owes, per tab:
+//   WITHOUT grant -> #tN/#sN absent AND a direct GET returns 403 with the
+//                    distinct envelope {"error":"forbidden","missing_grant":…}
+//   WITH grant    -> tab renders AND the endpoint returns 200
+//
+// The direct-fetch half is the load-bearing one: hiding a tab client-side while
+// leaving the endpoint reachable is explicitly a violation (§1.2 rule 3,
+// "0 logged-in-only bypass").
+
+const GATE_PASSWORD = 'test456';
+
+async function loginAs(page, email, password) {
+  await page.goto('/login.html');
+  await page.fill('input[type="email"]', email);
+  await page.fill('input[type="password"]', password);
+  await page.click('button.btn');
+  await page.waitForURL(url => !url.pathname.includes('login'));
+}
+
+// makeGatedUser invites a team_member, accepts the invite, then (as admin)
+// grants exactly the slugs asked for. Returns the new user's credentials.
+//
+// Grants are APPENDED to each slug's existing user_grants: the PUT endpoint is a
+// full replace per slug, so a naive write would silently revoke the grant a
+// previously-created test user still holds.
+async function makeGatedUser(page, tag, grantSlugs) {
+  const email = `f5-${tag}-${Date.now()}-${Math.floor(Math.random() * 1e4)}@yumyums.kitchen`;
+
+  await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+  const invite = await page.evaluate(async (em) => {
+    const res = await fetch('/api/v1/users/invite', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ first_name: 'Gate', last_name: 'Tester', email: em, roles: ['team_member'] }),
+    });
+    return res.json();
+  }, email);
+  const token = (invite.invite_path || '').split('token=')[1];
+  expect(token, 'invite token').toBeTruthy();
+
+  await page.evaluate(async ([t, pw]) => {
+    await fetch('/api/v1/auth/accept-invite', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: t, password: pw }),
+    });
+  }, [token, GATE_PASSWORD]);
+
+  // accept-invite rotated the cookie onto the new user — go back to admin to grant.
+  await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+  const userId = await page.evaluate(async (em) => {
+    const list = await (await fetch('/api/v1/users')).json();
+    const u = (list || []).find(x => x.email === em);
+    return u ? String(u.id) : null;
+  }, email);
+  expect(userId, 'new user id').toBeTruthy();
+
+  for (const slug of grantSlugs) {
+    await page.evaluate(async ([s, uid]) => {
+      const perms = await (await fetch('/api/v1/apps/permissions')).json();
+      const app = (perms || []).find(a => a.slug === s);
+      const users = ((app && app.user_grants) || []).map(String);
+      if (!users.includes(uid)) users.push(uid);
+      await fetch('/api/v1/apps/' + s + '/permissions', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role_grants: (app && app.role_grants) || [], user_grants: users }),
+      });
+    }, [slug, userId]);
+  }
+
+  return { email, password: GATE_PASSWORD, id: userId };
+}
+
+// probe performs a same-origin fetch from the page session and reports the raw
+// status + body — the direct-endpoint negative that proves the gate is served,
+// not merely drawn.
+async function probe(page, path) {
+  return page.evaluate(async (p) => {
+    const r = await fetch(p);
+    return { status: r.status, body: await r.text() };
+  }, path);
+}
+
+test.describe('Trends tab — gating', () => {
+
+  // ── WITHOUT the grant ────────────────────────────────────────────────────
+  test('Edge: ungated user — #t5/#s5 absent, GET /inventory/trends returns 403', async ({ page }) => {
+    const errors = [];
+    page.on('pageerror', e => errors.push(e.message));
+
+    const user = await makeGatedUser(page, 'trends-ungated', []);
+    await loginAs(page, user.email, user.password);
+    await page.goto('/inventory.html');
+    await page.waitForSelector('#s1');
+
+    // 1. The endpoint is DENIED — asserted FIRST, deliberately. The server 403
+    //    is the gate; the hidden tab is only UX. If this assertion is the one
+    //    that fails, the feature is a facade regardless of what the DOM shows.
+    const res = await probe(page, '/api/v1/inventory/trends');
+    expect(res.status).toBe(403);
+    const env = JSON.parse(res.body);
+    expect(env.error).toBe('forbidden');
+    expect(env.missing_grant).toBe('inventory-trends');
+
+    // 2. And the tab does not render — neither the button nor the panel.
+    await expect(page.locator('#t5')).toHaveCount(0);
+    await expect(page.locator('#s5')).toHaveCount(0);
+    await expect(page.locator('#trends-container')).toHaveCount(0);
+
+    // 3. Null-safety: removing the Trends nodes must not break the page for the
+    //    very users being gated. Other tabs still switch; nothing threw.
+    await page.click('#t2');
+    await expect(page.locator('#s2')).toBeVisible();
+    await page.click('#t1');
+    await expect(page.locator('#s1')).toBeVisible();
+    expect(errors).toEqual([]);
+
+    await shot(page, 'edge-ungated');
+  });
+
+  test('Ungated deep link (#tab=5) falls back instead of rendering a tab shell', async ({ page }) => {
+    const errors = [];
+    page.on('pageerror', e => errors.push(e.message));
+
+    const user = await makeGatedUser(page, 'trends-deeplink', []);
+    await loginAs(page, user.email, user.password);
+    await page.goto('/inventory.html#tab=5');
+    await page.waitForSelector('#s1');
+
+    await expect(page.locator('#s5')).toHaveCount(0);
+    // A pasted URL lands on a real tab, not a blank page.
+    await expect(page.locator('#s1')).toBeVisible();
+    expect(errors).toEqual([]);
+
+    await shot(page, 'edge-ungated-deeplink');
+  });
+
+  // ── WITH the grant ───────────────────────────────────────────────────────
+  test('Granted user — #t5/#s5 render and GET /inventory/trends returns 200', async ({ page }) => {
+    const user = await makeGatedUser(page, 'trends-granted', ['inventory-trends']);
+    await loginAs(page, user.email, user.password);
+    await page.goto('/inventory.html');
+    await page.waitForSelector('#s1');
+
+    await expect(page.locator('#t5')).toHaveCount(1);
+    await page.click('#t5');
+    await expect(page.locator('#s5')).toBeVisible();
+
+    const res = await probe(page, '/api/v1/inventory/trends');
+    expect(res.status).toBe(200);
+
+    await shot(page, 'gated-granted-trends');
+  });
+
+  // ── The umbrella rider (design §8 amendment 1) ───────────────────────────
+  test('Umbrella: a whole-app `inventory` grant alone opens Trends', async ({ page }) => {
+    const user = await makeGatedUser(page, 'trends-umbrella', ['inventory']);
+    await loginAs(page, user.email, user.password);
+    await page.goto('/inventory.html');
+    await page.waitForSelector('#s1');
+
+    await expect(page.locator('#t5')).toHaveCount(1);
+    await expect(page.locator('#t6')).toHaveCount(1);
+    expect((await probe(page, '/api/v1/inventory/trends')).status).toBe(200);
+    expect((await probe(page, '/api/v1/inventory/cost')).status).toBe(200);
+
+    await shot(page, 'gated-umbrella');
+  });
+
+  // ── §1.6 — the mixed case, testable only because F1/F3 landed first ──────
+  test('Mixed: Trends-only grant renders #t5, hides #t6, and 403s /inventory/cost', async ({ page }) => {
+    const errors = [];
+    page.on('pageerror', e => errors.push(e.message));
+
+    const user = await makeGatedUser(page, 'mixed-trends-only', ['inventory-trends']);
+    await loginAs(page, user.email, user.password);
+    await page.goto('/inventory.html');
+    await page.waitForSelector('#s1');
+
+    // Trends: visible + served.
+    await expect(page.locator('#t5')).toHaveCount(1);
+    await page.click('#t5');
+    await expect(page.locator('#s5')).toBeVisible();
+    expect((await probe(page, '/api/v1/inventory/trends')).status).toBe(200);
+
+    // Cost: absent + denied, independently.
+    await expect(page.locator('#t6')).toHaveCount(0);
+    await expect(page.locator('#s6')).toHaveCount(0);
+    const cost = await probe(page, '/api/v1/inventory/cost');
+    expect(cost.status).toBe(403);
+    expect(JSON.parse(cost.body).missing_grant).toBe('inventory-cost');
+
+    expect(errors).toEqual([]);
+    await shot(page, 'edge-mixed-trends-only');
+  });
+});

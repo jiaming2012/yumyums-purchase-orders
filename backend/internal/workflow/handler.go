@@ -746,7 +746,14 @@ func ApproveSubmissionHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
+		// B5 authz (design §8 amendment 4) lives INSIDE approveSubmission, not
+		// here — see the comment on the mutation. This handler only translates
+		// the sentinel into HTTP. The refusal happens before any write.
 		if err := approveSubmission(r.Context(), pool, body.SubmissionID, user.ID); err != nil {
+			if errors.Is(err, ErrNotAuthorized) {
+				writeError(w, http.StatusForbidden, "forbidden")
+				return
+			}
 			slog.Error("approveSubmission error", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
@@ -804,7 +811,14 @@ func RejectItemHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
+		// B5 authz lives INSIDE rejectItem — same reason as approve. A refusal
+		// writes no submission_rejections row because the check runs before the
+		// transaction opens.
 		if err := rejectItem(r.Context(), pool, input, user.ID); err != nil {
+			if errors.Is(err, ErrNotAuthorized) {
+				writeError(w, http.StatusForbidden, "forbidden")
+				return
+			}
 			slog.Error("rejectItem error", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return

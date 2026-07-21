@@ -8,8 +8,13 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/yumyums/hq/internal/auth"
 	opsync "github.com/yumyums/hq/internal/sync"
 )
+
+// ErrNotAuthorized is returned by approveSubmission / rejectItem when the
+// context's user may not review the submission (design §8 amendment 4).
+var ErrNotAuthorized = errors.New("not authorized to review this submission")
 
 // ErrTemplateArchived is returned when submitting a checklist for an archived template.
 var ErrTemplateArchived = errors.New("template is archived")
@@ -1072,6 +1077,21 @@ func hydrateSubmission(ctx context.Context, pool *pgxpool.Pool, sub *Submission)
 
 // approveSubmission marks a submission as approved (D-23).
 func approveSubmission(ctx context.Context, pool *pgxpool.Pool, submissionID string, reviewerID string) error {
+	// AUTHZ — the single gate for this mutation, wherever it is called from
+	// (design §8 amendment 4, B5). It lives HERE rather than in the REST
+	// handler because there are two doors: ApproveSubmissionHandler and
+	// cmd/server's workflowOpRouter (APPROVE_ITEM -> ApproveSubmissionFunc),
+	// both mounted in the same cookie-auth group. G6 caught a handler-only
+	// gate being walked straight around via POST /workflow/ops. Putting the
+	// check on the mutation means every caller — including any added later —
+	// inherits it, and the trap is disarmed rather than re-armed.
+	//
+	// Identity comes from the request context, which auth.Middleware populates
+	// for both doors. No user on the context => refused, never waved through.
+	if err := requireReviewAuthz(ctx, pool, submissionID); err != nil {
+		return err
+	}
+
 	tag, err := pool.Exec(ctx,
 		`UPDATE checklist_submissions
 		 SET status = 'approved', reviewed_by = $1, reviewed_at = now()
@@ -1089,6 +1109,21 @@ func approveSubmission(ctx context.Context, pool *pgxpool.Pool, submissionID str
 
 // rejectItem inserts a rejection record and updates the submission status to 'rejected' (D-06).
 func rejectItem(ctx context.Context, pool *pgxpool.Pool, input RejectItemInput, rejectedBy string) error {
+	// AUTHZ — the single gate for this mutation, wherever it is called from
+	// (design §8 amendment 4, B5). It lives HERE rather than in the REST
+	// handler because there are two doors: ApproveSubmissionHandler and
+	// cmd/server's workflowOpRouter (APPROVE_ITEM -> ApproveSubmissionFunc),
+	// both mounted in the same cookie-auth group. G6 caught a handler-only
+	// gate being walked straight around via POST /workflow/ops. Putting the
+	// check on the mutation means every caller — including any added later —
+	// inherits it, and the trap is disarmed rather than re-armed.
+	//
+	// Identity comes from the request context, which auth.Middleware populates
+	// for both doors. No user on the context => refused, never waved through.
+	if err := requireReviewAuthz(ctx, pool, input.SubmissionID); err != nil {
+		return err
+	}
+
 	tx, err := pool.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("begin transaction: %w", err)
@@ -1211,6 +1246,82 @@ func cleanupOldDrafts(ctx context.Context, pool *pgxpool.Pool) error {
 	)
 	if err != nil {
 		return fmt.Errorf("cleanup old drafts: %w", err)
+	}
+	return nil
+}
+
+// canReviewSubmission answers whether user may approve or reject submissionID
+// (design `prove-surface-gating-and-endpoints.md` §8 amendment 4 — the B5
+// fold-in). The role rule was fixed at slate time and is not a judgment call
+// here:
+//
+//	allowed ⇔ approver assignment on the submission's template
+//	          ∨ admin role
+//	          ∨ superadmin
+//
+// "Approver assignment" means exactly what PendingApprovalsHandler already
+// means by it (see pendingApprovals above): a template_assignments row with
+// assignment_role = 'approver' matching by user id or by role. Reusing that
+// definition is the point — the set of submissions a user can act on must equal
+// the set their Approvals tab shows them, or the UI lies in one direction or
+// the other.
+//
+// Two non-obvious exclusions, both pinned by tests:
+//   - an 'assignee' assignment is NOT an approver assignment, so a crew member
+//     assigned to FILL a checklist cannot approve their own submission;
+//   - an approver assignment on a DIFFERENT template does not carry over — the
+//     check resolves the submission's own template rather than asking "is this
+//     user an approver anywhere".
+//
+// A missing submission returns false, not an error: an unknown id is not
+// something the caller is entitled to act on either way.
+func canReviewSubmission(ctx context.Context, pool *pgxpool.Pool, user *auth.User, submissionID string) (bool, error) {
+	if user == nil {
+		return false, nil
+	}
+	if user.IsSuperadmin {
+		return true, nil
+	}
+	for _, r := range user.Roles {
+		if r == "admin" {
+			return true, nil
+		}
+	}
+
+	var ok bool
+	err := pool.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1
+			FROM checklist_submissions s
+			JOIN template_assignments ta ON ta.template_id = s.template_id
+			WHERE s.id = $1
+			  AND ta.assignment_role = 'approver'
+			  AND (
+			        (ta.assignee_type = 'user' AND ta.assignee_id = $2)
+			     OR (ta.assignee_type = 'role' AND ta.assignee_id = ANY($3))
+			  )
+		)`, submissionID, user.ID, user.Roles).Scan(&ok)
+	if err != nil {
+		return false, fmt.Errorf("check approver assignment: %w", err)
+	}
+	return ok, nil
+}
+
+// requireReviewAuthz resolves the caller from the request context and returns
+// ErrNotAuthorized unless they may review submissionID. Fails CLOSED on a
+// missing user and on a lookup error — an authz check that cannot answer must
+// never answer "yes".
+func requireReviewAuthz(ctx context.Context, pool *pgxpool.Pool, submissionID string) error {
+	user := auth.UserFromContext(ctx)
+	if user == nil {
+		return ErrNotAuthorized
+	}
+	allowed, err := canReviewSubmission(ctx, pool, user, submissionID)
+	if err != nil {
+		return fmt.Errorf("review authz check: %w", err)
+	}
+	if !allowed {
+		return ErrNotAuthorized
 	}
 	return nil
 }
