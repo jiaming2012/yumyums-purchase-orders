@@ -134,6 +134,15 @@ func workflowOpRouter(pool *pgxpool.Pool) opsync.OpRouter {
 					return nil, routerErr(http.StatusBadRequest, "invalid_payload")
 				}
 				if err := workflow.UpdateTemplateFunc(ctx, pool, peek.ID, input); err != nil {
+					// requires_approval with no approver is enforced INSIDE the
+					// write, so this door inherits the REST twin's rule. Map it
+					// to the twin's 400 requires_approver rather than letting a
+					// caller error read as a server fault. This is validation,
+					// NOT authz — the ungated-ness of this branch is a separate
+					// open question (DECISIONS-NEEDED §1-B) and stays open.
+					if errors.Is(err, workflow.ErrRequiresApprover) {
+						return nil, routerErr(http.StatusBadRequest, "requires_approver")
+					}
 					slog.Error("OpRouter SAVE_TEMPLATE update", "error", err)
 					return nil, routerErr(http.StatusInternalServerError, "internal_error")
 				}
@@ -144,6 +153,10 @@ func workflowOpRouter(pool *pgxpool.Pool) opsync.OpRouter {
 				}
 				id, err := workflow.CreateTemplateFunc(ctx, pool, input, userID)
 				if err != nil {
+					// Same inherited validation as the update branch above.
+					if errors.Is(err, workflow.ErrRequiresApprover) {
+						return nil, routerErr(http.StatusBadRequest, "requires_approver")
+					}
 					slog.Error("OpRouter SAVE_TEMPLATE create", "error", err)
 					return nil, routerErr(http.StatusInternalServerError, "internal_error")
 				}

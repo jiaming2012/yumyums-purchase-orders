@@ -19,6 +19,10 @@ var ErrNotAuthorized = errors.New("not authorized to review this submission")
 // ErrTemplateArchived is returned when submitting a checklist for an archived template.
 var ErrTemplateArchived = errors.New("template is archived")
 
+// ErrRequiresApprover is returned by the template write when the input sets
+// requires_approval=true but names no assignment with role "approver".
+var ErrRequiresApprover = errors.New("requires_approver")
+
 // ErrUnknownField is returned when a response write names a field that does not
 // exist in the current template (FR-3, INV-4). The save-response path surfaces
 // it as HTTP 422 {"error":"unknown_field"} so the runner rolls the optimistic
@@ -26,6 +30,26 @@ var ErrTemplateArchived = errors.New("template is archived")
 // existence check, NOT a restored FK — submitted responses reference
 // template_snapshot ids by design, and an FK would break them.
 var ErrUnknownField = errors.New("unknown_field")
+
+// requireApprover enforces, INSIDE the write, that a template which requires
+// approval names at least one approver. The REST handlers already reject this
+// at the request boundary (CreateTemplateHandler / UpdateTemplateHandler), but
+// the boundary is not the only door: workflowOpRouter dispatches /ops
+// SAVE_TEMPLATE straight to CreateTemplateFunc / UpdateTemplateFunc, bypassing
+// both handlers. Putting the check in the mutation closes the CLASS — any
+// present or future caller inherits it — the same shape the approve/reject
+// authz gate took when it moved into approveSubmission/rejectItem.
+//
+// This is VALIDATION (400), not AUTHORIZATION (403). Whether template mutation
+// over /ops should require privilege at all is a separate, still-open product
+// question (run 2026-07-20c DECISIONS-NEEDED §1-B) and is deliberately not
+// answered here: a valid template from an unprivileged caller still writes.
+func requireApprover(input TemplateInput) error {
+	if input.RequiresApproval && !hasApprover(input.Assignments) {
+		return ErrRequiresApprover
+	}
+	return nil
+}
 
 // insertTemplate inserts a full template (with sections, fields, schedules, assignments)
 // in a single transaction. Returns the new template UUID.
@@ -50,6 +74,17 @@ func insertTemplate(ctx context.Context, pool *pgxpool.Pool, input TemplateInput
 // insertTemplateInTx inserts template rows inside an existing transaction.
 // Used by insertTemplate.
 func insertTemplateInTx(ctx context.Context, tx pgx.Tx, input TemplateInput, createdBy string) (string, error) {
+	// A template that requires approval but names no approver is unresolvable:
+	// pendingApprovals matches reviewers through template_assignments with
+	// assignment_role='approver', so every submission against it sits `pending`
+	// in NOBODY's queue with no in-app route out. Enforced HERE, before the
+	// first write, rather than at each request handler — insertTemplate is
+	// reached from the REST createTemplate door AND from /ops SAVE_TEMPLATE via
+	// CreateTemplateFunc, and only the former checked. See requireApprover.
+	if err := requireApprover(input); err != nil {
+		return "", err
+	}
+
 	var templateID string
 	err := tx.QueryRow(ctx,
 		`INSERT INTO checklist_templates (name, requires_approval, created_by)
@@ -176,6 +211,15 @@ func updateTemplateAndEmit(ctx context.Context, pool *pgxpool.Pool, templateID s
 // updateTemplate (bare, used by the /ops OpRouter) and updateTemplateAndEmit
 // (REST Builder save, with a transactional op) drive it.
 func updateTemplateInTx(ctx context.Context, tx pgx.Tx, templateID string, input TemplateInput) error {
+	// Same invariant as insertTemplateInTx, and it matters MORE here: this
+	// function deletes template_assignments wholesale before re-inserting them,
+	// so an unchecked rewrite that drops the last approver orphans every pending
+	// submission already on the template. Checked before the first write so the
+	// refusal cannot leave a half-applied header behind.
+	if err := requireApprover(input); err != nil {
+		return err
+	}
+
 	// Update template header in place.
 	if _, err := tx.Exec(ctx,
 		`UPDATE checklist_templates SET name = $1, requires_approval = $2, updated_at = now() WHERE id = $3`,
