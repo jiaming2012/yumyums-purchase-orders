@@ -92,28 +92,112 @@ either environment-specific to the implementer's stack or already resolved.
 
 ---
 
-## 1. Two more unauthorized mutation paths, same class as F5's blocker — gate them or not?
+## 1. `/ops` ↔ REST authorization parity — the complete enumeration
 
-**Found by:** F5's G6 reviewer, while confirming the `/ops` APPROVE_ITEM/REJECT_ITEM bypass.
-**Status:** deliberately NOT fixed tonight — outside B5's named scope.
+**Found by:** F5's G6 reviewer (incidentally, 2 items). **Enumerated exhaustively:** follow-up
+sweep `followup/ops-authz-coverage-20260721`, 2026-07-21.
+**Status:** enumerated and now guarded by a standing test. **Nothing was fixed** — no production
+code was touched by the sweep. The product question in (b) below is still yours.
 
-F5's B5 fold-in was scoped verbatim to `ApproveSubmissionHandler` / `RejectItemHandler`. While
-proving that gate, the reviewer found the same *class* of hole elsewhere:
+The class: `POST /api/v1/workflow/ops` dispatches through `workflowOpRouter`
+(`backend/cmd/server/main.go`) to the same workflow mutations the REST routes call, from the
+**same cookie-auth group**. Two doors, one mutation. F5 shipped a handler-only gate and its
+reviewer walked straight around it. The previous version of this section listed the two further
+instances the reviewer happened to trip over. That list was incidental **and one entry was wrong.**
+Here is the whole surface.
 
-- **`unsubmitChecklist`** (`backend/cmd/server/main.go:494`) — an adjacent submission-state
-  mutation with no authz check at all.
-- **`OpSaveTemplate` / `OpArchiveTemplate`** — template mutations in the same `workflowOpRouter`,
-  likewise unauthorized.
+### The enumeration — every op type `workflowOpRouter` handles
 
-I held the run out of these. Gating `unsubmitChecklist` is arguably the same decision you already
-made for approve/reject (it moves a submission back out of the approval queue). **Template
-mutation is a genuinely unasked question** — it may be intended to be broadly writable.
+| Op type | Mutation | REST twin | Twin's authz | `/ops` path authz | Agree? |
+|---|---|---|---|---|---|
+| `SET_FIELD` | `saveResponse` — upserts a **draft** response row keyed `(field_id, answered_by)` | `POST /workflow/saveResponse` | authn only | authn only | ✅ yes — self-scoped, no privilege to escalate |
+| `SUBMIT_CHECKLIST` | `submitChecklist` — creates a submission attributed to the caller, sweeps the caller's own drafts into it | `POST /workflow/submitChecklist` | authn + `validateFailNotes` + `validateResubmitPhoto` | authn + the **same two** validators (router calls `ValidateFailNotesFunc` / `ValidateResubmitPhotoFunc`) | ✅ yes |
+| `APPROVE_ITEM` | `approveSubmission` — `status='approved'` | `POST /workflow/approveSubmission` | `requireReviewAuthz` (approver∨admin∨superadmin) | **same check, same function** — it lives inside the mutation as of `8c71022` | ✅ yes (was the F5 blocker) |
+| `REJECT_ITEM` | `rejectItem` — inserts `submission_rejections` + `status='rejected'` | `POST /workflow/rejectItem` | `requireReviewAuthz` | same, inside the mutation | ✅ yes (was the F5 blocker) |
+| `SAVE_TEMPLATE` | `insertTemplate` (create) / `updateTemplate` (update) — authors or **rewrites** a checklist template | `POST /workflow/createTemplate`, `PUT /workflow/updateTemplate/{id}` | **admin-only** (`isAdmin`, D-11) | **none** | ❌ **NO** |
+| `ARCHIVE_TEMPLATE` | `archiveTemplate` — soft-deletes a template by id | `DELETE /workflow/archiveTemplate/{id}` | **admin-only** (`isAdmin`, D-11) | **none** | ❌ **NO** |
 
-**Decision needed:** (a) gate `unsubmitChecklist` under the same approver∨admin∨superadmin rule,
-(b) decide whether template mutation needs any gate at all, and (c) whether the `/ops` router
-deserves a standing rule that every op branch must carry the same authz as its REST twin. (c) is
-the one that prevents a third recurrence — the dual-path trap is now documented as having bitten
-once and been found twice.
+That is the complete set. `workflowOpRouter`'s `default:` branch returns 400 `unknown_op_type`, so
+no other op type opens a door. **Both divergences were verified live**, not read off the source: a
+freshly-invited `team_member` with zero grants was refused 403 at both template REST routes and
+served 200 at `/ops` for both `SAVE_TEMPLATE` and `ARCHIVE_TEMPLATE` — the archive leg genuinely
+archived a template it had no other way to touch.
+
+### Correction: `unsubmitChecklist` is NOT in this class
+
+The previous version of this section said `unsubmitChecklist` had "no authz check at all." **That
+is false.** `unsubmitChecklist` (`backend/internal/workflow/repository.go:1158`) enforces
+submitter-ownership inside the mutation — `submittedBy != userID` → `not the submitter` → 403
+`not_submitter` — and additionally refuses once `status='approved'`. `tests/workflows.spec.js`
+`[RUN-11]` already pins the non-submitter refusal. It also has **no `/ops` twin**: no op type
+routes to it, so it has exactly one door and no parity question to answer. **Item (a) of the old
+decision list is withdrawn — there is nothing to decide there.**
+
+Whether ownership is the *right* rule (vs. also letting an approver pull a submission back out of
+the queue) is a separate product question and is not raised here.
+
+### Two further divergences on the same door, beyond authz
+
+Both ride on the ungated `SAVE_TEMPLATE` branch and would be closed incidentally by any decision
+that gates it. Recorded so they are not lost if it is not:
+
+1. **The `requires_approval` invariant is not enforced on the `/ops` path.** Both REST twins reject
+   `requires_approval: true` with no `approver` assignment (400 `requires_approver`). The `/ops`
+   branch skips that validation entirely, so a template can be created that demands approval and
+   has nobody able to give it — its submissions land in no one's Approvals queue and can never be
+   approved. This is a data-integrity hole, not a privilege one, and it is reachable by any
+   authenticated user today.
+2. **The `/ops` update branch skips the transactional op-emit.** `PUT /updateTemplate/{id}` calls
+   `updateTemplateAndEmit`, which writes the template and queues its `SAVE_TEMPLATE` re-render op
+   in ONE transaction (FR-5, INV-1 — the op that tells other devices to re-fetch can never be lost
+   while the write is accepted). The `/ops` branch calls plain `updateTemplate` and relies on
+   `OpHandler` recording the op afterwards, outside the write's transaction. A convergence gap, not
+   a security one.
+
+### What the sweep landed instead of a fix
+
+`tests/ops-authz-coverage.spec.js` — a standing guard that encodes the invariant as
+**parity between the two doors**, not as "everything must be gated":
+
+- `PARITY_GATED` (`APPROVE_ITEM`, `REJECT_ITEM`) — both doors must refuse an unprivileged caller.
+- `PARITY_OPEN` (`SET_FIELD`, `SUBMIT_CHECKLIST`) — both doors must accept. If either side is
+  gated later without the other, this goes red too.
+- `EXCEPTIONS` (`SAVE_TEMPLATE`, `ARCHIVE_TEMPLATE`) — documented divergence, each entry naming
+  **this section** as the open decision. The exception list is the living form of the question
+  below; it is a record, not a waiver.
+
+Three anti-rot properties, each proven red before the file was committed:
+
+- The covered op set is **derived by parsing the router's own `switch`** and asserted equal to it.
+  Adding `case opsync.OpAnything:` without a coverage entry fails the build (proven: injected a
+  `NUKE_EVERYTHING` op → red).
+- Removing a gate fails (proven: deleted `requireReviewAuthz` → red; and re-armed the exact F5
+  bypass — gate in the handler only — → red on the `/ops` assertion specifically).
+- Exceptions assert the `/ops` path is **still open**, so a stale entry cannot pass as fiction
+  (proven: gated `SAVE_TEMPLATE` while leaving its exception in place → red).
+- Neutralising the derivation fails loudly rather than passing empty (proven → red).
+
+The guard is HTTP-level because `workflowOpRouter` lives in `package main`, which has no test files
+and cannot be imported; and because "is this path actually ungated?" is a runtime question that no
+amount of source reading answers.
+
+### Decision needed
+
+**(b) Should crew be able to mutate templates at all?** This is a product question and the sweep
+did **not** answer it, did not recommend an answer, and holds no view. The observable facts are
+above; the call is yours. Note the two shapes are separable — *authoring/editing* a template
+(`SAVE_TEMPLATE`) and *archiving anyone's template by id* (`ARCHIVE_TEMPLATE`) may not deserve the
+same answer. Whatever you decide, the `requires_approval` gap in (1) above needs an answer too:
+if the `/ops` branch stays open, it should still refuse a template that requires an approver and
+names none.
+
+**(c) Should the `/ops` router carry a standing rule** that every op branch enforces the same authz
+as its REST twin? The guard now *measures* parity and forces a deliberate entry either way — but
+whether a divergence is ever permissible is still a policy call. If the answer is "never,"
+`EXCEPTIONS` should be emptied by gating (b), and the bucket kept only so the next divergence
+cannot ship silently.
+
+**(a) is withdrawn** — see the `unsubmitChecklist` correction above.
 
 ---
 
