@@ -9,8 +9,9 @@
 // call, from the SAME cookie-auth group. Two doors, one mutation, and — until
 // 8c71022 — not the same lock: a `team_member` with zero approver assignments
 // was refused at POST /workflow/approveSubmission and served 200 at
-// POST /workflow/ops with op_type APPROVE_ITEM, and the forged approval
-// broadcast over the sync hub as legitimate.
+// POST /workflow/ops with op_type APPROVE_ITEM. (F5's G6 record additionally
+// states the forged approval broadcast over the sync hub as legitimate; that
+// part is quoted from the record, not re-verified here.)
 //
 // That instance was fixed by moving the check into the mutation. This file
 // stops the CLASS from recurring. The invariant it encodes is NOT "every
@@ -76,13 +77,21 @@ const OPS_GO = path.join(__dirname, '..', 'backend', 'internal', 'sync', 'ops.go
 //     • a case naming a constant with no string value
 //     • fewer than MIN_ROUTED_OPS ops derived (the floor below)
 //
-//   RESIDUAL BRITTLENESS — named, not papered over: this is a SOURCE parse of
-//   one switch statement. If dispatch ever moves to a map, a table, a second
-//   router, or a helper called from `default:`, those ops would be invisible
-//   here and this guard would go quietly green. The floor catches narrowing,
-//   not relocation. Anyone changing HOW the router dispatches must revisit
-//   this function — a comment cannot enforce that, so it is called out in
-//   DECISIONS-NEEDED §1 as well.
+//   RESIDUAL BRITTLENESS — named, not papered over:
+//     • This is a SOURCE parse of one switch statement. If dispatch ever moves
+//       to a map, a table, a second router, or a helper called from `default:`,
+//       those ops would be invisible here and this guard would go quietly
+//       green. The floor catches narrowing, not relocation.
+//     • A PERMISSIVE `default:`. The parse asserts `default:` exists; it cannot
+//       tell whether it refuses. G6 changed it to `return nil, nil` — every
+//       unknown op type then accepted and broadcast via InsertOpAndNotify —
+//       and the equality test still went green, because the derived and covered
+//       sets were unchanged. This one is no longer merely assumed: the
+//       DEFAULT-REFUSES test below posts a junk op_type at runtime and requires
+//       a 4xx. Source parsing could not have caught it; the HTTP leg can.
+//   Anyone changing HOW the router dispatches must revisit this function — a
+//   comment cannot enforce that, so it is called out in DECISIONS-NEEDED §1
+//   as well.
 
 // The router handles six ops today. The floor exists so that a future parser
 // regression which silently NARROWS the derived set trips regardless of cause,
@@ -191,8 +200,16 @@ function routerOpTypes() {
       if (label === '') continue;
       const cm = /^opsync\.(Op[A-Za-z0-9_]*)$/.exec(label);
       if (!cm) {
+        // A nested switch/select inside a case body is the likeliest cause: its
+        // labels sit within the outer switch's braces and land here looking like
+        // malformed op labels. Say so, rather than making the reader work it out.
+        const nested = /\b(switch|select)\b/.test(body)
+          ? ' NOTE: the router body contains a nested `switch`/`select`; its case labels are ' +
+            'scanned too. If that is what this is, scope the scan to the outer switch\'s own ' +
+            'cases before extending the label grammar.'
+          : '';
         throw new Error(`ops-authz-coverage: unparsable case label "${label}" in workflowOpRouter. ` +
-          'Every branch must be checkable — extend the parser rather than skipping it.');
+          'Every branch must be checkable — extend the parser rather than skipping it.' + nested);
       }
       const value = constMap[cm[1]];
       if (!value) {
@@ -491,6 +508,26 @@ test.describe('/ops ↔ REST authz parity coverage', () => {
     ).toEqual([]);
 
     expect(covered).toEqual(routed);
+  });
+
+  // ── The closed-door assumption, enforced instead of assumed ──────────────
+  //
+  // Everything above rests on unlisted op types being REFUSED at `default:`.
+  // The source parse can only see that a `default:` branch exists — G6 changed
+  // its body to `return nil, nil`, making every unknown op type accepted and
+  // broadcast, and COVERAGE-EQ stayed green because the derived and covered
+  // sets were untouched. That is a silent-green this file must not have.
+  test('DEFAULT-REFUSES: an unlisted op type is refused, not silently accepted', async ({ page }) => {
+    await login(page);
+
+    const status = await op(page, 'G6_NOT_A_REAL_OP_TYPE', 'submission', '', { probe: true });
+
+    expect(status >= 400,
+      `an unrecognised op_type returned ${status}. The router's default: branch must REFUSE ` +
+      'unknown ops — every "this op is not in the router, therefore it is a closed door" ' +
+      'conclusion in this file depends on it. A permissive default: makes the whole coverage ' +
+      'set meaningless while every other test here stays green.'
+    ).toBe(true);
   });
 
   // ── PARITY_GATED: both doors refuse ──────────────────────────────────────

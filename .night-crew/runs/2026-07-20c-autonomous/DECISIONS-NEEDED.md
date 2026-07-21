@@ -108,6 +108,28 @@ reviewer walked straight around it. The previous version of this section listed 
 instances the reviewer happened to trip over. That list was incidental **and one entry was wrong.**
 Here is the whole surface.
 
+### Verification status of every claim below
+
+One false claim was found in this section (the reachability bullet under the HIGH defect — struck,
+see there). Finding one means the class was worth a sweep, so every remaining factual assertion here
+has been re-checked and is labelled. This document is what the operator reads cold; nothing in it
+should be believed on the author's say-so.
+
+| Claim | How verified |
+|---|---|
+| The six-row enumeration — mutations, REST twins, and each side's authz | Read in source (`main.go`, `workflow/handler.go`, `workflow/repository.go`) **and** exercised at runtime by `tests/ops-authz-coverage.spec.js` |
+| `SAVE_TEMPLATE` / `ARCHIVE_TEMPLATE` ungated on `/ops`, admin-only over REST | **Runtime** — unprivileged `team_member` got 403 at both REST routes, 200 at `/ops`; the archive leg genuinely archived a template |
+| `default:` returns 400 `unknown_op_type`, so unlisted ops open no door | Source (`main.go:160`) **and** now a runtime assertion (see the guard section) |
+| `unsubmitChecklist` enforces submitter-ownership and has no `/ops` twin | Source (`repository.go:1158`); no op type routes to it; `workflows.spec.js [RUN-11]` already pins the 403 |
+| REST twins reject `requires_approval` with no approver (400 `requires_approver`) | Source — `handler.go:372` and `:429`, both calling `hasApprover` |
+| The `/ops` `SAVE_TEMPLATE` branch never calls `hasApprover` | Source — the branch unmarshals and writes with no validation call |
+| That gap leaves a submission stuck `pending` in nobody's queue | **Runtime, by G6** — reproduced end-to-end (200 via `/ops`, 201 submit, absent from `pendingApprovals`). Not independently re-run by this sweep; attributed |
+| `/ops` update branch skips the transactional op-emit | Source — REST calls `updateTemplateAndEmit`, the router calls `UpdateTemplateFunc` = plain `updateTemplate`; `sync/handler.go` records the op after the router returns |
+| `SET_FIELD` / `SUBMIT_CHECKLIST` succeed against unassigned templates | Source — neither `saveResponse` nor `submitChecklist` performs any assignment check (only field-existence / archived-template checks) |
+| Neither op carries an attribution field | Source — `SaveResponseInput` is `{field_id, value}`; `SubmitChecklistInput` carries no user field; the writer id comes from the request context in both doors |
+| `workflowOpRouter` cannot be imported by a Go test | Source — it is in `package main`, and `backend/cmd/server/` contains no `_test.go` files |
+| F5's original bypass broadcast a forged approval over the sync hub | **Not re-verified by this sweep** — inherited from F5's G6 record and stated there. Load-bearing for none of the findings above |
+
 ### The enumeration — every op type `workflowOpRouter` handles
 
 | Op type | Mutation | REST twin | Twin's authz | `/ops` path authz | Agree? |
@@ -158,8 +180,22 @@ Graded **high**, above the authz divergence below, because:
 - it is **silent** — nothing surfaces to the crew member or the admin;
 - it is **persistent** — the stuck submission does not age out or resolve;
 - it **corrupts the approval ledger** rather than merely widening write access;
-- it **self-inflicts on ordinary crew** who never touch `/ops` deliberately — the frontend routes
-  template saves through `/ops`, so this does not require an attacker.
+- it **requires no privilege** — any authenticated `team_member` can do it, with no grant, no
+  assignment, and no trace beyond the ops journal.
+
+**Reachability, stated accurately:** it requires a **deliberate, hand-crafted `/ops` call**. An
+earlier draft of this section claimed the frontend routes template saves through `/ops`, so
+ordinary crew would trip it by accident. **That was false and has been struck.** Verified against
+source: `submitOp` (`sync.js:676`) has exactly ONE call site in the entire frontend
+(`workflows.html:211`) and it emits only `SET_FIELD`. Template saves go over REST
+(`workflows.html:1232` → `createTemplate` / `updateTemplate/{id}`; `:1295`, `:1318` →
+`archiveTemplate`), and the *server* emits the `SAVE_TEMPLATE` / `ARCHIVE_TEMPLATE` ops from those
+handlers. The `op_type` string matches in `sync.js:405-540` are the **inbound** `applyOp` consumer,
+not outbound emitters. So: no privilege required, but not accidental either.
+
+The grade stands at **high** on the four bullets above — the corrected reachability lowers the
+*volume* of accidental exposure, not the severity of the corruption or the absence of any
+privilege barrier.
 
 Not fixed here (the sweep was tests + docs only, by rule). Whoever fixes it: the check is
 `hasApprover(input.Assignments)` when `input.RequiresApproval`, already written and used by both
@@ -195,6 +231,11 @@ Three anti-rot properties, each proven red before the file was committed:
 - Exceptions assert the `/ops` path is **still open**, so a stale entry cannot pass as fiction
   (proven: gated `SAVE_TEMPLATE` while leaving its exception in place → red).
 - Neutralising the derivation fails loudly rather than passing empty (proven → red).
+- **`DEFAULT-REFUSES`**: a runtime leg posts an unrecognised `op_type` and requires a 4xx. G6 found
+  that making `default:` permissive (`return nil, nil`) — accepting and broadcasting every unknown
+  op — left the equality test green, because the derived and covered sets were untouched. No source
+  parse can catch that; the HTTP leg does. Every "this op is not in the router, therefore it is a
+  closed door" conclusion in this section depends on it, so it is now enforced rather than assumed.
 - The derivation itself cannot pass vacuously. G6 defeated the first version — an end-of-line
   anchor made `case opsync.OpX: // comment`, `case opsync.OpX: return nil, nil`, and multi-line
   grouped labels *invisible* rather than erroneous, so the suite went green with a live uncovered
