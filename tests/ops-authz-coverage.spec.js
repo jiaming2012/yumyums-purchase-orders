@@ -427,6 +427,19 @@ const EXCEPTIONS = {
   // OPEN DECISION: DECISIONS-NEEDED §1-B of run 2026-07-20c — "whether template
   // mutation needs any gate at all" is a PRODUCT question and has NOT been
   // answered. This entry is the living form of that question, not a waiver.
+  //
+  // UNGATED ≠ UNVALIDATED. Since fix/ops-savetemplate-approver-20260721, the
+  // /ops SAVE_TEMPLATE path DOES enforce the requires_approval → hasApprover
+  // rule its REST twins enforce (400 requires_approver), because the check now
+  // lives inside insertTemplate/updateTemplate rather than in the handlers. That
+  // is VALIDATION and changes nothing here: the probe below posts a VALID
+  // template (minimalTemplate sets requires_approval:false), so a <400 from
+  // /ops still means exactly what this entry claims — no privilege is required.
+  // If you make this probe's payload approverless-with-approval, it will start
+  // returning 400 and you will have made this exception unreadable: a 400 would
+  // then be indistinguishable from the 403 the entry is watching for. The
+  // validation contract has its own file, tests/ops-save-template-validation.spec.js,
+  // whose NOT-A-GATE test asserts from the other side that this door is still open.
   SAVE_TEMPLATE: {
     decision: 'run 2026-07-20c DECISIONS-NEEDED §1-B — is template mutation meant to be crew-writable?',
     rest: (p, fx) => rest(p, 'POST', '/api/v1/workflow/createTemplate', minimalTemplate(`Cov Forge ${Date.now()}`)),
