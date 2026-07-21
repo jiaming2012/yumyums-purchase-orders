@@ -149,6 +149,68 @@ select.field-input{appearance:none;-webkit-appearance:none;padding-right:36px;ba
 .cost-neg{color:#b91c1c}
 @media(prefers-color-scheme:dark){.cost-neg{color:#f87171}}
 .cost-unalloc{display:inline-block;font-size:10px;font-weight:600;background:var(--warn-bg);color:var(--warn-tx);padding:1px 6px;border-radius:4px;margin-top:3px}
+/* ── Trends tab (#s5) ──────────────────────────────────────────────────────
+   Categorical palette in FIXED slot order, never cycled. Both modes were run
+   through the dataviz validator (adjacent pairlist, the correct list for a
+   stacked column chart) and pass every hard gate:
+     light  worst adjacent CVD dE 9.1 / normal-vision dE 19.6 -> ALL PASS
+     dark   worst adjacent CVD dE 8.4 / normal-vision dE 19.3 -> ALL PASS
+   Light mode carries a contrast WARN on three slots (magenta/yellow/aqua sit
+   below 3:1 on the light surface). That WARN is an obligation, not a dismissal:
+   the relief is discharged by the always-present legend labels AND the full
+   data table rendered below every chart. Do not add a 9th hue -- past eight
+   groups the render folds into "Other". */
+:root{--tr-1:#2a78d6;--tr-2:#008300;--tr-3:#e87ba4;--tr-4:#eda100;--tr-5:#1baf7a;--tr-6:#eb6834;--tr-7:#4a3aa7;--tr-8:#e34948;--tr-unlinked:#8a8a83;--tr-grid:rgba(0,0,0,0.10)}
+@media(prefers-color-scheme:dark){:root{--tr-1:#3987e5;--tr-2:#008300;--tr-3:#d55181;--tr-4:#c98500;--tr-5:#199e70;--tr-6:#d95926;--tr-7:#9085e9;--tr-8:#e66767;--tr-unlinked:#9a9a92;--tr-grid:rgba(255,255,255,0.14)}}
+.tr-window{font-size:12px;color:var(--mut);margin:0 0 12px}
+.tr-empty{background:var(--card);border:0.5px solid var(--brd);border-radius:12px;padding:32px 20px;text-align:center}
+.tr-empty h3{font-size:16px;font-weight:600;color:var(--txt);margin:0 0 8px}
+.tr-empty p{font-size:13px;color:var(--mut);margin:0 0 6px;line-height:1.5}
+.tr-empty p:last-child{margin-bottom:0}
+.tr-recon{background:var(--card);border:0.5px solid var(--brd);border-radius:12px;padding:14px;margin-bottom:12px}
+.tr-hero{border-bottom:0.5px solid var(--brd);padding-bottom:10px;margin-bottom:10px}
+.tr-hero-label{display:block;font-size:12px;color:var(--mut);font-weight:500}
+.tr-hero-val{display:block;font-size:26px;font-weight:600;color:var(--txt);letter-spacing:-0.5px;margin-top:2px}
+.tr-hero-note{display:block;font-size:11px;color:var(--mut);margin-top:3px;line-height:1.4}
+.tr-recon-row{display:flex;align-items:baseline;gap:8px;font-size:12px;padding:4px 0}
+.tr-recon-key{color:var(--mut);flex:1;min-width:0;overflow-wrap:anywhere}
+.tr-recon-val{color:var(--txt);font-weight:600;white-space:nowrap}
+.tr-recon-sub{font-size:11px;color:var(--mut);font-weight:400}
+.tr-swatch{width:10px;height:10px;border-radius:2px;flex-shrink:0;display:inline-block}
+.tr-drift{background:var(--warn-bg);color:var(--warn-tx);border-radius:8px;padding:9px 11px;font-size:11px;line-height:1.45;margin-top:10px}
+.tr-unitemized{background:var(--card);border:0.5px solid var(--brd);border-radius:12px;padding:14px;margin-bottom:12px}
+.tr-unitemized-head{display:flex;align-items:baseline;gap:8px}
+.tr-unitemized-label{flex:1;min-width:0;font-size:12px;color:var(--mut);font-weight:500}
+.tr-unitemized-val{font-size:16px;font-weight:600;color:var(--txt);white-space:nowrap}
+.tr-unitemized-sub{font-size:11px;color:var(--mut);line-height:1.45;margin-top:4px}
+.tr-disclose{margin-top:8px;padding:6px 10px;min-height:32px;background:var(--bg);border:0.5px solid var(--brd);border-radius:8px;font-size:11px;font-weight:500;color:var(--info-tx);cursor:pointer;font-family:inherit}
+.tr-unitemized-detail{font-size:11px;color:var(--mut);line-height:1.5;margin-top:8px;border-left:2px solid var(--brd);padding-left:10px}
+.tr-chart-card{background:var(--card);border:0.5px solid var(--brd);border-radius:12px;padding:12px 10px 10px;margin-bottom:12px}
+.tr-svg{display:block;width:100%;height:auto}
+.tr-col{cursor:pointer}
+.tr-axis{font-size:9px;fill:var(--mut)}
+.tr-gridline{stroke:var(--tr-grid);stroke-width:1}
+.tr-legend{display:flex;flex-wrap:wrap;gap:6px 12px;margin-top:10px}
+.tr-legend-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--txt);max-width:100%;min-width:0;overflow-wrap:anywhere}
+/* nowrap: observed at 390px in edge-long-name.png — a long group name pushed
+   overflow-wrap:anywhere onto the amount and split it as "$2,362." / "43". */
+.tr-legend-total{color:var(--mut);white-space:nowrap}
+.tr-zero-note{font-size:11px;color:var(--mut);line-height:1.45;margin:10px 0 0}
+.tr-week-detail{background:var(--bg);border-radius:10px;padding:10px 12px;margin-top:10px}
+.tr-week-detail-hd{font-size:12px;font-weight:600;color:var(--txt);margin-bottom:6px}
+.tr-wd-row{display:flex;align-items:center;gap:8px;font-size:12px;padding:3px 0}
+.tr-wd-name{flex:1;min-width:0;color:var(--txt);overflow-wrap:anywhere}
+.tr-wd-val{color:var(--txt);font-weight:600;white-space:nowrap}
+.tr-wd-none{color:var(--mut);font-weight:400;font-style:italic;white-space:nowrap}
+.tr-table-wrap{background:var(--card);border:0.5px solid var(--brd);border-radius:12px;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.tr-table{width:100%;border-collapse:collapse;font-size:12px}
+.tr-table th{font-size:11px;font-weight:600;color:var(--mut);text-align:right;padding:9px 5px;border-bottom:0.5px solid var(--brd);white-space:nowrap}
+.tr-table th:first-child,.tr-table td:first-child{text-align:left;padding-left:12px}
+.tr-table th:last-child,.tr-table td:last-child{padding-right:12px}
+.tr-table td{padding:9px 5px;text-align:right;color:var(--txt);white-space:nowrap;border-bottom:0.5px solid var(--brd)}
+.tr-table tbody tr:last-child td{border-bottom:none}
+.tr-table tfoot td{font-weight:600;border-top:0.5px solid var(--brd);border-bottom:none;color:var(--txt)}
+.tr-table .tr-none{color:var(--mut)}
 .empty{text-align:center;padding:40px 20px;color:var(--mut)}
 .empty p{font-size:13px;margin:0}
 .stock-badge{display:inline-block;font-size:11px;font-weight:600;padding:2px 8px;border-radius:6px}.stock-badge+.stock-badge{margin-left:4px}
@@ -312,10 +374,7 @@ select.field-input{appearance:none;-webkit-appearance:none;padding-right:36px;ba
   </div>
   <div id="s5" style="display:none">
     <!-- TODO: gate Trends to manager+ via backend roles (INTG-01) -->
-    <div id="trends-container" class="coming-soon">
-      <h3>Spending Trends</h3>
-      <p>Category breakdown and monthly spending charts coming soon.</p>
-    </div>
+    <div id="trends-container"><!-- populated by renderTrends from TRENDS_DATA / TRENDS_STATE --></div>
   </div>
   <div id="s6" style="display:none">
     <div id="cost-container"><!-- populated by renderCost from COST_DATA / COST_STATE --></div>
@@ -571,6 +630,7 @@ function show(n){
   if(n===2){loadStock();}
   if(n===3){loadMenu();}
   if(n===4){loadRecipes();}
+  if(n===5){loadTrends();}
   if(n===6){loadCost();}
   if(n===7){loadItems();if(isAdmin())loadBadgeResetConfig();}
   render();
@@ -1028,9 +1088,480 @@ function renderStock(){
   document.getElementById('stock-list').innerHTML=html;
 }
 
-function renderTrends(){
-  document.getElementById('trends-container').innerHTML='<div class="coming-soon"><h3>Spending Trends</h3><p>Trends require sales data integration. Coming in a future update.</p></div>';
+// ── Trends tab (#s5) — FR-1 / FR-6b ─────────────────────────────────────────
+//
+// Renders GET /api/v1/inventory/trends (design §2.2 AS AMENDED 2026-07-20 —
+// decisions 29/30/31). Three things this render path is deliberately careful
+// about, all carried forward in writing by the endpoint's implementer and
+// reviewer. None of them is taste; each is a way this chart could lie.
+//
+//  1. A ZERO CELL IS NOT A ZERO. trends.go drops any week×group bucket whose
+//     lines net to exactly $0.00 (`if spend == 0 { continue }`) — a refund
+//     cancelling a charge looks, on the wire, byte-identical to "that group
+//     bought nothing that week". The chart cannot tell them apart, so it does
+//     not pretend to: a missing cell is drawn as absent (never as a $0.00 bar
+//     or table cell), the standing .tr-zero-note says so in words, and the
+//     per-week drill-down labels the gap "no cell" rather than "$0.00".
+//  2. THE UNITEMIZED REMAINDER IS A NET, AND NETS CANCEL. Amendment 3's figure
+//     sums algebraically across the window: an over-itemized event contributes
+//     negative. A reassuring $0.03 can therefore be two large offsetting
+//     coverage gaps. The endpoint publishes no per-event count, so the number
+//     genuinely cannot be decomposed here — the honest response is to label it
+//     "(net)", say why in the disclosure, and never render it as an all-clear.
+//     It is also NOT an addend to the payroll identity; period-summary does not
+//     count it either, so it lives outside the reconciliation card entirely.
+//  3. TWO TOTALS EXIST AND THEY ARE NOT INTERCHANGEABLE. The hero number is
+//     completeness.reconciles_to_cogs_excl_tax — the exact, payroll-facing
+//     figure computed from ONE window-wide sum rounded once, which matches
+//     period-summary by construction (see trends.go's linesTotal comment). It
+//     is NEVER Σ(display cells) + Σunlinked + pending: display cells are each
+//     penny-rounded, prices are NUMERIC(10,4), and Σ(round) ≠ round(Σ), so that
+//     sum can drift by up to half a cent per emitted cell. When the two do
+//     disagree the chart does not quietly pick one — .tr-drift names the gap
+//     and says which number payroll uses.
+//
+// The categorical palette is assigned by FIXED slot order (never cycled) and
+// was validated with the dataviz validator in both modes — see the CSS block.
+// Past eight groups the render folds the tail into "Other" rather than
+// inventing a ninth hue; the per-week drill-down still lists every group
+// unfolded, so folding hides nothing.
+let TRENDS_DATA=null;
+let TRENDS_STATE='idle'; // 'idle' | 'loading' | 'error' | 'ready'
+let TRENDS_WEEK=null;    // week_start currently drilled into, or null
+let TRENDS_UNITEMIZED_OPEN=false;
+const TRENDS_MAX_SERIES=8;
+const TRENDS_HUES=['var(--tr-1)','var(--tr-2)','var(--tr-3)','var(--tr-4)',
+                   'var(--tr-5)','var(--tr-6)','var(--tr-7)','var(--tr-8)'];
+const TRENDS_UNLINKED_ID='__unlinked';
+const TRENDS_OTHER_ID='__other';
+
+async function loadTrends(){
+  TRENDS_STATE='loading';
+  renderTrends();
+  try{
+    var data=await api('/api/v1/inventory/trends');
+    TRENDS_DATA=data||null;
+    TRENDS_STATE='ready';
+    renderTrends();
+  }catch(e){
+    if(e.message==='unauthorized')return;
+    TRENDS_STATE='error';
+    renderTrends();
+  }
 }
+
+function trRound2(n){return Math.round(n*100)/100;}
+function trISO(d){
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+
+    String(d.getDate()).padStart(2,'0');
+}
+function trWeekLabel(iso){
+  return parseLocalDate(iso).toLocaleDateString('en-US',{month:'short',day:'numeric'});
+}
+
+// Every Monday in the server's window, INCLUDING weeks with no data. A week the
+// business bought nothing in is a fact about the window and gets its own empty
+// column; deriving the axis from the sparse `cells` array instead would silently
+// close those gaps up and misdate every bar around them.
+function trendsWeeks(win){
+  if(!win||!win.from||!win.to)return [];
+  var out=[],d=parseLocalDate(win.from),end=parseLocalDate(win.to);
+  while(d<=end&&out.length<104){
+    out.push(trISO(d));
+    d=new Date(d.getFullYear(),d.getMonth(),d.getDate()+7);
+  }
+  return out;
+}
+
+// Series shown in the chart/table. Past TRENDS_MAX_SERIES the tail folds into a
+// single "Other" bucket — a 9th categorical hue is never generated.
+function trendsSeries(groups){
+  var gs=(groups||[]).slice();
+  if(gs.length<=TRENDS_MAX_SERIES)return {series:gs,foldedIds:[]};
+  var keep=gs.slice(0,TRENDS_MAX_SERIES-1);
+  var tail=gs.slice(TRENDS_MAX_SERIES-1);
+  keep.push({id:TRENDS_OTHER_ID,name:'Other ('+tail.length+' groups)'});
+  return {series:keep,foldedIds:tail.map(function(g){return g.id;})};
+}
+
+// Index the sparse wire data. `present` is kept separate from `value` on
+// purpose: it is the only thing that distinguishes "the server sent 0" from
+// "the server sent nothing", and caveat 1 turns on exactly that distinction.
+function trendsIndex(d,foldedIds){
+  var folded={};
+  foldedIds.forEach(function(id){folded[id]=1;});
+  var value={},present={};
+  (d.cells||[]).forEach(function(c){
+    var gid=folded[c.group_id]?TRENDS_OTHER_ID:c.group_id;
+    if(!value[c.week_start]){value[c.week_start]={};present[c.week_start]={};}
+    value[c.week_start][gid]=trRound2((value[c.week_start][gid]||0)+c.spend);
+    present[c.week_start][gid]=true;
+  });
+  (d.unlinked||[]).forEach(function(u){
+    if(!value[u.week_start]){value[u.week_start]={};present[u.week_start]={};}
+    value[u.week_start][TRENDS_UNLINKED_ID]=u.spend;
+    present[u.week_start][TRENDS_UNLINKED_ID]=true;
+  });
+  return {value:value,present:present};
+}
+
+function trendsColor(i){return TRENDS_HUES[i%TRENDS_HUES.length];}
+
+// Unlinked spend is not a group — it is money the catalog could not place. It
+// gets the neutral swatch plus a diagonal texture so it reads as "unattributed"
+// rather than as one more product category, and so the distinction survives
+// colour-vision deficiency, greyscale print and forced-colors mode.
+function trendsSwatchStyle(id,i){
+  if(id===TRENDS_UNLINKED_ID){
+    return 'background:repeating-linear-gradient(45deg,var(--tr-unlinked) 0 2px,transparent 2px 4px),var(--card);'+
+      'box-shadow:inset 0 0 0 1px var(--tr-unlinked)';
+  }
+  return 'background:'+trendsColor(i);
+}
+
+// A rect with only its TOP corners rounded — the 4px data-end sits at the top of
+// each stack and every segment stays anchored to the baseline below it.
+function trTopRoundedRect(x,y,w,h,r,fill,extra){
+  var rr=Math.max(0,Math.min(r,h,w/2));
+  return '<path d="M'+x+' '+(y+h)+'V'+(y+rr)+'a'+rr+' '+rr+' 0 0 1 '+rr+' -'+rr+
+    'h'+(w-2*rr)+'a'+rr+' '+rr+' 0 0 1 '+rr+' '+rr+'V'+(y+h)+'Z" fill="'+fill+'"'+
+    (extra||'')+'></path>';
+}
+
+// Quarter-decade steps, not half. Observed in the first populated screenshot:
+// a ~$1.1k peak rounded to a $1,500 axis and the tallest column reached barely
+// two thirds of the plot, flattening the week-to-week differences the chart
+// exists to show.
+function trNiceMax(v){
+  if(!(v>0))return 100;
+  var mag=Math.pow(10,Math.floor(Math.log10(v)));
+  var step=mag/4;
+  return Math.ceil(v/step)*step;
+}
+
+function trendsChart(weeks,series,idx){
+  var W=480,H=214,padL=46,padR=8,padT=10,padB=32;
+  var plotW=W-padL-padR,plotH=H-padT-padB;
+  var band=plotW/weeks.length;
+  var colW=Math.min(26,band*0.62);
+
+  var totals=weeks.map(function(wk){
+    var row=idx.value[wk]||{},t=0;
+    series.forEach(function(g){t+=row[g.id]||0;});
+    t+=row[TRENDS_UNLINKED_ID]||0;
+    return trRound2(t);
+  });
+  var yMax=trNiceMax(Math.max.apply(null,totals.concat([0])));
+
+  var svg='<svg class="tr-svg" viewBox="0 0 '+W+' '+H+'" role="img" '+
+    'aria-label="Weekly confirmed COGS spend by item group">'+
+    '<title>Weekly confirmed COGS spend by item group</title>';
+
+  // Recessive gridlines + y labels.
+  [0,0.5,1].forEach(function(f){
+    var y=padT+plotH-f*plotH;
+    svg+='<line class="tr-gridline" x1="'+padL+'" y1="'+y+'" x2="'+(W-padR)+'" y2="'+y+'"></line>'+
+      '<text class="tr-axis" x="'+(padL-6)+'" y="'+(y+3)+'" text-anchor="end">'+
+      escHtml(costMoney(yMax*f).replace(/\.00$/,''))+'</text>';
+  });
+
+  // Stack order: groups bottom-up in server order, Unlinked always on top so
+  // the unattributed slice is the one the eye lands on.
+  var stackOrder=series.map(function(g,i){return {id:g.id,name:g.name,fill:trendsColor(i)};});
+  stackOrder.push({id:TRENDS_UNLINKED_ID,name:'Unlinked',fill:'url(#tr-hatch)'});
+
+  svg+='<defs><pattern id="tr-hatch" width="5" height="5" patternUnits="userSpaceOnUse" '+
+    'patternTransform="rotate(45)"><rect width="5" height="5" fill="var(--card)"></rect>'+
+    '<line x1="0" y1="0" x2="0" y2="5" stroke="var(--tr-unlinked)" stroke-width="3"></line></pattern></defs>';
+
+  weeks.forEach(function(wk,wi){
+    var row=idx.value[wk]||{};
+    var x=padL+wi*band+(band-colW)/2;
+    var sel=TRENDS_WEEK===wk;
+    svg+='<g class="tr-col" data-week="'+wk+'"'+(sel?' data-selected="1"':'')+
+      ' role="button" tabindex="0" aria-label="Week of '+trWeekLabel(wk)+
+      ', total '+escHtml(costMoney(totals[wi]))+'">';
+    if(sel){
+      svg+='<rect x="'+(padL+wi*band)+'" y="'+padT+'" width="'+band+'" height="'+plotH+
+        '" fill="var(--info-bg)" opacity="0.55" rx="4"></rect>';
+    }
+    // Full-band transparent hit target — the tap area is larger than the mark.
+    svg+='<rect x="'+(padL+wi*band)+'" y="'+padT+'" width="'+band+'" height="'+plotH+
+      '" fill="transparent"></rect>';
+    var acc=0;
+    stackOrder.forEach(function(s){
+      var v=row[s.id];
+      if(!v)return;               // absent OR exactly zero — nothing is drawn
+      var h=(v/yMax)*plotH;
+      var y=padT+plotH-acc-h;
+      // 2px surface gap between stacked segments (mark spec); never let the gap
+      // eat a thin segment entirely.
+      var drawH=Math.max(h-2,1);
+      svg+=trTopRoundedRect(x,y,colW,drawH,4,s.fill,' data-group-id="'+escHtml(s.id)+'"');
+      acc+=h;
+    });
+    svg+='</g>';
+  });
+
+  // Label every third week — twelve dates will not fit a 480px shell.
+  weeks.forEach(function(wk,wi){
+    if(wi%3!==0&&wi!==weeks.length-1)return;
+    svg+='<text class="tr-axis" x="'+(padL+wi*band+band/2)+'" y="'+(H-14)+
+      '" text-anchor="middle">'+escHtml(trWeekLabel(wk))+'</text>';
+  });
+
+  svg+='</svg>';
+  return svg;
+}
+
+function trendsLegend(series,idx,weeks){
+  var items=series.map(function(g,i){
+    var t=0;
+    weeks.forEach(function(wk){t+=(idx.value[wk]||{})[g.id]||0;});
+    return '<span class="tr-legend-item"><span class="tr-swatch" style="'+
+      trendsSwatchStyle(g.id,i)+'"></span>'+escHtml(g.name)+
+      ' <span class="tr-legend-total">'+escHtml(costMoney(trRound2(t)))+'</span></span>';
+  });
+  var ut=0;
+  weeks.forEach(function(wk){ut+=(idx.value[wk]||{})[TRENDS_UNLINKED_ID]||0;});
+  items.push('<span class="tr-legend-item"><span class="tr-swatch" style="'+
+    trendsSwatchStyle(TRENDS_UNLINKED_ID,0)+'"></span>Unlinked <span class="tr-legend-total">'+
+    escHtml(costMoney(trRound2(ut)))+'</span></span>');
+  return '<div class="tr-legend">'+items.join('')+'</div>';
+}
+
+// The drill-down. This is where caveat 1 becomes concrete: EVERY group in the
+// window is listed for the selected week, and one that the server sent no cell
+// for is labelled "no cell" — not $0.00 — because the endpoint cannot tell us
+// which of the two it was. Groups folded into "Other" in the chart are listed
+// here individually, so folding never costs the operator information.
+function trendsWeekDetail(d,idx,wk){
+  if(!wk)return '';
+  var row=idx.value[wk]||{},seen=(idx.present[wk]||{});
+  var folded={};
+  trendsSeries(d.groups).foldedIds.forEach(function(id){folded[id]=1;});
+  // Re-index unfolded so a folded group can still be shown on its own line.
+  var raw={},rawSeen={};
+  (d.cells||[]).forEach(function(c){
+    if(c.week_start!==wk)return;
+    raw[c.group_id]=trRound2((raw[c.group_id]||0)+c.spend);
+    rawSeen[c.group_id]=true;
+  });
+  var lines=(d.groups||[]).map(function(g){
+    var has=!!rawSeen[g.id];
+    return '<div class="tr-wd-row" data-group-id="'+escHtml(g.id)+'">'+
+      '<span class="tr-wd-name">'+escHtml(g.name)+'</span>'+
+      (has?'<span class="tr-wd-val">'+escHtml(costMoney(raw[g.id]))+'</span>'
+         :'<span class="tr-wd-none">no cell</span>')+'</div>';
+  });
+  lines.push('<div class="tr-wd-row" data-group-id="'+TRENDS_UNLINKED_ID+'">'+
+    '<span class="tr-wd-name">Unlinked</span>'+
+    (seen[TRENDS_UNLINKED_ID]
+      ?'<span class="tr-wd-val">'+escHtml(costMoney(row[TRENDS_UNLINKED_ID]))+'</span>'
+      :'<span class="tr-wd-none">no cell</span>')+'</div>');
+  return '<div class="tr-week-detail"><div class="tr-week-detail-hd">Week of '+
+    escHtml(trWeekLabel(wk))+'</div>'+lines.join('')+
+    '<div class="tr-zero-note">&ldquo;No cell&rdquo; means the server sent nothing for that '+
+    'group this week. That is either no purchases, or purchases that netted to '+
+    'exactly $0 &mdash; the endpoint cannot distinguish them.</div></div>';
+}
+
+function trendsTable(weeks,series,idx){
+  var head='<th>Week</th>'+series.map(function(g){
+    return '<th>'+escHtml(g.name)+'</th>';
+  }).join('')+'<th>Unlinked</th><th>Total</th>';
+  var colTotals={},grand=0;
+  var body=weeks.map(function(wk){
+    var row=idx.value[wk]||{},seen=idx.present[wk]||{},t=0,any=false;
+    var cells=series.concat([{id:TRENDS_UNLINKED_ID}]).map(function(g){
+      var v=row[g.id];
+      colTotals[g.id]=trRound2((colTotals[g.id]||0)+(v||0));
+      if(v===undefined&&!seen[g.id]){
+        // Absent, not zero — caveat 1 again. An em-dash, never $0.00.
+        return '<td class="tr-none">&mdash;</td>';
+      }
+      any=true;
+      t+=v||0;
+      return '<td>'+escHtml(costMoney(v||0))+'</td>';
+    }).join('');
+    grand=trRound2(grand+t);
+    // A week the server sent nothing at all for gets an em-dash total too.
+    // Observed in edge-all-unlinked.png: rendering "$0.00" there asserts a
+    // measured zero for a week we in fact know nothing about — the same claim
+    // caveat 1 forbids in the individual cells.
+    return '<tr data-week="'+wk+'"><td>'+escHtml(trWeekLabel(wk))+'</td>'+cells+
+      (any?'<td>'+escHtml(costMoney(trRound2(t)))+'</td>':'<td class="tr-none">&mdash;</td>')+
+      '</tr>';
+  }).join('');
+  var foot='<td>Window</td>'+series.concat([{id:TRENDS_UNLINKED_ID}]).map(function(g){
+    return '<td>'+escHtml(costMoney(colTotals[g.id]||0))+'</td>';
+  }).join('')+'<td>'+escHtml(costMoney(grand))+'</td>';
+  return '<div class="tr-table-wrap"><table class="tr-table"><thead><tr>'+head+
+    '</tr></thead><tbody>'+body+'</tbody><tfoot><tr>'+foot+'</tr></tfoot></table></div>';
+}
+
+// The completeness card — Decisions 30 and 31 exist precisely so unattributed
+// money is visible, and a chart that hides it defeats the amendment.
+function trendsReconciliation(d,chartAttributed,unlinkedTotal){
+  var c=d.completeness||{};
+  var payroll=Number(c.reconciles_to_cogs_excl_tax)||0;
+  var pending=Number(c.pending_total)||0;
+  var displaySum=trRound2(chartAttributed+unlinkedTotal+pending);
+  var drift=trRound2(payroll-displaySum);
+
+  var html='<div class="tr-recon">'+
+    '<div class="tr-hero"><span class="tr-hero-label">Confirmed COGS (excl. tax)</span>'+
+    '<span class="tr-hero-val">'+escHtml(costMoney(payroll))+'</span>'+
+    '<span class="tr-hero-note">The figure payroll reconciles against &mdash; the same '+
+    'number the weekly period summary uses.</span></div>'+
+    '<div class="tr-recon-row"><span class="tr-recon-key">Attributed to groups '+
+    '<span class="tr-recon-sub">&middot; charted below</span></span>'+
+    '<span class="tr-recon-val">'+escHtml(costMoney(chartAttributed))+'</span></div>'+
+    '<div class="tr-recon-row"><span class="tr-recon-key">Unlinked '+
+    '<span class="tr-recon-sub">&middot; no catalog item on the line</span></span>'+
+    '<span class="tr-recon-val">'+escHtml(costMoney(unlinkedTotal))+'</span></div>'+
+    '<div class="tr-recon-row"><span class="tr-recon-key">Awaiting review '+
+    '<span class="tr-recon-sub">&middot; '+(Number(c.pending_count)||0)+' receipts, not yet '+
+    'itemised, so they cannot be charted</span></span>'+
+    '<span class="tr-recon-val">'+escHtml(costMoney(pending))+'</span></div>';
+
+  // Caveat 3. Display cells are penny-rounded per cell; the payroll figure comes
+  // from one window-wide sum rounded once. When they disagree, say so and say
+  // which one is authoritative — do not silently show whichever is prettier.
+  if(Math.abs(drift)>=0.01){
+    html+='<div class="tr-drift"><strong>'+escHtml(costMoney(Math.abs(drift)))+
+      '</strong> of rounding difference. The three lines above are each rounded to '+
+      'the cent and add to '+escHtml(costMoney(displaySum))+'; the headline figure is '+
+      'summed once over every line item, which is how payroll computes it. '+
+      'Reconcile against the headline, not the sum of the rows.</div>';
+  }
+  return html+'</div>';
+}
+
+// Amendment 3's figure, kept OUT of the reconciliation card on purpose: it is
+// not an addend to the payroll identity, and period-summary does not count it.
+function trendsUnitemized(d){
+  var v=Number((d.completeness||{}).unitemized_remainder)||0;
+  return '<div class="tr-unitemized">'+
+    '<div class="tr-unitemized-head">'+
+    '<span class="tr-unitemized-label">Unitemized remainder (net)</span>'+
+    '<span class="tr-unitemized-val">'+escHtml(costMoney(v))+'</span></div>'+
+    '<div class="tr-unitemized-sub">Receipt totals minus their own line items, added up '+
+    'across the window with signs kept. Not part of the figure above.</div>'+
+    '<button class="tr-disclose" data-action="toggle-unitemized" aria-expanded="'+
+    (TRENDS_UNITEMIZED_OPEN?'true':'false')+'">Why &ldquo;net&rdquo;?</button>'+
+    (TRENDS_UNITEMIZED_OPEN
+      ?'<div class="tr-unitemized-detail">A receipt itemised for more than its own total '+
+       'contributes a negative amount here, so it cancels one itemised for less. Two large '+
+       'offsetting gaps and no gaps at all produce the same small number, and this endpoint '+
+       'reports no per-receipt count &mdash; so a figure near zero is not evidence that '+
+       'coverage is good. To see where it comes from, check individual receipts on the '+
+       'Purchases tab.</div>'
+      :'')+'</div>';
+}
+
+function renderTrends(){
+  // Null-safe: F5 removes this node for un-granted users.
+  var host=document.getElementById('trends-container');
+  if(!host)return;
+
+  if(TRENDS_STATE==='loading'){showSkeleton('trends-container');return;}
+  if(TRENDS_STATE==='error'){
+    showInlineError('trends-container','Couldn’t load spending trends.','loadTrends()');
+    return;
+  }
+  if(TRENDS_STATE!=='ready'){host.innerHTML='';return;}
+
+  var d=TRENDS_DATA||{};
+  var win=d.window;
+  var winLine=win?'<p class="tr-window">'+costWindowLabel(win)+'</p>':'';
+
+  var cells=d.cells||[],unlinked=d.unlinked||[];
+  var pending=Number((d.completeness||{}).pending_total)||0;
+  // "Nothing to show" is strictly: no attributed money, no unlinked money, and
+  // nothing awaiting review. Money that exists but is entirely unattributed is
+  // NOT empty — that is the case the operator most needs to see.
+  if(!cells.length&&!unlinked.length&&pending<=0){
+    host.innerHTML=winLine+
+      '<div class="tr-empty"><h3>No confirmed spending yet</h3>'+
+      '<p>Weekly spend by item group appears here once receipts are reviewed.</p>'+
+      '<p>Receipts waiting on review are counted separately, and there are none '+
+      'in this window.</p></div>';
+    return;
+  }
+
+  var weeks=trendsWeeks(win);
+  var sr=trendsSeries(d.groups);
+  var idx=trendsIndex(d,sr.foldedIds);
+
+  var attributed=0;
+  weeks.forEach(function(wk){
+    var row=idx.value[wk]||{};
+    sr.series.forEach(function(g){attributed+=row[g.id]||0;});
+  });
+  attributed=trRound2(attributed);
+  var unlinkedTotal=(d.unlinked_total===undefined||d.unlinked_total===null)
+    ?trRound2(unlinked.reduce(function(a,u){return a+u.spend;},0))
+    :Number(d.unlinked_total);
+
+  // If the selected week fell out of the window on reload, drop the selection
+  // rather than rendering a detail panel for a week that is no longer charted.
+  if(TRENDS_WEEK&&weeks.indexOf(TRENDS_WEEK)===-1)TRENDS_WEEK=null;
+
+  host.innerHTML=winLine+
+    trendsReconciliation(d,attributed,unlinkedTotal)+
+    trendsUnitemized(d)+
+    '<div class="tr-chart-card">'+
+      trendsChart(weeks,sr.series,idx)+
+      trendsLegend(sr.series,idx,weeks)+
+      '<p class="tr-zero-note">A week where a group&rsquo;s spend nets to exactly $0 &mdash; '+
+      'a refund cancelling a charge, say &mdash; is not sent by the server and is drawn here '+
+      'as no activity. Tap a week to see which groups have no cell.</p>'+
+      trendsWeekDetail(d,idx,TRENDS_WEEK)+
+    '</div>'+
+    trendsTable(weeks,sr.series,idx);
+}
+
+// Trends interactions.
+//
+// Bound on `document`, NOT on #trends-container, deliberately — the hazard F4's
+// review carried forward. F5 (tab gating) removes the Trends markup for
+// un-granted users; a top-level
+// getElementById('trends-container').addEventListener would then throw a
+// TypeError at PARSE time and take down the ENTIRE inventory page — every tab,
+// not just Trends — for exactly those users. Delegating from a node that always
+// exists makes the handler inert when the tab is absent instead of fatal. The
+// #trends-container scope check keeps it from firing on other tabs' markup.
+document.addEventListener('click',function(e){
+  if(!e.target||!e.target.closest)return;
+  if(!e.target.closest('#trends-container'))return;
+
+  var disclose=e.target.closest('[data-action="toggle-unitemized"]');
+  if(disclose){
+    TRENDS_UNITEMIZED_OPEN=!TRENDS_UNITEMIZED_OPEN;
+    renderTrends();
+    return;
+  }
+  var col=e.target.closest('.tr-col, .tr-table tbody tr[data-week]');
+  if(col){
+    var wk=col.dataset.week;
+    TRENDS_WEEK=(TRENDS_WEEK===wk)?null:wk;
+    renderTrends();
+  }
+});
+
+// Keyboard parity for the chart columns, which are SVG groups rather than
+// buttons. Same document-level delegation, same reason.
+document.addEventListener('keydown',function(e){
+  if(e.key!=='Enter'&&e.key!==' ')return;
+  if(!e.target||!e.target.closest)return;
+  var col=e.target.closest('#trends-container .tr-col');
+  if(!col)return;
+  e.preventDefault();
+  var wk=col.dataset.week;
+  TRENDS_WEEK=(TRENDS_WEEK===wk)?null:wk;
+  renderTrends();
+});
 
 // ── Cost tab (#s6) — FR-4 / AC-4 ────────────────────────────────────────────
 //
