@@ -2,7 +2,11 @@ const { defineConfig } = require('@playwright/test');
 const { defineBddConfig } = require('playwright-bdd');
 
 const dbHost = process.env.DB_HOST || 'localhost';
-const dbPort = process.env.DB_PORT || '5432';
+// 5433 = yumyums-dev-pg, the container that actually serves HQ. Host :5432 is
+// bound by infra-postgres-1 (slack-trading), which has no `yumyums` role.
+// MUST stay in sync with backend/Taskfile.yml's DB_PORT default — this file
+// carries its OWN default and does not read the Taskfile's.
+const dbPort = process.env.DB_PORT || '5433';
 const dbUser = process.env.DB_USER || 'yumyums';
 const dbPass = process.env.DB_PASS || 'yumyums';
 // TEST_DB_NAME / TEST_PORT allow running multiple isolated stacks in parallel
@@ -14,7 +18,11 @@ const dbPass = process.env.DB_PASS || 'yumyums';
 // run the whole suite against the live dev database — corrupting dev data and
 // failing every state-dependent test. Defaulting to 8199 makes a local test run
 // always spawn its own clean server, even with a dev server up on 8089.
-const testDbName = process.env.TEST_DB_NAME || 'hq_test';
+// hq_test_e2e — Playwright's OWN database. The Go suite owns hq_test_go.
+// They shared one hq_test until 2026-07-21 (audit surface #3): Go TestMains
+// TRUNCATE `users`, so a concurrent `task test:go` would log every browser
+// context out mid-suite. Separate databases make the collision impossible.
+const testDbName = process.env.TEST_DB_NAME || 'hq_test_e2e';
 const testPort = process.env.TEST_PORT || '8199';
 const testDbUrl = `postgres://${dbUser}:${dbPass}@${dbHost}:${dbPort}/${testDbName}?sslmode=disable&TimeZone=America/New_York`;
 
