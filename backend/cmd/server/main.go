@@ -544,14 +544,32 @@ func main() {
 				r.Get("/tags", inventory.ListTagsHandler(pool))
 				// Toast menu items + this-week aggregate (Phase 22). Cookie-auth, not service-token.
 				r.Get("/menu-items", toast.ListMenuItemsHandler(pool))
-				r.Get("/cost", recipes.CostHandler(pool)) // design §2.3 — cost/margin/food-cost-%
-				// design §2.2 as amended (decisions 29/30/31) — spend by ISO
-				// week × item group. Cookie-auth, but it MUST be filtered by
-				// the same cogsAllowlist the service-token period-summary is
-				// constructed with (Amendment 1), or Trends over-reports
-				// against payroll. The allowlist is built once above both
-				// router groups — do not build a second copy here.
-				r.Get("/trends", inventory.TrendsHandler(pool, cogsAllowlist))
+
+				// ── PER-TAB GATED SURFACES (design §1.3 station 1) ──────────
+				//
+				// These two are the ONLY inventory routes behind a grant. Every
+				// route above is reachable by any logged-in user, unchanged.
+				//
+				// Each sits in its own r.Group so RequirePermission applies to
+				// exactly one route: chi middleware is scoped to its group, and
+				// a Use() at this Route's level would gate the whole tab set.
+				//
+				// The umbrella argument is the operator's signed rider (§8
+				// amendment 1) — a whole-app `inventory` grant opens both tabs.
+				r.Group(func(r chi.Router) {
+					r.Use(auth.RequirePermission(pool, "inventory-trends", "inventory"))
+					// design §2.2 as amended (decisions 29/30/31) — spend by ISO
+					// week × item group. Cookie-auth, but it MUST be filtered by
+					// the same cogsAllowlist the service-token period-summary is
+					// constructed with (Amendment 1), or Trends over-reports
+					// against payroll. The allowlist is built once above both
+					// router groups — do not build a second copy here.
+					r.Get("/trends", inventory.TrendsHandler(pool, cogsAllowlist))
+				})
+				r.Group(func(r chi.Router) {
+					r.Use(auth.RequirePermission(pool, "inventory-cost", "inventory"))
+					r.Get("/cost", recipes.CostHandler(pool)) // design §2.3 — cost/margin/food-cost-%
+				})
 			})
 
 			// Phase 999.2 — recipes CRUD (cookie-auth; any authenticated user can edit).

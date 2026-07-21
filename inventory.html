@@ -372,8 +372,13 @@ select.field-input{appearance:none;-webkit-appearance:none;padding-right:36px;ba
       <div id="recipes-summary-card"><!-- populated by renderRecipeSummary --></div>
     </div>
   </div>
+  <!-- #s5 / #s6 are GATED tabs (design §1). applyTabGates() removes the button
+       and the section outright for users without the grant. Everything inside
+       them must therefore tolerate being absent: use document-level delegation
+       with a closest() scope check, never a top-level
+       getElementById(...).addEventListener, which would throw at parse time and
+       break EVERY tab for exactly the users being gated. -->
   <div id="s5" style="display:none">
-    <!-- TODO: gate Trends to manager+ via backend roles (INTG-01) -->
     <div id="trends-container"><!-- populated by renderTrends from TRENDS_DATA / TRENDS_STATE --></div>
   </div>
   <div id="s6" style="display:none">
@@ -617,7 +622,44 @@ document.addEventListener('click',function(e){
   }
 });
 
+// ── Per-tab gating (design §1.3 station 5) ─────────────────────────────────
+//
+// GATED_TABS is the client's half of the gate. It is UX ONLY — the server 403
+// from auth.RequirePermission is the actual enforcement (INV-C). This exists so
+// a user is not shown a tab that would only ever error at them.
+var GATED_TABS=[{n:5,slug:'inventory-trends'},{n:6,slug:'inventory-cost'}];
+var APP_GRANTS=[];
+
+// hasTabGrant mirrors the server rule exactly: superadmin ∨ tab slug ∨ umbrella
+// app slug. The umbrella disjunct is the operator's signed rider — "App grant =
+// All tabs granted". If this drifts from the middleware, a user sees a tab that
+// 403s or loses one they may use, so the two must be read together.
+function hasTabGrant(slug){
+  if(CURRENT_USER&&CURRENT_USER.is_superadmin)return true;
+  return APP_GRANTS.indexOf(slug)>=0||APP_GRANTS.indexOf('inventory')>=0;
+}
+
+// applyTabGates removes the button AND the section for every un-granted tab.
+// Removal (not display:none) is deliberate: a hidden-but-present panel is still
+// in the DOM for anyone who opens devtools, and the point of §1.2 is that the
+// ungranted user's client never renders the surface at all.
+//
+// Only #t5/#s5/#t6/#s6 are ever removed. Those sections contain exactly one node
+// each (#trends-container / #cost-container), and both are driven by
+// document-level delegation, so nothing here can orphan an event listener.
+function applyTabGates(){
+  GATED_TABS.forEach(function(t){
+    if(hasTabGrant(t.slug))return;
+    var btn=document.getElementById('t'+t.n);if(btn)btn.remove();
+    var sec=document.getElementById('s'+t.n);if(sec)sec.remove();
+  });
+}
+
 function show(n){
+  // Deep-link guard (§1.3 station 5): a pasted #tab=5 must not render a tab
+  // shell that was gated away. Falling back to Purchases keeps the page usable
+  // rather than leaving every section hidden.
+  if(!document.getElementById('s'+n))n=1;
   [1,2,3,4,5,6,7].forEach(i=>{
     var el=document.getElementById('s'+i); if(el)el.style.display=i===n?'':'none';
     var btn=document.getElementById('t'+i);
@@ -2769,6 +2811,12 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');
 
 document.addEventListener('DOMContentLoaded',async function(){
   try{CURRENT_USER=await api('/api/v1/me');}catch(e){return;}
+  // Resolve grants BEFORE the first show() so a gated tab is never briefly
+  // painted and then yanked. On failure APP_GRANTS stays empty and the gates
+  // close — failing closed matches the server, which would 403 the data anyway.
+  try{var apps=await api('/api/v1/me/apps');APP_GRANTS=(apps||[]).map(function(a){return a.slug;});}
+  catch(e){APP_GRANTS=[];}
+  applyTabGates();
   showReprocessBtn();
   // Preload items for review form dropdowns
   try{var data=await api('/api/v1/inventory/items');ALL_ITEMS=data||[];}catch(e){}

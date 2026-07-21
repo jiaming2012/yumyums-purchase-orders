@@ -8,6 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/yumyums/hq/internal/auth"
 	opsync "github.com/yumyums/hq/internal/sync"
 )
 
@@ -1213,4 +1214,61 @@ func cleanupOldDrafts(ctx context.Context, pool *pgxpool.Pool) error {
 		return fmt.Errorf("cleanup old drafts: %w", err)
 	}
 	return nil
+}
+
+// canReviewSubmission answers whether user may approve or reject submissionID
+// (design `prove-surface-gating-and-endpoints.md` §8 amendment 4 — the B5
+// fold-in). The role rule was fixed at slate time and is not a judgment call
+// here:
+//
+//	allowed ⇔ approver assignment on the submission's template
+//	          ∨ admin role
+//	          ∨ superadmin
+//
+// "Approver assignment" means exactly what PendingApprovalsHandler already
+// means by it (see pendingApprovals above): a template_assignments row with
+// assignment_role = 'approver' matching by user id or by role. Reusing that
+// definition is the point — the set of submissions a user can act on must equal
+// the set their Approvals tab shows them, or the UI lies in one direction or
+// the other.
+//
+// Two non-obvious exclusions, both pinned by tests:
+//   - an 'assignee' assignment is NOT an approver assignment, so a crew member
+//     assigned to FILL a checklist cannot approve their own submission;
+//   - an approver assignment on a DIFFERENT template does not carry over — the
+//     check resolves the submission's own template rather than asking "is this
+//     user an approver anywhere".
+//
+// A missing submission returns false, not an error: an unknown id is not
+// something the caller is entitled to act on either way.
+func canReviewSubmission(ctx context.Context, pool *pgxpool.Pool, user *auth.User, submissionID string) (bool, error) {
+	if user == nil {
+		return false, nil
+	}
+	if user.IsSuperadmin {
+		return true, nil
+	}
+	for _, r := range user.Roles {
+		if r == "admin" {
+			return true, nil
+		}
+	}
+
+	var ok bool
+	err := pool.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1
+			FROM checklist_submissions s
+			JOIN template_assignments ta ON ta.template_id = s.template_id
+			WHERE s.id = $1
+			  AND ta.assignment_role = 'approver'
+			  AND (
+			        (ta.assignee_type = 'user' AND ta.assignee_id = $2)
+			     OR (ta.assignee_type = 'role' AND ta.assignee_id = ANY($3))
+			  )
+		)`, submissionID, user.ID, user.Roles).Scan(&ok)
+	if err != nil {
+		return false, fmt.Errorf("check approver assignment: %w", err)
+	}
+	return ok, nil
 }

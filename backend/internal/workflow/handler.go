@@ -746,6 +746,22 @@ func ApproveSubmissionHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
+		// B5 fold-in (design §8 amendment 4): approver assignment ∨ admin ∨
+		// superadmin. Before this gate, ANY logged-in user could approve ANY
+		// submission — including one they were never assigned to review.
+		// Checked BEFORE approveSubmission so a refusal cannot leave the
+		// submission mutated.
+		allowed, err := canReviewSubmission(r.Context(), pool, user, body.SubmissionID)
+		if err != nil {
+			slog.Error("approve authz check failed", "error", err, "submission_id", body.SubmissionID)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		if !allowed {
+			writeError(w, http.StatusForbidden, "forbidden")
+			return
+		}
+
 		if err := approveSubmission(r.Context(), pool, body.SubmissionID, user.ID); err != nil {
 			slog.Error("approveSubmission error", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
@@ -801,6 +817,21 @@ func RejectItemHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		var input RejectItemInput
 		if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid_body")
+			return
+		}
+
+		// B5 fold-in (design §8 amendment 4) — same rule as approve: rejecting
+		// is the same review authority exercised the other way, so it carries
+		// the same gate. Checked BEFORE rejectItem so a refusal writes no
+		// submission_rejections row.
+		allowed, err := canReviewSubmission(r.Context(), pool, user, input.SubmissionID)
+		if err != nil {
+			slog.Error("reject authz check failed", "error", err, "submission_id", input.SubmissionID)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
+		}
+		if !allowed {
+			writeError(w, http.StatusForbidden, "forbidden")
 			return
 		}
 
