@@ -55,8 +55,11 @@ type TrendsCompleteness struct {
 	// UnitemizedRemainder — Amendment 3, window-summed. NOT an addend to the
 	// reconciliation identity; period-summary does not count it either.
 	UnitemizedRemainder float64 `json:"unitemized_remainder"`
-	// ReconcilesToCogsExclTax is the endpoint's own Σcells + Σunlinked +
-	// pending_total, published so a mismatch is visible in the response.
+	// ReconcilesToCogsExclTax is the endpoint's own left-hand side of the
+	// reconciliation identity, published so a mismatch with payroll is visible
+	// in the response itself. Computed as round(Σ all window line items) +
+	// pending_total — one rounding, matching period-summary — NOT as the sum
+	// of the penny-rounded display cells. This is the field to reconcile on.
 	ReconcilesToCogsExclTax float64 `json:"reconciles_to_cogs_excl_tax"`
 }
 
@@ -122,7 +125,15 @@ func trendsWindow(now time.Time) TrendsWindow {
 // The reconciliation identity this guarantees, asserted in trends_test.go by
 // calling PeriodSummaryHandler on the same window:
 //
-//	Σcells + Σunlinked + pending_total == period_summary.cogs_excl_tax
+//	completeness.reconciles_to_cogs_excl_tax == period_summary.cogs_excl_tax
+//
+// ROUNDING — load-bearing. Display cells are each rounded to cents, but the
+// published identity figure is NOT their sum: it comes from one window-wide
+// sum rounded once, because line prices are NUMERIC(10,4) and Σ(round) ≠
+// round(Σ). See the comment at the linesTotal query. A consumer reconciling
+// against payroll MUST read completeness.reconciles_to_cogs_excl_tax, never
+// Σcells + Σunlinked + pending_total, which can drift by up to half a cent
+// per emitted cell.
 //
 // `cells` is sparse: only non-empty week×group buckets are emitted.
 //
@@ -174,7 +185,12 @@ func TrendsHandler(pool *pgxpool.Pool, cogsAllowlist []string) http.HandlerFunc 
 				return
 			}
 			if spend == 0 {
-				continue // sparse
+				// Sparse: zero cells are omitted. NOTE (G6 review, non-blocking):
+				// this also drops a week×group whose lines net to exactly zero —
+				// e.g. a refund fully offsetting a charge. Identity-neutral, but
+				// F3 owes it a State Enumeration row: "activity occurred, nothing
+				// rendered" is indistinguishable from "no activity" on the chart.
+				continue
 			}
 			if !linked {
 				// FR-6b: purchase_item_id IS NULL — never a group bucket.
@@ -273,14 +289,34 @@ func TrendsHandler(pool *pgxpool.Pool, cogsAllowlist []string) http.HandlerFunc 
 		}
 		sort.Slice(unlinked, func(i, j int) bool { return unlinked[i].WeekStart < unlinked[j].WeekStart })
 
-		// The published left-hand side of the identity, computed from exactly
-		// the numbers this response carries — so any disagreement with
-		// period-summary is visible in the payload itself.
-		var cellSum float64
-		for _, c := range cells {
-			cellSum += c.Spend
+		// The published left-hand side of the identity.
+		//
+		// This MUST NOT be Σ(already-rounded cells). purchase_line_items.price
+		// is NUMERIC(10,4) (0024_inventory.sql:50) and the receipt worker
+		// passes the LLM's unit price through unrounded, so sub-cent line
+		// values are production-reachable — and Σ(round) ≠ round(Σ). Rounding
+		// each display cell to pennies and then summing drifts by up to half a
+		// cent per cell against period-summary, which rounds ONCE over all
+		// lines (handler.go:1338). A one-cent disagreement with payroll is
+		// exactly what this card is forbidden to ship.
+		//
+		// So: one window-wide sum, rounded once, mirroring period-summary's
+		// `lines` CTE clause-for-clause. Display cells stay penny-rounded; the
+		// published figure matches period-summary by construction.
+		var linesTotal float64
+		err = pool.QueryRow(r.Context(), `
+			SELECT ROUND(COALESCE(SUM(pli.quantity * pli.price), 0)::numeric, 2)
+			FROM purchase_line_items pli
+			JOIN purchase_events pe ON pe.id = pli.purchase_event_id
+			WHERE pe.event_date BETWEEN $1::date AND $2::date
+			  AND pe.mercury_category = ANY($3)`,
+			win.From, win.To, cogsAllowlist).Scan(&linesTotal)
+		if err != nil {
+			slog.Error("Trends lines-total query failed", "error", err)
+			writeError(w, http.StatusInternalServerError, "internal_error")
+			return
 		}
-		reconciles := round2(cellSum + round2(unlinkedTotal) + pendingTotal)
+		reconciles := round2(linesTotal + pendingTotal)
 
 		writeJSON(w, http.StatusOK, TrendsResponse{
 			Window:        win,

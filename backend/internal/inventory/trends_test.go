@@ -235,6 +235,30 @@ func seedTrendsFixture(t *testing.T, win TrendsWindow) trendsFixture {
 	insertEligiblePending(t, "pp-noncogs", weekOf(t, win, 9, 3), 70.00, "Software", "parse_failed")
 	insertEligiblePending(t, "pp-nullcat", weekOf(t, win, 9, 4), 60.00, "", "parse_failed")
 
+	// B6 — SUB-CENT LINE VALUES. purchase_line_items.price is NUMERIC(10,4)
+	// (0024_inventory.sql:50) and the receipt worker passes the LLM's unit
+	// price through unrounded (receipt/worker.go:778), while parser.go asks
+	// the model for *unit* prices on weight-priced lines ("10.13 lbs @
+	// $5.30/lb") — so 4.9950 is a production-reachable value, not a synthetic.
+	//
+	// Two such lines in DIFFERENT week×group cells: rounding each cell to
+	// display cents gives 5.00 + 5.00 = 10.00, but period-summary rounds ONCE
+	// over all lines and gets 9.99. Σ(round) ≠ round(Σ). The published
+	// identity figure must be computed the second way.
+	//
+	// Week 2 and week 7 are chosen because neither carries a cell assertion
+	// (week 2 holds only unlinked spend, week 7 only the excluded B3 event).
+	for i, sc := range []struct {
+		week int
+		item string
+	}{{2, salmon}, {7, kale}} {
+		date := weekOf(t, win, sc.week, 1)
+		// purchase_events.total is NUMERIC(10,2), so 4.9950 stores as 5.00 —
+		// each of these contributes 0.005 to the unitemized remainder.
+		ev := insertEvent(t, vendor, "tx-subcent-"+itoa(i), date, 0, 4.9950, "COGS")
+		insertLine(t, ev, sc.item, "Weight-priced line", 1, 4.9950)
+	}
+
 	// Out-of-window spend — one week BEFORE `from`. Must not appear anywhere.
 	outDate := weekOf(t, win, -1, 2)
 	outEv := insertEvent(t, vendor, "tx-out-of-window", outDate, 0, 999.99, "COGS")
@@ -302,30 +326,47 @@ func TestTrends(t *testing.T) {
 	}
 	lhs := cellSum + unlinkedSum + resp.Completeness.PendingTotal
 
-	t.Logf("identity on %s..%s: Σcells=%.2f + Σunlinked=%.2f + pending=%.2f = %.2f "+
-		"vs period_summary.cogs_excl_tax=%.2f (unitemized_remainder=%.2f, excluded by design)",
-		resp.Window.From, resp.Window.To, cellSum, unlinkedSum,
-		resp.Completeness.PendingTotal, lhs, ps.COGSExclTax,
-		resp.Completeness.UnitemizedRemainder)
+	t.Logf("identity on %s..%s: published reconciles=%.4f vs period_summary.cogs_excl_tax=%.4f "+
+		"| display Σcells=%.4f + Σunlinked=%.4f + pending=%.2f = %.4f (drift %.4f over %d cells) "+
+		"| unitemized_remainder=%.2f, excluded by design",
+		resp.Window.From, resp.Window.To,
+		resp.Completeness.ReconcilesToCogsExclTax, ps.COGSExclTax,
+		cellSum, unlinkedSum, resp.Completeness.PendingTotal, lhs, lhs-ps.COGSExclTax,
+		len(resp.Cells), resp.Completeness.UnitemizedRemainder)
 
-	if cents(lhs) != cents(ps.COGSExclTax) {
+	// (1) THE PAYROLL-FACING NUMBER — exact, no tolerance. This is the figure a
+	// consumer compares against period-summary, so it must be rounded the same
+	// way period-summary rounds: once over all lines, never Σ(rounded cells).
+	// B6 makes Σ(round) and round(Σ) differ, so this cannot pass by accident.
+	if cents(resp.Completeness.ReconcilesToCogsExclTax) != cents(ps.COGSExclTax) {
 		t.Errorf("RECONCILIATION IDENTITY FAILED on window %s..%s:\n"+
-			"  Σcells            = %.2f\n"+
-			"  Σunlinked         = %.2f\n"+
-			"  pending_total     = %.2f\n"+
-			"  ------------------------------\n"+
-			"  LHS               = %.2f\n"+
-			"  period_summary.cogs_excl_tax (RHS) = %.2f\n"+
-			"  delta             = %.2f",
+			"  completeness.reconciles_to_cogs_excl_tax = %.4f\n"+
+			"  period_summary.cogs_excl_tax             = %.4f\n"+
+			"  delta                                    = %.4f\n"+
+			"  (display Σcells=%.4f Σunlinked=%.4f pending=%.2f)",
 			resp.Window.From, resp.Window.To,
-			cellSum, unlinkedSum, resp.Completeness.PendingTotal,
-			lhs, ps.COGSExclTax, lhs-ps.COGSExclTax)
+			resp.Completeness.ReconcilesToCogsExclTax, ps.COGSExclTax,
+			resp.Completeness.ReconcilesToCogsExclTax-ps.COGSExclTax,
+			cellSum, unlinkedSum, resp.Completeness.PendingTotal)
 	}
 
-	// The endpoint must publish its own left-hand side, and it must agree.
-	if cents(resp.Completeness.ReconcilesToCogsExclTax) != cents(lhs) {
-		t.Errorf("reconciles_to_cogs_excl_tax: got %.2f, want %.2f (Σcells+Σunlinked+pending)",
-			resp.Completeness.ReconcilesToCogsExclTax, lhs)
+	// (2) DISPLAY-ROUNDING DRIFT — bounded, not assumed absent. Each emitted
+	// cell and unlinked row is independently rounded to cents for display, so
+	// their sum may differ from the exact figure by at most half a cent each.
+	// Asserting the bound (rather than equality) is what keeps the sub-cent
+	// case honest instead of silently re-introducing the Σ(round) bug.
+	maxDrift := 0.005 * float64(len(resp.Cells)+len(resp.Unlinked))
+	if math.Abs(lhs-ps.COGSExclTax) > maxDrift+1e-9 {
+		t.Errorf("display-rounding drift exceeds its bound: |%.4f - %.4f| = %.4f > %.4f "+
+			"(%d cells + %d unlinked rows)",
+			lhs, ps.COGSExclTax, math.Abs(lhs-ps.COGSExclTax), maxDrift,
+			len(resp.Cells), len(resp.Unlinked))
+	}
+	// And B6 must actually be exercising that drift — if this fixture ever
+	// stops producing sub-cent cells, the assertion above goes vacuous.
+	if cents(lhs) == cents(ps.COGSExclTax) {
+		t.Errorf("B6 went vacuous: Σ(rounded cells) no longer differs from round(Σ lines); "+
+			"the sub-cent fixture is not exercising Σ(round) ≠ round(Σ) (both %.4f)", lhs)
 	}
 
 	// ── Amendment 2 — pending is a completeness figure, never a cell ────────
@@ -338,10 +379,11 @@ func TestTrends(t *testing.T) {
 	}
 	// And it must agree with period-summary's own eligible population.
 	psLines := ps.COGSExclTax - resp.Completeness.PendingTotal
-	if cents(psLines) != cents(cellSum+unlinkedSum) {
+	trendsLines := resp.Completeness.ReconcilesToCogsExclTax - resp.Completeness.PendingTotal
+	if cents(psLines) != cents(trendsLines) {
 		t.Errorf("pending population disagrees with period-summary: "+
-			"cogs_excl_tax(%.2f) - pending(%.2f) = %.2f, but Σcells+Σunlinked = %.2f",
-			ps.COGSExclTax, resp.Completeness.PendingTotal, psLines, cellSum+unlinkedSum)
+			"cogs_excl_tax(%.4f) - pending(%.2f) = %.4f, but reconciles - pending = %.4f",
+			ps.COGSExclTax, resp.Completeness.PendingTotal, psLines, trendsLines)
 	}
 	for _, g := range resp.Groups {
 		if g.Name == "Unreviewed" || g.ID == "pending" {
@@ -350,13 +392,22 @@ func TestTrends(t *testing.T) {
 	}
 
 	// ── Amendment 3 — no proration; unitemized remainder is surfaced ────────
-	// B1: (120.00 - 0) - 105.00 = 15.00 ; B1b: (78.40 - 4.40) - 60.00 = 14.00
-	if cents(resp.Completeness.UnitemizedRemainder) != cents(29.00) {
-		t.Errorf("unitemized_remainder: got %.2f, want 29.00 (15.00 + 14.00)",
+	// B1: (120.00 - 0) - 105.00 = 15.00 ; B1b: (78.40 - 4.40) - 60.00 = 14.00 ;
+	// plus B6's two sub-cent events, whose NUMERIC(10,2) totals store 4.9950 as
+	// 5.00 against a NUMERIC(10,4) line of 4.9950 -> 0.005 each. That 0.01 is a
+	// real schema artifact, not fixture noise, so it is asserted rather than
+	// rounded away.
+	if cents(resp.Completeness.UnitemizedRemainder) != cents(29.01) {
+		t.Errorf("unitemized_remainder: got %.2f, want 29.01 (15.00 + 14.00 + 2 x 0.005)",
 			resp.Completeness.UnitemizedRemainder)
 	}
-	// The B1 receipt's salmon line must be at FACE VALUE (105.00), not
-	// inflated by a 120/120 proration factor. Find its week's Proteins cell.
+	// The B1 receipt's salmon line must be at FACE VALUE (105.00). NOTE: this
+	// particular cell does NOT discriminate Amendment 3 — B1 has tax = 0, so
+	// the design's proration factor total/(total-tax) = 120/120 = exactly 1.0
+	// and the cell reads 105.00 with or without proration. It is asserted as a
+	// face-value floor; B1 earns its keep by carrying 15.00 of the unitemized
+	// remainder. Amendment 3 is discriminated by B1b (tx-delivery-fee-2, tax
+	// 4.40), where proration would scale 60.00 by 78.40/74.00 -> 63.57.
 	feeWeek := weekOf(t, win, 4, 0)
 	var feeCell float64
 	for _, c := range resp.Cells {
@@ -494,9 +545,10 @@ func TestTrendsAllowlistIsNotHardcoded(t *testing.T) {
 	for _, u := range wide.Unlinked {
 		wideUnlinked += u.Spend
 	}
-	lhs := wideSum + wideUnlinked + wide.Completeness.PendingTotal
-	if cents(lhs) != cents(ps.COGSExclTax) {
-		t.Errorf("identity failed on widened allowlist: LHS=%.2f RHS=%.2f delta=%.2f",
-			lhs, ps.COGSExclTax, lhs-ps.COGSExclTax)
+	_ = wideUnlinked
+	if cents(wide.Completeness.ReconcilesToCogsExclTax) != cents(ps.COGSExclTax) {
+		t.Errorf("identity failed on widened allowlist: reconciles=%.4f cogs_excl_tax=%.4f delta=%.4f",
+			wide.Completeness.ReconcilesToCogsExclTax, ps.COGSExclTax,
+			wide.Completeness.ReconcilesToCogsExclTax-ps.COGSExclTax)
 	}
 }
