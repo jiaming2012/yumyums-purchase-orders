@@ -6,6 +6,25 @@ executes and never decides. Ordered by consequence.
 **One card PARKED: D1 · syncspec-deflake.** Its items are 0a–0d below, first because the
 `cycle-gate` card depends on them.
 
+> ## ✅ OPERATOR RESOLUTIONS — 2026-07-21
+>
+> Given directly by the operator during triage. **0b and 0d are CLOSED. 0a and 0c are in
+> progress.** The three standing preferences are now recorded in
+> `.night-crew/knowledge/preferences.md` §"Test isolation and determinism" so future runs
+> inherit them rather than re-asking.
+>
+> | Item | Resolution |
+> |---|---|
+> | **0a** | Re-test `:1198` **under concurrent load** — the one condition never tested. If still green, investigate the right disposition (e.g. mark not-flaky). **In progress:** `investigate/1198-under-load-20260721`. |
+> | **0b** | **CLOSED — the gate runs on a clean DB.** Standing preference P1: clean DB with fixtures, unless there is a specific reason not to. A non-resetting entry point is a defect in the entry point, not a quirk for tests to absorb. |
+> | **0c** | **Direction set — separate schemas, no cross-contamination** (P2), applied everywhere, not just to this defect. A full surface audit is **in progress:** `investigate/cross-contamination-20260721` → `reference/cross-contamination-surfaces-20260721.md`. The `:525` fix is scoped by that audit, not by D1's narrower reading. |
+> | **0d** | **CLOSED — `RUN-10` marked RESOLVED.** Standing policy P3: what cannot be reproduced is resolved until it recurs. Reopening on recurrence is expected and is not a process failure. |
+>
+> **P3 carries a caveat that applies directly to 0a:** "not flaky" (no mechanism, no
+> reproduction) and "rare, mechanism understood, bounded at N%" are different findings and
+> must not be collapsed. `:1198` has a named mechanism in its own de-flake comment — a
+> clobber race. If the load test stays green, that distinction decides the label.
+
 ---
 
 ## 0a. The `:1198` premise that promoted D1 does not survive — re-derive or drop it
