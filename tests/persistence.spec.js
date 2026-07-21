@@ -434,8 +434,10 @@ test.describe('Persistence', () => {
     // Open the checklist — should show read-only with checkmark
     await row2.click();
     await expect(page.locator('.submit-confirm')).toBeVisible({ timeout: 5000 });
-    // In readonly mode, the checked field shows ✓ text instead of check-btn
-    await expect(page.locator('text=✓')).toBeVisible({ timeout: 5000 });
+    // In readonly mode, the checked field shows ✓ text instead of check-btn.
+    // Scoped to #fill-body: a page-wide 'text=✓' also matches the .review-check
+    // ✓ that the approvals list renders (see [FLD-R3 FLD-R5] below).
+    await expect(page.locator('#fill-body').getByText('✓')).toBeVisible({ timeout: 5000 });
   });
 
   test('submitted checklist fields are not blank after reload [FLD-R3 FLD-R5]', async ({ page }) => {
@@ -464,7 +466,10 @@ test.describe('Persistence', () => {
 
     // In readonly mode (submitted), field shows ✓ text instead of interactive check-btn
     await expect(page.locator('.submit-confirm')).toBeVisible({ timeout: 5000 });
-    await expect(page.locator('text=✓')).toBeVisible({ timeout: 5000 });
+    // Same deliberate wait as [FLD-R4] above — force the approvals-list ✓ into
+    // the DOM so the assertion below cannot pass by winning a race.
+    await expect(page.locator('#approvals-list .review-check').first()).toBeAttached({ timeout: 10000 });
+    await expect(page.locator('#fill-body').getByText('✓')).toBeVisible({ timeout: 5000 });
 
     // Attribution should not show "undefined"
     const attribution = page.locator('.fill-attribution').first();
