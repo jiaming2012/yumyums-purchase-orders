@@ -12,6 +12,10 @@ import (
 	opsync "github.com/yumyums/hq/internal/sync"
 )
 
+// ErrNotAuthorized is returned by approveSubmission / rejectItem when the
+// context's user may not review the submission (design §8 amendment 4).
+var ErrNotAuthorized = errors.New("not authorized to review this submission")
+
 // ErrTemplateArchived is returned when submitting a checklist for an archived template.
 var ErrTemplateArchived = errors.New("template is archived")
 
@@ -1073,6 +1077,21 @@ func hydrateSubmission(ctx context.Context, pool *pgxpool.Pool, sub *Submission)
 
 // approveSubmission marks a submission as approved (D-23).
 func approveSubmission(ctx context.Context, pool *pgxpool.Pool, submissionID string, reviewerID string) error {
+	// AUTHZ — the single gate for this mutation, wherever it is called from
+	// (design §8 amendment 4, B5). It lives HERE rather than in the REST
+	// handler because there are two doors: ApproveSubmissionHandler and
+	// cmd/server's workflowOpRouter (APPROVE_ITEM -> ApproveSubmissionFunc),
+	// both mounted in the same cookie-auth group. G6 caught a handler-only
+	// gate being walked straight around via POST /workflow/ops. Putting the
+	// check on the mutation means every caller — including any added later —
+	// inherits it, and the trap is disarmed rather than re-armed.
+	//
+	// Identity comes from the request context, which auth.Middleware populates
+	// for both doors. No user on the context => refused, never waved through.
+	if err := requireReviewAuthz(ctx, pool, submissionID); err != nil {
+		return err
+	}
+
 	tag, err := pool.Exec(ctx,
 		`UPDATE checklist_submissions
 		 SET status = 'approved', reviewed_by = $1, reviewed_at = now()
@@ -1090,6 +1109,21 @@ func approveSubmission(ctx context.Context, pool *pgxpool.Pool, submissionID str
 
 // rejectItem inserts a rejection record and updates the submission status to 'rejected' (D-06).
 func rejectItem(ctx context.Context, pool *pgxpool.Pool, input RejectItemInput, rejectedBy string) error {
+	// AUTHZ — the single gate for this mutation, wherever it is called from
+	// (design §8 amendment 4, B5). It lives HERE rather than in the REST
+	// handler because there are two doors: ApproveSubmissionHandler and
+	// cmd/server's workflowOpRouter (APPROVE_ITEM -> ApproveSubmissionFunc),
+	// both mounted in the same cookie-auth group. G6 caught a handler-only
+	// gate being walked straight around via POST /workflow/ops. Putting the
+	// check on the mutation means every caller — including any added later —
+	// inherits it, and the trap is disarmed rather than re-armed.
+	//
+	// Identity comes from the request context, which auth.Middleware populates
+	// for both doors. No user on the context => refused, never waved through.
+	if err := requireReviewAuthz(ctx, pool, input.SubmissionID); err != nil {
+		return err
+	}
+
 	tx, err := pool.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("begin transaction: %w", err)
@@ -1271,4 +1305,23 @@ func canReviewSubmission(ctx context.Context, pool *pgxpool.Pool, user *auth.Use
 		return false, fmt.Errorf("check approver assignment: %w", err)
 	}
 	return ok, nil
+}
+
+// requireReviewAuthz resolves the caller from the request context and returns
+// ErrNotAuthorized unless they may review submissionID. Fails CLOSED on a
+// missing user and on a lookup error — an authz check that cannot answer must
+// never answer "yes".
+func requireReviewAuthz(ctx context.Context, pool *pgxpool.Pool, submissionID string) error {
+	user := auth.UserFromContext(ctx)
+	if user == nil {
+		return ErrNotAuthorized
+	}
+	allowed, err := canReviewSubmission(ctx, pool, user, submissionID)
+	if err != nil {
+		return fmt.Errorf("review authz check: %w", err)
+	}
+	if !allowed {
+		return ErrNotAuthorized
+	}
+	return nil
 }

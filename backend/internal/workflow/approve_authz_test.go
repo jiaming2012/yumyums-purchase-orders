@@ -3,6 +3,7 @@ package workflow
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -270,5 +271,113 @@ func TestApproveSubmission_AssigneeRoleIsNotApprover_403(t *testing.T) {
 	}
 	if got := submissionStatus(t, subID); got != "pending" {
 		t.Errorf("assignee self-approve MUTATED the submission: status = %q", got)
+	}
+}
+
+// ── G6 SHIP-BLOCKER: the /ops path bypassed the handler-only gate ───────────
+//
+// The first cut of this card put canReviewSubmission inside
+// ApproveSubmissionHandler / RejectItemHandler ONLY. But cmd/server's
+// workflowOpRouter routes APPROVE_ITEM -> ApproveSubmissionFunc and
+// REJECT_ITEM -> RejectItemFunc — the exported aliases for the same
+// repository mutations — with no authz check of its own, and POST
+// /api/v1/workflow/ops sits in the SAME cookie-auth group as
+// /approveSubmission. Identical reachability, zero extra privilege, gate
+// entirely skipped. G6 reproduced it live: a zero-assignment team_member got
+// 403 from /approveSubmission and 200 from /ops APPROVE_ITEM on the same
+// submission, and the forged approval then broadcast over the sync hub as
+// legitimate.
+//
+// The fix closes the CLASS, not the instance: the check now lives inside
+// approveSubmission / rejectItem themselves, so every caller — the two
+// handlers, the op router, and any caller added later — inherits it. These
+// tests drive the exported aliases, i.e. exactly what the op router calls, so
+// they fail if the gate ever migrates back up into the handlers.
+
+// opsCtx builds the context the op router hands the mutation: the request
+// context with the session user attached by auth.Middleware.
+func opsCtx(t *testing.T, user *auth.User) context.Context {
+	t.Helper()
+	return context.WithValue(t.Context(), auth.CtxKeyUser, user)
+}
+
+func TestApproveSubmissionFunc_OpsPath_NonApprover_Refused(t *testing.T) {
+	if testPool == nil {
+		t.Skip("no test database")
+	}
+	_, _, subID := setupAuthzFixture(t)
+	strangerID := mkAuthzUser(t, "authz-ops-stranger@yumyums.kitchen", []string{"team_member"})
+	stranger := &auth.User{ID: strangerID, Roles: []string{"team_member"}, Status: "active"}
+
+	err := ApproveSubmissionFunc(opsCtx(t, stranger), testPool, subID, strangerID)
+	if !errors.Is(err, ErrNotAuthorized) {
+		t.Errorf("ops-path approve by non-approver: err = %v, want ErrNotAuthorized", err)
+	}
+	if got := submissionStatus(t, subID); got != "pending" {
+		t.Errorf("ops-path approve MUTATED the submission: status = %q, want %q", got, "pending")
+	}
+}
+
+func TestRejectItemFunc_OpsPath_NonApprover_Refused(t *testing.T) {
+	if testPool == nil {
+		t.Skip("no test database")
+	}
+	_, fieldID, subID := setupAuthzFixture(t)
+	strangerID := mkAuthzUser(t, "authz-ops-stranger2@yumyums.kitchen", []string{"team_member"})
+	stranger := &auth.User{ID: strangerID, Roles: []string{"team_member"}, Status: "active"}
+
+	err := RejectItemFunc(opsCtx(t, stranger), testPool,
+		RejectItemInput{SubmissionID: subID, FieldID: fieldID, Comment: "forged"}, strangerID)
+	if !errors.Is(err, ErrNotAuthorized) {
+		t.Errorf("ops-path reject by non-approver: err = %v, want ErrNotAuthorized", err)
+	}
+	if got := submissionStatus(t, subID); got != "pending" {
+		t.Errorf("ops-path reject MUTATED the submission: status = %q, want %q", got, "pending")
+	}
+	var n int
+	if err := testPool.QueryRow(t.Context(),
+		`SELECT count(*) FROM submission_rejections WHERE submission_id = $1`, subID).Scan(&n); err != nil {
+		t.Fatalf("count rejections: %v", err)
+	}
+	if n != 0 {
+		t.Errorf("ops-path reject wrote %d rejection rows, want 0", n)
+	}
+}
+
+// The allowed path must still work through the ops route, or the fix has
+// simply broken live sync for legitimate approvers.
+func TestApproveSubmissionFunc_OpsPath_Approver_Allowed(t *testing.T) {
+	if testPool == nil {
+		t.Skip("no test database")
+	}
+	tmplID, _, subID := setupAuthzFixture(t)
+	approverID := mkAuthzUser(t, "authz-ops-approver@yumyums.kitchen", []string{"team_member"})
+	assignApprover(t, tmplID, "user", approverID)
+	approver := &auth.User{ID: approverID, Roles: []string{"team_member"}, Status: "active"}
+
+	if err := ApproveSubmissionFunc(opsCtx(t, approver), testPool, subID, approverID); err != nil {
+		t.Errorf("ops-path approve by assigned approver: err = %v, want nil", err)
+	}
+	if got := submissionStatus(t, subID); got != "approved" {
+		t.Errorf("ops-path approve by approver: status = %q, want %q", got, "approved")
+	}
+}
+
+// Fail CLOSED when the context carries no user at all. A caller added later
+// from a background job or a test harness must be refused, not waved through
+// on the absence of identity.
+func TestApproveSubmissionFunc_NoUserInContext_Refused(t *testing.T) {
+	if testPool == nil {
+		t.Skip("no test database")
+	}
+	_, _, subID := setupAuthzFixture(t)
+	someoneID := mkAuthzUser(t, "authz-noctx@yumyums.kitchen", []string{"admin"})
+
+	// Bare context — no auth.CtxKeyUser. Even an admin id must not carry it.
+	if err := ApproveSubmissionFunc(t.Context(), testPool, subID, someoneID); !errors.Is(err, ErrNotAuthorized) {
+		t.Errorf("no-user-in-context approve: err = %v, want ErrNotAuthorized", err)
+	}
+	if got := submissionStatus(t, subID); got != "pending" {
+		t.Errorf("no-user-in-context approve MUTATED the submission: status = %q", got)
 	}
 }

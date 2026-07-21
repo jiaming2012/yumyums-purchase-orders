@@ -320,3 +320,78 @@ func TestRequirePermission_DisabledApp_DoesNotGrant(t *testing.T) {
 		t.Errorf("disabled app: status=%d reached=%v, want 403/false", code, reached)
 	}
 }
+
+// ── Fail-closed on a DB error (G6 observation 4) ────────────────────────────
+//
+// The property that makes this gate trustworthy is that it cannot fail OPEN. If
+// the grant lookup errors — pool exhausted, table missing, query cancelled — the
+// middleware must refuse, never wave the request through on the reasoning that
+// it "couldn't tell". G6 verified this by hand; without a test it could regress
+// to fail-open silently, which is the worst possible regression here because
+// nothing observable changes until someone is already through the door.
+//
+// The error is forced with a CLOSED pool: every Query on it returns
+// "closed pool", the same shape a real outage produces at this call site.
+func TestRequirePermission_DBError_FailsClosed(t *testing.T) {
+	requireDB(t)
+
+	dbURL := os.Getenv("DB_TEST_URL")
+	if dbURL == "" {
+		dbURL = "postgres://yumyums:yumyums@localhost:5432/hq_test?sslmode=disable"
+	}
+	brokenPool, err := pgxpool.New(context.Background(), dbURL)
+	if err != nil {
+		t.Fatalf("build pool: %v", err)
+	}
+	brokenPool.Close() // every subsequent query fails
+
+	reached := false
+	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		reached = true
+		w.WriteHeader(http.StatusOK)
+	})
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req = req.WithContext(context.WithValue(req.Context(), CtxKeyUser,
+		&User{ID: "00000000-0000-0000-0000-000000000001", Roles: []string{"team_member"}}))
+	rec := httptest.NewRecorder()
+
+	RequirePermission(brokenPool, "inventory-trends", "inventory")(next).ServeHTTP(rec, req)
+
+	if reached {
+		t.Error("DB error FAILED OPEN — the wrapped handler ran without a grant check")
+	}
+	if rec.Code != http.StatusInternalServerError {
+		t.Errorf("DB error: status = %d, want 500", rec.Code)
+	}
+	if strings.Contains(rec.Body.String(), "ok") {
+		t.Errorf("DB error: body = %s, want an error envelope", rec.Body.String())
+	}
+}
+
+// A superadmin is resolved before the grant query, so an outage must not lock
+// them out — the one case where skipping the lookup is correct.
+func TestRequirePermission_DBError_SuperadminStillPasses(t *testing.T) {
+	requireDB(t)
+
+	dbURL := os.Getenv("DB_TEST_URL")
+	if dbURL == "" {
+		dbURL = "postgres://yumyums:yumyums@localhost:5432/hq_test?sslmode=disable"
+	}
+	brokenPool, err := pgxpool.New(context.Background(), dbURL)
+	if err != nil {
+		t.Fatalf("build pool: %v", err)
+	}
+	brokenPool.Close()
+
+	reached := false
+	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { reached = true })
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req = req.WithContext(context.WithValue(req.Context(), CtxKeyUser,
+		&User{ID: "00000000-0000-0000-0000-000000000002", IsSuperadmin: true}))
+	RequirePermission(brokenPool, "inventory-trends", "inventory")(next).
+		ServeHTTP(httptest.NewRecorder(), req)
+
+	if !reached {
+		t.Error("superadmin blocked by an unrelated DB outage")
+	}
+}

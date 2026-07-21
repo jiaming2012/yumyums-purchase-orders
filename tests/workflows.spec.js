@@ -3435,3 +3435,157 @@ test.describe('Cross-cutting guarantees (prove sweep)', () => {
   // this flow is PARKed for a dedicated offline-sync harness rather than forced
   // into a dishonest classification here. No test authored for NFR-5.
 });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// B5 fold-in — the /ops wire path must enforce the same review gate
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// G6 ship-blocker. POST /api/v1/workflow/ops sits in the SAME cookie-auth group
+// as /approveSubmission, and its router dispatches APPROVE_ITEM / REJECT_ITEM
+// straight to the same repository mutations. A gate applied only in the REST
+// handlers left this path wide open: a zero-assignment team_member was refused
+// at /approveSubmission and served 200 at /ops for the same submission, with the
+// forged approval then broadcasting over the sync hub as legitimate.
+//
+// This block is the wire-level regression: same user, same submission, both
+// doors, asserting the MUTATION did not occur — not merely the status code.
+test.describe('Approve/reject authz — the /ops path', () => {
+
+  // Builds: a template requiring approval, a submission on it, and a logged-in
+  // team_member with NO approver assignment anywhere.
+  async function setupForgeryFixture(page, tag) {
+    await login(page);
+    const email = `ops-authz-${tag}-${Date.now()}@yumyums.kitchen`;
+    const invite = await page.evaluate(async (em) => {
+      const res = await fetch('/api/v1/users/invite', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ first_name: 'Ops', last_name: 'Stranger', email: em, roles: ['team_member'] }),
+      });
+      return res.json();
+    }, email);
+    await page.evaluate(async (t) => {
+      await fetch('/api/v1/auth/accept-invite', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: t, password: 'test456' }),
+      });
+    }, invite.invite_path.split('token=')[1]);
+
+    await login(page);
+    const tpl = await apiCall(page, 'POST', 'createTemplate', {
+      name: `Ops Authz ${tag} ${Date.now()}`,
+      sections: [{ title: 'S1', order: 0, condition: null, fields: [
+        { type: 'checkbox', label: 'Item A', required: false, order: 0, config: null, fail_trigger: null, condition: null },
+      ]}],
+      schedules: [{ active_days: [0, 1, 2, 3, 4, 5, 6] }],
+      // requires_approval demands an approver. Assigning the ADMIN role keeps
+      // the team_member stranger a non-approver (the case under test) while
+      // giving the positive leg a legitimately-assigned reviewer.
+      assignments: [
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' },
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'approver' },
+      ],
+      requires_approval: true,
+    });
+    // createTemplate returns the bare row — re-read to get generated field ids.
+    const full = (await apiCall(page, 'GET', 'templates')).find(t => t.id === tpl.id);
+    const fieldId = full.sections[0].fields[0].id;
+    await apiCall(page, 'POST', 'submitChecklist', {
+      template_id: tpl.id, idempotency_key: generateUUID(),
+      responses: [{ field_id: fieldId, value: JSON.stringify({ value: true }) }],
+    });
+    // Resolve the submission the way the rest of this file does — off the
+    // approvals queue — rather than trusting the submit response shape.
+    const pending = await apiCall(page, 'GET', 'pendingApprovals');
+    const submissionId = (pending.find(s => s.template_id === tpl.id) || pending[0]).id;
+
+    await login(page, email, 'test456');
+    return { submissionId, fieldId, email };
+  }
+
+  async function statusOf(page, submissionId) {
+    await login(page);
+    const list = await apiCall(page, 'GET', 'pendingApprovals');
+    const found = (list || []).find(s => s.id === submissionId);
+    return found ? found.status : 'absent-from-pending';
+  }
+
+  test('APPROVE_ITEM via /ops is refused for a non-approver and mutates nothing', async ({ page }) => {
+    const { submissionId } = await setupForgeryFixture(page, 'approve');
+
+    // Front door: already gated.
+    const rest = await page.evaluate(async (id) => {
+      const r = await fetch('/api/v1/workflow/approveSubmission', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ submission_id: id }),
+      });
+      return { status: r.status, body: await r.text() };
+    }, submissionId);
+    expect(rest.status).toBe(403);
+
+    // Side door: must be gated identically. This returned 200 before the fix.
+    const ops = await page.evaluate(async (id) => {
+      const r = await fetch('/api/v1/workflow/ops', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          op_type: 'APPROVE_ITEM', device_id: 'forged-' + Date.now(),
+          entity_id: id, entity_type: 'submission', lamport_ts: Date.now(),
+          payload: { submission_id: id },
+        }),
+      });
+      return { status: r.status, body: await r.text() };
+    }, submissionId);
+    expect(ops.status).toBe(403);
+
+    // The mutation is what matters — the submission must still be pending.
+    expect(await statusOf(page, submissionId)).toBe('pending');
+  });
+
+  test('REJECT_ITEM via /ops is refused for a non-approver and writes no rejection', async ({ page }) => {
+    const { submissionId, fieldId } = await setupForgeryFixture(page, 'reject');
+
+    const rest = await page.evaluate(async ([id, fid]) => {
+      const r = await fetch('/api/v1/workflow/rejectItem', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ submission_id: id, field_id: fid, comment: 'front door' }),
+      });
+      return { status: r.status };
+    }, [submissionId, fieldId]);
+    expect(rest.status).toBe(403);
+
+    const ops = await page.evaluate(async ([id, fid]) => {
+      const r = await fetch('/api/v1/workflow/ops', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          op_type: 'REJECT_ITEM', device_id: 'forged-' + Date.now(),
+          entity_id: id, entity_type: 'submission', lamport_ts: Date.now(),
+          payload: { submission_id: id, field_id: fid, comment: 'forged' },
+        }),
+      });
+      return { status: r.status, body: await r.text() };
+    }, [submissionId, fieldId]);
+    expect(ops.status).toBe(403);
+
+    expect(await statusOf(page, submissionId)).toBe('pending');
+  });
+
+  // The legitimate path must still work through /ops, or the fix has simply
+  // broken live-sync approvals for real approvers.
+  test('APPROVE_ITEM via /ops still succeeds for an admin', async ({ page }) => {
+    const { submissionId } = await setupForgeryFixture(page, 'admin');
+    await login(page); // superadmin
+
+    const ops = await page.evaluate(async (id) => {
+      const r = await fetch('/api/v1/workflow/ops', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          op_type: 'APPROVE_ITEM', device_id: 'admin-' + Date.now(),
+          entity_id: id, entity_type: 'submission', lamport_ts: Date.now(),
+          payload: { submission_id: id },
+        }),
+      });
+      return { status: r.status };
+    }, submissionId);
+    expect(ops.status).toBe(200);
+    expect(await statusOf(page, submissionId)).toBe('absent-from-pending');
+  });
+});

@@ -99,6 +99,13 @@ func workflowOpRouter(pool *pgxpool.Pool) opsync.OpRouter {
 				return nil, routerErr(http.StatusBadRequest, "invalid_payload")
 			}
 			if err := workflow.ApproveSubmissionFunc(ctx, pool, body.SubmissionID, userID); err != nil {
+				// B5 authz is enforced inside the mutation, so this path is
+				// gated identically to POST /workflow/approveSubmission. Map
+				// the refusal to 403 rather than letting it read as a server
+				// fault — a forged op must be told it was refused.
+				if errors.Is(err, workflow.ErrNotAuthorized) {
+					return nil, routerErr(http.StatusForbidden, "forbidden")
+				}
 				slog.Error("OpRouter APPROVE_ITEM", "error", err)
 				return nil, routerErr(http.StatusInternalServerError, "internal_error")
 			}
@@ -109,6 +116,9 @@ func workflowOpRouter(pool *pgxpool.Pool) opsync.OpRouter {
 				return nil, routerErr(http.StatusBadRequest, "invalid_payload")
 			}
 			if err := workflow.RejectItemFunc(ctx, pool, input, userID); err != nil {
+				if errors.Is(err, workflow.ErrNotAuthorized) {
+					return nil, routerErr(http.StatusForbidden, "forbidden")
+				}
 				slog.Error("OpRouter REJECT_ITEM", "error", err)
 				return nil, routerErr(http.StatusInternalServerError, "internal_error")
 			}

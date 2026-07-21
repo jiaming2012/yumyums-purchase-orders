@@ -746,23 +746,14 @@ func ApproveSubmissionHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		// B5 fold-in (design §8 amendment 4): approver assignment ∨ admin ∨
-		// superadmin. Before this gate, ANY logged-in user could approve ANY
-		// submission — including one they were never assigned to review.
-		// Checked BEFORE approveSubmission so a refusal cannot leave the
-		// submission mutated.
-		allowed, err := canReviewSubmission(r.Context(), pool, user, body.SubmissionID)
-		if err != nil {
-			slog.Error("approve authz check failed", "error", err, "submission_id", body.SubmissionID)
-			writeError(w, http.StatusInternalServerError, "internal_error")
-			return
-		}
-		if !allowed {
-			writeError(w, http.StatusForbidden, "forbidden")
-			return
-		}
-
+		// B5 authz (design §8 amendment 4) lives INSIDE approveSubmission, not
+		// here — see the comment on the mutation. This handler only translates
+		// the sentinel into HTTP. The refusal happens before any write.
 		if err := approveSubmission(r.Context(), pool, body.SubmissionID, user.ID); err != nil {
+			if errors.Is(err, ErrNotAuthorized) {
+				writeError(w, http.StatusForbidden, "forbidden")
+				return
+			}
 			slog.Error("approveSubmission error", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
@@ -820,22 +811,14 @@ func RejectItemHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		// B5 fold-in (design §8 amendment 4) — same rule as approve: rejecting
-		// is the same review authority exercised the other way, so it carries
-		// the same gate. Checked BEFORE rejectItem so a refusal writes no
-		// submission_rejections row.
-		allowed, err := canReviewSubmission(r.Context(), pool, user, input.SubmissionID)
-		if err != nil {
-			slog.Error("reject authz check failed", "error", err, "submission_id", input.SubmissionID)
-			writeError(w, http.StatusInternalServerError, "internal_error")
-			return
-		}
-		if !allowed {
-			writeError(w, http.StatusForbidden, "forbidden")
-			return
-		}
-
+		// B5 authz lives INSIDE rejectItem — same reason as approve. A refusal
+		// writes no submission_rejections row because the check runs before the
+		// transaction opens.
 		if err := rejectItem(r.Context(), pool, input, user.ID); err != nil {
+			if errors.Is(err, ErrNotAuthorized) {
+				writeError(w, http.StatusForbidden, "forbidden")
+				return
+			}
 			slog.Error("rejectItem error", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
