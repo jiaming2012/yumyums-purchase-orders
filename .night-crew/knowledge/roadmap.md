@@ -111,12 +111,25 @@
   Red-first; production `sync.js` change → `task sw` + the attended two-device convergence flag
   re-arms on land. Footprint: sync trust (`sync.js`, `sync.spec.js`, `workflows.spec.js`,
   `access_test.go` comment). → Eng KR5 (determinism), QA. *(from DECISIONS-NEEDED-20260721 §B2/§B3)*
-- **`syncspec-deflake`** · **PLANNED** (promoted from BACKLOG at `slate-20260720c` under the §15k
-  architecture-blocking bar — the `cycle-gate` card's no-retry attestation cannot pass while these
-  two reds stand) · De-flake `tests/sync.spec.js` on two fronts: `:1198 temperature answer
-  converges`, **proven flaky on a quiet box** (red 1-of-2 `--retries=0` legs at load 0.84,
-  orchestrator-run streak 2026-07-22 — not load-caused, as two prior runs assumed; next step is
-  structural, `survivalCell`'s 12s `CONVERGE_TIMEOUT` vs the real WS round trip), and
+- **`syncspec-deflake`** · **PLANNED — RE-AIMED at T-20 (2026-07-21); the original premise was
+  wrong in its aim, right in its conclusion.** D1 PARKED this card 2026-07-20 and its evidence was
+  re-derived twice. Net position: **the test IS flaky (16% overall; 20% under a concurrent
+  Playwright suite — 4 red / 25 `--retries=0` legs), but NOT for the reason the card assumed.**
+  Every red is a 12s timeout at **`sync.spec.js:1119`**, the `POST /ops` COMMIT wait — *not*
+  `CONVERGE_TIMEOUT`, not a convergence assert. Debounce is 400ms (a 30× margin) and the journal
+  gains **+3 rows on a red vs +5 on a green**: no `SET_FIELD` row, so **the op never fired. It was
+  not slow. No timeout increase can fix this.** Mechanism: the prior de-flake *relocated* the
+  clobber race rather than closing it — a stray WS catch-up `loadMyChecklists` re-render detaches
+  the input between `fill()` and `dispatchEvent('change')`, so the change handler never arms
+  `debouncedSaveField`. **Fix is TEST-SIDE** (settle the runner before entry; re-assert and
+  re-dispatch when no POST is observed) — **no production change needed**, so this does NOT re-arm
+  the attended two-device check. Evidence: `reference/1198-flake-reproduction-20260721.md`.
+  **Scope widened at T-20 to three named tests** — `:1198`, `:525 FLD-LIVE-02`, and two new
+  observations from triage: `sync.spec.js` **LST-17** (cross-device list-progress decrement) and
+  `workflows.spec.js` **GATE-04** (required-photo submit gate), both passed-on-retry, neither
+  previously recorded. `cycle-gate`'s no-retry premise **STANDS** — it genuinely cannot pass at
+  ~1-in-5. Note `:525`'s disposition is now decided by preference P1 (clean DB): it fails only
+  against a carried-over journal, so a gate that resets may never see it · Also covers
   `:525 FLD-LIVE-02`, which fails 3/3 in isolation *and at the pre-gate baseline* — a pre-existing
   order-dependent test that must be fixed as order-dependence, not reordered around. Deliverable is
   a `--retries=0` streak proof on a quiet box, not merely a green run. Footprint: sync trust
@@ -145,7 +158,7 @@
   Red-first Go test: every week×group cell = SUM of matching
   line-item spend on a ≥8-week/≥2-group seeded fixture. Footprint: `backend/internal/inventory`.
   → Eng KR1, Delivery KR2.
-- **`trends-tab-frontend`** · **PLANNED** (blocked by F1 2026-07-22; unblocks the moment F1 re-lands) · Build the Trends tab (`#s5`, replacing the
+- **`trends-tab-frontend`** · **DONE** (F3 shipped 2026-07-20, merged `be5ffb0`, triaged T-20; **G6 PASS on the first pass — the only card of the run needing no revision**. Reconciles on `completeness.reconciles_to_cogs_excl_tax`, the payroll-facing figure, NOT the sum of penny-rounded display cells, and discloses the drift when they diverge. Net-zero cells render as absent (`—`), never as a measured `$0.00`; `unitemized_remainder` labelled **(net)** with an open disclosure. Three defects were caught by reading the screenshots back, not from code — a price splitting mid-number at 390px, an axis choice flattening week-to-week variation, and a `$0.00` total on empty weeks) · Build the Trends tab (`#s5`, replacing the
   `renderTrends` stub at `inventory.html:993-995`): inline SVG/CSS weekly-spend-by-group chart +
   table, ~8–12 week window. Ships with `tests/states-trends.spec.js` (State-Enumeration: empty /
   loading / error / populated + no-data + ungated edges, screenshots read back). Footprint:
@@ -160,7 +173,7 @@
   ingredient cost / margin / food-cost %) + a top/bottom movers highlight; inline SVG/CSS bars;
   honest empty/low-data state where Toast sales are absent (accept-sparse-prod). Ships with
   `tests/states-cost.spec.js`. Footprint: `inventory.html`. → Delivery KR2, QA KR3.
-- **`inventory-tab-gating`** · **PLANNED** (dropped 2026-07-22 by budget discipline — recommended FIRST next run; Cost tab ships logged-in-only until it lands) (design signed 2026-07-20: **Option (i)** two per-tab
+- **`inventory-tab-gating`** · **DONE** (F5 shipped 2026-07-20, merged `c1a2393`, triaged T-20. **Its G6 caught a live authentication bypass the card would otherwise have shipped:** `POST /workflow/ops` routed `APPROVE_ITEM`/`REJECT_ITEM` to the same mutations from the same cookie-auth group with no check, so a `team_member` with zero assignments forged an approval that broadcast over the sync hub as legitimate. Fixed by moving `requireReviewAuthz` INSIDE `approveSubmission`/`rejectItem` (`8c71022`) so all four call sites inherit it — closing the class, not the instance. Tab gate held across 13 attack variants incl. path normalization, disabled rows, orphaned/wrong-app grants, service-token crossover; fails closed on DB error. **NOTE — this card shipped the per-tab MECHANISM, not coverage: only 2 of the 11 Users-tab grants are enforced anywhere. See `grant-enforcement-parity`, decision 36**) (design signed 2026-07-20: **Option (i)** two per-tab
   slugs via `SeedHQApps` — NO migration, QA-KR4 down-migration clause is N/A; **umbrella
   semantics** — `RequirePermission` passes on (tab slug ∨ whole-app `inventory` slug ∨ superadmin);
   **+ B5 fold-in:** also gate `ApproveSubmissionHandler`/`RejectItemHandler`
@@ -174,6 +187,30 @@
   `backend/internal/workflow` handlers). → Eng KR3, Product KR3, QA KR4.
 
 ## Activity 5 — Cycle gate · *last, serialized*
+
+- **`grant-enforcement-parity`** · **PLANNED — URGENT, BLOCKS GO-LIVE** (new card, T-20 decision 36,
+  2026-07-21) · **The Users tab offers 11 grants; the backend enforces 2.** Every `RequirePermission`
+  call in the server is `inventory-trends` and `inventory-cost` (both shipped by F5). The other nine
+  — `inventory` itself, `operations`, `purchasing`, `onboarding`, `users`, plus the four placeholder
+  slugs — are checked nowhere. `isAdmin`/`manager` **role** checks protect some endpoints, but roles
+  are a different axis from grants: revoking a grant today removes launcher tiles and hides tabs,
+  and changes nothing about what the holder can read from the API with a cookie. Concretely, an
+  ungranted logged-in user reads `/inventory/purchases` (what was paid), `/items`, `/stock`,
+  `/recipes`, `/menu-items` at 200.
+  **Operator ruling (verbatim):** *"If an employee does not have access to the app (or access to the
+  app's tab), then they should NOT be able to access the view / tab / data."* The grant model is a
+  DATA boundary, not a UI convenience.
+  **Not an F5 defect** — F5 built the mechanism the signed design scoped it to, and built it well
+  (umbrella semantics, fail-closed on DB error, 13 attack variants held). Nothing migrated the
+  pre-existing surface onto it.
+  **No live exposure today** (no non-admin crew hold accounts) — **but this must be fixed before
+  go-live**, which makes it the largest open correctness item on the roadmap.
+  **First task is to prove it live:** the evidence is source enumeration of every `RequirePermission`
+  call, NOT a grant-less curl. Start by reproducing with a real ungranted account, then migrate the
+  surface onto `RequirePermission` app-by-app. Expect the `EXCEPTIONS`-style parity guard from
+  `tests/ops-authz-coverage.spec.js` to be the right shape for a standing regression test — one that
+  derives the app list from `SeedHQApps` and asserts every slug is enforced somewhere.
+  → Eng KR1, QA KR3.
 
 - **`cycle-gate`** · **PLANNED** · Milestone boundary for "Prove & surface". Per-KR scorecard;
   suite-green attestation on the isolated deterministic stack (with the no-retry hard gate,

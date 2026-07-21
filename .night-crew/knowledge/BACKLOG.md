@@ -503,3 +503,46 @@
   blocked today: `daily_menu_sales` stores only `units_sold` + `gross_amount`, no discount or
   comp field, so it needs Toast sync to capture them first. Not cleanup; belongs in a PM
   session. · origin: overnight-20260722 triage T-19 · new
+
+---
+
+## Graduated / added at morning triage T-20 (2026-07-21, overnight-20260720c)
+
+- **Prod, dev and test share ONE Postgres cluster, one role, one password** ·
+  `yumyums-dev-pg` holds database `yumyums` with schema `public` (dev, 50 tables) AND schema
+  `production` (prod, 48 tables), plus databases `hq_test_go` / `hq_test_e2e`. Prod is separated
+  from dev by nothing but a client-supplied `search_path=production` in a connection string — not
+  an enforced boundary, no privilege separation, same `yumyums` role for both. Omit the parameter
+  and you land in `public`. This is the sharpest instance of audit surface #4 and was found while
+  answering the operator's "should never be writing to the live db!". Correct fix is a genuinely
+  separate cluster (or at minimum separate roles with `REVOKE`), not more `search_path` discipline.
+  · origin: T-20 triage investigation · **new, HIGH**
+- **`dotenv: ['backend/.env']` injects 21 LIVE credentials into every task from the main checkout** ·
+  Root `Taskfile.yml:3`. A dev server (PID 75921) ran three days holding live Mercury *production*,
+  Anthropic, Zoho Cliq and SMTP keys with `E2E_DISABLE_SCHEDULERS` unset — receipt worker, cutoff,
+  drift and alert queue all armed against real external services. Triage blanked the Cliq/SMTP vars
+  for the *Playwright* server (decision 40), which does NOT address `task dev` or any other target.
+  Proper fix: invert the default so alerts require an explicit `ALERTS_ENABLED=1` and forgetting a
+  flag fails safe. · origin: T-20 / audit surface #5 · **new, HIGH**
+- **`task backend:db-start` is vestigial and now conflicts** · It creates a second HQ Postgres
+  container (`yumyums-pg`, which does not exist today) and, after decision 39 templated its host
+  mapping to `{{.DB_PORT}}`, would collide with `yumyums-dev-pg` on 5433. Either delete the target
+  or point it at a genuinely separate port. Not redesigned at triage. · origin: T-20 · new
+- **Stale server processes squat ports across sessions** · PID 83061 holds `:18484` from a worktree
+  (`hq-worktrees/sync-units`) that has been **deleted**, pointed at a dead Postgres port. Same shape
+  as the `:8199` latch (audit #2, fixed by decision 41) with a different number. A general reaper /
+  port-ownership convention is the durable fix. · origin: T-20 · new
+- **`stash@{0}` holds unattributed WIP in a slot shared by five worktrees** ·
+  `WIP on dev: acd2c7f refactor: migrate all server logging from log to slog NDJSON output`.
+  `refs/stash` is shared across all worktrees, which is why `git stash` is already prohibited here.
+  Confirm ownership before anything touches it. Still present after triage. · origin: audit #6 · new
+- **Two config files carry independent copies of the same default** · `backend/Taskfile.yml` and
+  `playwright.config.js` each define their own `DB_PORT` / `dbPort` default. Changing one silently
+  leaves the other — which happened at T-20 and cost a full E2E leg. Both now cross-reference each
+  other in comments, but the duplication itself is the defect. Audit for other duplicated defaults.
+  · origin: T-20 reviewer error · new
+- ~~**`sync.spec.js` de-flake: `:1198` + `:525`**~~ · **promoted → `syncspec-deflake` (re-aimed at
+  T-20)**. Scope widened to four tests: `:1198`, `:525`, LST-17, GATE-04. Fix is test-side; no
+  production change; no timeout increase helps.
+- ~~**Cost-tab gate: confidentiality or tidiness?**~~ · **promoted → `grant-enforcement-parity`**
+  (T-20 decision 36). Answer was confidentiality, and the gap is 9 of 11 grants, not 2 routes.

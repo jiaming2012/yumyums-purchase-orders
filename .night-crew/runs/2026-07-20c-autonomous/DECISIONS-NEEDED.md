@@ -1,5 +1,26 @@
 # DECISIONS-NEEDED — overnight-20260720c
 
+> # ✅ RESOLVED 2026-07-21 — recorded as ledger T-20 (decisions 34–41)
+>
+> All forks in this file are closed. Kept as the analysis record. Summary:
+>
+> | Item | Resolution |
+> |---|---|
+> | **0a** | `:1198` **IS flaky** — 16% / 20% under contention. The refutation was RETRACTED in-file (see below). Card KEPT and **RE-AIMED** test-side; scope widened to LST-17 + GATE-04. |
+> | **0b** | CLOSED — gate runs on a clean DB (preference P1). |
+> | **0c** | Direction set (P2, separate schemas). Audit delivered; surfaces #2/#5/#9 fixed at triage, #3 fixed by the `hq_test_go`/`hq_test_e2e` split (decision 38). **#4 remains open** — dev/prod/test still share one cluster. |
+> | **0d** | CLOSED — `RUN-10` RESOLVED under P3. |
+> | **1 (HIGH defect)** | FIXED before triage — `requireApprover` moved inside the template write (`0057638`). |
+> | **1-B** | **Decision 34** — `SAVE_TEMPLATE` + `ARCHIVE_TEMPLATE` gated to admin, matching REST. `EXCEPTIONS` empties. |
+> | **1-C** | **Decision 35** — STANDING RULE: `/ops` never diverges from its REST twin. `EXCEPTIONS` kept as a tripwire, not a waiver. |
+> | **2** | **Decision 37** — a NIGHT-CREW tooling defect, pushed back to that repo as urgent. NOT "amend the slate to cite GSD" — the operator is refactoring away from GSD. Sequence: urgent backlog item → OpenSpec pros/cons investigation → formal hq refactor request only if OpenSpec is kept. No hq change. |
+> | **3** | `.planning/` gitignore vs the mockup clause — left as-is; `git add -f` is the established repo-wide convention (hundreds of files). Recorded, not fixed. It bit again during triage: `git add` on a tracked `.planning/` file returns non-zero and short-circuits `&&` chains. |
+> | **4** | Design §2.2 prose stale vs the shipped endpoint — documentation fix, still OPEN. The design file is a signed artifact; amending it is an attended act, not a run's. |
+> | **5** | `NUMERIC(10,2)` vs `(10,4)` — remains a BACKLOG item, to be carded alongside the `float64`-money item as one change. |
+> | **5b** | `reviewerID` context-identity seam — latent, folded into the `grant-enforcement-parity` card's authz sweep. |
+> | **6** | **Decision 36** — confidentiality, and far broader than asked: the Users tab offers 11 grants and the backend enforces 2. New URGENT card `grant-enforcement-parity`, blocks go-live. |
+
+
 These are questions the run deliberately did **not** answer, per the standing rule that the run
 executes and never decides. Ordered by consequence.
 

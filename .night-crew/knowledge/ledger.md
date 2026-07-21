@@ -793,3 +793,123 @@ NOT done (attended, rides the cycle gate). Frontend semver untouched (1.0.3) —
 **The Cost tab and its data ship logged-in-only** — F5 dropped, so per-tab access control does not
 exist; B5 (approve/reject authorization) also remains unclosed, pre-existing. FR-12 Cliq-dup watch
 continues over the cycle (nothing observed).
+
+---
+
+## T-20 — Morning-triage resolutions (2026-07-21, overnight-20260720c)
+
+Run merged to `dev` `--no-ff` (`c2cfc13`) after attended review. Independent re-verification on the
+merged tree: `go build ./...`, `go vet ./...` clean; `CI=1 go test -p 1 -count=1 ./...` 8 packages
+ok / 0 FAIL; `CI=1 task test` on a clean DB **528 passed / 6 skipped / 0 failed / 0 flaky**. G4
+discipline greps structurally N/A (HQ has no `journal`/`workorder`/`orchestration` packages, no
+`replay_test.go`), per the 07-19 precedent. Footprint 31 files, +6346/−22 for the run, plus four
+attended triage commits.
+
+**3 cards merged (F1, F3, F5), 1 PARKED (D1).** F5's G6 caught a live authentication bypass the
+card would otherwise have shipped. The branch also carried post-closeout attended work: the `/ops`
+authz sweep, the `requires_approval` fix, the cross-contamination audit, and the `:1198` flake
+reproduction that **retracted the run's own headline finding**.
+
+**Decision 34 — `/ops` SAVE_TEMPLATE and ARCHIVE_TEMPLATE are gated to admin, matching their REST
+twins.** Chosen over splitting the two shapes (authoring open, archiving admin-only) and over
+widening REST to match `/ops`. Resolves DECISIONS-NEEDED §1-B. The `EXCEPTIONS` bucket in
+`tests/ops-authz-coverage.spec.js` empties as a result; it is kept as a tripwire so the next
+divergence cannot ship silently, not as a waiver mechanism.
+
+**Decision 35 — the `/ops` router carries a STANDING RULE: every op branch enforces the same authz
+as its REST twin. Divergence is never permissible.** Chosen over allowing divergence with a
+recorded justification. Resolves §1-C. This is the rule that stops a third recurrence of the
+dual-path bypass class (F5's G6 found the first; the sweep enumerated the rest). Two doors, one
+mutation, one authz answer — and the gate belongs **inside the mutation**, not at either boundary,
+which is the shape both `requireReviewAuthz` (`8c71022`) and `requireApprover` (`0057638`) now take.
+
+**Decision 36 — the Users-tab grant model is a DATA boundary, not a UI convenience. Operator,
+verbatim: "If an employee does not have access to the app (or access to the app's tab), then they
+should NOT be able to access the view / tab / data."** This resolves §6 far more broadly than the
+question asked. §6 asked whether `inventory-cost` was meant as confidentiality or tidiness; the
+answer is confidentiality, and the finding that fell out of asking is larger than the fork:
+
+> **The Users tab offers 11 grants. The backend enforces 2.** Every `RequirePermission` call in the
+> server is `inventory-trends` and `inventory-cost` (both shipped by F5 this cycle). The other nine
+> — including `inventory` itself, `operations`, `purchasing`, `onboarding`, `users` — are checked
+> nowhere. `isAdmin`/`manager` *role* checks protect some endpoints, but roles are a different axis
+> from grants. Revoking a grant today removes launcher tiles and hides tabs; it does not change what
+> the holder can read from the API with a cookie.
+
+This is not an F5 defect — F5 built the mechanism the signed design scoped it to, and built it well
+(umbrella semantics, fail-closed on DB error, 13 attack variants). Nothing migrated the pre-existing
+surface onto it. **Operator: no live exposure today (no non-admin crew hold accounts), but this must
+be fixed before go-live.** Graduated to a new roadmap card, `grant-enforcement-parity`, sized as the
+largest open correctness item in the backlog. Evidence is source enumeration, not a live grant-less
+curl; the card should begin by proving it live.
+
+**Decision 37 — the slate template's OpenSpec clause is a NIGHT-CREW TOOLING defect, pushed back to
+that repo as urgent; it is not fixed in hq.** Resolves §2, but not as either option offered. The
+recommendation was "amend the slate to cite GSD" — **wrong, because the operator is refactoring away
+from GSD**, so pointing the template at GSD would encode a convention on its way out. Sequence
+instead: (1) urgent backlog item in the night-crew clone — the slate template dispatches every card
+with mechanics (`openspec validate`, `OpenSpec-Change` trailer, archive) that misfire in any target
+repo without an `openspec/` tree, and four cards silently worked around it in one night; (2) a
+separate investigation into whether OpenSpec's pros outweigh its cons; (3) *if* OpenSpec is kept, a
+formal refactor requested for hq. No hq change lands from this decision.
+
+**Decision 38 — the Go and Playwright suites get separate databases (`hq_test_go` / `hq_test_e2e`).**
+Operator's constraint at triage was narrow and clear — *"I only care that there are no db conflicts"*
+— with the choice of mechanism delegated. Chosen over leaving one shared `hq_test` with a serial
+convention, and over per-run ephemeral databases (correct, but out of scope for a triage). Audit
+surface #3: every Go `TestMain` truncates tables — `internal/sync` truncates `users` — so
+`task test:go` alongside `task test` would log every browser context out mid-suite. `-p 1`
+serializes Go packages against each other and does nothing about this. **Proven, not asserted:**
+`internal/sync` + `internal/workflow` ran green against `hq_test_go` while `persistence.spec.js` ran
+green against `hq_test_e2e`, concurrently. `db-test` also gained an `ALLOW_TEST_DB_ON_DEV_HOST`
+guard, defaulted permissive because dev/test/prod genuinely share the `yumyums-dev-pg` cluster today
+(surface #4) — so it makes that a visible choice that will fail loudly once a real test cluster
+exists.
+
+**Decisions 39–41 — the three selected one-line contamination fixes** (surfaces #9, #5, #2). #9:
+`DB_PORT` default 5432 → 5433, because host `:5432` is bound by `infra-postgres-1` from the
+slack-trading project and has no `yumyums` role — this fired live *during this triage*, costing a
+full E2E leg. #5: `ZOHO_CLIQ_*` / `SMTP_*` added to the blanked set in `playwright.config.js`,
+because the root Taskfile's `dotenv: ['backend/.env']` injects 21 live credentials into every task
+from the main checkout and `alertQ.Start` is gated by neither `schedulersDisabled` branch — an E2E
+run could deliver a real Cliq message and a real SMTP email to live crew. #2:
+`reuseExistingServer: false` unconditionally, killing the `:8199` latch that has cost four runs.
+
+**Correction to the audit, found while answering the operator's "how is this possible?".** The audit
+recorded a dev server (PID 75921) running since Jul 18 "against the live dev database **on the
+Windows box**." **The location is wrong:** `100.70.200.55` is *this* box's own Tailscale address, so
+that `DB_URL` is the local `yumyums-dev-pg` container reached the long way round. What the check did
+surface is worse than the original claim and was not in the audit: **one Postgres cluster holds dev
+(`public` schema), prod (`production` schema), and `hq_test`, under one role and one password** —
+prod is separated from dev by nothing but a client-supplied `search_path`. Recorded as the sharpest
+instance of surface #4. The genuine live-side-effect exposure is not the database but the
+credentials: PID 75921 has held live Mercury production, Anthropic, Zoho Cliq and SMTP keys for
+three days with `E2E_DISABLE_SCHEDULERS` unset.
+
+**Two reviewer errors, recorded because both are instructive.**
+(1) The `DB_PORT` fix was cited as verified when it never ran — `playwright.config.js` carries its
+own independent `dbPort` default, and every verification leg had passed `DB_PORT` explicitly on the
+command line. The first run to actually rely on the new default died at startup. *Two files, two
+defaults, one silently unused.*
+(2) **P3a was violated by the reviewer within hours of P3a being written.** The `persistence.spec.js`
+flake fix kept its red-first forcing wait in the committed test; that wait asserts a condition that
+only holds in narrow targeted context, so it failed outright in full-suite order — trading a rare
+strict-mode flake for a reliable failure. A targeted 15/15 green was read as proof. The `#fill-body`
+scoping alone was always the whole fix. **Targeted-subset green is not evidence for a fix to an
+order/state-dependent test.** Both are written into `card-actuals.md`.
+
+**Flake dispositions.** `sync.spec.js:1198` — the run's "decisively refuted / not flaky" conclusion
+is **RETRACTED**; reproduced at 16% (4 red / 25 `--retries=0` legs), 20% under a concurrent suite,
+with a named mechanism and the card **re-aimed** (test-side; no production change; no timeout
+increase can help). `persistence.spec.js` FLD-R3/R5 — fixed; was an unscoped `text=✓` matching the
+approvals-list ✓ for its own submission, **not** cross-file contamination. Two new observations
+folded into the re-aimed card: `sync.spec.js` LST-17 and `workflows.spec.js` GATE-04, both
+passed-on-retry, neither previously recorded.
+
+**Standing flags after triage.** **Attended two-device convergence check REMAINS ARMED and NOT run**
+— armed since the 07-22 `sync.js` change; D1 left `sync.js`/`sw.js` byte-identical so this cycle did
+not re-arm it, and it did not clear it either. Prod deploy NOT done. Frontend semver untouched
+(1.0.3) — the bump belongs to `/save-project` at deploy time. DB flag now materially improved
+(suites separated, proven concurrent-safe) but **surface #4 is open**: dev, prod and test still share
+one cluster under one credential pair. `stash@{0}` still holds unattributed WIP in a slot shared by
+five worktrees. FR-12 Cliq-dup watch continues.

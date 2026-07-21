@@ -403,3 +403,60 @@ aftermath. Park cost is cheap when it happens at G6 (~21m total for F1) and expe
 one env per track) but **cost S1 its determinism proof for the entire run** — no quiet window
 existed until Track F finished, and a `--retries=0` streak under load proves nothing. If a card's
 deliverable *is* a flake proof, serialize it or reserve the quiet window up front.
+
+---
+
+## overnight-20260720c (autonomous, serial dispatch, per-card worktree + fresh G6)
+
+Derived from `runs/2026-07-20c-autonomous/timings.log` (epoch-stamped) and the closeout HANDOFF.
+Wall clock 407m (~6h47m) against a 6h10m–9h40m slate envelope — **in band**.
+
+| Card | Class | Impl | G6 | Land | Cycle | Outcome |
+|---|---|---|---|---|---|---|
+| Wave 0 (`.gitignore` symlink fix) | XS | 1m | n/a | direct | 1m | DONE |
+| F1 · trends-spend-by-group-endpoint | Go endpoint, M | 24m (+18m revision) | 11m → REVISE → confirm | 5m | 29m | **MERGED** |
+| F3 · trends-tab-frontend | UI tab, L | 55m | 18m, PASS first pass | 18m | 73m | **MERGED** |
+| F5 · inventory-tab-gating | authz, L | 60m (+50m revision) | 65m → **FAIL** → confirm | 8m | 124m | **MERGED** |
+| D1 · syncspec-deflake | de-flake, L | 180m | diagnosis confirmed | — | 181m | **PARKED** (net-zero diff) |
+| Follow-up sweep (`/ops` authz enumeration) | test+docs, M | 84m | inline | 3m | 84m | MERGED (attended, post-closeout) |
+
+**G6 repricing held.** The slate repriced G6 at 15–45m per code card rather than 2–5m; actuals were
+18m / 18m / 8m plus two revision rounds. **Both revision rounds were load-bearing** — one caught a
+payroll-disagreeing rounding bug (`Σ(round) ≠ round(Σ)` on `NUMERIC(10,4)` prices), one caught a
+live authentication bypass. Budgeting a revision for *every* card, not just first-of-kind ones, is
+now evidence-backed twice over and should stand.
+
+**Estimates ran long on every card that landed** — F1 52m vs 50–95m, F3 55m vs 100–150m, F5 110m vs
+110–180m. F3 and F5 both credited prior cards for leaving reserved test blocks and delegation-safe
+containers where the slate promised; the prep compounded.
+
+**D1 is the inverse and the more useful datapoint: 180m against 80–125m.** The overrun is entirely
+the honest path — the implementer made the two target tests green, ran the full suite, saw the fix
+had *moved* the clobber rather than removed it, and reverted (~24m). Park-at-implement is expensive
+in a way park-at-G6 is not (cf. F1's ~21m park last cycle). **Price de-flake cards assuming a
+full-suite verification leg and a possible revert, not just the fix.**
+
+**Timing numbers from D1 are weak evidence.** The orchestrator briefed D1 that the box would be
+quiet; it was not — a concurrent night-crew run in a separate Claude session held the machine for
+most of D1's window. Serial dispatch guarantees *this run* is serial, not that the machine is idle.
+Any slate promising a "quiet box" deliverable needs a **measured** load precondition.
+
+### Triage-day actuals (2026-07-21, attended) — a new population worth tracking
+
+The morning triage itself ran long and is not currently budgeted anywhere:
+
+| Leg | Wall | Note |
+|---|---|---|
+| Re-verify (build/vet/go test/full E2E) | ~55m | Two E2E runs: one died on the `:5432` default (audit surface #9, live) |
+| Flake fix (red-first, fix, verify, **re-fix**) | ~70m | First fix was wrong — see below |
+| DB separation (`hq_test_go`/`hq_test_e2e`) + concurrency proof | ~65m | Three full-suite runs to land it |
+
+**Triage is not free and is not 15 minutes.** Three of the four full-suite runs this triage were
+consumed by *harness* faults, not by reviewing the run's work. Budget attended triage at 2–4h when
+the run carries harness changes, and note that each full E2E leg is a fixed ~20m toll.
+
+**A repeat of the P3a error, by the reviewer, hours after P3a was written.** The flake fix was
+verified with a targeted 15/15 green run and committed — then failed in full-suite order, because
+the red-first scaffolding left in the test asserted a condition that only holds in the narrow
+targeted context. A green sampled in the wrong condition was read as proof. **Targeted-subset green
+is not evidence for a fix to an order/state-dependent test; only a full-suite leg is.**

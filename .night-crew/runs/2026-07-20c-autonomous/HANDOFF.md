@@ -1,5 +1,37 @@
 # HANDOFF — overnight-20260720c
 
+> ## ✅ TRIAGED 2026-07-21 — merged to `dev` (`c2cfc13`), recorded as ledger T-20
+>
+> **Standing flags after triage:**
+>
+> - **Attended two-device convergence check — STILL ARMED, NOT RUN.** Armed by the 07-22
+>   `sync.js` change. D1 left `sync.js`/`sw.js` byte-identical, so this cycle neither
+>   re-armed nor cleared it. Re-arms again on any change to production sync or the
+>   verify/merge path.
+> - **Prod deploy — NOT done.** Frontend semver untouched (1.0.3); the bump belongs to
+>   `/save-project` at deploy time.
+> - **DB isolation — materially improved, NOT closed.** Go and Playwright now own separate
+>   databases (`hq_test_go` / `hq_test_e2e`), proven concurrent-safe by execution
+>   (decision 38). Surfaces #2, #5, #9 fixed (decisions 39–41). **Surface #4 remains
+>   OPEN and is now the sharpest item**: dev, prod and test share one Postgres cluster
+>   under one role and one password, separated only by `search_path`.
+> - **`grant-enforcement-parity` — NEW URGENT CARD, blocks go-live** (decision 36). The
+>   Users tab offers 11 grants; the backend enforces 2. No live exposure today.
+> - **`stash@{0}`** still holds unattributed WIP in a slot shared by five worktrees.
+> - **FR-12 Cliq-dup watch** continues over the cycle (nothing observed).
+>
+> **Corrections to this document, made at triage:**
+>
+> 1. §D1 and §"Read this first" state that `:1198` is "very likely **not flaky**" and that
+>    the card's premise needs re-deriving. **RETRACTED — the test IS flaky** (16% overall,
+>    20% under a concurrent suite). The card is KEPT and RE-AIMED, not dropped. See
+>    `reference/1198-flake-reproduction-20260721.md` and preference P3a.
+> 2. §"Verification state" reports 515 passed. Re-verified on the merged tree at triage:
+>    **528 passed / 6 skipped / 0 failed / 0 flaky** (the sweep and triage added tests).
+> 3. The run's own §D1 note that a concurrent session held the box is confirmed and
+>    generalised into preference P2 — "the box is quiet" is measured, never assumed.
+
+
 **Run branch:** `overnight-20260720c`, cut from `dev` @ `688f74b`. **Never pushed. `main` untouched.**
 **Slate:** `.night-crew/knowledge/reference/slate-20260720c.md` (batch-signed 2026-07-20).
 **Wall clock:** 407 min (~6h47m). Slate envelope was 6h10m–9h40m — **in band.**
