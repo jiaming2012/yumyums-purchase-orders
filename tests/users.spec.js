@@ -1232,3 +1232,77 @@ test.describe('Users UI + Access hardening', () => {
     await expect(page.locator('.chip', { hasText: granteeName })).toHaveCount(0);
   });
 });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// F5 · inventory-tab-gating — the per-tab grant surface (design §1.3 station 4)
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Option (i) claims the Users admin UI needs ZERO backend change: the two new
+// hq_apps rows fall out of GetAppPermissions (which returns every enabled app)
+// and render with the standard role/user toggles. This block is the proof of
+// that claim, not a restatement of it — if SeedHQApps or the Access-list render
+// ever stops surfacing a gated tab, the grant becomes unreachable through the
+// only UI that can issue it, and the gate silently becomes a lockout.
+test.describe('Access tab — per-tab inventory grants', () => {
+  test('the two per-tab slugs are grantable through the Access list', async ({ page }) => {
+    await login(page);
+    await page.goto('/users.html');
+    await waitForUserList(page);
+    await page.click('#t2');
+    await page.waitForFunction(() => {
+      const s2 = document.getElementById('s2');
+      return s2 && s2.querySelector('.access-card');
+    });
+
+    // Both tab cards render, with their own toggle sets.
+    for (const slug of ['inventory-trends', 'inventory-cost']) {
+      const card = page.locator('#access-' + slug);
+      await expect(card).toHaveCount(1);
+      await expect(card.locator('input[data-action="toggle-perm"]')).toHaveCount(3);
+    }
+    // ...alongside, not instead of, the umbrella app card.
+    await expect(page.locator('#access-inventory')).toHaveCount(1);
+  });
+
+  test('a per-tab role grant round-trips through PUT /apps/{slug}/permissions', async ({ page }) => {
+    await login(page);
+    await page.goto('/users.html');
+
+    const saved = await page.evaluate(async () => {
+      await fetch('/api/v1/apps/inventory-trends/permissions', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role_grants: ['manager'], user_grants: [] }),
+      });
+      const perms = await (await fetch('/api/v1/apps/permissions')).json();
+      return (perms || []).find(a => a.slug === 'inventory-trends');
+    });
+    expect(saved.role_grants).toContain('manager');
+
+    // Clean up so later specs see a pristine grant table.
+    await page.evaluate(async () => {
+      await fetch('/api/v1/apps/inventory-trends/permissions', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role_grants: [], user_grants: [] }),
+      });
+    });
+  });
+
+  // §1.6 rider (c), SIGNED as expected behavior: a tab grant without the
+  // umbrella app grant leaves the launcher tile hidden while the direct URL
+  // works. The Users UI must say so, or an admin issues a grant whose effect
+  // they cannot see from the launcher and reads it as broken.
+  test('a tab card carries the "grant Inventory too" nudge', async ({ page }) => {
+    await login(page);
+    await page.goto('/users.html');
+    await waitForUserList(page);
+    await page.click('#t2');
+    await page.waitForFunction(() => {
+      const s2 = document.getElementById('s2');
+      return s2 && s2.querySelector('.access-card');
+    });
+
+    await expect(page.locator('#access-inventory-trends .tab-grant-note')).toHaveCount(1);
+    await expect(page.locator('#access-inventory-trends .tab-grant-note')).toContainText('Inventory');
+    await expect(page.locator('#access-inventory .tab-grant-note')).toHaveCount(0);
+  });
+});

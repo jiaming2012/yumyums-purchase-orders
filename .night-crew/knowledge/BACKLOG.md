@@ -425,13 +425,33 @@
   (`workflows.html:1544` hydrate branch prefers the rejection snapshot); device-local, LOW.
   Rides any future runner-hydration card. · origin: overnight-20260721 A1 G6 (§C) · new
 - **`sync.spec.js` de-flake: `:1198` + `:525`** ·
-  `:1198 temperature answer converges` is **proven flaky on a quiet box** (red 1-of-2
-  `--retries=0` legs at load 0.84, orchestrator-run streak 2026-07-22) — not load-caused, as
-  two prior runs assumed. Next step is structural: `survivalCell`'s 12s `CONVERGE_TIMEOUT`
-  budget vs the real WS round trip. **Scope must also include `:525 FLD-LIVE-02`**, which G6
+  `:1198 temperature answer converges` is **flaky — confirmed by controlled reproduction, at
+  ~16% overall (4 red / 25 `--retries=0` legs), ~20% (4/20) under a concurrent Playwright
+  suite** (investigation 2026-07-21, `investigate/1198-under-load-20260721`). The flake is
+  REAL; the numbers previously carried here were not. **Two corrections to the prior claim:**
+  (a) "red 1-of-2 legs at load 0.84" **misattributed the load** — its own source table
+  (`runs/2026-07-22-autonomous/DECISIONS-NEEDED.md` §S1 tail) shows load 0.84 on the leg that
+  **PASSED**; the red leg started at load **3.96** on a rising box. (b) The implied ~50% rate is
+  refuted — two parties' ~20 consecutive greens are consistent with ~16-20% *conditional on
+  contention* (p(0 red in 20 | 20%) ≈ 1.2%, and they sampled the quiet condition).
+  **Failure mode is NOT what the card assumes.** All 4 reds share one signature:
+  `page.waitForResponse` timeout at **`sync.spec.js:1119`** — the `POST /ops` **commit** wait —
+  not `CONVERGE_TIMEOUT` and not a convergence assert. The autosave debounce is **400ms**
+  (`workflows.html:278`), so a 12s timeout means the op **never fired**, not that it was slow;
+  ops-journal deltas confirm it (green legs +5 rows, red legs +3 — no `SET_FIELD` row).
+  **Therefore raising any timeout is the wrong fix.** The likely mechanism is the same stray WS
+  catch-up `loadMyChecklists` re-render the de-flake comment names: it detaches the temperature
+  input between `fill()` and `dispatchEvent('change')`, so the change handler never arms
+  `debouncedSaveField` and no POST is ever issued. The de-flake **relocated** that race (from
+  "typed value clobbered to empty" to "save never arms") rather than closing it — gating on the
+  `POST /ops` 2xx cannot be race-free against a re-render that prevents the POST existing.
+  Fix direction: make answer-entry re-render-safe (settle the runner before entering, and/or
+  re-assert value + re-dispatch if no POST is observed). Test-side; no production change needed.
+  **Scope must also include `:525 FLD-LIVE-02`**, which G6
   found fails 3/3 in isolation *and at the pre-gate baseline* — a pre-existing
   order-dependent test. The flake surface is broader than "just `:1198`". ·
   origin: overnight-20260722 S1 PARK (b) + quiet streak ·
+  **evidence re-derived 2026-07-21** — see `reference/1198-flake-reproduction-20260721.md` ·
   **promoted → `syncspec-deflake` (D1, slate-20260720c)** — cleared the §15k architecture-blocking
   bar: the `cycle-gate` card promises no-retry suite-green attestation, which cannot pass while
   `:1198` is proven-flaky and `:525` reds at baseline.

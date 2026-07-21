@@ -6,7 +6,11 @@ vars:
   DB_PASS: '{{.DB_PASS | default "yumyums"}}'
   DB_NAME: '{{.DB_NAME | default "yumyums"}}'
   DB_HOST: '{{.DB_HOST | default "localhost"}}'
-  DB_PORT: '{{.DB_PORT | default "5432"}}'
+  # 5433 = yumyums-dev-pg, the container that actually serves HQ. Host :5432 is
+  # bound by infra-postgres-1 (slack-trading), which has no `yumyums` role — the
+  # old default failed closed but failed, costing a triage run on 2026-07-21.
+  # See cross-contamination audit surface #9.
+  DB_PORT: '{{.DB_PORT | default "5433"}}'
   DB_URL: '{{.DB_URL | default (printf "postgres://%s:%s@%s:%s/%s?sslmode=disable" .DB_USER .DB_PASS .DB_HOST .DB_PORT .DB_NAME)}}'
   DB_TEST_URL: '{{.DB_TEST_URL | default (printf "postgres://%s:%s@%s:%s/hq_test?sslmode=disable" .DB_USER .DB_PASS .DB_HOST .DB_PORT)}}'
   PORT: '{{.PORT | default "8484"}}'
@@ -152,7 +156,7 @@ tasks:
           -e POSTGRES_USER={{.DB_USER}} \
           -e POSTGRES_PASSWORD={{.DB_PASS}} \
           -e POSTGRES_DB={{.DB_NAME}} \
-          -p 5432:5432 \
+          -p {{.DB_PORT}}:5432 \
           -v yumyums-pgdata:/var/lib/postgresql/data \
           postgres:16
       fi

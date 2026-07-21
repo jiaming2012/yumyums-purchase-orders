@@ -477,3 +477,201 @@ test.describe('Cost tab (#s6) — State Enumeration', () => {
     await shot(page, 'edge-zero-cost-gap');
   });
 });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// F5 · inventory-tab-gating — the "ungated user" State-Enumeration row
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Design §1.2 (the observable rule), §1.4 (Option (i): per-tab hq_apps slugs),
+// §1.6 (the mixed Trends-only case), §8 amendment 1 (umbrella: an `inventory`
+// app grant covers every gated tab of that app).
+//
+// The pair this block owes, per tab:
+//   WITHOUT grant -> #tN/#sN absent AND a direct GET returns 403 with the
+//                    distinct envelope {"error":"forbidden","missing_grant":…}
+//   WITH grant    -> tab renders AND the endpoint returns 200
+//
+// The direct-fetch half is the load-bearing one: hiding a tab client-side while
+// leaving the endpoint reachable is explicitly a violation (§1.2 rule 3,
+// "0 logged-in-only bypass").
+
+const GATE_PASSWORD = 'test456';
+
+async function loginAs(page, email, password) {
+  await page.goto('/login.html');
+  await page.fill('input[type="email"]', email);
+  await page.fill('input[type="password"]', password);
+  await page.click('button.btn');
+  await page.waitForURL(url => !url.pathname.includes('login'));
+}
+
+// makeGatedUser invites a team_member, accepts the invite, then (as admin)
+// grants exactly the slugs asked for. Returns the new user's credentials.
+//
+// Grants are APPENDED to each slug's existing user_grants: the PUT endpoint is a
+// full replace per slug, so a naive write would silently revoke the grant a
+// previously-created test user still holds.
+async function makeGatedUser(page, tag, grantSlugs) {
+  const email = `f5-${tag}-${Date.now()}-${Math.floor(Math.random() * 1e4)}@yumyums.kitchen`;
+
+  await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+  const invite = await page.evaluate(async (em) => {
+    const res = await fetch('/api/v1/users/invite', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ first_name: 'Gate', last_name: 'Tester', email: em, roles: ['team_member'] }),
+    });
+    return res.json();
+  }, email);
+  const token = (invite.invite_path || '').split('token=')[1];
+  expect(token, 'invite token').toBeTruthy();
+
+  await page.evaluate(async ([t, pw]) => {
+    await fetch('/api/v1/auth/accept-invite', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: t, password: pw }),
+    });
+  }, [token, GATE_PASSWORD]);
+
+  // accept-invite rotated the cookie onto the new user — go back to admin to grant.
+  await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+  const userId = await page.evaluate(async (em) => {
+    const list = await (await fetch('/api/v1/users')).json();
+    const u = (list || []).find(x => x.email === em);
+    return u ? String(u.id) : null;
+  }, email);
+  expect(userId, 'new user id').toBeTruthy();
+
+  for (const slug of grantSlugs) {
+    await page.evaluate(async ([s, uid]) => {
+      const perms = await (await fetch('/api/v1/apps/permissions')).json();
+      const app = (perms || []).find(a => a.slug === s);
+      const users = ((app && app.user_grants) || []).map(String);
+      if (!users.includes(uid)) users.push(uid);
+      await fetch('/api/v1/apps/' + s + '/permissions', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role_grants: (app && app.role_grants) || [], user_grants: users }),
+      });
+    }, [slug, userId]);
+  }
+
+  return { email, password: GATE_PASSWORD, id: userId };
+}
+
+// probe performs a same-origin fetch from the page session and reports the raw
+// status + body — the direct-endpoint negative that proves the gate is served,
+// not merely drawn.
+async function probe(page, path) {
+  return page.evaluate(async (p) => {
+    const r = await fetch(p);
+    return { status: r.status, body: await r.text() };
+  }, path);
+}
+
+test.describe('Cost tab — gating', () => {
+
+  // ── WITHOUT the grant ────────────────────────────────────────────────────
+  test('Edge: ungated user — #t6/#s6 absent, GET /inventory/cost returns 403', async ({ page }) => {
+    const errors = [];
+    page.on('pageerror', e => errors.push(e.message));
+
+    const user = await makeGatedUser(page, 'cost-ungated', []);
+    await loginAs(page, user.email, user.password);
+    await page.goto('/inventory.html');
+    await page.waitForSelector('#s1');
+
+    // 1. The endpoint is DENIED — asserted FIRST, deliberately. The server 403
+    //    is the gate; the hidden tab is only UX. If this assertion is the one
+    //    that fails, the feature is a facade regardless of what the DOM shows.
+    const res = await probe(page, '/api/v1/inventory/cost');
+    expect(res.status).toBe(403);
+    const env = JSON.parse(res.body);
+    expect(env.error).toBe('forbidden');
+    expect(env.missing_grant).toBe('inventory-cost');
+
+    // 2. And the tab does not render — neither the button nor the panel.
+    await expect(page.locator('#t6')).toHaveCount(0);
+    await expect(page.locator('#s6')).toHaveCount(0);
+    await expect(page.locator('#cost-container')).toHaveCount(0);
+
+    // The page still works for exactly the users being gated (F4's carried hazard).
+    await page.click('#t2');
+    await expect(page.locator('#s2')).toBeVisible();
+    await page.click('#t1');
+    await expect(page.locator('#s1')).toBeVisible();
+    expect(errors).toEqual([]);
+
+    await shot(page, 'edge-ungated');
+  });
+
+  test('Ungated deep link (#tab=6) falls back instead of rendering a tab shell', async ({ page }) => {
+    const errors = [];
+    page.on('pageerror', e => errors.push(e.message));
+
+    const user = await makeGatedUser(page, 'cost-deeplink', []);
+    await loginAs(page, user.email, user.password);
+    await page.goto('/inventory.html#tab=6');
+    await page.waitForSelector('#s1');
+
+    await expect(page.locator('#s6')).toHaveCount(0);
+    await expect(page.locator('#s1')).toBeVisible();
+    expect(errors).toEqual([]);
+
+    await shot(page, 'edge-ungated-deeplink');
+  });
+
+  // ── WITH the grant ───────────────────────────────────────────────────────
+  test('Granted user — #t6/#s6 render and GET /inventory/cost returns 200', async ({ page }) => {
+    const user = await makeGatedUser(page, 'cost-granted', ['inventory-cost']);
+    await loginAs(page, user.email, user.password);
+    await page.goto('/inventory.html');
+    await page.waitForSelector('#s1');
+
+    await expect(page.locator('#t6')).toHaveCount(1);
+    await page.click('#t6');
+    await expect(page.locator('#s6')).toBeVisible();
+
+    expect((await probe(page, '/api/v1/inventory/cost')).status).toBe(200);
+
+    await shot(page, 'gated-granted-cost');
+  });
+
+  // ── §1.6 mirrored — the other half of the mixed case ─────────────────────
+  test('Mixed: Cost-only grant renders #t6, hides #t5, and 403s /inventory/trends', async ({ page }) => {
+    const errors = [];
+    page.on('pageerror', e => errors.push(e.message));
+
+    const user = await makeGatedUser(page, 'mixed-cost-only', ['inventory-cost']);
+    await loginAs(page, user.email, user.password);
+    await page.goto('/inventory.html');
+    await page.waitForSelector('#s1');
+
+    await expect(page.locator('#t6')).toHaveCount(1);
+    await page.click('#t6');
+    await expect(page.locator('#s6')).toBeVisible();
+    expect((await probe(page, '/api/v1/inventory/cost')).status).toBe(200);
+
+    await expect(page.locator('#t5')).toHaveCount(0);
+    await expect(page.locator('#s5')).toHaveCount(0);
+    const tr = await probe(page, '/api/v1/inventory/trends');
+    expect(tr.status).toBe(403);
+    expect(JSON.parse(tr.body).missing_grant).toBe('inventory-trends');
+
+    expect(errors).toEqual([]);
+    await shot(page, 'edge-mixed-cost-only');
+  });
+
+  // ── Superadmin (§1.2 rule 4 / §4 flag 5) ─────────────────────────────────
+  // A superadmin holds no explicit grants at all. If RequirePermission did not
+  // mirror queryAllApps, the tab would render (via /me/apps) and its endpoint
+  // would 403 — the exact inconsistency flag 5 warns about.
+  test('Superadmin with zero explicit grants sees both tabs and gets 200 from both', async ({ page }) => {
+    await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+    await page.goto('/inventory.html');
+    await page.waitForSelector('#s1');
+
+    await expect(page.locator('#t5')).toHaveCount(1);
+    await expect(page.locator('#t6')).toHaveCount(1);
+    expect((await probe(page, '/api/v1/inventory/trends')).status).toBe(200);
+    expect((await probe(page, '/api/v1/inventory/cost')).status).toBe(200);
+  });
+});

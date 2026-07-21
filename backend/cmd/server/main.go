@@ -99,6 +99,13 @@ func workflowOpRouter(pool *pgxpool.Pool) opsync.OpRouter {
 				return nil, routerErr(http.StatusBadRequest, "invalid_payload")
 			}
 			if err := workflow.ApproveSubmissionFunc(ctx, pool, body.SubmissionID, userID); err != nil {
+				// B5 authz is enforced inside the mutation, so this path is
+				// gated identically to POST /workflow/approveSubmission. Map
+				// the refusal to 403 rather than letting it read as a server
+				// fault — a forged op must be told it was refused.
+				if errors.Is(err, workflow.ErrNotAuthorized) {
+					return nil, routerErr(http.StatusForbidden, "forbidden")
+				}
 				slog.Error("OpRouter APPROVE_ITEM", "error", err)
 				return nil, routerErr(http.StatusInternalServerError, "internal_error")
 			}
@@ -109,6 +116,9 @@ func workflowOpRouter(pool *pgxpool.Pool) opsync.OpRouter {
 				return nil, routerErr(http.StatusBadRequest, "invalid_payload")
 			}
 			if err := workflow.RejectItemFunc(ctx, pool, input, userID); err != nil {
+				if errors.Is(err, workflow.ErrNotAuthorized) {
+					return nil, routerErr(http.StatusForbidden, "forbidden")
+				}
 				slog.Error("OpRouter REJECT_ITEM", "error", err)
 				return nil, routerErr(http.StatusInternalServerError, "internal_error")
 			}
@@ -124,6 +134,15 @@ func workflowOpRouter(pool *pgxpool.Pool) opsync.OpRouter {
 					return nil, routerErr(http.StatusBadRequest, "invalid_payload")
 				}
 				if err := workflow.UpdateTemplateFunc(ctx, pool, peek.ID, input); err != nil {
+					// requires_approval with no approver is enforced INSIDE the
+					// write, so this door inherits the REST twin's rule. Map it
+					// to the twin's 400 requires_approver rather than letting a
+					// caller error read as a server fault. This is validation,
+					// NOT authz — the ungated-ness of this branch is a separate
+					// open question (DECISIONS-NEEDED §1-B) and stays open.
+					if errors.Is(err, workflow.ErrRequiresApprover) {
+						return nil, routerErr(http.StatusBadRequest, "requires_approver")
+					}
 					slog.Error("OpRouter SAVE_TEMPLATE update", "error", err)
 					return nil, routerErr(http.StatusInternalServerError, "internal_error")
 				}
@@ -134,6 +153,10 @@ func workflowOpRouter(pool *pgxpool.Pool) opsync.OpRouter {
 				}
 				id, err := workflow.CreateTemplateFunc(ctx, pool, input, userID)
 				if err != nil {
+					// Same inherited validation as the update branch above.
+					if errors.Is(err, workflow.ErrRequiresApprover) {
+						return nil, routerErr(http.StatusBadRequest, "requires_approver")
+					}
 					slog.Error("OpRouter SAVE_TEMPLATE create", "error", err)
 					return nil, routerErr(http.StatusInternalServerError, "internal_error")
 				}
@@ -544,7 +567,32 @@ func main() {
 				r.Get("/tags", inventory.ListTagsHandler(pool))
 				// Toast menu items + this-week aggregate (Phase 22). Cookie-auth, not service-token.
 				r.Get("/menu-items", toast.ListMenuItemsHandler(pool))
-				r.Get("/cost", recipes.CostHandler(pool)) // design §2.3 — cost/margin/food-cost-%
+
+				// ── PER-TAB GATED SURFACES (design §1.3 station 1) ──────────
+				//
+				// These two are the ONLY inventory routes behind a grant. Every
+				// route above is reachable by any logged-in user, unchanged.
+				//
+				// Each sits in its own r.Group so RequirePermission applies to
+				// exactly one route: chi middleware is scoped to its group, and
+				// a Use() at this Route's level would gate the whole tab set.
+				//
+				// The umbrella argument is the operator's signed rider (§8
+				// amendment 1) — a whole-app `inventory` grant opens both tabs.
+				r.Group(func(r chi.Router) {
+					r.Use(auth.RequirePermission(pool, "inventory-trends", "inventory"))
+					// design §2.2 as amended (decisions 29/30/31) — spend by ISO
+					// week × item group. Cookie-auth, but it MUST be filtered by
+					// the same cogsAllowlist the service-token period-summary is
+					// constructed with (Amendment 1), or Trends over-reports
+					// against payroll. The allowlist is built once above both
+					// router groups — do not build a second copy here.
+					r.Get("/trends", inventory.TrendsHandler(pool, cogsAllowlist))
+				})
+				r.Group(func(r chi.Router) {
+					r.Use(auth.RequirePermission(pool, "inventory-cost", "inventory"))
+					r.Get("/cost", recipes.CostHandler(pool)) // design §2.3 — cost/margin/food-cost-%
+				})
 			})
 
 			// Phase 999.2 — recipes CRUD (cookie-auth; any authenticated user can edit).

@@ -376,6 +376,13 @@ func CreateTemplateHandler(pool *pgxpool.Pool) http.HandlerFunc {
 
 		id, err := insertTemplate(r.Context(), pool, input, user.ID)
 		if err != nil {
+			// The boundary check above is the fast path; insertTemplate enforces
+			// the same rule internally so every caller inherits it. Map the
+			// sentinel so the two can never disagree on the status code.
+			if errors.Is(err, ErrRequiresApprover) {
+				writeError(w, http.StatusBadRequest, "requires_approver")
+				return
+			}
 			if isDuplicateNameErr(err) {
 				writeError(w, http.StatusUnprocessableEntity, "duplicate_name")
 				return
@@ -435,6 +442,12 @@ func UpdateTemplateHandler(pool *pgxpool.Pool) http.HandlerFunc {
 		// op in ONE transaction (FR-5, INV-1): the op that tells other devices to
 		// re-fetch + re-render can never be lost while the write is accepted.
 		if err := updateTemplateAndEmit(r.Context(), pool, templateID, input, user.ID); err != nil {
+			// Same as CreateTemplateHandler: the internal enforcement is the
+			// authority, the boundary check is the fast path.
+			if errors.Is(err, ErrRequiresApprover) {
+				writeError(w, http.StatusBadRequest, "requires_approver")
+				return
+			}
 			if isDuplicateNameErr(err) {
 				writeError(w, http.StatusUnprocessableEntity, "duplicate_name")
 				return
@@ -746,7 +759,14 @@ func ApproveSubmissionHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
+		// B5 authz (design §8 amendment 4) lives INSIDE approveSubmission, not
+		// here — see the comment on the mutation. This handler only translates
+		// the sentinel into HTTP. The refusal happens before any write.
 		if err := approveSubmission(r.Context(), pool, body.SubmissionID, user.ID); err != nil {
+			if errors.Is(err, ErrNotAuthorized) {
+				writeError(w, http.StatusForbidden, "forbidden")
+				return
+			}
 			slog.Error("approveSubmission error", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
@@ -804,7 +824,14 @@ func RejectItemHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
+		// B5 authz lives INSIDE rejectItem — same reason as approve. A refusal
+		// writes no submission_rejections row because the check runs before the
+		// transaction opens.
 		if err := rejectItem(r.Context(), pool, input, user.ID); err != nil {
+			if errors.Is(err, ErrNotAuthorized) {
+				writeError(w, http.StatusForbidden, "forbidden")
+				return
+			}
 			slog.Error("rejectItem error", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return

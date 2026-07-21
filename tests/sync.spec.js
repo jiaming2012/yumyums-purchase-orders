@@ -1196,6 +1196,15 @@ test.describe('Convergence matrix (W-3): surviving answers converge across devic
   });
 
   test('temperature answer converges (live + catch-up)', async ({ browser, page }) => {
+    // KNOWN RESIDUAL FLAKE ~16% (4 red / 25 --retries=0 legs, 2026-07-21); ~20% under a
+    // concurrent Playwright suite. Fails in survivalCell's POST /ops COMMIT wait —
+    // NOT CONVERGE_TIMEOUT. Debounce is 400ms and the ops journal gains +3 rows on a red
+    // vs +5 on a green, so the SET_FIELD op never fired; raising any timeout will not fix
+    // it. The de-flake above survivalCell relocated the WS-catch-up clobber race rather
+    // than closing it. Full evidence + fix direction:
+    //   .night-crew/knowledge/reference/1198-flake-reproduction-20260721.md
+    // (Note for editors: keep this test's declaration on line 1198 — the backlog, slates
+    //  and cycle-gate card all reference it as `sync.spec.js:1198`.)
     test.setTimeout(120000);
     await survivalCell(browser, page, 'MX Temp',
       { type: 'temperature', label: 'Grill temp', required: false, order: 0, config: { unit: 'F', min: 300, max: 500 }, fail_trigger: null, condition: null },

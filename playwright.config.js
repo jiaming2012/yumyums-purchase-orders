@@ -61,9 +61,20 @@ module.exports = defineConfig({
     // worker and the on-demand POST /sync-receipts would ingest LIVE Mercury
     // transactions into the test DB mid-suite (all sync tests mock these
     // routes at the network layer, so nothing needs the real path).
-    command: `cd backend && PORT=${testPort} DB_URL="${testDbUrl}" STATIC_DIR=../ SUPERADMIN_CONFIG=config/superadmins.yaml TOAST_SYNC_INTERVAL=0 E2E_DISABLE_SCHEDULERS=1 MERCURY_API_KEY= ANTHROPIC_API_KEY= go run ./cmd/server/`,
+    // ZOHO_CLIQ_* / SMTP_* blanked too (cross-contamination audit 2026-07-21,
+    // surface #5): the root Taskfile's `dotenv: ['backend/.env']` injects LIVE
+    // credentials into every task launched from the main checkout, and the alert
+    // queue is NOT gated by E2E_DISABLE_SCHEDULERS — alertQ.Start runs
+    // unconditionally and purchasing/service.go NotifyVendorComplete enqueues
+    // from a request path the suite exercises. Without these, an E2E run can
+    // deliver a real Cliq message and a real SMTP email to live crew.
+    command: `cd backend && PORT=${testPort} DB_URL="${testDbUrl}" STATIC_DIR=../ SUPERADMIN_CONFIG=config/superadmins.yaml TOAST_SYNC_INTERVAL=0 E2E_DISABLE_SCHEDULERS=1 MERCURY_API_KEY= ANTHROPIC_API_KEY= ZOHO_CLIQ_CLIENT_ID= ZOHO_CLIQ_CLIENT_SECRET= ZOHO_CLIQ_REFRESH_TOKEN= SMTP_ADDR= SMTP_USERNAME= SMTP_PASSWORD= go run ./cmd/server/`,
     url: `http://localhost:${testPort}/api/v1/health`,
-    reuseExistingServer: !process.env.CI,
+    // Unconditionally false (audit surface #2): reuse has cost four runs. The
+    // 8199 default protects against reusing the DEV server, but the same
+    // mechanism silently reuses a FOREIGN TEST server from another worktree —
+    // running the suite green against someone else's database. Never reuse.
+    reuseExistingServer: false,
     timeout: 60000,
   },
   projects: [

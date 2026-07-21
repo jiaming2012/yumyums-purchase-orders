@@ -1,20 +1,25 @@
 ---
 gsd_state_version: 1.0
-milestone: v3.1
-milestone_name: Toast Integration & COGS Pipeline
-status: milestone_archived
-stopped_at: v3.1 archived; awaiting next milestone
-last_updated: "2026-06-06T12:40:00Z"
+milestone: null
+milestone_name: null
+status: null
+stopped_at: v3.1 archived; project now tracked via night-crew (nc-*) workflow
+last_updated: "2026-07-21T00:00:00Z"
 last_activity: 2026-06-06 -- Completed quick task 260606-hew: Persist Mercury BankDescription as pending vendor
-progress:
-  total_phases: 8
-  completed_phases: 6
-  total_plans: 25
-  completed_plans: 20
-  percent: 75
 ---
 
 # Project State
+
+> **DELIBERATE, OPERATOR-AUTHORED (2026-07-21). Do not "repair" this file.**
+> The null `milestone` / `milestone_name` / `status` fields above are intentional
+> and were set by the operator, not corrupted by a tool or a crashed run. This
+> project is no longer tracked through the GSD milestone workflow — it is tracked
+> through the night-crew (`nc-*`) cycle, whose durable state lives in
+> `.night-crew/knowledge/` (roadmap, ledger, BACKLOG, OKRs) and `.night-crew/runs/`.
+> The removed `progress:` block was stale GSD bookkeeping (v3.1, archived).
+> Flagged as an unattributed working-tree change at 2026-07-21 triage; the
+> operator confirmed authorship and asked that it be recorded here so it is not
+> re-raised. Recorded in the ledger as T-20.
 
 ## Project Reference
 
@@ -27,7 +32,7 @@ See: .planning/PROJECT.md (updated 2026-04-15)
 
 Phase: 999.2
 Plan: Not started
-Status: Milestone complete
+Status: Idle — no active GSD milestone (project tracked via night-crew)
 Last activity: 2026-07-02 - Completed quick task 260702-l67: Retry parse click auto-triggers receipt sync — row shows "Reparsing…" pill + disabled button while SYNC_STATE.status==='running', reuses existing SYNC_STATE polling + post-sync loadHistory refresh
 
 Progress: [██████████] 100%
