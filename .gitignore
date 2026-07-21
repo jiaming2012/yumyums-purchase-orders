@@ -33,3 +33,6 @@ routes.yaml.*.bak
 # DECISIONS-NEEDED, handoffs, slates) are durable planning artifacts needed across
 # machines (/nc-status globs runs/*/DECISIONS-NEEDED.md). Ignored until 2026-07-16,
 # which orphaned the whole 2026-07-09 run record on one machine. Do not re-add.
+
+# Stale PID files from test/investigation legs
+*.pid
