@@ -1,5 +1,13 @@
 # DECISIONS-NEEDED — overnight-20260722
 
+> **RESOLVED 2026-07-20 — recorded as `ledger.md` §T-19.**
+> Decisions 29–33 settled (Trends: food-only filter · unreviewed receipts as a completeness note ·
+> attributed-spend reconciliation · non-positive-revenue guard ratified · residual surfaced).
+> **Two forks left deliberately UNRESOLVED as investigations** (F2-a 0%-food-cost → food cost as a
+> drifting long-term average; F4 red-negative → margin with/without discount, blocked on data that
+> does not exist yet). **Two deferred, not asked** (F5 priority; attended two-device check).
+> Kept below as the analysis record.
+
 > Open forks from the autonomous run of 2026-07-22. Reader = the operator.
 > Resolve via `/nc-morning-triage`. The run did not decide any of these.
 

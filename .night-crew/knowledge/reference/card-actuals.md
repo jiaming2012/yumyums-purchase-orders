@@ -369,3 +369,37 @@
   by prior slates; no repair cycles this run (0 parks).
 - Run total 08:27 → 13:10 (~4h43m) vs serial estimate ~175m + 30m closeout — overage is A1 stall
   + A2's double-suite G6, both now priced classes.
+
+## overnight-20260722 (autonomous, CONCURRENT 2-track dispatch)
+
+| Card | Class | Impl | G6 | Land | Cycle | Outcome |
+|---|---|---|---|---|---|---|
+| S1 `replay-fetchstorm-gate` | S-fix + de-flake proof | **47m23s** | **44m52s** | 0m24s | **~93m** | MERGED (PARTIAL — tail parked) |
+| F1 `trends-spend-by-group-endpoint` | Go endpoint, S–M | **9m55s** | **11m14s** | — | **~21m** | **PARKED at G6** |
+| F2 `cost-margin-endpoint` | Go endpoint, S–M | **12m23s** | **15m42s** | 5m31s (incl. revision) | **~34m** | MERGED |
+| F4 `cost-tab-frontend` | net-new UI + states spec, M | **58m34s** | **47m55s** | 22m09s (incl. revision) | **~129m** | MERGED |
+
+Run total **184m54s (~3h05m)** card time + ~13m quiet determinism streak + closeout.
+Slate estimated ~3h40m–5h25m for the concurrent critical path; actual was under it **only because
+two of five Track-F cards never ran** (F1 parked → F3 blocked; F5 dropped by budget).
+
+**The estimate lesson — G6 was mispriced by an order of magnitude.** The slate budgeted G6 at
+**2–3m** for endpoint cards and **2–3m** for tab cards. Actuals: **11m14s / 15m42s / 44m52s /
+47m55s.** This is not overrun — it is what an adversarial gate costs when it does real work: every
+G6 this run built its own fixtures and ran its own mutations, and three of four booted their own
+database. **Reprice G6 for app-code cards at 15–45m**, and expect the UI/de-flake classes at the
+top of that band. A slate that prices G6 at 2–5m will systematically under-budget its nights.
+
+**Revision rounds are a real, recurring leg.** Two of three merged cards needed one (F2 5m31s,
+F4 22m09s, both including merge). Budget a revision round for *any* card whose G6 can produce
+in-footprint findings — not just first-of-kind cards, as slate-20260722 assumed for F5 alone.
+
+**Clean-path vs repair populations:** F1 and F2 are the same size class (Go endpoint, S–M) with
+near-identical impl times (9m55s / 12m23s) — the divergence is entirely in the gate and its
+aftermath. Park cost is cheap when it happens at G6 (~21m total for F1) and expensive downstream
+(F3 never ran).
+
+**Concurrency note:** the 2-track dispatch worked mechanically (0 collisions, disjoint footprints,
+one env per track) but **cost S1 its determinism proof for the entire run** — no quiet window
+existed until Track F finished, and a `--retries=0` streak under load proves nothing. If a card's
+deliverable *is* a flake proof, serialize it or reserve the quiet window up front.

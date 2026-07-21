@@ -80,7 +80,33 @@ three of four booted their own database. **Reprice G6 for code cards at ~15–45
   loopback ports (`nc-s1/f1/f2/f4`, `nc-g6f1/g6f2/g6s1/g6f4`, `nc-quiet`), all torn down
   `--volumes`. **0 `nc-` containers remain.**
 
-## ⚠ Standing flags
+## ✅ Triaged 2026-07-20 — recorded as `ledger.md` §T-19
+
+Merged to `dev` `--no-ff` (`05dc053`). Independent re-verification on the merged tree: build, vet,
+and **`go test ./...` all exit 0**; G4 discipline greps clean (structurally N/A for HQ);
+replay/testdata untouched.
+
+**Settled (decisions 29–33):** Trends filters to food spend only · unreviewed receipts become a
+completeness note, not a chart bar (they *cannot* be bucketed — review is what links line items) ·
+Trends reports **attributed** spend with unattributed money in the completeness note instead of
+prorated across groups, redefining the payroll identity to one that holds on messy receipts ·
+F2's non-positive-revenue guard ratified · the residual-money gap resolved by consistency.
+**Decisions 29–31 amend signed design §2.2 and un-park F1, which unblocks F3.**
+
+**Left open as investigations (deliberately not forced):**
+- **Food cost as a drifting long-term average** with a direction of travel, rather than a
+  fixed-12-week snapshot. Dissolves the 0%-food-cost bug instead of patching it. F2-a unresolved;
+  no third reason string coined.
+- **Margin with and without discounting.** **Blocked on data that does not exist** — verified at
+  triage: `daily_menu_sales` stores only `units_sold` + `gross_amount`, no discount/comp field.
+  Needs Toast sync to capture it first. F4's red-negative fork unresolved.
+
+Both are the same shape — single numbers where a comparison is wanted. Routed to the next PM session
+as a product thread, not cleanup.
+
+**Deferred, not asked:** F5 priority and the attended two-device check (recommendations below stand).
+
+## ⚠ Standing flags (post-triage)
 
 - **`task sw` was run → the attended two-device convergence check is RE-ARMED** (production
   `sync.js` changed). This is yours in the morning.

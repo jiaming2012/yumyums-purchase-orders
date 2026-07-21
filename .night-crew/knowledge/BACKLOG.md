@@ -424,3 +424,59 @@
   Answering a rejected field then reloading blanks the new answer visually
   (`workflows.html:1544` hydrate branch prefers the rejection snapshot); device-local, LOW.
   Rides any future runner-hydration card. · origin: overnight-20260721 A1 G6 (§C) · new
+- **`sync.spec.js` de-flake: `:1198` + `:525`** ·
+  `:1198 temperature answer converges` is **proven flaky on a quiet box** (red 1-of-2
+  `--retries=0` legs at load 0.84, orchestrator-run streak 2026-07-22) — not load-caused, as
+  two prior runs assumed. Next step is structural: `survivalCell`'s 12s `CONVERGE_TIMEOUT`
+  budget vs the real WS round trip. **Scope must also include `:525 FLD-LIVE-02`**, which G6
+  found fails 3/3 in isolation *and at the pre-gate baseline* — a pre-existing
+  order-dependent test. The flake surface is broader than "just `:1198`". ·
+  origin: overnight-20260722 S1 PARK (b) + quiet streak · new
+- **Replay fetch-storm class is NOT fully closed** ·
+  S1 gated `SUBMIT_CHECKLIST`, but G6's enumeration of every branch in `applyOp` found
+  `loadPendingApprovals()` and `loadTemplates()` still fire an **ungated per-op re-fetch** —
+  a catch-up with N APPROVE ops still storms the approvals queue, N SAVE_TEMPLATE ops still
+  storm the Builder list. Same root cause, same one-line fix pattern, deliberate-by-omission
+  (the in-code comments say "always refreshes"). · origin: overnight-20260722 S1 G6 · new
+- **`sync.js api()` fetch-abort guard (S1 sub-move (d), deliberately skipped)** ·
+  Suite-teardown noise (`loadMyChecklists error: Failed to fetch`) originates from a `catch`
+  in **`workflows.html:389`**, outside S1's footprint. A sync.js-only fix would require
+  `api()` to never reject during unload, altering the error path of every workflow API call
+  including the offline-queue fallback — poor risk/benefit unattended. Needs re-scoping as
+  its own card **with `workflows.html` in footprint**. · origin: overnight-20260722 S1 (d) · new
+- **`.gitignore` lets a `node_modules` symlink into the index** ·
+  The line is `node_modules/` (trailing slash) — matches a directory but **not a symlink**.
+  Worktrees have no `node_modules`, so symlinking the main install is the natural move and it
+  slips straight past into `git add -A`. One implementer already hit it and reverted its own
+  instance. One-char fix: drop the slash. · origin: overnight-20260722 S1 flag · new
+- **`:8199` port latch recurred (third run)** ·
+  A `go run` child survives `kill` of its parent and holds the port. Standing recipe should
+  kill the **listener PID** (`ss -ltnp`), not the `go run` parent, and concurrent tracks
+  should be assigned distinct `TEST_PORT`s up front. · origin: overnight-20260722 S1 flag · new
+- **`-p 1` is load-bearing for Go suites — write it into standing run mechanics** ·
+  Verified at base commit (no card code present): default parallel `-p` reddens four packages
+  (`inventory` 6, `purchasing` 4, `receipt` 9, `recipes` 5+) via concurrent `TRUNCATE`s on a
+  shared DB. `-p 1` is green. This makes every card's build/vet signal unreliable until
+  discovered per-card. · origin: overnight-20260722 F1 G6 · new
+- **Money is `float64` end-to-end in the inventory/recipes path** ·
+  Pre-existing repo convention (`period-summary` too), not a card regression. JSON can emit
+  `23.099999999999998`, and it compounds per-bucket rounding drift. Cents-as-int or a decimal
+  string is the repo-wide correct fix. · origin: overnight-20260722 F1 G6 · new
+- **`git stash` prohibition needs a mechanical guard** ·
+  A subagent ran `git stash` in a worktree (forbidden, 07-15 hazard), self-disclosed, and
+  recovered cleanly; the operator's own stash entry was verified intact. But the rule lives
+  only in prose. Consider a guard refusing `stash` when `git rev-parse --git-common-dir`
+  differs from `--git-dir`. · origin: overnight-20260722 F4 incident · new
+- **Dangling standing-rules pointer in every slate since 07-15** ·
+  Slates inherit gates G1–G6 "unchanged by reference from
+  `reference/overnight-run-plan-20260707.md`" — **that file does not exist.** Real origin is
+  `runs/2026-07-09-attended/slate-20260710.md` §"Run mechanics" plus the app-code adaptation
+  in `slate-20260714.md`. A dangling inherit in the one document defining the run's gates is a
+  latent single point of failure. · origin: overnight-20260722 orchestrator · new
+- **PRODUCT THREAD: the tabs show single numbers where the operator wants comparisons** ·
+  Two triage answers converged on the same shape. (1) Food cost should be a **long-term
+  average with a direction of travel**, not a fixed-12-week snapshot — this dissolves the
+  0%-food-cost bug rather than patching it. (2) **Margin with and without discounting** —
+  blocked today: `daily_menu_sales` stores only `units_sold` + `gross_amount`, no discount or
+  comp field, so it needs Toast sync to capture them first. Not cleanup; belongs in a PM
+  session. · origin: overnight-20260722 triage T-19 · new

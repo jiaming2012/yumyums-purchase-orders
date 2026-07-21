@@ -707,3 +707,89 @@ HANDOFF left to the operator.
   untouched (no asset change). `dev` pushed to `origin/dev` at triage close (the one sanctioned
   push); `main` untouched — `dev → main` promotion remains a separate decision. FR-12 Cliq-dup
   watch continues over the cycle (nothing observed this run).
+
+## T-19 — Morning-triage resolutions (2026-07-20, overnight-20260722)
+
+Run merged to `dev` `--no-ff` (`05dc053`) after attended review. Independent re-verification on
+the merged tree: `go build ./...`, `go vet ./...`, `go test ./...` all exit 0; G4 discipline greps
+clean (and structurally N/A — HQ has no `journal`/`workorder`/`orchestration` packages, per the
+07-19 precedent); `replay_test.go` + testdata untouched. Footprint 14 files, +2264/−45.
+**3 cards merged (S1 PARTIAL, F2, F4), 1 PARKED (F1), 1 blocked by the park (F3), 1 dropped by
+budget discipline (F5). 4/4 G6 adversarial reviews changed the outcome** — one park, two revision
+rounds, one premise correction.
+
+**Decision 29 — Trends shows food spend only (COGS allowlist), not the whole bank feed.**
+Chosen over leaving the signed design's unfiltered query, and over an everything-with-non-food-split
+variant. The bank feed carries rent, insurance, software and fuel; the signed design §2.2 SQL sketch
+had no `mercury_category` filter, so a chart titled "spend by group" would have shown rent as a
+group and over-reported against payroll's COGS by an unbounded amount (G6 measured +500.00 on a
+two-event synthetic; production magnitude unmeasured). Trends now filters to the same allowlist
+`period-summary` is constructed with. The everything-split option was declined as making one tab
+answer two questions. **This amends signed design §2.2** — the implementer was correct to follow
+the sketch verbatim and flag rather than silently patch; the defect was in the design.
+
+**Decision 30 — Unreviewed receipts are excluded from the chart and surfaced as a completeness
+note.** Chosen over an "unreviewed" pseudo-group bar and over continuing to ignore them silently.
+Structural constraint drove this: unreviewed receipts have no linked line items (linking is what
+review *does*), so they cannot be bucketed into a week×group cell at all — they can only ever be a
+note. `period-summary` counts them as a lump, which is why the two numbers diverged. The note
+mirrors the existing `unlinked` treatment rather than inventing a second idiom.
+
+**Decision 31 — Trends reports attributed spend; unattributed money goes to the completeness note
+rather than being prorated across groups.** Chosen over the signed design's proration (which
+reconciles totals but smears the gap across categories) and over abandoning the payroll cross-check
+entirely. When a receipt's line items don't cover its subtotal — a delivery fee, an unitemized
+remainder — the current proration inflates every food line to swallow the difference, so per-group
+numbers are silently overstated with nothing on screen indicating by how much. This is the defect
+that broke F1's AC-6 five ways (G6 probe B1: trends 99.00 vs period-summary 100.00 on a receipt
+with an unitemized fee — the *normal* case). **The reconciliation identity is redefined as:
+`cells + unlinked + unitemized remainder + pending == period-summary`** — an identity that holds on
+messy real receipts, which the old one did not. This is the amendment that un-parks F1 and unblocks
+F3.
+
+**Decision 32 — F2's non-positive-revenue guard RATIFIED.** The run extended signed §2.3's
+"zero-revenue → NULL" rule to "non-positive-revenue → NULL" after G6 found a refunded row producing
+`food_cost_pct: -500000` and ranking **#1 in the "best" list**. Recorded as executing the design's
+evident intent ("never a divide-by-zero or ∞"), not as a new decision — but it is a written change
+to a signed rule and is ratified here explicitly rather than absorbed silently, per the run's own
+flag.
+
+**Decision 33 — the residual/unattributed-money gap follows Decision 31.** `menu-cogs` publishes
+`unallocated_cogs`; the Cost endpoint dropped it, so summing the Cost tab's ingredient column
+under-reports true COGS with nothing indicating a residual exists (G6 rated this the card's most
+substantive gap). Resolved by consistency with Decision 31 rather than a separate operator call:
+unattributed money is surfaced, not hidden. Applies to Cost as it now does to Trends.
+
+**OPEN — investigation, not resolved tonight: food cost as a drifting long-term average.**
+Operator, on the 0%-food-cost fork: *"The idea is that the cost of the food item is a long term
+average. What's most useful is to see how the average is increasing or decreasing over time."* The
+current design treats food cost as a fixed-12-week snapshot; the operator wants a rolling average
+and its **direction of travel**. This is not a fix to the 0% bug — it dissolves it, since a
+long-term average is indifferent to whether a bulk purchase landed inside an arbitrary window.
+**The 0%-dish fork (F2-a) is therefore left UNRESOLVED** pending this; no third `unallocated` reason
+string was coined. Routed to the next planning cycle.
+
+**OPEN — investigation, not resolved tonight: margin with and without discounting.** Operator, on
+the red-negative fork: *"it would be useful to know the margin on items with and without the
+discount."* **Verified during triage: the data does not exist.** `daily_menu_sales` stores only
+`menu_item_id, business_date, units_sold, gross_amount, updated_at` — no discount or comp field. The
+comparison would require capturing discount/comp data from Toast during sync, upstream of both tabs.
+**The red-negative fork (F4) is therefore left UNRESOLVED**; the tab still reds any negative margin,
+including comped dishes that never sold.
+
+**Pattern noted for the next planning session.** Both open investigations are the same shape: the
+operator asked for a *comparison* where the current design shows a *single number* (average-and-trend
+rather than window-snapshot; with-and-without-discount rather than one margin). Neither is cleanup.
+Worth treating as a product thread in its own right at the next PM session.
+
+**Still open, not asked this triage (operator fatigue — deferred rather than forced):** F5
+`inventory-tab-gating` priority for the next run, and the attended two-device convergence check.
+Both are stated in the handoff with recommendations and remain the operator's call.
+
+**Standing flags after triage.** **Attended two-device convergence check RE-ARMED and NOT run** —
+production `sync.js` changed (S1's gate) and `task sw` regenerated the service worker. Prod deploy
+NOT done (attended, rides the cycle gate). Frontend semver untouched (1.0.3) — bump belongs to
+`/save-project`. DB flag satisfied (ephemeral pg16 canonical throughout; host `:5432` never touched).
+**The Cost tab and its data ship logged-in-only** — F5 dropped, so per-tab access control does not
+exist; B5 (approve/reject authorization) also remains unclosed, pre-existing. FR-12 Cliq-dup watch
+continues over the cycle (nothing observed).
