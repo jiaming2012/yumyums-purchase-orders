@@ -131,11 +131,17 @@
 
 ## Activity 4 — Feature build track · *serialized after Activity 2 sign-off*
 
-- **`trends-spend-by-group-endpoint`** · **PLANNED** (F1 PARKED 2026-07-22; design §2.2 AMENDED at triage T-19 decisions 29–31 — re-dispatch against the amended spec, work preserved on card/f1-trends-endpoint @ 88cab9d) · New backend aggregation: total spend
-  bucketed by `date_trunc('week', event_date)` × `purchase_items.group_id` over a window,
-  tax-prorated consistently with `period-summary`, with the signed NULL-`purchase_item_id`
+- **`trends-spend-by-group-endpoint`** · **DONE** (F1 re-dispatch shipped 2026-07-20 against design §2.2 **as amended**, T-19 decisions 29–31; the 2026-07-22 PARK is closed — parked work on `parked/f1-trends-endpoint-20260720b` @ 88cab9d was re-derived, not resumed) · `GET /api/v1/inventory/trends`: spend
+  bucketed by `date_trunc('week', event_date)` × `purchase_items.group_id` over the fixed
+  12-week window, **COGS-allowlist filtered** (Amendment 1) and at **face value with no tax
+  proration** (Amendment 3), with the signed NULL-`purchase_item_id`
   (unlinked line item) handling rule + the signed **D2 rule** (linked-but-groupless lines →
   explicit "Ungrouped" pseudo-group) + per-week `unlinked` array (rider (a), signed).
+  Unreviewed receipts and the per-event unitemized remainder are surfaced in a `completeness`
+  object (Amendments 2/3). The reconciliation identity
+  `Σcells + Σunlinked + pending_total == period_summary.cogs_excl_tax` is asserted in
+  `trends_test.go` by calling `PeriodSummaryHandler` itself on the same window — never against
+  a constant — over a fixture carrying all five of G6's breakers.
   Red-first Go test: every week×group cell = SUM of matching
   line-item spend on a ≥8-week/≥2-group seeded fixture. Footprint: `backend/internal/inventory`.
   → Eng KR1, Delivery KR2.
