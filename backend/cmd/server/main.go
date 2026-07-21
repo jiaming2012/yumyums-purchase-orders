@@ -545,6 +545,13 @@ func main() {
 				// Toast menu items + this-week aggregate (Phase 22). Cookie-auth, not service-token.
 				r.Get("/menu-items", toast.ListMenuItemsHandler(pool))
 				r.Get("/cost", recipes.CostHandler(pool)) // design §2.3 — cost/margin/food-cost-%
+				// design §2.2 as amended (decisions 29/30/31) — spend by ISO
+				// week × item group. Cookie-auth, but it MUST be filtered by
+				// the same cogsAllowlist the service-token period-summary is
+				// constructed with (Amendment 1), or Trends over-reports
+				// against payroll. The allowlist is built once above both
+				// router groups — do not build a second copy here.
+				r.Get("/trends", inventory.TrendsHandler(pool, cogsAllowlist))
 			})
 
 			// Phase 999.2 — recipes CRUD (cookie-auth; any authenticated user can edit).

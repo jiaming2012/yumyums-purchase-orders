@@ -302,6 +302,12 @@ func TestTrends(t *testing.T) {
 	}
 	lhs := cellSum + unlinkedSum + resp.Completeness.PendingTotal
 
+	t.Logf("identity on %s..%s: Σcells=%.2f + Σunlinked=%.2f + pending=%.2f = %.2f "+
+		"vs period_summary.cogs_excl_tax=%.2f (unitemized_remainder=%.2f, excluded by design)",
+		resp.Window.From, resp.Window.To, cellSum, unlinkedSum,
+		resp.Completeness.PendingTotal, lhs, ps.COGSExclTax,
+		resp.Completeness.UnitemizedRemainder)
+
 	if cents(lhs) != cents(ps.COGSExclTax) {
 		t.Errorf("RECONCILIATION IDENTITY FAILED on window %s..%s:\n"+
 			"  Σcells            = %.2f\n"+
