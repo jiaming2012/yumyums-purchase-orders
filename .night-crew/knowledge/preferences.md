@@ -82,6 +82,28 @@ proves zero. Distinguish:
 Reopening on recurrence is expected and is not a process failure. Carrying an
 unreproducible claim forward as established fact **is**.
 
+**P3a — a reproduction attempt must sample the RIGHT CONDITION, or it proves nothing.**
+Added the same day, because this failed immediately and instructively.
+
+`sync.spec.js:1198` was declared "decisively refuted" on ~20 consecutive greens from two
+independent parties. Re-run **under a concurrent Playwright suite**, it produced **4 reds in
+25 legs (16%; 20% under contention)**. Both earlier parties had sampled the *quiet*
+condition — and ~20 greens off-condition is entirely consistent with a 20% on-condition rate
+(p ≈ 1.2%).
+
+The failed reasoning is worth naming because it looks rigorous: a p-value was computed
+against a **50% unconditional** rate nobody had claimed, using samples drawn from a
+condition where the bug does not fire. The arithmetic was correct and the conclusion was
+wrong.
+
+**So before closing anything under P3, state the condition you sampled** — load, concurrency,
+data volume, journal depth — and whether it is the condition the original report described.
+"Could not reproduce **on a quiet box**" is a finding. "Could not reproduce" is not.
+
+Corollary: absence of reproduction in N legs bounds a rate *conditional on the sampled
+condition only*. 5/5 green at low load bounds nothing about high load (p(0 red in 5 | 20%)
+≈ 0.33).
+
 ---
 
 - TODO: record the remaining architecture preferences — paradigms, libraries, and patterns

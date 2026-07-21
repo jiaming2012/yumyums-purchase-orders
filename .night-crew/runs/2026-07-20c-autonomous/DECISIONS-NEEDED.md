@@ -27,9 +27,68 @@ executes and never decides. Ordered by consequence.
 
 ---
 
-## 0a. The `:1198` premise that promoted D1 does not survive — re-derive or drop it
+## 0a. ~~The `:1198` premise does not survive~~ — **RETRACTED. The test IS flaky.**
 
-**Status: the slate's evidence is refuted by two independent parties.**
+> ## ⛔ THIS SECTION WAS WRONG — corrected 2026-07-21
+>
+> Everything below the line was written before the test was run **under contention**. It
+> concluded the flake premise was "decisively refuted." **That conclusion was wrong** and is
+> retracted. Full evidence: `reference/1198-flake-reproduction-20260721.md`.
+>
+> **REPRODUCED: 4 reds in 25 `--retries=0` legs (16%); 4/20 (20%) under a concurrent
+> Playwright suite.**
+>
+> **Why ~20 prior greens proved nothing.** Both earlier parties sampled the *quiet*
+> condition. A ~20% rate conditional on contention is entirely consistent with ~20 greens
+> off-condition (p ≈ 1.2%). The p ≈ 1×10⁻⁶ figure below is arithmetically fine and
+> epistemically worthless — it tested against a 50% *unconditional* rate that nobody had
+> claimed, on samples drawn from the wrong condition. **A streak in the wrong condition is
+> not evidence.**
+>
+> **Two corrections to the ORIGINAL claim — both real, neither fatal to it:**
+>
+> 1. **The load figure was misattributed.** The source table
+>    (`runs/2026-07-22-autonomous/DECISIONS-NEEDED.md` §"S1 tail") reads: leg 1 load **0.84
+>    PASSED**, leg 2 load **3.96 RED**. The phrase "proven flaky on a quiet box at load
+>    0.84" assigned the *green* leg's load to the *red* one. **"Flaky" survives; "on a quiet
+>    box" does not.** All four new reds started at load ≤ 7.21, while greens ran clean at
+>    24.77, 21.46, 19.77 — so the discriminator is the **presence of a competing suite**,
+>    not load magnitude.
+> 2. **The card is aimed at the wrong wait.** Every red is a 12s timeout at
+>    **`sync.spec.js:1119`** — the `POST /ops` **commit** wait — *not* `CONVERGE_TIMEOUT` and
+>    not a convergence assert. The debounce is 400ms, a 30× margin, and the journal gains
+>    **+3 rows on a red vs +5 on a green**: no `SET_FIELD` row. **The op never fired. It was
+>    not slow. No timeout increase can fix this.**
+>
+> **Mechanism.** The prior de-flake *relocated* the clobber race rather than closing it. Its
+> step 1 claims gating on the `POST /ops` 2xx is "race-free" — true against a clobber of an
+> already-sent value, false against a re-render that stops the POST existing at all. A stray
+> WS catch-up `loadMyChecklists` re-render detaches the input between `fill()` and
+> `dispatchEvent('change')`, so the change handler never arms `debouncedSaveField`. The
+> observable moved from `Received ""` to a commit-gate timeout.
+>
+> **Verdict under preference P3: "rare, mechanism understood, bounded at ~16–20%."** NOT
+> "not flaky." This is precisely the distinction P3 was written to preserve, and it earned
+> its keep within hours of being recorded.
+>
+> **Disposition: KEEP the card, RE-AIM it.** Fix is test-side (settle the runner before
+> entry; re-assert and re-dispatch when no POST is observed). **No production change
+> needed.** Tier A was 5/5 green but p(0 red in 5 | 20%) ≈ 0.33 — **a quiet box is NOT
+> established as safe.**
+>
+> **`cycle-gate`'s no-retry premise STANDS.** It genuinely cannot pass at ~1-in-5. Item 0b's
+> clean-DB resolution is unaffected and still correct.
+>
+> **Flakiness is recorded in 5 places** — `BACKLOG.md:427-437` (corrected in place),
+> `slate-20260720c.md:159,165`, `slate-20260722.md:21,94,103`,
+> `runs/2026-07-22-autonomous/` §S1-tail + HANDOFF, and this file. **No test-level
+> quarantine exists** — only the suite-wide `retries: 1` in `playwright.config.js`.
+
+---
+
+### Original (wrong) analysis, retained for the record
+
+**Status: ~~the slate's evidence is refuted by two independent parties.~~ RETRACTED — see above.**
 
 The slate promoted D1 on the basis that `sync.spec.js:1198` (`survivalCell`) is *"proven flaky on a
 quiet box — red 1-of-2 `--retries=0` legs at load 0.84."* That is a ~50% failure rate.
