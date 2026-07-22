@@ -109,52 +109,88 @@ condition only*. 5/5 green at low load bounds nothing about high load (p(0 red i
 - TODO: record the remaining architecture preferences — paradigms, libraries, and patterns
   to prefer or avoid — that night-crew sessions should weigh when designing work.
 
-## Artifact naming — BINDING (adopted 2026-07-20)
+## Artifact naming — BINDING (fleet-standard numeric suffix, adopted 2026-07-22; supersedes the 2026-07-20 cycle-letter rule)
 
-**Rule: real authoring date + a mandatory intra-day cycle letter.**
+**Rule: real authoring date + a NUMERIC collision suffix (fleet standard).**
 
 ```
-slate-YYYYMMDD<letter>.md          e.g. slate-20260720c.md
-overnight-YYYYMMDD<letter>         e.g. overnight-20260720c
-runs/YYYY-MM-DD<letter>-autonomous e.g. runs/2026-07-20c-autonomous
+slate-YYYYMMDD.md            slate-YYYYMMDD-2.md          e.g. slate-20260722.md, slate-20260722-2.md
+overnight-YYYYMMDD           overnight-YYYYMMDD-2         e.g. overnight-20260722, overnight-20260722-2
+runs/YYYY-MM-DD-autonomous   runs/YYYY-MM-DD-2-autonomous
 ```
 
 - `YYYYMMDD` is the **real calendar date the slate is authored**, taken from the
   system clock — never "tomorrow," never inferred from the previous artifact's name.
-- The **cycle letter is mandatory even for the first cycle of a day** (`a`, then `b`,
-  `c`, …). It is what guarantees a new artifact can never collide with a legacy label.
+- The **first run of a real date carries NO suffix**; the second is `-2`, the third
+  `-3`, … A numeric suffix is a collision counter for that date, nothing more.
+- **Sort run-ids with `sort -V`** (version sort), never plain `sort` — plain sort
+  orders `-10` before `-2`, and puts an unsuffixed run after its own `-2`.
 - **Every date appearing in prose is the real calendar date**, always — sign-off dates,
   triage dates, decision dates. Labels live in filenames and branch names only.
 
-### Why — the drift this replaced
+**Source of the standard.** This is night-crew's own run-id convention, defined by the
+`fix-overnight-ergonomics` change and matched by its tooling as
+`^overnight-[0-9]{8}(-[0-9]+)?$` (see the dev skills `nc-status`, `nc-morning-triage`,
+`nc-slate-plan`, `nc-run`). hq conforms to it so the fleet tooling reads hq's runs
+instead of skipping them. The **cycle-letter rule is retired** — it was an hq-local
+invention that the fleet matcher never recognised, which is precisely why
+`overnight-20260720c` was skipped by `/nc-status`.
 
-The prior rule named each slate for "the morning after," which silently assumes **one
-run per night**. The actual cadence is several cycles per real day, and each new slate
-took the next day-number, so labels advanced one per *cycle* while the calendar advanced
-one per *day*. Measured 2026-07-20: labels had ratcheted **+3 days ahead of reality** —
-`slate-20260721`, `slate-20260722`, and what would have been `slate-20260723` were all
-authored on 2026-07-20 (08:19, 16:26, 22:18).
+> **⚠ DEPLOYMENT CAVEAT — the numeric matcher is NOT yet on night-crew `main`.** Verified
+> 2026-07-22: `main`'s `nc-status` and the **installed** `~/.claude/skills/nc-status`
+> both still carry the OLD matcher `^overnight-[0-9]+$`, which skips a `-N` suffix just
+> as it skipped a letter (the `-` breaks `[0-9]+$`). The `fix-overnight-ergonomics`
+> change is archived on night-crew **dev** and is NOT an ancestor of `main`. So adopting
+> this rule makes hq *conformant and drift-proof going forward*, but it does **not** make
+> the deployed tooling read hq's runs until that change reaches `main` AND the user-level
+> skills are re-synced. Per [[nc-tooling-tracks-main]], hq rituals track main — so this
+> rule is the go-forward convention, and the tooling upgrade is the separate, blocking
+> half. Do not expect `/nc-status` to see numeric hq runs until then.
 
-The damage was not the filenames; it was **labels leaking into prose that reads as
-factual history**. Commit `b5f3952` is titled "morning triage 2026-07-22" but was authored
-2026-07-20 21:56, while the HANDOFF body it committed correctly says "Triaged 2026-07-20"
-— two date sources inside one artifact. A slate's sign-off line is a factual claim about
-when the operator consented; under the old rule it was routinely off by days.
+### Why — the drift the *letter* rule replaced (retained; still true)
 
-### Legacy artifacts
+The rule before the letter rule named each slate for "the morning after," assuming **one
+run per night**. Cadence is several cycles per real day, so labels advanced one per
+*cycle* while the calendar advanced one per *day*. Measured 2026-07-20: labels had
+ratcheted **+3 days ahead of reality** — `slate-20260721`, `slate-20260722`, and what
+would have been `slate-20260723` were all authored on 2026-07-20 (08:19, 16:26, 22:18).
+The letter rule fixed the drift; the numeric rule keeps that fix and additionally
+conforms to the fleet matcher. The damage was never the filenames — it was **labels
+leaking into prose that reads as factual history** (commit `b5f3952` titled "morning
+triage 2026-07-22" but authored 2026-07-20). A sign-off line is a factual claim about
+when the operator consented; keep it the real date.
 
-Labels `slate-20260712` … `slate-20260722` (and their `overnight-*` branches and `runs/`
-directories) are **future-dated and are left as-is** — they are load-bearing cross-references
-across the ledger, HANDOFFs, and every prior slate, and rewriting them would corrupt a record
-whose only value is reliability. Treat any pre-2026-07-20c label as an **opaque identifier,
-not a date**; to date a legacy artifact, read its git author date.
+### Legacy artifacts — INCLUDING the sole letter artifact, left as opaque identifiers
 
-The one-time consequence: `slate-20260720c` sorts *before* legacy files it postdates. The
-overlap ends once the real calendar passes 2026-07-22.
+Two generations of pre-conformance labels exist and are **all left as-is**:
 
-### Follow-up not yet done
+1. Future-dated morning-after labels `slate-20260712` … `slate-20260722` (and their
+   `overnight-*` branches and `runs/` dirs).
+2. The **one** cycle-letter artifact: `slate-20260720c.md`, branch `overnight-20260720c`,
+   `runs/2026-07-20c-autonomous/`.
 
-`~/.claude/skills/nc-slate-plan/SKILL.md` still documents the old rule
-("`reference/slate-YYYYMMDD.md` — dated for the MORNING after"). That skill is **user-level
-and shared across every night-crew target repo**, so it was deliberately not edited mid-ritual.
-Update it between cycles, not during one.
+**None are renamed.** They are load-bearing cross-references across the ledger, HANDOFFs,
+and every prior slate — and `20260720c` is additionally baked into **5 pushed, immutable
+commit messages** (`c2cfc13` merge, `771a0da` T-20, `bcd5ed0` closeout, two sign-offs) and
+an **already-merged** branch. Renaming the file but not the commits would recreate the exact
+split-identity corruption this whole convention exists to prevent — for zero tooling benefit,
+since the deployed matcher skips `-N` too (see the caveat above). Treat any
+pre-2026-07-22 label as an **opaque identifier, not a date**; to date one, read its git
+author date.
+
+**For the record (mapping, not applied):** by run order, 2026-07-20 ran three cycles —
+cycle 1 = `overnight-20260721`, cycle 2 = `overnight-20260722` (both future-dated legacy),
+cycle 3 = `overnight-20260720c` (the slate says so: *"the third cycle of 2026-07-20"*).
+Under the numeric rule cycle 3 would be `overnight-20260720-3` — but there is **no**
+`-1`/`-2` sharing that base (they are the mislabelled `20260721`/`20260722`), so a bare
+`-3` would itself be misleading. This is a second reason the mapping is documented rather
+than applied. There is no plain `overnight-20260720`.
+
+### Follow-up — the blocking half (night-crew side, NOT hq)
+
+The goal "fleet tooling reads hq's runs" needs the **night-crew** side, not more hq
+renames: (a) promote `fix-overnight-ergonomics` to night-crew `main`, and (b) re-sync the
+user-level `~/.claude/skills/nc-*` so the installed matcher becomes
+`^overnight-[0-9]{8}(-[0-9]+)?$`. Until both land, deployed `/nc-status` skips every hq
+run regardless of its suffix form. The user-level skills are **shared across every
+night-crew target repo**, so they are not edited from inside an hq ritual.
