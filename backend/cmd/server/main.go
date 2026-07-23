@@ -406,9 +406,12 @@ func main() {
 	// Load alert config early so handlers can send emails
 	alertCfg := alerts.LoadConfig()
 
-	// WebSocket endpoint at /ws — behind auth middleware, outside /api/v1 prefix
+	// WebSocket endpoint at /ws — behind auth middleware, outside /api/v1 prefix.
+	// It is the Operations live-sync channel (sync.js ← workflows.html), so it
+	// carries workflow data and sits behind the operations grant (card G1).
 	r.Group(func(r chi.Router) {
 		r.Use(auth.Middleware(pool, superadmins))
+		r.Use(auth.RequirePermission(pool, "operations"))
 		r.Get("/ws", opsync.WsHandler(hub, pool))
 	})
 
@@ -481,27 +484,44 @@ func main() {
 			r.Get("/me", me.MeHandler())
 			r.Get("/me/apps", me.MeAppsHandler(pool))
 
-			// User admin endpoints — admin only
+			// User admin endpoints — behind the `users` app grant (card G1),
+			// and STILL admin-only inside the handlers: the grant is a data
+			// boundary, the role is a privilege tier; both must pass.
 			r.Route("/users", func(r chi.Router) {
-				r.Get("/", users.ListUsersHandler(pool))
-				r.Post("/invite", users.InviteHandler(pool, alertCfg))
-				r.Patch("/{id}", users.UpdateUserHandler(pool))
-				r.Post("/{id}/reset-password", users.ResetPasswordHandler(pool, alertCfg))
-				r.Post("/{id}/revoke", users.RevokeHandler(pool))
-				r.Delete("/{id}", users.DeleteUserHandler(pool))
-				// Notification preference — admin or self
+				r.Group(func(r chi.Router) {
+					r.Use(auth.RequirePermission(pool, "users"))
+					r.Get("/", users.ListUsersHandler(pool))
+					r.Post("/invite", users.InviteHandler(pool, alertCfg))
+					r.Patch("/{id}", users.UpdateUserHandler(pool))
+					r.Post("/{id}/reset-password", users.ResetPasswordHandler(pool, alertCfg))
+					r.Post("/{id}/revoke", users.RevokeHandler(pool))
+					r.Delete("/{id}", users.DeleteUserHandler(pool))
+				})
+				// Notification preference — admin OR SELF, deliberately OUTSIDE
+				// the users gate: the self branch serves the caller's OWN row
+				// (profile plumbing, like /me), and gating it would strand every
+				// ungranted user's preference. The admin-or-self check lives in
+				// the handlers. Guarded by users.spec.js NFR-4 and the EXCEPTION
+				// test in grant-enforcement-parity.spec.js.
 				r.Get("/{id}/notification-preference", users.GetNotificationPreferenceHandler(pool))
 				r.Put("/{id}/notification-preference", users.UpdateNotificationPreferenceHandler(pool))
 			})
 
-			// App permissions endpoints — admin only
+			// App permissions endpoints — the Users app's Access tab surface:
+			// same `users` grant, still admin-only inside the handlers.
 			r.Route("/apps", func(r chi.Router) {
+				r.Use(auth.RequirePermission(pool, "users"))
 				r.Get("/permissions", users.GetAppPermissionsHandler(pool))
 				r.Put("/{slug}/permissions", users.SetAppPermissionsHandler(pool))
 			})
 
-			// Workflow endpoints — all authenticated
+			// Workflow endpoints — the Operations app's data surface (card G1).
+			// The grant gate answers "may you reach Operations at all"; the
+			// role/assignment tiers inside the handlers (isAdmin on template
+			// mutation, requireReviewAuthz inside approveSubmission/rejectItem
+			// per 8c71022) remain a separate axis on top of it.
 			r.Route("/workflow", func(r chi.Router) {
+				r.Use(auth.RequirePermission(pool, "operations"))
 				r.Get("/templates", workflow.ListTemplatesHandler(pool))
 				r.Post("/createTemplate", workflow.CreateTemplateHandler(pool))
 				r.Put("/updateTemplate/{id}", workflow.UpdateTemplateHandler(pool))
@@ -526,56 +546,67 @@ func main() {
 				r.Post("/upload", photos.UploadHandler(spacesClient, spacesBucket, spacesEndpoint))
 			})
 
-			// Video endpoints — presigned upload URL + FFmpeg processing trigger
+			// Video endpoints — presigned upload URL + FFmpeg processing trigger.
+			// Called ONLY by onboarding.html (training video capture), so they
+			// carry the onboarding grant (card G1). /photos, by contrast, is a
+			// cross-app utility (workflows/purchasing/inventory/onboarding all
+			// call it) and stays authenticated-only pending an operator ruling
+			// on which grant governs it — see grant-enforcement-parity.spec.js.
 			r.Route("/videos", func(r chi.Router) {
+				r.Use(auth.RequirePermission(pool, "onboarding"))
 				r.Post("/presign", onboarding.VideoPresignHandler(spacesPresigner, spacesBucket, spacesEndpoint))
 				r.Post("/process", onboarding.VideoProcessHandler(spacesPresigner, spacesBucket, spacesEndpoint, pool))
 			})
 
-			// Inventory endpoints — all authenticated
+			// Inventory endpoints — behind the whole-app `inventory` grant
+			// (card G1). The base surface is deliberately in its OWN group so
+			// the two per-tab gates below keep their independent umbrella
+			// semantics: a user granted only `inventory-trends` reaches
+			// /trends and NOTHING here; a whole-app grant opens everything.
 			r.Route("/inventory", func(r chi.Router) {
-				r.Get("/vendors", inventory.ListVendorsHandler(pool))
-				r.Post("/vendors", inventory.CreateVendorHandler(pool))
-				r.Put("/vendors", inventory.UpdateVendorHandler(pool))
-				r.Post("/vendors/merge", inventory.MergeVendorsHandler(pool))
-				r.Get("/purchases", inventory.ListPurchaseEventsHandler(pool))
-				r.Post("/purchases", inventory.CreatePurchaseEventHandler(pool))
-				r.Get("/purchases/pending", inventory.ListPendingPurchasesHandler(pool))
-				// On-demand Mercury receipt sync (260607-bir): durable single-flight
-				// runner backed by receipt_sync_runs. closes over receiptCfg above.
-				r.Post("/sync-receipts", inventory.SyncReceiptsHandler(pool, func(ctx context.Context) (receipt.IngestResult, error) {
-					return receipt.RunIngestCycle(ctx, receiptCfg)
-				}))
-				r.Get("/sync-receipts/status", inventory.SyncReceiptsStatusHandler(pool, receiptCfg.LookbackDays))
-				r.Post("/purchases/reprocess-all", inventory.ReprocessAllPendingHandler(pool, func(ctx context.Context, rows []receipt.PendingRowForReprocess) (map[string]string, error) {
-					return receipt.BatchReprocessFromSpaces(ctx, receiptCfg, rows)
-				}))
-				r.Post("/purchases/confirm", inventory.ConfirmPendingPurchaseHandler(pool))
-				r.Post("/purchases/discard", inventory.DiscardPendingPurchaseHandler(pool))
-				r.Post("/purchases/pending/{id}/retry-parse", inventory.RetryParsePendingPurchaseHandler(pool))
-				r.Put("/purchases/pending-items", inventory.UpdatePendingItemsHandler(pool))
-				r.Post("/purchases/pending-seed", inventory.SeedPendingPurchaseHandler(pool))
-				r.Get("/stock", inventory.GetStockHandler(pool))
-				r.Post("/stock/count", inventory.UpdateStockCountHandler(pool))
-				r.Get("/items", inventory.ListItemsHandler(pool))
-				r.Post("/items", inventory.CreateItemHandler(pool))
-				r.Put("/items", inventory.UpdateItemHandler(pool))
-				r.Post("/items/merge", inventory.MergeItemsHandler(pool))
-				r.Get("/groups", inventory.ListGroupsHandler(pool))
-				r.Post("/groups", inventory.CreateGroupHandler(pool))
-				r.Put("/groups", inventory.UpdateGroupHandler(pool))
-				r.Get("/tags", inventory.ListTagsHandler(pool))
-				// Toast menu items + this-week aggregate (Phase 22). Cookie-auth, not service-token.
-				r.Get("/menu-items", toast.ListMenuItemsHandler(pool))
+				r.Group(func(r chi.Router) {
+					r.Use(auth.RequirePermission(pool, "inventory"))
+					r.Get("/vendors", inventory.ListVendorsHandler(pool))
+					r.Post("/vendors", inventory.CreateVendorHandler(pool))
+					r.Put("/vendors", inventory.UpdateVendorHandler(pool))
+					r.Post("/vendors/merge", inventory.MergeVendorsHandler(pool))
+					r.Get("/purchases", inventory.ListPurchaseEventsHandler(pool))
+					r.Post("/purchases", inventory.CreatePurchaseEventHandler(pool))
+					r.Get("/purchases/pending", inventory.ListPendingPurchasesHandler(pool))
+					// On-demand Mercury receipt sync (260607-bir): durable single-flight
+					// runner backed by receipt_sync_runs. closes over receiptCfg above.
+					r.Post("/sync-receipts", inventory.SyncReceiptsHandler(pool, func(ctx context.Context) (receipt.IngestResult, error) {
+						return receipt.RunIngestCycle(ctx, receiptCfg)
+					}))
+					r.Get("/sync-receipts/status", inventory.SyncReceiptsStatusHandler(pool, receiptCfg.LookbackDays))
+					r.Post("/purchases/reprocess-all", inventory.ReprocessAllPendingHandler(pool, func(ctx context.Context, rows []receipt.PendingRowForReprocess) (map[string]string, error) {
+						return receipt.BatchReprocessFromSpaces(ctx, receiptCfg, rows)
+					}))
+					r.Post("/purchases/confirm", inventory.ConfirmPendingPurchaseHandler(pool))
+					r.Post("/purchases/discard", inventory.DiscardPendingPurchaseHandler(pool))
+					r.Post("/purchases/pending/{id}/retry-parse", inventory.RetryParsePendingPurchaseHandler(pool))
+					r.Put("/purchases/pending-items", inventory.UpdatePendingItemsHandler(pool))
+					r.Post("/purchases/pending-seed", inventory.SeedPendingPurchaseHandler(pool))
+					r.Get("/stock", inventory.GetStockHandler(pool))
+					r.Post("/stock/count", inventory.UpdateStockCountHandler(pool))
+					r.Get("/items", inventory.ListItemsHandler(pool))
+					r.Post("/items", inventory.CreateItemHandler(pool))
+					r.Put("/items", inventory.UpdateItemHandler(pool))
+					r.Post("/items/merge", inventory.MergeItemsHandler(pool))
+					r.Get("/groups", inventory.ListGroupsHandler(pool))
+					r.Post("/groups", inventory.CreateGroupHandler(pool))
+					r.Put("/groups", inventory.UpdateGroupHandler(pool))
+					r.Get("/tags", inventory.ListTagsHandler(pool))
+					// Toast menu items + this-week aggregate (Phase 22). Cookie-auth, not service-token.
+					r.Get("/menu-items", toast.ListMenuItemsHandler(pool))
+				})
 
 				// ── PER-TAB GATED SURFACES (design §1.3 station 1) ──────────
 				//
-				// These two are the ONLY inventory routes behind a grant. Every
-				// route above is reachable by any logged-in user, unchanged.
-				//
 				// Each sits in its own r.Group so RequirePermission applies to
 				// exactly one route: chi middleware is scoped to its group, and
-				// a Use() at this Route's level would gate the whole tab set.
+				// a Use() at this Route's level would gate the whole tab set
+				// behind the tab slug (and break the base group's own gate).
 				//
 				// The umbrella argument is the operator's signed rider (§8
 				// amendment 1) — a whole-app `inventory` grant opens both tabs.
@@ -595,10 +626,13 @@ func main() {
 				})
 			})
 
-			// Phase 999.2 — recipes CRUD (cookie-auth; any authenticated user can edit).
-			// The menu-cogs endpoint sits in the service-token group above (line ~343).
+			// Phase 999.2 — recipes CRUD. The Recipes tab is Inventory-app data
+			// (no per-tab slug exists for it), so it sits behind the whole-app
+			// `inventory` grant (card G1). The menu-cogs endpoint sits in the
+			// service-token group above and is NOT session-gated.
 			// /drift is read by Plan 05's Recipes-tab banner (D-22 self-healing).
 			r.Route("/inventory/recipes", func(r chi.Router) {
+				r.Use(auth.RequirePermission(pool, "inventory"))
 				r.Get("/", recipes.ListRecipesHandler(pool))
 				r.Post("/", recipes.CreateRecipeHandler(pool))
 				r.Put("/{id}", recipes.UpdateRecipeHandler(pool))
@@ -607,8 +641,10 @@ func main() {
 				r.Get("/drift", recipes.DriftBannerHandler(pool)) // Phase 999.2 Plan 04
 			})
 
-			// Purchasing endpoints — all authenticated
+			// Purchasing endpoints — behind the `purchasing` grant (card G1);
+			// the admin-only tiers noted below remain inside the handlers.
 			r.Route("/purchasing", func(r chi.Router) {
+				r.Use(auth.RequirePermission(pool, "purchasing"))
 				// Cutoff config (admin-only for PUT)
 				r.Get("/cutoff", purchasing.GetCutoffConfigHandler(pool))
 				r.Put("/cutoff", purchasing.UpsertCutoffConfigHandler(pool))
@@ -643,8 +679,10 @@ func main() {
 				r.Put("/repurchase-reset/config", purchasing.UpsertRepurchaseResetConfigHandler(pool))
 			})
 
-			// Onboarding endpoints — all authenticated
+			// Onboarding endpoints — behind the `onboarding` grant (card G1);
+			// the manager/assignment tiers remain inside the handlers.
 			r.Route("/onboarding", func(r chi.Router) {
+				r.Use(auth.RequirePermission(pool, "onboarding"))
 				r.Get("/templates", onboarding.ListTemplatesHandler(pool))
 				r.Get("/templates/{id}", onboarding.GetTemplateHandler(pool))
 				r.Get("/myTrainings", onboarding.MyTrainingsHandler(pool))
