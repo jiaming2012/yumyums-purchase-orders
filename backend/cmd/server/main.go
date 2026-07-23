@@ -589,7 +589,6 @@ func main() {
 					r.Post("/purchases/pending-seed", inventory.SeedPendingPurchaseHandler(pool))
 					r.Get("/stock", inventory.GetStockHandler(pool))
 					r.Post("/stock/count", inventory.UpdateStockCountHandler(pool))
-					r.Get("/items", inventory.ListItemsHandler(pool))
 					r.Post("/items", inventory.CreateItemHandler(pool))
 					r.Put("/items", inventory.UpdateItemHandler(pool))
 					r.Post("/items/merge", inventory.MergeItemsHandler(pool))
@@ -599,6 +598,20 @@ func main() {
 					r.Get("/tags", inventory.ListTagsHandler(pool))
 					// Toast menu items + this-week aggregate (Phase 22). Cookie-auth, not service-token.
 					r.Get("/menu-items", toast.ListMenuItemsHandler(pool))
+				})
+
+				// Item catalog READ — the one deliberate cross-app read (card
+				// G1). purchasing.html's weekly order form is built FROM the
+				// item catalog (init() Promise.alls /inventory/items), so a
+				// purchasing grant alone must open this read or the Purchasing
+				// view breaks for purchasing-only crew — the operator ruling
+				// cuts both ways: no grant, no data; but a granted app's view
+				// must work. missing_grant still names `inventory` (the narrow
+				// slug an admin would issue for catalog access). Item WRITES
+				// (POST/PUT /items, /items/merge) stay inventory-only above.
+				r.Group(func(r chi.Router) {
+					r.Use(auth.RequirePermission(pool, "inventory", "purchasing"))
+					r.Get("/items", inventory.ListItemsHandler(pool))
 				})
 
 				// ── PER-TAB GATED SURFACES (design §1.3 station 1) ──────────

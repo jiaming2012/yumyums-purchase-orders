@@ -778,6 +778,16 @@ test.describe('Security enforcement', () => {
   // ── NFR-3: grant write → /me/apps read round-trip ─────────────────────────
   test('NFR-3: granting an app to a user makes it appear in that user\'s /me/apps, and removing it hides it', async ({ page }) => {
     await login(page);
+    // Card G1: purchasing.spec.js's baseline beforeAll role-grants `purchasing`
+    // to team_member in the shared serial DB. This test's premise is a user
+    // with NO grants on purchasing, and its own PUTs below already full-replace
+    // the slug's permission set — establish the clean premise the same way.
+    await page.evaluate(async () => {
+      await fetch('/api/v1/apps/purchasing/permissions', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role_grants: [], user_grants: [] }),
+      });
+    });
     const u = await inviteTeamMember(page, 'nfr3');
     await becomeTeamMember(page, u.token); // activate + get session
 

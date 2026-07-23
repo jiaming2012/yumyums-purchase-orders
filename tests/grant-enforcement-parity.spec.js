@@ -207,6 +207,11 @@ const APP_PAIRS = [
       '/api/v1/inventory/recipes/',
       '/api/v1/inventory/menu-items',
     ],
+    // GET /inventory/items deliberately also opens to the `purchasing` grant
+    // (cross-app catalog read for the order form), so the WITHOUT test must
+    // strip purchasing role grants too or a purchasing baseline from another
+    // spec file would leak through the umbrella.
+    stripSlugs: ['inventory', 'purchasing'],
   },
   {
     slug: 'purchasing', roles: ['team_member'],
@@ -287,11 +292,16 @@ test.describe('Grant-enforcement parity', () => {
       const user = await makeUser(page, `no-${app.slug}`, app.roles);
 
       // Defence against baseline role_grants left by other spec files in the
-      // shared serial DB: strip role grants for this slug (preserving other
-      // users' individual grants), probe, then restore.
-      const saved = await setSlugPerms(page, app.slug, cur => ({
-        role_grants: [], user_grants: cur.user_grants,
-      }));
+      // shared serial DB: strip role grants for this slug AND any umbrella
+      // slug that can open one of its probes (preserving other users'
+      // individual grants), probe, then restore.
+      const stripSlugs = app.stripSlugs || [app.slug];
+      const saved = {};
+      for (const s of stripSlugs) {
+        saved[s] = await setSlugPerms(page, s, cur => ({
+          role_grants: [], user_grants: cur.user_grants,
+        }));
+      }
 
       try {
         await loginAs(page, user.email, USER_PASSWORD);
@@ -305,9 +315,11 @@ test.describe('Grant-enforcement parity', () => {
         }
       } finally {
         await loginAs(page, ADMIN_EMAIL, ADMIN_PASSWORD);
-        await setSlugPerms(page, app.slug, cur => ({
-          role_grants: saved.role_grants, user_grants: cur.user_grants,
-        }));
+        for (const s of stripSlugs) {
+          await setSlugPerms(page, s, cur => ({
+            role_grants: saved[s].role_grants, user_grants: cur.user_grants,
+          }));
+        }
         await page.evaluate(async (uid) => {
           await fetch('/api/v1/users/' + uid, { method: 'DELETE' });
         }, user.id);

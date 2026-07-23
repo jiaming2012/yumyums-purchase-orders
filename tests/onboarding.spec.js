@@ -2491,6 +2491,19 @@ test.describe('prove-progress sweep', () => {
     }, token);
     // accept-invite hijacked the session → restore the admin session.
     await login(page);
+    // Card G1: roles-less hires (inviteUser(page, [])) fall outside the file's
+    // role-grant baseline, and /onboarding/* is now behind the `onboarding`
+    // grant — issue the new user an individual grant so training flows work.
+    await page.evaluate(async (uid) => {
+      const perms = await (await fetch('/api/v1/apps/permissions')).json();
+      const app = (perms || []).find(a => a.slug === 'onboarding') || {};
+      const users = (app.user_grants || []).map(String);
+      if (!users.includes(String(uid))) users.push(String(uid));
+      await fetch('/api/v1/apps/onboarding/permissions', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role_grants: app.role_grants || [], user_grants: users }),
+      });
+    }, inviteRes.user.id);
     return { id: inviteRes.user.id, email };
   }
 
