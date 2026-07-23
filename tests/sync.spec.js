@@ -456,8 +456,7 @@ test.describe('Cross-device: regressions', () => {
     await page.click('[data-fill-template-id]');
     const checkBtn = page.locator('.check-btn').first();
     await settleCatchUp(page);
-    await toggleCommitted(page, checkBtn, 'checked', true);
-    await expect(checkBtn).toHaveClass(/checked/, { timeout: 5000 });
+    await toggleConverged(page, checkBtn, 'checked', true);
 
     // Device B: open list page, should show 1/1
     const ctxB = await browser.newContext();
@@ -472,8 +471,7 @@ test.describe('Cross-device: regressions', () => {
 
     // Device A: now UNCHECK the checkbox — same POST-observed discipline; the
     // DELETE op must be durably committed before asserting B's live decrement.
-    await toggleCommitted(page, checkBtn, 'checked', false);
-    await expect(checkBtn).not.toHaveClass(/checked/, { timeout: 5000 });
+    await toggleConverged(page, checkBtn, 'checked', false);
 
     // Device B: list page should now show 0/1 (live, no reload)
     await expect(pageB.locator('[data-fill-template-id]').first()).toContainText('0/1', { timeout: 12000 });
@@ -596,8 +594,7 @@ test.describe('Cross-device: regressions', () => {
     await settleCatchUp(tabA);
     for (const label of ['Cut the check', 'Do A', 'Do B', 'Do C']) {
       const b = tabA.locator('.fill-field', { hasText: label }).locator('.check-btn');
-      await toggleCommitted(tabA, b, 'checked', true);
-      await expect(b).toHaveClass(/checked/, { timeout: 5000 });
+      await toggleConverged(tabA, b, 'checked', true);
     }
     await openRunner(tabB);
     await settleCatchUp(tabB);
@@ -605,8 +602,7 @@ test.describe('Cross-device: regressions', () => {
 
     // Tab A UNCHECKS Do C while tab B's runner is open — the DELETE op must be
     // durably committed (2xx) before the live assertion, not blind-slept past.
-    await toggleCommitted(tabA, doC(tabA), 'checked', false);
-    await expect(doC(tabA)).not.toHaveClass(/checked/, { timeout: 5000 });
+    await toggleConverged(tabA, doC(tabA), 'checked', false);
 
     // LIVE assertion: tab B must reflect the uncheck WITHOUT a reload.
     await expect(doC(tabB), 'tab B must live-UNCHECK Do C (no reload)').not.toHaveClass(/checked/, { timeout: 12000 });
@@ -1007,8 +1003,7 @@ test.describe('Cross-device: regressions', () => {
     await page.click('[data-fill-template-id]');
     const checkBtn = page.locator('.check-btn').first();
     await settleCatchUp(page);
-    await toggleCommitted(page, checkBtn, 'checked', true);
-    await expect(checkBtn).toHaveClass(/checked/, { timeout: 5000 });
+    await toggleConverged(page, checkBtn, 'checked', true);
 
     // Device B: list page should now show 1/1 (updated via WS without reload)
     await expect(pageB.locator('[data-fill-template-id]').first()).toContainText('1/1', { timeout: 12000 });
@@ -1151,6 +1146,26 @@ const waitMyChecklistsGet = (pageB, timeout) => pageB.waitForResponse(
 //     myChecklists GET landed for 600ms.
 // Bounded and best-effort — the commit gates below stay authoritative.
 async function settleCatchUp(p) {
+  // Phase 0 — drain. Clock-stability alone can miss ops the server has COMMITTED
+  // but the WS pipeline has not yet DELIVERED (pg_notify → hub → socket lags
+  // whole seconds under load; kill-proof leg 1 caught exactly this: a backlog
+  // ARCHIVE op landing after a "stable" clock re-rendered the runner from a
+  // stale fetch). Read the journal's max lamport_ts through this page's own
+  // authenticated session — the SAME user-scoped source wsCatchUp replays from —
+  // and wait until the page's clock has seen it.
+  const maxTs = await p.evaluate(async () => {
+    try {
+      const res = await fetch('/api/v1/workflow/ops/since?lamport_ts=0');
+      const ops = await res.json();
+      return Array.isArray(ops) && ops.length ? Math.max(...ops.map(o => o.lamport_ts || 0)) : 0;
+    } catch (e) { return 0; }
+  });
+  const drainDeadline = Date.now() + 15000;
+  while (Date.now() < drainDeadline) {
+    const ts = await p.evaluate(() => window.LAMPORT_CLOCK ? window.LAMPORT_CLOCK.ts : -1);
+    if (ts >= maxTs) break;
+    await p.waitForTimeout(250);
+  }
   let prev = -2;
   const clockDeadline = Date.now() + 20000;
   while (Date.now() < clockDeadline) {
@@ -1207,6 +1222,23 @@ async function toggleCommitted(p, locator, cls, wantOn) {
     const isOn = await locator.evaluate((el, c) => el.classList.contains(c), cls);
     if (isOn !== wantOn) await locator.click();
   });
+}
+
+// toggleConverged = toggleCommitted + the visual assertion, self-healing against
+// a stale-fetch re-render clobbering the optimistic class AFTER the commit. The
+// durable draft is already correct at that point; a re-click is convergent, not
+// a toggle — the check-btn handler derives the next value from the RENDERED
+// state, so re-clicking a clobbered-render pushes the same wantOn value again.
+async function toggleConverged(p, locator, cls, wantOn) {
+  for (let round = 1; ; round++) {
+    const isOn = await locator.evaluate((el, c) => el.classList.contains(c), cls);
+    if (isOn !== wantOn) await toggleCommitted(p, locator, cls, wantOn);
+    try {
+      if (wantOn) await expect(locator).toHaveClass(new RegExp(cls), { timeout: 3000 });
+      else await expect(locator).not.toHaveClass(new RegExp(cls), { timeout: 3000 });
+      return;
+    } catch (e) { if (round === 3) throw e; }
+  }
 }
 
 // Drives one surviving-answer cell end to end (LIVE + CATCH-UP) on device B.
