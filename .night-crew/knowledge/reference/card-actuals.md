@@ -460,3 +460,26 @@ verified with a targeted 15/15 green run and committed — then failed in full-s
 the red-first scaffolding left in the test asserted a condition that only holds in the narrow
 targeted context. A green sampled in the wrong condition was read as proof. **Targeted-subset green
 is not evidence for a fix to an order/state-dependent test; only a full-suite leg is.**
+
+## overnight-20260724 (autonomous, SERIAL dispatch — G1 → S1 → condition-gated ST stretch)
+
+| Card | Class | Impl | G6 | Land | Cycle | Outcome |
+|---|---|---|---|---|---|---|
+| G1 `grant-enforcement-parity` | authz migration + parity spec, L | **71m54s** | **22m11s** | 1m05s | **95m10s** | MERGED (est. 100–170m — inside) |
+| S1 `syncspec-deflake` | de-flake proof, L | **236m04s** | **36m00s** | 0m48s | **272m52s** | MERGED (est. 100–160m — 1.7× over) |
+| ST `cycle-gate` computable legs | read-only gate legs | ~29m | — | — | ~29m | RAN (est. 15–30m — inside) |
+
+Run total **6h38m** RUN_START → ST_END (01:56 → 08:35 EDT), inside the 8h line incl. closeout.
+
+**S1's overage is the de-flake-proof class being priced too low, again.** 236m impl against a
+100–160m line — and the overage bought three successive FLD-LIVE-02 mechanism discoveries, each
+investigated red-first, none rerun-and-hoped. Combined with 20260722's S1 (~93m for a narrower
+scope), the de-flake-proof class now reads **~90–270m depending on how many mechanisms the
+journal is hiding** — price the class wide and let the card park early rather than budgeting the
+midpoint.
+
+**G6 pricing held** at the repriced 15–45m band (22m11s / 36m00s, both app-code/de-flake class).
+
+**Triage-day actual (2026-07-23, attended): ~50m** — re-verify (build/vet/go test + one full E2E
+leg ~20m, zero harness faults), three fork resolutions, records. T-20's 2–4h harness-repair
+triage is the exception, not the rule, when the run lands clean.

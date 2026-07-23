@@ -166,3 +166,22 @@ explicit instruction to do the same. No injected content was acted on.
 7. **Backlog lines:** the `sync.js` catch-up fetch-storm one-line gate (app-level fix,
    re-arms two-device check — operator's call), and the onboarding second-run carried-DB
    failures.
+
+---
+
+## Triage record (2026-07-23, attended)
+
+- **Merged** `overnight-20260724` → `dev` at `f776578` (`--no-ff`) after independent
+  re-verification: go build/vet/tests green; attended full Playwright leg **542/0/6 in 20.4m,
+  zero retries fired**; conflict log + merge-intents audited clean.
+- **G1-a resolved (decision 42):** `/photos/*` stays authenticated-only as the documented
+  exception; durable key-binding card backlogged. Union gate rejected as cosmetic.
+- **G1-b resolved (decision 43):** `/inventory/items` (inventory ∨ purchasing) READ **ratified**.
+- **E5 ruled (decision 44):** no-retry attestation **granted with waiver** for LST-17's single
+  under-load red; LST-17 stays flagged load-sensitive.
+- **Backlogged:** photos key-binding card; `sync.js` catch-up fetch-storm gate (re-arms
+  two-device check — priced in); onboarding second-run carried-DB failures.
+- **Still open for the attended cycle-gate close-out:** P4 interpretation, D2 prod ship,
+  D4 Cliq-dup confirmation, E2 0%-food-cost note.
+
+Full record: `ledger.md` §T-21.

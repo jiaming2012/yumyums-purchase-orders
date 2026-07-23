@@ -913,3 +913,58 @@ not re-arm it, and it did not clear it either. Prod deploy NOT done. Frontend se
 (suites separated, proven concurrent-safe) but **surface #4 is open**: dev, prod and test still share
 one cluster under one credential pair. `stash@{0}` still holds unattributed WIP in a slot shared by
 five worktrees. FR-12 Cliq-dup watch continues.
+
+## T-21 — Morning-triage resolutions (2026-07-23, overnight-20260724)
+
+**Run reviewed and merged.** 2/2 slate cards (G1 `grant-enforcement-parity`, S1
+`syncspec-deflake`) merged to `dev` at `f776578`, both G6: APPROVE. Independent attended
+re-verification on the branch tree: `go build`/`go vet`/`go test` green; full Playwright suite
+**542 passed / 0 failed / 6 skipped in 20.4m with zero retries fired** (config allows 1; none
+used — materially a no-retry green; box load 1.9–2.6, all of it the suite's own). Conflict log
+audited: 2 merges, both CLEAN, both logged with intents read; both cards' three-field
+merge-intents present and truthful against the diff (the `main.go` wiring matches G1's
+"must survive" list line-for-line). Production frontend untouched (diff-verified) — the
+attended two-device convergence check unchanged by this run.
+
+**Decision 42 — `/photos/*` stays authenticated-only as a documented exception; the durable fix
+is a key-binding card, not a route gate.** Chosen over a union-of-four-grants gate (rejected as
+cosmetic: every crew member holds ≥1 app grant, and `missing_grant` would name the wrong thing)
+and over ratifying the gap as permanent policy. Rationale: a per-app route split without binding
+photo KEYS to their owning app/record still lets any granted user fetch any photo through their
+own app's route — the boundary lives in the key→owner relation, not the route. Backlogged
+("`/photos/*` key-binding gate"); the parity-spec documented exception stands until it ships.
+Grants remain a DATA boundary (decision 36); a gate that doesn't actually bound the data doesn't
+discharge it.
+
+**Decision 43 — the `GET /inventory/items` (inventory ∨ purchasing) READ is RATIFIED.**
+Chosen over revert + catch-and-degrade. The exposure is item names/groups/locations/photo URLs
+(G6-verified: no cost/price/COGS fields — those stay behind inventory-gated endpoints); item
+writes stay inventory-only. The alternative leaves purchasing-only crew with a broken order form
+or forces dual grants — a wider real-world exposure than the READ itself.
+
+**Decision 44 — E5's no-retry attestation is GRANTED with a recorded waiver for LST-17's single
+under-load red.** Chosen over a formal quiet-box re-leg. Evidence: 2× quiet-box 541/0/6
+(S1 impl + its G6, loads 1.59–1.93), the attended 542/0/6 zero-retries leg above, vs 1× 540/1/6
+under measured foreign load (2.38→4.37), isolation-green, mechanism known. LST-17 REMAINS
+FLAGGED load-sensitive — "rare, mechanism known" is not laundered into "not flaky" (standing
+rule, T-20 flake dispositions). E5 grades at the cycle-gate close-out with this waiver cited; a
+future LST-17-class regression is still caught by the quiet-box no-retry gate.
+
+**Recorded, no decision needed.** (a) The fabricated-completion-notification incident during
+G1's final suite leg — the implementer discarded all injected notifications (future timestamps,
+tallies from a 0-byte log), verified process exit itself, and read tallies only from the real
+log after genuine exit; correct handling, kept visible here. (b) `night-crew backlog check
+--file` rejects hq's BACKLOG.md wholesale — no entry carries a B-NN handle; the file predates
+the backlog-store spec. New items keep the file's own shorthand; the spec/tooling mismatch is a
+night-crew-repo finding (decision-37 precedent: tooling defects push back to that repo). (c)
+Stale `:1198`/`:525` line anchors: the tests are now located by title (`-g "temperature answer
+converges"`; FLD-LIVE-02 by name) — annotated at the promoted BACKLOG entry; frozen records
+(slates, evidence docs) keep their historical anchors.
+
+**Standing flags after triage.** Prod deploy NOT done; frontend semver untouched (1.0.3) — D2
+PENDING-deploy, settles at the attended cycle-gate close-out (`/save-project` → `task
+prod:deploy` → `task version` parity → 2/2 tab screenshots). Attended two-device convergence
+check unchanged by this run (no production `sync.js` change landed). `/photos/*` documented
+exception stands pending the key-binding card. FR-12 Cliq-dup watch continues (D4). The
+`cycle-gate` roadmap card remains PLANNED — the boundary close-out (P4 interpretation, D2 ship,
+D4 confirmation, E2 0%-food-cost note) is the remaining attended work of the cycle.

@@ -198,10 +198,10 @@
 
 - **`grant-enforcement-parity`** · **DONE** (G1 shipped overnight-20260724, merged to run branch
   `4bb8649`, G6 verdict APPROVE as-is; all five live app surfaces now behind `RequirePermission` —
-  parity spec covers 11/11 slugs (7 enforced, 4 N/A-with-reason). **Two items ride to triage:**
-  `/photos/*` grant mapping PARKED as an operator question (sole remaining authenticated-only
-  route), and the `GET /inventory/items` (inventory ∨ purchasing) READ judgment call awaits
-  ratification — G6 verified the payload carries no cost fields.) (was: PLANNED — URGENT, BLOCKS
+  parity spec covers 11/11 slugs (7 enforced, 4 N/A-with-reason). **Both riders RESOLVED at T-21
+  (2026-07-23):** `/photos/*` stays authenticated-only as the documented exception, durable
+  key-binding fix backlogged — decision 42; the `GET /inventory/items` (inventory ∨ purchasing)
+  READ is RATIFIED — decision 43.) (was: PLANNED — URGENT, BLOCKS
   GO-LIVE; new card, T-20 decision 36,
   2026-07-21) · **The Users tab offers 11 grants; the backend enforces 2.** Every `RequirePermission`
   call in the server is `inventory-trends` and `inventory-cost` (both shipped by F5). The other nine
@@ -226,7 +226,11 @@
   derives the app list from `SeedHQApps` and asserts every slug is enforced somewhere.
   → Eng KR1, QA KR3.
 
-- **`cycle-gate`** · **PLANNED** · Milestone boundary for "Prove & surface". Per-KR scorecard;
+- **`cycle-gate`** · **PLANNED** (computable legs RAN overnight-20260724 — scorecard
+  `runs/2026-07-24-autonomous/scorecard-20260724.md`: 11 MET · 2 PARTIAL (P4, E5) · 2 PENDING
+  (D2, D4) · 1 N/A (Q4); **no-retry attestation GRANTED at T-21 with the LST-17 waiver, decision
+  44** — E5's evidence is settled; remaining attended close-out: P4 interpretation, D2 prod ship,
+  D4 Cliq-dup confirmation, E2 0%-food-cost note) · Milestone boundary for "Prove & surface". Per-KR scorecard;
   suite-green attestation on the isolated deterministic stack (with the no-retry hard gate,
   now proven-eligible); computed **median WO cycle time vs the T-14 baseline** (N=23 / 22m28s —
   Delivery KR3); prod-parity ship of both tabs (`task version` prod == local, 2/2 tabs

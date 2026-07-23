@@ -543,6 +543,26 @@
   · origin: T-20 reviewer error · new
 - ~~**`sync.spec.js` de-flake: `:1198` + `:525`**~~ · **promoted → `syncspec-deflake` (re-aimed at
   T-20)**. Scope widened to four tests: `:1198`, `:525`, LST-17, GATE-04. Fix is test-side; no
-  production change; no timeout increase helps.
+  production change; no timeout increase helps. **Shipped overnight-20260724 (S1). Line anchors
+  are now dead** — G1/S1 moved the tests; locate by title (`-g "temperature answer converges"`,
+  FLD-LIVE-02 by name). T-21.
 - ~~**Cost-tab gate: confidentiality or tidiness?**~~ · **promoted → `grant-enforcement-parity`**
   (T-20 decision 36). Answer was confidentiality, and the gap is 9 of 11 grants, not 2 routes.
+- **`/photos/*` key-binding gate (G1-a)** · The photo presign/upload endpoints are the sole
+  authenticated-only routes — any logged-in user with a photo key can read any stored photo URL
+  regardless of grants. A union-of-app-grants gate was rejected as cosmetic (T-21 decision 42);
+  the durable fix binds photo keys to their owning app/record so per-app grants actually gate
+  reads. Needs a small design pass (key namespace vs owner-record join). The documented
+  exception in `tests/grant-enforcement-parity.spec.js` stands until this ships. · origin:
+  overnight-20260724 G1 park, T-21 decision 42 · new
+- **`sync.js` catch-up fetch-storm gate** · `applyOp`'s SAVE_TEMPLATE branch re-fetches
+  `myChecklists` per replayed op whenever a runner is open (`sync.js` ~491) — a device catching
+  up on a large journal fires an un-awaited fetch per op (the storm behind every FLD-LIVE-02
+  red). A one-line gate/debounce fixes the app-level behavior, but it is a production `sync.js`
+  change and RE-ARMS the attended two-device convergence check — schedule it with that cost
+  priced in. · origin: overnight-20260724 S1 observation (reported, not fixed) · new
+- **`onboarding.spec.js` second-run carried-DB failures** · Two tests fail when the full suite
+  runs twice against the same un-reset DB (carried hire/training state). Fine under the
+  clean-DB-per-leg rule, but the suite is non-idempotent — either reset state in `beforeAll` or
+  document clean-DB as a hard precondition. · origin: overnight-20260724 S1 (pre-existing, out
+  of scope) · new

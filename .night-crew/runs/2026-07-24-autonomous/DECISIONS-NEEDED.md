@@ -1,5 +1,10 @@
 # DECISIONS NEEDED — overnight-20260724
 
+> **RESOLVED 2026-07-23 — recorded as ledger.md T-21 (decisions 42–43).** G1-a: `/photos/*`
+> stays authenticated-only as the documented exception; the durable key-binding fix is
+> backlogged (decision 42; union gate rejected as cosmetic). G1-b: the
+> `GET /inventory/items` (inventory ∨ purchasing) READ is **RATIFIED** (decision 43).
+
 > Open forks routed to the operator at morning triage. Status: **OPEN** until triaged.
 
 ## G1 `grant-enforcement-parity`
