@@ -3,6 +3,33 @@ const { test, expect } = require('@playwright/test');
 const ADMIN_EMAIL = 'jamal@yumyums.kitchen';
 const ADMIN_PASSWORD = 'test123';
 
+// ── Card G1 baseline ─────────────────────────────────────────────────────────
+// /onboarding/* (and /videos/*) now sit behind the `onboarding` app grant
+// (tests/grant-enforcement-parity.spec.js). This file's invited trainees and
+// managers exercise onboarding flows, so grant the app to the standard roles
+// once up front — preserving any user_grants other files added. The role/
+// assignment tiers the prove-progress sweep asserts live INSIDE the handlers
+// and are unchanged by the app gate.
+test.beforeAll(async ({ browser }) => {
+  const baseURL = process.env.NIGHTCREW_ENV_URL || 'http://localhost:' + (process.env.TEST_PORT || '8199');
+  const page = await browser.newPage();
+  await page.goto(baseURL + '/login.html');
+  await page.fill('input[type="email"]', ADMIN_EMAIL);
+  await page.fill('input[type="password"]', ADMIN_PASSWORD);
+  await page.click('button.btn');
+  await page.waitForURL(url => !url.pathname.includes('login'));
+  await page.evaluate(async (slug) => {
+    const perms = await (await fetch('/api/v1/apps/permissions')).json();
+    const app = (perms || []).find(a => a.slug === slug) || {};
+    const roles = [...new Set([...(app.role_grants || []), 'admin', 'manager', 'team_member'])];
+    await fetch('/api/v1/apps/' + slug + '/permissions', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role_grants: roles, user_grants: (app.user_grants || []).map(String) }),
+    });
+  }, 'onboarding');
+  await page.close();
+});
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 async function login(page, email, password) {
@@ -2464,6 +2491,19 @@ test.describe('prove-progress sweep', () => {
     }, token);
     // accept-invite hijacked the session → restore the admin session.
     await login(page);
+    // Card G1: roles-less hires (inviteUser(page, [])) fall outside the file's
+    // role-grant baseline, and /onboarding/* is now behind the `onboarding`
+    // grant — issue the new user an individual grant so training flows work.
+    await page.evaluate(async (uid) => {
+      const perms = await (await fetch('/api/v1/apps/permissions')).json();
+      const app = (perms || []).find(a => a.slug === 'onboarding') || {};
+      const users = (app.user_grants || []).map(String);
+      if (!users.includes(String(uid))) users.push(String(uid));
+      await fetch('/api/v1/apps/onboarding/permissions', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role_grants: app.role_grants || [], user_grants: users }),
+      });
+    }, inviteRes.user.id);
     return { id: inviteRes.user.id, email };
   }
 

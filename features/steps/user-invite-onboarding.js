@@ -71,6 +71,24 @@ Given('User A is logged in on Device A as {string}', async ({ page, browser }, e
   // Clean up any leftover test user
   await cleanupTestUser(deviceAPage);
 
+  // Card G1: the chromium project's suite baselines role-grant several apps to
+  // team_member in the shared serial DB, and this scenario asserts User B sees
+  // EXACTLY the two apps enabled below. Reset team_member out of every app's
+  // role_grants first so the scenario starts from the clean slate it describes
+  // (user_grants and other roles are preserved).
+  await deviceAPage.evaluate(async () => {
+    const perms = await (await fetch('/api/v1/apps/permissions')).json();
+    for (const app of (perms || [])) {
+      const roles = (app.role_grants || []).filter(r => r !== 'team_member');
+      if (roles.length !== (app.role_grants || []).length) {
+        await fetch('/api/v1/apps/' + app.slug + '/permissions', {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ role_grants: roles, user_grants: (app.user_grants || []).map(String) }),
+        });
+      }
+    }
+  });
+
   // Create a separate browser context for Device B
   deviceBContext = await browser.newContext();
   deviceBPage = await deviceBContext.newPage();
