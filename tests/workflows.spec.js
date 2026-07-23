@@ -4,6 +4,33 @@ const BASE = '';
 const ADMIN_EMAIL = 'jamal@yumyums.kitchen';
 const ADMIN_PASSWORD = 'test123';
 
+// ── Card G1 baseline ─────────────────────────────────────────────────────────
+// /workflow/* (and /ws) now sit behind the `operations` app grant
+// (tests/grant-enforcement-parity.spec.js). This file's invited non-superadmin
+// users exercise Operations flows, so grant the app to the standard roles once
+// up front — preserving any user_grants other files added. The superadmin
+// sessions most tests use bypass grants and are unaffected. Idempotent; runs
+// again in the retry worker harmlessly.
+test.beforeAll(async ({ browser }) => {
+  const baseURL = process.env.NIGHTCREW_ENV_URL || 'http://localhost:' + (process.env.TEST_PORT || '8199');
+  const page = await browser.newPage();
+  await page.goto(baseURL + '/login.html');
+  await page.fill('input[type="email"]', ADMIN_EMAIL);
+  await page.fill('input[type="password"]', ADMIN_PASSWORD);
+  await page.click('button.btn');
+  await page.waitForURL(url => !url.pathname.includes('login'));
+  await page.evaluate(async (slug) => {
+    const perms = await (await fetch('/api/v1/apps/permissions')).json();
+    const app = (perms || []).find(a => a.slug === slug) || {};
+    const roles = [...new Set([...(app.role_grants || []), 'admin', 'manager', 'team_member'])];
+    await fetch('/api/v1/apps/' + slug + '/permissions', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role_grants: roles, user_grants: (app.user_grants || []).map(String) }),
+    });
+  }, 'operations');
+  await page.close();
+});
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 async function login(page, email, password) {
@@ -1083,10 +1110,46 @@ async function createPhotoTemplate(page, name, todayDOW) {
   return apiCall(page, 'POST', 'createTemplate', input);
 }
 
+// S1 de-flake helper (GATE-04, hardened after T-20's passed-on-retry
+// observation — not reproduced in 3 targeted contention legs): wait out the WS
+// catch-up replay storm before acting inside the runner. A fresh context starts
+// at Lamport 0, so wsCatchUp replays the whole carried ops journal; replayed
+// SUBMIT/APPROVE ops with a runner open each fire loadMyChecklists, whose
+// landing re-render can detach the node an action is about to dispatch events
+// on (the sync.spec.js:1198 mechanism). Settle = the replay loop is done
+// (LAMPORT_CLOCK.ts stable across 400ms) AND no myChecklists GET has landed
+// for 600ms. Bounded, best-effort — assertions stay authoritative.
+async function settleRunner(page) {
+  let prev = -2;
+  const clockDeadline = Date.now() + 8000;
+  while (Date.now() < clockDeadline) {
+    const ts = await page.evaluate(() => window.LAMPORT_CLOCK ? window.LAMPORT_CLOCK.ts : -1);
+    if (ts !== -1 && ts === prev) break;
+    prev = ts;
+    await page.waitForTimeout(400);
+  }
+  let lastGet = Date.now();
+  const onResp = (res) => {
+    if (res.url().includes('/myChecklists') && res.request().method() === 'GET') lastGet = Date.now();
+  };
+  page.on('response', onResp);
+  const quietDeadline = Date.now() + 6000;
+  while (Date.now() < quietDeadline && Date.now() - lastGet < 600) {
+    await page.waitForTimeout(150);
+  }
+  page.off('response', onResp);
+}
+
 test.describe('required-photo submit gate', () => {
   test.beforeEach(async ({ page }) => {
     await login(page);
     await page.goto(BASE + '/workflows.html');
+    // S1 de-flake: GATE-04's block test asserts pendingApprovals === 0, but the
+    // server doesn't filter archived templates out of pendingApprovals — a
+    // submission carried over from an earlier test (or a carried DB) fails it
+    // regardless of this test's own behavior. Clear the carried state so the
+    // assertion measures THIS test's submit, not suite history.
+    await cleanupPendingApprovals(page);
     await cleanupTemplates(page);
   });
 
@@ -1098,6 +1161,8 @@ test.describe('required-photo submit gate', () => {
     // Open the checklist. Do NOT attach a photo.
     await page.click('[data-fill-template-id]');
     await page.waitForSelector('#fill-body .fill-field', { timeout: 5000 });
+    // Let the catch-up replay storm pass before acting (see settleRunner).
+    await settleRunner(page);
 
     // Submit with no photo.
     await page.click('[data-action="submit"]');
@@ -1121,10 +1186,18 @@ test.describe('required-photo submit gate', () => {
 
     await page.click('[data-fill-template-id]');
     await page.waitForSelector('#fill-body .fill-field', { timeout: 5000 });
+    // Let the catch-up replay storm pass before acting (see settleRunner).
+    await settleRunner(page);
 
     // Simulate a captured photo: a photo field's value is just its https:// URL.
     // Persist it via the same save-response path the camera-upload flow uses,
     // then mirror it into the live fill state so the submit handler sees it.
+    // S1 de-flake: the old blind 1800ms wait raced the debounced save under
+    // load — gate on the POST /ops actually committing (2xx) instead, armed
+    // BEFORE the call that schedules it (POST-observed discipline).
+    const photoSaved = page.waitForResponse(
+      res => res.url().includes('/api/v1/workflow/ops') && res.request().method() === 'POST',
+      { timeout: 12000 });
     const fldId = await page.evaluate(() => {
       const flds = fillState.activeTemplate.sections.flatMap(function (s) { return s.fields; });
       const photoFld = flds.find(function (f) { return f.type === 'photo'; });
@@ -1134,8 +1207,8 @@ test.describe('required-photo submit gate', () => {
       return photoFld.id;
     });
     expect(fldId).toBeTruthy();
-    // Let the save-response persist.
-    await page.waitForTimeout(1800);
+    const photoSaveRes = await photoSaved;
+    expect(photoSaveRes.ok(), 'photo autosave must commit (2xx) before submit').toBeTruthy();
 
     // Submit — should succeed (not blocked by the photo gate). The success
     // path plays a confirmation animation before returning to the list.
@@ -2597,7 +2670,49 @@ test.describe('Approval Flow', () => {
     });
   }
 
+  // Order-independence guard (carried waiver #1, full-suite-only reds): a
+  // fresh browser context starts its Lamport clock at 0, so sync.js's
+  // wsCatchUp replays the ENTIRE ops journal accumulated in the shared
+  // hq_test by earlier spec files (sync.spec.js is the dominant producer).
+  // The SUBMIT_CHECKLIST / APPROVE_ITEM replay branches USED TO each fire a
+  // loadMyChecklists() re-fetch; a stale drafts snapshot resolving mid-fill
+  // re-hydrated the open runner and clobbered an optimistic checkbox answer
+  // (observed: "3 of 4 items complete" right after clicking all 4). The
+  // submit then fell into the "1 item not completed. Submit anyway?"
+  // confirm() — which Playwright auto-dismisses — and returned WITHOUT ever
+  // showing a toast.
+  //
+  // Both branches are now gated on (runner open) ∨ !silent (T-18), so the
+  // storm itself is gone and the clobber with it. This drain is kept as a
+  // cheap settle after page load in multi-user flows — it is no longer load-
+  // bearing against that specific race.
+  async function drainOpsReplay(page) {
+    await page.waitForLoadState('networkidle');
+  }
+
+  // Click every checkbox in the open runner and require all `expected` checked
+  // before returning — the submit-toast assertions are the contract for a FULLY
+  // completed submit, so the precondition must hold.
+  //
+  // This used to carry a second "repair" pass that re-clicked any answer a
+  // straggler stale re-render had un-checked. That workaround is dead as of the
+  // T-18 gate: the SUBMIT_CHECKLIST replay branch no longer fires a
+  // loadMyChecklists() per replayed op, so there is no stale snapshot to land
+  // mid-fill and clobber an optimistic answer. Plain clicks again.
+  async function checkAll(page, expected) {
+    const checkBtns = page.locator('.check-btn');
+    const count = await checkBtns.count();
+    expect(count).toBe(expected);
+    for (let i = 0; i < count; i++) {
+      await checkBtns.nth(i).click();
+      await page.waitForTimeout(300);
+    }
+    await page.waitForTimeout(2000); // auto-save
+    await expect(page.locator('.check-btn.checked')).toHaveCount(expected);
+  }
+
   test('team member completes checklist, manager approves [RUN-07 APR-11]', async ({ page }) => {
+    test.setTimeout(60000); // 3 logins + networkidle catch-up drains
     // Setup: login as admin, create template, crew user, manager user
     await login(page);
     await cleanupTemplates(page);
@@ -2612,21 +2727,13 @@ test.describe('Approval Flow', () => {
     // --- User A (crew): open checklist, check all 4 items, submit ---
     await login(page, crew.email, crew.password);
     await page.goto(BASE + '/workflows.html');
+    await drainOpsReplay(page);
     await page.waitForSelector('#checklist-list .row');
     await page.locator('#checklist-list .row', { hasText: tplName }).first().click();
     await page.waitForSelector('#fill-body .fill-field');
 
-    // Check all 4 checkboxes
-    const checkBtns = page.locator('.check-btn');
-    const count = await checkBtns.count();
-    expect(count).toBe(4);
-    for (let i = 0; i < count; i++) {
-      await checkBtns.nth(i).click();
-      await page.waitForTimeout(300);
-    }
-
-    // Wait for auto-save
-    await page.waitForTimeout(2000);
+    // Check all 4 checkboxes (with clobber-repair — see drainOpsReplay)
+    await checkAll(page, 4); // plain clicks (T-18 gate removed the clobber)
 
     // Submit
     await page.click('[data-action="submit"]');
@@ -2638,6 +2745,7 @@ test.describe('Approval Flow', () => {
     // --- User B (manager): approve ---
     await login(page, mgr.email, mgr.password);
     await page.goto(BASE + '/workflows.html');
+    await drainOpsReplay(page);
     await page.click('#t2'); // Approvals tab
     await expect(page.locator('#s2')).toBeVisible();
     await expect(page.locator('#s2').locator('text=' + tplName + '')).toBeVisible({ timeout: 5000 });
@@ -2650,6 +2758,7 @@ test.describe('Approval Flow', () => {
   });
 
   test('team member completes checklist, manager rejects 2 items, crew resubmits, manager approves [APR-09 FLD-18 LC-01]', async ({ page }) => {
+    test.setTimeout(90000); // 5 logins + networkidle catch-up drains
     // Setup
     await login(page);
     await cleanupTemplates(page);
@@ -2664,24 +2773,20 @@ test.describe('Approval Flow', () => {
     // --- User A (crew): complete all items and submit ---
     await login(page, crew.email, crew.password);
     await page.goto(BASE + '/workflows.html');
+    await drainOpsReplay(page);
     await page.waitForSelector('#checklist-list .row');
     await page.locator('#checklist-list .row', { hasText: rejName }).first().click();
     await page.waitForSelector('#fill-body .fill-field');
 
-    const checkBtns = page.locator('.check-btn');
-    const totalFields = await checkBtns.count();
-    expect(totalFields).toBe(4);
-    for (let i = 0; i < totalFields; i++) {
-      await checkBtns.nth(i).click();
-      await page.waitForTimeout(300);
-    }
-    await page.waitForTimeout(2000);
+    // Check all 4 checkboxes (with clobber-repair — see drainOpsReplay)
+    await checkAll(page, 4); // plain clicks (T-18 gate removed the clobber)
     await page.click('[data-action="submit"]');
     await page.waitForTimeout(1000);
 
     // --- User B (manager): flag 2 items with comments, reject ---
     await login(page, mgr.email, mgr.password);
     await page.goto(BASE + '/workflows.html');
+    await drainOpsReplay(page);
     await page.click('#t2');
     await expect(page.locator('#s2').locator('text=' + rejName + '').first()).toBeVisible({ timeout: 5000 });
 
@@ -2710,6 +2815,7 @@ test.describe('Approval Flow', () => {
     // --- User A (crew): sees rejected items ---
     await login(page, crew.email, crew.password);
     await page.goto(BASE + '/workflows.html');
+    await drainOpsReplay(page);
     await page.waitForSelector('#checklist-list .row');
 
     // Verify the submission is rejected via API
@@ -2740,6 +2846,9 @@ test.describe('Approval Flow', () => {
       }
     }
     await page.waitForTimeout(2000);
+    // Repair precondition (see drainOpsReplay) — all 4 must be checked before
+    // resubmitting or the confirm() prompt silently aborts the submit.
+    await expect(page.locator('.check-btn.checked')).toHaveCount(4);
 
     // Resubmit — view auto-returns to list after success animation
     await page.click('[data-action="submit"]');
@@ -2753,6 +2862,7 @@ test.describe('Approval Flow', () => {
     // --- User B (manager): approve the resubmission ---
     await login(page, mgr.email, mgr.password);
     await page.goto(BASE + '/workflows.html');
+    await drainOpsReplay(page);
     await page.click('#t2');
     await expect(page.locator('#s2').locator('text=' + rejName + '').first()).toBeVisible({ timeout: 5000 });
     await page.click('[data-action="approve"]');
@@ -2760,6 +2870,9 @@ test.describe('Approval Flow', () => {
   });
 
   test('approved checklist shows Approved badge and cannot be resubmitted [LST-08 RUN-08]', async ({ page }) => {
+    // Three logins + the networkidle catch-up drain below can exceed the 30s
+    // default when the shared-DB ops journal is large (full-suite position).
+    test.setTimeout(60000);
     // Setup
     await login(page);
     await cleanupTemplates(page);
@@ -2774,15 +2887,12 @@ test.describe('Approval Flow', () => {
     // --- Crew: complete and submit ---
     await login(page, crew.email, crew.password);
     await page.goto(BASE + '/workflows.html');
+    await drainOpsReplay(page);
     await page.waitForSelector('#checklist-list .row');
     await page.locator('#checklist-list .row', { hasText: appName }).first().click();
     await page.waitForSelector('#fill-body .fill-field');
-    const checkBtns = page.locator('.check-btn');
-    for (let i = 0; i < await checkBtns.count(); i++) {
-      await checkBtns.nth(i).click();
-      await page.waitForTimeout(300);
-    }
-    await page.waitForTimeout(2000);
+    // Check all 4 checkboxes (with clobber-repair — see drainOpsReplay)
+    await checkAll(page, 4); // plain clicks (T-18 gate removed the clobber)
     await page.click('[data-action="submit"]');
     await page.waitForTimeout(1000);
 
@@ -2795,6 +2905,7 @@ test.describe('Approval Flow', () => {
     // --- Manager: approve ---
     await login(page, mgr.email, mgr.password);
     await page.goto(BASE + '/workflows.html');
+    await drainOpsReplay(page);
     await page.click('#t2');
     await expect(page.locator('#s2').locator('text=' + appName + '').first()).toBeVisible({ timeout: 5000 });
     await page.click('[data-action="approve"]');
@@ -2803,6 +2914,7 @@ test.describe('Approval Flow', () => {
     // --- Crew: verify "Approved ✓" badge on My Checklists list ---
     await login(page, crew.email, crew.password);
     await page.goto(BASE + '/workflows.html');
+    await drainOpsReplay(page);
     await page.waitForSelector('#checklist-list .row');
     const row = page.locator('#checklist-list .row', { hasText: appName }).first();
     await expect(row).toBeVisible();
@@ -3395,4 +3507,158 @@ test.describe('Cross-cutting guarantees (prove sweep)', () => {
   // flaky-red baseline pool. Per the runbook PARK trigger (IndexedDB/SW plumbing),
   // this flow is PARKed for a dedicated offline-sync harness rather than forced
   // into a dishonest classification here. No test authored for NFR-5.
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// B5 fold-in — the /ops wire path must enforce the same review gate
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// G6 ship-blocker. POST /api/v1/workflow/ops sits in the SAME cookie-auth group
+// as /approveSubmission, and its router dispatches APPROVE_ITEM / REJECT_ITEM
+// straight to the same repository mutations. A gate applied only in the REST
+// handlers left this path wide open: a zero-assignment team_member was refused
+// at /approveSubmission and served 200 at /ops for the same submission, with the
+// forged approval then broadcasting over the sync hub as legitimate.
+//
+// This block is the wire-level regression: same user, same submission, both
+// doors, asserting the MUTATION did not occur — not merely the status code.
+test.describe('Approve/reject authz — the /ops path', () => {
+
+  // Builds: a template requiring approval, a submission on it, and a logged-in
+  // team_member with NO approver assignment anywhere.
+  async function setupForgeryFixture(page, tag) {
+    await login(page);
+    const email = `ops-authz-${tag}-${Date.now()}@yumyums.kitchen`;
+    const invite = await page.evaluate(async (em) => {
+      const res = await fetch('/api/v1/users/invite', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ first_name: 'Ops', last_name: 'Stranger', email: em, roles: ['team_member'] }),
+      });
+      return res.json();
+    }, email);
+    await page.evaluate(async (t) => {
+      await fetch('/api/v1/auth/accept-invite', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: t, password: 'test456' }),
+      });
+    }, invite.invite_path.split('token=')[1]);
+
+    await login(page);
+    const tpl = await apiCall(page, 'POST', 'createTemplate', {
+      name: `Ops Authz ${tag} ${Date.now()}`,
+      sections: [{ title: 'S1', order: 0, condition: null, fields: [
+        { type: 'checkbox', label: 'Item A', required: false, order: 0, config: null, fail_trigger: null, condition: null },
+      ]}],
+      schedules: [{ active_days: [0, 1, 2, 3, 4, 5, 6] }],
+      // requires_approval demands an approver. Assigning the ADMIN role keeps
+      // the team_member stranger a non-approver (the case under test) while
+      // giving the positive leg a legitimately-assigned reviewer.
+      assignments: [
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' },
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'approver' },
+      ],
+      requires_approval: true,
+    });
+    // createTemplate returns the bare row — re-read to get generated field ids.
+    const full = (await apiCall(page, 'GET', 'templates')).find(t => t.id === tpl.id);
+    const fieldId = full.sections[0].fields[0].id;
+    await apiCall(page, 'POST', 'submitChecklist', {
+      template_id: tpl.id, idempotency_key: generateUUID(),
+      responses: [{ field_id: fieldId, value: JSON.stringify({ value: true }) }],
+    });
+    // Resolve the submission the way the rest of this file does — off the
+    // approvals queue — rather than trusting the submit response shape.
+    const pending = await apiCall(page, 'GET', 'pendingApprovals');
+    const submissionId = (pending.find(s => s.template_id === tpl.id) || pending[0]).id;
+
+    await login(page, email, 'test456');
+    return { submissionId, fieldId, email };
+  }
+
+  async function statusOf(page, submissionId) {
+    await login(page);
+    const list = await apiCall(page, 'GET', 'pendingApprovals');
+    const found = (list || []).find(s => s.id === submissionId);
+    return found ? found.status : 'absent-from-pending';
+  }
+
+  test('APPROVE_ITEM via /ops is refused for a non-approver and mutates nothing', async ({ page }) => {
+    const { submissionId } = await setupForgeryFixture(page, 'approve');
+
+    // Front door: already gated.
+    const rest = await page.evaluate(async (id) => {
+      const r = await fetch('/api/v1/workflow/approveSubmission', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ submission_id: id }),
+      });
+      return { status: r.status, body: await r.text() };
+    }, submissionId);
+    expect(rest.status).toBe(403);
+
+    // Side door: must be gated identically. This returned 200 before the fix.
+    const ops = await page.evaluate(async (id) => {
+      const r = await fetch('/api/v1/workflow/ops', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          op_type: 'APPROVE_ITEM', device_id: 'forged-' + Date.now(),
+          entity_id: id, entity_type: 'submission', lamport_ts: Date.now(),
+          payload: { submission_id: id },
+        }),
+      });
+      return { status: r.status, body: await r.text() };
+    }, submissionId);
+    expect(ops.status).toBe(403);
+
+    // The mutation is what matters — the submission must still be pending.
+    expect(await statusOf(page, submissionId)).toBe('pending');
+  });
+
+  test('REJECT_ITEM via /ops is refused for a non-approver and writes no rejection', async ({ page }) => {
+    const { submissionId, fieldId } = await setupForgeryFixture(page, 'reject');
+
+    const rest = await page.evaluate(async ([id, fid]) => {
+      const r = await fetch('/api/v1/workflow/rejectItem', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ submission_id: id, field_id: fid, comment: 'front door' }),
+      });
+      return { status: r.status };
+    }, [submissionId, fieldId]);
+    expect(rest.status).toBe(403);
+
+    const ops = await page.evaluate(async ([id, fid]) => {
+      const r = await fetch('/api/v1/workflow/ops', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          op_type: 'REJECT_ITEM', device_id: 'forged-' + Date.now(),
+          entity_id: id, entity_type: 'submission', lamport_ts: Date.now(),
+          payload: { submission_id: id, field_id: fid, comment: 'forged' },
+        }),
+      });
+      return { status: r.status, body: await r.text() };
+    }, [submissionId, fieldId]);
+    expect(ops.status).toBe(403);
+
+    expect(await statusOf(page, submissionId)).toBe('pending');
+  });
+
+  // The legitimate path must still work through /ops, or the fix has simply
+  // broken live-sync approvals for real approvers.
+  test('APPROVE_ITEM via /ops still succeeds for an admin', async ({ page }) => {
+    const { submissionId } = await setupForgeryFixture(page, 'admin');
+    await login(page); // superadmin
+
+    const ops = await page.evaluate(async (id) => {
+      const r = await fetch('/api/v1/workflow/ops', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          op_type: 'APPROVE_ITEM', device_id: 'admin-' + Date.now(),
+          entity_id: id, entity_type: 'submission', lamport_ts: Date.now(),
+          payload: { submission_id: id },
+        }),
+      });
+      return { status: r.status };
+    }, submissionId);
+    expect(ops.status).toBe(200);
+    expect(await statusOf(page, submissionId)).toBe('absent-from-pending');
+  });
 });

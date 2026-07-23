@@ -29,18 +29,24 @@ tasks:
     desc: Run Playwright E2E tests (set HEADED=1 for visible browser)
     deps: [backend:db-test, sw]
     cmds:
-      # Start from a clean hq_test. This suite shares ONE server + ONE database
-      # across all spec files; leftover users/templates/pending-purchases from a
-      # prior run make order-sensitive tests flake. The server re-runs goose
+      # Start from a clean hq_test_e2e. This suite shares ONE server + ONE
+      # database across all spec files; leftover users/templates/pending-purchases
+      # from a prior run make order-sensitive tests flake. The server re-runs goose
       # migrations on startup, so a bare CREATE is enough. (Playwright itself
       # runs serially — workers:1 in playwright.config.js — for the same reason.)
+      #
+      # hq_test_e2e, NOT hq_test: the Go suite owns hq_test_go. They used to share
+      # one hq_test, and every Go TestMain truncates tables (including `users`) —
+      # so a `task test:go` running alongside `task test` would log every browser
+      # context out mid-suite. Separate databases make that impossible rather than
+      # merely unlikely. Cross-contamination audit 2026-07-21, surface #3.
       - |
-        DB_HOST="{{.DB_HOST | default "localhost"}}"; DB_PORT="{{.DB_PORT | default "5432"}}"
-        echo "── resetting hq_test on $DB_HOST:$DB_PORT ──"
+        DB_HOST="{{.DB_HOST | default "localhost"}}"; DB_PORT="{{.DB_PORT | default "5433"}}"
+        echo "── resetting hq_test_e2e on $DB_HOST:$DB_PORT ──"
         psql "postgres://yumyums:yumyums@$DB_HOST:$DB_PORT/postgres?sslmode=disable" \
-          -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='hq_test' AND pid<>pg_backend_pid();" \
-          -c "DROP DATABASE IF EXISTS hq_test;" \
-          -c "CREATE DATABASE hq_test;" >/dev/null
+          -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='hq_test_e2e' AND pid<>pg_backend_pid();" \
+          -c "DROP DATABASE IF EXISTS hq_test_e2e;" \
+          -c "CREATE DATABASE hq_test_e2e;" >/dev/null
       - npx playwright test {{if eq (.HEADED | default "0") "1"}}--headed{{end}}
 
   test:ui:
@@ -80,24 +86,25 @@ tasks:
     desc: Run Go backend unit tests (against hq_test DB)
     deps: [backend:db-test]
     env:
-      DB_TEST_URL: 'postgres://yumyums:yumyums@{{.DB_HOST | default "localhost"}}:{{.DB_PORT | default "5432"}}/hq_test?sslmode=disable'
+      DB_TEST_URL: 'postgres://yumyums:yumyums@{{.DB_HOST | default "localhost"}}:{{.DB_PORT | default "5433"}}/hq_test_go?sslmode=disable'
       # Explicitly unset any external DATABASE_URL that leaks in from the user's shell.
       DATABASE_URL: ''
       TEST_DATABASE_URL: ''
     cmds:
-      # -p 1 forces packages to run serially. Multiple packages share hq_test
+      # -p 1 forces packages to run serially. Multiple packages share hq_test_go
       # and each TestMain truncates tables; parallel package execution makes
-      # them stomp on each other's data mid-test.
+      # them stomp on each other's data mid-test. (Playwright owns hq_test_e2e,
+      # so the two suites can no longer collide — audit surface #3.)
       - cd backend && go test -p 1 ./...
 
   test:all:
-    desc: Run all tests (Go unit, Playwright E2E, BDD/Gherkin) against the local Docker DB. Resets hq_test after the run completes.
+    desc: Run all tests (Go unit, Playwright E2E, BDD/Gherkin) against the local Docker DB. Resets both test DBs after the run completes.
     deps: [sw, bdd:gen]
     env:
       DB_HOST: localhost
-      DB_PORT: '5432'
+      DB_PORT: '5433'
       # Same env scoping as test:go — see comments there.
-      DB_TEST_URL: 'postgres://yumyums:yumyums@localhost:5432/hq_test?sslmode=disable'
+      DB_TEST_URL: 'postgres://yumyums:yumyums@localhost:5433/hq_test_go?sslmode=disable'
       DATABASE_URL: ''
       TEST_DATABASE_URL: ''
     cmds:
@@ -111,10 +118,12 @@ tasks:
         trap '
           status=$?
           echo ""
-          echo "── resetting hq_test on $DB_HOST:$DB_PORT ──"
+          echo "── resetting hq_test_go + hq_test_e2e on $DB_HOST:$DB_PORT ──"
           psql "postgres://yumyums:yumyums@$DB_HOST:$DB_PORT/postgres?sslmode=disable" \
-            -c "DROP DATABASE IF EXISTS hq_test;" \
-            -c "CREATE DATABASE hq_test;" >/dev/null
+            -c "DROP DATABASE IF EXISTS hq_test_go;" \
+            -c "CREATE DATABASE hq_test_go;" \
+            -c "DROP DATABASE IF EXISTS hq_test_e2e;" \
+            -c "CREATE DATABASE hq_test_e2e;" >/dev/null
           exit $status
         ' EXIT
         cd backend && go test -p 1 ./... || exit $?

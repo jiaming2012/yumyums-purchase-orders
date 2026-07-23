@@ -595,3 +595,376 @@ cards parked** (PARK trigger did not fire). Merged to `dev` `--no-ff` (`a8854c3`
   asset change; the bump belongs to `/save-project` at deploy, not triage). `dev` pushed to
   `origin/dev` at triage close (the one sanctioned push); `dev → main` promotion stays a separate
   decision. `main` untouched.
+
+## T-17 — Activity 7 shipped + milestone closed (2026-07-19, attended)
+
+The attended Activity-7 ship the gate deferred (§T-15/T-16). Milestone **"Nothing silently lost"
+now fully closed** — markdown-mode close (this run predates the `night-crew` CLI scorecard
+instrumentation, so `/nc-milestone-close` does not apply: `night-crew scorecard`/`okr grade` return
+"no scorecard data / no metrics.jsonl"). Roadmap banner + both Activity-7 cards flipped to DONE.
+
+- **Discovery — the deploy tooling was fiction.** `task prod:deploy` SSH'd the box to itself,
+  targeted a nonexistent repo path (`~/projects/yumyums/hq`), and used container/image names
+  (`yumyums-hq`) that never matched the running prod (`yumyums-prod` / `yumyums-purchase-orders:prod`,
+  a Docker-Compose stack building from a **separate Windows clone** pinned to `main`). Prod was
+  **405 commits / 2 months stale** (running May `b89c202`); `main` had never received the cycle.
+- **Tooling fixed (commits on `dev`+`main`).** Added tracked `docker-compose.prod.yml` (context `.`,
+  `backend/Dockerfile`, exact production `DB_URL` = `yumyums-dev-pg` + `search_path=production`,
+  external `yumyums_default` net, `.env.prod` env_file). Rewrote `prod:deploy` to drive compose
+  locally and **hard-sync** the prod clone to `origin/main` (a plain pull can't survive the Windows
+  checkout's line-ending drift). Added `prod:rollback`; git-ignored `.env.prod`; wired
+  `GIT_SHA`/`BUILT_AT` build-args.
+- **Released.** Merged `dev → main` (405 commits, merge `6f45af5`; b89c202's stale scaffolding —
+  root Dockerfile/`docker-compose.yml`/`prod/Taskfile.yml` — removed). Deployed. One crash-loop
+  fixed: the Toast worker fail-fasts on the SFTP key that `.dockerignore` keeps out of the image →
+  set `TOAST_SYNC_INTERVAL=0` in `.env.prod` (Toast inert in prod until a key is mounted).
+- **Verified.** `task version` shows local == prod == `backend 0.1.3 / frontend 1.0.3`; public
+  tunnel `https://hq.yumyums.kitchen/api/v1/health` serves it; migrations `56→70` applied to the
+  `production` schema; app smoke-tested (shell 200, auth 401). Rollback image (`:prod-rollback` =
+  the May build) + a pre-deploy `production`-schema `pg_dump` banked. → **Delivery prod-parity KR:
+  PASS.**
+- **`prod-ghost-item-rename`: verified no-op in prod.** Production had **0** empty-description
+  items; the ghost item was in **dev** (public schema). Renamed the dev instance
+  `'' → (Unnamed — needs review)`, 61 links preserved. → **QA KR3: PASS.**
+- **Scorecard now 13 PASS · 2 PARTIAL · 1 N/A** (16 KRs). Carrying to next cycle: Eng "task test
+  exits 0" (1 isolation-confirmed pollution red) and Delivery "median WO cycle".
+- **Standing note — prod integrations now live.** `.env.prod` was provisioned "full" (operator
+  choice): the Mercury receipt worker, alert queue, and Zoho Cliq now run in prod against the SAME
+  external accounts as dev. **Watch the Cliq channel for duplicate alerts**; disable one side if they
+  appear. Next move: `/nc-okr-session` for the next cycle (fold in the QA-coverage findings).
+
+## T-18 — Morning-triage resolutions (2026-07-20, overnight-20260721)
+
+Run merged to `dev` `--no-ff` (`e1d22ad`) after attended review: `go build` +
+`go vet` green; `go test -count=1 -p 1 ./...` all packages ok on branch and merged tree (DB-backed
+sync tests skip without a live pg — the DB legs' evidence is the run's own 2× ephemeral-pg16 runs,
+impl + independent G6); G4/replay checks N/A for HQ (07-19 precedent); footprint diff matches the
+closeout exactly — test-only + docs, **zero production files**. 4/4 cards DONE, 4/4 G6 PASS, 0
+parks. Waiver #1 formally retired (Eng KR5 PARTIAL → PASS). Per-card actuals appended to
+`reference/card-actuals.md`. Resolutions below answer DECISIONS-NEEDED §B1–B5 plus the two items
+HANDOFF left to the operator.
+
+- **B1 — Activity-2 design SIGNED (2026-07-20): A4 = Option (i), D2 = Ungrouped, rider (b)
+  REWRITTEN to umbrella semantics.** `designs/prove-surface-gating-and-endpoints.md` §8 now records
+  the signature; Activity 4 (5 Feature WOs) is unblocked. **A4:** two dedicated per-tab slugs
+  (`inventory-trends`, `inventory-cost` in `hq_apps` via `SeedHQApps`) — chosen over the
+  `app_permissions.tab` column for zero schema risk (no migration → no NFR-3 down-migration proof /
+  pre-deploy backup), zero `/me`+Users-UI backend change, and trivially reversible seed rows; the
+  draft, implementer, and G6 all converged here. **D2:** linked-but-groupless lines (the
+  `'(no itemized receipt)'` sentinel, group-deleted items) bucket as an explicit **"Ungrouped"**
+  pseudo-group — chosen over folding into "Unlinked $X" (would misstate the completeness note) and
+  over dropping (breaks the AC-6 reconciliation identity). **Riders:** (a) per-week `unlinked`
+  array KEPT; (b) **REWRITTEN by operator rider — "App grant = All tabs granted. They should not be
+  considered separate objects."** The signed semantics are UMBRELLA: a whole-app grant includes
+  every gated tab of that app automatically; per-tab grants exist for narrower tab-only access; the
+  `RequirePermission` check passes on (tab slug ∨ whole-app slug ∨ superadmin). This rewrites the
+  draft's strict reading (which the operator explicitly rejected) while keeping per-tab granularity
+  as the go-forward convention. (c) tab-grant-without-app-grant (tile hidden, direct URL works)
+  SIGNED as expected behavior — tab grant is the gate, tile is launcher UX; Users UI should nudge
+  admins to co-grant.
+- **B5 folded into the gating card (operator: "fold into gating card").** The
+  `inventory-tab-gating` WO's scope now includes an authz gate on
+  `ApproveSubmissionHandler`/`RejectItemHandler` (`backend/internal/workflow/handler.go:728-753,
+  793+` — today any authenticated role can approve/reject). Chosen over a backlog entry (closes
+  sooner, same middleware work) and over accept-as-is. The exact role rule is specified at slate
+  time (expected: approvers + admins/superadmins).
+- **B2+B3 — one production card promoted to the next slate: `replay-fetchstorm-gate`.** Operator:
+  "promote it." The ungated `SUBMIT_CHECKLIST` replay re-fetch (`sync.js:443`) gets the same
+  `(runner open) ∨ !silent` gate its `APPROVE_ITEM`/`SAVE_TEMPLATE` siblings already carry
+  (production one-liner, pattern proven in-file since the 2026-07-18 fix); the same card hardens
+  the successor intermittent `sync.spec.js:1198` (pre-existing, load-sensitive, red 2-of-3 G6 legs
+  that included it — sits directly downstream of the storm) and reverts A2's test-side
+  `checkAllWithRepair` workaround to plain clicks once the storm is gone. Chosen over
+  backlog-and-wait (phones keep the reconnect fetch-flood + mid-fill clobber window) and over a new
+  narrow waiver (recreates the machinery this run just retired). Exit-0 status stays honestly
+  "achieved-and-reproduced, not asserted deterministic" until this card lands.
+- **B4 — operator rider, recorded verbatim: "Everyone should see live ops."** The live-sync
+  fan-out contract becomes: every user with access to the entity receives its live ops — no
+  filtering by role or assignment type. This RATIFIES deployed behavior (the recipient query,
+  `ops.go:521-530`, already does not filter `assignment_role`) and supersedes FR-7's narrower
+  "admins ∪ assignees" wording; approver inclusion is intended, not accidental. The
+  `TestResolveEntityAccess_ApproverIncluded_CurrentBehavior` pin flips from reviewer-NOTE to
+  contract (comment update rides `replay-fetchstorm-gate` or the next sync card). Chosen over
+  excluding approvers (a production change with no user benefit on a 1–5 person crew).
+- **`percard-timing-instrumentation` flipped DONE (operator).** The run's harness-measured
+  per-card table (impl/G6/merge legs, epoch-stamped `timings.log`) is exactly the standing output
+  the card asked for; future build runs keep producing it as standing practice, and the cycle gate
+  computes the Delivery-KR3 median from the accumulating `card-actuals.md` rows.
+- **Preference capture + decisions audit SKIPPED — not deployed to night-crew `main` (operator
+  rule, recorded).** The triage skill's capture-on-answer step names `night-crew preferences
+  propose` / `night-crew decisions audit`, but both exist only on night-crew `dev` (57 commits
+  ahead); hq's tooling tracks `main` (`nc:update`). Operator: **"Only should consider whats been
+  deployed to main."** Both candidate preferences (umbrella grants; everyone-sees-live-ops) were
+  offered and are withdrawn as not-applicable — the riders live in this section and the signed
+  design instead; they can be re-offered if/when the preferences machinery ships to main. The
+  skill-vs-deployed-tool skew is recorded as `design-findings-nightcrew.md` NF-3. (Triage-process
+  note: the installed CLI was briefly rebuilt from dev mid-session to inspect the subcommands —
+  reverted to a `main` build the same session.)
+- **Standing flags after triage.** Test-only + docs run: prod-deploy / attended-convergence flags
+  stay **satisfied** (no verify/merge/prod/DB path changed; they re-arm when that path changes —
+  note `replay-fetchstorm-gate` WILL touch `sync.js`, so the attended two-device convergence flag
+  re-arms when that card lands). DB flag satisfied (ephemeral pg16 canonical). Frontend semver
+  untouched (no asset change). `dev` pushed to `origin/dev` at triage close (the one sanctioned
+  push); `main` untouched — `dev → main` promotion remains a separate decision. FR-12 Cliq-dup
+  watch continues over the cycle (nothing observed this run).
+
+## T-19 — Morning-triage resolutions (2026-07-20, overnight-20260722)
+
+Run merged to `dev` `--no-ff` (`05dc053`) after attended review. Independent re-verification on
+the merged tree: `go build ./...`, `go vet ./...`, `go test ./...` all exit 0; G4 discipline greps
+clean (and structurally N/A — HQ has no `journal`/`workorder`/`orchestration` packages, per the
+07-19 precedent); `replay_test.go` + testdata untouched. Footprint 14 files, +2264/−45.
+**3 cards merged (S1 PARTIAL, F2, F4), 1 PARKED (F1), 1 blocked by the park (F3), 1 dropped by
+budget discipline (F5). 4/4 G6 adversarial reviews changed the outcome** — one park, two revision
+rounds, one premise correction.
+
+**Decision 29 — Trends shows food spend only (COGS allowlist), not the whole bank feed.**
+Chosen over leaving the signed design's unfiltered query, and over an everything-with-non-food-split
+variant. The bank feed carries rent, insurance, software and fuel; the signed design §2.2 SQL sketch
+had no `mercury_category` filter, so a chart titled "spend by group" would have shown rent as a
+group and over-reported against payroll's COGS by an unbounded amount (G6 measured +500.00 on a
+two-event synthetic; production magnitude unmeasured). Trends now filters to the same allowlist
+`period-summary` is constructed with. The everything-split option was declined as making one tab
+answer two questions. **This amends signed design §2.2** — the implementer was correct to follow
+the sketch verbatim and flag rather than silently patch; the defect was in the design.
+
+**Decision 30 — Unreviewed receipts are excluded from the chart and surfaced as a completeness
+note.** Chosen over an "unreviewed" pseudo-group bar and over continuing to ignore them silently.
+Structural constraint drove this: unreviewed receipts have no linked line items (linking is what
+review *does*), so they cannot be bucketed into a week×group cell at all — they can only ever be a
+note. `period-summary` counts them as a lump, which is why the two numbers diverged. The note
+mirrors the existing `unlinked` treatment rather than inventing a second idiom.
+
+**Decision 31 — Trends reports attributed spend; unattributed money goes to the completeness note
+rather than being prorated across groups.** Chosen over the signed design's proration (which
+reconciles totals but smears the gap across categories) and over abandoning the payroll cross-check
+entirely. When a receipt's line items don't cover its subtotal — a delivery fee, an unitemized
+remainder — the current proration inflates every food line to swallow the difference, so per-group
+numbers are silently overstated with nothing on screen indicating by how much. This is the defect
+that broke F1's AC-6 five ways (G6 probe B1: trends 99.00 vs period-summary 100.00 on a receipt
+with an unitemized fee — the *normal* case). **The reconciliation identity is redefined as:
+`cells + unlinked + unitemized remainder + pending == period-summary`** — an identity that holds on
+messy real receipts, which the old one did not. This is the amendment that un-parks F1 and unblocks
+F3.
+
+**Decision 32 — F2's non-positive-revenue guard RATIFIED.** The run extended signed §2.3's
+"zero-revenue → NULL" rule to "non-positive-revenue → NULL" after G6 found a refunded row producing
+`food_cost_pct: -500000` and ranking **#1 in the "best" list**. Recorded as executing the design's
+evident intent ("never a divide-by-zero or ∞"), not as a new decision — but it is a written change
+to a signed rule and is ratified here explicitly rather than absorbed silently, per the run's own
+flag.
+
+**Decision 33 — the residual/unattributed-money gap follows Decision 31.** `menu-cogs` publishes
+`unallocated_cogs`; the Cost endpoint dropped it, so summing the Cost tab's ingredient column
+under-reports true COGS with nothing indicating a residual exists (G6 rated this the card's most
+substantive gap). Resolved by consistency with Decision 31 rather than a separate operator call:
+unattributed money is surfaced, not hidden. Applies to Cost as it now does to Trends.
+
+**OPEN — investigation, not resolved tonight: food cost as a drifting long-term average.**
+Operator, on the 0%-food-cost fork: *"The idea is that the cost of the food item is a long term
+average. What's most useful is to see how the average is increasing or decreasing over time."* The
+current design treats food cost as a fixed-12-week snapshot; the operator wants a rolling average
+and its **direction of travel**. This is not a fix to the 0% bug — it dissolves it, since a
+long-term average is indifferent to whether a bulk purchase landed inside an arbitrary window.
+**The 0%-dish fork (F2-a) is therefore left UNRESOLVED** pending this; no third `unallocated` reason
+string was coined. Routed to the next planning cycle.
+
+**OPEN — investigation, not resolved tonight: margin with and without discounting.** Operator, on
+the red-negative fork: *"it would be useful to know the margin on items with and without the
+discount."* **Verified during triage: the data does not exist.** `daily_menu_sales` stores only
+`menu_item_id, business_date, units_sold, gross_amount, updated_at` — no discount or comp field. The
+comparison would require capturing discount/comp data from Toast during sync, upstream of both tabs.
+**The red-negative fork (F4) is therefore left UNRESOLVED**; the tab still reds any negative margin,
+including comped dishes that never sold.
+
+**Pattern noted for the next planning session.** Both open investigations are the same shape: the
+operator asked for a *comparison* where the current design shows a *single number* (average-and-trend
+rather than window-snapshot; with-and-without-discount rather than one margin). Neither is cleanup.
+Worth treating as a product thread in its own right at the next PM session.
+
+**Still open, not asked this triage (operator fatigue — deferred rather than forced):** F5
+`inventory-tab-gating` priority for the next run, and the attended two-device convergence check.
+Both are stated in the handoff with recommendations and remain the operator's call.
+
+**Standing flags after triage.** **Attended two-device convergence check RE-ARMED and NOT run** —
+production `sync.js` changed (S1's gate) and `task sw` regenerated the service worker. Prod deploy
+NOT done (attended, rides the cycle gate). Frontend semver untouched (1.0.3) — bump belongs to
+`/save-project`. DB flag satisfied (ephemeral pg16 canonical throughout; host `:5432` never touched).
+**The Cost tab and its data ship logged-in-only** — F5 dropped, so per-tab access control does not
+exist; B5 (approve/reject authorization) also remains unclosed, pre-existing. FR-12 Cliq-dup watch
+continues over the cycle (nothing observed).
+
+---
+
+## T-20 — Morning-triage resolutions (2026-07-21, overnight-20260720c)
+
+Run merged to `dev` `--no-ff` (`c2cfc13`) after attended review. Independent re-verification on the
+merged tree: `go build ./...`, `go vet ./...` clean; `CI=1 go test -p 1 -count=1 ./...` 8 packages
+ok / 0 FAIL; `CI=1 task test` on a clean DB **528 passed / 6 skipped / 0 failed / 0 flaky**. G4
+discipline greps structurally N/A (HQ has no `journal`/`workorder`/`orchestration` packages, no
+`replay_test.go`), per the 07-19 precedent. Footprint 31 files, +6346/−22 for the run, plus four
+attended triage commits.
+
+**3 cards merged (F1, F3, F5), 1 PARKED (D1).** F5's G6 caught a live authentication bypass the
+card would otherwise have shipped. The branch also carried post-closeout attended work: the `/ops`
+authz sweep, the `requires_approval` fix, the cross-contamination audit, and the `:1198` flake
+reproduction that **retracted the run's own headline finding**.
+
+**Decision 34 — `/ops` SAVE_TEMPLATE and ARCHIVE_TEMPLATE are gated to admin, matching their REST
+twins.** Chosen over splitting the two shapes (authoring open, archiving admin-only) and over
+widening REST to match `/ops`. Resolves DECISIONS-NEEDED §1-B. The `EXCEPTIONS` bucket in
+`tests/ops-authz-coverage.spec.js` empties as a result; it is kept as a tripwire so the next
+divergence cannot ship silently, not as a waiver mechanism.
+
+**Decision 35 — the `/ops` router carries a STANDING RULE: every op branch enforces the same authz
+as its REST twin. Divergence is never permissible.** Chosen over allowing divergence with a
+recorded justification. Resolves §1-C. This is the rule that stops a third recurrence of the
+dual-path bypass class (F5's G6 found the first; the sweep enumerated the rest). Two doors, one
+mutation, one authz answer — and the gate belongs **inside the mutation**, not at either boundary,
+which is the shape both `requireReviewAuthz` (`8c71022`) and `requireApprover` (`0057638`) now take.
+
+**Decision 36 — the Users-tab grant model is a DATA boundary, not a UI convenience. Operator,
+verbatim: "If an employee does not have access to the app (or access to the app's tab), then they
+should NOT be able to access the view / tab / data."** This resolves §6 far more broadly than the
+question asked. §6 asked whether `inventory-cost` was meant as confidentiality or tidiness; the
+answer is confidentiality, and the finding that fell out of asking is larger than the fork:
+
+> **The Users tab offers 11 grants. The backend enforces 2.** Every `RequirePermission` call in the
+> server is `inventory-trends` and `inventory-cost` (both shipped by F5 this cycle). The other nine
+> — including `inventory` itself, `operations`, `purchasing`, `onboarding`, `users` — are checked
+> nowhere. `isAdmin`/`manager` *role* checks protect some endpoints, but roles are a different axis
+> from grants. Revoking a grant today removes launcher tiles and hides tabs; it does not change what
+> the holder can read from the API with a cookie.
+
+This is not an F5 defect — F5 built the mechanism the signed design scoped it to, and built it well
+(umbrella semantics, fail-closed on DB error, 13 attack variants). Nothing migrated the pre-existing
+surface onto it. **Operator: no live exposure today (no non-admin crew hold accounts), but this must
+be fixed before go-live.** Graduated to a new roadmap card, `grant-enforcement-parity`, sized as the
+largest open correctness item in the backlog. Evidence is source enumeration, not a live grant-less
+curl; the card should begin by proving it live.
+
+**Decision 37 — the slate template's OpenSpec clause is a NIGHT-CREW TOOLING defect, pushed back to
+that repo as urgent; it is not fixed in hq.** Resolves §2, but not as either option offered. The
+recommendation was "amend the slate to cite GSD" — **wrong, because the operator is refactoring away
+from GSD**, so pointing the template at GSD would encode a convention on its way out. Sequence
+instead: (1) urgent backlog item in the night-crew clone — the slate template dispatches every card
+with mechanics (`openspec validate`, `OpenSpec-Change` trailer, archive) that misfire in any target
+repo without an `openspec/` tree, and four cards silently worked around it in one night; (2) a
+separate investigation into whether OpenSpec's pros outweigh its cons; (3) *if* OpenSpec is kept, a
+formal refactor requested for hq. No hq change lands from this decision.
+
+**Decision 38 — the Go and Playwright suites get separate databases (`hq_test_go` / `hq_test_e2e`).**
+Operator's constraint at triage was narrow and clear — *"I only care that there are no db conflicts"*
+— with the choice of mechanism delegated. Chosen over leaving one shared `hq_test` with a serial
+convention, and over per-run ephemeral databases (correct, but out of scope for a triage). Audit
+surface #3: every Go `TestMain` truncates tables — `internal/sync` truncates `users` — so
+`task test:go` alongside `task test` would log every browser context out mid-suite. `-p 1`
+serializes Go packages against each other and does nothing about this. **Proven, not asserted:**
+`internal/sync` + `internal/workflow` ran green against `hq_test_go` while `persistence.spec.js` ran
+green against `hq_test_e2e`, concurrently. `db-test` also gained an `ALLOW_TEST_DB_ON_DEV_HOST`
+guard, defaulted permissive because dev/test/prod genuinely share the `yumyums-dev-pg` cluster today
+(surface #4) — so it makes that a visible choice that will fail loudly once a real test cluster
+exists.
+
+**Decisions 39–41 — the three selected one-line contamination fixes** (surfaces #9, #5, #2). #9:
+`DB_PORT` default 5432 → 5433, because host `:5432` is bound by `infra-postgres-1` from the
+slack-trading project and has no `yumyums` role — this fired live *during this triage*, costing a
+full E2E leg. #5: `ZOHO_CLIQ_*` / `SMTP_*` added to the blanked set in `playwright.config.js`,
+because the root Taskfile's `dotenv: ['backend/.env']` injects 21 live credentials into every task
+from the main checkout and `alertQ.Start` is gated by neither `schedulersDisabled` branch — an E2E
+run could deliver a real Cliq message and a real SMTP email to live crew. #2:
+`reuseExistingServer: false` unconditionally, killing the `:8199` latch that has cost four runs.
+
+**Correction to the audit, found while answering the operator's "how is this possible?".** The audit
+recorded a dev server (PID 75921) running since Jul 18 "against the live dev database **on the
+Windows box**." **The location is wrong:** `100.70.200.55` is *this* box's own Tailscale address, so
+that `DB_URL` is the local `yumyums-dev-pg` container reached the long way round. What the check did
+surface is worse than the original claim and was not in the audit: **one Postgres cluster holds dev
+(`public` schema), prod (`production` schema), and `hq_test`, under one role and one password** —
+prod is separated from dev by nothing but a client-supplied `search_path`. Recorded as the sharpest
+instance of surface #4. The genuine live-side-effect exposure is not the database but the
+credentials: PID 75921 has held live Mercury production, Anthropic, Zoho Cliq and SMTP keys for
+three days with `E2E_DISABLE_SCHEDULERS` unset.
+
+**Two reviewer errors, recorded because both are instructive.**
+(1) The `DB_PORT` fix was cited as verified when it never ran — `playwright.config.js` carries its
+own independent `dbPort` default, and every verification leg had passed `DB_PORT` explicitly on the
+command line. The first run to actually rely on the new default died at startup. *Two files, two
+defaults, one silently unused.*
+(2) **P3a was violated by the reviewer within hours of P3a being written.** The `persistence.spec.js`
+flake fix kept its red-first forcing wait in the committed test; that wait asserts a condition that
+only holds in narrow targeted context, so it failed outright in full-suite order — trading a rare
+strict-mode flake for a reliable failure. A targeted 15/15 green was read as proof. The `#fill-body`
+scoping alone was always the whole fix. **Targeted-subset green is not evidence for a fix to an
+order/state-dependent test.** Both are written into `card-actuals.md`.
+
+**Flake dispositions.** `sync.spec.js:1198` — the run's "decisively refuted / not flaky" conclusion
+is **RETRACTED**; reproduced at 16% (4 red / 25 `--retries=0` legs), 20% under a concurrent suite,
+with a named mechanism and the card **re-aimed** (test-side; no production change; no timeout
+increase can help). `persistence.spec.js` FLD-R3/R5 — fixed; was an unscoped `text=✓` matching the
+approvals-list ✓ for its own submission, **not** cross-file contamination. Two new observations
+folded into the re-aimed card: `sync.spec.js` LST-17 and `workflows.spec.js` GATE-04, both
+passed-on-retry, neither previously recorded.
+
+**Standing flags after triage.** **Attended two-device convergence check REMAINS ARMED and NOT run**
+— armed since the 07-22 `sync.js` change; D1 left `sync.js`/`sw.js` byte-identical so this cycle did
+not re-arm it, and it did not clear it either. Prod deploy NOT done. Frontend semver untouched
+(1.0.3) — the bump belongs to `/save-project` at deploy time. DB flag now materially improved
+(suites separated, proven concurrent-safe) but **surface #4 is open**: dev, prod and test still share
+one cluster under one credential pair. `stash@{0}` still holds unattributed WIP in a slot shared by
+five worktrees. FR-12 Cliq-dup watch continues.
+
+## T-21 — Morning-triage resolutions (2026-07-23, overnight-20260724)
+
+**Run reviewed and merged.** 2/2 slate cards (G1 `grant-enforcement-parity`, S1
+`syncspec-deflake`) merged to `dev` at `f776578`, both G6: APPROVE. Independent attended
+re-verification on the branch tree: `go build`/`go vet`/`go test` green; full Playwright suite
+**542 passed / 0 failed / 6 skipped in 20.4m with zero retries fired** (config allows 1; none
+used — materially a no-retry green; box load 1.9–2.6, all of it the suite's own). Conflict log
+audited: 2 merges, both CLEAN, both logged with intents read; both cards' three-field
+merge-intents present and truthful against the diff (the `main.go` wiring matches G1's
+"must survive" list line-for-line). Production frontend untouched (diff-verified) — the
+attended two-device convergence check unchanged by this run.
+
+**Decision 42 — `/photos/*` stays authenticated-only as a documented exception; the durable fix
+is a key-binding card, not a route gate.** Chosen over a union-of-four-grants gate (rejected as
+cosmetic: every crew member holds ≥1 app grant, and `missing_grant` would name the wrong thing)
+and over ratifying the gap as permanent policy. Rationale: a per-app route split without binding
+photo KEYS to their owning app/record still lets any granted user fetch any photo through their
+own app's route — the boundary lives in the key→owner relation, not the route. Backlogged
+("`/photos/*` key-binding gate"); the parity-spec documented exception stands until it ships.
+Grants remain a DATA boundary (decision 36); a gate that doesn't actually bound the data doesn't
+discharge it.
+
+**Decision 43 — the `GET /inventory/items` (inventory ∨ purchasing) READ is RATIFIED.**
+Chosen over revert + catch-and-degrade. The exposure is item names/groups/locations/photo URLs
+(G6-verified: no cost/price/COGS fields — those stay behind inventory-gated endpoints); item
+writes stay inventory-only. The alternative leaves purchasing-only crew with a broken order form
+or forces dual grants — a wider real-world exposure than the READ itself.
+
+**Decision 44 — E5's no-retry attestation is GRANTED with a recorded waiver for LST-17's single
+under-load red.** Chosen over a formal quiet-box re-leg. Evidence: 2× quiet-box 541/0/6
+(S1 impl + its G6, loads 1.59–1.93), the attended 542/0/6 zero-retries leg above, vs 1× 540/1/6
+under measured foreign load (2.38→4.37), isolation-green, mechanism known. LST-17 REMAINS
+FLAGGED load-sensitive — "rare, mechanism known" is not laundered into "not flaky" (standing
+rule, T-20 flake dispositions). E5 grades at the cycle-gate close-out with this waiver cited; a
+future LST-17-class regression is still caught by the quiet-box no-retry gate.
+
+**Recorded, no decision needed.** (a) The fabricated-completion-notification incident during
+G1's final suite leg — the implementer discarded all injected notifications (future timestamps,
+tallies from a 0-byte log), verified process exit itself, and read tallies only from the real
+log after genuine exit; correct handling, kept visible here. (b) `night-crew backlog check
+--file` rejects hq's BACKLOG.md wholesale — no entry carries a B-NN handle; the file predates
+the backlog-store spec. New items keep the file's own shorthand; the spec/tooling mismatch is a
+night-crew-repo finding (decision-37 precedent: tooling defects push back to that repo). (c)
+Stale `:1198`/`:525` line anchors: the tests are now located by title (`-g "temperature answer
+converges"`; FLD-LIVE-02 by name) — annotated at the promoted BACKLOG entry; frozen records
+(slates, evidence docs) keep their historical anchors.
+
+**Standing flags after triage.** Prod deploy NOT done; frontend semver untouched (1.0.3) — D2
+PENDING-deploy, settles at the attended cycle-gate close-out (`/save-project` → `task
+prod:deploy` → `task version` parity → 2/2 tab screenshots). Attended two-device convergence
+check unchanged by this run (no production `sync.js` change landed). `/photos/*` documented
+exception stands pending the key-binding card. FR-12 Cliq-dup watch continues (D4). The
+`cycle-gate` roadmap card remains PLANNED — the boundary close-out (P4 interpretation, D2 ship,
+D4 confirmation, E2 0%-food-cost note) is the remaining attended work of the cycle.

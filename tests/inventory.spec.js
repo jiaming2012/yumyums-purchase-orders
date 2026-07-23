@@ -504,18 +504,35 @@ test.describe('Inventory', () => {
 
   // ── Trends tab ───────────────────────────────────────────────────────────
 
-  test('Trends tab shows coming soon content', async ({ page }) => {
+  // Retargeted by the F3 trends-tab-frontend card, exactly as F4 retargeted the
+  // Cost stub test below: the 'coming soon' stub this test used to assert no
+  // longer exists — #s5 now renders the real Trends tab (FR-1 / FR-6b). Full
+  // State-Enumeration coverage lives in tests/states-trends.spec.js; this stays
+  // a smoke test that the tab mounts and loads.
+  test('Trends tab renders the spend-by-group surface', async ({ page }) => {
     await page.click('#t5');
     await expect(page.locator('#s5')).toBeVisible();
-    await expect(page.locator('#s5')).toContainText('Spending Trends');
+    // The test DB has no confirmed COGS purchase events, so the honest empty
+    // card is the expected surface here.
+    await expect(page.locator('#s5 .tr-empty')).toBeVisible();
+    await expect(page.locator('#s5')).toContainText('No confirmed spending yet');
+    await expect(page.locator('#s5')).not.toContainText('coming soon');
   });
 
   // ── Cost tab ────────────────────────────────────────────────────────────
 
-  test('Cost tab shows coming soon content', async ({ page }) => {
+  // Retargeted by the F4 cost-tab-frontend card: the 'coming soon' stub this
+  // test used to assert no longer exists — #s6 now renders the real Cost tab
+  // (FR-4). Full State-Enumeration coverage lives in tests/states-cost.spec.js;
+  // this stays a smoke test that the tab mounts and loads.
+  test('Cost tab renders the cost surface', async ({ page }) => {
     await page.click('#t6');
     await expect(page.locator('#s6')).toBeVisible();
-    await expect(page.locator('#s6')).toContainText('Food Cost Intelligence');
+    // The test DB has no daily_menu_sales rows, so the honest low-data card is
+    // the expected surface here (accept-sparse-prod).
+    await expect(page.locator('#s6 .cost-empty')).toBeVisible();
+    await expect(page.locator('#s6')).toContainText('No sales data yet');
+    await expect(page.locator('#s6')).not.toContainText('Food Cost Intelligence');
   });
 
   // ── Menu tab (Phase 22 — Toast ingest) ──────────────────────────────────

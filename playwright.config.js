@@ -2,7 +2,11 @@ const { defineConfig } = require('@playwright/test');
 const { defineBddConfig } = require('playwright-bdd');
 
 const dbHost = process.env.DB_HOST || 'localhost';
-const dbPort = process.env.DB_PORT || '5432';
+// 5433 = yumyums-dev-pg, the container that actually serves HQ. Host :5432 is
+// bound by infra-postgres-1 (slack-trading), which has no `yumyums` role.
+// MUST stay in sync with backend/Taskfile.yml's DB_PORT default — this file
+// carries its OWN default and does not read the Taskfile's.
+const dbPort = process.env.DB_PORT || '5433';
 const dbUser = process.env.DB_USER || 'yumyums';
 const dbPass = process.env.DB_PASS || 'yumyums';
 // TEST_DB_NAME / TEST_PORT allow running multiple isolated stacks in parallel
@@ -14,7 +18,11 @@ const dbPass = process.env.DB_PASS || 'yumyums';
 // run the whole suite against the live dev database — corrupting dev data and
 // failing every state-dependent test. Defaulting to 8199 makes a local test run
 // always spawn its own clean server, even with a dev server up on 8089.
-const testDbName = process.env.TEST_DB_NAME || 'hq_test';
+// hq_test_e2e — Playwright's OWN database. The Go suite owns hq_test_go.
+// They shared one hq_test until 2026-07-21 (audit surface #3): Go TestMains
+// TRUNCATE `users`, so a concurrent `task test:go` would log every browser
+// context out mid-suite. Separate databases make the collision impossible.
+const testDbName = process.env.TEST_DB_NAME || 'hq_test_e2e';
 const testPort = process.env.TEST_PORT || '8199';
 const testDbUrl = `postgres://${dbUser}:${dbPass}@${dbHost}:${dbPort}/${testDbName}?sslmode=disable&TimeZone=America/New_York`;
 
@@ -61,9 +69,20 @@ module.exports = defineConfig({
     // worker and the on-demand POST /sync-receipts would ingest LIVE Mercury
     // transactions into the test DB mid-suite (all sync tests mock these
     // routes at the network layer, so nothing needs the real path).
-    command: `cd backend && PORT=${testPort} DB_URL="${testDbUrl}" STATIC_DIR=../ SUPERADMIN_CONFIG=config/superadmins.yaml TOAST_SYNC_INTERVAL=0 E2E_DISABLE_SCHEDULERS=1 MERCURY_API_KEY= ANTHROPIC_API_KEY= go run ./cmd/server/`,
+    // ZOHO_CLIQ_* / SMTP_* blanked too (cross-contamination audit 2026-07-21,
+    // surface #5): the root Taskfile's `dotenv: ['backend/.env']` injects LIVE
+    // credentials into every task launched from the main checkout, and the alert
+    // queue is NOT gated by E2E_DISABLE_SCHEDULERS — alertQ.Start runs
+    // unconditionally and purchasing/service.go NotifyVendorComplete enqueues
+    // from a request path the suite exercises. Without these, an E2E run can
+    // deliver a real Cliq message and a real SMTP email to live crew.
+    command: `cd backend && PORT=${testPort} DB_URL="${testDbUrl}" STATIC_DIR=../ SUPERADMIN_CONFIG=config/superadmins.yaml TOAST_SYNC_INTERVAL=0 E2E_DISABLE_SCHEDULERS=1 MERCURY_API_KEY= ANTHROPIC_API_KEY= ZOHO_CLIQ_CLIENT_ID= ZOHO_CLIQ_CLIENT_SECRET= ZOHO_CLIQ_REFRESH_TOKEN= SMTP_ADDR= SMTP_USERNAME= SMTP_PASSWORD= go run ./cmd/server/`,
     url: `http://localhost:${testPort}/api/v1/health`,
-    reuseExistingServer: !process.env.CI,
+    // Unconditionally false (audit surface #2): reuse has cost four runs. The
+    // 8199 default protects against reusing the DEV server, but the same
+    // mechanism silently reuses a FOREIGN TEST server from another worktree —
+    // running the suite green against someone else's database. Never reuse.
+    reuseExistingServer: false,
     timeout: 60000,
   },
   projects: [

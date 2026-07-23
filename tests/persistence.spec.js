@@ -434,8 +434,10 @@ test.describe('Persistence', () => {
     // Open the checklist — should show read-only with checkmark
     await row2.click();
     await expect(page.locator('.submit-confirm')).toBeVisible({ timeout: 5000 });
-    // In readonly mode, the checked field shows ✓ text instead of check-btn
-    await expect(page.locator('text=✓')).toBeVisible({ timeout: 5000 });
+    // In readonly mode, the checked field shows ✓ text instead of check-btn.
+    // Scoped to #fill-body: a page-wide 'text=✓' also matches the .review-check
+    // ✓ that the approvals list renders (see [FLD-R3 FLD-R5] below).
+    await expect(page.locator('#fill-body').getByText('✓')).toBeVisible({ timeout: 5000 });
   });
 
   test('submitted checklist fields are not blank after reload [FLD-R3 FLD-R5]', async ({ page }) => {
@@ -462,9 +464,17 @@ test.describe('Persistence', () => {
     await expect(row).toBeVisible({ timeout: 10000 });
     await row.click();
 
-    // In readonly mode (submitted), field shows ✓ text instead of interactive check-btn
+    // In readonly mode (submitted), field shows ✓ text instead of interactive
+    // check-btn. Scoped to #fill-body deliberately: a page-wide 'text=✓' ALSO
+    // matches the .review-check ✓ that the approvals list renders for this very
+    // submission (createTestTemplate sets requires_approval:true and makes admin
+    // both assignee AND approver), which made this assertion intermittently die
+    // on a strict-mode violation rather than a timeout. Scoping is the whole fix
+    // — do NOT add a wait for the approvals ✓ to force the condition: whether it
+    // renders at all depends on suite state, so waiting for it just trades one
+    // nondeterminism for another. (Learned the hard way, 2026-07-21.)
     await expect(page.locator('.submit-confirm')).toBeVisible({ timeout: 5000 });
-    await expect(page.locator('text=✓')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('#fill-body').getByText('✓')).toBeVisible({ timeout: 5000 });
 
     // Attribution should not show "undefined"
     const attribution = page.locator('.fill-attribution').first();

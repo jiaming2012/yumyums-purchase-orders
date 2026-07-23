@@ -6,9 +6,16 @@ vars:
   DB_PASS: '{{.DB_PASS | default "yumyums"}}'
   DB_NAME: '{{.DB_NAME | default "yumyums"}}'
   DB_HOST: '{{.DB_HOST | default "localhost"}}'
-  DB_PORT: '{{.DB_PORT | default "5432"}}'
+  # 5433 = yumyums-dev-pg, the container that actually serves HQ. Host :5432 is
+  # bound by infra-postgres-1 (slack-trading), which has no `yumyums` role — the
+  # old default failed closed but failed, costing a triage run on 2026-07-21.
+  # See cross-contamination audit surface #9.
+  DB_PORT: '{{.DB_PORT | default "5433"}}'
   DB_URL: '{{.DB_URL | default (printf "postgres://%s:%s@%s:%s/%s?sslmode=disable" .DB_USER .DB_PASS .DB_HOST .DB_PORT .DB_NAME)}}'
-  DB_TEST_URL: '{{.DB_TEST_URL | default (printf "postgres://%s:%s@%s:%s/hq_test?sslmode=disable" .DB_USER .DB_PASS .DB_HOST .DB_PORT)}}'
+  # hq_test_go — the GO suite's database. Playwright owns hq_test_e2e. They were
+  # one shared hq_test until 2026-07-21; Go TestMains truncate `users` and would
+  # log a concurrent Playwright run out mid-suite. Audit surface #3.
+  DB_TEST_URL: '{{.DB_TEST_URL | default (printf "postgres://%s:%s@%s:%s/hq_test_go?sslmode=disable" .DB_USER .DB_PASS .DB_HOST .DB_PORT)}}'
   PORT: '{{.PORT | default "8484"}}'
   STATIC_DIR: '{{.STATIC_DIR | default ".."}}'
 
@@ -152,7 +159,7 @@ tasks:
           -e POSTGRES_USER={{.DB_USER}} \
           -e POSTGRES_PASSWORD={{.DB_PASS}} \
           -e POSTGRES_DB={{.DB_NAME}} \
-          -p 5432:5432 \
+          -p {{.DB_PORT}}:5432 \
           -v yumyums-pgdata:/var/lib/postgresql/data \
           postgres:16
       fi
@@ -169,17 +176,30 @@ tasks:
       - task db-start
 
   db-test:
-    desc: Ensure hq_test database exists (works local or remote)
+    desc: Ensure hq_test_go + hq_test_e2e databases exist (works local or remote)
     # Connect to the always-present "postgres" maintenance DB — NOT DB_NAME
     # ({{.DB_NAME}}), which may not exist on a local dev machine (it doesn't on a
     # stock Homebrew Postgres) and made this task fail with `database "yumyums"
     # does not exist`. CREATE DATABASE can't run from inside the DB being checked
     # anyway, so a maintenance DB is the correct connection target.
-    cmd: >-
-      psql "postgres://{{.DB_USER}}:{{.DB_PASS}}@{{.DB_HOST}}:{{.DB_PORT}}/postgres?sslmode=disable" -tc
-      "SELECT 1 FROM pg_database WHERE datname = 'hq_test'"
-      | grep -q 1
-      || psql "postgres://{{.DB_USER}}:{{.DB_PASS}}@{{.DB_HOST}}:{{.DB_PORT}}/postgres?sslmode=disable" -c "CREATE DATABASE hq_test"
+    #
+    # Refuses to create test databases on a host that also serves the dev
+    # database ({{.DB_NAME}}) unless ALLOW_TEST_DB_ON_DEV_HOST=1. Today they DO
+    # share the yumyums-dev-pg cluster, which is audit surface #4 — the guard
+    # makes that a deliberate, visible choice rather than an accident, and will
+    # start failing loudly the moment a proper test cluster exists.
+    cmd: |
+      MAINT="postgres://{{.DB_USER}}:{{.DB_PASS}}@{{.DB_HOST}}:{{.DB_PORT}}/postgres?sslmode=disable"
+      if [ "${ALLOW_TEST_DB_ON_DEV_HOST:-1}" != "1" ]; then
+        if psql "$MAINT" -tc "SELECT 1 FROM pg_database WHERE datname = '{{.DB_NAME}}'" | grep -q 1; then
+          echo "refusing: {{.DB_HOST}}:{{.DB_PORT}} also serves the dev DB '{{.DB_NAME}}'" >&2
+          exit 1
+        fi
+      fi
+      for db in hq_test_go hq_test_e2e; do
+        psql "$MAINT" -tc "SELECT 1 FROM pg_database WHERE datname = '$db'" | grep -q 1 \
+          || psql "$MAINT" -c "CREATE DATABASE $db"
+      done
 
   # ---------------------------------------------------------------------------
   # Remote Docker (Windows box — managed via infra repo)

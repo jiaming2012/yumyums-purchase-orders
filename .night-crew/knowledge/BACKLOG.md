@@ -236,18 +236,18 @@
   from `FIELD_RESPONSES`/`DRAFT_RESPONSES`; a stale value can linger under the field. No durable
   crew work is lost (the photo never existed server-side; submit validation blocks required-photo),
   so this is stale-state hygiene, not a loss mode. Small frontend fix + persistence test.
-  · origin: pm-session 2026-07-16 pass-2 sweep · new
+  · origin: pm-session 2026-07-16 pass-2 sweep · deferred 2026-07-19 (PM-session routing — off-theme / harness-dependent; reason per item in PRD-prove-and-surface §Routing items 10 & 12)
 
 - **Offline submit idempotency under IndexedDB failure (suspected, unverified)** · If the offline
   submit queue's `idempotency_key` is lost to an IndexedDB write failure, reconnect drain
   (`sync.js:466-494`) could duplicate a submission. Untestable without the offline harness — rides
   `WO-offline-indexeddb-harness` (deferred this cycle) when it's built. · origin: pm-session
-  2026-07-16 pass-2 sweep · new
+  2026-07-16 pass-2 sweep · deferred 2026-07-19 (PM-session routing — needs the offline-IndexedDB harness, not built this cycle; PRD-prove-and-surface §Routing item 11)
 
 - **Lamport clock corruption → catch-up gap (suspected, unverified)** · If the stored Lamport
   clock in IndexedDB is cleared/corrupted, the next `wsCatchUp` (`sync.js:303-315`) may skip or
   refetch ops, staling the UI. Same harness dependency — rides `WO-offline-indexeddb-harness`.
-  · origin: pm-session 2026-07-16 pass-2 sweep · new
+  · origin: pm-session 2026-07-16 pass-2 sweep · deferred 2026-07-19 (PM-session routing — off-theme / harness-dependent; reason per item in PRD-prove-and-surface §Routing items 10 & 12)
 
 - ~~**Unsubmit → fast resubmit fail-note staleness (suspected, unverified)**~~ · If a user
   unsubmits (`workflows.html:2372-2380`) and resubmits before the re-render, stale `FAIL_NOTES`
@@ -298,7 +298,7 @@
   `ArchiveTemplateHandler` still use the fire-and-forget `EmitOp` goroutine. Convert both to
   `EmitOpTx` (mirrors W-2's pattern; no schema change) for full INV-1 "0 accepted writes whose op
   is not durably queued" parity. Small follow-up card. · origin: triage 2026-07-17 (F-B, W-2
-  follow-up) · new
+  follow-up) · deferred 2026-07-19 (PM-session routing — editprop tidy-up, stays BACKLOG not a KR this cycle; PRD-prove-and-surface §Routing item 6)
 - **Fail-note conflict live-render on the `applyOp`/409 path (`_fail_note` unpack)** · The W-6b
   conflict-coverage sweep (`editprop-convergence-cell-hardening`) hardened the LWW-409/`applyOp`
   render for 4 answer types (yes_no, temperature, sub-step, checkbox) but could NOT reach the 2
@@ -310,20 +310,20 @@
   extend `applyOp` `SET_FIELD` to unpack `_fail_note` on the incoming-op/409 path, then land the 2
   parked W-6b cells — own design/footprint/G6, NOT test-debt. **Bundle candidate with F-B above**
   (both touch the op-emission/apply path). · origin: triage 2026-07-18 (D-1, overnight-20260718 —
-  operator chose accept + track over graduate-now) · new
+  operator chose accept + track over graduate-now) · deferred 2026-07-19 (PM-session routing — out-of-footprint editprop tidy-up, needs `_fail_note` unpack on apply path; PRD-prove-and-surface §Routing item 7)
 - **Atomic approval + feedback (`approveSubmission` tx)** · `approveSubmission` commits
   `status='approved'` *before* the feedback loop, so a feedback-persist failure correctly returns
   500 `feedback_persist_failed` (W-4's goal, requirement MET) but leaves the submission already
   `approved` — a partial commit. Thread a `tx` through `approveSubmission` (repository.go) so
   status + feedback commit atomically; also removes the less-specific `internal_error` a retrying
   approver sees on the 2nd attempt (idempotent via the `status='pending'` guard). · origin: triage
-  2026-07-17 (F-C, W-4 follow-up) · new
+  2026-07-17 (F-C, W-4 follow-up) · deferred 2026-07-19 (PM-session routing — editprop tidy-up, not a KR this cycle; PRD-prove-and-surface §Routing item 8)
 - **Onboarding persistence tests: `waitForResponse` over fixed flush wait** · Two converted
   persistence tests in `tests/onboarding.spec.js` use `waitForTimeout(1500)` instead of
   `waitForResponse('/saveProgress')`. The post-reload assertion is still the load-bearing proof, so
   the guard isn't weakened — but a fixed wait is a small flake-surface. Switch to `waitForResponse`
   on the save POST in a future test-hardening pass. Low priority. · origin: triage 2026-07-17 (F-E,
-  T-2 minor) · new
+  T-2 minor) · deferred 2026-07-19 (PM-session routing — low-priority test-hardening; PRD-prove-and-surface §Routing item 9)
 
 ## Waiver-#1 last mile (from overnight-20260719 cycle gate — operator chose "graduate" 2026-07-19)
 
@@ -342,19 +342,19 @@
   **literal `task test` exit-0**, which **formally retires carried waiver #1** (Eng KR5 PASS). Small
   test-hardening WO (no production change; test-only footprint). Red-first: the full-suite red is the
   baseline; green = literal exit-0. · origin: overnight-20260719 cycle gate (Eng KR5 PARTIAL) ·
-  **operator chose (a) graduate 2026-07-19** (DECISIONS-NEEDED §C) · new
+  **operator chose (a) graduate 2026-07-19** (DECISIONS-NEEDED §C) · promoted → `waiver1-isolation-fix` (Activity 3; PM-session routing 2026-07-19, PRD-prove-and-surface §Routing / FR-10)
 - **Per-card wall-clock instrumentation as a standing build-run output** · The 2026-07-19 gate could
   not compute a this-cycle Delivery median (KR4 PARTIAL) because the 07-17 run's 9 build cards were
   not per-card timed — only 07-18's single card was measured. `-0718` already re-adopted the
   harness-measured table; make it the **invariant** for every build run so the ledger stays measured,
   not narrated, and the next gate can compute a real median vs the T-14 baseline (N=23/22m28s).
-  · origin: overnight-20260719 cycle gate (Delivery KR4 PARTIAL, fix-forward) · new
+  · origin: overnight-20260719 cycle gate (Delivery KR4 PARTIAL, fix-forward) · promoted → `percard-timing-instrumentation` (Activity 3; PM-session routing 2026-07-19, PRD-prove-and-surface §Routing / FR-11)
 - **Gate run-mechanics: `CI=1` + explicit pre-migration by default** · Two run-to-run wall-clock
   losses (07-18 G6, 07-19 gate) came from the same `:8199` `reuseExistingServer` foreign-server
   latch and (07-19) an unmigrated isolated DB. Bake into the gate/G6 run-mechanics: always run the
   suite with `CI=1` (forces `reuseExistingServer:false` → own webServer + teardown) AND pre-migrate
   the isolated pg16 via a throwaway app boot before Go units. Run-mechanics doc/skill fix, not a code
-  change. · origin: overnight-20260719 cycle gate (card-actuals 8th-slate obs) · new
+  change. · origin: overnight-20260719 cycle gate (card-actuals 8th-slate obs) · folded → rides `percard-timing-instrumentation` / cycle-gate run-mechanics (PM-session routing 2026-07-19, PRD-prove-and-surface §Routing / FR-11)
 
 ## Escaped defect + QA gap (found 2026-07-17 on dev, operator play)
 
@@ -368,7 +368,7 @@
   access matrix ({who views}×{who edits}×{who observes}×{role/assignment}, asserting access AND
   live-op propagation) + `sync`-package unit coverage for `ResolveEntityAccess` across all
   role/assignment combos. Full write-up: `reference/qa-gap-20260717-live-sync-access.md`.
-  · origin: 2026-07-17 operator-found live-sync bug (dev play, post cycle-gate) · new
+  · origin: 2026-07-17 operator-found live-sync bug (dev play, post cycle-gate) · promoted → `sync-pkg-unit-coverage` + `convergence-matrix-systematic` (Activity 3; PM-session routing 2026-07-19, PRD-prove-and-surface §Routing / FR-7·FR-8·FR-9)
 
 - **Live approval-state convergence coverage** · Two MORE escaped defects of the SAME class found
   2026-07-18 in continued operator play: an approve/reject op reached the receiving device but the
@@ -386,7 +386,7 @@
   the access matrix must also vary the **op type** (field edit vs submit/approve/reject) and assert
   **live convergence of derived views** (banner, readonly, progress count), not just the field value.
   Full write-up: `reference/qa-gap-20260717-live-sync-access.md` (§ 2026-07-18 addendum).
-  · origin: 2026-07-18 operator-found approval-sync bugs (dev play) · new
+  · origin: 2026-07-18 operator-found approval-sync bugs (dev play) · promoted → `convergence-matrix-systematic` (Activity 3; PM-session routing 2026-07-19, PRD-prove-and-surface §Routing / FR-8·FR-9 ESC-2)
 
 - **Rejection feedback on SUB-STEPS (fixed) + the require-photo dead-end (open).** Operator play
   (dev, 2026-07-18) found rejecting a **sub-step** (e.g. "Cut the check → Do B") stored the comment
@@ -409,3 +409,160 @@
   `APR-DEADEND-0718`; persistence `FLD-CORRECTION-PHOTO`. Parked-by-convention: the presign+PUT camera
   plumbing itself (injected in tests, like onboarding FR-18).
   · origin: 2026-07-18 operator-found sub-step rejection bug (dev play) · resolved 2026-07-18
+
+> **Triage 2026-07-20 (overnight-20260721, ledger T-18) graduations.** §B items were routed at
+> triage (B2+B3 → `replay-fetchstorm-gate` card; B4 ratified; B5 folded into
+> `inventory-tab-gating`) and do NOT appear below. These are the run's §C durable observations
+> that ride future cards:
+
+- **`checklist_submissions.status` never set for `requires_approval:false` submissions** ·
+  Defaults `'pending'` and `submitChecklist` never updates it, so no-approval submissions read
+  `'pending'` server-side forever. Harmless today (UI derives from other fields) but a trap for
+  any future server-side status consumer — normalize on submit or document the invariant. ·
+  origin: overnight-20260721 A1 impl (§C) · new
+- **Rejected-field hydrate quirk: new answer visually clears on reload until resubmission** ·
+  Answering a rejected field then reloading blanks the new answer visually
+  (`workflows.html:1544` hydrate branch prefers the rejection snapshot); device-local, LOW.
+  Rides any future runner-hydration card. · origin: overnight-20260721 A1 G6 (§C) · new
+- **`sync.spec.js` de-flake: `:1198` + `:525`** ·
+  `:1198 temperature answer converges` is **flaky — confirmed by controlled reproduction, at
+  ~16% overall (4 red / 25 `--retries=0` legs), ~20% (4/20) under a concurrent Playwright
+  suite** (investigation 2026-07-21, `investigate/1198-under-load-20260721`). The flake is
+  REAL; the numbers previously carried here were not. **Two corrections to the prior claim:**
+  (a) "red 1-of-2 legs at load 0.84" **misattributed the load** — its own source table
+  (`runs/2026-07-22-autonomous/DECISIONS-NEEDED.md` §S1 tail) shows load 0.84 on the leg that
+  **PASSED**; the red leg started at load **3.96** on a rising box. (b) The implied ~50% rate is
+  refuted — two parties' ~20 consecutive greens are consistent with ~16-20% *conditional on
+  contention* (p(0 red in 20 | 20%) ≈ 1.2%, and they sampled the quiet condition).
+  **Failure mode is NOT what the card assumes.** All 4 reds share one signature:
+  `page.waitForResponse` timeout at **`sync.spec.js:1119`** — the `POST /ops` **commit** wait —
+  not `CONVERGE_TIMEOUT` and not a convergence assert. The autosave debounce is **400ms**
+  (`workflows.html:278`), so a 12s timeout means the op **never fired**, not that it was slow;
+  ops-journal deltas confirm it (green legs +5 rows, red legs +3 — no `SET_FIELD` row).
+  **Therefore raising any timeout is the wrong fix.** The likely mechanism is the same stray WS
+  catch-up `loadMyChecklists` re-render the de-flake comment names: it detaches the temperature
+  input between `fill()` and `dispatchEvent('change')`, so the change handler never arms
+  `debouncedSaveField` and no POST is ever issued. The de-flake **relocated** that race (from
+  "typed value clobbered to empty" to "save never arms") rather than closing it — gating on the
+  `POST /ops` 2xx cannot be race-free against a re-render that prevents the POST existing.
+  Fix direction: make answer-entry re-render-safe (settle the runner before entering, and/or
+  re-assert value + re-dispatch if no POST is observed). Test-side; no production change needed.
+  **Scope must also include `:525 FLD-LIVE-02`**, which G6
+  found fails 3/3 in isolation *and at the pre-gate baseline* — a pre-existing
+  order-dependent test. The flake surface is broader than "just `:1198`". ·
+  origin: overnight-20260722 S1 PARK (b) + quiet streak ·
+  **evidence re-derived 2026-07-21** — see `reference/1198-flake-reproduction-20260721.md` ·
+  **promoted → `syncspec-deflake` (D1, slate-20260720c)** — cleared the §15k architecture-blocking
+  bar: the `cycle-gate` card promises no-retry suite-green attestation, which cannot pass while
+  `:1198` is proven-flaky and `:525` reds at baseline.
+- **Replay fetch-storm class is NOT fully closed** ·
+  S1 gated `SUBMIT_CHECKLIST`, but G6's enumeration of every branch in `applyOp` found
+  `loadPendingApprovals()` and `loadTemplates()` still fire an **ungated per-op re-fetch** —
+  a catch-up with N APPROVE ops still storms the approvals queue, N SAVE_TEMPLATE ops still
+  storm the Builder list. Same root cause, same one-line fix pattern, deliberate-by-omission
+  (the in-code comments say "always refreshes"). · origin: overnight-20260722 S1 G6 · new
+- **`sync.js api()` fetch-abort guard (S1 sub-move (d), deliberately skipped)** ·
+  Suite-teardown noise (`loadMyChecklists error: Failed to fetch`) originates from a `catch`
+  in **`workflows.html:389`**, outside S1's footprint. A sync.js-only fix would require
+  `api()` to never reject during unload, altering the error path of every workflow API call
+  including the offline-queue fallback — poor risk/benefit unattended. Needs re-scoping as
+  its own card **with `workflows.html` in footprint**. · origin: overnight-20260722 S1 (d) · new
+- **`.gitignore` lets a `node_modules` symlink into the index** ·
+  The line is `node_modules/` (trailing slash) — matches a directory but **not a symlink**.
+  Worktrees have no `node_modules`, so symlinking the main install is the natural move and it
+  slips straight past into `git add -A`. One implementer already hit it and reverted its own
+  instance. One-char fix: drop the slash. · origin: overnight-20260722 S1 flag · new
+- **`:8199` port latch recurred (third run)** ·
+  A `go run` child survives `kill` of its parent and holds the port. Standing recipe should
+  kill the **listener PID** (`ss -ltnp`), not the `go run` parent, and concurrent tracks
+  should be assigned distinct `TEST_PORT`s up front. · origin: overnight-20260722 S1 flag · new
+- **`-p 1` is load-bearing for Go suites — write it into standing run mechanics** ·
+  Verified at base commit (no card code present): default parallel `-p` reddens four packages
+  (`inventory` 6, `purchasing` 4, `receipt` 9, `recipes` 5+) via concurrent `TRUNCATE`s on a
+  shared DB. `-p 1` is green. This makes every card's build/vet signal unreliable until
+  discovered per-card. · origin: overnight-20260722 F1 G6 · new
+- **Money is `float64` end-to-end in the inventory/recipes path** ·
+  Pre-existing repo convention (`period-summary` too), not a card regression. JSON can emit
+  `23.099999999999998`, and it compounds per-bucket rounding drift. Cents-as-int or a decimal
+  string is the repo-wide correct fix. · origin: overnight-20260722 F1 G6 · new
+- **`git stash` prohibition needs a mechanical guard** ·
+  A subagent ran `git stash` in a worktree (forbidden, 07-15 hazard), self-disclosed, and
+  recovered cleanly; the operator's own stash entry was verified intact. But the rule lives
+  only in prose. Consider a guard refusing `stash` when `git rev-parse --git-common-dir`
+  differs from `--git-dir`. · origin: overnight-20260722 F4 incident · new
+- **Dangling standing-rules pointer in every slate since 07-15** ·
+  Slates inherit gates G1–G6 "unchanged by reference from
+  `reference/overnight-run-plan-20260707.md`" — **that file does not exist.** Real origin is
+  `runs/2026-07-09-attended/slate-20260710.md` §"Run mechanics" plus the app-code adaptation
+  in `slate-20260714.md`. A dangling inherit in the one document defining the run's gates is a
+  latent single point of failure. · origin: overnight-20260722 orchestrator · new
+- **PRODUCT THREAD: the tabs show single numbers where the operator wants comparisons** ·
+  Two triage answers converged on the same shape. (1) Food cost should be a **long-term
+  average with a direction of travel**, not a fixed-12-week snapshot — this dissolves the
+  0%-food-cost bug rather than patching it. (2) **Margin with and without discounting** —
+  blocked today: `daily_menu_sales` stores only `units_sold` + `gross_amount`, no discount or
+  comp field, so it needs Toast sync to capture them first. Not cleanup; belongs in a PM
+  session. · origin: overnight-20260722 triage T-19 · new
+
+---
+
+## Graduated / added at morning triage T-20 (2026-07-21, overnight-20260720c)
+
+- **Prod, dev and test share ONE Postgres cluster, one role, one password** ·
+  `yumyums-dev-pg` holds database `yumyums` with schema `public` (dev, 50 tables) AND schema
+  `production` (prod, 48 tables), plus databases `hq_test_go` / `hq_test_e2e`. Prod is separated
+  from dev by nothing but a client-supplied `search_path=production` in a connection string — not
+  an enforced boundary, no privilege separation, same `yumyums` role for both. Omit the parameter
+  and you land in `public`. This is the sharpest instance of audit surface #4 and was found while
+  answering the operator's "should never be writing to the live db!". Correct fix is a genuinely
+  separate cluster (or at minimum separate roles with `REVOKE`), not more `search_path` discipline.
+  · origin: T-20 triage investigation · **new, HIGH**
+- **`dotenv: ['backend/.env']` injects 21 LIVE credentials into every task from the main checkout** ·
+  Root `Taskfile.yml:3`. A dev server (PID 75921) ran three days holding live Mercury *production*,
+  Anthropic, Zoho Cliq and SMTP keys with `E2E_DISABLE_SCHEDULERS` unset — receipt worker, cutoff,
+  drift and alert queue all armed against real external services. Triage blanked the Cliq/SMTP vars
+  for the *Playwright* server (decision 40), which does NOT address `task dev` or any other target.
+  Proper fix: invert the default so alerts require an explicit `ALERTS_ENABLED=1` and forgetting a
+  flag fails safe. · origin: T-20 / audit surface #5 · **new, HIGH**
+- **`task backend:db-start` is vestigial and now conflicts** · It creates a second HQ Postgres
+  container (`yumyums-pg`, which does not exist today) and, after decision 39 templated its host
+  mapping to `{{.DB_PORT}}`, would collide with `yumyums-dev-pg` on 5433. Either delete the target
+  or point it at a genuinely separate port. Not redesigned at triage. · origin: T-20 · new
+- **Stale server processes squat ports across sessions** · PID 83061 holds `:18484` from a worktree
+  (`hq-worktrees/sync-units`) that has been **deleted**, pointed at a dead Postgres port. Same shape
+  as the `:8199` latch (audit #2, fixed by decision 41) with a different number. A general reaper /
+  port-ownership convention is the durable fix. · origin: T-20 · new
+- **`stash@{0}` holds unattributed WIP in a slot shared by five worktrees** ·
+  `WIP on dev: acd2c7f refactor: migrate all server logging from log to slog NDJSON output`.
+  `refs/stash` is shared across all worktrees, which is why `git stash` is already prohibited here.
+  Confirm ownership before anything touches it. Still present after triage. · origin: audit #6 · new
+- **Two config files carry independent copies of the same default** · `backend/Taskfile.yml` and
+  `playwright.config.js` each define their own `DB_PORT` / `dbPort` default. Changing one silently
+  leaves the other — which happened at T-20 and cost a full E2E leg. Both now cross-reference each
+  other in comments, but the duplication itself is the defect. Audit for other duplicated defaults.
+  · origin: T-20 reviewer error · new
+- ~~**`sync.spec.js` de-flake: `:1198` + `:525`**~~ · **promoted → `syncspec-deflake` (re-aimed at
+  T-20)**. Scope widened to four tests: `:1198`, `:525`, LST-17, GATE-04. Fix is test-side; no
+  production change; no timeout increase helps. **Shipped overnight-20260724 (S1). Line anchors
+  are now dead** — G1/S1 moved the tests; locate by title (`-g "temperature answer converges"`,
+  FLD-LIVE-02 by name). T-21.
+- ~~**Cost-tab gate: confidentiality or tidiness?**~~ · **promoted → `grant-enforcement-parity`**
+  (T-20 decision 36). Answer was confidentiality, and the gap is 9 of 11 grants, not 2 routes.
+- **`/photos/*` key-binding gate (G1-a)** · The photo presign/upload endpoints are the sole
+  authenticated-only routes — any logged-in user with a photo key can read any stored photo URL
+  regardless of grants. A union-of-app-grants gate was rejected as cosmetic (T-21 decision 42);
+  the durable fix binds photo keys to their owning app/record so per-app grants actually gate
+  reads. Needs a small design pass (key namespace vs owner-record join). The documented
+  exception in `tests/grant-enforcement-parity.spec.js` stands until this ships. · origin:
+  overnight-20260724 G1 park, T-21 decision 42 · new
+- **`sync.js` catch-up fetch-storm gate** · `applyOp`'s SAVE_TEMPLATE branch re-fetches
+  `myChecklists` per replayed op whenever a runner is open (`sync.js` ~491) — a device catching
+  up on a large journal fires an un-awaited fetch per op (the storm behind every FLD-LIVE-02
+  red). A one-line gate/debounce fixes the app-level behavior, but it is a production `sync.js`
+  change and RE-ARMS the attended two-device convergence check — schedule it with that cost
+  priced in. · origin: overnight-20260724 S1 observation (reported, not fixed) · new
+- **`onboarding.spec.js` second-run carried-DB failures** · Two tests fail when the full suite
+  runs twice against the same un-reset DB (carried hire/training state). Fine under the
+  clean-DB-per-leg rule, but the suite is non-idempotent — either reset state in `beforeAll` or
+  document clean-DB as a hard precondition. · origin: overnight-20260724 S1 (pre-existing, out
+  of scope) · new
