@@ -27,7 +27,9 @@ tests in `tests/grant-enforcement-parity.spec.js` (committed red before the fix)
 - `tests/ops-save-template-validation.spec.js` — same `operations` baseline, same reason.
 - `tests/purchasing.spec.js` — `purchasing` baseline for its invited team_member shopping-flow users.
 - `tests/onboarding.spec.js` — `onboarding` baseline for its invited trainee/manager users.
-- `tests/users.spec.js` — no behavioral rewrite; only additions if a probe's envelope assertion needs the grant-gate-vs-isAdmin distinction made explicit (both return 403 `{"error":"forbidden"...}`).
+- `tests/users.spec.js` — NFR-3 now establishes its clean-purchasing-perms premise with the same full-replace PUT shape the test already uses (the purchasing.spec baseline had polluted its "fresh team_member sees no purchasing" assert); no assertion weakened.
+- `tests/onboarding.spec.js` (second touch) — prove-progress `inviteUser` issues each new user an individual `onboarding` user_grant: roles-less hires (`inviteUser(page, [])`) fall outside any role baseline.
+- `features/steps/user-invite-onboarding.js` — Device A setup resets `team_member` out of all role_grants before the scenario enables its two apps; the scenario asserts User B sees EXACTLY 2 tiles and chromium-project baselines had leaked a third.
 - `backend/cmd/server/main.go` — the card's owned wiring lives here (handler registration), listed for completeness since main.go is a shared hotspot.
 
 New files (no merge conflict expected): `tests/grant-enforcement-parity.spec.js`,
@@ -43,6 +45,11 @@ this note.
 - The nesting shape inside `Route("/inventory")`: base endpoints in their own
   gated group, trends/cost groups UNMODIFIED — flattening a `r.Use` to the Route
   level would break F5's tab-grant-only umbrella semantics.
+- The GET /inventory/items group mounting `RequirePermission("inventory",
+  "purchasing")` — the one deliberate cross-app READ. purchasing.html's init()
+  builds the order form from the item catalog with no catch; dropping the
+  purchasing umbrella breaks the Purchasing view for purchasing-only crew.
+  Item WRITES stay inventory-only.
 - The two notification-preference routes staying OUTSIDE the users gate
   (admin-or-self stays handler-internal; NFR-4 depends on self-access).
 - The service-token group (period-summary, menu-cogs) staying untouched.
