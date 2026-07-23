@@ -18,9 +18,11 @@
 - G1's `beforeAll` app-grant baselines in `tests/sync.spec.js` and
   `tests/workflows.spec.js` (this branch was cut AFTER G1 merged and builds on
   them verbatim).
-- The `:1198` line anchor: the temperature-convergence test's declaration is
-  kept on line 1198 of `tests/sync.spec.js` (backlog/slates/cycle-gate reference
-  it as `sync.spec.js:1198`); edits above it are line-balanced to preserve this.
+- The `:1198` line anchor could NOT be preserved: G1's merged beforeAll had
+  already moved the temperature test's declaration to 1223 before S1 branched,
+  and S1's helpers move it to 1318. The in-file editor note now says to locate
+  it by title (`-g "temperature answer converges"`); knowledge-base references
+  to `sync.spec.js:1198` should migrate to that grep handle at triage.
 - The survivalCell settle/re-dispatch helpers and per-test hardening added by
   this card.
 
