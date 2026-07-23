@@ -188,7 +188,13 @@
 
 ## Activity 5 — Cycle gate · *last, serialized*
 
-- **`grant-enforcement-parity`** · **PLANNED — URGENT, BLOCKS GO-LIVE** (new card, T-20 decision 36,
+- **`grant-enforcement-parity`** · **DONE** (G1 shipped overnight-20260724, merged to run branch
+  `4bb8649`, G6 verdict APPROVE as-is; all five live app surfaces now behind `RequirePermission` —
+  parity spec covers 11/11 slugs (7 enforced, 4 N/A-with-reason). **Two items ride to triage:**
+  `/photos/*` grant mapping PARKED as an operator question (sole remaining authenticated-only
+  route), and the `GET /inventory/items` (inventory ∨ purchasing) READ judgment call awaits
+  ratification — G6 verified the payload carries no cost fields.) (was: PLANNED — URGENT, BLOCKS
+  GO-LIVE; new card, T-20 decision 36,
   2026-07-21) · **The Users tab offers 11 grants; the backend enforces 2.** Every `RequirePermission`
   call in the server is `inventory-trends` and `inventory-cost` (both shipped by F5). The other nine
   — `inventory` itself, `operations`, `purchasing`, `onboarding`, `users`, plus the four placeholder
