@@ -111,8 +111,16 @@
   Red-first; production `sync.js` change → `task sw` + the attended two-device convergence flag
   re-arms on land. Footprint: sync trust (`sync.js`, `sync.spec.js`, `workflows.spec.js`,
   `access_test.go` comment). → Eng KR5 (determinism), QA. *(from DECISIONS-NEEDED-20260721 §B2/§B3)*
-- **`syncspec-deflake`** · **PLANNED — RE-AIMED at T-20 (2026-07-21); the original premise was
-  wrong in its aim, right in its conclusion.** D1 PARKED this card 2026-07-20 and its evidence was
+- **`syncspec-deflake`** · **DONE** (S1 shipped overnight-20260724, G6 verdict APPROVE;
+  **test-side only — the two-device check did NOT re-arm.** `:1198` and `:525` FLD-LIVE-02
+  KILLED with proven reds; LST-17 + GATE-04 HARDENED (not reproduced in 3 targeted contention
+  legs each, labeled honestly). Determinism ARMED: 12/12 `--retries=0` contention legs + 5/5
+  measured-quiet legs (loads 1.59–1.93, 0 foreign procs) + fresh-DB full-suite `--retries=0`
+  green 541/0/6, independently replicated by G6 incl. a mutation probe proving the re-dispatch
+  fails honestly on a real autosave break. `cycle-gate`'s no-retry gate is now ELIGIBLE. Line
+  anchors dead — locate by title, e.g. `-g "temperature answer converges"` (now ~:1372).)
+  (was: PLANNED — RE-AIMED at T-20 (2026-07-21); the original premise was
+  wrong in its aim, right in its conclusion.) D1 PARKED this card 2026-07-20 and its evidence was
   re-derived twice. Net position: **the test IS flaky (16% overall; 20% under a concurrent
   Playwright suite — 4 red / 25 `--retries=0` legs), but NOT for the reason the card assumed.**
   Every red is a 12s timeout at **`sync.spec.js:1119`**, the `POST /ops` COMMIT wait — *not*
