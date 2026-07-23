@@ -14,3 +14,14 @@ no counterpart to collide with). Resolution: none needed. Gates after merge: `go
 + `go vet ./...` exit 0 on the merged tree (full gate evidence in the merge commit body:
 implementer full suite 542/6/0 at 0 retries; G6 independent legs green; G6 verdict APPROVE
 as-is).
+
+## Merge 2 — S1 `syncspec-deflake` → `overnight-20260724`
+
+**CLEAN** — no conflicts (S1 branched from the post-G1 run branch at `1816448`; the run branch
+had not moved since). Cards involved: S1 only (G1 already merged — the anticipated
+`tests/workflows.spec.js` shared surface never collided because the slate's serial landing
+order G1 → S1 held: S1 implemented against G1's merged `beforeAll` baselines). Merge-intents
+read: S1's (owns `tests/sync.spec.js` + `tests/workflows.spec.js`; production and backend
+explicitly untouched — verified by G6 diff audit). Resolution: none needed. Gates after merge:
+`go build ./...` + `go vet ./...` exit 0 on the merged tree; full-suite `--retries=0` evidence
+on the identical tree content: implementer fresh-DB 541/0/6 + G6 independent fresh-DB 541/0/6.
