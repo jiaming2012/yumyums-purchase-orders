@@ -5,6 +5,31 @@ const BASE = '';
 const ADMIN_EMAIL = 'jamal@yumyums.kitchen';
 const ADMIN_PASSWORD = 'test123';
 
+// ── Card G1 baseline ─────────────────────────────────────────────────────────
+// /workflow/* and /ws now sit behind the `operations` app grant
+// (tests/grant-enforcement-parity.spec.js). This file's invited non-superadmin
+// users exercise sync flows over both, so grant the app to the standard roles
+// once up front — preserving any user_grants other files added.
+test.beforeAll(async ({ browser }) => {
+  const baseURL = process.env.NIGHTCREW_ENV_URL || 'http://localhost:' + (process.env.TEST_PORT || '8199');
+  const page = await browser.newPage();
+  await page.goto(baseURL + '/login.html');
+  await page.fill('input[type="email"]', ADMIN_EMAIL);
+  await page.fill('input[type="password"]', ADMIN_PASSWORD);
+  await page.click('button.btn');
+  await page.waitForURL(url => !url.pathname.includes('login'));
+  await page.evaluate(async (slug) => {
+    const perms = await (await fetch('/api/v1/apps/permissions')).json();
+    const app = (perms || []).find(a => a.slug === slug) || {};
+    const roles = [...new Set([...(app.role_grants || []), 'admin', 'manager', 'team_member'])];
+    await fetch('/api/v1/apps/' + slug + '/permissions', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role_grants: roles, user_grants: (app.user_grants || []).map(String) }),
+    });
+  }, 'operations');
+  await page.close();
+});
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 async function login(page, email, password) {
