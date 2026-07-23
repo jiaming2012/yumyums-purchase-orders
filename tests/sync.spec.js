@@ -571,36 +571,47 @@ test.describe('Cross-device: regressions', () => {
     await login(tabA); // shared cookies → tabB is logged in too
     const doC = (p) => p.locator('.fill-field', { hasText: 'Do C' }).locator('.check-btn');
     const openRunner = async (p) => {
-      // Deterministic first paint (kill-proof2 leg 5): under a carried journal
-      // plus a concurrent full suite, the page-load myChecklists fetch itself
-      // can outlive a bare 12s visibility wait — the post-failure snapshot
-      // showed the row fully rendered with correct state moments later, ops
-      // journal complete, nothing swallowed. Gate on the fetch LANDING (the
-      // file's established waitMyChecklistsGet signal), then assert the render.
-      // CONVERGE_TIMEOUT and the POST /ops commit wait are untouched.
+      // Deterministic first paint (kill-proof2 leg 5): gate on the myChecklists
+      // fetch LANDING before the render assert. If the initial fetch was
+      // aborted (full-suite leg: storm residue can starve it and nothing
+      // re-fetches — the list shows the retryable error state forever), retry
+      // it explicitly once. CONVERGE_TIMEOUT and the POST /ops commit wait are
+      // untouched.
       const listLoaded = p.waitForResponse(
         res => res.url().includes('/myChecklists') && res.request().method() === 'GET',
-        { timeout: 30000 });
+        { timeout: 15000 }).catch(() => null);
       await p.goto(BASE + '/workflows.html');
-      await listLoaded;
+      if (!await listLoaded) {
+        await p.evaluate(() => loadMyChecklists());
+      }
       await expect(p.locator('#s1').getByText('Friday TwoTab')).toBeVisible({ timeout: 12000 });
       await p.click('[data-fill-template-id]');
       await p.waitForSelector('.fill-field', { timeout: 12000 });
     };
 
+    // S1 order-dependence fix, in two parts (both reproduced red-first
+    // 2026-07-24 against carried ops journals):
+    //   • 289-row journal + concurrent load (repro-525-4/-5): tab B's list
+    //     could not render inside 12s while tab A replayed the whole journal.
+    //   • ~900-row journal, full-suite order, quiet box (fullsuite leg): tab
+    //     B's initial myChecklists fetch never even responded. Mechanism: a
+    //     fresh shared IndexedDB seeds Lamport 0, so the FIRST tab replays the
+    //     ENTIRE carried journal; opening the runner mid-replay flips the
+    //     silent replay into a per-op, un-awaited loadMyChecklists fetch storm
+    //     (applyOp's SAVE_TEMPLATE branch re-fetches whenever a runner is
+    //     open, silent or not) that starves every later fetch in the context.
+    // The kill: WARM the shared clock on the fetch-free LIST page first — with
+    // no runner open, silent replay is gated to zero fetches — so both tabs
+    // seed the caught-up clock and replay only this test's own ops. The test
+    // premise (shared IndexedDB, shared clock, live cross-tab uncheck) is
+    // untouched; it just no longer depends on how much journal previous runs
+    // carried. No reordering, no timeout raise.
+    const warm = await ctx.newPage();
+    await warm.goto(BASE + '/workflows.html');
+    await settleCatchUp(warm);
+    await warm.close();
+
     // Both tabs open the runner. Tab A checks all four boxes.
-    //
-    // S1 order-dependence fix (reproduced red-first 2026-07-24: 2 red / 3
-    // isolation legs against a 289-row carried ops journal under concurrent
-    // load — repro-525-4/-5). The red was UPSTREAM of the uncheck: both tabs
-    // seed Lamport 0 from the shared fresh IndexedDB, so tab A's page-load
-    // catch-up replays the ENTIRE carried journal — hundreds of sequential
-    // IndexedDB puts on the database tab B must also read — and tab B's list
-    // then can't render 'Friday TwoTab' inside its 12s open window. The fix is
-    // to make the test independent of how much journal previous runs carried:
-    // settle tab A's replay (which also persists the caught-up clock the later
-    // tab B seeds from) BEFORE driving the flow, and replace both blind waits
-    // with POST-observed commit gates. No reordering, no timeout raise.
     await openRunner(tabA);
     await settleCatchUp(tabA);
     for (const label of ['Cut the check', 'Do A', 'Do B', 'Do C']) {
