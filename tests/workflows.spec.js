@@ -4,6 +4,33 @@ const BASE = '';
 const ADMIN_EMAIL = 'jamal@yumyums.kitchen';
 const ADMIN_PASSWORD = 'test123';
 
+// ── Card G1 baseline ─────────────────────────────────────────────────────────
+// /workflow/* (and /ws) now sit behind the `operations` app grant
+// (tests/grant-enforcement-parity.spec.js). This file's invited non-superadmin
+// users exercise Operations flows, so grant the app to the standard roles once
+// up front — preserving any user_grants other files added. The superadmin
+// sessions most tests use bypass grants and are unaffected. Idempotent; runs
+// again in the retry worker harmlessly.
+test.beforeAll(async ({ browser }) => {
+  const baseURL = process.env.NIGHTCREW_ENV_URL || 'http://localhost:' + (process.env.TEST_PORT || '8199');
+  const page = await browser.newPage();
+  await page.goto(baseURL + '/login.html');
+  await page.fill('input[type="email"]', ADMIN_EMAIL);
+  await page.fill('input[type="password"]', ADMIN_PASSWORD);
+  await page.click('button.btn');
+  await page.waitForURL(url => !url.pathname.includes('login'));
+  await page.evaluate(async (slug) => {
+    const perms = await (await fetch('/api/v1/apps/permissions')).json();
+    const app = (perms || []).find(a => a.slug === slug) || {};
+    const roles = [...new Set([...(app.role_grants || []), 'admin', 'manager', 'team_member'])];
+    await fetch('/api/v1/apps/' + slug + '/permissions', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role_grants: roles, user_grants: (app.user_grants || []).map(String) }),
+    });
+  }, 'operations');
+  await page.close();
+});
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 async function login(page, email, password) {
@@ -1083,10 +1110,46 @@ async function createPhotoTemplate(page, name, todayDOW) {
   return apiCall(page, 'POST', 'createTemplate', input);
 }
 
+// S1 de-flake helper (GATE-04, hardened after T-20's passed-on-retry
+// observation — not reproduced in 3 targeted contention legs): wait out the WS
+// catch-up replay storm before acting inside the runner. A fresh context starts
+// at Lamport 0, so wsCatchUp replays the whole carried ops journal; replayed
+// SUBMIT/APPROVE ops with a runner open each fire loadMyChecklists, whose
+// landing re-render can detach the node an action is about to dispatch events
+// on (the sync.spec.js:1198 mechanism). Settle = the replay loop is done
+// (LAMPORT_CLOCK.ts stable across 400ms) AND no myChecklists GET has landed
+// for 600ms. Bounded, best-effort — assertions stay authoritative.
+async function settleRunner(page) {
+  let prev = -2;
+  const clockDeadline = Date.now() + 8000;
+  while (Date.now() < clockDeadline) {
+    const ts = await page.evaluate(() => window.LAMPORT_CLOCK ? window.LAMPORT_CLOCK.ts : -1);
+    if (ts !== -1 && ts === prev) break;
+    prev = ts;
+    await page.waitForTimeout(400);
+  }
+  let lastGet = Date.now();
+  const onResp = (res) => {
+    if (res.url().includes('/myChecklists') && res.request().method() === 'GET') lastGet = Date.now();
+  };
+  page.on('response', onResp);
+  const quietDeadline = Date.now() + 6000;
+  while (Date.now() < quietDeadline && Date.now() - lastGet < 600) {
+    await page.waitForTimeout(150);
+  }
+  page.off('response', onResp);
+}
+
 test.describe('required-photo submit gate', () => {
   test.beforeEach(async ({ page }) => {
     await login(page);
     await page.goto(BASE + '/workflows.html');
+    // S1 de-flake: GATE-04's block test asserts pendingApprovals === 0, but the
+    // server doesn't filter archived templates out of pendingApprovals — a
+    // submission carried over from an earlier test (or a carried DB) fails it
+    // regardless of this test's own behavior. Clear the carried state so the
+    // assertion measures THIS test's submit, not suite history.
+    await cleanupPendingApprovals(page);
     await cleanupTemplates(page);
   });
 
@@ -1098,6 +1161,8 @@ test.describe('required-photo submit gate', () => {
     // Open the checklist. Do NOT attach a photo.
     await page.click('[data-fill-template-id]');
     await page.waitForSelector('#fill-body .fill-field', { timeout: 5000 });
+    // Let the catch-up replay storm pass before acting (see settleRunner).
+    await settleRunner(page);
 
     // Submit with no photo.
     await page.click('[data-action="submit"]');
@@ -1121,10 +1186,18 @@ test.describe('required-photo submit gate', () => {
 
     await page.click('[data-fill-template-id]');
     await page.waitForSelector('#fill-body .fill-field', { timeout: 5000 });
+    // Let the catch-up replay storm pass before acting (see settleRunner).
+    await settleRunner(page);
 
     // Simulate a captured photo: a photo field's value is just its https:// URL.
     // Persist it via the same save-response path the camera-upload flow uses,
     // then mirror it into the live fill state so the submit handler sees it.
+    // S1 de-flake: the old blind 1800ms wait raced the debounced save under
+    // load — gate on the POST /ops actually committing (2xx) instead, armed
+    // BEFORE the call that schedules it (POST-observed discipline).
+    const photoSaved = page.waitForResponse(
+      res => res.url().includes('/api/v1/workflow/ops') && res.request().method() === 'POST',
+      { timeout: 12000 });
     const fldId = await page.evaluate(() => {
       const flds = fillState.activeTemplate.sections.flatMap(function (s) { return s.fields; });
       const photoFld = flds.find(function (f) { return f.type === 'photo'; });
@@ -1134,8 +1207,8 @@ test.describe('required-photo submit gate', () => {
       return photoFld.id;
     });
     expect(fldId).toBeTruthy();
-    // Let the save-response persist.
-    await page.waitForTimeout(1800);
+    const photoSaveRes = await photoSaved;
+    expect(photoSaveRes.ok(), 'photo autosave must commit (2xx) before submit').toBeTruthy();
 
     // Submit — should succeed (not blocked by the photo gate). The success
     // path plays a confirmation animation before returning to the list.

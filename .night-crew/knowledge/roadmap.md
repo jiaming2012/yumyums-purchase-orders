@@ -111,8 +111,16 @@
   Red-first; production `sync.js` change → `task sw` + the attended two-device convergence flag
   re-arms on land. Footprint: sync trust (`sync.js`, `sync.spec.js`, `workflows.spec.js`,
   `access_test.go` comment). → Eng KR5 (determinism), QA. *(from DECISIONS-NEEDED-20260721 §B2/§B3)*
-- **`syncspec-deflake`** · **PLANNED — RE-AIMED at T-20 (2026-07-21); the original premise was
-  wrong in its aim, right in its conclusion.** D1 PARKED this card 2026-07-20 and its evidence was
+- **`syncspec-deflake`** · **DONE** (S1 shipped overnight-20260724, G6 verdict APPROVE;
+  **test-side only — the two-device check did NOT re-arm.** `:1198` and `:525` FLD-LIVE-02
+  KILLED with proven reds; LST-17 + GATE-04 HARDENED (not reproduced in 3 targeted contention
+  legs each, labeled honestly). Determinism ARMED: 12/12 `--retries=0` contention legs + 5/5
+  measured-quiet legs (loads 1.59–1.93, 0 foreign procs) + fresh-DB full-suite `--retries=0`
+  green 541/0/6, independently replicated by G6 incl. a mutation probe proving the re-dispatch
+  fails honestly on a real autosave break. `cycle-gate`'s no-retry gate is now ELIGIBLE. Line
+  anchors dead — locate by title, e.g. `-g "temperature answer converges"` (now ~:1372).)
+  (was: PLANNED — RE-AIMED at T-20 (2026-07-21); the original premise was
+  wrong in its aim, right in its conclusion.) D1 PARKED this card 2026-07-20 and its evidence was
   re-derived twice. Net position: **the test IS flaky (16% overall; 20% under a concurrent
   Playwright suite — 4 red / 25 `--retries=0` legs), but NOT for the reason the card assumed.**
   Every red is a 12s timeout at **`sync.spec.js:1119`**, the `POST /ops` COMMIT wait — *not*
@@ -188,7 +196,13 @@
 
 ## Activity 5 — Cycle gate · *last, serialized*
 
-- **`grant-enforcement-parity`** · **PLANNED — URGENT, BLOCKS GO-LIVE** (new card, T-20 decision 36,
+- **`grant-enforcement-parity`** · **DONE** (G1 shipped overnight-20260724, merged to run branch
+  `4bb8649`, G6 verdict APPROVE as-is; all five live app surfaces now behind `RequirePermission` —
+  parity spec covers 11/11 slugs (7 enforced, 4 N/A-with-reason). **Two items ride to triage:**
+  `/photos/*` grant mapping PARKED as an operator question (sole remaining authenticated-only
+  route), and the `GET /inventory/items` (inventory ∨ purchasing) READ judgment call awaits
+  ratification — G6 verified the payload carries no cost fields.) (was: PLANNED — URGENT, BLOCKS
+  GO-LIVE; new card, T-20 decision 36,
   2026-07-21) · **The Users tab offers 11 grants; the backend enforces 2.** Every `RequirePermission`
   call in the server is `inventory-trends` and `inventory-cost` (both shipped by F5). The other nine
   — `inventory` itself, `operations`, `purchasing`, `onboarding`, `users`, plus the four placeholder

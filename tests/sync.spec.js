@@ -5,6 +5,31 @@ const BASE = '';
 const ADMIN_EMAIL = 'jamal@yumyums.kitchen';
 const ADMIN_PASSWORD = 'test123';
 
+// ── Card G1 baseline ─────────────────────────────────────────────────────────
+// /workflow/* and /ws now sit behind the `operations` app grant
+// (tests/grant-enforcement-parity.spec.js). This file's invited non-superadmin
+// users exercise sync flows over both, so grant the app to the standard roles
+// once up front — preserving any user_grants other files added.
+test.beforeAll(async ({ browser }) => {
+  const baseURL = process.env.NIGHTCREW_ENV_URL || 'http://localhost:' + (process.env.TEST_PORT || '8199');
+  const page = await browser.newPage();
+  await page.goto(baseURL + '/login.html');
+  await page.fill('input[type="email"]', ADMIN_EMAIL);
+  await page.fill('input[type="password"]', ADMIN_PASSWORD);
+  await page.click('button.btn');
+  await page.waitForURL(url => !url.pathname.includes('login'));
+  await page.evaluate(async (slug) => {
+    const perms = await (await fetch('/api/v1/apps/permissions')).json();
+    const app = (perms || []).find(a => a.slug === slug) || {};
+    const roles = [...new Set([...(app.role_grants || []), 'admin', 'manager', 'team_member'])];
+    await fetch('/api/v1/apps/' + slug + '/permissions', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role_grants: roles, user_grants: (app.user_grants || []).map(String) }),
+    });
+  }, 'operations');
+  await page.close();
+});
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 async function login(page, email, password) {
@@ -422,13 +447,16 @@ test.describe('Cross-device: regressions', () => {
     const dow = await getTodayDOW(page);
     await createTestTemplate(page, 'Uncheck Sync', dow);
 
-    // Device A: check the checkbox first
+    // Device A: check the checkbox first. S1 de-flake (T-20 passed-on-retry
+    // observation, not reproduced in 3 targeted contention legs): settle A's
+    // catch-up replay storm so a stray re-render can't swallow the click, and
+    // require the autosave POST /ops to commit (2xx) instead of a blind 2000ms
+    // wait — under load the debounce can outlive any fixed sleep.
     await page.reload();
     await page.click('[data-fill-template-id]');
     const checkBtn = page.locator('.check-btn').first();
-    await checkBtn.click();
-    await expect(checkBtn).toHaveClass(/checked/, { timeout: 5000 });
-    await page.waitForTimeout(2000);
+    await settleCatchUp(page);
+    await toggleConverged(page, checkBtn, 'checked', true);
 
     // Device B: open list page, should show 1/1
     const ctxB = await browser.newContext();
@@ -441,9 +469,9 @@ test.describe('Cross-device: regressions', () => {
     // load — auto-retrying toContainText asserts the SAME content, retried.
     await expect(pageB.locator('[data-fill-template-id]').first()).toContainText('1/1', { timeout: 12000 });
 
-    // Device A: now UNCHECK the checkbox
-    await checkBtn.click();
-    await expect(checkBtn).not.toHaveClass(/checked/, { timeout: 5000 });
+    // Device A: now UNCHECK the checkbox — same POST-observed discipline; the
+    // DELETE op must be durably committed before asserting B's live decrement.
+    await toggleConverged(page, checkBtn, 'checked', false);
 
     // Device B: list page should now show 0/1 (live, no reload)
     await expect(pageB.locator('[data-fill-template-id]').first()).toContainText('0/1', { timeout: 12000 });
@@ -543,26 +571,60 @@ test.describe('Cross-device: regressions', () => {
     await login(tabA); // shared cookies → tabB is logged in too
     const doC = (p) => p.locator('.fill-field', { hasText: 'Do C' }).locator('.check-btn');
     const openRunner = async (p) => {
+      // Deterministic first paint (kill-proof2 leg 5): gate on the myChecklists
+      // fetch LANDING before the render assert. If the initial fetch was
+      // aborted (full-suite leg: storm residue can starve it and nothing
+      // re-fetches — the list shows the retryable error state forever), retry
+      // it explicitly once. CONVERGE_TIMEOUT and the POST /ops commit wait are
+      // untouched.
+      const listLoaded = p.waitForResponse(
+        res => res.url().includes('/myChecklists') && res.request().method() === 'GET',
+        { timeout: 15000 }).catch(() => null);
       await p.goto(BASE + '/workflows.html');
+      if (!await listLoaded) {
+        await p.evaluate(() => loadMyChecklists());
+      }
       await expect(p.locator('#s1').getByText('Friday TwoTab')).toBeVisible({ timeout: 12000 });
       await p.click('[data-fill-template-id]');
       await p.waitForSelector('.fill-field', { timeout: 12000 });
     };
 
+    // S1 order-dependence fix, in two parts (both reproduced red-first
+    // 2026-07-24 against carried ops journals):
+    //   • 289-row journal + concurrent load (repro-525-4/-5): tab B's list
+    //     could not render inside 12s while tab A replayed the whole journal.
+    //   • ~900-row journal, full-suite order, quiet box (fullsuite leg): tab
+    //     B's initial myChecklists fetch never even responded. Mechanism: a
+    //     fresh shared IndexedDB seeds Lamport 0, so the FIRST tab replays the
+    //     ENTIRE carried journal; opening the runner mid-replay flips the
+    //     silent replay into a per-op, un-awaited loadMyChecklists fetch storm
+    //     (applyOp's SAVE_TEMPLATE branch re-fetches whenever a runner is
+    //     open, silent or not) that starves every later fetch in the context.
+    // The kill: WARM the shared clock on the fetch-free LIST page first — with
+    // no runner open, silent replay is gated to zero fetches — so both tabs
+    // seed the caught-up clock and replay only this test's own ops. The test
+    // premise (shared IndexedDB, shared clock, live cross-tab uncheck) is
+    // untouched; it just no longer depends on how much journal previous runs
+    // carried. No reordering, no timeout raise.
+    const warm = await ctx.newPage();
+    await warm.goto(BASE + '/workflows.html');
+    await settleCatchUp(warm);
+    await warm.close();
+
     // Both tabs open the runner. Tab A checks all four boxes.
     await openRunner(tabA);
+    await settleCatchUp(tabA);
     for (const label of ['Cut the check', 'Do A', 'Do B', 'Do C']) {
       const b = tabA.locator('.fill-field', { hasText: label }).locator('.check-btn');
-      await b.click(); await expect(b).toHaveClass(/checked/, { timeout: 5000 });
+      await toggleConverged(tabA, b, 'checked', true);
     }
-    await tabA.waitForTimeout(2500);
     await openRunner(tabB);
+    await settleCatchUp(tabB);
     await expect(doC(tabB), 'baseline: Do C checked on tab B').toHaveClass(/checked/, { timeout: 12000 });
 
-    // Tab A UNCHECKS Do C while tab B's runner is open.
-    await doC(tabA).click();
-    await expect(doC(tabA)).not.toHaveClass(/checked/, { timeout: 5000 });
-    await tabA.waitForTimeout(3000);
+    // Tab A UNCHECKS Do C while tab B's runner is open — the DELETE op must be
+    // durably committed (2xx) before the live assertion, not blind-slept past.
+    await toggleConverged(tabA, doC(tabA), 'checked', false);
 
     // LIVE assertion: tab B must reflect the uncheck WITHOUT a reload.
     await expect(doC(tabB), 'tab B must live-UNCHECK Do C (no reload)').not.toHaveClass(/checked/, { timeout: 12000 });
@@ -955,12 +1017,15 @@ test.describe('Cross-device: regressions', () => {
     // + toContain pattern (same content asserted — see LST-17 uncheck variant).
     await expect(pageB.locator('[data-fill-template-id]').first()).toContainText('0/1', { timeout: 12000 });
 
-    // Device A: open checklist and check the checkbox
+    // Device A: open checklist and check the checkbox. S1 de-flake (T-20
+    // passed-on-retry observation): settle A's catch-up replay before the click
+    // and require the autosave POST /ops commit (2xx) — a click swallowed by a
+    // storm re-render otherwise never emits the op B's list is waiting for.
     await page.reload();
     await page.click('[data-fill-template-id]');
     const checkBtn = page.locator('.check-btn').first();
-    await checkBtn.click();
-    await expect(checkBtn).toHaveClass(/checked/, { timeout: 5000 });
+    await settleCatchUp(page);
+    await toggleConverged(page, checkBtn, 'checked', true);
 
     // Device B: list page should now show 1/1 (updated via WS without reload)
     await expect(pageB.locator('[data-fill-template-id]').first()).toContainText('1/1', { timeout: 12000 });
@@ -1076,10 +1141,6 @@ async function reopenRunnerB(pageB, name) {
   await pageB.waitForSelector('.fill-field', { timeout: RUNNER_TIMEOUT });
 }
 
-const waitAutosave = (pageB) => pageB.waitForResponse(
-  res => res.url().includes('/api/v1/workflow/ops') && res.request().method() === 'POST',
-  { timeout: 8000 }).catch(() => {});
-
 // Wait for a myChecklists GET on device B to LAND — the deterministic signal that
 // a re-fetch/re-render (initial load, WS catch-up, or a SAVE_TEMPLATE-driven
 // rerenderOpenChecklistAfterSave) has completed, rather than racing the visible DOM.
@@ -1087,24 +1148,137 @@ const waitMyChecklistsGet = (pageB, timeout) => pageB.waitForResponse(
   res => res.url().includes('/myChecklists') && res.request().method() === 'GET',
   { timeout: timeout || CONVERGE_TIMEOUT });
 
+// ── S1 de-flake helpers (syncspec-deflake, 2026-07-24) ───────────────────────
+// Mechanism on file: .night-crew/knowledge/reference/1198-flake-reproduction-
+// 20260721.md. A fresh context starts at Lamport 0, so the page-load wsCatchUp
+// replays the ENTIRE carried ops journal; replayed SUBMIT/APPROVE ops with a
+// runner open each fire loadMyChecklists, and the landing re-fetch re-renders
+// the runner. If that re-render detaches an input between an entry's events
+// (fill → input/change), the handler never runs on an attached node,
+// debouncedSaveField is never armed, and the POST /ops never EXISTS — no
+// timeout can wait a nonexistent request into being (debounce is 400ms; the
+// old 12s commit gate expired with the journal at +3 rows instead of +5).
+
+// settleCatchUp waits out the replay storm on a just-opened page/runner:
+//   phase 1 — the replay loop bumps LAMPORT_CLOCK.ts once per replayed op, so
+//     ts stable across a 400ms window means the loop is done (a large carried
+//     journal can take many seconds: IndexedDB put per op, shared across tabs);
+//   phase 2 — any loadMyChecklists the replay fired may still be in flight,
+//     and its LANDING re-render is the actual clobber: quiet means no
+//     myChecklists GET landed for 600ms.
+// Bounded and best-effort — the commit gates below stay authoritative.
+async function settleCatchUp(p) {
+  // Phase 0 — drain. Clock-stability alone can miss ops the server has COMMITTED
+  // but the WS pipeline has not yet DELIVERED (pg_notify → hub → socket lags
+  // whole seconds under load; kill-proof leg 1 caught exactly this: a backlog
+  // ARCHIVE op landing after a "stable" clock re-rendered the runner from a
+  // stale fetch). Read the journal's max lamport_ts through this page's own
+  // authenticated session — the SAME user-scoped source wsCatchUp replays from —
+  // and wait until the page's clock has seen it.
+  const maxTs = await p.evaluate(async () => {
+    try {
+      const res = await fetch('/api/v1/workflow/ops/since?lamport_ts=0');
+      const ops = await res.json();
+      return Array.isArray(ops) && ops.length ? Math.max(...ops.map(o => o.lamport_ts || 0)) : 0;
+    } catch (e) { return 0; }
+  });
+  const drainDeadline = Date.now() + 15000;
+  while (Date.now() < drainDeadline) {
+    const ts = await p.evaluate(() => window.LAMPORT_CLOCK ? window.LAMPORT_CLOCK.ts : -1);
+    if (ts >= maxTs) break;
+    await p.waitForTimeout(250);
+  }
+  let prev = -2;
+  const clockDeadline = Date.now() + 20000;
+  while (Date.now() < clockDeadline) {
+    const ts = await p.evaluate(() => window.LAMPORT_CLOCK ? window.LAMPORT_CLOCK.ts : -1);
+    if (ts !== -1 && ts === prev) break;
+    prev = ts;
+    await p.waitForTimeout(400);
+  }
+  let lastGet = Date.now();
+  const onResp = (res) => {
+    if (res.url().includes('/myChecklists') && res.request().method() === 'GET') lastGet = Date.now();
+  };
+  p.on('response', onResp);
+  const quietDeadline = Date.now() + 6000;
+  while (Date.now() < quietDeadline && Date.now() - lastGet < 600) {
+    await p.waitForTimeout(150);
+  }
+  p.off('response', onResp);
+}
+
+// enterCommitted performs an answer entry and REQUIRES the debounced autosave
+// POST /ops to be observed. If no POST materializes within 3s (7.5× the 400ms
+// debounce), the entry's event was dispatched on a detached node — nothing is
+// armed and nothing will EVER fire — so re-resolve and re-dispatch (enterFn
+// must be idempotent: guard toggles so a re-run never flips an armed state
+// off). A persistent response collector (not a one-shot waitForResponse) means
+// a POST landing between attempts cannot be missed. Timeouts are NOT raised —
+// that is the fix the evidence doc proves impossible.
+async function enterCommitted(p, enterFn) {
+  const opsPosts = [];
+  const onResp = (res) => {
+    if (res.url().includes('/api/v1/workflow/ops') && res.request().method() === 'POST') opsPosts.push(res);
+  };
+  p.on('response', onResp);
+  let commitRes = null;
+  try {
+    for (let attempt = 1; attempt <= 4 && !commitRes; attempt++) {
+      await enterFn(p);
+      const deadline = Date.now() + 3000;
+      while (Date.now() < deadline && opsPosts.length === 0) await p.waitForTimeout(100);
+      commitRes = opsPosts[0] || null;
+    }
+  } finally { p.off('response', onResp); }
+  expect(commitRes, 'autosave POST /ops observed (re-dispatched after any swallowed entry)').toBeTruthy();
+  expect(commitRes.ok(), 'answer autosave must commit (2xx) before proceeding').toBeTruthy();
+  return commitRes;
+}
+
+// toggleCommitted drives one toggle control (.check-btn etc.) into wantOn state
+// with the same discipline: guarded click (no accidental un-toggle on re-entry),
+// POST observed, 2xx required.
+async function toggleCommitted(p, locator, cls, wantOn) {
+  await enterCommitted(p, async () => {
+    const isOn = await locator.evaluate((el, c) => el.classList.contains(c), cls);
+    if (isOn !== wantOn) await locator.click();
+  });
+}
+
+// toggleConverged = toggleCommitted + the visual assertion, self-healing against
+// a stale-fetch re-render clobbering the optimistic class AFTER the commit. The
+// durable draft is already correct at that point; a re-click is convergent, not
+// a toggle — the check-btn handler derives the next value from the RENDERED
+// state, so re-clicking a clobbered-render pushes the same wantOn value again.
+async function toggleConverged(p, locator, cls, wantOn) {
+  for (let round = 1; ; round++) {
+    const isOn = await locator.evaluate((el, c) => el.classList.contains(c), cls);
+    if (isOn !== wantOn) await toggleCommitted(p, locator, cls, wantOn);
+    try {
+      if (wantOn) await expect(locator).toHaveClass(new RegExp(cls), { timeout: 3000 });
+      else await expect(locator).not.toHaveClass(new RegExp(cls), { timeout: 3000 });
+      return;
+    } catch (e) { if (round === 3) throw e; }
+  }
+}
+
 // Drives one surviving-answer cell end to end (LIVE + CATCH-UP) on device B.
 //
-// De-flake (no-retry hardening): the two INPUT cells (text, temperature) used to
-// flake because a freshly-TYPED but not-yet-persisted value lives only in the
-// optimistic control; a stray WS catch-up loadMyChecklists whose fetch predates
-// the debounced save can re-render the runner and CLOBBER that value to empty —
-// and, since nothing re-issues a fetch, it stays empty (the observed `Received
-// ""` at the baseline assert). The fix is deterministic and test-only:
-//   1. Gate on the autosave POST /ops response (2xx) — SaveResponseFunc commits
-//      the draft BEFORE the 200, so this is a race-free "draft is durable" signal
-//      (replaces the old myChecklists poll, which under load could itself time out).
-//   2. Reopen the runner for the baseline so it hydrates the COMMITTED draft, not
-//      the optimistic control — after commit every render reflects durable state,
-//      so no stray re-render can clobber it (same pattern the photo cell uses).
-//   3. Before asserting LIVE convergence, wait for B to APPLY the SAVE_TEMPLATE op
-//      — its rerenderOpenChecklistAfterSave re-fetch (GET myChecklists) — instead
-//      of only watching the visible Decoy count. The Decoy assertion below stays
-//      as the authoritative gate; this wait just stops us racing a partial apply.
+// De-flake, generation 2 (S1 syncspec-deflake — see the helper block above).
+// Generation 1 gated on the autosave POST /ops 2xx and re-hydrated the baseline
+// from the committed draft. That closed the clobber-of-a-SENT-value race but
+// only RELOCATED the deeper one (16-20% red under a concurrent suite): a stray
+// catch-up re-render could detach the input BETWEEN the entry's events, so the
+// POST it gated on never came to exist. Generation 2 closes that mode without
+// touching production code or raising any timeout:
+//   1. settleCatchUp BEFORE the entry — the storm's re-renders happen before
+//      the entry, never astride it.
+//   2. enterCommitted — if the POST was never observed, the entry was swallowed
+//      by a detach: re-resolve and re-dispatch instead of waiting longer.
+//   3. (unchanged from gen 1) Baseline re-hydrates from the committed draft via
+//      reopen; LIVE convergence waits for B to APPLY the SAVE_TEMPLATE op (its
+//      rerenderOpenChecklistAfterSave re-fetch) before the Decoy-count gate.
 async function survivalCell(browser, page, name, answerField, enterFn, assertFn) {
   const dow = await getTodayDOW(page);
   await createWithDecoy(page, name, dow, answerField);
@@ -1114,14 +1288,10 @@ async function survivalCell(browser, page, name, answerField, enterFn, assertFn)
   await login(pageB);
   await openRunnerB(pageB, name);
 
-  // Register the commit wait BEFORE the edit so the debounced POST /ops can't be
-  // missed. A 2xx means the draft committed server-side (deterministic).
-  const committed = pageB.waitForResponse(
-    res => res.url().includes('/api/v1/workflow/ops') && res.request().method() === 'POST',
-    { timeout: 12000 });
-  await enterFn(pageB);
-  const commitRes = await committed;
-  expect(commitRes.ok(), 'answer autosave must commit (2xx) before proceeding').toBeTruthy();
+  // Settle the catch-up replay storm, then enter the answer with the POST /ops
+  // commit REQUIRED to be observed (2xx = draft durable server-side).
+  await settleCatchUp(pageB);
+  await enterCommitted(pageB, enterFn);
 
   // Re-hydrate from the committed draft — the baseline now reflects durable state,
   // immune to the optimistic-clobber race described above.
@@ -1160,7 +1330,9 @@ test.describe('Convergence matrix (W-3): surviving answers converge across devic
       CHECKBOX_F('Wipe counters', 0),
       async (p) => {
         const b = p.locator('.fill-field', { hasText: 'Wipe counters' }).locator('.check-btn');
-        await b.click(); await expect(b).toHaveClass(/checked/, { timeout: 5000 });
+        // Idempotent for enterCommitted re-dispatch: never toggle an armed state off.
+        if (!await b.evaluate(el => el.classList.contains('checked'))) await b.click();
+        await expect(b).toHaveClass(/checked/, { timeout: 5000 });
       },
       async (p) => {
         await expect(p.locator('.fill-field', { hasText: 'Wipe counters' }).locator('.check-btn'))
@@ -1173,8 +1345,10 @@ test.describe('Convergence matrix (W-3): surviving answers converge across devic
     await survivalCell(browser, page, 'MX YesNo',
       { type: 'yes_no', label: 'All good?', required: false, order: 0, config: {}, fail_trigger: null, condition: null },
       async (p) => {
-        await p.click('[data-action="set-yes"]');
-        await expect(p.locator('[data-action="set-yes"]')).toHaveClass(/on/, { timeout: 5000 });
+        const yes = p.locator('[data-action="set-yes"]');
+        // Idempotent for enterCommitted re-dispatch: never toggle an armed state off.
+        if (!await yes.evaluate(el => el.classList.contains('on'))) await yes.click();
+        await expect(yes).toHaveClass(/on/, { timeout: 5000 });
       },
       async (p) => {
         await expect(p.locator('[data-action="set-yes"]')).toHaveClass(/on/, { timeout: 8000 });
@@ -1196,15 +1370,15 @@ test.describe('Convergence matrix (W-3): surviving answers converge across devic
   });
 
   test('temperature answer converges (live + catch-up)', async ({ browser, page }) => {
-    // KNOWN RESIDUAL FLAKE ~16% (4 red / 25 --retries=0 legs, 2026-07-21); ~20% under a
-    // concurrent Playwright suite. Fails in survivalCell's POST /ops COMMIT wait —
-    // NOT CONVERGE_TIMEOUT. Debounce is 400ms and the ops journal gains +3 rows on a red
-    // vs +5 on a green, so the SET_FIELD op never fired; raising any timeout will not fix
-    // it. The de-flake above survivalCell relocated the WS-catch-up clobber race rather
-    // than closing it. Full evidence + fix direction:
-    //   .night-crew/knowledge/reference/1198-flake-reproduction-20260721.md
-    // (Note for editors: keep this test's declaration on line 1198 — the backlog, slates
-    //  and cycle-gate card all reference it as `sync.spec.js:1198`.)
+    // De-flaked 2026-07-24 (S1 syncspec-deflake). Was the KNOWN RESIDUAL FLAKE:
+    // ~16% red overall, ~20% under a concurrent suite, always in the POST /ops
+    // commit wait with the ops journal at +3 rows (SET_FIELD never fired) —
+    // reproduced red-first on this card, then killed by settleCatchUp +
+    // enterCommitted in survivalCell (see the helper block and the evidence at
+    // .night-crew/knowledge/reference/1198-flake-reproduction-20260721.md).
+    // (Note for editors: historical references say `sync.spec.js:1198` — that
+    //  was this test's declaration line before G1's beforeAll and S1's helpers
+    //  moved it. Locate it by title, not line: -g "temperature answer converges".)
     test.setTimeout(120000);
     await survivalCell(browser, page, 'MX Temp',
       { type: 'temperature', label: 'Grill temp', required: false, order: 0, config: { unit: 'F', min: 300, max: 500 }, fail_trigger: null, condition: null },
@@ -1226,7 +1400,9 @@ test.describe('Convergence matrix (W-3): surviving answers converge across devic
       ] }),
       async (p) => {
         const s = p.locator('.sub-step-check').first();
-        await s.click(); await expect(s).toHaveClass(/done/, { timeout: 5000 });
+        // Idempotent for enterCommitted re-dispatch: never toggle an armed state off.
+        if (!await s.evaluate(el => el.classList.contains('done'))) await s.click();
+        await expect(s).toHaveClass(/done/, { timeout: 5000 });
       },
       async (p) => {
         await expect(p.locator('.sub-step-check').first()).toHaveClass(/done/, { timeout: 8000 });
@@ -1323,14 +1499,13 @@ test.describe('Convergence matrix (W-3): surviving answers converge across devic
     // /ops committing (2xx) instead of a blind wait + optimistic assert. The
     // fail card's visibility is still asserted — from durable state — by
     // assertPhoto after the baseline reopen below (.fail-card img.photo-thumb).
+    // S1 gen-2 hardening: the one-shot commit wait above had the same blind spot
+    // as :1198's — it cannot observe a POST a detached-node click never armed.
+    // Settle the storm, then use the guarded re-dispatching commit gate.
     const noBtn = pageB.locator('[data-action="set-no"][data-fld-id="' + fieldId + '"]');
     await expect(noBtn).toBeVisible({ timeout: RUNNER_TIMEOUT });
-    const noCommitted = pageB.waitForResponse(
-      res => res.url().includes('/api/v1/workflow/ops') && res.request().method() === 'POST',
-      { timeout: 12000 });
-    await noBtn.click();
-    const noRes = await noCommitted;
-    expect(noRes.ok(), 'No-answer autosave must commit (2xx) before the bundle write').toBeTruthy();
+    await settleCatchUp(pageB);
+    await toggleCommitted(pageB, noBtn, 'on', true);
     await apiCall(pageB, 'POST', 'saveResponse', {
       field_id: fieldId, value: { _v: false, _fail_note: { note: '', severity: '', photo: photoUrl } },
     });
