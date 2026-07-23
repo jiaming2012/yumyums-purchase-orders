@@ -571,7 +571,18 @@ test.describe('Cross-device: regressions', () => {
     await login(tabA); // shared cookies → tabB is logged in too
     const doC = (p) => p.locator('.fill-field', { hasText: 'Do C' }).locator('.check-btn');
     const openRunner = async (p) => {
+      // Deterministic first paint (kill-proof2 leg 5): under a carried journal
+      // plus a concurrent full suite, the page-load myChecklists fetch itself
+      // can outlive a bare 12s visibility wait — the post-failure snapshot
+      // showed the row fully rendered with correct state moments later, ops
+      // journal complete, nothing swallowed. Gate on the fetch LANDING (the
+      // file's established waitMyChecklistsGet signal), then assert the render.
+      // CONVERGE_TIMEOUT and the POST /ops commit wait are untouched.
+      const listLoaded = p.waitForResponse(
+        res => res.url().includes('/myChecklists') && res.request().method() === 'GET',
+        { timeout: 30000 });
       await p.goto(BASE + '/workflows.html');
+      await listLoaded;
       await expect(p.locator('#s1').getByText('Friday TwoTab')).toBeVisible({ timeout: 12000 });
       await p.click('[data-fill-template-id]');
       await p.waitForSelector('.fill-field', { timeout: 12000 });
