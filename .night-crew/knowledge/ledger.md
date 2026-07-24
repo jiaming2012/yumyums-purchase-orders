@@ -1021,3 +1021,21 @@ cell** (cross-user × cross-cycle-state) found at cycle end — E4's "0 cells re
 should be graded with this on the table: the 32 covered cells are green, AND operator play
 found a 33rd the matrix never enumerated. Evidence + repro:
 `reference/sync-crossuser-hydration-20260724.md`; backlogged pending the product ruling.
+
+## T-21d — Prod SW-update pipeline defect found and fixed at play-test (2026-07-24)
+
+**Recorded, fixed same sitting (no fork).** Operator's prod check showed both new tabs still
+rendering the pre-cycle "Coming in a future update" placeholders in Safari, while the server
+verifiably served the new files. Root cause: `version.json` is a git-ignored `build-sw.js`
+artifact that the Docker pipeline never generated, so prod 404'd it — and `sw.js` PRECACHES
+it, and Workbox aborts the whole service-worker install on any precached 404. **No returning
+client could install an updated service worker against prod — every deploy since the
+single-image pipeline (2026-07-05) shipped server-side only; returning phones stayed pinned
+to their cached frontend.** Fresh contexts (tests, curls, first visits) fetch over the
+network, which is why nothing automated ever caught it: the escape was only visible to a
+RETURNING real client. Fix `b45bc3e` (backend 0.2.2, deployed `32afb39`): the Dockerfile
+builder stage generates `version.json` from the authoritative `Frontend` constant into the
+embedded assets. All 22 precached URLs verified 200 on prod post-deploy. Lesson for the QA
+methodology: prod-parity evidence must include a RETURNING-client update check (an installed
+PWA that saw the previous version), not just server-side content checks — this rides the D2
+screenshot verification standing rule.
