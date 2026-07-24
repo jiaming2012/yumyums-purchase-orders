@@ -1007,3 +1007,17 @@ already no-ops on blank SMTP config. Red-first: `internal/alerts/config_test.go`
 (Enabled undefined) before the fix; 3 tests green after; full Go suite green. Prod behavior
 unchanged — the compose flag lands in the same commit and rides the next deploy. **D4 settles:
 incident handled and recorded, one side disabled.**
+
+## T-21c — Play-test escaped-defect note (2026-07-24)
+
+**Recorded, bears on the milestone close (no decision yet — product ruling queued to the next
+planning session).** Operator play-testing found the operations checklist rendering out of
+sync between Jamal C and Jim B on dev. Reproduced attended in fresh headless contexts:
+per-user hydration divergence — the viewer's own last submission (rejected vs approved)
+determines what the "shared" checklist shows, and the approved-side viewer's clicks silently
+no-op. Server state verified byte-identical for both users; grants, /ws, network, caches, and
+the 07-22 `sync.js` change all ruled out. This is a **newly discovered convergence-matrix
+cell** (cross-user × cross-cycle-state) found at cycle end — E4's "0 cells red at cycle end"
+should be graded with this on the table: the 32 covered cells are green, AND operator play
+found a 33rd the matrix never enumerated. Evidence + repro:
+`reference/sync-crossuser-hydration-20260724.md`; backlogged pending the product ruling.

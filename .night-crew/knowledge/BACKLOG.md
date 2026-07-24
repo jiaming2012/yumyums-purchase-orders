@@ -578,3 +578,15 @@
   tests (incl. G6's grant-parity pairs). Ships as a patch release. NOT urgent — no crew
   accounts hold prod grants today. · origin: operator play-test 2026-07-24, T-21a decision
   45 · new
+- **Cross-user checklist hydration divergence (approved-vs-rejected ghost state)** · Two users
+  viewing the SAME checklist render different states as a function of their own last
+  submission: a rejected submission resurrects as the viewer's current 2/2 state while the
+  other user (whose copy was approved) sees fresh 0/2 with clicks silently no-oping (no POST,
+  no toggle, no feedback). Reproduced headlessly in fresh contexts — deterministic hydration
+  logic (`MY_SUBMISSIONS`-driven), NOT network/cache/gating/the 07-22 sync.js change; server
+  state verified byte-identical for both users. The E2E convergence matrix misses the cell:
+  it never seeds an asymmetric approved-for-A/rejected-for-B history before reopening.
+  Needs a product ruling first (what SHOULD each user see on a new cycle after a split
+  approve/reject?), then a red-first cell + fix. Full evidence + repro:
+  `reference/sync-crossuser-hydration-20260724.md`. · origin: operator play-test 2026-07-24,
+  reproduced at triage · new
