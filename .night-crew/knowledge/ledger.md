@@ -987,3 +987,23 @@ against current behavior), then the contained edit — two `RequirePermission` m
 umbrella arg, `hasTabGrant` in inventory.html drops the `'inventory'` disjunct, umbrella-
 direction tests flip. Note the shipped behavior matched the SIGNED design exactly — this is a
 spec reversal from play-test evidence, not an implementation defect.
+
+## T-21b — D4 Cliq-duplicate ruling (2026-07-24)
+
+**Decision 46 — the duplicate-alert incident is root-caused and the "disable one side" remedy is
+implemented: outbound alert delivery is now OPT-IN (`ALERTS_ENABLED=1`, set only by
+`docker-compose.prod.yml`).** Operator-observed evidence: the last duplicated Cliq item —
+"Shopping list completed with 2 … Add Loc Test … Unassigned: Aisle Item …" — dates to
+**2026-07-21**, carries test-fixture names, and nothing since (3 clean days). Root cause: dev-side
+senders holding the SAME live Zoho/SMTP creds as prod — the E2E env leak (closed at T-20
+decision #5) and any dev server started from `backend/.env`. The class recurred live during this
+very triage: a dev server started 10:02 on 07-24 (the gating play-test) held live creds with
+schedulers enabled; killed attended. The durable fix gates delivery inside the queue
+(`internal/alerts`): `Config.Enabled` from `ALERTS_ENABLED == "1"` (strict — any other value
+fails CLOSED/silent), checked at `deliver()` so every enqueue path is covered; startup logs
+`delivery_enabled`. Transactional email (invite / password reset, `internal/users`) is
+deliberately NOT gated — admin-initiated, never duplicated by dev-vs-prod racing an event,
+already no-ops on blank SMTP config. Red-first: `internal/alerts/config_test.go` captured red
+(Enabled undefined) before the fix; 3 tests green after; full Go suite green. Prod behavior
+unchanged — the compose flag lands in the same commit and rides the next deploy. **D4 settles:
+incident handled and recorded, one side disabled.**

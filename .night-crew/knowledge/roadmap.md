@@ -144,7 +144,10 @@
   (`tests/sync.spec.js`; `sync.js`/`workflows.html` only if a determinism seam is unavoidable —
   which would re-arm the attended two-device check). → Eng KR5 (determinism), QA, unblocks
   `cycle-gate`. *(from BACKLOG "sync.spec.js de-flake: `:1198` + `:525`")*
-- **`prod-alert-dup-guard`** · **PLANNED** · With Mercury receipt worker / alert queue / Zoho
+- **`prod-alert-dup-guard`** · **DONE** (T-21b decision 46, 2026-07-24: last duplicate observed
+  2026-07-21 with test-fixture names, root-caused to dev-side senders holding live creds; remedy
+  = one side disabled — outbound delivery now opt-in via `ALERTS_ENABLED=1`, prod compose only,
+  red-first tested; rides the next deploy. Delivery KR4 settles.) · With Mercury receipt worker / alert queue / Zoho
   Cliq now live in prod against the SAME external accounts as dev, guard against duplicate alerts:
   observe the Cliq channel over the cycle and either confirm 0 duplicates OR disable one side.
   0 duplicate-alert incidents left unhandled (recorded in the ledger). Footprint: prod ops /
