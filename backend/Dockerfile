@@ -30,10 +30,17 @@ COPY lib ./lib
 COPY backend ./backend
 
 # Stage embedded assets where the Go embed directive expects them, then build.
+# version.json is a git-ignored build artifact (build-sw.js writes it locally),
+# so it must be generated here from the authoritative Frontend constant —
+# sw.js PRECACHES it, and a 404 aborts the whole service-worker install,
+# pinning every returning client to the previous frontend.
 RUN set -eux; \
     cd backend; \
     rm -rf cmd/server/public/*; \
     cp ../*.html ../*.js ../manifest.json cmd/server/public/; \
+    fe_ver="$(sed -n 's/.*Frontend *= *"\([^"]*\)".*/\1/p' internal/version/version.go)"; \
+    test -n "$fe_ver"; \
+    printf '{"frontend":"%s"}' "$fe_ver" > cmd/server/public/version.json; \
     cp -r ../icons cmd/server/public/; \
     cp -r ../lib cmd/server/public/; \
     CGO_ENABLED=0 go build \
