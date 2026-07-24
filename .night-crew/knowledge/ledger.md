@@ -968,3 +968,56 @@ check unchanged by this run (no production `sync.js` change landed). `/photos/*`
 exception stands pending the key-binding card. FR-12 Cliq-dup watch continues (D4). The
 `cycle-gate` roadmap card remains PLANNED — the boundary close-out (P4 interpretation, D2 ship,
 D4 confirmation, E2 0%-food-cost note) is the remaining attended work of the cycle.
+
+## T-21a — Post-ship play-test ruling (2026-07-24)
+
+**Decision 45 — gated-tab semantics REVERSED from the T-18 umbrella rider; backlogged, not
+urgent.** Operator play-tested the shipped gating in dev (user "Jim B": Inventory app grant,
+no per-tab grants) and found the umbrella rule ("App grant = All tabs granted", §8 amendment 1)
+defeats the Cost/Trends confidentiality goal: a crew member who needs Stock/Purchases daily
+cannot be kept away from margins — "inventory-except-cost" is unexpressible. The new rule, in
+the operator's words (verbatim): **"If there is a granular permission for a tab and it does not
+exist, the tab should not be visible. If no granular permission exists, then the tab should be
+visible by default."** I.e. a tab with a registered per-tab slug (`inventory-trends`,
+`inventory-cost`) requires that explicit grant — the app grant no longer implies it; tabs
+without their own slug stay covered by the app grant. Implementation is deliberately deferred:
+**not urgent, backlogged** (no crew accounts hold prod grants, so no live exposure). When
+built: regression test FIRST (app grant + no tab grant → tab absent + endpoint 403, red
+against current behavior), then the contained edit — two `RequirePermission` mounts drop their
+umbrella arg, `hasTabGrant` in inventory.html drops the `'inventory'` disjunct, umbrella-
+direction tests flip. Note the shipped behavior matched the SIGNED design exactly — this is a
+spec reversal from play-test evidence, not an implementation defect.
+
+## T-21b — D4 Cliq-duplicate ruling (2026-07-24)
+
+**Decision 46 — the duplicate-alert incident is root-caused and the "disable one side" remedy is
+implemented: outbound alert delivery is now OPT-IN (`ALERTS_ENABLED=1`, set only by
+`docker-compose.prod.yml`).** Operator-observed evidence: the last duplicated Cliq item —
+"Shopping list completed with 2 … Add Loc Test … Unassigned: Aisle Item …" — dates to
+**2026-07-21**, carries test-fixture names, and nothing since (3 clean days). Root cause: dev-side
+senders holding the SAME live Zoho/SMTP creds as prod — the E2E env leak (closed at T-20
+decision #5) and any dev server started from `backend/.env`. The class recurred live during this
+very triage: a dev server started 10:02 on 07-24 (the gating play-test) held live creds with
+schedulers enabled; killed attended. The durable fix gates delivery inside the queue
+(`internal/alerts`): `Config.Enabled` from `ALERTS_ENABLED == "1"` (strict — any other value
+fails CLOSED/silent), checked at `deliver()` so every enqueue path is covered; startup logs
+`delivery_enabled`. Transactional email (invite / password reset, `internal/users`) is
+deliberately NOT gated — admin-initiated, never duplicated by dev-vs-prod racing an event,
+already no-ops on blank SMTP config. Red-first: `internal/alerts/config_test.go` captured red
+(Enabled undefined) before the fix; 3 tests green after; full Go suite green. Prod behavior
+unchanged — the compose flag lands in the same commit and rides the next deploy. **D4 settles:
+incident handled and recorded, one side disabled.**
+
+## T-21c — Play-test escaped-defect note (2026-07-24)
+
+**Recorded, bears on the milestone close (no decision yet — product ruling queued to the next
+planning session).** Operator play-testing found the operations checklist rendering out of
+sync between Jamal C and Jim B on dev. Reproduced attended in fresh headless contexts:
+per-user hydration divergence — the viewer's own last submission (rejected vs approved)
+determines what the "shared" checklist shows, and the approved-side viewer's clicks silently
+no-op. Server state verified byte-identical for both users; grants, /ws, network, caches, and
+the 07-22 `sync.js` change all ruled out. This is a **newly discovered convergence-matrix
+cell** (cross-user × cross-cycle-state) found at cycle end — E4's "0 cells red at cycle end"
+should be graded with this on the table: the 32 covered cells are green, AND operator play
+found a 33rd the matrix never enumerated. Evidence + repro:
+`reference/sync-crossuser-hydration-20260724.md`; backlogged pending the product ruling.
