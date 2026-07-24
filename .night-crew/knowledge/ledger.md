@@ -968,3 +968,22 @@ check unchanged by this run (no production `sync.js` change landed). `/photos/*`
 exception stands pending the key-binding card. FR-12 Cliq-dup watch continues (D4). The
 `cycle-gate` roadmap card remains PLANNED — the boundary close-out (P4 interpretation, D2 ship,
 D4 confirmation, E2 0%-food-cost note) is the remaining attended work of the cycle.
+
+## T-21a — Post-ship play-test ruling (2026-07-24)
+
+**Decision 45 — gated-tab semantics REVERSED from the T-18 umbrella rider; backlogged, not
+urgent.** Operator play-tested the shipped gating in dev (user "Jim B": Inventory app grant,
+no per-tab grants) and found the umbrella rule ("App grant = All tabs granted", §8 amendment 1)
+defeats the Cost/Trends confidentiality goal: a crew member who needs Stock/Purchases daily
+cannot be kept away from margins — "inventory-except-cost" is unexpressible. The new rule, in
+the operator's words (verbatim): **"If there is a granular permission for a tab and it does not
+exist, the tab should not be visible. If no granular permission exists, then the tab should be
+visible by default."** I.e. a tab with a registered per-tab slug (`inventory-trends`,
+`inventory-cost`) requires that explicit grant — the app grant no longer implies it; tabs
+without their own slug stay covered by the app grant. Implementation is deliberately deferred:
+**not urgent, backlogged** (no crew accounts hold prod grants, so no live exposure). When
+built: regression test FIRST (app grant + no tab grant → tab absent + endpoint 403, red
+against current behavior), then the contained edit — two `RequirePermission` mounts drop their
+umbrella arg, `hasTabGrant` in inventory.html drops the `'inventory'` disjunct, umbrella-
+direction tests flip. Note the shipped behavior matched the SIGNED design exactly — this is a
+spec reversal from play-test evidence, not an implementation defect.

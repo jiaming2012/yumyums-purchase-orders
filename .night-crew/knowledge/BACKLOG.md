@@ -566,3 +566,15 @@
   clean-DB-per-leg rule, but the suite is non-idempotent — either reset state in `beforeAll` or
   document clean-DB as a hard precondition. · origin: overnight-20260724 S1 (pre-existing, out
   of scope) · new
+- **Gated-tab grants: granular-overrides-umbrella semantics** · Reverse the T-18 umbrella
+  rider for slug-bearing tabs, per the operator's play-test ruling (T-21a decision 45,
+  verbatim): "If there is a granular permission for a tab and it does not exist, the tab
+  should not be visible. If no granular permission exists, then the tab should be visible by
+  default." Concretely: `inventory-trends`/`inventory-cost` require their explicit grant —
+  the `inventory` app grant no longer implies them; un-slugged tabs stay app-grant-covered.
+  Red-first regression test (Jim B scenario: app grant, no tab grant → tab absent + endpoint
+  403) BEFORE the fix; then drop the umbrella arg from the two RequirePermission mounts, drop
+  the `'inventory'` disjunct in `hasTabGrant` (inventory.html), flip the umbrella-direction
+  tests (incl. G6's grant-parity pairs). Ships as a patch release. NOT urgent — no crew
+  accounts hold prod grants today. · origin: operator play-test 2026-07-24, T-21a decision
+  45 · new
