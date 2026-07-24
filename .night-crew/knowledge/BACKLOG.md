@@ -590,3 +590,9 @@
   approve/reject?), then a red-first cell + fix. Full evidence + repro:
   `reference/sync-crossuser-hydration-20260724.md`. · origin: operator play-test 2026-07-24,
   reproduced at triage · new
+- **Cost tab 0%-food-cost anomaly investigation** · F2's open note (T-19 decision 33 residue,
+  disposition T-21f decision 48): a menu item can show 0% food cost. Lead hypothesis: sales
+  without any recipe allocation → ingredient_cost_total = 0 → a technically-correct but
+  misleading 0% — wants an explicit "unallocated" marker distinct from genuine 0%, not a
+  formula fix (the margin math is fixture-proven). Investigate once prod sales sync lands and
+  Cost carries real rows. · origin: F2 open note, routed T-21f · new

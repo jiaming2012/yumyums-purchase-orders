@@ -1052,3 +1052,21 @@ accept-sparse empty state ("No sales data yet · Food cost appears here once sal
 exactly the OKR-session decision "Cost-in-prod = accept sparse". With `task version` parity
 (0.2.2/1.1.0 = `32afb39`) this settles **D2 → MET** for the close. Still open: the armed
 two-device convergence check (a separate flag), P4 and E2 rulings.
+
+## T-21f — Final close-out rulings (2026-07-24)
+
+**Decision 47 — P4 graded MET on the cohort reading (operator ruling).** The KR's auditable
+cohort is the 12 items open at cycle start (2026-07-19): 12/12 routed through the PRD
+§Routing doors. The 15 `· new` markers now in BACKLOG.md are all mid-cycle accretions (plus
+today's play-test findings) — they are the NEXT planning round's feedstock, routed at
+`/nc-roadmap-round`, not this cycle's debt. Chosen over the literal-grep reading, which would
+perversely punish the cycle for capturing findings instead of dropping them.
+
+**Decision 48 — E2's 0%-food-cost anomaly: BACKLOGGED with a named lead (delegated to
+Claude, decided here).** Disposition rationale: it is an open investigation note, not a
+correctness red — F2's margin math is red-first-proven against a hand-computed fixture, and
+prod's Cost tab has no sales data yet, so nothing live depends on the cell today. Lead
+hypothesis recorded on the backlog entry: a menu item with sales but zero recipe allocation
+produces ingredient_cost_total = 0 → 0% food cost — likely correct-but-misleading display
+(wants an "unallocated" marker distinct from a genuine 0%) rather than a computation bug.
+Investigate when prod sales sync lands and the Cost tab carries real rows.
