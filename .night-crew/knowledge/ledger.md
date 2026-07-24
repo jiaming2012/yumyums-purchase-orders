@@ -1039,3 +1039,16 @@ embedded assets. All 22 precached URLs verified 200 on prod post-deploy. Lesson 
 methodology: prod-parity evidence must include a RETURNING-client update check (an installed
 PWA that saw the previous version), not just server-side content checks — this rides the D2
 screenshot verification standing rule.
+
+## T-21e — D2 screenshot verification received (2026-07-24)
+
+**Recorded.** Operator provided 2/2 prod tab screenshots (Safari, post-SW-fix — also live
+confirmation of the T-21d fix propagating to a returning client). **Trends:** live data —
+Confirmed COGS $674.54 (excl. tax), attributed $666.54, unlinked $0.00, awaiting-review
+$8.00 / 1 receipt, unitemized remainder −$0.39, weekly chart + group legend rendering. The
+signed D2 "Ungrouped" pseudo-group carries $619.38 of $666.54 — the rule works; the data
+wants group assignment in Setup (operational note, not a defect). **Cost:** the signed
+accept-sparse empty state ("No sales data yet · Food cost appears here once sales sync") —
+exactly the OKR-session decision "Cost-in-prod = accept sparse". With `task version` parity
+(0.2.2/1.1.0 = `32afb39`) this settles **D2 → MET** for the close. Still open: the armed
+two-device convergence check (a separate flag), P4 and E2 rulings.
