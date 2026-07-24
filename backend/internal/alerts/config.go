@@ -6,6 +6,17 @@ import "os"
 // Both delivery channels gracefully no-op when their config is empty,
 // so the server starts without alerts configured during development.
 type Config struct {
+	// Enabled gates ALL outbound delivery from the queue (T-21b decision 46).
+	// Only ALERTS_ENABLED=1 — set by docker-compose.prod.yml alone — turns
+	// delivery on. Default-off exists because dev servers started from
+	// backend/.env hold the SAME live Zoho/SMTP creds as prod and became a
+	// second sender to the real Cliq channel (the 7/21 duplicate incident).
+	// Transactional email (user invite / password reset in internal/users) is
+	// deliberately NOT behind this flag: it is admin-initiated, never
+	// duplicated by dev-vs-prod racing the same event, and already no-ops
+	// when SMTP config is blank.
+	Enabled bool
+
 	// Zoho Cliq OAuth credentials (Self Client flow).
 	// If ClientID or RefreshToken is empty, Zoho Cliq delivery is skipped.
 	// Future channels can add their own env vars (e.g., ZOHO_CLIQ_OPERATIONS_*).
@@ -29,6 +40,7 @@ type Config struct {
 // LoadConfig reads alert configuration from environment variables.
 func LoadConfig() Config {
 	return Config{
+		Enabled:              os.Getenv("ALERTS_ENABLED") == "1",
 		ZohoCliqClientID:     os.Getenv("ZOHO_CLIQ_CLIENT_ID"),
 		ZohoCliqClientSecret: os.Getenv("ZOHO_CLIQ_CLIENT_SECRET"),
 		ZohoCliqRefreshToken: os.Getenv("ZOHO_CLIQ_REFRESH_TOKEN"),

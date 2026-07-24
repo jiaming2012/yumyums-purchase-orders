@@ -40,6 +40,9 @@ services:
       # migrating data — this is what separates prod from dev on yumyums-dev-pg.
       DB_URL: "postgres://yumyums:yumyums@yumyums-dev-pg:5432/yumyums?sslmode=disable&search_path=production"
       BASE_URL: "${BASE_URL:-https://hq.yumyums.kitchen}"
+      # Prod is the ONLY live alert sender (T-21b decision 46). Outbound alert
+      # delivery is opt-in; dev servers holding the same creds stay silent.
+      ALERTS_ENABLED: "1"
       SUPERADMIN_CONFIG: /app/config/superadmins.yaml
       TEMPLATE_CONFIG: /app/config/templates.yaml
     env_file:

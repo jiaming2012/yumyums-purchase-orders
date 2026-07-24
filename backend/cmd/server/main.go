@@ -742,7 +742,7 @@ func main() {
 	alertQ := alerts.NewQueue(alertCfg)
 	alertQ.Start(ctx)
 	purchasing.SetAlertQueue(alertQ)
-	slog.Info("alert queue started")
+	slog.Info("alert queue started", "delivery_enabled", alertCfg.Enabled)
 
 	// Start cutoff scheduler — polls every 15m to auto-lock POs and send reminders
 	if schedulersDisabled {

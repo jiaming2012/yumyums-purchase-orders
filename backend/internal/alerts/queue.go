@@ -48,6 +48,13 @@ func (q *Queue) Enqueue(a Alert) {
 
 // deliver dispatches a single alert via the appropriate channel.
 func (q *Queue) deliver(a Alert) {
+	if !q.cfg.Enabled {
+		// Delivery is opt-in (ALERTS_ENABLED=1, prod compose only) so a dev
+		// server holding live creds can never double-send to the real channel.
+		slog.Info("alerts delivery disabled (ALERTS_ENABLED unset), dropping alert",
+			"channel", a.Channel, "subject", a.Subject)
+		return
+	}
 	var err error
 	switch a.Channel {
 	case ChannelZohoCliq:
