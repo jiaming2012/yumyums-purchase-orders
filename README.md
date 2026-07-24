@@ -1,118 +1,188 @@
-# Yumyums Purchasing
+# Yumyums HQ — Operations Console
 
-Weekly collaborative purchasing workflow for Yumyums. Team members add items to a shared weekly requisition throughout the week; a Sunday cutoff locks the list and generates per-vendor purchase orders.
+A mobile-first PWA operations console for the Yumyums food truck. One installable app shell
+with a launcher grid linking to independent workflow tools, designed for a small crew (1–5
+people) on their phones. Live at **https://hq.yumyums.kitchen**.
 
-## Status
+**Core value:** a workflow engine that lets the owner build checklist templates and have crew
+fill them out on mobile — with accountability (who checked what, live across devices) and
+smart conditions (day-of-week schedules, fail triggers, approval flows) — plus an inventory
+system that turns bank receipts into per-menu-item food-cost intelligence.
 
-Mock-only PWA. Server handlers not yet built.
+## Tools
+
+| Tool | Status | Route |
+|------|--------|-------|
+| Operations (workflows/checklists) | Complete (v2.0) | `workflows.html` |
+| Inventory | Active (v2.0) | `inventory.html` |
+| Onboarding | Active (v2.1) | `onboarding.html` |
+| Users | Active (v2.0) | `users.html` |
+| Purchasing | Active | `purchasing.html` |
+| Login | Active (v2.0) | `login.html` |
+| Payroll / Scheduling / Hiring / BI | Placeholders | — |
 
 ## Stack
 
-- **Backend:** Go + Postgres (co-located on existing Hetzner box, separate schema)
-- **Frontend:** Plain HTML + HTMX, deployed as a minimal PWA
-- **Reverse proxy:** Caddy (Let's Encrypt automatic HTTPS)
-- **Scheduling:** stdlib `cron` / `time.AfterFunc` — *not* Temporal (see below)
-- **Auth:** TBD — shared token vs. magic link
+- **Backend:** Go + Postgres, REST API at `/api/v1/*`, frontend embedded in the binary
+- **Frontend:** static HTML/CSS/vanilla JS — no framework, one build step (`node build-sw.js`
+  for the Workbox service worker). SortableJS is the only external dependency.
+- **PWA:** Workbox-generated `sw.js` with content-hashed precaching; `ptr.js` auto-reloads
+  clients on new deploys; dark mode via CSS variables; 480px mobile-first
+- **Prod:** Docker on the Windows box (container `yumyums-prod`), Cloudflare Tunnel to
+  `hq.yumyums.kitchen`; dev/prod share one Postgres cluster separated by schema
+- **Tests:** 550+ Playwright E2E specs + Go unit tests
 
-## Build vs. buy
+## Key subsystems
 
-Evaluated Zoho Creator at ~$32–40/mo for 4–5 users (Standard, annual). Rejected:
+### Workflow engine (`workflows.html`)
 
-- Duplicates capabilities already in our stack (Postgres, Go, Hetzner).
-- Standard plan caps at 50 cloud-function calls per user per day — tight for scheduled Deluge.
-- Recurring per-seat cost for what is fundamentally a 400–600 LOC Go service.
-- Reconsider only if we adopt Zoho One for Books/Inventory bundling.
+3-tab layout (My Checklists / Approvals / Builder), state-first rendering (mutate JS state →
+render → DOM), event delegation via `data-action` attributes. Checklist templates carry
+sections, 7 field types, day-of-week schedules, role assignments, and approval flows.
 
-## Data model
+**Cross-device live sync:** every mutation is an op (`SET_FIELD`, `SUBMIT_CHECKLIST`,
+`APPROVE_ITEM`, …) in a Lamport-stamped ops journal (`ops` table), broadcast over WebSocket
+(`/ws`) and replayed by `sync.js` on catch-up. A 32-cell convergence matrix
+({viewer}×{editor}×{op-type}×{derived-view}) is E2E-tested.
 
-Four tables. `week_of` is always the Monday of that week.
+**Persistence rule (non-negotiable):** every user-entered value follows
+`autoSaveField(fieldId, value)` → `POST /saveResponse` → `DRAFT_RESPONSES` →
+`hydrateFieldState` on reopen. Every new field type ships with a back-and-reopen regression
+test in `tests/persistence.spec.js` — enter data → back to list → reopen → data still there.
+The feature is not complete without that test. See `docs/data-flow-audit.md`.
 
-- **`master_items`** — catalog: name (unique), category, unit, default_vendor, last_price, par_level, active.
-- **`requisitions`** — week_of, item_id, qty, requested_by, notes, status (`open` | `locked` | `ordered`). Index on `(week_of, status)`.
-- **`purchase_orders`** — week_of + vendor (unique together), total_est.
-- **`po_lines`** — po_id + item_id (composite PK), qty, est_price.
+### Inventory (`inventory.html`)
 
-PO generation is one transaction with three statements: insert grouped POs by vendor, insert po_lines, flip requisitions to `ordered`.
+7-tab layout: Purchases / Stock / Menu / Recipes / **Trends** / **Cost** / Setup.
 
-## Service shape
+- **Receipt pipeline:** Mercury banking → receipt download → DO Spaces upload → Claude Haiku
+  parse → validate → pending review queue → manual confirm. Items are cataloged from real
+  receipts, not pre-seeded.
+- **Recipes/BOM:** per-ingredient `usage_pct` sliders allocate purchase spend to menu items
+  (server enforces sum ≤ 100); weekly drift check (Mon 09:00 Chicago) fires a Cliq alert and
+  an in-app banner.
+- **Trends tab:** weekly spend by item group over a 12-week window, COGS-allowlist filtered,
+  inline SVG charts (no chart dependency).
+- **Cost tab:** per-menu-item margin table (`gross − ingredient_cost`, food-cost %) with
+  top/bottom movers.
+- **Service endpoints:** `GET /api/v1/inventory/period-summary` and
+  `GET /api/v1/inventory/menu-cogs` feed the sales-processor's weekly payroll/report, gated
+  by `HQ_INVENTORY_SERVICE_TOKEN` (Bearer; unset → 503).
 
-Three HTTP handlers + one scheduled job:
+### Access control — grants are a data boundary
 
-- `GET /requisition` — renders current week's form, lists active master items grouped by category with stepper qty inputs.
-- `POST /requisition` — inserts rows where qty > 0, stamps `requested_by` from session, rejects if any row for that week is `locked`.
-- `GET /po/:week` — runs the grouping query, renders printable per-vendor pages.
-- **Cutoff cron** — Sundays 18:00 ET, flips current week's `open` rows to `locked`, then runs PO generation in the same transaction.
+The Users tool issues per-app and per-tab grants (`app_permissions`). Since the
+grant-enforcement-parity work, **every live app surface is server-enforced** via
+`auth.RequirePermission` middleware — operations (incl. `/ws`), inventory (+ recipes,
+menu-items), purchasing, onboarding (+ videos), users. Revoking a grant removes data access,
+not just UI. Rules:
 
-Estimated ~400–600 LOC including templates.
+- No grant → surface hidden in the client AND its endpoints return
+  `403 {"error":"forbidden","missing_grant":"<slug>"}`. Fail-closed on DB error.
+- `tests/grant-enforcement-parity.spec.js` is a standing parity guard: it derives the app
+  list from `SeedHQApps` and asserts every slug is enforced somewhere (placeholders carry
+  N/A-with-reason + a stale-N/A tripwire).
+- One deliberate cross-app READ: `GET /inventory/items` passes with inventory **or**
+  purchasing grant (the purchasing order form is built from the catalog; payload carries no
+  cost fields). `/api/v1/photos/*` is the documented authenticated-only exception pending a
+  key-binding design.
+- **Tab-grant semantics (standing rule, ledger decision 45):** a tab with its own granular
+  permission slug requires that explicit grant; tabs without one are covered by the app
+  grant. (Reversed the earlier "app grant = all tabs" umbrella after operator play-testing.)
 
-## Frontend (PWA)
+### Alerts — outbound delivery is opt-in
 
-Plain HTML + HTMX, no build step. Minimum-viable PWA: `manifest.json` + shell-caching service worker. Defer offline sync (IndexedDB queue) and push notifications until the team actually hits those pain points.
+`internal/alerts` queues Zoho Cliq + SMTP notifications. Delivery only occurs when
+`ALERTS_ENABLED=1`, which **only `docker-compose.prod.yml` sets** — so prod is the single
+live sender and a dev server started from `backend/.env` (which holds the same live creds)
+can never double-send (ledger decision 46). The value check is strict; anything but `"1"`
+fails closed. Transactional email (invite/password reset) is deliberately outside the gate.
 
-**Requires HTTPS on a real subdomain** (`order.yumyums.com`) for iOS to enable the install prompt, standalone mode, and the service worker. Caddy handles this automatically.
+## Development methodology
 
-### UX decisions
+### Overnight runs (night-crew)
 
-- **Stepper buttons** (− N +) over plain number inputs — better for one-thumb use and wet hands in a kitchen environment.
-- **Always-open category sections** with sticky headers (not collapsible) — faster for someone who knows what they're looking for.
-- **Browse-and-fill** layout (all items visible with qty next to each), not search/autocomplete. Switch to search when the master list passes ~75 items.
-- **Contributor initials on the locked view** — seeing "Lemons · 3 case · MK TR" shows when multiple people independently asked for the same thing, a soft signal that par level is too low.
-- **Cutoff pill** prominently in the header so the deadline is always visible.
+Most build work ships through planned overnight autonomous runs, with attended human
+checkpoints at both ends. State lives in `.night-crew/` (knowledge base, per-run records);
+`.planning/STATE.md`'s null milestone fields are deliberate.
 
-## Temporal: deliberately *not* used here
+- **Cycle cadence:** attended OKR session → PM session drafts a PRD (traced to key results,
+  grill-back resolves gray areas) → design gate (OpenSpec-style doc, operator sign-off
+  before feature build) → `/nc-slate-plan` sizes WO-cards to a night budget → batch sign-off
+  → `/nc-run` executes overnight → `/nc-morning-triage` reviews, merges, resolves forks →
+  `/nc-milestone-close` grades the cycle's OKRs at the boundary.
+- **Per-card discipline:** each card runs in its own worktree with a fresh implementer
+  subagent, then a **separate fresh adversarial reviewer ("G6")** with its own binary and
+  database, which attacks the change (path tricks, method confusion, authz axes, mutation
+  probes) before approving. Only the orchestrator merges.
+- **Merge intents:** every card's first commit includes a merge-intent note (shared files
+  touched / what must survive any merge / safe to drop) so 3am conflict resolution is
+  reviewable. Every merge — clean or conflicted — is logged in `reference/conflicts-<runid>.md`.
+- **Open questions fork to the operator:** anything ambiguous parks into the run's
+  `DECISIONS-NEEDED.md` rather than being guessed at; morning triage resolves each fork and
+  records it as a numbered decision in `ledger.md` (§T-nn). The ledger is the ADR record.
+- **Timing is a standing output:** per-card wall-clock actuals accumulate in
+  `reference/card-actuals.md` and feed the next slate's estimates.
 
-A separate Temporal server exists for the trading stack and future scheduled AI agents. Yumyums purchasing **does not** integrate with it.
+### Testing & verification
 
-**Why:** The cutoff is a deterministic two-statement transaction. No multi-step orchestration, no flaky external APIs, no human-in-loop, no long-running state. Plain cron is the right tool. Coupling Yumyums to the trading Temporal server would create a bad blast-radius dependency between the highest-stakes system (trading) and the lowest-stakes (food truck order form).
+- `task test` — full Playwright suite (headless, auto-rebuilds SW, creates test DB). Go and
+  E2E suites use **separate databases** (`hq_test_go` / `hq_test_e2e`), proven
+  concurrent-safe. Tests block service workers; `E2E_DISABLE_SCHEDULERS=1` and blanked
+  Mercury/Anthropic/Zoho/SMTP creds keep suites from touching live services.
+- **Red-first bug protocol:** when a bug is found, write the regression test FIRST, watch it
+  fail (proving it captures the bug), then fix, then watch it pass. Run only the new tests
+  during iteration.
+- **No-retry gate:** suite health is attested with `--retries=0` on an isolated ephemeral
+  stack (fresh Docker Postgres, fresh DB, own server port). A pass-on-retry is a flake to
+  investigate, not a pass. Flakes get controlled reproduction (load/contention legs) and a
+  named mechanism; "rare, mechanism known" is never laundered into "not flaky", and a fix
+  that only greens a targeted subset is not evidence — only a full-suite leg is.
+- **Definition of Done for UI phases:** `done_when:` blocks name observable behavior + the
+  proving check; a State Enumeration Table covers empty/loading/error/success + edge rows;
+  self-verification is screenshot-based (write a states spec, screenshot each row, read the
+  PNGs back); a verifier subagent gates the summary. Never declare done from code reading.
+- **Play-testing is part of the loop:** operator hands-on testing regularly finds cells no
+  matrix enumerated; findings are reproduced attended, evidenced in
+  `.night-crew/knowledge/reference/`, and backlogged with a product ruling queued.
 
-**Where Temporal *does* fit (future):** an "ordering assistant" agent layer that runs *after* the cron creates the locked PO — fetching vendor prices, calling an LLM for substitution suggestions, drafting emails, awaiting human approval. That has real activities, real retries, and a human-in-loop step. Clean split: **cron for deterministic DB transitions, Temporal for anything touching an LLM, external API, or human.**
+### Versioning & deploy
 
-## Deployment
-
-- Same Hetzner box as the trading stack.
-- Separate Postgres schema (not separate database).
-- Caddy subdomain `order.yumyums.com` with auto Let's Encrypt.
-- Marginal cost: zero.
-
-## Open questions
-
-1. **Auth model** — shared token in URL (zero friction, weak attribution) vs. magic link (real attribution, slightly more friction). Blocks the Go handlers.
-2. **Push to Zoho Books/Inventory?** — if we end up there for accounting, the cron's final step could `POST` the PO into Inventory instead of (or in addition to) rendering it locally.
-3. **Master items seed strategy** — manual entry, CSV import, or scraped from past Square sales data?
-
-## v2 backlog
-
-- **Out-of-stock flag on PO lines.** Tap a line item on the PO view to mark it as not-in-stock; notify the PO owner and auto-create a follow-up requisition row for next week's form.
-- Search/filter bar on the form (when master list > ~30 items).
-- Per-line notes ("get the bigger size if available").
-- IndexedDB offline queue for dead-zone areas.
-- Push notifications for cutoff reminders.
-- Par-level alerts when multiple contributors hit the same item.
-
-## Mock PWA — local dev
+Two independently-bumpable semvers, one per side — `backend/internal/version/version.go`
+(`Backend` + `Frontend`, authoritative) and `package.json` (must mirror `Frontend` exactly).
+`/save-project` detects which side the diff touched and applies semver rules; **any backend
+or frontend change bumps its side** so `task version` can surface content drift. Build-time
+`-ldflags` inject `GitSHA`/`BuiltAt`; `GET /api/v1/health` reports all of it.
 
 ```
-yumyums-pwa/
-  index.html      # all three screens, tab switcher
-  manifest.json   # PWA metadata
-  sw.js           # shell-only service worker
-  icons/
-    icon-192.png
-    icon-512.png
+task sw             # rebuild service worker after ANY html/js change
+task test           # full E2E suite
+task prod:deploy    # hard-sync prod clone to origin/main → docker build → restart → health-check
+task version        # diff local source / dev server / prod side-by-side
+task health:prod    # raw prod /api/v1/health
+task prod:logs      # tail the prod container
 ```
 
-### Production deploy
+Prod only ever runs pushed-to-main code; the deploy tags the previous image for one-command
+rollback. Release promotion (dev → main) is an attended decision, never folded into an
+overnight run — runs never push; the morning triage's attended review is what earns the push.
 
-Live at: https://hq.yumyums.kitchen — Go backend in Docker on the Windows box, frontend embedded into the binary, served via Cloudflare Tunnel.
+## Local dev
 
 ```
-task prod:deploy        # SSH over Tailscale → git pull → docker build → restart
-task prod:logs          # tail logs from the container
-task prod:ssh           # interactive shell on the Windows box
-task version            # compare local source / dev / prod versions
-task health:prod        # curl /api/v1/health
+cd backend && go run ./cmd/server/     # serves API + frontend (STATIC_DIR=../)
+node build-sw.js                       # regenerate sw.js after frontend edits
+npx playwright test tests/<file>.spec.js -g "<name>"   # targeted test run
 ```
 
-Versions are baked into the binary at build time via `-ldflags` (git SHA + built_at) plus the `Backend` / `Frontend` constants in `backend/internal/version/version.go`. See `.claude/skills/save-project/SKILL.md` for the bump rules.
+Start dev servers with alert/external creds blanked (mirror the `playwright.config.js`
+webServer command) — `backend/.env` holds live credentials and `ALERTS_ENABLED` must stay
+unset outside prod.
 
-On the phone: Safari/Chrome → Share → Add to Home Screen.
+## Adding a new tool
+
+1. Create `toolname.html` with the shared CSS variables and a back link to `index.html`.
+2. Flip its tile in `index.html` from `tile soon` to `tile active`.
+3. Gate its API surface with `auth.RequirePermission` and register its slug in `SeedHQApps`;
+   the parity spec will fail until every slug is enforced or carries a reasoned N/A.
+4. `node build-sw.js`, then `task test`.
