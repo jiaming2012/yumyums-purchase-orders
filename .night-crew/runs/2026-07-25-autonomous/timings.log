@@ -35,3 +35,20 @@ W1_REALTIME_START 1784991847 2026-07-25T11:04:07-04:00
 W1_REALTIME_END   1784992005 2026-07-25T11:06:45-04:00
 # Realtime GREEN: tenant seeded by SEED_SELF_HOST, Host-header routing, change event delivered,
 # and Realtime RLS discriminates (bob socket saw only bob row).
+W1_G1G2_START 1784992051 2026-07-25T11:07:31-04:00
+W1_G1G2_END   1784992066 2026-07-25T11:07:46-04:00  # build 0, vet 0
+W1_G4_GO_START 1784992066 2026-07-25T11:07:46-04:00
+W1_G4_GO_END   1784992093 2026-07-25T11:08:13-04:00  # 9 packages ok, exit 0. load 1-min 3.24 at start.
+W1_G4_PW_START 1784992093 2026-07-25T11:08:13-04:00  # load: 2.40, 2.12, 2.29
+W1_G4_PW_END   1784993413 2026-07-25T11:30:13-04:00  # load: 3.26, 3.56, 3.11
+W1_G4_PW_ISOLATED_START 1784993438 2026-07-25T11:30:38-04:00  # load: 2.80, 3.42, 3.08
+W1_G4_PW_ISOLATED_END 1784993938 2026-07-25T11:38:58-04:00  # load: 3.12, 3.10, 2.96
+# Full suite: 539 passed / 2 failed / 6 skipped, 22.0m. Isolated re-run of the 2 reds at
+# lower load: BOTH FAIL AGAIN (58 passed / 2 failed, 7.4m) — so they are NOT load flakes,
+# and NOT tests/sync.spec.js:1198. W1 diff touches zero product/test bytes (verified:
+# `git diff --name-only overnight-20260725..HEAD -- tests/ backend/ *.html sync.js *.js` is EMPTY),
+# so they are pre-existing on overnight-20260725. Both share one symptom: after clicking
+# [data-action="submit"], .submit-confirm never renders. The ONLY product-code commit on
+# this branch is d1674d3 (backend/internal/workflow/repository.go, the submitChecklist
+# insert), which was gated on a workflows|persistence SUBSET only. Correlation flagged for
+# the orchestrator; NOT attributed by this card.
