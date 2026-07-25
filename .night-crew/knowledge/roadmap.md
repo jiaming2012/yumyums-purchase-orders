@@ -139,7 +139,9 @@
   data). Footprint: `workflows.html`, `sync.js` (deleted), `backend/internal/sync` (deleted),
   `backend/internal/workflow` (`/saveResponse` removed).
 
-- **`workflow-submission-status-default`** · **PLANNED** (independent footprint, no dependency
+- **`workflow-submission-status-default`** · **DONE** (2026-07-25, run `overnight-20260725`;
+  server half merged at `53e921d`, subset Playwright leg green — 102 passed / 1 skipped / 6 m 18 s)
+  · (independent footprint, no dependency
   on the sync cards) · `checklist_submissions.status` defaults to `'pending'` and
   `submitChecklist` never updates it for `requires_approval:false` submissions, so no-approval
   submissions read `'pending'` server-side forever. Harmless today (UI derives status from other

@@ -1,0 +1,21 @@
+# Harness-measured per-card wall-clock (Delivery KR3). epoch + ISO.
+# Legs: IMPL, G6, MERGE, plus named suite legs. Aborted attempts kept, labelled.
+
+F1_IMPL_START 1784985440 2026-07-25T09:17:20-04:00
+# (F1 impl leg ran in the run's first session; no END was stamped before that
+#  session ended. Impl end is bounded by d419888's commit time — see HANDOFF.)
+
+# Aborted: PATH in the non-interactive shell lacked /usr/local/go/bin, so
+# Playwright's webServer died with `go: not found` (exit 127). No tests ran.
+F1_PW_SUBSET_ABORT1_START 1784990121 2026-07-25T10:35:21-04:00
+F1_PW_SUBSET_ABORT1_END   1784990250 2026-07-25T10:37:30-04:00
+# Aborted: `env PATH=$PATH ...` unquoted, PATH contains spaces (/mnt/c/Program Files/...).
+F1_PW_SUBSET_ABORT2_START 1784990271 2026-07-25T10:37:51-04:00
+F1_PW_SUBSET_ABORT2_END   1784990329 2026-07-25T10:38:49-04:00
+
+# MEASURED SUBSET LEG (the number the slate asked for):
+# `DB_HOST=localhost DB_PORT=46413 CI=1 npx playwright test "workflows|persistence"`
+# 102 passed, 1 skipped. Wall clock 378 s = 6 m 18 s; Playwright self-reported 6.6 m.
+# Load average (1-min): 1.83 at start, 3.60 at end.
+F1_PW_SUBSET_START 1784990298 2026-07-25T10:38:18-04:00
+F1_PW_SUBSET_END   1784990676 2026-07-25T10:44:36-04:00
