@@ -73,3 +73,72 @@ Playwright leg in this environment.**
 **F1 is now complete on its server half.** Roadmap card flipped `PLANNED` → `DONE` in this change
 set. The excluded `0b53d46` (red-first Playwright test, no client half) is unchanged by this and
 remains for morning triage.
+
+> 🛑 **SUPERSEDED LATER THE SAME DAY — read Merge 2 below.** The subset was the wrong suite for
+> this card. W1's full-suite leg surfaced two reds that the orchestrator then attributed to F1's
+> `d1674d3` by measurement. **The `DONE` flip recorded above was reverted**; F1 needs a client
+> half. See DECISIONS-NEEDED.md FORK 1.
+
+## Merge 2 — W1 `sync-spike-stack-and-jwt-bridge` → `overnight-20260725`
+
+**ONE CONFLICT, resolved.** Cards involved: W1 (and F1 historically, via the shared instrumentation
+file). Merge commit `51d0c02`, `--no-ff`.
+
+**Merge-intents read — both sides, as §15ad.65 requires:**
+- W1's: `.night-crew/runs/2026-07-25-autonomous/merge-intents/w1-sync-spike-stack-and-jwt-bridge.md`
+  (114 lines, committed at `1acb297` at 10:54:47, **before** the first implementation commit
+  `e2a4ca4` at 11:07:15 — the discipline held, and G6 corroborated the ordering from `git log
+  --reverse`). It declares `timings.log` an append-only shared surface.
+- The orchestrator's side: `0430aaf`, a single `W1_IMPL_START` stamp on the same file.
+
+**The conflict:** `.night-crew/runs/2026-07-25-autonomous/timings.log`, one hunk. Both sides appended
+to the end of the file — the classic shared-instrumentation collision, and the only file both sides
+touched.
+
+**Resolution — union, chronological, nothing dropped.** Both intents agree the file is append-only
+and additive; there is no competing behaviour to adjudicate, only ordering. `W1_IMPL_START`
+(10:45:53) precedes W1's own leg block, so it was placed first and W1's block kept verbatim.
+
+**One substantive merge-time correction, made deliberately.** W1's leg comment concluded its two
+full-suite reds were *"pre-existing on `overnight-20260725`."* That inference is **false**, and W1
+could not have known — a card in a worktree cannot check out another branch to test it. The
+orchestrator can, and did (below). Resolving *against intent rather than text*: W1's intent was to
+flag the correlation and refuse attribution, which was correct behaviour. So its measurements are
+kept **verbatim** and the correction is **appended beneath, clearly attributed to the
+orchestrator**, rather than edited into the card's own words. A card's record should read as what
+the card actually found.
+
+**The attribution the correction rests on** — both specs, same box, same Postgres, separate DBs and
+ports:
+
+| Tree | F1 present? | Result |
+|---|---|---|
+| `dev` @ `d37fb10` | no | **2 passed** (2.6 m), load 2.84 → 3.28 |
+| run branch @ `c14cbce` | yes | **2 failed**, load 3.01 → 2.48 |
+
+→ `tests/repro-cut-task.spec.js:153` and `tests/sync.spec.js:1581` are an **F1 regression**, not
+flakes, not `:1198`, not pre-existing. Parked as **FORK 1**; F1's roadmap flip reverted in the same
+change set as this entry.
+
+**Blast-radius attestation — checked, not taken on trust.** `git diff --name-only
+overnight-20260725..card/w1-... -- backend/go.mod package.json docker-compose.nc.yml Taskfile.yml`
+→ **empty**. Product/test check `-- 'backend/**' 'tests/**' '*.html' 'sync.js'` → **empty**. Across
+the whole run (`dev..HEAD`) the four HARD files remain untouched, and the only product delta is
+F1's `repository.go` plus its two test files. W1's merge intent stated all four per item; the claim
+holds.
+
+**Gates after merge:** G1 `go build ./...` exit 0, G2 `go vet ./...` exit 0, re-run on the merged
+tree as the conflict rules require. The full Playwright suite was **not** re-run post-merge, and
+deliberately: W1's merge adds no product or test bytes, so the merged tree's product content is
+bit-identical to `c14cbce`, which had already been measured. Re-running 22 minutes of suite to
+observe the same two known reds would have bought nothing.
+
+**G6:** PASS-WITH-FINDINGS — 8 findings, **all non-blocking**, none touching the verdict. The
+reviewer independently reproduced the RLS discrimination pair and the per-subscriber Realtime RLS
+proof against the live stack and confirmed the runbook works as written for someone who did not
+write it. The findings worth carrying: `HTTP <code>` lines annotated onto `curl` commands that
+lack `-w` (a small breach of the document's own "real captured output" standard), three proof steps
+missing their "names the failure it would catch" sentence, a `go.sum` carrying both
+`coder/websocket` v1.8.14 and v1.8.15 while `go.mod` pins v1.8.14, and one off-by-one filename
+citation. Per the slate, G6 did **not** relitigate the signed inline-throwaway-credentials
+decision; it checked only that the labelling is loud, and it is.

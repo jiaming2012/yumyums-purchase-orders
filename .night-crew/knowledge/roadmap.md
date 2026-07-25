@@ -72,7 +72,17 @@
 
 ## Activity 1 — Sync foundation: RxDB + self-hosted Supabase
 
-- **`sync-spike-stack-and-jwt-bridge`** · **PLANNED** · *(½ of the fanned-out
+- **`sync-spike-stack-and-jwt-bridge`** · **DONE — verdict GO** (2026-07-25, run
+  `overnight-20260725`, merged `51d0c02`; G6 PASS-WITH-FINDINGS, all non-blocking). Self-hosted
+  Supabase (postgres + postgrest + realtime; **Kong/Studio/GoTrue proved unnecessary**) accepts a
+  stdlib-only Go-minted HS256 token on both PostgREST and Realtime, with RLS **demonstrably
+  discriminating** — verified twice, once by the card and once independently by G6 against the
+  live stack, with a `service_role` BYPASSRLS control ruling out the empty-table explanation.
+  Verdict at `.night-crew/knowledge/designs/sync-rxdb-feasibility-spike.md`; runbook half 1 at
+  `.night-crew/qa/spike-supabase/README.md`; stack left running deliberately.
+  🛑 **The verdict still has to reach `ledger.md` at morning triage before the three downstream
+  cards may dispatch** — Product KR1 / Delivery KR1 measure the ledger timestamp, and the ledger is
+  an attended artifact this run cannot write. · *(½ of the fanned-out
   `sync-rxdb-feasibility-spike` — the cycle's Wave-0 gate)* · Stand up self-hosted Supabase
   (Realtime + PostgREST, via Docker) in a **new, separate `docker-compose.supabase.yml`** —
   never by extending `docker-compose.nc.yml`, which would boot Supabase for every night-crew run
@@ -139,9 +149,15 @@
   data). Footprint: `workflows.html`, `sync.js` (deleted), `backend/internal/sync` (deleted),
   `backend/internal/workflow` (`/saveResponse` removed).
 
-- **`workflow-submission-status-default`** · **DONE** (2026-07-25, run `overnight-20260725`;
-  server half merged at `53e921d`, subset Playwright leg green — 102 passed / 1 skipped / 6 m 18 s)
-  · (independent footprint, no dependency
+- **`workflow-submission-status-default`** · **PLANNED — server half merged, CLIENT HALF REQUIRED
+  AND MISSING** (2026-07-25, run `overnight-20260725`). Server fix merged at `53e921d` and its Go
+  gates are green; the seam-confined subset leg was also green (102 passed / 1 skipped / 6 m 18 s).
+  **But the subset was the wrong suite:** the full suite reds `tests/repro-cut-task.spec.js:153`
+  and `tests/sync.spec.js:1581`, both proven by measurement to be an F1 regression (pass on `dev`,
+  fail with F1). `workflows.html` does not recognise the new `'completed'` status, so
+  `.submit-confirm` never renders. **Parked as a contract question — F1's own park trigger (ii)
+  — see `runs/2026-07-25-autonomous/DECISIONS-NEEDED.md` FORK 1.** Stays PLANNED per the run rule
+  that a card parking without a verdict does not flip. · (independent footprint, no dependency
   on the sync cards) · `checklist_submissions.status` defaults to `'pending'` and
   `submitChecklist` never updates it for `requires_approval:false` submissions, so no-approval
   submissions read `'pending'` server-side forever. Harmless today (UI derives status from other
