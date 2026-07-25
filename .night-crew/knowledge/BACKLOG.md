@@ -419,11 +419,14 @@
   Defaults `'pending'` and `submitChecklist` never updates it, so no-approval submissions read
   `'pending'` server-side forever. Harmless today (UI derives from other fields) but a trap for
   any future server-side status consumer — normalize on submit or document the invariant. ·
-  origin: overnight-20260721 A1 impl (§C) · new
-- **Rejected-field hydrate quirk: new answer visually clears on reload until resubmission** ·
+  origin: overnight-20260721 A1 impl (§C) · **promoted → `workflow-submission-status-default`**
+  (roadmap Activity 1, `/nc-roadmap-round` 2026-07-25)
+- ~~**Rejected-field hydrate quirk: new answer visually clears on reload until resubmission**~~ ·
   Answering a rejected field then reloading blanks the new answer visually
   (`workflows.html:1544` hydrate branch prefers the rejection snapshot); device-local, LOW.
-  Rides any future runner-hydration card. · origin: overnight-20260721 A1 G6 (§C) · new
+  **dropped — superseded by the RxDB/Supabase migration** (roadmap Activity 1): a symptom of the
+  manual-hydrate mechanism being replaced, not an independent fix. · origin: overnight-20260721
+  A1 G6 (§C) · dropped, `/nc-roadmap-round` 2026-07-25
 - **`sync.spec.js` de-flake: `:1198` + `:525`** ·
   `:1198 temperature answer converges` is **flaky — confirmed by controlled reproduction, at
   ~16% overall (4 red / 25 `--retries=0` legs), ~20% (4/20) under a concurrent Playwright
@@ -455,12 +458,14 @@
   **promoted → `syncspec-deflake` (D1, slate-20260720c)** — cleared the §15k architecture-blocking
   bar: the `cycle-gate` card promises no-retry suite-green attestation, which cannot pass while
   `:1198` is proven-flaky and `:525` reds at baseline.
-- **Replay fetch-storm class is NOT fully closed** ·
+- ~~**Replay fetch-storm class is NOT fully closed**~~ ·
   S1 gated `SUBMIT_CHECKLIST`, but G6's enumeration of every branch in `applyOp` found
   `loadPendingApprovals()` and `loadTemplates()` still fire an **ungated per-op re-fetch** —
   a catch-up with N APPROVE ops still storms the approvals queue, N SAVE_TEMPLATE ops still
   storm the Builder list. Same root cause, same one-line fix pattern, deliberate-by-omission
-  (the in-code comments say "always refreshes"). · origin: overnight-20260722 S1 G6 · new
+  (the in-code comments say "always refreshes"). **dropped — superseded by the RxDB/Supabase
+  migration** (roadmap Activity 1): this is the same fetch-storm class the migration retires.
+  · origin: overnight-20260722 S1 G6 · dropped, `/nc-roadmap-round` 2026-07-25
 - **`sync.js api()` fetch-abort guard (S1 sub-move (d), deliberately skipped)** ·
   Suite-teardown noise (`loadMyChecklists error: Failed to fetch`) originates from a `catch`
   in **`workflows.html:389`**, outside S1's footprint. A sync.js-only fix would require
@@ -555,12 +560,14 @@
   reads. Needs a small design pass (key namespace vs owner-record join). The documented
   exception in `tests/grant-enforcement-parity.spec.js` stands until this ships. · origin:
   overnight-20260724 G1 park, T-21 decision 42 · new
-- **`sync.js` catch-up fetch-storm gate** · `applyOp`'s SAVE_TEMPLATE branch re-fetches
+- ~~**`sync.js` catch-up fetch-storm gate**~~ · `applyOp`'s SAVE_TEMPLATE branch re-fetches
   `myChecklists` per replayed op whenever a runner is open (`sync.js` ~491) — a device catching
   up on a large journal fires an un-awaited fetch per op (the storm behind every FLD-LIVE-02
   red). A one-line gate/debounce fixes the app-level behavior, but it is a production `sync.js`
   change and RE-ARMS the attended two-device convergence check — schedule it with that cost
-  priced in. · origin: overnight-20260724 S1 observation (reported, not fixed) · new
+  priced in. **dropped — superseded by the RxDB/Supabase migration** (roadmap Activity 1):
+  `sync.js` is retired by `sync-hard-cutover`, not patched. · origin: overnight-20260724 S1
+  observation (reported, not fixed) · dropped, `/nc-roadmap-round` 2026-07-25
 - **`onboarding.spec.js` second-run carried-DB failures** · Two tests fail when the full suite
   runs twice against the same un-reset DB (carried hire/training state). Fine under the
   clean-DB-per-leg rule, but the suite is non-idempotent — either reset state in `beforeAll` or
@@ -623,4 +630,6 @@
   onboarding, and users stay on the existing Go+Postgres REST API. Promotion should start
   with a feasibility spike (stand up self-hosted Supabase in Docker alongside the existing
   Postgres, prove the Go-minted-JWT → RLS bridge end-to-end) before sizing the full
-  migration. · origin: operator explore session 2026-07-24 · new
+  migration. · origin: operator explore session 2026-07-24 · **promoted → `sync-rxdb-feasibility-spike`,
+  `sync-rxdb-schema-and-replication`, `sync-jwt-bridge-endpoint`, `sync-hard-cutover`** (roadmap
+  Activity 1 "Sync foundation", `/nc-roadmap-round` 2026-07-25)

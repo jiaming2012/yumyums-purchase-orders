@@ -1,75 +1,50 @@
 # OKRs
 
-<!-- ✅ SIGNED OFF by the operator 2026-07-19 (attended /nc-okr-session). These OKRs stand as
-the cycle's committed knowledge; the evening /nc-pm-session traces its PRD requirements to them.
+<!-- ✅ SIGNED OFF by the operator 2026-07-25 (attended /nc-roadmap-round).
 
-Cycle: "Prove & surface" — trust the sync, surface the numbers. A MIXED cycle opened
-2026-07-19 (attended /nc-okr-session) after "Nothing silently lost" closed the same day
-(markdown-mode close, ledger T-17; prod live for the first time in ~2mo at backend 0.1.3 /
-frontend 1.0.3, 405 commits merged to main). Two halves, both traced below:
+Cycle: "Sync foundation" — replace the hand-rolled WebSocket + Postgres LISTEN/NOTIFY +
+Lamport-clock op-log sync layer in `workflows.html` with RxDB (client-side replication) against
+a self-hosted Supabase stack, unifying the field-autosave and live-broadcast write paths into
+one store. Opened 2026-07-24/25 (attended `/nc-roadmap-round`) after "Prove & surface" closed
+2026-07-24 (15 MET · 1 N/A, ledger T-21f, cycle-closeout-20260724.md).
 
-  (1) TRUST — close the live-sync convergence QA hole. Last cycle proved convergence only for
-  the assignee editing their own checklist via SET_FIELD ops; during operator play THREE escaped
-  defects of the same class surfaced and were fixed reactively/red-first (cross-user access:
-  sync pkg had 0 Go tests; approval-state convergence: submit/approve/reject re-rendered from
-  stale cache, derived views never reconciled; sub-step rejection dead-end). This cycle makes the
-  coverage systematic so the class stops escaping to play. Plus the two carried PARTIALs from
-  last cycle: Eng "task test exits 0" (1 isolation-pollution red → formally retire waiver #1)
-  and Delivery "median WO cycle" (per-card wall-clock instrumentation → a real computable median).
-  Plus a prod-alert-dup guard now that Mercury/alert-queue/Cliq run in prod against the SAME
-  external accounts as dev.
+Traces to the roadmap's single authored activity so far (Activity 1: Sync foundation — 4 sync
+cards + 1 independent fix card). This round was scoped to ONE backlog group at the operator's
+direction; ~19 other `· new` items remain unrouted for a future roadmap-round pass, so these
+OKRs cover only what was actually roadmapped, not a full-cycle theme the way "Prove & surface"
+did.
 
-  (2) SURFACE — ship the Inventory Trends + Cost tabs (both "coming soon" stubs today,
-  inventory.html:272-285 / 993-998). Operator-chosen scope (2026-07-19): TRENDS = weekly spend
-  by item-group over ~8-12 wks (chart + table; new by-week×by-group aggregation endpoint).
-  COST = per-menu-item food-cost table (units, revenue, ingredient cost, margin, food-cost %)
-  PLUS a top/bottom movers highlight (margin join: gross_amount − ingredient_cost_total).
-  Charting = inline SVG/CSS bars (NO new dependency — keeps the static/minimal-deps ethos).
-  GATING = "under the Users app": access controlled by the existing app_permissions grant model
-  (table + admin UI real; `inventory` slug registered) — but tab-level granularity AND real
-  enforcement are net-new (grants are whole-app only today; there is NO permission middleware,
-  only logged-in-vs-not). The KRs fix only the observable bar (no grant → no tab + server 403);
-  the slug-vs-sub-permission modeling is a design-gate call.
+OKR-authoring lesson carried from the prior cycle's P4 grading (decision 47): write KR metrics
+that cannot be failed by desirable behavior — e.g. deferring the cross-user-hydration item to
+the PM session, or dropping the three superseded backlog items, must not redden a KR here.
 
-  Operator decisions folded (2026-07-19 OKR session): mixed theme; feature = Trends+Cost;
-  Cost-in-prod = ACCEPT SPARSE (margin proven on seeded dev fixtures; prod-acceptance = renders
-  honestly with an empty/low-data state where Toast sales are absent — prod Toast is inert,
-  TOAST_SYNC_INTERVAL=0, no dependency on enabling it this cycle). PM recommendations the operator
-  did not override: gating modeling left to the design gate; the small editprop follow-ups
-  (transactional op emission Create/Archive, atomic approval+feedback, fail-note conflict
-  live-render) stay BACKLOG tidy-ups, not KRs; prod-alert-dup is one modest Delivery KR, not its
-  own objective. Previous cycle archived at reference/okrs-2026-07-16-nothing-silently-lost.md +
-  reference/roadmap-2026-07-16-nothing-silently-lost.md. -->
+Previous cycle archived at reference/okrs-2026-07-24-prove-and-surface.md +
+reference/roadmap-2026-07-24-prove-and-surface.md. -->
 
 ## Product
 
-### Objective: Both halves are enumerated and specified before build — the escaped-defect class becomes a written coverage contract, and the two new tabs become falsifiable observable behaviors.
-- A cycle PRD is delivered as a BLOCKING gate before any build WO, covering (a) Trends/Cost per-tab state-enumeration + `done_when` observable behaviors and (b) the live-sync convergence coverage contract (the {viewer}×{editor}×{op-type}×{derived-view} matrix); 100% of its requirements trace to either a reproduced escape or a named user-outcome (trace table in the PRD, audited at the cycle gate).
-- Escaped-defect closure: each of the 3 operator-play escaped defects (cross-user live-sync access, live approval-state convergence, sub-step rejection dead-end) maps to ≥ 1 named matrix cell that would have caught it red-first — 0 escaped defects lack a would-have-caught cell (auditable table in the PRD).
-- The Inventory-intelligence gating decision (tab-level gate via the Users `app_permissions` model; slug-vs-sub-permission modeling) is recorded as 1 operator-delegated, sign-off-ratified decision in the PRD, with the observable rule encoded as the acceptance contract: a user WITHOUT the grant sees no Trends/Cost tab and is denied server-side; a granted user sees both.
-- 12/12 backlog items marked `· new` at cycle open (2026-07-19) are routed through a door — folded into the PRD, promoted to a roadmap card, or deferred with a written reason in BACKLOG.md; 0 `· new` markers remain (auditable via `grep -c '· new' BACKLOG.md`).
+### Objective: The sync rewrite ships against a de-risked, operator-approved plan — not an assumed one — and the one open product question it surfaces is routed, not guessed at by engineering.
+- 0 of the schema/replication or JWT-bridge WOs are dispatched before the feasibility spike (`sync-rxdb-feasibility-spike`) records a written go/no-go verdict (self-hosted Supabase reachable, Go-minted JWTs accepted by PostgREST/Realtime for RLS without GoTrue) in `ledger.md` — measured by comparing the ledger verdict timestamp against `.night-crew/runs/` dispatch timestamps for `sync-rxdb-schema-and-replication` and `sync-jwt-bridge-endpoint`.
+- 0 `sync-hard-cutover` WOs are dispatched while the BACKLOG.md entry for "Cross-user checklist hydration divergence" still reads plain `new` — it must carry a PM-session-routed disposition first, not an engineering-guessed fix, measured by the entry's disposition text at the time `sync-hard-cutover`'s WO is dispatched.
+- The hard-swap cutover decision (no parallel run) is carried into the `sync-hard-cutover` WO record as an explicit constraint, not rediscovered mid-build. Measured by: the `sync-hard-cutover` WO record in `.night-crew/runs/` stating the no-parallel-run constraint verbatim — 0 build WOs propose a parallel-run alternative.
 
 ## Delivery
 
-### Objective: The feature and the trust fixes reach production behind a signed design, and cycle-time becomes measured, not narrated.
-- The cycle design (Trends/Cost + gating + convergence-coverage contract) is operator-signed BEFORE any build WO is dispatched — 0 build WOs start ahead of the signed design (auditable from ledger timestamps).
-- Both new Inventory tabs reach PRODUCTION, not just dev — 2/2 tabs live behind the gate on `https://hq.yumyums.kitchen` with 0 version drift (`task version` shows prod backend/frontend == local `version.go` constants): Trends showing live weekly-spend-by-group, Cost rendering correctly with an honest empty/low-data state where Toast sales are absent (Cost margin correctness itself is proven on seeded dev fixtures, not prod data — operator: accept sparse prod). 2/2 tabs screenshot-verified on prod.
-- Per-card wall-clock instrumentation is a standing build-run output for 100% of this cycle's build cards, and the cycle's median WO cycle time is computed against the T-14 baseline (N=23 / 22m28s) — retiring the carried Delivery PARTIAL (a real this-cycle median exists in the run records).
-- Prod-alert-duplication guard: with Mercury / alert-queue / Zoho Cliq now live in prod against the same external accounts as dev, either 0 duplicate Cliq alerts are observed over the cycle OR one side is demonstrably disabled — 0 duplicate-alert incidents left unhandled (observed on the Cliq channel, recorded in the ledger).
+### Objective: The migration ships with the same discipline the last cycle earned — a proven spike before build, measured cadence, and real prod verification with a returning-client check.
+- Feasibility-gate-before-build: 0 of the 3 downstream WOs (schema+replication, JWT-bridge, hard-cutover) dispatch before the spike's go decision lands. Measured by: `ledger.md` decision timestamp vs. `.night-crew/runs/` WO dispatch timestamps (same audit method as the prior cycle's D1, ledger T-18).
+- Prod cutover parity: once `sync-hard-cutover` ships, `task version` shows prod backend/frontend == local `version.go` constants with 0 drift, AND 2/2 tab screenshots are verified on a **returning** client, not just a fresh load — the T-21d lesson applies here by name. Measured by: `task version` command output + operator-provided screenshots recorded in the ledger (same artifact type that settled D2 last cycle, T-21e).
+- Per-card wall-clock timing is recorded for all 5 cards in this activity (4 sync + 1 independent fix), and a median is computed against the prior cycle's baseline (N=12 / 94m). Measured by: the timing field in each card's WO record under `.night-crew/runs/` (the `percard-timing-instrumentation` standing output from the prior cycle).
 
 ## Engineering
 
-### Objective: The two aggregation views are numerically correct, the gate is server-enforced, and the convergence matrix covers the full escape surface — with `task test` finally at exit-0.
-- Trends correctness: for a seeded fixture spanning ≥ 8 weeks across ≥ 2 item-groups, every week×group cell returned by the new aggregation endpoint equals the SUM of matching line-item spend (tax-prorated consistently with `period-summary`), and NULL-`purchase_item_id` (unlinked) line items are handled per the signed rule — asserted by a red-first Go test.
-- Cost correctness: for a seeded window, each menu item's `margin = gross_amount − ingredient_cost_total` and `food_cost_% = ingredient_cost_total / gross_amount` match a hand-computed fixture to the cent, and the top/bottom food-cost-% movers ordering is asserted — red-first Go test.
-- Gate enforced server-side: a session user WITHOUT the grant receives a distinct 403 from the Trends/Cost data endpoint AND the tab does not render, while a granted user receives 200 + the tab — 0 logged-in-only bypass paths (no client-only gate); red-first with-grant/without-grant test pair.
-- Convergence matrix systematic: the E2E matrix is extended from SET_FIELD-only to {op-type ∈ field / submit / approve / reject} × {editor ∈ assignee / non-assignee-admin} × {derived-view ∈ field-value / correction-banner / readonly-mode / list progress-count}, each cell red-first then green across ≥ 2 devices — 0 matrix cells red at cycle end.
-- `task test` exits 0 on the deterministic stack — the 1 isolation-confirmed cross-test DB-pollution red (`tests/workflows.spec.js › approved checklist shows Approved badge …` LST-08) is fixed so literal `task test` = exit-0, FORMALLY retiring carried waiver #1 (Eng PARTIAL → PASS; red-first: the full-suite red is the baseline).
+### Objective: The new sync layer is provably correct where the old one wasn't — no fetch-storm class, no stale hydration, and the JWT/RLS bridge actually bounds data the way the bearer-token auth did.
+- 0 of the 2 superseded fetch-storm-class backlog items (replay-fetch-storm, `sync.js` catch-up gate) reproduce against the new architecture — evidenced by exactly 1 regression test per item in `tests/sync.spec.js` (or its cutover-era successor) asserting no ungated re-fetch storm on catch-up, OR, where no such test is constructible, exactly 1 reviewed architectural-argument note per item in `.night-crew/knowledge/designs/`.
+- 0 attack variants bypass RLS under a JWT-bridge attack-variant suite comparable in rigor to `grant-enforcement-parity`'s 13 variants (invalid `role` claim, expired token, missing `sub`, wrong signature, token replay after grant revocation) — measured by a new Go test file under `backend/internal/sync` (or the auth package hosting the JWT-bridge endpoint), modeled on `tests/grant-enforcement-parity.spec.js`'s attack-variant structure.
+- Exactly 1 documented owner exists per offline data class after cutover (static assets → Workbox, checklist data → RxDB) — 0 classes with dual or ambiguous ownership — measured by 1 design note in `.night-crew/knowledge/designs/`, reviewed at the cycle gate, cross-checked against the `build-sw.js`/RxDB-init diff.
 
 ## QA
 
-### Objective: The sync package gets real coverage, every fix lands red-first, the new tabs pass the self-verification ritual, and prod mutations stay reversible.
-- `sync` package: 0 → covered — `ResolveEntityAccess` is tested across all {role}×{assignment} combinations (recipient resolution includes admins + author + assignees), and the escaped cross-user access defect carries a red-first unit test proven against the pre-fix code.
-- 100% of this cycle's fix-WOs carry red-run evidence in the WO record (the test failed before the fix; bug-fix protocol) — denominator = all WOs classified fix.
-- Feature self-verification ritual: the Trends and Cost tabs each ship a `tests/states-<tab>.spec.js` State-Enumeration spec that forces empty / loading / error / populated + ≥ 2 edge rows (no-sales-data → Cost shows an honest gap, not a crash; ungated-user → tab hidden + 403) and screenshots each row, with the PNGs read back and compared row-by-row against the visual contract — 0 State-Enumeration rows unverified.
-- Reversibility: 100% of schema migrations shipped this cycle (e.g. any gating sub-permission column) have a down-migration proven by an up→down→up cycle run green in the WO record, and 100% of prod deploys that include a migration bank 1 pre-deploy DB backup artifact — 0 irreversible schema changes reach prod.
+### Objective: This migration does not repeat "Prove & surface"'s QA gap — a sync-adjacent package shipping with zero tests until an escape forced the issue — and night-crew's CI constraints on this activity are priced in up front, not discovered at 3am.
+- New code carries real coverage from its first WO, not retrofitted later: the RxDB replication layer and the JWT-bridge endpoint each ship with unit/integration tests in the SAME WO that introduces them (the `sync` package's 0-Go-tests gap from last cycle does not recur in its replacement). Measured by: each card's WO record in `.night-crew/runs/` and its merged diff showing test files alongside implementation files, not in a later card.
+- 100% of this activity's WOs carry red-run evidence in the WO record (red-first: the test fails before the fix/feature lands). Measured by: the "red-first" evidence field in each `.night-crew/runs/` WO record, same convention as the prior cycle's QA2.
+- Every WO for this activity states its expected runtime under the full Playwright suite (the `sync` seam is unmapped for subset optimization, so every card here pays full-suite) and explicitly flags `sync.spec.js` load-sensitivity risk before dispatch. Measured by: the slate document (`reference/slate-<runid>.md`) for each card carrying an explicit full-suite-runtime + load-sensitivity note.
