@@ -59,9 +59,16 @@ func driveSubmit(t *testing.T, userID, templateID, fieldID string, rawValue stri
 	req = req.WithContext(ctx)
 	rec := httptest.NewRecorder()
 	SubmitChecklistHandler(testPool).ServeHTTP(rec, req)
+	// Cleanup must not filter on status. It named 'pending' only because that was
+	// the DB default every submission was born with; submitChecklist now writes
+	// 'completed' for a template that requires no approval (which this fixture's
+	// templates are), so a status-filtered DELETE leaves the row behind, the
+	// template's own cleanup then FK-fails silently, and the next run of this
+	// file collides on idx_checklist_templates_name_active. The rows this helper
+	// creates are exactly (template_id, submitted_by) — delete those.
 	t.Cleanup(func() {
 		_, _ = testPool.Exec(context.Background(),
-			`DELETE FROM checklist_submissions WHERE template_id=$1 AND submitted_by=$2 AND status='pending'`,
+			`DELETE FROM checklist_submissions WHERE template_id=$1 AND submitted_by=$2`,
 			templateID, userID)
 	})
 	return rec
