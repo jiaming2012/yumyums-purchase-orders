@@ -142,3 +142,73 @@ missing their "names the failure it would catch" sentence, a `go.sum` carrying b
 `coder/websocket` v1.8.14 and v1.8.15 while `go.mod` pins v1.8.14, and one off-by-one filename
 citation. Per the slate, G6 did **not** relitigate the signed inline-throwaway-credentials
 decision; it checked only that the labelling is loud, and it is.
+
+## Merge 3 — W2 `sync-spike-rxdb-replication` → `overnight-20260725`
+
+**ONE CONFLICT, resolved.** Cards involved: W2, colliding with the orchestrator's own park document.
+Merge commit `ba22744`, `--no-ff`. Merged **after** a G6 revision round (below), not before.
+
+**Merge-intents read — both sides:**
+- W2's: `.night-crew/runs/2026-07-25-autonomous/merge-intents/w2-sync-spike-rxdb-replication.md`,
+  committed at `0ae53b5` as its **first** commit, before any implementation. It attests **per item**
+  across **five** constraints (the four HARD files plus `docker-compose.supabase.yml` UNMODIFIED,
+  which W1 owns and W2 only consumes) and declares `README.md`, `sync-rxdb-feasibility-spike.md`,
+  `timings.log` and `DECISIONS-NEEDED.md` as append-only shared surfaces.
+- The orchestrator's side: `396b97e`, which created `DECISIONS-NEEDED.md` with FORK 1 (the F1
+  regression) and FORK 2.
+
+**The conflict:** `.night-crew/runs/2026-07-25-autonomous/DECISIONS-NEEDED.md`, **add/add** — the
+file did not exist at W2's branch point (`51d0c02`) and both sides created it.
+
+**Resolution — concatenation, both sides kept whole, and it needed no adjudication.** W2 anticipated
+this exactly: it wrote its half as a **title-less `h2` fragment** so it would concatenate under
+whatever title the orchestrator's copy carried, checked `overnight-20260725` at `396b97e`, saw FORK
+1 and FORK 2 already taken, and **numbered its own forks 3 and 4** — then left an HTML merge-note
+saying "if both sides exist, KEEP BOTH." That note was dropped at resolution, its instruction having
+been discharged; everything else survives byte-for-byte. Result: one document, one title, FORK 1–4
+in order.
+
+**This is what a merge-intent is for.** The collision was designed out before it happened rather than
+adjudicated after, and the merger's job reduced to deleting three conflict markers.
+
+**`timings.log` auto-merged clean** — union, no markers. The two cards appended to disjoint regions
+because W2 branched after W1's block was already committed.
+
+**G6 — PASS-WITH-FINDINGS, and it caught a real one. One BLOCKING finding, revised and re-checked.**
+The reviewer reproduced all three proofs green first try, re-ran the LWW experiment and got the
+card's result a third time, and verified every mechanism claim verbatim against the shipped RxDB
+source. But the card had written that the discarded write leaves **"no signal an application could
+subscribe to."** That is false: `RxReplicationState` exposes `conflict$`
+(`plugins/replication/index.js:44,51,287-289`), and G6's own probe showed it emitting one event
+carrying the discarded document.
+
+**Why that blocked rather than being a nitpick:** the error inflated the cost of DECISIONS-NEEDED
+FORK 3 option 4 ("surface the conflict to the user") — making a `conflict$.subscribe(...)` plus UI
+read as new plumbing in the sync layer — **inside a document written to help the operator choose
+between options.** A wrong fact in a decision aid is worse than a wrong fact in a report.
+
+**Revision round dispatched to the card, not patched by the orchestrator** (the dispatch model keeps
+diffs out of the control loop's context; the slate budgets a revision round for exactly this). The
+card verified `conflict$` independently — source *and* a fresh empirical probe — agreed plainly that
+it was wrong, corrected all three operator-facing documents, re-priced option 4, and **found two
+further caveats G6 had not raised**: `conflict$` is fed by a plain `Subject`, not a `ReplaySubject`
+(a late subscriber gets nothing), and the event fires per replication, not per document, carrying no
+user-facing text. Both are now recorded so the correction is not over-read in the other direction.
+Revision commit `7262e3f`.
+
+**Blast-radius attestation — checked, not taken on trust.** `git diff --name-only 51d0c02..HEAD` over
+`backend/go.mod`, root `package.json`, `package-lock.json`, `docker-compose.nc.yml`, `Taskfile.yml`,
+`docker-compose.supabase.yml`, `backend/internal`, `tests`, `*.html`, `sync.js` → **empty**. The
+appends are strictly additive after the revision (README **681/0**, design note **242/0** — zero
+deletions), and W1's runbook half 1 was verified **byte-identical** by diffing the first 704 lines
+against `51d0c02`. The harness carries its own `package.json` + lockfile under
+`.night-crew/qa/spike-supabase/rxdb/`, as required.
+
+**Gates after merge:** G1 `go build ./...` exit 0, G2 `go vet ./...` exit 0, re-run on the merged
+tree. The full Playwright suite was **not** re-run post-merge, deliberately and for the same reason
+as merge 2: W2 adds no product or test bytes, so the merged tree's product content is bit-identical
+to what W2 already measured (538 passed / 2 failed / 1 flaky / 6 skipped, 30.5 m, load 1.58 → 4.20).
+Its 2 failures are **exactly** the two known F1 reds and there was **no third red**.
+
+**Whole-run sweep:** `git diff --name-only dev..HEAD` over the four HARD files → **empty**. Across
+all three cards the only product delta is F1's `repository.go` plus its two test files.

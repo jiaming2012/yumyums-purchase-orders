@@ -102,7 +102,21 @@
   `package.json` / `docker-compose.nc.yml` / `Taskfile.yml` HARD-untouched.** *(from BACKLOG
   "`workflows.html` sync: migrate to RxDB + self-hosted Supabase")*
 
-- **`sync-spike-rxdb-replication`** · **PLANNED** (depends on the stack card's GO) · *(½ of the
+- **`sync-spike-rxdb-replication`** · **DONE — verdict GO on RxDB, with one signed assumption
+  DISPROVEN** (2026-07-25, run `overnight-20260725`, merged `ba22744`; G6 PASS-WITH-FINDINGS →
+  1 blocking, revised and re-checked). `rxdb@17.4.0`'s `replicateSupabase` replicates **both
+  directions** over W1's stack — push verified over an independent request, pull converging in
+  ~90–130 ms into a client that was never restarted. **Apache-2.0, no paid dependency** (Dexie =
+  free browser path, IndexedDB = premium; premium buys speed, not capability), and a **real shipped
+  plugin**, not an example — though introduced as *beta* in 16.19.0, so size it as young.
+  🛑 **The finding: conflict resolution is master-wins, NOT the last-write-wins the 2026-07-24
+  explore session signed.** A strictly-later local write is discarded and **no clock participates**
+  — compare-and-swap plus `defaultConflictHandler` returning `realMasterState`; `_modified` is only
+  the pull cursor. Silent by default, but **observable via `conflict$`**. Reproduced 3×. **This gates
+  the conflict-policy half of `sync-rxdb-schema-and-replication`** — see
+  `runs/2026-07-25-autonomous/DECISIONS-NEEDED.md` FORK 3 (and FORK 4, Kong vs. a client shim).
+  A Node-side proof establishes the replication protocol only — **not** browser storage, service-worker
+  interaction, or PWA offline semantics. · *(½ of the
   fanned-out `sync-rxdb-feasibility-spike`; operator ask 2026-07-25 — the spike must exercise
   RxDB itself, and leave something runnable)* · Drive an actual RxDB collection against the
   stack card's Supabase, from an **isolated Node harness** at `.night-crew/qa/spike-supabase/rxdb/`

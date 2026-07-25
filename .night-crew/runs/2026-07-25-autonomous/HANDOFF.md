@@ -39,7 +39,13 @@ conflict-policy half of the schema card. Read it before sizing.
 |---|---|---|---|---|
 | **F1** `workflow-submission-status-default` | ⚠️ **server half merged, CLIENT HALF MISSING** | `53e921d` (attended fold) | n/a — folded attended, pre-dates this session | **PLANNED** (flip to DONE reverted — see FORK 1) |
 | **W1** `sync-spike-stack-and-jwt-bridge` | ✅ **GO** | `51d0c02` | PASS-WITH-FINDINGS, 8 non-blocking | **DONE** |
-| **W2** `sync-spike-rxdb-replication` | ✅ **GO on RxDB**, one signed assumption disproven | *(see merge 3 in the conflict log)* | PASS-WITH-FINDINGS → 1 blocking, revised, re-checked | **DONE** |
+| **W2** `sync-spike-rxdb-replication` | ✅ **GO on RxDB**, one signed assumption disproven | `ba22744` | PASS-WITH-FINDINGS → 1 blocking, revised (`7262e3f`), re-checked | **DONE** |
+
+**Three merges, three conflict-log entries** (`conflicts-20260725.md`): merge 1 clean (F1, attended
+fold, plus a same-day addendum recording the owed subset leg and superseding its `DONE` flip),
+merge 2 one conflict (`timings.log`, union), merge 3 one conflict (`DECISIONS-NEEDED.md` add/add,
+concatenation). **No merge was resolved by guessing** — both conflicts were shared append-only
+surfaces with no competing behaviour, and both cards' merge-intents were read before resolving.
 
 **Zero cards parked for lack of progress.** Every card reached an evidenced verdict. The two open
 forks are *findings*, which is what a spike is for — not failures.
@@ -225,6 +231,8 @@ Full epoch-stamped record in `timings.log`.
 | W2 · push + pull proofs | 2 m 19 s | 60–120 m | 🔻 dramatically under |
 | W2 · LWW observation | 2 m 03 s | 15–30 m | 🔻 under |
 | W2 · G6 | 7 m 02 s | 15–45 m | under |
+| W2 · revision round (G6 blocking finding) | 9 m 25 s | ~10 m budgeted | on the nose |
+| W2 · merge (incl. conflict) | ~6 m | — | — |
 | **Orchestrator** · F1 attribution check | 21 m 43 s | *(unbudgeted)* | the run's own investigation |
 | Full Playwright legs (×3) | 22.0 m / 8.3 m / 30.5 m | ~20 m | at/over |
 
@@ -313,3 +321,54 @@ infra time.
   with `pgrep -af` first. Cost one false "done" reading.
 - No `:8199` latch recurred tonight; separate `TEST_PORT`/`TEST_DB_NAME` per leg (8199/8299/8399/
   8499/8599) kept all four Playwright legs isolated with zero collisions.
+
+---
+
+## How the gates actually performed tonight — worth reading before the next slate
+
+Three things earned their keep, and one did not.
+
+**G6 earned its keep twice, in different ways.** On W1 it confirmed a GO by *reproducing* it —
+running the RLS discrimination pair and the per-subscriber Realtime proof itself rather than reading
+the write-up, which is the difference between review and proofreading. On W2 it caught a **factual
+error inside a decision aid**: the card claimed no signal existed to observe a discarded write, and
+`conflict$` does exactly that. That error would have inflated one option's cost in a fork the
+operator has to decide. Both reviewers ran commands from the runbook verbatim and got matching
+output — which is also the strongest evidence that the operator-runnable requirement was actually met.
+
+**The non-attribution rule earned its keep.** W1 hit two reds, could not test whether they were its
+own, and **refused to attribute them** — flagging the correlation instead. That was the correct call
+from inside a worktree, and it handed the orchestrator a precise, testable hypothesis. Twenty-one
+minutes of measurement turned it into a root cause. Had W1 guessed either way — "pre-existing" or
+"mine" — the night would have ended with a wrong fact in the record. **It did guess "pre-existing" in
+its own instrumentation comment**, which is why that inference is corrected in place rather than
+silently kept.
+
+**Merge-intents earned their keep.** W2's collision with the orchestrator's park document was
+*designed out before it happened*: the card checked the run branch, saw FORK 1–2 taken, numbered its
+own 3–4, and wrote its half title-less so it would concatenate. The merge reduced to deleting three
+conflict markers.
+
+**The seam map did not earn its keep.** F1's subset was green and the card was wrong anyway. See
+FORK 1 — this is the one process finding of the night that should change something.
+
+---
+
+## Deviations from the launch prompt, and why
+
+Three, all operator-instructed at resume, plus one judgement call.
+
+1. **Setup skipped** — no unmerged-branch check, no branch cut. Instructed; `overnight-20260725`
+   was already correct and was never deleted, reset, or renamed.
+2. **F1 not dispatched as a card** — already merged at `53e921d` with green Go gates. Only its owed
+   subset Playwright leg was run. Instructed.
+3. **Conflict log appended, not restarted.** Instructed. All three merges are in the one file.
+4. **Judgement call, mine:** the full Playwright suite was **not** re-run after merges 2 and 3.
+   Both spikes add zero product and zero test bytes (verified by `git diff`, not attestation), so
+   the merged tree's product content is bit-identical to what each card had already measured.
+   Re-running ~25 minutes of suite to observe the same two known reds would have bought nothing.
+   G1+G2 *were* re-run after each conflict resolution, as the conflict rules require. If you would
+   rather have the belt-and-braces run, it is one command and it will show the same two reds.
+
+**Nothing was pushed. `main` and `dev` are untouched. No production database, no hosted Supabase
+project, no infrastructure beyond local Docker containers** — as the slate required.
