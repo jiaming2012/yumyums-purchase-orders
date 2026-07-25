@@ -84,3 +84,14 @@ W2_LWW_END 1784996925 2026-07-25T12:28:45-04:00  # OBSERVED: NOT LWW — master-
 W2_LICENSE_START 1784996925 2026-07-25T12:28:45-04:00
 W2_LICENSE_END 1784996925 2026-07-25T12:28:45-04:00  # Dexie=free, IndexedDB=premium (confirmed); plugin is REAL (shipped in rxdb@17.4.0)
 W2_G1G2 1784996925 2026-07-25T12:28:45-04:00  # go build + go vet exit 0; load 1.06 -> 1.46
+W2_G4_GO_START 1784997309 2026-07-25T12:35:09-04:00  # load: 1.39, 1.39, 1.62
+W2_G4_GO_END 1784997337 2026-07-25T12:35:37-04:00  # load: 1.58, 1.43, 1.63 — 9 green packages, exit 0
+W2_G4_PW_START 1784997337 2026-07-25T12:35:37-04:00  # load: 1.58, 1.43, 1.63
+W2_G4_PW_END 1784999148 2026-07-25T13:05:48-04:00  # load: 2.87, 3.65, 3.16 — 538 passed / 2 failed / 1 flaky / 6 skipped, 30.5m
+# The 2 failed are EXACTLY the two known F1 reds (repro-cut-task.spec.js:153,
+# sync.spec.js:1581) — orchestrator-attributed to d1674d3, NOT investigated by W2.
+# NO THIRD RED. The 1 flaky is purchasing.spec.js:1407 (FR-13 locked PO): first
+# attempt died on page.waitForLoadState("networkidle") at the 30s timeout, PASSED on
+# retry. Measured 1-min load rose 1.58 -> 4.20 across the leg (this box runs ~13
+# unrelated containers plus 3 docker stacks). NOT sync.spec.js:1198. Reported with
+# the load, deliberately NOT attributed — one observation is not an attribution.
