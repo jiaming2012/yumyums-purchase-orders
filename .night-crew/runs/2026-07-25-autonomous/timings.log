@@ -24,3 +24,14 @@ F1_PW_SUBSET_END   1784990676 2026-07-25T10:44:36-04:00
 W1_PULL_START 1784990844 2026-07-25T10:47:24-04:00
 W1_PULL_END   1784991240 2026-07-25T10:54:00-04:00
 # 3 images pulled clean: supabase/postgres:15.8.1.060 (3GB), postgrest/postgrest:v12.2.12 (22.8MB), supabase/realtime:v2.34.47 (250MB)
+W1_BRINGUP_START 1784991436 2026-07-25T10:57:16-04:00
+W1_BRINGUP_END   1784991638 2026-07-25T11:00:38-04:00
+# 3 attempts. A1 fail: POSTGRES_USER=postgres broke image bootstrap (supabase_admin role never created).
+# A2 fail: image creates `authenticator` password-less; PostgREST exit(1). A3 green: db+rest+realtime up.
+W1_JWT_START 1784991799 2026-07-25T11:03:19-04:00
+W1_JWT_END   1784991847 2026-07-25T11:04:07-04:00
+# PostgREST half fully discriminating: P1-P11 all as predicted.
+W1_REALTIME_START 1784991847 2026-07-25T11:04:07-04:00
+W1_REALTIME_END   1784992005 2026-07-25T11:06:45-04:00
+# Realtime GREEN: tenant seeded by SEED_SELF_HOST, Host-header routing, change event delivered,
+# and Realtime RLS discriminates (bob socket saw only bob row).
