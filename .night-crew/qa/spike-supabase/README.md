@@ -702,3 +702,615 @@ Concretely, the questions this spike surfaced but did not answer:
 <!-- it. Everything above stands alone and remains runnable on its own if    -->
 <!-- half 2 is never written.                                               -->
 <!-- ======================================================================= -->
+
+# Supabase sync spike — runbook, half 2: does RxDB actually replicate over it?
+
+> **This half assumes half 1 above.** It does not repeat the LOCAL-ONLY banner
+> or the throwaway-credential warning at the top of this file — they apply to
+> everything here too, unchanged. The stack, the fixture table and the Go token
+> minter are all half 1's; half 2 adds no service and modifies
+> `docker-compose.supabase.yml` by not one byte.
+
+## What this half is
+
+Half 1 proved the *substrate*: a self-hosted Supabase accepts a JWT that HQ's own
+Go backend minted, on both PostgREST and Realtime, with RLS discriminating. That
+is a proof about Supabase. It is **not** a proof about RxDB.
+
+Night-crew card **W2 `sync-spike-rxdb-replication`** answers the next question:
+**does RxDB itself actually replicate over that substrate**, in both directions,
+and what does it do when two writers collide?
+
+Every command below was actually run on 2026-07-25 against the stack half 1
+leaves running, and every block of output under a command is real captured
+output. Where output is trimmed, the trim is marked. Nothing here says "should
+print".
+
+The artefacts live in [`rxdb/`](rxdb/) and are the thing you run.
+
+---
+
+## Step 0 — the isolated harness, and why it is isolated
+
+```bash
+cd .night-crew/qa/spike-supabase/rxdb
+npm ci          # first time: npm i rxdb @supabase/supabase-js ws
+```
+
+Observed on the cold install:
+
+```
+added 78 packages, and audited 79 packages in 20s
+found 0 vulnerabilities
+```
+
+Installed, and pinned in [`rxdb/package-lock.json`](rxdb/package-lock.json):
+
+| package | version |
+|---|---|
+| `rxdb` | 17.4.0 |
+| `@supabase/supabase-js` | 2.109.0 |
+| `ws` | 8.21.1 |
+
+**This directory has its own `package.json` and its own lockfile on purpose.**
+The repo-root `package.json` is the Playwright environment every night-crew card
+in the repo builds against; adding a dependency to it would change the test
+environment for work that has nothing to do with sync. Never run `npm i` from
+the repo root for this spike — always `cd` here first.
+
+**Failure this catches:** a spike quietly widening the production dependency
+surface. The root `package.json` and `package-lock.json` are byte-identical to
+what they were before this card ran; you can check that yourself with
+`git diff overnight-20260725..HEAD -- package.json package-lock.json`, which
+prints nothing.
+
+`ws` is needed only because Node 20 has no global `WebSocket`
+(`node -e "console.log(typeof globalThis.WebSocket)"` → `undefined` on
+v20.20.0). A browser needs no such shim.
+
+---
+
+## Step 1 — the gateway-less bridge, and why half 2 needs one
+
+This is the first real finding of half 2, and it is worth understanding before
+any proof output.
+
+`@supabase/supabase-js` assumes **one origin fronted by Kong**. Its constructor
+derives `<baseUrl>/rest/v1` and `<baseUrl>/realtime/v1` from a single URL and
+freezes both:
+
+```js
+this.realtimeUrl = new URL("realtime/v1", baseUrl);
+...
+this.rest = new PostgrestClient(new URL("rest/v1", baseUrl).href, { ... });
+```
+
+(read out of `rxdb/node_modules/@supabase/supabase-js/dist/index.mjs`)
+
+Half 1 deliberately did not deploy Kong. So in this stack PostgREST and Realtime
+sit on two *different* Docker-assigned host ports and neither serves under those
+path prefixes. A stock `createClient()` cannot reach either.
+
+[`rxdb/spike-env.js`](rxdb/spike-env.js) bridges that with the two extension
+points supabase-js already exposes — **no fork, no patch, no new service**:
+
+- `global.fetch` — strips the `/rest/v1` prefix so requests land on PostgREST's root;
+- `realtime.transport` — a `ws` subclass that re-points host:port at Realtime,
+  rewrites the path to `/socket/websocket`, and sets `Host: realtime-dev.localhost`
+  so Realtime's tenant lookup resolves (half 1, sharp edge 6).
+
+**This shim is a spike artefact, not a recommendation.** See
+["What the shim means for the real migration"](#what-the-shim-means-for-the-real-migration)
+at the end of this half.
+
+### Step 1a — prove the bridge before blaming RxDB
+
+```bash
+export PATH="/usr/local/go/bin:$PATH"   # spike-env.js shells out to `go run ./mintjwt`
+node smoke.js
+```
+
+Real output, trimmed to the lines that matter:
+
+```
+# stack: rest=46233 realtime=46355 db=46011  run=r1784996960627
+token len 184 segments 3
+REST error: null
+REST rows visible to user-alice: [
+  { id: 'note-alice-1', owner_id: 'user-alice', body: 'alice seed row', ... },
+  ... (5 more alice rows) ...
+]
+realtime status: SUBSCRIBED
+FINAL realtime status: SUBSCRIBED
+```
+
+Two things are proven here and both matter. `REST error: null` with rows coming
+back means PostgREST is reachable through the fetch shim — and **every row
+returned is `user-alice`'s**; the `note-bob-1` seed row from
+[`sql/spike-fixture.sql`](sql/spike-fixture.sql) is absent, so RLS is still
+discriminating through supabase-js exactly as it did through `curl` in half 1.
+`SUBSCRIBED` means the Realtime channel actually joined through the transport
+shim.
+
+**Failure this catches:** the single most expensive way to waste a night on a
+sync spike — spending hours "debugging replication" that is really a client that
+never reached the server at all. Run this first; if it does not print
+`SUBSCRIBED`, nothing below can work and RxDB is not the reason.
+
+Note the ports are resolved at runtime by `docker compose port`, never
+hardcoded, because half 1's compose publishes bare container ports and Docker
+reassigns the host side on every `up`.
+
+---
+
+## Step 2 — the collection
+
+One collection, defined in [`rxdb/spike-env.js`](rxdb/spike-env.js), against the
+one throwaway `spike_notes` table half 1 created:
+
+```js
+export const spikeNotesSchema = {
+    version: 0,
+    primaryKey: 'id',
+    type: 'object',
+    properties: {
+        id:       { type: 'string', maxLength: 100 },
+        owner_id: { type: 'string', maxLength: 100 },
+        body:     { type: 'string' }
+    },
+    required: ['id', 'owner_id', 'body']
+};
+```
+
+**This is deliberately not HQ's checklist domain model.** W2 answers "does the
+mechanism work", not "what is our schema" — modelling the real domain is the
+card `sync-rxdb-schema-and-replication`. Using the real model here would have
+mixed a mechanism failure and a modelling failure into one indistinguishable
+result.
+
+Two omissions from `properties` are load-bearing rather than accidental:
+
+- **`_deleted` is not declared.** RxDB owns that field internally; the plugin
+  maps the Postgres column onto it.
+- **`_modified` is not declared either.** `replicateSupabase` only round-trips
+  `_modified` into the document if the schema declares it, and its
+  compare-and-swap (`addDocEqualityToQuery`) only includes `_modified` in the
+  `WHERE` clause if the schema declares it. Leaving it out keeps `_modified`
+  purely a **server-stamped pull cursor**, which is exactly what half 1's
+  trigger makes it. Step 5 shows why that choice is visible in the conflict
+  behaviour.
+
+---
+
+## Step 3 — PUSH: local RxDB write appears in Postgres
+
+```bash
+node proof-push.js
+```
+
+Real output (the RxDB dev-mode banner is elided):
+
+```
+# stack: rest=46233 realtime=46355 db=46011  run=r1784996962670
+initial replication done
+local insert  id=push-r1784996962670
+awaitInSync resolved
+postgrest verify HTTP 200
+row in postgres: [
+  {
+    "id": "push-r1784996962670",
+    "owner_id": "user-alice",
+    "body": "written locally in RxDB",
+    "_deleted": false,
+    "_modified": "2026-07-25T16:29:23.295004+00:00"
+  }
+]
+PUSH: PROVEN — the locally-created RxDB document exists as a Postgres row
+```
+
+The document was created with `collection.insert()` against local storage. It
+reached Postgres with no HTTP call written by us.
+
+Note `_modified` — nobody sent it. The client does not set it and the plugin
+explicitly `delete`s it before every update. It was stamped by the trigger in
+[`sql/spike-fixture.sql`](sql/spike-fixture.sql), i.e. **by the Postgres clock**.
+That is the property that makes the pull cursor trustworthy across clients with
+skewed clocks.
+
+**Failure this catches:** RxDB reporting "in sync" when the push actually
+failed. `awaitInSync()` only tells you RxDB has nothing queued — it is perfectly
+consistent with a write that was rejected and dropped. That is why the
+verification is a **separate HTTP request that does not go through RxDB at
+all**. You can run the same check by hand:
+
+```bash
+export PATH="/usr/local/go/bin:$PATH"
+cd .night-crew/qa/spike-supabase
+TOKEN="$(go run ./mintjwt -secret 2508c659af3c4316b0a163a00725d33a9bc4eae75aa35ac9be6a007cacb8251c -sub user-alice)"
+REST=$(cd ../../.. && docker compose -p spike-supabase -f docker-compose.supabase.yml port rest 3000 | cut -d: -f2)
+curl -s -w '\nHTTP %{http_code}\n' -H "Authorization: Bearer $TOKEN" \
+  "http://127.0.0.1:$REST/spike_notes?id=eq.push-r1784996962670&select=*"
+```
+
+```
+[{"id":"push-r1784996962670","owner_id":"user-alice","body":"written locally in RxDB","_deleted":false,"_modified":"2026-07-25T16:29:23.295004+00:00"}]
+HTTP 200
+```
+
+---
+
+## Step 4 — PULL: Postgres write reaches a RUNNING client, no restart
+
+PUSH and PULL are two separate scripts on purpose. **A single script that starts
+replication and then observes "the data is on both sides" cannot tell you which
+direction carried it** — and a one-directional proof presented as bidirectional
+is the most common way this class of spike fools itself.
+
+`proof-pull.js` starts replication **once**, at the top, and from that point
+never restarts the process, never re-creates the collection, and never calls
+`reSync()`. Every write below is made over a raw `fetch` to PostgREST that RxDB
+knows nothing about.
+
+```bash
+node proof-pull.js
+```
+
+```
+# stack: rest=46233 realtime=46355 db=46011  run=r1784996964892
+initial replication done; local doc count = 7
+--- from here on the client is NEVER restarted and reSync() is NEVER called ---
+postgrest INSERT HTTP 201
+PULL/insert converged in 128 ms -> {"id":"pull-ins-r1784996964892","body":"born in Postgres"}
+postgrest UPDATE HTTP 200
+PULL/update converged in 129 ms -> {"id":"pull-ins-r1784996964892","body":"edited in Postgres, never touched locally"}
+postgrest SOFT-DELETE HTTP 204
+PULL/soft-delete converged in 121 ms -> findOne returns null
+PULL: PROVEN — insert, update and soft-delete made in Postgres all reached the running RxDB client with no restart and no manual reSync
+```
+
+Three cases, because they exercise different code paths:
+
+1. **remote INSERT** — a row the client has never held.
+2. **remote UPDATE** — a row the client *does* hold. This is the one that
+   actually exercises the checkpoint and the conflict path. **A pull
+   implementation can pass case 1 and fail case 2**, which is why they are not
+   collapsed into one.
+3. **remote soft-delete** (`_deleted = true`) — RxDB replication is soft-delete
+   only. A hard `DELETE` is invisible to a pull handler: the row simply stops
+   appearing and every offline replica keeps it forever. `findOne` returning
+   `null` is the proof the soft-delete propagated as a deletion.
+
+The 45–130 ms convergence times are the evidence that this came over the
+Realtime `postgres_changes` stream and not a retry. `replicateSupabase`'s
+`retryTime` defaults to 5000 ms; anything arriving two orders of magnitude
+faster than that did not arrive by retry.
+
+**Failure this catches:** a Realtime subscription that is not actually live.
+Half 1's proof R3 established that a `phx_join` can reply `{"status":"ok"}` with
+a `postgres_changes` id while the subscription has in fact **failed**, the real
+error arriving later on a separate `system` frame. A client that only checks the
+join reply believes it is subscribed and then silently never receives anything —
+which in an offline-first PWA looks exactly like "the other person hasn't
+saved yet". This script would hang on that; the 30 s `timeout()` on each case
+turns the hang into a visible, attributable failure instead of a green run.
+
+**Both directions are therefore proven, separately and explicitly.**
+
+---
+
+## Step 5 — CONFLICT: what actually happens is *not* last-write-wins
+
+The explore session chose "last-write-wins, no custom conflict handler". This
+step does not assume that. It constructs one concurrent-write case and records
+what happens.
+
+The case, and why it is shaped this way:
+
+1. one document, agreed on both sides;
+2. the client goes offline (replication cancelled);
+3. **Postgres is edited first** (T1);
+4. **RxDB is edited second** (T2 > T1) — the local write is *strictly later* in
+   wall-clock time;
+5. the client reconnects, reusing the **same `replicationIdentifier`** so this is
+   a genuine reconnect of the same replica rather than a fresh client.
+
+Step 4 is load-bearing. Under genuine last-write-wins the later write — the
+local one — must survive.
+
+`proof-lww.js` installs an **observing** conflict handler that delegates every
+decision to RxDB's own `defaultConflictHandler` and only *prints* what it was
+asked and what it answered. Behaviour is unchanged; making the handler nicer
+would have destroyed the answer we were after.
+
+```bash
+node proof-lww.js
+```
+
+```
+# stack: rest=46233 realtime=46355 db=46011  run=r1784996967135
+1. agreed state       remote: {"id":"lww-r1784996967135","owner_id":"user-alice","body":"agreed-original","_deleted":false,"_modified":"2026-07-25T16:29:27.604558+00:00"}
+2. replication cancelled — the client is now "offline"
+3. remote edit HTTP 200 at T1 -> {"id":"lww-r1784996967135",...,"body":"REMOTE-EDIT (written first, T1)","_modified":"2026-07-25T16:29:27.63884+00:00"}
+4. local edit at T2=2026-07-25T16:29:29.153Z -> local body now: LOCAL-EDIT (written second, T2)
+5. reconnecting...
+
+=========================== OBSERVED ===========================
+local  body after reconnect : REMOTE-EDIT (written first, T1)
+remote body after reconnect : REMOTE-EDIT (written first, T1)
+remote _modified            : 2026-07-25T16:29:27.63884+00:00   (stamped by the Postgres trigger, i.e. the SERVER clock)
+local write happened at     : 2026-07-25T16:29:29.153Z   (the CLIENT clock)
+replication errors surfaced : 0 []
+conflict handler invocations: 1
+  - assumedMasterState.body: agreed-original
+    newDocumentState.body  : LOCAL-EDIT (written second, T2)    <- the local (later) write
+    realMasterState.body   : REMOTE-EDIT (written first, T1)    <- what the server actually held
+    handler CHOSE          : REMOTE-EDIT (written first, T1)
+
+VERDICT: the LATER (local) write WAS DISCARDED
+VERDICT: the EARLIER (remote) write SURVIVED
+NOT last-write-wins. The winner is the MASTER (server) state regardless of which write happened later; no timestamp participated in the decision.
+the losing write was discarded SILENTLY — nothing was emitted on error$ for the app to react to.
+================================================================
+```
+
+Reproduced identically on two independent runs (`r1784996803916` and
+`r1784996967135`).
+
+### Which clock decided: none
+
+This is the part worth being precise about, because "last-write-wins" invites the
+question "whose clock?" and the honest answer is that **no clock participated at
+all**.
+
+The mechanism, read out of
+`rxdb/node_modules/rxdb/dist/esm/plugins/replication-supabase/index.js`, is
+**optimistic concurrency, not timestamp comparison**. The push handler issues:
+
+```
+UPDATE spike_notes SET ... WHERE id = ... AND owner_id = ... AND body = <assumed master value> AND _deleted = ...
+```
+
+— a compare-and-swap against the state the client *believed* the server held.
+The remote edit had already changed `body`, so zero rows matched, so the plugin
+re-fetched the row and handed it to RxDB as a conflict. RxDB then applied its
+default conflict handler, which is documented in its own source as:
+
+```js
+resolve(i) {
+    /**
+     * The default conflict handler will always
+     * drop the fork state and use the master state instead.
+     */
+    return i.realMasterState;
+}
+```
+
+So the resolution rule is **master (server) wins, unconditionally**. `_modified`
+never entered the decision — with `_modified` absent from the collection schema
+it is not even in the compare-and-swap; it is only the pull cursor. Making the
+local clock later, or earlier, or skewed by an hour changes nothing.
+
+### Why this is a finding and not a bug
+
+Server-wins is a perfectly defensible policy. What makes it a finding is the gap
+between it and what was assumed, and the fact that **the loss is silent**:
+`error$` emitted nothing. There is no signal an application could subscribe to in
+order to tell a crew member "the temperature you recorded while offline was
+discarded." From inside the app the offline edit simply never happened.
+
+For HQ specifically: a crew member fills in a checklist on a phone with no
+signal in the truck; a manager edits the same submission from the office; the
+crew member's phone reconnects. **On this configuration the crew member's work
+is dropped without a word.** That is a product decision, not an implementation
+detail, and it is **not fixed in this card** — it is recorded and routed to the
+operator. See `.night-crew/runs/2026-07-25-autonomous/DECISIONS-NEEDED.md`.
+
+RxDB does support a per-collection custom `conflictHandler` — the hook this
+harness used as a read-only probe is the same hook a real policy would be
+written into. Sizing for that is in the design note.
+
+**Failure this catches:** shipping offline-first on the belief that an offline
+edit is safe until something newer overwrites it, when reconnecting can discard
+it with no error.
+
+---
+
+## Step 6 — licensing and storage: what the real PWA would actually use
+
+**This is a go/no-go input, not trivia**, so it was checked against RxDB's own
+current pages rather than taken on anyone's word.
+
+### The answer
+
+**The free path is sufficient. HQ does not need an RxDB premium licence to ship
+this.**
+
+- The `rxdb` npm package ships **Apache-2.0** — verified locally, not inferred:
+  `rxdb@17.4.0`'s `package.json` says `"license": "Apache-2.0"` and
+  `node_modules/rxdb/LICENSE.txt` is the full Apache 2.0 text.
+- **Dexie storage (`rxdb/plugins/storage-dexie`) is free**, and is the browser
+  storage a real HQ PWA would use on the free tier.
+- **IndexedDB storage is premium.** Source: <https://rxdb.info/rx-storage.html>,
+  which marks it `👑 IndexedDB` and says to use it *"if you have 👑 premium
+  access"*. The same page's own recommendation reads: *"Use the LocalStorage
+  storage for simple setup and small build size. For bigger datasets, use either
+  the dexie.js storage (free) or the IndexedDB RxStorage if you have 👑 premium
+  access."*
+- Corroborated by <https://rxdb.info/premium/>, whose free tier lists *"Default
+  RxStorage (Dexie, Memory, LokiJS)"* and whose paid tiers list RxStorage
+  **OPFS**, **IndexedDB**, **SQLite**, **Filesystem**, **Worker**,
+  **SharedWorker**, **Sharding**, **Memory-Mapped** and the **Localstorage Meta
+  Optimizer**.
+
+**The operator's reading was correct**: Dexie is the free browser path,
+IndexedDB is premium. Premium buys *performance*, not *capability* — it is an
+optimisation available later, not a gate on starting. Note that the free Dexie
+storage is itself an IndexedDB-backed store (via dexie.js); the premium
+`storage-indexeddb` is a faster direct implementation, not the only way to reach
+IndexedDB.
+
+You will see RxDB advertise this in your own console on every run — that banner
+is dev-mode's, and it is worth reading once rather than filtering out forever:
+
+```
+🤗 Hint: To get the most out of RxDB, check out the Premium Plugins
+to get access to faster storages and more professional features: https://rxdb.info/premium/
+```
+
+### Is the Supabase replication a supported plugin or an example we would maintain?
+
+**It is a real, shipped plugin.** The BACKLOG's wording is correct. Verified
+three ways, deliberately not just by reading the marketing page:
+
+1. It is **in the npm tarball**: `rxdb@17.4.0` exports `./plugins/replication-supabase`
+   from its `package.json`, and `dist/esm/plugins/replication-supabase/index.js`
+   is 247 lines of real implementation exporting `replicateSupabase()`, with
+   TypeScript types in `dist/types/plugins/replication-supabase/`.
+2. `rxdb@17.4.0`'s own shipped `README.md` lists it among *"production-ready
+   plugins to easily replicate with … Supabase …"*.
+3. The docs page <https://rxdb.info/replication-supabase.html> documents the
+   import as `import { replicateSupabase } from 'rxdb/plugins/replication-supabase';`
+   with no "example", "community" or "beta" caveat.
+
+**But size it as young, not mature.** From `rxdb`'s own shipped `CHANGELOG.md`:
+
+```
+### 16.19.0 (4 September 2025)
+- ADD [Supabase Replication Plugin](https://rxdb.info/replication-supabase.html) (beta)
+```
+
+It entered **as beta in 16.19.0 (4 Sept 2025)**, roughly ten months before the
+17.4.0 we are on (13 July 2026), and has been actively worked since — the
+changelog also records `FIX(supabase-replication) push.modifier is not used`
+(16.20.0) and `feat: replication-supabase querybuilder` (16.21.0).
+
+So: **we would not be maintaining the replication protocol ourselves** — that
+cost is not in the sizing. What we *would* be is an early adopter of a
+young plugin on a self-hosted stack its author almost certainly tests against
+hosted Supabase. Budget for reading its source when something behaves oddly, as
+this card had to. It is 247 readable lines; that is a small, bounded risk, not
+an open-ended one.
+
+---
+
+## Step 7 — what a Node-side proof does NOT establish
+
+Naming this limit is part of the deliverable, so it is stated plainly rather
+than buried.
+
+**This harness proves the replication protocol.** Specifically: that RxDB's
+push handler, pull handler, checkpoint cursor, Realtime change stream and
+conflict resolution all function correctly against a self-hosted,
+GoTrue-less, Kong-less Supabase using an HQ-minted HS256 token.
+
+**It does not prove, and must not be cited as proving:**
+
+- **Browser storage behaviour.** These runs used `getRxStorageMemory()`. Nothing
+  here exercises Dexie/IndexedDB, its quota limits, its eviction behaviour under
+  storage pressure, Safari's stricter eviction, or private-browsing mode. A
+  memory store cannot fail the way a browser store fails.
+- **Persistence across reloads.** Memory storage starts empty every run. The
+  fact that the pull proof re-reads everything on start is a property of the
+  harness, not evidence about a real client's warm start.
+- **Service-worker interaction.** HQ's `sw.js` is a Workbox-generated worker with
+  network-first API handling and an offline JSON fallback. How that interacts
+  with RxDB's own fetches and with a long-lived Realtime WebSocket is completely
+  untested here, and is a genuine risk area — an offline fallback that answers a
+  replication request with cached JSON is a plausible and nasty failure.
+- **PWA offline semantics.** No airplane mode, no flaky network, no backgrounded
+  tab, no iOS killing the page. Step 5's "offline" was `rep.cancel()` — a clean,
+  cooperative pause, which is the *friendliest* possible version of going
+  offline.
+- **Leader election across tabs.** `waitForLeadership: false` was set precisely
+  because the harness is one process. In a browser this defaults to `true` and
+  multi-tab behaviour is a real, untested surface.
+- **Anything about HQ's actual data model,** its volume, its relations, or how
+  RLS should be written for it. The fixture is one flat table with a
+  single-owner predicate.
+
+The next card should carry a browser-side check for at least the storage and
+service-worker items; they are the two most likely to produce a nasty surprise.
+
+---
+
+## What the shim means for the real migration
+
+Step 1's `global.fetch` + `realtime.transport` shim exists only because half 1
+deliberately omitted Kong. It is ~25 lines and it worked first try, so it is not
+a problem — but it does surface a real decision the migration has to make:
+
+**either** run the Supabase API gateway (Kong) so `supabase-js` sees the single
+origin it expects, **or** keep the gateway-less stack and ship a small,
+permanent client-construction helper in HQ that points supabase-js at two
+separate origins.
+
+Both are viable. The second is what this spike ran on and it is arguably
+cleaner — one fewer service, one fewer thing to secure — but it is a **standing
+piece of HQ code that tracks a supabase-js internal** (the derived
+`rest/v1` / `realtime/v1` paths), and supabase-js could change that in a minor
+release. This belongs to the card `sync-jwt-bridge-endpoint` / whichever card
+owns client construction, and should be decided rather than inherited by
+accident.
+
+---
+
+## Sharp edges, half 2
+
+Numbered continuing from half 1's list.
+
+**9. dev-mode refuses a storage with no schema validator (`DVM1`).** Enabling
+`RxDBDevModePlugin` and then calling `createRxDatabase({ storage: getRxStorageMemory() })`
+throws:
+
+```
+RxError (DVM1): When dev-mode is enabled, your storage must use one of the schema
+validators at the top level.
+```
+
+The fix is to wrap the storage —
+`wrappedValidateAjvStorage({ storage: getRxStorageMemory() })` — as
+`spike-env.js` does. Measured, not guessed. Worth knowing before it eats twenty
+minutes.
+
+**10. `waitForLeadership` defaults to `true`.** In a browser that is correct: one
+tab replicates and the others follow. In a single-process Node script it is
+simply a way to make `awaitInitialReplication()` never resolve. All three proofs
+set it to `false`, and that is a harness concession — **a real browser client
+should leave it at the default.**
+
+**11. `_modified` in the schema is a semantics switch, not a formality.**
+Declaring it changes two behaviours at once: the plugin starts round-tripping the
+server timestamp into the document, *and* `addDocEqualityToQuery` starts
+including `_modified` in the compare-and-swap `WHERE`. The latter makes conflict
+detection strictly tighter — any server-side touch, even a semantically
+irrelevant one, becomes a conflict. Leaving it out (as here) keeps `_modified` a
+pure pull cursor. Decide this deliberately in
+`sync-rxdb-schema-and-replication`; do not let it be decided by whether someone
+copied the field into the schema.
+
+**12. Node 20 has no global `WebSocket`.** `typeof globalThis.WebSocket` is
+`undefined` on v20.20.0, so `@supabase/realtime-js` needs an explicit
+`realtime.transport`. This is a harness-only concern — browsers have one — but
+it will reappear if HQ ever runs a replication client server-side.
+
+**13. Re-running is safe, by construction and not by cleanup.** Every proof
+writes ids prefixed with a fresh per-run token (`push-r<epoch-ms>`, and so on),
+so no run can ever collide with a previous run's rows and **no reset step is
+needed**. The cost is that `spike_notes` accumulates rows; that is deliberate —
+half 1's stack is throwaway and its teardown drops the volume anyway. If you
+want it empty, tear the stack down and bring it back up.
+
+---
+
+## Teardown — still a separate, deliberate act
+
+Half 2 adds no service and no volume, so half 1's teardown is still the whole
+teardown, and it is still **not run automatically by anything in this
+document**. The stack is left running on purpose.
+
+```bash
+docker compose -p spike-supabase -f docker-compose.supabase.yml down --volumes
+```
+
+The harness's own `node_modules/` is gitignored and reinstallable with
+`npm ci` from `rxdb/package-lock.json`; delete it whenever you like.
