@@ -3,10 +3,15 @@
      sections below, starting at heading level 2 and with no document title, so
      that it CONCATENATES cleanly under whatever title/earlier sections the
      orchestrator's copy already has. If both sides exist at merge time, KEEP
-     BOTH — the orchestrator's F1 parking section must survive intact. W2
-     overwrote nothing. -->
+     BOTH — the orchestrator's FORK 1 (F1 regression) and FORK 2 sections must
+     survive intact. W2 overwrote nothing.
 
-## W2 `sync-spike-rxdb-replication` — FORK 1: RxDB's conflict behaviour is not the last-write-wins the decision assumed
+     NUMBERING: W2 checked `overnight-20260725` at 396b97e and found the
+     orchestrator's copy already using FORK 1 and FORK 2, so W2's forks are
+     numbered 3 and 4. If the numbering has moved again by merge time,
+     renumber these two — the content, not the number, is the payload. -->
+
+## FORK 3 (W2 `sync-spike-rxdb-replication`) — RxDB's conflict behaviour is not the last-write-wins the decision assumed
 
 **Status of the card: not blocked.** W2 completed with a **GO** on RxDB. This is
 a finding that needs a product decision, not a failure. Nothing was "fixed" in
@@ -89,7 +94,7 @@ conflict policy is that card's real work — but it does not block W2 merging.
 
 ---
 
-## W2 `sync-spike-rxdb-replication` — FORK 2 (minor): Kong, or a permanent client shim?
+## FORK 4 (W2 `sync-spike-rxdb-replication`, minor) — Kong, or a permanent client shim?
 
 Lower stakes, but it should be decided rather than inherited by accident.
 
