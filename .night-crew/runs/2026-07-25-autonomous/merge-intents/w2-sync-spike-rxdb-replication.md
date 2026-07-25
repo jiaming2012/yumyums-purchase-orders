@@ -103,3 +103,50 @@ top of W1's final text. No W1/W2 textual conflict is expected in those two files
 because my content lives strictly after W1's terminal seam / verdict. The one
 file with a genuine concurrent-append shape is `timings.log`; a conflict there is
 resolved by **keeping both sides in chronological order**, never by picking one.
+
+---
+
+## Revision round (post-G6, docs-only)
+
+The card went to a fresh G6 adversarial reviewer: **PASS-WITH-FINDINGS**, with
+**one blocking finding, docs-only**. No proof was re-run, no harness logic
+touched, no suite re-run. The five constraints above are unchanged and still
+clean; the appends are still strictly additive (README 681/0, design note 242/0
+against `51d0c02`, W1's half 1 byte-identical).
+
+**Blocking finding — corrected.** I had written that the discarded write is
+silent *and* that there is no signal an application could subscribe to. The
+second half was wrong. `RxReplicationState` exposes `conflict$`
+(`rxdb/dist/esm/plugins/replication/index.js:44,51,287-289`) and in this exact
+scenario it emits one event carrying the discarded local write. I verified this
+myself before editing: read the shipped source, then ran a throwaway probe of
+the `proof-lww.js` scenario with a `conflict$` subscription added
+(`error$` 0 events, `conflict$` 1 event, `input.newDocumentState.body ==
+"LOCAL-EDIT (written second, T2)"`, `output` the server state). The probe was
+deleted, not committed; the runbook records the one-line change that reproduces
+it. Corrected in all three operator-facing places (runbook step 5,
+DECISIONS-NEEDED FORK 3, design-note sizing) to **silent by default** —
+nothing thrown, nothing on `error$`, nothing reaching the user without code —
+**but** the signal exists, so surfacing a discarded write is a subscription plus
+UI. **DECISIONS-NEEDED option 4 was re-priced accordingly**; that was the point
+of the fix, since its cost had been inflated into "new plumbing".
+
+**Three non-blocking factual fixes**, all confirmed against sources before
+changing:
+
+- Changelog attributions were off by one release each. `FIX(supabase-replication)
+  push.modifier is not used` is **16.21.0 (25 Nov 2025)**, not 16.20.0;
+  `feat: replication-supabase querybuilder` is **16.21.1 (2 Dec 2025)**, not
+  16.21.0. Verified in the shipped `node_modules/rxdb/CHANGELOG.md`. The
+  "young but actively maintained" conclusion is unaffected.
+- "45–130 ms" sat under a transcript showing 121/129 ms; the 45 came from the
+  untranscribed earlier run `r1784996802` (59/45/121 ms, in `timings.log`).
+  Both the runbook and the design note now use the transcribed numbers and name
+  the second run explicitly. The design note had the same defect in two more
+  places; all fixed for consistency.
+- The `rx-storage.html` quote was trimmed without an ellipsis, dropping
+  *"…which is a bit faster and has a smaller build size"*. Re-fetched the page
+  and restored the clause in full in both documents — it supports the
+  conclusion that premium buys speed, not capability.
+
+Nothing else was relitigated and no scope was added.

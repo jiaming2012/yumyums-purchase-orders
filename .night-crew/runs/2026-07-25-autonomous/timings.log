@@ -95,3 +95,7 @@ W2_G4_PW_END 1784999148 2026-07-25T13:05:48-04:00  # load: 2.87, 3.65, 3.16 — 
 # retry. Measured 1-min load rose 1.58 -> 4.20 across the leg (this box runs ~13
 # unrelated containers plus 3 docker stacks). NOT sync.spec.js:1198. Reported with
 # the load, deliberately NOT attributed — one observation is not an attribution.
+
+W2_REV_START 1784999700 2026-07-25T13:15:00-04:00  # G6 PASS-WITH-FINDINGS: 1 blocking (docs-only) + 3 non-blocking. No proof re-run, no harness change, no suite re-run.
+W2_REV_PROBE 1784999944 2026-07-25T13:19:04-04:00  # throwaway conflict$ probe of the proof-lww scenario (deleted, not committed): error$ 0 events, conflict$ 1 event carrying input.newDocumentState.body='LOCAL-EDIT (written second, T2)'. G6 CONFIRMED — my original 'no signal to subscribe to' claim was WRONG.
+W2_REV_END   1785000265 2026-07-25T13:24:25-04:00  # load: 1.81,2.44,2.72 — 3 docs corrected, option 4 re-priced; five constraints still clean, appends still 0-deletion (README 681/0, design 242/0), stack left UP.

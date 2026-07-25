@@ -980,10 +980,13 @@ Three cases, because they exercise different code paths:
    appearing and every offline replica keeps it forever. `findOne` returning
    `null` is the proof the soft-delete propagated as a deletion.
 
-The 45–130 ms convergence times are the evidence that this came over the
-Realtime `postgres_changes` stream and not a retry. `replicateSupabase`'s
-`retryTime` defaults to 5000 ms; anything arriving two orders of magnitude
-faster than that did not arrive by retry.
+The **121–129 ms** convergence times transcribed above are the evidence that
+this came over the Realtime `postgres_changes` stream and not a retry (the
+earlier run `r1784996802`, logged in
+`.night-crew/runs/2026-07-25-autonomous/timings.log` but not transcribed here,
+was faster still: insert 59 ms / update 45 ms / soft-delete 121 ms).
+`replicateSupabase`'s `retryTime` defaults to 5000 ms; anything arriving two
+orders of magnitude faster than that did not arrive by retry.
 
 **Failure this catches:** a Realtime subscription that is not actually live.
 Half 1's proof R3 established that a `phx_join` can reply `{"status":"ok"}` with
@@ -1093,21 +1096,83 @@ local clock later, or earlier, or skewed by an hour changes nothing.
 ### Why this is a finding and not a bug
 
 Server-wins is a perfectly defensible policy. What makes it a finding is the gap
-between it and what was assumed, and the fact that **the loss is silent**:
-`error$` emitted nothing. There is no signal an application could subscribe to in
-order to tell a crew member "the temperature you recorded while offline was
-discarded." From inside the app the offline edit simply never happened.
+between it and what was assumed, and the fact that **the loss is silent by
+default**: nothing is thrown, `error$` emitted nothing, and nothing whatsoever
+reaches a crew member unless the application writes code to put it there. On
+this configuration, out of the box, the offline edit simply never happened as
+far as the user is concerned.
 
 For HQ specifically: a crew member fills in a checklist on a phone with no
 signal in the truck; a manager edits the same submission from the office; the
-crew member's phone reconnects. **On this configuration the crew member's work
-is dropped without a word.** That is a product decision, not an implementation
+crew member's phone reconnects. **As configured, the crew member's work is
+dropped without a word.** That is a product decision, not an implementation
 detail, and it is **not fixed in this card** — it is recorded and routed to the
 operator. See `.night-crew/runs/2026-07-25-autonomous/DECISIONS-NEEDED.md`.
 
+#### But "silent" is not "unobservable" — `conflict$` carries the lost write
+
+This distinction is load-bearing for sizing, so it is stated separately rather
+than folded into the sentence above. **An earlier draft of this runbook claimed
+there was no signal an application could subscribe to. That was wrong, and it
+inflated the cost of one of the operator's options.** Corrected here on measured
+evidence.
+
+`error$` really does emit zero events — that is reproduced and stands. But
+`error$` is not the only observable `replicateSupabase()` returns.
+`RxReplicationState` also exposes **`conflict$`**, and in this exact scenario it
+**emits one event carrying the discarded local write**.
+
+From the shipped source,
+`rxdb/node_modules/rxdb/dist/esm/plugins/replication/index.js`:
+
+```js
+// :44
+conflict: new Subject() // all conflicts that are reported by the remote on pushes, together with the conflictHandler output
+// :51
+this.conflict$ = this.subjects.conflict.asObservable();
+// :287-289
+this.internalReplicationState.events.resolvedConflicts.subscribe(conflict => {
+    this.subjects.conflict.next(conflict);
+})
+```
+
+Measured, not read: re-running the scenario above with
+`rep.conflict$.subscribe(...)` added alongside the existing `error$`
+subscription in `startReplication()` — a one-line addition to `proof-lww.js`,
+run as a throwaway probe and not committed — produced:
+
+```
+error$    emissions         : 0 []
+conflict$ emissions         : 1
+  [B] top-level keys              : [ 'input', 'output' ]
+  [B] input.assumedMasterState.body: agreed-original
+  [B] input.newDocumentState.body : LOCAL-EDIT (written second, T2)
+  [B] input.realMasterState.body  : REMOTE-EDIT (written first, T1)
+  [B] output.body                 : REMOTE-EDIT (written first, T1)
+```
+
+`input.newDocumentState` **is the discarded document, in full**. So an
+application already has everything needed to tell the crew member *"the
+temperature you recorded while offline was replaced by the office's edit — here
+is what you had typed."* Surfacing a discarded write is therefore
+**`replicationState.conflict$.subscribe(...)` plus UI — not new plumbing.**
+
+Two precise caveats, so this is not over-read in the other direction:
+
+- `conflict$` is fed from a plain `Subject`, **not** a `ReplaySubject`. A
+  subscriber attached *after* the conflict has already resolved receives
+  nothing. Subscribe where the replication state is constructed, as the probe
+  did.
+- The event fires **per replication state**, not per document write, and carries
+  no user-facing text. Deciding *what* to show, *when*, and what the crew member
+  can do about it is still real product work. What is cheap is the signal, not
+  the experience.
+
 RxDB does support a per-collection custom `conflictHandler` — the hook this
 harness used as a read-only probe is the same hook a real policy would be
-written into. Sizing for that is in the design note.
+written into. That hook decides *which value wins*; `conflict$` is how the app
+finds out a decision was made. They are complementary, and both are already
+there. Sizing is in the design note.
 
 **Failure this catches:** shipping offline-first on the belief that an offline
 edit is safe until something newer overwrites it, when reconnecting can discard
@@ -1132,10 +1197,13 @@ this.**
   storage a real HQ PWA would use on the free tier.
 - **IndexedDB storage is premium.** Source: <https://rxdb.info/rx-storage.html>,
   which marks it `👑 IndexedDB` and says to use it *"if you have 👑 premium
-  access"*. The same page's own recommendation reads: *"Use the LocalStorage
-  storage for simple setup and small build size. For bigger datasets, use either
-  the dexie.js storage (free) or the IndexedDB RxStorage if you have 👑 premium
-  access."*
+  access"*. The same page's own recommendation reads, in full: *"In the Browser:
+  Use the LocalStorage storage for simple setup and small build size. For bigger
+  datasets, use either the dexie.js storage (free) or the IndexedDB RxStorage if
+  you have 👑 premium access which is a bit faster and has a smaller build
+  size."* The trailing clause is quoted rather than trimmed because it is the
+  page saying, in its own words, exactly what premium buys — speed and build
+  size, not capability.
 - Corroborated by <https://rxdb.info/premium/>, whose free tier lists *"Default
   RxStorage (Dexie, Memory, LokiJS)"* and whose paid tiers list RxStorage
   **OPFS**, **IndexedDB**, **SQLite**, **Filesystem**, **Worker**,
@@ -1182,7 +1250,8 @@ three ways, deliberately not just by reading the marketing page:
 It entered **as beta in 16.19.0 (4 Sept 2025)**, roughly ten months before the
 17.4.0 we are on (13 July 2026), and has been actively worked since — the
 changelog also records `FIX(supabase-replication) push.modifier is not used`
-(16.20.0) and `feat: replication-supabase querybuilder` (16.21.0).
+(**16.21.0**, 25 Nov 2025) and `feat: replication-supabase querybuilder`
+(**16.21.1**, 2 Dec 2025).
 
 So: **we would not be maintaining the replication protocol ourselves** — that
 cost is not in the sizing. What we *would* be is an early adopter of a

@@ -47,15 +47,29 @@ the mechanism is a compare-and-swap against the assumed master state, and RxDB's
 (its own source comment: *"The default conflict handler will always drop the fork
 state and use the master state instead."*). Client clock skew is irrelevant.
 
-**And the loss is silent.** `error$` emitted zero events. There is no signal an
-application could subscribe to in order to know a write was discarded.
+**And the loss is silent by default.** `error$` emitted zero events, nothing was
+thrown, and nothing reaches a user without code written to put it there. Out of
+the box, the crew member's edit simply never happened as far as they can tell.
+
+**But it is not unobservable** — this was stated wrongly in the first draft of
+this fork and is corrected here, because it changes the price of option 4 below.
+`replicateSupabase()` returns an `RxReplicationState` that exposes a
+**`conflict$`** observable alongside `error$`
+(`rxdb/dist/esm/plugins/replication/index.js:44,51,287-289`). Re-running the
+scenario above with a `conflict$` subscription added gives **`error$` 0 events,
+`conflict$` 1 event**, whose `input.newDocumentState` is the discarded local
+write in full (`body: "LOCAL-EDIT (written second, T2)"`) and whose `output` is
+the server state that replaced it. So the app *can* be told, and can be told
+*what was lost* — it just isn't, unless someone subscribes.
 
 ### Why this needs you rather than an engineer
 
 Concretely for HQ: a crew member completes a checklist on a phone with no signal
 in the truck; a manager edits the same submission from the office; the phone
-reconnects. **The crew member's work is dropped without a word** — from inside
-the app the offline edit simply never happened.
+reconnects. **As configured today, the crew member's work is dropped without a
+word** — from inside the app the offline edit simply never happened. (What
+changes that is a `conflict$` subscription, above — but that is a decision
+someone has to make, and nobody has made it.)
 
 For a product whose stated core value is *"accountability — who checked what"*,
 whether that is acceptable is a product call, and which rule replaces it is a
@@ -66,20 +80,31 @@ wins" does not express it either.
 ### The shape of the options (not a recommendation — the choice is yours)
 
 RxDB supports a per-collection custom `conflictHandler`; that is the hook, and
-the implementation is small once the rule is decided. What is expensive is the
-rule, plus surfacing a discarded write to the user, which nothing does today.
+the implementation is small once the rule is decided. **What is expensive is the
+rule, not the plumbing** — the hook for deciding a winner exists, and so does
+the signal (`conflict$`) for telling the user a decision was made.
 
 1. **Accept master-wins as-is** — cheapest, and defensible for fields only one
    role ever edits. Requires deciding that silent loss is acceptable, or scoping
-   sync to rows where collisions cannot occur.
+   sync to rows where collisions cannot occur. Note this pairs cheaply with 4:
+   master-wins *plus a visible notice* is a materially different product from
+   master-wins in silence, and costs a subscription.
 2. **Genuine last-write-wins** — what was assumed. Needs a timestamp that
    actually participates in the decision, and a decision about *whose* clock;
    note the server stamps `_modified` via trigger, so a client-authoritative
    timestamp would be new work and would reintroduce clock-skew risk.
 3. **Field-level merge** — both edits survive when they touch different fields.
    Fits checklists well (different people fill different lines); most work.
-4. **Surface the conflict to the user** — orthogonal to 1–3 and arguably needed
-   under any of them, since today there is no signal at all.
+4. **Surface the conflict to the user** — orthogonal to 1–3 and arguably worth
+   doing under any of them. **Cheaper than the first draft of this fork implied.**
+   The signal already exists and already carries the lost document:
+   `replicationState.conflict$.subscribe(e => …)` gives you
+   `e.input.newDocumentState` (what the crew member had) and `e.output` (what
+   replaced it). The cost is a subscription plus UI — deciding what to show,
+   when, and whether the crew member can recover their value — **not new
+   plumbing in the sync layer.** Two caveats: `conflict$` is a plain `Subject`,
+   so you must subscribe where the replication is constructed or you miss the
+   event; and it fires per replication, carrying no user-facing text of its own.
 
 ### Where the evidence lives
 
@@ -88,6 +113,10 @@ rule, plus surfacing a discarded write to the user, which nothing does today.
   section "THE FINDING".
 - Reproduce: `cd .night-crew/qa/spike-supabase/rxdb && npm ci && node proof-lww.js`
   (needs W1's stack up and `/usr/local/go/bin` on PATH).
+- Reproduce the `conflict$` result: add `rep.conflict$.subscribe(c => console.log(JSON.stringify(c)))`
+  next to the existing `rep.error$.subscribe(...)` in `proof-lww.js`'s
+  `startReplication()` and re-run. One line; runbook half 2 step 5 has the
+  captured output.
 
 **This blocks sizing `sync-rxdb-schema-and-replication` accurately** — the
 conflict policy is that card's real work — but it does not block W2 merging.

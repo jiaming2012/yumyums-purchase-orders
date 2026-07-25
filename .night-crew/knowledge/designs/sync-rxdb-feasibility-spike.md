@@ -311,7 +311,8 @@ running — self-hosted Postgres + PostgREST + Realtime, no GoTrue, no Kong, an
 HS256 token minted by W1's stdlib-Go program — `rxdb@17.4.0`'s
 `replicateSupabase` plugin **pushed** a locally-created document into Postgres
 and **pulled** remote inserts, updates and soft-deletes into a *running* client
-in 45–130 ms with no restart and no manual `reSync()`. Both directions were
+in 45–129 ms across two runs, with no restart and no manual `reSync()`. Both
+directions were
 proven by separate scripts, because a combined proof cannot tell you which
 direction carried the data. The licensing question resolves in our favour: the
 `rxdb` package is Apache-2.0, the Dexie browser storage is free, and premium buys
@@ -320,8 +321,10 @@ The Supabase replication is a genuine shipped plugin, not an example we would
 maintain. **The one thing that did not survive contact with reality is the
 conflict policy**: the explore session assumed last-write-wins, and the observed
 behaviour is unconditional *master-wins* with the losing write discarded
-silently. That is a finding for the operator, recorded below and routed to
-DECISIONS-NEEDED, not something this card corrected.
+silently by default — nothing thrown, nothing on `error$`, nothing reaching the
+user without code, though `conflict$` does carry the discarded document for an
+app that subscribes. That is a finding for the operator, recorded below and
+routed to DECISIONS-NEEDED, not something this card corrected.
 
 ## Evidence
 
@@ -334,15 +337,18 @@ transcribed in runbook half 2; the summary:
 | Client reaches the gateway-less stack | REST rows returned, **bob's seed row absent** (RLS still discriminating through supabase-js); Realtime `SUBSCRIBED` | step 1a |
 | **Push** | local `collection.insert()` → row present in Postgres, verified over an independent request: `HTTP 200`, `_modified` stamped by the server trigger | step 3 |
 | **Pull, no restart** | remote INSERT converged 128 ms, remote UPDATE 129 ms, remote soft-delete 121 ms, all into a client that was never restarted and never `reSync()`-ed | step 4 |
-| Conflict | later local write **discarded**, earlier server write survived, `error$` emitted **0** events | step 5 |
+| Conflict | later local write **discarded**, earlier server write survived, `error$` emitted **0** events — but `conflict$` emitted **1**, carrying the discarded document | step 5 |
 | Licensing | `rxdb@17.4.0` `"license": "Apache-2.0"`; Dexie free, IndexedDB `👑` premium | step 6 |
 | Plugin vs example | real 247-line shipped plugin, `rxdb/plugins/replication-supabase` | step 6 |
 
-The 45–130 ms convergence is itself the evidence that pull arrived over the
+The convergence times are themselves the evidence that pull arrived over the
 Realtime stream rather than a retry: `replicateSupabase`'s `retryTime` defaults
-to 5000 ms.
+to 5000 ms, two orders of magnitude slower. The table's 121–129 ms are from the
+transcribed run (`r1784996964892`); the earlier run `r1784996802` was faster
+still (59 / 45 / 121 ms) and is recorded in
+`.night-crew/runs/2026-07-25-autonomous/timings.log`.
 
-## THE FINDING — conflict resolution is master-wins, not last-write-wins, and the loss is silent
+## THE FINDING — conflict resolution is master-wins, not last-write-wins, and the loss is silent by default
 
 **Read this before sizing anything else.**
 
@@ -375,11 +381,23 @@ clock in either direction changes nothing.
 
 **Why it matters for HQ, concretely.** A crew member completes a checklist on a
 phone with no signal in the truck. A manager edits the same submission from the
-office. The phone reconnects. **The crew member's work is dropped, and nothing
-is emitted on `error$` that the app could use to tell them.** From inside the app
-the offline edit simply never happened. For a product whose stated core value is
-"accountability — who checked what", silently losing the crew member's entry is
-a product-level problem, not a tuning detail.
+office. The phone reconnects. **The crew member's work is dropped, and as
+configured nothing tells them.** Nothing is thrown, `error$` emits zero events,
+and from inside the app the offline edit simply never happened. For a product
+whose stated core value is "accountability — who checked what", silently losing
+the crew member's entry is a product-level problem, not a tuning detail.
+
+**Silent by default, but not unobservable.** A first draft of this note said the
+default "surfaces nothing" full stop; that was wrong and is corrected here,
+because it mispriced one of the operator's options. `error$` emitting nothing is
+right, but `RxReplicationState` also exposes **`conflict$`**
+(`rxdb/dist/esm/plugins/replication/index.js:44,51,287-289`), and in this exact
+scenario it emits **one** event: `input.newDocumentState` is the discarded local
+write in full, `output` is the server state that replaced it. Measured by
+re-running the scenario with that one subscription added. So telling the user
+what they lost is a subscription plus UI, not new sync plumbing — see the
+re-priced option 4 in DECISIONS-NEEDED. What remains genuinely expensive is the
+*rule* and the *experience*, not the signal.
 
 **This card did not fix it, deliberately.** The observing conflict handler used
 to capture the evidence delegates every decision to the default and only prints
@@ -397,10 +415,12 @@ taken on anyone's word:
   `"license"` field and the full Apache text in `LICENSE.txt`).
 - **Dexie storage is free** and is the browser storage a real HQ PWA would use.
 - **IndexedDB storage is premium.** <https://rxdb.info/rx-storage.html> marks it
-  `👑 IndexedDB`, usable *"if you have 👑 premium access"*, and recommends:
-  *"Use the LocalStorage storage for simple setup and small build size. For
-  bigger datasets, use either the dexie.js storage (free) or the IndexedDB
-  RxStorage if you have 👑 premium access."* Corroborated by
+  `👑 IndexedDB`, usable *"if you have 👑 premium access"*, and recommends, in
+  full: *"In the Browser: Use the LocalStorage storage for simple setup and
+  small build size. For bigger datasets, use either the dexie.js storage (free)
+  or the IndexedDB RxStorage if you have 👑 premium access which is a bit faster
+  and has a smaller build size."* — the trailing clause quoted rather than
+  trimmed because it is the page stating what premium buys. Corroborated by
   <https://rxdb.info/premium/>, whose free tier is *"Default RxStorage (Dexie,
   Memory, LokiJS)"* and whose paid tiers add OPFS, IndexedDB, SQLite,
   Filesystem, Worker, SharedWorker, Sharding, Memory-Mapped and the Localstorage
@@ -425,8 +445,9 @@ example/community/beta caveat.
 **Size it as young, though.** `rxdb`'s shipped `CHANGELOG.md`:
 `### 16.19.0 (4 September 2025) — ADD Supabase Replication Plugin (beta)`. It
 entered as beta ~10 months before the 17.4.0 we are on, with active work since
-(`FIX(supabase-replication) push.modifier is not used` in 16.20.0,
-`feat: replication-supabase querybuilder` in 16.21.0). We are early adopters of
+(`FIX(supabase-replication) push.modifier is not used` in **16.21.0**,
+25 Nov 2025; `feat: replication-supabase querybuilder` in **16.21.1**,
+2 Dec 2025). We are early adopters of
 a young plugin on a self-hosted stack its author most likely tests against
 hosted Supabase. Budget reading its source when something is odd — as this card
 had to. 247 readable lines is a bounded risk.
@@ -469,7 +490,12 @@ The three things that will actually consume the time:
   implementation is a per-collection `conflictHandler` — a small function, but it
   needs a rule that covers HQ's actual multi-actor rows (a submission has a
   submitter *and* an approver; "owner" is not one field) and a way to surface a
-  discarded write to the user, since the default surfaces nothing.
+  discarded write to the user, since the default surfaces nothing *to the user*.
+  Size that second part as **UI, not plumbing**: `conflict$` already emits the
+  discarded document (verified — see THE FINDING), so it is
+  `replicationState.conflict$.subscribe(...)` plus whatever the crew member
+  should see. The expensive half is deciding what they should see and whether
+  they can recover the value, not getting hold of it.
 - **`_modified` in the schema: a semantics switch, not a formality.** Declaring
   it makes the plugin round-trip the server timestamp *and* makes
   `addDocEqualityToQuery` include `_modified` in the compare-and-swap, tightening
