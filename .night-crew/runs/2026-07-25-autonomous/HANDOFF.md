@@ -1,3 +1,14 @@
+> **TRIAGED 2026-07-25 — merged to `dev`, all four forks resolved (`ledger.md` T-22, decisions
+> 49–54).** Standing flags updated at the bottom of this file. Gate evidence for the merge is
+> the attended adversarial reproduction pass, **not the gate lines below** — a card's own
+> closeout is not evidence about that card. Five findings the closeout did not make are
+> recorded in T-22; the two that change what this document says:
+> **(1) §"THE ONE THING TO DO FIRST" is DONE** — W1's GO verdict is in `ledger.md`;
+> `sync-rxdb-schema-and-replication` and `sync-jwt-bridge-endpoint` are unblocked.
+> **(2) F1's regression is worse than described here.** It is not that "nothing renders" — the
+> submitted checklist comes back **editable, unbadged, and re-submittable with a fresh
+> idempotency key**, so a second submit writes a second row.
+
 # HANDOFF — run `overnight-20260725`
 
 **Branch:** `overnight-20260725` (never pushed; `main` and `dev` untouched)
@@ -372,3 +383,50 @@ Three, all operator-instructed at resume, plus one judgement call.
 
 **Nothing was pushed. `main` and `dev` are untouched. No production database, no hosted Supabase
 project, no infrastructure beyond local Docker containers** — as the slate required.
+
+---
+
+## Standing flags — updated at morning triage 2026-07-25
+
+**CLEARED by this morning's evidence:**
+
+- ~~W1's GO verdict must reach `ledger.md` before the three downstream cards dispatch.~~
+  **Cleared** — recorded in `ledger.md` T-22. Re-arms never; this was a one-time gate.
+- ~~FORK 1 / FORK 2 / FORK 3 / FORK 4 open.~~ **Cleared** — all four resolved, T-22 decisions
+  49–54.
+- ~~The run's judgement call not to re-run the full suite after merges 2 and 3 is unverified.~~
+  **Cleared by measurement, not by argument** — every shipped artifact hashes byte-identical
+  between `c14cbce` and `HEAD`. Re-arms whenever a card that merges after a measured suite leg
+  touches any shipped byte.
+- ~~The `IS NOT FALSE` snapshot gate might strand pre-existing rows.~~ **Cleared** — the NULL
+  variant cannot occur (`jsonb NOT NULL` column, no `omitempty` on the json tag). No backfill.
+
+**STILL ARMED:**
+
+- **Attended two-device convergence check** — carried from 2026-07-22, still unexercised. This
+  run did not touch production `sync.js` or `workflows.html`, so it neither exercised nor
+  re-armed it. **It re-arms whenever the verify/merge path or the live sync path changes
+  underneath it — which the F1 client-half card WILL do.** Expect to owe this check after that
+  card lands.
+- **`tests/sync.spec.js:1198`, the known ~16–20 % flake** — did not red at any point during the
+  run, across three full-suite legs and one subset leg, nor during triage. Still armed; and the
+  T-22 decision 54 seam fix will pull `sync.spec.js` into every future workflow card's gate,
+  raising this flake's exposure deliberately.
+- **`tests/purchasing.spec.js:1407` (FR-13)** — one flaky observation during the run (died on
+  `waitForLoadState('networkidle')` at 30 s, passed on retry), **deliberately not attributed**.
+  Not exercised at triage. Watch the next full-suite leg; one observation is not an attribution.
+- **`dev` is RED on two E2E specs** — `tests/repro-cut-task.spec.js:153` and
+  `tests/sync.spec.js:1581`, knowingly merged. **Disarms when
+  `workflow-submission-status-client-half` lands.** `dev` is not the deploy source, so this does
+  not reach prod.
+- **W1's runbook integrity claim is false** (T-22 decision 53) — six blocks of hand-composed
+  presentation. The facts all re-verify and W1's GO stands, but the document should not be
+  handed to anyone as "real captured output" until repaired. Disarms when repaired.
+- **The spike Supabase stack is still running and still untouched** —
+  `docker compose -p spike-supabase -f docker-compose.supabase.yml`. Teardown remains an
+  explicit, unexecuted runbook step. Two extra `lww-*` fixture rows were written during triage's
+  reproduction (17:39:49Z / 17:40:13Z) and are disclosed here so a later reader does not read
+  them as unexplained concurrent activity.
+- **`night-crew backlog check` rejects this repo's `BACKLOG.md` outright** — 220 issues across
+  63 entries, none carrying a `B-NN` handle. Pre-existing; HQ's backlog predates the handle
+  requirement. The validator is currently doing nothing for us here.

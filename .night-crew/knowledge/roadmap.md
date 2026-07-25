@@ -80,9 +80,15 @@
   live stack, with a `service_role` BYPASSRLS control ruling out the empty-table explanation.
   Verdict at `.night-crew/knowledge/designs/sync-rxdb-feasibility-spike.md`; runbook half 1 at
   `.night-crew/qa/spike-supabase/README.md`; stack left running deliberately.
-  🛑 **The verdict still has to reach `ledger.md` at morning triage before the three downstream
-  cards may dispatch** — Product KR1 / Delivery KR1 measure the ledger timestamp, and the ledger is
-  an attended artifact this run cannot write. · *(½ of the fanned-out
+  ✅ **The verdict REACHED `ledger.md` at morning triage 2026-07-25 (T-22)** — Product KR1 /
+  Delivery KR1 measure the ledger timestamp against `.night-crew/runs/` dispatch timestamps, and
+  the ledger entry now predates any downstream dispatch. **`sync-rxdb-schema-and-replication` and
+  `sync-jwt-bridge-endpoint` are UNBLOCKED and may be slated together** (disjoint footprints).
+  `sync-hard-cutover` stays double-blocked — it also needs the "Cross-user checklist hydration
+  divergence" backlog item routed through a `/nc-pm-session` (Product KR2). **Note for whoever
+  reads the runbook: T-22 decision 53 — six blocks of its "captured output" are hand-composed
+  presentation; the underlying facts all re-verify, but the document's own integrity claim
+  (`README.md:32-34`, `:724-727`) is currently false and wants repair.** · *(½ of the fanned-out
   `sync-rxdb-feasibility-spike` — the cycle's Wave-0 gate)* · Stand up self-hosted Supabase
   (Realtime + PostgREST, via Docker) in a **new, separate `docker-compose.supabase.yml`** —
   never by extending `docker-compose.nc.yml`, which would boot Supabase for every night-crew run
@@ -142,16 +148,36 @@
   go-decision reaching `ledger.md`; sized by `sync-spike-rxdb-replication` where it ran) · Define
   RxDB collections for checklists, templates, responses, and approvals (mirroring the current
   Postgres domain model), each satisfying the self-hosted table contract above. Wire RxDB's
-  Supabase replication plugin client-side. Last-write-wins conflict resolution (per the explore
-  session: checklist edit conflicts are rare, no custom conflict handler). Footprint:
-  `workflows.html`, new RxDB client layer.
+  Supabase replication plugin client-side. **🛑 UNBLOCKED AND RE-SCOPED at morning triage
+  2026-07-25 (ledger T-22 decision 50) — the conflict policy is this card's real work.** The
+  explore session's *"last-write-wins, no custom conflict handler"* is struck: RxDB's default is
+  unconditional **master-wins**, no clock participates, and a strictly-later local write is
+  discarded silently (reproduced four times, most recently at triage). The decided policy is a
+  **field-level three-way merge**: different fields edited by different people all survive; only a
+  genuine same-field clash falls back to master-wins, **and then `conflict$` must surface it to
+  the user with the discarded value recoverable**. Tractable because `assumedMasterState` is in
+  `RxConflictHandlerInput` (`conflict-handling.d.ts:10`) — diff fork-vs-assumed and
+  master-vs-assumed to know who changed what. It is **optional** in the type, so the rule needs a
+  defined fallback when absent. `conflict$` fires **per document** and carries the document id
+  (`upstream.js:333`), correcting W2's caveat. Footprint: `workflows.html`, new RxDB client layer.
 
 - **`sync-jwt-bridge-endpoint`** · **PLANNED** (depends on `sync-spike-stack-and-jwt-bridge`'s
   go-decision reaching `ledger.md`; disjoint footprint
   from the schema card, may build in parallel) · Go backend endpoint that mints the
   Supabase-compatible JWT from the existing session/bearer-token auth and grant data, bridging
   existing permissions into the `role`/`sub` claims Supabase's RLS policies read — no adoption
-  of Supabase Auth/GoTrue. Footprint: `backend/internal/auth` (or a new package), `backend/internal/sync`.
+  of Supabase Auth/GoTrue. **🛑 UNBLOCKED at morning triage 2026-07-25, and it carries two
+  findings from W1/W2 it must not rediscover.** (1) **`auth.uid()` is WRONG for HQ and every
+  copy-pasted hosted-Supabase policy will fail non-obviously** — without GoTrue's migrations the
+  `auth` schema ships only `email`/`role`/`uid`, and `uid` reads the *legacy singular* GUC
+  (`current_setting('request.jwt.claim.sub', true)`) with no plural fallback; under the stack's
+  `PGRST_DB_USE_LEGACY_GUCS: "false"` it returns NULL, and a non-UUID `sub` raises `invalid input
+  syntax for type uuid`. Verified at triage against the live catalog. (2) **This card owns FORK
+  4's resolution (T-22 decision 51): stay gateway-less** — no Kong — with a small permanent
+  client-construction helper in HQ using `global.fetch` and `realtime.transport`. **Rider: pin
+  `@supabase/supabase-js` and add a smoke test that fails loudly on upgrade**, since the coupling
+  is to how the library derives `<baseUrl>/rest/v1`, not to the public extension points.
+  Footprint: `backend/internal/auth` (or a new package), `backend/internal/sync`.
 
 - **`sync-hard-cutover`** · **PLANNED** (depends on schema+replication AND jwt-bridge) · Replace
   BOTH current write paths in `workflows.html` — `autoSaveField`→`POST /saveResponse` and
@@ -163,22 +189,42 @@
   data). Footprint: `workflows.html`, `sync.js` (deleted), `backend/internal/sync` (deleted),
   `backend/internal/workflow` (`/saveResponse` removed).
 
-- **`workflow-submission-status-default`** · **PLANNED — server half merged, CLIENT HALF REQUIRED
-  AND MISSING** (2026-07-25, run `overnight-20260725`). Server fix merged at `53e921d` and its Go
-  gates are green; the seam-confined subset leg was also green (102 passed / 1 skipped / 6 m 18 s).
-  **But the subset was the wrong suite:** the full suite reds `tests/repro-cut-task.spec.js:153`
-  and `tests/sync.spec.js:1581`, both proven by measurement to be an F1 regression (pass on `dev`,
-  fail with F1). `workflows.html` does not recognise the new `'completed'` status, so
-  `.submit-confirm` never renders. **Parked as a contract question — F1's own park trigger (ii)
-  — see `runs/2026-07-25-autonomous/DECISIONS-NEEDED.md` FORK 1.** Stays PLANNED per the run rule
-  that a card parking without a verdict does not flip. · (independent footprint, no dependency
-  on the sync cards) · `checklist_submissions.status` defaults to `'pending'` and
-  `submitChecklist` never updates it for `requires_approval:false` submissions, so no-approval
-  submissions read `'pending'` server-side forever. Harmless today (UI derives status from other
-  fields) but a trap for any future server-side status consumer. Normalize on submit or document
-  the invariant explicitly; red-first regression test. Footprint: `backend/internal/workflow`.
-  *(from BACKLOG "`checklist_submissions.status` never set for `requires_approval:false`
-  submissions")*
+- **`workflow-submission-status-default`** · **DONE — server half** (2026-07-25, run
+  `overnight-20260725`, merged `53e921d`). `submitChecklist` writes `status='completed'` for
+  `requires_approval:false` (a value the 0011 CHECK already permitted and nothing used — no
+  migration), and `pendingApprovals` gates on the submission's own frozen snapshot
+  (`(s.template_snapshot->>'requires_approval')::boolean IS NOT FALSE`) rather than the live
+  template flag, which closes the actual approvals leak. Go gates green; the two new tests were
+  proven to genuinely guard the fix (reverting `repository.go` at triage makes exactly those two
+  fail). The `IS NOT FALSE` NULL trap was probed adversarially and **is disarmed** —
+  `Template.RequiresApproval` is tagged `json:"requires_approval"` with no `omitempty` and
+  `template_snapshot` is `jsonb NOT NULL`, so the key is always written; no backfill needed.
+  🛑 **The client half is a separate card — see below.** · (independent footprint, no dependency
+  on the sync cards) · Footprint: `backend/internal/workflow`. *(from BACKLOG
+  "`checklist_submissions.status` never set for `requires_approval:false` submissions")*
+
+- **`workflow-submission-status-client-half`** · **PLANNED — next up, and it is a live regression
+  on `dev`** (split out at morning triage 2026-07-25; ledger T-22 decision 49). `workflows.html`
+  recognises only `submitted` / `pending_approval` / `pending` / `approved`, so the new
+  `'completed'` falls through to the **else** branch at `:2099-2105`: a submitted no-approval
+  checklist comes back **fully editable with a live `#submit-btn`, no badge, and
+  `fillState.readonly` false** — and `:1656` mints a fresh `idempotency_key` per submit, so a
+  second submit writes a **second submission row**. Two E2E specs are red on `dev` until this
+  lands: `tests/repro-cut-task.spec.js:153` and `tests/sync.spec.js:1581`.
+  **Chosen over reverting or mapping at the API boundary because `sync-hard-cutover` deletes the
+  API boundary a translation layer would live in** — the client must learn the DB's vocabulary
+  either way. **Surface is at least SEVEN call sites, not the four first named:** `:2065`,
+  `:2066`, `:2067` (list-card badges), `:2093-2095` (the render gate), `:2411` (`getProgress`
+  snapshot gate), `:2453` (hydration gate), `:2717` + `:2720` (the optimistic pair, which today
+  write `'submitted'` — a value the server never persists). `sync.js` has zero submission-status
+  comparisons; no other page reads it. **Must also:** keep `0b53d46` (the red-first Playwright
+  test already written on `card/f1-workflow-submission-status-default`) as this card's test; add
+  a test asserting the no-approval **submitted state renders**, because a triage sweep found only
+  two tests in the entire suite exercise it and both are the red ones (`GATE-01/03/06` pass
+  vacuously here); and land the `night-crew.toml:50-51` seam fix — `backend/internal/workflow`
+  and `workflows.html` → `["workflows", "persistence", "sync", "repro-cut-task"]` — which this
+  card is the first to depend on. Footprint: `workflows.html`, `tests/workflows.spec.js`,
+  `night-crew.toml`.
 
 ---
 

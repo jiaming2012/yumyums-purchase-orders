@@ -483,3 +483,39 @@ midpoint.
 **Triage-day actual (2026-07-23, attended): ~50m** — re-verify (build/vet/go test + one full E2E
 leg ~20m, zero harness faults), three fork resolutions, records. T-20's 2–4h harness-repair
 triage is the exception, not the rule, when the run lands clean.
+
+## Run 20260725 (`overnight-20260725`) — resumed by hand; F1 folded attended, W1+W2 dispatched serial
+
+| Card | Class | Impl | G6 | Land | Cycle | Outcome |
+|---|---|---|---|---|---|---|
+| F1 `workflow-submission-status-default` | Go fix + red-first, S–M | *(attended fold, unmeasured)* | n/a | — | — | MERGED server half; **regressed 2 E2E, client half split out** |
+| F1 subset Playwright leg | seam-confined subset | **6m18s** | — | — | — | GREEN — est. 8–12m, **~half the low end** |
+| W1 `sync-spike-stack-and-jwt-bridge` | **first-of-kind** infra+proof spike | **53m05s** | **5m14s** | ~11m | **~69m** | MERGED, GO (est. 165–345m — **~1/3 of the low end**) |
+| W2 `sync-spike-rxdb-replication` | **first-of-kind** client-library spike | **49m31s** | **7m02s** | ~6m | **~72m** | MERGED, GO (est. 120–255m — **under half the low end**); +9m25s revision round |
+| Orchestrator · F1 attribution investigation | unbudgeted root-cause | **21m43s** | — | — | — | Turned a refused attribution into a proven cause |
+| Full Playwright legs (×3) | — | 22.0m / 8.3m / 30.5m | — | — | — | est. ~20m — at/over |
+
+**Serial critical path predicted 6–12 h; actual resume→closeout ~3 h.**
+
+**The night's biggest ledger signal: both first-of-kind cards came in at roughly a third of their
+low estimate, and the leg the slate called "the sharpest edge" — self-hosted Realtime tenant
+bring-up, priced 30–90 m — took 3 m 22 s.** The slate priced them wide *because* the ledger had no
+signal, which was correct discipline; the ledger now has one. **Do not read this as "spikes are
+cheap."** The dominant cost of both cards was not the spike — it was the ~20–30 m full Playwright
+suite each had to pay, plus the orchestrator's 21 m attribution investigation. **Price future spike
+cards on suite time and investigation risk, not on infra time.**
+
+**Counter-signal, and it is the one that should change a decision: a green subset bought false
+confidence.** F1 was seam-confined, paid the `workflows|persistence` subset, went green at 102
+passed / 6 m 18 s — and shipped a regression anyway, because neither failing spec was in the
+subset. The subset actual (6 m 18 s vs. the 8–12 m estimate) is *real* and worth carrying, but the
+cheapness is not a reason to prefer subsets: **the seam map, not the estimate, is what decides
+whether a subset is honest.** T-22 decision 54 widens the workflow seam; expect seam-confined
+workflow cards to cost `sync.spec.js` from now on, which will move this class's actual upward and
+should.
+
+**Triage-day actual (2026-07-25, attended): ~85m** — longer than the 2026-07-23 ~50 m baseline, and
+the difference is entirely the adversarial reproduction pass (~18 m wall clock unattended, but it
+produced five findings the closeout missed, two of which changed a fork's answer). **That is the
+trade to remember: an unattended reproduction pass costs the operator nothing and repriced FORK 1
+from four call sites to seven.**

@@ -417,10 +417,13 @@
 
 - **`checklist_submissions.status` never set for `requires_approval:false` submissions** ·
   Defaults `'pending'` and `submitChecklist` never updates it, so no-approval submissions read
-  `'pending'` server-side forever. Harmless today (UI derives from other fields) but a trap for
-  any future server-side status consumer — normalize on submit or document the invariant. ·
-  origin: overnight-20260721 A1 impl (§C) · **promoted → `workflow-submission-status-default`**
-  (roadmap Activity 1, `/nc-roadmap-round` 2026-07-25)
+  `'pending'` server-side forever. ~~Harmless today (UI derives from other fields)~~ — **that
+  premise was DISPROVEN by run 20260725: the stuck `'pending'` was load-bearing.** It hit the
+  `isPending` branch and rendered wrong-but-present copy, so removing it without a client change
+  left the checklist editable and re-submittable. · origin: overnight-20260721 A1 impl (§C) ·
+  **promoted → `workflow-submission-status-default`** (server half, DONE 2026-07-25) **+
+  `workflow-submission-status-client-half`** (split out at morning triage 2026-07-25, ledger
+  T-22 decision 49)
 - ~~**Rejected-field hydrate quirk: new answer visually clears on reload until resubmission**~~ ·
   Answering a rejected field then reloading blanks the new answer visually
   (`workflows.html:1544` hydrate branch prefers the rejection snapshot); device-local, LOW.
@@ -633,3 +636,15 @@
   migration. · origin: operator explore session 2026-07-24 · **promoted → `sync-rxdb-feasibility-spike`,
   `sync-rxdb-schema-and-replication`, `sync-jwt-bridge-endpoint`, `sync-hard-cutover`** (roadmap
   Activity 1 "Sync foundation", `/nc-roadmap-round` 2026-07-25)
+
+<!-- Handled entries start here. The 63 entries above predate the B-NN requirement and are why
+     `night-crew backlog check --file` currently rejects this document (220 issues). New entries
+     carry handles from 2026-07-25 forward; migrating the historical ones is B-02. -->
+
+- **B-01 · Repair the W1 Supabase runbook's fabricated presentation** — `.night-crew/qa/spike-supabase/README.md` asserts twice (`:32-34`, `:724-727`) that its output blocks are "real captured output, not a reconstruction"; six blocks are hand-composed. All underlying facts re-verify and W1's GO stands, so this is a document-integrity repair, not a verdict change. · _morning triage 2026-07-25_ · new · lead: ten `HTTP nnn` annotations sit on `curl` calls carrying no `-w`/`-i`/`-D -`; `rtwatch` RECV lines are stripped of the `topic=` column `main.go:144` always prints; the `(5 more alice rows)` elision at `:821` implies 6 where the DB held 8 — re-run each block with real capture flags and paste what comes back.
+
+- **B-02 · Migrate `BACKLOG.md` to B-NN handles so the validator does something** — 63 historical entries carry no handle, no one-line description and no lead, so `night-crew backlog check --file .night-crew/knowledge/BACKLOG.md` fails with 220 issues and gives us no signal at all. · _morning triage 2026-07-25_ · new · lead: run the checker, take its per-entry complaints as the worklist, and assign handles in file order from B-03 up; the "unrecognized status" complaints are mostly rich promoted-→ strings the grammar does not accept, so decide whether to simplify them or widen the grammar before bulk-editing.
+
+- **B-03 · Route the run's gray areas through the decisions resolver** — `night-crew decisions audit --repo . --run 20260725` reports "no gray areas routed through the resolver yet", so preference coverage is undefined rather than low; the run parked its forks straight into `DECISIONS-NEEDED.md`. · _morning triage 2026-07-25_ · new · lead: the four forks this run parked are exactly the material the resolver wants — wire the park path to route through it so the coverage number has a denominator, otherwise the audit stays decorative every cycle.
+
+- **B-04 · Watch `tests/purchasing.spec.js:1407` (FR-13)** — one flaky observation during run 20260725: died on `waitForLoadState('networkidle')` at the 30 s timeout, passed on retry, measured load 1.58 → 4.20. Deliberately not attributed — one observation is not an attribution. · _morning triage 2026-07-25_ · new · lead: if it reds again, re-run it in isolation on a quiet box before attributing; `networkidle` under a loaded box is the obvious suspect and is a different fix from a real product race.

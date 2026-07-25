@@ -1070,3 +1070,120 @@ hypothesis recorded on the backlog entry: a menu item with sales but zero recipe
 produces ingredient_cost_total = 0 → 0% food cost — likely correct-but-misleading display
 (wants an "unallocated" marker distinct from a genuine 0%) rather than a computation bug.
 Investigate when prod sales sync lands and the Cost tab carries real rows.
+
+## T-22 — Morning-triage resolutions (2026-07-25, overnight-20260725)
+
+**Gate evidence here is an adversarial reproduction pass, not the run's own closeout lines.** A
+card's own closeout is not evidence about that card, so a fresh reviewer — briefed to falsify the
+closeout's claims rather than confirm them — rebuilt in its own worktrees and re-executed: `go
+build ./...` / `go vet ./...` exit 0; `go test ./... -count=1 -p 1` green across **9 named
+packages** (`workflow` verbose = 32 RUN / 32 PASS, so not a silently-empty package); the two
+implicated E2E specs re-run on **both** trees — **2 failed** on `overnight-20260725`, **2 passed**
+on `dev` @ `d37fb10` — confirming F1's attribution independently; W2's master-wins finding
+reproduced a **fourth** time; W1's four RLS discrimination proofs reproduced against the live
+stack, including the `service_role` BYPASSRLS control. Blast-radius attestation independently
+confirmed: all five HARD files absent from the full diff, and **every shipped artifact hashed
+byte-identical between `c14cbce` and `HEAD`** — which validates the run's judgement call not to
+re-run the full suite after merges 2 and 3.
+
+**Conflict-log audit passed.** 3 merges, 3 entries; all three merge-intents committed as their
+card's first commit, each carrying the three durable fields. Resolutions verified against the
+diffs, not the prose: W1's runbook half 1 byte-identical above the seam (704 lines), `timings.log`
+union lossless in both directions, and the `DECISIONS-NEEDED.md` add/add concatenation dropping
+only W2's own merge-note whose instruction had been discharged. Merge 2's handling of W1's false
+"pre-existing" inference — W1's measurements kept verbatim, the correction appended and attributed
+to the orchestrator — is the correct resolution and reads correctly.
+
+Merged `--no-ff` to `dev` knowingly red on two E2E specs. `dev` is not the deploy source (releases
+promote a tag to `main`), so the regression does not reach prod.
+
+**Decision 49 — FORK 1: add the client half (option a).** Chosen over (b) reverting the
+normalization and (c) mapping at the API boundary. The decisive argument is one the fork document
+did not carry: Activity 1 ends in `sync-hard-cutover`, where RxDB replicates rows straight from
+Postgres and **there is no API boundary left to translate at** — so (c) is a translation layer with
+a known expiry date, and the client must learn the database's own vocabulary either way. (b) was
+rejected because it abandons the card's premise while keeping the wrong copy forever; note it would
+have been a *partial* revert, since `d1674d3` carries the `pendingApprovals` snapshot gate in the
+same commit and that half closes the real leak on its own. **Repriced: the surface is at least
+seven call sites, not the four the fork document named** — `workflows.html:2065/2066/2067` (the
+three list-card badges) and `:2720` (the optimistic sibling of `:2717`) were missed. `0b53d46` on
+`card/f1-workflow-submission-status-default` is **kept** and becomes this card's test.
+
+**Decision 50 — FORK 3: field-level three-way merge, with same-field clashes falling back to
+master-wins plus a `conflict$` notice.** This **overturns the 2026-07-24 explore session's signed
+choice of last-write-wins**, on evidence that the signed choice never existed in the first place:
+RxDB's default is unconditional master-wins, no clock participates, and the strictly-later local
+write is discarded. Chosen over accept-as-is (silent loss; the close record would attribute a crew
+member's work to whoever edited from the office, which is the opposite of the product's stated core
+value), over master-wins-plus-notice (honest but still discards ~20 minutes of work on every
+collision), and over genuine LWW (symmetric loss — it drops the manager's correction instead — and
+makes each phone's clock the tiebreaker, reintroducing skew risk the server's trigger-stamped
+`_modified` currently avoids). The deciding fact, verified at triage and **not known to the fork
+document**: `assumedMasterState` is present in `RxConflictHandlerInput`
+(`rxdb/dist/types/types/conflict-handling.d.ts:10`), so a true three-way merge is tractable —
+diffing fork-vs-assumed and master-vs-assumed identifies exactly who changed which field. It is
+declared optional in the type, so the rule needs a defined fallback when it is absent. This is the
+real work of `sync-rxdb-schema-and-replication` and it can now be sized.
+
+**Decision 51 — FORK 4: stay gateway-less, with a permanent client-construction helper in HQ.**
+Chosen over running Kong. Kong would cost a container plus route config plus securing it — as the
+front door — purely so a client library's constructor need not be told two URLs, and it would
+reverse the one simplification the spike bought (W1 proved Kong/Studio/GoTrue unnecessary). **Rider
+attached at triage:** pin `@supabase/supabase-js` and add a smoke test that fails loudly on
+upgrade, because the coupling is not to the public extension points (`global.fetch`,
+`realtime.transport`) but to the assumption about how the library derives `<baseUrl>/rest/v1`.
+Owner: `sync-jwt-bridge-endpoint`.
+
+**Decision 52 — FORK 2 disposed: `backlog-round.html` is not a run artifact.** Triage-decidable, so
+decided here rather than asked. The file is a static `<title>Backlog</title>` viewer page, and
+BACKLOG.md entry 63 cites a `/nc-roadmap-round` session on 2026-07-25 — it is the operator's own
+roadmap-round render, produced by a concurrent session, never tracked in any branch. Left untracked
+and undeleted; it is disposable and outside every card's footprint. The run was right to leave it
+exactly as found.
+
+**Decision 53 — W1's runbook carries fabricated *presentation*, and must be repaired before it is
+treated as a reproducible artifact.** Engineer-decidable, decided here. The adversarial pass
+refuted the runbook's own twice-stated integrity claim (`README.md:32-34`, `:724-727` — *"the
+output shown under it is the real captured output, not a reconstruction"*) in **six** blocks, of
+which G6 had caught one: ten `HTTP nnn` annotations right-column-aligned onto `curl` invocations
+carrying no `-w`/`-i`/`-D -`; every `rtwatch` RECV line stripped of the unconditional `topic=`
+column that `rtwatch/main.go:144` prints, with `phx_reply` padded two different ways in the same
+document; three `DROP POLICY` tags silently dropped from a psql block that kept `DROP TRIGGER`; a
+`... (5 more alice rows) ...` elision implying 6 where the DB held 8; and `timings.log` recording
+"P1–P11" against a runbook documenting only P1–P10. **The facts survive** — all ten HTTP values
+re-run correct, the printed JWT is cryptographically genuine, every quoted timestamp matches live
+rows to the microsecond — so **no verdict changes and W1's GO stands**. But the document is the
+artifact the operator was promised they could run by hand, and its integrity claim is currently
+false. Repair rides the next card that touches the runbook.
+
+**Decision 54 — the seam map is wrong for `backend/internal/workflow`, and the fix rides the F1
+client-half card rather than being edited at triage.** Engineer-decidable, decided here. F1 was
+slated seam-confined, paid the `workflows|persistence` subset, went green at 102 passed — and was
+wrong anyway, because **neither failing spec is in that subset**. `night-crew.toml:50-51` must
+extend `backend/internal/workflow` and `workflows.html` to `["workflows", "persistence", "sync",
+"repro-cut-task"]`; as a Playwright path regex that expansion selects exactly the four intended
+specs and nothing else (verified against `tests/`). Not edited during triage because the F1
+client-half card touches both those paths and needs the de-confined suite to prove itself — the
+config change belongs in the card that first depends on it. **Stated cost, so it is chosen rather
+than inherited:** this pulls `sync.spec.js` and its known ~16–20 % `:1198` flake into every future
+workflow card's gate.
+
+**Recorded, not decided — the coverage finding under the "no third red" result.** The suite's
+apparent narrow blast radius is thin coverage, not containment: a programmatic sweep found
+**exactly two tests in the whole suite** that create a `requires_approval:false` template, submit
+it, and assert on the rendered result — and both are the two that went red. The three green
+`GATE-01/03/06` tests pass *vacuously* with respect to this defect; they assert submission is
+blocked, never that it rendered. The F1 client-half card must add a test that asserts the
+no-approval submitted state, or the repair ships with the same blind spot that let the regression
+through.
+
+**Also recorded: `conflict$` fires per document, not per replication.** W2's caveat
+(`README.md:1166`) is wrong in the conservative direction — `upstream.js:333` emits inside the
+`Object.entries(conflictsById).map(...)`, and the live probe's payload carried `output.id`. The
+error understates the signal, and Decision 50 was priced on the corrected reading.
+
+**Preference coverage:** `night-crew decisions audit --repo . --run 20260725` reports *"no gray
+areas routed through the resolver yet"* — coverage is **undefined for this run, not low**. The run
+parked its gray areas straight into `DECISIONS-NEEDED.md` without routing them through the
+resolver, so the audit has nothing to measure. That is the gap to close before the number means
+anything.

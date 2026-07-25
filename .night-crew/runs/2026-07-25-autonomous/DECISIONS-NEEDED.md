@@ -1,3 +1,21 @@
+> **RESOLVED 2026-07-25 — recorded as `ledger.md` T-22, decisions 49–54.**
+> FORK 1 → option (a), add the client half; split out as the roadmap card
+> `workflow-submission-status-client-half`, repriced to **seven** call sites, not four
+> (decision 49). FORK 2 → disposed: `backlog-round.html` is the operator's own
+> `/nc-roadmap-round` render, not a run artifact; left untracked (decision 52). FORK 3 →
+> **field-level three-way merge**, same-field clashes falling back to master-wins **plus a
+> `conflict$` notice**; the 2026-07-24 signing of last-write-wins is struck (decision 50).
+> FORK 4 → **stay gateway-less** with a permanent client-construction helper, plus a rider to
+> pin `@supabase/supabase-js` and add an upgrade smoke test (decision 51).
+>
+> Two corrections from the attended adversarial pass that change how this document reads:
+> FORK 1's *"nothing renders at all"* is wrong — an **editable checklist with a live
+> `#submit-btn`** renders, and a second submit writes a second row. FORK 3's `conflict$`
+> caveat is wrong in the conservative direction — it fires **per document**, carrying the
+> document id.
+>
+> Kept as the analysis record.
+
 # Decisions needed — run `overnight-20260725`
 
 > Open forks from tonight's run. Each is stated with the evidence behind it and the options as
