@@ -36,6 +36,15 @@
   sized. Schema+replication and the JWT-bridge endpoint have disjoint footprints (frontend RxDB
   vs. backend auth) and may run in parallel once the spike clears. Hard cutover is serialized
   last — it depends on both.
+  **Fan-out 2026-07-25 (`/nc-slate-plan`, §1 split rule):** the feasibility spike was split into
+  **two** cards before slating, because the operator directed it to (a) exercise RxDB itself, not
+  only the stack beneath it, and (b) leave a runbook the operator can run by hand. Those are two
+  mechanisms of normal-card size — Docker/JWT infra and an RxDB replication client — with
+  different failure modes and park triggers, so the card is `sync-spike-stack-and-jwt-bridge` +
+  `sync-spike-rxdb-replication`. **The cycle's gate is the stack card alone**; the RxDB card
+  deepens the verdict and de-risks `sync-rxdb-schema-and-replication`, but blocks nothing.
+  Activity 1 therefore holds **6** cards, not 5 — the Delivery per-card-timing KR denominator
+  moves with it.
 - **Red-first is mandatory on every fix card.**
 - **Per-card wall-clock timing is a standing output** on every build card, continuing the
   "Prove & surface" cycle's practice (T-14 baseline N=23 / 22m28s; last-measured median 94m
@@ -63,25 +72,58 @@
 
 ## Activity 1 — Sync foundation: RxDB + self-hosted Supabase
 
-- **`sync-rxdb-feasibility-spike`** · **PLANNED** · Stand up self-hosted Supabase (Realtime +
-  PostgREST, via Docker) alongside the existing Postgres on the Windows box. Prove the Go
-  backend can mint its own HS256 JWTs (`role: authenticated`, `sub`, `exp`, signed with
-  Supabase's configured `JWT_SECRET`) and have self-hosted PostgREST/Realtime accept them for
-  RLS — without GoTrue/Supabase Auth. Confirm the self-hosted-specific requirements: each
-  synced table needs a text PK, `_deleted` boolean, `_modified` trigger, RLS enabled, and must
-  be manually added to the `supabase_realtime` publication (no dashboard toggle in self-hosted).
-  Output: a written go/no-go + any sharp edges found, sizing the three cards below. Footprint:
-  new Docker compose service, no production code touched yet. *(from BACKLOG "`workflows.html`
-  sync: migrate to RxDB + self-hosted Supabase")*
+- **`sync-spike-stack-and-jwt-bridge`** · **PLANNED** · *(½ of the fanned-out
+  `sync-rxdb-feasibility-spike` — the cycle's Wave-0 gate)* · Stand up self-hosted Supabase
+  (Realtime + PostgREST, via Docker) in a **new, separate `docker-compose.supabase.yml`** —
+  never by extending `docker-compose.nc.yml`, which would boot Supabase for every night-crew run
+  in this repo. Prove the Go backend can mint its own HS256 JWTs (`role: authenticated`, `sub`,
+  `exp`, signed with Supabase's configured `JWT_SECRET`) using **stdlib only** (`crypto/hmac`;
+  no new module dependency) and have self-hosted PostgREST/Realtime accept them for RLS —
+  without GoTrue/Supabase Auth. The PostgREST proof must show the policy **discriminating** (an
+  authorized read succeeds *and* an unauthorized one is refused); a 200 alone proves nothing.
+  Realtime is proven over `github.com/coder/websocket`, already a direct dependency; self-hosted
+  Realtime needs a **tenant row**, expected to be the sharpest edge. Confirm the
+  self-hosted-specific table contract: text PK, `_deleted` boolean, `_modified` trigger, RLS
+  enabled, and manual `ALTER PUBLICATION supabase_realtime ADD TABLE` (no dashboard toggle in
+  self-hosted) — note the per-table cost, which is what sizes the schema card. Output: a written
+  **GO or NO-GO** at `.night-crew/knowledge/designs/sync-rxdb-feasibility-spike.md` (a NO-GO is a
+  completed card, not a failed one) plus **half 1 of the operator runbook**. Footprint: new
+  compose file + `.night-crew/qa/spike-supabase/**`; **no production code, and `go.mod` / root
+  `package.json` / `docker-compose.nc.yml` / `Taskfile.yml` HARD-untouched.** *(from BACKLOG
+  "`workflows.html` sync: migrate to RxDB + self-hosted Supabase")*
 
-- **`sync-rxdb-schema-and-replication`** · **PLANNED** (depends on spike go-decision) · Define
+- **`sync-spike-rxdb-replication`** · **PLANNED** (depends on the stack card's GO) · *(½ of the
+  fanned-out `sync-rxdb-feasibility-spike`; operator ask 2026-07-25 — the spike must exercise
+  RxDB itself, and leave something runnable)* · Drive an actual RxDB collection against the
+  stack card's Supabase, from an **isolated Node harness** at `.night-crew/qa/spike-supabase/rxdb/`
+  with its **own** `package.json` (the repo-root one is the Playwright environment for every card
+  and stays HARD-untouched). Prove replication in **both directions separately** — local RxDB
+  write visible in Postgres via PostgREST, and a direct Postgres write converging into RxDB
+  without a client restart; a one-directional proof is how this class of spike fools itself.
+  **Observe last-write-wins rather than assuming it**: construct one concurrent-write case and
+  record what actually happens, including which clock decides and whether a write is silently
+  lost — a divergence from the assumed LWW is a finding to route, not something to correct in
+  code. **Answer two go/no-go inputs:** (a) which RxDB storage the real PWA would use in a browser
+  and whether it is free or premium-licensed under RxDB's current terms (verify against the
+  license page; a paid dependency is a cost the operator must know before four cards are built on
+  it), and (b) whether Supabase replication is a supported plugin or a documented example built on
+  `replicateRxCollection` that we would maintain ourselves. Uses **one throwaway table, not the
+  real checklist domain** — modelling that is the schema card's job. States plainly what a
+  Node-side proof does **not** establish (browser storage, service-worker interaction, PWA offline
+  semantics). Output: **half 2 of the operator runbook** (append-only) + the RxDB half of the
+  verdict, sizing `sync-rxdb-schema-and-replication`. Footprint:
+  `.night-crew/qa/spike-supabase/rxdb/**` only.
+
+- **`sync-rxdb-schema-and-replication`** · **PLANNED** (depends on `sync-spike-stack-and-jwt-bridge`'s
+  go-decision reaching `ledger.md`; sized by `sync-spike-rxdb-replication` where it ran) · Define
   RxDB collections for checklists, templates, responses, and approvals (mirroring the current
   Postgres domain model), each satisfying the self-hosted table contract above. Wire RxDB's
   Supabase replication plugin client-side. Last-write-wins conflict resolution (per the explore
   session: checklist edit conflicts are rare, no custom conflict handler). Footprint:
   `workflows.html`, new RxDB client layer.
 
-- **`sync-jwt-bridge-endpoint`** · **PLANNED** (depends on spike go-decision; disjoint footprint
+- **`sync-jwt-bridge-endpoint`** · **PLANNED** (depends on `sync-spike-stack-and-jwt-bridge`'s
+  go-decision reaching `ledger.md`; disjoint footprint
   from the schema card, may build in parallel) · Go backend endpoint that mints the
   Supabase-compatible JWT from the existing session/bearer-token auth and grant data, bridging
   existing permissions into the `role`/`sub` claims Supabase's RLS policies read — no adoption
@@ -112,7 +154,7 @@
 
 | Backlog item (`· new`) | Disposition |
 |---|---|
-| `workflows.html` sync: migrate to RxDB + self-hosted Supabase | promoted → `sync-rxdb-feasibility-spike`, `sync-rxdb-schema-and-replication`, `sync-jwt-bridge-endpoint`, `sync-hard-cutover` (Activity 1) |
+| `workflows.html` sync: migrate to RxDB + self-hosted Supabase | promoted → ~~`sync-rxdb-feasibility-spike`~~ → **`sync-spike-stack-and-jwt-bridge` + `sync-spike-rxdb-replication`** (fanned out 2026-07-25 at slating), `sync-rxdb-schema-and-replication`, `sync-jwt-bridge-endpoint`, `sync-hard-cutover` (Activity 1) |
 | `checklist_submissions.status` never set for `requires_approval:false` submissions | promoted → `workflow-submission-status-default` (Activity 1) |
 | Replay fetch-storm class is NOT fully closed | dropped — superseded by the RxDB/Supabase migration (symptom of the mechanism being replaced) |
 | `sync.js` catch-up fetch-storm gate | dropped — superseded by the RxDB/Supabase migration |
