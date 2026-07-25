@@ -72,7 +72,17 @@
 
 ## Activity 1 — Sync foundation: RxDB + self-hosted Supabase
 
-- **`sync-spike-stack-and-jwt-bridge`** · **PLANNED** · *(½ of the fanned-out
+- **`sync-spike-stack-and-jwt-bridge`** · **DONE — verdict GO** (2026-07-25, run
+  `overnight-20260725`, merged `51d0c02`; G6 PASS-WITH-FINDINGS, all non-blocking). Self-hosted
+  Supabase (postgres + postgrest + realtime; **Kong/Studio/GoTrue proved unnecessary**) accepts a
+  stdlib-only Go-minted HS256 token on both PostgREST and Realtime, with RLS **demonstrably
+  discriminating** — verified twice, once by the card and once independently by G6 against the
+  live stack, with a `service_role` BYPASSRLS control ruling out the empty-table explanation.
+  Verdict at `.night-crew/knowledge/designs/sync-rxdb-feasibility-spike.md`; runbook half 1 at
+  `.night-crew/qa/spike-supabase/README.md`; stack left running deliberately.
+  🛑 **The verdict still has to reach `ledger.md` at morning triage before the three downstream
+  cards may dispatch** — Product KR1 / Delivery KR1 measure the ledger timestamp, and the ledger is
+  an attended artifact this run cannot write. · *(½ of the fanned-out
   `sync-rxdb-feasibility-spike` — the cycle's Wave-0 gate)* · Stand up self-hosted Supabase
   (Realtime + PostgREST, via Docker) in a **new, separate `docker-compose.supabase.yml`** —
   never by extending `docker-compose.nc.yml`, which would boot Supabase for every night-crew run
@@ -92,7 +102,21 @@
   `package.json` / `docker-compose.nc.yml` / `Taskfile.yml` HARD-untouched.** *(from BACKLOG
   "`workflows.html` sync: migrate to RxDB + self-hosted Supabase")*
 
-- **`sync-spike-rxdb-replication`** · **PLANNED** (depends on the stack card's GO) · *(½ of the
+- **`sync-spike-rxdb-replication`** · **DONE — verdict GO on RxDB, with one signed assumption
+  DISPROVEN** (2026-07-25, run `overnight-20260725`, merged `ba22744`; G6 PASS-WITH-FINDINGS →
+  1 blocking, revised and re-checked). `rxdb@17.4.0`'s `replicateSupabase` replicates **both
+  directions** over W1's stack — push verified over an independent request, pull converging in
+  ~90–130 ms into a client that was never restarted. **Apache-2.0, no paid dependency** (Dexie =
+  free browser path, IndexedDB = premium; premium buys speed, not capability), and a **real shipped
+  plugin**, not an example — though introduced as *beta* in 16.19.0, so size it as young.
+  🛑 **The finding: conflict resolution is master-wins, NOT the last-write-wins the 2026-07-24
+  explore session signed.** A strictly-later local write is discarded and **no clock participates**
+  — compare-and-swap plus `defaultConflictHandler` returning `realMasterState`; `_modified` is only
+  the pull cursor. Silent by default, but **observable via `conflict$`**. Reproduced 3×. **This gates
+  the conflict-policy half of `sync-rxdb-schema-and-replication`** — see
+  `runs/2026-07-25-autonomous/DECISIONS-NEEDED.md` FORK 3 (and FORK 4, Kong vs. a client shim).
+  A Node-side proof establishes the replication protocol only — **not** browser storage, service-worker
+  interaction, or PWA offline semantics. · *(½ of the
   fanned-out `sync-rxdb-feasibility-spike`; operator ask 2026-07-25 — the spike must exercise
   RxDB itself, and leave something runnable)* · Drive an actual RxDB collection against the
   stack card's Supabase, from an **isolated Node harness** at `.night-crew/qa/spike-supabase/rxdb/`
@@ -139,7 +163,15 @@
   data). Footprint: `workflows.html`, `sync.js` (deleted), `backend/internal/sync` (deleted),
   `backend/internal/workflow` (`/saveResponse` removed).
 
-- **`workflow-submission-status-default`** · **PLANNED** (independent footprint, no dependency
+- **`workflow-submission-status-default`** · **PLANNED — server half merged, CLIENT HALF REQUIRED
+  AND MISSING** (2026-07-25, run `overnight-20260725`). Server fix merged at `53e921d` and its Go
+  gates are green; the seam-confined subset leg was also green (102 passed / 1 skipped / 6 m 18 s).
+  **But the subset was the wrong suite:** the full suite reds `tests/repro-cut-task.spec.js:153`
+  and `tests/sync.spec.js:1581`, both proven by measurement to be an F1 regression (pass on `dev`,
+  fail with F1). `workflows.html` does not recognise the new `'completed'` status, so
+  `.submit-confirm` never renders. **Parked as a contract question — F1's own park trigger (ii)
+  — see `runs/2026-07-25-autonomous/DECISIONS-NEEDED.md` FORK 1.** Stays PLANNED per the run rule
+  that a card parking without a verdict does not flip. · (independent footprint, no dependency
   on the sync cards) · `checklist_submissions.status` defaults to `'pending'` and
   `submitChecklist` never updates it for `requires_approval:false` submissions, so no-approval
   submissions read `'pending'` server-side forever. Harmless today (UI derives status from other

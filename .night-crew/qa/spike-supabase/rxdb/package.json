@@ -1,0 +1,17 @@
+{
+  "name": "spike-rxdb-harness",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "ISOLATED night-crew spike harness (card W2). Deliberately NOT part of the repo-root npm project — the root package.json is the Playwright environment for every card and must stay untouched. Nothing here ships.",
+  "scripts": {
+    "push": "node proof-push.js",
+    "pull": "node proof-pull.js",
+    "lww": "node proof-lww.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.109.0",
+    "rxdb": "^17.4.0",
+    "ws": "^8.21.1"
+  }
+}

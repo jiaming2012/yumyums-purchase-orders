@@ -703,14 +703,27 @@ func submitChecklist(ctx context.Context, pool *pgxpool.Pool, input SubmitCheckl
 	}
 	defer tx.Rollback(ctx) //nolint:errcheck
 
+	// Normalize the lifecycle state at insert. checklist_submissions.status
+	// defaults to 'pending', but only approveItem/rejectItem ever move it — and
+	// neither runs for a template that requires no approval. Left to the default,
+	// those rows read 'pending' server-side forever: a reviewable state nothing
+	// can review. 'completed' is already permitted by the 0011 CHECK constraint
+	// and was unused, so this adds no lifecycle value and needs no migration.
+	// ('approved' would be a lie — nobody approved it — and would pollute the
+	// approvals audit trail.)
+	status := "pending"
+	if !tmpl.RequiresApproval {
+		status = "completed"
+	}
+
 	// Insert submission with idempotency protection (D-15)
 	var submissionID string
 	err = tx.QueryRow(ctx,
-		`INSERT INTO checklist_submissions (template_id, template_snapshot, submitted_by, idempotency_key)
-		 VALUES ($1, $2, $3, $4)
+		`INSERT INTO checklist_submissions (template_id, template_snapshot, submitted_by, idempotency_key, status)
+		 VALUES ($1, $2, $3, $4, $5)
 		 ON CONFLICT (idempotency_key) DO UPDATE SET idempotency_key = EXCLUDED.idempotency_key
 		 RETURNING id`,
-		input.TemplateID, snapshotJSON, userID, input.IdempotencyKey,
+		input.TemplateID, snapshotJSON, userID, input.IdempotencyKey, status,
 	).Scan(&submissionID)
 	if err != nil {
 		return "", fmt.Errorf("insert submission: %w", err)
@@ -982,6 +995,20 @@ func myHistory(ctx context.Context, pool *pgxpool.Pool, userID string) ([]Submis
 }
 
 // pendingApprovals returns submissions pending approval where the user is assigned as approver (D-23).
+//
+// The requires_approval gate reads the submission's OWN snapshot, not the live
+// t.requires_approval column, matching the repo's frozen-at-submit semantics
+// (designs/editprop-frozen-at-submit.md): flipping a template's flag later must
+// not make a genuinely-pending submission vanish from someone's queue.
+// Verified against a real row — json.Marshal(tmpl) at submit time writes the
+// requires_approval key (Template.RequiresApproval, model.go).
+//
+// IS NOT FALSE, deliberately, not IS TRUE: rows written before this gate existed
+// carry status='pending' with a snapshot that may lack the key entirely
+// (NULL::boolean). Those must stay visible — this is what makes historical rows
+// safe without a data migration, while excluding every new no-approval
+// submission (which now writes status='completed' anyway, and whose snapshot
+// says requires_approval=false besides).
 func pendingApprovals(ctx context.Context, pool *pgxpool.Pool, userID string) ([]Submission, error) {
 	// Get user roles
 	var userRoles []string
@@ -1000,6 +1027,7 @@ func pendingApprovals(ctx context.Context, pool *pgxpool.Pool, userID string) ([
 		 JOIN template_assignments ta ON ta.template_id = s.template_id
 		 LEFT JOIN users u ON u.id = s.submitted_by
 		 WHERE s.status = 'pending'
+		   AND (s.template_snapshot->>'requires_approval')::boolean IS NOT FALSE
 		   AND t.archived_at IS NULL
 		   AND ta.assignment_role = 'approver'
 		   AND (
