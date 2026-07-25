@@ -596,3 +596,31 @@
   misleading 0% — wants an explicit "unallocated" marker distinct from genuine 0%, not a
   formula fix (the margin math is fixture-proven). Investigate once prod sales sync lands and
   Cost carries real rows. · origin: F2 open note, routed T-21f · new
+- **`workflows.html` sync: migrate to RxDB + self-hosted Supabase, unify autosave + live
+  broadcast into one store** · The hand-rolled WebSocket + Postgres LISTEN/NOTIFY +
+  Lamport-clock op log (`sync.js` + `backend/internal/sync/`) is the repeat offender behind
+  this cycle's own fragility findings above (`sync.js` catch-up fetch-storm gate,
+  cross-user checklist hydration divergence, the retired-but-recurring `sync.spec.js`
+  flakiness) — a "fetch storm" bug class (T-18) where reconnecting clients replay their full
+  missed-op history and naive per-op refetches (`loadPendingApprovals`, `loadTemplates`)
+  fire redundant requests and clobber optimistic UI mid-edit, plus a standing bug where
+  manager rejections never reload into client state on refresh. Decision (operator explore
+  session 2026-07-24): replace BOTH write paths in `workflows.html` — the field-level
+  `autoSaveField`→`POST /saveResponse` draft path AND the live ops/broadcast layer — with a
+  single RxDB client store replicated against a **self-hosted** Supabase stack (Realtime +
+  PostgREST) running alongside the existing Postgres on the Windows box. Last-write-wins
+  conflict resolution (checklist edit conflicts are rare; no custom conflict handler needed).
+  Auth: bridge the existing bearer-token/session auth rather than adopt Supabase Auth/GoTrue —
+  the Go backend mints its own HS256 JWTs (`role: authenticated`, `sub`, `exp`) signed with
+  Supabase's configured `JWT_SECRET`, which self-hosted PostgREST/Realtime accept for RLS
+  without GoTrue. Cutover: hard swap, no parallel run — `sync.js`, `backend/internal/sync/`,
+  and `/saveResponse` retire entirely once live. Feasibility confirmed by research
+  (2026-07-24): RxDB's Supabase replication plugin is Cloud-agnostic (talks only to
+  `@supabase/supabase-js`, i.e. PostgREST + Realtime, both in the self-hosted Docker stack);
+  self-hosted-specific gotcha is each synced table must be manually added to the
+  `supabase_realtime` publication (no dashboard toggle) and needs a text PK + `_deleted` +
+  `_modified` trigger + RLS enabled. Scope is `workflows.html` only — inventory, purchasing,
+  onboarding, and users stay on the existing Go+Postgres REST API. Promotion should start
+  with a feasibility spike (stand up self-hosted Supabase in Docker alongside the existing
+  Postgres, prove the Go-minted-JWT → RLS bridge end-to-end) before sizing the full
+  migration. · origin: operator explore session 2026-07-24 · new
