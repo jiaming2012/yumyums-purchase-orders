@@ -293,3 +293,245 @@ Stated plainly rather than softened:
 - **No `DELETE` event was observed.** `REPLICA IDENTITY FULL` was set and INSERT
   and UPDATE were exercised; a hard `DELETE` change event was not, because the
   replication model is soft-delete by design.
+
+---
+---
+
+# GO (RxDB) — RxDB 17.4.0 replicates over the self-hosted stack in BOTH directions, on free/Apache-2.0 licensing, using a real shipped plugin. One assumption did not survive contact: the configuration is NOT last-write-wins.
+
+*Card W2 `sync-spike-rxdb-replication`, 2026-07-25. Appended below W1's verdict,
+which is settled and untouched. Reproduce everything here with
+[`.night-crew/qa/spike-supabase/README.md`](../../qa/spike-supabase/README.md)
+**half 2**; the harness is `.night-crew/qa/spike-supabase/rxdb/`.*
+
+## The verdict in one paragraph
+
+RxDB does what the migration needs it to do. Against the exact stack W1 left
+running — self-hosted Postgres + PostgREST + Realtime, no GoTrue, no Kong, an
+HS256 token minted by W1's stdlib-Go program — `rxdb@17.4.0`'s
+`replicateSupabase` plugin **pushed** a locally-created document into Postgres
+and **pulled** remote inserts, updates and soft-deletes into a *running* client
+in 45–129 ms across two runs, with no restart and no manual `reSync()`. Both
+directions were
+proven by separate scripts, because a combined proof cannot tell you which
+direction carried the data. The licensing question resolves in our favour: the
+`rxdb` package is Apache-2.0, the Dexie browser storage is free, and premium buys
+speed rather than capability — **no paid dependency is required to ship this**.
+The Supabase replication is a genuine shipped plugin, not an example we would
+maintain. **The one thing that did not survive contact with reality is the
+conflict policy**: the explore session assumed last-write-wins, and the observed
+behaviour is unconditional *master-wins* with the losing write discarded
+silently by default — nothing thrown, nothing on `error$`, nothing reaching the
+user without code, though `conflict$` does carry the discarded document for an
+app that subscribes. That is a finding for the operator, recorded below and
+routed to DECISIONS-NEEDED, not something this card corrected.
+
+## Evidence
+
+Two independent runs, identical results. Real captured output for all of it is
+transcribed in runbook half 2; the summary:
+
+| Question | Observed | Where |
+|---|---|---|
+| Cold install works | `added 78 packages … in 20s`, 0 vulnerabilities. rxdb 17.4.0, @supabase/supabase-js 2.109.0, ws 8.21.1 | half 2, step 0 |
+| Client reaches the gateway-less stack | REST rows returned, **bob's seed row absent** (RLS still discriminating through supabase-js); Realtime `SUBSCRIBED` | step 1a |
+| **Push** | local `collection.insert()` → row present in Postgres, verified over an independent request: `HTTP 200`, `_modified` stamped by the server trigger | step 3 |
+| **Pull, no restart** | remote INSERT converged 128 ms, remote UPDATE 129 ms, remote soft-delete 121 ms, all into a client that was never restarted and never `reSync()`-ed | step 4 |
+| Conflict | later local write **discarded**, earlier server write survived, `error$` emitted **0** events — but `conflict$` emitted **1**, carrying the discarded document | step 5 |
+| Licensing | `rxdb@17.4.0` `"license": "Apache-2.0"`; Dexie free, IndexedDB `👑` premium | step 6 |
+| Plugin vs example | real 247-line shipped plugin, `rxdb/plugins/replication-supabase` | step 6 |
+
+The convergence times are themselves the evidence that pull arrived over the
+Realtime stream rather than a retry: `replicateSupabase`'s `retryTime` defaults
+to 5000 ms, two orders of magnitude slower. The table's 121–129 ms are from the
+transcribed run (`r1784996964892`); the earlier run `r1784996802` was faster
+still (59 / 45 / 121 ms) and is recorded in
+`.night-crew/runs/2026-07-25-autonomous/timings.log`.
+
+## THE FINDING — conflict resolution is master-wins, not last-write-wins, and the loss is silent by default
+
+**Read this before sizing anything else.**
+
+Constructed case: one agreed document; client goes offline; **Postgres edited
+first (T1)**; **RxDB edited second (T2 > T1)** — the local write strictly later
+in wall-clock time; client reconnects on the same `replicationIdentifier`.
+
+Observed:
+
+```
+local  body after reconnect : REMOTE-EDIT (written first, T1)
+remote body after reconnect : REMOTE-EDIT (written first, T1)
+replication errors surfaced : 0 []
+conflict handler invocations: 1
+    newDocumentState.body  : LOCAL-EDIT (written second, T2)    <- the local (later) write
+    realMasterState.body   : REMOTE-EDIT (written first, T1)    <- what the server actually held
+    handler CHOSE          : REMOTE-EDIT (written first, T1)
+```
+
+**Which clock decided: none.** The mechanism is optimistic concurrency, not
+timestamp comparison. `replicateSupabase`'s push issues a compare-and-swap
+(`UPDATE … WHERE id = … AND body = <assumed master value> AND …`); the remote
+edit had already moved `body`, zero rows matched, and the plugin returned the
+row as a conflict. RxDB's `defaultConflictHandler` then resolved it by its own
+documented rule — *"The default conflict handler will always drop the fork state
+and use the master state instead"* — returning `realMasterState`. `_modified`
+never participated: it is the pull cursor, and with `_modified` absent from the
+collection schema it is not even in the compare-and-swap. Skewing the client
+clock in either direction changes nothing.
+
+**Why it matters for HQ, concretely.** A crew member completes a checklist on a
+phone with no signal in the truck. A manager edits the same submission from the
+office. The phone reconnects. **The crew member's work is dropped, and as
+configured nothing tells them.** Nothing is thrown, `error$` emits zero events,
+and from inside the app the offline edit simply never happened. For a product
+whose stated core value is "accountability — who checked what", silently losing
+the crew member's entry is a product-level problem, not a tuning detail.
+
+**Silent by default, but not unobservable.** A first draft of this note said the
+default "surfaces nothing" full stop; that was wrong and is corrected here,
+because it mispriced one of the operator's options. `error$` emitting nothing is
+right, but `RxReplicationState` also exposes **`conflict$`**
+(`rxdb/dist/esm/plugins/replication/index.js:44,51,287-289`), and in this exact
+scenario it emits **one** event: `input.newDocumentState` is the discarded local
+write in full, `output` is the server state that replaced it. Measured by
+re-running the scenario with that one subscription added. So telling the user
+what they lost is a subscription plus UI, not new sync plumbing — see the
+re-priced option 4 in DECISIONS-NEEDED. What remains genuinely expensive is the
+*rule* and the *experience*, not the signal.
+
+**This card did not fix it, deliberately.** The observing conflict handler used
+to capture the evidence delegates every decision to the default and only prints
+what happened; making it nicer would have destroyed the finding. RxDB supports a
+per-collection custom `conflictHandler` and that is the correct hook for a real
+policy — but *which* policy is an operator/product call. Routed to
+`.night-crew/runs/2026-07-25-autonomous/DECISIONS-NEEDED.md`.
+
+## Licensing and storage — the go/no-go input
+
+**No paid dependency is required.** Verified against RxDB's current pages, not
+taken on anyone's word:
+
+- `rxdb@17.4.0` ships **Apache-2.0** (verified locally: `package.json`
+  `"license"` field and the full Apache text in `LICENSE.txt`).
+- **Dexie storage is free** and is the browser storage a real HQ PWA would use.
+- **IndexedDB storage is premium.** <https://rxdb.info/rx-storage.html> marks it
+  `👑 IndexedDB`, usable *"if you have 👑 premium access"*, and recommends, in
+  full: *"In the Browser: Use the LocalStorage storage for simple setup and
+  small build size. For bigger datasets, use either the dexie.js storage (free)
+  or the IndexedDB RxStorage if you have 👑 premium access which is a bit faster
+  and has a smaller build size."* — the trailing clause quoted rather than
+  trimmed because it is the page stating what premium buys. Corroborated by
+  <https://rxdb.info/premium/>, whose free tier is *"Default RxStorage (Dexie,
+  Memory, LokiJS)"* and whose paid tiers add OPFS, IndexedDB, SQLite,
+  Filesystem, Worker, SharedWorker, Sharding, Memory-Mapped and the Localstorage
+  Meta Optimizer.
+
+**The operator's reading was correct.** Premium buys performance, not
+capability, and is an optimisation available later rather than a gate on
+starting. Note the free Dexie storage is itself IndexedDB-backed via dexie.js;
+the premium `storage-indexeddb` is a faster direct implementation.
+
+## Plugin, not example — but young
+
+**The BACKLOG's wording is right: it is a real shipped plugin**, so we do not
+carry the replication protocol as a maintenance cost. Verified three ways:
+it is exported from `rxdb@17.4.0`'s `package.json` as `./plugins/replication-supabase`
+with 247 lines of implementation and full TypeScript types; `rxdb`'s own shipped
+`README.md` lists Supabase among *"production-ready plugins"*; and
+<https://rxdb.info/replication-supabase.html> documents
+`import { replicateSupabase } from 'rxdb/plugins/replication-supabase'` with no
+example/community/beta caveat.
+
+**Size it as young, though.** `rxdb`'s shipped `CHANGELOG.md`:
+`### 16.19.0 (4 September 2025) — ADD Supabase Replication Plugin (beta)`. It
+entered as beta ~10 months before the 17.4.0 we are on, with active work since
+(`FIX(supabase-replication) push.modifier is not used` in **16.21.0**,
+25 Nov 2025; `feat: replication-supabase querybuilder` in **16.21.1**,
+2 Dec 2025). We are early adopters of
+a young plugin on a self-hosted stack its author most likely tests against
+hosted Supabase. Budget reading its source when something is odd — as this card
+had to. 247 readable lines is a bounded risk.
+
+## Second finding — supabase-js assumes Kong; we bridged it in the client
+
+`@supabase/supabase-js` freezes `<baseUrl>/rest/v1` and `<baseUrl>/realtime/v1`
+in its constructor — it assumes one origin behind Kong. W1 deliberately omitted
+Kong, so a stock `createClient()` cannot reach either service in this stack.
+
+The harness bridged it in ~25 lines using the two extension points supabase-js
+already exposes (`global.fetch` to strip the `/rest/v1` prefix,
+`realtime.transport` to re-point host:port, rewrite the path to
+`/socket/websocket`, and set the tenant `Host` header). It worked first try, so
+this is not a blocker — but it forces a decision the migration must make
+deliberately: **run Kong, or ship a small permanent client-construction helper
+in HQ that tracks a supabase-js internal.** Both viable; the second is one fewer
+service to run and secure but is standing HQ code coupled to a library detail
+that could move in a minor release. Belongs to whichever card owns client
+construction.
+
+## Sizing for `sync-rxdb-schema-and-replication`
+
+W1 measured the per-table substrate cost. W2 adds the client-side cost.
+
+**Small–medium, and the schema work is genuinely the easy half.** The mechanism
+is proven, so that card is modelling plus one real decision, not research.
+
+Per collection, once the pattern exists:
+1. an RxDB JSON schema mirroring the table (text PK; **do not declare `_deleted`**;
+   decide `_modified` deliberately, see below) — minutes;
+2. one `replicateSupabase({ … })` call — minutes;
+3. W1's per-table SQL contract (text PK, `_deleted`, `_modified` trigger, RLS,
+   `alter publication`, `replica identity full`) — W1's measured cost.
+
+The three things that will actually consume the time:
+
+- **The conflict policy.** This is the card's real work and it is a design task,
+  not a coding one, blocked on the operator decision above. Once decided, the
+  implementation is a per-collection `conflictHandler` — a small function, but it
+  needs a rule that covers HQ's actual multi-actor rows (a submission has a
+  submitter *and* an approver; "owner" is not one field) and a way to surface a
+  discarded write to the user, since the default surfaces nothing *to the user*.
+  Size that second part as **UI, not plumbing**: `conflict$` already emits the
+  discarded document (verified — see THE FINDING), so it is
+  `replicationState.conflict$.subscribe(...)` plus whatever the crew member
+  should see. The expensive half is deciding what they should see and whether
+  they can recover the value, not getting hold of it.
+- **`_modified` in the schema: a semantics switch, not a formality.** Declaring
+  it makes the plugin round-trip the server timestamp *and* makes
+  `addDocEqualityToQuery` include `_modified` in the compare-and-swap, tightening
+  conflict detection so any server-side touch is a conflict. Leaving it out keeps
+  it a pure pull cursor (what this spike ran). Decide it; do not let it be
+  decided by whether someone copied the field in.
+- **A browser-side check.** Everything below is untested (see next section) and
+  the storage and service-worker items are the two most likely to produce a nasty
+  surprise. Budget a real browser spike inside that card rather than assuming the
+  Node result transfers.
+
+Do **not** size in a replication-protocol implementation. That is the plugin's.
+
+## What a Node-side proof does NOT establish
+
+Stated plainly rather than softened. This harness proves the **replication
+protocol**. It does not prove:
+
+- **Browser storage behaviour.** Runs used `getRxStorageMemory()`. Nothing here
+  exercises Dexie/IndexedDB, quota limits, eviction under storage pressure,
+  Safari's stricter eviction, or private browsing. A memory store cannot fail the
+  way a browser store fails.
+- **Persistence across reloads.** Memory storage starts empty every run.
+- **Service-worker interaction.** HQ's Workbox `sw.js` is network-first for API
+  calls with an offline JSON fallback. Its interaction with RxDB's fetches and
+  with a long-lived Realtime WebSocket is completely untested, and an offline
+  fallback answering a replication request with cached JSON is a plausible and
+  nasty failure.
+- **PWA offline semantics.** No airplane mode, no flaky network, no backgrounded
+  tab, no iOS killing the page. The "offline" in the conflict proof was
+  `rep.cancel()` — the friendliest possible version of going offline.
+- **Multi-tab leader election.** `waitForLeadership: false` was set because the
+  harness is one process; browsers default it to `true` and that surface is
+  untested.
+- **Token refresh across an offline period.** Still untested — W1 did not, and
+  neither did W2. A token minted with a 1 h TTL and a truck that is offline
+  longer than that is an open question.
+- **HQ's real schema, volume or relations.** One flat fixture table with a
+  single-owner predicate.
