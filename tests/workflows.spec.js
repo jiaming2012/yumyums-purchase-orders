@@ -1462,6 +1462,69 @@ test.describe('Read-only after submit', () => {
     const count = await checkBtns.count();
     expect(count).toBe(0);
   });
+
+  // Card F1. The test above never reloads, so MY_SUBMISSIONS keeps the optimistic
+  // client-side status ('submitted') the submit handler pushed. Reload and the
+  // status comes from the SERVER instead — and no case covered that until now.
+  //
+  // Before F1 the server said 'pending' for a template requiring no approval, so
+  // the runner claimed "Waiting for manager review" for a checklist nobody would
+  // ever review. F1 makes the server say 'completed'; the runner must read that as
+  // the terminal submitted state it is, stay read-only, and NOT offer to submit
+  // again. Without the client half, a no-approval checklist reads as unsubmitted
+  // after any reload and can be submitted twice.
+  test('a no-approval checklist stays submitted and read-only across a reload [RUN-09b]', async ({ page }) => {
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await cleanupTemplates(page);
+    await cleanupPendingApprovals(page);
+
+    const todayDOW = await getTodayDOW(page);
+    const name = 'NoApproval Reload Test';
+    const tpl = await apiCall(page, 'POST', 'createTemplate', {
+      name,
+      sections: [{ title: 'Tasks', order: 0, condition: null, fields: [
+        { type: 'checkbox', label: 'Check this', required: false, order: 0, config: null, fail_trigger: null, condition: null },
+      ]}],
+      schedules: [{ active_days: [todayDOW] }],
+      requires_approval: false,
+      assignments: [{ assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' }],
+    });
+
+    await page.reload();
+    await page.waitForSelector('#checklist-list .row', { timeout: 10000 });
+    await page.locator('#checklist-list .row', { hasText: name }).first().click();
+    await page.waitForSelector('#fill-body .fill-field');
+    await page.locator('.check-btn').first().click();
+    await page.waitForTimeout(1500);
+    await page.click('[data-action="submit"]');
+    await expect(page.locator('#checklist-list')).toBeVisible({ timeout: 10000 });
+
+    // The reload is the whole point: drop the optimistic status and re-read the
+    // server's.
+    await page.reload();
+    await page.waitForSelector('#checklist-list .row', { timeout: 10000 });
+
+    // The server must not be describing THIS template's submission as awaiting
+    // review. (Scoped to this template id — myChecklists returns every submission
+    // the user has, and other specs leave genuinely-pending ones behind.)
+    const statuses = await page.evaluate(async (tplId) => {
+      const res = await fetch('/api/v1/workflow/myChecklists');
+      const body = await res.json();
+      return (body.submissions || []).filter(s => s.template_id === tplId).map(s => s.status);
+    }, tpl.id);
+    expect(statuses.length).toBeGreaterThan(0);
+    expect(statuses).not.toContain('pending');
+
+    await page.locator('#checklist-list .row', { hasText: name }).first().click();
+    await page.waitForTimeout(1500);
+
+    // Read-only, and terminal — not "waiting for manager review", not re-submittable.
+    await expect(page.locator('.submit-confirm')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('#fill-body')).not.toContainText('Waiting for manager review');
+    await expect(page.locator('[data-action="submit"]')).toHaveCount(0);
+    await expect(page.locator('.check-btn')).toHaveCount(0);
+  });
 });
 
 // ─── H. Loading states ───────────────────────────────────────────────────────
