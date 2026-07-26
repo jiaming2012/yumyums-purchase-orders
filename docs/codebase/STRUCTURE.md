@@ -18,9 +18,9 @@ hq/                         # Project root — also the web root (served as-is)
 │   └── user-management-api.md
 ├── .do/                    # Digital Ocean deploy config
 │   └── app.yaml
-├── .planning/              # GSD planning artifacts (not deployed)
-│   ├── codebase/           # Codebase analysis docs (this directory)
-│   └── quick/              # Quick task planning docs
+├── .night-crew/            # Night-crew planning state (not deployed)
+│   ├── knowledge/          # Roadmap, OKRs, backlog, PRDs, ledger
+│   └── runs/               # Per-run records (HANDOFF, DECISIONS-NEEDED)
 ├── .claude/                # Claude agent worktree state (not deployed)
 ├── README.md               # Project overview, stack decisions, deploy guide
 └── CLAUDE.md               # Project instructions for Claude
@@ -49,10 +49,9 @@ hq/                         # Project root — also the web root (served as-is)
 - Generated: No — hand-maintained
 - Committed: Yes
 
-**`.planning/`:**
-- Purpose: GSD workflow planning artifacts — not deployed, not served
-- Contains: Codebase analysis docs, per-task quick plans
-- Generated: By GSD commands
+**`.night-crew/`:**
+- Purpose: Night-crew planning state — not deployed, not served
+- Contains: Roadmap, OKRs, backlog, PRDs, ledger, per-run records
 - Committed: Yes (as planning record)
 
 **`.claude/`:**
@@ -127,13 +126,12 @@ hq/                         # Project root — also the web root (served as-is)
 **Documentation:**
 - Design docs: `docs/`
 - Deploy notes: `README.md`
-- Architecture analysis: `.planning/codebase/`
+- Architecture analysis: `docs/codebase/`
 
 ## Special Directories
 
-**`.planning/codebase/`:**
-- Purpose: Persistent codebase analysis for GSD commands
-- Generated: By `/gsd:map-codebase`
+**`docs/codebase/`:**
+- Purpose: Persistent codebase analysis (this directory)
 - Committed: Yes
 
 **`.do/`:**
