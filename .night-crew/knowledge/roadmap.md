@@ -279,13 +279,29 @@
   on the sync cards) · Footprint: `backend/internal/workflow`. *(from BACKLOG
   "`checklist_submissions.status` never set for `requires_approval:false` submissions")*
 
-- **`workflow-submission-status-client-half`** · **SLATED — run `overnight-20260726`, Wave 0 (alone,
-  on a quiet box); a live regression on `dev`** (split out at morning triage 2026-07-25; ledger
-  T-22 decision 49). *Dispatched strictly first and alone because (i) while `dev` carries these two
-  reds, every other card's "no new reds" baseline is polluted, and (ii) its acceptance test IS two
-  specs going green, one of them in the load-sensitive `sync.spec.js` — a green sampled under
-  concurrent load would prove nothing (20260722's S1 lesson). All seven call-site line numbers below
-  were re-verified against the merged tree at slating.* `workflows.html`
+- **`workflow-submission-status-client-half`** · **DONE — client half** (2026-07-26, run
+  `overnight-20260726`, Wave 0 alone on a quiet box). **Both named reds are GREEN**
+  (`tests/repro-cut-task.spec.js:153`, `tests/sync.spec.js:1581`), captured RED first on the
+  unfixed tree at `82d0053` before any production line changed. All seven call-site line numbers
+  were confirmed unmoved from the slate's. The seven sites now route through ONE vocabulary block
+  (`SUBMITTED_STATUSES` / `PENDING_STATUSES` + `isSubmittedStatus` / `isPendingStatus` /
+  `isApprovedStatus` / `isFrozenStatus`) rather than seven inline string comparisons, so the next
+  lifecycle value is a one-line change in one place. The optimistic pair now writes what a reload
+  would actually fetch (`'completed'` / `'pending'`) instead of `'submitted'` / `'pending_approval'`
+  — **neither of which the server has ever persisted**; that divergence is exactly what hid the bug,
+  and closing it is why the new test asserts optimistic == server. `0b53d46` was cherry-picked
+  verbatim (diff byte-identical; only a `Night-Crew-Card` trailer added). New render test `RUN-09c`
+  lands the missing assertion — list badge AND runner, before AND after a reload, plus a
+  one-submission-row count. The `night-crew.toml:50-51` seam fix landed on the two keys named
+  (`backend/internal/workflow`, `workflows.html`). **`backend/internal/workflow` was NOT
+  touched** — the server's vocabulary is correct as F1 landed it, so the card's PARK trigger
+  (reopening decision 49) never fired. **`idempotency_key` deliberately left per-call** — see the
+  card report; a stable key would break unsubmit→resubmit and rejected→resubmit, and the offline
+  replay path already reuses the enqueued key, which is where the guarantee actually lives.
+  *(Original diagnosis, kept for the record: dispatched strictly first and alone because (i) while
+  `dev` carried these two reds, every other card's "no new reds" baseline was polluted, and (ii) its
+  acceptance test IS two specs going green, one of them in the load-sensitive `sync.spec.js` — a
+  green sampled under concurrent load would prove nothing (20260722's S1 lesson).)* `workflows.html`
   recognises only `submitted` / `pending_approval` / `pending` / `approved`, so the new
   `'completed'` falls through to the **else** branch at `:2099-2105`: a submitted no-approval
   checklist comes back **fully editable with a live `#submit-btn`, no badge, and

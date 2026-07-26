@@ -47,8 +47,17 @@ subset = 'npx playwright test "{tags}"'
 "inventory.html"              = ["inventory", "recipes"]
 "tests/inventory.spec.js"     = ["inventory", "recipes"]
 "tests/recipes.spec.js"       = ["inventory", "recipes"]
-"backend/internal/workflow"   = ["workflows", "persistence"]
-"workflows.html"              = ["workflows", "persistence"]
+# Operations carries two MORE specs than its name suggests. sync.spec.js and
+# repro-cut-task.spec.js both drive the workflows runner end-to-end, so a change to
+# the workflow package or to workflows.html can break them — and under the old
+# two-tag list neither ever ran. That is not hypothetical: card F1 (run 20260725)
+# was confined by this seam, went green on workflows+persistence, and merged a
+# change that left exactly those two specs RED on dev. Card A, run 20260726, is
+# the repair. As a Playwright path regex these four tokens select exactly
+# workflows / persistence / sync / repro-cut-task .spec.js and nothing else — no
+# other spec filename in tests/ contains any of them (re-verified at landing).
+"backend/internal/workflow"   = ["workflows", "persistence", "sync", "repro-cut-task"]
+"workflows.html"              = ["workflows", "persistence", "sync", "repro-cut-task"]
 "tests/workflows.spec.js"     = ["workflows", "persistence"]
 "tests/persistence.spec.js"   = ["workflows", "persistence"]
 "backend/internal/onboarding" = ["onboarding"]
