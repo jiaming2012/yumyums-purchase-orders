@@ -4,6 +4,31 @@ Open items the run declined to decide. The run executes; it does not decide.
 
 ---
 
+## Attended-review addendum (2026-07-26) — three findings from the adversarial reproduction
+
+Added at triage, after the merge (`efb9273` on `dev`, whose commit message carries the full
+review provenance). These are **not** forks — they are reviewer findings with no open question,
+recorded here because this file is what the morning reader opens and the merge message is not.
+**They are backlog candidates, not roadmap work.** None blocked the merge.
+
+- **F1 — the Go gate's recorded evidence cannot distinguish real green from all-skip.** With
+  `DB_TEST_URL` unset the suite exits 0, runs **zero** tests in `internal/workflow`, and still
+  prints the `ok` line that closeouts quote as proof. The run's green was verified real
+  independently (329 tests, 0 skipped, with the var set). The finding is about the *evidence*,
+  not the code: a future closeout could cite an all-skip run in good faith.
+- **F2 — the `-p 1` note is wrong in mechanism and understates scope ~10x.** Not one package but
+  **6, and 107 failures**; the named FK error is only 5 of them. On a fresh DB it is a migration
+  race, not the documented cause. Harness artifact — no production defect.
+- **F3 — card B's repaired anti-drift guard can still go vacuous.** Via `t.Skipf` on a fresh DB
+  where `hq_apps` holds only `inventory`. It is non-vacuous today only because other packages
+  seed `operations` into the shared DB first — an ordering accident, not a guarantee.
+
+**Unverified, neither confirmed nor refuted** (do not treat as settled): the Workbox
+"404 precache entry fails the whole install" mechanism behind D-12; RUN-10's non-determinism; the
+red capture's provenance at `acba117`; card C's cold bundle rebuild; the 544/0/6 full-suite figure.
+
+---
+
 ## Carried from card A's G6 review (not blocking — card A merged APPROVE-WITH-NOTES)
 
 These are G6 findings the reviewer demonstrated but which fall **outside card A's signed scope**.
