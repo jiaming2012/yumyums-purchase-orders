@@ -367,22 +367,58 @@ A mobile-first PWA operations console for a food truck business. One app shell w
 ## Cross-Cutting Concerns
 <!-- GSD:architecture-end -->
 
-<!-- GSD:workflow-start source:GSD defaults -->
-## GSD Workflow Enforcement
+## Night-Crew Workflow
 
-Before using Edit, Write, or other file-changing tools, start work through a GSD command so planning artifacts and execution context stay in sync.
+**This repo is a night-crew _target_ repo.** Planning and execution run through the
+night-crew cycle, not GSD. GSD is no longer used here; ignore any `/gsd:*` command
+still installed on the skill surface.
 
-Use these entry points:
-- `/gsd:quick` for small fixes, doc updates, and ad-hoc tasks
-- `/gsd:debug` for investigation and bug fixing
-- `/gsd:execute-phase` for planned phase work
+Real project state lives in **`.night-crew/knowledge/`** — `roadmap.md`, `okrs.md`,
+`BACKLOG.md`, `ledger.md`, `bugs.md`, `prds/`, `reference/`. `.planning/STATE.md`'s
+null milestone fields are **deliberate**, not corruption; do not "repair" them.
 
-Do not make direct repo edits outside a GSD workflow unless the user explicitly asks to bypass it.
-<!-- GSD:workflow-end -->
+### Entry points
 
-<!-- GSD:profile-start -->
-## Developer Profile
+Full cheatsheet: `.night-crew/knowledge/COMMANDS.md`, or the global `/nc-help`.
+`/nc-status` answers "where are we, what next?" and is the right first move in a
+fresh session.
 
-> Profile not yet configured. Run `/gsd:profile-user` to generate your developer profile.
-> This section is managed by `generate-claude-profile` -- do not edit manually.
-<!-- GSD:profile-end -->
+| Stage | Command |
+|---|---|
+| Attended, evening | `/nc-okr-session` → `/nc-pm-session` → `/nc-pm-grill-back` → `/nc-slate-plan` |
+| Unattended, overnight | the slate's launch prompt, pasted into a **fresh** session |
+| Attended, morning | `/nc-morning-triage` |
+| Milestone / ship | `/nc-milestone-close`, `/nc-release`, `/nc-scorecard` |
+
+### Rules that bind any agent working here
+
+- **There is no per-edit gate.** Ad-hoc fixes, doc updates and investigations do not
+  need a ceremony command — branch off `dev`, commit normally. Slates govern *planned*
+  overnight work, not every keystroke.
+- **Overnight runs** branch from `dev` as `overnight-YYYYMMDD`. Inside a run: never
+  push, never tag, never touch `main`.
+- **Do not edit a run branch once its `HANDOFF.md` is written.** It is the artifact
+  under triage and its SHAs get cited as evidence. Follow-up fixes go on a fresh
+  branch off `dev`, or off the merge commit after triage.
+- **Check `night-crew.toml` when you change a file.** It maps changed paths → the
+  Playwright spec subset a card must run. A narrow or missing footprint entry is
+  exactly how a regression escapes a green gate — this has happened.
+- **Run artifacts** live in `.night-crew/runs/<date>-autonomous/`: `HANDOFF.md`,
+  `DECISIONS-NEEDED.md`, `merge-intents/`, `timings.log`. Conflict logs live at
+  `.night-crew/knowledge/reference/conflicts-<runid>.md`.
+- **Decide role-level calls yourself.** PM / PjM / Engineer-level questions get
+  decided and stated, not handed to the operator to bless. Escalate only genuine
+  product forks.
+
+### Run mechanics (non-obvious, costs time to rediscover)
+
+- `export PATH="/usr/local/go/bin:$PATH"` before **any** Go or Playwright leg. The
+  non-interactive shell does not carry Go; Playwright's `webServer` dies with
+  `go: not found` / exit 127, which **looks like a test failure and is not**.
+- Postgres is on **:5433**, not 5432.
+- `go test ./... -p 1` — **`-p 1` is load-bearing.** Packages share one test DB and
+  each `TestMain` truncates; without it six packages red on cross-package
+  interference. Not a production defect.
+- Set `DB_TEST_URL` or the Go suite **exits 0 while skipping every DB-coupled test** —
+  `internal/workflow` runs zero tests and still prints `ok`. Always check counts, not
+  just `ok`/`FAIL`.
