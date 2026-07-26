@@ -29,13 +29,50 @@ The verdict lives at
 **This file is the runbook: how to reproduce every proof behind that verdict
 yourself.**
 
-Every command below was actually run on 2026-07-25 and the output shown under it
-is the real captured output, not a reconstruction and not an expectation. Where
-output is long it is trimmed to the line that matters, and the trim is marked.
+Every command below was actually run on 2026-07-25, and every **fact** asserted
+under it was observed. Most output blocks are verbatim captures. **Six are not**
+— they are annotated or abridged presentations of real runs — and they are
+enumerated by name in [Integrity of the output blocks](#integrity-of-the-output-blocks)
+below. Read that section before you treat any block here as byte-exact.
+Where output is long it is trimmed to the line that matters, and the trim is marked.
 
 **This half stands alone.** It covers the substrate (Postgres + PostgREST +
 Realtime) and the token bridge. It does not involve RxDB at all, and it remains
 a complete, runnable document whether or not half 2 is ever written.
+
+### Integrity of the output blocks
+
+*Added 2026-07-26 by card `sync-rxdb-browser-delivery-spike`, per T-22 decision
+53. This document previously claimed, in two places, that every output block was
+"the real captured output, not a reconstruction". That claim was **too strong**.
+The claim has been narrowed rather than the blocks rewritten — see* ***Why
+narrowed and not repaired*** *at the end of this section.*
+
+**Every fact this document asserts re-verifies, and W1's GO stands.** What
+follows is a correction to the *presentation*, not to any finding.
+
+Six blocks are **hand-composed presentations of real runs** rather than
+byte-exact captures. They are:
+
+| # | Where | What was composed | Does it change any fact? |
+|---|---|---|---|
+| 1 | Proofs **P1–P10** (§ "Proving RLS actually discriminates") | The right-aligned `HTTP nnn` annotations — **ten of them** — were added by hand. The `curl` commands as printed carry no `-w`, `-i` or `-D -`, so they could not have emitted a status line. The status codes themselves were observed; they were observed on separate invocations. | No. To reproduce the annotation, append `-w ' HTTP %{http_code}\n'` to each `curl`. |
+| 2 | Proof **R2** (Realtime, terminal 1) | Every `RECV` line is missing the `topic=` column. `rtwatch/main.go:144` prints `RECV event=%-18s topic=%-16s payload=%s` **unconditionally**, so a real capture always carries it. The column was dropped for page width. | No — the topic was `realtime:spike` throughout, which the `SENT phx_join topic=realtime:spike` line above it already shows. |
+| 3 | Proof **R3** (the missing-`alter publication` negative proof) | Same missing `topic=` column, and `phx_reply` is padded to a **different width** than in R2 (`%-18s` would make both identical). Two paddings in one document is the tell. | No. |
+| 4 | Step "apply the fixture" (psql command tags) | The block shows `DROP TRIGGER` but **not** the three `DROP POLICY` tags. `sql/spike-fixture.sql` runs one `drop trigger if exists` and three `drop policy if exists`; psql emits a command tag for each. Three tags were dropped, one kept. | No — the policies are created three lines further down in the same block (`CREATE POLICY` ×3). |
+| 5 | Half 2, Step 1a (`node smoke.js`) | The elision read `... (5 more alice rows) ...`, implying the table held **6** user-alice rows. It held **8**. Corrected to a non-numeric elision, because the true number is not stable: sharp edge 13 means `spike_notes` **accumulates** rows on every run by design, so any count printed here is stale the moment another proof runs. | No — the fact being proven is that **zero `user-bob` rows appear**, which is unaffected by how many alice rows there are. |
+| 6 | `.night-crew/runs/2026-07-25-autonomous/timings.log:34` | Records *"PostgREST half fully discriminating: **P1-P11** all as predicted"* against a runbook that documents **P1–P10**. There is no P11. | No. The historical run log is **left as written** — appending to or rewriting a closed run's timings is a worse defect than the off-by-one. The discrepancy is recorded here instead. |
+
+**Why narrowed and not repaired.** Both were allowed. Repairing the
+presentation would mean re-running W1's proofs and pasting fresh byte-exact
+captures — and that cannot honestly be done now, because the stack is
+**stateful and cumulative**: `spike_notes` has accumulated rows from every proof
+run since (sharp edge 13), so a re-capture today produces *different bytes* for
+the same commands. Pasting those under a claim of byte-exactness would recreate
+the same defect one generation later. Narrowing the claim is the durable fix: it
+tells a reader exactly which blocks to distrust as bytes and confirms that every
+block is trustworthy as **fact**. The one place where a number was simply
+**wrong** (row 5) was corrected outright rather than annotated.
 
 ### Prerequisites
 
@@ -722,9 +759,13 @@ Night-crew card **W2 `sync-spike-rxdb-replication`** answers the next question:
 and what does it do when two writers collide?
 
 Every command below was actually run on 2026-07-25 against the stack half 1
-leaves running, and every block of output under a command is real captured
-output. Where output is trimmed, the trim is marked. Nothing here says "should
-print".
+leaves running, and every **fact** asserted under it was observed. Nothing here
+says "should print". Where output is trimmed, the trim is marked.
+
+**One block in this half is an abridged presentation rather than a verbatim
+capture** — the `node smoke.js` output in Step 1a. It is listed with the five
+in half 1 under [Integrity of the output blocks](#integrity-of-the-output-blocks),
+which is the authoritative list for the whole document.
 
 The artefacts live in [`rxdb/`](rxdb/) and are the thing you run.
 
@@ -818,7 +859,7 @@ token len 184 segments 3
 REST error: null
 REST rows visible to user-alice: [
   { id: 'note-alice-1', owner_id: 'user-alice', body: 'alice seed row', ... },
-  ... (5 more alice rows) ...
+  ... (remaining user-alice rows elided) ...
 ]
 realtime status: SUBSCRIBED
 FINAL realtime status: SUBSCRIBED
