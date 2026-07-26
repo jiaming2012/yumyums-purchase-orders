@@ -24,9 +24,23 @@ async function build() {
       'manifest.json',
       'version.json',
       'icons/**/*.png',
+      // Vendored, pre-built browser bundles (vendor/build-vendor.sh). Committed
+      // output, precached content-hashed exactly like every other LOCAL asset —
+      // which is the entire point: a food-truck PWA's offline data engine must
+      // not live behind a CDN the truck cannot reach.
+      //
+      // Deliberately '*.bundle.js' and NOT a bare 'vendor/**'. globIgnores'
+      // 'node_modules/**' is a TOP-LEVEL pattern and does not match
+      // 'vendor/node_modules/**'; measured 2026-07-26, a bare 'vendor/**' sweeps
+      // 8,919 files / 67 MB of vendor/node_modules into the precache manifest.
+      // The narrow glob also keeps the generator's own inputs (package-lock.json,
+      // src/*.mjs, build-vendor.sh) off the phone — they are build inputs, and
+      // nothing on the truck should download them.
+      'vendor/*.bundle.js',
     ],
     globIgnores: [
       'node_modules/**',
+      'vendor/node_modules/**',
       'backend/**',
       'tests/**',
       '.planning/**',
