@@ -29,14 +29,21 @@ async function build() {
       // which is the entire point: a food-truck PWA's offline data engine must
       // not live behind a CDN the truck cannot reach.
       //
-      // Deliberately '*.bundle.js' and NOT a bare 'vendor/**'. globIgnores'
-      // 'node_modules/**' is a TOP-LEVEL pattern and does not match
-      // 'vendor/node_modules/**'; measured 2026-07-26, a bare 'vendor/**' sweeps
-      // 8,919 files / 67 MB of vendor/node_modules into the precache manifest.
-      // The narrow glob also keeps the generator's own inputs (package-lock.json,
-      // src/*.mjs, build-vendor.sh) off the phone — they are build inputs, and
-      // nothing on the truck should download them.
-      'vendor/*.bundle.js',
+      // Deliberately '**/*.bundle.js' and NOT a bare 'vendor/**': that would
+      // sweep the generator's own inputs (package-lock.json, src/*.mjs,
+      // build-vendor.sh) onto the phone, and — before 'vendor/node_modules/**'
+      // was added to globIgnores below — 8,919 files / 67 MB of node_modules,
+      // because globIgnores' 'node_modules/**' is a TOP-LEVEL pattern that does
+      // not match 'vendor/node_modules/**'.
+      //
+      // But '**/' (recursive), NOT 'vendor/*.bundle.js' (single level). A
+      // single-level glob would SILENTLY OMIT a future
+      // vendor/<sub>/foo.bundle.js from the precache — and a bundle that is
+      // silently absent from the precache looks fine in development and fails
+      // offline on the truck. That is exactly the silent-drop failure class
+      // build-vendor.sh's 5 MiB guard exists to prevent; the glob should not
+      // reintroduce it one directory level down.
+      'vendor/**/*.bundle.js',
     ],
     globIgnores: [
       'node_modules/**',

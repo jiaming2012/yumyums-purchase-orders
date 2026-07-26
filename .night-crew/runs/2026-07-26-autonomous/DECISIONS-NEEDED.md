@@ -131,3 +131,93 @@ Both in `sync.spec.js`, the file carrying the **proven ~16–20 % flake** whose
 exposure card A's merged seam fix deliberately raises. **Neither is the
 specifically flagged `sync.spec.js:1198`** — that one passed. `purchasing.spec.js:1407`
 (FR-13) also passed. Same refusal to attribute applies, same reason.
+
+---
+
+## Card C — G6 findings recorded for the operator and the next card (D-7 … D-11)
+
+*Appended by card C after its G6 review (APPROVE-WITH-NOTES). **Record only — do
+not fix here**; four separate repairs (F1/F2/F7/F8) were applied as code and are
+not listed below. Numbering starts at **D-7** per the orchestrator: **D-4/D-5/D-6
+are card B's** and land from card B's worktree, so they are not visible in this
+file yet. **D-1…D-3 above are untouched.***
+
+### D-7 — 🛑 Cross-tenant read through `api-cache`. Distinct from the `/api/` gate, and worse.
+
+Workbox's `api-cache` is keyed **by URL only**. `Authorization` is not part of the
+cache key and **no `Vary` is configured** in `build-sw.js`'s `runtimeCaching`
+block. On a **shared truck phone**, a second crew member — or the same person
+re-logging-in as a different user — issuing the same replication URL can be
+served **the previous user's rows straight from cache**.
+
+This is a **cross-tenant read**, not staleness. It shares a root cause with the
+3c finding (the `/api/` `NetworkFirst` route) but is a **different and more
+serious failure mode**: 3c loses data, this one *discloses* it, and RLS cannot
+help because the request never reaches PostgREST.
+
+**Hand to `sync-rxdb-schema-and-replication` explicitly.** Not mitigated by card
+C; the "do not mount under `/api/`" gate happens to also close it, but only as a
+side effect, and that is too thin a reason to leave it unstated.
+
+### D-8 — The precache cost of the vendored bundle. **Operator's call.**
+
+Card C's regenerated `sw.js` takes the PWA precache from **1452.1 KB / 22 files
+to 1947.1 KB / 23 files — +34%**. The bundle is **25.4% of the entire precache**.
+
+Every crew phone downloads **~495 KiB over LTE** on the next `task prod:deploy`,
+for an asset **no page imports**. Card C's merge-intent said "precached but never
+imported"; it never stated the cost. Stated now.
+
+**Two options, and this is not card C's to choose:**
+- **Keep it precached** — the offline path is then proven end-to-end (leg 3a
+  demonstrates the bundle loading with the network cut), and adoption later costs
+  nothing extra.
+- **Exclude it until a page actually imports it** — drop the `globPatterns`
+  entry, re-add it in `sync-rxdb-schema-and-replication`. Costs the truck nothing
+  today, but the offline-availability proof then goes untested until adoption.
+
+### D-9 — Two of the verdict's seven "may now assume" items are COUPLED, and the coupling was unflagged.
+
+Verdict items **1** ("no `global.fetch` shim needed") and **7** ("do not mount
+under `/api/`") both hold **only in a same-origin-fronted shape** — one origin
+reverse-proxying PostgREST — which **HQ does not have today**. `browser/serve.mjs`
+*invents* that reverse proxy for the harness; building the real equivalent is
+**neither costed nor listed under "did NOT establish"** in card C's verdict.
+
+**If `sync-rxdb-schema-and-replication` goes cross-origin** — the shape W1 and W2
+actually used — **item 7 becomes moot** (a cross-origin URL never matches
+`/\/api\//`) **and item 1 inverts: W2's `global.fetch` shim comes back.**
+
+Card C has added the dependency to the verdict so item 1 cannot be read without
+item 7. Recorded here because **the reverse proxy itself is unbuilt, uncosted
+work** that the schema card must size.
+
+### D-10 — Leg 4's millisecond figures are wall-clock, not monotonic.
+
+`browser/specs/leg4-leader-election.spec.js` measures handover with `Date.now()`
+deltas. **This box steps its clock** — G6's own run printed a **negative
+`-1545 ms`** interval for the same measurement.
+
+**The qualitative finding is unaffected and stands:** exactly one tab leads, the
+follower does not replicate, and the survivor both wins the election and
+**actually begins replicating**. Those are ordering facts, not timing facts.
+
+**But the quoted numbers (47 ms / 65 ms / 87 ms) are wall-clock deltas on a
+clock-stepping host and should be read as "sub-second", not as measurements.**
+Anything that needs a real number should use `performance.now()`.
+
+### D-11 — Card C's as-built design deviates from its own pre-written merge-intent.
+
+The merge-intent (written **before** implementation, as required) promised that
+`browser/` would carry **its own `package.json`, `node_modules/` and lockfile**,
+with rxdb / supabase-js consumed from W2's `spike-supabase/rxdb/` lockfile.
+
+**As built:** `browser/` has **zero dependencies and no lockfile** (it resolves
+`@playwright/test` up the tree and `serve.mjs` is dependency-free), and a **new
+`vendor/package.json` + `vendor/package-lock.json`** was created instead.
+
+**The as-built design is better** — it is precisely what holds the root-package
+line, since the bundle's sources must be pinned independently of both the root
+project and W2's harness. **But the deviation was not disclosed at the time**,
+and a merge-intent that silently diverges from what lands is worth less at the
+next merge. Recorded so the next card's note is read with that in mind.

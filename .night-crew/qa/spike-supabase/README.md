@@ -1457,9 +1457,19 @@ plainly. Half 2's own closing list of what a Node proof does *not* establish
 5. **Token expiry across an offline period** — untouched by W1 and W2.
 
 **Every command in this half was actually run on 2026-07-26**, against the stack
-half 1 leaves running, and every output block below **is a verbatim capture**
-(the correction in [Integrity of the output blocks](#integrity-of-the-output-blocks)
-applies to halves 1 and 2; nothing in half 3 is annotated or abridged).
+half 1 leaves running, and every **fact** asserted below was observed. **Two
+blocks in this half are trimmed, and each says so at the point of use** — the
+`build-vendor.sh` capture (npm's `EBADENGINE`/deprecated warnings removed) and
+the Playwright summary (each test's spec-path-and-describe prefix abbreviated for
+width). **Everything else in half 3 is a verbatim capture**, and no block
+anywhere in this half composes output from more than one run.
+
+*(That sentence is narrower than the one this half originally carried, which
+claimed flatly that "nothing in half 3 is annotated or abridged" while two blocks
+below already carried trim markings. Having narrowed W1's over-strong claim in
+[Integrity of the output blocks](#integrity-of-the-output-blocks), writing an
+over-strong one of my own a few hundred lines later would have reproduced the
+exact defect the rider was invoked to fix.)*
 
 The artefacts live in [`browser/`](browser/) and in [`../../../vendor/`](../../../vendor/).
 

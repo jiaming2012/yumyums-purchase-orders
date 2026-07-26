@@ -141,19 +141,50 @@ test.describe('leg 3 — HQ Workbox service worker vs. RxDB replication', () => 
         // honest network failure. RxDB sees a thrown fetch and retries. Correct.
         expect(safeOffline.threw, 'a replication URL outside /api/ must fail honestly when offline').toBe(true);
 
-        // The /api/ URL is routed. Whichever of (a) or (b) it turns out to be is
-        // recorded, but it must NOT be a well-formed 200 that RxDB would accept
-        // as a fresh pull — that is the silent-corruption case, and if it holds
-        // it is a hard constraint on where HQ may mount Supabase.
+        // ---- THE FINDING, ASSERTED — not merely logged --------------------
+        //
+        // This block is the evidence for a HARD ARCHITECTURAL GATE carried into
+        // `sync-rxdb-schema-and-replication` and `sync-hard-cutover`: do not
+        // mount Supabase under a path matching HQ's /\/api\// runtime route.
+        //
+        // An earlier version of this test asserted only `!threw` and
+        // `[200, 503].toContain(status)`. That passes IDENTICALLY under the
+        // benign 503 fallback and under the dangerous silent-stale 200 — i.e.
+        // it did not assert the finding at all, and a Workbox upgrade that
+        // reordered NetworkFirst to network -> handlerDidError would have left
+        // this leg green while the evidence for the gate silently evaporated.
+        //
+        // The assertions below are deliberately EXACT. If the trap ever stops
+        // being a trap, this test MUST go red so the gate is re-examined
+        // rather than quietly inherited.
         const silentlyStale = trapOffline.status === 200 && trapOffline.isArray === true;
         // eslint-disable-next-line no-console
         console.log(`[leg3c] VERDICT INPUT — silent-stale-200 under /api/ while offline: ${silentlyStale}`);
 
-        // The test asserts the SW routed it at all (that much is certain from
-        // build-sw.js) and pins the observed behaviour so a future Workbox or
-        // config change turns this red instead of drifting silently.
         expect(trapOffline.threw, 'the SW answered rather than letting the request fail').toBeFalsy();
-        expect([200, 503]).toContain(trapOffline.status);
+
+        // Exactly 200 — NOT `[200, 503]`. A 503 here would mean Workbox no
+        // longer falls back to its cache before its error handler, which would
+        // invalidate the stated reason for the gate.
+        expect(trapOffline.status,
+            'NetworkFirst must fall back to CACHE (200), not to handlerDidError (503) — ' +
+            'a 503 here means the silent-stale failure mode has changed and the ' +
+            '"do not mount under /api/" gate must be re-derived, not inherited').toBe(200);
+
+        // Well-formed JSON array = indistinguishable from a fresh pull. This is
+        // the whole finding: RxDB would accept these documents and advance its
+        // {modified, id} checkpoint past data it never saw.
+        expect(trapOffline.isArray,
+            'the cached body must be a well-formed array RxDB cannot distinguish from a fresh pull').toBe(true);
+        expect(trapOffline.contentType,
+            'and it must be served as JSON, completing the disguise').toContain('application/json');
+
+        // The single boolean the verdict and the runbook both quote.
+        expect(silentlyStale,
+            'THE TRAP: an offline replication pull under /api/ must still be answered ' +
+            'from stale cache as a well-formed 200. If this is false the finding has ' +
+            'changed and .night-crew/knowledge/designs/sync-rxdb-feasibility-spike.md ' +
+            'must be updated before this test is relaxed.').toBe(true);
     });
 
     test('3d — replication itself works with the SW controlling, over a non-/api/ same-origin path', async ({ page }) => {

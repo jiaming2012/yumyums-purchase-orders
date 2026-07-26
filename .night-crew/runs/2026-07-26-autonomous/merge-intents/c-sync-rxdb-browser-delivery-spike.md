@@ -126,10 +126,20 @@ The orchestrator can confirm all of the above with:
 git diff --stat overnight-20260726..HEAD -- backend/go.mod backend/go.sum \
   package.json package-lock.json docker-compose.nc.yml Taskfile.yml \
   docker-compose.supabase.yml playwright.config.js \
-  backend/internal tests '*.html' sync.js ptr.js
+  backend/internal tests ':(top,glob)*.html' ':(top)sync.js' ':(top)ptr.js'
 ```
 
-which must print **nothing**.
+which must print **nothing** — verified 2026-07-26, it does.
+
+> **Corrected after the fact (G6 finding F7).** This command originally ended
+> `... tests '*.html' sync.js ptr.js`. A bare `'*.html'` pathspec **matches at
+> any depth**, so run verbatim it reported
+> `.night-crew/qa/spike-supabase/browser/spike.html | 333 +++` — this card's own
+> spike-harness page — and an orchestrator following this note would have seen an
+> **apparent production-HTML violation at merge.** The `:(top,glob)` magic fixes
+> both halves: `top` anchors at the repo root, and `glob` stops `*` from matching
+> `/`. **No production `*.html` was ever touched**; the note's checker was wrong,
+> not the diff.
 
 ---
 

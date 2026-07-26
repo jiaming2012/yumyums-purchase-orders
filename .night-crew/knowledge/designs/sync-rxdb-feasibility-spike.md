@@ -636,6 +636,21 @@ expiry.**
 
 ## What the gated schema card (`sync-rxdb-schema-and-replication`) may now assume
 
+> ### 🛑 Read items 1 and 7 together — they are COUPLED
+>
+> **Both hold only in a same-origin-fronted shape** (one origin reverse-proxying
+> PostgREST). **HQ does not have that shape today.** The harness's
+> `browser/serve.mjs` *invents* the reverse proxy; **building the real equivalent
+> is unbuilt, uncosted work this card did not establish** — size it.
+>
+> **If the schema card goes cross-origin instead** — the shape W1 and W2 actually
+> used — then **item 7 becomes moot** (a cross-origin URL never matches
+> `/\/api\//`, so the `/api/` trap cannot fire) **and item 1 INVERTS: W2's
+> `global.fetch` shim comes back.**
+>
+> Item 1 must never be read without item 7. Choosing the origin shape is the
+> decision that resolves both at once, and it is the schema card's first call.
+
 1. **The client construction is settled on the REST side.** Give `createClient`
    HQ's own origin plus the path prefix Supabase is mounted at, and
    `supabase-js`'s internally-derived `<url>/rest/v1` **becomes the real path**.
