@@ -1424,3 +1424,562 @@ docker compose -p spike-supabase -f docker-compose.supabase.yml down --volumes
 
 The harness's own `node_modules/` is gitignored and reinstallable with
 `npm ci` from `rxdb/package-lock.json`; delete it whenever you like.
+
+<!-- ======================================================================= -->
+<!-- SEAM: HALF 3 (card C, sync-rxdb-browser-delivery-spike) APPENDS BELOW.  -->
+<!-- Halves 1 and 2 above are append-only from half 3's side, with ONE       -->
+<!-- sanctioned exception already applied: T-22 decision 53's integrity      -->
+<!-- repair, which is confined to the two claim paragraphs and the new       -->
+<!-- "Integrity of the output blocks" section. No finding above was revised. -->
+<!-- ======================================================================= -->
+
+# Supabase sync spike — runbook, half 3: does any of it work in a real browser?
+
+> **This half assumes halves 1 and 2 above.** It does not repeat the LOCAL-ONLY
+> banner or the throwaway-credential warning at the top of this file — they
+> apply to everything here too, unchanged. The stack, the fixture table and the
+> Go token minter are all half 1's; half 3 adds no service and modifies
+> `docker-compose.supabase.yml` by not one byte.
+
+## What this half is
+
+Half 1 proved the **substrate**. Half 2 proved the **replication protocol** — in
+Node, on `getRxStorageMemory()`, with `waitForLeadership: false`, and it said so
+plainly. Half 2's own closing list of what a Node proof does *not* establish
+(`sync-rxdb-feasibility-spike.md:512-537`) is the scope of this half:
+
+1. **Delivery** — how does RxDB even *reach* a browser in a repo whose stated
+   constraint is "Static only: No build step, no framework"?
+2. **Dexie storage in a real browser** — not memory. Write, reload, is it there?
+3. **Service-worker interaction** — HQ's Workbox `sw.js` is network-first for
+   `/api/` with an offline JSON fallback. What does that do to replication?
+4. **Multi-tab leader election** — at the browser default (`true`), never run.
+5. **Token expiry across an offline period** — untouched by W1 and W2.
+
+**Every command in this half was actually run on 2026-07-26**, against the stack
+half 1 leaves running, and every output block below **is a verbatim capture**
+(the correction in [Integrity of the output blocks](#integrity-of-the-output-blocks)
+applies to halves 1 and 2; nothing in half 3 is annotated or abridged).
+
+The artefacts live in [`browser/`](browser/) and in [`../../../vendor/`](../../../vendor/).
+
+---
+
+## Step 0 — the delivery mechanism, and why it is a committed bundle
+
+Before anything can be tested in a browser, RxDB has to get there. Three
+candidates were considered at slating; the third was chosen.
+
+| # | Candidate | Verdict |
+|---|---|---|
+| 1 | CDN ESM import (`https://esm.sh/rxdb@17.4.0`) — matches the SortableJS precedent (`workflows.html:172`) | **Rejected.** This is a food-truck PWA whose entire reason for adopting RxDB is offline correctness. Putting the offline data engine behind a CDN the truck cannot reach inverts the point. Workbox precaches **local content-hashed files**; a CDN URL needs runtime caching — a *second* offline story, which Engineering KR3 forbids. |
+| 2 | A real build step (esbuild wired into `task sw` / the Dockerfile) | **Rejected for now.** Cleanest long-term, but it breaks a stated project constraint and rewrites the deploy path. **Operator decision, not a card's.** |
+| 3 | **Vendored pre-built bundle** | ✅ **Chosen and proven.** |
+
+```bash
+bash vendor/build-vendor.sh    # hand-run, on upgrade only
+node build-sw.js               # re-precache the new content hash
+```
+
+Verbatim:
+
+```
+added 77 packages in 34s
+==> rxdb              17.4.0
+==> @supabase/supabase-js 2.109.0
+==> esbuild           0.28.1 (via npx, not a devDependency)
+
+  rxdb.bundle.js  495.0kb
+
+⚡ Done in 421ms
+==> rxdb.bundle.js  506885 bytes (495.0 KiB raw, 145.1 KiB gzip)
+==> done. Now run: node build-sw.js   (then commit vendor/ and sw.js together)
+```
+
+```
+SW built: 23 files precached (1947.1 KB)
+Frontend version: 1.1.0
+```
+
+**Four things about this are load-bearing and none are decoration.**
+
+**(a) `npx esbuild@0.28.1`, not a devDependency.** The repo-root `package.json`
+and `package-lock.json` are the Playwright environment for every night-crew card
+in every worktree. `npx` resolves into npm's own cache and writes nothing into
+the repo's dependency graph. The pin is what makes it reproducible without one.
+The rxdb / supabase-js **sources** come from `vendor/package.json` +
+`vendor/package-lock.json` — again, not the root.
+
+**(b) The output is committed.** That is the whole mechanism. `task prod:deploy`
+→ `git pull` → `task sw` → `docker build` never runs a bundler and never needs
+npm. **The "no build step" constraint holds.** Regenerating is a deliberate,
+hand-run act on upgrade — which is exactly where FORK 4's "smoke test that fails
+loudly on upgrade" attaches: `build-vendor.sh` stamps the resolved lockfile
+versions into an exported `VENDOR_BUILD` object, and
+`specs/leg1-delivery.spec.js` asserts them against RxDB's own `RXDB_VERSION`.
+
+**(c) The Workbox glob is `vendor/*.bundle.js`, NOT `vendor/**`.** The card
+asked for `vendor/**`; that would have been a mistake and the measurement says
+so. `globIgnores`' `'node_modules/**'` is a **top-level** pattern and does not
+match `vendor/node_modules/**`. A bare `vendor/**` sweeps **8,919 files / 67 MB**
+of build inputs into the precache manifest. The narrow glob also keeps
+`package-lock.json`, `src/*.mjs` and `build-vendor.sh` off the phone.
+`'vendor/node_modules/**'` was added to `globIgnores` as belt-and-braces.
+
+**(d) `build-vendor.sh` fails loudly above 5 MiB.** `build-sw.js` sets
+`maximumFileSizeToCacheInBytes` to 5 MiB, and Workbox **silently drops** a file
+above it. A bundle that silently left the precache would look fine in
+development and break offline on the truck. At 506,885 bytes there is ample
+headroom; the check exists so the next upgrade cannot cross the line quietly.
+
+### The finding that reshaped the bundle: RxDB dev-mode phones home
+
+**`specs/leg1-delivery.spec.js` asserts the page reaches ZERO external hosts.**
+It went red:
+
+```
+Error: the page reached ZERO external hosts — no CDN in the offline data path
+- Array []
++ Array [
++   "rxdb.info",
++ ]
+```
+
+Chased down to
+`node_modules/rxdb/dist/esm/plugins/dev-mode/dev-mode-tracking.js`.
+`addRxPlugin(RxDBDevModePlugin)` calls `addDevModeTrackingIframe()`, which
+appends a hidden 1×1 iframe pointing at
+`https://rxdb.info/html/dev-mode-iframe.html?version=17.4.0` to `document.body`,
+and hashes `location.host` to pick which marketing link it shows. Its own
+comment, at line 36 of the shipped file, reads:
+
+```
+  /**
+   * Only run this in browser AND localhost AND dev-mode.
+   * Make sure this is never used in production by someone.
+   */
+  if (iframeShown || typeof window === 'undefined' || typeof location === 'undefined' || typeof document === 'undefined'
+  // !isLocalHost()
+  ) {
+```
+
+**The `!isLocalHost()` term of that guard is commented out in the shipped
+17.4.0 build.** The only thing that suppresses the iframe is
+`hasPremiumFlag()` — a paid flag.
+
+So `dev-mode` and its mandatory `validate-ajv` wrapper were **removed from the
+vendored entry entirely**. Measured consequences:
+
+| | with dev-mode | without | delta |
+|---|---|---|---|
+| raw | 708,556 B | 506,885 B | −201,671 B |
+| gzip | 205,765 B | 148,591 B | −57,174 B |
+| third-party hosts contacted | 1 (`rxdb.info`) | **0** | — |
+
+Two knock-on effects, both real and both worth knowing before
+`sync-rxdb-schema-and-replication` starts:
+
+- **W2 sharp edge 9 stops applying.** `wrappedValidateAjvStorage` was only
+  required *because* dev-mode was on. Plain `getRxStorageDexie()` is used
+  directly.
+- **`ignoreDuplicate: true` becomes illegal.** RxDB throws `RxError (DB9)` —
+  *"ignoreDuplicate is only allowed in dev-mode and must never be used in
+  production"*. W2's `spike-env.js makeLocalDb` sets it and never hit this,
+  because it had dev-mode on. A page that opens the same database twice must now
+  hold its own handle instead.
+- **Cost, stated honestly:** no schema/typing checks, and RxDB errors arrive as
+  bare codes with an `rxdb.info` doc link instead of prose. A developer who
+  wants them adds `rxdb/plugins/dev-mode` to `vendor/src/rxdb-hq-entry.mjs`,
+  runs `build-vendor.sh`, and **must not commit the result**.
+
+---
+
+## Step 1 — run the browser harness
+
+```bash
+export PATH="/usr/local/go/bin:$PATH"    # the harness shells out to `go run ./mintjwt`
+cd .night-crew/qa/spike-supabase/browser
+npx playwright test -c playwright.spike.config.js
+```
+
+**No `npm install` step.** This directory has a `package.json` with **no
+dependencies at all**: `@playwright/test` resolves up the tree to the repo-root
+`node_modules`, and `serve.mjs` is deliberately zero-dependency. The root
+`package.json` / `package-lock.json` are byte-untouched.
+
+Verbatim, 2026-07-26 (1-min load average **8.58** at start, **30.39** at end —
+this box runs ~13 unrelated containers and a second night-crew card was
+executing concurrently; this is a **loaded**, not a quiet, measurement):
+
+```
+Running 11 tests using 1 worker
+
+  ✓   1 leg1 › the bundle loads via a plain <script type="module"> from a local path (577ms)
+  ✓   2 leg1 › the bundle exports every symbol a real client would need (300ms)
+  ✓   3 leg2 › write, reload, and the data is still there (645ms)
+  ✓   4 leg2 › a second, independent page in a fresh context sees the same store (371ms)
+  ✓   5 leg3 › 3a — the vendored bundle is served from the Workbox precache while OFFLINE (1.1s)
+  ✓   6 leg3 › 3b — the /api/ offline fallback is real: 503 {"error":"offline"} (1.1s)
+  ✓   7 leg3 › 3c — THE TRAP: a same-origin replication URL under /api/ is answered from STALE CACHE while offline (3.3s)
+  ✓   8 leg3 › 3d — replication itself works with the SW controlling, over a non-/api/ same-origin path (2.1s)
+  ✓   9 leg3 › 3e — a long-lived WebSocket UNDER /api/ is untouched by the service worker (2.5s)
+  ✓  10 leg4 › exactly one of two tabs leads, and the survivor takes over when it closes (2.4s)
+  ✓  11 leg5 › expiry while offline is recoverable by swapping the token, with no data loss (1.5m)
+
+  11 passed (1.8m)
+```
+
+### Why the harness serves its own origin
+
+`browser/serve.mjs` is a ~200-line zero-dependency static server that publishes
+**the same PostgREST under two same-origin paths**:
+
+```
+  /rest/v1/*        -> PostgREST   (does NOT match HQ sw.js's /\/api\//)
+  /api/v1/rest/v1/* -> PostgREST   (DOES match it)
+```
+
+and `supabase-js` chooses between them purely from the base URL it is handed,
+because it derives `<url>/rest/v1` internally:
+
+```js
+createClient('http://127.0.0.1:PORT')          // -> /rest/v1/...
+createClient('http://127.0.0.1:PORT/api/v1')   // -> /api/v1/rest/v1/...
+```
+
+This matters twice.
+
+**First, it removes the shim.** W2's Node harness needed a `global.fetch`
+override to strip supabase-js's `/rest/v1` prefix, because W1 deliberately
+deployed no Kong (`spike-env.js` §3). **Fronting PostgREST on HQ's own origin
+makes that shim unnecessary** — the client's assumed path *becomes* the real
+path. That is a genuinely useful finding for the real migration: the
+"gateway-less client shim" of FORK 4 shrinks to a base-URL choice on the REST
+side.
+
+**Second, and this is the point:** a cross-origin PostgREST on `127.0.0.1:46233`
+never matches `/\/api\//` at all. A naive cross-origin harness would have
+"passed" the service-worker leg **by never touching the trap.** That is exactly
+the false green this half exists to avoid.
+
+---
+
+## Step 2 — leg 2: Dexie survives a reload
+
+`specs/leg2-dexie-reload.spec.js`. Opens a real
+`getRxStorageDexie()` database (asserted: `db.storage.name === 'dexie'`, so a
+silent fall-back to memory cannot pass), inserts three documents, confirms the
+browser's own `indexedDB.databases()` lists the store, then does a **real
+`page.reload()`** — not `db.close()` — and re-opens.
+
+**PROVEN.** All three documents come back with the right bodies, and a document
+id that was never written still returns `null`. That negative half is not
+ceremony: without it a leg that returned everything would look identical to a
+leg that proved persistence.
+
+One thing recorded rather than asserted: a **fresh Playwright browser context**
+sees an empty store (`[]`). That measures Playwright's storage isolation, not
+RxDB's durability, so it is logged and not turned into a pass/fail.
+
+**What this does NOT establish, stated plainly:** quota limits, eviction under
+storage pressure, Safari's stricter eviction, and private browsing are all
+untested. Chromium's Dexie backend is not iOS Safari's. See the verdict.
+
+---
+
+## Step 3 — leg 3: the service worker, and the trap that is real
+
+`specs/leg3-service-worker.spec.js`, run under
+`browser/playwright.spike.config.js`.
+
+> ### ⚠ The repo-wide `serviceWorkers: 'block'` was NOT touched
+>
+> `playwright.config.js:60` blocks service workers for the whole suite, and that
+> setting is **load-bearing for 500+ existing tests** — HQ's Workbox SW
+> precaches every page and would serve stale HTML into a suite that mutates
+> state at every step. This leg is proved in a **separate config** that enables
+> service workers for these specs and these specs only. Nothing in `task test`
+> reads it.
+
+Every sub-leg below registers HQ's **real** `/sw.js` and waits for it to
+actually control the page (`navigator.serviceWorker.controller` non-null) before
+measuring anything.
+
+### 3a — the offline data engine is itself available offline ✅
+
+`GET /vendor/rxdb.bundle.js` with the network cut returns **HTTP 200 and the
+identical byte count** as online. This is the payoff of the vendored-bundle
+decision: RxDB is a precached local asset, so it is there exactly when it is
+needed. A CDN import could not do this without a second offline story.
+
+### 3b — the fallback is real ✅
+
+A never-before-fetched `/api/v1/spike-ping?never-cached=…` with the network cut:
+
+```
+status 503, content-type application/json, body {"error":"offline"}
+```
+
+Workbox reached `handlerDidError` because `NetworkFirst` had no cache entry to
+fall back to. Confirmed, and it is the *benign* half of the story.
+
+### 3c — 🛑 THE TRAP, and it is the nasty variant
+
+The feasibility note warned about "an offline fallback answering a replication
+request with cached JSON". The reality is worse than the 503, because
+`NetworkFirst` tries **network → cache → `handlerDidError`, in that order**.
+
+The leg: prime the cache with one successful, well-formed pull at a stable
+replication-shaped URL under `/api/`; insert a new row **out of band**, straight
+at PostgREST, so the browser cannot know; cut the network; ask for the same URL.
+
+Verbatim:
+
+```
+[leg3c] under /api/ while offline: {"status":200,"contentType":"application/json; charset=utf-8",
+  "isArray":true,"count":26,"bodyStart":"[{\"id\":\"note-alice-1\",\"owner_id\":\"user-alice\",
+  \"body\":\"alice seed row\",\"_deleted\":false,\"_modified\":\"2026-07-25T15:03:07."}
+[leg3c] NOT under /api/ while offline: {"threw":true,"error":"TypeError: Failed to fetch"}
+[leg3c] VERDICT INPUT — silent-stale-200 under /api/ while offline: true
+```
+
+**Read that carefully.** Offline, under `/api/`, HQ's service worker answered a
+replication pull with **HTTP 200, `application/json`, a well-formed array of
+rows** — stale, missing the row written out of band, and **indistinguishable
+from a fresh pull.** RxDB has no way to tell. It would accept the documents and
+**advance `_modified`/`id` checkpoint past data it never saw**, and the missing
+row would never be pulled again.
+
+The contrast line is the other half of the finding: the **same query shape not
+under `/api/`** fails honestly with `TypeError: Failed to fetch`, which RxDB
+handles correctly by retrying.
+
+**This is a hard constraint on the real migration, not a curiosity:**
+
+> **The Supabase replication endpoint must NOT be mounted under a path matching
+> HQ's `sw.js` runtime route (`/\/api\//`).** Mount it at `/rest/v1/*`,
+> `/sync/*`, or cross-origin — anywhere the Workbox `NetworkFirst` route does
+> not claim. If it ever must live under `/api/`, `build-sw.js` has to exclude
+> that sub-path from the runtime route **explicitly**, and that exclusion needs
+> a regression test, because the failure is silent.
+
+### 3d — replication works fine with the SW in the middle ✅
+
+Full RxDB → PostgREST push over the non-`/api/` same-origin path with the
+service worker controlling: `awaitInitialReplication` → `ok`, `awaitInSync` →
+`in-sync`, **0 replication errors**, and the row verified over an independent
+request straight at PostgREST's own host port — not through the page, not
+through the proxy, not through the SW, and not through RxDB's own opinion of
+whether it is in sync.
+
+**The service worker is not a problem for replication. The `/api/` route is.**
+
+### 3e — a long-lived WebSocket under `/api/` is untouched ✅
+
+To keep this a question about the *service worker* rather than about Realtime's
+vhost handling, `serve.mjs` completes a real RFC 6455 handshake itself at
+`/api/v1/spike-ws` — a path that matches `/\/api\//` exactly.
+
+```
+[leg3e] /api/-mounted WebSocket with SW controlling, online:  {"verdict":"open"}
+[leg3e] /api/-mounted WebSocket with SW controlling, offline: {"verdict":"error"}
+[leg3e] RECORDED (not asserted) — browser -> self-hosted Realtime vhost: {"verdict":"error"}
+```
+
+A WebSocket handshake is not a fetch the service worker can answer, so it opens
+normally online and fails as a **transport error** offline. It can never become
+the 503 JSON fallback and can never be served from `api-cache`.
+
+**Note the asymmetry, because it is the operationally important part:** the
+WebSocket half of replication fails **loudly** where the HTTP half (3c) fails
+**silently**.
+
+The third line is **recorded, not asserted**: a direct browser handshake to
+self-hosted Realtime via the `realtime-dev.localhost` vhost did not connect in
+Chromium. That is W1's substrate surface, not this card's — W1 already proved
+Realtime over a Go-minted token with `rtwatch`, and a red here would attribute
+their finding to us. **It is not established that a browser can reach
+self-hosted Realtime directly**, and `sync-rxdb-schema-and-replication` should
+budget for it. Nothing in this half depends on it.
+
+---
+
+## Step 4 — leg 4: multi-tab leader election at the browser default ✅
+
+`specs/leg4-leader-election.spec.js`. Two pages in **one** browser context (two
+tabs of one profile — two *contexts* would be two profiles and would prove
+nothing), same Dexie database name, both starting replication with
+`waitForLeadership` **left undefined** so `replicateSupabase`'s own default
+(`true`) applies. That is the configuration nothing has ever run.
+
+```
+[leg4] leadership after both tabs started: A=true B=false
+[leg4] follower replication state before handover: {"started":false,"errorCount":0,"kinds":[],"last":null}
+[leg4] survivor took over: true after 47 ms
+[leg4] survivor replication state 552 ms after handover: {"started":true,"errorCount":0,"kinds":[],"last":null}
+```
+
+Three facts, and the third is the one that mattered:
+
+1. **Exactly one tab leads.** The follower's replication `started` is `false` —
+   leader election is doing real work, not decorating. Two tabs do not
+   double-push.
+2. **Handover is fast.** 47 ms from closing the leader tab (65 ms and 87 ms on
+   two earlier runs).
+3. **The survivor does not just win the election, it actually begins
+   replicating** — `started: true` 552 ms after handover. "Leader" and
+   "replicating" are two different facts, and asserting only the first would
+   have missed a crew member's remaining tab sitting there silently not syncing.
+
+**W2's `waitForLeadership: false` was a harness concession and can be dropped.
+The browser default is correct and works.**
+
+---
+
+## Step 5 — leg 5: token expiry across an offline period ✅ (with a sharp edge)
+
+`specs/leg5-token-expiry-offline.spec.js`. A real 20 s TTL is elapsed, not
+mocked.
+
+### 🛑 First, the sharp edge that nearly produced a false green
+
+The first version of this leg used a 20 s TTL and waited 28 s offline. **The
+write pushed successfully.** That was not RxDB being clever — **PostgREST
+v12.2.12 accepts a token past its `exp` for roughly 30 more seconds.**
+
+Measured directly against W1's stack on 2026-07-26. Each probe uses a **fresh,
+never-before-seen token**, so this is not a JWT-cache artefact:
+
+```bash
+for d in -5s -15s -25s -29s -30s -31s -35s -45s -60s; do
+  T=$(go run ./mintjwt -secret $SEC -sub user-alice -ttl $d)
+  curl -s -o /dev/null -w "exp offset $d -> HTTP %{http_code}\n" \
+    -H "Authorization: Bearer $T" "http://127.0.0.1:$RESTP/spike_notes?limit=1"
+done
+```
+
+```
+exp offset -5s -> HTTP 200
+exp offset -15s -> HTTP 200
+exp offset -25s -> HTTP 200
+exp offset -29s -> HTTP 401
+exp offset -30s -> HTTP 401
+exp offset -31s -> HTTP 401
+exp offset -35s -> HTTP 401
+exp offset -45s -> HTTP 401
+exp offset -60s -> HTTP 401
+```
+
+and the rejection is the expected one:
+
+```
+{"code":"PGRST301","details":null,"hint":null,"message":"JWT expired"} | HTTP 401
+```
+
+**`exp` IS enforced — W1's finding stands — but with ~30 seconds of clock-skew
+leeway.** Two consequences:
+
+- **Any HQ token-refresh design that treats `exp` as a hard edge is wrong by
+  half a minute.** In practice this is a small safety margin in HQ's favour, but
+  it must be *known* rather than discovered.
+- **Any test that waits less than ~30 s past `exp` is measuring the leeway, not
+  the expiry.** The leg now waits 65 s offline against a 20 s TTL.
+
+### The leg itself
+
+Write locally with a valid token and sync. Go offline. Write again. Let the
+token die out there. Come back online.
+
+```
+[leg5] replication state with an EXPIRED token:
+  {"started":true,"errorCount":15,"kinds":["jwt-expired","network"],
+   "last":{"kind":"jwt-expired","head":" RxDB Error-Code: RC_PUSH. …"}}
+```
+
+Then swap the token **without restarting replication** —
+`supabase-js` wires `fetchWithAuth` to `_getAccessToken()` and calls the
+`accessToken` callback on **every request** (`dist/index.mjs:673`), so a fresh
+token can be handed in while the RxDB database stays open:
+
+```
+[leg5] awaitInSync after token swap: in-sync
+[leg5] offline-written row in Postgres after recovery:
+  [{"id":"tok-c1785031215539-offline","owner_id":"user-alice",
+    "body":"written OFFLINE, after the token expired","_deleted":false,
+    "_modified":"2026-07-26T02:01:45.632156+00:00"}]
+```
+
+**Four findings:**
+
+1. **Replication does not die.** It retries indefinitely on `RC_PUSH`. There is
+   no terminal state to recover *from*.
+2. **The offline write is never lost.** It sits in Dexie through the whole
+   expiry, through 15 failed pushes, and pushes successfully afterwards.
+3. **Recovery is a token swap, not a re-login.** The RxDB database is never torn
+   down, so nothing queued is at risk. **This is what the real client-construction
+   helper (FORK 4 / T-22 decision 51) must expose**: a mutable token source, not
+   a token baked into the client at construction.
+4. **The error is classifiable and must be classified.** `jwt-expired` and
+   `network` are different answers demanding different UI, and RxDB surfaces
+   both through the same `error$` with the same `RC_PUSH` code. The harness
+   pattern-matches `PGRST301|JWT expired` vs `Failed to fetch`; **HQ will need
+   the same discrimination**, because "you are offline" and "please sign in
+   again" are not interchangeable messages to a crew member on a truck.
+
+> **Not established:** Realtime's own token lifecycle. `supabase-js` requires a
+> separate `setAuth()` on the Realtime socket when the token changes, and the
+> browser could not reach self-hosted Realtime directly here (3e). The
+> **HTTP** half of replication recovers on a token swap; the **WebSocket** half
+> is untested and `sync-rxdb-schema-and-replication` must budget for it.
+
+---
+
+## Sharp edges (half 3)
+
+**1. `vendor/**` is the wrong Workbox glob.** `globIgnores`' `'node_modules/**'`
+is top-level only. A bare `vendor/**` precaches 8,919 files / 67 MB. Use
+`vendor/*.bundle.js`.
+
+**2. RxDB dev-mode phones home to `rxdb.info` on ANY host.** The
+`!isLocalHost()` guard is commented out in shipped 17.4.0. Keep dev-mode out of
+any bundle that ships.
+
+**3. Dropping dev-mode makes `ignoreDuplicate: true` throw DB9.** It is
+"only allowed in dev-mode". W2's harness sets it.
+
+**4. Without dev-mode, RxDB errors are bare codes.** `DB9`, `RC_PUSH`, `DVM1`
+with a doc URL and no prose. Budget a few minutes per unfamiliar code, or
+temporarily rebuild the bundle with dev-mode **without committing it**.
+
+**5. HQ's `sw.js` will answer a replication pull with stale cached JSON** if the
+endpoint sits under `/api/`. Silent. See 3c.
+
+**6. PostgREST tolerates ~30 s of `exp` skew.** See leg 5.
+
+**7. Service workers cannot be tested in the main Playwright suite.**
+`playwright.config.js:60` blocks them and that is correct. Anything
+SW-dependent needs its own config, as `browser/playwright.spike.config.js` is.
+
+**8. A cross-origin spike harness would have missed the whole service-worker
+finding.** Same-origin is not a convenience here; it is the test condition.
+
+**9. `spike_notes` keeps accumulating.** Half 2's sharp edge 13 still applies,
+and it is why leg 5 asserts **by document id** rather than by row count. A count
+assertion in this harness tests the fixture's history, not the code.
+
+---
+
+## Teardown — still a separate, deliberate act
+
+Half 3 adds no service and no volume, so half 1's teardown is still the whole
+teardown, and it is still **not run automatically by anything in this
+document**. The stack is left running on purpose.
+
+```bash
+docker compose -p spike-supabase -f docker-compose.supabase.yml down --volumes
+```
+
+`browser/` installs nothing; there is no `node_modules` under it to delete.
+`vendor/node_modules/` is gitignored and reinstallable with `npm ci` from
+`vendor/package-lock.json`; delete it whenever you like — the **committed
+bundle does not need it**, which is the entire point.

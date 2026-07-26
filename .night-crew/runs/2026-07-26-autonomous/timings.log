@@ -24,3 +24,13 @@
 1785027342 2026-07-26T00:55:42Z card-A g6 start load1=1.64
 1785028373 2026-07-26T01:12:53Z card-A g6 end verdict=APPROVE-WITH-NOTES load1=40.00
 1785028373 2026-07-26T01:12:53Z card-A land start load1=40.00
+# ---- card C: sync-rxdb-browser-delivery-spike (concurrent with card B) ----
+C_vendor_bundle_first_generate      1m 17s  (npm install 34s + npx esbuild fetch + bundle 3.2s)
+C_vendor_bundle_regenerate            <1s   (warm npm cache + warm npx cache; esbuild 175-421ms)
+C_leg1_delivery                      RED first (host rxdb.info) -> dev-mode dropped -> GREEN
+C_leg2_dexie_reload                  RED first (DB9 ignoreDuplicate) -> GREEN
+C_leg3_service_worker                GREEN 5/5 — 3c confirmed the STALE-CACHE trap, not the 503
+C_leg4_leader_election               GREEN — handover 47ms / 65ms / 87ms across three runs
+C_leg5_token_expiry                  RED first (inside PostgREST's ~30s exp leeway) -> GREEN at 65s
+C_postgrest_exp_leeway_probe         ~2m     9 fresh tokens, boundary between -25s (200) and -29s (401)
+C_spike_suite_full                   1m 48s  11/11 passed; load 8.58 -> 30.39 (card B concurrent)
