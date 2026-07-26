@@ -32,3 +32,6 @@
 1785034674 2026-07-26T02:57:54Z card-B g6-repair end F1+F3+F2+F5 regate=go-full-pass,attack-16-green-9-red load1=26.93
 1785035563 2026-07-26T03:12:43Z card-C impl end verdict=LANDED finding=GO load1=15.68
 1785035563 2026-07-26T03:12:43Z card-C g6 start load1=15.68
+1785036533 2026-07-26T03:28:53Z card-C g6 end verdict=APPROVE-WITH-NOTES go=EARNED-AND-REPRODUCED load1=22.71 findings=F1-trap-unasserted,F2-half3-overclaim,F5-cross-tenant-cache,F6-precache-cost,F7-bad-verify-cmd,F8-glob-depth-gap
+1785037194 2026-07-26T03:39:54Z card-C g6-repair end F1+F2+F7+F8 harness=11/11 load1=7.10
+1785037194 2026-07-26T03:39:54Z card-C land start load1=7.10
