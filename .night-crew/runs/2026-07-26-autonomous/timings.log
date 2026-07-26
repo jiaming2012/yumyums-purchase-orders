@@ -24,3 +24,11 @@
 1785027342 2026-07-26T00:55:42Z card-A g6 start load1=1.64
 1785028373 2026-07-26T01:12:53Z card-A g6 end verdict=APPROVE-WITH-NOTES load1=40.00
 1785028373 2026-07-26T01:12:53Z card-A land start load1=40.00
+1785028493 2026-07-26T01:14:53Z card-C impl start load1=11.85
+1785028493 2026-07-26T01:14:53Z card-B impl start load1=11.85 concurrent-with=card-C
+1785033430 2026-07-26T02:37:10Z card-B impl end verdict=LANDED load1=15.00
+1785033430 2026-07-26T02:37:10Z card-B g6 start load1=15.00 note=card-C-still-in-flight-merge-order-C-then-B
+1785034018 2026-07-26T02:46:58Z card-B g6 end verdict=APPROVE-WITH-NOTES load1=16.75 findings=F1-vacuous-parity-gate,F2-umbrella-divergence,F3-denylist-not-allowlist
+1785034674 2026-07-26T02:57:54Z card-B g6-repair end F1+F3+F2+F5 regate=go-full-pass,attack-16-green-9-red load1=26.93
+1785035563 2026-07-26T03:12:43Z card-C impl end verdict=LANDED finding=GO load1=15.68
+1785035563 2026-07-26T03:12:43Z card-C g6 start load1=15.68
