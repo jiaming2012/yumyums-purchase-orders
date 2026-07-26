@@ -40,6 +40,17 @@
 //   • /api/v1/inventory/period-summary, /api/v1/inventory/menu-cogs — machine-
 //     to-machine service-token surfaces (HQ_INVENTORY_SERVICE_TOKEN), not
 //     session-grant surfaces.
+//   • /api/v1/sync/token — the Supabase bridge mint (card `sync-jwt-bridge-
+//     endpoint`). Same category as /me: access-resolution plumbing that must
+//     serve an UNGRANTED user, so it can hand them a token whose live grant
+//     projection lets them reach nothing. Gating it behind a grant would be
+//     circular, and choosing WHICH grant gates the sync bridge would be
+//     inventing a permission concept. It is inside the cookie group and takes
+//     no user-id parameter — identity comes only from the session, so there is
+//     no mint-for-someone-else path. Authorization for the DATA it unlocks is
+//     enforced downstream by RLS against a live grant projection, not by this
+//     endpoint; see backend/internal/sync/jwtbridge.go and
+//     .night-crew/qa/spike-supabase/sql/hq-bridge-policies.sql.
 //   • /api/v1/photos/* — PARKED (card G1 park trigger i): a cross-app utility
 //     called by workflows.html, purchasing.html, inventory.html AND
 //     onboarding.html. Which grant governs it is an operator question; until
