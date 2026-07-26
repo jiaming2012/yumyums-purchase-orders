@@ -7,7 +7,19 @@
 # format: <epoch> <ISO8601-UTC> <card> <leg> <event> [detail]
 
 1785025664 2026-07-26T00:27:44Z run start branch=overnight-20260726 load1=2.78 cores=8
+
+# --- card A: orchestrator stamps and card-leg stamps, unioned at merge (append-only, no side dropped)
 1785025698 2026-07-26T00:28:18Z card-A impl start load1=1.94
+1785026090 2026-07-26T00:34:50Z A red-first red-captured 3/3 red on unfixed tree @82d0053 (workflows RUN-09b, repro-cut-task:153, sync:1581) leg=hq_test_a1 port=8199 wall=182s load1_start=2.55 load1_end=2.82
+1785026450 2026-07-26T00:40:50Z A verify green 4/4 (RUN-09b, RUN-09c, repro-cut-task:153, sync:1581) leg=hq_test_a2 port=8199 wall=158s load1_start=2.55 load1_end=2.32 retries=0
+# !! EPOCH UNRELIABLE — G6 finding F1, demonstrated. The line below was committed in c70581c,
+# !! whose committer time is 1785027271 (2026-07-26T00:54:31Z) — 2429s EARLIER than the epoch it
+# !! carries. The epoch 1785029700 is therefore not a measurement and must NOT be read as one.
+# !! What IS bounded: the gate leg completed at or before 1785027271. The wall figure is the real
+# !! measurement; its derived minutes were also wrong (732s = 12.2m, not 13.0m). Corrected inline.
+# !! Left in place rather than rewritten: silently fixing a bad stamp is how a ledger stops being
+# !! evidence. Delivery KR3 should read the wall figure, not the epoch.
+1785029700 2026-07-26T01:35:00Z A gate green 164 passed / 1 skipped / 0 failed / 0 flaky of 165 — post-fix 4-spec seam subset (workflows 80 + sync 58 + persistence 25 + repro-cut-task 2) leg=hq_test_a3 port=8199 wall=732s (12.2m playwright) load1_start=2.43 load1_end=5.36 retries=1-unused [EPOCH UNRELIABLE — see above]
 1785027342 2026-07-26T00:55:42Z card-A impl end verdict=LANDED load1=1.64
 1785027342 2026-07-26T00:55:42Z card-A g6 start load1=1.64
 1785028373 2026-07-26T01:12:53Z card-A g6 end verdict=APPROVE-WITH-NOTES load1=40.00
