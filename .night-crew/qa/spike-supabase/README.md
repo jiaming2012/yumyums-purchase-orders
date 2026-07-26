@@ -1481,20 +1481,28 @@ bash vendor/build-vendor.sh    # hand-run, on upgrade only
 node build-sw.js               # re-precache the new content hash
 ```
 
-Verbatim:
+Verbatim, from a **cold** run with `vendor/node_modules` deleted first (npm's
+`EBADENGINE` / `deprecated` warnings on the install are the only lines removed,
+and this note is that trim being marked):
 
 ```
-added 77 packages in 34s
+added 77 packages in 35s
 ==> rxdb              17.4.0
 ==> @supabase/supabase-js 2.109.0
 ==> esbuild           0.28.1 (via npx, not a devDependency)
 
   rxdb.bundle.js  495.0kb
 
-⚡ Done in 421ms
+⚡ Done in 1426ms
 ==> rxdb.bundle.js  506885 bytes (495.0 KiB raw, 145.1 KiB gzip)
 ==> done. Now run: node build-sw.js   (then commit vendor/ and sw.js together)
 ```
+
+**The regeneration is deterministic**: that cold rebuild produced a
+`vendor/rxdb.bundle.js` **byte-identical** to the committed one
+(`git status --porcelain vendor/rxdb.bundle.js` printed nothing). That matters
+more than it looks — it means a reviewer can verify the committed binary artefact
+against its declared inputs instead of taking it on trust.
 
 ```
 SW built: 23 files precached (1947.1 KB)
@@ -1607,9 +1615,14 @@ dependencies at all**: `@playwright/test` resolves up the tree to the repo-root
 `node_modules`, and `serve.mjs` is deliberately zero-dependency. The root
 `package.json` / `package-lock.json` are byte-untouched.
 
-Verbatim, 2026-07-26 (1-min load average **8.58** at start, **30.39** at end —
-this box runs ~13 unrelated containers and a second night-crew card was
-executing concurrently; this is a **loaded**, not a quiet, measurement):
+2026-07-26, 1-min load average **8.58** at start and **30.39** at end — this box
+runs ~13 unrelated containers and a second night-crew card was executing
+concurrently, so this is a **loaded**, not a quiet, measurement.
+
+The block below is the real run with **one marked trim**: each test's
+`specs/legN-….spec.js:NN:5 › <full describe title> ›` prefix is abbreviated to
+`legN ›` for width. Nothing else is altered, and no timing or count is composed
+from a different run.
 
 ```
 Running 11 tests using 1 worker
