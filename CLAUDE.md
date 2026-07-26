@@ -32,8 +32,8 @@ A mobile-first PWA operations console for a food truck business. One app shell w
 - **Styling:** Shared CSS variables with automatic dark mode, mobile-first (max-width 480px)
 - **Inventory:** `inventory.html` — 7-tab layout (Purchases / Stock / Menu / Recipes / Trends / Cost / Setup), receipt review pipeline, item catalog with groups/tags, stock level thresholds, recipe/BOM editing for per-menu-item COGS
 - **Receipt pipeline:** Mercury banking → receipt download → DO Spaces upload → Claude Haiku parse → validate → pending review queue → manual confirm
-- **Period summary endpoint (Phase 21):** GET /api/v1/inventory/period-summary returns COGS + completeness gate for sales-processor's weekly payroll. Auth via HQ_INVENTORY_SERVICE_TOKEN (Bearer); unset → 503. See .planning/phases/21-cogs-in-sales-processor-report-receipt-completeness-gate-bef/21-SALES-PROCESSOR-CONTRACT.md.
-- **Menu-COGS endpoint (Phase 999.2):** GET /api/v1/inventory/menu-cogs?from=YYYY-MM-DD&to=YYYY-MM-DD returns per-menu-item COGS attribution (units_sold + ingredient_cost_per_unit + ingredient_cost_total) for sales-processor's weekly report. Optional `?breakdown=true` adds per-ingredient detail per menu item. Auth via the SAME HQ_INVENTORY_SERVICE_TOKEN (Bearer) Phase 21 uses; unset → 503. HQ is truth source for units_sold (joins recipes → menu_items → daily_menu_sales internally). No completeness gate — drift surfaces in-app via the Recipes-tab banner + weekly Cliq alert. See .planning/phases/999.2-per-menu-item-cogs-attribution-via-recipe-bom-mapping/999.2-SALES-PROCESSOR-CONTRACT.md.
+- **Period summary endpoint (Phase 21):** GET /api/v1/inventory/period-summary returns COGS + completeness gate for sales-processor's weekly payroll. Auth via HQ_INVENTORY_SERVICE_TOKEN (Bearer); unset → 503. See docs/contracts/inventory-period-summary.md.
+- **Menu-COGS endpoint (Phase 999.2):** GET /api/v1/inventory/menu-cogs?from=YYYY-MM-DD&to=YYYY-MM-DD returns per-menu-item COGS attribution (units_sold + ingredient_cost_per_unit + ingredient_cost_total) for sales-processor's weekly report. Optional `?breakdown=true` adds per-ingredient detail per menu item. Auth via the SAME HQ_INVENTORY_SERVICE_TOKEN (Bearer) Phase 21 uses; unset → 503. HQ is truth source for units_sold (joins recipes → menu_items → daily_menu_sales internally). No completeness gate — drift surfaces in-app via the Recipes-tab banner + weekly Cliq alert. See docs/contracts/inventory-menu-cogs.md.
 - **Testing:** 170+ Playwright E2E tests across `tests/workflows.spec.js`, `tests/persistence.spec.js`, `tests/inventory.spec.js`, `tests/onboarding.spec.js`, `tests/recipes.spec.js`
 - **Backend:** Go + Postgres, REST API at `/api/v1/workflow/*`, `/api/v1/inventory/*`, `/api/v1/auth/*`, `/api/v1/onboarding/*`, `/api/v1/users/*`
 - **Data flow:** See `docs/data-flow-audit.md` for the full state persistence inventory
@@ -163,7 +163,7 @@ If `task version` shows the local `Backend` / `Frontend` constants ahead of the 
 
 ### Definition of Done
 
-Templates for all blocks below live in `.planning/PLANNING-TEMPLATES.md`.
+Templates for all blocks below live in `docs/planning-templates.md`.
 
 - **`done_when:` block required in every PLAN.md and UI-SPEC.md.** Every criterion names the observable behavior AND the check that proves it ("Empty state renders 'No X yet' when DB returns [] — load page with empty fixture, screenshot"). Banned words: "looks good," "feels right," "polished," "clean," "nice."
 - **State Enumeration Table required in every UI-SPEC.md.** One table covering empty, loading, error, success, plus **at least 2 phase-specific edge rows** (long content, offline, 409 conflict, race — whichever apply). Each row names the trigger and the visual contract. The table is incomplete without the edge rows.
@@ -173,10 +173,9 @@ Templates for all blocks below live in `.planning/PLANNING-TEMPLATES.md`.
   3. Read the PNGs back with the Read tool (multimodal) and compare row-by-row against the visual contract.
   4. Report what was *observed* — not what was intended — in the phase SUMMARY.md, with screenshots referenced.
   5. If the dev server / DB / creds aren't available, say so explicitly and stop. Never declare done from code reading alone.
-- **Mockup sign-off before UI code on phases introducing new components.** Commit the mockup (HTML or annotated screenshot) at `.planning/.../<phase>/mockup.html` and wait for an explicit human "ok, build this" before touching production code. Note any deviation from the approved mockup in SUMMARY.md.
+- **Mockup sign-off before UI code on phases introducing new components.** Commit the mockup (HTML or annotated screenshot) at `docs/mockups/<phase>.html` and wait for an explicit human "ok, build this" before touching production code. Note any deviation from the approved mockup in SUMMARY.md.
 - **Verifier subagent gate between build and SUMMARY.md on UI phases.** Spawn one verifier subagent whose inputs are ONLY: the UI-SPEC.md, the `done_when:` block, the diff, and the self-verify screenshots — not the planning conversation or the implementer's reasoning. It outputs pass/fail per `done_when:` row plus issues beyond the contract. SUMMARY.md may not be written until every row passes or is explicitly waived (waiver + reason noted in SUMMARY.md, e.g. "requires live Mercury creds").
 
-<!-- GSD:project-start source:PROJECT.md -->
 ## Project
 
 **Yumyums HQ — Operations Console**
@@ -192,9 +191,7 @@ A mobile-first PWA operations console for a food truck business. One app shell w
 - **Mobile-first:** All UI designed for 480px max-width, touch-optimized
 - **Design consistency:** Must use existing CSS variables and dark mode support from other HQ pages
 - **API-backed:** All data persisted in Postgres via Go backend — no mock data, no localStorage
-<!-- GSD:project-end -->
 
-<!-- GSD:stack-start source:codebase/STACK.md -->
 ## Technology Stack
 
 ## Languages
@@ -239,9 +236,7 @@ A mobile-first PWA operations console for a food truck business. One app shell w
 - **Auth:** Bearer token sessions, password hash in DB, invite token flow
 - **API base:** `/api/v1` (REST, JSON)
 - **Frontend upgrade:** Plain HTML + HTMX (no build step retained)
-<!-- GSD:stack-end -->
 
-<!-- GSD:conventions-start source:CONVENTIONS.md -->
 ## Conventions
 
 ## Overview
@@ -294,9 +289,7 @@ A mobile-first PWA operations console for a food truck business. One app shell w
 - `buildAccess()` is the most complex function — rebuilds the entire access tab DOM from scratch on each state change (no diffing)
 - Parameters are positional, minimal: `show(n)`, `togglePerm(slug, role, val)`, `addGrant(slug)`, `removeGrant(slug, uid)`
 ## PWA Boilerplate (repeated on every page)
-<!-- GSD:conventions-end -->
 
-<!-- GSD:architecture-start source:ARCHITECTURE.md -->
 ## Architecture
 
 ## Pattern Overview
@@ -365,17 +358,21 @@ A mobile-first PWA operations console for a food truck business. One app shell w
 - Access grants: guards against duplicate adds with `if(!USER_GRANTS[slug].includes(uid))`
 - No network error handling (planned for production handlers)
 ## Cross-Cutting Concerns
-<!-- GSD:architecture-end -->
 
 ## Night-Crew Workflow
 
 **This repo is a night-crew _target_ repo.** Planning and execution run through the
-night-crew cycle, not GSD. GSD is no longer used here; ignore any `/gsd:*` command
-still installed on the skill surface.
+night-crew cycle.
 
 Real project state lives in **`.night-crew/knowledge/`** — `roadmap.md`, `okrs.md`,
-`BACKLOG.md`, `ledger.md`, `bugs.md`, `prds/`, `reference/`. `.planning/STATE.md`'s
-null milestone fields are **deliberate**, not corruption; do not "repair" them.
+`BACKLOG.md`, `ledger.md`, `bugs.md`, `prds/`, `reference/`. That is the only planning
+state; there is no second planning directory to reconcile against.
+
+Durable reference docs that outlive any single cycle live in `docs/`:
+`docs/contracts/` holds the sales-processor API contracts (`inventory-period-summary.md`,
+`inventory-menu-cogs.md`) — those are consumed by an external system, so treat them as
+the contract of record. `docs/codebase/` holds the stack/architecture/conventions notes
+the sections above summarise.
 
 ### Entry points
 
