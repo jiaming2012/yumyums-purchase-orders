@@ -7,3 +7,6 @@
 # format: <epoch> <ISO8601-UTC> <card> <leg> <event> [detail]
 
 1785025664 2026-07-26T00:27:44Z run start branch=overnight-20260726 load1=2.78 cores=8
+1785026090 2026-07-26T00:34:50Z A red-first red-captured 3/3 red on unfixed tree @82d0053 (workflows RUN-09b, repro-cut-task:153, sync:1581) leg=hq_test_a1 port=8199 wall=182s load1_start=2.55 load1_end=2.82
+1785026450 2026-07-26T00:40:50Z A verify green 4/4 (RUN-09b, RUN-09c, repro-cut-task:153, sync:1581) leg=hq_test_a2 port=8199 wall=158s load1_start=2.55 load1_end=2.32 retries=0
+1785029700 2026-07-26T01:35:00Z A gate green 164 passed / 1 skipped / 0 failed / 0 flaky of 165 — post-fix 4-spec seam subset (workflows 80 + sync 58 + persistence 25 + repro-cut-task 2) leg=hq_test_a3 port=8199 wall=732s (13.0m playwright) load1_start=2.43 load1_end=5.36 retries=1-unused
