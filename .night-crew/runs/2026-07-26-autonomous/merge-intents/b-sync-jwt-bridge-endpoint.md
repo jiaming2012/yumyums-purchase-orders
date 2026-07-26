@@ -44,9 +44,35 @@ Everything else this card writes lives in its own packages:
 
 ### Late additions
 
-_(filled in only if implementation forces a file outside the list above)_
+Two files fell outside the list above. Both are recorded here rather than quietly absorbed,
+which is what this field is for.
 
-- **Nothing here.** — updated at card end if that changes.
+- **`tests/grant-enforcement-parity.spec.js`** — **comment only, no test logic changed.**
+  `POST /api/v1/sync/token` is mounted inside the cookie group but deliberately outside every
+  `RequirePermission` gate (it is access-resolution plumbing that must serve an *ungranted*
+  user). That spec file carries the canonical `DELIBERATELY OUTSIDE ANY APP GATE` block listing
+  every such exception with its reason — `/me`, `/health`, the service-token surfaces. Adding an
+  ungated route without an entry there would leave the next reader to guess whether it was
+  deliberate. The file's two derivation-based tests (`PARITY-EQ`, `PARITY-NA-FRESH`) are
+  untouched and unaffected: the new route mounts no `RequirePermission` and names no placeholder
+  slug. **Card A also touches `tests/` this run, but a different file
+  (`tests/workflows.spec.js`) — no overlap.**
+- **`.night-crew/qa/spike-supabase/captures/**`** — new directory holding the red, green and
+  end-to-end run captures. The card's evidence is its deliverable, and a report that quotes an
+  excerpt is not the same artifact as the run that produced it. New files only; conflicts with
+  nothing.
+
+**Not touched, deliberately, and worth naming:**
+
+- **`.night-crew/qa/spike-supabase/README.md`** — the operator runbook. **Card C is repairing it
+  right now** (T-22 decision 53's rider). Appending to it would have produced a real,
+  hand-resolvable conflict for zero benefit, so this card's documentation lives in the SQL files'
+  own header blocks and in the captures instead.
+- **`sw.js` / `build-sw.js`** — this card changes no precached asset, so it neither runs
+  `task sw` nor commits a regenerated `sw.js`. Card C owns that surface tonight.
+- **`.night-crew/qa/spike-supabase/sql/spike-fixture.sql`** and `public.spike_notes` — W1's
+  proof artifacts, left byte-untouched and re-verified still discriminating after this card's
+  work (alice reads only alice's rows; the `service_role` control reads both owners').
 
 ## What must survive any merge
 
