@@ -1,0 +1,74 @@
+# GATE capture — card B sync-jwt-bridge-endpoint, run overnight-20260726
+# Written for the morning reader. The attribution section is the point.
+
+## Go units — PASS
+  go test ./... -count=1 -p 1
+  DB_TEST_URL -> hq_test_b1     (card B's own DB; hq_test_go untouched)
+  ALL packages ok. Wall 217 s. Load 5.68 -> 39.59.
+  internal/workflow PASSED — the known -p 1 false red did not fire.
+  internal/sync 37.8 s (includes the 16-variant live-stack suite).
+
+## Playwright — FULL suite, 2 failed / 541 passed / 6 skipped, 52.9 m
+  CI=1 TEST_PORT=8399 TEST_DB_NAME=hq_test_b2 (8199 and card C's 8299 both avoided)
+  549 tests, 1 worker, retries:1 — both failures failed on the retry too.
+  Measured 1-min load, sampled across the leg:
+      5.68 (go leg start) · 43.4 · 48.6 · 57.6 · 7.2 · 10.3 · 19.3 (finish)
+  🛑 This is a LOADED-CONDITION green, not a quiet-box green. The box carried
+  card C concurrently PLUS several unrelated night-crew Go suites running in
+  other worktrees (observed directly in pgrep: gates.test, gitops.test,
+  orchestration.test, env.test under /home/jcole/projects/night-crew/...).
+  Load was above 40 for most of the leg.
+
+## The two watched flakes — NEITHER red
+  tests/sync.spec.js:1198        0 occurrences in the log. Did not fire.
+  tests/purchasing.spec.js:1407  0 occurrences (FR-13). Did not fire.
+  Still armed; one clean leg is not a disarm.
+
+## The two failures — and what can and cannot be attributed
+  1) tests/workflows.spec.js:2355 LC-02
+     "submitted checklist survives builder edit with assignment change"
+  2) tests/workflows.spec.js:2466 RUN-10
+     "unsubmit returns checklist to editable draft"
+
+  Both are 30 s timeouts whose call logs read
+     "element was detached from the DOM, retrying"
+  i.e. a re-render racing the click — the signature of a load-sensitive race,
+  not of a wrong assertion.
+
+### EXCLUDED: card B. Not a guess — two independent proofs.
+  (a) Byte-identity. Every file these tests exercise is IDENTICAL to the base
+      commit overnight-20260726 (c9dc440):
+          workflows.html          base 773fca6e282f0979 == HEAD 773fca6e282f0979
+          sync.js                 base e2113c2937afdcd7 == HEAD e2113c2937afdcd7
+          tests/workflows.spec.js base c0c15e7e277450f9 == HEAD c0c15e7e277450f9
+      and `git diff --name-only overnight-20260726..HEAD` lists NONE of
+      workflows.html, sync.js, tests/workflows.spec.js, index.html, ptr.js,
+      sw.js or backend/internal/workflow/. Card B's whole diff is Go + SQL +
+      night-crew docs, plus one COMMENT in a different spec file.
+  (b) Isolation re-run on card B's HEAD, fresh DB hq_test_b3, load ~13:
+          2 passed (2.7m)
+      Both pass. They are not deterministically broken by this tree.
+
+### 🛑 REFUSED: any attribution between the two remaining explanations.
+  The remaining candidates are (i) a pre-existing load-sensitive flake and
+  (ii) a regression from card A, merged into this run branch immediately
+  before card B branched.
+
+  I cannot separate them, and I am not going to guess. Deciding it needs a run
+  at base under EQUIVALENT LOAD, and load on this box is not controllable — it
+  ranged 5.7 to 57.6 across my own legs, driven by work belonging to neither
+  card. A base run at low load that passed would prove nothing.
+
+  What the morning reader should weigh, stated because it is a real
+  correlation and NOT because it is a conclusion:
+    - Both failures live in tests/workflows.spec.js, card A's file.
+    - Both sit squarely in card A's blast radius: LC-02 is about a SUBMITTED
+      checklist surviving a builder edit, RUN-10 is about UNSUBMIT returning a
+      checklist to editable draft. Card A rewrote exactly that state machine
+      across 7 call sites, teaching the client the server's 'completed'
+      vocabulary.
+    - Card A's own gate was the expanded 4-spec subset, which INCLUDES
+      workflows.spec.js. So either these passed for card A and are flaky, or
+      they passed under lighter load. Both are consistent with what is seen
+      here and neither is established.
+  A guess of "pre-existing" would be exactly as wrong as a guess of "card A's".
