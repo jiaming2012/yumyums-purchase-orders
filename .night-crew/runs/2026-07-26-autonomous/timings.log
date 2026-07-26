@@ -7,3 +7,8 @@
 # format: <epoch> <ISO8601-UTC> <card> <leg> <event> [detail]
 
 1785025664 2026-07-26T00:27:44Z run start branch=overnight-20260726 load1=2.78 cores=8
+1785025698 2026-07-26T00:28:18Z card-A impl start load1=1.94
+1785027342 2026-07-26T00:55:42Z card-A impl end verdict=LANDED load1=1.64
+1785027342 2026-07-26T00:55:42Z card-A g6 start load1=1.64
+1785028373 2026-07-26T01:12:53Z card-A g6 end verdict=APPROVE-WITH-NOTES load1=40.00
+1785028373 2026-07-26T01:12:53Z card-A land start load1=40.00
