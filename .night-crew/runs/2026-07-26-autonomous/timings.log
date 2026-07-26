@@ -76,3 +76,8 @@ B_g6_repair   F1 de-vacuum parity test (2/11 TRUE; stub->4 failures), F3 allowli
 B_regate_go   128s ALL PASS (-p 1), load 23.5->11.1
 B_regate_rls  6s   red 9 FAIL / green 16 PASS, RLS restored, load ~25
 B_regate_pw   SKIPPED deliberately — Go+SQL-comment diff; card C mid-suite on 8299
+# ---- orchestrator RUN-10 attribution measurement ----
+1785036597 2026-07-26T03:29:57Z ORCH run10-paired start load1=26.91 design=two-concurrent-full-suites-postA-vs-preA
+1785038412 2026-07-26T04:00:12Z ORCH run10-paired end postA=544p/0f/6s-32.2m-RUN10-GREEN preA=539p/2f/6s-32.4m-RUN10-GREEN load1=9.57
+1785038412 2026-07-26T04:00:12Z ORCH run10-verdict BOUND-NOT-EXONERATION card-A-not-deterministically-responsible still-UNATTRIBUTED
+1785038511 2026-07-26T04:01:51Z ORCH final-tree go-gate start load1=4.38

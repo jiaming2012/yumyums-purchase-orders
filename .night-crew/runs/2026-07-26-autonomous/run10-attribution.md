@@ -71,4 +71,78 @@ Expected and *not* evidence about RUN-10: the pre-A tree should be RED on
 card A repaired, and their being red pre-A is a control confirming the pre-A tree is what it claims
 to be.
 
-_Result appended below when the paired run completes._
+### RESULT
+
+    launched together, load_at_launch=26.91 → load_at_finish=9.57
+
+| Leg | Result | RUN-10 |
+|---|---|---|
+| **POST-A** (card A present), 549 tests | **544 passed / 0 failed / 6 skipped**, 32.2 m | ✅ **GREEN** (test 526) |
+| **PRE-A** (card A absent), 547 tests | **539 passed / 2 failed / 6 skipped**, 32.4 m | ✅ **GREEN** (test 524) |
+
+**🛑 The control fired exactly as predicted, and that is what makes this result trustworthy.**
+The pre-A leg's only two failures are:
+
+    ✘ tests/repro-cut-task.spec.js:153  AC-6b: submitted record byte-identical after later template edits
+    ✘ tests/sync.spec.js:1581           unsubmit transition converges live on the observing device
+
+**Those are precisely the two specs card A was written to repair — and nothing else failed.** The
+pre-A tree is genuinely pre-card-A, the harness discriminates, and post-A is genuinely card-A-fixed.
+A measurement whose control had *not* fired would have been worthless regardless of what RUN-10 did.
+
+### VERDICT — read against the rules written down beforehand
+
+Both trees green → by the pre-committed table this is **"inconclusive at this load — report as a
+bound, NEVER as *fixed*."** That is the ruling, and it is not being upgraded after the fact.
+
+**What this run legitimately establishes, and it is not nothing:**
+
+1. **Card A did NOT deterministically break RUN-10.** This is the first full-suite run in which
+   RUN-10 has passed on a post-A tree — it was red twice before, and green here. A regression is
+   deterministic; **non-determinism on the same code rules out "card A broke it."** That is a real
+   narrowing, arrived at by measurement.
+2. **RUN-10 remains genuinely non-deterministic in the whole-suite condition**, now demonstrated on
+   post-A in both directions (2 red, 1 green) across three full-suite runs.
+3. **The reproducing condition is heavier than this run reproduced.** The two failing legs peaked at
+   load **57.6** and **61+**, with a full Playwright suite, a Go suite, and G6 agents all in flight.
+   This paired run peaked far lower (26.91 → 9.57, and both suites finished in **32 m** against card
+   C's **47 m** — the wall-clock gap is itself the load evidence). **Two concurrent full suites at
+   moderate load is not the condition that failed.**
+
+**What it does NOT establish, stated plainly:**
+
+- ❌ It does **not** exonerate card A. Green-on-both is consistent with card A being innocent *and*
+  with a contention-sensitive interaction that this load never reached. **"Card A is cleared" is not
+  a claim this measurement supports**, and it would be the easy thing to write.
+- ❌ It does **not** prove a pre-existing flake. Nobody has reproduced RUN-10 red on a **pre-A** tree
+  in any condition — the one attempt (measurement 1's pre-A leg) was void by the orchestrator's own
+  hand. **The symmetric evidence does not exist.**
+- ❌ It does **not** mean RUN-10 is fixed. Nothing was changed.
+
+### The honest one-line answer for morning triage
+
+**RUN-10 is a non-deterministic whole-suite failure that requires heavier contention than a paired
+full-suite run at moderate load. Card A is not deterministically responsible. Beyond that it remains
+UNATTRIBUTED, and the run declines to close it.**
+
+### What would actually settle it, for whoever picks this up
+
+Reproduce the *failing* condition, not a milder one: **a full 549-test suite on post-A with
+deliberate competing load sufficient to hold 1-min load ≥ 55** (a second full suite plus a Go suite,
+which is what tonight had), repeated enough times to get a rate. Then the same on pre-A. **A red on
+pre-A closes it immediately** and is the cheapest possible win — it is the single observation nobody
+has yet made, and it is worth trying first.
+
+Note the standing context: `sync.spec.js` is a known load-sensitive file, `sync.spec.js:1198` is a
+proven ~16–20 % flake, and **card A's merged seam fix deliberately raises that exposure**. Tonight
+`:1198` did not red once across five suite legs — one clean night, not a fix.
+
+### Methodological caveat, stated rather than buried
+
+Cards C and B were merged into the same working tree the post-A leg runs from, while it was running.
+Verified before trusting the result: `workflows.html`, `tests/workflows.spec.js` and
+`playwright.config.js` are **unchanged** since the leg launched (`git diff 9b200a5 HEAD`), and the
+Go server binary was compiled at webServer start, before the merges. The only diff on the test
+surface is an 11-line **comment-only** addition to `tests/grant-enforcement-parity.spec.js`, a spec
+Playwright had already loaded into memory. The post-A leg's RUN-10 result stands; it would not have
+been reported without this check.

@@ -129,8 +129,33 @@ Full detail in **`run10-attribution.md`**. Summary of what is *known*:
 **89 isolated attempts clean, including at load higher than either leg that failed.** So it is not
 the test, and not load alone — it lives in the whole-suite condition.
 
-**PAIRED FULL-SUITE MEASUREMENT — see `run10-attribution.md` for the result and the reading rules,
-which were written down *before* the result so the conclusion could not be fitted to it.**
+**PAIRED FULL-SUITE MEASUREMENT — the result** (reading rules were written down *before* it ran, so
+the conclusion could not be fitted to the data):
+
+| Leg | Result | RUN-10 |
+|---|---|---|
+| **POST-A** (card A present) | 544 passed / **0 failed** / 6 skipped, 32.2 m | ✅ **GREEN** |
+| **PRE-A** (card A absent) | 539 passed / **2 failed** / 6 skipped, 32.4 m | ✅ **GREEN** |
+
+**The control fired exactly as predicted.** Pre-A's only two failures are
+`repro-cut-task.spec.js:153` and `sync.spec.js:1581` — **precisely the two specs card A was written
+to repair, and nothing else.** That validates the setup: the pre-A tree really is pre-card-A and the
+harness really does discriminate.
+
+**Verdict: green on both → by the pre-committed rule, a BOUND, not an exoneration and not a fix.**
+
+What it *does* establish: **card A did not deterministically break RUN-10.** This is the first
+full-suite run where RUN-10 passed on a post-A tree (previously red twice) — and non-determinism on
+identical code rules out a regression, which would be deterministic.
+
+What it does **not** establish, said plainly: it does **not** clear card A (green-on-both is equally
+consistent with a contention-sensitive interaction this load never reached — both suites finished in
+**32 m** vs card C's **47 m**, and the failing legs peaked at load **57.6** and **61+**), and it does
+**not** prove a pre-existing flake — **nobody has yet reproduced RUN-10 red on a pre-A tree in any
+condition.**
+
+**The cheapest way to close this** is the one observation nobody has made: run the full suite on
+**pre-A under deliberate heavy load (1-min ≥ 55)**. A red there closes it immediately.
 
 One methodological caveat, stated rather than buried: cards C and B were merged into the same
 working tree the post-A leg runs from. Verified that the measurement's test surface
