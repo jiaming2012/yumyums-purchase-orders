@@ -32,3 +32,7 @@ B_gate_go     217s   ALL PASS (-p 1), DB hq_test_b1, load 5.68->39.59
 B_gate_pw     3175s  541 passed / 2 failed / 6 skipped, 549 tests, TEST_PORT=8399 DB hq_test_b2, load 5.7..57.6
 B_attrib      152s   isolation re-run of the 2 reds on HEAD: 2 passed, load ~13 -> card B EXCLUDED
 B_total_cycle ~185m  (incl. a 53m full-suite leg under sustained load >40)
+B_g6_repair   F1 de-vacuum parity test (2/11 TRUE; stub->4 failures), F3 allowlist, F2/F5 claims
+B_regate_go   128s ALL PASS (-p 1), load 23.5->11.1
+B_regate_rls  6s   red 9 FAIL / green 16 PASS, RLS restored, load ~25
+B_regate_pw   SKIPPED deliberately — Go+SQL-comment diff; card C mid-suite on 8299
