@@ -2041,6 +2041,32 @@ function renderApprovals() {
   container.innerHTML = pendingHtml ? '<div class="cat">PENDING</div>' + pendingHtml : '<div class="empty-state"><h2>' + EMPTY_APPROVALS.h + '</h2><p>' + EMPTY_APPROVALS.p + '</p></div>';
 }
 
+// ─── Submission lifecycle vocabulary ─────────────────────────────────────────
+// The SERVER is the only writer of checklist_submissions.status, and it persists
+// exactly four values (backend/internal/workflow/repository.go, submitChecklist +
+// approveItem/rejectItem, constrained by the 0011 CHECK):
+//
+//   'completed' — template requires NO approval. Terminal. Nobody reviews it.
+//   'pending'   — template requires approval, awaiting a reviewer.
+//   'approved' / 'rejected' — the reviewer's verdict.
+//
+// 'submitted' and 'pending_approval' were CLIENT-ONLY strings this page invented
+// for its own optimistic write; the server has never persisted either. They are
+// still recognised below (never produced) so a MY_SUBMISSIONS cached by an older
+// tab keeps rendering correctly until its next reload. Card A, run 20260726 —
+// before this, 'completed' matched nothing and a submitted no-approval checklist
+// fell through to the "not yet submitted" branch: editable, unbadged, with a live
+// #submit-btn and fillState.readonly false.
+var SUBMITTED_STATUSES = ['completed', 'submitted'];
+var PENDING_STATUSES = ['pending', 'pending_approval'];
+function isSubmittedStatus(st) { return SUBMITTED_STATUSES.indexOf(st) !== -1; }
+function isPendingStatus(st) { return PENDING_STATUSES.indexOf(st) !== -1; }
+function isApprovedStatus(st) { return st === 'approved'; }
+// "The submission is a frozen record" — true for every status that means the
+// responses are no longer live drafts. Gates snapshot reads (getProgress,
+// hydration), not the read-only UI branch.
+function isFrozenStatus(st) { return isSubmittedStatus(st) || isPendingStatus(st) || isApprovedStatus(st); }
+
 function renderChecklistList(today) {
   if (!today || today.length === 0) {
     return '<div class="empty-state"><h2>' + EMPTY_MY.h + '</h2><p>' + EMPTY_MY.p + '</p></div>' +
@@ -2062,9 +2088,9 @@ function renderChecklistList(today) {
     const pct = fieldCount ? Math.round(answeredCount / fieldCount * 100) : 0;
     totalFields += fieldCount;
     totalAnswered += answeredCount;
-    var pendingBadge = submission && (submission.status === 'pending_approval' || submission.status === 'pending') ? '<div class="approval-badge">Pending Approval</div>' : '';
-    var approvedBadge = submission && submission.status === 'approved' ? '<div style="font-size:12px;color:#27ae60;margin-top:4px;font-weight:500">Approved \u2713</div>' : '';
-    var submittedBadge = !approvedBadge && submission && submission.status === 'submitted' ? '<div style="font-size:12px;color:#27ae60;margin-top:4px;font-weight:500">Submitted \u2713</div>' : '';
+    var pendingBadge = submission && isPendingStatus(submission.status) ? '<div class="approval-badge">Pending Approval</div>' : '';
+    var approvedBadge = submission && isApprovedStatus(submission.status) ? '<div style="font-size:12px;color:#27ae60;margin-top:4px;font-weight:500">Approved \u2713</div>' : '';
+    var submittedBadge = !approvedBadge && submission && isSubmittedStatus(submission.status) ? '<div style="font-size:12px;color:#27ae60;margin-top:4px;font-weight:500">Submitted \u2713</div>' : '';
     return `<div class="row" data-fill-template-id="${tpl.id}" data-template-id="${tpl.id}" style="cursor:pointer"><div style="flex:1"><div class="nm">${escapeHtml(tpl.name)}</div><div class="mt">${secCount} section${secCount !== 1 ? 's' : ''} \u00b7 ${answeredCount}/${fieldCount} items</div><div style="height:4px;background:var(--brd);border-radius:2px;margin-top:6px;overflow:hidden"><div style="height:100%;background:#27ae60;border-radius:2px;width:${pct}%"></div></div>${pendingBadge}${approvedBadge}${submittedBadge}</div></div>`;
   }).join('');
   const aggPct = totalFields ? Math.round(totalAnswered / totalFields * 100) : 0;
@@ -2090,9 +2116,9 @@ function renderRunner() {
     var subDate = s.submitted_at ? new Date(s.submitted_at).toISOString().slice(0, 10) : '';
     return subDate === todayStr;
   }) : null;
-  var isSubmitted = submission && (submission.status === 'submitted');
-  var isPending = submission && (submission.status === 'pending_approval' || submission.status === 'pending');
-  var isApproved = submission && (submission.status === 'approved');
+  var isSubmitted = !!submission && isSubmittedStatus(submission.status);
+  var isPending = !!submission && isPendingStatus(submission.status);
+  var isApproved = !!submission && isApprovedStatus(submission.status);
   fillState.readonly = isSubmitted || isPending || isApproved;
   const sectionsHtml = (tpl.sections || []).map(sec => renderRunnerSection(sec)).join('');
   const unsubmitBtn = `<button data-action="unsubmit" data-tpl-id="${tpl.id}" data-submission-id="${submission ? submission.id : ''}" style="width:100%;padding:14px;margin:16px 0 0;background:#c0392b;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:500;font-family:inherit;cursor:pointer">Unsubmit</button>`;
@@ -2408,7 +2434,7 @@ function isFieldAnswered(f) {
 // For submitted checklists, uses snapshot + responses instead of live template.
 function getProgress(tpl, submission) {
   if (submission && submission.responses && submission.template_snapshot &&
-      (submission.status === 'pending' || submission.status === 'pending_approval' || submission.status === 'submitted' || submission.status === 'approved')) {
+      isFrozenStatus(submission.status)) {
     var snap = typeof submission.template_snapshot === 'string' ? JSON.parse(submission.template_snapshot) : submission.template_snapshot;
     var snapFields = (snap.sections || []).filter(isSectionVisible).flatMap(function(s) { return (s.fields || []).filter(isFieldVisible); });
     var respIds = new Set(submission.responses.filter(function(r) { return r.value !== null && r.value !== undefined; }).map(function(r) { return r.field_id; }));
@@ -2450,7 +2476,7 @@ document.getElementById('fill-body').addEventListener('click', function(e) {
         var subDate = s.submitted_at ? new Date(s.submitted_at).toISOString().slice(0, 10) : '';
         return subDate === todayStr;
       }) : null;
-      if (submission && submission.template_snapshot && (submission.status === 'pending' || submission.status === 'pending_approval' || submission.status === 'submitted' || submission.status === 'approved')) {
+      if (submission && submission.template_snapshot && isFrozenStatus(submission.status)) {
         var snap = typeof submission.template_snapshot === 'string' ? JSON.parse(submission.template_snapshot) : submission.template_snapshot;
         if (snap && snap.sections) tpl.sections = snap.sections;
       }
@@ -2711,13 +2737,22 @@ document.getElementById('fill-body').addEventListener('click', function(e) {
       submitChecklistToAPI(tplId, allFlds, isReapproval).then(function(result) {
         updateSaveStatus(-1);
         var submissionId = result && result.id;
-        // Update MY_SUBMISSIONS optimistically
+        // Update MY_SUBMISSIONS optimistically.
+        //
+        // The optimistic status MUST be the same string a reload would fetch, or
+        // the pre-reload and post-reload renders disagree and any divergence hides
+        // behind the optimistic value (which is exactly how this bug survived to
+        // ship). The server writes 'completed' when the template requires no
+        // approval and 'pending' when it does — see submitChecklist in
+        // backend/internal/workflow/repository.go. The old values here
+        // ('submitted' / 'pending_approval') were never persisted by anything.
+        var optimisticStatus = fillState.activeTemplate.requires_approval ? 'pending' : 'completed';
         var existing = MY_SUBMISSIONS ? MY_SUBMISSIONS.find(function(s){return s.template_id===tplId}) : null;
         if (existing) {
-          existing.status = fillState.activeTemplate.requires_approval ? 'pending_approval' : 'submitted';
+          existing.status = optimisticStatus;
           existing.id = submissionId || existing.id;
         } else if (MY_SUBMISSIONS) {
-          MY_SUBMISSIONS.push({ id: submissionId, template_id: tplId, status: fillState.activeTemplate.requires_approval ? 'pending_approval' : 'submitted', submitted_at: new Date().toISOString() });
+          MY_SUBMISSIONS.push({ id: submissionId, template_id: tplId, status: optimisticStatus, submitted_at: new Date().toISOString() });
         }
         var isApproval = fillState.activeTemplate && fillState.activeTemplate.requires_approval;
         var toastMsg = isApproval ? 'Submitted for approval' : 'Checklist submitted. Thanks, ' + getUserInitials() + '!';
