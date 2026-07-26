@@ -24,6 +24,7 @@
 1785027342 2026-07-26T00:55:42Z card-A g6 start load1=1.64
 1785028373 2026-07-26T01:12:53Z card-A g6 end verdict=APPROVE-WITH-NOTES load1=40.00
 1785028373 2026-07-26T01:12:53Z card-A land start load1=40.00
+# --- unioned at card C merge: orchestrator stamps + card C's own leg ledger. Neither side dropped.
 1785028493 2026-07-26T01:14:53Z card-C impl start load1=11.85
 1785028493 2026-07-26T01:14:53Z card-B impl start load1=11.85 concurrent-with=card-C
 1785033430 2026-07-26T02:37:10Z card-B impl end verdict=LANDED load1=15.00
@@ -35,3 +36,27 @@
 1785036533 2026-07-26T03:28:53Z card-C g6 end verdict=APPROVE-WITH-NOTES go=EARNED-AND-REPRODUCED load1=22.71 findings=F1-trap-unasserted,F2-half3-overclaim,F5-cross-tenant-cache,F6-precache-cost,F7-bad-verify-cmd,F8-glob-depth-gap
 1785037194 2026-07-26T03:39:54Z card-C g6-repair end F1+F2+F7+F8 harness=11/11 load1=7.10
 1785037194 2026-07-26T03:39:54Z card-C land start load1=7.10
+
+# ---- card C: sync-rxdb-browser-delivery-spike (concurrent with card B) ----
+C_vendor_bundle_first_generate      1m 17s  (npm install 34s + npx esbuild fetch + bundle 3.2s)
+C_vendor_bundle_regenerate            <1s   (warm npm cache + warm npx cache; esbuild 175-421ms)
+C_leg1_delivery                      RED first (host rxdb.info) -> dev-mode dropped -> GREEN
+C_leg2_dexie_reload                  RED first (DB9 ignoreDuplicate) -> GREEN
+C_leg3_service_worker                GREEN 5/5 — 3c confirmed the STALE-CACHE trap, not the 503
+C_leg4_leader_election               GREEN — handover 47ms / 65ms / 87ms across three runs
+C_leg5_token_expiry                  RED first (inside PostgREST's ~30s exp leeway) -> GREEN at 65s
+C_postgrest_exp_leeway_probe         ~2m     9 fresh tokens, boundary between -25s (200) and -29s (401)
+C_spike_suite_full                   1m 48s  11/11 passed; load 8.58 -> 30.39 (card B concurrent)
+C_gate_full_suite                    47m 00s  540 passed / 1 failed / 2 flaky / 6 skipped of 549
+                                              port=8299 db=hq_test_c1 load1 35.48 -> peak 61+ -> 17.30
+                                              (card B ran its OWN full suite concurrently for the first half)
+C_attribution_RUN10_isolated          3m 00s  3/3 passed (--repeat-each=3 --retries=0) db=hq_test_c2
+C_attribution_RUN10_whole_file       11m 24s  80/80 passed incl. RUN-10 (--retries=0) db=hq_test_c3
+C_attribution_verdict                         UNATTRIBUTED BY DESIGN — see DECISIONS-NEEDED.md "Card C"
+# ---- card C: post-G6 repair round (F1/F2/F7/F8) ----
+C_repair_harness_regate               3m 39s  11/11 passed, SPIKE_HTTP_PORT=8899
+                                              load1 23.65 -> 14.24; 3c GREEN with the strengthened assertion
+C_repair_mutation_test_3c             ~1m     silentlyStale forced false -> 3c RED (assertion proven non-vacuous)
+C_repair_build_sw                       <1s   23 files / 1947.1 KB — UNCHANGED; sw.js byte-identical
+C_repair_full_suite                     N/A   DELIBERATELY NOT RUN — orchestrator attribution measurement
+                                              live on :8599 and :8699; a third concurrent suite would corrupt it

@@ -60,3 +60,164 @@ but it is a test file no card tonight owns.
 ## Parked cards
 
 _(none yet)_
+
+---
+
+## Card C — one UNATTRIBUTED red in the full-suite gate (NOT a park; card C landed GO)
+
+**This is a record, not a fork.** Card C is not parked and needs no decision to
+merge. It is filed here because the run's discipline says an unattributed red
+belongs in the durable record rather than only in a card report.
+
+**The red:** `tests/workflows.spec.js:2466` — *Loading states › unsubmit returns
+checklist to editable draft [RUN-10]*. Failed **both** attempts in card C's full
+549-test gate (`1 failed / 2 flaky / 6 skipped / 540 passed`, 47.0 m,
+`TEST_PORT=8299`, `hq_test_c1`).
+
+- attempt 1: `page.click('[data-action="unsubmit"]')` timed out — *"element was
+  detached from the DOM, retrying"* (a re-render race).
+- retry #1: after unsubmit, `[data-action="submit"]` never reappeared.
+
+### 🛑 I REFUSE TO ATTRIBUTE IT, and here is the measurement rather than a guess
+
+| Condition | Result |
+|---|---|
+| RUN-10 alone, `--repeat-each=3 --retries=0`, on card C's HEAD | **3 / 3 passed** |
+| Full `tests/workflows.spec.js` (80 tests), `--retries=0`, on card C's HEAD | **80 / 80 passed**, RUN-10 green as test #57 |
+| Full 549-test suite on card C's HEAD | **failed twice** |
+
+So it is **not** deterministic, **not** within-file order sensitivity, and it did
+**not** reproduce in 83 attempts outside the whole-suite condition.
+
+**Why it is mechanically not card C's**, and this is provable rather than
+asserted:
+
+```
+git diff --stat overnight-20260726..HEAD -- backend tests features lib \
+  ':!.night-crew' workflows.html sync.js ptr.js index.html   # prints NOTHING
+```
+
+RUN-10 exercises `workflows.html` and the Go backend. **Every byte the browser
+and the server see for this test is identical to `overnight-20260726`.** Card C's
+entire diff is `vendor/**` (new, never imported by any HQ page), `build-sw.js`
+(build-time only), `sw.js` (**never registered — `playwright.config.js:60` sets
+`serviceWorkers: 'block'`**), and `.night-crew/**`.
+
+**Why I still will not call it "pre-existing flake" as a fact.** Two correlations
+exist and guessing either way is equally wrong:
+
+1. **Card B ran its own full Playwright suite CONCURRENTLY** for the first half
+   of card C's gate. Measured 1-min load: **35.48 at start, peaking above 61,
+   settling to 8–17 once card B finished.** A green here bounds a *loaded*
+   condition; so does this red. **Concurrency makes attribution harder, not
+   easier**, and that is the honest statement.
+2. **Card A's just-merged `workflow-submission-status-client-half` is topically
+   adjacent** — RUN-10 is precisely an unsubmit/status re-render assertion, and
+   card A's change is already in card C's base. **Flagged as a correlation. Not
+   asserted as a cause.** Card C did not test at base and therefore cannot say.
+
+**What would settle it:** run RUN-10 inside the full 549-test suite at
+`overnight-20260726` (i.e. with card A merged, card C absent) on a quiet box. If
+it reds there too, it belongs to card A or to the suite; if it stays green, the
+question reopens. **That is one command and it was outside card C's remit.**
+
+### The two flaky (passed on retry #1) — also not attributed
+
+- `tests/sync.spec.js:836` — *sub-step checks on Device A appear checked on
+  Device B [SYN-03]*
+- `tests/sync.spec.js:1327` — *checkbox answer converges (live + catch-up)*
+
+Both in `sync.spec.js`, the file carrying the **proven ~16–20 % flake** whose
+exposure card A's merged seam fix deliberately raises. **Neither is the
+specifically flagged `sync.spec.js:1198`** — that one passed. `purchasing.spec.js:1407`
+(FR-13) also passed. Same refusal to attribute applies, same reason.
+
+---
+
+## Card C — G6 findings recorded for the operator and the next card (D-7 … D-11)
+
+*Appended by card C after its G6 review (APPROVE-WITH-NOTES). **Record only — do
+not fix here**; four separate repairs (F1/F2/F7/F8) were applied as code and are
+not listed below. Numbering starts at **D-7** per the orchestrator: **D-4/D-5/D-6
+are card B's** and land from card B's worktree, so they are not visible in this
+file yet. **D-1…D-3 above are untouched.***
+
+### D-7 — 🛑 Cross-tenant read through `api-cache`. Distinct from the `/api/` gate, and worse.
+
+Workbox's `api-cache` is keyed **by URL only**. `Authorization` is not part of the
+cache key and **no `Vary` is configured** in `build-sw.js`'s `runtimeCaching`
+block. On a **shared truck phone**, a second crew member — or the same person
+re-logging-in as a different user — issuing the same replication URL can be
+served **the previous user's rows straight from cache**.
+
+This is a **cross-tenant read**, not staleness. It shares a root cause with the
+3c finding (the `/api/` `NetworkFirst` route) but is a **different and more
+serious failure mode**: 3c loses data, this one *discloses* it, and RLS cannot
+help because the request never reaches PostgREST.
+
+**Hand to `sync-rxdb-schema-and-replication` explicitly.** Not mitigated by card
+C; the "do not mount under `/api/`" gate happens to also close it, but only as a
+side effect, and that is too thin a reason to leave it unstated.
+
+### D-8 — The precache cost of the vendored bundle. **Operator's call.**
+
+Card C's regenerated `sw.js` takes the PWA precache from **1452.1 KB / 22 files
+to 1947.1 KB / 23 files — +34%**. The bundle is **25.4% of the entire precache**.
+
+Every crew phone downloads **~495 KiB over LTE** on the next `task prod:deploy`,
+for an asset **no page imports**. Card C's merge-intent said "precached but never
+imported"; it never stated the cost. Stated now.
+
+**Two options, and this is not card C's to choose:**
+- **Keep it precached** — the offline path is then proven end-to-end (leg 3a
+  demonstrates the bundle loading with the network cut), and adoption later costs
+  nothing extra.
+- **Exclude it until a page actually imports it** — drop the `globPatterns`
+  entry, re-add it in `sync-rxdb-schema-and-replication`. Costs the truck nothing
+  today, but the offline-availability proof then goes untested until adoption.
+
+### D-9 — Two of the verdict's seven "may now assume" items are COUPLED, and the coupling was unflagged.
+
+Verdict items **1** ("no `global.fetch` shim needed") and **7** ("do not mount
+under `/api/`") both hold **only in a same-origin-fronted shape** — one origin
+reverse-proxying PostgREST — which **HQ does not have today**. `browser/serve.mjs`
+*invents* that reverse proxy for the harness; building the real equivalent is
+**neither costed nor listed under "did NOT establish"** in card C's verdict.
+
+**If `sync-rxdb-schema-and-replication` goes cross-origin** — the shape W1 and W2
+actually used — **item 7 becomes moot** (a cross-origin URL never matches
+`/\/api\//`) **and item 1 inverts: W2's `global.fetch` shim comes back.**
+
+Card C has added the dependency to the verdict so item 1 cannot be read without
+item 7. Recorded here because **the reverse proxy itself is unbuilt, uncosted
+work** that the schema card must size.
+
+### D-10 — Leg 4's millisecond figures are wall-clock, not monotonic.
+
+`browser/specs/leg4-leader-election.spec.js` measures handover with `Date.now()`
+deltas. **This box steps its clock** — G6's own run printed a **negative
+`-1545 ms`** interval for the same measurement.
+
+**The qualitative finding is unaffected and stands:** exactly one tab leads, the
+follower does not replicate, and the survivor both wins the election and
+**actually begins replicating**. Those are ordering facts, not timing facts.
+
+**But the quoted numbers (47 ms / 65 ms / 87 ms) are wall-clock deltas on a
+clock-stepping host and should be read as "sub-second", not as measurements.**
+Anything that needs a real number should use `performance.now()`.
+
+### D-11 — Card C's as-built design deviates from its own pre-written merge-intent.
+
+The merge-intent (written **before** implementation, as required) promised that
+`browser/` would carry **its own `package.json`, `node_modules/` and lockfile**,
+with rxdb / supabase-js consumed from W2's `spike-supabase/rxdb/` lockfile.
+
+**As built:** `browser/` has **zero dependencies and no lockfile** (it resolves
+`@playwright/test` up the tree and `serve.mjs` is dependency-free), and a **new
+`vendor/package.json` + `vendor/package-lock.json`** was created instead.
+
+**The as-built design is better** — it is precisely what holds the root-package
+line, since the bundle's sources must be pinned independently of both the root
+project and W2's harness. **But the deviation was not disclosed at the time**,
+and a merge-intent that silently diverges from what lands is worth less at the
+next merge. Recorded so the next card's note is read with that in mind.

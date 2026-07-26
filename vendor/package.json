@@ -1,0 +1,11 @@
+{
+  "name": "hq-vendor-bundles",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "ISOLATED source-of-truth for the committed vendored browser bundles in this directory. Deliberately NOT part of the repo-root npm project — the root package.json is the Playwright environment for every card and must stay byte-untouched. This manifest is INPUT to ./build-vendor.sh, which is a hand-run act on upgrade; it is NOT installed by any build, task, or Dockerfile.",
+  "dependencies": {
+    "@supabase/supabase-js": "2.109.0",
+    "rxdb": "17.4.0"
+  }
+}
