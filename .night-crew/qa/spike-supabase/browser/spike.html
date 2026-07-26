@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>RxDB browser delivery spike</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  body { font: 13px/1.5 ui-monospace, monospace; margin: 1rem; }
+  pre { white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<h1>RxDB browser delivery spike</h1>
+<p id="status">loading…</p>
+<pre id="log"></pre>
+
+<!--
+  ⚠ LOCAL SPIKE ONLY — card `sync-rxdb-browser-delivery-spike`, 2026-07-26.
+    This page is NOT part of the HQ app. It is not linked from index.html, it
+    is not precached (Workbox's globPatterns matches '*.html' at the ROOT only,
+    and this file lives under .night-crew/), and no production code imports it.
+
+  THE ONE LINE THAT IS THE WHOLE DELIVERY PROOF is the <script type="module">
+  below: a plain, local, relative-free ESM import of the committed vendored
+  bundle. No CDN. No import map. No bundler at page-load time. No build step in
+  the deploy path. If that line works, candidate 3 from the slate's planner
+  decision works.
+-->
+<script type="module">
+import {
+    createRxDatabase,
+    removeRxDatabase,
+    addRxPlugin,
+    RXDB_VERSION,
+    getRxStorageDexie,
+    replicateSupabase,
+    RxDBLeaderElectionPlugin,
+    createClient,
+    VENDOR_BUILD
+} from '/vendor/rxdb.bundle.js';
+
+const log = [];
+function say(...a) {
+    const line = a.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ');
+    log.push(line);
+    document.getElementById('log').textContent = log.join('\n');
+    // eslint-disable-next-line no-console
+    console.log('[spike]', line);
+}
+
+// NOTE: RxDBDevModePlugin is deliberately NOT in the bundle at all. Registering
+// it appends a hidden 1x1 iframe from https://rxdb.info to document.body — the
+// `!isLocalHost()` half of its own guard is commented out in the shipped 17.4.0
+// build. See vendor/src/rxdb-hq-entry.mjs for the full finding. Leg 1 asserts
+// this page reaches ZERO external hosts, which is what caught it.
+addRxPlugin(RxDBLeaderElectionPlugin);
+
+// Mirrors sql/spike-fixture.sql exactly, and mirrors W2's spike-env.js schema
+// byte-for-byte in what it declares and what it deliberately does not:
+// `_deleted` and `_modified` are NOT declared. See spike-env.js §4 for why —
+// that decision is W2's and is not relitigated here.
+const spikeNotesSchema = {
+    version: 0,
+    primaryKey: 'id',
+    type: 'object',
+    properties: {
+        id: { type: 'string', maxLength: 100 },
+        owner_id: { type: 'string', maxLength: 100 },
+        body: { type: 'string' }
+    },
+    required: ['id', 'owner_id', 'body']
+};
+
+const dbs = new Map();
+const reps = new Map();
+
+const SPIKE = {
+    log,
+    say,
+    RXDB_VERSION,
+    VENDOR_BUILD,
+    // Which tab am I? Set by the spec so two-tab output is attributable.
+    tag: 'tab?',
+
+    /**
+     * Open (or re-open) a real Dexie/IndexedDB-backed RxDB database.
+     * Deliberately NOT getRxStorageMemory() — a memory store cannot fail the
+     * way a browser store fails, which is the entire reason this leg exists.
+     */
+    async openDb(name) {
+        if (dbs.has(name)) return { name, reused: true, storage: dbs.get(name).storage.name };
+        const db = await createRxDatabase({
+            name,
+            storage: getRxStorageDexie(),
+            multiInstance: true       // the default; stated because leg 4 depends on it
+            // NO `ignoreDuplicate: true` — and that is a MEASURED consequence of
+            // dropping dev-mode from the bundle, not a style choice. RxDB throws
+            // DB9 ("ignoreDuplicate is only allowed in dev-mode and must never be
+            // used in production") the moment dev-mode is absent. W2's Node
+            // harness set it (spike-env.js makeLocalDb) and never hit this,
+            // because it had dev-mode on. The dbs Map above is what replaces it.
+        });
+        await db.addCollections({ notes: { schema: spikeNotesSchema } });
+        dbs.set(name, db);
+        return { name, reused: false, storage: db.storage.name };
+    },
+
+    async removeDb(name) {
+        if (dbs.has(name)) { await dbs.get(name).close(); dbs.delete(name); }
+        await removeRxDatabase(name, getRxStorageDexie());
+    },
+
+    async insert(name, doc) {
+        await dbs.get(name).notes.insert(doc);
+        return true;
+    },
+
+    async count(name) {
+        return await dbs.get(name).notes.count().exec();
+    },
+
+    async ids(name) {
+        const docs = await dbs.get(name).notes.find().exec();
+        return docs.map(d => d.id).sort();
+    },
+
+    async get(name, id) {
+        const d = await dbs.get(name).notes.findOne(id).exec();
+        return d ? d.toJSON() : null;
+    },
+
+    /**
+     * The IndexedDB databases the origin actually holds, read through the
+     * browser API rather than through RxDB. If RxDB claims persistence and this
+     * list is empty, RxDB is wrong.
+     */
+    async idbDatabases() {
+        if (!indexedDB.databases) return ['(indexedDB.databases() unsupported)'];
+        return (await indexedDB.databases()).map(d => d.name).sort();
+    },
+
+    /**
+     * A supabase-js client. `base` decides which same-origin path the REST
+     * calls land on — see serve.mjs:
+     *   ''            -> /rest/v1/...          NOT matched by HQ's sw.js
+     *   '/api/v1'     -> /api/v1/rest/v1/...   MATCHED by HQ's sw.js
+     * No fetch shim: fronting PostgREST on the page's own origin removes the
+     * Kong-shaped problem W2's Node harness had to shim around.
+     */
+    client(token, base = '') {
+        return createClient(location.origin + base, token, {
+            accessToken: async () => SPIKE.currentToken(token),
+            auth: { persistSession: false, autoRefreshToken: false }
+        });
+    },
+
+    // Token indirection: the spec can swap the live token WITHOUT restarting
+    // replication. Leg 5 (token expiry across an offline period) turns on
+    // whether that is enough to recover.
+    _tokens: new Map(),
+    setToken(key, value) { SPIKE._tokens.set(key, value); },
+    currentToken(fallback) {
+        return SPIKE._tokens.get('current') || fallback;
+    },
+
+    async startRep(key, { dbName, token, base = '', identifier, waitForLeadership, live = false }) {
+        const db = dbs.get(dbName);
+        const rep = replicateSupabase({
+            replicationIdentifier: identifier,
+            collection: db.notes,
+            client: SPIKE.client(token, base),
+            tableName: 'spike_notes',
+            waitForLeadership,
+            live,
+            pull: { batchSize: 50 },
+            push: { batchSize: 50 }
+        });
+        const errors = [];
+        rep.error$.subscribe(e => {
+            // RxDB's error text is enormous (it inlines the whole pushRows
+            // payload). Keep a compact CLASSIFICATION so a spec can assert
+            // WHICH failure happened — 'the token expired' and 'the network is
+            // gone' are different answers and must not be allowed to look alike.
+            const full = String(e && (e.message || e.code || e));
+            const kind =
+                /PGRST301|JWT expired/i.test(full) ? 'jwt-expired' :
+                /Failed to fetch|NetworkError/i.test(full) ? 'network' :
+                /\"error\":\"offline\"/.test(full) ? 'sw-offline-fallback' : 'other';
+            errors.push({ kind, head: full.replace(/\s+/g, ' ').slice(0, 200) });
+            say(`${SPIKE.tag} replication error [${kind}]`);
+        });
+        reps.set(key, { rep, errors, started: false });
+        rep.awaitInitialReplication().then(() => {
+            reps.get(key).started = true;
+            say(`${SPIKE.tag} initial replication resolved for ${key}`);
+        }, () => { /* recorded on error$ */ });
+        return true;
+    },
+
+    repState(key) {
+        const r = reps.get(key);
+        if (!r) return null;
+        return {
+            started: r.started,
+            errorCount: r.errors.length,
+            kinds: [...new Set(r.errors.map(e => e.kind))].sort(),
+            last: r.errors.length ? r.errors[r.errors.length - 1] : null
+        };
+    },
+
+    async repReSync(key) { reps.get(key).rep.reSync(); return true; },
+
+    async awaitInSync(key, ms = 15000) {
+        const r = reps.get(key);
+        return await Promise.race([
+            r.rep.awaitInSync().then(() => 'in-sync'),
+            new Promise(res => setTimeout(() => res('timeout'), ms))
+        ]);
+    },
+
+    async awaitInitial(key, ms = 15000) {
+        const r = reps.get(key);
+        return await Promise.race([
+            r.rep.awaitInitialReplication().then(() => 'ok'),
+            new Promise(res => setTimeout(() => res('timeout'), ms))
+        ]);
+    },
+
+    async cancelRep(key) {
+        const r = reps.get(key);
+        if (r) { await r.rep.cancel(); reps.delete(key); }
+        return true;
+    },
+
+    /**
+     * Leadership, observed directly through the leader-election plugin rather
+     * than inferred from replication behaviour.
+     */
+    leadership(dbName) {
+        const db = dbs.get(dbName);
+        const state = { isLeader: !!db.isLeader(), wonAt: null };
+        return state;
+    },
+
+    watchLeadership(dbName) {
+        const db = dbs.get(dbName);
+        SPIKE._leaderWon = false;
+        db.waitForLeadership().then(() => {
+            SPIKE._leaderWon = true;
+            say(`${SPIKE.tag} WON leadership for ${dbName}`);
+        });
+        return true;
+    },
+
+    leaderWon() { return !!SPIKE._leaderWon; },
+
+    async closeDb(name) {
+        if (dbs.has(name)) { await dbs.get(name).close(); dbs.delete(name); }
+        return true;
+    },
+
+    /**
+     * A RAW WebSocket, deliberately not routed through supabase-js.
+     * The service-worker question about WebSockets is a question about the
+     * SERVICE WORKER, and putting supabase-js's transport plumbing (and W1's
+     * Realtime vhost sharp edge) in the middle would only confuse the answer.
+     */
+    rawWebSocket(url, ms = 8000) {
+        return new Promise(res => {
+            let ws;
+            const done = (verdict, extra) => { try { ws && ws.close(); } catch (e) { /* */ } res({ verdict, ...extra }); };
+            const t = setTimeout(() => done('timeout'), ms);
+            try { ws = new WebSocket(url); } catch (e) { clearTimeout(t); return done('constructor-threw', { error: String(e) }); }
+            ws.onopen = () => { clearTimeout(t); done('open'); };
+            ws.onerror = () => { clearTimeout(t); done('error'); };
+            ws.onclose = ev => { clearTimeout(t); done('close', { code: ev.code }); };
+        });
+    },
+
+    /**
+     * A plain fetch, reported in full. The service-worker leg turns entirely on
+     * WHAT COMES BACK when the network is gone and the SW is in the middle, so
+     * the status, the content-type and the body all have to be visible.
+     */
+    async probe(url) {
+        try {
+            const r = await fetch(url);
+            const text = await r.text();
+            return {
+                ok: r.ok, status: r.status,
+                contentType: r.headers.get('content-type'),
+                bodyStart: text.slice(0, 120),
+                bytes: text.length
+            };
+        } catch (e) {
+            return { threw: true, error: String(e) };
+        }
+    },
+
+    async registerSW() {
+        const reg = await navigator.serviceWorker.register('/sw.js');
+        await navigator.serviceWorker.ready;
+        // clientsClaim + skipWaiting are set in build-sw.js, but claiming is
+        // still asynchronous. Waiting for a controller is what makes "the SW is
+        // in the middle" true rather than hoped for.
+        if (!navigator.serviceWorker.controller) {
+            await new Promise(res => {
+                navigator.serviceWorker.addEventListener('controllerchange', res, { once: true });
+                setTimeout(res, 8000);
+            });
+        }
+        return {
+            scope: reg.scope,
+            hasController: !!navigator.serviceWorker.controller,
+            controllerUrl: navigator.serviceWorker.controller
+                ? navigator.serviceWorker.controller.scriptURL : null
+        };
+    },
+
+    swController() {
+        return navigator.serviceWorker.controller
+            ? navigator.serviceWorker.controller.scriptURL : null;
+    }
+};
+
+window.SPIKE = SPIKE;
+say(`bundle loaded: rxdb ${VENDOR_BUILD.rxdb} / supabase-js ${VENDOR_BUILD.supabaseJs} ` +
+    `/ built by esbuild ${VENDOR_BUILD.esbuild}; RXDB_VERSION=${RXDB_VERSION}`);
+document.getElementById('status').textContent = 'ready';
+window.SPIKE_READY = true;
+</script>
+</body>
+</html>
