@@ -81,7 +81,7 @@ Given the no-build, vanilla JS nature of the project:
 
 **Option C — Keep manual testing:**
 - Acceptable at current prototype scale
-- Document manual test cases in `.planning/` if this is chosen
+- Document manual test cases in `docs/` if this is chosen
 
 ## Coverage
 
