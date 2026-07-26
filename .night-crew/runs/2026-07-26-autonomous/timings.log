@@ -40,3 +40,10 @@ C_gate_full_suite                    47m 00s  540 passed / 1 failed / 2 flaky / 
 C_attribution_RUN10_isolated          3m 00s  3/3 passed (--repeat-each=3 --retries=0) db=hq_test_c2
 C_attribution_RUN10_whole_file       11m 24s  80/80 passed incl. RUN-10 (--retries=0) db=hq_test_c3
 C_attribution_verdict                         UNATTRIBUTED BY DESIGN — see DECISIONS-NEEDED.md "Card C"
+# ---- card C: post-G6 repair round (F1/F2/F7/F8) ----
+C_repair_harness_regate               3m 39s  11/11 passed, SPIKE_HTTP_PORT=8899
+                                              load1 23.65 -> 14.24; 3c GREEN with the strengthened assertion
+C_repair_mutation_test_3c             ~1m     silentlyStale forced false -> 3c RED (assertion proven non-vacuous)
+C_repair_build_sw                       <1s   23 files / 1947.1 KB — UNCHANGED; sw.js byte-identical
+C_repair_full_suite                     N/A   DELIBERATELY NOT RUN — orchestrator attribution measurement
+                                              live on :8599 and :8699; a third concurrent suite would corrupt it
