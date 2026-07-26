@@ -34,3 +34,9 @@ C_leg4_leader_election               GREEN — handover 47ms / 65ms / 87ms acros
 C_leg5_token_expiry                  RED first (inside PostgREST's ~30s exp leeway) -> GREEN at 65s
 C_postgrest_exp_leeway_probe         ~2m     9 fresh tokens, boundary between -25s (200) and -29s (401)
 C_spike_suite_full                   1m 48s  11/11 passed; load 8.58 -> 30.39 (card B concurrent)
+C_gate_full_suite                    47m 00s  540 passed / 1 failed / 2 flaky / 6 skipped of 549
+                                              port=8299 db=hq_test_c1 load1 35.48 -> peak 61+ -> 17.30
+                                              (card B ran its OWN full suite concurrently for the first half)
+C_attribution_RUN10_isolated          3m 00s  3/3 passed (--repeat-each=3 --retries=0) db=hq_test_c2
+C_attribution_RUN10_whole_file       11m 24s  80/80 passed incl. RUN-10 (--retries=0) db=hq_test_c3
+C_attribution_verdict                         UNATTRIBUTED BY DESIGN — see DECISIONS-NEEDED.md "Card C"

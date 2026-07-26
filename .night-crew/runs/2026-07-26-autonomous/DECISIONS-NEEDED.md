@@ -60,3 +60,74 @@ but it is a test file no card tonight owns.
 ## Parked cards
 
 _(none yet)_
+
+---
+
+## Card C — one UNATTRIBUTED red in the full-suite gate (NOT a park; card C landed GO)
+
+**This is a record, not a fork.** Card C is not parked and needs no decision to
+merge. It is filed here because the run's discipline says an unattributed red
+belongs in the durable record rather than only in a card report.
+
+**The red:** `tests/workflows.spec.js:2466` — *Loading states › unsubmit returns
+checklist to editable draft [RUN-10]*. Failed **both** attempts in card C's full
+549-test gate (`1 failed / 2 flaky / 6 skipped / 540 passed`, 47.0 m,
+`TEST_PORT=8299`, `hq_test_c1`).
+
+- attempt 1: `page.click('[data-action="unsubmit"]')` timed out — *"element was
+  detached from the DOM, retrying"* (a re-render race).
+- retry #1: after unsubmit, `[data-action="submit"]` never reappeared.
+
+### 🛑 I REFUSE TO ATTRIBUTE IT, and here is the measurement rather than a guess
+
+| Condition | Result |
+|---|---|
+| RUN-10 alone, `--repeat-each=3 --retries=0`, on card C's HEAD | **3 / 3 passed** |
+| Full `tests/workflows.spec.js` (80 tests), `--retries=0`, on card C's HEAD | **80 / 80 passed**, RUN-10 green as test #57 |
+| Full 549-test suite on card C's HEAD | **failed twice** |
+
+So it is **not** deterministic, **not** within-file order sensitivity, and it did
+**not** reproduce in 83 attempts outside the whole-suite condition.
+
+**Why it is mechanically not card C's**, and this is provable rather than
+asserted:
+
+```
+git diff --stat overnight-20260726..HEAD -- backend tests features lib \
+  ':!.night-crew' workflows.html sync.js ptr.js index.html   # prints NOTHING
+```
+
+RUN-10 exercises `workflows.html` and the Go backend. **Every byte the browser
+and the server see for this test is identical to `overnight-20260726`.** Card C's
+entire diff is `vendor/**` (new, never imported by any HQ page), `build-sw.js`
+(build-time only), `sw.js` (**never registered — `playwright.config.js:60` sets
+`serviceWorkers: 'block'`**), and `.night-crew/**`.
+
+**Why I still will not call it "pre-existing flake" as a fact.** Two correlations
+exist and guessing either way is equally wrong:
+
+1. **Card B ran its own full Playwright suite CONCURRENTLY** for the first half
+   of card C's gate. Measured 1-min load: **35.48 at start, peaking above 61,
+   settling to 8–17 once card B finished.** A green here bounds a *loaded*
+   condition; so does this red. **Concurrency makes attribution harder, not
+   easier**, and that is the honest statement.
+2. **Card A's just-merged `workflow-submission-status-client-half` is topically
+   adjacent** — RUN-10 is precisely an unsubmit/status re-render assertion, and
+   card A's change is already in card C's base. **Flagged as a correlation. Not
+   asserted as a cause.** Card C did not test at base and therefore cannot say.
+
+**What would settle it:** run RUN-10 inside the full 549-test suite at
+`overnight-20260726` (i.e. with card A merged, card C absent) on a quiet box. If
+it reds there too, it belongs to card A or to the suite; if it stays green, the
+question reopens. **That is one command and it was outside card C's remit.**
+
+### The two flaky (passed on retry #1) — also not attributed
+
+- `tests/sync.spec.js:836` — *sub-step checks on Device A appear checked on
+  Device B [SYN-03]*
+- `tests/sync.spec.js:1327` — *checkbox answer converges (live + catch-up)*
+
+Both in `sync.spec.js`, the file carrying the **proven ~16–20 % flake** whose
+exposure card A's merged seam fix deliberately raises. **Neither is the
+specifically flagged `sync.spec.js:1198`** — that one passed. `purchasing.spec.js:1407`
+(FR-13) also passed. Same refusal to attribute applies, same reason.
