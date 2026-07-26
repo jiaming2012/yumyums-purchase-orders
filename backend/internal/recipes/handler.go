@@ -35,7 +35,7 @@ func writeError(w http.ResponseWriter, status int, msg string) {
 // /api/v1/inventory/period-summary. The Bearer envelope (503 / 401) is handled
 // by auth.ServiceTokenMiddleware; this handler only sees authenticated requests.
 //
-// Contract: see .planning/phases/999.2-.../999.2-SALES-PROCESSOR-CONTRACT.md
+// Contract: see docs/contracts/inventory-menu-cogs.md
 // (authored in Plan 06). Error envelope strings mirror Phase 21 EXACTLY per D-18.
 //
 // Default mode returns summary rows (one per menu_item). With ?breakdown=true
