@@ -314,3 +314,38 @@ line, since the bundle's sources must be pinned independently of both the root
 project and W2's harness. **But the deviation was not disclosed at the time**,
 and a merge-intent that silently diverges from what lands is worth less at the
 next merge. Recorded so the next card's note is read with that in mind.
+
+---
+
+## Orchestrator finding (D-12) — surfaced at the card C merge, belongs to no card
+
+### D-12 — 🛑 `build-sw.js` globs the WORKING TREE, so any untracked page silently enters the precache
+
+**Found at merge time, not by a card.** After merging card C, the standing rule for generated files
+says to confirm `sw.js` is consistent, so `node build-sw.js` was re-run. It produced **24 files /
+2166.8 KB** against the committed **23 files / 1947.1 KB**.
+
+The extra entry is **`backlog-round.html`** — an **untracked** file that has been sitting in the repo
+root since before this run started (it appears in the run's very first `git status`). It is nobody's
+card, and it is not new tonight.
+
+**Why this matters more than a stray manifest line.** `build-sw.js` globs the filesystem, not the
+git index. So:
+
+1. Anyone with a work-in-progress page in the repo root who runs `task sw` — which `task test` and
+   `task prod:deploy` **both run automatically as a dependency** — bakes that page into the precache
+   manifest.
+2. If that `sw.js` is committed and deployed, every phone's service worker tries to precache a URL
+   that exists on no other machine.
+3. **A Workbox precache entry that 404s fails the entire service-worker install**, not just that one
+   asset. The failure mode is "the PWA stops updating," and its cause is invisible from the symptom.
+
+**The regenerated output was discarded and the committed `sw.js` restored**, so nothing shipped. But
+the trap is live and will fire again.
+
+**The decision:** teach `build-sw.js` to glob the tracked set (or add an explicit allowlist /
+`globIgnores` entry), or accept the foot-gun and document it loudly in CLAUDE.md next to the
+existing "run `task sw` after changing HTML/JS" instruction. **Not decided here.**
+
+*(Separately, and not a decision: `backlog-round.html` itself is untracked and unexplained. It is
+left exactly as found — the run does not clean up files it did not create.)*
