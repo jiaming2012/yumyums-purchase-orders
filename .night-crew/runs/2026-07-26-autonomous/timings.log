@@ -1,0 +1,9 @@
+# Per-card timings — run overnight-20260726 (Delivery KR3)
+#
+# Epoch-stamped wall-clock per card: impl / G6 / land.
+# Card C is first-of-kind with no ledger entry — its 100–240 m band is a range, not a
+# forecast. Recording what it ACTUALLY cost is the point of the ledger.
+#
+# format: <epoch> <ISO8601-UTC> <card> <leg> <event> [detail]
+
+1785025664 2026-07-26T00:27:44Z run start branch=overnight-20260726 load1=2.78 cores=8
