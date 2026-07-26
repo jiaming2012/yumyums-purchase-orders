@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -106,6 +107,31 @@ func TestMint_NeverMintsServiceRole(t *testing.T) {
 	}
 }
 
+// TestMint_RoleGuardIsAnAllowlist — the guard used to be a DENYLIST naming
+// `service_role` alone. G6 minted tokens out-of-band for the roles below and
+// showed the denylist was adequate only accidentally: it holds because this
+// stack's `authenticator` happens to have no membership in them, which is a
+// property of the stack's role graph rather than of this code. An allowlist
+// does not depend on that, so it cannot be invalidated by an operator adding
+// a GRANT somewhere this package never sees.
+func TestMint_RoleGuardIsAnAllowlist(t *testing.T) {
+	for _, role := range []string{
+		ServiceRole, "postgres", "supabase_admin", "authenticator", "anon",
+		"", "AUTHENTICATED", "authenticated ", "hq_superuser",
+	} {
+		_, err := Sign(Claims{Sub: "attacker", Role: role, Exp: 1, Iat: 0}, "s")
+		if !errors.Is(err, ErrServiceRoleRefused) {
+			t.Errorf("Sign(role=%q) = %v, want refusal. The guard is an allowlist: %q is the "+
+				"only role this bridge may ever emit.", role, err, SupabaseRole)
+		}
+	}
+	// And the one permitted value still works, or the allowlist has swallowed
+	// the feature instead of guarding it.
+	if _, err := Sign(Claims{Sub: "u", Role: SupabaseRole, Exp: 1, Iat: 0}, "s"); err != nil {
+		t.Errorf("Sign(role=%q) = %v, want success", SupabaseRole, err)
+	}
+}
+
 // TestMint_FailsClosedWithoutSecret mirrors auth.ServiceTokenMiddleware: an
 // unset secret is a misconfigured deploy and must fail closed, never emit an
 // unverifiable token.
@@ -155,6 +181,31 @@ func hqTestPool(t *testing.T) *pgxpool.Pool {
 // exactly what auth.RequirePermission answers for one named app — otherwise
 // the token would carry an entitlement list that disagrees with the gate HQ's
 // own endpoints enforce, which is a second permission model by accident.
+//
+// 🛑 THIS TEST SEEDS ITS OWN GRANTS, AND THAT IS NOT OPTIONAL.
+//
+// The first version of this test did not, and it was VACUOUS in the very run
+// that gated the card. `app_permissions` was EMPTY in hq_test_b1, so all 11
+// enabled slugs compared false-against-false and the test passed on eleven
+// agreements of absence. G6 falsified it in one move: replacing GrantedSlugs's
+// body with `return []string{}, nil` still passed. An anti-drift guard that
+// cannot detect the drift it exists to catch is not a guard — it is a green
+// light wired to nothing.
+//
+// Two things prevent a recurrence, and both are load-bearing:
+//
+//  1. The fixture below seeds a REAL role grant and a REAL individual grant,
+//     so the comparison has true-values in it on any database, however fresh.
+//  2. requirePositives asserts that a minimum number of slugs actually came
+//     back TRUE. Agreement alone is not evidence; agreement that includes
+//     observed positives is. With the stub, `operations` and `inventory` are
+//     true from the predicate and absent from the token, so the per-slug loop
+//     fails — the guard now bites.
+//
+// The two grants are deliberately of DIFFERENT KINDS because GrantedSlugs
+// resolves them through different disjuncts of the same predicate
+// (`p.role = ANY($1) OR p.user_id = $2`). Seeding only one kind would leave
+// the other unproven.
 func TestGrantedSlugs_MatchesRequirePermission(t *testing.T) {
 	pool := hqTestPool(t)
 	ctx := context.Background()
@@ -176,16 +227,62 @@ func TestGrantedSlugs_MatchesRequirePermission(t *testing.T) {
 		t.Skip("no enabled hq_apps rows — nothing to compare")
 	}
 
-	user := &auth.User{ID: "00000000-0000-0000-0000-000000000000", Roles: []string{"team_member"}}
+	// ── Fixture ──────────────────────────────────────────────────────────
+	const (
+		roleGrantSlug = "operations" // reached via the ROLE disjunct
+		userGrantSlug = "inventory"  // reached via the INDIVIDUAL disjunct
+	)
+	for _, slug := range []string{roleGrantSlug, userGrantSlug} {
+		if !slices.Contains(enabled, slug) {
+			t.Skipf("enabled apps %v do not include %q — this fixture needs it to produce a "+
+				"positive; update the fixture rather than letting the test go vacuous", enabled, slug)
+		}
+	}
+
+	var userID string
+	if err := pool.QueryRow(ctx,
+		`INSERT INTO users (email, roles, status)
+		 VALUES ('grantparity-'||gen_random_uuid()||'@yumyums.test', ARRAY['team_member']::TEXT[], 'active')
+		 RETURNING id::text`).Scan(&userID); err != nil {
+		t.Fatalf("seed user: %v", err)
+	}
+	t.Cleanup(func() {
+		// ON DELETE CASCADE removes the individual grant with the user.
+		_, _ = pool.Exec(context.Background(), `DELETE FROM users WHERE id = $1`, userID)
+	})
+
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO app_permissions (app_id, role)
+		SELECT id, 'team_member' FROM hq_apps WHERE slug = $1
+		ON CONFLICT DO NOTHING`, roleGrantSlug); err != nil {
+		t.Fatalf("seed role grant on %q: %v", roleGrantSlug, err)
+	}
+	t.Cleanup(func() {
+		_, _ = pool.Exec(context.Background(), `
+			DELETE FROM app_permissions
+			WHERE role = 'team_member'
+			  AND app_id = (SELECT id FROM hq_apps WHERE slug = $1)`, roleGrantSlug)
+	})
+
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO app_permissions (app_id, user_id)
+		SELECT id, $2::uuid FROM hq_apps WHERE slug = $1
+		ON CONFLICT DO NOTHING`, userGrantSlug, userID); err != nil {
+		t.Fatalf("seed individual grant on %q: %v", userGrantSlug, err)
+	}
+
+	user := &auth.User{ID: userID, Roles: []string{"team_member"}}
 
 	got, err := GrantedSlugs(ctx, pool, user)
 	if err != nil {
 		t.Fatalf("GrantedSlugs: %v", err)
 	}
 
-	// Per-slug, evaluate RequirePermission's own EXISTS predicate verbatim and
-	// require agreement. Any disagreement means the token disagrees with the
-	// gate, in whichever direction.
+	// ── Per-slug agreement, plus a floor on observed positives ───────────
+	// Evaluate RequirePermission's own EXISTS predicate verbatim and require
+	// agreement. Any disagreement means the token disagrees with the gate, in
+	// whichever direction.
+	positives := []string{}
 	for _, slug := range enabled {
 		var ok bool
 		err := pool.QueryRow(ctx, `
@@ -200,18 +297,36 @@ func TestGrantedSlugs_MatchesRequirePermission(t *testing.T) {
 		if err != nil {
 			t.Fatalf("RequirePermission predicate for %q: %v", slug, err)
 		}
-		inToken := false
-		for _, s := range got {
-			if s == slug {
-				inToken = true
-			}
+		if ok {
+			positives = append(positives, slug)
 		}
+		inToken := slices.Contains(got, slug)
 		if ok != inToken {
 			t.Errorf("slug %q: RequirePermission says reachable=%v but the token claim says %v. "+
 				"The bridge must project the SAME grant answer HQ's own endpoints enforce; a "+
 				"divergence here is a second permission model arriving by accident.", slug, ok, inToken)
 		}
 	}
+
+	// 🛑 THE ANTI-VACUITY ASSERTION. Without it, "every slug agreed" is
+	// satisfied by a database with no grants in it at all — which is exactly
+	// how this test passed while proving nothing.
+	if len(positives) < 2 {
+		t.Fatalf("only %d slug(s) evaluated TRUE (%v). This test is VACUOUS below 2: "+
+			"agreement between two functions that both say \"no\" to everything is not evidence. "+
+			"The fixture seeds a role grant on %q and an individual grant on %q; if neither "+
+			"produced a positive, the fixture is broken and must be repaired rather than the "+
+			"floor lowered.", len(positives), positives, roleGrantSlug, userGrantSlug)
+	}
+	// And name them, so a positive arriving from some unrelated leftover row
+	// cannot stand in for the two disjuncts this test exists to exercise.
+	if !slices.Contains(got, roleGrantSlug) {
+		t.Errorf("the ROLE-grant disjunct produced nothing: %q missing from %v", roleGrantSlug, got)
+	}
+	if !slices.Contains(got, userGrantSlug) {
+		t.Errorf("the INDIVIDUAL-grant disjunct produced nothing: %q missing from %v", userGrantSlug, got)
+	}
+	t.Logf("non-vacuous: %d/%d slugs TRUE (%v)", len(positives), len(enabled), positives)
 }
 
 // TestGrantedSlugs_SuperadminGetsEveryEnabledApp mirrors RequirePermission's

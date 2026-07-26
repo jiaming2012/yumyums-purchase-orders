@@ -48,10 +48,18 @@ import (
 //
 // That is the LEGACY SINGULAR GUC, which PostgREST populates only when
 // PGRST_DB_USE_LEGACY_GUCS=true. This stack sets it "false", so auth.uid()
-// returns NULL — and a non-UUID `sub` makes it raise
-// `invalid input syntax for type uuid` instead. Every copy-pasted policy from
-// Supabase's hosted docs uses auth.uid() or auth.jwt() and will fail
-// non-obviously here.
+// returns NULL and the policy silently matches nothing — `HTTP 200 []`, which
+// reads as "this user has no data" rather than as a broken policy.
+//
+// (auth.uid() also casts to `uuid`, so a non-UUID `sub` would RAISE. On this
+// stack that raise is unreachable — nullif() is handed NULL by the GUC problem
+// above and `NULL::uuid` is legal, so the cast never sees a bad string. It
+// becomes live only if someone flips PGRST_DB_USE_LEGACY_GUCS to true, at
+// which point the symptom changes from a silent empty result to a loud 500.
+// Worth knowing; not what happens today.)
+//
+// Every copy-pasted policy from Supabase's hosted docs uses auth.uid() or
+// auth.jwt() and will fail non-obviously here.
 //
 // Policies MUST read the PLURAL GUC directly:
 //
@@ -78,10 +86,12 @@ import (
 // nothing.
 //
 // ── service_role ───────────────────────────────────────────────────────────
-// 🛑 `service_role` has BYPASSRLS. It is a god-token. MintForUser refuses to
-// emit it for any input, and TestMint_NeverMintsServiceRole says so. It appears
-// in this package exactly once more, in the test suite, as the control that
-// proves the table was not empty.
+// 🛑 `service_role` has BYPASSRLS. It is a god-token. Sign refuses it — and
+// refuses every other role too, because the guard is an ALLOWLIST on
+// SupabaseRole rather than a denylist naming the roles we happened to think of
+// (TestMint_RoleGuardIsAnAllowlist covers postgres, supabase_admin,
+// authenticator and anon). `service_role` appears in this package exactly once
+// more, in the test suite, as the control that proves the table was not empty.
 
 // SupabaseRole is the Postgres role PostgREST SET ROLEs into for a request,
 // read from the `role` claim. Every human HQ user maps to exactly one:
@@ -91,7 +101,9 @@ import (
 // in the stack, which is a permission model, not a mapping.
 const SupabaseRole = "authenticated"
 
-// ServiceRole is named here only so the guard below can refuse it by name.
+// ServiceRole is named here only so tests can refer to the BYPASSRLS role by
+// name. Sign's guard is an ALLOWLIST on SupabaseRole and does not consult this
+// constant — a denylist would be complete only by accident. See Sign.
 const ServiceRole = "service_role"
 
 // DefaultTokenTTL is deliberately short. The projection table makes grant
@@ -104,9 +116,14 @@ const DefaultTokenTTL = 15 * time.Minute
 // misconfigured deploy fails closed, it does not silently mint unsigned junk.
 var ErrSecretNotConfigured = errors.New("sync jwt bridge: signing secret not configured")
 
-// ErrServiceRoleRefused is returned if anything ever asks this package for a
-// BYPASSRLS token. Nothing a client can reach is allowed to mint one.
-var ErrServiceRoleRefused = errors.New("sync jwt bridge: refusing to mint a service_role (BYPASSRLS) token")
+// ErrServiceRoleRefused is returned for ANY `role` claim other than
+// SupabaseRole — not only `service_role`. The name is kept because
+// `service_role` is the motivating case (it holds BYPASSRLS, so one leaked
+// token defeats every policy at once), but the guard is an allowlist: see
+// Sign. `postgres`, `supabase_admin`, `authenticator` and `anon` are refused
+// by the same clause, and would be even if this stack's role graph changed
+// underneath us.
+var ErrServiceRoleRefused = errors.New("sync jwt bridge: refusing to mint a token for any role other than " + SupabaseRole)
 
 // Claims is the exact claim set the bridge emits. Every field is annotated with
 // the HQ column it projects, because "which HQ thing is this?" is the only
@@ -131,9 +148,26 @@ type Claims struct {
 	// in tests/grant-enforcement-parity.spec.js); they stay separate here.
 	HQRoles []string `json:"hq_roles"`
 
-	// HQGrants projects the app slugs this user could reach at mint time —
-	// the SAME predicate auth.RequirePermission evaluates, evaluated once for
-	// every enabled app instead of once for a named one.
+	// HQGrants projects the app slugs this user holds a DIRECT grant on at
+	// mint time — auth.RequirePermission's predicate evaluated once per
+	// enabled app.
+	//
+	// 🛑 NOT "the same answer RequirePermission gives." An earlier version of
+	// this comment claimed that and it was wrong. RequirePermission is
+	// RequirePermission(pool, grantSlug, umbrellaSlugs...) and matches
+	// `a.slug = ANY(candidate_set)` — the umbrella position is REAL and in use
+	// (main.go:628, 642, 652). A user holding `inventory` gets
+	// hq_grants = [inventory, ...] here, while
+	// RequirePermission("inventory-trends", "inventory") returns TRUE. So this
+	// list is NARROWER than what the user can actually reach: a launcher
+	// rendered naively from it would hide `inventory-trends` and
+	// `inventory-cost`, two surfaces the user does reach.
+	//
+	// It errs CLOSED, so there is no security consequence — but a client must
+	// expand umbrellas itself rather than treat this as the reachable set.
+	// What the advisory list SHOULD contain for umbrella slugs is a design
+	// call the run did not make; it is recorded as D-6 in
+	// .night-crew/runs/2026-07-26-autonomous/DECISIONS-NEEDED.md.
 	//
 	// 🛑 ADVISORY ONLY. Not the authorization gate. See the file header.
 	HQGrants []string `json:"hq_grants"`
@@ -172,20 +206,39 @@ func signHS256(claims any, secret string) (string, error) {
 // suite, which needs to construct deliberately malformed claim sets that
 // MintForUser would never produce.
 func Sign(c Claims, secret string) (string, error) {
-	if c.Role == ServiceRole {
+	// 🛑 ALLOWLIST, not a denylist. This was `c.Role == ServiceRole` — a
+	// denylist naming the one role we were worried about. G6 minted tokens
+	// out-of-band for `postgres`, `supabase_admin`, `authenticator` and `anon`
+	// and showed the denylist was adequate only ACCIDENTALLY: it holds today
+	// because this stack's `authenticator` has no membership in those roles,
+	// not because the guard covers them. That is a property of the stack's
+	// role graph, which no test here owns and any operator can change.
+	//
+	// `role` is the claim PostgREST SET ROLEs into. There is exactly one value
+	// this bridge is ever allowed to emit, so say that instead of enumerating
+	// the values it is not.
+	if c.Role != SupabaseRole {
 		return "", ErrServiceRoleRefused
 	}
 	return signHS256(c, secret)
 }
 
-// GrantedSlugs returns every enabled app slug this user can reach, using the
-// SAME predicate auth.RequirePermission uses per-surface:
+// GrantedSlugs returns every enabled app slug this user holds a DIRECT grant
+// on, using auth.RequirePermission's own predicate:
 //
 //	superadmin ∨ a role grant ∨ an individual user grant
 //
 // Superadmins get every enabled slug, mirroring RequirePermission's superadmin
 // bypass and me.queryAllApps — a superadmin who saw fewer slugs here than in
 // the launcher would be a new, quieter permission model.
+//
+// 🛑 It does NOT expand umbrellas, and the result is therefore a SUBSET of
+// what RequirePermission would admit. RequirePermission takes
+// (grantSlug, umbrellaSlugs...) and a caller holding the umbrella passes the
+// narrow gate; this function is asked about one slug at a time with no
+// umbrella context, so `inventory` here does not imply `inventory-trends`
+// even though the mounted gate says it does. Errs closed. See the HQGrants
+// field comment and D-6.
 //
 // This is a read of existing tables. It adds no concept.
 func GrantedSlugs(ctx context.Context, pool *pgxpool.Pool, user *auth.User) ([]string, error) {

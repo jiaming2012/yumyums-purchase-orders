@@ -24,15 +24,28 @@
 --
 --     select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid;
 --
--- Two independent problems:
+-- Two problems — and they are NOT both live here. Which one actually bites is
+-- worth being precise about, because the observable symptom differs:
 --
---   1. `request.jwt.claim.sub` is the LEGACY SINGULAR GUC. PostgREST populates
---      it only when PGRST_DB_USE_LEGACY_GUCS=true. This stack sets it "false"
---      (docker-compose.supabase.yml). There is NO plural fallback inside
---      auth.uid(). It returns NULL.
---   2. It casts to `uuid`. HQ user ids are not guaranteed UUID-shaped, and a
---      non-UUID `sub` raises `invalid input syntax for type uuid` rather than
---      returning null.
+--   1. ✅ LIVE ON THIS STACK. `request.jwt.claim.sub` is the LEGACY SINGULAR
+--      GUC. PostgREST populates it only when PGRST_DB_USE_LEGACY_GUCS=true.
+--      This stack sets it "false" (docker-compose.supabase.yml). There is NO
+--      plural fallback inside auth.uid(). It returns NULL, the predicate is
+--      NULL, and the policy selects nothing. This is the failure variant V13
+--      observes, and it observes it as `HTTP 200 []` — silence, not an error.
+--
+--   2. ⚠ LATENT, NOT REACHABLE HERE. auth.uid() also casts to `uuid`, so a
+--      non-UUID `sub` would raise `invalid input syntax for type uuid`. On
+--      this stack that raise is UNREACHABLE: problem 1 feeds nullif() a NULL,
+--      and `NULL::uuid` is perfectly legal, so the cast never sees a bad
+--      string. It would become live only if someone set
+--      PGRST_DB_USE_LEGACY_GUCS=true — at which point the failure mode flips
+--      from a silent empty result to a loud 500. Recorded because that flip
+--      is confusing if you have not been told to expect it, NOT because it
+--      happens today.
+--
+-- The practical consequence is that on THIS stack auth.uid() fails SILENTLY,
+-- which is the worse of the two: a raise would at least point at itself.
 --
 -- `auth.jwt()` does not exist here at all.
 --

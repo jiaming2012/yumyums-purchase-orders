@@ -106,6 +106,48 @@ Note this is a limitation of the fixture's *predicate*, not of the bridge: the t
 carries `hq_roles` alongside `hq_grants`, so a role-aware or assignment-aware policy is expressible
 without minting anything new. What is missing is the decision about what it should say.
 
+### D-6 — `hq_grants` is NARROWER than what the user can actually reach (umbrella slugs)
+
+**Raised by G6 against card B; the run corrected the CLAIM and did not change the behaviour.**
+
+Card B's code comment said `GrantedSlugs` used *"the same predicate `RequirePermission` uses."*
+G6 demonstrated that is imprecise. `auth.RequirePermission(pool, grantSlug, umbrellaSlugs...)`
+matches `a.slug = ANY(candidate_set)`, and the umbrella position is **really in use** —
+`main.go:628, 642, 652`. `GrantedSlugs` asks about one slug at a time with no umbrella context.
+
+Concretely, for a user holding `inventory`:
+
+| | result |
+|---|---|
+| token's `hq_grants` | `[inventory, operations]` |
+| `RequirePermission("inventory-trends", "inventory")` | **true** |
+| `RequirePermission("inventory-cost", "inventory")` | **true** |
+
+So a client rendering its launcher naively from `hq_grants` would **hide two surfaces the user
+can actually reach**.
+
+**No security impact — it errs CLOSED.** The list is a subset of the reachable set, never a
+superset, and it is advisory in the first place: the RLS gate is the live
+`hq_grant_projection`, not this claim. The failure is a usability one.
+
+🛑 **Two things the morning reader should know about how this was found and why it stayed open:**
+
+1. **Card B's parity test structurally cannot catch it.** It compares per-*single*-slug
+   (`a.slug = ANY(ARRAY[slug])`), which is precisely the umbrella-free case. Strengthening that
+   test (see the F1 repair) does not close this — the two are independent defects, and a reader
+   should not assume the now-non-vacuous parity test covers it.
+2. **What the advisory list *should* contain is a design call, and the run did not make it.**
+   The options are real and they differ: expand umbrellas at mint time (the claim then matches
+   the mounted gates, but the token asserts more than a single `app_permissions` row does);
+   ship the narrow list and require clients to expand (correct but pushes the umbrella table
+   into every client); or emit both a narrow and an expanded field. Picking one is a product/UX
+   decision about what a launcher should show, so it goes to the operator rather than getting
+   invented at 11pm.
+
+**Inherited by the client-layer card** (`sync-rxdb-schema-and-replication`, which now owns the
+client-construction helper) — that is the card that will actually render a launcher from this
+list and will hit the divergence first.
+
 ---
 
 ## Parked cards

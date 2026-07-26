@@ -72,3 +72,69 @@
       they passed under lighter load. Both are consistent with what is seen
       here and neither is established.
   A guess of "pre-existing" would be exactly as wrong as a guess of "card A's".
+
+# ══════════════════════════════════════════════════════════════════════════
+# G6 REPAIR RE-GATE (post-APPROVE-WITH-NOTES)
+# ══════════════════════════════════════════════════════════════════════════
+
+## F1 — the parity test was VACUOUS in the run that gated this card
+G6's finding, reproduced and accepted: app_permissions held 0 rows in
+hq_test_b1, so TestGrantedSlugs_MatchesRequirePermission compared false against
+false for all 11 enabled slugs and passed on eleven agreements of ABSENCE.
+Stubbing GrantedSlugs to `return []string{}, nil` still passed.
+
+Repair: the test now seeds its own fixture — a ROLE grant on `operations` and
+an INDIVIDUAL grant on `inventory`, deliberately of different kinds because
+GrantedSlugs resolves them through different disjuncts of the same predicate —
+and asserts a floor on OBSERVED POSITIVES, not merely agreement.
+
+  With real code:   non-vacuous: 2/11 slugs TRUE ([inventory operations])  PASS
+
+  FALSIFICATION (stub re-injected, then reverted):
+    --- FAIL: TestGrantedSlugs_MatchesRequirePermission (0.26s)
+      slug "inventory": RequirePermission says reachable=true but the token
+                        claim says false.
+      slug "operations": RequirePermission says reachable=true but the token
+                        claim says false.
+      the ROLE-grant disjunct produced nothing: "operations" missing from []
+      the INDIVIDUAL-grant disjunct produced nothing: "inventory" missing from []
+    FAIL
+
+  The guard now bites. Stub reverted; `grep -c "return []string{}, nil"` = 0.
+
+## F3 — Sign()'s role guard is now an ALLOWLIST
+Was `if c.Role == ServiceRole`. G6 showed the denylist was adequate only
+ACCIDENTALLY — because this stack's `authenticator` holds no membership in
+postgres / supabase_admin / authenticator / anon, which is a property of the
+stack's role graph, not of this code. Now `if c.Role != SupabaseRole`.
+New TestMint_RoleGuardIsAnAllowlist covers those four plus "",
+"AUTHENTICATED", "authenticated " and "hq_superuser", and asserts the one
+permitted value still mints (so the allowlist guards the feature rather than
+swallowing it). Not reachable from the endpoint — TokenHandler parses no body
+or query params — so this is robustness, not a live hole.
+
+## F2 / F5 — claims corrected, behaviour unchanged
+F2: the "same predicate as RequirePermission" claim was false. Umbrella slugs
+are real and in use; hq_grants is NARROWER than the reachable set and errs
+CLOSED. Comment corrected in both the HQGrants field and GrantedSlugs.
+Semantics deliberately NOT changed — recorded as D-6.
+F5: only failure mode #1 (legacy singular GUC -> NULL -> silent empty result)
+is live here. The ::uuid raise is UNREACHABLE, because nullif() is handed NULL
+and NULL::uuid is legal. Corrected in hq-bridge-policies.sql AND in
+jwtbridge.go's header, which carried the same imprecision.
+
+## Re-gate result — Go + attack suite only
+  go test ./... -count=1 -p 1   ALL PASS, 128 s, load 23.5 -> 11.1
+                                internal/workflow ok (no -p 1 false red)
+  attack suite RED  (SPIKE_SKIP_POLICIES=1)   9 FAIL   — unchanged
+  attack suite GREEN                          16 PASS  — unchanged
+  RLS restored to green immediately after the red leg. Stack never restarted.
+  Red/green legs: 6 s total, load 25.3 -> 24.9.
+
+## Playwright DELIBERATELY NOT RE-RUN
+The repair diff is Go + SQL comments only: no HTML, no JS, no CSS, no route
+change, no response-shape change. There is no byte Playwright can observe.
+Re-running would have cost ~50 min AND polluted card C's full-suite gate,
+which was live on TEST_PORT=8299 at the time and is a real deliverable. The
+existing 541 passed / 2 failed / 6 skipped stands, with its attribution
+section above unchanged.
