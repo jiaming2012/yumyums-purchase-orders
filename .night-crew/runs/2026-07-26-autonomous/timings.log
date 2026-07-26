@@ -24,3 +24,7 @@
 1785027342 2026-07-26T00:55:42Z card-A g6 start load1=1.64
 1785028373 2026-07-26T01:12:53Z card-A g6 end verdict=APPROVE-WITH-NOTES load1=40.00
 1785028373 2026-07-26T01:12:53Z card-A land start load1=40.00
+B_impl_start 2026-07-26T01:05 (approx, worktree entry)
+B_red_capture de00401  9 RLS variants failing, 6 pass at JWT/grant layer, load 43.39
+B_green      09ffa65  16/16 variants pass, load 28.13
+B_endpoint   aca6d9a  POST /api/v1/sync/token + 8 Go unit tests
