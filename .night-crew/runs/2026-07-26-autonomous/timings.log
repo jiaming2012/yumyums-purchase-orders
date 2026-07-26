@@ -81,3 +81,5 @@ B_regate_pw   SKIPPED deliberately — Go+SQL-comment diff; card C mid-suite on 
 1785038412 2026-07-26T04:00:12Z ORCH run10-paired end postA=544p/0f/6s-32.2m-RUN10-GREEN preA=539p/2f/6s-32.4m-RUN10-GREEN load1=9.57
 1785038412 2026-07-26T04:00:12Z ORCH run10-verdict BOUND-NOT-EXONERATION card-A-not-deterministically-responsible still-UNATTRIBUTED
 1785038511 2026-07-26T04:01:51Z ORCH final-tree go-gate start load1=4.38
+1785038584 2026-07-26T04:03:04Z ORCH final-tree go-gate end ALL-PACKAGES-PASS load1_start=7.12 load1_end=4.23
+1785038584 2026-07-26T04:03:04Z run end cards=3/3-landed parked=0 branch=overnight-20260726 load1=2.43

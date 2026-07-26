@@ -168,6 +168,32 @@ only; and two flaky-on-retry in `sync.spec.js` (`:836` SYN-03, `:1327`).
 
 ---
 
+## Gate evidence on the FINAL MERGED TREE (not just per-card)
+
+Run after all three merges, so this is the tree you would be merging to `dev`.
+
+**Go — `go test ./... -count=1 -p 1`, all packages PASS**, on a quiet box (load 7.12 → 4.23):
+
+    ok  internal/alerts  internal/auth  internal/inventory  internal/purchasing
+    ok  internal/receipt internal/recipes internal/sync    internal/toast
+    ok  internal/workflow
+
+`internal/sync` is card B's new package. `internal/workflow` is the package that reds with
+`checklist_templates_created_by_fkey` violations without `-p 1` — it passed, so the known false red
+did not fire.
+
+**Playwright on the final tree — 544 passed / 0 failed / 6 skipped of 549, 32.2 m.** This is the
+post-A leg of the RUN-10 paired measurement, which ran against this branch's tree. **Zero hard
+failures**, including RUN-10 itself. (See the caveat below the RUN-10 section: the merges landed
+mid-leg, and the test surface was verified unchanged before the result was trusted.)
+
+**Generated files:** `sw.js` verified consistent at **23 files / 1947.1 KB** — see **D-12** for the
+untracked-file trap found while checking it.
+
+**Four HARD constraints:** empty diff vs `dev`. Verified again after the final merge.
+
+---
+
 ## Standing flags — every one addressed explicitly
 
 | Flag | Status |
@@ -254,3 +280,22 @@ reviewers verified these by hash at the true merge-base rather than taking the c
 
 `vendor/node_modules` (8,919 files / 67 MB) is present on disk and **correctly not committed** —
 `git ls-tree -r HEAD -- vendor/` returns exactly 5 files.
+
+---
+
+## Housekeeping — what was left in place, and why
+
+- **`/home/jcole/projects/hq-worktrees/measure-preA`** (detached @ `4bcd63d`) is **deliberately left
+  standing.** It is the pre-card-A tree, already set up with `node_modules` linked. The single
+  experiment that would close RUN-10 — a full suite on **pre-A under load ≥ 55** — is one command
+  away in it. Removing it would have made the recommended next step cost setup time.
+- **Card worktrees** for A, B and C are left as prior runs leave them.
+- **The spike Supabase stack is still UP** (`db` :46011, `rest` :46233, `realtime` :46355, ~14 h).
+  Teardown remains a deliberate, unexecuted runbook step. Cards B and C both used it concurrently
+  and neither restarted or reconfigured it; W1's `spike_notes` re-verified intact (33 rows).
+- **`backlog-round.html`** in the repo root is **untracked and was left exactly as found.** It
+  predates this run (it is in the run's first `git status`) and is the subject of **D-12**. The run
+  does not clean up files it did not create.
+- Left behind by cards: test DBs `hq_test_a*`, `hq_test_b*`, `hq_test_c*`, `hq_test_m1/m2`, and the
+  spike tables `hq_sync_checklists` / `hq_grant_projection` / `hq_uid_trap`.
+- **No push, no tag, no deploy, `main` untouched.** All work is on `overnight-20260726`.
