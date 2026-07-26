@@ -539,6 +539,21 @@ func main() {
 				r.Post("/ops", opsync.OpHandler(pool, workflowOpRouter(pool)))
 			})
 
+			// Sync bridge — mints the Supabase-compatible HS256 token for the
+			// CALLER'S OWN session (card `sync-jwt-bridge-endpoint`).
+			//
+			// Deliberately OUTSIDE every RequirePermission gate, in the same
+			// category as /me and /me/apps: it is access-resolution plumbing
+			// and must serve an ungranted user, so it can hand them a token
+			// whose live grant projection lets them reach nothing. Choosing a
+			// grant to gate it behind would be inventing a permission concept.
+			// Recorded as an exception in tests/grant-enforcement-parity.spec.js.
+			//
+			// Still inside the cookie group: identity comes only from the
+			// session, and the handler takes no user-id parameter — there is no
+			// mint-for-someone-else path to leave unguarded.
+			r.Post("/sync/token", opsync.TokenHandler(pool))
+
 			// Photos endpoints — presigned URL generation for DO Spaces
 			r.Route("/photos", func(r chi.Router) {
 				r.Post("/presign", photos.PresignUploadHandler(spacesPresigner, spacesBucket, spacesEndpoint))

@@ -1,0 +1,104 @@
+# RED capture — card B sync-jwt-bridge-endpoint, run overnight-20260726
+#
+# Captured BEFORE sql/hq-bridge-policies.sql existed. The suite applies only
+# hq-bridge-fixture.sql (tables, grants, projection, seed — NO RLS), so every
+# RLS-gated variant is expected to FAIL here. That failure IS the red.
+#
+# Reproduce:  SPIKE_SKIP_POLICIES=1 go test ./internal/sync/ -run TestJWTBridgeRLS -v -count=1
+#
+# host 1-min load at capture: 42.56   (card C running concurrently)
+# date: 2026-07-25T21:28:44-04:00
+# HEAD: acba117fcd37475e3e48eafebb50d625a22c4fe5
+
+=== RUN   TestJWTBridgeRLS
+    jwtbridge_rls_test.go:365: SPIKE_SKIP_POLICIES=1 — RED MODE: tearing RLS down and NOT applying ../../../.night-crew/qa/spike-supabase/sql/hq-bridge-policies.sql
+=== RUN   TestJWTBridgeRLS/CONTROL/service_role_BYPASSRLS_proves_the_rows_are_there
+    jwtbridge_rls_test.go:377: ADMITTED service_role sees ALL rows                     [chk-alice-inv-1 chk-alice-ops-1 chk-alice-ops-2 chk-bob-ops-1]
+=== RUN   TestJWTBridgeRLS/POSITIVE/alice_reads_exactly_her_own_rows_in_an_app_she_holds
+    jwtbridge_rls_test.go:385: alice reads her operations rows: expected rows [chk-alice-ops-1 chk-alice-ops-2], got [chk-alice-inv-1 chk-alice-ops-1 chk-alice-ops-2 chk-bob-ops-1]
+          response: HTTP 200 [{"id":"chk-alice-inv-1","owner_id":"hq-user-alice","app_slug":"inventory"}, 
+         {"id":"chk-alice-ops-1","owner_id":"hq-user-alice","app_slug":"operations"}, 
+         {"id":"chk-alice-ops-2","owner_id":"hq-user-alice","app_slug":"operations"}, 
+         {"id":"chk-bob-ops-1","owner_id":"hq-user-bob","app_slug":"operations"}]
+=== RUN   TestJWTBridgeRLS/V1/anon_(no_token_at_all)
+    jwtbridge_rls_test.go:391: REFUSED  V1 anon                                        HTTP 401 {"code":"42501","details":null,"hint":null,"message":"permission denied for table hq_sync_checklists"}
+=== RUN   TestJWTBridgeRLS/V2/wrong_signature
+    jwtbridge_rls_test.go:404: REFUSED  V2 wrong signature                             HTTP 401 {"code":"PGRST301","details":null,"hint":null,"message":"JWSError JWSInvalidSignature"}
+=== RUN   TestJWTBridgeRLS/V3/expired_token
+    jwtbridge_rls_test.go:415: REFUSED  V3 expired token                               HTTP 401 {"code":"PGRST301","details":null,"hint":null,"message":"JWT expired"}
+=== RUN   TestJWTBridgeRLS/V4/tampered_payload_keeping_the_original_signature
+    jwtbridge_rls_test.go:437: REFUSED  V4 tampered payload                            HTTP 401 {"code":"PGRST301","details":null,"hint":null,"message":"JWSError JWSInvalidSignature"}
+=== RUN   TestJWTBridgeRLS/V5/missing_sub_claim
+    jwtbridge_rls_test.go:456: VARIANT "V5 missing sub" WAS NOT REFUSED — it read [chk-alice-inv-1 chk-alice-ops-1 chk-alice-ops-2 chk-bob-ops-1].
+          response: HTTP 200 [{"id":"chk-alice-inv-1","owner_id":"hq-user-alice","app_slug":"inventory"}, 
+         {"id":"chk-alice-ops-1","owner_id":"hq-user-alice","app_slug":"operations"}, 
+         {"id":"chk-alice-ops-2","owner_id":"hq-user-alice","app_slug":"operations"}, 
+         {"id":"chk-bob-ops-1","owner_id":"hq-user-bob","app_slug":"operations"}]
+          A variant that returns seeded rows has defeated the policy, whatever status code it carried.
+=== RUN   TestJWTBridgeRLS/V6/invalid_role_claim_(nonexistent_postgres_role)
+    jwtbridge_rls_test.go:471: REFUSED  V6 invalid role claim                          HTTP 400 {"code":"22023","details":null,"hint":null,"message":"role \"hq_superuser\" does not exist"}
+=== RUN   TestJWTBridgeRLS/V7/cross-owner_read_(alice_asks_for_bob's_row_by_id)
+    jwtbridge_rls_test.go:478: VARIANT "V7 cross-owner read" WAS NOT REFUSED — it read [chk-bob-ops-1].
+          response: HTTP 200 [{"id":"chk-bob-ops-1","owner_id":"hq-user-bob"}]
+          A variant that returns seeded rows has defeated the policy, whatever status code it carried.
+=== RUN   TestJWTBridgeRLS/V8/stale_grant_claim_in_the_token_opens_nothing
+    jwtbridge_rls_test.go:495: VARIANT "V8 stale grant claim" WAS NOT REFUSED — it read [chk-alice-inv-1].
+          response: HTTP 200 [{"id":"chk-alice-inv-1","owner_id":"hq-user-alice","app_slug":"inventory"}]
+          A variant that returns seeded rows has defeated the policy, whatever status code it carried.
+=== RUN   TestJWTBridgeRLS/V9/token_replay_after_grant_revocation
+    jwtbridge_rls_test.go:508: V9 before revocation, the token works: expected rows [chk-alice-ops-1 chk-alice-ops-2], got [chk-alice-inv-1 chk-alice-ops-1 chk-alice-ops-2 chk-bob-ops-1]
+          response: HTTP 200 [{"id":"chk-alice-inv-1","owner_id":"hq-user-alice","app_slug":"inventory"}, 
+         {"id":"chk-alice-ops-1","owner_id":"hq-user-alice","app_slug":"operations"}, 
+         {"id":"chk-alice-ops-2","owner_id":"hq-user-alice","app_slug":"operations"}, 
+         {"id":"chk-bob-ops-1","owner_id":"hq-user-bob","app_slug":"operations"}]
+    jwtbridge_rls_test.go:522: VARIANT "V9 replay after grant revocation" WAS NOT REFUSED — it read [chk-alice-inv-1 chk-alice-ops-1 chk-alice-ops-2 chk-bob-ops-1].
+          response: HTTP 200 [{"id":"chk-alice-inv-1","owner_id":"hq-user-alice","app_slug":"inventory"}, 
+         {"id":"chk-alice-ops-1","owner_id":"hq-user-alice","app_slug":"operations"}, 
+         {"id":"chk-alice-ops-2","owner_id":"hq-user-alice","app_slug":"operations"}, 
+         {"id":"chk-bob-ops-1","owner_id":"hq-user-bob","app_slug":"operations"}]
+          A variant that returns seeded rows has defeated the policy, whatever status code it carried.
+    jwtbridge_rls_test.go:525: ADMITTED V9 control: rows still present during the refusal [chk-alice-inv-1 chk-alice-ops-1 chk-alice-ops-2 chk-bob-ops-1]
+=== RUN   TestJWTBridgeRLS/V10/forged_owner_write_(alice_inserts_a_row_owned_by_bob)
+    jwtbridge_rls_test.go:540: V10 forged owner write WAS NOT REFUSED: HTTP 201 [{"id":"chk-forged-owner","owner_id":"hq-user-bob","app_slug":"operations","body":"forged","_deleted":false,"_modified":"2026-07-26T01:28:51.903671+00:00"}]
+    jwtbridge_rls_test.go:551: V10: the forged row LANDED in the table (1 row(s)) — the status code was not the truth
+=== RUN   TestJWTBridgeRLS/V11/forged_grant_write_(own_identity,_ungranted_app)
+    jwtbridge_rls_test.go:566: V11 forged grant write WAS NOT REFUSED: HTTP 201 [{"id":"chk-forged-grant","owner_id":"hq-user-alice","app_slug":"inventory","body":"forged","_deleted":false,"_modified":"2026-07-26T01:28:51.941713+00:00"}]
+    jwtbridge_rls_test.go:576: V11: the forged row LANDED in the table (1 row(s))
+=== RUN   TestJWTBridgeRLS/V12/deactivated_user_—_every_projection_row_removed
+    jwtbridge_rls_test.go:599: VARIANT "V12 deactivated user lockout" WAS NOT REFUSED — it read [chk-alice-inv-1 chk-alice-ops-1 chk-alice-ops-2 chk-bob-ops-1].
+          response: HTTP 200 [{"id":"chk-alice-inv-1","owner_id":"hq-user-alice","app_slug":"inventory"}, 
+         {"id":"chk-alice-ops-1","owner_id":"hq-user-alice","app_slug":"operations"}, 
+         {"id":"chk-alice-ops-2","owner_id":"hq-user-alice","app_slug":"operations"}, 
+         {"id":"chk-bob-ops-1","owner_id":"hq-user-bob","app_slug":"operations"}]
+          A variant that returns seeded rows has defeated the policy, whatever status code it carried.
+    jwtbridge_rls_test.go:600: ADMITTED V12 control: rows still present during the lockout [chk-alice-inv-1 chk-alice-ops-1 chk-alice-ops-2 chk-bob-ops-1]
+=== RUN   TestJWTBridgeRLS/V13/auth.uid()_policy_fails_on_this_stack_(negative_control)
+    jwtbridge_rls_test.go:619: V13: the auth.uid() policy ADMITTED [trap-alice-1 trap-bob-1] — this stack was expected to make auth.uid() unusable (legacy singular GUC + ::uuid cast). If this now passes, the stack's PGRST_DB_USE_LEGACY_GUCS or the auth schema changed, and the finding in the runbook needs re-verifying rather than trusting.
+    jwtbridge_rls_test.go:628: V13 side-by-side: the plural-GUC policy DOES discriminate: expected rows [chk-alice-ops-1 chk-alice-ops-2], got [chk-alice-inv-1 chk-alice-ops-1 chk-alice-ops-2 chk-bob-ops-1]
+          response: HTTP 200 [{"id":"chk-alice-inv-1","owner_id":"hq-user-alice","app_slug":"inventory"}, 
+         {"id":"chk-alice-ops-1","owner_id":"hq-user-alice","app_slug":"operations"}, 
+         {"id":"chk-alice-ops-2","owner_id":"hq-user-alice","app_slug":"operations"}, 
+         {"id":"chk-bob-ops-1","owner_id":"hq-user-bob","app_slug":"operations"}]
+    jwtbridge_rls_test.go:636: V13 control: service_role sees [trap-alice-1 trap-bob-1] — the trap table was NOT empty
+=== RUN   TestJWTBridgeRLS/CONTROL/service_role_control_re-taken_after_all_variants
+    jwtbridge_rls_test.go:645: ADMITTED service_role still sees ALL rows               [chk-alice-inv-1 chk-alice-ops-1 chk-alice-ops-2 chk-bob-ops-1]
+--- FAIL: TestJWTBridgeRLS (1.22s)
+    --- PASS: TestJWTBridgeRLS/CONTROL/service_role_BYPASSRLS_proves_the_rows_are_there (0.08s)
+    --- FAIL: TestJWTBridgeRLS/POSITIVE/alice_reads_exactly_her_own_rows_in_an_app_she_holds (0.01s)
+    --- PASS: TestJWTBridgeRLS/V1/anon_(no_token_at_all) (0.01s)
+    --- PASS: TestJWTBridgeRLS/V2/wrong_signature (0.01s)
+    --- PASS: TestJWTBridgeRLS/V3/expired_token (0.02s)
+    --- PASS: TestJWTBridgeRLS/V4/tampered_payload_keeping_the_original_signature (0.01s)
+    --- FAIL: TestJWTBridgeRLS/V5/missing_sub_claim (0.02s)
+    --- PASS: TestJWTBridgeRLS/V6/invalid_role_claim_(nonexistent_postgres_role) (0.01s)
+    --- FAIL: TestJWTBridgeRLS/V7/cross-owner_read_(alice_asks_for_bob's_row_by_id) (0.02s)
+    --- FAIL: TestJWTBridgeRLS/V8/stale_grant_claim_in_the_token_opens_nothing (0.02s)
+    --- FAIL: TestJWTBridgeRLS/V9/token_replay_after_grant_revocation (0.21s)
+    --- FAIL: TestJWTBridgeRLS/V10/forged_owner_write_(alice_inserts_a_row_owned_by_bob) (0.05s)
+    --- FAIL: TestJWTBridgeRLS/V11/forged_grant_write_(own_identity,_ungranted_app) (0.06s)
+    --- FAIL: TestJWTBridgeRLS/V12/deactivated_user_—_every_projection_row_removed (0.08s)
+    --- FAIL: TestJWTBridgeRLS/V13/auth.uid()_policy_fails_on_this_stack_(negative_control) (0.05s)
+    --- PASS: TestJWTBridgeRLS/CONTROL/service_role_control_re-taken_after_all_variants (0.01s)
+FAIL
+FAIL	github.com/yumyums/hq/internal/sync	1.240s
+FAIL

@@ -24,6 +24,7 @@
 1785027342 2026-07-26T00:55:42Z card-A g6 start load1=1.64
 1785028373 2026-07-26T01:12:53Z card-A g6 end verdict=APPROVE-WITH-NOTES load1=40.00
 1785028373 2026-07-26T01:12:53Z card-A land start load1=40.00
+# --- unioned at card B merge: orchestrator stamps + card B's own leg ledger. Neither side dropped.
 # --- unioned at card C merge: orchestrator stamps + card C's own leg ledger. Neither side dropped.
 1785028493 2026-07-26T01:14:53Z card-C impl start load1=11.85
 1785028493 2026-07-26T01:14:53Z card-B impl start load1=11.85 concurrent-with=card-C
@@ -62,3 +63,16 @@ C_repair_full_suite                     N/A   DELIBERATELY NOT RUN — orchestra
                                               live on :8599 and :8699; a third concurrent suite would corrupt it
 1785037329 2026-07-26T03:42:09Z card-C land end merged=a848189 load1=29.03
 1785037329 2026-07-26T03:42:09Z card-B land start load1=29.03
+
+B_impl_start 2026-07-26T01:05 (approx, worktree entry)
+B_red_capture de00401  9 RLS variants failing, 6 pass at JWT/grant layer, load 43.39
+B_green      09ffa65  16/16 variants pass, load 28.13
+B_endpoint   aca6d9a  POST /api/v1/sync/token + 8 Go unit tests
+B_gate_go     217s   ALL PASS (-p 1), DB hq_test_b1, load 5.68->39.59
+B_gate_pw     3175s  541 passed / 2 failed / 6 skipped, 549 tests, TEST_PORT=8399 DB hq_test_b2, load 5.7..57.6
+B_attrib      152s   isolation re-run of the 2 reds on HEAD: 2 passed, load ~13 -> card B EXCLUDED
+B_total_cycle ~185m  (incl. a 53m full-suite leg under sustained load >40)
+B_g6_repair   F1 de-vacuum parity test (2/11 TRUE; stub->4 failures), F3 allowlist, F2/F5 claims
+B_regate_go   128s ALL PASS (-p 1), load 23.5->11.1
+B_regate_rls  6s   red 9 FAIL / green 16 PASS, RLS restored, load ~25
+B_regate_pw   SKIPPED deliberately — Go+SQL-comment diff; card C mid-suite on 8299

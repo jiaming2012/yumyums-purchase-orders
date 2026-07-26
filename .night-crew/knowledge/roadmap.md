@@ -252,9 +252,41 @@
   Table and the verifier-subagent gate. **The operator owes a mockup sign-off before this card can
   ever be slated.** Footprint: `workflows.html`, the RxDB client layer.
 
-- **`sync-jwt-bridge-endpoint`** · **SLATED — run `overnight-20260726`; BACKEND HALF ONLY**
-  (depends on `sync-spike-stack-and-jwt-bridge`'s go-decision reaching `ledger.md` — **cleared**;
-  disjoint footprint from the schema card, may build in parallel) · **Narrowed 2026-07-26 at
+- **`sync-jwt-bridge-endpoint`** · **DONE — BACKEND HALF ONLY** (2026-07-26, run
+  `overnight-20260726`, card branch `card/b-sync-jwt-bridge-endpoint`). 🛑 **This card is the
+  SERVER side only. The card is NOT finished as originally roadmapped** — the frontend
+  client-construction helper and the `@supabase/supabase-js` pin + upgrade smoke test moved to
+  the client layer (`sync-rxdb-schema-and-replication`) at slating, and **remain outstanding
+  there**. Do not read this DONE as "the bridge is complete end to end."
+  **Delivered:** `POST /api/v1/sync/token` (`backend/internal/sync/jwtbridge.go`,
+  `jwtbridge_handler.go`), mounted inside the cookie group and deliberately outside every
+  `RequirePermission` gate — access-resolution plumbing in the same category as `/me`, recorded
+  as an exception in `tests/grant-enforcement-parity.spec.js`. Stdlib-only HS256 mint
+  (`crypto/hmac`), **`backend/go.mod` byte-untouched**. Claims map EXISTING HQ data only —
+  `sub`←`users.id`, `role`≡`authenticated` (constant), `hq_roles`←`users.roles`,
+  `hq_grants`←`app_permissions ⋈ hq_apps` (the same predicate `RequirePermission` enforces, with
+  an anti-drift test asserting per-slug agreement), `hq_sid`←`sessions.token_hash`. **No new
+  grant or permission concept was invented** — the park trigger did not fire.
+  **The real gate passed:** 16/16 attack variants, red-first. Red captured at `de00401` with 9
+  variants failing; green at `09ffa65`. Captures at
+  `.night-crew/qa/spike-supabase/captures/{red,green}-20260726-attack-variants.txt`; the red is
+  reproducible on the same database via `SPIKE_SKIP_POLICIES=1`.
+  **Finding (1) honoured and made self-verifying:** policies read the **plural** GUC
+  `current_setting('request.jwt.claims', true)::json ->> 'sub'` via a single accessor
+  `public.hq_jwt_claim`, and `public.hq_uid_trap` carries a deliberately WRONG `auth.uid()`
+  policy so variant V13 re-proves the finding every run instead of trusting a comment.
+  **🛑 The card's own load-bearing design call, for whoever builds the client and the cutover:**
+  the token's `hq_grants` claim is **ADVISORY, not the gate.** Claims freeze at mint, so a
+  claim-trusting policy would leave a revocation replay window as long as the TTL. RLS instead
+  joins `public.hq_grant_projection` — a **live** projection of `app_permissions ⋈ hq_apps` —
+  on every row, which is what makes revocation immediate (variants V8/V9/V12 prove it). **Who
+  writes that projection table — push-on-grant-change, periodic reconcile, or `postgres_fdw` —
+  is NOT decided here and is inherited by `sync-hard-cutover` as an explicit open contract.**
+  Also open by design: HQ rows are frequently not single-owner (a submission belongs to a
+  submitter AND an approver), which the `owner_id = sub` predicate cannot express; extending it
+  is a product question the cutover card must route, not invent. Policies at
+  `.night-crew/qa/spike-supabase/sql/hq-bridge-{fixture,policies}.sql`.
+  *(Original card text follows, for the record.)* · **Narrowed 2026-07-26 at
   slating:** the frontend client-construction helper and the `@supabase/supabase-js` pin + upgrade
   smoke test move to `sync-rxdb-schema-and-replication`, where the client is actually constructed.
   Decision 51's substance is unchanged; only its address moved. This card owns the **server** side.
