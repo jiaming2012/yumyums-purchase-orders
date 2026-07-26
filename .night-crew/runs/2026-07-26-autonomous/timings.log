@@ -60,3 +60,5 @@ C_repair_mutation_test_3c             ~1m     silentlyStale forced false -> 3c R
 C_repair_build_sw                       <1s   23 files / 1947.1 KB — UNCHANGED; sw.js byte-identical
 C_repair_full_suite                     N/A   DELIBERATELY NOT RUN — orchestrator attribution measurement
                                               live on :8599 and :8699; a third concurrent suite would corrupt it
+1785037329 2026-07-26T03:42:09Z card-C land end merged=a848189 load1=29.03
+1785037329 2026-07-26T03:42:09Z card-B land start load1=29.03
