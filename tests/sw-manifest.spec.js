@@ -42,8 +42,24 @@ test('the vendored bundle is not in the precache', async () => {
   // Decision 59: 495 KiB / 34% of the precache over LTE on every crew phone for
   // an asset no page imports. sync-rxdb-schema-and-replication re-adds the
   // globPatterns entry when a page actually imports the bundle.
-  const vendored = urlsFrom(fs.readFileSync('sw.js', 'utf8')).filter(u => u.startsWith('vendor/'));
-  expect(vendored).toEqual([]);
+  //
+  // REBUILDS rather than reading the committed sw.js. Asserting on the artifact
+  // alone guards the wrong thing: re-adding 'vendor/**/*.bundle.js' to
+  // globPatterns leaves a stale sw.js — and therefore this test — green until
+  // somebody happens to run `task sw`, so a plain `npx playwright test` would
+  // miss the config regression entirely. Found at G6 review. Both the committed
+  // artifact AND a fresh build are checked below.
+  const committed = urlsFrom(fs.readFileSync('sw.js', 'utf8')).filter(u => u.startsWith('vendor/'));
+  expect(committed).toEqual([]);
+
+  const swBackup = fs.readFileSync('sw.js');
+  try {
+    execFileSync('node', ['build-sw.js'], { encoding: 'utf8' });
+    const rebuilt = urlsFrom(fs.readFileSync('sw.js', 'utf8')).filter(u => u.startsWith('vendor/'));
+    expect(rebuilt).toEqual([]);
+  } finally {
+    fs.writeFileSync('sw.js', swBackup);
+  }
 });
 
 test('an untracked file in the repo root never enters a freshly built manifest', async () => {
