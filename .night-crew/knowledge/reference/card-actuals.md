@@ -575,3 +575,69 @@ the discipline: silently fixing a bad stamp is how a ledger stops being evidence
 **One gate was deliberately skipped and said so.** `B_regate_pw` SKIPPED — Go + SQL-comment diff
 only, with Card C mid-suite on the shared port. A named, reasoned skip is not a gap; an unnamed one
 would be.
+
+---
+
+## overnight-20260727 (autonomous, Wave 0 then SERIAL — 2 of 3 cards)
+
+**Run window:** 02:30:17Z → closeout. **2/3 landed, 0 parked, 1 card deliberately NOT STARTED.**
+Wave 0 (Card A) alone, then Card B. Card C never dispatched — see HANDOFF and D-6.
+
+| Card | Class | Impl | G6 | G6 repair | Verdict |
+|---|---|---|---|---|---|
+| A `pwa-cache-and-build-hygiene` (Wave 0) | small app fix + build script | **50m11s** | **41m02s** | **9m37s** | APPROVE-WITH-NOTES, 8 findings |
+| B `workflow-offline-double-submit` | app fix, front-end, red-first | **58m49s** | **32m31s** | **58m32s** (incl. re-review) | **REJECT** → repaired → APPROVE-WITH-NOTES |
+| ORCH · card A merge + conflict log | — | ~6m | — | — | clean merge |
+| ORCH · card B merge + conflict log + F-N6 anchor fix | — | ~14m | — | — | 1 conflict, union resolution |
+
+**Estimate vs actual — the headline number for the next slate.**
+
+| Card | Slate estimate | Actual, end-to-end | Ratio |
+|---|---|---|---|
+| A | 30–50 m | **~1 h 45 m** | **2.1–3.5×** |
+| B | 45–90 m | **~2 h 50 m** | **1.9–3.8×** |
+
+**Both cards ran ~2–2.5× estimate once G6 and repair were counted.** The slate priced *implementation*;
+the night costs implementation + review + repair + merge. This is the second consecutive run where
+that gap decided the outcome — on 20260726 it compressed the schedule; here it cost Card C entirely.
+**Price a card at implement + ~35 m review + ~30 m repair + ~10 m merge, or stop pretending the
+estimate is a night plan.**
+
+### What this run says that should change a future estimate
+
+**Serial dispatch bought back the load penalty, exactly as 20260726 predicted.** That run warned to
+"price a concurrent track's suite leg at roughly double its quiet-box figure" after `load1` passed 40
+and B's leg stretched to 53 m. Tonight, serial, the same full suite ran **22.8 m** (card A) and
+**22.2 m** (card B post-repair) — quiet-box figures, no contention. **The 30–47 m band the slate used
+was inherited from contended runs and is too wide for serial dispatch. Use ~23 m.**
+
+**The G6 repair round is not optional overhead, and this run is the proof.** 20260726 said "budget a
+G6 repair round per card by default; treat its absence as the exception." Tonight: **2 cards, 2
+repair rounds, and one of them was a REJECT that prevented shipping a silent data-loss bug.** Card
+B's first pass would have submitted food-safety checklists with zero recorded answers. Budgeting the
+repair round is not conservatism — the night's entire value was in it.
+
+**A REJECT costs roughly a second review.** Card B's repair leg was 58 m against Card A's 10 m,
+because a reject means repair + a fresh re-review, not just repair. **Price a reject at ~1 h**, and
+note that the re-review can be *bounded* to the repair surface (it was here) rather than a full
+second pass.
+
+**Two implementers, two failures of the same kind.** Card A claimed a branch "strips any name
+already on screen" (it can never fire); Card B claimed key-only reuse would 409 (it returns 201
+twice). **Both were reasoned from code where execution was available, and both were caught by
+reviewers who ran the thing.** The cheap countermeasure — telling the implementer to stub its own fix
+and confirm the test reds *before* committing — was added to Card B's prompt after Card A's finding,
+and Card B did it and self-declared a real per-half weakness. It did not catch the blocker, because
+the blocker was in a scenario its tests structurally could not reach. **Stub-your-own-fix is
+necessary and not sufficient; it does not replace an adversarial reviewer that constructs new
+scenarios.**
+
+**A comment-only edit invalidates the tested artifact.** The post-merge anchor fix touched only
+comments, but Workbox's precache manifest carries a per-entry content revision hash, so `sw.js` moved
+and the final-tree gate had to actually re-run rather than inherit. **Budget a full suite for any
+post-merge edit to an HTML/JS file, however cosmetic.**
+
+**One self-inflicted gate failure, recorded rather than hidden.** The orchestrator's first final-tree
+attempt died in 2 m 18 s: it created the test database as role `postgres` on port 5432, but the stack
+uses role `yumyums` on **5433** (`Taskfile.yml` `test:`). Cost ~5 m. The Taskfile is the source of
+truth for test-stack provisioning; read it rather than assuming defaults.
