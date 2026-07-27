@@ -197,12 +197,28 @@ async function checkAuth(){
     // Network error -- fall through to the fail-closed branch below.
   }
   if(!identityVerified){
-    // FAIL CLOSED ON IDENTITY. We could not verify who is holding this phone --
+    // Fail closed on identity: we could not verify who is holding this phone --
     // the request threw, timed out, or came back as the service worker's 503
-    // offline fallback. Paint no name, and strip any name already on screen.
-    // Deliberately NOT a redirect: the launcher must stay reachable offline,
-    // since a food truck loses LTE as a matter of course. What must not happen
-    // is the PREVIOUS user's name appearing over THIS user's session.
+    // offline fallback -- so paint no name. Deliberately NOT a redirect: the
+    // launcher must stay reachable offline, since a food truck loses LTE as a
+    // matter of course.
+    //
+    // SCOPE, MEASURED -- do not overclaim this branch:
+    //  * removeUserHeader() is DEFENCE IN DEPTH, not a live fix. Today
+    //    renderUserHeader is reached from exactly one place (the res.ok arm
+    //    above), checkAuth() runs once at parse time, and there is no
+    //    pageshow/visibilitychange re-entry -- so when this line runs a
+    //    .user-bar cannot exist yet. Deleting it changes no observable
+    //    behaviour on any current path. It is kept so that a SECOND render
+    //    path (a re-check on resume, a cached-shell prepaint) cannot leave a
+    //    name on screen. Whoever adds that path needs a test; this line alone
+    //    is not one.
+    //  * "Fail closed" here means CLOSED ON FAILURE, never closed on a WRONG
+    //    identity: identityVerified is set by any 200, and this code cannot
+    //    tell whose 200 it is. A stale 200 still renders its name. What keeps
+    //    a stale 200 from reaching us is evictCachedIdentity() plus the
+    //    cache-buster above -- those are the load-bearing halves, and those
+    //    are the ones with tests.
     removeUserHeader();
   }
   var cached=localStorage.getItem(APPS_CACHE_KEY);

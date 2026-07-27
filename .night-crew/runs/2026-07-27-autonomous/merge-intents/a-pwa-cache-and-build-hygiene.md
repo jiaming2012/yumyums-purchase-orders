@@ -62,10 +62,22 @@ files, the two regenerated build artifacts, the roadmap flip, this note, and the
    answer it. Keep (a) without (b) and a concurrent SW write re-seeds the entry; keep (b)
    without (a) and the stale entry for the bare URL simply sits there for the next code path
    that reads it.
-3. **The fail-closed branch: an unverified identity paints no name and removes any name already
-   painted.** Explicitly *not* a redirect — the offline branch must stay reachable, because on a
-   food truck `NetworkFirst` falling back is routine, not exotic (decision 57). What must not
-   survive is the previous user's name on this user's screen.
+3. **The fail-closed branch: an unverified identity paints no name.** Explicitly *not* a redirect
+   — the offline branch must stay reachable, because on a food truck `NetworkFirst` falling back
+   is routine, not exotic (decision 57).
+   **Narrowed at G6 review on executed counter-evidence.** Two things this branch is NOT, and a
+   merge should not restore the stronger wording:
+   - The `removeUserHeader()` call is **defence in depth, not a live fix, and it is uncovered.**
+     `renderUserHeader` has one call site (the `res.ok` arm), `checkAuth()` runs once at parse
+     time, and there is no `pageshow`/`visibilitychange` re-entry, so no `.user-bar` can exist
+     when it runs. G6 deleted the line and all three new `index.spec.js` tests still passed; an
+     A/B with `/api/v1/me` aborted gave `user-bar=0 greeting=(none)` on base **and** HEAD. It is
+     safe to drop on a conflict; it is kept only so a future second render path cannot leave a
+     name on screen, and that path will need its own test.
+   - **"Fail closed" means closed on FAILURE, never closed on a WRONG identity.**
+     `identityVerified` is set by any 200 and the client cannot tell whose 200 it is — a stale 200
+     still renders its name, on both trees. The load-bearing halves are item 2's eviction and
+     cache-buster, and they are the ones with tests.
 4. **`build-sw.js` builds its precache from the git-tracked set.** The mechanism is a
    `manifestTransforms` filter against `git ls-files`; what must survive is the *property*
    (nothing untracked reaches the manifest), not the particular spelling. A Workbox precache
