@@ -26,3 +26,4 @@ B suite-full-start 2026-07-27T04:41:45Z (restart after foreground 10m cap killed
 B suite-full-end 2026-07-27T05:09:33Z — 552 passed / 0 failed / 0 flaky / 6 skipped of 558, 27.4m (baseline 549/0/0/6 of 555 + this card's 3 new tests)
 B go-suite-start 2026-07-27T05:09:33Z
 B go-suite-end 2026-07-27T05:10:01Z — 10 packages ok, 0 failed (internal/workflow ok), go build + go vet green
+B implement-end 2026-07-27T05:10:49Z — LANDED, 4 commits, gates G1/G2/G4 green, G3 N/A

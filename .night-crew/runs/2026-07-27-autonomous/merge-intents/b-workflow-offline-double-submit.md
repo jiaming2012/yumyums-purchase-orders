@@ -52,11 +52,21 @@ template already has a submission sitting in the IndexedDB `submitQueue`, and if
 _(appended only if implementation forces a file outside the list above; "nothing here" if it
 stays clean)_
 
-**Nothing here** — the footprint held. `workflows.html`, `tests/workflows.spec.js`, the roadmap
-flip, this note, and the timings log. `sw.js` / `version.json` were **not** regenerated: the fix
-changes no precached asset's URL, and `node build-sw.js` was run as gate G1 only to prove it still
-succeeds, with any regenerated output discarded if identical. (If they do appear in the diff they
-are pure build output — see "safe to drop".)
+**One, disclosed rather than left to diverge silently** (ledger T-23 decision 65).
+
+- **`sw.js` — regenerated and COMMITTED.** The pre-implementation text above guessed it would not
+  be, on the reasoning that the fix changes no precached asset's *URL*. That was wrong: Workbox's
+  precache manifest carries a content **revision hash** per entry, so editing `workflows.html` at
+  all changes its hash. `node build-sw.js` (gate G1) produced a **one-line** diff — the
+  `workflows.html` revision hash — and CLAUDE.md requires `task sw` after any HTML/JS change, so it
+  is committed with the fix. Precache totals are unchanged from Card A's: **22 files / 1457.7 KB**.
+  Pure build output; take either side of a conflict and re-run `task sw`. `version.json` is
+  git-ignored and did not appear.
+
+Otherwise the footprint held exactly as planned: `workflows.html`, `tests/workflows.spec.js`, the
+roadmap flip, this note, and the timings log. **`sync.js` was NOT edited** — the check that
+`window.getDB` / `window.idbGetAll` are already exported (`sync.js:100-104`) is what let the card
+stay inside `workflows.html`, and it held.
 
 ## What must survive any merge
 
