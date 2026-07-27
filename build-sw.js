@@ -1,5 +1,47 @@
 const { generateSW } = require('workbox-build');
 const fs = require('fs');
+const { execFileSync } = require('child_process');
+
+// Build artifacts that are deliberately git-ignored yet SHIP. version.json is
+// written by writeVersionJson() below and regenerated inside the image by
+// backend/Dockerfile (lines 33-44) from the authoritative Frontend constant --
+// precisely BECAUSE sw.js precaches it. Everything else must be tracked.
+const GENERATED_BUT_SHIPPED = new Set(['version.json']);
+
+// The precache is built from the TRACKED set, not the working tree.
+//
+// A Workbox precache entry that 404s fails the ENTIRE service-worker install,
+// so a single untracked file that matches globPatterns bricks updates on every
+// phone -- and the symptom is "the PWA stopped updating" with no visible cause.
+// The path is not hypothetical: `task sw` runs automatically as a dependency of
+// BOTH `task test` and `task prod:deploy`, so a stray *.html in a dev machine's
+// repo root gets baked into the committed sw.js and then 404s on prod, where
+// git has never heard of it. (backlog-round.html, disposed as FORK 2 in ledger
+// T-22, was exactly such a file.) Ledger T-23 decision 58.
+//
+// Filtering the generated manifest is equivalent to globbing `git ls-files`:
+// the result is (patterns ∩ working tree ∩ tracked), and a tracked file that is
+// missing from the working tree cannot be globbed in the first place.
+function trackedFiles() {
+  const out = execFileSync('git', ['ls-files', '-z'], { encoding: 'utf8' });
+  return new Set(out.split('\0').filter(Boolean));
+}
+
+function trackedOnlyTransform(manifest) {
+  const tracked = trackedFiles();
+  const dropped = [];
+  const kept = manifest.filter(entry => {
+    if (tracked.has(entry.url) || GENERATED_BUT_SHIPPED.has(entry.url)) return true;
+    dropped.push(entry.url);
+    return false;
+  });
+  // Loud, not silent: an untracked asset someone MEANT to ship should show up
+  // here as "git add it", rather than as a dead service worker two deploys on.
+  for (const url of dropped) {
+    console.warn(`  skipped (untracked): ${url}`);
+  }
+  return { manifest: kept };
+}
 
 // Write version.json so the frontend can read its own version without hitting the API.
 // Semver only — dynamic fields (git_sha, built_at) live in /api/v1/health.
@@ -24,26 +66,29 @@ async function build() {
       'manifest.json',
       'version.json',
       'icons/**/*.png',
-      // Vendored, pre-built browser bundles (vendor/build-vendor.sh). Committed
-      // output, precached content-hashed exactly like every other LOCAL asset —
-      // which is the entire point: a food-truck PWA's offline data engine must
-      // not live behind a CDN the truck cannot reach.
+      // NO 'vendor/**/*.bundle.js' HERE, DELIBERATELY. Ledger T-23 decision 59.
       //
-      // Deliberately '**/*.bundle.js' and NOT a bare 'vendor/**': that would
-      // sweep the generator's own inputs (package-lock.json, src/*.mjs,
-      // build-vendor.sh) onto the phone, and — before 'vendor/node_modules/**'
-      // was added to globIgnores below — 8,919 files / 67 MB of node_modules,
-      // because globIgnores' 'node_modules/**' is a TOP-LEVEL pattern that does
-      // not match 'vendor/node_modules/**'.
+      // The vendored RxDB bundle (vendor/build-vendor.sh output) is 495 KiB —
+      // 34% of the precache, 25.4% of its total bytes — and NO page imports it
+      // yet. Precaching it costs every crew phone that download over LTE for an
+      // asset nothing loads. It stays out until a page actually imports it;
+      // `sync-rxdb-schema-and-replication` re-adds the entry on adoption
+      // (roadmap rider 5 on that card), which is also the card where an
+      // offline-availability failure would be actionable.
       //
-      // But '**/' (recursive), NOT 'vendor/*.bundle.js' (single level). A
-      // single-level glob would SILENTLY OMIT a future
-      // vendor/<sub>/foo.bundle.js from the precache — and a bundle that is
-      // silently absent from the precache looks fine in development and fails
-      // offline on the truck. That is exactly the silent-drop failure class
-      // build-vendor.sh's 5 MiB guard exists to prevent; the glob should not
-      // reintroduce it one directory level down.
-      'vendor/**/*.bundle.js',
+      // When it comes back, it comes back as 'vendor/**/*.bundle.js' and NOT as
+      // either of these two neighbouring traps — both learned the hard way by
+      // sync-rxdb-browser-delivery-spike, which added the original entry:
+      //   * NOT a bare 'vendor/**'. That sweeps the generator's own inputs
+      //     (package-lock.json, src/*.mjs, build-vendor.sh) onto the phone, and
+      //     — absent the 'vendor/node_modules/**' globIgnore below — 8,919
+      //     files / 67 MB of node_modules, because globIgnores' 'node_modules/**'
+      //     is a TOP-LEVEL pattern that does not match 'vendor/node_modules/**'.
+      //   * NOT 'vendor/*.bundle.js' (single level). That would SILENTLY OMIT a
+      //     future vendor/<sub>/foo.bundle.js — and a bundle silently absent
+      //     from the precache looks fine in development and fails offline on the
+      //     truck, the exact silent-drop class build-vendor.sh's 5 MiB guard
+      //     exists to prevent.
     ],
     globIgnores: [
       'node_modules/**',
@@ -53,6 +98,9 @@ async function build() {
       '.planning/**',
       '.claude/**',
     ],
+    // Decision 58 — see trackedOnlyTransform above. This runs AFTER the glob and
+    // after content-hashing, and drops anything git does not know about.
+    manifestTransforms: [trackedOnlyTransform],
     // Static assets: cache-first (same as before)
     // No need to configure — precacheAndRoute handles this automatically
 
