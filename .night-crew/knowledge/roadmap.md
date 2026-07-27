@@ -267,9 +267,46 @@
   imports it; `sync-rxdb-schema-and-replication` re-adds it on adoption.
   Footprint: `index.html`, `build-sw.js`.
 
-- **`workflow-offline-double-submit`** · **PLANNED** (new card, authored at morning triage
-  2026-07-26 from ledger T-23 decision 60; real, pre-existing, untouched by the status-vocabulary
-  card) · Offline submit → reopen → submit again writes **two** `checklist_submissions` rows:
+- **`workflow-offline-double-submit`** · **DONE** (2026-07-27, run `overnight-20260727`, serial
+  after Wave 0; card authored at morning triage 2026-07-26 from ledger T-23 decision 60) ·
+  Fixed **client-side**, as decision 60 required: `submitChecklistToAPI` now looks the template up
+  in the durable IndexedDB `submitQueue` before building the payload and adopts that entry's
+  `idempotency_key` **and** its `id`, instead of minting two fresh UUIDs. **Three tests captured
+  RED first in commit `387eedd`, on a tree with zero production lines changed** — DBL-02 is the
+  defect verbatim (`pendingApprovals` for the template: expected 1, **received 2**).
+  **Two halves, and the stub runs show they are separately load-bearing.** Reusing the *key* is
+  what the server's `ON CONFLICT (idempotency_key) DO UPDATE` upsert
+  (`backend/internal/workflow/repository.go:722`) needs to collapse the second press onto the
+  first row — that guard was always correct and simply never reached, because the client handed it
+  a UUID it had never seen. Reusing the *`id`* matters because `submitQueue` is keyed on `id`
+  (`sync.js:52`), so it makes `enqueueSubmission`'s `idbPut` **replace** the queued entry with the
+  newer responses rather than append a second one; without it the user sees "2 submissions pending
+  sync" for one checklist and the *stale* response set is POSTed first.
+  **The lookup reads IndexedDB, deliberately, not a module-level map** — a reload is an ordinary
+  way for a crew member to produce the second press, and the queue is the only durable record that
+  a submission is already in flight. DBL-03 pins this by seeding a queue entry the page never
+  enqueued.
+  **Declared coverage limit, not discovered at review:** DBL-02 (the end-to-end row count) reds
+  only on the true pre-fix tree — it **passes with either half stubbed alone**, because reusing
+  `id` alone leaves one entry to drain and reusing the key alone lets `drainQueue` evict the
+  duplicate on `duplicate_submission` (`sync.js:571-574`). DBL-01 and DBL-03 are the tests with
+  per-half sensitivity; both red under each single-half stub. `findQueuedSubmission`'s
+  IndexedDB-failure fallback is **uncovered** — it is fail-safe by construction (returns null →
+  caller mints a fresh key → previous behaviour) but no test forces it.
+  **Two behaviours were confirmed CORRECT and left alone,** per decision 60: the checklist staying
+  editable after an offline submit, and the `err.offline` branch (now `workflows.html:2819`)
+  returning to the list without pushing into `MY_SUBMISSIONS`. **`backend/internal/workflow` was
+  not opened** — the server-side duplicate guard reopens decision 49 and was the card's park
+  trigger. `sync.js` was read but not edited; the fix consumes its existing `window.getDB` /
+  `window.idbGetAll` exports (`sync.js:100-104`), which is how the card held its stated
+  `workflows.html` footprint.
+  **Full suite, not a subset** (the slate required it): **552 passed / 0 failed / 0 flaky /
+  6 skipped of 558 in 27.4m** — the 549/0/0/6-of-555 baseline plus exactly this card's three new
+  tests, no regression. Go: `go build`, `go vet`, and `go test ./... -count=1 -p 1` all green
+  (10 packages ok, `internal/workflow` among them). **G3 (openspec validate) DOES NOT APPLY** —
+  hq has no `openspec/` tree and `night-crew workflow preflight` reports ABSENT.
+  Original card text:
+  Offline submit → reopen → submit again writes **two** `checklist_submissions` rows:
   `workflows.html:1656` mints a fresh `idempotency_key` per call and `:2778` handles `err.offline`
   by returning to the list without pushing into `MY_SUBMISSIONS`, so the checklist stays correctly
   editable and a second submit mints a second UUID past the `UNIQUE` guard. **Fix client-side —
