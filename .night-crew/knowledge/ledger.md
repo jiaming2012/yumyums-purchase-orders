@@ -1315,3 +1315,48 @@ resolutions in `DESIGN.md §15x`. In the night-crew clone §15x is *"Docker-only
 target repos (2026-07-13)"*; the actual convention is this ledger's `## T-NN` entries with numbered
 decisions. Twelve resolutions were nearly appended into a Docker infra section. The skill's
 reference needs correcting.
+
+---
+
+## T-24 — Cross-user checklist hydration divergence: product ruling (2026-07-26)
+
+**Operator-decided, not agent-closed.** Raised as a `BACKLOG.md` item ("Cross-user checklist
+hydration divergence (approved-vs-rejected ghost state)") whose own text said *"needs a product
+ruling first."* The ruling was given directly by the operator on 2026-07-26 in response to the
+question being put plainly; no agent inferred it from a convention, and no PM session was run.
+
+**The reproduction (unchanged, and it is not a bug hunt — it was already isolated).** Two users
+view the SAME checklist. A's submission was approved; B's was rejected. On a new cycle, B's
+rejected submission **resurrects as B's current 2/2 state**, while A sees a fresh 0/2 whose clicks
+**silently no-op** (no POST, no toggle, no feedback). Reproduced headlessly in fresh contexts.
+Deterministic `MY_SUBMISSIONS`-driven hydration logic — **not** network, cache, gating, or the
+07-22 `sync.js` change; server state verified byte-identical for both users. The E2E convergence
+matrix misses the cell: it never seeds an asymmetric approved-for-A / rejected-for-B history
+before reopening.
+
+**67. A new cycle starts fresh for every user — 0/2 for both A and B.**
+
+- B's rejected submission **does NOT resurrect as current state.** It is archived and remains
+  visible as **history**; the rejection and its fail notes are a record, not a live draft.
+- A's fresh 0/2 **must accept clicks.** The silent no-op is a bug, not intended behavior — it is
+  part of what this ruling requires fixed, not a separate concern.
+- **Rationale: rejection means redo.** That matches the accountability model the workflow engine
+  exists for. A rejected checklist that carries forward as 2/2 lets unreviewed work look complete,
+  which is precisely the failure the engine is supposed to prevent.
+
+**Consequence for the roadmap.** `sync-hard-cutover` was double-blocked: on
+`sync-rxdb-schema-and-replication` landing, and on this item being routed to a product decision
+(Product KR2). **The product-disposition half is now cleared.** The card remains blocked only on
+Card C landing.
+
+**Implementation note for whoever builds it** — this ruling defines the target state, not the
+work. It still needs the red-first cell the backlog item calls for: seed an asymmetric
+approved-for-A / rejected-for-B history, reopen as both users, assert 0/2 for both **and** assert
+that A's clicks POST. The silent no-op needs its own assertion; a test that only checks the
+counter would pass against a dead UI.
+
+**Process note.** The rest of the backlog was deliberately NOT swept here. No Operator Brief was
+written and `/nc-pm-session` was not run — the ceremony is heavier than the single question, and
+the backlog's normal destiny is the milestone-boundary planning round (DESIGN §15k), not an
+evening ruling. One item was pulled forward because it blocked a card; the others were left where
+they belong.

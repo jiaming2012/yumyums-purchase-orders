@@ -519,3 +519,59 @@ the difference is entirely the adversarial reproduction pass (~18 m wall clock u
 produced five findings the closeout missed, two of which changed a fork's answer). **That is the
 trade to remember: an unattended reproduction pass costs the operator nothing and repriced FORK 1
 from four call sites to seven.**
+
+---
+
+## overnight-20260726 (autonomous, Wave 0 then CONCURRENT 2-track dispatch)
+
+> **Backfilled 2026-07-26 evening**, from `runs/2026-07-26-autonomous/timings.log`. This row was
+> missing when `slate-20260727` was sized, which forced that slate's estimates back onto the
+> 20260725 anchors instead of the three most similar cards. Recording actuals is not bookkeeping —
+> the gap directly widened the next night's error bars.
+
+**Run window:** 00:27:44Z → 04:03:04Z = **3 h 35 m**. 3/3 landed, **0 parked**.
+Wave 0 (Card A) alone, then Cards B and C concurrent on two tracks.
+
+| Card | Class | Impl | G6 | G6 repair | Verdict |
+|---|---|---|---|---|---|
+| A `workflow-submission-status-client-half` (Wave 0) | front-end fix, red-first | **27m24s** | **17m11s** | — | APPROVE-WITH-NOTES |
+| B `sync-jwt-bridge-endpoint` | Go endpoint + SQL, S–M | **82m17s** | **9m48s** | **10m56s** | APPROVE-WITH-NOTES, 3 findings |
+| C `sync-rxdb-browser-delivery-spike` | first-of-kind browser spike | **117m50s** | **16m10s** | **11m01s** | APPROVE-WITH-NOTES, **GO earned and reproduced**, 6 findings |
+| ORCH · RUN-10 paired attribution measurement | unbudgeted investigation | **30m15s** | — | — | BOUND-NOT-EXONERATION — still UNATTRIBUTED |
+| ORCH · final-tree go-gate | — | **1m13s** | — | — | ALL-PACKAGES-PASS |
+
+**B's own cycle note in the log reads ~185 m total, including a 53 m full-suite leg under sustained
+load >40** — B's impl figure above is the stamp-to-stamp span; the suite leg is where the time
+actually went.
+
+### What this run says that should change a future estimate
+
+**Concurrency did not halve the night; load did the damage.** Cards B and C started at the same
+instant (01:14:53Z) on two tracks. `load1` climbed past **40** during the overlap and B's full-suite
+leg stretched to 53 m — against a ~20–30 m baseline for the same suite on a quiet box. The two
+tracks finished 35 m apart. **Price a concurrent track's suite leg at roughly double its quiet-box
+figure**, and note that the second track inherits the contention it did not create.
+
+**G6 fired on every card and repair was never free.** Three cards, three APPROVE-WITH-NOTES, nine
+findings between B and C, and **two of the three needed a repair round** (10m56s and 11m01s). The
+repair rounds are ~10–11 m each and are *not* optional overhead to be trimmed — B's F1 finding was
+a **vacuous parity gate** (2/11 assertions TRUE; stubbing the implementation produced only 4
+failures), i.e. a test that would have shipped green while proving nothing. **Budget a G6 repair
+round per card by default; treat its absence as the exception.**
+
+**The orchestrator's unbudgeted investigation cost 30 m and did not resolve.** The RUN-10 paired
+measurement ran two concurrent full suites (post-A vs pre-A) to attribute a failure to Card A. Its
+verdict was **BOUND-NOT-EXONERATION** — Card A not deterministically responsible, cause still
+UNATTRIBUTED. This is the second run in a row where orchestrator-side investigation consumed
+20–30 m outside any card's budget (20260725: 21m43s). **Two data points now. Reserve ~25 m of
+orchestrator investigation time per night, or accept that it comes out of the last card.**
+
+**A gate stamp in this run was provably wrong, and was left in place rather than rewritten.** Card
+A's `gate green` line carries epoch 1785029700 but was committed in `c70581c`, whose committer time
+is 2429 s *earlier*. The log annotates it inline and instructs Delivery KR3 to read the **wall
+figure** (732 s = 12.2 m), not the epoch. **Read wall figures from this log, not epochs**, and note
+the discipline: silently fixing a bad stamp is how a ledger stops being evidence.
+
+**One gate was deliberately skipped and said so.** `B_regate_pw` SKIPPED — Go + SQL-comment diff
+only, with Card C mid-suite on the shared port. A named, reasoned skip is not a gap; an unnamed one
+would be.

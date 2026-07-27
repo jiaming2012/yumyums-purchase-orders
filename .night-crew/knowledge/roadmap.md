@@ -97,8 +97,12 @@
   Delivery KR1 measure the ledger timestamp against `.night-crew/runs/` dispatch timestamps, and
   the ledger entry now predates any downstream dispatch. **`sync-rxdb-schema-and-replication` and
   `sync-jwt-bridge-endpoint` are UNBLOCKED and may be slated together** (disjoint footprints).
-  `sync-hard-cutover` stays double-blocked — it also needs the "Cross-user checklist hydration
-  divergence" backlog item routed through a `/nc-pm-session` (Product KR2). **Note for whoever
+  `sync-hard-cutover` was double-blocked — it also needed the "Cross-user checklist hydration
+  divergence" backlog item routed to a product decision (Product KR2). **That half is CLEARED as of
+  2026-07-26: ledger T-24 decision 67, operator-decided — a new cycle starts fresh for every user
+  (0/2 for both); a rejected submission archives to history rather than resurrecting as current
+  state, and the fresh state must accept clicks. `sync-hard-cutover` is now blocked ONLY on
+  `sync-rxdb-schema-and-replication` landing.** **Note for whoever
   reads the runbook: T-22 decision 53 — six blocks of its "captured output" are hand-composed
   presentation; the underlying facts all re-verify, but the document's own integrity claim
   (`README.md:32-34`, `:724-727`) is currently false and wants repair.** · *(½ of the fanned-out
@@ -304,6 +308,20 @@
   *"ok, build this"* before UI code on phases introducing new components, plus a State Enumeration
   Table and the verifier-subagent gate. **The operator owes a mockup sign-off before this card can
   ever be slated.** Footprint: `workflows.html`, the RxDB client layer.
+
+  **🛑 SCHEDULING DECISION 2026-07-26 — read this before planning tomorrow's slate.** Checked at
+  slate-20260727 planning: **no mockup exists for this card.** The only `mockup.html` in the repo is
+  `.planning/phases/f3-trends-tab/mockup.html`. So the owed sign-off has nothing to review, and
+  "get the operator to sign off" is NOT the next action — **drafting the mockup is.**
+  Drafting is **unattended-safe by construction**: CLAUDE.md gates *production code* behind the
+  sign-off, and the mockup is the artifact that gate consumes, so a run may produce it. It is also
+  **independent of `sync-rxdb-schema-and-replication`** — the mockup needs to know what `conflict$`
+  emits (already verified: per-document, carrying the document id and the discarded value), not
+  that the `conflictHandler` is built. **A draft-the-mockup card was considered for
+  slate-20260727 and deliberately NOT added**, because adding a fourth card would have reopened a
+  signed slate on the night its largest card (Card C) runs. **Put it at the top of the next slate:**
+  it is cheap, off every critical path, and it converts a permanently-blocked card into one the
+  operator can unblock over morning coffee. Do not rediscover this — it has now been checked twice.
 
 - **`sync-jwt-bridge-endpoint`** · **DONE — BACKEND HALF ONLY** (2026-07-26, run
   `overnight-20260726`, card branch `card/b-sync-jwt-bridge-endpoint`). 🛑 **This card is the
