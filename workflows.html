@@ -1631,6 +1631,28 @@ function setSeverity(fldId, severity) {
   if (!FAIL_NOTES[fldId]) FAIL_NOTES[fldId] = { note: '', severity: '' };
   FAIL_NOTES[fldId].severity = severity;
 }
+// findQueuedSubmission returns the payload already sitting in the offline
+// submitQueue for this template, or null.
+//
+// Why it reads IndexedDB and not a module-level map: the queue is the only
+// DURABLE record that a submission is already in flight. "Submit offline, get
+// interrupted, reopen the PWA, submit again" is an ordinary way for a crew
+// member to press Submit twice, and a reload wipes any in-memory key.
+//
+// Never lets a lookup failure break a submit — if IndexedDB is unavailable or
+// throws, it returns null and the caller mints a fresh key, i.e. degrades to
+// the previous behaviour rather than failing the submission.
+async function findQueuedSubmission(tplId) {
+  try {
+    if (typeof getDB !== 'function' || typeof idbGetAll !== 'function') return null;
+    var db = await getDB();
+    var entries = await idbGetAll(db, 'submitQueue');
+    if (!Array.isArray(entries)) return null;
+    return entries.find(function(e) { return e && e.template_id === tplId && e.idempotency_key; }) || null;
+  } catch (e) {
+    return null;
+  }
+}
 async function submitChecklistToAPI(tplId, allFlds, isReapproval) {
   var responses = allFlds.map(function(f) {
     var resp = FIELD_RESPONSES[f.id];
@@ -1650,10 +1672,26 @@ async function submitChecklistToAPI(tplId, allFlds, isReapproval) {
       fail_severity: failNote ? failNote.severity : null
     };
   }).filter(function(r) { return r.value !== null; });
+  // Reuse the key of any submission already queued for this template rather
+  // than minting a new one (ledger T-23 decision 60).
+  //
+  // An offline submit queues the payload and then correctly returns to the list
+  // WITHOUT pushing into MY_SUBMISSIONS — so the checklist stays editable, which
+  // is deliberate. Minting a fresh UUID on the second press therefore walked
+  // straight past the server's `ON CONFLICT (idempotency_key)` upsert and wrote a
+  // SECOND checklist_submissions row for one checklist.
+  //
+  // `id` is reused too, not just the key: submitQueue is keyed on `id`, so
+  // reusing it makes enqueueSubmission's idbPut REPLACE the queued entry with
+  // this press's (newer) responses instead of appending a second one. Reusing
+  // only the key would still end at one DB row — the duplicate would 409 and
+  // drainQueue would evict it — but would submit the stale response set first
+  // and show "2 submissions pending sync" for a single checklist.
+  var queued = await findQueuedSubmission(tplId);
   var submitPayload = {
-    id: generateUUID(),
+    id: queued ? queued.id : generateUUID(),
     template_id: tplId,
-    idempotency_key: generateUUID(),
+    idempotency_key: queued ? queued.idempotency_key : generateUUID(),
     responses: responses,
     fail_notes: Object.keys(FAIL_NOTES).map(function(fid) {
       return { field_id: fid, note: FAIL_NOTES[fid].note, severity: FAIL_NOTES[fid].severity };
