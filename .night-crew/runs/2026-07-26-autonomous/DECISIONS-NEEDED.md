@@ -1,3 +1,31 @@
+> **RESOLVED 2026-07-26 — recorded as `ledger.md` T-23, decisions 55–66.**
+> D-5 → **port `ResolveEntityAccess`** (`backend/internal/sync/ops.go:474`), do not invent a
+> predicate (55). D-6 → **expand umbrellas at mint**; closed by the standing per-tab-granularity
+> convention, not re-decided (56). D-7 → **split**: `caches.delete` on logout + fail-closed
+> identity now, cache-key design to the schema card (57). D-12 → **glob `git ls-files`** (58).
+> D-8 → **exclude the bundle** until a page imports it (59). D-2 → **client-side key reuse**, own
+> card (60). D-4 → **push on grant change** (61). D-9 → obligation, not fork: the schema card
+> declares its origin shape and costs the reverse proxy (62). D-1 → status→label map (63).
+> D-10 → strike the ms figures, use `performance.now()` (64). D-11 → accept the as-built,
+> record the process note (65). D-3 → fold the stale comment forward (66).
+>
+> **Two corrections from reading the source these forks cite — they change how this document
+> reads.** D-5's *"the cutover card must not invent an answer either"* rests on a false premise:
+> HQ **already answers** who may see whose submissions, in shipped code at `ops.go:474`, tested
+> by a 12-combo Cartesian suite. This was never an open product question; it is a port. And D-7
+> understates its own finding three ways — **nothing ever clears `api-cache`** (`logout()` at
+> `index.html:141-145` has no `caches.delete`, and neither does any other app code), the route
+> matches **every endpoint shipped today** rather than only the future replication URL, and it
+> composes with `checkAuth`'s deliberately-non-redirecting offline branch to serve one user
+> **another user's identity**. It is a live disclosure bug on crew phones, not only a forward
+> hazard for the schema card.
+>
+> **Process:** twelve forks raised, **one** genuinely operator-level (D-5) and one closed by an
+> existing convention (D-6). The other ten were mechanism, decided at triage in minutes. See the
+> T-23 process finding.
+>
+> Kept as the analysis record.
+
 # Decisions needed — run `overnight-20260726`
 
 Open items the run declined to decide. The run executes; it does not decide.

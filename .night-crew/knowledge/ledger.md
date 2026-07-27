@@ -1187,3 +1187,131 @@ areas routed through the resolver yet"* — coverage is **undefined for this run
 parked its gray areas straight into `DECISIONS-NEEDED.md` without routing them through the
 resolver, so the audit has nothing to measure. That is the gap to close before the number means
 anything.
+
+## T-23 — Morning-triage resolutions (2026-07-26, overnight-20260726)
+
+Twelve forks (D-1 … D-12) walked. **One was genuinely operator-level** (D-5); one more turned on a
+convention the operator had already recorded (D-6). The remaining ten were engineering calls
+escalated to the operator and were decided at triage under the standing rule *decide mechanism
+yourself, bring product and intent*. Two forks were materially reframed by reading the source they
+cite — both reframes are recorded below because the fork text, left as written, would mislead the
+next reader.
+
+**Decision 55 — D-5: port the existing `ResolveEntityAccess` predicate; do not invent a permission
+model in the cutover.** The fork frames this as an open product question and instructs that "the
+cutover card must not invent an answer either." **That framing is wrong in a way that matters: HQ
+already answers it in shipped code.** `backend/internal/sync/ops.go:474` — `ResolveEntityAccess` —
+is the predicate the *current* WebSocket sync layer enforces for exactly this question: template
+assignees (`assignee_type='user'` by UUID, or `='role'` matched against `users.roles`) ∪ all
+admins/superadmins, with the op author unioned in by `listener.go:63-72`, covered by a 12-combo
+Cartesian test. So the cutover does not need to invent an answer — it needs to **port** one.
+Chosen over (b) porting *and* tightening `assignment_role` in the same card, and (c) narrowing
+phase 1 to owner-only. (b) was rejected because it varies substrate and permission semantics
+simultaneously — every convergence red then becomes a 3am judgement call about whether it is a bug
+or the intended tightening. (c) was rejected because it silently de-live-syncs the Approvals tab,
+which is the product's stated core value. Mechanism: project `template_assignments ⋈ users` into
+the sync DB as a row-visibility table, the way `hq_grant_projection` already projects grants, and
+express RLS as an `EXISTS` against it. **Two properties of the ported predicate are inherited
+knowingly, not by accident:** the resolver never filters on `assignment_role`, so an `'approver'`
+assignment grants identical visibility to an `'assignee'` one; and the `roles && ARRAY['admin',
+'superadmin']` arm is unconditional, so every admin sees every template's ops. Both are live today.
+The test asserting approver inclusion is named `..._CurrentBehavior` — its author was documenting,
+not endorsing. **D-5 ceases to be a fork and becomes a spec line on
+`sync-rxdb-schema-and-replication`.** The fork text must be updated to cite `ops.go:474`, since as
+written it tells the next reader the answer does not exist.
+
+**Decision 56 — D-6: expand umbrella slugs at mint time. Closed by existing convention, not
+re-decided.** The fork routes this to the operator as "a product/UX decision about what a launcher
+should show." It is not open: the recorded go-forward convention is *grants are per-tab/per-feature,
+not bundled per-app*, and umbrella slugs are per-app bundling. A user holding `inventory` reaches
+`inventory-trends` and `inventory-cost` (`main.go:628, 642, 652`), so a launcher built from the
+narrow claim hides two surfaces the user is entitled to. Decided by precedent under the recorded
+convention; **not yet confirmed by the operator** — if umbrella slugs are a deliberate exception to
+per-tab granularity, this decision reverses. The fork's objection — the token then asserts more than a single
+`app_permissions` row does — is immaterial, because the claim is advisory and the live
+`hq_grant_projection` is the gate. Chosen over shipping the narrow list (pushes the umbrella table
+into every client) and over emitting both fields (two sources of truth for one question).
+
+**Decision 57 — D-7: split. Fix the live disclosure now; hand the cache-key design forward.** The
+fork's claim verified exactly — `build-sw.js:60-78` configures one `NetworkFirst` route on
+`/\/api\//` with **no `Vary`, no `cacheKeyWillBeUsed`, no `matchOptions`**; the key is the URL and
+`Authorization` is not in it. **Three things the fork does not say, found by reading the source:**
+(1) **nothing ever clears the cache** — `logout()` at `index.html:141-145` POSTs to
+`/api/v1/auth/logout` and redirects, and there is no `caches.delete` anywhere in app code, so the
+"re-log-in as a different user" path is wide open; (2) the route matches **every endpoint shipped
+today**, not just the future replication URL, making this a live disclosure bug on crew phones
+rather than only a forward hazard; (3) it composes with `checkAuth()`, whose offline branch
+deliberately does not redirect — `/api/v1/me` is on the same route, so on a dead-LTE shared phone
+user B is served user A's cached identity and `renderUserHeader` paints A's name. Severity is
+bounded by `NetworkFirst` serving cache only on failure or >10s timeout, which on a food truck is
+routine. Chosen over handing it all forward as the fork proposes (leaves a cross-tenant read on
+phones for the life of the sync card) and over deleting the route outright now (correct end state,
+but costs offline API reads today). Immediate half: `caches.delete('api-cache')` on logout, and
+`checkAuth`'s offline branch fails closed on identity. Structural half — cache key / `Vary` — goes
+to `sync-rxdb-schema-and-replication`, which will most likely **retire the route entirely**, since
+once RxDB replicates, offline data comes from IndexedDB and `api-cache` is obsolete.
+
+**Decision 58 — D-12: `build-sw.js` globs the tracked set (`git ls-files`), not the working tree.**
+Chosen over documenting the foot-gun in CLAUDE.md. A Workbox precache entry that 404s fails the
+**entire** service-worker install, so the symptom is "the PWA stops updating" with an invisible
+cause; documenting a trap that silently bricks updates on every phone is not a mitigation. Note the
+trigger is not hypothetical — `backlog-round.html` is the same untracked file disposed as FORK 2 in
+T-22, still sitting in the repo root, and `task sw` runs automatically as a dependency of both
+`task test` and `task prod:deploy`. Slated with Decision 57's logout fix as one small hygiene card.
+
+**Decision 59 — D-8: exclude the vendored bundle from the precache until a page imports it.** The
+fork marks this "Operator's call"; decided at triage as an engineering call with the operator
+informed. +495 KiB over LTE on every crew phone (+34%, 25.4% of the whole precache) for an asset no
+page imports is a cost with no current benefit. Re-adding the `globPatterns` entry is one line, and
+the offline-availability proof matters most on the card that actually adopts the bundle — which is
+also the card where a failure would be actionable.
+
+**Decision 60 — D-2: fix the offline double-submit client-side, as its own card.** Real,
+pre-existing, untouched by card A: `workflows.html:1656` mints a fresh `idempotency_key` per call
+and `:2778` returns to the list without pushing to `MY_SUBMISSIONS`, so offline submit → reopen →
+submit again writes two rows past the `idempotency_key UUID UNIQUE` guard. Fix by reusing the
+enqueued key on re-submit rather than minting a new one. **Deliberately not the server-side guard**
+— that reopens Decision 49 and trips card A's park trigger for no additional benefit.
+
+**Decision 61 — D-4: `hq_grant_projection` is written by push on grant change**, in the same
+transaction as the `app_permissions` mutation. Chosen over periodic reconcile and `postgres_fdw`.
+The projection exists precisely because a revocation must take effect *now* — a reconcile
+reintroduces the exact replay window the design was built to eliminate, and `fdw` couples the two
+databases in a way the cutover card has not settled. Recorded as a contract on the cutover card
+rather than left as an open plumbing choice.
+
+**Decision 62 — D-9: not a fork but an obligation on `sync-rxdb-schema-and-replication`.** The card
+must declare its origin shape as its first spec line, and **cost the reverse proxy** if
+same-origin. Verdict items 1 and 7 hold only in a same-origin-fronted shape that HQ does not have;
+`browser/serve.mjs` invents it for the harness, and the real equivalent is unbuilt and uncosted.
+Cross-origin moots item 7 and inverts item 1 (W2's `global.fetch` shim returns).
+
+**Decision 63 — D-1: humanize the History status token** via a small status→label map. The card's
+own framing — "teach the client the DB's vocabulary" — covers the eighth call site at
+`workflows.html:2503`. Follow-up, not a card.
+
+**Decision 64 — D-10: strike the quoted millisecond figures.** 47/65/87 ms are `Date.now()` deltas
+on a clock-stepping host (G6's own run printed **−1545 ms** for the same measurement). Replace with
+"sub-second" and switch `leg4-leader-election.spec.js` to `performance.now()`. The qualitative
+findings — one leader, follower silent, survivor replicates — are ordering facts and stand.
+
+**Decision 65 — D-11: accept the as-built `vendor/` layout**; the fork itself judges it better than
+the merge-intent it deviates from, and it is what holds the root-package line. The output here is
+the process note, not a choice: **a merge-intent that silently diverges from what lands is worth
+less at the next merge**, and the deviation should have been disclosed at the time.
+
+**Decision 66 — D-3: fold the stale `tests/sync.spec.js:1584` comment into the next card touching
+that file.** One line of doc rot; no card tonight owns the file.
+
+**Process finding — the run over-escalates.** Ten of twelve forks were mechanism decided in minutes
+at triage, and each one cost the operator attention on a morning already carrying a real product
+fork. The bar to add to the run prompt: *a fork goes to the operator only if it is a product, cost,
+or intent question; mechanism gets decided and stated.* The two forks that genuinely needed a human
+(D-5, D-6) were both improved by reading the source they cite — which is also the check the run
+itself should have run before escalating.
+
+**Ritual defect — `/nc-morning-triage` points at the wrong file.** The skill instructs recording
+resolutions in `DESIGN.md §15x`. In the night-crew clone §15x is *"Docker-only local infra for
+target repos (2026-07-13)"*; the actual convention is this ledger's `## T-NN` entries with numbered
+decisions. Twelve resolutions were nearly appended into a Docker infra section. The skill's
+reference needs correcting.

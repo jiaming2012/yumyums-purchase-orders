@@ -212,6 +212,35 @@
   the feasibility design doc. **No production `workflows.html` change** — it proves a delivery path,
   it does not adopt one.
 
+- **`pwa-cache-and-build-hygiene`** · **PLANNED — READY TO SLATE, NO DEPENDENCIES** (new card,
+  authored at morning triage 2026-07-26 from ledger T-23 decisions 57, 58, 59) · 🛑 **Carries a live
+  cross-tenant disclosure on shipped crew phones — this should not wait behind the sync work.**
+  Three unrelated-in-cause but same-file changes:
+  (1) **`caches.delete('api-cache')` on logout.** `logout()` (`index.html:141-145`) POSTs and
+  redirects; there is no `caches.delete` anywhere in app code, so a shared truck phone serves the
+  previous user's rows to the next user from a URL-only-keyed cache. Also fail `checkAuth`'s offline
+  branch CLOSED on identity — `/api/v1/me` is on the same `NetworkFirst` route, so today user B can
+  be shown user A's cached identity with no redirect. Bounded by cache being served only on network
+  failure or >10s timeout, which on a food truck is routine, not exotic.
+  (2) **`build-sw.js` globs the tracked set (`git ls-files`), not the working tree.** A Workbox
+  precache entry that 404s fails the ENTIRE service-worker install; the symptom is "the PWA stops
+  updating" with an invisible cause. `task sw` runs automatically under both `task test` and
+  `task prod:deploy`, and `backlog-round.html` — untracked, disposed as FORK 2 in T-22 — is still in
+  the repo root waiting to fire it.
+  (3) **Drop the vendored bundle's `globPatterns` entry** (−495 KiB, −34% precache) until a page
+  imports it; `sync-rxdb-schema-and-replication` re-adds it on adoption.
+  Footprint: `index.html`, `build-sw.js`.
+
+- **`workflow-offline-double-submit`** · **PLANNED** (new card, authored at morning triage
+  2026-07-26 from ledger T-23 decision 60; real, pre-existing, untouched by the status-vocabulary
+  card) · Offline submit → reopen → submit again writes **two** `checklist_submissions` rows:
+  `workflows.html:1656` mints a fresh `idempotency_key` per call and `:2778` handles `err.offline`
+  by returning to the list without pushing into `MY_SUBMISSIONS`, so the checklist stays correctly
+  editable and a second submit mints a second UUID past the `UNIQUE` guard. **Fix client-side —
+  reuse the enqueued key on re-submit.** Explicitly NOT the server-side duplicate guard: that
+  reopens decision 49 and trips the status card's park trigger for no added benefit. Footprint:
+  `workflows.html`.
+
 - **`sync-rxdb-schema-and-replication`** · **PLANNED** (depends on `sync-spike-stack-and-jwt-bridge`'s
   go-decision reaching `ledger.md` — **cleared**; and now on **`sync-rxdb-browser-delivery-spike`'s
   verdict**, which sizes the storage/service-worker half; sized by `sync-spike-rxdb-replication`
@@ -238,7 +267,31 @@
   `RxConflictHandlerInput` (`conflict-handling.d.ts:10`) — diff fork-vs-assumed and
   master-vs-assumed to know who changed what. It is **optional** in the type, so the rule needs a
   defined fallback when absent. `conflict$` fires **per document** and carries the document id
-  (`upstream.js:333`), correcting W2's caveat. Footprint: `workflows.html`, new RxDB client layer.
+  (`upstream.js:333`), correcting W2's caveat.
+  **🛑 Five obligations added at morning triage 2026-07-26 (ledger T-23):**
+  (1) **Row visibility — decision 55.** PORT `ResolveEntityAccess`
+  (`backend/internal/sync/ops.go:474`), do not invent a predicate: project
+  `template_assignments ⋈ users` into the sync DB the way `hq_grant_projection` projects grants,
+  and express RLS as an `EXISTS` against it. Two inherited properties are knowing, not accidental:
+  the resolver never filters on `assignment_role` (an `'approver'` sees what an `'assignee'` sees),
+  and the `roles && ARRAY['admin','superadmin']` arm is unconditional (every admin sees every
+  template). Changing either is a SEPARATE card — do not vary substrate and permission semantics in
+  one night.
+  (2) **Origin shape — decision 62.** DECLARE same-origin-fronted vs cross-origin as the card's
+  FIRST spec line, and **cost the reverse proxy** if same-origin. It is unbuilt: `browser/serve.mjs`
+  invents it for the harness only. Cross-origin moots verdict item 7 and inverts item 1 (W2's
+  `global.fetch` shim returns).
+  (3) **`api-cache` — decision 57, structural half.** The URL-only cache key with no `Vary`
+  (`build-sw.js:60-78`) is a cross-tenant read. The immediate mitigation ships separately (see
+  `pwa-cache-and-build-hygiene`); this card owns the design, and the expected answer is to **retire
+  the route entirely** — once RxDB replicates, offline data comes from IndexedDB and `api-cache` is
+  obsolete.
+  (4) **Umbrella slugs — decision 56.** The client-construction helper must expand umbrella slugs,
+  so the launcher shows the per-tab surfaces the user can actually reach (`inventory` ⇒
+  `inventory-trends`, `inventory-cost`). Closed by the standing per-tab-granularity convention.
+  (5) **Vendored bundle — decision 59.** Re-add the `globPatterns` precache entry here, when a page
+  actually imports the bundle. It was excluded meanwhile.
+  Footprint: `workflows.html`, new RxDB client layer.
 
 - **`sync-rxdb-conflict-notice-ui`** · **PLANNED — ATTENDED-BLOCKED** (new card, fanned out of
   `sync-rxdb-schema-and-replication` 2026-07-26 at slating; depends on that card's
@@ -280,11 +333,15 @@
   claim-trusting policy would leave a revocation replay window as long as the TTL. RLS instead
   joins `public.hq_grant_projection` — a **live** projection of `app_permissions ⋈ hq_apps` —
   on every row, which is what makes revocation immediate (variants V8/V9/V12 prove it). **Who
-  writes that projection table — push-on-grant-change, periodic reconcile, or `postgres_fdw` —
-  is NOT decided here and is inherited by `sync-hard-cutover` as an explicit open contract.**
-  Also open by design: HQ rows are frequently not single-owner (a submission belongs to a
-  submitter AND an approver), which the `owner_id = sub` predicate cannot express; extending it
-  is a product question the cutover card must route, not invent. Policies at
+  writes that projection table — ~~push-on-grant-change, periodic reconcile, or `postgres_fdw`~~ —
+  was inherited by `sync-hard-cutover` as an open contract and is now CLOSED: morning triage
+  2026-07-26 (ledger T-23 decision 61) chose **push on grant change**, in the same transaction as
+  the `app_permissions` mutation. Reconcile reintroduces the exact replay window the projection
+  exists to eliminate; `fdw` couples the two databases in a way the cutover has not settled.**
+  ~~Also open by design: the `owner_id = sub` predicate cannot express HQ's non-single-owner
+  rows.~~ **CLOSED at morning triage 2026-07-26 (T-23 decision 55): this was never an open product
+  question — `ResolveEntityAccess` (`backend/internal/sync/ops.go:474`) is HQ's shipped answer and
+  the cutover PORTS it rather than inventing one.** See the schema card. Policies at
   `.night-crew/qa/spike-supabase/sql/hq-bridge-{fixture,policies}.sql`.
   *(Original card text follows, for the record.)* · **Narrowed 2026-07-26 at
   slating:** the frontend client-construction helper and the `@supabase/supabase-js` pin + upgrade
