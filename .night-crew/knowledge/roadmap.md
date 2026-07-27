@@ -216,9 +216,29 @@
   the feasibility design doc. **No production `workflows.html` change** — it proves a delivery path,
   it does not adopt one.
 
-- **`pwa-cache-and-build-hygiene`** · **PLANNED — READY TO SLATE, NO DEPENDENCIES** (new card,
-  authored at morning triage 2026-07-26 from ledger T-23 decisions 57, 58, 59) · 🛑 **Carries a live
-  cross-tenant disclosure on shipped crew phones — this should not wait behind the sync work.**
+- **`pwa-cache-and-build-hygiene`** · **DONE — all three** (2026-07-27, run `overnight-20260727`,
+  Wave 0 alone; card authored at morning triage 2026-07-26 from ledger T-23 decisions 57, 58, 59)
+  · The live cross-tenant disclosure is closed on the client side. **Five tests captured RED first
+  on the unfixed tree at `221e59d`, zero production lines changed** (four genuinely red; the
+  fifth — "every URL in the committed manifest is a tracked file" — passes vacuously on a clean
+  worktree and is a stale-`sw.js` guard, not evidence; the direct decision-58 reproduction is the
+  third `sw-manifest` test, which puts an untracked file in the repo root and rebuilds).
+  `logout()` now **awaits** `caches.delete('api-cache')` before the redirect — unawaited loses the
+  race against `window.location.href` and leaves the previous user's rows on the phone.
+  `checkAuth()` fails closed on identity via **two** mechanisms, both load-bearing: it evicts every
+  cached `/api/v1/me` response *before* probing, and probes a cache-busted URL the URL-keyed cache
+  can never answer (eviction alone loses to a concurrent SW write; busting alone leaves the stale
+  bare-URL entry in place). An unverified probe paints no name and strips any name already on
+  screen — **deliberately not a redirect**, because the launcher must stay reachable offline on a
+  truck that loses LTE routinely. Precache went **23 files / 1949.7 KB → 22 / 1454.7 KB
+  (−495.0 KB)**. Decision 58 landed as a `manifestTransforms` filter against `git ls-files`, with
+  dropped entries **logged, not swallowed**, and `version.json` allowlisted — it is git-ignored but
+  `backend/Dockerfile:33-44` regenerates it into the image *precisely because* `sw.js` precaches it,
+  a trap a naive tracked-set filter walks straight into. **The `runtimeCaching` block was NOT
+  touched** — cache-key design is deferred by decision 57 to `sync-rxdb-schema-and-replication`, so
+  the card's scope boundary held. `login.html` also untouched: an identity change without a logout
+  is closed by the `checkAuth` eviction, not by the logout clear.
+  Original card text:
   Three unrelated-in-cause but same-file changes:
   (1) **`caches.delete('api-cache')` on logout.** `logout()` (`index.html:141-145`) POSTs and
   redirects; there is no `caches.delete` anywhere in app code, so a shared truck phone serves the
