@@ -138,21 +138,72 @@ function filterTilesByPermissions(apps){
   remaining.forEach(function(tile){grid.appendChild(tile);});
   grid.style.visibility='';
 }
+const API_CACHE_NAME='api-cache';
+// build-sw.js configures ONE NetworkFirst route on /\/api\// with no Vary, no
+// cacheKeyWillBeUsed and no matchOptions: the cache key is the URL, and
+// Authorization is not part of it. On a shared truck phone that makes
+// `api-cache` a cross-tenant read of whatever the previous user loaded. The
+// route is only served on network failure or a >10s timeout -- which on a food
+// truck is routine, not exotic. Ledger T-23 decision 57.
+//
+// This page owns the two IMMEDIATE mitigations: clear the cache when identity
+// changes, and never trust it for identity. The structural half -- keying the
+// cache by identity, or retiring the route once RxDB replicates -- belongs to
+// sync-rxdb-schema-and-replication and is deliberately NOT done here.
+async function clearApiCache(){
+  if(!('caches' in window))return;
+  try{await caches.delete(API_CACHE_NAME)}catch(e){}
+}
+// Drop every cached answer to the identity endpoint, busted variants included.
+// Called BEFORE the identity probe so no code path can read a stale one.
+async function evictCachedIdentity(){
+  if(!('caches' in window))return;
+  try{
+    var c=await caches.open(API_CACHE_NAME);
+    var keys=await c.keys();
+    await Promise.all(keys.filter(function(r){
+      return new URL(r.url).pathname==='/api/v1/me';
+    }).map(function(r){return c.delete(r)}));
+  }catch(e){}
+}
+function removeUserHeader(){
+  var bar=document.querySelector('.user-bar');
+  if(bar&&bar.parentNode)bar.parentNode.removeChild(bar);
+}
 async function logout(){
   if(!confirm('Are you sure you want to log out?'))return;
   try{await fetch('/api/v1/auth/logout',{method:'POST'})}catch(e){}
+  // AWAITED, not fire-and-forget: window.location.href tears this page down, and
+  // a lost race here leaves the previous user's rows on the phone for the next
+  // one. That is the whole disclosure.
+  await clearApiCache();
   window.location.href='/login.html';
 }
 async function checkAuth(){
+  var identityVerified=false;
+  await evictCachedIdentity();
   try{
-    const res=await fetch('/api/v1/me');
+    // Cache-busted on purpose. A bare '/api/v1/me' is answerable from the
+    // URL-keyed api-cache; a per-load buster can never hit it, so this probe is
+    // either a live answer or an error -- never somebody else's identity.
+    const res=await fetch('/api/v1/me?_='+Date.now(),{cache:'no-store'});
     if(res.status===401){window.location.href='/login.html';return}
     if(res.ok){
       const data=await res.json();
+      identityVerified=true;
       if(data.display_name)renderUserHeader(data.display_name);
     }
   }catch(e){
-    // Network error -- allow offline access with cached page
+    // Network error -- fall through to the fail-closed branch below.
+  }
+  if(!identityVerified){
+    // FAIL CLOSED ON IDENTITY. We could not verify who is holding this phone --
+    // the request threw, timed out, or came back as the service worker's 503
+    // offline fallback. Paint no name, and strip any name already on screen.
+    // Deliberately NOT a redirect: the launcher must stay reachable offline,
+    // since a food truck loses LTE as a matter of course. What must not happen
+    // is the PREVIOUS user's name appearing over THIS user's session.
+    removeUserHeader();
   }
   var cached=localStorage.getItem(APPS_CACHE_KEY);
   if(cached){try{filterTilesByPermissions(JSON.parse(cached));}catch(e){}}
