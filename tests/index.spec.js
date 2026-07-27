@@ -178,3 +178,101 @@ test('after logout, visiting index.html redirects to login.html (session cleared
   await page.waitForURL(url => url.pathname.includes('login'));
   expect(page.url()).toContain('login.html');
 });
+
+// ---------------------------------------------------------------------------
+// api-cache hygiene — ledger T-23 decision 57.
+//
+// build-sw.js:60-78 configures ONE NetworkFirst route on /\/api\// with no
+// Vary, no cacheKeyWillBeUsed and no matchOptions: the cache key is the URL and
+// Authorization is not in it. On a shared truck phone that makes `api-cache` a
+// cross-tenant read — and nothing in app code ever cleared it.
+//
+// NOTE: playwright.config.js sets serviceWorkers:'block', so the SW never
+// installs here and never populates `api-cache` itself. These tests therefore
+// seed `api-cache` by hand — exactly the entries the NetworkFirst route would
+// write — and assert on what the PAGE does about them. The window.caches API is
+// available because http://localhost is a secure context.
+// ---------------------------------------------------------------------------
+
+const STALE_IDENTITY = '{"display_name":"Ghost Of User A","email":"ghost@yumyums.kitchen"}';
+
+async function seedApiCache(page, entries) {
+  await page.evaluate(async (items) => {
+    const c = await caches.open('api-cache');
+    for (const [url, body] of items) {
+      await c.put(new Request(url), new Response(body, {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }));
+    }
+  }, entries);
+}
+
+test('logout deletes api-cache so the next user is not served the previous one', async ({ page }) => {
+  await login(page);
+  await page.goto('/index.html');
+  await page.waitForSelector('.user-bar');
+
+  await seedApiCache(page, [
+    ['/api/v1/me', STALE_IDENTITY],
+    ['/api/v1/workflow/templates', '[{"id":1,"name":"User A private template"}]'],
+  ]);
+  expect(await page.evaluate(() => caches.keys())).toContain('api-cache');
+
+  page.on('dialog', dialog => dialog.accept());
+  await page.click('#btn-logout');
+  await page.waitForURL(url => url.pathname.includes('login'));
+
+  // Same origin after the redirect, so the CacheStorage is the same one.
+  const remaining = await page.evaluate(() => caches.keys());
+  expect(remaining).not.toContain('api-cache');
+});
+
+test('checkAuth evicts cached /api/v1/me responses instead of trusting them', async ({ page }) => {
+  await login(page);
+  await page.goto('/index.html');
+  await page.waitForSelector('.user-bar');
+
+  // The previous session's identity, plus a leftover cache-busted probe.
+  await seedApiCache(page, [
+    ['/api/v1/me', STALE_IDENTITY],
+    ['/api/v1/me?_=1700000000000', STALE_IDENTITY],
+  ]);
+
+  await page.goto('/index.html');
+  await page.waitForSelector('.user-bar');
+  await page.waitForFunction(async () => {
+    const c = await caches.open('api-cache');
+    return (await c.keys()).length >= 0;
+  });
+
+  const leftovers = await page.evaluate(async () => {
+    const c = await caches.open('api-cache');
+    return (await c.keys())
+      .map(r => new URL(r.url).pathname)
+      .filter(p => p === '/api/v1/me');
+  });
+  expect(leftovers).toEqual([]);
+
+  // And the stale name is never painted.
+  await expect(page.locator('.greeting')).not.toContainText('Ghost Of User A');
+});
+
+test('the /api/v1/me identity probe is cache-busted so api-cache cannot answer it', async ({ page }) => {
+  await login(page);
+
+  const meRequests = [];
+  page.on('request', req => {
+    const u = new URL(req.url());
+    if (u.pathname === '/api/v1/me') meRequests.push(u.search);
+  });
+
+  await page.goto('/index.html');
+  await page.waitForSelector('.user-bar');
+
+  expect(meRequests.length).toBeGreaterThan(0);
+  // A bare '/api/v1/me' is answerable from the URL-keyed api-cache. A per-load
+  // buster can never hit it: the probe is a live answer or an error, never
+  // somebody else's identity.
+  for (const search of meRequests) expect(search).not.toBe('');
+});
