@@ -960,6 +960,215 @@ test.describe('Offline sync', () => {
     const forTemplate = (approvals || []).filter((s) => s.template_id === templateId);
     expect(forTemplate.length).toBeLessThanOrEqual(1);
   });
+
+  // ── Card B — workflow-offline-double-submit (ledger T-23 decision 60) ──────
+  //
+  // The bug: submitChecklistToAPI minted a fresh idempotency_key on EVERY call,
+  // and the err.offline handler correctly leaves the checklist editable without
+  // pushing into MY_SUBMISSIONS. So offline submit → reopen → submit again
+  // enqueued a SECOND payload carrying a SECOND UUID, and both walked straight
+  // past the server's `ON CONFLICT (idempotency_key)` guard on drain — two rows
+  // in checklist_submissions for one checklist.
+  //
+  // GATE-08 above only proves the SERVER is idempotent when handed the same key.
+  // These prove the CLIENT hands it the same key. That gap is the whole card.
+
+  // readSubmitQueue reads the durable IndexedDB offline queue through the same
+  // exports the app uses (sync.js:100-104).
+  async function readSubmitQueue(page) {
+    return page.evaluate(async () => {
+      const db = await window.getDB();
+      return window.idbGetAll(db, 'submitQueue');
+    });
+  }
+
+  // openAndSubmitOffline opens the first checklist row in My Checklists and
+  // presses Submit. Any "N items not completed" confirm() is accepted so the
+  // submit always reaches the offline-queue path.
+  async function openAndSubmitOffline(page) {
+    await page.click('[data-fill-template-id]');
+    await page.waitForSelector('[data-action="submit"]', { timeout: 5000 });
+    await page.click('[data-action="submit"]');
+    await expect(page.locator('#sync-banner')).toBeVisible({ timeout: 5000 });
+  }
+
+  test('offline re-submit reuses the queued idempotency key [DBL-01]', async ({ page, context }) => {
+    page.on('dialog', (d) => d.accept());
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await cleanupTemplates(page);
+    await cleanupPendingApprovals(page);
+
+    const todayDOW = await getTodayDOW(page);
+    await createTestTemplate(page, 'Offline Double Submit A', todayDOW);
+    await page.reload();
+    await page.waitForSelector('[data-fill-template-id]', { timeout: 10000 });
+
+    // Answer the one field so the submit is a normal, complete one.
+    await page.click('[data-fill-template-id]');
+    const checkBtn = page.locator('.check-btn').first();
+    await checkBtn.click();
+    await expect(checkBtn).toHaveClass(/checked/, { timeout: 5000 });
+    await page.waitForTimeout(1500); // let the field auto-save
+
+    await context.setOffline(true);
+    await page.click('[data-action="submit"]');
+    await expect(page.locator('#sync-banner')).toBeVisible({ timeout: 5000 });
+
+    const afterFirst = await readSubmitQueue(page);
+    expect(afterFirst.length, 'first offline submit queues exactly one payload').toBe(1);
+    const firstKey = afterFirst[0].idempotency_key;
+    expect(firstKey, 'queued payload carries an idempotency key').toBeTruthy();
+
+    // The checklist is deliberately still editable (decision 60 — this is the
+    // CORRECT half). Reopen it and submit again, still offline.
+    await openAndSubmitOffline(page);
+
+    const afterSecond = await readSubmitQueue(page);
+    const keys = [...new Set(afterSecond.map((e) => e.idempotency_key))];
+    expect(keys, 're-submit must reuse the queued key, not mint a second one').toEqual([firstKey]);
+    // NOT `afterSecond.length === 1`. Collapsing the two entries would mean
+    // reusing `id` as well, which REPLACES the queued payload and destroys any
+    // answer entered offline — see DBL-04. One distinct key across however many
+    // entries is the contract; the entry count is not.
+  });
+
+  test('offline re-submit writes ONE submission row after drain, not two [DBL-02]', async ({ page, context }) => {
+    page.on('dialog', (d) => d.accept());
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await cleanupTemplates(page);
+    await cleanupPendingApprovals(page);
+
+    const todayDOW = await getTodayDOW(page);
+    const tpl = await createTestTemplate(page, 'Offline Double Submit B', todayDOW);
+    await page.reload();
+    await page.waitForSelector('[data-fill-template-id]', { timeout: 10000 });
+
+    await page.click('[data-fill-template-id]');
+    const checkBtn = page.locator('.check-btn').first();
+    await checkBtn.click();
+    await expect(checkBtn).toHaveClass(/checked/, { timeout: 5000 });
+    await page.waitForTimeout(1500);
+
+    await context.setOffline(true);
+    await page.click('[data-action="submit"]');
+    await expect(page.locator('#sync-banner')).toBeVisible({ timeout: 5000 });
+
+    // Second press, still offline.
+    await openAndSubmitOffline(page);
+
+    // Back online → drainQueue posts whatever is queued.
+    await context.setOffline(false);
+    await expect(page.locator('#sync-banner')).not.toBeVisible({ timeout: 15000 });
+
+    const approvals = await apiCall(page, 'GET', 'pendingApprovals');
+    const forTemplate = (approvals || []).filter((s) => s.template_id === tpl.id);
+    expect(forTemplate.length, 'two offline presses must not become two submission rows').toBe(1);
+  });
+
+  test('a submission queued in a previous session is reused, not re-minted [DBL-03]', async ({ page, context }) => {
+    // The reuse lookup must read the DURABLE queue, not an in-memory variable:
+    // "reload the PWA, then submit again" is an ordinary way to produce the
+    // second press, and an in-memory map would not survive it. A queue entry
+    // this page never enqueued stands in for the previous session's.
+    page.on('dialog', (d) => d.accept());
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await cleanupTemplates(page);
+    await cleanupPendingApprovals(page);
+
+    const todayDOW = await getTodayDOW(page);
+    const tpl = await createTestTemplate(page, 'Offline Double Submit C', todayDOW);
+    await page.reload();
+    await page.waitForSelector('[data-fill-template-id]', { timeout: 10000 });
+
+    // Go offline FIRST so nothing drains the seeded entry.
+    await context.setOffline(true);
+    const priorKey = generateUUID();
+    await page.evaluate(async ([id, key]) => {
+      await window.enqueueSubmission({
+        id: 'aaaaaaaa-0000-4000-8000-000000000001',
+        template_id: id,
+        idempotency_key: key,
+        responses: [],
+        fail_notes: [],
+      });
+    }, [tpl.id, priorKey]);
+    await expect(page.locator('#sync-banner')).toBeVisible({ timeout: 5000 });
+
+    await openAndSubmitOffline(page);
+
+    const queue = await readSubmitQueue(page);
+    const keys = [...new Set(queue.map((e) => e.idempotency_key))];
+    expect(keys, 'submit must adopt the previous session\'s queued key').toEqual([priorKey]);
+    // Again: one distinct KEY, not one entry. Replacing the previous session's
+    // entry would destroy whatever it holds (DBL-04).
+  });
+
+  test('answers entered while OFFLINE survive the re-submit [DBL-04]', async ({ page, context }) => {
+    // The one-line difference from DBL-01/02 that matters: go offline BEFORE the
+    // checkbox is clicked, not after.
+    //
+    // DBL-01/02 answer the field while still ONLINE, so the field auto-saves to
+    // the server and `hydrateFieldState` repopulates it on reopen — which means
+    // press 2 rebuilds a FULL payload and any answer loss is invisible to them.
+    //
+    // Offline, the answer has NO durable home: `submitOp` (sync.js:676) does not
+    // queue and throws, and `hydrateFieldState` (workflows.html:1470-1476) clears
+    // FIELD_RESPONSES and rebuilds from DRAFT_RESPONSES on every reopen. The only
+    // copy of the crew member's answer is the payload already sitting in
+    // submitQueue. So press 2 builds an EMPTY payload, and any reuse scheme that
+    // REPLACES the queued entry destroys the answer — one row on the server, zero
+    // recorded responses, with a success toast. On a food-safety checklist that is
+    // worse than the duplicate row this card set out to fix.
+    page.on('dialog', (d) => d.accept());
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await cleanupTemplates(page);
+    await cleanupPendingApprovals(page);
+
+    const todayDOW = await getTodayDOW(page);
+    const tpl = await createTestTemplate(page, 'Offline Double Submit D', todayDOW);
+    await page.reload();
+    await page.waitForSelector('[data-fill-template-id]', { timeout: 10000 });
+
+    // OFFLINE FIRST — this is the whole point of the test.
+    await context.setOffline(true);
+
+    await page.click('[data-fill-template-id]');
+    const checkBtn = page.locator('.check-btn').first();
+    await checkBtn.click();
+    await expect(checkBtn).toHaveClass(/checked/, { timeout: 5000 });
+    await page.waitForTimeout(1600); // the auto-save fires and FAILS — nothing durable
+
+    await page.click('[data-action="submit"]');
+    await expect(page.locator('#sync-banner')).toBeVisible({ timeout: 5000 });
+
+    const afterFirst = await readSubmitQueue(page);
+    const withAnswer = afterFirst.filter((e) => (e.responses || []).length > 0);
+    expect(withAnswer.length, 'press 1 queues the crew member\'s answer').toBe(1);
+
+    // Press 2. The runner reopens with the box UNCHECKED (nothing durable to
+    // hydrate from), so this payload is empty — that is expected and correct.
+    await openAndSubmitOffline(page);
+
+    // Whatever the queue now looks like, the answer must still be in it somewhere.
+    const afterSecond = await readSubmitQueue(page);
+    const stillHasAnswer = afterSecond.filter((e) => (e.responses || []).length > 0);
+    expect(stillHasAnswer.length,
+      'the queued answer must NOT be overwritten by the empty second payload').toBe(1);
+
+    // And it must reach the server.
+    await context.setOffline(false);
+    await expect(page.locator('#sync-banner')).not.toBeVisible({ timeout: 20000 });
+
+    const approvals = await apiCall(page, 'GET', 'pendingApprovals');
+    const forTemplate = (approvals || []).filter((s) => s.template_id === tpl.id);
+    expect(forTemplate.length, 'still exactly one submission row').toBe(1);
+    expect((forTemplate[0].responses || []).length,
+      'the answer entered offline must survive to the server, not be silently dropped').toBeGreaterThan(0);
+  });
 });
 
 // ─── E. Access control ───────────────────────────────────────────────────────

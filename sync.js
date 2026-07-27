@@ -562,13 +562,32 @@ async function drainQueue() {
   _draining = true;
   try {
     const db = await getDB();
-    const entries = await idbGetAll(db, 'submitQueue');
+    // Replay in the order the presses actually happened.
+    //
+    // idbGetAll returns entries in the store's key order, and the key is `id` — a
+    // random UUID, so the order is effectively arbitrary. That was harmless while
+    // one template could only ever have one queued entry. It stopped being
+    // harmless when submitChecklistToAPI began reusing the queued idempotency_key
+    // (workflows.html): two presses of one checklist now produce TWO entries that
+    // upsert onto the SAME submission row, so whichever replays last wins any
+    // field they both set. Sorting by queuedAt makes the later press win, which is
+    // what the crew member saw last.
+    //
+    // Entries queued before this sort existed have no queuedAt; they sort first,
+    // which is the conservative choice — an older entry should not beat a newer one.
+    const entries = (await idbGetAll(db, 'submitQueue'))
+      .slice()
+      .sort((a, b) => String(a && a.queuedAt || '').localeCompare(String(b && b.queuedAt || '')));
     for (const entry of entries) {
       try {
         await api('POST', 'submitChecklist', entry);
         await idbDelete(db, 'submitQueue', entry.id);
         renderSyncBanner();
       } catch (err) {
+        // DEAD BRANCH, kept for safety: the string `duplicate_submission` appears
+        // nowhere in backend/. A repeat of an already-accepted idempotency_key
+        // returns 201 with the same submission id and is evicted by the success
+        // path above, not here (measured at G6 review, 2026-07-27).
         if (err && err.error === 'duplicate_submission') {
           await idbDelete(db, 'submitQueue', entry.id);
           renderSyncBanner();

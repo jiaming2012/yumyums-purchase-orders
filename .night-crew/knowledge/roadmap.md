@@ -267,9 +267,83 @@
   imports it; `sync-rxdb-schema-and-replication` re-adds it on adoption.
   Footprint: `index.html`, `build-sw.js`.
 
-- **`workflow-offline-double-submit`** · **PLANNED** (new card, authored at morning triage
-  2026-07-26 from ledger T-23 decision 60; real, pre-existing, untouched by the status-vocabulary
-  card) · Offline submit → reopen → submit again writes **two** `checklist_submissions` rows:
+- **`workflow-offline-double-submit`** · **DONE** (2026-07-27, run `overnight-20260727`, serial
+  after Wave 0; card authored at morning triage 2026-07-26 from ledger T-23 decision 60;
+  **G6 REJECT on the first pass, repaired and re-verified — see "what G6 caught" below**) ·
+  Fixed **client-side**, as decision 60 required: `submitChecklistToAPI` looks the template up in
+  the durable IndexedDB `submitQueue` before building the payload and adopts that entry's
+  **`idempotency_key`** instead of minting a fresh one. Both presses then land on the server's
+  `ON CONFLICT (idempotency_key) DO UPDATE ... RETURNING id` upsert
+  (`backend/internal/workflow/repository.go:722`) — a guard that was always correct and simply
+  never reached, because the client handed it a UUID it had never seen. **Four tests captured RED
+  first, each in its own commit on a tree with zero production lines changed** (`387eedd`,
+  `cc03300`): DBL-02 is the original defect verbatim (`pendingApprovals` for the template: expected
+  1, **received 2**).
+  **The lookup reads IndexedDB, deliberately, not a module-level map** — a reload is an ordinary
+  way for a crew member to produce the second press, and the queue is the only durable record that
+  a submission is in flight. DBL-03 pins this by seeding an entry the page never enqueued.
+  **🛑 What G6 caught, and it was a real data-loss blocker (F1).** The first pass also reused
+  `payload.id`. That was **unauthorised scope** — decision 60 authorises reusing the KEY — and it
+  was the half doing damage. `submitQueue` is keyed on `id` (`sync.js:52`), so reusing it turns
+  `enqueueSubmission`'s `idbPut` from an append into a **REPLACE**. Offline, the queued payload is
+  the **only durable copy** of what the crew member entered: `submitOp` (`sync.js:676`) does not
+  queue and throws when offline, and `hydrateFieldState` (`workflows.html:1470-1476`) clears
+  `FIELD_RESPONSES` and rebuilds from `DRAFT_RESPONSES` on every reopen. So press 2 built an
+  **empty** payload and overwrote the answers — **one row, ZERO recorded responses, success toast**,
+  inside this card's own headline scenario. Measured, shipped vs repaired:
+  `server rows=1 payload=[0]` → `server rows=1 payload=[1]`. A food-safety checklist submitting
+  with no answers is worse than the duplicate row the card set out to fix. **`id` reuse reverted;
+  key-only reuse provably meets the goal on its own.** Two queue entries sharing one key is the
+  **correct** shape — the server upserts only the fields present in each payload, so entry 1's
+  answers survive and the empty entry 2 adds nothing. A merge that "tidies" this back to one entry
+  reintroduces the loss.
+  **The first pass's justification for the `id` half was factually FALSE and is corrected in both
+  places it was written** (`workflows.html` comment and this card). It claimed key-only reuse would
+  409 with `duplicate_submission` and be evicted at `sync.js:571-574`. Measured: the repeat POST
+  returns **201 with the same submission id** and is evicted on the **success** path
+  (`sync.js:569`). `duplicate_submission` appears **nowhere in `backend/`** — `sync.js:572` is dead
+  code, now commented as such. It also called "submits the stale response set first" a downside;
+  that is exactly the property that **saves** the data. The sign was inverted.
+  **`sync.js` edited (G6 F5), outside the card's planned footprint, disclosed in the merge intent.**
+  `drainQueue` now sorts by `queuedAt` before replaying. `idbGetAll` returns store-**key** order and
+  the key is a random UUID; harmless while one template could only have one queued entry, but the
+  key-reuse fix makes two entries upsert onto the same row, so replay order decides who wins a field
+  both set. Entries predating `queuedAt` sort first (conservative).
+  **Declared coverage limits.** DBL-04 (offline BEFORE the click) is the sole guard against the
+  `id` half returning — re-adding it reds DBL-04 alone, and DBL-01/02/03 stay green, which is why
+  the first pass shipped: **DBL-01/02 answer the field while ONLINE**, so a server-side draft
+  repopulates press 2 and the loss is structurally invisible to them. Deleting the fix entirely
+  reds all four. **UNCOVERED, declared not faked:** the `queuedAt` sort (it remedies a
+  *non-deterministic* order, and the case this card produces — press 2 empty — is order-immune),
+  and `findQueuedSubmission`'s IndexedDB-failure fallback (fail-safe by construction: returns null →
+  caller mints a fresh key → pre-card behaviour).
+  **KNOWINGLY ACCEPTED, recorded per decision 65 — not silent.** `findQueuedSubmission` matches on
+  `template_id` with **no time bound**, so a queue entry that survives a failed drain across a day
+  boundary is adopted by a later period's submit, upserting today's answers onto the older
+  submission. **Reproduced by G6** (seeded `queuedAt 2026-07-20`, adopted by today's submit).
+  **G6's ruling: defer to a follow-up card** bounding the lookup to the current period and ageing
+  out stale entries — a `queuedAt` window is scope decision 60 does not authorise. Mitigation is
+  real and G6 verified it: the row carries a "Pending sync" badge and the banner reads
+  "1 submission pending sync", so the UI already presents the entry as *this checklist's* pending
+  submission. Also accepted: the banner transiently reading "2 submissions pending sync" for one
+  checklist.
+  **Two behaviours were confirmed CORRECT and left alone,** per decision 60: the checklist staying
+  editable after an offline submit, and the `err.offline` branch (now `workflows.html:2819`)
+  returning to the list without pushing into `MY_SUBMISSIONS`. **`backend/internal/workflow` never
+  opened** — the server-side duplicate guard reopens decision 49 and was the card's park trigger.
+  **A finding this card first reported was REFUTED by G6, in the card's favour, and is withdrawn:**
+  the claim that a submit *after* a successful drain would write a second row. G6 executed it — the
+  submit button is **gone** after drain, because the live `SUBMIT_CHECKLIST` op drives
+  `loadMyChecklists()` (`sync.js:442-458`) and the checklist flips read-only. It was reasoned from
+  code, not run, and was wrong in the conservative direction.
+  **Full suite, not a subset** (the slate required it, and the repair touched `sync.js`):
+  **553 passed / 0 failed / 0 flaky / 6 skipped of 559 in 22.2m** — the 549/0/0/6-of-555 baseline plus
+  exactly this card's four new tests, no regression. Go: `go build`, `go vet`, and
+  `go test ./... -count=1 -p 1` all green (10 packages ok, `internal/workflow` among them).
+  **G3 (openspec validate) DOES NOT APPLY** — hq has no `openspec/` tree and
+  `night-crew workflow preflight` reports ABSENT.
+  Original card text:
+  Offline submit → reopen → submit again writes **two** `checklist_submissions` rows:
   `workflows.html:1656` mints a fresh `idempotency_key` per call and `:2778` handles `err.offline`
   by returning to the list without pushing into `MY_SUBMISSIONS`, so the checklist stays correctly
   editable and a second submit mints a second UUID past the `UNIQUE` guard. **Fix client-side —

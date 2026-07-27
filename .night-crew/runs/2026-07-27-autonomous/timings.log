@@ -20,6 +20,21 @@ ORCH A G6 end 2026-07-27T04:03:01Z — APPROVE-WITH-NOTES, 8 findings, F1 refute
 ORCH A G6-repair start 2026-07-27T04:03:01Z
 ORCH A G6-repair end 2026-07-27T04:12:39Z — 2 repairs, 12 passed (2.6m) on the 2 affected specs
 ORCH A merged 2026-07-27T04:12:39Z — clean merge, no conflicts
+B implement-start 2026-07-27T04:16:03Z
+B suite-full-start 2026-07-27T04:31:20Z
+B suite-full-start 2026-07-27T04:41:45Z (restart after foreground 10m cap killed leg 1)
+B suite-full-end 2026-07-27T05:09:33Z — 552 passed / 0 failed / 0 flaky / 6 skipped of 558, 27.4m (baseline 549/0/0/6 of 555 + this card's 3 new tests)
+B go-suite-start 2026-07-27T05:09:33Z
+B go-suite-end 2026-07-27T05:10:01Z — 10 packages ok, 0 failed (internal/workflow ok), go build + go vet green
+B implement-end 2026-07-27T05:10:49Z — LANDED, 4 commits, gates G1/G2/G4 green, G3 N/A
+B repair-start 2026-07-27T05:48:44Z — G6 REJECT, blocker F1 (id-reuse destroys offline answers)
+B repair-suite-start 2026-07-27T06:01:49Z
+B repair-suite-end 2026-07-27T06:24:51Z — 553 passed / 0 failed / 0 flaky / 6 skipped of 559, 22.2m (baseline 549/0/0/6 of 555 + 4 new tests)
+B repair-go-suite 2026-07-27T06:24:51Z — 10 packages ok, 0 failed
+B repair-end 2026-07-27T06:24:51Z — G6 blocker F1 closed, all 5 repairs applied
+
+# --- orchestrator-observed spans for card B (union'd at merge; append-order
+#     conflict, both sides kept per card A's merge-intent rule for this file) ---
 ORCH B implement start 2026-07-27T04:13:10Z
 ORCH B implement end 2026-07-27T05:11:59Z — LANDED, 5 commits, suite 552/0/0/6 of 558 in 27.4m
 ORCH B G6 start 2026-07-27T05:11:59Z
