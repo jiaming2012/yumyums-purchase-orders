@@ -41,3 +41,5 @@ ORCH B G6 start 2026-07-27T05:11:59Z
 ORCH B G6 end 2026-07-27T05:44:30Z — REJECT, 7 findings, F1 HIGH blocker: id-reuse destroys offline-entered responses
 ORCH B G6-repair start 2026-07-27T05:44:30Z
 ORCH B G6-repair end 2026-07-27T06:43:02Z — re-review APPROVE-WITH-NOTES, blocker closed, DBL-04 confirmed deterministic guard
+ORCH FINAL-TREE result 2026-07-27T07:10:49Z — 554 passed / 0 failed / 0 flaky / 6 skipped of 560, 21.8m, exit 0 (leg 1 died in 2m18s on an orchestrator DB-provisioning error: role postgres:5432 instead of yumyums:5433)
+ORCH run end 2026-07-27T07:10:49Z — 2 of 3 cards landed, 0 parked, card C deliberately not started
