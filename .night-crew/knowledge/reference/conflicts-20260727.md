@@ -58,3 +58,57 @@ verified **byte-identical** to the committed `sw.js` by the orchestrator after t
 **G6:** APPROVE-WITH-NOTES, 8 findings, one bounded repair round applied before merge (F1 claim
 narrowing, F2 vacuity closure). Findings F3, F6, F7 deliberately left for the operator; F4 binds
 Card C and has been carried into its dispatch prompt.
+
+---
+
+## Merge 2 — Card B `workflow-offline-double-submit` → `overnight-20260727`
+
+**Merge commit:** `d8f5d8e` · **Card branch:** `card/b-workflow-offline-double-submit` (8 commits,
+cut from `overnight-20260727` @ `2a78d89`, i.e. from a tree that already contained Card A) ·
+**Result: ONE CONFLICT, resolved by union.**
+
+**Cards involved:** Card B and the orchestrator. Card C was never cut, so the `workflows.html`
+overlap the slate serialized for never materialised — see the closeout for why C was not opened.
+
+### The conflict
+
+    CONFLICT (content): Merge conflict in .night-crew/runs/2026-07-27-autonomous/timings.log
+
+**Files and hunks:** one file, one hunk. `HEAD` carried six `ORCH B …` lines (orchestrator-observed
+wall-clock spans: implement, G6, G6-repair, re-review). The card branch carried twelve `B …` lines
+(implementer stamp-to-stamp spans inside its worktree, including a restart after a foreground 10 m
+cap killed suite leg 1). Both sides had appended to the same append-only file at the same offset.
+
+**Intents read.** Card A's merge-intent note is the governing one for this file — it states that
+`timings.log` conflicts "are append-order only and both sides should be kept." Card B's own
+merge-intent note contains nothing contradicting that. Both sides are *records*, not behaviour, so
+there is no question of which is correct: discarding either would falsify the run's own timing
+evidence, which is the input the next slate's estimates are built from.
+
+**Resolution taken: UNION, ordered.** The card's own implementer lines first, then the
+orchestrator-observed spans under a comment explaining the two line families. Verified after
+resolution: 12 `^B ` lines and 6 `^ORCH B ` lines present, zero conflict markers. **No timing record
+was discarded.**
+
+**Note this is the second appearance of the same collision** — merge 1 hit it as an
+untracked-file overwrite rather than a content conflict. The `ORCH ` prefix introduced after merge 1
+kept the two line families distinguishable but did not stop them landing on the same offset. The
+durable fix is for the orchestrator to write to its own file; recorded for morning triage.
+
+**Gate result after the merge:** full Playwright suite re-run on the FINAL merged tree — see the
+closeout for numbers. A re-run was required rather than inherited because the post-merge F-N6 anchor
+fix (`123a8f4`) edits comments in `workflows.html`, and Workbox's precache manifest carries a
+per-entry content revision hash, so `sw.js` changed and the tested artifact was no longer the
+committed one.
+
+**G6:** first pass **REJECTED** (F1, HIGH — reusing `id` alongside the key turned the queue write
+from append to replace and silently destroyed crew-entered offline answers: measured 1 row with
+**zero** recorded responses). Repaired to key-only reuse — the half ledger decision 60 actually
+authorized — plus a regression guard (DBL-04, offline *before* the click), a `queuedAt` sort in
+`sync.js`, and correction of a false 409/`duplicate_submission` justification that had reached the
+durable record. Re-reviewed by a fresh reviewer: **APPROVE-WITH-NOTES**, blocker confirmed closed by
+independent measurement (1 row, answer present), DBL-04 confirmed a deterministic sole guard.
+
+**Footprint deviation, disclosed and accepted:** the repair edits `sync.js`, outside Card B's stated
+footprint. Permitted — footprints are planning information, not fences (§15ad.65) — and disclosed in
+the card's merge-intent note with a collision note for whichever card next touches `sync.js`.
