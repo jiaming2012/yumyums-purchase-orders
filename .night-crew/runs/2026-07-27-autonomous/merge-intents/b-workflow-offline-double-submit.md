@@ -99,16 +99,16 @@ stay inside `workflows.html`, and it held.
    in place rather than deleted, because the wrong version is the trap.
    - **What it claimed:** reusing `id` makes `idbPut` replace the queued entry with the newer
      responses; key-only reuse would 409 with `duplicate_submission` and `drainQueue` would evict it
-     (`sync.js:571-574`), leaving "2 submissions pending sync" and submitting the *older* response
+     (`sync.js:591-594`), leaving "2 submissions pending sync" and submitting the *older* response
      set first.
    - **What is true, measured at G6 review:** the repeat POST returns **201 with the same
-     submission id**, and is evicted on the **success** path (`sync.js:569`). There is no 409 and no
-     `duplicate_submission` — that string appears **nowhere in `backend/`**; `sync.js:572` is dead
+     submission id**, and is evicted on the **success** path (`sync.js:583`). There is no 409 and no
+     `duplicate_submission` — that string appears **nowhere in `backend/`**; `sync.js:591` is dead
      code (now commented as such). And "submits the older response set first" is not a downside —
      it is **the property that saves the data**. The sign was inverted.
    - **Why `id` reuse is actively harmful:** it turns `idbPut` from an append into a **REPLACE**.
      Offline, the queued payload is the **only durable copy** of what the crew member entered —
-     `submitOp` (`sync.js:676`) does not queue and throws when offline, and `hydrateFieldState`
+     `submitOp` (`sync.js:695`) does not queue and throws when offline, and `hydrateFieldState`
      (`workflows.html:1470-1476`) clears `FIELD_RESPONSES` and rebuilds from `DRAFT_RESPONSES` on
      every reopen. So press 2 builds an **empty** payload and overwrites the answers. Measured:
      with `id` reuse `server rows=1 payload=[0]` (answer gone); without it `server rows=1

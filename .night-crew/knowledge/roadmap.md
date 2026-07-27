@@ -286,7 +286,7 @@
   `payload.id`. That was **unauthorised scope** — decision 60 authorises reusing the KEY — and it
   was the half doing damage. `submitQueue` is keyed on `id` (`sync.js:52`), so reusing it turns
   `enqueueSubmission`'s `idbPut` from an append into a **REPLACE**. Offline, the queued payload is
-  the **only durable copy** of what the crew member entered: `submitOp` (`sync.js:676`) does not
+  the **only durable copy** of what the crew member entered: `submitOp` (`sync.js:695`) does not
   queue and throws when offline, and `hydrateFieldState` (`workflows.html:1470-1476`) clears
   `FIELD_RESPONSES` and rebuilds from `DRAFT_RESPONSES` on every reopen. So press 2 built an
   **empty** payload and overwrote the answers — **one row, ZERO recorded responses, success toast**,
@@ -299,9 +299,9 @@
   reintroduces the loss.
   **The first pass's justification for the `id` half was factually FALSE and is corrected in both
   places it was written** (`workflows.html` comment and this card). It claimed key-only reuse would
-  409 with `duplicate_submission` and be evicted at `sync.js:571-574`. Measured: the repeat POST
+  409 with `duplicate_submission` and be evicted at `sync.js:591-594`. Measured: the repeat POST
   returns **201 with the same submission id** and is evicted on the **success** path
-  (`sync.js:569`). `duplicate_submission` appears **nowhere in `backend/`** — `sync.js:572` is dead
+  (`sync.js:583`). `duplicate_submission` appears **nowhere in `backend/`** — `sync.js:591` is dead
   code, now commented as such. It also called "submits the stale response set first" a downside;
   that is exactly the property that **saves** the data. The sign was inverted.
   **`sync.js` edited (G6 F5), outside the card's planned footprint, disclosed in the merge intent.**
@@ -328,7 +328,7 @@
   submission. Also accepted: the banner transiently reading "2 submissions pending sync" for one
   checklist.
   **Two behaviours were confirmed CORRECT and left alone,** per decision 60: the checklist staying
-  editable after an offline submit, and the `err.offline` branch (now `workflows.html:2819`)
+  editable after an offline submit, and the `err.offline` branch (now `workflows.html:2829`)
   returning to the list without pushing into `MY_SUBMISSIONS`. **`backend/internal/workflow` never
   opened** — the server-side duplicate guard reopens decision 49 and was the card's park trigger.
   **A finding this card first reported was REFUTED by G6, in the card's favour, and is withdrawn:**

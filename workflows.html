@@ -1683,13 +1683,13 @@ async function submitChecklistToAPI(tplId, allFlds, isReapproval) {
   // SECOND checklist_submissions row for one checklist. Reusing the key makes both
   // presses land on the same row. Measured: both POSTs return 201 with the SAME
   // submission id, and each is evicted from the queue on the SUCCESS path
-  // (sync.js:569).
+  // (sync.js:583).
   //
   // 🛑 `id` is deliberately NOT reused, and this is load-bearing, not an omission.
   // submitQueue is keyed on `id` (sync.js:52), so reusing it would turn
   // enqueueSubmission's idbPut from an append into a REPLACE. Offline, the queued
   // payload is the ONLY durable copy of what the crew member entered — submitOp
-  // (sync.js:676) does not queue and throws when offline, and hydrateFieldState
+  // (sync.js:695) does not queue and throws when offline, and hydrateFieldState
   // clears FIELD_RESPONSES and rebuilds from DRAFT_RESPONSES on every reopen. So
   // press 2 builds an EMPTY payload, and replacing would silently destroy the
   // answers: one row, zero responses, success toast. Two queue entries sharing one
