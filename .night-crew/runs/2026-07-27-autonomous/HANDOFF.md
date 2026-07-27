@@ -28,6 +28,10 @@ go/no-go itself.
 
 23 commits on the run branch. Every commit carries a `Night-Crew-Card:` trailer.
 
+> **Corrected at morning triage 2026-07-27 (T-25 decision 76).** True when written; the branch
+> merged with **27** commits and **3 lack the trailer** — `c7e0da5` (this HANDOFF's own commit),
+> `86d236c`, `689ff3b`. The closeout commits that followed the sentence were never counted by it.
+
 ---
 
 ## Card A — the cross-tenant disclosure is closed, and the claim about it is honest
@@ -173,7 +177,13 @@ asserted. B-105 remains open (**D-8**).
 | **`tests/sync.spec.js:1198`** (proven ~16–20 % flake) | ✅ Did not red on any leg, all night — 4 full-suite runs at `--retries=0`. Zero retries consumed. **Still armed**; this is 4 clean samples, not a fix. |
 | **`tests/purchasing.spec.js:1407`** (FR-13) | ✅ Passed on every full-suite leg. |
 | **`tests/sync.spec.js:1584` stale comment** (ledger decision 66) | 🔴 **STILL OPEN.** Card B did not touch that file. Folds into the next card that does — Card C. |
-| **`api-cache` cross-tenant disclosure** | 🟡 **Logout half CLOSED** (Card A). Two siblings remain unowned — **D-2**. Structural half still belongs to Card C. |
+| **`api-cache` cross-tenant disclosure** | 🟡 **Logout half CLOSED** (Card A). Two siblings **now owned by Card C** (T-25 decision 70). Structural half still belongs to Card C. |
+| **`tests/sync.spec.js:446` [LST-17]** (load-sensitive, ledger decision 44) | 🔴 **RE-ARMED — this table had DROPPED it.** Red at `--retries=0` on the triage adversarial leg under load 3.92; **10/10 green in isolation**. Pre-existing flake, not a regression — but it lives in the file whose queue semantics Card B changed, and it went uncarried into that night. Re-arms on every full-suite leg. |
+
+> **Updated at morning triage 2026-07-27.** Flags cleared by the morning's evidence: none — the
+> two-device convergence check still needs two physical devices and could not be attempted, and
+> `sync.spec.js:1198` stays armed on 4 clean samples (samples are not a fix). One flag was **added
+> back**: LST-17, per T-25 decision 77.
 
 ---
 

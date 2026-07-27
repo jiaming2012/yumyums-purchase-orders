@@ -641,3 +641,13 @@ post-merge edit to an HTML/JS file, however cosmetic.**
 attempt died in 2 m 18 s: it created the test database as role `postgres` on port 5432, but the stack
 uses role `yumyums` on **5433** (`Taskfile.yml` `test:`). Cost ~5 m. The Taskfile is the source of
 truth for test-stack provisioning; read it rather than assuming defaults.
+
+**Attended-triage verification cost, added at morning triage 2026-07-27.** The adversarial
+reproduction subagent — its own worktree, its own DB, its own port, gates re-executed rather than
+inherited, then mutation probes against the closeout's claims — ran **~70 m wall clock** (of which
+the full Playwright leg was 22.7 m) for **~231 k tokens and 129 tool calls**, entirely unattended.
+It returned **8 findings the run did not report and 6 refuted claims**, including a HIGH the run had
+correctly escalated but under-argued. **Price morning triage at ~70 m of unattended verification
+plus ~20–25 m of operator attention**, and note the shape of the yield: *zero* defects in the tree,
+*six* in the durable record. The gates were honest; the prose about them was not. A triage that only
+re-runs gates would have found none of it.

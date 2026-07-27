@@ -1,5 +1,22 @@
 # DECISIONS-NEEDED — run `overnight-20260727`
 
+> **RESOLVED 2026-07-27 — recorded as `.night-crew/knowledge/ledger.md` §T-25 (decisions 67–77).**
+> All nine forks walked at morning triage. Operator calls: **D-1** (switch to `git ls-tree HEAD`,
+> amending decision 58), **D-6** (no-go endorsed; origin shape declared same-origin proxied by the
+> Go backend), **D-2** (both disclosures owned by Card C). PjM/engineering calls taken at triage:
+> **D-4+D-5** (one follow-up card), **D-7** (separate orchestrator timings file), **D-9** (add the
+> existing `bdd:gen` dep to `task test:`, plus fail-loud on an empty project), **D-3** (recorded as
+> a bound, no action), **D-8** (still open — see below). Kept as the analysis record; the rulings
+> and their reasoning live in T-25, and several fork texts below are **superseded in detail** by
+> what execution showed at triage — notably D-9, whose remedy is narrower than its own menu.
+>
+> **Two fork texts were materially wrong and are corrected in T-25, not here:** D-1 understated its
+> own trigger path (`task prod:deploy` does not run `task sw`, so the *committed* `sw.js` ships),
+> and D-9's remedy list omits that `task bdd:gen` already exists and that `task bdd` / `task
+> test:all` already depend on it.
+
+---
+
 Nothing here blocked a card. **No card parked.** Every item below is either an operator-only
 question the run correctly refused to answer, or a finding a reviewer generated that outruns the
 card it was found in.

@@ -72,14 +72,23 @@ stays clean)_
   precache manifest carries a content **revision hash** per entry, so editing `workflows.html` at
   all changes its hash. `node build-sw.js` (gate G1) produced a **one-line** diff — the
   `workflows.html` revision hash — and CLAUDE.md requires `task sw` after any HTML/JS change, so it
-  is committed with the fix. Precache totals are unchanged from Card A's: **22 files / 1457.7 KB**.
+  is committed with the fix. Precache: **22 files / 1457.7 KB** at `c8f9733`. *(Corrected at
+  morning triage 2026-07-27, T-25 decision 76: this read "unchanged from Card A's: 22 files /
+  1457.7 KB", but Card A's figure is **1455.6** — 1457.7 is this card's own mid-branch value, so
+  the file count was unchanged and the size was not.)*
   Pure build output; take either side of a conflict and re-run `task sw`. `version.json` is
   git-ignored and did not appear.
 
-Otherwise the footprint held exactly as planned: `workflows.html`, `tests/workflows.spec.js`, the
-roadmap flip, this note, and the timings log. **`sync.js` was NOT edited** — the check that
-`window.getDB` / `window.idbGetAll` are already exported (`sync.js:100-104`) is what let the card
-stay inside `workflows.html`, and it held.
+Otherwise the footprint held as planned: `workflows.html`, `tests/workflows.spec.js`, the roadmap
+flip, this note, and the timings log — **plus `sync.js` and `sw.js`, both disclosed above.**
+
+> **CORRECTED at morning triage 2026-07-27 (T-25 decision 76).** This paragraph previously ended
+> "**`sync.js` was NOT edited** — the check that `window.getDB` / `window.idbGetAll` are already
+> exported (`sync.js:100-104`) is what let the card stay inside `workflows.html`, and it held."
+> **That was true of the pre-repair card and false of what merged.** `git diff --stat d8f5d8e^1
+> d8f5d8e` shows `sync.js | 21 ++-`. The sentence was left standing when the G6 repair added the
+> `sync.js` edit to *Late additions* directly above it, so this note asserted the opposite of its
+> own disclosure — in the section a merger reads last.
 
 ## What must survive any merge
 
@@ -180,9 +189,17 @@ names.
 - **No change to the `err.offline` branch** (`workflows.html:2781`). Leaving the checklist editable
   after an offline submit is correct, and not pushing into `MY_SUBMISSIONS` is correct. Neither is
   the defect. The defect is only the fresh key.
-- **No change to `sync.js`** — not the store schema, not `enqueueSubmission`, not `drainQueue`, not
-  the `duplicate_submission` / 409 eviction arms. The card consumes the queue; it does not
-  restructure it.
+- ~~**No change to `sync.js`** — not the store schema, not `enqueueSubmission`, not `drainQueue`,
+  not the `duplicate_submission` / 409 eviction arms. The card consumes the queue; it does not
+  restructure it.~~
+  > **STRUCK at morning triage 2026-07-27 (T-25 decision 76) — this was the DANGEROUS one.**
+  > The G6 repair changed **`drainQueue`** (sorts by `queuedAt`) and commented the
+  > **`duplicate_submission`** arm dead — precisely the two things this bullet enumerated as
+  > untouched. It is struck rather than deleted because the failure is the record: a merger
+  > resolving a `sync.js` conflict against "Not done, deliberately" would have **dropped the
+  > `queuedAt` sort**, which this note's own *Late additions* says to keep ("if it collides, keep
+  > the sort — without it the key-reuse fix has a non-deterministic replay order"). The store
+  > schema and `enqueueSubmission` genuinely were untouched.
 - **No de-duplication of the queue at drain time.** A drain-side "collapse entries by
   `template_id`" would paper over the mint rather than fix it, and would silently discard a
   submission in any future case where two queue entries for one template are legitimate.

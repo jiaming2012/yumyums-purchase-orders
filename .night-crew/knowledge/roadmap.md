@@ -242,8 +242,16 @@
   (b) "Fail closed" means **closed on failure, never closed on a wrong identity**: `identityVerified`
   is set by any 200 and the client cannot tell whose 200 it is — G6 demonstrated a stale 200 still
   renders `Hi, Ghost Of User A` on both trees. The disclosure decision 57 actually names is closed
-  by the eviction and the cache-buster, which are the halves that carry tests. Precache went **23 files / 1949.7 KB → 22 / 1454.7 KB
-  (−495.0 KB)**. Decision 58 landed as a `manifestTransforms` filter against `git ls-files`, with
+  by the eviction and the cache-buster, which are the halves that carry tests. Precache went
+  **23 files / 1947.1 KB (`dev`) → 22 / 1455.6 KB (at the merge `c14865b`)**; the final merged tree
+  is 22 / 1459.8 KB after Card B's regeneration.
+  > **Corrected at morning triage 2026-07-27 (T-25 decision 76).** This card previously read
+  > "23 files / 1949.7 KB → 22 / 1454.7 KB (−495.0 KB)". **1949.7 KB is unattainable at any
+  > commit** — it is 1454.7 + the 495 KiB vendored bundle, i.e. back-computed, which is the
+  > synthetic "before" figure G6 caught during the run. The HANDOFF carries the corrected pair;
+  > this card was missed and kept the fake number. Manifest-derived actuals: `dev` 1947.1,
+  > `77339ea` 1454.7, `c14865b` 1455.6, `c8f9733` 1457.7, final tree 1459.8.
+  Decision 58 landed as a `manifestTransforms` filter against `git ls-files`, with
   dropped entries **logged, not swallowed**, and `version.json` allowlisted — it is git-ignored but
   `backend/Dockerfile:33-44` regenerates it into the image *precisely because* `sw.js` precaches it,
   a trap a naive tracked-set filter walks straight into. **The `runtimeCaching` block was NOT
@@ -351,6 +359,48 @@
   reopens decision 49 and trips the status card's park trigger for no added benefit. Footprint:
   `workflows.html`.
 
+- **`precache-manifest-from-head`** · **PLANNED — HIGH, small** (new card, morning triage
+  2026-07-27, ledger T-25 decision 67) · **`build-sw.js` globs `git ls-files`, which reads the git
+  INDEX.** A staged-but-uncommitted file enters the precache manifest, and a precached URL that
+  404s fails the **entire** service-worker install for every returning client. Reproduced end-to-end
+  at triage: `git add zz-adv27-staged.html && node build-sw.js` → `23 files precached`, the file
+  present in `sw.js`; `git ls-tree -r --name-only HEAD` excludes it. **The trigger path is
+  complete:** `task prod:deploy` (`Taskfile.yml:174-210`) does **not** run `task sw` on the box — it
+  `git reset --hard origin/main` then `docker compose build` — so the *committed* `sw.js` ships.
+  **This AMENDS decision 58's literal text** ("the tracked set (`git ls-files`)"), serving that
+  decision's intent against its own letter; the run correctly refused to make the change itself.
+  **Red-first test is the point of the card:** stage a file, assert it is absent from the manifest.
+  Note `tests/sw-manifest.spec.js` test 1 currently uses the same `git ls-files`, so it must move to
+  `ls-tree` too or it will keep agreeing with the bug. **Do NOT drop the `GENERATED_BUT_SHIPPED`
+  allowlist** — `version.json` is git-ignored but `backend/Dockerfile:33-44` regenerates it into the
+  image precisely because `sw.js` precaches it. Footprint: `build-sw.js`, `tests/sw-manifest.spec.js`,
+  regenerated `sw.js`.
+
+- **`workflow-queue-period-and-failnote-upsert`** · **PLANNED — small/medium** (new card, morning
+  triage 2026-07-27, ledger T-25 decision 71; folds D-4 and D-5) · **Both defects are consequences
+  of the key reuse decision 60 authorized**, and both need `backend/internal/workflow` — Card B's
+  explicit park trigger — so they are one card, not two.
+  (1) **`submission_fail_notes` duplicates.** Measured at triage, not reasoned: the same payload
+  POSTed twice with one `idempotency_key` → `201`/`201` with an **identical submission id**, and
+  `submission_rows=1 response_rows=1 fail_note_rows=2`. The table has no unique constraint
+  (migration `0013`) and its insert is bare (`repository.go:760-767`) while the responses insert
+  directly above it carries `ON CONFLICT (submission_id, field_id) DO UPDATE`. An approver sees the
+  same note twice. Fix: matching `ON CONFLICT` + unique index.
+  (2) **Cross-period stale queue entry.** `findQueuedSubmission` filters on `template_id` only,
+  queue entries carry no period, and nothing ages them out — so a persistently-failing server lets a
+  stale key adopt a **later day's** submit, upserting today's answers onto the older row. Bounded
+  (any successful drain clears it) and visible (banner + "Pending sync" badge), which is why G6
+  deferred rather than parked. Fix: bound the lookup to the current period, age out stale
+  `submitQueue` entries.
+  **🛑 This card also repairs a durable falsehood by making it TRUE.** `workflows.html:1694`,
+  Card B's merge-intent note and the `workflow-offline-double-submit` card all assert *"the server
+  upserts only the fields present in each payload."* That holds for `submission_responses` and is
+  **false for `submission_fail_notes`** — Card B's design made D-4's trigger the normal path inside
+  the same comment that says it cannot happen. The comment was deliberately **not** edited at triage
+  (touching `workflows.html` moves `sw.js` via Workbox's per-entry revision hash and would oblige a
+  full suite re-run for a comment); this card makes the sentence accurate instead. Footprint:
+  `backend/internal/workflow`, a migration, `workflows.html`, `sync.js`.
+
 - **`sync-rxdb-schema-and-replication`** · **PLANNED** (depends on `sync-spike-stack-and-jwt-bridge`'s
   go-decision reaching `ledger.md` — **cleared**; and now on **`sync-rxdb-browser-delivery-spike`'s
   verdict**, which sizes the storage/service-worker half; sized by `sync-spike-rxdb-replication`
@@ -401,7 +451,33 @@
   `inventory-trends`, `inventory-cost`). Closed by the standing per-tab-granularity convention.
   (5) **Vendored bundle — decision 59.** Re-add the `globPatterns` precache entry here, when a page
   actually imports the bundle. It was excluded meanwhile.
-  Footprint: `workflows.html`, new RxDB client layer.
+  **🛑 TRAP, verified at source — re-adding the glob ALONE BREAKS PRODUCTION.** `backend/Dockerfile`
+  COPY lines are `21`, `25`, `26` (`icons`), `27` (`lib`), `30` (`backend`) — **`vendor/` is never
+  copied into the image.** Morning triage 2026-07-27 simulated the image staging independently: all
+  22 current precache URLs present, **`vendor/rxdb.bundle.js` absent**. A precached URL that 404s
+  fails the **entire** service-worker install for every returning client — the exact bug
+  `pwa-cache-and-build-hygiene` just fixed. **This card must add `vendor/` to the Dockerfile in the
+  same change set, or not re-add the glob.** *This also means decision 59 was under-argued:* it was
+  justified on bandwidth (−495 KiB) when the real justification was that the base tree was shipping
+  a broken SW install.
+  **Added at morning triage 2026-07-27 (ledger T-25):**
+  (6) **Origin shape is DECIDED — decision 69: SAME-ORIGIN, proxied by the Go backend.** Obligation
+  2 is answered; it is a spec line now, not a park trigger. A `/sync/*` `httputil.ReverseProxy`
+  handler in the existing backend fronts `rest:3000` and `realtime:4000`. Cloudflare Tunnel config
+  unchanged, no second hostname, no CORS, no second origin for the SW to reason about. **Costed:
+  one handler plus its tests.** Chosen partly because obligation 1 is a row-visibility predicate the
+  backend must be positioned to enforce.
+  (7) **Two more `api-cache`-shaped disclosures are OWNED HERE — decision 70.**
+  (a) `localStorage['hq_apps']` is never cleared on logout, and `index.html:224` still parses the
+  previous user's cached slug list in the fail-closed branch — offline on a shared truck phone,
+  user B sees user A's tiles. (b) An identity change *without* a logout (B logs in while A's session
+  is live) never runs `logout()`, and `login.html` does no cache hygiene of its own. Both UI-only;
+  server-side grants remain the real gate. They ride here because this card is expected to retire
+  `api-cache` entirely. **Accepted cost: if this card slips, they slip with it.**
+  (8) **Fold in the stale comment at `tests/sync.spec.js:1584`** (decision 66) — it has been waiting
+  for "the next card touching that file" since 2026-07-26 and Card B did not touch it.
+  Footprint: `workflows.html`, new RxDB client layer, `backend/` (the `/sync/*` proxy handler),
+  `backend/Dockerfile` (if obligation 5 is taken).
 
 - **`sync-rxdb-conflict-notice-ui`** · **PLANNED — ATTENDED-BLOCKED** (new card, fanned out of
   `sync-rxdb-schema-and-replication` 2026-07-26 at slating; depends on that card's

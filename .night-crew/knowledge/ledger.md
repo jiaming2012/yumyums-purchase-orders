@@ -1360,3 +1360,163 @@ written and `/nc-pm-session` was not run — the ceremony is heavier than the si
 the backlog's normal destiny is the milestone-boundary planning round (DESIGN §15k), not an
 evening ruling. One item was pulled forward because it blocked a card; the others were left where
 they belong.
+
+---
+
+## T-25 — Morning-triage resolutions (2026-07-27, overnight-20260727)
+
+Nine forks (D-1 … D-9) walked, plus eight findings the run did not report, produced by an
+adversarial subagent that re-executed the gates in its own worktree and probed the closeout's
+claims by mutation rather than reading. **Three operator-level calls** (D-1, D-6 go/no-go, D-6
+origin shape) and **one operator routing call** (D-2). The rest were engineering and PjM calls
+decided at triage under the standing rule *decide mechanism yourself, bring product and intent* —
+including D-4/D-5, which was wrongly escalated and returned with "PjM decides."
+
+**The night's headline is that the record, not the tree, was what needed repair.** Build, vet and
+Go tests are green on the merged tree; the single Playwright red is a known load-sensitive flake.
+But six durable claims were refuted by execution, one of them the very precache figure the night's
+own review caught and corrected everywhere except where it is most read.
+
+**Decision 67 — D-1: `build-sw.js` globs `git ls-tree -r --name-only HEAD`, not `git ls-files`.
+This AMENDS decision 58's literal text.** Decision 58 said "the tracked set (`git ls-files`)" and
+that is exactly what shipped, faithfully. But `git ls-files` reads the **index**, so a
+staged-but-uncommitted file enters the precache manifest. Reproduced end-to-end at triage:
+`git add zz-adv27-staged.html && node build-sw.js` → `23 files precached`, the file present in
+`sw.js`, and `git ls-tree -r --name-only HEAD` excludes it. **The trigger path is complete, which
+the fork did not establish:** `task prod:deploy` (`Taskfile.yml:174-210`) does **not** run `task sw`
+on the box — it `git reset --hard origin/main` then `docker compose build` — so the *committed*
+`sw.js` is what ships, and a URL that 404s fails the **entire** service-worker install for every
+returning client. That is precisely the failure decision 58 exists to prevent, so the amendment
+serves the decision's intent against its own letter. No test catches it either: `tests/sw-manifest.spec.js`
+test 1 uses the same `git ls-files`. Chosen over (b) keeping `ls-files` behind a fail-loud preflight
+— rejected because it fails the build on a harmless scratch file and creates a second mechanism to
+keep true instead of fixing the first — and over (c) documenting the hazard, which leaves it live
+and undetected. **The fix is a card, not a triage edit** (triage lands `docs:` commits only): it
+carries the one-line change plus a regression test that stages a file and asserts its absence from
+the manifest. **Aside, pre-existing:** CLAUDE.md claims `task prod:deploy` runs `task sw`; the
+Taskfile does not. Stale doc, recorded as B-13.
+
+**Decision 68 — D-6: the Card C no-go is ENDORSED.** `sync-rxdb-schema-and-replication` was not
+opened at 02:40 under the slate's own budget-discipline clause. The evidence supports the call
+rather than merely excusing it: Card A ran ~1 h 45 m against a 30–50 m estimate and Card B ~2 h 50 m
+against 45–90 m — both **~2–2.5× once review and repair were counted** — while C is priced
+120–240 m *before* review, is first-of-kind, and carries five binding obligations and three park
+triggers. Starting it would have produced an unmerged worktree and a half-designed conflict handler,
+which is strictly worse than not starting; C is last in the slate by design precisely to keep this
+call available. Chosen over overturning (the stop-cleanly clause was read correctly, not
+conservatively) and over splitting C now — the `conflictHandler` is the card's real work per
+decision 50 and is the piece that resists splitting.
+
+**Decision 69 — D-6/obligation 2: the origin shape is SAME-ORIGIN, proxied by the Go backend.**
+Card C's first spec line. A `/sync/*` `httputil.ReverseProxy` handler in the existing backend fronts
+`rest:3000` and `realtime:4000`. Costed: one handler plus its tests; Cloudflare Tunnel config
+unchanged; no second hostname. Chosen over routing at the tunnel — which would split routing across
+two places and, decisively, put replication traffic where the backend cannot see or authorize it,
+while **obligation 1 is a row-visibility predicate the backend must enforce** — and over
+cross-origin `sync.yumyums.kitchen`, which buys independent scaling at the price of a CORS policy
+that becomes a security surface, a second origin for the service worker and cache logic to reason
+about, and cross-origin credential handling for the JWT bridge. Adding a second origin immediately
+after Card A closed a cross-tenant cache disclosure is the wrong direction. **This disarms C's
+likeliest park trigger before dispatch**, which is why it was settled attended rather than left to
+fire at 01:00.
+
+**Decision 70 — D-2: both remaining `api-cache`-shaped disclosures are owned by Card C.** (1)
+`localStorage['hq_apps']` is never cleared on logout — confirmed by reading, `index.html:224` still
+parses the previous user's cached slug list in the fail-closed branch, so offline on a shared truck
+phone user B sees user A's tiles. (2) An identity change *without* a logout: B logs in while A's
+session is live, `logout()` never runs, and `login.html` performs no cache hygiene of its own. Both
+are UI-only — server-side grants remain the real gate. Routed to C because C already owns
+obligation 4 (decision 57's deferred cache-key half) and is expected to retire `api-cache` entirely,
+so one card owns one problem. Chosen over a small dedicated card — which would close the leak sooner
+and was a genuine contender — and over folding into grant enforcement, which reasons about
+server-side data boundaries while this is client cache hygiene. **Accepted cost: if C slips again,
+these slip with it.**
+
+**Decision 71 — D-4 + D-5: ONE follow-up card, not two, not a backlog entry. (PjM call, taken at
+triage.)** Both are consequences of the key reuse decision 60 authorized, and both need
+`backend/internal/workflow` — Card B's explicit park trigger — so splitting them means opening that
+package twice. D-4 measured at triage, not reasoned: same payload POSTed twice with one
+`idempotency_key` → `201`/`201` with an identical submission id, `submission_rows=1 response_rows=1
+fail_note_rows=2`; `submission_fail_notes` has no unique constraint and a bare INSERT
+(`repository.go:760-767`) while the responses insert directly above it carries
+`ON CONFLICT (submission_id, field_id) DO UPDATE`. D-5 confirmed by reading:
+`findQueuedSubmission` filters on `template_id` only, queue entries carry no period, and nothing
+ages them out. The card: add the `ON CONFLICT` plus a unique index, bound `findQueuedSubmission` to
+the current period, age out stale `submitQueue` entries. **It also repairs decision 77's third
+falsehood by making the claim true rather than by editing a comment** — see below.
+
+**Decision 72 — D-7: the orchestrator writes `runs/<date>/timings-orchestrator.log`; the closeout
+concatenates.** Both merges collided on `timings.log` — merge 1 as an untracked-file overwrite,
+merge 2 as a content conflict — and the `ORCH ` prefix added after merge 1 kept the two line
+families distinguishable without stopping them landing on the same offset in an append-only file.
+Both were resolved by union with nothing discarded, and I re-verified the result (11 `A`, 8
+`ORCH A`, 12 `B`, 6 `ORCH B`, zero markers). Separate files remove a *guaranteed* conflict from
+every future run for near-zero cost. Chosen over keeping the prefix convention, which has now failed
+twice.
+
+**Decision 73 — D-9: add the `bdd:gen` dep to `task test:`. The fork's own remedy menu was wider
+than the problem.** D-9 reproduces exactly — a fresh worktree lists `Total: 559 tests in 19 files`,
+the main repo `560 in 20` — so every card worktree really did run 19 of 20 spec files while
+reporting a full suite in good faith. But running `npx bddgen` in the worktree regenerated
+`.features-gen/features/user-invite-onboarding.feature.spec.js` **byte-identical** to the main
+repo's copy and the count went to 560/20, and **`task bdd:gen` already exists** with `task bdd` and
+`task test:all` already depending on it. The root cause is narrower than "add a generation step":
+`task test:` (`Taskfile.yml:28-30`) is the one target that does not. One line. Chosen over tracking
+`.features-gen/` (commits a generated artifact that will drift) and over doing nothing. **Option 3
+from the fork — fail loudly on an empty project — is also adopted** as a cheap independent guard,
+because the failure mode that hid this was silence: a project contributing zero tests produced no
+error, no skip line, and nothing in the reporter output.
+
+**Decision 74 — D-3: recorded as a bound on what shipped, no action.** `identityVerified` is set by
+**any** 200 and the client cannot tell whose 200 it is, so "fail closed" means closed-on-*failure*,
+never closed-on-wrong-*identity*. Independently confirmed at triage: deleting the
+`removeUserHeader()` call leaves all nine `index.spec.js` tests passing, and a call-site census
+(one `renderUserHeader` site in the `res.ok` arm, one `checkAuth()` at parse time, no
+`pageshow`/`visibilitychange`) shows it can never fire on today's single render path. **The narrowed
+wording Card A's repair put into `index.html` and merge-intent A is accurate and does not
+overstate** — the repair narrowed the claim rather than defending it, which is the correct response
+to a refuted claim. Flagged only so nobody reads the roadmap card as "cross-tenant identity is
+solved." It is bounded, not solved.
+
+**Decision 75 — the morning-triage G4 discipline greps are VACUOUS in this repo and must not be
+reported as clean.** The ritual's greps target `internal/journal` and `internal/workorder`; hq's Go
+tree is `backend/{cmd,internal}` and **neither package exists**. The greps return empty because
+there is nothing to find, not because discipline held. Any run or triage reporting them "clean" is
+reporting a vacuum — the same silent-green failure class as D-9, one layer up in the tooling. This
+binds the night-crew clone, not hq, and is carried there as a backlog item rather than fixed here.
+
+**Decision 76 — the durable record is corrected at triage; the one correction that needs code is
+deferred to decision 71's card.** Six claims were refuted by execution. Four are documentation and
+are fixed in this commit: merge-intent B's "`sync.js` was NOT edited" and "No change to `sync.js` …
+not `drainQueue`" (the diff shows `sync.js +20/−1` changing exactly those); its mislabelled
+"unchanged from Card A's: 1457.7 KB" (Card A's figure is 1455.6; 1457.7 is a mid-branch commit);
+the roadmap card's **synthetic** precache figure `23 files / 1949.7 KB` (unattainable at any commit
+— it is 1454.7 + the 495 KiB bundle, back-computed; the real `dev` value is 1947.1, and this is the
+very figure G6 caught, corrected in the HANDOFF and left standing in the roadmap); and the HANDOFF's
+"23 commits, every commit carries a `Night-Crew-Card:` trailer" (27 commits, 3 without — true when
+written, never updated by the four commits that followed it). **The fifth is code and is NOT edited
+here:** `workflows.html:1694`, merge-intent B and the roadmap card all assert "the server upserts
+only the fields present in each payload," which is true for `submission_responses` and false for
+`submission_fail_notes`. Editing that comment would move `sw.js` (Workbox carries a per-entry
+content revision hash) and oblige a full suite re-run for a comment — the run learned this exact
+lesson at its own post-merge anchor fix. Decision 71's card makes the sentence true instead.
+**The sixth** — "without `-p 1` that package reds" — understates: `internal/sync` reds too
+(deadlock 40P01 plus a recipient-set mismatch), confirmed by running it both ways.
+
+**Decision 77 — LST-17 is restored to the standing-flags table; it was dropped, not fixed.** The
+adversarial full-suite leg red on `tests/sync.spec.js:446 [LST-17]` at `--retries=0` (expected
+`"0/1"`, received `"Uncheck Sync1 section · 1/1 items"`) under load average 3.92 from its own
+concurrent leg, then went **10/10 green** under `-g "LST-17" --repeat-each=5` in isolation. That is
+the signature decision 44 already named — *"LST-17 REMAINS flagged load-sensitive"* — so this is a
+pre-existing flake, **not** a regression, and the run's gate verdict stands. What is real is that
+the HANDOFF's standing-flags table carries `sync.spec.js:1198` and `purchasing.spec.js:1407` and
+**dropped LST-17**, so a known flake went uncarried into a night that touched the queue semantics of
+the very file it lives in. Per the recorded rule, an unreproducible flake may be closed but "rare,
+mechanism known" must never be laundered into "not flaky" — LST-17 is the latter and stays armed.
+
+**Process note — preference coverage is 0%, and not because coverage lapsed.**
+`night-crew decisions audit --repo . --run 20260727` reports *"No gray areas routed through the
+resolver yet."* Nothing is routing through the resolver at all, so the number measures adoption,
+not preference quality. Reporting it as a coverage percentage would be the third silent-green in
+this triage. No offer-back shortlist can be derived from it until runs actually route their gray
+areas through the resolver.
