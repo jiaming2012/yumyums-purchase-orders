@@ -20,3 +20,9 @@ ORCH A G6 end 2026-07-27T04:03:01Z — APPROVE-WITH-NOTES, 8 findings, F1 refute
 ORCH A G6-repair start 2026-07-27T04:03:01Z
 ORCH A G6-repair end 2026-07-27T04:12:39Z — 2 repairs, 12 passed (2.6m) on the 2 affected specs
 ORCH A merged 2026-07-27T04:12:39Z — clean merge, no conflicts
+ORCH B implement start 2026-07-27T04:13:10Z
+ORCH B implement end 2026-07-27T05:11:59Z — LANDED, 5 commits, suite 552/0/0/6 of 558 in 27.4m
+ORCH B G6 start 2026-07-27T05:11:59Z
+ORCH B G6 end 2026-07-27T05:44:30Z — REJECT, 7 findings, F1 HIGH blocker: id-reuse destroys offline-entered responses
+ORCH B G6-repair start 2026-07-27T05:44:30Z
+ORCH B G6-repair end 2026-07-27T06:43:02Z — re-review APPROVE-WITH-NOTES, blocker closed, DBL-04 confirmed deterministic guard
