@@ -9,3 +9,14 @@ A g2-gotest-end 2026-07-27T03:20:28Z
 A implement-end 2026-07-27T03:20:28Z
 A repair-verify-start 2026-07-27T04:07:24Z
 A repair-verify-end 2026-07-27T04:10:39Z
+
+# --- orchestrator-observed spans for card A (union'd back after the merge; the
+#     card's own implementer lines above are stamp-to-stamp inside its worktree) ---
+ORCH A implement start 2026-07-27T02:30:17Z
+ORCH A full-suite end 2026-07-27T03:18:55Z — 549 passed / 0 failed / 0 flaky / 6 skipped of 555, 22.8m, --retries=0
+ORCH A implement end 2026-07-27T03:21:57Z — LANDED, 6 commits, 0 repair attempts
+ORCH A G6 start 2026-07-27T03:21:57Z
+ORCH A G6 end 2026-07-27T04:03:01Z — APPROVE-WITH-NOTES, 8 findings, F1 refutes vacuity self-declaration
+ORCH A G6-repair start 2026-07-27T04:03:01Z
+ORCH A G6-repair end 2026-07-27T04:12:39Z — 2 repairs, 12 passed (2.6m) on the 2 affected specs
+ORCH A merged 2026-07-27T04:12:39Z — clean merge, no conflicts
