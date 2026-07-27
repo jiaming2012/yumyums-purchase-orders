@@ -1027,7 +1027,10 @@ test.describe('Offline sync', () => {
     const afterSecond = await readSubmitQueue(page);
     const keys = [...new Set(afterSecond.map((e) => e.idempotency_key))];
     expect(keys, 're-submit must reuse the queued key, not mint a second one').toEqual([firstKey]);
-    expect(afterSecond.length, 'the queue holds one entry per checklist, not one per press').toBe(1);
+    // NOT `afterSecond.length === 1`. Collapsing the two entries would mean
+    // reusing `id` as well, which REPLACES the queued payload and destroys any
+    // answer entered offline — see DBL-04. One distinct key across however many
+    // entries is the contract; the entry count is not.
   });
 
   test('offline re-submit writes ONE submission row after drain, not two [DBL-02]', async ({ page, context }) => {
@@ -1099,7 +1102,8 @@ test.describe('Offline sync', () => {
     const queue = await readSubmitQueue(page);
     const keys = [...new Set(queue.map((e) => e.idempotency_key))];
     expect(keys, 'submit must adopt the previous session\'s queued key').toEqual([priorKey]);
-    expect(queue.length, 'and must replace that entry rather than append to it').toBe(1);
+    // Again: one distinct KEY, not one entry. Replacing the previous session's
+    // entry would destroy whatever it holds (DBL-04).
   });
 
   test('answers entered while OFFLINE survive the re-submit [DBL-04]', async ({ page, context }) => {
