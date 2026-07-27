@@ -52,7 +52,20 @@ template already has a submission sitting in the IndexedDB `submitQueue`, and if
 _(appended only if implementation forces a file outside the list above; "nothing here" if it
 stays clean)_
 
-**One, disclosed rather than left to diverge silently** (ledger T-23 decision 65).
+**Three, disclosed rather than left to diverge silently** (ledger T-23 decision 65).
+
+- **`sync.js` — EDITED, contrary to the plan above, at G6's direction (finding F5).** `drainQueue`
+  now sorts entries by `queuedAt` before replaying. `idbGetAll` returns them in store-**key** order
+  and the key is a random UUID, so replay order was arbitrary. That was harmless while one template
+  could only ever have one queued entry; the key-reuse fix makes two entries upsert onto the **same**
+  submission row, so whichever replays last wins any field they both set. Entries predating
+  `queuedAt` sort first (conservative — an older press must not beat a newer one). Also marked the
+  `duplicate_submission` branch DEAD in a comment (see "What must survive", item 5).
+  **Merge note:** Card C does not name `sync.js`; if it collides, keep the sort — without it the
+  key-reuse fix has a non-deterministic replay order.
+- **`id` reuse was REMOVED after G6 review.** The pre-repair version of this note argued at length
+  that reusing `payload.id` was load-bearing. **That was wrong and the note is corrected in place
+  below** rather than left standing — see "What must survive", item 3.
 
 - **`sw.js` — regenerated and COMMITTED.** The pre-implementation text above guessed it would not
   be, on the reasoning that the fix changes no precached asset's *URL*. That was wrong: Workbox's
@@ -81,18 +94,72 @@ stay inside `workflows.html`, and it held.
    durable across reloads and sessions, an in-memory map is not, and "reload the PWA, submit again"
    is a completely ordinary way for a crew member to produce the second submit. The durable store
    is the only thing that makes the reuse survive the reload.
-3. **The queue key (`payload.id`) is reused too, not just `idempotency_key`.** `submitQueue` is
-   keyed on `id` (`sync.js:52`), so reusing it makes `enqueueSubmission`'s `idbPut` **replace** the
-   queued entry with the newer responses instead of appending a second one. Reusing only the
-   idempotency key would still end at one DB row (the second POST would 409/`duplicate_submission`
-   and `drainQueue` would evict it, `sync.js:571-574`) but would leave the user staring at
-   "2 submissions pending sync" for one checklist, and would submit the *older* response set first.
-   Both halves are load-bearing for the user-visible behaviour.
+3. **🛑 `payload.id` must NOT be reused. Only `idempotency_key`.** This item asserted the opposite
+   before G6 review; it was **wrong**, and the reasoning it gave was **factually false**. Corrected
+   in place rather than deleted, because the wrong version is the trap.
+   - **What it claimed:** reusing `id` makes `idbPut` replace the queued entry with the newer
+     responses; key-only reuse would 409 with `duplicate_submission` and `drainQueue` would evict it
+     (`sync.js:571-574`), leaving "2 submissions pending sync" and submitting the *older* response
+     set first.
+   - **What is true, measured at G6 review:** the repeat POST returns **201 with the same
+     submission id**, and is evicted on the **success** path (`sync.js:569`). There is no 409 and no
+     `duplicate_submission` — that string appears **nowhere in `backend/`**; `sync.js:572` is dead
+     code (now commented as such). And "submits the older response set first" is not a downside —
+     it is **the property that saves the data**. The sign was inverted.
+   - **Why `id` reuse is actively harmful:** it turns `idbPut` from an append into a **REPLACE**.
+     Offline, the queued payload is the **only durable copy** of what the crew member entered —
+     `submitOp` (`sync.js:676`) does not queue and throws when offline, and `hydrateFieldState`
+     (`workflows.html:1470-1476`) clears `FIELD_RESPONSES` and rebuilds from `DRAFT_RESPONSES` on
+     every reopen. So press 2 builds an **empty** payload and overwrites the answers. Measured:
+     with `id` reuse `server rows=1 payload=[0]` (answer gone); without it `server rows=1
+     payload=[1]` (answer survives). A food-safety checklist submitting with zero recorded answers,
+     silently, with a success toast, is worse than the duplicate row this card set out to fix.
+   - **Decision 60 authorised reusing the KEY, not the `id`.** The unauthorised half was the one
+     causing the loss; the authorised half alone provably meets the goal.
+   - **Two queue entries sharing one key is the CORRECT shape.** The server upserts only the fields
+     present in each payload, so entry 1's answers survive and the empty entry 2 adds nothing. A
+     merge that "tidies" this back to one entry reintroduces the data loss. Guarded by DBL-04.
+   - The banner transiently reading "2 submissions pending sync" for one checklist is a known,
+     accepted cosmetic cost.
 4. **The lookup must not be able to break a submit.** If IndexedDB is unavailable or throws, the
    code falls back to minting a fresh key — i.e. it degrades to today's behaviour rather than
    failing the submission. Losing this makes an offline-hostile environment worse than before.
 5. **The new tests.** They go red on the pre-fix tree; that RED is captured in its own commit with
    zero production lines changed.
+
+## Knowingly accepted — recorded, not silent (G6 finding F6, ledger decision 65)
+
+These are behaviour changes this card ships **on purpose**, with the cost understood. They are
+written here because a durable record that reads as a clean card is exactly the failure decision 65
+names.
+
+1. **Cross-period stale-queue adoption — ACCEPTED, deferred to a follow-up card.**
+   `findQueuedSubmission` matches on `template_id` alone, with no time bound. If `drainQueue` keeps
+   failing with a non-409, non-success error it breaks out of its loop and the entry persists
+   indefinitely — so a submit on a **later day** adopts the stale key, and the server upserts
+   today's responses onto the older submission instead of creating a new row. Pre-fix that produced
+   two (correct) rows.
+   **Reproduced by G6**, not merely reasoned: a seeded entry with `queuedAt 2026-07-20` was adopted
+   by today's submit.
+   **G6's ruling: defer to a follow-up card** that bounds `findQueuedSubmission` to the current
+   period and ages out stale entries. **Not fixed here** — a `queuedAt` window is scope decision 60
+   does not authorise, and inventing a period rule mid-card is the kind of improvisation the run
+   forbids.
+   **Mitigation is real and was verified by G6:** `renderSyncBanner` paints a "Pending sync" badge
+   on that row and the banner reads "1 submission pending sync", so the UI already presents the
+   queued entry as *this checklist's* pending submission. Pressing Submit again coherently reads as
+   "retry it".
+2. **Two queue entries per checklist, and a banner that transiently says "2 submissions pending
+   sync" for one checklist.** The direct consequence of not reusing `id`. Cosmetic; the alternative
+   is destroying crew-entered answers (item 3 above).
+3. **`drainQueue`'s `queuedAt` sort is UNCOVERED by tests.** It is a correctness remedy for a
+   *non-deterministic* replay order, and the case this card actually produces — press 2 empty — is
+   order-immune, because the server upserts only the fields present in each payload. Constructing a
+   deterministic order-inversion test would need press 2 to carry a *different* value for the same
+   field, which offline it cannot (nothing durable hydrates it). Declared rather than faked.
+4. **`findQueuedSubmission`'s IndexedDB-failure fallback is UNCOVERED.** Fail-safe by construction
+   — returns `null`, caller mints a fresh key, i.e. degrades to pre-card behaviour — but no test
+   forces it.
 
 ## What is safe to drop
 

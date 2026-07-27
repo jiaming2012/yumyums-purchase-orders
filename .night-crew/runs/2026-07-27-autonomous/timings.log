@@ -27,3 +27,8 @@ B suite-full-end 2026-07-27T05:09:33Z — 552 passed / 0 failed / 0 flaky / 6 sk
 B go-suite-start 2026-07-27T05:09:33Z
 B go-suite-end 2026-07-27T05:10:01Z — 10 packages ok, 0 failed (internal/workflow ok), go build + go vet green
 B implement-end 2026-07-27T05:10:49Z — LANDED, 4 commits, gates G1/G2/G4 green, G3 N/A
+B repair-start 2026-07-27T05:48:44Z — G6 REJECT, blocker F1 (id-reuse destroys offline answers)
+B repair-suite-start 2026-07-27T06:01:49Z
+B repair-suite-end 2026-07-27T06:24:51Z — 553 passed / 0 failed / 0 flaky / 6 skipped of 559, 22.2m (baseline 549/0/0/6 of 555 + 4 new tests)
+B repair-go-suite 2026-07-27T06:24:51Z — 10 packages ok, 0 failed
+B repair-end 2026-07-27T06:24:51Z — G6 blocker F1 closed, all 5 repairs applied
