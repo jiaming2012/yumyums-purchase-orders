@@ -148,3 +148,48 @@ neither created an `openspec/` directory.
 **Note for the record:** `main`'s *source* now carries `cmd/nightcrew/workflowcmd.go`, so the
 subcommand exists on main but the installed binary predates it. The verdict is ABSENT either way,
 and no mid-ritual rebuild was performed.
+
+---
+
+## D-9 — Every card worktree's "full suite" silently omits the BDD project. Found at closeout.
+
+**Raised by:** the orchestrator's final-tree gate, from a test-count discrepancy that did not
+reconcile. **Verified by `--list` on both trees.**
+
+    final merged tree (main repo)    Total: 560 tests in 20 files
+    card B branch (worktree)         Total: 559 tests in 19 files
+
+The 20th file is `.features-gen/features/user-invite-onboarding.feature.spec.js` — **playwright-bdd
+output, generated from the tracked `features/user-invite-onboarding.feature`, into a directory that
+`.gitignore:9` excludes.** `playwright.config.js:36,90` defines a `bdd` project whose `testDir` is
+that generated directory.
+
+**The main repo has it (generated 2026-07-15); a freshly-cut `git worktree` does not.** So the
+`bdd` project contributes 1 test in the main repo and **0 tests in every card worktree** — silently,
+with no error, no skip line, and no indication in the reporter output that a project ran empty.
+
+**Consequence for this run:** both cards reported "FULL Playwright suite, no seam subset" in good
+faith, and both were telling the truth as they could observe it — but each ran **19 of 20 spec
+files**. The omitted test **passes on the final merged tree**, so nothing regressed and no card's
+verdict changes. The problem is the mechanism, not tonight's outcome.
+
+**Why this matters more than one test.** The whole point of the `night-crew.toml` seam work and the
+"no seam-confined subset on `workflows.html`" rule is that *a green suite must mean what it says*.
+The ledger already records a green subset buying false confidence on this exact repo. This is the
+same failure in a new place: a suite that reports green while a whole project silently contributes
+nothing. A card that broke the invite/onboarding flow would have gone green in its worktree.
+
+**Not stale, checked:** the generated spec is newer than the `.feature` file it derives from
+(`find features -newer` returns only the *steps* file, which is resolved at runtime, not at
+generation). So the artifact the final tree ran is consistent with its Gherkin source.
+
+**Decision needed — pick one:**
+1. **Generate at test time in every tree.** Add a `bddgen` step ahead of `npx playwright test`
+   (Taskfile `test:` dep, and the documented card-leg invocation). Most correct; makes the worktree
+   and the main repo agree by construction.
+2. **Track `.features-gen/`** — cheapest, but commits a generated artifact and will drift.
+3. **Fail loudly on an empty project** so a zero-test project is an error rather than silence.
+
+(1) plus (3) is the combination that would have prevented this. **Note this also interacts with
+Card A's decision-58 work**: `build-sw.js` now globs `git ls-files`, so this git-ignored directory
+correctly cannot reach the precache — that part is already safe.

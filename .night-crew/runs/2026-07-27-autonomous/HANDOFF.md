@@ -134,7 +134,17 @@ merging to `dev`. A re-run was required rather than inherited: the anchor fix ed
 `workflows.html`, and Workbox's precache manifest carries a per-entry content revision hash, so
 `sw.js` moved and the tested artifact was no longer the committed one.
 
-> **FINAL-TREE SUITE RESULT: see `timings.log` — the `ORCH FINAL-TREE` lines.**
+**FINAL-TREE SUITE: 554 passed / 0 failed / 0 flaky / 6 skipped of 560, 21.8 m, `--retries=0`, exit 0.**
+Fresh DB (`hq_test_final27`), `TEST_PORT=8221`. **Zero hard failures on the tree you would merge.**
+
+> 🛑 **The final tree ran 560 tests; both card legs ran 559 and 555. The difference is not code —
+> it is a silent coverage gap in every card worktree. See D-9.** The main repo has a git-ignored
+> `.features-gen/` directory (playwright-bdd output) giving it a 20th spec file and the `[bdd]`
+> project; card worktrees have no such directory, so **every card's "full suite" was 19 of 20
+> files.** The omitted BDD test passes on the final tree, so nothing regressed — but no card
+> actually measured it. Verified by `--list` on both trees: final `Total: 560 tests in 20 files`,
+> card B `Total: 559 tests in 19 files`.
+>
 > Per-card figures, all at `--retries=0`, fresh DB per leg:
 > - Card A branch: **549 passed / 0 failed / 0 flaky / 6 skipped of 555**, 22.8 m
 > - Card B branch (post-repair): **553 passed / 0 failed / 0 flaky / 6 skipped of 559**, 22.2 m
