@@ -71,7 +71,42 @@ _(appended only if implementation forces a file outside the list above; "nothing
 clean. If a later repair contradicts a line ABOVE, that line gets struck here, not merely
 supplemented.)_
 
-**Nothing here yet** — written pre-implementation, closed out after the gates.
+Closed out after the gates. The whole note above was re-read; three lines are contradicted by what
+was implemented and are **struck**, and one file outside the list was touched.
+
+- **ONE file outside the list: `.night-crew/knowledge/designs/offline-save-honesty.md`** (one
+  paragraph, `:147`). It instructs a FUTURE cutover card to delete "the `.pending-sync-mark` CSS" —
+  a class this card renamed out of existence. Left alone it would send that card looking for a
+  selector that is not there. Updated to `.unsaved-mark` with a note on why it moved. Documentation
+  only; safe to drop on a conflict.
+- ~~"`tests/sync.spec.js` — read for the queue-entry shape; edited only if a queue assertion depends
+  on the entry's field set."~~ **STRUCK: `tests/sync.spec.js` was NOT edited.** It was read; no
+  assertion enumerates a queue entry's fields, so adding `period` needed nothing there. The file is
+  untouched by this card, including `:1584`'s stale comment (B-06), which stays for its own card.
+- ~~"`workflows.html` … the `.pending-sync-mark` chip (CSS `:151`, logic `:329-342`, render
+  `:2370`)"~~ **STRUCK as to the line numbers only** — the mechanism is right, the anchors moved
+  with the edits. Final: CSS `:151`, logic `:344-357`, render `:2417`. Search by class name, not by
+  line, when merging.
+- ~~"`tests/persistence.spec.js` — carries ~10 assertions on the literal string `Pending sync`"~~
+  **STRUCK as to the count**: 11 selector occurrences plus 1 `toHaveText`, 1 test title and 1
+  comment — 14 sites, all mechanical. No assertion was weakened or removed.
+- **The vocabulary was decided** (it was open when this note was written). `"Unsaved"` /
+  `.unsaved-mark` for one unsent field answer; `"Queued"` / `.sync-badge` for a whole queued
+  submission; banner `"N submissions queued to send"`. Guarded by `[VOC-01]`, which drives both
+  states onto one screen and asserts the collided string is gone from the app.
+- **Two files gained a 🛑 VOCABULARY comment block** (`workflows.html` above the unsaved-field
+  state, `sync.js` above `renderSyncBanner`), each naming BOTH states and pointing at the other
+  file. If a merge keeps only one side's block, the collision can be reintroduced from the
+  unguarded side.
+- **`node_modules/` was installed in this worktree via `npm ci`** (git-ignored, not in any commit).
+  `package-lock.json` was not modified — `npm ci` installs from the lock, it does not write it.
+  Constraint 1 holds.
+- **`hq_test_e2e_b` must be DROPped and CREATEd before a full Playwright run.** Learned the hard
+  way here: `task test` resets `hq_test_e2e` as a dedicated step because the suite shares one
+  database across all 20 spec files, and running against an accumulated `hq_test_e2e_b` produced
+  three order-sensitive failures in `inventory.spec.js` and `onboarding.spec.js` that vanished on a
+  fresh DB. A card running with `TEST_DB_NAME=<own db>` does NOT inherit that reset — it has to do
+  it itself. Nothing in the repo changed for this; it is a note for whoever runs the suite next.
 
 ## What must survive any merge
 
