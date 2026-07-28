@@ -15,6 +15,7 @@
 | 1 | A · `precache-manifest-from-head` | 7 files, 0 conflicted hunks | **CLEAN** | G1 green, `sw.js` rebuild idempotent |
 | 2 | C · `sync-proxy-endpoint` | 7 files, 0 conflicted hunks | **CLEAN** | G1 green, Go suite green |
 | 3 | B · `workflow-queue-period-and-failnote-upsert` | 10 files, **1 conflicted hunk** (`version.go`) | **RESOLVED** | G1 green, 9/9 Go packages green, `sw.js` idempotent |
+| 4 | D · `sync-rxdb-conflict-notice-mockup` | 27 files, 0 conflicted hunks | **CLEAN** | docs-only; G1 green, versions unmoved |
 
 ---
 
@@ -210,5 +211,67 @@ Also confirmed by G6 and worth recording: the `[VOC-01]` locator change **fixed 
 hiding a bug** — the decisive collision assertion (`getByText('Pending sync', {exact:true})`
 → `toHaveCount(0)`) remains **document-wide**; what the scoping gave up was an accidental cardinality
 check nobody designed. Both badges read "Queued", so the vocabulary contract held.
+
+---
+## 4 — Card D `sync-rxdb-conflict-notice-mockup` → `overnight-20260729`
+
+**Merge type:** CLEAN. 27 files, 0 conflicted hunks. The only shared surface was
+`.night-crew/knowledge/roadmap.md`, where Card D flipped its own card — disjoint from the three
+flips already on the branch, so git auto-merged it.
+
+**Zero production code, verified at merge rather than trusted:** the diff is confined to
+`.planning/phases/sync-rxdb-conflict-notice/**` (UI-SPEC, mockup, 22 PNGs, `shoot.mjs`) and two
+`.night-crew/` files. No `workflows.html`, `sync.js`, `sw.js`, `package.json`, `backend/`, or
+`tests/`. Card D moved no version constant, so the merged tree keeps entry 3's resolution intact
+(`Backend 0.3.0` / `Frontend 1.2.2`) and `sw.js` needed no rebuild.
+
+**Worth noting for the precache:** a newly committed `.html` file is exactly the class of thing
+Card A's `precache-manifest-from-head` made the manifest sensitive to — it now globs
+`git ls-tree HEAD` rather than the index. `.planning/**` sits in `build-sw.js`'s `globIgnores`, so
+`mockup.html` cannot leak into the service worker. Confirmed at source, not assumed.
+
+**Intents read:** Card D's note only. No other card touched `.planning/`.
+
+**Resolution taken:** none required.
+
+**Gate result after merge:** G1 green on the merged tree (unchanged by a docs-only merge); version
+constants unmoved; `sw.js` untouched and still idempotent.
+
+### Verifier gate: two passes, per CLAUDE.md
+
+CLAUDE.md requires a verifier subagent between build and SUMMARY.md on UI phases, with inputs
+restricted to the UI-SPEC, the `done_when:` block, the diff, and the screenshots — **not** the
+implementer's reasoning. That restriction did real work here.
+
+| Pass | Verdict | What it found |
+|---|---|---|
+| First | PASS-WITH-ISSUES | One `done_when:` row **failed**; two criteria written so they **could not fail** (the 44px criterion enumerated only classes already known to pass, excluding `Undo` at 35×16); five caption↔render disagreements, including an empty state rendering the flat guarantee *"Nothing was overwritten"* that its own contract forbade; and a 90-char unbroken value blowing layout to `scrollWidth` 951px with no "long content" edge row |
+| Second (repair delta) | PASS-WITH-MINOR-ISSUES — **sign-off can proceed** | All nine defects landed. Independently measured: 480 == 480 both schemes *including* after injecting a 145-char token; **40** tappable elements enumerated by `cursor:pointer`/`<button>`/`<a>`/`role=button` (a superset of the criterion's list), 0 under 44px |
+
+The repair grew the artifact from 9 plates to **11** — adding `outcomes` (what "Keep theirs" and
+"Undo" actually leave behind) and `edge-longvalue`. All 20 `done_when:` rows now pass with **no
+waivers**. The implementer defended its own layout fix by re-running the check against the
+**pre-fix** CSS (986px overflow before, 480px after), proving the measurement is not vacuous.
+
+**Carried to the closeout, for the operator at sign-off:**
+
+- **The counting rule is a product decision, and it is the most consequential thing in the artifact.**
+  The banner reports what was overwritten in the window — **it is not a to-do list**. Counts never
+  decrement on Restore, Keep theirs, or a failed restore; only Dismiss or 30-day expiry removes a
+  row. Chosen to preserve Undo, since a row removed from the sheet cannot be undone. Rejectable, and
+  the artifact says so where it will be read.
+- **"Recoverable" is not defined against the degradation ladder** (verifier's residual nit A): a
+  removed-field row has no Restore — recovery is *Copy value* — yet it is counted in the chip base
+  as "1 answer". Consistent with the stated ladder, but an operator reading "recoverable" as "has a
+  Restore button" would expect `0 answers +1`. One clause closes it. **Worth a sentence at sign-off.**
+- 30-day retention is a **placeholder** awaiting the operator's number.
+- Attribution ("Dana M., 6:12 PM") is **conditional** on a schema decision owned by
+  `sync-rxdb-schema-and-replication` — if who-and-when is not carried, those lines degrade to
+  "someone else".
+- **Open question, asked rather than hidden:** past ~10 conflict groups the sheet needs a cap or a
+  date filter. Undesigned, and deliberately so.
+
+**A mockup existing is NOT a sign-off.** `sync-rxdb-conflict-notice-ui` stays ATTENDED-BLOCKED, and
+the roadmap annotation says explicitly that no run may infer one.
 
 ---
