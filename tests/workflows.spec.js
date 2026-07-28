@@ -1253,6 +1253,50 @@ test.describe('Offline sync', () => {
     expect(queue.some((e) => e.id === STALE_ID),
       'the stale entry is retired from key reuse, NOT deleted').toBe(true);
   });
+
+  test('a queued submission and an unsaved field do not read the same [VOC-01]', async ({ page, context }) => {
+    // Two different states, reachable on ONE screen: `#sync-banner` lives in the
+    // same `#s1` panel as `#fill-body`, so the banner is above the runner while
+    // a field chip is inside it. Between 2026-07-28 and this card both rendered
+    // the literal string "Pending sync" (sync.js's `.sync-badge` for a whole
+    // queued submission, workflows.html's chip for one unsent field answer), so
+    // the screen said the same two words about two unrelated things. Ledger T-25
+    // decision 71, item 4.
+    page.on('dialog', (d) => d.accept());
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await cleanupTemplates(page);
+    await cleanupPendingApprovals(page);
+
+    const todayDOW = await getTodayDOW(page);
+    const tpl = await createTestTemplate(page, 'Offline Vocabulary F', todayDOW);
+    await page.reload();
+    await page.waitForSelector('[data-fill-template-id]', { timeout: 10000 });
+
+    // OFFLINE FIRST so the field's auto-save fails and earns the chip.
+    await context.setOffline(true);
+    await page.click('[data-fill-template-id]');
+    const checkBtn = page.locator('.check-btn').first();
+    await checkBtn.click();
+    await expect(page.locator('.unsaved-mark')).toHaveCount(1, { timeout: 5000 });
+
+    // Press Submit — now a whole submission is queued too.
+    await page.click('[data-action="submit"]');
+    await expect(page.locator('#sync-banner')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('#sync-banner')).toContainText('queued to send');
+    await expect(page.locator('[data-template-id="' + tpl.id + '"] .sync-badge'))
+      .toHaveText('Queued', { timeout: 5000 });
+
+    // Reopen the checklist (deliberately still editable) — both states are now
+    // painted at once, and they must not say the same thing.
+    await page.click('[data-fill-template-id]');
+    await page.waitForSelector('.check-btn', { timeout: 10000 });
+    await expect(page.locator('#sync-banner')).toContainText('queued to send');
+    await expect(page.locator('.unsaved-mark').first()).toHaveText('Unsaved');
+
+    // And the collided string is gone from the app entirely.
+    await expect(page.getByText('Pending sync', { exact: true })).toHaveCount(0);
+  });
 });
 
 // ─── E. Access control ───────────────────────────────────────────────────────
