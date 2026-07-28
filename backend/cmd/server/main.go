@@ -415,6 +415,32 @@ func main() {
 		r.Get("/ws", opsync.WsHandler(hub, pool))
 	})
 
+	// Sync substrate proxy at /sync/* — the SAME-ORIGIN DOOR (decision 69,
+	// morning triage 2026-07-27, card `sync-proxy-endpoint`). Fronts PostgREST
+	// at /sync/rest/* and Realtime at /sync/realtime/*, WebSocket upgrade
+	// included. Cloudflare Tunnel config is unchanged, there is no second
+	// hostname, no CORS, and no second origin for the service worker.
+	//
+	// AT THE ROOT, NOT UNDER /api/v1 — deliberately. /api/v1/sync/token (the
+	// JWT bridge, below) already occupies that prefix, and a catch-all wildcard
+	// in front of it would shadow it.
+	//
+	// Behind auth.Middleware and NOTHING ELSE: it reuses HQ's existing session
+	// middleware rather than inventing a second auth path, and it is
+	// deliberately outside RequirePermission for the same reason
+	// /api/v1/sync/token is — it is access-resolution plumbing, and the real
+	// per-row authorization is RLS inside the proxied services reading the live
+	// grant projection. Choosing an app grant to gate the substrate door behind
+	// would be inventing a permission concept.
+	//
+	// Fails closed: with HQ_SYNC_REST_URL / HQ_SYNC_REALTIME_URL unset (the
+	// normal state today) every request answers 503, so registering it here is
+	// inert until a deploy configures it.
+	r.Group(func(r chi.Router) {
+		r.Use(auth.Middleware(pool, superadmins))
+		r.Handle("/sync/*", opsync.ProxyHandler(pool, opsync.LoadProxyConfig()))
+	})
+
 	r.Route("/api/v1", func(r chi.Router) {
 		// Unauthenticated
 		r.Get("/health", func(w http.ResponseWriter, r *http.Request) {

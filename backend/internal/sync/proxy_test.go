@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/yumyums/hq/internal/auth"
 )
 
@@ -329,8 +331,16 @@ func TestProxy_ReplacesCallerSuppliedCredentials(t *testing.T) {
 }
 
 // TestProxy_HopByHopHeadersAreNotForwarded — RFC 9110 §7.6.1 hop-by-hop
-// headers terminate at this proxy. `Upgrade` is the deliberate exception and
-// is covered by the upgrade test above.
+// headers terminate at this proxy. There are exactly two deliberate
+// exceptions, and both are stdlib behaviour rather than ours:
+//
+//   - `Upgrade` (with its `Connection` token) is re-attached on an upgrade
+//     request — that is the whole point, and the upgrade test covers it.
+//   - `Te` is re-DERIVED, not forwarded: net/http/httputil sets `Te: trailers`
+//     when the inbound request advertised the `trailers` token, to tell a
+//     backend that cares about trailers that they are supported (Go issue
+//     21096). So the assertion is that an arbitrary caller-supplied TE value
+//     cannot pass through, not that TE vanishes.
 func TestProxy_HopByHopHeadersAreNotForwarded(t *testing.T) {
 	rec := &recorder{}
 	up := jsonUpstream(t, rec, `[]`)
@@ -339,7 +349,8 @@ func TestProxy_HopByHopHeadersAreNotForwarded(t *testing.T) {
 	req, _ := http.NewRequest("GET", proxy.URL+"/sync/rest/spike_notes", nil)
 	req.Header.Set("Keep-Alive", "timeout=5")
 	req.Header.Set("Proxy-Connection", "keep-alive")
-	req.Header.Set("Te", "trailers")
+	req.Header.Set("Proxy-Authorization", "Basic c21vay1zY3JlZW4=")
+	req.Header.Set("Te", "trailers, deflate;q=0.5")
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatalf("request through proxy: %v", err)
@@ -347,10 +358,14 @@ func TestProxy_HopByHopHeadersAreNotForwarded(t *testing.T) {
 	resp.Body.Close()
 
 	got := rec.last(t)
-	for _, h := range []string{"Keep-Alive", "Proxy-Connection", "Te"} {
+	for _, h := range []string{"Keep-Alive", "Proxy-Connection", "Proxy-Authorization"} {
 		if v := got.Header.Get(h); v != "" {
 			t.Errorf("hop-by-hop header %s = %q reached the upstream", h, v)
 		}
+	}
+	if te := got.Header.Get("Te"); te != "" && te != "trailers" {
+		t.Errorf("Te = %q reached the upstream; only the re-derived %q is permitted, "+
+			"never the caller's value verbatim", te, "trailers")
 	}
 }
 
@@ -490,6 +505,93 @@ func TestProxy_UpstreamServerHeaderIsStripped(t *testing.T) {
 	resp.Body.Close()
 	if s := resp.Header.Get("Server"); strings.Contains(strings.ToLower(s), "postgrest") {
 		t.Errorf("response Server header = %q — it names the internal service", s)
+	}
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+// Route registration
+// ───────────────────────────────────────────────────────────────────────────
+
+// TestProxy_SurvivesTheRealChiRouterAndMiddlewareStack closes the gap between
+// "the handler works" and "the handler works where it is actually mounted".
+// It rebuilds main.go's shape — chi, middleware.Logger, middleware.Recoverer,
+// a Group, and `r.Handle("/sync/*", ...)` — and drives BOTH paths through it.
+//
+// Two things could only break here and not in the tests above:
+//   - chi's `/sync/*` wildcard could rewrite r.URL.Path and break prefix
+//     stripping;
+//   - middleware.Logger wraps the ResponseWriter, and a wrapper that does not
+//     implement http.Hijacker makes every WebSocket upgrade impossible. (It
+//     does implement it — the existing /ws endpoint depends on the same fact —
+//     but that is a property of a dependency, which is exactly the kind of
+//     thing worth pinning with a test rather than assuming.)
+func TestProxy_SurvivesTheRealChiRouterAndMiddlewareStack(t *testing.T) {
+	rec := &recorder{}
+	restUp := jsonUpstream(t, rec, `[{"id":"n-1"}]`)
+	wsRec := &recorder{}
+	wsUp := echoWSUpstream(t, wsRec)
+
+	router := chi.NewRouter()
+	router.Use(middleware.Logger)
+	router.Use(middleware.Recoverer)
+	router.Group(func(r chi.Router) {
+		// Stand-in for auth.Middleware(pool, superadmins): same position in
+		// the stack, same job — attach the user and nothing else.
+		r.Use(func(next http.Handler) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				next.ServeHTTP(w, req.WithContext(
+					context.WithValue(req.Context(), auth.CtxKeyUser, testUser)))
+			})
+		})
+		r.Handle("/sync/*", newProxyHandler(stubMinter, ProxyConfig{
+			RESTURL:      restUp.URL,
+			RealtimeURL:  wsUp.URL,
+			RealtimeHost: "realtime-dev.localhost",
+		}))
+	})
+
+	srv := httptest.NewServer(router)
+	t.Cleanup(srv.Close)
+
+	resp, err := http.Get(srv.URL + "/sync/rest/spike_notes?select=id")
+	if err != nil {
+		t.Fatalf("GET through the chi-mounted proxy: %v", err)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body = %s", resp.StatusCode, body)
+	}
+	if got := rec.last(t); got.Path != "/spike_notes" {
+		t.Errorf("upstream path through chi = %q, want /spike_notes — chi's wildcard "+
+			"must not disturb r.URL.Path", got.Path)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	conn, wsResp, err := websocket.Dial(ctx,
+		wsURL(srv.URL, "/sync/realtime/socket/websocket?vsn=1.0.0"), nil)
+	if err != nil {
+		t.Fatalf("upgrade through the chi middleware stack failed: %v — if this is a "+
+			"hijack error, a ResponseWriter wrapper in the chain does not implement "+
+			"http.Hijacker and NO WebSocket can traverse this router", err)
+	}
+	defer conn.Close(websocket.StatusNormalClosure, "done")
+	if wsResp.StatusCode != http.StatusSwitchingProtocols {
+		t.Fatalf("handshake status through chi = %d, want 101", wsResp.StatusCode)
+	}
+	if err := conn.Write(ctx, websocket.MessageText, []byte("ping")); err != nil {
+		t.Fatalf("write through chi-mounted proxy: %v", err)
+	}
+	_, data, err := conn.Read(ctx)
+	if err != nil {
+		t.Fatalf("read through chi-mounted proxy: %v", err)
+	}
+	if string(data) != "echo:ping" {
+		t.Errorf("echo = %q, want %q", data, "echo:ping")
+	}
+	if got := wsRec.last(t); got.Path != "/socket/websocket" {
+		t.Errorf("upstream path through chi = %q, want /socket/websocket", got.Path)
 	}
 }
 

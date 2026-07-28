@@ -521,6 +521,11 @@
   plus its tests — it does not need the rest of this card to exist, and this card does not need it
   to land first. It builds the door the client will later knock on. Removed from this card's scope;
   this card now *depends* on it rather than containing it.
+  **✅ THE DOOR LANDED 2026-07-28** (`sync-proxy-endpoint`, DONE below). This card's client work
+  targets `/sync/rest/*` and `/sync/realtime/*` on HQ's own origin; it does NOT need to fetch
+  `/api/v1/sync/token` and attach a bearer itself — the proxy mints per request and injects it,
+  and a client-supplied `Authorization`/`apikey` is deliberately discarded. Realtime is reached at
+  `/sync/realtime/socket/websocket?vsn=1.0.0`; do not add an `apikey` parameter, the door sets it.
   (7) **Two more `api-cache`-shaped disclosures are OWNED HERE — decision 70.**
   (a) `localStorage['hq_apps']` is never cleared on logout, and `index.html:224` still parses the
   previous user's cached slug list in the fail-closed branch — offline on a shared truck phone,
@@ -533,9 +538,52 @@
   Footprint: `workflows.html`, new RxDB client layer, `backend/` (the `/sync/*` proxy handler),
   `backend/Dockerfile` (if obligation 5 is taken).
 
-- **`sync-proxy-endpoint`** · **PLANNED — small/medium** (new card, fanned out of
-  `sync-rxdb-schema-and-replication` obligation 6 at slate-20260729 planning, 2026-07-28) · Build
-  the same-origin door decision 69 chose, ahead of the client that will use it. A `/sync/*`
+- **`sync-proxy-endpoint`** · **DONE** (2026-07-28, run `overnight-20260729`, Wave 0; card fanned
+  out of `sync-rxdb-schema-and-replication` obligation 6 at slate-20260729 planning) · The
+  same-origin door decision 69 chose now exists: `backend/internal/sync/proxy.go`, mounted at
+  **root-level `/sync/*`** in `main.go` behind `auth.Middleware` and nothing else. `/sync/rest/*`
+  fronts PostgREST, `/sync/realtime/*` fronts Realtime, **WebSocket upgrade included**. No CORS,
+  no second hostname, no Cloudflare Tunnel change. Registered at the ROOT, deliberately, because
+  `/api/v1/sync/token` already occupies that prefix and a wildcard would shadow it.
+  **The upgrade path is PROVEN TWICE, hermetically and live** — the slate's park trigger did not
+  fire. (a) A hermetic test dials through the proxy into a local `coder/websocket` echo server,
+  asserts `101` **and bytes in both directions afterwards** (a proxy that hands back 101 and then
+  fails to pump the hijacked connection passes a status-only assertion). (b) A live test drives a
+  real upgrade into the running `spike-supabase-realtime-1` container and gets
+  `phx_reply {"status":"ok"}` back from a real Phoenix join — which additionally proves Realtime's
+  tenant lookup resolved and Realtime VERIFIED the HS256 token the proxy injected, since both
+  failures are a bare 403 *before* any 101. The live test `t.Skip`s loudly when the container is
+  down; **a skip is not a pass** and the file says so.
+  **The red was taken twice, and the second correction is the interesting one.** The compile-level
+  red (`undefined: ProxyHandler`) was re-taken against a deliberately naive
+  `httputil.NewSingleHostReverseProxy` baseline to prove the assertions bite behaviourally. That
+  baseline **passed the 101 and the echo**: Go's stdlib `ReverseProxy` handles the protocol switch
+  and the post-upgrade byte pump correctly on its own. So the card's premise —
+  *"the part a naive `ReverseProxy` gets wrong"* — was right that a naive proxy fails, but wrong
+  about **where**. The three real traps are (1) Realtime routes tenants by the FIRST dot-label of
+  the **Host header**, and a stock `Director` forwards the browser's Host → bare 403 with nothing
+  in the logs; (2) the `/sync/rest` prefix must be stripped or PostgREST looks up a table called
+  `sync`; (3) **a browser cannot set an `Authorization` header on a WebSocket handshake**, so the
+  token has to go in `?apikey=` on the Realtime path — and must NOT on the REST path, because
+  PostgREST reads unknown query params as column filters.
+  **Credential handling is the door's other half.** A caller's own `Authorization`, `apikey` and
+  `Cookie` are DISCARDED and a token minted for the *context* user is substituted — `TokenHandler`'s
+  impersonation invariant applied at the door, so the proxy can never become a
+  bring-your-own-token relay into the substrate. Fails closed on every axis: unset upstream → 503
+  `sync_proxy_not_configured`, unset `HQ_SYNC_JWT_SECRET` → 503 `sync_bridge_not_configured`
+  (checked *before* any hop), anonymous → 401, unknown room → 404, upstream down → 502
+  `sync_upstream_unavailable` with the internal host logged and never echoed.
+  13 Go tests (11 hermetic + 2 live), including one that rebuilds `main.go`'s actual chi +
+  `middleware.Logger` + `Group` + `/sync/*` stack and drives an upgrade through it — pinning the
+  dependency property that the logger's `ResponseWriter` wrapper implements `http.Hijacker`, which
+  every WebSocket on this router silently depends on. Backend `0.2.2` → `0.3.0`.
+  **Inert until configured:** `HQ_SYNC_REST_URL` / `HQ_SYNC_REALTIME_URL` are unset in every
+  current deploy, so every `/sync/*` request answers 503 today. **Not in scope and NOT done:** RLS
+  predicates (obligation 1), any RxDB client code, any `workflows.html` change — all still the
+  parent's. Footprint held: `backend/internal/sync/proxy*.go` (new),
+  `backend/cmd/server/main.go` (route registration), `backend/internal/version/version.go`.
+  Original card text:
+  Build the same-origin door decision 69 chose, ahead of the client that will use it. A `/sync/*`
   `httputil.ReverseProxy` handler in the existing Go backend fronts `rest:3000` and
   `realtime:4000` — including the **WebSocket upgrade** path Realtime needs, which is the part a
   naive `ReverseProxy` gets wrong and the part worth a test. Auth: reuse the existing bearer/session
