@@ -48,8 +48,20 @@ decision 67.
 _(appended only if implementation forces a file outside the list above; "nothing here" if it stays
 clean)_
 
-**Nothing here yet** — written pre-implementation. If the footprint moves, this section is
-rewritten, not merely appended to.
+**Nothing here.** Closed out after the gates: the footprint held exactly as declared above —
+`build-sw.js`, `tests/sw-manifest.spec.js`, `backend/internal/version/version.go`, `package.json`,
+the regenerated `sw.js`, the roadmap flip, and this note. No file outside the list was edited, and
+nothing above is contradicted by what was implemented, so no line is struck.
+
+Two things the note did not anticipate and which a merge should know:
+
+- **`node_modules/` was installed in this worktree via `npm ci`** (it is git-ignored and is NOT
+  part of any commit). `package-lock.json` was not modified — `npm ci` installs from the lock, it
+  does not write it. Constraint 1 holds.
+- **`build-sw.js:8`'s comment** ("Everything else must be tracked") was corrected to "committed in
+  HEAD" in the final commit rather than the fix commit. Verified inert: re-running
+  `node build-sw.js` after the edit produced a byte-identical `sw.js`. Comment-only, safe to drop
+  on a conflict.
 
 ## What must survive any merge
 

@@ -5,7 +5,8 @@ const { execFileSync } = require('child_process');
 // Build artifacts that are deliberately git-ignored yet SHIP. version.json is
 // written by writeVersionJson() below and regenerated inside the image by
 // backend/Dockerfile (lines 33-44) from the authoritative Frontend constant --
-// precisely BECAUSE sw.js precaches it. Everything else must be tracked.
+// precisely BECAUSE sw.js precaches it. Everything else must be committed in HEAD
+// -- see committedFiles() below; "tracked" is no longer the bar, decision 67.
 const GENERATED_BUT_SHIPPED = new Set(['version.json']);
 
 // The precache is built from the COMMITTED set -- what is in HEAD, not what is
