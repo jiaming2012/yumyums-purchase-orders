@@ -21,9 +21,10 @@ client knocks on it in a later card.
   HTTP path and the upgrade path. No conflict surface.
 - `backend/internal/sync/proxy_live_test.go` — **new, the card's core.** The proof against the
   live `spike-supabase-realtime-1` container. ~~`t.Skip`ped when the container is not reachable so
-  the suite stays green on a machine without it.~~ **STRUCK at G6 repair (R4).** It is now gated on
-  `HQ_SYNC_SPIKE_LIVE`, **asymmetrically**: flag unset → skip; flag set and port up → run; **flag
-  set and port dead → FAIL, not skip.** The struck version's "stays green on a machine without it"
+  the suite stays green on a machine without it.~~ **STRUCK at G6 repair (R4, refined at F-4).** It
+  is now gated on `HQ_SYNC_SPIKE_LIVE`, **asymmetrically**: flag unset *or falsy* (`0`/`false`/
+  `no`/`off`) → skip; flag truthy and port up → run; **flag truthy and port dead → FAIL, not
+  skip.** The struck version's "stays green on a machine without it"
   was exactly the problem — with the containers down, `go test` printed `ok ... 1.513s`,
   indistinguishable in a non-verbose log from a run that proved the live upgrade. No conflict
   surface.
@@ -93,10 +94,15 @@ Closed out after the gates. **The footprint held exactly as declared** — the t
 `proxy*.go` files, `backend/cmd/server/main.go`, `backend/internal/version/version.go`, the roadmap
 flip, and this note. **No file outside the list was edited.** ~~The whole note was re-read; **no
 line above is contradicted, so nothing is struck.**~~ **STRUCK after the G6 repair round** — that
-sentence was true when written and is not any more. The note was re-read IN FULL a second time per
-B-11, and **four lines are now struck**: the `proxy_live_test.go` skip description above,
-this sentence, the "safe to drop" entry for that file, and constraint 3's closing clause. The
-footprint claim itself still holds — the repair round edited only files already on the list.
+sentence was true when written and is not any more.
+
+**Re-read history — this note has now been read IN FULL three times** (first close-out, then per
+B-11 at each of the two G6 repair rounds). **Five lines are struck across the file:** the
+`proxy_live_test.go` skip description above, this sentence, the "safe to drop" entry for that
+file, constraint 3's closing clause, and — added at repair round 2 — the original wording of
+must-survive item 8, which was wrong in both directions at once. The footprint claim itself still
+holds through both rounds: only files already on the list were edited, and `main.go` and
+`version.go` were touched by neither.
 Four things a merge should know that the note did not anticipate:
 
 1. **The registration snippet in the section below is EXACT — it is what shipped, verbatim.**
@@ -118,26 +124,65 @@ Four things a merge should know that the note did not anticipate:
    header (Realtime's tenant routing), the prefix strip, and credential injection. That baseline
    was **not committed**. *(G6 independently rebuilt this baseline and confirmed the correction.)*
 
-### G6 repair round — what changed after the first close-out
+### G6 repair round 1 — what changed after the first close-out
 
 G6 adversarial review returned **APPROVE-WITH-NITS**. Five items were repaired in two commits
-(`7760252`, `0ce6b76`). **No file outside the declared footprint was touched.** What a merge needs
-to know:
+(`7760252`, `0ce6b76`). **No file outside the declared footprint was touched.**
 
-5. **R1 added a security-relevant behaviour to `proxy.go` — it belongs on the must-survive list,
-   and it is now item 8 below.** Path traversal: the room remainder was forwarded un-normalised,
-   `%2f` became a real separator, and `/sync/realtime/../rest/spike_notes` reached the *other*
-   upstream carrying the minted JWT. Now `400 sync_path_rejected` via `unsafeRequestPath`, checked
-   **before the room is chosen** — the ordering is load-bearing, because the room is chosen from
-   the decoded path and an encoded separator forges that decision.
-6. **R2 added an ACTIVATION-ORDER CONSTRAINT that is now recorded in three places** — `proxy.go`'s
-   env-var block, the parent card's obligation-6 annotation, and the DONE card. It is item 9 below
-   and it is the one thing in this whole card an operator can get hurt by. A merge that keeps the
-   code and drops all three copies of the warning ships a loaded gun.
-7. **`main.go` was NOT touched by the repair round.** The registration snippet in the section above
-   is still exact. The Card B collision surface is unchanged.
-8. **`version.go` was NOT bumped again.** `Backend` stays `0.3.0`; these were repairs to
-   unreleased code in the same change set, not a second increment.
+*(This list was numbered 5-8, which collided with the must-survive list's own item 8. Renumbered
+R-a…R-d at the second repair round — G6 F-5. Cross-references below point at MUST-SURVIVE item
+numbers and are unaffected.)*
+
+- **R-a. R1 added a security-relevant behaviour to `proxy.go` — it belongs on the must-survive
+  list, and it is MUST-SURVIVE ITEM 8 below.** Path traversal: the room remainder was forwarded
+  un-normalised, `%2f` became a real separator, and `/sync/realtime/../rest/spike_notes` reached
+  the *other* upstream carrying the minted JWT. Now `400 sync_path_rejected` via
+  `unsafeRequestPath`, checked **before the room is chosen** — the ordering is load-bearing,
+  because the room is chosen from the decoded path and an encoded separator forges that decision.
+- **R-b. R2 added an ACTIVATION-ORDER CONSTRAINT that is now recorded in three places** —
+  `proxy.go`'s env-var block, the parent card's obligation-6 annotation, and the DONE card. It is
+  MUST-SURVIVE ITEM 9 below and it is the one thing in this whole card an operator can get hurt
+  by. A merge that keeps the code and drops all three copies of the warning ships a loaded gun.
+- **R-c. `main.go` was NOT touched by the repair round.** The registration snippet in the section
+  above is still exact. The Card B collision surface is unchanged.
+- **R-d. `version.go` was NOT bumped again.** `Backend` stays `0.3.0`; these were repairs to
+  unreleased code in the same change set, not a second increment.
+
+### G6 repair round 2 (final) — what changed after that
+
+G6 reviewed the repair delta and returned **APPROVE-WITH-NITS** again, having run a 38-vector
+attack matrix and verified the "not over-broad" claim against the LIVE containers (24 PostgREST +
+4 Realtime calls through the door, zero false rejections, every non-200 originating from PostgREST
+itself). Four items, repaired in commit `c9b8cdd`. **No file outside the declared footprint was
+touched; `main.go` and `version.go` were again NOT touched.**
+
+- **R2-a. F-1 — the `%2f` check was BYPASSABLE, and two places in this repo claimed it was not.**
+  `unsafeRequestPath` read only `u.EscapedPath()`, which discards `RawPath` and re-escapes the
+  decoded `Path` whenever RawPath holds a byte Go's `encodePath` validator rejects
+  (`{ } | ^ \ " < >`). Go's escaper does not escape `/`, so the `%2f` vanished before the check:
+  `GET /sync/rest%2fadmin{` → `200 OK`, upstream saw `GET /admin%7B`. **Not exploitable** — the
+  dot-segment loop reads the decoded `Path`, so `..` was still caught, and G6 could not get a `..`
+  or a `%2f` onto the wire by any route. Fixed anyway because `proxy.go` claimed it "rejected
+  EVERY encoded separator" and must-survive item 8 below claimed "anywhere in the request path",
+  and **the right move on a false durable claim is to make it true, not to soften it.** Now tests
+  `u.RawPath` (the untouched request target, always populated when `%2f` is present) alongside
+  `EscapedPath()`.
+- **R2-b. F-2 — "any dot segment" was an overstatement the other way.** See the strike on
+  must-survive item 8.
+- **R2-c. F-4 — `HQ_SYNC_SPIKE_LIVE=0` opted IN.** The gate tested `os.Getenv(...) == ""`, so the
+  obvious spelling of "off" produced a hard failure. Now `""`/`0`/`false`/`no`/`off` are off, with
+  `TestSpikeLiveRequested` pinning the table.
+- **R2-d. F-6 — a "see point 3 below" pointer aimed at a point above it.** Corrected.
+
+**Deferred to the follow-up list by the coordinator, NOT fixed here:** `main.go`'s registration
+comment reads as an all-clear with no "don't configure it yet" (deliberately left alone to protect
+the Card B collision surface — but see must-survive item 9, which is where that warning lives);
+`q.Encode()`'s alphabetisation of the outbound query (pre-existing, harmless); and the DB-drop
+silent-green hazard in this package's OTHER test files (`access_test.go:29,33`,
+`jwtbridge_test.go:169,173` skip on connect *and* ping failure — `pgxpool.New` is lazy, so a
+missing database surfaces at `Ping` as a skip and non-verbose output is a bare `ok`). The R4
+asymmetry in `proxy_live_test.go` is the shape that fixes it; applying it there is someone else's
+card.
 
 ## What must survive any merge
 
@@ -163,9 +208,24 @@ to know:
 6. **`Backend` in `version.go` is bumped to at least `0.3.0`.**
 7. **The red-first tests.** Both of them — the plain-HTTP request AND the upgrade request. A merge
    that keeps `proxy.go` and drops `proxy_test.go` keeps a claim without its proof.
-8. **The path-traversal rejection, and its POSITION.** *(Added at the G6 repair round, R1.)* Any
-   dot segment (`.`, `..`) or encoded separator (`%2f`, `%5c`, literal `\`) anywhere in the request
-   path ⇒ `400 sync_path_rejected`, and **the check runs before the room is resolved**. Position is
+8. **The path-traversal rejection, and its POSITION.** *(Added at repair round 1, R1; corrected at
+   repair round 2, F-1/F-2.)* ~~Any dot segment (`.`, `..`) or encoded separator (`%2f`, `%5c`,
+   literal `\`) anywhere in the request path ⇒ `400 sync_path_rejected`~~ — **STRUCK, and replaced
+   with what is actually true**, because this sentence was wrong in BOTH directions when written:
+   - **Too weak on encoded separators, now made TRUE.** "Anywhere in the request path" did not hold
+     — `EscapedPath()` dropped the `%2f` for eight suffix bytes (`{ } | ^ \ " < >`). The check now
+     reads `u.RawPath` as well, so the claim holds as stated. **A merge that reverts to an
+     `EscapedPath()`-only check re-opens the bypass and re-falsifies this line.**
+   - **Too strong on dot segments.** The rule is an EXACT match on `.` / `..` against **Go's own
+     decoded segmentation** — it is not a universal dot-segment rule. `..;/`, `....//`, `..%00/`,
+     `..%c0%af..` and `%252e%252e` all pass and reach the upstream verbatim. That is deliberate
+     (G6 confirmed none traverses against nginx or Kong), but it stops being safe behind a
+     Tomcat/Jetty-class parser, which treats `..;` as a dot segment, or anything that decodes
+     twice.
+
+   So: **encoded separator (`%2f`, `%5c`, literal `\`) anywhere in the request path, OR an exact
+   `.`/`..` segment in Go's decoding ⇒ `400 sync_path_rejected`** — and **the check runs before the
+   room is resolved**. Position is
    not stylistic: the room is chosen from the DECODED path, so `/sync/rest%2f..%2f..%2fadmin`
    selects the REST room with separators the caller forged. It must **reject, not `path.Clean`** —
    cleaning silently proxies a different request than the one that was made.

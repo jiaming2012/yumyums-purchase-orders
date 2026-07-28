@@ -606,13 +606,33 @@
   **sibling service** carrying HQ's bearer. Now `400 sync_path_rejected`, checked before the room
   is chosen. It **rejects rather than `path.Clean`s**: cleaning silently proxies a different
   request than the one that was made.
-  15 Go tests (13 hermetic + 2 live), including one that rebuilds `main.go`'s actual chi +
+  **A SECOND G6 round (also APPROVE-WITH-NITS) ran a 38-vector attack matrix against the fix** —
+  the traversal invariant survived all of it, including WebSocket-upgrade traversal (rejected
+  before the hijack, upstream saw nothing) — and verified the "not over-broad" claim against the
+  LIVE containers: 24 PostgREST + 4 Realtime calls through the door, **zero false rejections**,
+  including `..` and `%2F` inside filter values, RxDB-shaped checkpoint pulls, embedded resources
+  and dotted table names; every non-200 came from PostgREST itself. It found one more thing:
+  **the `%2f` check was bypassable and two places said it wasn't.** `EscapedPath()` discards
+  `RawPath` and re-escapes the decoded `Path` whenever RawPath holds a byte Go's `encodePath`
+  validator rejects (`{ } | ^ \ " < >`), and Go's escaper does not escape `/` — so
+  `GET /sync/rest%2fadmin{` returned 200 with the upstream seeing `/admin%7B`. **Not exploitable**
+  (the dot-segment loop reads the decoded `Path`, so `..` was still caught, and no `..` or `%2f`
+  reached the wire by any route) — fixed because the code comment claimed it rejected *every*
+  encoded separator and the merge-intent note claimed *anywhere in the request path*. **The right
+  move on a false durable claim is to make it true, not to soften it:** the check now reads
+  `u.RawPath`, the untouched request target. The dot-segment rule's scope is now stated exactly
+  too — an exact `.`/`..` match on **Go's decoded segmentation**, not a universal rule: `..;/`,
+  `....//`, `..%00/`, `..%c0%af..` and `%252e%252e` pass deliberately (none traverses nginx or
+  Kong) but would matter behind a Tomcat/Jetty-class parser or a double-decoding gateway.
+  17 Go tests (15 hermetic + 2 live), including one that rebuilds `main.go`'s actual chi +
   `middleware.Logger` + `Group` + `/sync/*` stack and drives an upgrade through it — pinning the
   dependency property that the logger's `ResponseWriter` wrapper implements `http.Hijacker`, which
   every WebSocket on this router silently depends on. The live pair is gated on
   `HQ_SYNC_SPIKE_LIVE=1` and **fails rather than skips when the flag is set but the port is dead**
   (G6 R4): a skip prints nothing without `-v`, so an intended live run could otherwise degrade to
-  hermetic-only coverage and still report `ok` — the B-09 suite-honesty rule applied to a test file.
+  hermetic-only coverage and still report `ok` — the B-09 suite-honesty rule applied to a test
+  file. The flag's falsy spellings (`0`/`false`/`no`/`off`) are honoured, because the first version
+  tested `!= ""` and made `HQ_SYNC_SPIKE_LIVE=0` opt **in** (G6 F-4).
   Backend `0.2.2` → `0.3.0`.
   **Inert until configured:** `HQ_SYNC_REST_URL` / `HQ_SYNC_REALTIME_URL` are unset in every
   current deploy, so every `/sync/*` request answers 503 today. **🛑 AND THEY MUST STAY THAT WAY
