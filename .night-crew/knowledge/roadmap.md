@@ -525,6 +525,32 @@
   full suite re-run for a comment); this card makes the sentence accurate instead. Footprint:
   `backend/internal/workflow`, a migration, `workflows.html`, `sync.js`.
 
+- **`test-harness-fail-loud`** · **PLANNED — slated on `overnight-20260729-2` (Track A, card H1,
+  dispatch first)** · **PROMOTED from BACKLOG B-09 + B-16(b) at the 2026-07-28 slate-planning
+  session under the §15k architecture-blocking bar (ledger T-27 decision 90).** Make a broken test
+  environment **fail** instead of **pass**. Two mechanisms, one theme, and the theme is the point:
+  `overnight-20260729` produced **three** silent-greens in one run, which the closeout correctly
+  called the shape of this repo's harness rather than a coincidence.
+  (1) **`task test` runs 19 of 20 spec files.** Add `bdd:gen` to `test:`'s `deps`
+  (`Taskfile.yml:28-30`), matching `bdd:` (`:78`) and the CI task (`:102`) which already carry it.
+  (2) **A dropped or unreachable database reports `ok`.** Where `DB_TEST_URL` is **set but
+  unreachable**, `t.Fatalf`; keep `t.Skip` only for **unset**. This is the asymmetric gate this repo
+  already built and proved in-tree at `backend/internal/sync/proxy_live_test.go:107-118`
+  (`HQ_SYNC_SPIKE_LIVE` set + port dead ⇒ FAIL) — **copy that pattern, do not invent a second one.**
+  Sites measured 2026-07-28 and **repo-wide, which is broader than B-16 states**:
+  `recipes/helpers_test.go:30,35,39`, `workflow/stable_identity_test.go:95,201,240`,
+  `workflow/requires_approver_test.go:81,110,161`, `inventory/sync_receipts_test.go:20,118,176,225`,
+  `receipt/worker_test.go` (×17), `sync/access_test.go:29,33`, `sync/jwtbridge_test.go:169,173`.
+  **Red-first is the whole card** — (a) delete the generated spec files, run `task test`, assert it
+  regenerates and reports 20 (before the fix: 19); (b) point `DB_TEST_URL` at a dead port, assert
+  the Go suite **FAILS** (before the fix: `ok`). A card that cannot show these two reds has proven
+  nothing, because "the suite is green" is precisely the claim under suspicion. **Do NOT convert
+  the `unset` case** — skip-on-unset is deliberate so a contributor without a database can still run
+  unit tests; the bug is the *symmetry*, not the skip. **Scope discipline:** this fixes the harness,
+  not any test the harness newly reveals as failing — park those with evidence. **B-16(a)** (reviewer
+  prompts must forbid dropping a database the reviewer did not create) is **not** in this card; it is
+  standing G6 dispatch text. Footprint: `Taskfile.yml`, `backend/internal/*/**_test.go`.
+
 - **`app-timezone-unify-new-york`** · **PLANNED — HIGH, small/medium** (new card, morning triage
   2026-07-28, ledger T-26 decision 83) · **The app is running two conflicting timezone regimes, and
   the operator ruled the app's timezone is `America/New_York`.** `users.DefaultTimezone` is already
@@ -552,16 +578,23 @@
   Footprint: `backend/internal/{inventory,purchasing,recipes}`, `sync.js`, `workflows.html`,
   `purchasing.html`, a migration for the two column defaults.
 
-- **`sync-rxdb-collections-and-table-contract`** · **PLANNED — SLATE-READY, WAVE 0** · **OPEN QUESTION raised at morning triage 2026-07-28 — where the durable conflict record lives.**
-  The mockup assumes **local-only** (UI-SPEC: *"no new sync plumbing … no server endpoint"*), because
-  the discarded value is the *loser* of a replication race and so exists nowhere on the server by
-  definition. The operator asked whether it syncs up and is then retained indefinitely: **it does
-  not.** Consequences they surfaced — the record is **per-device** (a manager cannot see that a crew
-  member's food-safety reading was overwritten), **evictable** (iOS storage pressure destroys it,
-  which is why a storage-error plate exists), and lost on reinstall. A server-side record would make
-  it durable, cross-device and an actual audit trail, at the cost of a table, an endpoint and a
-  visibility decision. Decision 80 left this as "the UI card's own call"; triage notes it lands more
-  naturally here, where the table contract is being written. **Not decided.**
+- **`sync-rxdb-collections-and-table-contract`** · **PLANNED — SLATE-READY, slated on `overnight-20260729-2` (Track B, card B1)** · **✅ FORK RESOLVED 2026-07-28 — the durable conflict record is a personal, per-device undo, stored local-only (ledger T-27 decision 89).**
+  The question raised at morning triage 2026-07-28 was where the record of an overwritten answer
+  lives. The product question put to the operator: an *audit trail a manager can see*, or a
+  *personal undo for the person holding the phone*? **Operator answer: personal undo, per-device.**
+  ⇒ **A local RxDB collection. No server table, no endpoint, no replication of the conflict record
+  itself** — which keeps the signed mockup's contract literally true (UI-SPEC: *"no new sync
+  plumbing … no server endpoint"*) rather than quietly widening it. **But the shape is declared
+  replication-ready:** it carries `submission_id`, `field_id`, the discarded value, and the same
+  who-and-when decision 79 already requires the replicated rows to carry, so promoting this to a
+  cross-device audit trail later is *adding a table and a policy*, not a redesign.
+  **The consequences the operator surfaced at triage stand and are accepted, not mitigated:** the
+  record is **per-device** (a manager cannot see that a crew member's food-safety reading was
+  overwritten), **evictable** (iOS storage pressure destroys it, which is why a storage-error plate
+  exists), and lost on reinstall. **Retention** stays 30 days as a **local** sweep — the number
+  itself is reopened and belongs to `sync-rxdb-conflict-notice-mockup-amendments`, so read it from
+  **one named constant** rather than scattering `30` through the code. Decision 80 left this as
+  "the UI card's own call"; it lands here instead, where the table contract is being written.
   (fanned out of
   `sync-rxdb-schema-and-replication` 2026-07-28; foundation, both siblings below depend on it) ·
   Define the RxDB collections for **checklists, templates, responses, approvals** mirroring the
@@ -582,6 +615,12 @@
   it, *"Dana M., 6:12 PM"* degrades to *"someone else"*. The product's stated core value is
   **accountability — who checked what**, the signed mockup draws attribution on the *Now shows*
   line, and the cost is two columns. Carry them.
+  (c) **The conflict record is a LOCAL collection — decision 89 (2026-07-28).** Declare a local
+  RxDB collection for discarded values: `submission_id`, `field_id`, the discarded value, and the
+  same who-and-when (b) requires. **No server table, no endpoint, no replication of this
+  collection.** Retention is a **local** 30-day sweep read from **one named constant** — the number
+  is reopened and belongs to `sync-rxdb-conflict-notice-mockup-amendments`, so do not scatter `30`
+  through the code.
   Footprint: the sync DB schema (SQL) and the RxDB collection definitions. No `workflows.html`, no
   policies, no client construction.
 
@@ -1013,6 +1052,33 @@
   mockup needs the event's shape, not a built `conflictHandler`. **Zero production code**; the card
   is done when the mockup and its table are committed and the operator has something to say yes or
   no to. Footprint: `.planning/phases/sync-rxdb-conflict-notice/` only.
+
+- **`sync-rxdb-conflict-notice-mockup-amendments`** · **PLANNED — slated on `overnight-20260729-2`
+  (Track C, card C1)** · **FANNED OUT of `sync-rxdb-conflict-notice-ui` at the 2026-07-28
+  slate-planning session (ledger T-27 decision 91).** Produce **revised plates** implementing
+  amendments **A-1** and **A-2** that ledger T-26 decision 82 requires, both already written into
+  `.planning/phases/sync-rxdb-conflict-notice/UI-SPEC.md` (see the parent card below for both in
+  full). **This card does NOT discharge the sign-off** — it produces the artifact the operator signs
+  at morning triage, and the parent stays ATTENDED-BLOCKED when it is done. That is the correct
+  outcome, not a failure.
+  **Why it separates cleanly, and why it is unattended-safe:** what blocks the parent is not code —
+  it is that the committed plates do not yet show A-1 and A-2, so there is nothing to sign. Drafting
+  revised plates is safe by exactly the argument that produced the original mockup card: CLAUDE.md
+  gates *production code* behind the sign-off, and the mockup is the artifact that gate consumes.
+  **Two decisions are deliberately LEFT OPEN and the plates must make each visibly decidable rather
+  than quietly settle it:** (i) whether a removed-field row counts in the chip base or moves to
+  `+N` — it has no Restore, its recovery is *Copy value*, yet it is counted as "1 answer"; **draw
+  both readings** so the operator picks. (ii) The retention window — 30 days was accepted in
+  decision 80 and reopened at triage; draw the number as an **obvious placeholder**, not a settled
+  fact.
+  **Held to the same discipline the original mockup passed:** State Enumeration Table extended for
+  the new plates, `done_when:` rows for each, self-verification renders at 480px in **light and
+  dark** read back with the Read tool and compared row-by-row, and the **restricted-input verifier
+  gate** before any SUMMARY. 🛑 The verifier caught two `done_when:` criteria last time that were
+  written so they **could not fail** (the 44px touch-target row enumerated only classes already
+  known to pass, excluding `Undo` at 35×16 — the sole escape from a mis-tapped Restore). Write
+  criteria that can fail. **Do NOT touch production code.**
+  Footprint: `.planning/phases/sync-rxdb-conflict-notice/` only.
 
 - **`sync-rxdb-conflict-notice-ui`** · **🛑 PLANNED — ATTENDED-BLOCKED AGAIN (reverted from
   SIGNED OFF, SLATE-READY at morning triage 2026-07-28; ledger T-26 decision 82)** · The sign-off

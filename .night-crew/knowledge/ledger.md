@@ -1693,3 +1693,77 @@ spec files without `bddgen` (B-09), a dropped database reading as a passing Go s
 new this cycle — the orchestrator's own final-tree suite reporting **exit 0 having executed zero
 tests**, because Playwright's `webServer` could not start and a `tail` pipeline masked the status.
 Three instances in one run is no longer a coincidence; it is the shape of this repo's test harness.
+
+## T-27 — Slate-planning resolution (2026-07-28, ahead of overnight-20260729-2)
+
+Resolved in the attended slate-planning session for `overnight-20260729-2`, not at a morning
+triage. Recorded here because `sync-rxdb-collections-and-table-contract` could not enter a slate
+carrying an open operator decision (slate skill §1.3, fork gate).
+
+**Decision 89 — the durable conflict record is a personal, per-device undo, stored local-only.**
+
+The OPEN QUESTION raised at morning triage 2026-07-28 was where the record of an overwritten
+answer lives. The product question put to the operator: is it an *audit trail a manager can see*,
+or a *personal undo for the person holding the phone*?
+
+**Operator answer: personal undo, per-device.** The record exists so the crew member can get their
+own value back.
+
+Mechanism decided by the planner (per `preferences` — ask about product and intent, decide the
+plumbing yourself and prove it by execution):
+
+- **Local-only.** A local RxDB collection. **No server table, no endpoint, no replication of the
+  conflict record itself.** This keeps the signed mockup's contract literally true (UI-SPEC:
+  *"no new sync plumbing … no server endpoint"*) rather than quietly widening it.
+- **Shape declared replication-ready.** The collection carries `submission_id`, `field_id`, the
+  discarded value, and who-and-when — which decision 79 already requires the replicated rows to
+  carry, so the fields exist to copy. Promoting this to a cross-device audit trail later is
+  *adding a table and a policy*, not a redesign.
+- **The consequences the operator surfaced at triage stand and are accepted, not mitigated:** the
+  record is per-device (a manager cannot see that a crew member's food-safety reading was
+  overwritten), evictable under iOS storage pressure (which is why the mockup carries a
+  storage-error plate), and lost on reinstall.
+- **Retention** stays the mockup's 30 days as a local sweep. The number itself is reopened and
+  belongs to `sync-rxdb-conflict-notice-mockup-amendments`, which must draw it as a visible
+  placeholder rather than a settled fact. Implementations read it from one named constant.
+
+Written onto the `sync-rxdb-collections-and-table-contract` roadmap card so no run re-litigates it.
+
+**Decision 90 — B-09 and B-16(b) promoted from the backlog as `test-harness-fail-loud`.**
+
+§15k sets an architecture-blocking bar, deliberately high because insertion re-sequences the build
+order. The argument put to the operator and accepted: **every remaining card in this milestone is a
+security or correctness card whose only proof is these two suites, and both suites can currently
+report success having executed nothing.** Verified by execution at the planning session, not read
+from the backlog entry — `task test` still runs 19 of 20 spec files in a fresh worktree three
+slates after B-09 was filed, and skip-on-unreachable-DB is **repo-wide**, which is broader than
+B-16 states (measured across `recipes`, `workflow`, `inventory`, `receipt`, and `sync`).
+
+The card it blocks is on the same slate: `sync-rxdb-row-visibility-rls`'s entire gate is an
+attack-variant Go suite in `internal/sync` proving RLS discriminates, and under today's harness
+that suite can report success on zero executed tests. That is not a weaker gate; it is a gate that
+lies. B-09 and B-16 marked `promoted → test-harness-fail-loud` in BACKLOG.md.
+
+**B-16(a)** — reviewer prompts must forbid dropping a database the reviewer did not create — is
+**not** in the card. It is standing G6 dispatch text and is written into the launch prompt directly,
+which is where the backlog entry itself says it belongs.
+
+**Decision 91 — `sync-rxdb-conflict-notice-mockup-amendments` fanned out of
+`sync-rxdb-conflict-notice-ui`.**
+
+The parent is ATTENDED-BLOCKED (decision 82) and cannot enter a slate. What blocks it is not code —
+it is that the committed plates do not yet show amendments A-1 and A-2, so there is nothing for the
+operator to sign. Drafting revised plates is unattended-safe by exactly the argument that produced
+the original mockup card: CLAUDE.md gates *production code* behind the sign-off, and the mockup is
+the artifact that gate consumes. The parent keeps everything else and **stays ATTENDED-BLOCKED
+until the operator signs the revised plates** — the fan-out produces them, it does not discharge
+the block.
+
+**Process note — the split that was deliberately NOT performed.**
+`sync-rxdb-replication-and-conflict-handler` carries three mechanisms and needs a fan-out before it
+can be slated. This session declined to perform it, and the decline is recorded so it reads as a
+decision rather than an omission: the obvious seam is plumbing-vs-algorithm, but the
+`conflictHandler` half's contract includes *"`conflict$` must surface the discarded value"*, which
+needs a live replication instance to emit `conflict$` — i.e. the plumbing half. A split that hands
+the algorithm card a requirement it cannot integration-prove produces a DONE that isn't. The seam
+needs designing, not guessing, and belongs at the head of the next planning session.
