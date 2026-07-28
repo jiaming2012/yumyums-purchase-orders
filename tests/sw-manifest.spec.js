@@ -11,7 +11,7 @@ const { execFileSync } = require('child_process');
 // Build artifacts that are deliberately git-ignored yet SHIP: build-sw.js
 // writes version.json locally, and backend/Dockerfile:33-44 regenerates it into
 // the image from the authoritative Frontend constant precisely because sw.js
-// precaches it. Anything NOT on this list must be tracked.
+// precaches it. Anything NOT on this list must be committed in HEAD.
 const GENERATED_BUT_SHIPPED = ['version.json'];
 
 function urlsFrom(swSource) {
@@ -22,19 +22,24 @@ function urlsFrom(swSource) {
   return urls;
 }
 
-function trackedFiles() {
+// HEAD, not the index. This used to read `git ls-files`, matching build-sw.js as
+// it was — and therefore agreeing with the bug ledger T-25 decision 67 names: a
+// staged-but-uncommitted file is in `ls-files`, so an sw.js that precached one
+// would have passed this test. `prod:deploy` ships the COMMITTED sw.js against a
+// tree reset to origin/main, so HEAD is the set prod can actually serve.
+function committedFiles() {
   return new Set(
-    execFileSync('git', ['ls-files', '-z'], { encoding: 'utf8' })
+    execFileSync('git', ['ls-tree', '-r', '--name-only', '-z', 'HEAD'], { encoding: 'utf8' })
       .split('\0')
       .filter(Boolean),
   );
 }
 
-test('every URL in the committed precache manifest is a tracked file', async () => {
+test('every URL in the committed precache manifest is committed in HEAD', async () => {
   const urls = urlsFrom(fs.readFileSync('sw.js', 'utf8'));
   expect(urls.length).toBeGreaterThan(0);
-  const tracked = trackedFiles();
-  const strays = urls.filter(u => !tracked.has(u) && !GENERATED_BUT_SHIPPED.includes(u));
+  const committed = committedFiles();
+  const strays = urls.filter(u => !committed.has(u) && !GENERATED_BUT_SHIPPED.includes(u));
   expect(strays).toEqual([]);
 });
 
