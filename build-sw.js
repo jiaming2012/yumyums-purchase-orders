@@ -5,40 +5,57 @@ const { execFileSync } = require('child_process');
 // Build artifacts that are deliberately git-ignored yet SHIP. version.json is
 // written by writeVersionJson() below and regenerated inside the image by
 // backend/Dockerfile (lines 33-44) from the authoritative Frontend constant --
-// precisely BECAUSE sw.js precaches it. Everything else must be tracked.
+// precisely BECAUSE sw.js precaches it. Everything else must be committed in HEAD
+// -- see committedFiles() below; "tracked" is no longer the bar, decision 67.
 const GENERATED_BUT_SHIPPED = new Set(['version.json']);
 
-// The precache is built from the TRACKED set, not the working tree.
+// The precache is built from the COMMITTED set -- what is in HEAD, not what is
+// in the working tree and not what is merely staged in the index.
 //
 // A Workbox precache entry that 404s fails the ENTIRE service-worker install,
-// so a single untracked file that matches globPatterns bricks updates on every
-// phone -- and the symptom is "the PWA stopped updating" with no visible cause.
-// The path is not hypothetical: `task sw` runs automatically as a dependency of
-// BOTH `task test` and `task prod:deploy`, so a stray *.html in a dev machine's
-// repo root gets baked into the committed sw.js and then 404s on prod, where
-// git has never heard of it. (backlog-round.html, disposed as FORK 2 in ledger
-// T-22, was exactly such a file.) Ledger T-23 decision 58.
+// so a single file in the manifest that prod cannot serve bricks updates on
+// every phone -- and the symptom is "the PWA stopped updating" with no visible
+// cause. The path is not hypothetical: `task sw` runs automatically as a
+// dependency of BOTH `task test` and `task prod:deploy`, so a stray *.html in a
+// dev machine's repo root gets baked into the committed sw.js and then 404s on
+// prod, where git has never heard of it. (backlog-round.html, disposed as FORK 2
+// in ledger T-22, was exactly such a file.) Ledger T-23 decision 58.
 //
-// Filtering the generated manifest is equivalent to globbing `git ls-files`:
-// the result is (patterns ∩ working tree ∩ tracked), and a tracked file that is
-// missing from the working tree cannot be globbed in the first place.
-function trackedFiles() {
-  const out = execFileSync('git', ['ls-files', '-z'], { encoding: 'utf8' });
+// HEAD, not the index -- ledger T-25 decision 67, which AMENDS decision 58's
+// literal text ("the tracked set (`git ls-files`)") in service of its intent.
+// `git ls-files` reads the INDEX, so `git add zz-probe.html` alone -- no commit
+// anywhere -- was enough to put the file in the manifest. That closes a complete
+// trigger path, because `task prod:deploy` (Taskfile.yml:174-210) does NOT run
+// `task sw` on the box: it `git reset --hard origin/main` then
+// `docker compose build`, so the COMMITTED sw.js is what ships, and a manifest
+// built against the index names a URL the image was never built from.
+//
+// The result is (patterns ∩ working tree ∩ HEAD) ∪ GENERATED_BUT_SHIPPED. A file
+// committed but deleted from the working tree cannot be globbed in the first
+// place, so the working-tree intersection needs no separate check.
+//
+// `-r` recurses into trees (without it you get `icons`, not
+// `icons/icon-96x96.png`); `-z` gives NUL-separated UNQUOTED paths -- plain
+// `--name-only` C-quotes any path containing a space or a non-ASCII byte, which
+// would silently drop a legitimately committed asset out of the precache.
+function committedFiles() {
+  const out = execFileSync('git', ['ls-tree', '-r', '--name-only', '-z', 'HEAD'], { encoding: 'utf8' });
   return new Set(out.split('\0').filter(Boolean));
 }
 
-function trackedOnlyTransform(manifest) {
-  const tracked = trackedFiles();
+function committedOnlyTransform(manifest) {
+  const committed = committedFiles();
   const dropped = [];
   const kept = manifest.filter(entry => {
-    if (tracked.has(entry.url) || GENERATED_BUT_SHIPPED.has(entry.url)) return true;
+    if (committed.has(entry.url) || GENERATED_BUT_SHIPPED.has(entry.url)) return true;
     dropped.push(entry.url);
     return false;
   });
-  // Loud, not silent: an untracked asset someone MEANT to ship should show up
-  // here as "git add it", rather than as a dead service worker two deploys on.
+  // Loud, not silent: an asset someone MEANT to ship should show up here as
+  // "git add it AND commit it", rather than as a dead service worker two deploys
+  // on. Staged-but-uncommitted lands in this list too, and that is the point.
   for (const url of dropped) {
-    console.warn(`  skipped (untracked): ${url}`);
+    console.warn(`  skipped (not in HEAD): ${url}`);
   }
   return { manifest: kept };
 }
@@ -98,9 +115,9 @@ async function build() {
       '.planning/**',
       '.claude/**',
     ],
-    // Decision 58 — see trackedOnlyTransform above. This runs AFTER the glob and
-    // after content-hashing, and drops anything git does not know about.
-    manifestTransforms: [trackedOnlyTransform],
+    // Decisions 58 + 67 — see committedOnlyTransform above. This runs AFTER the
+    // glob and after content-hashing, and drops anything HEAD does not contain.
+    manifestTransforms: [committedOnlyTransform],
     // Static assets: cache-first (same as before)
     // No need to configure — precacheAndRoute handles this automatically
 

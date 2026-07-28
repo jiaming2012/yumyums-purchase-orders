@@ -495,7 +495,7 @@ test.describe('Persistence', () => {
   //
   // Fixed by markFieldPending (workflows.html): a save that does not reach the
   // server writes the same draft shape the success path writes, so reopening
-  // restores it and the field says "Pending sync" until it lands.
+  // restores it and the field says "Unsaved" until it lands.
   // Design: .night-crew/knowledge/designs/offline-save-honesty.md
   //
   // STILL LOST, deliberately: a reload or app kill while offline. The draft
@@ -604,7 +604,7 @@ test.describe('Persistence', () => {
     // The work was done, so it counts — but each field says it is waiting.
     await expect(page.locator('#fill-body .progress-line'))
       .toContainText('2 of 2 items complete', { timeout: 5000 });
-    await expect(page.locator('.pending-sync-mark')).toHaveCount(2, { timeout: 5000 });
+    await expect(page.locator('.unsaved-mark')).toHaveCount(2, { timeout: 5000 });
 
     // The list overview reads 2/2 — matching the runner, not contradicting it.
     await page.click('#fill-back');
@@ -613,7 +613,7 @@ test.describe('Persistence', () => {
     await expect(rowAfterBack.locator('text=2/2')).toBeVisible({ timeout: 5000 });
   });
 
-  test('a field whose save failed is marked Pending sync [OFF-03]', async ({ page, context }) => {
+  test('a field whose save failed is marked Unsaved [OFF-03]', async ({ page, context }) => {
     const tpl = await offlineTemplate(page, 'Offline Mark Test', ['Field A', 'Field B', 'Field C']);
     await page.goto(BASE + '/workflows.html');
     const row = page.locator('[data-fill-template-id="' + tpl.id + '"]');
@@ -626,20 +626,20 @@ test.describe('Persistence', () => {
     await page.locator('.check-btn').nth(1).click();
     await page.waitForTimeout(1500);
 
-    const marks = page.locator('.pending-sync-mark');
+    const marks = page.locator('.unsaved-mark');
     await expect(marks).toHaveCount(2, { timeout: 5000 });
-    await expect(marks.first()).toHaveText('Pending sync');
+    await expect(marks.first()).toHaveText('Unsaved');
 
     // The untouched third field carries no marker.
     const fieldC = page.locator('.fill-field', { hasText: 'Field C' });
-    await expect(fieldC.locator('.pending-sync-mark')).toHaveCount(0);
+    await expect(fieldC.locator('.unsaved-mark')).toHaveCount(0);
 
     // The mark survives a re-render — reopening must not silently upgrade
     // "waiting to sync" into "saved".
     await page.click('#fill-back');
     await page.locator('[data-fill-template-id="' + tpl.id + '"]').click();
     await page.waitForSelector('.check-btn', { timeout: 10000 });
-    await expect(page.locator('.pending-sync-mark')).toHaveCount(2, { timeout: 5000 });
+    await expect(page.locator('.unsaved-mark')).toHaveCount(2, { timeout: 5000 });
   });
 
   test('a failed save says why, once per burst [OFF-04]', async ({ page, context }) => {
@@ -689,7 +689,7 @@ test.describe('Persistence', () => {
     await context.setOffline(true);
     await page.locator('.check-btn').first().click();
     await page.waitForTimeout(1500);
-    await expect(page.locator('.pending-sync-mark')).toHaveCount(1, { timeout: 5000 });
+    await expect(page.locator('.unsaved-mark')).toHaveCount(1, { timeout: 5000 });
 
     // Signal returns — and nothing else happens. No tap, no reload.
     await context.setOffline(false);
@@ -698,7 +698,7 @@ test.describe('Persistence', () => {
       res => res.url().includes('/api/v1/workflow/ops') && res.request().method() === 'POST' && res.status() < 400,
       { timeout: 10000 });
 
-    await expect(page.locator('.pending-sync-mark')).toHaveCount(0, { timeout: 5000 });
+    await expect(page.locator('.unsaved-mark')).toHaveCount(0, { timeout: 5000 });
     await expect(page.locator('#fill-body .progress-line')).toContainText('1 of 2 items complete', { timeout: 5000 });
 
     // And it is real on the server, not just on this device: a reopen rebuilds
@@ -709,7 +709,7 @@ test.describe('Persistence', () => {
     await rowAfterBack.click();
     await page.waitForSelector('.check-btn', { timeout: 10000 });
     await expect(page.locator('.check-btn').first()).toHaveClass(/checked/, { timeout: 5000 });
-    await expect(page.locator('.pending-sync-mark')).toHaveCount(0);
+    await expect(page.locator('.unsaved-mark')).toHaveCount(0);
   });
 
   test('a failure while ONLINE retries itself on the timer tick [OFF-06]', async ({ page }) => {
@@ -725,7 +725,7 @@ test.describe('Persistence', () => {
     await page.route('**/api/v1/workflow/ops', route => route.fulfill({ status: 500, body: '{}' }));
     await page.locator('.check-btn').first().click();
     await page.waitForTimeout(1500);
-    await expect(page.locator('.pending-sync-mark')).toHaveCount(1, { timeout: 5000 });
+    await expect(page.locator('.unsaved-mark')).toHaveCount(1, { timeout: 5000 });
 
     // Server recovers. Drive the 15s tick rather than sleeping for it.
     await page.unroute('**/api/v1/workflow/ops');
@@ -734,7 +734,7 @@ test.describe('Persistence', () => {
       res => res.url().includes('/api/v1/workflow/ops') && res.request().method() === 'POST' && res.status() < 400,
       { timeout: 10000 });
 
-    await expect(page.locator('.pending-sync-mark')).toHaveCount(0, { timeout: 5000 });
+    await expect(page.locator('.unsaved-mark')).toHaveCount(0, { timeout: 5000 });
     await expect(page.locator('#fill-body .progress-line')).toContainText('1 of 2 items complete', { timeout: 5000 });
   });
 

@@ -359,8 +359,49 @@
   reopens decision 49 and trips the status card's park trigger for no added benefit. Footprint:
   `workflows.html`.
 
-- **`precache-manifest-from-head`** · **PLANNED — HIGH, small** (new card, morning triage
-  2026-07-27, ledger T-25 decision 67) · **`build-sw.js` globs `git ls-files`, which reads the git
+- **`precache-manifest-from-head`** · **DONE** (2026-07-28, run `overnight-20260729`, Wave 0;
+  card authored at morning triage 2026-07-27 from ledger T-25 decision 67) · `build-sw.js` now
+  globs **`git ls-tree -r --name-only -z HEAD`** — the commit — instead of `git ls-files`, which
+  reads the **index**. `trackedFiles()`/`trackedOnlyTransform()` were renamed to
+  `committedFiles()`/`committedOnlyTransform()` so the names cannot drift back to the weaker bar,
+  and the dropped-entry warning now reads `skipped (not in HEAD)`.
+  **One test captured RED first, on a tree with zero production lines changed** (`c64008b`): the
+  staged-file reproduction returned
+  `["zz-sw-manifest-staged-probe.html", "workflows.html", ...]` where the probe was asserted
+  absent. It stages the probe and **only** stages it, and asserts both halves of the premise
+  before building — probe present in `ls-files`, probe absent from `ls-tree HEAD` — so a green
+  result cannot be vacuous the way a clean-worktree manifest assertion is.
+  **`tests/sw-manifest.spec.js` test 1 moved to `ls-tree` too**, as the card required: on
+  `git ls-files` it agreed with the bug, and an `sw.js` precaching a staged file would have passed
+  it. Renamed to "every URL in the committed precache manifest is committed in HEAD".
+  **`GENERATED_BUT_SHIPPED` was NOT dropped** and still holds exactly `version.json` — it is
+  git-ignored, so it is in **neither** the index nor the commit, and `backend/Dockerfile:33-44`
+  regenerates it into the image *precisely because* `sw.js` precaches it. A naive "read the commit"
+  filter without the allowlist walks into the same 404 from the other side.
+  **`-r` and `-z` are both load-bearing and are recorded as such:** `-r` recurses into trees
+  (without it the manifest allow-set contains `icons`, not `icons/icon-96x96.png`), and `-z` gives
+  NUL-separated **unquoted** paths — plain `--name-only` C-quotes any path with a space or a
+  non-ASCII byte, which would silently drop a legitimately committed asset out of the precache.
+  **The PARK trigger did not fire.** Checked rather than assumed: on a clean tree `git ls-files`
+  and `git ls-tree -r HEAD` are byte-identical, and of the 22 manifest URLs exactly one
+  (`version.json`, allowlisted) is absent from HEAD. Nothing the image ships is newly excluded, so
+  no Dockerfile question arose. `prod:deploy` was re-read at implementation and matches the card
+  verbatim — `git reset --hard origin/main` then `docker compose build`, no `task sw` on the box.
+  **`globPatterns` and `runtimeCaching` were NOT touched**: the vendored RxDB bundle stays out
+  (decision 59) and cache-key design stays deferred (decision 57). No manual SW cache-version bump
+  — Workbox content-hashes every entry, and CLAUDE.md forbids hand-bumped keys. Precache held at
+  **22 files / 1463.6 KB**; the only manifest delta is `version.json`'s revision hash
+  (`0966d7cf` → `8270ae36`), which moved because the frontend semver did.
+  **Full suite, not a subset: 561 passed / 0 failed / 0 flaky / 6 skipped of 567 in 24.7m**
+  at `--retries=0`, **20 spec files** (`npx bddgen` run first — `task test` omits the `bdd:gen`
+  dependency and would have silently run 19 of 20, B-09). Both known-armed pre-existing reds
+  (`sync.spec.js:446` LST-17 and `:1198`) passed this run. Go: `go build`, `go vet`, and
+  `task test:go` all green (10 packages ok). Frontend **1.2.0 → 1.2.1** (patch — build-correctness
+  only, no user-visible frontend behaviour); backend unchanged at 0.2.2.
+  **G3 (openspec validate) DOES NOT APPLY** — hq has no `openspec/` tree and
+  `night-crew workflow preflight` reports ABSENT.
+  Original card text:
+  **`build-sw.js` globs `git ls-files`, which reads the git
   INDEX.** A staged-but-uncommitted file enters the precache manifest, and a precached URL that
   404s fails the **entire** service-worker install for every returning client. Reproduced end-to-end
   at triage: `git add zz-adv27-staged.html && node build-sw.js` → `23 files precached`, the file
@@ -376,10 +417,85 @@
   image precisely because `sw.js` precaches it. Footprint: `build-sw.js`, `tests/sw-manifest.spec.js`,
   regenerated `sw.js`.
 
-- **`workflow-queue-period-and-failnote-upsert`** · **PLANNED — small/medium** (new card, morning
-  triage 2026-07-27, ledger T-25 decision 71; folds D-4 and D-5) · **Both defects are consequences
-  of the key reuse decision 60 authorized**, and both need `backend/internal/workflow` — Card B's
-  explicit park trigger — so they are one card, not two.
+- **`workflow-queue-period-and-failnote-upsert`** · **DONE** (2026-07-28, run `overnight-20260729`,
+  concurrent track; card authored at morning triage 2026-07-27 from ledger T-25 decision 71) ·
+  All four items landed; **the PARK trigger did NOT fire.**
+  **(1) Fail-note duplicates.** Migration `0071_submission_fail_notes_unique.sql` adds
+  `UNIQUE (submission_id, field_id)`, and `repository.go`'s fail-note insert gains the matching
+  `ON CONFLICT ... DO UPDATE SET note = EXCLUDED.note, severity = EXCLUDED.severity`. **Both halves
+  are load-bearing and the card says so in three places**: the index alone turns a silent duplicate
+  into a hard 500 on the second POST, which is strictly worse than the bug. **`photo_url` is
+  deliberately NOT in the SET list** — it is absent from the INSERT column list, so
+  `EXCLUDED.photo_url` is NULL and writing it would erase an attached photo on every re-POST;
+  nothing repopulates it (the correction photo travels on the RESPONSE value as
+  `_correction_photo`). A third test pins that omission.
+  **The PARK trigger was CHECKED, not assumed, BEFORE the migration was written.** Queried the live
+  Postgres on `:5433`: the `production` schema (prod's, per `docker-compose.prod.yml:41`) and
+  `public` (dev's) both hold **0 rows** in `submission_fail_notes` — hence **0**
+  `(submission_id, field_id)` duplicates, and no dedup rule had to be chosen. The migration is bare
+  `CREATE UNIQUE INDEX IF NOT EXISTS` and carries a comment naming the check, what it found, and
+  what to do if some other environment ever fails on it: **the dedup rule is an operator decision,
+  do not add a `DELETE` unattended.** Rows with `submission_id IS NULL` stay unconstrained (Postgres
+  treats NULLs as distinct) — `unsubmitChecklist` detaches fail notes to NULL and nothing
+  re-attaches them, since they carry no `answered_by`. **Those orphans are a real, separate,
+  pre-existing defect this card does NOT fix** and the index neither fixes nor collides with them.
+  **(2) Cross-period stale queue entry.** `enqueueSubmission` (`sync.js`) now stamps `period` beside
+  `queuedAt`, from a new `currentSubmitPeriod()` — the SAME
+  `new Date().toISOString().slice(0, 10)` the checklist list and the runner already use for "already
+  submitted today", named once so the queue and the list cannot drift on what "today" means.
+  `findQueuedSubmission` requires a new `isCurrentPeriodEntry` predicate in addition to the
+  `template_id` match. **Aging out is RETIREMENT FROM KEY REUSE, never deletion — a judgment call
+  made explicitly, not by omission.** Offline, a queued payload is the only durable copy of what the
+  crew member entered that day (the same reason `id` is not reused), and a submission queued Monday
+  that finally drains on Thursday is CORRECT, not garbage; a delete would be the silent data loss
+  the DBL-04 comment exists to forbid. A stale entry keeps draining normally, it just stops being a
+  source of keys. An entry with **no** `period` (queued by older code) is treated as NOT current —
+  conservative in the direction that matters; the transient deploy-boundary cost is written into
+  the code rather than left to be rediscovered.
+  **(3) The durable falsehood was made TRUE, not edited away.** "The server upserts only the fields
+  present in each payload" held for `submission_responses` and was false for
+  `submission_fail_notes`; item 1 makes the sentence accurate, and the comment now records that both
+  tables upsert and why `photo_url` is excluded.
+  **(4) Vocabulary collision — decided inside the card, applied to BOTH files.**
+  `"Queued"` (`.sync-badge`, sync.js) for a whole queued **submission**; `"Unsaved"`
+  (`.unsaved-mark`, workflows.html — the class was renamed too, not just the string) for one unsent
+  **field** answer; banner `"N submissions queued to send"`. Chosen so the SCOPE is readable without
+  a legend, and because these two ARE on one screen at once — `#sync-banner` sits in the same `#s1`
+  panel as `#fill-body`. Both files carry a 🛑 VOCABULARY block naming both states and pointing at
+  the other file, so the collision cannot be reintroduced from one side.
+  **Red-first, twice, each failing on the defect rather than on a setup step.** Go
+  (`failnote_upsert_test.go`, commit `5122b0d`): `fail_note_rows=2` where 1 was wanted, with the
+  premise — both POSTs return the SAME submission id — asserted first so a green cannot be vacuous.
+  Playwright `[DBL-05]` (commit `56a913d`): a three-day-old entry lent its key to today's submit.
+  **DBL-03 is the positive control** proving the period bound did not over-block; `[VOC-01]` drives
+  both badge states onto one screen and asserts the collided string is gone from the app entirely.
+  **Full suite, not a subset: 563 passed / 0 failed / 0 flaky / 6 skipped of 569 in 24.7m**
+  at `--retries=0`, **20 spec files** (`npx bddgen` run FIRST — `task test` omits the `bdd:gen`
+  dependency and would have silently run 19 of 20, B-09). 569, not 567: Card A's baseline plus
+  exactly this card's two new tests. **Both known-armed pre-existing reds passed** this run.
+  **Two earlier runs were discarded and why is recorded, because a green claim built on either
+  would have been false.** Run 1 was aborted; run 2 inherited its residue — `hq_test_e2e_b` was
+  never reset, and `task test` DROPs and RECREATEs its database precisely because this suite shares
+  one DB across every spec file. It reported three failures
+  (`inventory.spec.js:2357` cutoff draft, `:3541` vendor pagination, `onboarding.spec.js:1179` FAQ
+  counts) — all order-sensitive, none reproducible on a fresh DB, none related to this card.
+  **Isolated before attribution, not after**: `sync.spec.js:446` [LST-17] red under load with its
+  known signature (`expected "0/1", received "1/1 items"` — a cross-device broadcast, nothing to do
+  with the queue) and **1/1 green isolated**; and one genuine defect **in this card's own test**,
+  not in the app — `[VOC-01]`'s badge locator matched two elements because `renderSyncBanner`
+  selects `[data-template-id]` document-wide and the Builder tab renders those too. Both badges
+  read "Queued"; the contract held, the locator was under-specified, and it is now scoped to
+  `#checklist-list`. **That the queued badge also lands on a Builder row is a pre-existing cosmetic
+  quirk of `renderSyncBanner`, is NOT this card's, and is left un-fixed and written down.**
+  Go: `go build`, `go vet`, and
+  `go test -p 1 ./...` against this card's own `hq_test_go_b` all green (10 packages ok,
+  `internal/workflow` among them). Backend **0.2.2 → 0.2.3**, frontend **1.2.1 → 1.2.2** (both
+  patch; frontend bumped from Card A's Wave 0 value, not 1.2.0), `package.json` mirrored exactly,
+  `sw.js` regenerated — **22 files / 1468.9 KB**, no manual cache-version bump, `globPatterns` and
+  `runtimeCaching` untouched.
+  **G3 (openspec validate) DOES NOT APPLY** — hq has no `openspec/` tree and
+  `night-crew workflow preflight` reports ABSENT.
+  Original card text:
   (1) **`submission_fail_notes` duplicates.** Measured at triage, not reasoned: the same payload
   POSTed twice with one `idempotency_key` → `201`/`201` with an **identical submission id**, and
   `submission_rows=1 response_rows=1 fail_note_rows=2`. The table has no unique constraint
@@ -480,6 +596,21 @@
   plus its tests — it does not need the rest of this card to exist, and this card does not need it
   to land first. It builds the door the client will later knock on. Removed from this card's scope;
   this card now *depends* on it rather than containing it.
+  **✅ THE DOOR LANDED 2026-07-28** (`sync-proxy-endpoint`, DONE below). This card's client work
+  targets `/sync/rest/*` and `/sync/realtime/*` on HQ's own origin; it does NOT need to fetch
+  `/api/v1/sync/token` and attach a bearer itself — the proxy mints per request and injects it,
+  and a client-supplied `Authorization`/`apikey` is deliberately discarded. Realtime is reached at
+  `/sync/realtime/socket/websocket?vsn=1.0.0`; do not add an `apikey` parameter, the door sets it.
+  **🛑 BUT THE DOOR IS DELIBERATELY UNLOCKED, AND THIS CARD HOLDS THE KEY — ACTIVATION ORDER.**
+  The proxy forwards **every method** to PostgREST with a `role: authenticated` token and no row
+  filtering of its own, because filtering is obligation 1 — *this* card's. So: **do not set
+  `HQ_SYNC_REST_URL` in any deploy until row-visibility RLS lands.** Doing so before then gives
+  every logged-in crew member full read AND write on the whole exposed schema — a dishwasher can
+  `PATCH` a template — with nothing in between, because the thing in between was always meant to
+  be RLS. `HQ_SYNC_REALTIME_URL` is the safe half to adopt first: Realtime is read-only, so a
+  subscription without RLS leaks reads but authors nothing. Recorded identically in
+  `backend/internal/sync/proxy.go`'s env-var comment and in the DONE card below; G6 flagged its
+  absence (R2) because the landing note read as an all-clear.
   (7) **Two more `api-cache`-shaped disclosures are OWNED HERE — decision 70.**
   (a) `localStorage['hq_apps']` is never cleared on logout, and `index.html:224` still parses the
   previous user's cached slug list in the fail-closed branch — offline on a shared truck phone,
@@ -492,9 +623,110 @@
   Footprint: `workflows.html`, new RxDB client layer, `backend/` (the `/sync/*` proxy handler),
   `backend/Dockerfile` (if obligation 5 is taken).
 
-- **`sync-proxy-endpoint`** · **PLANNED — small/medium** (new card, fanned out of
-  `sync-rxdb-schema-and-replication` obligation 6 at slate-20260729 planning, 2026-07-28) · Build
-  the same-origin door decision 69 chose, ahead of the client that will use it. A `/sync/*`
+- **`sync-proxy-endpoint`** · **DONE** (2026-07-28, run `overnight-20260729`, Wave 0; card fanned
+  out of `sync-rxdb-schema-and-replication` obligation 6 at slate-20260729 planning) · The
+  same-origin door decision 69 chose now exists: `backend/internal/sync/proxy.go`, mounted at
+  **root-level `/sync/*`** in `main.go` behind `auth.Middleware` and nothing else. `/sync/rest/*`
+  fronts PostgREST, `/sync/realtime/*` fronts Realtime, **WebSocket upgrade included**. No CORS,
+  no second hostname, no Cloudflare Tunnel change. Registered at the ROOT, deliberately, because
+  `/api/v1/sync/token` already occupies that prefix and a wildcard would shadow it.
+  **The upgrade path is PROVEN TWICE, hermetically and live** — the slate's park trigger did not
+  fire. (a) A hermetic test dials through the proxy into a local `coder/websocket` echo server,
+  asserts `101` **and bytes in both directions afterwards** (a proxy that hands back 101 and then
+  fails to pump the hijacked connection passes a status-only assertion). (b) A live test drives a
+  real upgrade into the running `spike-supabase-realtime-1` container and gets
+  `phx_reply {"status":"ok"}` back from a real Phoenix join — which additionally proves Realtime's
+  tenant lookup resolved and Realtime VERIFIED the HS256 token the proxy injected, since both
+  failures are a bare 403 *before* any 101. The live test `t.Skip`s loudly when the container is
+  down; **a skip is not a pass** and the file says so.
+  **The red was taken twice, and the second correction is the interesting one.** The compile-level
+  red (`undefined: ProxyHandler`) was re-taken against a deliberately naive
+  `httputil.NewSingleHostReverseProxy` baseline to prove the assertions bite behaviourally. That
+  baseline **passed the 101 and the echo**: Go's stdlib `ReverseProxy` handles the protocol switch
+  and the post-upgrade byte pump correctly on its own. So the card's premise —
+  *"the part a naive `ReverseProxy` gets wrong"* — was right that a naive proxy fails, but wrong
+  about **where**. The three real traps are (1) Realtime routes tenants by the FIRST dot-label of
+  the **Host header**, and a stock `Director` forwards the browser's Host → bare 403 with nothing
+  in the logs; (2) the `/sync/rest` prefix must be stripped or PostgREST looks up a table called
+  `sync`; (3) **Realtime's socket connect reads `apikey` and IGNORES the `Authorization` header**,
+  so the token has to go in `?apikey=` on the Realtime path — and must NOT on the REST path,
+  because PostgREST reads unknown query params as column filters. *Trap 3 was mis-stated on first
+  write-up as "a browser cannot set a header on a WebSocket handshake" (G6 R5a): true, but a
+  client-side fact about a DIRECT browser→Realtime connection, and no constraint at all on a
+  server-side proxy that builds the outbound handshake itself — this one does, and sets
+  `Authorization: Bearer` as well, which Realtime disregards. G6's mutation established the real
+  reason: delete the `apikey` injection and the live upgrade 403s with the header still present.*
+  **Credential handling is the door's other half.** A caller's own `Authorization`, `apikey` and
+  `Cookie` are DISCARDED and a token minted for the *context* user is substituted — `TokenHandler`'s
+  impersonation invariant applied at the door, so the proxy can never become a
+  bring-your-own-token relay into the substrate. Fails closed on every axis: unset upstream → 503
+  `sync_proxy_not_configured`, unset `HQ_SYNC_JWT_SECRET` → 503 `sync_bridge_not_configured`
+  (checked *before* any hop), anonymous → 401, unknown room → 404, upstream down → 502
+  `sync_upstream_unavailable` with the internal host logged and never echoed.
+  **G6 adversarial review returned APPROVE-WITH-NITS**, having planted 6 mutants (Host override,
+  `apikey` injection, `Authorization` header, prefix strip, `Cookie` Del, REST `apikey` Del) — all
+  6 went red — re-signed the live token with a wrong secret and confirmed the 403, and
+  independently rebuilt the naive baseline to confirm the premise correction above. It found **one
+  thing with teeth**, repaired in the same change set:
+  **🛑 PATH TRAVERSAL (G6 R1), fixed red-first.** The remainder after the room prefix was forwarded
+  un-normalised: `out.URL.RawPath = ""` re-derived the wire path from the DECODED `Path`, and Go's
+  path escaper does not re-escape `/`, so `%2f` became a real separator. Four vectors reproduced
+  against the booted binary — `/sync/rest/../../admin`, `/sync/rest/..%2f..%2fadmin`,
+  `/sync/rest%2f..%2f..%2fadmin`, and `/sync/realtime/../rest/spike_notes` (which reached the
+  *other* upstream carrying the minted JWT in the query string). The third is the sharp one: the
+  **room selection** was made on a decoded path whose separators the caller forged. No live impact
+  while both upstreams are path-less, but it becomes real the instant `HQ_SYNC_REST_URL` points at
+  a gateway **with a path prefix** — the standard self-hosted Supabase shape,
+  `http://kong:8000/rest/v1` — at which point `/sync/rest/../auth/v1/admin/users` escapes into a
+  **sibling service** carrying HQ's bearer. Now `400 sync_path_rejected`, checked before the room
+  is chosen. It **rejects rather than `path.Clean`s**: cleaning silently proxies a different
+  request than the one that was made.
+  **A SECOND G6 round (also APPROVE-WITH-NITS) ran a 38-vector attack matrix against the fix** —
+  the traversal invariant survived all of it, including WebSocket-upgrade traversal (rejected
+  before the hijack, upstream saw nothing) — and verified the "not over-broad" claim against the
+  LIVE containers: 24 PostgREST + 4 Realtime calls through the door, **zero false rejections**,
+  including `..` and `%2F` inside filter values, RxDB-shaped checkpoint pulls, embedded resources
+  and dotted table names; every non-200 came from PostgREST itself. It found one more thing:
+  **the `%2f` check was bypassable and two places said it wasn't.** `EscapedPath()` discards
+  `RawPath` and re-escapes the decoded `Path` whenever RawPath holds a byte Go's `encodePath`
+  validator rejects (`{ } | ^ \ " < >`), and Go's escaper does not escape `/` — so
+  `GET /sync/rest%2fadmin{` returned 200 with the upstream seeing `/admin%7B`. **Not exploitable**
+  (the dot-segment loop reads the decoded `Path`, so `..` was still caught, and no `..` or `%2f`
+  reached the wire by any route) — fixed because the code comment claimed it rejected *every*
+  encoded separator and the merge-intent note claimed *anywhere in the request path*. **The right
+  move on a false durable claim is to make it true, not to soften it:** the check now reads
+  `u.RawPath`, the untouched request target. The dot-segment rule's scope is now stated exactly
+  too — an exact `.`/`..` match on **Go's decoded segmentation**, not a universal rule: `..;/`,
+  `....//`, `..%00/`, `..%c0%af..` and `%252e%252e` pass deliberately (none traverses nginx or
+  Kong) but would matter behind a Tomcat/Jetty-class parser or a double-decoding gateway.
+  17 Go tests (15 hermetic + 2 live), including one that rebuilds `main.go`'s actual chi +
+  `middleware.Logger` + `Group` + `/sync/*` stack and drives an upgrade through it — pinning the
+  dependency property that the logger's `ResponseWriter` wrapper implements `http.Hijacker`, which
+  every WebSocket on this router silently depends on. The live pair is gated on
+  `HQ_SYNC_SPIKE_LIVE=1` and **fails rather than skips when the flag is set but the port is dead**
+  (G6 R4): a skip prints nothing without `-v`, so an intended live run could otherwise degrade to
+  hermetic-only coverage and still report `ok` — the B-09 suite-honesty rule applied to a test
+  file. The flag's falsy spellings (`0`/`false`/`no`/`off`) are honoured, because the first version
+  tested `!= ""` and made `HQ_SYNC_SPIKE_LIVE=0` opt **in** (G6 F-4).
+  Backend `0.2.2` → `0.3.0`.
+  **Inert until configured:** `HQ_SYNC_REST_URL` / `HQ_SYNC_REALTIME_URL` are unset in every
+  current deploy, so every `/sync/*` request answers 503 today. **🛑 AND THEY MUST STAY THAT WAY
+  UNTIL RLS LANDS** — see the activation-order block on obligation 6 above: the door forwards every
+  method with a `role: authenticated` token and no row filtering of its own, so setting
+  `HQ_SYNC_REST_URL` before obligation 1 gives every logged-in crew member read AND write on the
+  whole exposed schema. `HQ_SYNC_REALTIME_URL` is the safe half to adopt first (read-only).
+  **Residual once activated (G6 R3):** the Realtime credential rides in the query string because
+  Realtime ignores the `Authorization` header. It is injected server-side, so it never enters
+  browser history, a `Referer`, or a client log — G6 audited HQ's logs, Realtime's logs and the 502
+  path and found 0 JWT occurrences — but the HQ→Realtime hop is plaintext inside the compose
+  network, so **do not place an access-logging L7 proxy between HQ and Realtime, and do not enable
+  Realtime request logging.** Either writes a live bearer to disk in cleartext.
+  **Not in scope and NOT done:** RLS predicates (obligation 1), any RxDB client code, any
+  `workflows.html` change — all still the parent's. Footprint held:
+  `backend/internal/sync/proxy*.go` (new), `backend/cmd/server/main.go` (route registration),
+  `backend/internal/version/version.go`.
+  Original card text:
+  Build the same-origin door decision 69 chose, ahead of the client that will use it. A `/sync/*`
   `httputil.ReverseProxy` handler in the existing Go backend fronts `rest:3000` and
   `realtime:4000` — including the **WebSocket upgrade** path Realtime needs, which is the part a
   naive `ReverseProxy` gets wrong and the part worth a test. Auth: reuse the existing bearer/session
@@ -506,8 +738,92 @@
   `backend/` (new proxy handler + its route registration + tests). Depended on by
   `sync-rxdb-schema-and-replication`.
 
-- **`sync-rxdb-conflict-notice-mockup`** · **PLANNED — small** (new card, fanned out of
-  `sync-rxdb-conflict-notice-ui` at slate-20260729 planning, 2026-07-28) · Draft the committed
+- **`sync-rxdb-conflict-notice-mockup`** · **DONE** (2026-07-29, run `overnight-20260729`, card
+  branch `card/d-sync-rxdb-conflict-notice-mockup`; card authored at slate-20260729 planning,
+  fanned out of `sync-rxdb-conflict-notice-ui`) · **The sign-off artifact exists.**
+  `.planning/phases/sync-rxdb-conflict-notice/mockup.html` — **eleven plates** (nine as first
+  drafted, two added by the repair round), mobile-first 480px on HQ's shared variable block with
+  dark mode, modelled on `.planning/phases/f3-trends-tab/mockup.html` — plus `UI-SPEC.md` beside it
+  carrying the State Enumeration Table (**four base rows and six edges**, including all three the
+  slate named: **no discarded value available**, **several conflicts at once**, **conflict on a
+  field since removed from the template**), the `done_when:` block, and the `conflict$` evidence the
+  design rests on. **Zero production code**, as the card required.
+  **THE OPERATOR NOW HAS SOMETHING TO SAY YES OR NO TO — that answer is what unblocks
+  `sync-rxdb-conflict-notice-ui`, and it has NOT been given.** A *no* is a successful outcome for
+  this card; redrawing a mockup is cheaper than redrawing `workflows.html`.
+  **The recovery path — the point of the card — is `Restore mine`, and it is deliberately boring.**
+  Master-wins discarded the fork because `replicateSupabase`'s push found the server value had moved
+  under its compare-and-swap; nothing about that state is unrecoverable, only *stale*. Writing the
+  crew member's value again **now, from the current master state**, is an ordinary local edit that
+  pushes cleanly — no new sync plumbing, no `conflictHandler` special case, no server endpoint. If
+  the server moves again in between, that write conflicts in turn and lands back in the same sheet,
+  so the loop is closed. Two degradations behind it: **Copy value** when the field is gone from the
+  template (nowhere to write it back, and a clipboard copy is a real recovery on a phone), and
+  "open the checklist" when there is nothing showable at all.
+  **🛑 THREE VERIFIED LIMITS OF `conflict$` DROVE THE DESIGN — read these before building the UI.**
+  Re-derived from W2 (`proof-lww.js`, README half 2 step 5, FORK 3), not assumed:
+  (a) **It carries whole documents, never a field name.** The app must diff `input.newDocumentState`
+  against `output` itself, and that diff can come back holding nothing a crew member would
+  recognise — which is exactly why the *no discarded value available* row exists. Declaring
+  `_modified` in the schema makes this common rather than rare (W2 sharp edge 11: any server-side
+  touch becomes a conflict), so that schema choice is now a UI-visible one.
+  (b) **It is a plain RxJS `Subject` — no replay — and RxDB persists nothing about a resolved
+  conflict.** So the design has one hard precondition: **the app must write the discarded value to
+  durable local storage the instant the event arrives**, or a reload destroys the value the whole
+  screen exists to recover. Where that record lives is the UI card's call; that it must exist is a
+  contract. This is also why the banner must read the stored record and not a live subscription —
+  `waitForLeadership` defaults to `true`, so only the leader tab's `conflict$` fires at all.
+  (c) **It carries no author and no timestamp of its own.** The mockup's "Dana M., 6:12 PM"
+  attribution is only as real as the replicated row; if the schema does not carry who-and-when it
+  must degrade to "someone else" rather than be invented. **That is a requirement this spec places
+  on `sync-rxdb-schema-and-replication`, not a decision this card made.**
+  **Open question left for the operator, deliberately:** beyond ~10 conflict groups the sheet needs
+  a cap or a date filter; not designed. Judge it against one long dead-zone shift with an active
+  manager.
+  **Self-verified per CLAUDE.md's headless ritual** — **22 PNGs (11 plates × light/dark at 480px)**
+  under `screenshots/`, produced by the committed `shoot.mjs`, read back multimodally and compared
+  row by row against each row's visual contract. **Two findings were fixed rather than reported
+  around:** nested `<span>`s rendered the banner headline and every checklist name run together with
+  their subtitles, and the several-at-once caption promised a group action "above the individual
+  buttons" when the render collapses them and puts it at the foot — the caption was corrected to the
+  render, not the reverse. **Red-first DOES NOT APPLY and is not silently omitted:** there is no code
+  and no test in this card, and the screenshot ritual is the substitute discipline.
+  **⚠️ VERIFIER GATE: PASS-WITH-ISSUES → REPAIRED (repair round, same branch).** A verifier whose
+  inputs were restricted to the UI-SPEC, the `done_when:` block, the diff and the screenshots — not
+  the author's reasoning — confirmed the recovery path is concrete and usable, and returned nine
+  defects. All nine are fixed on this branch; the sign-off the operator gives is against the
+  **repaired** artifact. The four that change what the operator is being asked to approve:
+  (a) **The counting rule was never defined and two plates disagreed about it in opposite
+  directions.** It is now stated once in `UI-SPEC.md` §"The counting rule" — banner = Σ recoverable
+  rows, chip = that group's rows, **handling a row never changes a count** (only Dismiss or expiry
+  does), unidentifiable changes counted separately as `+N`. Every plate obeys it. The operator can
+  reject this: it means **the banner is not a to-do list**.
+  (b) **Long content overflowed.** A 90-char unbroken token pushed the page to a **951 px
+  `scrollWidth`** in a 480 px viewport, with no wrap and no ellipsis — and there was no long-content
+  edge row, though CLAUDE.md names it as canonical and a free-text note is the field most likely to
+  survive a conflict. New edge row + plate, CSS fixed (`min-width:0` on row and value,
+  `overflow-wrap:anywhere`), re-measured at **480 = 480**.
+  (c) **Three sub-44px controls** — Undo (35×16), Done (37×16), Review (53×15) — passed a
+  `done_when:` row that only grepped the two classes already known to declare `min-height:44px`.
+  Undo is the only escape from a mis-tapped Restore. All fixed; `shoot.mjs` now **measures** every
+  interactive element's box in both schemes and exits non-zero.
+  (d) **Two states claimed more than the mechanism supports.** The empty state said "Nothing was
+  overwritten" — a flat guarantee, on the screen shown most often, that a non-leader tab or an
+  evicted store makes false; it now reads "Nothing recorded in the last 30 days". The storage-error
+  state reassured that the checklists are fine without saying the **record is permanently gone** —
+  the one screen in the set where something really is unrecoverable. Both rewritten.
+  Also: the two previously-undrawn outcomes (**Keep theirs** and **Undo**) now have a plate, three
+  captions that disagreed with their own render were corrected, "Restore all N of mine" was
+  restyled primary, and two `done_when:` criteria that could not fail were rewritten (criterion 6
+  asked a static plate to show a transition; criterion 14 named only the classes it knew passed).
+  **G3 (openspec validate) DOES NOT APPLY** — hq has no `openspec/` tree and
+  `night-crew workflow preflight` reports ABSENT.
+  **No version constant moved** (`Backend 0.3.0`, `Frontend 1.2.1` untouched) and **`sw.js` was not
+  regenerated** — no shipped file changed, and `.planning/**` is in `build-sw.js`'s `globIgnores`
+  so the precache manifest is unaffected. Footprint held exactly:
+  `.planning/phases/sync-rxdb-conflict-notice/` (new), the roadmap flip, and the merge-intent note.
+  Original card text:
+  Draft the committed
   mockup that the attended sign-off consumes, so the blocked UI card becomes unblockable. The
   roadmap has now recorded twice that **drafting the mockup — not chasing the sign-off — is the next
   action**, and that drafting is unattended-safe by construction: CLAUDE.md gates *production code*
@@ -535,7 +851,22 @@
   Table and the verifier-subagent gate. **The operator owes a mockup sign-off before this card can
   ever be slated.** Footprint: `workflows.html`, the RxDB client layer.
 
-  **🛑 SCHEDULING DECISION 2026-07-26 — read this before planning tomorrow's slate.** Checked at
+  **✅ THE MOCKUP LANDED 2026-07-29** (`sync-rxdb-conflict-notice-mockup`, DONE above).
+  `.planning/phases/sync-rxdb-conflict-notice/mockup.html` + `UI-SPEC.md` (State Enumeration Table,
+  `done_when:`, the `conflict$` evidence) + **22 self-verification renders** are committed, and the
+  artifact has been through a **verifier gate (PASS-WITH-ISSUES → all nine defects repaired)**;
+  read the gate summary on the mockup card above before slating, because two of the repairs are
+  design decisions the operator can reject outright (the counting rule, and handled rows staying on
+  the sheet until Dismiss). **The
+  scheduling decision below is DISCHARGED — drafting the mockup was the next action, and it is
+  done.** What remains is now genuinely the operator's: an explicit *"ok, build this"*, or a *no*
+  with what to change. **This card stays ATTENDED-BLOCKED until that answer exists** — a run may
+  not infer it, and the existence of a mockup is not a sign-off. Read `UI-SPEC.md` §"Explicitly NOT
+  decided here" before slating: the conflictHandler's merge rule, whether the replicated schema
+  carries who-and-when, whether `_modified` is declared, and the durable conflict record's home are
+  all still open, and three of them change what this UI can truthfully show.
+
+  **🛑 SCHEDULING DECISION 2026-07-26 — DISCHARGED 2026-07-29, kept as the record of why.** Checked at
   slate-20260727 planning: **no mockup exists for this card.** The only `mockup.html` in the repo is
   `.planning/phases/f3-trends-tab/mockup.html`. So the owed sign-off has nothing to review, and
   "get the operator to sign off" is NOT the next action — **drafting the mockup is.**
