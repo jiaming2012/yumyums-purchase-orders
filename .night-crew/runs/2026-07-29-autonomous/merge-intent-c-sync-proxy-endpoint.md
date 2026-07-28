@@ -20,8 +20,13 @@ client knocks on it in a later card.
 - `backend/internal/sync/proxy_test.go` — **new, the card's core.** Red-first tests for the plain
   HTTP path and the upgrade path. No conflict surface.
 - `backend/internal/sync/proxy_live_test.go` — **new, the card's core.** The proof against the
-  live `spike-supabase-realtime-1` container, `t.Skip`ped when the container is not reachable so
-  the suite stays green on a machine without it. No conflict surface.
+  live `spike-supabase-realtime-1` container. ~~`t.Skip`ped when the container is not reachable so
+  the suite stays green on a machine without it.~~ **STRUCK at G6 repair (R4).** It is now gated on
+  `HQ_SYNC_SPIKE_LIVE`, **asymmetrically**: flag unset → skip; flag set and port up → run; **flag
+  set and port dead → FAIL, not skip.** The struck version's "stays green on a machine without it"
+  was exactly the problem — with the containers down, `go test` printed `ok ... 1.513s`,
+  indistinguishable in a non-verbose log from a run that proved the live upgrade. No conflict
+  surface.
 - `backend/cmd/server/main.go` — ⚠️ **THE ONE FILE CARD B AND I ARE BOTH LIKELY TO TOUCH.**
   See the dedicated section below.
 - `backend/internal/version/version.go` — **shared file, every card touches it.** This card edits
@@ -86,9 +91,13 @@ clean)_
 
 Closed out after the gates. **The footprint held exactly as declared** — the three new
 `proxy*.go` files, `backend/cmd/server/main.go`, `backend/internal/version/version.go`, the roadmap
-flip, and this note. **No file outside the list was edited.** The whole note was re-read; **no line
-above is contradicted, so nothing is struck.** Four things a merge should know that the note did
-not anticipate:
+flip, and this note. **No file outside the list was edited.** ~~The whole note was re-read; **no
+line above is contradicted, so nothing is struck.**~~ **STRUCK after the G6 repair round** — that
+sentence was true when written and is not any more. The note was re-read IN FULL a second time per
+B-11, and **four lines are now struck**: the `proxy_live_test.go` skip description above,
+this sentence, the "safe to drop" entry for that file, and constraint 3's closing clause. The
+footprint claim itself still holds — the repair round edited only files already on the list.
+Four things a merge should know that the note did not anticipate:
 
 1. **The registration snippet in the section below is EXACT — it is what shipped, verbatim.**
    `main.go:418-444` (comment block plus the four-line group). Re-check it against that section if
@@ -107,7 +116,28 @@ not anticipate:
    it **passed the 101 and the bidirectional echo** — Go's stdlib `ReverseProxy` handles the
    protocol switch correctly on its own. What a naive proxy actually gets wrong here is the Host
    header (Realtime's tenant routing), the prefix strip, and credential injection. That baseline
-   was **not committed**.
+   was **not committed**. *(G6 independently rebuilt this baseline and confirmed the correction.)*
+
+### G6 repair round — what changed after the first close-out
+
+G6 adversarial review returned **APPROVE-WITH-NITS**. Five items were repaired in two commits
+(`7760252`, `0ce6b76`). **No file outside the declared footprint was touched.** What a merge needs
+to know:
+
+5. **R1 added a security-relevant behaviour to `proxy.go` — it belongs on the must-survive list,
+   and it is now item 8 below.** Path traversal: the room remainder was forwarded un-normalised,
+   `%2f` became a real separator, and `/sync/realtime/../rest/spike_notes` reached the *other*
+   upstream carrying the minted JWT. Now `400 sync_path_rejected` via `unsafeRequestPath`, checked
+   **before the room is chosen** — the ordering is load-bearing, because the room is chosen from
+   the decoded path and an encoded separator forges that decision.
+6. **R2 added an ACTIVATION-ORDER CONSTRAINT that is now recorded in three places** — `proxy.go`'s
+   env-var block, the parent card's obligation-6 annotation, and the DONE card. It is item 9 below
+   and it is the one thing in this whole card an operator can get hurt by. A merge that keeps the
+   code and drops all three copies of the warning ships a loaded gun.
+7. **`main.go` was NOT touched by the repair round.** The registration snippet in the section above
+   is still exact. The Card B collision surface is unchanged.
+8. **`version.go` was NOT bumped again.** `Backend` stays `0.3.0`; these were repairs to
+   unreleased code in the same change set, not a second increment.
 
 ## What must survive any merge
 
@@ -133,19 +163,41 @@ not anticipate:
 6. **`Backend` in `version.go` is bumped to at least `0.3.0`.**
 7. **The red-first tests.** Both of them — the plain-HTTP request AND the upgrade request. A merge
    that keeps `proxy.go` and drops `proxy_test.go` keeps a claim without its proof.
+8. **The path-traversal rejection, and its POSITION.** *(Added at the G6 repair round, R1.)* Any
+   dot segment (`.`, `..`) or encoded separator (`%2f`, `%5c`, literal `\`) anywhere in the request
+   path ⇒ `400 sync_path_rejected`, and **the check runs before the room is resolved**. Position is
+   not stylistic: the room is chosen from the DECODED path, so `/sync/rest%2f..%2f..%2fadmin`
+   selects the REST room with separators the caller forged. It must **reject, not `path.Clean`** —
+   cleaning silently proxies a different request than the one that was made.
+   `TestProxy_RejectsPathTraversal` and `TestProxy_LegitimatePathsStillPass` are a pair: the second
+   is what stops a future over-broad rule (a dot IN a segment is legal, a dot SEGMENT is not).
+9. **The activation-order constraint, in all three places it is written.** *(Added at the G6 repair
+   round, R2.)* **Do not set `HQ_SYNC_REST_URL` in any deploy until row-visibility RLS (obligation
+   1) lands.** The door forwards every method with a `role: authenticated` token and does no row
+   filtering of its own — by design, since filtering is the parent card's. Activating REST before
+   RLS gives every logged-in crew member full read AND write on the whole exposed schema.
+   `HQ_SYNC_REALTIME_URL` is the safe half to adopt first (read-only). The three copies are in
+   `proxy.go`'s env-var block, the parent card's obligation-6 annotation, and the DONE card; a
+   merge should keep all three, and must keep at least the `proxy.go` one.
 
 ## What is safe to drop
 
-- **Comment wording** anywhere in the new files, and test names.
+- **Comment wording** anywhere in the new files, and test names. **Two exceptions, added at the G6
+  repair round:** the activation-order block and the Realtime-logging caveat in `proxy.go`'s
+  env-var comment are *comments whose content is load-bearing* — they are the only place the
+  operational constraint lives in code. Reword them freely; do not drop them.
 - **The env-var spellings** (`HQ_SYNC_REST_URL`, `HQ_SYNC_REALTIME_URL`,
   `HQ_SYNC_REALTIME_HOST`) — the *behaviour* matters (configured upstreams, fail-closed when
   unset, a Host override for Realtime's tenant routing); the exact names do not, as long as
   nothing else in the repo already reads them.
 - **The exact sub-path spelling** `/sync/rest/*` and `/sync/realtime/*`. What matters is that one
   same-origin prefix reaches both upstreams and that they are distinguishable.
-- **`proxy_live_test.go` entirely.** It is skipped without the spike container and proves nothing
-  a merge conflict is qualified to adjudicate. The hermetic upgrade test is the one that must
-  survive.
+- **`proxy_live_test.go` entirely.** ~~It is skipped without the spike container and proves nothing
+  a merge conflict is qualified to adjudicate.~~ **The reasoning is STRUCK at the G6 repair round
+  (R4)** — the file no longer merely skips; it FAILS when `HQ_SYNC_SPIKE_LIVE=1` is set and the
+  port is dead, which is the whole point of it. The *conclusion* still stands: it depends on a
+  container a merge cannot adjudicate, and the hermetic upgrade test is the one that must survive.
+  But dropping it drops the only evidence that Realtime accepts what comes out of the door.
 - **The roadmap card's prose.** The **status flip** matters; the wording does not.
 - **Anything in this note itself.**
 
@@ -179,7 +231,9 @@ not anticipate:
    the 07-25 spike's `rtwatch`), so the upgrade test needs no new third-party surface.
 3. **`docker-compose.nc.yml`** — **UNTOUCHED.** No compose service added, renamed, or re-ported.
    `docker-compose.supabase.yml` is likewise **not edited**; the live test only dials a container
-   that is already running and skips when it is not.
+   that is already running ~~and skips when it is not~~ — **STRUCK at the G6 repair round (R4):**
+   it skips only when `HQ_SYNC_SPIKE_LIVE` is unset, and **fails** when the flag is set and the
+   container is not there. Still no compose file read, written, or brought up by any test.
 4. **Root `Taskfile.yml`** — **UNTOUCHED.** Go tests are invoked directly with an explicit
    `DB_TEST_URL` pointing at this card's own database (`hq_test_go_c`), because a card is running
    concurrently and the shared `hq_test_go` would be truncated out from under it. No task added,
