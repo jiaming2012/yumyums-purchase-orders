@@ -28,3 +28,9 @@ cardB_g6_dispatch	2026-07-28T15:55:51-04:00	riskiest card
 cardD_verify1_done	2026-07-28T16:18:39-04:00	PASS-WITH-ISSUES, 1 done_when row failed, 5 caption/render disagreements
 cardD_repair1_done	2026-07-28T16:18:39-04:00	~25min, 2 commits, all 20 done_when rows pass, no waivers, 11 plates / 22 PNGs
 cardD_verify2_dispatch	2026-07-28T16:18:39-04:00	focused re-verify of repair delta
+cardB_g6_done	2026-07-28T16:52:22-04:00	APPROVE-WITH-NITS, park trigger verified across 29 DBs, 0 duplicates
+cardB_merged	2026-07-28T16:52:22-04:00	79fa7cd, 1 conflict (version.go) resolved per-constant
+cardD_verify2_done	2026-07-28T16:52:22-04:00	PASS-WITH-MINOR-ISSUES, sign-off can proceed, all 20 done_when pass
+cardD_merged	2026-07-28T16:52:22-04:00	4f75de2 clean
+final_suite	2026-07-28T16:52:22-04:00	563 passed / 0 failed / 6 skipped of 569, 23.3m, 20 spec files (first attempt was a FALSE GREEN: exit 0, zero tests run)
+run_end	2026-07-28T16:52:22-04:00
