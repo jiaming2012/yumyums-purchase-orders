@@ -1,0 +1,525 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>sync-rxdb-conflict-notice — mockup (overwritten answers)</title>
+<!--
+  MOCKUP — card `sync-rxdb-conflict-notice-mockup`, overnight run 2026-07-29.
+
+  WHY THIS FILE EXISTS. CLAUDE.md gates UI code on phases introducing new
+  components behind a committed mockup at `.planning/.../<phase>/mockup.html`
+  plus an explicit human "ok, build this". The sibling card
+  `sync-rxdb-conflict-notice-ui` is ATTENDED-BLOCKED because that artifact did
+  not exist — the owed sign-off had nothing to review. This is that artifact.
+  Drafting it is unattended-safe by construction: the gate is on production
+  code, and this is the thing the gate reads. NOTHING HAS BEEN SIGNED OFF. A
+  "no" from the operator is a successful outcome for this card.
+
+  NOT A LIVE PAGE. Static markup, CSS inlined in HQ's shared-variable style.
+  Every interaction is inert. Each plate below is one row of the State
+  Enumeration Table in ../sync-rxdb-conflict-notice/UI-SPEC.md — read that file
+  for the triggers, the visual contracts, the `done_when:` block, and the
+  verbatim `conflict$` evidence this design is built on.
+
+  HAND-DRAWN AHEAD OF CODE, unlike the f3-trends-tab mockup (which was dumped
+  out of a shipped render). There is no implementation to dump: that is the
+  point. So mockup/implementation drift is possible here and the UI card must
+  note any deviation in its SUMMARY.md.
+-->
+<style>
+:root{--bg:#f5f5f3;--card:#fff;--txt:#1a1a1a;--mut:#6b6b6b;--brd:rgba(0,0,0,0.08);--info-bg:#e6f1fb;--info-tx:#0c447c;--warn-bg:#faeeda;--warn-tx:#854f0b;--ok-bg:#dcfce7;--ok-tx:#166534;--bad-bg:#fee2e2;--bad-tx:#991b1b;--skel:rgba(0,0,0,0.07)}
+@media(prefers-color-scheme:dark){:root{--bg:#1a1a1a;--card:#262626;--txt:#f0f0f0;--mut:#999;--brd:rgba(255,255,255,0.1);--info-bg:#0c447c;--info-tx:#b5d4f4;--warn-bg:#633806;--warn-tx:#fac775;--ok-bg:#14532d;--ok-tx:#86efac;--bad-bg:#7f1d1d;--bad-tx:#fca5a5;--skel:rgba(255,255,255,0.09)}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg);color:var(--txt);max-width:480px;margin:0 auto;padding:16px}
+
+/* ── mockup chrome (not part of the design — the plate captions) ───────────── */
+.doc-hd{border-bottom:0.5px solid var(--brd);padding-bottom:14px;margin-bottom:6px}
+.doc-hd h1{font-size:19px;font-weight:600;margin:0 0 4px;letter-spacing:-0.3px}
+.doc-hd p{font-size:12px;color:var(--mut);line-height:1.5;margin:0 0 6px}
+.doc-hd p:last-child{margin-bottom:0}
+.doc-hd code{font-size:11px;background:var(--skel);padding:1px 4px;border-radius:3px}
+.plate{margin:22px 0 0}
+.cap{margin-bottom:8px}
+.cap-id{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;background:var(--info-bg);color:var(--info-tx);padding:2px 7px;border-radius:4px}
+.cap-t{font-size:11px;color:var(--mut);line-height:1.5;margin:5px 0 0}
+.cap-t b{color:var(--txt);font-weight:600}
+.screen{background:var(--bg);border:0.5px solid var(--brd);border-radius:14px;padding:14px;box-shadow:0 1px 2px rgba(0,0,0,0.05)}
+.note{font-size:11px;color:var(--mut);line-height:1.55;margin:8px 0 0;border-left:2px solid var(--brd);padding-left:10px}
+.note b{color:var(--txt)}
+
+/* ── the design under review ───────────────────────────────────────────────── */
+.sc-hd{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:10px}
+.sc-title{font-size:16px;font-weight:600}
+.sc-close{font-size:14px;color:var(--info-tx);font-weight:500}
+
+/* banner — the only thing that appears unprompted */
+.cn-banner{display:flex;align-items:center;gap:10px;background:var(--warn-bg);color:var(--warn-tx);border-radius:12px;padding:12px 14px;margin-bottom:12px;min-height:44px}
+.cn-banner-ico{font-size:17px;line-height:1;flex-shrink:0}
+.cn-banner-body{flex:1;min-width:0}
+.cn-banner-hd{display:block;font-size:14px;font-weight:600;line-height:1.3}
+.cn-banner-sub{display:block;font-size:11.5px;line-height:1.4;opacity:.85;margin-top:2px}
+.cn-banner-go{font-size:13px;font-weight:600;white-space:nowrap;text-decoration:underline}
+
+/* checklist list rows, for context behind the banner */
+.cl-row{background:var(--card);border:0.5px solid var(--brd);border-radius:12px;padding:13px 15px;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.cl-name{display:block;font-size:14px;font-weight:500}
+.cl-meta{display:block;font-size:11px;color:var(--mut);margin-top:2px}
+.cl-prog{font-size:12px;font-weight:600;color:var(--mut);white-space:nowrap}
+
+/* a conflict group = one document = one conflict$ event */
+.cg{background:var(--card);border:0.5px solid var(--brd);border-radius:12px;padding:14px 15px;margin-bottom:8px}
+.cg-hd{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;padding-bottom:10px;border-bottom:0.5px solid var(--brd)}
+.cg-name{display:block;font-size:14px;font-weight:600;line-height:1.3}
+.cg-meta{display:block;font-size:11px;color:var(--mut);margin-top:3px;line-height:1.4}
+.cg-doc{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10px;color:var(--mut);background:var(--skel);padding:1px 5px;border-radius:3px}
+.cg-count{font-size:11px;font-weight:600;color:var(--warn-tx);background:var(--warn-bg);padding:2px 7px;border-radius:10px;white-space:nowrap;flex-shrink:0}
+.cg-all{display:block;width:100%;margin-top:10px;padding:11px;min-height:44px;background:var(--bg);border:0.5px solid var(--brd);border-radius:9px;color:var(--info-tx);font-size:13px;font-weight:600;font-family:inherit;text-align:center}
+
+/* one field row */
+.cf{padding:12px 0;border-bottom:0.5px solid var(--brd)}
+.cf:last-of-type{border-bottom:none;padding-bottom:2px}
+.cf-q{font-size:13px;font-weight:600;line-height:1.3}
+.cf-q-gone{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;font-weight:600;color:var(--mut)}
+.cf-vals{margin-top:8px}
+.cf-v{display:flex;align-items:baseline;gap:8px;font-size:13px;padding:3px 0}
+.cf-v-lab{width:88px;flex-shrink:0;white-space:nowrap;font-size:10.5px;color:var(--mut);text-transform:uppercase;letter-spacing:.03em;font-weight:600}
+.cf-v-val{font-weight:600;font-variant-numeric:tabular-nums}
+.cf-v-who{font-size:11px;color:var(--mut);font-weight:400}
+.cf-v.mine .cf-v-val{color:var(--warn-tx)}
+.cf-v.none .cf-v-val{color:var(--mut);font-weight:500;font-style:italic}
+.cf-why{font-size:11px;color:var(--mut);line-height:1.5;margin-top:7px}
+.cf-acts{display:flex;gap:8px;margin-top:10px}
+.cf-btn{flex:1;padding:10px;min-height:44px;border-radius:9px;font-size:13px;font-weight:600;font-family:inherit;border:0.5px solid transparent;text-align:center}
+.cf-btn-pri{background:var(--info-bg);color:var(--info-tx)}
+.cf-btn-sec{background:var(--bg);color:var(--mut);border-color:var(--brd);font-weight:500}
+.cf-btn-wide{flex:1}
+.cf-btn[aria-disabled=true]{opacity:.55}
+
+/* row outcomes */
+.cf-done{display:flex;align-items:center;gap:8px;background:var(--ok-bg);color:var(--ok-tx);border-radius:9px;padding:10px 12px;font-size:12.5px;font-weight:600;line-height:1.35;margin-top:2px}
+.cf-done-undo{margin-left:auto;font-size:12px;font-weight:600;text-decoration:underline;white-space:nowrap}
+.cf-err{background:var(--bad-bg);color:var(--bad-tx);border-radius:9px;padding:10px 12px;font-size:12px;line-height:1.45;margin-top:10px}
+.cf-err b{display:block;font-size:12.5px;margin-bottom:2px}
+.cf.unrec{opacity:.9}
+.cf.unrec .cf-q{color:var(--mut)}
+.spin{display:inline-block;width:13px;height:13px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;vertical-align:-2px;margin-right:6px;opacity:.7}
+
+/* empty / loading / error at sheet level */
+.sc-empty{background:var(--card);border:0.5px solid var(--brd);border-radius:12px;padding:34px 22px;text-align:center}
+.sc-empty h3{font-size:15px;font-weight:600;margin:0 0 7px}
+.sc-empty p{font-size:12.5px;color:var(--mut);line-height:1.55;margin:0}
+.sk{background:var(--card);border:0.5px solid var(--brd);border-radius:12px;padding:14px 15px;margin-bottom:8px}
+.sk-l{height:11px;border-radius:5px;background:var(--skel);margin-bottom:9px}
+.sk-l:last-child{margin-bottom:0}
+.sc-err{background:var(--card);border:0.5px solid var(--bad-tx);border-radius:12px;padding:18px;text-align:center}
+.sc-err h3{font-size:14px;font-weight:600;color:var(--bad-tx);margin:0 0 6px}
+.sc-err p{font-size:12px;color:var(--mut);line-height:1.55;margin:0 0 12px}
+.sc-err button,.sc-empty button{width:100%;padding:11px;min-height:44px;background:var(--info-bg);color:var(--info-tx);border:none;border-radius:9px;font-size:13px;font-weight:600;font-family:inherit}
+.more{font-size:11px;color:var(--mut);text-align:center;padding:6px 0 2px;line-height:1.5}
+
+/* the closing "what this cannot do" panel */
+.limits{background:var(--card);border:0.5px solid var(--brd);border-left:3px solid var(--warn-tx);border-radius:10px;padding:14px 15px;margin-top:10px}
+.limits h3{font-size:13px;font-weight:700;margin:0 0 8px}
+.limits p{font-size:11.5px;color:var(--mut);line-height:1.6;margin:0 0 8px}
+.limits p:last-child{margin-bottom:0}
+.limits b{color:var(--txt)}
+.limits code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10.5px;background:var(--skel);padding:1px 4px;border-radius:3px}
+</style>
+</head>
+<body>
+
+<div class="doc-hd">
+  <h1>Overwritten answers</h1>
+  <p><b>Card <code>sync-rxdb-conflict-notice</code> — what a crew member sees when their offline
+  answer loses to master-wins, and how they get it back.</b></p>
+  <p>RxDB's default conflict handler is <b>unconditional master-wins</b>, verified at W2
+  (<code>proof-lww.js</code>): the later local write is discarded, the earlier server write
+  survives, no clock participates, and <code>error$</code> emits nothing. The one signal that
+  fires is <code>conflict$</code>, which carries the whole discarded document. Every plate below
+  is drawn from what that event actually contains — see UI-SPEC.md §"What <code>conflict$</code>
+  gives you" for the verbatim evidence and the limits.</p>
+  <p>Nine plates, one per State Enumeration Table row plus the design's own limits panel.
+  Everything is inert.</p>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════ SUCCESS ══ -->
+<div class="plate" id="plate-success">
+  <div class="cap">
+    <span class="cap-id">success</span>
+    <p class="cap-t"><b>Trigger:</b> replication reconnects; <code>conflict$</code> emits for one
+    document; the diff names ≥1 template-backed field with a value in
+    <code>input.newDocumentState</code>. <b>Contract:</b> amber banner above the checklist list
+    with an exact count; the sheet shows the crew member's value and the server's side by side,
+    labelled <em>Yours</em> / <em>Now shows</em>; every recoverable row offers
+    <b>Restore mine</b>; a restored row turns green, names the value that came back, and offers
+    Undo.</p>
+  </div>
+  <div class="screen">
+    <div class="cn-banner">
+      <span class="cn-banner-ico">⚠️</span>
+      <span class="cn-banner-body">
+        <span class="cn-banner-hd">2 answers were overwritten</span>
+        <span class="cn-banner-sub">Someone edited them while your phone was offline.</span>
+      </span>
+      <span class="cn-banner-go">Review</span>
+    </div>
+    <div class="cl-row"><span><span class="cl-name">Opening — Truck A</span><span class="cl-meta">Mon Jul 27 · you</span></span><span class="cl-prog">9/9</span></div>
+    <div class="cl-row"><span><span class="cl-name">Closing — Truck A</span><span class="cl-meta">Mon Jul 27 · you</span></span><span class="cl-prog">4/11</span></div>
+
+    <div style="height:18px"></div>
+
+    <div class="sc-hd"><span class="sc-title">Overwritten answers</span><span class="sc-close">Done</span></div>
+    <div class="cg">
+      <div class="cg-hd">
+        <span><span class="cg-name">Opening — Truck A</span><span class="cg-meta">Mon Jul 27 · <span class="cg-doc">sub_9f31c4</span></span></span>
+        <span class="cg-count">2 answers</span>
+      </div>
+
+      <div class="cf">
+        <div class="cf-q">Walk-in cooler temp</div>
+        <div class="cf-vals">
+          <div class="cf-v mine"><span class="cf-v-lab">Yours</span><span class="cf-v-val">38 °F</span></div>
+          <div class="cf-v"><span class="cf-v-lab">Now shows</span><span class="cf-v-val">41 °F</span><span class="cf-v-who">· Dana M., 6:12 PM</span></div>
+        </div>
+        <div class="cf-acts">
+          <span class="cf-btn cf-btn-pri">Restore mine</span>
+          <span class="cf-btn cf-btn-sec">Keep theirs</span>
+        </div>
+      </div>
+
+      <div class="cf">
+        <div class="cf-q">Sanitizer concentration</div>
+        <div class="cf-done">
+          <span>✓ Restored — <b>200&nbsp;ppm</b> is back</span>
+          <span class="cf-done-undo">Undo</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p class="note"><b>Why “Restore mine” is safe, and not magic.</b> Master-wins discarded the fork
+  because the plugin's compare-and-swap found the server value had moved. Tapping Restore writes
+  the crew member's value again <em>now</em>, from the current master state — an ordinary local
+  edit that pushes cleanly. It resurrects nothing and needs no new sync plumbing. If the server
+  moves again in between, that write conflicts in turn and lands in this same sheet (see the
+  <code>error</code> plate).</p>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════ EMPTY ══ -->
+<div class="plate" id="plate-empty">
+  <div class="cap">
+    <span class="cap-id">empty</span>
+    <p class="cap-t"><b>Trigger:</b> the sheet is opened from the sync menu with no conflict
+    records held locally. <b>Contract:</b> no banner anywhere in the app; the sheet states plainly
+    that nothing was overwritten and explains what would put something here — it must not read as
+    a guarantee that nothing was ever lost.</p>
+  </div>
+  <div class="screen">
+    <div class="sc-hd"><span class="sc-title">Overwritten answers</span><span class="sc-close">Done</span></div>
+    <div class="sc-empty">
+      <h3>Nothing was overwritten</h3>
+      <p>Answers show up here when someone edits the same question while your phone is offline and
+      the server's version wins. Records are kept for 30 days.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════ LOADING ══ -->
+<div class="plate" id="plate-loading">
+  <div class="cap">
+    <span class="cap-id">loading</span>
+    <p class="cap-t"><b>Trigger:</b> the sheet is opened and the local conflict log has not
+    resolved within 500&nbsp;ms (cold IndexedDB read on a phone). <b>Contract:</b> two skeleton
+    group cards, no spinner, no count in the header — the header must not claim a number it does
+    not have yet. Nothing renders at all under 500&nbsp;ms.</p>
+  </div>
+  <div class="screen">
+    <div class="sc-hd"><span class="sc-title">Overwritten answers</span><span class="sc-close">Done</span></div>
+    <div class="sk"><div class="sk-l" style="width:58%"></div><div class="sk-l" style="width:34%;height:9px"></div><div class="sk-l" style="width:76%;margin-top:14px"></div><div class="sk-l" style="width:66%"></div></div>
+    <div class="sk"><div class="sk-l" style="width:47%"></div><div class="sk-l" style="width:30%;height:9px"></div><div class="sk-l" style="width:72%;margin-top:14px"></div></div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════════ ERROR ══ -->
+<div class="plate" id="plate-error">
+  <div class="cap">
+    <span class="cap-id">error</span>
+    <p class="cap-t"><b>Trigger:</b> <b>Restore mine</b> is tapped and the write does not land —
+    the phone is offline, or the server value moved again and the restore conflicted in turn.
+    <b>Contract:</b> the row <em>stays</em> and keeps showing both values; a red inline block names
+    which of the two happened in the crew member's words and offers Retry; the banner count does
+    not decrement. A failed restore must never look like a completed one.</p>
+  </div>
+  <div class="screen">
+    <div class="sc-hd"><span class="sc-title">Overwritten answers</span><span class="sc-close">Done</span></div>
+    <div class="cg">
+      <div class="cg-hd">
+        <span><span class="cg-name">Opening — Truck A</span><span class="cg-meta">Mon Jul 27 · <span class="cg-doc">sub_9f31c4</span></span></span>
+        <span class="cg-count">1 answer</span>
+      </div>
+      <div class="cf">
+        <div class="cf-q">Walk-in cooler temp</div>
+        <div class="cf-vals">
+          <div class="cf-v mine"><span class="cf-v-lab">Yours</span><span class="cf-v-val">38 °F</span></div>
+          <div class="cf-v"><span class="cf-v-lab">Now shows</span><span class="cf-v-val">41 °F</span><span class="cf-v-who">· Dana M., 6:12 PM</span></div>
+        </div>
+        <div class="cf-err">
+          <b>Couldn't put 38 °F back — you're offline</b>
+          Your phone will keep trying. Nothing was lost: 38 °F is still saved here.
+        </div>
+        <div class="cf-acts">
+          <span class="cf-btn cf-btn-pri">Retry</span>
+          <span class="cf-btn cf-btn-sec">Keep theirs</span>
+        </div>
+      </div>
+      <div class="cf">
+        <div class="cf-q">Hand sink stocked</div>
+        <div class="cf-vals">
+          <div class="cf-v mine"><span class="cf-v-lab">Yours</span><span class="cf-v-val">Yes</span></div>
+          <div class="cf-v"><span class="cf-v-lab">Now shows</span><span class="cf-v-val">No</span><span class="cf-v-who">· Dana M., 6:14 PM</span></div>
+        </div>
+        <div class="cf-acts">
+          <span class="cf-btn cf-btn-pri" aria-disabled="true"><span class="spin"></span>Restoring…</span>
+          <span class="cf-btn cf-btn-sec" aria-disabled="true">Keep theirs</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p class="note">The second row is the in-flight state on the way to either outcome: both buttons
+  disabled, the label says what is happening. It shares this plate because it is a transition, not
+  a table row of its own.</p>
+</div>
+
+<!-- ═══════════════════════════════════════ EDGE — NO DISCARDED VALUE ══ -->
+<div class="plate" id="plate-edge-novalue">
+  <div class="cap">
+    <span class="cap-id">edge · no discarded value available</span>
+    <p class="cap-t"><b>Trigger:</b> <code>conflict$</code> fired, but the diff between
+    <code>input.newDocumentState</code> and <code>output</code> yields nothing showable — either
+    the only difference is bookkeeping (with <code>_modified</code> declared in the schema, <em>any</em>
+    server-side touch becomes a conflict — W2 sharp edge 11), or the field is absent/null in the
+    discarded document because the local write cleared it. <b>Contract:</b> the row must NOT claim
+    an answer was lost and must NOT show an empty value where a number goes; the value slot reads
+    <em>Not recoverable</em> in muted italic, one line says why in plain words, and the only action
+    is Dismiss — <b>no Restore button</b>, because there is nothing to put back. The banner counts
+    it on a separate, quieter line.</p>
+  </div>
+  <div class="screen">
+    <div class="cn-banner">
+      <span class="cn-banner-ico">⚠️</span>
+      <span class="cn-banner-body">
+        <span class="cn-banner-hd">1 answer was overwritten</span>
+        <span class="cn-banner-sub">+ 1 change we couldn't identify</span>
+      </span>
+      <span class="cn-banner-go">Review</span>
+    </div>
+    <div style="height:14px"></div>
+    <div class="sc-hd"><span class="sc-title">Overwritten answers</span><span class="sc-close">Done</span></div>
+    <div class="cg">
+      <div class="cg-hd">
+        <span><span class="cg-name">Closing — Truck A</span><span class="cg-meta">Mon Jul 27 · <span class="cg-doc">sub_2b70ae</span></span></span>
+        <span class="cg-count">1 answer</span>
+      </div>
+      <div class="cf">
+        <div class="cf-q">Fryer oil filtered</div>
+        <div class="cf-vals">
+          <div class="cf-v mine"><span class="cf-v-lab">Yours</span><span class="cf-v-val">Yes</span></div>
+          <div class="cf-v"><span class="cf-v-lab">Now shows</span><span class="cf-v-val">No</span><span class="cf-v-who">· Dana M., 9:02 PM</span></div>
+        </div>
+        <div class="cf-acts">
+          <span class="cf-btn cf-btn-pri">Restore mine</span>
+          <span class="cf-btn cf-btn-sec">Keep theirs</span>
+        </div>
+      </div>
+      <div class="cf unrec">
+        <div class="cf-q">A change we couldn't identify</div>
+        <div class="cf-vals">
+          <div class="cf-v none"><span class="cf-v-lab">Yours</span><span class="cf-v-val">Not recoverable</span></div>
+        </div>
+        <div class="cf-why">The server updated this checklist while you were offline, but nothing
+        you'd typed came back with it — so there's no answer of yours to put back. Open the
+        checklist to check it reads the way you left it.</div>
+        <div class="cf-acts">
+          <span class="cf-btn cf-btn-sec cf-btn-wide">Open checklist</span>
+          <span class="cf-btn cf-btn-sec cf-btn-wide">Dismiss</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p class="note"><b>This row is honest about a real hole, not a placeholder.</b>
+  <code>conflict$</code> hands over whole documents, never a field name — the app has to diff them
+  itself, and a diff can come back empty of anything a crew member would recognise. Inventing a
+  field name here would be lying; showing a blank would read as “your answer was erased”. The row
+  says what is true and routes to the one action that still helps.</p>
+</div>
+
+<!-- ══════════════════════════════════════ EDGE — SEVERAL AT ONCE ══ -->
+<div class="plate" id="plate-edge-many">
+  <div class="cap">
+    <span class="cap-id">edge · several conflicts at once</span>
+    <p class="cap-t"><b>Trigger:</b> a long offline stretch ends; <code>conflict$</code> emits once
+    per document, several times in a burst. <b>Contract:</b> one banner, never one per conflict,
+    carrying the total; the sheet groups rows under their document — the grouping is not cosmetic,
+    it is the shape the event arrives in; past two rows a group's per-row buttons collapse to
+    values-only and a single <b>Restore all N of mine</b> sits at the foot of the group; every
+    group header carries a count chip so the size of the problem is legible without opening
+    anything.</p>
+  </div>
+  <div class="screen">
+    <div class="cn-banner">
+      <span class="cn-banner-ico">⚠️</span>
+      <span class="cn-banner-body">
+        <span class="cn-banner-hd">5 answers were overwritten</span>
+        <span class="cn-banner-sub">Across 2 checklists, while you were offline.</span>
+      </span>
+      <span class="cn-banner-go">Review</span>
+    </div>
+    <div style="height:14px"></div>
+    <div class="sc-hd"><span class="sc-title">Overwritten answers</span><span class="sc-close">Done</span></div>
+    <div class="cg">
+      <div class="cg-hd">
+        <span><span class="cg-name">Opening — Truck A</span><span class="cg-meta">Mon Jul 27 · <span class="cg-doc">sub_9f31c4</span></span></span>
+        <span class="cg-count">3 answers</span>
+      </div>
+      <div class="cf">
+        <div class="cf-q">Walk-in cooler temp</div>
+        <div class="cf-vals">
+          <div class="cf-v mine"><span class="cf-v-lab">Yours</span><span class="cf-v-val">38 °F</span></div>
+          <div class="cf-v"><span class="cf-v-lab">Now shows</span><span class="cf-v-val">41 °F</span><span class="cf-v-who">· Dana M.</span></div>
+        </div>
+      </div>
+      <div class="cf">
+        <div class="cf-q">Sanitizer concentration</div>
+        <div class="cf-vals">
+          <div class="cf-v mine"><span class="cf-v-lab">Yours</span><span class="cf-v-val">200 ppm</span></div>
+          <div class="cf-v"><span class="cf-v-lab">Now shows</span><span class="cf-v-val">150 ppm</span><span class="cf-v-who">· Dana M.</span></div>
+        </div>
+      </div>
+      <div class="cf">
+        <div class="cf-q">Hand sink stocked</div>
+        <div class="cf-vals">
+          <div class="cf-v mine"><span class="cf-v-lab">Yours</span><span class="cf-v-val">Yes</span></div>
+          <div class="cf-v"><span class="cf-v-lab">Now shows</span><span class="cf-v-val">No</span><span class="cf-v-who">· Dana M.</span></div>
+        </div>
+      </div>
+      <span class="cg-all">Restore all 3 of mine</span>
+    </div>
+    <div class="cg">
+      <div class="cg-hd">
+        <span><span class="cg-name">Closing — Truck A</span><span class="cg-meta">Mon Jul 27 · <span class="cg-doc">sub_2b70ae</span></span></span>
+        <span class="cg-count">2 answers</span>
+      </div>
+      <div class="cf">
+        <div class="cf-q">Fryer oil filtered</div>
+        <div class="cf-vals">
+          <div class="cf-v mine"><span class="cf-v-lab">Yours</span><span class="cf-v-val">Yes</span></div>
+          <div class="cf-v"><span class="cf-v-lab">Now shows</span><span class="cf-v-val">No</span><span class="cf-v-who">· Dana M.</span></div>
+        </div>
+      </div>
+      <div class="cf">
+        <div class="cf-q">Grease trap note</div>
+        <div class="cf-vals">
+          <div class="cf-v mine"><span class="cf-v-lab">Yours</span><span class="cf-v-val">“Emptied, smelled off”</span></div>
+          <div class="cf-v"><span class="cf-v-lab">Now shows</span><span class="cf-v-val">“Emptied”</span><span class="cf-v-who">· Dana M.</span></div>
+        </div>
+      </div>
+      <span class="cg-all">Restore all 2 of mine</span>
+    </div>
+    <p class="more">Individual Restore / Keep buttons collapse once a group has more than two rows —
+    tap a row to expand it.</p>
+  </div>
+  <p class="note">Rows collapse to values-only past two per group so the sheet stays thumb-scrollable
+  on a phone; the per-row buttons come back on tap. <b>Open question for the operator:</b> beyond
+  roughly ten groups this sheet needs a cap or a date filter. Not designed here — say so if you
+  think a truck can realistically get there.</p>
+</div>
+
+<!-- ═══════════════════════════ EDGE — FIELD REMOVED FROM TEMPLATE ══ -->
+<div class="plate" id="plate-edge-removed">
+  <div class="cap">
+    <span class="cap-id">edge · conflict on a field since removed from the template</span>
+    <p class="cap-t"><b>Trigger:</b> the discarded document carries a value for a field id the
+    current template no longer contains — the owner edited the template while the phone was
+    offline. <b>Contract:</b> no invented label; the raw field id renders in monospace, muted, so
+    it is visibly not a question title; a line states the question was removed; the value is still
+    shown, because it is the thing being recovered; <b>Restore mine is absent</b> — there is
+    nowhere to write it — and the only recovery is <b>Copy value</b>, which puts it on the
+    clipboard so it can go in a note or a message.</p>
+  </div>
+  <div class="screen">
+    <div class="sc-hd"><span class="sc-title">Overwritten answers</span><span class="sc-close">Done</span></div>
+    <div class="cg">
+      <div class="cg-hd">
+        <span><span class="cg-name">Opening — Truck A</span><span class="cg-meta">Mon Jul 27 · <span class="cg-doc">sub_9f31c4</span></span></span>
+        <span class="cg-count">1 answer</span>
+      </div>
+      <div class="cf unrec">
+        <div class="cf-q-gone">fld_prep_sink_temp</div>
+        <div class="cf-vals">
+          <div class="cf-v mine"><span class="cf-v-lab">Yours</span><span class="cf-v-val">72 °F</span></div>
+        </div>
+        <div class="cf-why">This question was removed from the checklist while you were offline, so
+        your answer can't go back on it. Copy it if you still need it.</div>
+        <div class="cf-acts">
+          <span class="cf-btn cf-btn-pri cf-btn-wide">Copy value</span>
+          <span class="cf-btn cf-btn-sec cf-btn-wide">Dismiss</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p class="note">The monospace field id is deliberate. The template no longer holds a label for it,
+  and the alternatives are both worse: a made-up title would misattribute the answer, and hiding
+  the row entirely would silently drop the exact value this card exists to recover. Copy is a
+  <em>real</em> recovery on a phone — it goes into a message to the manager in two taps.</p>
+</div>
+
+<!-- ══════════════════════ EDGE — LOCAL CONFLICT LOG UNREADABLE ══ -->
+<div class="plate" id="plate-edge-storage">
+  <div class="cap">
+    <span class="cap-id">edge · local conflict log unreadable</span>
+    <p class="cap-t"><b>Trigger:</b> the sheet opens and the local store the conflict records live
+    in cannot be read — iOS/Safari evicted it under storage pressure, or the browser is in private
+    mode. W3 named this the largest untested unknown for a phone-first PWA, so it gets a designed
+    state rather than a stack trace. <b>Contract:</b> red-bordered card, no fabricated count, and
+    the copy says the records are gone rather than implying the answers are — a crew member must
+    not read a storage failure as “my work was deleted”.</p>
+  </div>
+  <div class="screen">
+    <div class="sc-hd"><span class="sc-title">Overwritten answers</span><span class="sc-close">Done</span></div>
+    <div class="sc-err">
+      <h3>Couldn't open the list</h3>
+      <p>Your phone cleared the record of what was overwritten. This doesn't affect your
+      checklists — they're on the server and they're fine.</p>
+      <button>Try again</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════ LIMITS OF THE DESIGN ══ -->
+<div class="plate" id="plate-limits">
+  <div class="cap">
+    <span class="cap-id">what this design cannot do</span>
+    <p class="cap-t">Not a state — the honest boundary of the mechanism, here so the sign-off is
+    given with it in view.</p>
+  </div>
+  <div class="limits">
+    <h3>Three things no UI can fix</h3>
+    <p><b>1. If nothing was subscribed, nothing is ever known.</b> <code>conflict$</code> is a plain
+    RxJS <code>Subject</code> — no replay, no buffer. Subscribe where the replication is
+    constructed or the event is gone. RxDB persists nothing about a resolved conflict, so <b>the
+    app must write the discarded value to durable local storage the instant the event arrives</b>,
+    or a reload loses the thing this whole screen exists to recover. Every plate above assumes that
+    record exists. <em>Where it lives is the UI card's call, not this mockup's.</em></p>
+    <p><b>2. Only the leader tab sees it.</b> <code>waitForLeadership</code> defaults to
+    <code>true</code> in a browser, so one tab replicates and the others follow — and only that tab's
+    <code>conflict$</code> fires. Two HQ tabs open, the wrong one closes, and the notice never
+    appears. The banner must therefore read from the shared local record, not from a live
+    subscription.</p>
+    <p><b>3. “Dana M., 6:12 PM” is only as real as the row.</b> <code>conflict$</code> carries no
+    author and no timestamp of its own — every attribution above comes from fields on the document.
+    If the replicated schema doesn't carry who-and-when, those lines must degrade to “someone
+    else” rather than be invented. That schema belongs to
+    <code>sync-rxdb-schema-and-replication</code>; this mockup is stating a requirement on it, not
+    deciding it.</p>
+  </div>
+</div>
+
+</body></html>
