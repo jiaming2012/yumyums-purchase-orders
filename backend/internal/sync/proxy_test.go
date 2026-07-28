@@ -395,6 +395,126 @@ func TestProxy_UnconfiguredUpstreamFailsClosed(t *testing.T) {
 	}
 }
 
+// TestProxy_RejectsPathTraversal — G6 finding R1.
+//
+// The remainder after the room prefix is attacker-controlled and was being
+// forwarded verbatim. `out.URL.RawPath = ""` threw away the escaped form and
+// re-derived the wire path from the DECODED `Path`, so `%2f` became a real
+// separator on the way out. Four vectors, all reproduced against the booted
+// binary before the fix:
+//
+//	GET /sync/rest/../../admin             → upstream GET /../../admin
+//	GET /sync/rest/..%2f..%2fadmin         → upstream GET /../../admin
+//	GET /sync/rest%2f..%2f..%2fadmin       → upstream GET /../../admin
+//	GET /sync/realtime/../rest/spike_notes → REALTIME upstream, ?apikey=<JWT>
+//
+// 🛑 The third and fourth are the ones that matter. The third means the room
+// SELECTION is made on a decoded path whose separators the caller forged. The
+// fourth means a caller picks which upstream it reaches AND which path it
+// arrives at independently — and on the Realtime path that request carries the
+// minted bearer in the query string.
+//
+// There is no live impact while both upstreams are path-less. It becomes real
+// the moment HQ_SYNC_REST_URL points at a gateway WITH a path prefix, which is
+// the standard self-hosted Supabase shape (`http://kong:8000/rest/v1`): then
+// `/sync/rest/../auth/v1/admin/users` walks out of the intended prefix into a
+// SIBLING SERVICE carrying HQ's minted bearer token.
+//
+// The door REJECTS rather than normalising. `path.Clean` would silently rewrite
+// the caller's request into a different one; a 400 says what happened. No sync
+// client has any reason to emit a dot segment or an encoded separator — the
+// whole vocabulary is `/socket/websocket`, `/<table>` and `/rpc/<fn>`.
+func TestProxy_RejectsPathTraversal(t *testing.T) {
+	restRec, wsRec := &recorder{}, &recorder{}
+	restUp := jsonUpstream(t, restRec, `[]`)
+	wsUp := jsonUpstream(t, wsRec, `[]`)
+	proxy := mountProxy(t, ProxyConfig{
+		RESTURL:      restUp.URL,
+		RealtimeURL:  wsUp.URL,
+		RealtimeHost: "realtime-dev.localhost",
+	}, testUser, stubMinter)
+
+	cases := []struct {
+		name, path string
+	}{
+		{"plain dot segments", "/sync/rest/../../admin"},
+		{"encoded separators after the room", "/sync/rest/..%2f..%2fadmin"},
+		{"encoded separator INSIDE the room prefix", "/sync/rest%2f..%2f..%2fadmin"},
+		{"cross-room hop into the other upstream", "/sync/realtime/../rest/spike_notes"},
+		{"single dot segment", "/sync/rest/./spike_notes"},
+		{"backslash-encoded separator", "/sync/rest/..%5c..%5cadmin"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			req, err := http.NewRequest("GET", proxy.URL+tc.path, nil)
+			if err != nil {
+				t.Fatalf("build request for %q: %v", tc.path, err)
+			}
+			resp, err := http.DefaultClient.Do(req)
+			if err != nil {
+				t.Fatalf("GET %s: %v", tc.path, err)
+			}
+			body, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
+
+			if resp.StatusCode != http.StatusBadRequest {
+				t.Errorf("status = %d, want 400; body = %s", resp.StatusCode, body)
+			}
+			if !strings.Contains(string(body), "sync_path_rejected") {
+				t.Errorf("body = %s, want the sync_path_rejected envelope", body)
+			}
+		})
+	}
+
+	// The strongest assertion is not the status code — it is that NOTHING was
+	// forwarded. A 400 returned after the hop would be no protection at all.
+	restRec.mu.Lock()
+	nRest := len(restRec.reqs)
+	restRec.mu.Unlock()
+	wsRec.mu.Lock()
+	nWS := len(wsRec.reqs)
+	wsRec.mu.Unlock()
+	if nRest != 0 || nWS != 0 {
+		t.Errorf("upstreams received %d REST + %d realtime requests; a rejected path must "+
+			"never reach either one", nRest, nWS)
+	}
+}
+
+// TestProxy_LegitimatePathsStillPass is the other half of the traversal guard:
+// a rejection rule that is too broad is an outage. These are the entire
+// vocabulary the sync clients actually use.
+func TestProxy_LegitimatePathsStillPass(t *testing.T) {
+	rec := &recorder{}
+	up := jsonUpstream(t, rec, `[]`)
+	proxy := mountProxy(t, ProxyConfig{RESTURL: up.URL}, testUser, stubMinter)
+
+	for _, tc := range []struct{ path, want string }{
+		{"/sync/rest/spike_notes", "/spike_notes"},
+		{"/sync/rest/rpc/hq_grant_projection", "/rpc/hq_grant_projection"},
+		{"/sync/rest", "/"},
+		{"/sync/rest/", "/"},
+		// A dot INSIDE a segment is not a dot SEGMENT. Rejecting this would
+		// break any table or function name containing a period.
+		{"/sync/rest/schema.table", "/schema.table"},
+		{"/sync/rest/..leading.dots..", "/..leading.dots.."},
+	} {
+		resp, err := http.Get(proxy.URL + tc.path)
+		if err != nil {
+			t.Fatalf("GET %s: %v", tc.path, err)
+		}
+		body, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("%s status = %d, want 200; body = %s", tc.path, resp.StatusCode, body)
+			continue
+		}
+		if got := rec.last(t); got.Path != tc.want {
+			t.Errorf("%s → upstream path %q, want %q", tc.path, got.Path, tc.want)
+		}
+	}
+}
+
 // TestProxy_BridgeSecretUnsetFailsClosed — the minter's 503, surfaced at the
 // door with the same envelope the /sync/token endpoint uses.
 func TestProxy_BridgeSecretUnsetFailsClosed(t *testing.T) {

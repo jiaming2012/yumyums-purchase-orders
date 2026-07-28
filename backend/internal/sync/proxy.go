@@ -154,7 +154,17 @@ func newProxyHandler(mint TokenMinter, cfg ProxyConfig) http.Handler {
 			return
 		}
 
-		// 2. Which room. Resolved before anything is minted, so an unknown
+		// 2. Path safety, BEFORE the room is chosen — because the room is
+		//    chosen from the decoded path, and an encoded separator lets a
+		//    caller forge that decision. See unsafeRequestPath.
+		if reason := unsafeRequestPath(r.URL); reason != "" {
+			slog.Warn("sync proxy rejected an unsafe request path", "user_id", user.ID,
+				"reason", reason, "path", r.URL.EscapedPath())
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "sync_path_rejected"})
+			return
+		}
+
+		// 3. Which room. Resolved before anything is minted, so an unknown
 		//    path costs no work and reveals nothing about what exists.
 		var up *upstream
 		var prefix string
@@ -173,7 +183,7 @@ func newProxyHandler(mint TokenMinter, cfg ProxyConfig) http.Handler {
 			return
 		}
 
-		// 3. Mint. BEFORE proxying, so an unmintable token never results in an
+		// 4. Mint. BEFORE proxying, so an unmintable token never results in an
 		//    unauthenticated hop into the substrate.
 		sid := ""
 		if c, err := r.Cookie("hq_session"); err == nil {
@@ -193,7 +203,7 @@ func newProxyHandler(mint TokenMinter, cfg ProxyConfig) http.Handler {
 			return
 		}
 
-		// 4. Rewrite. Work on a clone so the inbound request — which the
+		// 5. Rewrite. Work on a clone so the inbound request — which the
 		//    server still owns — is not mutated underneath it.
 		out := r.Clone(r.Context())
 
@@ -202,7 +212,13 @@ func newProxyHandler(mint TokenMinter, cfg ProxyConfig) http.Handler {
 			path = "/" + path
 		}
 		out.URL.Path = path
-		out.URL.RawPath = "" // recomputed from Path; the prefix is plain ASCII
+		// RawPath is cleared so the wire path is re-derived from the decoded
+		// Path by URL.EscapedPath(). That is only safe because
+		// unsafeRequestPath already rejected every encoded separator — Go's
+		// path escaper does NOT re-escape "/", so a surviving %2f would become
+		// a real separator here. Everything else (spaces, non-ASCII, "%") is
+		// re-escaped correctly, which is why re-deriving beats splicing the
+		// caller's raw bytes.
 
 		q := out.URL.Query()
 		if up.apikeyQP {
@@ -224,6 +240,47 @@ func newProxyHandler(mint TokenMinter, cfg ProxyConfig) http.Handler {
 
 		up.proxy.ServeHTTP(w, out)
 	})
+}
+
+// unsafeRequestPath names the reason a request path must not be proxied, or
+// returns "" when it is safe. It runs BEFORE the room is chosen, because the
+// room is chosen from the DECODED path and an encoded separator lets a caller
+// forge that decision (`/sync/rest%2f..%2f..%2fadmin` decodes into the REST
+// room and then walks straight out of it).
+//
+// 🛑 REJECT, DO NOT NORMALISE. `path.Clean` would silently turn the caller's
+// request into a different one and proxy that; a 400 says what happened
+// instead. Nothing legitimate is lost: the entire vocabulary the sync clients
+// speak is `/socket/websocket`, `/<table>` and `/rpc/<fn>`, none of which
+// contains a dot segment or an encoded separator.
+//
+// Why it matters even though both upstreams are path-less today: the standard
+// self-hosted Supabase shape puts a gateway with a PATH PREFIX in front
+// (`http://kong:8000/rest/v1`). The moment HQ_SYNC_REST_URL looks like that,
+// `/sync/rest/../auth/v1/admin/users` escapes the intended prefix and reaches
+// a SIBLING SERVICE carrying HQ's minted bearer token.
+func unsafeRequestPath(u *url.URL) string {
+	// The ESCAPED form first. An encoded separator is invisible in u.Path —
+	// by the time you are looking at the decoded path it has already become a
+	// real "/" and there is nothing left to detect.
+	esc := strings.ToLower(u.EscapedPath())
+	if strings.Contains(esc, "%2f") {
+		return "encoded_slash"
+	}
+	// A backslash is not a URL separator, but enough upstreams and gateways
+	// treat it as one that forwarding it is a needless bet.
+	if strings.Contains(esc, "%5c") || strings.Contains(u.Path, `\`) {
+		return "encoded_backslash"
+	}
+	// Dot SEGMENTS only. A dot inside a segment is ordinary — table and
+	// function names contain periods — so `/rest/schema.table` is fine and
+	// `/rest/..` is not.
+	for _, seg := range strings.Split(u.Path, "/") {
+		if seg == "." || seg == ".." {
+			return "dot_segment"
+		}
+	}
+	return ""
 }
 
 // underPrefix reports whether p is prefix itself or a path below it. Plain
