@@ -1567,6 +1567,14 @@ above by 78 and 79, and the durable conflict record's home stays the UI card's o
 beyond ~10 conflict groups. If it is still unanswered when the card runs, the run implements no cap
 and says so rather than inventing one.
 
+> **🛑 SUPERSEDED IN PART at morning triage 2026-07-28 — see T-26 decision 82.** Decision 80
+> stands as the record of what was decided at 18:12 and is not withdrawn. But the mockup was walked
+> plate-by-plate at triage and the operator directed two amendments (A-1, A-2), so *"neither was
+> rejected … a run implements them as drawn"* no longer holds for the banner, and the 30-day
+> retention accepted here is reopened. `sync-rxdb-conflict-notice-ui` returns to ATTENDED-BLOCKED.
+> The rest of decision 80 — that the yes was scoped to the committed artifact, and that it is not
+> authority over UI-SPEC's "Explicitly NOT decided here" list — is untouched.
+
 **Decision 81 — `sync-rxdb-schema-and-replication` is DISSOLVED into four cards.** It had already
 been fanned out twice (browser delivery 2026-07-26, `sync-proxy-endpoint` 2026-07-28) and was still
 carrying four independent mechanisms under eight obligations — collections and the SQL table
@@ -1582,3 +1590,106 @@ the hygiene items no longer ride the cycle's largest card under an accepted *"if
 they slip with it"*, and **the `HQ_SYNC_REST_URL` activation interlock now spans two cards**, which
 makes it easier to get wrong — so it is restated on `sync-rxdb-row-visibility-rls`, on
 `sync-hard-cutover`, and in the dissolution notice, in addition to `proxy.go`'s env-var comment.
+
+## T-26 — Morning-triage resolutions (2026-07-28, overnight-20260729)
+
+Four forks (D-1 … D-4) walked, plus three findings the run did not report and two record defects,
+produced by an adversarial subagent that re-executed every gate in its own clone and probed the
+closeout's claims by mutation rather than reading. **The tree was clean and the gates were honest** —
+all four cards landed, zero parked, and independent re-execution reproduced 563/569 Playwright,
+9/9 Go packages, a byte-identical `sw.js` and a correct version mirror. As in T-25, **what needed
+repair was the record, not the tree** — with one addition this cycle: a *decision* needed repair too.
+
+**Two operator-level calls** (the timezone ruling, the sign-off supersession), **one operator
+routing call** (the sync-door guard), and the rest decided at triage under the standing rule
+*decide mechanism yourself, bring product and intent*.
+
+**Decision 82 — the conflict-notice sign-off is superseded in part, and the amendments are
+required.** Decision 80 recorded a verbatim *"Ok, build this"* from an attended session at 18:12,
+settling the counting rule "as drawn" and accepting 30-day retention. At triage the mockup was
+walked plate-by-plate and the operator asked the question the design could not answer: *"when she
+finishes the second, why does it still say three?"* Rule 3's answer — *because three answers were
+overwritten and that stays true* — is literally correct and wrong on a phone, because a number in a
+coloured banner reads as a **badge**, and badges count outstanding work. The sheet already showed
+progress (restored rows turn green); only the banner was frozen. The design had bundled two
+unrelated things: *keeping rows so Undo survives* and *what number the banner prints*. **A-1**
+unbundles them — rows still never leave except on Dismiss or expiry, and the banner now carries both
+figures. **A-2** came from the operator's second test, *"make sure it is clear … exactly what they
+were overriding"*: both values are already on screen above the action, including in the collapsed
+view, but the button names only what it restores, the batch path writes three overwrites on one tap
+with no confirmation, and the collapsed view drops the timestamp the expanded view carries — so the
+riskiest action carried the least information. Chosen over letting the sign-off stand (the defect is
+real and reaches the screen a crew member sees most) and over discarding decision 80 (the yes was
+genuine when given; a ledger that erases reversals cannot be trusted about anything else). Retention
+and the "recoverable" chip question are **reopened and deferred** until revised plates exist, because
+both are easier to judge against a banner that is no longer misleading. The card returns to
+ATTENDED-BLOCKED.
+
+**Decision 83 — the app's timezone is `America/New_York`, everywhere, in one card, fixed forward.**
+D-1 asked only whether a *submission's* "today" should be UTC or local. The operator answered with a
+rule rather than an answer — **"the apps time zone should be NY time"** — and checking it against the
+tree turned a four-site fix into a cross-cutting correction: the codebase is running **two
+conflicting timezone regimes**. `users.DefaultTimezone` is `America/New_York` and the Users tab, the
+purchasing handler/scheduler fallbacks and `playwright.config.js` agree — while `America/Chicago` is
+hardcoded in `inventory/handler.go` (×6, the COGS period-summary window **and** completeness gate
+feeding sales-processor's weekly payroll), `inventory/trends.go`, `purchasing/service.go`
+(`CurrentWeekStart` — the Monday every purchasing week hangs off), `recipes/cost.go`,
+`recipes/scheduler.go`, migrations `0037`/`0042` as column defaults, and `purchasing.html:295`, which
+actively **writes** Chicago into cutoff config the backend would otherwise default to New York.
+Blast radius stated precisely rather than alarmingly: the COGS date filters are
+`COALESCE(event_date, created_at AT TIME ZONE 'America/Chicago')`, so only rows with no extracted
+`event_date` are exposed — bounded; but `CurrentWeekStart` and the recipe cost week are
+**unconditional** Chicago, so every weekly boundary is currently an hour off the operating day.
+Scoped as **one card covering all sites** (piecemeal leaves two boundaries disagreeing, which is
+exactly today's bug) and **fix-forward only** (past weekly COGS/payroll figures were already acted
+on; restating numbers that paid people is a worse cure than the disease). The card notes the
+changeover date so a future reader knows why one boundary moves once.
+
+**Decision 84 — the `/sync/*` activation interlock stays a documented constraint, not a gate.**
+Setting `HQ_SYNC_REST_URL` before row-visibility RLS lands would give every logged-in crew member
+read *and* write on the whole exposed schema. Chosen over a hard refuse-to-start gate and over
+stripping the env handling: nobody sets those variables except deliberately, RLS is scheduled ahead
+of any client that needs the door, and a marker gate would mean inventing a "has RLS landed" signal —
+speculative machinery guarding a door nobody is reaching for, plus a thing to maintain and to defeat
+during legitimate testing. The constraint is already restated on `sync-rxdb-row-visibility-rls`, on
+`sync-hard-cutover`, in the dissolution notice and in `proxy.go`.
+
+**Decision 85 — the two pre-existing defects are filed to `BACKLOG.md`, not left in a card body.**
+D-4 asked whether to file or fold. Filed, as B-19 and B-20: `BACKLOG.md` is what `/nc-roadmap-round`
+consumes, and a defect disclosed only inside a DONE card body and a merge-intent note is a defect
+that will be rediscovered rather than scheduled. Both were confirmed genuinely pre-existing against
+`25fbc16` by G6 — not damage this run caused and reclassified.
+
+**Decision 86 — the unparseable commit trailers are fixed at the emitter, not by rewriting history.**
+The adversary found **14 of 33 commits** carry a `Night-Crew-Card:` trailer `git interpret-trailers`
+cannot see: a blank line between it and `Co-Authored-By:` splits the trailer block. Affected are all
+of Card C's commits, **all four merge commits**, and the closeout — so Card C is entirely invisible
+to trailer-parsing tooling, while all four merge-intent notes assert the trailer as a landed
+convention (textually true, mechanically false). Cards A and B rewrote history specifically to fix
+this and Card C never did; the orchestrator's own merge commits reproduced the bug. Rewriting four
+merge commits to correct a cosmetic-to-tooling defect risks the very record being preserved, for no
+behavioural gain. Filed as B-21 with the fix at the emitter.
+
+**Decision 87 — Card C's traversal claim travels as its scope statement, not its summary.** The
+adversary reproduced three constructs (`..;/`, `....//`, `%252e%252e`) reaching the upstream carrying
+HQ's minted bearer. `proxy.go:340-349` **documents these as deliberately out of scope** with a
+measured justification, so this is a known bounded residual and not a defect — but the closeout's
+flat *"path traversal rejected with 400 before any upstream connection"* reads as absolute and is
+not. The scope statement is the durable claim; the summary is not. Recorded so a future reader
+inheriting the summary does not assume a guarantee the code never made.
+
+**Decision 88 — two roadmap record defects corrected.** `sync-proxy-endpoint` was recorded as
+**Wave 0**; it ran in **Track B** (Wave 0 was Card A, alone, because it changed how `sw.js` is
+generated). The mockup card was dated **2026-07-29**; the run merged every card on **07-28**. Both
+corrected in place with the original text noted, per the standing practice that a corrected record
+shows its correction.
+
+**Process note — the G4 discipline greps remain vacuous here, and were reported as a vacuum.**
+`internal/journal` and `internal/workorder` do not exist in this repo (its Go tree is
+`backend/internal/*`), so the standard triage greps return empty because there is nothing to find.
+The adversary was briefed to report them **N/A-VACUOUS** rather than clean. This is B-14, still open,
+and it is the same silent-green class the run itself hit twice more: `task test` running 19 of 20
+spec files without `bddgen` (B-09), a dropped database reading as a passing Go suite (B-16), and —
+new this cycle — the orchestrator's own final-tree suite reporting **exit 0 having executed zero
+tests**, because Playwright's `webServer` could not start and a `tail` pipeline masked the status.
+Three instances in one run is no longer a coincidence; it is the shape of this repo's test harness.

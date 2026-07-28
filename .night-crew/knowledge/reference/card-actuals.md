@@ -651,3 +651,43 @@ correctly escalated but under-argued. **Price morning triage at ~70 m of unatten
 plus ~20–25 m of operator attention**, and note the shape of the yield: *zero* defects in the tree,
 *six* in the durable record. The gates were honest; the prose about them was not. A triage that only
 re-runs gates would have found none of it.
+
+---
+
+## `overnight-20260729` — 4 cards, all landed, 0 parked (recorded at morning triage 2026-07-28)
+
+| Card | Class | Slate estimate | Implement | Review | Repair | End-to-end | Ratio |
+|---|---|---|---|---|---|---|---|
+| A `precache-manifest-from-head` | build/globber + test co-move | 1 h 30 m – 2 h | ~75 m | 1 × G6 (~13 m) | none | **~1 h 30 m** | **~0.9×** |
+| B `workflow-queue-period-and-failnote-upsert` | Go endpoint + migration + front-end leg | 2 h 30 m – 3 h 30 m | ~105 m | 1 × G6 (~26 m) | none | **~2 h 15 m** | **~0.7×** |
+| C `sync-proxy-endpoint` | Go handler + reverse proxy + WS upgrade | 1 h 30 m – 2 h 30 m | ~25 m | **3 × G6** (~48 m) | 2 rounds (~40 m) | **~1 h 55 m** | **~0.9×** |
+| D `sync-rxdb-conflict-notice-mockup` | first-of-kind planning artifact (HTML mockup + UI-SPEC) | 45 m – 1 h 15 m | ~12 m | **2 × restricted-input verifier** (~16 m) | 1 round (~25 m) | **~55 m** | **~0.9×** |
+
+**The estimates were good this time, and that is the finding.** Every card landed inside or just
+under its range — ratios 0.7–0.9× against 07-27's 1.9–3.8× overruns. Two causes worth carrying:
+the slate was built from this ledger rather than from intuition, and the night's fan-out
+(`sync-proxy-endpoint` and the mockup split out of an 8–12 h parent at planning) meant no card
+discovered mid-night that it was three cards.
+
+**Implementation time is no longer the dominant term — review is.** Card C implemented in 25 m and
+then spent **~88 m** in review and repair, i.e. **3.5× its own build time**. Card D implemented in
+12 m and spent ~41 m the same way. Neither is waste: C's reviews closed a path-traversal hole *and*
+a bypass of its own fix, and D's restricted-input verifier caught a `done_when:` row that failed
+plus two criteria written so they could not fail. **Price a card at implement + 1–3× implement for
+review**, and price a *security-relevant* or *first-of-kind* card at the top of that range.
+
+**Repair rounds are cheap when the finding is precise.** C's two rounds ran 18 m and 22 m; D's ran
+25 m. All three were driven by a review that named the file, the line, the failure scenario and
+often the one-line fix — so the implementer spent its time fixing rather than re-deriving. A vague
+finding would have cost multiples of that.
+
+**Attended-triage verification cost, 2026-07-28.** The adversarial reproduction subagent — own
+clone, own databases, own port, every gate re-executed rather than inherited, then mutation probes
+against the closeout's claims — ran **~27 m wall clock** for **~183 k tokens and 103 tool calls**,
+unattended. It returned **3 findings the run did not report** (14 unparseable commit trailers; a
+traversal summary over-claiming its own documented scope; D-1 independently reproduced under a
+frozen clock) and **0 refuted gate claims** — the run's numbers all held. Contrast with 07-27, where
+the same exercise refuted six durable claims in ~70 m. **The gates were honest both nights; what
+varies is the prose about them.** Operator attention this triage ran ~35–40 m, longer than the
+20–25 m budgeted, because the mockup walkthrough surfaced two amendments and a conflicting
+sign-off recorded by a concurrent session.

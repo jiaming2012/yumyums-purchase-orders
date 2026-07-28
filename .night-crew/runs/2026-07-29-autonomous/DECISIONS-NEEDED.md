@@ -1,5 +1,26 @@
 # Decisions needed — `overnight-20260729`
 
+> **RESOLVED 2026-07-28 — recorded as `.night-crew/knowledge/ledger.md` T-26, decisions 82–88.**
+> All four forks walked with the operator at morning triage. Kept as the analysis record; the
+> ledger carries what was decided and why.
+>
+> - **D-1** → decision **83**. Answered with a rule, not an answer: *"the apps time zone should be
+>   NY time."* Checking it against the tree turned a four-site fix into a cross-cutting one — the
+>   codebase runs **two conflicting timezone regimes**, with `America/Chicago` hardcoded in the COGS
+>   / purchasing / recipes money paths while the user-facing default is New York. New card
+>   `app-timezone-unify-new-york`: one card, all sites, **fix forward only**.
+> - **D-2** → decision **84**. Documented constraint is sufficient; no marker gate.
+> - **D-3** → decision **82**, and it did not go as this file anticipated. A concurrent attended
+>   session had already recorded a sign-off (decision 80). Walking the plates at triage surfaced a
+>   defect that sign-off could not have accounted for, so decision 80 is **superseded in part**,
+>   amendments **A-1** and **A-2** are required, and the UI card returns to **ATTENDED-BLOCKED**.
+> - **D-4** → decision **85**. Both filed to `BACKLOG.md` as **B-19** and **B-20**.
+>
+> Three findings the run did **not** report were added by the adversarial reproduction and resolved
+> as decisions **86** (unparseable trailers → B-21), **87** (traversal claim travels as its scope
+> statement) and **88** (two roadmap record defects corrected).
+
+
 > Run: `overnight-20260729` · Slate: `slate-20260729.md` (signed 2026-07-28, 4 cards)
 > **No card parked.** All four landed. Every item below is a fork the run **refused to decide**,
 > not a blocker it hit — surfaced for morning triage rather than improvised at 3am.

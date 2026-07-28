@@ -197,3 +197,26 @@ Activity 1 (Sync foundation) is **3 cards short**, and those 3 are the milestone
 
 Tonight bought the door (C), the artifact that unblocks the UI (D), and two correctness debts
 (A, B) that would otherwise have been paid inside the harder cards.
+
+---
+
+## Standing flags after morning triage 2026-07-28
+
+Reviewed against the triage evidence, not carried forward unexamined. Each says when it re-arms.
+
+| Flag | Status after triage | Re-arms when |
+|---|---|---|
+| **Attended two-device convergence check** | 🔴 **STILL ARMED — not discharged.** No triage evidence can clear it: `serviceWorkers: 'block'` is repo-wide by design (B-15), so nothing automated observes a *running* service worker. Operator-owed. Runbook: `reference/attended-two-device-check.md`. | Any change to `sw.js`, the submit path, or the offline queue. This run re-armed it twice (Card A regenerated `sw.js`; Card B touched submit *and* renamed a user-visible badge class). |
+| **Pre-deploy duplicate check** (`submission_fail_notes`) | ✅ **CLEAR as of 2026-07-28.** Re-verified read-only by the triage adversary: `production` **0 rows / 0 duplicates**, `public` **0 rows / 0 duplicates**, both schemas at goose 70. Migration `0071` is safe to deploy today. | **Before every `task prod:deploy`, without exception** — the window is between the check and the deploy. A duplicate arriving in that window makes `0071` fail → `os.Exit(1)` → `restart: unless-stopped` ⇒ crashloop. The failure is clean (rollback, no index, goose unchanged), so recovery is a dedup plus a restart. |
+| **Card D mockup sign-off** | 🔴 **RE-BLOCKED.** Decision 80 recorded a sign-off; triage superseded it in part (decision 82). Amendments **A-1** (banner shows what happened *and* what is unhandled) and **A-2** (the override must state what it destroys) are required. | Clears when the operator signs the **revised** plates. Two decisions ride with it: the removed-field chip question, and retention (30 days was accepted in decision 80 and is reopened). |
+| **`HQ_SYNC_REST_URL` activation interlock** | 🔴 **ARMED.** Decision 84: documented constraint, no gate. Setting it before row-visibility RLS lands grants every logged-in crew member read *and* write on the exposed schema. | Clears when `sync-rxdb-row-visibility-rls` lands. Restated on that card, on `sync-hard-cutover`, in the dissolution notice, and in `proxy.go`. |
+| **Known-armed reds** — `sync.spec.js:446` [LST-17], `:1198` | 🟡 **Still armed, both green again.** Passed in Card A's run, Card B's run, the orchestrator's final-tree run, **and** the triage adversary's independent full suite. Four consecutive clean samples are not a fix (LST-17 is load-sensitive per decision 44). | Never cleared by sampling — only by a fix. Expect them under load. |
+| **B-09 — `task test` runs 19 of 20 spec files** | 🔴 **STILL LIVE, re-verified by execution.** The adversary's fresh clone had **0** generated spec files until it ran `npx bddgen` manually; `Taskfile.yml:28-30` still has `deps: [backend:db-test, sw]` with no `bdd:gen`. | Open until the dep is added or `bddgen` is folded in. Every card must keep stating its spec-file count. |
+| **G4 discipline greps** | ⚪ **N/A-VACUOUS, and reported as such.** `internal/journal` and `internal/workorder` do not exist here. Reporting them "clean" would be reporting a vacuum (B-14). | Only if this repo ever grows those packages. Until then the triage brief must keep saying N/A, never PASS. |
+
+**Silent-green tally for this run — three instances, which is a pattern, not a coincidence:**
+`task test` running 19 of 20 files without `bddgen` (B-09); a dropped database making the Go suite
+report `ok` while skipping every DB-backed test (B-16); and the orchestrator's own final-tree suite
+reporting **exit 0 having executed zero tests** because Playwright's `webServer` could not start and
+a `tail` pipeline masked the exit status. All three were caught by someone questioning a result that
+looked too good, not by a gate. That is the harness's weak spot.

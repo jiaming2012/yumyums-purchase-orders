@@ -525,7 +525,44 @@
   full suite re-run for a comment); this card makes the sentence accurate instead. Footprint:
   `backend/internal/workflow`, a migration, `workflows.html`, `sync.js`.
 
-- **`sync-rxdb-collections-and-table-contract`** · **PLANNED — SLATE-READY, WAVE 0** (fanned out of
+- **`app-timezone-unify-new-york`** · **PLANNED — HIGH, small/medium** (new card, morning triage
+  2026-07-28, ledger T-26 decision 83) · **The app is running two conflicting timezone regimes, and
+  the operator ruled the app's timezone is `America/New_York`.** `users.DefaultTimezone` is already
+  New York — as are the Users-tab picker, the purchasing handler and scheduler fallbacks, and
+  `playwright.config.js` — while **`America/Chicago` is hardcoded in the money paths**:
+  `inventory/handler.go` (×6 — the COGS period-summary window **and** the completeness gate feeding
+  sales-processor's weekly payroll), `inventory/trends.go:240`, `purchasing/service.go:60`
+  (`CurrentWeekStart`, the Monday every purchasing week hangs off), `recipes/cost.go:103`,
+  `recipes/scheduler.go:52` (drift check fires Mon 09:00 Chicago), migrations `0037`/`0042` as column
+  defaults, and `purchasing.html:295`, which **actively writes** `America/Chicago` into cutoff config
+  the backend would otherwise default to New York. **Blast radius, stated precisely:** the COGS date
+  filters are `COALESCE(event_date, created_at AT TIME ZONE 'America/Chicago')`, so only rows with no
+  extracted `event_date` are exposed — bounded. But `CurrentWeekStart` and the recipe cost week are
+  **unconditional** Chicago, so every weekly boundary is currently an hour off the operating day.
+  **Scope: one card, all sites** — piecemeal leaves two boundaries disagreeing, which is exactly
+  today's bug. Move every hardcoded zone to a shared constant mirroring `users.DefaultTimezone`, and
+  fix `purchasing.html` writing Chicago. **Fix forward only** — past weekly COGS/payroll figures were
+  already acted on and are NOT restated; the card must note the changeover date so a future reader
+  knows why one boundary moves exactly once. **Also folds D-1's original finding:**
+  `currentSubmitPeriod()` (`sync.js:565`) and `isCurrentPeriodEntry` (`workflows.html:1758-1762`) are
+  UTC, plus three pre-existing "already submitted today" comparisons at `workflows.html:2274`,
+  `:2308`, `:2674` — reproduced at triage under a frozen clock: a queue entry stamped 6:30pm CT
+  reuses its key at 6:45pm and refuses at 7:30pm, same weekday throughout, so an offline double-press
+  straddling the rollover yields two submission rows for one operational evening.
+  Footprint: `backend/internal/{inventory,purchasing,recipes}`, `sync.js`, `workflows.html`,
+  `purchasing.html`, a migration for the two column defaults.
+
+- **`sync-rxdb-collections-and-table-contract`** · **PLANNED — SLATE-READY, WAVE 0** · **OPEN QUESTION raised at morning triage 2026-07-28 — where the durable conflict record lives.**
+  The mockup assumes **local-only** (UI-SPEC: *"no new sync plumbing … no server endpoint"*), because
+  the discarded value is the *loser* of a replication race and so exists nowhere on the server by
+  definition. The operator asked whether it syncs up and is then retained indefinitely: **it does
+  not.** Consequences they surfaced — the record is **per-device** (a manager cannot see that a crew
+  member's food-safety reading was overwritten), **evictable** (iOS storage pressure destroys it,
+  which is why a storage-error plate exists), and lost on reinstall. A server-side record would make
+  it durable, cross-device and an actual audit trail, at the cost of a table, an endpoint and a
+  visibility decision. Decision 80 left this as "the UI card's own call"; triage notes it lands more
+  naturally here, where the table contract is being written. **Not decided.**
+  (fanned out of
   `sync-rxdb-schema-and-replication` 2026-07-28; foundation, both siblings below depend on it) ·
   Define the RxDB collections for **checklists, templates, responses, approvals** mirroring the
   current Postgres domain model, each satisfying the self-hosted table contract recorded above.
@@ -759,7 +796,8 @@
   Footprint: `workflows.html`, new RxDB client layer, `backend/` (the `/sync/*` proxy handler),
   `backend/Dockerfile` (if obligation 5 is taken).
 
-- **`sync-proxy-endpoint`** · **DONE** (2026-07-28, run `overnight-20260729`, Wave 0; card fanned
+- **`sync-proxy-endpoint`** · **DONE** (2026-07-28, run `overnight-20260729`, **Track B** — corrected
+  at morning triage 2026-07-28; the DONE line originally read "Wave 0", which was Card A's wave; card fanned
   out of `sync-rxdb-schema-and-replication` obligation 6 at slate-20260729 planning) · The
   same-origin door decision 69 chose now exists: `backend/internal/sync/proxy.go`, mounted at
   **root-level `/sync/*`** in `main.go` behind `auth.Middleware` and nothing else. `/sync/rest/*`
@@ -874,7 +912,8 @@
   `backend/` (new proxy handler + its route registration + tests). Depended on by
   `sync-rxdb-schema-and-replication`.
 
-- **`sync-rxdb-conflict-notice-mockup`** · **DONE** (2026-07-29, run `overnight-20260729`, card
+- **`sync-rxdb-conflict-notice-mockup`** · **DONE** (2026-07-28 — corrected at morning triage from
+  "2026-07-29"; the run merged every card on 07-28, run `overnight-20260729`, card
   branch `card/d-sync-rxdb-conflict-notice-mockup`; card authored at slate-20260729 planning,
   fanned out of `sync-rxdb-conflict-notice-ui`) · **The sign-off artifact exists.**
   `.planning/phases/sync-rxdb-conflict-notice/mockup.html` — **eleven plates** (nine as first
@@ -975,7 +1014,28 @@
   is done when the mockup and its table are committed and the operator has something to say yes or
   no to. Footprint: `.planning/phases/sync-rxdb-conflict-notice/` only.
 
-- **`sync-rxdb-conflict-notice-ui`** · **PLANNED — SIGNED OFF, SLATE-READY** (new card, fanned out of
+- **`sync-rxdb-conflict-notice-ui`** · **🛑 PLANNED — ATTENDED-BLOCKED AGAIN (reverted from
+  SIGNED OFF, SLATE-READY at morning triage 2026-07-28; ledger T-26 decision 82)** · The sign-off
+  recorded as decision 80 **stands as the record of what was decided at 18:12** and is **superseded,
+  not erased**. Walking the committed plates at triage surfaced a defect the sign-off could not have
+  accounted for, and the operator directed two amendments, both written into
+  `.planning/phases/sync-rxdb-conflict-notice/UI-SPEC.md`:
+  **A-1 — the banner must show what happened AND how many rows are still unhandled.** The operator's
+  question was *"when she finishes the second, why does it still say three?"* Rule 3's answer —
+  "because three answers were overwritten and that stays true" — is literally correct and wrong on a
+  phone: a number in a coloured banner reads as a badge, and badges count outstanding work. Rows
+  still never leave except on Dismiss or expiry, so **Undo survives**; only the banner changes.
+  A failed restore counts as still-to-review, and a plate must prove the two banner lines coexist
+  with `+ N change(s) we couldn't identify` at 480px.
+  **A-2 — the override must state what it destroys.** "Restore all 3 of mine" sits under three
+  `YOURS`/`NOW SHOWS` pairs and never says it replaces them; the batch action must name what it
+  replaces, **confirm before writing while showing the N server values about to be overwritten**,
+  and carry the same attribution + timestamp the expanded view does (today the collapsed batch view
+  shows "Dana M." with no time — the riskiest action carries the least information).
+  **Two decisions deferred until the revised plates exist:** whether a removed-field row counts in
+  the chip base or moves to `+N`, and the retention window (decision 80 accepted 30 days as drawn;
+  triage reopened it). **Unblocks when the operator signs the revised plates** — not before.
+  (new card, fanned out of
   `sync-rxdb-schema-and-replication` 2026-07-26 at slating; depends on
   `sync-rxdb-replication-and-conflict-handler`'s `conflictHandler`) · The **user-visible half of
   decision 50**: when a same-field clash falls back

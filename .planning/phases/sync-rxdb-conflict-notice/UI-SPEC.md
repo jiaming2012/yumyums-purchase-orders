@@ -119,6 +119,101 @@ to-do list.** It reports how many answers were overwritten in the window, not ho
 unhandled. The alternative — decrementing on Restore/Keep — makes the sheet a queue that a mis-tap
 empties, and it destroys Undo, because a row that has been removed cannot be undone.
 
+> ## 🛑 AMENDMENT A-1 — REQUIRED BEFORE `sync-rxdb-conflict-notice-ui` IS SLATED
+>
+> **Filed at morning triage 2026-07-28 (ledger T-26, decision 80). Operator-directed.**
+> The rule above is **accepted in substance and rejected in presentation.** Rows still never
+> leave the sheet except on Dismiss or retention expiry — that part stands, and Undo depends
+> on it. What changes is what the banner prints.
+>
+> **The defect this closes.** The operator walked the success plate and asked the question the
+> design could not answer: *"when she finishes the second, why does it still say three?"* Under
+> rule 3 the answer is "because three answers were overwritten and that stays true" — literally
+> correct, and wrong on a phone. A number in a coloured banner at the top of the screen reads as
+> a **badge**, and badges count outstanding work. A crew member who handles two of three and still
+> sees **3** concludes the restores did not take. The past-tense wording ("*were* overwritten")
+> does not survive a two-second glance in daylight.
+>
+> The sheet already shows progress — a restored row turns green and carries Undo. **Only the
+> banner is frozen.** So the reason to keep rows (preserving Undo) was never connected to the
+> number the banner prints; treating those as one decision was the design's mistake, not the
+> operator's.
+>
+> **What the amendment requires.**
+>
+> 1. The banner MUST show **both** figures: what happened in the window, and how many rows are
+>    still unhandled — e.g. *"3 answers were overwritten · 1 still to review"*, or the headline
+>    holding at 3 with a quieter handled/total beneath it. Exact wording is the UI card's to
+>    choose; carrying both numbers is not optional.
+> 2. Rule 3 is **unchanged for the sheet**: a restored, kept, failed or in-flight row is still
+>    drawn and still counted in the "what happened" figure. Counts drop out of that figure only
+>    on Dismiss or expiry.
+> 3. **"Still to review" needs a definition, and it is not the same as "not green".** A row is
+>    reviewed once it has been restored, kept, or dismissed. An **untouched** row counts as still
+>    to review. A **failed restore counts as still to review**, not as handled — the crew member
+>    has unfinished business there, and the error plate must agree with this.
+> 4. **The two banner lines must coexist at 480px.** The second line is already spoken for by
+>    `+ N change(s) we couldn't identify` (rule 4). A plate MUST exist showing the unidentifiable
+>    case *and* a partially-handled sheet together, or the layout is unproven for the one
+>    combination most likely to occur on a bad night.
+> 5. Every affected plate MUST be re-shot and read back per the self-verification ritual, and
+>    the State Enumeration Table's counting column updated to match.
+>
+> **Status of the rest of the sign-off.** The mockup is approved **in direction** — the recovery
+> path, the degradation ladder, the honesty of the no-value and removed-field rows, and the limits
+> panel all stand as drawn. Two decisions are **deliberately deferred until the revised plates
+> exist**, because both are easier to judge against a banner that is no longer misleading:
+>
+> - whether a removed-field row counts in the chip base or moves to `+N` (the "recoverable"
+>   ambiguity — today the app counts its two no-Restore cases differently from each other);
+> - the retention window, still a **30-day placeholder**.
+>
+> `sync-rxdb-conflict-notice-ui` therefore **stays ATTENDED-BLOCKED**. A mockup existing is not a
+> sign-off, and neither is a partial one.
+
+> ## 🛑 AMENDMENT A-2 — THE OVERRIDE MUST STATE WHAT IT DESTROYS
+>
+> **Filed at morning triage 2026-07-28 (ledger T-26, decision 81). Operator-directed.**
+>
+> **The operator's test, in their words:** *"my question is to make sure that it is clear to the
+> user on the mobile device that was offline exactly what they were overriding."*
+>
+> What already passes that test, and must not regress: **both values are always on screen above
+> the action that overwrites one of them** — including in the collapsed several-at-once view, where
+> the collapse hides *buttons*, never *values*. `Restore all 3 of mine` sits directly beneath the
+> three `YOURS` / `NOW SHOWS` pairs it will replace. That is the right instinct and it stays.
+>
+> Three gaps close:
+>
+> 1. **The action must name what it replaces, not only what it restores.** "Restore mine" and
+>    "Restore all 3 of mine" describe the gain and are silent on the loss. The layout implies the
+>    destruction; the words never state it. This matters most on the batch button, where **one tap
+>    overwrites three of someone else's values**.
+> 2. **The batch override MUST confirm before writing.** A single-row restore may write straight
+>    through — both values are right there and Undo covers a mis-tap. `Restore all N of mine` may
+>    not: the confirm must show the **N server values about to be overwritten**, so the crew member
+>    sees what disappears before it does.
+> 3. **The collapsed view must carry the same attribution the expanded view does.** Today the
+>    single-conflict plate shows *"Dana M., 6:12 PM"* while the collapsed batch plate shows only
+>    *"Dana M."* — no timestamp. **The riskiest action currently carries the least information.**
+>    Restore parity.
+>
+> **Not in scope for A-2, and deliberately so:** adding a confirm to the single-row restore. Undo is
+> the safety net there, and a confirmation on every tap is friction on a phone in a hurry.
+>
+> ### A-2's dependency on the parent card (decision 82)
+>
+> The `· Dana M., 6:12 PM` attribution is drawn on every `NOW SHOWS` row, but `conflict$` carries
+> **no author and no timestamp of its own** — those exist only if the replicated row carries them,
+> which is a schema decision owned by `sync-rxdb-schema-and-replication`. The mockup previously
+> treated this as *conditional*, degrading to "someone else".
+>
+> **That conditional is now a hard requirement.** *"You are overwriting someone"* is not adequate on
+> a food-safety record; a crew member deciding whether to replace a walk-in cooler reading needs to
+> know **whose** reading and **when**. Who-and-when is therefore a **REQUIRED output of
+> `sync-rxdb-schema-and-replication`**, not an option it may decline, and this UI card's spec
+> depends on it.
+
 ---
 
 ## State Enumeration Table
