@@ -1284,7 +1284,14 @@ test.describe('Offline sync', () => {
     await page.click('[data-action="submit"]');
     await expect(page.locator('#sync-banner')).toBeVisible({ timeout: 5000 });
     await expect(page.locator('#sync-banner')).toContainText('queued to send');
-    await expect(page.locator('[data-template-id="' + tpl.id + '"] .sync-badge'))
+    // Scoped to #checklist-list on purpose. renderSyncBanner selects
+    // `[data-template-id]` document-wide, and the Builder tab (`#builder-list`)
+    // renders rows carrying the same attribute — so an unscoped locator matches
+    // two badges once the Builder has rendered, which is why this passed alone
+    // and failed under the full suite. Both badges read "Queued"; the app is
+    // right and the locator was not. (That the badge also lands on a Builder row
+    // is a pre-existing cosmetic quirk of renderSyncBanner, not this card's.)
+    await expect(page.locator('#checklist-list [data-template-id="' + tpl.id + '"] .sync-badge'))
       .toHaveText('Queued', { timeout: 5000 });
 
     // Reopen the checklist (deliberately still editable) — both states are now
