@@ -392,7 +392,15 @@
   (any successful drain clears it) and visible (banner + "Pending sync" badge), which is why G6
   deferred rather than parked. Fix: bound the lookup to the current period, age out stale
   `submitQueue` entries.
-  **🛑 This card also repairs a durable falsehood by making it TRUE.** `workflows.html:1694`,
+  **🛑 Also folds the "Pending sync" vocabulary collision (added 2026-07-28, commit `bc8721e`).**
+  `sync.js:642` renders a `.sync-badge` reading **"Pending sync"** for a queued whole-checklist
+  *submission*; `workflows.html` now renders a `.pending-sync-mark` reading the **same two words**
+  for a single field answer that has not reached the server. Two different states, one string, both
+  reachable on the same screen. This card owns both files and both mechanisms, so it names them
+  apart — decide the vocabulary, do not let two independent authors keep the collision.
+  **🛑 This card also repairs a durable falsehood by making it TRUE.** `workflows.html:1781`
+  (**anchor re-checked 2026-07-28 — was `:1694` before commit `bc8721e` moved it; `:1694` is now
+  `setTextAnswer`**),
   Card B's merge-intent note and the `workflow-offline-double-submit` card all assert *"the server
   upserts only the fields present in each payload."* That holds for `submission_responses` and is
   **false for `submission_fail_notes`** — Card B's design made D-4's trigger the normal path inside
@@ -467,6 +475,11 @@
   unchanged, no second hostname, no CORS, no second origin for the SW to reason about. **Costed:
   one handler plus its tests.** Chosen partly because obligation 1 is a row-visibility predicate the
   backend must be positioned to enforce.
+  **🛑 FANNED OUT 2026-07-28 → `sync-proxy-endpoint`** (slate-20260729). This obligation is
+  backend-only, fork-free since decision 69, and the roadmap had already costed it as one handler
+  plus its tests — it does not need the rest of this card to exist, and this card does not need it
+  to land first. It builds the door the client will later knock on. Removed from this card's scope;
+  this card now *depends* on it rather than containing it.
   (7) **Two more `api-cache`-shaped disclosures are OWNED HERE — decision 70.**
   (a) `localStorage['hq_apps']` is never cleared on logout, and `index.html:224` still parses the
   previous user's cached slug list in the fail-closed branch — offline on a shared truck phone,
@@ -478,6 +491,37 @@
   for "the next card touching that file" since 2026-07-26 and Card B did not touch it.
   Footprint: `workflows.html`, new RxDB client layer, `backend/` (the `/sync/*` proxy handler),
   `backend/Dockerfile` (if obligation 5 is taken).
+
+- **`sync-proxy-endpoint`** · **PLANNED — small/medium** (new card, fanned out of
+  `sync-rxdb-schema-and-replication` obligation 6 at slate-20260729 planning, 2026-07-28) · Build
+  the same-origin door decision 69 chose, ahead of the client that will use it. A `/sync/*`
+  `httputil.ReverseProxy` handler in the existing Go backend fronts `rest:3000` and
+  `realtime:4000` — including the **WebSocket upgrade** path Realtime needs, which is the part a
+  naive `ReverseProxy` gets wrong and the part worth a test. Auth: reuse the existing bearer/session
+  middleware; the JWT the backend already mints (`sync-jwt-bridge-endpoint`, DONE — backend half)
+  is what the proxied services accept. **Not in scope:** RLS predicates (obligation 1, still the
+  parent's), any RxDB client code, any `workflows.html` change. **Fork-free** — decision 69 settled
+  origin shape; nothing here waits on an operator. Red-first: a test that proves a plain HTTP request
+  proxies AND that an upgrade request survives, both failing before the handler exists. Footprint:
+  `backend/` (new proxy handler + its route registration + tests). Depended on by
+  `sync-rxdb-schema-and-replication`.
+
+- **`sync-rxdb-conflict-notice-mockup`** · **PLANNED — small** (new card, fanned out of
+  `sync-rxdb-conflict-notice-ui` at slate-20260729 planning, 2026-07-28) · Draft the committed
+  mockup that the attended sign-off consumes, so the blocked UI card becomes unblockable. The
+  roadmap has now recorded twice that **drafting the mockup — not chasing the sign-off — is the next
+  action**, and that drafting is unattended-safe by construction: CLAUDE.md gates *production code*
+  behind the sign-off, and the mockup is the artifact that gate reads. Deliver
+  `.planning/phases/sync-rxdb-conflict-notice/mockup.html` (model:
+  `.planning/phases/f3-trends-tab/mockup.html`, the only existing one) showing what the crew member
+  sees when a same-field clash falls back to master-wins **and how the discarded value is
+  recovered** — plus the State Enumeration Table CLAUDE.md requires, including the edge rows (no
+  discarded value available, several conflicts at once, conflict on a field since removed from the
+  template). Input is what `conflict$` actually emits — per document, carrying the document id and
+  the discarded value (verified at W2). **Independent of `sync-rxdb-schema-and-replication`** — the
+  mockup needs the event's shape, not a built `conflictHandler`. **Zero production code**; the card
+  is done when the mockup and its table are committed and the operator has something to say yes or
+  no to. Footprint: `.planning/phases/sync-rxdb-conflict-notice/` only.
 
 - **`sync-rxdb-conflict-notice-ui`** · **PLANNED — ATTENDED-BLOCKED** (new card, fanned out of
   `sync-rxdb-schema-and-replication` 2026-07-26 at slating; depends on that card's
