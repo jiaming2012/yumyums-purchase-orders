@@ -755,11 +755,29 @@ func submitChecklist(ctx context.Context, pool *pgxpool.Pool, input SubmitCheckl
 		}
 	}
 
-	// Insert fail notes
+	// Upsert fail notes.
+	//
+	// This INSERT was bare until migration 0071. Two POSTs sharing one
+	// idempotency_key deliberately land on the SAME submission row (the upsert
+	// above returns the existing id), so a bare insert appended a SECOND fail
+	// note for the same field and the approver read it twice. Measured
+	// 2026-07-27: `submission_rows=1 response_rows=1 fail_note_rows=2`.
+	//
+	// The ON CONFLICT and the unique index in 0071 are one fix in two halves:
+	// the index alone turns the silent duplicate into a hard 500 on the second
+	// POST, which is worse than the bug it replaces.
+	//
+	// photo_url is deliberately NOT in the SET list. It is absent from the
+	// INSERT column list, so EXCLUDED.photo_url is NULL and setting it would
+	// erase an attached photo on every re-POST — and nothing repopulates it
+	// (the correction photo travels on the RESPONSE value as
+	// `_correction_photo`, not on the fail note).
 	for _, fn := range input.FailNotes {
 		if _, err := tx.Exec(ctx,
 			`INSERT INTO submission_fail_notes (submission_id, field_id, note, severity)
-			 VALUES ($1, $2, $3, $4)`,
+			 VALUES ($1, $2, $3, $4)
+			 ON CONFLICT (submission_id, field_id) DO UPDATE
+			   SET note = EXCLUDED.note, severity = EXCLUDED.severity`,
 			submissionID, fn.FieldID, fn.Note, fn.Severity,
 		); err != nil {
 			return "", fmt.Errorf("insert fail note: %w", err)
