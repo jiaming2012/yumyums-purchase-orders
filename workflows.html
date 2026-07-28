@@ -1716,8 +1716,39 @@ function setSeverity(fldId, severity) {
   if (!FAIL_NOTES[fldId]) FAIL_NOTES[fldId] = { note: '', severity: '' };
   FAIL_NOTES[fldId].severity = severity;
 }
+// isCurrentPeriodEntry — may this queue entry lend its idempotency_key to a
+// submit happening NOW?
+//
+// Key reuse (ledger T-23 decision 60) was authorised for a second press of the
+// SAME checklist on the SAME day. Nothing enforced the second half: entries
+// carried no period and nothing retired them, so a persistently-failing server
+// let MONDAY's queued key be adopted by THURSDAY's submit — the server upserts
+// on idempotency_key, so Thursday's answers landed on Monday's submission row
+// and every day in between collapsed into one. Ledger T-25 decision 71.
+//
+// 🛑 Aging out here means RETIREMENT FROM KEY REUSE. It is NOT deletion, and
+// that is deliberate, not an omission. Offline, a queued payload is the only
+// durable copy of what the crew member entered that day (the same reason `id`
+// is not reused — see submitChecklistToAPI below), and a submission queued
+// Monday that finally drains on Thursday is CORRECT, not garbage. A stale entry
+// keeps draining normally; it just stops being a source of keys.
+//
+// An entry with NO period was queued by code older than this function. It is
+// treated as NOT current — conservative in the direction that matters, since
+// adopting a stale key is the defect being fixed. The cost is one transient
+// deploy-boundary case (an entry queued minutes before the new code loaded
+// cannot lend its key, so a second press mints a fresh one and can write a
+// second row); the service worker's controllerchange reload closes that window
+// within a page load.
+function isCurrentPeriodEntry(e) {
+  var period = typeof currentSubmitPeriod === 'function'
+    ? currentSubmitPeriod()
+    : new Date().toISOString().slice(0, 10);
+  return !!e && e.period === period;
+}
+
 // findQueuedSubmission returns the payload already sitting in the offline
-// submitQueue for this template, or null.
+// submitQueue for this template IN THE CURRENT PERIOD, or null.
 //
 // Why it reads IndexedDB and not a module-level map: the queue is the only
 // DURABLE record that a submission is already in flight. "Submit offline, get
@@ -1733,7 +1764,9 @@ async function findQueuedSubmission(tplId) {
     var db = await getDB();
     var entries = await idbGetAll(db, 'submitQueue');
     if (!Array.isArray(entries)) return null;
-    return entries.find(function(e) { return e && e.template_id === tplId && e.idempotency_key; }) || null;
+    return entries.find(function(e) {
+      return e && e.template_id === tplId && e.idempotency_key && isCurrentPeriodEntry(e);
+    }) || null;
   } catch (e) {
     return null;
   }
@@ -1757,8 +1790,11 @@ async function submitChecklistToAPI(tplId, allFlds, isReapproval) {
       fail_severity: failNote ? failNote.severity : null
     };
   }).filter(function(r) { return r.value !== null; });
-  // Reuse the KEY of any submission already queued for this template rather than
-  // minting a new one (ledger T-23 decision 60, which authorises the key only).
+  // Reuse the KEY of any submission already queued for this template IN THE
+  // CURRENT PERIOD rather than minting a new one (ledger T-23 decision 60,
+  // which authorises the key only; the period bound is T-25 decision 71 — see
+  // findQueuedSubmission / isCurrentPeriodEntry above for why a Monday key must
+  // never be adopted by a Thursday submit).
   //
   // An offline submit queues the payload and then correctly returns to the list
   // WITHOUT pushing into MY_SUBMISSIONS — so the checklist stays editable, which
@@ -1780,8 +1816,19 @@ async function submitChecklistToAPI(tplId, allFlds, isReapproval) {
   // answers: one row, zero responses, success toast. Two queue entries sharing one
   // key is the correct shape — the server upserts only the fields present in each
   // payload, so the first entry's answers survive and the empty second adds
-  // nothing. The banner transiently reading "2 submissions pending sync" is a
+  // nothing. The banner transiently counting two queued submissions is a
   // cosmetic price for not deleting someone's work. Guarded by DBL-04.
+  //
+  // "The server upserts only the fields present in each payload" was TRUE of
+  // submission_responses and FALSE of submission_fail_notes when this comment
+  // was first written: that INSERT was bare, so a second POST under the same key
+  // APPENDED a duplicate note and the approver read it twice
+  // (`submission_rows=1 response_rows=1 fail_note_rows=2`, measured 2026-07-27).
+  // The sentence was made true rather than edited away — migration 0071 adds
+  // UNIQUE (submission_id, field_id) and repository.go's fail-note insert now
+  // carries the matching ON CONFLICT ... DO UPDATE. Both tables upsert now.
+  // (photo_url is deliberately excluded from that SET list — it is not in the
+  // INSERT column list, so writing it would NULL an attached photo.)
   var queued = await findQueuedSubmission(tplId);
   var submitPayload = {
     id: generateUUID(),

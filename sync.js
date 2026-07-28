@@ -546,11 +546,32 @@ window.applyOp = applyOp;
 
 // ─── Offline Queue ────────────────────────────────────────────────────────────
 
+// currentSubmitPeriod — the period a queued submission belongs to.
+//
+// The app's period is the calendar DAY and always has been: myChecklists is
+// fetched per day-of-week, and workflows.html decides "already submitted today"
+// by comparing `new Date().toISOString().slice(0, 10)` against submitted_at
+// (three places: the list row, the runner, and the post-submit refresh). This
+// is that same expression, named once, so the queue and the list cannot drift
+// apart on what "today" means.
+//
+// It is stamped onto every queue entry because an entry may only lend its
+// idempotency_key to a submit in the SAME period (workflows.html
+// `findQueuedSubmission`). Without it, a persistently-failing server let
+// Monday's queued key be adopted by Thursday's submit — upserting Thursday's
+// answers onto Monday's submission row and collapsing every day in between.
+// Ledger T-25 decision 71.
+function currentSubmitPeriod() {
+  return new Date().toISOString().slice(0, 10);
+}
+window.currentSubmitPeriod = currentSubmitPeriod;
+
 async function enqueueSubmission(payload) {
   const db = await getDB();
   await idbPut(db, 'submitQueue', {
     ...payload,
-    queuedAt: new Date().toISOString()
+    queuedAt: new Date().toISOString(),
+    period: currentSubmitPeriod()
   });
   renderSyncBanner();
 }
