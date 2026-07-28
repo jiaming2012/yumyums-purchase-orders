@@ -1,0 +1,225 @@
+package sync
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net"
+	"net/http"
+	"os"
+	"testing"
+	"time"
+
+	"github.com/coder/websocket"
+	"github.com/yumyums/hq/internal/auth"
+)
+
+// ───────────────────────────────────────────────────────────────────────────
+// LIVE proofs against the local Supabase spike stack.
+//
+// These are the complement to the hermetic tests in proxy_test.go. The
+// hermetic upgrade test proves this proxy performs a real protocol switch and
+// passes bytes both ways against a local echo server; it CANNOT prove that
+// self-hosted Realtime — a Phoenix app with multi-tenant Host routing and its
+// own HS256 verification — accepts what comes out the other side. That is what
+// these tests are for.
+//
+// They SKIP when the spike containers are not running, which is the normal
+// state of a clean checkout. Bring them up with:
+//
+//	docker compose -p spike-supabase -f docker-compose.supabase.yml up -d
+//
+// and resolve the published ports with `docker compose ... port realtime 4000`.
+// The defaults below match the ports the 2026-07-29 run observed; override with
+// HQ_SYNC_SPIKE_REALTIME_ADDR / HQ_SYNC_SPIKE_REST_ADDR.
+//
+// 🛑 A SKIP IS NOT A PASS. If these skip, the only upgrade evidence in the tree
+// is the hermetic one. Say so rather than implying otherwise.
+// ───────────────────────────────────────────────────────────────────────────
+
+// spikeJWTSecret is the throwaway secret committed literally in
+// docker-compose.supabase.yml (see the banner in that file — generated for the
+// spike, public in git on purpose, safe only because nothing real is behind
+// it). It is simultaneously PGRST_JWT_SECRET and Realtime's API_JWT_SECRET.
+const spikeJWTSecret = "2508c659af3c4316b0a163a00725d33a9bc4eae75aa35ac9be6a007cacb8251c"
+
+// spikeRealtimeVHost's FIRST dot-separated label must equal the tenant
+// external_id (SELF_HOST_TENANT_NAME: realtime-dev). Get it wrong and Realtime
+// answers a bare 403 with no explanation — which is precisely the failure the
+// proxy's Host override exists to prevent.
+const spikeRealtimeVHost = "realtime-dev.localhost"
+
+func envOr(key, def string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return def
+}
+
+// requireSpikeService skips unless something is listening on addr.
+func requireSpikeService(t *testing.T, addr, what string) {
+	t.Helper()
+	c, err := net.DialTimeout("tcp", addr, 750*time.Millisecond)
+	if err != nil {
+		t.Skipf("spike %s not reachable at %s (%v) — bring the stack up with "+
+			"`docker compose -p spike-supabase -f docker-compose.supabase.yml up -d`. "+
+			"SKIPPED IS NOT PASSED.", what, addr, err)
+	}
+	_ = c.Close()
+}
+
+// liveMinter returns a minter producing a REAL bridge token signed with the
+// spike stack's shared secret — the same shape MintForUser emits, minus the
+// grant-projection DB round trip.
+func liveMinter(t *testing.T) TokenMinter {
+	t.Helper()
+	now := time.Now()
+	claims := Claims{
+		Sub:      testUser.ID,
+		Role:     SupabaseRole,
+		Exp:      now.Add(DefaultTokenTTL).Unix(),
+		Iat:      now.Unix(),
+		Email:    testUser.Email,
+		HQRoles:  testUser.Roles,
+		HQGrants: []string{},
+	}
+	tok, err := Sign(claims, envOr("HQ_SYNC_SPIKE_JWT_SECRET", spikeJWTSecret))
+	if err != nil {
+		t.Fatalf("sign live bridge token: %v", err)
+	}
+	return func(context.Context, *auth.User, string) (string, error) { return tok, nil }
+}
+
+// TestProxyLive_RealtimeUpgrade is the proof the card asks for: a WebSocket
+// upgrade travelling through THIS proxy into the real self-hosted Realtime
+// container, completing the handshake and completing a Phoenix channel join.
+//
+// What a green here proves that the hermetic test cannot:
+//   - Realtime's tenant lookup resolved, i.e. the proxy's Host override reached
+//     it intact (a wrong Host is a bare 403 before any 101).
+//   - Realtime VERIFIED the HS256 token the proxy injected into ?apikey= (a bad
+//     signature is also a 403 at the handshake, not an error frame).
+//   - A `phx_reply` came back with status ok, so frames flowed in both
+//     directions over the switched protocol against a real Phoenix endpoint.
+//
+// What it still does not prove: that a row change is DELIVERED end to end —
+// that needs a replicating table and belongs to the parent card, not the door.
+func TestProxyLive_RealtimeUpgrade(t *testing.T) {
+	addr := envOr("HQ_SYNC_SPIKE_REALTIME_ADDR", "127.0.0.1:46355")
+	requireSpikeService(t, addr, "realtime")
+
+	proxy := mountProxy(t, ProxyConfig{
+		RealtimeURL:  "http://" + addr,
+		RealtimeHost: spikeRealtimeVHost,
+	}, testUser, liveMinter(t))
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	conn, resp, err := websocket.Dial(ctx,
+		wsURL(proxy.URL, "/sync/realtime/socket/websocket?vsn=1.0.0"), nil)
+	if err != nil {
+		status := "no response"
+		if resp != nil {
+			status = resp.Status
+		}
+		t.Fatalf("upgrade into LIVE Realtime through the proxy failed: %v (HTTP %s). "+
+			"A 403 here means either the tenant Host never arrived or the token did not verify.",
+			err, status)
+	}
+	defer conn.Close(websocket.StatusNormalClosure, "done")
+
+	if resp.StatusCode != http.StatusSwitchingProtocols {
+		t.Fatalf("handshake status = %d, want 101", resp.StatusCode)
+	}
+	t.Logf("LIVE: 101 Switching Protocols from realtime at %s via the proxy", addr)
+
+	join := map[string]any{
+		"topic": "realtime:public:spike_notes",
+		"event": "phx_join",
+		"ref":   "1",
+		"payload": json.RawMessage(`{"config":{"broadcast":{"ack":false,"self":false},` +
+			`"presence":{"key":""},"private":false,` +
+			`"postgres_changes":[{"event":"*","schema":"public","table":"spike_notes"}]}}`),
+	}
+	b, err := json.Marshal(join)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := conn.Write(ctx, websocket.MessageText, b); err != nil {
+		t.Fatalf("write phx_join through the proxy: %v", err)
+	}
+
+	deadline := time.Now().Add(20 * time.Second)
+	for time.Now().Before(deadline) {
+		_, data, err := conn.Read(ctx)
+		if err != nil {
+			t.Fatalf("read from LIVE Realtime through the proxy: %v — the 101 succeeded "+
+				"but no frame came back", err)
+		}
+		var m struct {
+			Event   string          `json:"event"`
+			Topic   string          `json:"topic"`
+			Payload json.RawMessage `json:"payload"`
+		}
+		if err := json.Unmarshal(data, &m); err != nil {
+			t.Logf("LIVE recv (unparsed): %s", data)
+			continue
+		}
+		t.Logf("LIVE recv event=%s topic=%s payload=%s", m.Event, m.Topic, m.Payload)
+		if m.Event != "phx_reply" {
+			continue
+		}
+		var reply struct {
+			Status   string          `json:"status"`
+			Response json.RawMessage `json:"response"`
+		}
+		if err := json.Unmarshal(m.Payload, &reply); err != nil {
+			t.Fatalf("decode phx_reply payload %s: %v", m.Payload, err)
+		}
+		if reply.Status != "ok" {
+			t.Fatalf("phx_reply status = %q (response %s), want ok. Realtime received the "+
+				"join through the proxy but refused it.", reply.Status, reply.Response)
+		}
+		return // proven
+	}
+	t.Fatal("no phx_reply within the deadline — Realtime accepted the upgrade but never " +
+		"answered the join")
+}
+
+// TestProxyLive_RESTRequest is the plain-HTTP half against the real PostgREST
+// container. It asserts only that PostgREST answered THIS proxy's request as
+// an authenticated caller — not what rows came back, which depends on spike
+// fixtures the door does not own.
+func TestProxyLive_RESTRequest(t *testing.T) {
+	addr := envOr("HQ_SYNC_SPIKE_REST_ADDR", "127.0.0.1:46233")
+	requireSpikeService(t, addr, "rest")
+
+	proxy := mountProxy(t, ProxyConfig{RESTURL: "http://" + addr}, testUser, liveMinter(t))
+
+	resp, err := http.Get(proxy.URL + "/sync/rest/")
+	if err != nil {
+		t.Fatalf("GET LIVE PostgREST through the proxy: %v", err)
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	t.Logf("LIVE PostgREST via proxy: HTTP %d, %d bytes", resp.StatusCode, len(body))
+
+	if resp.StatusCode >= 500 {
+		t.Fatalf("status = %d, want < 500; body = %s", resp.StatusCode, truncate(body, 400))
+	}
+	// A signature or role problem is PostgREST's 401 with a PGRST3xx code. It
+	// is the one failure that would mean the door forwarded a token PostgREST
+	// will not take.
+	if resp.StatusCode == http.StatusUnauthorized {
+		t.Fatalf("PostgREST rejected the proxied bridge token: %s", truncate(body, 400))
+	}
+}
+
+func truncate(b []byte, n int) string {
+	if len(b) <= n {
+		return string(b)
+	}
+	return fmt.Sprintf("%s… (%d bytes total)", b[:n], len(b))
+}
