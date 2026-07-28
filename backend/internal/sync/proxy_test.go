@@ -1,8 +1,11 @@
 package sync
 
 import (
+	"bufio"
 	"context"
+	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -482,6 +485,100 @@ func TestProxy_RejectsPathTraversal(t *testing.T) {
 	if nRest != 0 || nWS != 0 {
 		t.Errorf("upstreams received %d REST + %d realtime requests; a rejected path must "+
 			"never reach either one", nRest, nWS)
+	}
+}
+
+// rawGet sends a request target BYTE FOR BYTE, bypassing net/http's client-side
+// URL normalisation.
+//
+// This is not fussiness. `http.NewRequest` + `client.Do` writes
+// `req.URL.RequestURI()`, which is `EscapedPath()` — the very function whose
+// fallback behaviour the test below is about. Driving these vectors through the
+// Go client would let the CLIENT strip the `%2f` and the server would never see
+// the thing under test, producing a green that proves nothing. Raw bytes on a
+// socket is what an attacker sends and what G6 measured with.
+func rawGet(t *testing.T, serverURL, rawTarget string) (*http.Response, string) {
+	t.Helper()
+	u, err := url.Parse(serverURL)
+	if err != nil {
+		t.Fatalf("parse %q: %v", serverURL, err)
+	}
+	conn, err := net.DialTimeout("tcp", u.Host, 5*time.Second)
+	if err != nil {
+		t.Fatalf("dial %s: %v", u.Host, err)
+	}
+	defer conn.Close()
+	_ = conn.SetDeadline(time.Now().Add(10 * time.Second))
+
+	if _, err := fmt.Fprintf(conn,
+		"GET %s HTTP/1.1\r\nHost: %s\r\nConnection: close\r\n\r\n", rawTarget, u.Host); err != nil {
+		t.Fatalf("write raw request %q: %v", rawTarget, err)
+	}
+	resp, err := http.ReadResponse(bufio.NewReader(conn), nil)
+	if err != nil {
+		t.Fatalf("read response for %q: %v", rawTarget, err)
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	return resp, string(body)
+}
+
+// TestProxy_RejectsEncodedSlashUnderEscapedPathFallback — G6 finding F-1.
+//
+// `unsafeRequestPath` read only `u.EscapedPath()`. That function returns
+// `u.RawPath` ONLY while RawPath is a valid `encodePath` encoding of `u.Path`;
+// when RawPath contains a byte Go's validator rejects — any of `{ } | ^ \ " < >`
+// — it DISCARDS RawPath and re-escapes the decoded `Path` instead. Go's path
+// escaper does not escape "/", so the `%2f` is gone before the check ever runs.
+// Measured against the booted handler, before the fix:
+//
+//	GET /sync/rest%2fadmin{ HTTP/1.1  → 200 OK   upstream saw GET /admin%7B
+//	GET /sync/rest%2fadmin| HTTP/1.1  → 200 OK   upstream saw GET /admin%7C
+//	GET /sync/rest%2fadmin^ HTTP/1.1  → 200 OK   upstream saw GET /admin%5E
+//
+// 🛑 THIS WAS NOT EXPLOITABLE. The dot-segment loop runs on the decoded
+// `u.Path`, so `/sync/rest%2f..%2f..%2fadmin{` was still a 400, and G6 could
+// not get a `..` or a `%2f` onto the wire by any route. It is fixed because TWO
+// LOAD-BEARING CLAIMS WERE FALSE while it stood: `proxy.go`'s "clearing RawPath
+// is only safe because unsafeRequestPath already rejected EVERY encoded
+// separator", and the merge-intent note's "an encoded separator ANYWHERE in the
+// request path ⇒ 400". Both are read by whoever next points an upstream at a
+// path-prefixed gateway or a double-decoding proxy. Make the claim true rather
+// than weakening it to match the code.
+func TestProxy_RejectsEncodedSlashUnderEscapedPathFallback(t *testing.T) {
+	rec := &recorder{}
+	up := jsonUpstream(t, rec, `[]`)
+	proxy := mountProxy(t, ProxyConfig{RESTURL: up.URL}, testUser, stubMinter)
+
+	// Every byte encodePath rejects, which is the whole bypass class.
+	for _, suffix := range []string{"{", "}", "|", "^", `\`, `"`, "<", ">"} {
+		t.Run("suffix_"+suffix, func(t *testing.T) {
+			resp, body := rawGet(t, proxy.URL, "/sync/rest%2fadmin"+suffix)
+			if resp.StatusCode != http.StatusBadRequest {
+				t.Errorf("status = %d, want 400 — the %%2f survived into the room decision "+
+					"because EscapedPath() discarded RawPath over the %q byte; body = %s",
+					resp.StatusCode, suffix, body)
+			}
+			if !strings.Contains(body, "sync_path_rejected") {
+				t.Errorf("body = %s, want the sync_path_rejected envelope", body)
+			}
+		})
+	}
+
+	// Same fallback, applied to the backslash arm.
+	t.Run("encoded_backslash_under_fallback", func(t *testing.T) {
+		resp, body := rawGet(t, proxy.URL, "/sync/rest%5cadmin{")
+		if resp.StatusCode != http.StatusBadRequest {
+			t.Errorf("status = %d, want 400; body = %s", resp.StatusCode, body)
+		}
+	})
+
+	rec.mu.Lock()
+	n := len(rec.reqs)
+	rec.mu.Unlock()
+	if n != 0 {
+		t.Errorf("upstream received %d requests; every one of these forged a room boundary "+
+			"out of an encoded separator and none may be forwarded", n)
 	}
 }
 

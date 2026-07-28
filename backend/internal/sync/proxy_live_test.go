@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -28,9 +29,12 @@ import (
 // They are GATED ON AN EXPLICIT ENV FLAG, and the gate is deliberately
 // asymmetric:
 //
-//	HQ_SYNC_SPIKE_LIVE unset      → SKIP. Nobody asked for a live run.
-//	HQ_SYNC_SPIKE_LIVE=1, port up → run for real.
-//	HQ_SYNC_SPIKE_LIVE=1, port down → FAIL. Loudly. Never skip.
+//	unset, or =0 / false / no / off  → SKIP. Nobody asked for a live run.
+//	=1 (or any other value), port up   → run for real.
+//	=1 (or any other value), port down → FAIL. Loudly. Never skip.
+//
+// The falsy spellings are handled by spikeLiveRequested and are not decoration:
+// a bare `!= ""` made `HQ_SYNC_SPIKE_LIVE=0` opt IN (G6 F-4).
 //
 // 🛑 THE THIRD LINE IS THE POINT (G6 finding R4). The first version of this
 // file skipped on an unreachable port with an excellent explanatory message —
@@ -78,25 +82,60 @@ func envOr(key, def string) string {
 // presence with a dead port is a FAILURE, not a skip.
 const spikeLiveEnv = "HQ_SYNC_SPIKE_LIVE"
 
+// spikeLiveRequested reads the opt-in flag the way a human means it.
+//
+// 🛑 A BARE `os.Getenv(...) != ""` MADE `HQ_SYNC_SPIKE_LIVE=0` OPT **IN**
+// (G6 finding F-4) — measured: `=0` with a dead port FAILED the suite. Anyone
+// writing `=0` to mean "off" got the exact opposite of what they asked for,
+// which is the worst possible direction for a flag whose entire job is to make
+// an intended live run honest. Falsy spellings are off.
+func spikeLiveRequested() bool {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv(spikeLiveEnv))) {
+	case "", "0", "false", "no", "off":
+		return false
+	default:
+		return true
+	}
+}
+
 // requireSpikeService gates the live proofs. See the asymmetry in the file
 // header — this function is where it is enforced.
 func requireSpikeService(t *testing.T, addr, what string) {
 	t.Helper()
-	if os.Getenv(spikeLiveEnv) == "" {
+	if !spikeLiveRequested() {
 		t.Skipf("live proofs not requested — set %s=1 to run them against the spike stack. "+
-			"SKIPPED IS NOT PASSED: with this unset, the only WebSocket-upgrade evidence "+
+			"SKIPPED IS NOT PASSED: with this off, the only WebSocket-upgrade evidence "+
 			"in this package is the hermetic test.", spikeLiveEnv)
 	}
 	c, err := net.DialTimeout("tcp", addr, 750*time.Millisecond)
 	if err != nil {
-		t.Fatalf("%s=1 was set, so a LIVE run was intended, but spike %s is not reachable "+
+		t.Fatalf("%s=%q was set, so a LIVE run was intended, but spike %s is not reachable "+
 			"at %s: %v\n\nThis is a FAILURE and not a skip on purpose. A skip here prints "+
 			"nothing without -v, so an intended live run would silently degrade to hermetic "+
 			"coverage and still report `ok`. Bring the stack up with `docker compose -p "+
-			"spike-supabase -f docker-compose.supabase.yml up -d`, or unset %s.",
-			spikeLiveEnv, what, addr, err, spikeLiveEnv)
+			"spike-supabase -f docker-compose.supabase.yml up -d`, or set %s=0.",
+			spikeLiveEnv, os.Getenv(spikeLiveEnv), what, addr, err, spikeLiveEnv)
 	}
 	_ = c.Close()
+}
+
+// TestSpikeLiveRequested pins the flag's truthiness table. It is a two-line
+// function guarding a foot-gun that already fired once, and the falsy cases are
+// the whole point.
+func TestSpikeLiveRequested(t *testing.T) {
+	for _, tc := range []struct {
+		val  string
+		want bool
+	}{
+		{"", false}, {"0", false}, {"false", false}, {"FALSE", false},
+		{"no", false}, {"off", false}, {" 0 ", false},
+		{"1", true}, {"true", true}, {"yes", true},
+	} {
+		t.Setenv(spikeLiveEnv, tc.val)
+		if got := spikeLiveRequested(); got != tc.want {
+			t.Errorf("%s=%q → %v, want %v", spikeLiveEnv, tc.val, got, tc.want)
+		}
+	}
 }
 
 // liveMinter returns a minter producing a REAL bridge token signed with the

@@ -95,7 +95,8 @@ import (
 // is read-only, and a subscription without RLS leaks reads but authors nothing.
 //
 // ── Residual, once the vars ARE set ────────────────────────────────────────
-// The Realtime credential travels in the QUERY STRING (see point 3 below —
+// The Realtime credential travels in the QUERY STRING (see point 3 in the file
+// header ABOVE, not below —
 // there is no alternative Realtime honours). It is injected server-side, so it
 // never enters browser history, a `Referer`, or any client-side log. But the
 // HQ→Realtime hop is PLAINTEXT inside the compose network, which means:
@@ -306,18 +307,46 @@ func unsafeRequestPath(u *url.URL) string {
 	// The ESCAPED form first. An encoded separator is invisible in u.Path —
 	// by the time you are looking at the decoded path it has already become a
 	// real "/" and there is nothing left to detect.
+	//
+	// 🛑 BOTH u.RawPath AND u.EscapedPath() ARE CHECKED, and the RawPath one is
+	// the load-bearing half (G6 finding F-1). EscapedPath() returns RawPath
+	// only while RawPath is a VALID `encodePath` encoding of Path; when RawPath
+	// contains a byte Go's validator rejects — any of `{ } | ^ \ " < >` — it
+	// silently DISCARDS RawPath and re-escapes the decoded Path instead. Go's
+	// escaper does not escape "/", so a lone EscapedPath() check never sees the
+	// %2f at all:
+	//
+	//	GET /sync/rest%2fadmin{  →  EscapedPath() == "/sync/rest/admin%7B"
+	//
+	// RawPath is the untouched request target and is populated whenever %2f is
+	// present (the escaped form necessarily differs from the default encoding
+	// of a path containing "/"), so it is the one that cannot be dodged.
+	// EscapedPath() is kept alongside it as the belt to that braces.
+	raw := strings.ToLower(u.RawPath)
 	esc := strings.ToLower(u.EscapedPath())
-	if strings.Contains(esc, "%2f") {
+	if strings.Contains(raw, "%2f") || strings.Contains(esc, "%2f") {
 		return "encoded_slash"
 	}
 	// A backslash is not a URL separator, but enough upstreams and gateways
 	// treat it as one that forwarding it is a needless bet.
-	if strings.Contains(esc, "%5c") || strings.Contains(u.Path, `\`) {
+	if strings.Contains(raw, "%5c") || strings.Contains(esc, "%5c") ||
+		strings.Contains(u.Path, `\`) {
 		return "encoded_backslash"
 	}
 	// Dot SEGMENTS only. A dot inside a segment is ordinary — table and
 	// function names contain periods — so `/rest/schema.table` is fine and
 	// `/rest/..` is not.
+	//
+	// 🛑 SCOPE, stated exactly (G6 finding F-2). This is an EXACT MATCH on "."
+	// or ".." against GO'S OWN decoded segmentation — it is not a universal
+	// dot-segment rule, and it is not a normaliser. These reach the upstream
+	// verbatim and are deliberately NOT rejected: `..;/`, `....//`, `..%00/`,
+	// `..%c0%af..`, `%252e%252e`. G6 confirmed none of them traverses against
+	// nginx or Kong, which is why they are out of scope. But `..;` IS a dot
+	// segment to Tomcat/Jetty-class parsers (they strip `;`-parameters before
+	// resolving), and `%252e%252e` is one to anything that decodes twice. If an
+	// upstream of either kind is ever put behind this door, this loop is not
+	// enough on its own and the check has to grow with it.
 	for _, seg := range strings.Split(u.Path, "/") {
 		if seg == "." || seg == ".." {
 			return "dot_segment"
