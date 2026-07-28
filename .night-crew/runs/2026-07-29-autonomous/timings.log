@@ -5,3 +5,16 @@ baseline	G1 green (go build + go vet), 19 static spec files + bddgen = 20 expect
 cardA_dispatch	2026-07-28T13:08:37-04:00
 cardA_impl_done	2026-07-28T13:51:05-04:00	DONE, ~75min, 4 commits, suite 561/567 pass 20 spec files
 cardA_g6_dispatch	2026-07-28T13:51:05-04:00
+cardA_g6_done	2026-07-28T14:04:14-04:00	APPROVE-WITH-NITS, 25 claims / 24 held / 1 partial, no blockers
+cardA_merged	2026-07-28T14:04:14-04:00	25fbc16 clean merge, post-merge G1 green + sw.js idempotent
+cardB_dispatch	2026-07-28T14:04:14-04:00	Track A
+cardC_dispatch	2026-07-28T14:04:14-04:00	Track B
+cardC_impl_done	2026-07-28T14:25:31-04:00	DONE ~25min, 4 commits, upgrade half PROVEN (hermetic + live), premise corrected
+cardC_g6_dispatch	2026-07-28T14:25:31-04:00
+cardC_g6_done	2026-07-28T14:44:58-04:00	APPROVE-WITH-NITS, 6/6 mutants killed, premise correction confirmed
+cardC_repair1_dispatch	2026-07-28T14:44:58-04:00	R1 path traversal, R2 activation gate, R3-R5 docs/test honesty
+cardC_repair1_done	2026-07-28T14:59:20-04:00	~18min, 3 commits, R1 rejects (not cleans), 15 tests, 4 merge-intent lines struck
+cardC_g6_repair_dispatch	2026-07-28T14:59:20-04:00	focused review of repair delta only
+INCIDENT	2026-07-28T14:59:20-04:00	G6 reviewer for card C dropped hq_test_go_c mid-round; suite goes GREEN-AND-EMPTY on missing DB (silent skip). All 6 DBs verified present at 15:00. Backlog candidate.
+cardC_repair2_done	2026-07-28T15:29:18-04:00	~22min, 2 commits, %2f bypass closed (7/9 red first), =0 inversion fixed, 17 tests
+cardC_verify_dispatch	2026-07-28T15:29:18-04:00	focused: over-broad check vs live vocabulary + bypass closure

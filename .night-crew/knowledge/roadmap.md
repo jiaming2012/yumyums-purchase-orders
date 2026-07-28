@@ -521,6 +521,21 @@
   plus its tests — it does not need the rest of this card to exist, and this card does not need it
   to land first. It builds the door the client will later knock on. Removed from this card's scope;
   this card now *depends* on it rather than containing it.
+  **✅ THE DOOR LANDED 2026-07-28** (`sync-proxy-endpoint`, DONE below). This card's client work
+  targets `/sync/rest/*` and `/sync/realtime/*` on HQ's own origin; it does NOT need to fetch
+  `/api/v1/sync/token` and attach a bearer itself — the proxy mints per request and injects it,
+  and a client-supplied `Authorization`/`apikey` is deliberately discarded. Realtime is reached at
+  `/sync/realtime/socket/websocket?vsn=1.0.0`; do not add an `apikey` parameter, the door sets it.
+  **🛑 BUT THE DOOR IS DELIBERATELY UNLOCKED, AND THIS CARD HOLDS THE KEY — ACTIVATION ORDER.**
+  The proxy forwards **every method** to PostgREST with a `role: authenticated` token and no row
+  filtering of its own, because filtering is obligation 1 — *this* card's. So: **do not set
+  `HQ_SYNC_REST_URL` in any deploy until row-visibility RLS lands.** Doing so before then gives
+  every logged-in crew member full read AND write on the whole exposed schema — a dishwasher can
+  `PATCH` a template — with nothing in between, because the thing in between was always meant to
+  be RLS. `HQ_SYNC_REALTIME_URL` is the safe half to adopt first: Realtime is read-only, so a
+  subscription without RLS leaks reads but authors nothing. Recorded identically in
+  `backend/internal/sync/proxy.go`'s env-var comment and in the DONE card below; G6 flagged its
+  absence (R2) because the landing note read as an all-clear.
   (7) **Two more `api-cache`-shaped disclosures are OWNED HERE — decision 70.**
   (a) `localStorage['hq_apps']` is never cleared on logout, and `index.html:224` still parses the
   previous user's cached slug list in the fail-closed branch — offline on a shared truck phone,
@@ -533,9 +548,110 @@
   Footprint: `workflows.html`, new RxDB client layer, `backend/` (the `/sync/*` proxy handler),
   `backend/Dockerfile` (if obligation 5 is taken).
 
-- **`sync-proxy-endpoint`** · **PLANNED — small/medium** (new card, fanned out of
-  `sync-rxdb-schema-and-replication` obligation 6 at slate-20260729 planning, 2026-07-28) · Build
-  the same-origin door decision 69 chose, ahead of the client that will use it. A `/sync/*`
+- **`sync-proxy-endpoint`** · **DONE** (2026-07-28, run `overnight-20260729`, Wave 0; card fanned
+  out of `sync-rxdb-schema-and-replication` obligation 6 at slate-20260729 planning) · The
+  same-origin door decision 69 chose now exists: `backend/internal/sync/proxy.go`, mounted at
+  **root-level `/sync/*`** in `main.go` behind `auth.Middleware` and nothing else. `/sync/rest/*`
+  fronts PostgREST, `/sync/realtime/*` fronts Realtime, **WebSocket upgrade included**. No CORS,
+  no second hostname, no Cloudflare Tunnel change. Registered at the ROOT, deliberately, because
+  `/api/v1/sync/token` already occupies that prefix and a wildcard would shadow it.
+  **The upgrade path is PROVEN TWICE, hermetically and live** — the slate's park trigger did not
+  fire. (a) A hermetic test dials through the proxy into a local `coder/websocket` echo server,
+  asserts `101` **and bytes in both directions afterwards** (a proxy that hands back 101 and then
+  fails to pump the hijacked connection passes a status-only assertion). (b) A live test drives a
+  real upgrade into the running `spike-supabase-realtime-1` container and gets
+  `phx_reply {"status":"ok"}` back from a real Phoenix join — which additionally proves Realtime's
+  tenant lookup resolved and Realtime VERIFIED the HS256 token the proxy injected, since both
+  failures are a bare 403 *before* any 101. The live test `t.Skip`s loudly when the container is
+  down; **a skip is not a pass** and the file says so.
+  **The red was taken twice, and the second correction is the interesting one.** The compile-level
+  red (`undefined: ProxyHandler`) was re-taken against a deliberately naive
+  `httputil.NewSingleHostReverseProxy` baseline to prove the assertions bite behaviourally. That
+  baseline **passed the 101 and the echo**: Go's stdlib `ReverseProxy` handles the protocol switch
+  and the post-upgrade byte pump correctly on its own. So the card's premise —
+  *"the part a naive `ReverseProxy` gets wrong"* — was right that a naive proxy fails, but wrong
+  about **where**. The three real traps are (1) Realtime routes tenants by the FIRST dot-label of
+  the **Host header**, and a stock `Director` forwards the browser's Host → bare 403 with nothing
+  in the logs; (2) the `/sync/rest` prefix must be stripped or PostgREST looks up a table called
+  `sync`; (3) **Realtime's socket connect reads `apikey` and IGNORES the `Authorization` header**,
+  so the token has to go in `?apikey=` on the Realtime path — and must NOT on the REST path,
+  because PostgREST reads unknown query params as column filters. *Trap 3 was mis-stated on first
+  write-up as "a browser cannot set a header on a WebSocket handshake" (G6 R5a): true, but a
+  client-side fact about a DIRECT browser→Realtime connection, and no constraint at all on a
+  server-side proxy that builds the outbound handshake itself — this one does, and sets
+  `Authorization: Bearer` as well, which Realtime disregards. G6's mutation established the real
+  reason: delete the `apikey` injection and the live upgrade 403s with the header still present.*
+  **Credential handling is the door's other half.** A caller's own `Authorization`, `apikey` and
+  `Cookie` are DISCARDED and a token minted for the *context* user is substituted — `TokenHandler`'s
+  impersonation invariant applied at the door, so the proxy can never become a
+  bring-your-own-token relay into the substrate. Fails closed on every axis: unset upstream → 503
+  `sync_proxy_not_configured`, unset `HQ_SYNC_JWT_SECRET` → 503 `sync_bridge_not_configured`
+  (checked *before* any hop), anonymous → 401, unknown room → 404, upstream down → 502
+  `sync_upstream_unavailable` with the internal host logged and never echoed.
+  **G6 adversarial review returned APPROVE-WITH-NITS**, having planted 6 mutants (Host override,
+  `apikey` injection, `Authorization` header, prefix strip, `Cookie` Del, REST `apikey` Del) — all
+  6 went red — re-signed the live token with a wrong secret and confirmed the 403, and
+  independently rebuilt the naive baseline to confirm the premise correction above. It found **one
+  thing with teeth**, repaired in the same change set:
+  **🛑 PATH TRAVERSAL (G6 R1), fixed red-first.** The remainder after the room prefix was forwarded
+  un-normalised: `out.URL.RawPath = ""` re-derived the wire path from the DECODED `Path`, and Go's
+  path escaper does not re-escape `/`, so `%2f` became a real separator. Four vectors reproduced
+  against the booted binary — `/sync/rest/../../admin`, `/sync/rest/..%2f..%2fadmin`,
+  `/sync/rest%2f..%2f..%2fadmin`, and `/sync/realtime/../rest/spike_notes` (which reached the
+  *other* upstream carrying the minted JWT in the query string). The third is the sharp one: the
+  **room selection** was made on a decoded path whose separators the caller forged. No live impact
+  while both upstreams are path-less, but it becomes real the instant `HQ_SYNC_REST_URL` points at
+  a gateway **with a path prefix** — the standard self-hosted Supabase shape,
+  `http://kong:8000/rest/v1` — at which point `/sync/rest/../auth/v1/admin/users` escapes into a
+  **sibling service** carrying HQ's bearer. Now `400 sync_path_rejected`, checked before the room
+  is chosen. It **rejects rather than `path.Clean`s**: cleaning silently proxies a different
+  request than the one that was made.
+  **A SECOND G6 round (also APPROVE-WITH-NITS) ran a 38-vector attack matrix against the fix** —
+  the traversal invariant survived all of it, including WebSocket-upgrade traversal (rejected
+  before the hijack, upstream saw nothing) — and verified the "not over-broad" claim against the
+  LIVE containers: 24 PostgREST + 4 Realtime calls through the door, **zero false rejections**,
+  including `..` and `%2F` inside filter values, RxDB-shaped checkpoint pulls, embedded resources
+  and dotted table names; every non-200 came from PostgREST itself. It found one more thing:
+  **the `%2f` check was bypassable and two places said it wasn't.** `EscapedPath()` discards
+  `RawPath` and re-escapes the decoded `Path` whenever RawPath holds a byte Go's `encodePath`
+  validator rejects (`{ } | ^ \ " < >`), and Go's escaper does not escape `/` — so
+  `GET /sync/rest%2fadmin{` returned 200 with the upstream seeing `/admin%7B`. **Not exploitable**
+  (the dot-segment loop reads the decoded `Path`, so `..` was still caught, and no `..` or `%2f`
+  reached the wire by any route) — fixed because the code comment claimed it rejected *every*
+  encoded separator and the merge-intent note claimed *anywhere in the request path*. **The right
+  move on a false durable claim is to make it true, not to soften it:** the check now reads
+  `u.RawPath`, the untouched request target. The dot-segment rule's scope is now stated exactly
+  too — an exact `.`/`..` match on **Go's decoded segmentation**, not a universal rule: `..;/`,
+  `....//`, `..%00/`, `..%c0%af..` and `%252e%252e` pass deliberately (none traverses nginx or
+  Kong) but would matter behind a Tomcat/Jetty-class parser or a double-decoding gateway.
+  17 Go tests (15 hermetic + 2 live), including one that rebuilds `main.go`'s actual chi +
+  `middleware.Logger` + `Group` + `/sync/*` stack and drives an upgrade through it — pinning the
+  dependency property that the logger's `ResponseWriter` wrapper implements `http.Hijacker`, which
+  every WebSocket on this router silently depends on. The live pair is gated on
+  `HQ_SYNC_SPIKE_LIVE=1` and **fails rather than skips when the flag is set but the port is dead**
+  (G6 R4): a skip prints nothing without `-v`, so an intended live run could otherwise degrade to
+  hermetic-only coverage and still report `ok` — the B-09 suite-honesty rule applied to a test
+  file. The flag's falsy spellings (`0`/`false`/`no`/`off`) are honoured, because the first version
+  tested `!= ""` and made `HQ_SYNC_SPIKE_LIVE=0` opt **in** (G6 F-4).
+  Backend `0.2.2` → `0.3.0`.
+  **Inert until configured:** `HQ_SYNC_REST_URL` / `HQ_SYNC_REALTIME_URL` are unset in every
+  current deploy, so every `/sync/*` request answers 503 today. **🛑 AND THEY MUST STAY THAT WAY
+  UNTIL RLS LANDS** — see the activation-order block on obligation 6 above: the door forwards every
+  method with a `role: authenticated` token and no row filtering of its own, so setting
+  `HQ_SYNC_REST_URL` before obligation 1 gives every logged-in crew member read AND write on the
+  whole exposed schema. `HQ_SYNC_REALTIME_URL` is the safe half to adopt first (read-only).
+  **Residual once activated (G6 R3):** the Realtime credential rides in the query string because
+  Realtime ignores the `Authorization` header. It is injected server-side, so it never enters
+  browser history, a `Referer`, or a client log — G6 audited HQ's logs, Realtime's logs and the 502
+  path and found 0 JWT occurrences — but the HQ→Realtime hop is plaintext inside the compose
+  network, so **do not place an access-logging L7 proxy between HQ and Realtime, and do not enable
+  Realtime request logging.** Either writes a live bearer to disk in cleartext.
+  **Not in scope and NOT done:** RLS predicates (obligation 1), any RxDB client code, any
+  `workflows.html` change — all still the parent's. Footprint held:
+  `backend/internal/sync/proxy*.go` (new), `backend/cmd/server/main.go` (route registration),
+  `backend/internal/version/version.go`.
+  Original card text:
+  Build the same-origin door decision 69 chose, ahead of the client that will use it. A `/sync/*`
   `httputil.ReverseProxy` handler in the existing Go backend fronts `rest:3000` and
   `realtime:4000` — including the **WebSocket upgrade** path Realtime needs, which is the part a
   naive `ReverseProxy` gets wrong and the part worth a test. Auth: reuse the existing bearer/session
