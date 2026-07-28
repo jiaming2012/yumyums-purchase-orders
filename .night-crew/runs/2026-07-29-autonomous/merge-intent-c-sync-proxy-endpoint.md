@@ -84,9 +84,30 @@ regions (mine near `:410`, Card B's presumably inside the `/api/v1/workflow` rou
 _(appended only if implementation forces a file outside the list above; "nothing here" if it stays
 clean)_
 
-**Nothing here yet** — this note is written before implementation. It will be closed out after the
-gates, and if implementation contradicts anything above, the contradicted lines will be **struck**,
-not merely appended to.
+Closed out after the gates. **The footprint held exactly as declared** — the three new
+`proxy*.go` files, `backend/cmd/server/main.go`, `backend/internal/version/version.go`, the roadmap
+flip, and this note. **No file outside the list was edited.** The whole note was re-read; **no line
+above is contradicted, so nothing is struck.** Four things a merge should know that the note did
+not anticipate:
+
+1. **The registration snippet in the section below is EXACT — it is what shipped, verbatim.**
+   `main.go:418-444` (comment block plus the four-line group). Re-check it against that section if
+   a merge has to reapply it by hand.
+2. **`ProxyHandler(pool, cfg)` keeps the signature the note promised, but delegates.** The
+   implementation added an injection seam — `type TokenMinter func(ctx, *auth.User, sid) (string,
+   error)` and an unexported `newProxyHandler(mint, cfg)` — so the proxy's own behaviour is
+   testable without Postgres. `ProxyHandler` is a one-line wrapper around `newProxyHandler(
+   poolMinter(pool), cfg)`. **`main.go`'s call site is unchanged from what the note declared.**
+3. **`proxy_test.go` imports `github.com/go-chi/chi/v5` and `.../middleware`** for
+   `TestProxy_SurvivesTheRealChiRouterAndMiddlewareStack`, which rebuilds `main.go`'s actual router
+   shape and drives an upgrade through it. Both are already direct dependencies —
+   **`backend/go.mod` is still UNTOUCHED**, constraint 2 holds.
+4. **The card's premise was corrected by the red, and the roadmap entry records it.** A naive
+   `httputil.NewSingleHostReverseProxy` baseline was stood up purely to take a behavioural red, and
+   it **passed the 101 and the bidirectional echo** — Go's stdlib `ReverseProxy` handles the
+   protocol switch correctly on its own. What a naive proxy actually gets wrong here is the Host
+   header (Realtime's tenant routing), the prefix strip, and credential injection. That baseline
+   was **not committed**.
 
 ## What must survive any merge
 
