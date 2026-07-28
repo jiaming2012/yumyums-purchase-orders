@@ -25,8 +25,25 @@ import (
 // own HS256 verification — accepts what comes out the other side. That is what
 // these tests are for.
 //
-// They SKIP when the spike containers are not running, which is the normal
-// state of a clean checkout. Bring them up with:
+// They are GATED ON AN EXPLICIT ENV FLAG, and the gate is deliberately
+// asymmetric:
+//
+//	HQ_SYNC_SPIKE_LIVE unset      → SKIP. Nobody asked for a live run.
+//	HQ_SYNC_SPIKE_LIVE=1, port up → run for real.
+//	HQ_SYNC_SPIKE_LIVE=1, port down → FAIL. Loudly. Never skip.
+//
+// 🛑 THE THIRD LINE IS THE POINT (G6 finding R4). The first version of this
+// file skipped on an unreachable port with an excellent explanatory message —
+// which `go test` prints only under `-v`. Without it, a run whose containers
+// had quietly died printed `ok  github.com/yumyums/hq/internal/sync  1.513s`,
+// indistinguishable from a run that proved the live upgrade. An intended live
+// run must not be able to silently degrade into hermetic-only coverage. Same
+// class as the B-09 suite-honesty rule: a green that omits work you believe it
+// did is worse than a red.
+//
+//	HQ_SYNC_SPIKE_LIVE=1 go test ./internal/sync/ -run TestProxyLive
+//
+// Bring the stack up with:
 //
 //	docker compose -p spike-supabase -f docker-compose.supabase.yml up -d
 //
@@ -34,8 +51,8 @@ import (
 // The defaults below match the ports the 2026-07-29 run observed; override with
 // HQ_SYNC_SPIKE_REALTIME_ADDR / HQ_SYNC_SPIKE_REST_ADDR.
 //
-// 🛑 A SKIP IS NOT A PASS. If these skip, the only upgrade evidence in the tree
-// is the hermetic one. Say so rather than implying otherwise.
+// 🛑 A SKIP IS NOT A PASS. When these skip, the only upgrade evidence in the
+// tree is the hermetic one. Say so rather than implying otherwise.
 // ───────────────────────────────────────────────────────────────────────────
 
 // spikeJWTSecret is the throwaway secret committed literally in
@@ -57,14 +74,27 @@ func envOr(key, def string) string {
 	return def
 }
 
-// requireSpikeService skips unless something is listening on addr.
+// spikeLiveEnv opts a run in to the live proofs. Its absence is a skip; its
+// presence with a dead port is a FAILURE, not a skip.
+const spikeLiveEnv = "HQ_SYNC_SPIKE_LIVE"
+
+// requireSpikeService gates the live proofs. See the asymmetry in the file
+// header — this function is where it is enforced.
 func requireSpikeService(t *testing.T, addr, what string) {
 	t.Helper()
+	if os.Getenv(spikeLiveEnv) == "" {
+		t.Skipf("live proofs not requested — set %s=1 to run them against the spike stack. "+
+			"SKIPPED IS NOT PASSED: with this unset, the only WebSocket-upgrade evidence "+
+			"in this package is the hermetic test.", spikeLiveEnv)
+	}
 	c, err := net.DialTimeout("tcp", addr, 750*time.Millisecond)
 	if err != nil {
-		t.Skipf("spike %s not reachable at %s (%v) — bring the stack up with "+
-			"`docker compose -p spike-supabase -f docker-compose.supabase.yml up -d`. "+
-			"SKIPPED IS NOT PASSED.", what, addr, err)
+		t.Fatalf("%s=1 was set, so a LIVE run was intended, but spike %s is not reachable "+
+			"at %s: %v\n\nThis is a FAILURE and not a skip on purpose. A skip here prints "+
+			"nothing without -v, so an intended live run would silently degrade to hermetic "+
+			"coverage and still report `ok`. Bring the stack up with `docker compose -p "+
+			"spike-supabase -f docker-compose.supabase.yml up -d`, or unset %s.",
+			spikeLiveEnv, what, addr, err, spikeLiveEnv)
 	}
 	_ = c.Close()
 }
@@ -206,14 +236,26 @@ func TestProxyLive_RESTRequest(t *testing.T) {
 	body, _ := io.ReadAll(resp.Body)
 	t.Logf("LIVE PostgREST via proxy: HTTP %d, %d bytes", resp.StatusCode, len(body))
 
-	if resp.StatusCode >= 500 {
-		t.Fatalf("status = %d, want < 500; body = %s", resp.StatusCode, truncate(body, 400))
-	}
-	// A signature or role problem is PostgREST's 401 with a PGRST3xx code. It
-	// is the one failure that would mean the door forwarded a token PostgREST
-	// will not take.
+	// PIN THE 200 (G6 finding R5b). The first version asserted only
+	// `< 500 && != 401`, which would have gone green on a 404 or a 400 — i.e.
+	// on a proxy that reached PostgREST but mangled the path, which is exactly
+	// the class of bug R1 turned out to be. 200 is what a correctly-proxied
+	// authenticated root request actually returns (the OpenAPI description),
+	// and it is what this asserts.
+	//
+	// A signature or role problem would be PostgREST's 401 with a PGRST3xx
+	// code; it is called out separately only because it is the one failure that
+	// means the door forwarded a token PostgREST will not take.
 	if resp.StatusCode == http.StatusUnauthorized {
 		t.Fatalf("PostgREST rejected the proxied bridge token: %s", truncate(body, 400))
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200 from the proxied PostgREST root; body = %s",
+			resp.StatusCode, truncate(body, 400))
+	}
+	if len(body) == 0 {
+		t.Error("PostgREST answered 200 with an empty body — the root should carry its " +
+			"OpenAPI description, so an empty one suggests the response was not relayed")
 	}
 }
 

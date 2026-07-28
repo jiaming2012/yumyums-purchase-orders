@@ -46,12 +46,22 @@ import (
 //     the 2026-07-25 spike a bring-up attempt; see the header comment of
 //     `.night-crew/qa/spike-supabase/rtwatch/main.go`. Hence RealtimeHost.
 //
-//  3. A BROWSER CANNOT SET A HEADER ON A WEBSOCKET HANDSHAKE. The WebSocket
-//     API takes a URL and a subprotocol list and nothing else. So on the
-//     Realtime path the token goes in the `apikey` QUERY PARAMETER, which is
-//     where Phoenix/Realtime reads it from anyway. On the REST path it must
-//     NOT: PostgREST reads unrecognised query parameters as column filters and
-//     answers `column "apikey" does not exist`.
+//  3. REALTIME'S SOCKET CONNECT READS `apikey` AND IGNORES THE AUTHORIZATION
+//     HEADER. That — not anything about browsers — is why the token goes in
+//     the QUERY STRING on the Realtime path. This proxy builds the outbound
+//     handshake itself and could set any header it liked; it DOES set
+//     `Authorization: Bearer` below, and Realtime pays it no attention.
+//     Verified by mutation at G6: deleting the `apikey` injection turns the
+//     live upgrade into a 403 while the Authorization header is still present.
+//     (The often-repeated "a browser cannot set a header on a WebSocket
+//     handshake" is true, and it constrains a DIRECT browser→Realtime
+//     connection — but it is a client-side fact and says nothing about what a
+//     server-side proxy must do. An earlier version of this comment gave it as
+//     the reason, which was wrong.)
+//
+//     On the REST path the token must NOT go in the query string: PostgREST
+//     reads unrecognised query parameters as column filters and answers
+//     `column "apikey" does not exist`.
 //
 // NOT IN SCOPE, deliberately: the RLS predicates themselves (obligation 1),
 // any RxDB client code, and `workflows.html`. This card builds the door; the
@@ -63,6 +73,38 @@ import (
 // answers 503 sync_proxy_not_configured rather than guessing where to send
 // authenticated traffic. Same precedent as ErrSecretNotConfigured and
 // auth.ServiceTokenMiddleware.
+//
+// ╔═══════════════════════════════════════════════════════════════════════╗
+// ║ 🛑 ACTIVATION ORDER — DO NOT SET HQ_SYNC_REST_URL IN ANY DEPLOY UNTIL ║
+// ║    ROW-VISIBILITY RLS LANDS.                                          ║
+// ╚═══════════════════════════════════════════════════════════════════════╝
+//
+// This door forwards EVERY method to PostgREST carrying a token whose `role`
+// claim is `authenticated` and whose `hq_grants` is advisory only. It performs
+// no row filtering of its own, and it is not supposed to: the RLS predicates
+// are obligation 1 of `sync-rxdb-schema-and-replication` and are deliberately
+// out of this card's scope.
+//
+// The consequence is concrete rather than theoretical. Setting these two vars
+// on a deploy where the substrate's tables have no RLS policies gives EVERY
+// logged-in crew member full read AND write on the whole exposed schema — a
+// dishwasher can PATCH a template. There is no gate between them and it,
+// because the gate was always meant to be RLS.
+//
+// Setting HQ_SYNC_REALTIME_URL alone is the safe half to adopt first: Realtime
+// is read-only, and a subscription without RLS leaks reads but authors nothing.
+//
+// ── Residual, once the vars ARE set ────────────────────────────────────────
+// The Realtime credential travels in the QUERY STRING (see point 3 below —
+// there is no alternative Realtime honours). It is injected server-side, so it
+// never enters browser history, a `Referer`, or any client-side log. But the
+// HQ→Realtime hop is PLAINTEXT inside the compose network, which means:
+//
+//   - do NOT put an access-logging L7 proxy between HQ and Realtime, and
+//   - do NOT enable Realtime request logging.
+//
+// Either one writes a live bearer token to disk in cleartext. HQ's own logs
+// and the 502 error path were audited clean at G6 and must stay that way.
 const (
 	// ProxyRESTURLEnv is PostgREST's base URL, e.g. http://rest:3000.
 	ProxyRESTURLEnv = "HQ_SYNC_REST_URL"
@@ -222,8 +264,9 @@ func newProxyHandler(mint TokenMinter, cfg ProxyConfig) http.Handler {
 
 		q := out.URL.Query()
 		if up.apikeyQP {
-			// Realtime: the ONLY channel a browser WebSocket can carry a
-			// credential on. Set, never append — a caller's value is replaced.
+			// Realtime's socket connect reads the token here and ignores the
+			// Authorization header set below — see point 3 in the file header.
+			// Set, never append: a caller's value is replaced, not joined.
 			q.Set("apikey", tok)
 		} else {
 			// PostgREST reads unknown query params as column filters.

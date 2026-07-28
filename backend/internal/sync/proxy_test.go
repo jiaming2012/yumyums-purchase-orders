@@ -268,13 +268,17 @@ func TestProxy_WebSocketUpgradeSwitchesProtocolAndPassesBytesBothWays(t *testing
 	if got.Query.Get("vsn") != "1.0.0" {
 		t.Errorf("upstream vsn = %q, want 1.0.0 preserved", got.Query.Get("vsn"))
 	}
-	// Phoenix/Realtime reads the token from the apikey query parameter — a
-	// browser WebSocket cannot set an Authorization header, so this is the
-	// ONLY channel that works for the upgrade.
+	// Realtime's socket connect reads the token from `apikey` and IGNORES the
+	// Authorization header — which this proxy also sets, and which Realtime
+	// pays no attention to. That is the reason for the query parameter. It is
+	// NOT "a browser cannot set a header on a WebSocket handshake": true, but a
+	// client-side fact, and this proxy builds the outbound handshake itself.
+	// Confirmed by mutation at G6 — deleting this injection turns the LIVE
+	// upgrade into a 403 with the Authorization header still present.
 	if got.Query.Get("apikey") != stubToken {
-		t.Errorf("upstream apikey = %q, want the minted %q. A browser cannot set an "+
-			"Authorization header on a WebSocket handshake, so the proxy must place the "+
-			"token in the query string or Realtime never sees it.",
+		t.Errorf("upstream apikey = %q, want the minted %q. Realtime reads the token from "+
+			"this query parameter and ignores the Authorization header, so without it the "+
+			"live handshake 403s before any 101.",
 			got.Query.Get("apikey"), stubToken)
 	}
 	if got.Host != "realtime-dev.localhost" {
