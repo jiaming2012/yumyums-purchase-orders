@@ -359,8 +359,49 @@
   reopens decision 49 and trips the status card's park trigger for no added benefit. Footprint:
   `workflows.html`.
 
-- **`precache-manifest-from-head`** · **PLANNED — HIGH, small** (new card, morning triage
-  2026-07-27, ledger T-25 decision 67) · **`build-sw.js` globs `git ls-files`, which reads the git
+- **`precache-manifest-from-head`** · **DONE** (2026-07-28, run `overnight-20260729`, Wave 0;
+  card authored at morning triage 2026-07-27 from ledger T-25 decision 67) · `build-sw.js` now
+  globs **`git ls-tree -r --name-only -z HEAD`** — the commit — instead of `git ls-files`, which
+  reads the **index**. `trackedFiles()`/`trackedOnlyTransform()` were renamed to
+  `committedFiles()`/`committedOnlyTransform()` so the names cannot drift back to the weaker bar,
+  and the dropped-entry warning now reads `skipped (not in HEAD)`.
+  **One test captured RED first, on a tree with zero production lines changed** (`c64008b`): the
+  staged-file reproduction returned
+  `["zz-sw-manifest-staged-probe.html", "workflows.html", ...]` where the probe was asserted
+  absent. It stages the probe and **only** stages it, and asserts both halves of the premise
+  before building — probe present in `ls-files`, probe absent from `ls-tree HEAD` — so a green
+  result cannot be vacuous the way a clean-worktree manifest assertion is.
+  **`tests/sw-manifest.spec.js` test 1 moved to `ls-tree` too**, as the card required: on
+  `git ls-files` it agreed with the bug, and an `sw.js` precaching a staged file would have passed
+  it. Renamed to "every URL in the committed precache manifest is committed in HEAD".
+  **`GENERATED_BUT_SHIPPED` was NOT dropped** and still holds exactly `version.json` — it is
+  git-ignored, so it is in **neither** the index nor the commit, and `backend/Dockerfile:33-44`
+  regenerates it into the image *precisely because* `sw.js` precaches it. A naive "read the commit"
+  filter without the allowlist walks into the same 404 from the other side.
+  **`-r` and `-z` are both load-bearing and are recorded as such:** `-r` recurses into trees
+  (without it the manifest allow-set contains `icons`, not `icons/icon-96x96.png`), and `-z` gives
+  NUL-separated **unquoted** paths — plain `--name-only` C-quotes any path with a space or a
+  non-ASCII byte, which would silently drop a legitimately committed asset out of the precache.
+  **The PARK trigger did not fire.** Checked rather than assumed: on a clean tree `git ls-files`
+  and `git ls-tree -r HEAD` are byte-identical, and of the 22 manifest URLs exactly one
+  (`version.json`, allowlisted) is absent from HEAD. Nothing the image ships is newly excluded, so
+  no Dockerfile question arose. `prod:deploy` was re-read at implementation and matches the card
+  verbatim — `git reset --hard origin/main` then `docker compose build`, no `task sw` on the box.
+  **`globPatterns` and `runtimeCaching` were NOT touched**: the vendored RxDB bundle stays out
+  (decision 59) and cache-key design stays deferred (decision 57). No manual SW cache-version bump
+  — Workbox content-hashes every entry, and CLAUDE.md forbids hand-bumped keys. Precache held at
+  **22 files / 1463.6 KB**; the only manifest delta is `version.json`'s revision hash
+  (`0966d7cf` → `8270ae36`), which moved because the frontend semver did.
+  **Full suite, not a subset: 561 passed / 0 failed / 0 flaky / 6 skipped of 567 in 24.7m**
+  at `--retries=0`, **20 spec files** (`npx bddgen` run first — `task test` omits the `bdd:gen`
+  dependency and would have silently run 19 of 20, B-09). Both known-armed pre-existing reds
+  (`sync.spec.js:446` LST-17 and `:1198`) passed this run. Go: `go build`, `go vet`, and
+  `task test:go` all green (10 packages ok). Frontend **1.2.0 → 1.2.1** (patch — build-correctness
+  only, no user-visible frontend behaviour); backend unchanged at 0.2.2.
+  **G3 (openspec validate) DOES NOT APPLY** — hq has no `openspec/` tree and
+  `night-crew workflow preflight` reports ABSENT.
+  Original card text:
+  **`build-sw.js` globs `git ls-files`, which reads the git
   INDEX.** A staged-but-uncommitted file enters the precache manifest, and a precached URL that
   404s fails the **entire** service-worker install for every returning client. Reproduced end-to-end
   at triage: `git add zz-adv27-staged.html && node build-sw.js` → `23 files precached`, the file

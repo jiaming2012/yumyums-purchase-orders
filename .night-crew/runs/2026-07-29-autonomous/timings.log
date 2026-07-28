@@ -1,0 +1,7 @@
+# Timings — overnight-20260729
+
+run_start	2026-07-28T13:08:37-04:00
+baseline	G1 green (go build + go vet), 19 static spec files + bddgen = 20 expected, docker reachable
+cardA_dispatch	2026-07-28T13:08:37-04:00
+cardA_impl_done	2026-07-28T13:51:05-04:00	DONE, ~75min, 4 commits, suite 561/567 pass 20 spec files
+cardA_g6_dispatch	2026-07-28T13:51:05-04:00
