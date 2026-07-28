@@ -25,14 +25,19 @@ discarded value**, grounded in what `conflict$` actually emits (verified at W2, 
   change set as the work, matching the convention Cards A and C used tonight (`:359`, incl. the
   `Original card text:` preservation block). Single-card edit at `~:666`. It also **annotates the
   sibling card `sync-rxdb-conflict-notice-ui` (`~:683`)** to record that the sign-off artifact now
-  exists — that is the whole point of this card, and it is a two-line addition inside that card's
-  own bullet, not a status change (that card stays ATTENDED-BLOCKED; only the operator can move
+  exists — that is the whole point of this card, and it is ~~a two-line addition inside that card's
+  own bullet~~ **STRUCK at close-out: it is a ~10-line annotation inside that card's own bullet,
+  plus a heading change marking the 2026-07-26 scheduling decision DISCHARGED rather than deleting
+  it** — not a status change (that card stays ATTENDED-BLOCKED; only the operator can move
   it). Every card tonight edits its own region of this file; conflicts are per-card and **both
   sides should be kept**.
 - `.night-crew/runs/2026-07-29-autonomous/merge-intent-d-sync-rxdb-conflict-notice-mockup.md` —
   this note. New file, unique to this card. No conflict surface.
-- `.night-crew/runs/2026-07-29-autonomous/timings.log` — append-only card timing line, if the
-  run's convention calls for one. Append-only; a merge should keep **both** sides' lines.
+- ~~`.night-crew/runs/2026-07-29-autonomous/timings.log` — append-only card timing line, if the
+  run's convention calls for one. Append-only; a merge should keep **both** sides' lines.~~
+  **STRUCK at close-out — NOT TOUCHED.** Every existing line in that file is an orchestrator-written
+  dispatch/done pair (`cardA_dispatch`, `cardC_g6_done`, …); an implementer appending its own would
+  be inventing a convention that is not there. The orchestrator owns this file.
 
 **Files NOT touched — assert this against any merge that shows otherwise:**
 
@@ -120,6 +125,34 @@ discarded value**, grounded in what `conflict$` actually emits (verified at W2, 
 _(appended only if implementation forces a file outside the list above; "nothing here" if it stays
 clean)_
 
-**Nothing here yet** — written before implementation. This section is filled in at close-out, and
-if a later change contradicts any line above, the note is re-read IN FULL and the contradicted
-lines are struck rather than merely appended to (B-11).
+~~**Nothing here yet** — written before implementation.~~ **Closed out.** The note was **re-read in
+full** per B-11. **The footprint held exactly as declared: no file outside the list above was
+edited, and no file was added to it.** Four commits, all carrying the
+`Night-Crew-Card: sync-rxdb-conflict-notice-mockup` trailer.
+
+**Two lines are struck above**, both in the shared-files list, and both because reality was
+different from the guess — not because the plan changed:
+
+1. **The sibling-card annotation is ~10 lines, not two.** Recording *why* the block is discharged
+   (and that a mockup existing is still not a sign-off) did not fit in two.
+2. **`timings.log` was NOT touched.** The guess that a card might append its own timing line was
+   wrong: every line in that file is orchestrator-written. Not touching it is the correct outcome,
+   so this is a strike on the *anticipation*, not on the work.
+
+**Three things a merge should know that the note did not anticipate:**
+
+1. **`.planning/` is in `.gitignore`, so the phase directory needed `git add -f`.** This is the
+   existing precedent, not a workaround — `.planning/phases/f3-trends-tab/mockup.html` and every
+   tracked file under `.planning/` got there the same way. A merge that "helpfully" drops these
+   files as ignored artifacts destroys the card's entire deliverable.
+2. **`.planning/**` is in `build-sw.js`'s `globIgnores` (`build-sw.js:115`), which is why committing
+   a tracked `.html` under `.planning/` does NOT enter the precache manifest.** Checked at source
+   before committing, because `precache-manifest-from-head` (Card A, tonight) made `build-sw.js`
+   read `git ls-tree HEAD` — so a newly *committed* HTML file is exactly the class of thing that
+   could have leaked into the manifest. It cannot. `sw.js` remains correctly un-regenerated.
+3. **A `UI-SPEC.md` was added beside the mockup**, which the note listed but the card text did not
+   name. The card asked for "the mockup + its State Enumeration Table"; CLAUDE.md's Definition of
+   Done puts that table and the `done_when:` block in a UI-SPEC.md, and the blocked UI card is more
+   directly executable with one. The table lives there and is **not** duplicated into the mockup —
+   each plate carries its own row's trigger and contract as a visible caption instead, so there are
+   no two copies to drift.
