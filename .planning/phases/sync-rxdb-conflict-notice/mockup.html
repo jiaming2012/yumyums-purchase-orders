@@ -47,9 +47,10 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .note b{color:var(--txt)}
 
 /* ── the design under review ───────────────────────────────────────────────── */
-.sc-hd{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:10px}
-.sc-title{font-size:16px;font-weight:600}
-.sc-close{font-size:14px;color:var(--info-tx);font-weight:500}
+.sc-hd{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;min-height:44px}
+.sc-title{font-size:16px;font-weight:600;min-width:0;overflow-wrap:anywhere}
+/* every interactive element in this design is a >=44px target — see done_when 14 */
+.sc-close{font-size:14px;color:var(--info-tx);font-weight:600;min-height:44px;min-width:44px;display:inline-flex;align-items:center;justify-content:center;padding:0 8px;flex-shrink:0}
 
 /* banner — the only thing that appears unprompted */
 .cn-banner{display:flex;align-items:center;gap:10px;background:var(--warn-bg);color:var(--warn-tx);border-radius:12px;padding:12px 14px;margin-bottom:12px;min-height:44px}
@@ -57,7 +58,7 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .cn-banner-body{flex:1;min-width:0}
 .cn-banner-hd{display:block;font-size:14px;font-weight:600;line-height:1.3}
 .cn-banner-sub{display:block;font-size:11.5px;line-height:1.4;opacity:.85;margin-top:2px}
-.cn-banner-go{font-size:13px;font-weight:600;white-space:nowrap;text-decoration:underline}
+.cn-banner-go{font-size:13px;font-weight:600;white-space:nowrap;text-decoration:underline;min-height:44px;min-width:44px;display:inline-flex;align-items:center;justify-content:center;padding:0 8px;flex-shrink:0}
 
 /* checklist list rows, for context behind the banner */
 .cl-row{background:var(--card);border:0.5px solid var(--brd);border-radius:12px;padding:13px 15px;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;gap:8px}
@@ -68,22 +69,31 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 /* a conflict group = one document = one conflict$ event */
 .cg{background:var(--card);border:0.5px solid var(--brd);border-radius:12px;padding:14px 15px;margin-bottom:8px}
 .cg-hd{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;padding-bottom:10px;border-bottom:0.5px solid var(--brd)}
-.cg-name{display:block;font-size:14px;font-weight:600;line-height:1.3}
+.cg-hd>span:first-child{min-width:0}
+.cg-name{display:block;font-size:14px;font-weight:600;line-height:1.3;overflow-wrap:anywhere}
 .cg-meta{display:block;font-size:11px;color:var(--mut);margin-top:3px;line-height:1.4}
 .cg-doc{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10px;color:var(--mut);background:var(--skel);padding:1px 5px;border-radius:3px}
 .cg-count{font-size:11px;font-weight:600;color:var(--warn-tx);background:var(--warn-bg);padding:2px 7px;border-radius:10px;white-space:nowrap;flex-shrink:0}
-.cg-all{display:block;width:100%;margin-top:10px;padding:11px;min-height:44px;background:var(--bg);border:0.5px solid var(--brd);border-radius:9px;color:var(--info-tx);font-size:13px;font-weight:600;font-family:inherit;text-align:center}
+/* batch restore is PRIMARY: on a collapsed group it is the only action on the card,
+   so it must not be the least prominent thing on it (verifier D9) */
+.cg-all{display:flex;align-items:center;justify-content:center;width:100%;margin-top:10px;padding:11px;min-height:44px;background:var(--info-bg);border:0.5px solid transparent;border-radius:9px;color:var(--info-tx);font-size:13px;font-weight:600;font-family:inherit;text-align:center}
 
 /* one field row */
 .cf{padding:12px 0;border-bottom:0.5px solid var(--brd)}
 .cf:last-of-type{border-bottom:none;padding-bottom:2px}
-.cf-q{font-size:13px;font-weight:600;line-height:1.3}
-.cf-q-gone{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;font-weight:600;color:var(--mut)}
-.cf-vals{margin-top:8px}
-.cf-v{display:flex;align-items:baseline;gap:8px;font-size:13px;padding:3px 0}
+.cf-q{font-size:13px;font-weight:600;line-height:1.3;overflow-wrap:anywhere}
+.cf-q-gone{display:block;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;font-weight:600;color:var(--mut);overflow-wrap:anywhere}
+.cf-vals{margin-top:8px;min-width:0}
+/* LONG CONTENT (verifier D4). A free-text checklist note is the field most likely to
+   survive a conflict, and it can be long and unbroken (a pasted id, a URL, no spaces).
+   The 88px fixed label column + display:flex guarantees overflow without all three of:
+   min-width:0 on the row and the value, and overflow-wrap:anywhere on the value.
+   The value is WRAPPED, never truncated — it is the thing being recovered, so an
+   ellipsis would hide the payload. flex-wrap lets the attribution drop to its own line. */
+.cf-v{display:flex;align-items:baseline;gap:8px;font-size:13px;padding:3px 0;min-width:0;flex-wrap:wrap}
 .cf-v-lab{width:88px;flex-shrink:0;white-space:nowrap;font-size:10.5px;color:var(--mut);text-transform:uppercase;letter-spacing:.03em;font-weight:600}
-.cf-v-val{font-weight:600;font-variant-numeric:tabular-nums}
-.cf-v-who{font-size:11px;color:var(--mut);font-weight:400}
+.cf-v-val{font-weight:600;font-variant-numeric:tabular-nums;min-width:0;overflow-wrap:anywhere;word-break:break-word;line-height:1.4}
+.cf-v-who{font-size:11px;color:var(--mut);font-weight:400;min-width:0;overflow-wrap:anywhere}
 .cf-v.mine .cf-v-val{color:var(--warn-tx)}
 .cf-v.none .cf-v-val{color:var(--mut);font-weight:500;font-style:italic}
 .cf-why{font-size:11px;color:var(--mut);line-height:1.5;margin-top:7px}
@@ -95,8 +105,14 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .cf-btn[aria-disabled=true]{opacity:.55}
 
 /* row outcomes */
-.cf-done{display:flex;align-items:center;gap:8px;background:var(--ok-bg);color:var(--ok-tx);border-radius:9px;padding:10px 12px;font-size:12.5px;font-weight:600;line-height:1.35;margin-top:2px}
-.cf-done-undo{margin-left:auto;font-size:12px;font-weight:600;text-decoration:underline;white-space:nowrap}
+/* Undo is the ONLY escape from a mis-tapped Restore — on a truck, in daylight, with
+   wet hands. It is a full 44px target, not an inline text link (verifier D6). */
+.cf-done{display:flex;align-items:center;gap:8px;background:var(--ok-bg);color:var(--ok-tx);border-radius:9px;padding:7px 7px 7px 12px;font-size:12.5px;font-weight:600;line-height:1.35;margin-top:2px;min-height:58px}
+.cf-kept{display:flex;align-items:center;gap:8px;background:var(--skel);color:var(--mut);border-radius:9px;padding:7px 7px 7px 12px;font-size:12.5px;font-weight:600;line-height:1.35;margin-top:2px;min-height:58px}
+.cf-kept b,.cf-done b{color:inherit}
+.cf-done>span:first-child,.cf-kept>span:first-child{min-width:0;overflow-wrap:anywhere}
+.cf-done-undo{margin-left:auto;flex-shrink:0;font-size:12px;font-weight:600;white-space:nowrap;min-height:44px;min-width:62px;display:inline-flex;align-items:center;justify-content:center;padding:0 12px;border-radius:8px;border:0.5px solid currentColor;background:var(--card)}
+.cf-undone{font-size:11px;color:var(--mut);line-height:1.5;margin-top:8px;font-style:italic}
 .cf-err{background:var(--bad-bg);color:var(--bad-tx);border-radius:9px;padding:10px 12px;font-size:12px;line-height:1.45;margin-top:10px}
 .cf-err b{display:block;font-size:12.5px;margin-bottom:2px}
 .cf.unrec{opacity:.9}
@@ -113,6 +129,8 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .sc-err{background:var(--card);border:0.5px solid var(--bad-tx);border-radius:12px;padding:18px;text-align:center}
 .sc-err h3{font-size:14px;font-weight:600;color:var(--bad-tx);margin:0 0 6px}
 .sc-err p{font-size:12px;color:var(--mut);line-height:1.55;margin:0 0 12px}
+/* the unrecoverable half is the one sentence on this screen that must not be muted */
+.sc-err p b{color:var(--txt)}
 .sc-err button,.sc-empty button{width:100%;padding:11px;min-height:44px;background:var(--info-bg);color:var(--info-tx);border:none;border-radius:9px;font-size:13px;font-weight:600;font-family:inherit}
 .more{font-size:11px;color:var(--mut);text-align:center;padding:6px 0 2px;line-height:1.5}
 
@@ -137,8 +155,17 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
   fires is <code>conflict$</code>, which carries the whole discarded document. Every plate below
   is drawn from what that event actually contains — see UI-SPEC.md §"What <code>conflict$</code>
   gives you" for the verbatim evidence and the limits.</p>
-  <p>Nine plates, one per State Enumeration Table row plus the design's own limits panel.
+  <p>Eleven plates, one per State Enumeration Table row plus the design's own limits panel.
   Everything is inert.</p>
+  <p><b>The counting rule, stated once — every plate below obeys it.</b> The banner headline counts
+  <b>recoverable answers</b> across the whole sheet. A group's count chip counts the recoverable
+  answers <em>in that group</em>, and equals the number of field rows drawn in it. <b>What has been
+  done to a row never changes the count</b>: restored, kept-theirs, failed and in-flight rows are
+  all still counted, because the record still exists and the crew member can still act on it (Undo,
+  Retry). A count drops only when a record <em>leaves</em> the sheet — Dismiss, or ageing out of the
+  30-day window. Changes we could not identify are counted <b>separately</b>: a second banner line,
+  and a <code>+N</code> appended to that group's chip, so the headline number stays literally true
+  as a number of <em>answers</em>.</p>
 </div>
 
 <!-- ══════════════════════════════════════════════════════════════ SUCCESS ══ -->
@@ -203,23 +230,95 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
   <code>error</code> plate).</p>
 </div>
 
+<!-- ═══════════════════════════════════ EDGE — ROW ALREADY HANDLED ══ -->
+<div class="plate" id="plate-outcomes">
+  <div class="cap">
+    <span class="cap-id">edge · row already handled (Keep theirs / Undo)</span>
+    <p class="cap-t"><b>Trigger:</b> the two outcomes that sit one tap off the primary path and were
+    previously undrawn — <b>Keep theirs</b> was tapped on a row, and <b>Undo</b> was tapped on a row
+    that had been restored. <b>Contract:</b> neither outcome removes the row and neither changes any
+    count — banner <b>2</b> = chip <b>2</b> = <b>2</b> rows here, exactly as before either tap. A
+    kept-theirs row collapses to a muted, non-alarming confirmation that <b>names the value that is
+    now standing</b> and keeps an <b>Undo</b>; an undone row returns to the full two-value, two-button
+    row it was, with one muted line saying what just happened so the tap is not silent. Both Undos
+    are full 44&nbsp;px targets — on a truck, in daylight, with wet hands, Undo is the only escape
+    from a mis-tap and it must not be a text link.</p>
+  </div>
+  <div class="screen">
+    <div class="cn-banner">
+      <span class="cn-banner-ico">⚠️</span>
+      <span class="cn-banner-body">
+        <span class="cn-banner-hd">2 answers were overwritten</span>
+        <span class="cn-banner-sub">Handled rows stay on the list until you dismiss them.</span>
+      </span>
+      <span class="cn-banner-go">Review</span>
+    </div>
+    <div style="height:14px"></div>
+    <div class="sc-hd"><span class="sc-title">Overwritten answers</span><span class="sc-close">Done</span></div>
+    <div class="cg">
+      <div class="cg-hd">
+        <span><span class="cg-name">Opening — Truck A</span><span class="cg-meta">Mon Jul 27 · <span class="cg-doc">sub_9f31c4</span></span></span>
+        <span class="cg-count">2 answers</span>
+      </div>
+
+      <div class="cf">
+        <div class="cf-q">Walk-in cooler temp</div>
+        <div class="cf-kept">
+          <span>Kept theirs — the checklist reads <b>41 °F</b></span>
+          <span class="cf-done-undo">Undo</span>
+        </div>
+      </div>
+
+      <div class="cf">
+        <div class="cf-q">Sanitizer concentration</div>
+        <div class="cf-vals">
+          <div class="cf-v mine"><span class="cf-v-lab">Yours</span><span class="cf-v-val">200 ppm</span></div>
+          <div class="cf-v"><span class="cf-v-lab">Now shows</span><span class="cf-v-val">150 ppm</span><span class="cf-v-who">· Dana M., 6:12 PM</span></div>
+        </div>
+        <div class="cf-undone">Undone — 150 ppm is showing again.</div>
+        <div class="cf-acts">
+          <span class="cf-btn cf-btn-pri">Restore mine</span>
+          <span class="cf-btn cf-btn-sec">Keep theirs</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p class="note"><b>Why a handled row stays and stays counted.</b> The alternative — a row that
+  vanishes on Keep theirs and a count that ticks down — makes the banner a to-do list and the sheet
+  a queue you can empty by tapping the wrong thing. It also destroys the only path back: a row that
+  is gone cannot be undone. Keeping the record and the count until an explicit <b>Dismiss</b> means
+  a mis-tap is always reversible and the number on the banner means one stable thing (see the
+  counting rule at the top of this page) rather than “things you have not dealt with yet”.
+  <b>Deliberately not drawn:</b> what Dismiss leaves behind. It removes the record, the row and the
+  count together and returns the sheet to a smaller version of itself or to the <code>empty</code>
+  plate — there is no third rendering to show.</p>
+</div>
+
 <!-- ════════════════════════════════════════════════════════════════ EMPTY ══ -->
 <div class="plate" id="plate-empty">
   <div class="cap">
     <span class="cap-id">empty</span>
     <p class="cap-t"><b>Trigger:</b> the sheet is opened from the sync menu with no conflict
-    records held locally. <b>Contract:</b> no banner anywhere in the app; the sheet states plainly
-    that nothing was overwritten and explains what would put something here — it must not read as
-    a guarantee that nothing was ever lost.</p>
+    records held locally. <b>Contract:</b> no banner anywhere in the app; the sheet says what would
+    put something here and how long records are kept — and, because this is the screen crew members
+    will see most, the copy is <b>scoped to the record</b>, not phrased as a guarantee that nothing
+    was ever lost. The app cannot know that (limits panel, items 1 and 2).</p>
   </div>
   <div class="screen">
     <div class="sc-hd"><span class="sc-title">Overwritten answers</span><span class="sc-close">Done</span></div>
     <div class="sc-empty">
-      <h3>Nothing was overwritten</h3>
-      <p>Answers show up here when someone edits the same question while your phone is offline and
-      the server's version wins. Records are kept for 30 days.</p>
+      <h3>Nothing recorded in the last 30 days</h3>
+      <p>Answers land here when someone edits the same question while your phone is offline and the
+      server's version wins. This is what HQ caught and kept — if it wasn't running when a change
+      came in, that change won't be listed.</p>
     </div>
   </div>
+  <p class="note"><b>Why this doesn't say “nothing was overwritten”.</b> Three of the situations in
+  the limits panel — a non-leader tab, a replication with nothing subscribed to
+  <code>conflict$</code>, an evicted local store — produce this exact screen. The app genuinely
+  cannot tell them apart from “it never happened”, so a flat “Nothing was overwritten” would be a
+  guarantee it is not in a position to make, on the screen it shows most often. The headline is
+  scoped to the retention window and the body is scoped to what HQ caught.</p>
 </div>
 
 <!-- ══════════════════════════════════════════════════════════════ LOADING ══ -->
@@ -245,15 +344,26 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
     <p class="cap-t"><b>Trigger:</b> <b>Restore mine</b> is tapped and the write does not land —
     the phone is offline, or the server value moved again and the restore conflicted in turn.
     <b>Contract:</b> the row <em>stays</em> and keeps showing both values; a red inline block names
-    which of the two happened in the crew member's words and offers Retry; the banner count does
-    not decrement. A failed restore must never look like a completed one.</p>
+    which of the two happened in the crew member's words and offers Retry. <b>The count does not
+    decrement</b>, and this plate is drawn so that is checkable rather than asserted: the banner is
+    rendered, and banner <b>2</b> = chip <b>2</b> = <b>2</b> rows, one of which has failed and one
+    of which is in flight. A failed restore must never look like a completed one.</p>
   </div>
   <div class="screen">
+    <div class="cn-banner">
+      <span class="cn-banner-ico">⚠️</span>
+      <span class="cn-banner-body">
+        <span class="cn-banner-hd">2 answers were overwritten</span>
+        <span class="cn-banner-sub">Still 2 — a restore that fails stays on the list.</span>
+      </span>
+      <span class="cn-banner-go">Review</span>
+    </div>
+    <div style="height:14px"></div>
     <div class="sc-hd"><span class="sc-title">Overwritten answers</span><span class="sc-close">Done</span></div>
     <div class="cg">
       <div class="cg-hd">
         <span><span class="cg-name">Opening — Truck A</span><span class="cg-meta">Mon Jul 27 · <span class="cg-doc">sub_9f31c4</span></span></span>
-        <span class="cg-count">1 answer</span>
+        <span class="cg-count">2 answers</span>
       </div>
       <div class="cf">
         <div class="cf-q">Walk-in cooler temp</div>
@@ -263,7 +373,8 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
         </div>
         <div class="cf-err">
           <b>Couldn't put 38 °F back — you're offline</b>
-          Your phone will keep trying. Nothing was lost: 38 °F is still saved here.
+          Your 38 °F is still saved <em>on this list</em> — the checklist itself still reads 41 °F.
+          Tap Retry when you have signal.
         </div>
         <div class="cf-acts">
           <span class="cf-btn cf-btn-pri">Retry</span>
@@ -285,7 +396,17 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
   </div>
   <p class="note">The second row is the in-flight state on the way to either outcome: both buttons
   disabled, the label says what is happening. It shares this plate because it is a transition, not
-  a table row of its own.</p>
+  a table row of its own. <b>Both rows are still counted</b> — see the banner and the chip.</p>
+  <p class="note"><b>Two soft claims deliberately removed from this copy.</b> (1) It no longer says
+  “your phone will keep trying”: nothing in this design commits to an automatic retry, and promising
+  one next to a manual <em>Retry</em> button is the kind of half-truth that gets a crew member to
+  put the phone down. Retry is the crew member's, and it is the only one drawn. (2) It no longer
+  says “nothing was lost”, flatly — the discarded value lives <b>in this list</b>, not in the
+  checklist, and saying otherwise implies a local copy of the answer that would clash again on the
+  next push. <b>A restore that conflicts in turn updates this same row in place</b>, it does not add
+  a second one: the conflict record is keyed by document&nbsp;+&nbsp;field, so a repeat clash on the
+  same question replaces the record it already has. That is what closes the loop the UI-SPEC's
+  recovery section describes, and it is why the count is stable under retry.</p>
 </div>
 
 <!-- ═══════════════════════════════════════ EDGE — NO DISCARDED VALUE ══ -->
@@ -298,9 +419,12 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
     server-side touch becomes a conflict — W2 sharp edge 11), or the field is absent/null in the
     discarded document because the local write cleared it. <b>Contract:</b> the row must NOT claim
     an answer was lost and must NOT show an empty value where a number goes; the value slot reads
-    <em>Not recoverable</em> in muted italic, one line says why in plain words, and the only action
-    is Dismiss — <b>no Restore button</b>, because there is nothing to put back. The banner counts
-    it on a separate, quieter line.</p>
+    <em>Not recoverable</em> in muted italic, one line says why in plain words, and the two actions
+    are <b>Open checklist</b> and <b>Dismiss</b> — <b>no Restore button on this row</b>, because
+    there is nothing to put back. (The plate also carries a normal, recoverable row above it, which
+    does have Restore — the contract is per row, not per plate.) Counting: the headline counts the
+    <b>1</b> recoverable answer, the second banner line and the chip's <code>+1</code> carry the
+    unidentifiable one, and chip <b>1&nbsp;+1</b> = <b>2</b> rows.</p>
   </div>
   <div class="screen">
     <div class="cn-banner">
@@ -316,7 +440,7 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
     <div class="cg">
       <div class="cg-hd">
         <span><span class="cg-name">Closing — Truck A</span><span class="cg-meta">Mon Jul 27 · <span class="cg-doc">sub_2b70ae</span></span></span>
-        <span class="cg-count">1 answer</span>
+        <span class="cg-count">1 answer +1</span>
       </div>
       <div class="cf">
         <div class="cf-q">Fryer oil filtered</div>
@@ -358,10 +482,13 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
     <p class="cap-t"><b>Trigger:</b> a long offline stretch ends; <code>conflict$</code> emits once
     per document, several times in a burst. <b>Contract:</b> one banner, never one per conflict,
     carrying the total; the sheet groups rows under their document — the grouping is not cosmetic,
-    it is the shape the event arrives in; past two rows a group's per-row buttons collapse to
-    values-only and a single <b>Restore all N of mine</b> sits at the foot of the group; every
-    group header carries a count chip so the size of the problem is legible without opening
-    anything.</p>
+    it is the shape the event arrives in; every group header carries a count chip so the size of the
+    problem is legible without opening anything. <b>Collapse rule:</b> rows collapse to values-only,
+    with a single <b>Restore all N of mine</b> at the foot of each group, when the sheet holds
+    <em>more than one group</em> <b>or</b> any one group holds <em>more than two rows</em> — and
+    when it applies it applies <b>to the whole sheet</b>, so a 2-row group sitting beside a 3-row
+    one does not render in a different style. Both conditions are true here, which is why the second
+    group is collapsed at 2 rows.</p>
   </div>
   <div class="screen">
     <div class="cn-banner">
@@ -423,13 +550,75 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
       </div>
       <span class="cg-all">Restore all 2 of mine</span>
     </div>
-    <p class="more">Individual Restore / Keep buttons collapse once a group has more than two rows —
-    tap a row to expand it.</p>
+    <p class="more">Individual Restore / Keep buttons are collapsed across the whole sheet — it
+    holds more than one checklist. Tap a row to expand it.</p>
   </div>
-  <p class="note">Rows collapse to values-only past two per group so the sheet stays thumb-scrollable
-  on a phone; the per-row buttons come back on tap. <b>Open question for the operator:</b> beyond
-  roughly ten groups this sheet needs a cap or a date filter. Not designed here — say so if you
-  think a truck can realistically get there.</p>
+  <p class="note"><b>The collapse rule, and why it is per sheet and not per group.</b> An earlier
+  draft said “past two rows in a group” and then drew a 2-row group collapsed anyway — the render
+  was right and the rule was wrong. Collapsing is about how much thumb-scrolling the <em>sheet</em>
+  costs, so the trigger is the sheet (more than one group, or any group past two rows) and the
+  effect is uniform across it. Mixing a collapsed group with an expanded one on the same screen
+  reads as a bug, not as a rule. The per-row buttons come back on tap.
+  <b>Open question for the operator:</b> beyond roughly ten groups this sheet needs a cap or a date
+  filter. Not designed here — say so if you think a truck can realistically get there.</p>
+</div>
+
+<!-- ═══════════════════════════════════════════ EDGE — LONG CONTENT ══ -->
+<div class="plate" id="plate-edge-longvalue">
+  <div class="cap">
+    <span class="cap-id">edge · long value / long question text</span>
+    <p class="cap-t"><b>Trigger:</b> the discarded answer is a <b>free-text checklist note</b> — the
+    field type most likely to survive a conflict and the only one with no length bound — or it
+    contains an unbroken token with no spaces to wrap at (a pasted reference, an id, a URL), under a
+    question title long enough to wrap twice. <b>Contract:</b> the value <b>wraps inside the card</b>
+    and is <b>never truncated</b>: it is the thing being recovered, so an ellipsis would hide the
+    payload the crew member came here for. Nothing runs past the card edge, the 88&nbsp;px label
+    column keeps its width, and the page does <b>not</b> scroll sideways at 480&nbsp;px —
+    <code>scrollWidth === clientWidth</code>, measured in the browser by
+    <code>shoot.mjs</code>, not asserted by eye. Attribution may drop to its own line.</p>
+  </div>
+  <div class="screen">
+    <div class="sc-hd"><span class="sc-title">Overwritten answers</span><span class="sc-close">Done</span></div>
+    <div class="cg">
+      <div class="cg-hd">
+        <span><span class="cg-name">Closing — Truck A (evening shift, Riverside lot)</span><span class="cg-meta">Mon Jul 27 · <span class="cg-doc">sub_2b70ae</span></span></span>
+        <span class="cg-count">2 answers</span>
+      </div>
+
+      <div class="cf">
+        <div class="cf-q">Anything the opening crew should know about the fryer, hood filters or the grease trap before tomorrow?</div>
+        <div class="cf-vals">
+          <div class="cf-v mine"><span class="cf-v-lab">Yours</span><span class="cf-v-val">“Grease trap emptied at 9:40 but it smelled off — I'd get someone out before the weekend. Also the back hood filter is loose again, third time this month, and the fryer took a while to come down to temp so it may need a look.”</span></div>
+          <div class="cf-v"><span class="cf-v-lab">Now shows</span><span class="cf-v-val">“Emptied”</span><span class="cf-v-who">· Dana M., 9:02 PM</span></div>
+        </div>
+        <div class="cf-acts">
+          <span class="cf-btn cf-btn-pri">Restore mine</span>
+          <span class="cf-btn cf-btn-sec">Keep theirs</span>
+        </div>
+      </div>
+
+      <div class="cf">
+        <div class="cf-q">Vendor reference on the delivery slip</div>
+        <div class="cf-vals">
+          <div class="cf-v mine"><span class="cf-v-lab">Yours</span><span class="cf-v-val">RESTOCK-2026-07-27T18:44:02Z-TRUCKA-OPENING-9f31c4b2e7d5a1c8f0e3b6d94a2c7e15</span></div>
+          <div class="cf-v"><span class="cf-v-lab">Now shows</span><span class="cf-v-val">—</span><span class="cf-v-who">· Dana M., 9:04 PM</span></div>
+        </div>
+        <div class="cf-acts">
+          <span class="cf-btn cf-btn-pri">Restore mine</span>
+          <span class="cf-btn cf-btn-sec">Keep theirs</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p class="note"><b>This row exists because the first draft of this mockup broke here.</b> With a
+  fixed 88&nbsp;px label column inside a <code>display:flex</code> row, a flex item's default
+  <code>min-width:auto</code> refuses to shrink below its longest unbreakable word — so a 90-character
+  token pushed the page to a 951&nbsp;px <code>scrollWidth</code> in a 480&nbsp;px viewport and the
+  value ran off the right edge with no wrap and no ellipsis. The fix is three properties, all on the
+  design side of the stylesheet: <code>min-width:0</code> on the row and the value,
+  <code>overflow-wrap:anywhere</code> on the value. CLAUDE.md names long content as a canonical edge
+  row; the free-text note is exactly the field a crew member would most regret losing, so it gets a
+  row of its own rather than a footnote.</p>
 </div>
 
 <!-- ═══════════════════════════ EDGE — FIELD REMOVED FROM TEMPLATE ══ -->
@@ -479,18 +668,29 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
     in cannot be read — iOS/Safari evicted it under storage pressure, or the browser is in private
     mode. W3 named this the largest untested unknown for a phone-first PWA, so it gets a designed
     state rather than a stack trace. <b>Contract:</b> red-bordered card, no fabricated count, and
-    the copy says the records are gone rather than implying the answers are — a crew member must
-    not read a storage failure as “my work was deleted”.</p>
+    the copy must carry <b>both halves</b> — that the discarded answers themselves are
+    <b>probably gone for good</b> (an evicted IndexedDB is not recovered by tapping Try again), and
+    that the checklists are unaffected. A crew member must not read a storage failure as “my work
+    was deleted”; equally they must not read it as “nothing was lost”. This is the one screen in the
+    set where something really is unrecoverable, so it is the one that must say so.</p>
   </div>
   <div class="screen">
     <div class="sc-hd"><span class="sc-title">Overwritten answers</span><span class="sc-close">Done</span></div>
     <div class="sc-err">
       <h3>Couldn't open the list</h3>
-      <p>Your phone cleared the record of what was overwritten. This doesn't affect your
-      checklists — they're on the server and they're fine.</p>
+      <p>Your phone cleared this list to free up space. <b>If Try again doesn't bring it back, it's
+      gone — we can't tell you what was overwritten, and any answers on it can't be put back.</b></p>
+      <p>Your checklists are not affected. They're on the server and they're fine — this is only the
+      record of what got overwritten.</p>
       <button>Try again</button>
     </div>
   </div>
+  <p class="note"><b>Why the copy leads with the bad half.</b> Everywhere else in this design the
+  discarded value still exists and the screen's job is to hand it back. Here it does not: iOS
+  evicting the store takes the record with it, and <em>Try again</em> can only re-read something
+  that may no longer be there. Reassuring a crew member that “your checklists are fine” without
+  saying that plainly reads as <em>nothing was lost</em>, which on this one screen is false. Both
+  halves, bad one first, and Try again is offered without being oversold.</p>
 </div>
 
 <!-- ═══════════════════════════════════════════════ LIMITS OF THE DESIGN ══ -->
