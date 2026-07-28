@@ -14,6 +14,7 @@
 |---|---|---|---|---|
 | 1 | A · `precache-manifest-from-head` | 7 files, 0 conflicted hunks | **CLEAN** | G1 green, `sw.js` rebuild idempotent |
 | 2 | C · `sync-proxy-endpoint` | 7 files, 0 conflicted hunks | **CLEAN** | G1 green, Go suite green |
+| 3 | B · `workflow-queue-period-and-failnote-upsert` | 10 files, **1 conflicted hunk** (`version.go`) | **RESOLVED** | G1 green, 9/9 Go packages green, `sw.js` idempotent |
 
 ---
 
@@ -122,5 +123,92 @@ as follow-ups, NOT fixed in-run:
 row-visibility RLS lands** — it forwards every method to PostgREST with a `role: authenticated`
 JWT and empty grants. The constraint is now recorded in `proxy.go`, the parent card's obligation 6,
 and the DONE card.
+
+---
+## 3 — Card B `workflow-queue-period-and-failnote-upsert` → `overnight-20260729`
+
+**Merge type:** **CONFLICTED — one hunk**, in `backend/internal/version/version.go`. This is the
+collision Card A's merge-intent note predicted on the night's first merge, and it resolved exactly
+by the rule that note laid down.
+
+### 🛑 Merge order deviation, stated plainly
+
+The launch prompt says merges happen **in slate order** (A → B → C → D). **Actual order was
+A → C → B → D.** Card B's implementer ran ~105 minutes (three full Playwright suites, two of them
+correctly discarded — see below), while Card C finished implementation in ~25 minutes and then went
+through two repair rounds. Holding Card C's merge until Card B finished would have serialised the
+two tracks the same prompt told me to run concurrently. I took concurrency over merge ordering and
+am recording the deviation rather than leaving it to be inferred from timestamps.
+
+**Nothing was harmed by it**: Cards B and C are disjoint in every file except `version.go`, and the
+resolution rule is order-independent (take the higher semver per constant). Had they collided in
+`backend/cmd/server/main.go` as expected, merging C first would still have been safe — C's hunk is a
+root-level group and B never touched that file at all.
+
+### The conflict
+
+    <<<<<<< HEAD (run branch, after Card C)     |  ======= (card/b-...)
+        Backend  = "0.3.0"                      |      Backend  = "0.2.3"
+        Frontend = "1.2.1"                      |      Frontend = "1.2.2"
+
+Both cards branched from `25fbc16`, where `Backend` was `0.2.2` and `Frontend` was Card A's `1.2.1`.
+Card C bumped `Backend` → `0.3.0` (**minor** — new `/sync/*` endpoint). Card B bumped `Backend` →
+`0.2.3` (**patch** — repository + migration) *and* `Frontend` → `1.2.2` (**patch** — the vocabulary
+rename in `workflows.html` / `sync.js`).
+
+**Intents read, both sides:**
+
+- **Card C's note:** *"take the higher semver per constant independently. A `Backend` conflict must
+  not drag `Frontend` backwards if Card B moved it."*
+- **Card A's note:** *"on conflict take the higher Frontend semver and re-mirror into both"* —
+  `version.go` and `package.json` must never diverge (CLAUDE.md).
+
+**Resolution taken — against intent, not text:**
+
+    Backend  = "0.3.0"   // C's minor supersedes B's patch; BOTH backend changes are present
+    Frontend = "1.2.2"   // B's patch; C touched no frontend file
+
+Neither side's number was taken wholesale — the resolution is per-constant, which is precisely what
+the two notes asked for and what a textual "ours/theirs" would have got wrong in both directions
+(`--ours` loses B's frontend bump; `--theirs` regresses the backend from a shipped 0.3.0 to 0.2.3).
+
+`package.json` merged **clean** at `"1.2.2"` and already mirrors the resolved `Frontend`. `sw.js`
+was regenerated after the resolution and came back **byte-identical** to what Card B committed
+(22 files / 1468.9 KB) — the frontend tree is the one Card B actually tested.
+
+**Gate result after resolution:** `go build ./...` + `go vet ./...` green; **full Go suite green,
+9/9 packages** (alerts, auth, inventory, purchasing, receipt, recipes, sync, toast, workflow) with
+real DB timings — not the silent-skip trap. `node build-sw.js` idempotent at the merge commit.
+
+### G6 verdict: APPROVE-WITH-NITS, no blocking defect
+
+The park trigger was the night's highest-stakes question and G6 answered it independently and
+read-only: it enumerated the schemas rather than trusting the two the card named (only `production`
+and `public` exist), found **0 fail-note rows and 0 `(submission_id, field_id)` duplicates in both**,
+and then swept **all 29 connectable databases on the host**. The only duplicates anywhere were in a
+prior reviewer's own scratch DB. It further proved the migration **fails safe** on a DB that does
+have duplicates — clean rollback, no index, goose stays at 70, rows intact — and that the
+`CREATE UNIQUE INDEX` lock is a non-issue because migrations run before the HTTP listener binds.
+
+Two findings carried to the closeout as follow-ups, **not fixed in-run** (both are outside this
+card's footprint):
+
+- **UTC period ⇒ the app's day boundary is 19:00 America/Chicago.** `currentSubmitPeriod()` is
+  `new Date().toISOString().slice(0,10)`. A double-press straddling 19:00 while offline now mints a
+  second `idempotency_key` and yields two submission rows for one operational evening. **Not a
+  regression this card introduced** — the three pre-existing "already submitted today" comparisons
+  use the identical UTC expression, so the card is self-consistent with the app's existing day
+  model. Fixing it means moving all four sites to `America/Chicago` at once, which is a product
+  decision about what "today" means. `users.timezone` already exists. → DECISIONS-NEEDED.
+- **Deploy-ordering hazard.** If a duplicate reaches prod before the deploy, migration `0071` fails
+  → `os.Exit(1)` → `restart: unless-stopped` ⇒ crashloop. Probability is near zero (prod has had 2
+  submissions ever and 0 fail notes) and the bare index is the *instructed* behaviour under the
+  card's PARK-over-improvise contract. → HANDOFF: re-run the duplicate `SELECT` immediately before
+  `task prod:deploy`.
+
+Also confirmed by G6 and worth recording: the `[VOC-01]` locator change **fixed a test without
+hiding a bug** — the decisive collision assertion (`getByText('Pending sync', {exact:true})`
+→ `toHaveCount(0)`) remains **document-wide**; what the scoping gave up was an accidental cardinality
+check nobody designed. Both badges read "Queued", so the vocabulary contract held.
 
 ---

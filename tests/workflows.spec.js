@@ -1184,6 +1184,126 @@ test.describe('Offline sync', () => {
     expect((forTemplate[0].responses || []).length,
       'the answer entered offline must survive to the server, not be silently dropped').toBeGreaterThan(0);
   });
+
+  // ── Card B — workflow-queue-period-and-failnote-upsert (T-25 decision 71) ──
+  //
+  // Key reuse (DBL-01..04 above) was authorised for a SECOND PRESS OF THE SAME
+  // CHECKLIST ON THE SAME DAY. `findQueuedSubmission` filtered on template_id
+  // only, queue entries carried no period, and nothing retired them — so a
+  // persistently-failing server let MONDAY's queued key be adopted by
+  // THURSDAY's submit, upserting Thursday's answers onto Monday's submission
+  // row. Every day in between collapses into one row and the crew's record of
+  // the other days is gone.
+  //
+  // DBL-03 is the positive control for this pair: an entry queued in the
+  // CURRENT period is still adopted, exactly as before.
+
+  test('a queue entry from an earlier period does not lend its key to today [DBL-05]', async ({ page, context }) => {
+    page.on('dialog', (d) => d.accept());
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await cleanupTemplates(page);
+    await cleanupPendingApprovals(page);
+
+    const todayDOW = await getTodayDOW(page);
+    const tpl = await createTestTemplate(page, 'Offline Stale Period E', todayDOW);
+    await page.reload();
+    await page.waitForSelector('[data-fill-template-id]', { timeout: 10000 });
+
+    // Offline FIRST so nothing drains the seeded entry.
+    await context.setOffline(true);
+    const staleKey = generateUUID();
+    const STALE_ID = 'aaaaaaaa-0000-4000-8000-000000000005';
+    await page.evaluate(async ([id, key, entryId]) => {
+      await window.enqueueSubmission({
+        id: entryId,
+        template_id: id,
+        idempotency_key: key,
+        responses: [],
+        fail_notes: [],
+      });
+      // Backdate it three days: the server has been unreachable since Monday.
+      // Written through the same idb exports the app uses, so the entry is
+      // byte-shaped exactly like one enqueueSubmission wrote then.
+      const db = await window.getDB();
+      const entry = await window.idbGet(db, 'submitQueue', entryId);
+      const then = new Date();
+      then.setDate(then.getDate() - 3);
+      entry.period = then.toISOString().slice(0, 10);
+      entry.queuedAt = then.toISOString();
+      await window.idbPut(db, 'submitQueue', entry);
+    }, [tpl.id, staleKey, STALE_ID]);
+    await expect(page.locator('#sync-banner')).toBeVisible({ timeout: 5000 });
+
+    await openAndSubmitOffline(page);
+
+    const queue = await readSubmitQueue(page);
+    const fresh = queue.filter((e) => e.id !== STALE_ID);
+    expect(fresh.length, "today's submit queues its own entry").toBe(1);
+    expect(fresh[0].idempotency_key,
+      "a three-day-old queue entry must NOT lend its key to today's submit — that upserts "
+      + "today's answers onto the older day's submission row").not.toBe(staleKey);
+    expect(fresh[0].period, "today's entry is stamped with today's period")
+      .toBe(new Date().toISOString().slice(0, 10));
+
+    // Aging out is RETIREMENT FROM KEY REUSE, never deletion. Offline, that
+    // entry is the only durable copy of what was entered on the day it was
+    // queued (the same reason `id` is not reused — DBL-04), and a submission
+    // queued Monday that finally drains on Thursday is correct, not garbage.
+    expect(queue.some((e) => e.id === STALE_ID),
+      'the stale entry is retired from key reuse, NOT deleted').toBe(true);
+  });
+
+  test('a queued submission and an unsaved field do not read the same [VOC-01]', async ({ page, context }) => {
+    // Two different states, reachable on ONE screen: `#sync-banner` lives in the
+    // same `#s1` panel as `#fill-body`, so the banner is above the runner while
+    // a field chip is inside it. Between 2026-07-28 and this card both rendered
+    // the literal string "Pending sync" (sync.js's `.sync-badge` for a whole
+    // queued submission, workflows.html's chip for one unsent field answer), so
+    // the screen said the same two words about two unrelated things. Ledger T-25
+    // decision 71, item 4.
+    page.on('dialog', (d) => d.accept());
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await cleanupTemplates(page);
+    await cleanupPendingApprovals(page);
+
+    const todayDOW = await getTodayDOW(page);
+    const tpl = await createTestTemplate(page, 'Offline Vocabulary F', todayDOW);
+    await page.reload();
+    await page.waitForSelector('[data-fill-template-id]', { timeout: 10000 });
+
+    // OFFLINE FIRST so the field's auto-save fails and earns the chip.
+    await context.setOffline(true);
+    await page.click('[data-fill-template-id]');
+    const checkBtn = page.locator('.check-btn').first();
+    await checkBtn.click();
+    await expect(page.locator('.unsaved-mark')).toHaveCount(1, { timeout: 5000 });
+
+    // Press Submit — now a whole submission is queued too.
+    await page.click('[data-action="submit"]');
+    await expect(page.locator('#sync-banner')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('#sync-banner')).toContainText('queued to send');
+    // Scoped to #checklist-list on purpose. renderSyncBanner selects
+    // `[data-template-id]` document-wide, and the Builder tab (`#builder-list`)
+    // renders rows carrying the same attribute — so an unscoped locator matches
+    // two badges once the Builder has rendered, which is why this passed alone
+    // and failed under the full suite. Both badges read "Queued"; the app is
+    // right and the locator was not. (That the badge also lands on a Builder row
+    // is a pre-existing cosmetic quirk of renderSyncBanner, not this card's.)
+    await expect(page.locator('#checklist-list [data-template-id="' + tpl.id + '"] .sync-badge'))
+      .toHaveText('Queued', { timeout: 5000 });
+
+    // Reopen the checklist (deliberately still editable) — both states are now
+    // painted at once, and they must not say the same thing.
+    await page.click('[data-fill-template-id]');
+    await page.waitForSelector('.check-btn', { timeout: 10000 });
+    await expect(page.locator('#sync-banner')).toContainText('queued to send');
+    await expect(page.locator('.unsaved-mark').first()).toHaveText('Unsaved');
+
+    // And the collided string is gone from the app entirely.
+    await expect(page.getByText('Pending sync', { exact: true })).toHaveCount(0);
+  });
 });
 
 // ─── E. Access control ───────────────────────────────────────────────────────

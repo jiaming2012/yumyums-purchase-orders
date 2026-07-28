@@ -417,10 +417,85 @@
   image precisely because `sw.js` precaches it. Footprint: `build-sw.js`, `tests/sw-manifest.spec.js`,
   regenerated `sw.js`.
 
-- **`workflow-queue-period-and-failnote-upsert`** · **PLANNED — small/medium** (new card, morning
-  triage 2026-07-27, ledger T-25 decision 71; folds D-4 and D-5) · **Both defects are consequences
-  of the key reuse decision 60 authorized**, and both need `backend/internal/workflow` — Card B's
-  explicit park trigger — so they are one card, not two.
+- **`workflow-queue-period-and-failnote-upsert`** · **DONE** (2026-07-28, run `overnight-20260729`,
+  concurrent track; card authored at morning triage 2026-07-27 from ledger T-25 decision 71) ·
+  All four items landed; **the PARK trigger did NOT fire.**
+  **(1) Fail-note duplicates.** Migration `0071_submission_fail_notes_unique.sql` adds
+  `UNIQUE (submission_id, field_id)`, and `repository.go`'s fail-note insert gains the matching
+  `ON CONFLICT ... DO UPDATE SET note = EXCLUDED.note, severity = EXCLUDED.severity`. **Both halves
+  are load-bearing and the card says so in three places**: the index alone turns a silent duplicate
+  into a hard 500 on the second POST, which is strictly worse than the bug. **`photo_url` is
+  deliberately NOT in the SET list** — it is absent from the INSERT column list, so
+  `EXCLUDED.photo_url` is NULL and writing it would erase an attached photo on every re-POST;
+  nothing repopulates it (the correction photo travels on the RESPONSE value as
+  `_correction_photo`). A third test pins that omission.
+  **The PARK trigger was CHECKED, not assumed, BEFORE the migration was written.** Queried the live
+  Postgres on `:5433`: the `production` schema (prod's, per `docker-compose.prod.yml:41`) and
+  `public` (dev's) both hold **0 rows** in `submission_fail_notes` — hence **0**
+  `(submission_id, field_id)` duplicates, and no dedup rule had to be chosen. The migration is bare
+  `CREATE UNIQUE INDEX IF NOT EXISTS` and carries a comment naming the check, what it found, and
+  what to do if some other environment ever fails on it: **the dedup rule is an operator decision,
+  do not add a `DELETE` unattended.** Rows with `submission_id IS NULL` stay unconstrained (Postgres
+  treats NULLs as distinct) — `unsubmitChecklist` detaches fail notes to NULL and nothing
+  re-attaches them, since they carry no `answered_by`. **Those orphans are a real, separate,
+  pre-existing defect this card does NOT fix** and the index neither fixes nor collides with them.
+  **(2) Cross-period stale queue entry.** `enqueueSubmission` (`sync.js`) now stamps `period` beside
+  `queuedAt`, from a new `currentSubmitPeriod()` — the SAME
+  `new Date().toISOString().slice(0, 10)` the checklist list and the runner already use for "already
+  submitted today", named once so the queue and the list cannot drift on what "today" means.
+  `findQueuedSubmission` requires a new `isCurrentPeriodEntry` predicate in addition to the
+  `template_id` match. **Aging out is RETIREMENT FROM KEY REUSE, never deletion — a judgment call
+  made explicitly, not by omission.** Offline, a queued payload is the only durable copy of what the
+  crew member entered that day (the same reason `id` is not reused), and a submission queued Monday
+  that finally drains on Thursday is CORRECT, not garbage; a delete would be the silent data loss
+  the DBL-04 comment exists to forbid. A stale entry keeps draining normally, it just stops being a
+  source of keys. An entry with **no** `period` (queued by older code) is treated as NOT current —
+  conservative in the direction that matters; the transient deploy-boundary cost is written into
+  the code rather than left to be rediscovered.
+  **(3) The durable falsehood was made TRUE, not edited away.** "The server upserts only the fields
+  present in each payload" held for `submission_responses` and was false for
+  `submission_fail_notes`; item 1 makes the sentence accurate, and the comment now records that both
+  tables upsert and why `photo_url` is excluded.
+  **(4) Vocabulary collision — decided inside the card, applied to BOTH files.**
+  `"Queued"` (`.sync-badge`, sync.js) for a whole queued **submission**; `"Unsaved"`
+  (`.unsaved-mark`, workflows.html — the class was renamed too, not just the string) for one unsent
+  **field** answer; banner `"N submissions queued to send"`. Chosen so the SCOPE is readable without
+  a legend, and because these two ARE on one screen at once — `#sync-banner` sits in the same `#s1`
+  panel as `#fill-body`. Both files carry a 🛑 VOCABULARY block naming both states and pointing at
+  the other file, so the collision cannot be reintroduced from one side.
+  **Red-first, twice, each failing on the defect rather than on a setup step.** Go
+  (`failnote_upsert_test.go`, commit `5122b0d`): `fail_note_rows=2` where 1 was wanted, with the
+  premise — both POSTs return the SAME submission id — asserted first so a green cannot be vacuous.
+  Playwright `[DBL-05]` (commit `56a913d`): a three-day-old entry lent its key to today's submit.
+  **DBL-03 is the positive control** proving the period bound did not over-block; `[VOC-01]` drives
+  both badge states onto one screen and asserts the collided string is gone from the app entirely.
+  **Full suite, not a subset: 563 passed / 0 failed / 0 flaky / 6 skipped of 569 in 24.7m**
+  at `--retries=0`, **20 spec files** (`npx bddgen` run FIRST — `task test` omits the `bdd:gen`
+  dependency and would have silently run 19 of 20, B-09). 569, not 567: Card A's baseline plus
+  exactly this card's two new tests. **Both known-armed pre-existing reds passed** this run.
+  **Two earlier runs were discarded and why is recorded, because a green claim built on either
+  would have been false.** Run 1 was aborted; run 2 inherited its residue — `hq_test_e2e_b` was
+  never reset, and `task test` DROPs and RECREATEs its database precisely because this suite shares
+  one DB across every spec file. It reported three failures
+  (`inventory.spec.js:2357` cutoff draft, `:3541` vendor pagination, `onboarding.spec.js:1179` FAQ
+  counts) — all order-sensitive, none reproducible on a fresh DB, none related to this card.
+  **Isolated before attribution, not after**: `sync.spec.js:446` [LST-17] red under load with its
+  known signature (`expected "0/1", received "1/1 items"` — a cross-device broadcast, nothing to do
+  with the queue) and **1/1 green isolated**; and one genuine defect **in this card's own test**,
+  not in the app — `[VOC-01]`'s badge locator matched two elements because `renderSyncBanner`
+  selects `[data-template-id]` document-wide and the Builder tab renders those too. Both badges
+  read "Queued"; the contract held, the locator was under-specified, and it is now scoped to
+  `#checklist-list`. **That the queued badge also lands on a Builder row is a pre-existing cosmetic
+  quirk of `renderSyncBanner`, is NOT this card's, and is left un-fixed and written down.**
+  Go: `go build`, `go vet`, and
+  `go test -p 1 ./...` against this card's own `hq_test_go_b` all green (10 packages ok,
+  `internal/workflow` among them). Backend **0.2.2 → 0.2.3**, frontend **1.2.1 → 1.2.2** (both
+  patch; frontend bumped from Card A's Wave 0 value, not 1.2.0), `package.json` mirrored exactly,
+  `sw.js` regenerated — **22 files / 1468.9 KB**, no manual cache-version bump, `globPatterns` and
+  `runtimeCaching` untouched.
+  **G3 (openspec validate) DOES NOT APPLY** — hq has no `openspec/` tree and
+  `night-crew workflow preflight` reports ABSENT.
+  Original card text:
   (1) **`submission_fail_notes` duplicates.** Measured at triage, not reasoned: the same payload
   POSTed twice with one `idempotency_key` → `201`/`201` with an **identical submission id**, and
   `submission_rows=1 response_rows=1 fail_note_rows=2`. The table has no unique constraint

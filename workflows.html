@@ -148,7 +148,7 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .skeleton-bar.shorter{width:40%;height:12px}
 .inline-error{font-size:13px;color:#c0392b;padding:8px 16px;display:flex;align-items:center;gap:8px}
 .retry-btn{font-size:13px;color:var(--info-tx);background:none;border:none;padding:0;cursor:pointer;font-weight:500;font-family:inherit;min-height:44px;min-width:44px}
-.pending-sync-mark{display:inline-block;margin-left:6px;padding:1px 6px;border-radius:4px;background:var(--warn-bg);color:var(--warn-tx);font-size:11px;font-weight:600;vertical-align:middle}
+.unsaved-mark{display:inline-block;margin-left:6px;padding:1px 6px;border-radius:4px;background:var(--warn-bg);color:var(--warn-tx);font-size:11px;font-weight:600;vertical-align:middle}
 .save-indicator{font-size:12px;color:var(--mut);margin-left:4px}
 .save-indicator.saved{color:#27ae60}
 .photo-placeholder{padding:16px;background:var(--card);border-radius:8px;border:0.5px solid var(--brd);text-align:center;color:var(--mut);font-size:13px}
@@ -193,12 +193,27 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 
 const FIELD_DEBOUNCE = {};
 
-// ─── Pending-sync state ──────────────────────────────────────────────────────
+// ─── Unsaved-field state ─────────────────────────────────────────────────────
 // A field whose SET_FIELD op did not reach the server (no signal, or a server
 // error). The answer is NOT thrown away and NOT quietly presented as saved: it
 // stays counted in progress, is written to draftResponses so reopening the
 // checklist restores it (hydrateFieldState reads drafts), carries a visible
-// "Pending sync" mark, and is retried on reconnect.
+// "Unsaved" mark, and is retried on reconnect.
+//
+// 🛑 VOCABULARY — this chip and sync.js's row badge are two different states and
+// must never read the same (ledger T-25 decision 71, item 4; they both read
+// "Pending sync" between 2026-07-28 and this card and were reachable on the same
+// screen):
+//
+//   "Unsaved"          — ONE field answer has not reached the server.
+//                        Scope: a field. Class `.unsaved-mark`, this file.
+//   "Queued"           — a WHOLE submitted checklist is sitting in the offline
+//                        submitQueue waiting to be sent.
+//                        Scope: a checklist. Class `.sync-badge`, sync.js.
+//
+// The names are chosen so the scope is readable without the legend: a field is
+// "unsaved"; a submission you already pressed Submit on is "queued". If either
+// string changes, change the other so they still cannot collide.
 //
 // LIMIT, stated so nobody over-reads this: the draft store is in memory
 // (sync.js `new Store()`), so a reload or app kill while still offline loses
@@ -326,7 +341,7 @@ function markFieldPending(fieldId, value, saveValue) {
 function clearFieldPending(fieldId) {
   PENDING_SYNC.delete(fieldId);
   delete PENDING_VALUES[fieldId];
-  const mark = document.querySelector(`[data-field-id="${fieldId}"] .pending-sync-mark`);
+  const mark = document.querySelector(`[data-field-id="${fieldId}"] .unsaved-mark`);
   if (mark) mark.remove();
   if (typeof updateProgress === 'function') updateProgress();
 }
@@ -336,10 +351,10 @@ function clearFieldPending(fieldId) {
 // re-emits the mark from PENDING_SYNC, so it also survives a full re-render.
 function paintPendingMark(fieldId) {
   const row = document.querySelector(`[data-field-id="${fieldId}"]`);
-  if (!row || row.querySelector('.pending-sync-mark')) return;
+  if (!row || row.querySelector('.unsaved-mark')) return;
   const mark = document.createElement('span');
-  mark.className = 'pending-sync-mark';
-  mark.textContent = 'Pending sync';
+  mark.className = 'unsaved-mark';
+  mark.textContent = 'Unsaved';
   row.appendChild(mark);
 }
 
@@ -1716,8 +1731,39 @@ function setSeverity(fldId, severity) {
   if (!FAIL_NOTES[fldId]) FAIL_NOTES[fldId] = { note: '', severity: '' };
   FAIL_NOTES[fldId].severity = severity;
 }
+// isCurrentPeriodEntry — may this queue entry lend its idempotency_key to a
+// submit happening NOW?
+//
+// Key reuse (ledger T-23 decision 60) was authorised for a second press of the
+// SAME checklist on the SAME day. Nothing enforced the second half: entries
+// carried no period and nothing retired them, so a persistently-failing server
+// let MONDAY's queued key be adopted by THURSDAY's submit — the server upserts
+// on idempotency_key, so Thursday's answers landed on Monday's submission row
+// and every day in between collapsed into one. Ledger T-25 decision 71.
+//
+// 🛑 Aging out here means RETIREMENT FROM KEY REUSE. It is NOT deletion, and
+// that is deliberate, not an omission. Offline, a queued payload is the only
+// durable copy of what the crew member entered that day (the same reason `id`
+// is not reused — see submitChecklistToAPI below), and a submission queued
+// Monday that finally drains on Thursday is CORRECT, not garbage. A stale entry
+// keeps draining normally; it just stops being a source of keys.
+//
+// An entry with NO period was queued by code older than this function. It is
+// treated as NOT current — conservative in the direction that matters, since
+// adopting a stale key is the defect being fixed. The cost is one transient
+// deploy-boundary case (an entry queued minutes before the new code loaded
+// cannot lend its key, so a second press mints a fresh one and can write a
+// second row); the service worker's controllerchange reload closes that window
+// within a page load.
+function isCurrentPeriodEntry(e) {
+  var period = typeof currentSubmitPeriod === 'function'
+    ? currentSubmitPeriod()
+    : new Date().toISOString().slice(0, 10);
+  return !!e && e.period === period;
+}
+
 // findQueuedSubmission returns the payload already sitting in the offline
-// submitQueue for this template, or null.
+// submitQueue for this template IN THE CURRENT PERIOD, or null.
 //
 // Why it reads IndexedDB and not a module-level map: the queue is the only
 // DURABLE record that a submission is already in flight. "Submit offline, get
@@ -1733,7 +1779,9 @@ async function findQueuedSubmission(tplId) {
     var db = await getDB();
     var entries = await idbGetAll(db, 'submitQueue');
     if (!Array.isArray(entries)) return null;
-    return entries.find(function(e) { return e && e.template_id === tplId && e.idempotency_key; }) || null;
+    return entries.find(function(e) {
+      return e && e.template_id === tplId && e.idempotency_key && isCurrentPeriodEntry(e);
+    }) || null;
   } catch (e) {
     return null;
   }
@@ -1757,8 +1805,11 @@ async function submitChecklistToAPI(tplId, allFlds, isReapproval) {
       fail_severity: failNote ? failNote.severity : null
     };
   }).filter(function(r) { return r.value !== null; });
-  // Reuse the KEY of any submission already queued for this template rather than
-  // minting a new one (ledger T-23 decision 60, which authorises the key only).
+  // Reuse the KEY of any submission already queued for this template IN THE
+  // CURRENT PERIOD rather than minting a new one (ledger T-23 decision 60,
+  // which authorises the key only; the period bound is T-25 decision 71 — see
+  // findQueuedSubmission / isCurrentPeriodEntry above for why a Monday key must
+  // never be adopted by a Thursday submit).
   //
   // An offline submit queues the payload and then correctly returns to the list
   // WITHOUT pushing into MY_SUBMISSIONS — so the checklist stays editable, which
@@ -1780,8 +1831,19 @@ async function submitChecklistToAPI(tplId, allFlds, isReapproval) {
   // answers: one row, zero responses, success toast. Two queue entries sharing one
   // key is the correct shape — the server upserts only the fields present in each
   // payload, so the first entry's answers survive and the empty second adds
-  // nothing. The banner transiently reading "2 submissions pending sync" is a
+  // nothing. The banner transiently counting two queued submissions is a
   // cosmetic price for not deleting someone's work. Guarded by DBL-04.
+  //
+  // "The server upserts only the fields present in each payload" was TRUE of
+  // submission_responses and FALSE of submission_fail_notes when this comment
+  // was first written: that INSERT was bare, so a second POST under the same key
+  // APPENDED a duplicate note and the approver read it twice
+  // (`submission_rows=1 response_rows=1 fail_note_rows=2`, measured 2026-07-27).
+  // The sentence was made true rather than edited away — migration 0071 adds
+  // UNIQUE (submission_id, field_id) and repository.go's fail-note insert now
+  // carries the matching ON CONFLICT ... DO UPDATE. Both tables upsert now.
+  // (photo_url is deliberately excluded from that SET list — it is not in the
+  // INSERT column list, so writing it would NULL an attached photo.)
   var queued = await findQueuedSubmission(tplId);
   var submitPayload = {
     id: generateUUID(),
@@ -2367,7 +2429,7 @@ function renderRunnerField(fld) {
   const resp = answered ? FIELD_RESPONSES[fld.id] : null;
   // A pending field re-emits its mark here so a re-render (reopen, remote op)
   // cannot silently upgrade "waiting to sync" into "saved".
-  const pendingMark = PENDING_SYNC.has(fld.id) ? '<span class="pending-sync-mark">Pending sync</span>' : '';
+  const pendingMark = PENDING_SYNC.has(fld.id) ? '<span class="unsaved-mark">Unsaved</span>' : '';
   const attribution = answered
     ? `<div class="fill-attribution">${escapeHtml(resp.answeredBy)} · ${formatTime(resp.answeredAt)}</div>${pendingMark}`
     : pendingMark;

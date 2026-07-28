@@ -144,7 +144,10 @@ replication lands, one local store replaces all three of today's mechanisms:
 So `draftResponses` is needed **today** — it is the only reason a pending answer survives
 back-and-reopen — and should be **deleted, not ported**, by the cutover. The cutover card owns
 removing `PENDING_SYNC`, `PENDING_VALUES`, `schedulePendingRetry`, the `online` listener and the
-`.pending-sync-mark` CSS along with it. The user-facing contract in US-1…US-5 is what must
+`.unsaved-mark` CSS along with it (that class was `.pending-sync-mark` when this design was
+written; `workflow-queue-period-and-failnote-upsert` renamed it, and its chip now reads
+"Unsaved", because sync.js's queued-submission badge read the same two words on the same
+screen). The user-facing contract in US-1…US-5 is what must
 survive the swap; the mechanism under it should not.
 
 ## Out of scope — stated so nobody reads this as shipped
