@@ -663,8 +663,63 @@
   `backend/` (new proxy handler + its route registration + tests). Depended on by
   `sync-rxdb-schema-and-replication`.
 
-- **`sync-rxdb-conflict-notice-mockup`** · **PLANNED — small** (new card, fanned out of
-  `sync-rxdb-conflict-notice-ui` at slate-20260729 planning, 2026-07-28) · Draft the committed
+- **`sync-rxdb-conflict-notice-mockup`** · **DONE** (2026-07-29, run `overnight-20260729`, card
+  branch `card/d-sync-rxdb-conflict-notice-mockup`; card authored at slate-20260729 planning,
+  fanned out of `sync-rxdb-conflict-notice-ui`) · **The sign-off artifact exists.**
+  `.planning/phases/sync-rxdb-conflict-notice/mockup.html` — nine plates, mobile-first 480px on
+  HQ's shared variable block with dark mode, modelled on `.planning/phases/f3-trends-tab/mockup.html`
+  — plus `UI-SPEC.md` beside it carrying the State Enumeration Table (four base rows and four
+  edges, including all three the slate named: **no discarded value available**, **several conflicts
+  at once**, **conflict on a field since removed from the template**), the `done_when:` block, and
+  the `conflict$` evidence the design rests on. **Zero production code**, as the card required.
+  **THE OPERATOR NOW HAS SOMETHING TO SAY YES OR NO TO — that answer is what unblocks
+  `sync-rxdb-conflict-notice-ui`, and it has NOT been given.** A *no* is a successful outcome for
+  this card; redrawing a mockup is cheaper than redrawing `workflows.html`.
+  **The recovery path — the point of the card — is `Restore mine`, and it is deliberately boring.**
+  Master-wins discarded the fork because `replicateSupabase`'s push found the server value had moved
+  under its compare-and-swap; nothing about that state is unrecoverable, only *stale*. Writing the
+  crew member's value again **now, from the current master state**, is an ordinary local edit that
+  pushes cleanly — no new sync plumbing, no `conflictHandler` special case, no server endpoint. If
+  the server moves again in between, that write conflicts in turn and lands back in the same sheet,
+  so the loop is closed. Two degradations behind it: **Copy value** when the field is gone from the
+  template (nowhere to write it back, and a clipboard copy is a real recovery on a phone), and
+  "open the checklist" when there is nothing showable at all.
+  **🛑 THREE VERIFIED LIMITS OF `conflict$` DROVE THE DESIGN — read these before building the UI.**
+  Re-derived from W2 (`proof-lww.js`, README half 2 step 5, FORK 3), not assumed:
+  (a) **It carries whole documents, never a field name.** The app must diff `input.newDocumentState`
+  against `output` itself, and that diff can come back holding nothing a crew member would
+  recognise — which is exactly why the *no discarded value available* row exists. Declaring
+  `_modified` in the schema makes this common rather than rare (W2 sharp edge 11: any server-side
+  touch becomes a conflict), so that schema choice is now a UI-visible one.
+  (b) **It is a plain RxJS `Subject` — no replay — and RxDB persists nothing about a resolved
+  conflict.** So the design has one hard precondition: **the app must write the discarded value to
+  durable local storage the instant the event arrives**, or a reload destroys the value the whole
+  screen exists to recover. Where that record lives is the UI card's call; that it must exist is a
+  contract. This is also why the banner must read the stored record and not a live subscription —
+  `waitForLeadership` defaults to `true`, so only the leader tab's `conflict$` fires at all.
+  (c) **It carries no author and no timestamp of its own.** The mockup's "Dana M., 6:12 PM"
+  attribution is only as real as the replicated row; if the schema does not carry who-and-when it
+  must degrade to "someone else" rather than be invented. **That is a requirement this spec places
+  on `sync-rxdb-schema-and-replication`, not a decision this card made.**
+  **Open question left for the operator, deliberately:** beyond ~10 conflict groups the sheet needs
+  a cap or a date filter; not designed. Judge it against one long dead-zone shift with an active
+  manager.
+  **Self-verified per CLAUDE.md's headless ritual** — 18 PNGs (9 plates × light/dark at 480px) under
+  `screenshots/`, produced by the committed `shoot.mjs`, read back multimodally and compared row by
+  row against each row's visual contract. **Two findings were fixed rather than reported around:**
+  nested `<span>`s rendered the banner headline and every checklist name run together with their
+  subtitles, and the several-at-once caption promised a group action "above the individual buttons"
+  when the render collapses them and puts it at the foot — the caption was corrected to the render,
+  not the reverse. **Red-first DOES NOT APPLY and is not silently omitted:** there is no code and no
+  test in this card, and the screenshot ritual is the substitute discipline.
+  **G3 (openspec validate) DOES NOT APPLY** — hq has no `openspec/` tree and
+  `night-crew workflow preflight` reports ABSENT.
+  **No version constant moved** (`Backend 0.3.0`, `Frontend 1.2.1` untouched) and **`sw.js` was not
+  regenerated** — no shipped file changed, and `.planning/**` is in `build-sw.js`'s `globIgnores`
+  so the precache manifest is unaffected. Footprint held exactly:
+  `.planning/phases/sync-rxdb-conflict-notice/` (new), the roadmap flip, and the merge-intent note.
+  Original card text:
+  Draft the committed
   mockup that the attended sign-off consumes, so the blocked UI card becomes unblockable. The
   roadmap has now recorded twice that **drafting the mockup — not chasing the sign-off — is the next
   action**, and that drafting is unattended-safe by construction: CLAUDE.md gates *production code*
@@ -692,7 +747,18 @@
   Table and the verifier-subagent gate. **The operator owes a mockup sign-off before this card can
   ever be slated.** Footprint: `workflows.html`, the RxDB client layer.
 
-  **🛑 SCHEDULING DECISION 2026-07-26 — read this before planning tomorrow's slate.** Checked at
+  **✅ THE MOCKUP LANDED 2026-07-29** (`sync-rxdb-conflict-notice-mockup`, DONE above).
+  `.planning/phases/sync-rxdb-conflict-notice/mockup.html` + `UI-SPEC.md` (State Enumeration Table,
+  `done_when:`, the `conflict$` evidence) + 18 self-verification renders are committed. **The
+  scheduling decision below is DISCHARGED — drafting the mockup was the next action, and it is
+  done.** What remains is now genuinely the operator's: an explicit *"ok, build this"*, or a *no*
+  with what to change. **This card stays ATTENDED-BLOCKED until that answer exists** — a run may
+  not infer it, and the existence of a mockup is not a sign-off. Read `UI-SPEC.md` §"Explicitly NOT
+  decided here" before slating: the conflictHandler's merge rule, whether the replicated schema
+  carries who-and-when, whether `_modified` is declared, and the durable conflict record's home are
+  all still open, and three of them change what this UI can truthfully show.
+
+  **🛑 SCHEDULING DECISION 2026-07-26 — DISCHARGED 2026-07-29, kept as the record of why.** Checked at
   slate-20260727 planning: **no mockup exists for this card.** The only `mockup.html` in the repo is
   `.planning/phases/f3-trends-tab/mockup.html`. So the owed sign-off has nothing to review, and
   "get the operator to sign off" is NOT the next action — **drafting the mockup is.**
