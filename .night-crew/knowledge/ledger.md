@@ -1520,3 +1520,65 @@ resolver yet."* Nothing is routing through the resolver at all, so the number me
 not preference quality. Reporting it as a coverage percentage would be the third silent-green in
 this triage. No offer-back shortlist can be derived from it until runs actually route their gray
 areas through the resolver.
+
+---
+
+## Attended session 2026-07-28 — conflict-notice sign-off and the schema card's dissolution
+
+Not a morning triage: an attended working session between runs. Four decisions, one of them the
+operator's own and three taken as code-internal calls and recorded rather than escalated.
+
+**Decision 78 — `_modified` is NOT declared.** The dissolved `sync-rxdb-schema-and-replication`
+demanded this be *"decided, not let be decided by whether someone copied the field in"*, and it is
+now decided: leave it out, keeping it a pure pull cursor. Declaring it makes
+`addDocEqualityToQuery` include `_modified` in the compare-and-swap, so **any** server-side touch
+becomes a conflict — including ones where no answer changed (W2 sharp edge 11). Those land in the
+conflict-notice UI as the *"a change we couldn't identify"* row, which is the one row in the whole
+design from which **nothing can be recovered** — no Restore, only Open checklist and Dismiss. The
+UI-SPEC says as much in advance: *"if it is declared, that row stops being rare."* Set against
+that, the benefit is thin: the tightened conflict detection is doing work the field-level
+three-way merge already does deliberately and with better information. Declared on
+`sync-rxdb-collections-and-table-contract`, read by
+`sync-rxdb-replication-and-conflict-handler`. **Revisit only if** the merge rule proves unable to
+distinguish a real same-field clash from a stale fork without it.
+
+**Decision 79 — replicated rows CARRY who-and-when.** UI-SPEC §"Explicitly NOT decided here"
+flagged this as the schema declaration that makes the conflict sheet's attribution line real or
+fictional — without it *"Dana M., 6:12 PM"* on the *Now shows* row degrades to *"someone else"*.
+Carry them. The product's stated core value is **accountability — who checked what**; the signed
+mockup draws attribution; the cost is two columns on collections that are being defined from
+scratch this cycle, which is the cheapest this decision will ever be. Owned by
+`sync-rxdb-collections-and-table-contract`.
+
+**Decision 80 — the mockup sign-off EXISTS, and its scope is the artifact.** The operator answered
+the question outstanding since 2026-07-29 with a verbatim *"Ok, build this."*
+`sync-rxdb-conflict-notice-ui` is **no longer ATTENDED-BLOCKED** and may enter a slate. The yes was
+given with the two rejectable design decisions in view and **neither was rejected**, so both are
+settled and a run implements them as drawn: **the counting rule** (the banner reports how many
+answers were overwritten in the retention window, not how many are still unhandled — nothing a
+crew member does to a row changes a count, and a count drops only when a record *leaves* the
+sheet), and **handled rows staying on the sheet** (restored and kept-theirs rows collapse to a
+confirmation and keep an Undo, because a removed row cannot be undone). The 30-day retention
+window in the empty state was accepted as drawn. **The yes is scoped to the committed artifact** —
+`mockup.html` + `UI-SPEC.md` and their 22 renders as of the repair round — and is explicitly **not**
+authority over the items UI-SPEC §"Explicitly NOT decided here" names; two of those are settled
+above by 78 and 79, and the durable conflict record's home stays the UI card's own call.
+**One question remains open and is deliberately non-blocking:** the sheet has no cap or date filter
+beyond ~10 conflict groups. If it is still unanswered when the card runs, the run implements no cap
+and says so rather than inventing one.
+
+**Decision 81 — `sync-rxdb-schema-and-replication` is DISSOLVED into four cards.** It had already
+been fanned out twice (browser delivery 2026-07-26, `sync-proxy-endpoint` 2026-07-28) and was still
+carrying four independent mechanisms under eight obligations — collections and the SQL table
+contract, the RLS row-visibility port, the replication wiring and `conflictHandler`, and a group of
+cache/identity hygiene items. The §1 split rule applies and the reason is the standing one: an
+unattended run must never discover mid-night that a card is four cards. Now
+`sync-rxdb-collections-and-table-contract` (wave 0, foundation) → `sync-rxdb-row-visibility-rls`
+and `sync-rxdb-replication-and-conflict-handler` (parallel-safe, disjoint footprints — SQL/backend
+against frontend/client) → `sync-cache-and-identity-hygiene`. **No scope was dropped**; the
+original card text is retained beneath the dissolution notice as the record of why each obligation
+exists. Two properties of the split are worth stating because they are gains, not bookkeeping:
+the hygiene items no longer ride the cycle's largest card under an accepted *"if this card slips,
+they slip with it"*, and **the `HQ_SYNC_REST_URL` activation interlock now spans two cards**, which
+makes it easier to get wrong — so it is restated on `sync-rxdb-row-visibility-rls`, on
+`sync-hard-cutover`, and in the dissolution notice, in addition to `proxy.go`'s env-var comment.

@@ -525,7 +525,143 @@
   full suite re-run for a comment); this card makes the sentence accurate instead. Footprint:
   `backend/internal/workflow`, a migration, `workflows.html`, `sync.js`.
 
-- **`sync-rxdb-schema-and-replication`** · **PLANNED** (depends on `sync-spike-stack-and-jwt-bridge`'s
+- **`sync-rxdb-collections-and-table-contract`** · **PLANNED — SLATE-READY, WAVE 0** (fanned out of
+  `sync-rxdb-schema-and-replication` 2026-07-28; foundation, both siblings below depend on it) ·
+  Define the RxDB collections for **checklists, templates, responses, approvals** mirroring the
+  current Postgres domain model, each satisfying the self-hosted table contract recorded above.
+  Schema only — this card wires no replication and writes no policy; it is what the other two
+  cards stand on.
+  **🛑 It owns two schema declarations that other cards read and must not re-litigate:**
+  (a) **`_modified` is NOT declared — decision 78.** Keeping it out leaves it a pure pull cursor.
+  Declaring it pulls `_modified` into `addDocEqualityToQuery`'s compare-and-swap so **any**
+  server-side touch becomes a conflict including ones where no answer changed (W2 sharp edge 11),
+  which routes ordinary bookkeeping into the conflict-notice UI's *"a change we couldn't identify"*
+  row — the one row from which nothing can be recovered. With a field-level three-way merge doing
+  the real work on the replication card, the tightened detection buys little and costs the worst
+  screen in the set. Recorded so it is decided, not inherited by whether someone copied the field
+  in — which is exactly what the dissolved card demanded.
+  (b) **Rows CARRY who-and-when — decision 79.** UI-SPEC §"Explicitly NOT decided here" names this
+  as the declaration that makes the conflict sheet's attribution line real or fictional: without
+  it, *"Dana M., 6:12 PM"* degrades to *"someone else"*. The product's stated core value is
+  **accountability — who checked what**, the signed mockup draws attribution on the *Now shows*
+  line, and the cost is two columns. Carry them.
+  Footprint: the sync DB schema (SQL) and the RxDB collection definitions. No `workflows.html`, no
+  policies, no client construction.
+
+- **`sync-rxdb-row-visibility-rls`** · **PLANNED — SLATE-READY** (fanned out of
+  `sync-rxdb-schema-and-replication` obligation 1 at the 2026-07-28 dissolution; depends on
+  `sync-rxdb-collections-and-table-contract` — there must be tables to protect) · **Obligation 1,
+  decision 55, unchanged in substance.** **PORT `ResolveEntityAccess`
+  (`backend/internal/sync/ops.go:474`) — do not invent a predicate:** project
+  `template_assignments ⋈ users` into the sync DB the way `hq_grant_projection` projects grants,
+  and express RLS as an `EXISTS` against it. **Two inherited properties are knowing, not
+  accidental:** the resolver never filters on `assignment_role` (an `'approver'` sees what an
+  `'assignee'` sees), and the `roles && ARRAY['admin','superadmin']` arm is unconditional (every
+  admin sees every template). **Changing either is a SEPARATE card** — do not vary substrate and
+  permission semantics in one night. The projection is written **push-on-grant-change, in the same
+  transaction as the `app_permissions` mutation** (decision 61); reconcile reintroduces the exact
+  replay window the projection exists to eliminate.
+  **🛑 THIS IS THE CARD THAT UNLOCKS THE DOOR — and until it lands the door is unlocked and
+  unguarded.** `sync-proxy-endpoint` forwards **every method** to PostgREST with a
+  `role: authenticated` token and no row filtering of its own, deliberately, because filtering was
+  always meant to be this card. **`HQ_SYNC_REST_URL` must not be set in any deploy until this card
+  lands** — doing so gives every logged-in crew member full read AND write on the whole exposed
+  schema, a dishwasher can `PATCH` a template, with nothing in between.
+  `HQ_SYNC_REALTIME_URL` is the safe half to adopt first: Realtime is read-only, so a subscription
+  without RLS leaks reads but authors nothing. Recorded identically in
+  `backend/internal/sync/proxy.go`'s env-var comment.
+  **Its gate is an attack-variant suite, red-first, modelled on the 16/16 `sync-jwt-bridge-endpoint`
+  ran** — prove RLS **discriminating**, not merely responding: a 200 alone proves nothing, and a
+  `service_role` BYPASSRLS control is what rules out *"the table was empty."* Reuse the two findings
+  that card banked and do not rediscover them: `auth.uid()` is wrong for HQ (read the **plural** GUC
+  via `public.hq_jwt_claim`), and `public.hq_uid_trap` re-proves it every run.
+  Footprint: sync DB policies/SQL, `backend/internal/sync`, a migration if the projection needs one.
+
+- **`sync-rxdb-replication-and-conflict-handler`** · **PLANNED — SLATE-READY** (fanned out of
+  `sync-rxdb-schema-and-replication` 2026-07-28; depends on
+  `sync-rxdb-collections-and-table-contract`. **Parallel-safe with `sync-rxdb-row-visibility-rls`** —
+  disjoint footprints, one is frontend/client, the other SQL/backend) · Wire RxDB's Supabase
+  replication plugin client-side against **`/sync/rest/*` and `/sync/realtime/*` on HQ's own
+  origin** (decision 69, same-origin, the door landed 2026-07-28). Do **not** fetch
+  `/api/v1/sync/token` and attach a bearer — the proxy mints per request and injects it, and a
+  client-supplied `Authorization`/`apikey` is deliberately discarded. Realtime is reached at
+  `/sync/realtime/socket/websocket?vsn=1.0.0`; **do not add an `apikey` parameter, the door sets
+  it.** Inherits from `sync-jwt-bridge-endpoint` (decision 51, address moved only): the permanent
+  **client-construction helper** using `global.fetch` + `realtime.transport`, stay gateway-less, no
+  Kong — and the **`@supabase/supabase-js` pin plus a smoke test that fails loudly on upgrade**,
+  since the coupling is to how the library derives `<baseUrl>/rest/v1`, not to a public extension
+  point.
+  **The `conflictHandler` is this card's real work (decision 50).** RxDB's default is unconditional
+  **master-wins** — not the last-write-wins the explore session assumed — no clock participates, and
+  a strictly-later local write is discarded silently (reproduced four times). The decided policy is
+  a **field-level three-way merge**: different fields edited by different people all survive; only a
+  genuine same-field clash falls back to master-wins, **and then `conflict$` must surface it with
+  the discarded value recoverable**. Tractable because `assumedMasterState` is in
+  `RxConflictHandlerInput` (`conflict-handling.d.ts:10`) — diff fork-vs-assumed and
+  master-vs-assumed to know who changed what. It is **optional in the type**, so the rule needs a
+  defined fallback when absent. `conflict$` fires **per document** and carries the document id
+  (`upstream.js:333`). **Headless and testable** is a requirement, not a nicety — the sibling UI
+  card's whole design assumes this handler's behaviour.
+  **Obligation 4 — umbrella slugs, decision 56.** The client-construction helper must expand
+  umbrella slugs so the launcher shows the per-tab surfaces the user can actually reach
+  (`inventory` ⇒ `inventory-trends`, `inventory-cost`).
+  **Obligation 5 — the vendored bundle, decision 59, AND ITS TRAP.** This is where a page finally
+  imports `vendor/rxdb.bundle.js`, so this is where the `globPatterns` precache entry is re-added.
+  **🛑 RE-ADDING THE GLOB ALONE BREAKS PRODUCTION, verified at source.** `backend/Dockerfile` COPY
+  lines are `21`, `25`, `26` (`icons`), `27` (`lib`), `30` (`backend`) — **`vendor/` is never copied
+  into the image.** Morning triage 2026-07-27 simulated the image staging independently: all 22
+  current precache URLs present, `vendor/rxdb.bundle.js` **absent**. A precached URL that 404s fails
+  the **entire** service-worker install for every returning client — the exact bug
+  `pwa-cache-and-build-hygiene` fixed. **This card must add `vendor/` to the Dockerfile in the same
+  change set, or not re-add the glob.**
+  Footprint: new RxDB client layer, `workflows.html` (import + construction only — the write-path
+  swap is `sync-hard-cutover`), `build-sw.js`, `backend/Dockerfile`, `vendor/`.
+
+- **`sync-cache-and-identity-hygiene`** · **PLANNED** (fanned out of
+  `sync-rxdb-schema-and-replication` obligations 3, 7 and 8 at the 2026-07-28 dissolution; depends
+  on `sync-rxdb-replication-and-conflict-handler` — the `api-cache` retirement is only correct once
+  offline data actually comes from IndexedDB) · **The split is a gain here, and the dissolved card
+  said why:** it carried these under an *"accepted cost: if this card slips, they slip with it."*
+  They no longer ride the biggest card in the cycle, and three of the four items are cross-tenant
+  disclosures.
+  **Obligation 3 — `api-cache`, decision 57, structural half.** The URL-only cache key with no
+  `Vary` (`build-sw.js:60-78`) is a cross-tenant read. The immediate mitigation already shipped in
+  `pwa-cache-and-build-hygiene`; this card owns the design, and **the expected answer is to retire
+  the route entirely** — once RxDB replicates, offline data comes from IndexedDB and `api-cache` is
+  obsolete.
+  **Obligation 7 — two more `api-cache`-shaped disclosures, decision 70.** (a)
+  `localStorage['hq_apps']` is never cleared on logout, and `index.html:224` still parses the
+  previous user's cached slug list in the fail-closed branch — offline on a shared truck phone,
+  user B sees user A's tiles. (b) An identity change *without* a logout (B logs in while A's session
+  is live) never runs `logout()`, and `login.html` does no cache hygiene of its own. Both UI-only;
+  server-side grants remain the real gate.
+  **Obligation 8 — the stale comment at `tests/sync.spec.js:1584`** (decision 66), waiting for
+  "the next card touching that file" since 2026-07-26.
+  Footprint: `build-sw.js`, `index.html`, `login.html`, `tests/sync.spec.js`.
+
+- **`sync-rxdb-schema-and-replication`** · **🛑 DISSOLVED 2026-07-28 — this card no longer exists as
+  a slateable unit.** It had been fanned out twice already (browser delivery 2026-07-26,
+  `sync-proxy-endpoint` 2026-07-28) and was **still** carrying four independent mechanisms plus
+  eight obligations. The §1 split rule — *a card bundling multiple mechanisms is split before it
+  enters the slate* — applies, and an unattended run must never discover mid-night that a card is
+  four cards. **Nothing in its scope is dropped**; every obligation is re-homed below, and the
+  original text is kept verbatim underneath as the record of why each one exists.
+
+  | Was | Now | Depends on |
+  |---|---|---|
+  | Collections + per-table SQL contract | **`sync-rxdb-collections-and-table-contract`** | — (foundation) |
+  | Obligation 1 — row visibility (decision 55) | **`sync-rxdb-row-visibility-rls`** | collections |
+  | `replicateSupabase` wiring, `conflictHandler`, client helper, obligations 4 + 5 | **`sync-rxdb-replication-and-conflict-handler`** | collections |
+  | Obligations 3 + 7 + 8 — `api-cache`, identity hygiene, stale comment | **`sync-cache-and-identity-hygiene`** | replication |
+
+  **The activation-order interlock survives the split and now spans two cards, which makes it
+  easier to get wrong, not harder.** `HQ_SYNC_REST_URL` must not be set in any deploy until
+  **`sync-rxdb-row-visibility-rls`** lands — see that card. The `_modified` call the original text
+  demanded be *decided rather than inherited* is **decided: not declared** (decision 78); it is a
+  spec line on the replication card now, not an open question.
+
+  *(Original card text follows, for the record.)* · **PLANNED** (depends on
+  `sync-spike-stack-and-jwt-bridge`'s
   go-decision reaching `ledger.md` — **cleared**; and now on **`sync-rxdb-browser-delivery-spike`'s
   verdict**, which sizes the storage/service-worker half; sized by `sync-spike-rxdb-replication`
   where it ran) · **Scope reduced 2026-07-26 by the fan-out above:** browser delivery/storage/SW
@@ -839,9 +975,10 @@
   is done when the mockup and its table are committed and the operator has something to say yes or
   no to. Footprint: `.planning/phases/sync-rxdb-conflict-notice/` only.
 
-- **`sync-rxdb-conflict-notice-ui`** · **PLANNED — ATTENDED-BLOCKED** (new card, fanned out of
-  `sync-rxdb-schema-and-replication` 2026-07-26 at slating; depends on that card's
-  `conflictHandler`) · The **user-visible half of decision 50**: when a same-field clash falls back
+- **`sync-rxdb-conflict-notice-ui`** · **PLANNED — SIGNED OFF, SLATE-READY** (new card, fanned out of
+  `sync-rxdb-schema-and-replication` 2026-07-26 at slating; depends on
+  `sync-rxdb-replication-and-conflict-handler`'s `conflictHandler`) · The **user-visible half of
+  decision 50**: when a same-field clash falls back
   to master-wins, `conflict$` must surface it to the crew member **with the discarded value
   recoverable** — not silently dropped. Cheap to *get hold of* (`conflict$` already emits the
   discarded document per-document with its id, verified); the expensive half is deciding what the
@@ -859,12 +996,35 @@
   design decisions the operator can reject outright (the counting rule, and handled rows staying on
   the sheet until Dismiss). **The
   scheduling decision below is DISCHARGED — drafting the mockup was the next action, and it is
-  done.** What remains is now genuinely the operator's: an explicit *"ok, build this"*, or a *no*
-  with what to change. **This card stays ATTENDED-BLOCKED until that answer exists** — a run may
-  not infer it, and the existence of a mockup is not a sign-off. Read `UI-SPEC.md` §"Explicitly NOT
-  decided here" before slating: the conflictHandler's merge rule, whether the replicated schema
-  carries who-and-when, whether `_modified` is declared, and the durable conflict record's home are
-  all still open, and three of them change what this UI can truthfully show.
+  done.**
+
+  **🖊️ THE SIGN-OFF EXISTS — 2026-07-28, operator, verbatim *"Ok, build this."*** The gate
+  CLAUDE.md sets before UI code on a phase introducing new components is **satisfied**; this card
+  is no longer ATTENDED-BLOCKED and may enter a slate. The sign-off was given **with the two
+  rejectable design decisions in view and neither was rejected** — so both are now settled and a
+  run must implement them as drawn, not re-open them: **(a) the counting rule** as stated in
+  UI-SPEC §"The counting rule" — the banner reports how many answers were overwritten in the
+  retention window, **not** how many are still unhandled, so nothing a crew member does to a row
+  changes any count and a count drops only when a record *leaves* the sheet (Dismiss, or ageing
+  out); **(b) handled rows stay on the sheet** — a restored row and a kept-theirs row both collapse
+  to a confirmation and keep an **Undo** rather than disappearing, because a removed row cannot be
+  undone. The scope of the yes is the **committed artifact**: `mockup.html` + `UI-SPEC.md` at
+  `.planning/phases/sync-rxdb-conflict-notice/` as of the repair round, all 11 plates and 22
+  renders. It is **not** blanket authority over the items UI-SPEC §"Explicitly NOT decided here"
+  names.
+  **🛑 Still open, and three of them change what this UI can truthfully show** — read UI-SPEC
+  §"Explicitly NOT decided here" before slating. The `conflictHandler`'s merge rule and whether the
+  replicated schema carries who-and-when belong to
+  `sync-rxdb-replication-and-conflict-handler` and `sync-rxdb-collections-and-table-contract`;
+  **`_modified` is now DECIDED — not declared, decision 78 below**, which is the good outcome for
+  this card (it keeps the *"a change we couldn't identify"* row rare rather than routine). The
+  durable conflict record's home and retention window remain this card's own implementation call —
+  the mockup's empty state says **30 days**, and the sign-off accepted that number as drawn.
+  **One operator question is still unanswered and is NOT blocking:** UI-SPEC §"Open question for
+  the operator" — beyond roughly ten conflict groups the sheet needs a cap or a date filter, and it
+  is not designed here. Judge it against one long dead-zone shift with an active manager. A slate
+  may proceed without it; if it is still unanswered when this card runs, the run implements no cap
+  and says so.
 
   **🛑 SCHEDULING DECISION 2026-07-26 — DISCHARGED 2026-07-29, kept as the record of why.** Checked at
   slate-20260727 planning: **no mockup exists for this card.** The only `mockup.html` in the repo is
@@ -944,7 +1104,12 @@
   is to how the library derives `<baseUrl>/rest/v1`, not to the public extension points.
   Footprint: `backend/internal/auth` (or a new package), `backend/internal/sync`.
 
-- **`sync-hard-cutover`** · **PLANNED** (depends on schema+replication AND jwt-bridge) · Replace
+- **`sync-hard-cutover`** · **PLANNED — LAST** (dependency restated at the 2026-07-28 dissolution:
+  depends on **all three** of `sync-rxdb-collections-and-table-contract`,
+  `sync-rxdb-row-visibility-rls` and `sync-rxdb-replication-and-conflict-handler`, plus jwt-bridge.
+  🛑 **Row-visibility RLS is not optional for this card specifically** — the cutover makes RxDB the
+  single write path, which means it is also the moment `HQ_SYNC_REST_URL` gets set in a real
+  deploy) · Replace
   BOTH current write paths in `workflows.html` — `autoSaveField`→`POST /saveResponse` and
   `sync.js`'s WebSocket/ops-log broadcast — with the RxDB store as the single write path. Retire
   `sync.js`, `backend/internal/sync/`, and `/saveResponse` entirely. Hard swap, no parallel run
