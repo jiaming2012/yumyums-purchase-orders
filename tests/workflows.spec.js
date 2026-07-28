@@ -1114,14 +1114,23 @@ test.describe('Offline sync', () => {
     // the server and `hydrateFieldState` repopulates it on reopen — which means
     // press 2 rebuilds a FULL payload and any answer loss is invisible to them.
     //
-    // Offline, the answer has NO durable home: `submitOp` (sync.js:676) does not
-    // queue and throws, and `hydrateFieldState` (workflows.html:1470-1476) clears
+    // Offline, the answer used to have NO durable home: `submitOp` (sync.js:695)
+    // does not queue and throws, and `hydrateFieldState` (workflows.html) clears
     // FIELD_RESPONSES and rebuilds from DRAFT_RESPONSES on every reopen. The only
-    // copy of the crew member's answer is the payload already sitting in
-    // submitQueue. So press 2 builds an EMPTY payload, and any reuse scheme that
+    // copy of the crew member's answer was the payload already sitting in
+    // submitQueue. So press 2 built an EMPTY payload, and any reuse scheme that
     // REPLACES the queued entry destroys the answer — one row on the server, zero
     // recorded responses, with a success toast. On a food-safety checklist that is
     // worse than the duplicate row this card set out to fix.
+    //
+    // UPDATED 2026-07-28 (offline-save-honesty): a failed field save now writes
+    // its draft locally, so the reopen DOES hydrate and press 2 builds a FULL
+    // payload too. The old assertion — exactly ONE queued entry carries the
+    // answer — was a snapshot of the loss, not the invariant. The invariant is
+    // that the answer survives, and specifically that the entry which WINS the
+    // upsert carries it (entries replay sorted by queuedAt, so the last one
+    // wins). That is asserted directly below, which is strictly stronger than
+    // the count it replaces.
     page.on('dialog', (d) => d.accept());
     await login(page);
     await page.goto(BASE + '/workflows.html');
@@ -1149,15 +1158,21 @@ test.describe('Offline sync', () => {
     const withAnswer = afterFirst.filter((e) => (e.responses || []).length > 0);
     expect(withAnswer.length, 'press 1 queues the crew member\'s answer').toBe(1);
 
-    // Press 2. The runner reopens with the box UNCHECKED (nothing durable to
-    // hydrate from), so this payload is empty — that is expected and correct.
+    // Press 2. The runner now reopens with the box CHECKED — the failed save
+    // left a local draft — so this payload carries the answer as well.
     await openAndSubmitOffline(page);
 
-    // Whatever the queue now looks like, the answer must still be in it somewhere.
+    // Whatever the queue now looks like, the answer must still be in it.
     const afterSecond = await readSubmitQueue(page);
     const stillHasAnswer = afterSecond.filter((e) => (e.responses || []).length > 0);
     expect(stillHasAnswer.length,
-      'the queued answer must NOT be overwritten by the empty second payload').toBe(1);
+      'the queued answer must NOT be overwritten by a second payload').toBeGreaterThanOrEqual(1);
+
+    // Stronger than a count: the entry that replays LAST wins the upsert, so it
+    // is the one that decides what the server ends up storing.
+    const winner = afterSecond.slice().sort((a, b) => (a.queuedAt || 0) - (b.queuedAt || 0)).pop();
+    expect((winner.responses || []).length,
+      'the queue entry that wins the upsert must carry the answer').toBeGreaterThan(0);
 
     // And it must reach the server.
     await context.setOffline(false);

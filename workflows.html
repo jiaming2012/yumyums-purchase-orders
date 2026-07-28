@@ -148,7 +148,7 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .skeleton-bar.shorter{width:40%;height:12px}
 .inline-error{font-size:13px;color:#c0392b;padding:8px 16px;display:flex;align-items:center;gap:8px}
 .retry-btn{font-size:13px;color:var(--info-tx);background:none;border:none;padding:0;cursor:pointer;font-weight:500;font-family:inherit;min-height:44px;min-width:44px}
-.save-error-dot{width:4px;height:4px;border-radius:50%;background:#c0392b;display:inline-block;margin-left:4px;cursor:pointer;min-width:20px;min-height:20px;padding:8px;background-clip:content-box}
+.pending-sync-mark{display:inline-block;margin-left:6px;padding:1px 6px;border-radius:4px;background:var(--warn-bg);color:var(--warn-tx);font-size:11px;font-weight:600;vertical-align:middle}
 .save-indicator{font-size:12px;color:var(--mut);margin-left:4px}
 .save-indicator.saved{color:#27ae60}
 .photo-placeholder{padding:16px;background:var(--card);border-radius:8px;border:0.5px solid var(--brd);text-align:center;color:var(--mut);font-size:13px}
@@ -192,6 +192,22 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 // ─── Per-field debounced save using submitOp (D-08) ──────────────────────────
 
 const FIELD_DEBOUNCE = {};
+
+// ─── Pending-sync state ──────────────────────────────────────────────────────
+// A field whose SET_FIELD op did not reach the server (no signal, or a server
+// error). The answer is NOT thrown away and NOT quietly presented as saved: it
+// stays counted in progress, is written to draftResponses so reopening the
+// checklist restores it (hydrateFieldState reads drafts), carries a visible
+// "Pending sync" mark, and is retried on reconnect.
+//
+// LIMIT, stated so nobody over-reads this: the draft store is in memory
+// (sync.js `new Store()`), so a reload or app kill while still offline loses
+// the queue. Durable survival needs SET_FIELD ops in the IndexedDB queue that
+// today holds submissions only (sync.js:51) — that is the separate card.
+const PENDING_SYNC = new Set();
+const PENDING_VALUES = {};
+let _pendingRetryTimer = null;
+let _pendingToastTimer = null;
 
 function debouncedSaveField(fieldId, value) {
   if (FIELD_DEBOUNCE[fieldId]) { clearTimeout(FIELD_DEBOUNCE[fieldId]); updateSaveStatus(-1); }
@@ -254,7 +270,7 @@ function debouncedSaveField(fieldId, value) {
       }
       store._notify('draftResponses');
       if (indicator) { indicator.textContent = 'Saved'; indicator.className = 'save-indicator saved'; setTimeout(() => { indicator.textContent = ''; indicator.className = 'save-indicator'; }, 800); }
-      clearFieldError(fieldId);
+      clearFieldPending(fieldId);
     } catch (e) {
       if (e && e.error === 'unknown_field') {
         // Field was cut from the template by an edit (FR-3, INV-4). No optimistic
@@ -267,28 +283,97 @@ function debouncedSaveField(fieldId, value) {
           if (di !== -1) { drafts3.splice(di, 1); store._notify('draftResponses'); }
         }
         renderFieldResponse(fieldId);
-        clearFieldError(fieldId);
+        clearFieldPending(fieldId);
         if (typeof fillState !== 'undefined' && fillState.activeTemplate && typeof updateProgress === 'function') updateProgress();
         showSyncToast('That field was removed from this checklist — your change was not saved.');
       } else {
-        showFieldError(fieldId);
+        markFieldPending(fieldId, value, saveValue);
       }
     }
     updateSaveStatus(-1);
   }, 400);
 }
 
-function showFieldError(fieldId) {
-  const row = document.querySelector(`[data-field-id="${fieldId}"]`);
-  if (!row) return;
-  let dot = row.querySelector('.save-error-dot');
-  if (!dot) { dot = document.createElement('span'); dot.className = 'save-error-dot'; dot.onclick = () => { const val = row.dataset.lastValue; if (val !== undefined) debouncedSaveField(fieldId, JSON.parse(val)); }; row.appendChild(dot); }
+// markFieldPending — the save did not reach the server. Keep the answer (it is
+// real work the crew did), record it as a draft so reopening restores it rather
+// than clearing it, say so on the field, and arrange a retry.
+//
+// `value` is the raw answer (re-bundled with fail notes on retry); `saveValue`
+// is the bundled shape the success path writes to drafts, so a pending draft
+// and a saved draft are byte-identical and hydrate through the same branch.
+function markFieldPending(fieldId, value, saveValue) {
+  PENDING_SYNC.add(fieldId);
+  PENDING_VALUES[fieldId] = value;
+  var drafts = store.get('draftResponses');
+  if (Array.isArray(drafts)) {
+    var idx = drafts.findIndex(function(d) { return d.field_id === fieldId; });
+    if (saveValue === null || saveValue === undefined) {
+      if (idx !== -1) drafts.splice(idx, 1);
+    } else if (idx !== -1) {
+      drafts[idx].value = saveValue;
+      drafts[idx].answered_at = new Date().toISOString();
+    } else {
+      drafts.push({ field_id: fieldId, value: saveValue, answered_at: new Date().toISOString() });
+    }
+    store._notify('draftResponses');
+  }
+  paintPendingMark(fieldId);
+  if (typeof updateProgress === 'function') updateProgress();
+  queuePendingToast();
+  schedulePendingRetry();
 }
 
-function clearFieldError(fieldId) {
-  const dot = document.querySelector(`[data-field-id="${fieldId}"] .save-error-dot`);
-  if (dot) dot.remove();
+function clearFieldPending(fieldId) {
+  PENDING_SYNC.delete(fieldId);
+  delete PENDING_VALUES[fieldId];
+  const mark = document.querySelector(`[data-field-id="${fieldId}"] .pending-sync-mark`);
+  if (mark) mark.remove();
+  if (typeof updateProgress === 'function') updateProgress();
 }
+
+// Painted imperatively at failure time (the row is deliberately NOT re-rendered
+// — that would drop the caret out of a textarea mid-typing). renderRunnerField
+// re-emits the mark from PENDING_SYNC, so it also survives a full re-render.
+function paintPendingMark(fieldId) {
+  const row = document.querySelector(`[data-field-id="${fieldId}"]`);
+  if (!row || row.querySelector('.pending-sync-mark')) return;
+  const mark = document.createElement('span');
+  mark.className = 'pending-sync-mark';
+  mark.textContent = 'Pending sync';
+  row.appendChild(mark);
+}
+
+// One message per failure burst — two fields failing 40ms apart is one event to
+// the crew member, not two.
+function queuePendingToast() {
+  if (_pendingToastTimer) return;
+  _pendingToastTimer = setTimeout(function() {
+    _pendingToastTimer = null;
+    showToast(navigator.onLine
+      ? 'Save didn’t go through — retrying.'
+      : 'Saved on this device — will sync when you’re back online.');
+  }, 300);
+}
+
+function retryPendingFields() {
+  if (!PENDING_SYNC.size || !navigator.onLine) return;
+  Array.from(PENDING_SYNC).forEach(function(fieldId) {
+    debouncedSaveField(fieldId, PENDING_VALUES[fieldId]);
+  });
+}
+
+// Reconnect is the main trigger; the timer covers a server-side failure while
+// online, where no 'online' event will ever fire.
+function schedulePendingRetry() {
+  if (_pendingRetryTimer || !PENDING_SYNC.size) return;
+  _pendingRetryTimer = setTimeout(function() {
+    _pendingRetryTimer = null;
+    retryPendingFields();
+    schedulePendingRetry();
+  }, 15000);
+}
+
+window.addEventListener('online', retryPendingFields);
 
 function renderSkeletons(container, count) {
   container.innerHTML = '';
@@ -2280,7 +2365,12 @@ function correctionPhotoUI(fieldId, fieldType) {
 function renderRunnerField(fld) {
   const answered = FIELD_RESPONSES[fld.id] !== undefined;
   const resp = answered ? FIELD_RESPONSES[fld.id] : null;
-  const attribution = answered ? `<div class="fill-attribution">${escapeHtml(resp.answeredBy)} · ${formatTime(resp.answeredAt)}</div>` : '';
+  // A pending field re-emits its mark here so a re-render (reopen, remote op)
+  // cannot silently upgrade "waiting to sync" into "saved".
+  const pendingMark = PENDING_SYNC.has(fld.id) ? '<span class="pending-sync-mark">Pending sync</span>' : '';
+  const attribution = answered
+    ? `<div class="fill-attribution">${escapeHtml(resp.answeredBy)} · ${formatTime(resp.answeredAt)}</div>${pendingMark}`
+    : pendingMark;
 
   // Read-only mode: show values without interactive controls
   if (fillState.readonly) {
@@ -2374,6 +2464,7 @@ function renderRunnerField(fld) {
         '<button class="check-btn ' + (parentChecked ? 'checked' : '') + '" data-field-id="' + fld.id + '" data-has-subs="true" aria-label="Toggle checkbox">' + (parentChecked ? '✓' : '') + '</button>' +
         '</div>' +
         subStepsHtml +
+        pendingMark +
         '</div>';
     }
     return `<div class="fill-field" data-field-id="${fld.id}">

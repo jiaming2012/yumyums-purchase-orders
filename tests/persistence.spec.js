@@ -484,6 +484,260 @@ test.describe('Persistence', () => {
 
   // ─── Draft survives back-and-reopen ───────────────────────────────
 
+  // OFF-01 — operator-reported 2026-07-27: with the internet off, checking two
+  // checkboxes turns both green and the list overview reads 2/2, but reopening
+  // the checklist shows both cleared.
+  //
+  // Was: the optimistic value lived only in `fieldResponses`, while
+  // `hydrateFieldState` (workflows.html:1470) rebuilds FIELD_RESPONSES purely
+  // from DRAFT_RESPONSES + MY_SUBMISSIONS on every open — and the failing save
+  // never wrote a draft, so reopening threw the answer away.
+  //
+  // Fixed by markFieldPending (workflows.html): a save that does not reach the
+  // server writes the same draft shape the success path writes, so reopening
+  // restores it and the field says "Pending sync" until it lands.
+  // Design: .night-crew/knowledge/designs/offline-save-honesty.md
+  //
+  // STILL LOST, deliberately: a reload or app kill while offline. The draft
+  // store is in memory (sync.js `new Store()`), so durable survival needs
+  // SET_FIELD ops in the IndexedDB queue that holds submissions only today.
+  //
+  // Stays offline throughout, mirroring the report: the crew member does not
+  // regain signal between the back-tap and the re-entry.
+  test('checkboxes entered OFFLINE survive back-to-list and reopen [OFF-01]', async ({ page, context }) => {
+    const todayDOW = await getTodayDOW(page);
+    const tpl = await apiCall(page, 'POST', 'createTemplate', {
+      name: 'Offline Draft Test',
+      requires_approval: false,
+      sections: [{
+        title: 'Section 1',
+        order: 0,
+        condition: null,
+        fields: [
+          { type: 'checkbox', label: 'Field A', required: false, order: 0, config: {}, fail_trigger: null, condition: null },
+          { type: 'checkbox', label: 'Field B', required: false, order: 1, config: {}, fail_trigger: null, condition: null },
+        ],
+      }],
+      assignments: [{ assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' }],
+      schedules: [{ active_days: [todayDOW] }],
+    });
+
+    await page.goto(BASE + '/workflows.html');
+    const row = page.locator('[data-fill-template-id="' + tpl.id + '"]');
+    await expect(row).toBeVisible({ timeout: 10000 });
+    await row.click();
+    await page.waitForSelector('.check-btn', { timeout: 10000 });
+
+    // Internet off — everything below is what the crew member does on a phone
+    // with no signal.
+    await context.setOffline(true);
+
+    const checkA = page.locator('.check-btn').first();
+    const checkB = page.locator('.check-btn').nth(1);
+    await checkA.click();
+    await checkB.click();
+
+    // Both turn green (optimistic UI) — this is what the operator sees.
+    await expect(checkA).toHaveClass(/checked/, { timeout: 5000 });
+    await expect(checkB).toHaveClass(/checked/, { timeout: 5000 });
+
+    // Let the 400ms save debounce fire and fail against the dead network.
+    await page.waitForTimeout(1500);
+
+    // Back to the list — overview reads 2/2, as reported.
+    await page.click('#fill-back');
+    await expect(page.locator('#checklist-list')).toBeVisible({ timeout: 5000 });
+    const rowAfterBack = page.locator('[data-fill-template-id="' + tpl.id + '"]');
+    await expect(rowAfterBack).toBeVisible({ timeout: 5000 });
+    await expect(rowAfterBack.locator('text=2/2')).toBeVisible({ timeout: 5000 });
+
+    // Re-enter the checklist. Both answers must still be there — the crew
+    // member entered them, the list just told them 2/2, and nothing has been
+    // reported as lost.
+    await rowAfterBack.click();
+    await page.waitForSelector('.check-btn', { timeout: 10000 });
+    await expect(page.locator('.check-btn').first(),
+      'Field A entered offline must survive reopening — it was shown as saved')
+      .toHaveClass(/checked/, { timeout: 5000 });
+    await expect(page.locator('.check-btn').nth(1),
+      'Field B entered offline must survive reopening — it was shown as saved')
+      .toHaveClass(/checked/, { timeout: 5000 });
+  });
+
+  // ─── Offline save honesty (OFF-02..OFF-05) ────────────────────────
+  // Design + user stories: .night-crew/knowledge/designs/offline-save-honesty.md
+  // The small fix for OFF-01: an answer that never reached the server must not
+  // be counted as complete and must say so. It does NOT make the answer survive
+  // — that is the queued-SET_FIELD card OFF-01 is parked against.
+
+  async function offlineTemplate(page, name, labels) {
+    const todayDOW = await getTodayDOW(page);
+    return apiCall(page, 'POST', 'createTemplate', {
+      name: name,
+      requires_approval: false,
+      sections: [{
+        title: 'Section 1',
+        order: 0,
+        condition: null,
+        fields: labels.map(function(label, i) {
+          return { type: 'checkbox', label: label, required: false, order: i, config: {}, fail_trigger: null, condition: null };
+        }),
+      }],
+      assignments: [{ assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' }],
+      schedules: [{ active_days: [todayDOW] }],
+    });
+  }
+
+  test('progress counts pending answers and says they are pending [OFF-02]', async ({ page, context }) => {
+    const tpl = await offlineTemplate(page, 'Offline Progress Test', ['Field A', 'Field B']);
+    await page.goto(BASE + '/workflows.html');
+    const row = page.locator('[data-fill-template-id="' + tpl.id + '"]');
+    await expect(row).toBeVisible({ timeout: 10000 });
+    await row.click();
+    await page.waitForSelector('.check-btn', { timeout: 10000 });
+
+    await context.setOffline(true);
+    await page.locator('.check-btn').first().click();
+    await page.locator('.check-btn').nth(1).click();
+    await page.waitForTimeout(1500); // 400ms debounce + failure
+
+    // The work was done, so it counts — but each field says it is waiting.
+    await expect(page.locator('#fill-body .progress-line'))
+      .toContainText('2 of 2 items complete', { timeout: 5000 });
+    await expect(page.locator('.pending-sync-mark')).toHaveCount(2, { timeout: 5000 });
+
+    // The list overview reads 2/2 — matching the runner, not contradicting it.
+    await page.click('#fill-back');
+    await expect(page.locator('#checklist-list')).toBeVisible({ timeout: 5000 });
+    const rowAfterBack = page.locator('[data-fill-template-id="' + tpl.id + '"]');
+    await expect(rowAfterBack.locator('text=2/2')).toBeVisible({ timeout: 5000 });
+  });
+
+  test('a field whose save failed is marked Pending sync [OFF-03]', async ({ page, context }) => {
+    const tpl = await offlineTemplate(page, 'Offline Mark Test', ['Field A', 'Field B', 'Field C']);
+    await page.goto(BASE + '/workflows.html');
+    const row = page.locator('[data-fill-template-id="' + tpl.id + '"]');
+    await expect(row).toBeVisible({ timeout: 10000 });
+    await row.click();
+    await page.waitForSelector('.check-btn', { timeout: 10000 });
+
+    await context.setOffline(true);
+    await page.locator('.check-btn').first().click();
+    await page.locator('.check-btn').nth(1).click();
+    await page.waitForTimeout(1500);
+
+    const marks = page.locator('.pending-sync-mark');
+    await expect(marks).toHaveCount(2, { timeout: 5000 });
+    await expect(marks.first()).toHaveText('Pending sync');
+
+    // The untouched third field carries no marker.
+    const fieldC = page.locator('.fill-field', { hasText: 'Field C' });
+    await expect(fieldC.locator('.pending-sync-mark')).toHaveCount(0);
+
+    // The mark survives a re-render — reopening must not silently upgrade
+    // "waiting to sync" into "saved".
+    await page.click('#fill-back');
+    await page.locator('[data-fill-template-id="' + tpl.id + '"]').click();
+    await page.waitForSelector('.check-btn', { timeout: 10000 });
+    await expect(page.locator('.pending-sync-mark')).toHaveCount(2, { timeout: 5000 });
+  });
+
+  test('a failed save says why, once per burst [OFF-04]', async ({ page, context }) => {
+    const tpl = await offlineTemplate(page, 'Offline Toast Test', ['Field A', 'Field B']);
+    await page.goto(BASE + '/workflows.html');
+    const row = page.locator('[data-fill-template-id="' + tpl.id + '"]');
+    await expect(row).toBeVisible({ timeout: 10000 });
+    await row.click();
+    await page.waitForSelector('.check-btn', { timeout: 10000 });
+
+    // #toast is a singleton node, so the DOM cannot distinguish one call from
+    // two — count the calls at the source instead.
+    await page.evaluate(() => {
+      window.__toasts = [];
+      const orig = window.showToast;
+      window.showToast = function (msg) { window.__toasts.push(msg); return orig.apply(this, arguments); };
+    });
+
+    await context.setOffline(true);
+    await page.locator('.check-btn').first().click();
+    await page.locator('.check-btn').nth(1).click();
+    await page.waitForTimeout(1500);
+
+    const offlineToasts = await page.evaluate(() => window.__toasts);
+    expect(offlineToasts, 'two fields failing in one burst must coalesce into one message')
+      .toEqual(['Saved on this device — will sync when you’re back online.']);
+
+    // Same failure with the network up names the retry, not the connection.
+    await context.setOffline(false);
+    await page.route('**/api/v1/workflow/ops', route => route.fulfill({ status: 500, body: '{}' }));
+    await page.evaluate(() => { window.__toasts = []; });
+    await page.locator('.check-btn').nth(1).click();
+    await page.waitForTimeout(1500);
+    const onlineToasts = await page.evaluate(() => window.__toasts);
+    expect(onlineToasts).toEqual(['Save didn’t go through — retrying.']);
+    await page.unroute('**/api/v1/workflow/ops');
+  });
+
+  test('pending answers sync by themselves when the connection returns [OFF-05]', async ({ page, context }) => {
+    const tpl = await offlineTemplate(page, 'Offline Retry Test', ['Field A', 'Field B']);
+    await page.goto(BASE + '/workflows.html');
+    const row = page.locator('[data-fill-template-id="' + tpl.id + '"]');
+    await expect(row).toBeVisible({ timeout: 10000 });
+    await row.click();
+    await page.waitForSelector('.check-btn', { timeout: 10000 });
+
+    await context.setOffline(true);
+    await page.locator('.check-btn').first().click();
+    await page.waitForTimeout(1500);
+    await expect(page.locator('.pending-sync-mark')).toHaveCount(1, { timeout: 5000 });
+
+    // Signal returns — and nothing else happens. No tap, no reload.
+    await context.setOffline(false);
+    await page.evaluate(() => window.dispatchEvent(new Event('online')));
+    await page.waitForResponse(
+      res => res.url().includes('/api/v1/workflow/ops') && res.request().method() === 'POST' && res.status() < 400,
+      { timeout: 10000 });
+
+    await expect(page.locator('.pending-sync-mark')).toHaveCount(0, { timeout: 5000 });
+    await expect(page.locator('#fill-body .progress-line')).toContainText('1 of 2 items complete', { timeout: 5000 });
+
+    // And it is real on the server, not just on this device: a reopen rebuilds
+    // field state from the server's drafts, and the answer is still there.
+    await page.click('#fill-back');
+    const rowAfterBack = page.locator('[data-fill-template-id="' + tpl.id + '"]');
+    await expect(rowAfterBack.locator('text=1/2')).toBeVisible({ timeout: 5000 });
+    await rowAfterBack.click();
+    await page.waitForSelector('.check-btn', { timeout: 10000 });
+    await expect(page.locator('.check-btn').first()).toHaveClass(/checked/, { timeout: 5000 });
+    await expect(page.locator('.pending-sync-mark')).toHaveCount(0);
+  });
+
+  test('a failure while ONLINE retries itself on the timer tick [OFF-06]', async ({ page }) => {
+    const tpl = await offlineTemplate(page, 'Offline Timer Retry Test', ['Field A', 'Field B']);
+    await page.goto(BASE + '/workflows.html');
+    const row = page.locator('[data-fill-template-id="' + tpl.id + '"]');
+    await expect(row).toBeVisible({ timeout: 10000 });
+    await row.click();
+    await page.waitForSelector('.check-btn', { timeout: 10000 });
+
+    // Server-side failure with the network up: no 'online' event will ever
+    // fire, so only the retry tick can recover this.
+    await page.route('**/api/v1/workflow/ops', route => route.fulfill({ status: 500, body: '{}' }));
+    await page.locator('.check-btn').first().click();
+    await page.waitForTimeout(1500);
+    await expect(page.locator('.pending-sync-mark')).toHaveCount(1, { timeout: 5000 });
+
+    // Server recovers. Drive the 15s tick rather than sleeping for it.
+    await page.unroute('**/api/v1/workflow/ops');
+    await page.evaluate(() => window.retryPendingFields());
+    await page.waitForResponse(
+      res => res.url().includes('/api/v1/workflow/ops') && res.request().method() === 'POST' && res.status() < 400,
+      { timeout: 10000 });
+
+    await expect(page.locator('.pending-sync-mark')).toHaveCount(0, { timeout: 5000 });
+    await expect(page.locator('#fill-body .progress-line')).toContainText('1 of 2 items complete', { timeout: 5000 });
+  });
+
   test('checked field survives back-to-list and reopen without losing state [FLD-02 RUN-18]', async ({ page }) => {
     const todayDOW = await getTodayDOW(page);
     // Create template with 2 fields
