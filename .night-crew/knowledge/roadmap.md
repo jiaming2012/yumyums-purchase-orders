@@ -666,12 +666,13 @@
 - **`sync-rxdb-conflict-notice-mockup`** · **DONE** (2026-07-29, run `overnight-20260729`, card
   branch `card/d-sync-rxdb-conflict-notice-mockup`; card authored at slate-20260729 planning,
   fanned out of `sync-rxdb-conflict-notice-ui`) · **The sign-off artifact exists.**
-  `.planning/phases/sync-rxdb-conflict-notice/mockup.html` — nine plates, mobile-first 480px on
-  HQ's shared variable block with dark mode, modelled on `.planning/phases/f3-trends-tab/mockup.html`
-  — plus `UI-SPEC.md` beside it carrying the State Enumeration Table (four base rows and four
-  edges, including all three the slate named: **no discarded value available**, **several conflicts
-  at once**, **conflict on a field since removed from the template**), the `done_when:` block, and
-  the `conflict$` evidence the design rests on. **Zero production code**, as the card required.
+  `.planning/phases/sync-rxdb-conflict-notice/mockup.html` — **eleven plates** (nine as first
+  drafted, two added by the repair round), mobile-first 480px on HQ's shared variable block with
+  dark mode, modelled on `.planning/phases/f3-trends-tab/mockup.html` — plus `UI-SPEC.md` beside it
+  carrying the State Enumeration Table (**four base rows and six edges**, including all three the
+  slate named: **no discarded value available**, **several conflicts at once**, **conflict on a
+  field since removed from the template**), the `done_when:` block, and the `conflict$` evidence the
+  design rests on. **Zero production code**, as the card required.
   **THE OPERATOR NOW HAS SOMETHING TO SAY YES OR NO TO — that answer is what unblocks
   `sync-rxdb-conflict-notice-ui`, and it has NOT been given.** A *no* is a successful outcome for
   this card; redrawing a mockup is cheaper than redrawing `workflows.html`.
@@ -704,14 +705,42 @@
   **Open question left for the operator, deliberately:** beyond ~10 conflict groups the sheet needs
   a cap or a date filter; not designed. Judge it against one long dead-zone shift with an active
   manager.
-  **Self-verified per CLAUDE.md's headless ritual** — 18 PNGs (9 plates × light/dark at 480px) under
-  `screenshots/`, produced by the committed `shoot.mjs`, read back multimodally and compared row by
-  row against each row's visual contract. **Two findings were fixed rather than reported around:**
-  nested `<span>`s rendered the banner headline and every checklist name run together with their
-  subtitles, and the several-at-once caption promised a group action "above the individual buttons"
-  when the render collapses them and puts it at the foot — the caption was corrected to the render,
-  not the reverse. **Red-first DOES NOT APPLY and is not silently omitted:** there is no code and no
-  test in this card, and the screenshot ritual is the substitute discipline.
+  **Self-verified per CLAUDE.md's headless ritual** — **22 PNGs (11 plates × light/dark at 480px)**
+  under `screenshots/`, produced by the committed `shoot.mjs`, read back multimodally and compared
+  row by row against each row's visual contract. **Two findings were fixed rather than reported
+  around:** nested `<span>`s rendered the banner headline and every checklist name run together with
+  their subtitles, and the several-at-once caption promised a group action "above the individual
+  buttons" when the render collapses them and puts it at the foot — the caption was corrected to the
+  render, not the reverse. **Red-first DOES NOT APPLY and is not silently omitted:** there is no code
+  and no test in this card, and the screenshot ritual is the substitute discipline.
+  **⚠️ VERIFIER GATE: PASS-WITH-ISSUES → REPAIRED (repair round, same branch).** A verifier whose
+  inputs were restricted to the UI-SPEC, the `done_when:` block, the diff and the screenshots — not
+  the author's reasoning — confirmed the recovery path is concrete and usable, and returned nine
+  defects. All nine are fixed on this branch; the sign-off the operator gives is against the
+  **repaired** artifact. The four that change what the operator is being asked to approve:
+  (a) **The counting rule was never defined and two plates disagreed about it in opposite
+  directions.** It is now stated once in `UI-SPEC.md` §"The counting rule" — banner = Σ recoverable
+  rows, chip = that group's rows, **handling a row never changes a count** (only Dismiss or expiry
+  does), unidentifiable changes counted separately as `+N`. Every plate obeys it. The operator can
+  reject this: it means **the banner is not a to-do list**.
+  (b) **Long content overflowed.** A 90-char unbroken token pushed the page to a **951 px
+  `scrollWidth`** in a 480 px viewport, with no wrap and no ellipsis — and there was no long-content
+  edge row, though CLAUDE.md names it as canonical and a free-text note is the field most likely to
+  survive a conflict. New edge row + plate, CSS fixed (`min-width:0` on row and value,
+  `overflow-wrap:anywhere`), re-measured at **480 = 480**.
+  (c) **Three sub-44px controls** — Undo (35×16), Done (37×16), Review (53×15) — passed a
+  `done_when:` row that only grepped the two classes already known to declare `min-height:44px`.
+  Undo is the only escape from a mis-tapped Restore. All fixed; `shoot.mjs` now **measures** every
+  interactive element's box in both schemes and exits non-zero.
+  (d) **Two states claimed more than the mechanism supports.** The empty state said "Nothing was
+  overwritten" — a flat guarantee, on the screen shown most often, that a non-leader tab or an
+  evicted store makes false; it now reads "Nothing recorded in the last 30 days". The storage-error
+  state reassured that the checklists are fine without saying the **record is permanently gone** —
+  the one screen in the set where something really is unrecoverable. Both rewritten.
+  Also: the two previously-undrawn outcomes (**Keep theirs** and **Undo**) now have a plate, three
+  captions that disagreed with their own render were corrected, "Restore all N of mine" was
+  restyled primary, and two `done_when:` criteria that could not fail were rewritten (criterion 6
+  asked a static plate to show a transition; criterion 14 named only the classes it knew passed).
   **G3 (openspec validate) DOES NOT APPLY** — hq has no `openspec/` tree and
   `night-crew workflow preflight` reports ABSENT.
   **No version constant moved** (`Backend 0.3.0`, `Frontend 1.2.1` untouched) and **`sw.js` was not
@@ -749,7 +778,11 @@
 
   **✅ THE MOCKUP LANDED 2026-07-29** (`sync-rxdb-conflict-notice-mockup`, DONE above).
   `.planning/phases/sync-rxdb-conflict-notice/mockup.html` + `UI-SPEC.md` (State Enumeration Table,
-  `done_when:`, the `conflict$` evidence) + 18 self-verification renders are committed. **The
+  `done_when:`, the `conflict$` evidence) + **22 self-verification renders** are committed, and the
+  artifact has been through a **verifier gate (PASS-WITH-ISSUES → all nine defects repaired)**;
+  read the gate summary on the mockup card above before slating, because two of the repairs are
+  design decisions the operator can reject outright (the counting rule, and handled rows staying on
+  the sheet until Dismiss). **The
   scheduling decision below is DISCHARGED — drafting the mockup was the next action, and it is
   done.** What remains is now genuinely the operator's: an explicit *"ok, build this"*, or a *no*
   with what to change. **This card stays ATTENDED-BLOCKED until that answer exists** — a run may
