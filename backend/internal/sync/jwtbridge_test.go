@@ -15,11 +15,12 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/yumyums/hq/internal/auth"
+	"github.com/yumyums/hq/internal/testdb"
 )
 
 // Unit-level guards on the mint itself. These need no stack and no DB, except
 // the two grant tests at the bottom, which use HQ's own test database via the
-// connect-or-skip idiom.
+// skip-if-unset / FAIL-if-set-and-unreachable gate in internal/testdb.
 
 // TestSign_IsAValidHS256JWT verifies the hand-rolled mint against the JWS
 // compact serialization by hand — three base64url segments, no padding, and an
@@ -156,21 +157,26 @@ func TestMintForUser_RejectsNilUser(t *testing.T) {
 
 func hqTestPool(t *testing.T) *pgxpool.Pool {
 	t.Helper()
-	dbURL := os.Getenv("DB_TEST_URL")
+	dbURL := os.Getenv(testdb.EnvVar)
 	if dbURL == "" {
 		dbURL = os.Getenv("TEST_DATABASE_URL")
 	}
 	if dbURL == "" {
 		t.Skip("DB_TEST_URL / TEST_DATABASE_URL not set — skipping integration test")
 	}
+	// Past this point the URL was set explicitly, so a run WAS intended and
+	// every failure below is a failure, never a skip — the asymmetric gate in
+	// internal/testdb. This file is the other site named in the B-16 incident
+	// report, and the grant-mapping test below is exactly the kind that goes
+	// vacuous-but-green when the database underneath it disappears.
 	ctx := context.Background()
 	pool, err := pgxpool.New(ctx, dbURL)
 	if err != nil {
-		t.Skipf("DB_TEST_URL not reachable (connect failed): %v", err)
+		t.Fatal(testdb.Reason(dbURL, "connect", err))
 	}
 	if err := pool.Ping(ctx); err != nil {
 		pool.Close()
-		t.Skipf("DB_TEST_URL not reachable (ping failed): %v", err)
+		t.Fatal(testdb.Reason(dbURL, "ping", err))
 	}
 	t.Cleanup(pool.Close)
 	return pool
