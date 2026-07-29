@@ -28,11 +28,44 @@ transaction on the other. Full evidence, measured not assumed, is in
 `park-b2-sync-rxdb-row-visibility-rls.md`.
 
 Consequence for the merger: **nothing about the activation interlock changes.**
-`HQ_SYNC_REST_URL` must still not be set in any deploy. The four B1 tables remain
-RLS-enabled with zero policies (deny-all), which is exactly where B1 left them.
+`HQ_SYNC_REST_URL` must still not be set in any deploy. ~~The four B1 tables remain
+RLS-enabled with zero policies (deny-all), which is exactly where B1 left them.~~
+**STRUCK as imprecise (repair round, same family as park-note C-4): that was a claim
+about a live database that had not been measured.** Corrected: `0001_sync_tables.sql`
+declares the four tables RLS-enabled with **zero `CREATE POLICY`** — the only
+occurrence of that phrase in the file is a comment asserting the absence, and
+`tests/sync-schema.spec.js` guards it. **Live, the four tables are not present in the
+substrate at all** (queried on 46011 this round: `NONE_PRESENT`), because B1's SQL has
+not been applied anywhere. Deny-all-by-declaration, unapplied in fact. Either way this
+card weakened nothing.
 The door is still shut; this card did not open it and did not half-open it.
 
 ---
+
+## 🔧 Repair round — corrections applied after G6 verification
+
+G6 independently re-executed every probe on both servers and found the park
+**CORRECT**. **The verdict is unchanged: PARKED.** It also found four inaccuracies in
+the park note, which have been applied there and are listed here so the merger sees
+them from this note too:
+
+| | Correction | Where it landed |
+|---|---|---|
+| C-1 | `postgres_fdw`/`dblink` are **installable at both ends**, not merely "available, uninstalled" at one — and HQ was never measured. Re-measured here by executing `CREATE EXTENSION` on **both** servers in rolled-back transactions. Changes the cost of fork option (a) from two obstacles to one. | park note §3 (E4 struck, E4a–E4c added), §5 option (a) |
+| C-2 | Native logical replication added to the fork as **option (b′)** — crash-safe, zero code in the mutation path, but still asynchronous and therefore in the same bounded-lag risk class as (b). | park note §5 |
+| C-3 | The note silently substituted `template_assignments` for the `app_permissions` the card and decision 61 name. Conclusion unchanged (identical topology, measured); but **decision 61's literal text may have been written about a different table.** Flagged for the operator, not decided. | park note §2b |
+| C-4 | The claim that the shared spike stack was "read only" was **false** and is struck in place, with what was actually written and by what. | park note §6 |
+
+**This note was re-read whole (B-11).** The one line in it that the repair round
+contradicts is struck above. The false read-only claim lives in the park note, not
+here, and is struck there.
+
+**Disclosure the merger should have from this note directly:** the shared spike
+Supabase stack at `127.0.0.1:46011` **was written to** during this card's work —
+by `TestJWTBridgeRLS`'s own fixture and policy files (which it applies on every run),
+and by this round's rolled-back `CREATE EXTENSION` probe. No database was created or
+dropped; nothing persisted from the probe; B1's four tables were never reached. Full
+account in park note §6.
 
 ## Shared files touched (files that exist on the base branch)
 
@@ -91,3 +124,23 @@ premise the whole proof rests on — that the projection is live — is precisel
 thing the park says cannot be built tonight. On a run whose first card exists
 because a suite that runs nothing reports `ok`, shipping a security proof whose
 premise is fictional is the same defect one level up. So it was not shipped.
+
+**Corroboration added in the repair round — G6 found it, and this note had asserted
+the point without demonstrating it.** G6's independent verdict is that the no-red
+decision was **RIGHT**, and the repo backs it directly: `hq_grant_projection` is
+*written* from exactly two places repo-wide — `jwtbridge_rls_test.go` (`:512`, `:518`,
+`:590`, `:595`) and `hq-bridge-fixture.sql` (`:153`). A test and a fixture. Every
+other occurrence is a select, a policy, a proxy route mapping, or prose. **There is no
+push-on-change writer anywhere in this repo to imitate.** The pattern decision 61
+assumes exists in production exists only in the spike — which is why a green suite
+here would have proved something about a fixture, and why its absence is the honest
+outcome rather than a gap.
+
+**On the 16/16 above.** G6 could not confirm the original run executed
+`TestJWTBridgeRLS` rather than reporting a green banked by the 2026-07-26 card B run
+— `hq_grant_projection` held 2 rows beforehand, which either explains. The ambiguity
+is not resolvable after the fact, so the record is replaced with a first-hand one:
+the repair round ran `go test ./internal/sync/ -run TestJWTBridgeRLS -v -count=1` at
+**2026-07-29 02:02:20–02:02:23 UTC** — **PASS, 16/16 subtests**, both `service_role`
+BYPASSRLS controls green. Nothing in this branch depends on that green; it is stated
+so the record is unambiguous. See park note §7a.
