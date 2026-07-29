@@ -590,7 +590,27 @@
   Footprint: `backend/internal/{inventory,purchasing,recipes}`, `sync.js`, `workflows.html`,
   `purchasing.html`, a migration for the two column defaults.
 
-- **`sync-rxdb-collections-and-table-contract`** · **PLANNED — SLATE-READY, slated on `overnight-20260729-2` (Track B, card B1)** · **✅ FORK RESOLVED 2026-07-28 — the durable conflict record is a personal, per-device undo, stored local-only (ledger T-27 decision 89).**
+- **`sync-rxdb-collections-and-table-contract`** · **DONE — landed on `overnight-20260729-2` (Track B, card B1), 2026-07-29.**
+  Three new files, no npm dependency, nothing outside the footprint:
+  `sync-schema/collections.js` (the four replicated collection schemas + the LOCAL
+  conflict record + `CONFLICT_RECORD_RETENTION_DAYS`), `sync-schema/sql/0001_sync_tables.sql`
+  (all six items of the self-hosted per-table contract, for four tables, **with no
+  `CREATE POLICY` — RLS is enabled with zero policies, i.e. deny-all, until
+  `sync-rxdb-row-visibility-rls` lands**), and `tests/sync-schema.spec.js` (28 tests,
+  red-first at `701fb52` with 27 failing). A fourth file, `sync-schema/package.json`,
+  scopes `"type": "module"` to that directory and declares no dependencies.
+  The schemas are **plain data**, validated by tests that need no RxDB runtime — the
+  `rxdb` and `@supabase/supabase-js` packages stay unpinned and belong to
+  `sync-rxdb-replication-and-conflict-handler`. The mirror is one-for-one:
+  `templates`→`checklist_templates`, `checklists`→`checklist_submissions`,
+  `responses`→`submission_responses`, `approvals`→`submission_rejections`.
+  Sections/fields/schedules/assignments/fail-notes are deliberately not mirrored —
+  `checklists.template_snapshot` makes a filled checklist self-contained offline, and
+  `template_assignments` is B2's RLS input rather than a replicated collection.
+  `lamport_ts` is not carried across on either side. The PARK trigger did **not** fire:
+  none of the four mirrored tables carries money, and the one number crossing the schema
+  is a temperature reading inside `responses.value`.
+  · **✅ FORK RESOLVED 2026-07-28 — the durable conflict record is a personal, per-device undo, stored local-only (ledger T-27 decision 89).**
   The question raised at morning triage 2026-07-28 was where the record of an overwritten answer
   lives. The product question put to the operator: an *audit trail a manager can see*, or a
   *personal undo for the person holding the phone*? **Operator answer: personal undo, per-device.**
