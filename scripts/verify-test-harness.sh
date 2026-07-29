@@ -97,10 +97,10 @@ DEAD_STATUS=$?
 cd "$REPO_ROOT"
 
 if [ "$DEAD_STATUS" -ne 0 ]; then
-	pass "go test exited $DEAD_STATUS with DB_TEST_URL pointed at a dead port"
+	pass "go test exited $DEAD_STATUS with DB_TEST_URL=$DEAD_URL"
 else
-	fail "go test exited 0 with DB_TEST_URL pointed at a dead port — a dropped or
-        unreachable database reports 'ok'. Destroying the test environment is
+	fail "go test exited 0 with DB_TEST_URL=$DEAD_URL — a dropped or unreachable
+        database reports 'ok'. Destroying the test environment is
         indistinguishable from passing it."
 fi
 echo "    (per-package output: /tmp/h1-deadport.log)"

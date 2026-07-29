@@ -525,8 +525,8 @@
   full suite re-run for a comment); this card makes the sentence accurate instead. Footprint:
   `backend/internal/workflow`, a migration, `workflows.html`, `sync.js`.
 
-- **`test-harness-fail-loud`** · **PLANNED — slated on `overnight-20260729-2` (Track A, card H1,
-  dispatch first)** · **PROMOTED from BACKLOG B-09 + B-16(b) at the 2026-07-28 slate-planning
+- **`test-harness-fail-loud`** · **DONE — landed on `overnight-20260729-2` (Track A, card H1)** ·
+  **PROMOTED from BACKLOG B-09 + B-16(b) at the 2026-07-28 slate-planning
   session under the §15k architecture-blocking bar (ledger T-27 decision 90).** Make a broken test
   environment **fail** instead of **pass**. Two mechanisms, one theme, and the theme is the point:
   `overnight-20260729` produced **three** silent-greens in one run, which the closeout correctly
@@ -550,6 +550,18 @@
   not any test the harness newly reveals as failing — park those with evidence. **B-16(a)** (reviewer
   prompts must forbid dropping a database the reviewer did not create) is **not** in this card; it is
   standing G6 dispatch text. Footprint: `Taskfile.yml`, `backend/internal/*/**_test.go`.
+  **Landed as planned, with both reds observed first at `82350cc`.** (a) `npx playwright test
+  --list` went `Total: 568 tests in 19 files` → `Total: 569 tests in 20 files`; the 20th is
+  `.features-gen/features/user-invite-onboarding.feature.spec.js`. (b) All seven DB-backed packages
+  reported `ok` in **under 1.3s each** against a `DB_TEST_URL` naming a database that does not
+  exist; they now exit 1 with the DSN, the stage (connect vs ping) and the reason in the message.
+  Two deviations, both disclosed in the merge-intent note: the asymmetry lives in **one** new
+  test-only package, `backend/internal/testdb` (outside the stated footprint) rather than in eight
+  inline copies — eight copies would be eight patterns; and the per-test `t.Skip` lines the card
+  enumerates in `requires_approver_test.go` / `sync_receipts_test.go` / `worker_test.go` are
+  **subsumed, not edited**, because they all key off the package-level `testPool == nil` that the
+  five converted `TestMain`s set. Reproducible via `scripts/verify-test-harness.sh`, whose third
+  check (B2) guards the *other* direction: `DB_TEST_URL` unset must keep skipping.
 
 - **`app-timezone-unify-new-york`** · **PLANNED — HIGH, small/medium** (new card, morning triage
   2026-07-28, ledger T-26 decision 83) · **The app is running two conflicting timezone regimes, and
