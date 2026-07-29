@@ -32,11 +32,17 @@ correct outcome, not a failure. **Zero production code.**
   element's touch-target box, exiting non-zero on failure. This card adds measurements for the
   contracts A-1 and A-2 introduce that also cannot be judged by eye — that **every** banner carries
   **both** figures, that **no banner line is truncated at 480px** (A-1's PARK trigger, so it must be
-  measured and not asserted), and ~~that the batch override names what it replaces~~ **STRUCK at
+  measured and not asserted), and ~~that the batch override names what it replaces~~ ~~**STRUCK at
   close-out — the check landed BROADER than the guess: it covers every control whose label begins
   with "Restore" (10 of them), not just the two batch buttons. Narrowing it back to `.cg-all` would
-  silently un-check the eight single-row restores.** **A merge that keeps the PNGs and reverts
-  `shoot.mjs` silently un-checks those rows.**
+  silently un-check the eight single-row restores.**~~ **STRUCK AGAIN AT THE REPAIR ROUND — "every
+  control whose label begins with Restore" was the wrong population, not a broader one. It excluded
+  `Retry` and `Restoring…` on `plate-error` (the same destructive write, on the plate where the crew
+  member has already failed once) and it EVAPORATED under a rename while printing `0 Restore
+  controls, 0 silent -> PASS`. The check is now scoped by what a control DOES — everything in
+  `.cf-btn, .cg-all, .cfm-go` that is not one of five non-destructive labels — with a floor on the
+  population so a rename or a deletion reds. 13 controls, not 10.** **A merge that keeps the PNGs
+  and reverts `shoot.mjs` silently un-checks those rows.**
 - `.night-crew/knowledge/roadmap.md` — this card's `PLANNED` → `DONE` status flip (~`:1056`), plus a
   short annotation on the sibling `sync-rxdb-conflict-notice-ui` (~`:1083`) recording that the
   **revised** plates now exist. **That annotation is NOT a status change** — the parent stays
@@ -59,7 +65,10 @@ correct outcome, not a failure. **Zero production code.**
   Playwright is read from the main clone's already-installed `node_modules` through a **gitignored**
   symlink, removed after the render.
 - `backend/internal/version/version.go` — **NOT touched.** No shipped file changed on either side,
-  so **neither** constant moves. `Backend` stays `0.3.0`, `Frontend` stays `1.2.1`.
+  so **neither** constant moves. `Backend` stays `0.3.0`, ~~`Frontend` stays `1.2.1`~~ **`Frontend`
+  stays `1.2.2` — STRUCK at the repair round: `1.2.1` was never what the tree held. The claim that
+  matters (nothing moved) is true and verified by an empty `git diff` on both paths; the literal was
+  wrong, and the same wrong literal had been copied into `done_when:` row 20.**
 - `backend/` generally, `tests/`, `Taskfile.yml`, `docker-compose*.yml`, `.claude/` — **NOT touched.**
 - **`.night-crew/knowledge/ledger.md`** — **NOT touched.** Decisions 80/82/91 are the record this
   card executes against; an implementer editing the ledger would be writing its own grade.
@@ -155,10 +164,17 @@ _(appended only if implementation forces a file outside the list above; per B-11
 re-read at close-out and contradicted lines are **struck**, not merely appended to)_
 
 **Closed out.** The note was **re-read in full**, not appended to blindly. **The footprint held
-exactly as declared: no file outside the list above was edited, and no file was added to it.** Three
-commits, each carrying the `Night-Crew-Card:` trailer as one adjacent paragraph, each verified after
-the fact with `git log -1 --format=%B | git interpret-trailers --parse`. `git diff --name-only
-9bd9a72..HEAD` lists 38 paths, all under
+exactly as declared: no file outside the list above was edited, and no file was added to it.**
+~~Three commits~~ **— four at this point, and more after the repair round below; see the branch
+log** — each carrying the `Night-Crew-Card:` trailer as one adjacent paragraph, each verified after
+the fact with `git log -1 --format=%B | git interpret-trailers --parse`. ~~`git diff --name-only
+9bd9a72..HEAD` lists 38 paths~~ **— STRUCK at the repair round: at this close-out (`ab34f41`) the
+count was **37**, not 38 (32 PNGs + `mockup.html` + `UI-SPEC.md` + `shoot.mjs` + `roadmap.md` + this
+note). At the repair round's HEAD it is **35**: `loading-light.png` and `loading-dark.png`
+re-rendered back to bytes identical to the branch point, because the reflow that shifted every plate
+by one device pixel happened to shift that one back into its pre-r2 alignment. Both numbers verified
+with `git diff --name-only 9bd9a72..<rev> | wc -l`. The footprint claim is unchanged and still
+holds; only the arithmetic was wrong** — all under
 `.planning/phases/sync-rxdb-conflict-notice/`, plus `.night-crew/knowledge/roadmap.md` and this
 note. No production file, no version constant, no `sw.js`.
 
@@ -202,7 +218,8 @@ batch button.
 
 **Nothing from this round contradicts the four HARD-constraints attestation** — `package.json`,
 `package-lock.json`, `backend/go.mod`, `docker-compose.nc.yml` and `Taskfile.yml` remain untouched,
-and no version constant moved (`Backend` 0.3.0, `Frontend` 1.2.1; `git diff` on those paths is
+and no version constant moved (`Backend` 0.3.0, ~~`Frontend` 1.2.1~~ **`Frontend` 1.2.2 — struck
+above**; `git diff` on those paths is
 empty). Playwright was read from the main clone's existing install; the temporary `node_modules`
 symlink used to resolve it is gitignored and was removed after the final render.
 
@@ -210,3 +227,74 @@ symlink used to resolve it is gitignored and was removed after the final render.
 `UI-SPEC.md` still says nothing is approved. No sign-off was claimed, no block lifted, and neither
 open decision was settled. **The restricted-input verifier gate is still owed before any SUMMARY.md
 is written** — this card wrote none, and the orchestrator holds that gate.
+
+---
+
+## Repair round — close-out (same run, after two independent gates)
+
+**The whole note was re-read again under B-11, not appended to. Four lines above are struck** — the
+A-2 check's scope (twice now), `Frontend 1.2.1` in two places, and the "38 paths" count. Each strike
+names what replaced it and why. **The footprint did NOT widen: the same six declared paths.**
+`git diff --name-only 9bd9a72..HEAD` lists **35** files at the repair round's HEAD (37 at the
+previous close-out — `loading-*.png` re-rendered identical to the branch point; see the strike
+above). No production file, no version constant, no `sw.js`, nothing new added to the list.
+
+**The plates survived; the criteria did not.** Both gates independently confirmed the red commit is
+honest, the three claimed mutations reproduce, all four trailers parse, all 32 PNGs re-render, and
+nothing truncates, clips, overlaps or tofus in either scheme. No PARK was owed and none is taken.
+What they found was that four checks could not fail in the way they claimed to, plus one design hole
+and two fixture defects. All are repaired **and each repair was falsified by re-running the
+mutation**, because a repair to a falsifiability defect that is not itself falsified is not a repair.
+
+1. **`done_when:` 32 was scoped to the file the fix was made in.** `mockup.html` got the `⟨30⟩`
+   placeholder; `UI-SPEC.md`'s State Enumeration `empty` row went on printing *"Nothing recorded in
+   the last 30 days"* as settled prose, **byte-identical to the base**, while row 32 named that exact
+   string as its own counter-example. Table row fixed; row 32 now greps this spec too.
+2. **`done_when:` 26 selected by LABEL, not behaviour.** `/^Restore/` matched neither `Retry` nor
+   `Restoring…` on `plate-error`, and the whole guard evaporated under a rename while reporting
+   success. Re-scoped by what the control does, with a population floor. **13 destructive controls,
+   not 10.**
+3. **`done_when:` 21 could not detect a DELETED banner.** Count now pinned at 8.
+4. **`done_when:` 22 checked presence, not arithmetic.** New measurement 6 reconciles headline /
+   still-to-review / handled / `+N` / chip base against the rows actually drawn, per plate, in both
+   schemes — **without settling open decision (i)**: a removed-field row may sit in either bucket and
+   the plate must balance under exactly one reading, which the script derives and names.
+5. **`done_when:` 20 carried a false literal** (`1.2.1`; the tree reads `1.2.2`). Corrected here and
+   in the spec.
+6. **A design hole: collapse removed the only exit from an unidentifiable row.** Counting rule 8
+   protected the outcome strip and Undo under collapse and was silent about the row that has
+   neither, so `a1-banner` drew two *"A change we couldn't identify"* rows with **no actions at
+   all** — and `Dismiss` is the only way such a row ever leaves the sheet. **Resolved in favour of
+   keeping the actions**, which is rule 8's own argument rather than a new one: collapse hides the
+   Restore/Keep pair, and those rows have no such pair to hide. Rule 8 extended, plate redrawn,
+   `done_when:` 35 added, measurement 7 added. **This is a design change to an artifact the operator
+   has not signed — it is drawn, not decided, and it is listed here so the operator can reject it
+   with the rest of revision 2.**
+7. **Fixture drift repaired.** *Sanitizer concentration* on `Opening — Truck A / sub_9f31c4` read
+   `6:12 PM` on `outcomes` and `6:13 PM` on `a2-confirm` and `edge-many` — one document, one
+   question, one author, two times, on the surface whose whole thesis is that the numbers agree.
+   `6:13 PM` is correct; `outcomes` was the outlier.
+8. **One reported nit did NOT reproduce.** A stray `U+FE0F` was said to have been left behind when
+   the tofu'd `U+1F6D1` was replaced. **There is none.** Every variation selector in every file this
+   card touches is attached to a valid emoji base (`U+26A0 FE0F` on the eight banner icons,
+   `U+1F58A FE0F` on one roadmap heading); the three open-decision captions carry a bare `U+25B2`
+   with no selector. Checked codepoint-by-codepoint across all five files. Recorded rather than
+   silently dropped.
+
+**What a merge must additionally know after this round:**
+
+- **`shoot.mjs` now holds SEVEN measurements, and four of them are the repair.** Reverting it to the
+  r2 version does not just lose coverage — it restores checks that pass on a mutated file. The file
+  carries a header block naming the generic failure mode (*a check scoped to the place a fix was
+  made is the same escape as a criterion scoped to the members that already pass*); keep it.
+- **Counting rule 8 has a third clause.** A row with no Restore/Keep pair keeps its actions under
+  collapse. Dropping it re-opens a hole with no exit.
+- **`roadmap.md`'s pre-existing r1 sign-off block is now struck where it contradicted itself.** It
+  stated in the imperative that the card *"is no longer ATTENDED-BLOCKED and may enter a slate"* and
+  that the **pre-amendment** counting rule was *"settled"* and must be implemented *"as drawn"* —
+  nine lines below the 🛑 block saying the opposite. Four claims are struck with reasons; **(b)
+  handled rows stay on the sheet** is explicitly marked as SURVIVING, because A-1 depends on it.
+  This completes a supersession the card had already started; it does not widen the footprint.
+- **Nothing was lifted, discharged or settled.** `sync-rxdb-conflict-notice-ui` is still
+  **ATTENDED-BLOCKED**, `UI-SPEC.md` still says nothing is approved, and both open decisions are
+  still open and still drawn as decidable.

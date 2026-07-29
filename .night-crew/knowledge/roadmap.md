@@ -1166,28 +1166,49 @@
 
   **🖊️ THE r1 SIGN-OFF — 2026-07-28, operator, verbatim *"Ok, build this."* — SUPERSEDED IN PART
   at morning triage the same day (ledger T-26 decision 82); it is the record of what was decided at
-  18:12 and does not cover revision 2.** The gate
+  18:12 and does not cover revision 2.**
+  **🛑 THE FOUR CLAIMS STRUCK BELOW ARE NO LONGER TRUE. They are kept, struck, as the record of what
+  was believed at 18:12 — read the block above, not this one, for the card's live status.** An
+  unattended merger reading top-down was previously able to take them as binding, because the
+  supersession preamble framed them as history while the sentences themselves stayed in the
+  imperative. This completes that supersession.
+  ~~The gate
   CLAUDE.md sets before UI code on a phase introducing new components is **satisfied**; this card
-  is no longer ATTENDED-BLOCKED and may enter a slate. The sign-off was given **with the two
-  rejectable design decisions in view and neither was rejected** — so both are now settled and a
+  is no longer ATTENDED-BLOCKED and may enter a slate.~~ **STRUCK — the card IS still
+  ATTENDED-BLOCKED (see the 🛑 block above); decision 82 reopened it and revision 2 does not
+  discharge it.** The sign-off was given **with the two
+  rejectable design decisions in view and neither was rejected** — ~~so both are now settled and a
   run must implement them as drawn, not re-open them: **(a) the counting rule** as stated in
   UI-SPEC §"The counting rule" — the banner reports how many answers were overwritten in the
   retention window, **not** how many are still unhandled, so nothing a crew member does to a row
   changes any count and a count drops only when a record *leaves* the sheet (Dismiss, or ageing
-  out); **(b) handled rows stay on the sheet** — a restored row and a kept-theirs row both collapse
+  out)~~ **— (a) IS STRUCK. Amendment A-1 (decision 82) OVERTURNED exactly this: the banner must now
+  carry BOTH figures — what was overwritten in the window AND how many rows are still to review. A
+  run that implements the struck counting rule "as drawn" reinstates the defect A-1 was filed
+  against.** The half of (a) that SURVIVES is that rows never leave the sheet except on Dismiss or
+  expiry — A-1 changed what the banner PRINTS, not what the sheet KEEPS; **(b) handled rows stay on
+  the sheet** — a restored row and a kept-theirs row both collapse
   to a confirmation and keep an **Undo** rather than disappearing, because a removed row cannot be
-  undone. The scope of the yes is the **committed artifact**: `mockup.html` + `UI-SPEC.md` at
+  undone — **(b) STANDS, unchanged, and A-1 explicitly depends on it.** The scope of the yes was the
+  artifact **as it stood at 18:12**: ~~`mockup.html` + `UI-SPEC.md` at
   `.planning/phases/sync-rxdb-conflict-notice/` as of the repair round, all 11 plates and 22
-  renders. It is **not** blanket authority over the items UI-SPEC §"Explicitly NOT decided here"
-  names.
+  renders~~ **— STRUCK as a description of what is committed today: the tree now holds revision 2,
+  16 plates and 32 renders, which the 18:12 yes does not cover.** It is **not** blanket authority
+  over the items UI-SPEC §"Explicitly NOT decided here" names.
   **🛑 Still open, and three of them change what this UI can truthfully show** — read UI-SPEC
   §"Explicitly NOT decided here" before slating. The `conflictHandler`'s merge rule and whether the
   replicated schema carries who-and-when belong to
   `sync-rxdb-replication-and-conflict-handler` and `sync-rxdb-collections-and-table-contract`;
   **`_modified` is now DECIDED — not declared, decision 78 below**, which is the good outcome for
   this card (it keeps the *"a change we couldn't identify"* row rare rather than routine). The
-  durable conflict record's home and retention window remain this card's own implementation call —
-  the mockup's empty state says **30 days**, and the sign-off accepted that number as drawn.
+  durable conflict record's home is settled (ledger T-27 decision 89 — a local-only RxDB collection,
+  personal and per-device). ~~the retention window remains this card's own implementation call —
+  the mockup's empty state says **30 days**, and the sign-off accepted that number as drawn.~~
+  **STRUCK — the retention window was REOPENED at morning triage 2026-07-28 and is open decision
+  (ii), the operator's, not the implementer's. Revision 2's `empty` plate renders it as the
+  placeholder token `⟨30⟩` in a dashed box, never as prose, and `openq-retention` draws the same
+  screen at two candidate values so the choice is decidable. A run that reads "30 days" out of this
+  line and ships it settles an operator decision by omission.**
   **One operator question is still unanswered and is NOT blocking:** UI-SPEC §"Open question for
   the operator" — beyond roughly ten conflict groups the sheet needs a cap or a date filter, and it
   is not designed here. Judge it against one long dead-zone shift with an active manager. A slate
