@@ -54,7 +54,9 @@ Nothing else. Specifically **NOT** touched:
   keys, zero dependencies, `"type": "module"`.
 - `sync-schema/sql/0001_sync_tables.sql` — the self-hosted per-table contract DDL
   for the four replicated tables. **Schema and grants only; contains no
-  `CREATE POLICY`.**
+  `CREATE POLICY` STATEMENT.** (Its comments do name the words, to record why no
+  policy is here — which is why the test strips comments before asserting. See
+  amendment 2.)
 - `tests/sync-schema.spec.js` — the red-first schema-validation suite.
 - This note.
 
@@ -79,10 +81,20 @@ Nothing else. Specifically **NOT** touched:
    exactly once in `sync-schema/collections.js`. The number itself is reopened and
    belongs to `sync-rxdb-conflict-notice-mockup-amendments`, so it must stay
    changeable in one place.
-6. **`sync-schema/sql/0001_sync_tables.sql` contains no `CREATE POLICY`.** RLS is
-   ENABLED with zero policies, which is deny-all — the correct state until
+6. **`sync-schema/sql/0001_sync_tables.sql` contains no `CREATE POLICY` statement.**
+   RLS is ENABLED with zero policies, which is deny-all — the correct state until
    `sync-rxdb-row-visibility-rls` (B2) writes the predicates. A merge that adds a
    permissive policy here silently opens the door B2 exists to guard.
+   Verified by execution, not by reading: the file was run twice against a scratch
+   Postgres seeded with `anon`/`authenticated` roles and a `supabase_realtime`
+   publication (both runs exit 0, so it is idempotent), and the catalog then showed
+   `relrowsecurity = t` with `policy_count = 0` on all four tables. `SET ROLE
+   authenticated; SELECT` returned **0 rows** where the owner saw 1. The scratch
+   database and both roles were dropped afterwards.
+
+7. **The `_modified` trigger must stay.** Same execution run: an INSERT supplying
+   `_modified = '1999-01-01'` came back stamped with `now()`. Without the trigger a
+   skewed client clock silently poisons every replica's pull cursor.
 
 ## What is safe to drop
 
