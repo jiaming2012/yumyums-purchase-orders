@@ -51,7 +51,9 @@ destroying the environment is indistinguishable from passing it. Keep `t.Skip` *
   - `backend/internal/sync/jwtbridge_test.go:167-174` (`hqTestPool`)
 - `scripts/verify-test-harness.sh` — **NEW file, also outside the stated footprint. Disclosed.**
   The card's two reds, made re-runnable so G6 can falsify them by checkout instead of by trusting
-  pasted output. Check A: `task --dry test` must list `npx bddgen`. ~~Check B: with `DB_TEST_URL`
+  pasted output. ~~Check A: `task --dry test` must list `npx bddgen`.~~ **STRUCK — see "Repair
+  round" (N2): Check A alone grades only the mechanism; the graded property now lives in the new
+  Check A2 (spec-file count ≥ 20).** ~~Check B: with `DB_TEST_URL`
   pointed at a dead port, the Go suite must exit non-zero.~~ **STRUCK — see "Late additions" (2):
   the default DSN names a nonexistent database on a LIVE Postgres, not a dead port.** New file, no
   conflict surface. Safe to drop *after* the merge lands — it asserts, it does not implement.
@@ -105,8 +107,71 @@ it:
    red once the harness stops lying — did **not** fire. The newly-enabled 20th file
    (`user-invite-onboarding.feature.spec.js`) ran as test `[569/569]` and **passed**, and the full
    Go suite is green against a real database with real per-package timings (no sub-second
-   DB-backed package). Both `sync.spec.js` reds the launch prompt armed as expected
-   (`:446` [LST-17] and `:1198`) also passed on this run.
+   DB-backed package). ~~Both `sync.spec.js` reds the launch prompt armed as expected
+   (`:446` [LST-17] and `:1198`) also passed on this run.~~ **STRUCK — see "Repair round" (N1):
+   `:1198` is a DEAD line anchor, not a test. `tests/sync.spec.js:446` [LST-17] is live, correct,
+   and did pass; `:1198` names nothing, so "it passed" was never a claim this note could make.**
+
+## Repair round (post-G6, `overnight-20260729-2`)
+
+G6 returned **APPROVE-WITH-NITS, no blocking findings**: the fix is correct and verified. This
+round changed **`scripts/verify-test-harness.sh` and this note only**. The fix itself —
+`Taskfile.yml`, `backend/internal/testdb/testdb.go`, the five `TestMain`s and the three helpers —
+is **byte-identical to `7fa97b7`** (`git diff 7fa97b7 -- <those ten paths>` is empty). Two holes in
+the card's own *verification script* were closed, and **each repair was itself falsified before it
+shipped** — a repair to a falsifiability hole that was not falsified is not a repair.
+
+**N3 — Check B2's package list omitted the five `TestMain` packages, which is precisely where the
+unset path is fragile.** B2 ran only `./internal/recipes/ ./internal/sync/`: the two **helper**-based
+packages, whose unset path this card left structurally unchanged (they `t.Skip` on unset *before*
+they ever touch the DSN, so they cannot regress). The five `TestMain` packages are where the new and
+delicate `requested := dbURL != ""` **must be computed before the fallback** — and B2 never looked at
+them. G6 proved the hole by mutation: move that one line *after* the fallback in
+`receipt/worker_test.go` and the package genuinely FAILS on unset while the old B2 still printed
+`PASS  go test exited 0 with DB_TEST_URL unset (skip-on-unset preserved)` and the script exited 0 —
+the exact over-correction B2 exists to catch, reported green. **Fix:** B2 now runs the same
+`$DB_PKGS` list as Check B — all eight converted sites. **Falsified:** the mutation was reproduced in
+a scratch copy of the worktree; the old two-package command exits **0**, the repaired seven-package
+command exits **1** with `FAIL github.com/yumyums/hq/internal/receipt`, and the full script prints
+`FAIL … skip-on-unset was over-corrected into a failure` and exits **1**.
+
+**N2 — Check A asserted the mechanism, not the property.** It grepped `task --dry test` for
+`npx bddgen` and then printed `Total: N tests in M files` as an **ungraded** corroborating line. A
+tree where `bddgen` ran but emitted zero features — moved features dir, renamed glob, generator that
+exits 0 on empty input — passed Check A. The card's property is *"the suite runs every spec file the
+repo has."* **Fix:** new graded **Check A2** runs `npx bddgen` (idempotent, ~2s, and what the
+repaired dep chain now does) then asserts the resolved spec-file count is **≥ 20**. A missing
+`node_modules` is a FAIL, not a silent skip — an ungraded check is not a passed check. The floor
+ratchets up as spec files are added and must never ratchet down silently.
+`H1_MIN_SPEC_FILES` overrides it, for red-proving and nothing else. **Falsified:** with
+`H1_MIN_SPEC_FILES=21` the check prints
+`FAIL  Total: 569 tests in 20 files — BELOW the floor of 21` and the script exits **1**.
+
+**Post-repair state:** `bash scripts/verify-test-harness.sh` → A PASS, A2 PASS
+(`Total: 569 tests in 20 files`), B PASS (exit 1 on the dead DSN), B2 PASS (exit 0 unset across all
+seven packages), raw exit **0**. Skip-on-unset confirmed intact:
+`env -u DB_TEST_URL -u DATABASE_URL -u TEST_DATABASE_URL go test -count=1 -p 1 ./...` over all nine
+packages exits **0**. No database was created this round;
+`hq_test_go_h1` / `hq_test_e2e_h1` were reused. Per B-16(a), nothing was dropped.
+
+### Recorded, NOT fixed — for triage
+
+- **N4 — a broken DB now yields *zero* signal from the five `TestMain` packages, not partial
+  signal.** With `DB_TEST_URL` set-but-unreachable those packages exit before `m.Run()`, so even the
+  **hermetic** tests that previously passed do not execute. This is the intended semantics ("setting
+  the variable is a statement of intent") and is documented in `testdb.go`, but the cost is real and
+  is not what the card's framing advertises: the tradeoff is *loud failure* against *partial
+  hermetic coverage*, and this card chose loud. If triage wants both, the shape would be a gate that
+  fails the DB-backed tests individually rather than the binary — a different card. **Not changed
+  here.**
+- **N1 — `tests/sync.spec.js:1198` is a DEAD line anchor.** Line 1198 is inside a helper's loop body
+  (`await p.waitForTimeout(400);`), not a `test(` declaration. The test it used to name is now at
+  `:1372` (`test('temperature answer converges (live + catch-up)')`). Dead since the 2026-07-24
+  `syncspec-deflake` work, with an unactioned migration item. `:446`
+  (`test('list page progress decrements when another device unchecks a field [LST-17]')`) is **live
+  and correct**. The stale `:1198` is carried by the slate's preconditions table **and** by this
+  note — the note's copy is struck above; **the slate is not this card's file and was not
+  edited.** **Not changed here.**
 
 ## What must survive any merge
 
