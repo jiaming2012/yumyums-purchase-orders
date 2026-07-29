@@ -116,6 +116,15 @@ is exactly the bug it exists to fix (two boundaries disagreeing).
 - `tests/sync.spec.js` — **APPENDED to only** (new `describe` block at end of
   file, frozen-clock period-boundary reds). The card was told B-06's stale
   comment at `:1584` belongs to another card; **that line is NOT touched.**
+- `tests/workflows.spec.js` — **B-11 UPDATE. An earlier draft of this note did
+  not list this file; it is now touched.** `[DBL-05]` (~`:1201`) asserted
+  `fresh[0].period === new Date().toISOString().slice(0,10)` — the exact UTC
+  expression this card removes, so the test was asserting the defect and failed
+  in the full suite (`Expected "2026-07-29", Received "2026-07-28"` at 21:46
+  EDT). **Two lines inside that one test changed**; no other test in the file is
+  touched. The expected value is now computed from `Intl` with an explicit
+  `America/New_York` zone inside the spec — deliberately NOT by calling the
+  page's `appDateString`, so it stays an independent statement of the contract.
 - `backend/internal/purchasing/service_weekstart_test.go` — **NEW FILE**, no
   conflict surface.
 - `backend/internal/recipes/cost_test.go` — the existing
@@ -141,4 +150,10 @@ is exactly the bug it exists to fix (two boundaries disagreeing).
 
 ## 7. Anything else
 
-Nothing here.
+- **Reviewer note, so nobody re-litigates it:** `go test ./...` against ONE
+  database is not a valid run of this repo's Go suite. Packages run in parallel
+  by default and every DB-coupled `TestMain` TRUNCATEs shared tables, so a first
+  attempt produced ~120 fabricated failures (deadlocks, FK violations on rows
+  just inserted, "no rows in result set"). `-p 1` — which `task test:go` uses
+  and documents — is required. The gate numbers reported for this card are from
+  `go test -p 1`.
