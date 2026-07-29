@@ -218,11 +218,34 @@ test.describe('sync schema — the local conflict record (decision 89)', () => {
 
     // The number is REOPENED — it belongs to
     // `sync-rxdb-conflict-notice-mockup-amendments` and may change at triage.
-    // It must therefore be changeable in exactly one place. Counting the bare
-    // literal in the source is the only check that actually enforces that.
+    // It must therefore be changeable in exactly one place. Counting the literal
+    // in the source is the only check that actually enforces that.
+    //
+    // SCOPE, stated honestly: this reads `sync-schema/collections.js` ALONE. It
+    // says nothing about the rest of the repo — a second 30 in the eventual
+    // sweep code, in a mockup, or in the SQL would not be caught here. Within
+    // this one file it is a real check, and this file is where the constant is
+    // declared, so a scatter starts here or nowhere.
+    //
+    // The match is by VALUE, not by the two characters "30". An earlier version
+    // matched the text `30` with a `(?![\w.])` lookahead, which meant a
+    // scattered `30.0` was skipped by the very lookahead meant to stop it
+    // matching inside `300` — the mutation `const SWEEP_DAYS_FLOAT = 30.0;`
+    // stayed green. Every decimal/hex/exponent numeric literal in the file is
+    // now tokenised and compared numerically, so `30`, `30.0`, `3e1` and `0x1e`
+    // all count and `300`/`0.30` do not.
+    //
+    // KNOWN LIMIT, not an oversight: a COMPUTED window (`3 * 10`, `days * 30`
+    // where 30 lives elsewhere, `parseInt('30')`) is out of reach of any textual
+    // check — catching it needs evaluation, not tokenisation. Guarding against a
+    // second literal is the achievable and useful half; obfuscated arithmetic is
+    // not the failure mode this test exists for (an author scattering the window
+    // writes `30`, not `3 * 10`).
     const src = fs.readFileSync(MODULE_PATH, 'utf8');
-    const bare = src.match(/(?<![\w.])30(?![\w.])/g) || [];
-    expect(bare.length, `the literal 30 appears ${bare.length} times in collections.js; it must appear exactly once`)
+    const NUMERIC_LITERAL = /(?<![\w$.])(?:0[xX][0-9a-fA-F]+|\d[\d_]*(?:\.\d*)?(?:[eE][+-]?\d+)?)/g;
+    const thirties = (src.match(NUMERIC_LITERAL) || [])
+      .filter((tok) => Number(tok.replace(/_/g, '')) === 30);
+    expect(thirties.length, `numeric literals evaluating to 30 appear ${thirties.length} times in collections.js (${thirties.join(', ')}); the retention window must be written exactly once`)
       .toBe(1);
   });
 });

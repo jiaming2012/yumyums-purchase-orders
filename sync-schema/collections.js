@@ -257,8 +257,11 @@ export const REPLICATED_COLLECTIONS = {
 // ONE named constant, deliberately. The number itself is REOPENED and belongs to
 // `sync-rxdb-conflict-notice-mockup-amendments`, which must draw it as a visible
 // placeholder rather than a settled fact — so it has to be changeable in exactly
-// one place. `tests/sync-schema.spec.js` asserts the bare literal appears in this
-// file exactly once, which is the only check that actually enforces that.
+// one place. `tests/sync-schema.spec.js` tokenises every numeric literal in THIS
+// FILE and asserts exactly one of them evaluates to the window below — the only
+// check that actually enforces that. It compares by value, not by spelling, so a
+// second copy written as a float or an exponent is caught too. Write the number
+// nowhere else in this file, in code OR in a comment.
 //
 // The sweep is LOCAL: a client-side delete of records older than this window.
 // There is no server-side retention job, because there is no server table.
@@ -303,7 +306,19 @@ export const LOCAL_COLLECTIONS = {
   },
 };
 
-// The two field names that must never appear in a declared schema. Exported so
-// the negative test iterates one list rather than repeating string literals, and
-// so a future card that adds a collection has an obvious thing to check against.
+// The two field names that must never appear in a declared schema.
+//
+// NOTHING IMPORTS THIS TODAY, and that is not an oversight — read before wiring
+// it up. `tests/sync-schema.spec.js` deliberately keeps its OWN copy of these
+// two names (`MUST_NOT_DECLARE`, spec line ~93) instead of importing this list.
+// A negative test that reads the forbidden names from the module it is testing
+// proves nothing: delete a name here and the test silently stops checking for
+// it, still green. The duplication IS the check. Do not "DRY" the two lists
+// together.
+//
+// What this export is for, then: a single written-down declaration that a future
+// card adding a fifth collection can check its schema against at RUNTIME (a
+// build step, an assertion in the eventual RxDB bootstrap) — a consumer that is
+// not the test. If the replication card lands and still nothing imports it,
+// delete it rather than leaving a decorative export behind.
 export const RESERVED_UNDECLARED_FIELDS = ['_deleted', '_modified'];
