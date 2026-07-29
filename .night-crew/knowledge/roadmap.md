@@ -1053,9 +1053,37 @@
   is done when the mockup and its table are committed and the operator has something to say yes or
   no to. Footprint: `.planning/phases/sync-rxdb-conflict-notice/` only.
 
-- **`sync-rxdb-conflict-notice-mockup-amendments`** · **PLANNED — slated on `overnight-20260729-2`
-  (Track C, card C1)** · **FANNED OUT of `sync-rxdb-conflict-notice-ui` at the 2026-07-28
-  slate-planning session (ledger T-27 decision 91).** Produce **revised plates** implementing
+- **`sync-rxdb-conflict-notice-mockup-amendments`** · **DONE** (2026-07-29, run
+  `overnight-20260729-2`, Track C card C1, branch
+  `card/c1-sync-rxdb-conflict-notice-mockup-amendments`) · **The revised plates exist.**
+  `.planning/phases/sync-rxdb-conflict-notice/mockup.html` is now **revision 2** — **16 plates,
+  32 renders** (was 11 / 22), and `UI-SPEC.md` carries **34 `done_when:` rows** (was 20) with the
+  State Enumeration Table extended to 12 state rows plus 4 non-state plates.
+  **A-1 is drawn:** every one of the 8 banners carries both figures — what happened, and how many
+  rows are still to review — and the new `a1-banner` plate proves the worst case, **four banner
+  lines coexisting at 480 px in light and dark** (headline + `2 still to review · 2 handled` +
+  `+ 2 changes we couldn't identify` + the cause line) with **no truncation**, measured per line by
+  `shoot.mjs` rather than judged by eye. A **failed restore counts as still-to-review**, proved on
+  the `error` plate.
+  **A-2 is drawn:** every Restore control names what it replaces; the new `a2-confirm` plate shows
+  the batch override **confirming before writing** and **listing the 3 server values about to be
+  overwritten**, each struck through with its author and timestamp; the collapsed `edge-many` view
+  now carries **name AND time** on all five rows (it carried a bare "Dana M.").
+  **Both open decisions are left open and drawn as decidable:** `openq-count-a` / `openq-count-b`
+  render **both readings over identical data** with neither recommended, and the retention window
+  renders as the placeholder token `⟨30⟩` — never as prose — with `openq-retention` showing the one
+  screen that prints it at two candidate values.
+  **Red-first applied and mutation-tested:** three new machine checks in `shoot.mjs` were run
+  against the un-amended r1 mockup first (**5 banners carrying one figure, 7 Restore controls
+  silent about the loss → exit 1**) and each was then mutation-tested to prove it can fail rather
+  than pass vacuously. Two defects were found by **reading the renders back**, not by intention:
+  the open-decision captions did not say "NOT SETTLED" inside the plate itself, and the U+1F6D1
+  marker rendered as a tofu box in the headless font stack. Both repaired and re-shot.
+  **🛑 THE SIGN-OFF IS NOT DISCHARGED.** `sync-rxdb-conflict-notice-ui` stays **ATTENDED-BLOCKED**
+  — that is the correct outcome of this card, not a failure. Zero production code; footprint was
+  `.planning/phases/sync-rxdb-conflict-notice/` plus the merge-intent note and this flip.
+  **Original card text (preserved):** **FANNED OUT of `sync-rxdb-conflict-notice-ui` at the
+  2026-07-28 slate-planning session (ledger T-27 decision 91).** Produce **revised plates** implementing
   amendments **A-1** and **A-2** that ledger T-26 decision 82 requires, both already written into
   `.planning/phases/sync-rxdb-conflict-notice/UI-SPEC.md` (see the parent card below for both in
   full). **This card does NOT discharge the sign-off** — it produces the artifact the operator signs
@@ -1124,7 +1152,21 @@
   scheduling decision below is DISCHARGED — drafting the mockup was the next action, and it is
   done.**
 
-  **🖊️ THE SIGN-OFF EXISTS — 2026-07-28, operator, verbatim *"Ok, build this."*** The gate
+  **✅ THE REVISED PLATES LANDED 2026-07-29** (`sync-rxdb-conflict-notice-mockup-amendments`, DONE
+  above, run `overnight-20260729-2`). `mockup.html` is now **revision 2 — 16 plates, 32 renders**,
+  and **A-1 and A-2 are both drawn**: every banner carries two figures, the worst-case four-line
+  banner is proved at 480 px in both schemes without truncation, and the batch override confirms
+  before writing while listing the server values it will overwrite with author and timestamp. **The
+  two deferred decisions are still open and are now drawn as decidable** — both readings of the
+  removed-field counting question, and the retention window as a visible placeholder.
+  **🛑 THIS CARD IS STILL ATTENDED-BLOCKED.** A revised mockup existing is not a sign-off, and the
+  fan-out card did not and could not discharge it. **What is owed: the operator walks the 16 plates,
+  answers open decisions (i) and (ii), and gives (or refuses) an explicit *"ok, build this"* on
+  revision 2.** A *no* remains a successful outcome.
+
+  **🖊️ THE r1 SIGN-OFF — 2026-07-28, operator, verbatim *"Ok, build this."* — SUPERSEDED IN PART
+  at morning triage the same day (ledger T-26 decision 82); it is the record of what was decided at
+  18:12 and does not cover revision 2.** The gate
   CLAUDE.md sets before UI code on a phase introducing new components is **satisfied**; this card
   is no longer ATTENDED-BLOCKED and may enter a slate. The sign-off was given **with the two
   rejectable design decisions in view and neither was rejected** — so both are now settled and a

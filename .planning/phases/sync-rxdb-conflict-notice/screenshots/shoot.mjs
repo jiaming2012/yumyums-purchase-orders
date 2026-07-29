@@ -37,22 +37,27 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const page_url = 'file://' + path.resolve(here, '..', 'mockup.html');
 
 const PLATES = [
-    ['success',        'plate-success'],
-    ['outcomes',       'plate-outcomes'],
-    ['empty',          'plate-empty'],
-    ['loading',        'plate-loading'],
-    ['error',          'plate-error'],
-    ['edge-novalue',   'plate-edge-novalue'],
-    ['edge-many',      'plate-edge-many'],
-    ['edge-longvalue', 'plate-edge-longvalue'],
-    ['edge-removed',   'plate-edge-removed'],
-    ['edge-storage',   'plate-edge-storage'],
-    ['limits',         'plate-limits']
+    ['success',          'plate-success'],
+    ['a1-banner',        'plate-a1-banner'],
+    ['outcomes',         'plate-outcomes'],
+    ['empty',            'plate-empty'],
+    ['loading',          'plate-loading'],
+    ['error',            'plate-error'],
+    ['edge-novalue',     'plate-edge-novalue'],
+    ['edge-many',        'plate-edge-many'],
+    ['a2-confirm',       'plate-a2-confirm'],
+    ['edge-longvalue',   'plate-edge-longvalue'],
+    ['edge-removed',     'plate-edge-removed'],
+    ['edge-storage',     'plate-edge-storage'],
+    ['openq-count-a',    'plate-openq-count-a'],
+    ['openq-count-b',    'plate-openq-count-b'],
+    ['openq-retention',  'plate-openq-retention'],
+    ['limits',           'plate-limits']
 ];
 
 // Every interactive element of the DESIGN. `.cap`, `.note` and `.doc-hd` are
 // mockup chrome and are deliberately out of scope.
-const TAP_TARGETS = '.cf-btn, .cg-all, .cf-done-undo, .sc-close, .cn-banner-go, .sc-err button, .sc-empty button';
+const TAP_TARGETS = '.cf-btn, .cg-all, .cf-done-undo, .sc-close, .cn-banner-go, .sc-err button, .sc-empty button, .cfm-go, .cfm-cancel';
 
 let failed = false;
 
@@ -163,4 +168,4 @@ if (failed) {
     console.error('\nself-verification FAILED — see FAIL lines above');
     process.exit(1);
 }
-console.log('\nself-verification PASS — 11 plates x 2 schemes, no overflow, all targets >=44px');
+console.log('\nself-verification PASS — 16 plates x 2 schemes, no overflow, all targets >=44px,\n  every banner carries both figures, no banner line truncated, every Restore names the loss');
