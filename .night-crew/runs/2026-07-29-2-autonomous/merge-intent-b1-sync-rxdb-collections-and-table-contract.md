@@ -77,10 +77,15 @@ Nothing else. Specifically **NOT** touched:
    conflict-record table, and the collection must stay free of a `table` mapping.
    Both are asserted by tests.
 5. **The retention window is read from exactly one named constant**
-   (`CONFLICT_RECORD_RETENTION_DAYS`). A test asserts the literal `30` appears
-   exactly once in `sync-schema/collections.js`. The number itself is reopened and
-   belongs to `sync-rxdb-conflict-notice-mockup-amendments`, so it must stay
-   changeable in one place.
+   (`CONFLICT_RECORD_RETENTION_DAYS`). ~~A test asserts the literal `30` appears
+   exactly once in `sync-schema/collections.js`.~~
+   **STRUCK AND RESTATED (amendment 4, below):** the check was a text match and it
+   leaked. It now tokenises every numeric literal in
+   `sync-schema/collections.js` and asserts exactly one of them EVALUATES to the
+   window, so a scattered `30.0` / `3e1` / `0x1e` is caught as well as a bare
+   `30`. The number itself is reopened and belongs to
+   `sync-rxdb-conflict-notice-mockup-amendments`, so it must stay changeable in
+   one place.
 6. **`sync-schema/sql/0001_sync_tables.sql` contains no `CREATE POLICY` statement.**
    RLS is ENABLED with zero policies, which is deny-all — the correct state until
    `sync-rxdb-row-visibility-rls` (B2) writes the predicates. A merge that adds a
@@ -102,8 +107,15 @@ Nothing else. Specifically **NOT** touched:
   `sync-schema/sql/0001_sync_tables.sql` are load-bearing as *record*, not as
   behaviour. If a merge conflict lands in a comment block, keeping either side is
   safe for the tests.
-- The `RESERVED_UNDECLARED_FIELDS` export is a convenience the tests iterate over;
-  a merge could inline it without loss, provided the two field names survive.
+- ~~The `RESERVED_UNDECLARED_FIELDS` export is a convenience the tests iterate over;
+  a merge could inline it without loss, provided the two field names survive.~~
+  **STRUCK — THE CLAIM WAS FALSE (amendment 3, below):** no test ever iterated it.
+  `tests/sync-schema.spec.js` declares its own `MUST_NOT_DECLARE`, and that
+  duplication is deliberate — a negative test that reads the forbidden names from
+  the module under test proves nothing. The export is currently imported by
+  NOTHING. It is safe to drop for a different reason than the one written here:
+  dropping it cannot red the suite. Do NOT "fix" the duplication by pointing the
+  test at the export.
 
 ## Conflict risk with the other concurrently-dispatched cards
 
@@ -146,7 +158,143 @@ those sentences (which are the most useful thing in the file), the test now stri
 `--` line comments before asserting. The assertions still fail on a real
 statement: proven by mutation, see the card report.
 
-**Nothing else in this note changed.** The shared-file list is still exactly one
+**Amendment 3 — `RESERVED_UNDECLARED_FIELDS` is imported by nothing, and two
+artifacts said otherwise.**
+The export's own comment claimed it was *"Exported so the negative test iterates
+one list"*, and the "safe to drop" bullet above repeated it. Both were false. A
+repo grep returns exactly two hits: the declaration in
+`sync-schema/collections.js`, and that bullet. `tests/sync-schema.spec.js`
+declares its own `MUST_NOT_DECLARE = ['_deleted', '_modified']`.
+
+The DUPLICATION IS CORRECT and was left in place. A negative test that imports its
+forbidden-name list from the module it is testing is tautological: delete
+`'_modified'` from the export and the test silently stops checking for it, still
+green — the exact escape this run has been catching all night. The repair is to
+the two false sentences, not to the test.
+
+The export was KEPT rather than deleted, so the `collections.js` diff for this
+repair stays comment-only and no other card that may already be reading the branch
+loses a symbol mid-run. Its comment now states plainly that nothing imports it,
+why the test deliberately keeps its own list, and that if the replication card
+lands and still nothing imports it, it should be deleted rather than left as a
+decorative export.
+
+**Amendment 4 — the retention-scatter check was a text match with real escapes;
+it now matches by VALUE.**
+The old check was `src.match(/(?<![\w.])30(?![\w.])/g)` and counted the hits.
+Mutating `sync-schema/collections.js` with a scattered second copy of the window
+left the suite GREEN in both of these:
+
+- `const SWEEP_DAYS_FLOAT = 30.0;` — **28 passed.** The trailing-`.` lookahead was
+  there to stop `30` matching inside `300`; it also skipped `30.0`, i.e. the very
+  guard defeated the check.
+- `const SWEEP_DAYS_ARITH = 3 * 10;` — **28 passed.**
+
+The realistic scatter (`const X = 30;`) did red correctly, so the check was not
+worthless — it was narrower than its own failure message claimed.
+
+Repaired: every decimal/hex/exponent numeric literal in the file is tokenised and
+compared NUMERICALLY. `30`, `30.0`, `3e1` and `0x1e` all count; `300`, `0.30` and
+`30_0` correctly do not. The `30.0` mutation now reds with *"numeric literals
+evaluating to 30 appear 2 times in collections.js (30, 30.0)"*.
+
+`3 * 10` STILL PASSES, and that is a judgment, not an omission: catching a
+computed window needs evaluation, not tokenisation, and no textual check reaches
+it (`days * 30` with the 30 in another file, `parseInt('30')`, and a hand-rolled
+`ms` arithmetic are the same family). It is also not the failure mode the test
+exists for — an author scattering the window writes `30`. Recorded as a KNOWN
+LIMIT in the test's own comment so the next reader does not mistake green for
+coverage.
+
+SCOPE, stated honestly in the test comment as well: the check reads
+`sync-schema/collections.js` ALONE. It says nothing about the rest of the repo —
+a second copy of the window in the eventual sweep code, in a mockup, or in the SQL
+would not be caught. Within this one file it is a real check, and this file is
+where the constant is declared.
+
+**Amendment 5 — the `tests/inventory.spec.js:883` explanation in the card report
+was WRONG about the mechanism. The conclusion (not this card's fault) stands and
+is now independently proven.**
+The card report explained the failure as a `.first()` selector colliding over a
+shared `eventDate: '2026-04-15'` tie. That mechanism is not real, and triage must
+not inherit it as fact:
+
+- The pending list is served `ORDER BY created_at DESC`
+  (`backend/internal/inventory/handler.go:612`), and `renderHistoryList`
+  (`inventory.html:973-991`) applies NO re-sort — it concatenates
+  `PENDING_PURCHASES` ahead of `PURCHASES` in the order received. So
+  `page.locator('[data-action="review-pending"]').first()` is the NEWEST pending
+  row. `event_date` is not in the sort key at all; the shared `'2026-04-15'` is
+  irrelevant.
+- A likelier mechanism: `seedPendingPurchase` SWALLOWS a failed POST —
+  `if (!res.ok) return null;` (`tests/inventory.spec.js:70`). A silently-failed
+  seed leaves the newest pending row belonging to the PRECEDING test
+  (`tests/inventory.spec.js:861`, which seeds a line item literally named
+  `'test item'`), so `:883`'s `expect(searchVal).toBe('Special Sauce')` receives
+  `'Test Item'`. That is a swallowed-failure + shared-fixture-DB story, not a
+  tie-break story.
+- Also worth recording for triage: `playwright.config.js:43` sets `retries: 1`.
+  This card's `--retries=0` runs were therefore STRICTER than a normal
+  `task test`, which likely explains why the baseline reads green — a first-attempt
+  failure of this shape is retried and passes on a re-seeded attempt.
+
+**NOT FIXED, deliberately.** `tests/inventory.spec.js` is outside this card and
+opportunistic fixes are forbidden. Nothing in `tests/inventory.spec.js`,
+`inventory.html` or `backend/**` was touched. G6 reproduced the identical failure
+with `tests/sync-schema.spec.js` entirely absent from the run, and
+`inventory.spec.js` alone on a fresh DB passes 150/150 — so the card is cleared
+either way, and only the explanation needed correcting.
+
+---
+
+## RECORDED, NOT FIXED — for triage, not for tonight
+
+These are real gaps found at G6. No code action was taken on any of them; each is
+written down so triage sees it rather than rediscovering it.
+
+**R-A. Nothing ties the JS schema to the SQL DDL.** No test cross-checks the
+property lists in `sync-schema/collections.js` against the column lists in
+`sync-schema/sql/0001_sync_tables.sql`. G6 hand-diffed all four and they match
+exactly — `checklist_templates` 8 columns, `checklist_submissions` 11,
+`submission_responses` 6, `submission_rejections` 7, plus the server-only
+`_deleted`/`_modified` pair the client schemas deliberately omit. But nothing
+MECHANICAL prevents drift, and *"mirroring the current Postgres domain model"* is
+this card's actual contract — so the contract's central claim is the one thing
+held by hand. A good backlog candidate (a single generated cross-check would cover
+all four collections and every future one). **Deliberately not built tonight:**
+it is new test surface on a card that has already passed its gate, and widening
+the card to add it is exactly what a repair round must not do.
+
+**R-B. The spec was RELAXED after the red commit — the red was measured against a
+stricter spec than the one that went green.** `git diff 701fb52 3c28e28 --
+tests/sync-schema.spec.js` is +20/-6 (`3c28e28` = the card's last commit before
+this repair round): three negative SQL assertions
+(`create policy`, `conflict_record`, `lamport_ts`) moved from asserting against the
+raw file text to asserting against a comment-stripped `readSqlStatements()` — see
+amendment 2. G6 confirmed the relaxation cannot mask an EXECUTING statement: a real
+`create policy` with a trailing `--` comment still reds. The relaxation is
+therefore sound, and the reason for it (keeping the prose that records why each
+thing is absent) is a good one. State it plainly anyway: the red-first evidence
+for those three assertions was produced under the stricter form.
+
+**R-C. `template_snapshot: { type: 'object' }` has no nested `properties`, so it
+stays OPEN.** That is deliberate — constraining the snapshot's shape here would
+make this schema a second, drifting definition of the builder's output. The
+recorded risk: `vendor/rxdb.bundle.js` exports no dev-mode plugin and no validation
+plugin, so nothing in the committed runtime would reject an open object today. The
+risk materialises only if a later card adds dev-mode or a schema validator, at
+which point an unconstrained `object` may be refused or may pass anything through
+unchecked. `sync-rxdb-row-visibility-rls` (B2) and
+`sync-rxdb-replication-and-conflict-handler` inherit an OPEN QUESTION, not a
+hidden one.
+
+---
+
+**Everything else in this note stands.** The shared-file list is still exactly one
 entry (`.night-crew/knowledge/roadmap.md`, status flip). `sw.js`, `version.json`,
-`sync.js`, `workflows.html`, `backend/**` and every pre-existing spec file remain
-untouched.
+`sync.js`, `workflows.html`, `backend/**` and every pre-existing spec file —
+including `tests/inventory.spec.js` — remain untouched. No collection schema, no
+SQL statement and no assertion's MEANING changed in this repair: the
+`sync-schema/collections.js` diff is comment-only, `sync-schema/sql/` is untouched,
+and the single assertion edited (retention scatter) was made STRICTER, never
+looser.
