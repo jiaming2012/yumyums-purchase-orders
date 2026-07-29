@@ -18,11 +18,17 @@ not merely appended to (B-11).
 
 Nothing else. Specifically **NOT** touched:
 
-- `package.json` / `package-lock.json` — **no npm dependency is added.** The
-  collection schemas are declared as plain data validated by tests that need no
-  RxDB runtime, which is what "schema only, wires no replication" implies. The
-  `@supabase/supabase-js` pin belongs to the EXCLUDED card
-  `sync-rxdb-replication-and-conflict-handler`, not here.
+- ~~`package.json` / `package-lock.json` — **no npm dependency is added.**~~
+  **STRUCK AND RESTATED (amendment 1, below):** the sentence was correct about
+  dependencies but became ambiguous once this card added a *new* nested
+  `sync-schema/package.json`. Restated precisely:
+  **the ROOT `package.json` and `package-lock.json` are NOT touched, and no npm
+  dependency is added anywhere.** The collection schemas are declared as plain
+  data validated by tests that need no RxDB runtime, which is what "schema only,
+  wires no replication" implies. The `@supabase/supabase-js` pin belongs to the
+  EXCLUDED card `sync-rxdb-replication-and-conflict-handler`, not here. The new
+  `sync-schema/package.json` is a three-key, zero-dependency file whose only job
+  is `"type": "module"` — see amendment 1.
 - `sw.js` / `version.json` — `build-sw.js`'s `globPatterns` are an explicit
   allow-list (`*.html`, `ptr.js`, `sync.js`, `manifest.json`, `version.json`,
   `icons/**/*.png`). A new `sync-schema/**` directory matches none of them, so the
@@ -44,6 +50,8 @@ Nothing else. Specifically **NOT** touched:
 - `sync-schema/collections.js` — the four replicated RxDB collection definitions
   (`templates`, `checklists`, `responses`, `approvals`), the LOCAL conflict-record
   collection, and the single named retention constant.
+- `sync-schema/package.json` — **added during the build, see amendment 1.** Three
+  keys, zero dependencies, `"type": "module"`.
 - `sync-schema/sql/0001_sync_tables.sql` — the self-hosted per-table contract DDL
   for the four replicated tables. **Schema and grants only; contains no
   `CREATE POLICY`.**
@@ -96,3 +104,37 @@ Nothing else. Specifically **NOT** touched:
 - Card B2 (`sync-rxdb-row-visibility-rls`) will add policies. It should add them in
   its OWN SQL file rather than editing `0001_sync_tables.sql`, so the "no
   `CREATE POLICY` here" assertion above stays meaningful.
+
+---
+
+## Amendments made during the build (B-11 — the whole note was re-read, and the
+## one contradicted line above is struck rather than merely superseded)
+
+**Amendment 1 — `sync-schema/package.json` was added; it is NOT a dependency.**
+The note originally listed three new files and asserted `package.json` was not
+touched. Both statements needed correcting, and the contradicted line is struck
+above rather than left standing.
+
+What happened: the repo root `package.json` carries no `"type"` field, so Node
+parses every `.js` under it as CommonJS. `sync-schema/collections.js` is authored
+as an ES module (its eventual consumer is a `<script type="module">` in the PWA,
+beside the already-committed ESM `vendor/rxdb.bundle.js`), so the schema tests
+could not import it — measured, not predicted: `SyntaxError: Unexpected token
+'export'` on 20 of 28 tests. `sync-schema/package.json` scopes `"type": "module"`
+to that one directory. It declares **no dependencies and no scripts**, adds
+nothing to `npm ci` (the root has no `workspaces` key), and browsers ignore it
+entirely. The alternative — renaming to `.mjs` — was rejected because the Go
+backend serves these assets and `.mjs` is not in every mime table.
+
+**Amendment 2 — three negative SQL assertions read statements, not prose.**
+`tests/sync-schema.spec.js` originally asserted the strings `create policy`,
+`conflict_record` and `lamport_ts` were absent from the raw SQL text. They were
+present — in the *comments that record why each is absent*. Rather than delete
+those sentences (which are the most useful thing in the file), the test now strips
+`--` line comments before asserting. The assertions still fail on a real
+statement: proven by mutation, see the card report.
+
+**Nothing else in this note changed.** The shared-file list is still exactly one
+entry (`.night-crew/knowledge/roadmap.md`, status flip). `sw.js`, `version.json`,
+`sync.js`, `workflows.html`, `backend/**` and every pre-existing spec file remain
+untouched.
