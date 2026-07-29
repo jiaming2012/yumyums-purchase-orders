@@ -11,6 +11,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/yumyums/hq/internal/db"
+	"github.com/yumyums/hq/internal/testdb"
 )
 
 // ── auth.RequirePermission — design §1.2/§1.3/§1.4 (Option (i)) ──────────────
@@ -33,17 +34,22 @@ import (
 var permPool *pgxpool.Pool
 
 func TestMain(m *testing.M) {
-	dbURL := os.Getenv("DB_TEST_URL")
+	dbURL := os.Getenv(testdb.EnvVar)
+	// Computed BEFORE the fallback: the fallback is the *unset* case, and the
+	// unset case still skips. See internal/testdb for the asymmetry.
+	requested := dbURL != ""
 	if dbURL == "" {
 		dbURL = "postgres://yumyums:yumyums@localhost:5432/hq_test?sslmode=disable"
 	}
 	ctx := context.Background()
 	pool, err := pgxpool.New(ctx, dbURL)
 	if err != nil {
-		os.Exit(m.Run()) // no DB — DB-backed tests skip
+		testdb.ExitIfRequested(requested, dbURL, "connect", err)
+		os.Exit(m.Run()) // DB_TEST_URL unset, no local DB — DB-backed tests skip
 	}
 	if err := pool.Ping(ctx); err != nil {
 		pool.Close()
+		testdb.ExitIfRequested(requested, dbURL, "ping", err)
 		os.Exit(m.Run())
 	}
 	if err := db.Migrate(pool); err != nil {
