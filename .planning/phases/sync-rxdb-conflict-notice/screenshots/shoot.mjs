@@ -20,10 +20,33 @@
 //                             rather than asserted: if the two figures cannot be
 //                             drawn on a phone without truncation, the mockup
 //                             answers the wrong question.
-//   - A-2 names the loss   -> every control whose label begins with "Restore"
-//                             must also say what it replaces.
+//   - A-2 names the loss   -> every DESTRUCTIVE control must say what it
+//                             replaces. Population is scoped by what the control
+//                             DOES, not by how it is labelled.
+//   - A-1 arithmetic       -> the printed figures reconciled against the rows
+//                             actually drawn beneath them.
+//   - collapse keeps exits -> a row with nothing to restore keeps its Dismiss.
 // Each prints a PASS/FAIL line and sets a non-zero exit code on failure, so the
 // check cannot quietly rot.
+//
+// REPAIR ROUND (overnight-20260729-2, card C1). Four of these checks selected
+// their population in a way that could not catch the defect they exist for, and
+// were widened. Recorded here because the failure mode is generic and will
+// recur:
+//   * m3 walked every .cn-banner but never asserted HOW MANY there are, so
+//     DELETING a banner was invisible to it. Now pinned to EXPECTED_BANNERS.
+//   * m5 selected by LABEL (`/^Restore/`), which silently excluded `Retry` and
+//     `Restoring…` on plate-error — the same destructive write, on the one plate
+//     where the crew member has already failed once — and, worse, EVAPORATED
+//     under a rename while reporting "0 controls, 0 silent -> PASS". Now scoped
+//     by behaviour (everything that is not one of the five non-destructive
+//     labels) with a floor on the population.
+//   * m6 (new) — presence of a still-to-review figure was checked; its VALUE was
+//     not. `sed s/1 still to review/99 still to review/` passed green.
+//   * m7 (new) — collapse removed the only exit from a row that has no Restore
+//     to hide. Nothing measured it.
+// A check scoped to the place a fix was made is the same escape as a criterion
+// scoped to the members that already pass.
 //
 // Run from the repo root:  node .planning/phases/sync-rxdb-conflict-notice/screenshots/shoot.mjs
 // Playwright is resolved from whichever clone has it installed; nothing is
@@ -58,6 +81,18 @@ const PLATES = [
 // Every interactive element of the DESIGN. `.cap`, `.note` and `.doc-hd` are
 // mockup chrome and are deliberately out of scope.
 const TAP_TARGETS = '.cf-btn, .cg-all, .cf-done-undo, .sc-close, .cn-banner-go, .sc-err button, .sc-empty button, .cfm-go, .cfm-cancel';
+
+// Expected populations. These are FLOORS/PINS, not decoration: without them a
+// deletion or a rename makes a check pass vacuously while reporting success.
+const EXPECTED_BANNERS = 8;      // .cn-banner elements in the whole file
+const EXPECTED_DESTRUCTIVE_ROW = 12; // .cf-btn + .cg-all controls that WRITE
+const EXPECTED_DESTRUCTIVE = 13;     // ... plus the confirm's own .cfm-go
+const EXPECTED_UNREC_ROWS = 6;   // .cf.unrec rows, each of which must keep a Dismiss
+
+// The five labels that do NOT overwrite anything anyone else saved. Everything
+// else inside '.cf-btn, .cg-all, .cfm-go' writes over a server value and is
+// therefore in scope for A-2, whatever it happens to be called.
+const NON_DESTRUCTIVE = ['Keep theirs', 'Dismiss', 'Open checklist', 'Copy value', 'Cancel'];
 
 let failed = false;
 
@@ -119,8 +154,13 @@ for (const scheme of ['light', 'dark']) {
         }
         return { bad: out, total: document.querySelectorAll('.cn-banner').length };
     });
-    if (b3.bad.length) failed = true;
-    console.log(`  [${scheme}] A-1 two figures: ${b3.total} banners, ${b3.bad.length} carrying only one -> ${b3.bad.length ? 'FAIL' : 'PASS'}`);
+    // The per-banner shape above iterates the banners that EXIST, so deleting
+    // one is invisible to it — it would report "7 banners, 0 carrying only one
+    // -> PASS". Pin the population.
+    const b3_count_ok = b3.total === EXPECTED_BANNERS;
+    if (b3.bad.length || !b3_count_ok) failed = true;
+    console.log(`  [${scheme}] A-1 two figures: ${b3.total} banners (expected ${EXPECTED_BANNERS}), ${b3.bad.length} carrying only one -> ${(b3.bad.length || !b3_count_ok) ? 'FAIL' : 'PASS'}`);
+    if (!b3_count_ok) console.log(`      banner COUNT is ${b3.total}, expected ${EXPECTED_BANNERS} — a banner was added or deleted`);
     for (const b of b3.bad) console.log(`      ${b}`);
 
     // ── measurement 4: A-1 — no banner LINE truncates at 480px ─────────────
@@ -144,21 +184,173 @@ for (const scheme of ['light', 'dark']) {
     console.log(`  [${scheme}] A-1 banner lines: ${b4.total} measured, ${b4.bad.length} truncated -> ${b4.bad.length ? 'FAIL' : 'PASS'}`);
     for (const b of b4.bad) console.log(`      ${b}`);
 
-    // ── measurement 5: A-2 — a Restore control must name what it replaces ──
-    const b5 = await page.evaluate(() => {
+    // ── measurement 5: A-2 — a DESTRUCTIVE control must name what it replaces ─
+    // Population is scoped by BEHAVIOUR, not by label. The r1-era version tested
+    // `/^Restore/` on the label, which excluded `Retry` and `Restoring…` on
+    // plate-error — the same destructive write as `Restore mine`, on the one
+    // plate where the crew member has already failed once — and evaporated
+    // entirely under a rename, reporting "0 controls, 0 silent -> PASS".
+    const b5 = await page.evaluate((allow) => {
         const out = [];
-        let total = 0;
+        const rows = [];   // .cf-btn + .cg-all
+        const confirms = []; // .cfm-go
         for (const el of document.querySelectorAll('.cf-btn, .cg-all, .cfm-go')) {
-            const t = el.textContent.replace(/\s+/g, ' ').trim();
-            if (!/^Restore/i.test(t)) continue;
-            total++;
-            if (!/replac/i.test(t)) out.push(`${el.closest('.plate')?.id || '?'}: "${t}"`);
+            // The visible primary label: the first element child when the control
+            // has a sub-label, otherwise the whole control.
+            const head = el.firstElementChild || el;
+            const label = head.textContent.replace(/\s+/g, ' ').trim();
+            const full = el.textContent.replace(/\s+/g, ' ').trim();
+            if (allow.includes(label)) continue;   // writes nothing of anyone else's
+            const sub = el.querySelector('.cf-btn-s, .cg-all-s');
+            // The claim must live in the SUB-LABEL where one exists — stripping
+            // sub-labels is the mutation this check has to survive. Where there
+            // is none (the confirm's own commit button) the whole label carries it.
+            const hay = sub ? sub.textContent.replace(/\s+/g, ' ').trim() : full;
+            (el.classList.contains('cfm-go') ? confirms : rows).push(label);
+            if (!/replac/i.test(hay)) {
+                out.push(`${el.closest('.plate')?.id || '?'}: "${label}" — nothing about what it replaces (${sub ? `sub-label "${hay}"` : 'no sub-label'})`);
+            }
         }
-        return { bad: out, total };
-    });
-    if (b5.bad.length) failed = true;
-    console.log(`  [${scheme}] A-2 restore names the loss: ${b5.total} Restore controls, ${b5.bad.length} silent about what they replace -> ${b5.bad.length ? 'FAIL' : 'PASS'}`);
+        return { bad: out, rows: rows.length, confirms: confirms.length };
+    }, NON_DESTRUCTIVE);
+    const b5_total = b5.rows + b5.confirms;
+    // Floors, so a rename or a deletion REDS instead of passing on an empty set.
+    const b5_pop_ok = b5.rows >= EXPECTED_DESTRUCTIVE_ROW && b5_total >= EXPECTED_DESTRUCTIVE;
+    if (b5.bad.length || !b5_pop_ok) failed = true;
+    console.log(`  [${scheme}] A-2 destructive names the loss: ${b5_total} destructive controls (${b5.rows} row/batch + ${b5.confirms} confirm; expected >=${EXPECTED_DESTRUCTIVE_ROW} + >=${EXPECTED_DESTRUCTIVE - EXPECTED_DESTRUCTIVE_ROW}), ${b5.bad.length} silent about what they replace -> ${(b5.bad.length || !b5_pop_ok) ? 'FAIL' : 'PASS'}`);
+    if (!b5_pop_ok) console.log(`      POPULATION below floor: ${b5.rows} row/batch (need ${EXPECTED_DESTRUCTIVE_ROW}), ${b5_total} total (need ${EXPECTED_DESTRUCTIVE}) — a destructive control was renamed into the non-destructive allowlist, or deleted`);
     for (const b of b5.bad) console.log(`      ${b}`);
+
+    // ── measurement 6: A-1 — the printed figures RECONCILE with the rows ─────
+    // Measurement 3 checks a still-to-review figure is PRESENT. That is not the
+    // same as it being RIGHT: `sed s/1 still to review/99 still to review/`
+    // passed measurement 3 green. This one does the arithmetic.
+    //
+    // Open decision (i) — whether a removed-field row counts in the chip base
+    // (Reading A) or moves to +N (Reading B) — is NOT settled by this card, so a
+    // removed-field row is treated as assignable to either bucket and the plate
+    // must balance under EXACTLY ONE of the two readings. A plate that balances
+    // under neither is wrong; the check names which reading each plate uses
+    // without preferring one.
+    const b6 = await page.evaluate(() => {
+        const norm = t => (t || '').replace(/\s+/g, ' ').trim();
+        const num = (t, re) => { const m = norm(t).match(re); return m ? parseInt(m[1], 10) : null; };
+        const out = [];
+        const readings = [];
+        let checked = 0;
+
+        const classify = (cf) => {
+            // bucket: 'answer' | 'extra' | 'ambiguous'
+            let bucket = 'answer';
+            if (cf.querySelector('.cf-q-gone')) bucket = 'ambiguous';       // removed field — open decision (i)
+            else if (cf.querySelector('.cf-v.none')) bucket = 'extra';      // nothing to recover
+            // state: 'handled' | 'open'   (counting rule 6)
+            const handled = !!(cf.querySelector('.cf-done') || cf.querySelector('.cf-kept'));
+            return { bucket, state: handled ? 'handled' : 'open' };
+        };
+
+        for (const plate of document.querySelectorAll('.plate')) {
+            const banner = plate.querySelector('.cn-banner');
+            const groups = [...plate.querySelectorAll('.cg')];
+            if (!banner && !groups.length) continue;
+            checked++;
+            const pid = plate.id;
+
+            const rowsOf = g => [...g.querySelectorAll('.cf')].map(classify);
+            const gs = groups.map(g => ({
+                chip: norm(g.querySelector('.cg-count')?.textContent),
+                rows: rowsOf(g)
+            }));
+
+            const hd = banner ? num(banner.querySelector('.cn-banner-hd')?.textContent, /^(\d+)/) : null;
+            const openEl = banner ? banner.querySelector('.cn-banner-open') : null;
+            const openTxt = norm(openEl?.textContent);
+            const unidEl = banner ? banner.querySelector('.cn-banner-unid') : null;
+            const unid = unidEl ? num(unidEl.textContent, /\+\s*(\d+)/) : null;
+
+            const tryReading = (amb) => {   // amb: 'answer' | 'extra'
+                const errs = [];
+                const bucketOf = r => (r.bucket === 'ambiguous' ? amb : r.bucket);
+                const all = gs.flatMap(g => g.rows);
+                const answers = all.filter(r => bucketOf(r) === 'answer');
+                const extras = all.filter(r => bucketOf(r) === 'extra');
+                const open = answers.filter(r => r.state === 'open').length;
+                const handled = answers.filter(r => r.state === 'handled').length;
+
+                if (banner) {
+                    if (hd === null) errs.push('headline carries no number');
+                    else if (hd !== answers.length) errs.push(`headline ${hd} != ${answers.length} answer rows drawn`);
+
+                    const all_rev = norm(openTxt).match(/All (\d+) reviewed/);
+                    const still = num(openTxt, /(\d+) still to review/);
+                    const hnd = num(openTxt, /(\d+) handled/);
+                    if (all_rev) {
+                        if (open !== 0) errs.push(`"All N reviewed" but ${open} row(s) are untouched/failed/in-flight`);
+                        if (parseInt(all_rev[1], 10) !== answers.length) errs.push(`"All ${all_rev[1]} reviewed" != ${answers.length} answer rows`);
+                    } else if (still === null) {
+                        errs.push(`still-to-review line carries no figure: "${openTxt}"`);
+                    } else {
+                        if (still !== open) errs.push(`"${still} still to review" != ${open} untouched/failed/in-flight answer rows`);
+                        if (hnd !== null && hnd !== handled) errs.push(`"${hnd} handled" != ${handled} restored/kept answer rows`);
+                        if (hnd !== null && still + hnd !== hd) errs.push(`${still} still + ${hnd} handled != headline ${hd}`);
+                    }
+
+                    if (unid === null && extras.length) errs.push(`${extras.length} unidentifiable row(s) drawn but no "+N" banner line`);
+                    if (unid !== null && unid !== extras.length) errs.push(`"+${unid}" banner line != ${extras.length} unidentifiable rows`);
+                }
+
+                for (const g of gs) {
+                    const base = num(g.chip, /^(\d+)/);
+                    const plus = num(g.chip, /\+\s*(\d+)/) || 0;
+                    const gAns = g.rows.filter(r => bucketOf(r) === 'answer').length;
+                    const gExt = g.rows.filter(r => bucketOf(r) === 'extra').length;
+                    if (base === null) { errs.push(`chip "${g.chip}" carries no number`); continue; }
+                    if (base !== gAns) errs.push(`chip base ${base} != ${gAns} answer rows in that group ("${g.chip}")`);
+                    if (plus !== gExt) errs.push(`chip +${plus} != ${gExt} unidentifiable rows in that group ("${g.chip}")`);
+                    if (base + plus !== g.rows.length) errs.push(`chip ${base}+${plus} != ${g.rows.length} rows drawn ("${g.chip}")`);
+                }
+                return errs;
+            };
+
+            const hasAmb = gs.some(g => g.rows.some(r => r.bucket === 'ambiguous'));
+            const eA = tryReading('answer');
+            const eB = hasAmb ? tryReading('extra') : null;
+            if (!hasAmb) {
+                if (eA.length) out.push(`${pid}: ${eA.join('; ')}`);
+                else readings.push(`${pid}=exact`);
+            } else if (!eA.length && eB.length) readings.push(`${pid}=Reading A`);
+            else if (eA.length && !eB.length) readings.push(`${pid}=Reading B`);
+            else if (!eA.length && !eB.length) readings.push(`${pid}=either (ambiguous both ways)`);
+            else out.push(`${pid}: balances under NEITHER reading — A: ${eA.join('; ')} | B: ${eB.join('; ')}`);
+        }
+        return { bad: out, checked, readings };
+    });
+    if (b6.bad.length) failed = true;
+    console.log(`  [${scheme}] A-1 arithmetic: ${b6.checked} counting plates reconciled, ${b6.bad.length} disagreeing -> ${b6.bad.length ? 'FAIL' : 'PASS'}`);
+    if (scheme === 'light') console.log(`      readings: ${b6.readings.join(', ')}`);
+    for (const b of b6.bad) console.log(`      ${b}`);
+
+    // ── measurement 7: collapse never removes a row's ONLY exit ──────────────
+    // A row with no discarded value has no Restore/Keep pair for collapse to
+    // hide, and Dismiss is the only way it ever leaves the sheet (counting rule
+    // 3). Collapse must therefore leave its actions alone. Nothing measured this
+    // before, and plate-a1-banner drew two such rows with no actions at all.
+    const b7 = await page.evaluate(() => {
+        const out = [];
+        const rows = [...document.querySelectorAll('.cf.unrec')];
+        for (const cf of rows) {
+            const acts = [...cf.querySelectorAll('.cf-acts .cf-btn')].map(b => b.textContent.replace(/\s+/g, ' ').trim());
+            const plate = cf.closest('.plate')?.id || '?';
+            const q = (cf.querySelector('.cf-q, .cf-q-gone')?.textContent || '').trim().slice(0, 34);
+            if (!acts.includes('Dismiss')) out.push(`${plate}: "${q}" has no Dismiss — actions drawn: [${acts.join(', ')}]`);
+        }
+        return { bad: out, total: rows.length };
+    });
+    const b7_pop_ok = b7.total >= EXPECTED_UNREC_ROWS;
+    if (b7.bad.length || !b7_pop_ok) failed = true;
+    console.log(`  [${scheme}] no-restore rows keep an exit: ${b7.total} .cf.unrec rows (expected >=${EXPECTED_UNREC_ROWS}), ${b7.bad.length} with no Dismiss -> ${(b7.bad.length || !b7_pop_ok) ? 'FAIL' : 'PASS'}`);
+    if (!b7_pop_ok) console.log(`      POPULATION below floor: ${b7.total} rows, need ${EXPECTED_UNREC_ROWS} — an unrecoverable row was deleted`);
+    for (const b of b7.bad) console.log(`      ${b}`);
 
     await ctx.close();
 }
@@ -168,4 +360,4 @@ if (failed) {
     console.error('\nself-verification FAILED — see FAIL lines above');
     process.exit(1);
 }
-console.log('\nself-verification PASS — 16 plates x 2 schemes, no overflow, all targets >=44px,\n  every banner carries both figures, no banner line truncated, every Restore names the loss');
+console.log('\nself-verification PASS — 16 plates x 2 schemes, no overflow, all targets >=44px,\n  ' + EXPECTED_BANNERS + ' banners each carrying both figures, no banner line truncated,\n  every destructive control names the loss, every printed figure reconciles with the\n  rows drawn beneath it, and no row lost its only exit to collapse');
