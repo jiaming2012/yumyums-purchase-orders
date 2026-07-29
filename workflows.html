@@ -1755,10 +1755,35 @@ function setSeverity(fldId, severity) {
 // cannot lend its key, so a second press mints a fresh one and can write a
 // second row); the service worker's controllerchange reload closes that window
 // within a page load.
+// appDay — the calendar date (YYYY-MM-DD) of an instant IN THE APP TIMEZONE.
+//
+// Delegates to sync.js's appDateString, which is the definition. The inline
+// fallback exists only because this file must not hard-depend on sync.js having
+// loaded (the same reason isCurrentPeriodEntry guards currentSubmitPeriod) —
+// keep the two in step if either changes.
+//
+// 🛑 The old expression here was `new Date().toISOString().slice(0, 10)` — UTC.
+// See appDateString in sync.js for why that broke a dinner service in half.
+function appDay(when) {
+  if (typeof appDateString === 'function') return appDateString(when);
+  var d = (when === undefined || when === null) ? new Date() : new Date(when);
+  if (isNaN(d.getTime())) return '';
+  try {
+    var parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: (typeof APP_TIMEZONE === 'string' ? APP_TIMEZONE : 'America/New_York'),
+      year: 'numeric', month: '2-digit', day: '2-digit'
+    }).formatToParts(d);
+    var get = function(t) { var p = parts.find(function(x) { return x.type === t; }); return p && p.value; };
+    var y = get('year'), m = get('month'), day = get('day');
+    if (y && m && day) return y + '-' + m + '-' + day;
+  } catch (e) { /* fall through */ }
+  return d.toISOString().slice(0, 10);
+}
+
 function isCurrentPeriodEntry(e) {
   var period = typeof currentSubmitPeriod === 'function'
     ? currentSubmitPeriod()
-    : new Date().toISOString().slice(0, 10);
+    : appDay();
   return !!e && e.period === period;
 }
 
@@ -2271,10 +2296,10 @@ function renderChecklistList(today) {
   const rows = today.map(tpl => {
     const secCount = tpl.sections ? tpl.sections.filter(isSectionVisible).length : 0;
     // Check if already submitted TODAY in MY_SUBMISSIONS (ignore stale submissions from prior days)
-    var todayStr = new Date().toISOString().slice(0, 10);
+    var todayStr = appDay();  // app timezone, NOT UTC — card A1
     var submission = MY_SUBMISSIONS ? MY_SUBMISSIONS.find(function(s) {
       if (s.template_id !== tpl.id) return false;
-      var subDate = s.submitted_at ? new Date(s.submitted_at).toISOString().slice(0, 10) : '';
+      var subDate = s.submitted_at ? appDay(s.submitted_at) : '';
       return subDate === todayStr;
     }) : null;
     var progress = getProgress(tpl, submission);
@@ -2305,10 +2330,10 @@ function renderRunner() {
   var answered = runnerProgress.answered;
   var allFields = { length: runnerProgress.total };
   // Check submission status BEFORE rendering sections — only today's submissions count
-  var todayStr = new Date().toISOString().slice(0, 10);
+  var todayStr = appDay();  // app timezone, NOT UTC — card A1
   var submission = MY_SUBMISSIONS ? MY_SUBMISSIONS.find(function(s) {
     if (s.template_id !== tpl.id) return false;
-    var subDate = s.submitted_at ? new Date(s.submitted_at).toISOString().slice(0, 10) : '';
+    var subDate = s.submitted_at ? appDay(s.submitted_at) : '';
     return subDate === todayStr;
   }) : null;
   var isSubmitted = !!submission && isSubmittedStatus(submission.status);
@@ -2671,10 +2696,10 @@ document.getElementById('fill-body').addEventListener('click', function(e) {
       fillState.view = 'runner';
       location.hash = 'checklist=' + tpl.id;
       // For submitted/pending checklists, use snapshot sections so field IDs match responses
-      var todayStr = new Date().toISOString().slice(0, 10);
+      var todayStr = appDay();  // app timezone, NOT UTC — card A1
       var submission = MY_SUBMISSIONS ? MY_SUBMISSIONS.find(function(s) {
         if (s.template_id !== tpl.id) return false;
-        var subDate = s.submitted_at ? new Date(s.submitted_at).toISOString().slice(0, 10) : '';
+        var subDate = s.submitted_at ? appDay(s.submitted_at) : '';
         return subDate === todayStr;
       }) : null;
       if (submission && submission.template_snapshot && isFrozenStatus(submission.status)) {

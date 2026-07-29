@@ -230,14 +230,16 @@ func TrendsHandler(pool *pgxpool.Pool, cogsAllowlist []string) http.HandlerFunc 
 		cells = out
 
 		// 2) Amendment 2 — eligible pending. Clause-for-clause identical to
-		//    the pending CTE in PeriodSummaryHandler (handler.go:1345-1351) so
-		//    the two endpoints agree on the population by construction.
+		//    the pending CTE in PeriodSummaryHandler so the two endpoints agree
+		//    on the population by construction — the period-date expression is
+		//    literally the same const (pendingPeriodDateExpr, handler.go), so
+		//    they cannot drift on which day a receipt belongs to.
 		var pendingTotal float64
 		var pendingCount int
 		err = pool.QueryRow(r.Context(), `
 			SELECT ROUND(COALESCE(SUM(ABS(bank_total)), 0)::numeric, 2), COUNT(*)
 			FROM pending_purchases
-			WHERE COALESCE(event_date, (created_at AT TIME ZONE 'America/Chicago')::date)
+			WHERE `+pendingPeriodDateExpr+`
 			        BETWEEN $1::date AND $2::date
 			  AND confirmed_at IS NULL
 			  AND discarded_at IS NULL

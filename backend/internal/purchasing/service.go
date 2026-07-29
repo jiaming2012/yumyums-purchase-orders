@@ -61,9 +61,18 @@ func isAdmin(user *auth.User) bool {
 // and the wall clock are otherwise indistinguishable for ~23 hours a day).
 var weekStartNow = time.Now
 
-// CurrentWeekStart returns the Monday of the current week in America/Chicago timezone as YYYY-MM-DD.
+// CurrentWeekStart returns the Monday of the current week in the APP timezone
+// (users.DefaultTimezone — America/New_York, ledger T-26 decision 83) as
+// YYYY-MM-DD. Every purchasing week hangs off this Monday.
+//
+// 🛑 CHANGEOVER: 2026-07-29. Until run overnight-20260729-2 this Monday was
+// computed in America/Chicago, so for the hour between 23:00 Sunday Chicago and
+// midnight Monday New York it named the PREVIOUS week. That boundary moves
+// exactly once, on this changeover, and is NOT restated backwards — purchase
+// orders and weekly COGS/payroll figures already acted on keep the week they
+// were filed under. See migration 0072_app_timezone_new_york.sql.
 func CurrentWeekStart() string {
-	loc, _ := time.LoadLocation("America/Chicago")
+	loc, _ := time.LoadLocation(users.DefaultTimezone)
 	now := weekStartNow().In(loc)
 	weekday := int(now.Weekday())
 	if weekday == 0 {

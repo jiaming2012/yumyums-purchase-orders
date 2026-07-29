@@ -1693,8 +1693,9 @@ function costSortRows(rows){
 
 function costWindowLabel(w){
   if(!w)return '';
-  // Displayed straight from the server envelope — the window is computed in
-  // America/Chicago server-side and must never be recomputed on the client.
+  // Displayed straight from the server envelope — the window is computed in the
+  // app timezone server-side (users.DefaultTimezone) and must never be
+  // recomputed on the client.
   var opts={month:'short',day:'numeric'};
   var from=parseLocalDate(w.from).toLocaleDateString('en-US',opts);
   var to=parseLocalDate(w.to).toLocaleDateString('en-US',opts);
