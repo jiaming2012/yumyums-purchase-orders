@@ -551,8 +551,26 @@
   prompts must forbid dropping a database the reviewer did not create) is **not** in this card; it is
   standing G6 dispatch text. Footprint: `Taskfile.yml`, `backend/internal/*/**_test.go`.
 
-- **`app-timezone-unify-new-york`** · **PLANNED — HIGH, small/medium** (new card, morning triage
-  2026-07-28, ledger T-26 decision 83) · **The app is running two conflicting timezone regimes, and
+- **`app-timezone-unify-new-york`** · **DONE — every site, one card** (2026-07-29, run
+  `overnight-20260729-2`, Track A card A1, branch `card/a1-app-timezone-unify-new-york`) ·
+  **🛑 CHANGEOVER DATE 2026-07-29** — recorded in the header of
+  `backend/internal/db/migrations/0072_app_timezone_new_york.sql` and at `CurrentWeekStart`,
+  `costWindow` and `runDriftTick`. Every weekly/daily boundary moves one hour earlier in wall-clock
+  terms, exactly once. **FIX FORWARD ONLY** — weekly COGS and payroll figures produced before that
+  date were already acted on and are **NOT** restated. No new timezone constant was invented: Go
+  reads `users.DefaultTimezone` directly and `sync.js` states the same value as `APP_TIMEZONE` with a
+  note that the two move together; the 6 inventory SQL casts collapsed into one const
+  (`pendingPeriodDateExpr`) that `trends.go` now literally shares, so the two endpoints cannot drift
+  on which day a receipt belongs to. Migrations `0037`/`0042` were left untouched as immutable
+  history — `0072` re-points both column DEFAULTs **and** UPDATEs rows already written, without which
+  the old boundary survives. Red-first both halves: a frozen-clock Go boundary test at
+  `2026-07-27T00:30-04:00` (Monday New York / Sunday Chicago) answered `2026-07-20`, a full week off;
+  and `tests/sync.spec.js` `[A1-TZ]` reproduced triage's finding — a queue entry stamped 6:30pm CT
+  lost its key at 7:30pm CT, same weekday. **Two sites found beyond the card's list and also fixed**
+  (same packages, same defect): `purchasing/repurchase.go:71`'s insert-default and
+  `recipes/handler.go:321` (`chicagoWeekWindow` → `appWeekWindow`). Nothing parked — no site turned
+  out to be deliberately Chicago. *Original card text follows.* · **The app is running two
+  conflicting timezone regimes, and
   the operator ruled the app's timezone is `America/New_York`.** `users.DefaultTimezone` is already
   New York — as are the Users-tab picker, the purchasing handler and scheduler fallbacks, and
   `playwright.config.js` — while **`America/Chicago` is hardcoded in the money paths**:
