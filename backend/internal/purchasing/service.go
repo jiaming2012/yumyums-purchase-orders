@@ -55,10 +55,16 @@ func isAdmin(user *auth.User) bool {
 	return false
 }
 
+// weekStartNow is the clock CurrentWeekStart reads. Production leaves it as
+// time.Now; tests override it to freeze the clock on a timezone boundary, which
+// is the only way to observe which zone the week actually hangs off (the zone
+// and the wall clock are otherwise indistinguishable for ~23 hours a day).
+var weekStartNow = time.Now
+
 // CurrentWeekStart returns the Monday of the current week in America/Chicago timezone as YYYY-MM-DD.
 func CurrentWeekStart() string {
 	loc, _ := time.LoadLocation("America/Chicago")
-	now := time.Now().In(loc)
+	now := weekStartNow().In(loc)
 	weekday := int(now.Weekday())
 	if weekday == 0 {
 		weekday = 7 // Sunday = 7

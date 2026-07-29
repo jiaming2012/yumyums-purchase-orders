@@ -2756,3 +2756,109 @@ test.describe('Catch-up replay: SUBMIT_CHECKLIST does not fetch-storm myChecklis
     await ctxB.close();
   });
 });
+
+// ─── Z. App timezone: the submit period boundary (Card A1) ───────────────────
+//
+// The operator ruled the app's timezone is America/New_York (ledger T-26
+// decision 83). `currentSubmitPeriod()` was `new Date().toISOString().slice(0,10)`
+// — UTC — so the app's "today" rolled over at 19:00 Chicago / 20:00 New York,
+// i.e. MID-DINNER-SERVICE, while the crew is still working the same operational
+// evening.
+//
+// The three instants below are ONE Wednesday evening. In UTC they straddle
+// midnight; in both Chicago and New York they are the same weekday, hours from
+// any rollover:
+//
+//   T1  2026-07-15T23:30Z   Wed 18:30 CDT   Wed 19:30 EDT   Wed (UTC)
+//   T2  2026-07-15T23:45Z   Wed 18:45 CDT   Wed 19:45 EDT   Wed (UTC)
+//   T3  2026-07-16T00:30Z   Wed 19:30 CDT   Wed 20:30 EDT   THU (UTC)  ← rollover
+//
+// This is triage's reproduction: an entry stamped at T1 lends its
+// idempotency_key at T2 and REFUSES at T3 — so a second Submit press mints a
+// fresh key and the drain writes TWO submission rows for one evening.
+//
+// EXPECTED: RED at UTC. GREEN once the period is the app-timezone calendar date.
+const A1_T1 = '2026-07-15T23:30:00.000Z'; // 6:30pm CT
+const A1_T2 = '2026-07-15T23:45:00.000Z'; // 6:45pm CT
+const A1_T3 = '2026-07-16T00:30:00.000Z'; // 7:30pm CT — same weekday, next UTC day
+
+test.describe('App timezone: submit period boundary [A1-TZ]', () => {
+  test.beforeEach(async ({ page }) => {
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await page.waitForFunction(
+      () => typeof window.currentSubmitPeriod === 'function'
+         && typeof window.isCurrentPeriodEntry === 'function',
+      null, { timeout: 15000 });
+  });
+
+  test('fixture honesty: T1/T2/T3 are one Wednesday in CT and in ET, but straddle UTC midnight [A1-TZ-00]', async ({ page }) => {
+    const days = await page.evaluate(([t1, t2, t3]) => {
+      const wd = (iso, tz) => new Intl.DateTimeFormat('en-US', { timeZone: tz, weekday: 'short' }).format(new Date(iso));
+      return {
+        ct: [t1, t2, t3].map(t => wd(t, 'America/Chicago')),
+        et: [t1, t2, t3].map(t => wd(t, 'America/New_York')),
+        utc: [t1, t2, t3].map(t => t.slice(0, 10)),
+      };
+    }, [A1_T1, A1_T2, A1_T3]);
+    expect(days.ct, 'all three instants are the same weekday in Chicago').toEqual(['Wed', 'Wed', 'Wed']);
+    expect(days.et, 'all three instants are the same weekday in New York').toEqual(['Wed', 'Wed', 'Wed']);
+    // The defect's engine: UTC alone disagrees.
+    expect(days.utc[0]).toBe(days.utc[1]);
+    expect(days.utc[2], 'T3 is the NEXT calendar day in UTC — this is what breaks the key').not.toBe(days.utc[0]);
+  });
+
+  test('a period stamped 6:30pm CT is still current at 6:45pm AND at 7:30pm [A1-TZ-01]', async ({ page }) => {
+    await page.clock.setFixedTime(new Date(A1_T1));
+    const stamped = await page.evaluate(() => window.currentSubmitPeriod());
+
+    await page.clock.setFixedTime(new Date(A1_T2));
+    const at645 = await page.evaluate(p => window.isCurrentPeriodEntry({ period: p }), stamped);
+
+    await page.clock.setFixedTime(new Date(A1_T3));
+    const at730 = await page.evaluate(p => window.isCurrentPeriodEntry({ period: p }), stamped);
+
+    // Control — green before and after the fix.
+    expect(at645, '6:45pm CT is the same operational evening as 6:30pm CT').toBe(true);
+    // The contract. RED while the period is UTC.
+    expect(at730, '7:30pm CT is STILL the same operational evening — same weekday, mid-dinner-service').toBe(true);
+  });
+
+  test('a queued submission still lends its idempotency_key at 7:30pm CT [A1-TZ-02]', async ({ page }) => {
+    const tplId = '00000000-a1a1-4000-8000-' + Date.now().toString(16).padStart(12, '0');
+    const key = 'a1-tz-key-' + Date.now();
+
+    // 6:30pm CT — the crew member presses Submit while offline.
+    await page.clock.setFixedTime(new Date(A1_T1));
+    const entryId = await page.evaluate(async ([tpl, k]) => {
+      const id = 'a1-tz-entry-' + k;
+      const db = await window.getDB();
+      await window.idbPut(db, 'submitQueue', {
+        id, template_id: tpl, idempotency_key: k, responses: [],
+        queuedAt: new Date().toISOString(), period: window.currentSubmitPeriod(),
+      });
+      return id;
+    }, [tplId, key]);
+
+    try {
+      // 6:45pm CT — second press. Must reuse the queued key (control).
+      await page.clock.setFixedTime(new Date(A1_T2));
+      const at645 = await page.evaluate(t => window.findQueuedSubmission(t), tplId);
+      expect(at645, 'the queued entry must be findable at 6:45pm CT').not.toBeNull();
+      expect(at645.idempotency_key).toBe(key);
+
+      // 7:30pm CT — same weekday, same dinner service. Must STILL reuse the key,
+      // or the drain writes a second submission row for one operational evening.
+      await page.clock.setFixedTime(new Date(A1_T3));
+      const at730 = await page.evaluate(t => window.findQueuedSubmission(t), tplId);
+      expect(at730, 'the queued entry must STILL lend its key at 7:30pm CT').not.toBeNull();
+      expect(at730 && at730.idempotency_key,
+        'a fresh key here is the duplicate-submission defect (ledger T-25 decision 71)').toBe(key);
+    } finally {
+      await page.evaluate(async id => {
+        const db = await window.getDB();
+        await window.idbDelete(db, 'submitQueue', id);
+      }, entryId);
+    }
+  });
+});
