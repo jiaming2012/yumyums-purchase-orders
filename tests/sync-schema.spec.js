@@ -54,6 +54,20 @@ function readSql() {
   return fs.readFileSync(SQL_PATH, 'utf8');
 }
 
+// The negative SQL assertions below must read STATEMENTS, not prose. The file's
+// comments legitimately name the things the file does not do ("no policies",
+// "no lamport_ts", "no table for the overwritten-answer record") — that is the
+// record of the decision and the most useful thing in the file. Asserting
+// against the raw text would force those sentences to be written in code, which
+// is how a decision stops being written down. Stripping `--` line comments
+// leaves the assertion pointed at what actually executes.
+//
+// `--` never appears inside the `$$ … $$` bodies in this file (they are three
+// lines each, checked), so a naive strip is safe here.
+function readSqlStatements() {
+  return readSql().replace(/--[^\n]*/g, '').toLowerCase();
+}
+
 // ---------------------------------------------------------------------------
 // The contract, spelled out here rather than read from the module.
 //
@@ -260,18 +274,18 @@ test.describe('sync schema — the self-hosted per-table SQL contract', () => {
     // RLS ENABLED with zero policies is deny-all, which is the correct state
     // until B2 ports ResolveEntityAccess. A permissive policy landing here would
     // silently open the door that card exists to guard.
-    const sql = readSql().toLowerCase();
-    expect(sql).not.toMatch(/create\s+policy/);
+    expect(readSqlStatements()).not.toMatch(/create\s+policy/);
   });
 
-  test('declares NO table for the conflict record (decision 89)', () => {
-    const sql = readSql().toLowerCase();
+  test('declares NO table for the overwritten-answer record (decision 89)', () => {
+    // Personal undo, per device, local-only. The absence of a table here IS the
+    // decision — see sync-schema/collections.js.
+    const sql = readSqlStatements();
     expect(sql).not.toContain('conflict_record');
     expect(sql).not.toContain('discarded_value');
   });
 
   test('carries no lamport_ts column — the op-log layer is being retired', () => {
-    const sql = readSql().toLowerCase();
-    expect(sql).not.toContain('lamport_ts');
+    expect(readSqlStatements()).not.toContain('lamport_ts');
   });
 });

@@ -1,0 +1,6 @@
+{
+  "name": "hq-sync-schema",
+  "private": true,
+  "type": "module",
+  "description": "Scopes ESM to sync-schema/ ONLY. collections.js is authored as an ES module because its eventual consumer is a <script type=\"module\"> in the PWA, sitting beside the committed vendor/rxdb.bundle.js (also ESM). The repo root has no \"type\" field, so Node would otherwise parse a .js file here as CommonJS and the schema tests could not import it. Renaming to .mjs was the alternative and was rejected: the Go backend serves these assets and .mjs is not in every mime table, so a browser could receive it as the wrong content type. Browsers ignore this file entirely — it exists for Node's resolver. NO DEPENDENCIES, and none may be added: this card wires no replication and pulls in no npm package."
+}
