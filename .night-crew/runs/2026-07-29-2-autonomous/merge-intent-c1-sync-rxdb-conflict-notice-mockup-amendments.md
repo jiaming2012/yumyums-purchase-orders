@@ -32,8 +32,11 @@ correct outcome, not a failure. **Zero production code.**
   element's touch-target box, exiting non-zero on failure. This card adds measurements for the
   contracts A-1 and A-2 introduce that also cannot be judged by eye — that **every** banner carries
   **both** figures, that **no banner line is truncated at 480px** (A-1's PARK trigger, so it must be
-  measured and not asserted), and that the batch override names what it replaces. **A merge that
-  keeps the PNGs and reverts `shoot.mjs` silently un-checks those rows.**
+  measured and not asserted), and ~~that the batch override names what it replaces~~ **STRUCK at
+  close-out — the check landed BROADER than the guess: it covers every control whose label begins
+  with "Restore" (10 of them), not just the two batch buttons. Narrowing it back to `.cg-all` would
+  silently un-check the eight single-row restores.** **A merge that keeps the PNGs and reverts
+  `shoot.mjs` silently un-checks those rows.**
 - `.night-crew/knowledge/roadmap.md` — this card's `PLANNED` → `DONE` status flip (~`:1056`), plus a
   short annotation on the sibling `sync-rxdb-conflict-notice-ui` (~`:1083`) recording that the
   **revised** plates now exist. **That annotation is NOT a status change** — the parent stays
@@ -151,4 +154,59 @@ that failing output is captured in the commit that adds them — before a single
 _(appended only if implementation forces a file outside the list above; per B-11 the WHOLE note is
 re-read at close-out and contradicted lines are **struck**, not merely appended to)_
 
-**Nothing here yet** — written before implementation.
+**Closed out.** The note was **re-read in full**, not appended to blindly. **The footprint held
+exactly as declared: no file outside the list above was edited, and no file was added to it.** Three
+commits, each carrying the `Night-Crew-Card:` trailer as one adjacent paragraph, each verified after
+the fact with `git log -1 --format=%B | git interpret-trailers --parse`. `git diff --name-only
+9bd9a72..HEAD` lists 38 paths, all under
+`.planning/phases/sync-rxdb-conflict-notice/`, plus `.night-crew/knowledge/roadmap.md` and this
+note. No production file, no version constant, no `sw.js`.
+
+**One line is struck above**, in the shared-files list, and because reality was *broader* than the
+guess, not different in kind: the A-2 machine check covers every "Restore" control, not just the
+batch button.
+
+**Five things a merge should know that the note did not anticipate:**
+
+1. **`.planning/` is in `.gitignore`, so the phase directory needs `git add -f`** — including the
+   ten new PNGs. This is the existing precedent, not a workaround; every tracked file under
+   `.planning/` got there the same way. A merge that "helpfully" drops these as ignored artifacts
+   destroys the card's deliverable. (The r1 note recorded this; this note should have carried it
+   forward and did not.)
+2. **Two design rules were forced out into the open by the amendments and must survive** — they are
+   additions to the collapse and batch behaviour, not restatements. **(a) `Restore all N of mine`
+   acts only on rows still to review**, never the chip base: a batch tap must not silently reverse a
+   deliberate *Keep theirs*. **(b) Collapse hides the Restore/Keep pair but never a row's outcome
+   strip or its Undo**: after a batch restore all N rows are green on a collapsed sheet, so a
+   collapse that ate Undo would make a *batched* mis-tap irreversible. Both are stated in
+   `UI-SPEC.md` §"The counting rule" as rules 7 and 8 and drawn on the `a1-banner` plate. Dropping
+   either re-opens a hole A-2 exists to close.
+3. **The `edge-removed` plate now discloses that its chip is Reading A of open decision (i).** It
+   was silently embodying one side of a question this card is required to leave open — a choice made
+   by omission. The caption is load-bearing, not commentary; a merge that drops it re-settles the
+   decision.
+4. **Red-first was strengthened into mutation testing.** The note promised the three new checks
+   would be run red first, and they were (5 banners carrying one figure, 7 Restore controls silent,
+   exit 1). What it did not anticipate is that a check passing red is not proof it can fail —
+   measurement 4 (banner truncation) passed on r1 because there was nothing yet to truncate. All
+   three were therefore mutation-tested against the finished mockup (inject `nowrap`+ellipsis → 24
+   lines flagged; delete every `.cn-banner-open` → 8 banners flagged; strip every sub-label → 10
+   controls flagged). The mutation script was **not** committed — it is a throwaway probe, and its
+   results are recorded in the r2 commit message and in `UI-SPEC.md`'s `HOW IT FAILS` clauses.
+5. **Two defects were found by reading the renders back, which is the ritual working as intended
+   and is worth recording as such.** The open-decision captions did not say "NOT SETTLED" inside the
+   plate itself (the framing block sits between plates and so is absent from every screenshot), and
+   the U+1F6D1 marker rendered as a **tofu box** in the headless font stack. Neither is visible from
+   the source; both were repaired and re-shot. `done_when:` row 17 now names the tofu case
+   explicitly so the next revision cannot re-introduce it silently.
+
+**Nothing from this round contradicts the four HARD-constraints attestation** — `package.json`,
+`package-lock.json`, `backend/go.mod`, `docker-compose.nc.yml` and `Taskfile.yml` remain untouched,
+and no version constant moved (`Backend` 0.3.0, `Frontend` 1.2.1; `git diff` on those paths is
+empty). Playwright was read from the main clone's existing install; the temporary `node_modules`
+symlink used to resolve it is gitignored and was removed after the final render.
+
+**The card's own boundary held.** `sync-rxdb-conflict-notice-ui` is still **ATTENDED-BLOCKED** and
+`UI-SPEC.md` still says nothing is approved. No sign-off was claimed, no block lifted, and neither
+open decision was settled. **The restricted-input verifier gate is still owed before any SUMMARY.md
+is written** — this card wrote none, and the orchestrator holds that gate.
