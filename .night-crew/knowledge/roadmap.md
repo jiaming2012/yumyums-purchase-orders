@@ -1057,7 +1057,7 @@
   `overnight-20260729-2`, Track C card C1, branch
   `card/c1-sync-rxdb-conflict-notice-mockup-amendments`) · **The revised plates exist.**
   `.planning/phases/sync-rxdb-conflict-notice/mockup.html` is now **revision 2** — **16 plates,
-  32 renders** (was 11 / 22), and `UI-SPEC.md` carries **34 `done_when:` rows** (was 20) with the
+  32 renders** (was 11 / 22), and `UI-SPEC.md` carries **35 `done_when:` rows** (was 20) with the
   State Enumeration Table extended to 12 state rows plus 4 non-state plates.
   **A-1 is drawn:** every one of the 8 banners carries both figures — what happened, and how many
   rows are still to review — and the new `a1-banner` plate proves the worst case, **four banner

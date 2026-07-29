@@ -48,6 +48,18 @@
 // A check scoped to the place a fix was made is the same escape as a criterion
 // scoped to the members that already pass.
 //
+// HARDENING ROUND (same run, third gate). The repair round pinned the
+// population of m3, m5 and m7 and left the other two population-walking checks
+// unpinned, which is the same defect one round later:
+//   * m2 (tap targets) walked the controls that EXIST. Deleting every
+//     `.cf-done-undo` Undo — the only escape from a mis-tapped Restore, and the
+//     control row 18 exists for — printed "58 measured, 0 under 44px -> PASS",
+//     exit 0. Now floored at EXPECTED_TAP_TARGETS.
+//   * m4 (banner lines) had it too: deleting a `.cn-banner-sub` cause line slid
+//     24 -> 23 and still passed. Now floored at EXPECTED_BANNER_LINES.
+// Six of the seven measurements now pin their population; m1 (page overflow) is
+// not a population walk and has nothing to pin.
+//
 // Run from the repo root:  node .planning/phases/sync-rxdb-conflict-notice/screenshots/shoot.mjs
 // Playwright is resolved from whichever clone has it installed; nothing is
 // installed into this worktree (this card touches no package.json).
@@ -88,6 +100,8 @@ const EXPECTED_BANNERS = 8;      // .cn-banner elements in the whole file
 const EXPECTED_DESTRUCTIVE_ROW = 12; // .cf-btn + .cg-all controls that WRITE
 const EXPECTED_DESTRUCTIVE = 13;     // ... plus the confirm's own .cfm-go
 const EXPECTED_UNREC_ROWS = 6;   // .cf.unrec rows, each of which must keep a Dismiss
+const EXPECTED_TAP_TARGETS = 62; // interactive elements matching TAP_TARGETS
+const EXPECTED_BANNER_LINES = 24; // .cn-banner-hd/-open/-unid/-sub lines measured
 
 // The five labels that do NOT overwrite anything anyone else saved. Everything
 // else inside '.cf-btn, .cg-all, .cfm-go' writes over a server value and is
@@ -133,8 +147,14 @@ for (const scheme of ['light', 'dark']) {
         return out;
     }, TAP_TARGETS);
     const n = await page.locator(TAP_TARGETS).count();
-    if (bad.length) failed = true;
-    console.log(`  [${scheme}] tap targets: ${n} measured, ${bad.length} under 44px -> ${bad.length ? 'FAIL' : 'PASS'}`);
+    // Same hole every other measurement had: this walks the controls that
+    // EXIST, so DELETING one passes green while the printed count slides down.
+    // Deleting all four `.cf-done-undo` Undo controls — the only escape from a
+    // mis-tapped Restore — reported "58 measured, 0 under 44px -> PASS".
+    const n_ok = n >= EXPECTED_TAP_TARGETS;
+    if (bad.length || !n_ok) failed = true;
+    console.log(`  [${scheme}] tap targets: ${n} measured (expected >=${EXPECTED_TAP_TARGETS}), ${bad.length} under 44px -> ${(bad.length || !n_ok) ? 'FAIL' : 'PASS'}`);
+    if (!n_ok) console.log(`      POPULATION below floor: ${n} controls, need ${EXPECTED_TAP_TARGETS} — an interactive control was deleted or renamed out of the selector`);
     for (const b of bad) console.log(`      ${b}`);
 
     // ── measurement 3: A-1 — EVERY banner carries BOTH figures ─────────────
@@ -180,8 +200,13 @@ for (const scheme of ['light', 'dark']) {
         }
         return { bad: out, total: document.querySelectorAll(sel).length };
     });
-    if (b4.bad.length) failed = true;
-    console.log(`  [${scheme}] A-1 banner lines: ${b4.total} measured, ${b4.bad.length} truncated -> ${b4.bad.length ? 'FAIL' : 'PASS'}`);
+    // Same hole again: iterating the lines that EXIST means DELETING one is
+    // invisible — dropping a .cn-banner-sub cause line slides 24 -> 23 and
+    // still reports PASS. Pin the population.
+    const b4_count_ok = b4.total >= EXPECTED_BANNER_LINES;
+    if (b4.bad.length || !b4_count_ok) failed = true;
+    console.log(`  [${scheme}] A-1 banner lines: ${b4.total} measured (expected >=${EXPECTED_BANNER_LINES}), ${b4.bad.length} truncated -> ${(b4.bad.length || !b4_count_ok) ? 'FAIL' : 'PASS'}`);
+    if (!b4_count_ok) console.log(`      POPULATION below floor: ${b4.total} lines, need ${EXPECTED_BANNER_LINES} — a banner line was deleted`);
     for (const b of b4.bad) console.log(`      ${b}`);
 
     // ── measurement 5: A-2 — a DESTRUCTIVE control must name what it replaces ─

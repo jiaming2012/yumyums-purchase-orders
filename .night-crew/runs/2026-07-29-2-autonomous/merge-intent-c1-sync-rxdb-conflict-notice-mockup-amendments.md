@@ -28,8 +28,13 @@ correct outcome, not a failure. **Zero production code.**
   (A-1, A-2) are the *contract this card is graded against* and are **kept verbatim** — a merge that
   drops them drops the reason the plates changed. No conflict surface.
 - `.planning/phases/sync-rxdb-conflict-notice/screenshots/*.png` + `shoot.mjs` — **existing,
-  regenerated and extended.** `shoot.mjs` already measures horizontal overflow and every interactive
-  element's touch-target box, exiting non-zero on failure. This card adds measurements for the
+  regenerated and extended.** ~~`shoot.mjs` already measures horizontal overflow and every interactive
+  element's touch-target box, exiting non-zero on failure.~~ **STRUCK AT THE HARDENING ROUND — the
+  inherited touch-target check measured every interactive element that EXISTS, which is not the same
+  claim. It had no population floor, so DELETING controls passed green: removing all four
+  `.cf-done-undo` Undo controls printed `58 measured, 0 under 44px -> PASS` and exited 0. It is now
+  floored at `EXPECTED_TAP_TARGETS` (62), as is the banner-line check at 24.** This card adds
+  measurements for the
   contracts A-1 and A-2 introduce that also cannot be judged by eye — that **every** banner carries
   **both** figures, that **no banner line is truncated at 480px** (A-1's PARK trigger, so it must be
   measured and not asserted), and ~~that the batch override names what it replaces~~ ~~**STRUCK at
@@ -242,7 +247,9 @@ above). No production file, no version constant, no `sw.js`, nothing new added t
 **The plates survived; the criteria did not.** Both gates independently confirmed the red commit is
 honest, the three claimed mutations reproduce, all four trailers parse, all 32 PNGs re-render, and
 nothing truncates, clips, overlaps or tofus in either scheme. No PARK was owed and none is taken.
-What they found was that four checks could not fail in the way they claimed to, plus one design hole
+What they found was that ~~four checks~~ **— STRUCK at the hardening round: SIX. A third gate found
+two more of exactly the same kind (m2 tap targets, m4 banner lines), which this round's two gates did
+not; see the hardening round below** — checks could not fail in the way they claimed to, plus one design hole
 and two fixture defects. All are repaired **and each repair was falsified by re-running the
 mutation**, because a repair to a falsifiability defect that is not itself falsified is not a repair.
 
@@ -283,7 +290,9 @@ mutation**, because a repair to a falsifiability defect that is not itself falsi
 
 **What a merge must additionally know after this round:**
 
-- **`shoot.mjs` now holds SEVEN measurements, and four of them are the repair.** Reverting it to the
+- **`shoot.mjs` now holds SEVEN measurements, and four of them are the repair** — **and after the
+  hardening round SIX of the seven pin their population; only m1 (page overflow) is not a population
+  walk and has nothing to pin.** Reverting it to the
   r2 version does not just lose coverage — it restores checks that pass on a mutated file. The file
   carries a header block naming the generic failure mode (*a check scoped to the place a fix was
   made is the same escape as a criterion scoped to the members that already pass*); keep it.
@@ -298,3 +307,53 @@ mutation**, because a repair to a falsifiability defect that is not itself falsi
 - **Nothing was lifted, discharged or settled.** `sync-rxdb-conflict-notice-ui` is still
   **ATTENDED-BLOCKED**, `UI-SPEC.md` still says nothing is approved, and both open decisions are
   still open and still drawn as decidable.
+
+---
+
+## Hardening round — close-out (same run, after the restricted-input verifier gate PASSED)
+
+**The whole note was re-read a third time under B-11, not appended to. Three more lines above are
+struck or qualified in place** — the inherited touch-target claim in the shared-files list, the
+*"four checks could not fail"* count in the repair round's close-out, and the *"SEVEN measurements"*
+bullet. Each names what replaced it.
+
+**The gate passed, and this round is not a re-audit of it.** A restricted-input verifier confirmed
+all `done_when:` rows hold, `shoot.mjs` green at raw exit 0, no truncation or tofu at 480 px in
+either scheme, both open decisions open, the block on. Four defects were fixed and nothing else was
+touched.
+
+1. **The repair round pinned three populations and left two unpinned — the same defect, one round
+   later.** `m3`, `m5` and `m7` got `EXPECTED_BANNERS` / `EXPECTED_DESTRUCTIVE*` / `EXPECTED_UNREC_ROWS`;
+   `m2` (tap targets) and `m4` (banner lines) did not, and both are population walks. **Deleting every
+   `<span class="cf-done-undo">Undo</span>` — the only escape from a mis-tapped Restore, and the
+   control `done_when:` 18 exists for — turned the whole suite green:** `58 measured, 0 under 44px ->
+   PASS` in both schemes, `self-verification PASS`, raw exit 0. Row 18's own text legitimised `58`,
+   so the printed number did not indict it either. Deleting a `.cn-banner-sub` cause line did the same
+   to `m4` (24 -> 23, PASS). **Both are now floored (`EXPECTED_TAP_TARGETS` 62, `EXPECTED_BANNER_LINES`
+   24) and both floors were falsified by re-running the mutation** — 58/62 and 23/24, red, exit 1.
+   Rows 18 and 24 were rewritten to name the **pinned** count rather than bless the observed one.
+2. **`done_when:` 18 and 24 were themselves part of the escape.** Row 18 recited *"prints the count
+   measured (62 after the repair round, 58 at r2, up from 38)"* — a criterion that recites the count
+   it happened to observe cannot indict the count that shrank, and `58` was literally listed in it as
+   an acceptable value. Row 24 read the same way about `24`. **No new criteria were added; the two
+   existing rows were corrected.**
+3. **Decision citations were internally inconsistent, on the page the operator reads at sign-off.**
+   `UI-SPEC.md` cited A-1 as *decision 80* and A-2 as *decision 81*, while its own revision table, the
+   `done_when:` section headers and `roadmap.md` all attribute **both** amendments to **decision 82**.
+   Corrected to 82 in both amendment blocks, each now stating explicitly that **decision 80 is the
+   18:12 r1 sign-off, superseded in part**. No decision was re-decided; a citation was.
+4. **`roadmap.md` said `UI-SPEC.md` carries 34 `done_when:` rows. It carries 35** — the line was
+   written before the repair round added row 35. Corrected; verified by count, not by memory.
+
+**Footprint did NOT widen, and the file count did not move.** `git diff --name-only 9bd9a72..HEAD`
+still lists **35** files: the same six declared paths, three of them touched this round
+(`shoot.mjs`, `UI-SPEC.md`, `roadmap.md`) and this note. **All 32 PNGs re-rendered byte-identical** —
+no plate content, copy, fixture or rule changed, so nothing shifted a pixel; `git status` showed no
+PNG. A-1's four-line banner was re-read back from `a1-banner-light.png` and still holds
+(headline / `2 still to review · 2 handled` / `+ 2 changes we couldn't identify` / the cause line,
+none clipped). No production file, no version constant, no `sw.js`.
+
+**The card's boundary held again.** Nothing was lifted, discharged or settled:
+`sync-rxdb-conflict-notice-ui` is still **ATTENDED-BLOCKED**, `UI-SPEC.md` still says nothing is
+approved, and both open decisions — (i) the removed-field row's bucket and (ii) the retention window —
+are still open and still drawn as decidable.
