@@ -32,6 +32,19 @@ reading the diff.
 | `backend/internal/purchasing/{service.go,repurchase.go}` | `CurrentWeekStart()` (every purchasing week hangs off this Monday) and the `repurchase_reset_config` insert default. |
 | `backend/internal/recipes/{cost.go,scheduler.go,handler.go}` | 12-week cost window, Monday-09:00 drift tick, and the Recipes-tab default 7-day window. |
 | `backend/internal/db/migrations/0072_app_timezone_new_york.sql` | **NEW FILE.** Flips the `cutoff_config.timezone` and `repurchase_reset_config.timezone` column defaults (set by `0037` / `0042`) to New York and re-points existing rows. |
+| `.night-crew/knowledge/roadmap.md` | **ADDED at the end of the card (B-11 update, not in the first draft of this note).** The `app-timezone-unify-new-york` bullet is flipped PLANNED → DONE. **One bullet only** — a conflict here is a line-level merge, and every other card's bullet is untouched. Original card text is preserved verbatim below the new outcome paragraph. |
+
+**B-11 update, recorded after implementation:**
+- `backend/internal/purchasing/service.go` also gains a `weekStartNow` clock seam
+  (`var weekStartNow = time.Now`). It landed in the RED commit, before the zone
+  changed, because the zone is unobservable without a frozen clock. Production
+  behaviour is unchanged by the seam alone.
+- Two sites were fixed that §1's first draft did not name, both inside this
+  card's own packages and both the same defect:
+  `backend/internal/purchasing/repurchase.go` (insert-default `America/Chicago`)
+  and `backend/internal/recipes/handler.go` (`chicagoWeekWindow`, the Recipes
+  tab's default 7-day range). Neither is on the slate's site list; both are
+  disclosed here and in the roadmap entry.
 
 ## 2. What MUST survive any merge
 
@@ -43,7 +56,10 @@ is exactly the bug it exists to fix (two boundaries disagreeing).
    `github.com/yumyums/hq/internal/users` and reads `users.DefaultTimezone`, or
    (in SQL) reads the derived fragment built from it. If a resolution
    re-introduces a literal `"America/Chicago"` or a literal `"America/New_York"`
-   in `backend/internal/{inventory,purchasing,recipes}`, the resolution is wrong.
+   in **non-test** Go code under `backend/internal/{inventory,purchasing,recipes}`,
+   the resolution is wrong. (Two places legitimately still spell a zone out:
+   migration `0072`, where SQL cannot read a Go const, and test fixtures, which
+   name Chicago on purpose to prove the boundary moved.)
 2. **All sites or none.** The site list is §1 above plus §4's enumeration. A
    partial merge is worse than no merge here.
 3. **Migration `0072` keeps its number** unless the orchestrator renumbers at
@@ -112,6 +128,17 @@ is exactly the bug it exists to fix (two boundaries disagreeing).
   arbitrary DST-stable *fixture* location for configs that carry an explicit
   timezone column; it does not encode the app default.
 
-## 6. Anything else
+## 6. Deliberately left alone inside touched files
+
+- `inventory.html:1011` and `inventory.html:3329` — `new Date(Date.now() - N*day)
+  .toISOString().slice(0,10)`. These are **lookback range starts** for read-only
+  API filters (7 days, 90 days), not day-boundary decisions about accountability
+  or money, and no Chicago/New York conflict runs through them. They are not on
+  the slate's site list and were left as-is. **NOT a park** — a park needs a
+  product question, and there is none here.
+- `backend/internal/purchasing/scheduler_prove_test.go` and
+  `scheduler_cron_test.go` — see §5.
+
+## 7. Anything else
 
 Nothing here.
