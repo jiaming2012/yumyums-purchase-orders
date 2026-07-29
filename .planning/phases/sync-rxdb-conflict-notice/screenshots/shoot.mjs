@@ -5,13 +5,24 @@
 // 480px wide (HQ's mobile column). The PNGs are read back with a multimodal
 // Read and compared row-by-row against each row's visual contract.
 //
-// Two `done_when:` rows are NOT eye-checkable and are measured here instead of
-// being grepped out of the stylesheet:
+// Several `done_when:` rows are NOT eye-checkable and are measured here instead
+// of being grepped out of the stylesheet:
 //   - horizontal overflow  -> document scrollWidth vs clientWidth at 480px
 //   - touch targets        -> getBoundingClientRect over EVERY interactive
 //                             element in the design (not just the two classes
 //                             that were already known to pass)
-// Both print a PASS/FAIL line and set a non-zero exit code on failure, so the
+//   - A-1 two figures      -> EVERY banner must carry both the "what happened"
+//                             headline and a still-to-review figure. A banner
+//                             carrying one number is the exact defect ledger
+//                             T-26 decision 82 was filed against.
+//   - A-1 no truncation    -> every banner LINE measured for overflow at 480px.
+//                             This is the card's PARK trigger, so it is measured
+//                             rather than asserted: if the two figures cannot be
+//                             drawn on a phone without truncation, the mockup
+//                             answers the wrong question.
+//   - A-2 names the loss   -> every control whose label begins with "Restore"
+//                             must also say what it replaces.
+// Each prints a PASS/FAIL line and sets a non-zero exit code on failure, so the
 // check cannot quietly rot.
 //
 // Run from the repo root:  node .planning/phases/sync-rxdb-conflict-notice/screenshots/shoot.mjs
@@ -85,6 +96,64 @@ for (const scheme of ['light', 'dark']) {
     if (bad.length) failed = true;
     console.log(`  [${scheme}] tap targets: ${n} measured, ${bad.length} under 44px -> ${bad.length ? 'FAIL' : 'PASS'}`);
     for (const b of bad) console.log(`      ${b}`);
+
+    // ── measurement 3: A-1 — EVERY banner carries BOTH figures ─────────────
+    // "3 answers were overwritten" alone is the defect. A still-to-review
+    // figure must be present and must be a number (or the all-clear form).
+    const b3 = await page.evaluate(() => {
+        const out = [];
+        const re = /(\d+ still to review|All \d+ reviewed)/;
+        for (const b of document.querySelectorAll('.cn-banner')) {
+            const hd = b.querySelector('.cn-banner-hd');
+            const open = b.querySelector('.cn-banner-open');
+            const plate = b.closest('.plate')?.id || '?';
+            if (!hd) { out.push(`${plate}: no .cn-banner-hd (what happened)`); continue; }
+            if (!open) { out.push(`${plate}: no .cn-banner-open (still-to-review figure) — banner reads only "${hd.textContent.trim()}"`); continue; }
+            const t = open.textContent.replace(/\s+/g, ' ').trim();
+            if (!re.test(t)) out.push(`${plate}: still-to-review line does not carry a figure: "${t}"`);
+        }
+        return { bad: out, total: document.querySelectorAll('.cn-banner').length };
+    });
+    if (b3.bad.length) failed = true;
+    console.log(`  [${scheme}] A-1 two figures: ${b3.total} banners, ${b3.bad.length} carrying only one -> ${b3.bad.length ? 'FAIL' : 'PASS'}`);
+    for (const b of b3.bad) console.log(`      ${b}`);
+
+    // ── measurement 4: A-1 — no banner LINE truncates at 480px ─────────────
+    // The card's PARK trigger. Measured per line, not per page: the page can
+    // pass the overflow check while a line inside the banner is clipped.
+    const b4 = await page.evaluate(() => {
+        const out = [];
+        const sel = '.cn-banner-hd, .cn-banner-open, .cn-banner-unid, .cn-banner-sub';
+        for (const el of document.querySelectorAll(sel)) {
+            const plate = el.closest('.plate')?.id || '?';
+            const cs = getComputedStyle(el);
+            const clipped = el.scrollWidth > el.clientWidth + 1;
+            const ellipsis = cs.textOverflow === 'ellipsis' && cs.overflow !== 'visible';
+            if (clipped || ellipsis) {
+                out.push(`${plate} .${el.className}: scrollWidth=${el.scrollWidth} clientWidth=${el.clientWidth}${ellipsis ? ' text-overflow:ellipsis' : ''} "${el.textContent.replace(/\s+/g, ' ').trim().slice(0, 40)}"`);
+            }
+        }
+        return { bad: out, total: document.querySelectorAll(sel).length };
+    });
+    if (b4.bad.length) failed = true;
+    console.log(`  [${scheme}] A-1 banner lines: ${b4.total} measured, ${b4.bad.length} truncated -> ${b4.bad.length ? 'FAIL' : 'PASS'}`);
+    for (const b of b4.bad) console.log(`      ${b}`);
+
+    // ── measurement 5: A-2 — a Restore control must name what it replaces ──
+    const b5 = await page.evaluate(() => {
+        const out = [];
+        let total = 0;
+        for (const el of document.querySelectorAll('.cf-btn, .cg-all, .cfm-go')) {
+            const t = el.textContent.replace(/\s+/g, ' ').trim();
+            if (!/^Restore/i.test(t)) continue;
+            total++;
+            if (!/replac/i.test(t)) out.push(`${el.closest('.plate')?.id || '?'}: "${t}"`);
+        }
+        return { bad: out, total };
+    });
+    if (b5.bad.length) failed = true;
+    console.log(`  [${scheme}] A-2 restore names the loss: ${b5.total} Restore controls, ${b5.bad.length} silent about what they replace -> ${b5.bad.length ? 'FAIL' : 'PASS'}`);
+    for (const b of b5.bad) console.log(`      ${b}`);
 
     await ctx.close();
 }
