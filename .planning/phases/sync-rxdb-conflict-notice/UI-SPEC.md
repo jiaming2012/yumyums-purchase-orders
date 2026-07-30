@@ -14,6 +14,7 @@ than to redraw `workflows.html`.
 |---|---|---|
 | r1 | `sync-rxdb-conflict-notice-mockup` (run 2026-07-29) | First draft. 11 plates, 20 `done_when:` rows. Signed *"Ok, build this"* at 18:12 — **ledger decision 80**. |
 | r2 | `sync-rxdb-conflict-notice-mockup-amendments` (run 2026-07-29-2) | **Decision 80 superseded in part at morning triage 2026-07-28 — ledger T-26 decision 82.** Amendments **A-1** and **A-2** below are drawn. 16 plates. The card returned to ATTENDED-BLOCKED and **this revision does not discharge it** — it produces the artifact the operator signs. |
+| **r2 — SIGNED** | morning triage **2026-07-29** (attended walkthrough of all 16 plates, PNGs read back) | ✅ **"Sign it" GIVEN — ledger T-28 decision 98.** `sync-rxdb-conflict-notice-ui` is **no longer ATTENDED-BLOCKED**. A-1 and A-2 confirmed as drawn at the worst case. Three further operator decisions came out of the walk: **A-3** (decision 95 — a removed question keeps its label, struck through and read-only; **supersedes both readings of open decision (i)**), **retention stays 30 days** (decision 96), and **the sheet caps at 10 groups** (decision 97). 🛑 **A-3 requires `edge-removed`, `openq-count-a` and `openq-count-b` to be redrawn, with the deviation noted in SUMMARY.md.** The other 13 plates are signed as drawn. |
 
 - **Mockup:** [`mockup.html`](mockup.html) — open it in a browser; every state below is rendered.
 - **Self-verification renders:** [`screenshots/`](screenshots/) — 480 px, light and dark, one pair
@@ -267,6 +268,87 @@ one**, and r1 answered both with a single number.
 > know **whose** reading and **when**. Who-and-when is therefore a **REQUIRED output of
 > `sync-rxdb-schema-and-replication`**, not an option it may decline, and this UI card's spec
 > depends on it.
+
+---
+
+> ## 🛑 AMENDMENT A-3 — A REMOVED QUESTION KEEPS ITS LABEL, STRUCK THROUGH AND READ-ONLY
+>
+> **Filed at morning triage 2026-07-29 as ledger T-28 decision 95, at the same sitting that SIGNED
+> revision 2 (decision 98).** The signature is given; A-3 is a build obligation on
+> `sync-rxdb-conflict-notice-ui`, not a re-block. Offered back with consent as preference candidate
+> `ux/C-1`.
+>
+> **Operator's words, verbatim:** *"show the deleted question crossed out and read only so that the
+> user isnt confused."*
+>
+> ### What this supersedes
+>
+> Open decision (i) was drawn as a choice between **Reading A** (a removed-field row counts in the
+> chip base: `2 answers = 2 rows`) and **Reading B** (it moves to `+N`: `1 answer +1`), over identical
+> data, with neither recommended. **The operator chose neither.** A-3 changes what the row *renders*,
+> which was not on offer in either reading.
+>
+> ### The defect A-3 fixes
+>
+> `edge-removed`, `openq-count-a` and `openq-count-b` as committed draw the **raw field id**
+> (`fld_prep_sink_temp`) in muted monospace. The stated rationale was *"the template no longer holds a
+> label for it"* — **true of the template and false of the submission.** Verified at triage:
+> `template_snapshot` is `json.Marshal(tmpl)` of the whole template
+> (`backend/internal/workflow/repository.go:695`) and `Field.Label` is on the marshalled struct
+> (`model.go:44-57`), so **the discarded document carries its own frozen label** for a field the live
+> template has dropped. The alternatives the plate rejected — an invented label, or hiding the row —
+> were both correctly rejected; the third option was there all along.
+>
+> ### The contract
+>
+> - The row renders the **question's original label from the document's own `template_snapshot`**,
+>   **struck through**, in the same type as any other question title — not monospace, not a raw id.
+> - The row is **visibly read-only**: no Restore, and the struck-through title is what says so, rather
+>   than the absence of a button.
+> - **`Copy value` remains the recovery** and the value is still shown in full — it is the thing being
+>   recovered.
+> - Fall back to the raw field id **only** when the snapshot genuinely carries no label for that id,
+>   and render that fallback exactly as r2 drew it.
+>
+> ### Consequence for the counting rule (triage's inference, not operator words)
+>
+> With the row visibly struck through and read-only, Reading A's `2 answers` / `Restore all 1 of mine`
+> mismatch is **legible on screen rather than arithmetic**. So: **counting follows Reading A** — the
+> headline counts what was taken from the crew member, and the `+N` line keeps meaning only *"we
+> couldn't identify"*. Pooling a perfectly-identified removed question with a genuine unknown was the
+> worse outcome. 🛑 **This clause is recorded as an inference from the rider.** If the intent was
+> Reading B's counting with a struck-through label, it changes.
+>
+> ### A-3's dependency on the parent card
+>
+> A-3 makes `template_snapshot`'s **shape** load-bearing for this UI. B1's recorded-not-fixed item
+> **R-C** — `template_snapshot` is declared `{type:'object'}` with no nested `properties`, and the
+> committed vendor bundle ships no dev-mode or validation plugin, so **nothing rejects a malformed
+> value today** — therefore stops being an open question and becomes a **dependency**. The UI must not
+> assume the snapshot is well-formed; a snapshot that cannot be read for labels falls back to the raw
+> field id rather than rendering nothing.
+>
+> ### Plates that must be redrawn
+>
+> `edge-removed`, `openq-count-a`, `openq-count-b`. **The deviation from the signed plates must be
+> noted in SUMMARY.md** per CLAUDE.md's mockup rule. The remaining 13 plates are signed as drawn.
+
+---
+
+> ## 🛑 THE TWO OPEN DECISIONS ARE CLOSED (morning triage 2026-07-29)
+>
+> - **Open decision (i)** — superseded by **A-3** above (decision 95). Counting follows Reading A.
+> - **Open decision (ii) — the retention window** — **30 days. Decision 80 stands as written**
+>   (decision 96). Every surface reads it from **one named constant**; no surface restates the literal.
+>   The accepted costs are the ones the `open decision (ii)` plate names: a longer list to scroll, and
+>   a promise the device may not keep — the record is local-only, per-device and evictable, which is
+>   what the storage-error plate exists for. **The `⟨30⟩` placeholder token may now be replaced by the
+>   constant** in any plate that is redrawn.
+> - **Additionally decided, from the `edge-many` plate's own open question** — beyond ~10 groups the
+>   sheet **caps at 10 groups with an "and N more" line; no date filter** (decision 97). Rows below the
+>   line are **not dropped** and the banner still reports the **true total**. A date filter was
+>   rejected as more design and more code for a case a 1–5 person truck reaches only after an
+>   implausible offline stretch inside a 30-day window.
 
 ---
 

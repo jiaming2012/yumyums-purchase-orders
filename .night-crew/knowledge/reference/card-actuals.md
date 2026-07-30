@@ -691,3 +691,55 @@ the same exercise refuted six durable claims in ~70 m. **The gates were honest b
 varies is the prose about them.** Operator attention this triage ran ~35–40 m, longer than the
 20–25 m budgeted, because the mockup walkthrough surfaced two amendments and a conflicting
 sign-off recorded by a concurrent session.
+
+---
+
+## `overnight-20260729-2` — 5 cards, CONCURRENT across three tracks (2026-07-28 → 29)
+
+Slate budget 11 h; run finished in **3 h 25 m** (20:00 → 23:25 EDT). Every card came in at or under
+estimate. **Two parks, neither a failure to build** — both were refusals to decide something the
+operator owns, and both cost ≈15 m and ≈1 h 18 m respectively rather than the card's full estimate.
+
+| Card | Class | Slate est. | Implement | G6 + repair | Land | Verdict | Notes |
+|---|---|---|---|---|---|---|---|
+| H1 `test-harness-fail-loud` | harness / test-infra | 1h15m–2h | **~1h05m** | + 1 repair round | merged `526efd1` | APPROVE-WITH-NITS | 7 commits. Two mechanisms (Taskfile dep + fail-loud). Settled its riskiest claim by execution rather than reading. |
+| C1 `conflict-notice-mockup-amendments` | mockup / `.planning` only | 45m–1h15m | **~26m** | + **2 repair rounds** | merged `e0f3247` | Verifier PASS (3rd pass) + APPROVE-WITH-NITS | 7 commits. 16 plates / 32 renders / 35 `done_when:`. Failed its own verifier twice on criteria that could not fail. |
+| B1 `sync-rxdb-collections-and-table-contract` | schema / net-new files | 2h15m–3h15m | **~53m** | + 1 repair round | merged `95a2657` | APPROVE-WITH-NITS | 8 commits. Came in at **~40% of the low estimate** — schema-only cards with no integration surface are systematically over-priced. |
+| B2 `sync-rxdb-row-visibility-rls` | security / RLS | 2h45m–4h15m | **~15m to park** | G6 re-executed every probe | park note merged `4de3ca0` | **park CORRECT** | Parked during *orientation*, before writing any SQL. Deliberately committed **no red** — and that judgment was the finding. |
+| A1 `app-timezone-unify-new-york` | cross-cutting refactor | 2h15m–3h15m | **~1h18m built** | G6 **REJECT** | **NOT merged** | park, branch preserved | Reported DONE. Well-built work that landed a decision it lacked authority to land. |
+
+**What this run teaches about estimating.**
+
+**A park is cheap when the trigger is checked at orientation, and expensive when it is checked at
+review.** B2 spent **15 m** to reach a correct park because it probed the topology before writing
+SQL. A1 spent **1 h 18 m building** and was then rejected on evidence that was sitting in a
+committed contract document the whole time. Same outcome class, **5× the cost.** Price a card whose
+PARK trigger names an *external contract* with an explicit orientation leg, and make that leg's
+first job to read the contract.
+
+**Schema-only cards are over-priced by roughly 2.5×.** B1 estimated 2h15m–3h15m and implemented in
+**53 m** — net-new files, no integration surface, no existing behaviour to preserve. Contrast the
+same run's harness card, which touched nine existing packages and came in *at* estimate. **The
+predictor is edited-surface, not lines written.**
+
+**Mockup cards are cheap to draw and expensive to gate.** C1 drew in **26 m** and then spent **two
+repair rounds** — because both gates found criteria that *could not fail*, not because the plates
+were wrong. The plates survived every round; the criteria did not. **Price a mockup card at draw +
+2–3× draw for gating**, and expect the findings to be about the checks rather than the artifact.
+
+**Attended-triage verification cost, 2026-07-29.** The adversarial reproduction subagent — own
+detached worktree, own `npm ci`, own Go builds, own `hq_adv_*` databases, every gate re-executed
+including the full 24.8 m Playwright suite, then mutation probes against each card's claims — ran
+**~35 m wall clock** for **~203 k tokens and 118 tool calls**, unattended. It **refuted 0 gate
+claims** — every closeout number reproduced to the digit, including 591/6/597 and 21 spec files —
+and returned **3 findings the run did not report**, all in guards rather than shipped behaviour
+(B-22/B-23/B-24). **Three nights running, the gates have been honest and the prose about them has
+not:** 07-27 refuted six durable claims, 07-28 refuted zero and found three, 07-29 refuted zero and
+found three. The mutation probes, not the gate re-runs, are where every finding came from — the
+gate re-execution has now confirmed honesty three times in a row and is approaching the point where
+its cost needs justifying separately from the probes.
+
+**Operator attention this triage ran ~45–55 m** — longer than the 20–25 m a fork-resolution triage
+budgets, because the mockup walkthrough was folded in (16 plates read back as PNGs) and produced a
+**third amendment plus two settled open decisions**. The walkthrough is what it cost, and it
+unblocked the milestone's only attended-blocked card.

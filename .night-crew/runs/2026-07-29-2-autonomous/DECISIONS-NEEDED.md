@@ -1,5 +1,22 @@
 # Decisions needed — `overnight-20260729-2`
 
+> **RESOLVED 2026-07-29 — recorded as `ledger.md` T-28, decisions 92–103.**
+>
+> All seven forks are closed. **D-1** → decision 92 (`postgres_fdw` substrate → HQ; decision 61
+> REVERSED). **D-2** → decision 93 (both repos move to `America/New_York` in a coordinated release;
+> both contract documents and A5 updated) and decision 94 (badge reset follows the app zone, and
+> `tests/inventory.spec.js:2022` is asserting the defect). **D-3** → decision 99 (decision 61
+> applies by analogy; moot under 92). **D-4** → decision 98 (revision 2 **SIGNED**, conditional on
+> amendment A-3), with its two in-plate questions answered as decision 95 (a removed question keeps
+> its label, struck through and read-only — **supersedes both drawn readings**) and decision 96
+> (retention stays 30 days), plus decision 97 (the sheet caps at 10 groups). **D-5** → decision 100
+> (armed reds named by grep handle, never line anchor) → B-25. **D-6** → decision 101 (write the
+> gate-ladder file; G5 retired as never-defined) → B-26. **D-7** → decision 102 (backlog,
+> unattributed) → B-27.
+>
+> Three further guard defects found by triage's own adversarial re-execution → decision 103 →
+> B-22/B-23/B-24. This file is kept as the analysis record; the decisions live in the ledger.
+
 > Run: `overnight-20260729-2` · Slate: `slate-20260729-2.md` (signed 2026-07-28, 5 cards)
 > **Two cards parked: B2 `sync-rxdb-row-visibility-rls` and A1 `app-timezone-unify-new-york`.**
 > Three landed and merged.

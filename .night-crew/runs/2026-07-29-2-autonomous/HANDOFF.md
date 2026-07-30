@@ -239,3 +239,63 @@ standing item in the reviewer prompt.
   B-16(a) incident.
 - **Worktrees preserved:** `a1-app-timezone-unify-new-york` and `b2-sync-rxdb-row-visibility-rls`.
 - **No push, no tag, no deploy, `main` untouched.**
+
+---
+
+# ✅ Morning triage — 2026-07-29
+
+Reviewed attended and **merged to `dev` as `f35fa56`** (`--no-ff`). `task test:go` on the merged tree:
+**raw exit 0**, 9 test packages with real DB timings, not a cached green. Resolutions recorded as
+`ledger.md` **T-28, decisions 92–103**. Pushed to `origin/dev`.
+
+## Gate evidence — sourced from adversarial re-execution, NOT from the closeout above
+
+An adversarial subagent re-ran every gate in its own detached worktree with its own `npm ci`, own Go
+builds and own `hq_adv_*` databases (the three reviewer DBs left untouched). **Every number in the
+closeout's gate section reproduced to the digit** — `go build`/`go vet` exit 0; `go test -p 1` exit 0
+across 9 packages, 48 tables at goose 71; Playwright **591 passed / 6 skipped of 597, 0 failed, 21
+spec files** at `--retries=0` on a fresh database; `build-sw.js` idempotent at 22 files / 1468.9 KB
+with a clean tree; `Frontend 1.2.2` ≡ `package.json`; `sw.js`, `version.json` and
+`backend/internal/db/migrations/` all byte-identical to `dev`. **B-21's emitter defect is fixed in
+practice:** 0 of 32 commits unparseable, all five merge commits included (was 14 of 33).
+**The G4 discipline greps are recorded as N/A-VACUOUS, not clean** — `internal/journal` and
+`internal/workorder` do not exist in this repo (**B-14**, third consecutive triage).
+
+## Standing flags — cleared, unchanged, and re-armed
+
+| Flag | State after triage |
+|---|---|
+| **Attended two-device convergence check** | 🔵 **UNCHANGED — not re-armed by this run, and the closeout is right about why.** The slate expected A1 to touch `sync.js` + `workflows.html` and regenerate `sw.js`; A1 parked, so no frontend file changed and `sw.js` is byte-identical to `dev`'s. Independently confirmed at triage. Re-arms whenever the verify/merge path or any frontend file moves underneath it. Runbook: `reference/attended-two-device-check.md`. Automating it is **B-15**. |
+| **`submission_fail_notes` duplicate check** | 🔴 **ARMED — re-arms before EVERY `task prod:deploy`, without exception.** Migration `0071`'s unique index makes a duplicate arriving in the window a crashloop. Nothing tonight deploys and **nothing tonight added a migration** — `0072` verified unclaimed on the merged tree. |
+| **`HQ_SYNC_REST_URL` must NOT be set** | 🔴 **STILL ARMED and the reason is unchanged.** `sync-proxy-endpoint` forwards every method with no row filtering, and B2 — the card that was to add filtering — parked. B1's four tables are deny-all (`pg_policies` count 0, verified at triage by `SET ROLE authenticated` returning 0 rows where the owner saw 1), so the door is shut, but **the proxy is still unguarded.** Disarms only when `sync-rxdb-row-visibility-rls` lands. |
+| **`go test` must run with `-p 1`** | 🟡 **STANDING.** `Taskfile.yml:108` already does it. Two agents hit the parallel-package failure mode independently this run; triage's reviewer was briefed on it and did not. |
+| **Mockup sign-off for `sync-rxdb-conflict-notice-ui`** | ✅ **CLEARED — revision 2 SIGNED (decision 98).** The card is no longer ATTENDED-BLOCKED. 🛑 **Carries amendment A-3 as a build obligation:** `edge-removed`, `openq-count-a` and `openq-count-b` must be redrawn (a removed question keeps its label, struck through and read-only) and **the deviation noted in SUMMARY.md.** |
+| **Guard integrity in `verify-test-harness.sh` and `shoot.mjs`** | 🔴 **NEWLY ARMED — B-22/B-23/B-24.** Three guards found at triage that pass on empty or mis-scoped populations, inside the checks this run added to cure exactly that. The run's own diagnosis of the pattern is correct and the pattern is not yet cured. |
+
+## What the run reported honestly, and where its prose overstated
+
+The gates were honest. The prose about them was not always: *"all four checks"* falsifiable (Check B
+needs a 7-of-7 revert; A2 no longer detects what it was written for); *"20 spec files (was 19)"* — it
+runs **21**, and that unnoticed slack is exactly what blinded A2; *"zero DB-backed skips remaining"* is
+true behaviourally while 93 DB-gated `t.Skip` sites remain in source by design; *"all four fixed with
+population floors, each proven by mutation"* — three of four. Recorded because a closeout that
+overstates its guards is how a guard defect survives a green tree.
+
+## Preference coverage
+
+`night-crew decisions audit --repo . --run 20260729-2` → **"No gray areas routed through the resolver
+yet"** — coverage is **undefined, not low**, for the fourth cycle running. All seven forks went
+straight into `DECISIONS-NEEDED.md`. This is **B-03** and it is now the longest-standing decorative
+metric in the folder. One candidate was offered and captured with consent this triage:
+**`ux/C-1`** — *a removed question keeps its label, struck through and read-only* — pending, not
+adopted.
+
+## Cards unblocked
+
+- **`sync-rxdb-conflict-notice-ui`** — signed, SLATE-READY, carries A-3.
+- **`sync-rxdb-row-visibility-rls`** — mechanism decided (`postgres_fdw`, decision 61 REVERSED), and
+  the `hq_can_see_template()` port is already written out in the park note. Three further Activity 1
+  cards sit behind it.
+- **`app-timezone-unify-new-york`** — resumable and **rescoped wider** than A1 built it: both contract
+  documents and A5, `trends.go:89-98`, and badge reset. 🛑 **Nothing ships until sales-processor's
+  matching change is ready.**

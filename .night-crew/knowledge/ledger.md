@@ -1767,3 +1767,211 @@ decision rather than an omission: the obvious seam is plumbing-vs-algorithm, but
 needs a live replication instance to emit `conflict$` — i.e. the plumbing half. A split that hands
 the algorithm card a requirement it cannot integration-prove produces a DONE that isn't. The seam
 needs designing, not guessing, and belongs at the head of the next planning session.
+
+## T-28 — Morning-triage resolutions (2026-07-29, overnight-20260729-2)
+
+Run `overnight-20260729-2` reviewed attended and merged to `dev` as `f35fa56` (`--no-ff`).
+3 cards landed (`test-harness-fail-loud`, `sync-rxdb-collections-and-table-contract`,
+`sync-rxdb-conflict-notice-mockup-amendments`), 2 parked (`sync-rxdb-row-visibility-rls` —
+park note merged, zero code; `app-timezone-unify-new-york` — not merged, branch preserved).
+Gate evidence in this section is sourced from an adversarial re-execution in an isolated
+worktree with its own `npm ci`, own Go builds and own `hq_adv_*` databases, never from the
+closeout's own gate lines. Seven forks in `DECISIONS-NEEDED.md` resolved below.
+
+**Decision 92 — the row-visibility projection is fed by `postgres_fdw` from the substrate to
+HQ, and decision 61 is REVERSED.**
+
+Chosen over deferring to `sync-hard-cutover` (option d), native logical replication (b′), a
+transactional outbox (b), 2PC (c) and restructuring the assignment write path (e). Card B1
+settled the topology tonight in the direction that makes decision 61's contract impossible:
+the projection and the mutation are in two different Postgres servers, `max_prepared_transactions`
+is `0` at both ends, and `Sign()` is an allowlist that can only emit `authenticated` — so no
+transaction can contain both and no restructuring of the mutation changes that. The operator's
+requirement, stated as a user story, was that a revoked crew member's phone stop showing the
+checklist **on the very next sync, with no window at all**. Only (a) and (d) deliver zero window,
+and (d) costs the milestone: `sync-rxdb-row-visibility-rls` cannot land first and three of the
+four remaining Activity 1 cards sit behind it. (a) reads HQ's live tables through foreign tables,
+so there is no projection to write and "same transaction" is vacuous. The extension was proven
+installable at both ends by executing the C symbol. The accepted standing cost: **HQ's Postgres
+is on the network path of every RLS row check.** (b′) was rejected on the park note's own warning —
+being *nicer* than (b) makes the 3am reach for an async option easier, not safer, and both leave a
+stale-permissive window. Decision 61 is not wrong about what is wanted; it was written against a
+topology that had not yet been chosen. If `sync-hard-cutover` later co-locates the two databases,
+the fdw becomes vestigial and decision 61 comes true structurally — this reversal does not
+foreclose that.
+
+**Decision 93 — HQ and sales-processor both move to `America/New_York`, in a coordinated
+release, and both contract documents plus assumption A5 are updated.**
+
+Chosen over keeping the money paths on Chicago as a published operating constant, and over
+re-affirming decision 83 while letting it silently amend A5. The operator's framing: a payroll
+week and a food-cost week must describe the same seven days. The collision was real and verified
+first-hand at triage — `21-SALES-PROCESSOR-CONTRACT.md:27` pins `America/Chicago`, `:67` publishes
+`(created_at AT TIME ZONE 'America/Chicago')::date BETWEEN from AND to` (the exact expression A1
+replaced), `:319` carries **A5 — "If the food truck moves to a different TZ, both repos must
+update"**, and `999.2-SALES-PROCESSOR-CONTRACT.md:30` repeats the pin. Decision 83 named
+sales-processor only as a downstream consumer and never addressed the published contract, so the
+ruling and the contract were both true statements about different things. A1's G6 returned REJECT
+and the park was CORRECT: A1 reported *"Nothing parked — no site turned out to be deliberately
+Chicago"*, which is false against the repo's own artifacts. **The resuming card's scope is now
+wider than A1's was:** it takes migration `0072`, converts every site including `trends.go:89-98`
+(which would otherwise leave two 12-week COGS windows on two different zones), AND edits both
+contract documents and A5. Nothing ships to prod until sales-processor's matching change is ready
+— until both land, one repo is wrong, and the disagreement is one hour at each period edge on rows
+with no extracted `event_date`. Nothing is broken today: A1 did not merge, so the tree still
+carries ~20 Chicago and ~8 New York sites exactly as it did yesterday.
+
+**Decision 94 — the Setup-tab Badge Reset follows the app's configured timezone, not the
+browser's.**
+
+Chosen over keeping today's follow-the-device behaviour and over an explicit picker. The operator's
+framing: a crew member opening the app in the morning should see the list their coworker sees, so
+the reset must not depend on whose phone saved the form. `inventory.html:2713` currently writes the
+browser's zone into `repurchase_reset_config.timezone` on every save, and
+`tests/inventory.spec.js:2022` — *"badge reset saves with browser timezone, not hardcoded value"* —
+asserts that behaviour and passes. **That test is asserting the defect and must be rewritten, not
+worked around.** Someone once chose "follow the device" and left no ledger entry; this decision
+records the reversal so the next reader does not rediscover it as a regression. Rides on the
+resuming timezone card.
+
+**Decision 95 — a removed question keeps its label, struck through and read-only. This
+SUPERSEDES both readings of the mockup's open decision (i).**
+
+The mockup asked the operator to pick between Reading A (a removed-field row counts in the chip
+base) and Reading B (it moves to `+N`), drawn over identical data with neither recommended. The
+operator answered neither: **"show the deleted question crossed out and read only so that the user
+isnt confused."** The plates had drawn the raw field id `fld_prep_sink_temp` in muted monospace, on
+the stated grounds that "the template no longer holds a label for it" — **true of the template and
+false of the submission.** Verified at triage: `template_snapshot` is `json.Marshal(tmpl)` of the
+whole template (`repository.go:695`) and `Field.Label` is on the marshalled struct
+(`model.go:44-57`), so the discarded document carries its own frozen label for a field the live
+template has dropped. The rider is therefore buildable with **no new schema requirement** — but it
+does make the snapshot's *shape* load-bearing for the conflict-notice UI, which promotes B1's
+recorded-not-fixed item R-C (`template_snapshot` is `{type:'object'}` with no nested `properties`
+and nothing rejects a malformed value) from an open question into a dependency. Recorded as
+amendment **A-3** and offered back with consent as preference candidate `ux/C-1`. Consequence for
+the counting question: with the row visibly struck through and read-only, Reading A's
+"2 answers / Restore all 1 of mine" mismatch is legible on screen rather than arithmetic, so the
+headline counts what was taken from the crew member (Reading A) and the `+N` line keeps meaning
+only "we couldn't identify" — pooling a perfectly-identified removed question with a genuine
+unknown was the worse outcome. **Stated as an inference from the rider, not as operator words** —
+if the intent was Reading B's counting with a struck-through label, say so and it changes.
+
+**Decision 96 — the retention window stays 30 days. Decision 80 stands as written.**
+
+Chosen over 14 days (triage's recommendation) and 7 days. Reopened at morning triage 2026-07-28
+and drawn in the plates as the placeholder token `⟨30⟩` in a dashed box with `⟨7⟩` beside it and
+body copy byte-identical between them, so the screen was demonstrably indifferent to the value.
+The accepted costs are the ones the plate names: a longer list to scroll, and a promise the device
+may not keep — the record is local-only, per-device and evictable under iOS storage pressure
+(ledger T-27 decision 89), so a 30-day claim is more often wrong than a short one. The
+storage-error plate is the designed state for exactly that. Implementations read the number from
+**one named constant**; no surface restates the literal.
+
+**Decision 97 — the conflict sheet caps at 10 groups with an "and N more" line; no date filter.**
+
+The `edge-many` plate raised this as an open question — "beyond roughly ten groups this sheet needs
+a cap or a date filter. Not designed here." Operator chose a cap over a date filter and over
+leaving it undesigned. **N = 10 decided by triage** (plumbing, not product): it is the number the
+plate itself already names, and 10 groups at the collapsed density is the point where the sheet
+stops being scannable on a 480px screen. Rows below the line are not dropped — the sheet shows the
+10 most recent groups by document and states plainly how many older ones are not shown, so the
+count on the banner still reports the true total. A date filter was rejected as more design and
+more code for a case a 1–5 person truck reaches only after an implausible offline stretch inside a
+30-day window; if it is ever reached, the cap degrades honestly instead of hiding the overflow.
+
+**Decision 98 — revision 2 of the conflict-notice plates is SIGNED, conditional on amendment
+A-3. `sync-rxdb-conflict-notice-ui` is no longer ATTENDED-BLOCKED.**
+
+All 16 plates walked at triage — read back as PNGs with the Read tool, light renders, not described
+from the spec (dark renders not inspected; the shoot script measures both and reports parity).
+Amendments A-1 and A-2 hold at the worst case, not the easiest: A-1's three banner lines coexist at
+480px with no truncation and no ellipsis on the four-answers/two-handled/two-unidentifiable plate;
+A-2's confirm names the loss in its title (*"Replace 3 of Dana M.'s answers?"*), lists all three
+server values struck through with who saved each and when, and labels its primary button **Replace**
+rather than Restore. **The plates are honest about their own boundaries in ways the easier copy was
+available and not taken** — `edge-storage` leads with "if Try again doesn't bring it back, it's
+gone" before the reassurance, and `empty` refuses to say "nothing was overwritten" because three
+different situations produce that exact screen and the app cannot tell them apart. The `limits`
+plate draws three things no UI can fix, and A-2 hardens the third (who-and-when on the row) from a
+graceful degradation into a **hard requirement on `sync-rxdb-schema-and-replication`** — if that
+card declines to carry it, the confirm plate cannot be built as drawn. **The signature is
+conditional in one respect only:** `edge-removed`, `openq-count-a` and `openq-count-b` as committed
+draw the raw field id, which decision 95 overrides, so the UI card must redraw those plates and
+note the deviation in SUMMARY.md per CLAUDE.md's mockup rule. Triage's own reservation, recorded
+rather than blocking: `a1-banner` puts four figures on one screen plus a batch button reading a
+fifth number, all internally consistent and all documented, but it is a lot of counting at 6am with
+wet hands — worth watching in the built UI.
+
+**Decision 99 — decision 61 governs this card by analogy, not by letter.**
+
+Decided by triage, not put to the operator: the card and decision 61 both name the
+`app_permissions` mutation, while the projection B2 actually needs is fed by
+`template_assignments` (`repository.go:236` DELETE / `:249` re-insert). The substitution was silent
+until G6 caught it. It does not change decision 92 — `app_permissions` is likewise on `5433` and
+absent from `46011`, so the topology argument holds either way — and decision 92 supersedes the
+question entirely by removing the projection. Recorded so the substitution reads as a decision
+rather than an omission.
+
+**Decision 100 — armed reds are named by title/grep handle, never by line anchor.**
+
+Decided by triage. `tests/sync.spec.js:1198` is `await p.waitForTimeout(400)` inside a helper's loop
+body; it names no test, and the test it used to name is now at `:1372`. It has been known dead since
+2026-07-24 with an unactioned migration item filed the same day, and **tonight's slate still armed
+it** — so every card told to "expect `:1198`" for five nights was told to expect something
+unobservable, and every report saying "it passed" was unfalsifiable. Two cards hit it independently
+this run. `:446` `[LST-17]` is live and correct. Going forward a slate's preconditions table carries
+a grep handle, and the other armed reds get swept for line anchors. → **B-25**.
+
+**Decision 101 — the gate ladder gets a written definition, and G5 is retired as never-defined.**
+
+Decided by triage, and the finding is worse than `DECISIONS-NEEDED.md` filed it. Every slate since
+07-15 and every launch prompt inherit gates **G1–G6** "unchanged from
+`reference/overnight-run-plan-20260707.md`" — the adversarial reviewer confirmed by `find` that
+**the file does not exist anywhere in the repo.** The contract was recoverable from practice and the
+runs used it (G1 build+vet, G2 Go+Playwright, G3 red-first re-verified by G6, G4 `sw.js` idempotence
++ version parity, G6 adversarial review), but **G5 has no definition in any sense the runs use** and
+is not practiced. So every run this month has been graded against a ladder with no written
+definition. Chosen over changing the prompts to point at whatever currently defines the gates: the
+prompts are right about wanting one durable source, and the fix is to supply it. G5 is recorded as
+never-defined rather than renumbered, so the gap reads as history instead of a hole. → **B-26**.
+
+**Decision 102 — `inventory.spec.js:883` goes to the backlog, unattributed.**
+
+Decided by triage. `item modal pre-fills search with current line item text` fails with
+`Expected "Special Sauce", Received "Test Item"` — **proven pre-existing by reproduction**, not by
+argument: G6 ran the preceding specs with B1's new spec file entirely absent and got the
+byte-identical failure, and `inventory.spec.js` alone on a fresh database passes 150/150. It is
+cross-spec pollution from one of `broadcast-rerender` / `grant-enforcement-parity` / `index`. The
+mechanism first proposed — a `.first()` collision over a shared `eventDate` — is **wrong** (the
+pending list is `ORDER BY created_at DESC` with no re-sort, so `.first()` is the newest row and
+`event_date` is not in the sort key); recorded so a wrong mechanism does not become folklore. The
+likelier cause is `seedPendingPurchase` swallowing a failed POST (`tests/inventory.spec.js:70`).
+`playwright.config.js` defaults to `retries: 1`, which is why the baseline reads green; cards at
+`--retries=0` see it. It did not surface in either the run's or triage's `--retries=0` full suite,
+consistent with load/ordering sensitivity. → **B-27**.
+
+**Decision 103 — the three guard defects found at triage ride the resuming work; the merge
+stands.**
+
+Decided by triage. The adversarial re-execution reproduced every closeout gate number to the digit
+and refuted none, and found three defects the run did not report — **all in guards, not in shipped
+behaviour**, which matters because the run's headline card is a guard-integrity card.
+(a) `verify-test-harness.sh` Check B runs one aggregate `go test`, so **six of seven packages can
+report `ok` on a dropped database while the gate prints PASS**; only a 7-of-7 revert reds it. The
+production fix itself is sound — all seven packages exit 1 individually under three different
+unreachable-DB shapes, in 0.02s where the DSN resolves, so the fail-loud claim does not depend on
+hanging. (b) Check A2's spec-file floor of 20 **lost its bite during this very run**: B1 added
+`tests/sync-schema.spec.js`, making 20 static + 1 generated = 21, and nobody ratcheted the floor —
+so moving `features/` away and letting `bddgen` emit nothing still reports `20 files → PASS, exit 0`,
+re-opening the B-09 detection gap one file wide. (c) `shoot.mjs` measurement 6, the arithmetic check
+**added in the repair round** to close the "value present but not right" hole, walks `.plate` with no
+population floor while the file's own header asserts six of seven measurements are pinned; renaming
+the class yields `0 counting plates reconciled -> PASS`. The other three repaired checks are
+genuinely falsifiable, each confirmed by mutation. **The closeout's own diagnosis — "this repo's
+characteristic bug is a check whose subject set can go empty" — is correct and not yet cured: all
+three findings are that same shape, inside the checks the run added to cure it.** Filed as
+**B-22/B-23/B-24** rather than fixed at triage, because a guard repair deserves a red-first test and
+triage does not write production code. Also confirmed: **B-21's emitter defect is fixed in
+practice** — 0 of 32 commits unparseable under `git interpret-trailers --parse`, all five merge
+commits included, against 14 of 33 last run.
