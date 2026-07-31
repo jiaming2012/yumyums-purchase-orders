@@ -86,15 +86,16 @@ import (
 //   docker compose -p spike-supabase -f docker-compose.supabase.yml up -d
 // Never a hosted Supabase project. Never production. No real HQ data.
 //
-// Unreachable stack SKIPS (the connect-or-skip idiom used across this backend),
-// so `go test ./...` on a box without the spike stack stays green rather than
-// failing for an unrelated reason. The defaults below are the throwaway values
-// already committed in docker-compose.supabase.yml — no new secret is
-// introduced by naming them here.
+// 🛑 NO stack at all SKIPS; a RESOLVED-BUT-DEAD stack FAILS. That asymmetry
+// lives in spikestack_gate_test.go and is not optional — the first version of
+// this file carried HARD-CODED DEFAULT PORTS and skipped when they did not
+// answer, and because docker-compose.supabase.yml publishes EPHEMERAL ports the
+// defaults were wrong on essentially every run. This suite therefore reported
+// `ok` while skipping in its entirety (finding F1, run overnight-20260801). The
+// endpoints are now resolved with `docker compose port`; there is no port
+// constant left here to go stale.
 
 const (
-	defaultSpikeREST   = "http://127.0.0.1:46233"
-	defaultSpikeDB     = "postgres://supabase_admin:d8d866978aef6ac99c610bcb75b72431@127.0.0.1:46011/postgres"
 	defaultSpikeSecret = "2508c659af3c4316b0a163a00725d33a9bc4eae75aa35ac9be6a007cacb8251c"
 
 	userAlice = "hq-user-alice"
@@ -131,33 +132,28 @@ func sqlDir(t *testing.T) string {
 	return filepath.Join("..", "..", "..", ".night-crew", "qa", "spike-supabase", "sql")
 }
 
-// connectSpike dials the stack or SKIPS. It then (re)applies the fixture, and
-// applies the policies unless SPIKE_SKIP_POLICIES=1 — in which case it actively
-// TEARS RLS BACK DOWN, so the red state is reproducible on a database where the
-// policies have already been applied once.
+// connectSpike resolves the stack and either SKIPS (no stack configured) or
+// connects — and FAILS if a configured stack does not answer. See the gate in
+// spikestack_gate_test.go. It then (re)applies the fixture, and applies the
+// policies unless SPIKE_SKIP_POLICIES=1 — in which case it actively TEARS RLS
+// BACK DOWN, so the red state is reproducible on a database where the policies
+// have already been applied once.
 func connectSpike(t *testing.T) *spikeStack {
 	t.Helper()
 
-	rest := env("SPIKE_REST_URL", defaultSpikeREST)
-	dbURL := env("SPIKE_DB_URL", defaultSpikeDB)
-	secret := env("SPIKE_JWT_SECRET", defaultSpikeSecret)
+	cfg, ok := resolveSpikeConfig(t)
+	if !ok {
+		t.Skipf("no sync substrate configured — skipping, and SKIPPED IS NOT PASSED: with "+
+			"this off there is no JWT-bridge RLS evidence in the tree. Bring it up with: "+
+			"docker compose -p %s -f docker-compose.supabase.yml up -d", spikeComposeProject)
+	}
 
 	ctx := context.Background()
-	pool, err := pgxpool.New(ctx, dbURL)
-	if err != nil {
-		t.Skipf("spike stack DB not configured (%v) — skipping. Bring it up with: "+
-			"docker compose -p spike-supabase -f docker-compose.supabase.yml up -d", err)
-	}
-	pingCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-	if err := pool.Ping(pingCtx); err != nil {
-		pool.Close()
-		t.Skipf("spike stack DB unreachable (%v) — skipping. Bring it up with: "+
-			"docker compose -p spike-supabase -f docker-compose.supabase.yml up -d", err)
-	}
+	pool := dialSpikeDB(t, ctx, cfg)
 	t.Cleanup(pool.Close)
+	requireSpikeREST(t, cfg)
 
-	s := &spikeStack{rest: rest, secret: secret, pool: pool}
+	s := &spikeStack{rest: cfg.restURL, secret: cfg.secret, pool: pool}
 
 	s.applySQL(t, filepath.Join(sqlDir(t), "hq-bridge-fixture.sql"))
 

@@ -676,7 +676,25 @@
   Footprint: the sync DB schema (SQL) and the RxDB collection definitions. No `workflows.html`, no
   policies, no client construction.
 
-- **`sync-rxdb-row-visibility-rls`** · **PLANNED — SLATE-READY, MECHANISM NOW DECIDED** · **✅ FORK
+- **`sync-rxdb-row-visibility-rls`** · **DONE — built on `overnight-20260801` (B2), resumed from the
+  2026-07-29 park.** Shipped: migration **`0073_sync_fdw_views.sql`** (HQ-side — three least-privilege
+  read-through views + the `hq_sync_fdw` role, created NOLOGIN with no committed password),
+  **`sync-schema/sql/0002_hq_fdw.sql`** (substrate-side `postgres_fdw` server, mapping and three
+  foreign tables, with the tables revoked from `anon`/`authenticated`/`public` so PostgREST cannot
+  serve HQ's role map), **`sync-schema/sql/0003_rls_policies.sql`** (`hq_can_see_template` /
+  `hq_can_see_field` and SELECT policies on three of the four replicated tables), and a **27-subtest
+  attack suite** (19 numbered variants V1-V19, 4 positives, 2 population floors, 2 `service_role`
+  controls) at `backend/internal/sync/rowvisibility_rls_test.go`, **red-first** — captures at
+  `.night-crew/qa/spike-supabase/captures/{red,green}-20260801-row-visibility.txt` (red: 16 FAIL /
+  11 PASS with policies withheld; green: 27/27). Both inherited properties are preserved **and asserted**
+  — a mutation adding `assignment_role = 'assignee'` turns `POSITIVE/alice` red, and deleting the
+  admin arm turns exactly `POSITIVE/carol`, `V12`, `V14` red. **Two things triage must rule on:**
+  (1) the card ships **SELECT policies only** — INSERT/UPDATE stay policy-less (deny-all) because
+  `ResolveEntityAccess` is a fan-out resolver and extending it to writes would invent a permission
+  semantic, so **RxDB push replication is refused until a follow-up card writes `WITH CHECK`
+  policies**; (2) `submission_rejections` likewise keeps no policy — the resolver has no case for it,
+  so a policy there would be an extension, not a port. `HQ_SYNC_REST_URL` is **still not set by this
+  branch** and disarms only at triage, on evidence. *Original card text follows.* · **FORK
   RESOLVED 2026-07-29 (ledger T-28 decision 92) — the projection is fed by `postgres_fdw` from the
   substrate to HQ, and decision 61 is REVERSED.** Card B1 settled the topology on
   `overnight-20260729-2` in the direction that makes decision 61's contract impossible: the
