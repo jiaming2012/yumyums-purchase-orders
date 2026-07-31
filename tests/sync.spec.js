@@ -2756,3 +2756,197 @@ test.describe('Catch-up replay: SUBMIT_CHECKLIST does not fetch-storm myChecklis
     await ctxB.close();
   });
 });
+
+// ─── Z. App timezone: the submit period boundary (Card A1) ───────────────────
+//
+// The operator ruled the app's timezone is America/New_York (ledger T-26
+// decision 83). `currentSubmitPeriod()` was `new Date().toISOString().slice(0,10)`
+// — UTC — so the app's "today" rolled over at 19:00 Chicago / 20:00 New York,
+// i.e. MID-DINNER-SERVICE, while the crew is still working the same operational
+// evening.
+//
+// The three instants below are ONE Wednesday evening. In UTC they straddle
+// midnight; in both Chicago and New York they are the same weekday, hours from
+// any rollover:
+//
+//   T1  2026-07-15T23:30Z   Wed 18:30 CDT   Wed 19:30 EDT   Wed (UTC)
+//   T2  2026-07-15T23:45Z   Wed 18:45 CDT   Wed 19:45 EDT   Wed (UTC)
+//   T3  2026-07-16T00:30Z   Wed 19:30 CDT   Wed 20:30 EDT   THU (UTC)  ← rollover
+//
+// This is triage's reproduction: an entry stamped at T1 lends its
+// idempotency_key at T2 and REFUSES at T3 — so a second Submit press mints a
+// fresh key and the drain writes TWO submission rows for one evening.
+//
+// EXPECTED: RED at UTC. GREEN once the period is the app-timezone calendar date.
+const A1_T1 = '2026-07-15T23:30:00.000Z'; // 6:30pm CT
+const A1_T2 = '2026-07-15T23:45:00.000Z'; // 6:45pm CT
+const A1_T3 = '2026-07-16T00:30:00.000Z'; // 7:30pm CT — same weekday, next UTC day
+
+test.describe('App timezone: submit period boundary [A1-TZ]', () => {
+  test.beforeEach(async ({ page }) => {
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await page.waitForFunction(
+      () => typeof window.currentSubmitPeriod === 'function'
+         && typeof window.isCurrentPeriodEntry === 'function',
+      null, { timeout: 15000 });
+  });
+
+  test('fixture honesty: T1/T2/T3 are one Wednesday in CT and in ET, but straddle UTC midnight [A1-TZ-00]', async ({ page }) => {
+    const days = await page.evaluate(([t1, t2, t3]) => {
+      const wd = (iso, tz) => new Intl.DateTimeFormat('en-US', { timeZone: tz, weekday: 'short' }).format(new Date(iso));
+      return {
+        ct: [t1, t2, t3].map(t => wd(t, 'America/Chicago')),
+        et: [t1, t2, t3].map(t => wd(t, 'America/New_York')),
+        utc: [t1, t2, t3].map(t => t.slice(0, 10)),
+      };
+    }, [A1_T1, A1_T2, A1_T3]);
+    expect(days.ct, 'all three instants are the same weekday in Chicago').toEqual(['Wed', 'Wed', 'Wed']);
+    expect(days.et, 'all three instants are the same weekday in New York').toEqual(['Wed', 'Wed', 'Wed']);
+    // The defect's engine: UTC alone disagrees.
+    expect(days.utc[0]).toBe(days.utc[1]);
+    expect(days.utc[2], 'T3 is the NEXT calendar day in UTC — this is what breaks the key').not.toBe(days.utc[0]);
+  });
+
+  test('a period stamped 6:30pm CT is still current at 6:45pm AND at 7:30pm [A1-TZ-01]', async ({ page }) => {
+    await page.clock.setFixedTime(new Date(A1_T1));
+    const stamped = await page.evaluate(() => window.currentSubmitPeriod());
+
+    await page.clock.setFixedTime(new Date(A1_T2));
+    const at645 = await page.evaluate(p => window.isCurrentPeriodEntry({ period: p }), stamped);
+
+    await page.clock.setFixedTime(new Date(A1_T3));
+    const at730 = await page.evaluate(p => window.isCurrentPeriodEntry({ period: p }), stamped);
+
+    // Control — green before and after the fix.
+    expect(at645, '6:45pm CT is the same operational evening as 6:30pm CT').toBe(true);
+    // The contract. RED while the period is UTC.
+    expect(at730, '7:30pm CT is STILL the same operational evening — same weekday, mid-dinner-service').toBe(true);
+  });
+
+  test('a queued submission still lends its idempotency_key at 7:30pm CT [A1-TZ-02]', async ({ page }) => {
+    const tplId = '00000000-a1a1-4000-8000-' + Date.now().toString(16).padStart(12, '0');
+    const key = 'a1-tz-key-' + Date.now();
+
+    // 6:30pm CT — the crew member presses Submit while offline.
+    await page.clock.setFixedTime(new Date(A1_T1));
+    const entryId = await page.evaluate(async ([tpl, k]) => {
+      const id = 'a1-tz-entry-' + k;
+      const db = await window.getDB();
+      await window.idbPut(db, 'submitQueue', {
+        id, template_id: tpl, idempotency_key: k, responses: [],
+        queuedAt: new Date().toISOString(), period: window.currentSubmitPeriod(),
+      });
+      return id;
+    }, [tplId, key]);
+
+    try {
+      // 6:45pm CT — second press. Must reuse the queued key (control).
+      await page.clock.setFixedTime(new Date(A1_T2));
+      const at645 = await page.evaluate(t => window.findQueuedSubmission(t), tplId);
+      expect(at645, 'the queued entry must be findable at 6:45pm CT').not.toBeNull();
+      expect(at645.idempotency_key).toBe(key);
+
+      // 7:30pm CT — same weekday, same dinner service. Must STILL reuse the key,
+      // or the drain writes a second submission row for one operational evening.
+      await page.clock.setFixedTime(new Date(A1_T3));
+      const at730 = await page.evaluate(t => window.findQueuedSubmission(t), tplId);
+      expect(at730, 'the queued entry must STILL lend its key at 7:30pm CT').not.toBeNull();
+      expect(at730 && at730.idempotency_key,
+        'a fresh key here is the duplicate-submission defect (ledger T-25 decision 71)').toBe(key);
+    } finally {
+      await page.evaluate(async id => {
+        const db = await window.getDB();
+        await window.idbDelete(db, 'submitQueue', id);
+      }, entryId);
+    }
+  });
+});
+
+// ── The app timezone is ONE value, held in four places by hand [A1-TZ-PARITY] ─
+//
+// The park note's finding: APP_TIMEZONE in sync.js is a hand-copied literal.
+// Nothing mechanical kept it equal to users.DefaultTimezone (Go) — no test
+// asserted it, and /api/v1/health exposes no app-timezone field the frontend
+// could read. A comment saying "keep these in step" IS THE SAME MECHANISM THAT
+// PRODUCED THE BUG THIS CARD FIXES: the app ran two zones at once for months
+// because a convention was the only thing holding them together.
+//
+// This closes the loop in the direction that matters. Go is the authority
+// (users.DefaultTimezone); every frontend literal must agree with it, and a
+// one-sided edit now fails a test instead of silently splitting the app in two.
+//
+// 🛑 The subject set is asserted NON-EMPTY before any comparison. A parity
+// check that finds nothing to compare and reports PASS is worse than no check,
+// because it reads as coverage. If a file is renamed or a literal reworded,
+// this test FAILS LOUD rather than quietly checking zero sites.
+test.describe('App timezone parity: Go constant vs frontend literals [A1-TZ-PARITY]', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const repoRoot = path.resolve(__dirname, '..');
+
+  // The Go constant is the authority.
+  function goDefaultTimezone() {
+    const src = fs.readFileSync(path.join(repoRoot, 'backend/internal/users/db.go'), 'utf8');
+    const m = src.match(/const\s+DefaultTimezone\s*=\s*"([^"]+)"/);
+    if (!m) {
+      throw new Error(
+        'users.DefaultTimezone not found in backend/internal/users/db.go — this ' +
+        'parity test can no longer see its authority and must not report PASS');
+    }
+    return m[1];
+  }
+
+  // Every frontend site that spells the app timezone out by hand.
+  //
+  // 🛑 workflows.html was ADDED to this list after the fact. Card A1 introduced
+  // it — appDay()'s `typeof APP_TIMEZONE === 'string' ? APP_TIMEZONE : '...'`
+  // guard, a fourth hand-copied literal — and left it OUTSIDE the very guard the
+  // card wrote to stop hand-copied literals drifting. It is load-bearing: it is
+  // the zone workflows.html uses when sync.js has not loaded, i.e. the one that
+  // decides "was this submission from today?" on a cold page. Nothing but a
+  // comment held it equal, which is this card's own stated definition of the
+  // bug. It is inside SITES now.
+  //
+  // NOT here, deliberately: inventory.html:2697's display-only fallback in the
+  // badge-reset form. It is pre-existing (not A1's) and cosmetic — it labels an
+  // input, it does not decide a date. If that ever starts feeding a save, add it.
+  const SITES = [
+    { file: 'sync.js', re: /const APP_TIMEZONE\s*=\s*'([^']+)'/ },
+    { file: 'inventory.html', re: /const APP_TIMEZONE\s*=\s*'([^']+)'/ },
+    { file: 'purchasing.html', re: /timezone:\s*'(America\/[A-Za-z_]+)'/ },
+    { file: 'workflows.html', re: /typeof APP_TIMEZONE === 'string' \? APP_TIMEZONE : '([^']+)'/ },
+  ];
+
+  test('every hand-copied frontend literal equals users.DefaultTimezone', () => {
+    const want = goDefaultTimezone();
+    expect(want, 'the Go constant must be a real IANA zone').toMatch(/^[A-Za-z]+\/[A-Za-z_]+$/);
+
+    const found = [];
+    for (const site of SITES) {
+      const src = fs.readFileSync(path.join(repoRoot, site.file), 'utf8');
+      const m = src.match(site.re);
+      expect(m, `no app-timezone literal found in ${site.file} — the parity ` +
+        `check's subject set has gone empty, which is a failure, not a pass`).not.toBeNull();
+      found.push({ file: site.file, value: m[1] });
+    }
+
+    // Subject-set floor, stated as a number so a silently-dropped site is caught.
+    expect(found.length, 'expected one app-timezone literal per frontend site').toBe(SITES.length);
+
+    for (const f of found) {
+      expect(f.value, `${f.file} disagrees with users.DefaultTimezone — the app ` +
+        `is running two timezone regimes again, which is the bug card A1 removed`).toBe(want);
+    }
+  });
+
+  test('the running page agrees with the Go constant', async ({ page }) => {
+    const want = goDefaultTimezone();
+    await login(page);
+    await page.goto('/workflows.html');
+    await page.waitForFunction(() => typeof window.APP_TIMEZONE === 'string');
+    const live = await page.evaluate(() => window.APP_TIMEZONE);
+    expect(live, 'window.APP_TIMEZONE (sync.js, as actually loaded by the browser) ' +
+      'must equal users.DefaultTimezone').toBe(want);
+  });
+});

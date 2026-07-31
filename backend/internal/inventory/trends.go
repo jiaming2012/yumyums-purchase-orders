@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/yumyums/hq/internal/users"
 )
 
 // ── GET /api/v1/inventory/trends — design §2.2 AS AMENDED 2026-07-20 ─────────
@@ -86,7 +87,31 @@ const TrendsWeeks = 12
 // trendsWindow computes the fixed window server-side: the 12 ISO weeks ending
 // today. `from` is the Monday of the week TrendsWeeks-1 weeks before the
 // current week, `to` is today.
+//
+// "Today" and "which weekday is it" are evaluated in the APP timezone
+// (users.DefaultTimezone — America/New_York, ledger T-26 decision 83 /
+// T-28 decision 93), NOT in the caller's location. The one caller passes a
+// bare time.Now(), which is UTC in the production container, so without this
+// conversion the Trends tab's 12-week COGS window sat on a different zone from
+// recipes.costWindow's identical window and from pendingPeriodDateExpr — two
+// COGS boundaries disagreeing, which is the bug card A1 exists to end.
+//
+// The tzdata-failure path deliberately falls back to the passed-in location
+// rather than erroring: a Trends tab that serves a window an hour off beats a
+// Trends tab that 500s. This mirrors recipes.costWindow exactly.
+//
+// 🛑 CHANGEOVER: ON THE DEPLOY THAT FOLLOWS THIS MERGE — DATE TBD. This window
+// is server-local (effectively UTC) in production until then, so between 20:00
+// New York and midnight UTC it names tomorrow as "today" — and on Sunday
+// evenings it names the NEXT 12-week window. Merging does not move it; no deploy
+// is scheduled as of this writing. Fix-forward: Trends figures produced before
+// that deploy are NOT restated. To date this changeover: find the first deploy
+// after this comment's commit. See migration 0072_app_timezone_new_york.sql,
+// whose header carries the same instruction.
 func trendsWindow(now time.Time) TrendsWindow {
+	if loc, err := time.LoadLocation(users.DefaultTimezone); err == nil {
+		now = now.In(loc)
+	}
 	off := (int(now.Weekday()) + 6) % 7 // days since Monday
 	monday := now.AddDate(0, 0, -off)
 	from := monday.AddDate(0, 0, -7*(TrendsWeeks-1))
@@ -230,14 +255,16 @@ func TrendsHandler(pool *pgxpool.Pool, cogsAllowlist []string) http.HandlerFunc 
 		cells = out
 
 		// 2) Amendment 2 — eligible pending. Clause-for-clause identical to
-		//    the pending CTE in PeriodSummaryHandler (handler.go:1345-1351) so
-		//    the two endpoints agree on the population by construction.
+		//    the pending CTE in PeriodSummaryHandler so the two endpoints agree
+		//    on the population by construction — the period-date expression is
+		//    literally the same const (pendingPeriodDateExpr, handler.go), so
+		//    they cannot drift on which day a receipt belongs to.
 		var pendingTotal float64
 		var pendingCount int
 		err = pool.QueryRow(r.Context(), `
 			SELECT ROUND(COALESCE(SUM(ABS(bank_total)), 0)::numeric, 2), COUNT(*)
 			FROM pending_purchases
-			WHERE COALESCE(event_date, (created_at AT TIME ZONE 'America/Chicago')::date)
+			WHERE `+pendingPeriodDateExpr+`
 			        BETWEEN $1::date AND $2::date
 			  AND confirmed_at IS NULL
 			  AND discarded_at IS NULL

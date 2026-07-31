@@ -9,6 +9,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/yumyums/hq/internal/alerts"
+	"github.com/yumyums/hq/internal/users"
 )
 
 // timeNow is the package-level clock. Tests override via:
@@ -21,13 +22,13 @@ import (
 var timeNow = time.Now
 
 // StartDriftScheduler launches the weekly drift-check goroutine. The ticker
-// fires every 15 minutes; runDriftTick gates on Monday 09:00–09:14
-// America/Chicago so the tick only matches once per week.
+// fires every 15 minutes; runDriftTick gates on Monday 09:00–09:14 in the APP
+// timezone (users.DefaultTimezone) so the tick only matches once per week.
 //
 // Must be called AFTER SetAlertQueue if Cliq delivery is desired (nil-safe
 // otherwise — banner still renders on the next /drift fetch).
 func StartDriftScheduler(ctx context.Context, pool *pgxpool.Pool) {
-	slog.Info("recipes drift scheduler: starting (15m tick, fires Monday 09:00 America/Chicago)")
+	slog.Info("recipes drift scheduler: starting (15m tick, fires Monday 09:00 app timezone)", "timezone", users.DefaultTimezone)
 	go func() {
 		// Boot-time tick — recovers a missed Monday if the server happened to be
 		// down at 09:00 (the tick is idempotent so a re-fire is a no-op).
@@ -46,10 +47,17 @@ func StartDriftScheduler(ctx context.Context, pool *pgxpool.Pool) {
 	}()
 }
 
-// runDriftTick gates on the Monday 09:00 Chicago window and delegates to
+// runDriftTick gates on the Monday 09:00 APP-TIMEZONE window and delegates to
 // runDriftWeek. Outside that window, returns silently.
+//
+// 🛑 CHANGEOVER: ON THE DEPLOY THAT FOLLOWS THIS MERGE — DATE TBD. This gate is
+// America/Chicago in production until then, i.e. the drift check still fires at
+// 10:00 New York. On that deploy it starts firing at 09:00 New York — one hour
+// earlier in wall-clock terms, exactly once. Merging does not move it; no deploy
+// is scheduled as of this writing. To date this changeover: find the first
+// deploy after this comment's commit.
 func runDriftTick(ctx context.Context, pool *pgxpool.Pool) {
-	loc, err := time.LoadLocation("America/Chicago")
+	loc, err := time.LoadLocation(users.DefaultTimezone)
 	if err != nil {
 		slog.Error("recipes drift: TZ load failed", "error", err)
 		return
@@ -63,7 +71,7 @@ func runDriftTick(ctx context.Context, pool *pgxpool.Pool) {
 }
 
 // runDriftWeek runs the drift computation + write + alert for the given
-// week_start (YYYY-MM-DD literal in America/Chicago calendar). Tests call this
+// week_start (YYYY-MM-DD literal in the app-timezone calendar). Tests call this
 // directly to bypass the time gate; production reaches it through runDriftTick.
 //
 // Signature note: weekStart is a string literal rather than time.Time because

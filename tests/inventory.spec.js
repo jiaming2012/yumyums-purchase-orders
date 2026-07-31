@@ -2019,26 +2019,62 @@ test.describe('Inventory', () => {
 
   // ── Badge Reset timezone ────────────────────────────────────────────
 
-  test('badge reset saves with browser timezone, not hardcoded value', async ({ browser }) => {
-    // Use a non-default timezone to catch hardcoded values
-    const context = await browser.newContext({ timezoneId: 'America/Chicago' });
-    const page = await context.newPage();
-    await login(page);
-    await page.goto('/inventory.html');
-    await page.waitForLoadState('networkidle');
-    await page.locator('#t7').click();
-    await page.waitForSelector('#badge-reset-section', { timeout: 5000 });
-    // Click Edit to open the form
-    await page.locator('[data-action="toggle-badge-reset"]').click();
-    // Intercept the save API call to check what timezone is sent
-    const [request] = await Promise.all([
-      page.waitForRequest(req => req.url().includes('repurchase-reset/config') && req.method() === 'PUT'),
-      page.click('[data-action="save-badge-reset"]')
-    ]);
-    const body = JSON.parse(request.postData());
-    expect(body.timezone).toBe('America/Chicago');
-    await context.close();
-  });
+  // Badge reset follows the APP's timezone, not the device's — ledger T-28
+  // decision 94. The operator's framing: a crew member opening the app in the
+  // morning should see the list their coworker sees, so the reset must not
+  // depend on whose phone happened to save the form.
+  //
+  // This test replaces one titled "badge reset saves with browser timezone,
+  // not hardcoded value", which asserted the OPPOSITE and passed. That test was
+  // asserting the defect: `inventory.html` wrote
+  // `Intl.DateTimeFormat().resolvedOptions().timeZone` into
+  // `repurchase_reset_config.timezone` on every save, so a crew member on
+  // Central time silently moved the whole truck's badge-reset boundary. Nobody
+  // had recorded "follow the device" as a decision; decision 94 records the
+  // reversal so the next reader does not rediscover it as a regression.
+  //
+  // Two browser zones, deliberately:
+  //   Asia/Tokyo      — catches follow-the-device (the old behaviour)
+  //   America/Chicago — catches a regression to the zone this whole card
+  //                     removes, which follow-the-device would ALSO produce on
+  //                     a Central phone. It is the one wrong answer that could
+  //                     look right.
+  // Neither may reach the server; both must send the app zone.
+  const APP_TIMEZONE = 'America/New_York';
+
+  for (const deviceTz of ['Asia/Tokyo', 'America/Chicago']) {
+    test(`badge reset saves the app timezone, not the device's (device=${deviceTz})`, async ({ browser }) => {
+      const context = await browser.newContext({ timezoneId: deviceTz });
+      const page = await context.newPage();
+      await login(page);
+      await page.goto('/inventory.html');
+      await page.waitForLoadState('networkidle');
+      await page.locator('#t7').click();
+      await page.waitForSelector('#badge-reset-section', { timeout: 5000 });
+
+      // Prove the fixture actually took: if the context timezone were ignored,
+      // this test could pass while testing nothing.
+      const resolved = await page.evaluate(() => Intl.DateTimeFormat().resolvedOptions().timeZone);
+      expect(resolved, 'browser context timezone did not apply — the fixture is inert').toBe(deviceTz);
+
+      // Click Edit to open the form
+      await page.locator('[data-action="toggle-badge-reset"]').click();
+
+      // The form's disabled Timezone field shows what WILL be saved, so it must
+      // not advertise the device zone either.
+      await expect(page.locator('#badge-reset-tz')).toHaveValue(APP_TIMEZONE);
+
+      // Intercept the save API call to check what timezone is sent
+      const [request] = await Promise.all([
+        page.waitForRequest(req => req.url().includes('repurchase-reset/config') && req.method() === 'PUT'),
+        page.click('[data-action="save-badge-reset"]')
+      ]);
+      const body = JSON.parse(request.postData());
+      expect(body.timezone).toBe(APP_TIMEZONE);
+      expect(body.timezone, 'the device timezone reached the server').not.toBe(deviceTz);
+      await context.close();
+    });
+  }
 
   // ── Add item group enforcement ──────────────────────────────────────
 

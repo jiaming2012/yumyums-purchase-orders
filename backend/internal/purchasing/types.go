@@ -64,7 +64,7 @@ type CutoffConfig struct {
 	ID         string    `json:"id"`
 	DayOfWeek  int       `json:"day_of_week"` // 0=Sunday, 6=Saturday
 	CutoffTime string    `json:"cutoff_time"` // HH:MM format
-	Timezone   string    `json:"timezone"`    // e.g. "America/Chicago"
+	Timezone   string    `json:"timezone"`    // IANA zone; defaults to users.DefaultTimezone ("America/New_York")
 	UpdatedAt  time.Time `json:"updated_at"`
 }
 
