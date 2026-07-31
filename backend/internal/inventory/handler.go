@@ -31,12 +31,15 @@ import (
 // "clause-for-clause identical" to PeriodSummaryHandler's; sharing this const is
 // how that promise is kept by construction.
 //
-// 🛑 CHANGEOVER: 2026-07-29. This cast was America/Chicago until run
-// overnight-20260729-2. Only rows with NO extracted event_date are exposed to
-// it, so the blast radius is bounded — but a receipt created between 23:00 and
-// 00:00 Chicago on a period boundary could land in the adjacent period under
-// the old zone. Past weekly COGS/payroll figures are fix-forward and are NOT
-// restated. See migration 0072_app_timezone_new_york.sql.
+// 🛑 CHANGEOVER: ON THE DEPLOY THAT FOLLOWS THIS MERGE — DATE TBD. This cast is
+// America/Chicago in production until then; merging does not move it, and no
+// deploy is scheduled as of this writing. Only rows with NO extracted event_date
+// are exposed to it, so the blast radius is bounded — but a receipt created
+// between 23:00 and 00:00 Chicago on a period boundary could land in the
+// adjacent period under the old zone. Past weekly COGS/payroll figures are
+// fix-forward and are NOT restated. To date this changeover: find the first
+// deploy after this comment's commit. See migration
+// 0072_app_timezone_new_york.sql, whose header carries the same instruction.
 const pendingPeriodDateExpr = `COALESCE(event_date, (created_at AT TIME ZONE '` + users.DefaultTimezone + `')::date)`
 
 // normalizeItemName title-cases receipt text: "DEER PARK 40PK" → "Deer Park 40Pk".

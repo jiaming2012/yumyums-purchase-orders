@@ -50,9 +50,12 @@ func StartDriftScheduler(ctx context.Context, pool *pgxpool.Pool) {
 // runDriftTick gates on the Monday 09:00 APP-TIMEZONE window and delegates to
 // runDriftWeek. Outside that window, returns silently.
 //
-// 🛑 CHANGEOVER: 2026-07-29. This gate was America/Chicago until run
-// overnight-20260729-2, i.e. the drift check fired at 10:00 New York. It now
-// fires at 09:00 New York — one hour earlier in wall-clock terms, exactly once.
+// 🛑 CHANGEOVER: ON THE DEPLOY THAT FOLLOWS THIS MERGE — DATE TBD. This gate is
+// America/Chicago in production until then, i.e. the drift check still fires at
+// 10:00 New York. On that deploy it starts firing at 09:00 New York — one hour
+// earlier in wall-clock terms, exactly once. Merging does not move it; no deploy
+// is scheduled as of this writing. To date this changeover: find the first
+// deploy after this comment's commit.
 func runDriftTick(ctx context.Context, pool *pgxpool.Pool) {
 	loc, err := time.LoadLocation(users.DefaultTimezone)
 	if err != nil {

@@ -100,11 +100,14 @@ const TrendsWeeks = 12
 // rather than erroring: a Trends tab that serves a window an hour off beats a
 // Trends tab that 500s. This mirrors recipes.costWindow exactly.
 //
-// 🛑 CHANGEOVER: 2026-08-01. This window was server-local (effectively UTC)
-// until run overnight-20260801, so between 20:00 New York and midnight UTC it
-// named tomorrow as "today" — and on Sunday evenings it named the NEXT 12-week
-// window. Fix-forward: past Trends figures are NOT restated. See migration
-// 0072_app_timezone_new_york.sql.
+// 🛑 CHANGEOVER: ON THE DEPLOY THAT FOLLOWS THIS MERGE — DATE TBD. This window
+// is server-local (effectively UTC) in production until then, so between 20:00
+// New York and midnight UTC it names tomorrow as "today" — and on Sunday
+// evenings it names the NEXT 12-week window. Merging does not move it; no deploy
+// is scheduled as of this writing. Fix-forward: Trends figures produced before
+// that deploy are NOT restated. To date this changeover: find the first deploy
+// after this comment's commit. See migration 0072_app_timezone_new_york.sql,
+// whose header carries the same instruction.
 func trendsWindow(now time.Time) TrendsWindow {
 	if loc, err := time.LoadLocation(users.DefaultTimezone); err == nil {
 		now = now.In(loc)

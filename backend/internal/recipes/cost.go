@@ -103,10 +103,13 @@ type CostResponse struct {
 // to the passed-in location on tzdata failure keeps the endpoint serving rather
 // than 500ing.
 //
-// 🛑 CHANGEOVER: 2026-07-29. This window was America/Chicago until run
-// overnight-20260729-2, so between 23:00 Sunday Chicago and midnight Monday New
-// York it named the previous 12-week window. Fix-forward: past cost figures are
-// NOT restated. See migration 0072_app_timezone_new_york.sql.
+// 🛑 CHANGEOVER: ON THE DEPLOY THAT FOLLOWS THIS MERGE — DATE TBD. This window
+// is America/Chicago in production until then, so between 23:00 Sunday Chicago
+// and midnight Monday New York it names the previous 12-week window. Merging
+// does not move it; no deploy is scheduled as of this writing. Fix-forward: cost
+// figures produced before that deploy are NOT restated. To date this changeover:
+// find the first deploy after this comment's commit. See migration
+// 0072_app_timezone_new_york.sql, whose header carries the same instruction.
 func costWindow(now time.Time) (string, string, int) {
 	if loc, err := time.LoadLocation(users.DefaultTimezone); err == nil {
 		now = now.In(loc)
