@@ -76,6 +76,12 @@
 --                                                    -- not from your shell
 --     set hq_fdw.port     = '5433';                  -- yumyums-dev-pg
 --     set hq_fdw.dbname   = 'yumyums';
+--     set hq_fdw.schema   = 'public';                -- 🛑 'production' on prod:
+--                                                    -- docker-compose.prod.yml
+--                                                    -- runs the backend with
+--                                                    -- search_path=production,
+--                                                    -- so migration 0073's views
+--                                                    -- land THERE, not in public.
 --     set hq_fdw.username = 'hq_sync_fdw';
 --     set hq_fdw.password = '...';
 --
@@ -166,32 +172,64 @@ $$;
 -- never at `users` or `template_assignments` directly. `public.users` carries
 -- `password_hash`; a foreign table over it would put that column on the wire.
 
--- 3a. The assignment arm. Transposition of ResolveEntityAccess's EXISTS clause.
---     🛑 Does NOT carry `assignment_role` — the resolver never filters on it, so
---     an approver sees what an assignee sees. Inherited, knowing, and a separate
---     card to change. The column is absent here so it cannot be filtered on by
---     accident.
-create foreign table if not exists public.hq_template_assignees (
-  template_id text,
-  user_id     text
-) server hq_pg options (schema_name 'public', table_name 'hq_sync_template_assignees');
+-- 🛑 The `schema_name` option is the environment-dependent half and is driven by
+-- `hq_fdw.schema` (default 'public', 'production' on prod). Migration 0073
+-- creates its views with UNQUALIFIED names like every other migration in that
+-- directory, so they follow HQ's own search_path — which prod sets to
+-- `production` in docker-compose.prod.yml's DB_URL. A hard-coded 'public' here
+-- would fail on prod ALONE, and would fail as "relation does not exist" inside a
+-- policy, at request time, long after anyone was looking at this file.
+do $$
+declare
+  v_schema text := coalesce(current_setting('hq_fdw.schema', true), 'public');
+begin
+  -- 3a. The assignment arm. Transposition of ResolveEntityAccess's EXISTS
+  --     clause.
+  --     🛑 Does NOT carry `assignment_role` — the resolver never filters on it,
+  --     so an approver sees what an assignee sees. Inherited, knowing, and a
+  --     separate card to change. The column is absent here so it cannot be
+  --     filtered on by accident.
+  if to_regclass('public.hq_template_assignees') is null then
+    execute format(
+      'create foreign table public.hq_template_assignees ('
+      '  template_id text, user_id text'
+      ') server hq_pg options (schema_name %L, table_name %L)',
+      v_schema, 'hq_sync_template_assignees');
+  else
+    execute format(
+      'alter foreign table public.hq_template_assignees options (set schema_name %L)', v_schema);
+  end if;
 
--- 3b. The admin arm. `roles && array['admin','superadmin']` is UNCONDITIONAL in
---     the resolver — every admin sees every template. Inherited, knowing, and a
---     separate card to change.
-create foreign table if not exists public.hq_user_roles (
-  user_id text,
-  roles   text[]
-) server hq_pg options (schema_name 'public', table_name 'hq_sync_user_roles');
+  -- 3b. The admin arm. `roles && array['admin','superadmin']` is UNCONDITIONAL
+  --     in the resolver — every admin sees every template. Inherited, knowing,
+  --     and a separate card to change.
+  if to_regclass('public.hq_user_roles') is null then
+    execute format(
+      'create foreign table public.hq_user_roles ('
+      '  user_id text, roles text[]'
+      ') server hq_pg options (schema_name %L, table_name %L)',
+      v_schema, 'hq_sync_user_roles');
+  else
+    execute format(
+      'alter foreign table public.hq_user_roles options (set schema_name %L)', v_schema);
+  end if;
 
--- 3c. field_id -> template_id, the resolution step the resolver performs for
---     `field_response` entities. Resolving by field_id rather than submission_id
---     is what makes DRAFT responses (submission_id IS NULL — 0001's comment
---     calls that load-bearing) resolvable at all.
-create foreign table if not exists public.hq_field_templates (
-  field_id    text,
-  template_id text
-) server hq_pg options (schema_name 'public', table_name 'hq_sync_field_templates');
+  -- 3c. field_id -> template_id, the resolution step the resolver performs for
+  --     `field_response` entities. Resolving by field_id rather than
+  --     submission_id is what makes DRAFT responses (submission_id IS NULL —
+  --     0001's comment calls that load-bearing) resolvable at all.
+  if to_regclass('public.hq_field_templates') is null then
+    execute format(
+      'create foreign table public.hq_field_templates ('
+      '  field_id text, template_id text'
+      ') server hq_pg options (schema_name %L, table_name %L)',
+      v_schema, 'hq_sync_field_templates');
+  else
+    execute format(
+      'alter foreign table public.hq_field_templates options (set schema_name %L)', v_schema);
+  end if;
+end
+$$;
 
 -- ---------------------------------------------------------------------------
 -- 4. 🛑 Lock the foreign tables away from every PostgREST-reachable role

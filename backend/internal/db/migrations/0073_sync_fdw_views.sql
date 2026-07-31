@@ -207,7 +207,27 @@ COMMENT ON ROLE hq_sync_fdw IS
   'Created NOLOGIN with no password; enable per environment with ALTER ROLE ... LOGIN PASSWORD. '
   'Holds SELECT on hq_sync_template_assignees, hq_sync_user_roles, hq_sync_field_templates only.';
 
-GRANT USAGE ON SCHEMA public TO hq_sync_fdw;
+-- 🛑 `current_schema()`, NOT a hard-coded `public`. Production runs this
+-- backend with `search_path=production` (docker-compose.prod.yml's DB_URL), so
+-- the three views above — created with unqualified names, like every other
+-- migration in this directory — land in `production` there and in `public` on
+-- dev. A literal `GRANT USAGE ON SCHEMA public` would therefore grant on the
+-- wrong schema in exactly one environment, and would do it silently: the
+-- migration succeeds, the views exist, and the remote role simply cannot see
+-- them. Following search_path keeps the grant attached to whichever schema the
+-- views actually went into.
+--
+-- The matching substrate-side knob is `hq_fdw.schema` in
+-- sync-schema/sql/0002_hq_fdw.sql — set it to 'production' when pointing the
+-- foreign server at prod.
+-- +goose StatementBegin
+DO $$
+BEGIN
+  EXECUTE format('GRANT USAGE ON SCHEMA %I TO hq_sync_fdw', current_schema());
+END
+$$;
+-- +goose StatementEnd
+
 GRANT SELECT ON hq_sync_template_assignees TO hq_sync_fdw;
 GRANT SELECT ON hq_sync_user_roles          TO hq_sync_fdw;
 GRANT SELECT ON hq_sync_field_templates     TO hq_sync_fdw;
@@ -218,7 +238,6 @@ BEGIN;
 REVOKE SELECT ON hq_sync_field_templates     FROM hq_sync_fdw;
 REVOKE SELECT ON hq_sync_user_roles          FROM hq_sync_fdw;
 REVOKE SELECT ON hq_sync_template_assignees  FROM hq_sync_fdw;
-REVOKE USAGE  ON SCHEMA public               FROM hq_sync_fdw;
 
 DROP VIEW IF EXISTS hq_sync_field_templates;
 DROP VIEW IF EXISTS hq_sync_user_roles;
@@ -229,9 +248,14 @@ COMMIT;
 -- Outside the transaction: DROP ROLE is not transactional-safe to pair with the
 -- revokes above on every Postgres, and a role left behind is harmless (NOLOGIN,
 -- no privileges after the revokes) whereas a half-rolled-back drop is not.
+--
+-- The schema USAGE revoke lives here rather than in the transaction above for
+-- the same reason the grant needs a DO block: the schema name is
+-- environment-dependent (`public` on dev, `production` on prod).
 -- +goose StatementBegin
 DO $$
 BEGIN
+  EXECUTE format('REVOKE USAGE ON SCHEMA %I FROM hq_sync_fdw', current_schema());
   IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'hq_sync_fdw') THEN
     DROP ROLE hq_sync_fdw;
   END IF;
