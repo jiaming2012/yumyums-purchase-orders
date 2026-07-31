@@ -215,3 +215,32 @@ is exactly the bug it exists to fix (two boundaries disagreeing).
 - **`inventory.spec.js:883` is a known pre-existing red** (B-27, cross-spec
   pollution, masked by `retries: 1`). It appears at `--retries=0`. **Not this
   card's, and not evidence against it.**
+
+## 8. B-11 updates, recorded after implementation
+
+- **Trailer discipline (B-21): 10 of 11 of this card's commits carry a trailer
+  `git interpret-trailers --parse` reads. The exception is the MERGE COMMIT
+  `524482b`** (`overnight-20260801` → the card branch), which carries only
+  git's default merge message. Disclosed rather than repaired: amending it
+  would rewrite eight descendant commits of good, verified history, and morning
+  triage already declined exactly this trade for exactly this reason (T-26
+  decision 86). The seven preserved 07-29 commits carry their own run's
+  `Night-Crew-Card:` / `Night-Crew-Run:` trailers, which parse correctly and are
+  correct history — not to be relabelled.
+- **The one merge conflict, resolved:** `.night-crew/knowledge/roadmap.md`, the
+  card's own bullet. HEAD carried the parked attempt's premature "DONE"; the run
+  branch carried the correct "PARKED — RESCOPED". **Resolved in favour of the
+  run branch**, then flipped to DONE at the end of the card on top of the
+  correct text. No other file conflicted.
+- **Test-database isolation (NOT a footprint change, but the orchestrator should
+  know).** The shared `hq_test_go` and `hq_test_e2e` databases were both found
+  at goose version **73** — another card's migration had been applied to them,
+  and `hq_test_e2e` refused to start with *"found 1 missing migrations before
+  current version 73: version 72"*, i.e. MY `0072`. Rather than drop databases
+  this card did not create (B-16), the gates were run against **new** databases
+  `hq_test_go_a1` and `hq_test_e2e_a1` via `DB_TEST_URL` / `TEST_DB_NAME` +
+  `TEST_PORT=8201`. Both are safe to drop after the run. **Nothing was dropped
+  that this card did not create.**
+- **`backend/internal/inventory/period_summary_test.go` gained eight comment
+  edits** beyond the appended test — the stale Chicago prose the park note
+  counted. Comment-only; **safe to drop in a conflict** (§3 applies).
