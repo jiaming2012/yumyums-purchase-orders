@@ -88,3 +88,58 @@ remain refused by policy-absence, exactly as B1 left them — no regression, no 
 follow-up card writes `WITH CHECK` policies.** Nothing is live tonight
 (`HQ_SYNC_REST_URL` unset), so this blocks nothing that ships; it is stated here so it is
 discovered at merge rather than at first push.
+
+---
+
+## Addendum — fix pass for F2 / F1 / F4 (same night, after adversarial review)
+
+Three defects closed on this same branch after the card passed G6. No new
+shared file enters the change set; two rows above change meaning and one
+"safe to drop" bullet is now wrong. That is the whole delta.
+
+### Files touched by the fix pass
+
+| File | Already in the table above? | What changed |
+|---|---|---|
+| `backend/internal/db/migrations/0073_sync_fdw_views.sql` | **yes** | **F2.** All explicit `BEGIN;`/`COMMIT;` removed (the inner `COMMIT` was committing *goose's* transaction early), and the `DROP ROLE` is now interlocked on `pg_shdepend`. |
+| `backend/internal/sync/spikestack_gate_test.go` | **new file, inside `backend/internal/sync/**`** | **F1.** The substrate resolver + the asymmetric gate. Same tree the table already declares mine alone tonight. |
+| `backend/internal/sync/{jwtbridge_rls,rowvisibility_rls,proxy_live}_test.go` | **yes** (`backend/internal/sync/**`) | **F1.** Wired to the resolver; hard-coded port constants deleted. |
+| `sync-schema/sql/0002_hq_fdw.sql` | **yes** | **F4.** `service_role` added to §4's revoke list, with the measurement and the reason for excluding `postgres`. |
+
+### 🛑 One "safe to drop" bullet above is now FALSE
+
+> *"The `SYNC_RLS_*` env-var defaults baked into the Go suite (`51737`/`51717`
+> etc.) … If a merge needs to change them, change them."*
+
+**They are gone, and they must stay gone.** They were the F1 defect: the
+compose file publishes ephemeral ports, so any committed default is wrong on
+the next `up`, and the suites skipped silently — printing `ok` while the card's
+entire deliverable ran zero assertions. Ports are now resolved with
+`docker compose port`. **A merge that reintroduces a port constant in
+`backend/internal/sync/` reintroduces the bug.**
+
+### Added to "what must survive any merge"
+
+6. **No explicit transaction control in `0073`.** goose already wraps each
+   migration; an inner `COMMIT` there is what let a failed Down leave
+   `is_applied = true` with the views already dropped and `goose up` refusing to
+   repair it. Do not "restore" the `BEGIN;`/`COMMIT;`.
+7. **The `pg_shdepend` interlock in `0073`'s Down.** `hq_sync_fdw` is
+   cluster-wide and prod shares a cluster with dev and every `hq_test_*`
+   database (`docker-compose.prod.yml:41`). An unconditional `DROP ROLE` either
+   errors or — worse — succeeds and breaks every other database's substrate.
+8. **The asymmetric gate in `spikestack_gate_test.go`.** Configured-but-dead
+   must FAIL, never skip. `TestSpikeGate_Asymmetry` pins the row.
+9. **`service_role` on `0002` §4's revoke list.** Measured non-empty default
+   privileges (`service_role=arwdDxt/supabase_admin`) on the supabase image, and
+   `authenticator` is a member of `service_role`.
+
+### Not touched by the fix pass, stated so absence reads as considered
+
+- **`sync-schema/sql/0003_rls_policies.sql`** — untouched. In particular
+  `hq_can_see_template`'s two arms are exactly as G6 approved them.
+- **`HQ_SYNC_REST_URL`** — still not set anywhere by this branch, fix pass
+  included.
+- **F3 (the ~23 ms/row read-through cost)** — deliberately NOT addressed. It is
+  an operator question about accepted network-path cost, recorded for morning
+  triage; nothing in the fix pass changes the design that produces it.
