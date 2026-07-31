@@ -125,4 +125,36 @@ Every file here is outside my own new modules, with one line of why.
 
 ## Amendments made during the build (B-11 — struck in place, not appended)
 
-*(none yet)*
+Nothing above was contradicted. Five things went **beyond** what was declared, and
+they are recorded here rather than left for a merger to discover:
+
+1. **`.planning/.../PLAN.md` is NEW** and was not named above. It carries the
+   BUILD's `done_when:` block (30 rows) and State Enumeration Table (14 rows,
+   each with a population floor). `UI-SPEC.md` grades the plates and is
+   discharged; PLAN.md grades the implementation and is what the verifier
+   subagent reads. Force-added — `.planning` is gitignored in this repo and its
+   files are tracked by force, following `UI-SPEC.md`'s own precedent.
+2. **`edge-removed` gained a SECOND row**, not just a redrawn one. A-3 names the
+   raw-field-id fallback as part of its contract, and R-C means that fallback is
+   where *every* malformed `template_snapshot` lands rather than a rare corner —
+   so both renderings are on one plate and "does it degrade correctly?" is
+   answerable from one screenshot. Chip goes `1 answer` → `2 answers`
+   (Reading A). `shoot.mjs`'s floors move UP with it (tap targets 62→64, unrec
+   rows 6→7); **none is lowered**.
+3. **`UI-SPEC.md` rows 30, 31 and 34 are marked SUPERSEDED/DISCHARGED in place**,
+   and its status line corrected. The line read *"DRAFT AWAITING OPERATOR
+   SIGN-OFF. Nothing here is approved."*, which decision 98 made false, and an
+   unattended reader going top-down could take it as live status. Nothing
+   normative in that file was rewritten.
+4. **`roadmap.md`'s stale `THIS CARD IS STILL ATTENDED-BLOCKED` block is struck
+   in place** on my own bullet, for the same reason. It was true when written,
+   false from 2026-07-29, and sat in the imperative under a header already
+   reading SIGNED.
+5. **`node_modules` is a symlink into `/home/jcole/projects/hq/node_modules`** in
+   this worktree so Playwright resolves. Gitignored, untracked, **not part of the
+   merge** — delete it with the worktree.
+
+**Frontend `1.3.0` → `1.4.0`.** Backend `0.3.0` untouched — zero Go source
+changed. Precache **27 → 29** files (the two new `sync-rxdb/` modules; the
+existing `sync-rxdb/*.js` glob already covered them, so `build-sw.js` needed no
+edit and decision 59's Dockerfile trap does not re-arm).
