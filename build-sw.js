@@ -83,18 +83,24 @@ async function build() {
       'manifest.json',
       'version.json',
       'icons/**/*.png',
-      // NO 'vendor/**/*.bundle.js' HERE, DELIBERATELY. Ledger T-23 decision 59.
+
+      // ═══ THE RxDB CLIENT LAYER — ADOPTED. Ledger T-23 decision 59. ═══════
       //
-      // The vendored RxDB bundle (vendor/build-vendor.sh output) is 495 KiB —
-      // 34% of the precache, 25.4% of its total bytes — and NO page imports it
-      // yet. Precaching it costs every crew phone that download over LTE for an
-      // asset nothing loads. It stays out until a page actually imports it;
-      // `sync-rxdb-schema-and-replication` re-adds the entry on adoption
-      // (roadmap rider 5 on that card), which is also the card where an
-      // offline-availability failure would be actionable.
+      // These three entries came IN together, on the card decision 59 named
+      // (`sync-rxdb-replication-and-conflict-handler`, overnight-20260801),
+      // because that is the card on which `workflows.html` finally carries
+      //     <script type="module" src="sync-rxdb/bootstrap.js">
+      // and bootstrap.js statically imports sync-rxdb/client.js, which imports
+      // BOTH sync-schema/collections.js AND vendor/rxdb.bundle.js.
       //
-      // When it comes back, it comes back as 'vendor/**/*.bundle.js' and NOT as
-      // either of these two neighbouring traps — both learned the hard way by
+      // Until then the bundle was deliberately EXCLUDED: 495 KiB, 34% of the
+      // precache and 25.4% of its bytes, downloaded over LTE onto every crew
+      // phone for an asset no page loaded. That reason has now expired — the
+      // page loads it — and an offline-availability failure is finally
+      // actionable on the card that owns the feature.
+      //
+      // 🛑 THE GLOB FORM IS LOAD-BEARING. 'vendor/**/*.bundle.js' and NOT
+      // either of these two neighbouring traps, both learned the hard way by
       // sync-rxdb-browser-delivery-spike, which added the original entry:
       //   * NOT a bare 'vendor/**'. That sweeps the generator's own inputs
       //     (package-lock.json, src/*.mjs, build-vendor.sh) onto the phone, and
@@ -106,6 +112,22 @@ async function build() {
       //     from the precache looks fine in development and fails offline on the
       //     truck, the exact silent-drop class build-vendor.sh's 5 MiB guard
       //     exists to prevent.
+      //
+      // 🛑🛑 AND THE TRAP DECISION 59 CAME WITH: RE-ADDING A GLOB ALONE BREAKS
+      // PRODUCTION. Before this card, `backend/Dockerfile` copied only
+      // `*.html *.js manifest.json`, `icons` and `lib` into the image — NOTHING
+      // under vendor/, sync-rxdb/ or sync-schema/. A precached URL that 404s
+      // fails the ENTIRE service-worker install for every returning client, and
+      // the symptom is "the PWA stopped updating" with no visible cause (the
+      // exact bug `pwa-cache-and-build-hygiene` fixed). The matching Dockerfile
+      // copies landed in the same commit as these three lines, and
+      // `tests/sw-manifest.spec.js` now asserts — mechanically, for EVERY entry
+      // — that each precached URL is covered by a Dockerfile copy into
+      // cmd/server/public/. Add a glob here without adding the copy there and
+      // the suite reds instead of the truck going dark.
+      'vendor/**/*.bundle.js',
+      'sync-rxdb/*.js',
+      'sync-schema/collections.js',
     ],
     globIgnores: [
       'node_modules/**',

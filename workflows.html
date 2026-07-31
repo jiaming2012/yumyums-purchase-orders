@@ -171,6 +171,28 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 </style>
 <script src="https://unpkg.com/sortablejs@1.15.7/Sortable.min.js"></script>
 <script src="sync.js"></script>
+<!-- ══ RxDB sync layer — IMPORT + CONSTRUCTION ONLY ══════════════════════════
+     Card `sync-rxdb-replication-and-conflict-handler` (overnight-20260801, C1).
+
+     This is the line decision 59 was waiting for: a production page finally
+     IMPORTS `vendor/rxdb.bundle.js`, which is what earns the bundle its
+     `globPatterns` precache entry in build-sw.js — and which is why
+     backend/Dockerfile copies `vendor/` and `sync-rxdb/` into the image in the
+     SAME change set. A precached URL that 404s fails the ENTIRE service-worker
+     install for every returning client.
+
+     🛑 NO WRITE PATH IS SWAPPED HERE. `autoSaveField` -> POST /saveResponse ->
+     DRAFT_RESPONSES -> hydrateFieldState is untouched and remains the live
+     persistence path (CLAUDE.md's Workflows Data Persistence Rule). The swap is
+     `sync-hard-cutover`. sync-rxdb/bootstrap.js constructs the client and
+     nothing else: it creates no RxDB database, starts no replication, and makes
+     no network request — the /sync door answers 503 until HQ_SYNC_REST_URL is
+     set, which must not happen until row-visibility RLS lands.
+
+     `defer`-equivalent by nature: a module script does not block parsing, and
+     bootstrap.js fails soft, so nothing on this page depends on it loading.
+-->
+<script type="module" src="sync-rxdb/bootstrap.js"></script>
 </head>
 <body>
 <div class="app">

@@ -805,7 +805,34 @@
   via `public.hq_jwt_claim`), and `public.hq_uid_trap` re-proves it every run.
   Footprint: sync DB policies/SQL, `backend/internal/sync`, a migration if the projection needs one.
 
-- **`sync-rxdb-replication-and-conflict-handler`** · **PLANNED — SLATE-READY** (fanned out of
+- **`sync-rxdb-replication-and-conflict-handler`** · **DONE — landed on `overnight-20260801`
+  (Track C, card C1), 2026-07-31.** Four new files under `sync-rxdb/`
+  (`conflict-handler.js` — zero imports, the field-level three-way merge;
+  `client.js` — the permanent same-origin helper; `bootstrap.js` — the one module a page
+  loads; `package.json` — `"type":"module"`, zero dependencies), two new spec files
+  (`tests/sync-rxdb-conflict.spec.js` 35 tests at HEAD,
+  `tests/sync-rxdb-client.spec.js` 24 tests), and edits to `workflows.html` (ONE
+  `<script type="module">` tag), `build-sw.js`, `backend/Dockerfile` and
+  `tests/sw-manifest.spec.js`.
+  **Red-first figure, corrected at G6:** the conflict spec was **33 tests with 29
+  failing** at the red-first commit `ab53478` (RAW EXIT 1), measured by the reviewer.
+  An earlier draft of this bullet said "35 tests with 29 failing" — **35 is the count
+  at HEAD, not at `ab53478`**; the 29 is exact. Of the 4 passing at `ab53478`, three
+  are the master-wins reproduction proper and the fourth (`the case table is non-empty
+  and names exactly the decided rules`) is an anti-vacuity check, not part of the
+  reproduction.
+  **Obligation 5 decision: the glob WAS re-added and `vendor/` WAS added to the
+  Dockerfile, in one commit** — precache 22 → 27 files, 1.50 → 1.97 MB — plus a
+  mechanical guard that simulates the Dockerfile's staging and asserts every precached
+  URL survives it, with a companion test proving the guard can print FAIL.
+  **The `assumedMasterState`-absent fallback: master wins on every field and every
+  differing field is recorded** — decision 50's own same-field-clash branch applied to
+  the whole document, so the winner is byte-identical to RxDB's default while every
+  discarded value stays recoverable. Not a product call; no park.
+  **Deliberately NOT done here:** no RxDB database is created, no replication is started,
+  and no write path is rerouted. Those are `sync-hard-cutover`, and `HQ_SYNC_REST_URL`
+  remains unset everywhere. Original card text follows.
+  ~~**PLANNED — SLATE-READY**~~ (fanned out of
   `sync-rxdb-schema-and-replication` 2026-07-28; depends on
   `sync-rxdb-collections-and-table-contract`. **Parallel-safe with `sync-rxdb-row-visibility-rls`** —
   disjoint footprints, one is frontend/client, the other SQL/backend) · Wire RxDB's Supabase

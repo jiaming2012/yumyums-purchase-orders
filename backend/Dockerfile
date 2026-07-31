@@ -26,6 +26,27 @@ COPY *.html *.js manifest.json ./
 COPY icons ./icons
 COPY lib ./lib
 
+# ── The RxDB sync client layer. Ledger T-23 decision 59 AND ITS TRAP. ────────
+#
+# 🛑 THESE THREE LINES ARE INDIVISIBLE FROM build-sw.js's globPatterns ENTRIES.
+# `workflows.html` now carries <script type="module" src="sync-rxdb/bootstrap.js">,
+# which statically imports sync-rxdb/client.js, which imports BOTH
+# sync-schema/collections.js AND vendor/rxdb.bundle.js — so all three are
+# precached. A precached URL that 404s fails the ENTIRE service-worker install
+# for every returning client, and it presents as "the PWA stopped updating" with
+# no visible cause. Until this card, `vendor/` was NEVER copied into the image.
+#
+# NARROW ON PURPOSE, not whole directories: vendor/ also holds the generator's
+# own inputs (build-vendor.sh, package.json, package-lock.json, src/*.mjs) and
+# sync-schema/ holds SQL DDL, none of which the browser loads and none of which
+# should be publicly served. tests/sw-manifest.spec.js asserts, for EVERY
+# precache entry, that it is covered by a copy here — so a future
+# vendor/<sub>/foo.bundle.js that the glob picks up and this line misses reds
+# the suite instead of bricking the service worker.
+COPY vendor/rxdb.bundle.js ./vendor/
+COPY sync-rxdb/*.js ./sync-rxdb/
+COPY sync-schema/collections.js ./sync-schema/
+
 # Backend source.
 COPY backend ./backend
 
@@ -43,6 +64,9 @@ RUN set -eux; \
     printf '{"frontend":"%s"}' "$fe_ver" > cmd/server/public/version.json; \
     cp -r ../icons cmd/server/public/; \
     cp -r ../lib cmd/server/public/; \
+    cp -r ../vendor cmd/server/public/; \
+    cp -r ../sync-rxdb cmd/server/public/; \
+    cp -r ../sync-schema cmd/server/public/; \
     CGO_ENABLED=0 go build \
       -ldflags "-X github.com/yumyums/hq/internal/version.GitSHA=${GIT_SHA} -X github.com/yumyums/hq/internal/version.BuiltAt=${BUILT_AT}" \
       -o /out/server ./cmd/server
