@@ -204,9 +204,24 @@ const CASES = [
     //
     // 🛑 THIS CASE PINS AN OPEN QUESTION, not a settled rule. Master's rename
     // lands on a tombstone and NOTHING is reported, because no field clashed —
-    // the one silent-loss path left in the merge. It is unreachable today (no
-    // HQ page writes through RxDB and HQ hard-deletes none of the four mirrored
-    // tables; templates ARCHIVE via `archived_at`), and "should an intentional
+    // the one silent-loss path left in the merge.
+    //
+    // It is unreachable today on EXACTLY ONE ground: **no HQ page writes
+    // through RxDB**, so no fork exists to carry `_deleted: true`. Full stop.
+    // An earlier draft of this comment also claimed HQ hard-deletes none of the
+    // four mirrored tables — THAT IS FALSE and must not be re-derived. HQ
+    // hard-deletes three of the four from live paths: `saveResponse` deletes
+    // the `submission_responses` row on a null value
+    // (`backend/internal/workflow/repository.go:811` — **that is unchecking a
+    // checkbox**, the tool's highest-frequency write), and `unsubmitChecklist`
+    // deletes `submission_rejections` then `checklist_submissions`
+    // (`repository.go:1289`, `:1297`). Only `checklist_templates` is
+    // delete-free (it ARCHIVES via `archived_at`).
+    //
+    // So the severity is high, not marginal: once `sync-hard-cutover` opens the
+    // write path, an offline crew member unchecking a box while a manager edits
+    // the same response row annihilates the manager's edit silently — the most
+    // LIKELY conflict on this schema, not a corner case. "Should an intentional
     // delete beat a concurrent edit?" is a product question belonging to
     // `sync-hard-cutover`, the card that introduces the write path. Pinned here
     // so that card changes it visibly rather than by accident. See the header

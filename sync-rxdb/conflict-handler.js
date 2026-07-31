@@ -117,11 +117,42 @@
 // This is the one silent-loss path left in the rule, and it is written down
 // here rather than fixed for two reasons:
 //
-//   1. IT IS UNREACHABLE TODAY. No HQ page writes through RxDB (this card is
-//      import + construction only), and HQ's own domain does not hard-delete
-//      any of the four mirrored tables — a template is ARCHIVED
-//      (`archived_at`, `archiveTemplate`), responses are upserted, submissions
-//      and rejections are not deleted. So no code path can produce it.
+//   1. IT IS UNREACHABLE TODAY, ON EXACTLY ONE GROUND: **no HQ page writes
+//      through RxDB.** This card is import + construction only, so no fork is
+//      ever produced, so no fork can carry `_deleted: true`. That is the whole
+//      of the reason. Nothing else holds this shut.
+//
+//      🛑 DO NOT re-derive the second ground an earlier draft of this comment
+//      claimed — that HQ's domain hard-deletes none of the four mirrored
+//      tables. THAT IS FALSE. HQ hard-deletes THREE of the four, from live
+//      production paths:
+//
+//        * `saveResponse` (`backend/internal/workflow/repository.go:811`,
+//          `POST /api/v1/workflow/saveResponse`, `main.go:558`) runs
+//          `DELETE FROM submission_responses WHERE field_id=$1
+//          AND answered_by=$2 AND submission_id IS NULL` whenever the value is
+//          null — **that is unchecking a checkbox**, the highest-frequency
+//          write in the workflows tool and the exact path CLAUDE.md's
+//          persistence rule is built around. Responses are NOT merely upserted.
+//        * `unsubmitChecklist` (`repository.go:1289` then `:1297`,
+//          `POST /api/v1/workflow/unsubmitChecklist`, `main.go:563`) deletes
+//          the `submission_rejections` rows and then the
+//          `checklist_submissions` row. Submissions and rejections ARE deleted.
+//        * a template edit that removes fields deletes the draft
+//          `submission_responses` (`repository.go:321` — the "discards their
+//          unsubmitted answers" warning at `workflows.html:1397`); and
+//          `cleanupOldDrafts` (`repository.go:1334`) sweeps yesterday's drafts
+//          on a schedule.
+//
+//      Only `checklist_templates` is delete-free (it ARCHIVES via
+//      `archived_at` / `archiveTemplate`).
+//
+//      🛑 SO PRICE THE OPEN QUESTION ACCORDINGLY. The moment
+//      `sync-hard-cutover` opens a write path this stops being unreachable
+//      immediately, and it is not an exotic edge: on this schema an offline
+//      crew member UNCHECKING A BOX while a manager edits the same response
+//      row annihilates the manager's edit and reports nothing. That is the
+//      MOST LIKELY conflict in the product, not a corner case.
 //   2. "Should an intentional delete beat a concurrent edit, or should the edit
 //      block the delete?" IS A PRODUCT QUESTION, and this card has no standing
 //      to answer it. It belongs to `sync-hard-cutover`, which is the card that
