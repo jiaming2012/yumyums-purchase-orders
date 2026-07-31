@@ -2863,7 +2863,7 @@ test.describe('App timezone: submit period boundary [A1-TZ]', () => {
   });
 });
 
-// ── The app timezone is ONE value, held in five places by hand [A1-TZ-PARITY] ─
+// ── The app timezone is ONE value, held in four places by hand [A1-TZ-PARITY] ─
 //
 // The park note's finding: APP_TIMEZONE in sync.js is a hand-copied literal.
 // Nothing mechanical kept it equal to users.DefaultTimezone (Go) — no test
@@ -2898,10 +2898,24 @@ test.describe('App timezone parity: Go constant vs frontend literals [A1-TZ-PARI
   }
 
   // Every frontend site that spells the app timezone out by hand.
+  //
+  // 🛑 workflows.html was ADDED to this list after the fact. Card A1 introduced
+  // it — appDay()'s `typeof APP_TIMEZONE === 'string' ? APP_TIMEZONE : '...'`
+  // guard, a fourth hand-copied literal — and left it OUTSIDE the very guard the
+  // card wrote to stop hand-copied literals drifting. It is load-bearing: it is
+  // the zone workflows.html uses when sync.js has not loaded, i.e. the one that
+  // decides "was this submission from today?" on a cold page. Nothing but a
+  // comment held it equal, which is this card's own stated definition of the
+  // bug. It is inside SITES now.
+  //
+  // NOT here, deliberately: inventory.html:2697's display-only fallback in the
+  // badge-reset form. It is pre-existing (not A1's) and cosmetic — it labels an
+  // input, it does not decide a date. If that ever starts feeding a save, add it.
   const SITES = [
     { file: 'sync.js', re: /const APP_TIMEZONE\s*=\s*'([^']+)'/ },
     { file: 'inventory.html', re: /const APP_TIMEZONE\s*=\s*'([^']+)'/ },
     { file: 'purchasing.html', re: /timezone:\s*'(America\/[A-Za-z_]+)'/ },
+    { file: 'workflows.html', re: /typeof APP_TIMEZONE === 'string' \? APP_TIMEZONE : '([^']+)'/ },
   ];
 
   test('every hand-copied frontend literal equals users.DefaultTimezone', () => {
