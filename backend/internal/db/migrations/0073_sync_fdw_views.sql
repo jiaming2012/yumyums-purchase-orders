@@ -67,7 +67,36 @@
 -- verified). If a future migration genuinely needs to retype one of the columns
 -- above, the pattern is: DROP the three views, ALTER, recreate them — in that
 -- migration, not by weakening this one.
-BEGIN;
+--
+-- ---------------------------------------------------------------------------
+-- 🛑 NO EXPLICIT `BEGIN;` / `COMMIT;` IN THIS FILE — MEASURED, NOT STYLISTIC
+-- ---------------------------------------------------------------------------
+-- goose already runs each migration inside ONE transaction (this file carries no
+-- NO TRANSACTION annotation — and one cannot be written out in full here,
+-- because goose parses annotations out of comment lines too). An explicit
+-- `BEGIN;` inside that transaction is a
+-- no-op that raises `WARNING: there is already a transaction in progress`; the
+-- matching `COMMIT;` is NOT a no-op — it COMMITS GOOSE'S OWN TRANSACTION EARLY.
+-- Everything after it runs in autocommit, and everything before it is already
+-- durable.
+--
+-- The first version of this file had exactly that, and it was measured on
+-- 2026-07-31 (run overnight-20260801, finding F2): a Down whose trailing role
+-- drop failed left the database in a state goose could not see or repair —
+--
+--     DOWN ERR: ... DROP ROLE hq_sync_fdw ... (SQLSTATE 2BP01)
+--     views: NONE              <- already committed by the inner COMMIT
+--     goose max version: 73
+--     is_applied for 73: true  <- goose still believes 0073 is applied
+--     goose up: "no migrations to run. current version: 73"
+--     select * from hq_sync_user_roles -> ERROR: relation does not exist
+--
+-- i.e. the views were gone, goose thought they were there, `up` refused to
+-- recreate them, and the substrate's foreign tables would then fail INSIDE A
+-- POLICY, AT REQUEST TIME, with no automatic repair. With no explicit
+-- BEGIN/COMMIT, any failure anywhere in this file rolls the whole thing back
+-- together with goose's version row, so the recorded version and the actual
+-- schema cannot disagree.
 
 -- ---------------------------------------------------------------------------
 -- 1. hq_sync_template_assignees — the assignment arm of ResolveEntityAccess
@@ -182,8 +211,6 @@ COMMENT ON VIEW hq_sync_field_templates IS
   'field_response entities. Resolves by field_id, not submission_id, because draft '
   'responses have a NULL submission_id.';
 
-COMMIT;
-
 -- ---------------------------------------------------------------------------
 -- 4. hq_sync_fdw — the login role the substrate connects AS
 -- ---------------------------------------------------------------------------
@@ -257,32 +284,106 @@ GRANT SELECT ON hq_sync_user_roles          TO hq_sync_fdw;
 GRANT SELECT ON hq_sync_field_templates     TO hq_sync_fdw;
 
 -- +goose Down
-BEGIN;
+-- ===========================================================================
+-- 🛑 THIS DOWN IS DESTRUCTIVE IF IT DROPS THE ROLE. READ BEFORE EDITING.
+-- ===========================================================================
+--
+-- Two properties of this cluster make the naive Down unsafe, and both were
+-- MEASURED on 2026-07-31 (run overnight-20260801, finding F2). Neither is a lab
+-- artifact — docker-compose.prod.yml:41 points PROD at `yumyums-dev-pg`, the
+-- same cluster that carries dev and every `hq_test_*` database.
+--
+--   1. `hq_sync_fdw` IS CLUSTER-WIDE, BUT ITS GRANTS ARE PER-DATABASE. Revoking
+--      in THIS database says nothing about the others. A second database with
+--      0073 applied makes `DROP ROLE` fail:
+--
+--          ERROR: role "hq_sync_fdw" cannot be dropped because some objects
+--                 depend on it (SQLSTATE 2BP01)
+--          DETAIL: 4 objects in database hq_test_go
+--                  4 objects in database hq_test_e2e
+--
+--      And a DROP ROLE that SUCCEEDS on a shared cluster is worse than one that
+--      fails: it silently breaks every OTHER database's substrate.
+--
+--   2. The old explicit `BEGIN;`/`COMMIT;` committed goose's transaction early,
+--      so the failure above left the views dropped, `is_applied` still true, and
+--      `goose up` reporting "no migrations to run" — see the banner at the top
+--      of this file for the raw capture.
+--
+-- The fix for (2) is structural: there is no explicit transaction control in
+-- this file at all, so goose's own transaction covers every statement and any
+-- failure rolls back the version row with the schema.
+--
+-- The fix for (1) is the `pg_shdepend` interlock in the second DO block below.
+-- The role is dropped ONLY when nothing anywhere in the cluster still depends on
+-- it; otherwise the Down REFUSES THE DROP, says so, and completes successfully
+-- with the local half fully undone. A leftover role is explicitly harmless —
+-- section 4 above creates it NOLOGIN with no password, and this Down has already
+-- removed every privilege it held IN THIS DATABASE. It is deliberately NOT
+-- forced back to NOLOGIN here: on a shared cluster the surviving dependents are
+-- exactly the databases still using it, and disabling their login is the same
+-- class of collateral damage as dropping the role.
 
-REVOKE SELECT ON hq_sync_field_templates     FROM hq_sync_fdw;
-REVOKE SELECT ON hq_sync_user_roles          FROM hq_sync_fdw;
-REVOKE SELECT ON hq_sync_template_assignees  FROM hq_sync_fdw;
-
+-- The three per-view REVOKEs the first version carried are gone on purpose, not
+-- by omission: `DROP VIEW` removes the relation's ACL entries with it, so they
+-- were ceremony — and ceremony that ERRORS if the role has already been dropped
+-- by another database's Down, which is a state this cluster can genuinely be in.
 DROP VIEW IF EXISTS hq_sync_field_templates;
 DROP VIEW IF EXISTS hq_sync_user_roles;
 DROP VIEW IF EXISTS hq_sync_template_assignees;
 
-COMMIT;
-
--- Outside the transaction: DROP ROLE is not transactional-safe to pair with the
--- revokes above on every Postgres, and a role left behind is harmless (NOLOGIN,
--- no privileges after the revokes) whereas a half-rolled-back drop is not.
---
--- The schema USAGE revoke lives here rather than in the transaction above for
--- the same reason the grant needs a DO block: the schema name is
--- environment-dependent (`public` on dev, `production` on prod).
+-- The schema USAGE revoke needs a DO block for the same reason the grant does:
+-- the schema name is environment-dependent (`public` on dev, `production` on
+-- prod), so it is resolved with current_schema() rather than hard-coded.
 -- +goose StatementBegin
 DO $$
 BEGIN
-  EXECUTE format('REVOKE USAGE ON SCHEMA %I FROM hq_sync_fdw', current_schema());
   IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'hq_sync_fdw') THEN
-    DROP ROLE hq_sync_fdw;
+    EXECUTE format('REVOKE USAGE ON SCHEMA %I FROM hq_sync_fdw', current_schema());
   END IF;
+END
+$$;
+-- +goose StatementEnd
+
+-- 🛑 The interlock. `pg_shdepend` is a SHARED catalog: it is the one place a
+-- single database can see that a role is still referenced from a DIFFERENT one.
+-- The statements above have already removed this database's own rows from it, so
+-- anything left is either another database's grants or a cluster-shared
+-- dependency — and in both cases dropping the role is somebody else's outage.
+--
+-- Cheaper and more honest than catching SQLSTATE 2BP01: an exception handler
+-- would also swallow a genuine, unrelated failure.
+-- +goose StatementBegin
+DO $$
+DECLARE
+  v_role  oid;
+  v_deps  bigint;
+  v_where text;
+BEGIN
+  SELECT oid INTO v_role FROM pg_authid WHERE rolname = 'hq_sync_fdw';
+  IF v_role IS NULL THEN
+    RETURN; -- already gone; nothing to do and nothing to complain about
+  END IF;
+
+  SELECT count(*),
+         coalesce(string_agg(DISTINCT coalesce(d.datname, '<cluster-wide>'), ', '), '')
+    INTO v_deps, v_where
+    FROM pg_shdepend s
+    LEFT JOIN pg_database d ON d.oid = s.dbid
+   WHERE s.refclassid = 'pg_authid'::regclass
+     AND s.refobjid   = v_role;
+
+  IF v_deps > 0 THEN
+    RAISE NOTICE
+      'hq_sync_fdw NOT dropped: % object(s) in other database(s) (%) still depend on it. '
+      'The role is cluster-wide; this Down has fully undone 0073 in THIS database '
+      '(views dropped, privileges revoked). Dropping the role here would break those '
+      'databases. Drop it by hand once the last one has run this migration down.',
+      v_deps, v_where;
+    RETURN;
+  END IF;
+
+  DROP ROLE hq_sync_fdw;
 END
 $$;
 -- +goose StatementEnd
