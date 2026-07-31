@@ -565,15 +565,22 @@
 
 - **`app-timezone-unify-new-york`** · **DONE — every site, both contracts, one card** (2026-08-01,
   run `overnight-20260801`, Track A card A1, branch `card/a1-app-timezone-unify-new-york`) ·
-  **🛑 BUILT AND MERGED, DEPLOYED TO NOTHING.** This card does not authorize a deploy. Until
+  **🛑 BUILT AND HANDED TO THE ORCHESTRATOR FOR MERGE — DEPLOYED TO NOTHING.** Flipping this
+  bullet DONE ahead of the merge is run convention; asserting "MERGED" would not be, and this
+  card's whole subject is records that read as evidence. As written, the branch is complete and
+  gate-clean; the orchestrator merges it. This card does not authorize a deploy. Until
   sales-processor ships its matching change, one repo is wrong — the disagreement is one hour at
   each period edge, and it can only move a `pending_purchases` row with **no extracted
   `event_date`** (an extracted `event_date` wins the `COALESCE`, so it is never exposed to the
   zone). Confirmed pendings and `purchase_events` cannot move at all.
-  **🛑 CHANGEOVER DATE 2026-07-29** for the sites the parked attempt moved, **2026-08-01** for
-  `trends.go`'s window and the badge-reset client, which moved tonight. **FIX FORWARD ONLY** —
-  weekly COGS and payroll figures produced before those dates were already acted on and are **NOT**
-  restated.
+  **🛑 CHANGEOVER DATE: THE FIRST DEPLOY AFTER THIS MERGE — TBD, AND NOT YET SCHEDULED.** An
+  earlier draft of this bullet stamped **2026-07-29** for the sites the parked attempt moved and
+  **2026-08-01** for `trends.go`'s window and the badge-reset client. Both are wrong and were
+  corrected in the code comments and the migration header: `overnight-20260729-2` **PARKED** this
+  card and merged nothing, and nothing deploys on 2026-08-01 either. No boundary moved on either
+  day. The changeover is the deploy that runs migration `0072`; recover its date afterwards from
+  `goose_db_version.tstamp` for version 72. **FIX FORWARD ONLY** — weekly COGS and payroll figures
+  produced before that deploy were already acted on and are **NOT** restated.
   **The 07-29 park was correct and was resolved, not overridden.** The parked branch was resumed
   intact at `8da3ded`; nothing was rebuilt. Three additions landed on top of it, exactly as
   decisions 93 + 94 scoped them:
@@ -581,9 +588,15 @@
   `:319` and `999.2-SALES-PROCESSOR-CONTRACT.md:30` + a new A10. A5 is rewritten from "confirm
   this" into the coordinated-release instruction it now is — what changed, what HQ did, what
   sales-processor must do, the sequencing, and the bounded blast radius. `:67` also gained a
-  correction the zone edit surfaced: the **published** `pending_review_ids` expression had never
-  stated the `COALESCE(event_date, …)` the implementation has carried since Phase 21. Publishing an
-  expression that does not match the code is the same class of defect as publishing the wrong zone.
+  correction the zone edit surfaced, and the card's first attempt at it got the provenance exactly
+  backwards. The **published** `pending_review_ids` expression had never stated the
+  `COALESCE(event_date, …)` — but that is **not** because Phase 21 forgot to write down what it
+  shipped. Phase 21 published what it shipped, accurately. **HQ changed what `pending_review_ids`
+  returns on 2026-06-06** — commit `cf959bd`, quick task `260606-0gh`, a task separate from Phase 21
+  — **and never published it.** Under the published expression a late-discovered receipt did not
+  block payroll; under the shipped code it does, so sales-processor may have been receiving an
+  undocumented `ready:false` since June 2026. That is a **second** undisclosed change to tell the
+  counterparty about, not a footnote to a timezone card, and it is filed as **B-29**.
   **(2) `trends.go`'s `trendsWindow`** — a bare `time.Now()` with no `LoadLocation`, missed by the
   parked attempt, eleven lines above a site it did edit. Red first: `trendsWindow(2026-07-27T01:30Z)`
   answered `{from 2026-05-11, to 2026-07-27}` against `{from 2026-05-04, to 2026-07-26}` — a full
