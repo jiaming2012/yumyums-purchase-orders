@@ -205,7 +205,8 @@ COMMIT;
 -- own throwaway test database, which is also where the step is demonstrated.
 --
 -- Privileges are least-privilege and deliberately narrow:
---   * USAGE on schema public — needed to name anything at all.
+--   * USAGE on the schema the views landed in — needed to name anything at all.
+--     Resolved with current_schema(), not hard-coded; see the block below.
 --   * SELECT on the THREE VIEWS above and NOTHING ELSE. No base table, no
 --     write privilege of any kind, on anything.
 -- The views are not security_invoker, so they resolve with their owner's rights
