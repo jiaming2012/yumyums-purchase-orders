@@ -92,6 +92,27 @@ const R_ASSUMED = {
   _attachments: {},
 };
 
+// A `checklist_submissions` row (collection `checklists`). `status` is an enum
+// with four values, so — unlike a boolean — it can genuinely clash: the crew
+// completes the checklist offline while the approver approves it in the office.
+const C_ASSUMED = {
+  id: 'sub-1',
+  template_id: 'tpl-1',
+  template_snapshot: { name: 'Opening Checklist', fields: [] },
+  submitted_by: 'u-crew',
+  submitted_at: '2026-08-01T17:00:00.000Z',
+  status: 'pending',
+  reviewed_by: null,
+  reviewed_at: null,
+  idempotency_key: null,
+  updated_by: 'u-crew',
+  updated_at: '2026-08-01T17:00:00.000Z',
+  _deleted: false,
+  _rev: '1-ccc',
+  _meta: { lwt: 3 },
+  _attachments: {},
+};
+
 const clone = (o) => JSON.parse(JSON.stringify(o));
 const withFields = (base, patch) => Object.assign(clone(base), patch);
 
@@ -177,12 +198,36 @@ const CASES = [
     expectClashes: [],
   },
   {
-    name: '_deleted participates in the merge — a discarded local delete is recorded',
+    // `_deleted` is NOT reserved — it is a real user act and it merges by the
+    // ordinary rule. The fork deleted the row, master only renamed it, so the
+    // delete is UNCONTESTED and survives (and carries master's rename with it).
+    //
+    // 🛑 Worth writing down because it is not obvious: WITH a baseline a
+    // `_deleted` clash is UNREACHABLE. It is a boolean, so "both sides changed
+    // it from the same baseline" forces both to have flipped to the same value,
+    // which is the convergent case. `_deleted` can therefore only be reported
+    // in the no-baseline fallback — asserted separately below.
+    name: '_deleted participates in the merge — an UNCONTESTED local delete survives',
     assumed: T_ASSUMED,
     fork: withFields(T_ASSUMED, { _deleted: true }),
     master: withFields(T_ASSUMED, { _deleted: false, name: 'MASTER NAME', _rev: '2-mmm' }),
-    expectDoc: { _deleted: false, name: 'MASTER NAME' },
-    expectClashes: [{ field: '_deleted', discarded: true, winner: false }],
+    expectDoc: { _deleted: true, name: 'MASTER NAME' },
+    expectClashes: [],
+  },
+  {
+    // The real-world clash the conflict sheet exists for: the crew marks the
+    // checklist complete on the truck while the approver approves it in the
+    // office. `reviewed_by`/`reviewed_at` are fork-untouched, so they merge
+    // cleanly and only `status` is reported.
+    name: 'an enum clash on checklists — status completed vs approved',
+    assumed: C_ASSUMED,
+    fork: withFields(C_ASSUMED, { status: 'completed' }),
+    master: withFields(C_ASSUMED, {
+      status: 'approved', reviewed_by: 'u-mgr',
+      reviewed_at: '2026-08-01T19:00:00.000Z', _rev: '2-mmm',
+    }),
+    expectDoc: { status: 'approved', reviewed_by: 'u-mgr' },
+    expectClashes: [{ field: 'status', discarded: 'completed', winner: 'approved' }],
   },
 ];
 
@@ -192,7 +237,7 @@ test.describe('sync-rxdb conflict handler — the case table is real', () => {
   test('the case table is non-empty and names exactly the decided rules', () => {
     // B-22/B-23/B-24: a guard's PASS is not evidence until its subject set is
     // shown non-empty. Every data-driven test below iterates CASES.
-    expect(CASES.length).toBe(9);
+    expect(CASES.length).toBe(10);
     expect(new Set(CASE_NAMES).size).toBe(CASES.length); // no duplicate names
     for (const c of CASES) {
       expect(c.assumed, `${c.name}: no assumed state`).toBeTruthy();
@@ -412,9 +457,24 @@ test.describe('HQ conflict handler — the assumedMasterState-absent fallback', 
     // Strictly better on recoverability: every field the fork held differently
     // is surfaced, because without a baseline none of them can be shown to be
     // uncontested.
-    expect(clashes.map((c) => c.field).sort()).toEqual(['archived_at', 'name']);
+    // `requires_approval` is in the list too, and that is the fallback working
+    // as decided rather than a fixture slip: the fork holds `false` and master
+    // holds `true`, and with no baseline nothing can show WHICH side moved it.
+    expect(clashes.map((c) => c.field).sort())
+      .toEqual(['archived_at', 'name', 'requires_approval']);
     expect(clashes.find((c) => c.field === 'name').discarded).toBe('FORK NAME');
     expect(clashes.find((c) => c.field === 'archived_at').discarded).toBe('2026-08-02T00:00:00.000Z');
+  });
+
+  test('with no baseline, a diverging _deleted IS reported (the only path that reaches it)', async () => {
+    // With a baseline this is unreachable — see the CASES note on `_deleted`.
+    const { resolveConflict } = await loadHandler();
+    const { document, clashes } = resolveConflict({
+      newDocumentState: withFields(T_ASSUMED, { _deleted: true }),
+      realMasterState: withFields(T_ASSUMED, { _deleted: false, _rev: '2-mmm' }),
+    });
+    expect(document._deleted).toBe(false); // master wins
+    expect(clashes).toEqual([{ field: '_deleted', discarded: true, winner: false }]);
   });
 
   test('with no baseline and an identical fork, nothing is reported', async () => {
