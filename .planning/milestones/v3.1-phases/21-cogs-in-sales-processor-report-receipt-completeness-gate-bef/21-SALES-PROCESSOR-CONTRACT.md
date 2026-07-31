@@ -24,7 +24,8 @@ Accept: application/json
 - **Query params** (both required):
   - `from` — start date, format `YYYY-MM-DD`, inclusive.
   - `to` — end date, format `YYYY-MM-DD`, inclusive.
-  - Both are interpreted in `America/Chicago` (the food-truck operating timezone). The two dates define an inclusive calendar window. For a Monday–Sunday workweek "May 25–31, 2026", send `from=2026-05-25&to=2026-05-31`.
+  - Both are interpreted in `America/New_York` (the food-truck operating timezone). The two dates define an inclusive calendar window. For a Monday–Sunday workweek "May 25–31, 2026", send `from=2026-05-25&to=2026-05-31`.
+  - 🛑 **CHANGED 2026-08-01 — was `America/Chicago`.** See assumption **A5** in §5 for the coordinated-release requirement. **Until sales-processor ships its matching change, the two repos disagree by one hour at each period edge**, on `pending_purchases` rows that carry no extracted `event_date`.
 - **Auth header:** `Authorization: Bearer <token>`. The token is an opaque string. Sales-processor reads it from the env var `HQ_INVENTORY_SERVICE_TOKEN`. The exact value must be agreed out-of-band with the HQ operator and stored as a secret in sales-processor's runtime environment.
 
 ### Base URL — confirm with operator
@@ -64,7 +65,7 @@ HQ_BASE_URL=https://hq.yumyums.kitchen
 | `cogs_incl_tax` | number (float, 2 decimal places) | `cogs_excl_tax + SUM(tax)` over the same `purchase_events`. Zero if no events. |
 | `purchase_event_count` | integer | `COUNT(*)` of `purchase_events` in the range. Zero if none. |
 | `completeness.ready` | boolean | `true` iff BOTH `pending_review_ids` AND `unlinked_line_item_ids` are empty. |
-| `completeness.pending_review_ids` | array of strings (UUIDs) | `pending_purchases.id` rows where `(created_at AT TIME ZONE 'America/Chicago')::date BETWEEN from AND to` AND `confirmed_at IS NULL` AND `discarded_at IS NULL`. Always present, empty array `[]` when none. |
+| `completeness.pending_review_ids` | array of strings (UUIDs) | `pending_purchases.id` rows where `COALESCE(event_date, (created_at AT TIME ZONE 'America/New_York')::date) BETWEEN from AND to` AND `confirmed_at IS NULL` AND `discarded_at IS NULL`. Always present, empty array `[]` when none. 🛑 **The zone CHANGED 2026-08-01 — was `America/Chicago`** (assumption A5). The `COALESCE` is not new: an extracted `event_date` always wins, so **only rows with no extracted `event_date` are exposed to the zone at all**. |
 | `completeness.unlinked_line_item_ids` | array of strings (UUIDs) | `purchase_line_items.id` rows where the parent `purchase_events.event_date BETWEEN from AND to` AND `purchase_line_items.purchase_item_id IS NULL`. Always present, empty array `[]` when none. |
 
 ### Response — example states
@@ -316,7 +317,16 @@ These are assumptions the HQ planner could not verify because the sales-processo
 - [ ] **A2: `WeeklySummary` struct exists with a `Show()` method** — if the struct/method names differ, adjust 3.2 to match.
 - [ ] **A3: CLI framework** — confirm sales-processor uses stdlib `flag`, `cobra`, `urfave/cli`, or another, and add `--force-payroll` per that framework's idiom.
 - [ ] **A4: static shared-secret bearer token is acceptable** for v1 (no HMAC, no timestamp binding, no rotation). If the operator wants HMAC+timestamp, the HQ middleware needs a redesign (out of scope for Phase 21).
-- [ ] **A5: `America/Chicago` is the correct operating timezone** — this matches `backend/internal/purchasing/repurchase.go:71` in HQ. If the food truck moves to a different TZ, both repos must update.
+- [ ] **A5 (AMENDED 2026-08-01): `America/New_York` is the operating timezone. It was `America/Chicago` and this is a COORDINATED TWO-REPO RELEASE — sales-processor must make the matching change.**
+
+  🛑 **This is the one assumption on this page that is not merely "confirm and proceed." It requires a change on the sales-processor side.**
+
+  - **What changed and why.** The operator ruled that the app's timezone is `America/New_York` (HQ ledger T-26 decision 83, re-affirmed against this contract as T-28 decision 93). The framing was: *a payroll week and a food-cost week must describe the same seven days.* HQ had been running two zones at once — `users.DefaultTimezone` was already New York while the money paths were hardcoded Chicago — so the previous A5 was describing only half of HQ.
+  - **What HQ has done.** Every hardcoded zone in HQ now reads the single constant `users.DefaultTimezone` (`America/New_York`). The old anchor site this assumption named, `backend/internal/purchasing/repurchase.go:71`, is one of them. Migration `0072_app_timezone_new_york.sql` re-points the `cutoff_config.timezone` and `repurchase_reset_config.timezone` column defaults **and** updates the already-written rows.
+  - **What sales-processor must do.** Interpret `from` / `to` for `/period-summary` and `/menu-cogs` in `America/New_York`, and compute the weekly payroll window on the same zone. If sales-processor derives its Monday–Sunday window from a hardcoded `America/Chicago`, change it.
+  - **Sequencing — read this before deploying either side.** Until BOTH repos have shipped, one of them is wrong. The disagreement is **one hour at each period edge**, and it is bounded: it can only move a `pending_purchases` row that has **no extracted `event_date`** (see `completeness.pending_review_ids` above) across a period boundary. It cannot move a confirmed `purchase_event`, whose `event_date` is a plain `DATE`.
+  - **Fix forward only.** Weekly COGS and payroll figures produced before the changeover were already acted on and are **NOT** restated. A reader comparing two weeks either side of the changeover will find one boundary that moved by an hour, exactly once.
+  - **If the food truck moves to a different TZ again, both repos must update — together, and this assumption must be amended again.**
 - [ ] **A6: sales-processor and HQ communicate over a trusted network** (Cloudflare Tunnel, Tailscale, or LAN) — HTTPS + bearer token without mTLS or IP allowlist is sufficient.
 - [ ] **A7: "unlinked line item" semantics** — `purchase_line_items.purchase_item_id IS NULL` for confirmed events. Items inside `pending_purchases.items` JSONB are reported via `pending_review_ids`, not `unlinked_line_item_ids` (no double-counting).
 - [ ] **A8: HTTP 200 with `ready:false` is the right shape** — gate logic lives on the sales-processor side. HQ does NOT return non-2xx for "not ready" (that would conflate transport errors with business state).
