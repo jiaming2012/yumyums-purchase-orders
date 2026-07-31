@@ -88,3 +88,34 @@ recorded here for triage, with the work intact. Same reasoning as Fork 1, and eq
 🛑 **Nothing here authorizes a deploy.** Until sales-processor lands its matching change, one repo
 is wrong.
 
+---
+
+## Fork 3 — Is the banner's headline figure the right one? (NON-BLOCKING — the build is correct as signed)
+
+**Card:** `sync-rxdb-conflict-notice-ui` (Track C2)
+**Source:** the implementer's read of its own rendered screens.
+
+🛑 **Nothing is blocked and nothing is wrong with the build.** The card implements **A-1 exactly as
+written** and did **not** act on this observation. It is recorded because it is the kind of thing
+plates cannot say about themselves, and because changing it is an operator's call about the product.
+
+Triage's own recorded reservation on `a1-banner` was that it *"puts four figures on one screen plus
+a batch button reading a fifth — a lot of counting at 6am with wet hands."* Read off the built
+render, **the worst case is six numbers, not five**: the amber block carries **4** overwritten,
+**2** still to review, **2** handled and **+2** unidentified plus a cause line; the sheet chip then
+reads `4 answers +2`, and the batch button reads `Restore all 2 of mine`.
+
+**The layout is not the problem** — nothing truncates, nothing wraps badly, and it is legible at
+480 px in both colour schemes. The observation is about emphasis: the two figures that drive action
+(`2 still to review`, `Restore all 2`) are in the **smallest type on the screen**, while the
+largest, boldest number (`4`) is the one **nothing can be done about**.
+
+**A-1 is right that these were two questions** — that is not in dispute and is not being reopened.
+The question for the operator is narrower: **should the past-tense figure headline the banner at
+all?** The sheet already carries it in the chip. A banner leading with `2 still to review` and
+demoting `4 were overwritten` to the quiet second line would put the actionable number where the
+eye lands first without losing anything A-1 requires.
+
+**If you take no action, the card ships as signed and is correct.** This is a candidate for a
+follow-up card, not a defect.
+
