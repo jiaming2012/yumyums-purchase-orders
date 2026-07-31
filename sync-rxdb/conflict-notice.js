@@ -94,6 +94,30 @@ const MS_PER_DAY = 86400000;
 const MAX_SNAPSHOT_DEPTH = 8;
 const MAX_SNAPSHOT_NODES = 20000;
 
+/**
+ * The same bound, for the same reason, on the OTHER walk over stored data.
+ *
+ * 🛑 G6 FINDING F-2. `formatValue`'s `{_v}`/`{value}` unwrap is a second
+ * recursion over a value nothing validates, and it runs on EVERY conflict row,
+ * on BOTH `discarded_value` and `current_value`. Unbounded, a deep `_v` chain
+ * took the whole sheet down with a `RangeError` — reproduced through
+ * `buildSheetModel`, not merely in isolation.
+ *
+ * Reachability is recorded honestly and not overstated: measured on node 20.20,
+ * `structuredClone` (what IndexedDB uses) overflows past ~1 954 deep and
+ * `JSON.stringify` past ~4 174, both BELOW the ~8 397 at which the unbounded
+ * unwrap died — so on this engine such a value could not have come back out of
+ * the local store. The bound stays because those margins are stack-budget and
+ * engine dependent, because `sync-hard-cutover` gives this function a
+ * network-fed producer whose payload is parsed rather than cloned, and because
+ * the `try` below guards a THROWING ACCESSOR, which is reachable today.
+ *
+ * Eight is the real ceiling by a wide margin: HQ bundles ONE level of metadata
+ * around an answer (`{_v, _fail_note}`, `{value, sub_steps}`), never two.
+ */
+const MAX_VALUE_UNWRAP_DEPTH = 8;
+export { MAX_VALUE_UNWRAP_DEPTH };
+
 function isPlainish(v) {
   return !!v && typeof v === 'object' && !Array.isArray(v);
 }
@@ -260,8 +284,17 @@ const FREE_TEXT_TYPES = ['text', 'textarea', 'note', 'longtext'];
  * NEVER truncated and never ellipsised — the value is the thing being
  * recovered, so hiding any of it hides the payload they came for. Long content
  * is the stylesheet's problem (`overflow-wrap:anywhere`), not this function's.
+ *
+ * TOTAL, on the same terms as `findFieldInSnapshot` and for the same reason:
+ * this is the other function that walks a stored value nothing validates, and
+ * it runs on every row of the sheet. Every input returns a string; it never
+ * throws, and it never recurses without a bound (`MAX_VALUE_UNWRAP_DEPTH`).
  */
 export function formatValue(value, opts = {}) {
+  return formatValueAt(value, opts, 0);
+}
+
+function formatValueAt(value, opts, depth) {
   const type = opts.type;
   const unit = typeof opts.unit === 'string' && opts.unit !== '' ? opts.unit : null;
   if (value === null || value === undefined || value === '') return '—';
@@ -280,15 +313,29 @@ export function formatValue(value, opts = {}) {
     if (FREE_TEXT_TYPES.includes(type)) return `“${t}”`;
     return unit ? `${t}\u00a0${unit}` : t;
   }
-  if (isPlainish(value)) {
+  if (isPlainish(value) && depth < MAX_VALUE_UNWRAP_DEPTH) {
     // HQ bundles a value with its metadata: `{_v, _fail_note}`,
     // `{_v, _correction_photo}`, `{value, sub_steps}` (CLAUDE.md's persistence
     // rule). The answer is the `_v`/`value`; the rest is bookkeeping and is not
     // what was overwritten from the crew member's point of view.
-    if ('_v' in value) return formatValue(value._v, opts);
-    if ('value' in value) return formatValue(value.value, opts);
+    //
+    // BOUNDED and GUARDED (F-2). Depth, because a `{_v:{_v:…}}` chain and a
+    // cycle are both reachable through a store that validates nothing. `try`,
+    // because `in` and the read itself run arbitrary accessors on a value this
+    // module did not construct — the same reason `findFieldInSnapshot` reads
+    // `f.id`/`f.label`/`f.sub_steps` inside one.
+    try {
+      if ('_v' in value) return formatValueAt(value._v, opts, depth + 1);
+      if ('value' in value) return formatValueAt(value.value, opts, depth + 1);
+    } catch (err) {
+      return '—'; // a throwing accessor is a malformed stored value, not a crash
+    }
   }
   try {
+    // Past the bound, or not a bundle at all. `JSON.stringify` throws on both a
+    // cycle (TypeError) and a chain deeper than its own stack (RangeError), and
+    // this `catch` — already here before F-2, for exactly this class of input —
+    // is what makes those an em-dash rather than a blank sheet.
     return JSON.stringify(value);
   } catch (err) {
     return '—';

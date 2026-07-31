@@ -474,6 +474,120 @@ test.describe('value + attribution rendering', () => {
     expect(formatValue({ _v: 39, _fail_note: { note: 'x' } })).toBe('39');
   });
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // 🛑 G6 FINDING F-2 — `formatValue` must be TOTAL, for the same reason
+  // `findFieldInSnapshot` is.
+  //
+  // The `{_v}` / `{value}` unwrap recursed with no depth bound and read the
+  // property with no `try`. `formatValue` runs on EVERY conflict row, on BOTH
+  // `discarded_value` and `current_value` — the same "must never take the sheet
+  // down" commitment `findFieldInSnapshot` was built to honour, on the same hot
+  // path — and the module already wraps `JSON.stringify` in `try/catch` for
+  // exactly this class of input, so the omission was an oversight.
+  //
+  // 🛑 REACHABILITY, MEASURED RATHER THAN ASSERTED. G6's finding says a
+  // 30 000-deep `_v` chain "is JSON-representable, so it survives a store
+  // round-trip". On this runtime (node 20.20 / V8) it does NOT: binary-searched
+  // on the box that ran this fix,
+  //
+  //     structuredClone (the IndexedDB serialiser)  overflows past ~1 954 deep
+  //     JSON.stringify                              overflows past ~4 174 deep
+  //     the OLD unbounded formatValue               overflowed past ~8 397 deep
+  //
+  // — so a chain deep enough to break the renderer could not have come back out
+  // of the local store on this engine. The bound is kept anyway, and the reason
+  // is recorded rather than dressed up: those three numbers are stack-budget
+  // and engine dependent, they are within one order of magnitude of each other,
+  // `sync-hard-cutover` gives this function a network-fed producer whose payload
+  // is parsed rather than cloned, and the SECOND half of F-2 — a throwing
+  // accessor — is reachable today with nothing validating the stored value
+  // (B1's R-C). Exposure today is nil either way: dormant, no producer.
+  //
+  // RED BEFORE THE FIX: `RangeError: Maximum call stack size exceeded` on the
+  // deep chain, and the getter's own `Error` propagating out — both through
+  // `buildSheetModel`, not merely in isolation.
+  // ─────────────────────────────────────────────────────────────────────────
+  test('F-2 — a deep `_v` chain is BOUNDED, not a stack overflow', async () => {
+    const { formatValue, MAX_VALUE_UNWRAP_DEPTH } = await load();
+
+    let deep = 'the answer';
+    for (let i = 0; i < 30000; i++) deep = { _v: deep };
+
+    let out;
+    expect(() => { out = formatValue(deep); }).not.toThrow();
+    expect(typeof out).toBe('string');
+
+    // The same chain through `{value}`, the other bundle shape.
+    let deepV = 'the answer';
+    for (let i = 0; i < 30000; i++) deepV = { value: deepV };
+    expect(() => formatValue(deepV)).not.toThrow();
+
+    // The bound is a NAMED constant, mirroring `MAX_SNAPSHOT_DEPTH` — the
+    // convention `findFieldInSnapshot` already set, not a new one.
+    expect(typeof MAX_VALUE_UNWRAP_DEPTH).toBe('number');
+
+    // A chain SHORTER than the bound still unwraps all the way to the answer —
+    // the bound must not cost the ordinary `{_v, _fail_note}` case anything.
+    let shallow = 39;
+    for (let i = 0; i < MAX_VALUE_UNWRAP_DEPTH; i++) shallow = { _v: shallow };
+    expect(formatValue(shallow)).toBe('39');
+
+    // A cycle is the same class and must also be bounded.
+    const cyclic = {};
+    cyclic._v = cyclic;
+    expect(() => formatValue(cyclic)).not.toThrow();
+  });
+
+  test('F-2 — a throwing getter on `_v` degrades, it does not propagate', async () => {
+    const { formatValue } = await load();
+    const boobytrapped = {};
+    Object.defineProperty(boobytrapped, '_v', {
+      enumerable: true,
+      get() { throw new Error('malformed stored value'); },
+    });
+    expect(() => formatValue(boobytrapped)).not.toThrow();
+    expect(formatValue(boobytrapped)).toBe('—');
+
+    const onValue = {};
+    Object.defineProperty(onValue, 'value', {
+      enumerable: true,
+      get() { throw new Error('malformed stored value'); },
+    });
+    expect(() => formatValue(onValue)).not.toThrow();
+  });
+
+  test('F-2 — and it holds THROUGH buildSheetModel, which is where it renders', async () => {
+    const { buildSheetModel } = await load();
+
+    let deep = 'the answer';
+    for (let i = 0; i < 30000; i++) deep = { _v: deep };
+    const thrower = {};
+    Object.defineProperty(thrower, '_v', {
+      enumerable: true,
+      get() { throw new Error('malformed stored value'); },
+    });
+
+    // Both columns the sheet draws: what was discarded AND what the server now
+    // shows. `formatValue` runs on each of them for every row.
+    let model;
+    expect(() => {
+      model = buildSheetModel(
+        [
+          rec({ id: 'deep-discarded', field_id: 'f1', discarded_value: deep }),
+          rec({ id: 'deep-current', field_id: 'f2', current_value: deep }),
+          rec({ id: 'throws-discarded', field_id: 'f3', discarded_value: thrower }),
+          rec({ id: 'throws-current', field_id: 'f4', current_value: thrower }),
+        ],
+        { now: NOW },
+      );
+    }).not.toThrow();
+    expect(model.groups[0].rows).toHaveLength(4);
+    for (const row of model.groups[0].rows) {
+      expect(typeof row.yours, `row ${row.id} yours`).toBe('string');
+      expect(typeof row.theirs, `row ${row.id} theirs`).toBe('string');
+    }
+  });
+
   test('a null actor degrades to "someone else" — never an invented name', async () => {
     const { formatWho, buildSheetModel } = await load();
     expect(formatWho(null, null)).toBe('someone else');
