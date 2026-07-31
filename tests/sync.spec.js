@@ -2862,3 +2862,77 @@ test.describe('App timezone: submit period boundary [A1-TZ]', () => {
     }
   });
 });
+
+// ── The app timezone is ONE value, held in five places by hand [A1-TZ-PARITY] ─
+//
+// The park note's finding: APP_TIMEZONE in sync.js is a hand-copied literal.
+// Nothing mechanical kept it equal to users.DefaultTimezone (Go) — no test
+// asserted it, and /api/v1/health exposes no app-timezone field the frontend
+// could read. A comment saying "keep these in step" IS THE SAME MECHANISM THAT
+// PRODUCED THE BUG THIS CARD FIXES: the app ran two zones at once for months
+// because a convention was the only thing holding them together.
+//
+// This closes the loop in the direction that matters. Go is the authority
+// (users.DefaultTimezone); every frontend literal must agree with it, and a
+// one-sided edit now fails a test instead of silently splitting the app in two.
+//
+// 🛑 The subject set is asserted NON-EMPTY before any comparison. A parity
+// check that finds nothing to compare and reports PASS is worse than no check,
+// because it reads as coverage. If a file is renamed or a literal reworded,
+// this test FAILS LOUD rather than quietly checking zero sites.
+test.describe('App timezone parity: Go constant vs frontend literals [A1-TZ-PARITY]', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const repoRoot = path.resolve(__dirname, '..');
+
+  // The Go constant is the authority.
+  function goDefaultTimezone() {
+    const src = fs.readFileSync(path.join(repoRoot, 'backend/internal/users/db.go'), 'utf8');
+    const m = src.match(/const\s+DefaultTimezone\s*=\s*"([^"]+)"/);
+    if (!m) {
+      throw new Error(
+        'users.DefaultTimezone not found in backend/internal/users/db.go — this ' +
+        'parity test can no longer see its authority and must not report PASS');
+    }
+    return m[1];
+  }
+
+  // Every frontend site that spells the app timezone out by hand.
+  const SITES = [
+    { file: 'sync.js', re: /const APP_TIMEZONE\s*=\s*'([^']+)'/ },
+    { file: 'inventory.html', re: /const APP_TIMEZONE\s*=\s*'([^']+)'/ },
+    { file: 'purchasing.html', re: /timezone:\s*'(America\/[A-Za-z_]+)'/ },
+  ];
+
+  test('every hand-copied frontend literal equals users.DefaultTimezone', () => {
+    const want = goDefaultTimezone();
+    expect(want, 'the Go constant must be a real IANA zone').toMatch(/^[A-Za-z]+\/[A-Za-z_]+$/);
+
+    const found = [];
+    for (const site of SITES) {
+      const src = fs.readFileSync(path.join(repoRoot, site.file), 'utf8');
+      const m = src.match(site.re);
+      expect(m, `no app-timezone literal found in ${site.file} — the parity ` +
+        `check's subject set has gone empty, which is a failure, not a pass`).not.toBeNull();
+      found.push({ file: site.file, value: m[1] });
+    }
+
+    // Subject-set floor, stated as a number so a silently-dropped site is caught.
+    expect(found.length, 'expected one app-timezone literal per frontend site').toBe(SITES.length);
+
+    for (const f of found) {
+      expect(f.value, `${f.file} disagrees with users.DefaultTimezone — the app ` +
+        `is running two timezone regimes again, which is the bug card A1 removed`).toBe(want);
+    }
+  });
+
+  test('the running page agrees with the Go constant', async ({ page }) => {
+    const want = goDefaultTimezone();
+    await login(page);
+    await page.goto('/workflows.html');
+    await page.waitForFunction(() => typeof window.APP_TIMEZONE === 'string');
+    const live = await page.evaluate(() => window.APP_TIMEZONE);
+    expect(live, 'window.APP_TIMEZONE (sync.js, as actually loaded by the browser) ' +
+      'must equal users.DefaultTimezone').toBe(want);
+  });
+});

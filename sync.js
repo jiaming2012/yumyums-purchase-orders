@@ -566,8 +566,13 @@ window.APP_TIMEZONE = APP_TIMEZONE;
 // wrote TWO submission rows for one operational evening. Card A1.
 //
 // formatToParts (not en-CA) so the output cannot depend on locale separators.
+//
 // Falls back to the old UTC slice if Intl or the zone is unavailable — degrades
-// to the previous behaviour rather than throwing inside a submit path.
+// to the previous behaviour rather than throwing inside a submit path. That is
+// still the right trade (a submit that works on the wrong day beats a submit
+// that throws), but the fallback is NOT silent: it restores the exact UTC
+// boundary this card removed, so it warns. Realistically it fires only on a
+// small-ICU runtime or an embedded WebView shipped without full tzdata.
 function appDateString(when) {
   const d = when === undefined || when === null ? new Date() : new Date(when);
   if (isNaN(d.getTime())) return '';
@@ -578,7 +583,15 @@ function appDateString(when) {
     const get = t => (parts.find(p => p.type === t) || {}).value;
     const y = get('year'), m = get('month'), day = get('day');
     if (y && m && day) return y + '-' + m + '-' + day;
-  } catch (e) { /* fall through */ }
+  } catch (e) { /* fall through to the warned UTC fallback */ }
+  if (!appDateString._warned) {
+    appDateString._warned = true; // once per page — this sits in a submit path
+    console.warn(
+      '[appDateString] falling back to the UTC date: this runtime cannot resolve ' +
+      APP_TIMEZONE + ' via Intl.DateTimeFormat. The app day will roll over at ' +
+      '20:00 New York instead of midnight, which can split one dinner service ' +
+      'across two days. See card A1 / ledger T-26 decision 83.');
+  }
   return d.toISOString().slice(0, 10);
 }
 window.appDateString = appDateString;
