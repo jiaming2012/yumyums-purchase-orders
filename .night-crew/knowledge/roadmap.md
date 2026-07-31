@@ -586,8 +586,9 @@
   decisions 93 + 94 scoped them:
   **(1) Both contract documents and assumption A5.** `21-SALES-PROCESSOR-CONTRACT.md:27`, `:67`,
   `:319` and `999.2-SALES-PROCESSOR-CONTRACT.md:30` + a new A10. A5 is rewritten from "confirm
-  this" into the coordinated-release instruction it now is — what changed, what HQ did, what
-  sales-processor must do, the sequencing, and the bounded blast radius. `:67` also gained a
+  this" into the coordinated-release instruction it now is — what is changing, what HQ has BUILT
+  (and pointedly has **not** deployed), what sales-processor must do, the sequencing, and the
+  bounded blast radius. `:67` also gained a
   correction the zone edit surfaced, and the card's first attempt at it got the provenance exactly
   backwards. The **published** `pending_review_ids` expression had never stated the
   `COALESCE(event_date, …)` — but that is **not** because Phase 21 forgot to write down what it
