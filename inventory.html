@@ -407,6 +407,18 @@ select.field-input{appearance:none;-webkit-appearance:none;padding-right:36px;ba
 </div>
 <script src="tab.js" data-tabs="7"></script>
 <script>
+// APP_TIMEZONE — the app's ONE timezone. The operator ruled it is New York
+// (ledger T-26 decision 83); the backend states the same thing as
+// users.DefaultTimezone, sync.js as APP_TIMEZONE, purchasing.html in
+// saveCutoff(), and migration 0072 as the column default.
+//
+// Declared locally rather than read from sync.js because inventory.html does
+// not load sync.js, and a page must not depend on a script it does not include.
+//
+// 🛑 If this ever needs to change, it changes at ALL of those sites together.
+// A second zone anywhere in the app is the bug card A1 removed.
+const APP_TIMEZONE='America/New_York';
+
 function parseLocalDate(str){
   const [y,m,d]=str.split('-').map(Number);
   return new Date(y,m-1,d);
@@ -2678,7 +2690,7 @@ function renderBadgeResetConfig(){
   var configBody=BADGE_RESET_FORM_OPEN?
     '<div class="day-chips">'+dayChips+'</div>'+
     '<div class="field-group" style="margin-bottom:10px"><div class="field-label">Time</div><input type="time" class="field-input" id="badge-reset-time" value="'+BADGE_RESET_TIME+'"></div>'+
-    '<div class="field-group" style="margin-bottom:10px"><div class="field-label">Timezone</div><input class="field-input" value="'+(Intl.DateTimeFormat().resolvedOptions().timeZone||'America/New_York')+'" disabled></div>'+
+    '<div class="field-group" style="margin-bottom:10px"><div class="field-label">Timezone</div><input class="field-input" id="badge-reset-tz" value="'+APP_TIMEZONE+'" disabled></div>'+
     '<div style="display:flex;gap:8px"><button class="btn-primary" data-action="save-badge-reset">Save</button><button class="btn-secondary" data-action="cancel-badge-reset">Cancel</button></div>'
     :'<div style="font-size:13px;color:var(--mut)">'+
       (BADGE_RESET_CONFIG&&BADGE_RESET_CONFIG.day_of_week!==undefined?
@@ -2710,8 +2722,16 @@ document.addEventListener('click',function(e){
     var timeEl=document.getElementById('badge-reset-time');
     var t=timeEl?timeEl.value:'06:00';
     BADGE_RESET_TIME=t||'06:00';
-    var userTz=Intl.DateTimeFormat().resolvedOptions().timeZone||'America/New_York';
-    api('/api/v1/purchasing/repurchase-reset/config',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({day_of_week:BADGE_RESET_DAY,reset_time:BADGE_RESET_TIME,timezone:userTz})}).then(function(cfg){
+    // 🛑 The APP's timezone, NOT the device's (ledger T-28 decision 94). This
+    // was Intl.DateTimeFormat().resolvedOptions().timeZone, so a crew member on
+    // a Central phone silently moved the whole truck's badge-reset boundary for
+    // everyone — the structural twin of purchasing.html's saveCutoff, which
+    // was writing America/Chicago into the same config table. Because this
+    // upsert is DELETE+INSERT with an explicit zone, the next save here
+    // OVERWRITES migration 0072's UPDATE; that is why the client is the fix.
+    // Keep in step with users.DefaultTimezone (Go) / APP_TIMEZONE (sync.js) /
+    // migration 0072.
+    api('/api/v1/purchasing/repurchase-reset/config',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({day_of_week:BADGE_RESET_DAY,reset_time:BADGE_RESET_TIME,timezone:APP_TIMEZONE})}).then(function(cfg){
       BADGE_RESET_CONFIG=cfg;
       BADGE_RESET_FORM_OPEN=false;
       renderBadgeResetConfig();
