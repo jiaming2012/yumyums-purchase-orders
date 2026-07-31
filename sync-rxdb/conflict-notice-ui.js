@@ -125,11 +125,20 @@ function valuePair(row) {
   </div>`;
 }
 
-function btn(action, id, label, sub, cls, disabled) {
+/**
+ * 🛑 G6 FINDING F-5. `label` used to be interpolated RAW, because exactly one
+ * call site needed to prepend a spinner. Every call site passes a code literal,
+ * so it was a latent hazard rather than a defect — but it is the only unescaped
+ * hole in a module whose whole job is rendering values a crew member typed, and
+ * a future label built from `row.*` would be a real one. The spinner is a flag
+ * now; the label is escaped like everything else.
+ */
+function btn(action, id, label, sub, cls, disabled, spinner) {
   const dis = disabled ? ' aria-disabled="true"' : '';
   const act = disabled ? '' : ` data-action="${action}" data-id="${esc(id)}"`;
+  const spin = spinner ? '<span class="spin"></span>' : '';
   return `<span class="cf-btn ${cls}" role="button" tabindex="0"${act}${dis}>
-    <span>${label}</span>${sub ? `<span class="cf-btn-s">${esc(sub)}</span>` : ''}
+    <span>${spin}${esc(label)}</span>${sub ? `<span class="cf-btn-s">${esc(sub)}</span>` : ''}
   </span>`;
 }
 
@@ -163,7 +172,7 @@ function rowActions(row, collapsed) {
 
   if (row.status === 'restoring') {
     return `<div class="cf-acts">
-      ${btn('cn-restore', row.id, '<span class="spin"></span>Restoring…', replacing, 'cf-btn-pri', true)}
+      ${btn('cn-restore', row.id, 'Restoring…', replacing, 'cf-btn-pri', true, true)}
       ${btn('cn-keep', row.id, 'Keep theirs', stays, 'cf-btn-sec', true)}
     </div>`;
   }
@@ -284,8 +293,8 @@ export function renderSheet(state) {
   if (state.phase === 'loading') {
     // No count in the header — it must not claim a number it does not have.
     return `<div class="sc-sheet" data-testid="conflict-sheet" data-phase="loading">${SHEET_HEAD}
-      <div class="sk"><div class="sk-l" style="width:58%"></div><div class="sk-l" style="width:34%;height:9px"></div><div class="sk-l" style="width:76%;margin-top:14px"></div><div class="sk-l" style="width:66%"></div></div>
-      <div class="sk"><div class="sk-l" style="width:47%"></div><div class="sk-l" style="width:30%;height:9px"></div><div class="sk-l" style="width:72%;margin-top:14px"></div></div>
+      <div class="cn-sk"><div class="cn-sk-l" style="width:58%"></div><div class="cn-sk-l" style="width:34%;height:9px"></div><div class="cn-sk-l" style="width:76%;margin-top:14px"></div><div class="cn-sk-l" style="width:66%"></div></div>
+      <div class="cn-sk"><div class="cn-sk-l" style="width:47%"></div><div class="cn-sk-l" style="width:30%;height:9px"></div><div class="cn-sk-l" style="width:72%;margin-top:14px"></div></div>
     </div>`;
   }
 
@@ -330,11 +339,11 @@ export function renderSheet(state) {
   // Decision 97 — the cap. Rows below the line are NOT dropped: they stay in
   // the store, they stay in the banner's totals, and this line says how many.
   const more = model.hiddenGroups > 0
-    ? `<p class="more" data-testid="cap-line">and ${model.hiddenGroups} more checklist${model.hiddenGroups === 1 ? '' : 's'} · ${model.hiddenAnswers} more row${model.hiddenAnswers === 1 ? '' : 's'} — the count above is the true total</p>`
+    ? `<p class="cn-more" data-testid="cap-line">and ${model.hiddenGroups} more checklist${model.hiddenGroups === 1 ? '' : 's'} · ${model.hiddenAnswers} more row${model.hiddenAnswers === 1 ? '' : 's'} — the count above is the true total</p>`
     : '';
 
   const caption = collapsed
-    ? `<p class="more">Individual Restore / Keep buttons are collapsed. Tap a row to expand it. <b>Rows you have already handled keep their Undo.</b> <b>A row with nothing to restore keeps its Open checklist and Dismiss</b> — collapse hides the Restore/Keep pair, and those rows have no such pair to hide.</p>`
+    ? `<p class="cn-more">Individual Restore / Keep buttons are collapsed. Tap a row to expand it. <b>Rows you have already handled keep their Undo.</b> <b>A row with nothing to restore keeps its Open checklist and Dismiss</b> — collapse hides the Restore/Keep pair, and those rows have no such pair to hide.</p>`
     : '';
 
   return `<div class="sc-sheet" data-testid="conflict-sheet" data-phase="ready" data-collapsed="${collapsed}">${SHEET_HEAD}

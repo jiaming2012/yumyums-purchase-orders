@@ -215,7 +215,7 @@ async function assertPopulation(page, floors) {
     groups: document.querySelectorAll('#conflict-sheet .cg').length,
     rows: document.querySelectorAll('#conflict-sheet .cf').length,
     confirmRows: document.querySelectorAll('#conflict-sheet .cfm-row').length,
-    skeletons: document.querySelectorAll('#conflict-sheet .sk').length,
+    skeletons: document.querySelectorAll('#conflict-sheet .cn-sk').length,
     emptyCards: document.querySelectorAll('#conflict-sheet .sc-empty').length,
     errCards: document.querySelectorAll('#conflict-sheet .sc-err').length,
   }));
@@ -344,7 +344,7 @@ test.describe('conflict notice — State Enumeration Table', () => {
   test('loading — two skeletons, no spinner, NO COUNT in the header', async ({ page }) => {
     await seed(page, [], { storeKind: 'slow' });
     await openSheet(page);
-    await page.waitForSelector('#conflict-sheet .sk');
+    await page.waitForSelector('#conflict-sheet .cn-sk');
     await assertPopulation(page, { banners: 0, groups: 0, rows: 0, skeletons: 2 });
 
     // The header must not claim a number it does not have yet.
