@@ -1,0 +1,282 @@
+RED CAPTURE — card `sync-rxdb-row-visibility-rls` (overnight-20260801, B2)
+=========================================================================
+
+Command:
+    SPIKE_DB_URL=postgres://supabase_admin:...@127.0.0.1:<db>/postgres \
+    SPIKE_REST_URL=http://127.0.0.1:<rest> \
+    SYNC_RLS_SKIP_POLICIES=1 \
+    go test ./internal/sync/ -run TestRowVisibilityRLS -v -count=1
+
+Exit code: 1 (FAIL — which is the point)
+
+State under test: sync-schema/sql/0001 + 0002 applied (tables + postgres_fdw
+foreign tables), RLS actively DISABLED on the four replicated tables, and
+0003_rls_policies.sql WITHHELD.
+
+Why the red is "RLS off" and not "RLS on, no policies": B1 leaves the four
+tables RLS-enabled with zero policies, which in Postgres is DENY-ALL. Running
+these variants against THAT state passes every one of them VACUOUSLY — a table
+nobody can read is indistinguishable from a policy that works. That is the
+exact failure mode run overnight-20260729-2 armed the B-22/B-23/B-24 flag for.
+A red state must LEAK or it is not a red state.
+
+Result: 25 subtests, 10 PASS, 15 FAIL.
+
+The 10 that pass in the red state are NOT this card's layer, and the suite says
+so in its own header rather than claiming credit:
+  * V1-V4 (anon, wrong signature, expired, tampered payload) — PostgREST's JWT
+    verifier, pre-existing.
+  * V15-V17 (direct reads of the three foreign tables) — table grants from
+    0002 section 4, which this card does write, but which are refused by GRANT
+    and not by POLICY.
+  * FLOOR/x2 and CONTROL/0 — the population floors and the BYPASSRLS control.
+    These MUST pass in the red state; if they did not, the red would be
+    unreadable for the boring reason rather than the interesting one.
+
+The 15 that fail are the genuinely red set, and note WHAT they leak:
+  * POSITIVE/alice, /bob, /dave — each sees all 5 templates instead of their
+    2 / 1 / 1. Allow-all.
+  * V5 missing sub, V6 cross-template, V7 claim injection, V8 revocation
+    replay, V9 live grant, V12 submissions, V13 drafts, V14 orphan response —
+    every one reads rows it must not.
+  * V10 forged insert LANDS (see the 000000000004-forged row appearing in
+    CONTROL/Z below) and V11 forged update LANDS. This is what "grant insert,
+    update to authenticated with no policy" looks like once RLS is off, and it
+    is why the write half is tested at all.
+  * V18 rejections readable by alice and carol.
+  * V19 — the plural-GUC side does NOT discriminate, so the auth.uid()
+    comparison is meaningless. Correct: with no policy there is nothing to
+    compare against.
+  * CONTROL/Z fails ONLY because V10's forged row is still in the table. That
+    is the control doing its job: it noticed a variant mutated the fixture.
+
+The matching GREEN capture is green-20260801-row-visibility.txt.
+
+-------------------------------------------------------------------------
+=== RUN   TestRowVisibilityRLS
+    rowvisibility_rls_test.go:609: SYNC_RLS_SKIP_POLICIES=1 — RED MODE: tearing RLS down and NOT applying ../../../sync-schema/sql/0003_rls_policies.sql
+=== RUN   TestRowVisibilityRLS/FLOOR/HQ's_three_views_are_populated
+    rowvisibility_rls_test.go:622: HQ POPULATION   hq_sync_template_assignees       4 rows
+    rowvisibility_rls_test.go:622: HQ POPULATION   hq_sync_user_roles               4 rows
+    rowvisibility_rls_test.go:622: HQ POPULATION   hq_sync_field_templates          5 rows
+=== RUN   TestRowVisibilityRLS/FLOOR/the_foreign_tables_carry_those_rows_across_the_wire
+    rowvisibility_rls_test.go:625: FDW POPULATION  hq_template_assignees            4 rows across the wire
+    rowvisibility_rls_test.go:625: FDW POPULATION  hq_user_roles                    4 rows across the wire
+    rowvisibility_rls_test.go:625: FDW POPULATION  hq_field_templates               5 rows across the wire
+=== RUN   TestRowVisibilityRLS/CONTROL/0_service_role_BYPASSRLS_proves_the_rows_are_there
+    rowvisibility_rls_test.go:636: ADMITTED service_role sees ALL templates                [22222222-2222-4222-8222-000000000001 22222222-2222-4222-8222-000000000002 22222222-2222-4222-8222-000000000003 22222222-2222-4222-8222-000000000004 22222222-2222-4222-8222-000000000005]
+    rowvisibility_rls_test.go:637: ADMITTED service_role sees ALL submissions              [55555555-5555-4555-8555-000000000001 55555555-5555-4555-8555-000000000002 55555555-5555-4555-8555-000000000003]
+    rowvisibility_rls_test.go:638: ADMITTED service_role sees ALL responses                [resp-alice resp-approver resp-bob resp-byrole resp-ghost]
+    rowvisibility_rls_test.go:640: ADMITTED service_role sees ALL rejections               [rej-alice]
+=== RUN   TestRowVisibilityRLS/POSITIVE/alice_sees_her_assignee_template_AND_her_APPROVER_template
+    rowvisibility_rls_test.go:654: alice: expected rows [22222222-2222-4222-8222-000000000001 22222222-2222-4222-8222-000000000005], got [22222222-2222-4222-8222-000000000001 22222222-2222-4222-8222-000000000002 22222222-2222-4222-8222-000000000003 22222222-2222-4222-8222-000000000004 22222222-2222-4222-8222-000000000005]
+          response: HTTP 200 [{"id":"22222222-2222-4222-8222-000000000001"}, 
+         {"id":"22222222-2222-4222-8222-000000000002"}, 
+         {"id":"22222222-2222-4222-8222-000000000003"}, 
+         {"id":"22222222-2222-4222-8222-000000000004"}, 
+         {"id":"22222222-2222-4222-8222-000000000005"}]
+=== RUN   TestRowVisibilityRLS/POSITIVE/bob_sees_ONLY_his_own_—_not_alice's,_not_the_role_one
+    rowvisibility_rls_test.go:658: bob: expected rows [22222222-2222-4222-8222-000000000002], got [22222222-2222-4222-8222-000000000001 22222222-2222-4222-8222-000000000002 22222222-2222-4222-8222-000000000003 22222222-2222-4222-8222-000000000004 22222222-2222-4222-8222-000000000005]
+          response: HTTP 200 [{"id":"22222222-2222-4222-8222-000000000001"}, 
+         {"id":"22222222-2222-4222-8222-000000000002"}, 
+         {"id":"22222222-2222-4222-8222-000000000003"}, 
+         {"id":"22222222-2222-4222-8222-000000000004"}, 
+         {"id":"22222222-2222-4222-8222-000000000005"}]
+=== RUN   TestRowVisibilityRLS/POSITIVE/dave_reaches_his_template_by_ROLE,_holding_no_direct_assignment
+    rowvisibility_rls_test.go:664: dave (role=manager): expected rows [22222222-2222-4222-8222-000000000003], got [22222222-2222-4222-8222-000000000001 22222222-2222-4222-8222-000000000002 22222222-2222-4222-8222-000000000003 22222222-2222-4222-8222-000000000004 22222222-2222-4222-8222-000000000005]
+          response: HTTP 200 [{"id":"22222222-2222-4222-8222-000000000001"}, 
+         {"id":"22222222-2222-4222-8222-000000000002"}, 
+         {"id":"22222222-2222-4222-8222-000000000003"}, 
+         {"id":"22222222-2222-4222-8222-000000000004"}, 
+         {"id":"22222222-2222-4222-8222-000000000005"}]
+=== RUN   TestRowVisibilityRLS/POSITIVE/carol_the_admin_sees_EVERY_template_including_the_orphan
+    rowvisibility_rls_test.go:672: ADMITTED carol (admin)                                  [22222222-2222-4222-8222-000000000001 22222222-2222-4222-8222-000000000002 22222222-2222-4222-8222-000000000003 22222222-2222-4222-8222-000000000004 22222222-2222-4222-8222-000000000005]
+=== RUN   TestRowVisibilityRLS/V1/anon_(no_token_at_all)
+    rowvisibility_rls_test.go:681: REFUSED  V1 anon                                              HTTP 401 {"code":"42501","details":null,"hint":null,"message":"permission denied for table checklist_templates"}
+=== RUN   TestRowVisibilityRLS/V2/wrong_signature
+    rowvisibility_rls_test.go:692: REFUSED  V2 wrong signature                                   HTTP 401 {"code":"PGRST301","details":null,"hint":null,"message":"JWSError JWSInvalidSignature"}
+=== RUN   TestRowVisibilityRLS/V3/expired_token
+    rowvisibility_rls_test.go:701: REFUSED  V3 expired token                                     HTTP 401 {"code":"PGRST301","details":null,"hint":null,"message":"JWT expired"}
+=== RUN   TestRowVisibilityRLS/V4/tampered_payload,_original_signature
+    rowvisibility_rls_test.go:722: REFUSED  V4 tampered payload                                  HTTP 401 {"code":"PGRST301","details":null,"hint":null,"message":"JWSError JWSInvalidSignature"}
+=== RUN   TestRowVisibilityRLS/V5/missing_sub_claim
+    rowvisibility_rls_test.go:737: VARIANT "V5 missing sub" WAS NOT REFUSED — it read [22222222-2222-4222-8222-000000000001 22222222-2222-4222-8222-000000000002 22222222-2222-4222-8222-000000000003 22222222-2222-4222-8222-000000000004 22222222-2222-4222-8222-000000000005].
+          response: HTTP 200 [{"id":"22222222-2222-4222-8222-000000000001"}, 
+         {"id":"22222222-2222-4222-8222-000000000002"}, 
+         {"id":"22222222-2222-4222-8222-000000000003"}, 
+         {"id":"22222222-2222-4222-8222-000000000004"}, 
+         {"id":"22222222-2222-4222-8222-000000000005"}]
+          A variant that returns seeded rows has defeated the policy, whatever status code it carried.
+=== RUN   TestRowVisibilityRLS/V6/cross-template_read_—_alice_asks_for_bob's_template_by_id
+    rowvisibility_rls_test.go:745: VARIANT "V6 alice -> tplBob" WAS NOT REFUSED — it read [22222222-2222-4222-8222-000000000002].
+          response: HTTP 200 [{"id":"22222222-2222-4222-8222-000000000002"}]
+          A variant that returns seeded rows has defeated the policy, whatever status code it carried.
+=== RUN   TestRowVisibilityRLS/V7/claim_injection_—_alice's_token_ASSERTS_admin,_live_table_says_otherwise
+    rowvisibility_rls_test.go:756: alice with a LYING admin claim: expected rows [22222222-2222-4222-8222-000000000001 22222222-2222-4222-8222-000000000005], got [22222222-2222-4222-8222-000000000001 22222222-2222-4222-8222-000000000002 22222222-2222-4222-8222-000000000003 22222222-2222-4222-8222-000000000004 22222222-2222-4222-8222-000000000005]
+          response: HTTP 200 [{"id":"22222222-2222-4222-8222-000000000001"}, 
+         {"id":"22222222-2222-4222-8222-000000000002"}, 
+         {"id":"22222222-2222-4222-8222-000000000003"}, 
+         {"id":"22222222-2222-4222-8222-000000000004"}, 
+         {"id":"22222222-2222-4222-8222-000000000005"}]
+    rowvisibility_rls_test.go:757: VARIANT "V7 claim injection (orphan must stay hidden)" WAS NOT REFUSED — it read [22222222-2222-4222-8222-000000000004].
+          response: HTTP 200 [{"id":"22222222-2222-4222-8222-000000000004"}]
+          A variant that returns seeded rows has defeated the policy, whatever status code it carried.
+=== RUN   TestRowVisibilityRLS/V8/revocation_replay_—_SAME_unexpired_token,_assignment_deleted_in_HQ
+    rowvisibility_rls_test.go:774: before revocation: expected rows [22222222-2222-4222-8222-000000000001 22222222-2222-4222-8222-000000000005], got [22222222-2222-4222-8222-000000000001 22222222-2222-4222-8222-000000000002 22222222-2222-4222-8222-000000000003 22222222-2222-4222-8222-000000000004 22222222-2222-4222-8222-000000000005]
+          response: HTTP 200 [{"id":"22222222-2222-4222-8222-000000000001"}, 
+         {"id":"22222222-2222-4222-8222-000000000002"}, 
+         {"id":"22222222-2222-4222-8222-000000000003"}, 
+         {"id":"22222222-2222-4222-8222-000000000004"}, 
+         {"id":"22222222-2222-4222-8222-000000000005"}]
+    rowvisibility_rls_test.go:781: after revocation, SAME token: expected rows [22222222-2222-4222-8222-000000000005], got [22222222-2222-4222-8222-000000000001 22222222-2222-4222-8222-000000000002 22222222-2222-4222-8222-000000000003 22222222-2222-4222-8222-000000000004 22222222-2222-4222-8222-000000000005]
+          response: HTTP 200 [{"id":"22222222-2222-4222-8222-000000000001"}, 
+         {"id":"22222222-2222-4222-8222-000000000002"}, 
+         {"id":"22222222-2222-4222-8222-000000000003"}, 
+         {"id":"22222222-2222-4222-8222-000000000004"}, 
+         {"id":"22222222-2222-4222-8222-000000000005"}]
+    rowvisibility_rls_test.go:782: VARIANT "V8 revocation replay" WAS NOT REFUSED — it read [22222222-2222-4222-8222-000000000001].
+          response: HTTP 200 [{"id":"22222222-2222-4222-8222-000000000001"}]
+          A variant that returns seeded rows has defeated the policy, whatever status code it carried.
+    rowvisibility_rls_test.go:792: after restore, still the SAME token: expected rows [22222222-2222-4222-8222-000000000001 22222222-2222-4222-8222-000000000005], got [22222222-2222-4222-8222-000000000001 22222222-2222-4222-8222-000000000002 22222222-2222-4222-8222-000000000003 22222222-2222-4222-8222-000000000004 22222222-2222-4222-8222-000000000005]
+          response: HTTP 200 [{"id":"22222222-2222-4222-8222-000000000001"}, 
+         {"id":"22222222-2222-4222-8222-000000000002"}, 
+         {"id":"22222222-2222-4222-8222-000000000003"}, 
+         {"id":"22222222-2222-4222-8222-000000000004"}, 
+         {"id":"22222222-2222-4222-8222-000000000005"}]
+=== RUN   TestRowVisibilityRLS/V9/live_grant_—_a_NEW_assignment_lands_without_re-minting_anything
+    rowvisibility_rls_test.go:799: bob before: expected rows [22222222-2222-4222-8222-000000000002], got [22222222-2222-4222-8222-000000000001 22222222-2222-4222-8222-000000000002 22222222-2222-4222-8222-000000000003 22222222-2222-4222-8222-000000000004 22222222-2222-4222-8222-000000000005]
+          response: HTTP 200 [{"id":"22222222-2222-4222-8222-000000000001"}, 
+         {"id":"22222222-2222-4222-8222-000000000002"}, 
+         {"id":"22222222-2222-4222-8222-000000000003"}, 
+         {"id":"22222222-2222-4222-8222-000000000004"}, 
+         {"id":"22222222-2222-4222-8222-000000000005"}]
+    rowvisibility_rls_test.go:806: bob after, SAME token: expected rows [22222222-2222-4222-8222-000000000002 22222222-2222-4222-8222-000000000004], got [22222222-2222-4222-8222-000000000001 22222222-2222-4222-8222-000000000002 22222222-2222-4222-8222-000000000003 22222222-2222-4222-8222-000000000004 22222222-2222-4222-8222-000000000005]
+          response: HTTP 200 [{"id":"22222222-2222-4222-8222-000000000001"}, 
+         {"id":"22222222-2222-4222-8222-000000000002"}, 
+         {"id":"22222222-2222-4222-8222-000000000003"}, 
+         {"id":"22222222-2222-4222-8222-000000000004"}, 
+         {"id":"22222222-2222-4222-8222-000000000005"}]
+    rowvisibility_rls_test.go:813: bob restored: expected rows [22222222-2222-4222-8222-000000000002], got [22222222-2222-4222-8222-000000000001 22222222-2222-4222-8222-000000000002 22222222-2222-4222-8222-000000000003 22222222-2222-4222-8222-000000000004 22222222-2222-4222-8222-000000000005]
+          response: HTTP 200 [{"id":"22222222-2222-4222-8222-000000000001"}, 
+         {"id":"22222222-2222-4222-8222-000000000002"}, 
+         {"id":"22222222-2222-4222-8222-000000000003"}, 
+         {"id":"22222222-2222-4222-8222-000000000004"}, 
+         {"id":"22222222-2222-4222-8222-000000000005"}]
+=== RUN   TestRowVisibilityRLS/V10/forged_insert_—_alice_creates_a_template
+    rowvisibility_rls_test.go:828: V10 forged insert LANDED (HTTP 201 [{"id":"22222222-2222-4222-8222-000000000004-forged","name":"forged","requires_approval":false,"created_by":null,"created_at":"2026-07-31T14:02:58.073952+00:00","updated_by":null,"updated_at":"2026-07-31T14:02:58.073952+00:00","archived_at":null,"_deleted":false,"_modified":"2026-07-31T14:02:58.073952+00:00"}]) — writes are supposed to be deny-all
+    rowvisibility_rls_test.go:839: V10: 1 forged row(s) LANDED in the table despite the status code
+=== RUN   TestRowVisibilityRLS/V11/forged_update_—_alice_rewrites_bob's_template
+    rowvisibility_rls_test.go:847: V11 forged update LANDED (HTTP 200 [{"id":"22222222-2222-4222-8222-000000000002","name":"owned by alice now","requires_approval":false,"created_by":null,"created_at":"2026-07-31T14:02:57.227267+00:00","updated_by":null,"updated_at":"2026-07-31T14:02:57.227267+00:00","archived_at":null,"_deleted":false,"_modified":"2026-07-31T14:02:58.083858+00:00"}])
+    rowvisibility_rls_test.go:857: V11: bob's template was RENAMED to "owned by alice now" — the update landed
+=== RUN   TestRowVisibilityRLS/V12/submissions_are_scoped_by_their_template
+    rowvisibility_rls_test.go:864: alice's submissions: expected rows [55555555-5555-4555-8555-000000000001], got [55555555-5555-4555-8555-000000000001 55555555-5555-4555-8555-000000000002 55555555-5555-4555-8555-000000000003]
+          response: HTTP 200 [{"id":"55555555-5555-4555-8555-000000000001"}, 
+         {"id":"55555555-5555-4555-8555-000000000002"}, 
+         {"id":"55555555-5555-4555-8555-000000000003"}]
+    rowvisibility_rls_test.go:865: VARIANT "V12 alice -> bob's submission" WAS NOT REFUSED — it read [55555555-5555-4555-8555-000000000002].
+          response: HTTP 200 [{"id":"55555555-5555-4555-8555-000000000002"}]
+          A variant that returns seeded rows has defeated the policy, whatever status code it carried.
+    rowvisibility_rls_test.go:867: ADMITTED carol (admin) sees all submissions             [55555555-5555-4555-8555-000000000001 55555555-5555-4555-8555-000000000002 55555555-5555-4555-8555-000000000003]
+=== RUN   TestRowVisibilityRLS/V13/DRAFT_responses_are_scoped_by_FIELD,_not_by_submission
+    rowvisibility_rls_test.go:877: alice's drafts: expected rows [resp-alice resp-approver], got [resp-alice resp-approver resp-bob resp-byrole resp-ghost]
+          response: HTTP 200 [{"id":"resp-alice"}, 
+         {"id":"resp-approver"}, 
+         {"id":"resp-bob"}, 
+         {"id":"resp-byrole"}, 
+         {"id":"resp-ghost"}]
+    rowvisibility_rls_test.go:879: dave's draft (reached by role): expected rows [resp-byrole], got [resp-alice resp-approver resp-bob resp-byrole resp-ghost]
+          response: HTTP 200 [{"id":"resp-alice"}, 
+         {"id":"resp-approver"}, 
+         {"id":"resp-bob"}, 
+         {"id":"resp-byrole"}, 
+         {"id":"resp-ghost"}]
+    rowvisibility_rls_test.go:881: VARIANT "V13 alice -> bob's draft" WAS NOT REFUSED — it read [resp-bob].
+          response: HTTP 200 [{"id":"resp-bob"}]
+          A variant that returns seeded rows has defeated the policy, whatever status code it carried.
+=== RUN   TestRowVisibilityRLS/V14/an_UNRESOLVABLE_field_is_invisible_to_EVERYONE,_admins_included
+    rowvisibility_rls_test.go:892: carol sees every RESOLVABLE response: expected rows [resp-alice resp-approver resp-bob resp-byrole], got [resp-alice resp-approver resp-bob resp-byrole resp-ghost]
+          response: HTTP 200 [{"id":"resp-alice"}, 
+         {"id":"resp-approver"}, 
+         {"id":"resp-bob"}, 
+         {"id":"resp-byrole"}, 
+         {"id":"resp-ghost"}]
+    rowvisibility_rls_test.go:895: VARIANT "V14 orphan response, asked by an ADMIN" WAS NOT REFUSED — it read [resp-ghost].
+          response: HTTP 200 [{"id":"resp-ghost"}]
+          A variant that returns seeded rows has defeated the policy, whatever status code it carried.
+=== RUN   TestRowVisibilityRLS/V15-17/V15_hq_user_roles_is_not_readable_over_PostgREST
+    rowvisibility_rls_test.go:926: REFUSED  V15 hq_user_roles / anon                             HTTP 401 {"code":"42501","details":null,"hint":null,"message":"permission denied for foreign table hq_user_roles"}
+    rowvisibility_rls_test.go:926: REFUSED  V15 hq_user_roles / alice                            HTTP 403 {"code":"42501","details":null,"hint":null,"message":"permission denied for foreign table hq_user_roles"}
+    rowvisibility_rls_test.go:926: REFUSED  V15 hq_user_roles / carol the admin                  HTTP 403 {"code":"42501","details":null,"hint":null,"message":"permission denied for foreign table hq_user_roles"}
+=== RUN   TestRowVisibilityRLS/V15-17/V16_hq_template_assignees_is_not_readable_over_PostgREST
+    rowvisibility_rls_test.go:926: REFUSED  V16 hq_template_assignees / anon                     HTTP 401 {"code":"42501","details":null,"hint":null,"message":"permission denied for foreign table hq_template_assignees"}
+    rowvisibility_rls_test.go:926: REFUSED  V16 hq_template_assignees / alice                    HTTP 403 {"code":"42501","details":null,"hint":null,"message":"permission denied for foreign table hq_template_assignees"}
+    rowvisibility_rls_test.go:926: REFUSED  V16 hq_template_assignees / carol the admin          HTTP 403 {"code":"42501","details":null,"hint":null,"message":"permission denied for foreign table hq_template_assignees"}
+=== RUN   TestRowVisibilityRLS/V15-17/V17_hq_field_templates_is_not_readable_over_PostgREST
+    rowvisibility_rls_test.go:926: REFUSED  V17 hq_field_templates / anon                        HTTP 401 {"code":"42501","details":null,"hint":null,"message":"permission denied for foreign table hq_field_templates"}
+    rowvisibility_rls_test.go:926: REFUSED  V17 hq_field_templates / alice                       HTTP 403 {"code":"42501","details":null,"hint":null,"message":"permission denied for foreign table hq_field_templates"}
+    rowvisibility_rls_test.go:926: REFUSED  V17 hq_field_templates / carol the admin             HTTP 403 {"code":"42501","details":null,"hint":null,"message":"permission denied for foreign table hq_field_templates"}
+=== RUN   TestRowVisibilityRLS/V18/submission_rejections_is_deny-all,_for_admins_too
+    rowvisibility_rls_test.go:944: VARIANT "V18 rejections / carol the admin" WAS NOT REFUSED — it read [rej-alice].
+          response: HTTP 200 [{"id":"rej-alice"}]
+          A variant that returns seeded rows has defeated the policy, whatever status code it carried.
+    rowvisibility_rls_test.go:946: VARIANT "V18 rejections / alice" WAS NOT REFUSED — it read [rej-alice].
+          response: HTTP 200 [{"id":"rej-alice"}]
+          A variant that returns seeded rows has defeated the policy, whatever status code it carried.
+    rowvisibility_rls_test.go:949: ADMITTED service_role sees the rejection that nobody else does [rej-alice]
+=== RUN   TestRowVisibilityRLS/V19/auth.uid()_returns_NOTHING_while_the_plural_GUC_discriminates
+    rowvisibility_rls_test.go:968: plural GUC (this card) DISCRIMINATES: expected rows [22222222-2222-4222-8222-000000000001 22222222-2222-4222-8222-000000000005], got [22222222-2222-4222-8222-000000000001 22222222-2222-4222-8222-000000000002 22222222-2222-4222-8222-000000000003 22222222-2222-4222-8222-000000000004 22222222-2222-4222-8222-000000000004-forged 22222222-2222-4222-8222-000000000005]
+          response: HTTP 200 [{"id":"22222222-2222-4222-8222-000000000001"}, 
+         {"id":"22222222-2222-4222-8222-000000000002"}, 
+         {"id":"22222222-2222-4222-8222-000000000003"}, 
+         {"id":"22222222-2222-4222-8222-000000000004"}, 
+         {"id":"22222222-2222-4222-8222-000000000004-forged"}, 
+         {"id":"22222222-2222-4222-8222-000000000005"}]
+    rowvisibility_rls_test.go:978: REFUSED  V19 auth.uid() policy returns NOTHING                HTTP 200 []
+    rowvisibility_rls_test.go:987: CONTROL  V19 trap is NOT empty                                [trap-alice-1 trap-bob-1]
+=== RUN   TestRowVisibilityRLS/CONTROL/Z_service_role_control,_re-taken_after_all_variants
+    rowvisibility_rls_test.go:999: templates still all there: expected rows [22222222-2222-4222-8222-000000000001 22222222-2222-4222-8222-000000000002 22222222-2222-4222-8222-000000000003 22222222-2222-4222-8222-000000000004 22222222-2222-4222-8222-000000000005], got [22222222-2222-4222-8222-000000000001 22222222-2222-4222-8222-000000000002 22222222-2222-4222-8222-000000000003 22222222-2222-4222-8222-000000000004 22222222-2222-4222-8222-000000000004-forged 22222222-2222-4222-8222-000000000005]
+          response: HTTP 200 [{"id":"22222222-2222-4222-8222-000000000001"}, 
+         {"id":"22222222-2222-4222-8222-000000000002"}, 
+         {"id":"22222222-2222-4222-8222-000000000003"}, 
+         {"id":"22222222-2222-4222-8222-000000000004"}, 
+         {"id":"22222222-2222-4222-8222-000000000004-forged"}, 
+         {"id":"22222222-2222-4222-8222-000000000005"}]
+    rowvisibility_rls_test.go:1000: ADMITTED submissions still all there                    [55555555-5555-4555-8555-000000000001 55555555-5555-4555-8555-000000000002 55555555-5555-4555-8555-000000000003]
+    rowvisibility_rls_test.go:1001: ADMITTED responses still all there                      [resp-alice resp-approver resp-bob resp-byrole resp-ghost]
+    rowvisibility_rls_test.go:1003: HQ POPULATION   hq_sync_template_assignees       4 rows
+    rowvisibility_rls_test.go:1003: HQ POPULATION   hq_sync_user_roles               4 rows
+    rowvisibility_rls_test.go:1003: HQ POPULATION   hq_sync_field_templates          5 rows
+    rowvisibility_rls_test.go:1004: FDW POPULATION  hq_template_assignees            4 rows across the wire
+    rowvisibility_rls_test.go:1004: FDW POPULATION  hq_user_roles                    4 rows across the wire
+    rowvisibility_rls_test.go:1004: FDW POPULATION  hq_field_templates               5 rows across the wire
+--- FAIL: TestRowVisibilityRLS (4.28s)
+    --- PASS: TestRowVisibilityRLS/FLOOR/HQ's_three_views_are_populated (0.02s)
+    --- PASS: TestRowVisibilityRLS/FLOOR/the_foreign_tables_carry_those_rows_across_the_wire (0.11s)
+    --- PASS: TestRowVisibilityRLS/CONTROL/0_service_role_BYPASSRLS_proves_the_rows_are_there (0.02s)
+    --- FAIL: TestRowVisibilityRLS/POSITIVE/alice_sees_her_assignee_template_AND_her_APPROVER_template (0.00s)
+    --- FAIL: TestRowVisibilityRLS/POSITIVE/bob_sees_ONLY_his_own_—_not_alice's,_not_the_role_one (0.00s)
+    --- FAIL: TestRowVisibilityRLS/POSITIVE/dave_reaches_his_template_by_ROLE,_holding_no_direct_assignment (0.00s)
+    --- PASS: TestRowVisibilityRLS/POSITIVE/carol_the_admin_sees_EVERY_template_including_the_orphan (0.00s)
+    --- PASS: TestRowVisibilityRLS/V1/anon_(no_token_at_all) (0.00s)
+    --- PASS: TestRowVisibilityRLS/V2/wrong_signature (0.00s)
+    --- PASS: TestRowVisibilityRLS/V3/expired_token (0.00s)
+    --- PASS: TestRowVisibilityRLS/V4/tampered_payload,_original_signature (0.00s)
+    --- FAIL: TestRowVisibilityRLS/V5/missing_sub_claim (0.00s)
+    --- FAIL: TestRowVisibilityRLS/V6/cross-template_read_—_alice_asks_for_bob's_template_by_id (0.00s)
+    --- FAIL: TestRowVisibilityRLS/V7/claim_injection_—_alice's_token_ASSERTS_admin,_live_table_says_otherwise (0.01s)
+    --- FAIL: TestRowVisibilityRLS/V8/revocation_replay_—_SAME_unexpired_token,_assignment_deleted_in_HQ (0.02s)
+    --- FAIL: TestRowVisibilityRLS/V9/live_grant_—_a_NEW_assignment_lands_without_re-minting_anything (0.02s)
+    --- FAIL: TestRowVisibilityRLS/V10/forged_insert_—_alice_creates_a_template (0.01s)
+    --- FAIL: TestRowVisibilityRLS/V11/forged_update_—_alice_rewrites_bob's_template (0.01s)
+    --- FAIL: TestRowVisibilityRLS/V12/submissions_are_scoped_by_their_template (0.01s)
+    --- FAIL: TestRowVisibilityRLS/V13/DRAFT_responses_are_scoped_by_FIELD,_not_by_submission (0.01s)
+    --- FAIL: TestRowVisibilityRLS/V14/an_UNRESOLVABLE_field_is_invisible_to_EVERYONE,_admins_included (0.01s)
+    --- PASS: TestRowVisibilityRLS/V15-17/V15_hq_user_roles_is_not_readable_over_PostgREST (0.01s)
+    --- PASS: TestRowVisibilityRLS/V15-17/V16_hq_template_assignees_is_not_readable_over_PostgREST (0.01s)
+    --- PASS: TestRowVisibilityRLS/V15-17/V17_hq_field_templates_is_not_readable_over_PostgREST (0.01s)
+    --- FAIL: TestRowVisibilityRLS/V18/submission_rejections_is_deny-all,_for_admins_too (0.01s)
+    --- FAIL: TestRowVisibilityRLS/V19/auth.uid()_returns_NOTHING_while_the_plural_GUC_discriminates (0.01s)
+    --- FAIL: TestRowVisibilityRLS/CONTROL/Z_service_role_control,_re-taken_after_all_variants (0.03s)
+FAIL
+FAIL	github.com/yumyums/hq/internal/sync	4.285s
+FAIL
