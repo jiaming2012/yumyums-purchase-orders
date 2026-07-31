@@ -563,7 +563,56 @@
   five converted `TestMain`s set. Reproducible via `scripts/verify-test-harness.sh`, whose third
   check (B2) guards the *other* direction: `DB_TEST_URL` unset must keep skipping.
 
-- **`app-timezone-unify-new-york`** · **PLANNED — HIGH, medium/large (RESCOPED), RESUMABLE** ·
+- **`app-timezone-unify-new-york`** · **DONE — every site, both contracts, one card** (2026-08-01,
+  run `overnight-20260801`, Track A card A1, branch `card/a1-app-timezone-unify-new-york`) ·
+  **🛑 BUILT AND MERGED, DEPLOYED TO NOTHING.** This card does not authorize a deploy. Until
+  sales-processor ships its matching change, one repo is wrong — the disagreement is one hour at
+  each period edge, and it can only move a `pending_purchases` row with **no extracted
+  `event_date`** (an extracted `event_date` wins the `COALESCE`, so it is never exposed to the
+  zone). Confirmed pendings and `purchase_events` cannot move at all.
+  **🛑 CHANGEOVER DATE 2026-07-29** for the sites the parked attempt moved, **2026-08-01** for
+  `trends.go`'s window and the badge-reset client, which moved tonight. **FIX FORWARD ONLY** —
+  weekly COGS and payroll figures produced before those dates were already acted on and are **NOT**
+  restated.
+  **The 07-29 park was correct and was resolved, not overridden.** The parked branch was resumed
+  intact at `8da3ded`; nothing was rebuilt. Three additions landed on top of it, exactly as
+  decisions 93 + 94 scoped them:
+  **(1) Both contract documents and assumption A5.** `21-SALES-PROCESSOR-CONTRACT.md:27`, `:67`,
+  `:319` and `999.2-SALES-PROCESSOR-CONTRACT.md:30` + a new A10. A5 is rewritten from "confirm
+  this" into the coordinated-release instruction it now is — what changed, what HQ did, what
+  sales-processor must do, the sequencing, and the bounded blast radius. `:67` also gained a
+  correction the zone edit surfaced: the **published** `pending_review_ids` expression had never
+  stated the `COALESCE(event_date, …)` the implementation has carried since Phase 21. Publishing an
+  expression that does not match the code is the same class of defect as publishing the wrong zone.
+  **(2) `trends.go`'s `trendsWindow`** — a bare `time.Now()` with no `LoadLocation`, missed by the
+  parked attempt, eleven lines above a site it did edit. Red first: `trendsWindow(2026-07-27T01:30Z)`
+  answered `{from 2026-05-11, to 2026-07-27}` against `{from 2026-05-04, to 2026-07-26}` — a full
+  week off, and a "today" naming tomorrow. A third control subtest ("midday, both zones agree")
+  passed before AND after, proving the fix is a zone conversion and not a day shift.
+  **(3) Decision 94 — badge reset follows the app zone.** `tests/inventory.spec.js`'s
+  *"badge reset saves with browser timezone, not hardcoded value"* was **rewritten, not worked
+  around**: it is now parameterised over `Asia/Tokyo` (catches follow-the-device) and
+  `America/Chicago` (catches the zone this card removes, which follow-the-device also produces on a
+  Central phone — the one wrong answer that could look right), with a fixture-liveness check so it
+  cannot pass while testing nothing. Both reds observed at `America/New_York` vs the device zone.
+  This one mattered structurally: the config upsert is DELETE+INSERT with an explicit zone, so the
+  next badge-reset save would have **overwritten migration `0072`'s UPDATE**. Migrating the row
+  without fixing the client would have fixed nothing.
+  **Three park-note items absorbed.** The money path finally has a boundary test —
+  `pendingPeriodDateExpr`, the card's headline site, was covered by no red at all, and the nearest
+  existing case used a timestamp resolving to the same date in both zones. The new test places rows
+  in the one hour where the zones disagree at **opposite** period edges so no single-zone answer
+  satisfies both; proven red by injecting the old Chicago literal, which produced exactly the
+  predicted inversion. Eight stale Chicago comments in that file cleared, with the one
+  non-distinguishing case now saying so in its own comment. `APP_TIMEZONE` parity is now
+  **mechanical** — `[A1-TZ-PARITY]` reads `users.DefaultTimezone` out of the Go source as the
+  authority and asserts all three frontend literals plus the live `window.APP_TIMEZONE` agree; its
+  subject set is asserted non-empty and pinned to a count (B-22/23/24), and it was proven to bite by
+  injection rather than assumed. `appDateString`'s silent UTC fallback now warns, naming the
+  consequence. **One item filed rather than fixed:** `receipt/worker.go`'s `parseEventDate` stamps a
+  COGS period from server-local time — `backend/internal/receipt` is outside the footprint, so it is
+  **B-28** in BACKLOG.md, deliberately carried out rather than missed.
+  **Original card text follows.** (was: **PLANNED — HIGH, medium/large (RESCOPED), RESUMABLE**,
   **🅿️ PARKED on `overnight-20260729-2` and NOT merged** — G6 returned REJECT and the orchestrator
   verified the decisive evidence before parking. Branch
   **`card/a1-app-timezone-unify-new-york` @ `8da3ded` is preserved, unmerged, worktree intact**;
@@ -582,7 +631,7 @@
   browser's**, and `tests/inventory.spec.js:2022` is **asserting the defect** and must be rewritten
   rather than worked around. 🛑 **Nothing ships to prod until sales-processor's matching change is
   ready** — until both land one repo is wrong, and the disagreement is one hour at each period edge on
-  rows with no extracted `event_date`. Nothing is broken today: A1 did not merge. **Original card text
+  rows with no extracted `event_date`. Nothing is broken today: A1 did not merge.) **Original card text
   follows.** (new card, morning triage
   2026-07-28, ledger T-26 decision 83) · **The app is running two conflicting timezone regimes, and
   the operator ruled the app's timezone is `America/New_York`.** `users.DefaultTimezone` is already
