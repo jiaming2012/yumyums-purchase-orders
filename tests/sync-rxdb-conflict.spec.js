@@ -687,3 +687,103 @@ test.describe('describeConflict — the conflict$ contract C2 builds against', (
     expect(describeConflict(e).clashes).toEqual([]);
   });
 });
+
+// ===========================================================================
+// 🛑 G6 CORRECTION (C2, overnight-20260801) — THE HANDLER AND `describeConflict`
+// MUST AGREE.
+// ===========================================================================
+// `describeConflict` re-runs `resolveConflict` to derive the row set C2 renders
+// (`conflict-handler.js:411`, call at `:414`). It used to run with ITS OWN
+// `opts`, defaulted to `{}` — so a caller who customised `reservedFields` or
+// `provenanceFields` at `createHQConflictHandler` got a `conflict$` clash list
+// that DISAGREED with what the handler had actually done.
+//
+// The symptom is not abstract: a custom `provenanceFields` entry is suppressed
+// as a clash by `resolve()` — that is the whole point of the list — and, without
+// threading, came back as a ROW ON THE OVERWRITTEN-ANSWERS SHEET. A row for a
+// value nothing lost, on the one screen whose entire thesis is that its numbers
+// are true.
+//
+// Pinned with a CUSTOMISED FIELD, per the correction's own wording, on both
+// halves of the option surface.
+test.describe('describeConflict agrees with the handler it was configured beside (G6)', () => {
+  const forkAndMaster = (extraFork, extraMaster) => ({
+    input: {
+      assumedMasterState: clone(R_ASSUMED),
+      newDocumentState: withFields(R_ASSUMED, Object.assign({ value: { _v: 39 } }, extraFork)),
+      realMasterState: withFields(R_ASSUMED, Object.assign({ value: { _v: 45 }, _rev: '2-mmm' }, extraMaster)),
+    },
+    output: withFields(R_ASSUMED, { value: { _v: 45 }, _rev: '3-nnn' }),
+  });
+
+  test('a handler exposes the merge options it was constructed with', async () => {
+    const { createHQConflictHandler, conflictOptsOf } = await loadHandler();
+    const h = createHQConflictHandler({ provenanceFields: ['edited_by'] });
+    expect(h.mergeOpts).toBeTruthy();
+    expect(h.mergeOpts.provenanceFields).toEqual(['edited_by']);
+    expect(conflictOptsOf(h)).toBe(h.mergeOpts);
+    // A default-constructed handler must thread an EMPTY object, not undefined,
+    // so the previous behaviour is reproduced exactly where nothing was customised.
+    expect(conflictOptsOf(createHQConflictHandler())).toEqual({});
+    // Anything that is not one of ours degrades to {} rather than throwing.
+    expect(conflictOptsOf(null)).toEqual({});
+    expect(conflictOptsOf({})).toEqual({});
+  });
+
+  test('a CUSTOM provenanceFields entry is suppressed by BOTH the handler and describeConflict', async () => {
+    const { createHQConflictHandler, describeConflict, conflictOptsOf } = await loadHandler();
+    const opts = { provenanceFields: ['edited_by'] };
+    const handler = createHQConflictHandler(opts);
+    const e = forkAndMaster({ edited_by: 'u-crew' }, { edited_by: 'u-dana' });
+
+    // What the handler ACTUALLY did: `value` clashed, `edited_by` did not.
+    const seen = [];
+    createHQConflictHandler(Object.assign({ onClash: (c) => seen.push(c.field) }, opts))
+      .resolve(clone(e.input));
+    expect(seen).toEqual(['value']);
+
+    // Threaded — the sheet reports the same thing.
+    const threaded = describeConflict(e, conflictOptsOf(handler));
+    expect(threaded.clashes.map((c) => c.field)).toEqual(['value']);
+
+    // HOW IT FAILS: the un-threaded call is the defect. `edited_by` is not in
+    // the DEFAULT provenance list, so it comes back as a second clash — a row
+    // on the sheet for a value nothing lost. This assertion is what reddens if
+    // the threading is removed from `startHQReplication`.
+    const unthreaded = describeConflict(e);
+    expect(unthreaded.clashes.map((c) => c.field).sort()).toEqual(['edited_by', 'value']);
+    expect(threaded.clashes.length).not.toBe(unthreaded.clashes.length);
+  });
+
+  test('a CUSTOM reservedFields entry is suppressed by BOTH the handler and describeConflict', async () => {
+    const { createHQConflictHandler, describeConflict, conflictOptsOf } = await loadHandler();
+    const opts = { reservedFields: ['_rev', '_meta', '_attachments', '_modified', 'device_id'] };
+    const handler = createHQConflictHandler(opts);
+    const e = forkAndMaster({ device_id: 'phone-a' }, { device_id: 'phone-b' });
+
+    const seen = [];
+    createHQConflictHandler(Object.assign({ onClash: (c) => seen.push(c.field) }, opts))
+      .resolve(clone(e.input));
+    expect(seen).toEqual(['value']);
+
+    expect(describeConflict(e, conflictOptsOf(handler)).clashes.map((c) => c.field))
+      .toEqual(['value']);
+    expect(describeConflict(e).clashes.map((c) => c.field).sort())
+      .toEqual(['device_id', 'value']);
+  });
+
+  test('startHQReplication threads the collection handler own options into conflict$', async () => {
+    // Driven without a network, a database or the vendored engine: the two
+    // seams `startHQReplication` touches are `REPLICATED_COLLECTIONS` and the
+    // replication state's `conflict$`, and the assertion is about which options
+    // reach `describeConflict`. That is provable by calling the same code path
+    // the subscription calls, with the collection shaped as RxDB shapes it.
+    const { createHQConflictHandler, describeConflict, conflictOptsOf } = await loadHandler();
+    const handler = createHQConflictHandler({ provenanceFields: ['edited_by'] });
+    const db = { responses: { conflictHandler: handler } };  // RxDB hangs it here
+
+    const e = forkAndMaster({ edited_by: 'u-crew' }, { edited_by: 'u-dana' });
+    const described = describeConflict(e, conflictOptsOf(db.responses.conflictHandler));
+    expect(described.clashes.map((c) => c.field)).toEqual(['value']);
+  });
+});

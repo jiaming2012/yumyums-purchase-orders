@@ -70,9 +70,13 @@ import {
 } from '../vendor/rxdb.bundle.js';
 
 import { REPLICATED_COLLECTIONS, LOCAL_COLLECTIONS } from '../sync-schema/collections.js';
-import { createHQConflictHandler, describeConflict } from './conflict-handler.js';
+import {
+  createHQConflictHandler,
+  describeConflict,
+  conflictOptsOf,
+} from './conflict-handler.js';
 
-export { describeConflict };
+export { describeConflict, conflictOptsOf };
 
 // ---------------------------------------------------------------------------
 // The door's addresses. Written once, here.
@@ -394,7 +398,18 @@ export function startHQReplication(db, client, opts = {}) {
       // the shipped bundle: the emission sits inside
       // `Object.entries(conflictsById).map(...)`). `describeConflict` turns one
       // emission into the recoverable-loss rows C2 renders.
-      state.conflict$.subscribe((e) => opts.onConflict(describeConflict(e), key));
+      //
+      // 🛑 G6 CORRECTION (C2). `describeConflict` re-runs `resolveConflict` to
+      // derive that row set, and it used to run with its own defaults — so a
+      // caller who customised `reservedFields`/`provenanceFields` at
+      // `createHQConflictHandler` got a clash list here that DISAGREED with what
+      // the handler had actually done. The handler's own options are threaded
+      // through, read off the collection the handler was attached to, so the
+      // sheet reports the decision that was made rather than the one the
+      // defaults would have made.
+      const conflictOpts = opts.conflictOpts
+        || conflictOptsOf(db[key] && db[key].conflictHandler);
+      state.conflict$.subscribe((e) => opts.onConflict(describeConflict(e, conflictOpts), key));
     }
     states[key] = state;
   }
