@@ -1,0 +1,1 @@
+2026-07-31 10:23:13 EDT  C1 sync-rxdb-replication-and-conflict-handler: merge-intent committed, red-first spec landed (35 tests, 29 failing), handler GREEN, client helper + bootstrap landed, obligation 5 change set (glob + Dockerfile + guard) landed, version 1.3.0 + roadmap flip; G1 exit 0/0, G2 Go exit 0 (9 pkgs ok, hq_test_go_c1 48 tables / goose 71)

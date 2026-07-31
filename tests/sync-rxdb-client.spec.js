@@ -283,12 +283,23 @@ test.describe('expandGrantSlugs — obligation 4', () => {
 // BROWSER — the wiring a pure-function suite cannot prove.
 // ===========================================================================
 test.describe('workflows.html actually imports and constructs the client', () => {
+  // workflows.html redirects to login.html on a 401, so the module would never
+  // get a chance to run against an anonymous page.
+  async function login(page) {
+    await page.goto('/login.html');
+    await page.fill('input[type="email"]', 'jamal@yumyums.kitchen');
+    await page.fill('input[type="password"]', 'test123');
+    await page.click('button.btn');
+    await page.waitForURL((url) => !url.pathname.includes('login'));
+  }
+
   test('window.HQSync is constructed, pinned and umbrella-expanded', async ({ page }) => {
     const errors = [];
     page.on('pageerror', (e) => errors.push(String(e)));
     await page.addInitScript(() => {
       localStorage.setItem('hq_apps', JSON.stringify([{ slug: 'inventory' }, { slug: 'operations' }]));
     });
+    await login(page);
     await page.goto('/workflows.html');
     await page.waitForFunction(() => window.HQSync !== undefined, null, { timeout: 15000 });
 
@@ -319,6 +330,7 @@ test.describe('workflows.html actually imports and constructs the client', () =>
     // THE WIRING PROOF. The pure suite pins the merge rule; this pins that the
     // rule is what a real RxDB collection would consult. Dexie needs IndexedDB,
     // so this half can only run in a browser.
+    await login(page);
     await page.goto('/workflows.html');
     await page.waitForFunction(() => window.HQSync !== undefined, null, { timeout: 15000 });
 
