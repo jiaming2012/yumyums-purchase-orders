@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/yumyums/hq/internal/users"
 )
 
 // ── GET /api/v1/inventory/trends — design §2.2 AS AMENDED 2026-07-20 ─────────
@@ -86,7 +87,28 @@ const TrendsWeeks = 12
 // trendsWindow computes the fixed window server-side: the 12 ISO weeks ending
 // today. `from` is the Monday of the week TrendsWeeks-1 weeks before the
 // current week, `to` is today.
+//
+// "Today" and "which weekday is it" are evaluated in the APP timezone
+// (users.DefaultTimezone — America/New_York, ledger T-26 decision 83 /
+// T-28 decision 93), NOT in the caller's location. The one caller passes a
+// bare time.Now(), which is UTC in the production container, so without this
+// conversion the Trends tab's 12-week COGS window sat on a different zone from
+// recipes.costWindow's identical window and from pendingPeriodDateExpr — two
+// COGS boundaries disagreeing, which is the bug card A1 exists to end.
+//
+// The tzdata-failure path deliberately falls back to the passed-in location
+// rather than erroring: a Trends tab that serves a window an hour off beats a
+// Trends tab that 500s. This mirrors recipes.costWindow exactly.
+//
+// 🛑 CHANGEOVER: 2026-08-01. This window was server-local (effectively UTC)
+// until run overnight-20260801, so between 20:00 New York and midnight UTC it
+// named tomorrow as "today" — and on Sunday evenings it named the NEXT 12-week
+// window. Fix-forward: past Trends figures are NOT restated. See migration
+// 0072_app_timezone_new_york.sql.
 func trendsWindow(now time.Time) TrendsWindow {
+	if loc, err := time.LoadLocation(users.DefaultTimezone); err == nil {
+		now = now.In(loc)
+	}
 	off := (int(now.Weekday()) + 6) % 7 // days since Monday
 	monday := now.AddDate(0, 0, -off)
 	from := monday.AddDate(0, 0, -7*(TrendsWeeks-1))
