@@ -116,6 +116,28 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .cf{padding:12px 0;border-bottom:0.5px solid var(--brd)}
 .cf:last-of-type{border-bottom:none;padding-bottom:2px}
 .cf-q{font-size:13px;font-weight:600;line-height:1.3;overflow-wrap:anywhere}
+/* ── 🛑 AMENDMENT A-3 — REDRAWN BY `sync-rxdb-conflict-notice-ui` ────────────
+   Ledger T-28 decision 95, filed at the sitting that SIGNED revision 2.
+   Operator, verbatim: "show the deleted question crossed out and read only so
+   that the user isnt confused."
+
+   r2 drew the raw field id in muted monospace on the grounds that "the template
+   no longer holds a label for it" — TRUE OF THE TEMPLATE AND FALSE OF THE
+   SUBMISSION. `template_snapshot` is json.Marshal of the whole template
+   (repository.go:695) and `Field.Label` is on it (model.go:44-57), so the
+   discarded document carries its own FROZEN label for a field the live template
+   has dropped. The two alternatives r2 rejected — an invented label, or hiding
+   the row — were correctly rejected; the third option was there all along.
+
+   Same type as any other question title. NOT monospace, NOT a raw id. The
+   STRIKE is what says read-only, rather than the absence of a button. */
+.cf-q-struck{text-decoration:line-through;text-decoration-thickness:1px;color:var(--mut)}
+/* A-3's fallback, and ONLY the fallback: a snapshot that genuinely carries no
+   label for that id. Because `checklists.template_snapshot` is declared
+   `{type:'object'}` with no nested `properties` and NOTHING REJECTS A MALFORMED
+   VALUE (B1's recorded-not-fixed item R-C, which A-3 promotes to a dependency),
+   every malformed snapshot lands in this same branch. Drawn exactly as r2 drew
+   it — that part of the plate was right and is kept. */
 .cf-q-gone{display:block;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;font-weight:600;color:var(--mut);overflow-wrap:anywhere}
 .cf-vals{margin-top:8px;min-width:0}
 /* LONG CONTENT (verifier D4). A free-text checklist note is the field most likely to
@@ -992,27 +1014,34 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 <div class="plate" id="plate-edge-removed">
   <div class="cap">
     <span class="cap-id">edge · conflict on a field since removed from the template</span>
-    <p class="cap-t"><b>Trigger:</b> the discarded document carries a value for a field id the
+    <p class="cap-t"><b>▲ REDRAWN under AMENDMENT A-3 (ledger T-28 decision 95) by the card
+    <code>sync-rxdb-conflict-notice-ui</code>. This is a DEVIATION from the plate the operator
+    signed and is noted as such in that card's SUMMARY.md, per CLAUDE.md's mockup rule.</b>
+    <b>Trigger:</b> the discarded document carries a value for a field id the
     current template no longer contains — the owner edited the template while the phone was
-    offline. <b>Contract:</b> no invented label; the raw field id renders in monospace, muted, so
-    it is visibly not a question title; a line states the question was removed; the value is still
-    shown, because it is the thing being recovered; <b>Restore mine is absent</b> — there is
-    nowhere to write it — and the only recovery is <b>Copy value</b>, which puts it on the
-    clipboard so it can go in a note or a message. <b>▲ The chip on this plate reads
-    <em>1 answer</em>, which is Reading A of open decision (i) — and that decision is NOT
-    settled.</b> Under Reading B the same plate's chip reads <em>0 answers +1</em>. Both readings
-    are drawn below over identical data; this plate keeps the counting the operator last saw so
-    the comparison is against something familiar, not because it was chosen.</p>
+    offline. <b>Contract:</b> <b>the question keeps its own label, struck through and read-only</b>,
+    in the same type as any other question title — read from the submission's frozen
+    <code>template_snapshot</code>, which holds a label the live template has dropped. The strike is
+    what says read-only, rather than the absence of a button. A line states the question was
+    removed; the value is still shown, because it is the thing being recovered;
+    <b>Restore mine is absent</b> — there is nowhere to write it — and the only recovery is
+    <b>Copy value</b>. <b>The second row is A-3's FALLBACK</b>, drawn on the same plate so both
+    renderings can be checked at once: a snapshot that carries no label for that id falls back to
+    the raw field id in muted monospace, exactly as revision 2 drew it. Because nothing validates
+    <code>template_snapshot</code> (B1's item R-C), <em>every malformed snapshot lands in this same
+    branch</em>. <b>Counting follows Reading A</b> — decision 95 settled open decision (i): the
+    headline counts what was taken from the crew member, so the chip reads <em>2 answers</em> over
+    two rows and no <code>+N</code>.</p>
   </div>
   <div class="screen">
     <div class="sc-hd"><span class="sc-title">Overwritten answers</span><span class="sc-close">Done</span></div>
     <div class="cg">
       <div class="cg-hd">
         <span><span class="cg-name">Opening — Truck A</span><span class="cg-meta">Mon Jul 27 · <span class="cg-doc">sub_9f31c4</span></span></span>
-        <span class="cg-count">1 answer</span>
+        <span class="cg-count">2 answers</span>
       </div>
       <div class="cf unrec">
-        <div class="cf-q-gone">fld_prep_sink_temp</div>
+        <div class="cf-q cf-q-struck">Prep sink temperature</div>
         <div class="cf-vals">
           <div class="cf-v mine"><span class="cf-v-lab">Yours</span><span class="cf-v-val">72 °F</span></div>
         </div>
@@ -1023,12 +1052,35 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
           <span class="cf-btn cf-btn-sec cf-btn-wide">Dismiss</span>
         </div>
       </div>
+      <div class="cf unrec">
+        <div class="cf-q-gone">fld_hood_filter_check</div>
+        <div class="cf-vals">
+          <div class="cf-v mine"><span class="cf-v-lab">Yours</span><span class="cf-v-val">Yes</span></div>
+        </div>
+        <div class="cf-why">This question was removed from the checklist while you were offline, and
+        we couldn't find what it was called. Copy your answer if you still need it.</div>
+        <div class="cf-acts">
+          <span class="cf-btn cf-btn-pri cf-btn-wide">Copy value</span>
+          <span class="cf-btn cf-btn-sec cf-btn-wide">Dismiss</span>
+        </div>
+      </div>
     </div>
   </div>
-  <p class="note">The monospace field id is deliberate. The template no longer holds a label for it,
-  and the alternatives are both worse: a made-up title would misattribute the answer, and hiding
-  the row entirely would silently drop the exact value this card exists to recover. Copy is a
-  <em>real</em> recovery on a phone — it goes into a message to the manager in two taps.</p>
+  <p class="note"><b>What A-3 changed, and what it did not.</b> r2's rationale for the raw id was
+  <em>"the template no longer holds a label for it"</em> — true of the template and <b>false of the
+  submission</b>. <code>template_snapshot</code> is <code>json.Marshal(tmpl)</code> of the whole
+  template (<code>repository.go:695</code>) and <code>Field.Label</code> is on the marshalled struct
+  (<code>model.go:44-57</code>), so the discarded document carries its own frozen label. The two
+  alternatives r2 weighed — a made-up title, or hiding the row — were both correctly rejected; the
+  third option was there all along. <b>Everything else on this plate stands as drawn:</b> no
+  Restore, the value shown in full, and Copy as a <em>real</em> recovery on a phone — it goes into a
+  message to the manager in two taps.</p>
+  <p class="note"><b>The second row is not decoration.</b> A-3 says to fall back to the raw field id
+  <em>only</em> when the snapshot genuinely carries no label — and B1's recorded-not-fixed item
+  <b>R-C</b> means <code>template_snapshot</code> is declared <code>{type:'object'}</code> with no
+  nested <code>properties</code> and nothing rejects a malformed value. So the fallback is not a rare
+  corner: it is where every unreadable snapshot lands. Drawing it beside the A-3 rendering is what
+  makes "does the implementation degrade correctly?" answerable from a screenshot.</p>
 </div>
 
 <!-- ══════════════════════ EDGE — LOCAL CONFLICT LOG UNREADABLE ══ -->
@@ -1066,23 +1118,31 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 
 <!-- ═════════════════════ OPEN DECISION (i) — READING A vs READING B ══ -->
 <div class="open-q">
-  <h3>▲ Open decision (i) — not settled by this mockup</h3>
-  <p><b>Does a removed-field row count as an “answer”, or as a “+N”?</b> Reopened at morning triage
-  2026-07-28 and deliberately left for the operator. The design currently counts its <b>two
-  no-Restore cases differently from each other</b>: a <em>no discarded value</em> row goes to
-  <code>+N</code>, while a <em>removed field</em> row is counted as “1 answer” — even though neither
-  offers Restore.</p>
-  <p><b>Both readings are drawn below over identical data</b> — the same two rows, the same values,
-  the same group. Only the counting changes. Each has a consequence the other does not, stated under
-  its plate. <b>Nothing in this file picks one</b>; a plate that quietly settled it would be this
-  card answering a question that is not its to answer.</p>
+  <h3>▲ Open decision (i) — CLOSED at morning triage 2026-07-29 (decision 95)</h3>
+  <p><b>▲ THIS PAIR IS KEPT AS THE RECORD OF A DECISION THAT HAS SINCE BEEN MADE, NOT AS A LIVE
+  QUESTION.</b> The operator chose <b>neither</b> reading as drawn. <b>Amendment A-3</b> changed what
+  the row <em>renders</em> — a removed question keeps its label, struck through and read-only — which
+  was not on offer in either plate, and <b>counting then follows Reading A</b>: the headline counts
+  what was taken from the crew member, and the <code>+N</code> line keeps meaning only <em>"we
+  couldn't identify"</em>. Pooling a perfectly-identified removed question with a genuine unknown was
+  the worse outcome. Both plates below have been <b>redrawn with the struck-through label</b> by the
+  card <code>sync-rxdb-conflict-notice-ui</code>; only their COUNTING still differs, which is what
+  they now document.</p>
+  <p><em>The original framing, for the record:</em> the design counted its <b>two no-Restore cases
+  differently from each other</b> — a <em>no discarded value</em> row went to <code>+N</code>, while
+  a <em>removed field</em> row counted as an answer, even though neither offers Restore. A-3 resolves
+  the inconsistency by making the difference <b>legible on screen rather than arithmetic</b>: a
+  struck-through, read-only row is visibly not something you can put back, so the headline may count
+  it without misleading anyone.</p>
 </div>
 
 <div class="plate" id="plate-openq-count-a">
   <div class="cap">
     <span class="cap-id">open decision (i) · READING A — a removed field is an answer</span>
-    <p class="cap-t"><b>▲ NOT SETTLED. The operator picks between Reading A (this plate) and
-    Reading B (the next one) — this card draws both over identical data and chooses neither.</b>
+    <p class="cap-t"><b>▲ CHOSEN — decision 95 (morning triage 2026-07-29). Counting follows
+    Reading A. Kept as the record of the decision, and REDRAWN with A-3's struck-through label by
+    <code>sync-rxdb-conflict-notice-ui</code> — a deviation from the signed plate, noted in that
+    card's SUMMARY.md.</b>
     <b>The reading:</b> a removed-field row has a real value on screen and a real
     recovery (<em>Copy value</em>), so it is an answer that was overwritten and it belongs in the
     headline. <b>Chip 2 answers = 2 rows, no <code>+N</code> anywhere.</b>
@@ -1126,7 +1186,7 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
         </div>
       </div>
       <div class="cf unrec">
-        <div class="cf-q-gone">fld_prep_sink_temp</div>
+        <div class="cf-q cf-q-struck">Prep sink temperature</div>
         <div class="cf-vals">
           <div class="cf-v mine"><span class="cf-v-lab">Yours</span><span class="cf-v-val">72 °F</span></div>
         </div>
@@ -1144,8 +1204,10 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 <div class="plate" id="plate-openq-count-b">
   <div class="cap">
     <span class="cap-id">open decision (i) · READING B — a removed field is a “+N”</span>
-    <p class="cap-t"><b>▲ NOT SETTLED. Reading B is the alternative to the plate above, over the
-    same data — this card draws both and chooses neither.</b>
+    <p class="cap-t"><b>▲ NOT CHOSEN — decision 95 settled open decision (i) as Reading A. Kept
+    as the record of the alternative that was weighed, and REDRAWN with A-3's struck-through label by
+    <code>sync-rxdb-conflict-notice-ui</code> — a deviation from the signed plate, noted in that
+    card's SUMMARY.md. The counting on this plate is NOT what ships.</b>
     <b>The reading:</b> the headline counts what can be <em>put back</em>, so a row
     with no Restore leaves it and joins the separately-counted line, exactly as the
     <em>no discarded value</em> row already does. <b>Chip 1 answer +1 = 2 rows.</b> The two
@@ -1192,7 +1254,7 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
         </div>
       </div>
       <div class="cf unrec">
-        <div class="cf-q-gone">fld_prep_sink_temp</div>
+        <div class="cf-q cf-q-struck">Prep sink temperature</div>
         <div class="cf-vals">
           <div class="cf-v mine"><span class="cf-v-lab">Yours</span><span class="cf-v-val">72 °F</span></div>
         </div>
@@ -1205,7 +1267,12 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
       </div>
     </div>
   </div>
-  <p class="note"><b>How to decide it in one question:</b> is the banner's headline a count of
+  <p class="note"><b>▲ DECIDED — decision 95, and the deciding argument was neither of the two
+  below.</b> A-3 made the removed row <em>visibly</em> read-only, which turns Reading A's
+  <em>"2 answers"</em> above a <em>"Restore all 1 of mine"</em> from an arithmetic mismatch into
+  something a crew member can see the reason for. That consequence is accepted, not reconciled.
+  <em>The original framing follows.</em>
+  <b>How to decide it in one question:</b> is the banner's headline a count of
   <em>what was taken from you</em> (Reading A) or a count of <em>what you can do something
   about</em> (Reading B)? A-1 makes that question sharper rather than settling it, because the
   second line now carries “what you can do something about” on its own — which is an argument for

@@ -354,6 +354,23 @@ export function createHQConflictHandler(options = {}) {
   const { isEqual, onClash, ...mergeOpts } = options;
 
   return {
+    // ─── G6 CORRECTION (C2, overnight-20260801) ───────────────────────────
+    // 🛑 THE CONFIGURED OPTIONS ARE PART OF THE HANDLER'S PUBLIC SHAPE.
+    //
+    // `describeConflict` re-runs `resolveConflict` to derive the clash list C2
+    // renders. As first written it ran with ITS OWN `opts`, defaulted to `{}` —
+    // so a caller who customised `reservedFields` or `provenanceFields` here got
+    // a `conflict$` clash list that DISAGREED with what this handler actually
+    // did. Concretely: a custom `provenanceFields` suppresses a clash in
+    // `resolve()` and, without threading, that same field came back as a row on
+    // the overwritten-answers sheet — a row for a value nothing lost.
+    //
+    // Exposing them is what lets the subscription thread the SAME options
+    // through (`client.js` `startHQReplication`), so the sheet reports what the
+    // handler decided rather than what the defaults would have decided. Pinned
+    // by `tests/sync-rxdb-conflict.spec.js` with a customised field.
+    mergeOpts,
+
     // Delegated verbatim when supplied. The fallback is only for the headless
     // tests and for a caller that has no engine to borrow from.
     isEqual: isEqual || ((a, b) => valuesEqual(a, b)),
@@ -395,6 +412,22 @@ export function createHQConflictHandler(options = {}) {
 function documentId(doc, primaryPath) {
   if (!doc) return undefined;
   return doc[primaryPath || 'id'];
+}
+
+/**
+ * The merge options a handler was CONSTRUCTED with, for a caller that has the
+ * handler but not the options object (which is every caller: the handler is
+ * handed to `addCollections` and read back off the collection).
+ *
+ * Threading these into `describeConflict` is the whole of the G6 correction —
+ * without it the sheet and the handler can disagree. Returns `{}` for anything
+ * that is not one of ours, which reproduces the previous behaviour exactly for
+ * a default-constructed handler.
+ */
+export function conflictOptsOf(handler) {
+  return handler && handler.mergeOpts && typeof handler.mergeOpts === 'object'
+    ? handler.mergeOpts
+    : {};
 }
 
 /**

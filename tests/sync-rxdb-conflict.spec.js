@@ -687,3 +687,230 @@ test.describe('describeConflict — the conflict$ contract C2 builds against', (
     expect(describeConflict(e).clashes).toEqual([]);
   });
 });
+
+// ===========================================================================
+// 🛑 G6 CORRECTION (C2, overnight-20260801) — THE HANDLER AND `describeConflict`
+// MUST AGREE.
+// ===========================================================================
+// `describeConflict` re-runs `resolveConflict` to derive the row set C2 renders
+// (`conflict-handler.js:411`, call at `:414`). It used to run with ITS OWN
+// `opts`, defaulted to `{}` — so a caller who customised `reservedFields` or
+// `provenanceFields` at `createHQConflictHandler` got a `conflict$` clash list
+// that DISAGREED with what the handler had actually done.
+//
+// The symptom is not abstract: a custom `provenanceFields` entry is suppressed
+// as a clash by `resolve()` — that is the whole point of the list — and, without
+// threading, came back as a ROW ON THE OVERWRITTEN-ANSWERS SHEET. A row for a
+// value nothing lost, on the one screen whose entire thesis is that its numbers
+// are true.
+//
+// Pinned with a CUSTOMISED FIELD, per the correction's own wording, on both
+// halves of the option surface.
+test.describe('describeConflict agrees with the handler it was configured beside (G6)', () => {
+  const forkAndMaster = (extraFork, extraMaster) => ({
+    input: {
+      assumedMasterState: clone(R_ASSUMED),
+      newDocumentState: withFields(R_ASSUMED, Object.assign({ value: { _v: 39 } }, extraFork)),
+      realMasterState: withFields(R_ASSUMED, Object.assign({ value: { _v: 45 }, _rev: '2-mmm' }, extraMaster)),
+    },
+    output: withFields(R_ASSUMED, { value: { _v: 45 }, _rev: '3-nnn' }),
+  });
+
+  test('a handler exposes the merge options it was constructed with', async () => {
+    const { createHQConflictHandler, conflictOptsOf } = await loadHandler();
+    const h = createHQConflictHandler({ provenanceFields: ['edited_by'] });
+    expect(h.mergeOpts).toBeTruthy();
+    expect(h.mergeOpts.provenanceFields).toEqual(['edited_by']);
+    expect(conflictOptsOf(h)).toBe(h.mergeOpts);
+    // A default-constructed handler must thread an EMPTY object, not undefined,
+    // so the previous behaviour is reproduced exactly where nothing was customised.
+    expect(conflictOptsOf(createHQConflictHandler())).toEqual({});
+    // Anything that is not one of ours degrades to {} rather than throwing.
+    expect(conflictOptsOf(null)).toEqual({});
+    expect(conflictOptsOf({})).toEqual({});
+  });
+
+  test('a CUSTOM provenanceFields entry is suppressed by BOTH the handler and describeConflict', async () => {
+    const { createHQConflictHandler, describeConflict, conflictOptsOf } = await loadHandler();
+    const opts = { provenanceFields: ['edited_by'] };
+    const handler = createHQConflictHandler(opts);
+    const e = forkAndMaster({ edited_by: 'u-crew' }, { edited_by: 'u-dana' });
+
+    // What the handler ACTUALLY did: `value` clashed, `edited_by` did not.
+    const seen = [];
+    createHQConflictHandler(Object.assign({ onClash: (c) => seen.push(c.field) }, opts))
+      .resolve(clone(e.input));
+    expect(seen).toEqual(['value']);
+
+    // Threaded — the sheet reports the same thing.
+    const threaded = describeConflict(e, conflictOptsOf(handler));
+    expect(threaded.clashes.map((c) => c.field)).toEqual(['value']);
+
+    // HOW IT FAILS: the un-threaded call is the defect. `edited_by` is not in
+    // the DEFAULT provenance list, so it comes back as a second clash — a row
+    // on the sheet for a value nothing lost.
+    //
+    // 🛑 G6 FINDING F-3 — this comment used to claim "this assertion is what
+    // reddens if the threading is removed from `startHQReplication`", and that
+    // was FALSE. Nothing here imports or calls `startHQReplication`; this pins
+    // `describeConflict`'s own contract and nothing more, and deleting
+    // `client.js`'s `conflictOptsOf(...)` argument reddened nothing in the
+    // suite. The test that genuinely drives `startHQReplication` — and which
+    // does red on that deletion — is at the bottom of this describe block.
+    const unthreaded = describeConflict(e);
+    expect(unthreaded.clashes.map((c) => c.field).sort()).toEqual(['edited_by', 'value']);
+    expect(threaded.clashes.length).not.toBe(unthreaded.clashes.length);
+  });
+
+  test('a CUSTOM reservedFields entry is suppressed by BOTH the handler and describeConflict', async () => {
+    const { createHQConflictHandler, describeConflict, conflictOptsOf } = await loadHandler();
+    const opts = { reservedFields: ['_rev', '_meta', '_attachments', '_modified', 'device_id'] };
+    const handler = createHQConflictHandler(opts);
+    const e = forkAndMaster({ device_id: 'phone-a' }, { device_id: 'phone-b' });
+
+    const seen = [];
+    createHQConflictHandler(Object.assign({ onClash: (c) => seen.push(c.field) }, opts))
+      .resolve(clone(e.input));
+    expect(seen).toEqual(['value']);
+
+    expect(describeConflict(e, conflictOptsOf(handler)).clashes.map((c) => c.field))
+      .toEqual(['value']);
+    expect(describeConflict(e).clashes.map((c) => c.field).sort())
+      .toEqual(['device_id', 'value']);
+  });
+
+  test('the call SHAPE startHQReplication uses is the one that threads (simulated, not driven)', async () => {
+    // 🛑 NAMED FOR WHAT IT IS (F-3). This reproduces the shape of the call by
+    // hand — `conflictOptsOf(db[key].conflictHandler)` — with the collection
+    // shaped as RxDB shapes it. It does NOT import `client.js` and it does NOT
+    // red if the threading is deleted from it. The test below does.
+    const { createHQConflictHandler, describeConflict, conflictOptsOf } = await loadHandler();
+    const handler = createHQConflictHandler({ provenanceFields: ['edited_by'] });
+    const db = { responses: { conflictHandler: handler } };  // RxDB hangs it here
+
+    const e = forkAndMaster({ edited_by: 'u-crew' }, { edited_by: 'u-dana' });
+    const described = describeConflict(e, conflictOptsOf(db.responses.conflictHandler));
+    expect(described.clashes.map((c) => c.field)).toEqual(['value']);
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // 🛑 G6 FINDING F-3 — the threading, ACTUALLY DRIVEN.
+  //
+  // `startHQReplication`'s own comment says it "lives here so the shape is
+  // reviewable now and so C2 can drive it in a test". C2 did not drive it: no
+  // test in the repo imported or called it, so `client.js:411`'s
+  // `conflictOptsOf(db[key] && db[key].conflictHandler)` was unpinned and its
+  // deletion reddened nothing.
+  //
+  // Driving it needs the one seam it cannot be given by hand: `client.js`
+  // statically imports `replicateSupabase` from the committed vendor bundle,
+  // and calling the real one needs a real RxDB collection, a storage adapter and
+  // IndexedDB. So the bundle SPECIFIER is swapped for a stub in a CHILD process
+  // via a Node ESM resolve hook — `client.js` itself is loaded verbatim, from
+  // disk, unmodified. A child process rather than `module.register()` in-band,
+  // because a loader hook registered in the shared Playwright worker would also
+  // intercept `tests/sync-rxdb-client.spec.js`'s legitimate imports of the real
+  // bundle, and a stub leaking into the pin test is worse than no test at all.
+  // ─────────────────────────────────────────────────────────────────────────
+  test('startHQReplication REALLY threads the handler options into conflict$ (driven)', async () => {
+    const { execFileSync } = require('child_process');
+    const fs = require('fs');
+    const os = require('os');
+
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'hq-f3-'));
+    const url = (p) => pathToFileURL(p).href;
+
+    // The stub bundle. Exports exactly the six names `client.js` imports.
+    // `replicateSupabase` returns a replication state whose `conflict$` emits
+    // one event on subscribe — which is the seam under test.
+    fs.writeFileSync(path.join(dir, 'stub-bundle.mjs'), `
+      export function createClient() { return {}; }
+      export async function createRxDatabase() { throw new Error('unused by startHQReplication'); }
+      export function getRxStorageDexie() { return {}; }
+      export const defaultConflictHandler = { isEqual: (a, b) => JSON.stringify(a) === JSON.stringify(b) };
+      export const VENDOR_BUILD = { rxdb: '17.4.0', supabaseJs: '2.109.0' };
+      export function replicateSupabase(opts) {
+        return {
+          __opts: opts,
+          conflict$: { subscribe(fn) { fn(globalThis.__HQ_CONFLICT_EVENT__); return { unsubscribe() {} }; } },
+        };
+      }
+    `);
+
+    // A resolve hook that swaps ONLY the exact vendor-bundle URL. Everything
+    // else — client.js, conflict-handler.js, collections.js — resolves normally.
+    fs.writeFileSync(path.join(dir, 'hook.mjs'), `
+      const VENDOR = process.env.HQ_VENDOR_URL;
+      const STUB = process.env.HQ_STUB_URL;
+      export async function resolve(specifier, context, next) {
+        const r = await next(specifier, context);
+        if (r.url === VENDOR) return { url: STUB, format: 'module', shortCircuit: true };
+        return r;
+      }
+    `);
+    fs.writeFileSync(path.join(dir, 'register.mjs'), `
+      import { register } from 'node:module';
+      register(${JSON.stringify(url(path.join(dir, 'hook.mjs')))});
+    `);
+
+    // The driver. Imports the REAL client.js and calls the REAL
+    // startHQReplication; the only thing faked is the engine underneath it.
+    fs.writeFileSync(path.join(dir, 'drive.mjs'), `
+      import { startHQReplication } from ${JSON.stringify(url(path.join(REPO_ROOT, 'sync-rxdb', 'client.js')))};
+      import { createHQConflictHandler } from ${JSON.stringify(url(HANDLER_PATH))};
+      import { REPLICATED_COLLECTIONS } from ${JSON.stringify(url(path.join(REPO_ROOT, 'sync-schema', 'collections.js')))};
+
+      globalThis.__HQ_CONFLICT_EVENT__ = JSON.parse(process.argv[2]);
+
+      // The customisation is on the handler RxDB hangs off the collection —
+      // exactly where a caller of createHQSyncDatabase puts it.
+      const handler = createHQConflictHandler({ provenanceFields: ['edited_by'] });
+      const db = {};
+      for (const key of Object.keys(REPLICATED_COLLECTIONS)) db[key] = { conflictHandler: handler };
+
+      const seen = [];
+      startHQReplication(db, {}, {
+        onConflict: (described, key) => seen.push({ key, fields: described.clashes.map((c) => c.field).sort() }),
+      });
+      process.stdout.write(JSON.stringify(seen));
+    `);
+
+    const e = forkAndMaster({ edited_by: 'u-crew' }, { edited_by: 'u-dana' });
+    const out = execFileSync(
+      process.execPath,
+      ['--import', url(path.join(dir, 'register.mjs')), path.join(dir, 'drive.mjs'), JSON.stringify(e)],
+      {
+        encoding: 'utf8',
+        env: Object.assign({}, process.env, {
+          HQ_VENDOR_URL: url(BUNDLE_PATH),
+          HQ_STUB_URL: url(path.join(dir, 'stub-bundle.mjs')),
+        }),
+      },
+    );
+    const seen = JSON.parse(out);
+
+    // Anti-vacuous (B-22/B-23/B-24): a driver that subscribed to nothing would
+    // print `[]` and every assertion below would pass over an empty set.
+    expect(seen.length).toBeGreaterThan(0);
+    // One subscription per replicated collection, and the population is PINNED
+    // rather than merely walked — dropping a collection from the loop must red
+    // here, not slide past.
+    expect(seen.map((s) => s.key).sort())
+      .toEqual(['approvals', 'checklists', 'responses', 'templates']);
+    // `conflict_records` is deliberately NOT here: decision 89 makes the record
+    // LOCAL and per-device, so it lives in LOCAL_COLLECTIONS and nothing
+    // replicates it. Asserting the exact set is what makes that visible.
+
+    // 🔴 THE ASSERTION THAT REDS IF THE THREADING GOES. Delete
+    // `conflictOptsOf(db[key] && db[key].conflictHandler)` from
+    // `startHQReplication` and `edited_by` reappears as a second clash on every
+    // collection — a row on the overwritten-answers sheet for a value nothing
+    // lost, on the one screen whose whole thesis is that its numbers are true.
+    for (const s of seen) {
+      expect(s.fields, `collection ${s.key}`).toEqual(['value']);
+      expect(s.fields, `collection ${s.key}`).not.toContain('edited_by');
+    }
+
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+});

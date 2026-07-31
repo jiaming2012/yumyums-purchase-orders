@@ -1287,7 +1287,32 @@
   criteria that can fail. **Do NOT touch production code.**
   Footprint: `.planning/phases/sync-rxdb-conflict-notice/` only.
 
-- **`sync-rxdb-conflict-notice-ui`** · **✅ PLANNED — SIGNED OFF, SLATE-READY** (revision 2 signed by
+- **`sync-rxdb-conflict-notice-ui`** · **DONE** (2026-08-01, run `overnight-20260801`, card branch
+  `card/c2-sync-rxdb-conflict-notice-ui`) · The user-visible half of decision 50 is built:
+  `sync-rxdb/conflict-notice.js` (model — counting, retention, cap, the A-3 label read) and
+  `sync-rxdb/conflict-notice-ui.js` (banner, sheet, A-2 confirm), mounted from `workflows.html`.
+  **A-1, A-2 and A-3 are all implemented as obligations, not as the struck rules.**
+  **🛑 DORMANT BY CONSTRUCTION, said plainly rather than discovered later:** the sheet reads the
+  durable local record, the record is written when `conflict$` fires, `conflict$` fires when
+  replication runs, and replication is not started (`HQ_SYNC_REST_URL` unset everywhere). So in
+  production today there are zero records and the banner never appears. **No write path was
+  swapped** — that is `sync-hard-cutover`, which switches the producer on and replaces the injected
+  `applyRestore`. Every state is therefore verified from a **seeded store**, through the same seam
+  the cutover card will hand a real RxDB collection to.
+  **A-3's redraw landed** — `edge-removed`, `openq-count-a`, `openq-count-b`, with `edge-removed`
+  now drawing BOTH the struck-through label and the raw-id fallback, because B1's item **R-C**
+  (nothing validates `template_snapshot`) means the fallback is where every malformed snapshot
+  lands. **Deviation from the signed plates, noted in SUMMARY.md.**
+  **Carried from C1's G6:** `describeConflict` now threads the handler's own merge opts, so the
+  sheet cannot report a clash list the handler never produced. Red-first, 4/4.
+  **One real bug caught by the guard, worth not repeating:** a CSS comment written
+  `/* --ok-*/ … */` closed itself at the `*/` inside `--ok-*` and swallowed the whole `:root`
+  variable block, leaving **every colour on `workflows.html`** unresolved. The storage plate's
+  contrast assertion is what reddened.
+  Contract at `.planning/phases/sync-rxdb-conflict-notice/PLAN.md` (30 `done_when:` rows, 14 State
+  Enumeration rows, each with a population floor); 46 PNGs at
+  `test-results/states-sync-rxdb-conflict-notice/`.
+  *(Original card text follows, for the record.)* · **✅ PLANNED — SIGNED OFF, SLATE-READY** (revision 2 signed by
   the operator at morning triage 2026-07-29; ledger T-28 decision 98) · **🛑 NO LONGER
   ATTENDED-BLOCKED.** All 16 plates were walked attended — read back as PNGs, light renders, not
   described from the spec — and amendments **A-1** and **A-2** hold at the worst case rather than the
@@ -1372,10 +1397,18 @@
   before writing while listing the server values it will overwrite with author and timestamp. **The
   two deferred decisions are still open and are now drawn as decidable** — both readings of the
   removed-field counting question, and the retention window as a visible placeholder.
-  **🛑 THIS CARD IS STILL ATTENDED-BLOCKED.** A revised mockup existing is not a sign-off, and the
+  ~~**🛑 THIS CARD IS STILL ATTENDED-BLOCKED.** A revised mockup existing is not a sign-off, and the
   fan-out card did not and could not discharge it. **What is owed: the operator walks the 16 plates,
   answers open decisions (i) and (ii), and gives (or refuses) an explicit *"ok, build this"* on
-  revision 2.** A *no* remains a successful outcome.
+  revision 2.** A *no* remains a successful outcome.~~
+  **🛑 STRUCK 2026-08-01 by the card that ran. This block was TRUE when written and FALSE from
+  morning triage 2026-07-29 onward** — the operator walked all 16 plates, gave the signature
+  (decision 98) and answered both open decisions (95, 96) plus the cap (97). It is struck rather
+  than deleted because it is the record of what was owed, but it was left standing in the
+  imperative below a header that already said SIGNED, which is exactly the shape of trap the r1
+  sign-off block further down documents: **an unattended reader going top-down could take it as
+  binding and park a signed card.** The card's live status is the DONE block at the head of this
+  bullet.
 
   **🖊️ THE r1 SIGN-OFF — 2026-07-28, operator, verbatim *"Ok, build this."* — SUPERSEDED IN PART
   at morning triage the same day (ledger T-26 decision 82); it is the record of what was decided at
