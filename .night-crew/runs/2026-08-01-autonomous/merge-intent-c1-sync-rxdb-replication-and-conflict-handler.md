@@ -163,3 +163,43 @@ Every file here is outside my own new directory, with one line of why.
   `package-lock.json` gain no dependency. The `@supabase/supabase-js` pin is
   `vendor/package.json`'s (already committed) plus a test that asserts it.
 - **Environment variables introduced:** nothing here.
+
+## Notes handed forward — surfaced at G6, deliberately NOT fixed here
+
+Both are real, both are outside this card's decided scope, and both are recorded
+here because the card that will trip over them is a named, already-planned card.
+Neither is a behaviour change tonight.
+
+### For C2 `sync-rxdb-conflict-notice-ui` — `describeConflict` ignores the handler's configured opts
+
+`describeConflict` (`sync-rxdb/conflict-handler.js:411`) re-runs `resolveConflict`
+with **its own** `opts` argument (`:414`), not with the `mergeOpts` the handler was
+constructed with. So a caller who customises `reservedFields` or
+`provenanceFields` at `createHQConflictHandler` and then calls `describeConflict`
+without passing the same options back gets a clash list from `conflict$` that
+**disagrees with what the handler actually did** — the sheet would show rows the
+merge did not treat as clashes, or omit rows it did.
+
+Harmless today because nothing customises them; the defaults are what both sides
+use. **C2 must pass the same opts** it (or the bootstrap) gave
+`createHQConflictHandler` through to `describeConflict`, or the two must be bound
+together at construction. Whichever C2 chooses, it should pin it with a test that
+customises one field and asserts the two agree — otherwise the disagreement is
+silent and shows up as a wrong conflict sheet, not as an error.
+
+### For `sync-hard-cutover` — `makeSyncFetch` drops method and body on a `Request` argument
+
+`makeSyncFetch` (`sync-rxdb/client.js:193-215`) accepts `fetch`'s first argument in
+either form. For a `Request` it recovers only the URL (`input.url`) and the headers,
+then calls `fetchImpl(u.toString(), Object.assign({}, init, {...}))` (`:207`). If the
+caller passed a `Request` with **no** second argument — the legal `fetch(request)`
+shape — `init` is `undefined`, so **the method degrades to GET and the body is
+dropped**, with no error anywhere.
+
+Not exercised today: postgrest-js calls `(url, init)`, and this card opens no write
+path at all. But it is a **silent-failure shape on exactly the write path
+`sync-hard-cutover` introduces** — a `PATCH`/`POST` that arrives as a bodyless `GET`
+looks like a successful read, not a failed write. That card should either carry
+`method`/`body`/`signal`/`credentials` across from the `Request`, or make the
+`Request` form a loud `TypeError` rather than a quiet downgrade, and pin whichever
+it picks.
