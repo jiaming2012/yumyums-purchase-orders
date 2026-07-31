@@ -93,9 +93,20 @@ is exactly the bug it exists to fix (two boundaries disagreeing).
    merge (Card B2 was assigned `0073`, not A1). Its content — both `ALTER
    COLUMN ... SET DEFAULT` **and** both `UPDATE` statements — must survive; the
    defaults alone leave already-written Chicago rows in place.
-4. **The changeover-date note** in the header of `0072_app_timezone_new_york.sql`
-   and in the doc comment on `purchasing.CurrentWeekStart`. Fix-forward only —
-   past COGS/payroll figures are NOT restated.
+4. **The changeover note** in the header of `0072_app_timezone_new_york.sql` and
+   in the doc comments on `purchasing.CurrentWeekStart`, `recipes.costWindow`,
+   `recipes.runDriftTick`, `inventory.pendingPeriodDateExpr` and
+   `inventory.trendsWindow`. Fix-forward only — past COGS/payroll figures are NOT
+   restated. 🛑 **AMENDED (F2, fix round): these notes no longer carry a DATE.**
+   ~~"CHANGEOVER: 2026-07-29 … until run `overnight-20260729-2`"~~ and
+   ~~"CHANGEOVER: 2026-08-01"~~ are **STRUCK from all six sites and from the
+   migration header** — `overnight-20260729-2` PARKED this card and merged
+   nothing, and nothing deploys on 2026-08-01 either, so both stamps named a day
+   on which no boundary moved. They now read **"the deploy that follows this
+   merge — date TBD"**, state that production is still on the OLD zone until
+   then, and name `goose_db_version.tstamp` for version 72 as the record that
+   will know the real date. A merge resolution that restores either literal date
+   restores the defect.
 5. **`inventory.pendingPeriodDateExpr`** (the SQL fragment const in
    `backend/internal/inventory/handler.go`) is used by BOTH `handler.go` and
    `trends.go`. Keep them sharing the const.
@@ -195,7 +206,11 @@ is exactly the bug it exists to fix (two boundaries disagreeing).
   server-local `time.Now()` when Mercury's `CreatedAt` is unparseable, and that
   value becomes `pending_purchases.event_date` — a COGS period assignment. The
   park note flagged it as *"outside this card's footprint; file it."* It is
-  **filed in `.night-crew/knowledge/bugs.md`, not fixed here.**
+  **filed as `B-28` in `.night-crew/knowledge/BACKLOG.md`, not fixed here.**
+  ~~It is filed in `.night-crew/knowledge/bugs.md`.~~ **STRUCK (F4, fix round):
+  that was never true — `bugs.md` is untouched by this card and the item went to
+  `BACKLOG.md`. A merger checking `bugs.md` would have found nothing and
+  concluded the disclosure was empty.**
 - **`appDateString()`'s UTC fallback is silent** (`sync.js`). It fires only if
   `Intl.DateTimeFormat` throws or omits parts — a small-ICU runtime or an
   embedded WebView without tzdata. It now `console.warn`s so the failure is
@@ -205,7 +220,16 @@ is exactly the bug it exists to fix (two boundaries disagreeing).
   literal held equal by a comment — the same mechanism that produced the bug this
   card fixes. A Playwright assertion in `tests/sync.spec.js` now states the value
   independently so a one-sided edit fails a test rather than silently splitting
-  the app in two. **Nothing mechanical can close this fully** without an
+  the app in two. 🛑 **AMENDED (F5, fix round): `[A1-TZ-PARITY]`'s `SITES` covers
+  FOUR frontend sites, not three.** The card itself introduced a fourth
+  hand-copied literal — `workflows.html:1773`, `appDay()`'s
+  `typeof APP_TIMEZONE === 'string' ? APP_TIMEZONE : 'America/New_York'` — and
+  left it OUTSIDE the guard it wrote for exactly this. It is in `SITES` now and
+  the subject-set floor moved with it; a merge resolution that drops the
+  `workflows.html` entry silently shrinks the guard back to 3 and the floor stops
+  matching. `inventory.html:2697`'s display-only fallback is deliberately NOT in
+  `SITES` (pre-existing, cosmetic) and the reason is in the test's comment.
+  **Nothing mechanical can close this fully** without an
   app-timezone field on `/api/v1/health`; that is a bigger change than this card.
 - **Reviewer note, so nobody re-litigates it:** `go test ./...` against ONE
   database is not a valid run of this repo's Go suite. Packages run in parallel
@@ -244,3 +268,73 @@ is exactly the bug it exists to fix (two boundaries disagreeing).
 - **`backend/internal/inventory/period_summary_test.go` gained eight comment
   edits** beyond the appended test — the stale Chicago prose the park note
   counted. Comment-only; **safe to drop in a conflict** (§3 applies).
+
+## 9. Fix round, after G6 adversarial review (same run, `overnight-20260801`)
+
+Six findings. Four fixed here; two are explicitly **not** this card's and are
+recorded so the orchestrator does not re-open them.
+
+**F1 (🔴) — the `:67` amendment's provenance was backwards, and the truth is a
+second undisclosed change.** The amendment justified itself with *"the `COALESCE`
+is not new"* / "carried since Phase 21". ~~Both claims stand.~~ **STRUCK.** Phase
+21 published `(created_at AT TIME ZONE 'America/Chicago')::date` with no
+`COALESCE` (archived `875e26c`, 2026-06-05) and that was **accurate to the code
+as it then stood**. The `COALESCE` entered on **2026-06-06** in `cf959bd`, quick
+task `260606-0gh`, which **changed which rows the gate returns** and did not
+touch the contract. To the counterparty, *"the COALESCE is not new"* reads as
+*"you were always getting this"* — the opposite of the truth. `:67` now states:
+**HQ changed what `pending_review_ids` returns on 2026-06-06 and never published
+it**, with the behavioural consequence (a late-discovered receipt did not block
+payroll under the published expression; it does under the shipped code, so
+sales-processor may have been receiving an undocumented `ready:false` since June
+2026). Filed as its own backlog item, **B-29**. 🛑 **The operator fork about
+telling sales-processor is NOT struck and NOT resolved — it is now TWO notices,
+not one:** the timezone change (A5) and this drift (B-29). The operator decides
+what is told and when.
+
+**F2 (🔴) — every changeover date named a day on which nothing happened.** See
+§2 item 4 above, amended. Six comment sites plus the migration header plus the
+roadmap bullet. **A5's tense was the one with counterparty consequences**: it
+stated "What HQ has done" in the perfect tense and stamped "CHANGED 2026-08-01",
+which a sales-processor maintainer could read as *HQ is already on New York* —
+and shipping their side on that reading **creates** the one-hour disagreement A5
+exists to prevent. A5 now reads **"HQ has BUILT this, HQ has NOT DEPLOYED it"**,
+says the zone is `America/Chicago` in production today, and instructs the
+counterparty to agree the HQ deploy date with the HQ operator before scheduling
+its own. Both contracts' `:27` / `:30` stamps and 999.2's A10 carry the same
+tense.
+
+**F4 — B-28's filing location.** §7 above, struck and corrected: `BACKLOG.md`,
+not `bugs.md`.
+
+**F5 — the 4th hand-copied zone literal.** §7 above, amended. Guard re-proven to
+bite in both directions after the change, including the empty-subject-set case
+(`workflows.html` literal → Chicago: exit 1; literal reworded so the regex misses
+it: exit 1 with *"the parity check's subject set has gone empty, which is a
+failure, not a pass"*).
+
+**NOT fixed, deliberately:**
+- **F3 — trailer vocabulary.** The 10 commits from the implementation round use
+  `Card:` / `Run:` where the rest of the repo uses `Night-Crew-Card:` /
+  `Night-Crew-Run:`. That is **run-level drift seeded by the run branch itself**
+  and is recorded at closeout. History is not rewritten. **The fix round's own
+  commits use `Night-Crew-Card:` / `Night-Crew-Run:`** — the repo's established
+  vocabulary — so the drift is not compounded. All parse under
+  `git interpret-trailers --parse`.
+- **F6 — `tests/sync.spec.js` outside the stated footprint.** Disclosed in §5, a
+  pure tail append, and per §15ad.65 the footprint is planning information, not a
+  fence. The orchestrator handles landing order. **§5's "APPENDED to only" is
+  still true after F5** — the `SITES` edit is inside the `describe` block this
+  card appended, and no pre-existing test in the file is touched.
+- **The merge commit `524482b`'s missing trailer.** §8 above stands; the reviewer
+  endorsed leaving it (amending rewrites 8 descendant commits of verified
+  history; T-26 decision 86 declined the identical trade).
+
+**Test-database isolation for the fix round** (again NOT a footprint change, but
+the orchestrator should know): the fix leg used **`hq_fix_a1_go`** and
+**`hq_fix_a1_e2e`** on **`TEST_PORT=8221`**, both created by this leg and safe to
+drop. `hq_test_go` / `hq_test_e2e` / `hq_test_go_a1` / `hq_test_e2e_a1` and every
+other agent's databases were **not touched** (B-16).
+
+🛑 **Still true and unchanged by the fix round: NOTHING SHIPS TO PROD from this
+card.** `HQ_SYNC_REST_URL` is set nowhere.
