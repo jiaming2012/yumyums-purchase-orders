@@ -40,7 +40,7 @@ tables are simply there — `hq_sync_field_templates` is a view, not a projectio
 | `backend/internal/db/migrations/0073_sync_fdw_views.sql` | HQ | Three read-through **views** + the `hq_sync_fdw` role |
 | `sync-schema/sql/0002_hq_fdw.sql` | substrate | extension, server, mapping, three foreign tables, **revoked from every PostgREST role** |
 | `sync-schema/sql/0003_rls_policies.sql` | substrate | `hq_can_see_template` / `hq_can_see_field` + SELECT policies |
-| `backend/internal/sync/rowvisibility_rls_test.go` | test | 25-variant attack suite |
+| `backend/internal/sync/rowvisibility_rls_test.go` | test | 27-subtest attack suite (19 numbered variants) |
 | `.night-crew/qa/spike-supabase/captures/{red,green}-20260801-row-visibility.txt` | evidence | red-first captures |
 
 **The port was NOT redone.** The transposition in the park note §4b was applied as
@@ -121,7 +121,7 @@ purpose three times** and observed catching each:
 |---|---|
 | `WHERE ta.assignment_role = 'assignee'` added to 0073's view — the exact "tightening" the comments warn against | 9 subtests, **`POSITIVE/alice` by name**, plus both population floors (the filter drops the view 4 rows → 3, under the floor) |
 | admin arm deleted from `hq_can_see_template` | **exactly 3**: `POSITIVE/carol`, `V12`, `V14` — the admin-dependent assertions and no others |
-| 🛑 foreign server repointed at a **migrated-but-empty** database | `rvAssertFDWPopulated` FATALS with a diagnostic naming the cause — **and every attack variant (V1–V6, V14–V19) still PASSES in that state** |
+| 🛑 foreign server repointed at a **migrated-but-empty** database | 13 FAIL / 14 PASS. `rvAssertFDWPopulated` FATALS with a diagnostic naming the cause — **and 12 of the 19 numbered attack variants still PASS** (V1–V6, V10, V11, V15–V18) |
 
 The third is the one that matters. An unreachable server *raises*; a wrong-database
 mapping returns a **calm empty set**, measured directly:
@@ -131,10 +131,16 @@ alter server hq_pg options (set dbname 'hq_b2_empty');
 select count(*) from public.hq_user_roles;   →  0     (no error)
 ```
 
-Without the FDW population floor this suite would have printed a 19-of-25 green
-against a permission system that had silently stopped reading anything at all. That is
-this repo's characteristic bug arriving through the one mechanism this card added, and
-it is why the floor asserts on **both sides of the wire** rather than only on HQ.
+🛑 **The finding generalises past this card, and is stated precisely because a first
+draft of it overstated it.** Twelve of nineteen numbered attack variants pass against a
+permission system that has silently stopped reading anything. The seven that fail all
+fail on their **positive half**, never on their refusal. So: **a refusal-only variant is
+blind to an empty subject set** — *"the attacker saw nothing"* is satisfied perfectly by
+a system that shows nobody anything. What catches it is an assertion that DEMANDS ROWS:
+the four positives, the two population floors, the two BYPASSRLS controls. A suite of
+pure attack variants, however long, would have printed green here. That is this repo's
+characteristic bug arriving through the one mechanism this card added, which is why the
+floor asserts on **both sides of the wire** rather than only on HQ.
 
 ## 6. Gates — raw exit codes
 
@@ -142,7 +148,7 @@ it is why the floor asserts on **both sides of the wire** rather than only on HQ
 |---|---|---|---|
 | G1 build | `go build ./...` | **0** | — |
 | G1 vet | `go vet ./...` | **0** | — |
-| G2 Go | `go test -p 1 ./...` | **0** | 11 packages `ok`, 0 fail. `internal/sync` 105 PASS / 4 SKIP |
+| G2 Go | `go test -p 1 ./...` | **0** | 11 packages `ok`, 0 fail. `internal/sync` 105 PASS / 4 SKIP; `TestRowVisibilityRLS` 27/27 |
 | G2 Playwright | `npx bddgen` then `npx playwright test --retries=0` | see §7 | 20 static spec files + 1 generated |
 | G3 openspec | — | **N/A** (`openspec: absent`) | — |
 | G4 sw idempotence | `node build-sw.js` ×2 | **0, 0** | identical md5 `2ee7c220…`; `git status` clean |

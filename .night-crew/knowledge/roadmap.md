@@ -682,10 +682,11 @@
   **`sync-schema/sql/0002_hq_fdw.sql`** (substrate-side `postgres_fdw` server, mapping and three
   foreign tables, with the tables revoked from `anon`/`authenticated`/`public` so PostgREST cannot
   serve HQ's role map), **`sync-schema/sql/0003_rls_policies.sql`** (`hq_can_see_template` /
-  `hq_can_see_field` and SELECT policies on three of the four replicated tables), and a **25-variant
-  attack suite** at `backend/internal/sync/rowvisibility_rls_test.go`, **red-first** — captures at
-  `.night-crew/qa/spike-supabase/captures/{red,green}-20260801-row-visibility.txt` (red: 15 of 25
-  FAIL with policies withheld; green: 25/25). Both inherited properties are preserved **and asserted**
+  `hq_can_see_field` and SELECT policies on three of the four replicated tables), and a **27-subtest
+  attack suite** (19 numbered variants V1-V19, 4 positives, 2 population floors, 2 `service_role`
+  controls) at `backend/internal/sync/rowvisibility_rls_test.go`, **red-first** — captures at
+  `.night-crew/qa/spike-supabase/captures/{red,green}-20260801-row-visibility.txt` (red: 16 FAIL /
+  11 PASS with policies withheld; green: 27/27). Both inherited properties are preserved **and asserted**
   — a mutation adding `assignment_role = 'assignee'` turns `POSITIVE/alice` red, and deleting the
   admin arm turns exactly `POSITIVE/carol`, `V12`, `V14` red. **Two things triage must rule on:**
   (1) the card ships **SELECT policies only** — INSERT/UPDATE stay policy-less (deny-all) because

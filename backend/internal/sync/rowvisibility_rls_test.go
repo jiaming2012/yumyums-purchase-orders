@@ -66,6 +66,20 @@ import (
 // because a table is empty is not, and no assertion in this file can be
 // satisfied by an empty result.
 //
+// 🛑 THE SHARPEST VERSION OF THAT, MEASURED RATHER THAN ARGUED. The FDW server
+// was deliberately repointed at a migrated-but-empty database — the failure
+// mode that returns a calm empty set instead of raising — and the suite re-run:
+// TWELVE OF THE NINETEEN NUMBERED ATTACK VARIANTS STILL PASSED (V1-V6, V10,
+// V11, V15-V18). Every one of the seven that failed, failed on its POSITIVE
+// half, never on its refusal.
+//
+// So: A REFUSAL-ONLY VARIANT IS BLIND TO AN EMPTY SUBJECT SET. "The attacker
+// saw nothing" is satisfied perfectly by a system that shows nobody anything.
+// What catches it is an assertion that DEMANDS ROWS — the four positives, the
+// two floors, the two BYPASSRLS controls. If you are ever tempted to add a
+// variant here without a positive counterpart, that measurement is the reason
+// not to.
+//
 // ── RED-FIRST, which is this card's real gate ─────────────────────────────
 //
 // Reproduce the red at any time:

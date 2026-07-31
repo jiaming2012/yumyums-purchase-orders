@@ -2,7 +2,11 @@ GREEN CAPTURE — card `sync-rxdb-row-visibility-rls` (overnight-20260801, B2)
 ===========================================================================
 
 Command: as the red capture, WITHOUT SYNC_RLS_SKIP_POLICIES.
-Exit code: 0.  25 subtests, 25 PASS.
+Exit code: 0.  RESULT: 27 subtests — 27 PASS, 0 FAIL.
+
+The suite is 27 subtests covering 19 numbered attack variants (V1-V19; V15-V17
+share one t.Run group that iterates the three foreign tables), 4 positives,
+2 population floors, and 2 service_role controls. 19 + 4 + 2 + 2 = 27.
 
 State under test: 0001 + 0002 + 0003 applied. Migration 0073 applied to a
 freshly created hq_test_b2_fdw on HQ's Postgres (:5433); the substrate reads
@@ -25,13 +29,14 @@ MUTATION TESTS — the guard was checked against deliberate breakage
 -----------------------------------------------------------------
 Guard integrity (B-22/B-23/B-24) says a guard printing PASS is not evidence
 until its subject set is shown non-empty. This suite IS a guard, so it was
-broken on purpose three times and observed catching each:
+broken on purpose three times and observed catching each. Counts below are
+counted from the runs, not estimated.
 
  1. Added `WHERE ta.assignment_role = 'assignee'` to migration 0073's view —
-    the exact "tightening" the comments warn against.
+    the exact "tightening" the file's own comments warn against.
     => 9 subtests FAIL, including POSITIVE/alice by name, plus BOTH population
-       floors (the assignee-only filter drops the view from 4 rows to 3, under
-       the floor). Inherited property 1 is enforced by a test, not a comment.
+       floors (the filter drops the view from 4 rows to 3, under the floor).
+       Inherited property 1 is enforced by a test, not by a comment.
 
  2. Deleted the admin arm from hq_can_see_template in 0003.
     => exactly 3 subtests FAIL: POSITIVE/carol, V12, V14 — the three
@@ -43,12 +48,22 @@ broken on purpose three times and observed catching each:
     perfectly calm empty set. Measured directly first —
         alter server hq_pg options (set dbname 'hq_b2_empty');
         select count(*) from public.hq_user_roles;  ->  0     (no error)
-    => rvAssertFDWPopulated FATALS with a diagnostic naming the cause, AND —
-       this is the part that matters — EVERY ATTACK VARIANT (V1-V6, V14-V19)
-       STILL PASSES in that state. Only the four positives and the FDW floor
-       catch it. Without the floor this suite would have printed a 19-of-25
-       green against a permission system that had silently stopped reading
-       anything at all.
+    => 13 FAIL / 14 PASS. rvAssertFDWPopulated FATALS with a diagnostic naming
+       the cause.
+
+    🛑 AND HERE IS THE PART THAT MATTERS, stated precisely because an earlier
+    draft of this file overstated it. TWELVE of the nineteen numbered attack
+    variants STILL PASS against a permission system that has silently stopped
+    reading anything at all: V1, V2, V3, V4, V5, V6, V10, V11, V15, V16, V17,
+    V18. Only V7, V8, V9, V12, V13, V14 and V19 fail — and every one of those
+    fails on its POSITIVE half, not on its refusal.
+
+    The lesson generalises past this card: A REFUSAL-ONLY VARIANT IS BLIND TO AN
+    EMPTY SUBJECT SET. "The attacker saw nothing" is satisfied perfectly by a
+    system that shows nobody anything. What catches an empty subject set is an
+    assertion that DEMANDS ROWS — the four positives, the population floors, and
+    the two BYPASSRLS controls. A suite of pure attack variants, however long,
+    would have printed green here.
 
 -------------------------------------------------------------------------
 === RUN   TestRowVisibilityRLS
@@ -142,33 +157,33 @@ broken on purpose three times and observed catching each:
     rowvisibility_rls_test.go:1004: FDW POPULATION  hq_template_assignees            4 rows across the wire
     rowvisibility_rls_test.go:1004: FDW POPULATION  hq_user_roles                    4 rows across the wire
     rowvisibility_rls_test.go:1004: FDW POPULATION  hq_field_templates               5 rows across the wire
---- PASS: TestRowVisibilityRLS (5.28s)
+--- PASS: TestRowVisibilityRLS (7.51s)
     --- PASS: TestRowVisibilityRLS/FLOOR/HQ's_three_views_are_populated (0.01s)
-    --- PASS: TestRowVisibilityRLS/FLOOR/the_foreign_tables_carry_those_rows_across_the_wire (0.07s)
+    --- PASS: TestRowVisibilityRLS/FLOOR/the_foreign_tables_carry_those_rows_across_the_wire (0.10s)
     --- PASS: TestRowVisibilityRLS/CONTROL/0_service_role_BYPASSRLS_proves_the_rows_are_there (0.02s)
-    --- PASS: TestRowVisibilityRLS/POSITIVE/alice_sees_her_assignee_template_AND_her_APPROVER_template (0.10s)
-    --- PASS: TestRowVisibilityRLS/POSITIVE/bob_sees_ONLY_his_own_—_not_alice's,_not_the_role_one (0.06s)
-    --- PASS: TestRowVisibilityRLS/POSITIVE/dave_reaches_his_template_by_ROLE,_holding_no_direct_assignment (0.06s)
-    --- PASS: TestRowVisibilityRLS/POSITIVE/carol_the_admin_sees_EVERY_template_including_the_orphan (0.03s)
-    --- PASS: TestRowVisibilityRLS/V1/anon_(no_token_at_all) (0.00s)
-    --- PASS: TestRowVisibilityRLS/V2/wrong_signature (0.00s)
+    --- PASS: TestRowVisibilityRLS/POSITIVE/alice_sees_her_assignee_template_AND_her_APPROVER_template (0.15s)
+    --- PASS: TestRowVisibilityRLS/POSITIVE/bob_sees_ONLY_his_own_—_not_alice's,_not_the_role_one (0.09s)
+    --- PASS: TestRowVisibilityRLS/POSITIVE/dave_reaches_his_template_by_ROLE,_holding_no_direct_assignment (0.11s)
+    --- PASS: TestRowVisibilityRLS/POSITIVE/carol_the_admin_sees_EVERY_template_including_the_orphan (0.07s)
+    --- PASS: TestRowVisibilityRLS/V1/anon_(no_token_at_all) (0.01s)
+    --- PASS: TestRowVisibilityRLS/V2/wrong_signature (0.01s)
     --- PASS: TestRowVisibilityRLS/V3/expired_token (0.00s)
     --- PASS: TestRowVisibilityRLS/V4/tampered_payload,_original_signature (0.00s)
-    --- PASS: TestRowVisibilityRLS/V5/missing_sub_claim (0.06s)
-    --- PASS: TestRowVisibilityRLS/V6/cross-template_read_—_alice_asks_for_bob's_template_by_id (0.02s)
-    --- PASS: TestRowVisibilityRLS/V7/claim_injection_—_alice's_token_ASSERTS_admin,_live_table_says_otherwise (0.08s)
-    --- PASS: TestRowVisibilityRLS/V8/revocation_replay_—_SAME_unexpired_token,_assignment_deleted_in_HQ (0.21s)
-    --- PASS: TestRowVisibilityRLS/V9/live_grant_—_a_NEW_assignment_lands_without_re-minting_anything (0.18s)
+    --- PASS: TestRowVisibilityRLS/V5/missing_sub_claim (0.12s)
+    --- PASS: TestRowVisibilityRLS/V6/cross-template_read_—_alice_asks_for_bob's_template_by_id (0.05s)
+    --- PASS: TestRowVisibilityRLS/V7/claim_injection_—_alice's_token_ASSERTS_admin,_live_table_says_otherwise (0.14s)
+    --- PASS: TestRowVisibilityRLS/V8/revocation_replay_—_SAME_unexpired_token,_assignment_deleted_in_HQ (0.43s)
+    --- PASS: TestRowVisibilityRLS/V9/live_grant_—_a_NEW_assignment_lands_without_re-minting_anything (0.41s)
     --- PASS: TestRowVisibilityRLS/V10/forged_insert_—_alice_creates_a_template (0.01s)
     --- PASS: TestRowVisibilityRLS/V11/forged_update_—_alice_rewrites_bob's_template (0.01s)
-    --- PASS: TestRowVisibilityRLS/V12/submissions_are_scoped_by_their_template (0.09s)
-    --- PASS: TestRowVisibilityRLS/V13/DRAFT_responses_are_scoped_by_FIELD,_not_by_submission (0.21s)
-    --- PASS: TestRowVisibilityRLS/V14/an_UNRESOLVABLE_field_is_invisible_to_EVERYONE,_admins_included (0.07s)
+    --- PASS: TestRowVisibilityRLS/V12/submissions_are_scoped_by_their_template (0.13s)
+    --- PASS: TestRowVisibilityRLS/V13/DRAFT_responses_are_scoped_by_FIELD,_not_by_submission (0.26s)
+    --- PASS: TestRowVisibilityRLS/V14/an_UNRESOLVABLE_field_is_invisible_to_EVERYONE,_admins_included (0.09s)
     --- PASS: TestRowVisibilityRLS/V15-17/V15_hq_user_roles_is_not_readable_over_PostgREST (0.01s)
     --- PASS: TestRowVisibilityRLS/V15-17/V16_hq_template_assignees_is_not_readable_over_PostgREST (0.01s)
     --- PASS: TestRowVisibilityRLS/V15-17/V17_hq_field_templates_is_not_readable_over_PostgREST (0.01s)
-    --- PASS: TestRowVisibilityRLS/V18/submission_rejections_is_deny-all,_for_admins_too (0.01s)
-    --- PASS: TestRowVisibilityRLS/V19/auth.uid()_returns_NOTHING_while_the_plural_GUC_discriminates (0.06s)
-    --- PASS: TestRowVisibilityRLS/CONTROL/Z_service_role_control,_re-taken_after_all_variants (0.04s)
+    --- PASS: TestRowVisibilityRLS/V18/submission_rejections_is_deny-all,_for_admins_too (0.02s)
+    --- PASS: TestRowVisibilityRLS/V19/auth.uid()_returns_NOTHING_while_the_plural_GUC_discriminates (0.11s)
+    --- PASS: TestRowVisibilityRLS/CONTROL/Z_service_role_control,_re-taken_after_all_variants (0.10s)
 PASS
-ok  	github.com/yumyums/hq/internal/sync	5.287s
+ok  	github.com/yumyums/hq/internal/sync	7.525s
