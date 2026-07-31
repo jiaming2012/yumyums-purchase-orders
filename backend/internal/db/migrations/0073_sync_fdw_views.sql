@@ -44,6 +44,29 @@
 -- The views are NOT `security_invoker`. That is on purpose: they run with the
 -- owner's privileges, which is what lets the remote role read them while
 -- holding no privilege at all on `users` or `template_assignments`.
+--
+-- ---------------------------------------------------------------------------
+-- 🛑 A CONSTRAINT THIS MIGRATION PLACES ON EVERY FUTURE ONE — read before
+--    writing 0074+
+-- ---------------------------------------------------------------------------
+-- A view is a hard dependency on the columns it names. From here on, a
+-- migration that ALTERS THE TYPE of any of these columns will FAIL:
+--
+--     users.id, users.roles
+--     template_assignments.template_id, .assignee_type, .assignee_id
+--     checklist_fields.id, .section_id
+--     checklist_sections.id, .template_id
+--
+-- Measured, not assumed — `ALTER TABLE users ALTER COLUMN roles TYPE varchar[]`
+-- against a migrated database returns:
+--     ERROR: cannot alter type of a column used by a view or rule
+--     DETAIL: rule _RETURN on view hq_sync_template_assignees depends on
+--             column "roles"
+--
+-- ADDING a column and DROPPING an unreferenced one are both unaffected (both
+-- verified). If a future migration genuinely needs to retype one of the columns
+-- above, the pattern is: DROP the three views, ALTER, recreate them — in that
+-- migration, not by weakening this one.
 BEGIN;
 
 -- ---------------------------------------------------------------------------
