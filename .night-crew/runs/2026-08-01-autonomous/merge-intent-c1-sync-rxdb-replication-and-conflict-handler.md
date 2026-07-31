@@ -60,8 +60,20 @@ Every file here is outside my own new directory, with one line of why.
   client-construction helper as the card words it. `index.html`'s launcher today
   has **no tile for `inventory-trends` or `inventory-cost`** (they are tabs inside
   `inventory.html`, not tiles), so there is no per-tab tile to reveal and no
-  `index.html` edit is warranted. The mechanism is exported and tested; the
-  launcher wiring is a no-op today by construction, not by omission.
+  `index.html` edit is warranted. The mechanism is exported and tested.
+  ~~the launcher wiring is a no-op today by construction, not by omission.~~
+  **Struck at G6 — that framing was too comfortable.** It considered only one
+  direction. The other direction is a live gap: `filterTilesByPermissions`
+  (`index.html:121-130`) gates tiles on the **literal** slug set from `hq_apps`,
+  so a user granted only `inventory-trends` — legitimate under this repo's
+  per-tab convention — can reach `/api/v1/inventory/trends` and the Trends tab
+  and sees **no Inventory tile at all**. That is the launcher hiding a surface
+  the user *can* reach, which is the harm obligation 4 names. It is
+  **pre-existing** (the predicate is byte-identical to base) and outside this
+  card's footprint, so it was **not** fixed here — it is filed as **B-28** in
+  `.night-crew/knowledge/BACKLOG.md` against `index.html`, for whichever card
+  owns the launcher. Read this card's obligation 4 as *satisfied as worded,
+  under-delivering its stated purpose*, not as *complete*.
 - Any goose migration. Migration numbers `0072` (A1) and `0073` (B2) are assigned;
   I claim neither.
 - `Taskfile.yml`, `playwright.config.js`, `night-crew.toml`.
