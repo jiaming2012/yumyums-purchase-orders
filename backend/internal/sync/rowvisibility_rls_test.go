@@ -128,22 +128,25 @@ import (
 //
 // ── Stack precondition ────────────────────────────────────────────────────
 //
-// TWO servers must be up, and the suite SKIPS (does not fail) if either is not:
+// TWO servers must be up:
 //
 //	the substrate — docker compose -p spike-supabase -f docker-compose.supabase.yml up -d
 //	HQ's Postgres — yumyums-dev-pg, host :5433
 //
-// 🛑 The compose file publishes EPHEMERAL host ports on purpose, so the
-// hard-coded defaults inherited from jwtbridge_rls_test.go are only ever right
-// by luck. Resolve them and export before running:
+// 🛑 THE COMPOSE FILE PUBLISHES EPHEMERAL HOST PORTS ON PURPOSE, so the
+// hard-coded defaults this suite inherited from jwtbridge_rls_test.go were only
+// ever right by luck — and in practice never right. That is finding F1 of run
+// overnight-20260801: this suite, the card's ENTIRE DELIVERABLE, skipped
+// silently while `go test` printed `ok`. The ports are now RESOLVED with
+// `docker compose port` (spikestack_gate_test.go); no export is required, and
+// SPIKE_DB_URL / SPIKE_REST_URL remain available to point at a stack elsewhere.
 //
-//	docker compose -p spike-supabase -f docker-compose.supabase.yml port db   5432
-//	docker compose -p spike-supabase -f docker-compose.supabase.yml port rest 3000
-//	export SPIKE_DB_URL=postgres://supabase_admin:...@127.0.0.1:<dbport>/postgres
-//	export SPIKE_REST_URL=http://127.0.0.1:<restport>
-//
-// SPIKE_REST_URL / SPIKE_DB_URL / SPIKE_JWT_SECRET are REUSED from the
-// jwtbridge suite rather than renamed, so one export drives both.
+// 🛑 AND THE GATE IS ASYMMETRIC. No substrate configured at all -> SKIP, which
+// is the deliberate opt-out. A substrate that IS configured (resolved from
+// compose, or named by SPIKE_*) and does not answer -> FAIL. So does HQ's
+// Postgres, once the substrate has been resolved: at that point a live run was
+// intended, and half a stack proves nothing. SPIKE_JWT_SECRET is REUSED from
+// the jwtbridge suite rather than renamed, so one export drives both.
 
 const (
 	// rvHQDatabase is this suite's OWN database on HQ's Postgres, dropped and
@@ -155,7 +158,12 @@ const (
 	// business, and an emptied subject set is exactly what this file exists to
 	// make impossible. Dropping it up front is also what guarantees the
 	// populations asserted below are THIS RUN'S, not an earlier run's residue.
-	rvHQDatabase = "hq_test_b2_fdw"
+	//
+	// Overridable with HQ_RLS_TEST_DB (see rvHQDatabase()) so two agents running
+	// this suite at once on the shared cluster do not DROP each other's database
+	// mid-run — the incident behind BACKLOG B-16, where a dropped test database
+	// read as a passing suite.
+	defaultRVHQDatabase = "hq_test_b2_fdw"
 
 	// rvFDWPassword is a throwaway for a local test database that is dropped at
 	// the end of the run. It is NOT a default for anything: migration 0073
@@ -172,6 +180,12 @@ const (
 	defaultFDWHost = "host.docker.internal"
 	defaultFDWPort = "5433"
 )
+
+// rvHQDatabase names this suite's throwaway database on HQ's Postgres. It is a
+// function and not a constant only so HQ_RLS_TEST_DB can move it: the suite
+// DROPs it WITH (FORCE) on the way in, and doing that to a name another
+// concurrent run is using is the B-16 incident, not a flake.
+func rvHQDatabase() string { return env("HQ_RLS_TEST_DB", defaultRVHQDatabase) }
 
 // ── The fixture's identities ──────────────────────────────────────────────
 //
@@ -244,13 +258,21 @@ var (
 
 type rvStack struct {
 	*spikeStack
-	hq *pgxpool.Pool // HQ's Postgres, connected to rvHQDatabase
+	hq *pgxpool.Pool // HQ's Postgres, connected to rvHQDatabase()
 }
 
-// rvConnect brings both servers to a known state or SKIPS.
+// rvConnect brings both servers to a known state, SKIPS if no substrate is
+// configured at all, and FAILS if a configured one is not there.
 //
-// The order is load-bearing: HQ must be migrated and seeded BEFORE the
-// substrate's foreign tables are created, because 0002's user mapping is
+// 🛑 THE SUBSTRATE IS RESOLVED FIRST, before a single connection is opened, and
+// that ordering is the F1 fix rather than tidiness. Resolving it is what decides
+// whether this run was INTENDED to be live; once it is, HQ's Postgres being
+// down stops being "a contributor without a database" and becomes "half the
+// stack is missing and the deliverable is about to evaporate silently".
+// Resolution itself opens no sockets, so nothing about the sequence below moves.
+//
+// The order of the WORK is load-bearing: HQ must be migrated and seeded BEFORE
+// the substrate's foreign tables are created, because 0002's user mapping is
 // verified by the population assertions immediately afterwards and a mapping
 // pointed at an unmigrated database fails as "relation does not exist" — which
 // is at least loud, unlike a mapping pointed at a migrated-but-empty one.
@@ -258,34 +280,49 @@ func rvConnect(t *testing.T) *rvStack {
 	t.Helper()
 	ctx := context.Background()
 
+	// ── Is a substrate configured at all? (no I/O — see above) ───────────
+	cfg, ok := resolveSpikeConfig(t)
+	if !ok {
+		t.Skipf("no sync substrate configured — skipping, and SKIPPED IS NOT PASSED: with "+
+			"this off there is NO row-visibility evidence in the tree at all. Bring it up "+
+			"with: docker compose -p %s -f docker-compose.supabase.yml up -d",
+			spikeComposeProject)
+	}
+
 	// ── HQ's Postgres ────────────────────────────────────────────────────
+	//
+	// Unreachable is a FAILURE here, not a skip: the substrate above is
+	// configured, so a live run was intended, and this suite reads HQ's live
+	// tables THROUGH the substrate — without HQ there is nothing to see through.
 	adminURL := env("HQ_ADMIN_DB_URL", defaultHQAdminURL)
 	admin, err := pgxpool.New(ctx, adminURL)
 	if err != nil {
-		t.Skipf("HQ Postgres not configured (%v) — skipping. Expected yumyums-dev-pg on :5433.", err)
+		t.Fatal(spikeUnreachableReason(cfg, "HQ Postgres (the read-through source)",
+			redactDSN(adminURL), "connect", err))
 	}
 	pingCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	if err := admin.Ping(pingCtx); err != nil {
 		admin.Close()
-		t.Skipf("HQ Postgres unreachable (%v) — skipping. Expected yumyums-dev-pg on :5433.", err)
+		t.Fatal(spikeUnreachableReason(cfg, "HQ Postgres (the read-through source)",
+			redactDSN(adminURL), "ping", err))
 	}
 	defer admin.Close()
 
 	// FORCE because a previous run's pooled connection outliving the test is a
 	// flake, not a finding. Dropping rather than truncating is what makes the
 	// population floors below a statement about THIS run.
-	if _, err := admin.Exec(ctx, `DROP DATABASE IF EXISTS `+rvHQDatabase+` WITH (FORCE)`); err != nil {
-		t.Fatalf("drop %s: %v", rvHQDatabase, err)
+	if _, err := admin.Exec(ctx, `DROP DATABASE IF EXISTS `+rvHQDatabase()+` WITH (FORCE)`); err != nil {
+		t.Fatalf("drop %s: %v", rvHQDatabase(), err)
 	}
-	if _, err := admin.Exec(ctx, `CREATE DATABASE `+rvHQDatabase); err != nil {
-		t.Fatalf("create %s: %v", rvHQDatabase, err)
+	if _, err := admin.Exec(ctx, `CREATE DATABASE `+rvHQDatabase()); err != nil {
+		t.Fatalf("create %s: %v", rvHQDatabase(), err)
 	}
 
-	hqURL := strings.Replace(adminURL, "/postgres", "/"+rvHQDatabase, 1)
+	hqURL := strings.Replace(adminURL, "/postgres", "/"+rvHQDatabase(), 1)
 	hq, err := pgxpool.New(ctx, hqURL)
 	if err != nil {
-		t.Fatalf("connect %s: %v", rvHQDatabase, err)
+		t.Fatalf("connect %s: %v", rvHQDatabase(), err)
 	}
 	t.Cleanup(hq.Close)
 
@@ -293,7 +330,7 @@ func rvConnect(t *testing.T) *rvStack {
 	// HQ's schema: the views under test are the ones the migration ships, and a
 	// suite that redefined them would be proving its own definition correct.
 	if err := db.Migrate(hq); err != nil {
-		t.Fatalf("migrate %s: %v", rvHQDatabase, err)
+		t.Fatalf("migrate %s: %v", rvHQDatabase(), err)
 	}
 
 	// 🛑 The per-environment operator step 0073 stops short of, performed here
@@ -311,25 +348,11 @@ func rvConnect(t *testing.T) *rvStack {
 	rvSeedHQ(t, hq)
 
 	// ── The substrate ────────────────────────────────────────────────────
-	rest := env("SPIKE_REST_URL", defaultSpikeREST)
-	dbURL := env("SPIKE_DB_URL", defaultSpikeDB)
-	secret := env("SPIKE_JWT_SECRET", defaultSpikeSecret)
-
-	pool, err := pgxpool.New(ctx, dbURL)
-	if err != nil {
-		t.Skipf("spike stack DB not configured (%v) — skipping. Bring it up with: "+
-			"docker compose -p spike-supabase -f docker-compose.supabase.yml up -d", err)
-	}
-	pingCtx2, cancel2 := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel2()
-	if err := pool.Ping(pingCtx2); err != nil {
-		pool.Close()
-		t.Skipf("spike stack DB unreachable (%v) — skipping. Bring it up with: "+
-			"docker compose -p spike-supabase -f docker-compose.supabase.yml up -d", err)
-	}
+	pool := dialSpikeDB(t, ctx, cfg)
 	t.Cleanup(pool.Close)
+	requireSpikeREST(t, cfg)
 
-	s := &rvStack{spikeStack: &spikeStack{rest: rest, secret: secret, pool: pool}, hq: hq}
+	s := &rvStack{spikeStack: &spikeStack{rest: cfg.restURL, secret: cfg.secret, pool: pool}, hq: hq}
 
 	syncSQL := filepath.Join("..", "..", "..", "sync-schema", "sql")
 
@@ -354,7 +377,7 @@ func rvConnect(t *testing.T) *rvStack {
 		"set hq_fdw.host = %s; set hq_fdw.port = %s; set hq_fdw.dbname = %s; "+
 			"set hq_fdw.username = 'hq_sync_fdw'; set hq_fdw.password = %s;\n",
 		quoteLiteral(fdwHost), quoteLiteral(fdwPort),
-		quoteLiteral(rvHQDatabase), quoteLiteral(rvFDWPassword))
+		quoteLiteral(rvHQDatabase()), quoteLiteral(rvFDWPassword))
 	fdwBody, err := os.ReadFile(filepath.Join(syncSQL, "0002_hq_fdw.sql"))
 	if err != nil {
 		t.Fatalf("read 0002_hq_fdw.sql: %v", err)
