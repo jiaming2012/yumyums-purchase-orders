@@ -8,7 +8,7 @@ measured — not extrapolated.
 | a1-app-timezone-unify-new-york | A | 2026-07-31 09:47:41 EDT | 2026-07-31 11:04:00 EDT | 76m19s |
 | b2-sync-rxdb-row-visibility-rls | B | 2026-07-31 09:47:41 EDT | 2026-07-31 10:54:51 EDT | 66m58s |
 | c1-sync-rxdb-replication-and-conflict-handler | C | 2026-07-31 09:47:41 EDT | 2026-07-31 11:40:01 EDT | 112m20s |
-| c2-sync-rxdb-conflict-notice-ui | C | NOT STARTED | — | — |
+| c2-sync-rxdb-conflict-notice-ui | C | 2026-07-31 13:47 EDT | 2026-07-31 15:53 EDT | 126m11s |
 
 Each card then ran a fresh-subagent G6 adversarial review, and each G6 returned
 APPROVE WITH FINDINGS, so each card also ran a fix round. Three phases per card,
@@ -19,6 +19,7 @@ not one.
 | a1 | APPROVE WITH FINDINGS (F1 provenance, F2 changeover dates blocking) | FIXED | yes |
 | b2 | APPROVE WITH FINDINGS (F2 destructive down, F1 silent skip blocking) | FIXED | yes |
 | c1 | APPROVE WITH FINDINGS (`_deleted` justification false, blocking) | FIXED | yes |
+| c2 | verifier gate **PASS 30/30** + G6 APPROVE WITH FINDINGS | FIXED | yes |
 
 Closeout written: 2026-07-31 12:58:51 EDT
 

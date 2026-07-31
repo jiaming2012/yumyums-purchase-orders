@@ -116,3 +116,40 @@ rather than assumed. Parity confirmed: `version.go` ≡ `package.json` ≡ `vers
 
 **Gate after the merges:** G4 re-run as required after a merge touching a precached file —
 idempotent, tree clean, parity green. Full G1/G2 on the final tree recorded in HANDOFF.md.
+
+---
+
+### Merge 4 — `card/c2-sync-rxdb-conflict-notice-ui` → `overnight-20260801`
+
+**Result: CLEAN — zero conflicts.** 32 files changed, 4342 insertions / 50 deletions.
+
+- **Cards involved:** C2 landing onto a branch already carrying B2, A1 and C1.
+- **Why nothing collided, and it is not luck:** C2's worktree was cut from `1eaa5bf`, i.e. from the
+  branch *after* the other three had merged. It therefore developed against the merged state rather
+  than against a stale base — which is what the slate's strict Track-C serialization (C2 must not
+  start before C1 merges) was for. The serialization paid for itself here: the two cards that share
+  the RxDB client layer and `workflows.html` most heavily produced **no conflict at all**.
+- **Shared surfaces, all quiet:** `workflows.html` — C2's four hunks sit outside A1's period/timezone
+  region and outside C1's import block. `version.go` — C2 moved `Frontend` 1.3.0 → 1.4.0 and nothing
+  else had touched it since C1. `BACKLOG.md` — C2 appended `B-32` after verifying against the merged
+  run branch rather than its own worktree, which is exactly the check A1 and C1 both skipped when
+  they collided on B-28.
+- **Resolution taken:** none required. `--no-ff`.
+- **`sw.js`:** regenerated on the merged HEAD per merge 3's lesson. Output **29 files / 2111.1 KB**,
+  and the tree was **clean afterwards** — C2's committed artifact already matched the merged tree,
+  so no correction was needed. Parity verified: `version.go Frontend 1.4.0` ≡ `package.json` ≡
+  `version.json`; `Backend` unchanged at `0.3.0`.
+
+**Carried forward from this card's two gates, not resolved by the merge:**
+- **A new mockup deviation opened this round.** Fixing V-1 (dark-mode Cancel/Replace weight) changed
+  `workflows.html` but deliberately **not** `mockup.html`, so production's dark confirm no longer
+  matches the signed `a2-confirm-dark` plate. Redrawing a signed plate is the operator's call, so the
+  deviation is recorded in SUMMARY.md §1a with the two-line change identified if they would rather
+  re-sign the plate.
+- **`PLAN.md` landed after the implementation** (F-4). It carries the `done_when:` block and State
+  Enumeration Table the verifier gate grades against. Recorded in SUMMARY.md §4, not argued away.
+- **The 46 self-verification PNGs are in gitignored `test-results/`** — a merger cannot check the
+  evidence SUMMARY.md references. Recorded in §3 with the reproduce command.
+- **`[LST-17]` did not fire in the fix round's leg** (both its tests passed). That leg ran a single
+  Playwright stack; the reviewer's did not. **Not treated as a disarm** — one clean leg is not a
+  disarm, and nothing was done to the armed red.
