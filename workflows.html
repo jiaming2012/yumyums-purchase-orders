@@ -13,8 +13,13 @@
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
 <title>Yumyums Workflows</title>
 <style>
-:root{--bg:#f5f5f3;--card:#fff;--txt:#1a1a1a;--mut:#6b6b6b;--brd:rgba(0,0,0,0.08);--info-bg:#e6f1fb;--info-tx:#0c447c;--warn-bg:#faeeda;--warn-tx:#854f0b}
-@media(prefers-color-scheme:dark){:root{--bg:#1a1a1a;--card:#262626;--txt:#f0f0f0;--mut:#999;--brd:rgba(255,255,255,0.1);--info-bg:#0c447c;--info-tx:#b5d4f4;--warn-bg:#633806;--warn-tx:#fac775;--sync-highlight:rgba(96,165,250,0.25)}}
+/* Five variables added by `sync-rxdb-conflict-notice-ui` (C2) — the ok pair, the
+   bad pair and skel. The signed mockup's palette needs a success colour (a
+   restored row), a destructive one (a struck-through server value, the
+   storage-error card) and a skeleton fill. Same values as the mockup's shared
+   block, so the plates and the page cannot drift apart. */
+:root{--bg:#f5f5f3;--card:#fff;--txt:#1a1a1a;--mut:#6b6b6b;--brd:rgba(0,0,0,0.08);--info-bg:#e6f1fb;--info-tx:#0c447c;--warn-bg:#faeeda;--warn-tx:#854f0b;--ok-bg:#dcfce7;--ok-tx:#166534;--bad-bg:#fee2e2;--bad-tx:#991b1b;--skel:rgba(0,0,0,0.07)}
+@media(prefers-color-scheme:dark){:root{--bg:#1a1a1a;--card:#262626;--txt:#f0f0f0;--mut:#999;--brd:rgba(255,255,255,0.1);--info-bg:#0c447c;--info-tx:#b5d4f4;--warn-bg:#633806;--warn-tx:#fac775;--sync-highlight:rgba(96,165,250,0.25);--ok-bg:#14532d;--ok-tx:#86efac;--bad-bg:#7f1d1d;--bad-tx:#fca5a5;--skel:rgba(255,255,255,0.09)}}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
 body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg);color:var(--txt);padding:env(safe-area-inset-top) 12px env(safe-area-inset-bottom)}
 .app{max-width:480px;margin:0 auto;padding-top:12px}
@@ -168,6 +173,120 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .sync-flash{animation:sync-flash 2s ease-out forwards}
 .sync-toast{position:fixed;bottom:70px;left:50%;transform:translateX(-50%);background:var(--card);color:var(--txt);border:1px solid var(--brd);border-radius:8px;padding:8px 16px;font-size:13px;box-shadow:0 2px 8px rgba(0,0,0,0.15);z-index:9999;opacity:0;transition:opacity 0.3s;pointer-events:none;white-space:nowrap}
 .sync-toast.show{opacity:1}
+
+/* ═══ OVERWRITTEN ANSWERS — the conflict banner + sheet ══════════════════════
+   Card `sync-rxdb-conflict-notice-ui` (overnight-20260801, C2). Ledger T-22
+   decision 50 (the user-visible half), T-26 82 (A-1, A-2), T-28 95/96/97.
+
+   Lifted from the SIGNED mockup at
+   `.planning/phases/sync-rxdb-conflict-notice/mockup.html` revision 2, class
+   names unchanged ON PURPOSE — the mockup and the implementation are compared
+   plate against screenshot, and renaming everything on the way in would make
+   that comparison a translation exercise.
+
+   Three properties in here are load-bearing rather than cosmetic and are named
+   because the first draft of the mockup broke on the third:
+     * nothing is `nowrap` and nothing is ellipsised on a banner line — a line
+       that does not fit must WRAP and grow the banner (A-1's PARK trigger);
+     * every interactive control is a >=44px target in both dimensions,
+       including Undo, which is the only escape from a mis-tapped Restore and
+       is deliberately a bordered control rather than an inline text link;
+     * the value is WRAPPED, never truncated. A fixed 88px label column inside a
+       `display:flex` row needs all three of `min-width:0` on the row, the same
+       on the value, and `overflow-wrap:anywhere` on the value — a flex item's
+       default `min-width:auto` refuses to shrink below its longest unbreakable
+       word, and a pasted 90-character reference is a real free-text answer. */
+#conflict-sheet{position:fixed;inset:0;z-index:9998;overflow-y:auto;background:var(--bg);padding:12px}
+#conflict-sheet .sc-sheet{max-width:480px;margin:0 auto}
+.sc-hd{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;min-height:44px}
+.sc-title{font-size:16px;font-weight:600;min-width:0;overflow-wrap:anywhere}
+.sc-close{font-size:14px;color:var(--info-tx);font-weight:600;min-height:44px;min-width:44px;display:inline-flex;align-items:center;justify-content:center;padding:0 8px;flex-shrink:0;cursor:pointer}
+.cn-banner{display:flex;align-items:flex-start;gap:10px;background:var(--warn-bg);color:var(--warn-tx);border-radius:12px;padding:12px 14px;margin-bottom:12px;min-height:44px}
+.cn-banner-ico{font-size:17px;line-height:1.25;flex-shrink:0}
+.cn-banner-body{flex:1;min-width:0}
+.cn-banner-hd{display:block;font-size:14px;font-weight:600;line-height:1.3;overflow-wrap:anywhere}
+.cn-banner-open{display:block;font-size:12.5px;font-weight:600;line-height:1.35;margin-top:3px;overflow-wrap:anywhere}
+.cn-banner-open .hnd{font-weight:500;opacity:.75}
+.cn-banner-unid{display:block;font-size:11.5px;font-weight:500;line-height:1.4;opacity:.85;margin-top:3px;overflow-wrap:anywhere}
+.cn-banner-sub{display:block;font-size:11.5px;line-height:1.4;opacity:.8;margin-top:3px;overflow-wrap:anywhere}
+.cn-banner-go{font-size:13px;font-weight:600;white-space:nowrap;text-decoration:underline;min-height:44px;min-width:44px;display:inline-flex;align-items:center;justify-content:center;padding:0 8px;flex-shrink:0;cursor:pointer}
+.cg{background:var(--card);border:0.5px solid var(--brd);border-radius:12px;padding:14px 15px;margin-bottom:8px}
+.cg-hd{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;padding-bottom:10px;border-bottom:0.5px solid var(--brd)}
+.cg-hd>span:first-child{min-width:0}
+.cg-name{display:block;font-size:14px;font-weight:600;line-height:1.3;overflow-wrap:anywhere}
+.cg-meta{display:block;font-size:11px;color:var(--mut);margin-top:3px;line-height:1.4}
+.cg-doc{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10px;color:var(--mut);background:var(--skel);padding:1px 5px;border-radius:3px}
+.cg-count{font-size:11px;font-weight:600;color:var(--warn-tx);background:var(--warn-bg);padding:2px 7px;border-radius:10px;white-space:nowrap;flex-shrink:0}
+.cg-all{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;width:100%;margin-top:10px;padding:9px 11px;min-height:44px;background:var(--info-bg);border:0.5px solid transparent;border-radius:9px;color:var(--info-tx);font-size:13px;font-weight:600;font-family:inherit;text-align:center;cursor:pointer}
+.cg-all-s{font-size:10.5px;font-weight:500;opacity:.8;line-height:1.3;overflow-wrap:anywhere}
+.cf{padding:12px 0;border-bottom:0.5px solid var(--brd)}
+.cf:last-of-type{border-bottom:none;padding-bottom:2px}
+.cf-q{font-size:13px;font-weight:600;line-height:1.3;overflow-wrap:anywhere}
+/* AMENDMENT A-3 (decision 95). The removed question keeps its label, struck
+   through and read-only — SAME TYPE as any other question title. The strike is
+   what says "read-only", rather than the absence of a button. */
+.cf-q-struck{text-decoration:line-through;text-decoration-thickness:1px;color:var(--mut)}
+/* A-3's fallback, and ONLY the fallback: a snapshot that carries no label for
+   the id (which, because nothing validates template_snapshot, includes every
+   malformed one). Drawn exactly as revision 2 drew it. */
+.cf-q-gone{display:block;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;font-weight:600;color:var(--mut);overflow-wrap:anywhere}
+.cf-vals{margin-top:8px;min-width:0}
+.cf-v{display:flex;align-items:baseline;gap:8px;font-size:13px;padding:3px 0;min-width:0;flex-wrap:wrap}
+.cf-v-lab{width:88px;flex-shrink:0;white-space:nowrap;font-size:10.5px;color:var(--mut);text-transform:uppercase;letter-spacing:.03em;font-weight:600}
+.cf-v-val{font-weight:600;font-variant-numeric:tabular-nums;min-width:0;overflow-wrap:anywhere;word-break:break-word;line-height:1.4}
+.cf-v-who{font-size:11px;color:var(--mut);font-weight:400;min-width:0;overflow-wrap:anywhere}
+.cf-v.mine .cf-v-val{color:var(--warn-tx)}
+.cf-v.none .cf-v-val{color:var(--mut);font-weight:500;font-style:italic}
+.cf-v.gone .cf-v-val{color:var(--bad-tx);text-decoration:line-through;text-decoration-thickness:1px}
+.cf-why{font-size:11px;color:var(--mut);line-height:1.5;margin-top:7px}
+.cf-acts{display:flex;gap:8px;margin-top:10px}
+.cf-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;padding:8px 6px;min-height:44px;border-radius:9px;font-size:13px;font-weight:600;font-family:inherit;border:0.5px solid transparent;text-align:center;min-width:0;cursor:pointer}
+.cf-btn-s{font-size:10.5px;font-weight:500;opacity:.78;line-height:1.3;overflow-wrap:anywhere}
+.cf-btn-pri{background:var(--info-bg);color:var(--info-tx)}
+.cf-btn-sec{background:var(--bg);color:var(--mut);border-color:var(--brd);font-weight:500}
+.cf-btn-wide{flex:1}
+.cf-btn[aria-disabled=true]{opacity:.55;cursor:default}
+.cf-done{display:flex;align-items:center;gap:8px;background:var(--ok-bg);color:var(--ok-tx);border-radius:9px;padding:7px 7px 7px 12px;font-size:12.5px;font-weight:600;line-height:1.35;margin-top:2px;min-height:58px}
+.cf-kept{display:flex;align-items:center;gap:8px;background:var(--skel);color:var(--mut);border-radius:9px;padding:7px 7px 7px 12px;font-size:12.5px;font-weight:600;line-height:1.35;margin-top:2px;min-height:58px}
+.cf-kept b,.cf-done b{color:inherit}
+.cf-done>span:first-child,.cf-kept>span:first-child{min-width:0;overflow-wrap:anywhere}
+.cf-done-undo{margin-left:auto;flex-shrink:0;font-size:12px;font-weight:600;white-space:nowrap;min-height:44px;min-width:62px;display:inline-flex;align-items:center;justify-content:center;padding:0 12px;border-radius:8px;border:0.5px solid currentColor;background:var(--card);cursor:pointer}
+.cf-undone{font-size:11px;color:var(--mut);line-height:1.5;margin-top:8px;font-style:italic}
+.cf-err{background:var(--bad-bg);color:var(--bad-tx);border-radius:9px;padding:10px 12px;font-size:12px;line-height:1.45;margin-top:10px}
+.cf-err b{display:block;font-size:12.5px;margin-bottom:2px}
+.cf.unrec{opacity:.9}
+.cf.unrec .cf-q{color:var(--mut)}
+.spin{display:inline-block;width:13px;height:13px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;vertical-align:-2px;margin-right:6px;opacity:.7}
+/* AMENDMENT A-2 — the batch override's confirm. `Restore all N of mine` writes
+   N of someone else's answers on one tap and may not write straight through. */
+.cfm-scrim{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;padding:14px}
+.cfm{background:var(--card);border:0.5px solid var(--brd);border-radius:12px;padding:16px 15px;box-shadow:0 4px 18px rgba(0,0,0,0.13);max-width:452px;width:100%;max-height:100%;overflow-y:auto}
+.cfm-hd{font-size:15px;font-weight:700;line-height:1.3;overflow-wrap:anywhere}
+.cfm-lead{font-size:12.5px;color:var(--mut);line-height:1.55;margin:7px 0 0}
+.cfm-lead b{color:var(--txt)}
+.cfm-list{margin:12px 0 0;border:0.5px solid var(--brd);border-radius:9px;padding:2px 11px}
+.cfm-row{padding:10px 0;border-bottom:0.5px solid var(--brd)}
+.cfm-row:last-child{border-bottom:none}
+.cfm-q{font-size:12.5px;font-weight:600;line-height:1.3;margin-bottom:5px;overflow-wrap:anywhere}
+.cfm-foot{font-size:11.5px;color:var(--mut);line-height:1.55;margin:11px 0 0}
+.cfm-foot b{color:var(--txt)}
+.cfm-acts{display:flex;gap:8px;margin-top:12px}
+.cfm-go,.cfm-cancel{flex:1;display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;min-height:44px;padding:9px 8px;border-radius:9px;font-size:13px;font-weight:600;font-family:inherit;text-align:center;border:0.5px solid transparent;cursor:pointer}
+.cfm-go{background:var(--bad-bg);color:var(--bad-tx)}
+.cfm-go-s{font-size:10.5px;font-weight:500;opacity:.8;line-height:1.3;overflow-wrap:anywhere}
+.cfm-cancel{background:var(--bg);color:var(--txt);border-color:var(--brd)}
+.sc-empty{background:var(--card);border:0.5px solid var(--brd);border-radius:12px;padding:34px 22px;text-align:center}
+.sc-empty h3{font-size:15px;font-weight:600;margin:0 0 7px}
+.sc-empty p{font-size:12.5px;color:var(--mut);line-height:1.55;margin:0}
+.sk{background:var(--card);border:0.5px solid var(--brd);border-radius:12px;padding:14px 15px;margin-bottom:8px}
+.sk-l{height:11px;border-radius:5px;background:var(--skel);margin-bottom:9px}
+.sk-l:last-child{margin-bottom:0}
+.sc-err{background:var(--card);border:0.5px solid var(--bad-tx);border-radius:12px;padding:18px;text-align:center}
+.sc-err h3{font-size:14px;font-weight:600;color:var(--bad-tx);margin:0 0 6px}
+.sc-err p{font-size:12px;color:var(--mut);line-height:1.55;margin:0 0 12px}
+.sc-err p b{color:var(--txt)}
+.sc-err button{width:100%;padding:11px;min-height:44px;background:var(--info-bg);color:var(--info-tx);border:none;border-radius:9px;font-size:13px;font-weight:600;font-family:inherit}
+.more{font-size:11px;color:var(--mut);text-align:center;padding:6px 0 2px;line-height:1.5}
 </style>
 <script src="https://unpkg.com/sortablejs@1.15.7/Sortable.min.js"></script>
 <script src="sync.js"></script>
@@ -203,7 +322,11 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
   <button id="t2" onclick="show(2)">Approvals</button>
   <button id="t3" onclick="show(3)">Builder</button>
 </div>
-<div id="s1" style="display:none"><div id="sync-banner" class="sync-banner" style="display:none"></div><div id="fill-body"><div id="checklist-list"></div></div></div>
+<div id="s1" style="display:none"><div id="conflict-notice"></div><div id="sync-banner" class="sync-banner" style="display:none"></div><div id="fill-body"><div id="checklist-list"></div></div></div>
+<!-- The overwritten-answers sheet. Full-height, over My Checklists; empty and
+     display:none until the banner's Review is tapped. Outside `.app` so it can
+     cover the tab bar, which is the mockup's "full-height, over My Checklists". -->
+<div id="conflict-sheet" style="display:none"></div>
 <div id="s2" style="display:none"><div id="approvals-body"><div id="approvals-list"></div></div></div>
 <div id="s3" style="display:none"><div id="builder-body"><div id="builder-list"></div></div></div>
 <script src="tab.js" data-tabs="3"></script>
@@ -3393,5 +3516,94 @@ document.addEventListener('dblclick', e => e.preventDefault());
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
 </script>
 <script src="log.js"></script><script src="ptr.js"></script>
+<!-- ══ OVERWRITTEN ANSWERS — mount ═══════════════════════════════════════════
+     Card `sync-rxdb-conflict-notice-ui` (overnight-20260801, C2).
+
+     🛑 DORMANT IN THIS TREE, AND THAT IS THE HONEST STATE RATHER THAN AN
+     OVERSIGHT. The sheet renders from the durable local conflict record; the
+     record is written when `conflict$` fires; `conflict$` fires when
+     replication runs; replication is not started, because `HQ_SYNC_REST_URL` is
+     unset in every environment and the /sync door answers 503 by design until
+     `sync-rxdb-row-visibility-rls` lands. So in production today there are zero
+     records, the banner never appears, and nothing on this page changes.
+     `sync-hard-cutover` is the card that switches the producer on.
+
+     What that buys, and why it is not busywork: every state of this UI is
+     forced from a seeded store in tests/states-sync-rxdb-conflict-notice.spec.js,
+     the screen exists and is reviewable, and the cutover card has to supply a
+     store and a write function rather than design a screen under time pressure.
+
+     🛑 NO WRITE PATH IS SWAPPED. autoSaveField -> submitOp('SET_FIELD') ->
+     DRAFT_RESPONSES -> hydrateFieldState is byte-untouched. `applyRestore`
+     below USES that same live path — "Restore mine writes the crew member's
+     value again, now, from the current master state" is an ordinary edit, and
+     the ordinary edit in this tree is submitOp. -->
+<script type="module">
+import { mountConflictNotice } from './sync-rxdb/conflict-notice-ui.js';
+import { createRxdbConflictStore, createMemoryConflictStore } from './sync-rxdb/conflict-notice.js';
+
+const bannerRoot = document.getElementById('conflict-notice');
+const sheetRoot = document.getElementById('conflict-sheet');
+
+// The store. An RxDB database exists only once something creates one — nothing
+// does in this tree — so the default is an EMPTY memory store, which renders
+// the `empty` plate and no banner. That is exactly what "HQ caught nothing"
+// looks like, and the empty state's copy is scoped to the record for precisely
+// this reason: a non-leader tab, an unsubscribed replication and an evicted
+// store all produce the same screen and the app cannot tell them apart.
+function defaultStore() {
+  const db = window.HQSync && window.HQSync.db;
+  if (db && db.conflict_records) return createRxdbConflictStore(db.conflict_records);
+  return createMemoryConflictStore([]);
+}
+
+// `Restore mine` — an ordinary local edit through the live persistence path.
+// It resurrects nothing: it writes the crew member's value AGAIN, NOW, against
+// the current master state, so it matches the current compare-and-swap and
+// pushes cleanly. If the server has moved again in between, that write
+// conflicts in turn and lands back on this same row — keyed by document + field,
+// so the loop closes rather than growing a duplicate row per retry.
+async function applyRestore(row) {
+  if (typeof window.submitOp !== 'function') {
+    const e = new Error('no write path available');
+    e.name = 'OfflineError';
+    throw e;
+  }
+  const res = await window.submitOp('SET_FIELD', row.fieldId, 'field_response', {
+    value: row.rawDiscarded !== undefined ? row.rawDiscarded : row.yours,
+    field_id: row.fieldId,
+  });
+  if (res && res._conflict) {
+    const e = new Error('the server value moved again');
+    e.name = 'ConflictError';
+    throw e;
+  }
+  return res;
+}
+
+window.HQConflictNotice = {
+  // Exposed so a store can be INJECTED — by tests/states-sync-rxdb-conflict-notice.spec.js
+  // today, and by `sync-hard-cutover` tomorrow when it has a real RxDB database
+  // to hand over. A screen whose producer is not switched on yet can only be
+  // verified by seeding it, and seeding it needs a seam.
+  createMemoryStore: createMemoryConflictStore,
+  mount(opts) {
+    const o = opts || {};
+    return mountConflictNotice({
+      bannerRoot,
+      sheetRoot,
+      store: o.store || defaultStore(),
+      applyRestore: o.applyRestore || applyRestore,
+      copyValue: o.copyValue || ((t) => (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.resolve())),
+      openChecklist: o.openChecklist || (() => { sheetRoot.style.display = 'none'; }),
+      modelOpts: o.modelOpts || {},
+    });
+  },
+};
+// Mounted eagerly so the banner is live the moment a record exists. Fails soft
+// for the same reason bootstrap.js does: nothing on this page depends on it.
+try { window.HQConflictNotice.instance = window.HQConflictNotice.mount(); }
+catch (err) { console.warn('[hq-sync] conflict notice did not mount; the page is unaffected', err); }
+</script>
 </body>
 </html>
