@@ -206,6 +206,33 @@ gate run, two database collisions, and a duplicate backlog number.
 
 ---
 
+## 🛑 Read this before the next launch — B-33
+
+**`night-crew run-evidence check --repo . --run 20260801` returns `no-run-evidence`** on this night,
+which landed 4 of 4 with a committed closeout record, a four-entry conflict log, HANDOFF and
+DECISIONS-NEEDED. The closeout record was written exactly as `/nc-run` §3a requires, and the oracle
+still cannot see it. Two independent path mismatches, either sufficient alone:
+
+1. It reads `.night-crew/runs/<runid>/{summary.json,metrics.jsonl,journal.jsonl}` — i.e.
+   `runs/20260801/` — but the launch prompt **mandates** `runs/2026-08-01-autonomous/`. Those three
+   can never be found here regardless of whether they are written.
+2. It reads `reference/conflicts-<runid>.md` **from the repo root**, and **hq has no root
+   `reference/`.** This repo's reference home is `.night-crew/knowledge/reference/` — where the
+   conflict log, closeout record, slate and launch prompt all correctly live.
+
+`night-crew launch-prompt` searches **both** homes and resolved correctly at launch. `run-evidence
+check` does not. **The two verbs disagree about where this repo keeps its artifacts.**
+
+**What this means practically:** `/nc-run` §1's *"has this slate already run?"* guard is **inert in
+this repo**. The next launch will read this completed night as never having run. The §2 run-branch
+guard is the only backstop — and it only works while `overnight-20260801` stays unmerged. **Once you
+merge it to `dev`, nothing prevents a re-execution of an already-landed slate.**
+
+Filed as **B-33**. It is a night-crew clone fix, not an hq one. Until it ships, **treat §1's verdict
+in this repo as unreliable and lean on §2.**
+
+---
+
 ## Next actions — for morning triage
 
 1. **Review the run branch on its merits** and decide the **three forks** in `DECISIONS-NEEDED.md`.
