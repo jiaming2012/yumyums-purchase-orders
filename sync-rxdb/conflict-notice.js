@@ -400,12 +400,18 @@ function formatDay(at, opts = {}) {
 /**
  * Records inside the window, newest first. Decision 96's window, read from the
  * one constant.
+ *
+ * 🛑 G6 FINDING F-5. `(records || [])` guards falsy and NOTHING ELSE: a truthy
+ * non-array — `{}` out of a store that returned a map instead of a list, a
+ * string out of a half-parsed payload — reached `.filter` and threw a
+ * `TypeError` out of `buildSheetModel`. The store this reads is local and
+ * unvalidated, so "it is always an array" is an assumption, not a fact.
  */
 export function withinRetention(records, opts = {}) {
   const days = typeof opts.retentionDays === 'number' ? opts.retentionDays : RETENTION_DAYS;
   const now = opts.now ? new Date(opts.now).getTime() : Date.now();
   const floor = now - days * MS_PER_DAY;
-  return (records || []).filter((r) => {
+  return (Array.isArray(records) ? records : []).filter((r) => {
     if (!r) return false;
     const t = new Date(r.overwritten_at).getTime();
     if (Number.isNaN(t)) return true; // an unreadable stamp is kept, not silently swept
@@ -449,7 +455,7 @@ export function buildSheetModel(records, opts = {}) {
       docId,
       name: first.checklist_name || 'Checklist',
       day: first.checklist_date || formatDay(first.overwritten_at, opts),
-      docChip: shortDocId(docId),
+      docChip: '', // V-2: assigned below, across the WHOLE sheet at once
       chipBase: answers.length,
       chipPlus: extras.length,
       rows,
@@ -464,6 +470,12 @@ export function buildSheetModel(records, opts = {}) {
       ),
     });
   }
+
+  // V-2 — the document chip is assigned over the WHOLE sheet, not per group, so
+  // no two groups can carry the same one. Done before the cap slice so a chip
+  // does not change when the cap line moves.
+  const chips = assignDocChips(groups.map((g) => g.docId));
+  for (const g of groups) g.docChip = chips.get(String(g.docId == null ? '' : g.docId));
 
   // Two orderings, deliberately, because they answer different questions.
   // WHICH ten survive the cap is decided newest-first — an offline stretch that
@@ -506,10 +518,56 @@ export function buildSheetModel(records, opts = {}) {
 
 // The group header's monospace chip. A submission id is a uuid; the chip exists
 // so a crew member can quote the row to a manager, not so it can be retyped.
+const DOC_CHIP_SIGNIFICANT = 6;
+
 function shortDocId(docId) {
   const s = String(docId || '');
   if (s.length <= 12) return s;
-  return `sub_${s.replace(/^sub[-_]/i, '').replace(/-/g, '').slice(0, 6)}`;
+  return `sub_${s.replace(/^sub[-_]/i, '').replace(/-/g, '').slice(0, DOC_CHIP_SIGNIFICANT)}`;
+}
+
+/**
+ * 🛑 VERIFIER FINDING V-2 — the chip must be UNIQUE on the sheet.
+ *
+ * `shortDocId` keeps six significant characters, and the shipped `edge-cap`
+ * plate PROVES that is not enough: "Checklist 1" (`sub-cap1-…-000000000001`)
+ * and "Checklist 10" (`sub-cap10-…-000000000000`) both rendered `sub_cap100`,
+ * two visible groups on one screen carrying the same identifier. With real
+ * uuids a six-hex collision is ~1 in 16M per pair — but the chip exists so a
+ * crew member can tell two groups apart and quote one to a manager, and a
+ * committed screenshot showed it failing at exactly that.
+ *
+ * Grouping and counting never depended on the chip (they key off `doc_id`), so
+ * this is display-only. The fix is a GUARANTEE rather than a longer slice:
+ * widening the prefix does not help ids that agree for 27 characters, and a
+ * 32-character chip would not fit the 480px column it is drawn in. Colliding
+ * chips get an ordinal instead, assigned in docId order so the mapping is
+ * stable across renders and does not move when the cap does.
+ *
+ * @param {Array<unknown>} docIds
+ * @returns {Map<string,string>} docId -> chip, every value distinct
+ */
+export function assignDocChips(docIds) {
+  const ids = [...new Set((Array.isArray(docIds) ? docIds : []).map((d) => String(d == null ? '' : d)))];
+  const byChip = new Map();
+  for (const id of ids) {
+    const chip = shortDocId(id);
+    if (!byChip.has(chip)) byChip.set(chip, []);
+    byChip.get(chip).push(id);
+  }
+  const out = new Map();
+  for (const [chip, sharers] of byChip) {
+    if (sharers.length === 1) {
+      out.set(sharers[0], chip);
+      continue;
+    }
+    // Deterministic and independent of render order: the sheet re-sorts groups
+    // newest-first, and a chip that moved between two groups on a re-render
+    // would be worse than one that repeats.
+    const ordered = [...sharers].sort();
+    ordered.forEach((id, i) => out.set(id, i === 0 ? chip : `${chip}·${i + 1}`));
+  }
+  return out;
 }
 
 /**

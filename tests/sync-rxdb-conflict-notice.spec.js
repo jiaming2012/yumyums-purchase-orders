@@ -453,6 +453,93 @@ test.describe('the cap (decision 97)', () => {
 });
 
 // ---------------------------------------------------------------------------
+// V-2 — the document chip. Display-only, and it has one job.
+// ---------------------------------------------------------------------------
+
+test.describe('V-2 — the document chip is unique on the sheet', () => {
+  // The `edge-cap` fixture, verbatim from tests/states-sync-rxdb-conflict-notice
+  // .spec.js. The shipped plate drew `sub_cap100` on BOTH "Checklist 1" and
+  // "Checklist 10" — two visible groups on one screen carrying the same
+  // identifier, on the chip that exists so a crew member can tell them apart.
+  const capDocs = () => {
+    const out = [];
+    for (let i = 0; i < 13; i++) {
+      const doc = `sub-cap${i}-0000-0000-0000-00000000000${i % 10}`;
+      out.push(rec({
+        id: `cap${i}`,
+        doc_id: doc,
+        submission_id: doc,
+        checklist_name: `Checklist ${i}`,
+        overwritten_at: `2026-07-2${(i % 7) + 1}T18:12:00-04:00`,
+      }));
+    }
+    return out;
+  };
+
+  test('the two ids the shipped plate collided on now render different chips', async () => {
+    const { buildSheetModel } = await load();
+    const src = capDocs();
+    expect(src).toHaveLength(13); // subject set, pinned (B-22/B-23/B-24)
+    const m = buildSheetModel(src, { now: '2026-08-01T09:00:00-04:00', maxGroups: 13 });
+    const chipOf = (name) => m.groups.find((g) => g.name === name).docChip;
+    // RED BEFORE THE FIX: both were `sub_cap100`.
+    expect(chipOf('Checklist 1')).not.toBe(chipOf('Checklist 10'));
+    // Still a prefix of the id it names — the chip is quotable, not opaque.
+    expect(chipOf('Checklist 1')).toMatch(/^sub_cap100/);
+    expect(chipOf('Checklist 10')).toMatch(/^sub_cap100/);
+  });
+
+  test('no two groups on one sheet EVER carry the same chip', async () => {
+    const { buildSheetModel } = await load();
+    const m = buildSheetModel(capDocs(), { now: '2026-08-01T09:00:00-04:00', maxGroups: 13 });
+    expect(m.groups).toHaveLength(13);
+    const chips = m.groups.map((g) => g.docChip);
+    expect(new Set(chips).size).toBe(chips.length);
+    for (const c of chips) expect(c, `chip for ${c}`).toBeTruthy();
+  });
+
+  test('assignDocChips is total and stable, and grouping never depended on it', async () => {
+    const { assignDocChips, buildSheetModel } = await load();
+    expect(assignDocChips([])).toEqual(new Map());
+    expect(assignDocChips(null)).toEqual(new Map());
+    // Same input, either order in: same chip out. A chip that moved between two
+    // groups on a re-render would be worse than one that repeats.
+    const a = assignDocChips([DOC_A, DOC_B]);
+    const b = assignDocChips([DOC_B, DOC_A]);
+    expect(a.get(DOC_A)).toBe(b.get(DOC_A));
+    expect(a.get(DOC_B)).toBe(b.get(DOC_B));
+    // Chips are cosmetic: grouping and counting key off doc_id and are unmoved.
+    const m = buildSheetModel(capDocs(), { now: '2026-08-01T09:00:00-04:00' });
+    expect(m.groups).toHaveLength(10);
+    expect(m.totals.answers).toBe(13);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// F-5 — the cheap totality guards.
+// ---------------------------------------------------------------------------
+
+test.describe('F-5 — buildSheetModel survives a non-array `records`', () => {
+  test('a truthy non-array is an empty sheet, not a TypeError', async () => {
+    const { buildSheetModel, withinRetention } = await load();
+    // `(records || [])` guarded falsy and NOTHING ELSE. The store this reads is
+    // local and unvalidated — a map instead of a list, or a half-parsed string,
+    // reached `.filter` and threw out of the render.
+    for (const bad of [{}, 'records', 42, true, new Map(), { 0: rec({}) }]) {
+      let m;
+      expect(() => { m = buildSheetModel(bad, { now: NOW }); }, `input ${String(bad)}`).not.toThrow();
+      expect(m.status).toBe('empty');
+      expect(m.groups).toEqual([]);
+      expect(m.totals.answers).toBe(0);
+      expect(withinRetention(bad, { now: NOW })).toEqual([]);
+    }
+    // The falsy cases it already handled must keep working.
+    expect(buildSheetModel(null, { now: NOW }).status).toBe('empty');
+    expect(buildSheetModel(undefined, { now: NOW }).status).toBe('empty');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Values and attribution.
 // ---------------------------------------------------------------------------
 
