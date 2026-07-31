@@ -16,42 +16,65 @@ agreement with sales-processor. Until both repos land, one of them is wrong.
 | `app-timezone-unify-new-york` | A | **LANDED** (resume of the 07-29 park) | APPROVE WITH FINDINGS → fixed | clean |
 | `sync-rxdb-row-visibility-rls` | B | **LANDED** (resume of the 07-29 park) | APPROVE WITH FINDINGS → fixed | clean |
 | `sync-rxdb-replication-and-conflict-handler` | C1 | **LANDED** | APPROVE WITH FINDINGS → fixed | 3 conflicts, all pre-resolved |
-| `sync-rxdb-conflict-notice-ui` | C2 | _(in flight at time of writing — see below)_ | — | — |
+| `sync-rxdb-conflict-notice-ui` | C2 | **LANDED** | verifier **PASS 30/30** + G6 APPROVE WITH FINDINGS → fixed | clean |
+
+**4 of 4 landed. Nothing parked.**
 
 **Every card ran three phases, not one:** implementation → fresh-subagent G6 adversarial review →
-fix round. **All three G6 reviews returned APPROVE WITH FINDINGS, and every one of them found at
-least one blocking defect.** No card merged on its first submission. That is the gate working.
+fix round. C2 ran four, adding the CLAUDE.md verifier gate. **All four G6 reviews returned APPROVE
+WITH FINDINGS, and every one found at least one blocking defect.** No card merged on its first
+submission. That is the gate working, not the cards failing.
+
+**The Track-C serialization paid for itself.** C2 was cut *after* C1 merged, so it developed against
+the merged state — and the two cards sharing the RxDB client layer and `workflows.html` most heavily
+produced **zero conflicts**. C2 also checked its backlog number against the merged run branch rather
+than its own worktree, which is exactly the check A1 and C1 both skipped when they collided on B-28.
 
 ---
 
-## Gate evidence on the FINAL MERGED TREE
+## Gate evidence on the FINAL MERGED TREE (all four cards)
 
 Run by the orchestrator on `overnight-20260801` with **fresh isolated databases**
-(`hq_final_go`, `hq_final_e2e`, `TEST_PORT=8290`) — **not inherited from card reports**.
+(`hq_final2_go`, `hq_final2_e2e`, `TEST_PORT=8292`) — **not inherited from card reports**.
 
 - **G1** — `go build ./...` **exit 0**; `go vet ./...` **exit 0**.
 - **G2 (Go)** — `go test -p 1 -count=1 ./...` **exit 0**. 9 packages `ok`, 0 failed.
   **DB liveness proven, not assumed: 51 tables, goose version 73** on a freshly created database —
-  which is the real proof that A1's `0072` and B2's `0073` coexist and apply in order.
-- **G2 (Playwright)** — `npx bddgen` **exit 0**; `npx playwright test --retries=0` **exit 1**.
-  **657 passed / 6 skipped / 1 failed of 664**, 23.1m, **23 spec files** (22 static + 1 generated).
-  **Exactly one summary block — the run is not VOID.**
-
-  🛑 **The single failure is the ARMED RED**, by full title:
-  `list page progress decrements when another device unchecks a field [LST-17]`
-  (`tests/sync.spec.js:446`). Expected `0/1`, received `1/1 items` — i.e. the live bug it exists to
-  hold open. **This is the expected state, and its firing is the run's own proof the suite is not
-  silently green.** I am not calling G2 Playwright "green": it exits 1, and the sole failure is the
-  test that is supposed to fail.
-
-  Verified alongside it: the bare tag `[LST-17]` matches **two** tests, which is why the slate
-  mandates the full title; and `tests/sync.spec.js:1198` is a bare `}` — **dead, and correctly not
-  armed**.
-
-  **Neither B-27 nor B-30 fired in this run.** Neither is retired by that.
-- **G4** — `node build-sw.js` idempotent (tree clean on a second run), **27 files / 2027.3 KB**.
-  Version parity: `version.go Frontend = 1.3.0` ≡ `package.json 1.3.0` ≡ `version.json 1.3.0`.
+  the real proof that A1's `0072` and B2's `0073` coexist and apply in order.
+- **G2 (Playwright)** — `npx bddgen` **exit 0**; `npx playwright test --retries=0` **exit 0**.
+  **733 passed / 6 skipped / 0 failed of 739**, 22.9m. **Exactly one summary block — not VOID.**
+- **G4** — `node build-sw.js` idempotent (tree clean on a second run), **29 files / 2111.1 KB**.
+  Parity: `version.go Frontend = 1.4.0` ≡ `package.json 1.4.0` ≡ `version.json 1.4.0`.
   `Backend` unchanged at `0.3.0`.
+
+### 🛑 The armed red is itself intermittent, and that changes what it proves
+
+An earlier gate run on the **three-card** tree exited **1** with a single failure: the armed red
+`list page progress decrements when another device unchecks a field [LST-17]`
+(`tests/sync.spec.js:446`), expected `0/1`, received `1/1 items`. On the **four-card** tree it
+**passed**.
+
+**This was checked rather than assumed, because the first check was inconclusive.** The gate script
+piped Playwright through `tail -35`, which truncated the armed red's line out of the captured log —
+so "passed" and "skipped" were indistinguishable in the evidence. That is the same defect class this
+run was armed against, produced by the orchestrator's own instrumentation. Resolved directly: the
+test is a plain `test(...)` with **no `.skip`/`.fixme`**, and a targeted run on the final tree
+(`-g "list page progress decrements when another device unchecks a field"`, fresh DB, port 8294)
+reported **`1 passed (2.4m)`** — so it genuinely **executed and passed**.
+
+**Across tonight's Playwright legs `[LST-17]` fired in roughly three and passed in five.** It is not
+skipped and it is not disarmed — but it is **load/order-sensitive, in the same family as B-27, B-30
+and B-32**. The consequence is worth stating plainly:
+
+> **"The armed red fired" is not reliable proof the suite is not silently green, and "the armed red
+> did not fire" is not a disarm.** A tripwire that only trips sometimes cannot carry the evidential
+> weight the slate assigns it. **Recommend triage consider folding `[LST-17]`'s flakiness into
+> B-32**, or replacing it with a deterministic tripwire.
+
+Verified alongside it: the bare tag `[LST-17]` matches **two** tests, which is why the slate mandates
+the full title; and `tests/sync.spec.js:1198` is a bare `}` — **dead, and correctly not armed**.
+
+**B-27, B-30 and B-32's members did not fire in the final run. None is retired by that.**
 - **G4 discipline greps** — `internal/journal` and `internal/workorder` **do not exist in this
   repo**. Recorded **N/A-VACUOUS, not clean** (**B-14**, now the fourth consecutive triage).
 - **G3** — **N/A**. Workflow preflight verdict is `openspec: absent`; no scaffolding was created.
@@ -87,9 +110,16 @@ timezone move, and this. Filed as **B-29**. **Fork stays OPEN.**
 | **B-29** | A1 | The undisclosed 2026-06-06 completeness-gate drift (Fork 2). **An operator decision, not a code task.** |
 | **B-30** | A1 | `[A1-TZ-02]` reds under whole-suite load, greens in isolation. Filed with its mechanism recorded rather than left as folklore. |
 | **B-31** | C1 | `index.html`'s launcher **hides tools a user can reach**: it gates tiles on literal slugs, but per-tab grants are not literal slugs. A user holding only `inventory-trends` reaches the tab and the API and sees **no Inventory tile**. Pre-existing; belongs to whichever card owns the launcher. |
+| **B-32** | C2 | The **load/scale-sensitive 30 s timeout family** — tests that redden at whole-suite scale and green in isolation. Files `[LC-02]` and `inventory.spec.js:2908` alongside B-27 and B-30. **Both refused attribution on evidence, neither retired.** |
 
 **B-28 was filed twice.** A1 and C1 independently picked the next free number without seeing each
 other — the signature of concurrent dispatch. Both entries survive; C1's was renumbered to **B-31**.
+
+**`[LC-02]` was refused attribution on hard evidence, not on a hunch.** The same test reddened as a
+30 s timeout on **2026-07-26**, on a different card's leg, on a tree where `workflows.html` and
+`tests/workflows.spec.js` were **proven byte-identical to base** — five days before C2 existed. Its
+recorded signature there was *"element was detached from the DOM, retrying"*. The reviewer's own run
+then reproduced the class on `inventory.spec.js:2908`, a spec C2's diff does not touch at all.
 
 ---
 
@@ -178,11 +208,38 @@ gate run, two database collisions, and a duplicate backlog number.
 
 ## Next actions — for morning triage
 
-1. **Review the run branch on its merits** and decide the two forks above. Fork 2 is the one with an
-   external counterparty and a payroll consequence.
-2. **The attended two-device convergence check has re-armed** — frontend files moved and `sw.js` was
-   regenerated. Runbook: `reference/attended-two-device-check.md`.
-3. **Coordinate with sales-processor** before anything deploys. Two notices, not one.
-4. **Decide whether `purchasing.spec.js:1792` earns a backlog number.**
-5. **Disarm `HQ_SYNC_REST_URL` only on evidence**, if you judge B2's suite sufficient — the run does
-   not get to assert it.
+1. **Review the run branch on its merits** and decide the **three forks** in `DECISIONS-NEEDED.md`.
+   **Fork 2 is the one to read first** — it has an external counterparty and a payroll consequence.
+   Fork 3 is explicitly non-blocking; if you do nothing, C2 ships as signed and is correct.
+2. **The attended two-device convergence check has RE-ARMED** — frontend files moved and `sw.js` was
+   regenerated twice (22 → 27 → 29 precached files). Runbook:
+   `reference/attended-two-device-check.md`. **This is an attended follow-up, not a run task.**
+3. **Coordinate with sales-processor before anything deploys. Two notices, not one** — the timezone
+   move, and the undisclosed June 2026 completeness-gate drift.
+4. **Decide whether `purchasing.spec.js:1792` earns a backlog number** (640 ms backwards jump between
+   two server-side `now()` reads; passed in isolation).
+5. **Disarm `HQ_SYNC_REST_URL` only on evidence**, if you judge B2's suite sufficient. The run does
+   not get to assert it, and did not.
+6. **Consider what to do about `[LST-17]`.** It is intermittent (see the gate section), so it can no
+   longer carry the evidential weight the slate assigns it. Fold into B-32, or replace it with a
+   deterministic tripwire.
+7. **Two C2 items that are yours, not the card's:** the **new mockup deviation** (production's dark
+   confirm no longer matches the signed `a2-confirm-dark` plate, because V-1 was fixed in
+   `workflows.html` and the signed plate deliberately left alone — SUMMARY.md §1a identifies the
+   two-line change if you would rather re-sign it), and **F-4** — `PLAN.md` landed *after* the
+   implementation, and it carries the contract the verifier gate grades against. Recorded in
+   SUMMARY.md §4, not argued away.
+8. **A version convention question, not a defect.** C1 took `1.2.2 → 1.3.0` and C2 took
+   `1.3.0 → 1.4.0`, walking the frontend two minors in one night for one feature delivered in halves.
+   Both bumps are individually correct.
+
+## What is NOT done
+
+- **Nothing is deployed, nothing is pushed, nothing is tagged, `main` is untouched.**
+- **`sync-hard-cutover` inherits three notes**, all recorded rather than improvised: the `_deleted`
+  delete-vs-edit product question (**severity corrected — the uncheck-vs-edit collision is the most
+  likely conflict on this schema, not a corner case**), `makeSyncFetch` losing method and body on a
+  `Request` argument, and `formatValue`'s now-bounded unwrap needing care once a network-fed producer
+  exists.
+- **RxDB push replication is still refused** — B2 landed SELECT policies only; writes remain
+  deny-all until a follow-up card writes `WITH CHECK` policies.
