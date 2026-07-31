@@ -275,6 +275,23 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .cfm-go{background:var(--bad-bg);color:var(--bad-tx)}
 .cfm-go-s{font-size:10.5px;font-weight:500;opacity:.8;line-height:1.3;overflow-wrap:anywhere}
 .cfm-cancel{background:var(--bg);color:var(--txt);border-color:var(--brd)}
+/* 🛑 VERIFIER FINDING V-1 — Cancel and Replace at EQUAL WEIGHT in dark mode.
+   In light mode they already are: `--bad-bg` is #fee2e2 and `--bg` is #f5f5f3,
+   two pale fills on a white card. In dark mode the same two variables are
+   #7f1d1d — a SATURATED red — against #1a1a1a on a #262626 card, so Cancel sank
+   into the card and the DESTRUCTIVE control was the most prominent element on
+   the screen. On a confirm that destroys someone's answers, on a phone used at
+   night in a truck. A-2's stated intent is "Cancel at equal weight", and row 9's
+   machine check passes on order, text and size — all correct — so nothing caught
+   it.
+   Both fills become low-alpha tints of near-equal lightness over the card
+   (~#444 vs ~rgb(72,50,50)); Replace stays unmistakably the destructive one via
+   red text and a red border, not via being the loudest thing on screen. Order,
+   labels and sizes are untouched — those are contract-checked and passing. */
+@media(prefers-color-scheme:dark){
+.cfm-go{background:rgba(248,113,113,0.16);border-color:rgba(252,165,165,0.45)}
+.cfm-cancel{background:rgba(255,255,255,0.14);border-color:rgba(255,255,255,0.22)}
+}
 .sc-empty{background:var(--card);border:0.5px solid var(--brd);border-radius:12px;padding:34px 22px;text-align:center}
 .sc-empty h3{font-size:15px;font-weight:600;margin:0 0 7px}
 .sc-empty p{font-size:12.5px;color:var(--mut);line-height:1.55;margin:0}
