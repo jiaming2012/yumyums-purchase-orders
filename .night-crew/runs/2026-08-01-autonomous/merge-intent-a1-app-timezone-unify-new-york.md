@@ -338,3 +338,38 @@ other agent's databases were **not touched** (B-16).
 
 🛑 **Still true and unchanged by the fix round: NOTHING SHIPS TO PROD from this
 card.** `HQ_SYNC_REST_URL` is set nowhere.
+
+### 9a. Gate results for the fix round — and one thing the orchestrator must know
+
+Own databases throughout: **`hq_fix_a1_go`**, **`hq_fix_a1_e2e`**,
+**`TEST_PORT=8221`**. Nothing else was touched or dropped.
+
+| Gate | Result |
+|---|---|
+| G1 | `go build ./...` **exit 0**, `go vet ./...` **exit 0** |
+| G2 Go | `go test ./... -p 1 -count=1` **exit 0**; DB live at **48 tables / goose 72**, `cutoff_config.timezone` default observed as `'America/New_York'::text` (migration `0072` applied) |
+| G2 Playwright | **run TWICE in full**, `--retries=0`, **603 tests / 21 spec files** each; one summary block each (**neither VOID**); **596 passed / 6 skipped / 1 failed, exit 1** — with a **different** single failure each time |
+| G3 | N/A |
+| G4 | `node build-sw.js` idempotent (`sw.js` byte-identical across two consecutive runs, tree clean); `version.go Frontend 1.2.2` ≡ `package.json 1.2.2` ≡ `version.json 1.2.2`. Discipline greps (`internal/journal`, `internal/workorder`): **N/A-VACUOUS, not clean** — neither package exists in `backend/` (B-14) |
+
+🛑 **G2 Playwright exits 1 on both runs and neither failure reproduces.**
+
+- **Run 1 failed `[A1-TZ-02]`** — one of this card's own offline-queue period
+  tests, and **NOT** a previously-armed red. It then passed in isolation (5/5
+  under `-g "A1-TZ"`) and passed **at the identical suite position, test 478 of
+  603**, on the immediate re-run. **Filed as `B-30`, not laundered**, with the
+  mechanism written down: the `T2` assertion passed and `T3` returned `null`,
+  which is what a late-installing `page.clock` produces and not what a product
+  period mismatch produces (that would have reddened `T2` too). `[A1-TZ-01]`,
+  which drives the same three instants through `isCurrentPeriodEntry` directly,
+  was green in both runs. `tests/sync.spec.js` is the only spec file in the repo
+  that uses `page.clock`.
+- **Run 2 failed `[LST-17]`** (`tests/sync.spec.js:446`) — the **standing armed
+  red**, which B-25 confirms is live and correct.
+- **`inventory.spec.js:883` (B-27) did not fire in either run.** Per its own
+  entry and the standing rule, **non-reproduction does not retire it.**
+- The box carried **three concurrent Playwright stacks** throughout (this card's,
+  card C1's on `:8281`, and B2's), which is the load context for both flakes.
+
+**`HQ_SYNC_REST_URL` is set nowhere** — greps find it only in comments, docs and
+the `ProxyRESTURLEnv` constant. Nothing was deployed.
