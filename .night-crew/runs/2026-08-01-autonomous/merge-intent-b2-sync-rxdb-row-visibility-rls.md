@@ -19,6 +19,7 @@ Written **before** implementing, per the run's per-change mechanics. Merged
 | `sync-schema/sql/0003_rls_policies.sql` | **new file** | The policies themselves. Deliberately a **separate file from `0002`** so the red state is reproducible by applying `0002` and not `0003` — the same split discipline `hq-bridge-fixture.sql` / `hq-bridge-policies.sql` uses. |
 | `.night-crew/knowledge/roadmap.md` | **NO — every card touches it** | The card's status flip, required in the same change set. **One bullet only.** Expect a conflict; resolve per-bullet, never per-file. |
 | `.night-crew/runs/2026-08-01-autonomous/*-b2-*.md` | **YES** | This note and the closeout. Card-scoped filenames; no other card writes them. |
+| `.night-crew/qa/spike-supabase/captures/{red,green}-20260801-row-visibility.txt` | **YES** | *Added to this table after the fact, once the shape of the evidence was known — flagged rather than backdated.* The red/green captures, in the directory `sync-jwt-bridge-endpoint` established. Date- and card-scoped filenames; additive only, no existing capture touched. |
 
 ### Files I do NOT touch — stated so absence reads as considered
 
