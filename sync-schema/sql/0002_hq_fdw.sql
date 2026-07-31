@@ -241,16 +241,42 @@ $$;
 -- for everyone. That would leak MORE than the policies below protect.
 --
 -- Postgres grants no privilege on a new relation by default, so these revokes
--- are belt-and-braces rather than strictly required — but "default privileges
--- are currently empty" is a property of a database that a later
--- ALTER DEFAULT PRIVILEGES can change silently, and this is exactly the class
--- of check that must not depend on a subject set staying empty. The suite
--- asserts the refusal directly (variants V14-V16) rather than trusting it.
+-- LOOK like belt-and-braces — but "default privileges are currently empty" is a
+-- property of a database that a later ALTER DEFAULT PRIVILEGES can change
+-- silently, and this is exactly the class of check that must not depend on a
+-- subject set staying empty. The suite asserts the refusal directly (variants
+-- V14-V16) rather than trusting it.
+--
+-- 🛑 AND ON THIS IMAGE THEY WERE NOT EMPTY — MEASURED, run overnight-20260801
+-- finding F4. Straight after creating the three foreign tables:
+--
+--   hq_user_roles -> supabase_admin=arwdDxt/supabase_admin
+--                  | postgres=arwdDxt/supabase_admin
+--                  | service_role=arwdDxt/supabase_admin
+--   has_table_privilege('service_role','public.hq_user_roles','SELECT') = true
+--
+-- `service_role` IS PostgREST-reachable — `authenticator` is a member of it
+-- (pg_auth_members: authenticator -> anon, authenticated, service_role), which
+-- is precisely what makes the BYPASSRLS control token in the suites work. So a
+-- service_role token was a single GET away from HQ's whole role map, through the
+-- one role RLS cannot stop. It is on the revoke list below now.
+--
+-- This is NOT NEW EXPOSURE and is not being reported as a breach: service_role
+-- holds BYPASSRLS anyway, and Sign() refuses to mint it (see
+-- TestMint_NeverMintsServiceRole), so no token this backend issues can reach it.
+-- It is on the list because the paragraph above is this section's own stated
+-- argument, and the argument turned out to be load-bearing rather than
+-- theoretical.
+--
+-- `postgres` is deliberately NOT on the list: authenticator is not a member of
+-- it (verified in the same query), so it is not PostgREST-reachable, and it is
+-- the image's own superuser-adjacent owner role — revoking from it would be
+-- fighting the platform rather than closing a door.
 --
 -- The SECURITY DEFINER functions in 0003 are unaffected: they run as the owner.
-revoke all on public.hq_template_assignees from anon, authenticated, public;
-revoke all on public.hq_user_roles         from anon, authenticated, public;
-revoke all on public.hq_field_templates    from anon, authenticated, public;
+revoke all on public.hq_template_assignees from anon, authenticated, service_role, public;
+revoke all on public.hq_user_roles         from anon, authenticated, service_role, public;
+revoke all on public.hq_field_templates    from anon, authenticated, service_role, public;
 
 -- PostgREST caches the schema; new relations are 404 until it reloads.
 notify pgrst, 'reload schema';
