@@ -300,6 +300,77 @@ export const LOCAL_COLLECTIONS = {
         // actor whose write WON, not the person holding the phone.
         overwritten_by: NULLABLE_UUID,
         overwritten_at: TIMESTAMP,
+
+        // ─── ADDED BY `sync-rxdb-conflict-notice-ui` (overnight-20260801, C2) ──
+        //
+        // Everything above is B1's and is byte-unchanged, including `required`:
+        // the three declarations this file's header says other cards must not
+        // re-litigate — `_modified`/`_deleted` undeclared, who-and-when carried,
+        // the collection LOCAL with no `table` — are all untouched. What follows
+        // is the set of fields the sheet cannot be DRAWN without, each with the
+        // plate that needs it.
+        //
+        // All optional. A record written by an older build still reads, and the
+        // renderer degrades per field rather than refusing the row.
+
+        // The group key. `conflict$` fires once per DOCUMENT and the sheet
+        // groups by document — the grouping is not cosmetic, it is the shape the
+        // event arrives in.
+        doc_id: { type: 'string', maxLength: 64 },
+        // Which replicated collection the document came from, so a future
+        // non-response conflict is not silently rendered as an answer.
+        collection: { type: ['string', 'null'], maxLength: 40 },
+
+        // 🛑 THE `Now shows` VALUE. Every plate in the signed mockup draws it,
+        // A-2's confirm lists it struck through, and r2's schema carried no
+        // field for it — the record held only what was LOST, never what won. A
+        // sheet that cannot say what the checklist reads now cannot ask anyone
+        // to decide whether to replace it.
+        current_value: JSON_VALUE,
+
+        // 🛑 AMENDMENT A-3 (ledger T-28 decision 95). A removed question keeps
+        // its label, struck through and read-only. The label is frozen off the
+        // submission's own `template_snapshot` at the moment the record is
+        // written, so the row survives the live template moving on — and so the
+        // renderer is not obliged to hold a snapshot to draw a row.
+        //
+        // NULLABLE ON PURPOSE, and that null is A-3's own fallback: a snapshot
+        // that genuinely carries no label for the id renders the raw field id
+        // exactly as r2 drew it. Because NOTHING VALIDATES `template_snapshot`
+        // (this file's `checklists.template_snapshot` is `{type:'object'}` with
+        // no nested `properties` — B1's recorded-not-fixed item R-C, promoted to
+        // a dependency by A-3), "malformed" and "carries no label" are the same
+        // branch by construction, which is what makes the fallback total.
+        field_label: { type: ['string', 'null'], maxLength: 400 },
+        // The answer's type and unit, so a temperature reads "38 °F" and a
+        // free-text note reads in quotes. Rendering only.
+        field_type: { type: ['string', 'null'], maxLength: 40 },
+        display_unit: { type: ['string', 'null'], maxLength: 16 },
+        // True when the LIVE template no longer contains this field id — the
+        // owner edited the template while the phone was offline. It is what
+        // selects A-3's struck-through read-only rendering over the ordinary
+        // one, and it is stored rather than derived because the live template is
+        // not always in hand when the sheet is drawn.
+        field_removed: { type: 'boolean' },
+
+        // Group header copy. Read off the submission when the record is written.
+        checklist_name: { type: ['string', 'null'], maxLength: 200 },
+        checklist_date: { type: ['string', 'null'], maxLength: 40 },
+        // The human name behind `overwritten_by`. A-2.3 requires name AND time
+        // on every `Now shows` row, including the collapsed one, and a uuid is
+        // not an attribution. Null degrades honestly to "someone else" — a
+        // server-side or migration touch has no human actor.
+        overwritten_by_name: { type: ['string', 'null'], maxLength: 120 },
+
+        // The row's own state. Counting rule 6 reads it: `restored` and `kept`
+        // are REVIEWED; `open`, `restoring` and `failed` are still to review.
+        // 🛑 There is no `dismissed`: dismissing REMOVES the record, which is
+        // the only way a row leaves the sheet other than expiry ((b) STANDS).
+        status: { type: 'string', enum: ['open', 'restoring', 'restored', 'failed', 'kept'] },
+        // A restored row that was then undone returns to `open` and carries one
+        // muted line saying so, because a silent tap is worse than a loud one.
+        undone: { type: 'boolean' },
+        failure: { type: ['string', 'null'], enum: ['offline', 'conflict', null] },
       },
       required: ['id', 'field_id', 'discarded_value', 'overwritten_by', 'overwritten_at'],
     },
