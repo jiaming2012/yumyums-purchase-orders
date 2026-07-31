@@ -202,6 +202,16 @@ const CASES = [
     // ordinary rule. The fork deleted the row, master only renamed it, so the
     // delete is UNCONTESTED and survives (and carries master's rename with it).
     //
+    // 🛑 THIS CASE PINS AN OPEN QUESTION, not a settled rule. Master's rename
+    // lands on a tombstone and NOTHING is reported, because no field clashed —
+    // the one silent-loss path left in the merge. It is unreachable today (no
+    // HQ page writes through RxDB and HQ hard-deletes none of the four mirrored
+    // tables; templates ARCHIVE via `archived_at`), and "should an intentional
+    // delete beat a concurrent edit?" is a product question belonging to
+    // `sync-hard-cutover`, the card that introduces the write path. Pinned here
+    // so that card changes it visibly rather than by accident. See the header
+    // of sync-rxdb/conflict-handler.js.
+    //
     // 🛑 Worth writing down because it is not obvious: WITH a baseline a
     // `_deleted` clash is UNREACHABLE. It is a boolean, so "both sides changed
     // it from the same baseline" forces both to have flipped to the same value,

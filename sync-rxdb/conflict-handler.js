@@ -101,6 +101,41 @@
 // from which nothing recoverable was lost — the "a change we couldn't identify"
 // noise decision 78 was already at pains to avoid.
 //
+// ===========================================================================
+// 🛑 OPEN QUESTION INHERITED BY `sync-hard-cutover` — DELETES.
+// ===========================================================================
+// `_deleted` is NOT reserved: it is a real user act, so it merges by the
+// ordinary rule. That is consistent, and it has one consequence decision 50
+// does not cover, because decision 50 is written about FIELD edits and a delete
+// is not a field edit:
+//
+//   fork sets `_deleted: true`, master edits some other field
+//     → the delete is UNCONTESTED, so it survives — and master's edit lands on
+//       a tombstone, i.e. it is annihilated, and NOTHING IS REPORTED because no
+//       field clashed.
+//
+// This is the one silent-loss path left in the rule, and it is written down
+// here rather than fixed for two reasons:
+//
+//   1. IT IS UNREACHABLE TODAY. No HQ page writes through RxDB (this card is
+//      import + construction only), and HQ's own domain does not hard-delete
+//      any of the four mirrored tables — a template is ARCHIVED
+//      (`archived_at`, `archiveTemplate`), responses are upserted, submissions
+//      and rejections are not deleted. So no code path can produce it.
+//   2. "Should an intentional delete beat a concurrent edit, or should the edit
+//      block the delete?" IS A PRODUCT QUESTION, and this card has no standing
+//      to answer it. It belongs to `sync-hard-cutover`, which is the card that
+//      introduces the write path — including whatever delete path it introduces.
+//
+// The current behaviour is pinned by a named test
+// (`_deleted participates in the merge — an UNCONTESTED local delete survives`)
+// so a future card changing it does so visibly rather than by accident.
+//
+// Note also, and it is not obvious: WITH a baseline a `_deleted` CLASH is
+// unreachable. It is a boolean, so "both sides changed it from the same
+// baseline" forces both to have flipped to the same value — the convergent
+// case. `_deleted` can only be reported in the no-baseline fallback.
+//
 // 🛑 KNOWN AND ACCEPTED LIMIT, recorded rather than hidden: the schema
 // (decision 79) carries ONE provenance pair per ROW, not per field. So a merged
 // row that took `name` from the fork and `requires_approval` from master can
