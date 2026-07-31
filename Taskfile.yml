@@ -27,7 +27,17 @@ tasks:
 
   test:
     desc: Run Playwright E2E tests (set HEADED=1 for visible browser)
-    deps: [backend:db-test, sw]
+    # bdd:gen is NOT optional. playwright.config.js defines TWO projects —
+    # `chromium` (./tests) and `bdd` (the .features-gen/ dir playwright-bdd
+    # writes). Without the generation step, .features-gen/ does not exist on a
+    # fresh worktree, and Playwright resolves the `bdd` project to ZERO spec
+    # files: 19 of 20 run, with no error and no skip line, and the suite reports
+    # success. `bdd:` (:78) and the CI task already carried this dep; `test:`
+    # was the sole omission, and every card leg reported a full suite in good
+    # faith while a whole project contributed nothing. BACKLOG B-09, ledger
+    # T-25 decision 73; fixed by card `test-harness-fail-loud`.
+    # Guarded by scripts/verify-test-harness.sh — do not remove it.
+    deps: [backend:db-test, sw, bdd:gen]
     cmds:
       # Start from a clean hq_test_e2e. This suite shares ONE server + ONE
       # database across all spec files; leftover users/templates/pending-purchases

@@ -7,13 +7,15 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/yumyums/hq/internal/testdb"
 )
 
 // setupTestDB connects to hq_test and TRUNCATES the recipes-relevant fixture tables
-// so each test starts clean. Mirrors the TestMain-based connection idiom in
-// backend/internal/receipt/worker_test.go: any connect/ping failure causes the
-// test to t.Skip rather than t.Fatalf, so a missing or unreachable DB doesn't
-// register as a regression.
+// so each test starts clean. It applies the asymmetric gate in internal/testdb:
+// a DB_TEST_URL that is UNSET skips (a contributor without Postgres must still
+// be able to run the tests that need none), and a DB_TEST_URL that is SET but
+// unreachable FAILS. Both arms used to skip, which is how a DROPped database
+// once read as `ok`.
 //
 // Required env (checked in order): DB_TEST_URL, TEST_DATABASE_URL. The
 // project's Taskfile sets DB_TEST_URL; the alternate is tolerated for CI
@@ -22,21 +24,23 @@ import (
 // pointing tests at the wrong DB has bitten the suite before.
 func setupTestDB(t *testing.T) *pgxpool.Pool {
 	t.Helper()
-	dbURL := os.Getenv("DB_TEST_URL")
+	dbURL := os.Getenv(testdb.EnvVar)
 	if dbURL == "" {
 		dbURL = os.Getenv("TEST_DATABASE_URL")
 	}
 	if dbURL == "" {
 		t.Skip("DB_TEST_URL / TEST_DATABASE_URL not set — skipping integration test")
 	}
+	// Past this point the URL was set explicitly, so a run WAS intended and
+	// every failure below is a failure, never a skip.
 	ctx := context.Background()
 	pool, err := pgxpool.New(ctx, dbURL)
 	if err != nil {
-		t.Skipf("DB_TEST_URL not reachable (connect failed): %v", err)
+		t.Fatal(testdb.Reason(dbURL, "connect", err))
 	}
 	if err := pool.Ping(ctx); err != nil {
 		pool.Close()
-		t.Skipf("DB_TEST_URL not reachable (ping failed): %v", err)
+		t.Fatal(testdb.Reason(dbURL, "ping", err))
 	}
 	// Truncate in dependency order. CASCADE handles recipes/drift_check_results cleanup.
 	_, err = pool.Exec(ctx,

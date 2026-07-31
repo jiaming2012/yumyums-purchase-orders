@@ -525,8 +525,8 @@
   full suite re-run for a comment); this card makes the sentence accurate instead. Footprint:
   `backend/internal/workflow`, a migration, `workflows.html`, `sync.js`.
 
-- **`test-harness-fail-loud`** · **PLANNED — slated on `overnight-20260729-2` (Track A, card H1,
-  dispatch first)** · **PROMOTED from BACKLOG B-09 + B-16(b) at the 2026-07-28 slate-planning
+- **`test-harness-fail-loud`** · **DONE — landed on `overnight-20260729-2` (Track A, card H1)** ·
+  **PROMOTED from BACKLOG B-09 + B-16(b) at the 2026-07-28 slate-planning
   session under the §15k architecture-blocking bar (ledger T-27 decision 90).** Make a broken test
   environment **fail** instead of **pass**. Two mechanisms, one theme, and the theme is the point:
   `overnight-20260729` produced **three** silent-greens in one run, which the closeout correctly
@@ -550,27 +550,41 @@
   not any test the harness newly reveals as failing — park those with evidence. **B-16(a)** (reviewer
   prompts must forbid dropping a database the reviewer did not create) is **not** in this card; it is
   standing G6 dispatch text. Footprint: `Taskfile.yml`, `backend/internal/*/**_test.go`.
+  **Landed as planned, with both reds observed first at `82350cc`.** (a) `npx playwright test
+  --list` went `Total: 568 tests in 19 files` → `Total: 569 tests in 20 files`; the 20th is
+  `.features-gen/features/user-invite-onboarding.feature.spec.js`. (b) All seven DB-backed packages
+  reported `ok` in **under 1.3s each** against a `DB_TEST_URL` naming a database that does not
+  exist; they now exit 1 with the DSN, the stage (connect vs ping) and the reason in the message.
+  Two deviations, both disclosed in the merge-intent note: the asymmetry lives in **one** new
+  test-only package, `backend/internal/testdb` (outside the stated footprint) rather than in eight
+  inline copies — eight copies would be eight patterns; and the per-test `t.Skip` lines the card
+  enumerates in `requires_approver_test.go` / `sync_receipts_test.go` / `worker_test.go` are
+  **subsumed, not edited**, because they all key off the package-level `testPool == nil` that the
+  five converted `TestMain`s set. Reproducible via `scripts/verify-test-harness.sh`, whose third
+  check (B2) guards the *other* direction: `DB_TEST_URL` unset must keep skipping.
 
-- **`app-timezone-unify-new-york`** · **DONE — every site, one card** (2026-07-29, run
-  `overnight-20260729-2`, Track A card A1, branch `card/a1-app-timezone-unify-new-york`) ·
-  **🛑 CHANGEOVER DATE 2026-07-29** — recorded in the header of
-  `backend/internal/db/migrations/0072_app_timezone_new_york.sql` and at `CurrentWeekStart`,
-  `costWindow` and `runDriftTick`. Every weekly/daily boundary moves one hour earlier in wall-clock
-  terms, exactly once. **FIX FORWARD ONLY** — weekly COGS and payroll figures produced before that
-  date were already acted on and are **NOT** restated. No new timezone constant was invented: Go
-  reads `users.DefaultTimezone` directly and `sync.js` states the same value as `APP_TIMEZONE` with a
-  note that the two move together; the 6 inventory SQL casts collapsed into one const
-  (`pendingPeriodDateExpr`) that `trends.go` now literally shares, so the two endpoints cannot drift
-  on which day a receipt belongs to. Migrations `0037`/`0042` were left untouched as immutable
-  history — `0072` re-points both column DEFAULTs **and** UPDATEs rows already written, without which
-  the old boundary survives. Red-first both halves: a frozen-clock Go boundary test at
-  `2026-07-27T00:30-04:00` (Monday New York / Sunday Chicago) answered `2026-07-20`, a full week off;
-  and `tests/sync.spec.js` `[A1-TZ]` reproduced triage's finding — a queue entry stamped 6:30pm CT
-  lost its key at 7:30pm CT, same weekday. **Two sites found beyond the card's list and also fixed**
-  (same packages, same defect): `purchasing/repurchase.go:71`'s insert-default and
-  `recipes/handler.go:321` (`chicagoWeekWindow` → `appWeekWindow`). Nothing parked — no site turned
-  out to be deliberately Chicago. *Original card text follows.* · **The app is running two
-  conflicting timezone regimes, and
+- **`app-timezone-unify-new-york`** · **PLANNED — HIGH, medium/large (RESCOPED), RESUMABLE** ·
+  **🅿️ PARKED on `overnight-20260729-2` and NOT merged** — G6 returned REJECT and the orchestrator
+  verified the decisive evidence before parking. Branch
+  **`card/a1-app-timezone-unify-new-york` @ `8da3ded` is preserved, unmerged, worktree intact**;
+  migration `0072` is unclaimed and most of the work is reusable. **✅ FORK RESOLVED 2026-07-29
+  (ledger T-28 decisions 93 + 94).** The park was CORRECT: HQ **publishes** a contract to
+  sales-processor pinning `America/Chicago` — `21-SALES-PROCESSOR-CONTRACT.md:27`, `:67` (the exact
+  expression A1 replaced), **`:319` assumption A5 "If the food truck moves to a different TZ, both
+  repos must update"**, and `999.2-SALES-PROCESSOR-CONTRACT.md:30` — which decision 83 never
+  addressed. A1 reported *"Nothing parked — no site turned out to be deliberately Chicago"*, false
+  against the repo's own artifacts. **Operator ruling: both repos move to `America/New_York` in a
+  coordinated release.** So the card is now **wider than A1 built it** and carries three additions:
+  (1) **edit both contract documents and assumption A5** — this is half of a two-repo agreement, not
+  a refactor; (2) **`trends.go:89-98`**, which A1 missed and which would otherwise leave two 12-week
+  COGS windows on two different zones (the park note lists two further sites to absorb); (3)
+  **decision 94 — the Setup-tab Badge Reset (`inventory.html:2713`) must follow the app zone, not the
+  browser's**, and `tests/inventory.spec.js:2022` is **asserting the defect** and must be rewritten
+  rather than worked around. 🛑 **Nothing ships to prod until sales-processor's matching change is
+  ready** — until both land one repo is wrong, and the disagreement is one hour at each period edge on
+  rows with no extracted `event_date`. Nothing is broken today: A1 did not merge. **Original card text
+  follows.** (new card, morning triage
+  2026-07-28, ledger T-26 decision 83) · **The app is running two conflicting timezone regimes, and
   the operator ruled the app's timezone is `America/New_York`.** `users.DefaultTimezone` is already
   New York — as are the Users-tab picker, the purchasing handler and scheduler fallbacks, and
   `playwright.config.js` — while **`America/Chicago` is hardcoded in the money paths**:
@@ -596,7 +610,27 @@
   Footprint: `backend/internal/{inventory,purchasing,recipes}`, `sync.js`, `workflows.html`,
   `purchasing.html`, a migration for the two column defaults.
 
-- **`sync-rxdb-collections-and-table-contract`** · **PLANNED — SLATE-READY, slated on `overnight-20260729-2` (Track B, card B1)** · **✅ FORK RESOLVED 2026-07-28 — the durable conflict record is a personal, per-device undo, stored local-only (ledger T-27 decision 89).**
+- **`sync-rxdb-collections-and-table-contract`** · **DONE — landed on `overnight-20260729-2` (Track B, card B1), 2026-07-29.**
+  Three new files, no npm dependency, nothing outside the footprint:
+  `sync-schema/collections.js` (the four replicated collection schemas + the LOCAL
+  conflict record + `CONFLICT_RECORD_RETENTION_DAYS`), `sync-schema/sql/0001_sync_tables.sql`
+  (all six items of the self-hosted per-table contract, for four tables, **with no
+  `CREATE POLICY` — RLS is enabled with zero policies, i.e. deny-all, until
+  `sync-rxdb-row-visibility-rls` lands**), and `tests/sync-schema.spec.js` (28 tests,
+  red-first at `701fb52` with 27 failing). A fourth file, `sync-schema/package.json`,
+  scopes `"type": "module"` to that directory and declares no dependencies.
+  The schemas are **plain data**, validated by tests that need no RxDB runtime — the
+  `rxdb` and `@supabase/supabase-js` packages stay unpinned and belong to
+  `sync-rxdb-replication-and-conflict-handler`. The mirror is one-for-one:
+  `templates`→`checklist_templates`, `checklists`→`checklist_submissions`,
+  `responses`→`submission_responses`, `approvals`→`submission_rejections`.
+  Sections/fields/schedules/assignments/fail-notes are deliberately not mirrored —
+  `checklists.template_snapshot` makes a filled checklist self-contained offline, and
+  `template_assignments` is B2's RLS input rather than a replicated collection.
+  `lamport_ts` is not carried across on either side. The PARK trigger did **not** fire:
+  none of the four mirrored tables carries money, and the one number crossing the schema
+  is a temperature reading inside `responses.value`.
+  · **✅ FORK RESOLVED 2026-07-28 — the durable conflict record is a personal, per-device undo, stored local-only (ledger T-27 decision 89).**
   The question raised at morning triage 2026-07-28 was where the record of an overwritten answer
   lives. The product question put to the operator: an *audit trail a manager can see*, or a
   *personal undo for the person holding the phone*? **Operator answer: personal undo, per-device.**
@@ -642,7 +676,26 @@
   Footprint: the sync DB schema (SQL) and the RxDB collection definitions. No `workflows.html`, no
   policies, no client construction.
 
-- **`sync-rxdb-row-visibility-rls`** · **PLANNED — SLATE-READY** (fanned out of
+- **`sync-rxdb-row-visibility-rls`** · **PLANNED — SLATE-READY, MECHANISM NOW DECIDED** · **✅ FORK
+  RESOLVED 2026-07-29 (ledger T-28 decision 92) — the projection is fed by `postgres_fdw` from the
+  substrate to HQ, and decision 61 is REVERSED.** Card B1 settled the topology on
+  `overnight-20260729-2` in the direction that makes decision 61's contract impossible: the
+  projection and the mutation are in **two different Postgres servers**, `max_prepared_transactions`
+  is `0` at both ends, and `Sign()` is an allowlist that can only emit `authenticated`, so no
+  transaction can contain both and no restructuring of the mutation changes that. B2 parked on this
+  rather than seeding a projection by fixture and producing a green matrix — *a security proof about
+  a table nothing in production writes.* **What the resuming card builds instead:** foreign tables
+  from the substrate onto HQ's live `template_assignments ⋈ users`, so **there is no projection to
+  write** and "same transaction" is vacuous — zero stale-permissive window. The extension is proven
+  installable at both ends by executing the C symbol. **Accepted standing cost: HQ's Postgres is on
+  the network path of every RLS row check.** The full port of `ResolveEntityAccess` into
+  `hq_can_see_template()` is **already written out in
+  `runs/2026-07-29-2-autonomous/park-b2-sync-rxdb-row-visibility-rls.md`**, verified by G6 as a
+  character-for-character faithful transposition with both inherited properties preserved — do not
+  redo it. Decision 99: decision 61 applied by analogy (it named `app_permissions`; this card needs
+  `template_assignments`), and decision 92 supersedes the question by removing the projection. If
+  `sync-hard-cutover` later co-locates the databases the fdw becomes vestigial and decision 61 comes
+  true structurally. **Original card text follows.** (fanned out of
   `sync-rxdb-schema-and-replication` obligation 1 at the 2026-07-28 dissolution; depends on
   `sync-rxdb-collections-and-table-contract` — there must be tables to protect) · **Obligation 1,
   decision 55, unchanged in substance.** **PORT `ResolveEntityAccess`
@@ -1071,9 +1124,37 @@
   is done when the mockup and its table are committed and the operator has something to say yes or
   no to. Footprint: `.planning/phases/sync-rxdb-conflict-notice/` only.
 
-- **`sync-rxdb-conflict-notice-mockup-amendments`** · **PLANNED — slated on `overnight-20260729-2`
-  (Track C, card C1)** · **FANNED OUT of `sync-rxdb-conflict-notice-ui` at the 2026-07-28
-  slate-planning session (ledger T-27 decision 91).** Produce **revised plates** implementing
+- **`sync-rxdb-conflict-notice-mockup-amendments`** · **DONE** (2026-07-29, run
+  `overnight-20260729-2`, Track C card C1, branch
+  `card/c1-sync-rxdb-conflict-notice-mockup-amendments`) · **The revised plates exist.**
+  `.planning/phases/sync-rxdb-conflict-notice/mockup.html` is now **revision 2** — **16 plates,
+  32 renders** (was 11 / 22), and `UI-SPEC.md` carries **35 `done_when:` rows** (was 20) with the
+  State Enumeration Table extended to 12 state rows plus 4 non-state plates.
+  **A-1 is drawn:** every one of the 8 banners carries both figures — what happened, and how many
+  rows are still to review — and the new `a1-banner` plate proves the worst case, **four banner
+  lines coexisting at 480 px in light and dark** (headline + `2 still to review · 2 handled` +
+  `+ 2 changes we couldn't identify` + the cause line) with **no truncation**, measured per line by
+  `shoot.mjs` rather than judged by eye. A **failed restore counts as still-to-review**, proved on
+  the `error` plate.
+  **A-2 is drawn:** every Restore control names what it replaces; the new `a2-confirm` plate shows
+  the batch override **confirming before writing** and **listing the 3 server values about to be
+  overwritten**, each struck through with its author and timestamp; the collapsed `edge-many` view
+  now carries **name AND time** on all five rows (it carried a bare "Dana M.").
+  **Both open decisions are left open and drawn as decidable:** `openq-count-a` / `openq-count-b`
+  render **both readings over identical data** with neither recommended, and the retention window
+  renders as the placeholder token `⟨30⟩` — never as prose — with `openq-retention` showing the one
+  screen that prints it at two candidate values.
+  **Red-first applied and mutation-tested:** three new machine checks in `shoot.mjs` were run
+  against the un-amended r1 mockup first (**5 banners carrying one figure, 7 Restore controls
+  silent about the loss → exit 1**) and each was then mutation-tested to prove it can fail rather
+  than pass vacuously. Two defects were found by **reading the renders back**, not by intention:
+  the open-decision captions did not say "NOT SETTLED" inside the plate itself, and the U+1F6D1
+  marker rendered as a tofu box in the headless font stack. Both repaired and re-shot.
+  **🛑 THE SIGN-OFF IS NOT DISCHARGED.** `sync-rxdb-conflict-notice-ui` stays **ATTENDED-BLOCKED**
+  — that is the correct outcome of this card, not a failure. Zero production code; footprint was
+  `.planning/phases/sync-rxdb-conflict-notice/` plus the merge-intent note and this flip.
+  **Original card text (preserved):** **FANNED OUT of `sync-rxdb-conflict-notice-ui` at the
+  2026-07-28 slate-planning session (ledger T-27 decision 91).** Produce **revised plates** implementing
   amendments **A-1** and **A-2** that ledger T-26 decision 82 requires, both already written into
   `.planning/phases/sync-rxdb-conflict-notice/UI-SPEC.md` (see the parent card below for both in
   full). **This card does NOT discharge the sign-off** — it produces the artifact the operator signs
@@ -1098,7 +1179,41 @@
   criteria that can fail. **Do NOT touch production code.**
   Footprint: `.planning/phases/sync-rxdb-conflict-notice/` only.
 
-- **`sync-rxdb-conflict-notice-ui`** · **🛑 PLANNED — ATTENDED-BLOCKED AGAIN (reverted from
+- **`sync-rxdb-conflict-notice-ui`** · **✅ PLANNED — SIGNED OFF, SLATE-READY** (revision 2 signed by
+  the operator at morning triage 2026-07-29; ledger T-28 decision 98) · **🛑 NO LONGER
+  ATTENDED-BLOCKED.** All 16 plates were walked attended — read back as PNGs, light renders, not
+  described from the spec — and amendments **A-1** and **A-2** hold at the worst case rather than the
+  easiest: A-1's three banner lines coexist at 480px with no truncation on the
+  four-answers/two-handled/two-unidentifiable plate, and A-2's confirm names the loss in its title
+  (*"Replace 3 of Dana M.'s answers?"*), lists all three server values struck through with who saved
+  each and when, and labels its primary button **Replace** rather than Restore.
+  **Three operator decisions came out of the walk and are build obligations:**
+  **A-3 (decision 95) — a removed question keeps its label, struck through and read-only.** The
+  operator's words: *"show the deleted question crossed out and read only so that the user isnt
+  confused."* This **supersedes both drawn readings of open decision (i)**. The committed plates
+  `edge-removed`, `openq-count-a` and `openq-count-b` draw the raw field id `fld_prep_sink_temp` in
+  muted monospace on the grounds that "the template no longer holds a label for it" — true of the
+  template, **false of the submission**: `template_snapshot` is `json.Marshal(tmpl)` of the whole
+  template (`repository.go:695`) and `Field.Label` is on it (`model.go:44-57`), so the discarded
+  document carries its own frozen label. Buildable with no new schema requirement, but it makes the
+  snapshot's *shape* load-bearing — B1's recorded-not-fixed item R-C (`template_snapshot` is
+  `{type:'object'}`, nothing rejects a malformed value) becomes a dependency, not an open question.
+  🛑 **Those three plates must be redrawn and the deviation noted in SUMMARY.md** per CLAUDE.md's
+  mockup rule. Counting follows Reading A (the headline counts what was taken from the crew member;
+  the `+N` line keeps meaning only "we couldn't identify") — recorded as triage's inference from the
+  rider, not as operator words.
+  **Decision 96 — retention stays 30 days.** Decision 80 stands; read from one named constant, no
+  surface restates the literal. Accepted costs are the ones the plate names: a longer list, and a
+  promise the device may not keep (local-only, per-device, evictable — hence the storage-error plate).
+  **Decision 97 — the sheet caps at 10 groups with an "and N more" line; no date filter.** Rows below
+  the line are not dropped and the banner still reports the true total.
+  **Inherited hard requirement:** A-2 hardens who-and-when on the row from a graceful degradation into
+  a **hard requirement on `sync-rxdb-schema-and-replication`** — if that card declines to carry it,
+  the confirm plate cannot be built as drawn. **Triage's own reservation, recorded not blocking:**
+  `a1-banner` puts four figures on one screen plus a batch button reading a fifth — all consistent,
+  all documented, but a lot of counting at 6am with wet hands. Watch it in the built UI.
+  **Superseded status line and original card text follow.** · **🛑 WAS: PLANNED — ATTENDED-BLOCKED
+  AGAIN (reverted from
   SIGNED OFF, SLATE-READY at morning triage 2026-07-28; ledger T-26 decision 82)** · The sign-off
   recorded as decision 80 **stands as the record of what was decided at 18:12** and is **superseded,
   not erased**. Walking the committed plates at triage surfaced a defect the sign-off could not have
@@ -1142,28 +1257,63 @@
   scheduling decision below is DISCHARGED — drafting the mockup was the next action, and it is
   done.**
 
-  **🖊️ THE SIGN-OFF EXISTS — 2026-07-28, operator, verbatim *"Ok, build this."*** The gate
+  **✅ THE REVISED PLATES LANDED 2026-07-29** (`sync-rxdb-conflict-notice-mockup-amendments`, DONE
+  above, run `overnight-20260729-2`). `mockup.html` is now **revision 2 — 16 plates, 32 renders**,
+  and **A-1 and A-2 are both drawn**: every banner carries two figures, the worst-case four-line
+  banner is proved at 480 px in both schemes without truncation, and the batch override confirms
+  before writing while listing the server values it will overwrite with author and timestamp. **The
+  two deferred decisions are still open and are now drawn as decidable** — both readings of the
+  removed-field counting question, and the retention window as a visible placeholder.
+  **🛑 THIS CARD IS STILL ATTENDED-BLOCKED.** A revised mockup existing is not a sign-off, and the
+  fan-out card did not and could not discharge it. **What is owed: the operator walks the 16 plates,
+  answers open decisions (i) and (ii), and gives (or refuses) an explicit *"ok, build this"* on
+  revision 2.** A *no* remains a successful outcome.
+
+  **🖊️ THE r1 SIGN-OFF — 2026-07-28, operator, verbatim *"Ok, build this."* — SUPERSEDED IN PART
+  at morning triage the same day (ledger T-26 decision 82); it is the record of what was decided at
+  18:12 and does not cover revision 2.**
+  **🛑 THE FOUR CLAIMS STRUCK BELOW ARE NO LONGER TRUE. They are kept, struck, as the record of what
+  was believed at 18:12 — read the block above, not this one, for the card's live status.** An
+  unattended merger reading top-down was previously able to take them as binding, because the
+  supersession preamble framed them as history while the sentences themselves stayed in the
+  imperative. This completes that supersession.
+  ~~The gate
   CLAUDE.md sets before UI code on a phase introducing new components is **satisfied**; this card
-  is no longer ATTENDED-BLOCKED and may enter a slate. The sign-off was given **with the two
-  rejectable design decisions in view and neither was rejected** — so both are now settled and a
+  is no longer ATTENDED-BLOCKED and may enter a slate.~~ **STRUCK — the card IS still
+  ATTENDED-BLOCKED (see the 🛑 block above); decision 82 reopened it and revision 2 does not
+  discharge it.** The sign-off was given **with the two
+  rejectable design decisions in view and neither was rejected** — ~~so both are now settled and a
   run must implement them as drawn, not re-open them: **(a) the counting rule** as stated in
   UI-SPEC §"The counting rule" — the banner reports how many answers were overwritten in the
   retention window, **not** how many are still unhandled, so nothing a crew member does to a row
   changes any count and a count drops only when a record *leaves* the sheet (Dismiss, or ageing
-  out); **(b) handled rows stay on the sheet** — a restored row and a kept-theirs row both collapse
+  out)~~ **— (a) IS STRUCK. Amendment A-1 (decision 82) OVERTURNED exactly this: the banner must now
+  carry BOTH figures — what was overwritten in the window AND how many rows are still to review. A
+  run that implements the struck counting rule "as drawn" reinstates the defect A-1 was filed
+  against.** The half of (a) that SURVIVES is that rows never leave the sheet except on Dismiss or
+  expiry — A-1 changed what the banner PRINTS, not what the sheet KEEPS; **(b) handled rows stay on
+  the sheet** — a restored row and a kept-theirs row both collapse
   to a confirmation and keep an **Undo** rather than disappearing, because a removed row cannot be
-  undone. The scope of the yes is the **committed artifact**: `mockup.html` + `UI-SPEC.md` at
+  undone — **(b) STANDS, unchanged, and A-1 explicitly depends on it.** The scope of the yes was the
+  artifact **as it stood at 18:12**: ~~`mockup.html` + `UI-SPEC.md` at
   `.planning/phases/sync-rxdb-conflict-notice/` as of the repair round, all 11 plates and 22
-  renders. It is **not** blanket authority over the items UI-SPEC §"Explicitly NOT decided here"
-  names.
+  renders~~ **— STRUCK as a description of what is committed today: the tree now holds revision 2,
+  16 plates and 32 renders, which the 18:12 yes does not cover.** It is **not** blanket authority
+  over the items UI-SPEC §"Explicitly NOT decided here" names.
   **🛑 Still open, and three of them change what this UI can truthfully show** — read UI-SPEC
   §"Explicitly NOT decided here" before slating. The `conflictHandler`'s merge rule and whether the
   replicated schema carries who-and-when belong to
   `sync-rxdb-replication-and-conflict-handler` and `sync-rxdb-collections-and-table-contract`;
   **`_modified` is now DECIDED — not declared, decision 78 below**, which is the good outcome for
   this card (it keeps the *"a change we couldn't identify"* row rare rather than routine). The
-  durable conflict record's home and retention window remain this card's own implementation call —
-  the mockup's empty state says **30 days**, and the sign-off accepted that number as drawn.
+  durable conflict record's home is settled (ledger T-27 decision 89 — a local-only RxDB collection,
+  personal and per-device). ~~the retention window remains this card's own implementation call —
+  the mockup's empty state says **30 days**, and the sign-off accepted that number as drawn.~~
+  **STRUCK — the retention window was REOPENED at morning triage 2026-07-28 and is open decision
+  (ii), the operator's, not the implementer's. Revision 2's `empty` plate renders it as the
+  placeholder token `⟨30⟩` in a dashed box, never as prose, and `openq-retention` draws the same
+  screen at two candidate values so the choice is decidable. A run that reads "30 days" out of this
+  line and ships it settles an operator decision by omission.**
   **One operator question is still unanswered and is NOT blocking:** UI-SPEC §"Open question for
   the operator" — beyond roughly ten conflict groups the sheet needs a cap or a date filter, and it
   is not designed here. Judge it against one long dead-zone shift with an active manager. A slate

@@ -3,16 +3,33 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>sync-rxdb-conflict-notice — mockup (overwritten answers)</title>
 <!--
-  MOCKUP — card `sync-rxdb-conflict-notice-mockup`, overnight run 2026-07-29.
+  MOCKUP — REVISION 2.
+    r1  card `sync-rxdb-conflict-notice-mockup`,            run 2026-07-29
+    r2  card `sync-rxdb-conflict-notice-mockup-amendments`, run 2026-07-29-2
+
+  REVISION 2 implements amendments A-1 and A-2, filed at morning triage
+  2026-07-28 (ledger T-26, decision 82) after the operator walked r1 plate by
+  plate. Decision 80's "Ok, build this" is SUPERSEDED IN PART: the design is
+  approved in direction, and two defects are corrected.
+    A-1  the banner must show what happened AND how many rows are still
+         unhandled. Rows still never leave except on Dismiss or expiry, so Undo
+         survives — only the banner changed.
+    A-2  the override must state what it destroys: name the loss, confirm
+         before writing while showing the N server values about to be
+         overwritten, and carry attribution + timestamp parity.
+  Two decisions are DELIBERATELY LEFT OPEN and drawn so the operator can decide
+  them from the plates: (i) whether a removed-field row counts in the chip base
+  or moves to +N — BOTH readings are drawn; (ii) the retention window, drawn as
+  a placeholder token, never as prose.
 
   WHY THIS FILE EXISTS. CLAUDE.md gates UI code on phases introducing new
   components behind a committed mockup at `.planning/.../<phase>/mockup.html`
   plus an explicit human "ok, build this". The sibling card
-  `sync-rxdb-conflict-notice-ui` is ATTENDED-BLOCKED because that artifact did
-  not exist — the owed sign-off had nothing to review. This is that artifact.
-  Drafting it is unattended-safe by construction: the gate is on production
-  code, and this is the thing the gate reads. NOTHING HAS BEEN SIGNED OFF. A
-  "no" from the operator is a successful outcome for this card.
+  `sync-rxdb-conflict-notice-ui` is ATTENDED-BLOCKED. Drafting this is
+  unattended-safe by construction: the gate is on production code, and this is
+  the thing the gate reads. NOTHING HAS BEEN SIGNED OFF, and revision 2 does NOT
+  discharge the block — it produces the artifact the operator signs. A "no" from
+  the operator is a successful outcome for this card.
 
   NOT A LIVE PAGE. Static markup, CSS inlined in HQ's shared-variable style.
   Every interaction is inert. Each plate below is one row of the State
@@ -52,12 +69,25 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 /* every interactive element in this design is a >=44px target — see done_when 14 */
 .sc-close{font-size:14px;color:var(--info-tx);font-weight:600;min-height:44px;min-width:44px;display:inline-flex;align-items:center;justify-content:center;padding:0 8px;flex-shrink:0}
 
-/* banner — the only thing that appears unprompted */
-.cn-banner{display:flex;align-items:center;gap:10px;background:var(--warn-bg);color:var(--warn-tx);border-radius:12px;padding:12px 14px;margin-bottom:12px;min-height:44px}
-.cn-banner-ico{font-size:17px;line-height:1;flex-shrink:0}
+/* banner — the only thing that appears unprompted.
+   AMENDMENT A-1. The banner carries TWO figures, not one: what happened in the
+   window (.cn-banner-hd, stable, past tense) and how many rows are STILL
+   UNHANDLED (.cn-banner-open). A number alone in a coloured banner reads as a
+   badge, and badges count outstanding work — which is why a crew member who
+   handled two of three and still saw "3" concluded the restores had not taken.
+   Lines are block spans with min-width:0 above them; nothing is nowrap and
+   nothing is ellipsised, so a line that did not fit would WRAP, not truncate —
+   and shoot.mjs measures every line's scrollWidth to prove it. */
+.cn-banner{display:flex;align-items:flex-start;gap:10px;background:var(--warn-bg);color:var(--warn-tx);border-radius:12px;padding:12px 14px;margin-bottom:12px;min-height:44px}
+.cn-banner-ico{font-size:17px;line-height:1.25;flex-shrink:0}
 .cn-banner-body{flex:1;min-width:0}
-.cn-banner-hd{display:block;font-size:14px;font-weight:600;line-height:1.3}
-.cn-banner-sub{display:block;font-size:11.5px;line-height:1.4;opacity:.85;margin-top:2px}
+.cn-banner-hd{display:block;font-size:14px;font-weight:600;line-height:1.3;overflow-wrap:anywhere}
+/* the actionable figure. NOT muted — it is the one a crew member is looking for. */
+.cn-banner-open{display:block;font-size:12.5px;font-weight:600;line-height:1.35;margin-top:3px;overflow-wrap:anywhere}
+.cn-banner-open .hnd{font-weight:500;opacity:.75}
+/* counted separately from the headline, per counting rule 4 */
+.cn-banner-unid{display:block;font-size:11.5px;font-weight:500;line-height:1.4;opacity:.85;margin-top:3px;overflow-wrap:anywhere}
+.cn-banner-sub{display:block;font-size:11.5px;line-height:1.4;opacity:.8;margin-top:3px;overflow-wrap:anywhere}
 .cn-banner-go{font-size:13px;font-weight:600;white-space:nowrap;text-decoration:underline;min-height:44px;min-width:44px;display:inline-flex;align-items:center;justify-content:center;padding:0 8px;flex-shrink:0}
 
 /* checklist list rows, for context behind the banner */
@@ -75,8 +105,12 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .cg-doc{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10px;color:var(--mut);background:var(--skel);padding:1px 5px;border-radius:3px}
 .cg-count{font-size:11px;font-weight:600;color:var(--warn-tx);background:var(--warn-bg);padding:2px 7px;border-radius:10px;white-space:nowrap;flex-shrink:0}
 /* batch restore is PRIMARY: on a collapsed group it is the only action on the card,
-   so it must not be the least prominent thing on it (verifier D9) */
-.cg-all{display:flex;align-items:center;justify-content:center;width:100%;margin-top:10px;padding:11px;min-height:44px;background:var(--info-bg);border:0.5px solid transparent;border-radius:9px;color:var(--info-tx);font-size:13px;font-weight:600;font-family:inherit;text-align:center}
+   so it must not be the least prominent thing on it (verifier D9).
+   AMENDMENT A-2: it now carries a second line naming WHAT IT REPLACES, with the
+   same attribution + timestamp the expanded rows carry. One tap here overwrites
+   N of someone else's answers, and the label used to describe only the gain. */
+.cg-all{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;width:100%;margin-top:10px;padding:9px 11px;min-height:44px;background:var(--info-bg);border:0.5px solid transparent;border-radius:9px;color:var(--info-tx);font-size:13px;font-weight:600;font-family:inherit;text-align:center}
+.cg-all-s{font-size:10.5px;font-weight:500;opacity:.8;line-height:1.3;overflow-wrap:anywhere}
 
 /* one field row */
 .cf{padding:12px 0;border-bottom:0.5px solid var(--brd)}
@@ -98,7 +132,10 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .cf-v.none .cf-v-val{color:var(--mut);font-weight:500;font-style:italic}
 .cf-why{font-size:11px;color:var(--mut);line-height:1.5;margin-top:7px}
 .cf-acts{display:flex;gap:8px;margin-top:10px}
-.cf-btn{flex:1;padding:10px;min-height:44px;border-radius:9px;font-size:13px;font-weight:600;font-family:inherit;border:0.5px solid transparent;text-align:center}
+/* AMENDMENT A-2: a restore button names what it REPLACES on a second line.
+   "Restore mine" describes the gain and is silent on the loss. */
+.cf-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;padding:8px 6px;min-height:44px;border-radius:9px;font-size:13px;font-weight:600;font-family:inherit;border:0.5px solid transparent;text-align:center;min-width:0}
+.cf-btn-s{font-size:10.5px;font-weight:500;opacity:.78;line-height:1.3;overflow-wrap:anywhere}
 .cf-btn-pri{background:var(--info-bg);color:var(--info-tx)}
 .cf-btn-sec{background:var(--bg);color:var(--mut);border-color:var(--brd);font-weight:500}
 .cf-btn-wide{flex:1}
@@ -118,6 +155,49 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .cf.unrec{opacity:.9}
 .cf.unrec .cf-q{color:var(--mut)}
 .spin{display:inline-block;width:13px;height:13px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;vertical-align:-2px;margin-right:6px;opacity:.7}
+
+/* ── AMENDMENT A-2 — the batch override's confirm step ──────────────────────
+   `Restore all N of mine` writes N of someone else's answers on one tap. It may
+   not write straight through. The confirm names the loss in its title, LISTS
+   the N server values about to be overwritten with who saved them and when, and
+   offers Cancel as an equal-weight escape. A single-row restore is deliberately
+   NOT confirmed — Undo covers a mis-tap there and a confirm on every tap is
+   friction on a phone in a hurry. */
+.cfm{background:var(--card);border:0.5px solid var(--brd);border-radius:12px;padding:16px 15px;box-shadow:0 4px 18px rgba(0,0,0,0.13)}
+.cfm-hd{font-size:15px;font-weight:700;line-height:1.3;overflow-wrap:anywhere}
+.cfm-lead{font-size:12.5px;color:var(--mut);line-height:1.55;margin:7px 0 0}
+.cfm-lead b{color:var(--txt)}
+.cfm-list{margin:12px 0 0;border:0.5px solid var(--brd);border-radius:9px;padding:2px 11px}
+.cfm-row{padding:10px 0;border-bottom:0.5px solid var(--brd)}
+.cfm-row:last-child{border-bottom:none}
+.cfm-q{font-size:12.5px;font-weight:600;line-height:1.3;margin-bottom:5px;overflow-wrap:anywhere}
+/* the value that DISAPPEARS. Struck, and in the destructive colour, so the loss
+   is visible and not merely implied by the layout. */
+.cf-v.gone .cf-v-val{color:var(--bad-tx);text-decoration:line-through;text-decoration-thickness:1px}
+.cfm-foot{font-size:11.5px;color:var(--mut);line-height:1.55;margin:11px 0 0}
+.cfm-foot b{color:var(--txt)}
+.cfm-acts{display:flex;gap:8px;margin-top:12px}
+.cfm-go,.cfm-cancel{flex:1;display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:11px 8px;border-radius:9px;font-size:13px;font-weight:600;font-family:inherit;text-align:center;border:0.5px solid transparent}
+.cfm-go{background:var(--bad-bg);color:var(--bad-tx)}
+.cfm-cancel{background:var(--bg);color:var(--txt);border-color:var(--brd)}
+
+/* ── an operator decision that is deliberately NOT settled here ─────────────
+   Two questions were reopened at morning triage 2026-07-28 and belong to the
+   operator, not to this card. They are drawn so each is visibly DECIDABLE —
+   both readings rendered for one, a placeholder token for the other — rather
+   than quietly answered by whichever plate happened to get drawn. */
+.open-q{border:1.5px dashed var(--warn-tx);border-radius:10px;padding:11px 12px;margin:22px 0 0;background:var(--warn-bg)}
+.open-q h3{font-size:12px;font-weight:700;color:var(--warn-tx);margin:0 0 6px;letter-spacing:.02em;text-transform:uppercase}
+.open-q p{font-size:11.5px;color:var(--warn-tx);line-height:1.55;margin:0 0 7px}
+.open-q p:last-child{margin-bottom:0}
+.open-q b{font-weight:700}
+/* the retention window: a number the operator has NOT settled. It renders as a
+   token, never as prose, so no screenshot of this design can be mistaken for a
+   decision. Every surface that prints it uses this span. */
+.ph{display:inline-block;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-weight:700;font-size:.92em;border:1.5px dashed currentColor;border-radius:5px;padding:0 4px;line-height:1.35;white-space:nowrap}
+.ph::before{content:"⟨"}
+.ph::after{content:"⟩"}
+.ph-key{font-size:10.5px;color:var(--warn-tx);background:var(--warn-bg);border:1.5px dashed var(--warn-tx);border-radius:6px;padding:5px 8px;line-height:1.5;margin-top:8px;display:block}
 
 /* empty / loading / error at sheet level */
 .sc-empty{background:var(--card);border:0.5px solid var(--brd);border-radius:12px;padding:34px 22px;text-align:center}
@@ -155,17 +235,41 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
   fires is <code>conflict$</code>, which carries the whole discarded document. Every plate below
   is drawn from what that event actually contains — see UI-SPEC.md §"What <code>conflict$</code>
   gives you" for the verbatim evidence and the limits.</p>
-  <p>Eleven plates, one per State Enumeration Table row plus the design's own limits panel.
-  Everything is inert.</p>
-  <p><b>The counting rule, stated once — every plate below obeys it.</b> The banner headline counts
-  <b>recoverable answers</b> across the whole sheet. A group's count chip counts the recoverable
-  answers <em>in that group</em>, and equals the number of field rows drawn in it. <b>What has been
-  done to a row never changes the count</b>: restored, kept-theirs, failed and in-flight rows are
-  all still counted, because the record still exists and the crew member can still act on it (Undo,
-  Retry). A count drops only when a record <em>leaves</em> the sheet — Dismiss, or ageing out of the
-  30-day window. Changes we could not identify are counted <b>separately</b>: a second banner line,
-  and a <code>+N</code> appended to that group's chip, so the headline number stays literally true
-  as a number of <em>answers</em>.</p>
+  <p><b>REVISION 2 — amendments A-1 and A-2, filed at morning triage 2026-07-28 (ledger T-26,
+  decision 82).</b> The 18:12 sign-off recorded as decision 80 is <b>superseded in part</b>: the
+  design is approved <em>in direction</em>, and two defects that reach the screen a crew member sees
+  most are corrected here. <b>A-1</b> — the banner now carries <em>two</em> figures, because a lone
+  number in a coloured banner reads as a badge and badges count outstanding work. <b>A-2</b> — the
+  override now states what it <em>destroys</em>, confirms before writing, and carries the same
+  attribution the expanded view does. <b>Nothing here is signed off.</b>
+  <code>sync-rxdb-conflict-notice-ui</code> stays ATTENDED-BLOCKED until the operator answers these
+  plates; a <em>no</em> is still a successful outcome.</p>
+  <p>Sixteen plates: twelve State Enumeration Table rows, the design's own limits panel, and three
+  plates that exist only to put an <b>open operator decision</b> in view. Everything is inert.</p>
+  <p><b>The counting rule, stated once — every plate below obeys it.</b> Three figures, and they are
+  not the same figure.</p>
+  <p><b>1 · What happened</b> — the banner headline counts <b>recoverable answers</b> overwritten in
+  the window, across the whole sheet. A group's count chip is the same figure <em>for that group</em>.
+  <b>What has been done to a row never changes this number</b>: restored, kept-theirs, failed and
+  in-flight rows are all still counted, because the record still exists and the crew member can
+  still act on it (Undo, Retry). It drops only when a record <em>leaves</em> the sheet — Dismiss, or
+  ageing out of the retention window. <b>Rows never leave on Restore or Keep, so Undo always
+  survives</b> — that part of the original design is unchanged and is what A-1 unbundled the banner
+  from.</p>
+  <p><b>2 · What is left (A-1, new)</b> — a second banner line counts rows <b>still to review</b>.
+  A row is <em>reviewed</em> once it has been restored, kept or dismissed. An untouched row is still
+  to review; <b>a failed restore is still to review</b>, not handled — there is unfinished business
+  there; an in-flight restore has not landed yet, so it is too. When nothing has been handled the
+  line reads <em>“N still to review”</em>; when some has, <em>“N still to review · M handled”</em>;
+  when all has, <em>“All N reviewed”</em>.</p>
+  <p><b>3 · What we could not identify</b> — counted <b>separately</b> and never folded into either
+  figure above: its own banner line and a <code>+N</code> appended to the group's chip, so chip base
+  + <code>+N</code> = rows drawn and the headline stays literally true as a number of
+  <em>answers</em>.</p>
+  <p><b>And one rule about the batch button (A-2):</b> <code>Restore all N of mine</code> acts only
+  on rows <b>still to review</b>. It never re-writes a row the crew member already handled — a batch
+  tap must not silently reverse a deliberate <em>Keep theirs</em>. So its N is figure 2 for that
+  group, not figure 1.</p>
 </div>
 
 <!-- ══════════════════════════════════════════════════════════════ SUCCESS ══ -->
@@ -175,16 +279,20 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
     <p class="cap-t"><b>Trigger:</b> replication reconnects; <code>conflict$</code> emits for one
     document; the diff names ≥1 template-backed field with a value in
     <code>input.newDocumentState</code>. <b>Contract:</b> amber banner above the checklist list
-    with an exact count; the sheet shows the crew member's value and the server's side by side,
-    labelled <em>Yours</em> / <em>Now shows</em>; every recoverable row offers
-    <b>Restore mine</b>; a restored row turns green, names the value that came back, and offers
-    Undo.</p>
+    carrying <b>both</b> figures — what happened (<b>2</b>) and what is still to review (<b>1</b>,
+    because one row has been restored); the sheet shows the crew member's value and the server's
+    side by side, labelled <em>Yours</em> / <em>Now shows</em>; every recoverable row offers a
+    restore that <b>names the value it replaces</b>; a restored row turns green, names the value
+    that came back, and offers Undo. <b>This is the exact plate the operator's question was asked
+    against</b> — <em>“when she finishes the second, why does it still say three?”</em> The headline
+    still reports what happened, and the line under it now answers the question.</p>
   </div>
   <div class="screen">
     <div class="cn-banner">
       <span class="cn-banner-ico">⚠️</span>
       <span class="cn-banner-body">
         <span class="cn-banner-hd">2 answers were overwritten</span>
+        <span class="cn-banner-open">1 still to review <span class="hnd">· 1 handled</span></span>
         <span class="cn-banner-sub">Someone edited them while your phone was offline.</span>
       </span>
       <span class="cn-banner-go">Review</span>
@@ -208,15 +316,21 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
           <div class="cf-v"><span class="cf-v-lab">Now shows</span><span class="cf-v-val">41 °F</span><span class="cf-v-who">· Dana M., 6:12 PM</span></div>
         </div>
         <div class="cf-acts">
-          <span class="cf-btn cf-btn-pri">Restore mine</span>
-          <span class="cf-btn cf-btn-sec">Keep theirs</span>
+          <span class="cf-btn cf-btn-pri">
+            <span>Restore mine</span>
+            <span class="cf-btn-s">replaces 41&nbsp;°F</span>
+          </span>
+          <span class="cf-btn cf-btn-sec">
+            <span>Keep theirs</span>
+            <span class="cf-btn-s">41&nbsp;°F stays</span>
+          </span>
         </div>
       </div>
 
       <div class="cf">
         <div class="cf-q">Sanitizer concentration</div>
         <div class="cf-done">
-          <span>✓ Restored — <b>200&nbsp;ppm</b> is back</span>
+          <span>✓ Restored — <b>200&nbsp;ppm</b> is back, replacing Dana M.'s 150&nbsp;ppm</span>
           <span class="cf-done-undo">Undo</span>
         </div>
       </div>
@@ -230,25 +344,155 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
   <code>error</code> plate).</p>
 </div>
 
+<!-- ══════════ EDGE — PARTLY HANDLED **AND** UNIDENTIFIABLE (A-1 PROOF) ══ -->
+<div class="plate" id="plate-a1-banner">
+  <div class="cap">
+    <span class="cap-id">edge · partly handled + unidentifiable together (A-1 proof)</span>
+    <p class="cap-t"><b>Trigger:</b> a bad night. A burst of conflicts on one checklist, some of
+    them already dealt with, and some the diff could not name — <b>the one combination most likely
+    to occur on the night this feature matters</b>, and the combination A-1 requires a plate for,
+    because it is where the banner has the most to say and the least room to say it.
+    <b>Contract:</b> <b>all three</b> counting lines coexist at 480&nbsp;px with no truncation and
+    no ellipsis — <em>“4 answers were overwritten”</em>, <em>“2 still to review · 2 handled”</em>,
+    <em>“+ 2 changes we couldn't identify”</em> — plus the plain-language cause line, which is the
+    worst case rather than the required minimum. Chip <b>4&nbsp;+2</b> = <b>6</b> rows drawn.
+    Headline <b>4</b> = the four answer rows. Still-to-review <b>2</b> = the two untouched rows;
+    the restored row and the kept row are handled and are <em>not</em> in that figure, while both
+    remain drawn and remain in the headline. The two unidentifiable rows are in <b>neither</b> of
+    the first two figures.</p>
+  </div>
+  <div class="screen">
+    <div class="cn-banner">
+      <span class="cn-banner-ico">⚠️</span>
+      <span class="cn-banner-body">
+        <span class="cn-banner-hd">4 answers were overwritten</span>
+        <span class="cn-banner-open">2 still to review <span class="hnd">· 2 handled</span></span>
+        <span class="cn-banner-unid">+ 2 changes we couldn't identify</span>
+        <span class="cn-banner-sub">Someone edited them while your phone was offline.</span>
+      </span>
+      <span class="cn-banner-go">Review</span>
+    </div>
+    <div style="height:14px"></div>
+    <div class="sc-hd"><span class="sc-title">Overwritten answers</span><span class="sc-close">Done</span></div>
+    <div class="cg">
+      <div class="cg-hd">
+        <span><span class="cg-name">Opening — Truck A</span><span class="cg-meta">Mon Jul 27 · <span class="cg-doc">sub_9f31c4</span></span></span>
+        <span class="cg-count">4 answers +2</span>
+      </div>
+
+      <div class="cf">
+        <div class="cf-q">Walk-in cooler temp</div>
+        <div class="cf-vals">
+          <div class="cf-v mine"><span class="cf-v-lab">Yours</span><span class="cf-v-val">38 °F</span></div>
+          <div class="cf-v"><span class="cf-v-lab">Now shows</span><span class="cf-v-val">41 °F</span><span class="cf-v-who">· Dana M., 6:12 PM</span></div>
+        </div>
+      </div>
+
+      <div class="cf">
+        <div class="cf-q">Hand sink stocked</div>
+        <div class="cf-vals">
+          <div class="cf-v mine"><span class="cf-v-lab">Yours</span><span class="cf-v-val">Yes</span></div>
+          <div class="cf-v"><span class="cf-v-lab">Now shows</span><span class="cf-v-val">No</span><span class="cf-v-who">· Dana M., 6:14 PM</span></div>
+        </div>
+      </div>
+
+      <div class="cf">
+        <div class="cf-q">Sanitizer concentration</div>
+        <div class="cf-done">
+          <span>✓ Restored — <b>200&nbsp;ppm</b> is back, replacing Dana M.'s 150&nbsp;ppm</span>
+          <span class="cf-done-undo">Undo</span>
+        </div>
+      </div>
+
+      <div class="cf">
+        <div class="cf-q">Fryer oil filtered</div>
+        <div class="cf-kept">
+          <span>Kept theirs — the checklist reads <b>No</b>, Dana M., 6:18 PM</span>
+          <span class="cf-done-undo">Undo</span>
+        </div>
+      </div>
+
+      <div class="cf unrec">
+        <div class="cf-q">A change we couldn't identify</div>
+        <div class="cf-vals">
+          <div class="cf-v none"><span class="cf-v-lab">Yours</span><span class="cf-v-val">Not recoverable</span></div>
+        </div>
+        <div class="cf-why">Something on this checklist changed on the server, but nothing you'd
+        typed came back with it.</div>
+        <div class="cf-acts">
+          <span class="cf-btn cf-btn-sec cf-btn-wide">Open checklist</span>
+          <span class="cf-btn cf-btn-sec cf-btn-wide">Dismiss</span>
+        </div>
+      </div>
+
+      <div class="cf unrec">
+        <div class="cf-q">A change we couldn't identify</div>
+        <div class="cf-vals">
+          <div class="cf-v none"><span class="cf-v-lab">Yours</span><span class="cf-v-val">Not recoverable</span></div>
+        </div>
+        <div class="cf-why">Same again, half an hour later. Open the checklist to check it reads the
+        way you left it.</div>
+        <div class="cf-acts">
+          <span class="cf-btn cf-btn-sec cf-btn-wide">Open checklist</span>
+          <span class="cf-btn cf-btn-sec cf-btn-wide">Dismiss</span>
+        </div>
+      </div>
+
+      <span class="cg-all">
+        <span>Restore all 2 of mine</span>
+        <span class="cg-all-s">the 2 still to review · replaces 41&nbsp;°F and “No” · Dana M., 6:12–6:14 PM · asks first</span>
+      </span>
+    </div>
+    <p class="more">Individual Restore / Keep buttons are collapsed — this checklist holds more than
+    two rows. Tap a row to expand it. <b>Rows you have already handled keep their Undo.</b>
+    <b>A row with nothing to restore keeps its Open&nbsp;checklist and Dismiss</b> — collapse hides
+    the Restore/Keep pair, and those rows have no such pair to hide. Dismiss is the only way such a
+    row ever leaves the sheet, so collapse must not be the thing that removes it.</p>
+  </div>
+  <p class="note"><b>This is the plate the amendment exists for, and it is drawn at the worst case
+  rather than the easiest one.</b> The operator's objection was that the banner misleads
+  <em>on a phone</em>, so a banner that only works at desktop width would answer the wrong question.
+  Four lines is the most this banner can ever carry; <code>shoot.mjs</code> measures every one of
+  them for truncation at a 480&nbsp;px viewport in both colour schemes and exits non-zero if any is
+  clipped. Nothing here is <code>nowrap</code> and nothing is ellipsised — a line that did not fit
+  would <em>wrap</em> and grow the banner, which is the correct failure mode for a message whose
+  whole job is to be read.</p>
+  <p class="note"><b>Two rules this plate settles that the earlier draft left implicit.</b>
+  (1) <b>Collapse hides the Restore/Keep pair; it does not hide a row's outcome strip or its
+  Undo.</b> Collapsing exists to cut thumb-scrolling, and an outcome strip is one line that
+  <em>reduces</em> what a row costs — while dropping Undo from a collapsed sheet would remove the
+  only escape from a mis-tap on the very sheet where a mis-tap is batched. A-2's confirm makes that
+  concrete: after <em>Restore all N</em>, all N rows are green on a collapsed sheet, and if collapse
+  ate Undo they would be irreversible. (2) <b>The batch button acts on the rows still to review, not
+  on the chip base</b> — it reads <em>Restore all 2 of mine</em>, not <em>all 4</em>, because
+  re-writing the row the crew member deliberately kept would silently reverse their own decision.
+  Its N is A-1's second figure, which is a second reason the two figures had to be separated.</p>
+</div>
+
 <!-- ═══════════════════════════════════ EDGE — ROW ALREADY HANDLED ══ -->
 <div class="plate" id="plate-outcomes">
   <div class="cap">
     <span class="cap-id">edge · row already handled (Keep theirs / Undo)</span>
     <p class="cap-t"><b>Trigger:</b> the two outcomes that sit one tap off the primary path and were
     previously undrawn — <b>Keep theirs</b> was tapped on a row, and <b>Undo</b> was tapped on a row
-    that had been restored. <b>Contract:</b> neither outcome removes the row and neither changes any
-    count — banner <b>2</b> = chip <b>2</b> = <b>2</b> rows here, exactly as before either tap. A
-    kept-theirs row collapses to a muted, non-alarming confirmation that <b>names the value that is
-    now standing</b> and keeps an <b>Undo</b>; an undone row returns to the full two-value, two-button
-    row it was, with one muted line saying what just happened so the tap is not silent. Both Undos
-    are full 44&nbsp;px targets — on a truck, in daylight, with wet hands, Undo is the only escape
-    from a mis-tap and it must not be a text link.</p>
+    that had been restored. <b>Contract:</b> neither outcome removes the row and <b>neither changes
+    the “what happened” figure</b> — banner headline <b>2</b> = chip <b>2</b> = <b>2</b> rows here,
+    exactly as before either tap. <b>The second figure is the one that moves:</b> the kept row is
+    reviewed, the undone row is back to untouched, so <em>1 still to review · 1 handled</em>. That
+    is A-1 in one plate — the sheet's memory and the crew member's to-do list are two different
+    numbers, and pretending they were one is what made the banner mislead. A kept-theirs row
+    collapses to a muted, non-alarming confirmation that <b>names the value that is now standing</b>
+    and keeps an <b>Undo</b>; an undone row returns to the full two-value, two-button row it was,
+    with one muted line saying what just happened so the tap is not silent. Both Undos are full
+    44&nbsp;px targets — on a truck, in daylight, with wet hands, Undo is the only escape from a
+    mis-tap and it must not be a text link.</p>
   </div>
   <div class="screen">
     <div class="cn-banner">
       <span class="cn-banner-ico">⚠️</span>
       <span class="cn-banner-body">
         <span class="cn-banner-hd">2 answers were overwritten</span>
+        <span class="cn-banner-open">1 still to review <span class="hnd">· 1 handled</span></span>
         <span class="cn-banner-sub">Handled rows stay on the list until you dismiss them.</span>
       </span>
       <span class="cn-banner-go">Review</span>
@@ -264,7 +508,7 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
       <div class="cf">
         <div class="cf-q">Walk-in cooler temp</div>
         <div class="cf-kept">
-          <span>Kept theirs — the checklist reads <b>41 °F</b></span>
+          <span>Kept theirs — the checklist reads <b>41 °F</b>, Dana M., 6:12 PM</span>
           <span class="cf-done-undo">Undo</span>
         </div>
       </div>
@@ -273,12 +517,18 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
         <div class="cf-q">Sanitizer concentration</div>
         <div class="cf-vals">
           <div class="cf-v mine"><span class="cf-v-lab">Yours</span><span class="cf-v-val">200 ppm</span></div>
-          <div class="cf-v"><span class="cf-v-lab">Now shows</span><span class="cf-v-val">150 ppm</span><span class="cf-v-who">· Dana M., 6:12 PM</span></div>
+          <div class="cf-v"><span class="cf-v-lab">Now shows</span><span class="cf-v-val">150 ppm</span><span class="cf-v-who">· Dana M., 6:13 PM</span></div>
         </div>
-        <div class="cf-undone">Undone — 150 ppm is showing again.</div>
+        <div class="cf-undone">Undone — Dana M.'s 150 ppm is showing again.</div>
         <div class="cf-acts">
-          <span class="cf-btn cf-btn-pri">Restore mine</span>
-          <span class="cf-btn cf-btn-sec">Keep theirs</span>
+          <span class="cf-btn cf-btn-pri">
+            <span>Restore mine</span>
+            <span class="cf-btn-s">replaces 150&nbsp;ppm</span>
+          </span>
+          <span class="cf-btn cf-btn-sec">
+            <span>Keep theirs</span>
+            <span class="cf-btn-s">150&nbsp;ppm stays</span>
+          </span>
         </div>
       </div>
     </div>
@@ -302,16 +552,21 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
     records held locally. <b>Contract:</b> no banner anywhere in the app; the sheet says what would
     put something here and how long records are kept — and, because this is the screen crew members
     will see most, the copy is <b>scoped to the record</b>, not phrased as a guarantee that nothing
-    was ever lost. The app cannot know that (limits panel, items 1 and 2).</p>
+    was ever lost. The app cannot know that (limits panel, items 1 and 2). <b>The retention number
+    is drawn as a placeholder token, not as prose</b> — it is an open operator decision, see the
+    plate <em>open decision (ii)</em> below.</p>
   </div>
   <div class="screen">
     <div class="sc-hd"><span class="sc-title">Overwritten answers</span><span class="sc-close">Done</span></div>
     <div class="sc-empty">
-      <h3>Nothing recorded in the last 30 days</h3>
+      <h3>Nothing recorded in the last <span class="ph">30</span> days</h3>
       <p>Answers land here when someone edits the same question while your phone is offline and the
       server's version wins. This is what HQ caught and kept — if it wasn't running when a change
       came in, that change won't be listed.</p>
     </div>
+    <span class="ph-key"><b>⟨30⟩ is a PLACEHOLDER, not a decision.</b> 30 days was accepted at the
+    18:12 sign-off (decision 80) and <b>reopened at morning triage 2026-07-28</b>. Every surface that
+    prints it renders this token; implementations read it from one named constant.</span>
   </div>
   <p class="note"><b>Why this doesn't say “nothing was overwritten”.</b> Three of the situations in
   the limits panel — a non-leader tab, a replication with nothing subscribed to
@@ -346,15 +601,20 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
     <b>Contract:</b> the row <em>stays</em> and keeps showing both values; a red inline block names
     which of the two happened in the crew member's words and offers Retry. <b>The count does not
     decrement</b>, and this plate is drawn so that is checkable rather than asserted: the banner is
-    rendered, and banner <b>2</b> = chip <b>2</b> = <b>2</b> rows, one of which has failed and one
-    of which is in flight. A failed restore must never look like a completed one.</p>
+    rendered, and banner headline <b>2</b> = chip <b>2</b> = <b>2</b> rows, one of which has failed
+    and one of which is in flight. A failed restore must never look like a completed one.
+    <b>A-1's second figure reads <em>2 still to review</em> here, and that is the point of this
+    plate:</b> a restore was attempted on both rows and <em>neither</em> counts as handled. A failed
+    restore is unfinished business, not a completed one — if the second figure had dropped to 1 or 0
+    on this plate, A-1's definition would be wrong.</p>
   </div>
   <div class="screen">
     <div class="cn-banner">
       <span class="cn-banner-ico">⚠️</span>
       <span class="cn-banner-body">
         <span class="cn-banner-hd">2 answers were overwritten</span>
-        <span class="cn-banner-sub">Still 2 — a restore that fails stays on the list.</span>
+        <span class="cn-banner-open">2 still to review</span>
+        <span class="cn-banner-sub">A restore that failed still counts as one to review.</span>
       </span>
       <span class="cn-banner-go">Review</span>
     </div>
@@ -377,8 +637,14 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
           Tap Retry when you have signal.
         </div>
         <div class="cf-acts">
-          <span class="cf-btn cf-btn-pri">Retry</span>
-          <span class="cf-btn cf-btn-sec">Keep theirs</span>
+          <span class="cf-btn cf-btn-pri">
+            <span>Retry</span>
+            <span class="cf-btn-s">replaces 41&nbsp;°F</span>
+          </span>
+          <span class="cf-btn cf-btn-sec">
+            <span>Keep theirs</span>
+            <span class="cf-btn-s">41&nbsp;°F stays</span>
+          </span>
         </div>
       </div>
       <div class="cf">
@@ -388,8 +654,14 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
           <div class="cf-v"><span class="cf-v-lab">Now shows</span><span class="cf-v-val">No</span><span class="cf-v-who">· Dana M., 6:14 PM</span></div>
         </div>
         <div class="cf-acts">
-          <span class="cf-btn cf-btn-pri" aria-disabled="true"><span class="spin"></span>Restoring…</span>
-          <span class="cf-btn cf-btn-sec" aria-disabled="true">Keep theirs</span>
+          <span class="cf-btn cf-btn-pri" aria-disabled="true">
+            <span><span class="spin"></span>Restoring…</span>
+            <span class="cf-btn-s">replacing “No”</span>
+          </span>
+          <span class="cf-btn cf-btn-sec" aria-disabled="true">
+            <span>Keep theirs</span>
+            <span class="cf-btn-s">“No” stays</span>
+          </span>
         </div>
       </div>
     </div>
@@ -423,15 +695,19 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
     are <b>Open checklist</b> and <b>Dismiss</b> — <b>no Restore button on this row</b>, because
     there is nothing to put back. (The plate also carries a normal, recoverable row above it, which
     does have Restore — the contract is per row, not per plate.) Counting: the headline counts the
-    <b>1</b> recoverable answer, the second banner line and the chip's <code>+1</code> carry the
-    unidentifiable one, and chip <b>1&nbsp;+1</b> = <b>2</b> rows.</p>
+    <b>1</b> recoverable answer, A-1's second line reports <b>1 still to review</b>, the third line
+    and the chip's <code>+1</code> carry the unidentifiable one, and chip <b>1&nbsp;+1</b> =
+    <b>2</b> rows. <b>The unidentifiable row is not in either of the first two figures</b> — it is
+    not an answer, so it is not in "what happened", and folding it into "still to review" would
+    re-mix exactly what counting rule 4 keeps apart.</p>
   </div>
   <div class="screen">
     <div class="cn-banner">
       <span class="cn-banner-ico">⚠️</span>
       <span class="cn-banner-body">
         <span class="cn-banner-hd">1 answer was overwritten</span>
-        <span class="cn-banner-sub">+ 1 change we couldn't identify</span>
+        <span class="cn-banner-open">1 still to review</span>
+        <span class="cn-banner-unid">+ 1 change we couldn't identify</span>
       </span>
       <span class="cn-banner-go">Review</span>
     </div>
@@ -449,8 +725,14 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
           <div class="cf-v"><span class="cf-v-lab">Now shows</span><span class="cf-v-val">No</span><span class="cf-v-who">· Dana M., 9:02 PM</span></div>
         </div>
         <div class="cf-acts">
-          <span class="cf-btn cf-btn-pri">Restore mine</span>
-          <span class="cf-btn cf-btn-sec">Keep theirs</span>
+          <span class="cf-btn cf-btn-pri">
+            <span>Restore mine</span>
+            <span class="cf-btn-s">replaces “No”</span>
+          </span>
+          <span class="cf-btn cf-btn-sec">
+            <span>Keep theirs</span>
+            <span class="cf-btn-s">“No” stays</span>
+          </span>
         </div>
       </div>
       <div class="cf unrec">
@@ -488,13 +770,18 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
     <em>more than one group</em> <b>or</b> any one group holds <em>more than two rows</em> — and
     when it applies it applies <b>to the whole sheet</b>, so a 2-row group sitting beside a 3-row
     one does not render in a different style. Both conditions are true here, which is why the second
-    group is collapsed at 2 rows.</p>
+    group is collapsed at 2 rows. <b>A-2 changes two things on this plate.</b> (1) Every
+    <em>Now shows</em> row now carries <b>name AND time</b> — the collapsed view previously showed
+    “Dana M.” with no timestamp, so the riskiest action on the sheet carried the least information.
+    (2) Each batch button names <b>what it replaces</b> and says it <b>asks first</b>; the confirm it
+    opens is the next plate.</p>
   </div>
   <div class="screen">
     <div class="cn-banner">
       <span class="cn-banner-ico">⚠️</span>
       <span class="cn-banner-body">
         <span class="cn-banner-hd">5 answers were overwritten</span>
+        <span class="cn-banner-open">5 still to review</span>
         <span class="cn-banner-sub">Across 2 checklists, while you were offline.</span>
       </span>
       <span class="cn-banner-go">Review</span>
@@ -510,24 +797,27 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
         <div class="cf-q">Walk-in cooler temp</div>
         <div class="cf-vals">
           <div class="cf-v mine"><span class="cf-v-lab">Yours</span><span class="cf-v-val">38 °F</span></div>
-          <div class="cf-v"><span class="cf-v-lab">Now shows</span><span class="cf-v-val">41 °F</span><span class="cf-v-who">· Dana M.</span></div>
+          <div class="cf-v"><span class="cf-v-lab">Now shows</span><span class="cf-v-val">41 °F</span><span class="cf-v-who">· Dana M., 6:12 PM</span></div>
         </div>
       </div>
       <div class="cf">
         <div class="cf-q">Sanitizer concentration</div>
         <div class="cf-vals">
           <div class="cf-v mine"><span class="cf-v-lab">Yours</span><span class="cf-v-val">200 ppm</span></div>
-          <div class="cf-v"><span class="cf-v-lab">Now shows</span><span class="cf-v-val">150 ppm</span><span class="cf-v-who">· Dana M.</span></div>
+          <div class="cf-v"><span class="cf-v-lab">Now shows</span><span class="cf-v-val">150 ppm</span><span class="cf-v-who">· Dana M., 6:13 PM</span></div>
         </div>
       </div>
       <div class="cf">
         <div class="cf-q">Hand sink stocked</div>
         <div class="cf-vals">
           <div class="cf-v mine"><span class="cf-v-lab">Yours</span><span class="cf-v-val">Yes</span></div>
-          <div class="cf-v"><span class="cf-v-lab">Now shows</span><span class="cf-v-val">No</span><span class="cf-v-who">· Dana M.</span></div>
+          <div class="cf-v"><span class="cf-v-lab">Now shows</span><span class="cf-v-val">No</span><span class="cf-v-who">· Dana M., 6:14 PM</span></div>
         </div>
       </div>
-      <span class="cg-all">Restore all 3 of mine</span>
+      <span class="cg-all">
+        <span>Restore all 3 of mine</span>
+        <span class="cg-all-s">replaces 3 of Dana M.'s answers · 6:12–6:14 PM · asks first</span>
+      </span>
     </div>
     <div class="cg">
       <div class="cg-hd">
@@ -538,17 +828,20 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
         <div class="cf-q">Fryer oil filtered</div>
         <div class="cf-vals">
           <div class="cf-v mine"><span class="cf-v-lab">Yours</span><span class="cf-v-val">Yes</span></div>
-          <div class="cf-v"><span class="cf-v-lab">Now shows</span><span class="cf-v-val">No</span><span class="cf-v-who">· Dana M.</span></div>
+          <div class="cf-v"><span class="cf-v-lab">Now shows</span><span class="cf-v-val">No</span><span class="cf-v-who">· Dana M., 9:02 PM</span></div>
         </div>
       </div>
       <div class="cf">
         <div class="cf-q">Grease trap note</div>
         <div class="cf-vals">
           <div class="cf-v mine"><span class="cf-v-lab">Yours</span><span class="cf-v-val">“Emptied, smelled off”</span></div>
-          <div class="cf-v"><span class="cf-v-lab">Now shows</span><span class="cf-v-val">“Emptied”</span><span class="cf-v-who">· Dana M.</span></div>
+          <div class="cf-v"><span class="cf-v-lab">Now shows</span><span class="cf-v-val">“Emptied”</span><span class="cf-v-who">· Dana M., 9:04 PM</span></div>
         </div>
       </div>
-      <span class="cg-all">Restore all 2 of mine</span>
+      <span class="cg-all">
+        <span>Restore all 2 of mine</span>
+        <span class="cg-all-s">replaces 2 of Dana M.'s answers · 9:02–9:04 PM · asks first</span>
+      </span>
     </div>
     <p class="more">Individual Restore / Keep buttons are collapsed across the whole sheet — it
     holds more than one checklist. Tap a row to expand it.</p>
@@ -561,6 +854,68 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
   reads as a bug, not as a rule. The per-row buttons come back on tap.
   <b>Open question for the operator:</b> beyond roughly ten groups this sheet needs a cap or a date
   filter. Not designed here — say so if you think a truck can realistically get there.</p>
+</div>
+
+<!-- ══════════════════════ EDGE — BATCH OVERRIDE CONFIRM (A-2 PROOF) ══ -->
+<div class="plate" id="plate-a2-confirm">
+  <div class="cap">
+    <span class="cap-id">edge · batch override confirm (A-2 proof)</span>
+    <p class="cap-t"><b>Trigger:</b> <b>Restore all 3 of mine</b> tapped on the collapsed group in
+    the plate above. <b>Contract:</b> the write does <b>not</b> go through on that tap. A confirm
+    names the loss in its title — <em>“Replace 3 of Dana M.'s answers?”</em>, not “Restore mine?” —
+    and <b>lists the 3 server values about to be overwritten</b>, each struck through in the
+    destructive colour, each carrying <b>who saved it and when</b>, with the crew member's own value
+    directly beneath so both are on screen at the moment of decision. Cancel is an equal-weight
+    escape, not a text link. <b>The single-row restore is deliberately NOT confirmed</b> — Undo
+    covers a mis-tap there, and a confirm on every tap is friction on a phone in a hurry.</p>
+  </div>
+  <div class="screen">
+    <div class="cfm">
+      <div class="cfm-hd">Replace 3 of Dana M.'s answers?</div>
+      <p class="cfm-lead">This puts your 3 answers back on <b>Opening — Truck A</b> and overwrites
+      what Dana M. saved this evening. <b>Their values are what the checklist reads right now</b> —
+      these three will not be what anyone sees after you tap Replace.</p>
+      <div class="cfm-list">
+        <div class="cfm-row">
+          <div class="cfm-q">Walk-in cooler temp</div>
+          <div class="cf-v gone"><span class="cf-v-lab">Replaces</span><span class="cf-v-val">41 °F</span><span class="cf-v-who">· Dana M., 6:12 PM</span></div>
+          <div class="cf-v mine"><span class="cf-v-lab">With yours</span><span class="cf-v-val">38 °F</span></div>
+        </div>
+        <div class="cfm-row">
+          <div class="cfm-q">Sanitizer concentration</div>
+          <div class="cf-v gone"><span class="cf-v-lab">Replaces</span><span class="cf-v-val">150 ppm</span><span class="cf-v-who">· Dana M., 6:13 PM</span></div>
+          <div class="cf-v mine"><span class="cf-v-lab">With yours</span><span class="cf-v-val">200 ppm</span></div>
+        </div>
+        <div class="cfm-row">
+          <div class="cfm-q">Hand sink stocked</div>
+          <div class="cf-v gone"><span class="cf-v-lab">Replaces</span><span class="cf-v-val">No</span><span class="cf-v-who">· Dana M., 6:14 PM</span></div>
+          <div class="cf-v mine"><span class="cf-v-lab">With yours</span><span class="cf-v-val">Yes</span></div>
+        </div>
+      </div>
+      <p class="cfm-foot">Each row keeps an <b>Undo</b> afterwards — but that is three taps to
+      reverse one. Nothing else on the checklist changes.</p>
+      <div class="cfm-acts">
+        <span class="cfm-cancel">Cancel</span>
+        <span class="cfm-go">Replace 3 answers</span>
+      </div>
+    </div>
+  </div>
+  <p class="note"><b>What A-2 actually fixes here.</b> The layout already put both values above the
+  action — that was the right instinct and it stays. What the design never did was <em>say</em> it:
+  <em>“Restore all 3 of mine”</em> describes the gain and is silent on the loss, and one tap wrote
+  three of someone else's answers with nothing in between. The operator's test was
+  <em>“make sure it is clear … exactly what they were overriding”</em>, and a layout that
+  <em>implies</em> destruction does not pass a test about clarity. So the title counts the loss, the
+  list enumerates it by name and by time, and the primary button says <b>Replace</b>, not Restore.
+  <b>The three values are listed, not summarised as “3 answers”</b> — a number is the thing a crew
+  member can agree to without reading.</p>
+  <p class="note"><b>The one claim on this screen that depends on the parent card.</b>
+  <em>“Dana M., 6:12 PM”</em> is only as real as the replicated row: <code>conflict$</code> carries
+  no author and no timestamp of its own. A-2 turns that from a <em>conditional</em> into a
+  <b>hard requirement on <code>sync-rxdb-schema-and-replication</code></b> — “you are overwriting
+  someone” is not adequate on a food-safety record, and a crew member deciding whether to replace a
+  walk-in cooler reading needs to know whose reading and when. If who-and-when is not on the row,
+  this confirm cannot be built as drawn.</p>
 </div>
 
 <!-- ═══════════════════════════════════════════ EDGE — LONG CONTENT ══ -->
@@ -592,8 +947,14 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
           <div class="cf-v"><span class="cf-v-lab">Now shows</span><span class="cf-v-val">“Emptied”</span><span class="cf-v-who">· Dana M., 9:02 PM</span></div>
         </div>
         <div class="cf-acts">
-          <span class="cf-btn cf-btn-pri">Restore mine</span>
-          <span class="cf-btn cf-btn-sec">Keep theirs</span>
+          <span class="cf-btn cf-btn-pri">
+            <span>Restore mine</span>
+            <span class="cf-btn-s">replaces “Emptied”</span>
+          </span>
+          <span class="cf-btn cf-btn-sec">
+            <span>Keep theirs</span>
+            <span class="cf-btn-s">“Emptied” stays</span>
+          </span>
         </div>
       </div>
 
@@ -604,8 +965,14 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
           <div class="cf-v"><span class="cf-v-lab">Now shows</span><span class="cf-v-val">—</span><span class="cf-v-who">· Dana M., 9:04 PM</span></div>
         </div>
         <div class="cf-acts">
-          <span class="cf-btn cf-btn-pri">Restore mine</span>
-          <span class="cf-btn cf-btn-sec">Keep theirs</span>
+          <span class="cf-btn cf-btn-pri">
+            <span>Restore mine</span>
+            <span class="cf-btn-s">replaces an empty answer</span>
+          </span>
+          <span class="cf-btn cf-btn-sec">
+            <span>Keep theirs</span>
+            <span class="cf-btn-s">stays empty</span>
+          </span>
         </div>
       </div>
     </div>
@@ -631,7 +998,11 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
     it is visibly not a question title; a line states the question was removed; the value is still
     shown, because it is the thing being recovered; <b>Restore mine is absent</b> — there is
     nowhere to write it — and the only recovery is <b>Copy value</b>, which puts it on the
-    clipboard so it can go in a note or a message.</p>
+    clipboard so it can go in a note or a message. <b>▲ The chip on this plate reads
+    <em>1 answer</em>, which is Reading A of open decision (i) — and that decision is NOT
+    settled.</b> Under Reading B the same plate's chip reads <em>0 answers +1</em>. Both readings
+    are drawn below over identical data; this plate keeps the counting the operator last saw so
+    the comparison is against something familiar, not because it was chosen.</p>
   </div>
   <div class="screen">
     <div class="sc-hd"><span class="sc-title">Overwritten answers</span><span class="sc-close">Done</span></div>
@@ -693,6 +1064,210 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
   halves, bad one first, and Try again is offered without being oversold.</p>
 </div>
 
+<!-- ═════════════════════ OPEN DECISION (i) — READING A vs READING B ══ -->
+<div class="open-q">
+  <h3>▲ Open decision (i) — not settled by this mockup</h3>
+  <p><b>Does a removed-field row count as an “answer”, or as a “+N”?</b> Reopened at morning triage
+  2026-07-28 and deliberately left for the operator. The design currently counts its <b>two
+  no-Restore cases differently from each other</b>: a <em>no discarded value</em> row goes to
+  <code>+N</code>, while a <em>removed field</em> row is counted as “1 answer” — even though neither
+  offers Restore.</p>
+  <p><b>Both readings are drawn below over identical data</b> — the same two rows, the same values,
+  the same group. Only the counting changes. Each has a consequence the other does not, stated under
+  its plate. <b>Nothing in this file picks one</b>; a plate that quietly settled it would be this
+  card answering a question that is not its to answer.</p>
+</div>
+
+<div class="plate" id="plate-openq-count-a">
+  <div class="cap">
+    <span class="cap-id">open decision (i) · READING A — a removed field is an answer</span>
+    <p class="cap-t"><b>▲ NOT SETTLED. The operator picks between Reading A (this plate) and
+    Reading B (the next one) — this card draws both over identical data and chooses neither.</b>
+    <b>The reading:</b> a removed-field row has a real value on screen and a real
+    recovery (<em>Copy value</em>), so it is an answer that was overwritten and it belongs in the
+    headline. <b>Chip 2 answers = 2 rows, no <code>+N</code> anywhere.</b>
+    <b>Consequence to weigh:</b> the headline says <b>2</b> while only <b>1</b> of them can be put
+    back — so on a collapsed sheet a <em>Restore all</em> button would read <em>“all 1 of mine”</em>
+    under a chip reading <em>2 answers</em>, and the two numbers on one card would not match. It
+    also makes “answer” mean <em>something you lost</em> rather than <em>something you can
+    recover</em>.</p>
+  </div>
+  <div class="screen">
+    <div class="cn-banner">
+      <span class="cn-banner-ico">⚠️</span>
+      <span class="cn-banner-body">
+        <span class="cn-banner-hd">2 answers were overwritten</span>
+        <span class="cn-banner-open">2 still to review</span>
+      </span>
+      <span class="cn-banner-go">Review</span>
+    </div>
+    <div style="height:14px"></div>
+    <div class="sc-hd"><span class="sc-title">Overwritten answers</span><span class="sc-close">Done</span></div>
+    <div class="cg">
+      <div class="cg-hd">
+        <span><span class="cg-name">Opening — Truck A</span><span class="cg-meta">Mon Jul 27 · <span class="cg-doc">sub_9f31c4</span></span></span>
+        <span class="cg-count">2 answers</span>
+      </div>
+      <div class="cf">
+        <div class="cf-q">Walk-in cooler temp</div>
+        <div class="cf-vals">
+          <div class="cf-v mine"><span class="cf-v-lab">Yours</span><span class="cf-v-val">38 °F</span></div>
+          <div class="cf-v"><span class="cf-v-lab">Now shows</span><span class="cf-v-val">41 °F</span><span class="cf-v-who">· Dana M., 6:12 PM</span></div>
+        </div>
+        <div class="cf-acts">
+          <span class="cf-btn cf-btn-pri">
+            <span>Restore mine</span>
+            <span class="cf-btn-s">replaces 41&nbsp;°F</span>
+          </span>
+          <span class="cf-btn cf-btn-sec">
+            <span>Keep theirs</span>
+            <span class="cf-btn-s">41&nbsp;°F stays</span>
+          </span>
+        </div>
+      </div>
+      <div class="cf unrec">
+        <div class="cf-q-gone">fld_prep_sink_temp</div>
+        <div class="cf-vals">
+          <div class="cf-v mine"><span class="cf-v-lab">Yours</span><span class="cf-v-val">72 °F</span></div>
+        </div>
+        <div class="cf-why">This question was removed from the checklist while you were offline, so
+        your answer can't go back on it. Copy it if you still need it.</div>
+        <div class="cf-acts">
+          <span class="cf-btn cf-btn-pri cf-btn-wide">Copy value</span>
+          <span class="cf-btn cf-btn-sec cf-btn-wide">Dismiss</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="plate" id="plate-openq-count-b">
+  <div class="cap">
+    <span class="cap-id">open decision (i) · READING B — a removed field is a “+N”</span>
+    <p class="cap-t"><b>▲ NOT SETTLED. Reading B is the alternative to the plate above, over the
+    same data — this card draws both and chooses neither.</b>
+    <b>The reading:</b> the headline counts what can be <em>put back</em>, so a row
+    with no Restore leaves it and joins the separately-counted line, exactly as the
+    <em>no discarded value</em> row already does. <b>Chip 1 answer +1 = 2 rows.</b> The two
+    no-Restore cases are then counted the same way as each other, which is the inconsistency that
+    opened this question.
+    <b>Consequence to weigh:</b> the second banner line can no longer say
+    <em>“we couldn't identify”</em> — a removed field is identified perfectly well; we simply have
+    nowhere to write it. So that line becomes a <b>mixed bucket</b> reading <em>“can't be put
+    back”</em>, pooling two different situations under one number, and the crew member cannot tell
+    from the banner which kind is waiting. Same data as Reading A above; only the counting differs.</p>
+  </div>
+  <div class="screen">
+    <div class="cn-banner">
+      <span class="cn-banner-ico">⚠️</span>
+      <span class="cn-banner-body">
+        <span class="cn-banner-hd">1 answer was overwritten</span>
+        <span class="cn-banner-open">1 still to review</span>
+        <span class="cn-banner-unid">+ 1 change that can't be put back</span>
+      </span>
+      <span class="cn-banner-go">Review</span>
+    </div>
+    <div style="height:14px"></div>
+    <div class="sc-hd"><span class="sc-title">Overwritten answers</span><span class="sc-close">Done</span></div>
+    <div class="cg">
+      <div class="cg-hd">
+        <span><span class="cg-name">Opening — Truck A</span><span class="cg-meta">Mon Jul 27 · <span class="cg-doc">sub_9f31c4</span></span></span>
+        <span class="cg-count">1 answer +1</span>
+      </div>
+      <div class="cf">
+        <div class="cf-q">Walk-in cooler temp</div>
+        <div class="cf-vals">
+          <div class="cf-v mine"><span class="cf-v-lab">Yours</span><span class="cf-v-val">38 °F</span></div>
+          <div class="cf-v"><span class="cf-v-lab">Now shows</span><span class="cf-v-val">41 °F</span><span class="cf-v-who">· Dana M., 6:12 PM</span></div>
+        </div>
+        <div class="cf-acts">
+          <span class="cf-btn cf-btn-pri">
+            <span>Restore mine</span>
+            <span class="cf-btn-s">replaces 41&nbsp;°F</span>
+          </span>
+          <span class="cf-btn cf-btn-sec">
+            <span>Keep theirs</span>
+            <span class="cf-btn-s">41&nbsp;°F stays</span>
+          </span>
+        </div>
+      </div>
+      <div class="cf unrec">
+        <div class="cf-q-gone">fld_prep_sink_temp</div>
+        <div class="cf-vals">
+          <div class="cf-v mine"><span class="cf-v-lab">Yours</span><span class="cf-v-val">72 °F</span></div>
+        </div>
+        <div class="cf-why">This question was removed from the checklist while you were offline, so
+        your answer can't go back on it. Copy it if you still need it.</div>
+        <div class="cf-acts">
+          <span class="cf-btn cf-btn-pri cf-btn-wide">Copy value</span>
+          <span class="cf-btn cf-btn-sec cf-btn-wide">Dismiss</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p class="note"><b>How to decide it in one question:</b> is the banner's headline a count of
+  <em>what was taken from you</em> (Reading A) or a count of <em>what you can do something
+  about</em> (Reading B)? A-1 makes that question sharper rather than settling it, because the
+  second line now carries “what you can do something about” on its own — which is an argument for
+  Reading A that did not exist before the amendment, and is exactly why this was deferred until
+  revised plates existed rather than answered at triage.</p>
+</div>
+
+<!-- ═══════════════════ OPEN DECISION (ii) — THE RETENTION WINDOW ══ -->
+<div class="open-q">
+  <h3>▲ Open decision (ii) — not settled by this mockup</h3>
+  <p><b>How long is a conflict record kept?</b> <b>30 days was accepted at the 18:12 sign-off
+  (decision 80) and reopened at morning triage 2026-07-28.</b> It is drawn everywhere as the token
+  <span class="ph">30</span> — never as prose — so that no screenshot of this design can be mistaken
+  for a decision, and so a reader can see every surface the number reaches.</p>
+  <p><b>It reaches exactly one screen, which is why it is cheap to change and easy to get wrong.</b>
+  The empty state is the only place a crew member ever sees the number, and it is the screen they
+  see most. Below is that one screen at two candidate values. <b>Nothing else in the design
+  moves</b> — no other plate prints it, and the sweep that enforces it is a local job with no UI.</p>
+</div>
+
+<div class="plate" id="plate-openq-retention">
+  <div class="cap">
+    <span class="cap-id">open decision (ii) · the retention window, at two candidate values</span>
+    <p class="cap-t"><b>▲ NOT SETTLED. 30 days was accepted at the 18:12 sign-off (decision 80)
+    and reopened at morning triage 2026-07-28. This card draws the number as a placeholder and does
+    not recommend a value.</b>
+    <b>Contract:</b> the number renders as a dashed placeholder token in both
+    renderings, and the <em>body copy does not change</em> between them — which is the point: the
+    choice is a product judgement about how long a crew member might plausibly come looking, not a
+    layout constraint. <b>What to weigh:</b> a longer window means a crew member can still recover
+    an answer from a shift they have forgotten, and a longer list to scroll on the sheet; a shorter
+    one means the empty state is more often honest about what it does <em>not</em> hold. The record
+    is <b>per-device and evictable</b> (see the storage-error plate), so a long window is a promise
+    the device may not keep.</p>
+  </div>
+  <div class="screen">
+    <div class="sc-hd"><span class="sc-title">Overwritten answers</span><span class="sc-close">Done</span></div>
+    <div class="sc-empty">
+      <h3>Nothing recorded in the last <span class="ph">30</span> days</h3>
+      <p>Answers land here when someone edits the same question while your phone is offline and the
+      server's version wins. This is what HQ caught and kept — if it wasn't running when a change
+      came in, that change won't be listed.</p>
+    </div>
+    <div style="height:12px"></div>
+    <div class="sc-empty">
+      <h3>Nothing recorded in the last <span class="ph">7</span> days</h3>
+      <p>Answers land here when someone edits the same question while your phone is offline and the
+      server's version wins. This is what HQ caught and kept — if it wasn't running when a change
+      came in, that change won't be listed.</p>
+    </div>
+    <span class="ph-key"><b>Both numbers are placeholders.</b> ⟨7⟩ is drawn only to show that the
+    screen is indifferent to the value — it is <b>not</b> a counter-proposal, and this card is not
+    recommending either. Implementations read the chosen number from one named constant.</span>
+  </div>
+  <p class="note"><b>Why this is worth an operator's attention rather than a default.</b> The record
+  is a <em>personal, per-device undo</em> (ledger T-27, decision 89): local-only, not replicated, and
+  evictable under iOS storage pressure. So the retention window is not “how long we keep the audit
+  trail” — it is “how long after a bad shift is it still worth showing a crew member a list they may
+  have already acted on”. That is a question about how the truck works, which is why the number was
+  reopened rather than left where it fell.</p>
+</div>
+
 <!-- ═══════════════════════════════════════════════ LIMITS OF THE DESIGN ══ -->
 <div class="plate" id="plate-limits">
   <div class="cap">
@@ -715,10 +1290,14 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
     subscription.</p>
     <p><b>3. “Dana M., 6:12 PM” is only as real as the row.</b> <code>conflict$</code> carries no
     author and no timestamp of its own — every attribution above comes from fields on the document.
-    If the replicated schema doesn't carry who-and-when, those lines must degrade to “someone
-    else” rather than be invented. That schema belongs to
-    <code>sync-rxdb-schema-and-replication</code>; this mockup is stating a requirement on it, not
-    deciding it.</p>
+    That schema belongs to <code>sync-rxdb-schema-and-replication</code>; this mockup states a
+    requirement on it and does not decide it. <b>AMENDMENT A-2 hardens that requirement.</b> This
+    used to read “degrade to <em>someone else</em> if the schema doesn't carry who-and-when”. It no
+    longer may: the batch confirm's whole job is to say <b>exactly</b> what is being overridden, and
+    <em>“you are overwriting someone”</em> is not adequate on a food-safety record. A crew member
+    deciding whether to replace a walk-in cooler reading needs to know <b>whose</b> reading and
+    <b>when</b>. Who-and-when is therefore a <b>required output</b> of the schema card, not an option
+    it may decline — and if it is declined, the confirm plate above cannot be built as drawn.</p>
   </div>
 </div>
 
