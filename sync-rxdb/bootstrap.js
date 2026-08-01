@@ -77,6 +77,12 @@ const HQSync = {
   pinned: PINNED_VENDOR,
   // Deferred, for `sync-hard-cutover` and for C2's tests to drive.
   createDatabase: createHQSyncDatabase,
+  // 🛑 REQUIRES a scope — `startReplication(db, client, {scope:{checklistId,
+  // templateId, fieldIds}})`. It throws without one, and `checklistId` AND
+  // `templateId` are both mandatory. Replication is scoped to the open
+  // checklist and is never pulled whole (preference architecture/C-2, ledger
+  // T-29 decision 105); a default would widen that silently.
+  // 🛑 CANCEL the previous states before starting a re-scoped replication.
   startReplication: startHQReplication,
   // Pure helpers C2 renders against.
   describeConflict,

@@ -1632,25 +1632,86 @@
   is to how the library derives `<baseUrl>/rest/v1`, not to the public extension points.
   Footprint: `backend/internal/auth` (or a new package), `backend/internal/sync`.
 
-- **`sync-replication-scope-per-checklist`** · **PLANNED — NEW, authored at morning triage
-  2026-07-31 (ledger T-29 decision 105)** · Sized and sequenced by triage rather than put to the
-  operator: it is a bounded change to code that already landed, and it gates `sync-hard-cutover`,
-  so it goes **before** the cutover rather than inside it — folding it in would make the largest
-  card in the cycle larger and hide a design correction inside a write-path swap. · **What it
-  does:** give `startHQReplication` a pull filter so replication is scoped to the open checklist
-  instead of pulling four collections in full. Today (`sync-rxdb/client.js:378`) it loops
-  `templates`, `checklists`, `responses`, `approvals` with `pull:{batchSize:50}` and **no
-  selector, filter or query modifier**, so every device replicates every field answer of every
-  submission ever taken. Two consequences, and the second was not previously on the roadmap:
-  (a) the RLS predicate is re-evaluated per row on every page, which is the whole of Fork 1's
-  ~23 s figure — 20 pages × 50 rows × ~23 ms; (b) **unbounded phone storage** — `responses` grows
-  forever and each phone was to hold all of it. · **Also required:** re-measure the ~23 ms/row
-  constant on production-like topology. It was measured through Docker loopback NAT, which
-  production does not have — the linear *shape* is structural, the *constant* is not, and no card
-  should rely on the specific number until it is re-taken. · Footprint: `sync-rxdb/client.js`
-  (pull selector), `sync-schema/collections.js` if the scope needs a queryable key,
-  `tests/sync-rxdb-client.spec.js`. **Red-first is mandatory:** the red is a test asserting a
-  device does NOT hold rows for a checklist it never opened.
+- **`sync-replication-scope-per-checklist`** · **DONE — built on `overnight-20260802` (Track A,
+  card A1), 2026-08-01, branch `card/a1-sync-replication-scope-per-checklist`.**
+  **🛑 BUILT AND HANDED TO THE ORCHESTRATOR FOR MERGE — DEPLOYED TO NOTHING, and
+  `HQ_SYNC_REST_URL` REMAINS ARMED AND UNSET.** Flipping this bullet DONE ahead of the merge is
+  run convention. Nothing on this card authorizes a deploy, and this card specifically must not
+  be read as evidence that the env var can be set: it narrows what replication asks for, it does
+  not open the door. · Authored at morning triage 2026-07-31 (ledger T-29 decision 105), sized
+  and sequenced by triage rather than put to the operator: it is a bounded change to code that
+  already landed, and it gates `sync-hard-cutover`, so it went **before** the cutover rather than
+  inside it. · **What it did:** every replicated collection now carries a `pull.queryBuilder` —
+  `templates` `id.eq.<templateId>` (else `archived_at.is.null`), `checklists`
+  `id.eq.<checklistId>`, `approvals` `submission_id.eq.<checklistId>`, and `responses`
+  `or(submission_id.eq.<checklistId>, and(submission_id.is.null, field_id.in.(<the open
+  checklist's own fields>)))`. `startHQReplication` now **THROWS** without an `opts.scope`
+  carrying a `checklistId`: a default that fell back to the whole collection would widen
+  preference `architecture/C-2` silently, and C-2 requires a recorded decision to widen. ·
+  **Red first, as the card required:** `[SCOPE-01]` at commit `d5d2e4d` was **3 failed / 3
+  passed** — the failing three include `an offline DRAFT on the open checklist still replicates`
+  receiving `["rsp-1","rsp-2","rsp-3","rsp-4","rsp-5"]`, i.e. the whole table including two rows
+  belonging to a checklist the device never opened. The three that passed at the red are the
+  guards (non-empty subject set per B-22/B-23/B-24, the vendored-seam tripwire, the batch-size
+  check) and passed on purpose. **6/6 green** after the fix at `80b2149`. The harness does not
+  assert on an options object: it reproduces the vendored plugin's own pull construction — read
+  out of `vendor/rxdb.bundle.js`, where `pull.queryBuilder` runs BEFORE the checkpoint `.or()`
+  and PostgREST ANDs the two — and EVALUATES the emitted PostgREST filters over a two-checklist
+  fixture. · **NO SCHEMA CHANGE, NO POLICY CHANGE — the PARK trigger did not fire.** Every key the
+  scope uses was already declared by B1; `sync-schema/collections.js` and `sync-schema/sql/` are
+  byte-unchanged. The roadmap's *"`sync-schema/collections.js` if the scope needs a queryable
+  key"* proviso was not needed. · **Three scoping edges, all decided by C-2 rather than parked:**
+  (1) a draft response has `submission_id IS NULL` until submit and drafts are the offline case
+  this layer exists for, so the scope is the open checklist's submitted rows OR a draft on one of
+  its **own** field ids — not "all my drafts everywhere", which is a different unbounded set (and
+  it matches what the RLS predicate already does: `TestRowVisibilityRLS/V13` is literally *DRAFT
+  responses are scoped by FIELD, not by submission*); (2) `templates` is scoped `id.eq.<templateId>`
+  and `templateId` is REQUIRED — there is no "caller omitted it" fallback, because a widening
+  triggered by a forgotten argument is not a recorded decision; (3) an unscoped call is refused
+  loudly, and the refusal is raised while BUILDING the pull rather than inside `pull.handler`,
+  which the plugin wraps in an unbounded silent retry. · **The `replicationIdentifier` CARRIES THE
+  SCOPE — `hq-sync-<table>-<fingerprint of that collection's own filter>`.** 🛑 **This reverses
+  what this bullet said when the card was first flipped DONE, and the reversal is the point:** the
+  original text argued the scope must stay OUT of the identifier because folding it in would mint a
+  blank checkpoint on every checklist switch. Measured against `vendor/rxdb.bundle.js`, that was
+  backwards. RxDB keys its checkpoint meta store by `hash([collection.name, replicationIdentifier])`
+  and **by nothing else** — the scope is not in the key — and the pull's returned checkpoint is the
+  last row of the *scoped* result set, which the next pull ANDs `_modified > C` against. One
+  identifier across scopes therefore meant: open today's checklist, checkpoint advances to today;
+  open **yesterday's**, every one of its rows is `<= C`, **zero rows, permanently**. The cost the
+  old reasoning was protecting against had already been removed by this same card: before it, a
+  blank checkpoint meant re-pulling all history (20 pages × 50 rows); after it, it means re-pulling
+  **one checklist** — about one batch. Identical scope still resumes; only a scope change mints a
+  new checkpoint. Found by the G6 adversarial review as BLOCKING finding F-1 and fixed in the same
+  card; pinned by `[SCOPE-02]`, which runs the plugin's pull construction twice through a meta
+  store keyed the way RxDB keys its own. · 🛑 **STILL OPEN,
+  and it is `sync-hard-cutover`'s: `B-42 SYNC-REALTIME-SCOPE`.** The PULL is scoped; the plugin's
+  live `postgres_changes` subscription is not, and has no seam — `pull.modifier` reaches stream
+  documents but cannot drop one (no null filter on the downstream path), and Realtime's own
+  `filter` takes a single clause, which cannot express the `responses` branch. Bounded: the pull
+  was the unbounded leg (all history, every page load) and is now scoped; the stream is bounded by
+  what other people change while the crew member is looking. Stated in `sync-rxdb/client.js`'s
+  `REPLICATION SCOPE` header, not only in the backlog. · 🛑 **UNBOUNDED PHONE STORAGE IS IMPROVED,
+  NOT FIXED — reworded after G6 finding F-6, which caught this bullet claiming otherwise.** RxDB's
+  downstream only ADDS to the local store; nothing evicts, and there is no retention sweep for any
+  of the four replicated collections. A phone still accumulates every checklist it has **opened**
+  — the bound moved from *all history* to *opened checklists*, which is a large improvement and is
+  not the same thing as bounded. Whoever owns retention owns it after `sync-hard-cutover`. · 🛑
+  **ALSO FIXED IN THE G6 ROUND, same card:** scope values are validated against a strict
+  whitelist and quoted into PostgREST's logic-tree grammar (F-4 — an unescaped value could
+  otherwise rewrite the predicate to match every row, *through* the thing this card calls a gate);
+  and the `[SCOPE-01]` fixture gained a second submission of the OPEN checklist's OWN template plus
+  approval/response rows on OPEN field ids under a different submission (F-2 — without them the
+  fixture could not tell per-checklist scoping from per-template or per-field scoping, and the
+  reviewer's two mutations both survived 6/6 green). · 🛑 **STILL REQUIRED AND NOT DONE BY THIS
+  CARD: re-measure the ~23 ms/row constant on production-like topology.** It was measured through
+  Docker loopback NAT, which production does not have — the linear *shape* is structural, the
+  *constant* is not, and no card should rely on the specific number until it is re-taken. This
+  card removed the multiplier (20 pages × 50 rows), not the constant. · Footprint as built:
+  `sync-rxdb/client.js`, `tests/sync-rxdb-client.spec.js`, plus one line of doc in
+  `sync-rxdb/bootstrap.js` and a scope argument in `tests/sync-rxdb-conflict.spec.js`'s driven
+  threading test, which genuinely calls `startHQReplication` and would otherwise red on a change
+  it is not about.
 
 - **`sync-hard-cutover`** · **PLANNED — LAST · SLATED 2026-07-31 evening as BUDGET-GATED STRETCH on
   `overnight-20260801-2`** (started only if `sync-replication-scope-per-checklist` and

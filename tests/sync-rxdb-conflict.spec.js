@@ -870,6 +870,14 @@ test.describe('describeConflict agrees with the handler it was configured beside
 
       const seen = [];
       startHQReplication(db, {}, {
+        // Required since card \`sync-replication-scope-per-checklist\` (20260802,
+        // A1): replication refuses to start unscoped (preference
+        // architecture/C-2). This test is about conflict-option threading, not
+        // about the scope — any valid scope will do, and passing one keeps the
+        // subject of the test unchanged.
+        // \`templateId\` became mandatory in the G6 fix round (F-5): an omitted
+        // one used to widen \`templates\` to every non-archived row.
+        scope: { checklistId: 'chk-conflict-threading-probe', templateId: 'tpl-conflict-threading-probe' },
         onConflict: (described, key) => seen.push({ key, fields: described.clashes.map((c) => c.field).sort() }),
       });
       process.stdout.write(JSON.stringify(seen));
