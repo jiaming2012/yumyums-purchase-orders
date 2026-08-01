@@ -938,15 +938,51 @@
   `ok` line the package prints when they all pass. The opt-out is now typed:
   `HQ_SYNC_SUBSTRATE_OPTIONAL=1` is the only door to a skip; anything else `t.Fatal`s. Demonstrated
   live in all three arms (unreachable+unset → FAIL exit 1; unreachable+`=1` → SKIP; reachable →
-  RUN, 27 subtests executed). Pinned by `spikeResolution`, a pure function `resolveSpikeConfig`
+  RUN, ~~27 subtests executed~~ **54 subtests in `TestRowVisibilityRLS` and 16 in
+  `TestJWTBridgeRLS`** — the 27 was wrong, corrected at the G6 fix round, finding F7; it matched
+  neither suite, and the row-visibility count rose from 52 to 54 when that round added WP8/W16).
+  Pinned by `spikeResolution`, a pure function `resolveSpikeConfig`
   switches on directly, whose test enumerates all 8 combinations **and asserts exactly one is a
   skip** — so an implementation that skipped everywhere cannot pass it (B-22/B-23/B-24).
-  🛑 **Ledger T-29 decision 108's reporting rule can now be retired: the package `ok` line means
-  something again.** · **Still open, deliberately:** `HQ_SYNC_REST_URL` remains **ARMED AND
+  🛑 ~~**Ledger T-29 decision 108's reporting rule can now be retired: the package `ok` line means
+  something again.**~~ **STRUCK — FINDING F6, and decision 108's rule is KEPT.** B-36 closes ONE
+  road to a silent skip; it does not close the road. Verbatim, on the fixed tree:
+  `HQ_SYNC_SUBSTRATE_OPTIONAL=1` still produces `--- SKIP: TestJWTBridgeRLS` / `--- SKIP:
+  TestRowVisibilityRLS` / `PASS` / `ok  github.com/yumyums/hq/internal/sync  0.019s` — exit 0, zero
+  attack variants run, **and the `ok` line does not say the variable was set.** `-run` filtering is
+  a second road: `-run TestSpikeGate` prints `ok` having run no variant at all. **The amendment: an
+  `internal/sync` result is reportable only when it cites `-run TestRowVisibilityRLS -v` with the
+  subtests EXECUTED, and states that `HQ_SYNC_SUBSTRATE_OPTIONAL` was unset.** A bare `ok` line
+  from this package remains unreportable. · **Still open, deliberately:** `HQ_SYNC_REST_URL` remains **ARMED AND
   UNSET** — making push *possible* is not making it *live*, and this card set, referenced and
-  implied it nowhere. · Discoveries routed under scope freeze: **B-46** (rejections just became the
-  fourth collection B-42's unscoped live leg applies to), **B-47** (`sync-schema/sql/` has no
-  applier or manifest), **B-48** (no static guard on the templates deny-all).
+  implied it nowhere. · Discoveries routed under scope freeze: **B-49** (rejections just became the
+  fourth collection B-42's unscoped live leg applies to — filed as B-46, renumbered at triage when
+  the B1 leg merged first and kept that number), **B-47** (`sync-schema/sql/` has no
+  applier or manifest), **B-48** (no static guard on the templates deny-all — **re-specified at the
+  G6 fix round**: the original lead proposed guarding a non-defect, see F3), **B-51** (the
+  "two independent gates refuse a DELETE" claim was false; `authenticated` holds DELETE and
+  TRUNCATE on all four tables, so there is one gate — finding F4).
+
+  · 🛑 **G6 ADVERSARIAL REVIEW RETURNED THREE BLOCKING DEFECTS, ALL IN THE SUITE, NONE IN THE
+  POLICIES — AND THE SUITE IS THIS CARD'S DELIVERABLE.** The shipped `0004` refused every attack
+  the reviewer constructed, `Prefer: return=minimal` included. What it could not do was prove it:
+  **3 of 5 mutations to the shipped write predicates survived fully green, and 2 of the 3 were
+  mutations the file itself names as guarded.** Root cause **F1**: `spikeStack.do` set
+  `Prefer: return=representation` unconditionally, so every write went through PostgREST with
+  RETURNING and Postgres applied **0003's SELECT policy to the new row** — and since the read
+  predicates are identical to (rows 2, 3) or broader than (row 4) the write predicates, **the read
+  policy was silently enforcing the write half.** W8's rejection arm was reading a 403 issued by
+  `hq_can_see_field`. Fixed by `rvPushRefused`: every write refusal now goes out under BOTH Prefer
+  headers. **F2**: `submission_rejections_update`'s `with check` — the ONE predicate in the file
+  narrower than its table's SELECT policy, hence the only one Postgres will not enforce for us —
+  had no variant of either sign; the matched pair **WP8/W16** was added on the approver-UPDATE axis
+  (a new fixture field `fldApprover2` makes the pair run the identical PATCH probe). **F3**: §5's
+  "single most load-bearing sentence" was factually wrong about PostgreSQL in both halves —
+  Postgres substitutes `using` for an omitted `with check`, so on rows 2 and 3 that omission is a
+  **non-defect**, and no test was invented to pretend otherwise. Corrected in place with a
+  four-probe isolated experiment. **Mutation set re-run after the fix: M1 survives (correctly, a
+  non-defect), M1b survives (correctly), M1c → W16, M1d → W4/W6/W8/W13/W14, M2 → WP3/WP4/W14, M3 →
+  W3, M4 → W8.** Every reachable mutation is now caught.
 
   · **The card AS AUTHORED follows, kept verbatim rather than rewritten, so the contract this was
   built against stays readable next to what was built.** Authored at slate planning 2026-07-31
