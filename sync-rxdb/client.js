@@ -323,6 +323,198 @@ export function createHQSyncClient(opts = {}) {
 }
 
 // ---------------------------------------------------------------------------
+// REPLICATION SCOPE — preference `architecture/C-2`, ledger T-29 decision 105.
+//
+//   "Any client-side fetch or replication over a collection that can grow
+//    without bound is batched and scoped — never pulled whole. Scope it to what
+//    the current view actually needs (for workflows, the open checklist).
+//    Widening the scope requires a recorded decision."
+//
+// WHAT WAS WRONG. `startHQReplication` looped all four replicated collections
+// with `pull:{batchSize:50}` and no selector, filter or query modifier. Two
+// consequences, and the second is the one that would have reached the truck:
+// the RLS predicate was re-evaluated per row on every page (the whole of Fork
+// 1's ~23 s figure), and `responses` grows forever while every phone was to
+// hold all of it.
+//
+// WHERE THE SCOPE ATTACHES. `rxdb/plugins/replication-supabase` builds its pull
+// as (measured against the committed bundle, not read from docs):
+//
+//     var S = client.from(tableName).select("*");
+//     if (pull?.queryBuilder) {
+//       var R = pull.queryBuilder({ query: S, lastPulledCheckpoint: g, batchSize: _ });
+//       R && (S = R);
+//     }
+//     if (g) { S = S.or('"_modified".gt.…'); }     // the checkpoint
+//     S = S.order(…).order(…).limit(_);
+//
+// `pull.queryBuilder` is therefore the single supported seam, it runs BEFORE
+// the checkpoint clause, and PostgREST ANDs the two — so the scope narrows the
+// resume rather than fighting it.
+//
+// 🛑 WHAT THIS DOES *NOT* SCOPE, stated rather than implied. The plugin's live
+// path subscribes `postgres_changes` for `{event:'*', schema:'public', table}`
+// with NO filter, and feeds every event straight into the local store. A row
+// belonging to a checklist this device never opened, CHANGED while the page is
+// open, still arrives. The plugin exposes no seam for it (`pull.modifier` is
+// applied to stream documents but cannot drop one — the downstream does
+// `documents.map(modifier)` with no null filter), and Realtime's own
+// `postgres_changes` filter accepts a single `col=op.value` clause, which
+// cannot express `responses`' two-branch scope. Filed as `SYNC-REALTIME-SCOPE`
+// in `.night-crew/knowledge/BACKLOG.md`; it is not this card's, and it does not
+// reduce what the pull scope buys (the pull is the unbounded leg — the stream
+// is bounded by what other people change while you are looking).
+//
+// THE THREE SCOPING EDGES, AND WHO DECIDED THEM. All three were decided here,
+// by C-2, and none of them needed a schema or a policy change — every key below
+// was already declared by `sync-schema/collections.js`, which this card leaves
+// byte-unchanged. The card's PARK trigger did not fire.
+//
+//   1. DRAFT RESPONSES. A draft has `submission_id IS NULL` until submit
+//      (migration 0012's partial unique index), and drafts are exactly what a
+//      crew member fills offline — so `submission_id.eq.<open>` alone would
+//      drop the one thing this collection exists to carry. C-2 says "what the
+//      current view actually needs", not "what already has a foreign key": the
+//      scope is the open checklist's submitted rows OR a draft on one of the
+//      open checklist's OWN field ids. It is not "all my drafts everywhere",
+//      which would be a different, unbounded set.
+//
+//   2. TEMPLATES. Bounded in principle (one row per template) but not pulled
+//      whole either — C-2's rule is about the current view, and the view is one
+//      checklist. Scoped to the open checklist's template when the caller names
+//      one; otherwise to the non-archived set, which is what a launcher list
+//      shows. `archived_at` was already declared.
+//
+//   3. NO SCOPE AT ALL. Refused, loudly, at the call. A default that fell back
+//      to the whole collection would widen C-2 silently, and C-2 requires a
+//      RECORDED decision to widen. A throw is the only version of this that
+//      cannot be reached by accident.
+// ---------------------------------------------------------------------------
+
+/**
+ * Normalise + validate a replication scope.
+ *
+ * @param {object} scope
+ * @param {string} scope.checklistId  the open checklist (`checklist_submissions.id`). REQUIRED.
+ * @param {string} [scope.templateId] its template, when known.
+ * @param {string[]} [scope.fieldIds] the open checklist's field ids — what makes
+ *   an offline draft (`submission_id IS NULL`) attributable to this checklist.
+ */
+export function normalizeScope(scope) {
+  if (!scope || typeof scope !== 'object') {
+    throw new Error(
+      '[hq-sync] startHQReplication requires a scope: replication is scoped to the '
+      + 'open checklist and is never pulled whole (preference architecture/C-2). '
+      + 'Pass {scope:{checklistId, templateId, fieldIds}}.',
+    );
+  }
+  if (typeof scope.checklistId !== 'string' || scope.checklistId === '') {
+    throw new Error(
+      '[hq-sync] scope.checklistId is required — it is the open checklist the '
+      + 'replication is scoped to (preference architecture/C-2).',
+    );
+  }
+  const fieldIds = (scope.fieldIds || []).filter((f) => typeof f === 'string' && f !== '');
+  return {
+    checklistId: scope.checklistId,
+    templateId: typeof scope.templateId === 'string' && scope.templateId !== ''
+      ? scope.templateId
+      : null,
+    fieldIds,
+  };
+}
+
+/**
+ * The scope for ONE collection, as a declarative filter tree.
+ *
+ * Kept declarative rather than emitted straight onto a PostgREST builder so the
+ * rule can be read, tested and diffed as data. `applyScope` is the only thing
+ * that turns it into calls.
+ *
+ * @returns {object|null} a filter node, or null for "this collection carries no
+ *   scope key" — which no collection currently returns, and which `applyScope`
+ *   treats as a programming error rather than as permission to pull whole.
+ */
+export function scopeFilterFor(collectionKey, scope) {
+  const s = normalizeScope(scope);
+  switch (collectionKey) {
+    case 'templates':
+      return s.templateId
+        ? { op: 'eq', column: 'id', value: s.templateId }
+        : { op: 'is', column: 'archived_at', value: null };
+    case 'checklists':
+      return { op: 'eq', column: 'id', value: s.checklistId };
+    case 'responses':
+      // Edge 1. Submitted rows on the open checklist, OR a draft on one of its
+      // own fields. With no field ids in hand there is nothing that makes a
+      // draft attributable, so the draft branch is omitted rather than widened.
+      return s.fieldIds.length
+        ? {
+          op: 'or',
+          clauses: [
+            { op: 'eq', column: 'submission_id', value: s.checklistId },
+            {
+              op: 'and',
+              clauses: [
+                { op: 'is', column: 'submission_id', value: null },
+                { op: 'in', column: 'field_id', values: s.fieldIds },
+              ],
+            },
+          ],
+        }
+        : { op: 'eq', column: 'submission_id', value: s.checklistId };
+    case 'approvals':
+      return { op: 'eq', column: 'submission_id', value: s.checklistId };
+    default:
+      return null;
+  }
+}
+
+/**
+ * Serialise a filter node into PostgREST's embedded `or=`/`and=` grammar.
+ * Columns are quoted the way the vendored plugin quotes its own checkpoint
+ * clause, so the two compose without a quoting disagreement.
+ */
+export function serializeFilter(node) {
+  switch (node.op) {
+    case 'eq': return `"${node.column}".eq.${node.value}`;
+    case 'is': return `"${node.column}".is.null`;
+    case 'in': return `"${node.column}".in.(${node.values.join(',')})`;
+    case 'and': return `and(${node.clauses.map(serializeFilter).join(',')})`;
+    case 'or': return `or(${node.clauses.map(serializeFilter).join(',')})`;
+    default: throw new Error('[hq-sync] unknown scope filter op: ' + node.op);
+  }
+}
+
+/** Apply a filter node to a PostgREST query builder. */
+export function applyScope(query, node) {
+  if (!node) {
+    throw new Error(
+      '[hq-sync] a replicated collection with no scope key would be pulled whole '
+      + '(preference architecture/C-2). Give it one, or do not replicate it.',
+    );
+  }
+  switch (node.op) {
+    case 'eq': return query.eq(node.column, node.value);
+    case 'is': return query.is(node.column, null);
+    case 'in': return query.in(node.column, node.values);
+    // A top-level `or`/`and` goes on the wire as one `or=`/`and=` parameter.
+    case 'or': return query.or(node.clauses.map(serializeFilter).join(','));
+    case 'and': return query.or(serializeFilter(node));
+    default: throw new Error('[hq-sync] unknown scope filter op: ' + node.op);
+  }
+}
+
+/**
+ * The `pull.queryBuilder` the replication plugin calls. Returns the narrowed
+ * query; the plugin then ANDs its own checkpoint clause onto it.
+ */
+export function makePullQueryBuilder(collectionKey, scope) {
+  const node = scopeFilterFor(collectionKey, scope);
+  return ({ query }) => applyScope(query, node);
+}
+
+// ---------------------------------------------------------------------------
 // The RxDB database. BROWSER ONLY — Dexie needs IndexedDB.
 // ---------------------------------------------------------------------------
 
@@ -373,10 +565,17 @@ export async function createHQSyncDatabase(opts = {}) {
  * door that is deliberately shut. It lives here so the shape is reviewable now
  * and so C2 can drive it in a test.
  *
+ * 🛑 `opts.scope` IS REQUIRED — see the REPLICATION SCOPE block above. There is
+ * no unscoped call. `{checklistId}` at minimum; add `templateId` and `fieldIds`
+ * so the template and the offline drafts come with it.
+ *
  * @returns {Record<string, object>} replication states, keyed by collection.
  */
 export function startHQReplication(db, client, opts = {}) {
   const states = {};
+  // Validate ONCE, before a single replication is started: a scope that is
+  // going to be refused should refuse before half the collections are live.
+  const scope = normalizeScope(opts.scope);
   // Testability seam ONLY. Defaults to the vendored plugin; a test injects a
   // recorder so the per-collection replication options can be read without a
   // browser, an IndexedDB or a substrate. Production never passes it.
@@ -386,7 +585,15 @@ export function startHQReplication(db, client, opts = {}) {
       // Stable across reconnects ON PURPOSE: a different identifier hands the
       // new connection a blank checkpoint, which is a full re-pull rather than
       // a resume (spike `proof-lww.js` depends on the same property).
+      //
+      // 🛑 The identifier does NOT carry the scope, and that is deliberate. RxDB
+      // keys its checkpoint by this string; folding the checklist id in would
+      // mint a fresh identifier — and therefore a blank checkpoint, a full
+      // re-pull — every time the crew member opened a different checklist,
+      // which is the cost this card exists to remove.
       replicationIdentifier: `hq-sync-${def.table}`,
+      // Read by the injected recorder in tests; the plugin ignores unknown keys.
+      collectionKey: key,
       collection: db[key],
       client,
       tableName: def.table,
@@ -394,7 +601,11 @@ export function startHQReplication(db, client, opts = {}) {
       // library's own default alone unless a caller has a reason.
       waitForLeadership: opts.waitForLeadership !== false,
       live: opts.live !== false,
-      pull: { batchSize: opts.pullBatchSize || 50 },
+      // BATCHED **AND** SCOPED — both halves of C-2, in one place.
+      pull: {
+        batchSize: opts.pullBatchSize || 50,
+        queryBuilder: makePullQueryBuilder(key, scope),
+      },
       push: { batchSize: opts.pushBatchSize || 50 },
     });
     if (opts.onConflict) {
