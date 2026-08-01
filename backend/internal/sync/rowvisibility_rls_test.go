@@ -283,10 +283,13 @@ func rvConnect(t *testing.T) *rvStack {
 	// ── Is a substrate configured at all? (no I/O — see above) ───────────
 	cfg, ok := resolveSpikeConfig(t)
 	if !ok {
-		t.Skipf("no sync substrate configured — skipping, and SKIPPED IS NOT PASSED: with "+
-			"this off there is NO row-visibility evidence in the tree at all. Bring it up "+
-			"with: docker compose -p %s -f docker-compose.supabase.yml up -d",
-			spikeComposeProject)
+		// 🛑 Reached ONLY under HQ_SYNC_SUBSTRATE_OPTIONAL=1 since B-36. Every
+		// other unresolvable-substrate path is a t.Fatal inside
+		// resolveSpikeConfig, so this line is a declaration, never an accident.
+		t.Skipf("%s=1 — skipping, and SKIPPED IS NOT PASSED: with this off there is NO "+
+			"row-visibility evidence in the tree at all, for reads OR for writes. Bring the "+
+			"stack up with: docker compose -p %s -f docker-compose.supabase.yml up -d",
+			spikeOptionalEnv, spikeComposeProject)
 	}
 
 	// ── HQ's Postgres ────────────────────────────────────────────────────

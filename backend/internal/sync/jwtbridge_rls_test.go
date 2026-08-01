@@ -143,9 +143,11 @@ func connectSpike(t *testing.T) *spikeStack {
 
 	cfg, ok := resolveSpikeConfig(t)
 	if !ok {
-		t.Skipf("no sync substrate configured — skipping, and SKIPPED IS NOT PASSED: with "+
-			"this off there is no JWT-bridge RLS evidence in the tree. Bring it up with: "+
-			"docker compose -p %s -f docker-compose.supabase.yml up -d", spikeComposeProject)
+		// 🛑 Reached ONLY under HQ_SYNC_SUBSTRATE_OPTIONAL=1 since B-36.
+		t.Skipf("%s=1 — skipping, and SKIPPED IS NOT PASSED: with this off there is no "+
+			"JWT-bridge RLS evidence in the tree. Bring it up with: "+
+			"docker compose -p %s -f docker-compose.supabase.yml up -d",
+			spikeOptionalEnv, spikeComposeProject)
 	}
 
 	ctx := context.Background()
