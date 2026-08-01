@@ -312,7 +312,11 @@ async function build() {
       // ═══ FOUND BY THE REACHABILITY GUARD ABOVE, NOT BY A HUMAN. B-37. ═════
       //
       // Both were referenced by precached pages and globbed by NOTHING, since
-      // the ad-hoc commit that introduced them (`cfe7edc`, "more bug fixes").
+      // the ad-hoc commits that introduced them: `log.js` at `1ec8725`
+      // (2026-04-21, "receipt worker fixes, inventory review UI improvements,
+      // onboarding upgrades") and `tab.js` a week later at `cfe7edc`
+      // (2026-04-28, "more bug fixes"). Each was first referenced in the same
+      // commit that added it, so the gap is that old on both.
       // `log.js` is on all 7 precached pages; `tab.js` on 5. They ship into the
       // image via `COPY *.html *.js` so they have always worked ONLINE, and have
       // always failed on a returning client with no network — which is the only
