@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/yumyums/hq/internal/users"
 )
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -179,11 +180,23 @@ func rowByName(t *testing.T, resp CostResponse, name string) CostRow {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Window: 12 complete ISO weeks ending the Sunday before the current week,
-// evaluated in America/Chicago. The design §2.2 example pins today=2026-07-20 ->
+// evaluated in the APP timezone (users.DefaultTimezone — America/New_York,
+// ledger T-26 decision 83). The design §2.2 example pins today=2026-07-20 ->
 // from=2026-04-27, to=2026-07-19, weeks=12.
+//
+// Card A1 changed one case here for real, not to make a test pass. The old
+// "Sunday 2026-07-19 23:30 Chicago" fixture is 00:30 MONDAY 2026-07-20 in New
+// York, so its window genuinely moves forward one week. It is kept below,
+// relabelled, as the boundary case — with a 22:30 New York sibling that is
+// Sunday in BOTH zones, so the pair brackets the boundary instead of merely
+// following it.
 // ─────────────────────────────────────────────────────────────────────────────
-func TestCostWindow_TwelveCompleteISOWeeksChicago(t *testing.T) {
-	loc, err := time.LoadLocation("America/Chicago")
+func TestCostWindow_TwelveCompleteISOWeeksAppTimezone(t *testing.T) {
+	loc, err := time.LoadLocation(users.DefaultTimezone)
+	if err != nil {
+		t.Skipf("%s tzdata unavailable: %v", users.DefaultTimezone, err)
+	}
+	chi, err := time.LoadLocation("America/Chicago")
 	if err != nil {
 		t.Skipf("America/Chicago tzdata unavailable: %v", err)
 	}
@@ -199,13 +212,21 @@ func TestCostWindow_TwelveCompleteISOWeeksChicago(t *testing.T) {
 			from: "2026-04-27", to: "2026-07-19", weeks: 12,
 		},
 		{
-			name: "Sunday 2026-07-19 late evening still in prior ISO week",
-			now:  time.Date(2026, 7, 19, 23, 30, 0, 0, loc),
+			// THE BOUNDARY. 23:30 Sunday in Chicago is 00:30 Monday in New
+			// York: the app has already rolled into the new ISO week.
+			name: "Sunday 2026-07-19 23:30 Chicago = Monday 00:30 New York",
+			now:  time.Date(2026, 7, 19, 23, 30, 0, 0, chi),
+			from: "2026-04-27", to: "2026-07-19", weeks: 12,
+		},
+		{
+			// One hour earlier — Sunday in both zones. Brackets the boundary.
+			name: "Sunday 2026-07-19 22:30 New York still in prior ISO week",
+			now:  time.Date(2026, 7, 19, 22, 30, 0, 0, loc),
 			from: "2026-04-20", to: "2026-07-12", weeks: 12,
 		},
 		{
-			name: "UTC instant that is still Sunday in Chicago",
-			now:  time.Date(2026, 7, 20, 3, 0, 0, 0, time.UTC), // 22:00 Sun in Chicago
+			name: "UTC instant that is still Sunday in New York",
+			now:  time.Date(2026, 7, 20, 3, 0, 0, 0, time.UTC), // 23:00 Sun in New York
 			from: "2026-04-20", to: "2026-07-12", weeks: 12,
 		},
 	}

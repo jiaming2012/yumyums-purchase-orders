@@ -267,7 +267,17 @@ for (const scheme of ['light', 'dark']) {
         const classify = (cf) => {
             // bucket: 'answer' | 'extra' | 'ambiguous'
             let bucket = 'answer';
-            if (cf.querySelector('.cf-q-gone')) bucket = 'ambiguous';       // removed field — open decision (i)
+            // A removed-field row. TWO renderings since AMENDMENT A-3 (decision
+            // 95): `.cf-q-struck` is the question's own frozen label, struck
+            // through and read-only, and `.cf-q-gone` is the raw-field-id
+            // FALLBACK for a snapshot that carries no label — which, because
+            // nothing validates `template_snapshot` (R-C), is also every
+            // malformed one. Both are the same KIND of row and must classify
+            // the same way; keying only on `.cf-q-gone` would have silently
+            // reclassified every redrawn row as an ordinary answer, and
+            // measurement 6 would have gone on printing PASS against the wrong
+            // arithmetic.
+            if (cf.querySelector('.cf-q-struck, .cf-q-gone')) bucket = 'ambiguous';
             else if (cf.querySelector('.cf-v.none')) bucket = 'extra';      // nothing to recover
             // state: 'handled' | 'open'   (counting rule 6)
             const handled = !!(cf.querySelector('.cf-done') || cf.querySelector('.cf-kept'));

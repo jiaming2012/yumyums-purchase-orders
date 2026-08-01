@@ -1229,7 +1229,8 @@ test.describe('Offline sync', () => {
       const entry = await window.idbGet(db, 'submitQueue', entryId);
       const then = new Date();
       then.setDate(then.getDate() - 3);
-      entry.period = then.toISOString().slice(0, 10);
+      // Same period vocabulary the app writes — app timezone, not UTC (card A1).
+      entry.period = window.appDateString(then);
       entry.queuedAt = then.toISOString();
       await window.idbPut(db, 'submitQueue', entry);
     }, [tpl.id, staleKey, STALE_ID]);
@@ -1243,8 +1244,20 @@ test.describe('Offline sync', () => {
     expect(fresh[0].idempotency_key,
       "a three-day-old queue entry must NOT lend its key to today's submit — that upserts "
       + "today's answers onto the older day's submission row").not.toBe(staleKey);
-    expect(fresh[0].period, "today's entry is stamped with today's period")
-      .toBe(new Date().toISOString().slice(0, 10));
+    // The period is the APP-TIMEZONE calendar date, not the UTC one (card A1).
+    // Computed here from Intl directly rather than by calling the page's own
+    // appDateString, so the assertion is an independent statement of the
+    // contract and not a tautology against the implementation under test.
+    const nyParts = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit',
+    }).formatToParts(new Date());
+    const nyPart = (t) => nyParts.find((p) => p.type === t).value;
+    const appToday = `${nyPart('year')}-${nyPart('month')}-${nyPart('day')}`;
+    expect(fresh[0].period,
+      "today's entry is stamped with today's period in the APP timezone — between "
+      + '20:00 and midnight New York the UTC date is already tomorrow, and stamping '
+      + "that is what split one dinner service into two submission rows")
+      .toBe(appToday);
 
     // Aging out is RETIREMENT FROM KEY REUSE, never deletion. Offline, that
     // entry is the only durable copy of what was entered on the day it was

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/yumyums/hq/internal/users"
 )
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -93,14 +94,24 @@ type CostResponse struct {
 }
 
 // costWindow returns the fixed 12-complete-ISO-week window ending the Sunday
-// before the current week, evaluated in America/Chicago.
+// before the current week, evaluated in the APP timezone (users.DefaultTimezone
+// — America/New_York, ledger T-26 decision 83).
 //
 // The timezone is explicit (not server-local) because every other date boundary
-// in this system — the Monday drift check, period-summary's payroll week — is
-// stated in America/Chicago. Falling back to the passed-in location on tzdata
-// failure keeps the endpoint serving rather than 500ing.
+// in this system — the Monday drift check, period-summary's payroll week,
+// purchasing's CurrentWeekStart — is stated in that same one zone. Falling back
+// to the passed-in location on tzdata failure keeps the endpoint serving rather
+// than 500ing.
+//
+// 🛑 CHANGEOVER: ON THE DEPLOY THAT FOLLOWS THIS MERGE — DATE TBD. This window
+// is America/Chicago in production until then, so between 23:00 Sunday Chicago
+// and midnight Monday New York it names the previous 12-week window. Merging
+// does not move it; no deploy is scheduled as of this writing. Fix-forward: cost
+// figures produced before that deploy are NOT restated. To date this changeover:
+// find the first deploy after this comment's commit. See migration
+// 0072_app_timezone_new_york.sql, whose header carries the same instruction.
 func costWindow(now time.Time) (string, string, int) {
-	if loc, err := time.LoadLocation("America/Chicago"); err == nil {
+	if loc, err := time.LoadLocation(users.DefaultTimezone); err == nil {
 		now = now.In(loc)
 	}
 	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())

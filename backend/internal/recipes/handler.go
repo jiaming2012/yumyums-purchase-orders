@@ -12,6 +12,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/yumyums/hq/internal/users"
 )
 
 // writeJSON / writeError are intentionally duplicated from internal/inventory and
@@ -314,11 +315,12 @@ func validateUsagePct(v float64) string {
 	return ""
 }
 
-// chicagoWeekWindow returns (from, to) as YYYY-MM-DD for the last 7 days ending TODAY
-// in America/Chicago, used as the default range for ListRecipesHandler when query
-// params are missing. Falls back to the past 7 calendar days in UTC if TZ load fails.
-func chicagoWeekWindow() (string, string) {
-	loc, err := time.LoadLocation("America/Chicago")
+// appWeekWindow returns (from, to) as YYYY-MM-DD for the last 7 days ending TODAY
+// in the APP timezone (users.DefaultTimezone), used as the default range for
+// ListRecipesHandler when query params are missing. Falls back to the past 7
+// calendar days in UTC if TZ load fails.
+func appWeekWindow() (string, string) {
+	loc, err := time.LoadLocation(users.DefaultTimezone)
 	if err != nil {
 		now := time.Now().UTC()
 		return now.AddDate(0, 0, -7).Format("2006-01-02"), now.Format("2006-01-02")
@@ -331,13 +333,13 @@ func chicagoWeekWindow() (string, string) {
 // Cookie-auth-protected (registered under the auth.Middleware group in main.go).
 // Query params:
 //
-//	from, to — YYYY-MM-DD (optional; defaults to last 7 days ending today in Chicago)
+//	from, to — YYYY-MM-DD (optional; defaults to last 7 days ending today in the app timezone)
 func ListRecipesHandler(pool *pgxpool.Pool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		fromStr := r.URL.Query().Get("from")
 		toStr := r.URL.Query().Get("to")
 		if fromStr == "" && toStr == "" {
-			fromStr, toStr = chicagoWeekWindow()
+			fromStr, toStr = appWeekWindow()
 		}
 		if _, err := time.Parse("2006-01-02", fromStr); err != nil {
 			writeError(w, http.StatusBadRequest, "from must be YYYY-MM-DD")

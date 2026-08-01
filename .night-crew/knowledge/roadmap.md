@@ -563,7 +563,70 @@
   five converted `TestMain`s set. Reproducible via `scripts/verify-test-harness.sh`, whose third
   check (B2) guards the *other* direction: `DB_TEST_URL` unset must keep skipping.
 
-- **`app-timezone-unify-new-york`** · **PLANNED — HIGH, medium/large (RESCOPED), RESUMABLE** ·
+- **`app-timezone-unify-new-york`** · **DONE — every site, both contracts, one card** (2026-08-01,
+  run `overnight-20260801`, Track A card A1, branch `card/a1-app-timezone-unify-new-york`) ·
+  **🛑 BUILT AND HANDED TO THE ORCHESTRATOR FOR MERGE — DEPLOYED TO NOTHING.** Flipping this
+  bullet DONE ahead of the merge is run convention; asserting "MERGED" would not be, and this
+  card's whole subject is records that read as evidence. As written, the branch is complete and
+  gate-clean; the orchestrator merges it. This card does not authorize a deploy. Until
+  sales-processor ships its matching change, one repo is wrong — the disagreement is one hour at
+  each period edge, and it can only move a `pending_purchases` row with **no extracted
+  `event_date`** (an extracted `event_date` wins the `COALESCE`, so it is never exposed to the
+  zone). Confirmed pendings and `purchase_events` cannot move at all.
+  **🛑 CHANGEOVER DATE: THE FIRST DEPLOY AFTER THIS MERGE — TBD, AND NOT YET SCHEDULED.** An
+  earlier draft of this bullet stamped **2026-07-29** for the sites the parked attempt moved and
+  **2026-08-01** for `trends.go`'s window and the badge-reset client. Both are wrong and were
+  corrected in the code comments and the migration header: `overnight-20260729-2` **PARKED** this
+  card and merged nothing, and nothing deploys on 2026-08-01 either. No boundary moved on either
+  day. The changeover is the deploy that runs migration `0072`; recover its date afterwards from
+  `goose_db_version.tstamp` for version 72. **FIX FORWARD ONLY** — weekly COGS and payroll figures
+  produced before that deploy were already acted on and are **NOT** restated.
+  **The 07-29 park was correct and was resolved, not overridden.** The parked branch was resumed
+  intact at `8da3ded`; nothing was rebuilt. Three additions landed on top of it, exactly as
+  decisions 93 + 94 scoped them:
+  **(1) Both contract documents and assumption A5.** `21-SALES-PROCESSOR-CONTRACT.md:27`, `:67`,
+  `:319` and `999.2-SALES-PROCESSOR-CONTRACT.md:30` + a new A10. A5 is rewritten from "confirm
+  this" into the coordinated-release instruction it now is — what is changing, what HQ has BUILT
+  (and pointedly has **not** deployed), what sales-processor must do, the sequencing, and the
+  bounded blast radius. `:67` also gained a
+  correction the zone edit surfaced, and the card's first attempt at it got the provenance exactly
+  backwards. The **published** `pending_review_ids` expression had never stated the
+  `COALESCE(event_date, …)` — but that is **not** because Phase 21 forgot to write down what it
+  shipped. Phase 21 published what it shipped, accurately. **HQ changed what `pending_review_ids`
+  returns on 2026-06-06** — commit `cf959bd`, quick task `260606-0gh`, a task separate from Phase 21
+  — **and never published it.** Under the published expression a late-discovered receipt did not
+  block payroll; under the shipped code it does, so sales-processor may have been receiving an
+  undocumented `ready:false` since June 2026. That is a **second** undisclosed change to tell the
+  counterparty about, not a footnote to a timezone card, and it is filed as **B-29**.
+  **(2) `trends.go`'s `trendsWindow`** — a bare `time.Now()` with no `LoadLocation`, missed by the
+  parked attempt, eleven lines above a site it did edit. Red first: `trendsWindow(2026-07-27T01:30Z)`
+  answered `{from 2026-05-11, to 2026-07-27}` against `{from 2026-05-04, to 2026-07-26}` — a full
+  week off, and a "today" naming tomorrow. A third control subtest ("midday, both zones agree")
+  passed before AND after, proving the fix is a zone conversion and not a day shift.
+  **(3) Decision 94 — badge reset follows the app zone.** `tests/inventory.spec.js`'s
+  *"badge reset saves with browser timezone, not hardcoded value"* was **rewritten, not worked
+  around**: it is now parameterised over `Asia/Tokyo` (catches follow-the-device) and
+  `America/Chicago` (catches the zone this card removes, which follow-the-device also produces on a
+  Central phone — the one wrong answer that could look right), with a fixture-liveness check so it
+  cannot pass while testing nothing. Both reds observed at `America/New_York` vs the device zone.
+  This one mattered structurally: the config upsert is DELETE+INSERT with an explicit zone, so the
+  next badge-reset save would have **overwritten migration `0072`'s UPDATE**. Migrating the row
+  without fixing the client would have fixed nothing.
+  **Three park-note items absorbed.** The money path finally has a boundary test —
+  `pendingPeriodDateExpr`, the card's headline site, was covered by no red at all, and the nearest
+  existing case used a timestamp resolving to the same date in both zones. The new test places rows
+  in the one hour where the zones disagree at **opposite** period edges so no single-zone answer
+  satisfies both; proven red by injecting the old Chicago literal, which produced exactly the
+  predicted inversion. Eight stale Chicago comments in that file cleared, with the one
+  non-distinguishing case now saying so in its own comment. `APP_TIMEZONE` parity is now
+  **mechanical** — `[A1-TZ-PARITY]` reads `users.DefaultTimezone` out of the Go source as the
+  authority and asserts all three frontend literals plus the live `window.APP_TIMEZONE` agree; its
+  subject set is asserted non-empty and pinned to a count (B-22/23/24), and it was proven to bite by
+  injection rather than assumed. `appDateString`'s silent UTC fallback now warns, naming the
+  consequence. **One item filed rather than fixed:** `receipt/worker.go`'s `parseEventDate` stamps a
+  COGS period from server-local time — `backend/internal/receipt` is outside the footprint, so it is
+  **B-28** in BACKLOG.md, deliberately carried out rather than missed.
+  **Original card text follows.** (was: **PLANNED — HIGH, medium/large (RESCOPED), RESUMABLE**,
   **🅿️ PARKED on `overnight-20260729-2` and NOT merged** — G6 returned REJECT and the orchestrator
   verified the decisive evidence before parking. Branch
   **`card/a1-app-timezone-unify-new-york` @ `8da3ded` is preserved, unmerged, worktree intact**;
@@ -582,7 +645,7 @@
   browser's**, and `tests/inventory.spec.js:2022` is **asserting the defect** and must be rewritten
   rather than worked around. 🛑 **Nothing ships to prod until sales-processor's matching change is
   ready** — until both land one repo is wrong, and the disagreement is one hour at each period edge on
-  rows with no extracted `event_date`. Nothing is broken today: A1 did not merge. **Original card text
+  rows with no extracted `event_date`. Nothing is broken today: A1 did not merge.) **Original card text
   follows.** (new card, morning triage
   2026-07-28, ledger T-26 decision 83) · **The app is running two conflicting timezone regimes, and
   the operator ruled the app's timezone is `America/New_York`.** `users.DefaultTimezone` is already
@@ -676,7 +739,25 @@
   Footprint: the sync DB schema (SQL) and the RxDB collection definitions. No `workflows.html`, no
   policies, no client construction.
 
-- **`sync-rxdb-row-visibility-rls`** · **PLANNED — SLATE-READY, MECHANISM NOW DECIDED** · **✅ FORK
+- **`sync-rxdb-row-visibility-rls`** · **DONE — built on `overnight-20260801` (B2), resumed from the
+  2026-07-29 park.** Shipped: migration **`0073_sync_fdw_views.sql`** (HQ-side — three least-privilege
+  read-through views + the `hq_sync_fdw` role, created NOLOGIN with no committed password),
+  **`sync-schema/sql/0002_hq_fdw.sql`** (substrate-side `postgres_fdw` server, mapping and three
+  foreign tables, with the tables revoked from `anon`/`authenticated`/`public` so PostgREST cannot
+  serve HQ's role map), **`sync-schema/sql/0003_rls_policies.sql`** (`hq_can_see_template` /
+  `hq_can_see_field` and SELECT policies on three of the four replicated tables), and a **27-subtest
+  attack suite** (19 numbered variants V1-V19, 4 positives, 2 population floors, 2 `service_role`
+  controls) at `backend/internal/sync/rowvisibility_rls_test.go`, **red-first** — captures at
+  `.night-crew/qa/spike-supabase/captures/{red,green}-20260801-row-visibility.txt` (red: 16 FAIL /
+  11 PASS with policies withheld; green: 27/27). Both inherited properties are preserved **and asserted**
+  — a mutation adding `assignment_role = 'assignee'` turns `POSITIVE/alice` red, and deleting the
+  admin arm turns exactly `POSITIVE/carol`, `V12`, `V14` red. **Two things triage must rule on:**
+  (1) the card ships **SELECT policies only** — INSERT/UPDATE stay policy-less (deny-all) because
+  `ResolveEntityAccess` is a fan-out resolver and extending it to writes would invent a permission
+  semantic, so **RxDB push replication is refused until a follow-up card writes `WITH CHECK`
+  policies**; (2) `submission_rejections` likewise keeps no policy — the resolver has no case for it,
+  so a policy there would be an extension, not a port. `HQ_SYNC_REST_URL` is **still not set by this
+  branch** and disarms only at triage, on evidence. *Original card text follows.* · **FORK
   RESOLVED 2026-07-29 (ledger T-28 decision 92) — the projection is fed by `postgres_fdw` from the
   substrate to HQ, and decision 61 is REVERSED.** Card B1 settled the topology on
   `overnight-20260729-2` in the direction that makes decision 61's contract impossible: the
@@ -724,7 +805,34 @@
   via `public.hq_jwt_claim`), and `public.hq_uid_trap` re-proves it every run.
   Footprint: sync DB policies/SQL, `backend/internal/sync`, a migration if the projection needs one.
 
-- **`sync-rxdb-replication-and-conflict-handler`** · **PLANNED — SLATE-READY** (fanned out of
+- **`sync-rxdb-replication-and-conflict-handler`** · **DONE — landed on `overnight-20260801`
+  (Track C, card C1), 2026-07-31.** Four new files under `sync-rxdb/`
+  (`conflict-handler.js` — zero imports, the field-level three-way merge;
+  `client.js` — the permanent same-origin helper; `bootstrap.js` — the one module a page
+  loads; `package.json` — `"type":"module"`, zero dependencies), two new spec files
+  (`tests/sync-rxdb-conflict.spec.js` 35 tests at HEAD,
+  `tests/sync-rxdb-client.spec.js` 24 tests), and edits to `workflows.html` (ONE
+  `<script type="module">` tag), `build-sw.js`, `backend/Dockerfile` and
+  `tests/sw-manifest.spec.js`.
+  **Red-first figure, corrected at G6:** the conflict spec was **33 tests with 29
+  failing** at the red-first commit `ab53478` (RAW EXIT 1), measured by the reviewer.
+  An earlier draft of this bullet said "35 tests with 29 failing" — **35 is the count
+  at HEAD, not at `ab53478`**; the 29 is exact. Of the 4 passing at `ab53478`, three
+  are the master-wins reproduction proper and the fourth (`the case table is non-empty
+  and names exactly the decided rules`) is an anti-vacuity check, not part of the
+  reproduction.
+  **Obligation 5 decision: the glob WAS re-added and `vendor/` WAS added to the
+  Dockerfile, in one commit** — precache 22 → 27 files, 1.50 → 1.97 MB — plus a
+  mechanical guard that simulates the Dockerfile's staging and asserts every precached
+  URL survives it, with a companion test proving the guard can print FAIL.
+  **The `assumedMasterState`-absent fallback: master wins on every field and every
+  differing field is recorded** — decision 50's own same-field-clash branch applied to
+  the whole document, so the winner is byte-identical to RxDB's default while every
+  discarded value stays recoverable. Not a product call; no park.
+  **Deliberately NOT done here:** no RxDB database is created, no replication is started,
+  and no write path is rerouted. Those are `sync-hard-cutover`, and `HQ_SYNC_REST_URL`
+  remains unset everywhere. Original card text follows.
+  ~~**PLANNED — SLATE-READY**~~ (fanned out of
   `sync-rxdb-schema-and-replication` 2026-07-28; depends on
   `sync-rxdb-collections-and-table-contract`. **Parallel-safe with `sync-rxdb-row-visibility-rls`** —
   disjoint footprints, one is frontend/client, the other SQL/backend) · Wire RxDB's Supabase
@@ -1179,7 +1287,32 @@
   criteria that can fail. **Do NOT touch production code.**
   Footprint: `.planning/phases/sync-rxdb-conflict-notice/` only.
 
-- **`sync-rxdb-conflict-notice-ui`** · **✅ PLANNED — SIGNED OFF, SLATE-READY** (revision 2 signed by
+- **`sync-rxdb-conflict-notice-ui`** · **DONE** (2026-08-01, run `overnight-20260801`, card branch
+  `card/c2-sync-rxdb-conflict-notice-ui`) · The user-visible half of decision 50 is built:
+  `sync-rxdb/conflict-notice.js` (model — counting, retention, cap, the A-3 label read) and
+  `sync-rxdb/conflict-notice-ui.js` (banner, sheet, A-2 confirm), mounted from `workflows.html`.
+  **A-1, A-2 and A-3 are all implemented as obligations, not as the struck rules.**
+  **🛑 DORMANT BY CONSTRUCTION, said plainly rather than discovered later:** the sheet reads the
+  durable local record, the record is written when `conflict$` fires, `conflict$` fires when
+  replication runs, and replication is not started (`HQ_SYNC_REST_URL` unset everywhere). So in
+  production today there are zero records and the banner never appears. **No write path was
+  swapped** — that is `sync-hard-cutover`, which switches the producer on and replaces the injected
+  `applyRestore`. Every state is therefore verified from a **seeded store**, through the same seam
+  the cutover card will hand a real RxDB collection to.
+  **A-3's redraw landed** — `edge-removed`, `openq-count-a`, `openq-count-b`, with `edge-removed`
+  now drawing BOTH the struck-through label and the raw-id fallback, because B1's item **R-C**
+  (nothing validates `template_snapshot`) means the fallback is where every malformed snapshot
+  lands. **Deviation from the signed plates, noted in SUMMARY.md.**
+  **Carried from C1's G6:** `describeConflict` now threads the handler's own merge opts, so the
+  sheet cannot report a clash list the handler never produced. Red-first, 4/4.
+  **One real bug caught by the guard, worth not repeating:** a CSS comment written
+  `/* --ok-*/ … */` closed itself at the `*/` inside `--ok-*` and swallowed the whole `:root`
+  variable block, leaving **every colour on `workflows.html`** unresolved. The storage plate's
+  contrast assertion is what reddened.
+  Contract at `.planning/phases/sync-rxdb-conflict-notice/PLAN.md` (30 `done_when:` rows, 14 State
+  Enumeration rows, each with a population floor); 46 PNGs at
+  `test-results/states-sync-rxdb-conflict-notice/`.
+  *(Original card text follows, for the record.)* · **✅ PLANNED — SIGNED OFF, SLATE-READY** (revision 2 signed by
   the operator at morning triage 2026-07-29; ledger T-28 decision 98) · **🛑 NO LONGER
   ATTENDED-BLOCKED.** All 16 plates were walked attended — read back as PNGs, light renders, not
   described from the spec — and amendments **A-1** and **A-2** hold at the worst case rather than the
@@ -1264,10 +1397,18 @@
   before writing while listing the server values it will overwrite with author and timestamp. **The
   two deferred decisions are still open and are now drawn as decidable** — both readings of the
   removed-field counting question, and the retention window as a visible placeholder.
-  **🛑 THIS CARD IS STILL ATTENDED-BLOCKED.** A revised mockup existing is not a sign-off, and the
+  ~~**🛑 THIS CARD IS STILL ATTENDED-BLOCKED.** A revised mockup existing is not a sign-off, and the
   fan-out card did not and could not discharge it. **What is owed: the operator walks the 16 plates,
   answers open decisions (i) and (ii), and gives (or refuses) an explicit *"ok, build this"* on
-  revision 2.** A *no* remains a successful outcome.
+  revision 2.** A *no* remains a successful outcome.~~
+  **🛑 STRUCK 2026-08-01 by the card that ran. This block was TRUE when written and FALSE from
+  morning triage 2026-07-29 onward** — the operator walked all 16 plates, gave the signature
+  (decision 98) and answered both open decisions (95, 96) plus the cap (97). It is struck rather
+  than deleted because it is the record of what was owed, but it was left standing in the
+  imperative below a header that already said SIGNED, which is exactly the shape of trap the r1
+  sign-off block further down documents: **an unattended reader going top-down could take it as
+  binding and park a signed card.** The card's live status is the DONE block at the head of this
+  bullet.
 
   **🖊️ THE r1 SIGN-OFF — 2026-07-28, operator, verbatim *"Ok, build this."* — SUPERSEDED IN PART
   at morning triage the same day (ledger T-26 decision 82); it is the record of what was decided at

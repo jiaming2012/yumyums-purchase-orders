@@ -51,8 +51,11 @@ import (
 //
 //	docker compose -p spike-supabase -f docker-compose.supabase.yml up -d
 //
-// and resolve the published ports with `docker compose ... port realtime 4000`.
-// The defaults below match the ports the 2026-07-29 run observed; override with
+// The published host ports are EPHEMERAL, so they are RESOLVED with
+// `docker compose port` (spikeAddr below -> spikestack_gate_test.go) rather than
+// remembered. The constants that used to sit here said 46355/46233 and were
+// last correct on 2026-07-29 — the same staleness that made the RLS suites skip
+// silently (finding F1, run overnight-20260801). Override with
 // HQ_SYNC_SPIKE_REALTIME_ADDR / HQ_SYNC_SPIKE_REST_ADDR.
 //
 // 🛑 A SKIP IS NOT A PASS. When these skip, the only upgrade evidence in the
@@ -119,6 +122,32 @@ func requireSpikeService(t *testing.T, addr, what string) {
 	_ = c.Close()
 }
 
+// spikeAddr resolves a service's published host address, preferring an explicit
+// override. A resolution failure is deliberately NOT a skip: this helper is only
+// reached after spikeLiveRequested() said a live run was intended, and the whole
+// point of requireSpikeService is that an intended live run never degrades
+// quietly.
+func spikeAddr(t *testing.T, overrideEnv, service, containerPort string) string {
+	t.Helper()
+	if v := os.Getenv(overrideEnv); v != "" {
+		return v
+	}
+	port, err := spikeComposePort(service, containerPort)
+	if err != nil {
+		if !spikeLiveRequested() {
+			// Nothing was requested; hand back an address that will not answer, so
+			// requireSpikeService takes its own skip arm with its own message.
+			return "127.0.0.1:1"
+		}
+		t.Fatalf("%s=%q was set, so a LIVE run was intended, but the published port for "+
+			"%s/%s could not be resolved: %v\n\nBring the stack up with `docker compose -p "+
+			"%s -f docker-compose.supabase.yml up -d`, set %s explicitly, or set %s=0.",
+			spikeLiveEnv, os.Getenv(spikeLiveEnv), service, containerPort, err,
+			spikeComposeProject, overrideEnv, spikeLiveEnv)
+	}
+	return "127.0.0.1:" + port
+}
+
 // TestSpikeLiveRequested pins the flag's truthiness table. It is a two-line
 // function guarding a foot-gun that already fired once, and the falsy cases are
 // the whole point.
@@ -175,7 +204,7 @@ func liveMinter(t *testing.T) TokenMinter {
 // What it still does not prove: that a row change is DELIVERED end to end —
 // that needs a replicating table and belongs to the parent card, not the door.
 func TestProxyLive_RealtimeUpgrade(t *testing.T) {
-	addr := envOr("HQ_SYNC_SPIKE_REALTIME_ADDR", "127.0.0.1:46355")
+	addr := spikeAddr(t, "HQ_SYNC_SPIKE_REALTIME_ADDR", "realtime", "4000")
 	requireSpikeService(t, addr, "realtime")
 
 	proxy := mountProxy(t, ProxyConfig{
@@ -262,7 +291,7 @@ func TestProxyLive_RealtimeUpgrade(t *testing.T) {
 // an authenticated caller — not what rows came back, which depends on spike
 // fixtures the door does not own.
 func TestProxyLive_RESTRequest(t *testing.T) {
-	addr := envOr("HQ_SYNC_SPIKE_REST_ADDR", "127.0.0.1:46233")
+	addr := spikeAddr(t, "HQ_SYNC_SPIKE_REST_ADDR", spikeRESTService, spikeRESTPort)
 	requireSpikeService(t, addr, "rest")
 
 	proxy := mountProxy(t, ProxyConfig{RESTURL: "http://" + addr}, testUser, liveMinter(t))
