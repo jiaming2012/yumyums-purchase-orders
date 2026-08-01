@@ -1605,19 +1605,31 @@ func TestRowVisibilityRLS(t *testing.T) {
 			`select count(*) from public.submission_responses where id = 'w6-forged-resp'`)
 	})
 
-	t.Run("W7/ESCALATION BY UPDATE — alice repoints her own response at bob's field", func(t *testing.T) {
+	t.Run("W7/ESCALATION BY UPDATE — alice repoints her own response at dave's field", func(t *testing.T) {
 		// W5's shape on the other table. `using` admits resp-alice (hers);
 		// `with check` must examine the NEW field_id and refuse.
 		//
-		// Note the attack is not blocked by a constraint: the partial unique
-		// index is `(field_id, answered_by) WHERE submission_id IS NULL`, and
-		// (fldBob, alice) collides with nothing — resp-bob is (fldBob, BOB).
-		// So the policy is the only thing that can refuse it.
+		// 🛑 THE TARGET IS `fldByRole` AND NOT `fldBob`, AND THAT IS NOT
+		// ARBITRARY. The attack must be refusable ONLY by the policy, or the
+		// red state cannot report it. `submission_responses` carries a partial
+		// unique index on `(field_id, answered_by) WHERE submission_id IS NULL`
+		// — and in the RLS-OFF red mode W6, three variants up, has just
+		// successfully inserted (fldBob, alice) as a NULL-submission draft. An
+		// update to fldBob would then collide with W6's own leaked row and be
+		// refused by a UNIQUE VIOLATION, so W7 would report PASS in the very
+		// state it is supposed to fail in. Measured, not theorised: that is
+		// exactly what the first run of this suite under SYNC_RLS_SKIP_POLICIES=1
+		// did.
+		//
+		// fldByRole is dave's, equally invisible to alice, and (fldByRole,
+		// alice) is written by no variant in this file. The policy is now the
+		// only thing that can refuse this update, which is what makes its
+		// refusal evidence.
 		r := s.do(t, "PATCH", "/submission_responses?id=eq.resp-alice", s.rvToken(t, uAlice),
-			`{"field_id":"`+fldBob+`"}`)
-		s.rvWriteRefused(t, "W7 alice repoints resp-alice at fldBob", r,
+			`{"field_id":"`+fldByRole+`"}`)
+		s.rvWriteRefused(t, "W7 alice repoints resp-alice at fldByRole", r,
 			`select count(*) from public.submission_responses where id = 'resp-alice' and field_id = $1`,
-			fldBob)
+			fldByRole)
 
 		var fid string
 		if err := s.pool.QueryRow(context.Background(),
