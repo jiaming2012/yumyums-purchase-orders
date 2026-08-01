@@ -2045,6 +2045,19 @@ loopback NAT, which production does not have — the linear *shape* is structura
 is not, and it should be re-measured on production-like topology before any card relies on a
 specific number.
 
+> **Amendment to decision 105, same session — the rule is GENERAL, not checklist-specific.**
+> Decision 105 was recorded from the operator's first statement, which was scoped to checklists.
+> Asked to reword it for the preference store, they restated it as a general principle —
+> verbatim: *"fetching should always be done in batches whenever it is seen that a list could
+> grow unbounded."* That is wider than replication and wider than this cycle: it binds **any**
+> client-side fetch over a collection that can grow without bound, including plain API list
+> endpoints, not only RxDB pulls. The checklist scope remains the concrete instance that produced
+> it, and `sync-replication-scope-per-checklist` remains the card that discharges it here — but a
+> future card adding an unbounded list endpoint is in scope too, and should not read decision 105
+> as permission because it is not a sync card. Offered back and recorded with consent as
+> **`architecture/C-2`** (pending, not adopted — nothing cites it until the operator renumbers it
+> to a free `P-n`).
+
 **Decision 106 — sales-processor gets TWO notices, sent separately, and the June drift goes
 first and alone.**
 

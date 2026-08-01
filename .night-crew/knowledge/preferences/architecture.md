@@ -32,3 +32,13 @@
 - **Recorded:** 2026-07-28
 - **Offered at:** an attended session
 - **Consent:** recorded on the operator's explicit yes to this item.
+
+## C-2 · Fetch in batches whenever a list can grow unbounded
+
+- **Preference:** Any client-side fetch or replication over a collection that can grow without bound is batched and scoped — never pulled whole. Scope it to what the current view actually needs (for workflows, the open checklist) and page the remainder. This binds RxDB replication, API list endpoints, and any future sync layer: a full-collection pull is a design defect, not a default. Widening the scope requires a recorded decision.
+- **Why (operator):** fetching should always be done in batches whenever it is seen that a list could grow unbounded
+- **Weight:** strong
+- **Evidence:** ledger T-29 decision 105 (overnight-20260801 morning triage) — startHQReplication replicates four collections with no selector at pull batchSize 50; measured ~23 ms/row through the fdw RLS path, ~23 s for a 1,000-row pull, and unbounded phone storage since `responses` grows forever
+- **Recorded:** 2026-07-31
+- **Offered at:** an attended session
+- **Consent:** recorded on the operator's explicit yes to this item.
