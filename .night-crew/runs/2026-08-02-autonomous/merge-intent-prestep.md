@@ -11,7 +11,17 @@ under `.night-crew/`. No `.html`, no `.js`, no `.go`, no `tests/`, no `sw.js`, n
 
 ## Shared files touched
 
-- **`.night-crew/knowledge/BACKLOG.md`** — **ONE entry only.** The bullet beginning
+- **`.night-crew/knowledge/BACKLOG.md`** — ~~**ONE entry only.**~~ 🛑 **STRUCK AT CLOSE-OUT — it
+  was FOUR touches, not one.** The claim was written before D-KR3 and E-KR1 were done and it did
+  not survive them. What actually landed: (i) the hydration entry's disposition, as declared below;
+  (ii) **three new handles appended at the file tail — B-39, B-40, B-41** (the discoveries this leg
+  filed, all routed to the NEXT milestone); (iii) **two one-line pointers added to the two
+  struck-through fetch-storm entries** (`Replay fetch-storm class is NOT fully closed`,
+  ``sync.js` catch-up fetch-storm gate`) naming the design note written for each — without them a
+  reader landing on a dropped entry cannot find the argument that E-KR1 is graded on. (ii) is
+  append-only and conflicts with nothing; (iii) is two inserted sentences inside entries no other
+  card tonight has reason to touch. **Union-resolve all of it; none of it is a rewrite.** The
+  declaration below still governs the one entry that matters for P-KR2. The bullet beginning
   **`- **Cross-user checklist hydration divergence (approved-vs-rejected ghost state)**`**
   (`:591` at the branch point). Its trailing disposition `· new` is replaced with the ruling
   transcribed from ledger **T-24 decision 67**, and the sentence *"Needs a product ruling first…"*
@@ -105,3 +115,26 @@ constructible because `sync.js` is deleted by card S1 on Night B.
 
 _(appended only if the work forces a file outside the list above; per B-11 the WHOLE note is
 re-read at close-out and contradicted lines are **struck**, not merely appended to)_
+
+**Closed out 2026-08-02.** The note was re-read in full. **One line is struck** — the
+BACKLOG.md "ONE entry only" claim, which understated the footprint (four touches, not one; see the
+strike for what each is and how to resolve it). **No file outside the declared list was touched**,
+and the four HARD constraints hold trivially: `package.json`, `package-lock.json`,
+`backend/go.mod`, `docker-compose.nc.yml` and `Taskfile.yml` were never opened, no version constant
+moved, `sw.js` was not regenerated, and `git diff --name-only` against the branch point lists only
+paths under `.night-crew/`.
+
+**Three things a merge should know that the note did not anticipate:**
+
+1. **The two design notes are named from the backlog entries they argue about**, and vice versa.
+   Keeping the notes while dropping the pointers (or the reverse) leaves E-KR1's evidence
+   discoverable from only one direction. Keep both halves.
+2. **`card-actuals.md`'s new section is append-only at the file tail**, so a card appending its own
+   run row tonight cannot conflict with it — append order does not matter. If git reports a
+   conflict there anyway it is spurious: keep both sides.
+3. **Discoveries B-39 / B-40 / B-41 each state a destination in their own text** (all: NEXT
+   milestone). A merge that keeps the finding and drops the destination line re-creates B-38 —
+   a finding written down with no channel that ends in a card.
+
+**Nothing was graded, lifted or discharged.** This leg makes three KRs *readable*; whether they are
+MET is the cycle close's call, and `okrs.md` was not touched.

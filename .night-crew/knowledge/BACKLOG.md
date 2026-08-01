@@ -468,6 +468,10 @@
   storm the Builder list. Same root cause, same one-line fix pattern, deliberate-by-omission
   (the in-code comments say "always refreshes"). **dropped — superseded by the RxDB/Supabase
   migration** (roadmap Activity 1): this is the same fetch-storm class the migration retires.
+  **Architectural argument for why it cannot recur:
+  `designs/fetchstorm-replay-class-superseded.md`** (written 2026-08-02 for Eng KR1, which admits
+  one reviewed note per item where no test is constructible — `sync.js` is deleted by
+  `sync-hard-cutover`, taking the trigger and the observable with it).
   · origin: overnight-20260722 S1 G6 · dropped, `/nc-roadmap-round` 2026-07-25
 - **`sync.js api()` fetch-abort guard (S1 sub-move (d), deliberately skipped)** ·
   Suite-teardown noise (`loadMyChecklists error: Failed to fetch`) originates from a `catch`
@@ -569,7 +573,12 @@
   red). A one-line gate/debounce fixes the app-level behavior, but it is a production `sync.js`
   change and RE-ARMS the attended two-device convergence check — schedule it with that cost
   priced in. **dropped — superseded by the RxDB/Supabase migration** (roadmap Activity 1):
-  `sync.js` is retired by `sync-hard-cutover`, not patched. · origin: overnight-20260724 S1
+  `sync.js` is retired by `sync-hard-cutover`, not patched.
+  **Architectural argument for why it cannot recur:
+  `designs/fetchstorm-catchup-gate-superseded.md`** (written 2026-08-02 for Eng KR1, same admission
+  — and it records the subtlety this entry's one-liner hides: the branch *is* gated, on view state
+  rather than op liveness, so the runner-open arm at `sync.js:491` never consults `silent`).
+  · origin: overnight-20260724 S1
   observation (reported, not fixed) · dropped, `/nc-roadmap-round` 2026-07-25
 - **`onboarding.spec.js` second-run carried-DB failures** · Two tests fail when the full suite
   runs twice against the same un-reset DB (carried hire/training state). Fine under the
