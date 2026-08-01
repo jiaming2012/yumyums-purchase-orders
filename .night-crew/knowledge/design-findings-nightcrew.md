@@ -49,11 +49,46 @@
   is done" (cycle/roadmap completion) or folded into `/nc-morning-triage` — that (a) sweeps
   persistent framework findings into a durable sink (this file), (b) batches them against
   night-crew main, and (c) advances the tool pin so all consuming projects inherit the fixes.
+- **Root cause — analyzed 2026-08-01. A two-factor law that predicts every working and
+  non-working step in the system: a ritual step fires IF AND ONLY IF (a) a verb exists for it
+  AND (b) a skill invokes that verb.** Neither alone suffices.
+
+  | Step | Verb? | Invoked? | Actual |
+  |---|---|---|---|
+  | backlog capture | ✓ | ✓ **11 skills** | 38 findings, healthy |
+  | OKR grade | ✓ | ✓ dev-close, milestone-close | graded every cycle |
+  | preference *propose* | ✓ | ✓ triage §4, grill-back §4 | 3 captured |
+  | **`decisions log`** | ✓ | ✗ **no skill invokes it** | **0 routed, ever** (B-03) |
+  | **preferences *adopt*** | ✗ **no verb** | — | **0 of 3 adopted** (NF-5) |
+  | **design-findings sweep** | ✗ | ✗ **0 skills reference the file** | **0 of 6 graduated, 18 days** |
+
+  The two failure modes need different fixes: `decisions log` is a **one-line skill change**
+  (the verb already exists, nothing calls it); the other two need code.
+- **Why this file specifically — THREE deficiencies, not one:** (1) **no CLI verb** — nothing in
+  `night-crew`'s surface mentions findings or sweeps; (2) **no skill reads or writes it** — 0 of
+  the 11 `nc-*` skills reference it, against **11** for `BACKLOG`; (3) **not scaffolded by
+  `init`** — the scaffold creates `okrs.md`, `bugs.md`, `rulebook.md`, `roadmap.md`, `ledger.md`,
+  `backlog.md`, `CONTEXT.md`, `DESIGN.md` and the five preference files, and this file is not in
+  the list. On a fresh target repo **it does not exist at all**; hq's copy survives only because a
+  human made it and humans keep opening it by path. This is DESIGN §15l's **"lost feature"**
+  failure mode — the one the inbox CLI feeder exists to prevent — recurring here with no feeder.
+- **🛑 The structural reason, and it is the operator's own bug class one level up.** Night-crew's
+  rituals are **prose**, and a prose step degrades **silently**: an agent that skips *"you should
+  also sweep findings"* emits output indistinguishable from one that did it. There is no red.
+  That is exactly hq's characteristic defect — B-09, B-14, B-16, B-22, B-23, B-24, B-36, B-37 are
+  all *a check whose subject set can go empty reports green*. **A ritual step with no verb and no
+  check is a guard whose subject set is ALWAYS empty; it always passes, so nobody ever sees it
+  fail, so nobody ever fixes it.** hq's characteristic bug is night-crew's characteristic bug.
 - **Proposed fix (night-crew main):** add a guaranteed producer for the design-findings sweep at
   a cycle boundary. Candidates: a step in `/nc-okr-session` (cycle start reviews last cycle's
   findings) or a closeout step in `/nc-morning-triage` / a new cycle-complete skill. Make this
   standing file (`knowledge/design-findings-nightcrew.md`) the canonical target, scaffolded by
   `night-crew init` alongside the other knowledge files.
+- **🛑 Meta-fix, without which the above rots identically: the new producer must itself be
+  CHECKABLE.** Add `night-crew findings check`, exiting non-zero when an NF entry has sat N days
+  with no disposition, so a ritual **cannot** report clean while findings rot. A producer added as
+  prose is just more prose — and in six weeks the file carries NF-8, explaining why NF-7 never
+  fired.
 
 ### NF-3 · `/nc-morning-triage` skill references CLI features not deployed to night-crew `main` (skill/tool skew)
 - **Symptom (hit at triage 2026-07-20):** the skill's capture-on-answer step (§3.4) instructs
