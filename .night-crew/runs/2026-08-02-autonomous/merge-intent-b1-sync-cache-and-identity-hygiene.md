@@ -55,11 +55,20 @@ what its removal costs.
   the network stack *after* the `fetch` event, so it is not on the request the
   plugin sees. `CacheStorage` is the only store both contexts can reach without a
   new IndexedDB module in the precache.
-- **If a later card moves this token anywhere else, it must move BOTH ends in the
-  same commit.** A `build-sw.js` that reads `hq-identity` while `index.html` writes
-  somewhere else silently degrades every request to the `anon` partition — which
-  under 2.3 means **nothing is cached at all** and the PWA stops working offline.
-  It fails quiet, not loud.
+- **THREE files name this bucket, and a rename must change all three in one
+  commit.** There is no shared constant — the pages are inline-script by
+  convention and a new root `.js` would have collided with P1 (see 2.6):
+  1. `build-sw.js` — literals `"hq-identity"` / `"/__hq_identity"` inside both
+     plugin hooks. Also lands in the generated `sw.js`, which must be regenerated.
+  2. `index.html` — `IDENTITY_CACHE_NAME` / `IDENTITY_TOKEN_URL` consts; the only
+     WRITER.
+  3. `login.html` — `purgeDeviceIdentity()`, **literal strings**, not the consts.
+- **A partial rename fails SILENT, not loud.** A `build-sw.js` reading
+  `hq-identity` while `index.html` writes somewhere else degrades every request to
+  the `anon` partition — which under 2.3 means **nothing is cached at all** and the
+  PWA quietly stops working offline. A `login.html` left behind stops purging and
+  the disclosure comes back. Neither reddens anything except
+  `tests/sw-api-cache-partition.spec.js` and `[B1-XT-03]`.
 
 ### 2.2 `cacheKeyWillBeUsed` on the `api-cache` route — THE partition
 
