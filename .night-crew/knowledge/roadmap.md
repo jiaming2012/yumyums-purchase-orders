@@ -893,8 +893,101 @@
   Footprint: new RxDB client layer, `workflows.html` (import + construction only — the write-path
   swap is `sync-hard-cutover`), `build-sw.js`, `backend/Dockerfile`, `vendor/`.
 
-- **`sync-rxdb-write-policies`** · **PLANNED — NEW, authored at slate planning 2026-07-31 evening
-  (ledger T-30 decision 111)** · 🛑 **BINDS: the replication-scope rule (ledger T-29 decision 105).**
+- **`sync-rxdb-write-policies`** · ✅ **DONE — run `20260802`, Track A (A2), branch
+  `card/a2-sync-rxdb-write-policies`.** Decision 111's four rows shipped as
+  `sync-schema/sql/0004_write_policies.sql`; **the PARK trigger did not fire — no fifth predicate
+  was needed.** · **Red-first, and there are TWO reds because one of them is useless here.** The
+  familiar `SYNC_RLS_SKIP_POLICIES=1` (RLS torn down) reds **30** subtests — every write REFUSAL —
+  but passes every write POSITIVE, and this card's starting state was **deny-all**, which passes
+  every refusal in the file. So the card added a second red mode,
+  `SYNC_RLS_SKIP_WRITE_POLICIES=1` (0003 kept, 0004 withheld), which reds **12** — all ten write
+  positives, the rewritten V18, and the positive halves of W9/W14. Both were captured before the
+  policies existed and both reproduce on demand. **GREEN: 52/52 subtests, all executed**, up from
+  the shipped 27. · **What landed, per row.** `checklist_templates`: **no write policy, and the
+  absence is the answer** — the builder keeps the REST path, no phone writes a template definition,
+  and W1/W2/W3 assert it including **as an admin**, so it is a decision with evidence rather than a
+  gap that looks like an oversight next to three tables that all got one.
+  `checklist_submissions`: `with check (hq_can_see_template(template_id))`, which closes the lie
+  `0003_rls_policies.sql:243` names by hand. `submission_responses`:
+  `with check (hq_can_see_field(field_id))` — **field-scoped**, and WP3 pushes a row with
+  `submission_id: null` because a submission-scoped write predicate would refuse every offline
+  draft *while passing every attack variant*. `submission_rejections`: approver-only write **and
+  the SELECT policy it never had**. · 🛑 **EVERY UPDATE POLICY CARRIES BOTH `using` AND
+  `with check`.** Postgres requires only the first and warns about neither, and `using` alone
+  passes every cross-user attack in the suite while still letting an attacker **move a row they
+  legitimately own into a scope they cannot see** — W5 re-parents a submission under the orphan
+  template, W7 repoints a response at another user's field. Neither is visible in the status code
+  (200 `[]` for a `using` exclusion, 403 for a `with check` rejection), so **every write assertion
+  verifies through the pool and never the response.** · **The asymmetry is real and is asserted in
+  both directions.** Reads keep INHERITED PROPERTY 1 byte-for-byte; only approvals filter on
+  `assignment_role`, through a **separate relation** (`hq_template_approvers`, 0002 §3d) so neither
+  half can drift into the other. Loosen writes to match reads → every crew member signs off their
+  own checklist (**W9** reds). Tighten reads to match writes → every approver goes blind (**WP5**
+  and `POSITIVE/alice` red). · 🛑 **ONE DEVIATION FROM THE AUTHORED PARK TRIGGERS, TAKEN
+  DELIBERATELY:** the bullet as authored said the card "must not need a `backend/migrations/`
+  file". It needed one. `assignment_role` does not cross the FDW — 0002 §3a keeps the column off
+  the wire *on purpose* — so decision 111's own `hq_can_approve_template` is not evaluable on the
+  substrate without it. **Migration `0074_sync_fdw_approver_view.sql` creates ONE read-only VIEW
+  and ONE grant; it alters no table, no column, no constraint**, and the view contains only
+  approver rows so it cannot widen a read. The signed slate narrowed this card's park conditions to
+  exactly one — a write predicate beyond the four rows — and that one did not fire. Recorded as a
+  deviation rather than folded away. **It adds `template_assignments.assignment_role` to 0073's
+  "may no longer be retyped" list.** · **B-36 FIXED in the same change set, and both arms proved.**
+  `resolveSpikeConfig` turned ANY `docker compose … port` failure into `t.Skip`: measured at
+  `ok … 0.014s`, exit 0, with `--- SKIP` on both attack suites — forty-nine subtests and the same
+  `ok` line the package prints when they all pass. The opt-out is now typed:
+  `HQ_SYNC_SUBSTRATE_OPTIONAL=1` is the only door to a skip; anything else `t.Fatal`s. Demonstrated
+  live in all three arms (unreachable+unset → FAIL exit 1; unreachable+`=1` → SKIP; reachable →
+  RUN, ~~27 subtests executed~~ **54 subtests in `TestRowVisibilityRLS` and 16 in
+  `TestJWTBridgeRLS`** — the 27 was wrong, corrected at the G6 fix round, finding F7; it matched
+  neither suite, and the row-visibility count rose from 52 to 54 when that round added WP8/W16).
+  Pinned by `spikeResolution`, a pure function `resolveSpikeConfig`
+  switches on directly, whose test enumerates all 8 combinations **and asserts exactly one is a
+  skip** — so an implementation that skipped everywhere cannot pass it (B-22/B-23/B-24).
+  🛑 ~~**Ledger T-29 decision 108's reporting rule can now be retired: the package `ok` line means
+  something again.**~~ **STRUCK — FINDING F6, and decision 108's rule is KEPT.** B-36 closes ONE
+  road to a silent skip; it does not close the road. Verbatim, on the fixed tree:
+  `HQ_SYNC_SUBSTRATE_OPTIONAL=1` still produces `--- SKIP: TestJWTBridgeRLS` / `--- SKIP:
+  TestRowVisibilityRLS` / `PASS` / `ok  github.com/yumyums/hq/internal/sync  0.019s` — exit 0, zero
+  attack variants run, **and the `ok` line does not say the variable was set.** `-run` filtering is
+  a second road: `-run TestSpikeGate` prints `ok` having run no variant at all. **The amendment: an
+  `internal/sync` result is reportable only when it cites `-run TestRowVisibilityRLS -v` with the
+  subtests EXECUTED, and states that `HQ_SYNC_SUBSTRATE_OPTIONAL` was unset.** A bare `ok` line
+  from this package remains unreportable. · **Still open, deliberately:** `HQ_SYNC_REST_URL` remains **ARMED AND
+  UNSET** — making push *possible* is not making it *live*, and this card set, referenced and
+  implied it nowhere. · Discoveries routed under scope freeze: **B-49** (rejections just became the
+  fourth collection B-42's unscoped live leg applies to — filed as B-46, renumbered at triage when
+  the B1 leg merged first and kept that number), **B-47** (`sync-schema/sql/` has no
+  applier or manifest), **B-48** (no static guard on the templates deny-all — **re-specified at the
+  G6 fix round**: the original lead proposed guarding a non-defect, see F3), **B-51** (the
+  "two independent gates refuse a DELETE" claim was false; `authenticated` holds DELETE and
+  TRUNCATE on all four tables, so there is one gate — finding F4).
+
+  · 🛑 **G6 ADVERSARIAL REVIEW RETURNED THREE BLOCKING DEFECTS, ALL IN THE SUITE, NONE IN THE
+  POLICIES — AND THE SUITE IS THIS CARD'S DELIVERABLE.** The shipped `0004` refused every attack
+  the reviewer constructed, `Prefer: return=minimal` included. What it could not do was prove it:
+  **3 of 5 mutations to the shipped write predicates survived fully green, and 2 of the 3 were
+  mutations the file itself names as guarded.** Root cause **F1**: `spikeStack.do` set
+  `Prefer: return=representation` unconditionally, so every write went through PostgREST with
+  RETURNING and Postgres applied **0003's SELECT policy to the new row** — and since the read
+  predicates are identical to (rows 2, 3) or broader than (row 4) the write predicates, **the read
+  policy was silently enforcing the write half.** W8's rejection arm was reading a 403 issued by
+  `hq_can_see_field`. Fixed by `rvPushRefused`: every write refusal now goes out under BOTH Prefer
+  headers. **F2**: `submission_rejections_update`'s `with check` — the ONE predicate in the file
+  narrower than its table's SELECT policy, hence the only one Postgres will not enforce for us —
+  had no variant of either sign; the matched pair **WP8/W16** was added on the approver-UPDATE axis
+  (a new fixture field `fldApprover2` makes the pair run the identical PATCH probe). **F3**: §5's
+  "single most load-bearing sentence" was factually wrong about PostgreSQL in both halves —
+  Postgres substitutes `using` for an omitted `with check`, so on rows 2 and 3 that omission is a
+  **non-defect**, and no test was invented to pretend otherwise. Corrected in place with a
+  four-probe isolated experiment. **Mutation set re-run after the fix: M1 survives (correctly, a
+  non-defect), M1b survives (correctly), M1c → W16, M1d → W4/W6/W8/W13/W14, M2 → WP3/WP4/W14, M3 →
+  W3, M4 → W8.** Every reachable mutation is now caught.
+
+  · **The card AS AUTHORED follows, kept verbatim rather than rewritten, so the contract this was
+  built against stays readable next to what was built.** Authored at slate planning 2026-07-31
+  evening (ledger T-30 decision 111).
+  🛑 **BINDS: the replication-scope rule (ledger T-29 decision 105).**
   · **Why it exists:** `sync-rxdb-row-visibility-rls` shipped **SELECT policies only** and deferred
   writes to "a follow-up card that writes `WITH CHECK` policies". **No such card existed.** Verified
   at source before authoring: `sync-schema/sql/0003_rls_policies.sql` contains zero `WITH CHECK`,

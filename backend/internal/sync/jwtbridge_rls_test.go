@@ -143,9 +143,11 @@ func connectSpike(t *testing.T) *spikeStack {
 
 	cfg, ok := resolveSpikeConfig(t)
 	if !ok {
-		t.Skipf("no sync substrate configured — skipping, and SKIPPED IS NOT PASSED: with "+
-			"this off there is no JWT-bridge RLS evidence in the tree. Bring it up with: "+
-			"docker compose -p %s -f docker-compose.supabase.yml up -d", spikeComposeProject)
+		// 🛑 Reached ONLY under HQ_SYNC_SUBSTRATE_OPTIONAL=1 since B-36.
+		t.Skipf("%s=1 — skipping, and SKIPPED IS NOT PASSED: with this off there is no "+
+			"JWT-bridge RLS evidence in the tree. Bring it up with: "+
+			"docker compose -p %s -f docker-compose.supabase.yml up -d",
+			spikeOptionalEnv, spikeComposeProject)
 	}
 
 	ctx := context.Background()
@@ -281,7 +283,46 @@ func (r restResp) ids() []string {
 	return out
 }
 
+// preferRepresentation and preferMinimal are the two Prefer headers a PostgREST
+// write can carry, and on the WRITE half of this package's suites the choice is
+// not cosmetic — it decides WHICH POLICY ACTUALLY REFUSES THE ATTACK.
+//
+// 🛑 FINDING F1, run 20260802 G6 (A2's fix round). `do` used to set
+// `return=representation` UNCONDITIONALLY, so every write in both suites went
+// through PostgREST with RETURNING. Postgres then applies the SELECT policy's
+// USING clause TO THE NEW ROW (CREATE POLICY, "Policies Applied by Command
+// Type": for INSERT … RETURNING and for UPDATE, the SELECT/ALL USING expression
+// covers the new row). 0003's SELECT predicates are identical to — or, on
+// `submission_rejections`, BROADER than — 0004's WITH CHECK predicates, so
+// THE READ POLICY WAS SILENTLY ENFORCING MOST OF THE WRITE HALF.
+//
+// Measured: un-nest the EXISTS in `hq_can_approve_field` (the exact mutation
+// that function's own 🛑 comment warns about) and the suite stayed fully green
+// at 52/52, while the same attack sent with `Prefer: return=minimal` returned
+// HTTP 201 and landed the row. W8's rejection half was reading a 403 issued by
+// `hq_can_see_field` — 0003's correctly-nested READ predicate — and reporting it
+// as evidence about 0004.
+//
+// A push-only replication client sending `return=minimal` is entirely ordinary,
+// so this is not a contrived probe: it is the shape `sync-hard-cutover` opens
+// the door to. Every write REFUSAL in this package is therefore issued under
+// BOTH headers — see rvPushRefused.
+const (
+	preferRepresentation = "return=representation"
+	preferMinimal        = "return=minimal"
+)
+
+// do issues a request under `Prefer: return=representation` — the historical
+// behaviour, kept as the default so every read-half variant is byte-unchanged.
+// Write refusals must go through doPrefer/rvPushRefused instead.
 func (s *spikeStack) do(t *testing.T, method, path, token, body string) restResp {
+	t.Helper()
+	return s.doPrefer(t, method, path, token, body, preferRepresentation)
+}
+
+// doPrefer is `do` with the Prefer header named at the call site. `prefer` is
+// ignored when there is no body, because PostgREST only honours it on writes.
+func (s *spikeStack) doPrefer(t *testing.T, method, path, token, body, prefer string) restResp {
 	t.Helper()
 	var rdr io.Reader
 	if body != "" {
@@ -296,7 +337,7 @@ func (s *spikeStack) do(t *testing.T, method, path, token, body string) restResp
 	}
 	if body != "" {
 		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("Prefer", "return=representation")
+		req.Header.Set("Prefer", prefer)
 	}
 	resp, err := (&http.Client{Timeout: 10 * time.Second}).Do(req)
 	if err != nil {
