@@ -39,8 +39,10 @@ nothing about files nobody references.
 - **A blanket "everything must be precached" rule is explicitly NOT what this is**
   and must not be turned into one. `build-sw.js` still exits 0 with unreferenced
   files skipped — that is the feature (`README.md`, `playwright.config.js`,
-  `workbox-*.js`, every scratch `*.html` on a dev box). Proven by the third red
-  case in §3.
+  `workbox-*.js`, every scratch `*.html` on a dev box). Measured, not assumed:
+  `.nc-p1-logs/red-04-guard-vs-cases.log` cases B and C — an unreferenced scratch
+  `*.html` skipped, and an unreferenced scratch `*.html` that is ITSELF broken,
+  both exit **0** with the guard in place.
 - The two failure reasons are reported **distinctly**, because the fixes differ:
   `skipped (not in HEAD)` → *commit the file*; `not matched by globPatterns` →
   *add a glob **and** the matching `backend/Dockerfile` copy* (decision 59's trap,
@@ -182,3 +184,49 @@ Verified after the edit, not assumed:
   `sync-schema` — no root image files — so these 404 in prod **online**, not just
   offline. Cosmetic, and outside the module-graph invariant this card implements.
   **Destination: NEXT milestone.**
+
+---
+
+## 7. The mutation table — what is actually defended, measured
+
+B1 §6's rule, applied to this card's own work: *a claim that a test defends a
+mechanism is worth what a re-applied mutation says.* Every row was applied to the
+tree, the named test run, the mutation reverted. Log:
+`.nc-p1-logs/mutation-05.log`.
+
+| # | Mutation | Result |
+|---|---|---|
+| **P1-M1** | remove `importReachabilityTransform` from `manifestTransforms` | **RED** — `build-sw.js exits NON-ZERO when a precached page imports a dropped file`. The six unit tests stay green (they call the function directly), so **the end-to-end test is the ONLY thing guarding the wiring.** |
+| **P1-M2** | `isJsPathSpecifier` returns `true` (collapse the JS rule into the HTML one) | **RED** — `a BARE module specifier is not read as a missing file`. **And the real build fails**: `vendor/rxdb.bundle.js -> ws [vendor/ws]`, exit 1. §2.2 is not theoretical. |
+| **P1-M3** | `reachabilityVacuityFaults` returns `[]` unconditionally | **RED** — `the reachability guard reports itself UNTRUSTWORTHY rather than passing vacuously`. |
+| **P1-M4** | report the violations, `console.error` instead of `throw` | **RED** — the end-to-end test, on both counts: exit code 0 **and** a bad `sw.js` written. |
+
+**What no mutation reds, and you should know it:** removing `log.js` or `tab.js`
+from `globPatterns` does NOT red any *unit* test — it reds `node build-sw.js`
+itself, which is the point, and therefore reds `task sw`, `task test` and every
+card's G4. That is the intended shape: the guard is the test.
+
+## 8. Gate evidence (this card, in this worktree)
+
+- **G1** `go build ./...` + `go vet ./...` — both exit 0. Zero Go files touched.
+- **G2 (Go)** `go test -p 1 -count=1 ./...` — exit 0. `internal/sync` cited per
+  decision 108 as amended: `-run TestRowVisibilityRLS -v` with
+  **`HQ_SYNC_SUBSTRATE_OPTIONAL` UNSET** and `HQ_SYNC_REST_URL` unset ran
+  **54 subtests, 54 PASS, 0 SKIP, 0 FAIL**.
+- **G3** — N/A, `openspec: absent`. No `openspec/` created.
+- **G4** `node build-sw.js` — exit 0, **31 files / 2139.2 KB**, idempotent (two
+  runs, identical md5 `5709ce21…`). Parity holds: `version.go` `Frontend` 1.4.0
+  ≡ `package.json` 1.4.0 ≡ `version.json` 1.4.0.
+- **G2 (Playwright)** `npx bddgen` + `npx playwright test --retries=0` — **exactly
+  ONE summary block: `6 skipped / 763 passed (23.7m)`, zero failures**, 769 test
+  result lines, run alone on `TEST_PORT=8307` / `TEST_DB_NAME=hq_n802_p1i_e2e`.
+  🛑 **This is a fully clean run, which is one of the five outcomes B-45
+  documents — it is NOT evidence that the baseline moved.** `[B-27]`
+  `tests/inventory.spec.js:883 › item modal pre-fills search with current line
+  item text` **passed**, as it has in every run tonight; per decision 100
+  non-reproduction retires nothing and it remains the documented baseline red.
+  All four armed reds ran and passed, by full title: both tests matching
+  `[LST-17]` (`sync.spec.js:446` and `:1006`), `[A1-TZ-02]`, and
+  `submitted checklist survives builder edit with assignment change [LC-02]`.
+  The 6 skips are the pre-existing PARKED/environment ones, none of them mine.
+  All 7 new `tests/sw-manifest.spec.js` tests green (#418–#424).
