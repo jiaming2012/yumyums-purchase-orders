@@ -245,6 +245,294 @@ test.describe('createHQSupabaseClient — same-origin, gateway-less, credential-
 });
 
 // ===========================================================================
+// [SCOPE-01] REPLICATION SCOPE — preference `architecture/C-2`, ledger T-29
+// decision 105. Card `sync-replication-scope-per-checklist` (20260802, A1).
+//
+// THE DEFECT THIS SECTION PROVES AND THEN PINS.
+//
+// `startHQReplication` looped all four replicated collections with
+// `pull:{batchSize:50}` and NO selector, filter or query modifier — so every
+// device replicated every field answer of every submission ever taken. Two
+// consequences: the RLS predicate is re-evaluated per row on every page (the
+// whole of Fork 1's ~23 s figure), and `responses` grows forever on a phone
+// that was only ever meant to hold the checklist in front of the crew member.
+//
+// HOW THIS IS MEASURED RATHER THAN ASSERTED. The shipped
+// `rxdb/plugins/replication-supabase` builds its pull like this — read out of
+// `vendor/rxdb.bundle.js`, not out of docs:
+//
+//     var S = e.client.from(e.tableName).select("*");
+//     if (e.pull?.queryBuilder) {
+//       var R = e.pull.queryBuilder({ query: S, lastPulledCheckpoint: g, batchSize: _ });
+//       R && (S = R);
+//     }
+//     if (g) { S = S.or('"_modified".gt.…');  }        // the checkpoint, ANDed
+//     S = S.order(…).order(…).limit(_);
+//
+// So `pull.queryBuilder` is the one supported place a scope can be attached,
+// it runs BEFORE the checkpoint clause, and PostgREST ANDs the two. The
+// harness below reproduces exactly that call shape, records the PostgREST
+// filters the queryBuilder emits, and EVALUATES them over a fixture holding
+// two checklists — one the device opened and one it never did.
+// ===========================================================================
+
+// --- the fixture: one checklist opened, one never opened -------------------
+const OPEN = {
+  checklistId: 'chk-open-0000-0000-0000-000000000001',
+  templateId: 'tpl-open-0000-0000-0000-000000000001',
+  fieldIds: ['fld-open-a', 'fld-open-b'],
+};
+const NEVER = {
+  checklistId: 'chk-never-000-0000-0000-000000000002',
+  templateId: 'tpl-never-000-0000-0000-000000000002',
+  fieldIds: ['fld-never-x'],
+};
+
+const SCOPE_FIXTURE = {
+  templates: [
+    { id: OPEN.templateId, archived_at: null },
+    { id: NEVER.templateId, archived_at: null },
+    { id: 'tpl-archived-00-0000-0000-000000000003', archived_at: '2026-01-01T00:00:00Z' },
+  ],
+  checklists: [
+    { id: OPEN.checklistId, template_id: OPEN.templateId },
+    { id: NEVER.checklistId, template_id: NEVER.templateId },
+  ],
+  responses: [
+    // In scope: submitted answers on the open checklist.
+    { id: 'rsp-1', submission_id: OPEN.checklistId, field_id: OPEN.fieldIds[0] },
+    { id: 'rsp-2', submission_id: OPEN.checklistId, field_id: OPEN.fieldIds[1] },
+    // In scope: a DRAFT on the open checklist. `submission_id` is null until
+    // submit (migration 0012's partial unique index), and drafts are precisely
+    // what a crew member fills offline — the collection that must sync best is
+    // the one whose FK is absent.
+    { id: 'rsp-3', submission_id: null, field_id: OPEN.fieldIds[0] },
+    // OUT of scope: a submitted answer on a checklist never opened here.
+    { id: 'rsp-4', submission_id: NEVER.checklistId, field_id: NEVER.fieldIds[0] },
+    // OUT of scope: someone else's draft, on a field this device never saw.
+    { id: 'rsp-5', submission_id: null, field_id: NEVER.fieldIds[0] },
+  ],
+  approvals: [
+    { id: 'apr-1', submission_id: OPEN.checklistId, field_id: OPEN.fieldIds[0] },
+    { id: 'apr-2', submission_id: NEVER.checklistId, field_id: NEVER.fieldIds[0] },
+  ],
+};
+
+// The rows a device that never opened `NEVER.checklistId` must NOT end up
+// holding. Named per collection so a shrunk fixture reds rather than passes.
+const MUST_NOT_HOLD = {
+  templates: [NEVER.templateId],
+  checklists: [NEVER.checklistId],
+  responses: ['rsp-4', 'rsp-5'],
+  approvals: ['apr-2'],
+};
+const MUST_HOLD = {
+  templates: [OPEN.templateId],
+  checklists: [OPEN.checklistId],
+  responses: ['rsp-1', 'rsp-2', 'rsp-3'],
+  approvals: ['apr-1'],
+};
+
+// --- a PostgREST stand-in that both RECORDS and EVALUATES ------------------
+//
+// It answers the subset of the PostgREST builder the supabase replication
+// plugin and this card's queryBuilder actually use. Anything else throws, so a
+// filter written in an operator this harness cannot evaluate fails loudly
+// instead of being silently ignored (which would make the test pass by
+// accident — B-22/B-23/B-24).
+
+function splitTop(s, sep) {
+  const out = [];
+  let depth = 0;
+  let cur = '';
+  for (const ch of s) {
+    if (ch === '(') depth++;
+    if (ch === ')') depth--;
+    if (ch === sep && depth === 0) { out.push(cur); cur = ''; continue; }
+    cur += ch;
+  }
+  out.push(cur);
+  return out;
+}
+
+// `"col".op.value` | `and(…)` | `or(…)`  → a row predicate.
+function parseClause(raw) {
+  const s = raw.trim();
+  if (s.startsWith('and(')) {
+    const parts = splitTop(s.slice(4, -1), ',').map(parseClause);
+    return (row) => parts.every((p) => p(row));
+  }
+  if (s.startsWith('or(')) {
+    const parts = splitTop(s.slice(3, -1), ',').map(parseClause);
+    return (row) => parts.some((p) => p(row));
+  }
+  const m = /^"([^"]+)"\.([a-z]+)\.(.*)$/s.exec(s);
+  if (!m) throw new Error('[scope-harness] cannot parse PostgREST clause: ' + s);
+  const [, col, op, rest] = m;
+  if (op === 'eq') return (row) => String(row[col]) === rest;
+  if (op === 'is') {
+    if (rest !== 'null') throw new Error('[scope-harness] only is.null is supported: ' + s);
+    return (row) => row[col] === null || row[col] === undefined;
+  }
+  if (op === 'in') {
+    const vals = splitTop(rest.replace(/^\(|\)$/g, ''), ',').map((v) => v.trim().replace(/^"|"$/g, ''));
+    return (row) => vals.includes(String(row[col]));
+  }
+  throw new Error('[scope-harness] unsupported PostgREST operator: ' + op);
+}
+
+function fakeQuery(rows, log) {
+  const preds = [];
+  const q = {
+    select(cols) { log.push(['select', cols]); return q; },
+    eq(col, val) { log.push(['eq', col, val]); preds.push((r) => String(r[col]) === String(val)); return q; },
+    is(col, val) {
+      log.push(['is', col, val]);
+      if (val !== null) throw new Error('[scope-harness] only .is(col,null) is supported');
+      preds.push((r) => r[col] === null || r[col] === undefined);
+      return q;
+    },
+    in(col, vals) {
+      log.push(['in', col, vals]);
+      const set = vals.map(String);
+      preds.push((r) => set.includes(String(r[col])));
+      return q;
+    },
+    or(expr) {
+      log.push(['or', expr]);
+      const parts = splitTop(expr, ',').map(parseClause);
+      preds.push((r) => parts.some((p) => p(r)));
+      return q;
+    },
+    order() { return q; },
+    limit() { return q; },
+    // What PostgREST would return for the accumulated (ANDed) filters.
+    rows() { return rows.filter((r) => preds.every((p) => p(r))); },
+  };
+  return q;
+}
+
+// Drive `startHQReplication` with an injected `replicate`, then run each
+// collection's pull exactly the way the vendored plugin does.
+async function pullEachCollection(scope) {
+  const { startHQReplication } = await loadClient();
+  const captured = {};
+  const db = {
+    templates: {}, checklists: {}, responses: {}, approvals: {}, conflict_records: {},
+  };
+  startHQReplication(db, {}, {
+    scope,
+    waitForLeadership: false,
+    replicate: (o) => {
+      captured[o.collectionKey || o.tableName] = o;
+      return { conflict$: { subscribe() {} } };
+    },
+  });
+
+  const byKey = {
+    templates: 'checklist_templates',
+    checklists: 'checklist_submissions',
+    responses: 'submission_responses',
+    approvals: 'submission_rejections',
+  };
+  const out = {};
+  for (const [key, table] of Object.entries(byKey)) {
+    const opts = captured[key] || captured[table];
+    if (!opts) throw new Error('[scope-harness] no replication started for ' + key);
+    const log = [];
+    let query = fakeQuery(SCOPE_FIXTURE[key], log).select('*');
+    const qb = opts.pull && opts.pull.queryBuilder;
+    if (qb) {
+      const next = qb({ query, lastPulledCheckpoint: undefined, batchSize: opts.pull.batchSize });
+      if (next) query = next;
+    }
+    out[key] = { rows: query.rows().map((r) => r.id), log, opts, hasQueryBuilder: !!qb };
+  }
+  return out;
+}
+
+test.describe('[SCOPE-01] replication is scoped to the open checklist (C-2)', () => {
+  test('the fixture really does hold rows for a checklist this device never opened', () => {
+    // B-22/B-23/B-24: every assertion below is only evidence because these
+    // subject sets are non-empty. A shrunk fixture reds here first.
+    for (const key of ['templates', 'checklists', 'responses', 'approvals']) {
+      expect(MUST_NOT_HOLD[key].length, `${key}: no never-opened rows to prove anything with`)
+        .toBeGreaterThan(0);
+      expect(MUST_HOLD[key].length, `${key}: no in-scope rows, so "returns nothing" would pass`)
+        .toBeGreaterThan(0);
+      const ids = SCOPE_FIXTURE[key].map((r) => r.id);
+      for (const id of MUST_NOT_HOLD[key]) expect(ids).toContain(id);
+      for (const id of MUST_HOLD[key]) expect(ids).toContain(id);
+    }
+    expect(SCOPE_FIXTURE.responses.length).toBe(5);
+  });
+
+  test('the vendored plugin still offers pull.queryBuilder as the scoping seam', () => {
+    // If an upgrade removes this extension point the scope silently stops
+    // being applied and every phone goes back to holding everything.
+    const bundle = fs.readFileSync(BUNDLE_PATH, 'utf8');
+    expect(bundle).toContain('queryBuilder');
+    expect(bundle).toContain('lastPulledCheckpoint');
+  });
+
+  test('a device does NOT hold rows for a checklist it never opened', async () => {
+    const pulled = await pullEachCollection({
+      checklistId: OPEN.checklistId,
+      templateId: OPEN.templateId,
+      fieldIds: OPEN.fieldIds,
+    });
+
+    for (const key of ['templates', 'checklists', 'responses', 'approvals']) {
+      expect(pulled[key].hasQueryBuilder, `${key} pulls with NO query modifier — the whole collection`)
+        .toBe(true);
+      for (const id of MUST_NOT_HOLD[key]) {
+        expect(pulled[key].rows, `${key}: replicated ${id}, which belongs to a checklist never opened`)
+          .not.toContain(id);
+      }
+      // ...and it did not pass by returning nothing.
+      expect(pulled[key].rows.sort()).toEqual([...MUST_HOLD[key]].sort());
+    }
+  });
+
+  test('an offline DRAFT on the open checklist still replicates', async () => {
+    // The scope must not be `submission_id.eq.<id>` alone: a draft has no
+    // submission yet, and drafts are the offline case this whole layer exists
+    // for. `rsp-3` is that row; `rsp-5` is the same shape on a field this
+    // device never saw and must stay out.
+    const pulled = await pullEachCollection({
+      checklistId: OPEN.checklistId,
+      templateId: OPEN.templateId,
+      fieldIds: OPEN.fieldIds,
+    });
+    expect(pulled.responses.rows).toContain('rsp-3');
+    expect(pulled.responses.rows).not.toContain('rsp-5');
+  });
+
+  test('replication REFUSES to start unscoped — C-2 is not a default, it is a gate', async () => {
+    const { startHQReplication } = await loadClient();
+    const db = { templates: {}, checklists: {}, responses: {}, approvals: {} };
+    const replicate = () => ({ conflict$: { subscribe() {} } });
+    expect(() => startHQReplication(db, {}, { replicate }))
+      .toThrow(/scope/i);
+    expect(() => startHQReplication(db, {}, { replicate, scope: {} }))
+      .toThrow(/checklistId/);
+  });
+
+  test('scoped AND batched — the pull keeps its batch size', async () => {
+    // C-2 says batched AND scoped. Scoping must not quietly drop the batching.
+    const pulled = await pullEachCollection({
+      checklistId: OPEN.checklistId,
+      templateId: OPEN.templateId,
+      fieldIds: OPEN.fieldIds,
+    });
+    for (const key of ['templates', 'checklists', 'responses', 'approvals']) {
+      expect(pulled[key].opts.pull.batchSize).toBe(50);
+      expect(pulled[key].opts.push.batchSize).toBe(50);
+    }
+  });
+});
+
+// ===========================================================================
 // OBLIGATION 4 — umbrella slugs (decision 56).
 // ===========================================================================
 test.describe('expandGrantSlugs — obligation 4', () => {

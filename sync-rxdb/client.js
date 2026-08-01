@@ -377,8 +377,12 @@ export async function createHQSyncDatabase(opts = {}) {
  */
 export function startHQReplication(db, client, opts = {}) {
   const states = {};
+  // Testability seam ONLY. Defaults to the vendored plugin; a test injects a
+  // recorder so the per-collection replication options can be read without a
+  // browser, an IndexedDB or a substrate. Production never passes it.
+  const replicate = opts.replicate || replicateSupabase;
   for (const [key, def] of Object.entries(REPLICATED_COLLECTIONS)) {
-    const state = replicateSupabase({
+    const state = replicate({
       // Stable across reconnects ON PURPOSE: a different identifier hands the
       // new connection a blank checkpoint, which is a full re-pull rather than
       // a resume (spike `proof-lww.js` depends on the same property).
