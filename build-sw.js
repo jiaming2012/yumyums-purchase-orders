@@ -289,6 +289,32 @@ async function build() {
       '*.html',
       'ptr.js',
       'sync.js',
+
+      // ═══ FOUND BY THE REACHABILITY GUARD ABOVE, NOT BY A HUMAN. B-37. ═════
+      //
+      // Both were referenced by precached pages and globbed by NOTHING, since
+      // the ad-hoc commit that introduced them (`cfe7edc`, "more bug fixes").
+      // `log.js` is on all 7 precached pages; `tab.js` on 5. They ship into the
+      // image via `COPY *.html *.js` so they have always worked ONLINE, and have
+      // always failed on a returning client with no network — which is the only
+      // condition under which a precache matters at all.
+      //
+      // `tab.js` is the load-bearing one: it applies `#tab=N` synchronously
+      // BEFORE paint, so without it Inventory, Users, Purchasing, Onboarding and
+      // Operations open with every tab section visible at once and no switching.
+      // Silent, offline-only, and invisible in development.
+      //
+      // Named individually, NOT as a bare '*.js': that glob sweeps build-sw.js,
+      // playwright.config.js, sw.js itself and six workbox-*.js runtime chunks
+      // onto every crew phone. Same trap as 'vendor/**' below, one directory up.
+      //
+      // No backend/Dockerfile change needed — `COPY *.html *.js` and
+      // `cp ../*.js cmd/server/public/` already stage both, so decision 59's
+      // pairing guard in tests/sw-manifest.spec.js stays green. A FUTURE glob
+      // addition may not be so lucky; check that test before adding one.
+      'log.js',
+      'tab.js',
+
       'manifest.json',
       'version.json',
       'icons/**/*.png',
