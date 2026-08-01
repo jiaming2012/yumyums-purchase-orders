@@ -53,18 +53,54 @@
 --     except admins", and a `with check (public.hq_can_see_template(id))`
 --     written here by analogy with row 2 would let every admin through.
 --
+--     🛑 CORRECTED, FINDING F5 (run 20260802's G6 fix round). THE PARAGRAPH
+--     ABOVE SAID "W1, W2 AND W3" ASSERT THE ABSENCE. **IT IS W3 ALONE.**
+--     Measured: add the `with check (public.hq_can_see_template(id))` policies
+--     this section warns about and re-run — W3 goes RED, W1 and W2 stay GREEN.
+--     The reason is structural. Under that mutant a NON-ADMIN is refused
+--     anyway: template visibility comes only from an assignment row, a forged
+--     template has no assignment, and bob's template is not alice's. No
+--     rewriting of W1/W2 changes that — only an identity the mutant ADMITS can
+--     tell it from an absence, and carol is the only one in the fixture. W1 and
+--     W2 keep their own job (they catch a policy written WIDER than the analogy
+--     one) but they are not evidence for this paragraph. **The whole of row 1's
+--     guard is W3.**
+--
 -- (b) NO DELETE POLICY, ANYWHERE. Decision 111's table has no DELETE column and
 --     that is correct rather than incomplete.
 --
 --     0001's contract item 2: RxDB replication is SOFT-DELETE ONLY. A hard
 --     DELETE is invisible to a pull handler — the row simply stops appearing,
 --     and every offline replica keeps it forever. A tombstone is an UPDATE of
---     `_deleted`, which rows 2 and 3 below already govern. Two independent
---     gates refuse a hard delete: 0001 grants only `select, insert, update` to
---     `authenticated`, and this file writes no DELETE policy. Variant W12
---     asserts it across all three writable tables, because a future `grant all`
---     would silently remove the first gate and nothing else in the tree would
---     notice.
+--     `_deleted`, which rows 2 and 3 below already govern.
+--
+--     ~~Two independent gates refuse a hard delete: 0001 grants only~~
+--     ~~`select, insert, update` to `authenticated`, and this file writes no~~
+--     ~~DELETE policy. …because a future `grant all` would silently remove the~~
+--     ~~first gate and nothing else in the tree would notice.~~
+--
+--     🛑 STRUCK — FINDING F4 (run 20260802's G6 fix round). THERE IS ONE GATE,
+--     NOT TWO, AND IT WAS ALWAYS ONE. 0001 does carry that grant, but A GRANT
+--     ADDS AND REVOKES NOTHING, and Supabase's `alter default privileges` had
+--     already handed `authenticated` ALL on every table in `public` before 0001
+--     ran. MEASURED on the live substrate, all four tables:
+--
+--         authenticated: DELETE, INSERT, REFERENCES, SELECT, TRIGGER,
+--                        TRUNCATE, UPDATE
+--
+--     — and under SYNC_RLS_SKIP_POLICIES=1 all three of W12's DELETEs returned
+--     HTTP 204 with the rows GONE. The behaviour is green today because the ONE
+--     real gate holds: RLS enabled with no DELETE policy is deny-all. The
+--     defense-in-depth was imaginary and this file stated it as fact.
+--
+--     🛑 AND IT IS NOT FIXED HERE, DELIBERATELY. Making the grant gate real is
+--     one `revoke delete, truncate … from authenticated` — but those grants
+--     live in 0001, which is another card's file, and a revoke written HERE
+--     would also red W12 in BOTH red modes (each withholds this file), silently
+--     changing the property merge-intent item 8 rests on. A substrate privilege
+--     change is not a fix round's to make unattended. **Filed as BACKLOG B-51.**
+--     Variant W12 now logs the measured grant set and asserts the one gate it
+--     actually has: no DELETE-capable policy on any of the four tables.
 --
 -- (c) NO CHANGE TO 0003. `hq_can_see_template` and `hq_can_see_field` are
 --     byte-unchanged and this file does not redefine them. See §3.
@@ -234,23 +270,87 @@ grant execute on function public.hq_can_approve_field(text)    to authenticated;
 -- doing it again is a no-op and is repeated so this file is correct applied on
 -- its own.
 --
--- 🛑 EVERY UPDATE POLICY BELOW CARRIES **BOTH** `using` AND `with check`, AND
--- THAT IS THE SINGLE MOST LOAD-BEARING SENTENCE IN THIS FILE.
+-- 🛑 EVERY UPDATE POLICY BELOW CARRIES **BOTH** `using` AND `with check`.
 --
 --     `using`       decides which rows may be TARGETED (the OLD row).
 --     `with check`  decides what they may BECOME     (the NEW row).
 --
--- Postgres does not require the second and does not warn about its absence. An
--- UPDATE policy written with `using` alone passes every cross-user attack in
--- the suite — the attacker legitimately owns the row they are targeting — and
--- lets them MOVE it somewhere they do not. Alice takes her own submission and
--- re-parents it under a template no non-admin can see; alice takes her own
--- response and repoints its `field_id` at bob's field. Variants W5 and W7.
+-- ~~AND THAT IS THE SINGLE MOST LOAD-BEARING SENTENCE IN THIS FILE.~~
+-- ~~Postgres does not require the second and does not warn about its absence.~~
+-- ~~An UPDATE policy written with `using` alone passes every cross-user attack~~
+-- ~~in the suite — the attacker legitimately owns the row they are targeting —~~
+-- ~~and lets them MOVE it somewhere they do not. Alice takes her own submission~~
+-- ~~and re-parents it under a template no non-admin can see; alice takes her~~
+-- ~~own response and repoints its `field_id` at bob's field. Variants W5 and W7.~~
 --
--- Neither is visible in the status code: PostgREST answers HTTP 200 `[]` for a
--- row `using` excluded and 403 for one `with check` rejected, and both attacks
--- are the second kind. Only the table says which happened, which is why every
--- write assertion in the suite verifies through the pool and not the response.
+-- 🛑 STRUCK — FINDING F3 (run 20260802's G6 fix round). **BOTH HALVES OF THAT
+-- WERE FACTUALLY WRONG ABOUT POSTGRESQL, AND W5 AND W7 DID NOT CATCH THE
+-- MUTATION THEY WERE NAMED FOR.**
+--
+--   (a) POSTGRES SUBSTITUTES THE `using` EXPRESSION FOR AN OMITTED `with check`
+--       (CREATE POLICY: "if no WITH CHECK expression is defined, then the USING
+--       expression will be used both to determine which rows are visible and
+--       which new rows will be allowed to be added"). On rows 2, 3 and 4 the
+--       two expressions ARE THE SAME EXPRESSION, so deleting a `with check`
+--       line below changes NOTHING the database does.
+--   (b) The old text also assumed the refusal it observed came from this file.
+--       It came from 0003's SELECT policy, which for an UPDATE covers the NEW
+--       ROW WHETHER OR NOT THE STATEMENT RETURNS ANYTHING.
+--
+-- MEASURED IN ISOLATION — one scratch table, no FDW, no fixture, four probes,
+-- so the mechanics are the database's and not this schema's:
+--
+--   A  UPDATE policy, `using` alone, no RETURNING, move the row out of my own
+--      visibility            -> REFUSED. `pg_policies.with_check` is NULL and
+--                               the USING expression is applied to the new row.
+--   B  UPDATE policy, `with check ( true )`, SELECT policy NO WIDER than the
+--      intended write rule, no RETURNING
+--                            -> REFUSED, by the SELECT policy.
+--   C  UPDATE policy, `with check ( true )`, SELECT policy WIDER than the write
+--      rule, no RETURNING    -> **LANDS.**
+--   D  INSERT policy, `with check ( true )`, SELECT policy narrow
+--                            -> **LANDS** without RETURNING; REFUSED with it.
+--
+-- 🛑 SO, ROW BY ROW, WHAT IS ACTUALLY DEFENDED AND BY WHAT:
+--
+--   ROWS 2 AND 3, THE UPDATE POLICIES. `using` and `with check` are the same
+--   expression AND the table's SELECT policy is that same expression again.
+--   By (A) and (B) NEITHER omitting NOR widening the `with check` is
+--   observable through any client. Both are NON-DEFECTS, and this file will
+--   not invent a test to pretend otherwise: mutation M1 (`with check` deleted
+--   from both) and M1b (`with check ( true )` on both) BOTH LEAVE THE SUITE
+--   GREEN, under `return=representation` and under `return=minimal` alike, and
+--   that is the correct result. W5 and W7 remain as the assertions that the
+--   PROPERTY holds — a row cannot be moved somewhere its author cannot see —
+--   not as guards on which clause delivers it.
+--
+--   ROWS 2 AND 3, THE INSERT POLICIES. Different story, by (D): the SELECT
+--   policy reaches an inserted row ONLY through RETURNING. A widened INSERT
+--   `with check` is therefore a REAL and reachable defect for any push-only
+--   client. Mutation M1d (`with check ( true )` on both INSERT policies) is
+--   RED at W4, W6, W8, W13 and W14 — but only because rvPushRefused also sends
+--   `Prefer: return=minimal`. Before finding F1's fix it was invisible.
+--
+--   ROW 4, THE UPDATE POLICY. This is case (C), and it is the ONLY case (C) in
+--   the file: `hq_can_approve_field` is STRICTLY NARROWER than the table's own
+--   SELECT rule `hq_can_see_field`. Postgres will not enforce it for us from
+--   either direction. Mutation M1c (`with check ( true )` on §5d's UPDATE
+--   policy alone) let an approver MOVE a rejection onto work she is merely
+--   ASSIGNED to — an assignee rejecting her own work by UPDATE, the exact
+--   escalation §2 and W9 forbid — and it survived the entire suite until
+--   variants WP8 (positive) and W16 (refusal) were added for it.
+--
+-- 🛑 THE ONE-LINE VERSION, WHICH IS WHAT THE OLD SENTENCE SHOULD HAVE SAID:
+-- **A `with check` MATTERS EXACTLY WHERE IT IS NARROWER THAN ITS TABLE'S SELECT
+-- POLICY, OR WHERE THE COMMAND IS AN INSERT. In this file that is §5d's UPDATE
+-- and the two INSERTs — three of the five, and not the three anyone would have
+-- guessed.**
+--
+-- Refusals are not visible in the status code: PostgREST answers HTTP 200 `[]`
+-- for a row `using` excluded, 403 for one `with check` rejected, and 201/204
+-- with an EMPTY BODY for a `return=minimal` write that SUCCEEDED. Only the
+-- table says which happened, which is why every write assertion in the suite
+-- verifies through the pool and not the response.
 
 -- ---------------------------------------------------------------------------
 -- 5a. checklist_templates — NO WRITE POLICY. See §1(a).
@@ -382,6 +482,14 @@ create policy submission_rejections_update on public.submission_rejections
   for update to authenticated
   -- 🛑 approve, NOT see. See (2) above; W11 is the variant.
   using      ( public.hq_can_approve_field(field_id) )
+  -- 🛑 THE ONE `with check` IN THIS FILE THAT POSTGRES WILL NOT ENFORCE FOR YOU.
+  -- It is strictly NARROWER than this table's SELECT policy above
+  -- (hq_can_approve_field ⊂ hq_can_see_field), so RETURNING cannot stand in for
+  -- it the way it can on rows 2 and 3 — see §5's F3 correction. W11 does not
+  -- reach it: alice is refused by `using` and the new row is never built.
+  -- WP8 (an approver moves a rejection to another field of HER OWN template —
+  -- must land) and W16 (the same PATCH aimed at a field she merely SEES — must
+  -- be refused) are the matched pair that does.
   with check ( public.hq_can_approve_field(field_id) );
 
 -- PostgREST caches the schema; policy changes need the reload signal.
