@@ -596,10 +596,25 @@
   logic (`MY_SUBMISSIONS`-driven), NOT network/cache/gating/the 07-22 sync.js change; server
   state verified byte-identical for both users. The E2E convergence matrix misses the cell:
   it never seeds an asymmetric approved-for-A/rejected-for-B history before reopening.
-  Needs a product ruling first (what SHOULD each user see on a new cycle after a split
-  approve/reject?), then a red-first cell + fix. Full evidence + repro:
+  ~~Needs a product ruling first (what SHOULD each user see on a new cycle after a split
+  approve/reject?), then a red-first cell + fix.~~ **RULED 2026-07-26 — the product half is
+  cleared; what remains is a red-first cell + fix.** Full evidence + repro:
   `reference/sync-crossuser-hydration-20260724.md`. · origin: operator play-test 2026-07-24,
-  reproduced at triage · new
+  reproduced at triage · **ruled 2026-07-26 (operator-decided, ledger T-24 decision 67)** —
+  *"A new cycle starts fresh for every user — 0/2 for both A and B."* Three requirements, and
+  they are separable: (1) B's rejected submission does **NOT** resurrect as current state — it
+  is archived and remains visible as **history**; the rejection and its fail notes are a record,
+  not a live draft. (2) A's fresh 0/2 **must accept clicks** — *"the silent no-op is a bug, not
+  intended behavior — it is part of what this ruling requires fixed, not a separate concern."*
+  (3) The E2E convergence matrix still needs its missing cell seeded: an asymmetric
+  approved-for-A / rejected-for-B history, reopened as both users, asserting 0/2 for both **and**
+  asserting that A's clicks POST — a test that only checks the counter would pass against a dead
+  UI. Rationale, verbatim: *"rejection means redo"* — a rejected checklist that carries forward
+  as 2/2 lets unreviewed work look complete, which is precisely the failure the engine exists to
+  prevent. Ruling defines the target state, **not** the work: the build is unwritten and is
+  slated as Night B card **P4** (`reference/slate-20260802.md`), not yet authored. Unblocks the
+  product half of `sync-hard-cutover`'s double block (Product KR2); that card remains blocked on
+  `sync-rxdb-schema-and-replication` landing.
 - **Cost tab 0%-food-cost anomaly investigation** · F2's open note (T-19 decision 33 residue,
   disposition T-21f decision 48): a menu item can show 0% food cost. Lead hypothesis: sales
   without any recipe allocation → ingredient_cost_total = 0 → a technically-correct but
