@@ -333,6 +333,30 @@ four mechanism pieces, run the mutation, not the suite.
   `tests/repro-cut-task.spec.js:169` sibling rot **`B-39` → `B-44`**, the
   Playwright baseline instability **`B-40` → `B-45`**, and the blank launcher is
   new as **`B-46`**. Each renumber carries its reason inline in `BACKLOG.md`.
+- 🛑 **UNFILED, needs a number from the orchestrator — the Supabase substrate is
+  NOT isolated by `HQ_RLS_TEST_DB`, and a concurrent leg's schema change reds a
+  card that touched no Go at all.** This card's G2 (Go) leg failed on
+  `TestRowVisibilityRLS/V18/submission_rejections_is_deny-all,_for_admins_too`.
+  V18 asserts the **ABSENCE** of a select policy on `submission_rejections`
+  (`sync-schema/sql/0003_rls_policies.sql` §2(b) — a recorded decision, not a
+  gap). At assert time `pg_policies` on the shared `spike-supabase-db-1` showed
+  `submission_rejections_select`, `_insert` and `_update` on `{authenticated}`,
+  **none of which exists anywhere in this tree** (`grep -rn
+  submission_rejections_select` → not present). They were created by the
+  concurrently-running leg `a2-sync-rxdb-write-policies`, which is precisely the
+  card B-38 identified as owning WITH CHECK policies for this table. **B1 touches
+  ZERO files under `backend/` or `sync-schema/`** across the whole card
+  (`git diff --name-only 5aca9cd~1..HEAD`), so it cannot be the cause. 26 of the
+  27 `TestRowVisibilityRLS` subtests pass; the one failure is the absence
+  assertion. **This is B-35's failure mode one layer up:** `HQ_RLS_TEST_DB`
+  isolates only the HQ **FDW source** database. The Supabase side — the shared
+  Postgres `public` schema where the policies and seeded rows live, plus the
+  single shared PostgREST — has **no isolation variable at all**, and
+  `tearDownRowVisRLS` only drops the three policies that existed when it was
+  written. Concurrent dispatch is this project's normal shape, so this is the
+  expected case, not the unlucky one. **Not filed with a number** because this
+  leg was instructed to use only B-44/B-45/B-46; it needs one. Sibling of B-35
+  and B-36.
 - **`B-45` strengthened to a third corroboration.** B1's G6 produced a *third
   distinct* single-failure title — `tests/inventory.spec.js:2994 › Receipt sync
   button › manual sync chip shows Synced from {date} using lookback_days`, a 30s
