@@ -103,8 +103,10 @@ Add this test to `tests/persistence.spec.js` under the "Draft response persisten
 - Static assets: precached with content hashes — **no manual version bumps**
 - API calls: network-first with offline JSON fallback
 - Run `task sw` to rebuild after changing any HTML/JS files
-- `task test` and `task prod:deploy` auto-run `task sw` as a dependency
+- `task test` auto-runs `task sw` as a dependency. **`task prod:deploy` does NOT** — see "Deploying to prod" below
 - `build-sw.js` also writes `version.json` (frontend semver from `package.json`) which the SW precaches
+- **`sw.js` is a committed artifact.** `build-sw.js` reads **git HEAD**, not the working tree and not the index, so the manifest names only what a fresh clone can serve. Commit `sw.js` in the same change set as whatever you changed under it, or the change does not ship
+- **`build-sw.js` exits non-zero when a precached file references something not precached** — `<script src>`, `import`, `import()`. The invariant is *reachability*, not completeness: a skipped file nobody references still exits 0. The failure message names both the referrer and the fix. Precache count is currently **31**; if it moves without an asset being deliberately added or removed, that is the silent drop (B-37) coming back
 
 ### Versioning & Deployment
 
@@ -120,12 +122,14 @@ Add this test to `tests/persistence.spec.js` under the "Draft response persisten
 **Deploying to prod** — single command:
 
 ```
-task prod:deploy   # SSH to Windows box (Tailscale) → git pull → task sw → docker build → restart container
-task prod:logs     # tail container logs
-task prod:ssh      # interactive shell on the box
+task prod:deploy    # prod clone → git fetch + reset --hard origin/main → docker compose build → up -d → health check
+task prod:logs      # tail container logs
+task prod:rollback  # restore the previous image (the :-rollback tag from the last deploy)
 ```
 
-The Windows box runs the backend in Docker (container name `yumyums-hq`); the backend embeds the frontend; Cloudflare Tunnel routes `https://hq.yumyums.kitchen` to it. There is no separate frontend host — both ship as one image.
+Prod runs in Docker on **this** box (Docker Desktop), building from a **separate clone pinned to `origin/main`** (`PROD_REPO`, default `/mnt/c/Users/jcole/projects/yumyums-purchase-orders`) — so prod only ever runs pushed code. The backend embeds the frontend; Cloudflare Tunnel routes `https://hq.yumyums.kitchen` to it. There is no separate frontend host — both ship as one image.
+
+🛑 **`task prod:deploy` does NOT run `task sw`, and must not be "fixed" to.** `Taskfile.yml:178-218` does `git fetch origin main` → `git reset --hard origin/main` → `docker compose build`, so **the committed `sw.js` is what ships**. That is correct by construction, not an omission: `build-sw.js` reads **git HEAD**, and after the hard reset the prod clone's HEAD *is* the tree being built, so regenerating on the box could only reproduce the committed file. What this does mean is that **an `sw.js` you did not commit does not deploy** — the release flow is *commit a fresh `sw.js` on dev → merge dev→main → push → `task prod:deploy`*. (B-13; the doc claimed the dependency for months and the Taskfile never had it.)
 
 **Verifying after deploy**:
 
@@ -136,7 +140,7 @@ task health:prod   # raw /api/v1/health JSON from prod
 
 If `task version` shows the local `Backend` / `Frontend` constants ahead of the prod values, the running container is stale — re-run `task prod:deploy`.
 
-**Override deploy targets** via env vars: `PROD_SSH`, `PROD_REPO`, `PROD_CONTAINER`, `PROD_IMAGE`, `PROD_PORT`, `PROD_URL`. Defaults are in the root `Taskfile.yml` `vars:` block.
+**Override deploy targets** via env vars: `PROD_REPO`, `PROD_COMPOSE`, `PROD_CONTAINER`, `PROD_IMAGE`, `PROD_PORT`, `PROD_URL`. Defaults are in the root `Taskfile.yml` `vars:` block.
 
 ### Adding a New Tool
 
@@ -230,7 +234,7 @@ A mobile-first PWA operations console for a food truck business. One app shell w
 - No local tooling required — files can be opened directly or served with `python3 -m http.server`
 - Production: Go backend in Docker on Windows box, frontend embedded into the binary, served via Cloudflare Tunnel
 - Live URL: `https://hq.yumyums.kitchen`
-- Deploy: `task prod:deploy` (SSH over Tailscale → git pull → docker build → restart container)
+- Deploy: `task prod:deploy` (prod clone → `git reset --hard origin/main` → `docker compose build` → `up -d`; the **committed** `sw.js` ships — nothing regenerates it on the box)
 ## Planned Backend Stack (not yet built)
 - **Language:** Go
 - **Database:** PostgreSQL (separate schema on existing Hetzner box)
