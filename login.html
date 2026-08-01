@@ -108,6 +108,27 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 const params=new URLSearchParams(window.location.search);
 const inviteToken=params.get('token');
 
+// Obligation 7(b), ledger T-23 decision 70 / T-30 decision 112. A sign-in here
+// establishes a NEW identity on this device, and it does so WITHOUT ever running
+// index.html's logout(): user B logging in while user A's session is still live
+// is the ordinary shared-truck-phone case, and until now this page did no cache
+// hygiene of its own. So A's api-cache entries, A's identity token and A's
+// cached tile list all survived into B's session.
+//
+// Purged here, not on the next page: the identity has already changed by the
+// time index.html loads, and anything the launcher fetches before it can
+// establish the new identity would be measured against the old one.
+//
+// 🛑 AWAITED, before the redirect. window.location.href tears this page down; a
+// fire-and-forget purge that loses that race leaves the previous user's rows on
+// the phone, which is the entire disclosure this card exists to close.
+async function purgeDeviceIdentity(){
+  try{localStorage.removeItem('hq_apps')}catch(e){}
+  if(!('caches' in window))return;
+  try{await caches.delete('api-cache')}catch(e){}
+  try{await caches.delete('hq-identity')}catch(e){}
+}
+
 if(inviteToken){
   showAcceptInviteMode(inviteToken);
 }
@@ -181,6 +202,7 @@ async function acceptInvite(){
       body:JSON.stringify(payload)
     });
     if(res.ok){
+      await purgeDeviceIdentity();
       window.location.href='/index.html';
     }else{
       const data=await res.json().catch(()=>({}));
@@ -207,6 +229,7 @@ async function signIn(){
       body:JSON.stringify({email:email,password:pw})
     });
     if(res.ok){
+      await purgeDeviceIdentity();
       window.location.href='/';
     }else{
       showError('Invalid credentials. Please try again.');

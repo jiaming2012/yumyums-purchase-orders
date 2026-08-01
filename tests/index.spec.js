@@ -276,3 +276,104 @@ test('the /api/v1/me identity probe is cache-busted so api-cache cannot answer i
   // somebody else's identity.
   for (const search of meRequests) expect(search).not.toBe('');
 });
+
+// ---------------------------------------------------------------------------
+// Identity hygiene — obligations 7(a) and 7(b), ledger T-23 decision 70,
+// re-specified as one mechanism by T-30 decision 112.
+//
+// The cross-tenant DISCLOSURE these guard is shown end-to-end, through a real
+// service worker, in tests/sw-api-cache-partition.spec.js [B1-XT-01]. These two
+// cover the halves of the same mechanism that live in page code and therefore
+// run with the suite's normal serviceWorkers:'block'.
+// ---------------------------------------------------------------------------
+
+async function inviteTeamMember(page, tag) {
+  const email = `b1idx-${tag}-${Date.now()}@yumyums.kitchen`;
+  const invite = await page.evaluate(async (e) => {
+    const res = await fetch('/api/v1/users/invite', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ first_name: 'B1', last_name: 'Idx', email: e, roles: ['team_member'] }),
+    });
+    return res.json();
+  }, email);
+  expect(invite.invite_path).toBeTruthy();
+  // 🛑 accept-invite MINTS A SESSION for the invitee — the page is logged in as
+  // them after this call, not as the admin who ran it.
+  await page.evaluate(async (t) => {
+    await fetch('/api/v1/auth/accept-invite', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: t, password: 'test456' }),
+    });
+  }, invite.invite_path.split('token=')[1]);
+  return { email, password: 'test456' };
+}
+
+test('signing in on login.html drops the previous user cached tile list [B1-XT-03]', async ({ page }) => {
+  test.setTimeout(60000);
+  // Obligation 7(b): B logs in while A's session is live. logout() never runs,
+  // so login.html has to do the hygiene itself.
+  await login(page);
+  const member = await inviteTeamMember(page, 'tiles');
+  await login(page);
+
+  await page.goto('/index.html');
+  await page.waitForFunction(() => {
+    const g = document.querySelector('.grid');
+    return g && g.style.visibility !== 'hidden';
+  }, { timeout: 10000 });
+
+  const adminRaw = await page.evaluate(() => localStorage.getItem('hq_apps'));
+  expect(adminRaw).toBeTruthy();
+  const adminEnvelope = JSON.parse(adminRaw);
+  // The list is identity-STAMPED now, not a bare array whose owner is unknown.
+  expect(Array.isArray(adminEnvelope)).toBe(false);
+  expect(adminEnvelope.uid).toBeTruthy();
+  expect(Array.isArray(adminEnvelope.apps)).toBe(true);
+
+  // B signs in. No logout anywhere in this flow.
+  await login(page, member.email, member.password);
+  await page.goto('/index.html');
+  await page.waitForFunction(() => {
+    const g = document.querySelector('.grid');
+    return g && g.style.visibility !== 'hidden';
+  }, { timeout: 10000 });
+
+  const afterRaw = await page.evaluate(() => localStorage.getItem('hq_apps'));
+  if (afterRaw) {
+    const after = JSON.parse(afterRaw);
+    expect(after.uid).not.toBe(adminEnvelope.uid);
+  }
+});
+
+test('the fail-closed branch paints no tiles from an unowned hq_apps [B1-XT-04]', async ({ page }) => {
+  test.setTimeout(60000);
+  // Obligation 7(a): index.html used to parse localStorage['hq_apps']
+  // unconditionally, so the branch that CANNOT verify who is holding the phone
+  // painted the previous user's launcher anyway.
+  await login(page);
+  await page.goto('/index.html');
+  await page.waitForFunction(() => {
+    const g = document.querySelector('.grid');
+    return g && g.style.visibility !== 'hidden';
+  }, { timeout: 10000 });
+
+  // Plant the previous user's slug list in the legacy bare-array shape — the
+  // exact value every build before this card wrote — and remove the device's
+  // identity token so it cannot name its user.
+  await page.evaluate(async () => {
+    localStorage.setItem('hq_apps', JSON.stringify([{ slug: 'users', name: 'Users', icon: '👥' }]));
+    if ('caches' in window) await caches.delete('hq-identity');
+  });
+
+  // Both identity legs fail: this is the offline truck.
+  await page.route('**/api/v1/me**', route => route.abort());
+  await page.goto('/index.html');
+  await page.waitForTimeout(2000);
+
+  const planted = await page.evaluate(() => localStorage.getItem('hq_apps'));
+  expect(planted).toBeTruthy(); // subject set non-empty — the guard has something to refuse
+  const visibility = await page.evaluate(() => document.querySelector('.grid').style.visibility);
+  expect(visibility).toBe('hidden');
+});

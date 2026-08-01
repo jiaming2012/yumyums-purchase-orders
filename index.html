@@ -139,20 +139,87 @@ function filterTilesByPermissions(apps){
   grid.style.visibility='';
 }
 const API_CACHE_NAME='api-cache';
-// build-sw.js configures ONE NetworkFirst route on /\/api\// with no Vary, no
-// cacheKeyWillBeUsed and no matchOptions: the cache key is the URL, and
-// Authorization is not part of it. On a shared truck phone that makes
-// `api-cache` a cross-tenant read of whatever the previous user loaded. The
-// route is only served on network failure or a >10s timeout -- which on a food
-// truck is routine, not exotic. Ledger T-23 decision 57.
+const IDENTITY_CACHE_NAME='hq-identity';
+const IDENTITY_TOKEN_URL='/__hq_identity';
+// build-sw.js registers ONE NetworkFirst route on /\/api\// covering every
+// endpoint in all five tools. It USED to have no Vary, no cacheKeyWillBeUsed and
+// no matchOptions: the cache key was the bare URL and the session cookie was not
+// part of it, so on a shared truck phone `api-cache` was a cross-tenant read of
+// whatever the previous user loaded. The route is served on network failure or a
+// >10s timeout -- routine on a food truck, not exotic. Ledger T-23 decision 57.
 //
-// This page owns the two IMMEDIATE mitigations: clear the cache when identity
-// changes, and never trust it for identity. The structural half -- keying the
-// cache by identity, or retiring the route once RxDB replicates -- belongs to
-// sync-rxdb-schema-and-replication and is deliberately NOT done here.
+// STRUCTURAL FIX, ledger T-30 decision 112: the route is NOT retired (it covers
+// four tools RxDB has never replicated). It is PARTITIONED BY IDENTITY. Every
+// api-cache key now carries `__hq_id=<user uuid>`, and the worker refuses to
+// write at all when no identity is established.
+//
+// 🛑 THIS PAGE IS THE WRITER OF THE TOKEN THE SERVICE WORKER READS. A service
+// worker cannot see localStorage, and the session cookie is HttpOnly and is
+// attached after the fetch event -- so the token lives in a CacheStorage bucket,
+// the one store both contexts can reach. If it ever moves, BOTH ends move in the
+// same commit: build-sw.js reads exactly IDENTITY_CACHE_NAME/IDENTITY_TOKEN_URL.
+// A mismatch fails SILENT -- every request degrades to the un-cacheable 'anon'
+// partition and the PWA quietly stops working offline.
+async function readIdentityToken(){
+  if(!('caches' in window))return null;
+  try{
+    var c=await caches.open(IDENTITY_CACHE_NAME);
+    var r=await c.match(IDENTITY_TOKEN_URL);
+    if(!r)return null;
+    var t=(await r.text()).trim();
+    return t||null;
+  }catch(e){return null}
+}
+// Called on a VERIFIED /api/v1/me only. Three things, in this order:
+//  1. if the device was last held by someone else, drop their cached tile list;
+//  2. publish the token so every subsequent api-cache write is keyed to us;
+//  3. prune any entry that is not ours -- the belt to the partition's braces.
+// (3) also sweeps whatever a bypassed login left behind, so the disclosure is
+// not merely unreadable but absent.
+async function establishIdentity(id){
+  if(!id)return;
+  id=String(id);
+  var prev=await readIdentityToken();
+  if(prev!==id){try{localStorage.removeItem(APPS_CACHE_KEY)}catch(e){}}
+  if(!('caches' in window))return;
+  try{
+    var c=await caches.open(IDENTITY_CACHE_NAME);
+    await c.put(IDENTITY_TOKEN_URL,new Response(id,{headers:{'Content-Type':'text/plain'}}));
+  }catch(e){}
+  try{
+    var api=await caches.open(API_CACHE_NAME);
+    var keys=await api.keys();
+    await Promise.all(keys.filter(function(r){
+      return new URL(r.url).searchParams.get('__hq_id')!==id;
+    }).map(function(r){return api.delete(r)}));
+  }catch(e){}
+}
+// The full device purge. Every identity-scoped thing this app stores, in one
+// place, so a later card cannot half-clear it.
 async function clearApiCache(){
+  try{localStorage.removeItem(APPS_CACHE_KEY)}catch(e){}
   if(!('caches' in window))return;
   try{await caches.delete(API_CACHE_NAME)}catch(e){}
+  try{await caches.delete(IDENTITY_CACHE_NAME)}catch(e){}
+}
+// The cached tile list is an identity-stamped envelope {uid, apps}. A bare array
+// -- anything written by a build before this card -- is DISCARDED, not migrated:
+// its owner is unknown and obligation 7(a) is precisely "the previous user's
+// cached slug list". Fail closed.
+function readCachedApps(deviceId){
+  if(!deviceId)return null;
+  var raw;
+  try{raw=localStorage.getItem(APPS_CACHE_KEY)}catch(e){return null}
+  if(!raw)return null;
+  try{
+    var env=JSON.parse(raw);
+    if(!env||Array.isArray(env)||env.uid!==deviceId||!Array.isArray(env.apps))return null;
+    return env.apps;
+  }catch(e){return null}
+}
+function writeCachedApps(deviceId,apps){
+  if(!deviceId)return;
+  try{localStorage.setItem(APPS_CACHE_KEY,JSON.stringify({uid:deviceId,apps:apps}))}catch(e){}
 }
 // Drop every cached answer to the identity endpoint, busted variants included.
 // Called BEFORE the identity probe so no code path can read a stale one.
@@ -175,12 +242,16 @@ async function logout(){
   try{await fetch('/api/v1/auth/logout',{method:'POST'})}catch(e){}
   // AWAITED, not fire-and-forget: window.location.href tears this page down, and
   // a lost race here leaves the previous user's rows on the phone for the next
-  // one. That is the whole disclosure.
+  // one. That is the whole disclosure. Now clears the tile list and the identity
+  // token too, not just api-cache.
   await clearApiCache();
   window.location.href='/login.html';
 }
 async function checkAuth(){
   var identityVerified=false;
+  // The identity this device last VERIFIED. Offline it is all we have, and it is
+  // the only thing the cached tile list is allowed to be measured against.
+  var deviceId=await readIdentityToken();
   await evictCachedIdentity();
   try{
     // Cache-busted on purpose. A bare '/api/v1/me' is answerable from the
@@ -191,6 +262,10 @@ async function checkAuth(){
     if(res.ok){
       const data=await res.json();
       identityVerified=true;
+      // BEFORE any other API fetch on this page, so /api/v1/me/apps below is
+      // keyed to us and not to whoever held the phone last.
+      await establishIdentity(data.id);
+      deviceId=data.id?String(data.id):deviceId;
       if(data.display_name)renderUserHeader(data.display_name);
     }
   }catch(e){
@@ -221,15 +296,23 @@ async function checkAuth(){
     //    are the ones with tests.
     removeUserHeader();
   }
-  var cached=localStorage.getItem(APPS_CACHE_KEY);
-  if(cached){try{filterTilesByPermissions(JSON.parse(cached));}catch(e){}}
+  // Obligation 7(a), ledger T-23 decision 70: this read used to be
+  // unconditional, so the fail-closed branch above painted the PREVIOUS user's
+  // tiles -- offline on a shared truck phone, user B saw user A's launcher.
+  // Now the list is only applied when the identity that owns it is the identity
+  // established on this device; with no established identity (offline, first
+  // load, or straight after a purge) NO cached tiles are painted at all.
+  // Server-side grants remain the real gate -- this is the UI half.
+  var cached=readCachedApps(deviceId);
+  if(cached)filterTilesByPermissions(cached);
   try{
     const appsRes=await fetch('/api/v1/me/apps');
     if(appsRes.ok){
-      var fresh=JSON.stringify(await appsRes.json());
-      if(fresh!==cached){
-        localStorage.setItem(APPS_CACHE_KEY,fresh);
-        filterTilesByPermissions(JSON.parse(fresh));
+      var apps=await appsRes.json();
+      var fresh=JSON.stringify(apps);
+      if(fresh!==JSON.stringify(cached)){
+        writeCachedApps(deviceId,apps);
+        filterTilesByPermissions(apps);
       }
     }
   }catch(e){
