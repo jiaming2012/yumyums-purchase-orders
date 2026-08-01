@@ -495,6 +495,44 @@ test('login.html acceptInvite() purges the previous user device state before the
   expect(after.apps).toBeNull();
 });
 
+test('the same crew member re-authenticating keeps their offline dataset [B1-XT-08]', async ({ page }) => {
+  test.setTimeout(60000);
+  // NON-BLOCKING-7 (B1 fix round). purgeDeviceIdentity() used to delete
+  // api-cache on EVERY successful sign-in, including the same person
+  // re-authenticating after a session expiry. That threw away their whole
+  // offline dataset for no security gain — there is no other tenant's data on
+  // the device to disclose, and establishIdentity()'s prune already covers the
+  // identity-CHANGE case. On a truck that is the difference between "reload
+  // works with no LTE" and "nothing works until the signal comes back".
+  //
+  // 🛑 This test and [B1-XT-06] bracket the comparison from both sides: break it
+  // open (always purge) and this reds; break it shut (never purge) and
+  // [B1-XT-06] reds.
+  await login(page);
+  const me = await page.evaluate(async () => (await (await fetch('/api/v1/me?_=' + Date.now(), { cache: 'no-store' })).json()));
+  expect(me.id).toBeTruthy();
+
+  await page.goto('/login.html');
+  await seedPreviousUserDeviceState(page, String(me.id)); // SAME user, not foreign
+
+  const before = await readDeviceState(page);
+  expect(before.identity).toBe(String(me.id));
+  expect(before.apiKeys.length).toBeGreaterThan(0);
+
+  await freezeRedirectTarget(page, '/');
+
+  await page.fill('input[type="email"]', ADMIN_EMAIL);
+  await page.fill('input[type="password"]', ADMIN_PASSWORD);
+  await page.click('button.btn');
+  await page.waitForSelector('#frozen-redirect-target', { timeout: 20000 });
+
+  const after = await readDeviceState(page);
+  console.log('[B1-XT-08] device state after same-user re-login:', JSON.stringify(after));
+  expect(after.identity).toBe(String(me.id));
+  expect(after.apiKeys).toEqual(before.apiKeys);
+  expect(after.apps).toBe(before.apps);
+});
+
 test('the fail-closed branch paints no tiles from an unowned hq_apps [B1-XT-04]', async ({ page }) => {
   test.setTimeout(60000);
   // Obligation 7(a): index.html used to parse localStorage['hq_apps']

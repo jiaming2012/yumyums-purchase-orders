@@ -122,7 +122,29 @@ const inviteToken=params.get('token');
 // 🛑 AWAITED, before the redirect. window.location.href tears this page down; a
 // fire-and-forget purge that loses that race leaves the previous user's rows on
 // the phone, which is the entire disclosure this card exists to close.
-async function purgeDeviceIdentity(){
+//
+// CONDITIONAL ON AN IDENTITY CHANGE. `nextId` is the `user.id` the auth endpoint
+// just returned. When it equals the identity token already on the device, the
+// SAME crew member is re-authenticating after a session expiry -- and throwing
+// away their whole offline dataset buys nothing, because there is no other
+// tenant's data to disclose. On a truck that is the difference between "reload
+// works with no LTE" and "nothing works until the signal comes back".
+//
+// FAIL CLOSED. Any state that is not a proven match purges: no `nextId`, no
+// stored token, an unreadable/empty token, or a token that differs. The only
+// path that keeps the cache is a positive, exact match.
+async function purgeDeviceIdentity(nextId){
+  if(nextId&&'caches' in window){
+    try{
+      const c=await caches.open('hq-identity');
+      const r=await c.match('/__hq_identity');
+      if(r){
+        const t=(await r.text()).trim();
+        // Same user, same device: keep api-cache, keep the token, keep hq_apps.
+        if(t&&t===String(nextId))return;
+      }
+    }catch(e){/* unreadable identity is NOT a match -- fall through and purge */}
+  }
   try{localStorage.removeItem('hq_apps')}catch(e){}
   if(!('caches' in window))return;
   try{await caches.delete('api-cache')}catch(e){}
@@ -202,7 +224,8 @@ async function acceptInvite(){
       body:JSON.stringify(payload)
     });
     if(res.ok){
-      await purgeDeviceIdentity();
+      const ok=await res.json().catch(()=>null);
+      await purgeDeviceIdentity(ok&&ok.user?ok.user.id:null);
       window.location.href='/index.html';
     }else{
       const data=await res.json().catch(()=>({}));
@@ -229,7 +252,8 @@ async function signIn(){
       body:JSON.stringify({email:email,password:pw})
     });
     if(res.ok){
-      await purgeDeviceIdentity();
+      const ok=await res.json().catch(()=>null);
+      await purgeDeviceIdentity(ok&&ok.user?ok.user.id:null);
       window.location.href='/';
     }else{
       showError('Invalid credentials. Please try again.');
