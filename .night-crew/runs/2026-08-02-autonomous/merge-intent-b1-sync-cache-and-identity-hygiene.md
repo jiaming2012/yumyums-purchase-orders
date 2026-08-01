@@ -122,11 +122,16 @@ recoverable by anyone who can influence the token.
 
 ### 2.6 The precache half of `build-sw.js` is untouched — and must stay measurable
 
-- **Expected precache count: 29 files / 2111.1 KB.** Derived by running
-  `node build-sw.js` on the base commit before any edit, and again after. This card
-  adds no file to the precache and removes none. **P1's B-37 work is the card that
-  changes this number; if it changes under any other card, that is the silent-drop
-  bug.**
+- **Expected precache count: 29 files, before AND after this card.** Derived by
+  running `node build-sw.js` on the base commit before any edit (29 files /
+  **2111.1 KB**) and again after the fix commit (29 files / **2116.2 KB**). The
+  count is the invariant; the 5.1 KB is `index.html` and `login.html` growing by
+  the identity helpers, and nothing else.
+- 🛑 **The number to check is the COUNT, not the exit code.** `build-sw.js` exits 0
+  while silently dropping assets — that is B-37, and it shipped a 24-file manifest
+  for real on 2026-08-01. **P1 is the card that legitimately changes this
+  number** (it adds the import-reachability check). If 29 moves under any other
+  card, that is the silent-drop bug, not an improvement.
 - No new shared `.js` file was created for the identity helpers — they are inline in
   `index.html` and `login.html`. A new root `.js` would need a `globPatterns` entry
   **and** a `backend/Dockerfile` copy (`tests/sw-manifest.spec.js` asserts the
