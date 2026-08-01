@@ -85,6 +85,20 @@
 
 ## Activity 1 — Sync foundation: RxDB + self-hosted Supabase
 
+> **Merge status, 2026-07-31 morning triage.** All four `overnight-20260801` cards
+> (`app-timezone-unify-new-york`, `sync-rxdb-row-visibility-rls`,
+> `sync-rxdb-replication-and-conflict-handler`, `sync-rxdb-conflict-notice-ui`) are now **MERGED
+> to `dev`** (`--no-ff`), which upgrades their bullets from the run's build-time DONE convention
+> to an actual merge. **Still deployed to nothing** — nothing pushed to prod, nothing tagged,
+> `main` untouched, and the two-repo sales-processor agreement is unmet, so no deploy is
+> authorized. Reviewed by adversarial re-execution: G1/G2-Go/G4 green, **G2 Playwright exit 1 on
+> B-27** (pre-existing cross-spec pollution, no card's doing) — the closeout's "gates green" claim
+> was refuted at triage. Ledger **T-29**, decisions 104–110.
+>
+> 🛑 **Standing rule now binding every remaining sync card (T-29 decision 105):** replication
+> scope is **per-open-checklist, never all collections at once.** No card may widen it without a
+> recorded decision.
+
 - **`sync-spike-stack-and-jwt-bridge`** · **DONE — verdict GO** (2026-07-25, run
   `overnight-20260725`, merged `51d0c02`; G6 PASS-WITH-FINDINGS, all non-blocking). Self-hosted
   Supabase (postgres + postgrest + realtime; **Kong/Studio/GoTrue proved unnecessary**) accepts a
@@ -872,7 +886,11 @@
   Footprint: new RxDB client layer, `workflows.html` (import + construction only — the write-path
   swap is `sync-hard-cutover`), `build-sw.js`, `backend/Dockerfile`, `vendor/`.
 
-- **`sync-cache-and-identity-hygiene`** · **PLANNED** (fanned out of
+- **`sync-cache-and-identity-hygiene`** · **PLANNED** · 🛑 **BINDS: the replication-scope rule
+  (ledger T-29 decision 105)** — per-open-checklist scope, never all collections at once. Directly
+  relevant to obligation 3: the `api-cache` retirement argument is *"offline data comes from
+  IndexedDB"*, and under scoped replication IndexedDB holds **only the open checklist**, not the
+  whole dataset. Re-check that the retirement still holds before acting on it. (fanned out of
   `sync-rxdb-schema-and-replication` obligations 3, 7 and 8 at the 2026-07-28 dissolution; depends
   on `sync-rxdb-replication-and-conflict-handler` — the `api-cache` retirement is only correct once
   offline data actually comes from IndexedDB) · **The split is a gain here, and the dissolved card
@@ -1539,7 +1557,33 @@
   is to how the library derives `<baseUrl>/rest/v1`, not to the public extension points.
   Footprint: `backend/internal/auth` (or a new package), `backend/internal/sync`.
 
-- **`sync-hard-cutover`** · **PLANNED — LAST** (dependency restated at the 2026-07-28 dissolution:
+- **`sync-replication-scope-per-checklist`** · **PLANNED — NEW, authored at morning triage
+  2026-07-31 (ledger T-29 decision 105)** · Sized and sequenced by triage rather than put to the
+  operator: it is a bounded change to code that already landed, and it gates `sync-hard-cutover`,
+  so it goes **before** the cutover rather than inside it — folding it in would make the largest
+  card in the cycle larger and hide a design correction inside a write-path swap. · **What it
+  does:** give `startHQReplication` a pull filter so replication is scoped to the open checklist
+  instead of pulling four collections in full. Today (`sync-rxdb/client.js:378`) it loops
+  `templates`, `checklists`, `responses`, `approvals` with `pull:{batchSize:50}` and **no
+  selector, filter or query modifier**, so every device replicates every field answer of every
+  submission ever taken. Two consequences, and the second was not previously on the roadmap:
+  (a) the RLS predicate is re-evaluated per row on every page, which is the whole of Fork 1's
+  ~23 s figure — 20 pages × 50 rows × ~23 ms; (b) **unbounded phone storage** — `responses` grows
+  forever and each phone was to hold all of it. · **Also required:** re-measure the ~23 ms/row
+  constant on production-like topology. It was measured through Docker loopback NAT, which
+  production does not have — the linear *shape* is structural, the *constant* is not, and no card
+  should rely on the specific number until it is re-taken. · Footprint: `sync-rxdb/client.js`
+  (pull selector), `sync-schema/collections.js` if the scope needs a queryable key,
+  `tests/sync-rxdb-client.spec.js`. **Red-first is mandatory:** the red is a test asserting a
+  device does NOT hold rows for a checklist it never opened.
+
+- **`sync-hard-cutover`** · **PLANNED — LAST** · 🛑 **BINDS: the replication-scope rule (ledger
+  T-29 decision 105).** Replication scope is **per-open-checklist, never all collections at once**.
+  This card owns the write path and is the moment the scope becomes load-bearing: `startHQReplication`
+  today loops all four collections with `pull:{batchSize:50}` and **no selector**, which is what
+  produced Fork 1's ~23 s figure and what makes every phone hold every response ever taken. The
+  cutover must land the pull filter, not inherit the full-collection pull. A card may not widen this
+  scope without a recorded decision. (dependency restated at the 2026-07-28 dissolution:
   depends on **all three** of `sync-rxdb-collections-and-table-contract`,
   `sync-rxdb-row-visibility-rls` and `sync-rxdb-replication-and-conflict-handler`, plus jwt-bridge.
   🛑 **Row-visibility RLS is not optional for this card specifically** — the cutover makes RxDB the

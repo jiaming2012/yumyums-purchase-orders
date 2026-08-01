@@ -743,3 +743,64 @@ its cost needs justifying separately from the probes.
 budgets, because the mockup walkthrough was folded in (16 plates read back as PNGs) and produced a
 **third amendment plus two settled open decisions**. The walkthrough is what it cost, and it
 unblocked the milestone's only attended-blocked card.
+
+## `overnight-20260801` — 4 cards, CONCURRENT across three tracks, 4 of 4 landed, 0 parked (recorded at morning triage 2026-07-31)
+
+Dispatch 09:47:41 EDT, closeout 17:34 EDT → **run wall-clock ≈ 7h47m** for 4 cards.
+**Every card ran three phases, not one:** implement → fresh-subagent G6 adversarial review → fix
+round. C2 ran four (adding the CLAUDE.md verifier gate). **All four G6 reviews returned APPROVE
+WITH FINDINGS and every one found at least one blocking defect — no card merged on its first
+submission.** Price a card at its implementer time **plus a review-and-repair round**, not at the
+implementer time alone; on this evidence the implementer leg is roughly half the card.
+
+| Card | Track | Class | Implementer wall-clock | G6 verdict | Fix round | Merge |
+|---|---|---|---|---|---|---|
+| `app-timezone-unify-new-york` | A | resume of a 07-29 park | **76m 19s** | APPROVE WITH FINDINGS (F1 provenance, F2 changeover dates — blocking) | FIXED | clean |
+| `sync-rxdb-row-visibility-rls` | B | resume of a 07-29 park | **66m 58s** | APPROVE WITH FINDINGS (F2 destructive down, F1 silent skip — blocking) | FIXED | clean |
+| `sync-rxdb-replication-and-conflict-handler` | C1 | build, new module | **112m 20s** | APPROVE WITH FINDINGS (`_deleted` justification false — blocking) | FIXED | **3 conflicts, all pre-resolved** |
+| `sync-rxdb-conflict-notice-ui` | C2 | build, UI + verifier gate | **126m 11s** | verifier **PASS 30/30** + APPROVE WITH FINDINGS | FIXED | clean |
+
+**Per-phase G6/fix/land splits are NOT recorded for this run** — `timings.log` captures dispatch
+and implementer-return only, so the review and repair legs are known to have happened but not how
+long they took. That is the gap to close next run: the three-phase shape is now the norm and
+sizing against implementer time alone under-prices every card by roughly half. **Ask the
+orchestrator to stamp G6-start / G6-return / fix-return per card.**
+
+**Resume cards are NOT cheap.** Both resumes (A1 67m, B2 76m) landed in the same band as a fresh
+build card, not below it. A park preserves the *work*, not the *cost* — the card re-reads its own
+branch, re-establishes gate evidence on a moved base, and re-runs the full three phases. Do not
+price a resume at a discount.
+
+**Track serialization paid for itself, measurably.** C2 was cut *after* C1 merged, so it developed
+against the merged state — and the two cards sharing the RxDB client layer and `workflows.html`
+most heavily produced **zero conflicts**. The three-conflict merge was C1's, against cards it ran
+*concurrently* with. Serialization cost C2 a ~4h later start (13:47 vs 09:47) and bought the
+cleanest merge of the night.
+
+**What concurrency cost, priced.** Three concurrent Playwright suites drove load to **17 on 8
+cores**. Measured: one **invalidated** full gate run (C1's — a killed Playwright survived `pkill`
+and raced its replacement on the same port and DB, producing two summary blocks under one header),
+**two** shared-database collisions forcing both resume cards onto their own databases, and **one
+duplicate backlog number** (A1 and C1 both filed `B-28` without seeing each other; C1's was
+renumbered to B-31). Every G6 review and fix round then needed a distinct DB prefix and
+`TEST_PORT` from the orchestrator. Concurrency bought wall-clock and cost gate-evidence integrity
+— weigh that explicitly at the next slate rather than treating three tracks as free.
+
+**Attended-triage verification cost, 2026-07-31.** The adversarial reproduction subagent — own
+scratch, two throwaway worktrees, own `hq_adv_*` databases, every gate re-executed including the
+full **23.3 m** Playwright suite, then mutation probes against each card's claims — ran **~43 m
+wall clock** for **~140 k tokens and 72 tool calls**, unattended. **It refuted the closeout's
+headline gate claim** (Playwright exit 1 on B-27, against a recorded exit 0) and returned **2
+reproduced findings plus 1 self-disclosed** that the run did not report (B-35/B-36/B-37) — all in
+gates and guards rather than shipped behaviour. 🛑 **This breaks a four-night streak.** The prior
+three triages found the gates honest (07-27 refuted six *durable* claims but no gate numbers;
+07-28 and 07-29 refuted zero). The note in the 07-29 entry — that gate re-execution "is
+approaching the point where its cost needs justifying separately from the probes" — **is now
+answered: keep it.** The one night it was arguably redundant is the night it caught a false green.
+
+**Operator attention this triage ran ~25–35 m** across four question rounds, three of which were
+withdrawn and reformulated. Two reformulations were the operator's corrections and both are now
+durable rules: questions are to be framed as **user stories** rather than technical prose, and a
+decision whose own rule already names an evidence bar (the `HQ_SYNC_REST_URL` disarm) **is
+triage's to make, not the operator's** — escalating it spent attention on a call triage was
+already equipped to decide. Budget fewer, better-framed questions rather than more options.

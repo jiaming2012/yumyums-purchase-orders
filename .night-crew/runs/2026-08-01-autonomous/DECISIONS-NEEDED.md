@@ -1,5 +1,24 @@
 # Decisions needed — run 20260801
 
+> **PARTIALLY RESOLVED 2026-07-31 — recorded as ledger T-29, decisions 104–110.**
+>
+> - **Fork 1 — RESOLVED (decision 105).** Decision 92 STANDS. The operator relocated the defect
+>   from the substrate to the *scope*: rider verbatim — *"This design seems wrong. An individual
+>   checklist seems to be small so only one list should be loaded at a time, which would just have
+>   a few rows as long as all collections aren't loaded at once."* Verified in code before
+>   recording: `startHQReplication` (`sync-rxdb/client.js:378`) replicates four collections in full
+>   with no selector, so the ~23 s is the scope's arithmetic, not the substrate's. **New standing
+>   rule: replication scope is per-open-checklist, never all collections at once.**
+> - **Fork 2 — RESOLVED (decision 106).** TWO notices, sent separately. The June 2026
+>   completeness-gate drift goes **first and alone** because it is already live and may have
+>   blocked real payroll runs for eight weeks; the timezone notice follows as coordinated-release
+>   comms. Neither is sent by triage. Nothing deploys until both repos land.
+> - **🛑 Fork 3 — STILL OPEN.** Not resolved at this triage. It was dropped from the operator
+>   round to keep the question count workable, and is carried forward rather than silently closed.
+>   Non-blocking: if nothing is done, C2 ships as signed and is correct.
+>
+> This file is kept as the analysis record.
+
 Open forks for morning triage. The run does not decide these; it records them.
 
 ---

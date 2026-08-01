@@ -125,13 +125,13 @@ then reproduced the class on `inventory.spec.js:2908`, a spec C2's diff does not
 
 ## Standing flags
 
-| Flag | State after this run |
-|---|---|
-| 🔵 **Attended two-device convergence check** | **RE-ARMED.** A1 and C1 both moved frontend files and `sw.js` was regenerated (22 → 27 precached files). Runbook: `reference/attended-two-device-check.md`. Automating it is B-15. **This is a morning attended follow-up, not a run task.** |
-| 🔴 **`submission_fail_notes` duplicate check** | **ARMED** — re-arms before every `task prod:deploy`. Tonight added **two** migrations (`0072`, `0073`), so it is armed regardless of outcome. |
-| 🔴 **`HQ_SYNC_REST_URL` must NOT be set** | **STILL ARMED.** B2 landed the row filtering, and B2's own review supplies evidence — but **the flag disarms at triage on evidence, never by the run asserting it.** Verified set nowhere in the tree by three separate agents. |
-| 🔴 **Guard integrity B-22/B-23/B-24** | **Still armed, and vindicated tonight** — see below. |
-| 🟡 **`go test -p 1`** | Held. Every agent ran it; no parallel-package failures. |
+| Flag | State after this run | **State after morning triage 2026-07-31** |
+|---|---|---|
+| 🔵 **Attended two-device convergence check** | **RE-ARMED.** A1 and C1 both moved frontend files and `sw.js` was regenerated (22 → 27 precached files). Runbook: `reference/attended-two-device-check.md`. Automating it is B-15. **This is a morning attended follow-up, not a run task.** | **STILL ARMED — deliberately deferred** (T-29 decision 110). ~15–20 min attended vs nothing delegable today; nothing is shipping, and it re-arms before `task prod:deploy` regardless, so the check would be re-taken anyway. **Re-arms:** unchanged — before any deploy, and whenever frontend files or the precache manifest move. B-15 not yet scheduled. |
+| 🔴 **`submission_fail_notes` duplicate check** | **ARMED** — re-arms before every `task prod:deploy`. Tonight added **two** migrations (`0072`, `0073`), so it is armed regardless of outcome. | **STILL ARMED.** Untouched by triage — both migrations are now on `dev`, which does not change the pre-deploy obligation. **Re-arms:** before every `task prod:deploy`. |
+| 🔴 **`HQ_SYNC_REST_URL` must NOT be set** | **STILL ARMED.** B2 landed the row filtering, and B2's own review supplies evidence — but **the flag disarms at triage on evidence, never by the run asserting it.** Verified set nowhere in the tree by three separate agents. | ✅ **DISARMED** (T-29 decision 107), on evidence independent of the run: variable set nowhere in the tree (all hits are comments/docs/test names/artifacts); B2's suite ran **live** (19 attack variants + positive + control); `SYNC_RLS_SKIP_POLICIES=1` reds it (17 subtests fail, exit 1); re-confirmed on the **merged `dev`** tree — 27 subtests `--- PASS`, not SKIP. **Re-arms:** whenever a card touches the sync proxy or replication path, or introduces a REST client. |
+| 🔴 **Guard integrity B-22/B-23/B-24** | **Still armed, and vindicated tonight** — see below. | **STILL ARMED, and now four.** **B-36** joins them: `internal/sync` prints `ok`/exit 0 while skipping B2's entire RLS suite, so the ladder's `9 packages ok` line carries no information about the security gate. Standing mitigation until B-36 ships (T-29 decision 108): gate evidence citing `internal/sync` **must** include `-run TestRowVisibilityRLS -v` output proving subtests executed. |
+| 🟡 **`go test -p 1`** | Held. Every agent ran it; no parallel-package failures. | **Held.** Re-run at triage on the merged tree with isolated databases — exit 0, 9 packages ok. ⚠️ Use an explicit `HQ_RLS_TEST_DB`: the bare command drops `hq_test_b2_fdw` (**B-35**). |
 
 ---
 

@@ -1975,3 +1975,174 @@ three findings are that same shape, inside the checks the run added to cure it.*
 triage does not write production code. Also confirmed: **B-21's emitter defect is fixed in
 practice** — 0 of 32 commits unparseable under `git interpret-trailers --parse`, all five merge
 commits included, against 14 of 33 last run.
+
+---
+
+## T-29 — Morning-triage resolutions (2026-07-31, overnight-20260801)
+
+Run `overnight-20260801` reviewed attended and merged to `dev` (`--no-ff`). **4 of 4 cards
+landed, nothing parked**: `app-timezone-unify-new-york`, `sync-rxdb-row-visibility-rls`,
+`sync-rxdb-replication-and-conflict-handler`, `sync-rxdb-conflict-notice-ui`. Gate evidence in
+this section is sourced from an **adversarial re-execution** in an isolated worktree with its own
+builds and its own `hq_adv_*` databases on `TEST_PORT=8296` — never from the closeout's own gate
+lines (§15ag.87). Two of three forks in `DECISIONS-NEEDED.md` resolved below; **Fork 3 remains
+open and is carried forward.**
+
+🛑 **The closeout's headline gate claim was REFUTED, and this is the first time that has happened
+in five triages.** The closeout and HANDOFF both record `G2 (Playwright) --retries=0 exit 0 —
+733 passed / 6 skipped / 0 failed of 739`, and commit `3ec25a5` says "gates green on the merged
+tree." A clean isolated re-run of the identical tree exits **1**: `1 failed / 6 skipped / 732
+passed (23.3m)`, failing on `tests/inventory.spec.js:883` with `Expected "Special Sauce",
+Received "Test Item"` — **B-27**, cross-spec pollution, another spec's fixture leaking in. The
+run was honest about every other number (all reproduced to the digit) and this one did pass on
+its leg; the defect is that a suite carrying a known intermittent red can report green and be
+recorded as evidence. **Four prior triages found the gates honest and the prose about them not;
+this is the inverse and it is worse.** Recorded so the next reader does not inherit
+`3ec25a5`'s claim unchallenged.
+
+**Decision 104 — merge despite the red, because the red is not this run's and `dev` is not
+production.**
+
+Chosen over holding the branch until B-27 is fixed, and over rejecting Track B. B-27 predates
+this run, is already filed, was touched by no card, and reproduces on a *quiet* box (load ~3.2) —
+which is backwards from the load-sensitivity story B-27 itself carries and is its own open
+question. Holding four completed cards hostage to a flake filed days earlier would stall a week
+of sync work to make a point about a suite that was already not green. The operator's framing was
+that the old bug stays theirs to fix rather than becoming a gate on unrelated work. **What was
+explicitly accepted:** `dev` now carries a suite that is not green, and nothing about that is
+being smoothed over — the merge commit records the exit-1 and names B-27 in full. One consequence
+worth stating because it argued the *other* way and was overruled anyway: per **B-33** the
+unmerged run branch was the only remaining guard against re-executing an already-landed slate,
+and merging disarms it. That guard is now gone until B-33 ships.
+
+**Decision 105 — decision 92 (fdw read-through) STANDS, and is scoped by a new standing rule:
+replicate what the open checklist needs, never all collections at once.**
+
+Chosen over reversing decision 92 and over accepting the measured cost as-is. G6 measured the RLS
+path at **~23 ms per row, linear** (5 rows → 177 ms; 205 rows → 4,698 ms) and the card named this
+its own PARK trigger. Triage's options were framed around the *substrate*; the operator rejected
+that framing and located the defect in the *scope* instead — **rider, verbatim: _"This design
+seems wrong. An individual checklist seems to be small so only one list should be loaded at a
+time, which would just have a few rows as long as all collections aren't loaded at once."_**
+
+Verified in code before recording, rather than accepted on assertion: `startHQReplication`
+(`sync-rxdb/client.js:378`) loops over every replicated collection and calls `replicateSupabase`
+with `pull: { batchSize: 50 }` and **no selector, filter or query modifier**. Four collections
+replicate in full — `templates`, `checklists`, `responses`, `approvals` — and `responses` holds
+every field answer of every submission ever taken. So the client does pull whole collections, the
+RLS predicate is re-evaluated per row on every page, and 20 pages × 50 rows × 23 ms is precisely
+the ~23 s figure Fork 1 reported. **The operator's read is correct and the arithmetic is the
+design's, not the substrate's.**
+
+This reframes the cost as a bounded one: at a few dozen rows the same predicate costs well under
+a second, and 177 ms for 5 rows is the honest case. It also fixes a second problem nobody had
+raised — unbounded phone storage as the business ages, since `responses` grows forever and every
+device was to hold all of it. **The standing rule, which binds every remaining sync card:**
+replication scope is per-open-checklist, not per-collection; a card may not widen it without a
+recorded decision. `sync-hard-cutover` and `sync-cache-and-identity-hygiene` inherit this
+directly. **What is explicitly NOT settled:** the 23 ms constant was measured through Docker
+loopback NAT, which production does not have — the linear *shape* is structural, the *constant*
+is not, and it should be re-measured on production-like topology before any card relies on a
+specific number.
+
+**Decision 106 — sales-processor gets TWO notices, sent separately, and the June drift goes
+first and alone.**
+
+Chosen over one combined notice at the coordinated release, and over investigating the damage
+before saying anything. The provenance was verified at source by the adversarial reviewer, not
+taken from the card: `875e26c` (2026-06-05 04:24) archived `21-SALES-PROCESSOR-CONTRACT.md`
+publishing the completeness gate **without** `COALESCE`, accurate to the code as it then stood;
+`cf959bd` (2026-06-06 00:27), quick task `260606-0gh`, added
+`COALESCE(event_date, (created_at AT TIME ZONE 'America/Chicago')::date)` to
+`PeriodSummaryHandler` and **never touched the contract**. The full history of that path shows no
+update between the code change and 2026-07-31. Concretely: a May 29 purchase ingested June 2 used
+to fall outside the May window and **not** block payroll; since June it **does**. Sales-processor
+may have been receiving an undocumented `ready:false` — a blocked payroll run — for eight weeks
+with no way to reconcile it against the contract it holds. It goes first and alone because it is
+**already live and already affecting them**, while the timezone move is still unshipped; folding
+a live eight-week-old payroll defect into a forward-looking release note would let the urgent one
+hide behind the scheduled one. The timezone notice follows as coordinated-release comms when both
+repos are ready. 🛑 **Neither notice is sent by this triage, and nothing deploys until both repos
+land** — one of them is wrong until then.
+
+**Decision 107 — the 🔴 `HQ_SYNC_REST_URL` flag is DISARMED, on evidence.**
+
+Decided by triage, not put to the operator: the flag's own standing rule is *"disarms on
+evidence, never by the run asserting it"*, which names an evidence bar and makes triage — the
+party holding the evidence — the decider. Escalating it would have handed back the one judgment
+the rule assigns here. The evidence is independent of the run: the variable is set **nowhere** in
+the tree (every hit is a comment, doc, test name or night-crew artifact); B2's suite ran **live**
+against a real substrate (19 numbered attack variants plus positive and control); and withholding
+the policies via `SYNC_RLS_SKIP_POLICIES=1` reddens it hard — 17 subtests fail, exit 1 — so the
+guard bites rather than merely printing PASS. The population assertions at
+`rowvisibility_rls_test.go:596` and `:632` are real `t.Fatalf`s on an empty subject set, which is
+the B-22/B-23/B-24 bar. Re-confirmed on the **merged** `dev` tree at triage: 27 subtests,
+`--- PASS`, not `--- SKIP`. **Re-arms** whenever a card touches the sync proxy or replication path
+or introduces a REST client.
+
+**Decision 108 — a standing evidence rule: `internal/sync` gate evidence must prove the suite
+RAN, not merely that the package said `ok`.**
+
+Adopted because **B-36** proves those two are indistinguishable — `resolveSpikeConfig` turns any
+docker-compose resolution failure into `t.Skip`, so the ladder's `9 packages ok` line carries zero
+information about the security suite. From now on, gate evidence citing `internal/sync` must
+include `-run TestRowVisibilityRLS -v` output showing subtests executed. This is a reporting
+requirement standing in for a mechanical fix; B-36 carries the real repair.
+
+**Decision 109 — `[LST-17]` STAYS ARMED; the HANDOFF's recommendation to fold it into B-32 is
+rejected.**
+
+Decided by triage. The run recommended demoting it on the grounds that it "fired in roughly three
+legs and passed in five" and therefore cannot carry evidential weight. But the adversarial probe
+tested the guard rather than its frequency: injecting a never-decrement regression into
+`getProgress()` reddened `tests/sync.spec.js:446` (`Expected "0/1", Received "1/1 items"`) while
+its sibling increment test at `:1006` stayed **green** — a targeted, discriminating tripwire.
+Its claimed intermittency was neither reproduced nor refuted (one clean full-suite leg is not a
+sample), so the demotion would rest on an unmeasured hunch about a guard that demonstrably works.
+🛑 **Consistent with the standing rule that non-reproduction retires nothing** — applied here in
+the direction that protects a working guard rather than the direction that retires a red. Also
+confirmed: the bare tag `[LST-17]` matches **two** tests, so the full title remains mandatory, and
+`tests/sync.spec.js:1198` is a bare `}` — dead, correctly not armed.
+
+**Decision 110 — the attended two-device convergence check is DEFERRED, and B-15 is not yet
+scheduled.**
+
+Attention budget presented: ~15–20 min attended against a runbook, versus nothing delegable today
+(automating it is card **B-15**, roughly one night unattended). Deferred because nothing is
+shipping — the flag re-arms before `task prod:deploy` regardless, and the precache manifest will
+change again before it matters, so spending attention now buys a result about a state that will
+not be the state at deploy time. **Still ARMED.**
+
+**Fork 3 — the conflict banner's headline figure — REMAINS OPEN.** Not resolved at this triage
+and not deferred on its merits; it was dropped from the operator round to keep the question count
+workable and is carried forward honestly rather than silently. It is explicitly non-blocking: if
+nothing is done, C2 ships as signed and is correct. The question is whether the past-tense figure
+(`4 were overwritten`) should headline the banner when the two figures that drive action
+(`2 still to review`, `Restore all 2`) are in the smallest type on the screen.
+
+**Two C2 items also carried forward, both the operator's:** the **new mockup deviation** —
+production's dark confirm no longer matches the signed `a2-confirm-dark` plate because V-1 was
+fixed in `workflows.html` and the signed plate deliberately left alone (SUMMARY.md §1a identifies
+the two-line change if re-signing the plate is preferred) — and **F-4**, `PLAN.md` landing after
+the implementation while carrying the contract the verifier gate grades against.
+
+**Preference coverage: unmeasured.** `night-crew decisions audit --repo . --run 20260801` returns
+*"No gray areas routed through the resolver yet"* — nothing from this run was routed, so coverage
+is not low, it is absent. Given the night produced three operator forks and six backlog items,
+that is a gap for the next evening's offer-back rather than a number to report.
+
+**Tooling, recorded because it degraded this ritual.** The installed `~/go/bin/night-crew` is
+`v3.0.0+1`, built 2026-07-23, and has **no `worktrees`, `run-evidence`, `launch-prompt` or
+`workflow` verb**. Step 1's worktree sweep was therefore performed by hand with `git worktree
+list` and `--no-merged`, which lacks the real verb's cherry-pick-aware ancestry logic, and
+`run-evidence check` could not be run at all (moot — **B-33** is precisely that it is blind here).
+This is the tooling-tracks-main case, not a PATH gap: the binary ran fine and the verbs exist on
+`main` @ v3.0.2. **Refresh with `task nc:update` before the next ritual depends on a newer verb.**
+
+**Stranded work found by the manual sweep, reported and NOT merged** (a patch-equivalent branch
+can still produce a content-duplicating merge when files moved underneath — B-133):
+`card/f1-workflow-submission-status-default` (1 commit, 2026-07-25 — a **red-first spec with no
+fix behind it**, six days stranded, the one worth attention);
+`card/d1-syncspec-deflake` (2 commits, 2026-07-21, head commit is a `Revert`);
+`parked/f1-trends-endpoint-20260720b` (2 commits, known park); `docs/claude-md-night-crew`
+(5 commits, 2026-07-26).
