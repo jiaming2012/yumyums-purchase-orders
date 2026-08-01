@@ -1665,18 +1665,45 @@
   this layer exists for, so the scope is the open checklist's submitted rows OR a draft on one of
   its **own** field ids — not "all my drafts everywhere", which is a different unbounded set (and
   it matches what the RLS predicate already does: `TestRowVisibilityRLS/V13` is literally *DRAFT
-  responses are scoped by FIELD, not by submission*); (2) `templates` is bounded in principle but
-  is still not pulled whole; (3) an unscoped call is refused loudly. · **The `replicationIdentifier`
-  deliberately does NOT carry the scope** — RxDB keys its checkpoint by that string, so folding
-  the checklist id in would mint a blank checkpoint (a full re-pull) every time a crew member
-  opened a different checklist, which is the cost this card exists to remove. · 🛑 **STILL OPEN,
-  and it is `sync-hard-cutover`'s: `B-39 SYNC-REALTIME-SCOPE`.** The PULL is scoped; the plugin's
+  responses are scoped by FIELD, not by submission*); (2) `templates` is scoped `id.eq.<templateId>`
+  and `templateId` is REQUIRED — there is no "caller omitted it" fallback, because a widening
+  triggered by a forgotten argument is not a recorded decision; (3) an unscoped call is refused
+  loudly, and the refusal is raised while BUILDING the pull rather than inside `pull.handler`,
+  which the plugin wraps in an unbounded silent retry. · **The `replicationIdentifier` CARRIES THE
+  SCOPE — `hq-sync-<table>-<fingerprint of that collection's own filter>`.** 🛑 **This reverses
+  what this bullet said when the card was first flipped DONE, and the reversal is the point:** the
+  original text argued the scope must stay OUT of the identifier because folding it in would mint a
+  blank checkpoint on every checklist switch. Measured against `vendor/rxdb.bundle.js`, that was
+  backwards. RxDB keys its checkpoint meta store by `hash([collection.name, replicationIdentifier])`
+  and **by nothing else** — the scope is not in the key — and the pull's returned checkpoint is the
+  last row of the *scoped* result set, which the next pull ANDs `_modified > C` against. One
+  identifier across scopes therefore meant: open today's checklist, checkpoint advances to today;
+  open **yesterday's**, every one of its rows is `<= C`, **zero rows, permanently**. The cost the
+  old reasoning was protecting against had already been removed by this same card: before it, a
+  blank checkpoint meant re-pulling all history (20 pages × 50 rows); after it, it means re-pulling
+  **one checklist** — about one batch. Identical scope still resumes; only a scope change mints a
+  new checkpoint. Found by the G6 adversarial review as BLOCKING finding F-1 and fixed in the same
+  card; pinned by `[SCOPE-02]`, which runs the plugin's pull construction twice through a meta
+  store keyed the way RxDB keys its own. · 🛑 **STILL OPEN,
+  and it is `sync-hard-cutover`'s: `B-42 SYNC-REALTIME-SCOPE`.** The PULL is scoped; the plugin's
   live `postgres_changes` subscription is not, and has no seam — `pull.modifier` reaches stream
   documents but cannot drop one (no null filter on the downstream path), and Realtime's own
   `filter` takes a single clause, which cannot express the `responses` branch. Bounded: the pull
-  was the unbounded leg (all history, every page load) and is fixed; the stream is bounded by
+  was the unbounded leg (all history, every page load) and is now scoped; the stream is bounded by
   what other people change while the crew member is looking. Stated in `sync-rxdb/client.js`'s
-  `REPLICATION SCOPE` header, not only in the backlog. · 🛑 **STILL REQUIRED AND NOT DONE BY THIS
+  `REPLICATION SCOPE` header, not only in the backlog. · 🛑 **UNBOUNDED PHONE STORAGE IS IMPROVED,
+  NOT FIXED — reworded after G6 finding F-6, which caught this bullet claiming otherwise.** RxDB's
+  downstream only ADDS to the local store; nothing evicts, and there is no retention sweep for any
+  of the four replicated collections. A phone still accumulates every checklist it has **opened**
+  — the bound moved from *all history* to *opened checklists*, which is a large improvement and is
+  not the same thing as bounded. Whoever owns retention owns it after `sync-hard-cutover`. · 🛑
+  **ALSO FIXED IN THE G6 ROUND, same card:** scope values are validated against a strict
+  whitelist and quoted into PostgREST's logic-tree grammar (F-4 — an unescaped value could
+  otherwise rewrite the predicate to match every row, *through* the thing this card calls a gate);
+  and the `[SCOPE-01]` fixture gained a second submission of the OPEN checklist's OWN template plus
+  approval/response rows on OPEN field ids under a different submission (F-2 — without them the
+  fixture could not tell per-checklist scoping from per-template or per-field scoping, and the
+  reviewer's two mutations both survived 6/6 green). · 🛑 **STILL REQUIRED AND NOT DONE BY THIS
   CARD: re-measure the ~23 ms/row constant on production-like topology.** It was measured through
   Docker loopback NAT, which production does not have — the linear *shape* is structural, the
   *constant* is not, and no card should rely on the specific number until it is re-taken. This
