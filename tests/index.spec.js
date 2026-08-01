@@ -282,10 +282,61 @@ test('the /api/v1/me identity probe is cache-busted so api-cache cannot answer i
 // re-specified as one mechanism by T-30 decision 112.
 //
 // The cross-tenant DISCLOSURE these guard is shown end-to-end, through a real
-// service worker, in tests/sw-api-cache-partition.spec.js [B1-XT-01]. These two
+// service worker, in tests/sw-api-cache-partition.spec.js [B1-XT-01]. These
 // cover the halves of the same mechanism that live in page code and therefore
 // run with the suite's normal serviceWorkers:'block'.
+//
+// 🛑 WHICH TEST GATES WHICH FILE (B1 fix round). [B1-XT-03] observes device
+// state AFTER index.html has run, and index.html's establishIdentity() drops
+// hq_apps on its own — so [B1-XT-03] passes with login.html doing NOTHING. It is
+// a guard on the index.html half and is now titled as one. login.html's own
+// purge is gated by [B1-XT-06] / [B1-XT-07], which freeze the redirect target so
+// the only code that can have run is login.html's.
 // ---------------------------------------------------------------------------
+
+// Everything identity-scoped this app puts on a device, read in one shot.
+async function readDeviceState(page) {
+  return page.evaluate(async () => {
+    const names = 'caches' in window ? await caches.keys() : [];
+    let identity = null;
+    if (names.includes('hq-identity')) {
+      const r = await (await caches.open('hq-identity')).match('/__hq_identity');
+      if (r) identity = (await r.text()).trim();
+    }
+    let apiKeys = [];
+    if (names.includes('api-cache')) {
+      apiKeys = (await (await caches.open('api-cache')).keys()).map(r => r.url);
+    }
+    return { names, identity, apiKeys, apps: localStorage.getItem('hq_apps') };
+  });
+}
+
+// Plant the PREVIOUS user's device state: their identity token, one api-cache
+// entry keyed to them, and their cached tile list. `uid` is deliberately a uuid
+// no account owns, so signing in as anyone is an identity CHANGE.
+const FOREIGN_UID = '00000000-0000-4000-8000-0000000dead0';
+
+async function seedPreviousUserDeviceState(page, uid) {
+  await page.evaluate(async (u) => {
+    localStorage.setItem('hq_apps', JSON.stringify({ uid: u, apps: [{ slug: 'users', name: 'Users', icon: '\u{1F465}' }] }));
+    const id = await caches.open('hq-identity');
+    await id.put('/__hq_identity', new Response(u, { headers: { 'Content-Type': 'text/plain' } }));
+    const api = await caches.open('api-cache');
+    await api.put('/api/v1/users?__hq_id=' + u, new Response('[{"email":"previous-user-canary@yumyums.kitchen"}]', { headers: { 'Content-Type': 'application/json' } }));
+  }, uid);
+}
+
+// Make the post-sign-in destination an inert document with no scripts, so the
+// ONLY code that can have touched device state is login.html's. Without this the
+// destination is index.html, whose establishIdentity() does the same hygiene —
+// which is exactly why [B1-XT-03] could not tell the two apart.
+async function freezeRedirectTarget(page, pathname) {
+  await page.route(url => url.pathname === pathname, route => route.fulfill({
+    status: 200,
+    contentType: 'text/html',
+    body: '<!doctype html><title>frozen</title><p id="frozen-redirect-target">frozen</p>',
+  }));
+}
 
 async function inviteTeamMember(page, tag) {
   const email = `b1idx-${tag}-${Date.now()}@yumyums.kitchen`;
@@ -310,10 +361,17 @@ async function inviteTeamMember(page, tag) {
   return { email, password: 'test456' };
 }
 
-test('signing in on login.html drops the previous user cached tile list [B1-XT-03]', async ({ page }) => {
+test('a second user signing in never inherits the previous user cached tile list [B1-XT-03]', async ({ page }) => {
   test.setTimeout(60000);
-  // Obligation 7(b): B logs in while A's session is live. logout() never runs,
-  // so login.html has to do the hygiene itself.
+  // Obligation 7(b), END TO END: B logs in while A's session is live and
+  // logout() never runs. This measures the OUTCOME across both halves — after
+  // the flow, the tile list on the device belongs to B, not A.
+  //
+  // 🛑 It does NOT gate login.html. It was titled "signing in on login.html
+  // drops…" until the B1 fix round, and the reviewer showed it passes 13/13 with
+  // login.html's purge deleted entirely — because index.html's
+  // establishIdentity() sees prev !== id and drops hq_apps itself. Renamed to
+  // what it measures. login.html's own purge is gated by [B1-XT-06]/[B1-XT-07].
   await login(page);
   const member = await inviteTeamMember(page, 'tiles');
   await login(page);
@@ -340,11 +398,101 @@ test('signing in on login.html drops the previous user cached tile list [B1-XT-0
     return g && g.style.visibility !== 'hidden';
   }, { timeout: 10000 });
 
+  // 🛑 UN-VACUUMED (B1 fix round). This was `if (afterRaw) { … }` — with
+  // hq_apps absent the test asserted NOTHING and passed, the exact
+  // B-22/B-23/B-24 shape this spec file is careful to avoid elsewhere. The
+  // value is not optional: the `.grid` wait above only completes once
+  // filterTilesByPermissions has run, and the only path to it after a purge is
+  // the /api/v1/me/apps arm, which calls writeCachedApps(deviceId, apps) first.
+  // So the envelope MUST exist, and it must be B's.
   const afterRaw = await page.evaluate(() => localStorage.getItem('hq_apps'));
-  if (afterRaw) {
-    const after = JSON.parse(afterRaw);
-    expect(after.uid).not.toBe(adminEnvelope.uid);
-  }
+  expect(afterRaw).toBeTruthy();
+  const after = JSON.parse(afterRaw);
+  expect(Array.isArray(after)).toBe(false);
+  expect(after.uid).toBeTruthy();
+  expect(after.uid).not.toBe(adminEnvelope.uid);
+});
+
+// ---------------------------------------------------------------------------
+// BLOCKING-2 (B1 fix round). The entire login.html half — obligation 7(b) — was
+// defended by ZERO tests. The reviewer removed purgeDeviceIdentity() from
+// signIn() (M4) and then from BOTH call sites (M4b) and the suite went 13/13
+// green each time.
+//
+// What ships without these: any later card simplifies login.html — dropping the
+// awaited purge is an attractive "why block the redirect?" cleanup — and the
+// merge-intent §2.4 cost lands with the suite still green.
+// ---------------------------------------------------------------------------
+
+test('login.html signIn() purges the previous user device state before the redirect lands [B1-XT-06]', async ({ page }) => {
+  test.setTimeout(60000);
+  await page.goto('/login.html');
+  await seedPreviousUserDeviceState(page, FOREIGN_UID);
+
+  // Subject set NON-EMPTY before the act — "it is gone afterwards" is a claim
+  // about nothing if it was never there.
+  const before = await readDeviceState(page);
+  expect(before.names).toContain('api-cache');
+  expect(before.names).toContain('hq-identity');
+  expect(before.identity).toBe(FOREIGN_UID);
+  expect(before.apiKeys.length).toBeGreaterThan(0);
+  expect(before.apps).toBeTruthy();
+
+  await freezeRedirectTarget(page, '/');
+
+  await page.fill('input[type="email"]', ADMIN_EMAIL);
+  await page.fill('input[type="password"]', ADMIN_PASSWORD);
+  await page.click('button.btn');
+  await page.waitForSelector('#frozen-redirect-target', { timeout: 20000 });
+
+  const after = await readDeviceState(page);
+  console.log('[B1-XT-06] device state after signIn():', JSON.stringify(after));
+  // index.html has NOT run — the redirect target is inert. Anything still here
+  // was left here by login.html.
+  expect(after.names).not.toContain('api-cache');
+  expect(after.names).not.toContain('hq-identity');
+  expect(after.identity).toBeNull();
+  expect(after.apps).toBeNull();
+});
+
+test('login.html acceptInvite() purges the previous user device state before the redirect lands [B1-XT-07]', async ({ page }) => {
+  test.setTimeout(60000);
+  // The second call site. [B1-XT-06] alone reds under a mutation that removes
+  // BOTH purges, but not under one that removes only this one.
+  await login(page);
+  const email = `b1idx-inv-${Date.now()}@yumyums.kitchen`;
+  const invite = await page.evaluate(async (e) => {
+    const res = await fetch('/api/v1/users/invite', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ first_name: 'B1', last_name: 'Inv', email: e, roles: ['team_member'] }),
+    });
+    return res.json();
+  }, email);
+  expect(invite.invite_path).toBeTruthy();
+  const token = invite.invite_path.split('token=')[1];
+
+  await page.goto('/login.html?token=' + encodeURIComponent(token));
+  await page.waitForSelector('#invite-form', { state: 'visible', timeout: 20000 });
+  await seedPreviousUserDeviceState(page, FOREIGN_UID);
+
+  const before = await readDeviceState(page);
+  expect(before.names).toContain('api-cache');
+  expect(before.names).toContain('hq-identity');
+  expect(before.apps).toBeTruthy();
+
+  await freezeRedirectTarget(page, '/index.html');
+
+  await page.fill('#invite-pw', 'test4567');
+  await page.fill('#invite-pw2', 'test4567');
+  await page.click('#invite-form button.btn');
+  await page.waitForSelector('#frozen-redirect-target', { timeout: 20000 });
+
+  const after = await readDeviceState(page);
+  console.log('[B1-XT-07] device state after acceptInvite():', JSON.stringify(after));
+  expect(after.names).not.toContain('api-cache');
+  expect(after.names).not.toContain('hq-identity');
+  expect(after.apps).toBeNull();
 });
 
 test('the fail-closed branch paints no tiles from an unowned hq_apps [B1-XT-04]', async ({ page }) => {
