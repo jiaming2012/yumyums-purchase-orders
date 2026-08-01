@@ -196,7 +196,19 @@ async function establishIdentity(id){
 }
 // The full device purge. Every identity-scoped thing this app stores, in one
 // place, so a later card cannot half-clear it.
-async function clearApiCache(){
+//
+// NAMED for what it does. It was `clearApiCache()` until the B1 fix round; that
+// name described one of its THREE subjects and a later reader could reasonably
+// have added a fourth `localStorage` key without touching it. It deletes
+// `api-cache`, `hq-identity` AND `localStorage['hq_apps']`.
+//
+// UNCONDITIONAL, unlike `login.html`'s same-named helper. Logout hands the
+// device back with NO owner, so there is no incoming identity to compare
+// against and nothing to keep. `login.html`'s copy takes the incoming `user.id`
+// and skips the purge on an exact match (same crew member re-authenticating).
+// Same name in both files on purpose: `grep -rn purgeDeviceIdentity` finds every
+// site that clears device state.
+async function purgeDeviceIdentity(){
   try{localStorage.removeItem(APPS_CACHE_KEY)}catch(e){}
   if(!('caches' in window))return;
   try{await caches.delete(API_CACHE_NAME)}catch(e){}
@@ -244,7 +256,7 @@ async function logout(){
   // a lost race here leaves the previous user's rows on the phone for the next
   // one. That is the whole disclosure. Now clears the tile list and the identity
   // token too, not just api-cache.
-  await clearApiCache();
+  await purgeDeviceIdentity();
   window.location.href='/login.html';
 }
 async function checkAuth(){
