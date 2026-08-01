@@ -130,12 +130,12 @@ import (
 // THE WRITE HALF — card `sync-rxdb-write-policies` (overnight-20260802, A2)
 // ═══════════════════════════════════════════════════════════════════════════
 //
-// Everything above is about READS. W1-W15 and WP1-WP7, added after V19, are
+// Everything above is about READS. W1-W16 and WP1-WP8, added after V19, are
 // about PUSH — and they are governed by ledger T-30 decision 111, whose
 // four-row table is the complete signed specification of what write predicates
 // exist. The table is reproduced at the head of that block; do not extend it.
 //
-// 🛑 THREE THINGS A READER OF THE READ HALF WILL GET WRONG HERE.
+// 🛑 FOUR THINGS A READER OF THE READ HALF WILL GET WRONG HERE.
 //
 //  1. **V18 NOW ASSERTS THE OPPOSITE OF WHAT IT USED TO.** `submission_rejections`
 //     was deny-all for reads, deliberately, and run 20260802's G6 leg re-proved
@@ -157,6 +157,19 @@ import (
 //     because deny-all passes every refusal in this file. The write half's red
 //     is `SYNC_RLS_SKIP_WRITE_POLICIES=1` — 0003 kept, 0004 withheld — under
 //     which the write POSITIVES fail. See rvConnect. Both were run.
+//
+//  4. **THE `Prefer` HEADER DECIDES WHICH POLICY REFUSES A WRITE, AND THE READ
+//     HALF NEVER HAD TO CARE.** A write sent with `Prefer: return=representation`
+//     goes through PostgREST with RETURNING, and Postgres then applies 0003's
+//     SELECT policy TO THE NEW ROW on top of 0004's WITH CHECK. Because the
+//     SELECT predicates are identical to (submissions, responses) or BROADER
+//     than (rejections) the write predicates, the READ policy silently enforced
+//     most of the write half — and a suite that only ever sent that header
+//     could not tell 0004 from 0003. That is finding F1 of run 20260802's G6,
+//     measured: three of five mutations to 0004's shipped predicates survived
+//     fully green. Every write REFUSAL now goes out under BOTH headers, via
+//     rvPushRefused. `return=minimal` is what a push-only replication client
+//     sends; it is the ordinary case, not a contrived probe.
 //
 // ── Stack precondition ────────────────────────────────────────────────────
 //
@@ -271,6 +284,29 @@ const (
 	// thing that can refuse.
 	fldAliceDraft = "44444444-4444-4444-8444-000000000006" // under tplAlice
 	fldRoleDraft  = "44444444-4444-4444-8444-000000000007" // under tplByRole
+
+	// 🛑 A SECOND FIELD UNDER tplApprover, added by the G6 fix round of card
+	// `sync-rxdb-write-policies` (A2) for FINDING F2.
+	//
+	// It exists so the approver-UPDATE axis can carry a MATCHED PAIR over the
+	// IDENTICAL probe — "alice the approver moves a rejection's field_id" —
+	// rather than a refusal with no positive:
+	//
+	//	WP8  destination fldApprover2, which she DOES approve   -> lands
+	//	W16  destination fldAlice,     which she merely SEES    -> refused
+	//
+	// That is the WITHOUT/WITH shape tests/grant-enforcement-parity.spec.js
+	// gets its mutation resistance from: you cannot make either case pass by
+	// breaking the feature, because the other one breaks with it.
+	//
+	// Without this field the pair is impossible — tplApprover had exactly one
+	// field, so the only "legitimate move" available was a no-op — and
+	// `submission_rejections_update`'s `with check` (the ONE predicate in 0004
+	// strictly narrower than its table's SELECT policy, hence the only one
+	// Postgres will not enforce for us via RETURNING) had NO variant at all.
+	// Mutation M1c — `with check ( true )` on that policy — left the suite
+	// fully green while alice escalated from assignee to rejector by UPDATE.
+	fldApprover2 = "44444444-4444-4444-8444-000000000008" // under tplApprover
 
 	// fldGhost exists ONLY on the substrate. HQ has never heard of it, so
 	// hq_field_templates cannot resolve it. It is how the suite proves the
@@ -484,6 +520,32 @@ func rvConnect(t *testing.T) *rvStack {
 		default:
 			if _, err := os.Stat(writePolicies); err == nil {
 				s.applySQL(t, writePolicies)
+				// 🛑 AND TAKE THEM BACK DOWN WHEN THE RUN ENDS. The substrate is
+				// SHARED — one `spike-supabase` project, one PostgREST, one
+				// `public` schema — and HQ_RLS_TEST_DB isolates only the HQ-side
+				// FDW source database. Nothing isolates the substrate itself.
+				//
+				// MEASURED, run 20260802: a green run of THIS suite left 0004's
+				// `submission_rejections_{select,insert,update}` resident, and a
+				// concurrent leg whose tree still carries the PRE-REWRITE V18 —
+				// which asserts those policies are ABSENT (0003 §5d's deny-all)
+				// — went red having touched no Go and no SQL file at all. An
+				// unmerged card must not change what a sibling branch measures.
+				//
+				// The teardown is the SAME function the write red mode uses, so
+				// the resting state this leaves is exactly 0003's: reads work,
+				// writes deny-all, which is the tree before this card. It does
+				// not shrink the race window to zero — two suites interleaving
+				// on one substrate cannot be fixed from inside one of them — but
+				// it removes the RESIDUE, which is what stranded the other leg.
+				t.Cleanup(func() {
+					s.tearDownWritePolicies(t)
+					if _, err := s.pool.Exec(context.Background(),
+						`notify pgrst, 'reload schema'`); err != nil {
+						t.Errorf("post-run teardown: notify pgrst: %v — 0004's policies may "+
+							"still be resident for the next leg on this substrate", err)
+					}
+				})
 			} else {
 				// The implicit red, and the one this card was developed
 				// against: the file does not exist yet. Same shape
@@ -624,7 +686,9 @@ func rvSeedHQ(t *testing.T, hq *pgxpool.Pool) {
 		  -- The two empty draft slots the WRITE positives push into. See the
 		  -- comment on fldAliceDraft.
 		  ('`+fldAliceDraft+`', '33333333-3333-4333-8333-000000000001', 'checkbox', 'F', 1),
-		  ('`+fldRoleDraft+`',  '33333333-3333-4333-8333-000000000003', 'checkbox', 'F', 1);
+		  ('`+fldRoleDraft+`',  '33333333-3333-4333-8333-000000000003', 'checkbox', 'F', 1),
+		  -- The approver-UPDATE pair's legitimate destination. See fldApprover2.
+		  ('`+fldApprover2+`',  '33333333-3333-4333-8333-000000000005', 'checkbox', 'F', 1);
 	`)
 	if err != nil {
 		t.Fatalf("seed HQ: %v", err)
@@ -741,11 +805,50 @@ func rvAssertRows(t *testing.T, label string, r restResp, want ...string) {
 // code is not the proof, whether the row exists is" — promoted to a helper
 // because this card adds fifteen more of them.
 
+// rvPushRefused issues THE SAME ATTACK WRITE TWICE — once under
+// `Prefer: return=representation` and once under `Prefer: return=minimal` — and
+// asserts, in the table, that neither landed.
+//
+// 🛑 THIS IS FINDING F1's FIX AND IT IS THE ROOT OF THIS CARD'S DISCRIMINATING
+// POWER. Until run 20260802's G6 fix round, every write in this file went out
+// with `return=representation`, so PostgREST asked for RETURNING and Postgres
+// applied 0003's SELECT policy to the NEW row on top of 0004's WITH CHECK. Since
+// the SELECT predicates are identical to (submissions, responses) or BROADER
+// than (rejections) the write predicates, THE READ POLICY WAS DOING THE WRITE
+// POLICY'S JOB and the suite could not tell the two apart:
+//
+//	mutation M4 — un-nest the EXISTS in hq_can_approve_field, the mutation that
+//	function's own banner warns about — left the suite GREEN at 52/52, while the
+//	identical attack under `return=minimal` answered HTTP 201 and landed the row.
+//
+// `return=minimal` is what a PUSH-ONLY replication client sends. It is the
+// ordinary case, not a contrived one.
+//
+// Both modes, every time, because neither subsumes the other: representation is
+// the shape the RxDB client uses today, minimal is the shape that isolates 0004.
+// A refusal that only holds under one of them is a refusal this file must not
+// report as evidence.
+func (s *rvStack) rvPushRefused(t *testing.T, variant, method, path, token, body, countSQL string, args ...any) {
+	t.Helper()
+	for _, m := range []struct{ label, prefer string }{
+		{"representation", preferRepresentation},
+		{"minimal", preferMinimal},
+	} {
+		r := s.doPrefer(t, method, path, token, body, m.prefer)
+		s.rvWriteRefused(t, variant+" ["+m.label+"]", r, countSQL, args...)
+	}
+}
+
 // rvWriteRefused asserts an attack write did not land, IN THE TABLE.
 //
 // countSQL must count rows that CAN ONLY EXIST IF THE ATTACK SUCCEEDED. For an
 // INSERT that is the forged id; for an UPDATE it is the row carrying the new
 // value. Both must be zero.
+//
+// 🛑 UNDER `Prefer: return=minimal` THE RESPONSE SAYS NOTHING AT ALL — a landed
+// INSERT answers 201 with an EMPTY BODY, indistinguishable at the wire from a
+// refusal that never wrote. The count query below is not a belt-and-braces
+// double-check in that mode; it is the ONLY witness. See rvPushRefused.
 func (s *rvStack) rvWriteRefused(t *testing.T, variant string, r restResp, countSQL string, args ...any) {
 	t.Helper()
 
@@ -824,7 +927,7 @@ func rvAssertHQPopulated(t *testing.T, hq *pgxpool.Pool) {
 	}{
 		{"hq_sync_template_assignees", 4}, // 4 assignment rows, all resolvable
 		{"hq_sync_user_roles", 4},         // 4 users
-		{"hq_sync_field_templates", 7},    // 5 fields + the 2 empty draft slots
+		{"hq_sync_field_templates", 8},    // 5 fields + 2 empty draft slots + fldApprover2 (F2)
 		// 🛑 The relation card A2 added (migration 0074). Two approver pairs:
 		// alice->tplApprover (user-assigned) and dave->tplByRole (ROLE-assigned).
 		// An EMPTY approver view makes every write POSITIVE fail loudly and
@@ -867,7 +970,7 @@ func rvAssertFDWPopulated(t *testing.T, pool *pgxpool.Pool) {
 	}{
 		{"hq_template_assignees", 4},
 		{"hq_user_roles", 4},
-		{"hq_field_templates", 7},
+		{"hq_field_templates", 8},
 		{"hq_template_approvers", 2},
 	} {
 		var n int
@@ -1313,7 +1416,7 @@ func TestRowVisibilityRLS(t *testing.T) {
 	})
 
 	// ═══════════════════════════════════════════════════════════════════════
-	// W1-W15 / WP1-WP7 · THE WRITE HALF
+	// W1-W16 / WP1-WP8 · THE WRITE HALF
 	// Card `sync-rxdb-write-policies` (overnight-20260802, A2).
 	// Authority: ledger T-30 decision 111, whose FOUR-ROW TABLE is the complete
 	// signed specification of what write predicates exist.
@@ -1497,28 +1600,83 @@ func TestRowVisibilityRLS(t *testing.T) {
 			s.get(t, "/submission_rejections?select=id&id=eq."+id, s.rvToken(t, uBob)))
 	})
 
+	t.Run("WP8/an APPROVER MOVES a rejection to another field of the template she approves", func(t *testing.T) {
+		// 🛑 THE POSITIVE HALF OF THE ONLY GENUINELY LOAD-BEARING `with check`
+		// IN 0004 — added by the G6 fix round for FINDING F2.
+		//
+		// `submission_rejections_update`'s `with check` is
+		// `hq_can_approve_field(field_id)`, and the table's SELECT policy is
+		// `hq_can_see_field(field_id)`. The write predicate is STRICTLY NARROWER
+		// than the read predicate, which makes it the one UPDATE policy in this
+		// file that Postgres will NOT enforce for us as a side effect of
+		// RETURNING (finding F1). Every other WITH CHECK in 0004 is the same
+		// expression as its table's SELECT policy.
+		//
+		// It had no variant of either sign until now, and mutation M1c
+		// (`with check ( true )` on this policy) left the whole suite green
+		// while alice escalated by UPDATE from assignee to rejector of her own
+		// work. W16 is the refusal; this is the positive that stops W16 being
+		// satisfiable by deny-all.
+		//
+		// MATCHED ON THE IDENTICAL PROBE: the same identity, the same method,
+		// the same table, the same column. Only the DESTINATION field differs —
+		// here one alice approves, in W16 one she merely sees.
+		const id = "wp8-rej-move"
+		s.rvDropRow(t, "submission_rejections", id)
+		if _, err := s.pool.Exec(context.Background(),
+			`insert into public.submission_rejections (id, submission_id, field_id, comment, rejected_by)
+			 values ($1, $2, $3, 'move me', $4)`, id, subAlice, fldApprover, uAlice); err != nil {
+			t.Fatalf("seed WP8's row: %v", err)
+		}
+
+		r := s.do(t, "PATCH", "/submission_rejections?id=eq."+id, s.rvToken(t, uAlice),
+			`{"field_id":"`+fldApprover2+`"}`)
+		s.rvWriteLanded(t, "WP8 alice the APPROVER moves a rejection within her template", r,
+			`select count(*) from public.submission_rejections where id = $1 and field_id = $2`,
+			id, fldApprover2)
+	})
+
 	// ── W1-W3 · row 1 of decision 111: templates stay DENY-ALL ───────────
 	// 🛑 AN ABSENCE ON PURPOSE. 0004 contains no INSERT or UPDATE policy for
 	// `checklist_templates`, and that is the operator's answer, not an omission:
 	// the builder keeps the existing REST path and NO PHONE WRITES A TEMPLATE
-	// DEFINITION. These three assert it rather than leaving it as a gap that
-	// looks like an oversight next to three tables that all got one.
+	// DEFINITION.
+	//
+	// 🛑 WHICH OF THE THREE ACTUALLY ASSERTS THE ABSENCE — CORRECTED, FINDING F5
+	// (run 20260802 G6). This block used to claim "these three assert it". It is
+	// ONE of the three, and saying otherwise overstates the guard by 3×:
+	//
+	//	MEASURED. Mutation M3 adds the `with check (hq_can_see_template(id))`
+	//	INSERT/UPDATE policies §1(a) of 0004 warns a tidier would write "by
+	//	analogy with row 2". Re-run: W3 RED, W1 GREEN, W2 GREEN.
+	//
+	// The reason is structural, not a gap in W1/W2's construction: under such a
+	// policy a NON-ADMIN is refused anyway. Template visibility comes only from
+	// an assignment row, a forged template has no assignment, and bob's template
+	// is not alice's — so W1 and W2 are refused BY THE MUTANT POLICY ITSELF and
+	// cannot distinguish it from an absence. No rewriting of W1/W2 fixes that;
+	// only an identity the mutant admits can, and CAROL THE ADMIN is the only
+	// one in this fixture. W3 is therefore the whole guard on row 1, and it is
+	// load-bearing alone. W1 and W2 remain as the non-admin half — they catch a
+	// policy written WIDER than the analogy one (`with check (true)`, or one
+	// keyed on something other than visibility), which W3 alone would not
+	// distinguish from the analogy mutant.
 	//
 	// V10 and V11 above already assert the same refusals against the pre-card
 	// tree. These re-assert them AFTER 0004 has run, which is the only thing
 	// that catches a `for all` policy written where a `for insert` was meant.
 
 	t.Run("W1/templates: alice's forged INSERT is still refused after 0004", func(t *testing.T) {
-		r := s.do(t, "POST", "/checklist_templates", s.rvToken(t, uAlice),
-			`{"id":"w1-forged-tpl","name":"forged by alice"}`)
-		s.rvWriteRefused(t, "W1 alice inserts a template", r,
+		s.rvPushRefused(t, "W1 alice inserts a template",
+			"POST", "/checklist_templates", s.rvToken(t, uAlice),
+			`{"id":"w1-forged-tpl","name":"forged by alice"}`,
 			`select count(*) from public.checklist_templates where id = 'w1-forged-tpl'`)
 	})
 
 	t.Run("W2/templates: alice's forged UPDATE of bob's template is still refused", func(t *testing.T) {
-		r := s.do(t, "PATCH", "/checklist_templates?id=eq."+tplBob, s.rvToken(t, uAlice),
-			`{"name":"owned by alice now"}`)
-		s.rvWriteRefused(t, "W2 alice renames bob's template", r,
+		s.rvPushRefused(t, "W2 alice renames bob's template",
+			"PATCH", "/checklist_templates?id=eq."+tplBob, s.rvToken(t, uAlice),
+			`{"name":"owned by alice now"}`,
 			`select count(*) from public.checklist_templates where name = 'owned by alice now'`)
 	})
 
@@ -1529,15 +1687,18 @@ func TestRowVisibilityRLS(t *testing.T) {
 		// alike. Deny-all for templates is UNCONDITIONAL — it is not "everyone
 		// except admins", and a `with check (hq_can_see_template(id))` written
 		// here by analogy with the other three rows would let her through.
+		//
+		// 🛑 AND IT IS THE ONLY ONE OF THE THREE THAT DOES IT. See the block
+		// comment above: M3 reds this subtest and leaves W1 and W2 green.
 		tok := s.rvToken(t, uCarol, "admin")
-		r := s.do(t, "POST", "/checklist_templates", tok,
-			`{"id":"w3-admin-tpl","name":"admin forged"}`)
-		s.rvWriteRefused(t, "W3 carol the admin inserts a template", r,
+		s.rvPushRefused(t, "W3 carol the admin inserts a template",
+			"POST", "/checklist_templates", tok,
+			`{"id":"w3-admin-tpl","name":"admin forged"}`,
 			`select count(*) from public.checklist_templates where id = 'w3-admin-tpl'`)
 
-		u := s.do(t, "PATCH", "/checklist_templates?id=eq."+tplBob, tok,
-			`{"name":"renamed by admin"}`)
-		s.rvWriteRefused(t, "W3 carol the admin renames a template", u,
+		s.rvPushRefused(t, "W3 carol the admin renames a template",
+			"PATCH", "/checklist_templates?id=eq."+tplBob, tok,
+			`{"name":"renamed by admin"}`,
 			`select count(*) from public.checklist_templates where name = 'renamed by admin'`)
 	})
 
@@ -1548,38 +1709,62 @@ func TestRowVisibilityRLS(t *testing.T) {
 		// claiming a template_id its author can see would indeed be visible to
 		// its author… when the write card lands, its WITH CHECK is where that
 		// must be handled." This is that line, closed and asserted.
-		r := s.do(t, "POST", "/checklist_submissions", s.rvToken(t, uAlice),
+		s.rvPushRefused(t, "W4 alice -> a submission under tplBob",
+			"POST", "/checklist_submissions", s.rvToken(t, uAlice),
 			`{"id":"w4-forged-sub","template_id":"`+tplBob+`","template_snapshot":{},`+
-				`"submitted_by":"`+uAlice+`"}`)
-		s.rvWriteRefused(t, "W4 alice -> a submission under tplBob", r,
+				`"submitted_by":"`+uAlice+`"}`,
 			`select count(*) from public.checklist_submissions where id = 'w4-forged-sub'`)
 
 		// And the orphan, which NOBODY but an admin can see — a second target
 		// so the refusal is not an artifact of tplBob specifically.
-		o := s.do(t, "POST", "/checklist_submissions", s.rvToken(t, uAlice),
+		s.rvPushRefused(t, "W4 alice -> a submission under the orphan",
+			"POST", "/checklist_submissions", s.rvToken(t, uAlice),
 			`{"id":"w4-forged-orphan","template_id":"`+tplOrphan+`","template_snapshot":{},`+
-				`"submitted_by":"`+uAlice+`"}`)
-		s.rvWriteRefused(t, "W4 alice -> a submission under the orphan", o,
+				`"submitted_by":"`+uAlice+`"}`,
 			`select count(*) from public.checklist_submissions where id = 'w4-forged-orphan'`)
 	})
 
 	t.Run("W5/ESCALATION BY UPDATE — alice moves her own row into a template she cannot see", func(t *testing.T) {
-		// 🛑 THE VARIANT THAT PROVES THE UPDATE POLICY HAS **BOTH** CLAUSES.
+		// 🛑 WHAT THIS VARIANT CATCHES — CORRECTED, FINDING F3 (run 20260802 G6).
 		//
-		// `using` decides which rows may be TARGETED; `with check` decides what
-		// they may BECOME. An UPDATE policy written with `using` alone — the
-		// overwhelmingly common mistake, and the one Postgres will not warn
-		// about — passes every other variant in this file: alice legitimately
-		// sees subAlice, so `using` admits the row, and with no `with check`
-		// the new template_id is never examined. She takes her own submission
-		// and re-parents it under tplOrphan, which no non-admin can see.
+		// It used to say it proved the UPDATE policy "has BOTH clauses", and that
+		// an UPDATE written with `using` alone would let this attack through.
+		// BOTH HALVES WERE FALSE, and 0004 §5 has been corrected to match:
 		//
-		// The refusal is invisible in the status code: PostgREST returns
-		// HTTP 200 [] for a row `using` excluded and 403 for one `with check`
-		// rejected, and this attack is the second. Only the table says which.
-		r := s.do(t, "PATCH", "/checklist_submissions?id=eq."+subAlice, s.rvToken(t, uAlice),
-			`{"template_id":"`+tplOrphan+`"}`)
-		s.rvWriteRefused(t, "W5 alice re-parents subAlice under the orphan", r,
+		//	(a) POSTGRES SUBSTITUTES THE `using` EXPRESSION FOR AN OMITTED
+		//	    `with check`. On this policy the two expressions are the SAME
+		//	    expression, so deleting the `with check` line changes NOTHING
+		//	    the database does. Measured: mutation M1 (with check deleted from
+		//	    both UPDATE policies, `pg_policies.with_check` NULL) leaves the
+		//	    suite green, and it is RIGHT to — there is no defect to catch.
+		//	(b) The old text also assumed the refusal came from 0004. Under
+		//	    `Prefer: return=representation` it came from 0003's SELECT policy
+		//	    applied to the NEW row via RETURNING (finding F1).
+		//
+		// WHAT IT DOES AND DOES NOT CATCH, MEASURED RATHER THAN ASSUMED. On
+		// THIS policy `using`, `with check` and the table's SELECT policy are
+		// all THE SAME EXPRESSION, and Postgres applies a SELECT policy to the
+		// new row of an UPDATE whether or not the statement returns anything.
+		// So neither omitting the `with check` (M1) nor widening it to `true`
+		// (M1b) is observable through any client — both leave this line GREEN,
+		// under `return=representation` AND under `return=minimal`, and that is
+		// the RIGHT answer, not a hole. 0004 §5 carries the isolated four-probe
+		// experiment those two claims rest on.
+		//
+		// 🛑 SO READ THIS LINE AS AN ASSERTION ABOUT THE PROPERTY, NOT ABOUT
+		// WHICH CLAUSE DELIVERS IT: a row cannot be moved into a template its
+		// author cannot see. The defect classes that ARE reachable here live
+		// elsewhere — a widened INSERT `with check` (W4, W6, caught only under
+		// `return=minimal`) and a widened UPDATE `with check` on the ONE policy
+		// narrower than its table's SELECT rule (W16, §5d).
+		//
+		// The refusal is invisible in the status code either way: PostgREST
+		// returns HTTP 200 [] for a row `using` excluded, 403 for one `with
+		// check` rejected, and 204 with an empty body for a minimal write that
+		// SUCCEEDED. Only the table says which happened.
+		s.rvPushRefused(t, "W5 alice re-parents subAlice under the orphan",
+			"PATCH", "/checklist_submissions?id=eq."+subAlice, s.rvToken(t, uAlice),
+			`{"template_id":"`+tplOrphan+`"}`,
 			`select count(*) from public.checklist_submissions where id = $1 and template_id = $2`,
 			subAlice, tplOrphan)
 
@@ -1598,16 +1783,21 @@ func TestRowVisibilityRLS(t *testing.T) {
 	// ── W6-W8 · row 3: responses, field-scoped ───────────────────────────
 
 	t.Run("W6/alice pushes a response on a field she cannot see", func(t *testing.T) {
-		r := s.do(t, "POST", "/submission_responses", s.rvToken(t, uAlice),
+		s.rvPushRefused(t, "W6 alice -> a response on fldBob",
+			"POST", "/submission_responses", s.rvToken(t, uAlice),
 			`{"id":"w6-forged-resp","submission_id":null,"field_id":"`+fldBob+`",`+
-				`"value":true,"answered_by":"`+uAlice+`"}`)
-		s.rvWriteRefused(t, "W6 alice -> a response on fldBob", r,
+				`"value":true,"answered_by":"`+uAlice+`"}`,
 			`select count(*) from public.submission_responses where id = 'w6-forged-resp'`)
 	})
 
 	t.Run("W7/ESCALATION BY UPDATE — alice repoints her own response at dave's field", func(t *testing.T) {
-		// W5's shape on the other table. `using` admits resp-alice (hers);
-		// `with check` must examine the NEW field_id and refuse.
+		// W5's shape on the other table, INCLUDING W5's F3 correction: this
+		// asserts the PROPERTY (a response cannot be repointed at a field its
+		// author cannot see), not which clause delivers it. `using`,
+		// `with check` and 0003's SELECT policy are the same expression here
+		// too, so M1 and M1b are both unobservable and both leave this line
+		// green. W6 above is the variant on this table that a widened INSERT
+		// `with check` reds, and only under `return=minimal`.
 		//
 		// 🛑 THE TARGET IS `fldByRole` AND NOT `fldBob`, AND THAT IS NOT
 		// ARBITRARY. The attack must be refusable ONLY by the policy, or the
@@ -1625,9 +1815,9 @@ func TestRowVisibilityRLS(t *testing.T) {
 		// alice) is written by no variant in this file. The policy is now the
 		// only thing that can refuse this update, which is what makes its
 		// refusal evidence.
-		r := s.do(t, "PATCH", "/submission_responses?id=eq.resp-alice", s.rvToken(t, uAlice),
-			`{"field_id":"`+fldByRole+`"}`)
-		s.rvWriteRefused(t, "W7 alice repoints resp-alice at fldByRole", r,
+		s.rvPushRefused(t, "W7 alice repoints resp-alice at fldByRole",
+			"PATCH", "/submission_responses?id=eq.resp-alice", s.rvToken(t, uAlice),
+			`{"field_id":"`+fldByRole+`"}`,
 			`select count(*) from public.submission_responses where id = 'resp-alice' and field_id = $1`,
 			fldByRole)
 
@@ -1650,18 +1840,29 @@ func TestRowVisibilityRLS(t *testing.T) {
 		// UNCONDITIONAL admin arm and carol writes onto a field HQ has never
 		// heard of. 0004's predicates must nest the same way, and carol is the
 		// only identity that can tell the two implementations apart.
-		r := s.do(t, "POST", "/submission_responses", s.rvToken(t, uCarol, "admin"),
+		s.rvPushRefused(t, "W8 carol the admin -> a response on a GHOST field",
+			"POST", "/submission_responses", s.rvToken(t, uCarol, "admin"),
 			`{"id":"w8-ghost-resp","submission_id":null,"field_id":"`+fldGhost+`",`+
-				`"value":true,"answered_by":"`+uCarol+`"}`)
-		s.rvWriteRefused(t, "W8 carol the admin -> a response on a GHOST field", r,
+				`"value":true,"answered_by":"`+uCarol+`"}`,
 			`select count(*) from public.submission_responses where id = 'w8-ghost-resp'`)
 
 		// The same nesting question for the approver predicate, which is a
 		// second function and can be got wrong independently.
-		j := s.do(t, "POST", "/submission_rejections", s.rvToken(t, uCarol, "admin"),
+		//
+		// 🛑 THIS HALF WAS A LIE UNTIL FINDING F1's FIX, AND IT IS THE PROOF
+		// THAT F1 WAS THE ROOT CAUSE. Mutation M4 un-nests the EXISTS in
+		// `hq_can_approve_field` — the exact mutation that function's own banner
+		// in 0004 warns about, under which an admin gains authority over a field
+		// HQ has never heard of. Re-run before F1's fix: 52/52 GREEN, and the
+		// same POST with `Prefer: return=minimal` answered HTTP 201 and LANDED
+		// THE ROW. The 403 this line was reading came from `hq_can_see_field` —
+		// 0003's correctly-nested READ predicate — reached through RETURNING.
+		// rvPushRefused sends `return=minimal` too, so the refusal below is now
+		// 0004's own.
+		s.rvPushRefused(t, "W8 carol the admin -> a rejection on a GHOST field",
+			"POST", "/submission_rejections", s.rvToken(t, uCarol, "admin"),
 			`{"id":"w8-ghost-rej","submission_id":"`+subAlice+`","field_id":"`+fldGhost+`",`+
-				`"comment":"ghost","rejected_by":"`+uCarol+`"}`)
-		s.rvWriteRefused(t, "W8 carol the admin -> a rejection on a GHOST field", j,
+				`"comment":"ghost","rejected_by":"`+uCarol+`"}`,
 			`select count(*) from public.submission_rejections where id = 'w8-ghost-rej'`)
 	})
 
@@ -1682,10 +1883,10 @@ func TestRowVisibilityRLS(t *testing.T) {
 		// the approver predicate and make the rejection policy mirror the read
 		// — the change that makes this file internally "consistent" — and every
 		// crew member gains the power to sign off their own checklist.
-		r := s.do(t, "POST", "/submission_rejections", s.rvToken(t, uAlice),
+		s.rvPushRefused(t, "W9 alice the ASSIGNEE -> a rejection on her own field",
+			"POST", "/submission_rejections", s.rvToken(t, uAlice),
 			`{"id":"w9-rej-self","submission_id":"`+subAlice+`","field_id":"`+fldAlice+`",`+
-				`"comment":"looks fine to me","rejected_by":"`+uAlice+`"}`)
-		s.rvWriteRefused(t, "W9 alice the ASSIGNEE -> a rejection on her own field", r,
+				`"comment":"looks fine to me","rejected_by":"`+uAlice+`"}`,
 			`select count(*) from public.submission_rejections where id = 'w9-rej-self'`)
 
 		// The control that stops this being a vacuous "alice cannot write
@@ -1704,10 +1905,10 @@ func TestRowVisibilityRLS(t *testing.T) {
 		// asks about that one. A predicate written as "is this user an approver
 		// anywhere" — a plausible mis-transposition, since the admin arm really
 		// is unconditional — passes W9 and fails only here.
-		r := s.do(t, "POST", "/submission_rejections", s.rvToken(t, uAlice),
+		s.rvPushRefused(t, "W10 alice the approver -> a rejection on bob's field",
+			"POST", "/submission_rejections", s.rvToken(t, uAlice),
 			`{"id":"w10-rej-cross","submission_id":"`+subBob+`","field_id":"`+fldBob+`",`+
-				`"comment":"not my template","rejected_by":"`+uAlice+`"}`)
-		s.rvWriteRefused(t, "W10 alice the approver -> a rejection on bob's field", r,
+				`"comment":"not my template","rejected_by":"`+uAlice+`"}`,
 			`select count(*) from public.submission_rejections where id = 'w10-rej-cross'`)
 	})
 
@@ -1717,9 +1918,18 @@ func TestRowVisibilityRLS(t *testing.T) {
 		// cannot soften the comment. An UPDATE policy whose `using` clause was
 		// copied from the SELECT policy — the natural thing to write, and the
 		// thing that makes the two clauses agree — lets this through.
-		r := s.do(t, "PATCH", "/submission_rejections?id=eq.rej-alice", s.rvToken(t, uAlice),
-			`{"comment":"actually it was fine"}`)
-		s.rvWriteRefused(t, "W11 alice edits the rejection written about her", r,
+		//
+		// 🛑 THIS VARIANT TESTS THE `using` CLAUSE AND ONLY THE `using` CLAUSE,
+		// and finding F2 (run 20260802 G6) is that the file used to imply
+		// otherwise. Alice is not an approver on fldAlice, so `using` refuses
+		// before a new row is ever built: PostgREST answers HTTP 200 `[]` and
+		// `with check` is never consulted. Mutation M1c (`with check ( true )`
+		// on this policy) therefore leaves W11 GREEN — measured — while handing
+		// an approver the power to move a rejection onto work she is merely
+		// ASSIGNED to. WP8 and W16 below are the matched pair on that axis.
+		s.rvPushRefused(t, "W11 alice edits the rejection written about her",
+			"PATCH", "/submission_rejections?id=eq.rej-alice", s.rvToken(t, uAlice),
+			`{"comment":"actually it was fine"}`,
 			`select count(*) from public.submission_rejections where id = 'rej-alice' `+
 				`and comment = 'actually it was fine'`)
 
@@ -1733,6 +1943,55 @@ func TestRowVisibilityRLS(t *testing.T) {
 		}
 	})
 
+	t.Run("W16/ESCALATION BY UPDATE ON THE APPROVER AXIS — alice moves a rejection onto work she is only ASSIGNED", func(t *testing.T) {
+		// 🛑 THE VARIANT FINDING F2 SAYS THIS FILE WAS MISSING, AND THE ONLY ONE
+		// THAT REACHES `submission_rejections_update`'s `with check`.
+		//
+		// W9 is refused at INSERT. W11 is refused by `using` — HTTP 200 `[]`,
+		// the new row never built. So before this line, mutation M1c
+		// (`with check ( true )` on this policy) survived the whole suite while
+		// a live escalation was available in two requests:
+		//
+		//	POST  /submission_rejections {field_id: fldApprover}   -> 201, legitimate
+		//	PATCH /submission_rejections?id=eq.X {field_id: fldAlice} -> 204
+		//	  alice has now rejected her own work, by UPDATE
+		//
+		// The row starts on fldApprover, where alice IS an approver, so `using`
+		// admits it — that is the whole point, and it is why W11 cannot stand in
+		// for this. `with check` is then the only thing between her and fldAlice,
+		// a field she can SEE (she is its assignee; V18 and WP7 depend on that)
+		// and must not be able to sit in judgment on. This is precisely the
+		// asymmetry §2 of 0004 and W9 exist to forbid, on the axis that had no
+		// coverage.
+		//
+		// WP8, above, is the matched positive: the identical PATCH to a field she
+		// DOES approve, which must land. Neither line means anything alone.
+		const id = "w16-rej-escalate"
+		s.rvDropRow(t, "submission_rejections", id)
+		if _, err := s.pool.Exec(context.Background(),
+			`insert into public.submission_rejections (id, submission_id, field_id, comment, rejected_by)
+			 values ($1, $2, $3, 'legitimate', $4)`, id, subAlice, fldApprover, uAlice); err != nil {
+			t.Fatalf("seed W16's row: %v", err)
+		}
+
+		s.rvPushRefused(t, "W16 alice moves a rejection onto her OWN assigned field",
+			"PATCH", "/submission_rejections?id=eq."+id, s.rvToken(t, uAlice),
+			`{"field_id":"`+fldAlice+`"}`,
+			`select count(*) from public.submission_rejections where id = $1 and field_id = $2`,
+			id, fldAlice)
+
+		// The control: the row is still where it was. A refusal and a vanished
+		// row satisfy the count above equally well.
+		var fid string
+		if err := s.pool.QueryRow(context.Background(),
+			`select field_id from public.submission_rejections where id = $1`, id).Scan(&fid); err != nil {
+			t.Fatalf("read back W16's row: %v", err)
+		}
+		if fid != fldApprover {
+			t.Errorf("W16: the row's field_id is %q, want %q — it moved, or vanished", fid, fldApprover)
+		}
+	})
+
 	// ── W12-W15 · the gates around the four rows ─────────────────────────
 
 	t.Run("W12/DELETE is deny-all on every replicated table", func(t *testing.T) {
@@ -1743,10 +2002,66 @@ func TestRowVisibilityRLS(t *testing.T) {
 		// forever. A tombstone is an UPDATE of `_deleted`, which the row-2/3
 		// policies already govern.
 		//
-		// Two independent gates say no: 0001 grants only
-		// `select, insert, update` to `authenticated`, and 0004 writes no
-		// DELETE policy. Asserted because a future `grant all` would silently
-		// remove the first, and nothing else in the tree would notice.
+		// 🛑 "TWO INDEPENDENT GATES" WAS FALSE — FINDING F4 (run 20260802 G6),
+		// AND THE CORRECTION IS THAT THERE IS EXACTLY ONE.
+		//
+		// This comment used to say 0001 grants only `select, insert, update` to
+		// `authenticated`, so a grant gate and an absent policy each refused
+		// independently. 0001 does contain that grant — but A GRANT ADDS AND
+		// REVOKES NOTHING, and Supabase's own `alter default privileges` had
+		// already handed `authenticated` ALL on every table in `public` before
+		// 0001 ever ran. MEASURED on the live substrate, all four tables:
+		//
+		//	authenticated: DELETE, INSERT, REFERENCES, SELECT, TRIGGER,
+		//	               TRUNCATE, UPDATE
+		//
+		// The behaviour below is green, and was always green, because the ONE
+		// real gate — RLS enabled with no DELETE policy, which is deny-all —
+		// holds. But it is one gate, and under SYNC_RLS_SKIP_POLICIES=1 (RLS
+		// torn down) all three DELETEs return HTTP 204 with the rows GONE. That
+		// is the honest reading of a single gate and it is why this variant is
+		// a genuine RLS-layer variant rather than the belt-and-braces the old
+		// comment described.
+		//
+		// 🛑 NOT FIXED BY A REVOKE, DELIBERATELY. Making the grant gate real is
+		// one `revoke delete, truncate … from authenticated` — but the grants
+		// live in 0001, another card's file, and the revoke would also red W12
+		// in BOTH red modes (which withhold the file carrying it), silently
+		// changing the property merge-intent item 8 rests on: under
+		// SYNC_RLS_SKIP_WRITE_POLICIES=1 every refusal still passes. A substrate
+		// privilege change is not this fix round's to make unattended. Filed as
+		// BACKLOG B-51; what this round owes is that the file stops claiming a
+		// gate that is not there.
+		//
+		// The assertion the single gate CAN carry is that it is the gate we
+		// think it is: no DELETE policy exists on any of the four tables. A
+		// permissive DELETE policy added by a future tidier would open the hole
+		// the behavioural half then catches; this names it first.
+		for _, table := range []string{
+			"checklist_templates", "checklist_submissions",
+			"submission_responses", "submission_rejections",
+		} {
+			var privs, pols string
+			if err := s.pool.QueryRow(context.Background(),
+				`select coalesce((select string_agg(privilege_type, ',' order by privilege_type)
+				                    from information_schema.role_table_grants
+				                   where grantee = 'authenticated' and table_schema = 'public'
+				                     and table_name = $1), '-'),
+				        coalesce((select string_agg(policyname, ',' order by policyname)
+				                    from pg_policies
+				                   where schemaname = 'public' and tablename = $1
+				                     and cmd in ('DELETE', 'ALL')), '-')`,
+				table).Scan(&privs, &pols); err != nil {
+				t.Fatalf("W12 gate inspection on %s: %v", table, err)
+			}
+			t.Logf("GATE  public.%-22s authenticated=[%s]  delete-capable policies=[%s]", table, privs, pols)
+			if pols != "-" {
+				t.Errorf("🛑 W12: public.%s has a DELETE-capable policy (%s). The ONE gate "+
+					"standing between an offline replica and a permanently-orphaned row is "+
+					"the ABSENCE of one — see 0001 contract item 2.", table, pols)
+			}
+		}
+
 		tok := s.rvToken(t, uAlice)
 		for _, tc := range []struct{ label, path, table, id string }{
 			{"W12 submission", "/checklist_submissions?id=eq." + subAlice, "checklist_submissions", subAlice},
@@ -1780,21 +2095,21 @@ func TestRowVisibilityRLS(t *testing.T) {
 
 		// Against row 1 (deny-all for everyone) and row 4 (approver-only) —
 		// the two rows where an admin claim would buy the most.
-		a := s.do(t, "POST", "/checklist_templates", liar,
-			`{"id":"w13-tpl","name":"claimed admin"}`)
-		s.rvWriteRefused(t, "W13 lying admin -> a template", a,
+		s.rvPushRefused(t, "W13 lying admin -> a template",
+			"POST", "/checklist_templates", liar,
+			`{"id":"w13-tpl","name":"claimed admin"}`,
 			`select count(*) from public.checklist_templates where id = 'w13-tpl'`)
 
-		b := s.do(t, "POST", "/submission_rejections", liar,
+		s.rvPushRefused(t, "W13 lying admin -> a rejection on her own field",
+			"POST", "/submission_rejections", liar,
 			`{"id":"w13-rej","submission_id":"`+subAlice+`","field_id":"`+fldAlice+`",`+
-				`"comment":"claimed admin","rejected_by":"`+uAlice+`"}`)
-		s.rvWriteRefused(t, "W13 lying admin -> a rejection on her own field", b,
+				`"comment":"claimed admin","rejected_by":"`+uAlice+`"}`,
 			`select count(*) from public.submission_rejections where id = 'w13-rej'`)
 
-		c := s.do(t, "POST", "/checklist_submissions", liar,
+		s.rvPushRefused(t, "W13 lying admin -> a submission under the orphan",
+			"POST", "/checklist_submissions", liar,
 			`{"id":"w13-sub","template_id":"`+tplOrphan+`","template_snapshot":{},`+
-				`"submitted_by":"`+uAlice+`"}`)
-		s.rvWriteRefused(t, "W13 lying admin -> a submission under the orphan", c,
+				`"submitted_by":"`+uAlice+`"}`,
 			`select count(*) from public.checklist_submissions where id = 'w13-sub'`)
 	})
 
@@ -1827,10 +2142,10 @@ func TestRowVisibilityRLS(t *testing.T) {
 			t.Fatalf("revoke: %v", err)
 		}
 
-		during := s.do(t, "POST", "/submission_responses", tok,
+		s.rvPushRefused(t, "W14 after revocation, SAME unexpired token",
+			"POST", "/submission_responses", tok,
 			`{"id":"w14-during","submission_id":null,"field_id":"`+fldAliceDraft+`",`+
-				`"value":true,"answered_by":"`+uAlice+`"}`)
-		s.rvWriteRefused(t, "W14 after revocation, SAME unexpired token", during,
+				`"value":true,"answered_by":"`+uAlice+`"}`,
 			`select count(*) from public.submission_responses where id = 'w14-during'`)
 
 		if _, err := s.hq.Exec(context.Background(),
@@ -1858,6 +2173,14 @@ func TestRowVisibilityRLS(t *testing.T) {
 		// stops running — and 0004 is the first thing in this stack that makes
 		// `authenticated` able to write anything at all, so the layer beneath
 		// it just became load-bearing in a way it was not yesterday.
+		//
+		// 🛑 THE ONLY WRITE REFUSALS IN THIS FILE THAT DO NOT GO THROUGH
+		// rvPushRefused, ON PURPOSE. Finding F1's fix sends every attack under
+		// both Prefer headers because the header decides which POLICY answers.
+		// These three are refused by PostgREST's JWT verifier and by 0001's
+		// table grants — BEFORE any policy, and before Postgres builds a row at
+		// all — so the header cannot change the outcome and a second request
+		// would prove nothing it does not already.
 		body := `{"id":"w15-anon-sub","template_id":"` + tplAlice + `","template_snapshot":{},` +
 			`"submitted_by":"` + uAlice + `"}`
 
@@ -1896,7 +2219,7 @@ func TestRowVisibilityRLS(t *testing.T) {
 	// different, smaller fixture. This is the line that says the fixture the
 	// suite finished with is the fixture it started with.
 	//
-	// 🛑 W1-W15 and WP1-WP7 raise the stakes here considerably: they are the
+	// 🛑 W1-W16 and WP1-WP8 raise the stakes here considerably: they are the
 	// first variants in this file that can leave rows BEHIND rather than merely
 	// read or fail to read. Each positive registers its cleanup at the moment
 	// it creates a row (rvDropRow, t.Cleanup) so the cleanup runs even when the
