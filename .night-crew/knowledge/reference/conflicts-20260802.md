@@ -94,6 +94,37 @@ both mutations again and showed each now goes red.
 **PARK condition did not fire:** `sync-schema/` is byte-unchanged. `HQ_SYNC_REST_URL` appears only
 in prose and is set nowhere.
 
+### Merge 3 — `card/b1-sync-cache-and-identity-hygiene` → `overnight-20260802`
+
+**Result: TWO CONFLICTS, both resolved.** Merge commit `8b6b3bd`, plus `sw.js` regeneration.
+
+- **Cards involved:** B1 vs the merged pre-step + A1.
+- **Files and hunks:**
+  - **`sw.js`** — content conflict. **Pre-resolved by this log's own rule: the artifact is GENERATED and is never merged.** Took one side to close the merge, then regenerated **after** the merge commit (B-37). The regeneration **changed the file**, which is the rule earning its keep: the merged tree's manifest is *neither side's*, so any hand-resolution of `sw.js` would have shipped a wrong manifest that still exits 0. Count held at **29**; second run byte-identical (idempotent).
+  - **`BACKLOG.md`** — one hunk at the tail: HEAD's `B-39`…`B-43` vs B1's `B-44`/`B-45`/`B-46`. Append-vs-append, **kept both in numeric order.**
+  - `roadmap.md` auto-merged clean.
+- **Intents read:** `merge-intent-b1-…md` (corrected during its fix round — its §2.1/§2.2/§2.3/§2.4 coverage claims were **false** and are struck in place) and A1's.
+- **Gate result after it:** G4 **29 files / 2137.2 KB**, idempotent, parity 1.4.0. G1 `go build` + `go vet` **exit 0** on the merged tree.
+- **G6:** APPROVE WITH FINDINGS, **2 BLOCKING**, both fixed and re-proved by re-applied mutation before merge.
+
+🛑 **A cross-leg contamination surfaced here and it is not B1's — see `B-50`.** B1's Go suite failed `TestRowVisibilityRLS/V18` in a worktree touching **zero** Go and **zero** `sync-schema/` files. Cause: the concurrently-running A2 leg had created `submission_rejections_*` policies on the **shared** `spike-supabase-db-1` substrate, while B1's tree still carried the pre-rewrite V18 asserting their absence. **`HQ_RLS_TEST_DB` isolates only the HQ-side FDW source database; the Supabase `public` schema and the single PostgREST have no isolation variable at all.** B1 correctly refused to "fix" it — dropping another leg's policies is the B-16 incident. A2's fix round then made its teardown run on **green** runs too (previously only in the red modes), which removes the residue; the race itself remains open as `B-50`.
+
+---
+
+### Merge 4 — `card/a2-sync-rxdb-write-policies` → `overnight-20260802`
+
+**Result: ONE CONFLICT, resolved. `BACKLOG.md`.** Merge commit `de7d78c`.
+
+- **Cards involved:** A2 vs the merged pre-step + A1 + B1.
+- **Files and hunks:** `BACKLOG.md`, one hunk at the tail — HEAD's `B-44`/`B-45`/`B-46` vs A2's `B-49`/`B-47`/`B-48`/`B-51`. Append-vs-append, **kept both**; verified afterwards that **no number is duplicated** and that `B-50` remains free. `roadmap.md` auto-merged clean.
+- **Resolution:** none semantic. 🛑 **The renumbering behind it was the orchestrator's error, not a card's** — I issued A2 and B1 overlapping allocations and both filed a `B-46`. B1 merged first and kept it; A2 renumbered to `B-49` mid-flight. **That is the second backlog-number collision tonight** (three legs collided on `B-39` earlier). Cards cannot see each other's numbers, so allocation is the control loop's job and I did it wrong twice.
+- **Gate result after it**, run by the orchestrator on the merged tree:
+  - **G4** — `node build-sw.js` after the merge commit: **29 files / 2137.2 KB**, `sw.js` unchanged (already correct), parity 1.4.0.
+  - **G2 (Go, `internal/sync`)** — `go test -p 1 -count=1 ./internal/sync/ -run TestRowVisibilityRLS` → **ok**, and per the *amended* decision 108 the `ok` line is not the evidence: `-v` shows **54 subtests executed**, with **`HQ_SYNC_SUBSTRATE_OPTIONAL` unset**.
+- **G6:** APPROVE WITH FINDINGS, **3 BLOCKING** — its verdict was that **E-KR2 was NOT met**, because the suite could not distinguish the shipped write predicates from mutants (3 of 5 mutations survived green, 2 of them mutations the file itself named as guarded). Root cause: every write went out `Prefer: return=representation`, so 0003's SELECT policy silently enforced the write half. All three fixed and re-proved; **E-KR2 is now met**, with two caveats the fix round stated honestly (pairing is not 1:1 suite-wide, and the suite cannot detect substrate contamination).
+
+---
+
 🛑 **Carried forward for A2, P1 and Night B's S1 — A1's merge-intent, item 6:** the
 `replicationIdentifier` **must carry the scope**. A merge that restores plain `hq-sync-${table}`
 re-introduces silent data loss **and will look like a simplification, because the comment that
