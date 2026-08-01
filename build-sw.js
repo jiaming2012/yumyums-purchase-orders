@@ -1,5 +1,6 @@
 const { generateSW } = require('workbox-build');
 const fs = require('fs');
+const path = require('path');
 const { execFileSync } = require('child_process');
 
 // Build artifacts that are deliberately git-ignored yet SHIP. version.json is
@@ -43,6 +44,13 @@ function committedFiles() {
   return new Set(out.split('\0').filter(Boolean));
 }
 
+// What the LAST run of committedOnlyTransform dropped. Read by the
+// import-reachability guard below purely to tell a reader WHY a target is
+// missing, because the two causes have different fixes -- see checkImportReachability.
+// 🛑 It goes stale silently if the two transforms are reordered or separated;
+// keep them adjacent and in this order (merge-intent P1 §2.6).
+let lastSkipped = new Set();
+
 function committedOnlyTransform(manifest) {
   const committed = committedFiles();
   const dropped = [];
@@ -57,7 +65,208 @@ function committedOnlyTransform(manifest) {
   for (const url of dropped) {
     console.warn(`  skipped (not in HEAD): ${url}`);
   }
+  lastSkipped = new Set(dropped);
   return { manifest: kept };
+}
+
+// ═══ IMPORT REACHABILITY — B-37 ═════════════════════════════════════════════
+//
+// THE INVARIANT: **nothing precached may import something not precached.**
+//
+// Loud was not enough. `committedOnlyTransform` above WARNS and the build exits
+// 0 anyway, so on 2026-08-01 (`overnight-20260801`, merge 3) a regenerate in the
+// middle of a merge shipped a 24-file manifest and nothing failed. Reproduced at
+// triage at 22 files / 1481.9 KB against an expected 29 / 2111.1 KB, exit 0 every
+// time. `workflows.html` IS precached and carries
+//     <script type="module" src="sync-rxdb/bootstrap.js">
+// so the shipped worker caches a page whose module entry point it deliberately
+// omitted: the page loads from cache, the module 404s or is simply absent
+// offline, and the tool is dead on a returning client with nothing on screen
+// saying why. That is D-KR2's returning-client parity, directly.
+//
+// 🛑 THIS IS NOT "EVERYTHING MUST BE PRECACHED", AND MUST NOT BECOME THAT.
+// Skipping a genuinely unreferenced file is the FEATURE — it is what keeps a
+// dev box's scratch `*.html`, `README.md`, `playwright.config.js` and
+// `workbox-*.js` off every crew phone, and what decisions 58/67 exist to do.
+// The guard fires only on a file that something ALREADY IN THE MANIFEST
+// references. Unreferenced skips still exit 0.
+//
+// The two reasons a target can be missing are reported separately because the
+// fixes differ:
+//   * `skipped (not in HEAD)`        -> commit the file.
+//   * `not matched by globPatterns`  -> add a glob AND the matching
+//     `backend/Dockerfile` copy. Adding the glob alone is decision 59's trap and
+//     bricks the install; `tests/sw-manifest.spec.js` guards the pairing.
+
+// HTML attributes. A `src` on <script> is the whole script graph; modulepreload
+// is here so that adding one does not silently create an unguarded edge.
+const HTML_SCRIPT_SRC = /<script\b[^>]*\bsrc\s*=\s*["']([^"']+)["']/gi;
+const HTML_MODULEPRELOAD = /<link\b[^>]*\brel\s*=\s*["']modulepreload["'][^>]*\bhref\s*=\s*["']([^"']+)["']/gi;
+// ES module specifiers. `[^;'"]` deliberately matches newlines so a multi-line
+// `import {\n a,\n b\n} from './client.js'` is seen, and cannot run past a
+// statement end or into a string literal.
+const JS_FROM = /\b(?:import|export)\s+[^;'"]*?\bfrom\s*["']([^"']+)["']/g;
+const JS_SIDE_EFFECT = /\bimport\s*["']([^"']+)["']/g;
+const JS_DYNAMIC = /\bimport\s*\(\s*["']([^"']+)["']\s*\)/g;
+
+// The parse is only meaningful if it reproduces edges we KNOW exist. One per
+// mechanism: an HTML src="" and a real module-graph hop.
+//
+// 🛑 S1 `sync-hard-cutover`, THIS IS THE ROW YOU WILL TRIP OVER. If a canary
+// reference legitimately goes away, REPLACE it with whatever takes its place.
+// Do not delete the row and do not delete the check: a guard whose subject set
+// silently empties reports PASS having verified nothing (B-22/B-23/B-24).
+const REACHABILITY_CANARIES = [
+  ['index.html', 'ptr.js'],
+  ['workflows.html', 'sync-rxdb/bootstrap.js'],
+];
+
+function matchAll(re, source) {
+  re.lastIndex = 0;
+  const out = [];
+  let m;
+  while ((m = re.exec(source)) !== null) out.push(m[1]);
+  return out;
+}
+
+// Absolute or protocol-relative — someone else's server, not our manifest.
+// (workflows.html and onboarding.html both load SortableJS from unpkg.)
+function isExternal(spec) {
+  return /^[a-z][a-z0-9+.-]*:/i.test(spec) || spec.startsWith('//');
+}
+
+// 🛑 HTML AND JS DO NOT AGREE ON WHAT A PATH IS, AND COLLAPSING THE TWO RULES
+// BREAKS THE BUILD. An HTML src="log.js" IS a path relative to the document. A
+// bare ES specifier is NOT a path — it is a resolver name.
+// `vendor/rxdb.bundle.js` contains `from "ws"`; read as a path it is a missing
+// file and every build fails. Only './', '../' and '/' denote a path in JS.
+function isJsPathSpecifier(spec) {
+  return spec.startsWith('./') || spec.startsWith('../') || spec.startsWith('/');
+}
+
+/** Local references a precached file makes, as written. */
+function collectLocalRefs(url, source) {
+  const refs = [];
+  if (path.posix.extname(url).toLowerCase() === '.html') {
+    refs.push(...matchAll(HTML_SCRIPT_SRC, source));
+    refs.push(...matchAll(HTML_MODULEPRELOAD, source));
+  }
+  // Runs over HTML too — inline <script type="module"> blocks are module code.
+  for (const spec of [
+    ...matchAll(JS_FROM, source),
+    ...matchAll(JS_SIDE_EFFECT, source),
+    ...matchAll(JS_DYNAMIC, source),
+  ]) {
+    if (isJsPathSpecifier(spec)) refs.push(spec);
+  }
+  return [...new Set(refs.filter(spec => !isExternal(spec)))];
+}
+
+/** Manifest URL a reference resolves to, or null if it leaves the repo. */
+function resolveRef(fromUrl, spec) {
+  const clean = spec.split('#')[0].split('?')[0];
+  if (!clean) return null;
+  const joined = clean.startsWith('/')
+    ? clean.slice(1)
+    : path.posix.join(path.posix.dirname(fromUrl), clean);
+  const resolved = path.posix.normalize(joined);
+  return resolved.startsWith('..') ? null : resolved;
+}
+
+/**
+ * @param {string[]} manifestUrls final precache URLs
+ * @param {object}   opts .readFile(url) -> source; .skipped Set of dropped URLs
+ * @returns {{filesParsed:number, refsFound:number, refsByFile:Map, violations:Array}}
+ */
+function checkImportReachability(manifestUrls, opts = {}) {
+  const readFile = opts.readFile || (url => fs.readFileSync(url, 'utf8'));
+  const skipped = opts.skipped || new Set();
+  const precached = new Set(manifestUrls);
+  const refsByFile = new Map();
+  const violations = [];
+  let refsFound = 0;
+
+  for (const url of manifestUrls) {
+    const ext = path.posix.extname(url).toLowerCase();
+    if (ext !== '.html' && ext !== '.js') continue;
+    const resolvedRefs = [];
+    for (const spec of collectLocalRefs(url, readFile(url))) {
+      const target = resolveRef(url, spec);
+      if (target === null) continue;
+      refsFound++;
+      resolvedRefs.push(target);
+      if (precached.has(target)) continue;
+      violations.push({
+        from: url,
+        spec,
+        target,
+        reason: skipped.has(target)
+          ? 'skipped (not in HEAD) — commit it'
+          : 'not matched by globPatterns — add a glob AND the backend/Dockerfile copy',
+      });
+    }
+    refsByFile.set(url, resolvedRefs);
+  }
+  return { filesParsed: refsByFile.size, refsFound, refsByFile, violations };
+}
+
+/**
+ * 🛑 A GUARD PRINTING PASS IS NOT EVIDENCE UNTIL ITS SUBJECT SET IS SHOWN
+ * NON-EMPTY (B-22/B-23/B-24). Three checks, because each fails independently:
+ * a manifest with no parseable files, a parse that finds no references at all,
+ * and a parse that still runs but has stopped seeing a known edge.
+ * @returns {string[]} reasons the guard cannot be trusted; empty means live.
+ */
+function reachabilityVacuityFaults(result) {
+  const faults = [];
+  if (result.filesParsed === 0) {
+    faults.push('parsed ZERO precached .html/.js files — the manifest or the extension filter is broken');
+  }
+  if (result.refsFound === 0) {
+    faults.push('found ZERO local references across the whole precache — the reference regexes are broken');
+  }
+  for (const [from, target] of REACHABILITY_CANARIES) {
+    const refs = result.refsByFile.get(from);
+    if (!refs || !refs.includes(target)) {
+      faults.push(
+        `canary lost: "${from}" no longer yields "${target}". If that reference legitimately ` +
+        'moved, REPLACE the canary in REACHABILITY_CANARIES with its successor — do not delete it.',
+      );
+    }
+  }
+  return faults;
+}
+
+function importReachabilityTransform(manifest) {
+  const result = checkImportReachability(manifest.map(e => e.url), { skipped: lastSkipped });
+
+  const faults = reachabilityVacuityFaults(result);
+  if (faults.length) {
+    console.error('\nimport-reachability guard CANNOT BE TRUSTED — it would have passed vacuously:');
+    for (const f of faults) console.error(`  ✗ ${f}`);
+    throw new Error('import-reachability guard is vacuous');
+  }
+
+  // Always printed, pass or fail: the subject set, in numbers.
+  console.log(
+    `import reachability: ${result.filesParsed} precached files parsed, ` +
+    `${result.refsFound} local references resolved, ${result.violations.length} outside the precache`,
+  );
+
+  if (result.violations.length) {
+    console.error('\n🛑 PRECACHED FILES REFERENCE PATHS THAT ARE NOT PRECACHED.');
+    console.error('   A page served from the precache whose script graph is not in the precache');
+    console.error('   is dead on a returning client, offline, with nothing on screen saying why.\n');
+    for (const v of result.violations) {
+      console.error(`  ${v.from}  ->  ${v.spec}   [${v.target}]`);
+      console.error(`      ${v.reason}`);
+    }
+    console.error('');
+    throw new Error(
+      `import-reachability check failed: ${result.violations.length} reference(s) resolve outside the precache`,
+    );
+  }
+  return { manifest };
 }
 
 // Write version.json so the frontend can read its own version without hitting the API.
@@ -139,7 +348,14 @@ async function build() {
     ],
     // Decisions 58 + 67 — see committedOnlyTransform above. This runs AFTER the
     // glob and after content-hashing, and drops anything HEAD does not contain.
-    manifestTransforms: [committedOnlyTransform],
+    //
+    // 🛑 ORDER IS LOAD-BEARING, BOTH WAYS. The reachability guard must run LAST,
+    // against the manifest that will actually ship — run it first and it checks a
+    // set that still contains uncommitted files and can never see a skip. And it
+    // THROWS rather than reporting, so `sw.js` is never written on a failure: a
+    // guard that writes a bad artifact and then exits non-zero leaves something a
+    // hurried hand can `git add`. B-37.
+    manifestTransforms: [committedOnlyTransform, importReachabilityTransform],
     // Static assets: cache-first (same as before)
     // No need to configure — precacheAndRoute handles this automatically
 
@@ -240,7 +456,20 @@ async function build() {
   console.log(`Frontend version: ${version.frontend}`);
 }
 
-build().catch(err => {
-  console.error('SW build failed:', err);
-  process.exit(1);
-});
+// Exported so tests/sw-manifest.spec.js can drive the reachability guard over
+// synthetic manifests -- proving it goes RED on a violation and stays GREEN on an
+// unreferenced skip -- without a commit dance around the real tree.
+module.exports = {
+  collectLocalRefs,
+  resolveRef,
+  checkImportReachability,
+  reachabilityVacuityFaults,
+  REACHABILITY_CANARIES,
+};
+
+if (require.main === module) {
+  build().catch(err => {
+    console.error('SW build failed:', err.message || err);
+    process.exit(1);
+  });
+}
