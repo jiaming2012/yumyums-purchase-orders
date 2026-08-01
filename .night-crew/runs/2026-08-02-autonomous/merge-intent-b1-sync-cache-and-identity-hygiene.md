@@ -87,8 +87,12 @@ what its removal costs.
   `hq-identity` while `index.html` writes somewhere else degrades every request to
   the `anon` partition — which under 2.3 means **nothing is cached at all** and the
   PWA quietly stops working offline. A `login.html` left behind stops purging and
-  the disclosure comes back. Neither reddens anything except
-  `tests/sw-api-cache-partition.spec.js` and `[B1-XT-03]`.
+  the disclosure comes back. 🔴 **CORRECTED:** ~~Neither reddens anything except
+  `tests/sw-api-cache-partition.spec.js` and `[B1-XT-03]`.~~ `[B1-XT-03]` does
+  **not** red on a stranded `login.html` — that was the same misattribution §2.4
+  records. The guards that red are `[B1-XT-06]` / `[B1-XT-07]` (the `login.html`
+  end) and `tests/sw-api-cache-partition.spec.js` (`[B1-XT-02]` on a key-shape
+  mismatch, `[B1-XT-05]` on the degraded `anon` partition).
 
 ### 2.2 `cacheKeyWillBeUsed` on the `api-cache` route — THE partition
 
