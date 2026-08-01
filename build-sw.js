@@ -109,16 +109,35 @@ const JS_FROM = /\b(?:import|export)\s+[^;'"]*?\bfrom\s*["']([^"']+)["']/g;
 const JS_SIDE_EFFECT = /\bimport\s*["']([^"']+)["']/g;
 const JS_DYNAMIC = /\bimport\s*\(\s*["']([^"']+)["']\s*\)/g;
 
-// The parse is only meaningful if it reproduces edges we KNOW exist. One per
-// mechanism: an HTML src="" and a real module-graph hop.
+// The parse is only meaningful if it reproduces edges we KNOW exist — and it
+// must cover EVERY mechanism separately, because each can die on its own.
+//
+// 🛑 THE THIRD ROW EXISTS BECAUSE THE FIRST TWO ARE THE SAME MECHANISM. Both
+// `index.html -> ptr.js` and `workflows.html -> sync-rxdb/bootstrap.js` are
+// found by HTML_SCRIPT_SRC: `<script type="module" src="...">` is an HTML
+// attribute, not a JS module edge. With only those two, replacing JS_FROM /
+// JS_SIDE_EFFECT / JS_DYNAMIC with never-matching patterns left the build at
+// exit 0 — references silently 30 -> 21, no vacuity fault, and dropping
+// `vendor/rxdb.bundle.js` (495 KiB, the most likely thing to be regenerated),
+// `sync-rxdb/client.js`, `sync-rxdb/conflict-handler.js` or
+// `sync-schema/collections.js` from HEAD would have exited 0 and bricked the SW
+// install for every returning client. B-37, one layer in.
+//
+// The third row is a genuinely-JS edge and nothing else: `sync-rxdb/client.js`
+// is a `.js` file, so HTML_SCRIPT_SRC never runs on it, and the reference is a
+// multi-line `import { ... } from '../vendor/rxdb.bundle.js'` — JS_FROM's
+// newline-spanning form specifically.
 //
 // 🛑 S1 `sync-hard-cutover`, THIS IS THE ROW YOU WILL TRIP OVER. If a canary
 // reference legitimately goes away, REPLACE it with whatever takes its place.
 // Do not delete the row and do not delete the check: a guard whose subject set
 // silently empties reports PASS having verified nothing (B-22/B-23/B-24).
+// `tests/sw-manifest.spec.js` now pins BOTH the count and the exact pairs, so
+// deleting a row reds the suite instead of halving the guard in silence.
 const REACHABILITY_CANARIES = [
-  ['index.html', 'ptr.js'],
-  ['workflows.html', 'sync-rxdb/bootstrap.js'],
+  ['index.html', 'ptr.js'],                          // HTML src="" — HTML_SCRIPT_SRC
+  ['workflows.html', 'sync-rxdb/bootstrap.js'],      // HTML src="" on a module — still HTML_SCRIPT_SRC
+  ['sync-rxdb/client.js', 'vendor/rxdb.bundle.js'],  // a real module-graph hop — JS_FROM
 ];
 
 function matchAll(re, source) {

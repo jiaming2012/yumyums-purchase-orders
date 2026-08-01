@@ -435,7 +435,22 @@ test('every canary edge in build-sw.js still exists in the real tree', () => {
   // test says the same thing earlier and with the reason attached, so the next
   // card to move one (S1 `sync-hard-cutover` is the likely candidate) sees
   // "replace the canary" rather than an opaque build failure.
-  expect(guard.REACHABILITY_CANARIES.length).toBeGreaterThan(0);
+  // 🛑 PINNED, NOT `> 0`. `> 0` plus "iterate whatever survives" let the set be
+  // silently HALVED: deleting the workflows.html row ran this spec 13/13 green.
+  // The code comment said "do not delete the row" and nothing enforced it.
+  // Three rows, three mechanisms — two HTML src="" and one real JS module hop
+  // (see REACHABILITY_CANARIES in build-sw.js for why the third is not optional).
+  // If a canary legitimately moves, REPLACE the pair below; do not shorten the list.
+  expect(
+    guard.REACHABILITY_CANARIES.length,
+    'a canary row was added or deleted — replace a rotted edge, never delete it',
+  ).toBe(3);
+  expect(guard.REACHABILITY_CANARIES.map(pair => pair.join(' -> ')).sort()).toEqual([
+    'index.html -> ptr.js',
+    'sync-rxdb/client.js -> vendor/rxdb.bundle.js',
+    'workflows.html -> sync-rxdb/bootstrap.js',
+  ]);
+
   for (const [from, target] of guard.REACHABILITY_CANARIES) {
     const refs = guard.collectLocalRefs(from, fs.readFileSync(from, 'utf8'))
       .map(spec => guard.resolveRef(from, spec));

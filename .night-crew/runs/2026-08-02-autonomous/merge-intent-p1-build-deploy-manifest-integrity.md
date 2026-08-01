@@ -75,26 +75,51 @@ it is what the guard found on the merged tree with no synthetic case at all.
   `tests/sw-manifest.spec.js`'s obligation-5 guard stays green. **A future glob
   addition may not be so lucky** — check that test before adding one.
 
-### 2.4 🛑 The two canaries — S1, READ THIS ONE
+### 2.4 🛑 The ~~two~~ **three** canaries — S1, READ THIS ONE
 
 The guard refuses to pass on an empty parse (B-22/B-23/B-24). Anti-vacuity is
-enforced three ways, and the third is a hard-coded pair:
+enforced three ways, and the third is a hard-coded list of pairs:
+
+~~```js~~
+~~const REACHABILITY_CANARIES = [~~
+~~  ['index.html',     'ptr.js'],                  // the HTML src="" path~~
+~~  ['workflows.html', 'sync-rxdb/bootstrap.js'],  // the module-graph path~~
+~~];~~
+~~```~~
+
+**Struck and replaced by the G6 fix round (NB-1). The comment above was wrong:
+`<script type="module" src="sync-rxdb/bootstrap.js">` is an HTML attribute, so
+BOTH original rows were found by `HTML_SCRIPT_SRC` and the JS half of the parser
+was covered by nothing.** Measured: replacing `JS_FROM` / `JS_SIDE_EFFECT` /
+`JS_DYNAMIC` with never-matching patterns left `node build-sw.js` at **exit 0**,
+references 30 → 21, no fault. A third, genuinely-JS row closes it:
 
 ```js
 const REACHABILITY_CANARIES = [
-  ['index.html',     'ptr.js'],                  // the HTML src="" path
-  ['workflows.html', 'sync-rxdb/bootstrap.js'],  // the module-graph path
+  ['index.html',         'ptr.js'],                    // HTML src="" — HTML_SCRIPT_SRC
+  ['workflows.html',     'sync-rxdb/bootstrap.js'],    // HTML src="" on a module — STILL HTML_SCRIPT_SRC
+  ['sync-rxdb/client.js', 'vendor/rxdb.bundle.js'],    // a real module-graph hop — JS_FROM
 ];
 ```
 
-If either reference legitimately goes away, **`node build-sw.js` fails with a
+If any reference legitimately goes away, **`node build-sw.js` fails with a
 message naming this list and telling you to update it.** That is deliberate: a
 guard whose subject set silently empties is the exact failure this repo keeps
 catching. **`sync-hard-cutover` is the most likely card to remove the second
-canary** (it owns the RxDB write path). If S1 drops
-`<script type="module" src="sync-rxdb/bootstrap.js">` from `workflows.html`,
-**replace the canary with whatever module entry point takes its place — do not
+canary** (it owns the RxDB write path), and it may also touch the third if it
+reworks how `client.js` reaches the vendor bundle. If S1 drops
+`<script type="module" src="sync-rxdb/bootstrap.js">` from `workflows.html`, or
+changes `sync-rxdb/client.js`'s import of `../vendor/rxdb.bundle.js`,
+**replace the canary with whatever takes its place — do not
 delete the row and do not delete the check.**
+
+🛑 **And deleting a row is no longer invisible.** `tests/sw-manifest.spec.js`
+now pins `REACHABILITY_CANARIES.length` to **3** and asserts the three exact
+pairs. Before the fix round, deleting the `workflows.html` row ran the whole
+spec **13/13 green** — the test asserted `length > 0` and iterated whatever
+survived, so the set could be silently halved. **If S1 replaces a canary it must
+update that assertion in the same commit**; a bare deletion reds the spec, which
+is the point.
 
 ### 2.5 B1's contract, restated — both hooks survive this card intact
 
