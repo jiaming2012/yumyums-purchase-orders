@@ -125,6 +125,30 @@ in prose and is set nowhere.
 
 ---
 
+### Merge 5 — `card/p1-build-deploy-manifest-integrity` → `overnight-20260802`
+
+**Result: ONE CONFLICT, resolved. `BACKLOG.md`.** Merge commit `a9e2018`. **Final card of the night.**
+
+- **Cards involved:** P1 vs the merged pre-step + A1 + B1 + A2, plus the orchestrator's own `B-50`.
+- **Files and hunks:** `BACKLOG.md`, one hunk at the tail — HEAD's `B-50` (filed by the orchestrator)
+  vs P1's `B-52`…`B-57`. Append-vs-append, **kept both.**
+- **Resolution:** none semantic. **Audited afterwards: `B-39` … `B-57` are all present with no
+  duplicates** — 19 entries filed tonight, and the two collisions earlier in the run are fully
+  resolved.
+- **Gate result after it:** G4 — `node build-sw.js` after the merge commit: **31 files precached
+  (2139.2 KB)**, `18 files parsed, 30 local references resolved, 0 outside the precache`. `sw.js`
+  unchanged (already correct at the merge commit), parity 1.4.0.
+- **🛑 The precache count moved 29 → 31 and that is deliberate** — see `DECISIONS-NEEDED.md` **R2**.
+  `log.js` and `tab.js` were referenced by every precached page and globbed nowhere. **31 is the new
+  invariant, and it is enforced by nothing — `B-54`.**
+- **G6:** APPROVE WITH FINDINGS, **NO BLOCKING DEFECTS** — the only review tonight without one. Two
+  mutation-proven non-blocking gaps were fixed anyway in a time-boxed round, because the card *is* a
+  guard: the anti-vacuity net covered only the HTML mechanism (killing all three JS specifier regexes
+  left the build at **exit 0** with references silently 30 → 21), and deleting a canary row was
+  invisible (that mutation survived 13/13 green). Both now red.
+
+---
+
 🛑 **Carried forward for A2, P1 and Night B's S1 — A1's merge-intent, item 6:** the
 `replicationIdentifier` **must carry the scope**. A merge that restores plain `hq-sync-${table}`
 re-introduces silent data loss **and will look like a simplification, because the comment that
