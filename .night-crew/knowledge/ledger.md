@@ -2159,3 +2159,137 @@ fix behind it**, six days stranded, the one worth attention);
 `card/d1-syncspec-deflake` (2 commits, 2026-07-21, head commit is a `Revert`);
 `parked/f1-trends-endpoint-20260720b` (2 commits, known park); `docs/claude-md-night-crew`
 (5 commits, 2026-07-26).
+
+---
+
+## T-30 — Slate-planning resolutions (2026-07-31 evening, `/nc-slate-plan` for `overnight-20260801-2`)
+
+Resolved inline during slate planning under the §1 fork gate ("resolve inline by default"), not
+carried to a morning triage. Both were verified in code before being put to the operator, and both
+gate cards that would otherwise have entered the slate carrying an open decision.
+
+**Decision 111 — RxDB push writes mirror the read rule, PER TABLE. Templates stay client-write
+deny-all; approvals are approver-only.**
+
+The blocker: `sync-schema/sql/0003_rls_policies.sql` ships SELECT policies only — grepped, zero
+`WITH CHECK`, zero `FOR INSERT`/`FOR UPDATE` — so RxDB **push** replication is deny-all. Card
+`sync-rxdb-row-visibility-rls` named this explicitly and deferred it to "a follow-up card". **That
+card did not exist.** `sync-hard-cutover` makes RxDB the single write path and is therefore blocked
+on a card nobody had written, carrying an open product decision: `ResolveEntityAccess` is a *read*
+fan-out resolver, and extending it to writes invents a permission semantic rather than porting one.
+
+Put to the operator as three user stories; they chose **mirror reads, per table** over one uniform
+predicate and over own-rows-only. The resulting per-table contract, which the new card implements
+verbatim:
+
+| Table | SELECT (shipped) | INSERT/UPDATE (new) |
+|---|---|---|
+| `checklist_templates` | `hq_can_see_template(id)` | **DENY-ALL, deliberately.** The builder keeps the existing REST path; no phone writes a template definition. Asserted by a refusal variant, not left as an absence. |
+| `checklist_submissions` | `hq_can_see_template(template_id)` | `WITH CHECK (hq_can_see_template(template_id))` — closes the lie 0003:243 names ("a pushed row claiming a template_id its author can see"). |
+| `submission_responses` | `hq_can_see_field(field_id)` | `WITH CHECK (hq_can_see_field(field_id))`. Field-scoped, not submission-scoped — `submission_id` is nullable for offline drafts and that is the whole offline story. |
+| `submission_rejections` | **none today — deny-all read** | Approver-only write, and **it also gains a SELECT policy**. |
+
+🛑 **Two consequences the operator's answer forces, recorded so the run does not rediscover them.**
+
+(1) **Approvals must become readable, not only writable.** `submission_rejections` has RLS enabled
+with zero policies today (deny-all both ways, decision-with-evidence via variant V17). A device
+that can write a row it cannot read back breaks replication — the pull would never return what the
+push wrote. So the card adds `for select using (hq_can_see_field(field_id))`, matching
+`submission_responses`: the assignee whose field was rejected must read their own feedback, which
+is the reject-with-comment path crew members actually depend on.
+
+(2) **This is the FIRST place `assignment_role` is filtered on, and it deliberately breaks an
+inherited property.** `hq_can_see_template` never filters on `assignment_role` — an `'approver'`
+sees exactly what an `'assignee'` sees, and card `sync-rxdb-row-visibility-rls` recorded that as
+"knowing, not accidental" with the standing note that **changing it is a separate card**. The
+operator's answer makes writes the place it changes: a new `public.hq_can_approve_template(tid)`
+predicate = `EXISTS` an assignment with `assignment_role = 'approver'` **OR** the unconditional
+`roles && ARRAY['admin','superadmin']` admin arm. Reads keep the old property untouched; only the
+approval WITH CHECK uses the new one. That asymmetry is the decision, not a side effect of it.
+
+**Decision 112 — `api-cache` is NOT retired. `sync-cache-and-identity-hygiene` is re-specified as
+per-identity cache partitioning, and this is a planner call with a code citation behind it.**
+
+The card's obligation 3 has carried "the expected answer is to retire the route entirely — once
+RxDB replicates, offline data comes from IndexedDB and `api-cache` is obsolete" since decision 57.
+**That premise is false, and was already false when written.** `build-sw.js:149` registers
+`urlPattern: /\/api\//` — a NetworkFirst route over **every** endpoint in the app, all five tools.
+RxDB replicates **four** collections, all of them `workflow`. Retiring the route would take offline
+API reads away from Inventory, Users, Onboarding and Purchasing, none of which RxDB has ever
+covered. Decision 105's per-open-checklist scope narrows RxDB's coverage further still, so the
+argument is weaker now than when it was made, not stronger.
+
+Decided rather than escalated (plumbing, §"decide-plumbing-yourself"): the defect obligation 3
+actually names is a **cross-tenant read** — a URL-only cache key with no `Vary`, so user B's device
+serves user A's cached API responses. The fix is to key the cache by identity and purge it when
+identity changes, which is **the same mechanism** obligation 7 needs for `localStorage['hq_apps']`
+(never cleared on logout; `index.html:224` parses the previous user's slug list in the fail-closed
+branch) and for the login-without-logout path. The card therefore collapses from four unrelated
+errands into one mechanism with three call sites, and stops being blocked on a retirement that
+should not happen. Obligation 8 (the stale comment at `tests/sync.spec.js:1584`) rides along
+unchanged.
+
+**Also folded, and stated as a planner call rather than a backlog promotion (§15k bar not invoked):**
+**B-36** goes into the new write-policies card. B-36 is that `internal/sync` prints `ok` and exits 0
+while `t.Skip`-ing the entire RLS attack suite, so the ladder's "9 packages ok" line carries zero
+information about the security gate. The new card's whole gate is a suite of exactly that shape, in
+exactly that package. Writing a second attack suite into a package whose gate cannot prove it ran
+is building on a foundation that needs rip-out — so the fix rides the card that depends on it,
+rather than waiting for a night of its own. Ledger T-29 decision 108's reporting rule stands until
+it lands.
+
+**Tooling, recorded because it degraded this ritual too.** `~/go/bin/night-crew` is still the
+2026-07-23 build with no `workflow` verb (T-29 recorded the same thing); the preflight was run from
+a binary built out of the pinned `night-crew-main` worktree (`258d723`, v3.0.2) into scratch.
+Separately, `night-crew okr grade --repo .` returns **"no metrics.jsonl found under
+.night-crew/runs"** — the live KR grader is **blind in this repo** for the same reason **B-33**
+makes `run-evidence check` blind: the run directories are `2026-08-01-autonomous`, not runid-keyed.
+The milestone remainder in `slate-20260801-2.md` is therefore reported in **cards from the live
+roadmap**, and the KR grades are reported as **unmeasurable here**, not quoted from HANDOFF prose.
+
+**Decision 113 — an uncontested delete beats a concurrent edit, and the discarded edit is REPORTED
+and RECOVERABLE. The silent-loss path is closed by reporting, not by changing who wins.**
+
+The blocker: `sync-rxdb/conflict-handler.js:105-160` carries a `🛑 OPEN QUESTION INHERITED BY
+sync-hard-cutover` and says of itself *"this card has no standing to answer it."* Under the merge
+rule that shipped last night, `_deleted` is not reserved — it merges by the ordinary rule — so a
+fork that sets `_deleted: true` against a master that edited some other field produces an
+**uncontested** delete: it survives, master's edit lands on a tombstone and is annihilated, and
+**nothing is reported**, because no field clashed. Decision 50 does not cover it: decision 50 is
+written about FIELD edits and a delete is not a field edit.
+
+**Verified in the backend before putting it to the operator, because the comment's own history
+shows how easy it is to get wrong** (an earlier draft claimed HQ hard-deletes none of the four
+mirrored tables — false, and the comment says so). HQ hard-deletes **three of the four** from live
+production paths: `saveResponse` (`backend/internal/workflow/repository.go:811`) runs
+`DELETE FROM submission_responses …` whenever the value is null — **that is unchecking a checkbox**,
+the highest-frequency write in the tool; `unsubmitChecklist` (`:1289`, `:1297`) deletes the
+`submission_rejections` rows and then the `checklist_submissions` row; and a template edit that
+removes fields deletes draft responses (`:321`), with `cleanupOldDrafts` (`:1334`) sweeping on a
+schedule. Only `checklist_templates` is delete-free (it archives via `archived_at`). So this is not
+an exotic edge — it is the most likely conflict on this schema, and it is unreachable today on
+exactly one ground: **no HQ page writes through RxDB yet.** `sync-hard-cutover` opens that path.
+
+Put to the operator as three user stories. They chose **the uncheck wins, and the other party is
+told** over *edit-blocks-delete* and over *most-recent-write-wins*.
+
+**Why this is the consistent answer rather than a new policy:** decision 50 already rules that a
+genuine same-field clash falls back to master-wins **and `conflict$` must surface it to the user
+with the discarded value recoverable.** Decision 113 applies that same principle to the case
+decision 50's wording missed. **Who wins does not change** — today's behaviour is already
+"uncontested delete survives", pinned by the named test *`_deleted` participates in the merge — an
+UNCONTESTED local delete survives*. **What changes is that it stops being silent.**
+
+**The spec line `sync-hard-cutover` inherits:** a delete that annihilates a concurrent edit MUST
+emit a conflict record carrying the discarded edit, so it appears on C2's conflict sheet with the
+discarded value restorable — the same surface, the same Restore affordance, no new UI component
+(which matters: a new component would require mockup sign-off an unattended run cannot obtain).
+Rejected framings, recorded so they are not re-derived: *edit-blocks-delete* was rejected because a
+crew member on the truck is the party who observed the item was not done and should not be silently
+overruled by someone who was not there — and a box that re-checks itself is worse than a reported
+loss; *last-write-wins* was rejected because it depends on device clocks agreeing, which is the
+exact assumption class the RxDB migration exists to escape.
+
+🛑 **The existing pinned test must be EXTENDED, not replaced.** It asserts who wins and that stays
+true; the new assertion is that the annihilated edit is reported. A card that rewrites it to assert
+the opposite winner has misread this decision.

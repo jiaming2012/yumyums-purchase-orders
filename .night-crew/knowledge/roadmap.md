@@ -58,6 +58,13 @@
   `@supabase/supabase-js` pin move to the client layer where the client is actually constructed
   (decision 51's substance unchanged, only its address). Activity 1 now holds **9** cards; the
   Delivery per-card-timing KR denominator moves again.
+  **Card AUTHORED 2026-07-31 evening (`/nc-slate-plan`, §1 fork gate — ledger T-30 decision 111):**
+  **`sync-rxdb-write-policies`**. Not a split — a **missing** card.
+  `sync-rxdb-row-visibility-rls` shipped SELECT policies only and deferred writes to "a follow-up
+  card"; no such card existed, so `sync-hard-cutover` — which makes RxDB the single write path —
+  was blocked on nothing at all. Verified at source before authoring: `0003_rls_policies.sql` has
+  zero `WITH CHECK`. Its permission semantic was an open operator decision, resolved inline at slate
+  planning rather than discovered at 3am. The denominator moves again.
 - **Red-first is mandatory on every fix card.**
 - **Per-card wall-clock timing is a standing output** on every build card, continuing the
   "Prove & surface" cycle's practice (T-14 baseline N=23 / 22m28s; last-measured median 94m
@@ -886,22 +893,90 @@
   Footprint: new RxDB client layer, `workflows.html` (import + construction only — the write-path
   swap is `sync-hard-cutover`), `build-sw.js`, `backend/Dockerfile`, `vendor/`.
 
-- **`sync-cache-and-identity-hygiene`** · **PLANNED** · 🛑 **BINDS: the replication-scope rule
-  (ledger T-29 decision 105)** — per-open-checklist scope, never all collections at once. Directly
-  relevant to obligation 3: the `api-cache` retirement argument is *"offline data comes from
-  IndexedDB"*, and under scoped replication IndexedDB holds **only the open checklist**, not the
-  whole dataset. Re-check that the retirement still holds before acting on it. (fanned out of
-  `sync-rxdb-schema-and-replication` obligations 3, 7 and 8 at the 2026-07-28 dissolution; depends
-  on `sync-rxdb-replication-and-conflict-handler` — the `api-cache` retirement is only correct once
-  offline data actually comes from IndexedDB) · **The split is a gain here, and the dissolved card
+- **`sync-rxdb-write-policies`** · **PLANNED — NEW, authored at slate planning 2026-07-31 evening
+  (ledger T-30 decision 111)** · 🛑 **BINDS: the replication-scope rule (ledger T-29 decision 105).**
+  · **Why it exists:** `sync-rxdb-row-visibility-rls` shipped **SELECT policies only** and deferred
+  writes to "a follow-up card that writes `WITH CHECK` policies". **No such card existed.** Verified
+  at source before authoring: `sync-schema/sql/0003_rls_policies.sql` contains zero `WITH CHECK`,
+  zero `FOR INSERT`, zero `FOR UPDATE` — RxDB **push** replication is deny-all today, and
+  `sync-hard-cutover` makes RxDB the single write path. The cutover was blocked on a card nobody had
+  written. Authored here rather than folded into the cutover for the same reason
+  `sync-replication-scope-per-checklist` was: it carries a permission semantic, and hiding a new
+  permission semantic inside a write-path swap is how both get reviewed badly.
+  · **The contract is decided, not open — decision 111, per table:**
+  `checklist_templates` INSERT/UPDATE stay **deny-all** (the builder keeps the REST path; no phone
+  writes a template definition) and a refusal variant asserts it rather than leaving it an absence;
+  `checklist_submissions` gets `WITH CHECK (public.hq_can_see_template(template_id))`, which closes
+  the lie `0003_rls_policies.sql:243` already names by hand; `submission_responses` gets
+  `WITH CHECK (public.hq_can_see_field(field_id))` — **field-scoped, never submission-scoped**,
+  because `submission_id` is nullable for offline drafts and that is the whole offline story;
+  `submission_rejections` gets an **approver-only** write and, necessarily, **a SELECT policy it
+  does not have today**.
+  · 🛑 **Two consequences that are spec lines, not discoveries.** (1) **Approvals must become
+  readable.** `submission_rejections` is RLS-enabled with zero policies — deny-all both ways, and
+  variant V17 asserts it. A device that can write a row it cannot read back breaks replication, so
+  the card adds `for select using (public.hq_can_see_field(field_id))`, matching
+  `submission_responses`: the assignee whose field was rejected must be able to read their own
+  feedback. (2) **This is the FIRST place `assignment_role` is filtered on.** `hq_can_see_template`
+  deliberately never filters on it — an `'approver'` sees what an `'assignee'` sees, recorded as
+  "knowing, not accidental", with the standing note that changing it is a separate card. Decision
+  111 changes it **on the write side only**: a new `public.hq_can_approve_template(tid)` =
+  `EXISTS` an assignment with `assignment_role = 'approver'` **OR** the unconditional
+  `roles && ARRAY['admin','superadmin']` admin arm. Reads keep the old property byte-for-byte. That
+  asymmetry is the decision; do not "tidy" it by making reads match.
+  · **Its gate is an attack-variant suite, red-first**, extending the shipped 27-subtest
+  `backend/internal/sync/rowvisibility_rls_test.go` rather than starting a new file — write variants
+  first (push a submission claiming a template you cannot see; push a response on a field you cannot
+  see; push a template edit as an assignee; write an approval as a plain assignee; write an approval
+  as an approver — positive; admin writes everything — positive), each captured **refusing before
+  the policy that refuses it is written**. A 200 alone proves nothing; keep the `service_role`
+  BYPASSRLS control and the population floors that rule out "the table was empty."
+  · **🛑 ALSO FIXES B-36, and that is not a scope breach — it is this card's own gate.** `internal/sync`
+  prints `ok` and exits 0 while `t.Skip`-ing the entire RLS suite whenever `resolveSpikeConfig`'s
+  `docker compose … port` shell-out fails for any reason, so the package `ok` line carries **zero**
+  information about whether the security suite ran. This card doubles that suite's size; shipping a
+  second attack suite into a package whose gate cannot prove it executed is building on a foundation
+  that needs rip-out. Gate `t.Skip` on an explicit `HQ_SYNC_SUBSTRATE_OPTIONAL=1` opt-out and
+  `t.Fatal` otherwise. Ledger T-29 decision 108's reporting rule stands until this lands.
+  · **PARK triggers:** a write predicate the operator has not decided (anything beyond the four
+  rows of decision 111's table); a schema change to HQ's own tables (this card is substrate-side
+  policies plus Go tests — it must not need a `backend/migrations/` file); `submission_responses`
+  turning out to need submission-scoped writes after all, which would reopen the offline-draft story.
+  · Footprint: `sync-schema/sql/0003_rls_policies.sql` (or a new `0004_write_policies.sql`),
+  `backend/internal/sync/rowvisibility_rls_test.go`, `backend/internal/sync` (the `resolveSpikeConfig`
+  skip path, B-36).
+
+- **`sync-cache-and-identity-hygiene`** · **PLANNED — RE-SPECIFIED 2026-07-31 evening (ledger T-30
+  decision 112): the `api-cache` retirement is STRUCK, and the card is now per-identity cache
+  partitioning.** 🛑 **The retirement premise was false, and verified false at source:**
+  `build-sw.js:149` registers `urlPattern: /\/api\//` — a NetworkFirst route over **every** endpoint
+  in the app, all five tools. RxDB replicates **four** collections, all of them `workflow`. Retiring
+  the route would take offline API reads away from Inventory, Users, Onboarding and Purchasing,
+  which RxDB has never covered; decision 105's per-open-checklist scope narrows RxDB's coverage
+  further, so the argument is weaker now than when it was made. **What obligation 3 actually names
+  is a cross-tenant read** — a URL-only cache key with no `Vary`, so user B's device serves user A's
+  cached API responses. **The card's mechanism is therefore: key the cache by identity and purge it
+  when identity changes** — which is the SAME mechanism obligations 7(a) and 7(b) need, so the card
+  collapses from four errands into one mechanism with three call sites. **Red-first is mandatory:**
+  the red is a test in which user A's cached API response is served to user B on the same device.
+  · **BINDS: the replication-scope rule (ledger T-29 decision 105)** — but note the rule no longer
+  *blocks* this card, it only explains why the retirement is wrong. (fanned out of
+  `sync-rxdb-schema-and-replication` obligations 3, 7 and 8 at the 2026-07-28 dissolution; ~~depends
+  on `sync-rxdb-replication-and-conflict-handler`~~ — **that dependency is DISCHARGED and, under
+  decision 112, was never load-bearing anyway: it existed only to make the retirement correct, and
+  there is no retirement**) · **The split is a gain here, and the dissolved card
   said why:** it carried these under an *"accepted cost: if this card slips, they slip with it."*
   They no longer ride the biggest card in the cycle, and three of the four items are cross-tenant
   disclosures.
-  **Obligation 3 — `api-cache`, decision 57, structural half.** The URL-only cache key with no
-  `Vary` (`build-sw.js:60-78`) is a cross-tenant read. The immediate mitigation already shipped in
-  `pwa-cache-and-build-hygiene`; this card owns the design, and **the expected answer is to retire
-  the route entirely** — once RxDB replicates, offline data comes from IndexedDB and `api-cache` is
-  obsolete.
+  **Obligation 3 — `api-cache`, decision 57, structural half. ~~Retire the route entirely.~~
+  SUPERSEDED by decision 112 — partition it by identity instead.** The URL-only cache key with no
+  `Vary` is a cross-tenant read; the immediate mitigation already shipped in
+  `pwa-cache-and-build-hygiene`, and this card owns the structural fix. *(The struck text read:
+  "the expected answer is to retire the route entirely — once RxDB replicates, offline data comes
+  from IndexedDB and `api-cache` is obsolete." Kept as the record of why the obligation exists.
+  It is wrong for the reason recorded above: the route covers all five tools and RxDB covers four
+  `workflow` collections.)* Note also that the cited anchor `build-sw.js:60-78` has **moved** — the
+  route now registers at `:149`; find it by `cacheName: 'api-cache'`, not by line (B-25).
   **Obligation 7 — two more `api-cache`-shaped disclosures, decision 70.** (a)
   `localStorage['hq_apps']` is never cleared on logout, and `index.html:224` still parses the
   previous user's cached slug list in the fail-closed branch — offline on a shared truck phone,
@@ -1577,7 +1652,28 @@
   `tests/sync-rxdb-client.spec.js`. **Red-first is mandatory:** the red is a test asserting a
   device does NOT hold rows for a checklist it never opened.
 
-- **`sync-hard-cutover`** · **PLANNED — LAST** · 🛑 **BINDS: the replication-scope rule (ledger
+- **`sync-hard-cutover`** · **PLANNED — LAST · SLATED 2026-07-31 evening as BUDGET-GATED STRETCH on
+  `overnight-20260801-2`** (started only if `sync-replication-scope-per-checklist` and
+  `sync-rxdb-write-policies` both land clean with this card's full estimate + closeout still in
+  hand). · ✅ **ITS INHERITED PRODUCT FORK IS RESOLVED — ledger T-30 decision 113, so this card is
+  fork-free and slateable.** `sync-rxdb/conflict-handler.js:105-160`'s `🛑 OPEN QUESTION INHERITED
+  BY sync-hard-cutover` — *"should an intentional delete beat a concurrent edit?"* — is answered:
+  **the uncontested delete still wins, and the annihilated edit is REPORTED and RECOVERABLE.** Who
+  wins does not change; the silence does. The card MUST emit a conflict record carrying the
+  discarded edit so it lands on C2's existing conflict sheet with the Restore affordance — **the
+  same surface, no new component** (a new component would need mockup sign-off an unattended run
+  cannot obtain). 🛑 **EXTEND the pinned test *`_deleted` participates in the merge — an UNCONTESTED
+  local delete survives*, do not replace it** — it asserts the winner and the winner is unchanged;
+  the new assertion is that the loss is reported. Rejected framings, recorded so they are not
+  re-derived: *edit-blocks-delete* (a crew member on the truck observed the item was not done and
+  should not be silently overruled by someone who was not there; a box that re-checks itself is
+  worse than a reported loss) and *last-write-wins* (depends on device clocks agreeing — the exact
+  assumption class this migration exists to escape). **Why it is not an edge case:** HQ hard-deletes
+  three of the four mirrored tables from live paths — `saveResponse` (`repository.go:811`) DELETEs a
+  response whenever a value goes null, **which is unchecking a checkbox**, the tool's
+  highest-frequency write. · **Two further inherited notes, engineering-level, not forks:**
+  `makeSyncFetch` loses method and body when handed a `Request` argument, and `formatValue`'s
+  now-bounded unwrap needs care once a network-fed producer exists. · 🛑 **BINDS: the replication-scope rule (ledger
   T-29 decision 105).** Replication scope is **per-open-checklist, never all collections at once**.
   This card owns the write path and is the moment the scope becomes load-bearing: `startHQReplication`
   today loops all four collections with `pull:{batchSize:50}` and **no selector**, which is what
@@ -1586,6 +1682,10 @@
   scope without a recorded decision. (dependency restated at the 2026-07-28 dissolution:
   depends on **all three** of `sync-rxdb-collections-and-table-contract`,
   `sync-rxdb-row-visibility-rls` and `sync-rxdb-replication-and-conflict-handler`, plus jwt-bridge.
+  🛑 **AND, added 2026-07-31 evening: `sync-rxdb-write-policies` and
+  `sync-replication-scope-per-checklist`.** The write-policies dependency is **hard and was
+  previously invisible** — RxDB push is deny-all until `WITH CHECK` policies exist, so this card
+  cannot make RxDB the single write path without it. That is now five dependencies, not three.
   🛑 **Row-visibility RLS is not optional for this card specifically** — the cutover makes RxDB the
   single write path, which means it is also the moment `HQ_SYNC_REST_URL` gets set in a real
   deploy) · Replace
