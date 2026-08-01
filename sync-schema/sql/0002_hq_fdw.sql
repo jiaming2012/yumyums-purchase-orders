@@ -228,6 +228,44 @@ begin
     execute format(
       'alter foreign table public.hq_field_templates options (set schema_name %L)', v_schema);
   end if;
+
+  -- 3d. 🛑 THE APPROVER ARM — added by card `sync-rxdb-write-policies`
+  --     (overnight-20260802, A2) under ledger T-30 decision 111,
+  --     consequence (2). Its HQ-side counterpart is migration
+  --     0074_sync_fdw_approver_view.sql.
+  --
+  --     READ §3a AGAIN BEFORE TOUCHING EITHER OF THESE TWO BLOCKS. §3a says
+  --     `hq_template_assignees` does NOT carry `assignment_role` so it cannot
+  --     be filtered on by accident, and THAT IS STILL TRUE — 3a above is
+  --     byte-unchanged. This is a DIFFERENT relation, over a DIFFERENT view,
+  --     which is PRE-FILTERED to `assignment_role = 'approver'` on HQ's side.
+  --
+  --     The asymmetry is decision 111 itself, not an inconsistency to tidy:
+  --
+  --       READS   scope by `hq_can_see_template` / `hq_can_see_field`, which
+  --               name `hq_template_assignees` and never this table. An
+  --               approver sees exactly what an assignee sees. UNCHANGED.
+  --       WRITES  to `submission_rejections` scope by `hq_can_approve_field`,
+  --               which names THIS table and never the other. A plain
+  --               assignee cannot reject their own work.
+  --
+  --     🛑 A future edit that "unifies" the two by adding an `assignment_role`
+  --     column to 3a and deleting this block has handed every assignee the
+  --     approver's write. A future edit that makes READS use this table has
+  --     blinded every approver to the checklist they are supposed to approve
+  --     (0073 §1's warning, verbatim). Variants W9 and WP5 in
+  --     backend/internal/sync/rowvisibility_rls_test.go fail in one direction
+  --     each; keep both.
+  if to_regclass('public.hq_template_approvers') is null then
+    execute format(
+      'create foreign table public.hq_template_approvers ('
+      '  template_id text, user_id text'
+      ') server hq_pg options (schema_name %L, table_name %L)',
+      v_schema, 'hq_sync_template_approvers');
+  else
+    execute format(
+      'alter foreign table public.hq_template_approvers options (set schema_name %L)', v_schema);
+  end if;
 end
 $$;
 
@@ -277,6 +315,13 @@ $$;
 revoke all on public.hq_template_assignees from anon, authenticated, service_role, public;
 revoke all on public.hq_user_roles         from anon, authenticated, service_role, public;
 revoke all on public.hq_field_templates    from anon, authenticated, service_role, public;
+-- 🛑 §3d's relation. A readable `hq_template_approvers` is one GET returning
+-- every approver of every template — narrower than `hq_template_assignees` but
+-- the same KIND of leak, and the F4 measurement above (service_role held SELECT
+-- on a brand-new foreign table on this image) applies to it identically. It is
+-- on this list from the moment it exists, not after somebody measures it again.
+-- Variant V20 asserts the refusal directly rather than trusting the revoke.
+revoke all on public.hq_template_approvers from anon, authenticated, service_role, public;
 
 -- PostgREST caches the schema; new relations are 404 until it reloads.
 notify pgrst, 'reload schema';
