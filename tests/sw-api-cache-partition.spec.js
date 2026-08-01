@@ -142,10 +142,29 @@ test('offline, user B is served user A cached /api/v1/users roster from api-cach
 });
 
 test('api-cache entries are keyed by the identity that fetched them [B1-XT-02]', async ({ page }) => {
-  // The structural half. Even if every purge call site were deleted, a cache
-  // key that carries the fetching identity cannot be read back under another
-  // one. This asserts the key SHAPE, which is what a later diff can be checked
-  // against — see merge-intent-b1-sync-cache-and-identity-hygiene.md.
+  // The structural half. This asserts the key SHAPE, which is what a later diff
+  // can be checked against — see merge-intent-b1-sync-cache-and-identity-hygiene.md.
+  //
+  // 🛑 WHAT THIS DEFENDS, honestly. This comment used to claim a key carrying
+  // the fetching identity "cannot be read back under another one". That is
+  // FALSE and the B1 fix round's reviewer proved it by execution, three ways:
+  //   (i)   the victim's uuid is IN the key, and `caches.open('api-cache')
+  //         .keys()` enumerates it to any script on the page;
+  //   (ii)  `caches.open('api-cache').match(<that key>)` returns another
+  //         partition's full body directly — CacheStorage is same-origin and
+  //         JS-readable, so the partition is not a boundary against page script
+  //         at ALL;
+  //   (iii) page JS can `put()` a victim uuid into `/__hq_identity` and the
+  //         worker will then serve that partition at 200.
+  // `workflows.html` loads SortableJS from a CDN, so "a script on the page" is
+  // not hypothetical in this app.
+  //
+  // What the partition DOES defend is the shared-device, honest-user case: user
+  // B, using the app as intended on a phone user A held earlier, is never
+  // SERVED A's rows by the offline fallback. That is obligation 7 and it is the
+  // whole of it. An XSS or a hostile dependency is a different threat with a
+  // different mitigation (CSP, self-hosting the CDN) and this mechanism does not
+  // claim it. Merge-intent §2.4 states the same limit; keep the two in step.
   await login(page);
   await awaitSwControl(page);
 
@@ -170,11 +189,95 @@ test('api-cache entries are keyed by the identity that fetched them [B1-XT-02]',
   await page.evaluate(async () => { await fetch('/api/v1/users'); });
   await page.evaluate(async () => { await fetch('/api/v1/me/apps'); });
 
+  // 🛑 `fetch()` does NOT await the cachePut. Reading the keys straight after
+  // the two fetches races the second write, and in EVERY observed green run of
+  // this test exactly ONE key was present — the `keys.length > 0` floor held,
+  // so the test was not vacuous, but it was asserting over half the subject set
+  // it sets up and one scheduling change away from asserting over none. Wait for
+  // BOTH writes to be observable before reading. (B1 fix round, NON-BLOCKING-8.)
+  //
+  // This waits on PRESENCE, never on partitioning: on a tree with the partition
+  // deleted both keys still land (unpartitioned), so this still falls through to
+  // the assertion below, which prints them. It cannot convert a red into a
+  // timeout with nothing to show.
+  await page.waitForFunction(async () => {
+    if (!(await caches.keys()).includes('api-cache')) return false;
+    const c = await caches.open('api-cache');
+    const urls = (await c.keys()).map(r => r.url);
+    return urls.some(u => u.includes('/api/v1/users')) && urls.some(u => u.includes('/api/v1/me/apps'));
+  }, null, { timeout: 20000 });
+
   const keys = await apiCacheKeys(page);
   console.log('[B1-XT-02] api-cache keys:', JSON.stringify(keys, null, 2));
-  // Non-empty subject set FIRST — otherwise the forEach below passes vacuously.
-  expect(keys.length).toBeGreaterThan(0);
+  // Non-empty subject set FIRST — otherwise the loop below passes vacuously.
+  // Both endpoints, not "at least one": the count is the subject-set floor.
+  expect(keys.length).toBeGreaterThanOrEqual(2);
+  expect(keys.filter(u => u.includes('/api/v1/users')).length).toBe(1);
+  expect(keys.filter(u => u.includes('/api/v1/me/apps')).length).toBe(1);
   for (const url of keys) {
     expect(new URL(url).searchParams.get('__hq_id')).toBe(String(me.id));
   }
+});
+
+// ---------------------------------------------------------------------------
+// BLOCKING-1 (B1 fix round). `cacheWillUpdate` was a hook NO test defended: the
+// reviewer deleted it whole and the suite went 13/13 green.
+//
+// [B1-XT-02] cannot catch it STRUCTURALLY — it waits for `hq-identity` to
+// appear, THEN clears `api-cache`, THEN fetches, so by construction every write
+// it observes happens with an identity already present. The boot window the hook
+// exists to close is never entered there. This test enters it.
+//
+// What ships without this guard: on any device between page load and the
+// `/api/v1/me` answer — and PERMANENTLY on any device where `index.html` has
+// never run — API responses are written under `__hq_id=anon`, a partition every
+// subsequent user of that phone shares. A smaller instance of the exact bug this
+// card exists to close, and the diff would be green.
+// ---------------------------------------------------------------------------
+test('with no device identity the worker writes NOTHING to api-cache [B1-XT-05]', async ({ page }) => {
+  await login(page);
+  await awaitSwControl(page);
+
+  // ── POSITIVE CONTROL, first and in the same test. ────────────────────────
+  // `fetch()` does not await the cachePut, so "nothing is in the cache" a
+  // moment after a fetch is NOT by itself evidence of anything — it is equally
+  // consistent with a write that simply has not landed. This leg measures that
+  // a write IS observable, with identity present, well inside the window the
+  // negative leg then waits out. Without it the assertion below is the vacuous
+  // shape B-22/B-23/B-24 name.
+  await page.evaluate(async () => { await caches.delete('api-cache'); });
+  await page.evaluate(async () => { await fetch('/api/v1/users'); });
+  const control = Date.now();
+  await page.waitForFunction(async () => {
+    if (!(await caches.keys()).includes('api-cache')) return false;
+    const c = await caches.open('api-cache');
+    return (await c.keys()).some(r => r.url.includes('/api/v1/users'));
+  }, null, { timeout: 20000 });
+  console.log('[B1-XT-05] control: write observable after', Date.now() - control, 'ms');
+
+  // ── THE BOOT WINDOW: the device cannot name its user. ────────────────────
+  await page.evaluate(async () => {
+    await caches.delete('hq-identity');
+    await caches.delete('api-cache');
+  });
+  await page.evaluate(async () => { await fetch('/api/v1/users'); });
+  await page.waitForTimeout(6000); // >> the control's observed latency
+
+  const keys = await apiCacheKeys(page);
+  console.log('[B1-XT-05] api-cache keys with no identity:', JSON.stringify(keys));
+
+  // The window must actually have been ENTERED. If anything re-established the
+  // token mid-test, everything below would be a statement about the wrong
+  // state — so prove the precondition rather than assume it.
+  const identityGone = await page.evaluate(async () => {
+    if (!(await caches.keys()).includes('hq-identity')) return true;
+    const r = await (await caches.open('hq-identity')).match('/__hq_identity');
+    return !r || !(await r.text()).trim();
+  });
+  expect(identityGone).toBe(true);
+
+  // No identity ⇒ `cacheKeyWillBeUsed` would key every write `__hq_id=anon`.
+  // The presence of ANY such key is the shared-partition bug arriving.
+  expect(keys.filter(u => new URL(u).searchParams.get('__hq_id') === 'anon')).toEqual([]);
+  expect(keys.some(u => u.includes('/api/v1/users'))).toBe(false);
 });
