@@ -288,43 +288,98 @@ const NEVER = {
   fieldIds: ['fld-never-x'],
 };
 
+// 🛑 G6 CORRECTION (F-2) — THE SIBLING. The fixture used to hold exactly one
+// checklist per template and one approval per field id, which made two
+// wrong-but-plausible scopes INDISTINGUISHABLE from the correct one. The
+// reviewer mutated the fix to `checklists: template_id.eq.<templateId>` and to
+// `approvals: field_id.in.(<fieldIds>)` and the suite stayed 6/6 green.
+//
+// Both mutations are realistic wrong answers, not strawmen: in HQ a template is
+// filled DAILY and `checklist_submissions` grows one row per fill forever
+// (`template_id.eq` is therefore a textbook C-2 violation), and field ids are
+// per-template-VERSION and shared by every submission of that template
+// (`field_id.in` therefore pulls every rejection on those fields across all
+// submissions ever taken).
+//
+// `SIBLING` is a second submission of the OPEN checklist's OWN template that
+// this device never opened — yesterday's fill of today's checklist. It is what
+// separates "scoped to the open checklist" from "scoped to its template".
+const SIBLING = {
+  checklistId: 'chk-sibling-00-0000-0000-000000000004',
+  // Same template, same field ids as OPEN — that is the whole point.
+  templateId: null,
+  fieldIds: null,
+};
+
 const SCOPE_FIXTURE = {
   templates: [
-    { id: OPEN.templateId, archived_at: null },
-    { id: NEVER.templateId, archived_at: null },
-    { id: 'tpl-archived-00-0000-0000-000000000003', archived_at: '2026-01-01T00:00:00Z' },
+    { id: OPEN.templateId, archived_at: null, _modified: '2026-07-20T00:00:00Z' },
+    { id: NEVER.templateId, archived_at: null, _modified: '2026-07-19T00:00:00Z' },
+    {
+      id: 'tpl-archived-00-0000-0000-000000000003',
+      archived_at: '2026-01-01T00:00:00Z',
+      _modified: '2026-01-01T00:00:00Z',
+    },
   ],
   checklists: [
-    { id: OPEN.checklistId, template_id: OPEN.templateId },
-    { id: NEVER.checklistId, template_id: NEVER.templateId },
+    { id: OPEN.checklistId, template_id: OPEN.templateId, _modified: '2026-08-02T08:10:00Z' },
+    // OUT of scope, and the discriminator: SAME template as the open checklist,
+    // different submission. `template_id.eq.<templateId>` returns this row.
+    { id: SIBLING.checklistId, template_id: OPEN.templateId, _modified: '2026-08-01T07:00:00Z' },
+    { id: NEVER.checklistId, template_id: NEVER.templateId, _modified: '2026-08-01T09:00:00Z' },
   ],
   responses: [
     // In scope: submitted answers on the open checklist.
-    { id: 'rsp-1', submission_id: OPEN.checklistId, field_id: OPEN.fieldIds[0] },
-    { id: 'rsp-2', submission_id: OPEN.checklistId, field_id: OPEN.fieldIds[1] },
+    {
+      id: 'rsp-1', submission_id: OPEN.checklistId, field_id: OPEN.fieldIds[0], _modified: '2026-08-02T08:10:00Z',
+    },
+    {
+      id: 'rsp-2', submission_id: OPEN.checklistId, field_id: OPEN.fieldIds[1], _modified: '2026-08-02T08:10:00Z',
+    },
     // In scope: a DRAFT on the open checklist. `submission_id` is null until
     // submit (migration 0012's partial unique index), and drafts are precisely
     // what a crew member fills offline — the collection that must sync best is
     // the one whose FK is absent.
-    { id: 'rsp-3', submission_id: null, field_id: OPEN.fieldIds[0] },
+    {
+      id: 'rsp-3', submission_id: null, field_id: OPEN.fieldIds[0], _modified: '2026-08-02T08:10:00Z',
+    },
     // OUT of scope: a submitted answer on a checklist never opened here.
-    { id: 'rsp-4', submission_id: NEVER.checklistId, field_id: NEVER.fieldIds[0] },
+    {
+      id: 'rsp-4', submission_id: NEVER.checklistId, field_id: NEVER.fieldIds[0], _modified: '2026-08-01T09:00:00Z',
+    },
     // OUT of scope: someone else's draft, on a field this device never saw.
-    { id: 'rsp-5', submission_id: null, field_id: NEVER.fieldIds[0] },
+    {
+      id: 'rsp-5', submission_id: null, field_id: NEVER.fieldIds[0], _modified: '2026-08-01T09:00:00Z',
+    },
+    // OUT of scope, and the F-2 discriminator for this collection: yesterday's
+    // SUBMITTED answer on the same template, therefore on an OPEN field id.
+    // `field_id.in.(<OPEN fields>)` alone returns this row.
+    {
+      id: 'rsp-6', submission_id: SIBLING.checklistId, field_id: OPEN.fieldIds[0], _modified: '2026-08-01T07:00:00Z',
+    },
   ],
   approvals: [
-    { id: 'apr-1', submission_id: OPEN.checklistId, field_id: OPEN.fieldIds[0] },
-    { id: 'apr-2', submission_id: NEVER.checklistId, field_id: NEVER.fieldIds[0] },
+    {
+      id: 'apr-1', submission_id: OPEN.checklistId, field_id: OPEN.fieldIds[0], _modified: '2026-08-02T08:11:00Z',
+    },
+    {
+      id: 'apr-2', submission_id: NEVER.checklistId, field_id: NEVER.fieldIds[0], _modified: '2026-08-01T09:05:00Z',
+    },
+    // OUT of scope, and the F-2 discriminator: a rejection on an OPEN field id
+    // but on YESTERDAY'S submission. `field_id.in.(<OPEN fields>)` returns it.
+    {
+      id: 'apr-3', submission_id: SIBLING.checklistId, field_id: OPEN.fieldIds[0], _modified: '2026-08-01T07:05:00Z',
+    },
   ],
 };
 
-// The rows a device that never opened `NEVER.checklistId` must NOT end up
+// The rows a device that only ever opened `OPEN.checklistId` must NOT end up
 // holding. Named per collection so a shrunk fixture reds rather than passes.
 const MUST_NOT_HOLD = {
   templates: [NEVER.templateId],
-  checklists: [NEVER.checklistId],
-  responses: ['rsp-4', 'rsp-5'],
-  approvals: ['apr-2'],
+  checklists: [NEVER.checklistId, SIBLING.checklistId],
+  responses: ['rsp-4', 'rsp-5', 'rsp-6'],
+  approvals: ['apr-2', 'apr-3'],
 };
 const MUST_HOLD = {
   templates: [OPEN.templateId],
@@ -369,20 +424,37 @@ function parseClause(raw) {
   const m = /^"([^"]+)"\.([a-z]+)\.(.*)$/s.exec(s);
   if (!m) throw new Error('[scope-harness] cannot parse PostgREST clause: ' + s);
   const [, col, op, rest] = m;
-  if (op === 'eq') return (row) => String(row[col]) === rest;
+  // Values may be double-quoted (which is how the scope emits them since the
+  // G6 F-4 fix) or bare (which is how the vendored plugin emits its own
+  // checkpoint clause). Both reach this parser, so both are read here.
+  if (op === 'eq') return (row) => String(row[col]) === unquote(rest);
+  if (op === 'gt') return (row) => String(row[col]) > unquote(rest);
   if (op === 'is') {
     if (rest !== 'null') throw new Error('[scope-harness] only is.null is supported: ' + s);
     return (row) => row[col] === null || row[col] === undefined;
   }
   if (op === 'in') {
-    const vals = splitTop(rest.replace(/^\(|\)$/g, ''), ',').map((v) => v.trim().replace(/^"|"$/g, ''));
+    const vals = splitTop(rest.replace(/^\(|\)$/g, ''), ',').map((v) => unquote(v.trim()));
     return (row) => vals.includes(String(row[col]));
   }
   throw new Error('[scope-harness] unsupported PostgREST operator: ' + op);
 }
 
+// PostgREST's logic-tree grammar lets a value be double-quoted so it can carry
+// `,` `(` `)` without being read as structure. Strip one layer, unescaping the
+// way the grammar escapes.
+function unquote(raw) {
+  const s = raw.trim();
+  if (s.length >= 2 && s.startsWith('"') && s.endsWith('"')) {
+    return s.slice(1, -1).replace(/\\(["\\])/g, '$1');
+  }
+  return s;
+}
+
 function fakeQuery(rows, log) {
   const preds = [];
+  const orderBy = [];
+  let lim = null;
   const q = {
     select(cols) { log.push(['select', cols]); return q; },
     eq(col, val) { log.push(['eq', col, val]); preds.push((r) => String(r[col]) === String(val)); return q; },
@@ -404,10 +476,25 @@ function fakeQuery(rows, log) {
       preds.push((r) => parts.some((p) => p(r)));
       return q;
     },
-    order() { return q; },
-    limit() { return q; },
+    // Real, not a no-op: the plugin derives its next checkpoint from
+    // `lastOfArray(data)`, so which row is LAST is load-bearing. It orders by
+    // `(_modified asc, id asc)` — read out of the bundle, same place the
+    // checkpoint clause is.
+    order(col, o) { orderBy.push([col, !o || o.ascending !== false]); return q; },
+    limit(n) { lim = n; return q; },
     // What PostgREST would return for the accumulated (ANDed) filters.
-    rows() { return rows.filter((r) => preds.every((p) => p(r))); },
+    rows() {
+      let out = rows.filter((r) => preds.every((p) => p(r)));
+      for (const [col, asc] of [...orderBy].reverse()) {
+        out = [...out].sort((a, b) => {
+          const x = String(a[col]);
+          const y = String(b[col]);
+          if (x === y) return 0;
+          return (x < y ? -1 : 1) * (asc ? 1 : -1);
+        });
+      }
+      return lim == null ? out : out.slice(0, lim);
+    },
   };
   return q;
 }
@@ -424,7 +511,11 @@ async function pullEachCollection(scope) {
     scope,
     waitForLeadership: false,
     replicate: (o) => {
-      captured[o.collectionKey || o.tableName] = o;
+      // Keyed by `tableName`, which the plugin needs anyway. The card shipped
+      // an extra `collectionKey` option purely so this recorder could key on
+      // it; the G6 round deleted it as dead production code (F-8) and this is
+      // the proof it was never needed.
+      captured[o.tableName] = o;
       return { conflict$: { subscribe() {} } };
     },
   });
@@ -464,7 +555,28 @@ test.describe('[SCOPE-01] replication is scoped to the open checklist (C-2)', ()
       for (const id of MUST_NOT_HOLD[key]) expect(ids).toContain(id);
       for (const id of MUST_HOLD[key]) expect(ids).toContain(id);
     }
-    expect(SCOPE_FIXTURE.responses.length).toBe(5);
+    expect(SCOPE_FIXTURE.responses.length).toBe(6);
+    // 🛑 F-2. These four rows are what makes the fixture DISCRIMINATING rather
+    // than merely populated. Without them, `checklists: template_id.eq.<tpl>`
+    // and `approvals/responses: field_id.in.(<fields>)` are indistinguishable
+    // from the correct per-checklist scope, and both mutations pass.
+    expect(
+      SCOPE_FIXTURE.checklists.filter((r) => r.template_id === OPEN.templateId).length,
+      'need >1 checklist on the OPEN template or `template_id.eq` looks correct',
+    ).toBeGreaterThan(1);
+    expect(
+      SCOPE_FIXTURE.approvals.filter(
+        (r) => OPEN.fieldIds.includes(r.field_id) && r.submission_id !== OPEN.checklistId,
+      ).length,
+      'need an approval on an OPEN field id but a different submission, or `field_id.in` looks correct',
+    ).toBeGreaterThan(0);
+    expect(
+      SCOPE_FIXTURE.responses.filter(
+        (r) => OPEN.fieldIds.includes(r.field_id)
+          && r.submission_id !== null && r.submission_id !== OPEN.checklistId,
+      ).length,
+      'need a SUBMITTED response on an OPEN field id but a different submission',
+    ).toBeGreaterThan(0);
   });
 
   test('the vendored plugin still offers pull.queryBuilder as the scoping seam', () => {
@@ -529,6 +641,253 @@ test.describe('[SCOPE-01] replication is scoped to the open checklist (C-2)', ()
       expect(pulled[key].opts.pull.batchSize).toBe(50);
       expect(pulled[key].opts.push.batchSize).toBe(50);
     }
+  });
+
+  test('scope values are QUOTED, so an id cannot rewrite the predicate [F-4]', async () => {
+    const { serializeFilter, startHQReplication } = await loadClient();
+    // The column was quoted and the value was not, so `,` inside a value was
+    // read as grammar. Both halves of the fix are asserted: the value is now
+    // quoted, AND a value carrying logic-tree punctuation is refused outright.
+    expect(serializeFilter({ op: 'eq', column: 'id', value: 'abc' })).toBe('"id".eq."abc"');
+    expect(serializeFilter({ op: 'in', column: 'field_id', values: ['a', 'b'] }))
+      .toBe('"field_id".in.("a","b")');
+
+    const db = { templates: {}, checklists: {}, responses: {}, approvals: {} };
+    const replicate = () => ({ conflict$: { subscribe() {} } });
+    expect(() => startHQReplication(db, {}, {
+      replicate,
+      scope: {
+        // The reviewer's payload: a predicate true for every row, reached
+        // THROUGH the thing this card calls a gate.
+        checklistId: 'x,"id".not.is.null',
+        templateId: OPEN.templateId,
+      },
+    })).toThrow(/checklistId must match/);
+  });
+
+  test('an omitted templateId is REFUSED, not widened to every template [F-5]', async () => {
+    // This used to fall back to `archived_at.is.null` — the whole non-archived
+    // collection — on a FORGOTTEN OPTIONAL ARGUMENT. C-2 requires a recorded
+    // decision to widen; forgetting an argument is not one.
+    const { startHQReplication, scopeFilterFor } = await loadClient();
+    const db = { templates: {}, checklists: {}, responses: {}, approvals: {} };
+    const replicate = () => ({ conflict$: { subscribe() {} } });
+    expect(() => startHQReplication(db, {}, {
+      replicate,
+      scope: { checklistId: OPEN.checklistId },
+    })).toThrow(/templateId/);
+    // ...and there is no code path left that returns the widening filter.
+    expect(scopeFilterFor('templates', {
+      checklistId: OPEN.checklistId,
+      templateId: OPEN.templateId,
+    })).toEqual({ op: 'eq', column: 'id', value: OPEN.templateId });
+  });
+
+  test('a collection with no scope case refuses EAGERLY, not inside pull.handler [F-3]', async () => {
+    // The plugin wraps `pull.handler` in `try{…}catch{ emit RC_PULL; retry }`,
+    // an unbounded loop feeding an error stream nobody subscribes to. A
+    // refusal raised in there is not a refusal, it is a spin. Assert the throw
+    // happens while BUILDING the builder.
+    const { scopePlanFor, makePullQueryBuilder } = await loadClient();
+    const scope = { checklistId: OPEN.checklistId, templateId: OPEN.templateId };
+    expect(() => scopePlanFor('a_fifth_collection', scope)).toThrow(/pulled whole/);
+    expect(() => makePullQueryBuilder('a_fifth_collection', scope)).toThrow(/pulled whole/);
+    // The bundle really does swallow handler throws into a retry.
+    const bundle = fs.readFileSync(BUNDLE_PATH, 'utf8');
+    expect(bundle).toContain('RC_PULL');
+  });
+});
+
+// ===========================================================================
+// [SCOPE-02] THE CHECKPOINT IS PART OF THE SCOPE — G6 finding F-1.
+//
+// THE DEFECT THIS SECTION PROVES AND THEN PINS. The card shipped
+// `replicationIdentifier: "hq-sync-" + table`, deliberately WITHOUT the scope,
+// and recorded that as a settled decision in the code comment and in the
+// roadmap. Measured against `vendor/rxdb.bundle.js` it is data loss:
+//
+//   this.metaInfoPromise = (async () => {
+//     var g = "rx-replication-meta-"
+//           + await n.database.hashFunction(
+//               [this.collection.name, this.replicationIdentifier].join("-"));
+//
+// The persisted checkpoint is keyed by `[collection.name, replicationIdentifier]`
+// and BY NOTHING ELSE — the scope is not in the key. The pull's returned
+// checkpoint is `lastOfArray(data)` → `{id, modified}` of the last row IN THE
+// SCOPED RESULT SET, and the next pull ANDs
+// `or("_modified".gt.C, and("_modified".eq.C,"id".gt.I))` onto the query. So one
+// identifier across scopes means:
+//
+//   open today's checklist   → rows, checkpoint = today's newest _modified
+//   open YESTERDAY's         → every row is <= C → ZERO rows, permanently
+//
+// The harness below runs the plugin's pull construction TWICE, carrying the
+// checkpoint through a meta store keyed exactly the way RxDB keys its own.
+// ===========================================================================
+
+const TABLE_BY_KEY = {
+  templates: 'checklist_templates',
+  checklists: 'checklist_submissions',
+  responses: 'submission_responses',
+  approvals: 'submission_rejections',
+};
+
+// What a device scoped to `NEVER` must receive. Non-empty per collection, so
+// "it returned nothing" cannot pass.
+const IN_SCOPE_OF_NEVER = {
+  templates: [NEVER.templateId],
+  checklists: [NEVER.checklistId],
+  responses: ['rsp-4', 'rsp-5'],
+  approvals: ['apr-2'],
+};
+
+async function startCaptured(scope) {
+  const { startHQReplication } = await loadClient();
+  const captured = {};
+  const db = {
+    templates: {}, checklists: {}, responses: {}, approvals: {}, conflict_records: {},
+  };
+  startHQReplication(db, {}, {
+    scope,
+    waitForLeadership: false,
+    replicate: (o) => { captured[o.tableName] = o; return { conflict$: { subscribe() {} } }; },
+  });
+  return captured;
+}
+
+// ONE pull, in the vendored plugin's own order: queryBuilder, THEN the
+// checkpoint `.or()`, THEN order(_modified).order(id).limit(batchSize), and the
+// next checkpoint is the LAST row of what came back. When nothing comes back
+// the plugin returns `undefined` and RxDB keeps the checkpoint it had — which
+// is exactly what makes the defect permanent rather than one-shot.
+function onePull(opts, rows, checkpoint) {
+  const log = [];
+  let query = fakeQuery(rows, log).select('*');
+  const next = opts.pull.queryBuilder({
+    query, lastPulledCheckpoint: checkpoint, batchSize: opts.pull.batchSize,
+  });
+  if (next) query = next;
+  if (checkpoint) {
+    const { modified: C, id: I } = checkpoint;
+    query = query.or(`"_modified".gt.${C},and("_modified".eq.${C},"id".gt.${I})`);
+  }
+  query = query
+    .order('_modified', { ascending: true })
+    .order('id', { ascending: true })
+    .limit(opts.pull.batchSize);
+  const data = query.rows();
+  const last = data[data.length - 1];
+  return {
+    ids: data.map((r) => r.id),
+    checkpoint: last ? { id: last.id, modified: last._modified } : checkpoint,
+  };
+}
+
+/**
+ * One device opening a sequence of checklists. `meta` is keyed the way RxDB
+ * keys its checkpoint meta store — `[collection.name, replicationIdentifier]`
+ * and nothing else. If the identifier does not carry the scope, the second
+ * scope inherits the first scope's checkpoint. That is the whole bug.
+ */
+async function deviceOpens(scopes, meta = new Map()) {
+  const steps = [];
+  for (const scope of scopes) {
+    // eslint-disable-next-line no-await-in-loop
+    const captured = await startCaptured(scope);
+    const step = {};
+    for (const [key, table] of Object.entries(TABLE_BY_KEY)) {
+      const opts = captured[table];
+      if (!opts) throw new Error('[scope-harness] no replication started for ' + key);
+      const metaKey = [key, opts.replicationIdentifier].join('-');
+      const res = onePull(opts, SCOPE_FIXTURE[key], meta.get(metaKey));
+      meta.set(metaKey, res.checkpoint);
+      step[key] = { ids: res.ids, identifier: opts.replicationIdentifier };
+    }
+    steps.push(step);
+  }
+  return steps;
+}
+
+const SCOPE_OPEN = {
+  checklistId: OPEN.checklistId, templateId: OPEN.templateId, fieldIds: OPEN.fieldIds,
+};
+const SCOPE_NEVER = {
+  checklistId: NEVER.checklistId, templateId: NEVER.templateId, fieldIds: NEVER.fieldIds,
+};
+
+test.describe('[SCOPE-02] the checkpoint is per-scope, not per-table (F-1)', () => {
+  test('RxDB really keys the checkpoint meta store by [collection.name, replicationIdentifier]', () => {
+    // If this stops being true the whole finding changes shape, so read it out
+    // of the shipped bundle rather than trusting the analysis.
+    const bundle = fs.readFileSync(BUNDLE_PATH, 'utf8');
+    expect(bundle).toContain('rx-replication-meta-');
+    expect(bundle).toContain('[this.collection.name,this.replicationIdentifier].join("-")');
+    // ...and the checkpoint clause the next pull ANDs on.
+    expect(bundle).toContain('".gt.');
+    expect(bundle).toContain('".eq.');
+  });
+
+  test('opening an OLDER checklist after a newer one still replicates its rows', async () => {
+    const [first, second] = await deviceOpens([SCOPE_OPEN, SCOPE_NEVER]);
+
+    // Sanity: the first scope really did advance a checkpoint.
+    expect(first.responses.ids).toEqual(['rsp-1', 'rsp-2', 'rsp-3']);
+
+    // 🛑 THE FINDING. Before the fix every collection here came back EMPTY —
+    // `NEVER`'s rows are all `_modified` older than `OPEN`'s, so the carried
+    // checkpoint filtered every one of them out, permanently.
+    for (const key of Object.keys(TABLE_BY_KEY)) {
+      expect(
+        second[key].ids.sort(),
+        `${key}: switching to an older checklist replicated nothing — the previous `
+        + "scope's checkpoint is still filtering",
+      ).toEqual([...IN_SCOPE_OF_NEVER[key]].sort());
+    }
+  });
+
+  test('...and that is the SAME set a device with a fresh checkpoint would get', async () => {
+    // The control the finding names: re-mint the checkpoint and the older
+    // checklist's rows come back. If this control ever disagreed with the test
+    // above, the test above would be asserting the wrong "full set".
+    const [control] = await deviceOpens([SCOPE_NEVER]);
+    for (const key of Object.keys(TABLE_BY_KEY)) {
+      expect(control[key].ids.sort()).toEqual([...IN_SCOPE_OF_NEVER[key]].sort());
+    }
+  });
+
+  test('a different scope mints a different replicationIdentifier — per collection', async () => {
+    const [first, second] = await deviceOpens([SCOPE_OPEN, SCOPE_NEVER]);
+    for (const key of Object.keys(TABLE_BY_KEY)) {
+      expect(first[key].identifier, `${key}: identifier is not scoped`)
+        .not.toBe(second[key].identifier);
+      // Still readable, still prefixed by the table it replicates.
+      expect(first[key].identifier).toContain(`hq-sync-${TABLE_BY_KEY[key]}-`);
+    }
+  });
+
+  test('the SAME scope still RESUMES — the fix did not just disable checkpoints', async () => {
+    // The property the original comment was protecting. It survives: identical
+    // scope ⇒ identical identifier ⇒ the checkpoint is reused, so re-opening
+    // the same checklist re-pulls nothing.
+    const meta = new Map();
+    const [first, again] = await deviceOpens([SCOPE_OPEN, SCOPE_OPEN], meta);
+    for (const key of Object.keys(TABLE_BY_KEY)) {
+      expect(first[key].identifier).toBe(again[key].identifier);
+      expect(again[key].ids, `${key}: re-opening the same checklist re-pulled rows`)
+        .toEqual([]);
+    }
+  });
+
+  test('the fingerprint is deterministic and scope-sensitive', async () => {
+    const { scopeFingerprint, scopePlanFor } = await loadClient();
+    expect(scopeFingerprint('abc')).toBe(scopeFingerprint('abc'));
+    expect(scopeFingerprint('abc')).not.toBe(scopeFingerprint('abd'));
+    expect(scopeFingerprint('abc')).toMatch(/^[0-9a-f]{16}$/);
+    // Two scopes differing only in fieldIds must not share a `responses`
+    // checkpoint — the emitted filter differs, so the identifier must too.
+    const a = scopePlanFor('responses', SCOPE_OPEN);
+    const b = scopePlanFor('responses', { ...SCOPE_OPEN, fieldIds: [OPEN.fieldIds[0]] });
+    expect(a.fingerprint).not.toBe(b.fingerprint);
   });
 });
 
