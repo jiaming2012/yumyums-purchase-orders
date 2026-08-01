@@ -143,7 +143,36 @@ async function build() {
     // Static assets: cache-first (same as before)
     // No need to configure — precacheAndRoute handles this automatically
 
-    // API calls: network-first with offline JSON fallback
+    // API calls: network-first with offline JSON fallback, PARTITIONED BY
+    // IDENTITY.
+    //
+    // ═══ THE api-cache PARTITION — ledger T-30 decision 112 ══════════════════
+    //
+    // This ONE route covers /\/api\// — every endpoint in all five tools. It is
+    // NOT retired and must not be: RxDB replicates four collections, all of them
+    // `workflow`, so retiring the route takes offline API reads away from
+    // Inventory, Users, Onboarding and Purchasing, which RxDB has never covered.
+    // Decision 105's per-open-checklist scope narrows RxDB further still. The
+    // struck "retire it once RxDB replicates" premise (decision 57) was false
+    // when written; decision 112 replaced it with what follows.
+    //
+    // THE DEFECT the two hooks below close: with no Vary, no cacheKeyWillBeUsed
+    // and no matchOptions, the cache key was the bare URL and the session cookie
+    // was not part of it. On a shared truck phone, whatever user A loaded was
+    // served to user B the moment the network leg failed — which on a food truck
+    // is routine, not exotic. Reproduced end-to-end, with the leaked payload
+    // printed, in tests/sw-api-cache-partition.spec.js [B1-XT-01]: a team_member
+    // with no Users grant was handed the full team roster at HTTP 200.
+    //
+    // 🛑 WHERE THE IDENTITY COMES FROM, AND WHY IT IS A Cache AND NOT ANYTHING
+    // ELSE. A service worker cannot read `localStorage`. It cannot read the
+    // session cookie either: it is HttpOnly (backend/internal/auth/handler.go:61)
+    // and the `Cookie` header is attached by the network stack AFTER the fetch
+    // event, so it is not on the request these hooks see. CacheStorage is the one
+    // store the page and the worker can both reach without adding an IndexedDB
+    // module to the precache. index.html writes the token; both ends must move in
+    // the same commit if either moves. See
+    // .night-crew/runs/2026-08-02-autonomous/merge-intent-b1-sync-cache-and-identity-hygiene.md §2.
     runtimeCaching: [
       {
         urlPattern: /\/api\//,
@@ -153,6 +182,42 @@ async function build() {
           cacheName: 'api-cache',
           plugins: [
             {
+              // The partition. `__hq_id` is a CACHE KEY discriminator only —
+              // Workbox still fetches the ORIGINAL url over the network, so this
+              // parameter never reaches the server. Two users on one phone get
+              // two disjoint key spaces for the same URL.
+              //
+              // 🛑 Deleting this hook re-opens the cross-tenant read in full and
+              // nothing else notices: build-sw.js still exits 0, the precache is
+              // still 29 files, the SW still installs. Only [B1-XT-01] and
+              // [B1-XT-02] fail.
+              cacheKeyWillBeUsed: async ({ request }) => {
+                let id = 'anon';
+                try {
+                  const c = await caches.open('hq-identity');
+                  const r = await c.match('/__hq_identity');
+                  if (r) {
+                    const t = (await r.text()).trim();
+                    if (t) id = t;
+                  }
+                } catch (e) { /* no identity readable — stays 'anon' */ }
+                const u = new URL(request.url);
+                u.searchParams.set('__hq_id', id);
+                return new Request(u.href);
+              },
+              // No identity, no write. This closes the boot window between page
+              // load and the /api/v1/me answer, during which the token does not
+              // exist yet. Without it that window writes an `anon` partition
+              // which every subsequent user of the phone shares — a smaller
+              // version of the same bug. Returning null means "do not cache".
+              cacheWillUpdate: async ({ response }) => {
+                try {
+                  const c = await caches.open('hq-identity');
+                  const r = await c.match('/__hq_identity');
+                  if (r && (await r.text()).trim()) return response;
+                } catch (e) { /* fall through */ }
+                return null;
+              },
               handlerDidError: async () => {
                 return new Response('{"error":"offline"}', {
                   status: 503,

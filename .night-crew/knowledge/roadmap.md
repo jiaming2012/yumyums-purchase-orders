@@ -946,7 +946,29 @@
   `backend/internal/sync/rowvisibility_rls_test.go`, `backend/internal/sync` (the `resolveSpikeConfig`
   skip path, B-36).
 
-- **`sync-cache-and-identity-hygiene`** · **PLANNED — RE-SPECIFIED 2026-07-31 evening (ledger T-30
+- **`sync-cache-and-identity-hygiene`** · **DONE — one mechanism, three call sites, obligation 8
+  folded** (2026-08-02, run `overnight-20260802`, Track B; landed on
+  `card/b1-sync-cache-and-identity-hygiene`) · **The cross-tenant disclosure was SHOWN before it was
+  closed**, end-to-end through a real service worker in the suite's only
+  `serviceWorkers:'allow'` spec (`tests/sw-api-cache-partition.spec.js`): a `team_member` with no
+  Users grant, offline on a device user A had used, was handed **HTTP 200 and the entire team
+  roster** — every colleague's email, role and employee number. Post-fix the same request returns
+  `503 {"error":"offline"}`. `api-cache` is **partitioned**, not retired: `cacheKeyWillBeUsed`
+  writes `__hq_id=<uuid>` into every cache key and `cacheWillUpdate` refuses to write at all when no
+  identity is established. The token lives in a `hq-identity` CacheStorage bucket — the only store
+  the page and the worker can both reach (a worker cannot see `localStorage`; the session cookie is
+  `HttpOnly` and is attached after the fetch event). The same token drives the purge at all three
+  call sites: `logout()`, `login.html`'s `signIn()`/`acceptInvite()` (obligation 7b — the identity
+  change that never runs `logout()`), and `establishIdentity()` on a verified `/api/v1/me`, which
+  also prunes any foreign partition. `hq_apps` became an identity-stamped `{uid,apps}` envelope and
+  a legacy bare array is **discarded, not migrated** (obligation 7a). Obligation 8's stale comment
+  at `tests/sync.spec.js:1584` is corrected — `'submitted'` → `'completed'`
+  (`repository.go:715-716`); no test in that file was touched and **[LST-17] stays armed**. Precache
+  count unchanged at **29 files**. 🛑 The merge-intent note
+  (`.night-crew/runs/2026-08-02-autonomous/merge-intent-b1-sync-cache-and-identity-hygiene.md` §2)
+  is the contract P1 and S1 are held to when they edit `build-sw.js` after this card.
+  *(Original re-specification, kept as the record of why the card exists:)*
+  **RE-SPECIFIED 2026-07-31 evening (ledger T-30
   decision 112): the `api-cache` retirement is STRUCK, and the card is now per-identity cache
   partitioning.** 🛑 **The retirement premise was false, and verified false at source:**
   `build-sw.js:149` registers `urlPattern: /\/api\//` — a NetworkFirst route over **every** endpoint
