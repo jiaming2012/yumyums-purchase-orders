@@ -416,9 +416,14 @@ const SCOPE_FIXTURE = {
     // `submission_rejections_select` is `hq_can_see_field(field_id)`, and
     // TestRowVisibilityRLS/LIST-3 is that proof. Asserted below in both
     // directions so nobody reads the client scope as the entitlement gate.
+    //
+    // 🛑 Its `submission_id` is the S1a checklist row, NOT `NEVER.checklistId`,
+    // deliberately: hanging it off NEVER would have widened the FILL scope of
+    // NEVER (`approvals: submission_id.eq.<id>`) and quietly moved SCOPE-02's
+    // expected sets. A new fixture row must not change an old test's answer.
     {
       id: 'apr-today-other-000-000000000004',
-      submission_id: NEVER.checklistId,
+      submission_id: 'chk-other-today-0000-0000-000000000005',
       field_id: NEVER.fieldIds[0],
       rejected_at: '2026-08-02T10:00:00Z',
       _modified: '2026-08-02T10:00:00Z',
