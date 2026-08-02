@@ -16,6 +16,11 @@
 >   was true before tonight and is true after. Nothing tonight touched it either way.
 > - **P6's outbound notice is DRAFTED and UNSENT.** Nothing was sent to sales-processor. Two
 >   notices are now owed to them; see **F-3**.
+> - 🛑 **Do NOT trust `run-evidence check` on this repo at the next launch.** It reports
+>   `no-run-evidence` for `20260803` even though the closeout record and conflict log are both
+>   written and committed — it looks for them in a root `reference/` that hq does not have. **This
+>   night ran.** Filed **B-77**, destination the night-crew clone. If `/nc-run` is invoked before
+>   that lands, it will claim this slate never executed and may offer to re-run it.
 
 ---
 
