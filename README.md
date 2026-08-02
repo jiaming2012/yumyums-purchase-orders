@@ -103,8 +103,8 @@ fails closed. Transactional email (invite/password reset) is deliberately outsid
 ### Overnight runs (night-crew)
 
 Most build work ships through planned overnight autonomous runs, with attended human
-checkpoints at both ends. State lives in `.night-crew/` (knowledge base, per-run records);
-`.planning/STATE.md`'s null milestone fields are deliberate.
+checkpoints at both ends. State lives in `.night-crew/` (knowledge base, per-run records) —
+that is the only planning state; durable reference docs live in `docs/`.
 
 - **Cycle cadence:** attended OKR session → PM session drafts a PRD (traced to key results,
   grill-back resolves gray areas) → design gate (OpenSpec-style doc, operator sign-off
