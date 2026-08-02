@@ -65,6 +65,19 @@
   was blocked on nothing at all. Verified at source before authoring: `0003_rls_policies.sql` has
   zero `WITH CHECK`. Its permission semantic was an open operator decision, resolved inline at slate
   planning rather than discovered at 3am. The denominator moves again.
+  **Fan-out 2026-08-02 evening (`/nc-slate-plan`, §1 split rule — slate `20260803`):**
+  `sync-hard-cutover` split into **`sync-cutover-list-scope`** + **`sync-hard-cutover`**. The trigger
+  was an operator product decision taken inline at planning (B-43): the two list views — **My
+  Checklists** and **Approvals** — are lists over MANY submissions and cannot name the single
+  `checklistId` that `sync-replication-scope-per-checklist` made mandatory, and the operator chose
+  **lists stay live**, i.e. a recorded C-2 widening rather than a fill-view-only cutover. That made
+  the card bundle a scope model, a write-path swap and a retirement — three mechanisms each rivalling
+  a normal card. The scope half is separable, independently provable against the existing 54-subtest
+  RLS suite, and de-risks the swap completely. 🛑 **This is a SPLIT, not a parallel run** —
+  `autoSaveField` → `/saveResponse` stays the live path until the cutover swaps it, and the cutover
+  swaps and retires in one change set, so P-KR3 is unviolated. The name `sync-hard-cutover` stays
+  with the card that does the hard swap so P-KR3 still names the WO it was written about. Activity 1
+  holds **25** card bullets; the Delivery per-card denominator moves again.
 - **Red-first is mandatory on every fix card.**
 - **Per-card wall-clock timing is a standing output** on every build card, continuing the
   "Prove & surface" cycle's practice (T-14 baseline N=23 / 22m28s; last-measured median 94m
@@ -1828,10 +1841,60 @@
   threading test, which genuinely calls `startHQReplication` and would otherwise red on a change
   it is not about.
 
-- **`sync-hard-cutover`** · **PLANNED — LAST · SLATED 2026-07-31 evening as BUDGET-GATED STRETCH on
-  `overnight-20260801-2`** (started only if `sync-replication-scope-per-checklist` and
-  `sync-rxdb-write-policies` both land clean with this card's full estimate + closeout still in
-  hand). · ✅ **ITS INHERITED PRODUCT FORK IS RESOLVED — ledger T-30 decision 113, so this card is
+- **`sync-cutover-list-scope`** · **PLANNED — SLATED 2026-08-02 evening as a COMMITTED card on
+  `overnight-20260803`, first in Track A** (`reference/slate-20260803.md`) · *(½ of the fanned-out
+  `sync-hard-cutover`; authored at slate planning under the §1 split rule — see the fan-out note
+  above)* · 🛑 **Exists because of an operator product decision taken inline at planning, 2026-08-02:
+  B-43, "lists stay live — widen the scope."** `sync-replication-scope-per-checklist` (run
+  `20260802`, A1) made `scope.checklistId` **mandatory and singular**, which is exactly right for the
+  checklist-fill view `architecture/C-2` names and is **not the view a crew member lands on**:
+  `workflows.html` opens on **My Checklists** (every submission assigned to this user) and its second
+  tab is **Approvals** (every rejection awaiting this user). Both are lists over MANY submissions.
+  The operator chose to keep the live-list behaviour `sync.js`'s WebSocket provides today rather than
+  trade it for a smaller card. 🛑 **This slate IS the recorded decision that amends ledger T-29
+  decision 105** — the rule is not repealed, it is amended to: *per-open-checklist for the fill
+  collections; per-user-with-a-date-floor for the two list collections; never all history, never all
+  users.* · Give `normalizeScope` / `scopeFilterFor` (`sync-rxdb/client.js`) a **list scope** beside
+  the fill scope — `checklists: assigned_to.eq.<userId>` plus a **mandatory date floor**, and the
+  approver-side collections scoped to this approver. 🛑 **The date floor is not optional and is a
+  `done_when:` row**: B-42 already recorded that nothing evicts, so the per-phone bound only moved
+  from *all history* to *opened checklists* and a per-user list scope widens it again. Apply **B-42
+  option (i)** — Realtime's single-clause `filter` on `checklists`, `approvals` and
+  `submission_rejections`; `responses` stays unfiltered on the live leg with the residual recorded at
+  the call site (its predicate needs `or(submission_id.eq.X, and(submission_id.is.null,
+  field_id.in.(…)))`, which one clause cannot express). **B-49 is a line item on that fix, not a
+  separate one.** Folds **B-58**: add the one discriminating subtest for
+  `submission_rejections_update`'s `USING` clause — substituting `hq_can_see_field` for
+  `hq_can_approve_field` today leaves all 54 subtests green, which is the clause T-31 decision 121
+  named as E-KR2's stated caveat — and correct the three comments that assert a guard measurement
+  says is not one. **Rejected framings, recorded so they are not re-derived:** *fill-view-only*
+  (cheapest, matches C-2 literally, but the crew loses live lists they have today and the offline
+  story splits into two owner classes E-KR3 is graded against) and *poll-on-focus* (recovers most of
+  the behaviour without a widening, but adds a second refresh mechanism alongside RxDB's own, which
+  is the dual-offline-story E-KR3 forbids). **PARK if the list scope needs a SCHEMA change** (a
+  queryable key on the row, a new column, a view) — that is B-42 option (ii), explicitly a different
+  card's; or if a policy change would widen SELECT beyond the four rows decision 111 authorises.
+  Footprint: `sync-rxdb/client.js`, `sync-schema/sql/**` (a `0005_*.sql` only if the scope needs a
+  policy it lacks — **not** a table, column or role), `backend/internal/sync/rowvisibility_rls_test.go`,
+  `.night-crew/knowledge/designs/`. 🛑 **`sync-rxdb/bootstrap.js` and `workflows.html` HARD-untouched**
+  — the cutover owns the wiring, and this card changes **no** write path.
+
+- **`sync-hard-cutover`** · **PLANNED — LAST · SLATED 2026-08-02 evening as a COMMITTED card on
+  `overnight-20260803`, second in Track A, cut AFTER `sync-cutover-list-scope` merges**
+  (`reference/slate-20260803.md`; supersedes the 2026-07-31 stretch slating on
+  `overnight-20260801-2`, which the budget never reached). · *(½ of the fanned-out card — it keeps
+  the name so P-KR3's "the no-parallel-run constraint carried into the WO verbatim" still names the
+  WO it was written about)* ·
+  🛑 **FOOTPRINT CORRECTION, verified at source 2026-08-02 — the bullet below said
+  "`backend/internal/sync` (deleted)", which was true when written and is now FALSE.** That package
+  today holds the op-log (`hub.go`, `listener.go`, `ops.go`, `handler.go` — **delete these, this is
+  what the cutover retires**) *and* `jwtbridge.go` + `jwtbridge_handler.go` (**KEEP** — RxDB cannot
+  authenticate without the bridge) *and* `proxy.go` (**KEEP** — it is the door RxDB talks to) *and*
+  `rowvisibility_rls_test.go` (**KEEP** — 54 subtests, E-KR2's entire evidence) *and* `access_test.go`
+  / `spikestack_gate_test.go` (**KEEP** — substrate gates). **A card that deleted the package would
+  delete the bridge, the door and the milestone's own proof.** This is a `done_when:` row, not a
+  footnote. ·
+  ✅ **ITS INHERITED PRODUCT FORK IS RESOLVED — ledger T-30 decision 113, so this card is
   fork-free and slateable.** `sync-rxdb/conflict-handler.js:105-160`'s `🛑 OPEN QUESTION INHERITED
   BY sync-hard-cutover` — *"should an intentional delete beat a concurrent edit?"* — is answered:
   **the uncontested delete still wins, and the annihilated edit is REPORTED and RECOVERABLE.** Who
@@ -1871,8 +1934,39 @@
   (per the explore session — no need to keep the old system live during cutover). Reconcile the
   existing Workbox service-worker offline caching against RxDB's own local persistence so there
   is exactly one offline story, not two (Workbox keeps owning static-asset caching; RxDB owns
-  data). Footprint: `workflows.html`, `sync.js` (deleted), `backend/internal/sync` (deleted),
-  `backend/internal/workflow` (`/saveResponse` removed).
+  data). ~~Footprint: `workflows.html`, `sync.js` (deleted), `backend/internal/sync` (deleted),
+  `backend/internal/workflow` (`/saveResponse` removed).~~ **Footprint superseded — see the
+  correction at the head of this bullet.** Actual: `workflows.html`; `sync-rxdb/bootstrap.js`;
+  `sync.js` (**deleted**); `backend/internal/sync/{hub,listener,ops,handler}.go` (**deleted — and
+  nothing else in that package**); `backend/internal/workflow` (`/saveResponse` removed);
+  `backend/cmd/server/main.go`; `build-sw.js`; `sw.js`; `tests/**`; `version.go` + `package.json`.
+  · **Riders added at slate planning 2026-08-02, each with its reason:**
+  **(a) B-54 — write the precache pin.** T-31 decision 123 already settled B-54's (a)-or-(b) fork in
+  favour of (a), having watched the count go 31 → 32 in silence within an hour of B-54 being filed.
+  This is the next card to edit `build-sw.js` and the first that may legitimately move the number, so
+  it pins the count in `tests/sw-manifest.spec.js` with the justification in the same comment **and
+  re-bases the pin in the same commit**.
+  **(b) B-20 — carry the banner scoping forward, do not fix it in place.** `sync.js:671`'s
+  document-wide `[data-template-id]` selector paints the Queued badge onto Builder rows; this card
+  **deletes that file**, so P3 was excluded from the slate as wasted work. Whatever replaces
+  `renderSyncBanner` must be scoped to the checklist list, and **this card's report gives B-20 its
+  disposition** — fixed forward, or evaporated with the file.
+  **(c) Revisit `bootstrap.js`'s fail-soft — its own header instructs this card to.** It currently
+  records a construction failure on `window.HQSync.error` rather than throwing, which is correct
+  while nothing depends on it. This card makes the page **depend** on it, and a page whose checklists
+  silently stop persisting because the sync layer swallowed an error is worse than a loud failure.
+  State the decision either way; do not inherit it.
+  **(d) `build-sw.js:29`'s stale Taskfile citation** — one line, the same false claim card P1 fixed
+  elsewhere. Drive-by.
+  **(e) E-KR3 is closed here or not at all:** exactly **one** design note in
+  `.night-crew/knowledge/designs/` naming each offline data class and its single owner, cross-checked
+  against the `build-sw.js` / RxDB-init diff, **0 classes with dual or ambiguous ownership.**
+  🛑 **Do NOT change `playwright.config.js:60`'s repo-wide `serviceWorkers: 'block'`** (B-15) — every
+  prior card has held that line. 🛑 **PARK triggers:** a new terminal status or any lifecycle value
+  the schema does not carry; retiring `/saveResponse` reopening ledger **decision 49** (the
+  server-side duplicate guard — a recorded fork, not a judgement call); or the two-device list proof
+  being unconstructible at all — a cutover whose central claim cannot be proven is a park with
+  evidence, not a merge with a caveat.
 
 - **`workflow-submission-status-default`** · **DONE — server half** (2026-07-25, run
   `overnight-20260725`, merged `53e921d`). `submitChecklist` writes `status='completed'` for
