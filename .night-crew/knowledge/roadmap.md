@@ -1893,6 +1893,68 @@
   `.night-crew/knowledge/designs/`. 🛑 **`sync-rxdb/bootstrap.js` and `workflows.html` HARD-untouched**
   — the cutover owns the wiring, and this card changes **no** write path.
 
+- **`period-summary-contract-notice`** · ✅ **BUILT — run `overnight-20260803`, Track B stretch,
+  card P6, on branch `card/p6-period-summary-contract-notice`; awaiting merge + G6.** *(promoted
+  from **B-29**; the second undisclosed two-repo change, independent of A1's timezone notice.)*
+  Gates: G1 clean; G2(Go) `./internal/inventory/` green; G2(Playwright) `inventory|recipes` subset
+  judged against the armed-reds baseline; G4 idempotent. **Confined** — the diff is documentation
+  and night-crew state only; no file under any code seam was touched.
+  🛑 **The defect was PURELY DOCUMENTARY and no production code was changed.** In every finding the
+  code was self-consistent and tested and the *document* described something else. Correcting the
+  code to match the prose would have changed behaviour under an external consumer — the exact
+  failure this card exists to write up.
+  **What the audit actually found, which is much more than B-29 described.** B-29 named one drifted
+  row. Diffing every published expression against HEAD — rather than reading the prose, which is how
+  this survived fourteen months — found **76 rows audited across the two documents, 26 of them wrong**:
+  **`inventory-period-summary.md` (Phase 21)** — 32 rows, 19 confirmed byte-accurate, 10 drifted or
+  false, 1 input never published at all. B-29's row `:68` drifted **twice on the same day in opposite
+  directions**, and **card A1's correction caught only one of them**: `cf959bd` added the `COALESCE`
+  and WIDENED the gate (stated by A1); `d41faef` added `mercury_category = ANY(...)` **and**
+  `reason = 'no_attachment_on_bank_tx'` and NARROWED it much further (**never stated by anyone until
+  now**) — so the gate's net effect on any period was underivable from the published contract. Three
+  response fields have shipped since June 2026 undocumented (`by_vendor` `518a395`,
+  `tracked_bank_tx_ids` `f730485`, `pending_review_details` `1c260f0`); `cogs_excl_tax`,
+  `cogs_incl_tax` and `purchase_event_count` all silently fold in unconfirmed pending rows
+  (`d41faef`) and are category-filtered (`a726029`); and `HQ_COGS_CATEGORY_ALLOWLIST` gates four
+  response fields while appearing in **neither** document (**B-74**).
+  **`inventory-menu-cogs.md` (Phase 999.2)** — 44 rows, 24 confirmed byte-accurate, 16 wrong. 🛑 **Only
+  3 of the 16 are drift; the other 13 were NEVER TRUE.** The document was authored 2026-06-04
+  (`b0119c0`) from the phase plan while the handler landed the same day from the same plan
+  (`3d9362c`, `b283f5f`), and the two disagree: **four of nine per-item JSON field names have never
+  matched the code** (`name`→`menu_item_name`; `menu` **does not exist**; `menu_subgroup` is omitted,
+  never `null`; `toast_master_id` undocumented), and the published **client struct carries all four
+  bad tags and is copy-paste-ready**. `ingredient_cost_total`'s published formula contains a division
+  by `SUM(usage_pct)` that **is not in the code**. The row-selection rule was backwards in both
+  directions — membership is *having a recipe*, not *having sales* — which makes published **State C**
+  and **Scenario 2** unreachable; both withdrawn (**B-72**). The reconciliation invariant between the
+  two endpoints broke on 2026-06-06 and is unbounded in both directions (**B-73**).
+  🛑 **A1's own text was corrected here:** A1 told the counterparty that `/menu-cogs` shares
+  `/period-summary`'s date semantics and moves with the timezone changeover (`:31`, A10). It does
+  not — there is **no `AT TIME ZONE` cast in any of the four `/menu-cogs` queries**. Nothing about
+  that endpoint changes on the changeover deploy.
+  **Why a green suite never caught any of it (`B-71`, the general finding).** Both documents claimed
+  their integration tests were "the executable proof that the HQ side matches this contract." They
+  are not: the tests decode into the **same Go structs the handlers marshal**, so a field name the
+  *document* gets wrong is invisible to every one of them. Response shapes in this audit were
+  **observed by marshalling the real structs**, which is the only reason the `omitempty` findings
+  surfaced at all. Both documents now say so, and each carries a `§0 Drift Audit` table so the next
+  reader inherits the diff instead of the prose.
+  **Part 3 landed as designed and ends in an operator act.** The outbound notice is drafted at
+  `docs/contracts/NOTICE-sales-processor-2026-08-03-UNSENT.md` and marked **UNSENT**. **Nothing was
+  sent.** Whether past `ready:false` runs need reconciling was **not decided** — it is the operator's,
+  and the audit deliberately claims only that undisclosed `ready:false` became *possible* on
+  2026-06-06, never that it occurred. Two notices are now owed and neither is delivered (A1's
+  timezone notice and this one); they overlap, and sending A1's alone would propagate the `:31`/A10
+  error — sequencing is recorded in the draft and is the operator's call. Seven further operator
+  questions are parked in `§8` of the two contracts, none actioned. Discoveries filed with
+  destinations: **B-71** (contract tests that decode into the handler's own struct cannot detect
+  doc-vs-code drift), **B-72** (`/menu-cogs` omits sold-but-uncosted menu items), **B-73** (the
+  cross-endpoint invariant is broken and unmonitored), **B-74** (`HQ_COGS_CATEGORY_ALLOWLIST`
+  silently restates history). · *(originally slated as)* **stretch card on `overnight-20260803`,
+  Track B** (`reference/slate-20260803.md`) · Footprint as slated: `backend/internal/inventory`
+  *(only if a code fix were warranted — it was not)*, `docs/contracts/**`,
+  `*-SALES-PROCESSOR-CONTRACT.md`.
+
 - **`sync-hard-cutover`** · 🛑 **PARKED — run `overnight-20260803`, Track A, card S1b.** The card's
   own recorded PARK trigger fired: *"PARK if retiring `/saveResponse` turns out to reopen ledger
   decision 49."* It is reopened, on measurement and on a stronger footing than the trigger
