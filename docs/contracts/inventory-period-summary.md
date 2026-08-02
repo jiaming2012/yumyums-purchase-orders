@@ -8,6 +8,57 @@ If sales-processor differs from any assumption below, raise a question against t
 
 ---
 
+## 0. Drift Audit — 2026-08-03
+
+**Why this section exists.** On 2026-08-03 every line of this document that publishes a code-level claim was diffed against the code at HEAD, expression by expression, rather than read for plausibility. That had never been done. The prose had been *read* many times over fourteen months and had been believed each time; **ten rows were wrong and one input was missing entirely**. Five of the ten are material, and one of those had been wrong since 2026-06-06 in a way that could block a payroll run without explanation.
+
+Line numbers below (`:NN`) are as this document stood **before** this revision — the state a sales-processor reader would have been working from. The corrections are applied inline in the sections that follow.
+
+**Method.** Published expression → the code at HEAD, named by file and symbol. Response shapes were **observed** by marshalling `inventory.PeriodSummary` and printing the JSON, not transcribed by eye. Each drifted row names the commit that drifted it.
+
+| `:NN` | Row / claim | Verdict |
+|---|---|---|
+| `:16` | Path `GET /api/v1/inventory/period-summary` | **CONFIRMED** — `main.go` route registration |
+| `:18` | `Authorization: Bearer <token>` | **CONFIRMED** — `auth/service_token.go`, prefix `"Bearer "` |
+| `:25`–`:26` | `from` / `to` required, `YYYY-MM-DD`, inclusive | **CONFIRMED** — `time.Parse("2006-01-02")` on both |
+| `:27` | "Both are interpreted in `America/New_York`" | **DRIFTED — over-broad.** The zone applies to **one** expression: the `created_at` fallback inside `pendingPeriodDateExpr`. `purchase_events.event_date` is a plain `DATE` and is compared without any cast, so the COGS aggregate has **no timezone dependency at all**. Corrected inline. |
+| `:28` | "CHANGING — was `America/Chicago`, built not deployed" | **CONFIRMED** — `users.DefaultTimezone = "America/New_York"` in source; migration `0072_app_timezone_new_york.sql` present and unapplied in prod |
+| `:45`–`:58` | Response JSON example | **DRIFTED — three fields missing.** `by_vendor` (`518a395`, 2026-06-05), `tracked_bank_tx_ids` (`f730485`, 2026-06-06), `completeness.pending_review_details` (`1c260f0`, 2026-06-06). All additive. |
+| `:62` | `from` echo | **CONFIRMED** |
+| `:63` | `to` echo | **CONFIRMED** |
+| `:64` | `cogs_excl_tax` = `SUM(quantity*price)` over the period | **DRIFTED ×2.** `a726029` (2026-06-05) added the `mercury_category` allowlist filter. `d41faef` (2026-06-06) added a second summand — `SUM(ABS(bank_total))` over unconfirmed pending rows. Neither published. COGS went **up**. |
+| `:65` | `cogs_incl_tax` = `cogs_excl_tax + SUM(tax)` | **DRIFTED — by inheritance.** The stated arithmetic still holds exactly; its base does not. Same two commits. |
+| `:66` | `purchase_event_count` = `COUNT(*)` of `purchase_events` | **DRIFTED.** Now allowlist-filtered **and** includes unconfirmed pending rows. Same two commits. A 4-confirmed / 3-pending week reports `7`. |
+| `:67` | `completeness.ready` = true iff both lists empty | **CONFIRMED byte-accurate** — `len(pendingIDs) == 0 && len(unlinkedIDs) == 0` |
+| `:68` | `completeness.pending_review_ids` | **DRIFTED — and the previous revision's correction was itself incomplete.** `cf959bd` (2026-06-06) added the `COALESCE`, widening the gate; that half was stated. `d41faef` (2026-06-06) added `mercury_category = ANY(...)` **and** `reason = 'no_attachment_on_bank_tx'`, narrowing it much further, and **that half was never stated by anyone until now.** See the corrected row. |
+| `:69` | `completeness.unlinked_line_item_ids` | **CONFIRMED byte-accurate** — clause for clause, including the `purchase_events` join and the `IS NULL` test |
+| `:124` | COGS still returned when `ready=false` | **CONFIRMED** — the response struct is populated unconditionally |
+| `:130`–`:132` | Three 400 envelopes | **CONFIRMED** — all three strings byte-identical |
+| `:133` | 401 `unauthorized` | **CONFIRMED** — byte-identical |
+| `:134` | 500 `internal_error` | **CONFIRMED** — byte-identical |
+| `:135` | 503 `service_token_not_configured` | **CONFIRMED** — byte-identical |
+| `:149` | Loaded via `os.Getenv` in `main.go` | **CONFIRMED** |
+| `:150` | Startup log text | **DRIFTED — cosmetic.** The real line names **both** `/period-summary` and `/menu-cogs`. Harmless; corrected for accuracy. |
+| — | **`HQ_COGS_CATEGORY_ALLOWLIST`** | 🛑 **MISSING ROW — never published in either document.** Not a drifted row; an absent one. It gates four response fields. Added to §2 by this revision. `a726029`. |
+| `:164` | `crypto/subtle.ConstantTimeCompare` | **CONFIRMED** |
+| `:316`–`:318` | A1–A3 (sales-processor repo layout, `WeeklySummary`, CLI framework) | **NOT VERIFIABLE FROM HQ** — they describe a repo not present here. Unchanged. |
+| `:319` | A4 static bearer token, no HMAC / rotation | **CONFIRMED** — the middleware is a constant-time compare against one static string |
+| `:320`–`:331` | A5 timezone assumption | **CONFIRMED** — matches `users/db.go`, `handler.go` changeover comment, and migration `0072` |
+| `:332` | A6 trusted network | **OPERATIONAL** — not a code claim |
+| `:333` | A7 unlinked-vs-pending semantics | **DRIFTED.** First sentence accurate. Second sentence wrong since `d41faef` — most pending rows now appear in *neither* completeness list while still moving COGS. Corrected inline. |
+| `:334` | A8 HTTP 200 with `ready:false` | **CONFIRMED** — no non-2xx path for business state |
+| `:335` | A9 discarded rows treated as resolved | **CONFIRMED** — `discarded_at IS NULL` present in every gate query |
+| `:352`–`:354` | §7 reference-implementation paths | **DRIFTED — stale.** All three `.planning/phases/21-…` paths were deleted by `34f8c7e` (2026-07-26). Replaced with live paths. |
+| `:356` | "integration tests are the executable proof" | **FALSE as written.** The tests assert against the same Go structs the handler marshals, so they cannot detect a doc-vs-code mismatch — which is exactly why these drifts survived a green suite for fourteen months. Corrected inline. |
+
+**Rows audited: 32** — 31 line-anchored entries spanning `:16`–`:356`, plus one missing-input finding that has no line number because it was never written down. **19 CONFIRMED byte-accurate · 2 not verifiable from this repo (they describe the sales-processor repo) · 10 DRIFTED or false · 1 missing.**
+
+**The single most consequential finding:** `:68` drifted **twice on the same day**, in **opposite directions**, and the previous revision of this document corrected only one of them. Since 2026-06-06 the completeness gate is wider than published in one dimension (late-discovered receipts now block) and much narrower in another (only COGS-category receipts with no attachment at all block). **The net effect on any given period cannot be derived from the previously published contract.**
+
+**No HQ code was changed by this revision.** The defect was documentary: in every case the code was self-consistent and tested, and the document described an earlier version of it. Where the audit raised a question about whether the *code* is right — see §8.
+
+---
+
 ## 1. The Endpoint
 
 ### Request
@@ -24,7 +75,8 @@ Accept: application/json
 - **Query params** (both required):
   - `from` — start date, format `YYYY-MM-DD`, inclusive.
   - `to` — end date, format `YYYY-MM-DD`, inclusive.
-  - Both are interpreted in `America/New_York` (the food-truck operating timezone). The two dates define an inclusive calendar window. For a Monday–Sunday workweek "May 25–31, 2026", send `from=2026-05-25&to=2026-05-31`.
+  - The two dates define an inclusive calendar window. For a Monday–Sunday workweek "May 25–31, 2026", send `from=2026-05-25&to=2026-05-31`.
+  - **Timezone — narrowed 2026-08-03.** This document used to say "both are interpreted in `America/New_York`" without qualification. That is over-broad. **Most of this endpoint has no timezone dependency at all:** `purchase_events.event_date` is a plain SQL `DATE` and both `cogs_excl_tax` and `unlinked_line_item_ids` compare against it with no cast. The operating zone (`America/New_York`, the food-truck's zone) enters at exactly **one** point — the `created_at` fallback inside the pending-purchases date expression, which applies only to rows where the receipt parser extracted no `event_date`. See `completeness.pending_review_ids` below and assumption **A5**.
   - 🛑 **CHANGING — was `America/Chicago`. HQ has BUILT this change; HQ has NOT DEPLOYED it.** The zone moves **on the first HQ deploy that follows this document's merge — date TBD, and it has not happened yet.** Do not read this page as a description of what HQ is running today. See assumption **A5** in §5 for the coordinated-release requirement. **Until sales-processor ships its matching change, the two repos will disagree by one hour at each period edge**, on `pending_purchases` rows that carry no extracted `event_date`.
 - **Auth header:** `Authorization: Bearer <token>`. The token is an opaque string. Sales-processor reads it from the env var `HQ_INVENTORY_SERVICE_TOKEN`. The exact value must be agreed out-of-band with the HQ operator and stored as a secret in sales-processor's runtime environment.
 
@@ -42,6 +94,8 @@ HQ_BASE_URL=https://hq.yumyums.kitchen
 
 `Content-Type: application/json`
 
+🛑 **This example was wrong from 2026-06-05 until 2026-08-03.** It omitted three fields HQ had been returning for fourteen months. The shape below is the **observed** shape — produced by marshalling `inventory.PeriodSummary` at HEAD, not transcribed from the handler. Added fields are marked.
+
 ```json
 {
   "from": "2026-05-25",
@@ -49,23 +103,48 @@ HQ_BASE_URL=https://hq.yumyums.kitchen
   "cogs_excl_tax": 1234.56,
   "cogs_incl_tax": 1334.56,
   "purchase_event_count": 7,
+  "by_vendor": [
+    {
+      "vendor_id": "v1",
+      "vendor_name": "Restaurant Depot",
+      "total_excl_tax": 900,
+      "total_incl_tax": 970,
+      "trip_count": 3
+    }
+  ],
+  "tracked_bank_tx_ids": ["mercury-tx-1"],
   "completeness": {
     "ready": false,
-    "pending_review_ids": ["7c2e9a1b-...", "9f0a2b5c-..."],
-    "unlinked_line_item_ids": ["3d8b1c4e-..."]
+    "pending_review_ids": ["7c2e9a1b-..."],
+    "pending_review_details": [
+      {
+        "id": "7c2e9a1b-...",
+        "bank_tx_id": "mercury-tx-1",
+        "vendor": "",
+        "event_date": "2026-05-29",
+        "bank_total": -84.21,
+        "reason": "no_attachment_on_bank_tx"
+      }
+    ],
+    "unlinked_line_item_ids": []
   }
 }
 ```
+
+All three additions are **additive** — a decoder written against the old shape still works; it just ignores data it was never told about. None of them was ever published until this revision.
 
 | Field | Type | Notes |
 |-------|------|-------|
 | `from` | string | Echo of the input `from` (YYYY-MM-DD). |
 | `to` | string | Echo of the input `to` (YYYY-MM-DD). |
-| `cogs_excl_tax` | number (float, 2 decimal places) | `SUM(quantity * price)` over `purchase_line_items` joined to `purchase_events` where `event_date BETWEEN from AND to`. Rounded server-side in SQL. Zero if no events. |
-| `cogs_incl_tax` | number (float, 2 decimal places) | `cogs_excl_tax + SUM(tax)` over the same `purchase_events`. Zero if no events. |
-| `purchase_event_count` | integer | `COUNT(*)` of `purchase_events` in the range. Zero if none. |
+| `cogs_excl_tax` | number (float, 2 decimal places) | **CORRECTED 2026-08-03 — this row was wrong since 2026-06-06.** Two summands, not one: (a) `SUM(quantity * price)` over `purchase_line_items` joined to `purchase_events` where `event_date BETWEEN from AND to` **AND `purchase_events.mercury_category = ANY(HQ_COGS_CATEGORY_ALLOWLIST)`**, plus (b) `SUM(ABS(bank_total))` over **unconfirmed `pending_purchases`** in the period that are allowlisted and whose `reason != 'no_attachment_on_bank_tx'`. Summand (a)'s allowlist filter arrived in `a726029` (2026-06-05); summand (b) arrived in `d41faef` (2026-06-06). Neither was published. **Direction of the change: COGS went UP** — receipts still sitting in the review queue now contribute their full bank amount. Rounded server-side in SQL. Zero if no events. |
+| `cogs_incl_tax` | number (float, 2 decimal places) | `cogs_excl_tax + SUM(tax)` over the **allowlisted confirmed** `purchase_events` only. The arithmetic relation to `cogs_excl_tax` is unchanged and still holds; what changed is the base — it inherits both corrections to `cogs_excl_tax` above. Note the asymmetry introduced by `d41faef`: an unconfirmed pending row contributes its `bank_total` to **both** figures and contributes no separate tax, so for that row the "incl" and "excl" numbers are the same. Zero if no events. |
+| `purchase_event_count` | integer | **CORRECTED 2026-08-03 — this row was wrong since 2026-06-06.** Not `COUNT(*)` of `purchase_events`. It is `COUNT(*)` of **allowlisted** `purchase_events` in the range **plus** `COUNT(*)` of the unconfirmed non-blocking `pending_purchases` folded into `cogs_excl_tax` summand (b). A period with 4 confirmed receipts and 3 in the review queue reports `7`. Allowlist filter from `a726029`; pending addend from `d41faef`. Zero if none. |
+| `by_vendor` | array of objects | **NEVER PUBLISHED UNTIL 2026-08-03.** Added by `518a395` (2026-06-05). Per-vendor COGS breakdown: `{vendor_id, vendor_name, total_excl_tax, total_incl_tax, trip_count}`. `trip_count` counts distinct `purchase_events`; tax is allocated per event, not per line item. Unconfirmed pending rows are folded in — matched to a vendor by `LOWER(TRIM(vendors.name)) = LOWER(TRIM(pending_purchases.vendor))`, and when no vendor matches the row gets its own entry with `vendor_id: ""` and `vendor_name` of the raw receipt text (or `"(unknown vendor)"`). Ordered by `total_excl_tax DESC, vendor_name ASC`. |
+| `tracked_bank_tx_ids` | array of strings | **NEVER PUBLISHED UNTIL 2026-08-03.** Added by `f730485` (2026-06-06). Every Mercury `bank_tx_id` HQ has touched for the period across all states — confirmed in `purchase_events`, or pending/confirmed/discarded in `pending_purchases`. **No `mercury_category` filter** — this list is for completeness detection, not COGS. Intended use: diff it against Mercury's own transaction list for the same period to find "Mercury has it, HQ has not ingested it yet" gaps. |
 | `completeness.ready` | boolean | `true` iff BOTH `pending_review_ids` AND `unlinked_line_item_ids` are empty. |
-| `completeness.pending_review_ids` | array of strings (UUIDs) | `pending_purchases.id` rows where `COALESCE(event_date, (created_at AT TIME ZONE 'America/New_York')::date) BETWEEN from AND to` AND `confirmed_at IS NULL` AND `discarded_at IS NULL`. Always present, empty array `[]` when none. 🛑 **TWO separate corrections to this row — read both.** **(1) The zone.** It was `America/Chicago`; it becomes `America/New_York` **on the first HQ deploy that follows this document's merge — date TBD, not yet deployed** (assumption A5). **(2) The `COALESCE`, which is new TO THIS DOCUMENT and is a behaviour change HQ never published.** Phase 21 published `(created_at AT TIME ZONE 'America/Chicago')::date` with no `COALESCE`, and that was accurate to the code as it then stood. **HQ changed what `pending_review_ids` returns on 2026-06-06 and never published it** — quick task `260606-0gh` (`.planning/quick/260606-0gh-completeness-gate-filters-pending-review/`), commit `cf959bd`, which added the `COALESCE(event_date, …)` to the live query and did not touch this contract. The difference is not cosmetic: under the **published** expression a late-discovered receipt — a May 29 purchase ingested June 2 — was filtered by its `created_at`, fell outside the May window, and did **not** block May payroll; under the **shipped** code its extracted `event_date` puts it inside the May window and it **does**. Sales-processor may therefore have been receiving an undocumented `ready:false` since June 2026. This row is the first time HQ has stated it. Note how (2) bounds (1): an extracted `event_date` wins the `COALESCE`, so **only rows with no extracted `event_date` are exposed to the zone at all**. |
+| `completeness.pending_review_ids` | array of strings (UUIDs) | `pending_purchases.id` rows where `COALESCE(event_date, (created_at AT TIME ZONE 'America/New_York')::date) BETWEEN from AND to` AND `confirmed_at IS NULL` AND `discarded_at IS NULL` AND `mercury_category = ANY(HQ_COGS_CATEGORY_ALLOWLIST)` AND `reason = 'no_attachment_on_bank_tx'`. Always present, empty array `[]` when none. 🛑 **THREE separate corrections to this row — read all three.** **(1) The zone.** It was `America/Chicago`; it becomes `America/New_York` **on the first HQ deploy that follows this document's merge — date TBD, not yet deployed** (assumption A5). **(2) The `COALESCE` — a behaviour change of 2026-06-06 that HQ never published, and which WIDENED the gate.** Phase 21 published `(created_at AT TIME ZONE 'America/Chicago')::date` with no `COALESCE`, and that was accurate to the code as it then stood. Quick task `260606-0gh`, commit `cf959bd` (2026-06-06), added `COALESCE(event_date, …)` to the live query and did not touch this contract. The difference is not cosmetic: under the **published** expression a late-discovered receipt — a May 29 purchase ingested June 2 — was filtered by its `created_at`, fell outside the May window, and did **not** block May payroll; under the shipped code its extracted `event_date` puts it inside the May window and it **does**. **(3) ADDED 2026-08-03 — the two filter clauses `mercury_category = ANY(...)` and `reason = 'no_attachment_on_bank_tx'`, a SECOND unpublished behaviour change of the same day that NARROWED the gate, in the opposite direction to (2).** Commit `d41faef` (2026-06-06, quick task `260606-jvs`) restricted the blocking set to pending rows that are COGS-category **and have no receipt attached at all**. Every other pending row — food purchases whose receipt attached but failed to parse, non-food purchases, rows with a NULL category — **stopped blocking payroll on that date** and instead began contributing to `cogs_excl_tax` (see that row). ⚠️ **The previous revision of this document stated only (2). A reader who acted on it would have concluded the gate was strictly wider than Phase 21's, which is not true — since 2026-06-06 it is wider in one dimension and much narrower in another, and the net effect on any given period cannot be predicted from this document alone.** Note how (2) bounds (1): an extracted `event_date` wins the `COALESCE`, so **only rows with no extracted `event_date` are exposed to the zone at all**. |
+| `completeness.pending_review_details` | array of objects | **NEVER PUBLISHED UNTIL 2026-08-03.** Added by `1c260f0` (2026-06-06). One object per entry in `pending_review_ids`, same order: `{id, bank_tx_id, vendor, event_date, bank_total, reason}`. `vendor` is `""` when the receipt parser could not extract one. `event_date` is the `COALESCE` expression above rendered as `YYYY-MM-DD`, so it is the row's *effective* period date, not necessarily its extracted one. `reason` is omitted when NULL. Exists so a service-token caller can render a meaningful blocked-payroll message without a second round trip to the cookie-auth-only `/purchases/pending` endpoint. |
 | `completeness.unlinked_line_item_ids` | array of strings (UUIDs) | `purchase_line_items.id` rows where the parent `purchase_events.event_date BETWEEN from AND to` AND `purchase_line_items.purchase_item_id IS NULL`. Always present, empty array `[]` when none. |
 
 ### Response — example states
@@ -147,9 +226,22 @@ HQ_INVENTORY_SERVICE_TOKEN=<opaque-string>
 ```
 
 - **Where loaded:** `backend/cmd/server/main.go` via `os.Getenv("HQ_INVENTORY_SERVICE_TOKEN")`.
-- **Empty behavior:** server logs `WARNING: HQ_INVENTORY_SERVICE_TOKEN not set — /api/v1/inventory/period-summary will return 503` at startup, endpoint returns 503 on every request (fail-closed).
+- **Empty behavior:** server logs `HQ_INVENTORY_SERVICE_TOKEN not set, /api/v1/inventory/period-summary AND /api/v1/inventory/menu-cogs will return 503` at startup, both endpoints return 503 on every request (fail-closed). *(Corrected 2026-08-03: the log line names both endpoints — `/menu-cogs` was added to the same middleware group in Phase 999.2 and shares this token.)*
 - **Format:** opaque string, no whitespace, no encoding requirements. Recommend 32+ random bytes hex- or base64-encoded.
 - **Storage:** managed as an env var in the Cloudflare Tunnel / docker-compose / systemd unit running the HQ backend on the Windows box. NOT committed to the repo.
+
+#### `HQ_COGS_CATEGORY_ALLOWLIST` — 🛑 ADDED 2026-08-03, never previously published
+
+```
+HQ_COGS_CATEGORY_ALLOWLIST=COGS      # comma-separated; this is the default
+```
+
+This env var did not exist when Phase 21 was published and **has never appeared in either contract document**, yet it is an input to four of the response fields — `cogs_excl_tax`, `cogs_incl_tax`, `purchase_event_count`, and `completeness.pending_review_ids`. Introduced by `a726029` (2026-06-05).
+
+- **Where loaded:** `backend/cmd/server/main.go`, `envOrDefault("HQ_COGS_CATEGORY_ALLOWLIST", "COGS")`, split on `,` with each element trimmed.
+- **Meaning:** which Mercury `categoryData.name` values count toward COGS. A `purchase_event` or `pending_purchase` whose `mercury_category` is not in this list — **including NULL** — stays in the database for bookkeeping but does not roll up into any food-cost number this endpoint returns, and cannot block payroll.
+- **Why sales-processor needs to know:** the aggregate it receives is not "all purchasing" — it is "purchasing HQ's operator has categorised as COGS in Mercury". A miscategorised transaction is silently invisible to this endpoint. It will, however, still appear in `tracked_bank_tx_ids`, which is deliberately unfiltered — **that is the field to diff against Mercury if you want to detect this class of miss.**
+- **Operator note:** changing this value changes historical figures for every period, retroactively, with no migration and no signal to sales-processor.
 
 ### sales-processor side (separate repo — sales-processor team implements)
 
@@ -330,7 +422,7 @@ These are assumptions the HQ planner could not verify because the sales-processo
   - **Fix forward only.** Weekly COGS and payroll figures produced before the changeover deploy were already acted on and are **NOT** restated. A reader comparing two weeks either side of that deploy will find one boundary that moved by an hour, exactly once.
   - **If the food truck moves to a different TZ again, both repos must update — together, and this assumption must be amended again.**
 - [ ] **A6: sales-processor and HQ communicate over a trusted network** (Cloudflare Tunnel, Tailscale, or LAN) — HTTPS + bearer token without mTLS or IP allowlist is sufficient.
-- [ ] **A7: "unlinked line item" semantics** — `purchase_line_items.purchase_item_id IS NULL` for confirmed events. Items inside `pending_purchases.items` JSONB are reported via `pending_review_ids`, not `unlinked_line_item_ids` (no double-counting).
+- [ ] **A7 (CORRECTED 2026-08-03): "unlinked line item" semantics** — `purchase_line_items.purchase_item_id IS NULL` for confirmed events. That half is still byte-accurate. **The second sentence was wrong from 2026-06-06:** it read *"Items inside `pending_purchases.items` JSONB are reported via `pending_review_ids`, not `unlinked_line_item_ids` (no double-counting)."* Since `d41faef` **most pending rows are reported by neither list.** Only pending rows that are COGS-category **and** carry `reason = 'no_attachment_on_bank_tx'` reach `pending_review_ids`; the rest are absorbed silently into `cogs_excl_tax`. The no-double-counting guarantee survives — nothing is counted twice — but the implied *completeness* guarantee does not: **a pending row can now affect the COGS number while appearing in no completeness list at all.**
 - [ ] **A8: HTTP 200 with `ready:false` is the right shape** — gate logic lives on the sales-processor side. HQ does NOT return non-2xx for "not ready" (that would conflate transport errors with business state).
 - [ ] **A9: Discarded `pending_purchases` (`discarded_at IS NOT NULL`) are treated as resolved** — they do NOT block `ready`. Confirmed by roadmap constraint and integration-tested in HQ.
 
@@ -347,10 +439,25 @@ These are assumptions the HQ planner could not verify because the sales-processo
 
 ## 7. HQ-side reference implementation
 
-The HQ-side implementation is tracked in:
+*(Corrected 2026-08-03: the three `.planning/phases/21-…` PLAN.md paths this section used to list **no longer exist**. They were archived by `875e26c` (2026-06-05) and then deleted outright by `34f8c7e` (2026-07-26), which removed the GSD artifacts. A reader following those links since July 2026 got nothing.)*
 
-- `.planning/phases/21-cogs-in-sales-processor-report-receipt-completeness-gate-bef/21-01-PLAN.md` — types + handler
-- `.planning/phases/21-cogs-in-sales-processor-report-receipt-completeness-gate-bef/21-02-PLAN.md` — service-token middleware + unit tests
-- `.planning/phases/21-cogs-in-sales-processor-report-receipt-completeness-gate-bef/21-03-PLAN.md` — main.go wiring + integration tests + CLAUDE.md docs
+The HQ-side implementation lives in:
 
-The integration tests in `backend/internal/inventory/period_summary_test.go` are the executable proof that the HQ side matches this contract. Any contract change requires updating both this doc AND the integration tests.
+- `backend/internal/inventory/handler.go` — `PeriodSummaryHandler`, all four queries
+- `backend/internal/inventory/types.go` — `PeriodSummary`, `VendorCOGS`, `CompletenessBlock`, `PendingReviewDetail`
+- `backend/internal/auth/service_token.go` — `ServiceTokenMiddleware` (the 401 / 503 envelope)
+- `backend/cmd/server/main.go` — route wiring, `HQ_INVENTORY_SERVICE_TOKEN`, `HQ_COGS_CATEGORY_ALLOWLIST`
+
+🛑 **The integration tests in `backend/internal/inventory/period_summary_test.go` are NOT proof that the HQ side matches this document.** They assert against the Go structs, which are the same structs the handler marshals — so a claim in this document that disagrees with the struct is invisible to them. That is precisely how the drifts catalogued in §0 survived fourteen months of a green test suite. **Any contract change requires updating this doc, the integration tests, AND re-running the §0 audit** — diffing published expressions against the code, which no test does for you.
+
+---
+
+## 8. Open questions raised by the 2026-08-03 audit — OPERATOR DECISION REQUIRED
+
+The audit in §0 corrected this document to match the code. In three places it is not obvious that the *code* is the thing that should have won. **These are the HQ operator's calls, not the auditor's, and none of them has been made.** They are recorded here so the sales-processor maintainer knows the questions are open, and so a future reader does not mistake "the doc now matches the code" for "the behaviour was ratified."
+
+- **Q1 — Should a pending row be able to move COGS without appearing in any completeness list?** Since `d41faef` a food purchase whose receipt attached but failed to parse contributes its full `bank_total` to `cogs_excl_tax` and blocks nothing. That is defensible (the money did leave the account) and it is also how a period can read `ready: true` while containing an unreviewed figure. **No change is proposed here.**
+- **Q2 — Do the `ready:false` runs between 2026-06-06 and today need reconciling?** Explicitly out of scope for the audit and reserved to the operator. The audit establishes only that undisclosed `ready:false` results were *possible* from 2026-06-06; it makes no claim about whether any occurred, and HQ retains no log that would settle it.
+- **Q3 — Should `HQ_COGS_CATEGORY_ALLOWLIST` changes be versioned?** Editing it silently restates every historical period this endpoint can report, with no migration and no signal to sales-processor. Today it is an unversioned env var.
+
+Nothing in this section has been actioned. Nothing has been sent to the sales-processor maintainer — see `NOTICE-sales-processor-2026-08-03-UNSENT.md`, which is a **draft**.
