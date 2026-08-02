@@ -78,3 +78,54 @@ replicating the list sees submissions on **their own assigned templates only**.
 
 🛑 **Do not resolve this by widening `scope.templateIds`.** That is the one move that looks
 like a fix and changes nothing.
+
+---
+
+## F-3 — Two notices are now owed to the same counterparty. Do they go together or separately?
+
+*(From card **P6 `period-summary-contract-notice`**, which **MERGED**. This is not a blocker —
+the notice is drafted and **UNSENT**, which is the card working as designed. It is the operator
+act the card was scoped to stop short of.)*
+
+**As the owner, I want the sales-processor maintainer to hear about our contract errors in a
+way that reads as one honest correction rather than a drip of separate apologies, so that they
+trust the numbers we send them afterwards.**
+
+### What changed since this was last decided
+
+**Ledger decision 106 already ruled on sequencing:** two notices, sent separately, the June
+drift first and alone. That ruling stands unless you change it, and the draft should not be
+read as re-opening it cold.
+
+But P6's audit surfaced information that did not exist when 106 was taken:
+
+1. **The problem is much bigger than the one row 106 was about.** The audit covered every `:NN`
+   row of both contract documents — **111 rows, 45 wrong**. And the sharper half: only a
+   minority *drifted*. **22 of the menu-cogs rows were never true at all**, authored 2026-06-04
+   at 23:50 from a phase plan, thirteen hours after the handler they describe landed at 10:18.
+   A notice scoped to "one expression changed in June" would understate this by an order of
+   magnitude.
+2. **Card A1's own notice carries an error the audit found** (`:31`/A10 — it attributes a
+   timezone claim to `/menu-cogs`, which contains no `AT TIME ZONE` at all). Sending A1's notice
+   alone would propagate a fresh error while apologising for old ones.
+3. **A1's notice appears never to have been drafted.** The P6 draft asserts it was "drafted
+   2026-08-01"; no such draft exists anywhere in the repo, and decision 106 records it as *owed*,
+   not written. **The draft's own claim here is wrong and needs correcting before it goes
+   anywhere** — flagged as B3 in the triage checklist.
+
+### The shapes
+
+- **Hold to decision 106** — send the June drift notice alone, first. Cheapest, already decided,
+  but it now describes a small fraction of what we know is wrong, and a second larger notice
+  lands days later.
+- **Amend 106 and send one combined notice** — the drafted P6 notice already covers both
+  documents and all 111 rows. One conversation, one apology, complete. Costs: it is a bigger
+  and more alarming message, and A1's notice must be folded in rather than sent.
+- **Send P6's now, A1's never** — if A1's notice was never drafted and its content is a strict
+  subset of P6's audit, there may be nothing left for it to say. Verify that before choosing it.
+
+🛑 **Two things stay yours regardless, and the card deliberately did not decide either:** whether
+any past `ready:false` run needs **reconciling** (the draft says "we are not proposing to restate
+any past figures — if you would rather we did, say so"), and the **`menu_item_name` vs `name`**
+question, where renaming HQ's key *fixes* a client built from the doc and *breaks* one built from
+the wire. HQ cannot see which exists; only the counterparty can answer it.

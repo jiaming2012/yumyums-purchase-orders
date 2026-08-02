@@ -1002,3 +1002,54 @@ cards plus a pre-step**, against a slate of 6. Two tracks, so this is not 4 × s
    A2's policies reddened B1's suite in a worktree touching zero Go files. Until B-50 lands, two
    substrate-touching cards on concurrent tracks buy a class of unattributable red — size Night B
    accordingly, or serialise S1.
+
+---
+
+## Run `20260803` — Night B of the two-night milestone close
+
+**Dispatch: SERIAL** (operator's choice at sign-off). Wall clock **10:00 → 14:0x EDT**, ~4h for
+3 cards, against a slate that projected **7h15m–11h** for the same set. The projection was not
+wrong about the cards it priced — **S1b parked at 20 minutes instead of running its 4h30m–7h**,
+and that single park is the whole difference.
+
+🛑 **B-39 stamps — the thing two consecutive cycles failed to record.** D-KR3's median rested on
+11 of 18 cards last cycle and **0 of 4** the night before this one. All four are here.
+
+| Card | Impl start → end | Impl | G6 start → return | G6 | Fix round(s) | Verdict |
+|---|---|---|---|---|---|---|
+| **S1a** `sync-cutover-list-scope` | 10:02:30 → 11:00:46 | **58m16s** | 11:01:51 → 11:30:45 | **28m54s** | none | **MERGED** (G6 PASS first submission) |
+| **S1b** `sync-hard-cutover` | 11:35:24 → 11:55:50 | **20m26s** | — | — | — | **PARKED** (decision 49 reopened) |
+| **P6** `period-summary-contract-notice` | 11:58:54 → 12:26:31 | **27m37s** | R1 12:27:26 → 12:46:42 (**19m16s**) · R2 13:20:33 → 13:38:58 (**18m25s**) | **37m41s** total | R1 12:49:25 → 13:18:23 (**28m58s**) · R2 13:42:26 → 13:54:13 (**11m47s**) | **MERGED** after 2 G6 rounds + 2 fix rounds |
+
+**End-to-end (implement + review + repair + land):** S1a **~90m** · S1b **~20m** (park) ·
+P6 **~116m**. P6's *slate estimate was 1h15m–2h* and it landed at **1h56m** — inside the band, but
+only because the band was priced end-to-end. Its **implement leg was 28 minutes**; everything else
+was review and repair. That is the standing lesson holding again: *implement-only estimates are
+roughly half the answer*, and on this card they were roughly a quarter.
+
+### What this run adds to the ledger
+
+1. **The gate is working and the cards are not failing — the distinction held a third cycle.**
+   Three G6 reviews across two cards; **two returned FAIL**. S1a is the first card in three runs
+   to pass G6 on first submission — and it did so with the reviewer running seven independent
+   feature-removal mutations against it, so it is a strong pass, not an unexamined one.
+2. **🛑 P6 is the cautionary entry: each pass found errors in the previous pass's own corrections.**
+   The original audit was wrong in ten ways. The fix round that swept those *introduced* a new
+   factual error in the exact row the card existed to fix, and G6 round 2 then found a **fourth**
+   instance of that same defect class in a row nobody had reopened. **On a card whose deliverable
+   is an audit, budget review rounds until a round comes back clean — not a fixed number.** Two
+   G6 rounds was the minimum that worked here, and the second one was not optional.
+3. **Serial dispatch produced 3 clean merges and zero backlog-number collisions**, against
+   20260802's two collisions and one log clobber under two tracks. Numbers were allocated up front
+   by the orchestrator (S1a B-61..64, S1b B-65..70, P6 B-71..76) and no card had to guess.
+   **Caveat before reading this as a win for serial:** merge 2 was clean because S1b *parked*, so
+   the arrangement was never actually tested by two overlapping production diffs.
+4. **A park is cheap and a park is fast.** S1b consumed 20 minutes to establish that the milestone's
+   last card is not buildable as specified — against a 4h30m–7h estimate. The slate's instruction
+   ("prefer a clean early exit over starting a card you cannot finish cleanly") paid for itself
+   roughly fifteen-fold, and the finding it produced is the most valuable output of the night.
+5. **Orchestrator errors worth not repeating**, both mine, both caught: `go build ./...` run from
+   the repo root (where `./...` matches no module) with the error **masked by a pipe into `tail`** —
+   it printed a false green; and the final Go gate first run with `postgres:postgres` credentials
+   when this box uses **`yumyums:yumyums`**. The second failed *loud* and correctly refused to skip,
+   which is the fail-loud harness working as designed — but it cost a 15-minute run.
