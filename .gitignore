@@ -36,3 +36,8 @@ routes.yaml.*.bak
 
 # Stale PID files from test/investigation legs
 *.pid
+
+# Operator roadmap-round renders — decision 52 (ledger T-22, FORK 2): disposable
+# session artifacts, never run artifacts. Untracked so committedOnlyTransform keeps
+# them out of the precache; committing one moved the count 31 -> 32 at triage 2026-08-02.
+backlog-round.html
