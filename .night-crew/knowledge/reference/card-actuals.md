@@ -949,3 +949,56 @@ distrust.
    implement-only estimates as roughly half the answer.
 3. **The KR's denominator should be a query, not a literal.** "All 5 cards in this activity" was
    wrong within a week of being written. Filed as **B-40**.
+
+---
+
+# Run `20260802` — Night A of a two-night milestone close
+
+Recorded at morning triage 2026-08-02. **Dispatch: CONCURRENT, 2 tracks, one in-flight card per
+track.** 4 of 6 cards landed, nothing parked, no operator-only fork.
+
+🛑 **Per-card implement / G6 / fix / land times CANNOT be reported for this run, and that is B-39
+recurring for the second cycle running.** No leg stamped G6-start, G6-return or fix-return. The
+`20260801` entry asked for these stamps; the cost is now concrete twice over. Commit-timestamp
+spans are **not** a substitute here — each card branch carries the prior cards' merges (P1's span
+reads 462m across 57 commits, of which most are A1/B1/A2's), so a derived per-card duration would
+conflate tracks and be worse than an honest blank. **Merge timestamps are clean and are what is
+recorded below.**
+
+| Card | Class | Merged at | Merge SHA | G6 verdict | Outcome |
+|---|---|---|---|---|---|
+| pre-step (not a card) | docs-only | 09:46 | `9f444ff` | n/a | LANDED — P-KR2, D-KR3, E-KR1 closed |
+| **A1** `sync-replication-scope-per-checklist` | white / milestone | 12:06 | `2dc4eef` | APPROVE WITH FINDINGS — 9 findings, **2 BLOCKING** | LANDED, 1 conflict |
+| **B1** `sync-cache-and-identity-hygiene` | white / milestone | 14:23 | `8b6b3bd` | APPROVE WITH FINDINGS — **2 BLOCKING** | LANDED, 2 conflicts |
+| **A2** `sync-rxdb-write-policies` | white / milestone | 14:46 | `de7d78c` | APPROVE WITH FINDINGS — **3 BLOCKING** | LANDED, 1 conflict |
+| **P1** `build-deploy-manifest-integrity` | hygiene / guard | 17:28 | `a9e2018` | APPROVE WITH FINDINGS — **no blocking**, tightened anyway | LANDED, 1 conflict |
+| **P2** `workflow-unsubmit-failnote-reattach` | — | — | — | — | NOT STARTED (budget) → Night B |
+| **P3** `sync-banner-builder-tab-scope` | — | — | — | — | NOT STARTED (budget) → Night B |
+
+**Night envelope:** first card commit 09:31 → closeout written 21:15. **~11h40m wall clock for 4
+cards plus a pre-step**, against a slate of 6. Two tracks, so this is not 4 × sequential.
+
+## What to carry to the next slate
+
+1. **🛑 B-39 is now the highest-value process fix in the backlog, on evidence from two consecutive
+   cycles.** Two runs in a row have produced un-countable cards. D-KR3's median rests on 11 of 18
+   cards last cycle and on **0 of 4** this one. A KR measured from a ledger nobody stamps is a KR
+   measured from nothing. The stamp is three timestamps per card and costs seconds.
+2. **The gate is working and the cards are not failing — that distinction held again.** Four G6
+   reviews, **three found blocking defects**, and **no card merged on its first submission** —
+   matching `20260801` exactly. Budget a fix round into every card of this class; it is the norm,
+   not the exception. A slate that sizes cards at implement-only will miss by roughly half.
+3. **🛑 Concurrency cost this run more than it bought, and the evidence is unusually clean.** The
+   same tree at the same commit: **24.5m / 1 failure on a quiet box** versus **51.7m / 7 failures
+   contended** (six of seven being 28–34s timeouts), with the contention self-inflicted by the
+   orchestrator running the Go and RLS suites alongside the Playwright gate. Separately, a wait
+   loop's `pgrep -f 'go test|playwright test'` matched **its own command line** and idled ~2h20m
+   while reporting queued. **Two tracks also produced two backlog-number collisions** (three legs
+   claimed `B-39`; A2 and B1 both filed `B-46`) and one shared-scratchpad log clobber. Before
+   sizing Night B for two tracks, weigh ~2h20m of dead loop plus a discarded 51.7m gate against
+   what the second track actually delivered.
+4. **B-50 gates concurrent substrate work.** `HQ_RLS_TEST_DB` isolates only the HQ-side FDW
+   database; the Supabase `public` schema and the single PostgREST have no isolation variable, so
+   A2's policies reddened B1's suite in a worktree touching zero Go files. Until B-50 lands, two
+   substrate-touching cards on concurrent tracks buy a class of unattributable red — size Night B
+   accordingly, or serialise S1.

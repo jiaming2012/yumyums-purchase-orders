@@ -1,3 +1,37 @@
+> **TRIAGED 2026-08-02.** Merged to `dev` (`--no-ff`) and pushed. Resolutions in `ledger.md`
+> **T-31, decisions 114–125**; `DECISIONS-NEEDED.md` R1–R7 all ratified.
+>
+> **Standing flags after triage:**
+> - 🔴 **`HQ_SYNC_REST_URL` — STILL ARMED.** Tonight's evidence proves *compliance*, not
+>   retirement (decision 119). Re-arms for Night B; `sync-hard-cutover` (S1) is the card that
+>   first sets it in a real deploy.
+> - 🔴 **B-27 and the three other armed reds — STILL ARMED.** All passed; per decision 100 that
+>   retires nothing (decision 120).
+> - 🔴 **Attended `task sandbox:e2e` — re-arms whenever the verify/merge path changes
+>   underneath it.** Not exercised this run.
+> - 🟡 **B-50 substrate isolation — armed for slate planning.** Until it lands, a slate putting
+>   two substrate-touching cards on concurrent tracks buys a class of unattributable red. Night
+>   B must check this before dispatching S1 alongside anything touching `sync-schema/`.
+> - ✅ **CLEARED — precache count.** 31 verified on the merged tree, `sw.js` byte-identical,
+>   version parity 1.4.0 three-way. It moved to 32 during triage and was restored; see decision
+>   123 and **B-54**, which is now promoted rather than advisory.
+> - ✅ **CLEARED — worktree sweep.** No stranded work from this run; all five card worktrees
+>   removed. Two pre-existing leftovers noted below.
+>
+> **Corrections to this document, found at triage:**
+> - The stale-worktree bullet names the wrong worktree.
+>   `b1-sync-rxdb-collections-and-table-contract` is **clean and 0 commits ahead of `dev`**. The
+>   one actually holding uncommitted state is
+>   `hq-worktrees/f1-workflow-submission-status-default` (`sw.js`, `workflows.html`, dirty since
+>   2026-07-25) — and it is **not** stranded work either: `isSubmittedStatus` is already in
+>   `dev`, so it duplicates work that landed by another route. Both are cleanup, neither is a
+>   blocker.
+> - `card/d1-syncspec-deflake`'s net-zero claim **verified** — `git diff 8c71022 6ee45e0` is
+>   empty. Closeout note with a destination, not a blocker.
+>
+> **Added at triage, not disclosed by the run:** **B-58** (E-KR2's one unpinned clause) and
+> **B-59** (stale guard-attribution comment). Also **B-60** (backlog validator divergence).
+
 # HANDOFF — run 20260802 (Night A of a two-night milestone close)
 
 **Branch:** `overnight-20260802` (cut off `dev` @ `812bf84`; **not merged to `dev`**; nothing pushed; nothing deployed)

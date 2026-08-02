@@ -2293,3 +2293,146 @@ exact assumption class the RxDB migration exists to escape.
 🛑 **The existing pinned test must be EXTENDED, not replaced.** It asserts who wins and that stays
 true; the new assertion is that the annihilated edit is reported. A card that rewrites it to assert
 the opposite winner has misread this decision.
+
+## T-31 — Morning-triage resolutions (2026-08-02, `overnight-20260802`)
+
+Night A of a two-night milestone close. 4 of 6 cards landed, nothing parked, no operator-only
+fork raised. Reviewed attended; gate evidence below is from an adversarial subagent that
+re-executed the gates and applied its own mutations, never from the closeout's own lines
+(§15ag.87 — a card's own closeout is not evidence about that card).
+
+**Decision 114 — R1 RATIFIED: the Taskfile is right, the doc was wrong, and four further false
+deploy claims went with it.** Card P1 corrected `CLAUDE.md`'s deploy block to match
+`Taskfile.yml:178-221`. Verified line by line at triage: `prod:deploy` has **no** `deps:` on `sw`
+(contrast `test:` at `:40`, which does); there is **no** `ssh`/`SSH` anywhere in `Taskfile.yml`,
+`backend/Taskfile.yml` or `docker-compose.prod.yml`; the container is `yumyums-prod`
+(`docker-compose.prod.yml:33`, `PROD_CONTAINER` default at `Taskfile.yml:17`), not `yumyums-hq`;
+`prod:rollback` (`:223`) and `PROD_COMPOSE` (`:16`) exist and were undocumented; `PROD_SSH` exists
+nowhere. Ratifying R1 ratifies all five corrections. This deserved the moment it got rather than a
+nod, because the previous text described a deploy path that does not exist and it is the document
+an operator reads *while deploying*. One residual: `CLAUDE.md:236` still says "Go backend in Docker
+on Windows box" — now ambiguous rather than false, since it *is* this box.
+
+**Decision 115 — R2 RATIFIED: the precache count moving 29 → 31 under a scope freeze was the right
+call.** The slate gave both a mechanism ("exit non-zero if any resolves to a skipped path") and an
+invariant ("nothing precached may import something not precached"), labelling the latter the
+actionable one; P1 implemented the invariant, so its guard also fires on a target never globbed at
+all. That surfaced a live defect with no synthetic case: `log.js` is `src=`'d by **7 of 7**
+precached pages and `tab.js` by **5** (counted independently at triage), and neither was in
+`globPatterns` — shipped online via `COPY *.html *.js`, broken offline forever, with `tab.js`
+applying `#tab=N` before paint so five of seven tools opened on a returning offline client with
+every section visible and no switching. Adding two files to a manifest that reaches every phone is a
+real product change, which is why it was surfaced rather than buried; the narrow reading would have
+exited 0 on the merged tree and left D-KR2's exact subject live. Ratified as judgement, not scope
+creep.
+
+**Decision 116 — R3 CONFIRMED: ledger decision 108's reporting rule is KEPT, and amended.** Card A2
+initially recorded that B-36's fix retired the rule; its G6 proved that false and triage reproduced
+both halves by execution. With the substrate made unresolvable (`DOCKER_HOST` pointed at a dead
+socket): `HQ_SYNC_SUBSTRATE_OPTIONAL=1 go test ./internal/sync/` → **`ok … 0.808s`, zero attack
+variants run**; the same run without the opt-out → **FAIL** with B-36's message. B-36 closes one road
+to a silent skip, not the road. The rule stands, amended: an `internal/sync` result is reportable
+only when it cites `-run TestRowVisibilityRLS -v` with subtests **executed** *and* states
+`HQ_SYNC_SUBSTRATE_OPTIONAL` was unset. Retiring it would have quietly reopened the hole A2 exists
+to close. Noted for future readers: with a live substrate on the box, `=1` does **not** cause a
+skip — the gate reads it only when resolution fails.
+
+**Decision 117 — R4 RATIFIED: A2 was right to add `0074_sync_fdw_approver_view.sql` on a card told
+it would need no migration.** `assignment_role` deliberately does not cross the FDW
+(`sync-schema/sql/0002` §3a), so decision 111's own `hq_can_approve_template` is not evaluable on
+the substrate without HQ-side plumbing. The migration is one read-only VIEW and one grant — no
+table, column, constraint or role. The slate's park condition is scoped to "a write predicate beyond
+decision 111's four rows", which did not fire: `0074` is the plumbing for row 4, not a fifth row.
+Should not have parked.
+
+**Decision 118 — R5 RATIFIED: `V18`'s in-place rewrite is authorised, not laundered.** Rewriting a
+passing test to match new behaviour is how a regression gets laundered, so it was put to G6 and
+re-judged independently at triage. `0004:471` genuinely adds
+`submission_rejections_select USING (hq_can_see_field(field_id))`, which makes the old deny-all
+assertion factually false rather than inconvenient; the rewrite changed the subtest title so the old
+assertion cannot be mistaken for the new one, keeps a refusal half and the `service_role` control,
+adds three-way discrimination, and grows the fixture 5 → 8 field templates with **both** population
+controls updated to match. The one real hazard is stated in the file itself: the rewritten V18 is
+sound only *with* 0004, so a partial revert yields a suite that contradicts the schema.
+
+**Decision 119 — R6: `HQ_SYNC_REST_URL` STAYS ARMED; tonight's evidence proves compliance, it does
+not retire the flag.** Verified exhaustively at triage across all tracked files: 21 occurrences,
+**every one** a comment, a planning doc, or the constant declaration
+(`backend/internal/sync/proxy.go:111`). Zero assignments in `Taskfile.yml`, any `docker-compose*.yml`,
+any `.env*`, `tests/`, or CI. The flag is a standing guard, not a one-time check — it re-arms for
+Night B, and `sync-hard-cutover` (S1) is the card that first sets it in a real deploy. Untracked
+`backend/.env` could not be read (permission denied) and is not in the merged tree either way; that
+is recorded as the one unverified corner rather than asserted clean.
+
+**Decision 120 — R7: the four armed reds all passed and NONE is retired.** Matched by full title,
+never line anchor (decision 100). B-27 passed in every run of the night across five legs and
+seven-plus full suites; per decision 100 that retires nothing and no card claimed it fixed. The
+single survivor — `tests/sync.spec.js:1343 › Convergence matrix (W-3) › yes/no answer converges
+(live + catch-up)` — is a sixth distinct title in the rotating family recorded as B-45, failing at
+14.8s in-suite and passing in isolation at 4.1s. It is **not** laundered as "not flaky". The night
+produced the most controlled evidence yet for B-45's real mechanism: the same tree at the same
+commit gave **24.5m / 1 failure quiet** versus **51.7m / 7 failures contended**, six of the seven
+being 28–34s timeouts, with the contention self-inflicted by the orchestrator. What moves this
+suite's distribution is CPU starvation, not test flakiness.
+
+**Decision 121 — E-KR2 stands as MET, with a stated caveat, and the caveat is filed as B-58.**
+Engineer-decidable, decided here rather than asked. A2's central finding is real and its fix is
+real: the suite could not previously tell its own write policies from mutants (3 of 5 mutations
+survived green, 2 of them mutations the file itself named as guarded), the root cause was every
+write going out `Prefer: return=representation` so 0003's SELECT policy silently enforced the write
+half, and triage confirmed the repair by execution — `rvPushRefused` now issues every refusal twice
+(`return=representation` **and** `return=minimal`), and four separate WITH CHECK mutations in 0004
+correctly RED the right subtests. **But adversarial mutation found one clause the suite still cannot
+discriminate**: `submission_rejections_update`'s `USING`, where substituting `hq_can_see_field` for
+`hq_can_approve_field` — the exact change `0004:483`, §5d(2) and `rowvisibility_rls_test.go:1922`
+*all three* name as the guarded one — leaves all 54 subtests green. Not a live vulnerability (the
+narrow `with check` still delivers the refusal), so the key result is not reopened; but the claim
+"the suite can tell its own policies from mutants" does not hold universally, and the honest grade
+carries that. Milestone close grades E-KR2 with this caveat visible, not silently green.
+
+**Decision 122 — `docs/claude-md-night-crew` MERGED at triage, five commits and one week late.**
+Operator's call, asked and answered. `CLAUDE.md` on the run branch still carried **15 GSD references
+and zero night-crew ones**, including an instruction to route all repo edits through GSD commands
+this project no longer uses — stale since 2026-07-26 on an abandoned branch. Merging it is what
+makes the file describe the project that exists. The pairing is the point: card P1 spent the night
+correcting this same file's deploy block for having been false for months, while an entire adjacent
+section was stale for the same reason and nobody had looked. **A document nobody merges is
+indistinguishable from a document nobody wrote.**
+
+**Decision 123 — `backlog-round.html` is UNTRACKED, restoring decision 52; and the committed-stray
+gap is now named.** Merging decision 122's branch moved the precache manifest **31 → 32 files,
+2139.2 → 2358.8 KB** — **+219 KB onto every crew phone** — with `node build-sw.js` exiting **0 in
+silence**. The file is the 225 KB static roadmap-round viewer that **decision 52 (T-22, FORK 2)
+already disposed of** as the operator's own render, "never tracked in any branch", to be left
+untracked and undeleted; that branch swept it into a `.planning/` cleanup and committed it.
+Restored to exactly the state decision 52 specified — `git rm --cached`, kept on disk, `.gitignore`d
+so it cannot recur — and the count is back to 31 with `sw.js` byte-identical. 🛑 **The mechanism is
+the durable part: `committedOnlyTransform` reads git HEAD (B-37 / decision 67), so it excludes
+untracked strays *by construction*, which is the whole protection decision 58 was written to give.
+A stray that gets COMMITTED walks straight past it.** The guard is sound; its unstated precondition
+is that nobody commits the file. This was caught only because a human had just ratified R2 and knew
+the number was 31 — which is B-54's "enforced by nothing" demonstrated live within an hour of being
+filed, and settles B-54's open (a)-or-(b) fork in favour of **(a), write the pin**.
+
+**Decision 124 — the BACKLOG house style is KEPT; the validator is what should move.** Triage-
+decidable, decided here. `night-crew backlog check` reports 249 issues across 119 entries, but
+`dev`'s pre-run copy already failed 222 across 101 — tonight's 19 entries diverge at the same rate
+as the previous 100, so this is a standing grammar mismatch, not rot any run introduced. The
+validator wants a bare `new` / `promoted → <card>` / `dropped — reason` plus a separate `lead:`;
+this file writes `· new · **destination: <where>** · lead: <line>`. The house style carries strictly
+more information — a destination is a routing decision the validator has no field for, and
+destinations are what make B-38's "every bullet names its destination" checkable at all. Do not
+migrate 119 entries to satisfy a parser. Filed as **B-60** against the night-crew clone. Until it
+lands, step 4.5 of `/nc-morning-triage` produces noise rather than signal on this repo — a check
+that cannot fail usefully, which is this repo's own characteristic bug class one level up. One real
+defect *was* found underneath the noise and fixed: B-49's entry had its renumbering narrative inside
+the handle position, making it genuinely unparseable.
+
+**Decision 125 — P2 and P3 go to Night B's slate, sized there, not promised here.** Engineer/PjM-
+decidable, decided at triage. Neither was started (a budget decision by the control loop, not a
+park). P3 `sync-banner-builder-tab-scope` is the smallest card on the slate (30–50m) and is the
+natural first thing to add if Night B has room; P2 `workflow-unsubmit-failnote-reattach` (B-19) is
+data loss in the accountability path and needs a back-and-reopen test in `tests/persistence.spec.js`
+per CLAUDE.md's persistence rule. Their `BACKLOG.md` entries already read `promoted → P2
+(slate-20260802)`, which is accurate: promoted, not started. Final sizing belongs to
+`/nc-slate-plan` against S1/P4/P5/P6, not to triage.

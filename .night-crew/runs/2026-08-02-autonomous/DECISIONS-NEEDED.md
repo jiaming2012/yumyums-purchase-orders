@@ -1,3 +1,18 @@
+> **RESOLVED 2026-08-02 — recorded as `ledger.md` T-31, decisions 114–125.**
+> All seven items ratified as submitted: **R1** → decision 114 (verified line by line against
+> `Taskfile.yml`, including the four further false deploy claims), **R2** → 115, **R3** → 116
+> (both halves reproduced by execution against a dead substrate socket), **R4** → 117,
+> **R5** → 118, **R6** → 119 (`HQ_SYNC_REST_URL` stays ARMED — 21 occurrences, every one a
+> comment, doc, or the constant), **R7** → 120 (no red retired).
+>
+> Two things triage added that this file did not anticipate, both from adversarial mutation
+> the run did not perform: **E-KR2 stands as met with a stated caveat** (decision 121 —
+> `submission_rejections_update`'s `USING` clause is pinned by nothing, filed **B-58**), and a
+> stale guard-attribution comment at `build-sw.js:455` (**B-59**). Neither is a live defect;
+> both are proof-quality gaps in landed-correct code.
+>
+> Kept as the analysis record.
+
 # DECISIONS NEEDED — run 20260802
 
 Forks this run could not resolve, plus calls it made that need ratifying.
