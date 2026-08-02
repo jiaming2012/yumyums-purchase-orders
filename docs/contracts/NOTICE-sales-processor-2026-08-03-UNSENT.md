@@ -52,7 +52,13 @@ You were handed this rule: a pending receipt blocks payroll if its `created_at`,
 What actually shipped that day was two changes pulling in opposite directions:
 
 - **`cf959bd` widened it.** The filter became `COALESCE(event_date, created_at::date)`. A receipt discovered late — a May 29 purchase ingested on June 2 — used to fall outside the May window and *not* block May payroll. After this change its extracted `event_date` puts it inside the window, and it **does** block.
-- **`d41faef` narrowed it, much further.** Two clauses were added: the row must be a COGS-category transaction **and** must have `reason = 'no_attachment_on_bank_tx'` — i.e. no receipt attached at all. Everything else that used to block stopped blocking: food purchases whose receipt attached but failed to parse, non-food purchases, anything with a null category.
+- **`d41faef` narrowed it, much further.** Two clauses were added: the row must be a COGS-category transaction **and** must have `reason = 'no_attachment_on_bank_tx'` — i.e. no receipt attached at all. Everything else that used to block stopped blocking.
+
+**Where the money that stopped blocking actually went — there are three cases, and only one of them moves a number you see.** We want to be exact about this because it decides where it is worth your time to look:
+
+1. **COGS-category, receipt attached but the parser failed on it.** These stopped blocking **and** began contributing their full `ABS(bank_total)` to `cogs_excl_tax`, `cogs_incl_tax`, `purchase_event_count` and `by_vendor`. This is the only bucket that moves money into your report.
+2. **Anything whose Mercury category is not in our COGS allowlist — including transactions with no category at all.** Both our blocking query and our COGS query filter on that allowlist, so these rows block nothing **and contribute nothing**. They are invisible to every COGS figure we send you. The one place they remain visible is `tracked_bank_tx_ids`, which we deliberately do not filter — that is the field to diff against Mercury if you want to find them.
+3. **COGS-category but with a null `reason`.** Our blocking filter is `reason = '…'` and our COGS filter is `reason != '…'`; against a NULL both are NULL rather than true, so these rows fall through **both**. They block nothing and contribute nothing either.
 
 **The practical consequence for you:** since 2026-06-06 you may have received `ready: false` on runs where our published contract said you should have received `ready: true` — a blocked payroll run with no documented cause — and, in the other direction, `ready: true` on periods containing unreviewed receipts that the old rule would have caught.
 
@@ -70,7 +76,7 @@ Three response fields have been live since June 2026 and appeared in no document
 
 **And one input we never documented at all:** an env var, `HQ_COGS_CATEGORY_ALLOWLIST` (default `COGS`), which gates four of the response fields. The aggregate you receive is not "all purchasing" — it is "purchasing our operator categorised as COGS in Mercury." A miscategorised transaction is invisible to the COGS figures. It still shows up in `tracked_bank_tx_ids`.
 
-Also worth flagging: **`purchase_event_count` no longer counts `purchase_events`.** It now includes unconfirmed pending rows too, so a week with 4 confirmed receipts and 3 in the review queue reports `7`. And `cogs_excl_tax` now includes those pending rows at their full bank amount, which means the COGS number moved **up** on 2026-06-06 relative to what we documented.
+Also worth flagging: **`purchase_event_count` no longer counts `purchase_events`.** It now includes unconfirmed pending rows too — but only the ones in case 1 above, i.e. COGS-category with a non-null `reason` other than `no_attachment_on_bank_tx`. A week with 4 confirmed receipts and 3 such rows in the review queue reports `7`; the same week with 3 uncategorised rows in the queue still reports `4`. And `cogs_excl_tax` includes those same case-1 rows at their full bank amount, which means the COGS number moved **up** on 2026-06-06 relative to what we documented.
 
 ## 3. `/menu-cogs` — this one is worse, and I am sorry
 
@@ -118,7 +124,14 @@ Happy to get on a call about any of this, particularly §1 and the `name` questi
 
 ## Provenance
 
-Every claim above traces to a row of the audit tables in `docs/contracts/inventory-period-summary.md` §0 (32 rows: 19 confirmed byte-accurate, 10 drifted or false, 1 missing input, 2 not verifiable from HQ) and `docs/contracts/inventory-menu-cogs.md` §0 (44 rows: 24 confirmed byte-accurate, 16 wrong/broken/stale, 4 not verifiable from HQ).
+Every claim above traces to a row of the audit tables in the two contract documents. **Counting unit: one row of a `§0` table = one audited unit, whatever line range it anchors. Count the rows; these numbers match.**
+
+- `docs/contracts/inventory-period-summary.md` §0 — **47 rows**: 24 confirmed byte-accurate, 3 not verifiable from HQ, 1 operational (not a code claim), 18 drifted/wrong/stale, 1 input never published at all. (24 + 3 + 1 + 18 + 1 = 47.)
+- `docs/contracts/inventory-menu-cogs.md` §0 — **64 rows**: 35 confirmed byte-accurate, 1 not verifiable from HQ, 1 superseded, 27 wrong/unreachable/broken/stale. (35 + 1 + 1 + 27 = 64.) Of the 27, **5 are drift and 22 were never true**.
+
+**Combined: 111 rows audited, 45 of them wrong** (18 + 27) plus the one missing input.
+
+🛑 **These figures replace an earlier set — "76 rows audited, 26 wrong" (32 and 44 per document) — which were wrong in every component.** The audit ran in two passes on the same day. The first pass left three regions of each document unaudited while claiming full coverage, and its stated totals did not reconcile against its own tables. The second pass closed the gaps, added 15 rows to one document and 17 to the other, and restated the counting unit so the totals are checkable by counting. Nothing in the draft above depended on the earlier numbers, but they appeared in this block and in the roadmap card, and both are corrected.
 
 Commits named in the draft: `cf959bd`, `d41faef`, `a726029`, `518a395`, `f730485`, `1c260f0` — all 2026-06-05/06.
 
