@@ -804,3 +804,148 @@ durable rules: questions are to be framed as **user stories** rather than techni
 decision whose own rule already names an evidence bar (the `HQ_SYNC_REST_URL` disarm) **is
 triage's to make, not the operator's** — escalating it spent attention on a call triage was
 already equipped to decide. Budget fewer, better-framed questions rather than more options.
+
+---
+
+# Cycle median — "Sync foundation" (Delivery KR3), computed 2026-08-02
+
+> **Why this section exists.** Delivery KR3 reads: *"Per-card wall-clock timing is recorded for
+> all 5 cards in this activity (4 sync + 1 independent fix), and a median is computed against the
+> prior cycle's baseline (N=12 / 94m)."* The timings were recorded run by run; **the median was
+> never computed**, so the KR was unmet on arithmetic that had never been done rather than on
+> anything about the work. This section is the computation, with its inputs, so the number is
+> auditable rather than asserted.
+>
+> **Cycle window.** "Sync foundation" opened at the attended `/nc-roadmap-round` 2026-07-24/25
+> (OKRs signed 2026-07-25) after "Prove & surface" closed 2026-07-24. Runs in window:
+> `overnight-20260725` · `-20260726` · `-20260727` · `-20260729` · `-20260729-2` · `-20260801`.
+> `overnight-20260724` belongs to the **prior** cycle (`reference/cycle-closeout-20260724.md`
+> lists it in that cycle's window) and is not counted here.
+
+## The basis, and why it is arguable
+
+The 94m baseline is **not** an implement-leg figure. `runs/2026-07-24-autonomous/scorecard-20260724.md`
+§4 defines its "Card cycle" column as **impl + G6 + merge** and computes
+`(93 + 95)/2 ≈ 94m, N = 12` from that. Comparing an implement-only number against it would be a
+category error, so **the headline below uses the same end-to-end basis**.
+
+🛑 **That basis is not recordable for every card this cycle, and the gap is the finding.** Two of
+the six runs stamped only the implementer leg:
+
+- `overnight-20260729-2` — the card table records `+ 1 repair round` / `+ 2 repair rounds` with
+  **no minutes**, and `runs/2026-07-29-2-autonomous/timings.log` holds a single dispatch line.
+- `overnight-20260801` — stated in terms in this file: *"Per-phase G6/fix/land splits are NOT
+  recorded for this run — `timings.log` captures dispatch and implementer-return only… sizing
+  against implementer time alone under-prices every card by roughly half."*
+
+So **7 of the 18 merged cards this cycle cannot enter an end-to-end population.** Both bases are
+given below because the choice is genuinely arguable; they are not interchangeable and the
+comparison to 94m is only valid for Basis A.
+
+## Basis A (headline) — card cycle = implement + review + repair + land
+
+Same definition as the baseline. Figures taken **as recorded** in this file, per the baseline's own
+precedent (*"the ledger column is used as recorded"*).
+
+| # | Card | Run | Legs as recorded | Card cycle |
+|---|---|---|---|---|
+| 1 | A `workflow-submission-status-client-half` | 20260726 | 27m24s impl + 17m11s G6, no repair | **44m35s** |
+| 2 | D `sync-rxdb-conflict-notice-mockup` | 20260729 | ~12m + ~16m verifier ×2 + ~25m repair | **~55m** |
+| 3 | W1 `sync-spike-stack-and-jwt-bridge` | 20260725 | 53m05s + 5m14s + ~11m land | **~69m** |
+| 4 | W2 `sync-spike-rxdb-replication` | 20260725 | 49m31s + 7m02s + ~6m land + 9m25s revision | **~72m** |
+| 5 | A `precache-manifest-from-head` | 20260729 | ~75m + 1×G6 ~13m, no repair | **~90m** |
+| 6 | B `sync-jwt-bridge-endpoint` | 20260726 | 82m17s + 9m48s + 10m56s repair | **103m01s** |
+| 7 | A `pwa-cache-and-build-hygiene` | 20260727 | 50m11s + 41m02s + 9m37s + ~6m merge | **~105m** |
+| 8 | C `sync-proxy-endpoint` | 20260729 | ~25m + 3×G6 ~48m + 2 repairs ~40m | **~115m** |
+| 9 | B `workflow-queue-period-and-failnote-upsert` | 20260729 | ~105m + 1×G6 ~26m, no repair | **~135m** |
+| 10 | C `sync-rxdb-browser-delivery-spike` | 20260726 | 117m50s + 16m10s + 11m01s repair | **145m01s** |
+| 11 | B `workflow-offline-double-submit` | 20260727 | 58m49s + 32m31s + 58m32s (REJECT→repair→re-review) + ~14m merge | **~170m** |
+
+**N = 11 (odd), median = the 6th value = `sync-jwt-bridge-endpoint` at 103m01s ⇒ 103m.**
+
+### vs the baseline
+
+| | N | Median |
+|---|---|---|
+| Prior cycle "Prove & surface" (2026-07-24 close) | 12 | **94m** |
+| This cycle "Sync foundation" (2026-08-02) | 11 | **103m** |
+
+**+9m, ×1.10 — flat within one card's noise, and that is the honest reading.** The prior cycle's
+94m was itself flagged as a ~4.2× jump over the T-14 baseline (N=23 / 22m28s) *"dominated by a
+population shift."* This cycle shifted population again — toward infra spikes, a self-hosted
+Supabase stack, RLS, and a client-library migration — and the median did **not** move with it. On
+this evidence the ~95–105m band is the current class's real cost, not an artifact of one cycle.
+
+### Sensitivity (the median is robust, and here is why)
+
+- The three `20260726` cards carry no separately-recorded merge leg. Adding the baseline's own
+  merge range (~1–6m) to each moves the median to **~105m**. Range **103–105m**; conclusion
+  unchanged.
+- Substituting W2's leg sum (~62.5m) for its recorded ~72m leaves the median at **103m** — it
+  sits below the middle either way.
+- Dropping the two mockup/planning cards (#2, and #8's sibling class) as "not build cards" would
+  leave N=10 and a midpoint of (103+105)/2 = **104m**. Precedent says keep them: the baseline's own
+  N=12 included `C1 prove-surface-design-draft` (~13m), a design draft.
+
+### Excluded, with reasons
+
+- **F1 `workflow-submission-status-default` (20260725)** — attended fold, *"unmeasured"* in its own
+  row. The baseline's precedent is to exclude unmeasured cards, not to estimate them.
+- **H1 `test-harness-fail-loud`, C1 `conflict-notice-mockup-amendments`,
+  B1 `sync-rxdb-collections-and-table-contract` (20260729-2)** and **all four `20260801` cards**
+  (`app-timezone-unify-new-york`, `sync-rxdb-row-visibility-rls`,
+  `sync-rxdb-replication-and-conflict-handler`, `sync-rxdb-conflict-notice-ui`) — merged and
+  G6-gated, but **review/repair/land legs untimed**. Their implementer figures are in Basis B.
+- **B2 `sync-rxdb-row-visibility-rls` (~15m to park) and A1 `app-timezone-unify-new-york`
+  (~78m built, not merged), both 20260729-2** — parked. The baseline excluded parked cards
+  explicitly (*"parked work is not a completed WO cycle"*). Both were resumed on `20260801` and
+  those resumes appear in Basis B.
+- **Card C, 20260727** — never dispatched.
+- **Orchestrator legs** — 20260725 F1 attribution investigation 21m43s; 20260726 RUN-10 paired
+  measurement 30m15s and final-tree go-gate 1m13s; 20260727 merge legs. Not WO cycles; the
+  baseline excluded the analogous 20260720c follow-up sweep for the same reason.
+- **Attended-triage verification passes** (~18m / ~70m / ~27m / ~35m / ~43m across the cycle) —
+  next-morning work, not a card.
+
+## Basis B — implementer wall-clock only (NOT comparable to 94m)
+
+Recorded for every merged card, so it covers the whole cycle. Given because Basis A silently drops
+7 cards, and a reader is entitled to see the population Basis A could not use.
+
+Sorted (minutes): 12 · 25 · 26 · 27.4 · 49.5 · 50.2 · 53 · 53.1 · 58.8 · **65** · **67** · 75 ·
+76.3 · 82.3 · 105 · 112.3 · 117.8 · 126.2
+
+**N = 18 (even), median = (58.8 + 65)/2 ⇒ ~62m.**
+
+🛑 **Do not compare 62m to 94m.** The baseline is end-to-end; 62m is one leg of three. This file's
+own `20260801` entry prices the missing legs at *"roughly half the card"*, which is consistent with
+Basis A's 103m — but that is an inference, not a measurement, and it is not offered as the KR's
+number.
+
+## Basis C — the KR's literal denominator, for completeness
+
+The KR names *"all 5 cards in this activity (4 sync + 1 independent fix)."* **That denominator went
+stale within a week** — Activity 1 fanned out repeatedly (the feasibility spike into W1+W2;
+schema-and-replication into collections, RLS, replication+conflict-handler, browser-delivery,
+proxy-endpoint, and the conflict-notice mockup/UI pair) and has produced **18 merged cards**, not 5.
+Restricting Basis A to Activity-1 cards only:
+
+44m35s (`workflow-submission-status-client-half`, the independent fix's client half) · ~55m
+(`sync-rxdb-conflict-notice-mockup`) · ~69m (W1) · **~72m (W2)** · 103m01s (`sync-jwt-bridge-endpoint`)
+· ~115m (`sync-proxy-endpoint`) · 145m01s (`sync-rxdb-browser-delivery-spike`)
+
+**N = 7, median = ~72m** — below the 94m baseline. Reported, not headlined: it excludes real cards
+of this cycle (the PWA/precache/offline-submit work) purely because the roadmap filed them under a
+different activity, and a median chosen from the narrowest admissible population is the one to
+distrust.
+
+## What to carry to the next slate
+
+1. **Stamp G6-start / G6-return / fix-return per card.** This file already asked for it in the
+   `20260801` entry; the cost of not doing it is now concrete — **7 of 18 cards could not be
+   counted**, and the KR's median rests on 11 cards when 18 were available. Filed as **B-39**.
+2. **~100m end-to-end is the current class's price, and it did not move under a population shift.**
+   Two cycles now: 94m then 103m. Size a card of this class at ~1h45m end-to-end and treat
+   implement-only estimates as roughly half the answer.
+3. **The KR's denominator should be a query, not a literal.** "All 5 cards in this activity" was
+   wrong within a week of being written. Filed as **B-40**.

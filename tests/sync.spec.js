@@ -1581,7 +1581,9 @@ test.describe('Convergence matrix (W-3): lifecycle + list progress', () => {
   test('unsubmit transition converges live on the observing device (+ catch-up)', async ({ browser, page }) => {
     test.setTimeout(120000);
     const dow = await getTodayDOW(page);
-    // requires_approval false → submit yields 'submitted', which the submitter can unsubmit.
+    // requires_approval false → submit yields 'completed', which the submitter can unsubmit.
+    // ('completed', not 'submitted' — repository.go:715-716 sets it. Ledger
+    // decision 66's doc-rot fix, obligation 8 of this card.)
     await apiCall(page, 'POST', 'createTemplate', {
       name: 'MX Unsubmit', requires_approval: false,
       sections: [{ title: 'S', order: 0, condition: null, fields: [CHECKBOX_F('Task', 0)] }],

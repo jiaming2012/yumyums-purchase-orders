@@ -315,3 +315,195 @@ test('an untracked file in the repo root never enters a freshly built manifest',
     fs.rmSync(path.resolve(probe), { force: true });
   }
 });
+
+// ───────────────────────────────────────────────────────────────────────────
+// 🛑 THE IMPORT-REACHABILITY GUARD — the guard on the guard. B-37.
+//
+// build-sw.js used to WARN and exit 0 after dropping an asset another precached
+// file imports; overnight-20260801's merge 3 shipped a 24-file manifest that
+// way and nothing failed. The guard makes that fatal. These tests exist because
+// a build-time guard is worth exactly what its own red proves: they drive it
+// over synthetic manifests so the RED is reproducible without a commit dance
+// around the real tree, and they assert its anti-vacuity checks fire.
+//
+// The invariant is REACHABILITY, not completeness. An unreferenced file that is
+// skipped must still pass — a blanket "fail on any skip" would fire on every
+// scratch file on every dev box, which is the behaviour decisions 58/67 exist
+// to provide.
+// ───────────────────────────────────────────────────────────────────────────
+
+const guard = require('../build-sw.js');
+
+/** Reads from an in-memory tree instead of disk, so no test touches the repo. */
+function fakeReader(tree) {
+  return url => {
+    if (!(url in tree)) throw new Error(`fake tree has no ${url}`);
+    return tree[url];
+  };
+}
+
+test('the reachability guard REDS when a precached page imports a SKIPPED path', () => {
+  // The B-37 shape exactly: workflows.html is precached, its module entry point
+  // was dropped for not being in HEAD.
+  const tree = {
+    'workflows.html': '<script type="module" src="sync-rxdb/bootstrap.js"></script>',
+  };
+  const result = guard.checkImportReachability(['workflows.html'], {
+    readFile: fakeReader(tree),
+    skipped: new Set(['sync-rxdb/bootstrap.js']),
+  });
+
+  // Anti-vacuous: the subject set must be non-empty before its verdict counts.
+  expect(result.filesParsed, 'guard parsed no files — its verdict is meaningless').toBe(1);
+  expect(result.refsFound, 'guard found no references — its verdict is meaningless').toBe(1);
+
+  expect(result.violations).toHaveLength(1);
+  expect(result.violations[0].target).toBe('sync-rxdb/bootstrap.js');
+  // The two causes have different fixes, so the message must distinguish them.
+  expect(result.violations[0].reason).toContain('not in HEAD');
+});
+
+test('the reachability guard REDS when a precached page imports a NEVER-GLOBBED path', () => {
+  // The other cause, and the one that was live on the merged tree: log.js and
+  // tab.js were referenced by every page and matched by no globPattern at all.
+  const tree = { 'index.html': '<script src="log.js"></script>' };
+  const result = guard.checkImportReachability(['index.html'], {
+    readFile: fakeReader(tree),
+    skipped: new Set(), // nothing was dropped — it was never globbed
+  });
+
+  expect(result.filesParsed).toBe(1);
+  expect(result.refsFound).toBe(1);
+  expect(result.violations).toHaveLength(1);
+  expect(result.violations[0].reason).toContain('globPatterns');
+  expect(result.violations[0].reason).toContain('Dockerfile');
+});
+
+test('the reachability guard STAYS GREEN on a skipped file nobody references', () => {
+  // 🛑 The feature, not an oversight. Skipping scratch files is what keeps a dev
+  // box's junk off every crew phone; a blanket "fail on any skip" is explicitly
+  // NOT the invariant.
+  const tree = {
+    'index.html': '<script src="ptr.js"></script>',
+    'ptr.js': '// no imports\n',
+  };
+  const result = guard.checkImportReachability(['index.html', 'ptr.js'], {
+    readFile: fakeReader(tree),
+    skipped: new Set(['zz-scratch.html', 'README.md', 'playwright.config.js']),
+  });
+
+  expect(result.filesParsed).toBe(2);
+  expect(result.refsFound, 'green must be earned by finding a reference, not by finding none').toBe(1);
+  expect(result.violations).toEqual([]);
+});
+
+test('a BARE module specifier is not read as a missing file', () => {
+  // 🛑 vendor/rxdb.bundle.js contains `from "ws"`. HTML src="log.js" IS a path;
+  // a bare ES specifier is NOT. Collapse the two rules and every build fails on
+  // a bundled dependency name. This is the likeliest "cleanup" to break the guard.
+  const tree = {
+    'vendor/rxdb.bundle.js': 'import x from "ws"; import y from "./real.js";',
+    'vendor/real.js': '',
+  };
+  const result = guard.checkImportReachability(['vendor/rxdb.bundle.js', 'vendor/real.js'], {
+    readFile: fakeReader(tree),
+  });
+  expect(result.refsFound, 'the relative sibling import must still be seen').toBe(1);
+  expect(result.violations).toEqual([]);
+});
+
+test('the reachability guard reports itself UNTRUSTWORTHY rather than passing vacuously', () => {
+  // B-22/B-23/B-24. A guard that parsed nothing must not print PASS.
+  const faults = guard.reachabilityVacuityFaults(guard.checkImportReachability([]));
+  expect(faults.length).toBeGreaterThan(0);
+  expect(faults.join('\n')).toContain('ZERO precached');
+  expect(faults.join('\n')).toContain('ZERO local references');
+
+  // ...and it must be satisfied by the REAL manifest, or the canaries have rotted.
+  const real = guard.checkImportReachability(urlsFrom(fs.readFileSync('sw.js', 'utf8')));
+  expect(
+    guard.reachabilityVacuityFaults(real),
+    'the guard is vacuous against the committed manifest — see REACHABILITY_CANARIES in build-sw.js',
+  ).toEqual([]);
+  expect(real.filesParsed).toBeGreaterThan(10);
+  expect(real.refsFound).toBeGreaterThan(10);
+  expect(real.violations).toEqual([]);
+});
+
+test('every canary edge in build-sw.js still exists in the real tree', () => {
+  // If a canary rots, `node build-sw.js` fails with a message naming it. This
+  // test says the same thing earlier and with the reason attached, so the next
+  // card to move one (S1 `sync-hard-cutover` is the likely candidate) sees
+  // "replace the canary" rather than an opaque build failure.
+  // 🛑 PINNED, NOT `> 0`. `> 0` plus "iterate whatever survives" let the set be
+  // silently HALVED: deleting the workflows.html row ran this spec 13/13 green.
+  // The code comment said "do not delete the row" and nothing enforced it.
+  // Three rows, three mechanisms — two HTML src="" and one real JS module hop
+  // (see REACHABILITY_CANARIES in build-sw.js for why the third is not optional).
+  // If a canary legitimately moves, REPLACE the pair below; do not shorten the list.
+  expect(
+    guard.REACHABILITY_CANARIES.length,
+    'a canary row was added or deleted — replace a rotted edge, never delete it',
+  ).toBe(3);
+  expect(guard.REACHABILITY_CANARIES.map(pair => pair.join(' -> ')).sort()).toEqual([
+    'index.html -> ptr.js',
+    'sync-rxdb/client.js -> vendor/rxdb.bundle.js',
+    'workflows.html -> sync-rxdb/bootstrap.js',
+  ]);
+
+  for (const [from, target] of guard.REACHABILITY_CANARIES) {
+    const refs = guard.collectLocalRefs(from, fs.readFileSync(from, 'utf8'))
+      .map(spec => guard.resolveRef(from, spec));
+    expect(refs, `canary lost: ${from} no longer references ${target} — REPLACE it, do not delete it`)
+      .toContain(target);
+  }
+});
+
+test('build-sw.js exits NON-ZERO when a precached page imports a dropped file', () => {
+  // The end-to-end half: the unit tests above prove the function, this proves
+  // the wiring — that the transform actually throws, that the process exit code
+  // carries it, and that NO sw.js is written on the way out. A guard that writes
+  // a bad artifact and then exits non-zero leaves something a hurried hand can
+  // `git add`.
+  const swBefore = fs.readFileSync('sw.js');
+  const startSha = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+  const entry = 'zz-reachability-probe.js';
+  const page = 'zz-reachability-probe.html';
+  fs.writeFileSync(entry, 'export const probe = 1;\n');
+  fs.writeFileSync(page, `<!doctype html><script type="module" src="${entry}"></script>\n`);
+  // Commit ONLY the page. The entry point it imports stays out of HEAD, so
+  // committedOnlyTransform drops it — B-37's exact shape.
+  //
+  // 🛑 The teardown is `reset --soft` to a SHA captured up front, never
+  // `reset --hard HEAD~1`. A hard reset here would destroy a real commit if the
+  // commit below ever failed, and would silently discard whatever the developer
+  // running the suite had uncommitted. --soft touches neither working tree nor
+  // anything the test did not stage.
+  try {
+    execFileSync('git', ['add', page], { encoding: 'utf8' });
+    execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q',
+      '-m', 'TEMP reachability probe', '--no-verify'], { encoding: 'utf8' });
+
+    let exitCode = 0;
+    let output = '';
+    try {
+      output = execFileSync('node', ['build-sw.js'], { encoding: 'utf8', stdio: 'pipe' });
+    } catch (err) {
+      exitCode = err.status;
+      output = `${err.stdout || ''}${err.stderr || ''}`;
+    }
+    expect(exitCode, `build-sw.js exited 0 — B-37 is back.\n${output}`).not.toBe(0);
+    expect(output).toContain(entry);
+    // Not written, not merely written-and-then-complained-about.
+    expect(fs.readFileSync('sw.js').equals(swBefore),
+      'build-sw.js wrote sw.js despite failing the reachability check').toBe(true);
+  } finally {
+    if (execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim() !== startSha) {
+      execFileSync('git', ['reset', '--soft', startSha], { encoding: 'utf8' });
+    }
+    try { execFileSync('git', ['rm', '--cached', '-q', '--', page], { encoding: 'utf8' }); } catch (e) { /* never staged */ }
+    fs.rmSync(path.resolve(entry), { force: true });
+    fs.rmSync(path.resolve(page), { force: true });
+    fs.writeFileSync('sw.js', swBefore);
+  }
+});

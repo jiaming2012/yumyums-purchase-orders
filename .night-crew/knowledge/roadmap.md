@@ -893,8 +893,101 @@
   Footprint: new RxDB client layer, `workflows.html` (import + construction only — the write-path
   swap is `sync-hard-cutover`), `build-sw.js`, `backend/Dockerfile`, `vendor/`.
 
-- **`sync-rxdb-write-policies`** · **PLANNED — NEW, authored at slate planning 2026-07-31 evening
-  (ledger T-30 decision 111)** · 🛑 **BINDS: the replication-scope rule (ledger T-29 decision 105).**
+- **`sync-rxdb-write-policies`** · ✅ **DONE — run `20260802`, Track A (A2), branch
+  `card/a2-sync-rxdb-write-policies`.** Decision 111's four rows shipped as
+  `sync-schema/sql/0004_write_policies.sql`; **the PARK trigger did not fire — no fifth predicate
+  was needed.** · **Red-first, and there are TWO reds because one of them is useless here.** The
+  familiar `SYNC_RLS_SKIP_POLICIES=1` (RLS torn down) reds **30** subtests — every write REFUSAL —
+  but passes every write POSITIVE, and this card's starting state was **deny-all**, which passes
+  every refusal in the file. So the card added a second red mode,
+  `SYNC_RLS_SKIP_WRITE_POLICIES=1` (0003 kept, 0004 withheld), which reds **12** — all ten write
+  positives, the rewritten V18, and the positive halves of W9/W14. Both were captured before the
+  policies existed and both reproduce on demand. **GREEN: 52/52 subtests, all executed**, up from
+  the shipped 27. · **What landed, per row.** `checklist_templates`: **no write policy, and the
+  absence is the answer** — the builder keeps the REST path, no phone writes a template definition,
+  and W1/W2/W3 assert it including **as an admin**, so it is a decision with evidence rather than a
+  gap that looks like an oversight next to three tables that all got one.
+  `checklist_submissions`: `with check (hq_can_see_template(template_id))`, which closes the lie
+  `0003_rls_policies.sql:243` names by hand. `submission_responses`:
+  `with check (hq_can_see_field(field_id))` — **field-scoped**, and WP3 pushes a row with
+  `submission_id: null` because a submission-scoped write predicate would refuse every offline
+  draft *while passing every attack variant*. `submission_rejections`: approver-only write **and
+  the SELECT policy it never had**. · 🛑 **EVERY UPDATE POLICY CARRIES BOTH `using` AND
+  `with check`.** Postgres requires only the first and warns about neither, and `using` alone
+  passes every cross-user attack in the suite while still letting an attacker **move a row they
+  legitimately own into a scope they cannot see** — W5 re-parents a submission under the orphan
+  template, W7 repoints a response at another user's field. Neither is visible in the status code
+  (200 `[]` for a `using` exclusion, 403 for a `with check` rejection), so **every write assertion
+  verifies through the pool and never the response.** · **The asymmetry is real and is asserted in
+  both directions.** Reads keep INHERITED PROPERTY 1 byte-for-byte; only approvals filter on
+  `assignment_role`, through a **separate relation** (`hq_template_approvers`, 0002 §3d) so neither
+  half can drift into the other. Loosen writes to match reads → every crew member signs off their
+  own checklist (**W9** reds). Tighten reads to match writes → every approver goes blind (**WP5**
+  and `POSITIVE/alice` red). · 🛑 **ONE DEVIATION FROM THE AUTHORED PARK TRIGGERS, TAKEN
+  DELIBERATELY:** the bullet as authored said the card "must not need a `backend/migrations/`
+  file". It needed one. `assignment_role` does not cross the FDW — 0002 §3a keeps the column off
+  the wire *on purpose* — so decision 111's own `hq_can_approve_template` is not evaluable on the
+  substrate without it. **Migration `0074_sync_fdw_approver_view.sql` creates ONE read-only VIEW
+  and ONE grant; it alters no table, no column, no constraint**, and the view contains only
+  approver rows so it cannot widen a read. The signed slate narrowed this card's park conditions to
+  exactly one — a write predicate beyond the four rows — and that one did not fire. Recorded as a
+  deviation rather than folded away. **It adds `template_assignments.assignment_role` to 0073's
+  "may no longer be retyped" list.** · **B-36 FIXED in the same change set, and both arms proved.**
+  `resolveSpikeConfig` turned ANY `docker compose … port` failure into `t.Skip`: measured at
+  `ok … 0.014s`, exit 0, with `--- SKIP` on both attack suites — forty-nine subtests and the same
+  `ok` line the package prints when they all pass. The opt-out is now typed:
+  `HQ_SYNC_SUBSTRATE_OPTIONAL=1` is the only door to a skip; anything else `t.Fatal`s. Demonstrated
+  live in all three arms (unreachable+unset → FAIL exit 1; unreachable+`=1` → SKIP; reachable →
+  RUN, ~~27 subtests executed~~ **54 subtests in `TestRowVisibilityRLS` and 16 in
+  `TestJWTBridgeRLS`** — the 27 was wrong, corrected at the G6 fix round, finding F7; it matched
+  neither suite, and the row-visibility count rose from 52 to 54 when that round added WP8/W16).
+  Pinned by `spikeResolution`, a pure function `resolveSpikeConfig`
+  switches on directly, whose test enumerates all 8 combinations **and asserts exactly one is a
+  skip** — so an implementation that skipped everywhere cannot pass it (B-22/B-23/B-24).
+  🛑 ~~**Ledger T-29 decision 108's reporting rule can now be retired: the package `ok` line means
+  something again.**~~ **STRUCK — FINDING F6, and decision 108's rule is KEPT.** B-36 closes ONE
+  road to a silent skip; it does not close the road. Verbatim, on the fixed tree:
+  `HQ_SYNC_SUBSTRATE_OPTIONAL=1` still produces `--- SKIP: TestJWTBridgeRLS` / `--- SKIP:
+  TestRowVisibilityRLS` / `PASS` / `ok  github.com/yumyums/hq/internal/sync  0.019s` — exit 0, zero
+  attack variants run, **and the `ok` line does not say the variable was set.** `-run` filtering is
+  a second road: `-run TestSpikeGate` prints `ok` having run no variant at all. **The amendment: an
+  `internal/sync` result is reportable only when it cites `-run TestRowVisibilityRLS -v` with the
+  subtests EXECUTED, and states that `HQ_SYNC_SUBSTRATE_OPTIONAL` was unset.** A bare `ok` line
+  from this package remains unreportable. · **Still open, deliberately:** `HQ_SYNC_REST_URL` remains **ARMED AND
+  UNSET** — making push *possible* is not making it *live*, and this card set, referenced and
+  implied it nowhere. · Discoveries routed under scope freeze: **B-49** (rejections just became the
+  fourth collection B-42's unscoped live leg applies to — filed as B-46, renumbered at triage when
+  the B1 leg merged first and kept that number), **B-47** (`sync-schema/sql/` has no
+  applier or manifest), **B-48** (no static guard on the templates deny-all — **re-specified at the
+  G6 fix round**: the original lead proposed guarding a non-defect, see F3), **B-51** (the
+  "two independent gates refuse a DELETE" claim was false; `authenticated` holds DELETE and
+  TRUNCATE on all four tables, so there is one gate — finding F4).
+
+  · 🛑 **G6 ADVERSARIAL REVIEW RETURNED THREE BLOCKING DEFECTS, ALL IN THE SUITE, NONE IN THE
+  POLICIES — AND THE SUITE IS THIS CARD'S DELIVERABLE.** The shipped `0004` refused every attack
+  the reviewer constructed, `Prefer: return=minimal` included. What it could not do was prove it:
+  **3 of 5 mutations to the shipped write predicates survived fully green, and 2 of the 3 were
+  mutations the file itself names as guarded.** Root cause **F1**: `spikeStack.do` set
+  `Prefer: return=representation` unconditionally, so every write went through PostgREST with
+  RETURNING and Postgres applied **0003's SELECT policy to the new row** — and since the read
+  predicates are identical to (rows 2, 3) or broader than (row 4) the write predicates, **the read
+  policy was silently enforcing the write half.** W8's rejection arm was reading a 403 issued by
+  `hq_can_see_field`. Fixed by `rvPushRefused`: every write refusal now goes out under BOTH Prefer
+  headers. **F2**: `submission_rejections_update`'s `with check` — the ONE predicate in the file
+  narrower than its table's SELECT policy, hence the only one Postgres will not enforce for us —
+  had no variant of either sign; the matched pair **WP8/W16** was added on the approver-UPDATE axis
+  (a new fixture field `fldApprover2` makes the pair run the identical PATCH probe). **F3**: §5's
+  "single most load-bearing sentence" was factually wrong about PostgreSQL in both halves —
+  Postgres substitutes `using` for an omitted `with check`, so on rows 2 and 3 that omission is a
+  **non-defect**, and no test was invented to pretend otherwise. Corrected in place with a
+  four-probe isolated experiment. **Mutation set re-run after the fix: M1 survives (correctly, a
+  non-defect), M1b survives (correctly), M1c → W16, M1d → W4/W6/W8/W13/W14, M2 → WP3/WP4/W14, M3 →
+  W3, M4 → W8.** Every reachable mutation is now caught.
+
+  · **The card AS AUTHORED follows, kept verbatim rather than rewritten, so the contract this was
+  built against stays readable next to what was built.** Authored at slate planning 2026-07-31
+  evening (ledger T-30 decision 111).
+  🛑 **BINDS: the replication-scope rule (ledger T-29 decision 105).**
   · **Why it exists:** `sync-rxdb-row-visibility-rls` shipped **SELECT policies only** and deferred
   writes to "a follow-up card that writes `WITH CHECK` policies". **No such card existed.** Verified
   at source before authoring: `sync-schema/sql/0003_rls_policies.sql` contains zero `WITH CHECK`,
@@ -946,7 +1039,29 @@
   `backend/internal/sync/rowvisibility_rls_test.go`, `backend/internal/sync` (the `resolveSpikeConfig`
   skip path, B-36).
 
-- **`sync-cache-and-identity-hygiene`** · **PLANNED — RE-SPECIFIED 2026-07-31 evening (ledger T-30
+- **`sync-cache-and-identity-hygiene`** · **DONE — one mechanism, three call sites, obligation 8
+  folded** (2026-08-02, run `overnight-20260802`, Track B; landed on
+  `card/b1-sync-cache-and-identity-hygiene`) · **The cross-tenant disclosure was SHOWN before it was
+  closed**, end-to-end through a real service worker in the suite's only
+  `serviceWorkers:'allow'` spec (`tests/sw-api-cache-partition.spec.js`): a `team_member` with no
+  Users grant, offline on a device user A had used, was handed **HTTP 200 and the entire team
+  roster** — every colleague's email, role and employee number. Post-fix the same request returns
+  `503 {"error":"offline"}`. `api-cache` is **partitioned**, not retired: `cacheKeyWillBeUsed`
+  writes `__hq_id=<uuid>` into every cache key and `cacheWillUpdate` refuses to write at all when no
+  identity is established. The token lives in a `hq-identity` CacheStorage bucket — the only store
+  the page and the worker can both reach (a worker cannot see `localStorage`; the session cookie is
+  `HttpOnly` and is attached after the fetch event). The same token drives the purge at all three
+  call sites: `logout()`, `login.html`'s `signIn()`/`acceptInvite()` (obligation 7b — the identity
+  change that never runs `logout()`), and `establishIdentity()` on a verified `/api/v1/me`, which
+  also prunes any foreign partition. `hq_apps` became an identity-stamped `{uid,apps}` envelope and
+  a legacy bare array is **discarded, not migrated** (obligation 7a). Obligation 8's stale comment
+  at `tests/sync.spec.js:1584` is corrected — `'submitted'` → `'completed'`
+  (`repository.go:715-716`); no test in that file was touched and **[LST-17] stays armed**. Precache
+  count unchanged at **29 files**. 🛑 The merge-intent note
+  (`.night-crew/runs/2026-08-02-autonomous/merge-intent-b1-sync-cache-and-identity-hygiene.md` §2)
+  is the contract P1 and S1 are held to when they edit `build-sw.js` after this card.
+  *(Original re-specification, kept as the record of why the card exists:)*
+  **RE-SPECIFIED 2026-07-31 evening (ledger T-30
   decision 112): the `api-cache` retirement is STRUCK, and the card is now per-identity cache
   partitioning.** 🛑 **The retirement premise was false, and verified false at source:**
   `build-sw.js:149` registers `urlPattern: /\/api\//` — a NetworkFirst route over **every** endpoint
@@ -1632,25 +1747,86 @@
   is to how the library derives `<baseUrl>/rest/v1`, not to the public extension points.
   Footprint: `backend/internal/auth` (or a new package), `backend/internal/sync`.
 
-- **`sync-replication-scope-per-checklist`** · **PLANNED — NEW, authored at morning triage
-  2026-07-31 (ledger T-29 decision 105)** · Sized and sequenced by triage rather than put to the
-  operator: it is a bounded change to code that already landed, and it gates `sync-hard-cutover`,
-  so it goes **before** the cutover rather than inside it — folding it in would make the largest
-  card in the cycle larger and hide a design correction inside a write-path swap. · **What it
-  does:** give `startHQReplication` a pull filter so replication is scoped to the open checklist
-  instead of pulling four collections in full. Today (`sync-rxdb/client.js:378`) it loops
-  `templates`, `checklists`, `responses`, `approvals` with `pull:{batchSize:50}` and **no
-  selector, filter or query modifier**, so every device replicates every field answer of every
-  submission ever taken. Two consequences, and the second was not previously on the roadmap:
-  (a) the RLS predicate is re-evaluated per row on every page, which is the whole of Fork 1's
-  ~23 s figure — 20 pages × 50 rows × ~23 ms; (b) **unbounded phone storage** — `responses` grows
-  forever and each phone was to hold all of it. · **Also required:** re-measure the ~23 ms/row
-  constant on production-like topology. It was measured through Docker loopback NAT, which
-  production does not have — the linear *shape* is structural, the *constant* is not, and no card
-  should rely on the specific number until it is re-taken. · Footprint: `sync-rxdb/client.js`
-  (pull selector), `sync-schema/collections.js` if the scope needs a queryable key,
-  `tests/sync-rxdb-client.spec.js`. **Red-first is mandatory:** the red is a test asserting a
-  device does NOT hold rows for a checklist it never opened.
+- **`sync-replication-scope-per-checklist`** · **DONE — built on `overnight-20260802` (Track A,
+  card A1), 2026-08-01, branch `card/a1-sync-replication-scope-per-checklist`.**
+  **🛑 BUILT AND HANDED TO THE ORCHESTRATOR FOR MERGE — DEPLOYED TO NOTHING, and
+  `HQ_SYNC_REST_URL` REMAINS ARMED AND UNSET.** Flipping this bullet DONE ahead of the merge is
+  run convention. Nothing on this card authorizes a deploy, and this card specifically must not
+  be read as evidence that the env var can be set: it narrows what replication asks for, it does
+  not open the door. · Authored at morning triage 2026-07-31 (ledger T-29 decision 105), sized
+  and sequenced by triage rather than put to the operator: it is a bounded change to code that
+  already landed, and it gates `sync-hard-cutover`, so it went **before** the cutover rather than
+  inside it. · **What it did:** every replicated collection now carries a `pull.queryBuilder` —
+  `templates` `id.eq.<templateId>` (else `archived_at.is.null`), `checklists`
+  `id.eq.<checklistId>`, `approvals` `submission_id.eq.<checklistId>`, and `responses`
+  `or(submission_id.eq.<checklistId>, and(submission_id.is.null, field_id.in.(<the open
+  checklist's own fields>)))`. `startHQReplication` now **THROWS** without an `opts.scope`
+  carrying a `checklistId`: a default that fell back to the whole collection would widen
+  preference `architecture/C-2` silently, and C-2 requires a recorded decision to widen. ·
+  **Red first, as the card required:** `[SCOPE-01]` at commit `d5d2e4d` was **3 failed / 3
+  passed** — the failing three include `an offline DRAFT on the open checklist still replicates`
+  receiving `["rsp-1","rsp-2","rsp-3","rsp-4","rsp-5"]`, i.e. the whole table including two rows
+  belonging to a checklist the device never opened. The three that passed at the red are the
+  guards (non-empty subject set per B-22/B-23/B-24, the vendored-seam tripwire, the batch-size
+  check) and passed on purpose. **6/6 green** after the fix at `80b2149`. The harness does not
+  assert on an options object: it reproduces the vendored plugin's own pull construction — read
+  out of `vendor/rxdb.bundle.js`, where `pull.queryBuilder` runs BEFORE the checkpoint `.or()`
+  and PostgREST ANDs the two — and EVALUATES the emitted PostgREST filters over a two-checklist
+  fixture. · **NO SCHEMA CHANGE, NO POLICY CHANGE — the PARK trigger did not fire.** Every key the
+  scope uses was already declared by B1; `sync-schema/collections.js` and `sync-schema/sql/` are
+  byte-unchanged. The roadmap's *"`sync-schema/collections.js` if the scope needs a queryable
+  key"* proviso was not needed. · **Three scoping edges, all decided by C-2 rather than parked:**
+  (1) a draft response has `submission_id IS NULL` until submit and drafts are the offline case
+  this layer exists for, so the scope is the open checklist's submitted rows OR a draft on one of
+  its **own** field ids — not "all my drafts everywhere", which is a different unbounded set (and
+  it matches what the RLS predicate already does: `TestRowVisibilityRLS/V13` is literally *DRAFT
+  responses are scoped by FIELD, not by submission*); (2) `templates` is scoped `id.eq.<templateId>`
+  and `templateId` is REQUIRED — there is no "caller omitted it" fallback, because a widening
+  triggered by a forgotten argument is not a recorded decision; (3) an unscoped call is refused
+  loudly, and the refusal is raised while BUILDING the pull rather than inside `pull.handler`,
+  which the plugin wraps in an unbounded silent retry. · **The `replicationIdentifier` CARRIES THE
+  SCOPE — `hq-sync-<table>-<fingerprint of that collection's own filter>`.** 🛑 **This reverses
+  what this bullet said when the card was first flipped DONE, and the reversal is the point:** the
+  original text argued the scope must stay OUT of the identifier because folding it in would mint a
+  blank checkpoint on every checklist switch. Measured against `vendor/rxdb.bundle.js`, that was
+  backwards. RxDB keys its checkpoint meta store by `hash([collection.name, replicationIdentifier])`
+  and **by nothing else** — the scope is not in the key — and the pull's returned checkpoint is the
+  last row of the *scoped* result set, which the next pull ANDs `_modified > C` against. One
+  identifier across scopes therefore meant: open today's checklist, checkpoint advances to today;
+  open **yesterday's**, every one of its rows is `<= C`, **zero rows, permanently**. The cost the
+  old reasoning was protecting against had already been removed by this same card: before it, a
+  blank checkpoint meant re-pulling all history (20 pages × 50 rows); after it, it means re-pulling
+  **one checklist** — about one batch. Identical scope still resumes; only a scope change mints a
+  new checkpoint. Found by the G6 adversarial review as BLOCKING finding F-1 and fixed in the same
+  card; pinned by `[SCOPE-02]`, which runs the plugin's pull construction twice through a meta
+  store keyed the way RxDB keys its own. · 🛑 **STILL OPEN,
+  and it is `sync-hard-cutover`'s: `B-42 SYNC-REALTIME-SCOPE`.** The PULL is scoped; the plugin's
+  live `postgres_changes` subscription is not, and has no seam — `pull.modifier` reaches stream
+  documents but cannot drop one (no null filter on the downstream path), and Realtime's own
+  `filter` takes a single clause, which cannot express the `responses` branch. Bounded: the pull
+  was the unbounded leg (all history, every page load) and is now scoped; the stream is bounded by
+  what other people change while the crew member is looking. Stated in `sync-rxdb/client.js`'s
+  `REPLICATION SCOPE` header, not only in the backlog. · 🛑 **UNBOUNDED PHONE STORAGE IS IMPROVED,
+  NOT FIXED — reworded after G6 finding F-6, which caught this bullet claiming otherwise.** RxDB's
+  downstream only ADDS to the local store; nothing evicts, and there is no retention sweep for any
+  of the four replicated collections. A phone still accumulates every checklist it has **opened**
+  — the bound moved from *all history* to *opened checklists*, which is a large improvement and is
+  not the same thing as bounded. Whoever owns retention owns it after `sync-hard-cutover`. · 🛑
+  **ALSO FIXED IN THE G6 ROUND, same card:** scope values are validated against a strict
+  whitelist and quoted into PostgREST's logic-tree grammar (F-4 — an unescaped value could
+  otherwise rewrite the predicate to match every row, *through* the thing this card calls a gate);
+  and the `[SCOPE-01]` fixture gained a second submission of the OPEN checklist's OWN template plus
+  approval/response rows on OPEN field ids under a different submission (F-2 — without them the
+  fixture could not tell per-checklist scoping from per-template or per-field scoping, and the
+  reviewer's two mutations both survived 6/6 green). · 🛑 **STILL REQUIRED AND NOT DONE BY THIS
+  CARD: re-measure the ~23 ms/row constant on production-like topology.** It was measured through
+  Docker loopback NAT, which production does not have — the linear *shape* is structural, the
+  *constant* is not, and no card should rely on the specific number until it is re-taken. This
+  card removed the multiplier (20 pages × 50 rows), not the constant. · Footprint as built:
+  `sync-rxdb/client.js`, `tests/sync-rxdb-client.spec.js`, plus one line of doc in
+  `sync-rxdb/bootstrap.js` and a scope argument in `tests/sync-rxdb-conflict.spec.js`'s driven
+  threading test, which genuinely calls `startHQReplication` and would otherwise red on a change
+  it is not about.
 
 - **`sync-hard-cutover`** · **PLANNED — LAST · SLATED 2026-07-31 evening as BUDGET-GATED STRETCH on
   `overnight-20260801-2`** (started only if `sync-replication-scope-per-checklist` and
@@ -1767,7 +1943,7 @@
 | Replay fetch-storm class is NOT fully closed | dropped — superseded by the RxDB/Supabase migration (symptom of the mechanism being replaced) |
 | `sync.js` catch-up fetch-storm gate | dropped — superseded by the RxDB/Supabase migration |
 | Rejected-field hydrate quirk: new answer visually clears on reload until resubmission | dropped — superseded by the RxDB/Supabase migration |
-| Cross-user checklist hydration divergence (approved-vs-rejected ghost state) | left `new` — needs a product ruling on desired cross-user semantics; routed to the next `/nc-pm-session` intake, not resolved this round |
+| Cross-user checklist hydration divergence (approved-vs-rejected ghost state) | ~~left `new` — needs a product ruling on desired cross-user semantics; routed to the next `/nc-pm-session` intake, not resolved this round~~ → **RULED 2026-07-26, operator-decided, ledger T-24 decision 67** (given directly in answer to the question put plainly — no PM session was run; the ceremony was heavier than the single question). *"A new cycle starts fresh for every user — 0/2 for both A and B."* B's rejected submission does **not** resurrect as current state: it is archived and stays visible as **history**. A's fresh 0/2 **must accept clicks** — *"the silent no-op is a bug, not intended behavior."* The convergence matrix still needs its missing asymmetric approved-for-A / rejected-for-B cell seeded, asserting 0/2 for both **and** that A's clicks POST. Rationale: *"rejection means redo."* The ruling defines the target state, not the work — the build is slated as Night B card **P4** (`reference/slate-20260802.md`) and is not yet authored. Product KR2's half of `sync-hard-cutover`'s double block is **cleared** (see `:110-125` above); that card stays blocked on `sync-rxdb-schema-and-replication` only. |
 
 All other `· new` backlog items (security/infra hygiene, grants follow-ups, test/run-mechanics
 hygiene, product/display nuance, money-precision) were grouped for this round's walk but not

@@ -67,6 +67,60 @@ import (
 //
 // 🛑 A SKIP IS NOT A PASS. When these suites skip, there is NO row-visibility
 // evidence in the tree at all. Say so rather than implying otherwise.
+//
+// ═══════════════════════════════════════════════════════════════════════════
+// 🛑 B-36 — THE FIRST ARM ABOVE WAS STILL A HOLE, AND IT WAS THE WHOLE HOLE
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Card `sync-rxdb-write-policies` (overnight-20260802, A2). Fixed here rather
+// than in a night of its own because this card DOUBLES the attack suite living
+// in this package, and writing a second security gate into a package whose own
+// gate cannot prove it ran is building on a foundation that needs rip-out
+// (ledger T-30, decision 111's "Also folded" paragraph).
+//
+// F1's fix made "configured but unreachable" fail. It left "could not tell
+// whether one is configured" as a SKIP — and that branch is reached by ANY
+// failure of the `docker compose … port` shell-out, for ANY reason:
+//
+//	docker not installed · docker daemon down · the user not in the docker
+//	group · a `docker` on PATH that is a wrapper returning non-zero · the
+//	compose file renamed · cwd resolution wrong · the 20s context expiring
+//	on a loaded machine
+//
+// Every one of those is INDISTINGUISHABLE, at this call site, from "this
+// contributor deliberately has no stack". So the deliberate opt-out and the
+// broken toolchain took the SAME door, and the door was silent. MEASURED on
+// 2026-08-02 against the tree as it stood, with a `docker` shim on PATH that
+// exits 1 (the daemon-down case, verbatim):
+//
+//	$ go test ./internal/sync/ -count=1 -run 'TestRowVisibilityRLS|TestJWTBridgeRLS'
+//	ok    github.com/yumyums/hq/internal/sync   0.014s      <- exit 0
+//
+//	...the same run with -v:
+//	--- SKIP: TestJWTBridgeRLS (0.00s)
+//	--- SKIP: TestRowVisibilityRLS (0.00s)
+//
+// 0.014 SECONDS. Two attack suites, forty-nine subtests between them, and the
+// package's `ok` line is the same `ok` line it prints when they all pass.
+//
+// 🛑 THE FIX: THE OPT-OUT MUST BE TYPED, NOT INFERRED. `HQ_SYNC_SUBSTRATE_OPTIONAL=1`
+// is now the ONLY door to a skip. Absent it, an unresolvable substrate is a
+// FAILURE — the same asymmetry F1 applied one layer up, applied to the layer
+// that decides whether there is a layer at all.
+//
+//	HQ_SYNC_SUBSTRATE_OPTIONAL=1, nothing resolves   -> SKIP   (deliberate)
+//	nothing set, nothing resolves                    -> FAIL   (🛑 B-36)
+//	SPIKE_* declared, half resolves                  -> FAIL   (F1, unchanged)
+//	resolved                                         -> RUN
+//
+// A contributor who genuinely does not want the substrate types six characters
+// once. A CI box whose docker broke at 3am gets a red build instead of a green
+// one that proved nothing. Those are not the same event and they no longer
+// produce the same output.
+//
+// The decision is `spikeResolution`, a pure function, so it can be ASSERTED
+// rather than described — and `resolveSpikeConfig` switches on it directly, so
+// the assertion is about the shipped decision and not a parallel copy of it.
 
 const (
 	spikeComposeProject = "spike-supabase"
@@ -78,6 +132,14 @@ const (
 
 	spikeDBURLEnv   = "SPIKE_DB_URL"
 	spikeRESTURLEnv = "SPIKE_REST_URL"
+
+	// spikeOptionalEnv is the ONE door to a skip (B-36). It is deliberately a
+	// NEW variable rather than a reuse of SPIKE_DB_URL/SPIKE_REST_URL: those two
+	// say WHERE the substrate is, and inferring "there isn't one" from "you did
+	// not say where it is" is precisely the inference that made a broken docker
+	// look like a contributor's choice. This one says only "I know there is no
+	// substrate here and I accept that this package proves nothing today."
+	spikeOptionalEnv = "HQ_SYNC_SUBSTRATE_OPTIONAL"
 
 	// spikeDBSuperPassword is the throwaway POSTGRES_PASSWORD committed
 	// literally in docker-compose.supabase.yml (see the banner in that file:
@@ -198,23 +260,57 @@ func resolveSpikeConfig(t *testing.T) (spikeConfig, bool) {
 		}
 	}
 
-	if cfg.dbURL == "" || cfg.restURL == "" {
-		if declared {
-			t.Fatalf("a SPIKE_* endpoint was set, so a SUBSTRATE RUN WAS INTENDED, but the "+
-				"rest of the stack could not be resolved:\n  %s\n\n"+
-				"This is a FAILURE and not a skip on purpose — see the banner in "+
-				"spikestack_gate_test.go. Set both %s and %s, or unset both and bring the "+
-				"stack up with:\n"+
-				"  docker compose -p %s -f docker-compose.supabase.yml up -d",
-				strings.Join(unresolved, "\n  "),
-				spikeDBURLEnv, spikeRESTURLEnv, spikeComposeProject)
-		}
+	resolved := cfg.dbURL != "" && cfg.restURL != ""
+
+	switch spikeResolution(declared, resolved, spikeSubstrateOptional()) {
+	case spikeGateRun:
+		cfg.origin = strings.Join(origins, " + ")
+		return cfg, true
+
+	case spikeGateSkip:
+		// The ONLY door. Reached only with HQ_SYNC_SUBSTRATE_OPTIONAL=1 set.
 		return spikeConfig{}, false
 	}
 
-	cfg.origin = strings.Join(origins, " + ")
-	return cfg, true
+	// spikeGateFail. Two shapes, and the message must tell them apart or the
+	// person reading it at 3am cannot act on it.
+	if declared {
+		t.Fatalf("a SPIKE_* endpoint was set, so a SUBSTRATE RUN WAS INTENDED, but the "+
+			"rest of the stack could not be resolved:\n  %s\n\n"+
+			"This is a FAILURE and not a skip on purpose — see the banner in "+
+			"spikestack_gate_test.go. Set both %s and %s, or unset both and bring the "+
+			"stack up with:\n"+
+			"  docker compose -p %s -f docker-compose.supabase.yml up -d",
+			strings.Join(unresolved, "\n  "),
+			spikeDBURLEnv, spikeRESTURLEnv, spikeComposeProject)
+	}
+
+	// 🛑 B-36. This branch used to `return spikeConfig{}, false` and the package
+	// printed `ok` in 0.014s having run no attack variant at all.
+	t.Fatalf("🛑 THE SYNC SUBSTRATE COULD NOT BE RESOLVED, and no opt-out was declared:\n  %s\n\n"+
+		"This is a FAILURE and NOT a skip (B-36). This package carries the row-visibility and "+
+		"JWT-bridge attack suites — the ONLY evidence in this repository that the sync substrate's "+
+		"RLS refuses anything. Skipping them silently is how they were found running on NO machine "+
+		"while `go test` printed `ok`, and the failure above is reached by a broken docker just as "+
+		"readily as by a deliberate choice. Those are not the same event.\n\n"+
+		"Bring the stack up:\n"+
+		"  docker compose -p %s -f docker-compose.supabase.yml up -d\n"+
+		"or point at one elsewhere with %s and %s.\n\n"+
+		"If you genuinely have no substrate and accept that THIS PACKAGE THEN PROVES NOTHING about "+
+		"row visibility, say so explicitly:\n"+
+		"  %s=1 go test ./internal/sync/\n"+
+		"🛑 A run carrying that variable is NOT evidence for any security gate. Do not cite it as one.",
+		strings.Join(unresolved, "\n  "),
+		spikeComposeProject, spikeDBURLEnv, spikeRESTURLEnv, spikeOptionalEnv)
+	return spikeConfig{}, false
 }
+
+// spikeSubstrateOptional reports the explicit opt-out. `== "1"` and not
+// truthiness: HQ_SYNC_SPIKE_LIVE already taught this package that a permissive
+// truthiness table on a gate variable is a foot-gun (TestSpikeLiveRequested), and
+// a variable whose whole job is to be deliberate should not be satisfiable by
+// `HQ_SYNC_SUBSTRATE_OPTIONAL=0` or by an accidental empty export.
+func spikeSubstrateOptional() bool { return os.Getenv(spikeOptionalEnv) == "1" }
 
 // spikeUnreachableReason renders the single failure message used at every
 // conversion site, so they cannot drift into several different explanations.
@@ -316,6 +412,117 @@ func spikeGate(configured, reachable bool) spikeGateVerdict {
 		return spikeGateFail
 	default:
 		return spikeGateRun
+	}
+}
+
+// spikeResolution is the decision resolveSpikeConfig makes BEFORE any socket is
+// opened: given what the environment said and what the compose project answered,
+// does this run go ahead, opt out, or fail?
+//
+// 🛑 Extracted as a pure function so it can be ASSERTED, and called by
+// resolveSpikeConfig itself so the assertion is about the shipped decision
+// rather than a description of it. spikeGate below is its sibling for the
+// reachability half; keeping them separate keeps F1's pinned row untouched by
+// B-36's change.
+//
+//	declared  resolved  optOut   verdict
+//	────────  ────────  ──────   ───────────────────────────────────────────
+//	 -         true      -        RUN    endpoints known; a live run is on
+//	 true      false     -        FAIL   F1: intent declared, stack incomplete
+//	 false     false     true     SKIP   🛑 THE ONLY SKIP DOOR
+//	 false     false     false    FAIL   🛑 B-36: this used to be a SKIP
+func spikeResolution(declared, resolved, optOut bool) spikeGateVerdict {
+	switch {
+	case resolved:
+		return spikeGateRun
+	case declared:
+		return spikeGateFail
+	case optOut:
+		return spikeGateSkip
+	default:
+		return spikeGateFail
+	}
+}
+
+// TestSpikeResolution_OptOutIsTheOnlySkipDoor is B-36's pin.
+//
+// 🛑 IT GUARDS ITSELF, because this repo has already shipped three guards that
+// printed PASS against an empty or mis-scoped subject set (B-22/B-23/B-24) and
+// this is a guard on a guard on a security suite. A table test that enumerated
+// the wrong rows, or an implementation that returned `skip` for everything,
+// would satisfy a naive row-by-row loop. So the test additionally asserts the
+// SHAPE of the table it just walked: all eight combinations are covered, and
+// EXACTLY ONE of them is a skip.
+func TestSpikeResolution_OptOutIsTheOnlySkipDoor(t *testing.T) {
+	type row struct{ declared, resolved, optOut bool }
+	want := map[row]spikeGateVerdict{
+		// resolved — the endpoints are known, so the run is on regardless of
+		// what anyone declared or opted out of. Opting out does not turn a
+		// working stack off; it only excuses a missing one.
+		{false, true, false}: spikeGateRun,
+		{false, true, true}:  spikeGateRun,
+		{true, true, false}:  spikeGateRun,
+		{true, true, true}:   spikeGateRun,
+
+		// declared but unresolvable — F1's row, unchanged by this card. Someone
+		// typed a SPIKE_* variable, so they meant to run.
+		{true, false, false}: spikeGateFail,
+		{true, false, true}:  spikeGateFail,
+
+		// 🛑 THE TWO ROWS B-36 IS ABOUT. Same observable state — nothing
+		// resolved, nothing declared — and they must now differ.
+		{false, false, true}:  spikeGateSkip, // typed the opt-out: deliberate
+		{false, false, false}: spikeGateFail, // 🛑 was SKIP; that was the bug
+	}
+
+	if len(want) != 8 {
+		t.Fatalf("the table enumerates %d of 8 combinations — an unenumerated row is "+
+			"an unguarded one", len(want))
+	}
+
+	skips := 0
+	for r, expect := range want {
+		got := spikeResolution(r.declared, r.resolved, r.optOut)
+		if got != expect {
+			t.Errorf("spikeResolution(declared=%v, resolved=%v, optOut=%v) = %q, want %q",
+				r.declared, r.resolved, r.optOut, got, expect)
+		}
+		if got == spikeGateSkip {
+			skips++
+		}
+	}
+
+	// 🛑 The guard's own guard. An implementation that skipped on every row
+	// would pass a loop that only compared against a table someone had edited to
+	// match it. This line cannot be satisfied that way.
+	if skips != 1 {
+		t.Errorf("🛑 %d of 8 resolution outcomes are a SKIP, want exactly 1. "+
+			"%s=1 is supposed to be the ONLY door out of running the attack suites; "+
+			"any second door is B-36 reopened under a different name.", skips, spikeOptionalEnv)
+	}
+}
+
+// TestSpikeSubstrateOptional_IsExplicit pins the truthiness table of the opt-out
+// itself. A gate variable that answers to "0", "false" or "" is a gate that
+// opens by accident — the same foot-gun HQ_SYNC_SPIKE_LIVE has its own pin for.
+func TestSpikeSubstrateOptional_IsExplicit(t *testing.T) {
+	for _, tc := range []struct {
+		set  string
+		want bool
+	}{
+		{"1", true},
+		{"", false},
+		{"0", false},
+		{"true", false},  // 🛑 deliberately NOT accepted
+		{"yes", false},   // 🛑 ditto
+		{" 1", false},    // no trimming; a stray space is not a decision
+		{"11", false},
+	} {
+		t.Setenv(spikeOptionalEnv, tc.set)
+		if got := spikeSubstrateOptional(); got != tc.want {
+			t.Errorf("%s=%q -> spikeSubstrateOptional() = %v, want %v",
+				spikeOptionalEnv, tc.set, got, tc.want)
+		}
 	}
 }
 
