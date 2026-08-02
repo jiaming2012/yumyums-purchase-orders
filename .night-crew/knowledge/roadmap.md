@@ -1893,7 +1893,29 @@
   `.night-crew/knowledge/designs/`. 🛑 **`sync-rxdb/bootstrap.js` and `workflows.html` HARD-untouched**
   — the cutover owns the wiring, and this card changes **no** write path.
 
-- **`sync-hard-cutover`** · **PLANNED — LAST · SLATED 2026-08-02 evening as a COMMITTED card on
+- **`sync-hard-cutover`** · 🛑 **PARKED — run `overnight-20260803`, Track A, card S1b.** The card's
+  own recorded PARK trigger fired: *"PARK if retiring `/saveResponse` turns out to reopen ledger
+  decision 49."* It is reopened, on measurement and on a stronger footing than the trigger
+  anticipated — **decision 49's *decisive argument* is a claim about this cutover, and the claim is
+  false as built.** Decision 49 reads *"Activity 1 ends in `sync-hard-cutover`, where RxDB replicates
+  rows straight from Postgres and there is no API boundary left to translate at."* Measured: RxDB
+  replicates from a **second, different** Postgres — the Supabase substrate — and **nothing carries a
+  row from it back into HQ's Postgres.** The FDW bridge is one-directional and carries *permissions*,
+  not data. So unmounting `/saveResponse` would not move the write; it would silently detach answers
+  from submission — every answer appears to save, and Submit produces an empty checklist.
+  **No production code, SQL, policy, migration or test was written; `HQ_SYNC_REST_URL` was NOT set
+  and nothing was deployed.** Two operator forks routed in
+  `.night-crew/runs/2026-08-03-autonomous/DECISIONS-NEEDED.md` (**F-1** the data plane, **F-2** =
+  B-61's list narrowing). Full evidence, six new findings (**B-65..B-70**) and the disposition of all
+  six inherited riders: `.night-crew/runs/2026-08-03-autonomous/park-s1b-sync-hard-cutover.md`.
+  🛑 **A second footprint correction was found (B-68), of the same severity as the one this bullet
+  already carries:** `backend/internal/sync/{ops,handler}.go` is the transport for **all** workflow
+  business logic (`main.go:47-95` routes `SUBMIT_CHECKLIST` → the fail-note / resubmit-photo /
+  archived-template validators), not merely the Lamport layer. **KR effect: P-KR3 MET** (constraint
+  carried verbatim, 0 build WOs proposed a parallel run); **E-KR3 NOT MET and unreachable from here**
+  — it asks for one design note naming each offline data class and its owner *after cutover*, and
+  there is no cutover to describe. *(Prior status, for the record:)* **PLANNED — LAST · SLATED
+  2026-08-02 evening as a COMMITTED card on
   `overnight-20260803`, second in Track A, cut AFTER `sync-cutover-list-scope` merges**
   (`reference/slate-20260803.md`; supersedes the 2026-07-31 stretch slating on
   `overnight-20260801-2`, which the budget never reached). · *(½ of the fanned-out card — it keeps
