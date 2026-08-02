@@ -1416,6 +1416,150 @@ func TestRowVisibilityRLS(t *testing.T) {
 	})
 
 	// ═══════════════════════════════════════════════════════════════════════
+	// LIST-1..4 · THE LIST SCOPE, PROVED DISCRIMINATING
+	// Card `sync-cutover-list-scope` (S1a, overnight-20260803).
+	// Authority: the operator's 2026-08-02 evening decision (B-43, "lists stay
+	// live — the scope is widened"), which AMENDS ledger T-29 decision 105 to
+	// *per-open-checklist for the fill collections; per-user-with-a-date-floor
+	// for the two list collections; never all history, never all users.*
+	// ═══════════════════════════════════════════════════════════════════════
+	//
+	// 🛑 WHAT THESE FOUR VARIANTS EXIST TO SETTLE. `workflows.html` opens on a
+	// LIST — every submission this crew member can see — and A1's scope is
+	// singular by construction. The widened scope is
+	// `template_id=in.(<this user's templates>) AND submitted_at=gte.<floor>`
+	// for `checklist_submissions` and the FLOOR ALONE for
+	// `submission_rejections` (that table carries no template_id and no approver
+	// column; see sync-rxdb/client.js's LIST SCOPE block for why an
+	// `assigned_to` column was NOT invented — it is the card's PARK trigger).
+	//
+	// SO THE CLIENT-SIDE SCOPE IS A **BOUND** AND THE SERVER IS THE **GATE**,
+	// and these variants are what makes that a measured claim rather than an
+	// architecture sentence. Each one issues THE LIST SCOPE'S OWN URL — the same
+	// query string the RxDB pull emits — under three different identities, and
+	// pairs every refusal with a `service_role` BYPASSRLS control on the
+	// IDENTICAL URL, so "alice saw nothing" can never be explained by an empty
+	// table, a wrong path, or a stale PostgREST schema cache.
+
+	// The floor these variants use. Yesterday, so the seeded fixture (whose
+	// submitted_at defaults to now()) sits above it and the deliberately-old row
+	// below sits under it. Computed rather than hard-coded: a literal date would
+	// silently stop discriminating the day it aged past the fixture.
+	listFloor := time.Now().AddDate(0, 0, -1).Format("2006-01-02")
+	listChecklistsURL := func(tpls ...string) string {
+		return "/checklist_submissions?select=id&template_id=in.(" +
+			strings.Join(tpls, ",") + ")&submitted_at=gte." + listFloor + "&order=id"
+	}
+	listRejectionsURL := "/submission_rejections?select=id&rejected_at=gte." +
+		listFloor + "&order=id"
+
+	t.Run("LIST-1/THE LIST SCOPE DISCRIMINATES — three users, three disjoint lists", func(t *testing.T) {
+		// 🛑 THREE POSITIVES, NOT ONE, for the reason the header of this file
+		// gives: a single positive proves somebody can read something; disjoint
+		// ones are what tell "the policy discriminates" from "the policy is a
+		// coin flip that landed right". Each user issues the list URL for THEIR
+		// OWN assigned templates — which is exactly what `workflows.html` would
+		// pass as `scope.templateIds`.
+		rvAssertRows(t, "LIST-1 alice's own list",
+			s.get(t, listChecklistsURL(tplAlice, tplApprover), s.rvToken(t, uAlice)), subAlice)
+		rvAssertRows(t, "LIST-1 bob's own list",
+			s.get(t, listChecklistsURL(tplBob), s.rvToken(t, uBob)), subBob)
+		rvAssertRows(t, "LIST-1 dave's own list — reached by ROLE, holding no direct assignment",
+			s.get(t, listChecklistsURL(tplByRole), s.rvToken(t, uDave, "manager")), subByRole)
+
+		// The control that stops all three being an artifact of the table
+		// holding one row per template: the SAME shape of URL, over the union,
+		// with a god-token.
+		rvAssertRows(t, "LIST-1 service_role sees every submission in the union",
+			s.get(t, listChecklistsURL(tplAlice, tplApprover, tplBob, tplByRole), s.serviceRoleControl(t)),
+			subAlice, subBob, subByRole)
+	})
+
+	t.Run("LIST-2/AND IT REFUSES — alice issues BOB'S list scope verbatim and gets nothing", func(t *testing.T) {
+		// 🛑 THE SHARP HALF, and the reason the client-side clause is not the
+		// gate. `template_id=in.(tplBob)` is a CLIENT-SUPPLIED string; a device
+		// can ask for anything. What refuses it is
+		// `checklist_submissions_select` = `hq_can_see_template(template_id)`,
+		// read LIVE per row through the FDW.
+		//
+		// The URL is byte-identical to the one service_role uses below. Only the
+		// token differs.
+		rvAssertRefused(t, "LIST-2 alice asks for bob's list",
+			s.get(t, listChecklistsURL(tplBob), s.rvToken(t, uAlice)))
+		rvAssertRefused(t, "LIST-2 bob asks for alice's list",
+			s.get(t, listChecklistsURL(tplAlice, tplApprover), s.rvToken(t, uBob)))
+		rvAssertRefused(t, "LIST-2 anon asks for anyone's list",
+			s.get(t, listChecklistsURL(tplAlice, tplBob, tplByRole), ""))
+		// 🛑 THE CONTROL THAT RULES OUT THE BORING EXPLANATION. Same URL, same
+		// instant, god-token: the row IS there. Without this line "alice saw
+		// nothing" is satisfied by an empty table.
+		rvAssertRows(t, "LIST-2 control — the row alice was refused IS there",
+			s.get(t, listChecklistsURL(tplBob), s.serviceRoleControl(t)), subBob)
+	})
+
+	t.Run("LIST-3/THE DATE FLOOR IS DOING WORK — the same user, the same templates, one day apart", func(t *testing.T) {
+		// The floor is the `done_when:` row this variant belongs to, and it is
+		// NOT proved by anything above: every fixture submission is above it, so
+		// LIST-1 would pass with no floor at all. This seeds a submission on
+		// ALICE'S OWN template, dated well below the floor, and asks twice —
+		// once with the floor, once without.
+		const id = "list3-old-submission"
+		s.rvDropRow(t, "checklist_submissions", id)
+		if _, err := s.pool.Exec(context.Background(),
+			`insert into public.checklist_submissions
+			   (id, template_id, template_snapshot, submitted_by, submitted_at)
+			 values ($1, $2, '{}'::jsonb, $3, now() - interval '90 days')`,
+			id, tplAlice, uAlice); err != nil {
+			t.Fatalf("seed LIST-3's old row: %v", err)
+		}
+
+		// WITH the floor: the old row is out. This is the bound.
+		rvAssertRows(t, "LIST-3 alice's list WITH the floor excludes the 90-day-old submission",
+			s.get(t, listChecklistsURL(tplAlice, tplApprover), s.rvToken(t, uAlice)), subAlice)
+
+		// WITHOUT the floor: it comes back — so the exclusion above is the
+		// FLOOR's doing and not RLS's, and a list scope that forgot the floor
+		// really would pull history. `normalizeScope` throws rather than let a
+		// caller emit this URL; this is what it is refusing to emit.
+		unbounded := s.get(t,
+			"/checklist_submissions?select=id&template_id=in.("+tplAlice+","+tplApprover+")&order=id",
+			s.rvToken(t, uAlice))
+		rvAssertRows(t, "LIST-3 the SAME query with NO floor pulls history", unbounded, id, subAlice)
+	})
+
+	t.Run("LIST-4/THE APPROVALS RESIDUAL — the client scope is the floor ALONE, and the SERVER is what refuses", func(t *testing.T) {
+		// 🛑 RECORDED AS A TEST RATHER THAN AS A SENTENCE. `submission_rejections`
+		// carries no template_id and no approver column, so the list scope for
+		// `approvals` is `rejected_at=gte.<floor>` AND NOTHING ELSE — the client
+		// filter cannot exclude another user's rejection and does not pretend to.
+		// `submission_rejections_select` = `hq_can_see_field(field_id)` is the
+		// gate, and it is the reason that is safe.
+		//
+		// This is also why `sync-rxdb/client.js` documents the per-user half as
+		// RLS's rather than the scope's: if this variant ever went the other way,
+		// the list scope would be leaking, and no client-side change could fix it.
+		const id = "list4-rej-bob"
+		s.rvDropRow(t, "submission_rejections", id)
+		if _, err := s.pool.Exec(context.Background(),
+			`insert into public.submission_rejections (id, submission_id, field_id, comment, rejected_by)
+			 values ($1, $2, $3, 'bob redo', $4)`, id, subBob, fldBob, uCarol); err != nil {
+			t.Fatalf("seed LIST-4's row: %v", err)
+		}
+
+		// Alice's approvals list: her own field's rejection, and NOT bob's,
+		// even though her client-side filter asked for neither by field.
+		rvAssertRows(t, "LIST-4 alice's approvals list is her own feedback only",
+			s.get(t, listRejectionsURL, s.rvToken(t, uAlice)), "rej-alice")
+		rvAssertRows(t, "LIST-4 bob's approvals list is HIS own feedback only",
+			s.get(t, listRejectionsURL, s.rvToken(t, uBob)), id)
+
+		// 🛑 THE CONTROL. Same URL, god-token: BOTH rows are inside the floor, so
+		// each user's list above was narrowed by RLS and not by an empty table.
+		rvAssertRows(t, "LIST-4 control — both rejections are above the floor",
+			s.get(t, listRejectionsURL, s.serviceRoleControl(t)), id, "rej-alice")
+	})
+
+	// ═══════════════════════════════════════════════════════════════════════
 	// W1-W16 / WP1-WP8 · THE WRITE HALF
 	// Card `sync-rxdb-write-policies` (overnight-20260802, A2).
 	// Authority: ledger T-30 decision 111, whose FOUR-ROW TABLE is the complete
@@ -1915,18 +2059,36 @@ func TestRowVisibilityRLS(t *testing.T) {
 	t.Run("W11/READ ≠ WRITE ON ONE ROW — alice can pull rej-alice and cannot edit it", func(t *testing.T) {
 		// 🛑 The asymmetry at its narrowest: the SAME ROW, the SAME identity,
 		// the SAME request instant. She receives it on every pull (V18) and
-		// cannot soften the comment. An UPDATE policy whose `using` clause was
-		// copied from the SELECT policy — the natural thing to write, and the
-		// thing that makes the two clauses agree — lets this through.
+		// cannot soften the comment.
 		//
-		// 🛑 THIS VARIANT TESTS THE `using` CLAUSE AND ONLY THE `using` CLAUSE,
-		// and finding F2 (run 20260802 G6) is that the file used to imply
-		// otherwise. Alice is not an approver on fldAlice, so `using` refuses
-		// before a new row is ever built: PostgREST answers HTTP 200 `[]` and
-		// `with check` is never consulted. Mutation M1c (`with check ( true )`
-		// on this policy) therefore leaves W11 GREEN — measured — while handing
-		// an approver the power to move a rejection onto work she is merely
-		// ASSIGNED to. WP8 and W16 below are the matched pair on that axis.
+		// 🛑 CORRECTED — BACKLOG **B-58**, by card `sync-cutover-list-scope`
+		// (S1a, run 20260803). ~~This banner used to read "THIS VARIANT TESTS
+		// THE `using` CLAUSE AND ONLY THE `using` CLAUSE", and the paragraph
+		// above it used to say an UPDATE policy whose `using` was copied from
+		// the SELECT policy "lets this through".~~ **BOTH WERE FALSE, and they
+		// were the file's own account of what this line guards.**
+		//
+		// MEASURED, at morning triage 2026-08-02 and again by S1a: substitute
+		// `hq_can_see_field` for `hq_can_approve_field` in
+		// `submission_rejections_update`'s `using` and W11 STAYS GREEN — as does
+		// every other subtest that existed before S1a (54 pass, 0 fail; with W17
+		// present, 54 pass and W17 alone fails).
+		//
+		// THE MECHANISM, so it is not re-derived: this PATCH carries only
+		// `comment`, so the NEW row keeps `field_id = fldAlice`, and the NARROW
+		// `with check` (`hq_can_approve_field`) refuses it whatever `using` says.
+		// W11 cannot see the difference between the two clauses because it never
+		// reaches a state where they disagree. **W17 is the variant that pins
+		// this clause**, and it is the only one: it needs an OLD row on a field
+		// alice may SEE but not APPROVE and a NEW row on one she MAY approve.
+		//
+		// WHAT W11 IS STILL EVIDENCE FOR, which is not nothing: the PROPERTY that
+		// the person a rejection was written about cannot soften it. That
+		// property is delivered here by `with check`, not by `using` — and
+		// mutation M1c (`with check ( true )` on this policy) leaves W11 green
+		// too, because `using` refuses first under the SHIPPED predicate. W11 is
+		// a property assertion, not a clause guard. W16, WP8 and W17 are the
+		// clause guards.
 		s.rvPushRefused(t, "W11 alice edits the rejection written about her",
 			"PATCH", "/submission_rejections?id=eq.rej-alice", s.rvToken(t, uAlice),
 			`{"comment":"actually it was fine"}`,
@@ -1989,6 +2151,81 @@ func TestRowVisibilityRLS(t *testing.T) {
 		}
 		if fid != fldApprover {
 			t.Errorf("W16: the row's field_id is %q, want %q — it moved, or vanished", fid, fldApprover)
+		}
+	})
+
+	t.Run("W17/🛑 THE `using` CLAUSE, DISCRIMINATED AT LAST — alice MOVES a rejection OFF a field she may not approve", func(t *testing.T) {
+		// 🛑 THE VARIANT BACKLOG B-58 SAYS THIS FILE NEVER HAD, added by card
+		// `sync-cutover-list-scope` (S1a, overnight-20260803).
+		//
+		// WHAT B-58 MEASURED, AND IT IS NOT A NEAR MISS. Substitute
+		// `hq_can_see_field` for `hq_can_approve_field` in
+		// `submission_rejections_update`'s `using` — precisely the substitution
+		// 0004 §5d(2), 0004:483 and W11's own banner all name as the thing they
+		// guard — and the suite stays `ok … 54 subtests`, W11 among them. THREE
+		// COMMENTS ASSERTED A GUARD THAT DID NOT EXIST. (Not a live
+		// vulnerability: the narrow `with check` still refuses. What was missing
+		// was the PROOF, which is the defect class card A2 was chartered to
+		// remove, surviving inside A2's own deliverable.)
+		//
+		// WHY EVERY EXISTING VARIANT IS BLIND TO IT — the arithmetic, so nobody
+		// re-derives it. Under the mutant, `using` = SEE and `with check` stays
+		// APPROVE:
+		//
+		//	W11  PATCH rej-alice {comment}      old field fldAlice, NEW field fldAlice
+		//	     mutant `using` ADMITS the row … and `with check` on fldAlice
+		//	     REFUSES it. Still green.
+		//	W16  PATCH …{field_id: fldAlice}    old fldApprover (approved either way)
+		//	     `using` admitted it BEFORE the mutation too. Still green.
+		//	WP8  PATCH …{field_id: fldApprover2} old fldApprover, new approved.
+		//	     Lands either way. Still green.
+		//
+		// So the mutant is observable ONLY where the OLD row's field is one
+		// alice SEES BUT CANNOT APPROVE **and** the NEW row's field is one she
+		// CAN approve — the single shape on which the two functions disagree and
+		// on which `with check` cannot stand in for `using`. That is this test,
+		// and it is the only one in the file.
+		//
+		// THE ESCALATION IT FORBIDS IS REAL, not a lab curiosity: carol writes a
+		// rejection about alice's own work; under the mutant ALICE — the person
+		// being judged — may reach in and MOVE it off her field onto the
+		// approver template, i.e. edit a rejection she has no authority over at
+		// all. `using` is the only thing between her and that row.
+		//
+		// MATCHED ON THE IDENTICAL PROBE. WP8 is the positive: the SAME identity,
+		// the SAME method, the SAME table, the SAME destination field
+		// (fldApprover2). Only the row's STARTING field differs — fldApprover
+		// there (she approves it), fldAlice here (she merely sees it). Neither
+		// line means anything alone, and neither can be made to pass by breaking
+		// the feature.
+		const id = "w17-rej-using-axis"
+		s.rvDropRow(t, "submission_rejections", id)
+		if _, err := s.pool.Exec(context.Background(),
+			`insert into public.submission_rejections (id, submission_id, field_id, comment, rejected_by)
+			 values ($1, $2, $3, 'written about alice', $4)`, id, subAlice, fldAlice, uCarol); err != nil {
+			t.Fatalf("seed W17's row: %v", err)
+		}
+
+		// The control that makes the refusal mean something: alice really can
+		// SEE this row. If she could not, `using` would refuse under the mutant
+		// too and this variant would be as blind as W11.
+		rvAssertRows(t, "W17 control — alice SEES the row she is about to be refused",
+			s.get(t, "/submission_rejections?select=id&id=eq."+id, s.rvToken(t, uAlice)), id)
+
+		s.rvPushRefused(t, "W17 alice moves a rejection OFF her own field onto one she approves",
+			"PATCH", "/submission_rejections?id=eq."+id, s.rvToken(t, uAlice),
+			`{"field_id":"`+fldApprover2+`"}`,
+			`select count(*) from public.submission_rejections where id = $1 and field_id = $2`,
+			id, fldApprover2)
+
+		// A refusal and a vanished row satisfy the count above equally well.
+		var fid string
+		if err := s.pool.QueryRow(context.Background(),
+			`select field_id from public.submission_rejections where id = $1`, id).Scan(&fid); err != nil {
+			t.Fatalf("read back W17's row: %v", err)
+		}
+		if fid != fldAlice {
+			t.Errorf("W17: the row's field_id is %q, want %q — it moved, or vanished", fid, fldAlice)
 		}
 	})
 

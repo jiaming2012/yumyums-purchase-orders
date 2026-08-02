@@ -1841,7 +1841,21 @@
   threading test, which genuinely calls `startHQReplication` and would otherwise red on a change
   it is not about.
 
-- **`sync-cutover-list-scope`** · **PLANNED — SLATED 2026-08-02 evening as a COMMITTED card on
+- **`sync-cutover-list-scope`** · ✅ **BUILT — run `overnight-20260803`, Track A, card S1a, on
+  branch `card/s1a-sync-cutover-list-scope`; awaiting merge + G6.** Gates: G1 clean; G2(Go)
+  `TestRowVisibilityRLS` **59 subtests, 0 failures**, `HQ_SYNC_SUBSTRATE_OPTIONAL` unset;
+  G2(Playwright) judged against the armed-reds baseline; G4 idempotent. 🛑 **The PARK trigger did
+  NOT fire, and the reason is recorded rather than assumed:** the slate's literal
+  `checklists: assigned_to.eq.<userId>` names a column **no replicated table carries** — measured
+  against `sync-schema/sql/0001_sync_tables.sql` — so the per-user half is carried by
+  `scope.templateIds` (the assigned set, a queryable column on both tables) plus RLS
+  (`hq_can_see_template` / `hq_can_see_field`, read live per row and unforgeable), and **no column,
+  view or queryable key was added**; `sync-schema/collections.js` is byte-unchanged and no
+  `0005_*.sql` was written. Discoveries filed with destinations: **B-61** (the RxDB list is
+  narrower than the REST list it replaces — an OPERATOR product call), **B-62** (the Realtime
+  filter is proved at the config, never against a live Realtime server), **B-63** (list + fill
+  replications will run concurrently and the standing cancel instruction says the opposite). ·
+  *(originally slated as)* **COMMITTED card on
   `overnight-20260803`, first in Track A** (`reference/slate-20260803.md`) · *(½ of the fanned-out
   `sync-hard-cutover`; authored at slate planning under the §1 split rule — see the fan-out note
   above)* · 🛑 **Exists because of an operator product decision taken inline at planning, 2026-08-02:

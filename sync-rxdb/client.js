@@ -290,7 +290,7 @@ export function createHQSupabaseClient(opts = {}) {
   const realtime = { vsn: REALTIME_VSN, params: { eventsPerSecond: 20 } };
   if (WebSocketImpl) realtime.transport = makeRealtimeTransport(WebSocketImpl);
 
-  return createClient(origin + SYNC_BASE_PATH, PROXY_PLACEHOLDER_KEY, {
+  const client = createClient(origin + SYNC_BASE_PATH, PROXY_PLACEHOLDER_KEY, {
     // Never GoTrue. There is no auth server behind the door and there is not
     // meant to be — HQ's own session is the identity, resolved at the door.
     // Supplying `accessToken` is what keeps supabase-js from reaching for one.
@@ -298,6 +298,14 @@ export function createHQSupabaseClient(opts = {}) {
     global: { fetch: makeSyncFetch(fetchImpl) },
     realtime,
   });
+
+  // B-42 option (i). Installed HERE and not left to the caller: the plugin
+  // hard-codes its `postgres_changes` binding, so the client's own `channel()`
+  // is the only seam, and a shim a page has to remember to install is a shim
+  // that is missing on the page that forgot. No-op until a replication
+  // registers a filter — construction still makes no network request.
+  installRealtimeFilterShim(client);
+  return client;
 }
 
 /**
@@ -480,27 +488,182 @@ function assertScopeId(label, value) {
   return value;
 }
 
+// ---------------------------------------------------------------------------
+// 🛑 THE SECOND SCOPE — card `sync-cutover-list-scope` (S1a, overnight-20260803).
+//
+// WHAT WAS WRONG WITH ONE SCOPE, and it was not wrong for the reason it looks.
+// Everything above is correct for the view preference `architecture/C-2` names —
+// the checklist FILL view — and it is NOT the view a crew member lands on.
+// `workflows.html` opens on **My Checklists** (a list over every submission this
+// user can see) and its second tab is **Approvals** (a list over every rejection
+// awaiting them). Neither can name a single `checklistId`, and `normalizeScope`
+// above throws without one. Filed as `B-43`.
+//
+// THE OPERATOR DECIDED IT ON 2026-08-02 EVENING: **LISTS STAY LIVE — THE SCOPE
+// IS WIDENED.** `reference/slate-20260803.md` is the recorded decision, and it
+// AMENDS ledger T-29 decision 105 rather than repealing it:
+//
+//     per-open-checklist for the fill collections;
+//     per-user-with-a-date-floor for the two list collections;
+//     NEVER ALL HISTORY, NEVER ALL USERS.
+//
+// ── 🛑 THE DATE FLOOR IS NOT A CONVENIENCE. IT IS THE PRICE. ────────────────
+//
+// `B-42` recorded, and the G6 round of run 20260802 corrected the wording to
+// make it unmissable: RxDB's downstream ONLY ADDS. Nothing evicts, there is no
+// retention sweep for the four replicated collections, and A1's per-checklist
+// scope moved the per-phone bound from *all history* to *opened checklists* —
+// an improvement, not a bound. A per-user list scope widens it again. The floor
+// is what puts the bound back, so it is REQUIRED and `normalizeScope` throws
+// without it. A floor that can be forgotten is the F-5 shape: a widening
+// triggered by an omission, which C-2 says needs a recorded decision and an
+// omission is not one.
+//
+// ── 🛑 WHY THE PER-USER HALF IS NOT `assigned_to.eq.<userId>` ──────────────
+//
+// The slate wrote the list scope as `checklists: assigned_to.eq.<userId>`.
+// MEASURED AGAINST `sync-schema/sql/0001_sync_tables.sql`: THERE IS NO SUCH
+// COLUMN, on that table or on any of the four. `checklist_submissions` carries
+// `submitted_by` and `reviewed_by`; `submission_rejections` carries
+// `rejected_by`. Assignment lives in `template_assignments`, which is not a
+// replicated collection and is not queryable by a PostgREST client at all — the
+// foreign tables are revoked from `authenticated` (0002 §4) precisely so a GET
+// cannot read HQ's role map, and `hq_template_assignees` is reachable only from
+// inside the SECURITY DEFINER policy functions.
+//
+// So the literal clause needs a QUERYABLE KEY ON THE ROW, which is this card's
+// PARK trigger. Rather than park the night on a spelling, the per-user half is
+// expressed through the two mechanisms that already exist and are stronger:
+//
+//   1. `scope.templateIds` — the templates assigned to THIS user, which the
+//      list page already holds (it renders them). `checklist_templates.id` and
+//      `checklist_submissions.template_id` are both queryable columns, so
+//      "this user's assigned set" is expressible today with no schema change.
+//      REQUIRED and NON-EMPTY, for the same F-5 reason the floor is.
+//
+//   2. RLS — `checklist_submissions_select` is `hq_can_see_template(template_id)`
+//      and `submission_rejections_select` is `hq_can_see_field(field_id)`. That
+//      is the per-user narrowing, it is read LIVE per row through the FDW rather
+//      than from a token (0003 §4), and it cannot be forged by a client. The
+//      client scope is a BOUND; the server is the GATE. Proved discriminating by
+//      `TestRowVisibilityRLS/LIST-1..3` — alice's list scope returns alice's
+//      rows and refuses bob's, against a `service_role` BYPASSRLS control.
+//
+// 🛑 `scope.userId` THEREFORE APPEARS IN NO FILTER CLAUSE, and that is stated
+// rather than hidden. It is the scope's IDENTITY: it goes into the fingerprint,
+// hence into `replicationIdentifier`, hence into RxDB's checkpoint key. A shared
+// truck phone that switches crew member MUST mint a new identifier or the second
+// user resumes the first user's cursor and their own rows are filtered away —
+// exactly the F-1 data loss, on a different axis.
+//
+// 🛑 ONE BEHAVIOUR CHANGE THIS BUYS, RECORDED NOT HIDDEN. HQ's REST list
+// (`myChecklists`, backend/internal/workflow/repository.go) returns EVERY
+// submission since `current_date` with no per-user filter at all — "checklists
+// are team objects, all members see all submissions". The RxDB-backed list is
+// necessarily narrower: RLS admits only the user's own assigned templates. That
+// is a product-visible difference at cutover and is filed as **B-61** with a
+// destination, not decided here.
+// ---------------------------------------------------------------------------
+
 /**
- * Normalise + validate a replication scope.
+ * The DATE FLOOR's shape. A calendar date, or a full ISO-8601 instant.
  *
- * @param {object} scope
+ * Deliberately its own whitelist rather than `SCOPE_ID_RE`, which admits no `:`
+ * or `.` and would reject every timestamp — and deliberately not "anything
+ * `Date.parse` likes", which admits `2026-08-02, whatever` and hands F-4 a
+ * second door. Nothing this regex admits can carry PostgREST logic-tree
+ * punctuation (`,` `(` `)` `"`). `serializeFilter` quotes it as well; the two
+ * are independent and both are kept.
+ */
+const SCOPE_DATE_RE = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2}(\.\d{1,6})?(Z|[+-]\d{2}:\d{2})?)?$/;
+
+function assertDateFloor(value) {
+  if (typeof value !== 'string' || value === '' || !SCOPE_DATE_RE.test(value)
+    || Number.isNaN(Date.parse(value))) {
+    throw new Error(
+      '[hq-sync] scope.since is required on a LIST scope and must be a date floor '
+      + '("YYYY-MM-DD" or a full ISO-8601 instant). The date floor is the bound the '
+      + 'widening was granted on condition of: nothing evicts a replicated row '
+      + '(B-42), so a list scope without one pulls all history onto a phone that '
+      + `never deletes anything. Got: ${JSON.stringify(value)}`,
+    );
+  }
+  return value;
+}
+
+/**
+ * Normalise + validate a replication scope. TWO SHAPES, one function, because
+ * every caller path must go through the same refusals.
+ *
+ * FILL (the open checklist — ledger T-29 decision 105, unchanged):
  * @param {string} scope.checklistId  the open checklist (`checklist_submissions.id`). REQUIRED.
  * @param {string} scope.templateId   its template. REQUIRED — see edge 2 / F-5.
  * @param {string[]} [scope.fieldIds] the open checklist's field ids — what makes
  *   an offline draft (`submission_id IS NULL`) attributable to this checklist.
+ *
+ * LIST (My Checklists / Approvals — the 2026-08-02 amendment):
+ * @param {'list'} scope.mode         REQUIRED to select this shape.
+ * @param {string} scope.userId       whose lists these are. The scope's IDENTITY,
+ *   not a filter clause — see the block above.
+ * @param {string} scope.since        the DATE FLOOR. REQUIRED.
+ * @param {string[]} scope.templateIds the templates assigned to this user.
+ *   REQUIRED and NON-EMPTY.
  */
 export function normalizeScope(scope) {
   if (!scope || typeof scope !== 'object') {
     throw new Error(
-      '[hq-sync] startHQReplication requires a scope: replication is scoped to the '
-      + 'open checklist and is never pulled whole (preference architecture/C-2). '
-      + 'Pass {scope:{checklistId, templateId, fieldIds}}.',
+      '[hq-sync] startHQReplication requires a scope: replication is scoped and is '
+      + 'never pulled whole (preference architecture/C-2). Pass either the FILL '
+      + 'scope {scope:{checklistId, templateId, fieldIds}} or the LIST scope '
+      + '{scope:{mode:"list", userId, since, templateIds}}.',
     );
   }
+
+  if (scope.mode === 'list') {
+    // The identity. Validated with the same whitelist the fill ids use, because
+    // it is interpolated into `replicationIdentifier` (and a caller could
+    // reasonably expect to put it in a clause later).
+    if (typeof scope.userId !== 'string' || scope.userId === '') {
+      throw new Error(
+        '[hq-sync] scope.userId is required on a LIST scope — it is the scope\'s '
+        + 'identity and part of the replication identifier, so two crew members on '
+        + 'one truck phone do not inherit each other\'s checkpoint.',
+      );
+    }
+    assertScopeId('userId', scope.userId);
+    assertDateFloor(scope.since);
+    const templateIds = (scope.templateIds || [])
+      .filter((t) => typeof t === 'string' && t !== '');
+    if (templateIds.length === 0) {
+      throw new Error(
+        '[hq-sync] scope.templateIds is required and must be NON-EMPTY on a LIST '
+        + 'scope — it is the per-user half of the bound (the templates assigned to '
+        + 'this user), and no replicated table carries a queryable `assigned_to` '
+        + 'key to use instead. An empty or omitted set would leave `templates` '
+        + 'unbounded, which is the F-5 shape: a widening bought by forgetting an '
+        + 'argument. A user with no assignments has nothing to replicate — do not '
+        + 'start a replication for them.',
+      );
+    }
+    templateIds.forEach((t, i) => assertScopeId(`templateIds[${i}]`, t));
+    return {
+      mode: 'list', userId: scope.userId, since: scope.since, templateIds,
+    };
+  }
+
+  if (scope.mode !== undefined && scope.mode !== 'fill') {
+    throw new Error(
+      `[hq-sync] unknown scope.mode ${JSON.stringify(scope.mode)}. It is "fill" `
+      + '(the open checklist: {checklistId, templateId, fieldIds}) or "list" '
+      + '(My Checklists / Approvals: {userId, since, templateIds}).',
+    );
+  }
+
   if (typeof scope.checklistId !== 'string' || scope.checklistId === '') {
     throw new Error(
       '[hq-sync] scope.checklistId is required — it is the open checklist the '
-      + 'replication is scoped to (preference architecture/C-2).',
+      + 'replication is scoped to (preference architecture/C-2). For the LIST '
+      + 'views pass {mode:"list", userId, since, templateIds} instead.',
     );
   }
   assertScopeId('checklistId', scope.checklistId);
@@ -510,6 +673,7 @@ export function normalizeScope(scope) {
   const fieldIds = (scope.fieldIds || []).filter((f) => typeof f === 'string' && f !== '');
   fieldIds.forEach((f, i) => assertScopeId(`fieldIds[${i}]`, f));
   return {
+    mode: 'fill',
     checklistId: scope.checklistId,
     templateId: scope.templateId,
     fieldIds,
@@ -550,6 +714,7 @@ export function scopeFingerprint(serialized) {
  */
 export function scopeFilterFor(collectionKey, scope) {
   const s = normalizeScope(scope);
+  if (s.mode === 'list') return listScopeFilterFor(collectionKey, s);
   switch (collectionKey) {
     case 'templates':
       // No fallback. `templateId` is required by `normalizeScope`, so there is
@@ -585,6 +750,207 @@ export function scopeFilterFor(collectionKey, scope) {
 }
 
 /**
+ * The LIST scope's per-collection filter — the 2026-08-02 amendment.
+ *
+ * Every clause below uses a column that ALREADY EXISTS in
+ * `sync-schema/sql/0001_sync_tables.sql`. Nothing here needs a new column, a
+ * view or a queryable key, which is why this card's PARK trigger did not fire —
+ * recorded so the next reader does not re-derive it.
+ *
+ * @returns {object|null} a filter node, or null for a collection with no list
+ *   shape (which none currently is — `applyScope`/`scopePlanFor` treat null as a
+ *   programming error, never as permission to pull whole).
+ */
+function listScopeFilterFor(collectionKey, s) {
+  switch (collectionKey) {
+    case 'templates':
+      // The assigned set. NOT `archived_at.is.null` — that is the widening F-5
+      // deleted, and it is the whole non-archived collection.
+      return { op: 'in', column: 'id', values: s.templateIds };
+    case 'checklists':
+      // BOTH halves of the amended rule, and one row of the test fixture proves
+      // each: `template_id.in` is "never all users" (the assigned set),
+      // `submitted_at.gte` is "never all history" (the floor).
+      return {
+        op: 'and',
+        clauses: [
+          { op: 'in', column: 'template_id', values: s.templateIds },
+          { op: 'gte', column: 'submitted_at', value: s.since },
+        ],
+      };
+    case 'responses':
+      // 🛑 THE FLOOR ALONE, AND THE REASON IS NOT LAZINESS.
+      // `submission_responses` carries no `template_id`, and its `field_id`
+      // resolves to a template only through `checklist_fields`, which is NOT a
+      // replicated collection and is not queryable over the door. Scoping by
+      // `submission_id` is refused for the same reason 0003 §5c refuses it for
+      // the read policy: a DRAFT has `submission_id IS NULL`, and drafts are
+      // exactly what a crew member fills offline. So the expressible client-side
+      // bound is the floor; the per-user narrowing is
+      // `submission_responses_select` = `hq_can_see_field(field_id)`, live per
+      // row through the FDW.
+      return { op: 'gte', column: 'answered_at', value: s.since };
+    case 'approvals':
+      // Same shape and the same reason: `submission_rejections` carries no
+      // template_id and no approver column at all (`rejected_by` is who WROTE
+      // the rejection, which would hide from an assignee the feedback written
+      // ABOUT them — the reject-with-comment path V18/WP7 exist for). The floor
+      // is the bound; `submission_rejections_select` = `hq_can_see_field` is the
+      // gate, and it admits the approver AND the assignee, which is what
+      // decision 111 consequence (1) chose.
+      return { op: 'gte', column: 'rejected_at', value: s.since };
+    default:
+      return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// THE LIVE LEG — B-42 option (i), with the residual named rather than implied.
+//
+// MEASURED against the committed bundle, not read from docs. The plugin's live
+// subscription is:
+//
+//     e.client.channel(e.replicationIdentifier)
+//      .on("postgres_changes", {event:"*", schema:"public", table:e.tableName}, …)
+//
+// — no `filter` key, and no option that would let a caller supply one. So the
+// PULL is scoped (above) and the LIVE leg is not: a row belonging to a checklist
+// this device never opened, CHANGED while the page is open, still lands in
+// IndexedDB and nothing evicts it. `B-42 SYNC-REALTIME-SCOPE`, widened to a
+// fourth collection by `B-49` when `submission_rejections` gained a SELECT
+// policy.
+//
+// B-42 offered three options in ascending cost. This card applies **(i)**: the
+// single `column=op.value` clause Realtime's `postgres_changes` does accept,
+// applied where the scope is expressible as one clause. Since the plugin gives
+// no seam, the filter is injected at the CLIENT's `channel()` — the same
+// category of shim as `makeSyncFetch` and `makeRealtimeTransport`, i.e. a public
+// extension point on the client object rather than a fork of the plugin
+// (option (iii)).
+//
+// 🛑 THE FILTER IS A COARSE PRE-FILTER, NOT THE SCOPE. Where the pull scope is
+// two clauses (`checklists` under a list scope) the live filter carries the ONE
+// that RLS does not already deliver. RLS is evaluated per subscriber on the
+// Realtime leg too, so the USER axis is already bounded server-side; the axis it
+// does not bound is TIME, which is why the floor is the clause that ships.
+// The pull remains authoritative — a filter that admits a superset costs noise,
+// never correctness.
+//
+// 🛑 AND `responses` GETS NOTHING. See `realtimeFilterFor`.
+// ---------------------------------------------------------------------------
+
+/**
+ * The single `column=op.value` clause for one collection's live subscription,
+ * or `null` for "this collection's live leg stays unfiltered".
+ *
+ * 🛑 `responses` IS ALWAYS null, in BOTH modes, and there are two reasons — the
+ * second is the one that would bite:
+ *
+ *   1. UNDER A FILL SCOPE THE PREDICATE IS GENUINELY TWO-BRANCH:
+ *      `or(submission_id.eq.X, and(submission_id.is.null, field_id.in.(…)))`.
+ *      One `column=op.value` clause cannot express it, and the branch that would
+ *      have to go is the DRAFT branch — the collection's whole reason to exist.
+ *
+ *   2. UNDER A LIST SCOPE the predicate IS one clause (`answered_at.gte.<since>`)
+ *      and it is still refused, because `answered_at` is CLIENT-STAMPED while
+ *      the pull cursor `_modified` is TRIGGER-stamped (0001). An offline draft
+ *      answered yesterday and pushed today would be dropped by a live filter on
+ *      `answered_at` and admitted by the pull — the live leg would go silently
+ *      blind to exactly the late-arriving offline write this system exists to
+ *      converge. Filtering in one mode and not the other would also make the
+ *      live leg's coverage depend on which tab is open, and a filter that is
+ *      present sometimes reads as a guarantee it is not.
+ *
+ * The residual is therefore UNCHANGED for `responses` and is recorded at the
+ * call site in `startHQReplication` as well as here. B-42 stays open on it.
+ */
+export function realtimeFilterFor(collectionKey, scope) {
+  const s = normalizeScope(scope);
+  if (collectionKey === 'responses') return null;
+  if (s.mode === 'list') {
+    switch (collectionKey) {
+      case 'templates': return `id=in.(${s.templateIds.join(',')})`;
+      // The floor — the axis RLS does not bound. See the block above.
+      case 'checklists': return `submitted_at=gte.${s.since}`;
+      case 'approvals': return `rejected_at=gte.${s.since}`;
+      default: return null;
+    }
+  }
+  switch (collectionKey) {
+    case 'templates': return `id=eq.${s.templateId}`;
+    case 'checklists': return `id=eq.${s.checklistId}`;
+    case 'approvals': return `submission_id=eq.${s.checklistId}`;
+    default: return null;
+  }
+}
+
+/** Where a client's per-channel Realtime filters live. Non-enumerable. */
+const REALTIME_FILTER_REGISTRY = '__hqRealtimeFilters';
+
+function realtimeFilterRegistry(client) {
+  if (!client[REALTIME_FILTER_REGISTRY]) {
+    Object.defineProperty(client, REALTIME_FILTER_REGISTRY, {
+      value: Object.create(null), enumerable: false, configurable: true, writable: false,
+    });
+  }
+  return client[REALTIME_FILTER_REGISTRY];
+}
+
+/**
+ * Record the filter a given replication's channel must subscribe with.
+ * Keyed by `replicationIdentifier`, which is exactly the name the plugin passes
+ * to `client.channel(...)` — so the shim needs no other agreement with it.
+ */
+export function registerRealtimeFilter(client, replicationIdentifier, filter) {
+  if (!client || typeof client !== 'object') return client;
+  if (filter === null || filter === undefined) return client;
+  realtimeFilterRegistry(client)[replicationIdentifier] = filter;
+  return client;
+}
+
+/**
+ * Wrap `client.channel` so a registered filter is merged into the plugin's
+ * hard-coded `postgres_changes` binding config.
+ *
+ * Idempotent — installing twice is a no-op, so a caller who constructs a client
+ * and a caller who receives one cannot double-wrap.
+ *
+ * Deliberately conservative: it touches ONLY `postgres_changes` bindings, ONLY
+ * on channels that have a registered filter, and ONLY when the caller did not
+ * supply a `filter` of its own. Everything else is passed through untouched, so
+ * an upgrade that starts supplying its own filter wins rather than silently
+ * losing to ours (and `tests/sync-rxdb-client.spec.js` reds when the plugin's
+ * binding shape moves).
+ */
+export function installRealtimeFilterShim(client) {
+  if (!client || typeof client.channel !== 'function') return client;
+  const filters = realtimeFilterRegistry(client);
+  if (client.__hqRealtimeShimInstalled) return client;
+  Object.defineProperty(client, '__hqRealtimeShimInstalled', {
+    value: true, enumerable: false, configurable: true,
+  });
+
+  const channel = client.channel.bind(client);
+  client.channel = function hqChannel(name, ...rest) {
+    const ch = channel(name, ...rest);
+    if (!ch || typeof ch.on !== 'function') return ch;
+    const on = ch.on.bind(ch);
+    // Mutating THE INSTANCE (not the prototype) is what keeps chaining honest:
+    // supabase-js's `.on()` returns the channel, so `.on(...).on(...)` still
+    // hits this override, and `.subscribe()` is untouched.
+    ch.on = function hqOn(type, config, callback) {
+      const filter = filters[name];
+      if (filter && type === 'postgres_changes' && config && config.filter === undefined) {
+        return on(type, Object.assign({}, config, { filter }), callback);
+      }
+      return on(type, config, callback);
+    };
+    return ch;
+  };
+  return client;
+}
+
+/**
  * Serialise a filter node into PostgREST's embedded `or=`/`and=` grammar.
  * Columns are quoted the way the vendored plugin quotes its own checkpoint
  * clause, so the two compose without a quoting disagreement.
@@ -602,6 +968,8 @@ function quoteValue(v) {
 export function serializeFilter(node) {
   switch (node.op) {
     case 'eq': return `"${node.column}".eq.${quoteValue(node.value)}`;
+    // The LIST scope's date floor. Quoted like every other value (F-4).
+    case 'gte': return `"${node.column}".gte.${quoteValue(node.value)}`;
     case 'is': return `"${node.column}".is.null`;
     case 'in': return `"${node.column}".in.(${node.values.map(quoteValue).join(',')})`;
     case 'and': return `and(${node.clauses.map(serializeFilter).join(',')})`;
@@ -620,6 +988,7 @@ export function applyScope(query, node) {
   }
   switch (node.op) {
     case 'eq': return query.eq(node.column, node.value);
+    case 'gte': return query.gte(node.column, node.value);
     case 'is': return query.is(node.column, null);
     case 'in': return query.in(node.column, node.values);
     // A top-level `or` goes on the wire as one `or=` parameter.
@@ -644,8 +1013,30 @@ export function applyScope(query, node) {
  * no `case` in `scopeFilterFor` would have spun forever instead of refusing.
  * `applyScope` keeps its own throw as a second line for direct callers.
  */
+/**
+ * The scope's IDENTITY, prefixed onto the fingerprint input.
+ *
+ * 🛑 WHY IT IS NOT ENOUGH TO HASH THE SERIALIZED FILTER ALONE (S1a). Under a
+ * LIST scope, `approvals` serialises to `"rejected_at".gte."<since>"` and
+ * NOTHING ELSE — no user appears in it, because no replicated table carries a
+ * queryable per-user key. Two crew members signing into one truck phone on the
+ * same day would therefore hash to the SAME `replicationIdentifier`, and RxDB
+ * keys its persisted checkpoint by `[collection.name, replicationIdentifier]`
+ * and by nothing else (see the CHECKPOINT block above). The second user would
+ * resume the first user's cursor and their own rows would be filtered away
+ * permanently — F-1's data loss, reached down a different road.
+ *
+ * The identity is also what keeps a LIST scope and a FILL scope from ever
+ * sharing a checkpoint, which they must not: their result sets are different
+ * shapes over the same tables.
+ */
+function scopeIdentity(s) {
+  return s.mode === 'list' ? `list:${s.userId}` : `fill:${s.checklistId}`;
+}
+
 export function scopePlanFor(collectionKey, scope) {
-  const node = scopeFilterFor(collectionKey, scope);
+  const s = normalizeScope(scope);
+  const node = scopeFilterFor(collectionKey, s);
   if (!node) {
     throw new Error(
       `[hq-sync] collection "${collectionKey}" has no scope filter, so it would be `
@@ -657,7 +1048,9 @@ export function scopePlanFor(collectionKey, scope) {
   return {
     node,
     serialized,
-    fingerprint: scopeFingerprint(serialized),
+    fingerprint: scopeFingerprint(`${scopeIdentity(s)} ${serialized}`),
+    // B-42 option (i). `null` for `responses` — see `realtimeFilterFor`.
+    realtimeFilter: realtimeFilterFor(collectionKey, s),
     queryBuilder: ({ query }) => applyScope(query, node),
   };
 }
@@ -718,9 +1111,15 @@ export async function createHQSyncDatabase(opts = {}) {
  * and so C2 can drive it in a test.
  *
  * 🛑 `opts.scope` IS REQUIRED — see the REPLICATION SCOPE block above. There is
- * no unscoped call. `{checklistId, templateId}` are both mandatory (an omitted
- * `templateId` used to widen `templates` to the whole non-archived collection —
- * G6 F-5); add `fieldIds` so the offline drafts come with it.
+ * no unscoped call, and there are TWO shapes:
+ *
+ *   FILL  `{checklistId, templateId, fieldIds}` — the open checklist. Both ids
+ *         mandatory (an omitted `templateId` used to widen `templates` to the
+ *         whole non-archived collection — G6 F-5); add `fieldIds` so the
+ *         offline drafts come with it.
+ *   LIST  `{mode:'list', userId, since, templateIds}` — My Checklists /
+ *         Approvals, per the 2026-08-02 operator decision. `since` is the DATE
+ *         FLOOR and is MANDATORY; `templateIds` must be non-empty.
  *
  * 🛑 CANCEL BEFORE RE-SCOPING. Each returned state owns a Realtime channel
  * named after its `replicationIdentifier` and keeps writing into `db[key]`.
@@ -750,6 +1149,23 @@ export function startHQReplication(db, client, opts = {}) {
   }
   for (const [key, def] of Object.entries(REPLICATED_COLLECTIONS)) {
     const plan = plans[key];
+    const replicationIdentifier = `hq-sync-${def.table}-${plan.fingerprint}`;
+    // 🛑 B-42 OPTION (i), AND ITS RESIDUAL, AT THE CALL SITE.
+    //
+    // Registered BEFORE `replicate(...)`, because the plugin opens its channel
+    // inside `start()` and a filter registered afterwards would apply to the
+    // NEXT subscription rather than this one.
+    //
+    // `plan.realtimeFilter` is null for exactly one collection — `responses` —
+    // and `registerRealtimeFilter` treats null as "register nothing", so its
+    // live subscription goes out exactly as wide as it does today. THE RESIDUAL
+    // IS THEREFORE: a `submission_responses` row outside this scope, CHANGED
+    // while the page is open, still reaches this device and nothing evicts it.
+    // That is B-42 for `responses` only, still open, and the reason is in
+    // `realtimeFilterFor`'s docblock (two-branch predicate under a fill scope;
+    // a client-stamped `answered_at` that would blind the live leg to
+    // late-arriving offline drafts under a list scope).
+    registerRealtimeFilter(client, replicationIdentifier, plan.realtimeFilter);
     const state = replicate({
       // 🛑 THE SCOPE IS PART OF THE IDENTIFIER (G6 F-1). RxDB keys the persisted
       // checkpoint by `hash([collection.name, replicationIdentifier])` and by
@@ -762,7 +1178,7 @@ export function startHQReplication(db, client, opts = {}) {
       // RESUMES rather than re-pulling (the property spike `proof-lww.js`
       // depends on). Changing scope is the only thing that mints a new one, and
       // the re-pull that buys is one checklist's rows — about one batch.
-      replicationIdentifier: `hq-sync-${def.table}-${plan.fingerprint}`,
+      replicationIdentifier,
       collection: db[key],
       client,
       tableName: def.table,

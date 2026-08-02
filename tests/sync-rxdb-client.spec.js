@@ -322,53 +322,111 @@ const SCOPE_FIXTURE = {
     },
   ],
   checklists: [
-    { id: OPEN.checklistId, template_id: OPEN.templateId, _modified: '2026-08-02T08:10:00Z' },
+    {
+      id: OPEN.checklistId,
+      template_id: OPEN.templateId,
+      submitted_at: '2026-08-02T08:10:00Z',
+      _modified: '2026-08-02T08:10:00Z',
+    },
     // OUT of scope, and the discriminator: SAME template as the open checklist,
     // different submission. `template_id.eq.<templateId>` returns this row.
-    { id: SIBLING.checklistId, template_id: OPEN.templateId, _modified: '2026-08-01T07:00:00Z' },
-    { id: NEVER.checklistId, template_id: NEVER.templateId, _modified: '2026-08-01T09:00:00Z' },
+    // 🛑 It is ALSO the LIST scope's floor discriminator (card S1a): same
+    // template, BELOW the date floor. A list scope with no floor returns it.
+    {
+      id: SIBLING.checklistId,
+      template_id: OPEN.templateId,
+      submitted_at: '2026-08-01T07:00:00Z',
+      _modified: '2026-08-01T07:00:00Z',
+    },
+    {
+      id: NEVER.checklistId,
+      template_id: NEVER.templateId,
+      submitted_at: '2026-08-01T09:00:00Z',
+      _modified: '2026-08-01T09:00:00Z',
+    },
+    // 🛑 ADDED BY CARD S1a — the LIST scope's TEMPLATE discriminator: a
+    // submission taken TODAY (above the floor) on a template this user is NOT
+    // assigned. A list scope that was the floor ALONE returns it, so this row
+    // is what separates "bounded in time" from "bounded in time AND in the
+    // user's own assigned set".
+    {
+      id: 'chk-other-today-0000-0000-000000000005',
+      template_id: NEVER.templateId,
+      submitted_at: '2026-08-02T09:00:00Z',
+      _modified: '2026-08-02T09:00:00Z',
+    },
   ],
   responses: [
     // In scope: submitted answers on the open checklist.
     {
-      id: 'rsp-1', submission_id: OPEN.checklistId, field_id: OPEN.fieldIds[0], _modified: '2026-08-02T08:10:00Z',
+      id: 'rsp-1', submission_id: OPEN.checklistId, field_id: OPEN.fieldIds[0],
+      answered_at: '2026-08-02T08:10:00Z', _modified: '2026-08-02T08:10:00Z',
     },
     {
-      id: 'rsp-2', submission_id: OPEN.checklistId, field_id: OPEN.fieldIds[1], _modified: '2026-08-02T08:10:00Z',
+      id: 'rsp-2', submission_id: OPEN.checklistId, field_id: OPEN.fieldIds[1],
+      answered_at: '2026-08-02T08:10:00Z', _modified: '2026-08-02T08:10:00Z',
     },
     // In scope: a DRAFT on the open checklist. `submission_id` is null until
     // submit (migration 0012's partial unique index), and drafts are precisely
     // what a crew member fills offline — the collection that must sync best is
     // the one whose FK is absent.
     {
-      id: 'rsp-3', submission_id: null, field_id: OPEN.fieldIds[0], _modified: '2026-08-02T08:10:00Z',
+      id: 'rsp-3', submission_id: null, field_id: OPEN.fieldIds[0],
+      answered_at: '2026-08-02T08:10:00Z', _modified: '2026-08-02T08:10:00Z',
     },
     // OUT of scope: a submitted answer on a checklist never opened here.
     {
-      id: 'rsp-4', submission_id: NEVER.checklistId, field_id: NEVER.fieldIds[0], _modified: '2026-08-01T09:00:00Z',
+      id: 'rsp-4', submission_id: NEVER.checklistId, field_id: NEVER.fieldIds[0],
+      answered_at: '2026-08-01T09:00:00Z', _modified: '2026-08-01T09:00:00Z',
     },
     // OUT of scope: someone else's draft, on a field this device never saw.
     {
-      id: 'rsp-5', submission_id: null, field_id: NEVER.fieldIds[0], _modified: '2026-08-01T09:00:00Z',
+      id: 'rsp-5', submission_id: null, field_id: NEVER.fieldIds[0],
+      answered_at: '2026-08-01T09:00:00Z', _modified: '2026-08-01T09:00:00Z',
     },
     // OUT of scope, and the F-2 discriminator for this collection: yesterday's
     // SUBMITTED answer on the same template, therefore on an OPEN field id.
     // `field_id.in.(<OPEN fields>)` alone returns this row.
     {
-      id: 'rsp-6', submission_id: SIBLING.checklistId, field_id: OPEN.fieldIds[0], _modified: '2026-08-01T07:00:00Z',
+      id: 'rsp-6', submission_id: SIBLING.checklistId, field_id: OPEN.fieldIds[0],
+      answered_at: '2026-08-01T07:00:00Z', _modified: '2026-08-01T07:00:00Z',
     },
   ],
   approvals: [
     {
-      id: 'apr-1', submission_id: OPEN.checklistId, field_id: OPEN.fieldIds[0], _modified: '2026-08-02T08:11:00Z',
+      id: 'apr-1', submission_id: OPEN.checklistId, field_id: OPEN.fieldIds[0],
+      rejected_at: '2026-08-02T08:11:00Z', _modified: '2026-08-02T08:11:00Z',
     },
     {
-      id: 'apr-2', submission_id: NEVER.checklistId, field_id: NEVER.fieldIds[0], _modified: '2026-08-01T09:05:00Z',
+      id: 'apr-2', submission_id: NEVER.checklistId, field_id: NEVER.fieldIds[0],
+      rejected_at: '2026-08-01T09:05:00Z', _modified: '2026-08-01T09:05:00Z',
     },
     // OUT of scope, and the F-2 discriminator: a rejection on an OPEN field id
     // but on YESTERDAY'S submission. `field_id.in.(<OPEN fields>)` returns it.
     {
-      id: 'apr-3', submission_id: SIBLING.checklistId, field_id: OPEN.fieldIds[0], _modified: '2026-08-01T07:05:00Z',
+      id: 'apr-3', submission_id: SIBLING.checklistId, field_id: OPEN.fieldIds[0],
+      rejected_at: '2026-08-01T07:05:00Z', _modified: '2026-08-01T07:05:00Z',
+    },
+    // 🛑 ADDED BY CARD S1a — THE RECORDED RESIDUAL OF THE LIST SCOPE, held as a
+    // fixture row rather than as a sentence. A rejection written TODAY on a
+    // field belonging to a template this user is NOT assigned. The list scope
+    // for `approvals` is the DATE FLOOR ALONE (`submission_rejections` carries
+    // no template_id and no approver column — see client.js's LIST SCOPE
+    // block), so THE CLIENT FILTER DOES NOT EXCLUDE THIS ROW. The server does:
+    // `submission_rejections_select` is `hq_can_see_field(field_id)`, and
+    // TestRowVisibilityRLS/LIST-3 is that proof. Asserted below in both
+    // directions so nobody reads the client scope as the entitlement gate.
+    //
+    // 🛑 Its `submission_id` is the S1a checklist row, NOT `NEVER.checklistId`,
+    // deliberately: hanging it off NEVER would have widened the FILL scope of
+    // NEVER (`approvals: submission_id.eq.<id>`) and quietly moved SCOPE-02's
+    // expected sets. A new fixture row must not change an old test's answer.
+    {
+      id: 'apr-today-other-000-000000000004',
+      submission_id: 'chk-other-today-0000-0000-000000000005',
+      field_id: NEVER.fieldIds[0],
+      rejected_at: '2026-08-02T10:00:00Z',
+      _modified: '2026-08-02T10:00:00Z',
     },
   ],
 };
@@ -377,9 +435,9 @@ const SCOPE_FIXTURE = {
 // holding. Named per collection so a shrunk fixture reds rather than passes.
 const MUST_NOT_HOLD = {
   templates: [NEVER.templateId],
-  checklists: [NEVER.checklistId, SIBLING.checklistId],
+  checklists: [NEVER.checklistId, SIBLING.checklistId, 'chk-other-today-0000-0000-000000000005'],
   responses: ['rsp-4', 'rsp-5', 'rsp-6'],
-  approvals: ['apr-2', 'apr-3'],
+  approvals: ['apr-2', 'apr-3', 'apr-today-other-000-000000000004'],
 };
 const MUST_HOLD = {
   templates: [OPEN.templateId],
@@ -429,6 +487,10 @@ function parseClause(raw) {
   // checkpoint clause). Both reach this parser, so both are read here.
   if (op === 'eq') return (row) => String(row[col]) === unquote(rest);
   if (op === 'gt') return (row) => String(row[col]) > unquote(rest);
+  // 🛑 ADDED BY CARD S1a for the LIST scope's DATE FLOOR. ISO-8601 timestamps
+  // compare correctly as strings when they carry the same offset, which is what
+  // both the fixture and the substrate hold (`timestamptz` renders as `…Z`).
+  if (op === 'gte') return (row) => String(row[col]) >= unquote(rest);
   if (op === 'is') {
     if (rest !== 'null') throw new Error('[scope-harness] only is.null is supported: ' + s);
     return (row) => row[col] === null || row[col] === undefined;
@@ -462,6 +524,14 @@ function fakeQuery(rows, log) {
       log.push(['is', col, val]);
       if (val !== null) throw new Error('[scope-harness] only .is(col,null) is supported');
       preds.push((r) => r[col] === null || r[col] === undefined);
+      return q;
+    },
+    // 🛑 ADDED BY CARD S1a — the LIST scope's date floor goes on the builder as
+    // `.gte()`. Real, not a no-op: a harness that accepted the call and dropped
+    // the predicate would make "the floor is applied" pass with no floor.
+    gte(col, val) {
+      log.push(['gte', col, val]);
+      preds.push((r) => String(r[col]) >= String(val));
       return q;
     },
     in(col, vals) {
@@ -695,6 +765,374 @@ test.describe('[SCOPE-01] replication is scoped to the open checklist (C-2)', ()
     // The bundle really does swallow handler throws into a retry.
     const bundle = fs.readFileSync(BUNDLE_PATH, 'utf8');
     expect(bundle).toContain('RC_PULL');
+  });
+});
+
+// ===========================================================================
+// [SCOPE-03] THE LIST SCOPE — card `sync-cutover-list-scope` (S1a, 20260803).
+//
+// WHY THERE IS A SECOND SCOPE AT ALL. A1 made `scope.checklistId` mandatory and
+// SINGULAR, which is exactly right for the checklist-FILL view and is not the
+// view a crew member lands on: `workflows.html` opens on **My Checklists** and
+// its second tab is **Approvals**, both lists over MANY submissions. B-43 filed
+// that; the operator resolved it on 2026-08-02 evening — LISTS STAY LIVE, THE
+// SCOPE IS WIDENED — and `reference/slate-20260803.md` is the recorded decision
+// that amends ledger T-29 decision 105 to:
+//
+//     per-open-checklist for the fill collections; per-user-with-a-date-floor
+//     for the two list collections; NEVER ALL HISTORY, NEVER ALL USERS.
+//
+// 🛑 THE DATE FLOOR IS THE WHOLE PRICE OF THE WIDENING, which is why the first
+// test below is a THROW and not a default. B-42 recorded that nothing evicts:
+// the per-phone bound only moved from *all history* to *opened checklists*, and
+// a per-user list scope widens it again. A floor that can be omitted is a
+// comment, not a bound.
+// ===========================================================================
+
+const LIST = {
+  userId: 'usr-crew-000-0000-0000-000000000001',
+  // The floor. Chosen so it sits between the fixture's two days.
+  since: '2026-08-02',
+  // The templates assigned to this user. See client.js's LIST SCOPE block for
+  // why the per-user half is expressed through the template set and not through
+  // an `assigned_to` column: NO REPLICATED TABLE CARRIES ONE, and adding one is
+  // this card's PARK trigger.
+  templateIds: [OPEN.templateId],
+};
+
+const LIST_MUST_HOLD = {
+  templates: [OPEN.templateId],
+  checklists: [OPEN.checklistId],
+  responses: ['rsp-1', 'rsp-2', 'rsp-3'],
+  // 🛑 The recorded residual: `apr-today-other-…` IS pulled by the client
+  // filter and is refused by the SERVER. See the fixture comment and
+  // TestRowVisibilityRLS/LIST-3.
+  approvals: ['apr-1', 'apr-today-other-000-000000000004'],
+};
+const LIST_MUST_NOT_HOLD = {
+  templates: [NEVER.templateId, 'tpl-archived-00-0000-0000-000000000003'],
+  // SIBLING is below the floor; chk-other-today is above it but on a template
+  // this user is not assigned. One row per clause.
+  checklists: [SIBLING.checklistId, NEVER.checklistId, 'chk-other-today-0000-0000-000000000005'],
+  responses: ['rsp-4', 'rsp-5', 'rsp-6'],
+  approvals: ['apr-2', 'apr-3'],
+};
+
+test.describe('[SCOPE-03] the LIST scope — per-user, with a mandatory date floor', () => {
+  test('the list fixture is DISCRIMINATING, not merely populated', () => {
+    // B-22/B-23/B-24. Every assertion below is only evidence because both sets
+    // are non-empty AND because each clause has a row that only it excludes.
+    for (const key of ['templates', 'checklists', 'responses', 'approvals']) {
+      expect(LIST_MUST_HOLD[key].length, `${key}: no in-scope rows — "returns nothing" would pass`)
+        .toBeGreaterThan(0);
+      expect(LIST_MUST_NOT_HOLD[key].length, `${key}: nothing out of scope to prove a bound with`)
+        .toBeGreaterThan(0);
+      const ids = SCOPE_FIXTURE[key].map((r) => r.id);
+      for (const id of LIST_MUST_HOLD[key]) expect(ids).toContain(id);
+      for (const id of LIST_MUST_NOT_HOLD[key]) expect(ids).toContain(id);
+    }
+    // The floor's own discriminator: a submission on the user's OWN template,
+    // below the floor. Without it "bounded in time" is indistinguishable from
+    // "bounded by the template set alone".
+    expect(
+      SCOPE_FIXTURE.checklists.filter(
+        (r) => r.template_id === OPEN.templateId && r.submitted_at < LIST.since,
+      ).length,
+      'need a below-floor submission on the user\'s own template',
+    ).toBeGreaterThan(0);
+    // The template set's own discriminator: a submission ABOVE the floor on a
+    // template the user is not assigned.
+    expect(
+      SCOPE_FIXTURE.checklists.filter(
+        (r) => r.template_id !== OPEN.templateId && r.submitted_at >= LIST.since,
+      ).length,
+      'need an above-floor submission on a template the user is not assigned',
+    ).toBeGreaterThan(0);
+  });
+
+  test('a list scope with NO DATE FLOOR is REFUSED — the floor is the bound, not a default', async () => {
+    // 🛑 THE `done_when:` ROW. B-42: nothing evicts. Without a floor the list
+    // scope pulls all history onto a phone that never deletes anything, which
+    // is the exact widening the operator's decision was granted on condition of
+    // not making.
+    const { normalizeScope, startHQReplication } = await loadClient();
+    const db = {
+      templates: {}, checklists: {}, responses: {}, approvals: {},
+    };
+    const replicate = () => ({ conflict$: { subscribe() {} } });
+
+    expect(() => normalizeScope({
+      mode: 'list', userId: LIST.userId, templateIds: LIST.templateIds,
+    })).toThrow(/date floor/i);
+    // ...named in the message, so the reader is told what to pass.
+    expect(() => normalizeScope({
+      mode: 'list', userId: LIST.userId, templateIds: LIST.templateIds,
+    })).toThrow(/since/);
+    // An empty string is not a floor either.
+    expect(() => normalizeScope({
+      mode: 'list', userId: LIST.userId, templateIds: LIST.templateIds, since: '',
+    })).toThrow(/date floor/i);
+    // Nor is something that merely looks like one.
+    expect(() => normalizeScope({
+      mode: 'list', userId: LIST.userId, templateIds: LIST.templateIds, since: 'yesterday',
+    })).toThrow(/date floor/i);
+    // And the refusal reaches the replication call, not just the helper.
+    expect(() => startHQReplication(db, {}, {
+      replicate,
+      scope: { mode: 'list', userId: LIST.userId, templateIds: LIST.templateIds },
+    })).toThrow(/date floor/i);
+  });
+
+  test('a list scope with no userId and no templates is REFUSED too', async () => {
+    const { normalizeScope } = await loadClient();
+    expect(() => normalizeScope({ mode: 'list', since: LIST.since, templateIds: LIST.templateIds }))
+      .toThrow(/userId/);
+    // An omitted or EMPTY template set would leave `templates` unbounded — the
+    // F-5 shape, where forgetting an argument buys the whole collection.
+    expect(() => normalizeScope({ mode: 'list', userId: LIST.userId, since: LIST.since }))
+      .toThrow(/templateIds/);
+    expect(() => normalizeScope({
+      mode: 'list', userId: LIST.userId, since: LIST.since, templateIds: [],
+    })).toThrow(/templateIds/);
+  });
+
+  test('a date floor cannot carry PostgREST logic-tree punctuation [F-4, on the new key]', async () => {
+    const { normalizeScope } = await loadClient();
+    expect(() => normalizeScope({
+      mode: 'list',
+      userId: LIST.userId,
+      templateIds: LIST.templateIds,
+      since: '2026-08-02,"id".not.is.null',
+    })).toThrow(/date floor/i);
+  });
+
+  test('the list scope holds THIS user\'s rows since the floor, and nothing else', async () => {
+    const pulled = await pullEachCollection({
+      mode: 'list', userId: LIST.userId, since: LIST.since, templateIds: LIST.templateIds,
+    });
+    for (const key of ['templates', 'checklists', 'responses', 'approvals']) {
+      expect(pulled[key].hasQueryBuilder, `${key} pulls with NO query modifier — the whole collection`)
+        .toBe(true);
+      for (const id of LIST_MUST_NOT_HOLD[key]) {
+        expect(pulled[key].rows, `${key}: replicated ${id}, which the list scope must not hold`)
+          .not.toContain(id);
+      }
+      // ...and it did not pass by returning nothing.
+      expect(pulled[key].rows.sort()).toEqual([...LIST_MUST_HOLD[key]].sort());
+    }
+  });
+
+  test('the floor really is applied per collection, on each one\'s OWN time column', async () => {
+    const pulled = await pullEachCollection({
+      mode: 'list', userId: LIST.userId, since: LIST.since, templateIds: LIST.templateIds,
+    });
+    const cols = {
+      checklists: 'submitted_at', responses: 'answered_at', approvals: 'rejected_at',
+    };
+    for (const [key, col] of Object.entries(cols)) {
+      const emitted = JSON.stringify(pulled[key].log);
+      expect(emitted, `${key}: the floor is not on the wire at all`).toContain(col);
+      expect(emitted, `${key}: the floor value is not on the wire`).toContain(LIST.since);
+    }
+    // `templates` is bounded by the ASSIGNED SET, not by a floor — it has no
+    // per-row time column that means anything to a list view.
+    expect(JSON.stringify(pulled.templates.log)).toContain('in');
+  });
+
+  test('the list scope is still BATCHED — C-2 is both halves', async () => {
+    const pulled = await pullEachCollection({
+      mode: 'list', userId: LIST.userId, since: LIST.since, templateIds: LIST.templateIds,
+    });
+    for (const key of ['templates', 'checklists', 'responses', 'approvals']) {
+      expect(pulled[key].opts.pull.batchSize).toBe(50);
+      expect(pulled[key].opts.push.batchSize).toBe(50);
+    }
+  });
+
+  test('the FILL scope is untouched — a second mode is not a rewrite of the first', async () => {
+    // The whole of A1 must survive this card. Same three refusals, same filters.
+    const { normalizeScope, scopeFilterFor } = await loadClient();
+    expect(() => normalizeScope({})).toThrow(/checklistId/);
+    expect(() => normalizeScope({ checklistId: OPEN.checklistId })).toThrow(/templateId/);
+    expect(scopeFilterFor('templates', {
+      checklistId: OPEN.checklistId, templateId: OPEN.templateId,
+    })).toEqual({ op: 'eq', column: 'id', value: OPEN.templateId });
+    expect(scopeFilterFor('checklists', {
+      checklistId: OPEN.checklistId, templateId: OPEN.templateId,
+    })).toEqual({ op: 'eq', column: 'id', value: OPEN.checklistId });
+  });
+
+  test('two crew members on ONE phone do not inherit each other\'s checkpoint', async () => {
+    // 🛑 WHY `userId` IS IN THE SCOPE AT ALL. It appears in no filter clause —
+    // no replicated table carries a queryable per-user key (see client.js) — but
+    // it IS the scope's identity, and RxDB keys the persisted checkpoint by
+    // `[collection.name, replicationIdentifier]` and by nothing else (SCOPE-02).
+    // A shared truck phone that switches crew member must mint a NEW identifier,
+    // or the second user resumes the first user's cursor and their own rows are
+    // filtered away exactly the way F-1 described.
+    const { scopePlanFor } = await loadClient();
+    const a = scopePlanFor('checklists', {
+      mode: 'list', userId: LIST.userId, since: LIST.since, templateIds: LIST.templateIds,
+    });
+    const b = scopePlanFor('checklists', {
+      mode: 'list', userId: 'usr-crew-000-0000-0000-000000000002', since: LIST.since, templateIds: LIST.templateIds,
+    });
+    expect(a.fingerprint).not.toBe(b.fingerprint);
+    // ...and the same user still RESUMES.
+    const again = scopePlanFor('checklists', {
+      mode: 'list', userId: LIST.userId, since: LIST.since, templateIds: LIST.templateIds,
+    });
+    expect(again.fingerprint).toBe(a.fingerprint);
+    // A LIST scope and a FILL scope are never the same replication.
+    const fill = scopePlanFor('checklists', {
+      checklistId: OPEN.checklistId, templateId: OPEN.templateId,
+    });
+    expect(fill.fingerprint).not.toBe(a.fingerprint);
+  });
+});
+
+// ===========================================================================
+// [SCOPE-04] THE LIVE LEG — B-42 option (i), and the one collection it cannot
+// reach.
+//
+// A1 recorded that `rxdb/plugins/replication-supabase` opens its live
+// subscription as, verbatim out of the committed bundle:
+//
+//     e.client.channel(e.replicationIdentifier)
+//      .on("postgres_changes", {event:"*", schema:"public", table:e.tableName}, …)
+//
+// with NO `filter` key and NO option seam for one. So the PULL is scoped and the
+// LIVE leg is not: a row belonging to a checklist this device never opened,
+// CHANGED while the page is open, still lands in IndexedDB and nothing evicts
+// it. That is B-42, widened to a fourth collection by B-49.
+//
+// This card applies B-42 OPTION (i) — the single `column=op.value` clause
+// Realtime does accept — on the three collections where the scope is expressible
+// as one clause, and records the residual on the fourth.
+// ===========================================================================
+test.describe('[SCOPE-04] the Realtime filter — three collections, and the one it cannot express', () => {
+  test('the vendored plugin still subscribes with no filter of its own', () => {
+    // The premise. If an upgrade adds one, the shim below is fighting the
+    // library rather than completing it, and that must red here.
+    const bundle = fs.readFileSync(BUNDLE_PATH, 'utf8');
+    expect(bundle).toContain('postgres_changes",{event:"*",schema:"public",table:e.tableName}');
+  });
+
+  for (const mode of ['fill', 'list']) {
+    test(`[${mode}] the filter is present on EXACTLY THREE collections and ABSENT on responses`, async () => {
+      const { realtimeFilterFor } = await loadClient();
+      const scope = mode === 'fill'
+        ? { checklistId: OPEN.checklistId, templateId: OPEN.templateId, fieldIds: OPEN.fieldIds }
+        : {
+          mode: 'list', userId: LIST.userId, since: LIST.since, templateIds: LIST.templateIds,
+        };
+      const filtered = ['templates', 'checklists', 'responses', 'approvals']
+        .filter((k) => realtimeFilterFor(k, scope) !== null);
+      expect(filtered.sort()).toEqual(['approvals', 'checklists', 'templates']);
+      expect(realtimeFilterFor('responses', scope)).toBe(null);
+    });
+  }
+
+  test('every emitted filter is ONE `column=op.value` clause — the only shape Realtime takes', async () => {
+    const { realtimeFilterFor } = await loadClient();
+    const scopes = [
+      { checklistId: OPEN.checklistId, templateId: OPEN.templateId, fieldIds: OPEN.fieldIds },
+      {
+        mode: 'list', userId: LIST.userId, since: LIST.since, templateIds: LIST.templateIds,
+      },
+    ];
+    for (const scope of scopes) {
+      for (const key of ['templates', 'checklists', 'approvals']) {
+        const f = realtimeFilterFor(key, scope);
+        expect(typeof f).toBe('string');
+        // exactly one `=`, one operator, and NO logic-tree punctuation that
+        // would mean this is really two clauses wearing a coat.
+        expect(f).toMatch(/^[a-z_]+=(eq|gte|in)\./);
+        expect(f.split('=').length).toBe(2);
+        expect(f).not.toContain('and(');
+        expect(f).not.toContain('or(');
+      }
+    }
+  });
+
+  test('the filter reaches the plugin\'s channel — registered under the replication identifier', async () => {
+    const { startHQReplication, realtimeFilterFor } = await loadClient();
+    const db = {
+      templates: {}, checklists: {}, responses: {}, approvals: {},
+    };
+    const client = {};
+    const started = {};
+    startHQReplication(db, client, {
+      scope: {
+        mode: 'list', userId: LIST.userId, since: LIST.since, templateIds: LIST.templateIds,
+      },
+      replicate: (o) => { started[o.tableName] = o; return { conflict$: { subscribe() {} } }; },
+    });
+    const registry = client.__hqRealtimeFilters;
+    expect(registry, 'no filter registry was installed on the client').toBeTruthy();
+
+    const byKey = {
+      templates: 'checklist_templates',
+      checklists: 'checklist_submissions',
+      responses: 'submission_responses',
+      approvals: 'submission_rejections',
+    };
+    for (const [key, table] of Object.entries(byKey)) {
+      const id = started[table].replicationIdentifier;
+      const want = realtimeFilterFor(key, {
+        mode: 'list', userId: LIST.userId, since: LIST.since, templateIds: LIST.templateIds,
+      });
+      if (want === null) {
+        // 🛑 THE RESIDUAL, ASSERTED. `responses` is registered with NOTHING, so
+        // the live leg for it is exactly as wide as B-42 describes.
+        expect(registry[id]).toBeUndefined();
+      } else {
+        expect(registry[id]).toBe(want);
+      }
+    }
+  });
+
+  test('the channel shim injects the registered filter into the postgres_changes binding', async () => {
+    // The plugin hardcodes its binding config, so the only seam is the client's
+    // own `channel()`. This is the same category of shim as `makeSyncFetch` and
+    // `makeRealtimeTransport`: a public extension point on the client object.
+    const { installRealtimeFilterShim, registerRealtimeFilter } = await loadClient();
+    const seen = [];
+    const fakeChannel = {
+      on(type, config, cb) { seen.push([type, config]); return this; },
+      subscribe() { return this; },
+    };
+    const client = { channel: () => Object.create(fakeChannel) };
+    installRealtimeFilterShim(client);
+    registerRealtimeFilter(client, 'hq-sync-checklist_submissions-abc', 'submitted_at=gte.2026-08-02');
+
+    const ch = client.channel('hq-sync-checklist_submissions-abc');
+    const chained = ch.on('postgres_changes', { event: '*', schema: 'public', table: 'checklist_submissions' }, () => {});
+    expect(seen).toHaveLength(1);
+    expect(seen[0][1].filter).toBe('submitted_at=gte.2026-08-02');
+    // `.on()` must still return something chainable — the plugin does
+    // `.on(...).subscribe(...)` in one expression.
+    expect(typeof chained.subscribe).toBe('function');
+
+    // An UNREGISTERED channel is left exactly alone: no filter key at all.
+    const other = client.channel('hq-sync-submission_responses-def');
+    other.on('postgres_changes', { event: '*', schema: 'public', table: 'submission_responses' }, () => {});
+    expect(seen).toHaveLength(2);
+    expect('filter' in seen[1][1]).toBe(false);
+
+    // And a non-postgres_changes binding is never touched.
+    ch.on('broadcast', { event: 'x' }, () => {});
+    expect('filter' in seen[2][1]).toBe(false);
+  });
+
+  test('the shim is installed by createHQSupabaseClient, not left to the caller', async () => {
+    const { createHQSupabaseClient } = await loadClient();
+    const client = createHQSupabaseClient({
+      origin: 'http://hq.test',
+      fetchImpl: async () => new Response('[]'),
+      WebSocketImpl: recordingSocket([]),
+    });
+    expect(client.__hqRealtimeFilters).toBeTruthy();
   });
 });
 
