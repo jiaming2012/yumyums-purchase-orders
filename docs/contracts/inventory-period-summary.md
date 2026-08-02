@@ -10,7 +10,7 @@ If sales-processor differs from any assumption below, raise a question against t
 
 ## 0. Drift Audit — 2026-08-03
 
-**Why this section exists.** On 2026-08-03 every line of this document that publishes a code-level claim was diffed against the code at HEAD, expression by expression, rather than read for plausibility. That had never been done. The prose had been *read* many times over fourteen months and had been believed each time; **eighteen rows were wrong and one input was missing entirely**. Several are material, and one of those had been wrong since 2026-06-06 in a way that could block a payroll run without explanation.
+**Why this section exists.** On 2026-08-03 every line of this document that publishes a code-level claim was diffed against the code at HEAD, expression by expression, rather than read for plausibility. That had never been done. The prose had been *read* many times over the eight weeks since it was authored and had been believed each time; **eighteen rows were wrong and one input was missing entirely**. Several are material, and one of those had been wrong since 2026-06-06 in a way that could block a payroll run without explanation.
 
 **This section was itself audited, and it was itself incomplete.** The first pass (same day) covered `:16`–`:69`, `:124`–`:164` and `:316`–`:356` and reported 32 rows; it skipped the example states, all of §3 and §4, and §6, while claiming the whole document had been diffed. The second pass closed those gaps and added fifteen rows. Where the second pass corrected the first, the row says so explicitly rather than quietly restating.
 
@@ -66,7 +66,7 @@ Line numbers below (`:NN`) are as this document stood **before** this revision �
 | `:334` | A8 HTTP 200 with `ready:false` | **CONFIRMED** — no non-2xx path for business state |
 | `:335` | A9 discarded rows treated as resolved | **CONFIRMED** — `discarded_at IS NULL` present in every gate query |
 | `:352`–`:354` | §7 reference-implementation paths | **DRIFTED — stale.** All three `.planning/phases/21-…` paths were deleted by `34f8c7e` (2026-07-26). Replaced with live paths. |
-| `:356` | "integration tests are the executable proof" | **FALSE as written.** The tests assert against the same Go structs the handler marshals, so they cannot detect a doc-vs-code mismatch — which is exactly why these drifts survived a green suite for fourteen months. Corrected inline. |
+| `:356` | "integration tests are the executable proof" | **FALSE as written.** The tests assert against the same Go structs the handler marshals, so they cannot detect a doc-vs-code mismatch — which is exactly why these drifts survived a green suite for eight weeks. Corrected inline. |
 
 **Counting unit — stated so the totals are checkable.** One **row of the table above** = one audited unit, whatever line range it anchors. Count the rows; the numbers below must match. Every row carries exactly one verdict bucket.
 
@@ -117,7 +117,7 @@ HQ_BASE_URL=https://hq.yumyums.kitchen
 
 `Content-Type: application/json`
 
-🛑 **This example was wrong from 2026-06-05 until 2026-08-03.** It omitted three fields HQ had been returning for fourteen months. The shape below is the **observed** shape — produced by marshalling `inventory.PeriodSummary` at HEAD, not transcribed from the handler. Added fields are marked.
+🛑 **This example was wrong from 2026-06-05 until 2026-08-03.** It omitted three fields HQ had been returning for eight weeks. The shape below is the **observed** shape — produced by marshalling `inventory.PeriodSummary` at HEAD, not transcribed from the handler. Added fields are marked.
 
 ```json
 {
@@ -581,7 +581,7 @@ The HQ-side implementation lives in:
 - `backend/internal/auth/service_token.go` — `ServiceTokenMiddleware` (the 401 / 503 envelope)
 - `backend/cmd/server/main.go` — route wiring, `HQ_INVENTORY_SERVICE_TOKEN`, `HQ_COGS_CATEGORY_ALLOWLIST`
 
-🛑 **The integration tests in `backend/internal/inventory/period_summary_test.go` are NOT proof that the HQ side matches this document.** They assert against the Go structs, which are the same structs the handler marshals — so a claim in this document that disagrees with the struct is invisible to them. That is precisely how the drifts catalogued in §0 survived fourteen months of a green test suite. **Any contract change requires updating this doc, the integration tests, AND re-running the §0 audit** — diffing published expressions against the code, which no test does for you.
+🛑 **The integration tests in `backend/internal/inventory/period_summary_test.go` are NOT proof that the HQ side matches this document.** They assert against the Go structs, which are the same structs the handler marshals — so a claim in this document that disagrees with the struct is invisible to them. That is precisely how the drifts catalogued in §0 survived eight weeks of a green test suite. **Any contract change requires updating this doc, the integration tests, AND re-running the §0 audit** — diffing published expressions against the code, which no test does for you.
 
 ---
 

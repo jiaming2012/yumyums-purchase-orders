@@ -1917,7 +1917,7 @@
   failure this card exists to write up.
   **What the audit actually found, which is much more than B-29 described.** B-29 named one drifted
   row. Diffing every published expression against HEAD — rather than reading the prose, which is how
-  this survived fourteen months — found **111 rows audited across the two documents, 45 of them wrong**,
+  this survived eight weeks — found **111 rows audited across the two documents, 45 of them wrong**,
   plus one input never published at all. *(Counting unit: one row of a `§0` audit table = one audited
   unit, whatever line range it anchors. **These figures supersede "76 rows / 26 wrong", which the G6
   review found did not reconcile against the audit's own tables and rested on three unaudited regions

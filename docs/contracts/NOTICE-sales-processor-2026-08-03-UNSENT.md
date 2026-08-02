@@ -26,7 +26,7 @@ The draft below is written to be sendable **as-is**, but three decisions are emb
 Two notices are now owed and **neither has been sent**:
 
 - **A1's timezone notice** (drafted 2026-08-01) — the `America/Chicago` → `America/New_York` changeover, which requires a **coordinated two-repo release** and is therefore time-sensitive against the next HQ deploy.
-- **This notice** — fourteen months of undisclosed contract drift, which is not tied to a deploy date but is larger.
+- **This notice** — eight weeks of undisclosed contract drift, which is not tied to a deploy date but is larger.
 
 They overlap: this audit **corrects** one of A1's own statements (A1 told sales-processor that `/menu-cogs` shares `/period-summary`'s date semantics and moves with it on the changeover deploy; it does not — `/menu-cogs` has no timezone dependency at all). **Sending A1's notice alone would propagate that error.** Recommended: send one combined message, or send this one first. *Operator's call.*
 
@@ -109,7 +109,7 @@ We can also start returning `menu` — the data is in our database, the endpoint
 
 The one exception worth naming: on `/menu-cogs`, correcting the doc to match the code arguably makes it *honest* rather than *right* — several of those items are places where the document described more useful behaviour than we implemented. Those are recorded as open questions in each document's `§8` and we would rather decide them with you than around you.
 
-## 5. Why this went unnoticed for fourteen months
+## 5. Why this went unnoticed for eight weeks
 
 Both documents claimed their integration tests were "the executable proof that the HQ side matches this contract." They are not, and that claim is what stopped anyone looking. The tests decode into the same Go structs the handlers marshal — so a field name the *document* gets wrong is invisible to every one of them. The suite was green the entire time. Both documents now say so plainly, and we have filed work to add a test that asserts on raw JSON keys instead.
 
