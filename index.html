@@ -37,6 +37,8 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .user-bar .logout-btn{background:none;border:none;color:var(--mut);font-size:13px;font-weight:500;cursor:pointer;padding:6px 0;font-family:inherit}
 .user-bar .logout-btn:active{opacity:0.6}
 .logo{display:block;margin:0 0 8px auto;max-width:120px;width:35%;height:auto}
+.verline{max-width:480px;margin:22px auto 0;padding:0 0 8px;font-size:11px;color:var(--mut);text-align:center;letter-spacing:0.2px}
+.verline .stale{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:8px;background:var(--warn-bg);color:var(--warn-tx);font-weight:500}
 </style>
 </head>
 <body>
@@ -98,6 +100,11 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
     </a>
   </div>
 </div>
+
+<!-- App version line. Value comes from the PRECACHED version.json — see the
+     comment above the IIFE at the bottom of this file before changing anything
+     here. `hidden` until it has something true to say. -->
+<div class="verline" id="version-line" hidden><span id="version-cached"></span><span id="version-server"></span></div>
 
 <script>
 const TILE_SLUGS={'purchasing.html':'purchasing','workflows.html':'operations','users.html':'users','inventory.html':'inventory','onboarding.html':'onboarding'};
@@ -376,6 +383,59 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');
       tile.appendChild(badge);
     }
   }catch(e){}
+})();
+// ═══ APP VERSION LINE — ledger T-33 decision 133, OKR D-KR2b ══════════════
+//
+// 🛑 THE SOURCE IS version.json. NEVER /api/v1/health.
+//
+// version.json is written by build-sw.js and is in the Workbox precache, so it
+// is served CACHE-FIRST: it ships inside the bundle and reports what THIS
+// DEVICE actually has. That is the only value here capable of being stale —
+// which is exactly why it is the right one. This line exists to catch a phone
+// frozen on an old bundle while the server is fine (the T-21d class).
+//
+// The server's frontend_version is ALWAYS current. A badge fed from it would
+// print the correct version on that frozen phone and HIDE the defect this line
+// exists to reveal. So health is read only AFTER the cached value is already on
+// screen, only into #version-server, and only ever as a COMPARISON.
+//
+// And there is deliberately NO API FALLBACK: if version.json cannot be read we
+// say "v—" / data-state="unknown". An unknown bundle reported as unknown is
+// honest; the server's number printed in its place is a lie about this device.
+//
+// tests/version-badge.spec.js pins all of the above by stubbing the two sources
+// with DIFFERENT values. Do not "simplify" it into one fetch.
+(async function(){
+  var line=document.getElementById('version-line');
+  if(!line)return;
+  var cachedEl=document.getElementById('version-cached');
+  var serverEl=document.getElementById('version-server');
+  var cached=null;
+  try{
+    var vr=await fetch('version.json');
+    if(vr.ok){var vj=await vr.json();if(vj&&vj.frontend)cached=String(vj.frontend);}
+  }catch(e){}
+  line.hidden=false;
+  if(!cached){
+    line.dataset.state='unknown';
+    cachedEl.textContent='v—';
+    return;
+  }
+  line.dataset.state='ok';
+  line.dataset.version=cached;
+  cachedEl.textContent='v'+cached;
+  // Comparison only, from here down.
+  var server=null;
+  try{
+    var hr=await fetch('/api/v1/health');
+    if(hr.ok){var hj=await hr.json();if(hj&&hj.frontend_version)server=String(hj.frontend_version);}
+  }catch(e){}
+  if(!server)return;
+  line.dataset.server=server;
+  if(server===cached){line.dataset.state='current';return;}
+  line.dataset.state='stale';
+  serverEl.className='stale';
+  serverEl.textContent='server v'+server+' — close and reopen to update';
 })();
 </script>
 <script src="log.js"></script><script src="ptr.js"></script>

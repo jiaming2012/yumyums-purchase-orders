@@ -174,7 +174,26 @@ test('unmocked, the version line shows the real version.json value and the preca
     fs.readFileSync(path.join(root, 'package.json'), 'utf8'),
   ).version;
 
+  // 🛑 version.json is git-IGNORED on purpose (.gitignore:13). build-sw.js writes
+  // it locally and backend/Dockerfile regenerates it into the image, so it exists
+  // in prod and after `task test` (which has `sw` as a dep) — but a bare
+  // `npx playwright test`, which is what night-crew.toml's [e2e] stanza runs,
+  // never generates it. Assert the precondition EXPLICITLY so a missing artifact
+  // reads as "run node build-sw.js" and not as a silent "v—" that looks like a
+  // code defect. A skipped precondition reads exactly like a clean pass.
+  const res = await page.request.get('/version.json');
+  expect(
+    res.ok(),
+    'GET /version.json returned ' + res.status() + '. This stack has no version.json — ' +
+      'it is a generated, git-ignored artifact. Run `node build-sw.js` before the suite ' +
+      '(`task test` does this via its `sw` dep; a bare `npx playwright test` does not).',
+  ).toBe(true);
+  expect((await res.json()).frontend).toBe(pkgVersion);
+
   await login(page);
   await page.goto('/index.html');
   await expect(page.locator('#version-cached')).toHaveText('v' + pkgVersion);
+  // Real file, real health endpoint, no stubs: the three-way parity means these
+  // must agree, so the line must read CURRENT.
+  await expect(page.locator('#version-line')).toHaveAttribute('data-state', 'current');
 });
