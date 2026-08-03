@@ -1841,7 +1841,21 @@
   threading test, which genuinely calls `startHQReplication` and would otherwise red on a change
   it is not about.
 
-- **`sync-cutover-list-scope`** · **PLANNED — SLATED 2026-08-02 evening as a COMMITTED card on
+- **`sync-cutover-list-scope`** · ✅ **BUILT — run `overnight-20260803`, Track A, card S1a, on
+  branch `card/s1a-sync-cutover-list-scope`; awaiting merge + G6.** Gates: G1 clean; G2(Go)
+  `TestRowVisibilityRLS` **59 subtests, 0 failures**, `HQ_SYNC_SUBSTRATE_OPTIONAL` unset;
+  G2(Playwright) judged against the armed-reds baseline; G4 idempotent. 🛑 **The PARK trigger did
+  NOT fire, and the reason is recorded rather than assumed:** the slate's literal
+  `checklists: assigned_to.eq.<userId>` names a column **no replicated table carries** — measured
+  against `sync-schema/sql/0001_sync_tables.sql` — so the per-user half is carried by
+  `scope.templateIds` (the assigned set, a queryable column on both tables) plus RLS
+  (`hq_can_see_template` / `hq_can_see_field`, read live per row and unforgeable), and **no column,
+  view or queryable key was added**; `sync-schema/collections.js` is byte-unchanged and no
+  `0005_*.sql` was written. Discoveries filed with destinations: **B-61** (the RxDB list is
+  narrower than the REST list it replaces — an OPERATOR product call), **B-62** (the Realtime
+  filter is proved at the config, never against a live Realtime server), **B-63** (list + fill
+  replications will run concurrently and the standing cancel instruction says the opposite). ·
+  *(originally slated as)* **COMMITTED card on
   `overnight-20260803`, first in Track A** (`reference/slate-20260803.md`) · *(½ of the fanned-out
   `sync-hard-cutover`; authored at slate planning under the §1 split rule — see the fan-out note
   above)* · 🛑 **Exists because of an operator product decision taken inline at planning, 2026-08-02:
@@ -1879,7 +1893,113 @@
   `.night-crew/knowledge/designs/`. 🛑 **`sync-rxdb/bootstrap.js` and `workflows.html` HARD-untouched**
   — the cutover owns the wiring, and this card changes **no** write path.
 
-- **`sync-hard-cutover`** · **PLANNED — LAST · SLATED 2026-08-02 evening as a COMMITTED card on
+- **`period-summary-contract-notice`** · ✅ **BUILT + FIX ROUND — run `overnight-20260803`, Track B
+  stretch, card P6, on branch `card/p6-period-summary-contract-notice`; awaiting merge.** 🛑 **G6
+  returned FAIL on the first build and a fix round followed. Three of the ten findings were regions
+  of the two contracts the audit never opened while claiming it had: the three example response
+  states in each document, `§3`/`§4` in both, `§6` in one. The State A example in the menu-cogs
+  contract was still publishing all four wrong per-item keys after the same audit had called that
+  defect "the most directly harmful item on the page"; the Phase 21 client struct was missing three
+  shipped fields; the Phase 21 Scenario 1 setup no longer produces its expected result. The most
+  consequential finding was a NEW error the correction itself introduced — the notice told the
+  counterparty that every pending row which stopped blocking on 2026-06-06 "began contributing to
+  `cogs_excl_tax`". Two of the three buckets contribute nothing, so the notice pointed at money that
+  is not there; corrected in both contract rows, in A7, and in the draft. Row counts recounted from
+  the tables with the counting unit stated, and propagated to this card and the notice's Provenance
+  block.** *(promoted
+  from **B-29**; the second undisclosed two-repo change, independent of A1's timezone notice.)*
+  Gates: G1 clean; G2(Go) `./internal/inventory/` green; G2(Playwright) `inventory|recipes` subset
+  judged against the armed-reds baseline; G4 idempotent. **Confined** — the diff is documentation
+  and night-crew state only; no file under any code seam was touched.
+  🛑 **The defect was PURELY DOCUMENTARY and no production code was changed.** In every finding the
+  code was self-consistent and tested and the *document* described something else. Correcting the
+  code to match the prose would have changed behaviour under an external consumer — the exact
+  failure this card exists to write up.
+  **What the audit actually found, which is much more than B-29 described.** B-29 named one drifted
+  row. Diffing every published expression against HEAD — rather than reading the prose, which is how
+  this survived eight weeks — found **111 rows audited across the two documents, 45 of them wrong**,
+  plus one input never published at all. *(Counting unit: one row of a `§0` audit table = one audited
+  unit, whatever line range it anchors. **These figures supersede "76 rows / 26 wrong", which the G6
+  review found did not reconcile against the audit's own tables and rested on three unaudited regions
+  per document.** The second pass added 15 rows to the Phase 21 table and 17 to the Phase 999.2 one,
+  reclassified two verdicts and corrected two commit attributions — see the `§0` blocks.)*
+  **`inventory-period-summary.md` (Phase 21)** — 47 rows: 24 confirmed byte-accurate, 3 not verifiable
+  from HQ, 1 operational, 18 drifted/wrong/stale, 1 input never published at all. B-29's row `:68` drifted **twice on the same day in opposite
+  directions**, and **card A1's correction caught only one of them**: `cf959bd` added the `COALESCE`
+  and WIDENED the gate (stated by A1); `d41faef` added `mercury_category = ANY(...)` **and**
+  `reason = 'no_attachment_on_bank_tx'` and NARROWED it much further (**never stated by anyone until
+  now**) — so the gate's net effect on any period was underivable from the published contract. Three
+  response fields have shipped since June 2026 undocumented (`by_vendor` `518a395`,
+  `tracked_bank_tx_ids` `f730485`, `pending_review_details` `1c260f0`); `cogs_excl_tax`,
+  `cogs_incl_tax` and `purchase_event_count` all silently fold in unconfirmed pending rows
+  (`d41faef`) and are category-filtered (`a726029`); and `HQ_COGS_CATEGORY_ALLOWLIST` gates four
+  response fields while appearing in **neither** document (**B-74**).
+  **`inventory-menu-cogs.md` (Phase 999.2)** — 64 rows: 35 confirmed byte-accurate, 1 not verifiable
+  from HQ, 1 superseded, 27 wrong. 🛑 **Only 5 of the 27 are drift; the other 22 were NEVER TRUE.**
+  *(The drift count moved from 3 to 5 on the second pass and its membership changed: `units_sold`'s
+  declared `integer` type left the bucket — it carries no drifting commit because there is none,
+  `UnitsSold` was born `float64` thirteen hours before the doc called it an int — while the startup-log
+  string joined it, and the broken reconciliation invariant turned out to be published in three places,
+  not one.)* The document was authored 2026-06-04
+  (`b0119c0`) from the phase plan while the handler landed the same day from the same plan
+  (`3d9362c`, `b283f5f`), and the two disagree: **four of nine per-item JSON field names have never
+  matched the code** (`name`→`menu_item_name`; `menu` **does not exist**; `menu_subgroup` is omitted,
+  never `null`; `toast_master_id` undocumented), and the published **client struct carries all four
+  bad tags and is copy-paste-ready**. `ingredient_cost_total`'s published formula contains a division
+  by `SUM(usage_pct)` that **is not in the code**. The row-selection rule was backwards in both
+  directions — membership is *having a recipe*, not *having sales* — which makes published **State C**
+  and **Scenario 2** unreachable; both withdrawn (**B-72**). The reconciliation invariant between the
+  two endpoints broke on 2026-06-06 and is unbounded in both directions (**B-73**).
+  🛑 **A1's own text was corrected here:** A1 told the counterparty that `/menu-cogs` shares
+  `/period-summary`'s date semantics and moves with the timezone changeover (`:31`, A10). It does
+  not — there is **no `AT TIME ZONE` cast in any of the four `/menu-cogs` queries**. Nothing about
+  that endpoint changes on the changeover deploy.
+  **Why a green suite never caught any of it (`B-71`, the general finding).** Both documents claimed
+  their integration tests were "the executable proof that the HQ side matches this contract." They
+  are not: the tests decode into the **same Go structs the handlers marshal**, so a field name the
+  *document* gets wrong is invisible to every one of them. Response shapes in this audit were
+  **observed by marshalling the real structs**, which is the only reason the `omitempty` findings
+  surfaced at all. Both documents now say so, and each carries a `§0 Drift Audit` table so the next
+  reader inherits the diff instead of the prose.
+  **Part 3 landed as designed and ends in an operator act.** The outbound notice is drafted at
+  `docs/contracts/NOTICE-sales-processor-2026-08-03-UNSENT.md` and marked **UNSENT**. **Nothing was
+  sent.** Whether past `ready:false` runs need reconciling was **not decided** — it is the operator's,
+  and the audit deliberately claims only that undisclosed `ready:false` became *possible* on
+  2026-06-06, never that it occurred. Two notices are now owed and neither is delivered (A1's
+  timezone notice and this one); they overlap, and sending A1's alone would propagate the `:31`/A10
+  error — sequencing is recorded in the draft and is the operator's call. Seven further operator
+  questions are parked in `§8` of the two contracts, none actioned. Discoveries filed with
+  destinations: **B-71** (contract tests that decode into the handler's own struct cannot detect
+  doc-vs-code drift), **B-72** (`/menu-cogs` omits sold-but-uncosted menu items), **B-73** (the
+  cross-endpoint invariant is broken and unmonitored), **B-74** (`HQ_COGS_CATEGORY_ALLOWLIST`
+  silently restates history). · *(originally slated as)* **stretch card on `overnight-20260803`,
+  Track B** (`reference/slate-20260803.md`) · Footprint as slated: `backend/internal/inventory`
+  *(only if a code fix were warranted — it was not)*, `docs/contracts/**`,
+  `*-SALES-PROCESSOR-CONTRACT.md`.
+
+- **`sync-hard-cutover`** · 🛑 **PARKED — run `overnight-20260803`, Track A, card S1b.** The card's
+  own recorded PARK trigger fired: *"PARK if retiring `/saveResponse` turns out to reopen ledger
+  decision 49."* It is reopened, on measurement and on a stronger footing than the trigger
+  anticipated — **decision 49's *decisive argument* is a claim about this cutover, and the claim is
+  false as built.** Decision 49 reads *"Activity 1 ends in `sync-hard-cutover`, where RxDB replicates
+  rows straight from Postgres and there is no API boundary left to translate at."* Measured: RxDB
+  replicates from a **second, different** Postgres — the Supabase substrate — and **nothing carries a
+  row from it back into HQ's Postgres.** The FDW bridge is one-directional and carries *permissions*,
+  not data. So unmounting `/saveResponse` would not move the write; it would silently detach answers
+  from submission — every answer appears to save, and Submit produces an empty checklist.
+  **No production code, SQL, policy, migration or test was written; `HQ_SYNC_REST_URL` was NOT set
+  and nothing was deployed.** Two operator forks routed in
+  `.night-crew/runs/2026-08-03-autonomous/DECISIONS-NEEDED.md` (**F-1** the data plane, **F-2** =
+  B-61's list narrowing). Full evidence, six new findings (**B-65..B-70**) and the disposition of all
+  six inherited riders: `.night-crew/runs/2026-08-03-autonomous/park-s1b-sync-hard-cutover.md`.
+  🛑 **A second footprint correction was found (B-68), of the same severity as the one this bullet
+  already carries:** `backend/internal/sync/{ops,handler}.go` is the transport for **all** workflow
+  business logic (`main.go:47-95` routes `SUBMIT_CHECKLIST` → the fail-note / resubmit-photo /
+  archived-template validators), not merely the Lamport layer. **KR effect: P-KR3 MET** (constraint
+  carried verbatim, 0 build WOs proposed a parallel run); **E-KR3 NOT MET and unreachable from here**
+  — it asks for one design note naming each offline data class and its owner *after cutover*, and
+  there is no cutover to describe. *(Prior status, for the record:)* **PLANNED — LAST · SLATED
+  2026-08-02 evening as a COMMITTED card on
   `overnight-20260803`, second in Track A, cut AFTER `sync-cutover-list-scope` merges**
   (`reference/slate-20260803.md`; supersedes the 2026-07-31 stretch slating on
   `overnight-20260801-2`, which the budget never reached). · *(½ of the fanned-out card — it keeps

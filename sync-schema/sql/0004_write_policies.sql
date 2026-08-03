@@ -461,10 +461,25 @@ create policy submission_responses_update on public.submission_responses
 --     assignee on tplAlice; she pulls `rej-alice` on every sync (V18, WP7) and
 --     is refused when she tries to create one on the same field (W9) or soften
 --     the one already there (W11). The UPDATE's `using` clause is deliberately
---     the APPROVE predicate and not the SEE predicate: copying the SELECT
---     policy's `using` here — the natural thing to write, and the thing that
---     makes the two clauses of this table agree — is exactly what lets W11
---     through.
+--     the APPROVE predicate and not the SEE predicate.
+--
+--     🛑 CORRECTED — BACKLOG **B-58**, measured at morning triage 2026-08-02 and
+--     fixed by card `sync-cutover-list-scope` (S1a, run 20260803). ~~This
+--     paragraph used to end "…copying the SELECT policy's `using` here is
+--     exactly what lets W11 through."~~ **IT DOES NOT.** Make exactly that
+--     substitution — `using ( public.hq_can_see_field(field_id) )` — and re-run:
+--     before S1a the suite stayed `ok … 54/54 GREEN, W11 among them`. W11 patches
+--     only the `comment`, so the NEW row keeps `field_id = fldAlice` and the
+--     NARROW `with check` refuses it whatever `using` says. The clause was
+--     pinned by NOTHING, and three separate comments (this one, the one at the
+--     policy below, and W11's own banner) said otherwise.
+--
+--     THE ONE SHAPE THE TWO FUNCTIONS DISAGREE ON is an UPDATE whose OLD row
+--     sits on a field the caller may SEE BUT NOT APPROVE and whose NEW row sits
+--     on one she MAY approve. That is variant **W17**, added by S1a, and under
+--     the substitution above it is the ONLY subtest that reds — measured:
+--     54 pass, 1 fail. WP8 is its matched positive (identical PATCH, identical
+--     destination field, a starting field she does approve).
 alter table public.submission_rejections enable row level security;
 
 drop policy if exists submission_rejections_select on public.submission_rejections;
@@ -480,7 +495,11 @@ create policy submission_rejections_insert on public.submission_rejections
 drop policy if exists submission_rejections_update on public.submission_rejections;
 create policy submission_rejections_update on public.submission_rejections
   for update to authenticated
-  -- 🛑 approve, NOT see. See (2) above; W11 is the variant.
+  -- 🛑 approve, NOT see. See (2) above. **W17 is the variant — NOT W11.**
+  -- (B-58: W11 is refused by the NARROW `with check` whatever this clause says,
+  -- so it stayed green through the exact substitution it was credited with
+  -- catching. W17 is the only subtest that reds when this reads
+  -- `hq_can_see_field`; measured 54 pass / 1 fail.)
   using      ( public.hq_can_approve_field(field_id) )
   -- 🛑 THE ONE `with check` IN THIS FILE THAT POSTGRES WILL NOT ENFORCE FOR YOU.
   -- It is strictly NARROWER than this table's SELECT policy above
