@@ -69,6 +69,13 @@ to BROKEN (a code-fix WO) if that step confirms the behavior is missing/stubbed.
   via the `autoSaveField → DRAFT_RESPONSES → hydrateFieldState` path, surviving
   back-to-list and reopen. *(POST `/saveResponse`)* — **WORKING** (14 persistence
   tests) — traces to Product KR-1, QA KR-2/KR-3.
+  > 🛑 **Correction appended 2026-08-04 (B-65 / card A2, run `20260804`) — the requirement is
+  > unchanged; its NAMES were wrong.** The path is
+  > `debouncedSaveField → submitOp('SET_FIELD') → POST /ops → DRAFT_RESPONSES → hydrateFieldState`.
+  > `autoSaveField` is defined nowhere in the tree and no frontend code posts to `/saveResponse`
+  > (the endpoint exists on the backend; the op journal is the single write channel, D-08). This
+  > PRD is the **exemplar the other four app PRDs copy** — the correction is here so the phantom is
+  > not copied forward. The signed requirement text above is left intact as the record.
 - **FR-3** — A temperature reading outside the template's min/max triggers a
   corrective-action card requiring a fail note (text + severity, optional photo)
   before submit. *(POST `/saveResponse`, `/submitChecklist` validation)* —
@@ -148,6 +155,16 @@ to BROKEN (a code-fix WO) if that step confirms the behavior is missing/stubbed.
   field type bypasses it. Fail-note metadata (`{note, severity, photo}`) is bundled
   and restored. — **WORKING** for the seven canonical states — traces to Product
   KR-1, QA KR-2. *(Governs FR-2, FR-3, FR-4, FR-5.)*
+  > 🛑 **Correction appended 2026-08-04 (B-65 / card A2, run `20260804`).** Two corrections, one
+  > naming and one substantive. **(a)** The path is
+  > `debouncedSaveField → submitOp('SET_FIELD') → POST /ops → DRAFT_RESPONSES → hydrateFieldState`;
+  > `autoSaveField` does not exist and no frontend code posts to `/saveResponse`. **(b)** The
+  > "**WORKING** for the seven canonical states" verdict was correct as scoped and *incomplete as
+  > read*: `{note, severity, photo}` is named here as bundled and restored, but the **photo** leg
+  > was NOT working — the fail-photo upload chain called the phantom and its own `.catch()`
+  > swallowed the `ReferenceError`, so the thumbnail rendered and nothing persisted. Fixed by card
+  > A2 and pinned by `tests/persistence.spec.js` `[FLD-16B]`. There are **nine** persisted states
+  > today, not seven (add fail photo and correction photo). The requirement itself is unchanged.
 - **NFR-2 (Photo pipeline)** — Photo fields presign against
   `/api/v1/photos/presign` and PUT to S3; the stored value is the public URL, and
   it round-trips on reopen. — **UNPROVEN** (upload + error-path untested; photo

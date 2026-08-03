@@ -1203,6 +1203,128 @@ test.describe('Persistence', () => {
     expect(imgSrc).toBe(fakePublicUrl);
   });
 
+  // ─── Fail photo through the REAL capture path (B-65) ──────────────────
+  //
+  // FLD-16 above injects the photo with POST /saveResponse, which skips every
+  // line of client code between the presign response and the write. That is the
+  // blind spot B-65 lived in for months: the last statement of the fail-photo
+  // upload chain in `workflows.html` called `autoSaveField(...)`, a function
+  // defined NOWHERE in the tree, and the chain's own `.catch()` swallowed the
+  // ReferenceError. The thumbnail still rendered (FAIL_NOTES was mutated one
+  // line earlier), so the crew member saw "photo attached" and nothing was ever
+  // persisted — the photo was gone on the next open.
+  //
+  // This test drives the real path end to end: presign and the S3 PUT are
+  // intercepted at the network layer, the hidden file input is fed through
+  // Playwright's filechooser, and the assertion is CLAUDE.md's back-and-reopen
+  // contract. Any future edit that breaks the write call — not just deletes it —
+  // reds here, because the assertion is on what came back from the server.
+  test('fail photo captured through the camera path survives back-to-list and reopen [FLD-16B]', async ({ page }) => {
+    const todayDOW = await getTodayDOW(page);
+
+    const tpl = await apiCall(page, 'POST', 'createTemplate', {
+      name: 'Fail Photo Capture Path Test',
+      requires_approval: false,
+      sections: [{
+        title: 'Safety Check', order: 0, condition: null,
+        fields: [{
+          type: 'yes_no', label: 'Equipment OK?', required: true, order: 0,
+          config: {}, fail_trigger: null, condition: null,
+        }],
+      }],
+      assignments: [{ assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' }],
+      schedules: [{ active_days: [todayDOW] }],
+    });
+
+    const templates = await apiCall(page, 'GET', 'templates');
+    const fieldId = templates.find(t => t.id === tpl.id).sections[0].fields[0].id;
+
+    const UPLOAD_URL = 'https://spaces.example.test/upload/fail-' + fieldId + '.jpg?sig=stub';
+    const PUBLIC_URL = 'https://spaces.example.test/checklists/' + tpl.id + '/fail-' + fieldId + '.jpg';
+
+    // The ephemeral test stack has no SPACES_* env, so the real presigner is nil
+    // and /photos/presign answers 503 (see workflows.spec.js FLD-20). Stub both
+    // legs so the client reaches the code AFTER a successful upload — which is
+    // the only place the bug ever lived.
+    await page.route('**/api/v1/photos/presign', route => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ url: UPLOAD_URL, public_url: PUBLIC_URL }),
+    }));
+    await page.route(/^https:\/\/spaces\.example\.test\/upload\//, route => route.fulfill({
+      status: 200, contentType: 'text/plain', body: '',
+    }));
+
+    // The ReferenceError is swallowed by the upload chain's own .catch(), so it
+    // never reaches page.on('pageerror') — it only ever surfaced as a
+    // console.error. Capture those too: they are the mechanism, the reopen
+    // assertion below is the user-visible consequence.
+    const consoleErrors = [];
+    page.on('console', m => { if (m.type() === 'error') consoleErrors.push(m.text()); });
+
+    await page.goto(BASE + '/workflows.html');
+    const row = page.locator('[data-fill-template-id="' + tpl.id + '"]');
+    await expect(row).toBeVisible({ timeout: 10000 });
+    await row.click();
+
+    // Answer No — the fail card (and its "Add photo" button) appears.
+    const noBtn = page.locator('[data-action="set-no"][data-fld-id="' + fieldId + '"]');
+    await expect(noBtn).toBeVisible({ timeout: 5000 });
+    await noBtn.click();
+    await expect(page.locator('.fail-card')).toBeVisible({ timeout: 5000 });
+    // Let the No answer's own 400ms save debounce land first.
+    await page.waitForTimeout(700);
+
+    // Capture: openCamera() appends a hidden <input type=file> and clicks it.
+    const chooserPromise = page.waitForEvent('filechooser');
+    await page.locator('[data-action="fail-photo-capture"][data-fld-id="' + fieldId + '"]').click();
+    const chooser = await chooserPromise;
+    await chooser.setFiles({
+      name: 'fail.jpg',
+      mimeType: 'image/jpeg',
+      buffer: Buffer.from([0xff, 0xd8, 0xff, 0xdb, 0xff, 0xd9]),
+    });
+
+    // Confirm in the preview modal → presign → PUT → persist.
+    await page.locator('.photo-modal .photo-confirm-btn').click();
+
+    // The thumbnail appears in BOTH the broken and fixed trees — FAIL_NOTES is
+    // mutated before the write call — so this is a sync point, not the assertion.
+    const thumb = page.locator('.fail-card img.photo-thumb');
+    await expect(thumb).toBeVisible({ timeout: 10000 });
+    expect(await thumb.getAttribute('src')).toBe(PUBLIC_URL);
+
+    // Let the 400ms save debounce fire and the op round-trip.
+    await page.waitForTimeout(1500);
+
+    // The write call must have executed. A ReferenceError here means the chain
+    // died before persisting.
+    expect(consoleErrors.join('\n')).not.toMatch(/Fail photo upload failed/);
+    expect(consoleErrors.join('\n')).not.toMatch(/ReferenceError/);
+
+    // Back to list, then reopen: the server is the only source of truth now.
+    await page.locator('#fill-back').scrollIntoViewIfNeeded();
+    await page.click('#fill-back');
+    await expect(page.locator('#checklist-list')).toBeVisible({ timeout: 5000 });
+
+    const row2 = page.locator('[data-fill-template-id="' + tpl.id + '"]');
+    await expect(row2).toBeVisible({ timeout: 5000 });
+    await row2.click();
+
+    await expect(page.locator('.fail-card')).toBeVisible({ timeout: 5000 });
+    const thumbAfter = page.locator('.fail-card img.photo-thumb');
+    await expect(thumbAfter).toBeVisible({ timeout: 5000 });
+    const srcAfter = await thumbAfter.getAttribute('src');
+    expect(srcAfter).toBe(PUBLIC_URL);
+    expect(srcAfter).not.toMatch(/^blob:/);
+
+    // The answer itself must survive intact alongside the photo — the broken
+    // call passed `resp.value || resp`, which for a No answer (value === false)
+    // would have written the whole response OBJECT as the field's value.
+    const noBtnAfter = page.locator('[data-action="set-no"][data-fld-id="' + fieldId + '"]');
+    await expect(noBtnAfter).toHaveClass(/on/, { timeout: 5000 });
+  });
+
   // Correction-photo slot (built 2026-07-18): the evidence photo a crew attaches
   // to satisfy a require_photo rejection lives in a slot SEPARATE from the field's
   // answer, persisted by bundling `_correction_photo` into the saved value. This
