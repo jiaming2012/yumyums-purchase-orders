@@ -127,5 +127,40 @@ checklist_fields 268 · checklist_sections 193 · checklist_templates 190 ·
 checklist_submissions 121`. Those rows are from run `20260803` and earlier. The subset path had
 just run twice and removed none of them.
 
-**Green after:** filled in at landing — see the card report for the SHA and the verbatim output.
+**Green after:** commit **`cd144dd`** — the one-line change that makes `webServer.command` begin
+`node scripts/reset-e2e-db.js &&`. The same subset invocation, run three times consecutively:
+
+```
+TEST_PORT=8201 npx playwright test "db-isolation" --retries=0
+  ✓  1 [chromium] › tests/db-isolation.spec.js:43:3 › E2E database isolation (B-76) ›
+       the e2e database carries nothing over from the previous invocation
+  1 passed        ← and again, and again: 3 consecutive invocations, 3 passes
+```
+
+`hq_test_e2e` immediately afterwards: `purchase_items=106 goose_db_version=75 item_group_tags=20
+tags=19 ob_items=13 hq_apps=11 item_groups=10 checklist_fields=7`. `sessions`, `ops`,
+`template_assignments`, `checklist_templates` and `checklist_submissions` are **gone** — every row
+now present is migration-seeded or was created by the invocation that is looking at it.
+
+**The guard, verified in both directions:**
+
+```
+TEST_DB_NAME=hq     node scripts/reset-e2e-db.js       → exit 1, "refusing to reset database \"hq\""
+TEST_DB_NAME=hq_dev npx playwright test "db-isolation" → "Process from config.webServer was not
+                                                          able to start. Exit code: 1"
+```
+
+In the second case the Go server never started and **zero tests ran** — the run aborts rather than
+proceeding against an unreset database.
+
+**Full suite after the fix** (`TEST_PORT=8201`, `--retries=0`, nothing else running, ONE summary
+block): `Running 786 tests using 1 worker` → **780 passed / 6 skipped / 0 failed, 21.1m**. All four
+armed reds passed, matched by FULL TITLE; per decision 100 that **retires nothing** and this card
+claims no fix for any of them. 🛑 **This is the first hq full-suite figure in this milestone taken
+against a database that was reset before the run** — the pre-fix baseline of 785/778/6/**1** was
+taken against an accumulating one, and the single failure it carried,
+`tests/onboarding.spec.js:689 › Manager tab › sign-off form requires readiness rating (notes
+optional)`, is exactly the test B-76's four-way matrix attributed to accumulated state. It **passed
+here at 4.5s**, which corroborates the attribution and is not a claim that this card fixed a
+product defect. The `+1` in the test count is `tests/db-isolation.spec.js` itself.
 
