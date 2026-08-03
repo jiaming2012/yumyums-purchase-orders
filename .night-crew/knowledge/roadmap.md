@@ -24,6 +24,24 @@
 > groups but **not walked this round** — they remain `new` in BACKLOG.md, available for the next
 > roadmap-round pass (either continuing this same round or a future one), not dropped.
 
+> **Current state — after morning triage 2026-08-03 (run `overnight-20260804`, ledger §T-34).**
+> **Cards still white: ZERO**, unchanged — run `20260804` landed 4 of 4 (A1, A2, A4, and the A6
+> stretch), all four already flipped by the run itself, and triage added **no new card and no card
+> split**: the milestone's close rests on grading, which T-33 set up, and no slate can close it on
+> cards. Report in **cards, not KRs**, per the standing rule.
+>
+> Triage changed the tree once outside any card — `[FLD-16C]` (commit `70ea466`, B-136), the
+> attended fix for a correction-photo coverage gap that a literal B-65 mutation survived. Test-only;
+> `workflows.html` unchanged. Five new findings (**B-131**–**B-135**) went to `BACKLOG.md` rather
+> than here, and **B-89 + B-132 are routed to the next night** (T-34 decision 137) — they become
+> roadmap cards when a slate promotes them, not before.
+>
+> 🛑 **Two attended items are still owed and neither is a card:** the P6 fix-forward checklist
+> (B3/B4/B6–B10), which must precede the period-summary notice; then `task prod:deploy` →
+> `task version` → **read the version line on a RETURNING client**, which is what closes D-KR2a and
+> D-KR2b now that A6 has landed. A fresh load would show the right version whether or not the
+> staleness mechanism works, which is the whole point of A6's evidence method.
+
 ## How this roadmap works
 
 - **Activity-level cards.** Each card is WO-sized-ish work the PjM/`nc-slate-plan` sizes to a

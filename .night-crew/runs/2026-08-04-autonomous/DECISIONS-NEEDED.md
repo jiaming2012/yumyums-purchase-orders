@@ -1,5 +1,25 @@
 # Decisions needed — run `overnight-20260804`
 
+> **RESOLVED 2026-08-03 — recorded as ledger §T-34, decisions 135–141.**
+>
+> This file had **no open fork and no parked card**, and that emptiness was verified rather than
+> taken on trust: `night-crew decisions ratify --run 20260804` reported nothing awaiting
+> ratification, `preferences ratchet` nothing survived, and `decisions audit` no gray areas routed —
+> all three consistent with the *Closed during the run* section below. Steps 3b and 3c of morning
+> triage were genuine no-ops.
+>
+> What triage did decide, from the *For triage* section: **B-89 and F2 ride the next night**
+> (decision 137); **B-26** gets a repo-local ladder at
+> `reference/gate-ladder.md` (decision 138); **B-80 and the launch-prompt
+> isolation gap** are answered as one decision in that same file, with `TEST_DB_NAME` added
+> (decision 139); **B-105** is answered — HQ keeps branch-and-commit, no OpenSpec (decision 140).
+> The operator's rider — *"agents decide implementation details"* — is recorded as a standing rule,
+> which is why 138–141 were taken at role level rather than escalated.
+>
+> Triage also found what this run did not: a correction-photo coverage gap that a literal B-65
+> mutation survived, **fixed attended** (decision 136, `[FLD-16C]`, commit `70ea466`), and five new
+> backlog entries **B-131**–**B-135**. Kept as the analysis record.
+
 Open forks and parked cards from this run. Morning triage resolves these with the operator.
 
 **Entering the run: no open forks.** F-1/F-2/F-3 were resolved at triage 2026-08-02

@@ -310,11 +310,18 @@ evidence method A6 exists to provide.
 
 | Flag | State |
 |---|---|
-| Attended `task sandbox:e2e` | 🛑 **Still unsatisfied.** No card touched the verify/merge path. |
-| B-27 + three other armed reds | 🛑 **STILL ARMED.** See the gate block — passing retires nothing (decision 100 / T-31 decision 120). |
+| Attended `task sandbox:e2e` | 🛑 **Still unsatisfied, still armed.** No card touched the verify/merge path, and triage's own `[FLD-16C]` change touched only `tests/` and `docs/`. **Re-arms whenever the verify/merge path changes underneath it.** |
+| B-27 + three other armed reds | 🛑 **STILL ARMED.** See the gate block — passing retires nothing (decision 100 / T-31 decision 120). **Triage adds a fifth: `[RUN-10]`, now B-131** — it failed on an independent full run of this tree and is flaky on `dev` too, so a red there is expected and must stop reading as a regression (T-34 decision 135). |
 | `HQ_SYNC_REST_URL` | Unset, and stayed unset. No card set it. |
 | E-KR1 | Graded **NOT MET** (T-33 decision 132). No card addressed it; deliberate. |
-| `run-evidence check` | 🛑 Blind in this repo (B-77). It reported `no-run-evidence` for `20260804` at launch — correctly, since the night had not started. It will report the same *after* this night; **that is the tooling defect, not proof the night did not happen.** `reference/closeout-20260804.md` is this run's closing artifact. |
+| `run-evidence check` | 🛑 Blind in this repo (B-77) — **and triage confirmed the prediction below in the affirmative.** After a 4-of-4 night that closed, `run-evidence check --run 20260804` still reported `no-run-evidence`: it seeks `.night-crew/runs/**20260804**/` (this repo names them `2026-08-04-autonomous`) and a root-level `reference/conflicts-*` (this repo is scaffolded, so it lives under `.night-crew/knowledge/`). `reference/closeout-20260804.md` **exists** and the night closed. 🛑 The record was **not** back-dated or written to make the verdict green. |
+| G2 (Playwright) figures | 🛑 **NEW FLAG, armed by triage.** The closeout's `exit 0 / 786 passed` did not reproduce — an independent run on the same tree gave `785 passed / 1 failed / 6 skipped, exit 1` (B-131, not branch-attributable). **Do not cite 786/0 as a baseline.** Re-arms until B-131 is diagnosed or listed as an armed red. Note the one genuinely *new* clearance: **B-93's own pass condition was performed for the first time** — exactly one summary block in the complete 4716-line log — so that check is now evidenced rather than inferred. |
+
+### Cleared by the morning's evidence
+
+- **B-65's coverage half — CLEARED.** A2 closed the naming half; triage found the correction-photo twin had zero executing coverage and that a literal `autoSaveField` mutation left the suite green (9 passed, rc=0). `[FLD-16C]` closes it, mutation-verified in both directions (commit `70ea466`, B-136). **Re-arms if any bundled-metadata write gains a new path** — two of the nine persisted states still have a test that bypasses the transport it means to cover.
+- **The four merges' resolutions — nothing to re-read.** All four were clean by construction (serial dispatch, each card branched off a base containing its predecessors); no hunk was auto-resolved unattended, so there is no 3am judgment call to audit.
+- **B-26 / B-80 — CLEARED as recurring process defects**, by moving both out of the slate text into `reference/gate-ladder.md` (T-34 decisions 138–139). Re-arms if a future slate cites a night-crew-clone path again.
 
 ### 4. Milestone position
 

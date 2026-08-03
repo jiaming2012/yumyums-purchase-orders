@@ -2599,3 +2599,128 @@ RxDB replicates the underlying rows. One class has **no owner at all** — REST 
 Postgres, RxDB push (unconditional, `client.js:1194`) lands in the substrate, and nothing
 reconciles them. Card **A4** publishes this; §8 of the plan records the operator's two-store target
 architecture as a destination, which is decision 126 option (i) and milestone-sized, not slated.
+
+---
+
+## T-34 — Morning-triage resolutions (2026-08-03, `overnight-20260804`)
+
+36 commits, 4 merges (4 clean, **0 conflicted hunks**), 4 of 4 slated cards merged, zero parks,
+**zero open forks** — `DECISIONS-NEEDED.md`'s Open section was deliberately empty and that emptiness
+is a result, not an unwritten section. Gate evidence below is from an adversarial subagent that
+re-executed HQ's whole ladder in its own fresh clones and ran mutation probes against every guard
+each card claimed; the closeout's own gate lines are cited nowhere (a card's own closeout is not
+evidence about that card).
+
+The night's four cards: **A1** `e2e-gate-database-isolation` (B-76), **A2**
+`workflows-autosavefield-phantom` (B-65), **A4** `offline-ownership-design-note` (reworded E-KR3),
+**A6** `app-version-badge` 🅢 (D-KR2b's evidence method).
+
+**Decision 135 — `overnight-20260804` is merged on independently reproduced gates, over holding for
+the one Playwright red.** G1 rc=0/rc=0; G2 (Go) **439 ran / 437 PASS / 0 FAIL / 2 SKIP** across 9
+packages with `internal/workflow` running **35** tests and `TestRowVisibilityRLS` 59/59, reproduced
+twice (subagent on the branch tip, and again by me on the merged tree, which is byte-identical); G4
+31 precached / 0 outside / idempotent / three-way parity 1.4.0. **G2 (Playwright) did NOT reproduce
+the closeout's `exit 0, 786 passed`** — an independent full run on the same tree gave **785 passed /
+1 failed / 6 skipped, exit 1**, failing `[RUN-10] unsubmit returns checklist to editable draft`. It
+is merged anyway because the red was **proven not to belong to this branch**: RUN-10 also goes flaky
+on `dev` at `008e3ad` with a freshly created database (3 runs: pass, pass, flaky), and a control tree
+— the branch with `dev`'s `workflows.html` — passed, while the only executable `workflows.html` diff
+sits inside the fail-photo `.then()` and is unreachable from RUN-10. Rejected: holding the merge
+until RUN-10's mechanism is diagnosed, which would delay four landed cards for a defect they did not
+introduce; and a 3× full-suite re-run before merging, which measures the flake rather than the
+branch. 🛑 **What this does mean is that the closeout's headline figure was a lucky draw**, and
+RUN-10 was neither filed nor on the armed-red list, so a triage reader had no way to know a red there
+was expected. Filed as **B-131**. A secondary result worth keeping: **B-93's own pass condition was
+performed for the first time** — exactly one summary block in the complete 4716-line log, one
+`Running N tests` line, highest index 793 = 792 + 1 retry — so the check the orchestrator confessed
+it could not perform does in fact pass.
+
+**Decision 136 — F3, the correction-photo coverage gap, is fixed attended at triage rather than
+deferred; and its argument guard is asserted on the stored bundle, not on a rehydrated answer.**
+Card A2 closed B-65's *naming* half and left its *coverage* half open:
+`handleCorrectionPhotoCaptureClick` (`workflows.html:2129-2168`) is the byte-for-byte structural twin
+of the chain B-65 broke, and **nothing executed it** — `[FLD-CORRECTION-PHOTO]` injects via
+`POST /saveResponse` (the transport bypass FLD-16B's own header names as "the blind spot B-65 lived
+in for months") and `tests/workflows.spec.js:684-689` *reimplements* the production write inside
+`page.evaluate`, asserting against its own copy of the code. Proved before the fix: planting the
+literal B-65 defect (`autoSaveField` at `:2154`) and running every photo/correction test in the suite
+returned **9 passed, rc=0**. `[FLD-16C]` now drives presign → PUT → `debouncedSaveField` through
+Playwright's filechooser and reds on both mutations (`ReferenceError: autoSaveField is not defined`;
+`TypeError: Cannot read properties of undefined`). 🛑 **The guard is on the persisted bundle
+(`{_v: null, _correction_photo: <url>}`) rather than on a checkbox state, and that was measured, not
+chosen for elegance:** a first draft asserted the answer survived a back-and-reopen and failed,
+because `hydrateFieldState:1809` does `delete FIELD_RESPONSES[rej.field_id]` on **every** hydrate of
+a rejected submission ("uncheck a top-level field so crew must redo"). The test was wrong, not the
+code — which is the whole reason CLAUDE.md's bug-fix protocol runs the test before believing it. No
+production code changed. Chosen over filing it for the next night: this is the repo's characteristic
+bug class (a test passing on a shape the app never produces), it was found by mutation rather than
+inspection, and B-65 sat dormant for months exactly because nobody wrote this test.
+
+**Decision 137 — B-89 and F2 ride the next night; neither is fixed attended.** **B-89** was confirmed
+real by execution on a logged-in client with 11 grants — `index.html:241` writes `hq_apps` as
+`{uid, apps}`, `sync-rxdb/bootstrap.js:62-71` `Array.isArray`-gates it, so `cachedGrantSlugs()`
+returns `[]` and live `window.HQSync.surfaces === []` — but it is **latent, not live**:
+`HQSync.surfaces` has no consumer and `startHQReplication` is never called from production code, so
+the empty list decides nothing until the cutover card starts replication, at which point it would
+scope replication to zero surfaces. **F2** is new and unfiled: `workflows.html:708` throws
+`IndexSizeError` on every completed submission (the guard at `:706` tests `life<=0`, then `:707`
+decrements, so `arc()` gets a negative radius), observed **28× in one suite run** and present on
+`dev` too; the throw escapes the `requestAnimationFrame` callback so `canvas.remove()` never runs and
+a frozen full-screen confetti spray stays painted over the app until reload, shipping an ERROR to the
+server log each time. Both are next-night cards rather than attended work: F2 is cosmetic plus log
+noise on a path with no data loss, and B-89 is a landmine to remove before the cutover, not a fire
+today. Filed as **B-132** (F2). Rejected: fixing F2 attended for the sake of a one-line change —
+attended minutes this morning are better spent on the two items only the operator can do.
+
+**Decision 138 — B-26's remedy is a repo-local ladder file, not another inlining.** HQ now carries
+`.night-crew/knowledge/reference/gate-ladder.md`, and slates and launch prompts for this repo cite
+that path and nothing in the night-crew clone. `slate-20260804.md:217` and its launch prompt both
+inherited G1–G6 from `reference/overnight-run-plan-20260707.md`, which **has never existed in this
+repo**; the 20260804 orchestrator reconstructed the ladder by hand for the fourth time. Rejected:
+inlining the ladder in every slate — that is precisely what regressed, since `slate-20260803.md` had
+already done it correctly and `slate-20260804.md` reverted to the dangling pointer. A file in this
+repo fails visibly at authoring time instead of silently at 3am. The new file also folds in the three
+amendments this run earned: the whole-log capture rule (B-93), the `tests/`-anchored filter form
+(B-87), and `TEST_DB_NAME` as load-bearing (B-80).
+
+**Decision 139 — the per-leg isolation stanza becomes repo-local too, in the same file, and
+`TEST_DB_NAME` joins it.** `launch-20260804.md` carried **no isolation stanza at all** — zero hits
+for `TEST_PORT`, `TEST_DB_NAME`, `HQ_RLS_TEST_DB` or `unique` — while `launch-20260803.md:97-98` had
+one, so every isolation value used that night came from the orchestrator ad hoc. This is one decision
+with B-80, not two: since A1 landed, `webServer.command` DROPs the database it is pointed at as its
+first act, so **an unqualified leg is destructive rather than merely noisy** — two legs differing only
+in `TEST_PORT` now destroy each other mid-suite. Carrying the stanza in `gate-ladder.md` rather than
+in the launch-prompt template is deliberate: the template lives in the night-crew clone and this repo
+cannot fix it, whereas a repo-local file is inherited by every future slate for this target
+regardless of what the clone's template does.
+
+**Decision 140 — B-105 is answered: HQ keeps branch-and-commit and does not adopt OpenSpec.** The
+question had been open and deliberately untouched by every card. Decided rather than carried: the
+night-crew slate mechanism already supplies change-level ceremony (a signed slate entry, a
+merge-intent note with three durable fields, a conflict-log entry per merge, and an adversarial G6),
+and OpenSpec would duplicate that at the cost of a second planning state to reconcile — the exact
+thing `.night-crew/knowledge/` exists to be the single copy of. `openspec: absent` is already
+re-confirmed at every launch and G3 is N/A on that basis, so this decision changes nothing
+operationally and simply stops the question being re-asked. Reversible at any milestone boundary;
+what would change the answer is a second target repo needing the same discipline, or a contract
+consumed externally enough to want spec deltas of its own.
+
+**Decision 141 — `BACKLOG.md` is NOT mass-rewritten to satisfy `backlog check`, and the verb is
+advisory for this file.** `night-crew backlog check --file BACKLOG.md` exits **1** with **290 issues
+across 156 entries** (85 unrecognized status, 74 missing lead, 63 missing handle, 63 missing
+description). The divergence is structural and predates this run: HQ's convention carries a
+`destination: …` field the validator does not know, and 63 of the entries predate handles entirely.
+Rewriting 156 historical entries would rewrite the record to satisfy a checker, which is the wrong
+direction — the entries are evidence. **New** entries follow the validated shape
+(`- **B-NN · Title** — desc · _origin_ · status · lead: …`) so the file converges forward. 🛑 Stated
+plainly because triage §4.5 mandates this gate pass before committing and **it does not pass**: this
+is a known, named divergence, not a green gate. Filed as **B-133**.
+
+**Operator rider, recorded as a standing rule rather than a one-off choice: _"agents decide
+implementation details."_** Given at triage 2026-08-03 in answer to the process-defect question,
+which had offered B-26, B-80, B-105 and the backlog divergence for the operator to pick among.
+Decisions 138–141 were therefore taken at role level and stated rather than escalated. This extends
+the existing standing rule (PM/PjM/Engineer-level calls get decided, not handed up) from *planning*
+questions to *mechanism* questions, including ones a skill's own text routes to the operator. It does
+not extend to genuine product forks. Offered back as a preference candidate at triage; adoption is
+the operator's and nothing cites a candidate.
