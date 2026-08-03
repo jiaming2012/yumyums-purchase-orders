@@ -722,6 +722,65 @@
   actually ran* — but **not** a silent-skip risk. Filed with the corrected consequence as
   **B-87**.
 
+- **`offline-ownership-design-note`** · ✅ **BUILT — run `overnight-20260804`, card A4, on
+  branch `card/a4-offline-ownership-design-note` (base `2041477`); awaiting merge + G6.** ·
+  **Closes the reworded E-KR3** (`reference/okr-completion-plan-20260804.md` §4). Specified content
+  is §3 A4 of that plan (lines 143–261); the card's job was to **re-verify every row at source and
+  publish**, not to rediscover the analysis at 2am.
+  **Deliverable:** `.night-crew/knowledge/designs/offline-ownership.md` — one written answer to
+  *"when a phone is offline, who owns each piece of what is on it."*
+  **The count is the finding. 8 classes across 6 named stores**, where E-KR3's own parenthetical
+  named two (*"static assets → Workbox, checklist data → RxDB"*). Six stores across three
+  technologies: Cache API ×3 (Workbox precache · `api-cache` · `hq-identity`), `localStorage` ×1,
+  IndexedDB ×2 (`hq_offline_v1` · RxDB/Dexie). **Both hiding splits are made explicitly:**
+  `hq_offline_v1` → `submitQueue` + `syncMeta` (**different fates** — retire the op-log and
+  `syncMeta` is dead weight while `submitQueue` survives), and `api-cache` → replicated vs.
+  non-replicated (#2 uncontested forever; #3 the only class that can ever become dual-owned).
+  🛑 **The collapse the split guards against is already in the tree**, which the note records:
+  `designs/offline-save-honesty.md:12-13` and `workflows.html:384-386` both still say
+  `hq_offline_v1` *"holds one store"* / *"submissions only"*. It opens at version 2 (`sync.js:48`)
+  and creates **two** (`sync.js:51-56`).
+  🛑 **The class with no owner is stated in those words.** Under decision 126 REST writes land in
+  HQ's Postgres and RxDB push lands in the substrate — push is unconditional (`client.js:1194`, in
+  contrast to the scoped `pull` at `:1190-1193`) — and **nothing reconciles them**. Divergence is
+  silent and undetected. Latent today (`HQ_SYNC_REST_URL` unset ⇒ 503,
+  `main.go:436-438`); **arms the moment a deploy sets it.** Three detection shapes are recorded,
+  none of which exists.
+  **Four ownership rules, stated as rules.** (1) Workbox owns delivery unconditionally and
+  **permanently** — 🛑 `vendor/rxdb.bundle.js` **is precached by Workbox**, verified in the 31-entry
+  manifest, so RxDB cannot bootstrap itself and there is no configuration in which it replaces
+  Workbox. (2) RxDB's IndexedDB is a **replication buffer, not an offline read source** — a
+  prohibition on future code, today enforced only by `tests/sync-rxdb-client.spec.js:1468-1470`.
+  (3) The boundary is **records vs. responses**, not static vs. dynamic. (4) Writes have exactly
+  one owner and it is **never Workbox** (`workbox-background-sync`: zero hits in the tree, and
+  Chromium-only against a crew on iPhones).
+  **Target state cites §8 by name** — the two-store architecture, decision 126 option (i), which
+  triage called *"the honest end state but a milestone rather than a card."* 🛑 **The note describes
+  §8; it does not adopt it.** The trigger between here and there is stated as **one condition with
+  both required changes named together**: the moment the page reads checklist data from RxDB on an
+  offline-capable path, `build-sw.js:443`'s `/\/api\//` must be narrowed **and** rule 2 dropped, in
+  the same change set — do one without the other and class #3 becomes genuinely dual-owned.
+  **One piece of good news, verified:** the feared *"fallback answering a replication request with
+  cached JSON"* (`roadmap.md:239-242`) **cannot occur**. The sync proxy is root-mounted outside
+  `/api/v1` (`main.go:439-442`, prefixes `/sync/rest` + `/sync/realtime` at `proxy.go:124-125`) and
+  Workbox's only runtime route is `/\/api\//`. **No match.** Transport is already cleanly
+  partitioned by URL namespace; the residual overlap is data, not traffic.
+  **Six deviations from the plan's table are stated as deviations** rather than silently patched —
+  most substantively that class #8 is not merely "dark" but **not created at all**
+  (`bootstrap.js:17-28`, pinned by `tests/sync-rxdb-client.spec.js:1468-1470`), and that rule 4's
+  T-21d citation does not support the claim attached to it (T-21d establishes Safari as the crew's
+  browser, not the Background Sync support matrix).
+  Footprint as built: `.night-crew/knowledge/designs/offline-ownership.md` (new),
+  `.night-crew/knowledge/roadmap.md`, and this run's merge-intent note. 🛑 **Docs-only —
+  `git diff 2041477 --stat` names nothing outside `.night-crew/`.** No production code, no
+  `backend/**`, no `*.html`, no `*.js`, no `sw.js` (byte-identical to base), no version bump.
+  **Gates: G4 only, and deliberately so** — the diff is documentation and no suite can observe it.
+  `node build-sw.js` run twice: **31 files precached** both times, clean tree both times, version
+  parity 1.4.0 ≡ 1.4.0 ≡ 1.4.0. The full Playwright suite and the Go suite were **not** run and
+  did not need to be. **Red-first: `n/a — no code change`**, written as those words in the
+  merge-intent note (reworded Q-KR2, ledger T-33 decision 132) so an absent section and an
+  inapplicable one stay distinguishable at triage.
+
 - **`app-timezone-unify-new-york`** · **DONE — every site, both contracts, one card** (2026-08-01,
   run `overnight-20260801`, Track A card A1, branch `card/a1-app-timezone-unify-new-york`) ·
   **🛑 BUILT AND HANDED TO THE ORCHESTRATOR FOR MERGE — DEPLOYED TO NOTHING.** Flipping this
