@@ -434,6 +434,21 @@ async function build() {
     // module to the precache. index.html writes the token; both ends must move in
     // the same commit if either moves. See
     // .night-crew/runs/2026-08-02-autonomous/merge-intent-b1-sync-cache-and-identity-hygiene.md §2.
+    // 🛑 NOTE FOR index.html's VERSION LINE (A6, G6 finding 4). `/api/v1/health`
+    // matches this NetworkFirst rule, so on an offline or flaky phone the health
+    // response can be served from `api-cache` once the 10s network timeout
+    // expires. `#version-server` — the COMPARISON half of the version line — can
+    // therefore show a STALE server number, and a stale server number that
+    // happens to equal the device's yields a false `data-state="current"`.
+    //
+    // This is recorded, not fixed, and is deliberately NOT a reason to change
+    // this handler. The line's PRIMARY value is unaffected: the badge's own
+    // value comes from the precached `version.json` and never lies about THIS
+    // DEVICE, which is the defect (the T-21d class) the line exists to catch.
+    // What it means is that the comparison half is best-effort, not guaranteed
+    // live — so `current` is not proof of freshness, and the card's framing
+    // ("the app diagnoses its own staleness") is slightly stronger than
+    // NetworkFirst delivers.
     runtimeCaching: [
       {
         urlPattern: /\/api\//,
