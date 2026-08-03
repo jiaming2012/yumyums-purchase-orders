@@ -54,7 +54,11 @@ argument rather than a hope.
 ## 3. The structural change that supersedes it
 
 `sync-hard-cutover` replaces both write paths in `workflows.html` — `autoSaveField` → `POST
-/saveResponse` and the WebSocket/ops-log broadcast — with a single RxDB store replicated against
+/saveResponse` [🛑 **corrected 2026-08-04, B-65:** that per-field path is really
+`debouncedSaveField` → `submitOp('SET_FIELD')` → `POST /ops`; `autoSaveField` was defined nowhere
+and no frontend code has posted to `/saveResponse` since the sync work landed. The argument below
+is unaffected — it turns on the journal, not on the writer's name] and the WebSocket/ops-log
+broadcast — with a single RxDB store replicated against
 self-hosted Supabase, and **retires `sync.js`, `backend/internal/sync/` and `/saveResponse`
 entirely** (`roadmap.md:1693-1699`). Hard swap, no parallel run.
 
