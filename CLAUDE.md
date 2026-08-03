@@ -65,22 +65,37 @@ A mobile-first PWA operations console for a food truck business. One app shell w
 ```
 User action
   → Update FIELD_RESPONSES[fieldId] (optimistic UI)
-  → autoSaveField(fieldId, value)
-      → POST /saveResponse (persists to Postgres)
-      → Update DRAFT_RESPONSES[] (in-memory cache)
+  → debouncedSaveField(fieldId, value)          // workflows.html:389 — 400ms debounce
+      → submitOp('SET_FIELD', fieldId, 'field_response', {value, field_id})
+          → POST /api/v1/workflow/ops           // sync.js:781, Lamport-stamped
+          → workflowOpRouter → workflow.SaveResponseFunc (persists to Postgres)
+      → Update the draftResponses store (DRAFT_RESPONSES is its live alias)
   → On checklist open: hydrateFieldState(filterFieldIds)
       → Reads DRAFT_RESPONSES + MY_SUBMISSIONS.responses
       → Populates FIELD_RESPONSES + FAIL_NOTES
 ```
 
+🛑 **The function is `debouncedSaveField`. There is no `autoSaveField`** — that name was
+carried by this file, the README, `docs/data-flow-audit.md`, two `sync-rxdb/` header
+comments and one test assertion for months while being defined **nowhere in the tree**, and
+the one place production code actually *called* it (the fail-photo path) threw a silent
+`ReferenceError` and dropped the crew's evidence photo on every capture. B-65 / card A2,
+run `20260804`. If you are about to write `autoSaveField`, you are about to ship a
+`ReferenceError`.
+
+Note also that the transport is **`POST /ops`, not `POST /saveResponse`**. The
+`/saveResponse` endpoint still exists on the backend and the Go + Playwright suites still
+drive it directly, but no frontend code posts to it — the op journal is the single write
+channel (D-08).
+
 **When adding a new field type or user-entered state:**
-1. The click/input handler MUST call `autoSaveField(fieldId, value)`
-2. If the state has metadata (like fail notes), bundle it: `autoSaveField(fieldId, value)` checks `FAIL_NOTES[fieldId]` and sends `{_v: value, _fail_note: {...}}`
+1. The click/input handler MUST call `debouncedSaveField(fieldId, value)` — pass the **answer**, nothing else
+2. If the state has metadata (like fail notes or a correction photo), do NOT pass it as the value — put it in its store and let the bundler pick it up: `debouncedSaveField` reads `store.get('failNotes', fieldId)` and `CORRECTION_PHOTOS[fieldId]` itself and sends `{_v: value, _fail_note: {...}, _correction_photo: url}`
 3. `hydrateFieldState` MUST unpack and restore it
 4. Write a regression test: enter data → back to list → reopen → assert data is still there
 5. See `docs/data-flow-audit.md` for the full state inventory
 
-**7 persisted states:** checkbox, yes/no, text, temperature, sub-steps, fail note text, fail severity
+**9 persisted states:** checkbox, yes/no, text, temperature, sub-steps, fail note text, fail severity, fail photo, correction photo
 
 **Required test for every new field type or data entry feature:**
 ```
@@ -161,7 +176,7 @@ If `task version` shows the local `Backend` / `Frontend` constants ahead of the 
 - `SCREAMING_SNAKE_CASE` for constants, `camelCase` for functions
 - Playwright E2E tests: `task test` (headless, auto-rebuilds SW + creates test DB)
 - Tests block service workers (`serviceWorkers: 'block'` in Playwright config)
-- **Persistence rule:** Every user-entered value → `autoSaveField` → `DRAFT_RESPONSES` → `hydrateFieldState` (see docs/data-flow-audit.md)
+- **Persistence rule:** Every user-entered value → `debouncedSaveField` → `submitOp('SET_FIELD')` → `POST /ops` → `DRAFT_RESPONSES` → `hydrateFieldState` (see docs/data-flow-audit.md). There is no `autoSaveField` — B-65
 - **Required test:** Every new field type or data entry feature MUST have a back-and-reopen test in `tests/persistence.spec.js` — enter data → back → reopen → data still there. Feature is not complete without this test.
 - **Bug fix protocol (approval phase):** When a bug is found during human verification, write the regression test FIRST — before applying the fix. The test must fail (proving it captures the bug), then apply the fix, then verify the test passes. Only run the new test(s) during iteration, not the full suite: `npx playwright test tests/<file>.spec.js -g "<test name>"`. This ensures the test actually guards against the regression, not just passing by coincidence.
 

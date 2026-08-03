@@ -1457,8 +1457,13 @@ test.describe('workflows.html actually imports and constructs the client', () =>
     // This card is import + construction ONLY; the write-path swap belongs to
     // `sync-hard-cutover`. A merge that quietly reroutes a write reds here.
     const src = fs.readFileSync(path.join(REPO_ROOT, 'workflows.html'), 'utf8');
-    expect(src).toContain('autoSaveField');
-    expect(src).toContain('saveResponse');
+    // These assert on the CALL, not on a bare identifier. Until 2026-08-04 the
+    // first one read `expect(src).toContain('autoSaveField')` — which passed on
+    // the text of a COMMENT, for a function defined nowhere in the tree, while
+    // the one line that actually called it threw a ReferenceError in production
+    // (B-65). A substring of source is not a symbol; match the invocation.
+    expect(src).toContain('debouncedSaveField(');
+    expect(src).toContain("submitOp('SET_FIELD'");
     // The page must not call the RxDB layer for anything at all yet.
     expect(src).not.toContain('HQSync.createDatabase');
     expect(src).not.toContain('HQSync.startReplication');

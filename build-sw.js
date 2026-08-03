@@ -2,6 +2,12 @@ const { generateSW } = require('workbox-build');
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
+// 🛑 version.json's payload has ONE definition, and it lives there. This file
+// used to carry writeVersionJson() inline; it was extracted so that
+// playwright.config.js's `webServer.command` can generate the artifact for the
+// E2E stack WITHOUT running this script (which reads git HEAD and rewrites
+// sw.js — B-37). Two generators, one payload. See B-92.
+const { writeVersionJson } = require('./scripts/write-version-json');
 
 // Build artifacts that are deliberately git-ignored yet SHIP. version.json is
 // written by writeVersionJson() below and regenerated inside the image by
@@ -288,16 +294,6 @@ function importReachabilityTransform(manifest) {
   return { manifest };
 }
 
-// Write version.json so the frontend can read its own version without hitting the API.
-// Semver only — dynamic fields (git_sha, built_at) live in /api/v1/health.
-// package.json "version" mirrors the Frontend constant in backend/internal/version/version.go.
-function writeVersionJson() {
-  const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-  const payload = { frontend: pkg.version };
-  fs.writeFileSync('version.json', JSON.stringify(payload) + '\n');
-  return payload;
-}
-
 async function build() {
   const version = writeVersionJson();
 
@@ -438,6 +434,21 @@ async function build() {
     // module to the precache. index.html writes the token; both ends must move in
     // the same commit if either moves. See
     // .night-crew/runs/2026-08-02-autonomous/merge-intent-b1-sync-cache-and-identity-hygiene.md §2.
+    // 🛑 NOTE FOR index.html's VERSION LINE (A6, G6 finding 4). `/api/v1/health`
+    // matches this NetworkFirst rule, so on an offline or flaky phone the health
+    // response can be served from `api-cache` once the 10s network timeout
+    // expires. `#version-server` — the COMPARISON half of the version line — can
+    // therefore show a STALE server number, and a stale server number that
+    // happens to equal the device's yields a false `data-state="current"`.
+    //
+    // This is recorded, not fixed, and is deliberately NOT a reason to change
+    // this handler. The line's PRIMARY value is unaffected: the badge's own
+    // value comes from the precached `version.json` and never lies about THIS
+    // DEVICE, which is the defect (the T-21d class) the line exists to catch.
+    // What it means is that the comparison half is best-effort, not guaranteed
+    // live — so `current` is not proof of freshness, and the card's framing
+    // ("the app diagnoses its own staleness") is slightly stronger than
+    // NetworkFirst delivers.
     runtimeCaching: [
       {
         urlPattern: /\/api\//,

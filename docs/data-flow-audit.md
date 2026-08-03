@@ -1,19 +1,20 @@
 # Workflows Data Flow Audit
 
-Last updated: 2026-04-16
+Last updated: 2026-08-04 (card A2, run `20260804` — B-65: every save-path cell below named a function that does not exist)
 
 ## User-Entered State Variables
 
 | # | Variable | Type | User enters via | Persisted? | Save path | Restore path | Status |
 |---|----------|------|-----------------|------------|-----------|--------------|--------|
-| 1 | `FIELD_RESPONSES[fieldId].value` | checkbox boolean | Tap checkbox | Yes | `autoSaveField` → `POST /saveResponse` → `DRAFT_RESPONSES` | `hydrateFieldState` ← `DRAFT_RESPONSES` / `MY_SUBMISSIONS` | OK |
-| 2 | `FIELD_RESPONSES[fieldId].value` | yes/no boolean | Tap Yes/No pill | Yes | `autoSaveField` → `POST /saveResponse` → `DRAFT_RESPONSES` | `hydrateFieldState` ← `DRAFT_RESPONSES` / `MY_SUBMISSIONS` | OK |
-| 3 | `FIELD_RESPONSES[fieldId].value` | text string | Type in textarea | Yes | `autoSaveField` (on blur) → `POST /saveResponse` → `DRAFT_RESPONSES` | `hydrateFieldState` ← `DRAFT_RESPONSES` / `MY_SUBMISSIONS` | OK |
-| 4 | `FIELD_RESPONSES[fieldId].value` | temperature number | Type/spin number | Yes | `autoSaveField` (on change) → `POST /saveResponse` → `DRAFT_RESPONSES` | `hydrateFieldState` ← `DRAFT_RESPONSES` / `MY_SUBMISSIONS` | OK |
-| 5 | `FIELD_RESPONSES[fieldId].value` | sub-step state | Tap sub-step checks | Yes | `autoSaveField` → `POST /saveResponse` → `DRAFT_RESPONSES` | `hydrateFieldState` ← `DRAFT_RESPONSES` / `MY_SUBMISSIONS` | OK |
-| 6 | `FAIL_NOTES[fieldId].note` | string | Type in fail card textarea | Yes | Bundled via `autoSaveField` as `{_v, _fail_note}` → `DRAFT_RESPONSES` | `hydrateFieldState` unpacks `_fail_note` → `FAIL_NOTES` | OK |
-| 7 | `FAIL_NOTES[fieldId].severity` | string | Tap Minor/Major/Critical pill | Yes | Bundled via `autoSaveField` as `{_v, _fail_note}` → `DRAFT_RESPONSES` | `hydrateFieldState` unpacks `_fail_note` → `FAIL_NOTES` | OK |
-| 8 | `FAIL_NOTES[fieldId].photo` | blob URL | Camera capture (Phase 12) | No | Not implemented — Phase 12 deferred | N/A | DEFERRED |
+| 1 | `FIELD_RESPONSES[fieldId].value` | checkbox boolean | Tap checkbox | Yes | `debouncedSaveField` → `submitOp('SET_FIELD')` → `POST /ops` → `DRAFT_RESPONSES` | `hydrateFieldState` ← `DRAFT_RESPONSES` / `MY_SUBMISSIONS` | OK |
+| 2 | `FIELD_RESPONSES[fieldId].value` | yes/no boolean | Tap Yes/No pill | Yes | `debouncedSaveField` → `submitOp('SET_FIELD')` → `POST /ops` → `DRAFT_RESPONSES` | `hydrateFieldState` ← `DRAFT_RESPONSES` / `MY_SUBMISSIONS` | OK |
+| 3 | `FIELD_RESPONSES[fieldId].value` | text string | Type in textarea | Yes | `debouncedSaveField` (on blur) → `submitOp('SET_FIELD')` → `POST /ops` → `DRAFT_RESPONSES` | `hydrateFieldState` ← `DRAFT_RESPONSES` / `MY_SUBMISSIONS` | OK |
+| 4 | `FIELD_RESPONSES[fieldId].value` | temperature number | Type/spin number | Yes | `debouncedSaveField` (on change) → `submitOp('SET_FIELD')` → `POST /ops` → `DRAFT_RESPONSES` | `hydrateFieldState` ← `DRAFT_RESPONSES` / `MY_SUBMISSIONS` | OK |
+| 5 | `FIELD_RESPONSES[fieldId].value` | sub-step state | Tap sub-step checks | Yes | `debouncedSaveField` → `submitOp('SET_FIELD')` → `POST /ops` → `DRAFT_RESPONSES` | `hydrateFieldState` ← `DRAFT_RESPONSES` / `MY_SUBMISSIONS` | OK |
+| 6 | `FAIL_NOTES[fieldId].note` | string | Type in fail card textarea | Yes | Bundled by `debouncedSaveField` as `{_v, _fail_note}` → `POST /ops` → `DRAFT_RESPONSES` | `hydrateFieldState` unpacks `_fail_note` → `FAIL_NOTES` | OK |
+| 7 | `FAIL_NOTES[fieldId].severity` | string | Tap Minor/Major/Critical pill | Yes | Bundled by `debouncedSaveField` as `{_v, _fail_note}` → `POST /ops` → `DRAFT_RESPONSES` | `hydrateFieldState` unpacks `_fail_note` → `FAIL_NOTES` | OK |
+| 8 | `FAIL_NOTES[fieldId].photo` | https:// URL | Camera capture on a fail card | Yes | presign → S3 PUT → bundled by `debouncedSaveField` as `{_v, _fail_note}` → `POST /ops` → `DRAFT_RESPONSES` | `hydrateFieldState` unpacks `_fail_note.photo` → `FAIL_NOTES` | OK (was silently broken until B-65 — the chain called the phantom `autoSaveField` and its own `.catch()` ate the ReferenceError) |
+| 8b | `CORRECTION_PHOTOS[fldId]` | https:// URL | Camera capture to satisfy a `require_photo` rejection | Yes | presign → S3 PUT → bundled by `debouncedSaveField` as `{_v, _correction_photo}` → `POST /ops` → `DRAFT_RESPONSES` | `hydrateFieldState` unpacks `_correction_photo` → `CORRECTION_PHOTOS` | OK |
 | 9 | `REJECTION_FLAGS[fldId]` | object | Manager flags field for rejection | No | Server-side via `POST /rejectItem` | Never loaded from server into `REJECTION_FLAGS` | BUG (separate issue) |
 | 10 | `WAS_REJECTED[tplId]` | boolean | N/A (should be derived) | No | Never written | Never read meaningfully | DEAD CODE |
 | 11 | `state.activeTemplate` | object | Builder editor edits | Yes | `POST /createTemplate` or `PUT /updateTemplate` on save | `GET /templates` → `fromApiTemplate` | OK |
@@ -26,19 +27,28 @@ Last updated: 2026-04-16
 ```
 User action
     → Update in-memory state (FIELD_RESPONSES, FAIL_NOTES)
-    → autoSaveField(fieldId, value)
-        → POST /saveResponse (server persists to Postgres)
-        → Update DRAFT_RESPONSES (in-memory cache for reopen)
+    → debouncedSaveField(fieldId, value)          // workflows.html:389 — 400ms debounce
+        → submitOp('SET_FIELD', fieldId, 'field_response', {value, field_id})
+            → POST /api/v1/workflow/ops           // sync.js:781, Lamport-stamped
+            → workflowOpRouter → workflow.SaveResponseFunc (persists to Postgres)
+        → Update the draftResponses store (DRAFT_RESPONSES is its live alias)
     → On checklist open: hydrateFieldState(filterFieldIds)
         → Reads DRAFT_RESPONSES + MY_SUBMISSIONS
         → Populates FIELD_RESPONSES + FAIL_NOTES
 ```
 
-**The rule:** If a user can enter it, `autoSaveField` must be called. If `autoSaveField` is called, `DRAFT_RESPONSES` must be updated. If `DRAFT_RESPONSES` is updated, `hydrateFieldState` must restore it.
+**The rule:** If a user can enter it, `debouncedSaveField` must be called. If `debouncedSaveField` is called, `DRAFT_RESPONSES` must be updated. If `DRAFT_RESPONSES` is updated, `hydrateFieldState` must restore it.
+
+🛑 **The function is `debouncedSaveField`, and the transport is `POST /ops`.** Every save-path
+cell in the table above named `autoSaveField` → `POST /saveResponse` until 2026-08-04. Neither
+half was true: no `autoSaveField` is defined anywhere in the tree, and no frontend code posts
+to `/saveResponse` (the endpoint exists on the backend and the test suites drive it directly,
+but the op journal is the single write channel — D-08). The one place production code actually
+*called* `autoSaveField` — the fail-photo upload chain — threw a `ReferenceError` that its own
+`.catch()` swallowed, silently dropping the photo. B-65, fixed by card A2 of run `20260804`.
 
 ## Items Requiring Future Work
 
-- **#8 Photo capture**: Deferred to Phase 12. Will need blob-to-server upload + URL persistence.
 - **#9 REJECTION_FLAGS**: Manager rejections are persisted server-side but never loaded back into the crew member's UI on reload. The crew member sees the rejection only in the current session. Needs: load `submission.rejections[]` into `REJECTION_FLAGS` in `hydrateFieldState`.
 - **#10 WAS_REJECTED**: Dead code — should be derived from `MY_SUBMISSIONS[].status === 'rejected'`.
 

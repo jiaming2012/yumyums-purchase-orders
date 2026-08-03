@@ -74,7 +74,9 @@
   the card bundle a scope model, a write-path swap and a retirement — three mechanisms each rivalling
   a normal card. The scope half is separable, independently provable against the existing 54-subtest
   RLS suite, and de-risks the swap completely. 🛑 **This is a SPLIT, not a parallel run** —
-  `autoSaveField` → `/saveResponse` stays the live path until the cutover swaps it, and the cutover
+  `debouncedSaveField` → `submitOp('SET_FIELD')` → `POST /ops` stays the live path until the
+  cutover swaps it (this sentence said `autoSaveField` → `/saveResponse` until B-65 closed; no such
+  function exists and the frontend posts no `/saveResponse`), and the cutover
   swaps and retires in one change set, so P-KR3 is unviolated. The name `sync-hard-cutover` stays
   with the card that does the hard swap so P-KR3 still names the WO it was written about. Activity 1
   holds **25** card bullets; the Delivery per-card denominator moves again.
@@ -596,6 +598,260 @@
   **subsumed, not edited**, because they all key off the package-level `testPool == nil` that the
   five converted `TestMain`s set. Reproducible via `scripts/verify-test-harness.sh`, whose third
   check (B2) guards the *other* direction: `DB_TEST_URL` unset must keep skipping.
+
+- **`e2e-gate-database-isolation`** · ✅ **BUILT — run `overnight-20260804`, Wave 0, card A1, on
+  branch `card/a1-e2e-gate-database-isolation` (base `c9e9e9e`); awaiting merge + G6.** ·
+  **PROMOTED from BACKLOG B-76** at the 2026-08-03 slate-planning session as Wave 0's gate, ahead
+  of every other card in the run. **Closes B-76.** Same theme as `test-harness-fail-loud` above,
+  and filed next to it deliberately: a harness that cannot report failure. That card's subject was
+  a suite that ran 19 of 20 spec files and a dropped database that printed `ok`; this one's is a
+  suite that has never had its database reset by the gate that runs it.
+  **The defect.** `night-crew.toml:33-34` runs `npx playwright test` **directly** for both
+  `[e2e] suite` and `[e2e] subset`. The repo's only `DROP DATABASE IF EXISTS hq_test_e2e` lived
+  inside `task test`, and `playwright.config.js` had no reset of any kind — so **no night-crew gate
+  leg, full or subset, had ever reset the e2e database.** Every full-suite figure this milestone has
+  quoted, including run `20260803`'s 778, was measured against an accumulating dataset. 🛑 **The
+  half that matters is the false GREEN**, not the false red: a suite whose fixtures accumulate can
+  pass because a previous run left a row behind.
+  **The fix, and why it is where it is.** The reset is now the first link of
+  `playwright.config.js`'s `webServer.command` — `node scripts/reset-e2e-db.js && cd backend && …`
+  — so it fires on every `npx playwright test` invocation and cannot be skipped by a CLI argument,
+  which is what makes it fire on the **subset** path the slate named as the acceptance. 🛑 **It is
+  deliberately NOT a `globalSetup`, and the reason is measured:**
+  `node_modules/playwright/lib/runner/tasks.js:100-110` puts `createPluginSetupTasks` (where the
+  `webServer` plugin starts the server) **before** `config.globalSetups`, so a globalSetup would
+  drop the database out from under a server that had already migrated and seeded it — and the suite
+  would then fail in a way that reads as a product bug. Top-level config code is no good either:
+  the config is re-required in every worker process (verified — the worker load carries
+  `TEST_WORKER_INDEX=0`) and under `npx bddgen` and `--list`. `assertTestDatabaseName` refuses any
+  `TEST_DB_NAME` outside `/^hq_test(?:_[a-z0-9]+)*$/` and aborts the run naming the database and
+  the pattern (B-16/B-35's lesson, from the other side).
+  **The PARK trigger did not fire, and the reason is recorded rather than assumed:** the slate's
+  footprint listed `night-crew.toml` on the expectation that `[e2e] suite`/`subset` would have to be
+  pointed at a resetting target. They did not — with the reset inside `webServer.command` the
+  existing lines reset as they stand — so **no new `night-crew.toml` key was needed and that file is
+  byte-unchanged**.
+  **Red-first, on the subset path, twice:** invocation 1 passed and left a marker table; invocation
+  2 **FAILED** (`Expected: "" Received: "e2e_isolation_marker"`) with `hq_test_e2e` still holding
+  `sessions=890 ops=717 checklist_templates=190 checklist_submissions=121` from run `20260803` and
+  earlier. Post-fix the same invocation passes repeatedly and those tables are gone. Pinned by
+  `tests/db-isolation.spec.js`, which is cross-process by construction — it leaves the marker the
+  NEXT invocation trips over, so a merge that removes the reset reds on the very next run.
+  Footprint as built: `playwright.config.js`, `scripts/reset-e2e-db.js` (new),
+  `tests/db-isolation.spec.js` (new), `Taskfile.yml` (its two inline `psql` reset blocks deleted as
+  a second source of truth for a destructive operation). **No production code, no `backend/**`, no
+  `*.html`, no `sw.js`, no version bump.**
+
+- **`workflows-autosavefield-phantom`** · ✅ **BUILT — run `overnight-20260804`, card A2, on
+  branch `card/a2-workflows-autosavefield-phantom` (base `bb6ff80`); awaiting merge + G6.** ·
+  **PROMOTED from BACKLOG B-65** at the 2026-08-03 slate-planning session. **Closes B-65.**
+  **The defect, and it is exactly what the backlog said it was.** `workflows.html:2219` called
+  `autoSaveField(fldId, …)`. Zero definitions repo-wide — a genuine, reachable `ReferenceError` in
+  shipped code, on the path a crew member takes when they attach a photo to a failed check.
+  🛑 **Why it was silent for months, which is the part worth carrying forward:** the upload chain's
+  own `.catch()` swallowed the ReferenceError, and `FAIL_NOTES[fldId].photo` is mutated one line
+  *before* the throw — so the thumbnail rendered, the crew member saw "photo attached", and the
+  evidence was gone on the next open. No pageerror, no toast, no red anywhere. A `ReferenceError`
+  does not have to look like a crash.
+  **The fix.** `debouncedSaveField(fldId, resp ? resp.value : null)`, mirroring the
+  correction-photo path ~70 lines above which has been right all along. The old ARGUMENT was
+  independently wrong too: `resp.value || resp` on a fail card — where the answer is falsy by
+  construction — evaluates to the whole response **object**, so even a rename-only fix would have
+  written garbage as the field's value.
+  **Red-first:** `tests/persistence.spec.js` `[FLD-16B]`, "fail photo captured through the camera
+  path survives back-to-list and reopen" — RED against base `bb6ff80` with
+  `Fail photo upload failed: ReferenceError: autoSaveField is not defined at
+  http://localhost:8202/workflows.html:2219:9`, green after. It drives the REAL path (presign + S3
+  PUT intercepted at the network layer, hidden file input fed through Playwright's filechooser),
+  because the pre-existing `[FLD-16]` injects the photo with `POST /saveResponse` and skips every
+  line of client code between the presign response and the write — which is the blind spot the
+  defect lived in.
+  **Documentation blast radius — eight sites, all wrong, all corrected in the same change set:**
+  `CLAUDE.md`'s own Workflows Data Persistence Rule (name + call shape corrected; the rule itself,
+  its 4-step procedure, its persisted-states list and its required-test template all survive in
+  force, and the list is corrected from 7 states to 9), `docs/data-flow-audit.md` (all 7 save-path
+  cells, the rule block, and row 8 which still said photo capture was "DEFERRED — Phase 12"),
+  `README.md:49`, `.claude/skills/save-project/SKILL.md:53`, `sync-rxdb/bootstrap.js:9`,
+  `sync-rxdb/conflict-notice-ui.js:23`, two banner comments in `workflows.html` (`:320`, `:3553`),
+  and this roadmap in two places. 🛑 **A second phantom rode along with the first and nobody had
+  named it:** every one of those sites also said the transport was `POST /saveResponse`. It is not.
+  No frontend code posts to `/saveResponse` — the endpoint exists on the backend and both test
+  suites drive it directly, but the op journal has been the single write channel (D-08) since the
+  sync work landed.
+  **The test that made the phantom look covered is fixed too.** `tests/sync-rxdb-client.spec.js`
+  asserted `expect(src).toContain('autoSaveField')`, which passed on the text of a **comment**.
+  Replaced with assertions on the invocation — `debouncedSaveField(` and `submitOp('SET_FIELD'`.
+  A substring of source is not a symbol.
+  Footprint as built: `workflows.html`, `tests/persistence.spec.js`, `tests/sync-rxdb-client.spec.js`,
+  `CLAUDE.md`, `README.md`, `docs/data-flow-audit.md`, `.claude/skills/save-project/SKILL.md`,
+  `sync-rxdb/bootstrap.js`, `sync-rxdb/conflict-notice-ui.js`, `.night-crew/knowledge/roadmap.md`,
+  `.night-crew/knowledge/BACKLOG.md`, `sw.js` (regenerated). **No `backend/**`, no migration, no
+  API contract, no version bump.**
+  **Gates (G1–G4, isolated per B-80: `TEST_PORT=8202` / `TEST_DB_NAME=hq_test_e2e_a2` /
+  `HQ_RLS_TEST_DB=hq_rls_a2_0804`, plus its own `hq_test_go_a2`).** G1 build+vet exit 0. G2 Go
+  **439 ran / 437 passed / 0 failed / 2 skipped** — counts, not `ok` — with `workflow` at **35**
+  (non-zero, so `DB_TEST_URL` bit) and `TestRowVisibilityRLS` showing **59 subtests PASSED** with
+  `HQ_SYNC_SUBSTRATE_OPTIONAL` unset. G2 Playwright **one summary block**: `1 failed / 6 skipped /
+  780 passed (21.2m)` — the one failure IS armed red `yes/no answer converges (live + catch-up)`,
+  which **stays ARMED**; the other three armed reds passed and that **retires nothing**. G4 **31
+  files precached**, idempotent, version parity 1.4.0 ≡ 1.4.0 ≡ 1.4.0.
+  🛑 **This ran the FULL 787-test suite, not the confined subset, and finding the reason is a
+  finding: `npx playwright test workflows persistence sync repro-cut-task` matches the ABSOLUTE
+  path, and this worktree is named `a2-workflows-…`, so the `workflows` token matched every file
+  in the tree.** Confirmed at the source — `node_modules/playwright/lib/util.js:128`
+  `createFileMatcher` tests each regex against the file path handed to it, and
+  `runner/loadUtils.js:63-71` hands it the absolute path from `collectFilesForProject`. Tonight it
+  widened coverage, which is harmless. ~~The dangerous direction is a worktree named for a
+  DIFFERENT app: `[e2e] subset` would then select that app's specs INSTEAD of the seam's and
+  report a green subset that never ran the seam it was confined to.~~ 🛑 **CORRECTED 2026-08-04,
+  A2 fix round — the struck sentence is WRONG and is struck rather than reworded. G6 refuted it
+  at source and by execution.** CLI path filters are **OR'd**, not intersected:
+  `createFileMatcherFromArguments` (`node_modules/playwright/lib/util.js:124-127`) folds ALL
+  positional args into **one** matcher that returns true if **any** regex hits (`:141-160`), and
+  `loadUtils.js:68`'s `loadFileFilters.every(…)` runs over that single-element array. A
+  directory-component match can therefore only ever produce a **superset** — it can never exclude
+  a spec that would otherwise match. A worktree named `b-inventory-…` running tokens
+  `workflows persistence sync` selects exactly the intended files, because `inventory` is not one
+  of the tokens. Measured from this worktree: `--list --project=chromium persistence` → **32
+  tests / 1 file** (a non-matching token is NOT widened), while `workflows` → **786 / 26** = the
+  entire chromium suite; and from `/home/jcole/projects/hq`, `workflows inventory` → **238** =
+  86 + 152, confirming the OR. **The real consequence is over-run, not under-coverage:** a
+  worktree directory name containing a filter token silently turns a confined subset into the
+  full suite, so the gate's runtime, its isolation assumptions and its "which tests ran" claim
+  are all not what they say. Sibling of B-76 in kind — *the harness cannot tell you what it
+  actually ran* — but **not** a silent-skip risk. Filed with the corrected consequence as
+  **B-87**.
+
+- **`offline-ownership-design-note`** · ✅ **BUILT — run `overnight-20260804`, card A4, on
+  branch `card/a4-offline-ownership-design-note` (base `2041477`); awaiting merge + G6.** ·
+  **Closes the reworded E-KR3** (`reference/okr-completion-plan-20260804.md` §4). Specified content
+  is §3 A4 of that plan (lines 143–261); the card's job was to **re-verify every row at source and
+  publish**, not to rediscover the analysis at 2am.
+  **Deliverable:** `.night-crew/knowledge/designs/offline-ownership.md` — one written answer to
+  *"when a phone is offline, who owns each piece of what is on it."*
+  **The count is the finding. 8 classes across 6 named stores**, where E-KR3's own parenthetical
+  named two (*"static assets → Workbox, checklist data → RxDB"*). Six stores across three
+  technologies: Cache API ×3 (Workbox precache · `api-cache` · `hq-identity`), `localStorage` ×1,
+  IndexedDB ×2 (`hq_offline_v1` · RxDB/Dexie). **Both hiding splits are made explicitly:**
+  `hq_offline_v1` → `submitQueue` + `syncMeta` (**different fates** — retire the op-log and
+  `syncMeta` is dead weight while `submitQueue` survives), and `api-cache` → replicated vs.
+  non-replicated (#2 uncontested forever; #3 the only class that can ever become dual-owned).
+  🛑 **The collapse the split guards against is already in the tree**, which the note records:
+  `designs/offline-save-honesty.md:12-13` and `workflows.html:384-386` both still say
+  `hq_offline_v1` *"holds one store"* / *"submissions only"*. It opens at version 2 (`sync.js:48`)
+  and creates **two** (`sync.js:51-56`).
+  🛑 **The class with no owner is stated in those words.** Under decision 126 REST writes land in
+  HQ's Postgres and RxDB push lands in the substrate — push is unconditional (`client.js:1194`, in
+  contrast to the scoped `pull` at `:1190-1193`) — and **nothing reconciles them**. Divergence is
+  silent and undetected. Latent today (`HQ_SYNC_REST_URL` unset ⇒ 503,
+  `main.go:436-438`); **arms the moment a deploy sets it.** Three detection shapes are recorded,
+  none of which exists.
+  **Four ownership rules, stated as rules.** (1) Workbox owns delivery unconditionally and
+  **permanently** — 🛑 `vendor/rxdb.bundle.js` **is precached by Workbox**, verified in the 31-entry
+  manifest, so RxDB cannot bootstrap itself and there is no configuration in which it replaces
+  Workbox. (2) RxDB's IndexedDB is a **replication buffer, not an offline read source** — a
+  prohibition on future code, today enforced only by `tests/sync-rxdb-client.spec.js:1468-1470`.
+  (3) The boundary is **records vs. responses**, not static vs. dynamic. (4) Writes have exactly
+  one owner and it is **never Workbox** (`workbox-background-sync`: zero hits in the tree, and
+  Chromium-only against a crew on iPhones).
+  **Target state cites §8 by name** — the two-store architecture, decision 126 option (i), which
+  triage called *"the honest end state but a milestone rather than a card."* 🛑 **The note describes
+  §8; it does not adopt it.** The trigger between here and there is stated as **one condition with
+  both required changes named together**: the moment the page reads checklist data from RxDB on an
+  offline-capable path, `build-sw.js:443`'s `/\/api\//` must be narrowed **and** rule 2 dropped, in
+  the same change set — do one without the other and class #3 becomes genuinely dual-owned.
+  **One piece of good news, verified:** the feared *"fallback answering a replication request with
+  cached JSON"* (`roadmap.md:239-242`) **cannot occur**. The sync proxy is root-mounted outside
+  `/api/v1` (`main.go:439-442`, prefixes `/sync/rest` + `/sync/realtime` at `proxy.go:124-125`) and
+  Workbox's only runtime route is `/\/api\//`. **No match.** Transport is already cleanly
+  partitioned by URL namespace; the residual overlap is data, not traffic.
+  **Six deviations from the plan's table are stated as deviations** rather than silently patched —
+  most substantively that class #8 is not merely "dark" but **not created at all**
+  (`bootstrap.js:17-28`, pinned by `tests/sync-rxdb-client.spec.js:1468-1470`), and that rule 4's
+  T-21d citation does not support the claim attached to it (T-21d establishes Safari as the crew's
+  browser, not the Background Sync support matrix).
+  Footprint as built: `.night-crew/knowledge/designs/offline-ownership.md` (new),
+  `.night-crew/knowledge/roadmap.md`, and this run's merge-intent note. 🛑 **Docs-only —
+  `git diff 2041477 --stat` names nothing outside `.night-crew/`.** No production code, no
+  `backend/**`, no `*.html`, no `*.js`, no `sw.js` (byte-identical to base), no version bump.
+  **Gates: G4 only, and deliberately so** — the diff is documentation and no suite can observe it.
+  `node build-sw.js` run twice: **31 files precached** both times, clean tree both times, version
+  parity 1.4.0 ≡ 1.4.0 ≡ 1.4.0. The full Playwright suite and the Go suite were **not** run and
+  did not need to be. **Red-first: `n/a — no code change`**, written as those words in the
+  merge-intent note (reworded Q-KR2, ledger T-33 decision 132) so an absent section and an
+  inapplicable one stay distinguishable at triage.
+
+- **`app-version-badge`** · ✅ **BUILT — run `overnight-20260804`, card A6 (the night's STRETCH
+  card), on branch `card/a6-app-version-badge` (base `0dcd8b4`); awaiting merge + G6.** ·
+  **Closes D-KR2b's evidence method.** Ledger T-33 **decision 133**; specified content is
+  `reference/okr-completion-plan-20260804.md` §3 A6.
+  **Deliverable:** a discreet version line in `index.html`'s footer — the launcher every user
+  passes through — so the owner can confirm a deploy reached the phone without staging a
+  photograph of it.
+  🛑 **THE SOURCE IS THE DESIGN, AND IT IS THE PRECACHED FILE.** The badge's value comes from
+  `fetch('version.json')`. That file ships *inside the bundle* (Workbox precache, served
+  cache-first), so it reports what **this device** actually has — the only value here capable of
+  being stale, which is the entire property under test. `/api/v1/health`'s `frontend_version` is
+  **always** current, so a badge fed from it would print the right number on a phone frozen on last
+  week's bundle and **hide the T-21d defect rather than catch it**.
+  **The API value is a comparison and never the source.** Health is read only *after* the cached
+  value is already on screen, only into `#version-server`: equal ⇒ `data-state="current"`,
+  different ⇒ `"stale"` with **both numbers visible**, so the app diagnoses its own staleness.
+  🛑 **There is deliberately NO API fallback** — if `version.json` cannot be read the line shows
+  `v—` / `data-state="unknown"`. An unknown bundle reported as unknown is honest; the server's
+  number printed in its place would be a lie about this device, and it is exactly the lie the card
+  exists to prevent.
+  **The test is built to fail on the forbidden implementation, not merely to observe a version.**
+  `tests/version-badge.spec.js` (5 tests, new file) stubs the two sources with **deliberately
+  different** values — `version.json` → `9.9.9-from-file`, health → `0.0.1-from-api` — and pins the
+  badge to the file's by equality. The decisive one **aborts `version.json` while health still
+  answers**: there is then no legitimate value to display, so any implementation carrying an API
+  path prints `0.0.1-from-api` and reds.
+  🛑 **What `serviceWorkers: 'block'` costs, stated rather than implied.** `playwright.config.js`
+  blocks service workers repo-wide (B-15, **untouched**), so no test in that file can watch Workbox
+  serve the precache — under test the file arrives over plain HTTP. The guarantee is therefore
+  **split, and both halves are asserted**: the spec pins *the URL the page reads from* and *the
+  absence of an API fallback*; its fifth test pins `version.json`'s presence in the **committed
+  `sw.js` manifest**, which is what makes that URL cache-first and staleable on a real device.
+  Neither half alone is the property.
+  **Gates (G1–G4, isolated per B-80: `TEST_PORT=8206` / `TEST_DB_NAME=hq_test_e2e_a6` /
+  `HQ_RLS_TEST_DB=hq_rls_a6_0804`, plus its own Go database `hq_test_go_a6`).** G1 `go build ./...`
+  and `go vet ./...` both exit 0 from `backend/`. G2 (Go) exit 0 with **437 PASS / 2 SKIP / 0 FAIL
+  across 439 tests** — counts, not `ok`: `internal/workflow` ran **35** tests, and
+  `TestRowVisibilityRLS` **PASSed with its ~40 named subtests actually running**,
+  `HQ_SYNC_SUBSTRATE_OPTIONAL` unset. The 2 skips are the pre-existing `TestProxyLive_*` live
+  proofs (`HQ_SYNC_SPIKE_LIVE` unset). G2 (Playwright) **the FULL suite — `index.html` is
+  undeclared in `[e2e.seams]`, so the card is de-confined by construction and the ~21 minutes were
+  paid, not worked around**: **exactly one summary block**, `6 skipped` / `786 passed (21.0m)`,
+  **0 failed**, exit 0, against a **fresh database** (A1 landed tonight, so every Playwright
+  invocation now resets). 🛑 **All four armed reds PASSED and none is retired** (decision 100 /
+  T-31 decision 120) — `item modal pre-fills search with current line item text`, `yes/no answer
+  converges (live + catch-up)`, `a queued submission still lends its idempotency_key at 7:30pm CT
+  [A1-TZ-02]`, `submitted checklist survives builder edit with assignment change [LC-02]`. Note the
+  second of those **failed on tonight's A2 leg and passed here**; both outcomes are expected of an
+  armed red and neither is evidence about this card. G4 `node build-sw.js` run twice: **31 files
+  precached** both times — **the count did not move, and this card adds no asset** (`index.html`
+  and `version.json` were both already in the manifest, so a move would be the B-37 silent drop
+  returning) — clean tree on the second run, version parity **1.4.0 ≡ 1.4.0 ≡ 1.4.0**.
+  🛑 **No version bump.** This card *displays* the version; it does not change it.
+  **Red-first:** `tests/version-badge.spec.js`, captured RED at `ba8719b` — 5 failed, every one
+  `Error: element(s) not found` on `locator('#version-line')`, i.e. failing for the absence of the
+  surface and not on a harness fault. Green at `HEAD` inside the full-suite run above.
+  **New finding — B-92:** the Playwright gate path never generates `version.json`. It is
+  git-ignored by design (`.gitignore:13`); `task test` produces it via its `sw` dep, but
+  `night-crew.toml:33-34` runs `npx playwright test` **directly** and `webServer` serves the bare
+  worktree, so `GET /version.json` **404s** in a worktree where `node build-sw.js` never ran —
+  measured here, as `Expected: "v1.4.0" Received: "v—"`. Not a production defect
+  (`backend/Dockerfile:57-64` regenerates it into the image from the authoritative `Frontend`
+  constant); the defect is that a missing artifact and a broken version line are indistinguishable
+  at the gate. Mitigated in-card by an explicit `GET /version.json` precondition whose failure
+  message names `node build-sw.js`.
+  Footprint as built: `index.html`, `tests/version-badge.spec.js` (new), `sw.js`,
+  `.night-crew/knowledge/roadmap.md`, `.night-crew/knowledge/BACKLOG.md` (B-92) and this run's
+  merge-intent note. **No `backend/**`, no other `*.html`, no `night-crew.toml` change.**
+  **Still owed, attended and not this card:** D-KR2a / D-KR2b's actual evidence — the ~15-minute
+  `task prod:deploy` → `task version` → read-the-line-on-a-**returning**-client ritual, after this
+  merges.
 
 - **`app-timezone-unify-new-york`** · **DONE — every site, both contracts, one card** (2026-08-01,
   run `overnight-20260801`, Track A card A1, branch `card/a1-app-timezone-unify-new-york`) ·
@@ -2060,8 +2316,10 @@
   🛑 **Row-visibility RLS is not optional for this card specifically** — the cutover makes RxDB the
   single write path, which means it is also the moment `HQ_SYNC_REST_URL` gets set in a real
   deploy) · Replace
-  BOTH current write paths in `workflows.html` — `autoSaveField`→`POST /saveResponse` and
-  `sync.js`'s WebSocket/ops-log broadcast — with the RxDB store as the single write path. Retire
+  BOTH current write paths in `workflows.html` — `debouncedSaveField`→`submitOp('SET_FIELD')`→`POST
+  /ops` (this bullet said `autoSaveField`→`POST /saveResponse` until B-65 closed — a function
+  defined nowhere and an endpoint no frontend code posts to; the cutover card must swap the real
+  one) and `sync.js`'s WebSocket/ops-log broadcast — with the RxDB store as the single write path. Retire
   `sync.js`, `backend/internal/sync/`, and `/saveResponse` entirely. Hard swap, no parallel run
   (per the explore session — no need to keep the old system live during cutover). Reconcile the
   existing Workbox service-worker offline caching against RxDB's own local persistence so there

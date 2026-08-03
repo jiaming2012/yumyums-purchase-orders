@@ -1053,3 +1053,18 @@ roughly half the answer*, and on this card they were roughly a quarter.
    it printed a false green; and the final Go gate first run with `postgres:postgres` credentials
    when this box uses **`yumyums:yumyums`**. The second failed *loud* and correctly refused to skip,
    which is the fail-loud harness working as designed — but it cost a 15-minute run.
+
+## Run 20260804
+
+| Card | Implement | G6 | Fix rounds | End-to-end |
+|---|---|---|---|---|
+| A1 `e2e-gate-database-isolation` | 46m50s (10:23:02→11:09:52) | 17m38s (11:09:52→11:27:30) | 11m52s (11:27:30→11:39:22) | **76m20s** — MERGED, G6 APPROVE-WITH-NOTES. Estimate 75–120m; landed at the low end. |
+| A2 `workflows-autosavefield-phantom` | 57m54s (11:40:42→12:38:36) | 12m33s (12:38:36→12:51:09) | 6m18s (12:51:09→12:57:27) | **76m45s** — MERGED, G6 APPROVE-WITH-NOTES. Estimate 45–75m; 1m45s over the high end. |
+| A4 `offline-ownership-design-note` | 9m54s (12:58:26→13:08:20) | 8m51s (13:08:20→13:17:11) | 12m22s (13:17:11→13:29:33) | **31m07s** — MERGED, G6 APPROVE-WITH-NOTES. Estimate 45–75m; well under, because the analysis was pre-done and the card's job was verification, not discovery. |
+| A6 `app-version-badge` 🅢 | 39m51s (13:30:35→14:10:26) | 12m18s (14:10:26→14:22:44) | 15m24s (14:22:44→14:38:08) | **67m33s** — MERGED, G6 APPROVE-WITH-NOTES. Estimate 45–75m; inside it, and the implement leg absorbed a mandatory ~21m full suite (`index.html` is undeclared in `[e2e.seams]`). |
+
+**Run 20260804 median end-to-end: 71m56s** (N=4: 31m07s, 67m33s, 76m20s, 76m45s). No exclusions —
+all four cards ran the same shape (implement → G6 → one fix round → merge) and none was aborted,
+parked, or restarted. The one outlier low (A4, 31m07s) is a documentation card whose analysis was
+done at planning time; it is included rather than excluded, and named here so the median is
+readable rather than merely defensible.

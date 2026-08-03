@@ -317,9 +317,12 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
      SAME change set. A precached URL that 404s fails the ENTIRE service-worker
      install for every returning client.
 
-     🛑 NO WRITE PATH IS SWAPPED HERE. `autoSaveField` -> POST /saveResponse ->
-     DRAFT_RESPONSES -> hydrateFieldState is untouched and remains the live
-     persistence path (CLAUDE.md's Workflows Data Persistence Rule). The swap is
+     🛑 NO WRITE PATH IS SWAPPED HERE. `debouncedSaveField` ->
+     `submitOp('SET_FIELD')` -> POST /ops -> DRAFT_RESPONSES ->
+     hydrateFieldState is untouched and remains the live persistence path
+     (CLAUDE.md's Workflows Data Persistence Rule). This comment used to name
+     `autoSaveField` -> POST /saveResponse; neither half was true — the function
+     is defined nowhere and the frontend posts no /saveResponse (B-65). The swap is
      `sync-hard-cutover`. sync-rxdb/bootstrap.js constructs the client and
      nothing else: it creates no RxDB database, starts no replication, and makes
      no network request — the /sync door answers 503 until HQ_SYNC_REST_URL is
@@ -2215,8 +2218,21 @@ function handleFailPhotoCaptureClick(fldId) {
           tmp.innerHTML = renderFailCard(tplField, FAIL_NOTES[fldId]);
           currentCard.replaceWith(tmp.firstChild);
         }
-        // Persist fail note with photo URL via autoSaveField
-        autoSaveField(fldId, FIELD_RESPONSES[fldId] ? FIELD_RESPONSES[fldId].value || FIELD_RESPONSES[fldId] : '');
+        // Persist the fail note (photo included) through the ONE live write
+        // path — debouncedSaveField bundles `_fail_note` from the failNotes
+        // store, which we just mutated, and ships it as SET_FIELD. This mirrors
+        // the correction-photo path at ~:2151 exactly.
+        //
+        // 🛑 The ANSWER is what goes on the wire, not the photo: the photo rides
+        // along inside the `_fail_note` bundle. Pass `resp.value` and nothing
+        // else. This line used to read `resp.value || resp`, which is wrong on
+        // its own terms — a fail card exists precisely when the answer is falsy,
+        // so `false || resp` would have written the whole response OBJECT as the
+        // field's value. (It never got that far: it called `autoSaveField`, which
+        // is defined nowhere, and the .catch() below swallowed the
+        // ReferenceError while the thumbnail rendered anyway. B-65.)
+        var failResp = FIELD_RESPONSES[fldId];
+        debouncedSaveField(fldId, failResp ? failResp.value : null);
       })
       .catch(function(err) {
         console.error('Fail photo upload failed:', err);
@@ -3550,8 +3566,9 @@ if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
      the screen exists and is reviewable, and the cutover card has to supply a
      store and a write function rather than design a screen under time pressure.
 
-     🛑 NO WRITE PATH IS SWAPPED. autoSaveField -> submitOp('SET_FIELD') ->
-     DRAFT_RESPONSES -> hydrateFieldState is byte-untouched. `applyRestore`
+     🛑 NO WRITE PATH IS SWAPPED. debouncedSaveField -> submitOp('SET_FIELD') ->
+     DRAFT_RESPONSES -> hydrateFieldState is byte-untouched. (This comment said
+     `autoSaveField`, which is defined nowhere — B-65.) `applyRestore`
      below USES that same live path — "Restore mine writes the crew member's
      value again, now, from the current master state" is an ordinary edit, and
      the ordinary edit in this tree is submitOp. -->
