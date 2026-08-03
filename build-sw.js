@@ -2,6 +2,12 @@ const { generateSW } = require('workbox-build');
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
+// 🛑 version.json's payload has ONE definition, and it lives there. This file
+// used to carry writeVersionJson() inline; it was extracted so that
+// playwright.config.js's `webServer.command` can generate the artifact for the
+// E2E stack WITHOUT running this script (which reads git HEAD and rewrites
+// sw.js — B-37). Two generators, one payload. See B-92.
+const { writeVersionJson } = require('./scripts/write-version-json');
 
 // Build artifacts that are deliberately git-ignored yet SHIP. version.json is
 // written by writeVersionJson() below and regenerated inside the image by
@@ -286,16 +292,6 @@ function importReachabilityTransform(manifest) {
     );
   }
   return { manifest };
-}
-
-// Write version.json so the frontend can read its own version without hitting the API.
-// Semver only — dynamic fields (git_sha, built_at) live in /api/v1/health.
-// package.json "version" mirrors the Frontend constant in backend/internal/version/version.go.
-function writeVersionJson() {
-  const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-  const payload = { frontend: pkg.version };
-  fs.writeFileSync('version.json', JSON.stringify(payload) + '\n');
-  return payload;
 }
 
 async function build() {
