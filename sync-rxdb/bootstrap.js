@@ -6,9 +6,13 @@
 // 🛑 IMPORT + CONSTRUCTION ONLY. NO WRITE PATH IS SWAPPED HERE.
 // ===========================================================================
 // This card's footprint in `workflows.html` is one `<script type="module">`
-// tag. `autoSaveField` → `/saveResponse` → `DRAFT_RESPONSES` →
-// `hydrateFieldState` is untouched and stays the live persistence path; the
-// swap belongs to `sync-hard-cutover`.
+// tag. `debouncedSaveField` → `submitOp('SET_FIELD')` → `POST /ops` →
+// `DRAFT_RESPONSES` → `hydrateFieldState` is untouched and stays the live
+// persistence path; the swap belongs to `sync-hard-cutover`.
+//
+// (This comment named `autoSaveField` → `/saveResponse` until B-65. Both halves
+// were false: no such function is defined anywhere in the tree, and no frontend
+// code posts to /saveResponse. Corrected by card A2, run 20260804.)
 //
 // It also does NOT create the RxDB database and does NOT start replication,
 // and both omissions are deliberate rather than unfinished:

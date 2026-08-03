@@ -74,7 +74,9 @@
   the card bundle a scope model, a write-path swap and a retirement — three mechanisms each rivalling
   a normal card. The scope half is separable, independently provable against the existing 54-subtest
   RLS suite, and de-risks the swap completely. 🛑 **This is a SPLIT, not a parallel run** —
-  `autoSaveField` → `/saveResponse` stays the live path until the cutover swaps it, and the cutover
+  `debouncedSaveField` → `submitOp('SET_FIELD')` → `POST /ops` stays the live path until the
+  cutover swaps it (this sentence said `autoSaveField` → `/saveResponse` until B-65 closed; no such
+  function exists and the frontend posts no `/saveResponse`), and the cutover
   swaps and retires in one change set, so P-KR3 is unviolated. The name `sync-hard-cutover` stays
   with the card that does the hard swap so P-KR3 still names the WO it was written about. Activity 1
   holds **25** card bullets; the Delivery per-card denominator moves again.
@@ -639,6 +641,52 @@
   `tests/db-isolation.spec.js` (new), `Taskfile.yml` (its two inline `psql` reset blocks deleted as
   a second source of truth for a destructive operation). **No production code, no `backend/**`, no
   `*.html`, no `sw.js`, no version bump.**
+
+- **`workflows-autosavefield-phantom`** · ✅ **BUILT — run `overnight-20260804`, card A2, on
+  branch `card/a2-workflows-autosavefield-phantom` (base `bb6ff80`); awaiting merge + G6.** ·
+  **PROMOTED from BACKLOG B-65** at the 2026-08-03 slate-planning session. **Closes B-65.**
+  **The defect, and it is exactly what the backlog said it was.** `workflows.html:2219` called
+  `autoSaveField(fldId, …)`. Zero definitions repo-wide — a genuine, reachable `ReferenceError` in
+  shipped code, on the path a crew member takes when they attach a photo to a failed check.
+  🛑 **Why it was silent for months, which is the part worth carrying forward:** the upload chain's
+  own `.catch()` swallowed the ReferenceError, and `FAIL_NOTES[fldId].photo` is mutated one line
+  *before* the throw — so the thumbnail rendered, the crew member saw "photo attached", and the
+  evidence was gone on the next open. No pageerror, no toast, no red anywhere. A `ReferenceError`
+  does not have to look like a crash.
+  **The fix.** `debouncedSaveField(fldId, resp ? resp.value : null)`, mirroring the
+  correction-photo path ~70 lines above which has been right all along. The old ARGUMENT was
+  independently wrong too: `resp.value || resp` on a fail card — where the answer is falsy by
+  construction — evaluates to the whole response **object**, so even a rename-only fix would have
+  written garbage as the field's value.
+  **Red-first:** `tests/persistence.spec.js` `[FLD-16B]`, "fail photo captured through the camera
+  path survives back-to-list and reopen" — RED against base `bb6ff80` with
+  `Fail photo upload failed: ReferenceError: autoSaveField is not defined at
+  http://localhost:8202/workflows.html:2219:9`, green after. It drives the REAL path (presign + S3
+  PUT intercepted at the network layer, hidden file input fed through Playwright's filechooser),
+  because the pre-existing `[FLD-16]` injects the photo with `POST /saveResponse` and skips every
+  line of client code between the presign response and the write — which is the blind spot the
+  defect lived in.
+  **Documentation blast radius — eight sites, all wrong, all corrected in the same change set:**
+  `CLAUDE.md`'s own Workflows Data Persistence Rule (name + call shape corrected; the rule itself,
+  its 4-step procedure, its persisted-states list and its required-test template all survive in
+  force, and the list is corrected from 7 states to 9), `docs/data-flow-audit.md` (all 7 save-path
+  cells, the rule block, and row 8 which still said photo capture was "DEFERRED — Phase 12"),
+  `README.md:49`, `.claude/skills/save-project/SKILL.md:53`, `sync-rxdb/bootstrap.js:9`,
+  `sync-rxdb/conflict-notice-ui.js:23`, two banner comments in `workflows.html` (`:320`, `:3553`),
+  and this roadmap in two places. 🛑 **A second phantom rode along with the first and nobody had
+  named it:** every one of those sites also said the transport was `POST /saveResponse`. It is not.
+  No frontend code posts to `/saveResponse` — the endpoint exists on the backend and both test
+  suites drive it directly, but the op journal has been the single write channel (D-08) since the
+  sync work landed.
+  **The test that made the phantom look covered is fixed too.** `tests/sync-rxdb-client.spec.js`
+  asserted `expect(src).toContain('autoSaveField')`, which passed on the text of a **comment**.
+  Replaced with assertions on the invocation — `debouncedSaveField(` and `submitOp('SET_FIELD'`.
+  A substring of source is not a symbol.
+  Footprint as built: `workflows.html`, `tests/persistence.spec.js`, `tests/sync-rxdb-client.spec.js`,
+  `CLAUDE.md`, `README.md`, `docs/data-flow-audit.md`, `.claude/skills/save-project/SKILL.md`,
+  `sync-rxdb/bootstrap.js`, `sync-rxdb/conflict-notice-ui.js`, `.night-crew/knowledge/roadmap.md`,
+  `.night-crew/knowledge/BACKLOG.md`, `sw.js` (regenerated). **No `backend/**`, no migration, no
+  API contract, no version bump.**
 
 - **`app-timezone-unify-new-york`** · **DONE — every site, both contracts, one card** (2026-08-01,
   run `overnight-20260801`, Track A card A1, branch `card/a1-app-timezone-unify-new-york`) ·
@@ -2103,8 +2151,10 @@
   🛑 **Row-visibility RLS is not optional for this card specifically** — the cutover makes RxDB the
   single write path, which means it is also the moment `HQ_SYNC_REST_URL` gets set in a real
   deploy) · Replace
-  BOTH current write paths in `workflows.html` — `autoSaveField`→`POST /saveResponse` and
-  `sync.js`'s WebSocket/ops-log broadcast — with the RxDB store as the single write path. Retire
+  BOTH current write paths in `workflows.html` — `debouncedSaveField`→`submitOp('SET_FIELD')`→`POST
+  /ops` (this bullet said `autoSaveField`→`POST /saveResponse` until B-65 closed — a function
+  defined nowhere and an endpoint no frontend code posts to; the cutover card must swap the real
+  one) and `sync.js`'s WebSocket/ops-log broadcast — with the RxDB store as the single write path. Retire
   `sync.js`, `backend/internal/sync/`, and `/saveResponse` entirely. Hard swap, no parallel run
   (per the explore session — no need to keep the old system live during cutover). Reconcile the
   existing Workbox service-worker offline caching against RxDB's own local persistence so there

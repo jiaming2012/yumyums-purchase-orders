@@ -20,9 +20,14 @@
 // 🛑 WHAT THIS DOES NOT DO, AND WHY THAT IS NOT AN OMISSION.
 // ===========================================================================
 // `sync-hard-cutover` owns the write path. This card does NOT swap
-// `autoSaveField` -> POST /saveResponse -> DRAFT_RESPONSES -> hydrateFieldState,
-// and replication is not started (`HQ_SYNC_REST_URL` is unset everywhere, so
-// the /sync door answers 503 by design until row-visibility RLS lands).
+// `debouncedSaveField` -> `submitOp('SET_FIELD')` -> POST /ops ->
+// DRAFT_RESPONSES -> hydrateFieldState, and replication is not started
+// (`HQ_SYNC_REST_URL` is unset everywhere, so the /sync door answers 503 by
+// design until row-visibility RLS lands).
+//
+// (This comment named `autoSaveField` -> POST /saveResponse until B-65 — a
+// function defined nowhere, and an endpoint no frontend code posts to.
+// Corrected by card A2, run 20260804.)
 //
 // The consequence, stated plainly rather than discovered later: **in today's
 // tree no conflict record is ever written, so this UI is mounted and dormant in
