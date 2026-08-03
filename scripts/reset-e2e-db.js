@@ -137,7 +137,19 @@ if (require.main === module) {
     const db = resetE2eDatabase();
     // Printed on every run so a gate log says which database it reset. A silent
     // reset is indistinguishable from no reset at all, which is B-76's mechanism.
-    console.log(`── reset ${db.name} on ${db.host}:${db.port} ──`);
+    //
+    // 🛑 console.ERROR, not console.log, and that is B-81 (do not "tidy" it back).
+    // This runs as the first link of `webServer.command`, and Playwright's
+    // webServer plugin pipes the child's stdout ONLY when `webServer.stdout` is
+    // `'pipe'` — it defaults to `'ignore'`
+    // (node_modules/playwright/lib/plugins/webServerPlugin.js:126;
+    // node_modules/playwright/types/test.d.ts:10285-10289 — "Default to
+    // 'ignore'"). stderr IS piped by default (same file, :10281-10283), which is
+    // why the Go server's slog lines reach a gate log and this banner did not.
+    // On a successful DROP psql emits no NOTICE either, so with the banner
+    // swallowed a gate log carried ZERO evidence the reset had run — precisely
+    // the "silent reset" this line exists to rule out.
+    console.error(`── reset ${db.name} on ${db.host}:${db.port} ──`);
   } catch (err) {
     console.error(`\n[reset-e2e-db] ${err.message}\n`);
     process.exit(1);
