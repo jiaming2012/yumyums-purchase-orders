@@ -597,6 +597,49 @@
   five converted `TestMain`s set. Reproducible via `scripts/verify-test-harness.sh`, whose third
   check (B2) guards the *other* direction: `DB_TEST_URL` unset must keep skipping.
 
+- **`e2e-gate-database-isolation`** · ✅ **BUILT — run `overnight-20260804`, Wave 0, card A1, on
+  branch `card/a1-e2e-gate-database-isolation` (base `c9e9e9e`); awaiting merge + G6.** ·
+  **PROMOTED from BACKLOG B-76** at the 2026-08-03 slate-planning session as Wave 0's gate, ahead
+  of every other card in the run. **Closes B-76.** Same theme as `test-harness-fail-loud` above,
+  and filed next to it deliberately: a harness that cannot report failure. That card's subject was
+  a suite that ran 19 of 20 spec files and a dropped database that printed `ok`; this one's is a
+  suite that has never had its database reset by the gate that runs it.
+  **The defect.** `night-crew.toml:33-34` runs `npx playwright test` **directly** for both
+  `[e2e] suite` and `[e2e] subset`. The repo's only `DROP DATABASE IF EXISTS hq_test_e2e` lived
+  inside `task test`, and `playwright.config.js` had no reset of any kind — so **no night-crew gate
+  leg, full or subset, had ever reset the e2e database.** Every full-suite figure this milestone has
+  quoted, including run `20260803`'s 778, was measured against an accumulating dataset. 🛑 **The
+  half that matters is the false GREEN**, not the false red: a suite whose fixtures accumulate can
+  pass because a previous run left a row behind.
+  **The fix, and why it is where it is.** The reset is now the first link of
+  `playwright.config.js`'s `webServer.command` — `node scripts/reset-e2e-db.js && cd backend && …`
+  — so it fires on every `npx playwright test` invocation and cannot be skipped by a CLI argument,
+  which is what makes it fire on the **subset** path the slate named as the acceptance. 🛑 **It is
+  deliberately NOT a `globalSetup`, and the reason is measured:**
+  `node_modules/playwright/lib/runner/tasks.js:100-110` puts `createPluginSetupTasks` (where the
+  `webServer` plugin starts the server) **before** `config.globalSetups`, so a globalSetup would
+  drop the database out from under a server that had already migrated and seeded it — and the suite
+  would then fail in a way that reads as a product bug. Top-level config code is no good either:
+  the config is re-required in every worker process (verified — the worker load carries
+  `TEST_WORKER_INDEX=0`) and under `npx bddgen` and `--list`. `assertTestDatabaseName` refuses any
+  `TEST_DB_NAME` outside `/^hq_test(?:_[a-z0-9]+)*$/` and aborts the run naming the database and
+  the pattern (B-16/B-35's lesson, from the other side).
+  **The PARK trigger did not fire, and the reason is recorded rather than assumed:** the slate's
+  footprint listed `night-crew.toml` on the expectation that `[e2e] suite`/`subset` would have to be
+  pointed at a resetting target. They did not — with the reset inside `webServer.command` the
+  existing lines reset as they stand — so **no new `night-crew.toml` key was needed and that file is
+  byte-unchanged**.
+  **Red-first, on the subset path, twice:** invocation 1 passed and left a marker table; invocation
+  2 **FAILED** (`Expected: "" Received: "e2e_isolation_marker"`) with `hq_test_e2e` still holding
+  `sessions=890 ops=717 checklist_templates=190 checklist_submissions=121` from run `20260803` and
+  earlier. Post-fix the same invocation passes repeatedly and those tables are gone. Pinned by
+  `tests/db-isolation.spec.js`, which is cross-process by construction — it leaves the marker the
+  NEXT invocation trips over, so a merge that removes the reset reds on the very next run.
+  Footprint as built: `playwright.config.js`, `scripts/reset-e2e-db.js` (new),
+  `tests/db-isolation.spec.js` (new), `Taskfile.yml` (its two inline `psql` reset blocks deleted as
+  a second source of truth for a destructive operation). **No production code, no `backend/**`, no
+  `*.html`, no `sw.js`, no version bump.**
+
 - **`app-timezone-unify-new-york`** · **DONE — every site, both contracts, one card** (2026-08-01,
   run `overnight-20260801`, Track A card A1, branch `card/a1-app-timezone-unify-new-york`) ·
   **🛑 BUILT AND HANDED TO THE ORCHESTRATOR FOR MERGE — DEPLOYED TO NOTHING.** Flipping this
