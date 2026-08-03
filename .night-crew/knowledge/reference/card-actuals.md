@@ -1060,3 +1060,4 @@ roughly half the answer*, and on this card they were roughly a quarter.
 |---|---|---|---|---|
 | A1 `e2e-gate-database-isolation` | 46m50s (10:23:02→11:09:52) | 17m38s (11:09:52→11:27:30) | 11m52s (11:27:30→11:39:22) | **76m20s** — MERGED, G6 APPROVE-WITH-NOTES. Estimate 75–120m; landed at the low end. |
 | A2 `workflows-autosavefield-phantom` | 57m54s (11:40:42→12:38:36) | 12m33s (12:38:36→12:51:09) | 6m18s (12:51:09→12:57:27) | **76m45s** — MERGED, G6 APPROVE-WITH-NOTES. Estimate 45–75m; 1m45s over the high end. |
+| A4 `offline-ownership-design-note` | 9m54s (12:58:26→13:08:20) | 8m51s (13:08:20→13:17:11) | 12m22s (13:17:11→13:29:33) | **31m07s** — MERGED, G6 APPROVE-WITH-NOTES. Estimate 45–75m; well under, because the analysis was pre-done and the card's job was verification, not discovery. |
