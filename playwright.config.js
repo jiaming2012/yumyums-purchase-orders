@@ -99,6 +99,30 @@ module.exports = defineConfig({
     // worker and the on-demand POST /sync-receipts would ingest LIVE Mercury
     // transactions into the test DB mid-suite (all sync tests mock these
     // routes at the network layer, so nothing needs the real path).
+    // 🛑 `node scripts/write-version-json.js &&` IS THE B-92 FIX, and it sits
+    // in this chain for exactly B-76's reason: this command runs once, in the
+    // parent, before any test and before the server exists, and no CLI argument
+    // can skip it — so it fires on night-crew.toml's `subset` leg too.
+    //
+    // `version.json` is a git-ignored build artifact that nonetheless SHIPS
+    // (sw.js precaches it; index.html's version line reads it). `task test`
+    // generates it via its `sw` dep, but night-crew.toml:33-34 runs
+    // `npx playwright test` DIRECTLY and this server serves `STATIC_DIR=../` —
+    // the bare worktree. Without this link, `GET /version.json` 404s in any
+    // worktree where `node build-sw.js` has never run, and
+    // tests/version-badge.spec.js reds for a reason that has nothing to do with
+    // the change under test. A gate that hands every future card a red it did
+    // not cause is the thing A1 landed to prevent.
+    //
+    // 🛑 It is NOT `node build-sw.js`. That reads git HEAD and rewrites sw.js,
+    // so a gate leg would dirty the tree mid-run and race the B-37 committed-
+    // artifact invariant. scripts/write-version-json.js writes the one file and
+    // nothing else, from the same payload definition build-sw.js uses.
+    //
+    // 🛑 It runs AFTER the reset, not before it. The reset is B-76's fix and
+    // must stay the first link; version.json is a static file on disk and has
+    // no interaction with the database either way.
+    //
     // ZOHO_CLIQ_* / SMTP_* blanked too (cross-contamination audit 2026-07-21,
     // surface #5): the root Taskfile's `dotenv: ['backend/.env']` injects LIVE
     // credentials into every task launched from the main checkout, and the alert
@@ -106,7 +130,7 @@ module.exports = defineConfig({
     // unconditionally and purchasing/service.go NotifyVendorComplete enqueues
     // from a request path the suite exercises. Without these, an E2E run can
     // deliver a real Cliq message and a real SMTP email to live crew.
-    command: `node scripts/reset-e2e-db.js && cd backend && PORT=${testPort} DB_URL="${testDbUrl}" STATIC_DIR=../ SUPERADMIN_CONFIG=config/superadmins.yaml TOAST_SYNC_INTERVAL=0 E2E_DISABLE_SCHEDULERS=1 MERCURY_API_KEY= ANTHROPIC_API_KEY= ZOHO_CLIQ_CLIENT_ID= ZOHO_CLIQ_CLIENT_SECRET= ZOHO_CLIQ_REFRESH_TOKEN= SMTP_ADDR= SMTP_USERNAME= SMTP_PASSWORD= go run ./cmd/server/`,
+    command: `node scripts/reset-e2e-db.js && node scripts/write-version-json.js && cd backend && PORT=${testPort} DB_URL="${testDbUrl}" STATIC_DIR=../ SUPERADMIN_CONFIG=config/superadmins.yaml TOAST_SYNC_INTERVAL=0 E2E_DISABLE_SCHEDULERS=1 MERCURY_API_KEY= ANTHROPIC_API_KEY= ZOHO_CLIQ_CLIENT_ID= ZOHO_CLIQ_CLIENT_SECRET= ZOHO_CLIQ_REFRESH_TOKEN= SMTP_ADDR= SMTP_USERNAME= SMTP_PASSWORD= go run ./cmd/server/`,
     url: `http://localhost:${testPort}/api/v1/health`,
     // Unconditionally false (audit surface #2): reuse has cost four runs. The
     // 8199 default protects against reusing the DEV server, but the same
