@@ -2543,3 +2543,59 @@ it is reproduced. This does not retract any gate in this milestone, and it does 
 wrong; it means every full-suite figure in the milestone, including tonight's, is a measurement of a
 tree **and** a database state. B-76 keeps its destination (test isolation / gate integrity, as one
 sitting with B-50 and B-35) but is recorded here as the most load-bearing item in that group.
+
+## T-33 — Mid-cycle OKR rewords, attended (2026-08-03 evening)
+
+Taken at an attended planning session before the `20260804` slate, on the evidence in
+`reference/okr-completion-plan-20260804.md`. The cycle's OKRs were hand-graded first — the
+mechanical grader is blind in this repo (`okr grade` → *"no metrics.jsonl found under
+.night-crew/runs"*, `milestone export` → *"no runs after 20260724"*, the same `<runid>` vs
+`2026-08-03-autonomous` directory-shape defect as **B-33**/**B-77**), so every grade cites a file
+and a line rather than HANDOFF prose.
+
+**Standing before the rewords: 6 MET · 2 PARTIAL · 3 UNMET · 1 UNGRADEABLE.**
+
+**Decision 132 — Five KRs are reworded mid-cycle; one is deliberately not, and grades red.**
+Reworded: **D-KR2** (split a/b), **D-KR3**, **E-KR3**, **Q-KR2**, **Q-KR3**. The OKRs were authored
+2026-07-25 against an architecture disproved 2026-08-03 — S1b parked on the finding that RxDB
+replicates to a second Postgres with nothing carrying a row back, and decision **126** retired the
+cutover in favour of reads-on-RxDB / writes-on-REST. Four of the five measured the retired shape or
+named an artifact the process never built. The test applied: *a reword is honest when it changes
+what is measured while preserving what is protected; it is laundering when it lowers the bar on the
+thing the KR exists to guarantee.* Two rewords are **stricter** than what they replace — D-KR3 now
+forbids the silent exclusions the original permitted, and D-KR2b names `/api/v1/health` as the one
+shortcut that would silently defeat it. 🛑 **E-KR1 was NOT reworded.** Its subject did not move
+under it: `sync.js` is still in the tree and both fetch-storm mechanisms are live at `:443-454` and
+`:475-479`. It grades **NOT MET**, its two "superseded" backlog items (replay-fetch-storm, the
+`sync.js` catch-up gate) are **un-dropped**, and the class carries to the next cycle. Rejected:
+rewording E-KR1 to grade green (the laundering case), and backfilling `slate-20260801`/`-20260802`
+to repair Q-KR3 (signed artifacts record what was believed at signing — the precedent is the
+20260803 orchestrator reverting its own correction to `slate-20260803.md:331`).
+
+**Decision 133 — D-KR2's evidence method changes from screenshots to an in-app version line
+(operator's proposal).** A discreet version display, read from the **precached** `version.json` and
+never from `/api/v1/health` — the server's value cannot be stale, so an API-fed badge would have
+shown the correct version on a phone frozen on the old bundle and *hidden* T-21d rather than caught
+it. Chosen over the 2/2 tab screenshots because the evidence is unambiguous (a string matches or it
+does not), costs nothing to collect, is readable by any crew member, and — decisively — **removes
+the N/A case**: a version line is a client-visible surface every cycle, where the screenshot form
+was ungradeable in any cycle that shipped no visible tab. Most of the plumbing already exists;
+`build-sw.js:291`'s own comment states the purpose (*"so the frontend can read its own version
+without hitting the API"*) and no page displays it. Slated as card **A6**.
+
+**Decision 134 — Build then close, not close first (operator).** The `20260804` night builds the
+gate-integrity and live-defect cards; the milestone closes after, on figures the fixed gate
+produced. The governing finding is **B-76's mechanism, measured at source this evening**:
+`night-crew.toml:33-34` runs `npx playwright test` directly for both `suite` and `subset`, the only
+`DROP DATABASE hq_test_e2e` lives in `Taskfile.yml:53-59` under `task test`, and
+`playwright.config.js` has **no `globalSetup`** — so no night-crew gate leg has ever reset the e2e
+database. Closing first would have cited this milestone's full-suite figures as evidence while
+decision 131 had already reproduced their instability.
+
+**Recorded, not decided: the offline-store inventory grew from the 2 classes E-KR3 assumed to 8
+across 6 physical stores.** `hq_offline_v1` is two classes with different fates (`submitQueue`
+survives an op-log retirement, `syncMeta` does not) and `api-cache` is two classes split by whether
+RxDB replicates the underlying rows. One class has **no owner at all** — REST writes land in HQ's
+Postgres, RxDB push (unconditional, `client.js:1194`) lands in the substrate, and nothing
+reconciles them. Card **A4** publishes this; §8 of the plan records the operator's two-store target
+architecture as a destination, which is decision 126 option (i) and milestone-sized, not slated.
