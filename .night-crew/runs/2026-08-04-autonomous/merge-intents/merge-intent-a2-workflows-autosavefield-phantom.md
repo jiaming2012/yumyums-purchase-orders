@@ -40,8 +40,8 @@ documentation sites that named the phantom as the live write path are corrected.
   ```
 
   This is a genuine, reachable `ReferenceError` in shipped code — not a dead branch.
-- **Green after:** recorded below once the fix commit lands. *(filled in at fix commit —
-  see "Green after" at the bottom of this file.)*
+- **Green after:** `0cf24b9`. Isolated re-run: `1 passed (10.5s)`. In the full gate below it is
+  `✓ 290 … [FLD-16B] (4.0s)`.
 
 ### Why the existing suite never caught it
 
@@ -121,10 +121,92 @@ config, no dependency. Verified by `git diff --stat bb6ff80..HEAD`.
 
 ## Deliberately left undone
 
-*(filled in at the final commit — see the report.)*
+1. **Historical run artifacts under `.night-crew/runs/*/` are untouched** — six of them name
+   `autoSaveField`. They are records of what was believed at the time, and two of them
+   (`2026-08-03-autonomous/HANDOFF.md`, `park-s1b-sync-hard-cutover.md`) are the artifacts
+   that *found* the phantom. Rewriting a run's record would be worse than leaving it.
+2. **The three signed slates and `okr-completion-plan-20260804.md` are untouched**, same
+   reason — a signed slate is a record of what was signed.
+3. **`docs/codebase/*` was not audited for this phrase.** Out of scope for the time box; the
+   files CLAUDE.md's own summary sections derive from are `docs/codebase/`, so it is worth
+   a grep at some point. Reported as a note, not filed as a finding.
+4. **`docs/data-flow-audit.md` rows 9 and 10 are still open defects** (`REJECTION_FLAGS`
+   never reloaded from the server; `WAS_REJECTED` dead code). They were marked BUG and DEAD
+   CODE in the audit before this card and still are. Not mine to fix.
+
+## New finding for the orchestrator
+
+**Candidate B-87 — a Playwright path filter matches the ABSOLUTE path, so a worktree
+directory name containing a seam token silently changes which specs the confined gate
+runs.** This worktree is `hq-worktrees/a2-workflows-autosavefield-phantom`, and the seam
+subset for `workflows.html` is `["workflows","persistence","sync","repro-cut-task"]`.
+`npx playwright test workflows persistence sync repro-cut-task` from here selected **787
+tests — the entire suite** — because the directory component `a2-workflows-…` matches the
+`workflows` regex on every file in the tree. Tonight it widened coverage, which is harmless
+and in fact strengthens this card's evidence. The direction that is *not* harmless is the
+same mechanism under a differently-named worktree: a card branch named, say,
+`b-inventory-…` would make `[e2e] subset` select the inventory specs **instead of** the
+seam's, and the gate would report a green subset that never ran the seam it was confined to.
+Sibling of B-76 in kind — the harness cannot tell you which tests it actually ran. Lead:
+anchor the tokens (`tests/workflows`, or `--grep-invert`-free explicit file paths) rather
+than passing bare substrings, and have the gate print the selected file list.
+
+---
+
+## Gate evidence (G1–G4; G6 is the orchestrator's)
+
+Isolation used, all three, per B-80: `TEST_PORT=8202`, `TEST_DB_NAME=hq_test_e2e_a2`,
+`HQ_RLS_TEST_DB=hq_rls_a2_0804`. The Go suite additionally got its own
+`hq_test_go_a2` rather than the shared `hq_test_go`. `HQ_SYNC_REST_URL` **unset**;
+`HQ_SYNC_SUBSTRATE_OPTIONAL` **unset**. Legs were sequenced, never overlapped —
+`sync.spec.js` is load-sensitive and was in the selection.
+
+- **G1** — from `backend/`: `go build ./...` exit **0**; `go vet ./...` exit **0**.
+- **G2 (Go)** — `go test -p 1 -count=1 ./...` exit **0**. Counts, not just `ok`:
+  **439 tests ran, 437 passed, 0 failed, 2 skipped.** Per package —
+  alerts 3, auth 18, inventory 72, purchasing 25, receipt 72, recipes 61, sync 142,
+  toast 11, **workflow 35** (non-zero, so `DB_TEST_URL` took effect — B-35's failure mode
+  did not fire). The 2 skips are `TestProxyLive_RealtimeUpgrade` and
+  `TestProxyLive_RESTRequest`. RLS evidence as required: `-run TestRowVisibilityRLS -v`
+  shows the subtests **ran** — **59 subtests PASSED** under FLOOR / CONTROL / POSITIVE /
+  NEGATIVE, `ok github.com/yumyums/hq/internal/sync 7.416s`.
+- **G2 (Playwright)** — `npx bddgen` exit **0**, then `npx playwright test … --retries=0`.
+  **Exactly one summary block, one `Running N tests` header** (verified by grep; not two).
+  Verbatim:
+
+  ```
+    1 failed
+      [chromium] › tests/sync.spec.js:1343:3 › Convergence matrix (W-3): surviving answers converge across devices › yes/no answer converges (live + catch-up)
+    6 skipped
+    780 passed (21.2m)
+  ```
+
+  **Judged against "green except the armed reds," matched by FULL TITLE.** The single
+  failure IS armed red #1, `yes/no answer converges (live + catch-up)`. It **stays ARMED** —
+  nothing here retires it. The other three armed reds passed, which **also retires nothing**
+  (decision 100 / T-31 decision 120): `item modal pre-fills search with current line item
+  text` ✓, `a queued submission still lends its idempotency_key at 7:30pm CT [A1-TZ-02]` ✓,
+  `submitted checklist survives builder edit with assignment change [LC-02]` ✓.
+
+  🛑 **This was the FULL suite (787), not the confined subset — and not by choice.** See
+  candidate B-87 below: the subset invocation selected every file in the tree because this
+  worktree's directory name contains the token `workflows`. Reported as the full suite,
+  which is strictly more evidence than the card was owed.
+
+  🛑 **Measured against a FRESH database.** A1 landed earlier tonight, so
+  `scripts/reset-e2e-db.js` DROP/CREATEs `hq_test_e2e_a2` as the first act of the
+  invocation. This is among the first cards in this milestone whose figures are comparable
+  to nothing before it — earlier runs' numbers were taken against an accumulating DB.
+
+- **G3** — **N/A.** `openspec: absent`, re-confirmed at launch. No OpenSpec scaffolding
+  created.
+- **G4** — `node build-sw.js`: **31 files precached (2162.2 KB)**, frontend version 1.4.0.
+  **Precache count unchanged at 31** — no asset added or removed, so B-37's silent drop did
+  not recur. Import reachability: 18 precached files parsed, 30 local references resolved,
+  0 outside the precache. **Idempotent** — a second run left the tree clean. Version parity
+  holds: `version.go Frontend = "1.4.0"` ≡ `package.json "1.4.0"` ≡ `version.json
+  {"frontend":"1.4.0"}`. Regenerated and committed **after** the content commits (B-37).
 
 ---
 
 ## Green after
-
-*(filled in at the fix commit.)*

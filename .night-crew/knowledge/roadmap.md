@@ -687,6 +687,23 @@
   `sync-rxdb/bootstrap.js`, `sync-rxdb/conflict-notice-ui.js`, `.night-crew/knowledge/roadmap.md`,
   `.night-crew/knowledge/BACKLOG.md`, `sw.js` (regenerated). **No `backend/**`, no migration, no
   API contract, no version bump.**
+  **Gates (G1–G4, isolated per B-80: `TEST_PORT=8202` / `TEST_DB_NAME=hq_test_e2e_a2` /
+  `HQ_RLS_TEST_DB=hq_rls_a2_0804`, plus its own `hq_test_go_a2`).** G1 build+vet exit 0. G2 Go
+  **439 ran / 437 passed / 0 failed / 2 skipped** — counts, not `ok` — with `workflow` at **35**
+  (non-zero, so `DB_TEST_URL` bit) and `TestRowVisibilityRLS` showing **59 subtests PASSED** with
+  `HQ_SYNC_SUBSTRATE_OPTIONAL` unset. G2 Playwright **one summary block**: `1 failed / 6 skipped /
+  780 passed (21.2m)` — the one failure IS armed red `yes/no answer converges (live + catch-up)`,
+  which **stays ARMED**; the other three armed reds passed and that **retires nothing**. G4 **31
+  files precached**, idempotent, version parity 1.4.0 ≡ 1.4.0 ≡ 1.4.0.
+  🛑 **This ran the FULL 787-test suite, not the confined subset, and finding the reason is a
+  finding: `npx playwright test workflows persistence sync repro-cut-task` matches the ABSOLUTE
+  path, and this worktree is named `a2-workflows-…`, so the `workflows` token matched every file
+  in the tree.** Confirmed at the source — `node_modules/playwright/lib/util.js:128`
+  `createFileMatcher` tests each regex against the file path handed to it, and
+  `runner/loadUtils.js:63-71` hands it the absolute path from `collectFilesForProject`. Tonight it
+  widened coverage, which is harmless. The dangerous direction is a worktree named for a
+  DIFFERENT app: `[e2e] subset` would then select that app's specs INSTEAD of the seam's and
+  report a green subset that never ran the seam it was confined to. Filed as candidate **B-87**.
 
 - **`app-timezone-unify-new-york`** · **DONE — every site, both contracts, one card** (2026-08-01,
   run `overnight-20260801`, Track A card A1, branch `card/a1-app-timezone-unify-new-york`) ·
