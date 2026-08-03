@@ -42,3 +42,14 @@
 - **Recorded:** 2026-07-31
 - **Offered at:** an attended session
 - **Consent:** recorded on the operator's explicit yes to this item.
+
+## C-3 · Never cut a write path over to a store the readers don't read
+
+- **Preference:** A write path may only move to a different datastore once a proven path carries those rows back to every reader that depends on them — reports, payroll, submit, approvals. Where no such path exists, split reads from writes: the new store may serve reads while the existing path keeps owning writes. Do not swap the write path and rely on local persistence to make it look correct. A done_when: asserting "the value survives reload" does not prove the write landed where readers look, and will pass while data is being lost.
+- **Why (operator):** Chose "read on sync, write on REST" at morning triage 2026-08-02 — taking the read/write split, and waiving P-KR3's parallel-run prohibition to get it, rather than accept a cutover that could produce a silently empty submit. (Selected from offered options; no additional reason stated.)
+- **Weight:** strong
+- **Evidence:** run 20260803, card S1b sync-hard-cutover PARKED. RxDB replicates to the self-hosted Supabase substrate; /submit reads HQ's Postgres; the 0002 bridge is HQ→substrate, read-only, and carries permissions not data. Reopens ledger decision 49, whose deciding premise ("no API boundary left to translate at") is false as built.
+- **Operator:** jac475@cornell.edu
+- **Recorded:** 2026-08-02
+- **Offered at:** an attended session
+- **Consent:** recorded on the operator's explicit yes to this item.

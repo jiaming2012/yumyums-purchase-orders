@@ -1977,6 +1977,18 @@
   *(only if a code fix were warranted — it was not)*, `docs/contracts/**`,
   `*-SALES-PROCESSOR-CONTRACT.md`.
 
+- **`sync-hard-cutover`** · ✅ **UNBLOCKED AT TRIAGE 2026-08-02 — but NOT as this card. Re-shaped by
+  ledger decision 126 (`§T-32`).** F-1 resolved: **RxDB serves reads; HQ's REST path keeps owning
+  writes.** The operator **waived P-KR3's parallel-run prohibition for this shape only** — a build WO
+  still may not propose it, so the successor card must cite decision 126 rather than choose the split
+  itself. This card as written — "make RxDB the single write path" — is **retired, not re-slated**:
+  its premise was the thing found false, and the replacement is a narrower card that RxDB-backs the
+  two list views and the fill view while leaving `/saveResponse` and `/submit` alone. F-2 resolved
+  with it (decision 127): both list tabs stay on REST, nothing narrows, **B-61 closes**. Still riding
+  the successor card: **B-62** (Realtime filter unproven against a live server — correctly still open,
+  `HQ_SYNC_REST_URL` unset is the interlock working), **B-63**, **B-64**, **B-66**, **B-67**, **B-68**,
+  **B-69**, and new **B-79**. The park record below stands as the evidence the decision was taken
+  against. ↓
 - **`sync-hard-cutover`** · 🛑 **PARKED — run `overnight-20260803`, Track A, card S1b.** The card's
   own recorded PARK trigger fired: *"PARK if retiring `/saveResponse` turns out to reopen ledger
   decision 49."* It is reopened, on measurement and on a stronger footing than the trigger

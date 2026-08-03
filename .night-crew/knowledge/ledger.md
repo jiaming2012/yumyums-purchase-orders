@@ -2436,3 +2436,110 @@ data loss in the accountability path and needs a back-and-reopen test in `tests/
 per CLAUDE.md's persistence rule. Their `BACKLOG.md` entries already read `promoted → P2
 (slate-20260802)`, which is accurate: promoted, not started. Final sizing belongs to
 `/nc-slate-plan` against S1/P4/P5/P6, not to triage.
+
+---
+
+## T-32 — Morning-triage resolutions (2026-08-02, `overnight-20260803`)
+
+Night B of the two-night milestone close. 30 commits, 3 merges (3 clean, 0 conflicted hunks), 1 card
+merged, 1 parked with evidence, 1 stretch card merged. Three operator forks were raised and all
+three are resolved below. Gate evidence is from an adversarial subagent that re-executed every gate
+in its own private worktree and ran eight feature-removal mutations, never from the closeout's own
+lines (a card's own closeout is not evidence about that card).
+
+**Decision 126 — F-1 RESOLVED: the cutover splits reads from writes. RxDB serves reads; HQ's REST
+path keeps owning writes. P-KR3's parallel-run prohibition is WAIVED by the operator for this
+shape.** Chosen over (i) making the Supabase substrate the truth source and (ii) building a
+substrate→HQ propagation path. The card that forced this — S1b `sync-hard-cutover` — parked on a
+finding that the cutover is not buildable as specified: RxDB replicates to a *second* Postgres, the
+`0002` bridge runs HQ→substrate read-only and carries permissions rather than data, and nothing
+carries a checklist row back. Retiring `/saveResponse` would therefore not have *moved* the write,
+it would have **detached answers from submission** — a crew member fills a checklist, every answer
+persists to IndexedDB and the substrate, and Submit produces an empty checklist because
+`SUBMIT_CHECKLIST` builds from HQ's `submission_responses`. The card's own `done_when:` would have
+passed while that happened, because it asserts a value survives back-to-list and reopen, which it
+would, from local IndexedDB. This also reopens ledger decision 49, whose deciding argument —
+*"RxDB replicates rows straight from Postgres and there is no API boundary left to translate at"* —
+is false as built. (i) is the honest end state but is a milestone rather than a card, and it makes
+HQ unable to read checklists at all whenever the substrate is down; (ii) looks incremental and is
+not, since the same-transaction version is already proven impossible (`max_prepared_transactions` is
+0 at both ends), leaving only an eventually-consistent design needing its own conflict rule —
+decision 92's territory. The waiver is the operator's and is recorded as theirs: a build WO may not
+propose this shape, and P-KR3 is otherwise unchanged. Offered back and captured as pending candidate
+`architecture/C-3` (not adopted; nothing cites a candidate).
+
+**Decision 127 — F-2 RESOLVED: nothing narrows. Both list tabs stay on REST, so a crew member keeps
+seeing a colleague's completed checklist.** This resolves as a consequence of decision 126 rather
+than as an independent call, which is why it was not captured as a separate preference. The fork
+existed because HQ's REST list returns every submission since `current_date` for everyone — a
+product rule recorded only as a code comment in `backend/internal/workflow/repository.go`
+(`myChecklists`) — while the substrate's `checklist_submissions_select` is
+`hq_can_see_template(template_id)`, so a replicating crew member would have seen submissions on
+their own assigned templates only. Rejected: accepting the narrowing with a release note, and adding
+a fifth read policy row (which would have needed decision 111 reopened). **B-61 closes with this** —
+it was filed by S1a addressed to S1b, and the narrowing it warned about now never occurs. Noted for
+the successor card: the team-wide visibility rule is still recorded nowhere but a comment, and
+should be written down as a product decision before anything re-opens it.
+
+**Decision 128 — F-3 RESOLVED: one combined notice to sales-processor, amending decision 106.**
+Decision 106 had ruled two notices sent separately, the June drift first and alone; that ruling is
+amended, not ignored. Chosen over holding to 106 and over sending P6's while retiring A1's. Three
+things surfaced after 106 was taken: P6's audit covered every `:NN` row of both contract documents —
+**111 rows, 45 wrong** — and only a minority *drifted*, with **22 menu-cogs rows never true at all**,
+authored 2026-06-04 at 23:50 from a phase plan thirteen hours after the handler they describe landed
+at 10:18; A1's own notice carries an error this audit found (`:31`/A10 attributes a timezone claim to
+`/menu-cogs`, which contains no `AT TIME ZONE`), so sending it alone would propagate a fresh error
+while apologising for old ones; and A1's notice **was never drafted** — the triage subagent searched
+all of git history with `--diff-filter=A` and found exactly one notice file has ever existed, P6's.
+A notice scoped to "one expression changed in June" would understate the problem by an order of
+magnitude. 🛑 **Nothing has been sent.** The B3/B4/B6–B10 fix-forward corrections are required
+before the draft goes anywhere near the counterparty, and the operator reads the corrected draft
+before it is delivered. Two questions stay explicitly open and were not decided here: whether any
+past `ready:false` run needs reconciling, and `menu_item_name` vs `name`, which only the
+counterparty can answer. Offered back and captured as pending candidate `process/C-1`.
+
+**Decision 129 — The triage preflight caught a night-crew binary 223 commits behind `main`, and two
+ritual steps were nearly waived as "not deployed."** `night-crew skills preflight` did not exist on
+the installed binary (v3.0.2+3, built from `258d723`), and `decisions ratify` and `preferences
+ratchet` were absent with it. The tempting read — and the one a standing memory note actually
+asserted — was that these verbs are undeployed and the affected steps must be reported as
+unperformed. That was wrong: all three have been on `main` since v3.1.0, and `258d723` is an
+ancestor of `main`. The clone at `/home/jcole/projects/night-crew-main` had already advanced; only
+the binary was stale, because nobody re-ran install after moving it. `task nc:update` converged it
+and the preflight then reported all ten declared verbs present. **The rule this establishes:**
+a missing subcommand is a stale install until proven otherwise — check the verb against `main`'s
+`cmd/nightcrew/main.go` before reporting it as undeployed, because the two cases have opposite fixes
+and only one of them is a blocking finding. Had this gone the other way, §3b and §3c would have been
+reported as unproven; run in fact, both queues were legitimately **empty** (nothing was decided under
+a standing delegation this run), which is a real answer and not a skip.
+
+**Decision 130 — Three closeout claims were falsified at triage; none is a defect in what shipped,
+and the merge stands.** (a) S1b's cited evidence for "no production code" —
+`git diff overnight-20260803 card/s1b-sync-hard-cutover -- . ':!.night-crew'` — returns 3 files at
+HEAD, because P6 merged *after* S1b. The substance is true, verified at the correct base
+(`3a71583^1`, genuinely empty, `/saveResponse` still mounted at `main.go:558`), but **the evidence as
+written is unreproducible at triage time**, and these SHAs get cited. Merge-intents and closeouts
+must cite a diff against a base that does not move underneath them. (b) `night-crew.toml:59-62`
+asserts "re-verified at landing" that four tokens select exactly four spec files; measured at HEAD,
+`sync` matches **six**. The direction is safe (over-inclusion runs more tests), but it is a false
+factual claim inside a gate-configuration file, and a future editor trusting it could narrow the tag
+into under-inclusion. Filed **B-78**. (c) The run's "green except the armed reds" was not the
+stricter reading: on a **fresh** database the merged tree fails `[LST-17]` and passes
+`onboarding:689`, exactly inverting the run's figure. **This is B-76 demonstrated by execution rather
+than asserted** — see decision 131. What the triage *did* confirm, on stronger evidence than the run
+produced, is the `onboarding:689` attribution: all four cells reproduced, with the fresh-DB legs run
+as the **full suite** rather than the spec in isolation, closing the loophole that the isolation
+result was itself an artifact.
+
+**Decision 131 — B-76 is upgraded from a filed finding to a measured one, and it should not wait for
+"next milestone" on its current framing.** The adversarial run produced three independent data points
+that the full-suite figure is not a stable measurement: the merged tree scores **777/6/1 on a fresh
+database against the base's 758/6/4** (so the merged tree is strictly *cleaner* than the base it came
+from — which is the fact that justified merging); the base fails three `sw-api-cache-partition` tests
+on a fresh DB that the merged tree passes; and the shared `hq_test_e2e` now reds **three** onboarding
+tests rather than the one the run saw, so the pollution is actively growing between runs. The
+uncomfortable half of B-76 — *a red can be an artifact, and so can a green* — is no longer a caution,
+it is reproduced. This does not retract any gate in this milestone, and it does not make the merge
+wrong; it means every full-suite figure in the milestone, including tonight's, is a measurement of a
+tree **and** a database state. B-76 keeps its destination (test isolation / gate integrity, as one
+sitting with B-50 and B-35) but is recorded here as the most load-bearing item in that group.

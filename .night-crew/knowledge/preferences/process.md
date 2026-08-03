@@ -49,3 +49,26 @@
 - **Weight:** strong — this is the corollary that makes P-3 safe to apply; applying P-3 without it is how a live bug gets closed.
 - **Evidence:** 5/5 green at low load bounds nothing about high load — p(0 red in 5 | 20%) ≈ 0.33.
 - **Recorded:** 2026-07-21
+
+## Pending — proposed, not adopted
+
+> Candidates offered back from your own answers, recorded with your consent.
+> They are **not preferences yet**: nothing cites them and nothing validates them until
+> you adopt one. To adopt: run `night-crew preferences adopt <category>/<C-n>`, which
+> shows you the exact entry and asks — your yes is read from a terminal, so no pipe, flag,
+> redirect or environment variable can answer for you, while a caller that deliberately
+> allocates a terminal of its own satisfies that check: it makes adopting a deliberate act,
+> not a defence against something setting out to defeat it. Or do it by hand as before:
+> renumber the candidate to the next free `P-n` and move it above this section.
+> To drop one, delete it.
+
+## C-1 · Amend a stale sequencing decision rather than honour it into a worse outcome
+
+- **Preference:** When new evidence materially changes the size or nature of a correction owed to an external counterparty, amend the earlier sequencing decision and send one complete correction — do not honour a stale plan because it was already decided. Prefer one honest message over a drip of partial apologies. Fold any older owed-but-undrafted notice into the combined one rather than sending it separately, and never send a notice still carrying an error the audit itself found.
+- **Why (operator):** Chose "one combined notice" at morning triage 2026-08-02, amending ledger decision 106, after the audit grew from one drifted row to 111 rows audited and 45 wrong — 22 of which were never true at all. (Selected from offered options; no additional reason stated.)
+- **Weight:** moderate
+- **Evidence:** run 20260803, card P6 period-summary-contract-notice. Decision 106 had ruled two notices, June drift first and alone. P6's audit found A1's own notice carries an error (:31/A10, attributing a timezone claim to /menu-cogs, which has no AT TIME ZONE), and that A1's notice was never drafted — confirmed by searching all of git history: exactly one notice file has ever existed.
+- **Operator:** jac475@cornell.edu
+- **Recorded:** 2026-08-02
+- **Offered at:** an attended session
+- **Consent:** recorded on the operator's explicit yes to this item.

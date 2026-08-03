@@ -3,6 +3,45 @@
 **Night B of the two-night milestone close.** Branch `overnight-20260803`, cut off `dev` at
 `60b9edb`. Dispatch **SERIAL**, as the operator chose at sign-off.
 
+> ## ✅ TRIAGED 2026-08-02 — merged to `dev`, flags updated below
+>
+> Reviewed attended. Gate evidence from an adversarial subagent in its own private worktree,
+> never from the closeout's own lines. Resolutions in `ledger.md` §T-32 (decisions 126–131).
+>
+> **CLEARED by this morning's evidence:**
+>
+> | Flag | Cleared because | Re-arms when |
+> |---|---|---|
+> | **F-1 the cutover has no data plane** | Decision **126** — reads on RxDB, writes stay on REST. P-KR3 waived by the operator for this shape only. | A card proposes moving the write path again, or the substrate→HQ direction is revisited. |
+> | **F-2 list visibility narrows at cutover** | Decision **127** — lists stay on REST, nothing narrows. **B-61 closes.** | Any card renders a list from RxDB. |
+> | **F-3 sequencing of the two notices** | Decision **128** — one combined notice, amending 106. | New contract evidence changes the notice's scope again. |
+> | **Gate green-ness in doubt** | Independently reproduced: build+vet 0, Go 9 packages with counts checked (`internal/workflow` 35/0, RLS 59 subtests), G4 31 precached + committed `sw.js` byte-identical to HEAD regeneration, parity 1.4.0. Merged tree **777/6/1 fresh-DB vs base 758/6/4** — strictly cleaner than its base. Eight mutations all reddened. | Every run. |
+>
+> **STILL ARMED — nothing this morning touched these:**
+>
+> - 🛑 **P6's notice is DRAFTED and UNSENT.** Decision 128 chose the *shape*, not the send.
+>   B3/B4/B6–B10 corrections first; operator reads the corrected draft before delivery.
+> - 🛑 **D-KR2** — attended deploy plus 2/2 tab screenshots on a **RETURNING** client. Unchanged
+>   before and after this run.
+> - 🛑 **Attended `task sandbox:e2e`** — still unsatisfied. S1b would have re-armed it; it parked,
+>   so the status is unchanged. Re-arms whenever the verify/merge path changes underneath it.
+> - 🛑 **B-27 and the three other armed reds stay ARMED.** Passing retires nothing (decision 100 /
+>   T-31 decision 120).
+> - 🛑 **`run-evidence check` is still blind here — CONFIRMED UNFIXED at v3.1.0.** Re-tested at
+>   triage against the current `main` binary: still `no-run-evidence` for `20260803`. **B-77's lead
+>   is adequate but incomplete** — 3 of its 5 evidence sources also need the `<runid>` vs
+>   `2026-08-03-autonomous` directory-shape fix, not just the `reference/` two-home fix. Re-arms:
+>   never, until B-77 lands in the night-crew clone.
+>
+> **NEW at triage:** **B-78** (`night-crew.toml:59-62` carries a false "re-verified at landing"
+> claim — `sync` matches six specs, not four; safe direction, but a future editor could narrow it
+> into under-inclusion) and **B-79** (S1a's unknown-`scope.mode` refusal, named must-survive in its
+> own merge-intent, is unpinned by any test — `if (false)` leaves the suite 55/55 green).
+>
+> **B-76 upgraded** — see decision **131**. Three independent data points now show the full-suite
+> figure is a measurement of a tree *and* a database state. The shared DB now reds three onboarding
+> tests, not one; the pollution is growing between runs.
+
 > ### 🛑 Read this first
 >
 > - **The milestone does NOT close on cards.** `sync-hard-cutover` — the last white card of the

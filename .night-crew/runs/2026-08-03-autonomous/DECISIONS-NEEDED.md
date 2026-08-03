@@ -1,5 +1,27 @@
 # DECISIONS-NEEDED — run `overnight-20260803`
 
+> ### ✅ RESOLVED 2026-08-02 — recorded as `ledger.md` §T-32, decisions 126–128
+>
+> All three forks were resolved at attended morning triage. This file is kept as the
+> **analysis record** — the evidence and option framing below are what the decisions were
+> taken against, and are not superseded by them.
+>
+> - **F-1 → read on sync, write on REST** (option iii). RxDB serves reads; HQ's REST path
+>   keeps owning writes. **P-KR3's parallel-run prohibition is WAIVED by the operator for
+>   this shape** — a build WO still may not propose it. Ledger decision **126**. Captured as
+>   pending preference candidate `architecture/C-3`.
+> - **F-2 → nothing narrows.** Both list tabs stay on REST; a crew member keeps seeing a
+>   colleague's completed checklist. Resolves as a consequence of F-1, not independently.
+>   **B-61 closes.** Ledger decision **127**.
+> - **F-3 → one combined notice**, amending ledger decision 106. 🛑 **Nothing has been
+>   sent.** The B3/B4/B6–B10 fix-forward corrections come first, and the operator reads the
+>   corrected draft before delivery. Ledger decision **128**. Captured as pending preference
+>   candidate `process/C-1`.
+>
+> Still explicitly undecided (F-3 deliberately did not settle these): whether any past
+> `ready:false` run needs reconciling, and `menu_item_name` vs `name` — only the
+> counterparty can answer the latter.
+
 Two forks, both from card **S1b `sync-hard-cutover`**, which **PARKED**. Both are
 operator-level: one is an architecture fork the roadmap's own decision record already
 ruled on once (and got wrong on a premise), the other is a product rule.
