@@ -75,6 +75,7 @@ was persisted.
 | `.claude/skills/save-project/SKILL.md` | **Outside the stated footprint.** Line 53 restates the persistence rule to a skill that runs on every save. |
 | `tests/sync-rxdb-client.spec.js` | **Outside the stated footprint, but INSIDE this card's gate subset** (the `sync` token selects it). Its `expect(src).toContain('autoSaveField')` was the substring assertion that let the phantom look tested; it goes red the moment the phantom is removed. Replaced with symbol assertions on the real path, per the lead recorded in B-65 itself. |
 | `workflows.html` | The fix (line 2219) plus two large banner comments (`:320`, `:3553`) that state the phantom as the live path. |
+| `.night-crew/knowledge/designs/fetchstorm-replay-class-superseded.md` | **Added 2026-08-04, A2 fix round (G6 finding 3).** `:56` was the ninth doc site and the only one left uncorrected; it named `autoSaveField` → `POST /saveResponse` as the live write path with no annotation. **Annotated in place rather than added to "deliberately left undone"** — it costs one bracketed line and does not alter the record's meaning (the note's argument turns on the journal, not on the writer's name), and unlike the run artifacts in that list this file is a durable `knowledge/designs/` reference cited by Engineering KR1 as evidence, so a reader is expected to follow it. |
 
 ---
 
@@ -97,6 +98,20 @@ was persisted.
 4. **`tests/sync-rxdb-client.spec.js`'s intent** — "no user write path was rerouted".
    The assertions now name symbols (`debouncedSaveField`, `submitOp('SET_FIELD'`) instead
    of matching a substring that a comment could satisfy. Keep the symbol form.
+
+   🛑 **RECORDED 2026-08-04, A2 fix round (G6 finding 2) — B-65's second lead is PARTIALLY,
+   not fully, discharged, and the note above overstated it.** B-65's lead asked for *"a symbol
+   rather than a substring, since substring-matching source is what let a phantom function look
+   tested."* What shipped is `expect(src).toContain('debouncedSaveField(')` — **strictly better**
+   (the trailing `(` means no comment currently in `workflows.html` satisfies it; G6 confirmed
+   none do) but **the same class of check**: it still matches source text, not a resolved symbol.
+   **Failure scenario:** someone deletes the real call at `:2219` while writing
+   `// call debouncedSaveField(fieldId, value) here` in a comment — the assertion passes again,
+   and the exact B-65 shape recurs. **Deliberately NOT fixed in this round:** the round is
+   docs-only, the file is code, and `[FLD-16B]` in `tests/persistence.spec.js` now provides
+   genuine *behavioural* coverage behind this assertion — which is the coverage that actually
+   would have caught B-65. Anyone hardening this later wants a parse or a runtime probe, not a
+   longer substring.
 
 ## What is safe to drop
 
@@ -143,13 +158,41 @@ subset for `workflows.html` is `["workflows","persistence","sync","repro-cut-tas
 `npx playwright test workflows persistence sync repro-cut-task` from here selected **787
 tests — the entire suite** — because the directory component `a2-workflows-…` matches the
 `workflows` regex on every file in the tree. Tonight it widened coverage, which is harmless
-and in fact strengthens this card's evidence. The direction that is *not* harmless is the
+and in fact strengthens this card's evidence. ~~The direction that is *not* harmless is the
 same mechanism under a differently-named worktree: a card branch named, say,
 `b-inventory-…` would make `[e2e] subset` select the inventory specs **instead of** the
-seam's, and the gate would report a green subset that never ran the seam it was confined to.
-Sibling of B-76 in kind — the harness cannot tell you which tests it actually ran. Lead:
-anchor the tokens (`tests/workflows`, or `--grep-invert`-free explicit file paths) rather
-than passing bare substrings, and have the gate print the selected file list.
+seam's, and the gate would report a green subset that never ran the seam it was confined to.~~
+
+🛑 **CORRECTED 2026-08-04, A2 fix round — the struck sentence above is WRONG. G6 refuted it at
+source and by execution, and it is struck rather than reworded so the record shows what was
+claimed and why it did not hold.** The *mechanism* is real; the *consequence* does not follow.
+CLI path filters are **OR'd**, not intersected — so a directory-component match can only ever
+produce a **superset**, and can never exclude a spec that would otherwise match. The
+under-coverage failure mode described above is **unreachable by this mechanism**.
+
+- `node_modules/playwright/lib/util.js:183` `forceRegExp` → `new RegExp(pattern, "gi")` —
+  unanchored, matches anywhere in the string.
+- `util.js:128` `createFileMatcher` → `re.test(filePath)` against the path handed in; its
+  returned closure (`:141-160`) returns `true` on the **first** regex that hits.
+- `util.js:124-127` `createFileMatcherFromArguments` folds **all** positional args into **one**
+  matcher; `runner/tasks.js:243` pushes that single matcher onto `config.loadFileFilters`, so
+  `loadUtils.js:68`'s `loadFileFilters.every(…)` runs over a **one-element** array — hence OR.
+- `runner/projectUtils.js:147-161` `collectFilesForProject` collects from the resolved absolute
+  `testDir`; `runner/loadUtils.js:63-71` feeds those absolute paths to the filter.
+- Empirical (`--list --project=chromium`, re-measured in this fix round): `workflows` → **86
+  tests / 1 file** from `/home/jcole/projects/hq`, but **786 / 26 files** — the entire chromium
+  suite — from this worktree. `workflows inventory` → **238** = 86 + 152 (`inventory` alone =
+  152), confirming the OR. And decisively: `persistence` **alone** from this worktree → **32 /
+  1 file**, i.e. a token the directory name does *not* contain is not widened at all.
+
+**Corrected consequence, as filed in B-87:** a worktree directory name containing a filter token
+silently turns a confined subset into the **full suite**. The gate **over-runs** — its runtime,
+its isolation assumptions, and its "which tests ran" claim are all not what they say. This is a
+sibling of B-76 in kind — *the harness cannot tell you what it actually ran* — but it is **not**
+a silent-skip risk, and the confined-gate-misses-a-regression direction is unreachable this way.
+
+Lead (recorded, not implemented): anchor the `[e2e.seams]` tokens to `tests/…` so they cannot
+match a directory component, and have the gate print the selected file list.
 
 ---
 

@@ -701,9 +701,26 @@
   in the tree.** Confirmed at the source — `node_modules/playwright/lib/util.js:128`
   `createFileMatcher` tests each regex against the file path handed to it, and
   `runner/loadUtils.js:63-71` hands it the absolute path from `collectFilesForProject`. Tonight it
-  widened coverage, which is harmless. The dangerous direction is a worktree named for a
+  widened coverage, which is harmless. ~~The dangerous direction is a worktree named for a
   DIFFERENT app: `[e2e] subset` would then select that app's specs INSTEAD of the seam's and
-  report a green subset that never ran the seam it was confined to. Filed as candidate **B-87**.
+  report a green subset that never ran the seam it was confined to.~~ 🛑 **CORRECTED 2026-08-04,
+  A2 fix round — the struck sentence is WRONG and is struck rather than reworded. G6 refuted it
+  at source and by execution.** CLI path filters are **OR'd**, not intersected:
+  `createFileMatcherFromArguments` (`node_modules/playwright/lib/util.js:124-127`) folds ALL
+  positional args into **one** matcher that returns true if **any** regex hits (`:141-160`), and
+  `loadUtils.js:68`'s `loadFileFilters.every(…)` runs over that single-element array. A
+  directory-component match can therefore only ever produce a **superset** — it can never exclude
+  a spec that would otherwise match. A worktree named `b-inventory-…` running tokens
+  `workflows persistence sync` selects exactly the intended files, because `inventory` is not one
+  of the tokens. Measured from this worktree: `--list --project=chromium persistence` → **32
+  tests / 1 file** (a non-matching token is NOT widened), while `workflows` → **786 / 26** = the
+  entire chromium suite; and from `/home/jcole/projects/hq`, `workflows inventory` → **238** =
+  86 + 152, confirming the OR. **The real consequence is over-run, not under-coverage:** a
+  worktree directory name containing a filter token silently turns a confined subset into the
+  full suite, so the gate's runtime, its isolation assumptions and its "which tests ran" claim
+  are all not what they say. Sibling of B-76 in kind — *the harness cannot tell you what it
+  actually ran* — but **not** a silent-skip risk. Filed with the corrected consequence as
+  **B-87**.
 
 - **`app-timezone-unify-new-york`** · **DONE — every site, both contracts, one card** (2026-08-01,
   run `overnight-20260801`, Track A card A1, branch `card/a1-app-timezone-unify-new-york`) ·
