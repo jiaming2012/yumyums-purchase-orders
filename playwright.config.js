@@ -1,14 +1,21 @@
 const { defineConfig } = require('@playwright/test');
 const { defineBddConfig } = require('playwright-bdd');
+// scripts/reset-e2e-db.js is the ONE place the e2e Postgres coordinates are
+// computed and the ONE place the database is reset. It carries what used to be
+// duplicated here:
+//   * DB_PORT 5433 = yumyums-dev-pg, the container that actually serves HQ.
+//     Host :5432 is bound by infra-postgres-1 (slack-trading), which has no
+//     `yumyums` role. This file used to carry its OWN copy of that default;
+//     now there is one copy, in the helper.
+//   * TEST_DB_NAME defaults to hq_test_e2e — Playwright's OWN database. The Go
+//     suite owns hq_test_go. They shared one hq_test until 2026-07-21 (audit
+//     surface #3): Go TestMains TRUNCATE `users`, so a concurrent `task test:go`
+//     would log every browser context out mid-suite. Separate databases make the
+//     collision impossible.
+//   * the guard that refuses to DROP anything not named like a test database.
+const { resolveE2eDb } = require('./scripts/reset-e2e-db');
 
-const dbHost = process.env.DB_HOST || 'localhost';
-// 5433 = yumyums-dev-pg, the container that actually serves HQ. Host :5432 is
-// bound by infra-postgres-1 (slack-trading), which has no `yumyums` role.
-// MUST stay in sync with backend/Taskfile.yml's DB_PORT default — this file
-// carries its OWN default and does not read the Taskfile's.
-const dbPort = process.env.DB_PORT || '5433';
-const dbUser = process.env.DB_USER || 'yumyums';
-const dbPass = process.env.DB_PASS || 'yumyums';
+const db = resolveE2eDb();
 // TEST_DB_NAME / TEST_PORT allow running multiple isolated stacks in parallel
 // (each against its own database + server port).
 //
@@ -18,13 +25,8 @@ const dbPass = process.env.DB_PASS || 'yumyums';
 // run the whole suite against the live dev database — corrupting dev data and
 // failing every state-dependent test. Defaulting to 8199 makes a local test run
 // always spawn its own clean server, even with a dev server up on 8089.
-// hq_test_e2e — Playwright's OWN database. The Go suite owns hq_test_go.
-// They shared one hq_test until 2026-07-21 (audit surface #3): Go TestMains
-// TRUNCATE `users`, so a concurrent `task test:go` would log every browser
-// context out mid-suite. Separate databases make the collision impossible.
-const testDbName = process.env.TEST_DB_NAME || 'hq_test_e2e';
 const testPort = process.env.TEST_PORT || '8199';
-const testDbUrl = `postgres://${dbUser}:${dbPass}@${dbHost}:${dbPort}/${testDbName}?sslmode=disable&TimeZone=America/New_York`;
+const testDbUrl = db.testUrl;
 
 // When night-crew provisions an ephemeral environment it exports that stack's
 // base URL as NIGHTCREW_ENV_URL. In that mode we target the provisioned stack
@@ -61,6 +63,34 @@ module.exports = defineConfig({
   },
   // Skip the self-spawned server when night-crew hands us a provisioned env.
   webServer: nightcrewEnvUrl ? undefined : {
+    // 🛑 `node scripts/reset-e2e-db.js &&` IS THE B-76 FIX. Do not move it, and
+    // in particular do not "tidy" it into a `globalSetup`.
+    //
+    // Before it, the only DROP/CREATE of hq_test_e2e in the repo lived inside
+    // `task test`. night-crew.toml runs `npx playwright test` DIRECTLY for both
+    // [e2e] suite and [e2e] subset, so no gate leg — full or subset — had ever
+    // reset the database. Every suite figure this milestone quoted was taken
+    // against an accumulating dataset: a red could be an artifact of a previous
+    // run, and so could a GREEN.
+    //
+    // Why here and nowhere else:
+    //   * a `globalSetup` runs AFTER this server. See
+    //     node_modules/playwright/lib/runner/tasks.js:100-110 —
+    //     createGlobalSetupTasks appends createPluginSetupTasks(config), which is
+    //     where the webServer plugin starts the server, BEFORE config.globalSetups.
+    //     Dropping the database there would drop it out from under a server that
+    //     had already connected, migrated and seeded it.
+    //   * top-level code in THIS file is re-executed in every worker process
+    //     (the worker load carries TEST_WORKER_INDEX=0) and also runs under
+    //     `npx bddgen` and `npx playwright test --list`.
+    //   * webServer.command runs exactly once, in the parent, strictly before any
+    //     test and strictly before the server exists — and cannot be skipped by a
+    //     CLI argument, so it fires on the SUBSET path too.
+    //   * with NIGHTCREW_ENV_URL set this whole object is undefined and no reset
+    //     runs, which is correct: the provisioned stack owns its own database.
+    //
+    // The server re-runs goose migrations on startup, so a bare CREATE is enough.
+    //
     // TOAST_SYNC_INTERVAL=0 disables the Toast in-process worker so the
     // server starts without TOAST_SFTP_KEY_PATH credentials. The Toast
     // worker is not exercised by E2E tests; cmd/sync-toast covers ingest.
@@ -76,7 +106,7 @@ module.exports = defineConfig({
     // unconditionally and purchasing/service.go NotifyVendorComplete enqueues
     // from a request path the suite exercises. Without these, an E2E run can
     // deliver a real Cliq message and a real SMTP email to live crew.
-    command: `cd backend && PORT=${testPort} DB_URL="${testDbUrl}" STATIC_DIR=../ SUPERADMIN_CONFIG=config/superadmins.yaml TOAST_SYNC_INTERVAL=0 E2E_DISABLE_SCHEDULERS=1 MERCURY_API_KEY= ANTHROPIC_API_KEY= ZOHO_CLIQ_CLIENT_ID= ZOHO_CLIQ_CLIENT_SECRET= ZOHO_CLIQ_REFRESH_TOKEN= SMTP_ADDR= SMTP_USERNAME= SMTP_PASSWORD= go run ./cmd/server/`,
+    command: `node scripts/reset-e2e-db.js && cd backend && PORT=${testPort} DB_URL="${testDbUrl}" STATIC_DIR=../ SUPERADMIN_CONFIG=config/superadmins.yaml TOAST_SYNC_INTERVAL=0 E2E_DISABLE_SCHEDULERS=1 MERCURY_API_KEY= ANTHROPIC_API_KEY= ZOHO_CLIQ_CLIENT_ID= ZOHO_CLIQ_CLIENT_SECRET= ZOHO_CLIQ_REFRESH_TOKEN= SMTP_ADDR= SMTP_USERNAME= SMTP_PASSWORD= go run ./cmd/server/`,
     url: `http://localhost:${testPort}/api/v1/health`,
     // Unconditionally false (audit surface #2): reuse has cost four runs. The
     // 8199 default protects against reusing the DEV server, but the same

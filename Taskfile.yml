@@ -39,24 +39,16 @@ tasks:
     # Guarded by scripts/verify-test-harness.sh — do not remove it.
     deps: [backend:db-test, sw, bdd:gen]
     cmds:
-      # Start from a clean hq_test_e2e. This suite shares ONE server + ONE
-      # database across all spec files; leftover users/templates/pending-purchases
-      # from a prior run make order-sensitive tests flake. The server re-runs goose
-      # migrations on startup, so a bare CREATE is enough. (Playwright itself
-      # runs serially — workers:1 in playwright.config.js — for the same reason.)
-      #
-      # hq_test_e2e, NOT hq_test: the Go suite owns hq_test_go. They used to share
-      # one hq_test, and every Go TestMain truncates tables (including `users`) —
-      # so a `task test:go` running alongside `task test` would log every browser
-      # context out mid-suite. Separate databases make that impossible rather than
-      # merely unlikely. Cross-contamination audit 2026-07-21, surface #3.
-      - |
-        DB_HOST="{{.DB_HOST | default "localhost"}}"; DB_PORT="{{.DB_PORT | default "5433"}}"
-        echo "── resetting hq_test_e2e on $DB_HOST:$DB_PORT ──"
-        psql "postgres://yumyums:yumyums@$DB_HOST:$DB_PORT/postgres?sslmode=disable" \
-          -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='hq_test_e2e' AND pid<>pg_backend_pid();" \
-          -c "DROP DATABASE IF EXISTS hq_test_e2e;" \
-          -c "CREATE DATABASE hq_test_e2e;" >/dev/null
+      # The hq_test_e2e reset is NOT here any more, and its absence is the fix,
+      # not an omission. It lives in playwright.config.js's `webServer.command`
+      # (`node scripts/reset-e2e-db.js && …`), so EVERY `npx playwright test`
+      # invocation resets — including the bare `npx playwright test` and the
+      # `npx playwright test "<regex>"` subset that night-crew.toml's [e2e] stanza
+      # runs directly, neither of which ever came through this task. That was
+      # B-76: no night-crew gate leg, full or subset, had ever reset the database,
+      # so a red could be an artifact of a previous run and so could a GREEN.
+      # Keeping a second copy here would be a second source of truth for a
+      # destructive operation. Guarded by tests/db-isolation.spec.js.
       - npx playwright test {{if eq (.HEADED | default "0") "1"}}--headed{{end}}
 
   test:ui:
@@ -69,13 +61,14 @@ tasks:
       # mutate, your live dev data — or (b) collides with a `task test` run using
       # hq_test on :8199. TEST_PORT + TEST_DB_NAME make playwright.config.js spawn
       # a dedicated server on :8091 backed by hq_test_ui.
-      - |
-        DB_HOST="{{.DB_HOST | default "localhost"}}"; DB_PORT="{{.DB_PORT | default "5432"}}"
-        echo "── resetting hq_test_ui on $DB_HOST:$DB_PORT ──"
-        psql "postgres://yumyums:yumyums@$DB_HOST:$DB_PORT/postgres?sslmode=disable" \
-          -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='hq_test_ui' AND pid<>pg_backend_pid();" \
-          -c "DROP DATABASE IF EXISTS hq_test_ui;" \
-          -c "CREATE DATABASE hq_test_ui;" >/dev/null
+      #
+      # The inline psql reset that used to sit here is gone for the same reason as
+      # `test:`'s — playwright.config.js's webServer.command resets whatever
+      # TEST_DB_NAME names, so hq_test_ui is reset by the same single code path.
+      # Its DB_PORT default was ALSO 5432 here while every other site in the repo
+      # uses 5433 (yumyums-dev-pg); host :5432 is infra-postgres-1, which has no
+      # `yumyums` role, so that block could only ever have failed. Deleting it
+      # removes the inconsistency rather than perpetuating it.
       - TEST_DB_NAME=hq_test_ui TEST_PORT=8091 TEST_OUTPUT_DIR=test-results-ui npx playwright test --ui
 
   bdd:gen:
