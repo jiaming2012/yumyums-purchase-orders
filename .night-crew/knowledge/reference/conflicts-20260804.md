@@ -122,3 +122,41 @@ materialize** — serial dispatch again, A4 branched off a base that already con
   `sync-rxdb/bootstrap.js:62-71` `Array.isArray`-gates it, so `cachedGrantSlugs()` returns `[]`
   unconditionally, and the test at `sync-rxdb-client.spec.js:1385` plants the *array* shape so
   nothing catches it — a sibling of B-65 in kind).
+
+---
+
+## Merge 4 — A6 `app-version-badge` 🅢 → `overnight-20260804`
+
+**CLEAN.** No conflicts, no hunks resolved. The night's stretch card, merged last.
+
+- **Cards involved:** A6 alone. A1, A2 and A4 were already in the base.
+- **Files:** 9 files, 732+/12−. `index.html` (the badge), `tests/version-badge.spec.js` (new, 5
+  tests), `playwright.config.js` (the B-92 fix), `scripts/write-version-json.js` (new, extracted),
+  `sw.js`, `BACKLOG.md`, `roadmap.md`, and the card's merge-intent note.
+- **Merge-intent read:** `merge-intents/merge-intent-a6-app-version-badge.md`. Its must-survive list
+  centres on the one thing that makes the card worth having: **the badge's value comes from the
+  precached `version.json` and there is no fallback to `/api/v1/health`.**
+- **Outside the stated footprint:** two — `BACKLOG.md` (B-92) and `scripts/write-version-json.js`,
+  the latter added by the fix round. Both disclosed.
+- **🛑 A6 touched `playwright.config.js`, which A1 owns.** This is the one place tonight where two
+  cards' work met in the same file, and it merged clean because A1 was already in A6's base — the
+  fix *composes* with A1's reset rather than replacing it. Verified at merge time and by the fix
+  round: `webServer.command` now reads
+  `node scripts/reset-e2e-db.js && node scripts/write-version-json.js && cd backend && …`, and both
+  banners appear in order:
+  `[WebServer] ── reset hq_test_e2e_a6fix on localhost:5433 ──` then
+  `[WebServer] ── wrote version.json frontend=1.4.0 ──`.
+  **A1's reset still runs first and is still unskippable.** A fix that silently disabled it would
+  have re-opened B-76 while looking green; it did not.
+- **`serviceWorkers: 'block'` (B-15) untouched** — held by every card this run, as by every card
+  before it.
+- **Resolution taken:** none required — `--no-ff` merge, ort strategy, no conflicts.
+- **Gate result after the merge:** G4 `node build-sw.js` run **after** the merge commit (B-37) →
+  **31 files precached** (2165.0 KB, unmoved — `version.json` was already in the set), reachability
+  18 parsed / 30 resolved / 0 outside; tree clean on the second run ⇒ idempotent. Three-way version
+  parity **1.4.0**; **no version bump**. The run's authoritative G1/G2/G4 figures are in HANDOFF.md,
+  taken by the orchestrator on this final merged tree rather than inherited from card reports.
+- **G6 verdict:** APPROVE-WITH-NOTES. It proved the anti-reroute guarantee **by execution** — writing
+  two forbidden implementations (API-only, and `version.json`-with-fallback) and confirming the spec
+  reds on both — and it found that the card was introducing a regression (**B-92**), which the fix
+  round closed rather than filed.
