@@ -28,9 +28,9 @@ The health value never becomes the badge's own value, and there is **no API fall
 **Named test:** `tests/version-badge.spec.js` — 5 tests, headline
 `version line shows the value from version.json, NOT the value from /api/v1/health`.
 
-**Captured RED against:** the tree of **this very commit** — base `0dcd8b4` plus
-`tests/version-badge.spec.js` and this note, with **no `index.html` change yet**. (SHA back-filled
-in the closing docs commit of this branch.)
+**Captured RED against:** **`ba8719b`** — base `0dcd8b4` plus `tests/version-badge.spec.js` and
+this note, with **no `index.html` change yet**. (The SHA is back-filled here; the section and the
+red output were present in that commit as written.)
 
 **Red output (verbatim tail):**
 
@@ -48,7 +48,24 @@ Every failure is `Error: element(s) not found` on `locator('#version-line')` /
 harness fault. Note that test 5's `sw.js`-manifest assertion **already passed** at red; the missing
 half was purely the display.
 
-**Green after:** _(back-filled in the closing docs commit — see the card report.)_
+**Green after:** `f5cd518` (the `index.html` commit). All 5 green in the **full-suite** G2 leg:
+
+```
+  ✓  701 [chromium] › tests/version-badge.spec.js:70:1 › version line shows the value from version.json, NOT the value from /api/v1/health (545ms)
+  ✓  702 [chromium] › tests/version-badge.spec.js:103:1 › version line reports UNKNOWN rather than falling back to /api/v1/health when version.json is unavailable (480ms)
+  ✓  703 [chromium] › tests/version-badge.spec.js:123:1 › version line flags this device as STALE when the cached bundle differs from the server (508ms)
+  ✓  704 [chromium] › tests/version-badge.spec.js:145:1 › version line reads CURRENT when the cached bundle matches the server (505ms)
+  ✓  705 [chromium] › tests/version-badge.spec.js:164:1 › unmocked, the version line shows the real version.json value and the precache manifest carries that file (422ms)
+```
+
+🛑 **One honest wrinkle between red and green, recorded rather than smoothed over.** The first
+post-implementation run was **4/5**, not 5/5: the unmocked test reported
+`Expected: "v1.4.0" Received: "v—"` because `version.json` did not exist in this worktree. It is a
+git-ignored build artifact and the bare `npx playwright test` the gate runs never generates it. The
+app was behaving **correctly** (unknown reported as unknown, no API fallback); the *stack* was
+missing a file. Filed as **B-92** and mitigated in-card with an explicit `GET /version.json`
+precondition assertion whose failure message names `node build-sw.js`, so the next reader gets a
+setup error instead of an apparent code defect.
 
 ---
 
@@ -112,8 +129,10 @@ at base and at HEAD. This card *displays* the version; it does not change it. No
 
 ## Files outside the footprint
 
-**Nothing here.** The diff against `0dcd8b4` names exactly `index.html`, `sw.js`,
-`tests/version-badge.spec.js`, `.night-crew/knowledge/roadmap.md` and this note.
+One, named: **`.night-crew/knowledge/BACKLOG.md`**, which carries the new finding **B-92** (the
+Playwright gate path never generates `version.json`). Nothing else — the diff against `0dcd8b4`
+names exactly `index.html`, `sw.js`, `tests/version-badge.spec.js`,
+`.night-crew/knowledge/roadmap.md`, `.night-crew/knowledge/BACKLOG.md` and this note.
 
 No `backend/**`. No other `*.html`. No `night-crew.toml` change — `index.html` stays **undeclared in
 `[e2e.seams]`**, which de-confines the card to the full suite by construction; that is the correct

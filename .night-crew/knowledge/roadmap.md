@@ -781,6 +781,78 @@
   merge-intent note (reworded Q-KR2, ledger T-33 decision 132) so an absent section and an
   inapplicable one stay distinguishable at triage.
 
+- **`app-version-badge`** · ✅ **BUILT — run `overnight-20260804`, card A6 (the night's STRETCH
+  card), on branch `card/a6-app-version-badge` (base `0dcd8b4`); awaiting merge + G6.** ·
+  **Closes D-KR2b's evidence method.** Ledger T-33 **decision 133**; specified content is
+  `reference/okr-completion-plan-20260804.md` §3 A6.
+  **Deliverable:** a discreet version line in `index.html`'s footer — the launcher every user
+  passes through — so the owner can confirm a deploy reached the phone without staging a
+  photograph of it.
+  🛑 **THE SOURCE IS THE DESIGN, AND IT IS THE PRECACHED FILE.** The badge's value comes from
+  `fetch('version.json')`. That file ships *inside the bundle* (Workbox precache, served
+  cache-first), so it reports what **this device** actually has — the only value here capable of
+  being stale, which is the entire property under test. `/api/v1/health`'s `frontend_version` is
+  **always** current, so a badge fed from it would print the right number on a phone frozen on last
+  week's bundle and **hide the T-21d defect rather than catch it**.
+  **The API value is a comparison and never the source.** Health is read only *after* the cached
+  value is already on screen, only into `#version-server`: equal ⇒ `data-state="current"`,
+  different ⇒ `"stale"` with **both numbers visible**, so the app diagnoses its own staleness.
+  🛑 **There is deliberately NO API fallback** — if `version.json` cannot be read the line shows
+  `v—` / `data-state="unknown"`. An unknown bundle reported as unknown is honest; the server's
+  number printed in its place would be a lie about this device, and it is exactly the lie the card
+  exists to prevent.
+  **The test is built to fail on the forbidden implementation, not merely to observe a version.**
+  `tests/version-badge.spec.js` (5 tests, new file) stubs the two sources with **deliberately
+  different** values — `version.json` → `9.9.9-from-file`, health → `0.0.1-from-api` — and pins the
+  badge to the file's by equality. The decisive one **aborts `version.json` while health still
+  answers**: there is then no legitimate value to display, so any implementation carrying an API
+  path prints `0.0.1-from-api` and reds.
+  🛑 **What `serviceWorkers: 'block'` costs, stated rather than implied.** `playwright.config.js`
+  blocks service workers repo-wide (B-15, **untouched**), so no test in that file can watch Workbox
+  serve the precache — under test the file arrives over plain HTTP. The guarantee is therefore
+  **split, and both halves are asserted**: the spec pins *the URL the page reads from* and *the
+  absence of an API fallback*; its fifth test pins `version.json`'s presence in the **committed
+  `sw.js` manifest**, which is what makes that URL cache-first and staleable on a real device.
+  Neither half alone is the property.
+  **Gates (G1–G4, isolated per B-80: `TEST_PORT=8206` / `TEST_DB_NAME=hq_test_e2e_a6` /
+  `HQ_RLS_TEST_DB=hq_rls_a6_0804`, plus its own Go database `hq_test_go_a6`).** G1 `go build ./...`
+  and `go vet ./...` both exit 0 from `backend/`. G2 (Go) exit 0 with **437 PASS / 2 SKIP / 0 FAIL
+  across 439 tests** — counts, not `ok`: `internal/workflow` ran **35** tests, and
+  `TestRowVisibilityRLS` **PASSed with its ~40 named subtests actually running**,
+  `HQ_SYNC_SUBSTRATE_OPTIONAL` unset. The 2 skips are the pre-existing `TestProxyLive_*` live
+  proofs (`HQ_SYNC_SPIKE_LIVE` unset). G2 (Playwright) **the FULL suite — `index.html` is
+  undeclared in `[e2e.seams]`, so the card is de-confined by construction and the ~21 minutes were
+  paid, not worked around**: **exactly one summary block**, `6 skipped` / `786 passed (21.0m)`,
+  **0 failed**, exit 0, against a **fresh database** (A1 landed tonight, so every Playwright
+  invocation now resets). 🛑 **All four armed reds PASSED and none is retired** (decision 100 /
+  T-31 decision 120) — `item modal pre-fills search with current line item text`, `yes/no answer
+  converges (live + catch-up)`, `a queued submission still lends its idempotency_key at 7:30pm CT
+  [A1-TZ-02]`, `submitted checklist survives builder edit with assignment change [LC-02]`. Note the
+  second of those **failed on tonight's A2 leg and passed here**; both outcomes are expected of an
+  armed red and neither is evidence about this card. G4 `node build-sw.js` run twice: **31 files
+  precached** both times — **the count did not move, and this card adds no asset** (`index.html`
+  and `version.json` were both already in the manifest, so a move would be the B-37 silent drop
+  returning) — clean tree on the second run, version parity **1.4.0 ≡ 1.4.0 ≡ 1.4.0**.
+  🛑 **No version bump.** This card *displays* the version; it does not change it.
+  **Red-first:** `tests/version-badge.spec.js`, captured RED at `ba8719b` — 5 failed, every one
+  `Error: element(s) not found` on `locator('#version-line')`, i.e. failing for the absence of the
+  surface and not on a harness fault. Green at `HEAD` inside the full-suite run above.
+  **New finding — B-92:** the Playwright gate path never generates `version.json`. It is
+  git-ignored by design (`.gitignore:13`); `task test` produces it via its `sw` dep, but
+  `night-crew.toml:33-34` runs `npx playwright test` **directly** and `webServer` serves the bare
+  worktree, so `GET /version.json` **404s** in a worktree where `node build-sw.js` never ran —
+  measured here, as `Expected: "v1.4.0" Received: "v—"`. Not a production defect
+  (`backend/Dockerfile:57-64` regenerates it into the image from the authoritative `Frontend`
+  constant); the defect is that a missing artifact and a broken version line are indistinguishable
+  at the gate. Mitigated in-card by an explicit `GET /version.json` precondition whose failure
+  message names `node build-sw.js`.
+  Footprint as built: `index.html`, `tests/version-badge.spec.js` (new), `sw.js`,
+  `.night-crew/knowledge/roadmap.md`, `.night-crew/knowledge/BACKLOG.md` (B-92) and this run's
+  merge-intent note. **No `backend/**`, no other `*.html`, no `night-crew.toml` change.**
+  **Still owed, attended and not this card:** D-KR2a / D-KR2b's actual evidence — the ~15-minute
+  `task prod:deploy` → `task version` → read-the-line-on-a-**returning**-client ritual, after this
+  merges.
+
 - **`app-timezone-unify-new-york`** · **DONE — every site, both contracts, one card** (2026-08-01,
   run `overnight-20260801`, Track A card A1, branch `card/a1-app-timezone-unify-new-york`) ·
   **🛑 BUILT AND HANDED TO THE ORCHESTRATOR FOR MERGE — DEPLOYED TO NOTHING.** Flipping this
