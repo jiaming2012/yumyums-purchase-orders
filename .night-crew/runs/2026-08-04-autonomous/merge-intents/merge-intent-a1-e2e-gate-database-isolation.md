@@ -6,7 +6,15 @@ cut off `overnight-20260804` at **`c9e9e9e`**. Every diff claim in this note is 
 
 Written BEFORE implementing (§15ad.65). Updated in place only for facts that changed.
 
-Closes **B-76**.
+Closes **B-76**. Fixes **B-81** (scoped fix round, after G6 returned APPROVE-WITH-NOTES).
+
+**Fix round, 2026-08-04 — appended, card NOT reopened.** G6 returned APPROVE-WITH-NOTES. One code
+fix was applied (**B-81**, the stdout-swallowed reset banner) plus seven backlog filings
+(**B-80**–**B-86**) and a correction to B-76's own resolution note. Everything below that predates
+the fix round still holds as written; the fix round's additions are marked. Gates re-run: **G4**
+(`node build-sw.js` twice) and one **subset Playwright leg**. The full 786-test suite and the Go
+suite were **not** re-run and did not need to be — the fix-round diff is one `console` call in
+`scripts/reset-e2e-db.js`, no Go code and no production code.
 
 ---
 
@@ -14,11 +22,11 @@ Closes **B-76**.
 
 | File | Why this card touches it |
 |---|---|
-| `scripts/reset-e2e-db.js` | **New. The card's own file.** The single place the e2e database is reset and the single place its Postgres coordinates are computed. Carries the loud guard that refuses any database whose name is not a test database. |
+| `scripts/reset-e2e-db.js` | **New. The card's own file.** The single place the e2e database is reset and the single place its Postgres coordinates are computed. Carries the loud guard that refuses any database whose name is not a test database. **Fix round:** its CLI branch now prints the reset banner with `console.error`, not `console.log` — **B-81**. Nothing else in the file moved: not the guard, not the DROP/CREATE, not `require.main === module`. |
 | `playwright.config.js` | The fix itself: `webServer.command` now begins with `node scripts/reset-e2e-db.js &&`, and the duplicated coordinate constants at `:4-27` now come from `scripts/reset-e2e-db.js` so there is one source of truth. 🛑 **`serviceWorkers: 'block'` is untouched** (B-15). |
 | `tests/db-isolation.spec.js` | **New.** The red-first test. Cross-process by construction — it checks for a marker left by the previous invocation, then leaves one for the next. |
 | `Taskfile.yml` | `test:` and `test:ui:` had their own inline `psql … DROP/CREATE` blocks. Those are now the *only other* reset in the repo and would be a second source of truth; both are replaced by a pointer to the config's reset. `test:ui:`'s block also carried `DB_PORT` default **5432** where the rest of the repo uses **5433** — deleting it removes that inconsistency rather than perpetuating it. |
-| `.night-crew/knowledge/BACKLOG.md` | B-76 marked resolved with the evidence. Any new finding takes B-80 onward. |
+| `.night-crew/knowledge/BACKLOG.md` | B-76 marked resolved with the evidence. **Fix round:** **B-80**–**B-86** filed (numbers allocated by the orchestrator, not invented by this card), **B-81** filed as RESOLVED with its commit SHA, and 🛑 **one sentence inside B-76's own resolution note struck and corrected** — see below. |
 | `.night-crew/knowledge/roadmap.md` | The card's status flip, required in the same change set. Filed next to `test-harness-fail-loud`, which is the same theme (a harness that cannot report failure) and the precedent for a gate card carrying a roadmap bullet. |
 | `.night-crew/runs/2026-08-04-autonomous/merge-intents/` | This note. |
 
@@ -69,6 +77,18 @@ card changes only the harness. (Verified against `c9e9e9e`; see the card report 
    grade the wrong database.
 6. **`playwright.config.js:60`'s `serviceWorkers: 'block'` is untouched (B-15).** Byte-identical
    to `c9e9e9e`.
+7. **(Fix round) The reset banner must be printed with `console.error`, not `console.log`.** This
+   is **B-81** and it is not a style preference. `scripts/reset-e2e-db.js` runs as the first link
+   of `webServer.command`, and Playwright's webServer plugin pipes the child's **stdout only when
+   `webServer.stdout === 'pipe'`**, which defaults to `'ignore'`
+   (`node_modules/playwright/lib/plugins/webServerPlugin.js:126`;
+   `node_modules/playwright/types/test.d.ts:10285-10289`). stderr **is** piped by default
+   (`:10281-10283`) — which is why the Go server's slog lines reach a gate log and, before this
+   fix, the banner did not. Since psql emits no NOTICE on a successful DROP, a gate log then
+   carried **zero** evidence the reset had run: item 1 above was true and unobservable. A merge
+   that "tidies" this back to `console.log` restores exactly the silence B-76 is about. The
+   banner's **content** must also survive — it names the database and the `host:port`, and that
+   content is the evidence.
 
 ---
 
@@ -78,9 +98,14 @@ card changes only the harness. (Verified against `c9e9e9e`; see the card report 
   `tests/db-isolation.spec.js`. Compress freely; behaviour is pinned by the test.
 - The exact **wording** of the guard's throw message and of the test's failure message, provided
   both still name the offending database.
-- The `console.log` line in `reset-e2e-db.js`'s CLI branch, if a merge prefers a quiet gate log —
+- ~~The `console.log` line in `reset-e2e-db.js`'s CLI branch, if a merge prefers a quiet gate log —
   though a silent reset is indistinguishable from no reset, which is B-76's own mechanism, so
-  prefer keeping it.
+  prefer keeping it.~~ 🛑 **RETRACTED by the fix round. This bullet was wrong and is the reason
+  B-81 existed.** The line is now `console.error` and it is **must-survive item 7**, not
+  safe-to-drop. It was never a nicety: with it removed — or, as shipped, present but on a stream
+  Playwright discards — a gate log contains no evidence the database was reset, which is B-76's
+  own mechanism restated. A merge that drops it, or moves it back to stdout, silently un-does the
+  observability half of this card.
 - The `psqlUrl` field's *name*. It exists only because libpq rejects the `TimeZone` query
   parameter pgx accepts; any equivalent construction is fine.
 - The **deletion** of the two inline `psql` blocks in `Taskfile.yml`. If a merge would rather keep
@@ -164,3 +189,94 @@ optional)`, is exactly the test B-76's four-way matrix attributed to accumulated
 here at 4.5s**, which corroborates the attribution and is not a claim that this card fixed a
 product defect. The `+1` in the test count is `tests/db-isolation.spec.js` itself.
 
+
+### Fix round — B-81, the banner, verified BY EXECUTION
+
+The B-81 fix is one `console` call, so "I changed `console.log` to `console.error`" is **not**
+evidence it works. The property under test is *the banner reaches Playwright's output*, and that
+was measured, on the subset shape, with an A/B control inside a **single** invocation: a temporary
+`console.log` control line was carried alongside the `console.error` banner, so both streams were
+exercised by the same process in the same run.
+
+```
+TEST_PORT=8221 TEST_DB_NAME=hq_test_e2e_a1fix HQ_RLS_TEST_DB=hq_rls_a1fix_0804 \
+  npx playwright test "db-isolation" --retries=0
+```
+
+Line 1 of Playwright's output, verbatim:
+
+```
+[WebServer] ── reset hq_test_e2e_a1fix on localhost:5433 ──
+```
+
+and over the same log:
+
+```
+grep -c CONTROL-STDOUT <log>   ->   0
+```
+
+**Same process, same run: the stderr banner reaches the log; the stdout control is discarded.**
+That is the mechanism named in must-survive item 7, demonstrated rather than argued. The control
+line was then reverted — only the `console.log` → `console.error` change and its explanatory
+comment ship.
+
+Suite result on that leg: **`1 passed`**. It was the *second* consecutive invocation against
+`hq_test_e2e_a1fix`, so it also re-proves the reset itself — the marker table left by invocation 1
+was gone, which is the assertion `tests/db-isolation.spec.js` makes.
+
+**G4, re-run:** `node build-sw.js` twice → `31 files precached (2160.5 KB)` **both times**, and
+`git status` clean of `sw.js` / `version.json` after each. The precache count is unmoved, which is
+the expectation here — `scripts/reset-e2e-db.js` is not in the precache set (B-37's silent-drop
+sentinel would have been the finding had it moved).
+
+**Not re-run, deliberately:** the full 786-test suite and the Go suite. The fix-round diff is one
+`console` call in a harness script; it touches no Go code and no production code, and the full
+suite figure above was taken after the card's own fix, which this does not alter.
+
+**Isolation used for the fix round** (this is B-80's remedy applied to the fix round itself):
+`TEST_PORT=8221`, `TEST_DB_NAME=hq_test_e2e_a1fix`, `HQ_RLS_TEST_DB=hq_rls_a1fix_0804`. 🛑 The
+card's original evidence above was taken on `TEST_PORT=8201` against the **bare default**
+`hq_test_e2e` — see the note on B-80 below, which is exactly about that.
+
+---
+
+## Fix round — G6 findings filed
+
+G6 returned **APPROVE-WITH-NOTES**. One note was fixed (B-81, above); the rest are **filings only**
+and were deliberately **not** fixed — fixing them is scope creep on a card that has already passed
+G6. All numbers were allocated by the orchestrator. Filed in `.night-crew/knowledge/BACKLOG.md`:
+
+| # | One line | Where |
+|---|---|---|
+| **B-80** | Every invocation now DROPs the shared default `hq_test_e2e`, and legs are not issued a `TEST_DB_NAME` — two concurrent legs destroy each other rather than merely polluting each other | `scripts/reset-e2e-db.js:111-131`, `:77`; `playwright.config.js:109` |
+| **B-81** | The reset banner went to stdout, which `webServer` discards — **RESOLVED this round** | `scripts/reset-e2e-db.js:140` |
+| **B-82** | `tests/db-isolation.spec.js` never runs on a seam-confined subset leg; no `[e2e.seams]` tag matches `db-isolation` | `night-crew.toml:34`, `:36-60` |
+| **B-83** | The reset guard is name-only — host, port and credentials unchecked | `scripts/reset-e2e-db.js:93-104`, `:71-91` |
+| **B-84** | With `NIGHTCREW_ENV_URL` set the reset is inert and the test skips rather than failing — correct behaviour, but the one silent shape | `playwright.config.js:65`; `tests/db-isolation.spec.js:48-51` |
+| **B-85** | `task bdd` points at `DB_PORT: '5432'`, which black-holes SYN here; pre-existing, but the failure now presents as a 60s stall on the reset | `Taskfile.yml:82-86`; `playwright.config.js:116` |
+| **B-86** | `verify-test-harness.sh`'s A2 floor is stale at 20 while the repo resolves 27 | `scripts/verify-test-harness.sh:78`, `:74-75` |
+
+### 🛑 The false `TEST_DB_NAME` premise — corrected in B-76, and it was never in this note
+
+**This note does not contain the false premise and never did** — grep it for `TEST_DB_NAME` and the
+only hits are the guard requirement (must-survive item 2) and the two guard-verification commands.
+Nothing here claims cards are issued their own database. Recorded explicitly so a merger does not
+have to re-derive that.
+
+**B-76's resolution note in `BACKLOG.md` did contain it**, and it has been struck in place. The
+sentence declined the per-run-database alternative on the grounds that *"the collision half is
+already carried by `TEST_DB_NAME` + `TEST_PORT` (every card is issued its own pair)"*. **Both
+halves of that are false**, and the code says so:
+
+- Cards are **not** issued a `TEST_DB_NAME`. The isolation stanza in `launch-20260803.md:97-98`
+  names `HQ_RLS_TEST_DB`, `TEST_PORT` and a scratchpad directory — and **tonight's own
+  `launch-20260804.md` carries no isolation stanza at all** (grep it for `unique`, `TEST_PORT`,
+  `TEST_DB_NAME`, `HQ_RLS_TEST_DB`: every one absent, as in `slate-20260804.md`). This card's own
+  implementer ran `TEST_PORT=8201` against the bare `hq_test_e2e`, which is the demonstration.
+- A per-card name does **not** "defeat `assertTestDatabaseName`'s point-blank name check".
+  `TEST_DB_NAME=hq_test_e2e_a1fix` matches `/^hq_test(?:_[a-z0-9]+)*$/` and was measured resetting
+  cleanly through the gate path this round — it is the database every figure in the fix-round
+  evidence above was taken against.
+
+A resolved entry justifying itself with a false premise is how the next reader gets misled, which
+is why the correction is written into B-76 itself and not only into B-80.
