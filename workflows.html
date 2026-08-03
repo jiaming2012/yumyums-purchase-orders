@@ -2215,8 +2215,21 @@ function handleFailPhotoCaptureClick(fldId) {
           tmp.innerHTML = renderFailCard(tplField, FAIL_NOTES[fldId]);
           currentCard.replaceWith(tmp.firstChild);
         }
-        // Persist fail note with photo URL via autoSaveField
-        autoSaveField(fldId, FIELD_RESPONSES[fldId] ? FIELD_RESPONSES[fldId].value || FIELD_RESPONSES[fldId] : '');
+        // Persist the fail note (photo included) through the ONE live write
+        // path — debouncedSaveField bundles `_fail_note` from the failNotes
+        // store, which we just mutated, and ships it as SET_FIELD. This mirrors
+        // the correction-photo path at ~:2151 exactly.
+        //
+        // 🛑 The ANSWER is what goes on the wire, not the photo: the photo rides
+        // along inside the `_fail_note` bundle. Pass `resp.value` and nothing
+        // else. This line used to read `resp.value || resp`, which is wrong on
+        // its own terms — a fail card exists precisely when the answer is falsy,
+        // so `false || resp` would have written the whole response OBJECT as the
+        // field's value. (It never got that far: it called `autoSaveField`, which
+        // is defined nowhere, and the .catch() below swallowed the
+        // ReferenceError while the thumbnail rendered anyway. B-65.)
+        var failResp = FIELD_RESPONSES[fldId];
+        debouncedSaveField(fldId, failResp ? failResp.value : null);
       })
       .catch(function(err) {
         console.error('Fail photo upload failed:', err);
