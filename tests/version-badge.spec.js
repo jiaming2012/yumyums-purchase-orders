@@ -41,6 +41,27 @@ const ADMIN_PASSWORD = 'test123';
 const FILE_VERSION = '9.9.9-from-file';
 const API_VERSION = '0.0.1-from-api';
 
+// Parse the Workbox precache MANIFEST — `url:"…"` entries — rather than
+// grepping sw.js for the string. Same idiom as tests/sw-manifest.spec.js:17-22
+// (duplicated deliberately: requiring another *.spec.js would register ITS
+// tests into this file's suite).
+//
+// 🛑 WHY THE PARSE AND NOT A STRING MATCH. This half of the spec is what covers
+// the gap `serviceWorkers: 'block'` leaves — it is the only assertion that
+// `version.json` is served CACHE-FIRST, i.e. device-local and therefore
+// staleable, which is the whole premise of the badge. A regex like
+// /["']version\.json["']/ is satisfied by ANY mention of the file in sw.js,
+// including a `runtimeCaching` `urlPattern` — a configuration in which the file
+// sits OUTSIDE the precache and the guarantee is silently gone while this test
+// stays green. So it must be the strong half, not the loose one.
+function precachedUrls(swSource) {
+  const urls = [];
+  const re = /url:"([^"]+)"/g;
+  let m;
+  while ((m = re.exec(swSource)) !== null) urls.push(m[1]);
+  return urls;
+}
+
 async function login(page) {
   await page.goto('/login.html');
   await page.fill('input[type="email"]', ADMIN_EMAIL);
@@ -168,25 +189,35 @@ test('unmocked, the version line shows the real version.json value and the preca
   // is asserted against the COMMITTED sw.js manifest instead.
   const root = path.join(__dirname, '..');
   const sw = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
-  expect(sw).toMatch(/["']version\.json["']/);
+  const precached = precachedUrls(sw);
+  expect(precached.length).toBeGreaterThan(0); // a parse that found nothing must not read as a pass
+  expect(precached).toContain('version.json');
 
   const pkgVersion = JSON.parse(
     fs.readFileSync(path.join(root, 'package.json'), 'utf8'),
   ).version;
 
-  // 🛑 version.json is git-IGNORED on purpose (.gitignore:13). build-sw.js writes
-  // it locally and backend/Dockerfile regenerates it into the image, so it exists
-  // in prod and after `task test` (which has `sw` as a dep) — but a bare
-  // `npx playwright test`, which is what night-crew.toml's [e2e] stanza runs,
-  // never generates it. Assert the precondition EXPLICITLY so a missing artifact
-  // reads as "run node build-sw.js" and not as a silent "v—" that looks like a
-  // code defect. A skipped precondition reads exactly like a clean pass.
+  // 🛑 version.json is git-IGNORED on purpose (.gitignore:13) yet SHIPS. Three
+  // generators now cover the three places the tree is served:
+  // `build-sw.js` (local dev / `task sw` / `task test` via its `sw` dep),
+  // `backend/Dockerfile:57-64` (prod, inside the image), and — since B-92 —
+  // `scripts/write-version-json.js` as a link of `playwright.config.js`'s
+  // `webServer.command`, which is what covers the bare `npx playwright test`
+  // that night-crew.toml's [e2e] stanza runs, subset leg included.
+  //
+  // The precondition stays asserted anyway, because it is now ALSO the test
+  // that says the webServer link still fires: if that link is ever dropped or
+  // reordered out of the chain, this reads as a named setup error instead of a
+  // silent "v—" that looks like a code defect. A skipped precondition reads
+  // exactly like a clean pass.
   const res = await page.request.get('/version.json');
   expect(
     res.ok(),
     'GET /version.json returned ' + res.status() + '. This stack has no version.json — ' +
-      'it is a generated, git-ignored artifact. Run `node build-sw.js` before the suite ' +
-      '(`task test` does this via its `sw` dep; a bare `npx playwright test` does not).',
+      'it is a generated, git-ignored artifact. `playwright.config.js`\'s webServer.command ' +
+      'runs `node scripts/write-version-json.js` for exactly this (B-92); if you are seeing ' +
+      'this, that link is gone from the chain, or the stack is a provisioned ' +
+      'NIGHTCREW_ENV_URL env whose image did not generate the file.',
   ).toBe(true);
   expect((await res.json()).frontend).toBe(pkgVersion);
 
