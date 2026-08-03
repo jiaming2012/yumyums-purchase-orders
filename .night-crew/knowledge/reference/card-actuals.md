@@ -1053,3 +1053,9 @@ roughly half the answer*, and on this card they were roughly a quarter.
    it printed a false green; and the final Go gate first run with `postgres:postgres` credentials
    when this box uses **`yumyums:yumyums`**. The second failed *loud* and correctly refused to skip,
    which is the fail-loud harness working as designed — but it cost a 15-minute run.
+
+## Run 20260804
+
+| Card | Implement | G6 | Fix rounds | End-to-end |
+|---|---|---|---|---|
+| A1 `e2e-gate-database-isolation` | 46m50s (10:23:02→11:09:52) | 17m38s (11:09:52→11:27:30) | 11m52s (11:27:30→11:39:22) | **76m20s** — MERGED, G6 APPROVE-WITH-NOTES. Estimate 75–120m; landed at the low end. |
