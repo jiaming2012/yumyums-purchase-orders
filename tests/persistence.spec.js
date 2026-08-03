@@ -1385,6 +1385,176 @@ test.describe('Persistence', () => {
     await expect(field.locator('.correction-banner')).toContainText('Photo uploaded');
   });
 
+  // 🛑 FLD-16C is FLD-16B's missing twin, and its absence was the second half of
+  // B-65 that card A2 did not close.
+  //
+  // `handleCorrectionPhotoCaptureClick` (workflows.html:2129-2168) is the
+  // byte-for-byte structural twin of the fail-photo chain B-65 broke: same
+  // openCamera → showPhotoPreview → presign → PUT → `debouncedSaveField(fldId,
+  // resp ? resp.value : null)` shape. Until this test, NOTHING executed it.
+  // `[FLD-CORRECTION-PHOTO]` above covers the same slot but injects the photo via
+  // `POST /saveResponse` — the exact transport bypass FLD-16B's own header names as
+  // "the blind spot B-65 lived in for months" — and workflows.spec.js:684-689
+  // *reimplements* the production write inside page.evaluate, so it asserts against
+  // its own copy of the code rather than the shipped one.
+  //
+  // Proved by mutation at triage 2026-08-03: planting the literal B-65 defect
+  // (`autoSaveField` at workflows.html:2154) and running every photo/correction test
+  // in the suite returned **9 passed, rc=0**. This test reds on that mutation.
+  //
+  // Two assertions carry the guard, and both are on what came back from the server:
+  // the https:// thumbnail after a reopen (the write executed at all), and the
+  // checkbox still reading checked (the ARGUMENT was `resp ? resp.value : null` and
+  // not the `resp.value || resp` form that ships the whole response object).
+  test('correction photo captured through the camera path survives back-to-list and reopen [FLD-16C]', async ({ page }) => {
+    const todayDOW = await getTodayDOW(page);
+
+    const tpl = await apiCall(page, 'POST', 'createTemplate', {
+      name: 'Correction Photo Capture Path Test',
+      requires_approval: true,
+      sections: [{
+        title: 'Close', order: 0, condition: null,
+        fields: [{
+          type: 'checkbox', label: 'Lock the truck', required: false, order: 0,
+          config: {}, fail_trigger: null, condition: null,
+        }],
+      }],
+      assignments: [
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' },
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'approver' },
+      ],
+      schedules: [{ active_days: [todayDOW] }],
+    });
+
+    const templates = await apiCall(page, 'GET', 'templates');
+    const fieldId = templates.find(t => t.id === tpl.id).sections[0].fields[0].id;
+
+    const UPLOAD_URL = 'https://spaces.example.test/upload/correction-' + fieldId + '.jpg?sig=stub';
+    const PUBLIC_URL = 'https://spaces.example.test/checklists/' + tpl.id + '/correction-' + fieldId + '.jpg';
+
+    // Submit with the box checked, then have the approver bounce that field back
+    // demanding photo evidence — the only way the correction-photo capture button
+    // is rendered at all.
+    await apiCall(page, 'POST', 'submitChecklist', {
+      template_id: tpl.id, idempotency_key: generateUUID(),
+      responses: [{ field_id: fieldId, value: JSON.stringify(true) }],
+    });
+    const pending = await apiCall(page, 'GET', 'pendingApprovals');
+    const sub = pending.find(s => s.template_id === tpl.id) || pending[0];
+    await apiCall(page, 'POST', 'rejectItem', {
+      submission_id: sub.id, field_id: fieldId, comment: 'Photo please', require_photo: true,
+    });
+
+    // The ephemeral test stack has no SPACES_* env, so the real presigner is nil and
+    // /photos/presign answers 503 (workflows.spec.js FLD-20). Stub both legs so the
+    // client reaches the code AFTER a successful upload — the only place the bug lives.
+    await page.route('**/api/v1/photos/presign', route => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ url: UPLOAD_URL, public_url: PUBLIC_URL }),
+    }));
+    await page.route(/^https:\/\/spaces\.example\.test\/upload\//, route => route.fulfill({
+      status: 200, contentType: 'text/plain', body: '',
+    }));
+
+    // A ReferenceError here is swallowed by the chain's own .catch() and never
+    // reaches page.on('pageerror') — it only ever surfaces as a console.error.
+    // The mechanism; the reopen assertions below are the consequence.
+    const consoleErrors = [];
+    page.on('console', m => { if (m.type() === 'error') consoleErrors.push(m.text()); });
+
+    await page.goto(BASE + '/workflows.html');
+    const row = page.locator('[data-fill-template-id="' + tpl.id + '"]');
+    await expect(row).toBeVisible({ timeout: 10000 });
+    await row.click();
+    await page.waitForSelector('#fill-body');
+
+    // The rejection banner and its capture button must be present before we start.
+    const captureBtn = page.locator('[data-action="correction-photo-capture"][data-fld-id="' + fieldId + '"]');
+    await expect(captureBtn).toBeVisible({ timeout: 5000 });
+
+    // Measured, not assumed: at this point the field is UNANSWERED even though it
+    // was submitted `true`. hydrateFieldState:1809 does
+    // `delete FIELD_RESPONSES[rej.field_id]` on every hydrate of a rejected
+    // submission — "uncheck a top-level field so crew must redo". So `resp` is
+    // undefined inside the capture handler, and `resp ? resp.value : null` is
+    // required to pass `null`; the B-65-shaped `resp.value || resp` would throw a
+    // TypeError on undefined here and the chain's .catch() would swallow it.
+    await expect(page.locator('.check-btn[data-field-id="' + fieldId + '"]'))
+      .not.toHaveClass(/checked/);
+
+    // Capture: openCamera() appends a hidden <input type=file> and clicks it.
+    const chooserPromise = page.waitForEvent('filechooser');
+    await captureBtn.click();
+    const chooser = await chooserPromise;
+    await chooser.setFiles({
+      name: 'correction.jpg',
+      mimeType: 'image/jpeg',
+      buffer: Buffer.from([0xff, 0xd8, 0xff, 0xdb, 0xff, 0xd9]),
+    });
+
+    // Confirm in the preview modal → presign → PUT → persist.
+    await page.locator('.photo-modal .photo-confirm-btn').click();
+
+    // CORRECTION_PHOTOS[fldId] is assigned one line BEFORE the write call, so the
+    // thumbnail appears in the broken tree too. Sync point, not the assertion.
+    const thumb = page.locator('.correction-photo-area img.photo-thumb');
+    await expect(thumb).toBeVisible({ timeout: 10000 });
+    expect(await thumb.getAttribute('src')).toBe(PUBLIC_URL);
+
+    // Let the 400ms save debounce fire and the op round-trip.
+    await page.waitForTimeout(1500);
+
+    expect(consoleErrors.join('\n')).not.toMatch(/Correction photo upload failed/);
+    expect(consoleErrors.join('\n')).not.toMatch(/ReferenceError/);
+
+    // Back to list, then reopen: the server is the only source of truth now.
+    await page.locator('#fill-back').scrollIntoViewIfNeeded();
+    await page.click('#fill-back');
+    await expect(page.locator('#checklist-list')).toBeVisible({ timeout: 5000 });
+
+    const row2 = page.locator('[data-fill-template-id="' + tpl.id + '"]');
+    await expect(row2).toBeVisible({ timeout: 5000 });
+    await row2.click();
+    await page.waitForSelector('#fill-body');
+
+    // Guard 1 — the write executed: the photo came back as an https:// URL.
+    const thumbAfter = page.locator('.correction-photo-area img.photo-thumb');
+    await expect(thumbAfter).toBeVisible({ timeout: 5000 });
+    const srcAfter = await thumbAfter.getAttribute('src');
+    expect(srcAfter).toBe(PUBLIC_URL);
+    expect(srcAfter).not.toMatch(/^blob:/);
+    await expect(page.locator('.correction-banner').first()).toContainText('Photo uploaded');
+
+    // Guard 2 — the ARGUMENT was right. Read the bundle the server actually stored
+    // (DRAFT_RESPONSES is the live alias of the draftResponses store, rehydrated
+    // from the API on this reopen). It must be exactly `{_v: null,
+    // _correction_photo: <url>}`: the photo in its own slot, and the answer left
+    // null rather than the whole FIELD_RESPONSES object.
+    //
+    // 🛑 This assertion, not a checkbox state, is what carries the argument guard —
+    // because :1809 clears a rejected field's answer on EVERY hydrate, so no
+    // back-and-reopen assertion on the answer itself can survive by design.
+    const storedBundle = await page.evaluate(function(fid) {
+      var drafts = (typeof DRAFT_RESPONSES !== 'undefined' && DRAFT_RESPONSES) || [];
+      var d = drafts.find(function(x) { return x.field_id === fid; });
+      if (!d) return null;
+      var v = d.value;
+      if (typeof v === 'string') { try { v = JSON.parse(v); } catch (e) { /* leave as string */ } }
+      return v;
+    }, fieldId);
+
+    expect(storedBundle, 'no draft was persisted for the correction photo at all').not.toBeNull();
+    expect(storedBundle._correction_photo).toBe(PUBLIC_URL);
+    expect(storedBundle._v).toBeNull();
+
+    // And the field stays unanswered, per :1762 — a photo-only correction draft
+    // records the photo without marking the field answered, because the crew still
+    // owes the actual answer. Asserted so a future reader does not "fix" it.
+    await expect(page.locator('.check-btn[data-field-id="' + fieldId + '"]'))
+      .not.toHaveClass(/checked/);
+  });
+
   // --- Video watch progress persistence ---
 
   test('video max_watched_time survives back-to-list and reopen', async ({ page }) => {
