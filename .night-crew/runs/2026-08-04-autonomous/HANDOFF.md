@@ -239,7 +239,7 @@ Run **alone on the box** (verified before starting: 0 other test processes), `--
 
 **Exit 0. Zero failures.** Total 792 = 786 + 6, and the final test index printed was **792**.
 
-🛑 **All four armed reds RAN and PASSED — and per decision 100 / T-31 decision 120 that retires
+🛑 **All four armed reds RAN and PASSED — and per decision 100 (armed reds are named by test title, never by line number) and decision 120 (all four passed and none was retired) that retires
 nothing.** Verified by full title that each is present in the suite and none is statically skipped,
 so with 0 failures each necessarily ran green:
 
@@ -311,7 +311,7 @@ evidence method A6 exists to provide.
 | Flag | State |
 |---|---|
 | Attended `task sandbox:e2e` | 🛑 **Still unsatisfied, still armed.** No card touched the verify/merge path, and triage's own `[FLD-16C]` change touched only `tests/` and `docs/`. **Re-arms whenever the verify/merge path changes underneath it.** |
-| B-27 + three other armed reds | 🛑 **STILL ARMED.** See the gate block — passing retires nothing (decision 100 / T-31 decision 120). **Triage adds a fifth: `[RUN-10]`, now B-131** — it failed on an independent full run of this tree and is flaky on `dev` too, so a red there is expected and must stop reading as a regression (T-34 decision 135). |
+| B-27 + three other armed reds | 🛑 **STILL ARMED.** See the gate block — passing retires nothing — an armed red stays armed until someone diagnoses it, not until it goes green once (decision 100, armed reds named by title; decision 120, four passed and none retired). **Triage adds a fifth: `[RUN-10]`, now B-131** — it failed on an independent full run of this tree and is flaky on `dev` too, so a red there is expected and must stop reading as a regression (T-34 decision 135). |
 | `HQ_SYNC_REST_URL` | Unset, and stayed unset. No card set it. |
 | E-KR1 | Graded **NOT MET** (T-33 decision 132). No card addressed it; deliberate. |
 | `run-evidence check` | 🛑 Blind in this repo (B-77) — **and triage confirmed the prediction below in the affirmative.** After a 4-of-4 night that closed, `run-evidence check --run 20260804` still reported `no-run-evidence`: it seeks `.night-crew/runs/**20260804**/` (this repo names them `2026-08-04-autonomous`) and a root-level `reference/conflicts-*` (this repo is scaffolded, so it lives under `.night-crew/knowledge/`). `reference/closeout-20260804.md` **exists** and the night closed. 🛑 The record was **not** back-dated or written to make the verdict green. |

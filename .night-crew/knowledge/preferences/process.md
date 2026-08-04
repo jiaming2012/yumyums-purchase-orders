@@ -72,3 +72,13 @@
 - **Recorded:** 2026-08-02
 - **Offered at:** an attended session
 - **Consent:** recorded on the operator's explicit yes to this item.
+
+## C-2 · Never cite an identifier without the thing it identifies
+
+- **Preference:** A decision number, backlog handle, ledger section, card ID, key-result name, gate label or commit SHA carries no meaning on its own. Attach what it identifies, in a few words, on first use in any document or message — "decision 126 (reads move to RxDB, writes stay on REST)", not "decision 126". Keep the identifier; never let it travel alone. This binds the written record too: the ledger, handoffs and commit bodies are where bare numbers accumulate and are hardest to decode later, because nobody reads a ledger linearly. A short gloss beats a perfect one.
+- **Why (operator):** "can i write a rule to stop writing, e.g. decision XYZ 126 without a reference, as i dont remember what the number represents." — operator, 2026-08-03. Second occurrence of the same class: the July plain-language feedback carved out an exception for the written record, and that exception is what let bare numbers accumulate there.
+- **Weight:** strong
+- **Operator:** jac475@cornell.edu
+- **Recorded:** 2026-08-03
+- **Offered at:** an attended session
+- **Consent:** recorded on the operator's explicit yes to this item.
