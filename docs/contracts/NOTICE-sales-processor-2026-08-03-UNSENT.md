@@ -5,11 +5,26 @@
 | **Status** | **UNSENT. NOTHING HAS BEEN DELIVERED.** |
 | **Drafted** | 2026-08-03, night-crew run `20260803`, card P6 `period-summary-contract-notice` |
 | **Drafted by** | HQ (automated audit). **Not reviewed. Not approved. Not sent.** |
-| **Sending is** | **the operator's act, and the operator's alone.** |
-| **Channel** | undecided — the operator picks |
+| **Sending is** | 🛑 **NOT A THING. There is no external recipient — see the box below.** |
+| **Channel** | **N/A.** Established 2026-08-03: the operator maintains sales-processor themselves. |
 | **Supersedes** | nothing, but it **absorbs** the other notice owed to sales-processor: the timezone notice from card A1, which is **owed and was never drafted** (ledger decision 106 records it as owed; no draft has ever existed in this repo). Per decision 128 this is now **one combined notice**. See "Sequencing" below. |
 
-**To whoever reads this file next:** do not treat any part of it as communicated. The audit that produced it (`docs/contracts/inventory-period-summary.md` §0 and `docs/contracts/inventory-menu-cogs.md` §0) is merged into the contract documents; **the counterparty has not been told.** Until someone sends this, sales-processor is still working from the pre-audit contracts.
+## 🛑 READ THIS FIRST — there is no counterparty to send to
+
+**Established at morning triage 2026-08-03: the operator maintains the sales-processor repo themselves.** Asked directly, they confirmed it. Nothing in this repo ever recorded that — the Phase 21 contract says only *"hand this document to the sales-processor maintainer"* and that the work was kept in its own repo *"per the developer's decision"*, and the developer **is** the operator.
+
+**So this file is not a letter and never was.** It is written in second person to an external maintainer, it apologises, and it asks questions — all of which is the wrong shape for a note to oneself. Two ledger decisions (**106**, two notices sent separately with the June drift first; **128**, amending that to one combined notice) both reasoned about *sequencing outbound comms to a counterparty* and neither premise held. That framing cost drafting time across two runs and a morning.
+
+**What survives intact, and it is most of the value:**
+
+1. **The audit findings are real and unaffected.** 111 contract rows checked, **45 wrong** — 18 drifted, 27 in menu-cogs of which 22 were never true. Both contract documents are corrected and merged. Those documents are the spec the operator builds and maintains sales-processor *against*, so they matter exactly as much as before.
+2. 🛑 **§1 is an operational finding about the operator's own payroll, not a courtesy.** Since 2026-06-06 the completeness gate may have returned `ready: false` on periods the published rule said were clear, and `ready: true` on periods holding unreviewed receipts. That is the operator's own payroll runs. **Worth checking the run history for unexplained gate failures since June 2026** — the question is unchanged, only the person to ask is.
+3. **The coordinated release requirement is still real.** Owning both sides removes the negotiation, not the constraint: deploying HQ's `America/Chicago` → `America/New_York` changeover while sales-processor still computes Chicago produces the same one-hour disagreement at every period edge. **§4 is the checklist for that, and it still gates the deploy.**
+4. **§3's `name` / `menu_item_name` question becomes a decision.** It asks the counterparty which key they built against. The operator can simply look, then fix whichever side is wrong.
+
+**What this file should become:** a changelog entry plus a pre-deploy checklist, in the first person, with the apology and the questions stripped. It has not been rewritten yet — the audit content is accurate and the reframing is cosmetic against the deploy that actually matters.
+
+**Nothing here has been communicated anywhere**, and with no external reader that is no longer a defect.
 
 ---
 
