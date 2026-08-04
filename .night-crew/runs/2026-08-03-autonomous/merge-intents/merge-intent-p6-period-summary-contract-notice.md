@@ -10,7 +10,7 @@ Card: Track B / stretch, promoted from B-29.
 | `docs/contracts/inventory-period-summary.md` | The Phase 21 contract of record (`21-SALES-PROCESSOR-CONTRACT.md`). Card part 1 corrects the `pending_review_ids` drift statement; card part 2 adds the row-by-row drift audit. Card A1 (`67b2c9f`, merged) already rewrote `:27`, `:28`, `:68` and A5 for the timezone; **this card edits the same rows again**, so a merge that resolves in favour of A1's text silently drops this card's findings. |
 | `docs/contracts/inventory-menu-cogs.md` | The Phase 999.2 sibling contract (`999.2-SALES-PROCESSOR-CONTRACT.md`). Card part 2 audits every row here too. A1 added `:31` and A10 (`:453`); this card marks both **inaccurate for this endpoint** (menu-cogs has no timezone cast at all), so again this card's text must win over A1's. |
 | `docs/contracts/NOTICE-sales-processor-2026-08-03-UNSENT.md` | New file, no conflict surface. Card part 3 — the drafted outbound notice. **UNSENT.** |
-| `.night-crew/knowledge/BACKLOG.md` | Discoveries filed as B-71..B-74 (allocated to this card). Append-only at the tail of the open-items list; conflicts with S1a/S1b are positional only (they used B-61..B-70). |
+| `.night-crew/knowledge/BACKLOG.md` | Discoveries filed as B-71..B-7**5** (allocated to this card). Append-only at the tail of the open-items list; conflicts with S1a/S1b are positional only (they used B-61..B-70). *(Corrected 2026-08-03 at morning triage, B10 of the P6 fix-forward checklist: this note said B-71..B-74. **B-75** was filed by the G6 round after the note was written — "Assumption A6 of the menu-cogs contract still publishes a false claim about where HQ rounds, and the audit's SUPERSEDED verdict hid it" — so the note under-reported the card's own footprint in the one file most likely to collide.)* |
 | `.night-crew/knowledge/roadmap.md` | Required status flip for the P6 card in the same change set. |
 
 ## What must survive any merge
@@ -25,7 +25,7 @@ Card: Track B / stretch, promoted from B-29.
 
 - The prose ordering inside the `§0` Drift Audit tables — rows may be re-sorted freely as long as no row is lost.
 - Any wording overlap with A1's timezone text where the two say the same thing (`:28`, A5). If A1's phrasing wins on the **timezone-only** sentences, nothing is lost; only the `pending_review_ids` gate clauses and the menu-cogs "shares date semantics" claim must resolve in this card's favour.
-- The backlog entries B-71..B-74 may be renumbered if another card lands in that range first; their content must survive, their numbers need not.
+- The backlog entries B-71..B-7**5** may be renumbered if another card lands in that range first; their content must survive, their numbers need not. *(B-75 added to this line 2026-08-03 at morning triage — see the shared-files table above.)*
 
 ## Explicitly not here
 

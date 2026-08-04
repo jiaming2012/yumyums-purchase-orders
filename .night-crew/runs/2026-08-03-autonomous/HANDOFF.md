@@ -340,6 +340,24 @@ been the real test of that log, and it did not happen.
 
 ### P6 fix-forward checklist for attended triage
 
+> ✅ **DISCHARGED 2026-08-03 at morning triage of run `20260804`** (ledger §T-34; decided under
+> `delegation/P-1`, adopted the same morning — these are factual corrections against facts already
+> established, so they are mechanism, not an operator call). All seven applied:
+> **B3** both sites corrected to "owed and undrafted", and the no-draft claim **verified by
+> execution** (`git log --all --diff-filter=A -- '*NOTICE*'` returns only P6's own `e17bfc2`);
+> **B4** the Sequencing section rewritten as *decided* — decision 128, one combined notice amending
+> 106 — and "three things the operator must decide" is now two; **B6** nine → **eight** json tags,
+> counted at source (`IngredientAlloc` 3 + `UnallocatedBreakdown` 2 + `UnallocatedDetail` 3);
+> **B7** four → **five** slice fields, the omission being `pending_review_details`
+> (`inventory/types.go:196-198`); **B8** the `by_vendor` row now carries the allowlist +
+> `reason` qualifier its siblings had; **B9** the "four field names" headline split into the four
+> distinct kinds of wrong, with a third table column; **B10** merge-intent B-71..B-74 → B-71..B-7**5**.
+>
+> 🛑 **One thing the checklist did not name, and it blocks sending:** decision 128 requires A1's
+> timezone content to be **folded into** this notice, and the draft does not contain it. The notice
+> is therefore not sendable as-is without either writing that half or consciously departing from 128.
+> Flagged at the top of the notice's Sequencing section.
+
 Non-blocking, none of them a wrong code-level claim, all in already-merged documentation:
 
 - **B3** — the notice asserts A1's timezone notice was *"drafted 2026-08-01"*; **no such draft exists**

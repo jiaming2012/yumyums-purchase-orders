@@ -7,28 +7,33 @@
 | **Drafted by** | HQ (automated audit). **Not reviewed. Not approved. Not sent.** |
 | **Sending is** | **the operator's act, and the operator's alone.** |
 | **Channel** | undecided — the operator picks |
-| **Supersedes** | nothing. This is the **second** notice owed to sales-processor. The first is the timezone notice from card A1 (2026-08-01), which is **also undelivered.** See "Sequencing" below. |
+| **Supersedes** | nothing, but it **absorbs** the other notice owed to sales-processor: the timezone notice from card A1, which is **owed and was never drafted** (ledger decision 106 records it as owed; no draft has ever existed in this repo). Per decision 128 this is now **one combined notice**. See "Sequencing" below. |
 
 **To whoever reads this file next:** do not treat any part of it as communicated. The audit that produced it (`docs/contracts/inventory-period-summary.md` §0 and `docs/contracts/inventory-menu-cogs.md` §0) is merged into the contract documents; **the counterparty has not been told.** Until someone sends this, sales-processor is still working from the pre-audit contracts.
 
 ---
 
-## Before sending — three things the operator must decide
+## Before sending — two things the operator must decide
 
-The draft below is written to be sendable **as-is**, but three decisions are embedded in it and none is HQ's to make unilaterally:
+The draft below is written to be sendable **as-is**, but two decisions are embedded in it and neither is HQ's to make unilaterally:
 
 1. **Whether to reconcile past runs.** The draft says HQ is *not* proposing a restatement. If the operator wants past weeks re-examined, §4 needs rewriting. **The audit deliberately makes no claim about whether any payroll run was actually blocked** — only that it became possible on 2026-06-06. HQ retains no log that would settle it.
 2. **The `menu_item_name` / `name` question** (menu-cogs §8 Q2). The draft *asks* the counterparty rather than announcing a fix, because the right answer depends on what sales-processor actually built. If the operator would rather just change HQ's key, §3 becomes an announcement instead of a question.
-3. **Whether to send this together with, or after, the A1 timezone notice.** See Sequencing.
 
-## Sequencing
+*(There were three. The sequencing question is no longer one of them — see below.)*
 
-Two notices are now owed and **neither has been sent**:
+## Sequencing — DECIDED, not open
 
-- **A1's timezone notice** (drafted 2026-08-01) — the `America/Chicago` → `America/New_York` changeover, which requires a **coordinated two-repo release** and is therefore time-sensitive against the next HQ deploy.
-- **This notice** — eight weeks of undisclosed contract drift, which is not tied to a deploy date but is larger.
+🛑 **This was an open question in the drafted version and it is now settled: ledger decision 128 (triage 2026-08-02) rules ONE COMBINED NOTICE, amending decision 106.** The draft below is that combined notice. Nothing here is asking the operator to re-choose sequencing; what remains is whether to send it.
 
-They overlap: this audit **corrects** one of A1's own statements (A1 told sales-processor that `/menu-cogs` shares `/period-summary`'s date semantics and moves with it on the changeover deploy; it does not — `/menu-cogs` has no timezone dependency at all). **Sending A1's notice alone would propagate that error.** Recommended: send one combined message, or send this one first. *Operator's call.*
+Two notices were owed:
+
+- **A1's timezone notice** — the `America/Chicago` → `America/New_York` changeover, which requires a **coordinated two-repo release** and is therefore time-sensitive against the next HQ deploy. **Owed and undrafted:** decision 106 records it as owed, and no draft has ever existed in this repo — a search of `git log --all` finds no trace. *(The drafted version of this file asserted it was "drafted 2026-08-01". That was wrong and is corrected here; it is the B3 item of the P6 fix-forward checklist.)*
+- **This notice** — eight weeks of undisclosed contract drift, not tied to a deploy date but larger.
+
+**Why 128 amended 106 rather than honouring it.** Decision 106 had ruled two notices, the June drift first and alone. Three things surfaced afterwards: this audit covered every `:NN` row of both documents — **111 rows, 45 wrong** — and only a minority had *drifted*, with **22 menu-cogs rows never true at all**; A1's own notice carries an error *this* audit found (it attributes a timezone claim to `/menu-cogs`, which contains no `AT TIME ZONE` at all), so sending it alone would **propagate a fresh error while apologising for old ones**; and A1's notice was never drafted, so "send it first" had nothing to send. The owed timezone correction is therefore **folded into this message** rather than chased separately.
+
+⚠️ **A1's timezone content is not yet written into the draft below.** Decision 128 requires it to be, and the changeover is the time-sensitive half. Whoever sends this must add it — or consciously send the drift half alone and re-open the owed timezone notice, which is a departure from 128 and should be recorded as one.
 
 ---
 ---
@@ -82,14 +87,14 @@ Also worth flagging: **`purchase_event_count` no longer counts `purchase_events`
 
 The menu-cogs contract did not drift. **Most of it was wrong the day we wrote it**, on 2026-06-04. It was written from the phase plan rather than from the shipped handler, and nobody diffed the two.
 
-**Four of the nine per-menu-item field names have never matched what we return.** If you implemented against the struct we published — and we published a copy-paste-ready Go struct — then:
+**Four of the nine per-menu-item fields have never matched what we return — but they are wrong in four different ways, and only one of them is a wrong name.** The distinction matters because each breaks your client differently. If you implemented against the struct we published — and we published a copy-paste-ready Go struct — then:
 
-| We told you | We actually send |
-|---|---|
-| `name` | `menu_item_name` |
-| `menu` | **nothing — this field does not exist** |
-| `menu_subgroup: null` when absent | the key is **omitted** entirely |
-| *(not mentioned)* | `toast_master_id` |
+| We told you | We actually send | What kind of wrong |
+|---|---|---|
+| `name` | `menu_item_name` | **a wrong name** — your decoder finds nothing under `name` |
+| `menu` | **nothing — this field does not exist** | **a phantom field** — we documented something we never built |
+| `menu_subgroup: null` when absent | the key is **omitted** entirely | **wrong nullability** — present-and-null vs absent |
+| *(not mentioned)* | `toast_master_id` | **undocumented** — we send it and never said so |
 
 **So if you built it as documented, you have been rendering empty menu-item names since June 2026.** If that matches something you have seen and worked around, that is why.
 
