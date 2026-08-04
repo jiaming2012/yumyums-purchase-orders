@@ -2724,3 +2724,64 @@ the existing standing rule (PM/PjM/Engineer-level calls get decided, not handed 
 questions to *mechanism* questions, including ones a skill's own text routes to the operator. It does
 not extend to genuine product forks. Offered back as a preference candidate at triage; adoption is
 the operator's and nothing cites a candidate.
+
+---
+
+## T-35 — Consumer reply to the sales-processor notice (2026-08-04)
+
+The sales-processor maintainer replied to the combined notice, answering all four sections. Three
+answers change HQ's obligations and one closes a question that had been open since 2026-06-06.
+
+⚠️ **Provenance for everything below: the consumer's reported reply.** That repo is not present in
+this tree, so HQ cannot verify any of it at source — unlike every verdict in the two contract
+audits, which were checked against code. Recorded as reported-and-credible, not measured.
+
+**Decision 142 — §1 is closed with NO restatement of any past figure, on the consumer's evidence,
+with one gap named rather than papered over.** The consumer's gate hard-fails before writing a
+report or dispatching a transfer, so a spurious `ready:false` would appear as a **missing week on
+disk** — and it reports an unbroken weekly run, reports and transfer ledgers both, for every period
+**2026-05-31 → 2026-07-19**, no gaps. Its gate went live **2026-06-05**, one day before the two
+2026-06-06 changes, so that window is its entire exposure and every run inside it completed. The
+opposite direction — a spurious `ready:true` letting a period through — it cannot see, but that is
+bounded to the "case 1" bucket (COGS-category, receipt attached, parser failed) and those periods
+were acted on weeks ago; the consumer judges it immaterial and asks for no restatement. HQ accepts.
+🛑 **The gap, found by HQ reading the reply rather than by the consumer:** the evidence window ends
+**2026-07-19 and today is 2026-08-04** — sixteen days and **two weekly periods (ending 07-26 and
+08-02) are unaccounted for.** By the reply's own detection method those are precisely where a
+spurious block would sit undetected. Filed **B-138**; §1 is closed on the evidence offered, not on
+the two weeks nobody has looked at.
+
+**Decision 143 — assumption A5's "COORDINATED TWO-REPO RELEASE — sales-processor must make the
+matching change" is RETIRED as false, and the HQ timezone deploy is NOT blocked by the consumer.**
+The consumer reports **no timezone code whatsoever**: it sends `from`/`to` as bare calendar dates and
+its Mercury gap check only diffs transaction IDs. Its entire "matching change" is a find-replace in
+its own handoff documents, which it will do **after** migration `0072` deploys, deliberately not
+before. So the dependency A5 asserted does not exist, and it had been gating an HQ deploy on nothing
+— including in the notice HQ drafted the day before, whose §4 warned the consumer not to ship early.
+That warning was harmless but unnecessary. **What HQ still owes is the changeover date**, which is
+the only thing the consumer says it is waiting on. Chosen over keeping A5 as a precaution: a stated
+dependency that does not exist is worse than none, because the next person to read it defers a deploy
+for it — which is exactly what happened here.
+
+**Decision 144 — `tracked_bank_tx_ids` must stay UNFILTERED, and narrowing it counts as a breaking
+change even though it only removes rows.** The consumer decodes it and its Mercury↔HQ gap check
+depends on the list being unfiltered by category: that is what lets the check surface miscategorised
+and uncategorised transactions, which are invisible to every COGS field on the endpoint. It is the
+consumer's stated backstop for exactly those rows. Adding a category filter would not break the
+decode — it would **silently blind the check**, which is the worse failure and the harder one to
+notice. Recorded on the field's own row in the contract, not only here, because the row is where
+someone about to "tidy" the query will be looking. The consumer asked to be told if it ever changes.
+
+**Decision 145 — `/menu-cogs` keeps sending `menu_item_name`; the wire is NOT changed to `name`, and
+`menu` is NOT added.** The consumer has **no `/menu-cogs` client at all** — no code, no contract
+document on its side — and stated it is indifferent. Decided at role level rather than escalated,
+under `delegation/P-1`. Three reasons: the corrected document now **matches the shipped code**, so
+changing the wire would move the code to match a document that has already been fixed, inverting the
+audit's own governing principle ("we changed no code; every correction moved the documents to match
+the shipped behaviour"); there is no client to please in either direction; and a future consumer will
+build from the corrected document **plus** the observed wire, which now agree, so the cheapest
+correct state is the one that already exists. `menu` stays unimplemented for the same reason —
+purely additive, breaks nothing, and serves nobody. 🛑 **The wider finding is that the whole
+menu-cogs contract — 64 rows audited, 27 wrong, 22 never true from the day it was written — never
+had a consumer.** The document drifted from the code and the code answered nobody. Recorded at the
+top of that document so the next reader does not mistake live surface for load-bearing surface.

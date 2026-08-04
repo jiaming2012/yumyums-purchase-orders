@@ -1,6 +1,16 @@
 # Phase 999.2 — sales-processor ↔ HQ HTTP Contract (menu-cogs)
 
-**Status:** Authored 2026-06-04 by the planner. **Hand this document to the sales-processor maintainer.**
+**Status:** Authored 2026-06-04 by the planner. Audited row-by-row 2026-08-03.
+
+> 🛑 **THIS ENDPOINT HAS NO CONSUMER, confirmed 2026-08-04.** The sales-processor maintainer reports **no `/menu-cogs` client code and no contract document on their side** — nothing has ever been built against this. That is worth stating at the top because it reframes the audit below: of **64 rows checked, 27 were wrong and 22 were never true from the day this was written** — and none of it ever reached a consumer, because there was none. The document drifted from the code, and the code answered nobody.
+>
+> **Consequences, so nobody re-derives them:**
+> - **Nothing here is load-bearing today.** Changing the wire format breaks no client. The `name` vs `menu_item_name` question is HQ's alone; the consumer stated it is indifferent.
+> - **The endpoint still ships and still answers** (same Bearer auth, same 503-if-unset), so it is live surface with no reader — worth knowing before anyone invests in it.
+> - **If a consumer is built later,** it will be built from *this corrected document plus the observed wire*, so the corrections below (the `ingredient_cost_total` formula, the recipe-based row selection, the broken reconciliation invariant) land before a line of client code exists. That is the best case this audit could have produced.
+> - **`/menu-cogs` does not move on the timezone changeover** — no timezone cast exists anywhere in its code path. See `§0` at `:453` (assumption A10) for the corrected claim.
+>
+> Provenance: reported by the consumer, not verified from this tree — that repo is not present here.
 
 This document is the contract the sales-processor repo must implement against to satisfy Phase 999.2's acceptance criteria. The HQ-side of the phase (this repo) is shipped and exercised by integration tests; the sales-processor side is NOT planned here per the developer's decision to keep that work in its own repo.
 
