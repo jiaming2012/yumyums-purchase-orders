@@ -2785,3 +2785,48 @@ purely additive, breaks nothing, and serves nobody. 🛑 **The wider finding is 
 menu-cogs contract — 64 rows audited, 27 wrong, 22 never true from the day it was written — never
 had a consumer.** The document drifted from the code and the code answered nobody. Recorded at the
 top of that document so the next reader does not mistake live surface for load-bearing surface.
+
+---
+
+## T-36 — §1 closed on the extended window (2026-08-04)
+
+The consumer answered HQ's B-138 challenge by extending its own check. Two decisions: one closes
+the question §1 opened on 2026-06-06, the other opens a new one on HQ's side that the exchange
+exposed.
+
+**Decision 146 — B-138 is RESOLVED and §1 is CLOSED with no restatement, on evidence that now covers
+the full window.** The two periods B-138 named (ending **2026-07-26** and **2026-08-02**) have **no
+run at any pipeline stage** — classify, PDF, CSV and transfer ledger all stop at 07-19. Nothing was
+blocked because **nothing ran**: both were operator skips, the business was closed. HQ's own
+`/period-summary` independently returns `ready: true`, zero pending, zero unlinked for both periods,
+which is consistent. Combined with the first reply's unbroken 2026-05-31 → 2026-07-19 run, there is
+no spurious block anywhere in the exposure window, and the consumer asks for no restatement. HQ
+accepts and closes. 🛑 **B-138 was worth raising even though it found nothing**: the answer was
+sixteen days of unexamined data, and the *reason* it found nothing — the weeks were skips, not blocks
+— is what surfaced decision 147.
+
+**Decision 147 — the "unbroken weekly run ⇒ no blocks" detection method was only CONDITIONALLY
+valid, and HQ owns the half nobody had raised. Filed B-139.** The consumer volunteered the flaw
+rather than being caught by it: *"a week we skip is byte-for-byte indistinguishable on disk from a
+week your gate blocks — both leave no report and no ledger."* The method therefore only holds if
+every week actually runs. It **does** hold for 2026-05-31 → 2026-07-19, but only because the first
+reply asserts every period in that window is *present* — not merely that present ones completed;
+that stronger claim is what carries the conclusion, and the weaker phrasing of the second reply
+("every week that ran in that window completed") would not have. The consumer is changing its
+process to run payroll even on closed weeks. 🛑 **HQ's half:** `/period-summary` logs ten
+`slog.Error` calls and **not one line for a successful response** — no record that a request
+arrived, for which period, or what `ready` came back as, and no access log on the service-token
+routes either. So the only record of a blocked payroll week is an absence of a file on someone
+else's disk. HQ spent a triage morning and two rounds of correspondence reconstructing from the
+consumer's filesystem what one log line would have stated outright. This is the **B-81 / B-82 /
+B-86 / B-93** cluster — "a check cannot tell you what it actually did" — reaching the one endpoint
+whose answer another system's payroll depends on. Chosen over treating the consumer's process change
+as sufficient: that fix is discipline and depends on someone remembering, whereas a log line is
+mechanism and does not. Both are worth having; only one of them is HQ's to do.
+
+**Unchanged by this round:** §2, §3 and §4 of the reply repeat the previous round verbatim and are
+already recorded at **T-35 decisions 143–145** (A5's coordinated-release requirement retired,
+`tracked_bank_tx_ids` must stay unfiltered, `/menu-cogs` keeps `menu_item_name`). 🛑 **The one thing
+HQ still owes: the migration `0072` changeover date**, which the consumer has now named twice as the
+only item it is waiting on. It is unblocked — see T-35 decision 143 — and gated only on HQ promoting
+`dev` to `main` and deploying.

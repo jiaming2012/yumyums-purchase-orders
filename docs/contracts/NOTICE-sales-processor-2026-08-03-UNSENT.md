@@ -88,6 +88,22 @@ I want to be precise about what we do and do not know here. **We know this becam
 
 **We are not proposing to restate any past figures.** If you would rather we did, say so and we will work out what that means.
 
+> ## ✅ RESOLVED 2026-08-04 — §1 is closed, and no restatement is being made
+>
+> The consumer answered, then answered again after HQ pointed out that its evidence window stopped 16 days short (**B-138**). Final position:
+>
+> - **2026-05-31 → 2026-07-19:** unbroken weekly run, reports and transfer ledgers both, no gaps. The gate went live **2026-06-05**, one day before the two 06-06 changes, so that window is the entire exposure.
+> - **2026-07-26 and 2026-08-02** (the two weeks B-138 named): **no run at any pipeline stage** — classify, PDF, CSV and transfer ledger all stop at 07-19. Nothing was blocked because **nothing ran**; both were operator skips, the business was closed. HQ's `/period-summary` returns `ready: true`, zero pending, zero unlinked for both periods.
+> - **No spurious block anywhere in the extended window. No restatement.**
+>
+> 🛑 **The consumer volunteered the finding that matters more than the answer**, and it is the same class of defect this whole audit is about:
+>
+> > a week we skip is byte-for-byte indistinguishable on disk from a week your gate blocks — both leave no report and no ledger. So "unbroken weekly run ⇒ no blocks" only holds if we actually run every week.
+>
+> So the detection method was **conditionally** valid, and nobody had noticed the condition. It happens to hold for 2026-05-31 → 2026-07-19 because the consumer's first reply asserts every period in that window is *present*, not merely that present ones completed — that stronger claim is what carries the conclusion. The consumer is changing its process to run payroll even on closed weeks so future gaps are unambiguous.
+>
+> 🛑 **And HQ owns the other half, which nobody had raised: HQ cannot see a blocked week either.** `/period-summary` logs only *errors* — there is no log line for a successful request and **no record of the `ready` verdict or of who asked**. So the sole record of a blocked payroll week is an absence of a file on the consumer's disk. Filed **B-139**; one log line per response makes a block observable from HQ regardless of consumer discipline, and unlike the consumer's process change it does not depend on anyone remembering.
+
 ## 2. Things we have been returning without telling you (`/period-summary`)
 
 Three response fields have been live since June 2026 and appeared in no document. All are **additive** — your decoder has been ignoring them, nothing of yours is broken:
