@@ -17,7 +17,7 @@
 
 The draft below is written to be sendable **as-is**, but two decisions are embedded in it and neither is HQ's to make unilaterally:
 
-1. **Whether to reconcile past runs.** The draft says HQ is *not* proposing a restatement. If the operator wants past weeks re-examined, §4 needs rewriting. **The audit deliberately makes no claim about whether any payroll run was actually blocked** — only that it became possible on 2026-06-06. HQ retains no log that would settle it.
+1. **Whether to reconcile past runs.** The draft says HQ is *not* proposing a restatement. If the operator wants past weeks re-examined, §1's closing line and §5 both need rewriting (and §4's "What we are not doing" says the same thing for the changeover). **The audit deliberately makes no claim about whether any payroll run was actually blocked** — only that it became possible on 2026-06-06. HQ retains no log that would settle it.
 2. **The `menu_item_name` / `name` question** (menu-cogs §8 Q2). The draft *asks* the counterparty rather than announcing a fix, because the right answer depends on what sales-processor actually built. If the operator would rather just change HQ's key, §3 becomes an announcement instead of a question.
 
 *(There were three. The sequencing question is no longer one of them — see below.)*
@@ -33,14 +33,16 @@ Two notices were owed:
 
 **Why 128 amended 106 rather than honouring it.** Decision 106 had ruled two notices, the June drift first and alone. Three things surfaced afterwards: this audit covered every `:NN` row of both documents — **111 rows, 45 wrong** — and only a minority had *drifted*, with **22 menu-cogs rows never true at all**; A1's own notice carries an error *this* audit found (it attributes a timezone claim to `/menu-cogs`, which contains no `AT TIME ZONE` at all), so sending it alone would **propagate a fresh error while apologising for old ones**; and A1's notice was never drafted, so "send it first" had nothing to send. The owed timezone correction is therefore **folded into this message** rather than chased separately.
 
-⚠️ **A1's timezone content is not yet written into the draft below.** Decision 128 requires it to be, and the changeover is the time-sensitive half. Whoever sends this must add it — or consciously send the drift half alone and re-open the owed timezone notice, which is a departure from 128 and should be recorded as one.
+✅ **A1's timezone content IS now written into the draft below, as §4** (added 2026-08-03 at morning triage, after the P6 fix-forward checklist was discharged). Decision 128's requirement is therefore satisfied: this is the one combined notice, carrying both the eight weeks of drift and the forward-looking changeover. §4 also carries the correction to A1's own false claim that `/menu-cogs` moves with the changeover — verified at source: there is not one `AT TIME ZONE` anywhere in the code path behind that endpoint.
+
+🛑 **What is still NOT decided, and it now gates the deploy rather than the notice.** §4 tells sales-processor the changeover happens on "the first HQ deploy that carries it" and that HQ will supply the date. That deploy has not been scheduled, and **`main` does not yet carry the change** — production still computes in `America/Chicago` (five literal sites in `inventory/handler.go` at `origin/main`). So the ordering is: send this, then promote and deploy, then tell them the date. Promoting before sending is the failure this notice exists to prevent.
 
 ---
 ---
 
 # DRAFT MESSAGE BEGINS
 
-**Subject: HQ inventory API — corrections to both contract documents, including one that may have affected your payroll gate**
+**Subject: HQ inventory API — corrections to both contract documents, one that may have affected your payroll gate, and one upcoming change that needs a matching change on your side**
 
 Hi,
 
@@ -108,17 +110,55 @@ Three more, all in the same document:
 
 We can also start returning `menu` — the data is in our database, the endpoint just never selected it — if that is useful to you. That one is purely additive and breaks nothing.
 
-## 4. What we changed, and what we did not
+## 4. One change still coming, and this one needs a matching change on your side
+
+Everything above is about the past. This part is about a deploy that has not happened yet, and it is the only item in this message that asks you to do something.
+
+**HQ's operating timezone is moving from `America/Chicago` to `America/New_York`.** The reasoning was simple: a payroll week and a food-cost week have to describe the same seven days, and we had been running two zones at once — our user-level default was already New York while the money queries had Chicago written into them as a literal.
+
+**Status, stated precisely, because getting this wrong in either direction causes the problem:**
+
+- We have **written and merged** the change.
+- We have **not deployed it.** What is running in production today still computes in `America/Chicago`.
+- It takes effect on **the first HQ deploy that carries it**, and **that deploy is not yet scheduled.** We will tell you the date. Afterwards it is recoverable exactly — it is the date migration `0072` first ran.
+
+🛑 **Please do not ship your side on the assumption that we have already moved.** If you switch before we deploy, you create the same one-hour disagreement at every period edge that this change exists to end — just in the opposite direction, and while we are not looking for it.
+
+### What actually moves, and it is narrower than you might assume
+
+The zone enters our `/period-summary` query at **exactly one point**: a fallback that reads a pending receipt's `created_at` when the receipt parser could not extract a purchase date from the receipt itself. It applies to **pending, unconfirmed receipts with no parsed purchase date, and nothing else** — when a real purchase date exists, it wins and no zone is involved.
+
+**The confirmed half of the endpoint has no timezone dependency at all.** `purchase_events.event_date` is a plain SQL `DATE`, compared without any cast. So the bulk of your COGS figure does not move.
+
+But that one expression period-filters the pending rows, so where it applies it reaches the money as well as the gate: `cogs_excl_tax`, `cogs_incl_tax`, `purchase_event_count`, `by_vendor` **and** `completeness.pending_review_ids`.
+
+**Which direction it moves.** New York is an hour ahead of Central, so the day boundary lands an hour earlier in absolute terms. A pending receipt with no parsed purchase date, created between 23:00 and midnight Central, counts toward **that** day today; after the changeover the same row counts toward **the next** day. At a period edge that means such a row can drop out of one week and into the next. It is a shift, not a widening — a row leaves one end as another enters the other.
+
+Realistically the affected set is small: only unconfirmed receipts, only those the parser could not read a date from, only those created in that one hour. We are flagging it anyway because **your week and our week have to agree on where they end**, and a disagreement here is invisible until a figure looks wrong.
+
+### 🛑 A correction to something we told you about this already
+
+On 2026-07-31 we added a timezone assumption to the menu-cogs contract document — assumption A10, and a matching line near the top — saying **`/menu-cogs` shares `/period-summary`'s date semantics and moves with it on the changeover deploy. That was wrong.** If you read the document between then and now, that is what it told you.
+
+**`/menu-cogs` has no timezone dependency whatsoever.** There is not a single timezone cast anywhere in the code path behind it. It will not move on the changeover deploy, and nothing on your side needs to change for that endpoint. Both contract documents now say so.
+
+We caught this in the audit described above, which is why this message is one message: sending the timezone note on its own would have handed you a fresh error while apologising for old ones.
+
+### What we are not doing
+
+**We are not restating any weekly COGS or payroll figure produced before that deploy.** They were already acted on. One boundary moves, once, on a known date — a future reader comparing two weeks either side of it will find exactly that, and this is the explanation.
+
+## 5. What we changed, and what we did not
 
 **We changed no code.** Every correction moved the *documents* to match the shipped behaviour, so that what you are reading is now true. We did not quietly alter any endpoint to match the old prose — that would have changed behaviour under you without warning, which is the thing that caused this in the first place.
 
 The one exception worth naming: on `/menu-cogs`, correcting the doc to match the code arguably makes it *honest* rather than *right* — several of those items are places where the document described more useful behaviour than we implemented. Those are recorded as open questions in each document's `§8` and we would rather decide them with you than around you.
 
-## 5. Why this went unnoticed for eight weeks
+## 6. Why this went unnoticed for eight weeks
 
 Both documents claimed their integration tests were "the executable proof that the HQ side matches this contract." They are not, and that claim is what stopped anyone looking. The tests decode into the same Go structs the handlers marshal — so a field name the *document* gets wrong is invisible to every one of them. The suite was green the entire time. Both documents now say so plainly, and we have filed work to add a test that asserts on raw JSON keys instead.
 
-Happy to get on a call about any of this, particularly §1 and the `name` question in §3.
+Happy to get on a call about any of this — particularly §1, the `name` question in §3, and the changeover timing in §4.
 
 — HQ
 
