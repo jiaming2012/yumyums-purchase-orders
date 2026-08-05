@@ -1,82 +1,95 @@
 # OKRs
 
-<!-- ✅ SIGNED OFF by the operator 2026-07-25 (attended /nc-roadmap-round).
+Milestone: Sync, dev complete — the RxDB layer serves reads in the operator's dev environment, proven by a demo script the operator runs personally.
 
-Cycle: "Sync foundation" — replace the hand-rolled WebSocket + Postgres LISTEN/NOTIFY +
-Lamport-clock op-log sync layer in `workflows.html` with RxDB (client-side replication) against
-a self-hosted Supabase stack, unifying the field-autosave and live-broadcast write paths into
-one store. Opened 2026-07-24/25 (attended `/nc-roadmap-round`) after "Prove & surface" closed
-2026-07-24 (15 MET · 1 N/A, ledger T-21f, cycle-closeout-20260724.md).
+<!-- Authored 2026-08-05, attended `/nc-roadmap-round`, in the same sitting as
+`.night-crew/knowledge/roadmap.md` (DESIGN §15j.42). Previous cycle archived at
+`reference/okrs-2026-08-05-sync-foundation.md`; its close at `reference/cycle-closeout-20260805.md`
+(ledger §T-37, decisions 148–152).
 
-Traces to the roadmap's single authored activity so far (Activity 1: Sync foundation — 4 sync
-cards + 1 independent fix card). This round was scoped to ONE backlog group at the operator's
-direction; ~19 other `· new` items remain unrouted for a future roadmap-round pass, so these
-OKRs cover only what was actually roadmapped, not a full-cycle theme the way "Prove & surface"
-did.
+🛑 THE ONE LESSON THIS PAGE IS BUILT AROUND. The previous cycle's twelve key results were all
+honestly gradable and NOT ONE MEASURED DELIVERY — four objectives asserted that the sync rewrite
+"ships", and every KR measured sequencing, parity, cadence or coverage. The close graded 8 MET
+with the capability undelivered and ZERO production call sites, and no KR could see it.
 
-OKR-authoring lesson carried from the prior cycle's P4 grading (decision 47): write KR metrics
-that cannot be failed by desirable behavior — e.g. deferring the cross-user-hydration item to
-the PM session, or dropping the three superseded backlog items, must not redden a KR here.
+So, three authoring rules applied to every KR below (handoff §7):
+  1. EACH OBJECTIVE HAS AT LEAST ONE KR THAT MEASURES ITS OWN CLAIM DIRECTLY. Where an objective
+     says a thing works, a KR asserts that the thing was RUN and passed.
+  2. EVERY KR NAMES ITS `(measured by: …)` ARTIFACT, and the artifact either exists today or is a
+     named deliverable of a card on this roadmap. No KR rests on a hope.
+  3. THE GRADE WAS DRY-RUN IN THIS SITTING — see "Gradability dry-run" at the foot. "Could not be
+     graded" must be impossible to discover at the close. (Mechanism filed in the night-crew clone
+     as B-343; applied by hand here.)
 
-Previous cycle archived at reference/okrs-2026-07-24-prove-and-surface.md +
-reference/roadmap-2026-07-24-prove-and-surface.md. -->
+A fourth rule, from the same close: a KR must not be failable by desirable behaviour. Spike C
+returning a RED verdict is a SUCCESSFUL spike — D-KR1 and E-KR1 say so explicitly, because
+discovering a false premise early is exactly what this cycle is buying. -->
 
 ## Product
 
-### Objective: The sync rewrite ships against a de-risked, operator-approved plan — not an assumed one — and the one open product question it surfaces is routed, not guessed at by engineering.
-- 0 of the schema/replication or JWT-bridge WOs are dispatched before the feasibility spike (`sync-rxdb-feasibility-spike`) records a written go/no-go verdict (self-hosted Supabase reachable, Go-minted JWTs accepted by PostgREST/Realtime for RLS without GoTrue) in `ledger.md` — measured by comparing the ledger verdict timestamp against `.night-crew/runs/` dispatch timestamps for `sync-rxdb-schema-and-replication` and `sync-jwt-bridge-endpoint`.
-- 0 `sync-hard-cutover` WOs are dispatched while the BACKLOG.md entry for "Cross-user checklist hydration divergence" still reads plain `new` — it must carry a PM-session-routed disposition first, not an engineering-guessed fix, measured by the entry's disposition text at the time `sync-hard-cutover`'s WO is dispatched.
-- The hard-swap cutover decision (no parallel run) is carried into the `sync-hard-cutover` WO record as an explicit constraint, not rediscovered mid-build. Measured by: the `sync-hard-cutover` WO record in `.night-crew/runs/` stating the no-parallel-run constraint verbatim — 0 build WOs propose a parallel-run alternative.
+### Objective: The sync capability is something the operator can actually use — demonstrated by their own hands in dev, not asserted by a card count.
+
+- **P-KR1 — exactly 1 recorded run of `task demo:sync`, performed by the operator in the dev environment, passes the round-trip**: one field written through the real write path (`/saveResponse`) surfacing in an RxDB-served read, on 1 real checklist (measured by: `.night-crew/knowledge/ledger.md`) 🛑 **No card status, KR grade or closeout substitutes for that line, and the milestone may not close without it** — it is the whole point of the cycle.
+- **P-KR2 — at least 1 production call site of `createHQSyncDatabase()` and `startHQReplication()` exists at close**, on a code path that executes when the flag is on, against a baseline of **0** captured this sitting (measured by: `sync-rxdb/bootstrap.js`) 🛑 This KR exists because its exact negation is what the last cycle shipped: 6 repo hits, all comments, imports and deferred re-exports, and no call.
+- **P-KR3 — exactly 1 dated decision resolves the list-view scope question (B-43) BEFORE the card that would discover it merges**: either My Checklists and Approvals are recorded as staying on REST (a partial cutover **by design**), or a C-2 widening is recorded with its bound (measured by: `.night-crew/knowledge/ledger.md`).
 
 ## Delivery
 
-### Objective: The migration ships with the same discipline the last cycle earned — a proven spike before build, measured cadence, and real prod verification with a returning-client check.
-- Feasibility-gate-before-build: 0 of the 3 downstream WOs (schema+replication, JWT-bridge, hard-cutover) dispatch before the spike's go decision lands. Measured by: `ledger.md` decision timestamp vs. `.night-crew/runs/` WO dispatch timestamps (same audit method as the prior cycle's D1, ledger T-18).
-- **D-KR2a** — Prod parity is verified this cycle, **independent of any cutover**: `task version` shows prod backend/frontend == local `version.go` constants with 0 drift. Measured by: `task version` output recorded in the ledger. *(REWORDED 2026-08-03 — see the amendment note at the foot of this file.)*
-- **D-KR2b** — After each deploy, a **returning** client — an installed PWA that saw the previous version, never a fresh load, never a cleared cache, never incognito (the T-21d lesson, by name) — displays a frontend version read from the **precached** `version.json` that matches the deployed `version.go` `Frontend` constant. Measured by: the version line read on that client and recorded in the ledger. 🛑 Reading the version from `/api/v1/health` does **not** satisfy this KR and never will — the server's value cannot be stale, which is the entire property under test. *(REWORDED 2026-08-03.)*
-- **D-KR3** — A **defensible** per-card cycle-time median is computed against the prior cycle's baseline (N=12 / 94m), with (a) N ≥ 8, (b) every excluded card listed with its reason, and (c) a stated sensitivity check showing the median is robust to those exclusions. Measured by: the median table, the Excluded-with-reasons section, and the Sensitivity section in `reference/card-actuals.md`. *(REWORDED 2026-08-03 — stricter than the original, which permitted a median with no sensitivity analysis.)*
+### Objective: The route is proven by runnable scripts before the nights spend themselves on it, and the milestone ends dev complete rather than merely built.
+
+- **D-KR1 — all 4 spikes (A–D) record a green-or-red verdict by a SCRIPT, not by prose, and 0 Activity 3–5 build cards are dispatched before those 4 verdicts land** (measured by: `.night-crew/qa/spike-supabase/`) 🛑 **A spike whose script reports RED grades this KR MET** — the verdict is the deliverable, and a disproven premise found in an afternoon is the outcome being bought. Dispatch timestamps come from `.night-crew/runs/`.
+- **D-KR2 — 1 committed `task demo:sync` target distinguishes 3 outcomes — passed · ran-and-failed · could-not-run — with all 3 paths invoked at least once** (measured by: `Taskfile.yml`) 🛑 The third is the one that matters: a demo that silently no-ops reproduces the class this milestone exists to retire.
+- **D-KR3 — a per-card cycle-time median is computed with N ≥ 8, 100% of excluded cards listed with a reason, and 1 stated sensitivity check**, against the **103m (N=11)** baseline from the "Sync foundation" cycle (measured by: `.night-crew/knowledge/reference/card-actuals.md`) 🛑 Carries **B-39** forward — two consecutive cycles produced un-countable cards because only the implementer leg was stamped. Stamp G6-start / G6-return / fix-return per card this time.
+- **D-KR4 — prod parity is verified at least 1 time this cycle with 0 drift**: `task version` shows prod backend/frontend == local `version.go` constants (measured by: `.night-crew/knowledge/ledger.md`) 🛑 **Inherited unmet by deliberate deferral** (T-37 decision 149) — `dev` is 436 commits ahead of `main` and carries migration `0072`, whose changeover date is owed to the sales-processor maintainer.
 
 ## Engineering
 
-### Objective: The new sync layer is provably correct where the old one wasn't — no fetch-storm class, no stale hydration, and the JWT/RLS bridge actually bounds data the way the bearer-token auth did.
-- 0 of the 2 superseded fetch-storm-class backlog items (replay-fetch-storm, `sync.js` catch-up gate) reproduce against the new architecture — evidenced by exactly 1 regression test per item in `tests/sync.spec.js` (or its cutover-era successor) asserting no ungated re-fetch storm on catch-up, OR, where no such test is constructible, exactly 1 reviewed architectural-argument note per item in `.night-crew/knowledge/designs/`.
-- 0 attack variants bypass RLS under a JWT-bridge attack-variant suite comparable in rigor to `grant-enforcement-parity`'s 13 variants (invalid `role` claim, expired token, missing `sub`, wrong signature, token replay after grant revocation) — measured by a new Go test file under `backend/internal/sync` (or the auth package hosting the JWT-bridge endpoint), modeled on `tests/grant-enforcement-parity.spec.js`'s attack-variant structure.
-- **E-KR3** — Exactly 1 documented owner exists per offline data class **and direction** — static assets → Workbox; checklist offline *reads* → one named owner; checklist offline *writes* → one named owner — with **0 classes whose owner is unstated or ambiguous**. Any deliberate two-store split is named as such, with its reason and its divergence risk stated. Measured by: 1 design note in `.night-crew/knowledge/designs/`, reviewed at the cycle gate, cross-checked against the `build-sw.js` / RxDB-init diff. **Gradeable whether or not a cutover shipped.** *(REWORDED 2026-08-03 — the original demanded "0 dual ownership", which decision 126's deliberate parallel run makes unmeetable by construction.)*
+### Objective: The read path is real and bounded — RxDB serves what it is scoped to serve, and the offline-ownership rule is pinned by something that would notice its removal.
+
+- **E-KR1 — exactly 1 written verdict establishes whether the HQ-Postgres → substrate → RxDB-read path exists, and by what mechanism**, backed by spike C's script output (measured by: `.night-crew/knowledge/designs/`) 🛑 **A NO verdict grades MET** — that is the premise decision 126 measured false on night nine of nine. A **silent or absent** verdict grades NOT MET.
+- **E-KR2 — 0 cards widen replication scope beyond per-open-checklist without a recorded decision** (measured by: `sync-rxdb/client.js`) 🛑 Standing rule, T-29 decision 105; cross-checked against `ledger.md` decisions.
+- **E-KR3 — the offline-ownership rule is enforced by 1 assertion over the OBJECT rather than over source text, with 0 read routes into RxDB left unnamed by it**, plus 1 mutation check showing it reddens when a route is added (measured by: `tests/sync-rxdb-client.spec.js`) 🛑 Closes **B-88**: today's 3 `not.toContain` assertions at `:1468-1470` miss `window.HQSync.db` — the exact route `workflows.html:3590` uses — and are green only because the database does not exist.
+- **E-KR4 — both of the 2 fetch-storm-class items are either retired with 1 regression test each, or restated with their surviving mechanism named in 1 note each** (measured by: `.night-crew/knowledge/designs/`) 🛑 **Inherited NOT MET and un-reworded**: `sync.js` is still in the tree with both mechanisms live at `:443-454` and `:475-479`. This cycle does not remove `sync.js`, so an honest restatement is an acceptable outcome — silence is not.
 
 ## QA
 
-### Objective: This migration does not repeat "Prove & surface"'s QA gap — a sync-adjacent package shipping with zero tests until an escape forced the issue — and night-crew's CI constraints on this activity are priced in up front, not discovered at 3am.
-- New code carries real coverage from its first WO, not retrofitted later: the RxDB replication layer and the JWT-bridge endpoint each ship with unit/integration tests in the SAME WO that introduces them (the `sync` package's 0-Go-tests gap from last cycle does not recur in its replacement). Measured by: each card's WO record in `.night-crew/runs/` and its merged diff showing test files alongside implementation files, not in a later card.
-- **Q-KR2** — Every WO **whose deliverable includes a code change** carries red-run evidence: the named test, the tree or commit it was captured red against, and the green after. Measured by: a mandatory `## Red-first` section in each card's `merge-intent.md`, asserted by the run's launch prompt. A WO whose deliverable is documentation, audit or a spike records `n/a — no code change` explicitly, and an **absent** section grades the KR down. *(REWORDED 2026-08-03. The original named a field that has never existed in the record format — of every merge-intent this cycle, exactly one carries a `## Red-first` heading. **This cycle grades UNAUDITABLE, not MET**; the reword takes effect from the next run.)*
-- **Q-KR3** — Every slate document carries, once, a **Gate cost** section stating the expected full-suite runtime and the load-sensitivity risks in play for that night's cards. Measured by: that section's presence in `reference/slate-<runid>.md`. 🛑 **Backfilling a signed slate is prohibited** — a missing section grades the KR down and is not repaired retroactively. *(REWORDED 2026-08-03 — per WO → per slate, which is where the note actually lives. **This cycle grades PARTIAL and stays PARTIAL**: `slate-20260801.md` and `slate-20260802.md` lack it and will not be edited.)*
+### Objective: A green means the check ran. Every gate reading this cycle rests on can distinguish "passed" from "never executed".
+
+- **Q-KR1 — 0 configurations exist in which `internal/sync` exits 0 with `TestRowVisibilityRLS` unrun and `HQ_SYNC_SUBSTRATE_OPTIONAL` unset**, with the 59-subtest count asserted rather than inferred (measured by: `backend/internal/sync`) 🛑 Closes **B-36**. The probe: strip docker from `PATH`, assert non-zero exit.
+- **Q-KR2 — `verify-test-harness.sh` Check B reds when any 1 of the 7 packages loses fail-loud, not only when all 7 do**, with all 7 probed individually (measured by: `verify-test-harness.sh`) 🛑 Closes **B-22**. Today it aggregates with OR, so 6 of 7 can report `ok` on a dropped database and the gate still prints PASS.
+- **Q-KR3 — 100% of WOs whose deliverable includes a code change carry a `## Red-first` section**: the named test, the tree it was captured red against, and the green after; a documentation/audit/spike WO records `n/a — no code change` explicitly (measured by: `.night-crew/runs/`) 🛑 **An absent section grades this KR down.** This is its **first gradeable cycle** — it graded UNAUDITABLE last time because the field had never existed, and exactly 1 merge-intent carried the heading.
+- **Q-KR4 — 100% of slate documents carry, exactly once, a `Gate cost` section** stating expected full-suite runtime and that night's load-sensitivity risks (measured by: `.night-crew/knowledge/reference/`) 🛑 **Backfilling a signed slate is prohibited** — a missing section grades this down and is not repaired retroactively.
 
 ---
 
-## 🛑 Amendment — five KRs reworded mid-cycle, 2026-08-03 (operator sign-off)
+## Gradability dry-run — performed 2026-08-05, in this sitting
 
-**What changed:** D-KR2 (split a/b), D-KR3, E-KR3, Q-KR2, Q-KR3. Full before/after text, the
-evidence each grade rests on, and the reasoning: `reference/okr-completion-plan-20260804.md` §4.
+Authoring rule 3, applied. Each KR checked against the artifact it names, **before** sign-off, so
+that "could not be graded" cannot arrive as a surprise at the close.
 
-**Why a mid-cycle reword is legitimate here, and where the line was drawn.** These OKRs were
-authored **2026-07-25** against an architecture disproved **2026-08-03**: card S1b
-`sync-hard-cutover` parked on the measurement that RxDB replicates to a *second* Postgres and
-nothing carries a checklist row back, and ledger decision **126** then retired the card and chose
-reads-on-RxDB / writes-on-REST. Four of the five above were written to measure the retired shape
-or to read a field the process never built. The test applied to each:
+| KR | `measured by:` artifact | Exists today? | Verdict |
+|---|---|---|---|
+| P-KR1 | `ledger.md` | ✅ file exists; the attestation line is `dev-complete-attestation`'s deliverable | **gradable** |
+| P-KR2 | `sync-rxdb/bootstrap.js` | ✅ **baseline captured this sitting: 0 call sites** | **gradable** |
+| P-KR3 | `ledger.md` | ✅ exists | **gradable** |
+| D-KR1 | `.night-crew/qa/spike-supabase/` | ✅ directory exists (last cycle's spike harness) | **gradable** |
+| D-KR2 | `Taskfile.yml` | ✅ exists; the target is `demo-sync-target`'s deliverable | **gradable** |
+| D-KR3 | `reference/card-actuals.md` | ✅ median + Excluded + Sensitivity sections all present from last cycle | **gradable** |
+| D-KR4 | `ledger.md` | ✅ `task version` exists and runs | **gradable** |
+| E-KR1 | `.night-crew/knowledge/designs/` | ✅ directory exists, holds 8 notes | **gradable** |
+| E-KR2 | `sync-rxdb/client.js` | ✅ exists | **gradable** |
+| E-KR3 | `tests/sync-rxdb-client.spec.js` | ✅ exists — the assertion being replaced is at `:1468-1470` | **gradable** |
+| E-KR4 | `.night-crew/knowledge/designs/` | ✅ both superseded notes already there | **gradable** |
+| Q-KR1 | `backend/internal/sync` | ✅ exists; probe already reproduced at triage | **gradable** |
+| Q-KR2 | `verify-test-harness.sh` | ✅ exists | **gradable** |
+| Q-KR3 | `.night-crew/runs/` | ✅ exists; merge-intent format established | **gradable** |
+| Q-KR4 | `.night-crew/knowledge/reference/` | ✅ exists; slate format established | **gradable** |
 
-> **A reword is honest when it changes what is *measured* while preserving what is *protected*.
-> It is laundering when it lowers the bar on the thing the KR exists to guarantee.**
+**15 of 15 gradable. 0 UNAUDITABLE by construction.** 🛑 Two KRs (D-KR1, E-KR1) carry an explicit
+**disproven-premise-grades-MET** clause, so a spike doing its job cannot redden the page — the
+failure mode the previous cycle's grading lesson named.
 
-Every reword above preserves its protected property, and two are **stricter** than what they
-replace — D-KR3 now forbids silent exclusions the original permitted, and D-KR2b now names the one
-shortcut (`/api/v1/health`) that would silently defeat it.
-
-🛑 **E-KR1 was NOT reworded, deliberately.** Its subject did not move under it: `sync.js` is still
-in the tree and both fetch-storm mechanisms are live at `:443-454` and `:475-479`. Rewording it to
-grade green would be the laundering case. **It grades NOT MET**, its two "superseded" backlog items
-are un-dropped, and the class carries into the next cycle. This entry exists so that nobody reading
-a page of tidy rewords mistakes the set for a clean sweep — one KR was simply missed, and it is the
-one the migration was launched to satisfy.
-
-**Grades that no reword repairs:** Q-KR2 UNAUDITABLE this cycle · Q-KR3 PARTIAL, permanently ·
-E-KR1 NOT MET. Signed slates are not edited to fix any of them.
+🛑 **`night-crew okr validate` requires the parenthesized `(measured by: X)` form.** Prose
+`Measured by:` and em-dash `— measured by:` both parse as *"names no measurement artifact"* while
+the page still reports `okrs: valid` at exit 0 — i.e. the producer check fails silently unless the
+warnings are read. Established by probe at this round; worth a night-crew backlog entry.
