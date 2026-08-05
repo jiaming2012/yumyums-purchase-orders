@@ -2,12 +2,18 @@ package sync
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"net"
 	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -545,4 +551,477 @@ func TestSpikeGate_Asymmetry(t *testing.T) {
 				tc.configured, tc.reachable, got, tc.want)
 		}
 	}
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// THE COUNT — "59 subtests" ASSERTED RATHER THAN INFERRED (Q-KR1's residual)
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Everything above answers "did the suite get to run?". NOTHING above, and
+// nothing anywhere else in the tree before this block, answered "did all of it
+// run?" — and those are different questions with the same green.
+//
+// The standing evidence rule (ledger T-29, decision 108, kept with amendments by
+// decision 116) says gate evidence for this package must cite
+// `-run TestRowVisibilityRLS -v` output showing **59** subtests ran. That number
+// lived ONLY in prose: in the ladder, in slates, in run reports. `grep -n '59'`
+// across this package's tests returned a JWT secret and a hex literal and
+// nothing else. So the number was RE-COUNTED BY A HUMAN, off a log, once a
+// night — which is exactly the shape of check this repo keeps finding has gone
+// quietly empty (B-22 / B-23 / B-24, and B-36 one layer up).
+//
+// 🛑 THE FAILURE MODE THIS CLOSES IS NOT "THE SUITE BREAKS". A broken subtest
+// reds the package and everyone sees it. The failure mode is a subtest that
+// stops being REGISTERED — deleted in a refactor, commented out during a debug
+// session and not restored, moved inside an `if` that is now always false, or
+// dropped off the end of a `for … range` case list. All of those leave a green
+// `--- PASS` wall and a package that says `ok`. The suite gets smaller and
+// nothing says so. A security suite that can silently shrink is a security
+// suite whose coverage claim expires without notice.
+//
+// Two independent counters assert it, deliberately not one:
+//
+//	STRUCTURAL   parses rowvisibility_rls_test.go and counts the t.Run
+//	             registrations in the source. Needs NO substrate, so the count
+//	             is still guarded on a machine that legitimately opted out —
+//	             which is the machine most likely to lose a case unnoticed.
+//
+//	EXECUTION    re-runs `go test -run '^TestRowVisibilityRLS$' -v` as a
+//	             subprocess and counts the depth-1 subtests the RUNTIME
+//	             actually reported. This is the one Q-KR1 asked for: it is the
+//	             same artifact the ladder cites, read by a machine instead of
+//	             by a person at 3am.
+//
+// They can disagree, and their disagreeing is informative: source that
+// registers 59 while the runtime reports 58 means a registration is behind a
+// condition that was false. Neither counter alone catches that.
+
+// wantRowVisibilitySubtests is the count the gate ladder cites.
+//
+// 🛑 IF YOU CHANGED TestRowVisibilityRLS AND LANDED HERE: adding or removing a
+// subtest is allowed and expected — bump this constant IN THE SAME COMMIT and
+// say so in your report. What is NOT allowed is deleting or relaxing the
+// assertion to make the red go away: the whole point is that the suite cannot
+// change size in silence. If you cannot reconcile the number, that is a finding
+// for triage, not a waiver.
+const wantRowVisibilitySubtests = 59
+
+// rowVisibilitySourceFile is the file the structural counter reads. `go test`
+// runs with the package directory as cwd, so this needs no path resolution.
+const rowVisibilitySourceFile = "rowvisibility_rls_test.go"
+
+// gateChildEnv marks a `go test` process this file spawned. Every subprocess
+// test below refuses to run when it is set — without this guard, the child
+// compiles the same package, runs these same tests, and forks again.
+const gateChildEnv = "HQ_SYNC_GATE_CHILD"
+
+// ── STRUCTURAL ─────────────────────────────────────────────────────────────
+
+// rvTopLevelSubtestCount counts the top-level `t.Run(...)` registrations inside
+// a node, expanding `for … range []T{…}` loops by the length of their case list.
+//
+// Two rules do all the work:
+//
+//   - DO NOT DESCEND INTO A FUNC LITERAL. A t.Run inside a closure is a NESTED
+//     subtest (or a helper's), not a top-level registration of the suite. This
+//     is what makes the count mean "how many cases does the suite have" rather
+//     than "how many times does the token t.Run appear".
+//
+//   - A `for … range` over a COMPOSITE LITERAL multiplies. The V15/V16/V17/V20
+//     block registers one t.Run per element of a four-element case list; losing
+//     an element there is precisely the silent shrink this is here to catch, and
+//     a counter that scored that block as 1 would not see it.
+//
+// A range over anything whose length is not visible in the source (a variable, a
+// function call) is reported through `unknown` rather than guessed. Guessing
+// would make the counter agree with a source it can no longer read.
+func rvTopLevelSubtestCount(fset *token.FileSet, node ast.Node, mult int, unknown *[]string) int {
+	count := 0
+	ast.Inspect(node, func(n ast.Node) bool {
+		if n == nil || n == node {
+			return true
+		}
+		switch cur := n.(type) {
+		case *ast.FuncLit:
+			return false
+
+		case *ast.RangeStmt:
+			lit, ok := cur.X.(*ast.CompositeLit)
+			if !ok || len(lit.Elts) == 0 {
+				*unknown = append(*unknown, fset.Position(cur.Pos()).String())
+				return false
+			}
+			count += rvTopLevelSubtestCount(fset, cur.Body, mult*len(lit.Elts), unknown)
+			return false
+
+		case *ast.CallExpr:
+			if isTRunCall(cur) {
+				count += mult
+			}
+			return true
+		}
+		return true
+	})
+	return count
+}
+
+// isTRunCall reports whether a call is literally `t.Run(...)`.
+func isTRunCall(call *ast.CallExpr) bool {
+	sel, ok := call.Fun.(*ast.SelectorExpr)
+	if !ok || sel.Sel.Name != "Run" {
+		return false
+	}
+	recv, ok := sel.X.(*ast.Ident)
+	return ok && recv.Name == "t"
+}
+
+// TestRowVisibilitySubtestCount_Structural asserts the SOURCE still registers
+// the number of cases the gate ladder cites — with no substrate, no docker and
+// no network.
+func TestRowVisibilitySubtestCount_Structural(t *testing.T) {
+	fset := token.NewFileSet()
+	file, err := parser.ParseFile(fset, rowVisibilitySourceFile, nil, 0)
+	if err != nil {
+		t.Fatalf("cannot parse %s — the structural half of the count assertion is "+
+			"blind without it: %v", rowVisibilitySourceFile, err)
+	}
+
+	var body *ast.BlockStmt
+	for _, decl := range file.Decls {
+		fn, ok := decl.(*ast.FuncDecl)
+		if ok && fn.Recv == nil && fn.Name.Name == "TestRowVisibilityRLS" {
+			body = fn.Body
+			break
+		}
+	}
+	if body == nil {
+		t.Fatalf("🛑 TestRowVisibilityRLS is not declared in %s. It is the row-visibility "+
+			"attack suite and the ONLY read/write RLS evidence in this repository; if it moved, "+
+			"move this assertion with it rather than deleting it.", rowVisibilitySourceFile)
+	}
+
+	var unknown []string
+	got := rvTopLevelSubtestCount(fset, body, 1, &unknown)
+
+	if len(unknown) > 0 {
+		t.Fatalf("🛑 %d loop(s) in TestRowVisibilityRLS range over something whose length is "+
+			"not visible in the source, so the case list can now shrink without this counter "+
+			"noticing:\n  %s\nKeep the case list a composite literal, or teach "+
+			"rvTopLevelSubtestCount to read the new shape.",
+			len(unknown), strings.Join(unknown, "\n  "))
+	}
+
+	if got != wantRowVisibilitySubtests {
+		t.Errorf("🛑 TestRowVisibilityRLS registers %d top-level subtests, want %d.\n\n"+
+			"The gate ladder, the slates and every run report for this package cite %d as the "+
+			"number of attack variants this suite runs — that number is a COVERAGE CLAIM about "+
+			"the sync substrate's RLS, and it is now wrong.\n\n"+
+			"If you deliberately added or removed a variant, bump wantRowVisibilitySubtests in "+
+			"%s and say so in your card report. If you did NOT touch the case list, a "+
+			"registration has gone missing — find it before this package is cited as evidence "+
+			"again.",
+			got, wantRowVisibilitySubtests, wantRowVisibilitySubtests, "spikestack_gate_test.go")
+	}
+}
+
+// TestRVTopLevelSubtestCount_CountsWhatItClaims is the guard's own guard.
+//
+// 🛑 A counter that returned a constant, ignored `for … range` expansion, or
+// descended into t.Run closures would still print PASS above as long as the two
+// errors happened to cancel — and this repo has shipped three checks that passed
+// against a subject set that was wrong or empty (B-22/B-23/B-24). So the walker
+// is exercised against a synthetic function whose true answer is known by
+// construction and whose shape contains every trap the real file contains.
+func TestRVTopLevelSubtestCount_CountsWhatItClaims(t *testing.T) {
+	const src = `package p
+
+import "testing"
+
+func TestFixture(t *testing.T) {
+	t.Run("one", func(t *testing.T) {
+		// 🛑 nested: must NOT be counted
+		t.Run("nested-a", func(t *testing.T) {})
+		for _, x := range []string{"p", "q", "r"} {
+			t.Run("nested-"+x, func(t *testing.T) {})
+		}
+	})
+	t.Run("two", func(t *testing.T) {})
+	for _, c := range []struct{ n string }{{"a"}, {"b"}, {"c"}, {"d"}} {
+		t.Run("looped/"+c.n, func(t *testing.T) {})
+	}
+	helper(t)
+}
+
+func helper(t *testing.T) { t.Run("in-a-helper", func(t *testing.T) {}) }
+`
+	// 2 direct + (1 loop × 4 elements) = 6. The three nested registrations and
+	// the one in helper() are correctly invisible.
+	const wantFixture = 6
+
+	fset := token.NewFileSet()
+	file, err := parser.ParseFile(fset, "fixture_test.go", src, 0)
+	if err != nil {
+		t.Fatalf("the fixture itself does not parse: %v", err)
+	}
+	var body *ast.BlockStmt
+	for _, decl := range file.Decls {
+		if fn, ok := decl.(*ast.FuncDecl); ok && fn.Name.Name == "TestFixture" {
+			body = fn.Body
+		}
+	}
+	if body == nil {
+		t.Fatal("fixture lost its TestFixture declaration")
+	}
+
+	var unknown []string
+	if got := rvTopLevelSubtestCount(fset, body, 1, &unknown); got != wantFixture {
+		t.Errorf("🛑 rvTopLevelSubtestCount = %d on a fixture whose answer is %d by "+
+			"construction. The structural count above is therefore not measuring what it "+
+			"says it measures.", got, wantFixture)
+	}
+	if len(unknown) != 0 {
+		t.Errorf("fixture reported %d unreadable range(s), want 0: %v", len(unknown), unknown)
+	}
+
+	// And the counter must NOTICE an unreadable case list rather than scoring it 0.
+	const opaque = `package p
+
+import "testing"
+
+func TestOpaque(t *testing.T) {
+	for _, c := range cases {
+		t.Run(c, func(t *testing.T) {})
+	}
+}
+`
+	fset2 := token.NewFileSet()
+	file2, err := parser.ParseFile(fset2, "opaque_test.go", opaque, 0)
+	if err != nil {
+		t.Fatalf("the opaque fixture does not parse: %v", err)
+	}
+	var body2 *ast.BlockStmt
+	for _, decl := range file2.Decls {
+		if fn, ok := decl.(*ast.FuncDecl); ok && fn.Name.Name == "TestOpaque" {
+			body2 = fn.Body
+		}
+	}
+	var unknown2 []string
+	rvTopLevelSubtestCount(fset2, body2, 1, &unknown2)
+	if len(unknown2) != 1 {
+		t.Errorf("🛑 a range over a non-literal was not reported as unreadable (%d reports, "+
+			"want 1) — the structural counter would silently under-count a case list it "+
+			"cannot see.", len(unknown2))
+	}
+}
+
+// ── EXECUTION ──────────────────────────────────────────────────────────────
+
+// rvDepthOneSubtest matches the result line `go test -v` prints for a DEPTH-1
+// subtest, and only for a depth-1 subtest.
+//
+// 🛑 Depth cannot be read off the subtest NAME here. This suite's names contain
+// slashes on purpose ("FLOOR/HQ's three views are populated", "V19/auth.uid()…"),
+// so `TestRowVisibilityRLS/FLOOR/HQ's_three_views…` is ONE level deep despite
+// carrying two separators. `go test`'s indentation is the only reliable signal:
+// four spaces per level. PASS, FAIL and SKIP are all matched — counting only
+// PASS would make a failing suite look like a shrinking one.
+var rvDepthOneSubtest = regexp.MustCompile(`(?m)^ {4}--- (?:PASS|FAIL|SKIP): TestRowVisibilityRLS/`)
+
+// goToolPath finds the `go` binary for a subprocess. PATH first, GOROOT as the
+// fallback for a caller who invoked an absolute `go` without exporting it — a
+// real shape in this repo, where the non-interactive shell does not carry Go.
+func goToolPath() (string, error) {
+	if p, err := exec.LookPath("go"); err == nil {
+		return p, nil
+	}
+	p := filepath.Join(runtime.GOROOT(), "bin", "go")
+	if _, err := os.Stat(p); err != nil {
+		return "", fmt.Errorf("no `go` on PATH and none at %s: %w", p, err)
+	}
+	return p, nil
+}
+
+// childEnv builds an environment for a nested `go test`, with `drop` removed and
+// `set` applied. The child is always marked so it cannot recurse.
+func childEnv(drop []string, set map[string]string) []string {
+	skip := map[string]bool{gateChildEnv: true}
+	for _, k := range drop {
+		skip[k] = true
+	}
+	for k := range set {
+		skip[k] = true
+	}
+	out := []string{}
+	for _, kv := range os.Environ() {
+		if i := strings.IndexByte(kv, '='); i > 0 && skip[kv[:i]] {
+			continue
+		}
+		out = append(out, kv)
+	}
+	out = append(out, gateChildEnv+"=1")
+	for k, v := range set {
+		out = append(out, k+"="+v)
+	}
+	return out
+}
+
+// runNestedRowVisibility runs `go test -run '^TestRowVisibilityRLS$' -v` in this
+// package directory and returns its combined output and its REAL exit code.
+func runNestedRowVisibility(t *testing.T, env []string) (string, int) {
+	t.Helper()
+
+	goBin, err := goToolPath()
+	if err != nil {
+		t.Fatalf("cannot locate the go tool to re-run TestRowVisibilityRLS: %v", err)
+	}
+
+	// -count=1 is load-bearing twice over: it defeats the test cache (a CACHED
+	// exit 0 would make the asymmetry assertion below vacuously true) and it
+	// forces the substrate gate to be re-evaluated against the env we just built.
+	cmd := exec.Command(goBin, "test", "-count=1", "-timeout=5m",
+		"-run", "^TestRowVisibilityRLS$", "-v", ".")
+	cmd.Env = env
+	out, err := cmd.CombinedOutput()
+
+	code := 0
+	if err != nil {
+		var ee *exec.ExitError
+		if errors.As(err, &ee) {
+			code = ee.ExitCode()
+		} else {
+			t.Fatalf("nested `go test` could not be run at all (this is a toolchain "+
+				"problem, not a test result): %v\n%s", err, out)
+		}
+	}
+	return string(out), code
+}
+
+// TestRowVisibilitySubtestCount_Executed is Q-KR1's residual, closed.
+//
+// The gate ladder's evidence line for this package is a `-run TestRowVisibilityRLS -v`
+// run showing 59 subtests. This test IS that run, with the counting done by the
+// suite instead of by a person reading a log — so "59 ran" is asserted, not
+// inferred from a wall of green.
+func TestRowVisibilitySubtestCount_Executed(t *testing.T) {
+	if os.Getenv(gateChildEnv) == "1" {
+		t.Skipf("%s=1 — this process IS the nested run; not forking again", gateChildEnv)
+	}
+
+	// Reuse the SHIPPED gate rather than a copy of it: no substrate and no
+	// opt-out fails here exactly as it fails everywhere else in this package.
+	cfg, ok := resolveSpikeConfig(t)
+	if !ok {
+		t.Skipf("%s=1 — the count cannot be asserted BY EXECUTION without a substrate. "+
+			"TestRowVisibilitySubtestCount_Structural still holds the source-side count, but "+
+			"a run carrying this variable is NOT evidence that %d attack variants executed.",
+			spikeOptionalEnv, wantRowVisibilitySubtests)
+	}
+
+	// Hand the child the endpoints we already resolved: it skips a second pair of
+	// `docker compose port` shell-outs and, more importantly, cannot end up
+	// pointed at a different stack than the one this assertion is about.
+	out, code := runNestedRowVisibility(t, childEnv(
+		[]string{spikeOptionalEnv},
+		map[string]string{spikeDBURLEnv: cfg.dbURL, spikeRESTURLEnv: cfg.restURL},
+	))
+
+	got := len(rvDepthOneSubtest.FindAllString(out, -1))
+
+	if code != 0 {
+		t.Fatalf("🛑 the nested TestRowVisibilityRLS run exited %d — the count below (%d) is "+
+			"not evidence of anything until the suite is green again:\n%s", code, got, out)
+	}
+
+	if got != wantRowVisibilitySubtests {
+		t.Errorf("🛑 TestRowVisibilityRLS reported %d depth-1 subtests AT RUNTIME, want %d.\n\n"+
+			"This is the number the gate ladder cites as this package's evidence. A suite that "+
+			"quietly loses cases keeps printing `--- PASS` and `ok`; this line is the only thing "+
+			"that says the subject set changed size.\n\n"+
+			"If the structural counter agrees with %d and this one does not, a registration is "+
+			"behind a condition that is now false — that is a coverage hole, not a bookkeeping "+
+			"error.\n\nfull output:\n%s", got, wantRowVisibilitySubtests, got, out)
+	}
+}
+
+// ── THE EXIT-CODE ASYMMETRY, AS A TEST RATHER THAN AS A BANNER ─────────────
+
+// TestSubstrateGate_ExitCodeAsymmetry pins B-36's actual observable.
+//
+// TestSpikeResolution_OptOutIsTheOnlySkipDoor pins the DECISION FUNCTION. That is
+// necessary and it is not sufficient: what B-36 was about is the EXIT CODE `go
+// test` hands the gate ladder, and between `spikeResolution` and that exit code
+// sit resolveSpikeConfig's switch, the t.Fatalf, and rvConnect's skip. Any of
+// those could be rewired — a `t.Skip` reintroduced on the fail branch, an
+// `if err != nil { return cfg, false }` added for "robustness" — and every
+// existing test in this file would still pass while the package went back to
+// printing `ok` in 0.014s having proved nothing.
+//
+// So this asserts the property end to end, the way the bug was originally
+// measured: a `docker` on PATH that exits 1 (the daemon-down case, verbatim from
+// the banner above), and the two arms that must differ.
+//
+//	no opt-out declared, docker broken  -> NON-ZERO   🛑 the row B-36 fixed
+//	HQ_SYNC_SUBSTRATE_OPTIONAL=1        -> ZERO       the deliberate opt-out
+//
+// It costs two nested `go test` invocations. Both fail fast at the gate — the
+// substrate is unreachable by construction, so neither one touches Postgres,
+// PostgREST or the network.
+func TestSubstrateGate_ExitCodeAsymmetry(t *testing.T) {
+	if os.Getenv(gateChildEnv) == "1" {
+		t.Skipf("%s=1 — this process IS a nested run; not forking again", gateChildEnv)
+	}
+	if runtime.GOOS == "windows" {
+		t.Skip("the docker shim below is a /bin/sh script")
+	}
+
+	// A `docker` that exits non-zero for every invocation. This is not a
+	// simulation of the bug's cause — it IS one of the listed causes (docker
+	// daemon down), reproduced exactly.
+	shimDir := t.TempDir()
+	shim := filepath.Join(shimDir, "docker")
+	if err := os.WriteFile(shim, []byte("#!/bin/sh\nexit 1\n"), 0o755); err != nil {
+		t.Fatalf("cannot write the docker shim: %v", err)
+	}
+
+	// Prepend the shim, keep the rest of PATH so `go` itself stays reachable.
+	brokenPath := shimDir + string(os.PathListSeparator) + os.Getenv("PATH")
+
+	// 🛑 SPIKE_DB_URL / SPIKE_REST_URL must be DROPPED, not overridden. Either one
+	// set makes `declared` true, which routes to F1's fail branch instead of
+	// B-36's — the same verdict for the wrong reason, and the test would then pass
+	// against a tree with B-36 reverted.
+	drop := []string{spikeDBURLEnv, spikeRESTURLEnv, spikeOptionalEnv}
+
+	t.Run("no opt-out declared and the substrate cannot be resolved -> NON-ZERO", func(t *testing.T) {
+		out, code := runNestedRowVisibility(t, childEnv(drop,
+			map[string]string{"PATH": brokenPath}))
+
+		if code == 0 {
+			t.Errorf("🛑 B-36 IS BACK. `go test -run TestRowVisibilityRLS` exited 0 with a "+
+				"broken docker and NO %s declared. That is the exact measurement in this file's "+
+				"banner: the row-visibility attack suite did not run, and the package said `ok`. "+
+				"Whatever change made this pass has re-opened the silent-skip door.\n\n%s",
+				spikeOptionalEnv, out)
+		}
+		if !strings.Contains(out, "THE SYNC SUBSTRATE COULD NOT BE RESOLVED") {
+			t.Errorf("the run failed (exit %d) but not with the substrate gate's message, so "+
+				"this test is no longer measuring the gate:\n%s", code, out)
+		}
+	})
+
+	t.Run("HQ_SYNC_SUBSTRATE_OPTIONAL=1 -> ZERO", func(t *testing.T) {
+		out, code := runNestedRowVisibility(t, childEnv(drop,
+			map[string]string{"PATH": brokenPath, spikeOptionalEnv: "1"}))
+
+		if code != 0 {
+			t.Errorf("🛑 the deliberate opt-out no longer opens the door: exit %d with %s=1. "+
+				"A contributor with no substrate can no longer run this package's hermetic "+
+				"tests, which is the arm the gate is supposed to KEEP.\n\n%s",
+				code, spikeOptionalEnv, out)
+		}
+		if !strings.Contains(out, "--- SKIP: TestRowVisibilityRLS") {
+			t.Errorf("exit was 0 but TestRowVisibilityRLS did not report a SKIP — a green that "+
+				"is not the opt-out's green is a different bug:\n%s", out)
+		}
+	})
 }
