@@ -2,6 +2,8 @@ package sync
 
 import (
 	"context"
+	crand "crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"go/ast"
@@ -519,9 +521,9 @@ func TestSpikeSubstrateOptional_IsExplicit(t *testing.T) {
 		{"1", true},
 		{"", false},
 		{"0", false},
-		{"true", false},  // 🛑 deliberately NOT accepted
-		{"yes", false},   // 🛑 ditto
-		{" 1", false},    // no trimming; a stray space is not a decision
+		{"true", false}, // 🛑 deliberately NOT accepted
+		{"yes", false},  // 🛑 ditto
+		{" 1", false},   // no trimming; a stray space is not a decision
 		{"11", false},
 	} {
 		t.Setenv(spikeOptionalEnv, tc.set)
@@ -614,6 +616,115 @@ const rowVisibilitySourceFile = "rowvisibility_rls_test.go"
 // test below refuses to run when it is set — without this guard, the child
 // compiles the same package, runs these same tests, and forks again.
 const gateChildEnv = "HQ_SYNC_GATE_CHILD"
+
+// ── THE RECURSION GUARD IS NOT A SKIP SWITCH ───────────────────────────────
+//
+// 🛑 THIS FILE SHIPPED A SILENT-SKIP DOOR OF B-36's OWN CLASS AND THE FIX ROUND
+// CAUGHT IT. The guard's first shape was `if os.Getenv(gateChildEnv) == "1" {
+// t.Skip }`. That makes ONE exported shell variable disarm both the
+// execution-backed count assertion AND B-36's exit-code pin, while the package
+// prints `ok` and exits 0. Measured on `71dbd28`:
+//
+//	$ HQ_SYNC_GATE_CHILD=1 go test -count=1 -run \
+//	    '^(TestRowVisibilitySubtestCount_Executed|TestSubstrateGate_ExitCodeAsymmetry)$' ./internal/sync/
+//	ok    github.com/yumyums/hq/internal/sync   0.008s      <- exit 0, nothing ran
+//
+// The card that closes "a gate can print `ok` having run nothing" must not ship
+// a gate that prints `ok` having run nothing. So the value is no longer a flag
+// but a TOKEN THE PARENT MINTS: 32 random bytes, written to a file the parent
+// created and keeps alive for the child's whole life, carried as `<hex>@<path>`.
+//
+//   - a process this file spawned presents a token that RESOLVES  -> skip, as before
+//   - anything else — a stale `=1` in a shell, a CI variable, a copied value whose
+//     file is gone — RESOLVES TO NOTHING                          -> t.Fatalf, loudly
+//
+// The point is not secrecy; it is that the guard can only be satisfied by an act
+// the parent performed, so it cannot be satisfied by an act a person performs by
+// accident. Fork-bomb protection is preserved exactly.
+
+type gateChildState int
+
+const (
+	gateChildAbsent  gateChildState = iota // no token: this process is a parent
+	gateChildGenuine                       // a token this file minted, still verifiable
+	gateChildForged                        // set to something no parent minted 🛑
+)
+
+// mintGateChildToken writes a fresh nonce into dir and returns the env value that
+// proves parentage. dir MUST outlive the child process — `t.TempDir()` does,
+// since it is removed only when the spawning test ends.
+func mintGateChildToken(dir string) (string, error) {
+	raw := make([]byte, 32)
+	if _, err := crand.Read(raw); err != nil {
+		return "", fmt.Errorf("cannot mint a %s token: %w", gateChildEnv, err)
+	}
+	nonce := hex.EncodeToString(raw)
+	path := filepath.Join(dir, "gate-child-"+nonce[:16]+".token")
+	if err := os.WriteFile(path, []byte(nonce), 0o600); err != nil {
+		return "", fmt.Errorf("cannot write the %s token file: %w", gateChildEnv, err)
+	}
+	return nonce + "@" + path, nil
+}
+
+// classifyGateChild decides whether an ambient gateChildEnv value was minted by a
+// parent test in this file. Every non-genuine verdict carries the reason, because
+// the failure it produces is one a human has to act on.
+func classifyGateChild(raw string) (gateChildState, string) {
+	if raw == "" {
+		return gateChildAbsent, ""
+	}
+	nonce, path, ok := strings.Cut(raw, "@")
+	if !ok {
+		return gateChildForged, fmt.Sprintf(
+			"value %q is not a <nonce>@<path> token — a parent-minted value always contains one '@'", raw)
+	}
+	if len(nonce) != 64 {
+		return gateChildForged, fmt.Sprintf(
+			"nonce is %d characters, a minted one is 64", len(nonce))
+	}
+	if _, err := hex.DecodeString(nonce); err != nil {
+		return gateChildForged, "nonce is not hex"
+	}
+	if !filepath.IsAbs(path) {
+		return gateChildForged, fmt.Sprintf("token path %q is not absolute", path)
+	}
+	body, err := os.ReadFile(path)
+	if err != nil {
+		return gateChildForged, fmt.Sprintf(
+			"token file %s cannot be read (%v) — a real parent keeps it in place for the child's whole life", path, err)
+	}
+	if strings.TrimSpace(string(body)) != nonce {
+		return gateChildForged, fmt.Sprintf("token file %s does not contain the nonce it is paired with", path)
+	}
+	return gateChildGenuine, ""
+}
+
+// gateChildSkipOrFail is the first line of every subprocess-spawning test in this
+// file. It returns true when the caller must stop (skipped or failed).
+func gateChildSkipOrFail(t *testing.T) bool {
+	t.Helper()
+	st, why := classifyGateChild(os.Getenv(gateChildEnv))
+	switch st {
+	case gateChildAbsent:
+		return false
+	case gateChildGenuine:
+		t.Skipf("%s carries a token minted by the parent test — this process IS the nested "+
+			"run; not forking again", gateChildEnv)
+		return true
+	default:
+		t.Fatalf("🛑 %s IS SET IN THIS ENVIRONMENT AND WAS NOT MINTED BY A PARENT TEST.\n\n"+
+			"%s\n\n"+
+			"This variable is a RECURSION GUARD, not a skip switch. Honouring an arbitrary "+
+			"value would let one exported shell variable disarm the execution-backed subtest "+
+			"count AND B-36's exit-code pin while this package still printed `ok` and exited "+
+			"0 — which is the exact defect class this file exists to close.\n\n"+
+			"Unset %s and run again. If you are writing a new test that spawns a nested "+
+			"`go test`, build its environment with childEnvFor(t, …) so it carries a minted "+
+			"token; do not set this variable by hand.",
+			gateChildEnv, why, gateChildEnv)
+		return true
+	}
+}
 
 // ── STRUCTURAL ─────────────────────────────────────────────────────────────
 
@@ -842,8 +953,11 @@ func goToolPath() (string, error) {
 }
 
 // childEnv builds an environment for a nested `go test`, with `drop` removed and
-// `set` applied. The child is always marked so it cannot recurse.
-func childEnv(drop []string, set map[string]string) []string {
+// `set` applied, marked with the parentage `token` so the child cannot recurse.
+//
+// Callers should use childEnvFor, which mints the token. The raw token parameter
+// exists so the guard's own test can present a FORGED one.
+func childEnv(token string, drop []string, set map[string]string) []string {
 	skip := map[string]bool{gateChildEnv: true}
 	for _, k := range drop {
 		skip[k] = true
@@ -858,28 +972,39 @@ func childEnv(drop []string, set map[string]string) []string {
 		}
 		out = append(out, kv)
 	}
-	out = append(out, gateChildEnv+"=1")
+	out = append(out, gateChildEnv+"="+token)
 	for k, v := range set {
 		out = append(out, k+"="+v)
 	}
 	return out
 }
 
-// runNestedRowVisibility runs `go test -run '^TestRowVisibilityRLS$' -v` in this
-// package directory and returns its combined output and its REAL exit code.
-func runNestedRowVisibility(t *testing.T, env []string) (string, int) {
+// childEnvFor is childEnv with a freshly minted parentage token. Every real
+// spawn goes through here — a caller cannot forget to mint one.
+func childEnvFor(t *testing.T, drop []string, set map[string]string) []string {
+	t.Helper()
+	token, err := mintGateChildToken(t.TempDir())
+	if err != nil {
+		t.Fatalf("cannot mint the recursion-guard token for a nested run: %v", err)
+	}
+	return childEnv(token, drop, set)
+}
+
+// runNestedGoTest runs `go test -run <pattern> -v` in this package directory and
+// returns its combined output and its REAL exit code.
+func runNestedGoTest(t *testing.T, pattern string, env []string) (string, int) {
 	t.Helper()
 
 	goBin, err := goToolPath()
 	if err != nil {
-		t.Fatalf("cannot locate the go tool to re-run TestRowVisibilityRLS: %v", err)
+		t.Fatalf("cannot locate the go tool to run a nested `go test -run %s`: %v", pattern, err)
 	}
 
 	// -count=1 is load-bearing twice over: it defeats the test cache (a CACHED
 	// exit 0 would make the asymmetry assertion below vacuously true) and it
 	// forces the substrate gate to be re-evaluated against the env we just built.
 	cmd := exec.Command(goBin, "test", "-count=1", "-timeout=5m",
-		"-run", "^TestRowVisibilityRLS$", "-v", ".")
+		"-run", pattern, "-v", ".")
 	cmd.Env = env
 	out, err := cmd.CombinedOutput()
 
@@ -903,8 +1028,8 @@ func runNestedRowVisibility(t *testing.T, env []string) (string, int) {
 // suite instead of by a person reading a log — so "59 ran" is asserted, not
 // inferred from a wall of green.
 func TestRowVisibilitySubtestCount_Executed(t *testing.T) {
-	if os.Getenv(gateChildEnv) == "1" {
-		t.Skipf("%s=1 — this process IS the nested run; not forking again", gateChildEnv)
+	if gateChildSkipOrFail(t) {
+		return
 	}
 
 	// Reuse the SHIPPED gate rather than a copy of it: no substrate and no
@@ -920,7 +1045,7 @@ func TestRowVisibilitySubtestCount_Executed(t *testing.T) {
 	// Hand the child the endpoints we already resolved: it skips a second pair of
 	// `docker compose port` shell-outs and, more importantly, cannot end up
 	// pointed at a different stack than the one this assertion is about.
-	out, code := runNestedRowVisibility(t, childEnv(
+	out, code := runNestedGoTest(t, "^TestRowVisibilityRLS$", childEnvFor(t,
 		[]string{spikeOptionalEnv},
 		map[string]string{spikeDBURLEnv: cfg.dbURL, spikeRESTURLEnv: cfg.restURL},
 	))
@@ -967,8 +1092,8 @@ func TestRowVisibilitySubtestCount_Executed(t *testing.T) {
 // substrate is unreachable by construction, so neither one touches Postgres,
 // PostgREST or the network.
 func TestSubstrateGate_ExitCodeAsymmetry(t *testing.T) {
-	if os.Getenv(gateChildEnv) == "1" {
-		t.Skipf("%s=1 — this process IS a nested run; not forking again", gateChildEnv)
+	if gateChildSkipOrFail(t) {
+		return
 	}
 	if runtime.GOOS == "windows" {
 		t.Skip("the docker shim below is a /bin/sh script")
@@ -993,7 +1118,7 @@ func TestSubstrateGate_ExitCodeAsymmetry(t *testing.T) {
 	drop := []string{spikeDBURLEnv, spikeRESTURLEnv, spikeOptionalEnv}
 
 	t.Run("no opt-out declared and the substrate cannot be resolved -> NON-ZERO", func(t *testing.T) {
-		out, code := runNestedRowVisibility(t, childEnv(drop,
+		out, code := runNestedGoTest(t, "^TestRowVisibilityRLS$", childEnvFor(t, drop,
 			map[string]string{"PATH": brokenPath}))
 
 		if code == 0 {
@@ -1010,7 +1135,7 @@ func TestSubstrateGate_ExitCodeAsymmetry(t *testing.T) {
 	})
 
 	t.Run("HQ_SYNC_SUBSTRATE_OPTIONAL=1 -> ZERO", func(t *testing.T) {
-		out, code := runNestedRowVisibility(t, childEnv(drop,
+		out, code := runNestedGoTest(t, "^TestRowVisibilityRLS$", childEnvFor(t, drop,
 			map[string]string{"PATH": brokenPath, spikeOptionalEnv: "1"}))
 
 		if code != 0 {
@@ -1022,6 +1147,103 @@ func TestSubstrateGate_ExitCodeAsymmetry(t *testing.T) {
 		if !strings.Contains(out, "--- SKIP: TestRowVisibilityRLS") {
 			t.Errorf("exit was 0 but TestRowVisibilityRLS did not report a SKIP — a green that "+
 				"is not the opt-out's green is a different bug:\n%s", out)
+		}
+	})
+}
+
+// ── THE GUARD'S OWN GUARD ──────────────────────────────────────────────────
+
+// TestGateChildGuard_IsNotASkipDoor pins the fix for the defect this card's own
+// review found: the recursion guard must not be usable as a skip switch.
+//
+// 🛑 This is B-36's defect class turned on the card that closes B-36. On commit
+// `71dbd28` a single exported `HQ_SYNC_GATE_CHILD=1` disarmed BOTH the
+// execution-backed count assertion and the exit-code pin, and the package
+// answered `ok … 0.008s`, exit 0. Pinning the classifier alone would not be
+// enough — the classifier is only a decision function, and the same argument
+// TestSubstrateGate_ExitCodeAsymmetry makes about spikeResolution applies here.
+// So the second half of this test spawns the guarded test FOR REAL and asserts
+// the two arms differ:
+//
+//	externally-set HQ_SYNC_GATE_CHILD=1  -> NON-ZERO, and names the reason
+//	a parent-minted token                -> ZERO, with a SKIP  (fork bomb still prevented)
+func TestGateChildGuard_IsNotASkipDoor(t *testing.T) {
+	if gateChildSkipOrFail(t) {
+		return
+	}
+
+	dir := t.TempDir()
+	minted, err := mintGateChildToken(dir)
+	if err != nil {
+		t.Fatalf("cannot mint a token to test the classifier with: %v", err)
+	}
+	nonce, path, _ := strings.Cut(minted, "@")
+
+	tampered := filepath.Join(dir, "tampered.token")
+	if err := os.WriteFile(tampered, []byte(strings.Repeat("f", 64)), 0o600); err != nil {
+		t.Fatalf("cannot write the tampered token file: %v", err)
+	}
+
+	for _, c := range []struct {
+		name string
+		raw  string
+		want gateChildState
+	}{
+		{"unset — this process is a parent", "", gateChildAbsent},
+		{"the pre-fix flag value `1` — the door this closes", "1", gateChildForged},
+		{"any bare value", "yes", gateChildForged},
+		{"a parent-minted token", minted, gateChildGenuine},
+		{"right shape, no such token file", strings.Repeat("a", 64) + "@" + filepath.Join(dir, "gone.token"), gateChildForged},
+		{"right shape, token file holds a different nonce", nonce + "@" + tampered, gateChildForged},
+		{"a relative token path", nonce + "@" + filepath.Base(path), gateChildForged},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			got, why := classifyGateChild(c.raw)
+			if got != c.want {
+				t.Errorf("🛑 classifyGateChild(%q) = %v, want %v (reason given: %q). A guard that "+
+					"misclassifies here is a silent-skip door in the tests that close B-36.",
+					c.raw, got, c.want, why)
+			}
+			if got == gateChildForged && why == "" {
+				t.Error("a forged verdict with no reason — the failure it produces is one a human " +
+					"has to act on, so it must say what was wrong")
+			}
+		})
+	}
+
+	// ── end to end, against the real guarded test ────────────────────────
+	//
+	// Both arms stop AT THE GUARD: neither reaches resolveSpikeConfig, rvConnect,
+	// Postgres, PostgREST or the network, so neither adds a DROP/CREATE cycle of
+	// the RLS fixture database (B-35's blast radius is untouched by this test).
+	const guarded = "^TestSubstrateGate_ExitCodeAsymmetry$"
+
+	t.Run("an externally-set HQ_SYNC_GATE_CHILD=1 now FAILS the guarded test", func(t *testing.T) {
+		out, code := runNestedGoTest(t, guarded, childEnv("1", nil, nil))
+
+		if code == 0 {
+			t.Errorf("🛑 THE SKIP DOOR IS OPEN AGAIN. `%s=1 go test -run %s` exited 0. One "+
+				"exported shell variable again disarms this file's gates while the package "+
+				"reports `ok` — the exact shape of B-36, inside the card that closed it.\n\n%s",
+				gateChildEnv, guarded, out)
+		}
+		if !strings.Contains(out, "WAS NOT MINTED BY A PARENT TEST") {
+			t.Errorf("the nested run failed (exit %d) but not at the recursion guard, so this "+
+				"test is no longer measuring the guard:\n%s", code, out)
+		}
+	})
+
+	t.Run("a parent-minted token still SKIPS the guarded test (fork bomb stays prevented)", func(t *testing.T) {
+		out, code := runNestedGoTest(t, guarded, childEnvFor(t, nil, nil))
+
+		if code != 0 {
+			t.Errorf("🛑 a genuine parent->child respawn no longer skips: exit %d. The guard has "+
+				"stopped doing the job it was added for, and `go test ./...` will fork.\n\n%s",
+				code, out)
+		}
+		if !strings.Contains(out, "--- SKIP: TestSubstrateGate_ExitCodeAsymmetry") {
+			t.Errorf("exit was 0 but the guarded test did not report a SKIP — a green that is not "+
+				"the guard's green means the test was filtered out rather than guarded:\n%s", out)
 		}
 	})
 }
