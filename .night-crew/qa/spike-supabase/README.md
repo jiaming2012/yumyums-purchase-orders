@@ -85,6 +85,47 @@ All paths below are relative to the repo root.
 
 ---
 
+## 🛑 If you only want the environment up, run one command
+
+**Added by card C1 `spike-a-environment-up`, run `20260806`.** Steps 0–2 below
+are the *narrated* bring-up and they remain the explanation of record — read them
+when you need to know **why** a step exists. But you no longer have to perform
+them by hand, and you should not: everything through "schema applied and
+healthy" is now one unattended script.
+
+```bash
+task spike:up          # idempotent: reconcile the stack, apply schema, verify
+task spike:up:fresh    # destroy volumes and come up from nothing (the clean-machine test)
+task spike:health      # verify only — touches nothing
+task spike:down        # teardown, still a deliberate and separate act
+```
+
+or, with no `task` installed, the script the targets wrap:
+
+```bash
+./.night-crew/qa/spike-supabase/env-up.sh [--fresh|--health]
+```
+
+**🛑 The verdict is the script's exit status, never its prose.** `0` means the
+substrate and RxDB are both genuinely up: three containers, all three fixture
+schemas applied, PostgREST answering *and discriminating* by RLS, Realtime
+`SUBSCRIBED`, and a real RxDB database created and round-tripped. Anything else
+is non-zero with a named cause. No health assertion in it is advisory, and none
+carries `|| true`.
+
+Measured on 2026-08-06: **68.8 s** from destroyed volumes with no `node_modules`
+and two of the three images deleted; **35.3 s** to reconcile a warm stack.
+
+**Why this exists at all** — the run that wrote it found this stack sitting in
+`docker ps` as three containers, `Up (healthy)`, **five days old, with no
+schema**: `relation "public.spike_notes" does not exist`. Every eye-check of
+`docker ps` over those five days would have read green. *"A container is
+running"* is not *"the environment is up"*, and only an assertion that queries
+the thing can tell the two apart. Capture:
+[`captures/green-20260806-env-up.txt`](captures/green-20260806-env-up.txt).
+
+---
+
 ## Step 0 — pull the images (do this first)
 
 Nothing else works if the registry is unreachable, and finding that out costs
