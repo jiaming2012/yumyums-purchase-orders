@@ -217,8 +217,21 @@ half. A future reader grepping for the literal `ugrep:` string will not find it.
 
 So the greps return empty **because there is nothing to find**, and an empty grep reads exactly like
 a clean one. Any run or triage reporting them "clean" is reporting a vacuum — the same silent-green
-class as B-09 and B-36, one layer up in the tooling rather than in the suite. Triages on 07-27,
-07-29, 07-29-2 and 08-01 each carried this and each wrote `N/A-VACUOUS` by hand.
+class as B-09 and B-36, one layer up in the tooling rather than in the suite.
+
+**Four consecutive triages carried this. Three of them wrote the marker by hand; the first is the one
+that ruled it.** Each verified in the artifact named:
+
+| Triage / run | What it actually did |
+|---|---|
+| **07-27** (`ledger.md:1481`, §T-25 decision 75) | **The discovery triage — it ruled, it did not mark.** Decision 75 establishes that the greps are vacuous here and *must not be reported as clean*. `runs/2026-07-27-autonomous/HANDOFF.md` carries no `N/A-VACUOUS` line; the ruling is the artifact |
+| **07-29** (`runs/2026-07-29-autonomous/HANDOFF.md:215`) | Wrote it: *"⚪ N/A-VACUOUS, and reported as such"* |
+| **07-29-2** (`runs/2026-07-29-2-autonomous/HANDOFF.md:261`) | Wrote it: *"recorded as N/A-VACUOUS, not clean … third consecutive triage"* |
+| **08-01** (`runs/2026-08-01-autonomous/HANDOFF.md:79`) | Wrote it: *"Recorded N/A-VACUOUS, not clean … now the fourth consecutive triage"* — and again in that run's `merge-intent-a1-app-timezone-unify-new-york.md:353` and `closeout-b2-sync-rxdb-row-visibility-rls.md:156` |
+
+🛑 **The earlier version of this section said all four "each wrote `N/A-VACUOUS` by hand".** Three
+did. A ladder that overstates its own provenance is the defect class it exists to catch, so the
+correction is recorded rather than silently applied.
 
 🛑 **The remedy does not live here, and an hq run branch must never apply it.** B-14's own lead:
 *"this binds the night-crew clone, not hq — carry it there."*
