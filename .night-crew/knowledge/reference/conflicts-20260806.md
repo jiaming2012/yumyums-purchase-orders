@@ -36,3 +36,35 @@ is correct at HEAD, so the change ships (B-13).
 further sites was deliberately **not** fixed here and is filed as **B-140** — `workflows.html`
 is a precached shipped asset, so retiring it forces an `sw.js` regen plus a full-suite gate.
 That is a card, not a fix round; destination named as `sync-hard-cutover`.
+
+---
+
+### 2 · `c1-spike-env-up` → `overnight-20260806` · **CLEAN** · merge `76dc12b`
+
+**Cards involved:** C1 alone. Track C shares no file with any other card in this slate —
+that disjointness is why it got its own track — so no collision was possible.
+
+**Files:** `Taskfile.yml`, `docker-compose.supabase.yml`, `.night-crew/qa/spike-supabase/`
+(`env-up.sh`, `README.md`, `rxdb/healthcheck.js`, two captures), plus a gate log and the
+merge-intent note. 9 files.
+
+**Intents read:** `merge-intents/c1-spike-env-up.md` — sole side, nothing to reconcile.
+Its original "driven, not edited" disclaimer for `docker-compose.supabase.yml` was
+**retracted in the fix round**, because F1's durable fix required editing that file. The
+retraction is explicit in the note under its own heading. §15ad.65: editing outside the
+declared footprint is not a breach — failing to declare it is, and it is declared.
+
+**Resolution:** none required — clean `--no-ff` merge, no conflicting hunks.
+
+**Gate after merge:** no G4 re-run needed — **C1 touches no precached asset** (verified:
+its diff contains no `.html`/`.js`/`.css`/`.json` outside `.night-crew/`, and
+`rxdb/healthcheck.js` lives under `.night-crew/qa/`, which `build-sw.js` does not precache).
+Precache stays 31 from merge 1.
+
+**Note carried:** G6 returned MERGE WITH NOTE and found a **destructive** defect the card
+had asserted the opposite of — `task spike:up` could wipe the spike database, via a missing
+PGDATA volume plus a path-sensitive compose config hash. Both fixed and proven in the fix
+round before this merge. G6's strongest observation stands on the record: this mechanism is
+very likely the cause of the card's own headline finding (three healthy containers, five
+days, no schema) — the card built a detector for the symptom and never diagnosed the cause,
+and the cause was its own command.
