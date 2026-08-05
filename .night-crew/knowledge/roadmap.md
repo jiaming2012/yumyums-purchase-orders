@@ -74,32 +74,42 @@ count or closeout substitutes for that run.
 > `ok` having run nothing. Last cycle's A1 (`e2e-gate-database-isolation`) was exactly this shape
 > and it is the reason the close could cite anything at all. **Trace:** QA objective.
 
-- **`gate-rls-skip-is-not-pass`** · **PLANNED** · Close **B-36**. `internal/sync` prints `ok` and
-  exits 0 while skipping the *entire* `TestRowVisibilityRLS` attack suite: `resolveSpikeConfig`
-  shells out to `docker compose … port`, and **any** failure — docker absent, project down, ports
-  unpublished — becomes `t.Skip`. Verified at triage by execution: with `PATH` stripped of docker
-  the package exits 0 with `ok`, and only `-v` reveals the suite's own honest line *"SKIPPED IS
-  NOT PASSED"*. **Nothing in the gate reads it.** Make the skip a hard failure unless
-  `HQ_SYNC_SUBSTRATE_OPTIONAL` is explicitly set, and make the count assertable (expect 59
-  subtests). Footprint: gate/harness + backend sync.
+- **`gate-rls-count-assertion`** · **DRAFTING** (`overnight-20260806`) · Close **B-36**.
+  🛑 **Re-scoped at slate-20260806 on execution evidence.** B-36's mechanism is **already fixed**:
+  commit `4615661` (2026-08-01, on `dev`) made an unresolvable substrate a hard `t.Fatalf` unless
+  `HQ_SYNC_SUBSTRATE_OPTIONAL` is set. Re-probed at slate time in both directions — docker stripped
+  from `PATH` ⇒ `EXIT=1`; opt-out set ⇒ `EXIT=0`. The bug was filed 07-31, fixed 08-01, and its
+  backlog entry was never closed, so this round promoted a fixed defect (an instance of **B-38**'s
+  channel gap). **The card's surviving half is the count assertion** — Q-KR1 requires the 59
+  subtests *asserted rather than inferred*, and `grep` finds no count assertion anywhere in the
+  package. Also pins the exit-code asymmetry as a test, and closes B-36's stale entry.
+  Footprint: backend sync.
 
-- **`gate-harness-honesty`** · **PLANNED** · Close **B-22** and **B-35** — one mechanism each,
-  same file family. (a) `verify-test-harness.sh` Check B aggregates with **OR**, so six of seven
-  packages can report `ok` on a dropped database and the gate still prints PASS; only a 7-of-7
-  revert reds it. (b) The standard gate command `go test ./...` **drops a database it does not
-  own** — `TestRowVisibilityRLS` drops/recreates `hq_test_b2_fdw` on entry, so any plain gate run
-  destroys a concurrently-running card's fixture. This is B-16's failure mode baked into the
-  primary gate command, and concurrent dispatch is this project's normal shape. Footprint:
-  gate/harness.
+- **`gate-harness-check-b-per-package`** · **DRAFTING** (`overnight-20260806`) · Close **B-22**.
+  🛑 **Split out of `gate-harness-honesty` at slate-20260806 per the §1.4 fan-out rule** — the
+  original card bundled two mechanisms in two file families (shell vs Go). `scripts/verify-test-harness.sh`
+  Check B runs **one** aggregate `go test` over seven packages and passes when it exits non-zero, so
+  six of seven can report `ok` on a dropped database and the gate still prints PASS. Make it
+  per-package, require all seven to exit non-zero, and assert the iterated package count so a
+  shrinking `DB_PKGS` announces itself. Footprint: gate/harness.
 
-- **`gate-ladder-completeness`** · **PLANNED** · Close the surviving half of **B-26**, plus
+- **`gate-rls-fixture-ownership`** · **DRAFTING** (`overnight-20260806`) · Close **B-35**.
+  🛑 **Split out of `gate-harness-honesty`** (see above). The standard gate command `go test ./...`
+  **drops a database it does not own** — `rowvisibility_rls_test.go:400` drops/recreates
+  `hq_test_b2_fdw` on entry, so any plain gate run destroys a concurrently-running card's fixture.
+  B-16's failure mode baked into the primary gate command, on a project whose normal shape is
+  concurrent dispatch. 🛑 **Narrower than first written:** the `HQ_RLS_TEST_DB` override *already
+  exists* (`:233`); the defect is the shared **default**. Remedy per B-35's lead — prefer failing
+  over defaulting. Footprint: backend sync.
+
+- **`gate-ladder-completeness`** · **DRAFTING** (`overnight-20260806`) · Close the surviving half of **B-26**, plus
   **B-14**. Decision 138 gave the ladder a home (`reference/gate-ladder.md`) but **G5 is still
   undefined** — the table runs G1, G2(Go), G2(Playwright), G3 (N/A), G4, **G6**. Either define G5
   or state in the file that there is none, so no future slate inherits a gap. And **B-14**: the
   morning-triage G4 discipline greps are **vacuous in hq and read as clean** — the same
   absence-reads-as-pass class this whole activity exists to retire. Footprint: gate/harness.
 
-- **`shipped-bug-sweep`** · **PLANNED** · Close **B-89** and **B-132** — routed to "the next
+- **`shipped-bug-sweep`** · **DRAFTING** (`overnight-20260806`) · Close **B-89** and **B-132** — routed to "the next
   night" by T-34 decision 137 and never promoted to a card, which is exactly the channel gap
   **B-38** describes. (a) `cachedGrantSlugs()` returns `[]` unconditionally on every real client
   (`index.html` writes `hq_apps` as `{uid, apps}`; `bootstrap.js` `Array.isArray`-gates it) — 🛑
@@ -108,7 +118,7 @@ count or closeout substitutes for that run.
   completed submission, orphaning a full-screen canvas; fires 28× per suite run. Footprint: page
   wiring + sync client.
 
-- **`repo-hygiene-preconditions`** · **PLANNED** · The three defects the handoff §6 re-verified,
+- **`repo-hygiene-preconditions`** · **DRAFTING** (`overnight-20260806`) · The three defects the handoff §6 re-verified,
   each one line, all blocking clean `done_when:` authoring downstream. (a) **One NUL byte in
   `sync-rxdb/client.js`** makes `grep` report nothing on strings present three times — any
   "grep returns nothing" criterion is currently satisfiable by unreadability. (b)
@@ -127,7 +137,7 @@ count or closeout substitutes for that run.
 > measured false on **night nine of nine**, after ~11,200 spec lines had been built on it.
 > **Trace:** Delivery + Engineering objectives.
 
-- **`spike-a-environment-up`** · **PLANNED** · *Spike A — the operator's own.* One script takes a
+- **`spike-a-environment-up`** · **DRAFTING** (`overnight-20260806`) · *Spike A — the operator's own.* One script takes a
   clean machine to *"Supabase + RxDB both up, schema applied, healthy"* **unattended**. Proves the
   environment has no hand-configured, undocumented step. Seeds the dev-environment target that
   Activity 5's demo runs against. Verdict = the script's exit status. Footprint: spike scripts.
