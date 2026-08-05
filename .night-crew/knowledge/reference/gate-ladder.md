@@ -205,8 +205,15 @@ were never here, and `find` over the whole tree confirms it.
 
 | Run from | Result |
 |---|---|
-| repo root — where the ritual's literal command lands | `ugrep: warning: internal: No such file or directory` / `cmd: No such file or directory`, **exit 2** — the paths themselves are absent |
+| repo root — where the ritual's literal command lands | `<grep>: internal: No such file or directory` / `<grep>: cmd: No such file or directory`, **exit 2** — the paths themselves are absent |
 | `backend/` — the module root, where a helpful triage would retry | **empty, exit 1** — clean-looking, and every bit as vacuous |
+
+🛑 **Match on the exit code, not on the message.** `<grep>` above is whatever binary answered: on
+this box `grep` is a shell function backed by a `ugrep` shim, which prints
+`ugrep: warning: internal: No such file or directory`; a triage running real GNU grep gets
+`grep: internal: No such file or directory` (and `/usr/bin/grep: …` if invoked by path). **The exit
+codes — 2 from the repo root, 1 from `backend/` — hold for both**, and they are the load-bearing
+half. A future reader grepping for the literal `ugrep:` string will not find it.
 
 So the greps return empty **because there is nothing to find**, and an empty grep reads exactly like
 a clean one. Any run or triage reporting them "clean" is reporting a vacuum — the same silent-green
