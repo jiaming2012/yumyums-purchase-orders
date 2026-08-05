@@ -49,6 +49,23 @@ FAILURES=0
 pass() { printf '  \033[32mPASS\033[0m  %s\n' "$1"; }
 fail() { printf '  \033[31mFAIL\033[0m  %s\n' "$1"; FAILURES=$((FAILURES + 1)); }
 
+# ── Diagnostics go in a per-RUN directory, never a fixed /tmp path ───────────
+#
+# Every log this script writes used to be a fixed name under /tmp
+# (`/tmp/h1-list.log`, `/tmp/h1-unset.log`, and after the B-22 fix seven
+# `/tmp/h1-deadport-<pkg>.log`). Two concurrent harness runs therefore clobbered
+# each other's diagnostics, and a run that ended early left a stale file that
+# reads as current — that happened on 20260806, where a stale `/tmp/h1-list.log`
+# was quoted as this leg's figures when it was a different leg's. A fixed path
+# is a check lying about *which run* it graded.
+#
+# `basename` was also the wrong key for the per-package logs: two `$DB_PKGS`
+# entries sharing a leaf name (`./internal/sync/` and `./cmd/sync/`) would
+# silently overwrite one another. The slug below uses the whole path.
+H1_LOGDIR="${H1_LOGDIR:-$(mktemp -d "/tmp/h1-harness-$$-XXXXXX")}"
+mkdir -p "$H1_LOGDIR"
+echo "    (diagnostics for THIS run: $H1_LOGDIR)"
+
 # ── Check A — `task test` must generate the BDD specs before running ────────
 #
 # `task --dry` resolves and prints the full dependency chain without executing
@@ -89,21 +106,21 @@ if [ ! -d "$REPO_ROOT/node_modules/@playwright" ]; then
         taken. This is a FAIL and not a skip: an ungraded check is not a
         passed check. Run 'npm ci' and re-run."
 else
-	npx bddgen >/tmp/h1-bddgen.log 2>&1
-	npx playwright test --list --reporter=list >/tmp/h1-list.log 2>&1
-	TOTAL_LINE="$(grep -E '^Total: [0-9]+ tests in [0-9]+ files' /tmp/h1-list.log | tail -1)"
+	npx bddgen >"$H1_LOGDIR/bddgen.log" 2>&1
+	npx playwright test --list --reporter=list >"$H1_LOGDIR/list.log" 2>&1
+	TOTAL_LINE="$(grep -E '^Total: [0-9]+ tests in [0-9]+ files' "$H1_LOGDIR/list.log" | tail -1)"
 	SPEC_FILES="$(printf '%s' "$TOTAL_LINE" | sed -nE 's/^Total: [0-9]+ tests in ([0-9]+) files.*/\1/p')"
 	if [ -z "$SPEC_FILES" ]; then
 		fail "'npx playwright test --list' printed no parseable 'Total: N tests in M
         files' line, so the spec-file count could not be graded. See
-        /tmp/h1-list.log and /tmp/h1-bddgen.log."
+        $H1_LOGDIR/list.log and $H1_LOGDIR/bddgen.log."
 	elif [ "$SPEC_FILES" -ge "$MIN_SPEC_FILES" ]; then
 		pass "$TOTAL_LINE (floor: $MIN_SPEC_FILES)"
 	else
 		fail "$TOTAL_LINE — BELOW the floor of $MIN_SPEC_FILES. Spec files the repo has are
         not reaching the runner. A suite that silently resolves fewer files
         than exist reports success for tests it never ran; that is the B-09
-        incident. See /tmp/h1-list.log."
+        incident. See $H1_LOGDIR/list.log."
 	fi
 fi
 
@@ -191,7 +208,8 @@ DEAD_PROBED=0
 DEAD_SILENT=""
 for p in $DB_PKGS; do
 	DEAD_PROBED=$((DEAD_PROBED + 1))
-	PKG_LOG="/tmp/h1-deadport-$(basename "$p").log"
+	PKG_SLUG="$(printf '%s' "$p" | sed -e 's#^\./##' -e 's#/$##' -e 's#/#-#g')"
+	PKG_LOG="$H1_LOGDIR/deadport-$PKG_SLUG.log"
 	DB_TEST_URL="$DEAD_URL" DATABASE_URL='' TEST_DATABASE_URL='' \
 		go test -count=1 -p 1 "$p" >"$PKG_LOG" 2>&1
 	PKG_STATUS=$?
@@ -258,7 +276,7 @@ echo "── B2 · DB_TEST_URL unset ⇒ still skips (no over-correction) ──
 cd "$REPO_ROOT/backend"
 # shellcheck disable=SC2086
 env -u DB_TEST_URL -u DATABASE_URL -u TEST_DATABASE_URL \
-	go test -count=1 -p 1 $DB_PKGS >/tmp/h1-unset.log 2>&1
+	go test -count=1 -p 1 $DB_PKGS >"$H1_LOGDIR/unset.log" 2>&1
 UNSET_STATUS=$?
 cd "$REPO_ROOT"
 
@@ -267,7 +285,7 @@ if [ "$UNSET_STATUS" -eq 0 ]; then
 else
 	fail "go test exited $UNSET_STATUS with DB_TEST_URL unset — skip-on-unset was
         over-corrected into a failure. A contributor without a database must
-        still be able to run the unit tests. See /tmp/h1-unset.log."
+        still be able to run the unit tests. See $H1_LOGDIR/unset.log."
 fi
 
 echo
