@@ -145,6 +145,34 @@ tasks:
   # `task prod:deploy` (pulls main in the prod clone, rebuilds, restarts).
   # ─────────────────────────────────────────────────────────────────────────────
 
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Sync spike environment (night-crew card C1 `spike-a-environment-up`).
+  #
+  # These are THIN WRAPPERS on purpose. All logic lives in
+  # .night-crew/qa/spike-supabase/env-up.sh so the verdict reproduces without
+  # `task` installed, and so the exit status the card is graded on comes from
+  # one place. Do not move logic up here.
+  #
+  # ⚠ LOCAL THROWAWAY STACK ONLY. Compose project `spike-supabase`; never HQ
+  #   prod, never docker-compose.nc.yml, never the dev Postgres on :5433.
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  spike:up:
+    desc: Bring the Supabase+RxDB spike environment up and verify it (idempotent; exit status IS the verdict)
+    cmd: ./.night-crew/qa/spike-supabase/env-up.sh
+
+  spike:up:fresh:
+    desc: Destroy the spike stack's volumes, then bring it up from nothing and verify (the clean-machine test)
+    cmd: ./.night-crew/qa/spike-supabase/env-up.sh --fresh
+
+  spike:health:
+    desc: Verify the spike environment WITHOUT touching it — schema, RLS, Realtime, RxDB
+    cmd: ./.night-crew/qa/spike-supabase/env-up.sh --health
+
+  spike:down:
+    desc: Destroy the spike stack and its volumes (deliberate, separate act — never run by spike:up)
+    cmd: docker compose -p spike-supabase -f docker-compose.supabase.yml down --volumes --remove-orphans
+
   version:
     desc: Compare backend + frontend versions across local source, dev server, and prod
     cmds:
