@@ -30,7 +30,7 @@
 | Gate | Command | Pass condition |
 |---|---|---|
 | **G1** | `go build ./...` · `go vet ./...` (from `backend/`, the module root) | both exit 0. 🛑 Run from `backend/` — `./...` from the repo root matches **no module** and, piped into `tail`, prints a false green (`card-actuals.md`, and again at triage 2026-08-03) |
-| **G2 (Go)** | `go test -p 1 -count=1 ./...` | exit 0, **and counts checked, not `ok`**. 🛑 `DB_TEST_URL` must be set or the suite exits 0 while skipping every DB-coupled test — `internal/workflow` runs **zero** tests and still prints `ok`. Expect 9 packages and ~439 tests; `internal/workflow` should run **35**. For `internal/sync` the package `ok` line is **not** evidence — **the 59-subtest count is now asserted by the suite itself, not eyeballed from a `-v` log** (see below). The human evidence line must still state that **`HQ_SYNC_SUBSTRATE_OPTIONAL` and `HQ_SYNC_GATE_CHILD` were both unset** (B-36, the package that prints `ok` on zero tests; decision 108 made proving-the-suite-ran a standing evidence rule, and decision 116 kept it with amendments) |
+| **G2 (Go)** | `go test -p 1 -count=1 ./...` | exit 0, **and counts checked, not `ok`**. 🛑 `DB_TEST_URL` must be set or the suite exits 0 while skipping every DB-coupled test — `internal/workflow` runs **zero** tests and still prints `ok`. Expect 9 packages and ~439 tests; `internal/workflow` should run **35**. For `internal/sync` the package `ok` line is **not** evidence — **the 59-subtest count is asserted by the suite itself, not eyeballed from a `-v` log** (card A1, run `20260806`, merged **`9b63958`**; see below). No manual fallback is needed: the assertion is in the tree, and a card that skips it gets a red, not a quiet pass. The human evidence line must still state that **`HQ_SYNC_SUBSTRATE_OPTIONAL` and `HQ_SYNC_GATE_CHILD` were both unset** (B-36, the package that prints `ok` on zero tests; decision 108 made proving-the-suite-ran a standing evidence rule, and decision 116 kept it with amendments) |
 | **G2 (Playwright)** | `npx bddgen` · `npx playwright test --retries=0` | **Exactly one summary block.** Two blocks under one header = an invalidated run; discard and re-run. Judged against the armed-reds baseline, never against green |
 | **G3** | — | **N/A.** Preflight verdict `openspec: absent`; ledger §T-34 decision 140 keeps it that way. Create no OpenSpec scaffolding |
 | **G4** | `node build-sw.js` (or `task sw`) | Idempotent — tree clean on a second run. Precache count **31**; if it moves without an asset being deliberately added or removed, that is B-37's silent drop returning. Version parity `version.go Frontend` ≡ `package.json` ≡ `version.json`. 🛑 **Reads git HEAD, not the working tree** — regenerate **after** the merge commit, never mid-merge (B-37) |
@@ -63,9 +63,16 @@ inside a run.
 The 59-subtest count is **asserted by the suite**, not read off a log by a human. Card A1 of run
 `20260806` landed `TestRowVisibilitySubtestCount_Structural` and
 `TestRowVisibilitySubtestCount_Executed` in `backend/internal/sync/spikestack_gate_test.go`, against
-the constant `wantRowVisibilitySubtests = 59`. Q-KR1 asked for exactly this: an **assertion** in
-place of the **inference** a human drew from `-run TestRowVisibilityRLS -v`. Adding or removing a
-variant now reds the package until the constant is bumped deliberately.
+the constant `wantRowVisibilitySubtests = 59`. **Merged to `overnight-20260806` as `9b63958`** — this
+is a property of the tree, not of a branch. Q-KR1 asked for exactly this: an **assertion** in place
+of the **inference** a human drew from `-run TestRowVisibilityRLS -v`. Adding or removing a variant
+now reds the package until the constant is bumped deliberately.
+
+**The manual `-run TestRowVisibilityRLS -v` fallback is retired, deliberately and only because
+`9b63958` landed.** Had it not, dropping the by-hand instruction while claiming the suite guards the
+count would have left the ladder weaker than before — a gate asserted by nothing and checked by
+nobody. It did land, so the row stands on its own. If the assertion is ever removed, the by-hand
+count comes back with it.
 
 So the human-facing evidence line no longer has to transcribe subtest names. **What it must still do
 is name the environment**, because the assertion can be disarmed from outside the code:
