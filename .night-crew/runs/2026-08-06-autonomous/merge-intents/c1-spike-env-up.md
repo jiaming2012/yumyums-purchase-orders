@@ -28,11 +28,17 @@ Run `20260806` · branch `card/c1-spike-env-up` · based at `ef314e0`.
 `.night-crew/qa/spike-supabase/**` plus `Taskfile.yml` targets. No production code and no
 `tests/` change.
 
-**Re-verified after the fix round, and still true.** The full diff against `dev` for this
-card is: `docker-compose.supabase.yml`, `Taskfile.yml`, and files under
-`.night-crew/qa/spike-supabase/**` + `.night-crew/runs/2026-08-06-autonomous/**`. Nothing
-under `backend/`, `sync-rxdb/`, `tests/`, or any shipped `*.html`/`sw.js` is touched, so
-there is no Playwright or Go spec that could have been written red first.
+**Re-verified after the fix round, and still true.** `git diff --name-only ef314e0..HEAD`
+— this card's own commits, from the base this intent declares — is exactly nine files:
+`docker-compose.supabase.yml`, `Taskfile.yml`, five under
+`.night-crew/qa/spike-supabase/**` and two under
+`.night-crew/runs/2026-08-06-autonomous/**`. Nothing under `backend/`, `sync-rxdb/`,
+`tests/`, and no shipped `*.html` / `sw.js` / `package.json`, so there is no Playwright or
+Go spec that could have been written red first.
+
+*(A `dev...HEAD` diff does show `sw.js`, `sync-rxdb/*` and `tests/repo-hygiene.spec.js` —
+those arrive via the W0 `repo-hygiene-preconditions` merge already in this branch's
+ancestry at `6f91863`, and belong to that card, not this one.)*
 
 The card's **equivalent discipline is negative controls** — the exit status is the
 deliverable, so proving it can go RED is the red-first. Recorded, each with a captured
