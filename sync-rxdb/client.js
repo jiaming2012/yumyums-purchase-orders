@@ -1115,12 +1115,19 @@ export async function createHQSyncDatabase(opts = {}) {
 /**
  * Start `replicateSupabase` for each replicated collection.
  *
- * 🛑 NOT CALLED BY ANY PAGE ON THIS CARD. `workflows.html` gets import +
- * construction only; the write-path swap is `sync-hard-cutover`, and
- * `HQ_SYNC_REST_URL` must not be set in any deploy until
- * `sync-rxdb-row-visibility-rls` lands. Calling this today produces 503s from a
- * door that is deliberately shut. It lives here so the shape is reviewable now
- * and so C2 can drive it in a test.
+ * 🛑 NOT CALLED BY ANY PAGE. `workflows.html` gets import + construction only;
+ * the write-path swap is `sync-hard-cutover`. Calling this today produces 503s
+ * from a door that is deliberately shut. It lives here so the shape is
+ * reviewable now and so C2 can drive it in a test.
+ *
+ * `HQ_SYNC_REST_URL` is unset in every environment, and that is what shuts the
+ * door. 🛑 The remaining precondition is NOT row-level security: this used to
+ * read "must not be set in any deploy until the row-visibility-RLS card lands",
+ * and that card MERGED on 2026-08-01 (`bbbfc64`; roadmap flipped DONE
+ * at `914536c`). What is still open is the cutover itself — no page calls this,
+ * so setting the variable would start a replication nothing reads. Corrected on
+ * card `repo-hygiene-preconditions`, run 20260806: a gate naming a card that
+ * shipped reads as an open precondition and hides the ones that are real.
  *
  * 🛑 `opts.scope` IS REQUIRED — see the REPLICATION SCOPE block above. There is
  * no unscoped call, and there are TWO shapes:
