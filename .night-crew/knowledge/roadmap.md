@@ -24,6 +24,18 @@
 > groups but **not walked this round** — they remain `new` in BACKLOG.md, available for the next
 > roadmap-round pass (either continuing this same round or a future one), not dropped.
 
+> 🛑 **MILESTONE CLOSED 2026-08-05** (attended `/nc-milestone-close`, ledger **§T-37**, decisions
+> 148–152). Graded **8 MET · 1 PARTIAL · 3 NOT MET · 1 UNAUDITABLE** (N=13) by hand — every
+> night-crew milestone verb is blind in this repo. Record: `reference/cycle-closeout-20260805.md`.
+> Marker `hq-20260805` written to `scorecard/milestones.jsonl`.
+>
+> 🛑 **Read the closeout's §0 before authoring anything next.** "Cards still white: ZERO" below is
+> **true and meaningless**: `sync-hard-cutover` was retired (decision 126) and its named successor
+> `sync-live-fill-view` was **never authored**, so the count cannot see the hole. RxDB has **zero
+> production call sites** — `createHQSyncDatabase()` / `startHQReplication()` are imported and
+> re-exported by `sync-rxdb/bootstrap.js` and never called. The milestone did not deliver the
+> capability it is named for. Next: **`/nc-roadmap-round`**.
+>
 > **Current state — after morning triage 2026-08-03 (run `overnight-20260804`, ledger §T-34).**
 > **Cards still white: ZERO**, unchanged — run `20260804` landed 4 of 4 (A1, A2, A4, and the A6
 > stretch), all four already flipped by the run itself, and triage added **no new card and no card

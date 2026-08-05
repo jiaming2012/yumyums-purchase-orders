@@ -2830,3 +2830,82 @@ already recorded at **T-35 decisions 143–145** (A5's coordinated-release requi
 HQ still owes: the migration `0072` changeover date**, which the consumer has now named twice as the
 only item it is waiting on. It is unblocked — see T-35 decision 143 — and gated only on HQ promoting
 `dev` to `main` and deploying.
+
+---
+
+## T-37 — Milestone close: "Sync foundation" (2026-08-05, attended `/nc-milestone-close`)
+
+The cycle opened 2026-07-24/25 and closed 2026-08-05 across 9 runs (`20260725` → `20260804`),
+28 landed cards, 99 decisions (49–147), 0 open forks. Full record:
+`reference/cycle-closeout-20260805.md`. Aggregate transfer:
+`<night-crew clone>/reference/milestones/hq-20260805.md`.
+
+**Decision 148 — the milestone closes graded 8 MET · 1 PARTIAL · 3 NOT MET · 1 UNAUDITABLE
+(N=13), and the headline is that it did not deliver what it is named for.** Verified at source
+during the close, not carried from any report: `createHQSyncDatabase()` and `startHQReplication()`
+appear in production code in exactly one file — `sync-rxdb/bootstrap.js`, as an import (`:49-50`)
+and two deferred re-exports (`:83`, `:90`) — and **neither is ever called**; `window.HQSync.db` is
+never assigned, so `workflows.html:3590` is dead by construction; the 495 KB
+`vendor/rxdb.bundle.js` is precached to every crew phone and does nothing. `ledger.md:2663` had
+already recorded the same fact in passing. **Nine runs produced a tested library with zero call
+sites**, and every one of the 13 KRs is still correctly graded — four objectives assert delivery
+and not one KR measures whether RxDB serves a byte. Chosen over grading the cycle on its KR
+arithmetic alone: a close whose scoreboard is honest and whose subject is undelivered must say
+both, or the next roadmap round inherits a success. 🛑 **What is real and must not be rebuilt:**
+the substrate schema/RLS/write policies (59 `TestRowVisibilityRLS` subtests), RxDB database
+creation and the conflict handler proven in a real browser, the JWT bridge, and the
+`HQ_SYNC_REST_URL` interlock that kept it all inert as designed.
+
+**Decision 149 — D-KR2a and D-KR2b grade NOT MET by deferral, not N/A, and no later deploy
+repairs them.** The operator elected at the close to skip `task prod:deploy` → `task version` →
+the returning-client version read, on the stated ground that *"there is nothing new feature-wise
+shipping to prod."* Recorded with the correction attached, because the record must not harden a
+partial truth: `dev` is **436 commits ahead of `main`** (`32afb39`, 2026-07-24, backend 0.2.2) and
+carries backend **0.3.0** / frontend **1.4.0**, migration `0072_app_timezone_new_york.sql`, and
+A6's user-visible version badge. No new *tab* ships; it is not true that nothing ships. Graded as
+a miss rather than N/A because the precondition **did** fire when A6 landed — the property became
+measurable and was not measured — which distinguishes it from the QA-KR4 N/A precedent
+(`ledger.md:510`, *"no schema migration shipped"*), where here a migration is precisely what
+waits. Per the T-33 amendment's own rule, backfilling a grade after the boundary is prohibited:
+both stay NOT MET permanently and a later deploy becomes the *next* cycle's evidence. **Still
+owed: the `0072` changeover date** (T-35 decision 143, restated T-36) — this close does not
+discharge it.
+
+**Decision 150 — E-KR1 NOT MET stands un-reworded, and Q-KR2 / Q-KR3 close unrepaired.** E-KR1's
+subject did not move: `sync.js` is in the tree with both fetch-storm mechanisms live at
+`:443-454` and `:475-479`; its two backlog items stay un-dropped and the class carries forward.
+Q-KR2 grades **UNAUDITABLE** (it named a `## Red-first` field that has never existed in the
+merge-intent format) and Q-KR3 **PARTIAL permanently** (absent from `slate-20260801.md`, partial
+in `slate-20260802.md`; signed slates are not backfilled). Five armed reds — **B-27** plus three,
+plus **B-131** — carry out of the cycle with **none retired**, per decision 100 and T-31 decision
+120: an armed red is retired by diagnosis, never by passing once. **No suite figure is citable at
+close**: the `20260804` closeout's `786 passed / exit 0` did not reproduce (`785 passed / 1
+failed`, B-131).
+
+**Decision 151 — the close was graded BY HAND because every night-crew milestone verb is blind
+here, and the marker's missing `last_run` was left visible rather than patched.** `okr grade`,
+`okr audit` and `milestone export` all exit 1 (`no metrics.jsonl found under .night-crew/runs`);
+`scorecard` reports `No runs to show.`, which the ritual's step-0 precondition reads as a **pass**
+— an emptiness check that cannot tell "all clear" from "I can see nothing". `milestone mark`
+exited 0 but wrote the marker with **no `last_run` field**, where `hq-20260724` carries one.
+Deliberately not hand-patched to `20260804`: a hand-written value would be indistinguishable to
+the next reader from one the tool established, which is the exact failure this close documents.
+Binary was **v3.2.0+6** (`f31fff2`, main) and was **not** rebuilt from the dev clone for the
+ritual. Filed in the clone as **B-346**.
+
+**Decision 152 — the previous close's transfer cited findings it never captured; corrected in
+place and filed.** `hq-20260724.md` claims the CLI blindness was *"filed as B-105"* and that three
+tool-implicating findings (B-105 · B-106 · B-107) were transferred. All three are pre-existing
+clone entries with unrelated origins — B-105 is the OpenSpec-discipline question — and
+`grep 'milestone-close hq'` over the clone's `BACKLOG.md` returns nothing. **The finding was never
+filed, which is why it recurred at this close.** 🛑 Note the numbering trap: the clone's B-105 is
+not hq's B-105 (per-change discipline) — two namespaces, same number. Filed in the clone as
+**B-347**. Both offers were made per-item and approved by the operator.
+
+**Carried into the next cycle:** the deploy + `0072` date · E-KR1's two un-dropped items ·
+**B-89** (`cachedGrantSlugs()` returns `[]` unconditionally) and **B-132**, routed to "the next
+night" by T-34 decision 137 but never promoted to a card · **B-139** with the B-81/B-82/B-86/B-93
+cluster · five armed reds and the armed attended `task sandbox:e2e` flag · 90 open `· new`
+backlog items · and the successor the retirement of `sync-hard-cutover` left unauthored —
+`sync-live-fill-view`, whose absence is why this milestone reported zero white cards (clone
+**B-340**/**B-341**; the operator's response filed as **B-344**/**B-345**).
