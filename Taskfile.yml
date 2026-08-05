@@ -155,6 +155,15 @@ tasks:
   #
   # ⚠ LOCAL THROWAWAY STACK ONLY. Compose project `spike-supabase`; never HQ
   #   prod, never docker-compose.nc.yml, never the dev Postgres on :5433.
+  #
+  # 🛑 `spike:down` is the ONLY target that destroys data, and that is true only
+  #   because two defects were fixed on run 20260806: PGDATA now lives on the
+  #   `spike-db-data` named volume (it used to live in the container's writable
+  #   layer, so ANY recreate wiped it), and env-up.sh pins a stable compose
+  #   `--project-directory` (the relative initdb bind mounts otherwise put the
+  #   caller's absolute path into the container config hash, so `up -d` from a
+  #   worktree recreated the db container). Undo either and `spike:up` becomes
+  #   destructive again — silently, with `docker ps` still reading green.
   # ─────────────────────────────────────────────────────────────────────────────
 
   spike:up:
@@ -170,7 +179,7 @@ tasks:
     cmd: ./.night-crew/qa/spike-supabase/env-up.sh --health
 
   spike:down:
-    desc: Destroy the spike stack and its volumes (deliberate, separate act — never run by spike:up)
+    desc: Destroy the spike stack and the spike-db-data volume (deliberate, separate act — the only target that destroys data)
     cmd: docker compose -p spike-supabase -f docker-compose.supabase.yml down --volumes --remove-orphans
 
   version:

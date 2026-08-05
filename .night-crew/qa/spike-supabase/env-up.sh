@@ -43,6 +43,17 @@
 #   Teardown. Per W1's runbook, destroying the stack stays a deliberate,
 #   separate act (`task spike:down`), so an unattended verify can never eat
 #   another session's running substrate.
+#
+#   🛑 THAT CLAIM WAS ONCE FALSE, AND IS ONLY TRUE NOW BECAUSE OF TWO FIXES.
+#   Until run 20260806 the db service had NO VOLUME for PGDATA — the data
+#   directory lived in the container's writable layer — and the compose file's
+#   relative bind mounts made the container config hash depend on the ABSOLUTE
+#   host path it was resolved from. So a plain `up -d` from a different checkout
+#   of this repo (a worktree, a second clone) RECREATED the db container and
+#   silently destroyed every table in it, while `docker ps` went right on saying
+#   `Up (healthy)`. Both mechanisms are fixed: PGDATA is on the `spike-db-data`
+#   named volume, and every compose call below passes a stable
+#   `--project-directory`. Do not undo either and then leave this paragraph up.
 
 set -euo pipefail
 
@@ -55,13 +66,57 @@ REPO_ROOT="$(cd -- "$SPIKE_DIR/../../.." && pwd)"
 
 COMPOSE_FILE="$REPO_ROOT/docker-compose.supabase.yml"
 PROJECT="spike-supabase"
-DC=(docker compose -p "$PROJECT" -f "$COMPOSE_FILE")
+
+# --------------------------------------------------------------------------
+# 🛑 PATH-STABLE COMPOSE INVOCATION. Do not simplify this away.
+#
+# docker-compose.supabase.yml bind-mounts its two initdb scripts by RELATIVE
+# path. Compose resolves those against the *project directory* and bakes the
+# resulting ABSOLUTE host path into the container config hash — so running
+# `up -d` from a git worktree and then from the main checkout makes compose
+# RECREATE the db container, every time, for no reason. Reproduced three times
+# on run 20260806, and until PGDATA got a named volume that recreate was total
+# data loss (it is the most likely cause of this card's own headline finding:
+# "three containers, five days old, no schema").
+#
+# `git rev-parse --git-common-dir` points every linked worktree at the SAME
+# main .git, so its parent is a stable anchor shared by the whole clone. We
+# pass it as --project-directory while still passing THIS checkout's compose
+# file with -f, so path resolution is stable but the file's *content* is
+# whatever the caller has checked out.
+#
+# Override with SPIKE_ANCHOR=/some/path if you deliberately want a second,
+# independently-anchored stack. Fall back to REPO_ROOT when git is unavailable.
+# --------------------------------------------------------------------------
+if [ -n "${SPIKE_ANCHOR:-}" ]; then
+  ANCHOR="$SPIKE_ANCHOR"
+else
+  ANCHOR=""
+  if command -v git >/dev/null 2>&1; then
+    _cd="$(cd -- "$REPO_ROOT" && git rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)"
+    [ -n "$_cd" ] && ANCHOR="$(cd -- "$_cd/.." && pwd)"
+  fi
+  [ -n "$ANCHOR" ] || ANCHOR="$REPO_ROOT"
+fi
+[ -d "$ANCHOR/.night-crew/qa/spike-supabase/initdb" ] \
+  || ANCHOR="$REPO_ROOT"   # anchor must actually contain the bind-mount sources
+
+DC=(docker compose -p "$PROJECT" --project-directory "$ANCHOR" -f "$COMPOSE_FILE")
 
 # Go is not on a non-interactive shell's PATH on this box, and the token is
 # minted by the Go minter on purpose (HQ's Go backend is the token authority).
 # Without this the minter dies `go: not found` and it LOOKS like a substrate
 # failure when it is a PATH failure.
-export PATH="/home/jcole/go/bin:/usr/local/go/bin:$PATH"
+#
+# 🛑 NOT a hardcoded home directory. A script whose whole claim is "clean
+# machine, unattended" cannot carry its author's $HOME as a constant. We prepend
+# the conventional install locations that actually exist, and if none of them
+# yields `go` the preflight below still names it by name.
+for _godir in "${GOROOT:-}/bin" "${GOPATH:-$HOME/go}/bin" /usr/local/go/bin /usr/lib/go/bin "$HOME/.local/go/bin"; do
+  case "$_godir" in ""|"/bin") continue ;; esac
+  [ -d "$_godir" ] && case ":$PATH:" in *":$_godir:"*) ;; *) PATH="$_godir:$PATH" ;; esac
+done
+export PATH
 
 DB_HEALTHY_TIMEOUT="${SPIKE_DB_TIMEOUT:-300}"   # seconds; initdb on a cold volume is slow
 HTTP_READY_TIMEOUT="${SPIKE_HTTP_TIMEOUT:-180}" # seconds; realtime runs migrations on boot
@@ -79,6 +134,7 @@ step() { STEP=$((STEP + 1)); printf '\n── %d. %s ─────────
 fail() { printf '\n🛑 VERDICT: RED — %s\n' "$1" >&2; exit "${2:-1}"; }
 
 printf '# env-up.sh — mode=%s repo=%s\n' "$MODE" "$REPO_ROOT"
+printf '# compose anchor (--project-directory, path-stability fix) = %s\n' "$ANCHOR"
 printf '# started %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
 # --------------------------------------------------------------------------
@@ -187,10 +243,20 @@ fi
 # --------------------------------------------------------------------------
 step "resolving host ports"
 port_of() {
-  local svc="$1" cport="$2" out
+  local svc="$1" cport="$2" out p
   out="$("${DC[@]}" port "$svc" "$cport" 2>/dev/null || true)"
   [ -n "$out" ] || fail "could not resolve the published host port for $svc:$cport"
-  echo "${out##*:}"
+  p="${out##*:}"
+  # 🛑 `-n` is NOT enough. For a service that is DEFINED but not RUNNING,
+  #    `docker compose port` prints `:0` — so `${out##*:}` is the string "0",
+  #    which is non-empty and sails through. The failure then surfaced 180s
+  #    later as a wait_http timeout naming the wrong thing. Demand a real,
+  #    non-zero port number and fail here, immediately, with the cause.
+  case "$p" in
+    ''|*[!0-9]*) fail "$svc:$cport resolved to a non-numeric host port ('$out') — is the service running? 'docker compose -p $PROJECT ps -a'" ;;
+  esac
+  [ "$p" -gt 0 ] || fail "$svc:$cport resolved to port 0 ('$out') — the service is defined but not running; 'docker compose -p $PROJECT ps -a' will say why"
+  echo "$p"
 }
 DBP="$(port_of db 5432)"
 RESTP="$(port_of rest 3000)"

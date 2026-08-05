@@ -124,6 +124,42 @@ running"* is not *"the environment is up"*, and only an assertion that queries
 the thing can tell the two apart. Capture:
 [`captures/green-20260806-env-up.txt`](captures/green-20260806-env-up.txt).
 
+### 🛑 …and the cause of that finding was `spike:up` itself
+
+The fix round on card C1 diagnosed the empty five-day-old stack. **Two defects
+combined to make `task spike:up` able to wipe the spike database, silently:**
+
+1. **No volume for PGDATA.** `docker inspect spike-supabase-db-1` showed only
+   the two `initdb/*.sql` bind mounts. The Postgres data directory therefore
+   lived in the **container's writable layer**, so *any* recreate — image bump,
+   `docker compose down`, config change — was total data loss.
+2. **A path-sensitive config hash.** The compose file bind-mounts
+   `./.night-crew/qa/spike-supabase/initdb/*.sql` by **relative** path. Compose
+   resolves those against the project directory and bakes the resulting
+   **absolute** host path into the container config hash — so `up -d` run from a
+   different checkout of this repo (a git worktree, a second clone) saw a
+   different hash and printed `Container spike-supabase-db-1  Recreate`.
+   Reproduced three times.
+
+Both are fixed. PGDATA is on the **`spike-db-data` named volume**, and
+`env-up.sh` always passes `--project-directory <main worktree root>` (resolved
+from `git rev-parse --git-common-dir`, which every linked worktree shares), so
+the mount source no longer depends on where the caller stood. Override the
+anchor with `SPIKE_ANCHOR=/path` if you deliberately want a second stack.
+
+**Only `task spike:down` and `--fresh` destroy data now**, and `spike:up`
+genuinely never does — that claim was false before this round, so do not undo
+either fix and leave the sentence standing.
+
+There is also one **reconcile** action, and only one: a db recreate kills
+Realtime's replication slot and Realtime then answers `CHANNEL_ERROR (transport
+failure)` **forever** while `docker compose up -d` reports it merely `Running`
+and refuses to restart a running-but-broken service. `env-up.sh` detects that
+signature (a `FAIL realtime` against a healthy db), runs
+`docker compose -p spike-supabase restart realtime`, and **re-asserts** — a
+failing re-assertion is still RED. `--health` never restarts anything; it names
+the remedy in its failure text instead.
+
 ---
 
 ## Step 0 — pull the images (do this first)
