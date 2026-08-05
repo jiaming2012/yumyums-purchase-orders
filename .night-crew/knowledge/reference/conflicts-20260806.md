@@ -139,3 +139,38 @@ row the old aggregate check printed PASS while that package had gone silent. Two
 were recorded and deliberately not fixed (Check B cannot distinguish a DB-gate failure from
 a build failure; Check B2's failure names no package) — both pre-existing, neither a
 regression from this card.
+
+---
+
+### 5 · `a4-gate-ladder` → `overnight-20260806` · **CLEAN** · merge `c2a7e5c`
+
+**Cards involved:** A4 alone at merge time, but **this merge was order-constrained** and the
+order was honoured: **A1 → A2 → A4**. A4's ladder asserts the 59-count is "asserted by the
+suite itself" (true only once A1 landed, `9b63958`) and closes B-22 attributing the fix to A2
+(true only once A2 landed, `b75ac53`). Merging A4 first would have put two false claims into
+the file that grades every other card — and worse, A4 had *deleted* the manual "eyeball the
+`-v` log" fallback those claims replace, so the ladder would have asserted a guard that did
+not exist with no manual check either. G6 caught the constraint; honouring it was the
+orchestrator's job.
+
+**Files:** `gate-ladder.md`, `BACKLOG.md`, merge-intent note. 3 files, all markdown.
+
+**Intents read:** `merge-intents/a4-gate-ladder.md` — sole side. No conflicting hunks.
+
+**Resolution:** none required — clean `--no-ff` merge.
+
+**Gate after merge:** G4 not owed — markdown under `.night-crew/` is not precached.
+A4 correctly declined to run `build-sw.js` rather than running it to produce a meaningless
+green, and said so.
+
+**Note carried:** G6 returned MERGE WITH NOTE, with every defect in the third, undeclared
+deliverable (F7, routed to A4 from A1's G6). The sharpest: the ladder's own reproduction
+command used a `-run` pattern that **excluded the one test which would have falsified its
+prose** — a check whose subject set was narrowed to produce the desired result, written into
+the document that invokes B-36 and B-22 for precisely that defect. Fixed, and left **visibly**
+self-corrected rather than silently patched.
+
+**🛑 One open fork is marked in the file and NOT resolved** — G3's contradictory definition
+(`N/A — openspec: absent`, decision 140, versus `red-first re-verified by G6`, decision 101).
+Filed as **D-1** in `DECISIONS-NEEDED.md`. It is an operator call because it adds or removes
+an obligation on every future card, and red-first is graded this run under Q-KR3.
