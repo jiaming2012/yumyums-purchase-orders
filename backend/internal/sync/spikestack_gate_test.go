@@ -597,6 +597,13 @@ func TestSpikeGate_Asymmetry(t *testing.T) {
 // They can disagree, and their disagreeing is informative: source that
 // registers 59 while the runtime reports 58 means a registration is behind a
 // condition that was false. Neither counter alone catches that.
+//
+// 🛑 BUT THE CROSS-CHECK IS NOT ALWAYS PRESENT, AND ANY CLAIM THAT IT IS IS
+// WRONG. The EXECUTION counter needs a substrate; on a machine that legitimately
+// opted out it SKIPS. So on such a machine the structural counter is the ONLY
+// counter, unreviewed by any runtime — which is exactly why it must be loud
+// about shapes it cannot read (see rvTopLevelSubtestCount) rather than scoring
+// them and letting a bump ratify the loss.
 
 // wantRowVisibilitySubtests is the count the gate ladder cites.
 //
@@ -606,6 +613,11 @@ func TestSpikeGate_Asymmetry(t *testing.T) {
 // assertion to make the red go away: the whole point is that the suite cannot
 // change size in silence. If you cannot reconcile the number, that is a finding
 // for triage, not a waiver.
+//
+// 🛑 AND A RED HERE IS NOT AUTOMATICALLY A BUMP. If you RESTRUCTURED the suite
+// rather than changing its case count, the number fell because the walker can no
+// longer read the shape — bumping then blinds the counter for good. The failure
+// message enumerates the three causes; read it before touching this line.
 const wantRowVisibilitySubtests = 59
 
 // rowVisibilitySourceFile is the file the structural counter reads. `go test`
@@ -743,9 +755,22 @@ func gateChildSkipOrFail(t *testing.T) bool {
 //     an element there is precisely the silent shrink this is here to catch, and
 //     a counter that scored that block as 1 would not see it.
 //
-// A range over anything whose length is not visible in the source (a variable, a
-// function call) is reported through `unknown` rather than guessed. Guessing
-// would make the counter agree with a source it can no longer read.
+// 🛑 ANY LOOP THIS WALKER CANNOT EXPAND IS REPORTED, NOT SCORED. A range over
+// something whose length is not visible in the source (a variable, a function
+// call, an integer count) and a C-STYLE `for i := 0; i < n; i++` both go into
+// `unknown`. The C-style case was a real hole found in review: before this fix
+//
+//	for i := 0; i < 4; i++ { t.Run(...) }
+//
+// scored **1** with ZERO unknown reports — a four-case block silently counted as
+// one, and on a machine with no substrate TestRowVisibilitySubtestCount_Executed
+// skips, so nothing cross-checks it. Guessing, or scoring an unreadable shape as
+// 1, would make the counter agree with a source it can no longer read.
+//
+// What is deliberately NOT reported: `if`/`switch` around a registration. Those
+// do not MULTIPLY, they make a registration conditional — and a registration
+// that is conditional is exactly the disagreement between this counter and the
+// execution counter that the pair exists to surface.
 func rvTopLevelSubtestCount(fset *token.FileSet, node ast.Node, mult int, unknown *[]string) int {
 	count := 0
 	ast.Inspect(node, func(n ast.Node) bool {
@@ -759,10 +784,21 @@ func rvTopLevelSubtestCount(fset *token.FileSet, node ast.Node, mult int, unknow
 		case *ast.RangeStmt:
 			lit, ok := cur.X.(*ast.CompositeLit)
 			if !ok || len(lit.Elts) == 0 {
-				*unknown = append(*unknown, fset.Position(cur.Pos()).String())
+				*unknown = append(*unknown, fset.Position(cur.Pos()).String()+
+					"  — `for … range` over something that is not a non-empty composite literal, "+
+					"so the number of iterations is not visible in the source")
 				return false
 			}
 			count += rvTopLevelSubtestCount(fset, cur.Body, mult*len(lit.Elts), unknown)
+			return false
+
+		case *ast.ForStmt:
+			// A C-style `for`. The trip count lives in an init/cond/post triple —
+			// possibly in a variable, possibly in a slice length computed elsewhere —
+			// and is NOT a case list this walker can measure. Scoring the body as 1
+			// (what this walker did before the fix round) under-counts silently.
+			*unknown = append(*unknown, fset.Position(cur.Pos()).String()+
+				"  — C-style `for`, whose trip count is not visible in the source")
 			return false
 
 		case *ast.CallExpr:
@@ -815,10 +851,13 @@ func TestRowVisibilitySubtestCount_Structural(t *testing.T) {
 	got := rvTopLevelSubtestCount(fset, body, 1, &unknown)
 
 	if len(unknown) > 0 {
-		t.Fatalf("🛑 %d loop(s) in TestRowVisibilityRLS range over something whose length is "+
-			"not visible in the source, so the case list can now shrink without this counter "+
-			"noticing:\n  %s\nKeep the case list a composite literal, or teach "+
-			"rvTopLevelSubtestCount to read the new shape.",
+		t.Fatalf("🛑 %d loop(s) in TestRowVisibilityRLS have a trip count this walker cannot read, "+
+			"so the case list can now shrink without this counter noticing:\n  %s\n\n"+
+			"🛑 DO NOT 'FIX' THIS BY BUMPING wantRowVisibilitySubtests — the count reported "+
+			"alongside this failure is not trustworthy, and ratifying it would leave the counter "+
+			"permanently blind to the loop above. Either keep the case list a non-empty composite "+
+			"literal ranged over directly, or teach rvTopLevelSubtestCount to read the new shape "+
+			"and extend TestRVTopLevelSubtestCount_CountsWhatItClaims with a fixture for it.",
 			len(unknown), strings.Join(unknown, "\n  "))
 	}
 
@@ -827,11 +866,24 @@ func TestRowVisibilitySubtestCount_Structural(t *testing.T) {
 			"The gate ladder, the slates and every run report for this package cite %d as the "+
 			"number of attack variants this suite runs — that number is a COVERAGE CLAIM about "+
 			"the sync substrate's RLS, and it is now wrong.\n\n"+
-			"If you deliberately added or removed a variant, bump wantRowVisibilitySubtests in "+
-			"%s and say so in your card report. If you did NOT touch the case list, a "+
-			"registration has gone missing — find it before this package is cited as evidence "+
-			"again.",
-			got, wantRowVisibilitySubtests, wantRowVisibilitySubtests, "spikestack_gate_test.go")
+			"🛑 DO NOT START BY BUMPING THE CONSTANT. Three different causes print this line and "+
+			"only ONE of them is a bump:\n\n"+
+			"  1. YOU DELIBERATELY ADDED OR REMOVED A VARIANT. Bump wantRowVisibilitySubtests in "+
+			"%s in the SAME commit and say so in your card report.\n\n"+
+			"  2. A REGISTRATION WENT MISSING WITHOUT ANYONE DECIDING TO REMOVE IT. Find it. "+
+			"Bumping here ratifies a coverage hole and closes the only channel that reported it.\n\n"+
+			"  3. THE SUITE WAS RESTRUCTURED INTO A SHAPE THIS WALKER CANNOT READ — subtests moved "+
+			"behind a helper, a case table built at runtime, a loop whose trip count is not a "+
+			"literal case list. rvTopLevelSubtestCount deliberately does not descend into func "+
+			"literals and does not count registrations made by helpers, so a restructure LOWERS "+
+			"this number while the suite still runs every case. Bumping here would blind the "+
+			"counter permanently: it would then agree with a source it can no longer read. "+
+			"🛑 And on a machine with no substrate TestRowVisibilitySubtestCount_Executed SKIPS, "+
+			"so there is NO runtime cross-check to catch that for you.\n\n"+
+			"SO, IN ORDER: (a) read TestRowVisibilityRLS and confirm rvTopLevelSubtestCount still "+
+			"understands its shape — extend the walker, and TestRVTopLevelSubtestCount_CountsWhatItClaims "+
+			"with it, if it does not; (b) only then decide whether %d is a real change in coverage.",
+			got, wantRowVisibilitySubtests, wantRowVisibilitySubtests, "spikestack_gate_test.go", got)
 	}
 }
 
@@ -922,6 +974,51 @@ func TestOpaque(t *testing.T) {
 		t.Errorf("🛑 a range over a non-literal was not reported as unreadable (%d reports, "+
 			"want 1) — the structural counter would silently under-count a case list it "+
 			"cannot see.", len(unknown2))
+	}
+
+	// 🛑 AND THE C-STYLE `for`, which is the hole the fix round found. Before the
+	// fix this fixture scored 1 with ZERO unknown reports: a four-case block
+	// counted as one registration, silently, with nothing to cross-check it on a
+	// machine that has no substrate. A counter that under-counts a restructure is
+	// worse than no counter, because the failure it produces reads as "someone
+	// removed a variant" and invites a constant bump that blinds it permanently.
+	const cstyle = `package p
+
+import "testing"
+
+func TestCStyle(t *testing.T) {
+	t.Run("direct", func(t *testing.T) {})
+	for i := 0; i < 4; i++ {
+		t.Run("c-style", func(t *testing.T) {})
+	}
+}
+`
+	fset3 := token.NewFileSet()
+	file3, err := parser.ParseFile(fset3, "cstyle_test.go", cstyle, 0)
+	if err != nil {
+		t.Fatalf("the C-style fixture does not parse: %v", err)
+	}
+	var body3 *ast.BlockStmt
+	for _, decl := range file3.Decls {
+		if fn, ok := decl.(*ast.FuncDecl); ok && fn.Name.Name == "TestCStyle" {
+			body3 = fn.Body
+		}
+	}
+	if body3 == nil {
+		t.Fatal("the C-style fixture lost its TestCStyle declaration")
+	}
+	var unknown3 []string
+	got3 := rvTopLevelSubtestCount(fset3, body3, 1, &unknown3)
+	if len(unknown3) != 1 {
+		t.Errorf("🛑 a C-style `for` containing t.Run was not reported as unreadable (%d reports, "+
+			"want 1). It scored %d. A trip count of `i < 4` is not a case list this walker can "+
+			"measure, so it must be REPORTED — scoring it silently under-counts the suite and the "+
+			"resulting failure invites a constant bump that would blind this counter for good.",
+			len(unknown3), got3)
+	}
+	if !strings.Contains(strings.Join(unknown3, "\n"), "C-style") {
+		t.Errorf("the C-style loop was reported but the report does not name the shape, so a "+
+			"human reading the failure cannot tell what to teach the walker: %v", unknown3)
 	}
 }
 
