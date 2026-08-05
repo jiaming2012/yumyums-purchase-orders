@@ -109,3 +109,33 @@ having run nothing — `HQ_SYNC_GATE_CHILD=1` disarmed both new guards while `in
 reported `ok` in 0.008s with `EXIT=0`. Fixed here as a parent-minted token. One finding (F7,
 the ladder's stale eyeball-the-count instruction) was routed to **A4**, sole owner of that
 file. One (G3's contradictory definition) is an operator question and is in DECISIONS-NEEDED.
+
+---
+
+### 4 · `a2-harness-check-b` → `overnight-20260806` · **CLEAN** · merge `b75ac53`
+
+**Cards involved:** A2 alone. A2 owns `scripts/verify-test-harness.sh`; no other card in the
+slate touches it. Merged **second** in the mandated order A1 → A2 → A4, because A4's B-22
+closure asserts A2's fix as fact and would have been false if A2 had not landed.
+
+**Files:** `scripts/verify-test-harness.sh` (+207/−19) and its merge-intent note. 2 files.
+
+**Intents read:** `merge-intents/a2-harness-check-b.md` — sole side. `git merge-tree` against
+the merge base reported **0 conflict markers** before the merge was taken.
+
+**Resolution:** none required — clean `--no-ff` merge.
+
+**Verification before merging:** A2's probe work mutated `backend/` extensively across a
+7×1 matrix, so the claim "everything reverted" was checked rather than trusted —
+`git rev-parse ef314e0:backend` and `git rev-parse card/a2-harness-check-b:backend` return
+**the same tree object** `94d1d6bf939f76741f9f9b13c2967ef3c625c468`. Nothing under `backend/`
+was committed.
+
+**Gate after merge:** G4 not owed — `scripts/` and markdown only, nothing precached.
+
+**Note carried:** G6 returned MERGE WITH NOTE. Q-KR2's evidence bar ("all seven probed
+individually") is now met in full: 7 of 7 rows, each package mutated alone, and in **every**
+row the old aggregate check printed PASS while that package had gone silent. Two findings
+were recorded and deliberately not fixed (Check B cannot distinguish a DB-gate failure from
+a build failure; Check B2's failure names no package) — both pre-existing, neither a
+regression from this card.
