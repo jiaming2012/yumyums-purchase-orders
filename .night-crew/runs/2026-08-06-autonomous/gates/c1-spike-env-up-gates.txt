@@ -1,0 +1,133 @@
+# C1 `spike-a-environment-up` — gate log, run 20260806
+#
+# Every EXIT= below was captured by redirecting $? immediately after the
+# command. None is inferred from summary text. No gate was piped through
+# `tail` (B-93); the complete logs were captured to files and counted over
+# in full.
+#
+# Isolation values used, per the launch prompt:
+#   TEST_PORT=3130  TEST_DB_NAME=hq_test_c1_0806  HQ_RLS_TEST_DB=hq_rls_c1_0806
+# Every suite leg ran under the global mutex
+#   flock -w 5400 <scratchpad>/playwright.lock
+
+════════════════════════════════════════════════════════════════════════════
+G1 — go build ./... · go vet ./...   (from backend/, the module root)
+════════════════════════════════════════════════════════════════════════════
+  BUILD_EXIT=0   0 lines of output
+  VET_EXIT=0     0 lines of output
+  PASS.
+
+════════════════════════════════════════════════════════════════════════════
+G2 (Go) — go test -p 1 -count=1 -v ./...   (under the lock)
+════════════════════════════════════════════════════════════════════════════
+  EXIT=0
+  DB_TEST_URL set (hq_test_c1_0806); HQ_SYNC_SUBSTRATE_OPTIONAL UNSET.
+
+  Counts checked, not `ok`:
+    packages with tests          9   (gate expects 9)              ✅
+    top-level tests            240
+    --- PASS (all levels)      437
+    --- SKIP                     2
+    --- FAIL                     0
+    PASS + SKIP                439   (gate expects ~439)           ✅
+    internal/workflow           35   (gate expects exactly 35)     ✅
+
+  Per package (top-level): alerts 3, auth 13, inventory 24, purchasing 8,
+  receipt 47, recipes 57, sync 42, toast 11, workflow 35.
+
+  internal/sync evidence beyond the package `ok` line (B-36):
+    TestRowVisibilityRLS ran with 59 subtests, all PASS.
+    --- PASS: TestRowVisibilityRLS (6.67s)
+
+  The 2 SKIPs are named and are the suite's own deliberate gate:
+    TestProxyLive_RealtimeUpgrade, TestProxyLive_RESTRequest
+    "live proofs not requested — set HQ_SYNC_SPIKE_LIVE=1 ... SKIPPED IS NOT PASSED"
+
+  🛑 THIS CARD THEN UN-SKIPPED THEM, because this card is what makes them
+  runnable. With the spike stack that env-up.sh had just brought up:
+
+    HQ_SYNC_SPIKE_LIVE=1 go test -count=1 -v ./internal/sync -run TestProxyLive
+    EXIT=0
+    --- PASS: TestProxyLive_RealtimeUpgrade (0.22s)
+    --- PASS: TestProxyLive_RESTRequest    (0.17s)
+
+  That is HQ's OWN backend proxy reaching the substrate this card brings up —
+  independent corroboration of the GREEN verdict from a direction the script
+  does not control.
+  PASS.
+
+════════════════════════════════════════════════════════════════════════════
+G2 (Playwright) — npx bddgen · npx playwright test --retries=0  (full suite)
+════════════════════════════════════════════════════════════════════════════
+  BDDGEN_EXIT=0
+  EXIT=1
+
+  Running 797 tests using 1 worker
+    1 failed
+    6 skipped
+    790 passed (22.0m)
+
+  EXACTLY ONE summary block — one `passed (` line counted over the COMPLETE
+  4748-line log, not over a tail.
+
+  797 tests judged against W0's measured baseline of 797 in 29 files at the
+  base commit `ef314e0`. This card adds ZERO tests, so 797 is exactly right.
+  (The slate's inherited "785" is stale by 8; W0 re-measured it.)
+
+  🛑 A FIRST ATTEMPT WAS DISCARDED, NOT REPORTED. The agent's shell capped at
+  10 minutes and SIGTERM'd that run at test 286 of 797. A suite killed
+  mid-flight is not a result. It was re-run from scratch in the background,
+  re-acquiring the lock; the figures above are the re-run's. Recorded here
+  because a discarded run that goes unmentioned is indistinguishable from one
+  that never happened.
+
+  ── The one failure ──
+    [chromium] › tests/sync.spec.js:446:3 › Cross-device: regressions ›
+    list page progress decrements when another device unchecks a field [LST-17]
+
+    Expected substring "0/1"; received "Uncheck Sync1 section · 1/1 items"
+    (12s timeout on the live cross-device propagation assertion).
+
+  This is the DOCUMENTED STANDING ARMED RED, not a regression:
+    ledger decision 44  — waiver granted, "LST-17 REMAINS flagged load-sensitive"
+    ledger decision 77  — restored to the standing-flags table; dropped, not fixed
+    ledger decision 109 — STAYS ARMED (T-29)
+    slate-20260729      — "Expect it; it is not a regression."
+    BACKLOG B-32        — filed as a FAMILY with B-27/B-30; the lead is explicitly
+                          "stop diagnosing members one at a time and measure the
+                          family instead"
+
+  Attribution: this card's diff touches `.night-crew/qa/spike-supabase/**`,
+  `.night-crew/runs/2026-08-06-autonomous/**` and `Taskfile.yml`. None of those
+  is loaded by `workflows.html`, `sync.js`, or the backend, and none is read by
+  Playwright. There is no mechanism by which this card could move this test.
+
+  🛑 NOT RETIRED, AND NOT LAUNDERED. An armed red is retired by diagnosis,
+  never by passing once (decision 100; T-31 decision 120) — and equally, its
+  reproduction here is not new information. An isolation re-confirmation
+  (-g <full title> --repeat-each=5) WAS launched and then CANCELLED while still
+  queued on the global lock: its answer is already in the ledger (10/10 green
+  isolated, twice), and holding the night's shared mutex for a known answer
+  would have delayed two concurrent cards' real gates. **So this run did NOT
+  re-measure isolation-green, and does not claim to.** Stated rather than
+  implied.
+
+  Verdict: PASS against the armed-reds baseline. 790 passed, 0 unexplained.
+
+════════════════════════════════════════════════════════════════════════════
+G3 — N/A. Preflight verdict `openspec: absent`; ledger T-34 decision 140
+     keeps it that way. No OpenSpec scaffolding was created.
+════════════════════════════════════════════════════════════════════════════
+
+════════════════════════════════════════════════════════════════════════════
+G4 — node build-sw.js   (run AFTER the final commit; it reads git HEAD)
+════════════════════════════════════════════════════════════════════════════
+  EXIT1=0  EXIT2=0
+  "import reachability: 18 precached files parsed, 30 local references
+   resolved, 0 outside the precache"
+  "SW built: 31 files precached (2167.0 KB)"
+
+  precache count 31        — unmoved (B-37's silent drop would show here)  ✅
+  idempotent               — `git status --short` EMPTY after the 2nd run  ✅
+  version parity 1.4.0     — package.json ≡ version.json ≡ version.go      ✅
+  PASS.

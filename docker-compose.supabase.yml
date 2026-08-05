@@ -30,6 +30,26 @@
 #
 #     docker compose -p spike-supabase -f docker-compose.supabase.yml down --volumes
 #
+# 🛑 THE BIND MOUNTS BELOW ARE RELATIVE, AND THAT MAKES THIS FILE PATH-SENSITIVE.
+#    Compose resolves `./.night-crew/...` against the PROJECT DIRECTORY (by
+#    default the directory holding this file) and bakes the resulting ABSOLUTE
+#    host path into the container's config hash. So `up -d` run against a copy
+#    of this file at a different absolute path — a git worktree, a second clone,
+#    the prod clone — sees a different hash and RECREATES the db container.
+#    Reproduced three times, run 20260806.
+#
+#    env-up.sh therefore always passes `--project-directory <main worktree root>`
+#    (resolved from `git rev-parse --git-common-dir`, which every linked worktree
+#    shares), so the resolved mount source is identical no matter where the
+#    caller stood. If you invoke compose by hand from a worktree, do the same:
+#
+#      docker compose -p spike-supabase \
+#        --project-directory /path/to/main/checkout \
+#        -f docker-compose.supabase.yml up -d
+#
+#    A recreate is no longer destructive — PGDATA is on the `spike-db-data`
+#    named volume — but it is still a needless restart of a 3-service stack.
+#
 # ==========================================================================
 # ==                                                                      ==
 # ==   ⚠  THROWAWAY SECRETS — GENERATED FOR THIS SPIKE, INLINE ON         ==
@@ -112,6 +132,20 @@ services:
       # 99-: sets a password on `authenticator` (and friends), which the image
       #      creates password-less. PostgREST cannot connect without it.
       - ./.night-crew/qa/spike-supabase/initdb/99-roles.sql:/docker-entrypoint-initdb.d/init-scripts/99-roles.sql:ro
+      # 🛑 PGDATA ON A NAMED VOLUME — LOAD-BEARING, ADDED BY CARD C1 (run 20260806).
+      #
+      # Until this line existed there was NO volume for the data directory, so
+      # PGDATA lived in the CONTAINER'S WRITABLE LAYER. That made every container
+      # recreate — image bump, `docker compose down`, or merely running `up -d`
+      # against a compose file resolved from a different absolute host path —
+      # TOTAL, SILENT DATA LOSS. The stack came back `Up (healthy)` with an empty
+      # database, which is exactly the "three containers, five days old, no
+      # schema" state card C1 was written to detect. C1 built the detector; this
+      # line removes the cause.
+      #
+      # `docker compose … down --volumes` (i.e. `task spike:down`, `--fresh`)
+      # still destroys it, deliberately. Nothing else does.
+      - spike-db-data:/var/lib/postgresql/data
     ports:
       - "5432"
     healthcheck:
@@ -179,9 +213,26 @@ services:
       SEED_SELF_HOST: "true"
       SELF_HOST_TENANT_NAME: realtime-dev
       RUN_JANITOR: "true"
+    # A db recreate invalidates Realtime's logical-replication slot and its
+    # WebSocket transport never recovers on its own — it answers CHANNEL_ERROR
+    # forever while `docker compose up -d` reports it merely `Running` and does
+    # nothing. env-up.sh has an explicit reconcile leg that restarts this
+    # service when the health assertion sees CHANNEL_ERROR against a healthy db.
     command: >
       sh -c "/app/bin/migrate &&
              /app/bin/realtime eval 'Realtime.Release.seeds(Realtime.Repo)' &&
              /app/bin/server"
     ports:
       - "4000"
+
+# ==========================================================================
+# Named volumes.
+#
+# `spike-db-data` holds PGDATA. Before it existed the data directory lived in
+# the db container's writable layer and ANY recreate was total data loss; see
+# the long note on the db service's volume list. Destroying it stays a
+# deliberate act — only `down --volumes` (task spike:down, env-up.sh --fresh)
+# removes it, and that is the ONLY supported way to get a fresh initdb.
+# ==========================================================================
+volumes:
+  spike-db-data:

@@ -1,0 +1,719 @@
+# C1 `spike-a-environment-up` — FIX-ROUND verdict capture, run 20260806
+#
+# 🛑 THE VERDICT IS THE SCRIPT'S EXIT STATUS, NEVER ITS PROSE.
+#
+#    EVERY run in this file ends with an `EXIT=` line produced by
+#    `echo "EXIT=$?"` executed immediately after the command, inside the same
+#    redirected block, with no run recorded any other way. That is the standard
+#    the first capture (green-20260806-env-up.txt) claimed and did not meet for
+#    4 of its 6 runs; its line 3 is corrected in the same commit as this file.
+#
+# WHY THERE IS A SECOND CAPTURE: an adversarial review of the card returned
+# MERGE WITH NOTE. The deliverable's GREEN was independently reproduced and
+# broken three ways to confirm it can go red — but seven defects were confirmed
+# in it, two of them serious enough to matter more than the card's own headline
+# finding. This file is the re-proof after those fixes.
+#
+# ═══════════════════════════════════════════════════════════════════════════
+# WHAT THE FIX ROUND CHANGED, AND THE PROOF FOR EACH
+#
+#   F1  `task spike:up` could WIPE the spike database. TWO mechanisms:
+#       (a) no volume for PGDATA — the data directory lived in the container's
+#           writable layer, so ANY recreate was total data loss;
+#       (b) the compose file's RELATIVE initdb bind mounts put the caller's
+#           ABSOLUTE path into the container config hash, so `up -d` from a
+#           different checkout recreated the db container.
+#       This is very likely the undiagnosed cause of the card's own headline
+#       finding ("three containers, five days old, no schema"). C1 built the
+#       detector; the cause was C1's own command.
+#       FIXED: `spike-db-data` named volume + a pinned `--project-directory`
+#       resolved from `git rev-parse --git-common-dir`. PROOF: sections F1-a
+#       and F1-b below.
+#
+#   F2  After a db recreate, Realtime stays CHANNEL_ERROR forever and plain
+#       `up -d` will not restart a running-but-broken service. The script had
+#       no restart leg, so it could break the stack and then report RED about
+#       it forever. FIXED: a reconcile leg that restarts realtime and
+#       RE-ASSERTS. PROOF: section F2 below.
+#
+#   F3  `task spike:health` exited 0 on a stack missing EVERY hq_* table — the
+#       same "container up, no schema" conflation, relocated to the other half
+#       of the schema. FIXED: a schema leg asserting 4 tables and 5 policies by
+#       name. PROOF: sections F3 and RUN D below (old vs new, same stack).
+#
+#   F5  This file. F4 (the merge intent's missing `## Red-first` section), F6
+#       (a hardcoded /home/jcole/go/bin) and F7 (`port_of` accepting ":0") are
+#       evidenced by their commits and by RUN A-C passing with them applied.
+#
+# ═══════════════════════════════════════════════════════════════════════════
+# SUMMARY — the re-proved verdict. Every code below is a captured $?.
+#
+#   RUN A  --fresh   (clean-machine: down --volumes, then up from nothing)  EXIT=0  GREEN  40.7s
+#   RUN B  --health  (verify only, touches nothing)                        EXIT=0  GREEN   5.3s
+#   RUN C  plain     (idempotent reconcile)                                EXIT=0  GREEN   7.1s
+#   RUN D  --health, hq_* bridge tables dropped     NEGATIVE CONTROL        EXIT=1  RED     5.1s
+#   RUN E  --health, RLS disabled on spike_notes    NEGATIVE CONTROL        EXIT=1  RED     5.0s
+#
+#   FINAL VERDICT: GREEN. One command still takes a clean machine to
+#   "Supabase + RxDB both up, schema applied, healthy" unattended — now in
+#   ~41s, now proving the hq_* half of the schema too, now able to reconcile a
+#   broken Realtime, and now without being able to destroy the database it is
+#   supposed to bring up.
+#
+
+# ═══════════════════════════════════════════════════════════════════════════
+### RUN A — --fresh (clean-machine test), from the worktree
+2026-08-05T21:17:08Z
+# env-up.sh — mode=fresh repo=/home/jcole/projects/hq-worktrees/c1-spike-env-up
+# compose anchor (--project-directory, path-stability fix) = /home/jcole/projects/hq
+# started 2026-08-05T21:17:08Z
+
+── 1. preflight — required tooling ───────────────────────────────
+  docker /usr/bin/docker
+  curl   /usr/bin/curl
+  node   /usr/bin/node
+  npm    /usr/bin/npm
+  go     /usr/local/go/bin/go
+  compose 5.1.0
+  go      go version go1.25.8 linux/amd64
+  node    v20.20.0
+  docker daemon: reachable
+
+── 2. fresh — destroying the spike stack and its volumes ───────────────────────────────
+  (this affects ONLY the 'spike-supabase' compose project)
+ Container spike-supabase-realtime-1 Stopping 
+ Container spike-supabase-rest-1 Stopping 
+ Container spike-supabase-rest-1 Stopped 
+ Container spike-supabase-rest-1 Removing 
+ Container spike-supabase-rest-1 Removed 
+ Container spike-supabase-realtime-1 Stopped 
+ Container spike-supabase-realtime-1 Removing 
+ Container spike-supabase-realtime-1 Removed 
+ Container spike-supabase-db-1 Stopping 
+ Container spike-supabase-db-1 Stopped 
+ Container spike-supabase-db-1 Removing 
+ Container spike-supabase-db-1 Removed 
+ Network spike-supabase_default Removing 
+ Volume spike-supabase_spike-db-data Removing 
+ Volume spike-supabase_spike-db-data Removed 
+ Network spike-supabase_default Removed 
+
+── 3. bringing the stack up (idempotent) ───────────────────────────────
+ Network spike-supabase_default Creating 
+ Network spike-supabase_default Created 
+ Volume spike-supabase_spike-db-data Creating 
+ Volume spike-supabase_spike-db-data Created 
+ Container spike-supabase-db-1 Creating 
+ Container spike-supabase-db-1 Created 
+ Container spike-supabase-realtime-1 Creating 
+ Container spike-supabase-rest-1 Creating 
+ Container spike-supabase-rest-1 Created 
+ Container spike-supabase-realtime-1 Created 
+ Container spike-supabase-db-1 Starting 
+ Container spike-supabase-db-1 Started 
+ Container spike-supabase-db-1 Waiting 
+ Container spike-supabase-db-1 Waiting 
+ Container spike-supabase-db-1 Healthy 
+ Container spike-supabase-realtime-1 Starting 
+ Container spike-supabase-db-1 Healthy 
+ Container spike-supabase-rest-1 Starting 
+ Container spike-supabase-rest-1 Started 
+ Container spike-supabase-realtime-1 Started 
+NAME                        IMAGE                          COMMAND                  SERVICE    CREATED          STATUS                    PORTS
+spike-supabase-db-1         supabase/postgres:15.8.1.060   "docker-entrypoint.s…"   db         16 seconds ago   Up 14 seconds (healthy)   0.0.0.0:51811->5432/tcp, [::]:51811->5432/tcp
+spike-supabase-realtime-1   supabase/realtime:v2.34.47     "/usr/bin/tini -s -g…"   realtime   16 seconds ago   Up 1 second               0.0.0.0:50807->4000/tcp, [::]:50807->4000/tcp
+spike-supabase-rest-1       postgrest/postgrest:v12.2.12   "/bin/postgrest"         rest       16 seconds ago   Up 1 second               0.0.0.0:50473->3000/tcp, [::]:50473->3000/tcp
+
+── 4. waiting for db to report healthy (timeout 300s) ───────────────────────────────
+  db: running/healthy
+
+── 5. applying fixture schemas ───────────────────────────────
+  → spike-fixture.sql
+psql:<stdin>:44: NOTICE:  trigger "spike_notes_set_modified" for relation "public.spike_notes" does not exist, skipping
+psql:<stdin>:61: NOTICE:  policy "spike_notes_select_own" for relation "public.spike_notes" does not exist, skipping
+psql:<stdin>:66: NOTICE:  policy "spike_notes_insert_own" for relation "public.spike_notes" does not exist, skipping
+psql:<stdin>:71: NOTICE:  policy "spike_notes_update_own" for relation "public.spike_notes" does not exist, skipping
+  → hq-bridge-fixture.sql
+psql:<stdin>:87: NOTICE:  trigger "hq_sync_checklists_set_modified" for relation "public.hq_sync_checklists" does not exist, skipping
+  → hq-bridge-policies.sql
+psql:<stdin>:155: NOTICE:  policy "hq_sync_checklists_select" for relation "public.hq_sync_checklists" does not exist, skipping
+psql:<stdin>:168: NOTICE:  policy "hq_sync_checklists_insert" for relation "public.hq_sync_checklists" does not exist, skipping
+psql:<stdin>:179: NOTICE:  policy "hq_sync_checklists_update" for relation "public.hq_sync_checklists" does not exist, skipping
+psql:<stdin>:208: NOTICE:  policy "hq_uid_trap_select" for relation "public.hq_uid_trap" does not exist, skipping
+psql:<stdin>:227: NOTICE:  policy "hq_grant_projection_select" for relation "public.hq_grant_projection" does not exist, skipping
+
+── 6. resolving host ports ───────────────────────────────
+  db=51811 rest=50473 realtime=50807
+
+── 7. waiting for PostgREST and Realtime to answer (timeout 180s each) ───────────────────────────────
+  PostgREST: HTTP 200
+  Realtime: HTTP 200
+
+── 8. installing the RxDB harness (npm ci, isolated project) ───────────────────────────────
+  node_modules present — skipping install
+
+── 9. health assertion — rest, realtime, schema, rxdb ───────────────────────────────
+# stack: rest=50473 realtime=50807 db=51811  run=r1785964667742
+PASS  ports — db=51811 rest=50473 realtime=50807
+PASS  token — go-minted, 184 chars, 3 segments
+PASS  schema — 4 fixture table(s) and 5 hq_* policy(ies) present by name
+PASS  rest — spike_notes readable; alice sees 1 row(s), owners=["user-alice"], bob's row correctly hidden
+PASS  realtime — channel SUBSCRIBED
+-------------- RxDB dev-mode warning -------------------------------
+you are seeing this because you use the RxDB dev-mode plugin https://rxdb.info/dev-mode.html?console=dev-mode 
+This is great in development mode, because it will run many checks to ensure
+that you use RxDB correct. If you see this in production mode,
+you did something wrong because the dev-mode plugin will decrease the performance.
+
+🤗 Hint: To get the most out of RxDB, check out the Premium Plugins
+to get access to faster storages and more professional features: https://rxdb.info/premium/?console=dev-mode 
+
+You can disable this warning by calling disableWarnings() from the dev-mode plugin.
+---------------------------------------------------------------------
+PASS  rxdb — local RxDB database created, doc hc-1785964669302 inserted and read back
+
+HEALTHCHECK: GREEN — ports, token, schema, rest, realtime, rxdb all asserted
+
+══════════════════════════════════════════════════════════
+✅ VERDICT: GREEN — Supabase + RxDB up, schema applied, healthy
+   db=51811  rest=50473  realtime=50807   (project: spike-supabase)
+   teardown is a separate, deliberate act:  task spike:down
+   finished 2026-08-05T21:17:49Z
+══════════════════════════════════════════════════════════
+
+real	0m40.692s
+user	0m4.115s
+sys	0m2.681s
+EXIT=0
+
+# ═══════════════════════════════════════════════════════════════════════════
+### RUN B — --health (verify only, touches nothing)
+2026-08-05T21:17:58Z
+# env-up.sh — mode=health repo=/home/jcole/projects/hq-worktrees/c1-spike-env-up
+# compose anchor (--project-directory, path-stability fix) = /home/jcole/projects/hq
+# started 2026-08-05T21:17:58Z
+
+── 1. preflight — required tooling ───────────────────────────────
+  docker /usr/bin/docker
+  curl   /usr/bin/curl
+  node   /usr/bin/node
+  npm    /usr/bin/npm
+  go     /usr/local/go/bin/go
+  compose 5.1.0
+  go      go version go1.25.8 linux/amd64
+  node    v20.20.0
+  docker daemon: reachable
+
+── 2. skipping bring-up (--health): verifying whatever is already running ───────────────────────────────
+
+── 3. waiting for db to report healthy (timeout 300s) ───────────────────────────────
+  db: running/healthy
+
+── 4. skipping schema apply (--health) — the health assertion must find the schema already there ───────────────────────────────
+
+── 5. resolving host ports ───────────────────────────────
+  db=51811 rest=50473 realtime=50807
+
+── 6. waiting for PostgREST and Realtime to answer (timeout 180s each) ───────────────────────────────
+  PostgREST: HTTP 200
+  Realtime: HTTP 200
+
+── 7. installing the RxDB harness (npm ci, isolated project) ───────────────────────────────
+  node_modules present — skipping install
+
+── 8. health assertion — rest, realtime, schema, rxdb ───────────────────────────────
+# stack: rest=50473 realtime=50807 db=51811  run=r1785964681577
+PASS  ports — db=51811 rest=50473 realtime=50807
+PASS  token — go-minted, 184 chars, 3 segments
+PASS  schema — 4 fixture table(s) and 5 hq_* policy(ies) present by name
+PASS  rest — spike_notes readable; alice sees 1 row(s), owners=["user-alice"], bob's row correctly hidden
+PASS  realtime — channel SUBSCRIBED
+-------------- RxDB dev-mode warning -------------------------------
+you are seeing this because you use the RxDB dev-mode plugin https://rxdb.info/dev-mode.html?console=dev-mode 
+This is great in development mode, because it will run many checks to ensure
+that you use RxDB correct. If you see this in production mode,
+you did something wrong because the dev-mode plugin will decrease the performance.
+
+🤗 Hint: To get the most out of RxDB, check out the Premium Plugins
+to get access to faster storages and more professional features: https://rxdb.info/premium/?console=dev-mode 
+
+You can disable this warning by calling disableWarnings() from the dev-mode plugin.
+---------------------------------------------------------------------
+PASS  rxdb — local RxDB database created, doc hc-1785964683128 inserted and read back
+
+HEALTHCHECK: GREEN — ports, token, schema, rest, realtime, rxdb all asserted
+
+══════════════════════════════════════════════════════════
+✅ VERDICT: GREEN — Supabase + RxDB up, schema applied, healthy
+   db=51811  rest=50473  realtime=50807   (project: spike-supabase)
+   teardown is a separate, deliberate act:  task spike:down
+   finished 2026-08-05T21:18:03Z
+══════════════════════════════════════════════════════════
+
+real	0m5.307s
+user	0m2.891s
+sys	0m1.764s
+EXIT=0
+
+# ═══════════════════════════════════════════════════════════════════════════
+### RUN C — plain (idempotent reconcile)
+2026-08-05T21:18:03Z
+# env-up.sh — mode=reconcile repo=/home/jcole/projects/hq-worktrees/c1-spike-env-up
+# compose anchor (--project-directory, path-stability fix) = /home/jcole/projects/hq
+# started 2026-08-05T21:18:03Z
+
+── 1. preflight — required tooling ───────────────────────────────
+  docker /usr/bin/docker
+  curl   /usr/bin/curl
+  node   /usr/bin/node
+  npm    /usr/bin/npm
+  go     /usr/local/go/bin/go
+  compose 5.1.0
+  go      go version go1.25.8 linux/amd64
+  node    v20.20.0
+  docker daemon: reachable
+
+── 2. bringing the stack up (idempotent) ───────────────────────────────
+ Container spike-supabase-db-1 Running 
+ Container spike-supabase-realtime-1 Running 
+ Container spike-supabase-rest-1 Running 
+ Container spike-supabase-db-1 Waiting 
+ Container spike-supabase-db-1 Waiting 
+ Container spike-supabase-db-1 Healthy 
+ Container spike-supabase-db-1 Healthy 
+NAME                        IMAGE                          COMMAND                  SERVICE    CREATED          STATUS                    PORTS
+spike-supabase-db-1         supabase/postgres:15.8.1.060   "docker-entrypoint.s…"   db         48 seconds ago   Up 46 seconds (healthy)   0.0.0.0:51811->5432/tcp, [::]:51811->5432/tcp
+spike-supabase-realtime-1   supabase/realtime:v2.34.47     "/usr/bin/tini -s -g…"   realtime   48 seconds ago   Up 33 seconds             0.0.0.0:50807->4000/tcp, [::]:50807->4000/tcp
+spike-supabase-rest-1       postgrest/postgrest:v12.2.12   "/bin/postgrest"         rest       48 seconds ago   Up 33 seconds             0.0.0.0:50473->3000/tcp, [::]:50473->3000/tcp
+
+── 3. waiting for db to report healthy (timeout 300s) ───────────────────────────────
+  db: running/healthy
+
+── 4. applying fixture schemas ───────────────────────────────
+  → spike-fixture.sql
+psql:<stdin>:30: NOTICE:  relation "spike_notes" already exists, skipping
+  → hq-bridge-fixture.sql
+psql:<stdin>:53: NOTICE:  relation "hq_grant_projection" already exists, skipping
+psql:<stdin>:77: NOTICE:  relation "hq_sync_checklists" already exists, skipping
+psql:<stdin>:114: NOTICE:  relation "hq_uid_trap" already exists, skipping
+  → hq-bridge-policies.sql
+
+── 5. resolving host ports ───────────────────────────────
+  db=51811 rest=50473 realtime=50807
+
+── 6. waiting for PostgREST and Realtime to answer (timeout 180s each) ───────────────────────────────
+  PostgREST: HTTP 200
+  Realtime: HTTP 200
+
+── 7. installing the RxDB harness (npm ci, isolated project) ───────────────────────────────
+  node_modules present — skipping install
+
+── 8. health assertion — rest, realtime, schema, rxdb ───────────────────────────────
+# stack: rest=50473 realtime=50807 db=51811  run=r1785964689196
+PASS  ports — db=51811 rest=50473 realtime=50807
+PASS  token — go-minted, 184 chars, 3 segments
+PASS  schema — 4 fixture table(s) and 5 hq_* policy(ies) present by name
+PASS  rest — spike_notes readable; alice sees 1 row(s), owners=["user-alice"], bob's row correctly hidden
+PASS  realtime — channel SUBSCRIBED
+-------------- RxDB dev-mode warning -------------------------------
+you are seeing this because you use the RxDB dev-mode plugin https://rxdb.info/dev-mode.html?console=dev-mode 
+This is great in development mode, because it will run many checks to ensure
+that you use RxDB correct. If you see this in production mode,
+you did something wrong because the dev-mode plugin will decrease the performance.
+
+🤗 Hint: To get the most out of RxDB, check out the Premium Plugins
+to get access to faster storages and more professional features: https://rxdb.info/premium/?console=dev-mode 
+
+You can disable this warning by calling disableWarnings() from the dev-mode plugin.
+---------------------------------------------------------------------
+PASS  rxdb — local RxDB database created, doc hc-1785964690260 inserted and read back
+
+HEALTHCHECK: GREEN — ports, token, schema, rest, realtime, rxdb all asserted
+
+══════════════════════════════════════════════════════════
+✅ VERDICT: GREEN — Supabase + RxDB up, schema applied, healthy
+   db=51811  rest=50473  realtime=50807   (project: spike-supabase)
+   teardown is a separate, deliberate act:  task spike:down
+   finished 2026-08-05T21:18:10Z
+══════════════════════════════════════════════════════════
+
+real	0m7.128s
+user	0m3.265s
+sys	0m1.885s
+EXIT=0
+
+# ═══════════════════════════════════════════════════════════════════════════
+### RUN D — NEGATIVE CONTROL 1: hq_* bridge tables dropped, everything else up
+# env-up.sh — mode=health repo=/home/jcole/projects/hq-worktrees/c1-spike-env-up
+# compose anchor (--project-directory, path-stability fix) = /home/jcole/projects/hq
+# started 2026-08-05T21:18:17Z
+
+── 1. preflight — required tooling ───────────────────────────────
+  docker /usr/bin/docker
+  curl   /usr/bin/curl
+  node   /usr/bin/node
+  npm    /usr/bin/npm
+  go     /usr/local/go/bin/go
+  compose 5.1.0
+  go      go version go1.25.8 linux/amd64
+  node    v20.20.0
+  docker daemon: reachable
+
+── 2. skipping bring-up (--health): verifying whatever is already running ───────────────────────────────
+
+── 3. waiting for db to report healthy (timeout 300s) ───────────────────────────────
+  db: running/healthy
+
+── 4. skipping schema apply (--health) — the health assertion must find the schema already there ───────────────────────────────
+
+── 5. resolving host ports ───────────────────────────────
+  db=51811 rest=50473 realtime=50807
+
+── 6. waiting for PostgREST and Realtime to answer (timeout 180s each) ───────────────────────────────
+  PostgREST: HTTP 200
+  Realtime: HTTP 200
+
+── 7. installing the RxDB harness (npm ci, isolated project) ───────────────────────────────
+  node_modules present — skipping install
+
+── 8. health assertion — rest, realtime, schema, rxdb ───────────────────────────────
+# stack: rest=50473 realtime=50807 db=51811  run=r1785964701622
+PASS  ports — db=51811 rest=50473 realtime=50807
+PASS  token — go-minted, 184 chars, 3 segments
+FAIL  schema — missing table(s): hq_grant_projection, hq_sync_checklists, hq_uid_trap; missing policy(ies): hq_sync_checklists_select, hq_sync_checklists_insert, hq_sync_checklists_update, hq_uid_trap_select, hq_grant_projection_select. Present tables: ["spike_notes"]. Remedy: run env-up.sh WITHOUT --health (or with --fresh) so sql/spike-fixture.sql, sql/hq-bridge-fixture.sql and sql/hq-bridge-policies.sql are applied. internal/sync TestRowVisibilityRLS drives the hq_* tables and cannot run without them.
+PASS  rest — spike_notes readable; alice sees 1 row(s), owners=["user-alice"], bob's row correctly hidden
+PASS  realtime — channel SUBSCRIBED
+-------------- RxDB dev-mode warning -------------------------------
+you are seeing this because you use the RxDB dev-mode plugin https://rxdb.info/dev-mode.html?console=dev-mode 
+This is great in development mode, because it will run many checks to ensure
+that you use RxDB correct. If you see this in production mode,
+you did something wrong because the dev-mode plugin will decrease the performance.
+
+🤗 Hint: To get the most out of RxDB, check out the Premium Plugins
+to get access to faster storages and more professional features: https://rxdb.info/premium/?console=dev-mode 
+
+You can disable this warning by calling disableWarnings() from the dev-mode plugin.
+---------------------------------------------------------------------
+PASS  rxdb — local RxDB database created, doc hc-1785964702911 inserted and read back
+
+HEALTHCHECK: RED — 1 leg(s) failed: schema
+
+🛑 VERDICT: RED — the health assertion failed — see the FAIL lines above. Remedies by leg: 'schema' → re-run without --health so sql/*.sql are applied (or --fresh); 'realtime' CHANNEL_ERROR → 'docker compose -p spike-supabase restart realtime' (plain 'up -d' will NOT do it — it reports the broken service as merely Running); 'rest' → check 'docker compose -p spike-supabase logs rest'.
+
+real	0m5.142s
+user	0m2.980s
+sys	0m1.815s
+EXIT=1
+
+# ═══════════════════════════════════════════════════════════════════════════
+### RUN E — NEGATIVE CONTROL 2: RLS disabled on public.spike_notes
+# env-up.sh — mode=health repo=/home/jcole/projects/hq-worktrees/c1-spike-env-up
+# compose anchor (--project-directory, path-stability fix) = /home/jcole/projects/hq
+# started 2026-08-05T21:18:37Z
+
+── 1. preflight — required tooling ───────────────────────────────
+  docker /usr/bin/docker
+  curl   /usr/bin/curl
+  node   /usr/bin/node
+  npm    /usr/bin/npm
+  go     /usr/local/go/bin/go
+  compose 5.1.0
+  go      go version go1.25.8 linux/amd64
+  node    v20.20.0
+  docker daemon: reachable
+
+── 2. skipping bring-up (--health): verifying whatever is already running ───────────────────────────────
+
+── 3. waiting for db to report healthy (timeout 300s) ───────────────────────────────
+  db: running/healthy
+
+── 4. skipping schema apply (--health) — the health assertion must find the schema already there ───────────────────────────────
+
+── 5. resolving host ports ───────────────────────────────
+  db=51811 rest=50473 realtime=50807
+
+── 6. waiting for PostgREST and Realtime to answer (timeout 180s each) ───────────────────────────────
+  PostgREST: HTTP 200
+  Realtime: HTTP 200
+
+── 7. installing the RxDB harness (npm ci, isolated project) ───────────────────────────────
+  node_modules present — skipping install
+
+── 8. health assertion — rest, realtime, schema, rxdb ───────────────────────────────
+# stack: rest=50473 realtime=50807 db=51811  run=r1785964721196
+PASS  ports — db=51811 rest=50473 realtime=50807
+PASS  token — go-minted, 184 chars, 3 segments
+PASS  schema — 4 fixture table(s) and 5 hq_* policy(ies) present by name
+FAIL  rest — alice can see bob's row note-bob-1 — RLS is NOT discriminating (owners=["user-alice","user-bob"])
+PASS  realtime — channel SUBSCRIBED
+-------------- RxDB dev-mode warning -------------------------------
+you are seeing this because you use the RxDB dev-mode plugin https://rxdb.info/dev-mode.html?console=dev-mode 
+This is great in development mode, because it will run many checks to ensure
+that you use RxDB correct. If you see this in production mode,
+you did something wrong because the dev-mode plugin will decrease the performance.
+
+🤗 Hint: To get the most out of RxDB, check out the Premium Plugins
+to get access to faster storages and more professional features: https://rxdb.info/premium/?console=dev-mode 
+
+You can disable this warning by calling disableWarnings() from the dev-mode plugin.
+---------------------------------------------------------------------
+PASS  rxdb — local RxDB database created, doc hc-1785964722515 inserted and read back
+
+HEALTHCHECK: RED — 1 leg(s) failed: rest
+
+🛑 VERDICT: RED — the health assertion failed — see the FAIL lines above. Remedies by leg: 'schema' → re-run without --health so sql/*.sql are applied (or --fresh); 'realtime' CHANNEL_ERROR → 'docker compose -p spike-supabase restart realtime' (plain 'up -d' will NOT do it — it reports the broken service as merely Running); 'rest' → check 'docker compose -p spike-supabase logs rest'.
+
+real	0m4.993s
+user	0m2.923s
+sys	0m1.799s
+EXIT=1
+
+# ═══════════════════════════════════════════════════════════════════════════
+### F1-a — A RECREATE NO LONGER DESTROYS DATA (the durable fix)
+
+$ docker inspect spike-supabase-db-1 --format '{{range .Mounts}}...'
+volume spike-supabase_spike-db-data -> /var/lib/postgresql/data
+bind  -> /docker-entrypoint-initdb.d/init-scripts/00-realtime-schema.sql
+bind  -> /docker-entrypoint-initdb.d/init-scripts/99-roles.sql
+
+$ docker inspect spike-supabase-db-1 --format '{{.Id}}'  (BEFORE)
+12f36b9c4c1197b07438c9d80d3820689fd49c1f6521cf66f283afd2f40505b3
+
+-- plant a sentinel row --
+f1-sentinel | SURVIVES RECREATE 20260806
+INSERT 0 1
+
+-- force a recreate (the exact operation that used to be total data loss) --
+ Container spike-supabase-db-1 Recreate 
+ Container spike-supabase-db-1 Recreated 
+ Container spike-supabase-db-1 Starting 
+ Container spike-supabase-db-1 Started 
+
+$ docker inspect spike-supabase-db-1 --format '{{.Id}}'  (AFTER — a DIFFERENT container)
+681bec8853d90dc77fdfd5e37a12f43b6b54292e7a26f6350097ed7f31503d12
+
+-- did the data survive? --
+f1-sentinel | SURVIVES RECREATE 20260806
+public tables still present:
+4 tables
+hq_* tables still present:
+hq_grant_projection
+hq_sync_checklists
+hq_uid_trap
+EXIT=0
+
+# ═══════════════════════════════════════════════════════════════════════════
+### F1-b — up -d FROM A DIFFERENT PATH NO LONGER RECREATES (the path-stability fix)
+
+The stack is anchored at /home/jcole/projects/hq. $ALT is a byte-identical copy
+of the compose file + initdb/ at a COMPLETELY different absolute path:
+  ALT=/tmp/claude-1000/-home-jcole-projects-hq/91eb6b13-c697-4903-8652-40a0b2dba306/scratchpad/c1fix/altroot
+
+── CONTROL: the OLD invocation — different compose-file path, NO --project-directory
+$ docker compose -p spike-supabase -f $ALT/docker-compose.supabase.yml up -d
+ Container spike-supabase-db-1 Recreate 
+ Container spike-supabase-db-1 Recreated 
+ Container spike-supabase-realtime-1 Running 
+ Container spike-supabase-rest-1 Running 
+ Container spike-supabase-db-1 Starting 
+ Container spike-supabase-db-1 Started 
+  ^^^ RECREATE. The mechanism is real and still there; the anchor is what suppresses it.
+
+── re-anchor, then the FIXED invocation, twice, from two different compose-file paths
+ Container spike-supabase-db-1 Recreate 
+ Container spike-supabase-db-1 Recreated 
+ Container spike-supabase-realtime-1 Running 
+ Container spike-supabase-rest-1 Running 
+ Container spike-supabase-db-1 Starting 
+ Container spike-supabase-db-1 Started 
+
+$ docker compose -p spike-supabase --project-directory /home/jcole/projects/hq -f $ALT/docker-compose.supabase.yml up -d
+ Container spike-supabase-db-1 Running 
+ Container spike-supabase-realtime-1 Running 
+ Container spike-supabase-rest-1 Running 
+
+$ docker compose -p spike-supabase --project-directory /home/jcole/projects/hq -f <worktree>/docker-compose.supabase.yml up -d
+ Container spike-supabase-db-1 Running 
+ Container spike-supabase-realtime-1 Running 
+ Container spike-supabase-rest-1 Running 
+  ^^^ 'Running' both times. Two different compose-file paths, one pinned anchor, NO recreate.
+
+── and via the script itself, from the worktree (whose repo root is NOT the anchor)
+# compose anchor (--project-directory, path-stability fix) = /home/jcole/projects/hq
+ Container spike-supabase-db-1 Running 
+ Container spike-supabase-realtime-1 Running 
+ Container spike-supabase-rest-1 Running 
+✅ VERDICT: GREEN — Supabase + RxDB up, schema applied, healthy
+EXIT=0
+
+# ═══════════════════════════════════════════════════════════════════════════
+### F2 — THE RECONCILE LEG, verbatim.
+#
+# Precondition: PGDATA destroyed under a RUNNING realtime — exactly what the
+# pre-fix path-sensitive recreate did to this stack. Realtime is then
+# CHANNEL_ERROR permanently and plain 'up -d' reports it merely 'Running'.
+#
+#   $ docker compose -p spike-supabase rm -sf db
+#   $ docker volume rm spike-supabase_spike-db-data
+#   $ ./.night-crew/qa/spike-supabase/env-up.sh ; echo "EXIT=$?"
+
+# env-up.sh — mode=reconcile repo=/home/jcole/projects/hq-worktrees/c1-spike-env-up
+# compose anchor (--project-directory, path-stability fix) = /home/jcole/projects/hq
+# started 2026-08-05T21:14:03Z
+
+── 1. preflight — required tooling ───────────────────────────────
+  docker /usr/bin/docker
+  curl   /usr/bin/curl
+  node   /usr/bin/node
+  npm    /usr/bin/npm
+  go     /usr/local/go/bin/go
+  compose 5.1.0
+  go      go version go1.25.8 linux/amd64
+  node    v20.20.0
+  docker daemon: reachable
+
+── 2. bringing the stack up (idempotent) ───────────────────────────────
+ Volume spike-supabase_spike-db-data Creating 
+ Volume spike-supabase_spike-db-data Created 
+ Container spike-supabase-db-1 Creating 
+ Container spike-supabase-db-1 Created 
+ Container spike-supabase-rest-1 Running 
+ Container spike-supabase-realtime-1 Running 
+ Container spike-supabase-db-1 Starting 
+ Container spike-supabase-db-1 Started 
+ Container spike-supabase-db-1 Waiting 
+ Container spike-supabase-db-1 Waiting 
+ Container spike-supabase-db-1 Healthy 
+ Container spike-supabase-db-1 Healthy 
+NAME                        IMAGE                          COMMAND                  SERVICE    CREATED             STATUS                    PORTS
+spike-supabase-db-1         supabase/postgres:15.8.1.060   "docker-entrypoint.s…"   db         12 seconds ago      Up 11 seconds (healthy)   0.0.0.0:51591->5432/tcp, [::]:51591->5432/tcp
+spike-supabase-realtime-1   supabase/realtime:v2.34.47     "/usr/bin/tini -s -g…"   realtime   About an hour ago   Up 6 minutes              0.0.0.0:50135->4000/tcp, [::]:50135->4000/tcp
+spike-supabase-rest-1       postgrest/postgrest:v12.2.12   "/bin/postgrest"         rest       About an hour ago   Up About an hour          0.0.0.0:50979->3000/tcp, [::]:50979->3000/tcp
+
+── 3. waiting for db to report healthy (timeout 300s) ───────────────────────────────
+  db: running/healthy
+
+── 4. applying fixture schemas ───────────────────────────────
+  → spike-fixture.sql
+psql:<stdin>:44: NOTICE:  trigger "spike_notes_set_modified" for relation "public.spike_notes" does not exist, skipping
+psql:<stdin>:61: NOTICE:  policy "spike_notes_select_own" for relation "public.spike_notes" does not exist, skipping
+psql:<stdin>:66: NOTICE:  policy "spike_notes_insert_own" for relation "public.spike_notes" does not exist, skipping
+psql:<stdin>:71: NOTICE:  policy "spike_notes_update_own" for relation "public.spike_notes" does not exist, skipping
+  → hq-bridge-fixture.sql
+psql:<stdin>:87: NOTICE:  trigger "hq_sync_checklists_set_modified" for relation "public.hq_sync_checklists" does not exist, skipping
+  → hq-bridge-policies.sql
+psql:<stdin>:155: NOTICE:  policy "hq_sync_checklists_select" for relation "public.hq_sync_checklists" does not exist, skipping
+psql:<stdin>:168: NOTICE:  policy "hq_sync_checklists_insert" for relation "public.hq_sync_checklists" does not exist, skipping
+psql:<stdin>:179: NOTICE:  policy "hq_sync_checklists_update" for relation "public.hq_sync_checklists" does not exist, skipping
+psql:<stdin>:208: NOTICE:  policy "hq_uid_trap_select" for relation "public.hq_uid_trap" does not exist, skipping
+psql:<stdin>:227: NOTICE:  policy "hq_grant_projection_select" for relation "public.hq_grant_projection" does not exist, skipping
+
+── 5. resolving host ports ───────────────────────────────
+  db=51591 rest=50979 realtime=50135
+
+── 6. waiting for PostgREST and Realtime to answer (timeout 180s each) ───────────────────────────────
+  PostgREST: HTTP 200
+  Realtime: HTTP 200
+
+── 7. installing the RxDB harness (npm ci, isolated project) ───────────────────────────────
+  node_modules present — skipping install
+
+── 8. health assertion — rest, realtime, schema, rxdb ───────────────────────────────
+# stack: rest=50979 realtime=50135 db=51591  run=r1785964461853
+PASS  ports — db=51591 rest=50979 realtime=50135
+PASS  token — go-minted, 184 chars, 3 segments
+PASS  schema — 4 fixture table(s) and 5 hq_* policy(ies) present by name
+PASS  rest — spike_notes readable; alice sees 1 row(s), owners=["user-alice"], bob's row correctly hidden
+FAIL  realtime — channel status CHANNEL_ERROR (channel error: transport failure) (expected SUBSCRIBED)
+-------------- RxDB dev-mode warning -------------------------------
+you are seeing this because you use the RxDB dev-mode plugin https://rxdb.info/dev-mode.html?console=dev-mode 
+This is great in development mode, because it will run many checks to ensure
+that you use RxDB correct. If you see this in production mode,
+you did something wrong because the dev-mode plugin will decrease the performance.
+
+🤗 Hint: To get the most out of RxDB, check out the Premium Plugins
+to get access to faster storages and more professional features: https://rxdb.info/premium/?console=dev-mode 
+
+You can disable this warning by calling disableWarnings() from the dev-mode plugin.
+---------------------------------------------------------------------
+PASS  rxdb — local RxDB database created, doc hc-1785964462945 inserted and read back
+
+HEALTHCHECK: RED — 1 leg(s) failed: realtime
+
+── 9. reconcile — realtime is CHANNEL_ERROR against a healthy db; restarting it ───────────────────────────────
+  (compose reports a broken-but-running service as 'Running' and will not
+   restart it; an explicit 'restart realtime' is the only thing that recovers
+   a Realtime whose replication slot died with a db recreate)
+ Container spike-supabase-realtime-1 Restarting 
+ Container spike-supabase-realtime-1 Started 
+
+── 10. resolving host ports ───────────────────────────────
+  db=51591 rest=50979 realtime=51785
+  Realtime: HTTP 200
+
+── 11. re-asserting health after the realtime restart ───────────────────────────────
+# stack: rest=50979 realtime=51785 db=51591  run=r1785964475443
+PASS  ports — db=51591 rest=50979 realtime=51785
+PASS  token — go-minted, 184 chars, 3 segments
+PASS  schema — 4 fixture table(s) and 5 hq_* policy(ies) present by name
+PASS  rest — spike_notes readable; alice sees 1 row(s), owners=["user-alice"], bob's row correctly hidden
+PASS  realtime — channel SUBSCRIBED
+-------------- RxDB dev-mode warning -------------------------------
+you are seeing this because you use the RxDB dev-mode plugin https://rxdb.info/dev-mode.html?console=dev-mode 
+This is great in development mode, because it will run many checks to ensure
+that you use RxDB correct. If you see this in production mode,
+you did something wrong because the dev-mode plugin will decrease the performance.
+
+🤗 Hint: To get the most out of RxDB, check out the Premium Plugins
+to get access to faster storages and more professional features: https://rxdb.info/premium/?console=dev-mode 
+
+You can disable this warning by calling disableWarnings() from the dev-mode plugin.
+---------------------------------------------------------------------
+PASS  rxdb — local RxDB database created, doc hc-1785964477177 inserted and read back
+
+HEALTHCHECK: GREEN — ports, token, schema, rest, realtime, rxdb all asserted
+
+══════════════════════════════════════════════════════════
+✅ VERDICT: GREEN — Supabase + RxDB up, schema applied, healthy
+   db=51591  rest=50979  realtime=51785   (project: spike-supabase)
+   teardown is a separate, deliberate act:  task spike:down
+   finished 2026-08-05T21:14:37Z
+══════════════════════════════════════════════════════════
+EXIT=0
+
+# ═══════════════════════════════════════════════════════════════════════════
+### F3 — THE BLIND SPOT, demonstrated in both directions on ONE stack.
+#
+# Precondition: the three hq_* bridge tables dropped; everything else up and
+# healthy. RUN D above is the new script's RED. Below is the OLD healthcheck.js
+# — fetched with 'git show HEAD:...' and run against that same broken stack, at
+# that same moment. It exits 0 and prints GREEN.
+
+$ git show HEAD:.night-crew/qa/spike-supabase/rxdb/healthcheck.js > old-healthcheck-TEMP.js
+$ node ./old-healthcheck-TEMP.js ; echo "OLD-HEALTHCHECK EXIT=$?"
+
+# stack: rest=50979 realtime=50959 db=51649  run=r1785964010012
+PASS  ports — db=51649 rest=50979 realtime=50959
+PASS  token — go-minted, 184 chars, 3 segments
+PASS  rest — spike_notes readable; alice sees 1 row(s), owners=["user-alice"], bob's row correctly hidden
+PASS  realtime — channel SUBSCRIBED
+-------------- RxDB dev-mode warning -------------------------------
+you are seeing this because you use the RxDB dev-mode plugin https://rxdb.info/dev-mode.html?console=dev-mode 
+This is great in development mode, because it will run many checks to ensure
+that you use RxDB correct. If you see this in production mode,
+you did something wrong because the dev-mode plugin will decrease the performance.
+
+🤗 Hint: To get the most out of RxDB, check out the Premium Plugins
+to get access to faster storages and more professional features: https://rxdb.info/premium/?console=dev-mode 
+
+You can disable this warning by calling disableWarnings() from the dev-mode plugin.
+---------------------------------------------------------------------
+PASS  rxdb — local RxDB database created, doc hc-1785964010513 inserted and read back
+
+HEALTHCHECK: GREEN — ports, token, rest, realtime, rxdb all asserted
+OLD-HEALTHCHECK EXIT=0
+
+# ^^^ EXIT=0, 'HEALTHCHECK: GREEN', against a database with no hq_grant_projection,
+#     no hq_sync_checklists and no hq_uid_trap — the exact tables internal/sync's
+#     TestRowVisibilityRLS (59 subtests) drives. That is the blind spot, and RUN D
+#     is the same stack under the new assertion: EXIT=1.

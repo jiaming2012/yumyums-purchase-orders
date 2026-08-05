@@ -1,0 +1,211 @@
+# C1 `spike-a-environment-up` — verdict capture, run 20260806
+#
+# THE VERDICT IS THE SCRIPT'S EXIT STATUS.
+#
+# 🛑 CORRECTED BY THE FIX ROUND (see captures/green-20260806b-env-up-fixround.txt).
+#    This line originally read "Every EXIT= below was captured by redirecting $?
+#    immediately after the command, never inferred from prose." That was an
+#    OVERCLAIM on a card whose entire thesis is "never prose". What is actually
+#    true of this file:
+#
+#      * RUN 5 (line ~192) is the only run whose captured EXIT= appears at the
+#        end of a verbatim block. It is a genuine captured code.
+#      * RUN 4 — the headline clean-machine GREEN — has a verbatim block, but it
+#        ENDS at the banner and `real 1m8.762s`. There is no EXIT= line in it.
+#      * RUNS 1 and 2 quote captured EXIT= lines inside a NARRATED excerpt, not
+#        a verbatim block.
+#      * RUNS 3 and 6 have no verbatim block at all; their codes appear only in
+#        the SUMMARY table above.
+#
+#    The summary's figures were independently reproduced by the reviewer, so
+#    they are not wrong — they were simply not evidenced to this card's own
+#    standard. The fix round re-ran the whole matrix with a captured EXIT= on
+#    EVERY run; that file, not this one, is the verdict of record.
+#
+# Deliverable: .night-crew/qa/spike-supabase/env-up.sh  (task spike:up)
+#
+# ═══════════════════════════════════════════════════════════════════════════
+# SUMMARY
+#
+#   run 1  --health, warm 5-day-old stack        EXIT=1  RED   (see below — a real finding)
+#   run 2  --fresh, first attempt                EXIT=1  RED   (a bug in the script's own
+#                                                              readiness gate; fixed)
+#   run 3  --health, after the fix               EXIT=0  GREEN
+#   run 4  --fresh, CLEAN MACHINE                EXIT=0  GREEN  68.8s
+#   run 5  --health, stack torn down             EXIT=1  RED   (negative control)
+#   run 6  plain (idempotent reconcile)          EXIT=0  GREEN  35.3s
+#
+#   FINAL VERDICT: GREEN. One command takes a clean machine to
+#   "Supabase + RxDB both up, schema applied, healthy" unattended in ~69s,
+#   with zero hand-configured steps.
+#
+# ═══════════════════════════════════════════════════════════════════════════
+# RUN 1 — the finding that justifies the card
+#
+#   `docker ps` showed all three spike-supabase containers Up (healthy) and
+#   5 days old. They had been up since run 20260801. The script said:
+#
+#       FAIL  rest — PostgREST error: relation "public.spike_notes" does not exist
+#       HEALTHCHECK: RED — 1 leg(s) failed: rest
+#       EXIT=1
+#
+#   Three containers running, one healthy, and NO SCHEMA. "A container is
+#   running" is not "the environment is up", and every eye-check of `docker ps`
+#   that anyone has done on this box for the last five days would have said
+#   green. That conflation is exactly the silent no-op this card exists to
+#   prevent, and the script found it on its first execution.
+#
+# ═══════════════════════════════════════════════════════════════════════════
+# RUN 2 — the script's own false green, caught and fixed
+#
+#   The readiness gate did `curl -w '%{http_code}' ... || echo 000`. curl
+#   already prints `000` on a connection failure, so on failure $code became
+#   "000\n000", which is != "000", so the gate PASSED on a dead server:
+#
+#       Realtime: HTTP 000000
+#       ...
+#       FAIL  realtime — channel status CHANNEL_ERROR (channel error: transport failure)
+#       EXIT=1
+#
+#   Realtime runs `/app/bin/migrate && seeds && server` on boot and simply was
+#   not up yet. The health assertion refused anyway — which is the point: the
+#   ASSERTION caught what the GATE let through. Fixed by letting curl's own
+#   `000` stand (`|| true`, not `|| echo 000`). Runs 3–6 are post-fix.
+#
+# ═══════════════════════════════════════════════════════════════════════════
+# RUN 4 — the clean-machine test, verbatim
+#
+#   Preconditions deliberately made clean before this run:
+#     * `docker compose -p spike-supabase ... down --volumes` (no data, no containers)
+#     * `rm -rf .night-crew/qa/spike-supabase/rxdb/node_modules`
+#     * `docker rmi postgrest/postgrest:v12.2.12 supabase/realtime:v2.34.47`
+#       (so `up -d`'s auto-pull path is really exercised, not assumed)
+#   NOT made clean: supabase/postgres:15.8.1.060 was left in the local cache.
+#   It is a 3 GB image and re-pulling it was judged not worth the night's
+#   budget. `up -d` pulls it by the same mechanism as the two that WERE
+#   deleted, so the path is exercised; the 3 GB download time is not measured.
+#   State that honestly rather than claiming a fully cold cache.
+#
+# env-up.sh — mode=fresh repo=/home/jcole/projects/hq-worktrees/c1-spike-env-up
+# started 2026-08-05T19:46:18Z
+
+── 1. preflight — required tooling ───────────────────────────────
+  docker /usr/bin/docker
+  curl   /usr/bin/curl
+  node   /usr/bin/node
+  npm    /usr/bin/npm
+  go     /usr/local/go/bin/go
+  compose 5.1.0
+  go      go version go1.25.8 linux/amd64
+  node    v20.20.0
+  docker daemon: reachable
+
+── 2. fresh — destroying the spike stack and its volumes ───────────────────────────────
+  (this affects ONLY the 'spike-supabase' compose project)
+
+── 3. bringing the stack up (idempotent) ───────────────────────────────
+ Image supabase/realtime:v2.34.47 Pulling 
+ Image postgrest/postgrest:v12.2.12 Pulling 
+  … [541 lines of docker layer-pull progress trimmed — the two deleted images were really re-pulled here] …
+ Image postgrest/postgrest:v12.2.12 Pulled 
+ Image supabase/realtime:v2.34.47 Pulled 
+ Network spike-supabase_default Creating 
+ Network spike-supabase_default Created 
+ Container spike-supabase-db-1 Creating 
+ Container spike-supabase-db-1 Created 
+ Container spike-supabase-realtime-1 Creating 
+ Container spike-supabase-rest-1 Creating 
+ Container spike-supabase-rest-1 Created 
+ Container spike-supabase-realtime-1 Created 
+ Container spike-supabase-db-1 Starting 
+ Container spike-supabase-db-1 Started 
+ Container spike-supabase-db-1 Waiting 
+ Container spike-supabase-db-1 Waiting 
+ Container spike-supabase-db-1 Healthy 
+ Container spike-supabase-realtime-1 Starting 
+ Container spike-supabase-db-1 Healthy 
+ Container spike-supabase-rest-1 Starting 
+ Container spike-supabase-realtime-1 Started 
+ Container spike-supabase-rest-1 Started 
+NAME                        IMAGE                          COMMAND                  SERVICE    CREATED          STATUS                    PORTS
+spike-supabase-db-1         supabase/postgres:15.8.1.060   "docker-entrypoint.s…"   db         20 seconds ago   Up 17 seconds (healthy)   0.0.0.0:50331->5432/tcp, [::]:50331->5432/tcp
+spike-supabase-realtime-1   supabase/realtime:v2.34.47     "/usr/bin/tini -s -g…"   realtime   18 seconds ago   Up 1 second               0.0.0.0:50923->4000/tcp, [::]:50923->4000/tcp
+spike-supabase-rest-1       postgrest/postgrest:v12.2.12   "/bin/postgrest"         rest       18 seconds ago   Up 1 second               0.0.0.0:50359->3000/tcp, [::]:50359->3000/tcp
+
+── 4. waiting for db to report healthy (timeout 300s) ───────────────────────────────
+  db: running/healthy
+
+── 5. applying fixture schemas ───────────────────────────────
+  → spike-fixture.sql
+  → hq-bridge-fixture.sql
+  → hq-bridge-policies.sql
+
+── 6. resolving host ports ───────────────────────────────
+  db=50331 rest=50359 realtime=50923
+
+── 7. waiting for PostgREST and Realtime to answer (timeout 180s each) ───────────────────────────────
+  PostgREST: HTTP 200
+  Realtime: HTTP 200
+
+── 8. installing the RxDB harness (npm ci, isolated project) ───────────────────────────────
+
+added 78 packages in 7s
+
+── 9. health assertion — rest, realtime, rxdb ───────────────────────────────
+# stack: rest=50359 realtime=50923 db=50331  run=r1785959246584
+PASS  ports — db=50331 rest=50359 realtime=50923
+PASS  token — go-minted, 184 chars, 3 segments
+PASS  rest — spike_notes readable; alice sees 1 row(s), owners=["user-alice"], bob's row correctly hidden
+PASS  realtime — channel SUBSCRIBED
+-------------- RxDB dev-mode warning -------------------------------
+you are seeing this because you use the RxDB dev-mode plugin https://rxdb.info/dev-mode.html?console=dev-mode 
+This is great in development mode, because it will run many checks to ensure
+that you use RxDB correct. If you see this in production mode,
+you did something wrong because the dev-mode plugin will decrease the performance.
+
+🤗 Hint: To get the most out of RxDB, check out the Premium Plugins
+to get access to faster storages and more professional features: https://rxdb.info/premium/?console=dev-mode 
+
+You can disable this warning by calling disableWarnings() from the dev-mode plugin.
+---------------------------------------------------------------------
+PASS  rxdb — local RxDB database created, doc hc-1785959247486 inserted and read back
+
+HEALTHCHECK: GREEN — ports, token, rest, realtime, rxdb all asserted
+
+══════════════════════════════════════════════════════════
+✅ VERDICT: GREEN — Supabase + RxDB up, schema applied, healthy
+   db=50331  rest=50359  realtime=50923   (project: spike-supabase)
+   teardown is a separate, deliberate act:  task spike:down
+   finished 2026-08-05T19:47:27Z
+══════════════════════════════════════════════════════════
+
+real	1m8.762s
+user	0m8.880s
+sys	0m5.660s
+
+# ═══════════════════════════════════════════════════════════════════════════
+# RUN 5 — negative control, verbatim. The stack was torn down first.
+# A script whose exit status is the verdict must go RED when the environment
+# is not up, or its green means nothing.
+#
+# env-up.sh — mode=health repo=/home/jcole/projects/hq-worktrees/c1-spike-env-up
+# started 2026-08-05T19:47:43Z
+
+── 1. preflight — required tooling ───────────────────────────────
+  docker /usr/bin/docker
+  curl   /usr/bin/curl
+  node   /usr/bin/node
+  npm    /usr/bin/npm
+  go     /usr/local/go/bin/go
+  compose 5.1.0
+  go      go version go1.25.8 linux/amd64
+  node    v20.20.0
+  docker daemon: reachable
+
+── 2. skipping bring-up (--health): verifying whatever is already running ───────────────────────────────
+
+── 3. waiting for db to report healthy (timeout 300s) ───────────────────────────────
+
+🛑 VERDICT: RED — the db service has no container — 'docker compose -p spike-supabase ps -a' will say why
+
+EXIT=1
