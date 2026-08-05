@@ -104,9 +104,33 @@ writes an **object**). That is a **different region of the same file** from this
 ## For every other card in the night
 
 - Cards touching `sync-rxdb/client.js` (Activity 3 / `sync-hard-cutover` and the spikes) inherit a
-  file that `grep` can finally read. **Line numbers in `client.js` do not move** — the NUL fix is a
-  one-byte→two-byte change on line 1051, and the `:1108-1109` comment correction is confined to
-  those lines. Any card quoting a `client.js` line number from the slate is still correct.
+  file that `grep` can finally read.
+
+  🛑 **Line numbers in `client.js` DO move. Locate by symbol, not by line number.** An earlier
+  revision of this note claimed they do not; that claim was false and is corrected here, because
+  `sync-hard-cutover` edits this file and is not in tonight's slate — it will read this on a later
+  night, against a tree where the shift has already happened.
+
+  Measured, `14e2a01` → this card's tip:
+
+  | Fact | Value |
+  |---|---|
+  | File length | **1217 → 1236 lines** (+19) |
+  | Hunk 1 | `@@ -1051 +1051,13 @@` — the NUL fix is not a one-byte→two-byte edit; the single line 1051 becomes **13** lines — a 12-line comment block explaining why the byte is spelled `\0`, then the `fingerprint:` line itself |
+  | Hunk 2 | `@@ -1106,6 +1118,13 @@` — the stale-gate correction replaces base lines 1106–1111 (6 lines) with 13 |
+  | Shift, base lines **≥ 1052** | **+12** |
+  | Shift, base lines **≥ 1112** | **+19** |
+
+  Confirmed symbol moves (`grep -an`, binary-safe — plain `grep` could not read the base file,
+  which is B-70 itself):
+
+  | Symbol | `14e2a01` | tip | Δ |
+  |---|---|---|---|
+  | `createHQSyncDatabase` | `1077` | **`1089`** | +12 |
+  | `startHQReplication` | `1132` | **`1151`** | +19 |
+
+  **Any card quoting a `client.js` line number above 1051 from the slate is now wrong by 12 or 19.**
+  Re-resolve every such citation by symbol before trusting it. Line numbers ≤ 1051 are unchanged.
 - Cards quoting a confined-subset cost from `night-crew.toml` should re-read it after this lands.
   The tokens did not change; what they were *claimed* to select did.
 
