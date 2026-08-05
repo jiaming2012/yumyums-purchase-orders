@@ -16,6 +16,11 @@
 # spike script that silently no-ops is the exact defect class this cycle
 # exists to retire — if you are about to add `|| true` to a health assertion,
 # you are about to destroy the only thing this script is for.
+#
+# There is exactly ONE self-healing action (step 6's reconcile leg: restart
+# Realtime when it is CHANNEL_ERROR against a healthy db). It performs a named
+# remedy and then RE-ASSERTS; a failing re-assertion is still RED. That is a
+# reconciler, not a `|| true`, and the distinction is the whole file.
 # ═══════════════════════════════════════════════════════════════════════════
 #
 # ⚠ LOCAL SPIKE ONLY. This drives the throwaway `spike-supabase` compose
@@ -240,8 +245,15 @@ fi
 # 4. Resolve the Docker-assigned host ports and wait for both HTTP services.
 #    W1's compose publishes bare container ports on purpose, so two stacks can
 #    coexist; the host side is therefore never a constant.
+#
+#    🛑 IT IS NOT EVEN CONSTANT FOR THE LIFETIME OF ONE `up`. Docker frees an
+#    ephemeral published port on stop and picks a NEW one on start, so
+#    `docker compose restart realtime` moves the Realtime host port. Measured
+#    on run 20260806's fix round: 50959 → 50135 across a single restart. That
+#    is why resolution lives in a FUNCTION and the reconcile leg re-runs it —
+#    the first version of that leg reused the pre-restart port and timed out for
+#    180s against a Realtime that was already healthy on a different port.
 # --------------------------------------------------------------------------
-step "resolving host ports"
 port_of() {
   local svc="$1" cport="$2" out p
   out="$("${DC[@]}" port "$svc" "$cport" 2>/dev/null || true)"
@@ -258,10 +270,14 @@ port_of() {
   [ "$p" -gt 0 ] || fail "$svc:$cport resolved to port 0 ('$out') — the service is defined but not running; 'docker compose -p $PROJECT ps -a' will say why"
   echo "$p"
 }
-DBP="$(port_of db 5432)"
-RESTP="$(port_of rest 3000)"
-RTP="$(port_of realtime 4000)"
-printf '  db=%s rest=%s realtime=%s\n' "$DBP" "$RESTP" "$RTP"
+resolve_ports() {
+  step "resolving host ports"
+  DBP="$(port_of db 5432)"
+  RESTP="$(port_of rest 3000)"
+  RTP="$(port_of realtime 4000)"
+  printf '  db=%s rest=%s realtime=%s\n' "$DBP" "$RESTP" "$RTP"
+}
+resolve_ports
 
 wait_http() {
   local name="$1" url="$2" dl code
@@ -311,8 +327,52 @@ fi
 #    conflating the two is precisely what this card exists to prevent.
 # --------------------------------------------------------------------------
 step "health assertion — rest, realtime, rxdb"
-if ! ( cd "$SPIKE_DIR/rxdb" && node healthcheck.js ); then
-  fail "the health assertion failed — see the FAIL lines above"
+HC_OUT="$(mktemp)"
+trap 'rm -f "$HC_OUT"' EXIT
+
+run_healthcheck() {
+  ( cd "$SPIKE_DIR/rxdb" && node healthcheck.js ) 2>&1 | tee "$HC_OUT"
+  return "${PIPESTATUS[0]}"
+}
+
+if ! run_healthcheck; then
+  # ------------------------------------------------------------------------
+  # RECONCILE LEG — the one self-healing action in this script, and it is
+  # narrow on purpose.
+  #
+  # A db container recreate invalidates Realtime's logical-replication slot.
+  # Realtime does not recover: its WebSocket answers CHANNEL_ERROR (transport
+  # failure) FOREVER — measured across three consecutive invocations, all
+  # EXIT=1 — while `docker compose up -d` prints
+  #   Container spike-supabase-realtime-1  Running
+  # and does nothing, because compose will not restart a running-but-broken
+  # service. Only `docker compose -p spike-supabase restart realtime` recovers
+  # it. Without this leg the script could BREAK the stack (by recreating the
+  # db) and then report RED about it forever, unable to reconcile what it
+  # itself did — which is not a reconciler.
+  #
+  # 🛑 This is NOT a "warn and continue" and it is NOT `|| true`. It performs a
+  # named, bounded REMEDY and then RE-ASSERTS. If the re-assertion fails, the
+  # verdict is RED. Nothing here can turn a failing leg into a pass.
+  # ------------------------------------------------------------------------
+  if [ "$MODE" != "health" ] && grep -q 'FAIL  realtime' "$HC_OUT"; then
+    step "reconcile — realtime is CHANNEL_ERROR against a healthy db; restarting it"
+    echo "  (compose reports a broken-but-running service as 'Running' and will not"
+    echo "   restart it; an explicit 'restart realtime' is the only thing that recovers"
+    echo "   a Realtime whose replication slot died with a db recreate)"
+    "${DC[@]}" restart realtime || fail "'docker compose restart realtime' failed"
+    # 🛑 RE-RESOLVE. A restart moves the ephemeral published port (measured:
+    #    50959 → 50135). Waiting on the pre-restart port burns the full 180s
+    #    timeout against a service that is already healthy somewhere else.
+    resolve_ports
+    wait_http Realtime "http://127.0.0.1:${RTP}/"
+    step "re-asserting health after the realtime restart"
+    if ! run_healthcheck; then
+      fail "the health assertion still failed after restarting realtime — see the FAIL lines above. If 'realtime' is still CHANNEL_ERROR, check 'docker compose -p $PROJECT logs realtime'; if a schema leg failed, re-run WITHOUT --health so the fixtures are applied."
+    fi
+  else
+    fail "the health assertion failed — see the FAIL lines above. Remedies by leg: 'schema' → re-run without --health so sql/*.sql are applied (or --fresh); 'realtime' CHANNEL_ERROR → 'docker compose -p $PROJECT restart realtime' (plain 'up -d' will NOT do it — it reports the broken service as merely Running); 'rest' → check 'docker compose -p $PROJECT logs rest'."
+  fi
 fi
 
 printf '\n══════════════════════════════════════════════════════════\n'
