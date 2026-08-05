@@ -1,0 +1,111 @@
+# Merge intent — Wave 0 · `repo-hygiene-preconditions`
+
+- **Run:** `overnight-20260806`
+- **Branch:** `card/w0-repo-hygiene`
+- **Base commit:** `14e2a01` — every diff claim in this note is measured against `14e2a01`,
+  never against run-branch HEAD (T-32 decision 130a).
+- **Wave:** 0. Runs first and alone; every other card in the night rebases onto this.
+- **Closes:** B-70 (the NUL byte). Corrects two false written claims that are not filed as bugs.
+
+Written **before** implementing (§15ad.65). Updated in place only for facts that changed.
+
+---
+
+## Shared files touched — each line says why
+
+| File | Why this card touches it |
+|---|---|
+| `sync-rxdb/client.js` | **Owned.** Defect (a): the single raw `U+0000` at byte offset 50850, inside the `scopeFingerprint` template literal, is replaced by the escape sequence `\0`. Same byte at runtime; the source becomes 7-bit clean so `file(1)` stops calling it `data` and GNU grep stops switching to binary mode. **Also** defect (c)'s second site — `:1108-1109` carries the same stale "until `sync-rxdb-row-visibility-rls` lands" gating claim as `bootstrap.js:22`, and it is corrected in the same change set (see "beyond the stated footprint" below). |
+| `sync-rxdb/bootstrap.js` | **Owned.** Defect (c): the `:22` banner gating activation on `sync-rxdb-row-visibility-rls` — a card that merged at `bbbfc64` / `bec06f6` (run `overnight-20260801`; roadmap flipped it DONE at `914536c`). The banner is restated against the preconditions that are *actually* still open. |
+| `night-crew.toml` | **Owned.** Defect (b): the comment at `:50-58` claims the four Operations tokens select "exactly workflows / persistence / sync / repro-cut-task .spec.js and nothing else — re-verified at landing". They select **9** files. Comment corrected; the token **values** are unchanged. |
+| `tests/repo-hygiene.spec.js` | **New. The red-first test.** Beyond the stated footprint — see below. |
+| `.night-crew/runs/2026-08-06-autonomous/merge-intents/w0-repo-hygiene.md` | This note. |
+
+**Beyond the slate's stated footprint** (§15ad.65 — planning information, not a fence):
+
+1. **`tests/repo-hygiene.spec.js` (new).** B-70's own lead says the guarantee "should not depend
+   on remembering", and the roadmap's ban on `done_when: "grep returns nothing"` is only liftable
+   if something keeps the file readable. All three defects are one-line facts a spec can assert,
+   so one spec guards all three. Its name shares no substring with any `[e2e.seams]` token
+   (`workflows` / `persistence` / `sync` / `repro-cut-task` / `inventory` / `recipes` /
+   `onboarding` / `users` / `purchasing`), so it does not perturb defect (b)'s arithmetic.
+   🛑 **It raises the suite's test count.** Judge the full-suite figure against baseline + the new
+   cases, not against 785 flat.
+2. **`sync-rxdb/client.js:1108-1109`.** The card names `bootstrap.js:22` as the site of defect (c).
+   There is a **second** site, in a file this card already owns, carrying the same false claim.
+   Fixing one and leaving the other would leave the acceptance criterion satisfiable while the
+   defect survives. Recorded here rather than parked: it is the same correction, in-footprint.
+
+**`.gitattributes` is NOT touched, and that is deliberate.** B-70's lead offered two independent
+fixes: (a) the `\0` escape, and (b) `-text` / `grep -a` as a belt-and-braces guard. With (a)
+applied the file is 7-bit clean and a `-text` attribute would assert a property no longer at risk
+while silently masking a *future* reintroduction — which is exactly what `tests/repo-hygiene.spec.js`
+is there to catch loudly instead. One guard, and it fails loud.
+
+**Nothing else.** No Go code. No `workflows.html`. No `build-sw.js`, no `sw.js`, no `package.json`,
+no `version.go` — this card ships no frontend asset change, so precache stays **31** and neither
+semver moves.
+
+---
+
+## What MUST survive any merge
+
+1. **`sync-rxdb/client.js` contains zero NUL bytes.** This is the whole point of Wave 0. Any merge
+   that reintroduces the raw `U+0000` — including a "resolve by taking theirs" on that hunk —
+   silently re-arms B-70 and makes every downstream card's grep evidence unreliable *in the passing
+   direction*. `tests/repo-hygiene.spec.js` will red on it; do not skip that test to land a merge.
+2. **The escape must stay `\0` inside the template literal, not a rewrite of the delimiter.** The
+   fingerprint input is `${scopeIdentity(s)}\0${serialized}`. Changing the delimiter to any
+   printable character changes every fingerprint the function has ever produced and breaks the
+   "cannot occur in either operand" property the technique rests on. The byte does not move;
+   only its source spelling does.
+3. **`night-crew.toml`'s corrected comment.** It is the file that decides gate cost. The next
+   author who reads "exactly … and nothing else" will under-budget a night by ~20 minutes per
+   confined card. Values unchanged — only the prose.
+4. **No `sync-rxdb-row-visibility-rls` gating language in `sync-rxdb/`.** Both sites, not one.
+5. **This note.**
+
+## What is safe to drop
+
+- Any wording in the corrected `bootstrap.js` / `client.js` banners, provided the *stale
+  precondition* does not come back. A later card that rewrites those comment blocks wholesale is
+  free to; it must not restore a gate on a merged card.
+- The exact prose of the `night-crew.toml` comment, provided the file-count claim stays true.
+- This card's scratch logs under `$SCRATCH`. Not committed.
+
+## Nothing here (stated explicitly)
+
+- **Schema / config-key changes:** nothing here. Only `[e2e.seams]` prose is edited; no key added,
+  removed or renamed. (A new key or a schema change is the PARK condition and did not arise.)
+- **Backend changes:** nothing here.
+- **Migrations:** nothing here.
+- **Contract changes** (`docs/contracts/`): nothing here.
+- **Version bumps:** nothing here.
+- **Parked items:** nothing here.
+
+---
+
+## 🛑 For A5 `shipped-bug-sweep` (the stretch card) — it rebases onto this
+
+A5 fixes **B-89** at `sync-rxdb/bootstrap.js:66-68` (`JSON.parse(raw)` →
+`Array.isArray(apps) ? … : []`, which returns `[]` on every real client because `index.html:241`
+writes an **object**). That is a **different region of the same file** from this card's edit.
+
+- **This card touches only the header comment block, `bootstrap.js:1-50`.** No executable
+  statement in `bootstrap.js` changes. `cachedGrantSlugs()` and its call site at `:100` are
+  untouched, so A5's diff should apply without a textual conflict — but the line numbers in A5's
+  own planning notes are taken against `14e2a01` and **will shift** if the corrected banner is a
+  different number of lines than the one it replaces. A5 must locate its hunk by symbol
+  (`cachedGrantSlugs`), not by line number.
+- **A5 must preserve:** the absence of `sync-rxdb-row-visibility-rls` gating language. If A5's
+  rebase resolves a header conflict by taking `14e2a01`'s version, it silently reverts defect (c).
+- **A5 may freely rewrite** anything below the header. This card claims none of it.
+
+## For every other card in the night
+
+- Cards touching `sync-rxdb/client.js` (Activity 3 / `sync-hard-cutover` and the spikes) inherit a
+  file that `grep` can finally read. **Line numbers in `client.js` do not move** — the NUL fix is a
+  one-byte→two-byte change on line 1051, and the `:1108-1109` comment correction is confined to
+  those lines. Any card quoting a `client.js` line number from the slate is still correct.
+- Cards quoting a confined-subset cost from `night-crew.toml` should re-read it after this lands.
+  The tokens did not change; what they were *claimed* to select did.
