@@ -222,17 +222,32 @@ for p in $DB_PKGS; do
 done
 cd "$REPO_ROOT"
 
+DEAD_LOUD=$((DEAD_PROBED - $(printf '%s' "$DEAD_SILENT" | wc -w)))
 if [ -z "$DEAD_SILENT" ]; then
 	pass "all $DEAD_PROBED DB-backed packages exited non-zero, individually, with
         DB_TEST_URL=$DEAD_URL"
 else
+	# The old aggregate check's verdict depends on whether ANY package survived.
+	# Claiming unconditionally that the aggregate "would still have printed PASS"
+	# is FALSE in the all-seven-silent case, which reaches this branch: with
+	# every package silent the aggregate exits 0 and the old check went red too.
+	# Asserting otherwise inside the check written to stop checks lying is the
+	# B-17/B-24 shape, so the sentence is branched on the measurement.
+	if [ "$DEAD_LOUD" -gt 0 ]; then
+		AGG_NOTE="Note that an AGGREGATE 'go test' over all $DEAD_PROBED packages would still have
+        exited non-zero here, on the strength of the $DEAD_LOUD package(s) that DID fail,
+        and would have printed PASS — that disjunction is B-22 and is why this
+        check iterates."
+	else
+		AGG_NOTE="All $DEAD_PROBED packages are silent, so an AGGREGATE 'go test' would have exited
+        0 and gone red here too. The per-package loop's value is in the PARTIAL
+        case — one honest package is enough to make the aggregate print PASS
+        (B-22) — and in naming which packages went silent, which the aggregate
+        never could."
+	fi
 	fail "these packages exited 0 with DB_TEST_URL=$DEAD_URL:$DEAD_SILENT
         For them a dropped or unreachable database reports 'ok'. Destroying the
-        test environment is indistinguishable from passing it. Note that an
-        AGGREGATE 'go test' over all $DEAD_PROBED packages would still have exited
-        non-zero here, on the strength of the packages that DID fail, and would
-        have printed PASS — that disjunction is B-22 and is why this check
-        iterates."
+        test environment is indistinguishable from passing it. $AGG_NOTE"
 fi
 
 # The count assertion is deliberately its own graded line. Folded into the loop
