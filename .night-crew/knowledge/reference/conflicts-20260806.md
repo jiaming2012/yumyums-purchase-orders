@@ -68,3 +68,44 @@ round before this merge. G6's strongest observation stands on the record: this m
 very likely the cause of the card's own headline finding (three healthy containers, five
 days, no schema) — the card built a detector for the symptom and never diagnosed the cause,
 and the cause was its own command.
+
+---
+
+### 3 · `a1-rls-count-assert` → `overnight-20260806` · **CLEAN** · merge `9b63958`
+
+**Cards involved:** A1 alone at merge time. A1 shares `backend/internal/sync/` with **A3**,
+which was dispatched only after this merge landed, precisely so A3 inherits A1's constant.
+A1 left `rowvisibility_rls_test.go` and `jwtbridge_rls_test.go` **zero bytes changed**
+(verified by me before merging), so A3's file arrives clean.
+
+**Files:** `backend/internal/sync/spikestack_gate_test.go` (+804), `BACKLOG.md` (B-36 closure),
+merge-intent note. 3 files, +1097/−4.
+
+**Intents read:** `merge-intents/a1-rls-count-assert.md` — sole side. `git merge-tree` against
+the merge base reported **0 conflict markers** before the merge was taken.
+
+**Resolution:** none required — clean `--no-ff` merge.
+
+**Gate after merge:** G4 not owed (Go test files + markdown only; nothing precached).
+G2(Playwright) was **discarded and re-run** — see below — and the re-run is the cited figure.
+
+**🛑 A discarded gate, recorded so the reasoning is auditable.** A2's G6 disclosed that its
+first, *unlocked* end-to-end `verify-test-harness.sh` run — a `go test` over 7 packages,
+i.e. a Go suite — overlapped A1's full Playwright suite. The slate forbids a Go suite
+alongside a Playwright one and requires the overlapped run be **"discarded and re-run, not
+reasoned about."** A1's original result showed zero failures, so a conditional reading would
+have let it stand; the rule's wording exists to forbid exactly that reasoning. Discarded.
+The clean re-run, taken alone under the mutex: `EXIT=0`, **791 passed + 6 skipped = 797**
+across 29 files, **exactly one summary block** counted over the complete log, 23.5m.
+
+**Root cause is the orchestrator's, not the card's.** The unlocked-probe carve-out was mine,
+written for A2's *cheap per-package probes* (seconds each, nonexistent DB, no ports). A2's G6
+reasonably extended it to the eleven-minute end-to-end harness, which is a Go suite, not a
+probe. The exemption was drawn too broadly.
+
+**Note carried:** G6 returned MERGE WITH NOTE on 9 findings. The sharpest: the card closing
+*"a gate can print `ok` having run nothing"* had itself shipped a gate that prints `ok`
+having run nothing — `HQ_SYNC_GATE_CHILD=1` disarmed both new guards while `internal/sync`
+reported `ok` in 0.008s with `EXIT=0`. Fixed here as a parent-minted token. One finding (F7,
+the ladder's stale eyeball-the-count instruction) was routed to **A4**, sole owner of that
+file. One (G3's contradictory definition) is an operator question and is in DECISIONS-NEEDED.
