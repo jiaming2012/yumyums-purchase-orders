@@ -71,7 +71,33 @@ moved and nothing added or removed.
 3. **`night-crew.toml`'s corrected comment.** It is the file that decides gate cost. The next
    author who reads "exactly … and nothing else" will under-budget a night by ~20 minutes per
    confined card. Values unchanged — only the prose.
-4. **No `sync-rxdb-row-visibility-rls` gating language in `sync-rxdb/`.** Both sites, not one.
+4. **The two sites this card cleaned stay clean:** `sync-rxdb/bootstrap.js:22` and
+   `sync-rxdb/client.js:1106-1111` (base numbering). Neither may have a gate on
+   `sync-rxdb-row-visibility-rls` restored — that card merged at `bbbfc64` on 2026-08-01 and a gate
+   naming a shipped card reads as an open precondition.
+
+   🛑 **An earlier revision of this note said "Both sites, not one," implying the directory was
+   clean afterwards. It is not — there are five sites in total, and one of the three survivors is
+   inside `sync-rxdb/`.** Verified by `grep -n`:
+
+   | Site | Text | Cleaned by this card? |
+   |---|---|---|
+   | `sync-rxdb/bootstrap.js:22` | the activation banner | ✅ yes |
+   | `sync-rxdb/client.js:1106-1111` (base) | the `startHQReplication` doc block | ✅ yes |
+   | `sync-rxdb/conflict-notice-ui.js:26` | *"the /sync door answers 503 by design until row-visibility RLS lands"* | ❌ **survives — inside `sync-rxdb/`** |
+   | `workflows.html:3560` | *"answers 503 by design until `sync-rxdb-row-visibility-rls` lands"* — **spells the slug, in a precached production asset** | ❌ survives |
+   | `workflows.html:329` | *"must not happen until row-visibility RLS lands"* | ❌ survives |
+   | `tests/states-sync-rxdb-conflict-notice.spec.js:30` | same paraphrase | ❌ survives |
+
+   (`sync-schema/collections.js:85` and `tests/sync-schema.spec.js:296` also name the slug, but as
+   an ownership reference — *"projects it into the sync DB as an RLS input"* — not as a gate. They
+   are correct as written and are not in the count.)
+
+   **The three survivors are deliberately NOT fixed here, and that is a scope call, not an
+   oversight.** `workflows.html` is a precached shipped asset: retiring `:3560` and `:329` forces an
+   `sw.js` regeneration and a full-suite gate, which is a different card's cost. Filed as **B-140**,
+   which also records that `tests/repo-hygiene.spec.js`'s case 3 is spelling-shaped rather than
+   fact-shaped and would not have caught any of them.
 5. **This note.**
 
 ## What is safe to drop
