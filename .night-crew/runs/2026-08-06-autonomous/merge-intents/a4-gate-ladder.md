@@ -90,8 +90,10 @@ ladder line requiring that its absence be *stated* costs nothing if it is never 
 
 ## Gates
 
-- **G1** — `go build ./...` + `go vet ./...` from `backend/`. Sanity only; this card
-  changes no Go.
+- **G1** — **run, green.** From `backend/` (the module root, per the ladder's own 🛑):
+  `go build ./...` **EXIT=0**, `go vet ./...` **EXIT=0**, both logs captured whole and
+  both empty. Sanity only — this card changes no Go. Nothing piped through `tail` (B-93);
+  the exit codes come from the commands.
 - **G2 (Go / Playwright)** — **not run.** No code change, and the slate says sanity run
   only; the suite mutex is contended by two other legs.
 - **G3** — **N/A.** `openspec: absent` (ledger §T-34 decision 140). No scaffolding
