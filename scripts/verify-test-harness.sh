@@ -191,17 +191,44 @@ fi
 # catch false greens.
 DB_PKGS="./internal/workflow/ ./internal/receipt/ ./internal/inventory/ ./internal/auth/ ./internal/purchasing/ ./internal/recipes/ ./internal/sync/"
 
-# The number of packages $DB_PKGS is expected to carry, asserted separately
-# below. Without it, deleting entries from $DB_PKGS SHRINKS both Check B and
-# Check B2 in silence and both keep printing PASS — a check that grades fewer
-# things than it used to, reporting the same green. That is the identical
-# failure mode to the one this card just fixed, one level up, so it is graded
-# rather than trusted. One assertion covers both checks because they
-# deliberately share the list (see Check B2's comment).
+# ── What $DB_PKGS is graded against: the tree, not a typed constant (B-23) ──
 #
-# It ratchets UP as DB-backed packages are added. H1_DB_PKG_COUNT overrides it
-# — for proving this assertion can go red, and for nothing else.
-EXPECTED_DB_PKGS="${H1_DB_PKG_COUNT:-7}"
+# $DB_PKGS is hand-maintained, and both Check B and Check B2 run it. Left
+# ungraded, deleting entries SHRINKS both checks in silence and both keep
+# printing PASS — a check that grades fewer things than it used to, reporting
+# the same green. That is the identical failure mode to the one this card fixed,
+# one level up.
+#
+# The first revision of this card asserted `EXPECTED_DB_PKGS=7`, hand-typed,
+# with a comment claiming it "ratchets UP as DB-backed packages are added". No
+# code implemented that ratchet: a NEW DB-coupled package that nobody added to
+# $DB_PKGS left both the constant and the list at 7, and this assertion PASSED
+# while the check had narrowed relative to reality. B-23 condemns exactly that
+# shape for Check A2's floor — *derive the floor instead of typing it; a
+# hand-typed floor is the same class of defect as the thing it guards*.
+#
+# So the expectation is DERIVED. A `_test.go` file that imports
+# `internal/testdb` is DB-coupled by construction — that package is the shared
+# test-database helper and nothing else uses it — so the set of directories
+# containing such a file IS the set of DB-coupled packages, computed from the
+# tree at run time. Adding a DB-coupled package without listing it in $DB_PKGS
+# now REDS this check instead of passing silently.
+#
+# Both the COUNT and the SET are graded. The count alone would miss a
+# simultaneous add-and-remove; the set names the offending package, which the
+# count cannot.
+#
+# H1_DB_PKG_COUNT overrides the derived count — for proving this assertion can
+# go red, and for nothing else. It does not suppress the set comparison.
+DERIVED_DB_DIRS="$(grep -rl 'internal/testdb' "$REPO_ROOT/backend/internal" --include='*_test.go' 2>/dev/null |
+	xargs -r -n1 dirname | sed "s#^$REPO_ROOT/backend/##" | sort -u)"
+DERIVED_DB_PKG_COUNT="$(printf '%s\n' "$DERIVED_DB_DIRS" | grep -c '[^[:space:]]')"
+EXPECTED_DB_PKGS="${H1_DB_PKG_COUNT:-$DERIVED_DB_PKG_COUNT}"
+
+# shellcheck disable=SC2086
+LISTED_DB_DIRS="$(printf '%s\n' $DB_PKGS | sed -e 's#^\./##' -e 's#/$##' | sort -u)"
+DB_PKG_ONLY_DERIVED="$(comm -23 <(printf '%s\n' "$DERIVED_DB_DIRS") <(printf '%s\n' "$LISTED_DB_DIRS") | tr '\n' ' ')"
+DB_PKG_ONLY_LISTED="$(comm -13 <(printf '%s\n' "$DERIVED_DB_DIRS") <(printf '%s\n' "$LISTED_DB_DIRS") | tr '\n' ' ')"
 
 cd "$REPO_ROOT/backend"
 DEAD_PROBED=0
@@ -253,16 +280,22 @@ fi
 # The count assertion is deliberately its own graded line. Folded into the loop
 # above it would be vacuous: a $DB_PKGS trimmed to one package makes "all 1
 # packages exited non-zero" true.
-if [ "$DEAD_PROBED" -eq "$EXPECTED_DB_PKGS" ]; then
-	pass "Check B iterated $DEAD_PROBED packages (expected $EXPECTED_DB_PKGS)"
+if [ "$DEAD_PROBED" -eq "$EXPECTED_DB_PKGS" ] &&
+	[ -z "$DB_PKG_ONLY_DERIVED$DB_PKG_ONLY_LISTED" ]; then
+	pass "Check B iterated $DEAD_PROBED packages, and \$DB_PKGS is exactly the set of
+        packages whose tests import internal/testdb (derived from the tree, not
+        typed: $DERIVED_DB_PKG_COUNT)"
 else
-	fail "Check B iterated $DEAD_PROBED package(s) but expected $EXPECTED_DB_PKGS. \$DB_PKGS has
-        changed size. If a DB-backed package was legitimately added or removed,
-        update EXPECTED_DB_PKGS in the same commit and say why; if it was not,
-        this check — and Check B2, which shares the list — has quietly narrowed
-        the ground it grades while still printing PASS."
+	fail "\$DB_PKGS does not match the DB-coupled packages this tree actually has.
+        Iterated $DEAD_PROBED · expected $EXPECTED_DB_PKGS · derived from the tree $DERIVED_DB_PKG_COUNT
+        DB-coupled but MISSING from \$DB_PKGS: ${DB_PKG_ONLY_DERIVED:-none}
+        In \$DB_PKGS but NOT DB-coupled:       ${DB_PKG_ONLY_LISTED:-none}
+        A package missing from \$DB_PKGS is ungraded by Check B and by Check B2,
+        which shares the list — it can lose fail-loud and both keep printing
+        PASS. If the change is legitimate, edit \$DB_PKGS in the same commit and
+        say why. Do not silence this by setting H1_DB_PKG_COUNT."
 fi
-echo "    (per-package output: /tmp/h1-deadport-<pkg>.log)"
+echo "    (per-package output: $H1_LOGDIR/deadport-<pkg-slug>.log)"
 
 # ── Check B2 — the UNSET case must still SKIP, not fail ─────────────────────
 #
