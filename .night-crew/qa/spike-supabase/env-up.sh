@@ -5,9 +5,13 @@
 # ═══════════════════════════════════════════════════════════════════════════
 # 🛑 THE VERDICT IS THIS SCRIPT'S EXIT STATUS, NEVER ITS PROSE.
 #
-#   exit 0   the environment is up: three containers healthy, both fixture
-#            schemas applied, PostgREST discriminating by RLS, Realtime
-#            SUBSCRIBED, and a real RxDB database created and round-tripped.
+#   exit 0   the environment is up: three containers healthy, ALL THREE fixture
+#            schemas applied (spike_notes AND the hq_* bridge tables AND their
+#            five policies — each asserted by name, because asserting only
+#            spike_notes let a stack with no hq_* tables at all exit 0, which is
+#            the same "container up, no schema" conflation relocated to the
+#            other half of the schema), PostgREST discriminating by RLS,
+#            Realtime SUBSCRIBED, and a real RxDB database round-tripped.
 #   exit !=0 it is not. Every failure path below prints WHAT failed and WHERE
 #            to look, then exits non-zero.
 #
@@ -326,7 +330,7 @@ fi
 #    "three containers are in `docker ps`", which is not the same claim and
 #    conflating the two is precisely what this card exists to prevent.
 # --------------------------------------------------------------------------
-step "health assertion — rest, realtime, rxdb"
+step "health assertion — rest, realtime, schema, rxdb"
 HC_OUT="$(mktemp)"
 trap 'rm -f "$HC_OUT"' EXIT
 

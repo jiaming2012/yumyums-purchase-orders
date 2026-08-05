@@ -20,15 +20,33 @@
 //   2. TOKEN     — minted by W1's *Go* minter, not a JS re-implementation.
 //                  HQ's Go backend is the token authority; a JS shortcut here
 //                  would prove nothing about the bridge.
-//   3. REST      — PostgREST answers, the schema is applied, AND the policy
+//   3. SCHEMA    — every object all three fixture files create exists, BY NAME:
+//                  the three hq_* bridge tables and the five hq_* policies, not
+//                  just spike_notes. This leg was missing until the C1 fix
+//                  round and its absence was a schema-shaped blind spot: with
+//                  hq-bridge-fixture.sql and hq-bridge-policies.sql never
+//                  applied, `task spike:health` exited 0 on a database with no
+//                  hq_grant_projection, no hq_sync_checklists and no
+//                  hq_uid_trap — the exact tables internal/sync's
+//                  TestRowVisibilityRLS (59 subtests) drives. That is the same
+//                  "container up, no schema" conflation this card exists to
+//                  retire, relocated to the other half of the schema, and
+//                  env-up.sh:9's claim that exit 0 means "both fixture schemas
+//                  applied" was not proven by anything until this leg existed.
+//                  It queries the catalog through `docker compose exec db psql`
+//                  because pg_policies is not reachable through PostgREST.
+//   4. REST      — PostgREST answers, the schema is applied, AND the policy
 //                  DISCRIMINATES: alice sees her seed row and NOT bob's. A
 //                  single-owner check cannot tell a working policy apart from
 //                  a policy that lets everything through, which is why the
 //                  fixture seeds two owners and why this leg checks both.
-//   4. REALTIME  — the channel reaches SUBSCRIBED over the same token, through
+//   5. REALTIME  — the channel reaches SUBSCRIBED over the same token, through
 //                  the tenant-Host shim. Anything else (CHANNEL_ERROR,
-//                  TIMED_OUT, timeout) is a failure.
-//   5. RXDB      — a real RxDB database is created against the spike schema,
+//                  TIMED_OUT, timeout) is a failure. A CHANNEL_ERROR against a
+//                  healthy db is the signature of a db recreate having killed
+//                  the replication slot; env-up.sh's reconcile leg restarts
+//                  realtime on exactly this FAIL line and re-asserts.
+//   6. RXDB      — a real RxDB database is created against the spike schema,
 //                  a document is inserted and read back. This is what makes
 //                  the verdict "Supabase *and RxDB* up" rather than "three
 //                  containers are running".
@@ -37,6 +55,7 @@
 // proof-lww.js are W2's proofs and stay the proofs; this file answers the
 // narrower question "is the environment up", which is C1's scope.
 
+import { execFileSync } from 'node:child_process';
 import {
     makeSupabaseClient, mintToken, makeLocalDb, TABLE, banner,
     REST_PORT, REALTIME_PORT, DB_PORT
@@ -71,7 +90,61 @@ try {
 }
 
 // --------------------------------------------------------------------------
-// 3. PostgREST — schema applied AND the policy discriminates
+// 3. Schema — every object the three fixture files create, asserted BY NAME.
+//
+// Queried through `docker compose exec db psql` rather than PostgREST because
+// pg_policies lives in the catalog, which PGRST_DB_SCHEMAS=public does not
+// expose. `-p spike-supabase` is what keeps this pointed at the throwaway
+// stack and nothing else.
+// --------------------------------------------------------------------------
+const HQ_TABLES = ['hq_grant_projection', 'hq_sync_checklists', 'hq_uid_trap'];
+const HQ_POLICIES = [
+    'hq_sync_checklists_select', 'hq_sync_checklists_insert',
+    'hq_sync_checklists_update', 'hq_uid_trap_select',
+    'hq_grant_projection_select'
+];
+
+function psql(sql) {
+    return execFileSync(
+        'docker',
+        ['compose', '-p', 'spike-supabase', 'exec', '-T', 'db',
+            'psql', '-U', 'supabase_admin', '-d', 'postgres', '-Atc', sql],
+        { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }
+    ).trim();
+}
+
+try {
+    const tables = psql(
+        "select tablename from pg_tables where schemaname='public' order by 1"
+    ).split('\n').filter(Boolean);
+    const policies = psql(
+        "select policyname from pg_policies where schemaname='public' order by 1"
+    ).split('\n').filter(Boolean);
+
+    const missingTables = [TABLE, ...HQ_TABLES].filter((t) => !tables.includes(t));
+    const missingPolicies = HQ_POLICIES.filter((p) => !policies.includes(p));
+
+    if (missingTables.length || missingPolicies.length) {
+        // Naming what is missing AND the remedy: a health run that skips the
+        // apply cannot fix this, so say which command can.
+        fail('schema',
+            `missing table(s): ${missingTables.length ? missingTables.join(', ') : 'none'}; ` +
+            `missing policy(ies): ${missingPolicies.length ? missingPolicies.join(', ') : 'none'}. ` +
+            `Present tables: ${JSON.stringify(tables)}. ` +
+            'Remedy: run env-up.sh WITHOUT --health (or with --fresh) so sql/spike-fixture.sql, ' +
+            'sql/hq-bridge-fixture.sql and sql/hq-bridge-policies.sql are applied. ' +
+            'internal/sync TestRowVisibilityRLS drives the hq_* tables and cannot run without them.');
+    } else {
+        ok('schema',
+            `${[TABLE, ...HQ_TABLES].length} fixture table(s) and ${HQ_POLICIES.length} hq_* policy(ies) present by name`);
+    }
+} catch (e) {
+    // "could not check" is a FAILURE, never a pass.
+    fail('schema', `could not query the catalog via 'docker compose -p spike-supabase exec db psql': ${String(e && e.message ? e.message : e)}`);
+}
+
+// --------------------------------------------------------------------------
+// 4. PostgREST — schema applied AND the policy discriminates
 // --------------------------------------------------------------------------
 if (token) {
     try {
@@ -103,7 +176,7 @@ if (token) {
 }
 
 // --------------------------------------------------------------------------
-// 4. Realtime — SUBSCRIBED over the same token
+// 5. Realtime — SUBSCRIBED over the same token
 // --------------------------------------------------------------------------
 let rtClient = null;
 if (token) {
@@ -131,7 +204,7 @@ if (token) {
 }
 
 // --------------------------------------------------------------------------
-// 5. RxDB — the local engine really works, not merely installed
+// 6. RxDB — the local engine really works, not merely installed
 // --------------------------------------------------------------------------
 let db = null;
 try {
@@ -156,5 +229,5 @@ if (failures.length) {
     console.log(`\nHEALTHCHECK: RED — ${failures.length} leg(s) failed: ${failures.join(', ')}`);
     process.exit(1);
 }
-console.log('\nHEALTHCHECK: GREEN — ports, token, rest, realtime, rxdb all asserted');
+console.log('\nHEALTHCHECK: GREEN — ports, token, schema, rest, realtime, rxdb all asserted');
 process.exit(0);
