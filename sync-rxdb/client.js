@@ -1048,7 +1048,19 @@ export function scopePlanFor(collectionKey, scope) {
   return {
     node,
     serialized,
-    fingerprint: scopeFingerprint(`${scopeIdentity(s)} ${serialized}`),
+    // 🛑 `\0` — the two-character ESCAPE, never a raw NUL byte in this source.
+    // The delimiter must be U+0000 (it is the one byte that cannot occur in
+    // either operand, which is the whole reason the join is unambiguous), and
+    // the escape produces exactly that byte at runtime, so every fingerprint
+    // this has ever produced keeps its value. But a RAW NUL here made `file(1)`
+    // call this file `data` and GNU grep switch to binary mode, so
+    // `grep -n export sync-rxdb/client.js` printed NOTHING and exited 1 on a
+    // file with 29 matches. A gate grep that returns nothing because of a NUL
+    // byte is indistinguishable from one that returns nothing because the work
+    // is done — unreliable in the PASSING direction, which is the direction
+    // that ships. B-70; fixed on card `repo-hygiene-preconditions`, run
+    // 20260806. Guarded by `tests/repo-hygiene.spec.js`. Do not "tidy" it back.
+    fingerprint: scopeFingerprint(`${scopeIdentity(s)}\0${serialized}`),
     // B-42 option (i). `null` for `responses` — see `realtimeFilterFor`.
     realtimeFilter: realtimeFilterFor(collectionKey, s),
     queryBuilder: ({ query }) => applyScope(query, node),
