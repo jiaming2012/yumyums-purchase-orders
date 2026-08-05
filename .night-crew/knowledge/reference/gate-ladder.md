@@ -42,6 +42,30 @@
 has run those has run every gate this repo has. **Do not invent a G5, do not renumber G6 to G5, and
 do not treat the gap as an open TODO.**
 
+> ### ❓ OPEN QUESTION — what G3 *is*, and therefore what that sentence guarantees. Ruling pending at triage.
+>
+> The completeness sentence above is **not settled**, because **G3 carries two definitions in the
+> record and they do not agree:**
+>
+> | Definition | Source | Consequence |
+> |---|---|---|
+> | G3 = **`N/A — openspec: absent`** | this file's §"The gates" row, from ledger §T-34 **decision 140** (`ledger.md:2697`) — HQ keeps branch-and-commit and does not adopt OpenSpec | G3 is a no-op. The ladder is effectively five gates |
+> | G3 = **"red-first re-verified by G6"** | **decision 101**'s recovered contract (`ledger.md:1932`, §T-28) — the enumeration of what the runs *actually practised* when the ladder was reconstructed | G3 is a live, mandatory, per-card obligation |
+>
+> 🛑 **Red-first is graded this very run (Q-KR3), and every card files a `## Red-first` section in
+> its merge intent.** Under the first definition that obligation is **not a gate at all** — it is
+> enforced by the merge-intent template and nothing else. Under the second it is G3, and a card
+> reporting "G3 N/A" has skipped a graded obligation.
+>
+> **This card does not resolve it, and the ambiguity is not softened away.** Deciding what a gate
+> guarantees adds or removes an obligation on every card — that is an operator call, by exactly the
+> reasoning the G5 section applies two paragraphs down (*"it gets a name, not the number 5. Write the
+> case and park it; do not legislate one inside a run."*).
+>
+> **Until it is ruled: read the completeness sentence as covering the six *numbers*, not as a promise
+> that red-first is optional.** Keep filing `## Red-first`. Raised by card A4's fix round, run
+> `20260806`; routed to `DECISIONS-NEEDED.md`.
+
 Every slate from 07-15 onward cited "G1–G6", and the runs practised exactly the six above — G5 was
 **never defined in any sense a run used**. It survives only in two unrelated places that are not
 gates and never were: the hardening PRDs use "G5" for a *second independent enumeration pass* over
