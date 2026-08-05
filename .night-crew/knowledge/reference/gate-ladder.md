@@ -72,21 +72,47 @@ is name the environment**, because the assertion can be disarmed from outside th
 
 - **`HQ_SYNC_SUBSTRATE_OPTIONAL` unset** — set, the RLS attack suite legitimately skips (B-36's
   typed opt-out door).
-- 🛑 **`HQ_SYNC_GATE_CHILD` unset** — this is the newer and nastier one. `_Executed` and
-  `TestSubstrateGate_ExitCodeAsymmetry` re-invoke `go test` as a subprocess and mark the child with
-  `HQ_SYNC_GATE_CHILD=1` so it does not fork forever; both therefore **skip** when they see it.
-  A leaked value in the parent environment disarms **both** the count assertion and B-36's
-  exit-code pin **at once**, and the package still prints `ok`. Verified by execution on 20260806:
+- 🛑 **`HQ_SYNC_GATE_CHILD` unset** — the newer one, and the one whose history is worth reading
+  before you decide it does not matter.
 
-      HQ_SYNC_GATE_CHILD=1 go test -count=1 \
-        -run '^(TestRowVisibilitySubtestCount_Executed|TestSubstrateGate_ExitCodeAsymmetry)$' \
-        ./internal/sync/
-      => ok  github.com/yumyums/hq/internal/sync  0.008s   EXIT=0
+  **What it guards is the *runtime* half only.** `_Executed` and `TestSubstrateGate_ExitCodeAsymmetry`
+  re-invoke `go test` as a subprocess and mark the child with `HQ_SYNC_GATE_CHILD` so it does not
+  fork forever; those two consult the variable. **`_Structural` never did** — it is an AST count over
+  `rowvisibility_rls_test.go` and spawns nothing, so **the source-side 59 survives a leak and passes.**
+  A leaked value has never disarmed "both halves at once"; it disarmed the executed half, and the
+  structural half kept counting.
 
-  That is B-36's own defect class — a check whose subject set can go empty — recurring one layer up,
-  in the guard built to close it. A1 hardened the variable in code; **requiring the gate evidence to
-  state it unset is the belt to that braces.** State both, every time. "I didn't set it" is not the
-  same claim as "it was unset" — a leg inherits its parent's environment.
+  **Before A1's fix round the executed half went silent.** The guard's first shape was
+  `if os.Getenv(gateChildEnv) == "1" { t.Skip }` — one exported shell variable, and the package
+  printed `ok` and exited 0 having run nothing. That is B-36's own defect class — a check whose
+  subject set can go empty — recurring one layer up, inside the guard built to close it.
+
+  **A1's fix round closed the silent door: the value is now a parent-minted token,** 32 random bytes
+  written to a file the parent keeps alive, carried as `<nonce>@<abs path>`. A token that resolves →
+  skip (the genuine child). Anything else — a stale `=1`, a CI variable, a copied value whose file is
+  gone — → **`t.Fatalf`, loudly.** Landed on `overnight-20260806` in the A1 merge **`9b63958`**
+  (`gateChildSkipOrFail` in `backend/internal/sync/spikestack_gate_test.go`). Re-verified by
+  execution on the merged tree, 2026-08-06 — note the pattern **includes `_Structural`**, because the
+  test that would falsify the claim is the one a narrowed pattern hides:
+
+      HQ_SYNC_GATE_CHILD=1 go test -count=1 -v \
+        -run '^TestRowVisibilitySubtestCount_(Structural|Executed)$' ./internal/sync/
+      => --- PASS: TestRowVisibilitySubtestCount_Structural   (0.01s)
+         --- FAIL: TestRowVisibilitySubtestCount_Executed     (0.00s)
+         FAIL  github.com/yumyums/hq/internal/sync  0.017s
+
+  `TestSubstrateGate_ExitCodeAsymmetry` opens with the same `gateChildSkipOrFail(t)` line and fails
+  identically; that one is read from source, not executed here.
+
+  🛑 **The earlier version of this section quoted a `-run` pattern that excluded `_Structural`, and
+  concluded from it that the leak disarmed both halves.** A check whose subject set was narrowed
+  until it produced the wanted answer — in the document that exists to catch exactly that. Kept
+  written down rather than quietly corrected.
+
+  **The requirement stands, and it is not made redundant by the fix.** A leaked value now costs a leg
+  a red rather than a false green, and **no leg should be discovering this by a red at 3am.** State it
+  unset, every time, alongside `HQ_SYNC_SUBSTRATE_OPTIONAL`. "I didn't set it" is not the same claim
+  as "it was unset" — a leg inherits its parent's environment.
 
 ## 🛑 Capture the whole log, then read the file
 
