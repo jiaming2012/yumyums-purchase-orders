@@ -109,3 +109,24 @@ writes an **object**). That is a **different region of the same file** from this
   those lines. Any card quoting a `client.js` line number from the slate is still correct.
 - Cards quoting a confined-subset cost from `night-crew.toml` should re-read it after this lands.
   The tokens did not change; what they were *claimed* to select did.
+
+---
+
+## Gate results — appended after the fact, measured not inherited
+
+| Gate | Result |
+|---|---|
+| **G1** | `go build ./...` **exit 0**, `go vet ./...` **exit 0**, both from `backend/`. Zero output lines from either. |
+| **G2 (Go)** | `go test -p 1 -count=1 ./...` **exit 0**. **9** packages ok, **439** `=== RUN` lines, **0** FAIL, 2 SKIP (`TestProxyLive_RealtimeUpgrade`, `TestProxyLive_RESTRequest` — live substrate). `internal/workflow` ran **35**, as the ladder requires. `internal/sync` ran **142**, of which `TestRowVisibilityRLS` contributed **59** subtests; `HQ_SYNC_SUBSTRATE_OPTIONAL` was **unset**. Isolated DB `hq_test_go_w0_0806`. |
+| **G2 (Playwright)** | `npx bddgen` (exit 0) then `npx playwright test --retries=0`, run **alone**. **exit 0**, **791 passed / 6 skipped / 0 failed**, **21m 43s** wall. **Exactly ONE summary block**, counted with `grep -c "passed ("` over the complete 4,626-line log — not a tail. Isolation: `TEST_PORT=3106`, `TEST_DB_NAME=hq_test_w0_0806`, `HQ_RLS_TEST_DB=hq_rls_w0_0806`. |
+| **G3** | N/A — preflight `openspec: absent`; no scaffolding created. |
+| **G4** | `node build-sw.js` exit 0, **31** files precached, reachability 18 parsed / 30 resolved / 0 outside. Run a second time after committing `sw.js`: **tree clean**, idempotent. Frontend 1.4.0, unchanged. |
+
+🛑 **The slate's inherited full-suite baseline of "785 tests" is stale by 8.** `--list` reports
+**797 tests in 29 files** on this branch, of which this card's `tests/repo-hygiene.spec.js`
+contributes **4** — so the pre-card tree was **793 in 28 files**, not 785. The 785 figure came from
+run `20260803` and the slate said plainly it was inherited rather than re-measured; it now is
+re-measured. Later cards tonight should judge against **793 + their own additions**, not 785.
+
+**Wall-clock note for the orchestrator's queue:** 21.6m, against the slate's ~24.2m estimate, on a
+box running nothing else.
