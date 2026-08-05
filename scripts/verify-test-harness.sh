@@ -171,11 +171,33 @@ fi
 # claimed. This is exactly the shape of the two-package Check B2 that G6
 # falsified during H1 — same defect, other check. (BACKLOG B-22.)
 #
-# The loop is affordable precisely because the DSN above is the live-server /
-# missing-database variant: ~0.02s of Postgres round-trip per package, so the
-# seven cost about as much as the one did. Under H1_DEAD_PORT=1 the loop costs
-# seven black-holed TCP timeouts (~110s each, ~13min); that variant is
-# diagnostic only and stays opt-in for that reason.
+# ── What the loop actually costs (measured, not estimated) ──────────────────
+#
+# The loop is affordable because the DSN above is the live-server /
+# missing-database variant: a refused connection to a live Postgres, not a
+# black-holed SYN. The seven probes cost about what the single aggregate did,
+# because the aggregate paid the same per-package connection cost under -p 1.
+#
+# The RELATIVE claim above is the load-bearing one. The ABSOLUTE cost is NOT
+# "~0.02s per package" — that was in this comment for one revision and it
+# understated the check by ~700x. It is the median, not the total: the cost is
+# dominated by two packages that attempt many connections, not one. Measured on
+# this host, `go test`-reported elapsed per package, from this script's own
+# $H1_LOGDIR/deadport-*.log:
+#
+#     workflow 0.019s · receipt 0.020s · inventory 0.018s · auth 0.018s
+#     purchasing 0.020s · recipes 0.629s · sync 8.464s
+#
+# ⇒ Check B's loop is ~15-20s of WALL clock (18.7s measured end to end; the
+# go-reported figures above exclude per-package build/link), of which
+# internal/sync is half to two thirds. Three runs on the same tree read sync
+# 8.388 / 8.464 / 14.177s, so treat the number as sync-dominated and variable,
+# not as a constant. Size a NEW DB-coupled package against ~0.02s IF it opens
+# one connection, and against internal/sync if it opens many.
+#
+# Under H1_DEAD_PORT=1 the loop instead costs seven black-holed TCP timeouts
+# (~110s each, ~13min); that variant is diagnostic only and stays opt-in for
+# that reason.
 echo
 echo "── B · DB_TEST_URL set + unreachable ⇒ non-zero exit, EVERY package ────"
 if [ "${H1_DEAD_PORT:-0}" = "1" ]; then
