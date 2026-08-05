@@ -18,6 +18,12 @@
 #      indistinguishable from that card passing. (BACKLOG B-16, ledger T-27
 #      d.90)
 #
+# Check B grades all seven DB-backed packages INDIVIDUALLY as of run 20260806.
+# Before that it graded their disjunction — one aggregate `go test` over the
+# whole list, passing on any non-zero exit — so six of the seven could lose
+# fail-loud with the check still printing PASS. See the block above Check B
+# for the demonstration. (BACKLOG B-22.)
+#
 # A2 and B2 are the guards on the two fixes over-shooting: A2 grades the
 # spec-file COUNT (A grades only the mechanism, and a mechanism that runs and
 # emits nothing still passes A); B2 grades that the *unset* case still skips
@@ -119,11 +125,45 @@ fi
 #
 # Same verdict, 500x slower, and the 120s wait is an artifact of the host
 # rather than of the harness. Set H1_DEAD_PORT=1 to use that variant anyway.
+#
+# ── Why this check is a LOOP and not one `go test` (B-22) ───────────────────
+#
+# Until run 20260806 this check ran ONE aggregate invocation over all seven
+# packages and passed on `DEAD_STATUS -ne 0`. `go test` exits non-zero if ANY
+# package fails, so that assertion was a DISJUNCTION: it graded "at least one
+# of the seven still fails loud", while the property the check exists to
+# defend is "ALL seven still fail loud". Six of the seven could lose the gate
+# and this check still printed PASS.
+#
+# That is not a hypothetical. Demonstrated on 20260806 by removing fail-loud
+# from six packages — `requested := dbURL != ""` -> `requested := false` in
+# the four TestMains (receipt, inventory, auth, purchasing) and
+# `t.Fatal(testdb.Reason(...))` -> `t.Skip(...)` in the two helper packages
+# (recipes, sync), leaving only internal/workflow honest. Probed one by one
+# the mutated tree read:
+#
+#     workflow exit 1 · receipt exit 0 · inventory exit 0 · auth exit 0
+#     purchasing exit 0 · recipes exit 0 · sync exit 0
+#
+# and the aggregate check reported, verbatim:
+#
+#     PASS  go test exited 1 with DB_TEST_URL=postgres://…/hq_test_go_dropped_by_a_reviewer
+#
+# A check written to catch a harness that reports success while measuring
+# nothing was itself reporting success while measuring one seventh of what it
+# claimed. This is exactly the shape of the two-package Check B2 that G6
+# falsified during H1 — same defect, other check. (BACKLOG B-22.)
+#
+# The loop is affordable precisely because the DSN above is the live-server /
+# missing-database variant: ~0.02s of Postgres round-trip per package, so the
+# seven cost about as much as the one did. Under H1_DEAD_PORT=1 the loop costs
+# seven black-holed TCP timeouts (~110s each, ~13min); that variant is
+# diagnostic only and stays opt-in for that reason.
 echo
-echo "── B · DB_TEST_URL set + unreachable ⇒ non-zero exit ───────────────────"
+echo "── B · DB_TEST_URL set + unreachable ⇒ non-zero exit, EVERY package ────"
 if [ "${H1_DEAD_PORT:-0}" = "1" ]; then
 	DEAD_URL='postgres://yumyums:yumyums@127.0.0.1:5599/hq_test_go_does_not_exist?sslmode=disable'
-	echo "    (H1_DEAD_PORT=1 — dead port; expect ~120s per package on this host)"
+	echo "    (H1_DEAD_PORT=1 — dead port; expect ~120s PER PACKAGE on this host)"
 else
 	DEAD_URL='postgres://yumyums:yumyums@127.0.0.1:5433/hq_test_go_dropped_by_a_reviewer?sslmode=disable'
 fi
@@ -134,21 +174,62 @@ fi
 # catch false greens.
 DB_PKGS="./internal/workflow/ ./internal/receipt/ ./internal/inventory/ ./internal/auth/ ./internal/purchasing/ ./internal/recipes/ ./internal/sync/"
 
+# The number of packages $DB_PKGS is expected to carry, asserted separately
+# below. Without it, deleting entries from $DB_PKGS SHRINKS both Check B and
+# Check B2 in silence and both keep printing PASS — a check that grades fewer
+# things than it used to, reporting the same green. That is the identical
+# failure mode to the one this card just fixed, one level up, so it is graded
+# rather than trusted. One assertion covers both checks because they
+# deliberately share the list (see Check B2's comment).
+#
+# It ratchets UP as DB-backed packages are added. H1_DB_PKG_COUNT overrides it
+# — for proving this assertion can go red, and for nothing else.
+EXPECTED_DB_PKGS="${H1_DB_PKG_COUNT:-7}"
+
 cd "$REPO_ROOT/backend"
-# shellcheck disable=SC2086
-DB_TEST_URL="$DEAD_URL" DATABASE_URL='' TEST_DATABASE_URL='' \
-	go test -count=1 -p 1 $DB_PKGS >/tmp/h1-deadport.log 2>&1
-DEAD_STATUS=$?
+DEAD_PROBED=0
+DEAD_SILENT=""
+for p in $DB_PKGS; do
+	DEAD_PROBED=$((DEAD_PROBED + 1))
+	PKG_LOG="/tmp/h1-deadport-$(basename "$p").log"
+	DB_TEST_URL="$DEAD_URL" DATABASE_URL='' TEST_DATABASE_URL='' \
+		go test -count=1 -p 1 "$p" >"$PKG_LOG" 2>&1
+	PKG_STATUS=$?
+	if [ "$PKG_STATUS" -ne 0 ]; then
+		printf '    %-26s exit %-3s fails loud\n' "$p" "$PKG_STATUS"
+	else
+		printf '    %-26s exit %-3s REPORTED ok  <-- silent\n' "$p" "$PKG_STATUS"
+		DEAD_SILENT="$DEAD_SILENT $p"
+	fi
+done
 cd "$REPO_ROOT"
 
-if [ "$DEAD_STATUS" -ne 0 ]; then
-	pass "go test exited $DEAD_STATUS with DB_TEST_URL=$DEAD_URL"
+if [ -z "$DEAD_SILENT" ]; then
+	pass "all $DEAD_PROBED DB-backed packages exited non-zero, individually, with
+        DB_TEST_URL=$DEAD_URL"
 else
-	fail "go test exited 0 with DB_TEST_URL=$DEAD_URL — a dropped or unreachable
-        database reports 'ok'. Destroying the test environment is
-        indistinguishable from passing it."
+	fail "these packages exited 0 with DB_TEST_URL=$DEAD_URL:$DEAD_SILENT
+        For them a dropped or unreachable database reports 'ok'. Destroying the
+        test environment is indistinguishable from passing it. Note that an
+        AGGREGATE 'go test' over all $DEAD_PROBED packages would still have exited
+        non-zero here, on the strength of the packages that DID fail, and would
+        have printed PASS — that disjunction is B-22 and is why this check
+        iterates."
 fi
-echo "    (per-package output: /tmp/h1-deadport.log)"
+
+# The count assertion is deliberately its own graded line. Folded into the loop
+# above it would be vacuous: a $DB_PKGS trimmed to one package makes "all 1
+# packages exited non-zero" true.
+if [ "$DEAD_PROBED" -eq "$EXPECTED_DB_PKGS" ]; then
+	pass "Check B iterated $DEAD_PROBED packages (expected $EXPECTED_DB_PKGS)"
+else
+	fail "Check B iterated $DEAD_PROBED package(s) but expected $EXPECTED_DB_PKGS. \$DB_PKGS has
+        changed size. If a DB-backed package was legitimately added or removed,
+        update EXPECTED_DB_PKGS in the same commit and say why; if it was not,
+        this check — and Check B2, which shares the list — has quietly narrowed
+        the ground it grades while still printing PASS."
+fi
+echo "    (per-package output: /tmp/h1-deadport-<pkg>.log)"
 
 # ── Check B2 — the UNSET case must still SKIP, not fail ─────────────────────
 #
