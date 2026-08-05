@@ -18,11 +18,17 @@
 // and both omissions are deliberate rather than unfinished:
 //
 //   * `HQ_SYNC_REST_URL` / `HQ_SYNC_REALTIME_URL` are unset in every
-//     environment (still an armed precondition until
-//     `sync-rxdb-row-visibility-rls` lands), so the door answers 503 to
-//     everything. Starting replication today would put a permanent retry loop
-//     and a stream of console errors on every crew phone, in exchange for
-//     nothing.
+//     environment, so the door answers 503 to everything. Starting replication
+//     today would put a permanent retry loop and a stream of console errors on
+//     every crew phone, in exchange for nothing.
+//     🛑 This used to call the unset variables "still an armed precondition"
+//     gated on the row-visibility-RLS card landing. That card MERGED on
+//     2026-08-01 (`bbbfc64`; the roadmap flipped it DONE at `914536c`), so the
+//     gate named here had been satisfied for five days while still reading as
+//     open — and while hiding the precondition that IS open: nothing calls
+//     `createHQSyncDatabase()` or `startHQReplication()` yet. That is
+//     `sync-hard-cutover`'s job, and it is what this cycle exists to deliver.
+//     Corrected on card `repo-hygiene-preconditions`, run 20260806.
 //   * `createHQSyncDatabase()` writes IndexedDB. Creating local state before
 //     anything reads it means a schema decision made tonight is already on
 //     every phone before the card that depends on it has been reviewed.

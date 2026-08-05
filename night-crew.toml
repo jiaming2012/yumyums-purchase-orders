@@ -53,9 +53,26 @@ subset = 'npx playwright test "{tags}"'
 # two-tag list neither ever ran. That is not hypothetical: card F1 (run 20260725)
 # was confined by this seam, went green on workflows+persistence, and merged a
 # change that left exactly those two specs RED on dev. Card A, run 20260726, is
-# the repair. As a Playwright path regex these four tokens select exactly
-# workflows / persistence / sync / repro-cut-task .spec.js and nothing else — no
-# other spec filename in tests/ contains any of them (re-verified at landing).
+# the repair.
+#
+# 🛑 THESE FOUR TOKENS SELECT NINE SPEC FILES, NOT FOUR. This comment claimed
+# they selected "exactly workflows / persistence / sync / repro-cut-task .spec.js
+# and nothing else — no other spec filename in tests/ contains any of them
+# (re-verified at landing)". That was false when written and is false now: the
+# `sync` token alone matches SIX files, because Playwright reads the positional
+# argument as a path REGEX, not as a filename. The real roll-call, machine-
+# checked by tests/repo-hygiene.spec.js so it cannot drift again silently:
+#
+#   selects: persistence.spec.js, repro-cut-task.spec.js, states-sync-rxdb-conflict-notice.spec.js, sync-rxdb-client.spec.js, sync-rxdb-conflict-notice.spec.js, sync-rxdb-conflict.spec.js, sync-schema.spec.js, sync.spec.js, workflows.spec.js
+#
+# 🛑 WHAT IS WRONG HERE IS THE COST, NOT THE COVERAGE. Per B-87 the Playwright
+# CLI filters are OR'd, so a card confined by this seam OVER-runs — it can never
+# run the wrong specs, and no regression escapes through this. What it does is
+# mis-price the night: a card that budgets for four specs pays for nine, and
+# `sync.spec.js` is the load-sensitive one that must not share a box. Anyone
+# estimating a confined Operations leg should cost it off the list above, and
+# the token VALUES below are correct as they stand — do not "fix" them.
+# Corrected on card `repo-hygiene-preconditions`, run 20260806.
 "backend/internal/workflow"   = ["workflows", "persistence", "sync", "repro-cut-task"]
 "workflows.html"              = ["workflows", "persistence", "sync", "repro-cut-task"]
 "tests/workflows.spec.js"     = ["workflows", "persistence"]
