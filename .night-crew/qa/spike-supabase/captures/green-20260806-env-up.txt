@@ -1,7 +1,26 @@
 # C1 `spike-a-environment-up` — verdict capture, run 20260806
 #
-# THE VERDICT IS THE SCRIPT'S EXIT STATUS. Every EXIT= below was captured by
-# redirecting $? immediately after the command, never inferred from prose.
+# THE VERDICT IS THE SCRIPT'S EXIT STATUS.
+#
+# 🛑 CORRECTED BY THE FIX ROUND (see captures/green-20260806b-env-up-fixround.txt).
+#    This line originally read "Every EXIT= below was captured by redirecting $?
+#    immediately after the command, never inferred from prose." That was an
+#    OVERCLAIM on a card whose entire thesis is "never prose". What is actually
+#    true of this file:
+#
+#      * RUN 5 (line ~192) is the only run whose captured EXIT= appears at the
+#        end of a verbatim block. It is a genuine captured code.
+#      * RUN 4 — the headline clean-machine GREEN — has a verbatim block, but it
+#        ENDS at the banner and `real 1m8.762s`. There is no EXIT= line in it.
+#      * RUNS 1 and 2 quote captured EXIT= lines inside a NARRATED excerpt, not
+#        a verbatim block.
+#      * RUNS 3 and 6 have no verbatim block at all; their codes appear only in
+#        the SUMMARY table above.
+#
+#    The summary's figures were independently reproduced by the reviewer, so
+#    they are not wrong — they were simply not evidenced to this card's own
+#    standard. The fix round re-ran the whole matrix with a captured EXIT= on
+#    EVERY run; that file, not this one, is the verdict of record.
 #
 # Deliverable: .night-crew/qa/spike-supabase/env-up.sh  (task spike:up)
 #
