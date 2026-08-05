@@ -19,6 +19,7 @@ Written **before** implementing (§15ad.65). Updated in place only for facts tha
 | `sync-rxdb/bootstrap.js` | **Owned.** Defect (c): the `:22` banner gating activation on `sync-rxdb-row-visibility-rls` — a card that merged at `bbbfc64` / `bec06f6` (run `overnight-20260801`; roadmap flipped it DONE at `914536c`). The banner is restated against the preconditions that are *actually* still open. |
 | `night-crew.toml` | **Owned.** Defect (b): the comment at `:50-58` claims the four Operations tokens select "exactly workflows / persistence / sync / repro-cut-task .spec.js and nothing else — re-verified at landing". They select **9** files. Comment corrected; the token **values** are unchanged. |
 | `tests/repo-hygiene.spec.js` | **New. The red-first test.** Beyond the stated footprint — see below. |
+| `sw.js` | **Consequence, not a choice.** Both edited `sync-rxdb/*.js` files are precached assets, so their content hashes moved and the committed manifest had to be regenerated (`node build-sw.js`, commit `672fc01`, run **after** the three fix commits because `build-sw.js` reads git HEAD, not the working tree). B-13: an `sw.js` you did not commit does not deploy. Exactly **2** revisions change — `sync-rxdb/client.js` `9e37a8c7…`→`65174ce3…` and `sync-rxdb/bootstrap.js` `23997981…`→`6aaded00…`; **0 entries added, 0 removed, count 31 → 31**, so this is not B-37's silent drop. |
 | `.night-crew/runs/2026-08-06-autonomous/merge-intents/w0-repo-hygiene.md` | This note. |
 
 **Beyond the slate's stated footprint** (§15ad.65 — planning information, not a fence):
@@ -42,9 +43,17 @@ applied the file is 7-bit clean and a `-text` attribute would assert a property 
 while silently masking a *future* reintroduction — which is exactly what `tests/repo-hygiene.spec.js`
 is there to catch loudly instead. One guard, and it fails loud.
 
-**Nothing else.** No Go code. No `workflows.html`. No `build-sw.js`, no `sw.js`, no `package.json`,
-no `version.go` — this card ships no frontend asset change, so precache stays **31** and neither
-semver moves.
+**Nothing else.** No Go code. No `workflows.html`. No `build-sw.js`, no `package.json`, no
+`version.go` — neither semver moves, and frontend stays **1.4.0**.
+
+🛑 **`sw.js` IS in this card's diff, and an earlier revision of this note denied it.** The sentence
+above read "no `build-sw.js`, no `sw.js` … this card ships no frontend asset change, so precache
+stays 31", which contradicted commit `672fc01` sitting in the same branch. The **edit** was correct
+and required — the card edits two precached assets, and B-13 is unambiguous that an uncommitted
+`sw.js` does not deploy. The **declaration** was the defect (§15ad.65: editing outside the stated
+footprint is not a breach; failing to declare it is). Now declared in the table above. The precache
+count claim survives intact — it really is **31 before and 31 after**, with exactly two revisions
+moved and nothing added or removed.
 
 ---
 
