@@ -145,6 +145,54 @@ writes an **object**). That is a **different region of the same file** from this
 
 ---
 
+## Red-first
+
+Q-KR3 wants this as a **section**, not a commit trailer. The substance existed only in commit
+`8aeeee5`'s message; it is carried here so the note itself is gradeable. This is the card's first
+gradeable cycle.
+
+**The named test:** `tests/repo-hygiene.spec.js` — **4 cases**, one per asserted fact:
+
+| # | Case |
+|---|---|
+| 1 | `no source file under sync-rxdb/ contains a NUL byte` |
+| 2 | `scopeFingerprint still joins its operands with a real NUL at runtime` |
+| 3 | `no sync-rxdb source gates activation on the merged row-visibility-rls card` |
+| 4 | `night-crew.toml records the spec files its Operations tokens really select` |
+
+Every read goes through `fs.readFileSync`, never `grep`. A guard against B-70 that used `grep`
+could not fail: B-70 **is** `grep` reporting nothing on a file that has matches.
+
+**Captured red against `7c0a5f7`** — the merge-intent commit, written before implementing.
+Content-identical to run-branch base `14e2a01` for all three defect files, verified by blob hash
+rather than asserted:
+
+| File | `14e2a01` blob | `7c0a5f7` blob |
+|---|---|---|
+| `sync-rxdb/client.js` | `09b19c4a…` | `09b19c4a…` — same |
+| `sync-rxdb/bootstrap.js` | `e48d825d…` | `e48d825d…` — same |
+| `night-crew.toml` | `56fb5528…` | `56fb5528…` — same |
+
+Red result: `Running 4 tests using 1 worker` → **`4 failed`**, all four cases named in the summary,
+**exactly one summary block** in the log (`grep -ac` over the complete file, binary-safe — the red
+log itself contains the NUL byte and plain `grep` refuses to read it, which is B-70 reproducing
+inside its own evidence). Case 1 named the offender at `sync-rxdb/client.js` offset **50850**.
+Case 3 named **both** live sites, `bootstrap.js:22` and `client.js:1109` — the card had scoped only
+the first.
+
+**Green at `6a4eb15`** — the last of the three fix commits: `Running 4 tests using 1 worker` →
+**`4 passed (6.1s)`**, **exactly one summary block**. Also green inside the full suite as tests
+**357–360**, all four `✓`, 15ms / 5ms / 6ms / 7ms.
+
+🛑 **One figure I could not verify and am not going to assert:** neither the red nor the standalone
+green log records an `EXIT=` line — the only captured exit file (`EXIT=0`) belongs to the full-suite
+G2 run. A `4 failed` summary can only accompany a non-zero exit and `4 passed` a zero one, so the
+conclusion holds; but that is inference from the summary block, not a recorded exit code, and the
+distinction is exactly the kind this card exists to stop papering over. Later cards capturing
+red-first evidence should redirect `$?` to a file the way the G2 leg does.
+
+---
+
 ## Gate results — appended after the fact, measured not inherited
 
 | Gate | Result |
