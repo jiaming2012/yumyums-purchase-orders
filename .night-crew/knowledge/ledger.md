@@ -2958,3 +2958,36 @@ argument; separation is a structural impossibility argument, and this week demon
 holds under adversarial review). Promoted to card `test-cluster-separation` (roadmap Activity 0).
 B-141's prefix-guard half and B-142 ride the A3 re-gate (`gate-rls-fixture-ownership`), which
 stays refused-and-preserved until that attended card runs.
+
+## T-39 — B-145 recovery Phase 3 rulings (2026-08-06, attended, per handoff `reference/handoff-prod-data-recovery-20260806.md`)
+
+Phases 0–2 measured first (all read-only): prod's `production` schema holds crew re-entry from
+08-06 that must be preserved (1 admin user `jamal@yumyums.kitchen` with a live session, 1
+checklist template, 1 onboarding template, 6 vendors, 108 catalog items, 10 groups, 19 tags, 5
+pending purchases auto-backfilled by the worker's default 14-day lookback, 2 confirmed purchase
+events); Mercury retains full history to 2023-02-24; Spaces `receipts/` holds 76 files
+(2026-04-22 → 08-06, survived the drop); Spaces `toast/` holds 120 date-dirs (2026-03-05 →
+07-24, missing days are closed Mon/Tue only); Toast SFTP retains ~27 days (2026-07-10 → 08-05)
+— Toast coverage gapless 03-05 → 08-05. New defect filed during Phase 0: **B-146** (prod's
+Toast sync silently dead since the 07-28 image rebuild; SFTP key never ships). The backup floor
+(decision 154's immediate half) was built and proven BEFORE these rulings executed: `task
+prod:backup` (dump + globals, keep 14, small-dump guard) on branch `fix/b145-prod-backup-floor`,
+restore drill green against a scratch container (96 tables, counts verified), Windows scheduled
+task `YumyumsProdBackup` proven by an observed firing at 08:29:01 then moved to nightly 03:30.
+
+- **Decision 156 — Mercury/receipt backfill horizon: 2026-03-01.** Operator ruling, chosen from
+  measured options. Covers the season, the current payroll period, and matches Toast coverage;
+  estimated ~80–120 receipts re-enter the pending review queue, the crew's work over days.
+  Items/vendors ride this ruling (catalog rebuilds through receipt review by design).
+- **Decision 157 — Write-offs: submissions + responses, stock count overrides, sessions, and
+  everything outside the inventory app.** Operator ruling, verbatim scope: "everything outside
+  of inventory app". No recovery effort for workflow/onboarding history or templates — the crew
+  re-authors templates as needed (one checklist + one onboarding template already re-entered).
+  Recipes (`usage_pct`) are inventory and stay a hand-rebuild in the Recipes tab; COGS
+  attribution is wrong until done.
+- **Decision 158 — Sales-processor notice: held by the operator.** Ruling: no draft; the
+  operator decides the message and its timing themselves. Candidate preference process/C-1 (one
+  complete correction) was surfaced at the asking.
+- **Decision 159 — PITR: enable now, attended.** Second half of decision 154. archive_mode on
+  the :5433 cluster with the WAL archive outside the pgdata volume, done with the operator
+  present since it needs a brief cluster restart.
