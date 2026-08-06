@@ -185,11 +185,31 @@ count or closeout substitutes for that run.
   environment has no hand-configured, undocumented step. Seeds the dev-environment target that
   Activity 5's demo runs against. Verdict = the script's exit status. Footprint: spike scripts.
 
-- **`spike-b-migration-rehearsal`** · **PLANNED** · *Spike B — the operator's own.* Create one
-  Postgres whose schema **mimics HQ's with a small subset of fields**, add a data fixture, stand
-  up fresh Supabase + RxDB instances, and **migrate the fixtured data across**. Proves HQ-shaped
-  data actually lands in the substrate and surfaces in RxDB. This is the leg nine nights were
-  built on top of without ever testing. Footprint: spike scripts.
+- **`spike-b-migration-rehearsal`** · **DONE** (run `20260807`, card S, verdict **GREEN** — exit 0
+  from `.night-crew/qa/spike-supabase/spike-b-migration.sh`; D-KR1 now has 2 of its 4 spike
+  verdicts) · *Spike B — the operator's own.* Create one Postgres whose schema **mimics HQ's with a
+  small subset of fields**, add a data fixture, stand up fresh Supabase + RxDB instances, and
+  **migrate the fixtured data across**. Proves HQ-shaped data actually lands in the substrate and
+  surfaces in RxDB. This is the leg nine nights were built on top of without ever testing.
+  Footprint: spike scripts.
+  **Verdict delivered:** an 8-table subset of HQ's real schema (transcribed from migrations
+  0001/0004/0005/0006/0009/0010/0011/0012) on a fresh scratch Postgres, 6 of 7 fixtured submissions
+  transformed and loaded **through PostgREST** into the substrate, byte-identical to source with
+  HQ's `uuid` keys intact through the cast into the text-keyed sync contract; RLS discriminated over
+  **those migrated rows** on both axes; three RxDB clients each replicated **exactly** the migrated
+  rows they were entitled to (2 / 2 / 1) and none received the nobody-visible control row. 49 named
+  assertions, ~25 s end to end, re-runnable from nothing (scratch container created and destroyed
+  each run; spike A's stack consumed in reconcile mode, never destroyed).
+  **Two findings for the cutover card, neither of which blocks it:** (1) HQ stores **no
+  template→app association**, so there is nothing to populate the sync contract's `app_slug` from —
+  the spike added the column explicitly and labelled it a deviation rather than hardcode
+  `'operations'`; where that association should live is an open question the cutover card inherits.
+  (2) A bulk migration **cannot** run on per-user tokens: `hq_sync_checklists_insert`'s `WITH CHECK`
+  refuses a row whose owner holds no live grant on its app, and real datasets contain exactly such
+  rows. The bulk lane must be a service identity — measured viable on this stack with no schema
+  change (`service_role` already has `rolbypassrls=t` and full table grants from the
+  supabase/postgres image's default privileges). The `authenticated` user lane was rehearsed
+  separately after the load and still refuses correctly (HTTP 403, row genuinely absent).
 
 - **`spike-c-round-trip`** · **PLANNED** · 🛑 **LOAD-BEARING — if this cannot go green, STOP and
   re-plan before any card is cut.** One row written through the **real** write path
