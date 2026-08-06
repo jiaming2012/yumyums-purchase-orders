@@ -60,6 +60,18 @@ changes — G4 must show `sw.js` UNCHANGED), no `package.json` / `version.go` ve
 - **The exit-status contract of `spike-b-migration.sh`.** No `|| true` on an assertion, no
   "warn and continue", no advisory leg. A step that cannot decide is a FAILURE. This is spike A's
   own rule (env-up.sh:18-27) carried forward; softening it destroys the only thing the script is for.
+- **🛑 The teardown's substrate-restore half (`rxdb/hq-reset.js`), and its `exit $rc`.**
+  `hq_sync_checklists` and `hq_grant_projection` are SPIKE A's tables and they are SHARED.
+  `backend/internal/sync/jwtbridge_rls_test.go`'s `service_role` CONTROL asserts an **exact
+  full-table row set** — it is what proves the RLS variants are refusing rows that are genuinely
+  present, so it cannot be relaxed to a subset check. **Any row this rehearsal leaves behind reds a
+  committed Go suite**, measured on this card's own first G2 run (four subtests of
+  `TestJWTBridgeRLS`: the BYPASSRLS control, V9's control, V12's control, and the post-variant
+  control re-take). Deleting the reset, or letting it fail quietly, re-arms that immediately. The
+  `exit $rc` (not `return`) at the end of `teardown()` is part of it: inside an EXIT trap a `return`
+  cannot change the script's status, so a failed reset would be swallowed and a run that left the
+  shared tables dirty would still exit 0. **This generalises past this card** — any future work that
+  writes into the spike substrate must restore it.
 
 ## What is safe to drop
 
@@ -94,6 +106,22 @@ The exit-status contract that stands in its place:
 
 Every assertion is made against **migrated** rows, never against spike A's pre-existing seed rows —
 so "the substrate already worked" cannot be mistaken for "the migration worked."
+
+**Verdict delivered: GREEN, exit 0.** Captured evidence, all under
+`.night-crew/runs/2026-08-07-autonomous/s-logs/`:
+
+| Log | Exit | What it records |
+|---|---|---|
+| `spike-b-run1.log` | **1 — RED** | `function json_array_length(jsonb) does not exist`. The script's own first run caught a real bug in its transform: `template_snapshot` is JSONB (HQ migration 0011), and the `json_*` family does not accept it. Debugging the migration script is legitimate work, not a park. |
+| `spike-b-run2.log` | 0 — GREEN | After `jsonb_array_length`. All assertions pass. |
+| `spike-b-run3-rerun.log` | 0 — GREEN | Re-runnability from nothing, 25 s. |
+| `spike-b-run4-with-substrate-reset.log` | 0 — GREEN | After the teardown's substrate-restore half was added; 49 named assertions, 27 s, and `hq_sync_checklists` verified back to spike A's exact baseline (4 `chk-*` rows, 2 `hq-user-*` grants). |
+
+Two findings for the cutover card, both recorded on the roadmap card, neither blocking: HQ stores
+**no template→app association** for the sync contract's `app_slug` to come from, and a **bulk
+migration cannot run on per-user tokens** (WITH CHECK refuses rows whose owner holds no live grant
+on their app, and real datasets contain exactly those) — the bulk lane must be a service identity,
+measured viable on this stack with no schema change.
 
 **PARK conditions** (verbatim from the card): a credential, a paid account, or a decision about which
 substrate topology the project standardises on → PARK with analysis. Debugging compose or the

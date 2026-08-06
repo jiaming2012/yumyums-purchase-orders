@@ -1,0 +1,16 @@
+== git status of sw.js BEFORE ==
+== node build-sw.js ==
+import reachability: 18 precached files parsed, 30 local references resolved, 0 outside the precache
+SW built: 31 files precached (2169.0 KB)
+Frontend version: 1.4.0
+EXIT=0
+== git status of sw.js AFTER ==
+(empty above = UNCHANGED)
+== version parity ==
+package.json: 1.4.0
+3:// Backend and Frontend are semver constants bumped by the save-project skill
+5:// package.json "version" must mirror Frontend exactly.
+12:	Backend  = "0.3.0"
+13:	Frontend = "1.4.0"
+version.json: {"frontend":"1.4.0"}
+

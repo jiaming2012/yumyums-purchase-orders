@@ -1,0 +1,30 @@
+== env attestation ==
+HQ_SYNC_SUBSTRATE_OPTIONAL=[<UNSET>]
+HQ_SYNC_GATE_CHILD=[<UNSET>]
+DB_TEST_URL=postgres://hqtest:hqtest@localhost:5434/hq_test_s?sslmode=disable
+HQ_RLS_TEST_DB=hq_rls_test_s
+== go test -p 1 -count=1 -v ./... (counts) ==
+?   	github.com/yumyums/hq/cmd/backfill-receipts	[no test files]
+?   	github.com/yumyums/hq/cmd/import-notion	[no test files]
+?   	github.com/yumyums/hq/cmd/migrate-toast-archive	[no test files]
+?   	github.com/yumyums/hq/cmd/seed	[no test files]
+?   	github.com/yumyums/hq/cmd/server	[no test files]
+?   	github.com/yumyums/hq/cmd/sync-toast	[no test files]
+ok  	github.com/yumyums/hq/internal/alerts	0.005s
+ok  	github.com/yumyums/hq/internal/auth	0.238s
+?   	github.com/yumyums/hq/internal/config	[no test files]
+?   	github.com/yumyums/hq/internal/db	[no test files]
+ok  	github.com/yumyums/hq/internal/inventory	21.459s
+?   	github.com/yumyums/hq/internal/me	[no test files]
+?   	github.com/yumyums/hq/internal/onboarding	[no test files]
+?   	github.com/yumyums/hq/internal/photos	[no test files]
+ok  	github.com/yumyums/hq/internal/purchasing	7.122s
+ok  	github.com/yumyums/hq/internal/receipt	20.450s
+ok  	github.com/yumyums/hq/internal/recipes	20.302s
+ok  	github.com/yumyums/hq/internal/sync	41.259s
+?   	github.com/yumyums/hq/internal/testdb	[no test files]
+ok  	github.com/yumyums/hq/internal/toast	0.006s
+?   	github.com/yumyums/hq/internal/users	[no test files]
+?   	github.com/yumyums/hq/internal/version	[no test files]
+ok  	github.com/yumyums/hq/internal/workflow	1.864s
+EXIT=0
