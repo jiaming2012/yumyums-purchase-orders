@@ -3034,3 +3034,11 @@ Every ruling executed or explicitly handed off; prod verified healthy after each
   test default (B-141/B-142 unremediated until the attended re-gate), and running it against
   the shared cluster is the incident's own vector. Go-side evidence is the receipt package's
   6/6 (DB-free).
+
+### T-39 addendum — de-confinement gate verdict (2026-08-06, after the outcome note)
+
+The full Playwright suite ran green on the recovery tree: **791 passed, 6 skipped, exit 0**
+(28.3 min). A concurrent slate-planning session had already fast-forwarded `dev` through the
+recovery branch (slate-20260807 cites the Mercury fix as landed, `4efd265`), so the gate
+verdict applies to the `dev` tip itself; no separate merge was needed. `dev` is NOT pushed —
+left to the operator alongside the signed slate.
