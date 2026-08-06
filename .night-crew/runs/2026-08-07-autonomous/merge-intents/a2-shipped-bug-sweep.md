@@ -94,6 +94,75 @@ exception) — not a distinct error path. Cited: `index.html:224-237` (the comme
 
 ## Red-first
 
-**B-89.** `pending — completed below, before this file's final commit.`
+**B-89.** Fixture rewritten first (`tests/sync-rxdb-client.spec.js`, `window.HQSync is
+constructed, pinned and umbrella-expanded`) to plant the real `{uid, apps}` envelope +
+matching `hq-identity` cache token instead of the old bare array. Run against
+UNMODIFIED `sync-rxdb/bootstrap.js`:
 
-**B-132.** `pending — completed below, before this file's final commit.`
+```
+npx playwright test tests/sync-rxdb-client.spec.js -g "window.HQSync is constructed, pinned and umbrella-expanded"
+  ✘ ... (1.5s)
+    Error: expect(received).toEqual(expected)
+    - Expected: ["inventory","inventory-cost","inventory-trends","operations"]
+    + Received: []
+  1 failed
+EXIT=1
+```
+
+Then `cachedGrantSlugs()` fixed to read the envelope + verify `uid`. Same test, same
+command, post-fix:
+
+```
+  ✓ 1 [chromium] › ... window.HQSync is constructed, pinned and umbrella-expanded (1.0s)
+  1 passed (7.6s)
+EXIT=0
+```
+
+Full spec file re-run post-fix: **55/55 passed**. Logs:
+`.night-crew/runs/2026-08-07-autonomous/a2-logs/b89-{red,green,full-spec-green}.log`.
+
+**B-132.** New regression test added first (`tests/workflows.spec.js`, describe block
+`B-132 — fireworks confetti canvas`) asserting zero `pageerror` events matching
+`/radius|arc/` AND zero `<canvas>` elements in the DOM 3s after a completed checklist
+submit at 393×852. Run against UNMODIFIED `workflows.html`:
+
+```
+npx playwright test tests/workflows.spec.js -g "completed submit does not throw ctx.arc negative radius"
+[WebServer] client log ERROR: Uncaught IndexSizeError: Failed to execute 'arc' on
+  'CanvasRenderingContext2D': The radius provided (-0.0101965) is negative.
+  at http://localhost:4523/workflows.html?t=...:711
+[B-132 RF] canvas elements still in DOM at 3s: 1
+  ✘ 1 ... completed submit does not throw ctx.arc negative radius; overlay does not
+    freeze on screen (5.0s)
+    Error: ctx.arc threw a negative-radius error inside the fireworks() animate() loop
+    - Expected: []
+    + Received: ["IndexSizeError: ... radius provided (-0.0101965) is negative."]
+  1 failed
+EXIT=1
+```
+
+Then the radius clamped (`Math.max(0, p.size*p.life)`) in `workflows.html`'s
+`fireworks()`. Same test, same command, post-fix:
+
+```
+  ✓ 1 [chromium] › ... completed submit does not throw ctx.arc negative radius; overlay
+    does not freeze on screen (4.8s)
+  1 passed (12.9s)
+EXIT=0
+```
+
+Screenshot 3s after the completed submit, 393×852, captured BOTH pre-fix
+(`b132-before-frozen-overlay-3s.png`) and post-fix (`b132-completed-submit-3s.png`) —
+**visually identical**: the My Checklists list + "Submitted for approval" toast, no
+confetti visible in either. This settles what the card asked to establish: the "frozen
+overlay" is NOT a visible frozen burst of confetti (contrary to this bug's original
+BACKLOG.md description, which speculated "bursts 2–5 are still bright"). The crash fires
+on the frame where the FIRST burst's particles cross `life<=0` — at that point
+`ctx.clearRect()` has already wiped the previous frame, and the throw happens on the very
+first particle processed this frame (all of burst 1 shares one `life` trajectory, so they
+cross zero simultaneously), before any particle — from burst 1 or any later burst — gets
+redrawn. The canvas freezes fully transparent. The real, confirmed defect is a **leaked,
+invisible `<canvas>` DOM node** (1 pre-fix / 0 post-fix, asserted directly via
+`document.querySelectorAll('canvas').length`), not a visual glitch. Logs + screenshots:
+`.night-crew/runs/2026-08-07-autonomous/a2-logs/b132-{red,green}.log`,
+`.night-crew/runs/2026-08-07-autonomous/a2-logs/b132-{before-frozen-overlay,completed-submit}-3s.png`.
