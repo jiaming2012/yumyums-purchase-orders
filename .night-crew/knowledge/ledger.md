@@ -2991,3 +2991,46 @@ task `YumyumsProdBackup` proven by an observed firing at 08:29:01 then moved to 
 - **Decision 159 — PITR: enable now, attended.** Second half of decision 154. archive_mode on
   the :5433 cluster with the WAL archive outside the pgdata volume, done with the operator
   present since it needs a brief cluster restart.
+
+### T-39 execution outcome (same session, 2026-08-06)
+
+Every ruling executed or explicitly handed off; prod verified healthy after each step.
+
+- **Decision 156 (backfill to 2026-03-01): done, with a defect found and fixed en route.** The
+  first attempt (prod restarted with `MERCURY_LOOKBACK_DAYS=160`) died on *"offset exceeded
+  50000 — bailing"*: Mercury's `/api/v1/transactions` silently IGNORES `offset` (verified live:
+  offsets 0 and 500 return the identical page) — its real contract is cursor pagination via
+  `start_after`. Ordinary 14-day windows fit one page, so production never saw it.
+  `internal/receipt/mercury.go` now cursors with `start_after` + `order=asc` and fails fast if
+  a full page's cursor does not advance; 6 package tests (DB-free, httptest) pass, including a
+  regression test reproducing the same-page-forever shape, and the cursor walk was verified
+  against the live API (722 raw transactions in the window, page 2 continues with zero
+  overlap). Because prod builds from main and promoting dev→main mid-recovery is /nc-release's
+  attended act, the backfill ran LOCALLY from the fixed tree via the new one-shot
+  `cmd/backfill-receipts` (one ingest cycle, an explicit lookback, NO migrate/seed — safe to
+  point at prod from a tree whose migrations are ahead). Result: 149 processed, 58
+  auto-created purchase events, 84 pending review, 7 cached, 0 errors. Prod's env was reverted
+  to the default 14-day lookback and its worker verified green (cycle complete, 7 cached).
+- **Toast (rides 156's class table): done.** SFTP tail 20260725–20260805 pulled and seeded to
+  Spaces (`migrate-toast-archive`, 12 uploads), then `sync-toast --from 2026-03-05 --to
+  2026-08-05` upserted 1 052 sales rows / 34 menu items across 80 business days
+  (2026-03-05→08-02; the 08-03/04/05 exports are header-only). Skipped days are the known
+  closed Mon/Tue set.
+- **Decision 157 (write-offs): recorded.** No recovery effort spent outside the inventory app.
+- **Decision 158 (sales-processor): held by the operator; nothing drafted.**
+- **Decision 159 (PITR): done.** `archive_mode=on`, WAL to
+  `/mnt/c/Users/jcole/yumyums-backups/wal` (bind mount, outside the pgdata volume),
+  `archive_timeout=300`; first segment archived, `pg_stat_archiver` 1/0. `task prod:backup`
+  extended with nightly `pg_basebackup -X none` + WAL pruning; 212 MB base on disk.
+- **Final counts** (`production` schema): pending_purchases 89 (event dates 02-27→08-05),
+  purchase_events 60 (02-28→07-29), purchase_items 263, vendors 20, menu_items 34,
+  daily_menu_sales 1 052, users 1, recipes 0.
+- **Open, and whose:** crew reviews the 84-receipt queue (days); operator re-invites crew and
+  hand-rebuilds recipes (COGS wrong until done); operator decides the sales-processor message;
+  B-146 (ship the Toast SFTP key to prod) is cardable; the branch
+  `fix/b145-prod-backup-floor` de-confines under night-crew.toml (touches
+  `internal/receipt` + Taskfile) so the full Playwright suite gates its merge to dev. The full
+  GO suite was deliberately NOT run this session: dev's tree still carries the pre-A3 RLS
+  test default (B-141/B-142 unremediated until the attended re-gate), and running it against
+  the shared cluster is the incident's own vector. Go-side evidence is the receipt package's
+  6/6 (DB-free).
