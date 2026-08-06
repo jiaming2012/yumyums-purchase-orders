@@ -197,7 +197,7 @@ count or closeout substitutes for that run.
   transformed and loaded **through PostgREST** into the substrate, byte-identical to source with
   HQ's `uuid` keys intact through the cast into the text-keyed sync contract; RLS discriminated over
   **those migrated rows** on both axes; three RxDB clients each replicated **exactly** the migrated
-  rows they were entitled to (2 / 2 / 1) and none received the nobody-visible control row. 49 named
+  rows they were entitled to (2 / 2 / 1) and none received the nobody-visible control row. 48 named
   assertions, ~25 s end to end, re-runnable from nothing (scratch container created and destroyed
   each run; spike A's stack consumed in reconcile mode, never destroyed).
   **Two findings for the cutover card, neither of which blocks it:** (1) HQ stores **no

@@ -68,3 +68,31 @@ log means the logging never ran, not "no conflicts".
   while naming it in what-must-survive. Also: before/after B-132 PNGs are byte-identical —
   the pre-fix state stands on b132-red.log (IndexSizeError at 10:50:54, pre-fix-commit),
   not the PNG pair.
+
+## §3 — S `spike-b-migration-rehearsal` → `overnight-20260807` (CLEAN)
+
+- **Merge commit:** `61eb4af` (no-ff, ort), card branch `card/s-spike-b-migration` tip
+  `fd46c72`, base `845dfce`. **Zero conflicted hunks.**
+- **Intents read:** S's and W0's — the shared surface is Taskfile.yml, and S's addition is
+  a single 26-line disjoint stanza after `spike:down`; W0's `test:*` env blocks and the
+  attended `prod:backup` stanza have zero touched lines (verified by diff hunks, G6-confirmed).
+  W0's what-must-survive untouched. Nothing dropped.
+- **Files:** 8 new spike files under `.night-crew/qa/spike-supabase/`, Taskfile.yml stanza,
+  roadmap flip (verdict GREEN recorded), merge-intent + s-logs.
+- **Gate after merge:** merged tree content-identical to card tip (base unmoved since S
+  branched), so the card's evidence carries: G1 clean; G2 Go 9 pkgs, workflow 35, sync
+  45/111, guards PASS, env attested unset; G2 Playwright **792/6/0**, one summary block,
+  20.9m; G4 sw.js unchanged, 31 precached, 1.4.0 parity. G6 re-ran the spike itself:
+  exit 0, 48 PASS, substrate restored byte-identical, scratch containers fully torn down.
+- **Post-merge correction (G6-directed):** durable record said "49 named assertions"; the
+  true count is 48 (verified statically and by two executions). Corrected in roadmap.md:200
+  and the S merge-intent §Red-first table, this commit.
+- **G6 verdict:** MERGE-WITH-NOTES. For follow-up off `dev` BEFORE any future red run of
+  the spike script: (1) 🛑 the user-lane probe row (`probe-ok-<run>`) escapes the restore
+  manifest — a run dying between insert and cleanup re-contaminates the shared substrate
+  persistently (per-run timestamped ids, never swept later); (2) the printed manual
+  recovery command dies at import (`SPIKE_B_HQ_CID` guard in hq-bridge-env.js) — the
+  advertised undo for exactly that failure is inoperable; (3) archived-exclusion assertion
+  is `< total && >= 4`, not `=== 6` + specific-id checks — a transform bug dropping a
+  legitimate row would be self-consistently green. Also: teardown's compose-down half is
+  warn-and-continue; hq-reset's seed-survival check is `> 0`, not exact.

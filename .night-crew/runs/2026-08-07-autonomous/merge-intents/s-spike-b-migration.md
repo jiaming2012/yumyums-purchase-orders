@@ -115,7 +115,7 @@ so "the substrate already worked" cannot be mistaken for "the migration worked."
 | `spike-b-run1.log` | **1 — RED** | `function json_array_length(jsonb) does not exist`. The script's own first run caught a real bug in its transform: `template_snapshot` is JSONB (HQ migration 0011), and the `json_*` family does not accept it. Debugging the migration script is legitimate work, not a park. |
 | `spike-b-run2.log` | 0 — GREEN | After `jsonb_array_length`. All assertions pass. |
 | `spike-b-run3-rerun.log` | 0 — GREEN | Re-runnability from nothing, 25 s. |
-| `spike-b-run4-with-substrate-reset.log` | 0 — GREEN | After the teardown's substrate-restore half was added; 49 named assertions, 27 s, and `hq_sync_checklists` verified back to spike A's exact baseline (4 `chk-*` rows, 2 `hq-user-*` grants). |
+| `spike-b-run4-with-substrate-reset.log` | 0 — GREEN | After the teardown's substrate-restore half was added; 48 named assertions, 27 s, and `hq_sync_checklists` verified back to spike A's exact baseline (4 `chk-*` rows, 2 `hq-user-*` grants). |
 
 Two findings for the cutover card, both recorded on the roadmap card, neither blocking: HQ stores
 **no template→app association** for the sync contract's `app_slug` to come from, and a **bulk
