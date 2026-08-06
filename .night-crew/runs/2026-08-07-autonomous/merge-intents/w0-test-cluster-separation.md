@@ -144,10 +144,130 @@ grep -n "DEAD_URL='postgres" scripts/verify-test-harness.sh
 Note site **#125** (`test:all`'s post-run reset trap) — an admin `psql` against the shared
 cluster that the card's verification list did not name. It is re-pointed with the rest.
 
-### AFTER — pending; evidence lands in a later commit on this branch
+### AFTER — every test path resolves to `:5434` / `hqtest`, the test-only container
+
+`EXIT=0` · full capture: `.night-crew/runs/2026-08-07-autonomous/w0-logs/redfirst-after.log`
+
+```
+== 1. Playwright e2e coordinates, RESOLVED by scripts/reset-e2e-db.js (no connection) ==
+  adminUrl (DROP/CREATE target): postgres://hqtest:hqtest@localhost:5434/postgres?sslmode=disable
+  testUrl                      : postgres://hqtest:hqtest@localhost:5434/hq_test_e2e?sslmode=disable&TimeZone=America/New_York
+== 2. task test:* DB coordinates (Taskfile.yml) ==
+45:  TEST_DB_HOST: '{{.TEST_DB_HOST | default "localhost"}}'
+46:  TEST_DB_PORT: '{{.TEST_DB_PORT | default "5434"}}'
+   … every test:* env block + backend:db-test dep now interpolates {{.TEST_DB_*}} …
+223:      DB_TEST_URL: 'postgres://{{.TEST_DB_USER}}:{{.TEST_DB_PASS}}@{{.TEST_DB_HOST}}:{{.TEST_DB_PORT}}/hq_test_go?sslmode=disable'
+267:          psql "postgres://$DB_USER:$DB_PASS@$DB_HOST:$DB_PORT/postgres?sslmode=disable" \
+== 3. RLS suite defaults (backend/internal/sync/rowvisibility_rls_test.go) ==
+243:	defaultHQAdminURL = "postgres://hqtest:hqtest@localhost:5434/postgres"
+251:	defaultFDWPort = "5434"
+== 4. harness probe URL (scripts/verify-test-harness.sh) ==
+215:	DEAD_URL='postgres://hqtest:hqtest@127.0.0.1:5599/hq_test_go_does_not_exist?sslmode=disable'
+218:	DEAD_URL='postgres://hqtest:hqtest@127.0.0.1:5434/hq_test_go_dropped_by_a_reviewer?sslmode=disable'
+```
+
+Corroborated by `task test:targets` (`w0-logs/test-targets.log`, `EXIT=0`) and — the strongest
+evidence, because it is the harness resolving at runtime rather than a render — by the first line
+of the Playwright gate log:
+
+```
+[WebServer] ── reset hq_test_w0 on localhost:5434 ──
+```
+
+Tree-wide check after the change: `git grep` finds **no `yumyums:yumyums` and no `:5433` in any
+test-path default**. The `:5433` sites that remain are `backend/Taskfile.yml`'s dev/migrate/
+db-ping coordinates (which are *supposed* to name the dev cluster), `sync-schema/sql/0002_hq_fdw.sql`'s
+operator-facing GUC fallback (the RLS suite always sets `hq_fdw.port` explicitly, so the test path
+never reads it), and prose. The `:5432` fallbacks inside seven `TestMain`s are unchanged and are
+not a production path — `:5432` is `infra-postgres-1`, and those DSNs are only reached when
+`DB_TEST_URL` is unset, which is the deliberate skip case.
+
+**Standing rule 1 attestation:** nothing in this card opened a connection to `:5433`. The
+Playwright gate log's only four matches for the string `5433` are fractional-second digits inside
+timestamps (`10:11:40.116755433-04:00` and three like it), not port references — verified line by
+line.
 
 ---
 
 ## Gate results
 
-Pending — filled in below before the last commit on this branch.
+All gates run in this worktree, `export PATH="/usr/local/go/bin:$PATH"` on every Go/Playwright leg.
+
+| Gate | Result | Evidence |
+|---|---|---|
+| **G1 build** | `go build ./...` from `backend/` — **exit 0**, no output | `w0-logs/g1-build.log` |
+| **G1 vet** | `go vet ./...` from `backend/` — **exit 0**, no output | `w0-logs/g1-vet.log` |
+| **G2 Go** | **exit 0** · **9 packages with tests** (alerts, auth, inventory, purchasing, receipt, recipes, sync, toast, workflow) · **246 top-level tests, 456 including subtests** · **0 failures** · 2 skips, both `TestProxyLive_*` behind the `HQ_SYNC_SPIKE_LIVE` opt-out · `internal/workflow` = **35** (the expected figure exactly) · `internal/sync` = 47 top-level / 111 subtests, with `TestRowVisibilitySubtestCount_Structural`, `TestRVTopLevelSubtestCount_CountsWhatItClaims` and `TestRowVisibilitySubtestCount_Executed` (48.5s) all **PASS** — the suite's own count assertion held against the new cluster | `w0-logs/g2-go.log` |
+| **G2 Playwright** | **exit 0** · **`791 passed (26.1m)` · `6 skipped` · 0 failed · 0 flaky** · **exactly ONE summary block** over the complete log (`grep -c "^ +[0-9]+ passed \("` = 1) · slowest file `sync.spec.js` 5.5m | `w0-logs/g2-playwright.log` (4536 lines, whole log committed) |
+| **G4** | `node build-sw.js` **exit 0** twice · precache **31 files** (2167.0 KB), import reachability 18 parsed / 30 resolved / 0 outside · **idempotent** — `sw.js` unchanged after both runs, tree clean · parity **1.4.0 ≡ 1.4.0 ≡ 1.4.0** (`version.go` Frontend / `package.json` / `version.json`; Backend 0.3.0 untouched) | `w0-logs/g4-sw-1.log`, `g4-sw-2.log`, `g4-parity.log` |
+| **RF** | Complete — before/after captures above | this section |
+
+### Go run — env attestation
+
+Measured with `env` and per-variable expansion **before** the run, not assumed:
+
+```
+HQ_SYNC_SUBSTRATE_OPTIONAL=[<UNSET>]   HQ_SYNC_GATE_CHILD=[<UNSET>]
+DB_TEST_URL=postgres://hqtest:hqtest@localhost:5434/hq_test_go?sslmode=disable
+HQ_RLS_TEST_DB=hq_rls_test_w0
+```
+
+Both gate-defeating variables were **UNSET**. `DB_TEST_URL` was set and pointed at the new
+container, so the DB-coupled packages ran rather than silently skipping. The RLS suite really
+executed — it created `hq_rls_test_w0` **on the test cluster**, and the substrate container reached
+it over `host.docker.internal:5434`, which is the proof that publishing 5434 on all interfaces was
+the right call.
+
+### Playwright run — parameters
+
+`npx bddgen` first (exit 0, `.features-gen/` populated), then
+`TEST_PORT=4517 TEST_DB_NAME=hq_test_w0 HQ_RLS_TEST_DB=hq_rls_test_w0 npx playwright test --retries=0`.
+
+🛑 `DB_HOST`/`DB_PORT`/`DB_USER`/`DB_PASS` were **deliberately left unset** so the run exercised the
+new **defaults** in `scripts/reset-e2e-db.js` rather than an env override. The reset banner proves
+they resolved: `── reset hq_test_w0 on localhost:5434 ──`.
+
+### Armed reds observed
+
+- **B-27 / B-30 / B-32** (`sync.spec.js` load-sensitive flakes): **did not fire.** 0 flaky, 0 retries.
+- **B-132**: present as expected — 2 482 `loadMyChecklists error: Failed to fetch` client-log lines
+  from the server. 🛑 This is materially more than the "fires 28×/run" figure in the launch prompt.
+  It changed nothing about the verdict (no test asserts on it and nothing red), and this card did not
+  touch the code that emits it, but the figure the next card inherits should be the measured one, not
+  28. Flagging rather than silently re-baselining.
+- 6 skips, all pre-existing PARKs/skips (S3-dependent upload tests in `inventory`/`onboarding`, one
+  `persistence` recipe test, three `purchasing` tests).
+
+### Wall-clock
+
+**26.1m for 797 tests (791 passed + 6 skipped)**, against the inherited baseline of ~24.2m for 785.
+Recorded, not discarded: the tree carries 12 more tests than the baseline figure, and the first
+~22 minutes of this leg overlapped nothing — but see the observation below about the box.
+
+---
+
+## Observation for triage — a foreign suite was running against `:5433` mid-card
+
+🛑 Not caused by this card, and reported because standing rules 1 and 2 make it material.
+
+At the point W0 was ready to run its Playwright leg, a **second Playwright suite was already in
+flight from the main checkout** `/home/jcole/projects/hq` (pid 95177, started 09:27, ~29m
+elapsed). Its webServer command was, verbatim from `ps`:
+
+```
+PORT=8199 DB_URL="postgres://yumyums:yumyums@localhost:5433/hq_test_e2e?sslmode=disable&TimeZone=America/New_York" … go run ./cmd/server/
+```
+
+— i.e. a pre-W0 tree running the harness against **the cluster that serves
+`hq.yumyums.kitchen`**, `DROP DATABASE hq_test_e2e` included. The `production` database itself was
+never named, so the blast radius was a test database on the production cluster, but it is the exact
+posture decision 155 exists to end, and it was live while Wave 0 was landing the fix.
+
+**What W0 did about it:** nothing destructive. It was not this card's process to kill, and killing
+it would have destroyed another run's evidence. W0 **waited** for it to exit rather than break the
+global one-suite lock, then ran its own leg on a clear box. The wait is most of the gap between
+this card's elapsed time and its work time.
+
+**For triage:** whoever owns that run should know it predated the container. If it was an
+orchestrator baseline leg, standing rule 2 ("no test suite may run anywhere until W0's container
+exists") was not honoured by it.
