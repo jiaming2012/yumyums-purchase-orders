@@ -1,0 +1,191 @@
+# spike-b-migration.sh — HQ-shaped Postgres -> Supabase -> RxDB
+# repo   /home/jcole/projects/hq-worktrees/s-spike-b-migration
+# anchor /home/jcole/projects/hq
+# run    b20260806154515
+# started 2026-08-06T15:45:15Z
+
+══ 1. preflight — required tooling ═══════════════════════════════
+  docker /usr/bin/docker
+  curl   /usr/bin/curl
+  node   /usr/bin/node
+  npm    /usr/bin/npm
+  go     /usr/local/go/bin/go
+  isolation: hq-source compose publishes no fixed host port (Docker-assigned only)
+
+══ 2. substrate — spike A's Supabase + RxDB environment ═══════════════════════════════
+  delegating to env-up.sh (reconcile); its exit status gates this leg
+# env-up.sh — mode=reconcile repo=/home/jcole/projects/hq-worktrees/s-spike-b-migration
+# compose anchor (--project-directory, path-stability fix) = /home/jcole/projects/hq
+# started 2026-08-06T15:45:16Z
+
+── 1. preflight — required tooling ───────────────────────────────
+  docker /usr/bin/docker
+  curl   /usr/bin/curl
+  node   /usr/bin/node
+  npm    /usr/bin/npm
+  go     /usr/local/go/bin/go
+  compose 5.1.0
+  go      go version go1.25.8 linux/amd64
+  node    v20.20.0
+  docker daemon: reachable
+
+── 2. bringing the stack up (idempotent) ───────────────────────────────
+ Container spike-supabase-db-1 Running 
+ Container spike-supabase-rest-1 Running 
+ Container spike-supabase-realtime-1 Running 
+ Container spike-supabase-db-1 Waiting 
+ Container spike-supabase-db-1 Waiting 
+ Container spike-supabase-db-1 Healthy 
+ Container spike-supabase-db-1 Healthy 
+NAME                        IMAGE                          COMMAND                  SERVICE    CREATED        STATUS                  PORTS
+spike-supabase-db-1         supabase/postgres:15.8.1.060   "docker-entrypoint.s…"   db         18 hours ago   Up 18 hours (healthy)   0.0.0.0:50871->5432/tcp, [::]:50871->5432/tcp
+spike-supabase-realtime-1   supabase/realtime:v2.34.47     "/usr/bin/tini -s -g…"   realtime   18 hours ago   Up 18 hours             0.0.0.0:50807->4000/tcp, [::]:50807->4000/tcp
+spike-supabase-rest-1       postgrest/postgrest:v12.2.12   "/bin/postgrest"         rest       18 hours ago   Up 18 hours             0.0.0.0:50473->3000/tcp, [::]:50473->3000/tcp
+
+── 3. waiting for db to report healthy (timeout 300s) ───────────────────────────────
+  db: running/healthy
+
+── 4. applying fixture schemas ───────────────────────────────
+  → spike-fixture.sql
+psql:<stdin>:30: NOTICE:  relation "spike_notes" already exists, skipping
+  → hq-bridge-fixture.sql
+psql:<stdin>:53: NOTICE:  relation "hq_grant_projection" already exists, skipping
+psql:<stdin>:77: NOTICE:  relation "hq_sync_checklists" already exists, skipping
+psql:<stdin>:114: NOTICE:  relation "hq_uid_trap" already exists, skipping
+  → hq-bridge-policies.sql
+
+── 5. resolving host ports ───────────────────────────────
+  db=50871 rest=50473 realtime=50807
+
+── 6. waiting for PostgREST and Realtime to answer (timeout 180s each) ───────────────────────────────
+  PostgREST: HTTP 200
+  Realtime: HTTP 200
+
+── 7. installing the RxDB harness (npm ci, isolated project) ───────────────────────────────
+npm warn EBADENGINE Unsupported engine {
+npm warn EBADENGINE   package: 'z-schema@12.3.1',
+npm warn EBADENGINE   required: { node: '>=22.0.0' },
+npm warn EBADENGINE   current: { node: 'v20.20.0', npm: '10.8.2' }
+npm warn EBADENGINE }
+npm warn deprecated defekt@9.3.0: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
+npm warn deprecated get-graphql-from-jsonschema@8.1.0: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
+
+added 78 packages in 5s
+
+── 8. health assertion — rest, realtime, schema, rxdb ───────────────────────────────
+# stack: rest=50473 realtime=50807 db=50871  run=r1786031127587
+PASS  ports — db=50871 rest=50473 realtime=50807
+PASS  token — go-minted, 184 chars, 3 segments
+PASS  schema — 4 fixture table(s) and 5 hq_* policy(ies) present by name
+PASS  rest — spike_notes readable; alice sees 1 row(s), owners=["user-alice"], bob's row correctly hidden
+PASS  realtime — channel SUBSCRIBED
+-------------- RxDB dev-mode warning -------------------------------
+you are seeing this because you use the RxDB dev-mode plugin https://rxdb.info/dev-mode.html?console=dev-mode 
+This is great in development mode, because it will run many checks to ensure
+that you use RxDB correct. If you see this in production mode,
+you did something wrong because the dev-mode plugin will decrease the performance.
+
+🤗 Hint: To get the most out of RxDB, check out the Premium Plugins
+to get access to faster storages and more professional features: https://rxdb.info/premium/?console=dev-mode 
+
+You can disable this warning by calling disableWarnings() from the dev-mode plugin.
+---------------------------------------------------------------------
+PASS  rxdb — local RxDB database created, doc hc-1786031129070 inserted and read back
+
+HEALTHCHECK: GREEN — ports, token, schema, rest, realtime, rxdb all asserted
+
+══════════════════════════════════════════════════════════
+✅ VERDICT: GREEN — Supabase + RxDB up, schema applied, healthy
+   db=50871  rest=50473  realtime=50807   (project: spike-supabase)
+   teardown is a separate, deliberate act:  task spike:down
+   finished 2026-08-06T15:45:29Z
+══════════════════════════════════════════════════════════
+
+══ 3. HQ-shaped source — fresh scratch Postgres (project spike-b-hq) ═══════════════════════════════
+ Network spike-b-hq_default Creating 
+ Network spike-b-hq_default Created 
+ Container spike-b-hq-hqsrc-1 Creating 
+ Container spike-b-hq-hqsrc-1 Created 
+ Container spike-b-hq-hqsrc-1 Starting 
+ Container spike-b-hq-hqsrc-1 Started 
+NAME                 IMAGE                COMMAND                  SERVICE   CREATED        STATUS                           PORTS
+spike-b-hq-hqsrc-1   postgres:16-alpine   "docker-entrypoint.s…"   hqsrc     1 second ago   Up 1 second (health: starting)   0.0.0.0:50545->5432/tcp, [::]:50545->5432/tcp
+  hqsrc: running/healthy
+  container c7de4c9dba13  ·  host port 50545 (Docker-assigned, ephemeral)
+
+══ 4. applying the HQ-shaped schema subset and its fixture ═══════════════════════════════
+  → hq-source-schema.sql
+  → hq-source-fixture.sql
+  fixture counts users/permissions/submissions/responses = 3/4/7/15
+
+══ 5. MIGRATE — HQ-shaped rows into the substrate, through PostgREST ═══════════════════════════════
+# hq-migrate.js — HQ-shaped Postgres  ->  Supabase substrate
+# substrate: rest=50473 realtime=50807 db=50871
+# hq source container: c7de4c9dba134ffbe0dcd41b427737d4b9383a2a780f47a2a4cc2b8dd636b674
+# run: b20260806154515
+
+── 1. extract from the HQ-shaped source ───────────────────────
+ERROR:  function json_array_length(jsonb) does not exist
+LINE 11:            'snapshot_sections', json_array_length(s.template...
+                                         ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+node:internal/errors:984
+  const err = new Error(message);
+              ^
+
+Error: Command failed: docker exec -i c7de4c9dba134ffbe0dcd41b427737d4b9383a2a780f47a2a4cc2b8dd636b674 psql -U hq -d hq_source -t -A -c select coalesce(json_agg(t), '[]'::json)::text from (
+  select s.id::text           as id,
+         s.submitted_by::text as owner_id,
+         t.app_slug           as app_slug,
+         json_build_object(
+           'template',          t.name,
+           'status',            s.status,
+           'submitted_at',      s.submitted_at::text,
+           'responses',         (select count(*) from submission_responses r
+                                  where r.submission_id = s.id),
+           'snapshot_sections', json_array_length(s.template_snapshot -> 'sections')
+         )::text as body
+  from checklist_submissions s
+  join checklist_templates t on t.id = s.template_id
+  where t.archived_at is null
+  order by s.id) t
+ERROR:  function json_array_length(jsonb) does not exist
+LINE 11:            'snapshot_sections', json_array_length(s.template...
+                                         ^
+HINT:  No function matches the given name and argument types. You might need to add explicit type casts.
+
+    at genericNodeError (node:internal/errors:984:15)
+    at wrappedFn (node:internal/errors:538:14)
+    at checkExecSyncError (node:child_process:891:11)
+    at execFileSync (node:child_process:927:15)
+    at srcPsql (file:///home/jcole/projects/hq-worktrees/s-spike-b-migration/.night-crew/qa/spike-supabase/rxdb/hq-bridge-env.js:57:12)
+    at srcJson (file:///home/jcole/projects/hq-worktrees/s-spike-b-migration/.night-crew/qa/spike-supabase/rxdb/hq-bridge-env.js:69:17)
+    at file:///home/jcole/projects/hq-worktrees/s-spike-b-migration/.night-crew/qa/spike-supabase/rxdb/hq-migrate.js:48:14
+    at ModuleJob.run (node:internal/modules/esm/module_job:325:25)
+    at async ModuleLoader.import (node:internal/modules/esm/loader:606:24)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5) {
+  status: 1,
+  signal: null,
+  output: [
+    null,
+    '',
+    'ERROR:  function json_array_length(jsonb) does not exist\n' +
+      "LINE 11:            'snapshot_sections', json_array_length(s.template...\n" +
+      '                                         ^\n' +
+      'HINT:  No function matches the given name and argument types. You might need to add explicit type casts.\n'
+  ],
+  pid: 99436,
+  stdout: '',
+  stderr: 'ERROR:  function json_array_length(jsonb) does not exist\n' +
+    "LINE 11:            'snapshot_sections', json_array_length(s.template...\n" +
+    '                                         ^\n' +
+    'HINT:  No function matches the given name and argument types. You might need to add explicit type casts.\n'
+}
+
+Node.js v20.20.0
+
+🛑 VERDICT: RED — the migration leg failed — see the FAIL line above. It names which assertion could not be made.
+
+── teardown: destroying the scratch HQ-shaped Postgres (project spike-b-hq) ──
+  torn down.
+EXIT=1

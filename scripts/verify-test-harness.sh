@@ -200,11 +200,22 @@ fi
 # that reason.
 echo
 echo "── B · DB_TEST_URL set + unreachable ⇒ non-zero exit, EVERY package ────"
+# 🛑 :5434 is the TEST cluster (yumyums-test-pg, docker-compose.test.yml), NOT
+# :5433. Both arms of this branch used to carry yumyums:yumyums — admin
+# credentials to the cluster serving hq.yumyums.kitchen — into a probe whose
+# whole job is to be pointed at a database that does not exist. A harness check
+# has no business holding production credentials at all (B-141; ledger decision
+# 155, card `test-cluster-separation`). The `hqtest` role exists ONLY on the test
+# container, so if either URL is ever re-pointed at :5433 it fails closed.
+#
+# The FAST arm needs a LIVE server refusing a MISSING database (that is what
+# makes it fast: an immediate FATAL, not a timeout), so it names the test
+# cluster's real port with a database nothing creates.
 if [ "${H1_DEAD_PORT:-0}" = "1" ]; then
-	DEAD_URL='postgres://yumyums:yumyums@127.0.0.1:5599/hq_test_go_does_not_exist?sslmode=disable'
+	DEAD_URL='postgres://hqtest:hqtest@127.0.0.1:5599/hq_test_go_does_not_exist?sslmode=disable'
 	echo "    (H1_DEAD_PORT=1 — dead port; expect ~120s PER PACKAGE on this host)"
 else
-	DEAD_URL='postgres://yumyums:yumyums@127.0.0.1:5433/hq_test_go_dropped_by_a_reviewer?sslmode=disable'
+	DEAD_URL='postgres://hqtest:hqtest@127.0.0.1:5434/hq_test_go_dropped_by_a_reviewer?sslmode=disable'
 fi
 
 # The eight sites this card converted, by package. `-count=1` defeats the test

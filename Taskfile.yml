@@ -19,11 +19,90 @@ vars:
   PROD_PORT: '{{.PROD_PORT | default "8080"}}'
   PROD_URL: '{{.PROD_URL | default "https://hq.yumyums.kitchen"}}'
 
+  # ─────────────────────────────────────────────────────────────────────────────
+  # THE TEST CLUSTER — ledger decision 155, closing B-141's structural half.
+  #
+  # 🛑 These are the ONLY Postgres coordinates any `test:*` task may resolve to.
+  # They name `yumyums-test-pg` (docker-compose.test.yml), a container that
+  # exists for no purpose but running this repo's suites.
+  #
+  # They are NOT :5433. :5433 is `yumyums-dev-pg` — the cluster that serves
+  # https://hq.yumyums.kitchen, dev and prod alike (prod is the `production`
+  # search_path on the same instance). Until 2026-08-07 every test default in
+  # this repo pointed there, which is how an adversarial probe of a name guard
+  # dropped the production database on 2026-08-06 with no backup (B-141, B-143).
+  #
+  # They are NOT :5432 either — that is infra-postgres-1 (slack-trading).
+  #
+  # 🛑 The role is `hqtest`, not `yumyums`, ON PURPOSE. Port-only separation
+  # leaves a stale default one typo from production; a distinct role name makes
+  # a missed site fail closed (`role "hqtest" does not exist`) instead of
+  # authenticating against prod. Do not "simplify" these back to yumyums.
+  #
+  # Override for a throwaway cluster elsewhere via TEST_DB_HOST / TEST_DB_PORT /
+  # TEST_DB_USER / TEST_DB_PASS. `task test:targets` prints what they resolve to.
+  # ─────────────────────────────────────────────────────────────────────────────
+  TEST_DB_HOST: '{{.TEST_DB_HOST | default "localhost"}}'
+  TEST_DB_PORT: '{{.TEST_DB_PORT | default "5434"}}'
+  TEST_DB_USER: '{{.TEST_DB_USER | default "hqtest"}}'
+  TEST_DB_PASS: '{{.TEST_DB_PASS | default "hqtest"}}'
+  TEST_COMPOSE: '{{.TEST_COMPOSE | default "docker-compose.test.yml"}}'
+  TEST_PROJECT: '{{.TEST_PROJECT | default "yumyums-test"}}'
+  TEST_CONTAINER: '{{.TEST_CONTAINER | default "yumyums-test-pg"}}'
+
 tasks:
   sw:
     desc: Rebuild service worker with Workbox (content-hashed precache)
     cmds:
       - node build-sw.js
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test cluster lifecycle (decision 155). `test:db:up` is a dependency of every
+  # test target, so `task test` / `task test:go` / `task test:all` bring the test
+  # Postgres up themselves and no one has to remember to.
+  # ─────────────────────────────────────────────────────────────────────────────
+  test:db:up:
+    desc: Start the test-only Postgres (yumyums-test-pg on :{{.TEST_DB_PORT}}) — idempotent, waits for healthy
+    cmds:
+      - docker compose -p {{.TEST_PROJECT}} -f {{.TEST_COMPOSE}} up -d
+      - |
+        # Wait on the container's OWN healthcheck (pg_isready) rather than
+        # opening a psql connection from here: the wait must not depend on a
+        # host psql being installed, and `docker inspect` cannot accidentally
+        # resolve against some other cluster the way a bare `psql` can.
+        for i in $(seq 1 60); do
+          s=$(docker inspect -f '{{`{{.State.Health.Status}}`}}' {{.TEST_CONTAINER}} 2>/dev/null || echo missing)
+          if [ "$s" = "healthy" ]; then
+            echo "{{.TEST_CONTAINER}} healthy — {{.TEST_DB_HOST}}:{{.TEST_DB_PORT}} (role {{.TEST_DB_USER}})"
+            exit 0
+          fi
+          sleep 1
+        done
+        echo "{{.TEST_CONTAINER}} did not become healthy within 60s (last status: ${s:-unknown})" >&2
+        exit 1
+
+  test:db:down:
+    desc: Destroy the test Postgres AND its volume (deliberate — the only target here that destroys data)
+    cmd: docker compose -p {{.TEST_PROJECT}} -f {{.TEST_COMPOSE}} down --volumes --remove-orphans
+
+  test:targets:
+    desc: Print every resolved test-database coordinate (READ-ONLY — opens no connection)
+    cmds:
+      - |
+        echo "── Taskfile test cluster ────────────────────────────────"
+        echo "  host:port   {{.TEST_DB_HOST}}:{{.TEST_DB_PORT}}"
+        echo "  role        {{.TEST_DB_USER}}"
+        echo "  container   {{.TEST_CONTAINER}}  ({{.TEST_COMPOSE}}, project {{.TEST_PROJECT}})"
+        echo "  DB_TEST_URL postgres://{{.TEST_DB_USER}}:{{.TEST_DB_PASS}}@{{.TEST_DB_HOST}}:{{.TEST_DB_PORT}}/hq_test_go?sslmode=disable"
+        echo ""
+        echo "── Playwright e2e (scripts/reset-e2e-db.js, resolved) ───"
+        node -e 'const{resolveE2eDb}=require("./scripts/reset-e2e-db");const d=resolveE2eDb({});console.log("  adminUrl    "+d.adminUrl);console.log("  testUrl     "+d.testUrl)'
+        echo ""
+        echo "── internal/sync RLS suite defaults ─────────────────────"
+        grep -n 'defaultHQAdminURL = \|defaultFDWPort = ' backend/internal/sync/rowvisibility_rls_test.go
+        echo ""
+        echo "── scripts/verify-test-harness.sh probe URL ─────────────"
+        grep -n "DEAD_URL='postgres" scripts/verify-test-harness.sh
 
   test:
     desc: Run Playwright E2E tests (set HEADED=1 for visible browser)
@@ -37,7 +116,29 @@ tasks:
     # faith while a whole project contributed nothing. BACKLOG B-09, ledger
     # T-25 decision 73; fixed by card `test-harness-fail-loud`.
     # Guarded by scripts/verify-test-harness.sh — do not remove it.
-    deps: [backend:db-test, sw, bdd:gen]
+    #
+    # test:db:up brings the TEST cluster (:{{.TEST_DB_PORT}}) up first, and
+    # backend:db-test is handed that cluster's coordinates explicitly — without
+    # the vars it would fall back to its own :5433 defaults and create the test
+    # databases on the cluster serving hq.yumyums.kitchen (decision 155).
+    deps:
+      - test:db:up
+      - task: backend:db-test
+        vars:
+          DB_HOST: '{{.TEST_DB_HOST}}'
+          DB_PORT: '{{.TEST_DB_PORT}}'
+          DB_USER: '{{.TEST_DB_USER}}'
+          DB_PASS: '{{.TEST_DB_PASS}}'
+      - sw
+      - bdd:gen
+    # These reach scripts/reset-e2e-db.js — which playwright.config.js's
+    # webServer.command runs, and which DROPs the database it resolves. They
+    # also override anything `dotenv: ['backend/.env']` injects.
+    env:
+      DB_HOST: '{{.TEST_DB_HOST}}'
+      DB_PORT: '{{.TEST_DB_PORT}}'
+      DB_USER: '{{.TEST_DB_USER}}'
+      DB_PASS: '{{.TEST_DB_PASS}}'
     cmds:
       # The hq_test_e2e reset is NOT here any more, and its absence is the fix,
       # not an omission. It lives in playwright.config.js's `webServer.command`
@@ -53,7 +154,20 @@ tasks:
 
   test:ui:
     desc: Open Playwright UI mode for interactive debugging (isolated clean stack on :8091 / hq_test_ui)
-    deps: [backend:db-test, sw]
+    deps:
+      - test:db:up
+      - task: backend:db-test
+        vars:
+          DB_HOST: '{{.TEST_DB_HOST}}'
+          DB_PORT: '{{.TEST_DB_PORT}}'
+          DB_USER: '{{.TEST_DB_USER}}'
+          DB_PASS: '{{.TEST_DB_PASS}}'
+      - sw
+    env:
+      DB_HOST: '{{.TEST_DB_HOST}}'
+      DB_PORT: '{{.TEST_DB_PORT}}'
+      DB_USER: '{{.TEST_DB_USER}}'
+      DB_PASS: '{{.TEST_DB_PASS}}'
     cmds:
       # Run UI mode on its OWN port + OWN freshly-reset database (hq_test_ui) so
       # it NEVER (a) reuses a dev server you have running on :8089 —
@@ -66,9 +180,11 @@ tasks:
       # `test:`'s — playwright.config.js's webServer.command resets whatever
       # TEST_DB_NAME names, so hq_test_ui is reset by the same single code path.
       # Its DB_PORT default was ALSO 5432 here while every other site in the repo
-      # uses 5433 (yumyums-dev-pg); host :5432 is infra-postgres-1, which has no
-      # `yumyums` role, so that block could only ever have failed. Deleting it
-      # removes the inconsistency rather than perpetuating it.
+      # pointed at 5433; host :5432 is infra-postgres-1, which has no `yumyums`
+      # role, so that block could only ever have failed. Deleting it removes the
+      # inconsistency rather than perpetuating it. (Both of those ports are now
+      # wrong for a test run either way — the test cluster is :{{.TEST_DB_PORT}},
+      # decision 155.)
       - TEST_DB_NAME=hq_test_ui TEST_PORT=8091 TEST_OUTPUT_DIR=test-results-ui npx playwright test --ui
 
   bdd:gen:
@@ -77,19 +193,38 @@ tasks:
       - npx bddgen
 
   bdd:
-    desc: Run BDD/Gherkin tests (uses local Docker DB; set HEADED=1 for visible browser)
-    deps: [sw, bdd:gen]
+    desc: Run BDD/Gherkin tests (uses the test-only Postgres; set HEADED=1 for visible browser)
+    deps: [test:db:up, sw, bdd:gen]
+    # Was `DB_PORT: '5432'` — infra-postgres-1, which has no `yumyums` role, so
+    # this target could only ever black-hole on the reset (BACKLOG B-85). It now
+    # points at the test cluster like every other test target (decision 155).
     env:
-      DB_HOST: localhost
-      DB_PORT: '5432'
+      DB_HOST: '{{.TEST_DB_HOST}}'
+      DB_PORT: '{{.TEST_DB_PORT}}'
+      DB_USER: '{{.TEST_DB_USER}}'
+      DB_PASS: '{{.TEST_DB_PASS}}'
     cmds:
       - npx playwright test --project=bdd {{if eq (.HEADED | default "0") "1"}}--headed{{end}}
 
   test:go:
-    desc: Run Go backend unit tests (against hq_test DB)
-    deps: [backend:db-test]
+    desc: Run Go backend unit tests (against hq_test_go on the test cluster)
+    deps:
+      - test:db:up
+      - task: backend:db-test
+        vars:
+          DB_HOST: '{{.TEST_DB_HOST}}'
+          DB_PORT: '{{.TEST_DB_PORT}}'
+          DB_USER: '{{.TEST_DB_USER}}'
+          DB_PASS: '{{.TEST_DB_PASS}}'
     env:
-      DB_TEST_URL: 'postgres://yumyums:yumyums@{{.DB_HOST | default "localhost"}}:{{.DB_PORT | default "5433"}}/hq_test_go?sslmode=disable'
+      # Was postgres://yumyums:yumyums@…:5433 — the cluster serving
+      # hq.yumyums.kitchen. Decision 155 moved it to the test-only container;
+      # the coordinates live in ONE place (the TEST_DB_* vars at the top).
+      DB_TEST_URL: 'postgres://{{.TEST_DB_USER}}:{{.TEST_DB_PASS}}@{{.TEST_DB_HOST}}:{{.TEST_DB_PORT}}/hq_test_go?sslmode=disable'
+      DB_HOST: '{{.TEST_DB_HOST}}'
+      DB_PORT: '{{.TEST_DB_PORT}}'
+      DB_USER: '{{.TEST_DB_USER}}'
+      DB_PASS: '{{.TEST_DB_PASS}}'
       # Explicitly unset any external DATABASE_URL that leaks in from the user's shell.
       DATABASE_URL: ''
       TEST_DATABASE_URL: ''
@@ -101,13 +236,16 @@ tasks:
       - cd backend && go test -p 1 ./...
 
   test:all:
-    desc: Run all tests (Go unit, Playwright E2E, BDD/Gherkin) against the local Docker DB. Resets both test DBs after the run completes.
-    deps: [sw, bdd:gen]
+    desc: Run all tests (Go unit, Playwright E2E, BDD/Gherkin) against the test-only Postgres. Resets both test DBs after the run completes.
+    deps: [test:db:up, sw, bdd:gen]
     env:
-      DB_HOST: localhost
-      DB_PORT: '5433'
+      # Was localhost:5433 (yumyums-dev-pg — dev AND prod). Decision 155.
+      DB_HOST: '{{.TEST_DB_HOST}}'
+      DB_PORT: '{{.TEST_DB_PORT}}'
+      DB_USER: '{{.TEST_DB_USER}}'
+      DB_PASS: '{{.TEST_DB_PASS}}'
       # Same env scoping as test:go — see comments there.
-      DB_TEST_URL: 'postgres://yumyums:yumyums@localhost:5433/hq_test_go?sslmode=disable'
+      DB_TEST_URL: 'postgres://{{.TEST_DB_USER}}:{{.TEST_DB_PASS}}@{{.TEST_DB_HOST}}:{{.TEST_DB_PORT}}/hq_test_go?sslmode=disable'
       DATABASE_URL: ''
       TEST_DATABASE_URL: ''
     cmds:
@@ -121,8 +259,12 @@ tasks:
         trap '
           status=$?
           echo ""
+          # 🛑 $DB_HOST/$DB_PORT/$DB_USER/$DB_PASS come from this task's env block
+          # and name the TEST cluster. This psql issues DROP DATABASE; before
+          # decision 155 the literal here was yumyums:yumyums@…:5433, i.e. admin
+          # credentials to the cluster serving hq.yumyums.kitchen.
           echo "── resetting hq_test_go + hq_test_e2e on $DB_HOST:$DB_PORT ──"
-          psql "postgres://yumyums:yumyums@$DB_HOST:$DB_PORT/postgres?sslmode=disable" \
+          psql "postgres://$DB_USER:$DB_PASS@$DB_HOST:$DB_PORT/postgres?sslmode=disable" \
             -c "DROP DATABASE IF EXISTS hq_test_go;" \
             -c "CREATE DATABASE hq_test_go;" \
             -c "DROP DATABASE IF EXISTS hq_test_e2e;" \
@@ -181,6 +323,32 @@ tasks:
   spike:down:
     desc: Destroy the spike stack and the spike-db-data volume (deliberate, separate act — the only target that destroys data)
     cmd: docker compose -p spike-supabase -f docker-compose.supabase.yml down --volumes --remove-orphans
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Sync spike B — migration rehearsal (night-crew card S
+  # `spike-b-migration-rehearsal`). Disjoint from everything above and below it.
+  #
+  # Thin wrapper, same rule as the spike:up family: all logic lives in
+  # .night-crew/qa/spike-supabase/spike-b-migration.sh so the verdict reproduces
+  # without `task` installed and comes from exactly one place.
+  #
+  # 🛑 The HQ-shaped Postgres this stands up is a FRESH SCRATCH CONTAINER under
+  #   its own compose project `spike-b-hq`, on a DOCKER-ASSIGNED EPHEMERAL host
+  #   port — never :5433 (that cluster is PRODUCTION; a probe there destroyed the
+  #   prod database on 2026-08-06), never :5434 (`yumyums-test-pg`), never 5432.
+  #   The script asserts that before it starts anything. It creates the container
+  #   and destroys it again, so this target is re-runnable from nothing.
+  #
+  #   It calls env-up.sh in RECONCILE mode — it does not destroy spike A's stack.
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  spike:migration:
+    desc: Spike B — migrate HQ-shaped fixture data into the Supabase substrate and prove it surfaces in RxDB (exit status IS the verdict)
+    cmd: ./.night-crew/qa/spike-supabase/spike-b-migration.sh
+
+  spike:migration:keep:
+    desc: Spike B, leaving the scratch HQ-shaped Postgres running afterwards for hand-debugging
+    cmd: ./.night-crew/qa/spike-supabase/spike-b-migration.sh --keep
 
   version:
     desc: Compare backend + frontend versions across local source, dev server, and prod

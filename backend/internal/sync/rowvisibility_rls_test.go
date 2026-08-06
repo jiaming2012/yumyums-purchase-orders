@@ -176,7 +176,11 @@ import (
 // TWO servers must be up:
 //
 //	the substrate — docker compose -p spike-supabase -f docker-compose.supabase.yml up -d
-//	HQ's Postgres — yumyums-dev-pg, host :5433
+//	the TEST Postgres — yumyums-test-pg, host :5434 (`task test:db:up`)
+//
+// 🛑 The second one is NOT yumyums-dev-pg on :5433. That is the cluster serving
+// hq.yumyums.kitchen, this suite's admin URL used to point at it, and that is
+// how the production database was dropped on 2026-08-06 (B-141). Decision 155.
 //
 // 🛑 THE COMPOSE FILE PUBLISHES EPHEMERAL HOST PORTS ON PURPOSE, so the
 // hard-coded defaults this suite inherited from jwtbridge_rls_test.go were only
@@ -218,12 +222,33 @@ const (
 	// step, and rvRestoreFDWRole undoes it.
 	rvFDWPassword = "b2-rowvis-suite-throwaway"
 
-	defaultHQAdminURL = "postgres://yumyums:yumyums@localhost:5433/postgres"
+	// 🛑 THIS IS THE TEST CLUSTER, NOT THE ONE THAT SERVES hq.yumyums.kitchen.
+	//
+	// It used to be postgres://yumyums:yumyums@localhost:5433/postgres — i.e.
+	// admin credentials to `yumyums-dev-pg`, which serves dev AND production.
+	// This file feeds an environment-supplied identifier into
+	// `DROP DATABASE … WITH (FORCE)` against this URL, so any mistake in this
+	// file was a PRODUCTION mistake — and on 2026-08-06 one was: a probe set
+	// HQ_RLS_TEST_DB=yumyums, the suite accepted it, and the production
+	// database was destroyed with no backup to restore from (BACKLOG B-141,
+	// B-143). Ledger decision 155 moved the suites to their own container;
+	// card `test-cluster-separation` (run 20260807) executed it.
+	//
+	// The role is `hqtest`, not `yumyums`, deliberately: if this default is
+	// ever re-pointed at :5433 by accident it now fails closed with
+	// `role "hqtest" does not exist` instead of authenticating against prod.
+	//
+	// The container is yumyums-test-pg (docker-compose.test.yml, `task
+	// test:db:up`). Override with HQ_ADMIN_DB_URL / HQ_FDW_PORT.
+	defaultHQAdminURL = "postgres://hqtest:hqtest@localhost:5434/postgres"
 	// defaultFDWHost is HQ as seen FROM INSIDE the substrate container, which
 	// is not what your shell means by localhost. Getting this wrong is the
 	// single most common way to make the foreign tables silently useless.
+	// (This is also why docker-compose.test.yml publishes 5434 on all
+	// interfaces rather than loopback-only — a 127.0.0.1-bound publish is
+	// unreachable from inside the substrate container.)
 	defaultFDWHost = "host.docker.internal"
-	defaultFDWPort = "5433"
+	defaultFDWPort = "5434"
 )
 
 // rvHQDatabase names this suite's throwaway database on HQ's Postgres. It is a

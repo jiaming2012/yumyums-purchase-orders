@@ -1,0 +1,240 @@
+# spike-b-migration.sh — HQ-shaped Postgres -> Supabase -> RxDB
+# repo   /home/jcole/projects/hq-worktrees/s-spike-b-migration
+# anchor /home/jcole/projects/hq
+# run    b20260806155351
+# started 2026-08-06T15:53:51Z
+
+══ 1. preflight — required tooling ═══════════════════════════════
+  docker /usr/bin/docker
+  curl   /usr/bin/curl
+  node   /usr/bin/node
+  npm    /usr/bin/npm
+  go     /usr/local/go/bin/go
+  isolation: hq-source compose publishes no fixed host port (Docker-assigned only)
+
+══ 2. substrate — spike A's Supabase + RxDB environment ═══════════════════════════════
+  delegating to env-up.sh (reconcile); its exit status gates this leg
+# env-up.sh — mode=reconcile repo=/home/jcole/projects/hq-worktrees/s-spike-b-migration
+# compose anchor (--project-directory, path-stability fix) = /home/jcole/projects/hq
+# started 2026-08-06T15:53:52Z
+
+── 1. preflight — required tooling ───────────────────────────────
+  docker /usr/bin/docker
+  curl   /usr/bin/curl
+  node   /usr/bin/node
+  npm    /usr/bin/npm
+  go     /usr/local/go/bin/go
+  compose 5.1.0
+  go      go version go1.25.8 linux/amd64
+  node    v20.20.0
+  docker daemon: reachable
+
+── 2. bringing the stack up (idempotent) ───────────────────────────────
+ Container spike-supabase-db-1 Running 
+ Container spike-supabase-realtime-1 Running 
+ Container spike-supabase-rest-1 Running 
+ Container spike-supabase-db-1 Waiting 
+ Container spike-supabase-db-1 Waiting 
+ Container spike-supabase-db-1 Healthy 
+ Container spike-supabase-db-1 Healthy 
+NAME                        IMAGE                          COMMAND                  SERVICE    CREATED        STATUS                  PORTS
+spike-supabase-db-1         supabase/postgres:15.8.1.060   "docker-entrypoint.s…"   db         19 hours ago   Up 19 hours (healthy)   0.0.0.0:50871->5432/tcp, [::]:50871->5432/tcp
+spike-supabase-realtime-1   supabase/realtime:v2.34.47     "/usr/bin/tini -s -g…"   realtime   19 hours ago   Up 19 hours             0.0.0.0:50807->4000/tcp, [::]:50807->4000/tcp
+spike-supabase-rest-1       postgrest/postgrest:v12.2.12   "/bin/postgrest"         rest       19 hours ago   Up 19 hours             0.0.0.0:50473->3000/tcp, [::]:50473->3000/tcp
+
+── 3. waiting for db to report healthy (timeout 300s) ───────────────────────────────
+  db: running/healthy
+
+── 4. applying fixture schemas ───────────────────────────────
+  → spike-fixture.sql
+psql:<stdin>:30: NOTICE:  relation "spike_notes" already exists, skipping
+  → hq-bridge-fixture.sql
+psql:<stdin>:53: NOTICE:  relation "hq_grant_projection" already exists, skipping
+psql:<stdin>:77: NOTICE:  relation "hq_sync_checklists" already exists, skipping
+psql:<stdin>:114: NOTICE:  relation "hq_uid_trap" already exists, skipping
+  → hq-bridge-policies.sql
+
+── 5. resolving host ports ───────────────────────────────
+  db=50871 rest=50473 realtime=50807
+
+── 6. waiting for PostgREST and Realtime to answer (timeout 180s each) ───────────────────────────────
+  PostgREST: HTTP 200
+  Realtime: HTTP 200
+
+── 7. installing the RxDB harness (npm ci, isolated project) ───────────────────────────────
+  node_modules present — skipping install
+
+── 8. health assertion — rest, realtime, schema, rxdb ───────────────────────────────
+# stack: rest=50473 realtime=50807 db=50871  run=r1786031637432
+PASS  ports — db=50871 rest=50473 realtime=50807
+PASS  token — go-minted, 184 chars, 3 segments
+PASS  schema — 4 fixture table(s) and 5 hq_* policy(ies) present by name
+PASS  rest — spike_notes readable; alice sees 1 row(s), owners=["user-alice"], bob's row correctly hidden
+PASS  realtime — channel SUBSCRIBED
+-------------- RxDB dev-mode warning -------------------------------
+you are seeing this because you use the RxDB dev-mode plugin https://rxdb.info/dev-mode.html?console=dev-mode 
+This is great in development mode, because it will run many checks to ensure
+that you use RxDB correct. If you see this in production mode,
+you did something wrong because the dev-mode plugin will decrease the performance.
+
+🤗 Hint: To get the most out of RxDB, check out the Premium Plugins
+to get access to faster storages and more professional features: https://rxdb.info/premium/?console=dev-mode 
+
+You can disable this warning by calling disableWarnings() from the dev-mode plugin.
+---------------------------------------------------------------------
+PASS  rxdb — local RxDB database created, doc hc-1786031639048 inserted and read back
+
+HEALTHCHECK: GREEN — ports, token, schema, rest, realtime, rxdb all asserted
+
+══════════════════════════════════════════════════════════
+✅ VERDICT: GREEN — Supabase + RxDB up, schema applied, healthy
+   db=50871  rest=50473  realtime=50807   (project: spike-supabase)
+   teardown is a separate, deliberate act:  task spike:down
+   finished 2026-08-06T15:53:59Z
+══════════════════════════════════════════════════════════
+
+══ 3. HQ-shaped source — fresh scratch Postgres (project spike-b-hq) ═══════════════════════════════
+ Network spike-b-hq_default Creating 
+ Network spike-b-hq_default Created 
+ Container spike-b-hq-hqsrc-1 Creating 
+ Container spike-b-hq-hqsrc-1 Created 
+ Container spike-b-hq-hqsrc-1 Starting 
+ Container spike-b-hq-hqsrc-1 Started 
+NAME                 IMAGE                COMMAND                  SERVICE   CREATED        STATUS                           PORTS
+spike-b-hq-hqsrc-1   postgres:16-alpine   "docker-entrypoint.s…"   hqsrc     1 second ago   Up 1 second (health: starting)   0.0.0.0:51193->5432/tcp, [::]:51193->5432/tcp
+  hqsrc: running/healthy
+  container 07dc1cfe549d  ·  host port 51193 (Docker-assigned, ephemeral)
+
+══ 4. applying the HQ-shaped schema subset and its fixture ═══════════════════════════════
+  → hq-source-schema.sql
+  → hq-source-fixture.sql
+  fixture counts users/permissions/submissions/responses = 3/4/7/15
+
+══ 5. MIGRATE — HQ-shaped rows into the substrate, through PostgREST ═══════════════════════════════
+# hq-migrate.js — HQ-shaped Postgres  ->  Supabase substrate
+# substrate: rest=50473 realtime=50807 db=50871
+# hq source container: 07dc1cfe549d29ed0bb14988593b087bb373c06ef454c9b72d13d5f1177c4813
+# run: b20260806155351
+
+── 1. extract from the HQ-shaped source ───────────────────────
+  users      3
+  projection 4  (app_permissions x hq_apps x users, role tiers expanded)
+  rows       6  (checklist_submissions x checklist_templates, archived excluded)
+    grant  11111111-1111-4111-8111-111111111111  ->  operations
+    grant  22222222-2222-4222-8222-222222222222  ->  inventory
+    grant  22222222-2222-4222-8222-222222222222  ->  operations
+    grant  33333333-3333-4333-8333-333333333333  ->  inventory
+    row    0e000000-0000-4000-8000-000000000001  owner=11111111-1111-4111-8111-111111111111  app=operations
+    row    0e000000-0000-4000-8000-000000000002  owner=11111111-1111-4111-8111-111111111111  app=operations
+    row    0e000000-0000-4000-8000-000000000003  owner=22222222-2222-4222-8222-222222222222  app=operations
+    row    0e000000-0000-4000-8000-000000000004  owner=22222222-2222-4222-8222-222222222222  app=operations
+    row    0e000000-0000-4000-8000-000000000005  owner=11111111-1111-4111-8111-111111111111  app=inventory
+    row    0e000000-0000-4000-8000-000000000006  owner=33333333-3333-4333-8333-333333333333  app=inventory
+  PASS  source has at least 3 users
+  PASS  projection resolved at least 3 (user, app) pairs
+  PASS  source projected at least 4 migratable rows
+  PASS  archived-template filter dropped rows (7 submissions -> 6 migratable)
+  PASS  source carries role-tier grants that only the users-join can resolve (2)
+
+── 2. reset the migration target (scoped to this fixture) ─────
+  migrated-key manifest -> /tmp/spike-b-migrated-yDRb4Q.json
+  PASS  DELETE hq_sync_checklists (scoped) -> HTTP 204
+  PASS  DELETE hq_grant_projection (scoped) -> HTTP 204
+  PASS  target is empty of this fixture before the load
+
+── 3. load through PostgREST (service lane) ───────────────────
+  PASS  POST hq_grant_projection -> HTTP 201
+  PASS  hq_grant_projection accepted all 4 pairs
+  PASS  POST hq_sync_checklists -> HTTP 201
+  PASS  hq_sync_checklists accepted all 6 rows
+
+── 4. read back through PostgREST and diff against source ─────
+  PASS  GET hq_sync_checklists -> HTTP 200
+  PASS  substrate holds all 6 migrated rows
+  PASS  every migrated row matches source byte-for-byte (id, owner_id, app_slug, body)
+  PASS  HQ uuid primary keys survived the cast into the text-keyed sync contract
+  PASS  substrate holds all 4 projected grants
+
+── 5. user-lane rehearsal against the MIGRATED grants ─────────
+  PASS  fixture contains a user holding one app and not another (needed for the two-lane probe)
+  probe user 11111111-1111-4111-8111-111111111111: holds 'operations', does NOT hold 'inventory'
+  PASS  POSITIVE: user writes to an app the MIGRATED projection grants -> HTTP 201
+  PASS  NEGATIVE: same user, app the migrated projection does NOT grant -> HTTP 403 (refused)
+  PASS  the refused row is genuinely absent from the substrate (not a 4xx that still wrote)
+  PASS  user-lane probe row removed
+
+MIGRATE: OK — 4 grants and 6 HQ-shaped rows are in the substrate, loaded through PostgREST, byte-identical to source.
+
+══ 6. VERIFY — do the migrated rows surface in RxDB? ═══════════════════════════════
+# hq-verify.js — do the MIGRATED rows surface in RxDB?
+# substrate: rest=50473 realtime=50807 db=50871
+# hq source container: 07dc1cfe549d29ed0bb14988593b087bb373c06ef454c9b72d13d5f1177c4813
+# run: b20260806155351
+
+── 1. expected visibility, derived from the HQ-shaped source ──
+  Alice M.  (manager    ) expects 2: 0e000000-0000-4000-8000-000000000001, 0e000000-0000-4000-8000-000000000002
+  Bob R.    (team_member) expects 2: 0e000000-0000-4000-8000-000000000003, 0e000000-0000-4000-8000-000000000004
+  Carol T.  (admin      ) expects 1: 0e000000-0000-4000-8000-000000000006
+  migrated rows visible to NOBODY: 1: 0e000000-0000-4000-8000-000000000005 [inventory]
+  PASS  at least one MIGRATED row is visible to nobody (the negative control exists)
+  PASS  at least 3 migrated rows are visible to somebody
+
+── 2. RLS discrimination over MIGRATED rows (PostgREST) ───────
+  PASS  Alice M.: GET hq_sync_checklists -> HTTP 200
+  PASS  Alice M.: PostgREST returns exactly the 2 migrated row(s) they are entitled to
+  PASS  Bob R.: GET hq_sync_checklists -> HTTP 200
+  PASS  Bob R.: PostgREST returns exactly the 2 migrated row(s) they are entitled to
+  PASS  Carol T.: GET hq_sync_checklists -> HTTP 200
+  PASS  Carol T.: PostgREST returns exactly the 1 migrated row(s) they are entitled to
+  PASS  orphan 0e000000-0000-4000-8000-000000000005 [inventory] is invisible to EVERY user (two-axis negative control)
+
+── 3. RxDB replication of the MIGRATED rows ───────────────────
+-------------- RxDB dev-mode warning -------------------------------
+you are seeing this because you use the RxDB dev-mode plugin https://rxdb.info/dev-mode.html?console=dev-mode 
+This is great in development mode, because it will run many checks to ensure
+that you use RxDB correct. If you see this in production mode,
+you did something wrong because the dev-mode plugin will decrease the performance.
+
+🤗 Hint: To get the most out of RxDB, check out the Premium Plugins
+to get access to faster storages and more professional features: https://rxdb.info/premium/?console=dev-mode 
+
+You can disable this warning by calling disableWarnings() from the dev-mode plugin.
+---------------------------------------------------------------------
+  Alice M.: RxDB holds 2 doc(s) -> 0e000000-0000-4000-8000-000000000001, 0e000000-0000-4000-8000-000000000002
+  PASS  Alice M.: replication reported no errors
+  PASS  Alice M.: RxDB holds EXACTLY the 2 migrated row(s) they are entitled to
+  PASS  Alice M.: every RxDB doc matches the HQ source row byte-for-byte
+  PASS  Alice M.: no nobody-visible row reached the local RxDB database
+  Bob R.: RxDB holds 2 doc(s) -> 0e000000-0000-4000-8000-000000000003, 0e000000-0000-4000-8000-000000000004
+  PASS  Bob R.: replication reported no errors
+  PASS  Bob R.: RxDB holds EXACTLY the 2 migrated row(s) they are entitled to
+  PASS  Bob R.: every RxDB doc matches the HQ source row byte-for-byte
+  PASS  Bob R.: no nobody-visible row reached the local RxDB database
+  Carol T.: RxDB holds 1 doc(s) -> 0e000000-0000-4000-8000-000000000006
+  PASS  Carol T.: replication reported no errors
+  PASS  Carol T.: RxDB holds EXACTLY the 1 migrated row(s) they are entitled to
+  PASS  Carol T.: every RxDB doc matches the HQ source row byte-for-byte
+  PASS  Carol T.: no nobody-visible row reached the local RxDB database
+
+VERIFY: OK — HQ-shaped data landed in the substrate and surfaced in RxDB, discriminated on both axes, byte-for-byte identical to the HQ source.
+
+══════════════════════════════════════════════════════════
+✅ VERDICT: GREEN — HQ-shaped data migrated into the Supabase substrate
+   and surfaced in RxDB, discriminated on both authz axes,
+   byte-for-byte identical to the HQ-shaped source.
+   hq source: project spike-b-hq, container 07dc1cfe549d, host port 51193 (ephemeral)
+   finished 2026-08-06T15:54:15Z
+══════════════════════════════════════════════════════════
+
+── teardown (1/2): restoring spike A's shared substrate ──
+# hq-reset — removing 6 migrated row(s) and 3 projected user(s) written by run b20260806155351
+  PASS  DELETE hq_sync_checklists (scoped to the manifest) -> HTTP 204
+  PASS  no migrated row remains in hq_sync_checklists
+  PASS  DELETE hq_grant_projection (scoped to the manifest) -> HTTP 204
+  PASS  no migrated grant remains in hq_grant_projection
+  PASS  spike A's seed survives the reset (hq_sync_checklists still holds 4 row(s): chk-alice-inv-1, chk-alice-ops-1, chk-alice-ops-2, chk-bob-ops-1)
+RESET: OK — spike A's shared substrate is back as this run found it.
+
+── teardown (2/2): destroying the scratch HQ-shaped Postgres (project spike-b-hq) ──
+  torn down.
+EXIT=0

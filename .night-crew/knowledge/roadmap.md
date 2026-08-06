@@ -85,11 +85,24 @@ count or closeout substitutes for that run.
   the immediate build; either half alone would have made 2026-08-06 a twenty-minute restore.
   Footprint: `Taskfile.yml` + compose files; no app code.
 
-- **`test-cluster-separation`** · **PLANNED** · The structural half of **B-141** (decision 155).
-  Test suites get their own Postgres container; no test file holds admin credentials to the
-  cluster serving `hq.yumyums.kitchen`. Re-point the `DB_TEST_URL` defaults, the RLS suite's
-  `defaultHQAdminURL`, and the `task test:*` targets at it. Footprint: gate/harness + compose
-  files.
+- **`test-cluster-separation`** · **DONE** (run `20260807`, card W0, branch
+  `card/w0-test-cluster-separation`) · Closed the **structural half of B-141** (decision 155).
+  Test suites got their own Postgres container: **`yumyums-test-pg`** — `docker-compose.test.yml`,
+  service `postgres-test`, compose project `yumyums-test`, host port **`5434`** (not 5433, not
+  5432), named volume `yumyums-test-pgdata`, role **`hqtest`** (deliberately *not* `yumyums`, so a
+  stale default fails closed with `role "hqtest" does not exist` instead of authenticating against
+  production). Lifecycle: `task test:db:up` (a dependency of every `test:*` target, idempotent,
+  waits healthy — measured 7.7s cold) / `task test:db:down`; `task test:targets` prints every
+  resolved coordinate read-only. Re-pointed: the `task test:*` env blocks *and* the
+  `backend:db-test` deps *and* `test:all`'s post-run `psql` reset trap, the RLS suite's
+  `defaultHQAdminURL` + `defaultFDWPort`, `scripts/verify-test-harness.sh`'s two `DEAD_URL` arms,
+  and — found at implementation, outside the slated list — `scripts/reset-e2e-db.js`, which is the
+  single place Playwright's coordinates are computed and which issues the `DROP DATABASE`.
+  `backend/Taskfile.yml`'s `ALLOW_TEST_DB_ON_DEV_HOST` guard was armed (default `1` → `0`) now that
+  the cluster its comment was waiting for exists. Proven by the full Go suite (9 packages, 246
+  top-level / 456 incl. subtests, 0 failures) and the full Playwright suite run against the new
+  container. Production topology untouched. **B-141's prefix-guard half and B-142 remain open on
+  the attended `gate-rls-fixture-ownership` re-gate.** Footprint: gate/harness + compose files.
 
 ---
 
@@ -135,14 +148,18 @@ count or closeout substitutes for that run.
   morning-triage G4 discipline greps are **vacuous in hq and read as clean** — the same
   absence-reads-as-pass class this whole activity exists to retire. Footprint: gate/harness.
 
-- **`shipped-bug-sweep`** · **PLANNED** (was slated on run `20260806` as the budget-gated stretch; **cut at 21:40Z, never dispatched** — re-slate it) · Close **B-89** and **B-132** — routed to "the next
-  night" by T-34 decision 137 and never promoted to a card, which is exactly the channel gap
-  **B-38** describes. (a) `cachedGrantSlugs()` returns `[]` unconditionally on every real client
-  (`index.html` writes `hq_apps` as `{uid, apps}`; `bootstrap.js` `Array.isArray`-gates it) — 🛑
-  **latent only while nothing calls `startHQReplication`, which Activity 4 changes**, so this must
-  land before activation. (b) `workflows.html:708` throws an uncaught `IndexSizeError` on every
-  completed submission, orphaning a full-screen canvas; fires 28× per suite run. Footprint: page
-  wiring + sync client.
+- **`shipped-bug-sweep`** · **DONE** (run `20260807`, card **A2**, branch `card/a2-shipped-bug-sweep`; commits `08dad2d` (B-89), `e65deb6` (B-132), `f2aeb0c` (sw.js regen)) · Closed **B-89** and **B-132** —
+  routed to "the next night" by T-34 decision 137 and never promoted to a card, which is exactly the
+  channel gap **B-38** describes. (a) `cachedGrantSlugs()` returned `[]` unconditionally on every real
+  client (`index.html` writes `hq_apps` as `{uid, apps}`; `bootstrap.js` `Array.isArray`-gated it) —
+  now reads the envelope and verifies `uid` against the identity token, mirroring `index.html`'s own
+  uid-mismatch handling (not a PARK). Landed before Activity 4 arms `startHQReplication`. (b)
+  `workflows.html`'s `fireworks()` threw an uncaught `IndexSizeError` on every completed submission
+  (measured tonight at 2482× per suite run, not the stale 28×/run figure) — radius now clamped
+  (`Math.max(0, p.size*p.life)`). Screenshot evidence settled what was never established: the "frozen
+  overlay" renders fully transparent (not a visible frozen confetti burst) — the real defect was a
+  leaked, invisible `<canvas>` DOM node. Both RF'd red-first; see BACKLOG.md B-89/B-132 for full
+  evidence + log paths. Footprint: page wiring + sync client, exactly as declared.
 
 - **`repo-hygiene-preconditions`** · **DONE** (run `20260806`, merge `6f91863`; triaged to `dev` 2026-08-05; B-140 filed for the four residual stale-gate sites) · The three defects the handoff §6 re-verified,
   each one line, all blocking clean `done_when:` authoring downstream. (a) **One NUL byte in
@@ -168,11 +185,31 @@ count or closeout substitutes for that run.
   environment has no hand-configured, undocumented step. Seeds the dev-environment target that
   Activity 5's demo runs against. Verdict = the script's exit status. Footprint: spike scripts.
 
-- **`spike-b-migration-rehearsal`** · **PLANNED** · *Spike B — the operator's own.* Create one
-  Postgres whose schema **mimics HQ's with a small subset of fields**, add a data fixture, stand
-  up fresh Supabase + RxDB instances, and **migrate the fixtured data across**. Proves HQ-shaped
-  data actually lands in the substrate and surfaces in RxDB. This is the leg nine nights were
-  built on top of without ever testing. Footprint: spike scripts.
+- **`spike-b-migration-rehearsal`** · **DONE** (run `20260807`, card S, verdict **GREEN** — exit 0
+  from `.night-crew/qa/spike-supabase/spike-b-migration.sh`; D-KR1 now has 2 of its 4 spike
+  verdicts) · *Spike B — the operator's own.* Create one Postgres whose schema **mimics HQ's with a
+  small subset of fields**, add a data fixture, stand up fresh Supabase + RxDB instances, and
+  **migrate the fixtured data across**. Proves HQ-shaped data actually lands in the substrate and
+  surfaces in RxDB. This is the leg nine nights were built on top of without ever testing.
+  Footprint: spike scripts.
+  **Verdict delivered:** an 8-table subset of HQ's real schema (transcribed from migrations
+  0001/0004/0005/0006/0009/0010/0011/0012) on a fresh scratch Postgres, 6 of 7 fixtured submissions
+  transformed and loaded **through PostgREST** into the substrate, byte-identical to source with
+  HQ's `uuid` keys intact through the cast into the text-keyed sync contract; RLS discriminated over
+  **those migrated rows** on both axes; three RxDB clients each replicated **exactly** the migrated
+  rows they were entitled to (2 / 2 / 1) and none received the nobody-visible control row. 48 named
+  assertions, ~25 s end to end, re-runnable from nothing (scratch container created and destroyed
+  each run; spike A's stack consumed in reconcile mode, never destroyed).
+  **Two findings for the cutover card, neither of which blocks it:** (1) HQ stores **no
+  template→app association**, so there is nothing to populate the sync contract's `app_slug` from —
+  the spike added the column explicitly and labelled it a deviation rather than hardcode
+  `'operations'`; where that association should live is an open question the cutover card inherits.
+  (2) A bulk migration **cannot** run on per-user tokens: `hq_sync_checklists_insert`'s `WITH CHECK`
+  refuses a row whose owner holds no live grant on its app, and real datasets contain exactly such
+  rows. The bulk lane must be a service identity — measured viable on this stack with no schema
+  change (`service_role` already has `rolbypassrls=t` and full table grants from the
+  supabase/postgres image's default privileges). The `authenticated` user lane was rehearsed
+  separately after the load and still refuses correctly (HTTP 403, row genuinely absent).
 
 - **`spike-c-round-trip`** · **PLANNED** · 🛑 **LOAD-BEARING — if this cannot go green, STOP and
   re-plan before any card is cut.** One row written through the **real** write path

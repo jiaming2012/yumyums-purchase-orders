@@ -431,7 +431,14 @@ fresh session.
 - `export PATH="/usr/local/go/bin:$PATH"` before **any** Go or Playwright leg. The
   non-interactive shell does not carry Go; Playwright's `webServer` dies with
   `go: not found` / exit 127, which **looks like a test failure and is not**.
-- Postgres is on **:5433**, not 5432.
+- 🛑 **Tests run on :5434, not :5433.** `:5433` (`yumyums-dev-pg`) is the **dev *and* production**
+  cluster — it serves `hq.yumyums.kitchen` via the `production` search_path. Test suites have
+  their own container since run `20260807`: **`yumyums-test-pg`**, host port **`5434`**, role
+  **`hqtest`** (not `yumyums`), volume `yumyums-test-pgdata`, defined in `docker-compose.test.yml`.
+  Bring it up with `task test:db:up` (every `test:*` target already depends on it); print every
+  resolved coordinate, read-only, with `task test:targets`. `:5432` is `infra-postgres-1`
+  (slack-trading) and is nobody's here. Pointing a suite, a probe or a `psql` at `:5433` is how the
+  production database was destroyed on 2026-08-06 — BACKLOG B-141/B-143, ledger decision 155.
 - `go test ./... -p 1` — **`-p 1` is load-bearing.** Packages share one test DB and
   each `TestMain` truncates; without it six packages red on cross-package
   interference. Not a production defect.
