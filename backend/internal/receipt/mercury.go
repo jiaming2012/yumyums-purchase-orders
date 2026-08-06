@@ -27,15 +27,22 @@ const (
 // classifying attached vs. unattached rows is the worker's job (see worker.go)
 // so the completeness gate can fail on unreceipted card spend.
 //
-// Pagination: Mercury caps each response at 500 records. This function
-// iterates with increasing offsets until a page shorter than the limit is
-// returned (the standard "last page" sentinel). An offset safety ceiling of
-// 50 000 prevents infinite loops if Mercury ever misbehaves.
+// Pagination: Mercury caps each response at 500 records and its
+// /api/v1/transactions endpoint is CURSOR-paginated — it accepts
+// `start_after` (exclusive transaction-ID cursor) and silently IGNORES an
+// `offset` parameter. Offset pagination therefore returns the identical
+// first page forever once a window holds >500 raw transactions (verified
+// against the live API on 2026-08-06, during the B-145 backfill: offsets 0
+// and 500 returned the same first ID). Windows under 500 fit in one page,
+// which is why the ordinary 14-day lookback never surfaced this. We request
+// order=asc and cursor forward from each page's last raw transaction until
+// a short page arrives.
 func FetchTransactions(ctx context.Context, apiKey string, startDate, endDate time.Time) ([]MercuryTransaction, error) {
 	var all []MercuryTransaction
-	offset := 0
+	startAfter := ""
+	pages := 0
 	for {
-		filtered, rawCount, err := fetchTransactionsPage(ctx, apiKey, startDate, endDate, mercuryPageLimit, offset)
+		filtered, rawCount, lastID, err := fetchTransactionsPage(ctx, apiKey, startDate, endDate, mercuryPageLimit, startAfter)
 		if err != nil {
 			return nil, err
 		}
@@ -46,32 +53,40 @@ func FetchTransactions(ctx context.Context, apiKey string, startDate, endDate ti
 		if rawCount < mercuryPageLimit {
 			break
 		}
-		offset += mercuryPageLimit
-		if offset > 50000 {
-			// Defensive: bail out if Mercury keeps returning full pages well
-			// beyond any plausible transaction volume for this codebase.
-			return nil, fmt.Errorf("Mercury FetchTransactions: offset exceeded 50000 — bailing")
+		if lastID == "" || lastID == startAfter {
+			// A full page whose cursor did not advance can only loop forever.
+			return nil, fmt.Errorf("Mercury FetchTransactions: pagination cursor did not advance (start_after=%q) — bailing", startAfter)
+		}
+		startAfter = lastID
+		pages++
+		if pages > 100 {
+			// Defensive ceiling: 100 pages = 50 000 raw transactions, far past
+			// any plausible volume for this business.
+			return nil, fmt.Errorf("Mercury FetchTransactions: exceeded 100 pages — bailing")
 		}
 	}
 	return all, nil
 }
 
 // fetchTransactionsPage fetches a single page of transactions from the Mercury
-// list endpoint with the given limit and offset. It applies the status/kind
-// filters so callers only see supported, sent transactions.
+// list endpoint with the given limit, cursoring forward from startAfter (the
+// exclusive transaction-ID cursor; empty for the first page). It applies the
+// status/kind filters so callers only see supported, sent transactions.
 //
-// Returns both the filtered slice and the raw count of transactions Mercury
-// returned (before filtering). The caller must use rawCount — not
+// Returns the filtered slice, the raw count of transactions Mercury returned
+// (before filtering), and the ID of the LAST raw transaction on the page —
+// the caller's next cursor. The caller must use rawCount — not
 // len(filtered) — to decide whether to continue paginating, because a page
 // of e.g. 500 raw txs where 460 are unsupported would look like a 40-tx
 // "short page" if the caller used the filtered length, terminating the loop
-// prematurely.
-func fetchTransactionsPage(ctx context.Context, apiKey string, startDate, endDate time.Time, limit, offset int) (filtered []MercuryTransaction, rawCount int, err error) {
+// prematurely. lastID likewise comes from the raw page, not the filtered
+// slice, or a fully-filtered page would stall the cursor.
+func fetchTransactionsPage(ctx context.Context, apiKey string, startDate, endDate time.Time, limit int, startAfter string) (filtered []MercuryTransaction, rawCount int, lastID string, err error) {
 	const mercuryURL = "https://api.mercury.com/api/v1/transactions"
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, mercuryURL, nil)
 	if err != nil {
-		return nil, 0, fmt.Errorf("Mercury FetchTransactions: failed to create request: %w", err)
+		return nil, 0, "", fmt.Errorf("Mercury FetchTransactions: failed to create request: %w", err)
 	}
 
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", apiKey))
@@ -81,26 +96,34 @@ func fetchTransactionsPage(ctx context.Context, apiKey string, startDate, endDat
 	q.Add("start", startDate.Format("2006-01-02"))
 	q.Add("end", endDate.Format("2006-01-02"))
 	q.Add("limit", fmt.Sprintf("%d", limit))
-	q.Add("offset", fmt.Sprintf("%d", offset))
+	// asc so the cursor walks oldest→newest deterministically; if a long
+	// backfill is interrupted, the oldest data has already been ingested.
+	q.Add("order", "asc")
+	if startAfter != "" {
+		q.Add("start_after", startAfter)
+	}
 	req.URL.RawQuery = q.Encode()
 
 	client := &http.Client{Timeout: 30 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, 0, fmt.Errorf("Mercury FetchTransactions: request failed: %w", err)
+		return nil, 0, "", fmt.Errorf("Mercury FetchTransactions: request failed: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, 0, fmt.Errorf("Mercury FetchTransactions: non-200 response: %d", resp.StatusCode)
+		return nil, 0, "", fmt.Errorf("Mercury FetchTransactions: non-200 response: %d", resp.StatusCode)
 	}
 
 	var envelope mercuryListTransactionsResponse
 	if err := json.NewDecoder(resp.Body).Decode(&envelope); err != nil {
-		return nil, 0, fmt.Errorf("Mercury FetchTransactions: failed to decode response: %w", err)
+		return nil, 0, "", fmt.Errorf("Mercury FetchTransactions: failed to decode response: %w", err)
 	}
 
 	rawCount = len(envelope.Transactions)
+	if rawCount > 0 {
+		lastID = envelope.Transactions[rawCount-1].ID
+	}
 
 	var out []MercuryTransaction
 	for _, tx := range envelope.Transactions {
@@ -116,7 +139,7 @@ func fetchTransactionsPage(ctx context.Context, apiKey string, startDate, endDat
 		out = append(out, tx)
 	}
 
-	return out, rawCount, nil
+	return out, rawCount, lastID, nil
 }
 
 // FetchTransactionsByIDs fetches Mercury transactions in a wide date range
