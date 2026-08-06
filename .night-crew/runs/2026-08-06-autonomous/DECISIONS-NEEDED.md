@@ -1,7 +1,8 @@
 # Decisions needed — run `overnight-20260806`
 
-> One open fork. **No card parked.** All seven dispatched cards completed; this question
-> was surfaced by G6 review rather than by a card being unable to proceed.
+> **Two items.** **No card parked on an operator fork.** D-1 was surfaced by G6 review; D-2 by an
+> incident during G6 review. Six of the seven dispatched cards completed their work (A5 was cut on
+> budget and never dispatched); A3 was refused at its gate, which is a failed gate rather than a park.
 >
 > Raised by the orchestrator, not delegated away: everything else this run met was decided
 > and stated (see HANDOFF.md §"Decided, not escalated"). This one changes what a gate
@@ -60,6 +61,41 @@ number 5". Costs one new gate row; retires the ambiguity permanently.
 it is an obligation with no gate behind it, and a recycled number is what produced this
 contradiction in the first place. But this is a recommendation, not a decision — I have not applied
 it, and A4's sentence is marked open rather than softened.
+
+---
+
+## D-2 · The production posture — a test suite holds admin credentials to the production cluster, and nothing is backed up
+
+**Status:** open · **Raised by:** realised during G6 review of `a3-rls-fixture-own` · **Bugs:** B-141, B-143
+
+### As the owner of a working food-truck business, I want to know that a test run cannot delete my operating data — and that if something does, I can get it back.
+
+Tonight a test suite dropped the production database. You have already made the immediate call
+(restart, rebuild empty) and prod is back up. These are the two structural questions it leaves,
+and both are yours because both trade cost against risk in ways only you can price.
+
+**(a) Should the test suites and production share one Postgres cluster?**
+`defaultHQAdminURL` in the RLS suite is `postgres://yumyums:yumyums@localhost:5433/postgres` — the
+same cluster that serves `hq.yumyums.kitchen`. That means *any* mistake in that file is a
+production mistake, and B-141's guard defect was only the first one to find the edge. Separating
+them (a second container, or a distinct role without `DROP DATABASE`) would have made tonight
+survivable **independently of any backup**. Cost: another container to run and one more DSN to keep
+straight.
+
+**(b) What backup do you want?** Verified tonight: no PITR (`archive_mode=off`), no dump target
+anywhere in the repo, no dump files on the box, and the alternate volume empty. `task prod:deploy`
+ships a `prod:rollback` for the **image** and nothing for the **data** — which is exactly why the
+image was reversible tonight and the database was not.
+
+- **Floor:** a nightly `pg_dump` of `yumyums` to a path outside the Docker volume. A Taskfile target
+  plus a cron line. Would have made tonight a twenty-minute restore.
+- **Ceiling worth having:** `archive_mode=on` with a local WAL archive, giving point-in-time
+  recovery to the second before the `DROP`.
+
+**Orchestrator's recommendation:** do **(b) floor** immediately — it is an hour of work and it is
+the difference between last night and a shrug — and treat **(a)** as the real fix to schedule. I
+have not implemented either; a run has no business changing production posture, and you have just
+had one demonstration of why.
 
 ---
 
