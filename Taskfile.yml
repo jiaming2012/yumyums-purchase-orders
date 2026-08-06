@@ -265,3 +265,39 @@ tasks:
   prod:logs:
     desc: Tail logs from the production container
     cmd: docker logs --tail 100 -f {{.PROD_CONTAINER}}
+
+  prod:backup:
+    desc: pg_dump the prod database + cluster globals to the Windows-side disk (outside every Docker volume); keeps last 14
+    # B-143/B-145: prod had NO backup of any kind when the database was dropped
+    # on 2026-08-06. This target is the floor. The dump goes to the Windows
+    # filesystem so it survives WSL resets, container rebuilds and volume
+    # removal. Scheduled by the Windows task "YumyumsProdBackup" (schtasks),
+    # NOT by in-WSL cron — WSL idles out (see the KeepWSLAlive task).
+    # The globals dump exists because roles (hq_sync_fdw) are cluster-level:
+    # restoring the database dump alone onto a fresh cluster loses grants
+    # (measured: 5 restore errors without it).
+    vars:
+      BACKUP_DIR: '{{.BACKUP_DIR | default "/mnt/c/Users/jcole/yumyums-backups"}}'
+      PROD_PG_CONTAINER: '{{.PROD_PG_CONTAINER | default "yumyums-dev-pg"}}'
+    cmds:
+      - |
+        set -euo pipefail
+        mkdir -p "{{.BACKUP_DIR}}"
+        ts=$(date +%Y%m%d-%H%M%S)
+        dump="{{.BACKUP_DIR}}/yumyums-$ts.dump"
+        globals="{{.BACKUP_DIR}}/globals-$ts.sql"
+        log() { echo "$(date -Is) $1" >> "{{.BACKUP_DIR}}/backup.log"; echo "$1"; }
+        if ! docker exec {{.PROD_PG_CONTAINER}} pg_dump -U yumyums -Fc yumyums > "$dump"; then
+          log "FAIL pg_dump exited non-zero (container {{.PROD_PG_CONTAINER}})"
+          exit 1
+        fi
+        docker exec {{.PROD_PG_CONTAINER}} pg_dumpall -U yumyums --globals-only > "$globals"
+        size=$(stat -c%s "$dump")
+        # An empty/truncated dump must not silently rotate out good ones.
+        if [ "$size" -lt 10000 ]; then
+          log "FAIL dump suspiciously small ($size bytes): $dump — keeping, not pruning"
+          exit 1
+        fi
+        ls -1t "{{.BACKUP_DIR}}"/yumyums-*.dump | tail -n +15 | xargs -r rm --
+        ls -1t "{{.BACKUP_DIR}}"/globals-*.sql | tail -n +15 | xargs -r rm --
+        log "OK $dump ($size bytes)"
