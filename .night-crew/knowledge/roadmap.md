@@ -85,11 +85,24 @@ count or closeout substitutes for that run.
   the immediate build; either half alone would have made 2026-08-06 a twenty-minute restore.
   Footprint: `Taskfile.yml` + compose files; no app code.
 
-- **`test-cluster-separation`** · **PLANNED** · The structural half of **B-141** (decision 155).
-  Test suites get their own Postgres container; no test file holds admin credentials to the
-  cluster serving `hq.yumyums.kitchen`. Re-point the `DB_TEST_URL` defaults, the RLS suite's
-  `defaultHQAdminURL`, and the `task test:*` targets at it. Footprint: gate/harness + compose
-  files.
+- **`test-cluster-separation`** · **DONE** (run `20260807`, card W0, branch
+  `card/w0-test-cluster-separation`) · Closed the **structural half of B-141** (decision 155).
+  Test suites got their own Postgres container: **`yumyums-test-pg`** — `docker-compose.test.yml`,
+  service `postgres-test`, compose project `yumyums-test`, host port **`5434`** (not 5433, not
+  5432), named volume `yumyums-test-pgdata`, role **`hqtest`** (deliberately *not* `yumyums`, so a
+  stale default fails closed with `role "hqtest" does not exist` instead of authenticating against
+  production). Lifecycle: `task test:db:up` (a dependency of every `test:*` target, idempotent,
+  waits healthy — measured 7.7s cold) / `task test:db:down`; `task test:targets` prints every
+  resolved coordinate read-only. Re-pointed: the `task test:*` env blocks *and* the
+  `backend:db-test` deps *and* `test:all`'s post-run `psql` reset trap, the RLS suite's
+  `defaultHQAdminURL` + `defaultFDWPort`, `scripts/verify-test-harness.sh`'s two `DEAD_URL` arms,
+  and — found at implementation, outside the slated list — `scripts/reset-e2e-db.js`, which is the
+  single place Playwright's coordinates are computed and which issues the `DROP DATABASE`.
+  `backend/Taskfile.yml`'s `ALLOW_TEST_DB_ON_DEV_HOST` guard was armed (default `1` → `0`) now that
+  the cluster its comment was waiting for exists. Proven by the full Go suite (9 packages, 246
+  top-level / 456 incl. subtests, 0 failures) and the full Playwright suite run against the new
+  container. Production topology untouched. **B-141's prefix-guard half and B-142 remain open on
+  the attended `gate-rls-fixture-ownership` re-gate.** Footprint: gate/harness + compose files.
 
 ---
 
