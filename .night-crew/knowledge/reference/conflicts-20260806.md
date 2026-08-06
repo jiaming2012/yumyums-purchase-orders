@@ -174,3 +174,48 @@ self-corrected rather than silently patched.
 (`N/A — openspec: absent`, decision 140, versus `red-first re-verified by G6`, decision 101).
 Filed as **D-1** in `DECISIONS-NEEDED.md`. It is an operator call because it adds or removes
 an obligation on every future card, and red-first is graded this run under Q-KR3.
+
+---
+
+### 6 · `a3-rls-fixture-own` → **NOT MERGED** · branch and worktree preserved
+
+**There is no merge to log, and that is the entry.** §15ad.66 requires a line for every merge;
+this records the merge that was refused, so the log cannot be read as "A3 landed" or as
+"the logging stopped".
+
+**Verdict:** G6 returned **DO NOT MERGE** on two findings, and the review **realised the first
+one during the review itself** — see the incident below.
+
+**Why it was not merged, and why no fix round was attempted tonight:**
+- The card's mechanism and evidence are the **strongest of the run**. The refusal provably fires
+  before any socket is opened (0.24s to fail with an unreachable admin URL, versus 5.26s to fail
+  on connect when a name is supplied — so name resolution demonstrably precedes I/O). B-36's
+  opt-out door is unchanged in **both** directions. A1's count assertions still hold at 59 and
+  the walker reported nothing. The fixture-eating red was **independently reproduced** by G6 on
+  the pre-card tree: a run that reported 59/59 green and exited 0 destroyed another party's
+  database. Its `## Red-first` section is the best of the night.
+- But its `HQ_RLS_TEST_DB` guard is a **four-item literal blocklist** feeding unquoted
+  `DROP DATABASE … WITH (FORCE)` against a `defaultHQAdminURL` that points at the **production
+  cluster**. Filed as **B-141**. And its own new test blind-drops `hq_test_b2_fdw` without
+  resolving or naming it — the very property the card exists to remove, reproduced inside the
+  card. Filed as **B-142**, together with the `Taskfile.yml` breakage the card would have caused.
+- Both fixes are a few lines. **They were not attempted tonight** because the defect had just
+  destroyed production, the budget was spent at 7h20m, and a guard on destructive DDL against
+  the production cluster deserves attended attention rather than an autonomous 2am round. The
+  branch `card/a3-rls-fixture-own` and its worktree are **preserved intact** with full evidence.
+
+**🛑 Incident during this review — production database destroyed.** Probing the blocklist,
+the reviewer set `HQ_RLS_TEST_DB=yumyums`; the suite accepted it and ran
+`DROP DATABASE yumyums WITH (FORCE)` + `CREATE DATABASE`. `yumyums` on `localhost:5433` is the
+production database. Recovery was impossible — `archive_mode=off`, no dumps on the box, the
+alternate volume empty (**B-143**). The operator was stopped and asked, chose to restart, and
+production was rebuilt structurally empty: goose to version 70, 48 tables, plus
+migration-seeded reference data only (108 `purchase_items`, 6 `vendors` from
+`0064_no_itemized_receipt_seed.sql`) and the one superadmin loaded from `SUPERADMIN_CONFIG`.
+
+**Root cause is not the reviewer's.** It was doing exactly what a G6 must do — attacking a guard
+on destructive DDL to find what it lets through — and it found what it let through. The
+orchestrator dispatched an adversarial review of a `DROP DATABASE` guard on a box where the test
+cluster **is** the production cluster, and the prompt invited probing with real database names
+without ever establishing that separation. That is the orchestrator's error, and it is recorded
+as one in HANDOFF.md.

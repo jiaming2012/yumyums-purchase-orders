@@ -1068,3 +1068,84 @@ all four cards ran the same shape (implement → G6 → one fix round → merge)
 parked, or restarted. The one outlier low (A4, 31m07s) is a documentation card whose analysis was
 done at planning time; it is included rather than excluded, and named here so the median is
 readable rather than merely defensible.
+## Run 20260806
+
+**Dispatch: CONCURRENT, three tracks** (operator's choice at sign-off) under a global Playwright
+suite mutex. Wave 0 ran alone and first; A1/A2/C1 then ran concurrently; A3 followed A1 in Track A;
+A4 followed A2 in Track B. **A5 `shipped-bug-sweep` was CUT on budget and never dispatched.**
+
+🛑 **Provenance of these figures.** Legs marked **(stamped)** were timed by the orchestrator at
+dispatch and return. Legs marked **(derived)** are computed from the sub-agent's own reported
+wall-clock, because I failed to stamp that boundary directly — A2's G6 return and A2's fix-round
+start are the two gaps. They are recorded as derived rather than presented as measured, because
+B-39 exists to make these countable, and a figure whose provenance is silently mixed is exactly
+the shape this repo keeps getting bitten by.
+
+| Card | Implement | G6 | Fix round | End-to-end |
+|---|---|---|---|---|
+| W0 `repo-hygiene-preconditions` | 52m27s (18:31:12→19:23:39) | 8m03s (→19:31:42) | 5m39s (19:31:55→19:37:34) | **67m05s** — MERGED `6f91863`, G6 MERGE WITH NOTE. Estimate 40–65m on the implement leg; landed inside it. |
+| C1 `spike-a-environment-up` 🅕 | 69m40s (19:39:00→20:48:40) | 10m53s (→20:59:33) | 25m09s (→21:24:42) | **106m28s** — MERGED `76dc12b`, G6 MERGE WITH NOTE. Estimate 60–150m; mid-range despite a full fix round. |
+| A1 `gate-rls-count-assertion` | **115m45s** (19:39:00→21:34:45) | 13m40s (→21:48:25) | 55m21s (→22:43:46) | **185m06s** — MERGED `9b63958`, G6 MERGE WITH NOTE. Estimate 55–85m; **OVER the high end by 30m45s (+36%)**. See note 1. |
+| A2 `gate-harness-check-b` | 76m57s (19:39:00→20:55:57) | 49m05s (→~21:45:02, **derived**) | 67m05s (~21:47:14→22:54:19, **derived**) | **196m13s** — MERGED `b75ac53`, G6 MERGE WITH NOTE. Estimate 70–110m; implement leg inside it. |
+| A4 `gate-ladder-completeness` | **8m05s** (21:48:25→21:56:30) | 5m29s (→22:01:59) | 5m34s (~22:56:45→23:02:19) | **74m27s** — MERGED `c2a7e5c`, G6 MERGE WITH NOTE. Estimate 30–50m; far under, because it is a documentation card whose analysis was done at slate time. The end-to-end figure is dominated by waiting on the mandated merge order, not by work. |
+| A3 `gate-rls-fixture-ownership` | 41m49s (22:44:57→23:26:46) | 10m09s (→23:36:55) | none attempted | **NOT MERGED** — G6 **DO NOT MERGE**. Estimate 55–85m; implement leg **under** it. Branch and worktree preserved. See note 6. |
+| A5 `shipped-bug-sweep` 🅢 | — | — | — | **NOT DISPATCHED.** Cut on budget at 21:40Z, ~3h09m in. See note 2. |
+
+🅕 first-of-kind, no prior `card-actuals` basis. 🅢 budget-gated stretch.
+
+### Notes
+
+1. **A1's overrun is mostly environmental, not estimation.** It lost an in-flight nested RLS run
+   when C1's `docker compose up -d` recreated the spike containers and moved their ephemeral ports
+   underneath it, and lost a Playwright leg to harness reaping (the parent shell was killed, the
+   suite kept running orphaned, so `echo "EXIT=$?"` never executed and the code was unrecoverable).
+   Its fix round then absorbed a **mandatory 23.5m Playwright re-run** because its original gate had
+   been invalidated by concurrency — see note 3. Roughly 30m of the 115m is attributable to the two
+   environmental losses, which would put it just inside the high end.
+
+2. **A5 was cut early, deliberately.** At the decision point the remaining critical path was A3
+   (90–130m) plus A4 plus a ~30m closeout; A5's own 70–105m estimate plus a full ~24m suite it would
+   have had to queue for projected past 03:00Z. The slate's rule is *"start only if A5's estimate
+   plus the ~30m closeout is still in hand"*, and it was not. Deciding this **early** is the point:
+   deciding it late is how a stretch card eats the closeout.
+
+3. **One gate was discarded and re-run rather than reasoned about.** A2's G6 ran an unlocked
+   ~11-minute `verify-test-harness.sh` — a `go test` over 7 packages, i.e. a Go suite — which
+   overlapped A1's full Playwright suite. A1's original result showed **zero failures**, so a
+   conditional reading would have let it stand; the slate says *"discarded and re-run, not reasoned
+   about"* precisely to forbid that reasoning. Cost ~24m. **Root cause was the orchestrator's**: the
+   unlocked-probe carve-out was written for A2's *cheap per-package probes* (seconds each,
+   nonexistent DB, no ports) and was drawn broadly enough that a G6 reasonably extended it to the
+   eleven-minute end-to-end harness. Narrow the exemption next time to *single-package* probes.
+
+4. **The mutex itself worked, under real contention.** The queue was observed four deep (A1's Go
+   legs holding, C1's Playwright, A1's Playwright, A2) with no two suites overlapping. `flock` on a
+   shared lock file made overlap structurally impossible rather than a rule each subagent had to
+   remember — which is what made the single violation above traceable to a carve-out I authored,
+   rather than to a card forgetting.
+
+5. **Three of the four code-changing cards shipped without their `## Red-first` section** (W0, C1,
+   A1) and all three were sent back for it. A4 — told about the others' failures — is the only card
+   that got it right first time, and it is the one card that legitimately records `n/a`. The
+   requirement lives in the launch prompt but in **no card template**, so every card had to remember
+   it unaided. This is Q-KR3's first gradeable cycle. **Put it in the merge-intent template.**
+
+6. **A3 was not merged, and no fix round was attempted.** Its G6 returned DO NOT MERGE on two
+   findings — and **realised the first one during the review**, destroying the production database
+   (B-141, B-143; incident recorded in `conflicts-20260806.md` §6 and HANDOFF.md). The card's
+   mechanism and evidence are the strongest of the run and both fixes are a few lines, but they
+   were deliberately left for attended work: the defect had just taken prod down, the budget was
+   spent at 7h20m, and a guard on `DROP DATABASE` against the production cluster is not something
+   to re-gate autonomously at 2am. This is the same instinct the slate's budget rule encodes —
+   prefer a clean stop over a rushed landing — applied to a card that was *technically* nearly
+   done.
+
+**Run 20260806 median end-to-end: 106m28s** (N=5 merged: 67m05s, 74m27s, 106m28s, 185m06s,
+196m13s). **A3 is excluded** because it did not complete a merge, and A5 is excluded because it was
+never dispatched — both exclusions are named rather than silently dropped, per the run 20260804
+precedent. Median is up sharply on 20260804's 71m56s, and the reason is legible rather than
+mysterious: **every card this run took a fix round** (5 of 5 merged), where 20260804's cards each
+took one short one, and three cards absorbed a full ~23m Playwright suite serialized behind a
+global mutex that did not exist on previous nights. The mutex is not the regression — it is what
+made the one gate violation traceable — but it does convert concurrency into queueing whenever
+more than one card wants the suite, and six of seven cards wanted it.
