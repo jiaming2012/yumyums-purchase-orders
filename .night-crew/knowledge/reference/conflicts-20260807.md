@@ -42,3 +42,29 @@ log means the logging never ran, not "no conflicts".
   write. Also of record: that attended session ran a full Playwright suite against :5433
   while W0 was in flight — standing rule 2 bound this run, which waited; the attended act
   was the operator's own.
+
+## §2 — A2 `shipped-bug-sweep` → `overnight-20260807` (CLEAN)
+
+- **Merge commit:** `405a52f` (no-ff, ort), card branch `card/a2-shipped-bug-sweep` tip
+  `f4dab6a`, base `35ad2ec`. **Zero conflicted hunks** — the run branch had not moved since
+  the card branched.
+- **Intents read:** A2's (`merge-intents/a2-shipped-bug-sweep.md`) and W0's — no file
+  overlap (A2 stayed off Taskfile/compose/scripts entirely); W0's what-must-survive
+  (rowvisibility constants) untouched by A2. Nothing dropped.
+- **Files:** sync-rxdb/bootstrap.js, tests/sync-rxdb-client.spec.js, workflows.html,
+  tests/workflows.spec.js, sw.js (regenerated, content-hash only), roadmap/BACKLOG flips,
+  merge-intent + a2-logs.
+- **Gate after merge:** merged tree content-identical to card tip (base unmoved), so the
+  card's evidence carries: G1 clean; G2 Go 9 pkgs ok (DB-coupled execution corroborated by
+  durations, G6); G2 Playwright **792 passed / 6 skipped / 0 failed**, one summary block,
+  25.1m, +1 vs baseline = the card's own new B-132 regression test; G4 reproduced
+  byte-identical by G6 at HEAD (31 precached, 1.4.0 parity).
+- **G6 verdict:** MERGE-WITH-NOTES. For triage: (1) 🛑 the permanent B-132 test hardcodes a
+  screenshot path into `.night-crew/runs/2026-08-07-autonomous/a2-logs/` — every future
+  full-suite run rewrites this run's committed evidence; fix off `dev` (drop the screenshot
+  step or point it at test-results/) BEFORE the next overnight run; (2) gate logs carry no
+  command/env attestation (results corroborated by durations/flaky-absence, but the format
+  is thin — convention item); (3) merge-intent footprint omitted tests/workflows.spec.js
+  while naming it in what-must-survive. Also: before/after B-132 PNGs are byte-identical —
+  the pre-fix state stands on b132-red.log (IndexSizeError at 10:50:54, pre-fix-commit),
+  not the PNG pair.
