@@ -4236,10 +4236,12 @@ test.describe('B-132 — fireworks confetti canvas', () => {
 
     // The required screenshot: 3s after a completed submit, at 393x852 —
     // B-132 never established how the frozen overlay actually renders. Saved
-    // whether this run is red or green so both states are on record.
+    // whether this run is red or green so both states are on record. Written
+    // to test-results/ (gitignored), never into a run's committed evidence
+    // directory (B-147).
     await page.waitForTimeout(3000);
     await page.screenshot({
-      path: path.join(__dirname, '..', '.night-crew', 'runs', '2026-08-07-autonomous', 'a2-logs', 'b132-completed-submit-3s.png'),
+      path: path.join(__dirname, '..', 'test-results', 'b132-completed-submit-3s.png'),
     });
 
     // The exception aborts animate() before it ever reaches canvas.remove(),

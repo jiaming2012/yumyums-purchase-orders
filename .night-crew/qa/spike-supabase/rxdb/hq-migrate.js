@@ -93,8 +93,15 @@ const projUsers = [...new Set(projection.map((p) => p.user_id))];
 // this process dies in the middle of the load. See MANIFEST's note in
 // hq-bridge-env.js for what goes wrong when a rehearsal leaves rows behind.
 if (MANIFEST) {
-    writeFileSync(MANIFEST, JSON.stringify({ run: RUN, rowIds, projUsers }, null, 2));
-    console.log(`  migrated-key manifest -> ${MANIFEST}`);
+    // The two user-lane probe ids are minted later (§4) but written here, so a
+    // run dying between the probe insert and its cleanup still leaves them
+    // inside hq-reset.js's scoped delete — a probe row that escapes the
+    // manifest contaminates the shared substrate persistently and reds
+    // TestJWTBridgeRLS's exact-row-set control (B-148).
+    const probeIds = [`probe-ok-${RUN}`, `probe-refused-${RUN}`];
+    writeFileSync(MANIFEST, JSON.stringify(
+        { run: RUN, rowIds: [...rowIds, ...probeIds], projUsers }, null, 2));
+    console.log(`  migrated-key manifest -> ${MANIFEST} (incl. ${probeIds.length} probe id(s))`);
 }
 
 const delRows = await rest('DELETE', `${SYNC_TABLE}?id=${inList(rowIds)}`, { token: svc });
