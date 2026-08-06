@@ -300,4 +300,19 @@ tasks:
         fi
         ls -1t "{{.BACKUP_DIR}}"/yumyums-*.dump | tail -n +15 | xargs -r rm --
         ls -1t "{{.BACKUP_DIR}}"/globals-*.sql | tail -n +15 | xargs -r rm --
+        # PITR base (decision 159): pg_basebackup + the WAL archive in
+        # {{.BACKUP_DIR}}/wal (archive_mode=on, see infra/docker/yumyums
+        # compose) recover the CLUSTER to any point ≤5min before a disaster —
+        # including a dropped database, which pg_dump alone cannot do without
+        # losing everything since the last nightly. -X none is deliberate:
+        # WAL comes from the archive, not the backup.
+        base="{{.BACKUP_DIR}}/basebackup-$ts.tar.gz"
+        if docker exec {{.PROD_PG_CONTAINER}} pg_basebackup -U yumyums -c fast -Ft -z -X none -D - > "$base" 2>/dev/null; then
+          ls -1t "{{.BACKUP_DIR}}"/basebackup-*.tar.gz | tail -n +15 | xargs -r rm --
+          # WAL older than the oldest kept base backup is unusable; prune it.
+          find "{{.BACKUP_DIR}}/wal" -type f -mtime +15 -delete 2>/dev/null || true
+        else
+          rm -f "$base"
+          log "WARN pg_basebackup failed — nightly dump succeeded, PITR base is stale"
+        fi
         log "OK $dump ($size bytes)"
