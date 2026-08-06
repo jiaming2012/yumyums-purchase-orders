@@ -65,15 +65,36 @@ const { execFileSync } = require('child_process');
 const TEST_DB_NAME_PATTERN = /^hq_test(?:_[a-z0-9]+)*$/;
 
 // Coordinate defaults are duplicated NOWHERE ELSE — playwright.config.js reads
-// them from here. DB_PORT 5433 is yumyums-dev-pg, the container that actually
-// serves HQ; host :5432 is bound by infra-postgres-1 (slack-trading), which has
-// no `yumyums` role.
+// them from here.
+//
+// 🛑 :5434 / `hqtest` IS THE TEST CLUSTER (yumyums-test-pg, docker-compose.test.yml,
+// `task test:db:up`). It is NOT :5433 and it is NOT `yumyums`, and both halves
+// of that are load-bearing.
+//
+// Until 2026-08-07 these defaults were `localhost:5433` + `yumyums:yumyums` —
+// yumyums-dev-pg, the container that serves https://hq.yumyums.kitchen (prod is
+// the `production` search_path on the same instance). The function below builds
+// `adminUrl`, and `resetE2eDatabase` issues `DROP DATABASE` against it from
+// playwright.config.js's `webServer.command`, on EVERY `npx playwright test` —
+// including the bare invocation night-crew.toml runs directly. So the default
+// path of the E2E harness held admin credentials to production and used them to
+// drop a database. On 2026-08-06 the sibling instance of that exposure
+// (internal/sync's RLS suite, same cluster, same credentials) destroyed the
+// production database with no backup to restore from — BACKLOG B-141 / B-143.
+// Ledger decision 155 moved the suites to their own container; card
+// `test-cluster-separation` (run 20260807) executed it.
+//
+// The role is `hqtest`, not `yumyums`, ON PURPOSE. Port-only separation leaves a
+// stale default one typo away from production; a distinct role name means a
+// mistake fails closed with `role "hqtest" does not exist` rather than
+// authenticating. Do not "tidy" these back to yumyums, and do not point them at
+// :5433 or :5432 (the latter is infra-postgres-1, slack-trading).
 function resolveE2eDb(env) {
   const e = env || process.env;
   const host = e.DB_HOST || 'localhost';
-  const port = e.DB_PORT || '5433';
-  const user = e.DB_USER || 'yumyums';
-  const pass = e.DB_PASS || 'yumyums';
+  const port = e.DB_PORT || '5434';
+  const user = e.DB_USER || 'hqtest';
+  const pass = e.DB_PASS || 'hqtest';
   const name = e.TEST_DB_NAME || 'hq_test_e2e';
   return {
     host,

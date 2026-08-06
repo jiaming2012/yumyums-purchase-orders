@@ -183,14 +183,22 @@ tasks:
     # does not exist`. CREATE DATABASE can't run from inside the DB being checked
     # anyway, so a maintenance DB is the correct connection target.
     #
-    # Refuses to create test databases on a host that also serves the dev
-    # database ({{.DB_NAME}}) unless ALLOW_TEST_DB_ON_DEV_HOST=1. Today they DO
-    # share the yumyums-dev-pg cluster, which is audit surface #4 — the guard
-    # makes that a deliberate, visible choice rather than an accident, and will
-    # start failing loudly the moment a proper test cluster exists.
+    # Refuses to create test databases on a host that also serves the dev/prod
+    # database ({{.DB_NAME}}) unless ALLOW_TEST_DB_ON_DEV_HOST=1.
+    #
+    # 🛑 THE GUARD IS NOW ARMED (default 0). It shipped defaulting to 1 —
+    # dormant — because the test databases genuinely lived on the yumyums-dev-pg
+    # cluster (audit surface #4), and its own comment promised it "will start
+    # failing loudly the moment a proper test cluster exists". That cluster now
+    # exists: yumyums-test-pg on :5434 (docker-compose.test.yml, ledger decision
+    # 155), and the root Taskfile's test:* targets pass its coordinates into this
+    # task explicitly. A bare `task backend:db-test` with the :5433 defaults is
+    # exactly the mistake that produced B-141, so it now refuses instead of
+    # creating test databases beside production. Set ALLOW_TEST_DB_ON_DEV_HOST=1
+    # only as a knowing, one-off override.
     cmd: |
       MAINT="postgres://{{.DB_USER}}:{{.DB_PASS}}@{{.DB_HOST}}:{{.DB_PORT}}/postgres?sslmode=disable"
-      if [ "${ALLOW_TEST_DB_ON_DEV_HOST:-1}" != "1" ]; then
+      if [ "${ALLOW_TEST_DB_ON_DEV_HOST:-0}" != "1" ]; then
         if psql "$MAINT" -tc "SELECT 1 FROM pg_database WHERE datname = '{{.DB_NAME}}'" | grep -q 1; then
           echo "refusing: {{.DB_HOST}}:{{.DB_PORT}} also serves the dev DB '{{.DB_NAME}}'" >&2
           exit 1

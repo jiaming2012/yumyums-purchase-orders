@@ -1,0 +1,14 @@
+task: [backend:db-test] MAINT="postgres://hqtest:hqtest@localhost:5434/postgres?sslmode=disable"
+if [ "${ALLOW_TEST_DB_ON_DEV_HOST:-0}" != "1" ]; then
+  if psql "$MAINT" -tc "SELECT 1 FROM pg_database WHERE datname = 'yumyums'" | grep -q 1; then
+    echo "refusing: localhost:5434 also serves the dev DB 'yumyums'" >&2
+    exit 1
+  fi
+fi
+for db in hq_test_go hq_test_e2e; do
+  psql "$MAINT" -tc "SELECT 1 FROM pg_database WHERE datname = '$db'" | grep -q 1 \
+    || psql "$MAINT" -c "CREATE DATABASE $db"
+done
+
+CREATE DATABASE
+CREATE DATABASE
