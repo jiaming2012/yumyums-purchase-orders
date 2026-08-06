@@ -1,4 +1,5 @@
 const { test, expect } = require('@playwright/test');
+const path = require('path');
 
 const BASE = '';
 const ADMIN_EMAIL = 'jamal@yumyums.kitchen';
@@ -4187,5 +4188,73 @@ test.describe('Approve/reject authz — the /ops path', () => {
     }, submissionId);
     expect(ops.status).toBe(200);
     expect(await statusOf(page, submissionId)).toBe('absent-from-pending');
+  });
+});
+
+// ─── B-132 — fireworks() confetti canvas: negative-radius arc() ──────────────
+//
+// workflows.html's fireworks() animate() loop guards `p.life<=0` BEFORE
+// decrementing p.life, then decrements, then draws
+// `ctx.arc(..., p.size*p.life, ...)` with no floor on the (now possibly
+// negative) result. A particle whose life crosses zero mid-frame draws with a
+// negative radius; ctx.arc THROWS, and the uncaught exception inside the
+// requestAnimationFrame callback halts the loop before it ever reaches
+// canvas.remove() — the full-viewport confetti canvas (position:fixed,
+// z-index:10000) is orphaned on top of the page indefinitely instead of
+// clearing itself once every particle's life reaches zero.
+test.describe('B-132 — fireworks confetti canvas', () => {
+  test.beforeEach(async ({ page }) => {
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await cleanupTemplates(page);
+    await cleanupPendingApprovals(page);
+    await page.reload();
+  });
+
+  test('completed submit does not throw ctx.arc negative radius; overlay does not freeze on screen', async ({ page }) => {
+    await page.setViewportSize({ width: 393, height: 852 });
+    const todayDOW = await getTodayDOW(page);
+    const tpl = await createTestTemplate(page, 'Fireworks Radius Test', todayDOW);
+
+    const pageErrors = [];
+    page.on('pageerror', (e) => pageErrors.push(String(e)));
+
+    await page.goto(BASE + '/workflows.html?t=' + Date.now());
+    const row = page.locator('[data-fill-template-id="' + tpl.id + '"]');
+    await expect(row).toBeVisible({ timeout: 10000 });
+    await row.click();
+
+    const checkBtn = page.locator('.check-btn').first();
+    await checkBtn.click();
+    await expect(checkBtn).toHaveClass(/checked/, { timeout: 5000 });
+    await page.waitForTimeout(500);
+
+    // A completed (allDone, first-time, not-a-reapproval) submit is exactly
+    // the branch that calls fireworks() rather than showSuccessCheck() —
+    // workflows.html's submitChecklistToAPI().then(...) handler.
+    await page.click('[data-action="submit"]');
+
+    // The required screenshot: 3s after a completed submit, at 393x852 —
+    // B-132 never established how the frozen overlay actually renders. Saved
+    // whether this run is red or green so both states are on record.
+    await page.waitForTimeout(3000);
+    await page.screenshot({
+      path: path.join(__dirname, '..', '.night-crew', 'runs', '2026-08-07-autonomous', 'a2-logs', 'b132-completed-submit-3s.png'),
+    });
+
+    // The exception aborts animate() before it ever reaches canvas.remove(),
+    // so the fixed-position, full-viewport <canvas> fireworks() appended is
+    // orphaned in the DOM (invisible by 3s — its own particles have already
+    // faded near-transparent by the time the throw happens — but still
+    // present, still position:fixed, still pointer-events:none over
+    // everything). Assert directly on DOM survival, not just the console
+    // symptom: after the fix every particle reaches life<=0 well under 2s
+    // (5 staggered bursts, ~1.1-1.8s to fully decay), so canvas.remove() has
+    // long since run by the 3s mark.
+    const orphanedCanvases = await page.evaluate(() => document.querySelectorAll('canvas').length);
+
+    const radiusErrors = pageErrors.filter((e) => /radius/i.test(e) || /arc/i.test(e));
+    expect(radiusErrors, 'ctx.arc threw a negative-radius error inside the fireworks() animate() loop').toEqual([]);
+    expect(orphanedCanvases, 'the fireworks() canvas was never removed from the DOM').toBe(0);
   });
 });
