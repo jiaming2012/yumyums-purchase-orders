@@ -268,6 +268,20 @@ it would have destroyed another run's evidence. W0 **waited** for it to exit rat
 global one-suite lock, then ran its own leg on a clear box. The wait is most of the gap between
 this card's elapsed time and its work time.
 
-**For triage:** whoever owns that run should know it predated the container. If it was an
-orchestrator baseline leg, standing rule 2 ("no test suite may run anywhere until W0's container
-exists") was not honoured by it.
+**Identified after the fact.** That run has since landed on `dev` as **`eb8e415`** — *"docs(nc):
+T-39 addendum — de-confinement gate green (791 passed, 6 skipped) on the dev tip"*. So it was a
+deliberate de-confinement gate on the dev tip, not a stray process. Two consequences:
+
+1. **Standing rule 2 was not honoured by it** — a suite ran, on the shared production cluster,
+   before W0's container existed. Worth a triage note, since rule 2 is the reason W0 is Wave 0.
+2. **It is unexpectedly good corroboration.** That leg measured **791 passed / 6 skipped** on the
+   dev tip against `:5433`; this card measured **791 passed / 6 skipped** against `yumyums-test-pg`
+   on `:5434`. Identical figures, different clusters — which is exactly the evidence that the
+   re-point moved *where* the suite runs and changed *nothing* about what it proves.
+
+## Branch state at hand-off
+
+`dev` moved forward by one commit while this card ran (`eb8e415`, the addendum above —
+`ledger.md` only). This branch does **not** touch `ledger.md`, so the two are disjoint and the
+merge is clean. The branch was deliberately **not rebased**, so the SHAs reported to the
+orchestrator stay the SHAs on the branch.
