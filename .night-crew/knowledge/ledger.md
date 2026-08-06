@@ -3042,3 +3042,52 @@ The full Playwright suite ran green on the recovery tree: **791 passed, 6 skippe
 recovery branch (slate-20260807 cites the Mercury fix as landed, `4efd265`), so the gate
 verdict applies to the `dev` tip itself; no separate merge was needed. `dev` is NOT pushed —
 left to the operator alongside the signed slate.
+
+## T-40 — Morning-triage resolutions (2026-08-06, run `20260807`)
+
+Triage of `overnight-20260807` — 3 of 3 cards merged by the run (W0 `test-cluster-separation`,
+A2 `shipped-bug-sweep`, S `spike-b-migration-rehearsal`), zero parks, zero conflicted merges,
+zero open forks. Merged to `dev` as a `--no-ff` merge after an adversarial subagent
+independently reproduced every gate on the final tree in a fresh scratch clone: build+vet
+clean; Go 9 packages green with real counts (workflow=35 fresh-run) on :5434; G4 idempotent,
+31 precached, 1.4.0 three-way parity; B-89 and B-132 both **mutation-verified** (reverting
+each fix turns its shipped test red — B-132's mutation reproduced the exact original
+`IndexSizeError` at workflows.html:711); the §1 mis-merge recovery verified (`3820cc9`
+reachable from zero refs, the attended commit `eb8e415` untouched, all three merges true
+no-ff with the claimed card tips as second parents). The spike's runtime "48 PASS / GREEN"
+figure is recorded **unverified by triage** (re-execution needs the substrate stack; its
+structure — verdict = exit status, fail-throws — was verified statically, and the run's G6
+executed it twice). Go suite re-run green on the merged `dev` tree. Conflict-log audit clean:
+3/3 merges logged including clean ones, every entry names its intents, all three
+merge-intents carry the three required fields.
+
+- **Decision 160 — Overnight runs git-operate only from a dedicated run worktree, never the
+  main checkout.** Operator ruling at triage, chosen over "leave as a one-off incident note",
+  after run 20260807's first W0 merge landed on `dev` because a concurrent attended session
+  had switched the main checkout mid-card (conflict log §1; recovered in full). Recorded as
+  **pending candidate `operations/C-3`** with the operator's explicit consent to the exact
+  text — it binds nothing until adopted (`night-crew preferences adopt operations/C-3`,
+  the operator's own act at a terminal).
+
+Triage dispositions decided at role level (stated, not asked, per standing practice):
+
+- **Follow-ups graduated to BACKLOG.md as B-147–B-155** (9 entries, validator-clean at the
+  pre-merge noise floor of 295). The two 🛑 pre-next-run items: **B-147** (the permanent
+  B-132 test rewrites this run's committed evidence — screenshot hardcoded into the run's
+  a2-logs dir) and **B-148** (a red spike-B run contaminates the shared substrate and the
+  printed recovery command is inoperable). **B-149** is new from the triage adversarial
+  review: the uid-mismatch half of the B-89 fix is implemented but unguarded — mutation
+  removing just that check leaves the shipped test green.
+- **`card/d1-syncspec-deflake` cut** under the standing net-zero rule: fix `4ab162c` + its
+  revert `6ee45e0`, `git diff --stat` empty against parent `c1a2393` which is in `dev`; the
+  residual's destination was already recorded at a roadmap round (superseded by the
+  RxDB/Supabase migration). The three fully-merged card branches (`card/w0-…`, `card/a2-…`,
+  `card/s-…`) deleted as merged housekeeping; `overnight-20260807` stays local per the
+  branch model.
+- **Date-label note:** the run executed **2026-08-06** (commit timestamps 09:56–12:41 EDT;
+  wall clock confirmed at triage) — its artifacts stamp "2026-08-07" from the run id. Run
+  artifacts left as written; this line is the correction of record.
+- **Zero gray areas were routed through `decisions log` by the run** and the ratification
+  queue read empty at triage — consistent with DECISIONS-NEEDED's own record that nothing
+  reached the routing threshold; nothing was skipped. The one triage fork (decision 160) was
+  routed through the resolver at triage.

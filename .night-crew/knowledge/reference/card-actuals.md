@@ -1149,3 +1149,22 @@ took one short one, and three cards absorbed a full ~23m Playwright suite serial
 global mutex that did not exist on previous nights. The mutex is not the regression — it is what
 made the one gate violation traceable — but it does convert concurrency into queueing whenever
 more than one card wants the suite, and six of seven cards wanted it.
+
+## Run `20260807` (executed 2026-08-06 daytime, 09:25–12:55 EDT — serial dispatch, 3/3 merged, zero fix rounds)
+
+Figures from the run's `timings.log` (sub-agent durations measured; boundaries from
+dispatch/notification order). No card took a fix round — first night with zero since the
+fix-round-heavy 20260806. All three G6 legs were Fable; implementers Opus (W0, S) and
+Sonnet (A2), per the launch prompt's routing note.
+
+| Card | Implement | G6 | Land | End-to-end |
+|---|---|---|---|---|
+| W0 `test-cluster-separation` | 54.4m measured (09:27→10:22, incl. waiting out a foreign attended :5433 suite) | 7.4m (10:23→10:31) | ~5m (incl. the dev mis-merge recovery + re-merge `a03c6bc`) | **~68m** — MERGED, G6 MERGE-WITH-NOTES. Estimate 90–150m; well under even with the incident. |
+| A2 `shipped-bug-sweep` | 47.2m measured (10:36→11:23, incl. a self-pause awaiting its backgrounded suite, orchestrator-resumed) | 6.4m (11:24→11:30) | ~1m (merge `405a52f` + log §2) | **~91m wall / ~55m work** — MERGED, G6 MERGE-WITH-NOTES. Estimate 70–105m; work time inside it, wall inflated by the stall. |
+| S `spike-b-migration-rehearsal` 🅢 | 58.3m measured (11:33→12:31) | 6.3m (12:31→12:37) | ~1m (merge `61eb4af` + log §3) | **~65m** — MERGED, verdict GREEN exit 0, G6 MERGE-WITH-NOTES + independent re-execution. Estimate 60–150m; at the low end. |
+
+**Run 20260807 median end-to-end: ~68m** (N=3: 65, 68, 91). Down from 20260806's 106m28s and
+back in line with 20260804's 71m56s — the legible driver is zero fix rounds (20260806 had one
+per card) and serial dispatch removing all suite queueing. The stretch gate was computed at
+11:31 (2.1h elapsed, S high-end + closeout inside the envelope) — the arithmetic-gate
+discipline holding. Clean-path population, no parks.

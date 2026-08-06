@@ -1,5 +1,14 @@
 # HANDOFF — run `overnight-20260807`
 
+> **TRIAGED 2026-08-06 — merged to `dev`, recorded as ledger T-40.** Adversarial review
+> reproduced all gates and mutation-verified both bug fixes; spike GREEN recorded unverified
+> by triage (G6-executed during the run). Follow-ups 1–8 below graduated to BACKLOG.md as
+> **B-147–B-155** (+B-149, a new triage finding: the uid-mismatch half of B-89 is unguarded
+> by test); B-147 and B-148 are flagged fix-before-next-run. The worktree standing rule is
+> decision 160 / pending candidate `operations/C-3`. `card/d1-syncspec-deflake` cut under the
+> net-zero rule. The run executed 2026-08-06 by wall clock; this file's dates carry the run
+> id. The "Attended work still waiting" section remains live and untouched.
+
 **3 of 3 cards merged. Zero parks. Zero open forks. Decision 155 is now real.**
 Run window: ~09:25–12:55 EDT, 2026-08-07 (the "overnight" ran in daylight — launched by the
 operator mid-morning). Serial dispatch as signed. Final tree: `ee109b1` on `overnight-20260807`.

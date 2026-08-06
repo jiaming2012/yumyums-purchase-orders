@@ -43,3 +43,13 @@
 - **Recorded:** 2026-08-05
 - **Offered at:** an attended session
 - **Consent:** recorded on the operator's explicit yes to this item.
+
+## C-3 · Overnight runs git-operate only from a dedicated run worktree
+
+- **Preference:** An overnight run performs every git operation — merges, commits, branch switches — from a dedicated run worktree (e.g. hq-worktrees/run-<runid>), never the repo's main checkout. The main checkout belongs to attended sessions.
+- **Why (operator):** Chosen at morning triage 2026-08-06 so attended sessions can't collide with a run's merges again: during run 20260807 a concurrent attended session moved the main checkout mid-card and the run's first merge landed on dev (recovered in full, conflict log §1). The recommended candidate-rule option was chosen; no further reason stated.
+- **Weight:** moderate
+- **Operator:** jac475@cornell.edu
+- **Recorded:** 2026-08-06
+- **Offered at:** an attended session
+- **Consent:** recorded on the operator's explicit yes to this item.

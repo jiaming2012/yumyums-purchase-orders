@@ -1,5 +1,9 @@
 # DECISIONS-NEEDED — run `overnight-20260807`
 
+> **RESOLVED 2026-08-06 — recorded as ledger T-40.** No forks were open; the one process
+> observation below (runs git-operate from a dedicated worktree) was put to the operator and
+> ruled — decision 160, pending candidate `operations/C-3`.
+
 **No open sections. Nothing was parked tonight.**
 
 - Zero cards parked; 3 of 3 merged (W0, A2, S — see HANDOFF.md).
