@@ -3,9 +3,12 @@ const { defineBddConfig } = require('playwright-bdd');
 // scripts/reset-e2e-db.js is the ONE place the e2e Postgres coordinates are
 // computed and the ONE place the database is reset. It carries what used to be
 // duplicated here:
-//   * DB_PORT 5433 = yumyums-dev-pg, the container that actually serves HQ.
-//     Host :5432 is bound by infra-postgres-1 (slack-trading), which has no
-//     `yumyums` role. This file used to carry its OWN copy of that default;
+//   * DB_PORT 5434 + role `hqtest` = yumyums-test-pg, the TEST-ONLY container
+//     (docker-compose.test.yml, `task test:db:up`). 🛑 NOT :5433 — that is
+//     yumyums-dev-pg, which serves https://hq.yumyums.kitchen, and pointing a
+//     harness that issues DROP DATABASE at it is BACKLOG B-141 (ledger decision
+//     155, card `test-cluster-separation`). Host :5432 is infra-postgres-1
+//     (slack-trading). This file used to carry its OWN copy of that default;
 //     now there is one copy, in the helper.
 //   * TEST_DB_NAME defaults to hq_test_e2e — Playwright's OWN database. The Go
 //     suite owns hq_test_go. They shared one hq_test until 2026-07-21 (audit

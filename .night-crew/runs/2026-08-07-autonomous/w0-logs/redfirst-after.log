@@ -1,0 +1,33 @@
+== 1. Playwright e2e coordinates, RESOLVED by scripts/reset-e2e-db.js (no connection) ==
+  adminUrl (DROP/CREATE target): postgres://hqtest:hqtest@localhost:5434/postgres?sslmode=disable
+  testUrl                      : postgres://hqtest:hqtest@localhost:5434/hq_test_e2e?sslmode=disable&TimeZone=America/New_York
+== 2. task test:* DB coordinates (Taskfile.yml) ==
+45:  TEST_DB_HOST: '{{.TEST_DB_HOST | default "localhost"}}'
+46:  TEST_DB_PORT: '{{.TEST_DB_PORT | default "5434"}}'
+128:          DB_HOST: '{{.TEST_DB_HOST}}'
+129:          DB_PORT: '{{.TEST_DB_PORT}}'
+138:      DB_HOST: '{{.TEST_DB_HOST}}'
+139:      DB_PORT: '{{.TEST_DB_PORT}}'
+161:          DB_HOST: '{{.TEST_DB_HOST}}'
+162:          DB_PORT: '{{.TEST_DB_PORT}}'
+167:      DB_HOST: '{{.TEST_DB_HOST}}'
+168:      DB_PORT: '{{.TEST_DB_PORT}}'
+198:    # Was `DB_PORT: '5432'` — infra-postgres-1, which has no `yumyums` role, so
+202:      DB_HOST: '{{.TEST_DB_HOST}}'
+203:      DB_PORT: '{{.TEST_DB_PORT}}'
+215:          DB_HOST: '{{.TEST_DB_HOST}}'
+216:          DB_PORT: '{{.TEST_DB_PORT}}'
+223:      DB_TEST_URL: 'postgres://{{.TEST_DB_USER}}:{{.TEST_DB_PASS}}@{{.TEST_DB_HOST}}:{{.TEST_DB_PORT}}/hq_test_go?sslmode=disable'
+224:      DB_HOST: '{{.TEST_DB_HOST}}'
+225:      DB_PORT: '{{.TEST_DB_PORT}}'
+243:      DB_HOST: '{{.TEST_DB_HOST}}'
+244:      DB_PORT: '{{.TEST_DB_PORT}}'
+248:      DB_TEST_URL: 'postgres://{{.TEST_DB_USER}}:{{.TEST_DB_PASS}}@{{.TEST_DB_HOST}}:{{.TEST_DB_PORT}}/hq_test_go?sslmode=disable'
+266:          echo "── resetting hq_test_go + hq_test_e2e on $DB_HOST:$DB_PORT ──"
+267:          psql "postgres://$DB_USER:$DB_PASS@$DB_HOST:$DB_PORT/postgres?sslmode=disable" \
+== 3. RLS suite defaults (backend/internal/sync/rowvisibility_rls_test.go) ==
+243:	defaultHQAdminURL = "postgres://hqtest:hqtest@localhost:5434/postgres"
+251:	defaultFDWPort = "5434"
+== 4. harness probe URL (scripts/verify-test-harness.sh) ==
+215:	DEAD_URL='postgres://hqtest:hqtest@127.0.0.1:5599/hq_test_go_does_not_exist?sslmode=disable'
+218:	DEAD_URL='postgres://hqtest:hqtest@127.0.0.1:5434/hq_test_go_dropped_by_a_reviewer?sslmode=disable'

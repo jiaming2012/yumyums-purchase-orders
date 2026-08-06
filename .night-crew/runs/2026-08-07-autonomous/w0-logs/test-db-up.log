@@ -1,0 +1,25 @@
+task: [test:db:up] docker compose -p yumyums-test -f docker-compose.test.yml up -d
+ Network yumyums-test_default Creating 
+ Network yumyums-test_default Created 
+ Volume yumyums-test-pgdata Creating 
+ Volume yumyums-test-pgdata Created 
+ Container yumyums-test-pg Creating 
+ Container yumyums-test-pg Created 
+ Container yumyums-test-pg Starting 
+ Container yumyums-test-pg Started 
+task: [test:db:up] # Wait on the container's OWN healthcheck (pg_isready) rather than
+# opening a psql connection from here: the wait must not depend on a
+# host psql being installed, and `docker inspect` cannot accidentally
+# resolve against some other cluster the way a bare `psql` can.
+for i in $(seq 1 60); do
+  s=$(docker inspect -f '{{.State.Health.Status}}' yumyums-test-pg 2>/dev/null || echo missing)
+  if [ "$s" = "healthy" ]; then
+    echo "yumyums-test-pg healthy — localhost:5434 (role hqtest)"
+    exit 0
+  fi
+  sleep 1
+done
+echo "yumyums-test-pg did not become healthy within 60s (last status: ${s:-unknown})" >&2
+exit 1
+
+yumyums-test-pg healthy — localhost:5434 (role hqtest)

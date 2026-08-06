@@ -1,0 +1,85 @@
+# docker-compose.test.yml — the TEST-ONLY Postgres cluster.
+#
+# Ledger decision 155 ("D-2b: the test suites leave the production cluster"),
+# closing the structural half of BACKLOG B-141.
+#
+# ── Why this file exists ─────────────────────────────────────────────────────
+#
+# Until it did, `hq_test_go`, `hq_test_e2e`, `hq_test_ui` and the RLS suite's
+# `hq_test_b2_fdw` all lived on `yumyums-dev-pg` (:5433) — the SAME cluster that
+# serves https://hq.yumyums.kitchen. Every test-path default in the tree
+# therefore carried admin credentials to production. On 2026-08-06 that stopped
+# being theoretical: an adversarial probe set `HQ_RLS_TEST_DB=yumyums`, the RLS
+# suite fed it unquoted into `DROP DATABASE … WITH (FORCE)` against
+# `postgres://yumyums:yumyums@localhost:5433/postgres`, and the production
+# database was destroyed with no backup to restore from (B-141, B-143).
+#
+# A name guard is a correctness argument. A separate cluster is a structural
+# impossibility argument. Decision 155 chose the latter. This is it.
+#
+# ── The three properties that make it a separation ───────────────────────────
+#
+#   1. ITS OWN PORT — 5434. Not 5433 (yumyums-dev-pg: dev + prod, via the
+#      `production` search_path). Not 5432 (infra-postgres-1, slack-trading).
+#   2. ITS OWN VOLUME — `yumyums-test-pgdata`. Production's live volume is
+#      `yumyums_yumyums-pgdata`; `task test:db:down` destroys this one and can
+#      never reach that one.
+#   3. ITS OWN ROLE — `hqtest`, NOT `yumyums`. This is the load-bearing one.
+#      Separating by port alone leaves a stale `:5433` default one typo from
+#      production. With a different role name, a missed site fails closed with
+#      `role "hqtest" does not exist` instead of authenticating against prod.
+#      `yumyums:yumyums` appears in no test-path default in this tree.
+#
+# ── Usage ────────────────────────────────────────────────────────────────────
+#
+#   task test:db:up      # idempotent; waits for healthy. Dep of every test:* task.
+#   task test:targets    # print every resolved test-DB coordinate (read-only)
+#   task test:db:down    # destroys the container AND the volume — deliberate act
+#
+# The credentials are a throwaway committed on purpose: this cluster holds only
+# databases matching `hq_test*` / `hq_rls_*`, every one of which is dropped and
+# recreated by the harness. There is nothing here to protect. That is the point.
+#
+# 🛑 DO NOT point this file, or anything that reads it, at :5433.
+# 🛑 This file is NOT part of the production stack. `task prod:deploy` reads
+#    docker-compose.prod.yml and nothing else; production topology is unchanged
+#    by this card.
+
+services:
+  postgres-test:
+    image: postgres:16
+    container_name: yumyums-test-pg
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: hqtest
+      POSTGRES_PASSWORD: hqtest
+      # The always-present maintenance database. Test databases themselves are
+      # created by `task backend:db-test` (hq_test_go, hq_test_e2e) and by the
+      # suites (hq_test_ui, hq_test_b2_fdw, per-leg names) — never here, so a
+      # fresh volume and a warm one behave identically.
+      POSTGRES_DB: postgres
+    ports:
+      # 🛑 Published on ALL interfaces (`5434:5432`), not `127.0.0.1:5434:5432`,
+      # and that is deliberate. internal/sync's RLS suite builds a postgres_fdw
+      # link FROM INSIDE the spike-supabase container back to this cluster at
+      # `host.docker.internal:<port>` (rowvisibility_rls_test.go's
+      # defaultFDWHost/defaultFDWPort). A loopback-only publish is unreachable
+      # from a container, and the leg would fail for a reason that has nothing
+      # to do with the change under test. yumyums-dev-pg publishes :5433 the
+      # same way, so this is no wider an exposure than already exists.
+      - "5434:5432"
+    volumes:
+      - yumyums-test-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hqtest -d postgres"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  yumyums-test-pgdata:
+    # Explicit `name:` so the volume is `yumyums-test-pgdata` regardless of the
+    # compose project name a caller happens to use — a project-prefixed volume
+    # would silently become a SECOND, empty data directory (the mistake that
+    # left `yumyums-pgdata` empty beside `yumyums_yumyums-pgdata`; see B-143).
+    name: yumyums-test-pgdata
