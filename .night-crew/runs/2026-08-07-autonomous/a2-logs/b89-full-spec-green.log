@@ -1,0 +1,165 @@
+[2m[WebServer] [22m── reset hq_test_a2 on localhost:5434 ──
+[2m[WebServer] [22m── wrote version.json frontend=1.4.0 ──
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:31.601568007-04:00","level":"INFO","msg":"serving static files from disk","dir":"../"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:31.601948908-04:00","level":"INFO","msg":"loaded superadmins","count":1}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:31.621673048-04:00","level":"INFO","msg":"connected to database"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:31.695895191-04:00","level":"INFO","msg":"OK   0001_users.sql (46.38ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:31.750934449-04:00","level":"INFO","msg":"OK   0002_sessions.sql (54.51ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:31.804438938-04:00","level":"INFO","msg":"OK   0003_invite_tokens.sql (53.3ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:31.84880628-04:00","level":"INFO","msg":"OK   0004_hq_apps.sql (44.15ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:31.906128129-04:00","level":"INFO","msg":"OK   0005_app_permissions.sql (57.15ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:31.944988103-04:00","level":"INFO","msg":"OK   0006_checklist_templates.sql (38.68ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:31.977022002-04:00","level":"INFO","msg":"OK   0007_checklist_schedules.sql (31.93ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:32.035204661-04:00","level":"INFO","msg":"OK   0008_template_assignments.sql (58.03ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:32.081587307-04:00","level":"INFO","msg":"OK   0009_checklist_sections.sql (46.24ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:32.115002195-04:00","level":"INFO","msg":"OK   0010_checklist_fields.sql (33.29ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:32.157846662-04:00","level":"INFO","msg":"OK   0011_checklist_submissions.sql (42.71ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:32.212077691-04:00","level":"INFO","msg":"OK   0012_submission_responses.sql (54.1ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:32.247304339-04:00","level":"INFO","msg":"OK   0013_submission_fail_notes.sql (35.11ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:32.280357732-04:00","level":"INFO","msg":"OK   0014_submission_rejections.sql (32.92ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:32.337750106-04:00","level":"INFO","msg":"OK   0015_ops.sql (57.24ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:32.352946517-04:00","level":"INFO","msg":"OK   0016_lamport_ts.sql (15.08ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:32.371620491-04:00","level":"INFO","msg":"OK   0017_users_naming.sql (18.55ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:32.443664997-04:00","level":"INFO","msg":"OK   0018_ob_templates.sql (71.85ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:32.522360828-04:00","level":"INFO","msg":"OK   0019_ob_items.sql (78.55ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:32.576612827-04:00","level":"INFO","msg":"OK   0020_ob_progress.sql (54.1ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:32.630261393-04:00","level":"INFO","msg":"OK   0021_ob_signoffs.sql (53.48ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:32.686674232-04:00","level":"INFO","msg":"OK   0022_ob_template_assignments.sql (56.26ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:32.752760986-04:00","level":"INFO","msg":"OK   0023_multi_role.sql (65.91ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:33.000370667-04:00","level":"INFO","msg":"OK   0024_inventory.sql (247.42ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:33.046241584-04:00","level":"INFO","msg":"OK   0025_pending_purchases.sql (45.68ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:33.056081275-04:00","level":"INFO","msg":"OK   0026_ob_progress_faq.sql (9.66ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:33.063366914-04:00","level":"INFO","msg":"OK   0027_ob_section_signoff_roles.sql (7.16ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:33.079469099-04:00","level":"INFO","msg":"OK   0028_ob_video_upgrade.sql (15.96ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:33.086729386-04:00","level":"INFO","msg":"OK   0029_ob_templates_archived_at.sql (7.16ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:33.114543741-04:00","level":"INFO","msg":"OK   0030_item_groups_unique_name.sql (27.67ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:33.124204928-04:00","level":"INFO","msg":"OK   0031_remove_placeholder_items.sql (9.56ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:33.138188317-04:00","level":"INFO","msg":"OK   0032_item_group_thresholds.sql (13.86ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:33.169734692-04:00","level":"INFO","msg":"OK   0033_stock_count_overrides.sql (31.43ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:33.253644312-04:00","level":"INFO","msg":"OK   0034_purchase_orders.sql (83.7ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:33.267273717-04:00","level":"INFO","msg":"OK   0035_purchase_items_photo_store.sql (13.5ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:33.279705436-04:00","level":"INFO","msg":"OK   0036_purchase_items_full_name.sql (12.34ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:33.314021093-04:00","level":"INFO","msg":"OK   0037_cutoff_config.sql (34.2ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:33.330968544-04:00","level":"INFO","msg":"OK   0038_po_status_extend.sql (16.79ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:33.356282992-04:00","level":"INFO","msg":"OK   0039_purchase_items_vendor.sql (25.21ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:33.480741447-04:00","level":"INFO","msg":"OK   0040_shopping_lists.sql (124.06ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:33.494185148-04:00","level":"INFO","msg":"OK   0041_notification_channel.sql (13.34ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:33.564013937-04:00","level":"INFO","msg":"OK   0042_repurchase_tracking.sql (69.65ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:33.621911155-04:00","level":"INFO","msg":"OK   0043_alert_log.sql (57.75ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:33.677140394-04:00","level":"INFO","msg":"OK   0044_low_stock_alert_log.sql (55.06ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:33.72556119-04:00","level":"INFO","msg":"OK   0045_notification_channel_array.sql (48.29ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:33.733304933-04:00","level":"INFO","msg":"OK   0046_user_timezone.sql (7.64ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:33.794868965-04:00","level":"INFO","msg":"OK   0047_employee_fields.sql (61.44ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:33.802322989-04:00","level":"INFO","msg":"OK   0048_notification_default_both.sql (7.35ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:33.843589704-04:00","level":"INFO","msg":"OK   0049_ob_sub_items.sql (41.17ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:33.852612716-04:00","level":"INFO","msg":"OK   0050_ob_progress_sub_item.sql (8.89ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:33.860358024-04:00","level":"INFO","msg":"OK   0051_rejection_field_fk.sql (7.62ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:33.881284335-04:00","level":"INFO","msg":"OK   0052_template_name_unique.sql (20.83ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:33.888745035-04:00","level":"INFO","msg":"OK   0053_response_field_fk.sql (7.33ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:33.895956497-04:00","level":"INFO","msg":"OK   0054_failnote_field_fk.sql (7.12ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:33.903131548-04:00","level":"INFO","msg":"OK   0055_item_location_in_store.sql (7.08ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:33.917893641-04:00","level":"INFO","msg":"OK   0056_ob_progress_photo.sql (14.66ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:33.928986624-04:00","level":"INFO","msg":"OK   0057_ob_items_photo_type.sql (10.97ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:33.941371187-04:00","level":"INFO","msg":"OK   0058_ob_sub_items_photos.sql (12.29ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:33.948543422-04:00","level":"INFO","msg":"OK   0059_cleanup_photo_items.sql (7.1ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:33.996927703-04:00","level":"INFO","msg":"OK   0060_menu_items.sql (48.19ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:34.017208849-04:00","level":"INFO","msg":"OK   0061_daily_menu_sales.sql (20.14ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:34.183975421-04:00","level":"INFO","msg":"OK   0062_recipes.sql (166.64ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:34.219649949-04:00","level":"INFO","msg":"OK   0063_drift_check_results.sql (35.54ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:34.236045923-04:00","level":"INFO","msg":"OK   0064_no_itemized_receipt_seed.sql (16.24ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:34.250613444-04:00","level":"INFO","msg":"OK   0065_mercury_category_on_purchase_events.sql (14.46ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:34.267550984-04:00","level":"INFO","msg":"OK   0066_mercury_category_on_pending_purchases.sql (16.82ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:34.327552705-04:00","level":"INFO","msg":"OK   0067_receipt_sync_runs.sql (59.84ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:34.352122774-04:00","level":"INFO","msg":"OK   0068_pending_purchases_bank_tx_uniq.sql (24.44ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:34.373860652-04:00","level":"INFO","msg":"OK   0069_pending_purchases_parse_error.sql (21.6ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:34.399926783-04:00","level":"INFO","msg":"OK   0070_receipt_urls.sql (25.92ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:34.431284638-04:00","level":"INFO","msg":"OK   0071_submission_fail_notes_unique.sql (31.17ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:34.461260564-04:00","level":"INFO","msg":"OK   0072_app_timezone_new_york.sql (29.78ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:34.489567139-04:00","level":"INFO","msg":"OK   0073_sync_fdw_views.sql (28.02ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:34.499879331-04:00","level":"INFO","msg":"OK   0074_sync_fdw_approver_view.sql (10.12ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:34.499939111-04:00","level":"INFO","msg":"goose: successfully migrated database to version: 74","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:34.499959872-04:00","level":"INFO","msg":"database migrations applied successfully"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:34.589008271-04:00","level":"INFO","msg":"upserted superadmin","email":"jamal@yumyums.kitchen"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:34.638995238-04:00","level":"INFO","msg":"seeded template","name":"Setup Checklist","id":"01348e7b-9880-411d-ba7a-5dffb0b19459"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:34.639040099-04:00","level":"INFO","msg":"seeded templates","count":1}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:34.688863064-04:00","level":"INFO","msg":"seeded onboarding template","name":"Kitchen Basics Training","id":"b0cc39fd-35f3-49e9-9f1f-3c3d5a1bfb22"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:34.715483594-04:00","level":"INFO","msg":"inventory: seeded vendors","count":5}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:34.817686496-04:00","level":"INFO","msg":"inventory: seeded unique tags","count":19}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:34.957937804-04:00","level":"INFO","msg":"inventory: seeded item groups","count":10}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:35.574390635-04:00","level":"INFO","msg":"inventory: seeded purchase items from YAML","count":106}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:35.574480462-04:00","level":"WARN","msg":"DO Spaces env vars not set, photo and video upload endpoints will return 503","required":"DO_SPACES_KEY, DO_SPACES_SECRET, DO_SPACES_BUCKET, DO_SPACES_REGION"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:35.574505187-04:00","level":"WARN","msg":"HQ_INVENTORY_SERVICE_TOKEN not set, /api/v1/inventory/period-summary AND /api/v1/inventory/menu-cogs will return 503"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:35.574721146-04:00","level":"INFO","msg":"inventory COGS category allowlist","allowlist":["COGS"]}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:35.575316546-04:00","level":"INFO","msg":"receipt worker disabled","reason":"E2E_DISABLE_SCHEDULERS=1"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:35.575362346-04:00","level":"INFO","msg":"alert queue started","delivery_enabled":false}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:35.575381542-04:00","level":"INFO","msg":"cutoff scheduler disabled","reason":"E2E_DISABLE_SCHEDULERS=1"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:35.575398756-04:00","level":"INFO","msg":"toast worker disabled, cmd/sync-toast remains available","reason":"TOAST_SYNC_INTERVAL=0"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:35.580360803-04:00","level":"INFO","msg":"alerts queue started"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:35.642623624-04:00","level":"INFO","msg":"server listening","port":"4523"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:35.656792925-04:00","level":"INFO","msg":"reachable at","url":"http://10.255.255.254:4523"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:35.65683716-04:00","level":"INFO","msg":"reachable at","url":"http://100.70.200.55:4523"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:35.656850827-04:00","level":"INFO","msg":"reachable at","url":"http://192.168.8.164:4523"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:35.656866685-04:00","level":"INFO","msg":"Yumyums HQ ready, accepting connections"}
+
+Running 55 tests using 1 worker
+
+  ✓   1 [chromium] › tests/sync-rxdb-client.spec.js:52:3 › vendor pin — fails LOUDLY on upgrade › vendor/package.json, the generated bundle and PINNED_VENDOR all agree (3.0s)
+  ✓   2 [chromium] › tests/sync-rxdb-client.spec.js:69:3 › vendor pin — fails LOUDLY on upgrade › assertVendorPin throws with an actionable message when the bundle moves (23ms)
+  ✓   3 [chromium] › tests/sync-rxdb-client.spec.js:86:3 › supabase-js URL derivation (the coupling decision 51 accepted) › given <origin>/sync it derives <origin>/sync/rest/v1 and <origin>/sync/realtime/v1 (37ms)
+  ✓   4 [chromium] › tests/sync-rxdb-client.spec.js:117:3 › the door's addresses › the REST rewrite case table is non-empty (3ms)
+  ✓   5 [chromium] › tests/sync-rxdb-client.spec.js:123:5 › the door's addresses › rewriteRestPath: /sync/rest/v1/checklist_templates -> /sync/rest/checklist_templates (5ms)
+  ✓   6 [chromium] › tests/sync-rxdb-client.spec.js:123:5 › the door's addresses › rewriteRestPath: /sync/rest/v1/rpc/hq_can_see_template -> /sync/rest/rpc/hq_can_see_template (4ms)
+  ✓   7 [chromium] › tests/sync-rxdb-client.spec.js:123:5 › the door's addresses › rewriteRestPath: /sync/rest/v1 -> /sync/rest (4ms)
+  ✓   8 [chromium] › tests/sync-rxdb-client.spec.js:123:5 › the door's addresses › rewriteRestPath: /sync/rest/v1/v1 -> /sync/rest/v1 (4ms)
+  ✓   9 [chromium] › tests/sync-rxdb-client.spec.js:123:5 › the door's addresses › rewriteRestPath: /sync/realtime/v1/websocket -> /sync/realtime/v1/websocket (4ms)
+  ✓  10 [chromium] › tests/sync-rxdb-client.spec.js:123:5 › the door's addresses › rewriteRestPath: /api/v1/workflow/templates -> /api/v1/workflow/templates (4ms)
+  ✓  11 [chromium] › tests/sync-rxdb-client.spec.js:129:3 › the door's addresses › rewriteRealtimeUrl points at /sync/realtime/socket/websocket and DROPS apikey (9ms)
+  ✓  12 [chromium] › tests/sync-rxdb-client.spec.js:141:3 › the door's addresses › the constants match backend/internal/sync/proxy.go (8ms)
+  ✓  13 [chromium] › tests/sync-rxdb-client.spec.js:157:3 › createHQSupabaseClient — same-origin, gateway-less, credential-free › a REST query lands on /sync/rest/<table> with no /v1 and no credentials (22ms)
+  ✓  14 [chromium] › tests/sync-rxdb-client.spec.js:183:3 › createHQSupabaseClient — same-origin, gateway-less, credential-free › the realtime handshake goes to /sync/realtime/socket/websocket?vsn=1.0.0 (2.7s)
+  ✓  15 [chromium] › tests/sync-rxdb-client.spec.js:204:3 › createHQSupabaseClient — same-origin, gateway-less, credential-free › nothing anywhere in the client layer fetches /api/v1/sync/token (9ms)
+  ✓  16 [chromium] › tests/sync-rxdb-client.spec.js:215:3 › createHQSupabaseClient — same-origin, gateway-less, credential-free › construction makes no network request at all (207ms)
+  ✓  17 [chromium] › tests/sync-rxdb-client.spec.js:228:3 › createHQSupabaseClient — same-origin, gateway-less, credential-free › createHQSyncClient exposes the HQ conflict handler, not RxDB's default (6ms)
+  ✓  18 [chromium] › tests/sync-rxdb-client.spec.js:616:3 › [SCOPE-01] replication is scoped to the open checklist (C-2) › the fixture really does hold rows for a checklist this device never opened (47ms)
+  ✓  19 [chromium] › tests/sync-rxdb-client.spec.js:652:3 › [SCOPE-01] replication is scoped to the open checklist (C-2) › the vendored plugin still offers pull.queryBuilder as the scoping seam (7ms)
+  ✓  20 [chromium] › tests/sync-rxdb-client.spec.js:660:3 › [SCOPE-01] replication is scoped to the open checklist (C-2) › a device does NOT hold rows for a checklist it never opened (22ms)
+  ✓  21 [chromium] › tests/sync-rxdb-client.spec.js:679:3 › [SCOPE-01] replication is scoped to the open checklist (C-2) › an offline DRAFT on the open checklist still replicates (5ms)
+  ✓  22 [chromium] › tests/sync-rxdb-client.spec.js:693:3 › [SCOPE-01] replication is scoped to the open checklist (C-2) › replication REFUSES to start unscoped — C-2 is not a default, it is a gate (5ms)
+  ✓  23 [chromium] › tests/sync-rxdb-client.spec.js:703:3 › [SCOPE-01] replication is scoped to the open checklist (C-2) › scoped AND batched — the pull keeps its batch size (16ms)
+  ✓  24 [chromium] › tests/sync-rxdb-client.spec.js:716:3 › [SCOPE-01] replication is scoped to the open checklist (C-2) › scope values are QUOTED, so an id cannot rewrite the predicate [F-4] (6ms)
+  ✓  25 [chromium] › tests/sync-rxdb-client.spec.js:738:3 › [SCOPE-01] replication is scoped to the open checklist (C-2) › an omitted templateId is REFUSED, not widened to every template [F-5] (7ms)
+  ✓  26 [chromium] › tests/sync-rxdb-client.spec.js:756:3 › [SCOPE-01] replication is scoped to the open checklist (C-2) › a collection with no scope case refuses EAGERLY, not inside pull.handler [F-3] (10ms)
+  ✓  27 [chromium] › tests/sync-rxdb-client.spec.js:822:3 › [SCOPE-03] the LIST scope — per-user, with a mandatory date floor › the list fixture is DISCRIMINATING, not merely populated (33ms)
+  ✓  28 [chromium] › tests/sync-rxdb-client.spec.js:853:3 › [SCOPE-03] the LIST scope — per-user, with a mandatory date floor › a list scope with NO DATE FLOOR is REFUSED — the floor is the bound, not a default (10ms)
+  ✓  29 [chromium] › tests/sync-rxdb-client.spec.js:886:3 › [SCOPE-03] the LIST scope — per-user, with a mandatory date floor › a list scope with no userId and no templates is REFUSED too (7ms)
+  ✓  30 [chromium] › tests/sync-rxdb-client.spec.js:899:3 › [SCOPE-03] the LIST scope — per-user, with a mandatory date floor › a date floor cannot carry PostgREST logic-tree punctuation [F-4, on the new key] (4ms)
+  ✓  31 [chromium] › tests/sync-rxdb-client.spec.js:909:3 › [SCOPE-03] the LIST scope — per-user, with a mandatory date floor › the list scope holds THIS user's rows since the floor, and nothing else (24ms)
+  ✓  32 [chromium] › tests/sync-rxdb-client.spec.js:925:3 › [SCOPE-03] the LIST scope — per-user, with a mandatory date floor › the floor really is applied per collection, on each one's OWN time column (10ms)
+  ✓  33 [chromium] › tests/sync-rxdb-client.spec.js:942:3 › [SCOPE-03] the LIST scope — per-user, with a mandatory date floor › the list scope is still BATCHED — C-2 is both halves (10ms)
+  ✓  34 [chromium] › tests/sync-rxdb-client.spec.js:952:3 › [SCOPE-03] the LIST scope — per-user, with a mandatory date floor › the FILL scope is untouched — a second mode is not a rewrite of the first (8ms)
+  ✓  35 [chromium] › tests/sync-rxdb-client.spec.js:965:3 › [SCOPE-03] the LIST scope — per-user, with a mandatory date floor › two crew members on ONE phone do not inherit each other's checkpoint (8ms)
+  ✓  36 [chromium] › tests/sync-rxdb-client.spec.js:1014:3 › [SCOPE-04] the Realtime filter — three collections, and the one it cannot express › the vendored plugin still subscribes with no filter of its own (7ms)
+  ✓  37 [chromium] › tests/sync-rxdb-client.spec.js:1022:5 › [SCOPE-04] the Realtime filter — three collections, and the one it cannot express › [fill] the filter is present on EXACTLY THREE collections and ABSENT on responses (5ms)
+  ✓  38 [chromium] › tests/sync-rxdb-client.spec.js:1022:5 › [SCOPE-04] the Realtime filter — three collections, and the one it cannot express › [list] the filter is present on EXACTLY THREE collections and ABSENT on responses (4ms)
+  ✓  39 [chromium] › tests/sync-rxdb-client.spec.js:1036:3 › [SCOPE-04] the Realtime filter — three collections, and the one it cannot express › every emitted filter is ONE `column=op.value` clause — the only shape Realtime takes (30ms)
+  ✓  40 [chromium] › tests/sync-rxdb-client.spec.js:1058:3 › [SCOPE-04] the Realtime filter — three collections, and the one it cannot express › the filter reaches the plugin's channel — registered under the replication identifier (7ms)
+  ✓  41 [chromium] › tests/sync-rxdb-client.spec.js:1095:3 › [SCOPE-04] the Realtime filter — three collections, and the one it cannot express › the channel shim injects the registered filter into the postgres_changes binding (8ms)
+  ✓  42 [chromium] › tests/sync-rxdb-client.spec.js:1128:3 › [SCOPE-04] the Realtime filter — three collections, and the one it cannot express › the shim is installed by createHQSupabaseClient, not left to the caller (3ms)
+  ✓  43 [chromium] › tests/sync-rxdb-client.spec.js:1257:3 › [SCOPE-02] the checkpoint is per-scope, not per-table (F-1) › RxDB really keys the checkpoint meta store by [collection.name, replicationIdentifier] (8ms)
+  ✓  44 [chromium] › tests/sync-rxdb-client.spec.js:1268:3 › [SCOPE-02] the checkpoint is per-scope, not per-table (F-1) › opening an OLDER checklist after a newer one still replicates its rows (10ms)
+  ✓  45 [chromium] › tests/sync-rxdb-client.spec.js:1286:3 › [SCOPE-02] the checkpoint is per-scope, not per-table (F-1) › ...and that is the SAME set a device with a fresh checkpoint would get (7ms)
+  ✓  46 [chromium] › tests/sync-rxdb-client.spec.js:1296:3 › [SCOPE-02] the checkpoint is per-scope, not per-table (F-1) › a different scope mints a different replicationIdentifier — per collection (10ms)
+  ✓  47 [chromium] › tests/sync-rxdb-client.spec.js:1306:3 › [SCOPE-02] the checkpoint is per-scope, not per-table (F-1) › the SAME scope still RESUMES — the fix did not just disable checkpoints (26ms)
+  ✓  48 [chromium] › tests/sync-rxdb-client.spec.js:1319:3 › [SCOPE-02] the checkpoint is per-scope, not per-table (F-1) › the fingerprint is deterministic and scope-sensitive (7ms)
+  ✓  49 [chromium] › tests/sync-rxdb-client.spec.js:1336:3 › expandGrantSlugs — obligation 4 › inventory expands to the two per-tab surfaces the user can actually reach (5ms)
+  ✓  50 [chromium] › tests/sync-rxdb-client.spec.js:1342:3 › expandGrantSlugs — obligation 4 › the umbrella table matches what main.go actually mounts (4ms)
+  ✓  51 [chromium] › tests/sync-rxdb-client.spec.js:1351:3 › expandGrantSlugs — obligation 4 › a narrow per-tab grant is NOT widened — expansion is one-way (4ms)
+  ✓  52 [chromium] › tests/sync-rxdb-client.spec.js:1356:3 › expandGrantSlugs — obligation 4 › idempotent, de-duplicating, order-independent, and empty-safe (8ms)
+  ✓  53 [chromium] › tests/sync-rxdb-client.spec.js:1402:3 › workflows.html actually imports and constructs the client › window.HQSync is constructed, pinned and umbrella-expanded (988ms)
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:46.571208556-04:00","level":"ERROR","msg":"cleanupOldDrafts error","error":"cleanup old drafts: context canceled"}
+[2m[WebServer] [22m{"time":"2026-08-06T10:47:46.666197096-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/workflows.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+  ✓  54 [chromium] › tests/sync-rxdb-client.spec.js:1443:3 › workflows.html actually imports and constructs the client › the RxDB collections carry HQ's conflict handler, not RxDB's default (1.2s)
+  ✓  55 [chromium] › tests/sync-rxdb-client.spec.js:1485:3 › workflows.html actually imports and constructs the client › no user write path was rerouted — workflows.html still autosaves through the API (10ms)
+
+  55 passed (16.4s)
+EXIT=0

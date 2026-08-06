@@ -65,12 +65,50 @@ import { createHQConflictHandler, resolveConflict } from './conflict-handler.js'
 // NARROW — obligation 4 / decision 56: a user holding `inventory` genuinely
 // reaches `inventory-trends` and `inventory-cost`, so the reachable set is the
 // expansion, not the claim.
-function cachedGrantSlugs() {
+//
+// Mirrors `index.html:150-179`'s `readIdentityToken()` — the identity token
+// lives in the origin-scoped `hq-identity` CacheStorage bucket (`/__hq_identity`),
+// not localStorage, and CacheStorage is reachable from any page on this
+// origin, not just the launcher that writes it.
+async function readIdentityToken() {
+  if (!('caches' in window)) return null;
+  try {
+    const c = await caches.open('hq-identity');
+    const r = await c.match('/__hq_identity');
+    if (!r) return null;
+    const t = (await r.text()).trim();
+    return t || null;
+  } catch (err) {
+    return null;
+  }
+}
+
+// B-89: `index.html` (since decision 112, T-30) writes `hq_apps` as the
+// identity-stamped envelope `{uid, apps}` — index.html:228-241 — never a bare
+// array. This used to `Array.isArray`-gate the raw parse directly, which
+// rejects that envelope on every real client and silently returns `[]`
+// always. Fixed to read the SAME shape `index.html:234-236`'s
+// `readCachedApps()` reads: reject a missing envelope, reject a bare array,
+// reject a non-array `apps`, and reject a `uid` that does not match the
+// identity token this device last verified.
+//
+// The uid-mismatch case is NOT a park: `index.html:234-236` already ships the
+// answer (mirrored here) — a mismatch is treated as "nothing cached," not a
+// thrown/surfaced error. This function's own established "nothing cached"
+// value is `[]` (already returned today for a missing key or a parse
+// exception), so an invalid/mismatched envelope resolves to `[]` too, not
+// `index.html`'s `null` — the return type here has always been array-shaped
+// for `expandGrantSlugs()`.
+async function cachedGrantSlugs() {
   try {
     const raw = localStorage.getItem('hq_apps');
     if (!raw) return [];
-    const apps = JSON.parse(raw);
-    return Array.isArray(apps) ? apps.map((a) => a && a.slug).filter(Boolean) : [];
+    const env = JSON.parse(raw);
+    const deviceId = await readIdentityToken();
+    if (!deviceId || !env || Array.isArray(env) || env.uid !== deviceId || !Array.isArray(env.apps)) {
+      return [];
+    }
+    return env.apps.map((a) => a && a.slug).filter(Boolean);
   } catch (err) {
     return [];
   }
@@ -103,7 +141,10 @@ const HQSync = {
 };
 
 try {
-  const built = createHQSyncClient({ grants: cachedGrantSlugs() });
+  // Top-level await — this module is loaded `type="module"` (workflows.html),
+  // which is the one thing that makes awaiting cachedGrantSlugs()'s CacheStorage
+  // read possible at the module's own top level, no wrapper needed.
+  const built = createHQSyncClient({ grants: await cachedGrantSlugs() });
   HQSync.client = built.client;
   HQSync.conflictHandler = built.conflictHandler;
   HQSync.surfaces = built.surfaces;

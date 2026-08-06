@@ -148,14 +148,18 @@ count or closeout substitutes for that run.
   morning-triage G4 discipline greps are **vacuous in hq and read as clean** — the same
   absence-reads-as-pass class this whole activity exists to retire. Footprint: gate/harness.
 
-- **`shipped-bug-sweep`** · **PLANNED** (was slated on run `20260806` as the budget-gated stretch; **cut at 21:40Z, never dispatched** — re-slate it) · Close **B-89** and **B-132** — routed to "the next
-  night" by T-34 decision 137 and never promoted to a card, which is exactly the channel gap
-  **B-38** describes. (a) `cachedGrantSlugs()` returns `[]` unconditionally on every real client
-  (`index.html` writes `hq_apps` as `{uid, apps}`; `bootstrap.js` `Array.isArray`-gates it) — 🛑
-  **latent only while nothing calls `startHQReplication`, which Activity 4 changes**, so this must
-  land before activation. (b) `workflows.html:708` throws an uncaught `IndexSizeError` on every
-  completed submission, orphaning a full-screen canvas; fires 28× per suite run. Footprint: page
-  wiring + sync client.
+- **`shipped-bug-sweep`** · **DONE** (run `20260807`, card **A2**, branch `card/a2-shipped-bug-sweep`; commits `08dad2d` (B-89), `e65deb6` (B-132), `f2aeb0c` (sw.js regen)) · Closed **B-89** and **B-132** —
+  routed to "the next night" by T-34 decision 137 and never promoted to a card, which is exactly the
+  channel gap **B-38** describes. (a) `cachedGrantSlugs()` returned `[]` unconditionally on every real
+  client (`index.html` writes `hq_apps` as `{uid, apps}`; `bootstrap.js` `Array.isArray`-gated it) —
+  now reads the envelope and verifies `uid` against the identity token, mirroring `index.html`'s own
+  uid-mismatch handling (not a PARK). Landed before Activity 4 arms `startHQReplication`. (b)
+  `workflows.html`'s `fireworks()` threw an uncaught `IndexSizeError` on every completed submission
+  (measured tonight at 2482× per suite run, not the stale 28×/run figure) — radius now clamped
+  (`Math.max(0, p.size*p.life)`). Screenshot evidence settled what was never established: the "frozen
+  overlay" renders fully transparent (not a visible frozen confetti burst) — the real defect was a
+  leaked, invisible `<canvas>` DOM node. Both RF'd red-first; see BACKLOG.md B-89/B-132 for full
+  evidence + log paths. Footprint: page wiring + sync client, exactly as declared.
 
 - **`repo-hygiene-preconditions`** · **DONE** (run `20260806`, merge `6f91863`; triaged to `dev` 2026-08-05; B-140 filed for the four residual stale-gate sites) · The three defects the handoff §6 re-verified,
   each one line, all blocking clean `done_when:` authoring downstream. (a) **One NUL byte in
