@@ -74,7 +74,12 @@ count or closeout substitutes for that run.
 > is worth proving while a test mistake can erase the business's operating data with no restore
 > path — which is not hypothetical: it happened on 2026-08-06 (B-141, B-143).
 
-- **`prod-backup-floor-and-pitr`** · **PLANNED** · Close **B-143** (decision 154). Nightly
+- **`prod-backup-floor-and-pitr`** · **DONE** (attended, 2026-08-06 morning, branch
+  `fix/b145-prod-backup-floor` merged to `dev` at `0a764a9`; ledger §T-39. `task prod:backup` —
+  dump + globals, keep 14, small-dump guard — proven by a restore drill (96 tables) and an
+  observed scheduled firing (`YumyumsProdBackup`, nightly 03:30); PITR base via `pg_basebackup`
+  + WAL pruning per decision 159, `archive_mode` enablement attended) · Closed **B-143**
+  (decision 154). Nightly
   `pg_dump` of `yumyums` to a path outside the Docker volume — a Taskfile target plus a cron
   line — then `archive_mode=on` with a local WAL archive for point-in-time recovery. The dump is
   the immediate build; either half alone would have made 2026-08-06 a twenty-minute restore.
