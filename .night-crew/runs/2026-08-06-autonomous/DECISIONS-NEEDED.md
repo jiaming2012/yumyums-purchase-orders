@@ -1,5 +1,11 @@
 # Decisions needed — run `overnight-20260806`
 
+> **RESOLVED 2026-08-05 — recorded as ledger.md §T-38 (decisions 153–155).**
+> D-1 → red-first is the named gate **RF**; G3 stays `N/A` (decision 153, applied in
+> `reference/gate-ladder.md`). D-2a → nightly dump **and** PITR (decision 154, card
+> `prod-backup-floor-and-pitr`). D-2b → separate test-only Postgres container (decision 155,
+> card `test-cluster-separation`). This file is kept as the analysis record.
+
 > **Two items.** **No card parked on an operator fork.** D-1 was surfaced by G6 review; D-2 by an
 > incident during G6 review. Six of the seven dispatched cards completed their work (A5 was cut on
 > budget and never dispatched); A3 was refused at its gate, which is a failed gate rather than a park.

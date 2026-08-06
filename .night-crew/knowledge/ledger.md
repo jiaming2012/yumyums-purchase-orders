@@ -2909,3 +2909,52 @@ cluster · five armed reds and the armed attended `task sandbox:e2e` flag · 90 
 backlog items · and the successor the retirement of `sync-hard-cutover` left unauthored —
 `sync-live-fill-view`, whose absence is why this milestone reported zero white cards (clone
 **B-340**/**B-341**; the operator's response filed as **B-344**/**B-345**).
+
+## T-38 — Morning-triage resolutions (2026-08-05, run `20260806`)
+
+Triage of `overnight-20260806`, attended. The review verdict was sourced from an adversarial
+re-execution, not the closeout's own gate lines (§15ag.87): a fresh subagent rebuilt the branch
+tree in its own worktree and ran the first full Go suite the final tree had ever had — green, 9
+packages, 455 tests, 0 FAIL, `internal/workflow` at 35/35 (not the silent-skip zero) — plus G4
+byte-idempotent at 31 precached, and direct attacks on A1's gate-child token (the old skip env now
+FAILs in 0.008s), A2's Check B (a silenced package turns it red, reproduced both directions), W0's
+NUL removal (fingerprint equivalence independently re-derived), and A4's ladder edits (the fixed
+repro command now includes the falsifying test; run verbatim). Every claim attacked, held. One
+residual named at the merge decision: no full Playwright suite has run on the final tree.
+Merged to `dev` as **`ff1f39a`** on the operator's answer; full Go suite re-run green on the merged
+tree; `hq_test_go` (corrupted: goose 73 applied, 72 absent; zero connections) dropped per the
+HANDOFF's documented-safe call and recreated green by `task test:go`. Three fork answers were
+offered back and all three captured as pending preference candidates on the operator's explicit
+yes: **gates/C-1**, **operations/C-1**, **operations/C-2** (pending, not adopted — B-245's lesson
+stands until `night-crew preferences adopt` is run).
+
+**Decision 153 — D-1: red-first becomes the named gate RF; G3 stays `N/A`.** The record defined G3
+two incompatible ways — `N/A — openspec: absent` (decision 140) and "red-first re-verified by G6"
+(decision 101's recovered contract) — and A4's completeness sentence could not be true under both.
+Chosen: option (c), a new named gate row **RF (Red-first)** in `reference/gate-ladder.md`, over (a)
+redefining G3 as red-first (rejected: the recycled number is what produced the contradiction) and
+(b) leaving red-first ungated under an honest `N/A` (rejected: three of four code-changing cards
+on run `20260806` forgot the obligation precisely because no gate stood behind it). Decision 140
+stands untouched; decision 101's G3 reading is retired with its substance preserved as RF. The
+completeness sentence now enumerates G1, G2 (Go), G2 (Playwright), G3, G4, RF, G6. Every future
+slate and launch prompt inherits RF as a gate a code-changing card cannot merge without.
+
+**Decision 154 — D-2a: production gets both a nightly dump and PITR.** B-143 (no backup of any
+kind) is what converted the 2026-08-06 incident from a bad night into an unrecoverable one: the
+image had a rollback tag and the data had nothing. Chosen: nightly `pg_dump` of `yumyums` to a
+path outside the Docker volume (Taskfile target + cron line) **and** `archive_mode=on` with a
+local WAL archive for point-in-time recovery, over dump-only (the floor alone leaves up to a day
+exposed), PITR-only (longer exposed while it is built), and deferral. The dump is the immediate
+build; PITR follows. Promoted to card `prod-backup-floor-and-pitr` (roadmap Activity 0). B-143
+marked promoted.
+
+**Decision 155 — D-2b: the test suites leave the production cluster.** B-141's mechanism — a test
+file holding admin credentials to the cluster that serves `hq.yumyums.kitchen`, with a blocklist
+guard that structurally cannot enumerate the names that matter — means any mistake in that file is
+a production mistake. Chosen: a separate test-only Postgres container, over a restricted test role
+on the shared cluster (cheaper, but production would still share disk and cluster failures with
+tests) and over relying on the prefix-guard fix plus backups alone (a guard is a correctness
+argument; separation is a structural impossibility argument, and this week demonstrated which one
+holds under adversarial review). Promoted to card `test-cluster-separation` (roadmap Activity 0).
+B-141's prefix-guard half and B-142 ride the A3 re-gate (`gate-rls-fixture-ownership`), which
+stays refused-and-preserved until that attended card runs.

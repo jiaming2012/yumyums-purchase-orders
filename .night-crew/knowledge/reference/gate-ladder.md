@@ -34,37 +34,32 @@
 | **G2 (Playwright)** | `npx bddgen` · `npx playwright test --retries=0` | **Exactly one summary block.** Two blocks under one header = an invalidated run; discard and re-run. Judged against the armed-reds baseline, never against green |
 | **G3** | — | **N/A.** Preflight verdict `openspec: absent`; ledger §T-34 decision 140 keeps it that way. Create no OpenSpec scaffolding |
 | **G4** | `node build-sw.js` (or `task sw`) | Idempotent — tree clean on a second run. Precache count **31**; if it moves without an asset being deliberately added or removed, that is B-37's silent drop returning. Version parity `version.go Frontend` ≡ `package.json` ≡ `version.json`. 🛑 **Reads git HEAD, not the working tree** — regenerate **after** the merge commit, never mid-merge (B-37) |
+| **RF (Red-first)** | the `## Red-first` section of the card's merge-intent | The card shows its defect **red before the fix** — a failing test, probe, or captured failing command with its exit code — and G6 re-verifies that evidence. **A card that changes code and has shown no red cannot merge.** Cards whose deliverable is not code state `n/a` with the reason, as C1 and A4 did on run `20260806`. Named gate ruled at triage 2026-08-05 (ledger §T-38 decision 153) |
 | **G6** | fresh-context adversarial subagent | Inputs are the card's slate entry, the diff and the evidence — **never** the implementer's reasoning. On run 20260804 all four cards' G6 found something the card had not; the slot earns itself |
 
 ### 🛑 There is no G5. The number is retired, not missing.
 
-**The ladder is G1, G2 (Go), G2 (Playwright), G3, G4, G6. That is the whole ladder.** A card that
-has run those has run every gate this repo has. **Do not invent a G5, do not renumber G6 to G5, and
-do not treat the gap as an open TODO.**
+**The ladder is G1, G2 (Go), G2 (Playwright), G3, G4, RF, G6. That is the whole ladder.** A card
+that has run those has run every gate this repo has. **Do not invent a G5, do not renumber G6 to
+G5, and do not treat the gap as an open TODO.**
 
-> ### ❓ OPEN QUESTION — what G3 *is*, and therefore what that sentence guarantees. Ruling pending at triage.
+> ### ✅ RULED at triage 2026-08-05 — G3 stays `N/A`; red-first is the named gate **RF** (ledger §T-38 decision 153).
 >
-> The completeness sentence above is **not settled**, because **G3 carries two definitions in the
-> record and they do not agree:**
+> This block previously marked an open contradiction: **G3 carried two definitions in the record**
+> — `N/A — openspec: absent` (ledger §T-34 **decision 140**) versus *"red-first re-verified by G6"*
+> (**decision 101**'s recovered contract) — and the completeness sentence above could not be
+> settled while both stood. Raised by card A4's fix round, run `20260806`; routed to
+> `DECISIONS-NEEDED.md` as D-1; ruled by the operator at morning triage.
 >
-> | Definition | Source | Consequence |
-> |---|---|---|
-> | G3 = **`N/A — openspec: absent`** | this file's §"The gates" row, from ledger §T-34 **decision 140** (`ledger.md:2697`) — HQ keeps branch-and-commit and does not adopt OpenSpec | G3 is a no-op. The ladder is effectively five gates |
-> | G3 = **"red-first re-verified by G6"** | **decision 101**'s recovered contract (`ledger.md:1932`, §T-28) — the enumeration of what the runs *actually practised* when the ladder was reconstructed | G3 is a live, mandatory, per-card obligation |
->
-> 🛑 **Red-first is graded this very run (Q-KR3), and every card files a `## Red-first` section in
-> its merge intent.** Under the first definition that obligation is **not a gate at all** — it is
-> enforced by the merge-intent template and nothing else. Under the second it is G3, and a card
-> reporting "G3 N/A" has skipped a graded obligation.
->
-> **This card does not resolve it, and the ambiguity is not softened away.** Deciding what a gate
-> guarantees adds or removes an obligation on every card — that is an operator call, by exactly the
-> reasoning the G5 section applies two paragraphs down (*"it gets a name, not the number 5. Write the
-> case and park it; do not legislate one inside a run."*).
->
-> **Until it is ruled: read the completeness sentence as covering the six *numbers*, not as a promise
-> that red-first is optional.** Keep filing `## Red-first`. Raised by card A4's fix round, run
-> `20260806`; routed to `DECISIONS-NEEDED.md`.
+> **The ruling:** option (c) of the three put to the operator. G3 keeps meaning the OpenSpec
+> per-change gate and stays `N/A` while decision 140 stands — its row above is unchanged. Red-first
+> gets **its own named gate row, RF**, rather than the recycled number that produced this
+> contradiction — exactly the shape the G5 section below prescribes (*"it gets a name, not the
+> number 5"*). Decision 101's "G3 = red-first" reading is **retired**; its substance — red-first
+> evidence, re-verified by G6 — survives in full as RF. The evidence that decided it: three of the
+> four code-changing cards on run `20260806` shipped without their `## Red-first` section while it
+> was an ungated obligation, and each had to be sent back. An obligation that matters gets a gate.
+> Left visibly self-corrected rather than silently rewritten, per this file's own convention.
 
 Every slate from 07-15 onward cited "G1–G6", and the runs practised exactly the six above — G5 was
 **never defined in any sense a run used**. It survives only in two unrelated places that are not

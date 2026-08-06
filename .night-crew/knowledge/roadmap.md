@@ -67,6 +67,27 @@ count or closeout substitutes for that run.
 
 ---
 
+## Activity 0 — The floor under everything (production posture)
+
+> **Added at morning triage 2026-08-05** from run `20260806`'s incident, on the operator's D-2
+> rulings (ledger §T-38 decisions 154–155). Not part of the sync close bar, but nothing above it
+> is worth proving while a test mistake can erase the business's operating data with no restore
+> path — which is not hypothetical: it happened on 2026-08-06 (B-141, B-143).
+
+- **`prod-backup-floor-and-pitr`** · **PLANNED** · Close **B-143** (decision 154). Nightly
+  `pg_dump` of `yumyums` to a path outside the Docker volume — a Taskfile target plus a cron
+  line — then `archive_mode=on` with a local WAL archive for point-in-time recovery. The dump is
+  the immediate build; either half alone would have made 2026-08-06 a twenty-minute restore.
+  Footprint: `Taskfile.yml` + compose files; no app code.
+
+- **`test-cluster-separation`** · **PLANNED** · The structural half of **B-141** (decision 155).
+  Test suites get their own Postgres container; no test file holds admin credentials to the
+  cluster serving `hq.yumyums.kitchen`. Re-point the `DB_TEST_URL` defaults, the RLS suite's
+  `defaultHQAdminURL`, and the `task test:*` targets at it. Footprint: gate/harness + compose
+  files.
+
+---
+
 ## Activity 1 — A green that means something (gate integrity)
 
 > **Why this is first, and not sync.** The close bar is *"the operator ran it and saw it pass."*
@@ -74,7 +95,7 @@ count or closeout substitutes for that run.
 > `ok` having run nothing. Last cycle's A1 (`e2e-gate-database-isolation`) was exactly this shape
 > and it is the reason the close could cite anything at all. **Trace:** QA objective.
 
-- **`gate-rls-count-assertion`** · **DRAFTING** (`overnight-20260806`) · Close **B-36**.
+- **`gate-rls-count-assertion`** · **DONE** (run `20260806`, merge `9b63958`; triaged to `dev` 2026-08-05) · Closed **B-36**.
   🛑 **Re-scoped at slate-20260806 on execution evidence.** B-36's mechanism is **already fixed**:
   commit `4615661` (2026-08-01, on `dev`) made an unresolvable substrate a hard `t.Fatalf` unless
   `HQ_SYNC_SUBSTRATE_OPTIONAL` is set. Re-probed at slate time in both directions — docker stripped
@@ -85,7 +106,7 @@ count or closeout substitutes for that run.
   package. Also pins the exit-code asymmetry as a test, and closes B-36's stale entry.
   Footprint: backend sync.
 
-- **`gate-harness-check-b-per-package`** · **DRAFTING** (`overnight-20260806`) · Close **B-22**.
+- **`gate-harness-check-b-per-package`** · **DONE** (run `20260806`, merge `b75ac53`; triaged to `dev` 2026-08-05) · Closed **B-22**; B-144 filed on its cost honesty at triage.
   🛑 **Split out of `gate-harness-honesty` at slate-20260806 per the §1.4 fan-out rule** — the
   original card bundled two mechanisms in two file families (shell vs Go). `scripts/verify-test-harness.sh`
   Check B runs **one** aggregate `go test` over seven packages and passes when it exits non-zero, so
@@ -93,7 +114,7 @@ count or closeout substitutes for that run.
   per-package, require all seven to exit non-zero, and assert the iterated package count so a
   shrinking `DB_PKGS` announces itself. Footprint: gate/harness.
 
-- **`gate-rls-fixture-ownership`** · **DRAFTING** (`overnight-20260806`) · Close **B-35**.
+- **`gate-rls-fixture-ownership`** · **BLOCKED** (run `20260806`: G6 verdict **DO NOT MERGE**; branch + worktree preserved at `card/a3-rls-fixture-own`) · Still closes **B-35**. 🛑 **Attended re-gate required** — fix B-141's prefix guard and B-142's two items as one card, then re-run the gates (ledger §T-38 decision 155; its G6 probe destroyed production, see B-141/B-143). The mechanism and evidence are otherwise the strongest of run `20260806`.
   🛑 **Split out of `gate-harness-honesty`** (see above). The standard gate command `go test ./...`
   **drops a database it does not own** — `rowvisibility_rls_test.go:400` drops/recreates
   `hq_test_b2_fdw` on entry, so any plain gate run destroys a concurrently-running card's fixture.
@@ -102,14 +123,14 @@ count or closeout substitutes for that run.
   exists* (`:233`); the defect is the shared **default**. Remedy per B-35's lead — prefer failing
   over defaulting. Footprint: backend sync.
 
-- **`gate-ladder-completeness`** · **DRAFTING** (`overnight-20260806`) · Close the surviving half of **B-26**, plus
+- **`gate-ladder-completeness`** · **DONE** (run `20260806`, merge `c2a7e5c`; triaged to `dev` 2026-08-05; its D-1 fork ruled — red-first is now gate **RF**, ledger §T-38 decision 153) · Closed the surviving half of **B-26**, plus
   **B-14**. Decision 138 gave the ladder a home (`reference/gate-ladder.md`) but **G5 is still
   undefined** — the table runs G1, G2(Go), G2(Playwright), G3 (N/A), G4, **G6**. Either define G5
   or state in the file that there is none, so no future slate inherits a gap. And **B-14**: the
   morning-triage G4 discipline greps are **vacuous in hq and read as clean** — the same
   absence-reads-as-pass class this whole activity exists to retire. Footprint: gate/harness.
 
-- **`shipped-bug-sweep`** · **DRAFTING** (`overnight-20260806`) · Close **B-89** and **B-132** — routed to "the next
+- **`shipped-bug-sweep`** · **PLANNED** (was slated on run `20260806` as the budget-gated stretch; **cut at 21:40Z, never dispatched** — re-slate it) · Close **B-89** and **B-132** — routed to "the next
   night" by T-34 decision 137 and never promoted to a card, which is exactly the channel gap
   **B-38** describes. (a) `cachedGrantSlugs()` returns `[]` unconditionally on every real client
   (`index.html` writes `hq_apps` as `{uid, apps}`; `bootstrap.js` `Array.isArray`-gates it) — 🛑
@@ -118,7 +139,7 @@ count or closeout substitutes for that run.
   completed submission, orphaning a full-screen canvas; fires 28× per suite run. Footprint: page
   wiring + sync client.
 
-- **`repo-hygiene-preconditions`** · **DRAFTING** (`overnight-20260806`) · The three defects the handoff §6 re-verified,
+- **`repo-hygiene-preconditions`** · **DONE** (run `20260806`, merge `6f91863`; triaged to `dev` 2026-08-05; B-140 filed for the four residual stale-gate sites) · The three defects the handoff §6 re-verified,
   each one line, all blocking clean `done_when:` authoring downstream. (a) **One NUL byte in
   `sync-rxdb/client.js`** makes `grep` report nothing on strings present three times — any
   "grep returns nothing" criterion is currently satisfiable by unreadability. (b)
@@ -137,7 +158,7 @@ count or closeout substitutes for that run.
 > measured false on **night nine of nine**, after ~11,200 spec lines had been built on it.
 > **Trace:** Delivery + Engineering objectives.
 
-- **`spike-a-environment-up`** · **DRAFTING** (`overnight-20260806`) · *Spike A — the operator's own.* One script takes a
+- **`spike-a-environment-up`** · **DONE** (run `20260806`, merge `76dc12b`, verdict **GREEN**; triaged to `dev` 2026-08-05 — D-KR1 now has 1 of its 4 spike verdicts) · *Spike A — the operator's own.* One script takes a
   clean machine to *"Supabase + RxDB both up, schema applied, healthy"* **unattended**. Proves the
   environment has no hand-configured, undocumented step. Seeds the dev-environment target that
   Activity 5's demo runs against. Verdict = the script's exit status. Footprint: spike scripts.

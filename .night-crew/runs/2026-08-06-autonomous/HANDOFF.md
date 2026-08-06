@@ -4,6 +4,18 @@
 **Dispatch:** concurrent, three tracks, under a global Playwright suite mutex
 **Ran:** 18:31Z → 01:55Z (~7h25m) · **Merged: 5 of 7 dispatched. A3 refused. A5 cut on budget.**
 
+> **TRIAGED 2026-08-05 (attended).** Merged to `dev` as **`ff1f39a`** after adversarial
+> re-execution — first full Go suite ever run on the final tree: 9 packages, 455 tests, 0 FAIL;
+> every attacked claim (A1 token, A2 conjunction, W0 fingerprint, A4 ladder) held. **D-1 and D-2
+> ruled** — ledger §T-38, decisions 153–155: red-first is now the named gate **RF** in the
+> ladder; production gets a nightly dump + PITR (card `prod-backup-floor-and-pitr`); the test
+> suites leave the production cluster (card `test-cluster-separation`). `hq_test_go` dropped per
+> §"Next actions" item 2 and recreated green by `task test:go`. A3's branch and worktree stay
+> preserved for the attended re-gate (B-141 prefix guard + B-142 as one card).
+> **Flags:** `sync.spec.js:446 [LST-17]` stays armed (retired by diagnosis, never by passing
+> once). "No full Playwright suite on the final tree" remains open and clears when the next full
+> suite runs green on `dev`; it re-arms after any merge that skips the suite.
+
 ---
 
 ## 🛑 READ THIS FIRST — production was destroyed and rebuilt empty
