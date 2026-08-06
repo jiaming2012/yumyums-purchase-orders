@@ -30,9 +30,10 @@
 //
 // ⚠ LOCAL SPIKE ONLY. Never HQ, never :5433 (production), never :5434.
 
+import { writeFileSync } from 'node:fs';
 import {
     banner, check, srcJson, rest, mintTokenAs,
-    SYNC_TABLE, PROJ_TABLE, SQL_PROJECTION, SQL_ROWS, SQL_USERS, RUN
+    SYNC_TABLE, PROJ_TABLE, SQL_PROJECTION, SQL_ROWS, SQL_USERS, RUN, MANIFEST
 } from './hq-bridge-env.js';
 
 banner('hq-migrate.js — HQ-shaped Postgres  ->  Supabase substrate');
@@ -86,6 +87,15 @@ console.log('\n── 2. reset the migration target (scoped to this fixture) ─
 const svc = mintTokenAs(`svc-migrator-${RUN}`, 'service_role');
 const rowIds = rows.map((r) => r.id);
 const projUsers = [...new Set(projection.map((p) => p.user_id))];
+
+// Record every key this run is about to put into spike A's SHARED tables, before
+// putting any of them there, so hq-reset.js can take them all back out even if
+// this process dies in the middle of the load. See MANIFEST's note in
+// hq-bridge-env.js for what goes wrong when a rehearsal leaves rows behind.
+if (MANIFEST) {
+    writeFileSync(MANIFEST, JSON.stringify({ run: RUN, rowIds, projUsers }, null, 2));
+    console.log(`  migrated-key manifest -> ${MANIFEST}`);
+}
 
 const delRows = await rest('DELETE', `${SYNC_TABLE}?id=${inList(rowIds)}`, { token: svc });
 check(delRows.status < 300, `DELETE ${SYNC_TABLE} (scoped) -> HTTP ${delRows.status}`, delRows.text);

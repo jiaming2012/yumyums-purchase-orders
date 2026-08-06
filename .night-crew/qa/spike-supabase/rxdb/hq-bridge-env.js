@@ -46,6 +46,24 @@ if (!HQ_CID) {
 export const RUN = process.env.SPIKE_B_RUN_ID || `b${Date.now()}`;
 
 // ---------------------------------------------------------------------------
+// The migrated-key manifest.
+//
+// 🛑 WHY THIS EXISTS. hq_sync_checklists and hq_grant_projection are SPIKE A's
+// tables and they are SHARED. backend/internal/sync/jwtbridge_rls_test.go's
+// service_role CONTROL asserts an EXACT full-table row set — it is the control
+// that proves the RLS variants refuse rows that are really there — so any row
+// this spike leaves behind reds a committed Go suite. Measured, on this card's
+// own first gate run: four subtests of TestJWTBridgeRLS failed with
+// "expected rows [chk-alice-...], got [0e000000-... chk-alice-...]".
+//
+// So the rehearsal restores the substrate when it is finished, exactly as it
+// destroys its scratch Postgres. The manifest is written BEFORE the load — not
+// after — so a run that dies mid-load is still cleanable, and it is written to a
+// path outside the repo (the shell hands one down via SPIKE_B_MANIFEST) so no
+// stray artefact lands in the tree.
+export const MANIFEST = process.env.SPIKE_B_MANIFEST || '';
+
+// ---------------------------------------------------------------------------
 // 1. Reading the HQ-shaped source.
 //
 // Over `docker exec psql`, not a JS Postgres driver, for the same reason

@@ -104,6 +104,12 @@ HQDC=(docker compose -p "$HQ_PROJECT" --project-directory "$ANCHOR" -f "$HQ_COMP
 
 export SPIKE_B_RUN_ID="${SPIKE_B_RUN_ID:-b$(date -u +%Y%m%d%H%M%S)}"
 
+# Where hq-migrate.js records the keys it is about to write into spike A's SHARED
+# tables, so teardown can take exactly those back out. Outside the repo on
+# purpose — a rehearsal leaves no artefact in the tree.
+export SPIKE_B_MANIFEST="${SPIKE_B_MANIFEST:-$(mktemp -t spike-b-migrated-XXXXXX.json)}"
+rm -f "$SPIKE_B_MANIFEST"   # mktemp created it empty; hq-migrate.js writes it for real
+
 printf '# spike-b-migration.sh — HQ-shaped Postgres -> Supabase -> RxDB\n'
 printf '# repo   %s\n' "$REPO_ROOT"
 printf '# anchor %s\n' "$ANCHOR"
@@ -112,20 +118,54 @@ printf '# started %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
 # --------------------------------------------------------------------------
 # Teardown. Registered BEFORE the container is created, so an abort between
-# `up` and the first assertion still cleans up. It must never alter the exit
-# status — the exit status is the verdict.
+# `up` and the first assertion still cleans up. It preserves the run's exit
+# status — that status is the verdict — with exactly ONE exception, stated
+# below: a FAILED substrate reset turns a green run red, because a run that
+# leaves spike A's shared tables dirty has broken something whether or not its
+# own assertions passed.
 # --------------------------------------------------------------------------
+# Teardown has TWO halves and both are mandatory:
+#   (a) destroy the scratch HQ-shaped Postgres, and
+#   (b) put spike A's SHARED substrate tables back as this run found them.
+#
+# 🛑 (b) IS NOT TIDINESS. hq_sync_checklists is shared, and
+#    backend/internal/sync/jwtbridge_rls_test.go's service_role CONTROL asserts
+#    an EXACT full-table row set. Rows left behind by this rehearsal RED that
+#    committed Go suite — measured on this card's own first G2 run, four
+#    subtests of TestJWTBridgeRLS. See rxdb/hq-reset.js's banner.
 teardown() {
   local rc=$?
   if [ "$KEEP" = "1" ]; then
     printf '\n(--keep) scratch HQ-shaped Postgres left running: docker compose -p %s ... down --volumes\n' "$HQ_PROJECT"
-    return $rc
+    printf '(--keep) migrated rows LEFT IN spike A'"'"'s shared tables. They RED backend/internal/sync.\n'
+    printf '         Undo with: SPIKE_B_MANIFEST=%s node %s/rxdb/hq-reset.js\n' "$SPIKE_B_MANIFEST" "$SPIKE_DIR"
+    exit $rc
   fi
-  printf '\n── teardown: destroying the scratch HQ-shaped Postgres (project %s) ──\n' "$HQ_PROJECT"
+  printf '\n── teardown (1/2): restoring spike A'"'"'s shared substrate ──\n'
+  if [ -f "$SPIKE_B_MANIFEST" ]; then
+    ( cd "$SPIKE_DIR/rxdb" && node hq-reset.js ) || {
+      printf '  🛑 THE SUBSTRATE RESET FAILED. Migrated rows are still in hq_sync_checklists /\n'
+      printf '     hq_grant_projection and WILL red backend/internal/sync (TestJWTBridgeRLS'"'"'s\n'
+      printf '     service_role control asserts an exact row set). Re-run by hand:\n'
+      printf '       SPIKE_B_MANIFEST=%s node %s/rxdb/hq-reset.js\n' "$SPIKE_B_MANIFEST" "$SPIKE_DIR"
+      # A failed reset must not be silent, and must not be mistaken for a passing
+      # run. If the spike itself was green, the verdict becomes red here.
+      [ "$rc" = "0" ] && rc=1
+    }
+  else
+    printf '  no manifest — nothing was loaded into the substrate; nothing to reset.\n'
+  fi
+  rm -f "$SPIKE_B_MANIFEST"
+
+  printf '\n── teardown (2/2): destroying the scratch HQ-shaped Postgres (project %s) ──\n' "$HQ_PROJECT"
   "${HQDC[@]}" down --volumes --remove-orphans >/dev/null 2>&1 || \
     printf '  ⚠ teardown of project %s did not complete cleanly — check `docker ps -a`\n' "$HQ_PROJECT"
   printf '  torn down.\n'
-  return $rc
+  # 🛑 `exit`, NOT `return`. Inside an EXIT trap a `return` cannot change the
+  #    script's status, so a failed substrate reset would have been swallowed and
+  #    a run that left spike A's tables dirty would still have exited 0 — the
+  #    silent-no-op class this whole cycle exists to retire.
+  exit $rc
 }
 trap teardown EXIT
 
