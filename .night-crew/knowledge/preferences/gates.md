@@ -16,14 +16,7 @@
 - **Recorded:** 2026-01-01
 -->
 
-## Pending — proposed, not adopted
-
-> Candidates offered back from your own answers, recorded with your consent.
-> They are **not preferences yet**: nothing cites them, nothing validates them, and no
-> command promotes them. To adopt one, renumber it to the next free `P-n`, move it up
-> above this section, and delete what you don't want. To drop one, delete it.
-
-## C-1 · Red-first is a gate, not a memory test
+## P-1 · Red-first is a gate, not a memory test
 
 - **Preference:** Red-first evidence is a named gate row in the ladder — a card that has not shown its red cannot merge. An obligation that matters gets a gate, not a reminder in a launch prompt.
 - **Why (operator):** Operator ruled for a named red-first gate at morning triage 2026-08-05 (D-1, run 20260806), after 3 of 4 code-changing cards shipped without their Red-first section and the record defined G3 two incompatible ways. No further reason stated; the recommended option was chosen.
@@ -32,3 +25,11 @@
 - **Recorded:** 2026-08-05
 - **Offered at:** an attended session
 - **Consent:** recorded on the operator's explicit yes to this item.
+- **Adopted:** 2026-08-06 — confirmed at the terminal by the operator.
+
+## Pending — proposed, not adopted
+
+> Candidates offered back from your own answers, recorded with your consent.
+> They are **not preferences yet**: nothing cites them, nothing validates them, and no
+> command promotes them. To adopt one, renumber it to the next free `P-n`, move it up
+> above this section, and delete what you don't want. To drop one, delete it.
