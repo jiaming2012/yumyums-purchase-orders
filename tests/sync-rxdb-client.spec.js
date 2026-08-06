@@ -1378,13 +1378,42 @@ test.describe('workflows.html actually imports and constructs the client', () =>
     await page.waitForURL((url) => !url.pathname.includes('login'));
   }
 
+  // An arbitrary, uuid-shaped device id — NOT a real user id. bootstrap.js's
+  // uid check is a device-state consistency check against whatever this
+  // device last verified (mirrors index.html:234-236), not a re-derivation of
+  // server auth, so any string works as long as the envelope and the
+  // identity-cache token agree.
+  const HQ_SYNC_TEST_UID = '00000000-0000-4000-8000-0000000c1153';
+
+  // Plants the REAL envelope shape `index.html:239-241` writes — `{uid, apps}`
+  // — plus the matching identity-cache token (`hq-identity` / `/__hq_identity`,
+  // `index.html:150-179`) bootstrap.js's fixed `cachedGrantSlugs()` verifies it
+  // against (B-89). Until this card, this fixture planted a bare array — a
+  // shape production never writes since decision 112 (T-30) — which is why the
+  // assertion below passed against `Array.isArray`-gated dead code.
+  async function seedGrantEnvelope(page, uid, apps) {
+    await page.evaluate(async ({ uid, apps }) => {
+      localStorage.setItem('hq_apps', JSON.stringify({ uid, apps }));
+      const c = await caches.open('hq-identity');
+      await c.put('/__hq_identity', new Response(uid, { headers: { 'Content-Type': 'text/plain' } }));
+    }, { uid, apps });
+  }
+
   test('window.HQSync is constructed, pinned and umbrella-expanded', async ({ page }) => {
     const errors = [];
     page.on('pageerror', (e) => errors.push(String(e)));
-    await page.addInitScript(() => {
-      localStorage.setItem('hq_apps', JSON.stringify([{ slug: 'inventory' }, { slug: 'operations' }]));
-    });
+    // Freeze the post-login redirect target so index.html's own
+    // establishIdentity()/writeCachedApps() (index.html:262-336) never runs
+    // and overwrites the envelope this test controls below — this test seeds
+    // bootstrap.js's INPUT directly, it does not need the launcher's own
+    // derivation of it.
+    await page.route((url) => url.pathname === '/', (route) => route.fulfill({
+      status: 200,
+      contentType: 'text/html',
+      body: '<!doctype html><title>frozen</title>',
+    }));
     await login(page);
+    await seedGrantEnvelope(page, HQ_SYNC_TEST_UID, [{ slug: 'inventory' }, { slug: 'operations' }]);
     await page.goto('/workflows.html');
     await page.waitForFunction(() => window.HQSync !== undefined, null, { timeout: 15000 });
 
