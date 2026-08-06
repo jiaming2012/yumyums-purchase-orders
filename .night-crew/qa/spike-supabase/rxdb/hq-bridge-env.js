@@ -36,11 +36,17 @@ export const PROJ_TABLE = 'hq_grant_projection';
 // container's lifetime and passes its id, so these scripts can never attach to
 // something they did not create.
 export const HQ_CID = process.env.SPIKE_B_HQ_CID || '';
-if (!HQ_CID) {
-    console.error('hq-bridge-env: SPIKE_B_HQ_CID is unset — run this through '
-        + '.night-crew/qa/spike-supabase/spike-b-migration.sh, which creates the '
-        + 'scratch HQ-shaped Postgres and exports its container id.');
-    process.exit(2);
+// The guard is LAZY — enforced by srcPsql() at first use, not at import.
+// hq-reset.js (the recovery path the script prints on a red run) needs only
+// the substrate REST side and the manifest; a module-level exit here made the
+// advertised undo inoperable exactly when it was needed (B-148).
+function requireHqCid() {
+    if (!HQ_CID) {
+        console.error('hq-bridge-env: SPIKE_B_HQ_CID is unset — run this through '
+            + '.night-crew/qa/spike-supabase/spike-b-migration.sh, which creates the '
+            + 'scratch HQ-shaped Postgres and exports its container id.');
+        process.exit(2);
+    }
 }
 
 export const RUN = process.env.SPIKE_B_RUN_ID || `b${Date.now()}`;
@@ -72,6 +78,7 @@ export const MANIFEST = process.env.SPIKE_B_MANIFEST || '';
 // Postgres client, exactly as env-up.sh notes for the Supabase side.
 // ---------------------------------------------------------------------------
 export function srcPsql(sql) {
+    requireHqCid();
     try {
         return execFileSync(
             'docker',
@@ -281,6 +288,6 @@ export const eqSet = (a, b) =>
 export function banner(what) {
     console.log(`# ${what}`);
     console.log(`# substrate: rest=${REST_PORT} realtime=${REALTIME_PORT} db=${DB_PORT}`);
-    console.log(`# hq source container: ${HQ_CID}`);
+    console.log(`# hq source container: ${HQ_CID || '(none — substrate-only invocation)'}`);
     console.log(`# run: ${RUN}`);
 }
