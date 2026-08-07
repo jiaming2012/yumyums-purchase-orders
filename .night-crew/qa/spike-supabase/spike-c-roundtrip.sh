@@ -426,6 +426,24 @@ echo "  building HQ's server binary"
 MIG_COUNT="$(find "$REPO_ROOT/backend/internal/db/migrations" -name '*.sql' | wc -l | tr -d ' ')"
 echo "  booting it against the scratch Postgres (it will apply $MIG_COUNT migrations)"
 
+API="http://127.0.0.1:$HQ_API_PORT"
+
+# 🛑 REFUSE TO REUSE A SERVER WE DID NOT START. This is not defensiveness; it is
+# a measured failure. The first armed run of this script attached to an ORPHANED
+# server left behind by the previous run (the process was started in a subshell,
+# so $! was the subshell's pid and `kill` never reached the binary). The health
+# poll below went green in milliseconds against that orphan while THIS run's
+# migrator was three migrations in, and the script then read 6 tables and
+# reported "the migrator did not run".
+#
+# It is the same trap playwright.config.js documents at length for
+# reuseExistingServer, and it has now cost this repo a leg twice. Both halves of
+# the fix are here: the pre-flight refusal, and starting the binary DIRECTLY
+# (below) so $! is the server itself and teardown's kill actually lands.
+if curl -fsS --max-time 2 "$API/api/v1/health" >/dev/null 2>&1; then
+  cannot_run "something is ALREADY serving $API/api/v1/health. This spike must never attach to a server it did not start — that server has a different database. Kill it (pkill -f hq-server) or set SPIKE_C_API_PORT to a free port."
+fi
+
 # STATIC_DIR is set for the SAME reason playwright.config.js sets it: main.go
 # computes `secureCookie := os.Getenv("STATIC_DIR") == ""`, so leaving it unset
 # yields Secure cookies that curl and fetch will never send back over http, and
@@ -435,19 +453,21 @@ echo "  booting it against the scratch Postgres (it will apply $MIG_COUNT migrat
 # `dotenv: ['backend/.env']` injects LIVE Mercury/Anthropic/Cliq/SMTP credentials
 # into anything launched from the checkout, and the alert queue is NOT gated by
 # E2E_DISABLE_SCHEDULERS.
-(
-  cd "$REPO_ROOT/backend" && \
-  PORT="$HQ_API_PORT" DB_URL="$HQ_DSN" STATIC_DIR=../ \
-  SUPERADMIN_CONFIG=config/superadmins.yaml TEMPLATE_CONFIG=config/templates.yaml \
+# 🛑 `env ... binary &`, NEVER `( ... ) &`. A subshell makes $! the SUBSHELL's
+# pid; teardown's `kill` then reaps the subshell and leaves the server running
+# as an orphan still bound to this port. See the refusal above for what that
+# cost. The config paths are absolute for the same reason — so no `cd`, and
+# therefore no subshell, is needed.
+env PORT="$HQ_API_PORT" DB_URL="$HQ_DSN" STATIC_DIR="$REPO_ROOT" \
+  SUPERADMIN_CONFIG="$REPO_ROOT/backend/config/superadmins.yaml" \
+  TEMPLATE_CONFIG="$REPO_ROOT/backend/config/templates.yaml" \
   TOAST_SYNC_INTERVAL=0 E2E_DISABLE_SCHEDULERS=1 \
   MERCURY_API_KEY= ANTHROPIC_API_KEY= \
   ZOHO_CLIQ_CLIENT_ID= ZOHO_CLIQ_CLIENT_SECRET= ZOHO_CLIQ_REFRESH_TOKEN= \
   SMTP_ADDR= SMTP_USERNAME= SMTP_PASSWORD= \
-  "$WORK/hq-server" > "$WORK/hq-server.log" 2>&1
-) &
+  "$WORK/hq-server" > "$WORK/hq-server.log" 2>&1 &
 SERVER_PID=$!
 
-API="http://127.0.0.1:$HQ_API_PORT"
 deadline=$(( $(date +%s) + 90 ))
 until curl -fsS "$API/api/v1/health" >/dev/null 2>&1; do
   kill -0 "$SERVER_PID" 2>/dev/null || { echo "--- hq-server.log ---"; cat "$WORK/hq-server.log"; cannot_run "HQ's server exited before it became healthy (migrations or boot failed — log above)"; }
@@ -536,14 +556,13 @@ else
   echo "  building and starting the relay (backend/cmd/spikec-relay)"
   ( cd "$REPO_ROOT/backend" && go build -o "$WORK/spikec-relay" ./cmd/spikec-relay ) \
     || cannot_run "'go build ./cmd/spikec-relay' failed"
-  (
-    SPIKE_C_HQ_DSN="$HQ_DSN" \
+  # `env ... binary &`, not `( ... ) &` — same reason as the server above.
+  env SPIKE_C_HQ_DSN="$HQ_DSN" \
     SPIKE_C_REST_BASE="$REST_BASE" \
     SPIKE_C_SERVICE_TOKEN="$SERVICE_TOKEN" \
     SPIKE_C_SYNC_TABLE="$SYNC_TABLE" \
     SPIKE_C_APP_SLUG="$APP_SLUG" \
-    "$WORK/spikec-relay" > "$WORK/relay.log" 2>&1
-  ) &
+    "$WORK/spikec-relay" > "$WORK/relay.log" 2>&1 &
   RELAY_PID=$!
 
   # 🛑 Wait for the relay's OWN readiness line, not for "the process exists".

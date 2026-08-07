@@ -291,6 +291,24 @@ func relayOne(ctx context.Context, pool *pgxpool.Pool, client *http.Client, cfg 
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+cfg.ServiceToken)
+	// 🛑 MEASURED FINDING, run 20260807-2: ONE call to /saveResponse fires this
+	// relay TWICE for the same response row. The relay log shows HTTP 201 then
+	// HTTP 200 on the same id, milliseconds apart, and it is not a duplicate
+	// notification — it is two genuine writes:
+	//
+	//   1. workflow/repository.go:826  INSERT ... ON CONFLICT DO UPDATE  (the save)
+	//   2. sync/ops.go:148             UPDATE submission_responses SET lamport_ts
+	//                                  (EmitOp's LWW stamp, fired asynchronously
+	//                                  by the same handler)
+	//
+	// A row-level trigger cannot tell those apart, so ANY change-data-capture
+	// mechanism on this table sees 2x the traffic a reader would predict. It is
+	// harmless here only because this write is an idempotent UPSERT. The cutover
+	// card inherits the question of whether the lamport stamp should be excluded
+	// (a WHEN clause on the trigger, or a column-list UPDATE OF) — that is a
+	// decision, not a detail, and it is worth roughly half the substrate write
+	// volume of the whole feature.
+	//
 	// merge-duplicates makes this an UPSERT: `/saveResponse` is an upsert too
 	// (ON CONFLICT (field_id, answered_by) DO UPDATE), so the second save of the
 	// same field must project as an UPDATE, not a 409. An update is also the
