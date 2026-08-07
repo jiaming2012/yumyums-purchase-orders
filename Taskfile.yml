@@ -350,6 +350,44 @@ tasks:
     desc: Spike B, leaving the scratch HQ-shaped Postgres running afterwards for hand-debugging
     cmd: ./.night-crew/qa/spike-supabase/spike-b-migration.sh --keep
 
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Sync spike C — the round trip (night-crew card C `spike-c-round-trip`).
+  # Disjoint from everything above and below it.
+  #
+  # Thin wrapper, same rule as the spike:up and spike:migration families: all
+  # logic lives in .night-crew/qa/spike-supabase/spike-c-roundtrip.sh so the
+  # verdict reproduces without `task` installed and comes from exactly one place.
+  #
+  # 🛑 THE EXIT-CODE CONTRACT IS THE DELIVERABLE, and "could not run" is NOT a
+  #   verdict:
+  #     0   GREEN — a row written through the REAL /saveResponse reached a
+  #         RUNNING RxDB client within the bound.
+  #     1   RED — ran, mechanism disproven. A RED IS A SUCCESSFUL SPIKE.
+  #     2   COULD NOT RUN — infra/setup failure. Says nothing about the mechanism.
+  #     3   verdict reached, but spike A's shared substrate could not be restored.
+  #
+  # 🛑 The HQ Postgres this stands up is a FRESH SCRATCH CONTAINER under its own
+  #   compose project `spike-c-hq`, on a DOCKER-ASSIGNED EPHEMERAL host port —
+  #   never :5433 (that cluster is PRODUCTION AND DEV; a probe there destroyed the
+  #   prod database on 2026-08-06), never :5434 (`yumyums-test-pg`), never 5432.
+  #   The script asserts that before it starts anything, and again on the port
+  #   Docker actually assigned. It creates the container and destroys it again,
+  #   so this target is re-runnable from nothing.
+  #
+  #   It calls env-up.sh in RECONCILE mode — it does not destroy spike A's stack —
+  #   and it restores spike A's SHARED substrate tables afterwards, VERIFYING the
+  #   restore against a pre-run baseline (rows left in hq_sync_checklists red
+  #   backend/internal/sync's TestJWTBridgeRLS).
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  spike:roundtrip:
+    desc: Spike C — one row through the REAL /saveResponse, out to an RxDB-served read (exit status IS the verdict; 0 green / 1 red / 2 could-not-run)
+    cmd: ./.night-crew/qa/spike-supabase/spike-c-roundtrip.sh
+
+  spike:roundtrip:red:
+    desc: Spike C's RED-FIRST capture — the same run with the relay deliberately absent; must exit 1, never 0 and never 2
+    cmd: ./.night-crew/qa/spike-supabase/spike-c-roundtrip.sh --no-relay
+
   version:
     desc: Compare backend + frontend versions across local source, dev server, and prod
     cmds:
