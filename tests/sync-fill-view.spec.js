@@ -122,20 +122,21 @@ function substrateRow(row) {
   return { ...row, _deleted: false, _modified: '2026-08-08T00:00:00.000000Z' };
 }
 
-// A template with exactly one checkbox field, assigned + scheduled for today.
-async function createOneFieldTemplate(page, name) {
+// A template with `count` checkbox fields, assigned + scheduled for today.
+async function createCheckboxTemplate(page, name, count) {
   const dow = await page.evaluate(() => new Date().getDay());
+  const fields = [];
+  for (let i = 0; i < count; i++) {
+    fields.push({
+      type: 'checkbox', label: 'Check this ' + (i + 1), required: false,
+      order: i, config: {}, fail_trigger: null, condition: null,
+    });
+  }
   const tpl = await api(page, 'POST', 'createTemplate', {
     name,
     requires_approval: false,
     sections: [{
-      title: 'Section 1',
-      order: 0,
-      condition: null,
-      fields: [{
-        type: 'checkbox', label: 'Check this', required: false,
-        order: 0, config: {}, fail_trigger: null, condition: null,
-      }],
+      title: 'Section 1', order: 0, condition: null, fields,
     }],
     schedules: [{ active_days: [dow] }],
     assignments: [
@@ -145,7 +146,22 @@ async function createOneFieldTemplate(page, name) {
   });
   const templates = await api(page, 'GET', 'templates');
   const found = templates.find((t) => t.id === tpl.id);
-  return { templateId: tpl.id, fieldId: found.sections[0].fields[0].id };
+  return { templateId: tpl.id, fieldIds: found.sections[0].fields.map((f) => f.id) };
+}
+
+// A template with exactly one checkbox field, assigned + scheduled for today.
+async function createOneFieldTemplate(page, name) {
+  const { templateId, fieldIds } = await createCheckboxTemplate(page, name, 1);
+  return { templateId, fieldId: fieldIds[0] };
+}
+
+// The signed-in crew member's id. `submission_responses.answered_by` is a uuid,
+// and the overlay has to compare against a real one — a literal would make the
+// authorship half of [FILL-04] pass for the wrong reason.
+async function currentUserId(page) {
+  const me = await page.evaluate(async () => (await fetch('/api/v1/me')).json());
+  expect(me && me.id, '/api/v1/me returned no id to scope authorship by').toBeTruthy();
+  return me.id;
 }
 
 /**
@@ -160,8 +176,8 @@ async function createOneFieldTemplate(page, name) {
  * HQ's own REST answer for this checklist is EMPTY, so an answered field in the
  * runner can only have come from the local collection.
  */
-async function checklistWithNoRestResponses(page, name) {
-  const { templateId, fieldId } = await createOneFieldTemplate(page, name);
+async function checklistWithNoRestResponses(page, name, fieldCount) {
+  const { templateId, fieldIds } = await createCheckboxTemplate(page, name, fieldCount || 1);
   await api(page, 'POST', 'submitChecklist', {
     template_id: templateId, idempotency_key: uuid(), responses: [],
   });
@@ -172,7 +188,9 @@ async function checklistWithNoRestResponses(page, name) {
     (submission.responses || []).length,
     'the fixture must carry NO REST responses, or an answered field proves nothing',
   ).toBe(0);
-  return { templateId, fieldId, checklistId: submission.id, templateName: name };
+  return {
+    templateId, fieldIds, fieldId: fieldIds[0], checklistId: submission.id, templateName: name,
+  };
 }
 
 // ===========================================================================
@@ -385,6 +403,236 @@ test.describe('[FILL-02] the fill view holds multiple concurrent per-checklist s
     expect(out.openCount).toBe(2);
     expect(out.idsA.filter((id) => out.idsB.includes(id))).toEqual([]);
     expect(out.refusesAnonymous).toMatch(/userId/);
+  });
+});
+
+// ===========================================================================
+// [FILL-04] 🛑 THE OVERLAY IS SCOPED TO **THIS** SUBMISSION AND **MY** DRAFTS.
+//
+// C3's own G6 finding **F-A (TOP, CONFIRMED)**, and it is a data-integrity
+// defect, not a tidiness one. The first shape of this card subscribed with
+// `db.responses.find({selector:{field_id:{$in: ids}}})` and applied every doc
+// that came back, comparing nothing else. Three facts make that wrong:
+//
+//   1. `checklist_fields.id` is per-template-VERSION and is shared by EVERY
+//      submission of that template. A daily recurring checklist therefore has
+//      one set of field ids and a new `checklist_submissions` row every day.
+//   2. The `hq_sync` Dexie database is PERSISTENT and `cancel()` purges nothing
+//      — B-42: RxDB's downstream only ADDS, there is no retention sweep for the
+//      four replicated collections. Yesterday's rows, legitimately pulled under
+//      yesterday's scope, are still resident today.
+//   3. `submission_responses_select` (sync-schema/sql/0003_rls_policies.sql:269)
+//      is `hq_can_see_field(field_id)` — 🛑 FIELD-level, NOT authorship-level,
+//      and 0003's own comment says why (a draft has no submission, so scoping
+//      the policy by submission would leave the one collection that MUST sync
+//      unreachable). So ANOTHER crew member's null-submission draft on a field I
+//      can see REPLICATES TO MY DEVICE, entirely correctly.
+//
+// Together: yesterday's answers, and other people's drafts, marked today's blank
+// checklist as done. The SEQUENTIAL resident-row case is the DEFAULT DAILY PATH,
+// which the card's original "stated bound" missed by analysing only the
+// concurrent same-template case.
+//
+// THE CONTRACT, mirroring what the REST hydrate already means:
+//   * `submission_id === <the open checklist>`  → RENDER. These are this
+//     submission's rows, shared per-submission exactly as
+//     `MY_SUBMISSIONS.responses` are.
+//   * `submission_id === null && answered_by === me` → RENDER. A draft, mine,
+//     exactly as `DRAFT_RESPONSES` are mine.
+//   * anything else → 🛑 DO NOT RENDER. Another submission's rows and another
+//     user's drafts both land here and neither is an answer to THIS checklist.
+//
+// The rows below are served through the stub substrate because that is what a
+// resident row is indistinguishable from once it is in the collection: the test
+// asserts they really ARE in `db.responses` before asserting the runner ignores
+// them, so a green here can never mean "replication quietly dropped them".
+// ===========================================================================
+test.describe('[FILL-04] the overlay renders only THIS submission and MY drafts (F-A)', () => {
+  test('a resident foreign-submission row and a foreign-user draft do NOT answer the fields', async ({ page }) => {
+    test.setTimeout(180000);
+    await login(page);
+    const me = await currentUserId(page);
+    const fx = await checklistWithNoRestResponses(page, 'C3 FillA Neg ' + Date.now(), 2);
+    const yesterdaysChecklistId = uuid();
+    const otherCrewMember = uuid();
+
+    await stubSubstrate(page, {
+      submission_responses: [
+        // (a) YESTERDAY'S ROW. Same field id — daily recurring checklist, same
+        //     template version — different submission. Still resident because
+        //     nothing evicts (B-42).
+        substrateRow({
+          id: uuid(),
+          submission_id: yesterdaysChecklistId,
+          field_id: fx.fieldIds[0],
+          value: true,
+          answered_by: me,
+          answered_at: '2026-08-07T00:00:00.000Z',
+        }),
+        // (b) ANOTHER CREW MEMBER'S DRAFT. `submission_id` null, and it reaches
+        //     this device legitimately: the RLS policy is field-level.
+        substrateRow({
+          id: uuid(),
+          submission_id: null,
+          field_id: fx.fieldIds[1],
+          value: true,
+          answered_by: otherCrewMember,
+          answered_at: '2026-08-08T00:00:00.000Z',
+        }),
+      ],
+    });
+
+    await page.goto(`/workflows.html?${FLAG}=on`);
+    const row = page.locator(`[data-fill-template-id="${fx.templateId}"]`);
+    await expect(row).toBeVisible({ timeout: 30000 });
+    await row.click();
+
+    // The scope is live and the rows really did replicate — otherwise the
+    // assertion below would pass because nothing arrived, which proves nothing.
+    await expect
+      .poll(async () => page.evaluate(async () => {
+        const db = window.HQSync && window.HQSync.db;
+        if (!db) return -1;
+        return (await db.responses.find().exec()).length;
+      }), { timeout: 60000 })
+      .toBe(2);
+
+    // 🛑 AND THE RUNNER STILL SHOWS NOTHING ANSWERED. Given a grace period, so
+    // this cannot pass by being sampled before the overlay had a chance to run.
+    await page.waitForTimeout(1500);
+    await expect(page.locator('#fill-body .progress-line'))
+      .toContainText('0 of 2 items complete');
+    const overlaid = await page.evaluate(() => Object.keys(window.HQFillSync.overlayKeys()));
+    expect(overlaid, 'a foreign submission\'s row or another user\'s draft reached the '
+      + 'overlay — today\'s blank checklist would render as answered').toEqual([]);
+  });
+
+  test('...while THIS submission\'s rows and MY OWN draft do answer them', async ({ page }) => {
+    // The positive half, on the same fixture shape and in the same file: the
+    // filter must not pass by rejecting everything.
+    test.setTimeout(180000);
+    await login(page);
+    const me = await currentUserId(page);
+    const fx = await checklistWithNoRestResponses(page, 'C3 FillA Pos ' + Date.now(), 2);
+
+    await stubSubstrate(page, {
+      submission_responses: [
+        substrateRow({
+          id: uuid(),
+          submission_id: fx.checklistId, // THIS submission
+          field_id: fx.fieldIds[0],
+          value: true,
+          answered_by: me,
+          answered_at: '2026-08-08T00:00:00.000Z',
+        }),
+        substrateRow({
+          id: uuid(),
+          submission_id: null, // MY draft
+          field_id: fx.fieldIds[1],
+          value: true,
+          answered_by: me,
+          answered_at: '2026-08-08T00:00:00.000Z',
+        }),
+      ],
+    });
+
+    await page.goto(`/workflows.html?${FLAG}=on`);
+    const row = page.locator(`[data-fill-template-id="${fx.templateId}"]`);
+    await expect(row).toBeVisible({ timeout: 30000 });
+    // REST says 0/2 — the list read path is untouched (T-43(b)).
+    await expect(row).toContainText('0/2 items');
+    await row.click();
+    await expect(page.locator('#fill-body .progress-line'))
+      .toContainText('2 of 2 items complete', { timeout: 60000 });
+  });
+});
+
+// ===========================================================================
+// [FILL-05] The lifecycle's two remaining holes — G6 findings F-B and F-C.
+// ===========================================================================
+test.describe('[FILL-05] the fill scope closes on every exit, and survives a fast reopen', () => {
+  test('switching to the Approvals tab closes the open checklist\'s scope [F-B]', async ({ page }) => {
+    // Only `show(1)` cancelled. `show(2)` and `show(3)` left the runner's
+    // replication live with no way to reach its handle — a leak, and one that
+    // keeps a Realtime channel and a pull loop running for a checklist nobody
+    // has open.
+    test.setTimeout(180000);
+    await login(page);
+    const fx = await checklistWithNoRestResponses(page, 'C3 FillB ' + Date.now(), 1);
+    await stubSubstrate(page, {});
+    await page.goto(`/workflows.html?${FLAG}=on`);
+    const row = page.locator(`[data-fill-template-id="${fx.templateId}"]`);
+    await expect(row).toBeVisible({ timeout: 30000 });
+    await row.click();
+    await expect
+      .poll(async () => page.evaluate(() => window.HQFillSync.openIds().length), { timeout: 30000 })
+      .toBe(1);
+
+    await page.click('#t2'); // Approvals
+    await expect
+      .poll(async () => page.evaluate(() => window.HQFillSync.openIds().length), { timeout: 15000 })
+      .toBe(0);
+    expect(await page.evaluate(() => window.HQSync.openScopeKeys().length)).toBe(0);
+
+    // ...and the Builder tab too, from a freshly opened runner.
+    await page.click('#t1');
+    await page.locator(`[data-fill-template-id="${fx.templateId}"]`).click();
+    await expect
+      .poll(async () => page.evaluate(() => window.HQFillSync.openIds().length), { timeout: 30000 })
+      .toBe(1);
+    await page.click('#t3'); // Builder
+    await expect
+      .poll(async () => page.evaluate(() => window.HQFillSync.openIds().length), { timeout: 15000 })
+      .toBe(0);
+    expect(await page.evaluate(() => window.HQSync.openScopeKeys().length)).toBe(0);
+  });
+
+  test('a close immediately followed by a reopen leaves a LIVE replication, not a cancelled one [F-C]', async ({ page }) => {
+    // `fillSyncClose` cancels via `entry.handle.then(h => h.cancel())` — a
+    // DEFERRED cancel. `openSyncScope` memoises per scope key, so a reopen
+    // before that microtask runs is handed the SAME handle, registers it as
+    // live, and is then killed by the older close's deferred cancel. Observable
+    // without any timing guesswork: `cancel()` deletes the key from
+    // `HQSync.openScopeKeys()`, so the two inspection surfaces DISAGREE —
+    // `HQFillSync.openIds()` reports a scope the sync layer no longer holds.
+    test.setTimeout(120000);
+    await login(page);
+    await stubSubstrate(page, {});
+    await page.goto(`/workflows.html?${FLAG}=on`);
+    await page.waitForFunction(
+      () => window.HQFillSync && window.HQSync && window.HQSync.readEnabled === true,
+      null,
+      { timeout: 30000 },
+    );
+
+    const out = await page.evaluate(async () => {
+      const args = ['chk-fastreopen', 'tpl-fastreopen', ['fld-fastreopen']];
+      const first = window.HQFillSync.open(...args); // deliberately NOT awaited
+      const closing = window.HQFillSync.close('chk-fastreopen');
+      const reopened = await window.HQFillSync.open(...args);
+      await first;
+      await closing;
+      // Let every deferred cancel settle before sampling.
+      await new Promise((r) => setTimeout(r, 400));
+      const res = {
+        reopenedIsHandle: !!(reopened && reopened.db && reopened.states),
+        fillIds: window.HQFillSync.openIds(),
+        syncKeys: window.HQSync.openScopeKeys().length,
+      };
+      await window.HQFillSync.close('chk-fastreopen');
+      res.afterFinalClose = window.HQFillSync.openIds().length;
+      res.syncKeysAfterFinalClose = window.HQSync.openScopeKeys().length;
+      return res;
+    });
+
+    expect(out.reopenedIsHandle).toBe(true);
+    expect(out.fillIds).toEqual(['chk-fastreopen']);
+    expect(out.syncKeys, 'the reopened scope was cancelled by the previous close\'s '
+      + 'deferred cancel — HQFillSync reports it live and the sync layer does not')
+      .toBe(1);
+    // ...and the real close still works afterwards.
+    expect(out.afterFinalClose).toBe(0);
+    expect(out.syncKeysAfterFinalClose).toBe(0);
   });
 });
 
