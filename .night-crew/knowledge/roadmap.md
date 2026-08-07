@@ -233,6 +233,19 @@ count or closeout substitutes for that run.
   replication filter against real infrastructure. 🛑 `HQ_SYNC_REST_URL` being unset is **the
   interlock working, not evidence of correctness**. Footprint: spike scripts + sync client.
 
+- **`spike-e-reconnect-catchup`** · **PLANNED** (added post-triage 2026-08-07, operator ask —
+  B-161) · Prove the disconnect/reconnect/catch-up cycle no existing spike touches: C proved
+  the round trip and D proved the filter, but nothing has ever severed a replicating client,
+  written rows while it was dark (including an UPDATE to an existing row — the
+  `submitted_at=gte.<iso>` checkpoint's weak spot), reconnected it, and measured whether
+  checkpoint pull recovers everything. Reuse spike C's harness (real write path + relay) and
+  spike D's substrate discipline; exit status is the verdict, sibling contract (0/1/2/64 +
+  restore-failure code). Natural red: pull leg disabled, realtime-only — it MUST miss the
+  dark-window rows or the assertion set is vacuous. 🛑 A red here is a **successful spike**:
+  it means the build cards need an explicit resync step, and finding that out costs one night
+  now versus a crew member's phone sleeping through a write in production. Footprint: spike
+  scripts only.
+
 ---
 
 ## Activity 3 — The walking skeleton (one row, end to end, behind a flag)
