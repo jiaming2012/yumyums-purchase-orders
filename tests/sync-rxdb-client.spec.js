@@ -277,12 +277,24 @@ test.describe('createHQSupabaseClient — same-origin, gateway-less, credential-
 // ===========================================================================
 
 // --- the fixture: one checklist opened, one never opened -------------------
+//
+// 🛑 `userId` IS PART OF EVERY FILL SCOPE SINCE CARD `activate-fill-view-reads`
+// (C3, run 20260808-2) — C2's G6 finding F-2. It appears in NO filter clause,
+// exactly as it does not for the LIST scope (SCOPE-03): no replicated table
+// carries a queryable per-user key. It is the scope's IDENTITY, and it is in
+// the fixture rather than bolted onto individual tests so that every scope this
+// file constructs is a scope the production call site could actually pass.
+const CREW_A = 'usr-crew-a-000-0000-0000-000000000001';
+const CREW_B = 'usr-crew-b-000-0000-0000-000000000002';
+
 const OPEN = {
+  userId: CREW_A,
   checklistId: 'chk-open-0000-0000-0000-000000000001',
   templateId: 'tpl-open-0000-0000-0000-000000000001',
   fieldIds: ['fld-open-a', 'fld-open-b'],
 };
 const NEVER = {
+  userId: CREW_A,
   checklistId: 'chk-never-000-0000-0000-000000000002',
   templateId: 'tpl-never-000-0000-0000-000000000002',
   fieldIds: ['fld-never-x'],
@@ -659,6 +671,7 @@ test.describe('[SCOPE-01] replication is scoped to the open checklist (C-2)', ()
 
   test('a device does NOT hold rows for a checklist it never opened', async () => {
     const pulled = await pullEachCollection({
+      userId: OPEN.userId,
       checklistId: OPEN.checklistId,
       templateId: OPEN.templateId,
       fieldIds: OPEN.fieldIds,
@@ -682,6 +695,7 @@ test.describe('[SCOPE-01] replication is scoped to the open checklist (C-2)', ()
     // for. `rsp-3` is that row; `rsp-5` is the same shape on a field this
     // device never saw and must stay out.
     const pulled = await pullEachCollection({
+      userId: OPEN.userId,
       checklistId: OPEN.checklistId,
       templateId: OPEN.templateId,
       fieldIds: OPEN.fieldIds,
@@ -703,6 +717,7 @@ test.describe('[SCOPE-01] replication is scoped to the open checklist (C-2)', ()
   test('scoped AND batched — the pull keeps its batch size', async () => {
     // C-2 says batched AND scoped. Scoping must not quietly drop the batching.
     const pulled = await pullEachCollection({
+      userId: OPEN.userId,
       checklistId: OPEN.checklistId,
       templateId: OPEN.templateId,
       fieldIds: OPEN.fieldIds,
@@ -748,6 +763,7 @@ test.describe('[SCOPE-01] replication is scoped to the open checklist (C-2)', ()
     })).toThrow(/templateId/);
     // ...and there is no code path left that returns the widening filter.
     expect(scopeFilterFor('templates', {
+      userId: OPEN.userId,
       checklistId: OPEN.checklistId,
       templateId: OPEN.templateId,
     })).toEqual({ op: 'eq', column: 'id', value: OPEN.templateId });
@@ -759,7 +775,9 @@ test.describe('[SCOPE-01] replication is scoped to the open checklist (C-2)', ()
     // refusal raised in there is not a refusal, it is a spin. Assert the throw
     // happens while BUILDING the builder.
     const { scopePlanFor, makePullQueryBuilder } = await loadClient();
-    const scope = { checklistId: OPEN.checklistId, templateId: OPEN.templateId };
+    const scope = {
+      userId: OPEN.userId, checklistId: OPEN.checklistId, templateId: OPEN.templateId,
+    };
     expect(() => scopePlanFor('a_fifth_collection', scope)).toThrow(/pulled whole/);
     expect(() => makePullQueryBuilder('a_fifth_collection', scope)).toThrow(/pulled whole/);
     // The bundle really does swallow handler throws into a retry.
@@ -955,10 +973,10 @@ test.describe('[SCOPE-03] the LIST scope — per-user, with a mandatory date flo
     expect(() => normalizeScope({})).toThrow(/checklistId/);
     expect(() => normalizeScope({ checklistId: OPEN.checklistId })).toThrow(/templateId/);
     expect(scopeFilterFor('templates', {
-      checklistId: OPEN.checklistId, templateId: OPEN.templateId,
+      userId: OPEN.userId, checklistId: OPEN.checklistId, templateId: OPEN.templateId,
     })).toEqual({ op: 'eq', column: 'id', value: OPEN.templateId });
     expect(scopeFilterFor('checklists', {
-      checklistId: OPEN.checklistId, templateId: OPEN.templateId,
+      userId: OPEN.userId, checklistId: OPEN.checklistId, templateId: OPEN.templateId,
     })).toEqual({ op: 'eq', column: 'id', value: OPEN.checklistId });
   });
 
@@ -985,7 +1003,7 @@ test.describe('[SCOPE-03] the LIST scope — per-user, with a mandatory date flo
     expect(again.fingerprint).toBe(a.fingerprint);
     // A LIST scope and a FILL scope are never the same replication.
     const fill = scopePlanFor('checklists', {
-      checklistId: OPEN.checklistId, templateId: OPEN.templateId,
+      userId: OPEN.userId, checklistId: OPEN.checklistId, templateId: OPEN.templateId,
     });
     expect(fill.fingerprint).not.toBe(a.fingerprint);
   });
@@ -1022,7 +1040,12 @@ test.describe('[SCOPE-04] the Realtime filter — three collections, and the one
     test(`[${mode}] the filter is present on EXACTLY THREE collections and ABSENT on responses`, async () => {
       const { realtimeFilterFor } = await loadClient();
       const scope = mode === 'fill'
-        ? { checklistId: OPEN.checklistId, templateId: OPEN.templateId, fieldIds: OPEN.fieldIds }
+        ? {
+          userId: OPEN.userId,
+          checklistId: OPEN.checklistId,
+          templateId: OPEN.templateId,
+          fieldIds: OPEN.fieldIds,
+        }
         : {
           mode: 'list', userId: LIST.userId, since: LIST.since, templateIds: LIST.templateIds,
         };
@@ -1036,7 +1059,12 @@ test.describe('[SCOPE-04] the Realtime filter — three collections, and the one
   test('every emitted filter is ONE `column=op.value` clause — the only shape Realtime takes', async () => {
     const { realtimeFilterFor } = await loadClient();
     const scopes = [
-      { checklistId: OPEN.checklistId, templateId: OPEN.templateId, fieldIds: OPEN.fieldIds },
+      {
+        userId: OPEN.userId,
+        checklistId: OPEN.checklistId,
+        templateId: OPEN.templateId,
+        fieldIds: OPEN.fieldIds,
+      },
       {
         mode: 'list', userId: LIST.userId, since: LIST.since, templateIds: LIST.templateIds,
       },
@@ -1247,10 +1275,16 @@ async function deviceOpens(scopes, meta = new Map()) {
 }
 
 const SCOPE_OPEN = {
-  checklistId: OPEN.checklistId, templateId: OPEN.templateId, fieldIds: OPEN.fieldIds,
+  userId: OPEN.userId,
+  checklistId: OPEN.checklistId,
+  templateId: OPEN.templateId,
+  fieldIds: OPEN.fieldIds,
 };
 const SCOPE_NEVER = {
-  checklistId: NEVER.checklistId, templateId: NEVER.templateId, fieldIds: NEVER.fieldIds,
+  userId: NEVER.userId,
+  checklistId: NEVER.checklistId,
+  templateId: NEVER.templateId,
+  fieldIds: NEVER.fieldIds,
 };
 
 test.describe('[SCOPE-02] the checkpoint is per-scope, not per-table (F-1)', () => {
@@ -1326,6 +1360,170 @@ test.describe('[SCOPE-02] the checkpoint is per-scope, not per-table (F-1)', () 
     const a = scopePlanFor('responses', SCOPE_OPEN);
     const b = scopePlanFor('responses', { ...SCOPE_OPEN, fieldIds: [OPEN.fieldIds[0]] });
     expect(a.fingerprint).not.toBe(b.fingerprint);
+  });
+});
+
+// ===========================================================================
+// [SCOPE-05] CONCURRENT FILL, AND THE USER DIMENSION THE FILL SCOPE LACKED.
+//
+// Card `activate-fill-view-reads` (C3, run 20260808-2). Two obligations in one
+// section, because they are the SAME mechanism seen from two sides —
+// `scopeIdentity()` → `replicationIdentifier` → RxDB's checkpoint key:
+//
+// (1) 🛑 THE OPERATOR'S HARD REQUIREMENT (ledger T-43(c), their own words): crew
+//     members work MULTIPLE CHECKLISTS CONCURRENTLY — a setup checklist and a
+//     food-preparation checklist at the same time. So multiple live per-checklist
+//     fill replications at once ARE the design, not an edge case, and the
+//     property that makes them safe is that their identifiers are PAIRWISE
+//     DISTINCT: RxDB keys the persisted checkpoint by
+//     `[collection.name, replicationIdentifier]` and by nothing else (SCOPE-02),
+//     so a shared identifier is one checkpoint across two open checklists, which
+//     is F-1's permanent-row-loss shape reached from a second direction. B-63's
+//     lead, driven here in the existing recorder.
+//
+// (2) 🛑 C2's G6 FINDING F-2, and this is the half that was RED. The LIST scope
+//     has required `userId` since SCOPE-03 — "two crew members on one truck
+//     phone do not inherit each other's checkpoint". The FILL scope had NO user
+//     dimension at all. C2 became the first production call site to PERSIST a
+//     fill checkpoint, so the hazard stopped being theoretical: crew member B,
+//     on a device crew member A used, resumed A's `_modified` cursor and slept
+//     through B's own older draft rows — permanently, because a pull that
+//     returns nothing leaves the checkpoint where it was.
+//
+//     The resolution is SCOPE-03's own convention, applied to the fill scope:
+//     `userId` is REQUIRED, it appears in NO FILTER CLAUSE (no replicated table
+//     carries a queryable per-user key — RLS is the gate, the client scope is the
+//     bound), and it goes into the scope's IDENTITY. That NARROWS the checkpoint
+//     namespace — more identifiers, each over a subset — so decision 105 is
+//     satisfied rather than amended, and no substrate schema or policy change is
+//     involved (decision 111's four rows are untouched).
+// ===========================================================================
+
+// The two checklists the operator named, held at the same time by ONE crew
+// member — and then the same pair held by a SECOND crew member on the same
+// phone, which is where the identity has to bite.
+const FILL_A_SETUP = SCOPE_OPEN;
+const FILL_A_FOODPREP = SCOPE_NEVER;
+const FILL_B_SETUP = { ...SCOPE_OPEN, userId: CREW_B };
+const FILL_B_FOODPREP = { ...SCOPE_NEVER, userId: CREW_B };
+
+// Every replication identifier a set of concurrently-held scopes produces,
+// flattened, in start order.
+async function identifiersFor(scopes) {
+  const out = [];
+  for (const scope of scopes) {
+    // eslint-disable-next-line no-await-in-loop
+    const captured = await startCaptured(scope);
+    for (const [key, table] of Object.entries(TABLE_BY_KEY)) {
+      if (!captured[table]) throw new Error('[scope-harness] no replication started for ' + key);
+      out.push(captured[table].replicationIdentifier);
+    }
+  }
+  return out;
+}
+
+test.describe('[SCOPE-05] concurrent fill scopes, and the fill scope\'s user identity (F-2)', () => {
+  test('TWO concurrent fill scopes — setup + food prep — are two replications with pairwise-distinct identifiers', async () => {
+    // The operator's requirement, at its floor: exactly two, live at once.
+    const ids = await identifiersFor([FILL_A_SETUP, FILL_A_FOODPREP]);
+    expect(ids).toHaveLength(8); // 4 collections × 2 scopes
+    expect(new Set(ids).size, 'two concurrent fill scopes share a replication identifier — '
+      + 'that is one checkpoint across two open checklists (SCOPE-02)').toBe(ids.length);
+    // ...and each is still readable and still prefixed by the table it replicates.
+    for (const table of Object.values(TABLE_BY_KEY)) {
+      expect(ids.filter((id) => id.startsWith(`hq-sync-${table}-`))).toHaveLength(2);
+    }
+  });
+
+  test('...and neither concurrent scope starves the other — a shared meta store, both sets of rows', async () => {
+    // Distinct identifiers are only worth something if the checkpoints they key
+    // really are independent. Drive both scopes through ONE meta store, keyed the
+    // way RxDB keys its own, and require each to receive its OWN rows.
+    const meta = new Map();
+    const [setup] = await deviceOpens([FILL_A_SETUP], meta);
+    const [foodprep] = await deviceOpens([FILL_A_FOODPREP], meta);
+    expect(setup.responses.ids).toEqual(['rsp-1', 'rsp-2', 'rsp-3']);
+    for (const key of Object.keys(TABLE_BY_KEY)) {
+      expect(
+        foodprep[key].ids.sort(),
+        `${key}: the concurrently-held food-prep scope received nothing — the setup `
+        + "scope's checkpoint is filtering it",
+      ).toEqual([...IN_SCOPE_OF_NEVER[key]].sort());
+    }
+  });
+
+  test('a SECOND crew member on the same phone gets their own identifiers, not a resumed cursor [F-2]', async () => {
+    // 🛑 THE RED. Before this card `scopeIdentity()` was `fill:${checklistId}` —
+    // no user anywhere in a fill scope — so all sixteen identifiers below
+    // collapsed to eight and crew member B inherited crew member A's checkpoint
+    // on both open checklists.
+    const ids = await identifiersFor([
+      FILL_A_SETUP, FILL_A_FOODPREP, FILL_B_SETUP, FILL_B_FOODPREP,
+    ]);
+    expect(ids).toHaveLength(16);
+    expect(new Set(ids).size, 'two crew members on one truck phone share a fill '
+      + "replication identifier — the second resumes the first's cursor and their own "
+      + 'older draft rows are filtered away permanently (SCOPE-03\'s hazard, on the '
+      + 'fill scope)').toBe(ids.length);
+  });
+
+  test('the FILL scope REFUSES a missing userId — it is not an optional argument [F-2]', async () => {
+    // The F-5 shape, again: a hazard bought by forgetting an argument. C-2 says a
+    // widening needs a recorded decision and an omission is not one, and the same
+    // reasoning covers a checkpoint that silently merges two people.
+    const { normalizeScope, startHQReplication } = await loadClient();
+    // The three refusals, in the order they fire — the first two are A1's and the
+    // G6 fix round's and must not have moved.
+    expect(() => normalizeScope({})).toThrow(/checklistId/);
+    expect(() => normalizeScope({ checklistId: OPEN.checklistId })).toThrow(/templateId/);
+    expect(() => normalizeScope({
+      checklistId: OPEN.checklistId, templateId: OPEN.templateId,
+    })).toThrow(/userId/);
+    // ...and it refuses at the call, before a single collection is live.
+    const db = {
+      templates: {}, checklists: {}, responses: {}, approvals: {},
+    };
+    const replicate = () => ({ conflict$: { subscribe() {} } });
+    expect(() => startHQReplication(db, {}, {
+      replicate,
+      scope: { checklistId: OPEN.checklistId, templateId: OPEN.templateId },
+    })).toThrow(/userId/);
+    // Same whitelist as every other scope id — a value carrying PostgREST
+    // logic-tree punctuation cannot reach the identifier.
+    expect(() => normalizeScope({
+      checklistId: OPEN.checklistId,
+      templateId: OPEN.templateId,
+      userId: 'x,"id".not.is.null',
+    })).toThrow(/userId must match/);
+  });
+
+  test('the fill scope\'s userId is IDENTITY, not a filter clause — no collection filters on it', async () => {
+    // The same statement SCOPE-03 makes for the list scope, asserted rather than
+    // asserted-in-prose: if a user id ever appeared in an emitted PostgREST
+    // filter it would be a client-side access claim, and access is RLS's job.
+    const { scopePlanFor } = await loadClient();
+    for (const key of Object.keys(TABLE_BY_KEY)) {
+      const a = scopePlanFor(key, FILL_A_SETUP);
+      const b = scopePlanFor(key, FILL_B_SETUP);
+      expect(a.serialized, `${key}: the fill scope's userId leaked into a filter clause`)
+        .not.toContain(CREW_A);
+      // Same rows, different checkpoint namespace. That is the whole design.
+      expect(b.serialized).toBe(a.serialized);
+      expect(b.fingerprint).not.toBe(a.fingerprint);
+      // The realtime filter is the other emitted surface; it must not carry it either.
+      if (a.realtimeFilter !== null) expect(a.realtimeFilter).not.toContain(CREW_A);
+    }
+  });
+
+  test('the same crew member re-opening the same checklist still RESUMES', async () => {
+    // The property the identity must not break: identical scope ⇒ identical
+    // identifier ⇒ the checkpoint is reused and re-opening re-pulls nothing.
+    const meta = new Map();
+    const [first, again] = await deviceOpens([FILL_A_SETUP, FILL_A_SETUP], meta);
+    for (const key of Object.keys(TABLE_BY_KEY)) {
+      expect(first[key].identifier).toBe(again[key].identifier);
+      expect(again[key].ids, `${key}: re-opening the same checklist re-pulled rows`).toEqual([]);
+    }
   });
 });
 
