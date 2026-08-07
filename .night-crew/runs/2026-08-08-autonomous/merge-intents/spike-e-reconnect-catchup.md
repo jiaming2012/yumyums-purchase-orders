@@ -146,13 +146,30 @@ or `task spike:reconnect:red`.
 - command: `.night-crew/qa/spike-supabase/spike-e-reconnect.sh --no-pull`
 - log: `.night-crew/runs/2026-08-08-autonomous/card-e-rf-red.log`
 - exit code: **1** (ran, mechanism disproven — distinct from `2` "could not run")
-- failing leg: _(recorded once run — the leg name and the exact miss counts)_
-- proof the red is *the mechanism* and not a broken harness: every other leg passes in the
-  same log — substrate reconciled (spike A GREEN), HQ's own migrator applied the real
-  schema, a real login returned a real `hq_session`, `/saveResponse` returned 204 for every
-  dark-window write, the rows are present in HQ's Postgres AND in the substrate, and the
-  pre-sever positive-arrival leg was green.
-- teardown on the red path VERIFIED the substrate byte-identical to the pre-run baseline.
+- failing leg: step 8, `CATCH-UP`. With the checkpoint pull absent, **all three**
+  dark-window changes were MISSED — `insertA`, `updateB`, `insertC`. The substrate held 3
+  rows; the reconnected client held 1, still carrying the **pre-sever** body.
+- proof the red is *the mechanism* and not a broken harness — every other leg passes in the
+  same log:
+  - substrate reconciled (spike A GREEN, reconcile mode, no `--fresh`);
+  - HQ's own migrator applied the real schema to the scratch `spike-e-hq` Postgres
+    (Docker-assigned ephemeral port, refusal armed);
+  - a real `POST /api/v1/auth/login` returned HTTP 200 and a real `hq_session`;
+  - `/saveResponse` returned **HTTP 204** for every one of the four writes;
+  - the **positive-arrival** leg was green: `B1` was OBSERVED reaching the live client as
+    `spikec-b91a6243-…` before the sever, so the client is provably replicating;
+  - **dark-window silence VERIFIED**: substrate 3 rows · dark client 1 doc, byte-identical
+    to the pre-sever fingerprint — the gap is measured, not assumed;
+  - the UPDATE landed **in place** (same substrate primary key, new body) and HQ's own
+    Postgres shows field B with exactly **1** draft row;
+  - 🛑 the **liveness control** ARRIVED: a post-reconnect write reached the realtime-only
+    client within the bound (applier accepted `spikec-ffcc5bf9-…`). The reconnected client
+    is therefore provably alive, which is what makes the miss attributable to the **absent
+    checkpoint pull** and not to a dead socket. `checkpoints_handed_to_the_pull_handler`
+    reads `[]` — no pull was issued, by construction.
+- teardown on the red path **VERIFIED** `hq_sync_checklists` and `hq_grant_projection`
+  byte-identical to the pre-run baseline — the B-148 recovery path was rehearsed on the red
+  run, not only the green one.
 
 **Green run:** the same command without `--no-pull` —
 `.night-crew/runs/2026-08-08-autonomous/card-e-spike-verdict.log`. The only difference
