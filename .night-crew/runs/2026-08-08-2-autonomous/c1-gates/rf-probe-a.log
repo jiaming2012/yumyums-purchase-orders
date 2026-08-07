@@ -1,0 +1,5 @@
+green  not.toContain("HQSync.createDatabase")  present=false
+green  not.toContain("HQSync.startReplication")  present=false
+green  not.toContain("HQSync.client")  present=false
+RED   not.toContain("HQSync.db (the 4th route, unwatched by the shipped guard)")  present=true
+EXIT=1
