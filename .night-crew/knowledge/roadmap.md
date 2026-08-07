@@ -402,6 +402,38 @@ count or closeout substitutes for that run.
   unchanged**: this card adds one spec file and no precached asset. `night-crew.toml`'s
   `[e2e.seams]` roll-call gained `sync-fill-view.spec.js` and `repo-hygiene`'s count went 10→11
   — **no key and no token changed**; an Operations-confined card now costs eleven spec files.
+  🛑 **G6 FIX ROUND — one CONFIRMED TOP defect, recorded not buried** (commits `276068b`
+  red-first tests, `3e4397d` the fix). **F-A:** the overlay subscribed on `field_id` alone
+  and applied every doc it got back. Three individually-correct premises made that a
+  data-integrity defect — `checklist_fields.id` is per-template-VERSION and shared by every
+  submission of that template; the `hq_sync` Dexie DB is persistent and `cancel()` purges
+  nothing (**B-42**, RxDB's downstream only ADDS); and `submission_responses_select` is
+  `hq_can_see_field(field_id)`, **field-level, not authorship-level**, deliberately, because
+  a draft has no submission to scope a policy by. So yesterday's rows for a daily recurring
+  checklist AND other crew members' drafts both sat resident and both marked today's blank
+  checklist answered — **measured: `2 of 2 items complete` on a blank two-field checklist.**
+  Fixed by `acceptedFillDocs()`, which is not a new policy but the REST hydrate's own,
+  applied to the same rows arriving by a second road: `submission_id ===` the open checklist
+  renders (shared per-submission, as `MY_SUBMISSIONS.responses` are), `submission_id == null
+  && answered_by === me` renders (mine, as `DRAFT_RESPONSES` are), anything else is dropped.
+  🛑 **The card's original "stated bound" is corrected in place rather than replaced: it
+  reasoned about which scopes are open CONCURRENTLY and the defect was SEQUENTIAL — a bound
+  on which scopes are live says nothing about which ROWS are resident.**
+  **F-B:** `closeActiveFillScope()` moved out of `show()`'s `n === 1` branch to the top —
+  every tab switch leaves the runner, and Approvals/Builder used to leave a Realtime channel
+  and pull loop running for a checklist nobody had open. **F-C:** the deferred cancel is now
+  identity-guarded ON THE HANDLE, so a close-then-fast-reopen no longer kills the scope the
+  reopen believes it holds; testable without timing guesswork, because the symptom is
+  `HQFillSync.openIds()` and `HQSync.openScopeKeys()` disagreeing. **F-D (prose):** "RLS is
+  the gate" is a claim about VISIBILITY, not authorship — corrected in `client.js`'s F-2
+  banner and `[SCOPE-05]`'s header, naming `acceptedFillDocs` as what actually excludes a
+  foreign draft.
+  **Fix-round gates, all on `3e4397d`:** G1 exit 0; G2 Go **9 packages ok / 454 PASS / 244
+  top-level / `internal/workflow` exactly 35**, both env vars attested UNSET; G2 Playwright
+  the FULL suite, ONE summary block, **811 passed / 0 failed / 6 skipped in 21.7m, EXIT=0**
+  — all three armed reds passing, and **GLB-01 passed**, retiring the earlier occurrence as
+  the flake it was reported as. RF: red `3 failed / 6 passed` EXIT=1 on `276068b`, green
+  `74 passed` EXIT=0, spec byte-identical (0-line diff). G4 idempotent, precache **31**.
   Logs: `.night-crew/runs/2026-08-08-2-autonomous/c3-gates/`.
 
 - **`activate-list-views-or-state-they-stay-rest`** · **PLANNED** (slated: `20260808-2` S1,

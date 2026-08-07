@@ -162,6 +162,48 @@ Log: `c3-gates/rf-green.log`. The green leg deliberately ADDS C2's `sync-one-row
 and `sync-rxdb-conflict.spec.js` — the two specs F-2's new refusal forced a change in —
 so their passing is evidence in the same run rather than a claim.
 
+### FIX ROUND — G6 findings F-A (TOP, CONFIRMED), F-B, F-C, F-D
+
+Same discipline: tests committed **alone** at `276068b`, no production code in that
+commit; fix at `3e4397d`. `git diff 276068b -- tests/sync-fill-view.spec.js` = **0 lines**.
+
+**RED — pre-fix tree, at `276068b`:**
+
+```
+npx bddgen                                                   # BDDGEN_EXIT=0
+npx playwright test tests/sync-fill-view.spec.js --retries=0
+=> 3 failed, 6 passed (43.6s)   EXIT=1
+```
+
+Log: `c3-gates/fix-rf-red.log`. Measured, not argued:
+
+| Red | Observed |
+|---|---|
+| `[FILL-04]` foreign-submission row + foreign-user draft | runner rendered **`2 of 2 items complete`** on a **blank** two-field checklist (expected `0 of 2`) — G6's F-A, reproduced |
+| `[FILL-05]` tab switch closes the scope `[F-B]` | `HQFillSync.openIds().length` **1**, expected 0, after `#t2` |
+| `[FILL-05]` fast reopen keeps a live replication `[F-C]` | `HQSync.openScopeKeys().length` **0** while `HQFillSync.openIds()` reported the scope live — the two surfaces disagreeing, exactly the predicted symptom |
+
+**GREEN — post-fix tree, at `3e4397d`, byte-identical spec:**
+
+```
+npx playwright test tests/sync-fill-view.spec.js \
+                    tests/sync-one-row.spec.js \
+                    tests/sync-rxdb-client.spec.js --retries=0
+=> 74 passed (34.2s)   EXIT=0
+```
+
+Log: `c3-gates/fix-rf-green.log`.
+
+🛑 **F-C was testable without flaky timing** — the assertion is on the two inspection
+surfaces agreeing, not on a sleep deciding the outcome. No timing waiver needed.
+
+🛑 **The card's original "stated bound" is corrected in place, not replaced**
+(`workflows.html`, above `FILL_SYNC_SCOPES`): it reasoned about which scopes are open
+CONCURRENTLY, and the defect was SEQUENTIAL — the Dexie DB is persistent and `cancel()`
+purges nothing (B-42), so yesterday's rows for the same daily recurring checklist are
+still resident under the same field ids. **A bound on which scopes are live says nothing
+about which rows are resident.**
+
 Gate logs under `.night-crew/runs/2026-08-08-2-autonomous/c3-gates/`.
 
 ## Parks
