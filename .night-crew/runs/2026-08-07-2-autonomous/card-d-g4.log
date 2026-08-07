@@ -1,0 +1,21 @@
+import reachability: 18 precached files parsed, 30 local references resolved, 0 outside the precache
+SW built: 31 files precached (2169.0 KB)
+Frontend version: 1.4.0
+
+== IDEMPOTENCY: second run, and sw.js must still be unmodified in git ==
+import reachability: 18 precached files parsed, 30 local references resolved, 0 outside the precache
+SW built: 31 files precached (2169.0 KB)
+Frontend version: 1.4.0
+SECOND_RUN_EXIT=0
+git status for sw.js / version.json: []  (empty = byte-identical, nothing regenerated)
+
+== VERSION PARITY ==
+  package.json version : 1.4.0
+  version.json frontend: 1.4.0
+  version.go Frontend  : 1.4.0
+  version.go Backend   : 0.3.0
+
+This card changed no frontend asset (footprint is .night-crew/qa/spike-supabase/
++ Taskfile.yml; sync-rxdb/client.js was NOT modified and is not precached), so
+precache staying at 31 and sw.js regenerating byte-identical is the expected
+result, not a lucky one.
