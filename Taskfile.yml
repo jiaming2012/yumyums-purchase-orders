@@ -430,6 +430,55 @@ tasks:
     desc: Spike D's RED-FIRST capture — the same assertion set with the clause deliberately NOT attached to the binding; must exit 1, never 0 and never 2
     cmd: ./.night-crew/qa/spike-supabase/spike-d-realtime.sh --no-filter
 
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Sync spike E — DISCONNECT / RECONNECT / CATCH-UP (night-crew card E
+  # `spike-e-reconnect-catchup`, B-161). Disjoint from everything above.
+  #
+  # Thin wrapper, same rule as every spike family above it: all logic lives in
+  # .night-crew/qa/spike-supabase/spike-e-reconnect.sh so the verdict reproduces
+  # without `task` installed and comes from exactly one place.
+  #
+  # THE QUESTION. Spike C proved the round trip and spike D proved the live
+  # filter. NEITHER EVER SEVERED A CLIENT. Every Activity 3 card assumes a phone
+  # that was asleep or out of signal while rows changed comes back and catches up.
+  # This target severs a replicating RxDB client, writes through HQ's REAL write
+  # path while it is dark — 2 INSERTs and, mandatorily, 1 UPDATE to a row the
+  # client ALREADY HOLDS — reconnects it, and measures what comes back.
+  #
+  # 🛑 THE UPDATE CASE IS THE POINT. `sync-rxdb/client.js:874` keys the checklists
+  #   collection on `submitted_at=gte.<iso>`, and HQ never re-stamps submitted_at
+  #   (migration 0011 gives it an INSERT default; repository.go:1186/:1232 update
+  #   status/reviewed_by/reviewed_at and leave it alone). A row updated without
+  #   its watermark advancing is invisible to a watermark-keyed catch-up, and it
+  #   is invisible SILENTLY. A green that never exercised the UPDATE is vacuous.
+  #
+  # 🛑 THE EXIT-CODE CONTRACT IS THE DELIVERABLE, and "could not run" is NOT a
+  #   verdict:
+  #     0   GREEN — full recovery: every dark-window change reached the
+  #         reconnected client via checkpoint pull, INCLUDING the in-place UPDATE.
+  #     1   RED — ran, and catch-up demonstrably MISSES dark-window changes.
+  #         A RED IS THE CARD'S PAYOFF: it means the build cards need an explicit
+  #         resync step. It is not a failure and it is not a park.
+  #     2   COULD NOT RUN — infra/setup failure. Says nothing about catch-up.
+  #     3   verdict reached, but spike A's shared substrate could not be restored.
+  #
+  # 🛑 It creates its own scratch HQ Postgres under the compose project
+  #   `spike-e-hq`, on a DOCKER-ASSIGNED EPHEMERAL host port, and REFUSES AT
+  #   RUNTIME if Docker hands it 5432/5433/5434 (:5433 is PRODUCTION AND DEV — a
+  #   probe there destroyed the prod database on 2026-08-06). It consumes spike
+  #   A's stack in RECONCILE mode and has NO --fresh flag at all, deliberately, so
+  #   the flag cannot be typed by accident (B-159). It restores spike A's shared
+  #   tables afterwards and VERIFIES the restore byte-for-byte, on every path.
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  spike:reconnect:
+    desc: Spike E — sever a replicating RxDB client, write while it is dark (INSERT + in-place UPDATE), reconnect, measure catch-up (exit status IS the verdict; 0 green / 1 red / 2 could-not-run)
+    cmd: ./.night-crew/qa/spike-supabase/spike-e-reconnect.sh
+
+  spike:reconnect:red:
+    desc: Spike E's RED-FIRST capture — the same cycle with the checkpoint pull leg disabled on reconnect (realtime-only recovery); must exit 1, never 0 and never 2
+    cmd: ./.night-crew/qa/spike-supabase/spike-e-reconnect.sh --no-pull
+
   version:
     desc: Compare backend + frontend versions across local source, dev server, and prod
     cmds:
