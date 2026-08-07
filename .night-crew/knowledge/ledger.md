@@ -3152,3 +3152,82 @@ Triage dispositions decided at role level (stated, not asked, per standing pract
   DECISIONS-NEEDED's own record that nothing reached the routing threshold and nothing was
   decided under delegation; nothing was skipped. Triage itself resolved no operator fork (the
   merge is the ritual's standard act), so nothing was routed at triage either.
+
+## T-42 — Morning-triage resolutions (2026-08-07, run `20260808`)
+
+Triage of `overnight-20260808` — 1 of 1 cards merged by the run (E `spike-e-reconnect-catchup`
+@ `0ac5a20`), zero parks, zero conflicted merges, zero open forks. **Spike E GREEN closes
+Activity 2 at 5 of 5 (A–E all GREEN) and answers B-161: dark-window catch-up can be trusted —
+CONDITIONAL on the relay staying trigger/NOTIFY-driven.** The condition is load-bearing and
+must ride the Activity 3–5 build cards' text: the checkpoint pulls on the substrate's
+trigger-stamped `_modified` (strict `gt` + id tie-breaker), so a future polling relay on a
+business watermark reintroduces the missed-UPDATE hazard exactly (`submitted_at` measured
+never advancing after INSERT). Merged to `dev` as a `--no-ff` merge after an adversarial
+subagent independently reproduced every gate on the final tree: G1 build+vet clean; G2 Go
+9 packages, 456 named tests (454 pass + 2 live-proof skips), workflow=35, on :5434; G2
+Playwright **792 passed / 0 failed / 6 skipped** over the identical 798-test set (`[bdd]`
+project run via `npx bddgen`); G4 exit 0, precache 31, committed `sw.js` byte-identical to
+regenerated, 1.4.0 parity three ways. **Both spike legs re-executed LIVE by the review** —
+green exit 0 (INSERT / UPDATE-to-held-row / INSERT all recovered, first post-reconnect pull
+resumed from the sever-time checkpoint, scratch Postgres on ephemeral port 51151) and red
+`--no-pull` exit 1 (all three missed, liveness control arrived) — substrate teardown
+byte-verified on both. GREEN proven non-vacuous by code: the verdict requires the run-unique
+sentinel on the already-held row (`spike-e-reconnect.js:314,513-517`). Go suite re-run on the
+merged `dev` tree: exit 0, fully cached — the cache hit is itself the proof the merged tree is
+content-identical to the tree the review executed minutes earlier. Conflict-log audit clean:
+1/1 merges logged (clean merge logged per §15ad.66), the entry names its intent, the intent
+carries the three required fields. Post-merge worktree sweep clean for the run's card; only
+`card/a3-rls-fixture-own` remains, preserved by decision 155.
+
+Evidence corrections of record (documentation-level; no gate implicated):
+
+- **The three "armed reds" are flakes, not deterministic reds — all three PASSED in triage's
+  re-run of the identical tree** (`inventory:883` B-27, `sync:446` [LST-17],
+  `receipt-carousel:123`). Their occurrence on the night is attested by ✘ marks in the
+  committed log; their deterministic framing in HANDOFF is falsified. Recorded as flake-protocol
+  evidence, not as doubt about the run's honesty.
+- **The fixture trigger is `BEFORE INSERT OR UPDATE`, not "AFTER" as HANDOFF words it**
+  (`hq_sync_checklists_set_modified` — necessarily BEFORE, since only BEFORE can set
+  `NEW._modified`). Mechanism claim itself correct.
+- **Gate logs cite a rewritten branch head** (`d65273a`/`ef801cb`, same-message
+  `filter-branch` twins of `aada295`/`ff778b9`) — gated code content proven equal to merged
+  content by diff; evidence-chain hygiene only, feeds B-155's attestation-header convention.
+- **`night-crew run-evidence check` reads `no-run-evidence` for this run against hq's layout**
+  — it seeks `reference/conflicts-<runid>.md` and `runs/<runid>/` at dev-clone paths while hq
+  keeps them under `.night-crew/knowledge/reference/` and `runs/<date>-autonomous/`; the
+  closeout record and conflict log verifiably exist. Tool-layout mismatch, not a missing
+  closeout.
+
+Triage dispositions decided at role level (stated, not asked, per standing practice):
+
+- **Receipt-carousel red filed as B-162** — B-32's family shape, on no armed list, provably
+  not card E's; candidate family member (c), armed-expected next slate, retire only by
+  diagnosis (decision 100).
+- **LST-17 STAYS ARMED.** Tonight completes the flip-flop: failed in the run's suite after
+  passing twice on `20260807-2`, then passed again in triage's re-run — "flipping = still
+  flaky", exactly the shape T-41 anticipated. Retirement only by diagnosis.
+- **B-161 answered GREEN by card E**, disposition recorded in the entry with the
+  trigger/NOTIFY condition stated. (Backlog validator floor moves 295→296; the +1 is B-161's
+  done-annotation in B-62's exact grandfathered `promoted → … · done —` pattern; zero
+  findings against the four new entries.)
+- **Follow-ups graduated to BACKLOG.md as B-163–B-165** (spike-E exit-code hardening incl.
+  the `task` wrapper's 201; bare `backend:*` :5433-default guard, from the disclosed
+  near-miss; `npx bddgen` load-bearing/undiscoverable — triage's own review initially fell
+  into that hole).
+- **Launch-prompt convention, from follow-up 5:** isolation DB names in launch prompts must
+  be minted in `TEST_DB_NAME_PATTERN`'s shape (`^hq_test(?:_[a-z0-9]+)*$` —
+  `scripts/reset-e2e-db.js:115`); the run's rename of the prompt's refused literal to
+  `hq_test_e_reconnect` was correct (weakening a guard to fit a prompt was not on the table).
+- **The standing-rule-1 near-miss is accepted as disclosed** — guard refused, read-only,
+  zero writes, immediately corrected; the run's own reporting (breach, not skip-narration)
+  is the wanted behaviour. Mechanical hardening is B-164's lead.
+- **`card/spike-e-reconnect-catchup` deleted as merged housekeeping** (worktree already
+  removed by the run; branch ancestry-merged via the run branch); `overnight-20260808` stays
+  local per the branch model.
+- **Zero gray areas were routed through `decisions log` by the run**, the ratification queue
+  read empty, and the ratchet reported nothing survived — all three consistent with
+  DECISIONS-NEEDED's own record that nothing reached the routing threshold and nothing was
+  decided under delegation; nothing was skipped. Triage itself resolved no operator fork (the
+  merge is the ritual's standard act), so nothing was routed at triage either. Preference
+  coverage reads truthfully over an empty log: the run had no gray areas for a preference to
+  address.

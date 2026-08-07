@@ -1188,3 +1188,9 @@ suite plus its live spike runs.
 fire. Spike-class estimate ranges continue to over-provision on the clean path (both nights'
 🅢 cards landed at or under the low end of their range); no range adjustment yet on N=3 —
 revisit if the Activity 3–5 build cards repeat the pattern.
+| E `spike-e-reconnect-catchup` 🅢 | 51.0m (08:54→09:45, incl. 26.1m suite + green/red spike runs) | ~7m (09:47→09:54) | ~2.5m (merge `0ac5a20` + post-merge G4 + closeout) | **~64m** — MERGED, GREEN exit 0, G6 PASS. Estimate 60–120m; at the low end. |
+
+**Run 20260808: single card, ~64m end-to-end** (attended-daytime launch, serial). Fourth
+consecutive 🅢 spike card landing at or under the low end of its estimate range (N=4: C 59,
+D 59, E 64 vs low ends 90/60/60) — the clean-path over-provisioning pattern holds; revisit
+the 🅢 range when the Activity 3–5 build cards (a different class) record their actuals.
