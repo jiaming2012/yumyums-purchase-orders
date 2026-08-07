@@ -1,0 +1,33 @@
+=== G4 — node build-sw.js, AFTER the implementation commit (reads git HEAD) ===
+dc6e43ad4c990a581df3fe7e54ac096715b675df
+?? .night-crew/runs/2026-08-08-2-autonomous/c2-gates/g1-build-vet.log
+?? .night-crew/runs/2026-08-08-2-autonomous/c2-gates/g4-build-sw.log
+--- run 1
+import reachability: 18 precached files parsed, 31 local references resolved, 0 outside the precache
+SW built: 31 files precached (2185.7 KB)
+Frontend version: 1.4.0
+RUN1_EXIT=0
+--- tree after run 1
+ M sw.js
+?? .night-crew/runs/2026-08-08-2-autonomous/c2-gates/g1-build-vet.log
+?? .night-crew/runs/2026-08-08-2-autonomous/c2-gates/g4-build-sw.log
+--- run 2 (idempotence)
+import reachability: 18 precached files parsed, 31 local references resolved, 0 outside the precache
+SW built: 31 files precached (2185.7 KB)
+Frontend version: 1.4.0
+RUN2_EXIT=0
+--- tree after run 2
+ M sw.js
+?? .night-crew/runs/2026-08-08-2-autonomous/c2-gates/g1-build-vet.log
+?? .night-crew/runs/2026-08-08-2-autonomous/c2-gates/g4-build-sw.log
+--- precache count
+0
+--- precache count (correct probe: entries in the generated manifest)
+manifest entries: 0
+--- idempotence, byte-level
+7b3cc7d1a32135b049c191024086a028  sw.js
+RUN3_EXIT=0
+7b3cc7d1a32135b049c191024086a028  sw.js
+--- precache count, third probe (the manifest is minified; count url keys in the precache array)
+url keys: 31
+revision keys: 31

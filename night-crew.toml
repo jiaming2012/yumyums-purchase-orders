@@ -63,7 +63,17 @@ subset = 'npx playwright test "{tags}"'
 # argument as a path REGEX, not as a filename. The real roll-call, machine-
 # checked by tests/repo-hygiene.spec.js so it cannot drift again silently:
 #
-#   selects: persistence.spec.js, repro-cut-task.spec.js, states-sync-rxdb-conflict-notice.spec.js, sync-rxdb-client.spec.js, sync-rxdb-conflict-notice.spec.js, sync-rxdb-conflict.spec.js, sync-schema.spec.js, sync.spec.js, workflows.spec.js
+#   selects: persistence.spec.js, repro-cut-task.spec.js, states-sync-rxdb-conflict-notice.spec.js, sync-one-row.spec.js, sync-rxdb-client.spec.js, sync-rxdb-conflict-notice.spec.js, sync-rxdb-conflict.spec.js, sync-schema.spec.js, sync.spec.js, workflows.spec.js
+#
+# 🛑 TEN FILES SINCE run 20260808-2, NOT NINE. `tests/sync-one-row.spec.js` (card
+# `skeleton-one-row-end-to-end`, C2) is the walking skeleton's end-to-end test —
+# it drives `workflows.html` + `sync-rxdb/*`, so it BELONGS to this seam and its
+# name contains the `sync` token, which is why it appears above. The guard in
+# tests/repo-hygiene.spec.js fired exactly as designed ("adding a spec whose name
+# contains a seam token reds this test rather than quietly inflating a 'confined'
+# gate") and this line plus that test's count are the response it asks for. NO KEY
+# AND NO TOKEN CHANGED — only this roll-call. Cost, since slates price legs off
+# this list: an Operations-confined card now pays for TEN spec files.
 #
 # 🛑 WHAT IS WRONG HERE IS THE COST, NOT THE COVERAGE. Per B-87 the Playwright
 # CLI filters are OR'd, so a card confined by this seam OVER-runs — it can never
