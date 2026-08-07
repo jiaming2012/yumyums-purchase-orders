@@ -1,0 +1,33 @@
+== ENV STATEMENT (G6 flagged this on card C: captured in the LOG, not only the commit msg) ==
+HQ_SYNC vars set in this shell: 0
+HQ_SYNC_SUBSTRATE_OPTIONAL=[<unset>]
+HQ_SYNC_GATE_CHILD=[<unset>]
+(no HQ_SYNC_* variables in the environment at all)
+DB_TEST_URL=postgres://hqtest:***@localhost:5434/hq_test_d08072_go?sslmode=disable
+
+== go test -p 1 -count=1 ./... ==
+?   	github.com/yumyums/hq/cmd/backfill-receipts	[no test files]
+?   	github.com/yumyums/hq/cmd/import-notion	[no test files]
+?   	github.com/yumyums/hq/cmd/migrate-toast-archive	[no test files]
+?   	github.com/yumyums/hq/cmd/seed	[no test files]
+?   	github.com/yumyums/hq/cmd/server	[no test files]
+?   	github.com/yumyums/hq/cmd/spikec-relay	[no test files]
+?   	github.com/yumyums/hq/cmd/sync-toast	[no test files]
+ok  	github.com/yumyums/hq/internal/alerts	0.006s
+ok  	github.com/yumyums/hq/internal/auth	3.044s
+?   	github.com/yumyums/hq/internal/config	[no test files]
+?   	github.com/yumyums/hq/internal/db	[no test files]
+ok  	github.com/yumyums/hq/internal/inventory	22.328s
+?   	github.com/yumyums/hq/internal/me	[no test files]
+?   	github.com/yumyums/hq/internal/onboarding	[no test files]
+?   	github.com/yumyums/hq/internal/photos	[no test files]
+ok  	github.com/yumyums/hq/internal/purchasing	7.636s
+ok  	github.com/yumyums/hq/internal/receipt	19.487s
+ok  	github.com/yumyums/hq/internal/recipes	21.221s
+ok  	github.com/yumyums/hq/internal/sync	44.431s
+?   	github.com/yumyums/hq/internal/testdb	[no test files]
+ok  	github.com/yumyums/hq/internal/toast	0.006s
+?   	github.com/yumyums/hq/internal/users	[no test files]
+?   	github.com/yumyums/hq/internal/version	[no test files]
+ok  	github.com/yumyums/hq/internal/workflow	1.945s
+GO_TEST_EXIT=0

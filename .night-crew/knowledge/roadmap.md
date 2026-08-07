@@ -211,7 +211,10 @@ count or closeout substitutes for that run.
   supabase/postgres image's default privileges). The `authenticated` user lane was rehearsed
   separately after the load and still refuses correctly (HTTP 403, row genuinely absent).
 
-- **`spike-c-round-trip`** · **PLANNED** · 🛑 **LOAD-BEARING — if this cannot go green, STOP and
+- **`spike-c-round-trip`** · **DONE** (run `20260807-2`, card C, verdict **GREEN** — exit 0 from
+  `.night-crew/qa/spike-supabase/spike-c-roundtrip.sh`, round trip 248 ms against a 20 000 ms
+  bound; mechanism proven: LISTEN/NOTIFY relay → PostgREST service-identity write → RxDB
+  Realtime pull; D-KR1 now has 3 of its 4 spike verdicts) · 🛑 **LOAD-BEARING — if this cannot go green, STOP and
   re-plan before any card is cut.** One row written through the **real** write path
   (`/saveResponse`) must appear in an **RxDB-served read** within bounded time. This is precisely
   the premise decision 126 measured false: RxDB replicates from a *second, different* Postgres
@@ -221,7 +224,11 @@ count or closeout substitutes for that run.
   by what mechanism. A red here is a **successful spike**, not a failed card. Footprint: spike
   scripts + backend sync.
 
-- **`spike-d-realtime-live`** · **PLANNED** · Close **B-62**. The Realtime `filter` is proved at
+- **`spike-d-realtime-live`** · **DONE** (run `20260807-2`, card D, verdict **GREEN** — exit 0
+  from `.night-crew/qa/spike-supabase/spike-d-realtime.sh`; the live Realtime server honours the
+  filter in all three clause shapes production emits, suppression proven attributable via
+  same-socket unfiltered control; all 4 D-KR1 spike verdicts now recorded, B-62 answered) ·
+  Close **B-62**. The Realtime `filter` is proved at
   the **config**, never against a live server — every existing test injects a fake. Drive the
   replication filter against real infrastructure. 🛑 `HQ_SYNC_REST_URL` being unset is **the
   interlock working, not evidence of correctness**. Footprint: spike scripts + sync client.
