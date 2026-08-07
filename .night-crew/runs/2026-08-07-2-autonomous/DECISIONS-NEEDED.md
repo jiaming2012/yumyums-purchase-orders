@@ -1,5 +1,10 @@
 # DECISIONS-NEEDED — run `overnight-20260807-2`
 
+> **RESOLVED 2026-08-07 — recorded as ledger.md T-41.** No open forks existed; the three
+> triage rulings the HANDOFF requested (FR-11 → filed B-156; LST-17 → stays armed, passes
+> recorded as evidence; B-62 → closed, answered by card D) are in T-41 with the adversarial
+> review's gate evidence.
+
 **No open sections. Nothing was parked tonight.**
 
 - Zero cards parked; 2 of 2 merged (C, D — see HANDOFF.md). Both spike verdicts GREEN.

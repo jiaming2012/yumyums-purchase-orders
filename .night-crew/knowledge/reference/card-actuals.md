@@ -1168,3 +1168,23 @@ back in line with 20260804's 71m56s — the legible driver is zero fix rounds (2
 per card) and serial dispatch removing all suite queueing. The stretch gate was computed at
 11:31 (2.1h elapsed, S high-end + closeout inside the envelope) — the arithmetic-gate
 discipline holding. Clean-path population, no parks.
+
+## Run `20260807-2` (executed 2026-08-07, 00:06–02:04 EDT — serial dispatch, 2/2 merged, zero fix rounds)
+
+Figures from the run's `timings.log` (dispatch/notification boundaries). 🛑 HANDOFF's own
+per-card actuals column is NOT the source here — its C row ("~2h05m wall") exceeds the 1h58m
+run window and is recorded in T-41 as an evidence correction; `timings.log` is the measured
+record. Second consecutive zero-fix-round night. Both cards spike-class (🅢): the verdict
+script is the deliverable, and each card's implement window contains a full ~25.5m Playwright
+suite plus its live spike runs.
+
+| Card | Implement | G6 | Land | End-to-end |
+|---|---|---|---|---|
+| C `spike-c-round-trip` 🅢 | 50.0m (00:06→00:56, incl. 25.7m suite + green/red spike runs) | 7.9m (00:56→01:04) | ~1.2m (merge `76801aa` + post-merge G4) | **~59m** — MERGED, GREEN exit 0, G6 MERGE-WITH-NOTES. Estimate 90–150m; well under. |
+| D `spike-d-realtime-live` 🅢 | 48.6m (01:05→01:54, incl. 25.5m suite + green/red spike runs) | 7.3m (01:54→02:01) | ~3m (merge `7101b1c` + closeout) | **~59m** — MERGED, GREEN exit 0, G6 MERGE-WITH-NOTES. Estimate 60–120m; at the low end. |
+
+**Run 20260807-2 median end-to-end: ~59m** (N=2: 59, 59). In line with 20260807's ~68m and
+20260804's ~72m — the clean-path population holds when dispatch is serial and no fix rounds
+fire. Spike-class estimate ranges continue to over-provision on the clean path (both nights'
+🅢 cards landed at or under the low end of their range); no range adjustment yet on N=3 —
+revisit if the Activity 3–5 build cards repeat the pattern.

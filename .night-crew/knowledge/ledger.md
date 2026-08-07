@@ -3091,3 +3091,64 @@ Triage dispositions decided at role level (stated, not asked, per standing pract
   queue read empty at triage — consistent with DECISIONS-NEEDED's own record that nothing
   reached the routing threshold; nothing was skipped. The one triage fork (decision 160) was
   routed through the resolver at triage.
+
+## T-41 — Morning-triage resolutions (2026-08-07, run `20260807-2`)
+
+Triage of `overnight-20260807-2` — 2 of 2 cards merged by the run (C `spike-c-round-trip`
+@ `76801aa`, D `spike-d-realtime-live` @ `7101b1c`), zero parks, zero conflicted merges, zero
+open forks. **All four D-KR1 spike verdicts are now recorded — A, B, C, D all GREEN — and the
+Activity 3–5 build gate is OPEN**; cutting the build cards is the next slate's act. Merged to
+`dev` as a `--no-ff` merge after an adversarial subagent independently reproduced every gate on
+the final tree: G1 build+vet clean; G2 Go 9 packages, 456 RUN / 0 FAIL, workflow=35, on :5434;
+G4 exit 0, precache 31, committed `sw.js` byte-identical to regenerated, 1.4.0 parity;
+discipline-grep vacuity confirmed by execution (B-14); `tests/sync-rxdb-client.spec.js`
+re-executed 55/55. **Both spike verdicts were re-executed LIVE by the review** — C green exit 0
+(round trip 136 ms) and red `--no-relay` exit 1; D green exit 0 (all three clause shapes
+suppressed) and red `--no-filter` exit 1 — with the substrate restore byte-verified on all four
+runs. Go suite re-run green on the merged `dev` tree (456 RUN / 0 FAIL, workflow=35 fresh).
+Conflict-log audit clean: 2/2 merges logged including clean ones, every entry names its
+intents, both merge-intents carry the three required fields. Post-merge worktree sweep clean
+for the run's cards; only `card/a3-rls-fixture-own` remains, preserved by decision 155.
+
+Evidence corrections of record (documentation-level; no gate implicated):
+
+- **Spike C's exit contract is 0/1/2/3/64, not 0/1/2/64 as the closeout states** — exit 3 =
+  verdict reached but the shared substrate could not be restored (`spike-c-roundtrip.sh:27-31`).
+- **`--retries=0` in the two committed Playwright logs is asserted, not evidenced** — no
+  command line in the log; corroborated only by zero retry markers and exact 798-count
+  arithmetic. Recorded as unverified. Feeds B-155's attestation-header convention.
+- **HANDOFF's per-card actuals column for C ("~2h05m wall") exceeds the 1h58m run window** —
+  `timings.log` is the measured record (C ≈59m, D ≈59m end-to-end); card-actuals appended
+  from it, not from HANDOFF prose.
+
+Triage dispositions decided at role level (stated, not asked, per standing practice):
+
+- **FR-11 filed as B-156, a candidate new named flake** — distinct 1.5 s assertion-mismatch
+  shape, not B-32's 30 s-timeout family; on no armed list; neither card could have caused it
+  (zero frontend/spec files in either diff, verified by execution). Armed-expected next slate;
+  retirement only by diagnosis (decision 100).
+- **LST-17 STAYS ARMED.** It passed in BOTH full suites tonight — recorded as evidence, not
+  retirement: decision 100 / T-31 decision 120 bind (retired by diagnosis, never by passing),
+  and no diagnosis links B-147/B-148's fixes (spike-B harness + screenshot path) to LST-17's
+  mechanism in `sync.spec.js`.
+- **B-62 CLOSED — answered GREEN by card D**, disposition recorded in the entry; its stated
+  destination (`sync-hard-cutover`) was pessimistic — the property was testable against the
+  spike stack now, interlock armed throughout.
+- **Follow-ups graduated to BACKLOG.md as B-157–B-160** (relay double-fire per `/saveResponse`;
+  spike-script hardening one-liners; `--fresh-substrate` destroy footgun; `app_slug` constant /
+  no template→app association — spike B's finding #1 resurfaced). Validator at the standing
+  noise floor of 295, zero findings against the new entries.
+- **Harness lesson carried in the record:** `( … ) &` makes `$!` the subshell pid — teardown
+  kills nothing, an orphaned server holds the port, and the next run's health poll goes green
+  against a foreign DB. Fixed both ways in C's harness (env-exec + occupied-port refusal);
+  any future card spawning a server from a shell copies both halves. C's evidence-hygiene
+  gap (env attestation only in a commit message; zero-byte bddgen log) was established as
+  benign by D's implementer and needs no re-gate.
+- **`card/c-spike-c-round-trip` and `card/d-spike-d-realtime-live` deleted as merged
+  housekeeping** (worktrees removed, branches ancestry-merged via the run branch);
+  `overnight-20260807-2` stays local per the branch model.
+- **Zero gray areas were routed through `decisions log` by the run**, the ratification queue
+  read empty, and the ratchet reported nothing survived — all three consistent with
+  DECISIONS-NEEDED's own record that nothing reached the routing threshold and nothing was
+  decided under delegation; nothing was skipped. Triage itself resolved no operator fork (the
+  merge is the ritual's standard act), so nothing was routed at triage either.
