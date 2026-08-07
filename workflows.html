@@ -3639,5 +3639,107 @@ window.HQConflictNotice = {
 try { window.HQConflictNotice.instance = window.HQConflictNotice.mount(); }
 catch (err) { console.warn('[hq-sync] conflict notice did not mount; the page is unaffected', err); }
 </script>
+<!-- ══ THE WALKING SKELETON — one row, end to end, behind a flag ═════════════
+     Card `skeleton-one-row-end-to-end` (run 20260808-2, C2). Activity 3.
+
+     🛑 THIS IS A DEV SURFACE, AND IT IS NOT ANY OF THE THREE PRODUCT VIEWS.
+     My Checklists, Approvals and the checklist FILL view are byte-untouched by
+     this card and all three still render from REST. This panel has its own
+     element id, its own script block, and its own scope taken from the URL; it
+     renders below the app and only ever when the flag is explicitly on.
+
+     Ledger T-43, the operator's own rulings, all three binding here:
+       (a) the Approvals tab stays on re-fetch — untouched;
+       (b) 🛑 the My Checklists read path is DELIBERATELY OPEN and NO CARD MAY
+           DECIDE IT. This surface is not that read path and does not decide it:
+           `#checklist-list` is rendered by `renderChecklistList()` from the same
+           REST fetch as before, and nothing here writes to it;
+       (c) crew members work multiple checklists concurrently, so the call site
+           this mounts against holds multiple live per-checklist scopes at once.
+
+     🛑 DECISION 126 (ledger T-32): RxDB serves READS; `/saveResponse` and
+     `/submitChecklist` keep owning ALL writes. This panel only reads. The
+     persistence rule — `debouncedSaveField` → `submitOp('SET_FIELD')` →
+     `POST /ops` — is byte-untouched (there is no `autoSaveField`, B-65).
+
+     HOW TO DRIVE IT (this is the whole interface):
+
+       /workflows.html?hq_sync_read=on
+                      &hq_sync_checklist=<checklist_submissions.id>
+                      &hq_sync_template=<checklist_templates.id>
+                      &hq_sync_field=<checklist_fields.id>
+
+     The flag persists (localStorage `hq_sync_read`); the three scope params do
+     not, so a later load with the flag still on but no scope mounts nothing and
+     creates no database. `?hq_sync_read=off` clears the flag.
+-->
+<div id="sync-one-row" hidden data-source="rxdb" data-state="idle"
+     style="margin:16px auto 32px;max-width:480px;padding:12px;border:1px dashed var(--brd,#ccc);border-radius:8px;font:12px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--txt,#222)">
+  <div style="opacity:.6;margin-bottom:6px">hq-sync · one row, served from RxDB (dev)</div>
+  <div>id: <span id="sync-one-row-id"></span></div>
+  <div>field: <span id="sync-one-row-field"></span></div>
+  <div>value: <span id="sync-one-row-value"></span></div>
+  <div id="sync-one-row-note" style="opacity:.6;margin-top:6px"></div>
+</div>
+<script type="module">
+// The SAME module instance the <head> tag loaded — an ES module URL is
+// evaluated once per document, so this import re-uses it rather than
+// constructing a second client.
+import HQSync from './sync-rxdb/bootstrap.js';
+
+const root = document.getElementById('sync-one-row');
+
+function setState(state, note) {
+  root.setAttribute('data-state', state);
+  document.getElementById('sync-one-row-note').textContent = note || '';
+}
+
+(async function mountOneRow() {
+  // 🛑 THE FLAG GATE, FIRST AND SYNCHRONOUS. With it off we return before
+  // touching HQSync.openSyncScope, so nothing here begins async database
+  // creation — C1's B-88 guard (window.HQSync.db undefined at end of load, no
+  // /rxdb|hq_sync/i IndexedDB database) stays green by construction, not by
+  // timing. `openSyncScope()` refuses synchronously as well; both, deliberately.
+  if (!HQSync.readEnabled) return;
+
+  const q = new URLSearchParams(location.search);
+  const checklistId = q.get('hq_sync_checklist');
+  const templateId = q.get('hq_sync_template');
+  const fieldId = q.get('hq_sync_field');
+  // A flag with no scope is not a scope. Replication is per-open-checklist and
+  // is never pulled whole (ledger T-29 decision 105), so an absent scope mounts
+  // nothing rather than defaulting to something wider.
+  if (!checklistId || !templateId || !fieldId) return;
+
+  root.hidden = false;
+  document.getElementById('sync-one-row-field').textContent = fieldId;
+  setState('opening', 'starting replication for this checklist scope…');
+
+  let handle;
+  try {
+    handle = await HQSync.openSyncScope({ checklistId, templateId, fieldIds: [fieldId] });
+  } catch (err) {
+    // Fails soft, for bootstrap.js's own reason: a dev surface that broke the
+    // crew's checklist page would be strictly worse than no dev surface.
+    setState('error', String((err && err.message) || err));
+    return;
+  }
+
+  setState('waiting', 'replication live; waiting for the row…');
+
+  // 🛑 THE READ. This is the ONLY source this panel has — one RxDB collection,
+  // no REST fallback, no cached response body. If the row is on screen it came
+  // out of `db.responses`, which is what makes "RxDB-served" a claim the DOM can
+  // be checked against rather than an assertion in a document.
+  handle.db.responses
+    .findOne({ selector: { field_id: fieldId } })
+    .$.subscribe((doc) => {
+      if (!doc) return;
+      document.getElementById('sync-one-row-id').textContent = doc.id;
+      document.getElementById('sync-one-row-value').textContent = JSON.stringify(doc.value);
+      setState('served', 'read from RxDB (collection `responses`).');
+    });
+})();
+</script>
 </body>
 </html>

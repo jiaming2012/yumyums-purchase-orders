@@ -158,5 +158,12 @@ test('night-crew.toml records the spec files its Operations tokens really select
 
   expect(claimed, 'the comment and `ls tests/` disagree — B-87 mis-costing').toEqual(actual);
   // Stated so a future reader meets the real number before the prose.
-  expect(actual.length).toBe(9);
+  //
+  // 9 → 10 on card `skeleton-one-row-end-to-end` (run 20260808-2, C2), which
+  // added tests/sync-one-row.spec.js. That spec drives workflows.html and
+  // sync-rxdb/*, so it genuinely belongs to the Operations seam; naming it to
+  // dodge the `sync` token would have hidden a spec the seam exists to select.
+  // Bumping this number is only ever correct alongside the roll-call line in
+  // night-crew.toml — the assertion above is what couples them.
+  expect(actual.length).toBe(10);
 });
