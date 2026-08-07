@@ -1,0 +1,209 @@
+# spike-d-realtime.sh — does a LIVE Realtime server honour HQ's replication filter?
+# repo    /home/jcole/projects/hq-worktrees/d-spike-d-realtime-live
+# anchor  /home/jcole/projects/hq
+# run     d20260807051905
+# mode    NO-FILTER (red-first capture: the clause is deliberately NOT attached)
+# window  15s
+# started 2026-08-07T05:19:05Z
+
+══ 1. preflight — required tooling ═══════════════════════════════
+  docker /usr/bin/docker
+  node   /usr/bin/node
+  go     /usr/local/go/bin/go
+
+══ 2. substrate — spike A's Supabase environment (RECONCILE, never destroy) ═══════════════════════════════
+  delegating to env-up.sh (reconcile); its exit status gates this leg
+# env-up.sh — mode=reconcile repo=/home/jcole/projects/hq-worktrees/d-spike-d-realtime-live
+# compose anchor (--project-directory, path-stability fix) = /home/jcole/projects/hq
+# started 2026-08-07T05:19:06Z
+
+── 1. preflight — required tooling ───────────────────────────────
+  docker /usr/bin/docker
+  curl   /usr/bin/curl
+  node   /usr/bin/node
+  npm    /usr/bin/npm
+  go     /usr/local/go/bin/go
+  compose 5.1.0
+  go      go version go1.25.8 linux/amd64
+  node    v20.20.0
+  docker daemon: reachable
+
+── 2. bringing the stack up (idempotent) ───────────────────────────────
+ Container spike-supabase-db-1 Running 
+ Container spike-supabase-realtime-1 Running 
+ Container spike-supabase-rest-1 Running 
+ Container spike-supabase-db-1 Waiting 
+ Container spike-supabase-db-1 Waiting 
+ Container spike-supabase-db-1 Healthy 
+ Container spike-supabase-db-1 Healthy 
+NAME                        IMAGE                          COMMAND                  SERVICE    CREATED        STATUS                  PORTS
+spike-supabase-db-1         supabase/postgres:15.8.1.060   "docker-entrypoint.s…"   db         32 hours ago   Up 32 hours (healthy)   0.0.0.0:50871->5432/tcp, [::]:50871->5432/tcp
+spike-supabase-realtime-1   supabase/realtime:v2.34.47     "/usr/bin/tini -s -g…"   realtime   32 hours ago   Up 32 hours             0.0.0.0:50807->4000/tcp, [::]:50807->4000/tcp
+spike-supabase-rest-1       postgrest/postgrest:v12.2.12   "/bin/postgrest"         rest       32 hours ago   Up 32 hours             0.0.0.0:50473->3000/tcp, [::]:50473->3000/tcp
+
+── 3. waiting for db to report healthy (timeout 300s) ───────────────────────────────
+  db: running/healthy
+
+── 4. applying fixture schemas ───────────────────────────────
+  → spike-fixture.sql
+psql:<stdin>:30: NOTICE:  relation "spike_notes" already exists, skipping
+  → hq-bridge-fixture.sql
+psql:<stdin>:53: NOTICE:  relation "hq_grant_projection" already exists, skipping
+psql:<stdin>:77: NOTICE:  relation "hq_sync_checklists" already exists, skipping
+psql:<stdin>:114: NOTICE:  relation "hq_uid_trap" already exists, skipping
+  → hq-bridge-policies.sql
+
+── 5. resolving host ports ───────────────────────────────
+  db=50871 rest=50473 realtime=50807
+
+── 6. waiting for PostgREST and Realtime to answer (timeout 180s each) ───────────────────────────────
+  PostgREST: HTTP 200
+  Realtime: HTTP 200
+
+── 7. installing the RxDB harness (npm ci, isolated project) ───────────────────────────────
+npm warn EBADENGINE Unsupported engine {
+npm warn EBADENGINE   package: 'z-schema@12.3.1',
+npm warn EBADENGINE   required: { node: '>=22.0.0' },
+npm warn EBADENGINE   current: { node: 'v20.20.0', npm: '10.8.2' }
+npm warn EBADENGINE }
+npm warn deprecated defekt@9.3.0: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
+npm warn deprecated get-graphql-from-jsonschema@8.1.0: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
+
+added 78 packages in 6s
+
+── 8. health assertion — rest, realtime, schema, rxdb ───────────────────────────────
+# stack: rest=50473 realtime=50807 db=50871  run=r1786079955892
+PASS  ports — db=50871 rest=50473 realtime=50807
+PASS  token — go-minted, 184 chars, 3 segments
+PASS  schema — 4 fixture table(s) and 5 hq_* policy(ies) present by name
+PASS  rest — spike_notes readable; alice sees 1 row(s), owners=["user-alice"], bob's row correctly hidden
+PASS  realtime — channel SUBSCRIBED
+-------------- RxDB dev-mode warning -------------------------------
+you are seeing this because you use the RxDB dev-mode plugin https://rxdb.info/dev-mode.html?console=dev-mode 
+This is great in development mode, because it will run many checks to ensure
+that you use RxDB correct. If you see this in production mode,
+you did something wrong because the dev-mode plugin will decrease the performance.
+
+🤗 Hint: To get the most out of RxDB, check out the Premium Plugins
+to get access to faster storages and more professional features: https://rxdb.info/premium/?console=dev-mode 
+
+You can disable this warning by calling disableWarnings() from the dev-mode plugin.
+---------------------------------------------------------------------
+PASS  rxdb — local RxDB database created, doc hc-1786079957527 inserted and read back
+
+HEALTHCHECK: GREEN — ports, token, schema, rest, realtime, rxdb all asserted
+
+══════════════════════════════════════════════════════════
+✅ VERDICT: GREEN — Supabase + RxDB up, schema applied, healthy
+   db=50871  rest=50473  realtime=50807   (project: spike-supabase)
+   teardown is a separate, deliberate act:  task spike:down
+   finished 2026-08-07T05:19:17Z
+══════════════════════════════════════════════════════════
+  Realtime: 127.0.0.1:50807 (tenant vhost realtime-dev.localhost)
+  Postgres: 127.0.0.1:50871 — not 5432/5433/5434 (asserted, not assumed)
+  db container: 51a51ade6921be3867acd4c87c19bd22dba4d7221c236dec46376d3a85850f3d
+
+══ 3. baseline — snapshot what must be byte-identical after teardown ═══════════════════════════════
+  publication (6 tables): public.checklist_submissions public.checklist_templates public.hq_sync_checklists public.spike_notes public.submission_rejections public.submission_responses 
+  spike_notes ids: note-alice-1 note-bob-1 
+
+══ 4. fixture — three clones of HQ's real sync tables, and a parity CHECK ═══════════════════════════════
+  applied sql/spike-d-fixture.sql
+  PARITY spike_d_templates    == checklist_templates    cols=10 relreplident=f in_publication=yes
+  PARITY spike_d_submissions  == checklist_submissions  cols=13 relreplident=f in_publication=yes
+  PARITY spike_d_responses    == submission_responses   cols=8 relreplident=f in_publication=yes
+
+══ 5. the filters — read out of sync-rxdb/client.js, never typed here ═══════════════════════════════
+  checklists/LIST -> submitted_at=gte.2026-08-06T05:19:22Z
+  checklists/FILL -> id=eq.spiked-d20260807051905-sub-in
+  templates/LIST  -> id=in.(spiked-d20260807051905-tpl-in,spiked-d20260807051905-tpl-absent)
+  responses/LIST  -> <null>
+  responses/FILL  -> <null>
+  responses is unfiltered IN THE CODE — the control is HQ's choice, not this script's
+
+══ 6. token — service_role, minted with spike A's own JWT_SECRET ═══════════════════════════════
+  token minted (role=service_role, sub=spike-d-probe, ttl=30m)
+
+══ 7. subscribe — five channels, one socket ═══════════════════════════════
+  🛑 --no-filter: the clause is NOT attached to any binding (red-first capture)
+  RTP CONNECT addr=127.0.0.1:50807 host=realtime-dev.localhost status=101 Switching Protocols
+  RTP BIND label=f-gte topic=realtime:f-gte entity=public.spike_d_submissions filter=-
+  RTP BIND label=f-eq topic=realtime:f-eq entity=public.spike_d_submissions filter=-
+  RTP BIND label=f-in topic=realtime:f-in entity=public.spike_d_templates filter=-
+  RTP BIND label=u-sub topic=realtime:u-sub entity=public.spike_d_submissions filter=-
+  RTP BIND label=u-resp topic=realtime:u-resp entity=public.spike_d_responses filter=-
+  RTP JOIN-OK label=f-gte response={"postgres_changes":[{"id":59947382,"event":"*","schema":"public","table":"spike_d_submissions"}]}
+  RTP JOIN-OK label=f-eq response={"postgres_changes":[{"id":59947382,"event":"*","schema":"public","table":"spike_d_submissions"}]}
+  RTP JOIN-OK label=f-in response={"postgres_changes":[{"id":2164531,"event":"*","schema":"public","table":"spike_d_templates"}]}
+  RTP JOIN-OK label=u-sub response={"postgres_changes":[{"id":59947382,"event":"*","schema":"public","table":"spike_d_submissions"}]}
+  RTP JOIN-OK label=u-resp response={"postgres_changes":[{"id":78539271,"event":"*","schema":"public","table":"spike_d_responses"}]}
+  RTP SYS label=f-gte status=ok extension=postgres_changes message=Subscribed to PostgreSQL
+  RTP SYS label=f-eq status=ok extension=postgres_changes message=Subscribed to PostgreSQL
+  RTP SYS label=f-in status=ok extension=postgres_changes message=Subscribed to PostgreSQL
+  RTP SYS label=u-sub status=ok extension=postgres_changes message=Subscribed to PostgreSQL
+  RTP SYS label=u-resp status=ok extension=postgres_changes message=Subscribed to PostgreSQL
+  RTP STATE label=f-gte state=SUBSCRIBED
+  RTP STATE label=f-eq state=SUBSCRIBED
+  RTP STATE label=f-in state=SUBSCRIBED
+  RTP STATE label=u-sub state=SUBSCRIBED
+  RTP STATE label=u-resp state=SUBSCRIBED
+  RTP READY subscribed=5 failed=0 window=15s
+
+══ 8. write — two rows per table, as the substrate superuser ═══════════════════════════════
+  templates   IN=spiked-d20260807051905-tpl-in  OUT=spiked-d20260807051905-tpl-out
+  submissions IN=spiked-d20260807051905-sub-in (submitted_at=now)  OUT=spiked-d20260807051905-sub-out (submitted_at=now-30d)
+  responses   spiked-d20260807051905-resp-in / spiked-d20260807051905-resp-out
+  the LIST floor is 2026-08-06T05:19:22Z — IN is above it, OUT is 29 days below it
+
+══ 9. observe — waiting out rtprobe's window ═══════════════════════════════
+  rtprobe exit=0
+  RTP EVENT label=f-in type=INSERT table=public.spike_d_templates id=spiked-d20260807051905-tpl-in
+  RTP EVENT label=f-in type=INSERT table=public.spike_d_templates id=spiked-d20260807051905-tpl-out
+  RTP EVENT label=f-eq type=INSERT table=public.spike_d_submissions id=spiked-d20260807051905-sub-in
+  RTP EVENT label=u-sub type=INSERT table=public.spike_d_submissions id=spiked-d20260807051905-sub-in
+  RTP EVENT label=f-gte type=INSERT table=public.spike_d_submissions id=spiked-d20260807051905-sub-in
+  RTP EVENT label=f-eq type=INSERT table=public.spike_d_submissions id=spiked-d20260807051905-sub-out
+  RTP EVENT label=u-sub type=INSERT table=public.spike_d_submissions id=spiked-d20260807051905-sub-out
+  RTP EVENT label=f-gte type=INSERT table=public.spike_d_submissions id=spiked-d20260807051905-sub-out
+  RTP EVENT label=u-resp type=INSERT table=public.spike_d_responses id=spiked-d20260807051905-resp-in
+  RTP EVENT label=u-resp type=INSERT table=public.spike_d_responses id=spiked-d20260807051905-resp-out
+  RTP COUNT label=f-gte events=2
+  RTP COUNT label=f-eq events=2
+  RTP COUNT label=f-in events=2
+  RTP COUNT label=u-sub events=2
+  RTP COUNT label=u-resp events=2
+  RTP DONE frames=10
+
+══ 10. leg 0 — every subscription was actually ESTABLISHED ═══════════════════════════════
+  ✅ control u-sub   SUBSCRIBED
+  ✅ control u-resp  SUBSCRIBED
+  ✅ filtered f-gte   SUBSCRIBED
+  ✅ filtered f-eq    SUBSCRIBED
+  ✅ filtered f-in    SUBSCRIBED
+
+══ 11. leg 1 — POSITIVE ARRIVAL (mandatory; without it the rest is vacuous) ═══════════════════════════════
+  ✅ u-sub  received the in-scope submission
+  ✅ u-resp received the in-scope response
+  ✅ f-gte  received the in-scope submission (submitted_at >= floor)
+  ✅ f-eq   received the in-scope submission (id = eq)
+  ✅ f-in   received the in-scope template (id in (...))
+
+══ 12. leg 2 — SAME-TABLE UNFILTERED CONTROL (the out-of-scope row DID reach Realtime) ═══════════════════════════════
+  ✅ u-sub  received the out-of-scope submission
+  ✅ u-resp received the out-of-scope response
+  → any suppression observed below is therefore attributable to the FILTER and to nothing else
+
+══ 13. leg 3 — the 'responses' NEGATIVE CONTROL (filter deliberately absent) ═══════════════════════════════
+  ✅ responses: in-scope row arrived
+  ✅ responses: out-of-scope row arrived
+
+══ 14. leg 4 — SUPPRESSION (the question the card exists to answer) ═══════════════════════════════
+  ❌ f-gte  RECEIVED the out-of-scope submission — submitted_at=gte was IGNORED
+  ❌ f-eq   RECEIVED the out-of-scope submission — id=eq was IGNORED
+  ❌ f-in   RECEIVED the out-of-scope template — id=in.(...) was IGNORED
+
+🛑 VERDICT: RED — the live Realtime server DID NOT HONOUR the replication filter. The out-of-scope row arrived on a channel whose binding carried the clause. This is B-62 exactly: B-42's unscoped live leg is STILL OPEN, and sync-rxdb/client.js, tests/sync-rxdb-client.spec.js [SCOPE-04] and B-42's own entry all say otherwise.
+
+── teardown: dropping this run's three tables and verifying the restore ──
+  VERIFIED: publication membership and spike A's spike_notes are byte-identical
+            to the pre-run baseline, and no spike_d_* table remains.

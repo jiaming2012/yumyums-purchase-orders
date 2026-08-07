@@ -141,16 +141,57 @@ Reproducible on demand at any later date with:
 - command: `.night-crew/qa/spike-supabase/spike-d-realtime.sh --no-filter`
 - log: `.night-crew/runs/2026-08-07-2-autonomous/card-d-rf-red.log`
 - exit code: **1** (ran, mechanism disproven — distinct from `2` "could not run")
-- failing leg: `7. SUPPRESSION` — with no filter attached, the out-of-scope row arrived
-  on all three nominally-filtered channels.
-- proof the red is *the mechanism* and not a broken harness: every other leg PASSES in
-  the same log — substrate reconciled, fixture applied, all five subscriptions joined
-  and acked, and the **positive-arrival leg green on every channel** (the in-scope row
-  arrived everywhere). The harness is demonstrably alive on both sides of the gap.
+- failing leg: step 14, `leg 4 — SUPPRESSION`. With no clause attached, the out-of-scope
+  row arrived on **all three** nominally-filtered channels:
+  `f-gte`/`f-eq`/`f-in` each reported `events=2` where the armed run reports `events=1`.
+- proof the red is *the mechanism* and not a broken harness: **every other leg passes in
+  the same log.** Substrate reconciled (spike A GREEN), the three clones passed the
+  catalog **parity check** against HQ's real sync tables (10/13/8 columns,
+  `relreplident=f`, in `supabase_realtime`), the filters were read live out of
+  `client.js`, all five subscriptions reached `SUBSCRIBED` — including the `system`
+  frame `Subscribed to PostgreSQL`, not merely a `phx_join` ack — and the **mandatory
+  positive-arrival leg was green on every channel**. The harness is demonstrably alive
+  on both sides of the gap.
+- teardown on the red path **VERIFIED** the publication membership and spike A's
+  `spike_notes` byte-identical to the pre-run baseline with no `spike_d_*` table left —
+  i.e. the recovery path B-148 flagged as never re-rehearsed was exercised on the red
+  run, not only the green one.
 
 **Green run:** the same command without `--no-filter` —
-`.night-crew/runs/2026-08-07-2-autonomous/card-d-spike-verdict.log`.
+`.night-crew/runs/2026-08-07-2-autonomous/card-d-spike-verdict.log`, exit **0**. Same
+window, same socket, same two rows; `f-gte`/`f-eq`/`f-in` drop to `events=1` while
+`u-sub`/`u-resp` stay at `events=2`. The only difference between the two runs is whether
+the clause was attached.
 
 Both logs are committed.
+
+## The finding
+
+**GREEN — the live server honours the filter, in all three clause shapes HQ emits.**
+`supabase/realtime v2.34.47`, `REPLICA IDENTITY FULL`, `service_role` subscriber:
+
+| clause | source | in-scope | out-of-scope |
+|---|---|---|---|
+| `submitted_at=gte.<iso>` | `realtimeFilterFor('checklists', LIST)` | arrived | suppressed |
+| `id=eq.<id>` | `realtimeFilterFor('checklists', FILL)` | arrived | suppressed |
+| `id=in.(<id>,<id>)` | `realtimeFilterFor('templates', LIST)` | arrived | suppressed |
+| *(none)* | `realtimeFilterFor('responses', …)` — `null` in both modes | arrived | **arrived** |
+
+Two things worth carrying forward beyond the colour:
+
+1. **`in.(…)` is accepted.** It was the likeliest of the three to be refused — the
+   substrate's `realtime.check_equality_op` interpolates `val_2::<type>[]`, and a
+   PostgREST-shaped `(a,b)` is not a Postgres array literal. Realtime's Elixir side
+   converts it. That is now measured rather than hoped, and it is what makes the
+   `templates` LIST scope's live leg viable at all.
+2. **The `responses` residual is now a measurement.** `client.js` documents at length
+   why that collection gets no filter and that B-42 stays open on it; this run shows the
+   substrate delivering both rows there. The comment and the substrate agree.
+
+**B-62's disposition: answered, close it.** Its stated destination
+(`sync-hard-cutover`, "the first moment this is testable") turned out to be wrong in a
+useful way — the property is testable against the spike stack *now*, without setting
+`HQ_SYNC_REST_URL` and without touching any deploy config. The interlock stayed armed
+for the whole run.
 
 Night-Crew-Run: 20260807-2
