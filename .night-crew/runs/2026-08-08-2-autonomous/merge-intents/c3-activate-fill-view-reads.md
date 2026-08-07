@@ -102,27 +102,65 @@ file, so a conflict here is a mistake, not a merge):
 
 ## Red-first
 
-To be filled with commands + exit codes as the legs run; the reds are captured on the
-**pre-change tree** and re-run against the **same spec revision that is committed**
-(C2 was dinged for red-on-revision-A / green-on-revision-B — G6 checks this).
+🛑 **SAME SPEC REVISION, BOTH LEGS.** The tests were committed FIRST, alone, at
+`5929f0f` (`test(sync): RED-FIRST — the fill view's reads, F-1's eviction, F-2's user
+identity`) with **no production code in that commit**. The red leg ran against that
+commit's working tree; the green leg ran the byte-identical spec files with only
+production code added on top (`61d13d0`). `git diff 5929f0f 61d13d0 -- tests/` shows
+only the two mechanical `userId` additions to `tests/sync-one-row.spec.js` and
+`tests/sync-rxdb-conflict.spec.js` that F-2's refusal forced — **neither file carries a
+red-first assertion**. C2 was dinged for red-on-revision-A / green-on-revision-B; this is
+the answer to that finding.
 
-Planned reds:
+**RED — pre-change tree, at `5929f0f`:**
 
-1. **F-2 red** — `tests/sync-rxdb-client.spec.js`, `[SCOPE-05]`: two FILL scopes
-   differing only in `userId` must mint different fingerprints, and a fill scope with no
-   `userId` must throw. On the pre-change tree both fail: `userId` is not part of the
-   fill scope at all, so the fingerprints are identical and `normalizeScope` accepts the
-   omission.
-2. **Concurrent-fill regression** — `tests/sync-rxdb-client.spec.js`, `[SCOPE-05]`: two
-   concurrent fill scopes started through the existing recorder, identifiers pairwise
-   distinct across all four collections. Red pre-change **for the same reason as (1)** —
-   the two scopes it drives are two crew members on one phone, which pre-change collide.
-3. **F-1 red** — `tests/sync-fill-view.spec.js`: a rejected `createDatabase()` must not be
-   cached forever; a retry after a transient failure must succeed and `openScopeKeys()`
-   must not report the dead scope. Red pre-change (the memoised rejection is permanent).
-4. **Fill-view read red** — `tests/sync-fill-view.spec.js`: with the flag ON, a response
-   row that exists ONLY in RxDB shows in the open checklist's fill view. Red pre-change
-   (the fill view has no RxDB read path at all).
+```
+export PATH="/usr/local/go/bin:$PATH"
+export TEST_PORT=4351 TEST_DB_NAME=hq_test_c3impl HQ_RLS_TEST_DB=hq_test_c3impl_rls
+npx bddgen                                                   # BDDGEN_EXIT=0
+npx playwright test tests/sync-rxdb-client.spec.js \
+                    tests/sync-fill-view.spec.js \
+                    tests/repo-hygiene.spec.js --retries=0
+=> 8 failed, 63 passed (5.0m)   EXIT=1
+```
+
+Log: `c3-gates/rf-red.log` (whole log, one summary block). The eight:
+
+| # | Red | The defect it shows |
+|---|---|---|
+| 1 | `[SCOPE-05] a SECOND crew member on the same phone gets their own identifiers` | **F-2.** `scopeIdentity()` was `fill:${checklistId}`; two crew members on one phone hashed to the same 8 identifiers instead of 16. |
+| 2 | `[SCOPE-05] the FILL scope REFUSES a missing userId` | **F-2.** `normalizeScope` accepted a fill scope with no user. |
+| 3 | `[SCOPE-05] the fill scope's userId is IDENTITY, not a filter clause` | **F-2.** Same fingerprint for two users — the assertion that proves the narrowing is real. |
+| 4 | `[FILL-03] a rejected createDatabase is EVICTED` | **F-1.** The failure could not even be FORCED — no `createDatabase` seam — which is exactly why G6 shipped F-1 PLAUSIBLE rather than CONFIRMED. |
+| 5 | `[FILL-01] a response that exists ONLY in RxDB answers the field in the runner` | The card's deliverable: the fill view had no RxDB read path at all. |
+| 6 | `[FILL-01] with the flag OFF ... no scope, no database, no IndexedDB` | The vacuity half — `window.HQFillSync` did not exist. |
+| 7 | `[FILL-02] setup + food prep live at once ... cancelling one leaves the other` | The page-level concurrent lifecycle did not exist. |
+| 8 | `[FILL-02] the fill scope carries the crew member` | **F-2**, at the page level. |
+
+🛑 **Stated honestly rather than dressed up:** the card's *named* hard requirement — the
+two-concurrent-fill regression test in the existing recorder, identifiers pairwise
+distinct — **PASSED on the pre-change tree**, as did its "neither starves the other"
+sibling. That is correct and is not a hole: two concurrent fill scopes for ONE crew
+member already minted distinct identifiers (SCOPE-02 landed that), so the test is a
+**regression guard** for a property the operator's ruling now makes load-bearing, not a
+defect red. The red half of the same requirement is red #1 — the shared-phone case,
+which is where concurrency and F-2 meet and where the identifiers really did collide.
+
+**GREEN — post-change tree, at `61d13d0`, same spec revision:**
+
+```
+npx bddgen                                                   # BDDGEN_EXIT=0
+npx playwright test tests/sync-rxdb-client.spec.js \
+                    tests/sync-fill-view.spec.js \
+                    tests/sync-one-row.spec.js \
+                    tests/sync-rxdb-conflict.spec.js \
+                    tests/repo-hygiene.spec.js --retries=0
+=> 114 passed (33.9s)   EXIT=0
+```
+
+Log: `c3-gates/rf-green.log`. The green leg deliberately ADDS C2's `sync-one-row.spec.js`
+and `sync-rxdb-conflict.spec.js` — the two specs F-2's new refusal forced a change in —
+so their passing is evidence in the same run rather than a claim.
 
 Gate logs under `.night-crew/runs/2026-08-08-2-autonomous/c3-gates/`.
 

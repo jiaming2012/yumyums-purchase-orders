@@ -344,14 +344,65 @@ count or closeout substitutes for that run.
 > **Trace:** Product objective. Carries the riders the retired card left behind: **B-63, B-64,
 > B-66–B-69, B-79**.
 
-- **`activate-fill-view-reads`** · **PLANNED** (slated: `20260808-2` C3) · The checklist fill
-  view reads from RxDB, scoped per-open-checklist (T-29 decision 105 — replication scope is
-  **never** all collections at once, and no card may widen it without a recorded decision).
-  🛑 **Hard requirement (operator, ledger T-43c):** crew members work multiple checklists
-  concurrently (setup + food prep) — multiple live fill replications at once ARE the design,
-  one per open checklist, cancelled on close; regression test drives two concurrent fill
-  scopes (B-63's lead). Carries spike E's condition (T-42): trusted checkpoint catch-up is
-  valid only while the relay stays trigger/NOTIFY-driven. Footprint: page wiring + sync client.
+- **`activate-fill-view-reads`** · **DONE** (run `20260808-2`, card **C3**, branch
+  `card/c3-activate-fill-view-reads`; commits `ea1407a` (merge-intent, first), `5929f0f`
+  (red-first tests, no production code), `61d13d0` (the implementation)) · The checklist FILL
+  view's field values are served out of RxDB for the OPEN checklist, behind the `hq_sync_read`
+  flag that is **OFF by default in every environment**. `hydrateFieldState` gains a **layer 4**
+  — the open checklist's rows as RxDB holds them, overlaid on the REST snapshot they are a newer
+  view of, **except over a `REJECTION_FLAGS` field**, which step 3 cleared on purpose and where
+  the replicated row is precisely the stale answer the approver bounced. The `_v` /
+  `_fail_note` / `_correction_photo` / `sub_steps` unpack was **extracted** from the draft loop
+  into `applyResponseRow` and shared rather than copied — the replicated rows ARE
+  `submission_responses` rows, and a second unpack is a second, drifting definition of one wire
+  shape.
+  **Lifecycle (`HQFillSync`):** one scope per open checklist, cancelled on close, and
+  `FILL_SYNC_SCOPES` is a **MAP, not a slot** — ledger **T-43(c)**, the operator's own ruling
+  that crew members work a setup checklist and a food-prep checklist concurrently. Opening a
+  second does not cancel the first; `close()` cancels exactly one. Opened on checklist open
+  **when the checklist has a submission row** (`checklist_submissions.id` is what decision 105
+  scopes BY; an absent id is not permission to widen), closed at every exit from the runner —
+  back button, all four post-submit exits, `show(1)`.
+  **C2's two C3-facing G6 findings, both resolved.** **F-2:** `normalizeScope` now REQUIRES
+  `userId` on the FILL scope and `scopeIdentity()` carries it, exactly as SCOPE-03 has for the
+  LIST scope since S1a — the fill checkpoint had no crew member in its key, so crew member B on
+  a device A used resumed A's `_modified` cursor and slept through B's own older draft rows,
+  permanently. It appears in **no filter clause** (RLS is the gate; the client scope is the
+  bound). 🛑 **A narrowing, not a widening** — more identifiers, each over a subset, every
+  emitted query unchanged — so decision 105 is satisfied rather than amended and **decision
+  111's four substrate rows are untouched**, which is why the PARK trigger did not fire.
+  **F-1:** a rejected `createDatabase()` / `openSyncScope()` is now **evicted** from its memo
+  instead of cached for the page's lifetime; `ensureDatabase()` calls `HQSync.createDatabase`
+  (the property) so the failure G6 could not force — Dexie holds its own IndexedDB reference,
+  which is why F-1 shipped PLAUSIBLE — is forceable and therefore testable.
+  Decision **126** carried verbatim (RxDB serves READS; `/saveResponse` + `/submitChecklist`
+  keep owning ALL writes; `debouncedSaveField` → `submitOp('SET_FIELD')` → `POST /ops`
+  byte-untouched, no `autoSaveField` — B-65). **T-43(b) respected: the My Checklists read path
+  is NOT decided here** — both list views stay on REST with the flag on as well as off, and the
+  `[FILL-01]` test asserts the list row still renders `0/1` from REST while the runner reads
+  `1 of 1` from RxDB. Spike E's condition (**T-42**) carried verbatim at the lifecycle: no
+  polling, no interval, no business watermark, no resync step.
+  RF, **same spec revision both legs** (the tests are their own commit `5929f0f`, no production
+  code in it): RED `8 failed / 63 passed`, EXIT=1 — F-2 ×3, F-1's unforceable failure, and the
+  fill view having no RxDB read path at all; GREEN `114 passed`, EXIT=0 on `61d13d0` with C2's
+  `sync-one-row.spec.js` added to the leg. 🛑 **Stated rather than dressed up:** the card's
+  *named* two-concurrent-fill regression test **passed pre-change** — two scopes for ONE crew
+  member already minted distinct identifiers (SCOPE-02) — so it is a regression guard, and the
+  red half of that requirement is the **shared-phone** case, where concurrency and F-2 meet.
+  Gates: G1 build+vet exit 0; G2 Go **9 packages ok / 454 PASS / `internal/workflow` exactly
+  35**, `HQ_SYNC_SUBSTRATE_OPTIONAL` and `HQ_SYNC_GATE_CHILD` both attested UNSET; G2 Playwright
+  the FULL suite, **ONE summary block**, `806 passed / 1 failed / 6 skipped` in 22.8m with all
+  three armed reds **PASSING** (`inventory:883` B-27, `sync:446` LST-17,
+  `receipt-carousel:123` B-162). The single failure — `workflows.spec.js:3909` **GLB-01**,
+  `page.goto ... interrupted by another navigation to /login.html` — is the test's own expected
+  redirect racing its `waitUntil:"load"`, is **not** on the armed list and **not** previously
+  recorded in this run's logs or `bugs.md`; **4/4 green on re-run** (3× isolated `-g`, plus the
+  whole `tests/workflows.spec.js` file 87/87 exit 0). Reported as a **flake with its trail**,
+  not as a pass. G4 idempotent (byte-identical `sw.js` across runs), precache **31 —
+  unchanged**: this card adds one spec file and no precached asset. `night-crew.toml`'s
+  `[e2e.seams]` roll-call gained `sync-fill-view.spec.js` and `repo-hygiene`'s count went 10→11
+  — **no key and no token changed**; an Operations-confined card now costs eleven spec files.
+  Logs: `.night-crew/runs/2026-08-08-2-autonomous/c3-gates/`.
 
 - **`activate-list-views-or-state-they-stay-rest`** · **PLANNED** (slated: `20260808-2` S1,
   reshaped as `list-views-decision-recording`) · **B-43 partially ruled at ledger T-43:**
