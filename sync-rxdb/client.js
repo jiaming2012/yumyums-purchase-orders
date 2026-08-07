@@ -591,6 +591,47 @@ function assertDateFloor(value) {
   return value;
 }
 
+// ---------------------------------------------------------------------------
+// 🛑 THE FILL SCOPE CARRIES THE CREW MEMBER TOO — C2's G6 finding F-2, resolved
+// on card `activate-fill-view-reads` (C3, run 20260808-2).
+//
+// The LIST scope has required `userId` since S1a for the reason spelled out in
+// the block above: it appears in NO filter clause, it IS the scope's identity,
+// and RxDB keys its persisted checkpoint by `[collection.name,
+// replicationIdentifier]` and by nothing else. A shared truck phone that
+// switches crew member must mint a new identifier or the second user resumes the
+// first user's cursor and their own rows are filtered away permanently.
+//
+// 🛑 THE FILL SCOPE HAD NO USER DIMENSION AT ALL, and that was not visible while
+// nothing persisted a fill checkpoint. C2 (`skeleton-one-row-end-to-end`) became
+// the first production call site that does, so the identical hazard became
+// reachable on the identical mechanism: crew member B, filling on a device crew
+// member A used, resumed A's `_modified` cursor and slept through B's OWN older
+// draft rows — the drafts being exactly what this layer exists to carry. C3 is
+// the card that opens fill scopes from the product page, so C3 closes it.
+//
+// WHAT CHANGED, PRECISELY, so nobody re-derives it:
+//
+//   * `scope.userId` is REQUIRED on the FILL shape. Not optional-with-a-default:
+//     an optional argument that silently merges two people's checkpoints is the
+//     F-5 shape this file already refused once (an omitted `templateId` used to
+//     widen `templates` to every non-archived row). C-2 requires a recorded
+//     decision to widen, and forgetting an argument is not one.
+//   * It appears in NO FILTER CLAUSE — `scopeFilterFor`'s fill branch is
+//     byte-unchanged. Access is RLS's job (`checklist_submissions_select` is
+//     `hq_can_see_template(template_id)`, read live per row through the FDW); the
+//     client scope is a BOUND, the server is the GATE, and a per-user clause here
+//     would be a client-side access claim.
+//   * It goes into `scopeIdentity()`, hence the fingerprint, hence
+//     `replicationIdentifier`, hence the checkpoint key.
+//
+// 🛑 THIS IS A NARROWING, NOT A WIDENING. More identifiers, each over a SUBSET of
+// what one identifier covered; every emitted query is unchanged. Decision 105 is
+// satisfied rather than amended, and decision 111's four substrate rows are
+// untouched — no column, no policy, no table. That is why C3's PARK trigger
+// (concurrent fill needing a substrate schema/policy change) did not fire.
+// ---------------------------------------------------------------------------
+
 /**
  * Normalise + validate a replication scope. TWO SHAPES, one function, because
  * every caller path must go through the same refusals.
@@ -598,6 +639,8 @@ function assertDateFloor(value) {
  * FILL (the open checklist — ledger T-29 decision 105, unchanged):
  * @param {string} scope.checklistId  the open checklist (`checklist_submissions.id`). REQUIRED.
  * @param {string} scope.templateId   its template. REQUIRED — see edge 2 / F-5.
+ * @param {string} scope.userId       whose fill this is. REQUIRED since C3 —
+ *   the scope's IDENTITY, not a filter clause. See the block directly above.
  * @param {string[]} [scope.fieldIds] the open checklist's field ids — what makes
  *   an offline draft (`submission_id IS NULL`) attributable to this checklist.
  *
@@ -614,7 +657,7 @@ export function normalizeScope(scope) {
     throw new Error(
       '[hq-sync] startHQReplication requires a scope: replication is scoped and is '
       + 'never pulled whole (preference architecture/C-2). Pass either the FILL '
-      + 'scope {scope:{checklistId, templateId, fieldIds}} or the LIST scope '
+      + 'scope {scope:{userId, checklistId, templateId, fieldIds}} or the LIST scope '
       + '{scope:{mode:"list", userId, since, templateIds}}.',
     );
   }
@@ -654,7 +697,7 @@ export function normalizeScope(scope) {
   if (scope.mode !== undefined && scope.mode !== 'fill') {
     throw new Error(
       `[hq-sync] unknown scope.mode ${JSON.stringify(scope.mode)}. It is "fill" `
-      + '(the open checklist: {checklistId, templateId, fieldIds}) or "list" '
+      + '(the open checklist: {userId, checklistId, templateId, fieldIds}) or "list" '
       + '(My Checklists / Approvals: {userId, since, templateIds}).',
     );
   }
@@ -670,10 +713,26 @@ export function normalizeScope(scope) {
   // REQUIRED since the G6 fix round: an omitted templateId used to widen
   // `templates` to the whole non-archived collection (F-5).
   assertScopeId('templateId', scope.templateId);
+  // REQUIRED since C3 — C2's G6 finding F-2. Raised AFTER the two ids on
+  // purpose: `normalizeScope({})` must still say `checklistId` and
+  // `normalizeScope({checklistId})` must still say `templateId`, because those
+  // two refusals are A1's and the G6 fix round's and their messages are asserted.
+  if (typeof scope.userId !== 'string' || scope.userId === '') {
+    throw new Error(
+      '[hq-sync] scope.userId is required on a FILL scope — it is the scope\'s '
+      + 'identity and part of the replication identifier, so two crew members on '
+      + 'one truck phone do not inherit each other\'s checkpoint. It appears in no '
+      + 'filter clause (RLS is the gate); see THE FILL SCOPE CARRIES THE CREW '
+      + 'MEMBER TOO above. C2 G6 finding F-2, closed on card '
+      + '`activate-fill-view-reads`.',
+    );
+  }
+  assertScopeId('userId', scope.userId);
   const fieldIds = (scope.fieldIds || []).filter((f) => typeof f === 'string' && f !== '');
   fieldIds.forEach((f, i) => assertScopeId(`fieldIds[${i}]`, f));
   return {
     mode: 'fill',
+    userId: scope.userId,
     checklistId: scope.checklistId,
     templateId: scope.templateId,
     fieldIds,
@@ -1029,9 +1088,20 @@ export function applyScope(query, node) {
  * The identity is also what keeps a LIST scope and a FILL scope from ever
  * sharing a checkpoint, which they must not: their result sets are different
  * shapes over the same tables.
+ *
+ * 🛑 THE FILL BRANCH CARRIES THE USER TOO SINCE C3 (`activate-fill-view-reads`,
+ * run 20260808-2) — C2's G6 finding F-2. It used to be `fill:${checklistId}`
+ * alone, and the fill scope's emitted filters name no user either, so two crew
+ * members opening the SAME checklist on ONE truck phone hashed to the SAME
+ * identifier and the second resumed the first's cursor. Same defect the list
+ * branch was given `userId` for, on the other shape. Both branches now read the
+ * same way, deliberately: whoever adds a third shape should copy the pattern
+ * rather than rediscover the bug.
  */
 function scopeIdentity(s) {
-  return s.mode === 'list' ? `list:${s.userId}` : `fill:${s.checklistId}`;
+  return s.mode === 'list'
+    ? `list:${s.userId}`
+    : `fill:${s.userId}:${s.checklistId}`;
 }
 
 export function scopePlanFor(collectionKey, scope) {
@@ -1132,10 +1202,12 @@ export async function createHQSyncDatabase(opts = {}) {
  * 🛑 `opts.scope` IS REQUIRED — see the REPLICATION SCOPE block above. There is
  * no unscoped call, and there are TWO shapes:
  *
- *   FILL  `{checklistId, templateId, fieldIds}` — the open checklist. Both ids
- *         mandatory (an omitted `templateId` used to widen `templates` to the
- *         whole non-archived collection — G6 F-5); add `fieldIds` so the
- *         offline drafts come with it.
+ *   FILL  `{userId, checklistId, templateId, fieldIds}` — the open checklist.
+ *         🛑 All THREE ids mandatory. `templateId` since G6 F-5 (an omitted one
+ *         used to widen `templates` to the whole non-archived collection);
+ *         `userId` since C2's G6 F-2 (a fill checkpoint with no user in its key
+ *         lets the second crew member on a shared phone resume the first's
+ *         cursor). Add `fieldIds` so the offline drafts come with it.
  *   LIST  `{mode:'list', userId, since, templateIds}` — My Checklists /
  *         Approvals, per the 2026-08-02 operator decision. `since` is the DATE
  *         FLOOR and is MANDATORY; `templateIds` must be non-empty.

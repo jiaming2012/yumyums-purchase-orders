@@ -245,6 +245,20 @@ export function resolveSyncReadFlag(loc, store) {
 // `replicationIdentifier` already carries the scope fingerprint (client.js, G6
 // F-1), so per-scope checkpoints are independent by construction — two open
 // checklists cannot filter each other's rows away.
+//
+// 🛑 AND SINCE C3 (`activate-fill-view-reads`) THE FINGERPRINT CARRIES THE CREW
+// MEMBER — C2's G6 finding F-2. Two open checklists could not filter each
+// other's rows away; two crew members on ONE truck phone could, because the fill
+// scope had no user dimension anywhere and its emitted filters name no user
+// either. `normalizeScope` now REQUIRES `userId` on the fill shape, exactly as
+// it has on the list shape since S1a, and `scopeKey()` below carries it too so
+// the registry and the identifier cannot disagree.
+//
+// 🛑 A FAILED OPEN IS EVICTED FROM BOTH MEMOS (F-1). `databasePromise` and the
+// `openScopes` entry are cleared when they reject, so a transient IndexedDB
+// failure costs a retry rather than the page's whole sync layer. The consumer
+// that made this matter is C3's fill view: the dev skeleton opened one scope
+// once, a crew member opens one per checklist all shift.
 // ---------------------------------------------------------------------------
 
 const openScopes = new Map();
@@ -264,11 +278,19 @@ let databasePromise = null;
 // unchanged; the file stays 7-bit clean. Guarded by tests/repo-hygiene.spec.js
 // ('no source file under sync-rxdb/ contains a NUL byte'), which caught this
 // card writing raw NULs here on its first full-suite leg. Do not "tidy" it back.
+// 🛑 `s.userId` IS IN THE FILL BRANCH SINCE C3 (`activate-fill-view-reads`, run
+// 20260808-2) — C2's G6 finding F-2. `normalizeScope` now requires it, and the
+// registry key must agree with the replication identifier: if two crew members
+// on one truck phone opened the same checklist and collapsed to ONE registry
+// entry here, the second would be handed the first's handle and never start
+// their own replication — the same data loss the identifier fix prevents, one
+// layer up, and invisible because `openScopeKeys()` would report one live scope
+// and be telling the truth about its own map.
 function scopeKey(scope) {
   const s = normalizeScope(scope);
   return s.mode === 'list'
     ? ['list', s.userId, s.since, s.templateIds.slice().sort().join('+')].join('\0')
-    : ['fill', s.checklistId, s.templateId, s.fieldIds.slice().sort().join('+')].join('\0');
+    : ['fill', s.userId, s.checklistId, s.templateId, s.fieldIds.slice().sort().join('+')].join('\0');
 }
 
 function ensureDatabase() {
@@ -277,10 +299,33 @@ function ensureDatabase() {
     // 🛑 NEVER a memory storage on any offline-capable path — C1's B-88 guard
     // detects a live RxDB instance by scanning `indexedDB.databases()`, and a
     // memory-backed instance would be invisible to it (G6 finding F-2).
-    databasePromise = createHQSyncDatabase().then((db) => {
+    //
+    // 🛑 `HQSync.createDatabase`, THE PROPERTY, NOT THE IMPORTED BINDING — and
+    // that is a testability seam of the same kind as `startHQReplication`'s
+    // `opts.replicate`, not an indirection for its own sake. C2's G6 could not
+    // force F-1 at runtime (undefining `window.indexedDB` resolved anyway, since
+    // Dexie holds its own reference), which is why the finding shipped PLAUSIBLE
+    // rather than CONFIRMED — an unforceable failure is an untestable fix.
+    // Production never replaces this property; the default IS
+    // `createHQSyncDatabase`, assigned in the object literal below.
+    const pending = HQSync.createDatabase().then((db) => {
       HQSync.db = db;
       return db;
     });
+    // 🛑 EVICT ON REJECTION — C2's G6 finding F-1, and this is the whole fix.
+    // A memoised promise that REJECTED is permanent for the page's lifetime:
+    // every later `openSyncScope()` gets the same stale rejection back, so one
+    // transient IndexedDB failure (quota exhausted on a crew phone, a corrupt
+    // Dexie store) bricked the fill view's reads until a reload. Clearing the
+    // slot makes the next call try again. The `catch` handler is attached to a
+    // DERIVED promise, so it marks nothing as handled for the caller — the
+    // rejection still propagates to whoever awaited `ensureDatabase()`.
+    // The identity check is what makes it safe under concurrency: if a later
+    // call has already installed a fresh promise, this one must not null it.
+    pending.catch(() => {
+      if (databasePromise === pending) databasePromise = null;
+    });
+    databasePromise = pending;
   }
   return databasePromise;
 }
@@ -296,8 +341,14 @@ function ensureDatabase() {
  * async database creation — not merely fail to finish it. There is no path in
  * this tree on which creation starts and is then abandoned.
  *
- * @param {object} scope FILL `{checklistId, templateId, fieldIds}` or LIST
- *   `{mode:'list', userId, since, templateIds}`. Validated by `normalizeScope`.
+ * 🛑 A REJECTED OPEN IS EVICTED, not memoised (C2's G6 finding F-1). Both the
+ * shared database promise and this registry entry are dropped when the open
+ * fails, so a retry can succeed, `openScopeKeys()` never reports a dead scope as
+ * live, and the caller is never handed a handle whose `cancel()` is unreachable.
+ *
+ * @param {object} scope FILL `{userId, checklistId, templateId, fieldIds}` or
+ *   LIST `{mode:'list', userId, since, templateIds}`. Validated by
+ *   `normalizeScope` — 🛑 `userId` is REQUIRED on BOTH shapes since C3 (F-2).
  * @returns {Promise<{key, scope, db, states, cancel}>}
  */
 function openSyncScope(scope) {
@@ -338,6 +389,16 @@ function openSyncScope(scope) {
   // Registered BEFORE the first await resolves, so a second synchronous call for
   // the same scope joins this one rather than starting a rival replication.
   openScopes.set(key, handle);
+  // 🛑 ...AND DE-REGISTERED IF IT REJECTS — C2's G6 finding F-1, the second half.
+  // Without this the map holds a promise that will only ever reject: the scope is
+  // reported live by `openScopeKeys()`, its `cancel()` can never be reached (the
+  // handle it lives on was never produced), and every retry of the same scope
+  // gets the original failure back forever. The `catch` is on a DERIVED promise
+  // so the rejection still reaches the caller, and the identity check means a
+  // retry that has already re-registered is not evicted by the loser.
+  handle.catch(() => {
+    if (openScopes.get(key) === handle) openScopes.delete(key);
+  });
   return handle;
 }
 
@@ -350,13 +411,18 @@ const HQSync = {
   surfaces: [],
   vendor: null,
   pinned: PINNED_VENDOR,
-  // Deferred, for `sync-hard-cutover` and for C2's tests to drive.
+  // 🛑 NO LONGER MERELY "deferred, for `sync-hard-cutover` and for C2's tests to
+  // drive" — that sentence was true until C3 and this diff falsified it, so it is
+  // corrected rather than deleted. `ensureDatabase()` CALLS THIS PROPERTY. It is
+  // the default and the only implementation; a test replaces it to force the
+  // storage failure C2's G6 could not force (finding F-1), and restores it.
   createDatabase: createHQSyncDatabase,
-  // 🛑 REQUIRES a scope — `startReplication(db, client, {scope:{checklistId,
-  // templateId, fieldIds}})`. It throws without one, and `checklistId` AND
-  // `templateId` are both mandatory. Replication is scoped to the open
-  // checklist and is never pulled whole (preference architecture/C-2, ledger
-  // T-29 decision 105); a default would widen that silently.
+  // 🛑 REQUIRES a scope — `startReplication(db, client, {scope:{userId,
+  // checklistId, templateId, fieldIds}})`. It throws without one, and `userId`,
+  // `checklistId` AND `templateId` are ALL THREE mandatory (`userId` since C3 —
+  // C2's G6 finding F-2). Replication is scoped to the open checklist and is
+  // never pulled whole (preference architecture/C-2, ledger T-29 decision 105);
+  // a default would widen that silently.
   // 🛑 CANCEL the previous states before starting a re-scoped replication.
   startReplication: startHQReplication,
 

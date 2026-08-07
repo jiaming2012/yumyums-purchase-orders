@@ -877,7 +877,15 @@ test.describe('describeConflict agrees with the handler it was configured beside
         // subject of the test unchanged.
         // \`templateId\` became mandatory in the G6 fix round (F-5): an omitted
         // one used to widen \`templates\` to every non-archived row.
-        scope: { checklistId: 'chk-conflict-threading-probe', templateId: 'tpl-conflict-threading-probe' },
+        // \`userId\` became mandatory on card \`activate-fill-view-reads\` (C3,
+        // run 20260808-2) — G6 finding F-2: a fill checkpoint with no crew
+        // member in its key let the second user on a shared phone resume the
+        // first's cursor.
+        scope: {
+          userId: 'usr-conflict-threading-probe',
+          checklistId: 'chk-conflict-threading-probe',
+          templateId: 'tpl-conflict-threading-probe',
+        },
         onConflict: (described, key) => seen.push({ key, fields: described.clashes.map((c) => c.field).sort() }),
       });
       process.stdout.write(JSON.stringify(seen));
