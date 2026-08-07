@@ -233,8 +233,22 @@ count or closeout substitutes for that run.
   replication filter against real infrastructure. 🛑 `HQ_SYNC_REST_URL` being unset is **the
   interlock working, not evidence of correctness**. Footprint: spike scripts + sync client.
 
-- **`spike-e-reconnect-catchup`** · **PLANNED** (added post-triage 2026-08-07, operator ask —
-  B-161) · Prove the disconnect/reconnect/catch-up cycle no existing spike touches: C proved
+- **`spike-e-reconnect-catchup`** · **DONE** (run `20260808`, card E, verdict **GREEN** — exit 0
+  from `.night-crew/qa/spike-supabase/spike-e-reconnect.sh`; a severed RxDB client recovered
+  **all three** dark-window changes on reconnect via checkpoint pull in 1 ms of a 20 s bound,
+  **including the mandatory UPDATE to a row it already held**, corroborated by the substrate
+  primary key staying the same and field B holding exactly 1 draft row in HQ's Postgres; the
+  first post-reconnect pull was observed resuming FROM the sever-time checkpoint, not doing a
+  full re-read; red-first `--no-pull` exit 1 missed all three with the liveness control still
+  arriving; teardown VERIFIED byte-identical on both paths) · **B-161 answered.** Carried
+  finding: `checklist_submissions.submitted_at` never advances after INSERT (0 user triggers;
+  approve/reject set `status`/`reviewed_by`/`reviewed_at` only) while
+  `submission_responses.answered_at` does — but the pull checkpoints on **neither**, it
+  resumes on the substrate's trigger-stamped `_modified` with a strict `gt` + id tie-breaker.
+  That independence is *why* the UPDATE recovered, so the green is conditional on the carrier
+  re-projecting on every change: a future relay that polls HQ on a business watermark instead
+  of NOTIFY reintroduces the miss exactly. · Prove the disconnect/reconnect/catch-up cycle no
+  existing spike touches: C proved
   the round trip and D proved the filter, but nothing has ever severed a replicating client,
   written rows while it was dark (including an UPDATE to an existing row — the
   `submitted_at=gte.<iso>` checkpoint's weak spot), reconnected it, and measured whether
