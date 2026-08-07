@@ -1493,9 +1493,59 @@ test.describe('workflows.html actually imports and constructs the client', () =>
     // (B-65). A substring of source is not a symbol; match the invocation.
     expect(src).toContain('debouncedSaveField(');
     expect(src).toContain("submitOp('SET_FIELD'");
-    // The page must not call the RxDB layer for anything at all yet.
-    expect(src).not.toContain('HQSync.createDatabase');
-    expect(src).not.toContain('HQSync.startReplication');
-    expect(src).not.toContain('HQSync.client');
+    // Whether the RxDB layer is safe to READ from is an OBJECT-level question
+    // ("nothing may read from RxDB on a code path that can execute offline"),
+    // not a source-text one — see the test below (B-88). Source-text assertions
+    // for that rule used to live here (`not.toContain('HQSync.createDatabase')`
+    // etc.) and were blind to `workflows.html`'s own `defaultStore()`, which
+    // reads `window.HQSync.db` — a fourth route none of the three named.
+  });
+
+  // B-88. "Nothing may read from RxDB on a code path that can execute offline"
+  // was enforced by three `expect(src).not.toContain(...)` assertions over
+  // SOURCE TEXT: `HQSync.createDatabase`, `HQSync.startReplication`,
+  // `HQSync.client`. `workflows.html`'s `defaultStore()` (conflict-notice
+  // wiring, ~line 3589) reads `window.HQSync.db` — a FOURTH route none of the
+  // three named — and it is green today for the wrong reason: no database
+  // exists yet, not because the guard would catch one appearing. The first
+  // card that actually creates a database (`skeleton-one-row-end-to-end`)
+  // breaks the rule with no diff to anything the old guard watched.
+  //
+  // A source-text ban on the literal `HQSync.db` would be the wrong fix in the
+  // other direction: `defaultStore()`'s read is already gated —
+  // `db && db.conflict_records` — and is exactly the shape a flag-gated read
+  // path is SUPPOSED to have. Banning the spelling would red on safe code.
+  // The rule is about the OBJECT the page ends up holding at the end of load,
+  // not the identifiers in the file, so this asserts against a REAL running
+  // page: window.HQSync.db must be undefined, and — defense in depth, in case
+  // some route other than window.HQSync ever held a live reference — no
+  // RxDB-backed IndexedDB database exists either.
+  //
+  // FLAG-OFF CONTRACT for `skeleton-one-row-end-to-end` (C2, this same slate):
+  // with the sync flag OFF, page load must leave window.HQSync.db undefined.
+  // This test is what "flag off" has to keep proving true; C2 lands the flag
+  // and the first call site of createHQSyncDatabase(), and must keep this
+  // green while the flag defaults off.
+  test('nothing reads from RxDB on a code path that can execute offline — window.HQSync.db is undefined at end of load (B-88)', async ({ page }) => {
+    await login(page);
+    await page.goto('/workflows.html');
+    await page.waitForFunction(() => window.HQSync !== undefined, null, { timeout: 15000 });
+
+    const state = await page.evaluate(async () => {
+      const dbUndefined = window.HQSync.db === undefined;
+      // RxDB's Dexie storage backs every collection with a real IndexedDB
+      // database. If page load ever created and kept one alive, it shows up
+      // here regardless of which global variable — or none — still points at
+      // it, so this does not depend on `window.HQSync` being the only route.
+      let rxdbIndexedDbNames = [];
+      if (typeof indexedDB !== 'undefined' && typeof indexedDB.databases === 'function') {
+        const dbs = await indexedDB.databases();
+        rxdbIndexedDbNames = dbs.map((d) => d.name).filter((n) => /rxdb|hq_sync/i.test(n || ''));
+      }
+      return { dbUndefined, rxdbIndexedDbNames };
+    });
+
+    expect(state.dbUndefined).toBe(true);
+    expect(state.rxdbIndexedDbNames).toEqual([]);
   });
 });

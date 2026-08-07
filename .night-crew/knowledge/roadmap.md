@@ -274,13 +274,29 @@ count or closeout substitutes for that run.
   on RxDB, `/saveResponse` and `/submit` keep owning writes) and cite it, per the standing rule
   that a build WO may not propose the split itself. Footprint: page wiring + sync client.
 
-- **`skeleton-offline-ownership-honesty`** · **PLANNED** (slated: `20260808-2` C1) · Close **B-88**. The rule *"nothing may
-  read from RxDB on a code path that can execute offline"* is enforced by three
-  `expect(src).not.toContain(…)` assertions over **source text** — and `workflows.html:3590` reads
-  `window.HQSync.db`, **a fourth route the guard does not name**. It is green today only because
-  the database does not exist; **the first card that creates one breaks the rule with no diff to
-  anything the guard watches**. That card is the one directly above. Assert on the **object**, not
-  the spelling of identifiers. Footprint: page wiring.
+- **`skeleton-offline-ownership-honesty`** · **DONE** (run `20260808-2`, card **C1**, branch
+  `card/c1-skeleton-offline-ownership-honesty`; commits `b1d1bb7` (merge-intent + RF, first),
+  `69f6543` (the fix)) · Closed **B-88**. The three `expect(src).not.toContain(…)` source-text
+  assertions in `tests/sync-rxdb-client.spec.js` (formerly lines 1497-1499) — which never named
+  `window.HQSync.db`, the fourth read route `workflows.html:3589`'s `defaultStore()` actually
+  uses — are replaced with an object-level browser test: load `/workflows.html` for real, assert
+  `window.HQSync.db === undefined` and that no RxDB/Dexie-backed IndexedDB database exists. **This
+  is the flag-off contract `skeleton-one-row-end-to-end` (C2) must keep green** — with the sync
+  flag off, page load must leave `window.HQSync.db` undefined; C2 may only set it inside a
+  flag-gated branch. RF: Probe A showed the shipped guard blind to the literal `HQSync.db` already
+  present in `workflows.html` (a hypothetical fourth assertion reds on the unmodified tree, the
+  shipped three do not); Probe B showed the new test is a real gate — red (exit 1) when
+  `sync-rxdb/bootstrap.js` was temporarily made to set `HQSync.db` on every load, green (exit 0)
+  before and after, tree left byte-identical. Gates: G1 clean; G2 (Go) 9/9 packages ok, 0 FAIL,
+  454 total `--- PASS:` lines (`internal/workflow` 35 exactly), `HQ_SYNC_SUBSTRATE_OPTIONAL` /
+  `HQ_SYNC_GATE_CHILD` both unset; G2 (Playwright) de-confined to the full suite (799 tests, one
+  summary block) — 791 passed / 2 failed / 6 skipped in 22.5m, the 2 failures
+  (`inventory.spec.js:3124`, `sync.spec.js:1327`) are NOT the armed baseline (which all passed:
+  `inventory.spec.js:883` B-27, `sync.spec.js:446` LST-17, `receipt-carousel.spec.js:123` B-162)
+  but did not reproduce on an isolated `tests/`-anchored rerun (2/2 passed, exit 0) and this card's
+  diff touches only the test file — ruled flake-trail, not a card failure, and left named rather
+  than silently dropped; G4 idempotent, tree clean both runs, precache count 31. Logs:
+  `.night-crew/runs/2026-08-08-2-autonomous/c1-gates/`.
 
 ---
 

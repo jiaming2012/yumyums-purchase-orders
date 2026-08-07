@@ -1,2 +1,7 @@
 # timings — run 20260808-2 (B-39 stamps)
 run-start 2026-08-07T14:37:47-04:00 (T0; 8h line 22:37 EDT, usable line 22:07 EDT)
+implement-start C1 14:38:47
+implement-end C1 15:33:33
+G6-start C1 15:33:33
+G6-return C1 15:42:xx (PASS-with-findings; no fix round — ruling in conflict log)
+merge C1 15:44:37
