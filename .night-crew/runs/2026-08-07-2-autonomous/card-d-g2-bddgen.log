@@ -1,0 +1,8 @@
+== npm ci first: this worktree had NO node_modules, so the first bddgen invocation
+   exited 1 with 'please install playwright-bdd' — a MISSING INSTALL, not a missing
+   dependency (package.json:18 declares playwright-bdd ^8.5.1). That is almost
+   certainly why card C's bddgen log was zero bytes: the message goes to stderr and
+   the install had not happened. Re-run below, after npm ci. ==
+
+== npx bddgen ==
+BDDGEN_EXIT=0

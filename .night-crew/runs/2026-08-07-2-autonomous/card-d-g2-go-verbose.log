@@ -1,0 +1,727 @@
+== COUNTS, not ok/FAIL. DB_TEST_URL unset makes internal/workflow run ZERO tests and still print ok. ==
+HQ_SYNC vars set in this shell: 0  (HQ_SYNC_SUBSTRATE_OPTIONAL and HQ_SYNC_GATE_CHILD both unset)
+
+=== RUN   TestLoadConfigDeliveryDisabledByDefault
+--- PASS: TestLoadConfigDeliveryDisabledByDefault (0.00s)
+=== RUN   TestLoadConfigDeliveryEnabledExplicitly
+--- PASS: TestLoadConfigDeliveryEnabledExplicitly (0.00s)
+=== RUN   TestLoadConfigDeliveryValueIsStrict
+--- PASS: TestLoadConfigDeliveryValueIsStrict (0.00s)
+ok  	github.com/yumyums/hq/internal/alerts	0.005s
+=== RUN   TestSeedHQApps_RegistersPerTabSlugs
+--- PASS: TestSeedHQApps_RegistersPerTabSlugs (0.01s)
+=== RUN   TestRequirePermission_WithoutGrant_403
+--- PASS: TestRequirePermission_WithoutGrant_403 (0.03s)
+=== RUN   TestRequirePermission_WithTabGrant_Passes
+--- PASS: TestRequirePermission_WithTabGrant_Passes (0.05s)
+=== RUN   TestRequirePermission_UmbrellaAppGrant_Passes
+--- PASS: TestRequirePermission_UmbrellaAppGrant_Passes (0.03s)
+=== RUN   TestRequirePermission_MixedGrant_TrendsOnly
+--- PASS: TestRequirePermission_MixedGrant_TrendsOnly (0.02s)
+=== RUN   TestRequirePermission_UnrelatedGrant_DoesNotLeak
+--- PASS: TestRequirePermission_UnrelatedGrant_DoesNotLeak (0.02s)
+=== RUN   TestRequirePermission_Superadmin_Passes
+--- PASS: TestRequirePermission_Superadmin_Passes (0.02s)
+=== RUN   TestRequirePermission_AdminRoleAlone_IsNotAGrant
+--- PASS: TestRequirePermission_AdminRoleAlone_IsNotAGrant (0.02s)
+=== RUN   TestRequirePermission_NoUser_401
+--- PASS: TestRequirePermission_NoUser_401 (0.00s)
+=== RUN   TestRequirePermission_DisabledApp_DoesNotGrant
+--- PASS: TestRequirePermission_DisabledApp_DoesNotGrant (0.04s)
+=== RUN   TestRequirePermission_DBError_FailsClosed
+--- PASS: TestRequirePermission_DBError_FailsClosed (0.00s)
+=== RUN   TestRequirePermission_DBError_SuperadminStillPasses
+--- PASS: TestRequirePermission_DBError_SuperadminStillPasses (0.00s)
+=== RUN   TestServiceTokenMiddleware
+=== RUN   TestServiceTokenMiddleware/missing_Authorization_header_→_401
+=== RUN   TestServiceTokenMiddleware/header_without_Bearer_prefix_→_401
+=== RUN   TestServiceTokenMiddleware/Bearer_prefix_with_wrong_token_→_401
+=== RUN   TestServiceTokenMiddleware/Bearer_prefix_with_correct_token_→_200,_next_called
+=== RUN   TestServiceTokenMiddleware/empty_expectedToken_(env_unset)_→_503,_next_NOT_called
+--- PASS: TestServiceTokenMiddleware (0.00s)
+ok  	github.com/yumyums/hq/internal/auth	0.313s
+=== RUN   TestPeriodSummary
+=== RUN   TestPeriodSummary/ready=true_with_linked_items_and_no_pending
+=== RUN   TestPeriodSummary/ready=false_when_pending_purchase_in_range_is_unconfirmed
+=== RUN   TestPeriodSummary/ready=false_when_a_confirmed_event_has_an_unlinked_line_item
+=== RUN   TestPeriodSummary/discarded_pending_purchase_does_NOT_block_ready
+=== RUN   TestPeriodSummary/ready=false_when_no_attachment_on_bank_tx_pending_row_in_range
+=== RUN   TestPeriodSummary/bad_date_format_returns_400
+=== RUN   TestPeriodSummary/from_>_to_returns_400
+=== RUN   TestPeriodSummary/placeholder_line_item_lands_in_cogs_excl_tax
+=== RUN   TestPeriodSummary/placeholder_does_NOT_trip_unlinked_line_item_ids
+=== RUN   TestPeriodSummary/end-to-end_empty-items_confirm_increments_cogs
+=== RUN   TestPeriodSummary/by_vendor:_shape_+_sums_match_+_order
+=== RUN   TestPeriodSummary/by_vendor:_empty_period_renders_[]_not_null
+=== RUN   TestPeriodSummary/by_vendor:_zero-line-items_event_still_appears_(regression)
+=== RUN   TestPeriodSummary/allowlist_excludes_non-COGS_rows
+=== RUN   TestPeriodSummary/NULL_mercury_category_is_excluded_by_default
+=== RUN   TestPeriodSummary/custom_multi-element_allowlist_includes_both
+=== RUN   TestPeriodSummary/ready=false_when_pending_row_has_event_date_in_range_but_created_at_out_of_range
+=== RUN   TestPeriodSummary/ready=true_when_pending_row_has_event_date_out_of_range_but_created_at_in_range
+=== RUN   TestPeriodSummary/ready=false_when_pending_row_has_NULL_event_date_and_created_at_in_range
+=== RUN   TestPeriodSummary/ready=true_when_pending_row_has_NULL_event_date_and_created_at_out_of_range
+=== RUN   TestPeriodSummary/tracked_bank_tx_ids:_empty_period_renders_[]_not_null
+=== RUN   TestPeriodSummary/tracked_bank_tx_ids:_all_states_present,_deduped,_sorted
+=== RUN   TestPeriodSummary/tracked_bank_tx_ids:_period_boundary_uses_COALESCE(event_date,_created_at::app-tz)
+=== RUN   TestPeriodSummary/pending_review_details_parity_with_pending_review_ids
+=== RUN   TestPeriodSummary/pending_review_details_populates_vendor/event_date/bank_total/reason
+=== RUN   TestPeriodSummary/pending_review_details_event_date_falls_back_to_the_app-tz_cast_of_created_at
+=== RUN   TestPeriodSummary/pending_review_details_vendor=''_serializes_as_empty_string
+=== RUN   TestPeriodSummary/pending_review_details_serializes_as_[]_when_empty_period
+=== RUN   TestPeriodSummary/case_a_food_no_attachment_blocks
+=== RUN   TestPeriodSummary/case_b_food_parse_failed_rolls_into_cogs
+=== RUN   TestPeriodSummary/case_c_non_food_no_attachment_does_not_block_or_roll
+=== RUN   TestPeriodSummary/case_d_non_food_parse_failed_does_not_block_or_roll
+=== RUN   TestPeriodSummary/null_mercury_category_with_no_attachment_does_not_block
+=== RUN   TestPeriodSummary/date_filter_still_applies_to_blocking_row_out_of_period
+=== RUN   TestPeriodSummary/pending_review_details_parity_under_narrowed_gate
+=== RUN   TestPeriodSummary/case_b_by_vendor_match_merges_into_vendor_row
+=== RUN   TestPeriodSummary/case_b_by_vendor_unmatched_renders_with_empty_vendor_id
+=== RUN   TestPeriodSummary/case_b_by_vendor_vendor_name_fuzz_joins_case_and_trim_insensitive
+--- PASS: TestPeriodSummary (15.89s)
+=== RUN   TestConfirmPending_RejectsEmptyItemsWhenReceiptAttached
+--- PASS: TestConfirmPending_RejectsEmptyItemsWhenReceiptAttached (0.39s)
+=== RUN   TestConfirmPending_AcceptsEmptyItemsWhenNoAttachment
+--- PASS: TestConfirmPending_AcceptsEmptyItemsWhenNoAttachment (0.35s)
+=== RUN   TestConfirmPending_RejectsTotalMismatchWith422
+--- PASS: TestConfirmPending_RejectsTotalMismatchWith422 (0.41s)
+=== RUN   TestRetryParse_ClearsParseError
+--- PASS: TestRetryParse_ClearsParseError (0.46s)
+=== RUN   TestRetryParse_404OnUnknownId
+--- PASS: TestRetryParse_404OnUnknownId (0.41s)
+=== RUN   TestRetryParse_422OnConfirmedRow
+--- PASS: TestRetryParse_422OnConfirmedRow (0.49s)
+=== RUN   TestRetryParse_422WhenNothingToRetry
+--- PASS: TestRetryParse_422WhenNothingToRetry (0.41s)
+=== RUN   TestRetryParse_ItemsMismatch_Accepted
+--- PASS: TestRetryParse_ItemsMismatch_Accepted (0.40s)
+=== RUN   TestRetryParse_ItemsMatchTotals_StillRejected
+--- PASS: TestRetryParse_ItemsMatchTotals_StillRejected (0.35s)
+=== RUN   TestListPendingPurchases_ReceiptURLsField
+--- PASS: TestListPendingPurchases_ReceiptURLsField (0.38s)
+=== RUN   TestPeriodSummary_PendingPeriodBoundaryIsTheAppTimezone
+--- PASS: TestPeriodSummary_PendingPeriodBoundaryIsTheAppTimezone (0.42s)
+=== RUN   TestReprocessAllPendingHandler_QueuesPerRowProcessing
+--- PASS: TestReprocessAllPendingHandler_QueuesPerRowProcessing (0.15s)
+=== RUN   TestReprocessAllPendingHandler_ReturnsConflictWhenSyncAlreadyRunning
+--- PASS: TestReprocessAllPendingHandler_ReturnsConflictWhenSyncAlreadyRunning (0.10s)
+=== RUN   TestReprocessAllPendingHandler_SelectsAndRoutesRows
+--- PASS: TestReprocessAllPendingHandler_SelectsAndRoutesRows (0.10s)
+=== RUN   TestClassifyStockLevel
+=== RUN   TestClassifyStockLevel/zero_quantity_is_unknown
+=== RUN   TestClassifyStockLevel/below_low_threshold_is_low
+=== RUN   TestClassifyStockLevel/equal_to_low_threshold_is_low
+=== RUN   TestClassifyStockLevel/between_low_and_high_is_medium
+=== RUN   TestClassifyStockLevel/just_below_high_threshold_is_medium
+=== RUN   TestClassifyStockLevel/equal_to_high_threshold_is_high
+=== RUN   TestClassifyStockLevel/above_high_threshold_is_high
+--- PASS: TestClassifyStockLevel (0.00s)
+=== RUN   TestSyncReceiptsStatus_ReturnsLookbackDays
+--- PASS: TestSyncReceiptsStatus_ReturnsLookbackDays (0.13s)
+=== RUN   TestSyncReceipts_SingleFlight_Returns409
+--- PASS: TestSyncReceipts_SingleFlight_Returns409 (0.09s)
+=== RUN   TestSyncReceipts_Goroutine_UpdatesRowToDone
+--- PASS: TestSyncReceipts_Goroutine_UpdatesRowToDone (0.08s)
+=== RUN   TestSyncReceipts_Goroutine_RecoversFromPanic
+--- PASS: TestSyncReceipts_Goroutine_RecoversFromPanic (0.08s)
+=== RUN   TestTrends
+--- PASS: TestTrends (0.67s)
+=== RUN   TestTrendsAllowlistIsNotHardcoded
+--- PASS: TestTrendsAllowlistIsNotHardcoded (0.65s)
+=== RUN   TestTrendsWindow_IsEvaluatedInAppTimezone
+=== RUN   TestTrendsWindow_IsEvaluatedInAppTimezone/UTC_has_rolled_into_Monday,_New_York_is_still_Sunday_evening
+=== RUN   TestTrendsWindow_IsEvaluatedInAppTimezone/mid-week,_UTC_is_a_day_ahead_of_New_York
+=== RUN   TestTrendsWindow_IsEvaluatedInAppTimezone/midday,_both_zones_agree
+--- PASS: TestTrendsWindow_IsEvaluatedInAppTimezone (0.00s)
+=== RUN   TestTrendsWindow_ToIsTodayInTheAppTimezone
+--- PASS: TestTrendsWindow_ToIsTodayInTheAppTimezone (0.00s)
+ok  	github.com/yumyums/hq/internal/inventory	22.450s
+=== RUN   TestCronCutoffDecision
+=== RUN   TestCronCutoffDecision/does_NOT_fire_the_minute_before_cutoff
+=== RUN   TestCronCutoffDecision/fires_the_minute_after_cutoff_→_auto-locks_draft_PO
+=== RUN   TestCronCutoffDecision/does_NOT_fire_on_cutoff_day_before_cutoff_time_(Friday_config)
+--- PASS: TestCronCutoffDecision (1.73s)
+=== RUN   TestCronReminderDecision
+=== RUN   TestCronReminderDecision/does_NOT_fire_before_the_reminder_window
+=== RUN   TestCronReminderDecision/fires_inside_the_reminder_window_→_logs_cutoff_reminder
+=== RUN   TestCronReminderDecision/does_NOT_fire_after_the_reminder_window
+=== RUN   TestCronReminderDecision/is_idempotent_within_the_window_(single_send_per_week)
+--- PASS: TestCronReminderDecision (2.21s)
+=== RUN   TestCronLowStockDecision
+=== RUN   TestCronLowStockDecision/alerts_a_low_item_once_in_its_week
+=== RUN   TestCronLowStockDecision/does_NOT_re-alert_the_same_item_later_the_same_week
+=== RUN   TestCronLowStockDecision/re-alerts_the_same_item_in_the_next_week
+--- PASS: TestCronLowStockDecision (1.87s)
+=== RUN   TestCronRepurchaseResetDecision
+=== RUN   TestCronRepurchaseResetDecision/does_NOT_fire_before_reset_time
+=== RUN   TestCronRepurchaseResetDecision/fires_after_reset_time_with_no_prior_reset_→_bumps_last_reset_at
+=== RUN   TestCronRepurchaseResetDecision/does_NOT_re-fire_when_already_reset_this_week
+--- PASS: TestCronRepurchaseResetDecision (1.66s)
+=== RUN   TestParseCutoffTime_Prove
+--- PASS: TestParseCutoffTime_Prove (0.00s)
+=== RUN   TestIsAdmin_Prove
+--- PASS: TestIsAdmin_Prove (0.00s)
+=== RUN   TestCutoffDecisionRule_Prove
+--- PASS: TestCutoffDecisionRule_Prove (0.00s)
+=== RUN   TestCurrentWeekStart_UsesAppTimezone
+=== RUN   TestCurrentWeekStart_UsesAppTimezone/Monday_00:30_New_York_(=_Sunday_23:30_Chicago)
+=== RUN   TestCurrentWeekStart_UsesAppTimezone/Sunday_23:30_New_York_(=_Sunday_22:30_Chicago)_—_control
+=== RUN   TestCurrentWeekStart_UsesAppTimezone/Thursday_12:00_New_York_—_control
+=== RUN   TestCurrentWeekStart_UsesAppTimezone/Monday_00:30_New_York_in_January_(=_Sunday_23:30_Chicago)
+--- PASS: TestCurrentWeekStart_UsesAppTimezone (0.00s)
+ok  	github.com/yumyums/hq/internal/purchasing	7.504s
+=== RUN   TestFetchTransactions_Paginates
+--- PASS: TestFetchTransactions_Paginates (0.04s)
+=== RUN   TestFetchTransactions_StopsOnShortFirstPage
+--- PASS: TestFetchTransactions_StopsOnShortFirstPage (0.01s)
+=== RUN   TestFetchTransactions_EmptyFirstPage
+--- PASS: TestFetchTransactions_EmptyFirstPage (0.01s)
+=== RUN   TestFetchTransactions_FiltersUnsupportedKinds
+--- PASS: TestFetchTransactions_FiltersUnsupportedKinds (0.01s)
+=== RUN   TestFetchTransactions_PaginatesWhenFilterShrinksPage
+--- PASS: TestFetchTransactions_PaginatesWhenFilterShrinksPage (0.02s)
+=== RUN   TestFetchTransactions_BailsWhenCursorIgnored
+--- PASS: TestFetchTransactions_BailsWhenCursorIgnored (0.01s)
+=== RUN   TestParseJSONBody_Fixtures
+=== RUN   TestParseJSONBody_Fixtures/01_happy_simple
+=== RUN   TestParseJSONBody_Fixtures/02_float_quantities
+=== RUN   TestParseJSONBody_Fixtures/02b_float_summary_units
+=== RUN   TestParseJSONBody_Fixtures/03_markdown_fenced
+=== RUN   TestParseJSONBody_Fixtures/04_truncated_at_max_tokens
+=== RUN   TestParseJSONBody_Fixtures/05_with_leading_prose
+--- PASS: TestParseJSONBody_Fixtures (0.00s)
+=== RUN   TestParseJSONBody_DecimalQuantity
+--- PASS: TestParseJSONBody_DecimalQuantity (0.00s)
+=== RUN   TestParseJSONBody_IntegerQuantity
+--- PASS: TestParseJSONBody_IntegerQuantity (0.00s)
+=== RUN   TestParseJSONBody_MalformedReturnsError
+--- PASS: TestParseJSONBody_MalformedReturnsError (0.00s)
+=== RUN   TestParseJSONBody_FloatSummary
+--- PASS: TestParseJSONBody_FloatSummary (0.00s)
+=== RUN   TestValidateReceiptData_EmptyItemName_RoutesToReview
+=== RUN   TestValidateReceiptData_EmptyItemName_RoutesToReview/empty_name
+=== RUN   TestValidateReceiptData_EmptyItemName_RoutesToReview/whitespace-only_name
+--- PASS: TestValidateReceiptData_EmptyItemName_RoutesToReview (0.00s)
+=== RUN   TestValidateReceiptData_NamedItemsMatchingTotal_Valid
+--- PASS: TestValidateReceiptData_NamedItemsMatchingTotal_Valid (0.00s)
+=== RUN   TestInsertPendingPurchase_NoAttachmentBranch_ShapeAndDefaults
+--- PASS: TestInsertPendingPurchase_NoAttachmentBranch_ShapeAndDefaults (0.37s)
+=== RUN   TestInsertPendingPurchase_VendorFallback_PrefersSummary
+--- PASS: TestInsertPendingPurchase_VendorFallback_PrefersSummary (0.34s)
+=== RUN   TestBackfillPendingVendor_SetsWhenEmpty
+--- PASS: TestBackfillPendingVendor_SetsWhenEmpty (0.39s)
+=== RUN   TestBackfillPendingVendor_DoesNotOverwriteExisting
+--- PASS: TestBackfillPendingVendor_DoesNotOverwriteExisting (0.34s)
+=== RUN   TestBackfillPendingVendor_EmptyBankDescriptionIsNoOp
+--- PASS: TestBackfillPendingVendor_EmptyBankDescriptionIsNoOp (0.37s)
+=== RUN   TestInsertPendingPurchase_NoAttachmentBranch_IdempotentOnRerun
+--- PASS: TestInsertPendingPurchase_NoAttachmentBranch_IdempotentOnRerun (0.36s)
+=== RUN   TestRunIngestCycle_NoTransactions_ReturnsZeroResult
+--- PASS: TestRunIngestCycle_NoTransactions_ReturnsZeroResult (0.56s)
+=== RUN   TestInsertPendingPurchase_CoexistsWithAttachmentBranch
+--- PASS: TestInsertPendingPurchase_CoexistsWithAttachmentBranch (0.41s)
+=== RUN   TestRunIngestCycle_UpgradesPendingNoAttachmentRow
+--- PASS: TestRunIngestCycle_UpgradesPendingNoAttachmentRow (0.62s)
+=== RUN   TestRunIngestCycle_UpgradesPendingNoAttachmentRow_ParseFails
+--- PASS: TestRunIngestCycle_UpgradesPendingNoAttachmentRow_ParseFails (0.47s)
+=== RUN   TestRunIngestCycle_SkipsRealCached
+--- PASS: TestRunIngestCycle_SkipsRealCached (0.33s)
+=== RUN   TestRunIngestCycle_RetriesPriorHaikuFailureWhenParseErrorNull
+--- PASS: TestRunIngestCycle_RetriesPriorHaikuFailureWhenParseErrorNull (0.58s)
+=== RUN   TestRunIngestCycle_DoesNotRetryWhenParseErrorSet
+--- PASS: TestRunIngestCycle_DoesNotRetryWhenParseErrorSet (0.36s)
+=== RUN   TestRunIngestCycle_DoesNotRetryParseFailedWithItems
+--- PASS: TestRunIngestCycle_DoesNotRetryParseFailedWithItems (0.36s)
+=== RUN   TestRunIngestCycle_SkipsExistingPurchaseEvent
+--- PASS: TestRunIngestCycle_SkipsExistingPurchaseEvent (0.36s)
+=== RUN   TestClassifyExistingTx
+=== RUN   TestClassifyExistingTx/empty_DB_returns_none
+=== RUN   TestClassifyExistingTx/pending_no_attachment_row_→_pending
+=== RUN   TestClassifyExistingTx/discarded_pending_row_→_none_(re-ingest_allowed)
+=== RUN   TestClassifyExistingTx/confirmed_pending_row_→_event_(idempotent_like_locked_purchase)
+=== RUN   TestClassifyExistingTx/purchase_events_row_→_event
+=== RUN   TestClassifyExistingTx/legacy_items='null'_scalar_does_not_error
+--- PASS: TestClassifyExistingTx (2.14s)
+=== RUN   TestInsertPendingPurchase_DedupesOnReinsertWithDifferentReason
+--- PASS: TestInsertPendingPurchase_DedupesOnReinsertWithDifferentReason (0.35s)
+=== RUN   TestMigration_DedupesExistingPendingDuplicates
+--- PASS: TestMigration_DedupesExistingPendingDuplicates (0.38s)
+=== RUN   TestRunIngestCycle_FallsBackToSonnet
+--- PASS: TestRunIngestCycle_FallsBackToSonnet (0.50s)
+=== RUN   TestRunIngestCycle_BothModelsFail_StoresParseError
+--- PASS: TestRunIngestCycle_BothModelsFail_StoresParseError (0.43s)
+=== RUN   TestInsertPendingPurchase_ParseErrorNullByDefault
+--- PASS: TestInsertPendingPurchase_ParseErrorNullByDefault (0.36s)
+=== RUN   TestRunIngestCycle_ScenarioTable
+=== RUN   TestRunIngestCycle_ScenarioTable/multi_attachment_first_parse_wrong_total_then_feedback_succeeds
+=== RUN   TestRunIngestCycle_ScenarioTable/multi_attachment_feedback_also_fails_routes_to_pending
+=== RUN   TestRunIngestCycle_ScenarioTable/multi_attachment_line_item_sum_fail_then_feedback_succeeds
+=== RUN   TestRunIngestCycle_ScenarioTable/validation_check3_removed_auto_creates_directly
+=== RUN   TestRunIngestCycle_ScenarioTable/happy_haiku_succeeds
+=== RUN   TestRunIngestCycle_ScenarioTable/haiku_fails_sonnet_recovers
+=== RUN   TestRunIngestCycle_ScenarioTable/both_fail_with_realistic_errors
+=== RUN   TestRunIngestCycle_ScenarioTable/both_fail_decimal_qty
+=== RUN   TestRunIngestCycle_ScenarioTable/total_mismatch
+=== RUN   TestRunIngestCycle_ScenarioTable/unnamed_item_routes_to_review
+=== RUN   TestRunIngestCycle_ScenarioTable/multi_attachment_net_auto_creates
+--- PASS: TestRunIngestCycle_ScenarioTable (6.30s)
+=== RUN   TestMultiAttachment_ValidateFailStoresURLsOnPending
+--- PASS: TestMultiAttachment_ValidateFailStoresURLsOnPending (0.51s)
+=== RUN   TestWorker_DerivedTotal_AutoCreatesWhenItemsSumMatchesBank
+--- PASS: TestWorker_DerivedTotal_AutoCreatesWhenItemsSumMatchesBank (0.56s)
+=== RUN   TestWorker_RetryRegression_KeepsBestAttempt
+--- PASS: TestWorker_RetryRegression_KeepsBestAttempt (0.66s)
+=== RUN   TestWorker_SanityGate_BlocksAutoCreateOnEmptyItems
+--- PASS: TestWorker_SanityGate_BlocksAutoCreateOnEmptyItems (0.41s)
+=== RUN   TestWorker_LineItemSumMismatch_RetriesWithFeedback
+--- PASS: TestWorker_LineItemSumMismatch_RetriesWithFeedback (0.57s)
+=== RUN   TestWorker_PendingRow_HasPurchaseItemIDsPrefilled
+--- PASS: TestWorker_PendingRow_HasPurchaseItemIDsPrefilled (0.49s)
+=== RUN   TestEnrichItemsWithMatches_TokenMatcher_HitsHighThreshold
+--- PASS: TestEnrichItemsWithMatches_TokenMatcher_HitsHighThreshold (0.37s)
+=== RUN   TestEnrichItemsWithMatches_AIFallback_PicksUpHighConfidence
+--- PASS: TestEnrichItemsWithMatches_AIFallback_PicksUpHighConfidence (0.45s)
+=== RUN   TestCreatePurchaseEvent_DuplicateBankTxID_CleansPending
+--- PASS: TestCreatePurchaseEvent_DuplicateBankTxID_CleansPending (0.42s)
+=== RUN   TestMatchItemsWithAI_StripsCodeFences
+--- PASS: TestMatchItemsWithAI_StripsCodeFences (0.00s)
+=== RUN   TestMatchItemsWithAI_NaturalLanguageResponseDegradesGracefully
+--- PASS: TestMatchItemsWithAI_NaturalLanguageResponseDegradesGracefully (0.00s)
+=== RUN   TestMatchItemsWithAI_EmptyInputSkipsAPICall
+--- PASS: TestMatchItemsWithAI_EmptyInputSkipsAPICall (0.00s)
+=== RUN   TestBatchReprocessFromSpaces_ProcessesEachRow
+--- PASS: TestBatchReprocessFromSpaces_ProcessesEachRow (0.52s)
+ok  	github.com/yumyums/hq/internal/receipt	21.782s
+=== RUN   TestCostWindow_TwelveCompleteISOWeeksAppTimezone
+=== RUN   TestCostWindow_TwelveCompleteISOWeeksAppTimezone/Monday_2026-07-20_(design_§2.2_worked_example)
+=== RUN   TestCostWindow_TwelveCompleteISOWeeksAppTimezone/Sunday_2026-07-19_23:30_Chicago_=_Monday_00:30_New_York
+=== RUN   TestCostWindow_TwelveCompleteISOWeeksAppTimezone/Sunday_2026-07-19_22:30_New_York_still_in_prior_ISO_week
+=== RUN   TestCostWindow_TwelveCompleteISOWeeksAppTimezone/UTC_instant_that_is_still_Sunday_in_New_York
+--- PASS: TestCostWindow_TwelveCompleteISOWeeksAppTimezone (0.00s)
+=== RUN   TestCost_Fixture_HandComputedToTheCent
+--- PASS: TestCost_Fixture_HandComputedToTheCent (0.57s)
+=== RUN   TestCost_ZeroRevenue_FoodCostPctIsJSONNull
+--- PASS: TestCost_ZeroRevenue_FoodCostPctIsJSONNull (0.57s)
+=== RUN   TestCost_Movers_BothOrderings
+--- PASS: TestCost_Movers_BothOrderings (0.64s)
+=== RUN   TestCost_ReconcilesWithMenuCogs_OnMessyData
+--- PASS: TestCost_ReconcilesWithMenuCogs_OnMessyData (0.64s)
+=== RUN   TestCost_InheritsMenuCogs_NoCategoryFilter_NoPendingRows
+--- PASS: TestCost_InheritsMenuCogs_NoCategoryFilter_NoPendingRows (0.58s)
+=== RUN   TestCostHandler_ServerComputedWindow
+--- PASS: TestCostHandler_ServerComputedWindow (0.47s)
+=== RUN   TestCost_EmptyDataset_ReturnsEmptyArrays
+--- PASS: TestCost_EmptyDataset_ReturnsEmptyArrays (0.41s)
+=== RUN   TestCost_NegativeRevenue_PctNullAndExcludedFromMovers
+--- PASS: TestCost_NegativeRevenue_PctNullAndExcludedFromMovers (0.44s)
+=== RUN   TestComputeMovers_TieBreakOnName_IndependentOfInputOrder
+--- PASS: TestComputeMovers_TieBreakOnName_IndependentOfInputOrder (0.00s)
+=== RUN   TestCost_TiedRows_DeterministicAcrossCalls
+--- PASS: TestCost_TiedRows_DeterministicAcrossCalls (0.48s)
+=== RUN   TestValidateUsagePct_RejectsNon5Multiple
+--- PASS: TestValidateUsagePct_RejectsNon5Multiple (0.00s)
+=== RUN   TestValidateUsagePct_RejectsOutOfRange
+--- PASS: TestValidateUsagePct_RejectsOutOfRange (0.00s)
+=== RUN   TestCreateRecipe_HappyPath
+--- PASS: TestCreateRecipe_HappyPath (0.43s)
+=== RUN   TestCreateRecipe_SumExceeds100_NamesLargestSibling
+--- PASS: TestCreateRecipe_SumExceeds100_NamesLargestSibling (0.42s)
+=== RUN   TestCreateRecipe_DuplicateReturns409
+--- PASS: TestCreateRecipe_DuplicateReturns409 (0.45s)
+=== RUN   TestCreateRecipe_InvalidSnapReturns422
+--- PASS: TestCreateRecipe_InvalidSnapReturns422 (0.50s)
+=== RUN   TestUpdateRecipe_HappyPath
+--- PASS: TestUpdateRecipe_HappyPath (0.42s)
+=== RUN   TestUpdateRecipe_NotFoundReturns404
+--- PASS: TestUpdateRecipe_NotFoundReturns404 (0.38s)
+=== RUN   TestUpdateRecipe_SumExceeds100_NamesSibling
+--- PASS: TestUpdateRecipe_SumExceeds100_NamesSibling (0.60s)
+=== RUN   TestUpdateRecipe_InvalidSnapReturns422
+--- PASS: TestUpdateRecipe_InvalidSnapReturns422 (0.41s)
+=== RUN   TestDeleteRecipe_RemovesRow
+--- PASS: TestDeleteRecipe_RemovesRow (0.37s)
+=== RUN   TestDeleteRecipe_NotFoundReturns404
+--- PASS: TestDeleteRecipe_NotFoundReturns404 (0.38s)
+=== RUN   TestMergeMenuItem_RePointsRows
+--- PASS: TestMergeMenuItem_RePointsRows (0.40s)
+=== RUN   TestMergeMenuItem_SelfReturns400
+--- PASS: TestMergeMenuItem_SelfReturns400 (0.37s)
+=== RUN   TestMergeMenuItem_MissingFields_400
+--- PASS: TestMergeMenuItem_MissingFields_400 (0.38s)
+=== RUN   TestListRecipes_HappyPath
+--- PASS: TestListRecipes_HappyPath (0.42s)
+=== RUN   TestListRecipes_InvalidDates_400
+--- PASS: TestListRecipes_InvalidDates_400 (0.35s)
+=== RUN   TestListRecipes_DefaultWindow_WhenNoQueryParams
+--- PASS: TestListRecipes_DefaultWindow_WhenNoQueryParams (0.36s)
+=== RUN   TestMenuCogs_HappyPath_SummaryMode
+--- PASS: TestMenuCogs_HappyPath_SummaryMode (0.40s)
+=== RUN   TestMenuCogs_HappyPath_BreakdownMode
+--- PASS: TestMenuCogs_HappyPath_BreakdownMode (0.39s)
+=== RUN   TestMenuCogs_UnitsSoldZero_PerUnitIsNull
+--- PASS: TestMenuCogs_UnitsSoldZero_PerUnitIsNull (0.44s)
+=== RUN   TestMenuCogs_FromMissing_400
+--- PASS: TestMenuCogs_FromMissing_400 (0.35s)
+=== RUN   TestMenuCogs_FromAfterTo_400
+--- PASS: TestMenuCogs_FromAfterTo_400 (0.37s)
+=== RUN   TestMenuCogs_CacheControlHeader_OnSuccess
+--- PASS: TestMenuCogs_CacheControlHeader_OnSuccess (0.36s)
+=== RUN   TestMenuCogs_BearerMissing_401
+--- PASS: TestMenuCogs_BearerMissing_401 (0.35s)
+=== RUN   TestMenuCogs_ServiceTokenUnset_503
+--- PASS: TestMenuCogs_ServiceTokenUnset_503 (0.39s)
+=== RUN   TestMenuCogs_BearerWrong_401
+--- PASS: TestMenuCogs_BearerWrong_401 (0.35s)
+=== RUN   TestRepository_CreateRecipe_HappyPath
+--- PASS: TestRepository_CreateRecipe_HappyPath (0.37s)
+=== RUN   TestRepository_CreateRecipe_SumExceeds100_Rollsback
+--- PASS: TestRepository_CreateRecipe_SumExceeds100_Rollsback (0.39s)
+=== RUN   TestRepository_UpdateRecipeUsagePct_ReturnsNewSum
+--- PASS: TestRepository_UpdateRecipeUsagePct_ReturnsNewSum (0.37s)
+=== RUN   TestRepository_UpdateRecipeUsagePct_NotFound
+--- PASS: TestRepository_UpdateRecipeUsagePct_NotFound (0.34s)
+=== RUN   TestRepository_DeleteRecipe_RemovesRow
+--- PASS: TestRepository_DeleteRecipe_RemovesRow (0.39s)
+=== RUN   TestRepository_MergeMenuItem_RePointsRows
+--- PASS: TestRepository_MergeMenuItem_RePointsRows (0.51s)
+=== RUN   TestRepository_MergeMenuItem_SelfFails
+--- PASS: TestRepository_MergeMenuItem_SelfFails (0.38s)
+=== RUN   TestRepository_LargestSiblingAllocation_PicksDescByPct
+--- PASS: TestRepository_LargestSiblingAllocation_PicksDescByPct (0.41s)
+=== RUN   TestComputeDrift_Unallocated_FlagsAbove10Pct
+--- PASS: TestComputeDrift_Unallocated_FlagsAbove10Pct (0.39s)
+=== RUN   TestComputeDrift_ZeroSales_FlagsMissingItems
+--- PASS: TestComputeDrift_ZeroSales_FlagsMissingItems (0.37s)
+=== RUN   TestComputeDrift_Divergence_FlagsAbove20Pct
+--- PASS: TestComputeDrift_Divergence_FlagsAbove20Pct (0.44s)
+=== RUN   TestComputeDrift_HappyClean_NoSections
+--- PASS: TestComputeDrift_HappyClean_NoSections (0.38s)
+=== RUN   TestFormatCliqMessage_IncludesDeepLink
+--- PASS: TestFormatCliqMessage_IncludesDeepLink (0.00s)
+=== RUN   TestRunDriftWeek_IdempotentOnSecondCall
+--- PASS: TestRunDriftWeek_IdempotentOnSecondCall (0.43s)
+=== RUN   TestRunDriftWeek_SkipsWhenIngestStale
+--- PASS: TestRunDriftWeek_SkipsWhenIngestStale (0.38s)
+=== RUN   TestRunDriftWeek_EnqueuesCliqWhenDriftFound
+--- PASS: TestRunDriftWeek_EnqueuesCliqWhenDriftFound (0.43s)
+=== RUN   TestRunDriftWeek_NoEnqueueWhenClean
+--- PASS: TestRunDriftWeek_NoEnqueueWhenClean (0.38s)
+=== RUN   TestDriftBannerHandler_ReturnsLatest
+--- PASS: TestDriftBannerHandler_ReturnsLatest (0.35s)
+=== RUN   TestDriftBannerHandler_EmptyObjectWhenNoRows
+--- PASS: TestDriftBannerHandler_EmptyObjectWhenNoRows (0.39s)
+ok  	github.com/yumyums/hq/internal/recipes	21.978s
+=== RUN   TestResolveEntityAccess_AdminReceivesLiveOps
+--- PASS: TestResolveEntityAccess_AdminReceivesLiveOps (0.95s)
+=== RUN   TestResolveEntityAccess_EmptyWhenNoMatchingUsers
+--- PASS: TestResolveEntityAccess_EmptyWhenNoMatchingUsers (0.93s)
+=== RUN   TestResolveEntityAccess_RoleAssignmentCartesian
+=== RUN   TestResolveEntityAccess_RoleAssignmentCartesian/admin×direct
+=== RUN   TestResolveEntityAccess_RoleAssignmentCartesian/admin×role-assigned
+=== RUN   TestResolveEntityAccess_RoleAssignmentCartesian/admin×not-assigned
+=== RUN   TestResolveEntityAccess_RoleAssignmentCartesian/manager×direct
+=== RUN   TestResolveEntityAccess_RoleAssignmentCartesian/manager×role-assigned
+=== RUN   TestResolveEntityAccess_RoleAssignmentCartesian/manager×not-assigned
+=== RUN   TestResolveEntityAccess_RoleAssignmentCartesian/team_member×direct
+=== RUN   TestResolveEntityAccess_RoleAssignmentCartesian/team_member×role-assigned
+=== RUN   TestResolveEntityAccess_RoleAssignmentCartesian/team_member×not-assigned
+=== RUN   TestResolveEntityAccess_RoleAssignmentCartesian/manager+team_member×role-assigned(team_member)
+--- PASS: TestResolveEntityAccess_RoleAssignmentCartesian (9.71s)
+=== RUN   TestResolveEntityAccess_SubmissionEntity
+--- PASS: TestResolveEntityAccess_SubmissionEntity (0.91s)
+=== RUN   TestResolveEntityAccess_TemplateEntity
+--- PASS: TestResolveEntityAccess_TemplateEntity (0.91s)
+=== RUN   TestResolveEntityAccess_UnknownEntityType
+--- PASS: TestResolveEntityAccess_UnknownEntityType (0.87s)
+=== RUN   TestResolveEntityAccess_MissingEntityRows
+--- PASS: TestResolveEntityAccess_MissingEntityRows (0.96s)
+=== RUN   TestResolveEntityAccess_ApproverIncluded_CurrentBehavior
+--- PASS: TestResolveEntityAccess_ApproverIncluded_CurrentBehavior (1.01s)
+=== RUN   TestResolveEntityAccess_NoDuplicates
+--- PASS: TestResolveEntityAccess_NoDuplicates (0.93s)
+=== RUN   TestTokenHandler_FailsClosedWithoutSecret
+--- PASS: TestTokenHandler_FailsClosedWithoutSecret (0.00s)
+=== RUN   TestTokenHandler_RejectsAnonymous
+--- PASS: TestTokenHandler_RejectsAnonymous (0.00s)
+=== RUN   TestTokenHandler_MintsForTheCallerAndNobodyElse
+--- PASS: TestTokenHandler_MintsForTheCallerAndNobodyElse (0.02s)
+=== RUN   TestJWTBridgeRLS
+=== RUN   TestJWTBridgeRLS/CONTROL/service_role_BYPASSRLS_proves_the_rows_are_there
+=== RUN   TestJWTBridgeRLS/POSITIVE/alice_reads_exactly_her_own_rows_in_an_app_she_holds
+=== RUN   TestJWTBridgeRLS/V1/anon_(no_token_at_all)
+=== RUN   TestJWTBridgeRLS/V2/wrong_signature
+=== RUN   TestJWTBridgeRLS/V3/expired_token
+=== RUN   TestJWTBridgeRLS/V4/tampered_payload_keeping_the_original_signature
+=== RUN   TestJWTBridgeRLS/V5/missing_sub_claim
+=== RUN   TestJWTBridgeRLS/V6/invalid_role_claim_(nonexistent_postgres_role)
+=== RUN   TestJWTBridgeRLS/V7/cross-owner_read_(alice_asks_for_bob's_row_by_id)
+=== RUN   TestJWTBridgeRLS/V8/stale_grant_claim_in_the_token_opens_nothing
+=== RUN   TestJWTBridgeRLS/V9/token_replay_after_grant_revocation
+=== RUN   TestJWTBridgeRLS/V10/forged_owner_write_(alice_inserts_a_row_owned_by_bob)
+=== RUN   TestJWTBridgeRLS/V11/forged_grant_write_(own_identity,_ungranted_app)
+=== RUN   TestJWTBridgeRLS/V12/deactivated_user_—_every_projection_row_removed
+=== RUN   TestJWTBridgeRLS/V13/auth.uid()_policy_fails_on_this_stack_(negative_control)
+=== RUN   TestJWTBridgeRLS/CONTROL/service_role_control_re-taken_after_all_variants
+--- PASS: TestJWTBridgeRLS (0.90s)
+=== RUN   TestSign_IsAValidHS256JWT
+--- PASS: TestSign_IsAValidHS256JWT (0.00s)
+=== RUN   TestSign_ClaimsRoundTrip
+--- PASS: TestSign_ClaimsRoundTrip (0.00s)
+=== RUN   TestMint_NeverMintsServiceRole
+--- PASS: TestMint_NeverMintsServiceRole (0.00s)
+=== RUN   TestMint_RoleGuardIsAnAllowlist
+--- PASS: TestMint_RoleGuardIsAnAllowlist (0.00s)
+=== RUN   TestMint_FailsClosedWithoutSecret
+--- PASS: TestMint_FailsClosedWithoutSecret (0.00s)
+=== RUN   TestMintForUser_RejectsNilUser
+--- PASS: TestMintForUser_RejectsNilUser (0.00s)
+=== RUN   TestGrantedSlugs_MatchesRequirePermission
+--- PASS: TestGrantedSlugs_MatchesRequirePermission (0.08s)
+=== RUN   TestGrantedSlugs_SuperadminGetsEveryEnabledApp
+--- PASS: TestGrantedSlugs_SuperadminGetsEveryEnabledApp (0.03s)
+=== RUN   TestSpikeLiveRequested
+--- PASS: TestSpikeLiveRequested (0.00s)
+=== RUN   TestProxyLive_RealtimeUpgrade
+--- SKIP: TestProxyLive_RealtimeUpgrade (0.18s)
+=== RUN   TestProxyLive_RESTRequest
+--- SKIP: TestProxyLive_RESTRequest (0.15s)
+=== RUN   TestProxy_PlainHTTPRequestReachesRESTUpstream
+--- PASS: TestProxy_PlainHTTPRequestReachesRESTUpstream (0.04s)
+=== RUN   TestProxy_WebSocketUpgradeSwitchesProtocolAndPassesBytesBothWays
+--- PASS: TestProxy_WebSocketUpgradeSwitchesProtocolAndPassesBytesBothWays (0.02s)
+=== RUN   TestProxy_ReplacesCallerSuppliedCredentials
+--- PASS: TestProxy_ReplacesCallerSuppliedCredentials (0.02s)
+=== RUN   TestProxy_HopByHopHeadersAreNotForwarded
+--- PASS: TestProxy_HopByHopHeadersAreNotForwarded (0.02s)
+=== RUN   TestProxy_UnconfiguredUpstreamFailsClosed
+--- PASS: TestProxy_UnconfiguredUpstreamFailsClosed (0.01s)
+=== RUN   TestProxy_RejectsPathTraversal
+=== RUN   TestProxy_RejectsPathTraversal/plain_dot_segments
+=== RUN   TestProxy_RejectsPathTraversal/encoded_separators_after_the_room
+=== RUN   TestProxy_RejectsPathTraversal/encoded_separator_INSIDE_the_room_prefix
+=== RUN   TestProxy_RejectsPathTraversal/cross-room_hop_into_the_other_upstream
+=== RUN   TestProxy_RejectsPathTraversal/single_dot_segment
+=== RUN   TestProxy_RejectsPathTraversal/backslash-encoded_separator
+--- PASS: TestProxy_RejectsPathTraversal (0.04s)
+=== RUN   TestProxy_RejectsEncodedSlashUnderEscapedPathFallback
+=== RUN   TestProxy_RejectsEncodedSlashUnderEscapedPathFallback/suffix_{
+=== RUN   TestProxy_RejectsEncodedSlashUnderEscapedPathFallback/suffix_}
+=== RUN   TestProxy_RejectsEncodedSlashUnderEscapedPathFallback/suffix_|
+=== RUN   TestProxy_RejectsEncodedSlashUnderEscapedPathFallback/suffix_^
+=== RUN   TestProxy_RejectsEncodedSlashUnderEscapedPathFallback/suffix_\
+=== RUN   TestProxy_RejectsEncodedSlashUnderEscapedPathFallback/suffix_"
+=== RUN   TestProxy_RejectsEncodedSlashUnderEscapedPathFallback/suffix_<
+=== RUN   TestProxy_RejectsEncodedSlashUnderEscapedPathFallback/suffix_>
+=== RUN   TestProxy_RejectsEncodedSlashUnderEscapedPathFallback/encoded_backslash_under_fallback
+--- PASS: TestProxy_RejectsEncodedSlashUnderEscapedPathFallback (0.03s)
+=== RUN   TestProxy_LegitimatePathsStillPass
+--- PASS: TestProxy_LegitimatePathsStillPass (0.03s)
+=== RUN   TestProxy_BridgeSecretUnsetFailsClosed
+--- PASS: TestProxy_BridgeSecretUnsetFailsClosed (0.01s)
+=== RUN   TestProxy_AnonymousIsRejected
+--- PASS: TestProxy_AnonymousIsRejected (0.02s)
+=== RUN   TestProxy_UnknownSubPathIs404
+--- PASS: TestProxy_UnknownSubPathIs404 (0.01s)
+=== RUN   TestProxy_UpstreamFailureDoesNotLeakInternals
+--- PASS: TestProxy_UpstreamFailureDoesNotLeakInternals (0.04s)
+=== RUN   TestProxy_UpstreamServerHeaderIsStripped
+--- PASS: TestProxy_UpstreamServerHeaderIsStripped (0.02s)
+=== RUN   TestProxy_SurvivesTheRealChiRouterAndMiddlewareStack
+--- PASS: TestProxy_SurvivesTheRealChiRouterAndMiddlewareStack (0.03s)
+=== RUN   TestRowVisibilityRLS
+=== RUN   TestRowVisibilityRLS/FLOOR/HQ's_three_views_are_populated
+=== RUN   TestRowVisibilityRLS/FLOOR/the_foreign_tables_carry_those_rows_across_the_wire
+=== RUN   TestRowVisibilityRLS/CONTROL/0_service_role_BYPASSRLS_proves_the_rows_are_there
+=== RUN   TestRowVisibilityRLS/POSITIVE/alice_sees_her_assignee_template_AND_her_APPROVER_template
+=== RUN   TestRowVisibilityRLS/POSITIVE/bob_sees_ONLY_his_own_—_not_alice's,_not_the_role_one
+=== RUN   TestRowVisibilityRLS/POSITIVE/dave_reaches_his_template_by_ROLE,_holding_no_direct_assignment
+=== RUN   TestRowVisibilityRLS/POSITIVE/carol_the_admin_sees_EVERY_template_including_the_orphan
+=== RUN   TestRowVisibilityRLS/V1/anon_(no_token_at_all)
+=== RUN   TestRowVisibilityRLS/V2/wrong_signature
+=== RUN   TestRowVisibilityRLS/V3/expired_token
+=== RUN   TestRowVisibilityRLS/V4/tampered_payload,_original_signature
+=== RUN   TestRowVisibilityRLS/V5/missing_sub_claim
+=== RUN   TestRowVisibilityRLS/V6/cross-template_read_—_alice_asks_for_bob's_template_by_id
+=== RUN   TestRowVisibilityRLS/V7/claim_injection_—_alice's_token_ASSERTS_admin,_live_table_says_otherwise
+=== RUN   TestRowVisibilityRLS/V8/revocation_replay_—_SAME_unexpired_token,_assignment_deleted_in_HQ
+=== RUN   TestRowVisibilityRLS/V9/live_grant_—_a_NEW_assignment_lands_without_re-minting_anything
+=== RUN   TestRowVisibilityRLS/V10/forged_insert_—_alice_creates_a_template
+=== RUN   TestRowVisibilityRLS/V11/forged_update_—_alice_rewrites_bob's_template
+=== RUN   TestRowVisibilityRLS/V12/submissions_are_scoped_by_their_template
+=== RUN   TestRowVisibilityRLS/V13/DRAFT_responses_are_scoped_by_FIELD,_not_by_submission
+=== RUN   TestRowVisibilityRLS/V14/an_UNRESOLVABLE_field_is_invisible_to_EVERYONE,_admins_included
+=== RUN   TestRowVisibilityRLS/V15-17,20/V15_hq_user_roles_is_not_readable_over_PostgREST
+=== RUN   TestRowVisibilityRLS/V15-17,20/V16_hq_template_assignees_is_not_readable_over_PostgREST
+=== RUN   TestRowVisibilityRLS/V15-17,20/V17_hq_field_templates_is_not_readable_over_PostgREST
+=== RUN   TestRowVisibilityRLS/V15-17,20/V20_hq_template_approvers_is_not_readable_over_PostgREST
+=== RUN   TestRowVisibilityRLS/V18/submission_rejections_READ_is_field-scoped_—_the_deny-all_is_deliberately_gone
+=== RUN   TestRowVisibilityRLS/V19/auth.uid()_returns_NOTHING_while_the_plural_GUC_discriminates
+=== RUN   TestRowVisibilityRLS/LIST-1/THE_LIST_SCOPE_DISCRIMINATES_—_three_users,_three_disjoint_lists
+=== RUN   TestRowVisibilityRLS/LIST-2/AND_IT_REFUSES_—_alice_issues_BOB'S_list_scope_verbatim_and_gets_nothing
+=== RUN   TestRowVisibilityRLS/LIST-3/THE_DATE_FLOOR_IS_DOING_WORK_—_the_same_user,_the_same_templates,_one_day_apart
+=== RUN   TestRowVisibilityRLS/LIST-4/THE_APPROVALS_RESIDUAL_—_the_client_scope_is_the_floor_ALONE,_and_the_SERVER_is_what_refuses
+=== RUN   TestRowVisibilityRLS/WP1/alice_PUSHES_a_submission_under_her_own_template
+=== RUN   TestRowVisibilityRLS/WP1b/a_peer's_row_inside_a_template_you_CAN_see_is_admitted_—_decision_111,_asserted
+=== RUN   TestRowVisibilityRLS/WP2/alice_UPDATES_her_own_submission
+=== RUN   TestRowVisibilityRLS/WP3/alice_PUSHES_an_OFFLINE_DRAFT_—_submission_id_IS_NULL
+=== RUN   TestRowVisibilityRLS/WP4/dave_PUSHES_a_draft_on_a_field_he_reaches_by_ROLE_ONLY
+=== RUN   TestRowVisibilityRLS/WP5/alice_writes_an_approval_on_the_template_she_APPROVES
+=== RUN   TestRowVisibilityRLS/WP5b/dave_approves_by_ROLE_—_the_approver_view_carries_BOTH_disjuncts
+=== RUN   TestRowVisibilityRLS/WP6/carol_the_admin_writes_an_approval_on_a_template_she_approves_NOTHING_on
+=== RUN   TestRowVisibilityRLS/WP7/the_assignee_READS_BACK_the_feedback_an_approver_wrote_—_push+pull_closes
+=== RUN   TestRowVisibilityRLS/WP8/an_APPROVER_MOVES_a_rejection_to_another_field_of_the_template_she_approves
+=== RUN   TestRowVisibilityRLS/W1/templates:_alice's_forged_INSERT_is_still_refused_after_0004
+=== RUN   TestRowVisibilityRLS/W2/templates:_alice's_forged_UPDATE_of_bob's_template_is_still_refused
+=== RUN   TestRowVisibilityRLS/W3/templates:_CAROL_THE_ADMIN_cannot_write_one_either
+=== RUN   TestRowVisibilityRLS/W4/alice_pushes_a_submission_claiming_a_template_she_CANNOT_see
+=== RUN   TestRowVisibilityRLS/W5/ESCALATION_BY_UPDATE_—_alice_moves_her_own_row_into_a_template_she_cannot_see
+=== RUN   TestRowVisibilityRLS/W6/alice_pushes_a_response_on_a_field_she_cannot_see
+=== RUN   TestRowVisibilityRLS/W7/ESCALATION_BY_UPDATE_—_alice_repoints_her_own_response_at_dave's_field
+=== RUN   TestRowVisibilityRLS/W8/an_UNRESOLVABLE_field_is_UNWRITABLE_for_everyone,_ADMINS_INCLUDED
+=== RUN   TestRowVisibilityRLS/W9/🛑_THE_ASYMMETRY_—_an_ASSIGNEE_cannot_reject_their_own_work
+=== RUN   TestRowVisibilityRLS/W10/an_approver_cannot_reach_OUTSIDE_the_template_they_approve
+=== RUN   TestRowVisibilityRLS/W11/READ_≠_WRITE_ON_ONE_ROW_—_alice_can_pull_rej-alice_and_cannot_edit_it
+=== RUN   TestRowVisibilityRLS/W16/ESCALATION_BY_UPDATE_ON_THE_APPROVER_AXIS_—_alice_moves_a_rejection_onto_work_she_is_only_ASSIGNED
+=== RUN   TestRowVisibilityRLS/W17/🛑_THE_`using`_CLAUSE,_DISCRIMINATED_AT_LAST_—_alice_MOVES_a_rejection_OFF_a_field_she_may_not_approve
+=== RUN   TestRowVisibilityRLS/W12/DELETE_is_deny-all_on_every_replicated_table
+=== RUN   TestRowVisibilityRLS/W13/claim_injection_on_the_WRITE_path_—_a_token_that_ASSERTS_admin
+=== RUN   TestRowVisibilityRLS/W14/revocation_replay_on_the_WRITE_path_—_SAME_token,_assignment_deleted_in_HQ
+=== RUN   TestRowVisibilityRLS/W15/the_JWT_layer_refuses_writes_too_—_anon,_expired,_unsigned
+=== RUN   TestRowVisibilityRLS/CONTROL/Z_service_role_control,_re-taken_after_all_variants
+--- PASS: TestRowVisibilityRLS (11.22s)
+=== RUN   TestSpikeResolution_OptOutIsTheOnlySkipDoor
+--- PASS: TestSpikeResolution_OptOutIsTheOnlySkipDoor (0.00s)
+=== RUN   TestSpikeSubstrateOptional_IsExplicit
+--- PASS: TestSpikeSubstrateOptional_IsExplicit (0.00s)
+=== RUN   TestSpikeGate_Asymmetry
+--- PASS: TestSpikeGate_Asymmetry (0.00s)
+=== RUN   TestRowVisibilitySubtestCount_Structural
+--- PASS: TestRowVisibilitySubtestCount_Structural (0.01s)
+=== RUN   TestRVTopLevelSubtestCount_CountsWhatItClaims
+--- PASS: TestRVTopLevelSubtestCount_CountsWhatItClaims (0.00s)
+=== RUN   TestRowVisibilitySubtestCount_Executed
+--- PASS: TestRowVisibilitySubtestCount_Executed (9.04s)
+=== RUN   TestSubstrateGate_ExitCodeAsymmetry
+=== RUN   TestSubstrateGate_ExitCodeAsymmetry/no_opt-out_declared_and_the_substrate_cannot_be_resolved_->_NON-ZERO
+=== RUN   TestSubstrateGate_ExitCodeAsymmetry/HQ_SYNC_SUBSTRATE_OPTIONAL=1_->_ZERO
+--- PASS: TestSubstrateGate_ExitCodeAsymmetry (2.28s)
+=== RUN   TestGateChildGuard_IsNotASkipDoor
+=== RUN   TestGateChildGuard_IsNotASkipDoor/unset_—_this_process_is_a_parent
+=== RUN   TestGateChildGuard_IsNotASkipDoor/the_pre-fix_flag_value_`1`_—_the_door_this_closes
+=== RUN   TestGateChildGuard_IsNotASkipDoor/any_bare_value
+=== RUN   TestGateChildGuard_IsNotASkipDoor/a_parent-minted_token
+=== RUN   TestGateChildGuard_IsNotASkipDoor/right_shape,_no_such_token_file
+=== RUN   TestGateChildGuard_IsNotASkipDoor/right_shape,_token_file_holds_a_different_nonce
+=== RUN   TestGateChildGuard_IsNotASkipDoor/a_relative_token_path
+=== RUN   TestGateChildGuard_IsNotASkipDoor/an_externally-set_HQ_SYNC_GATE_CHILD=1_now_FAILS_the_guarded_test
+=== RUN   TestGateChildGuard_IsNotASkipDoor/a_parent-minted_token_still_SKIPS_the_guarded_test_(fork_bomb_stays_prevented)
+--- PASS: TestGateChildGuard_IsNotASkipDoor (2.53s)
+ok  	github.com/yumyums/hq/internal/sync	43.979s
+=== RUN   TestLoadConfigFromEnv_IntervalZero_DoesNotRequireKeyPath
+--- PASS: TestLoadConfigFromEnv_IntervalZero_DoesNotRequireKeyPath (0.00s)
+=== RUN   TestLoadConfigFromEnv_IntervalNonZero_RequiresKeyPath
+--- PASS: TestLoadConfigFromEnv_IntervalNonZero_RequiresKeyPath (0.00s)
+=== RUN   TestLoadConfigFromEnv_KeyPathReadable_ReturnsFullConfig
+--- PASS: TestLoadConfigFromEnv_KeyPathReadable_ReturnsFullConfig (0.00s)
+=== RUN   TestParseHappyPath
+--- PASS: TestParseHappyPath (0.00s)
+=== RUN   TestParseExcludesVoidedRows
+--- PASS: TestParseExcludesVoidedRows (0.00s)
+=== RUN   TestParseAggregatesSameMasterIdSameDay
+--- PASS: TestParseAggregatesSameMasterIdSameDay (0.00s)
+=== RUN   TestParseHandlesUTF8BOMInFirstHeader
+--- PASS: TestParseHandlesUTF8BOMInFirstHeader (0.00s)
+=== RUN   TestParseMissingRequiredColumnFails
+--- PASS: TestParseMissingRequiredColumnFails (0.00s)
+=== RUN   TestParseDecimalQtyTolerated
+--- PASS: TestParseDecimalQtyTolerated (0.00s)
+=== RUN   TestParseEmptyMenuSubgroupBecomesNil
+--- PASS: TestParseEmptyMenuSubgroupBecomesNil (0.00s)
+=== RUN   TestParseEmbeddedDuplicateHeader
+--- PASS: TestParseEmbeddedDuplicateHeader (0.00s)
+ok  	github.com/yumyums/hq/internal/toast	0.008s
+=== RUN   TestApproveSubmissionHandler_FeedbackPersistFailureIsLoud
+--- PASS: TestApproveSubmissionHandler_FeedbackPersistFailureIsLoud (0.07s)
+=== RUN   TestApproveSubmissionHandler_FeedbackPersistedReturnsOK
+--- PASS: TestApproveSubmissionHandler_FeedbackPersistedReturnsOK (0.07s)
+=== RUN   TestApproveSubmission_NonApproverNonAdmin_403
+--- PASS: TestApproveSubmission_NonApproverNonAdmin_403 (0.07s)
+=== RUN   TestRejectItem_NonApproverNonAdmin_403
+--- PASS: TestRejectItem_NonApproverNonAdmin_403 (0.07s)
+=== RUN   TestApproveSubmission_UserApproverAssignment_200
+--- PASS: TestApproveSubmission_UserApproverAssignment_200 (0.06s)
+=== RUN   TestApproveSubmission_RoleApproverAssignment_200
+--- PASS: TestApproveSubmission_RoleApproverAssignment_200 (0.07s)
+=== RUN   TestRejectItem_AdminWithoutAssignment_200
+--- PASS: TestRejectItem_AdminWithoutAssignment_200 (0.05s)
+=== RUN   TestApproveSubmission_SuperadminWithoutAssignment_200
+--- PASS: TestApproveSubmission_SuperadminWithoutAssignment_200 (0.04s)
+=== RUN   TestApproveSubmission_ApproverOnOtherTemplate_403
+--- PASS: TestApproveSubmission_ApproverOnOtherTemplate_403 (0.07s)
+=== RUN   TestApproveSubmission_AssigneeRoleIsNotApprover_403
+--- PASS: TestApproveSubmission_AssigneeRoleIsNotApprover_403 (0.05s)
+=== RUN   TestApproveSubmissionFunc_OpsPath_NonApprover_Refused
+--- PASS: TestApproveSubmissionFunc_OpsPath_NonApprover_Refused (0.04s)
+=== RUN   TestRejectItemFunc_OpsPath_NonApprover_Refused
+--- PASS: TestRejectItemFunc_OpsPath_NonApprover_Refused (0.04s)
+=== RUN   TestApproveSubmissionFunc_OpsPath_Approver_Allowed
+--- PASS: TestApproveSubmissionFunc_OpsPath_Approver_Allowed (0.05s)
+=== RUN   TestApproveSubmissionFunc_NoUserInContext_Refused
+--- PASS: TestApproveSubmissionFunc_NoUserInContext_Refused (0.04s)
+=== RUN   TestUpdateTemplateHandler_OpEmittedTransactionally
+--- PASS: TestUpdateTemplateHandler_OpEmittedTransactionally (0.06s)
+=== RUN   TestSubmitChecklist_RepeatedKey_FailNoteNotDuplicated
+--- PASS: TestSubmitChecklist_RepeatedKey_FailNoteNotDuplicated (0.06s)
+=== RUN   TestSubmitChecklist_RepeatedKey_FailNoteEditWins
+--- PASS: TestSubmitChecklist_RepeatedKey_FailNoteEditWins (0.05s)
+=== RUN   TestSubmitChecklist_RepeatedKey_FailNotePhotoSurvives
+--- PASS: TestSubmitChecklist_RepeatedKey_FailNotePhotoSurvives (0.06s)
+=== RUN   TestCreateTemplateFuncRejectsApproverlessApproval
+--- PASS: TestCreateTemplateFuncRejectsApproverlessApproval (0.01s)
+=== RUN   TestUpdateTemplateFuncRejectsApproverlessApproval
+--- PASS: TestUpdateTemplateFuncRejectsApproverlessApproval (0.03s)
+=== RUN   TestTemplateWritesStillAcceptedWhenValid
+--- PASS: TestTemplateWritesStillAcceptedWhenValid (0.05s)
+=== RUN   TestResubmit_RejectedRequirePhoto_BlockedWithoutPhoto
+--- PASS: TestResubmit_RejectedRequirePhoto_BlockedWithoutPhoto (0.05s)
+=== RUN   TestResubmit_RejectedRequirePhoto_SucceedsWithPhoto
+--- PASS: TestResubmit_RejectedRequirePhoto_SucceedsWithPhoto (0.08s)
+=== RUN   TestResubmit_RejectedRequirePhoto_SucceedsWithCorrectionPhoto
+--- PASS: TestResubmit_RejectedRequirePhoto_SucceedsWithCorrectionPhoto (0.07s)
+=== RUN   TestResubmit_SubStepRequirePhoto_NotBlocked
+--- PASS: TestResubmit_SubStepRequirePhoto_NotBlocked (0.06s)
+=== RUN   TestResubmit_NeverRejectedField_Unaffected
+--- PASS: TestResubmit_NeverRejectedField_Unaffected (0.04s)
+=== RUN   TestResubmit_RejectedWithoutRequirePhoto_NotGated
+--- PASS: TestResubmit_RejectedWithoutRequirePhoto_NotGated (0.07s)
+=== RUN   TestUpdateTemplate_StableFieldIdentity
+--- PASS: TestUpdateTemplate_StableFieldIdentity (0.08s)
+=== RUN   TestSaveResponse_UnknownFieldRejected
+--- PASS: TestSaveResponse_UnknownFieldRejected (0.04s)
+=== RUN   TestSaveResponseHandler_UnknownField422
+--- PASS: TestSaveResponseHandler_UnknownField422 (0.01s)
+=== RUN   TestSubmitNoApprovalTemplate_StatusNotLeftPending
+--- PASS: TestSubmitNoApprovalTemplate_StatusNotLeftPending (0.03s)
+=== RUN   TestSubmitApprovalTemplate_StillPending
+--- PASS: TestSubmitApprovalTemplate_StillPending (0.03s)
+=== RUN   TestPendingApprovals_NoApprovalSubmissionDoesNotLeak
+--- PASS: TestPendingApprovals_NoApprovalSubmissionDoesNotLeak (0.05s)
+=== RUN   TestPendingApprovals_RealPendingStillVisible
+--- PASS: TestPendingApprovals_RealPendingStillVisible (0.06s)
+=== RUN   TestTemplateSnapshotCarriesRequiresApproval
+--- PASS: TestTemplateSnapshotCarriesRequiresApproval (0.04s)
+ok  	github.com/yumyums/hq/internal/workflow	1.843s
+
+== PER-PACKAGE COUNTS (the check that matters: 9 packages, 456 runs, internal/workflow 35) ==
+  github.com/yumyums/hq/internal/alerts  runs=3
+  github.com/yumyums/hq/internal/auth  runs=18
+  github.com/yumyums/hq/internal/inventory  runs=72
+  github.com/yumyums/hq/internal/purchasing  runs=25
+  github.com/yumyums/hq/internal/receipt  runs=73
+  github.com/yumyums/hq/internal/recipes  runs=61
+  github.com/yumyums/hq/internal/sync  runs=158
+  github.com/yumyums/hq/internal/toast  runs=11
+  github.com/yumyums/hq/internal/workflow  runs=35
+  TOTAL === RUN: 456
+  --- FAIL: 0   --- SKIP: 2
