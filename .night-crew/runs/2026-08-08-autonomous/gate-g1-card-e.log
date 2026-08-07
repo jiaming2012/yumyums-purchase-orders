@@ -1,0 +1,10 @@
+# G1 — go build ./... && go vet ./... FROM backend/ (module root)
+# cwd:    /home/jcole/projects/hq-worktrees/e-reconnect-catchup/backend
+# branch: card/spike-e-reconnect-catchup  HEAD: d65273a
+# date:   2026-08-07T09:11:25-04:00
+# env attestation (T-41): HQ_SYNC_SUBSTRATE_OPTIONAL=[UNSET] HQ_SYNC_GATE_CHILD=[UNSET]
+# ---
+$ go build ./...
+BUILD_EXIT=0
+$ go vet ./...
+VET_EXIT=0
