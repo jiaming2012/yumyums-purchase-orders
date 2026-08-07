@@ -216,11 +216,17 @@ test.describe('skeleton — one row, real write path to an RxDB-served read', ()
     await stubSubstrate(page, { submission_responses: [toSubstrateRow(hqRow)] });
 
     // ── 5. The flag ON, and the dev surface's scope, both explicit. ───────
+    // 🛑 `hq_sync_user` is REQUIRED since card `activate-fill-view-reads` (C3) —
+    // this card's own G6 finding F-2. The fill scope's persisted checkpoint had
+    // no crew member in its key, so `normalizeScope` now refuses a fill scope
+    // without one. `answered_by` on the row HQ's write path just wrote IS this
+    // crew member, so it is the honest value to scope by rather than a literal.
     await page.goto(
       `/workflows.html?${FLAG}=on`
       + `&hq_sync_checklist=${checklistId}`
       + `&hq_sync_template=${templateId}`
-      + `&hq_sync_field=${fieldId}`,
+      + `&hq_sync_field=${fieldId}`
+      + `&hq_sync_user=${hqRow.answered_by}`,
     );
 
     const surface = page.locator('#sync-one-row');
@@ -292,8 +298,13 @@ test.describe('skeleton — one row, real write path to an RxDB-served read', ()
     await page.waitForFunction(() => window.HQSync && window.HQSync.readEnabled === true, null, { timeout: 15000 });
 
     const out = await page.evaluate(async () => {
-      const a = { checklistId: 'chk-aaa', templateId: 'tpl-aaa', fieldIds: ['fld-a1'] };
-      const b = { checklistId: 'chk-bbb', templateId: 'tpl-bbb', fieldIds: ['fld-b1'] };
+      // `userId` REQUIRED since card `activate-fill-view-reads` (C3) — G6 F-2.
+      const a = {
+        userId: 'usr-aaa', checklistId: 'chk-aaa', templateId: 'tpl-aaa', fieldIds: ['fld-a1'],
+      };
+      const b = {
+        userId: 'usr-aaa', checklistId: 'chk-bbb', templateId: 'tpl-bbb', fieldIds: ['fld-b1'],
+      };
       const ha = await window.HQSync.openSyncScope(a);
       const hb = await window.HQSync.openSyncScope(b);
       const haAgain = await window.HQSync.openSyncScope({ ...a });

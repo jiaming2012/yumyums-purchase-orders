@@ -1729,8 +1729,42 @@ function unwrapValue(v) {
   }
 }
 
+// applyResponseRow unpacks ONE `submission_responses`-shaped row into
+// FIELD_RESPONSES / FAIL_NOTES / CORRECTION_PHOTOS.
+//
+// Extracted verbatim from hydrateFieldState's draft loop on card
+// `activate-fill-view-reads` (C3, run 20260808-2) so the RxDB overlay below
+// cannot drift from it. The rows RxDB replicates into `db.responses` ARE
+// `submission_responses` rows — a second copy of this unpack would be a second,
+// drifting definition of one wire shape, which is how `_correction_photo` or
+// `_fail_note` ends up honoured on one read path and silently dropped on the
+// other. Behaviour is unchanged: same early returns, same order, same bundles.
+function applyResponseRow(fieldId, rawValue, answeredByName, answeredAt) {
+  if (rawValue === null || rawValue === undefined) return; // unchecked — no entry
+  var val = unwrapValue(rawValue);
+  var subSteps = null;
+  // Unpack bundled fail note + correction photo if present
+  if (val && typeof val === 'object' && val._v !== undefined) {
+    if (val._fail_note) FAIL_NOTES[fieldId] = { note: val._fail_note.note || '', severity: val._fail_note.severity || '', photo: val._fail_note.photo || null };
+    if (val._correction_photo) CORRECTION_PHOTOS[fieldId] = val._correction_photo;
+    val = val._v;
+  }
+  // Unpack sub-step objects: { value: bool, sub_steps: {...} }
+  if (val && typeof val === 'object' && val.sub_steps !== undefined) {
+    subSteps = val.sub_steps;
+    val = val.value;
+  }
+  // A photo-only correction draft ({_v:null, _correction_photo}) records the
+  // photo (above) but must NOT mark the field answered — the crew still owes
+  // the actual answer.
+  if (val === null || val === undefined) return;
+  var entry = { value: val, answeredBy: answeredByName || getUserName(), answeredAt: new Date(answeredAt) };
+  if (subSteps) entry.sub_steps = subSteps;
+  FIELD_RESPONSES[fieldId] = entry;
+}
+
 // hydrateFieldState rebuilds FIELD_RESPONSES and FAIL_NOTES from all server sources.
-// Priority: submission responses > draft responses.
+// Priority: RxDB (open checklist only, flag-gated) > submission responses > draft responses.
 // Called once after loadMyChecklists and when opening a checklist runner.
 function hydrateFieldState(filterFieldIds) {
   // Clear existing state
@@ -1742,27 +1776,7 @@ function hydrateFieldState(filterFieldIds) {
   // 1. Draft responses (in-progress, not yet submitted)
   (DRAFT_RESPONSES || []).forEach(function(d) {
     if (!filterFieldIds || filterFieldIds.has(d.field_id)) {
-      if (d.value === null || d.value === undefined) return; // unchecked — no entry
-      var val = unwrapValue(d.value);
-      var subSteps = null;
-      // Unpack bundled fail note + correction photo if present
-      if (val && typeof val === 'object' && val._v !== undefined) {
-        if (val._fail_note) FAIL_NOTES[d.field_id] = { note: val._fail_note.note || '', severity: val._fail_note.severity || '', photo: val._fail_note.photo || null };
-        if (val._correction_photo) CORRECTION_PHOTOS[d.field_id] = val._correction_photo;
-        val = val._v;
-      }
-      // Unpack sub-step objects: { value: bool, sub_steps: {...} }
-      if (val && typeof val === 'object' && val.sub_steps !== undefined) {
-        subSteps = val.sub_steps;
-        val = val.value;
-      }
-      // A photo-only correction draft ({_v:null, _correction_photo}) records the
-      // photo (above) but must NOT mark the field answered — the crew still owes
-      // the actual answer.
-      if (val === null || val === undefined) return;
-      var entry = { value: val, answeredBy: d.answered_by_name || getUserName(), answeredAt: new Date(d.answered_at) };
-      if (subSteps) entry.sub_steps = subSteps;
-      FIELD_RESPONSES[d.field_id] = entry;
+      applyResponseRow(d.field_id, d.value, d.answered_by_name, d.answered_at);
     }
   });
   // 2. Submitted responses (highest priority — overwrites drafts)
@@ -1821,9 +1835,48 @@ function hydrateFieldState(filterFieldIds) {
       }
     }
   });
+  // 4. 🛑 THE RxDB OVERLAY — the OPEN CHECKLIST's fields, and nothing else.
+  //    Card `activate-fill-view-reads` (C3, run 20260808-2), Activity 4.
+  //
+  //    RxDB SERVES READS; `/saveResponse` and `/submitChecklist` keep owning ALL
+  //    writes — ledger T-32 decision 126, carried, not proposed. Nothing below
+  //    writes: `debouncedSaveField` → `submitOp('SET_FIELD')` → `POST /ops` is
+  //    byte-untouched and there is no `autoSaveField` (B-65).
+  //
+  //    🛑 THIS IS THE FILL VIEW ONLY. Ledger T-43(b): the My Checklists read
+  //    path is DELIBERATELY OPEN and no card may decide it. RXDB_FILL_RESPONSES
+  //    is keyed by field id and populated ONLY by a live per-open-checklist
+  //    scope; `MY_CHECKLISTS`, `MY_SUBMISSIONS` and `PENDING` — the three stores
+  //    the two list views render from — are never written here, so both lists
+  //    stay on REST whether the flag is on or off.
+  //
+  //    🛑 EMPTY BY DEFAULT IN EVERY ENVIRONMENT. Populating it requires an open
+  //    fill scope, which requires `HQSync.openSyncScope()`, which throws
+  //    SYNCHRONOUSLY while the `hq_sync_read` flag is off — and it is off unless
+  //    someone set it. With the flag off this loop iterates nothing and
+  //    hydrateFieldState behaves exactly as it did before this card.
+  //
+  //    ORDER: LAST, so a live row beats the REST snapshot it is a newer view of.
+  //    🛑 EXCEPT over a rejection. A field an approver bounced back is CLEARED by
+  //    step 3 on purpose — the crew must redo it — and the replicated response
+  //    row is precisely the stale answer that was rejected, so re-applying it
+  //    would silently un-bounce the field. Skipping REJECTION_FLAGS keeps step
+  //    3's ruling final.
+  Object.keys(RXDB_FILL_RESPONSES).forEach(function(fid) {
+    if (filterFieldIds && !filterFieldIds.has(fid)) return;
+    if (REJECTION_FLAGS[fid]) return;
+    var r = RXDB_FILL_RESPONSES[fid];
+    applyResponseRow(fid, r.value, r.answered_by_name, r.answered_at);
+  });
 }
 
 // FAIL_NOTES is registered in store above and aliased at the top.
+// RXDB_FILL_RESPONSES is the OPEN CHECKLIST's rows as RxDB currently holds them
+// — `{ [fldId]: {value, answered_by_name, answered_at} }`. Written only by
+// HQFillSync's subscription (see the fill-view read lifecycle below), cleared
+// when the last fill scope closes, and EMPTY in every environment where the
+// `hq_sync_read` flag is off. Read only by hydrateFieldState's layer 4.
+const RXDB_FILL_RESPONSES = {};
 const REJECTION_FLAGS = {}; // { [fldId]: { comment, requirePhoto } } — TODO: load from submission.rejections[] on checklist open
 const FEEDBACK_NOTES = {}; // { [fldId]: { comment, by, at } } — feedback from approved submissions
 // CORRECTION_PHOTOS holds the crew's evidence photo for a field the approver
@@ -2293,7 +2346,286 @@ function renderFailCard(fld, failNote) {
 
 let fillState = {
   view: 'list',
-  activeTemplate: null
+  activeTemplate: null,
+  // The `checklist_submissions.id` whose RxDB fill scope is currently open, or
+  // null. Card `activate-fill-view-reads` (C3). Null in every environment where
+  // the `hq_sync_read` flag is off — which is every environment by default.
+  syncChecklistId: null
+};
+
+// ═══ THE FILL VIEW'S RxDB READ LIFECYCLE ══════════════════════════════════════
+// Card `activate-fill-view-reads` (run 20260808-2, C3). Activity 4.
+//
+// 🛑 DECISION 126 (ledger T-32), CARRIED VERBATIM AND NOT PROPOSED:
+//
+//     "The cutover splits reads from writes. RxDB serves reads; HQ's REST path
+//      keeps owning writes."
+//
+//    Everything here is a READ. `POST /api/v1/workflow/saveResponse` and
+//    `POST /submitChecklist` keep owning ALL writes; `debouncedSaveField` →
+//    `submitOp('SET_FIELD')` → `POST /ops` is byte-untouched, and there is no
+//    `autoSaveField` (B-65).
+//
+// 🛑 DECISION 105 (ledger T-29) + preference architecture/C-2: replication is
+//    PER-OPEN-CHECKLIST and is never pulled whole. The scope this opens names one
+//    `checklist_submissions.id`, one template and that checklist's own field ids.
+//    A checklist with no submission row has no id to be scoped BY, so no scope is
+//    opened for it and the runner renders from REST exactly as before — an absent
+//    id is not permission to widen.
+//
+// 🛑 LEDGER T-43(c), THE OPERATOR'S OWN RULING: crew members work MULTIPLE
+//    CHECKLISTS CONCURRENTLY — a setup checklist and a food-preparation checklist
+//    at the same time — so MULTIPLE LIVE FILL REPLICATIONS AT ONCE ARE THE
+//    DESIGN. `FILL_SYNC_SCOPES` is therefore a MAP keyed by checklist, not a
+//    single slot: opening a second checklist does not cancel the first, and
+//    `close()` cancels exactly one. The identifiers are pairwise distinct by
+//    construction (the scope fingerprint feeds `replicationIdentifier`, and since
+//    C3 it carries the crew member too — C2's G6 finding F-2).
+//
+// 🛑 LEDGER T-43(b): the My Checklists read path is DELIBERATELY OPEN and NO CARD
+//    MAY DECIDE IT. Nothing here touches it. `renderChecklistList()`,
+//    `loadMyChecklists()`, `MY_CHECKLISTS`, `MY_SUBMISSIONS` and the Approvals tab
+//    are untouched and stay on REST with the flag on as well as off. The only
+//    store this writes is `RXDB_FILL_RESPONSES`, which only
+//    `hydrateFieldState`'s layer 4 reads.
+//
+// 🛑 SPIKE E'S CONDITION (ledger T-42, run 20260808), VERBATIM:
+//
+//     Trusted checkpoint catch-up with NO explicit resync step is valid ONLY
+//     while the relay stays trigger/NOTIFY-driven (spike C's mechanism). A
+//     POLLING relay on a business watermark reintroduces the missed-UPDATE
+//     hazard exactly — `submitted_at` never advances after INSERT, so a poller
+//     watching it sleeps through every update to a row it already holds.
+//
+//    This lifecycle CONTEMPLATES NO POLLING. It starts no interval, watches no
+//    business watermark and adds no resync step: it subscribes to an RxDB query
+//    and lets the replication's own trigger-stamped `_modified` checkpoint do the
+//    catching up. 🛑 IF THE RELAY EVER BECOMES A POLLER, AN EXPLICIT RESYNC STEP
+//    COMES BACK AS A REQUIREMENT HERE TOO — whoever changes the relay owns it.
+//
+// ── THE KEY, AND THE BOUND THAT IS **NOT** WHAT KEEPS IT SAFE ───────────────
+// The overlay is keyed by FIELD ID, not by (checklist, field). Field ids are
+// per-template-VERSION and shared by every submission of that template, so two
+// concurrently-open submissions OF THE SAME TEMPLATE would collide. They are not
+// reachable from this page: the runner opens by template and opens TODAY's
+// submission of it, so at most one submission per template is ever open, and two
+// concurrent fill scopes are two different templates with disjoint field ids.
+// A later card that lets a crew member hold two fills of one template owes this
+// key a checklist dimension.
+//
+// 🛑 THAT PARAGRAPH IS TRUE AND IT WAS NOT ENOUGH, WHICH IS G6 FINDING F-A AND
+// IS LEFT WRITTEN DOWN RATHER THAN QUIETLY REPLACED. It reasons about which
+// scopes are open CONCURRENTLY, and the defect was SEQUENTIAL: the Dexie
+// database is persistent and `cancel()` purges nothing (B-42), so yesterday's
+// rows for the same daily recurring checklist are still resident today, under
+// the same field ids, belonging to a different submission. A bound on which
+// scopes are live says nothing about which ROWS are resident. What actually
+// keeps the overlay honest is `acceptedFillDocs` below, which judges every
+// emitted row on `submission_id` and `answered_by` — see its own banner.
+const FILL_SYNC_SCOPES = new Map(); // checklistId -> { handle, sub, fieldIds }
+
+// Every field id a template can answer, including sub-steps. The runner already
+// computed this inline in two places; named here because the fill scope needs
+// exactly the same set (they are what makes an offline draft, whose
+// `submission_id` is NULL, attributable to this checklist).
+function fillTemplateFieldIds(tpl) {
+  return new Set(((tpl && tpl.sections) || []).flatMap(function(s) {
+    return (s.fields || []).flatMap(function(f) {
+      return [f.id].concat((f.sub_steps || []).map(function(ss) { return ss.id; }));
+    });
+  }));
+}
+
+// ── 🛑 WHICH REPLICATED ROWS ARE AN ANSWER TO **THIS** CHECKLIST ────────────
+//
+// G6 finding F-A on this card (TOP, CONFIRMED by runtime probe). The first
+// shape of this function applied EVERY doc the `field_id` subscription returned
+// and compared nothing else. That is a data-integrity defect, and the reason it
+// is not obvious is that all three of its premises are individually correct:
+//
+//   1. `checklist_fields.id` is per-template-VERSION and is shared by EVERY
+//      submission of that template. A daily recurring checklist has ONE set of
+//      field ids and a NEW `checklist_submissions` row every day.
+//   2. The `hq_sync` Dexie database is PERSISTENT and `cancel()` purges nothing
+//      — B-42: RxDB's downstream only ADDS, and there is no retention sweep for
+//      the four replicated collections. Yesterday's rows, legitimately pulled
+//      under yesterday's scope, are still resident today.
+//   3. `submission_responses_select` (sync-schema/sql/0003_rls_policies.sql:269)
+//      is `hq_can_see_field(field_id)` — FIELD-level, NOT authorship-level, and
+//      0003's own comment says why: a draft has no submission, so a
+//      submission-scoped policy would leave the one collection that MUST sync
+//      unreachable. So ANOTHER crew member's null-submission draft on a field I
+//      can see replicates to my device, correctly.
+//
+// Together they mean yesterday's answers, and other people's drafts, marked
+// today's BLANK checklist as done. The card's original "stated bound" analysed
+// only the CONCURRENT same-template case; the SEQUENTIAL resident-row case is
+// the default daily path.
+//
+// 🛑 THE FILTER MIRRORS WHAT THE REST HYDRATE ALREADY MEANS — it is not a new
+// policy, it is the same one, applied to the same rows arriving by a second
+// road:
+//
+//   `submission_id === <the open checklist>`  → this submission's rows, shared
+//       per-submission exactly as `MY_SUBMISSIONS.responses` are. RENDER.
+//   `submission_id === null && answered_by === me` → a draft, mine, exactly as
+//       `DRAFT_RESPONSES` are mine. RENDER.
+//   anything else → 🛑 NOT AN ANSWER TO THIS CHECKLIST. Do not render it.
+//
+// PRIORITY inside the accepted set is the REST hydrate's own: drafts first,
+// then this submission's rows on top — see hydrateFieldState steps 1 and 2.
+function acceptedFillDocs(docs, checklistId, userId) {
+  var drafts = [];
+  var submitted = [];
+  (docs || []).forEach(function(doc) {
+    if (doc.submission_id === checklistId) { submitted.push(doc); return; }
+    // `== null` catches both null and undefined, deliberately: the plugin maps a
+    // SQL NULL to null, and a doc that never carried the field at all is
+    // undefined. Both mean "draft".
+    if (doc.submission_id == null && userId && doc.answered_by === userId) drafts.push(doc);
+  });
+  return drafts.concat(submitted);
+}
+
+// One RxDB emission → the overlay → a re-hydrate → a re-render. The same shape
+// the WebSocket path already uses (see the `loadMyChecklists` subscriber): state
+// first, then render from state.
+//
+// The scope's own `checklistId` and `fieldIds` are passed in rather than read
+// off `fillState`: this is a per-scope subscription and multiple scopes are live
+// at once (T-43(c)), so the emission must be judged against the scope that
+// produced it, not against whatever the runner happens to be showing.
+function applyRxdbFillDocs(checklistId, ids, docs) {
+  var entry = FILL_SYNC_SCOPES.get(checklistId);
+  if (!entry) return; // closed while this emission was in flight
+  var accepted = acceptedFillDocs(docs, checklistId, CURRENT_USER && CURRENT_USER.id);
+  var next = {};
+  accepted.forEach(function(doc) {
+    // `answered_by` is a uuid, not a display name — the collection carries no
+    // name (sync-schema/collections.js, decision 79 keeps who-and-when, not the
+    // rendered string). Passing null lets applyResponseRow fall back exactly as
+    // the draft path does for a draft with no `answered_by_name`.
+    next[doc.field_id] = {
+      value: doc.value, answered_by_name: null, answered_at: doc.answered_at
+    };
+  });
+  // The emission carries the WHOLE current result set, so this scope's slice of
+  // the overlay is REBUILT rather than merged into — otherwise a row that stops
+  // being accepted (or is deleted) would leave a stale answer on screen forever.
+  var sig = JSON.stringify(next);
+  if (entry.sig === sig) return;
+  entry.sig = sig;
+  (ids || []).forEach(function(fid) { delete RXDB_FILL_RESPONSES[fid]; });
+  Object.keys(next).forEach(function(fid) { RXDB_FILL_RESPONSES[fid] = next[fid]; });
+  if (fillState.view !== 'runner' || !fillState.activeTemplate) return;
+  hydrateFieldState(fillTemplateFieldIds(fillState.activeTemplate));
+  renderFillOut();
+}
+
+/**
+ * Open — or re-use — the live fill scope for ONE checklist. Reads only.
+ *
+ * Returns a promise of the scope handle, or of `null` when there is nothing to
+ * open: the flag is off, the client failed to construct, we have no crew member
+ * yet, or this checklist has no submission row to be scoped by. It NEVER throws
+ * and never rejects — a checklist that stops working because a read layer failed
+ * would be strictly worse than no read layer, which is bootstrap.js's own reason
+ * for failing soft and is inherited deliberately rather than by accident.
+ */
+function fillSyncOpen(checklistId, templateId, fieldIds) {
+  var sync = window.HQSync;
+  // The flag gate, first. `openSyncScope()` refuses synchronously as well; both,
+  // deliberately — C1's B-88 guard (no `HQSync.db`, no rxdb IndexedDB at end of
+  // load with the flag off) must stay green by construction, not by timing.
+  if (!sync || !sync.readEnabled || !sync.client) return Promise.resolve(null);
+  if (!checklistId || !templateId) return Promise.resolve(null);
+  var userId = CURRENT_USER && CURRENT_USER.id;
+  // 🛑 C2's G6 finding F-2: the fill scope's checkpoint is keyed by the crew
+  // member. With no identity there is no honest key, so we do not open one.
+  if (!userId) return Promise.resolve(null);
+  var existing = FILL_SYNC_SCOPES.get(checklistId);
+  if (existing) return existing.handle;
+
+  var ids = fieldIds || [];
+  var handle;
+  try {
+    handle = sync.openSyncScope({
+      userId: userId, checklistId: checklistId, templateId: templateId, fieldIds: ids
+    });
+  } catch (err) {
+    console.warn('[hq-sync] fill scope refused; the checklist is unaffected', err);
+    return Promise.resolve(null);
+  }
+  var entry = { handle: handle, sub: null, fieldIds: ids, sig: null };
+  FILL_SYNC_SCOPES.set(checklistId, entry);
+  handle.then(function(h) {
+    // Closed while it was opening. `fillSyncClose` already awaited this same
+    // promise and cancelled it, so do not cancel twice — just do not subscribe.
+    if (FILL_SYNC_SCOPES.get(checklistId) !== entry) return;
+    entry.sub = h.db.responses
+      .find({ selector: { field_id: { $in: ids } } })
+      .$.subscribe(function(docs) { applyRxdbFillDocs(checklistId, ids, docs); });
+  }).catch(function(err) {
+    // 🛑 The registry entry goes with it — C2's G6 finding F-1's shape, one layer
+    // up. `openSyncScope` evicts its own memo on rejection; if this map kept the
+    // failed entry, re-opening the checklist would hand back the same dead
+    // promise forever and `openIds()` would report a scope that is not running.
+    if (FILL_SYNC_SCOPES.get(checklistId) === entry) FILL_SYNC_SCOPES.delete(checklistId);
+    console.warn('[hq-sync] fill scope failed to open; the checklist is unaffected', err);
+  });
+  return handle;
+}
+
+/** Cancel ONE checklist's fill scope. The others keep running (T-43(c)). */
+function fillSyncClose(checklistId) {
+  var entry = checklistId ? FILL_SYNC_SCOPES.get(checklistId) : null;
+  if (!entry) return Promise.resolve();
+  FILL_SYNC_SCOPES.delete(checklistId);
+  if (entry.sub) { try { entry.sub.unsubscribe(); } catch (e) { /* already gone */ } }
+  // Drop this checklist's rows from the overlay, so a later checklist cannot
+  // inherit them through a shared field id.
+  (entry.fieldIds || []).forEach(function(fid) { delete RXDB_FILL_RESPONSES[fid]; });
+  return entry.handle.then(function(h) {
+    // 🛑 THE DEFERRED CANCEL MUST NOT KILL A SCOPE SOMEONE ELSE NOW OWNS —
+    // G6 finding F-C on this card. This cancel is deferred by construction: it
+    // has to await the handle. `openSyncScope` memoises per scope key, so a
+    // REOPEN of the same checklist that lands before this microtask runs is
+    // handed the SAME handle promise and registers it as live — and then this
+    // line cancelled the replication the new entry believed it held. The
+    // symptom is the two inspection surfaces disagreeing:
+    // `HQFillSync.openIds()` reports the checklist, `HQSync.openScopeKeys()`
+    // does not, because `cancel()` deleted the key.
+    //
+    // Identity on the HANDLE, not on the checklist id: a reopen with a
+    // DIFFERENT scope (different fieldIds) gets a different handle, and that
+    // older one really must still be cancelled.
+    var current = FILL_SYNC_SCOPES.get(checklistId);
+    if (current && current.handle === entry.handle) return undefined;
+    return h.cancel();
+  }).catch(function() { /* it never opened */ });
+}
+
+/** Close whatever the runner currently holds. Called on every exit from it. */
+function closeActiveFillScope() {
+  var id = fillState.syncChecklistId;
+  fillState.syncChecklistId = null;
+  if (id) fillSyncClose(id);
+}
+
+// The inspection surface. Which checklists have a live fill scope right now —
+// the page-level counterpart of `HQSync.openScopeKeys()`, and what
+// tests/sync-fill-view.spec.js drives.
+window.HQFillSync = {
+  open: fillSyncOpen,
+  close: fillSyncClose,
+  openIds: function() { return [...FILL_SYNC_SCOPES.keys()]; },
+  // The overlay, KEYED BY FIELD ID — a snapshot, so a caller cannot mutate the
+  // live store. `Object.keys()` of it is the set of fields RxDB is currently
+  // answering. The DOM shows the RESULT of hydrate + render; this shows what got
+  // past `acceptedFillDocs`, which is what lets a test tell "the runner ignored
+  // the foreign row" apart from "the foreign row never arrived" — G6 finding
+  // F-A's own distinction, and the reason [FILL-04] asserts both.
+  overlayKeys: function() { return Object.assign({}, RXDB_FILL_RESPONSES); }
 };
 
 function getTodayTemplates() {
@@ -2885,9 +3217,19 @@ document.getElementById('fill-body').addEventListener('click', function(e) {
         if (snap && snap.sections) tpl.sections = snap.sections;
       }
       // Restore field state (including fail notes) for this template's fields
-      var tplFieldIds = new Set((tpl.sections || []).flatMap(function(s) { return (s.fields || []).flatMap(function(f) { return [f.id].concat((f.sub_steps || []).map(function(ss) { return ss.id; })); }); }));
+      var tplFieldIds = fillTemplateFieldIds(tpl);
       hydrateFieldState(tplFieldIds);
       renderFillOut();
+      // ── C3: this checklist's RxDB fill scope. READS ONLY (decision 126). ──
+      // A no-op unless the `hq_sync_read` flag is on AND this checklist has a
+      // submission row — `checklist_submissions.id` is what the scope is scoped
+      // BY (decision 105), and a checklist with no submission has none. It never
+      // throws and never blocks the render above, which has already happened.
+      closeActiveFillScope();
+      if (submission) {
+        fillState.syncChecklistId = submission.id;
+        fillSyncOpen(submission.id, tpl.id, [...tplFieldIds]);
+      }
     }
     return;
   }
@@ -2923,6 +3265,9 @@ document.getElementById('fill-body').addEventListener('click', function(e) {
 
   // Back button in runner
   if (e.target.closest('#fill-back')) {
+    // One scope per open checklist, CANCELLED ON CLOSE (ledger T-43(c)). Only
+    // this checklist's — any other live fill scope keeps running.
+    closeActiveFillScope();
     fillState.view = 'list';
     fillState.activeTemplate = null;
     fillState.readonly = false;
@@ -3164,6 +3509,7 @@ document.getElementById('fill-body').addEventListener('click', function(e) {
           showSuccessCheck();
           setTimeout(function(){
             showToast(toastMsg);
+            closeActiveFillScope();
             fillState.view = 'list'; fillState.activeTemplate = null; location.hash = '';
             renderFillOut();
           }, 2000);
@@ -3171,11 +3517,13 @@ document.getElementById('fill-body').addEventListener('click', function(e) {
           fireworks();
           setTimeout(function(){
             showToast(toastMsg);
+            closeActiveFillScope();
             fillState.view = 'list'; fillState.activeTemplate = null; location.hash = '';
             renderFillOut();
           }, 2500);
         } else {
           showToast(toastMsg);
+          closeActiveFillScope();
           fillState.view = 'list'; fillState.activeTemplate = null; location.hash = '';
           renderFillOut();
         }
@@ -3184,6 +3532,7 @@ document.getElementById('fill-body').addEventListener('click', function(e) {
         if (btn) { btn.textContent = 'Submit checklist'; btn.disabled = false; }
         if (err && err.offline) {
           showToast('Queued for sync when back online');
+          closeActiveFillScope();
           fillState.view = 'list'; fillState.activeTemplate = null; location.hash = '';
           renderFillOut();
           renderSyncBanner();
@@ -3431,6 +3780,14 @@ document.getElementById('approvals-body').addEventListener('click', function(e) 
 
 function show(n) {
   if (wfBuilderHasUnsavedChanges() && !confirm('You have unsaved changes. Leave without saving?')) return;
+  // 🛑 EVERY tab switch leaves the runner, so every tab switch closes its fill
+  // scope — G6 finding F-B on this card. This used to sit inside the `n === 1`
+  // branch, so switching to Approvals or Builder left the replication live with
+  // no reachable handle: a Realtime channel and a pull loop running for a
+  // checklist nobody has open, and `HQFillSync.openIds()` reporting it forever.
+  // A no-op when nothing is open (`fillState.syncChecklistId` is null), which is
+  // every environment with the `hq_sync_read` flag off.
+  closeActiveFillScope();
   [1, 2, 3].forEach(function(i) {
     var sec = document.getElementById('s' + i);
     if (sec) sec.style.display = i === n ? 'block' : 'none';
@@ -3668,8 +4025,17 @@ catch (err) { console.warn('[hq-sync] conflict notice did not mount; the page is
                       &hq_sync_checklist=<checklist_submissions.id>
                       &hq_sync_template=<checklist_templates.id>
                       &hq_sync_field=<checklist_fields.id>
+                      &hq_sync_user=<users.id>
 
-     The flag persists (localStorage `hq_sync_read`); the three scope params do
+     🛑 `hq_sync_user` IS REQUIRED SINCE CARD `activate-fill-view-reads` (C3) —
+     C2's own G6 finding F-2. The fill scope's persisted checkpoint had no crew
+     member in its key, so a second crew member on a shared truck phone resumed
+     the first's `_modified` cursor and slept through their own older draft rows.
+     `normalizeScope` now refuses a fill scope without it. This panel takes it
+     from the URL like the rest of its scope; the PRODUCT fill view takes it from
+     `CURRENT_USER.id` (see THE FILL VIEW'S RxDB READ LIFECYCLE above).
+
+     The flag persists (localStorage `hq_sync_read`); the four scope params do
      not, so a later load with the flag still on but no scope mounts nothing and
      creates no database. `?hq_sync_read=off` clears the flag.
 -->
@@ -3706,10 +4072,12 @@ function setState(state, note) {
   const checklistId = q.get('hq_sync_checklist');
   const templateId = q.get('hq_sync_template');
   const fieldId = q.get('hq_sync_field');
+  // 🛑 REQUIRED since C3 (C2's G6 finding F-2) — the fill scope's identity.
+  const userId = q.get('hq_sync_user');
   // A flag with no scope is not a scope. Replication is per-open-checklist and
   // is never pulled whole (ledger T-29 decision 105), so an absent scope mounts
   // nothing rather than defaulting to something wider.
-  if (!checklistId || !templateId || !fieldId) return;
+  if (!checklistId || !templateId || !fieldId || !userId) return;
 
   root.hidden = false;
   document.getElementById('sync-one-row-field').textContent = fieldId;
@@ -3717,7 +4085,7 @@ function setState(state, note) {
 
   let handle;
   try {
-    handle = await HQSync.openSyncScope({ checklistId, templateId, fieldIds: [fieldId] });
+    handle = await HQSync.openSyncScope({ userId, checklistId, templateId, fieldIds: [fieldId] });
   } catch (err) {
     // Fails soft, for bootstrap.js's own reason: a dev surface that broke the
     // crew's checklist page would be strictly worse than no dev surface.

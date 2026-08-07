@@ -10,3 +10,11 @@ implement-end C2 17:11:25
 G6-start C2 17:11:25
 G6-return C2 17:22:56 (PASS-with-findings; no fix round — F-1/F-2 carried to C3)
 merge C2 17:22:56
+implement-start C3 17:23:19
+implement-end C3 18:23:46
+G6-start C3 18:23:46
+fix-start C3 18:36:15 (G6 F-A CONFIRMED TOP — cross-submission overlay rows; fix round dispatched)
+fix-return C3 19:11:12 (F-A/F-B/F-C/F-D fixed; full suite 811/0/6 EXIT=0)
+G6-reverify-start C3 19:11:12
+G6-reverify-return C3 19:16:04 (PASS — probe re-run holds)
+merge C3 19:16:04
