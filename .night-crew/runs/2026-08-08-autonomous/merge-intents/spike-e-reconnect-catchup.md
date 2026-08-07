@@ -172,14 +172,81 @@ or `task spike:reconnect:red`.
   run, not only the green one.
 
 **Green run:** the same command without `--no-pull` —
-`.night-crew/runs/2026-08-08-autonomous/card-e-spike-verdict.log`. The only difference
-between the two runs is whether the checkpoint pull leg is armed on reconnect.
+`.night-crew/runs/2026-08-08-autonomous/card-e-spike-verdict.log`, exit **0**. Same
+substrate, same relay, same real write path, same sever, same three dark-window changes,
+same assertion function. The only difference between the two runs is whether the checkpoint
+pull leg is armed on reconnect: `MISSED / MISSED / MISSED` becomes
+`RECOVERED / RECOVERED / RECOVERED`.
 
 Both logs are committed.
 
 ## The finding
 
-_(written once the green leg has run — the verdict colour, the UPDATE-case result
-specifically, and the `submitted_at` watermark measurement)_
+**GREEN — a severed RxDB client recovers EVERYTHING on reconnect via checkpoint pull,
+including the in-place UPDATE.** Exit **0**.
+
+| dark-window change | red (`--no-pull`) | green (pull armed) |
+|---|---|---|
+| INSERT, field A — a substrate row the client never held | MISSED | **RECOVERED** |
+| **UPDATE, field B — the row the client ALREADY HELD, re-written in place** | MISSED | **RECOVERED** |
+| INSERT, field C — a second new substrate row | MISSED | **RECOVERED** |
+| liveness control (post-reconnect write) | ARRIVED | ARRIVED |
+
+All three landed by the time `awaitInitialReplication()` resolved (elapsed **1 ms** into a
+20 000 ms bound — the pull had already delivered them before the poll began).
+
+**🛑 The UPDATE case was EXERCISED, not skipped, and it is corroborated at three levels:**
+the substrate row kept the **same primary key** and gained the dark-window body; the RxDB
+document under that same key carries the dark-window value after reconnect; and HQ's own
+Postgres shows field B holding exactly **1** draft row (the shell asserts this and reds a
+green that fails it). So this green is not vacuous.
+
+**It was a CHECKPOINT pull, not a full re-read** — observed, not assumed. The supabase
+plugin hands `queryBuilder` the checkpoint it is about to resume from; the first
+post-reconnect pull was handed exactly the checkpoint captured at the sever
+(`{id: spikec-4cc42568…, modified: 2026-08-07T13:09:31.989749+00:00}`), the second carried
+the advanced one. The script refuses a green whose first post-reconnect pull had no
+checkpoint, because a full re-read would recover everything for a reason that has nothing
+to do with catch-up and would not survive a real dataset.
+
+### The `submitted_at` semantics finding (the card's named FINDING)
+
+Measured this run against the schema HQ's **own migrator** built, plus the row-level
+timestamps of rows this run actually wrote:
+
+1. **`checklist_submissions.submitted_at` NEVER advances after INSERT.** Column default
+   `now()`, **0** user triggers on the table, and the only UPDATEs HQ issues against it
+   (`repository.go:1186` approve, `:1232` reject) set `status` / `reviewed_by` /
+   `reviewed_at` and leave `submitted_at` alone. It is a **creation** timestamp wearing a
+   watermark's name. An advancing-watermark catch-up keyed on it would silently miss every
+   approval and every rejection — the same unreliable-watermark shape that disqualified
+   `answered_at` for spike C's polling-relay candidate.
+2. **`submission_responses.answered_at` DOES advance on the update branch** — measured
+   end-to-end on the real path: `13:09:31.954691Z` → `13:09:36.146254Z` across the dark
+   UPDATE, stamped explicitly by `repository.go:829`
+   (`ON CONFLICT … DO UPDATE SET value = EXCLUDED.value, answered_at = now()`).
+3. **🛑 Neither of them is what the pull actually checkpoints on, and that is why the green
+   is green.** The RxDB supabase plugin checkpoints on the **substrate's** `_modified`
+   column, stamped by `hq_sync_checklists_set_modified` (a BEFORE INSERT OR UPDATE trigger,
+   `sql/hq-bridge-fixture.sql:79-90`) on every projection, and resumes with a strict
+   `_modified > m OR (_modified = m AND id > id)` — a `gt` with an id tie-breaker, **not** a
+   `gte`. The watermark is therefore minted at the projection boundary by the substrate
+   itself and is completely independent of whatever HQ did or did not do to its business
+   timestamps.
+
+**What Activity 3 inherits from that.** The green is *conditional on the relay
+re-projecting the row on every HQ change*. It holds here because the carrier is a row-level
+`AFTER INSERT OR UPDATE` trigger, which fires whatever moved. **Any future design that
+polls HQ on a business watermark instead of NOTIFY reintroduces the miss exactly** — and
+`submitted_at`, demonstrably, does not advance. Spike C's candidate (2), the polling relay,
+was already ranked strictly weaker; this measurement is the concrete cost of picking it.
+The equivalent live-side clause `sync-rxdb/client.js:874` emits
+(`submitted_at=gte.<since>`) is a fixed **floor**, not an advancing cursor, so it does not
+carry the miss shape — but the red leg shows the realtime stream alone recovers nothing
+across a gap regardless, so the floor is not load-bearing for catch-up either way.
+
+**B-161's disposition: answered.** The disconnect/reconnect/catch-up cycle closes, the
+build cards do **not** need an explicit resync step *for this carrier*, and the condition
+under which they would need one is now written down and reproducible on demand.
 
 Night-Crew-Run: 20260808

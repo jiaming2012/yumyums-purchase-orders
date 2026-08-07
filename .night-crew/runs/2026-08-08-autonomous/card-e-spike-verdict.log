@@ -1,0 +1,291 @@
+# command: .night-crew/qa/spike-supabase/spike-e-reconnect.sh
+# cwd:     /home/jcole/projects/hq-worktrees/e-reconnect-catchup
+# branch:  card/spike-e-reconnect-catchup
+# HEAD:    ef801cb
+# date:    2026-08-07T09:09:03-04:00
+# env attestation (T-41): this leg touches NO test DB and NO :5433/:5434.
+#   TEST_PORT=4823 TEST_DB_NAME=hqtest_e_reconnect HQ_RLS_TEST_DB=hqtest_e_reconnect_rls (unused by this leg)
+#   HQ_SYNC_SUBSTRATE_OPTIONAL=[UNSET] HQ_SYNC_GATE_CHILD=[UNSET]
+#   scratch HQ Postgres: compose project spike-e-hq, Docker-assigned ephemeral port, runtime refusal on 5432/5433/5434
+# ---
+# spike-e-reconnect.sh — sever a replicating RxDB client, write while dark, reconnect, measure catch-up
+# repo    /home/jcole/projects/hq-worktrees/e-reconnect-catchup
+# anchor  /home/jcole/projects/hq
+# run     e20260807130903
+# mode    checkpoint pull ARMED
+# started 2026-08-07T13:09:03Z
+
+══ 1. preflight — required tooling ═══════════════════════════════
+  docker /usr/bin/docker
+  curl   /usr/bin/curl
+  node   /usr/bin/node
+  go     /usr/local/go/bin/go
+  isolation: hq-real compose publishes no fixed host port (Docker-assigned only)
+
+══ 2. substrate — spike A's Supabase + RxDB environment (RECONCILE, never destroy) ═══════════════════════════════
+  delegating to env-up.sh (reconcile, no flags); its exit status gates this leg
+# env-up.sh — mode=reconcile repo=/home/jcole/projects/hq-worktrees/e-reconnect-catchup
+# compose anchor (--project-directory, path-stability fix) = /home/jcole/projects/hq
+# started 2026-08-07T13:09:04Z
+
+── 1. preflight — required tooling ───────────────────────────────
+  docker /usr/bin/docker
+  curl   /usr/bin/curl
+  node   /usr/bin/node
+  npm    /usr/bin/npm
+  go     /usr/local/go/bin/go
+  compose 5.1.0
+  go      go version go1.25.8 linux/amd64
+  node    v20.20.0
+  docker daemon: reachable
+
+── 2. bringing the stack up (idempotent) ───────────────────────────────
+ Container spike-supabase-db-1 Running 
+ Container spike-supabase-rest-1 Running 
+ Container spike-supabase-realtime-1 Running 
+ Container spike-supabase-db-1 Waiting 
+ Container spike-supabase-db-1 Waiting 
+ Container spike-supabase-db-1 Healthy 
+ Container spike-supabase-db-1 Healthy 
+NAME                        IMAGE                          COMMAND                  SERVICE    CREATED        STATUS                  PORTS
+spike-supabase-db-1         supabase/postgres:15.8.1.060   "docker-entrypoint.s…"   db         40 hours ago   Up 40 hours (healthy)   0.0.0.0:50871->5432/tcp, [::]:50871->5432/tcp
+spike-supabase-realtime-1   supabase/realtime:v2.34.47     "/usr/bin/tini -s -g…"   realtime   40 hours ago   Up 40 hours             0.0.0.0:50807->4000/tcp, [::]:50807->4000/tcp
+spike-supabase-rest-1       postgrest/postgrest:v12.2.12   "/bin/postgrest"         rest       40 hours ago   Up 40 hours             0.0.0.0:50473->3000/tcp, [::]:50473->3000/tcp
+
+── 3. waiting for db to report healthy (timeout 300s) ───────────────────────────────
+  db: running/healthy
+
+── 4. applying fixture schemas ───────────────────────────────
+  → spike-fixture.sql
+psql:<stdin>:30: NOTICE:  relation "spike_notes" already exists, skipping
+  → hq-bridge-fixture.sql
+psql:<stdin>:53: NOTICE:  relation "hq_grant_projection" already exists, skipping
+psql:<stdin>:77: NOTICE:  relation "hq_sync_checklists" already exists, skipping
+psql:<stdin>:114: NOTICE:  relation "hq_uid_trap" already exists, skipping
+  → hq-bridge-policies.sql
+
+── 5. resolving host ports ───────────────────────────────
+  db=50871 rest=50473 realtime=50807
+
+── 6. waiting for PostgREST and Realtime to answer (timeout 180s each) ───────────────────────────────
+  PostgREST: HTTP 200
+  Realtime: HTTP 200
+
+── 7. installing the RxDB harness (npm ci, isolated project) ───────────────────────────────
+  node_modules present — skipping install
+
+── 8. health assertion — rest, realtime, schema, rxdb ───────────────────────────────
+# stack: rest=50473 realtime=50807 db=50871  run=r1786108148040
+PASS  ports — db=50871 rest=50473 realtime=50807
+PASS  token — go-minted, 184 chars, 3 segments
+PASS  schema — 4 fixture table(s) and 5 hq_* policy(ies) present by name
+PASS  rest — spike_notes readable; alice sees 1 row(s), owners=["user-alice"], bob's row correctly hidden
+PASS  realtime — channel SUBSCRIBED
+-------------- RxDB dev-mode warning -------------------------------
+you are seeing this because you use the RxDB dev-mode plugin https://rxdb.info/dev-mode.html?console=dev-mode 
+This is great in development mode, because it will run many checks to ensure
+that you use RxDB correct. If you see this in production mode,
+you did something wrong because the dev-mode plugin will decrease the performance.
+
+🤗 Hint: To get the most out of RxDB, check out the Premium Plugins
+to get access to faster storages and more professional features: https://rxdb.info/premium/?console=dev-mode 
+
+You can disable this warning by calling disableWarnings() from the dev-mode plugin.
+---------------------------------------------------------------------
+PASS  rxdb — local RxDB database created, doc hc-1786108149092 inserted and read back
+
+HEALTHCHECK: GREEN — ports, token, schema, rest, realtime, rxdb all asserted
+
+══════════════════════════════════════════════════════════
+✅ VERDICT: GREEN — Supabase + RxDB up, schema applied, healthy
+   db=50871  rest=50473  realtime=50807   (project: spike-supabase)
+   teardown is a separate, deliberate act:  task spike:down
+   finished 2026-08-07T13:09:09Z
+══════════════════════════════════════════════════════════
+  PostgREST: http://127.0.0.1:50473
+  service_role token minted (role=service_role, ttl=60m)
+
+══ 3. baseline snapshot of spike A's SHARED tables (so the restore can be VERIFIED) ═══════════════════════════════
+  hq_sync_checklists baseline: [{"id":"chk-alice-inv-1"}, 
+ {"id":"chk-alice-ops-1"}, 
+ {"id":"chk-alice-ops-2"}, 
+ {"id":"chk-bob-ops-1"}]
+  hq_grant_projection baseline: [{"user_id":"hq-user-alice","app_slug":"operations"}, 
+ {"user_id":"hq-user-bob","app_slug":"operations"}]
+
+══ 4. HQ Postgres — fresh scratch container (project spike-e-hq), EMPTY ═══════════════════════════════
+ Network spike-e-hq_default Creating 
+ Network spike-e-hq_default Created 
+ Container spike-e-hq-hqreal-1 Creating 
+ Container spike-e-hq-hqreal-1 Created 
+ Container spike-e-hq-hqreal-1 Starting 
+ Container spike-e-hq-hqreal-1 Started 
+NAME                  IMAGE                COMMAND                  SERVICE   CREATED         STATUS                           PORTS
+spike-e-hq-hqreal-1   postgres:16-alpine   "docker-entrypoint.s…"   hqreal    2 seconds ago   Up 1 second (health: starting)   0.0.0.0:50299->5432/tcp, [::]:50299->5432/tcp
+  hqreal: running/healthy
+  container 42ab67bafd12  ·  host port 50299 (Docker-assigned, ephemeral)
+
+══ 5. HQ's REAL schema — applied by HQ's OWN binary, not by a transcription ═══════════════════════════════
+  building HQ's server binary
+  booting it against the scratch Postgres (it will apply 74 migrations)
+  health: {"backend_version":"0.3.0","built_at":"unknown","frontend_version":"1.4.0","git_sha":"dev","status":"ok"}
+  goose versions applied: 75  ·  public tables: 52
+
+══ 6. the write path's real prerequisites — a real session and FOUR real fields ═══════════════════════════════
+  hq user: b02e4158-88ab-4075-8990-a6aad0e79f41 (jamal@yumyums.kitchen)
+  session: real hq_session cookie from POST /api/v1/auth/login (HTTP 200)
+  field A (dark INSERT)   4568284b-e121-4664-941b-2db7ce887885 — Chicken portions counted [checkbox]
+  field B (dark UPDATE)   4ecd9a00-569c-4234-8727-edf4aafbee16 — Fire extinguisher accessible [yes_no]
+  field C (dark INSERT)   67c98e1b-67c6-4118-a1fe-9bc148b6c560 — Generator started and running [checkbox]
+  field D (liveness)      72cf1abd-6b51-4885-ba80-0cdc6dee4b4f — Notes [text]
+
+══ 7. WATERMARK CENSUS — what the real write path does to its timestamps ═══════════════════════════════
+  checklist_submissions.submitted_at : now()
+  submission_responses.answered_at   : now()
+  user triggers on checklist_submissions: 0   ·  on submission_responses: 0
+  => nothing re-stamps submitted_at on UPDATE. Its only writer is the INSERT default;
+     repository.go:1186 (approve) and :1232 (reject) set status/reviewed_by/reviewed_at
+     and leave submitted_at alone. answered_at IS re-stamped, explicitly, by
+     repository.go:829 (ON CONFLICT ... DO UPDATE SET value = EXCLUDED.value, answered_at = now()).
+
+══ 8. substrate prerequisite — the live grant projection for this user ═══════════════════════════════
+  hq_grant_projection += (b02e4158-88ab-4075-8990-a6aad0e79f41, operations) -> HTTP 201
+
+══ 9. the CARRIER — spike C's LISTEN/NOTIFY relay, armed on BOTH paths ═══════════════════════════════
+  applying sql/spike-c-relay-trigger.sql (spike C's, unchanged) to the scratch HQ Postgres
+psql:<stdin>:67: NOTICE:  trigger "spike_c_relay_notify" for relation "public.submission_responses" does not exist, skipping
+  trigger present: spike_c_relay_notify AFTER INSERT OR UPDATE ON submission_responses
+  building and starting the relay (backend/cmd/spikec-relay, unchanged)
+  relay READY (LISTEN on spike_c_relay established, pid 57227)
+
+══ 10. THE CYCLE — subscribe · observe · SEVER · write while dark · reconnect · measure ═══════════════════════════════
+# spike-e-reconnect.js
+# substrate: rest=50473 realtime=50807 db=50871
+# hq api:    http://127.0.0.1:8472
+# hq user:   b02e4158-88ab-4075-8990-a6aad0e79f41
+# mode:      checkpoint pull ARMED
+# bound:     20000 ms
+# run:       e20260807130903
+-------------- RxDB dev-mode warning -------------------------------
+you are seeing this because you use the RxDB dev-mode plugin https://rxdb.info/dev-mode.html?console=dev-mode 
+This is great in development mode, because it will run many checks to ensure
+that you use RxDB correct. If you see this in production mode,
+you did something wrong because the dev-mode plugin will decrease the performance.
+
+🤗 Hint: To get the most out of RxDB, check out the Premium Plugins
+to get access to faster storages and more professional features: https://rxdb.info/premium/?console=dev-mode 
+
+You can disable this warning by calling disableWarnings() from the dev-mode plugin.
+---------------------------------------------------------------------
+
+══ 1. the client is LIVE: RxDB holds 0 doc(s) ══
+   (none)
+
+══ 2. POSITIVE ARRIVAL (pre-sever) — a real write must reach the live client ══
+   write B1 (pre-sever, field B): HTTP 204 field=4ecd9a00-569c-4234-8727-edf4aafbee16 value=spikee-e20260807130903-B1-presever-1786108173441
+   OBSERVED: spikee-e20260807130903-B1-presever-1786108173441 arrived as spikec-4cc42568-c059-497f-88f7-1a350b57122b — the client is provably replicating.
+   settled: RxDB holds 1 doc(s) at the moment of severing
+
+══ 3. checkpoint at sever: {"id":"spikec-4cc42568-c059-497f-88f7-1a350b57122b","modified":"2026-08-07T13:09:31.989749+00:00"} ══
+
+══ 4. SEVERING the client ══
+   replication cancelled, all channels removed, Realtime socket disconnected.
+   the client is DARK. Nothing in this process can now deliver a row into RxDB.
+
+══ 5. DARK WINDOW — 3 changes through POST /api/v1/workflow/saveResponse ══
+   write A (INSERT — field never saved before): HTTP 204 field=4568284b-e121-4664-941b-2db7ce887885 value=spikee-e20260807130903-A-darkinsert-1786108173441
+   write B2 (UPDATE — field B again; the client already holds spikec-4cc42568-c059-497f-88f7-1a350b57122b): HTTP 204 field=4ecd9a00-569c-4234-8727-edf4aafbee16 value=spikee-e20260807130903-B2-darkupdate-1786108173441
+   write C (INSERT — field never saved before): HTTP 204 field=67c98e1b-67c6-4118-a1fe-9bc148b6c560 value=spikee-e20260807130903-C-darkinsert-1786108173441
+
+   waiting up to 30000 ms for the relay to project all three into the substrate
+   substrate now holds 3 row(s); the already-held row spikec-4cc42568-c059-497f-88f7-1a350b57122b reads _modified=2026-08-07T13:09:36.179991+00:00
+   CONFIRMED: the UPDATE re-wrote spikec-4cc42568-c059-497f-88f7-1a350b57122b in place (same primary key, new body) — this is the already-held-row case.
+
+══ 6. DARK-WINDOW SILENCE VERIFIED ══
+   substrate: 3 row(s)   ·   dark client: 1 doc(s) — unchanged, byte for byte.
+   the gap is real and measured, not assumed.
+
+══ 7. RECONNECT (checkpoint pull armed) ══
+   reconnected. checkpoints handed to the pull handler: [{"id":"spikec-4cc42568-c059-497f-88f7-1a350b57122b","modified":"2026-08-07T13:09:31.989749+00:00"}]
+   the first post-reconnect pull resumed FROM A CHECKPOINT: {"id":"spikec-4cc42568-c059-497f-88f7-1a350b57122b","modified":"2026-08-07T13:09:31.989749+00:00"}
+
+══ 8. CATCH-UP — waiting up to 20000 ms for all 3 dark-window changes ══
+   INSERT  (field A, new row)                  : RECOVERED
+   UPDATE  (field B, row spikec-4cc42568-c059-497f-88f7-1a350b57122b already held): RECOVERED
+   INSERT  (field C, new row)                  : RECOVERED
+   after 1 ms the already-held row reads: {"answered_at":"2026-08-07T13:09:36.146254Z","field_id":"4ecd9a00-569c-4234-8727-edf4aafbee16","field_label":"Fire extinguisher accessible","kind":"submission_response","response_id":"4cc42568-c059-497f-88f7-1a350b57122b
+
+══ 9. LIVENESS CONTROL — one post-reconnect write must arrive ══
+   write D (post-reconnect liveness, field D): HTTP 204 field=72cf1abd-6b51-4885-ba80-0cdc6dee4b4f value=spikee-e20260807130903-D-liveness-1786108173441
+   post-reconnect write: ARRIVED
+
+══ 10. WATERMARK SEMANTICS (measured, this run) ══
+{
+  "row": "spikec-4cc42568-c059-497f-88f7-1a350b57122b",
+  "hq_answered_at_before_update": "2026-08-07T13:09:31.954691Z",
+  "hq_answered_at_after_update": "2026-08-07T13:09:36.146254Z",
+  "hq_answered_at_advanced": true,
+  "substrate_modified_at_dark_end": "2026-08-07T13:09:36.179991+00:00",
+  "substrate_modified_now": "2026-08-07T13:09:36.179991+00:00",
+  "checkpoint_carried_into_the_dark": {
+    "id": "spikec-4cc42568-c059-497f-88f7-1a350b57122b",
+    "modified": "2026-08-07T13:09:31.989749+00:00"
+  },
+  "checkpoints_handed_to_the_pull_handler": [
+    {
+      "id": "spikec-4cc42568-c059-497f-88f7-1a350b57122b",
+      "modified": "2026-08-07T13:09:31.989749+00:00"
+    },
+    {
+      "id": "spikec-bdcc0c1a-e977-4158-a37c-ac7ac0c0e800",
+      "modified": "2026-08-07T13:09:36.188368+00:00"
+    }
+  ]
+}
+   ^ hq_answered_at_* is submission_responses.answered_at as HQ stamped it, carried
+     verbatim in the relay-projected body. substrate_modified_* is the column the
+     RxDB supabase plugin actually checkpoints on (_modified, trigger-stamped).
+
+══════════════════════════════════════════════════════════
+✅ FULL RECOVERY — every dark-window change reached the reconnected client.
+   INSERT + INSERT + UPDATE-to-an-already-held-row, all 3, in 1 ms (bound 20000 ms).
+   The UPDATE case was EXERCISED and RECOVERED: spikec-4cc42568-c059-497f-88f7-1a350b57122b was in the local store before
+   the sever and carries the dark-window value after it.
+══════════════════════════════════════════════════════════
+
+══ 11. corroboration in HQ's OWN Postgres — the writes really were an INSERT and an UPDATE ═══════════════════════════════
+  submission_responses draft rows — field A: 1 · field B: 1 · field C: 1
+  field B row: 4cc42568-c059-497f-88f7-1a350b57122b  answered_at=2026-08-07 13:09:36.146254+00  value="spikee-e20260807130903-B2-darkupdate-1786108173441"
+  --- relay.log (tail) ---
+  | SPIKE_C_RELAY_READY
+  | 2026/08/07 09:09:31 INFO spike-c relay projected row id=spikec-4cc42568-c059-497f-88f7-1a350b57122b owner_id=b02e4158-88ab-4075-8990-a6aad0e79f41 app_slug=operations http=201
+  | 2026/08/07 09:09:31 INFO spike-c relay projected row id=spikec-4cc42568-c059-497f-88f7-1a350b57122b owner_id=b02e4158-88ab-4075-8990-a6aad0e79f41 app_slug=operations http=200
+  | 2026/08/07 09:09:36 INFO spike-c relay projected row id=spikec-f70d0b13-8560-4420-908b-3e9b09038699 owner_id=b02e4158-88ab-4075-8990-a6aad0e79f41 app_slug=operations http=201
+  | 2026/08/07 09:09:36 INFO spike-c relay projected row id=spikec-f70d0b13-8560-4420-908b-3e9b09038699 owner_id=b02e4158-88ab-4075-8990-a6aad0e79f41 app_slug=operations http=200
+  | 2026/08/07 09:09:36 INFO spike-c relay projected row id=spikec-4cc42568-c059-497f-88f7-1a350b57122b owner_id=b02e4158-88ab-4075-8990-a6aad0e79f41 app_slug=operations http=200
+  | 2026/08/07 09:09:36 INFO spike-c relay projected row id=spikec-bdcc0c1a-e977-4158-a37c-ac7ac0c0e800 owner_id=b02e4158-88ab-4075-8990-a6aad0e79f41 app_slug=operations http=201
+  | 2026/08/07 09:09:36 INFO spike-c relay projected row id=spikec-4cc42568-c059-497f-88f7-1a350b57122b owner_id=b02e4158-88ab-4075-8990-a6aad0e79f41 app_slug=operations http=200
+  | 2026/08/07 09:09:36 INFO spike-c relay projected row id=spikec-bdcc0c1a-e977-4158-a37c-ac7ac0c0e800 owner_id=b02e4158-88ab-4075-8990-a6aad0e79f41 app_slug=operations http=200
+  | 2026/08/07 09:09:36 INFO spike-c relay projected row id=spikec-4942276c-9316-445d-9607-0ab37277e5b9 owner_id=b02e4158-88ab-4075-8990-a6aad0e79f41 app_slug=operations http=201
+  | 2026/08/07 09:09:36 INFO spike-c relay projected row id=spikec-4942276c-9316-445d-9607-0ab37277e5b9 owner_id=b02e4158-88ab-4075-8990-a6aad0e79f41 app_slug=operations http=200
+
+══════════════════════════════════════════════════════════
+✅ VERDICT: GREEN — reconnect catch-up recovers everything.
+   A RUNNING RxDB client was OBSERVED replicating, then SEVERED (replication
+   cancelled, channels removed, Realtime socket disconnected). While it was
+   dark, 3 changes went through POST /api/v1/workflow/saveResponse — 2 INSERTs
+   and 1 UPDATE to a row the client ALREADY HELD. Dark-window silence was
+   VERIFIED (the collection was byte-identical while the substrate moved on).
+   On reconnect, checkpoint pull delivered ALL THREE within 20000 ms, and the
+   UPDATE case was exercised and recovered IN PLACE (same primary key, new body,
+   corroborated by field B holding exactly 1 draft row in HQ Postgres).
+   hq postgres: project spike-e-hq, container 42ab67bafd12, host port 50299 (ephemeral)
+   finished 2026-08-07T13:09:37Z
+══════════════════════════════════════════════════════════
+
+── teardown (1/2): restoring spike A's shared substrate ──
+  VERIFIED: hq_sync_checklists and hq_grant_projection are byte-identical to the pre-run baseline.
+
+── teardown (2/2): destroying the scratch HQ Postgres (project spike-e-hq) ──
+  torn down.
+EXIT=0
