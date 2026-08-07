@@ -1,0 +1,23 @@
+# G4 — node build-sw.js (run AFTER the commits: it reads git HEAD, not the working tree)
+# cwd:    /home/jcole/projects/hq-worktrees/e-reconnect-catchup
+# branch: card/spike-e-reconnect-catchup  HEAD: 4ef8fb7
+# date:   2026-08-07T09:44:36-04:00
+# ---
+$ node build-sw.js  (run 1)
+import reachability: 18 precached files parsed, 30 local references resolved, 0 outside the precache
+SW built: 31 files precached (2169.0 KB)
+Frontend version: 1.4.0
+RUN1_EXIT=0
+$ git status --porcelain (after run 1)
+?? .night-crew/runs/2026-08-08-autonomous/gate-g4-card-e.log
+$ node build-sw.js  (run 2 — idempotency)
+import reachability: 18 precached files parsed, 30 local references resolved, 0 outside the precache
+SW built: 31 files precached (2169.0 KB)
+Frontend version: 1.4.0
+RUN2_EXIT=0
+$ git status --porcelain (after run 2 — must be clean apart from this log)
+?? .night-crew/runs/2026-08-08-autonomous/gate-g4-card-e.log
+$ version parity
+  package.json  : 1.4.0
+  version.json  : 1.4.0
+  version.go    : 1.4.0
