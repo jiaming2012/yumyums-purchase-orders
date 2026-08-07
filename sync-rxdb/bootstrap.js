@@ -253,11 +253,22 @@ let databasePromise = null;
 // A stable key for a NORMALISED scope. Not `scopeFingerprint` — that hashes ONE
 // collection's filter; this identifies the whole scope, and being readable in a
 // debugger is worth more here than being short.
+//
+// 🛑 THE DELIMITER IS THE ESCAPE SEQUENCE `\0`, NOT A RAW NUL BYTE, AND THAT IS
+// B-70. A literal U+0000 in a source file under `sync-rxdb/` puts GNU grep into
+// binary mode on the whole file: `grep -n 'export' sync-rxdb/client.js` printed
+// nothing and exited 1 on a file with 29 matches, which makes every
+// `done_when: "grep returns nothing"` criterion unreliable IN THE PASSING
+// DIRECTION. `client.js`'s `scopeFingerprint` carried exactly that byte and was
+// fixed the same way. The escape is the SAME byte at runtime, so keys are
+// unchanged; the file stays 7-bit clean. Guarded by tests/repo-hygiene.spec.js
+// ('no source file under sync-rxdb/ contains a NUL byte'), which caught this
+// card writing raw NULs here on its first full-suite leg. Do not "tidy" it back.
 function scopeKey(scope) {
   const s = normalizeScope(scope);
   return s.mode === 'list'
-    ? ['list', s.userId, s.since, s.templateIds.slice().sort().join('+')].join(' ')
-    : ['fill', s.checklistId, s.templateId, s.fieldIds.slice().sort().join('+')].join(' ');
+    ? ['list', s.userId, s.since, s.templateIds.slice().sort().join('+')].join('\0')
+    : ['fill', s.checklistId, s.templateId, s.fieldIds.slice().sort().join('+')].join('\0');
 }
 
 function ensureDatabase() {
