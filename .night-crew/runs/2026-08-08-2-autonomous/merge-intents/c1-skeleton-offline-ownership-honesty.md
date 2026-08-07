@@ -156,6 +156,61 @@ tautology that always passes.
 
 ---
 
+---
+
+## G2 (Playwright) — two non-armed reds observed, investigated, ruled flake-trail
+
+The full suite (de-confined — `tests/sync-rxdb-client.spec.js` is not listed under any
+`night-crew.toml` `[e2e.seams]` key) ran 799 tests in one summary block (one `Running 799 tests`
+header, one final `2 failed / 6 skipped / 791 passed (22.5m)` triplet — confirmed via
+`grep -c "^Running "` = 1 and `grep -c "passed ("` = 1, so the run is valid, not invalidated):
+
+```
+2) [chromium] › tests/inventory.spec.js:3124:3 › Retry parse button (260607-koi) › is hidden when
+   parse_error is empty
+   Error: page.waitForLoadState: Test timeout of 30000ms exceeded.
+
+2) [chromium] › tests/sync.spec.js:1327:3 › Convergence matrix (W-3): surviving answers converge
+   across devices › checkbox answer converges (live + catch-up)
+   Error: expect(locator).toHaveClass(expected) failed — Timeout: 5000ms
+```
+
+Neither is the armed-reds baseline (`inventory.spec.js:883` B-27, `sync.spec.js:446` LST-17,
+`receipt-carousel.spec.js:123` B-162) — all three of those actually PASSED in this run
+(verified by grep: lines 223, 712, 1327 of the full log are `✓` for exactly those three tests).
+So these two are reds beyond the baseline and needed their own accounting, not a pass-through.
+
+**Could this card's diff plausibly cause them?** No: `git diff --stat 549e83a HEAD` (base of this
+branch → tip) touches exactly `tests/sync-rxdb-client.spec.js` and this run's own docs/logs —
+zero lines of `workflows.html`, zero lines of any `backend/` package, zero lines of
+`sync-rxdb/bootstrap.js` (confirmed byte-identical via `git diff --stat` before every commit,
+see Red-first §Probe B). Both failing tests are in unrelated spec files exercising unrelated
+features (a receipt pending-review card's retry-parse visibility; a cross-device checkbox
+convergence matrix) that share no code path with client construction or `window.HQSync.db`.
+
+**Reproduced?** Re-ran both, isolated, `tests/`-anchored, same env
+(`TEST_PORT=4311 TEST_DB_NAME=hq_test_c1impl HQ_RLS_TEST_DB=hq_test_c1impl_rls`), `--retries=0`:
+
+```
+npx playwright test tests/inventory.spec.js tests/sync.spec.js \
+  -g "is hidden when parse_error is empty|checkbox answer converges \(live \+ catch-up\)" \
+  --retries=0 --project=chromium
+...
+2 passed (15.2s)
+EXIT=0
+```
+
+**Did not reproduce.** Both pass cleanly in isolation. Ruled: flake-trail evidence, not a card
+failure — consistent with the gate ladder's own note that `sync.spec.js` is "the load-sensitive
+one that must not share a box" (decision 100's flake trail) and with `inventory.spec.js:3124`'s
+failure mode (a bare `networkidle` timeout at test 87-of-799-deep into a 22.5-minute run, not an
+assertion mismatch). Not silently dropped: named here, and both full-suite and isolated-rerun logs
+are committed under `c1-gates/` for anyone who wants to re-litigate the call.
+
+Log: `c1-gates/rerun-suspect-reds.log`. Full-suite log: `c1-gates/g2-pw-full.log`.
+
+---
+
 ## Nothing else
 
 No PARK condition was hit. No backend Go change. No API contract change. No `docker-compose*.yml`,
