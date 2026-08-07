@@ -224,8 +224,48 @@ Tests 2 and 3 red for the two other halves:
 ```
 
 `window.HQSync.readEnabled` is `undefined` on the pre-change tree because **no flag existed**
-(G6-F3: "the sync flag" named nothing in this repo). Green after the fix is recorded in
-`c2-gates/rf-green-postchange.log`.
+(G6-F3: "the sync flag" named nothing in this repo).
+
+**GREEN after the fix**, same command, final tree (`ba464c1`):
+
+```
+TEST_PORT=4331 TEST_DB_NAME=hq_test_c2impl HQ_RLS_TEST_DB=hq_test_c2impl_rls \
+  npx playwright test tests/sync-one-row.spec.js --project=chromium --retries=0
+  ✓ a value written by POST /saveResponse is served to the page out of RxDB, behind the flag
+  ✓ the flag is OFF by default — no database, no IndexedDB, and the surface stays absent
+  ✓ the call site holds multiple concurrent per-checklist scopes, and is idempotent per scope
+  3 passed (11.9s)
+EXIT=0
+```
+
+Log: `c2-gates/rf-green-postchange.log`.
+
+---
+
+## 🛑 THE FIRST FULL SUITE WENT RED ON THIS CARD'S OWN DEFECT — B-70, recurring
+
+Named here rather than folded into a "green" line, because it is the more useful fact about this
+card than any of the gates that passed.
+
+Leg 1 of G2 (Playwright), against `dc6e43a`, came back **1 failed** and the failure was mine:
+
+```
+✘  357 [chromium] › tests/repo-hygiene.spec.js:41:1 ›
+       no source file under sync-rxdb/ contains a NUL byte
+```
+
+`scopeKey()` in `sync-rxdb/bootstrap.js` had been written with two **literal `U+0000` bytes** as
+its field delimiter, at offsets 14032 and 14123. That is exactly **B-70**, in a new file: a raw NUL
+puts GNU grep into binary mode over the whole file, so `grep -n 'export' <file>` prints nothing and
+exits 1 on a file full of matches — which is what makes every `done_when: "grep returns nothing"`
+criterion unreliable **in the passing direction**. `client.js`'s `scopeFingerprint` carried the same
+byte and was fixed the same way on `repo-hygiene-preconditions` (run 20260806).
+
+Fixed in `42e547c` to the **escape sequence `\0`** — the same byte at runtime, so no scope key and
+no `replicationIdentifier` changes, and the file is 7-bit clean. A comment at `scopeKey()` names the
+guard and says not to tidy it back.
+
+**The guard earned itself on the milestone's spine card, on the first suite that could catch it.**
 
 ---
 
@@ -254,6 +294,62 @@ Postgres coordinates are computed — so it resolves **:5434 / `hqtest` / `yumyu
 issues `SELECT` only: no DDL, no writes. Nothing in this card, at any point, contacted :5433.
 
 ---
+
+## Gate results
+
+| Gate | Result |
+|---|---|
+| **G1** | `go build ./...` **exit 0**, `go vet ./...` **exit 0**, both from `backend/` (the module root — never the repo root, which matches no module and prints a false green). Log: `c2-gates/g1-build-vet.log` |
+| **G2 (Go)** | **exit 0.** 9 packages `ok`, **0 `FAIL`**, **454 `--- PASS:` lines**, 0 `--- FAIL:`, 2 `--- SKIP:` (`TestProxyLive_RealtimeUpgrade`, `TestProxyLive_RESTRequest` — the two live-proof skips). `internal/workflow` = **exactly 35**. Per package: alerts 3, auth 18, inventory 72, purchasing 25, receipt 73, recipes 61, sync 156, toast 11, workflow 35. 🛑 **`HQ_SYNC_SUBSTRATE_OPTIONAL` and `HQ_SYNC_GATE_CHILD` were both UNSET** — attested by `env \| grep '^HQ_SYNC_'` printing nothing at the head of the log, not by "I didn't set it". DB `hq_test_c2impl_go` on **:5434** (`yumyums-test-pg`, role `hqtest`). Log: `c2-gates/g2-go.log` |
+| **G2 (Playwright)** | De-confined to the **full suite** (this card touches `workflows.html`). `npx bddgen` first, exit 0 (B-165). **Two legs, ONE summary block each** (`grep -c '^Running '` = 1 per log), 802 tests each — 799 before this card plus its 3. **Leg 1 (`dc6e43a`): 795 passed / 1 failed / 6 skipped, 23.0m** — the failure is the B-70 NUL defect above. **Leg 2, final tree (`ba464c1`): 795 passed / 1 failed / 6 skipped, 22.4m.** See the red accounting below |
+| **G3** | **N/A** — `openspec: absent`, ledger T-34 decision 140. No scaffolding created |
+| **G4** | `node build-sw.js` **exit 0**, run **after** each commit (it reads git HEAD). **Idempotent — byte-identical `sw.js` across consecutive runs** (`md5sum` 7b3cc7d1… both times), tree clean on the repeat. **Precache count 31 — UNCHANGED, and deliberately so:** this card adds no precached asset (the dev surface is an inline `<script type="module">` in `workflows.html`; `sync-rxdb/bootstrap.js` was already precached), only their content hashes moved. Verified in the artifact itself, not just the tool's own line: 31 `url:` keys and 31 `revision:` keys in `sw.js`. Import reachability: 18 precached files parsed, 31 local references resolved, **0 outside the precache**. Log: `c2-gates/g4-build-sw.log` |
+| **RF** | Red before, green after — above. Logs: `c2-gates/rf-red-prechange.log`, `c2-gates/rf-green-postchange.log` |
+
+### The armed-reds baseline: all three PASSED, on BOTH legs
+
+`tests/inventory.spec.js:883` (B-27), `tests/sync.spec.js:446` (LST-17) and
+`tests/receipt-carousel.spec.js:123` (B-162) were **`✓` in both full-suite logs** (leg 1 lines 229 /
+1317 / 724; leg 2 lines 226 / 1305 / 707). None of them occurred, so none of them is doing any work
+to explain either leg's failure. **They stay armed** — an armed red is retired by diagnosis, never
+by passing (decision 100; T-31 decision 120; T-42 reaffirmed all three after the same flip-flop).
+
+### The one non-armed red on the final leg — investigated, did not reproduce
+
+```
+✘  416 [chromium] › tests/sw-api-cache-partition.spec.js:92:1 ›
+       offline, user B is served user A cached /api/v1/users roster from api-cache [B1-XT-01]
+
+    expect(received).toBe(expected)   Expected: true   Received: false
+    > 118 |   expect(keysAfterA.some(u => u.includes('/api/v1/users'))).toBe(true);
+```
+
+**Could this card's diff plausibly cause it?** No, on three independent grounds.
+
+1. **It PASSED on leg 1**, at the identical position (416), on a tree differing only by the `\0`
+   delimiter fix — a change with no runtime effect at all (same byte). Log line 998 of
+   `c2-gates/g2-pw-full.log`: `✓ 416 … [B1-XT-01] (6.4s)`.
+2. **Subject matter is disjoint.** The test drives `users.html` and the service worker's *runtime*
+   `api-cache` NetworkFirst route. This card changed `sync-rxdb/bootstrap.js`, the bottom of
+   `workflows.html`, tests, a `night-crew.toml` comment, and `sw.js`'s **precache hashes** — the
+   runtime api-cache route is not derived from the precache manifest and is byte-unchanged.
+3. **The assertion that failed is a timing one, not a content one.** Line 118 asserts the roster
+   URL is *already present* in the cache; the SW's runtime cache write had not landed yet. Nothing
+   about the cached content was wrong.
+
+**Reproduced?** No. Re-run isolated, `tests/`-anchored (B-87), same isolation env, `--retries=0`,
+**twice**:
+
+```
+npx playwright test tests/sw-api-cache-partition.spec.js --project=chromium --retries=0
+  3 passed (23.7s)   RUN1_EXIT=0
+  3 passed (23.4s)   RUN2_EXIT=0
+```
+
+Log: `c2-gates/rerun-suspect-red.log`. **Ruled flake-trail evidence, not a card failure** — and
+named here rather than dropped, so it can be re-litigated. It is a **new** entry in the flake trail
+(not B-27/B-30/B-32/B-162's family, which are inventory/receipt-side); if it recurs it should be
+filed and armed by diagnosis, per decision 100.
 
 ## Nothing else
 

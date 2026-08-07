@@ -267,12 +267,51 @@ count or closeout substitutes for that run.
 > Only the legs Activity 2 proved. The skeleton exists from here on and **grows into** the demo
 > script rather than being authored at the end. **Trace:** Product + Engineering objectives.
 
-- **`skeleton-one-row-end-to-end`** · **PLANNED** (slated: `20260808-2` C2) · Thread **one** checklist row from the real
-  write path to an RxDB-served read in dev, behind an explicit flag, with the two list views and
-  the fill view all still on REST. The first production call site of `createHQSyncDatabase()` and
-  `startHQReplication()` in the repo's history. Must carry decision 126's shape verbatim (reads
-  on RxDB, `/saveResponse` and `/submit` keep owning writes) and cite it, per the standing rule
-  that a build WO may not propose the split itself. Footprint: page wiring + sync client.
+- **`skeleton-one-row-end-to-end`** · **DONE** (run `20260808-2`, card **C2**, branch
+  `card/c2-skeleton-one-row-end-to-end`; commits `bf9ed24` (merge-intent + RF red, first),
+  `dc6e43a` (the skeleton), `53e2fbd` (sw), `42e547c` (B-70 fix), `ba464c1` (sw)) · Threads **one**
+  checklist row from the real write path (`POST /api/v1/workflow/saveResponse`) to an RxDB-served
+  read on `/workflows.html`, behind an explicit flag, with both list views and the fill view still
+  on REST. **The first production call site of `createHQSyncDatabase()` and `startHQReplication()`
+  in this repo's history.**
+  **THE FLAG (G6-F3 found "the sync flag" naming nothing in the tree): `hq_sync_read`**, defined as
+  `SYNC_READ_FLAG` in `sync-rxdb/bootstrap.js`, stored in `localStorage` with value exactly `'on'`,
+  settable+persistable from the URL (`?hq_sync_read=on` / `=off`) so a crew phone with no devtools
+  can drive it, **default OFF in every environment**, resolved once synchronously at module load.
+  **C1's flag-off contract is kept by construction, not by timing:** `openSyncScope()` refuses
+  SYNCHRONOUSLY — it throws before returning a promise, before `createHQSyncDatabase` is
+  referenced, before any `await` — so no path even *begins* async database creation with the flag
+  off (answers G6-F1's "samples early and is timing-blind" directly). No memory-backed RxDB
+  instance is introduced anywhere, so the guard's Dexie-only IndexedDB scan stays sufficient
+  (G6-F2). Cites **decision 126** verbatim at the call site (RxDB serves READS; `/saveResponse` +
+  `/submitChecklist` keep owning ALL writes — carried, not proposed), **decision 105** (scoped,
+  never pulled whole), and **spike E's condition (T-42)** verbatim — this card polls nothing, so
+  no explicit resync step is required, and the call site says so for whoever changes the relay.
+  Shaped for **T-43(c)**: one shared promise-memoised database, one registry entry per scope,
+  multiple different scopes live at once, the same scope twice returning the SAME handle, per-scope
+  `cancel()` — **C3 builds the fill view on this without changing it**. Nothing here decides the My
+  Checklists read path (**T-43(b)**, still OPEN); Approvals stays on re-fetch (**T-43(a)**).
+  RF: the new end-to-end test RED on the pre-change tree (`3 failed`, EXIT=1) with the red landing
+  only at the missing surface — the real `/saveResponse`, the submit that moves the draft onto a
+  submission, and a psql read-back asserting exactly one persisted row with `value=true` all passed
+  unmodified — then GREEN (`3 passed`, EXIT=0) after.
+  🛑 **The first full suite went RED on this card's own defect and it is recorded, not buried:**
+  `tests/repo-hygiene.spec.js:41` caught two raw `U+0000` bytes the card wrote into
+  `sync-rxdb/bootstrap.js`'s `scopeKey()` — **B-70 recurring in a new file** (a raw NUL puts grep
+  into binary mode, which is what makes `done_when: "grep returns nothing"` unreliable in the
+  passing direction). Fixed to the `\0` escape (same byte at runtime, no key or identifier
+  changes), commit `42e547c`. Gates: G1 build+vet clean; G2 (Go) 9/9 packages ok, 0 FAIL, 454
+  `--- PASS:` lines, `internal/workflow` exactly 35, 2 live-proof skips,
+  `HQ_SYNC_SUBSTRATE_OPTIONAL` / `HQ_SYNC_GATE_CHILD` both unset; G2 (Playwright) de-confined to
+  the full suite, ONE summary block both legs — leg 1 (`dc6e43a`) 802 tests, 795 passed / 1 failed
+  / 6 skipped in 23.0m with all three armed reds PASSING (`inventory:883` B-27, `sync:446` LST-17,
+  `receipt-carousel:123` B-162), the single failure being the NUL defect above; leg 2 on the final
+  tree recorded in the gate log. G4 idempotent (byte-identical `sw.js` across runs), precache count
+  **31 — unchanged, and correctly so: this card adds no precached asset** (the dev surface is an
+  inline module block; `sync-rxdb/bootstrap.js` was already precached). `night-crew.toml`'s
+  `[e2e.seams]` roll-call gained `sync-one-row.spec.js` and `repo-hygiene`'s count went 9→10 — **no
+  key and no token changed**; the guard fired as designed and an Operations-confined card now costs
+  ten spec files. Logs: `.night-crew/runs/2026-08-08-2-autonomous/c2-gates/`.
 
 - **`skeleton-offline-ownership-honesty`** · **DONE** (run `20260808-2`, card **C1**, branch
   `card/c1-skeleton-offline-ownership-honesty`; commits `b1d1bb7` (merge-intent + RF, first),
