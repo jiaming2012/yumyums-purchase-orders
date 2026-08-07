@@ -58,6 +58,13 @@ GREEN verdicts keep reproducing byte-for-byte.
    ephemeral port is re-checked against `5432/5433/5434` at runtime. :5433 is the
    PRODUCTION cluster; a probe there destroyed the prod DB on 2026-08-06.
 5. **The mechanism finding**, recorded in the run's HANDOFF regardless of colour.
+6. **The double-fire finding**, recorded in `spikec_relay.go` beside the code it affects:
+   ONE call to `/saveResponse` fires the relay **twice** for the same response row —
+   `workflow/repository.go:826` (the save) and `sync/ops.go:148`
+   (`UPDATE submission_responses SET lamport_ts`, EmitOp's LWW stamp). A row-level
+   trigger cannot tell them apart, so any change-data-capture mechanism on this table
+   sees 2× the write volume a reader would predict. Harmless here only because the
+   projection is an idempotent upsert. The cutover card inherits the decision.
 
 ## What is safe to drop
 
@@ -108,9 +115,30 @@ That capture is reproducible on demand at any later date with:
   the RxDB collection; the read leg exited 1 on its own deadline with
   `no relay is running`.
 - proof the red is *the mechanism* and not a broken harness: legs 1–8 all PASS in the
-  same log (substrate up, scratch Postgres healthy on an ephemeral port, 74 migrations
-  applied, superadmin login 200, `/saveResponse` 200, the row present in HQ Postgres,
-  the RxDB client replicating and holding spike A's baseline rows) — the harness is
+  same log — substrate up (spike A GREEN, reconcile), scratch Postgres healthy on
+  ephemeral port 51693, **75 goose versions / 52 public tables applied by HQ's own
+  binary**, `POST /api/v1/auth/login` HTTP 200 with a real `hq_session` cookie, a real
+  text field resolved from the seeded template (`Notes [text]`),
+  `POST /api/v1/workflow/saveResponse` **HTTP 204**, and — the load-bearing line —
+  `HQ Postgres holds 1 row(s) carrying the sentinel`. The RxDB client was live and
+  replicating before the write and held **0 docs**, which is *correct*: spike A's
+  fixture rows are owned by `hq-user-alice`/`hq-user-bob`, and this run's token carries
+  HQ's real uuid, so the identity axis of the RLS policy hides them. The harness is
   demonstrably alive on both sides of a gap that nothing bridges.
+- teardown on the red path **verified** `hq_sync_checklists` and `hq_grant_projection`
+  byte-identical to the pre-run baseline — i.e. the recovery path B-148 flagged as
+  never re-rehearsed was exercised on the red run, not only the green one.
 
-The same command with the relay armed is the green run; both logs are committed.
+**Green run:** the same command with the relay armed —
+`.night-crew/runs/2026-08-07-2-autonomous/card-c-spike-verdict.log`, exit **0**,
+round trip closed in **248 ms** against a 20 000 ms bound. Both logs are committed.
+
+**One harness defect the first armed run surfaced, fixed and worth carrying forward:**
+the server was started in a subshell, so `$!` was the subshell's pid and teardown's
+`kill` left the server running as an orphan bound to the port. The next run's health
+poll went green in milliseconds against that orphan while its own migrator was three
+migrations in, and the script reported "the migrator did not run" against a foreign
+database. Fixed both ways — `env … binary &` so the pid is the server, plus a pre-flight
+refusal if anything already answers on the port. This is the same class
+`playwright.config.js` documents at length for `reuseExistingServer`; any future card
+that spawns a server from a shell should copy both halves.
