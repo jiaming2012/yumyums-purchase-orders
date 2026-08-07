@@ -313,7 +313,10 @@ docker info >/dev/null 2>&1 || cannot_run "the Docker daemon is not reachable �
 [ -f "$HQ_COMPOSE" ] || cannot_run "compose file missing: $HQ_COMPOSE"
 [ -f "$SPIKE_DIR/rxdb/spike-c-read.js" ] || cannot_run "spike asset missing: rxdb/spike-c-read.js"
 [ -f "$SPIKE_DIR/sql/spike-c-relay-trigger.sql" ] || cannot_run "spike asset missing: sql/spike-c-relay-trigger.sql"
-[ -d "$SPIKE_DIR/rxdb/node_modules" ] || cannot_run "rxdb/node_modules is missing — run env-up.sh (spike A) first; it installs the harness"
+# NOTE: rxdb/node_modules is deliberately NOT asserted here. env-up.sh is what
+# installs it, and it runs in the very next step — asserting it in preflight
+# makes a first run on a clean machine fail for a reason the next step would
+# have fixed. It is asserted after the substrate leg instead.
 
 # 🛑 ISOLATION ASSERTION, NOT A COMMENT.
 if grep -Eq '^[[:space:]]*-[[:space:]]*"?(5432|5433|5434):' "$HQ_COMPOSE"; then
@@ -329,6 +332,8 @@ step "substrate — spike A's Supabase + RxDB environment (RECONCILE, never dest
 echo "  delegating to env-up.sh (${SUBSTRATE_ARGS[*]:-reconcile}); its exit status gates this leg"
 "$SPIKE_DIR/env-up.sh" "${SUBSTRATE_ARGS[@]}" \
   || cannot_run "the substrate did not come up — env-up.sh returned non-zero. Its own output above names the leg."
+
+[ -d "$SPIKE_DIR/rxdb/node_modules" ] || cannot_run "rxdb/node_modules is still missing after env-up.sh — the RxDB harness cannot run"
 
 REST_PORT="$(docker compose -p spike-supabase --project-directory "$ANCHOR" \
   -f "$REPO_ROOT/docker-compose.supabase.yml" port rest 3000 2>/dev/null | sed 's/.*://')"
