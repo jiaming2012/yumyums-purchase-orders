@@ -618,10 +618,27 @@ function assertDateFloor(value) {
 //     widen `templates` to every non-archived row). C-2 requires a recorded
 //     decision to widen, and forgetting an argument is not one.
 //   * It appears in NO FILTER CLAUSE — `scopeFilterFor`'s fill branch is
-//     byte-unchanged. Access is RLS's job (`checklist_submissions_select` is
+//     byte-unchanged. VISIBILITY is RLS's job (`checklist_submissions_select` is
 //     `hq_can_see_template(template_id)`, read live per row through the FDW); the
 //     client scope is a BOUND, the server is the GATE, and a per-user clause here
 //     would be a client-side access claim.
+//
+//     🛑 BUT "RLS IS THE GATE" IS A CLAIM ABOUT VISIBILITY, NOT ABOUT AUTHORSHIP,
+//     and an earlier draft of this block said it flatly enough to be read as
+//     both. G6 finding F-D on card `activate-fill-view-reads`. For
+//     `submission_responses` the policy is `hq_can_see_field(field_id)`
+//     (sync-schema/sql/0003_rls_policies.sql:269) — FIELD-level, deliberately,
+//     because a draft has no submission and a submission-scoped policy would
+//     leave the one collection that MUST sync unreachable. So ANOTHER crew
+//     member's null-submission draft on a field I can see REPLICATES TO MY
+//     DEVICE, correctly and by design. Nothing in this file filters it and
+//     nothing in this file should: `scope.userId` narrows the CHECKPOINT, not
+//     the result set. What keeps a foreign draft off the screen is the
+//     READ SITE — `acceptedFillDocs` in `workflows.html`, which admits a row only
+//     when `submission_id` is the open checklist or the row is a null-submission
+//     draft whose `answered_by` is the current user. That was G6 finding F-A,
+//     and it is named here so the next reader of this block does not conclude
+//     the server already did it.
 //   * It goes into `scopeIdentity()`, hence the fingerprint, hence
 //     `replicationIdentifier`, hence the checkpoint key.
 //

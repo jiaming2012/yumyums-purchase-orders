@@ -1392,8 +1392,12 @@ test.describe('[SCOPE-02] the checkpoint is per-scope, not per-table (F-1)', () 
 //
 //     The resolution is SCOPE-03's own convention, applied to the fill scope:
 //     `userId` is REQUIRED, it appears in NO FILTER CLAUSE (no replicated table
-//     carries a queryable per-user key — RLS is the gate, the client scope is the
-//     bound), and it goes into the scope's IDENTITY. That NARROWS the checkpoint
+//     carries a queryable per-user key — RLS gates VISIBILITY, the client scope
+//     is the bound), and it goes into the scope's IDENTITY. 🛑 RLS does NOT gate
+//     AUTHORSHIP: `submission_responses_select` is `hq_can_see_field(field_id)`,
+//     so another crew member's draft on a field I can see replicates to my
+//     device correctly — keeping it off the SCREEN is the read site's job
+//     (`acceptedFillDocs`, workflows.html; G6 finding F-A). That NARROWS the checkpoint
 //     namespace — more identifiers, each over a subset — so decision 105 is
 //     satisfied rather than amended, and no substrate schema or policy change is
 //     involved (decision 111's four rows are untouched).
