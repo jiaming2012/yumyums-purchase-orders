@@ -267,14 +267,14 @@ count or closeout substitutes for that run.
 > Only the legs Activity 2 proved. The skeleton exists from here on and **grows into** the demo
 > script rather than being authored at the end. **Trace:** Product + Engineering objectives.
 
-- **`skeleton-one-row-end-to-end`** · **PLANNED** · Thread **one** checklist row from the real
+- **`skeleton-one-row-end-to-end`** · **PLANNED** (slated: `20260808-2` C2) · Thread **one** checklist row from the real
   write path to an RxDB-served read in dev, behind an explicit flag, with the two list views and
   the fill view all still on REST. The first production call site of `createHQSyncDatabase()` and
   `startHQReplication()` in the repo's history. Must carry decision 126's shape verbatim (reads
   on RxDB, `/saveResponse` and `/submit` keep owning writes) and cite it, per the standing rule
   that a build WO may not propose the split itself. Footprint: page wiring + sync client.
 
-- **`skeleton-offline-ownership-honesty`** · **PLANNED** · Close **B-88**. The rule *"nothing may
+- **`skeleton-offline-ownership-honesty`** · **PLANNED** (slated: `20260808-2` C1) · Close **B-88**. The rule *"nothing may
   read from RxDB on a code path that can execute offline"* is enforced by three
   `expect(src).not.toContain(…)` assertions over **source text** — and `workflows.html:3590` reads
   `window.HQSync.db`, **a fourth route the guard does not name**. It is green today only because
@@ -289,18 +289,24 @@ count or closeout substitutes for that run.
 > **Trace:** Product objective. Carries the riders the retired card left behind: **B-63, B-64,
 > B-66–B-69, B-79**.
 
-- **`activate-fill-view-reads`** · **PLANNED** · The checklist fill view reads from RxDB, scoped
-  per-open-checklist (T-29 decision 105 — replication scope is **never** all collections at once,
-  and no card may widen it without a recorded decision). Footprint: page wiring + sync client.
+- **`activate-fill-view-reads`** · **PLANNED** (slated: `20260808-2` C3) · The checklist fill
+  view reads from RxDB, scoped per-open-checklist (T-29 decision 105 — replication scope is
+  **never** all collections at once, and no card may widen it without a recorded decision).
+  🛑 **Hard requirement (operator, ledger T-43c):** crew members work multiple checklists
+  concurrently (setup + food prep) — multiple live fill replications at once ARE the design,
+  one per open checklist, cancelled on close; regression test drives two concurrent fill
+  scopes (B-63's lead). Carries spike E's condition (T-42): trusted checkpoint catch-up is
+  valid only while the relay stays trigger/NOTIFY-driven. Footprint: page wiring + sync client.
 
-- **`activate-list-views-or-state-they-stay-rest`** · **PLANNED** · Resolve **B-43**, which has
-  never been decided: `scope.checklistId` is **mandatory and singular**, but the page a crew
-  member lands on is **My Checklists** — a list over *many* submissions — and Approvals is a
-  second. Either those two views stay on REST (the cutover is partial **by design**, stated) or
-  someone records a C-2 widening. 🛑 **Decide it; do not discover it while wiring.** Carries
-  **B-63**: two concurrent replications over the same four local collections, where
-  `client.js`'s standing *"CANCEL BEFORE RE-SCOPING"* banner would break the live list if followed
-  literally. Footprint: page wiring + sync client.
+- **`activate-list-views-or-state-they-stay-rest`** · **PLANNED** (slated: `20260808-2` S1,
+  reshaped as `list-views-decision-recording`) · **B-43 partially ruled at ledger T-43:**
+  Approvals stays on re-fetch (recorded); 🛑 **the My Checklists read path is deliberately
+  OPEN — the operator declined to rule it, and no card may decide it.** The card's remaining
+  job: record the Approvals ruling and the open remainder in the code that lies about them
+  today — fix B-64's stale `bootstrap.js` scope banner and restate the cancel rule as
+  *"cancel before re-scoping THE SAME shape"* (B-63's corrected wording, T-43c) — after the
+  fill-view lifecycle exists. Closes B-64; closes B-63 jointly with `activate-fill-view-reads`'
+  concurrent-fill test. Footprint: page wiring + sync client.
 
 ---
 
@@ -308,7 +314,7 @@ count or closeout substitutes for that run.
 
 > **Trace:** Delivery objective. This activity is the milestone's definition of done.
 
-- **`demo-sync-target`** · **PLANNED** · Ship `task demo:sync` as a **first-class deliverable**:
+- **`demo-sync-target`** · **PLANNED** (slated: `20260808-2` S2, budget-gated stretch) · Ship `task demo:sync` as a **first-class deliverable**:
   scripted-fresh environment (from Spike A), one field written through `/saveResponse`, surfacing
   in an RxDB-served read, on one real checklist. Non-zero exit on any failed leg. 🛑 **"Could not
   run" must render as an outcome distinct from "ran and failed"** — a demo that silently no-ops

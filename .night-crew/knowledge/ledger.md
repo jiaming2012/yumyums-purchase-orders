@@ -3231,3 +3231,29 @@ Triage dispositions decided at role level (stated, not asked, per standing pract
   merge is the ritual's standard act), so nothing was routed at triage either. Preference
   coverage reads truthfully over an empty log: the run had no gray areas for a preference to
   address.
+
+## T-43 — Slate-planning resolutions (2026-08-07 evening, slate `20260808-2`)
+
+Attended `/nc-slate-plan --hours 8` session; three rulings taken inline at the fork gate,
+before sign-off, all operator's own answers (AskUserQuestion, phrasing-checked):
+
+- **(a) Approvals tab stays on re-fetch** — partial resolution of **B-43**. The Approvals
+  list keeps today's REST fetch; it is not sync-served, and the cutover is partial by
+  design on that tab. Recorded, not deferred.
+- **(b) The My Checklists read path is deliberately left OPEN** — the operator explicitly
+  declined to rule it tonight ("Approvals only; keep My Checklists open"). 🛑 **No card may
+  decide it**; a card that cannot proceed without the answer parks. B-43 therefore stays
+  partially open with a named remainder, not silently carried.
+- **(c) Concurrent multi-checklist fill work is a RECORDED PRODUCT REQUIREMENT** — the
+  operator, verbatim intent: crew members work multiple checklists at the same time (a
+  setup checklist and a food-preparation checklist concurrently). This resolves **B-63**'s
+  direction: multiple live per-checklist fill replications at once ARE the design — one per
+  open checklist, cancelled on close, checkpoints per-identifier — and the standing
+  *"CANCEL BEFORE RE-SCOPING"* banner is to be restated as *"cancel before re-scoping THE
+  SAME shape"* (jointly B-63/B-64, rides cards C3/S1 of slate `20260808-2`).
+
+Also decided at this session: **dispatch mode SERIAL** (both projections shown — serial 3
+cards above the line w/ ~70m margin vs concurrent 4 w/ ~50m; operator chose serial), and
+the **workflow-preflight verdict recorded** (openspec absent, exit 0 → universal mechanics
+only in the launch prompt). Slate: `reference/slate-20260808-2.md`; launch prompt:
+`reference/launch-20260808-2.md`. Sign-off GRANTED same session.
