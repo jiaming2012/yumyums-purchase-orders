@@ -48,13 +48,14 @@
 //     card that depends on it has been reviewed. The flag is what keeps that
 //     true for every crew device while the skeleton is driven in dev.
 //
-// 🛑 THIS FILE'S REMAINING STALE BANNER IS B-64's, NOT THIS CARD'S. The scope
-// banner on `startReplication` below still needs the "cancel before re-scoping
-// THE SAME shape" restatement (B-63/B-64, ledger T-43(c)); that is card
-// `list-views-decision-recording` (S1), which the slate deliberately sequences
-// AFTER the lifecycle it documents exists. Only the two sentences C2's own diff
-// falsified are corrected here — a card does not silently absorb another card's
-// deliverable, and it does not leave a sentence its own code made false.
+// 🛑 B-64 IS FIXED (card `list-views-decision-recording`, S1, run 20260808-2).
+// The scope banner on `startReplication` below now names both scopes, states
+// what's live/REST/open today, and carries the "cancel before re-scoping THE
+// SAME shape" restatement (B-63/B-64, ledger T-43(c)). Kept as a note rather
+// than deleted so a future reader sees why C2's own diff did not fix it: only
+// the two sentences C2's diff falsified were C2's to correct; the rest was
+// S1's, deliberately sequenced AFTER the lifecycle it documents so it could
+// state what is actually live rather than predict it.
 //
 // What IS done here is the adoption decision 59 was waiting for: a production
 // page finally IMPORTS `vendor/rxdb.bundle.js`, so the bundle is now a real
@@ -417,13 +418,49 @@ const HQSync = {
   // the default and the only implementation; a test replaces it to force the
   // storage failure C2's G6 could not force (finding F-1), and restores it.
   createDatabase: createHQSyncDatabase,
-  // 🛑 REQUIRES a scope — `startReplication(db, client, {scope:{userId,
-  // checklistId, templateId, fieldIds}})`. It throws without one, and `userId`,
-  // `checklistId` AND `templateId` are ALL THREE mandatory (`userId` since C3 —
-  // C2's G6 finding F-2). Replication is scoped to the open checklist and is
-  // never pulled whole (preference architecture/C-2, ledger T-29 decision 105);
-  // a default would widen that silently.
-  // 🛑 CANCEL the previous states before starting a re-scoped replication.
+  // 🛑 REQUIRES a scope — TWO SHAPES, validated by `normalizeScope`. The shape
+  // of record is `sync-rxdb/client.js`'s `startHQReplication` docblock and its
+  // REPLICATION SCOPE design block above it; not restated field-by-field here
+  // so there is ONE copy to go stale rather than two (B-64's own lesson):
+  //
+  //   FILL  `{userId, checklistId, templateId, fieldIds}` — one open checklist.
+  //   LIST  `{mode:'list', userId, since, templateIds}` — a list view, per-user
+  //         with a date floor (ledger T-29 decision 105, amended 2026-08-02).
+  //
+  // `startReplication` throws without a scope, synchronously; a default would
+  // widen decision 105 silently.
+  //
+  // 🛑 WHAT IS LIVE TODAY (ledger T-43, run 20260808-2):
+  //   * C2's one-row dev surface (`#sync-one-row` in `workflows.html`), behind
+  //     the `hq_sync_read` flag — OFF by default in every environment.
+  //   * C3's checklist FILL view: one replication PER OPEN CHECKLIST, many live
+  //     at once — a setup checklist and a food-prep checklist worked
+  //     concurrently is a recorded product requirement (T-43(c)) — each
+  //     cancelled on close (`workflows.html`'s `HQFillSync`).
+  //
+  // 🛑 WHAT STAYS REST, TODAY, REGARDLESS OF THE FLAG:
+  //   * BOTH list views. Neither `renderMyChecklists()` nor the Approvals tab
+  //     is served by this module; both still render from a fetch.
+  //   * Approvals, specifically, BY RULING — ledger T-43(a): the Approvals tab
+  //     stays on re-fetch, a partial resolution of B-43, recorded rather than
+  //     silently carried.
+  //
+  // 🛑 WHAT IS OPEN — T-43(b), THE OPERATOR'S RULING, NOT A GAP THIS COMMENT
+  // FILLS: the My Checklists read path. The operator explicitly declined to
+  // rule it this cycle ("Approvals only; keep My Checklists open") — no card
+  // may decide it or predict an outcome; a card that cannot proceed without
+  // the answer parks. (Card `list-views-decision-recording`, S1, run
+  // 20260808-2 — this banner's own card — did not need to decide it to write
+  // this.)
+  //
+  // 🛑 CANCEL BEFORE RE-SCOPING THE SAME SHAPE (B-63/B-64's corrected wording,
+  // ledger T-43(c) — replaces the earlier "cancel before re-scoping", full
+  // stop, which under two-plus concurrent shapes read as "opening a second
+  // checklist must cancel the first" and is exactly what T-43(c) overturns).
+  // `openSyncScope()` makes re-opening a shape you already hold a no-op (the
+  // registry returns the existing handle); the rule is about a caller that
+  // bypasses the registry or forgets `.cancel()` for the SAME shape, not about
+  // holding several DIFFERENT shapes at once — that is the design, not a leak.
   startReplication: startHQReplication,
 
   // ── The walking skeleton (card `skeleton-one-row-end-to-end`, C2). ────────
