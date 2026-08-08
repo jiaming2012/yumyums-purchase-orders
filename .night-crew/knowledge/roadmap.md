@@ -40,6 +40,19 @@ and renders **"could not run" as an outcome distinct from "ran and failed."** �
 may not close until the operator has personally run it and seen it pass.** No KR grade, card
 count or closeout substitutes for that run.
 
+> 🛑 **Bar corrected 2026-08-08 (operator, morning triage of `20260809`; decision 161).** The
+> paragraph above is what was *chosen at the roadmap round* — a scripted-fresh throwaway
+> environment. Triage established that `task demo:sync` clears that letter but leaves the sync
+> capability **running in no persistent environment**: `HQ_SYNC_REST_URL`/`HQ_SYNC_REALTIME_URL`
+> are set nowhere, so the in-server `/sync/*` proxy answers 503 in `dev`, `dev:tailscale` and
+> prod; the substrate and relay exist only inside the demo's throwaway stack, torn down the moment
+> it exits. The operator's own intent (lines 31–34) — *"the sync capability running in my dev
+> environment … something I can actually use"* — is therefore **not** met by the demo alone.
+> **`dev complete` now means: sync runs in the operator's persistent dev environment and is usable
+> in the app.** The demo (`demo-sync-target`, DONE) stands as the data-plane proof; the card
+> `sync-live-in-dev` below is the work that makes the capability live and usable, and it must land
+> before `dev-complete-attestation`.
+
 ## How this roadmap works
 
 - **Activity-level cards**, WO-sized, each carrying a module footprint and a KR trace.
@@ -485,9 +498,53 @@ count or closeout substitutes for that run.
   would reproduce the exact class this milestone exists to retire. Footprint: spike scripts +
   page wiring.
 
-- **`dev-complete-attestation`** · **PLANNED** · 🛑 **Attended, and the operator's own act.** The
-  operator runs `task demo:sync` in dev and records the outcome in `ledger.md`. **The milestone
-  does not close without this line.** No card, grade or closeout substitutes for it.
+- **`sync-live-in-dev`** · **PLANNED** · The real dev-complete deliverable (decision 161, morning
+  triage 2026-08-08): make the RxDB sync capability **run in the operator's persistent dev
+  environment** and be **usable in the app** — not only inside `demo:sync`'s throwaway stack. Three
+  legs:
+  1. **Persistent substrate + relay.** Bring up the Spike A substrate (PostgREST + Realtime) and
+     the `cmd/spikec-relay` LISTEN/NOTIFY forwarder as a **persistent dev service** (compose
+     service + a `task` target), so the data plane stays up between runs instead of being spun up
+     and torn down per `demo:sync`.
+  2. **Config wiring.** Set `HQ_SYNC_REST_URL` / `HQ_SYNC_REALTIME_URL` in the `backend:dev` /
+     `dev:tailscale` / `dev:lan` env so the in-server `/sync/*` proxy door **opens** — today it
+     answers 503 in every environment because those vars are set nowhere.
+  3. **App-surface proof.** Drive the **real browser** (`workflows.html`, `hq_sync_read` ON)
+     against the persistent substrate so one field entered in the app surfaces via RxDB
+     replication **in the app** — replacing the demo's Node RxDB read client with the actual app
+     surface (closes the read-surface gap T-44 recorded).
+
+  done_when:
+  - Starting the dev stack opens the substrate door: with the persistent substrate + relay up and
+    `HQ_SYNC_*` set, a request to `/sync/rest/…` through the running dev server returns **200, not
+    503** — check: bring up the dev stack, `curl` the proxy path, assert non-503.
+  - The relay carries a real write to the substrate: a field written via `/saveResponse` appears
+    in the substrate within the Spike-A convergence bound — check: write through the running dev
+    server, poll the substrate, assert the row arrives.
+  - The **app** shows the round trip: a Playwright spec drives `workflows.html` against the live
+    substrate (no `page.route` stub), enters one field, and asserts it surfaces via RxDB
+    replication in the app — **red-first**: the same spec fails when the relay is stopped — check:
+    run the spec with the relay up (pass) and down (fail).
+  - The operator can open `workflows.html` in their own dev environment (`dev:tailscale`) and see
+    a field sync — check: manual attested step, folded into `dev-complete-attestation`.
+
+  Footprint: `docker-compose*.yml` (persistent substrate + relay service), `backend/Taskfile.yml`
+  (dev targets + `HQ_SYNC_*` env), `cmd/spikec-relay` wiring, `sync-rxdb/*` + `workflows.html` read
+  path, a new Playwright spec (`night-crew.toml` seam entry required so the app-surface test is in
+  a card's footprint). KR trace: Delivery objective — Activity 5, corrected close bar.
+  🛑 **Spike gate (B-345 spike↔script rule):** leg 3 (real browser against the real substrate) is
+  the one integration the milestone never spiked — C3's fill-view stubs the substrate, and the demo
+  used a Node client precisely because browser-against-real-substrate was "unproven novel
+  integration." Run `/nc-spike` on that leg **before** this card is slated; the other two legs
+  (persistent substrate/relay, config wiring) are proven mechanics and need no spike.
+
+- **`dev-complete-attestation`** · **PLANNED** · 🛑 **Attended, and the operator's own act.** Per
+  the corrected bar (decision 161), this is no longer "run `task demo:sync`" alone: the operator
+  opens `workflows.html` in their dev environment (`dev:tailscale`, against the persistent
+  substrate delivered by `sync-live-in-dev`), sees a field sync in the app, and records the outcome
+  in `ledger.md`. `task demo:sync` remains the data-plane self-check; the attestation is now the
+  app-surface read. **The milestone does not close without this line.** No card, grade or closeout
+  substitutes for it.
 
 ---
 

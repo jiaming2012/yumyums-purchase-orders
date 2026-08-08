@@ -3339,3 +3339,38 @@ Three worktrees hold pre-existing unmerged work, none tonight's cards — `works
 feat May 17, the frozen-release model), and `worktree-agent-ae9998ae` (4 commits, shared-API-client
 `260703-uu2`, Jul 3–4, genuinely stranded). Each is the operator's call; none proposed for merge
 (B-133). No new decision number assigned — the run parked no fork and routed no gray area.
+
+### T-44 addendum (same attended session) — "dev complete" redefined to the operator's intent; card `sync-live-in-dev` cut (decision 161)
+
+The read-surface awareness item, pressed further in the same triage sitting, surfaced a gap the
+T-44 disposition **undersold**: it framed the miss as "Node RxDB client vs browser UI," but the
+real gap is that the sync data plane runs in **no persistent environment at all**.
+`HQ_SYNC_REST_URL`/`HQ_SYNC_REALTIME_URL` are set **nowhere** in the tree (verified across every
+`Taskfile*.yml`, `.env`, `docker-compose*.yml`), so the in-server `/sync/*` proxy fails closed
+(503) in `dev`, `dev:tailscale` and prod (`cmd/server/main.go:436-438`); the substrate (PostgREST
++ Realtime, `env-up.sh`) and the relay (`cmd/spikec-relay`, a separate binary) are stood up only
+inside `demo:sync`'s throwaway stack and torn down when it exits. `task backend:dev:tailscale` runs
+the same HQ binary — so it carries the sync *endpoints* (`/ops`, `/ws`, `/api/v1/sync/token`, the
+`/sync/*` proxy) — but with the door closed and no substrate/relay running, its RxDB data plane is
+dark. The demo proves the capability *works*; it does not make it *usable*.
+
+- **Decision 161 — `dev complete` is redefined to the operator's stated intent, not the chosen
+  demo bar.** The roadmap round's close bar ("`task demo:sync` stands up a scripted-fresh
+  environment") was a narrowing of the operator's own user story (roadmap.md:31-34: *"the sync
+  capability running in my dev environment … something I can actually use"*). Presented the
+  letter-vs-intent fork with concrete scenarios; **operator ruled, verbatim: "dev complete should
+  be marked my dev environment and something that i can use in the future."** So the milestone is
+  **NOT dev-complete** on the demo alone, and `dev-complete-attestation` is NOT attestable yet.
+  Chosen over closing on the letter + backlog-capturing the follow-up (rejected: the operator's
+  intent was explicitly to never again ship "everything is built" that means "something I cannot
+  use without another follow-on milestone" — closing on the letter would reproduce exactly that).
+- **Card `sync-live-in-dev` cut** into Activity 5 (PLANNED), ahead of `dev-complete-attestation`:
+  (1) persistent substrate + relay as a dev service, (2) `HQ_SYNC_*` wired into the dev targets so
+  the `/sync` door opens, (3) real-browser (`workflows.html`) proof against the persistent
+  substrate — with a `done_when` block and a **spike gate on leg 3** (browser-against-real-substrate
+  was never spiked; `/nc-spike` it before slating, per B-345). `demo-sync-target` stays DONE as the
+  data-plane proof. The roadmap close-bar paragraph carries a dated correction blockquote; the
+  `dev-complete-attestation` card is reworded to the app-surface read.
+- **The T-44 read-surface disposition is superseded by this addendum** — the "carry it to the
+  attestation, operator decides then" framing is replaced by a concrete card, because the operator
+  has now decided: the app-surface read is required for close, not optional.
