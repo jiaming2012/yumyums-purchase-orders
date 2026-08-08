@@ -1214,3 +1214,23 @@ N=4 — nothing landed above its high end even with the night's one fix round; C
 just under its low end. The 🅢 spike-class over-provisioning pattern does NOT extend to
 build cards on this evidence; no range adjustment. Repair note: C3's fix round cost ~40m
 of its ~113m (red-first + fix + re-verify) — a clean-path C3 would have been ~73m.
+
+## Run 20260809 (attended-afternoon 2026-08-08, serial dispatch, 2 of 2 cards)
+
+QA/harness-class cards — both touch only `.night-crew/qa/spike-supabase/*` scripts + Taskfile
+(no app code, no Go, no specs), so these are a DIFFERENT population from the build-class rows
+above and must NOT recalibrate the build-class bands. Both landed clean, no fix round. Times
+from `timings.log` stamps.
+
+| Card | Implement | G6 | Land | End-to-end |
+|---|---|---|---|---|
+| C1 `demo-sync-target` (close-bar) | ~14m (13:42:10→13:56:06) | ~9m (no fix round) | ~2m (merge `0fade6b`) | **~25m** |
+| C2 `spike-exit-code-honesty` (B-163) | ~13m (14:08:38→14:21:58) | ~7m (no fix round) | ~1m (merge `3e6cd5c`) | **~21m** |
+
+**Notable estimate correction:** `demo-sync-target` was priced ~140m as S2 of slate `20260808-2`
+(and SKIPPED there by stretch-gate arithmetic) — it came in at **~25m** here because the card
+re-exported the already-proven Spike C round-trip harness (`spike-c-roundtrip.sh`) rather than
+building the round trip from scratch. The 140m estimate implicitly assumed a from-scratch demo;
+when the deliverable is "package + name an existing proven harness," the packaging cost is a
+fraction of the build cost. A re-export card is its own size class — price it against the harness
+it wraps, not against building that harness.

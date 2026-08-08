@@ -1,5 +1,13 @@
 # DECISIONS-NEEDED — run `20260809`
 
+> **RESOLVED 2026-08-08 — recorded as `ledger.md` §T-44 (morning triage of `overnight-20260809`).**
+> No fork was parked. The sole substantive item — the demo's read surface being a Node RxDB
+> client, not the app UI — is **operator-awareness, not a triage fork**: it is carried to the
+> operator's `dev-complete-attestation` (the attended `task demo:sync` run), where the operator
+> decides whether a data-plane proof satisfies the close bar or a follow-up app-surface card is
+> wanted. Adversarial review confirmed the note is accurately characterized. This file is kept
+> as the analysis record.
+
 **No forks were parked this run.** Both cards landed; neither hit a PARK trigger. What follows is a single
 operator-**awareness** item — a "know this before you attest" note, NOT a blocking fork. It is recorded here
 so morning triage surfaces it before the milestone-close decision, because it bears on that decision.

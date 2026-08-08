@@ -3257,3 +3257,85 @@ cards above the line w/ ~70m margin vs concurrent 4 w/ ~50m; operator chose seri
 the **workflow-preflight verdict recorded** (openspec absent, exit 0 → universal mechanics
 only in the launch prompt). Slate: `reference/slate-20260808-2.md`; launch prompt:
 `reference/launch-20260808-2.md`. Sign-off GRANTED same session.
+
+## T-44 — Morning-triage resolutions (2026-08-08, run `20260809`)
+
+Triage of `overnight-20260809` — **2 of 2 cards merged by the run, zero parks, zero
+conflicted merges, zero open forks.** Merged to `dev` as `--no-ff` merge `3e94c4a` after
+an adversarial subagent independently reproduced every closeout claim on the final tree —
+**nothing was falsified, and no claim was left unverified** (the live GREEN round-trip the
+brief expected to be out of reach was reproducible because the Spike A substrate was up).
+
+- **C1 `demo-sync-target`** (Activity 5, milestone close-bar) — merge `0fade6b`. `task
+  demo:sync` + `demo-sync.sh`: one field through the real `POST /saveResponse` → NOTIFY
+  relay → PostgREST → RxDB-served read, tri-state exit 0/1/2. Verdict **GREEN**. Roadmap
+  card flipped PLANNED → DONE by the run. G6 PASS-with-findings (read-surface note; no fix
+  round). Cycle ~25m (implement ~14m · G6 ~9m · land ~2m).
+- **C2 `spike-exit-code-honesty`** (B-163) — merge `3e6cd5c`. Seven `srcpsql` guards
+  (card cited four) + vacuous-green→2 in `spike-e-reconnect.sh`, uncaught-exception→2
+  handlers in `rxdb/spike-e-reconnect.js`, Taskfile 201-trap note; all three conflations
+  proven red-first 1→2. **B-163 → RESOLVED** in BACKLOG. G6 PASS (no over-correction; no
+  fix round). Cycle ~21m (implement ~13m · G6 ~7m · land ~1m).
+
+**Gate evidence (adversarial reproduction on the final tree, not the closeout's own lines):**
+G1 build+vet clean; G2 Go `go test ./... -p 1` exit 0, 9 packages, 0 FAIL, DB-coupled tests
+genuinely ran on :5434 (internal/sync 158 `=== RUN`, internal/workflow 35 results — not
+vacuous skips); G2 Playwright/G3 **N/A-by-footprint** (no `[e2e.seams]` key matches; openspec
+absent); G4 `build-sw.js` exit 0, **precache 31**, reachability 0-outside, committed `sw.js`
+byte-identical (regen churn is cosmetic — all 31 URL+revision pairs identical); G4 discipline
+greps N/A-VACUOUS, verified by `find` (neither `internal/journal` nor `internal/workorder`
+exists, B-14). Footprint verified by git: zero `.go`, zero `*replay*`/`*testdata*`,
+`workflows.html` read-only, `sw.js` untouched. **C1 tri-state 0/1/2 reproven LIVE** (GREEN
+219 ms, RED via `--break-roundtrip`, could-not-run=2) and the `task demo:sync:red`=201 vs
+script's true 1 wrapper-trap reproven live; **C2 all five claims** (infra→2, vacuous→2,
+uncaught→2, no over-correction, exactly-7-guards with no eighth) reproven/verified. Go suite
+re-run on the merged `dev` tree: exit 0, fully cached — the cache hit is itself proof the
+merged tree is content-identical to the tree the review executed minutes earlier.
+
+**Conflict-log audit clean:** 2/2 merges logged (both clean, logged per §15ad.66); each entry
+names the intent it read; both merge-intents carry the three required fields, filled with real
+content, empty sections explicitly marked. C1's Taskfile note (additive `demo:sync` stanza)
+and C2's (comment-only note on the disjoint `spike:reconnect` stanza) are non-overlapping —
+verified against the +53 Taskfile diff.
+
+Triage dispositions decided at role level (stated, not asked, per standing practice):
+
+- **Read-surface awareness item — surfaced, NOT a fork.** The demo reads through a Node RxDB
+  client (`rxdb/spike-c-read.js`), not the browser app UI — it clears the close-bar *letter*
+  (real write, RxDB-served read via the identical `replicateSupabase` plugin against the real
+  substrate) but exercises no app surface. G6 judged it a legitimate in-card engineer decision
+  (the slate's own "too heavy for a clean demo" fallback), MEDIUM operator-awareness, not a
+  defect. **It is carried to the operator's `dev-complete-attestation`, not resolved here:** at
+  that attended act the operator decides whether a data-plane proof satisfies "the sync
+  capability running in my dev environment", or files a follow-up card to drive the real
+  browser fill-view against the real substrate. Adversarial review confirmed the note is
+  accurately characterized, neither over- nor understated.
+- **`gate-rls-fixture-ownership` (A3) stays ARMED** — untouched by this run; remains BLOCKED on
+  the attended re-gate (decision 155). No morning evidence bears on it.
+
+Findings of record (documentation-level; no gate implicated):
+
+- **`night-crew run-evidence check` reads `no-run-evidence` for this run — recurrence of the
+  T-42 finding.** The binary (v3.3.0+7) seeks `reference/conflicts-<runid>.md` and
+  `.night-crew/runs/<runid>/{journal,summary,metrics}` at dev-clone paths while hq keeps them
+  under `.night-crew/knowledge/reference/` and `runs/<DATE>-autonomous/`, and it does not read
+  `closeout-<runid>.md` at all. The closeout record and conflict log verifiably exist; the
+  night ran and closed. Its `card-branch check` half works (read both cards as covered). **A
+  clone-side fix (run-evidence path resolution for scaffolded target repos + a
+  `closeout-<runid>.md` reader) — NOT an hq run-branch remedy (B-14 discipline).** File
+  against the night-crew clone; the run's HANDOFF §"Tooling finding" carries the detail.
+- **`task backend:db-test` invoked BARE falls back to its own `:5433` defaults** — the
+  prod/dev cluster serving hq.yumyums.kitchen. Surfaced by adversarial review (which invoked
+  it directly; it tried `:5433` and only failed because that cluster was down in the review
+  environment). Pre-existing and orthogonal to both cards (this run touched no Go); the hazard
+  is already *documented* at Taskfile.yml:120-123 and all four wrapper targets (`test:go`,
+  `test:`, `test:ui`, `test:all`) hand it `:5434` explicitly — but a direct/naive invocation
+  in the real environment would create test databases on the prod cluster (B-141/B-143 class,
+  decision 155). Graduated to **B-169**.
+
+Post-merge worktree sweep: `overnight-20260809` and both card branches confirmed on `dev`.
+Three worktrees hold pre-existing unmerged work, none tonight's cards — `workspace/hq-scheduling-app`
+(31 commits, separate GSD workstream, Jun 7–9), the `main` worktree (1 commit `b89c202`, prod-Docker
+feat May 17, the frozen-release model), and `worktree-agent-ae9998ae` (4 commits, shared-API-client
+`260703-uu2`, Jul 3–4, genuinely stranded). Each is the operator's call; none proposed for merge
+(B-133). No new decision number assigned — the run parked no fork and routed no gray area.
