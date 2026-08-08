@@ -478,7 +478,7 @@ count or closeout substitutes for that run.
 
 > **Trace:** Delivery objective. This activity is the milestone's definition of done.
 
-- **`demo-sync-target`** · **PLANNED** (slated: `20260808-2` S2, budget-gated stretch) · Ship `task demo:sync` as a **first-class deliverable**:
+- **`demo-sync-target`** · **DONE** (run `20260809`, branch `overnight-20260809`; verdict GREEN — round trip closed in 115 ms via `task demo:sync`; tri-state exits 0/1/2 all captured distinct) · Ship `task demo:sync` as a **first-class deliverable**:
   scripted-fresh environment (from Spike A), one field written through `/saveResponse`, surfacing
   in an RxDB-served read, on one real checklist. Non-zero exit on any failed leg. 🛑 **"Could not
   run" must render as an outcome distinct from "ran and failed"** — a demo that silently no-ops
