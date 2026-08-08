@@ -479,6 +479,49 @@ tasks:
     desc: Spike E's RED-FIRST capture — the same cycle with the checkpoint pull leg disabled on reconnect (realtime-only recovery); must exit 1, never 0 and never 2
     cmd: ./.night-crew/qa/spike-supabase/spike-e-reconnect.sh --no-pull
 
+  # ─────────────────────────────────────────────────────────────────────────────
+  # THE MILESTONE CLOSE-BAR DEMO — `task demo:sync` (card `demo-sync-target`,
+  # Activity 5, run 20260809). Disjoint from everything above it.
+  #
+  # Thin wrapper, same rule as every spike family above: ALL logic lives in
+  # .night-crew/qa/spike-supabase/demo-sync.sh so the verdict reproduces without
+  # `task` installed and comes from exactly ONE place. demo-sync.sh itself
+  # delegates the round trip to spike-c-roundtrip.sh (the proven harness), so the
+  # verdict ultimately comes from the one script that has always owned it — this
+  # target does not re-derive it.
+  #
+  # 🛑 GRADE ON THE SCRIPT'S EXIT CODE, NEVER ON `task demo:sync`. go-task returns
+  #   its OWN status (201) when a wrapped command fails, so a red (exit 1) or a
+  #   could-not-run (exit 2) is INDISTINGUISHABLE at the `task` boundary — they all
+  #   read as "201". That is B-163's lesson. To gate, invoke the script directly:
+  #     .night-crew/qa/spike-supabase/demo-sync.sh; echo "EXIT=$?"
+  #
+  # 🛑 THE TRI-STATE EXIT CONTRACT IS THE DELIVERABLE, and "could not run" is NOT
+  #   a verdict — that distinction is the whole reason this milestone exists:
+  #     0   GREEN — a field written through the REAL /saveResponse surfaced in an
+  #         RxDB-served read on one real checklist, round-trip.
+  #     1   RAN AND THE ROUND TRIP FAILED — a first-class recorded FINDING, not a
+  #         park and not a could-not-run.
+  #     2   COULD NOT RUN — infra/precondition failure. NO verdict. A silent no-op
+  #         is the exact class this milestone retires; an honest exit-2 is its
+  #         opposite.
+  #     3   verdict reached, but Spike A's shared substrate could not be restored.
+  #
+  #   It consumes Spike A's stack in RECONCILE mode (env-up.sh, idempotent,
+  #   destroys nothing) and stands up a FRESH scratch HQ Postgres on a
+  #   Docker-assigned EPHEMERAL host port — never :5432/:5433/:5434 (:5433 is the
+  #   PRODUCTION cluster; a probe there destroyed the prod database on 2026-08-06).
+  #   NEVER `task spike:down` — that is the only data-destroying spike target.
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  demo:sync:
+    desc: The milestone close-bar demo — one field through the REAL /saveResponse, out to an RxDB-served read on one real checklist (exit status IS the verdict; 0 green / 1 ran-and-failed / 2 could-not-run — GRADE ON THE SCRIPT, not on `task`)
+    cmd: ./.night-crew/qa/spike-supabase/demo-sync.sh
+
+  demo:sync:red:
+    desc: The demo's RED-FIRST capture — the same round trip with the relay deliberately absent; must exit 1 (ran and failed), never 0 and never 2
+    cmd: ./.night-crew/qa/spike-supabase/demo-sync.sh --break-roundtrip
+
   version:
     desc: Compare backend + frontend versions across local source, dev server, and prod
     cmds:
