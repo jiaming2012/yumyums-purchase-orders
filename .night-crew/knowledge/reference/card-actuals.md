@@ -1194,3 +1194,23 @@ revisit if the Activity 3–5 build cards repeat the pattern.
 consecutive 🅢 spike card landing at or under the low end of its estimate range (N=4: C 59,
 D 59, E 64 vs low ends 90/60/60) — the clean-path over-provisioning pattern holds; revisit
 the 🅢 range when the Activity 3–5 build cards (a different class) record their actuals.
+
+## Run 20260808-2 (night of 2026-08-07, serial dispatch, 4 of 5 cards)
+
+First build-class actuals of the milestone (the "different class" population the 🅢 note
+above said to wait for). One fix round fired (C3 — the slate priced one per app-code card).
+Times from `timings.log` B-39 stamps.
+
+| Card | Implement | G6 | Land | End-to-end |
+|---|---|---|---|---|
+| C1 `skeleton-offline-ownership-honesty` | 54.8m (14:38→15:33) | ~9m (no fix round) | ~2m (merge `fdfd867`) | **~66m** — est. 60–90; in band |
+| C2 `skeleton-one-row-end-to-end` | 86.0m (15:45→17:11) | 11.5m (no fix round) | <1m (merge `04c6703`) | **~98m** — est. 100–150; just under the low end |
+| C3 `activate-fill-view-reads` | 60.5m (17:23→18:24) | 12.5m r1 + **35m fix round** + 4.9m re-verify | <1m (merge `09aaa0e`) | **~113m** — est. 90–140; in band WITH a fix round |
+| S1 `list-views-decision-recording` 🅂 | 57.6m (19:16→20:14, incl. ~15m lost to a killed background Go leg) | 8m | <1m (merge `336e3a0`) | **~66m** — est. 45–80; in band |
+| S2 `demo-sync-target` | — | — | — | SKIPPED by stretch-gate arithmetic (140m needed > 134m remaining, 20:22:59) |
+
+**Median end-to-end ~82m (N=4: 66, 66, 98, 113).** Build-class bands look calibrated on
+N=4 — nothing landed above its high end even with the night's one fix round; C2 came in
+just under its low end. The 🅢 spike-class over-provisioning pattern does NOT extend to
+build cards on this evidence; no range adjustment. Repair note: C3's fix round cost ~40m
+of its ~113m (red-first + fix + re-verify) — a clean-path C3 would have been ~73m.
