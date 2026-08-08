@@ -433,7 +433,8 @@ const HQSync = {
   // 🛑 WHAT IS LIVE TODAY (ledger T-43, run 20260808-2):
   //   * C2's one-row dev surface (`#sync-one-row` in `workflows.html`), behind
   //     the `hq_sync_read` flag — OFF by default in every environment.
-  //   * C3's checklist FILL view: one replication PER OPEN CHECKLIST, many live
+  //   * C3's checklist FILL view (ALSO behind the `hq_sync_read` flag, same
+  //     gate as above): one replication PER OPEN CHECKLIST, many live
   //     at once — a setup checklist and a food-prep checklist worked
   //     concurrently is a recorded product requirement (T-43(c)) — each
   //     cancelled on close (`workflows.html`'s `HQFillSync`).
