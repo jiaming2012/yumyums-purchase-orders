@@ -462,6 +462,16 @@ tasks:
   #     2   COULD NOT RUN — infra/setup failure. Says nothing about catch-up.
   #     3   verdict reached, but spike A's shared substrate could not be restored.
   #
+  # 🛑 GATE ON THE SCRIPT, NEVER ON `task spike:reconnect:red` (OR `task
+  #   spike:reconnect`). go-task returns its OWN status (201) when a wrapped
+  #   command fails, so a red (exit 1) and a could-not-run (exit 2) are
+  #   INDISTINGUISHABLE at the `task` boundary — they BOTH read as "201". Anyone
+  #   gating on the wrapper misreads the RED-FIRST capture: `spike:reconnect:red`
+  #   is SUPPOSED to exit 1 (a real RED verdict), but through `task` it shows 201
+  #   exactly like a broken-infra could-not-run would. That is B-163's lesson. To
+  #   read the honest tri-state code, invoke the script directly:
+  #     ./.night-crew/qa/spike-supabase/spike-e-reconnect.sh --no-pull; echo "EXIT=$?"
+  #
   # 🛑 It creates its own scratch HQ Postgres under the compose project
   #   `spike-e-hq`, on a DOCKER-ASSIGNED EPHEMERAL host port, and REFUSES AT
   #   RUNTIME if Docker hands it 5432/5433/5434 (:5433 is PRODUCTION AND DEV — a
