@@ -5,3 +5,8 @@
 [2026-08-08 13:56:06 AST] Card 1 — implementer RETURNED verdict GREEN (exit 0, round-trip 115ms). G6 dispatched.
 [2026-08-08 14:05:03 AST] Card 1 — G6 PASS-with-findings (read-surface node-client note, no fix round). Merging.
 [2026-08-08 14:06:56 AST] Card 1 — MERGED to overnight-20260809 (clean, --no-ff). Conflict log + G6 report bundled.
+
+[2026-08-08 14:08:38 AST] STRETCH-GATE (B-163): high 60m + closeout 30m = 90m needed; NO cut line (no --night); ample clock; verdict PROCEED — dispatch card 2.
+[2026-08-08 14:21:58 AST] Card 2 (B-163) — implementer RETURNED complete (7 srcpsql guards, b+c fixes, Taskfile note; RF 1→2 all paths; nothing parked). G6 dispatched.
+[2026-08-08 14:28:55 AST] Card 2 (B-163) — G6 PASS (no over-correction, no fix round). Merging.
+[2026-08-08 14:30:03 AST] Card 2 (B-163) — MERGED to overnight-20260809 (clean, --no-ff). Conflict log + G6 report bundled.

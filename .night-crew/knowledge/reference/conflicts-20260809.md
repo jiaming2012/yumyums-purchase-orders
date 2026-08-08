@@ -41,3 +41,34 @@ Serial run: `demo-sync-target` (C1) → [stretch-gate] `spike-exit-code-honesty`
     is a deliberate, well-documented re-export of `spike-c-roundtrip.sh` — packages+names the proven Spike C
     round trip as the milestone demo; acceptable.
 - **Resolution taken:** none needed (clean). Verdict GREEN; card merged as landed on the run branch.
+
+---
+
+## Merge 2 — `card/c2-spike-exit-code-honesty` → `overnight-20260809`  ·  CLEAN
+
+- **Card:** C2 `spike-exit-code-honesty` (B-163). Fixes 3 exit-code conflations so infra failures exit 2, not 1.
+- **Merge:** `git merge --no-ff card/c2-spike-exit-code-honesty`. **Automatic merge went well — zero conflicts.**
+  Card 2 branched off `overnight-20260809` @ `0fade6b` (POST card-1 merge), so its `Taskfile.yml` change sits
+  ON TOP of card 1's `demo:sync` stanza — no divergence, nothing to resolve.
+- **Files brought in (5):** `.night-crew/qa/spike-supabase/spike-e-reconnect.sh` (+41/-9, seven `srcpsql`
+  guards + vacuous-green→2), `.night-crew/qa/spike-supabase/rxdb/spike-e-reconnect.js` (+23, uncaught→2
+  handlers), `Taskfile.yml` (+10, comment-only 201-trap note on `spike:reconnect`), `.night-crew/knowledge/BACKLOG.md`
+  (B-163 → RESOLVED, 1 line), merge-intent.
+- **Merge-intent read (c2-spike-exit-code-honesty.md):** shared files declared — `Taskfile.yml` (comment-only
+  note on the `spike:reconnect` block, disjoint from card 1's `demo:sync`; nothing card 1 wrote touched) and
+  `BACKLOG.md` (B-163 flip only, B-168 untouched). Confirmed against the tree: the Taskfile hunk is additive
+  comment lines on a different stanza than card 1's — no textual or semantic collision. Clean.
+- **Gate result after merge:**
+  - G1 / G2(Go): **N/A-by-footprint** — no `.go` file in the diff.
+  - G2(Playwright): **N/A-by-footprint** — spike-only; no `[e2e.seams]` key matches the changed paths; no
+    spec exercises the spike scripts/targets. No seam fires.
+  - G3: **N/A** (openspec absent).
+  - G4: **precache 31, unchanged by construction** — no served/precached asset touched (shell + node scripts
+    under `.night-crew/`, Taskfile note, BACKLOG). Confirmed post-commit (below).
+  - G4 discipline greps: **N/A-VACUOUS** (B-14).
+  - RF: three exit-code conflations each proven red-first — infra failure 1→2, vacuous-green 1→2, uncaught JS
+    exception 1→2 (both sync-throw and rejected-await shapes). Independently reproduced by G6 (BEFORE + AFTER).
+  - G6: **PASS** (no fix round). All three transitions reproduced; **no over-correction** — `die(RED)` still
+    exits 1 (confirmed three ways), green still 0, `B_ROWS=2` reaches the vacuous eval not a mask; completeness
+    confirmed at seven guards; contract preserved 0/1/2/3.
+- **Resolution taken:** none needed (clean). B-163 fixed and flipped RESOLVED; card merged as landed.

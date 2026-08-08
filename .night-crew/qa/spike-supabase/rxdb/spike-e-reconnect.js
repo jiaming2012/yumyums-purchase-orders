@@ -76,6 +76,15 @@ import { wrappedValidateAjvStorage } from 'rxdb/plugins/validate-ajv';
 // which would turn every exit-2 "could not run" into an exit-1 "verdict". Spike C
 // records the same reason. spike-env.js (spike A's) has no such handlers and is
 // imported unchanged, read-only.
+//
+// 🛑 BUT the client leg's OWN main flow (steps 2-11 below) runs at MODULE TOP
+// LEVEL — only the setup block near step 1 is wrapped in try/catch. An uncaught
+// exception or unhandled rejection anywhere in the unprotected region escapes and
+// Node exits 1 — a FALSE RED, the exact conflation this card (B-163 (c)) fixes.
+// The fix is NOT to import hq-bridge-env's exit(1) handlers; it is to install our
+// OWN handlers that exit 2 (the honest "could not run"). That is precisely what
+// the note above wanted instead of exit(1). Installed immediately below, before
+// any top-level code runs.
 // ---------------------------------------------------------------------------
 
 const SETUP = 2;
@@ -88,6 +97,20 @@ function die(code, msg, detail) {
     }
     process.exit(code);
 }
+
+// 🛑 B-163 (c). The main flow (steps 2-11) runs at module top level, unguarded.
+// An uncaught exception / unhandled rejection there would otherwise let Node exit
+// 1 — a FALSE RED. These handlers map ANY such escape to exit 2 (COULD NOT RUN),
+// because an unexpected crash says NOTHING about catch-up. This is the honest
+// counterpart to the exit(1) handlers the header note refused: same mechanism,
+// correct code. `die` calls process.exit synchronously, so the first handler to
+// fire wins and no second overlapping message is printed.
+const escaped = (kind) => (e) => {
+    const detail = e && e.stack ? e.stack : (e && e.message ? e.message : String(e));
+    die(SETUP, `an ${kind} escaped the client leg's main flow — an unexpected crash is NOT a catch-up verdict`, detail);
+};
+process.on('uncaughtException', escaped('uncaught exception'));
+process.on('unhandledRejection', escaped('unhandled promise rejection'));
 
 function required(name) {
     const v = process.env[name];
