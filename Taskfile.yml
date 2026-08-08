@@ -490,6 +490,54 @@ tasks:
     cmd: ./.night-crew/qa/spike-supabase/spike-e-reconnect.sh --no-pull
 
   # ─────────────────────────────────────────────────────────────────────────────
+  # Sync spike F — BROWSER AGAINST THE REAL SUBSTRATE (goal `sync-live-in-dev`,
+  # Activity 5, LEG 3). Disjoint from everything above it.
+  #
+  # Thin wrapper, same rule as every spike family above: all logic lives in
+  # .night-crew/qa/spike-supabase/spike-f-browser-live.sh so the verdict
+  # reproduces without `task` installed and comes from exactly one place.
+  #
+  # THE QUESTION. C3's fill view stubs the substrate (`page.route`) and
+  # demo-sync.sh reads with a NODE client — so the REAL production workflows.html
+  # has never once been driven against a REAL substrate. This target loads it in
+  # a real Chromium (flag hq_sync_read=on, NO stub) so its same-origin RxDB
+  # replication makes real requests to the HQ /sync/* proxy, which forwards to the
+  # live substrate under the real per-user RLS (hq_can_see_field via FDW), and
+  # asserts one field written through the REAL /saveResponse surfaces in the app's
+  # own dev surface. Both a red-first pass (no carrier) and the armed pass run in
+  # one invocation, so a vacuous assertion is caught.
+  #
+  # 🛑 GATE ON THE SCRIPT, NEVER ON `task spike:browser-live`. go-task returns its
+  #   OWN status (201) when a wrapped command fails, so a red (exit 1) and a
+  #   could-not-run (exit 2) are INDISTINGUISHABLE at the `task` boundary — B-163's
+  #   lesson. To read the honest tri-state code, invoke the script directly:
+  #     .night-crew/qa/spike-supabase/spike-f-browser-live.sh; echo "EXIT=$?"
+  #
+  # 🛑 THE TRI-STATE EXIT CONTRACT IS THE DELIVERABLE:
+  #     0   GREEN — the real app surface rendered the RxDB-served field, and the
+  #         red-first control did not (the assertion is not vacuous).
+  #     1   RED — ran, integration disproven (browser never reached `served` with
+  #         the row in the substrate and the proxy open). A RED IS THE SPIKE'S
+  #         PAYOFF: it means leg 3 needs rework before a card is cut.
+  #     2   COULD NOT RUN — infra/setup (Docker, substrate, scratch HQ, proxy 503,
+  #         FDW would not connect, or the red-first control passed). NO verdict.
+  #     3   verdict reached, but the substrate (submission_responses rows OR the
+  #         FDW server options) could not be restored.
+  #
+  #   It stands up a FRESH scratch HQ Postgres under project `spike-f-hq` on a
+  #   Docker-assigned EPHEMERAL host port — never :5432/:5433/:5434 (:5433 is
+  #   PRODUCTION AND DEV — a probe there destroyed the prod database on
+  #   2026-08-06). It consumes spike A's stack in RECONCILE mode. Its ONE substrate
+  #   mutation — repointing the FDW server `hq_pg` at its own scratch HQ so the
+  #   production RLS resolves — is snapshotted and restored (and verified) on every
+  #   path, and the scratch HQ's own hq_sync_fdw role dies with the container.
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  spike:browser-live:
+    desc: Spike F — drive the REAL workflows.html against the REAL substrate through the /sync proxy; one /saveResponse field must surface in the app's RxDB dev surface (exit status IS the verdict; 0 green / 1 red / 2 could-not-run — GRADE ON THE SCRIPT, not on `task`)
+    cmd: ./.night-crew/qa/spike-supabase/spike-f-browser-live.sh
+
+  # ─────────────────────────────────────────────────────────────────────────────
   # THE MILESTONE CLOSE-BAR DEMO — `task demo:sync` (card `demo-sync-target`,
   # Activity 5, run 20260809). Disjoint from everything above it.
   #
