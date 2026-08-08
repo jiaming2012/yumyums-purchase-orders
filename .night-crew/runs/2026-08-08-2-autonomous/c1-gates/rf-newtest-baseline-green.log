@@ -1,0 +1,110 @@
+[2m[WebServer] [22mNOTICE:  database "hq_test_c1impl" does not exist, skipping
+[2m[WebServer] [22m── reset hq_test_c1impl on localhost:5434 ──
+[2m[WebServer] [22m── wrote version.json frontend=1.4.0 ──
+[2m[WebServer] [22m{"time":"2026-08-07T14:56:59.16316656-04:00","level":"INFO","msg":"serving static files from disk","dir":"../"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:56:59.16357332-04:00","level":"INFO","msg":"loaded superadmins","count":1}
+[2m[WebServer] [22m{"time":"2026-08-07T14:56:59.184263544-04:00","level":"INFO","msg":"connected to database"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:56:59.249170747-04:00","level":"INFO","msg":"OK   0001_users.sql (38.96ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:56:59.301346342-04:00","level":"INFO","msg":"OK   0002_sessions.sql (51.72ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:56:59.348069546-04:00","level":"INFO","msg":"OK   0003_invite_tokens.sql (46.54ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:56:59.385626844-04:00","level":"INFO","msg":"OK   0004_hq_apps.sql (37.38ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:56:59.439520828-04:00","level":"INFO","msg":"OK   0005_app_permissions.sql (53.79ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:56:59.470612731-04:00","level":"INFO","msg":"OK   0006_checklist_templates.sql (30.95ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:56:59.501161853-04:00","level":"INFO","msg":"OK   0007_checklist_schedules.sql (30.45ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:56:59.552102575-04:00","level":"INFO","msg":"OK   0008_template_assignments.sql (50.83ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:56:59.582856577-04:00","level":"INFO","msg":"OK   0009_checklist_sections.sql (30.65ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:56:59.613875023-04:00","level":"INFO","msg":"OK   0010_checklist_fields.sql (30.9ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:56:59.652702473-04:00","level":"INFO","msg":"OK   0011_checklist_submissions.sql (38.71ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:56:59.701502355-04:00","level":"INFO","msg":"OK   0012_submission_responses.sql (48.69ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:56:59.73527578-04:00","level":"INFO","msg":"OK   0013_submission_fail_notes.sql (33.62ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:56:59.768315736-04:00","level":"INFO","msg":"OK   0014_submission_rejections.sql (32.93ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:56:59.817295712-04:00","level":"INFO","msg":"OK   0015_ops.sql (48.84ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:56:59.831944591-04:00","level":"INFO","msg":"OK   0016_lamport_ts.sql (14.54ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:56:59.848982565-04:00","level":"INFO","msg":"OK   0017_users_naming.sql (16.92ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:56:59.908801962-04:00","level":"INFO","msg":"OK   0018_ob_templates.sql (59.65ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:56:59.984527498-04:00","level":"INFO","msg":"OK   0019_ob_items.sql (75.6ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:00.035270742-04:00","level":"INFO","msg":"OK   0020_ob_progress.sql (50.63ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:00.077386206-04:00","level":"INFO","msg":"OK   0021_ob_signoffs.sql (41.98ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:00.118553219-04:00","level":"INFO","msg":"OK   0022_ob_template_assignments.sql (41.03ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:00.183804943-04:00","level":"INFO","msg":"OK   0023_multi_role.sql (65.11ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:00.441604833-04:00","level":"INFO","msg":"OK   0024_inventory.sql (257.54ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:00.507415445-04:00","level":"INFO","msg":"OK   0025_pending_purchases.sql (65.67ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:00.518362477-04:00","level":"INFO","msg":"OK   0026_ob_progress_faq.sql (10.85ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:00.527399607-04:00","level":"INFO","msg":"OK   0027_ob_section_signoff_roles.sql (8.94ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:00.55250808-04:00","level":"INFO","msg":"OK   0028_ob_video_upgrade.sql (25ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:00.561236661-04:00","level":"INFO","msg":"OK   0029_ob_templates_archived_at.sql (8.63ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:00.660792313-04:00","level":"INFO","msg":"OK   0030_item_groups_unique_name.sql (99.39ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:00.691792917-04:00","level":"INFO","msg":"OK   0031_remove_placeholder_items.sql (29.96ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:00.712183244-04:00","level":"INFO","msg":"OK   0032_item_group_thresholds.sql (20.29ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:00.748584303-04:00","level":"INFO","msg":"OK   0033_stock_count_overrides.sql (36.26ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:00.859317223-04:00","level":"INFO","msg":"OK   0034_purchase_orders.sql (110.49ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:00.876131184-04:00","level":"INFO","msg":"OK   0035_purchase_items_photo_store.sql (16.69ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:00.889179648-04:00","level":"INFO","msg":"OK   0036_purchase_items_full_name.sql (12.91ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:00.920713837-04:00","level":"INFO","msg":"OK   0037_cutoff_config.sql (31.41ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:00.935659102-04:00","level":"INFO","msg":"OK   0038_po_status_extend.sql (14.8ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:00.95599772-04:00","level":"INFO","msg":"OK   0039_purchase_items_vendor.sql (20.26ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:01.066477834-04:00","level":"INFO","msg":"OK   0040_shopping_lists.sql (110.33ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:01.080154722-04:00","level":"INFO","msg":"OK   0041_notification_channel.sql (13.58ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:01.140503445-04:00","level":"INFO","msg":"OK   0042_repurchase_tracking.sql (60.18ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:01.189113752-04:00","level":"INFO","msg":"OK   0043_alert_log.sql (48.5ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:01.236531793-04:00","level":"INFO","msg":"OK   0044_low_stock_alert_log.sql (47.28ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:01.286131603-04:00","level":"INFO","msg":"OK   0045_notification_channel_array.sql (49.44ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:01.293589949-04:00","level":"INFO","msg":"OK   0046_user_timezone.sql (7.26ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:01.345365222-04:00","level":"INFO","msg":"OK   0047_employee_fields.sql (51.62ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:01.353261723-04:00","level":"INFO","msg":"OK   0048_notification_default_both.sql (7.78ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:01.393330006-04:00","level":"INFO","msg":"OK   0049_ob_sub_items.sql (39.94ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:01.400833689-04:00","level":"INFO","msg":"OK   0050_ob_progress_sub_item.sql (7.41ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:01.407302433-04:00","level":"INFO","msg":"OK   0051_rejection_field_fk.sql (6.38ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:01.424581441-04:00","level":"INFO","msg":"OK   0052_template_name_unique.sql (17.18ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:01.429993728-04:00","level":"INFO","msg":"OK   0053_response_field_fk.sql (5.31ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:01.435844972-04:00","level":"INFO","msg":"OK   0054_failnote_field_fk.sql (5.78ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:01.441331119-04:00","level":"INFO","msg":"OK   0055_item_location_in_store.sql (5.39ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:01.45264419-04:00","level":"INFO","msg":"OK   0056_ob_progress_photo.sql (11.22ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:01.461934222-04:00","level":"INFO","msg":"OK   0057_ob_items_photo_type.sql (9.2ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:01.471688029-04:00","level":"INFO","msg":"OK   0058_ob_sub_items_photos.sql (9.66ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:01.476881739-04:00","level":"INFO","msg":"OK   0059_cleanup_photo_items.sql (5.11ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:01.527484462-04:00","level":"INFO","msg":"OK   0060_menu_items.sql (50.48ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:01.574364867-04:00","level":"INFO","msg":"OK   0061_daily_menu_sales.sql (46.77ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:01.63586132-04:00","level":"INFO","msg":"OK   0062_recipes.sql (61.36ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:01.692473314-04:00","level":"INFO","msg":"OK   0063_drift_check_results.sql (56.49ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:01.711664072-04:00","level":"INFO","msg":"OK   0064_no_itemized_receipt_seed.sql (19.05ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:01.723414798-04:00","level":"INFO","msg":"OK   0065_mercury_category_on_purchase_events.sql (11.64ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:01.735423533-04:00","level":"INFO","msg":"OK   0066_mercury_category_on_pending_purchases.sql (11.92ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:01.788179001-04:00","level":"INFO","msg":"OK   0067_receipt_sync_runs.sql (52.61ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:01.80962919-04:00","level":"INFO","msg":"OK   0068_pending_purchases_bank_tx_uniq.sql (21.31ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:01.821277633-04:00","level":"INFO","msg":"OK   0069_pending_purchases_parse_error.sql (11.56ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:01.833996144-04:00","level":"INFO","msg":"OK   0070_receipt_urls.sql (12.62ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:01.85546685-04:00","level":"INFO","msg":"OK   0071_submission_fail_notes_unique.sql (21.33ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:01.871410575-04:00","level":"INFO","msg":"OK   0072_app_timezone_new_york.sql (15.78ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:01.894349871-04:00","level":"INFO","msg":"OK   0073_sync_fdw_views.sql (22.68ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:01.90472308-04:00","level":"INFO","msg":"OK   0074_sync_fdw_approver_view.sql (10.21ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:01.90475941-04:00","level":"INFO","msg":"goose: successfully migrated database to version: 74","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:01.904779426-04:00","level":"INFO","msg":"database migrations applied successfully"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:01.982327893-04:00","level":"INFO","msg":"upserted superadmin","email":"jamal@yumyums.kitchen"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:02.013939816-04:00","level":"INFO","msg":"seeded template","name":"Setup Checklist","id":"49cf82d1-c5da-47d5-a094-c4b225626ca4"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:02.013996694-04:00","level":"INFO","msg":"seeded templates","count":1}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:02.043595667-04:00","level":"INFO","msg":"seeded onboarding template","name":"Kitchen Basics Training","id":"fb6bd03f-db73-473a-b0f7-4c51b9ae8930"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:02.069221453-04:00","level":"INFO","msg":"inventory: seeded vendors","count":5}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:02.153693799-04:00","level":"INFO","msg":"inventory: seeded unique tags","count":19}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:02.28871705-04:00","level":"INFO","msg":"inventory: seeded item groups","count":10}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:02.825245631-04:00","level":"INFO","msg":"inventory: seeded purchase items from YAML","count":106}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:02.82532464-04:00","level":"WARN","msg":"DO Spaces env vars not set, photo and video upload endpoints will return 503","required":"DO_SPACES_KEY, DO_SPACES_SECRET, DO_SPACES_BUCKET, DO_SPACES_REGION"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:02.825343766-04:00","level":"WARN","msg":"HQ_INVENTORY_SERVICE_TOKEN not set, /api/v1/inventory/period-summary AND /api/v1/inventory/menu-cogs will return 503"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:02.825544243-04:00","level":"INFO","msg":"inventory COGS category allowlist","allowlist":["COGS"]}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:02.826025107-04:00","level":"INFO","msg":"receipt worker disabled","reason":"E2E_DISABLE_SCHEDULERS=1"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:02.826109724-04:00","level":"INFO","msg":"alert queue started","delivery_enabled":false}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:02.826131254-04:00","level":"INFO","msg":"cutoff scheduler disabled","reason":"E2E_DISABLE_SCHEDULERS=1"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:02.826153384-04:00","level":"INFO","msg":"toast worker disabled, cmd/sync-toast remains available","reason":"TOAST_SYNC_INTERVAL=0"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:02.82627375-04:00","level":"INFO","msg":"alerts queue started"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:02.852595698-04:00","level":"INFO","msg":"server listening","port":"4311"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:02.86337278-04:00","level":"INFO","msg":"reachable at","url":"http://10.255.255.254:4311"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:02.863449586-04:00","level":"INFO","msg":"reachable at","url":"http://192.168.8.164:4311"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:02.863468612-04:00","level":"INFO","msg":"reachable at","url":"http://100.70.200.55:4311"}
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:02.863488439-04:00","level":"INFO","msg":"Yumyums HQ ready, accepting connections"}
+
+Running 1 test using 1 worker
+
+[2m[WebServer] [22m{"time":"2026-08-07T14:57:08.333853071-04:00","level":"ERROR","msg":"GetMyTrainings failed","error":"context canceled"}
+  ✓  1 [chromium] › tests/sync-rxdb-client.spec.js:1529:3 › workflows.html actually imports and constructs the client › nothing reads from RxDB on a code path that can execute offline — window.HQSync.db is undefined at end of load (B-88) (968ms)
+
+  1 passed (2.5m)

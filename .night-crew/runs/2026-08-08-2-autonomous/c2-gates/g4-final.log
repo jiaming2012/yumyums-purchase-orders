@@ -1,0 +1,27 @@
+=== G4 FINAL — after the last commit, tree must stay clean ===
+2026-08-07T17:10:04-04:00
+f456c86c4eb162f87174213eaec884876a295f1b
+--- git status before
+?? .night-crew/runs/2026-08-08-2-autonomous/c2-gates/g4-final.log
+--- run 1
+import reachability: 18 precached files parsed, 31 local references resolved, 0 outside the precache
+SW built: 31 files precached (2186.5 KB)
+Frontend version: 1.4.0
+RUN1_EXIT=0
+--- git status after run 1
+?? .night-crew/runs/2026-08-08-2-autonomous/c2-gates/g4-final.log
+--- run 2
+import reachability: 18 precached files parsed, 31 local references resolved, 0 outside the precache
+SW built: 31 files precached (2186.5 KB)
+Frontend version: 1.4.0
+RUN2_EXIT=0
+--- git status after run 2
+?? .night-crew/runs/2026-08-08-2-autonomous/c2-gates/g4-final.log
+--- committed sw.js is byte-identical to regenerated
+cc9e19697e76ee098fbe1b8000725ee3  sw.js
+--- precache entries in the artifact
+url keys: 31
+--- version parity
+package.json: 1.4.0
+	Frontend = "1.4.0"
+{"frontend":"1.4.0"}

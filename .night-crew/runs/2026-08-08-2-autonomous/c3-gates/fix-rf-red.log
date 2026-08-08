@@ -1,0 +1,208 @@
+[2m[WebServer] [22m── reset hq_test_c3impl on localhost:5434 ──
+[2m[WebServer] [22m── wrote version.json frontend=1.4.0 ──
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:50.103637751-04:00","level":"INFO","msg":"serving static files from disk","dir":"../"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:50.103925978-04:00","level":"INFO","msg":"loaded superadmins","count":1}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:50.12316667-04:00","level":"INFO","msg":"connected to database"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:50.191359129-04:00","level":"INFO","msg":"OK   0001_users.sql (41.36ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:50.239430664-04:00","level":"INFO","msg":"OK   0002_sessions.sql (47.72ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:50.277385485-04:00","level":"INFO","msg":"OK   0003_invite_tokens.sql (37.85ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:50.31648382-04:00","level":"INFO","msg":"OK   0004_hq_apps.sql (38.97ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:50.368919453-04:00","level":"INFO","msg":"OK   0005_app_permissions.sql (52.12ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:50.401735983-04:00","level":"INFO","msg":"OK   0006_checklist_templates.sql (32.69ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:50.43286668-04:00","level":"INFO","msg":"OK   0007_checklist_schedules.sql (30.99ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:50.472485924-04:00","level":"INFO","msg":"OK   0008_template_assignments.sql (39.5ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:50.502148523-04:00","level":"INFO","msg":"OK   0009_checklist_sections.sql (29.52ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:50.532533608-04:00","level":"INFO","msg":"OK   0010_checklist_fields.sql (30.28ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:50.573031771-04:00","level":"INFO","msg":"OK   0011_checklist_submissions.sql (40.32ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:50.627442574-04:00","level":"INFO","msg":"OK   0012_submission_responses.sql (54.29ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:50.659984006-04:00","level":"INFO","msg":"OK   0013_submission_fail_notes.sql (32.41ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:50.699568509-04:00","level":"INFO","msg":"OK   0014_submission_rejections.sql (39.42ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:50.755340764-04:00","level":"INFO","msg":"OK   0015_ops.sql (55.62ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:50.775982598-04:00","level":"INFO","msg":"OK   0016_lamport_ts.sql (20.49ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:50.797586062-04:00","level":"INFO","msg":"OK   0017_users_naming.sql (21.37ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:50.875961485-04:00","level":"INFO","msg":"OK   0018_ob_templates.sql (78.21ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:50.968936687-04:00","level":"INFO","msg":"OK   0019_ob_items.sql (92.62ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:51.080085187-04:00","level":"INFO","msg":"OK   0020_ob_progress.sql (111ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:51.142637923-04:00","level":"INFO","msg":"OK   0021_ob_signoffs.sql (62.39ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:51.184368868-04:00","level":"INFO","msg":"OK   0022_ob_template_assignments.sql (41.61ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:51.253478036-04:00","level":"INFO","msg":"OK   0023_multi_role.sql (68.93ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:51.383072333-04:00","level":"INFO","msg":"OK   0024_inventory.sql (225.05ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:51.422285078-04:00","level":"INFO","msg":"OK   0025_pending_purchases.sql (39.08ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:51.429793089-04:00","level":"INFO","msg":"OK   0026_ob_progress_faq.sql (7.4ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:51.436480215-04:00","level":"INFO","msg":"OK   0027_ob_section_signoff_roles.sql (6.61ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:51.450836841-04:00","level":"INFO","msg":"OK   0028_ob_video_upgrade.sql (14.27ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:51.457687781-04:00","level":"INFO","msg":"OK   0029_ob_templates_archived_at.sql (6.73ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:51.48243678-04:00","level":"INFO","msg":"OK   0030_item_groups_unique_name.sql (24.6ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:51.491952687-04:00","level":"INFO","msg":"OK   0031_remove_placeholder_items.sql (9.42ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:51.505538351-04:00","level":"INFO","msg":"OK   0032_item_group_thresholds.sql (13.49ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:51.537731795-04:00","level":"INFO","msg":"OK   0033_stock_count_overrides.sql (32.07ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:51.614569582-04:00","level":"INFO","msg":"OK   0034_purchase_orders.sql (76.69ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:51.627107793-04:00","level":"INFO","msg":"OK   0035_purchase_items_photo_store.sql (12.44ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:51.641195912-04:00","level":"INFO","msg":"OK   0036_purchase_items_full_name.sql (13.99ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:51.671773055-04:00","level":"INFO","msg":"OK   0037_cutoff_config.sql (30.46ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:51.687840976-04:00","level":"INFO","msg":"OK   0038_po_status_extend.sql (15.97ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:51.708989966-04:00","level":"INFO","msg":"OK   0039_purchase_items_vendor.sql (21.07ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:51.814844601-04:00","level":"INFO","msg":"OK   0040_shopping_lists.sql (105.66ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:51.827307907-04:00","level":"INFO","msg":"OK   0041_notification_channel.sql (12.35ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:51.885989843-04:00","level":"INFO","msg":"OK   0042_repurchase_tracking.sql (58.54ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:51.941369727-04:00","level":"INFO","msg":"OK   0043_alert_log.sql (55.26ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:51.987531975-04:00","level":"INFO","msg":"OK   0044_low_stock_alert_log.sql (46.05ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:52.03148403-04:00","level":"INFO","msg":"OK   0045_notification_channel_array.sql (43.82ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:52.038968441-04:00","level":"INFO","msg":"OK   0046_user_timezone.sql (7.39ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:52.086902884-04:00","level":"INFO","msg":"OK   0047_employee_fields.sql (47.82ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:52.094438981-04:00","level":"INFO","msg":"OK   0048_notification_default_both.sql (7.46ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:52.131473975-04:00","level":"INFO","msg":"OK   0049_ob_sub_items.sql (36.9ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:52.138942467-04:00","level":"INFO","msg":"OK   0050_ob_progress_sub_item.sql (7.38ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:52.146087378-04:00","level":"INFO","msg":"OK   0051_rejection_field_fk.sql (7.04ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:52.162085703-04:00","level":"INFO","msg":"OK   0052_template_name_unique.sql (15.91ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:52.169411418-04:00","level":"INFO","msg":"OK   0053_response_field_fk.sql (7.24ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:52.176373953-04:00","level":"INFO","msg":"OK   0054_failnote_field_fk.sql (6.88ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:52.182856964-04:00","level":"INFO","msg":"OK   0055_item_location_in_store.sql (6.41ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:52.196182235-04:00","level":"INFO","msg":"OK   0056_ob_progress_photo.sql (13.22ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:52.209157395-04:00","level":"INFO","msg":"OK   0057_ob_items_photo_type.sql (12.82ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:52.222475493-04:00","level":"INFO","msg":"OK   0058_ob_sub_items_photos.sql (13.22ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:52.229995966-04:00","level":"INFO","msg":"OK   0059_cleanup_photo_items.sql (7.41ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:52.288160686-04:00","level":"INFO","msg":"OK   0060_menu_items.sql (58.05ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:52.317509339-04:00","level":"INFO","msg":"OK   0061_daily_menu_sales.sql (29.23ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:52.358156585-04:00","level":"INFO","msg":"OK   0062_recipes.sql (40.52ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:52.386580582-04:00","level":"INFO","msg":"OK   0063_drift_check_results.sql (28.31ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:52.400649804-04:00","level":"INFO","msg":"OK   0064_no_itemized_receipt_seed.sql (13.92ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:52.415168776-04:00","level":"INFO","msg":"OK   0065_mercury_category_on_purchase_events.sql (14.39ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:52.427916948-04:00","level":"INFO","msg":"OK   0066_mercury_category_on_pending_purchases.sql (12.65ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:52.476085257-04:00","level":"INFO","msg":"OK   0067_receipt_sync_runs.sql (48.04ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:52.502444646-04:00","level":"INFO","msg":"OK   0068_pending_purchases_bank_tx_uniq.sql (26.23ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:52.516291302-04:00","level":"INFO","msg":"OK   0069_pending_purchases_parse_error.sql (13.73ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:52.528881565-04:00","level":"INFO","msg":"OK   0070_receipt_urls.sql (12.5ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:52.550929658-04:00","level":"INFO","msg":"OK   0071_submission_fail_notes_unique.sql (21.94ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:52.5661575-04:00","level":"INFO","msg":"OK   0072_app_timezone_new_york.sql (15.04ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:52.587387945-04:00","level":"INFO","msg":"OK   0073_sync_fdw_views.sql (20.94ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:52.598124277-04:00","level":"INFO","msg":"OK   0074_sync_fdw_approver_view.sql (10.53ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:52.598183923-04:00","level":"INFO","msg":"goose: successfully migrated database to version: 74","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:52.598196206-04:00","level":"INFO","msg":"database migrations applied successfully"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:52.683301934-04:00","level":"INFO","msg":"upserted superadmin","email":"jamal@yumyums.kitchen"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:52.720823134-04:00","level":"INFO","msg":"seeded template","name":"Setup Checklist","id":"aaf8b60e-63e0-4b8f-9d6a-6e51b92b7002"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:52.720900762-04:00","level":"INFO","msg":"seeded templates","count":1}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:52.754920158-04:00","level":"INFO","msg":"seeded onboarding template","name":"Kitchen Basics Training","id":"9841ee92-7ecc-4f73-b729-f21d0a64af22"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:52.783288047-04:00","level":"INFO","msg":"inventory: seeded vendors","count":5}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:52.883300494-04:00","level":"INFO","msg":"inventory: seeded unique tags","count":19}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:53.04989329-04:00","level":"INFO","msg":"inventory: seeded item groups","count":10}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:53.549412459-04:00","level":"INFO","msg":"inventory: seeded purchase items from YAML","count":106}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:53.549503772-04:00","level":"WARN","msg":"DO Spaces env vars not set, photo and video upload endpoints will return 503","required":"DO_SPACES_KEY, DO_SPACES_SECRET, DO_SPACES_BUCKET, DO_SPACES_REGION"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:53.549518958-04:00","level":"WARN","msg":"HQ_INVENTORY_SERVICE_TOKEN not set, /api/v1/inventory/period-summary AND /api/v1/inventory/menu-cogs will return 503"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:53.549713814-04:00","level":"INFO","msg":"inventory COGS category allowlist","allowlist":["COGS"]}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:53.55020105-04:00","level":"INFO","msg":"receipt worker disabled","reason":"E2E_DISABLE_SCHEDULERS=1"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:53.550278361-04:00","level":"INFO","msg":"alert queue started","delivery_enabled":false}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:53.550299858-04:00","level":"INFO","msg":"cutoff scheduler disabled","reason":"E2E_DISABLE_SCHEDULERS=1"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:53.550319383-04:00","level":"INFO","msg":"toast worker disabled, cmd/sync-toast remains available","reason":"TOAST_SYNC_INTERVAL=0"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:53.550468088-04:00","level":"INFO","msg":"alerts queue started"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:53.572592037-04:00","level":"INFO","msg":"server listening","port":"4351"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:53.582747383-04:00","level":"INFO","msg":"reachable at","url":"http://10.255.255.254:4351"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:53.582795505-04:00","level":"INFO","msg":"reachable at","url":"http://192.168.8.164:4351"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:53.582806845-04:00","level":"INFO","msg":"reachable at","url":"http://100.70.200.55:4351"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:53.582816509-04:00","level":"INFO","msg":"Yumyums HQ ready, accepting connections"}
+
+Running 9 tests using 1 worker
+
+[2m[WebServer] [22m{"time":"2026-08-07T18:39:56.309625714-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/workflows.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+  ✓  1 [chromium] › tests/sync-fill-view.spec.js:200:3 › [FILL-01] the fill view reads the open checklist from RxDB › a response that exists ONLY in RxDB answers the field in the runner (1.4s)
+  ✓  2 [chromium] › tests/sync-fill-view.spec.js:264:3 › [FILL-01] the fill view reads the open checklist from RxDB › with the flag OFF the same fixture renders unanswered — no scope, no database, no IndexedDB (3.1s)
+[2m[WebServer] [22m{"time":"2026-08-07T18:40:00.10334043-04:00","level":"ERROR","msg":"GetMyTrainings failed","error":"context canceled"}
+[2m[WebServer] [22m{"time":"2026-08-07T18:40:00.449403351-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/workflows.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+  ✓  3 [chromium] › tests/sync-fill-view.spec.js:314:3 › [FILL-02] the fill view holds multiple concurrent per-checklist scopes › setup + food prep live at once, pairwise-distinct identifiers, and cancelling one leaves the other (839ms)
+[2m[WebServer] [22m{"time":"2026-08-07T18:40:01.473672613-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/workflows.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+  ✓  4 [chromium] › tests/sync-fill-view.spec.js:368:3 › [FILL-02] the fill view holds multiple concurrent per-checklist scopes › the fill scope carries the crew member — two users on one phone do not share a checkpoint [F-2] (983ms)
+[2m[WebServer] [22m{"time":"2026-08-07T18:40:02.474203771-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/workflows.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+  ✘  5 [chromium] › tests/sync-fill-view.spec.js:451:3 › [FILL-04] the overlay renders only THIS submission and MY drafts (F-A) › a resident foreign-submission row and a foreign-user draft do NOT answer the fields (7.6s)
+[2m[WebServer] [22m{"time":"2026-08-07T18:40:11.789707258-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/workflows.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+  ✓  6 [chromium] › tests/sync-fill-view.spec.js:510:3 › [FILL-04] the overlay renders only THIS submission and MY drafts (F-A) › ...while THIS submission's rows and MY OWN draft do answer them (1.8s)
+[2m[WebServer] [22m{"time":"2026-08-07T18:40:13.224939239-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/workflows.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+  ✘  7 [chromium] › tests/sync-fill-view.spec.js:554:3 › [FILL-05] the fill scope closes on every exit, and survives a fast reopen › switching to the Approvals tab closes the open checklist's scope [F-B] (15.2s)
+[2m[WebServer] [22m{"time":"2026-08-07T18:40:29.400192338-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/workflows.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+  ✘  8 [chromium] › tests/sync-fill-view.spec.js:590:3 › [FILL-05] the fill scope closes on every exit, and survives a fast reopen › a close immediately followed by a reopen leaves a LIVE replication, not a cancelled one [F-C] (1.3s)
+[2m[WebServer] [22m{"time":"2026-08-07T18:40:32.317081102-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/workflows.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+  ✓  9 [chromium] › tests/sync-fill-view.spec.js:643:3 › [FILL-03] a transient storage failure does not brick sync until reload (C2 G6 F-1) › a rejected createDatabase is EVICTED — the next open succeeds, and no dead scope is reported live (1.0s)
+
+
+  1) [chromium] › tests/sync-fill-view.spec.js:451:3 › [FILL-04] the overlay renders only THIS submission and MY drafts (F-A) › a resident foreign-submission row and a foreign-user draft do NOT answer the fields 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoContainText[2m([22m[32mexpected[39m[2m)[22m failed
+
+    Locator: locator('#fill-body .progress-line')
+    Timeout: 5000ms
+    [32m- Expected substring  - 1[39m
+    [31m+ Received string     + 4[39m
+
+    [32m- [7m0[27m of 2 items complete[39m
+    [31m+[39m
+    [31m+ [43m  [49m[39m
+    [31m+ [7m  2[27m of 2 items complete[39m
+    [31m+[39m
+
+    Call log:
+    [2m  - Expect "toContainText" with timeout 5000ms[22m
+    [2m  - waiting for locator('#fill-body .progress-line')[22m
+    [2m    9 × locator resolved to <div class="progress-line">…</div>[22m
+    [2m      - unexpected value "[22m
+    [2m  [22m
+    [2m  2 of 2 items complete[22m
+    [2m"[22m
+
+
+      502 |     await page.waitForTimeout(1500);
+      503 |     await expect(page.locator('#fill-body .progress-line'))
+    > 504 |       .toContainText('0 of 2 items complete');
+          |        ^
+      505 |     const overlaid = await page.evaluate(() => Object.keys(window.HQFillSync.overlayKeys()));
+      506 |     expect(overlaid, 'a foreign submission\'s row or another user\'s draft reached the '
+      507 |       + 'overlay — today\'s blank checklist would render as answered').toEqual([]);
+        at /home/jcole/projects/hq-worktrees/c3-fill-reads/tests/sync-fill-view.spec.js:504:8
+
+    Error Context: test-results/sync-fill-view--FILL-04-th-ac024-ft-do-NOT-answer-the-fields-chromium/error-context.md
+
+  2) [chromium] › tests/sync-fill-view.spec.js:554:3 › [FILL-05] the fill scope closes on every exit, and survives a fast reopen › switching to the Approvals tab closes the open checklist's scope [F-B] 
+
+    Error: [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+
+    Expected: [32m0[39m
+    Received: [31m1[39m
+
+    Call Log:
+    - Timeout 15000ms exceeded while waiting on the predicate
+
+      570 |
+      571 |     await page.click('#t2'); // Approvals
+    > 572 |     await expect
+          |     ^
+      573 |       .poll(async () => page.evaluate(() => window.HQFillSync.openIds().length), { timeout: 15000 })
+      574 |       .toBe(0);
+      575 |     expect(await page.evaluate(() => window.HQSync.openScopeKeys().length)).toBe(0);
+        at /home/jcole/projects/hq-worktrees/c3-fill-reads/tests/sync-fill-view.spec.js:572:5
+
+    Error Context: test-results/sync-fill-view--FILL-05-th-f37e6-open-checklist-s-scope-F-B--chromium/error-context.md
+
+  3) [chromium] › tests/sync-fill-view.spec.js:590:3 › [FILL-05] the fill scope closes on every exit, and survives a fast reopen › a close immediately followed by a reopen leaves a LIVE replication, not a cancelled one [F-C] 
+
+    Error: the reopened scope was cancelled by the previous close's deferred cancel — HQFillSync reports it live and the sync layer does not
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+
+    Expected: [32m1[39m
+    Received: [31m0[39m
+
+      630 |     expect(out.syncKeys, 'the reopened scope was cancelled by the previous close\'s '
+      631 |       + 'deferred cancel — HQFillSync reports it live and the sync layer does not')
+    > 632 |       .toBe(1);
+          |        ^
+      633 |     // ...and the real close still works afterwards.
+      634 |     expect(out.afterFinalClose).toBe(0);
+      635 |     expect(out.syncKeysAfterFinalClose).toBe(0);
+        at /home/jcole/projects/hq-worktrees/c3-fill-reads/tests/sync-fill-view.spec.js:632:8
+
+    Error Context: test-results/sync-fill-view--FILL-05-th-78e39-on-not-a-cancelled-one-F-C--chromium/error-context.md
+
+  3 failed
+    [chromium] › tests/sync-fill-view.spec.js:451:3 › [FILL-04] the overlay renders only THIS submission and MY drafts (F-A) › a resident foreign-submission row and a foreign-user draft do NOT answer the fields 
+    [chromium] › tests/sync-fill-view.spec.js:554:3 › [FILL-05] the fill scope closes on every exit, and survives a fast reopen › switching to the Approvals tab closes the open checklist's scope [F-B] 
+    [chromium] › tests/sync-fill-view.spec.js:590:3 › [FILL-05] the fill scope closes on every exit, and survives a fast reopen › a close immediately followed by a reopen leaves a LIVE replication, not a cancelled one [F-C] 
+  6 passed (43.6s)
+EXIT=1

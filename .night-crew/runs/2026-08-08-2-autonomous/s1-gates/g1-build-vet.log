@@ -1,0 +1,4 @@
+=== go build ===
+BUILD_EXIT=0
+=== go vet ===
+VET_EXIT=0

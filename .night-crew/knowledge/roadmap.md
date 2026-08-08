@@ -267,20 +267,75 @@ count or closeout substitutes for that run.
 > Only the legs Activity 2 proved. The skeleton exists from here on and **grows into** the demo
 > script rather than being authored at the end. **Trace:** Product + Engineering objectives.
 
-- **`skeleton-one-row-end-to-end`** · **PLANNED** (slated: `20260808-2` C2) · Thread **one** checklist row from the real
-  write path to an RxDB-served read in dev, behind an explicit flag, with the two list views and
-  the fill view all still on REST. The first production call site of `createHQSyncDatabase()` and
-  `startHQReplication()` in the repo's history. Must carry decision 126's shape verbatim (reads
-  on RxDB, `/saveResponse` and `/submit` keep owning writes) and cite it, per the standing rule
-  that a build WO may not propose the split itself. Footprint: page wiring + sync client.
+- **`skeleton-one-row-end-to-end`** · **DONE** (run `20260808-2`, card **C2**, branch
+  `card/c2-skeleton-one-row-end-to-end`; commits `bf9ed24` (merge-intent + RF red, first),
+  `dc6e43a` (the skeleton), `53e2fbd` (sw), `42e547c` (B-70 fix), `ba464c1` (sw)) · Threads **one**
+  checklist row from the real write path (`POST /api/v1/workflow/saveResponse`) to an RxDB-served
+  read on `/workflows.html`, behind an explicit flag, with both list views and the fill view still
+  on REST. **The first production call site of `createHQSyncDatabase()` and `startHQReplication()`
+  in this repo's history.**
+  **THE FLAG (G6-F3 found "the sync flag" naming nothing in the tree): `hq_sync_read`**, defined as
+  `SYNC_READ_FLAG` in `sync-rxdb/bootstrap.js`, stored in `localStorage` with value exactly `'on'`,
+  settable+persistable from the URL (`?hq_sync_read=on` / `=off`) so a crew phone with no devtools
+  can drive it, **default OFF in every environment**, resolved once synchronously at module load.
+  **C1's flag-off contract is kept by construction, not by timing:** `openSyncScope()` refuses
+  SYNCHRONOUSLY — it throws before returning a promise, before `createHQSyncDatabase` is
+  referenced, before any `await` — so no path even *begins* async database creation with the flag
+  off (answers G6-F1's "samples early and is timing-blind" directly). No memory-backed RxDB
+  instance is introduced anywhere, so the guard's Dexie-only IndexedDB scan stays sufficient
+  (G6-F2). Cites **decision 126** verbatim at the call site (RxDB serves READS; `/saveResponse` +
+  `/submitChecklist` keep owning ALL writes — carried, not proposed), **decision 105** (scoped,
+  never pulled whole), and **spike E's condition (T-42)** verbatim — this card polls nothing, so
+  no explicit resync step is required, and the call site says so for whoever changes the relay.
+  Shaped for **T-43(c)**: one shared promise-memoised database, one registry entry per scope,
+  multiple different scopes live at once, the same scope twice returning the SAME handle, per-scope
+  `cancel()` — **C3 builds the fill view on this without changing it**. Nothing here decides the My
+  Checklists read path (**T-43(b)**, still OPEN); Approvals stays on re-fetch (**T-43(a)**).
+  RF: the new end-to-end test RED on the pre-change tree (`3 failed`, EXIT=1) with the red landing
+  only at the missing surface — the real `/saveResponse`, the submit that moves the draft onto a
+  submission, and a psql read-back asserting exactly one persisted row with `value=true` all passed
+  unmodified — then GREEN (`3 passed`, EXIT=0) after.
+  🛑 **The first full suite went RED on this card's own defect and it is recorded, not buried:**
+  `tests/repo-hygiene.spec.js:41` caught two raw `U+0000` bytes the card wrote into
+  `sync-rxdb/bootstrap.js`'s `scopeKey()` — **B-70 recurring in a new file** (a raw NUL puts grep
+  into binary mode, which is what makes `done_when: "grep returns nothing"` unreliable in the
+  passing direction). Fixed to the `\0` escape (same byte at runtime, no key or identifier
+  changes), commit `42e547c`. Gates: G1 build+vet clean; G2 (Go) 9/9 packages ok, 0 FAIL, 454
+  `--- PASS:` lines, `internal/workflow` exactly 35, 2 live-proof skips,
+  `HQ_SYNC_SUBSTRATE_OPTIONAL` / `HQ_SYNC_GATE_CHILD` both unset; G2 (Playwright) de-confined to
+  the full suite, ONE summary block both legs — leg 1 (`dc6e43a`) 802 tests, 795 passed / 1 failed
+  / 6 skipped in 23.0m with all three armed reds PASSING (`inventory:883` B-27, `sync:446` LST-17,
+  `receipt-carousel:123` B-162), the single failure being the NUL defect above; leg 2 on the final
+  tree recorded in the gate log. G4 idempotent (byte-identical `sw.js` across runs), precache count
+  **31 — unchanged, and correctly so: this card adds no precached asset** (the dev surface is an
+  inline module block; `sync-rxdb/bootstrap.js` was already precached). `night-crew.toml`'s
+  `[e2e.seams]` roll-call gained `sync-one-row.spec.js` and `repo-hygiene`'s count went 9→10 — **no
+  key and no token changed**; the guard fired as designed and an Operations-confined card now costs
+  ten spec files. Logs: `.night-crew/runs/2026-08-08-2-autonomous/c2-gates/`.
 
-- **`skeleton-offline-ownership-honesty`** · **PLANNED** (slated: `20260808-2` C1) · Close **B-88**. The rule *"nothing may
-  read from RxDB on a code path that can execute offline"* is enforced by three
-  `expect(src).not.toContain(…)` assertions over **source text** — and `workflows.html:3590` reads
-  `window.HQSync.db`, **a fourth route the guard does not name**. It is green today only because
-  the database does not exist; **the first card that creates one breaks the rule with no diff to
-  anything the guard watches**. That card is the one directly above. Assert on the **object**, not
-  the spelling of identifiers. Footprint: page wiring.
+- **`skeleton-offline-ownership-honesty`** · **DONE** (run `20260808-2`, card **C1**, branch
+  `card/c1-skeleton-offline-ownership-honesty`; commits `b1d1bb7` (merge-intent + RF, first),
+  `69f6543` (the fix)) · Closed **B-88**. The three `expect(src).not.toContain(…)` source-text
+  assertions in `tests/sync-rxdb-client.spec.js` (formerly lines 1497-1499) — which never named
+  `window.HQSync.db`, the fourth read route `workflows.html:3589`'s `defaultStore()` actually
+  uses — are replaced with an object-level browser test: load `/workflows.html` for real, assert
+  `window.HQSync.db === undefined` and that no RxDB/Dexie-backed IndexedDB database exists. **This
+  is the flag-off contract `skeleton-one-row-end-to-end` (C2) must keep green** — with the sync
+  flag off, page load must leave `window.HQSync.db` undefined; C2 may only set it inside a
+  flag-gated branch. RF: Probe A showed the shipped guard blind to the literal `HQSync.db` already
+  present in `workflows.html` (a hypothetical fourth assertion reds on the unmodified tree, the
+  shipped three do not); Probe B showed the new test is a real gate — red (exit 1) when
+  `sync-rxdb/bootstrap.js` was temporarily made to set `HQSync.db` on every load, green (exit 0)
+  before and after, tree left byte-identical. Gates: G1 clean; G2 (Go) 9/9 packages ok, 0 FAIL,
+  454 total `--- PASS:` lines (`internal/workflow` 35 exactly), `HQ_SYNC_SUBSTRATE_OPTIONAL` /
+  `HQ_SYNC_GATE_CHILD` both unset; G2 (Playwright) de-confined to the full suite (799 tests, one
+  summary block) — 791 passed / 2 failed / 6 skipped in 22.5m, the 2 failures
+  (`inventory.spec.js:3124`, `sync.spec.js:1327`) are NOT the armed baseline (which all passed:
+  `inventory.spec.js:883` B-27, `sync.spec.js:446` LST-17, `receipt-carousel.spec.js:123` B-162)
+  but did not reproduce on an isolated `tests/`-anchored rerun (2/2 passed, exit 0) and this card's
+  diff touches only the test file — ruled flake-trail, not a card failure, and left named rather
+  than silently dropped; G4 idempotent, tree clean both runs, precache count 31. Logs:
+  `.night-crew/runs/2026-08-08-2-autonomous/c1-gates/`.
 
 ---
 
@@ -289,24 +344,133 @@ count or closeout substitutes for that run.
 > **Trace:** Product objective. Carries the riders the retired card left behind: **B-63, B-64,
 > B-66–B-69, B-79**.
 
-- **`activate-fill-view-reads`** · **PLANNED** (slated: `20260808-2` C3) · The checklist fill
-  view reads from RxDB, scoped per-open-checklist (T-29 decision 105 — replication scope is
-  **never** all collections at once, and no card may widen it without a recorded decision).
-  🛑 **Hard requirement (operator, ledger T-43c):** crew members work multiple checklists
-  concurrently (setup + food prep) — multiple live fill replications at once ARE the design,
-  one per open checklist, cancelled on close; regression test drives two concurrent fill
-  scopes (B-63's lead). Carries spike E's condition (T-42): trusted checkpoint catch-up is
-  valid only while the relay stays trigger/NOTIFY-driven. Footprint: page wiring + sync client.
+- **`activate-fill-view-reads`** · **DONE** (run `20260808-2`, card **C3**, branch
+  `card/c3-activate-fill-view-reads`; commits `ea1407a` (merge-intent, first), `5929f0f`
+  (red-first tests, no production code), `61d13d0` (the implementation)) · The checklist FILL
+  view's field values are served out of RxDB for the OPEN checklist, behind the `hq_sync_read`
+  flag that is **OFF by default in every environment**. `hydrateFieldState` gains a **layer 4**
+  — the open checklist's rows as RxDB holds them, overlaid on the REST snapshot they are a newer
+  view of, **except over a `REJECTION_FLAGS` field**, which step 3 cleared on purpose and where
+  the replicated row is precisely the stale answer the approver bounced. The `_v` /
+  `_fail_note` / `_correction_photo` / `sub_steps` unpack was **extracted** from the draft loop
+  into `applyResponseRow` and shared rather than copied — the replicated rows ARE
+  `submission_responses` rows, and a second unpack is a second, drifting definition of one wire
+  shape.
+  **Lifecycle (`HQFillSync`):** one scope per open checklist, cancelled on close, and
+  `FILL_SYNC_SCOPES` is a **MAP, not a slot** — ledger **T-43(c)**, the operator's own ruling
+  that crew members work a setup checklist and a food-prep checklist concurrently. Opening a
+  second does not cancel the first; `close()` cancels exactly one. Opened on checklist open
+  **when the checklist has a submission row** (`checklist_submissions.id` is what decision 105
+  scopes BY; an absent id is not permission to widen), closed at every exit from the runner —
+  back button, all four post-submit exits, `show(1)`.
+  **C2's two C3-facing G6 findings, both resolved.** **F-2:** `normalizeScope` now REQUIRES
+  `userId` on the FILL scope and `scopeIdentity()` carries it, exactly as SCOPE-03 has for the
+  LIST scope since S1a — the fill checkpoint had no crew member in its key, so crew member B on
+  a device A used resumed A's `_modified` cursor and slept through B's own older draft rows,
+  permanently. It appears in **no filter clause** (RLS is the gate; the client scope is the
+  bound). 🛑 **A narrowing, not a widening** — more identifiers, each over a subset, every
+  emitted query unchanged — so decision 105 is satisfied rather than amended and **decision
+  111's four substrate rows are untouched**, which is why the PARK trigger did not fire.
+  **F-1:** a rejected `createDatabase()` / `openSyncScope()` is now **evicted** from its memo
+  instead of cached for the page's lifetime; `ensureDatabase()` calls `HQSync.createDatabase`
+  (the property) so the failure G6 could not force — Dexie holds its own IndexedDB reference,
+  which is why F-1 shipped PLAUSIBLE — is forceable and therefore testable.
+  Decision **126** carried verbatim (RxDB serves READS; `/saveResponse` + `/submitChecklist`
+  keep owning ALL writes; `debouncedSaveField` → `submitOp('SET_FIELD')` → `POST /ops`
+  byte-untouched, no `autoSaveField` — B-65). **T-43(b) respected: the My Checklists read path
+  is NOT decided here** — both list views stay on REST with the flag on as well as off, and the
+  `[FILL-01]` test asserts the list row still renders `0/1` from REST while the runner reads
+  `1 of 1` from RxDB. Spike E's condition (**T-42**) carried verbatim at the lifecycle: no
+  polling, no interval, no business watermark, no resync step.
+  RF, **same spec revision both legs** (the tests are their own commit `5929f0f`, no production
+  code in it): RED `8 failed / 63 passed`, EXIT=1 — F-2 ×3, F-1's unforceable failure, and the
+  fill view having no RxDB read path at all; GREEN `114 passed`, EXIT=0 on `61d13d0` with C2's
+  `sync-one-row.spec.js` added to the leg. 🛑 **Stated rather than dressed up:** the card's
+  *named* two-concurrent-fill regression test **passed pre-change** — two scopes for ONE crew
+  member already minted distinct identifiers (SCOPE-02) — so it is a regression guard, and the
+  red half of that requirement is the **shared-phone** case, where concurrency and F-2 meet.
+  Gates: G1 build+vet exit 0; G2 Go **9 packages ok / 454 PASS / `internal/workflow` exactly
+  35**, `HQ_SYNC_SUBSTRATE_OPTIONAL` and `HQ_SYNC_GATE_CHILD` both attested UNSET; G2 Playwright
+  the FULL suite, **ONE summary block**, `806 passed / 1 failed / 6 skipped` in 22.8m with all
+  three armed reds **PASSING** (`inventory:883` B-27, `sync:446` LST-17,
+  `receipt-carousel:123` B-162). The single failure — `workflows.spec.js:3909` **GLB-01**,
+  `page.goto ... interrupted by another navigation to /login.html` — is the test's own expected
+  redirect racing its `waitUntil:"load"`, is **not** on the armed list and **not** previously
+  recorded in this run's logs or `bugs.md`; **4/4 green on re-run** (3× isolated `-g`, plus the
+  whole `tests/workflows.spec.js` file 87/87 exit 0). Reported as a **flake with its trail**,
+  not as a pass. G4 idempotent (byte-identical `sw.js` across runs), precache **31 —
+  unchanged**: this card adds one spec file and no precached asset. `night-crew.toml`'s
+  `[e2e.seams]` roll-call gained `sync-fill-view.spec.js` and `repo-hygiene`'s count went 10→11
+  — **no key and no token changed**; an Operations-confined card now costs eleven spec files.
+  🛑 **G6 FIX ROUND — one CONFIRMED TOP defect, recorded not buried** (commits `276068b`
+  red-first tests, `3e4397d` the fix). **F-A:** the overlay subscribed on `field_id` alone
+  and applied every doc it got back. Three individually-correct premises made that a
+  data-integrity defect — `checklist_fields.id` is per-template-VERSION and shared by every
+  submission of that template; the `hq_sync` Dexie DB is persistent and `cancel()` purges
+  nothing (**B-42**, RxDB's downstream only ADDS); and `submission_responses_select` is
+  `hq_can_see_field(field_id)`, **field-level, not authorship-level**, deliberately, because
+  a draft has no submission to scope a policy by. So yesterday's rows for a daily recurring
+  checklist AND other crew members' drafts both sat resident and both marked today's blank
+  checklist answered — **measured: `2 of 2 items complete` on a blank two-field checklist.**
+  Fixed by `acceptedFillDocs()`, which is not a new policy but the REST hydrate's own,
+  applied to the same rows arriving by a second road: `submission_id ===` the open checklist
+  renders (shared per-submission, as `MY_SUBMISSIONS.responses` are), `submission_id == null
+  && answered_by === me` renders (mine, as `DRAFT_RESPONSES` are), anything else is dropped.
+  🛑 **The card's original "stated bound" is corrected in place rather than replaced: it
+  reasoned about which scopes are open CONCURRENTLY and the defect was SEQUENTIAL — a bound
+  on which scopes are live says nothing about which ROWS are resident.**
+  **F-B:** `closeActiveFillScope()` moved out of `show()`'s `n === 1` branch to the top —
+  every tab switch leaves the runner, and Approvals/Builder used to leave a Realtime channel
+  and pull loop running for a checklist nobody had open. **F-C:** the deferred cancel is now
+  identity-guarded ON THE HANDLE, so a close-then-fast-reopen no longer kills the scope the
+  reopen believes it holds; testable without timing guesswork, because the symptom is
+  `HQFillSync.openIds()` and `HQSync.openScopeKeys()` disagreeing. **F-D (prose):** "RLS is
+  the gate" is a claim about VISIBILITY, not authorship — corrected in `client.js`'s F-2
+  banner and `[SCOPE-05]`'s header, naming `acceptedFillDocs` as what actually excludes a
+  foreign draft.
+  **Fix-round gates, all on `3e4397d`:** G1 exit 0; G2 Go **9 packages ok / 454 PASS / 244
+  top-level / `internal/workflow` exactly 35**, both env vars attested UNSET; G2 Playwright
+  the FULL suite, ONE summary block, **811 passed / 0 failed / 6 skipped in 21.7m, EXIT=0**
+  — all three armed reds passing, and **GLB-01 passed**, retiring the earlier occurrence as
+  the flake it was reported as. RF: red `3 failed / 6 passed` EXIT=1 on `276068b`, green
+  `74 passed` EXIT=0, spec byte-identical (0-line diff). G4 idempotent, precache **31**.
+  Logs: `.night-crew/runs/2026-08-08-2-autonomous/c3-gates/`.
 
-- **`activate-list-views-or-state-they-stay-rest`** · **PLANNED** (slated: `20260808-2` S1,
-  reshaped as `list-views-decision-recording`) · **B-43 partially ruled at ledger T-43:**
-  Approvals stays on re-fetch (recorded); 🛑 **the My Checklists read path is deliberately
-  OPEN — the operator declined to rule it, and no card may decide it.** The card's remaining
-  job: record the Approvals ruling and the open remainder in the code that lies about them
-  today — fix B-64's stale `bootstrap.js` scope banner and restate the cancel rule as
-  *"cancel before re-scoping THE SAME shape"* (B-63's corrected wording, T-43c) — after the
-  fill-view lifecycle exists. Closes B-64; closes B-63 jointly with `activate-fill-view-reads`'
-  concurrent-fill test. Footprint: page wiring + sync client.
+- **`list-views-decision-recording`** (formerly `activate-list-views-or-state-they-stay-rest`)
+  · **DONE** (run `20260808-2`, card **S1**, branch `card/s1-list-views-decision-recording`;
+  merge-intent `6a3b331` first, then this same commit set) · **B-43
+  partially ruled at ledger T-43:** Approvals stays on re-fetch — recorded, in
+  `sync-rxdb/bootstrap.js`'s rewritten `startReplication` banner and BACKLOG.md, not just this
+  entry. 🛑 **The My Checklists read path stayed OPEN, as ruled** — this card states it as open
+  in every banner it touches and predicts no outcome; the PARK trigger (recording requiring a
+  decision on it) did not fire, because T-43(a) and T-43(c) are both fully recordable without
+  touching (b).
+  **B-64, found by content, not the slate's line numbers:** `bootstrap.js:80-86` (the slate's
+  citation) is now `readIdentityToken()` — C2 added ~250 lines above it. The actual stale
+  banner had moved to the comment on the `startReplication` property inside the `HQSync`
+  object literal (~420-427): FILL-shape-only, silent on LIST, and closing with the pre-B-63
+  full stop *"CANCEL the previous states before starting a re-scoped replication"* — which
+  under T-43(c)'s concurrent shapes reads as "opening a second checklist cancels the first,"
+  exactly the conclusion the ruling overturns. Rewritten to name both shapes (pointing at
+  `client.js`'s docblock as the shape of record, per B-64's own lead, rather than a second
+  copy), state what's live today (C2's `#sync-one-row` dev surface behind `hq_sync_read`; C3's
+  per-open-checklist fill scopes, many at once), state what stays REST (both list views;
+  Approvals BY RULING), state My Checklists OPEN, and restate the cancel rule.
+  **`sync-rxdb/client.js`, two banners, both carrying the pre-B-63 wording:** the
+  `startHQReplication` docblock (the one C3's merge-intent named explicitly as S1's to
+  restate) and the older REPLICATION SCOPE design-block tail (same rule, predates the list
+  scope, not named by C3 but found stale by the same reading). Both restated as *"cancel
+  before re-scoping THE SAME shape"* (B-63's corrected wording, T-43c); C3's FILL-shape line
+  `{userId, checklistId, templateId, fieldIds}` in the docblock is untouched, verbatim.
+  **Closes B-64** (banner fixed). **Closes B-63 jointly with `activate-fill-view-reads`'s**
+  (C3) `[SCOPE-05]` concurrent-fill regression test — the behavior half was already proven;
+  this card supplied the documentation half.
+  Docs-only diff: `sync-rxdb/bootstrap.js` + `sync-rxdb/client.js` comments, `BACKLOG.md`,
+  this entry. No `workflows.html` touch (not owned; C3's merge-intent flags a conflict there
+  as a mistake). RF: **n/a — non-code deliverable**, reason recorded in the card's own
+  merge-intent (`.night-crew/runs/2026-08-08-2-autonomous/merge-intents/s1-list-views-decision-recording.md`)
+  — no function body or test assertion changed, and B-63's behavior claim is proven by C3's
+  own red-first tests, cited jointly above, not re-litigated here.
 
 ---
 

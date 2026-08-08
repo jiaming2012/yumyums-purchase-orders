@@ -1,0 +1,35 @@
+=== env check ===
+(nothing printed — both unset)
+=== go test ===
+?   	github.com/yumyums/hq/cmd/backfill-receipts	[no test files]
+?   	github.com/yumyums/hq/cmd/import-notion	[no test files]
+?   	github.com/yumyums/hq/cmd/migrate-toast-archive	[no test files]
+?   	github.com/yumyums/hq/cmd/seed	[no test files]
+?   	github.com/yumyums/hq/cmd/server	[no test files]
+?   	github.com/yumyums/hq/cmd/spikec-relay	[no test files]
+?   	github.com/yumyums/hq/cmd/sync-toast	[no test files]
+ok  	github.com/yumyums/hq/internal/alerts	0.004s
+ok  	github.com/yumyums/hq/internal/auth	2.695s
+?   	github.com/yumyums/hq/internal/config	[no test files]
+?   	github.com/yumyums/hq/internal/db	[no test files]
+ok  	github.com/yumyums/hq/internal/inventory	20.130s
+?   	github.com/yumyums/hq/internal/me	[no test files]
+?   	github.com/yumyums/hq/internal/onboarding	[no test files]
+?   	github.com/yumyums/hq/internal/photos	[no test files]
+ok  	github.com/yumyums/hq/internal/purchasing	6.779s
+ok  	github.com/yumyums/hq/internal/receipt	18.568s
+ok  	github.com/yumyums/hq/internal/recipes	19.047s
+ok  	github.com/yumyums/hq/internal/sync	39.664s
+?   	github.com/yumyums/hq/internal/testdb	[no test files]
+ok  	github.com/yumyums/hq/internal/toast	0.009s
+?   	github.com/yumyums/hq/internal/users	[no test files]
+?   	github.com/yumyums/hq/internal/version	[no test files]
+ok  	github.com/yumyums/hq/internal/workflow	1.802s
+GO_TEST_EXIT=0
+
+=== SUMMARY (recount pass, verbose reruns) ===
+9 packages ok (alerts, auth, inventory, purchasing, receipt, recipes, sync, toast, workflow)
+454 total --- PASS: lines (244 top-level), 0 --- FAIL:, 2 --- SKIP: (TestProxyLive_RealtimeUpgrade, TestProxyLive_RESTRequest — live-proof skips)
+internal/workflow: exactly 35 PASS, 0 FAIL (see g2-go-verbose-workflow.log)
+HQ_SYNC_SUBSTRATE_OPTIONAL and HQ_SYNC_GATE_CHILD both UNSET — attested by env|grep printing nothing, see top of this log
+DB: hq_test_s1impl_go on :5434 (yumyums-test-pg, role hqtest)

@@ -1,0 +1,24 @@
+=== HEAD ===
+61d13d02b468d3e18709c6d4a6c885e7deafd77a
+=== run 1 ===
+import reachability: 18 precached files parsed, 31 local references resolved, 0 outside the precache
+SW built: 31 files precached (2209.4 KB)
+Frontend version: 1.4.0
+SW_EXIT_1=0
+9954d1a04ec4b8fa942b3fd84e96f4e9  sw.js
+d324802108f5dfda4cc7e8ac9f01681f  version.json
+=== git status after run 1 ===
+ M sw.js
+=== run 2 (idempotency) ===
+import reachability: 18 precached files parsed, 31 local references resolved, 0 outside the precache
+SW built: 31 files precached (2209.4 KB)
+Frontend version: 1.4.0
+SW_EXIT_2=0
+9954d1a04ec4b8fa942b3fd84e96f4e9  sw.js
+d324802108f5dfda4cc7e8ac9f01681f  version.json
+=== precache count ===
+entries=0
+=== version parity ===
+13:	Frontend = "1.4.0"
+3:  "version": "1.4.0",
+{"frontend":"1.4.0"}
