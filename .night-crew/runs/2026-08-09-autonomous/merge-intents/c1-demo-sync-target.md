@@ -93,13 +93,72 @@ Nothing else. No backend Go file, no other HTML tool page, no `night-crew.toml` 
 
 ## Red-first
 
-The tri-state exit contract is the deliverable. Captures below prove EACH wrong-exit path is
-distinct, forced deliberately, with the literal command + `echo "EXIT=$?"`. (Filled as the run
-proceeds.)
+The tri-state exit contract IS the deliverable, so "the test is the exit code". Each wrong-exit
+path was forced deliberately and captured with the literal command + `echo "EXIT=$?"`. All three
+are DISTINCT, exactly as the contract requires.
 
-- **exit 2 (could not run)** — forced: _pending capture_
-- **exit 1 (ran and failed)** — forced via `--break-roundtrip` (relay deliberately absent, both
-  sides real): _pending capture_
-- **exit 0 (green)** — the round trip closes: _pending capture_
+### exit 2 — COULD NOT RUN (no verdict)
 
-Wrong-then-right shown where practical: _pending_.
+Forced by pointing the wrapper at a deliberately-absent harness coordinate: a byte-identical copy
+of `demo-sync.sh` run from a scratch directory where `spike-c-roundtrip.sh` does not exist, so the
+wrapper's own missing-harness precondition fires.
+
+```
+$ /…/scratchpad/demo-sync-probe.sh
+🛑 COULD NOT RUN (not a verdict) — the round-trip harness is missing or not executable: /…/scratchpad/spike-c-roundtrip.sh
+EXIT=2
+```
+
+Result: **EXIT=2**, NOT 1 and NOT 0. ✅
+
+### exit 1 — RAN AND THE ROUND TRIP FAILED (a finding)
+
+Forced via `--break-roundtrip` (the demo's name for the harness's proven `--no-relay` red-first
+mode): the real Spike A stack up, HQ's real 75 migrations applied, the real field written through
+real `/saveResponse` — and the relay DELIBERATELY ABSENT, so nothing bridges HQ Postgres to the
+substrate.
+
+```
+$ ./.night-crew/qa/spike-supabase/demo-sync.sh --break-roundtrip
+  … health: {"backend_version":"0.3.0",…,"status":"ok"}  ·  goose versions applied: 75 · public tables: 52
+  🛑 --no-relay: the trigger is NOT applied and the relay is NOT started.
+  🛑 ROUND TRIP RED: the row written through /saveResponse did NOT reach the RxDB-served read within 20000 ms.
+  HQ Postgres holds 1 row(s) carrying the sentinel (the write path itself)   ← proves it RAN, not a harness failure
+  VERIFIED: hq_sync_checklists and hq_grant_projection are byte-identical to the pre-run baseline.
+  🛑 demo:sync VERDICT: RED (exit 1) — RAN AND THE ROUND TRIP FAILED.
+EXIT=1
+```
+
+Result: **EXIT=1**, NOT 2 and NOT 0. The write really landed in HQ Postgres (1 sentinel row) —
+that is what makes this a MECHANISM red rather than a could-not-run. ✅
+
+### exit 0 — GREEN (the round trip closes)
+
+The full demo, relay armed.
+
+```
+$ ./.night-crew/qa/spike-supabase/demo-sync.sh
+  trigger present: spike_c_relay_notify AFTER INSERT OR UPDATE ON submission_responses
+  relay READY (LISTEN on spike_c_relay established, pid …)
+  ARRIVED in 115 ms -> spikec-7d06f41c-…
+  PASS  a row written through /saveResponse reached a RUNNING RxDB client
+  PASS  it carries HQ's real user uuid in owner_id (identity axis intact through the projection)
+  PASS  it carries the exact field_id and value the write path was given
+  ROUND TRIP CLOSED in 115 ms (bound 20000 ms)
+  MECHANISM PROVEN: LISTEN/NOTIFY relay.
+  VERIFIED: hq_sync_checklists and hq_grant_projection are byte-identical to the pre-run baseline.
+  hq postgres: project spike-c-hq, container 8b7d1c5a1ced, host port 63396 (ephemeral)
+  ✅ demo:sync VERDICT: GREEN (exit 0) — the round trip closes.
+EXIT=0
+```
+
+Result: **EXIT=0**. One field written through the REAL `/saveResponse` surfaced in an RxDB-served
+read on one real checklist, round-trip, in **115 ms** (faster than Spike C's cited 248ms; well
+under the 20s bound). Ephemeral port 63396 — never :5432/:5433/:5434. ✅
+
+### Wrong-then-right
+
+Shown at the wrapper's precondition seam: the SAME `demo-sync.sh`, invoked from a location where
+the harness IS present, produces a real verdict (green/red above); invoked from a location where
+the harness is ABSENT, produces exit 2. The exit code tracks the precondition, not the prose —
+which is the whole point of the tri-state contract.
