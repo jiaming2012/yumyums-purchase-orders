@@ -436,15 +436,41 @@ count or closeout substitutes for that run.
   `74 passed` EXIT=0, spec byte-identical (0-line diff). G4 idempotent, precache **31**.
   Logs: `.night-crew/runs/2026-08-08-2-autonomous/c3-gates/`.
 
-- **`activate-list-views-or-state-they-stay-rest`** · **PLANNED** (slated: `20260808-2` S1,
-  reshaped as `list-views-decision-recording`) · **B-43 partially ruled at ledger T-43:**
-  Approvals stays on re-fetch (recorded); 🛑 **the My Checklists read path is deliberately
-  OPEN — the operator declined to rule it, and no card may decide it.** The card's remaining
-  job: record the Approvals ruling and the open remainder in the code that lies about them
-  today — fix B-64's stale `bootstrap.js` scope banner and restate the cancel rule as
-  *"cancel before re-scoping THE SAME shape"* (B-63's corrected wording, T-43c) — after the
-  fill-view lifecycle exists. Closes B-64; closes B-63 jointly with `activate-fill-view-reads`'
-  concurrent-fill test. Footprint: page wiring + sync client.
+- **`list-views-decision-recording`** (formerly `activate-list-views-or-state-they-stay-rest`)
+  · **DONE** (run `20260808-2`, card **S1**, branch `card/s1-list-views-decision-recording`;
+  merge-intent `6a3b331` first, then this same commit set) · **B-43
+  partially ruled at ledger T-43:** Approvals stays on re-fetch — recorded, in
+  `sync-rxdb/bootstrap.js`'s rewritten `startReplication` banner and BACKLOG.md, not just this
+  entry. 🛑 **The My Checklists read path stayed OPEN, as ruled** — this card states it as open
+  in every banner it touches and predicts no outcome; the PARK trigger (recording requiring a
+  decision on it) did not fire, because T-43(a) and T-43(c) are both fully recordable without
+  touching (b).
+  **B-64, found by content, not the slate's line numbers:** `bootstrap.js:80-86` (the slate's
+  citation) is now `readIdentityToken()` — C2 added ~250 lines above it. The actual stale
+  banner had moved to the comment on the `startReplication` property inside the `HQSync`
+  object literal (~420-427): FILL-shape-only, silent on LIST, and closing with the pre-B-63
+  full stop *"CANCEL the previous states before starting a re-scoped replication"* — which
+  under T-43(c)'s concurrent shapes reads as "opening a second checklist cancels the first,"
+  exactly the conclusion the ruling overturns. Rewritten to name both shapes (pointing at
+  `client.js`'s docblock as the shape of record, per B-64's own lead, rather than a second
+  copy), state what's live today (C2's `#sync-one-row` dev surface behind `hq_sync_read`; C3's
+  per-open-checklist fill scopes, many at once), state what stays REST (both list views;
+  Approvals BY RULING), state My Checklists OPEN, and restate the cancel rule.
+  **`sync-rxdb/client.js`, two banners, both carrying the pre-B-63 wording:** the
+  `startHQReplication` docblock (the one C3's merge-intent named explicitly as S1's to
+  restate) and the older REPLICATION SCOPE design-block tail (same rule, predates the list
+  scope, not named by C3 but found stale by the same reading). Both restated as *"cancel
+  before re-scoping THE SAME shape"* (B-63's corrected wording, T-43c); C3's FILL-shape line
+  `{userId, checklistId, templateId, fieldIds}` in the docblock is untouched, verbatim.
+  **Closes B-64** (banner fixed). **Closes B-63 jointly with `activate-fill-view-reads`'s**
+  (C3) `[SCOPE-05]` concurrent-fill regression test — the behavior half was already proven;
+  this card supplied the documentation half.
+  Docs-only diff: `sync-rxdb/bootstrap.js` + `sync-rxdb/client.js` comments, `BACKLOG.md`,
+  this entry. No `workflows.html` touch (not owned; C3's merge-intent flags a conflict there
+  as a mistake). RF: **n/a — non-code deliverable**, reason recorded in the card's own
+  merge-intent (`.night-crew/runs/2026-08-08-2-autonomous/merge-intents/s1-list-views-decision-recording.md`)
+  — no function body or test assertion changed, and B-63's behavior claim is proven by C3's
+  own red-first tests, cited jointly above, not re-litigated here.
 
 ---
 

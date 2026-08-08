@@ -443,14 +443,21 @@ export function createHQSyncClient(opts = {}) {
 // rows away. Correct by construction rather than by a caller remembering to
 // reset something.
 //
-// 🛑 CALLERS MUST CANCEL BEFORE RE-SCOPING. The plugin's Realtime subscription
-// is `client.channel(replicationIdentifier)`. Per-scope identifiers mean a
-// re-scope now lands on a DIFFERENT topic (an improvement — two scopes no
-// longer share one channel), but a caller that starts a replication for the
-// SAME scope twice without cancelling still gets two subscriptions on one
+// 🛑 CALLERS MUST CANCEL BEFORE RE-SCOPING THE SAME SHAPE (B-63/B-64,
+// corrected wording, ledger T-43(c) — see the `startHQReplication` docblock
+// below for the full restatement). The plugin's Realtime subscription is
+// `client.channel(replicationIdentifier)`. Per-scope identifiers mean a
+// re-scope onto a DIFFERENT shape lands on a DIFFERENT topic (an improvement
+// — two scopes no longer share one channel, and holding several concurrently
+// is the design, not an edge case: T-43(c) is a setup checklist and a
+// food-prep checklist worked at once). A caller that starts a replication for
+// the SAME scope twice without cancelling still gets two subscriptions on one
 // topic, and the old scope's replication keeps running and keeps writing into
-// the same local collections. `sync-hard-cutover` owns the page-level
-// start/cancel lifecycle; see `B-42 SYNC-REALTIME-SCOPE`.
+// the same local collections. `bootstrap.js`'s `openSyncScope` registry
+// prevents that at the one call site production uses; `workflows.html`'s
+// `HQFillSync` (card `activate-fill-view-reads`, C3, run 20260808-2) is the
+// page-level open/cancel lifecycle for the fill view. See `B-42
+// SYNC-REALTIME-SCOPE`.
 // ---------------------------------------------------------------------------
 
 /**
@@ -1229,11 +1236,20 @@ export async function createHQSyncDatabase(opts = {}) {
  *         Approvals, per the 2026-08-02 operator decision. `since` is the DATE
  *         FLOOR and is MANDATORY; `templateIds` must be non-empty.
  *
- * 🛑 CANCEL BEFORE RE-SCOPING. Each returned state owns a Realtime channel
- * named after its `replicationIdentifier` and keeps writing into `db[key]`.
- * Starting a second scope without `.cancel()`ing the first leaves two live
- * replications on the same local collections. Nothing here enforces it —
- * `sync-hard-cutover` owns the page lifecycle that must.
+ * 🛑 CANCEL BEFORE RE-SCOPING THE SAME SHAPE (B-63/B-64, corrected wording,
+ * ledger T-43(c) — replaces the earlier "cancel before re-scoping", full
+ * stop). Each returned state owns a Realtime channel named after its
+ * `replicationIdentifier` and keeps writing into `db[key]`. Starting the SAME
+ * shape a second time without `.cancel()`ing the first leaves two live
+ * replications on one topic, writing into the same local collections.
+ * Starting a DIFFERENT shape concurrently is not re-scoping — multiple live
+ * per-checklist FILL replications at once ARE the design (T-43(c): a setup
+ * checklist and a food-prep checklist worked simultaneously). Nothing HERE
+ * enforces the same-shape half; `sync-rxdb/bootstrap.js`'s `openSyncScope`
+ * registry is what makes re-opening the SAME shape a no-op rather than a
+ * leak, and `workflows.html`'s `HQFillSync` (card `activate-fill-view-reads`,
+ * C3, run 20260808-2) is the page-level open/cancel lifecycle for the fill
+ * view.
  *
  * @returns {Record<string, object>} replication states, keyed by collection.
  */

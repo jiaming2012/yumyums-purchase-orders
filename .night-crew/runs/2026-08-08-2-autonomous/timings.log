@@ -18,3 +18,9 @@ fix-return C3 19:11:12 (F-A/F-B/F-C/F-D fixed; full suite 811/0/6 EXIT=0)
 G6-reverify-start C3 19:11:12
 G6-reverify-return C3 19:16:04 (PASS — probe re-run holds)
 merge C3 19:16:04
+stretch-gate S1 19:16:28 — remaining to 22:37 line: 200m; S1 high 80m + 30m closeout = 110m; 110 <= 200 → START
+implement-start S1 19:16:35
+implement-end S1 20:14:08 (incl. ~15m lost to killed background Go leg)
+G6-start S1 20:14:08
+G6-return S1 20:22:06 (PASS-with-findings, all minor; F-1/F-3 merger-applied)
+merge S1 20:22:06
