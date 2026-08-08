@@ -65,3 +65,27 @@ item (the read-surface choice) — it is a "know before you attest" note, NOT a 
    re-gate (decision 155). Untouched by this run.
 4. **`task demo:sync:red` / `task spike:reconnect:red`** both exit **201** (go-task's code), not the script's — gate
    any red-first capture on the SCRIPT directly (both cards document this; it is B-163's lesson).
+
+## Tooling finding — `run-evidence check` is blind to this repo's layout (clone-side; file against the night-crew clone)
+
+`night-crew run-evidence check --repo . --run <id>` (installed binary **v3.3.0+7**) reads **`no-run-evidence`** for
+this run (20260809) **and** for known-completed, triaged past runs **20260808** and **20260808-2** — whose
+`closeout-<id>.md`, `conflicts-<id>.md`, and `runs/<date>-autonomous/` artifacts all demonstrably exist. Its printed
+evidence list resolves to root `reference/conflicts-<runid>.md` and `.night-crew/runs/<runid>/{journal,summary,metrics}`,
+but this scaffolded target repo keeps them at `.night-crew/knowledge/reference/conflicts-<runid>.md` and
+`.night-crew/runs/<DATE>-autonomous/`. It also does **not** read `closeout-<runid>.md` at all — contradicting the
+nc-run skill §3a claim that the closeout record is the closing artifact the oracle knows. Same class as **B-130**
+(launch-prompt's root-`reference/` hard-coding, since fixed there but evidently not in `run-evidence`).
+
+- **The `card-branch check` HALF works** — it correctly examined both card branches (2 vs 5 run branches) and read
+  them as covered. It is the closing/execution-artifact half that reads the wrong paths.
+- **Impact:** the §1 "already ran" guard's run-evidence half is effectively vacuous in this repo — it returns
+  `no-run-evidence` for every run. Tonight this was harmless (the slate genuinely had not run, and the guard still
+  functions via `git branch --no-merged`, the working card-branch check, and the human reading the slate sign-off).
+  But a future launch that resolves `launch-20260809.md` as newest would read `no-run-evidence` and could re-execute
+  it — **mitigated** because morning triage merges `overnight-20260809` → `dev` and the next cycle's slate supersedes
+  this launch prompt.
+- **Action:** file against the **night-crew clone** (run-evidence path resolution for scaffolded target repos +
+  a `closeout-<runid>.md` reader). 🛑 **Not an hq run-branch remedy** — B-14 discipline: the fix lives in the clone,
+  not here. `closeout-20260809.md` was still written per §3a (correct by the skill; the binary simply does not consume
+  it yet).

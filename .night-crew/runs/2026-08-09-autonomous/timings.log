@@ -12,3 +12,4 @@
 [2026-08-08 14:30:03 AST] Card 2 (B-163) — MERGED to overnight-20260809 (clean, --no-ff). Conflict log + G6 report bundled.
 [2026-08-08 14:30:20 AST] Card 2 — post-merge G4 precache 31 (benign noise reverted); tree clean; worktree archived.
 [2026-08-08 14:32:58 AST] CLOSEOUT — HANDOFF + DECISIONS-NEEDED + closeout-20260809.md written. Both cards landed (G6 pass), 2/2 clean merges, final G4=31.
+[2026-08-08 14:35:29 AST] Tooling finding recorded in HANDOFF: run-evidence check reads no-run-evidence for THIS + past completed runs (path-resolution gap for scaffolded target repo; clone-side, B-130 class).
