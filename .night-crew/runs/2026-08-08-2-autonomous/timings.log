@@ -24,3 +24,6 @@ implement-end S1 20:14:08 (incl. ~15m lost to killed background Go leg)
 G6-start S1 20:14:08
 G6-return S1 20:22:06 (PASS-with-findings, all minor; F-1/F-3 merger-applied)
 merge S1 20:22:06
+stretch-gate S2 20:22:59 — remaining to 22:37 line: 134m; S2 high 110m + 30m closeout = 140m; 140 <= 134 → SKIP
+closeout-start 20:23:26 (S2 skipped by arithmetic; final-tree gate evidence next)
+closeout-commit 20:35:18

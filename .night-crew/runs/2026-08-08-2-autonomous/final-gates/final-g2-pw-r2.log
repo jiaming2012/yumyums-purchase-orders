@@ -1,0 +1,336 @@
+[2m[WebServer] [22m── reset hq_test_final on localhost:5434 ──
+[2m[WebServer] [22m── wrote version.json frontend=1.4.0 ──
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:04.581476705-04:00","level":"INFO","msg":"serving static files from disk","dir":"../"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:04.581782423-04:00","level":"INFO","msg":"loaded superadmins","count":1}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:04.603073657-04:00","level":"INFO","msg":"connected to database"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:04.681470318-04:00","level":"INFO","msg":"OK   0001_users.sql (44.16ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:04.753123591-04:00","level":"INFO","msg":"OK   0002_sessions.sql (71.25ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:04.794368354-04:00","level":"INFO","msg":"OK   0003_invite_tokens.sql (41.16ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:04.83401197-04:00","level":"INFO","msg":"OK   0004_hq_apps.sql (39.53ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:04.896564157-04:00","level":"INFO","msg":"OK   0005_app_permissions.sql (62.31ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:04.925624968-04:00","level":"INFO","msg":"OK   0006_checklist_templates.sql (28.87ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:04.954621118-04:00","level":"INFO","msg":"OK   0007_checklist_schedules.sql (28.89ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:04.994717964-04:00","level":"INFO","msg":"OK   0008_template_assignments.sql (39.98ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:05.031414155-04:00","level":"INFO","msg":"OK   0009_checklist_sections.sql (36.57ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:05.066264711-04:00","level":"INFO","msg":"OK   0010_checklist_fields.sql (34.73ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:05.119656958-04:00","level":"INFO","msg":"OK   0011_checklist_submissions.sql (53.27ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:05.178057776-04:00","level":"INFO","msg":"OK   0012_submission_responses.sql (58.28ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:05.215791196-04:00","level":"INFO","msg":"OK   0013_submission_fail_notes.sql (37.6ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:05.253747268-04:00","level":"INFO","msg":"OK   0014_submission_rejections.sql (37.24ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:05.308635809-04:00","level":"INFO","msg":"OK   0015_ops.sql (54.68ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:05.320964267-04:00","level":"INFO","msg":"OK   0016_lamport_ts.sql (12.23ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:05.336114018-04:00","level":"INFO","msg":"OK   0017_users_naming.sql (14.99ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:05.392774466-04:00","level":"INFO","msg":"OK   0018_ob_templates.sql (56.53ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:05.462161823-04:00","level":"INFO","msg":"OK   0019_ob_items.sql (69.29ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:05.513357083-04:00","level":"INFO","msg":"OK   0020_ob_progress.sql (51.08ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:05.556366376-04:00","level":"INFO","msg":"OK   0021_ob_signoffs.sql (42.9ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:05.600997805-04:00","level":"INFO","msg":"OK   0022_ob_template_assignments.sql (44.5ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:05.671570303-04:00","level":"INFO","msg":"OK   0023_multi_role.sql (70.41ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:05.918615293-04:00","level":"INFO","msg":"OK   0024_inventory.sql (246.79ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:05.965388146-04:00","level":"INFO","msg":"OK   0025_pending_purchases.sql (46.63ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:05.975468058-04:00","level":"INFO","msg":"OK   0026_ob_progress_faq.sql (9.97ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:05.983351383-04:00","level":"INFO","msg":"OK   0027_ob_section_signoff_roles.sql (7.74ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:06.002228555-04:00","level":"INFO","msg":"OK   0028_ob_video_upgrade.sql (18.75ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:06.011511483-04:00","level":"INFO","msg":"OK   0029_ob_templates_archived_at.sql (9.17ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:06.040954065-04:00","level":"INFO","msg":"OK   0030_item_groups_unique_name.sql (29.27ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:06.051915386-04:00","level":"INFO","msg":"OK   0031_remove_placeholder_items.sql (10.82ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:06.085190279-04:00","level":"INFO","msg":"OK   0032_item_group_thresholds.sql (33.13ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:06.157512474-04:00","level":"INFO","msg":"OK   0033_stock_count_overrides.sql (72.13ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:06.269281812-04:00","level":"INFO","msg":"OK   0034_purchase_orders.sql (111.56ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:06.283071202-04:00","level":"INFO","msg":"OK   0035_purchase_items_photo_store.sql (13.66ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:06.294812969-04:00","level":"INFO","msg":"OK   0036_purchase_items_full_name.sql (11.65ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:06.324601708-04:00","level":"INFO","msg":"OK   0037_cutoff_config.sql (29.67ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:06.342776324-04:00","level":"INFO","msg":"OK   0038_po_status_extend.sql (18.06ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:06.367966662-04:00","level":"INFO","msg":"OK   0039_purchase_items_vendor.sql (25.07ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:06.475396195-04:00","level":"INFO","msg":"OK   0040_shopping_lists.sql (107.28ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:06.487877055-04:00","level":"INFO","msg":"OK   0041_notification_channel.sql (12.39ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:06.554707896-04:00","level":"INFO","msg":"OK   0042_repurchase_tracking.sql (66.69ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:06.603566666-04:00","level":"INFO","msg":"OK   0043_alert_log.sql (48.72ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:06.653120511-04:00","level":"INFO","msg":"OK   0044_low_stock_alert_log.sql (49.38ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:06.706774414-04:00","level":"INFO","msg":"OK   0045_notification_channel_array.sql (53.53ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:06.71488218-04:00","level":"INFO","msg":"OK   0046_user_timezone.sql (7.97ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:06.767175313-04:00","level":"INFO","msg":"OK   0047_employee_fields.sql (52.17ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:06.775018867-04:00","level":"INFO","msg":"OK   0048_notification_default_both.sql (7.73ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:06.818530516-04:00","level":"INFO","msg":"OK   0049_ob_sub_items.sql (43.42ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:06.828053098-04:00","level":"INFO","msg":"OK   0050_ob_progress_sub_item.sql (9.4ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:06.835538385-04:00","level":"INFO","msg":"OK   0051_rejection_field_fk.sql (7.38ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:06.851573933-04:00","level":"INFO","msg":"OK   0052_template_name_unique.sql (15.94ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:06.859054106-04:00","level":"INFO","msg":"OK   0053_response_field_fk.sql (7.39ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:06.869257124-04:00","level":"INFO","msg":"OK   0054_failnote_field_fk.sql (10.07ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:06.876580976-04:00","level":"INFO","msg":"OK   0055_item_location_in_store.sql (7.22ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:06.891367053-04:00","level":"INFO","msg":"OK   0056_ob_progress_photo.sql (14.61ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:06.905710236-04:00","level":"INFO","msg":"OK   0057_ob_items_photo_type.sql (14.22ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:06.919143566-04:00","level":"INFO","msg":"OK   0058_ob_sub_items_photos.sql (13.33ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:06.927648503-04:00","level":"INFO","msg":"OK   0059_cleanup_photo_items.sql (8.39ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:06.983771565-04:00","level":"INFO","msg":"OK   0060_menu_items.sql (56ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:07.017916843-04:00","level":"INFO","msg":"OK   0061_daily_menu_sales.sql (34.02ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:07.061278369-04:00","level":"INFO","msg":"OK   0062_recipes.sql (43.23ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:07.095606864-04:00","level":"INFO","msg":"OK   0063_drift_check_results.sql (34.21ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:07.112829144-04:00","level":"INFO","msg":"OK   0064_no_itemized_receipt_seed.sql (17.05ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:07.126424677-04:00","level":"INFO","msg":"OK   0065_mercury_category_on_purchase_events.sql (13.5ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:07.139798521-04:00","level":"INFO","msg":"OK   0066_mercury_category_on_pending_purchases.sql (13.27ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:07.191203812-04:00","level":"INFO","msg":"OK   0067_receipt_sync_runs.sql (51.29ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:07.213296327-04:00","level":"INFO","msg":"OK   0068_pending_purchases_bank_tx_uniq.sql (21.97ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:07.226430108-04:00","level":"INFO","msg":"OK   0069_pending_purchases_parse_error.sql (13.02ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:07.240461991-04:00","level":"INFO","msg":"OK   0070_receipt_urls.sql (13.9ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:07.261380195-04:00","level":"INFO","msg":"OK   0071_submission_fail_notes_unique.sql (20.82ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:07.277413707-04:00","level":"INFO","msg":"OK   0072_app_timezone_new_york.sql (15.84ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:07.308437045-04:00","level":"INFO","msg":"OK   0073_sync_fdw_views.sql (30.68ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:07.320162677-04:00","level":"INFO","msg":"OK   0074_sync_fdw_approver_view.sql (11.56ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:07.320211674-04:00","level":"INFO","msg":"goose: successfully migrated database to version: 74","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:07.32023065-04:00","level":"INFO","msg":"database migrations applied successfully"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:07.405232801-04:00","level":"INFO","msg":"upserted superadmin","email":"jamal@yumyums.kitchen"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:07.441640937-04:00","level":"INFO","msg":"seeded template","name":"Setup Checklist","id":"8522de58-6c42-4a5f-88fe-9d25e44cfa75"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:07.441702886-04:00","level":"INFO","msg":"seeded templates","count":1}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:07.470168765-04:00","level":"INFO","msg":"seeded onboarding template","name":"Kitchen Basics Training","id":"21f0d7af-d794-4199-87f8-3b3bd07a1269"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:07.491799126-04:00","level":"INFO","msg":"inventory: seeded vendors","count":5}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:07.576451374-04:00","level":"INFO","msg":"inventory: seeded unique tags","count":19}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:07.717888992-04:00","level":"INFO","msg":"inventory: seeded item groups","count":10}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:08.235701366-04:00","level":"INFO","msg":"inventory: seeded purchase items from YAML","count":106}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:08.235794245-04:00","level":"WARN","msg":"DO Spaces env vars not set, photo and video upload endpoints will return 503","required":"DO_SPACES_KEY, DO_SPACES_SECRET, DO_SPACES_BUCKET, DO_SPACES_REGION"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:08.235814248-04:00","level":"WARN","msg":"HQ_INVENTORY_SERVICE_TOKEN not set, /api/v1/inventory/period-summary AND /api/v1/inventory/menu-cogs will return 503"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:08.236188278-04:00","level":"INFO","msg":"inventory COGS category allowlist","allowlist":["COGS"]}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:08.236960461-04:00","level":"INFO","msg":"receipt worker disabled","reason":"E2E_DISABLE_SCHEDULERS=1"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:08.237050023-04:00","level":"INFO","msg":"alert queue started","delivery_enabled":false}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:08.23707093-04:00","level":"INFO","msg":"cutoff scheduler disabled","reason":"E2E_DISABLE_SCHEDULERS=1"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:08.23708822-04:00","level":"INFO","msg":"toast worker disabled, cmd/sync-toast remains available","reason":"TOAST_SYNC_INTERVAL=0"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:08.238097425-04:00","level":"INFO","msg":"alerts queue started"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:08.261496018-04:00","level":"INFO","msg":"server listening","port":"4391"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:08.271996279-04:00","level":"INFO","msg":"reachable at","url":"http://10.255.255.254:4391"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:08.272079106-04:00","level":"INFO","msg":"reachable at","url":"http://192.168.8.164:4391"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:08.272097803-04:00","level":"INFO","msg":"reachable at","url":"http://100.70.200.55:4391"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:08.272115494-04:00","level":"INFO","msg":"Yumyums HQ ready, accepting connections"}
+
+Running 111 tests using 1 worker
+
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:10.756672511-04:00","level":"ERROR","msg":"cleanupOldDrafts error","error":"cleanup old drafts: context canceled"}
+  ✓    1 [chromium] › tests/persistence.spec.js:94:3 › Persistence › template with sections and fields round-trips through API [BLD-17] (1.0s)
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:11.808073671-04:00","level":"ERROR","msg":"cleanupOldDrafts error","error":"cleanup old drafts: context canceled"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:11.93905631-04:00","level":"ERROR","msg":"cleanupOldDrafts error","error":"cleanup old drafts: context canceled"}
+  ✓    2 [chromium] › tests/persistence.spec.js:124:3 › Persistence › assignments and approvers persist [BLD-18] (951ms)
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:12.982052771-04:00","level":"ERROR","msg":"cleanupOldDrafts error","error":"cleanup old drafts: context canceled"}
+  ✓    3 [chromium] › tests/persistence.spec.js:160:3 › Persistence › submitted checklist persists in pending approvals [APR-02] (993ms)
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:14.027927037-04:00","level":"ERROR","msg":"myChecklists error","error":"iterate rejections: context canceled"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:14.028099283-04:00","level":"ERROR","msg":"pendingApprovals error","error":"list pending approvals: context canceled"}
+  ✓    4 [chromium] › tests/persistence.spec.js:191:3 › Persistence › approved submission no longer appears in pending [APR-11] (971ms)
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:14.844635651-04:00","level":"ERROR","msg":"cleanupOldDrafts error","error":"cleanup old drafts: context canceled"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:14.905313487-04:00","level":"ERROR","msg":"myChecklists error","error":"iterate rejections: context canceled"}
+  ✓    5 [chromium] › tests/persistence.spec.js:222:3 › Persistence › archived template does not appear in template list [BLD-15] (849ms)
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:15.71085323-04:00","level":"ERROR","msg":"cleanupOldDrafts error","error":"cleanup old drafts: context canceled"}
+  ✓    6 [chromium] › tests/persistence.spec.js:242:3 › Persistence › updated template reflects changes on next read [BLD-19] (848ms)
+  ✓    7 [chromium] › tests/persistence.spec.js:278:3 › Persistence › section with show-on-days matching today is visible in checklist runner [VIS-02] (4.3s)
+  ✓    8 [chromium] › tests/persistence.spec.js:331:3 › Persistence › section condition days persist through save and reload [VIS-02] (956ms)
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:21.984439545-04:00","level":"ERROR","msg":"cleanupOldDrafts error","error":"cleanup old drafts: context canceled"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:22.74760436-04:00","level":"INFO","msg":"op handler received op","op_type":"SET_FIELD","entity_id":"2185a45e-7d6d-4cab-8502-2df0af063676","device_id":"b9d4ebb3-718e-4158-9387-72e8ba2523f4","lamport_ts":24}
+  ✓    9 [chromium] › tests/persistence.spec.js:353:3 › Persistence › checked items persist after page reload [FLD-02] (2.4s)
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:24.368672256-04:00","level":"INFO","msg":"client log","level":"ERROR","message":"loadMyChecklists error: Failed to fetch\nTypeError: Failed to fetch","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/workflows.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+  ✓   10 [chromium] › tests/persistence.spec.js:385:3 › Persistence › draft progress bar reflects saved items after reload [LST-03 RUN-02] (931ms)
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:28.799605607-04:00","level":"INFO","msg":"op handler received op","op_type":"SET_FIELD","entity_id":"4c364c20-fb56-42ed-9c82-cf1d502e8d15","device_id":"e2a4e5a6-cec9-45d8-8aff-1e00c24b5ef2","lamport_ts":30}
+  ✓   11 [chromium] › tests/persistence.spec.js:406:3 › Persistence › submitted checklist shows as submitted after reload [LST-06] (8.3s)
+  ✓   12 [chromium] › tests/persistence.spec.js:443:3 › Persistence › submitted checklist fields are not blank after reload [FLD-R3 FLD-R5] (1.3s)
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:34.646672194-04:00","level":"ERROR","msg":"GetMyTrainings failed","error":"context canceled"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:35.44840122-04:00","level":"ERROR","msg":"myChecklists error","error":"iterate sections: context canceled"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:35.448489247-04:00","level":"ERROR","msg":"listTemplates error","error":"list sections: context canceled"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:35.455311484-04:00","level":"INFO","msg":"client log","level":"ERROR","message":"loadMyChecklists error: Failed to fetch\nTypeError: Failed to fetch\n    at api (http://localhost:4391/sync.js:24:21)\n    at loadMyChecklists (http://localhost:4391/workflows.html:628:24)\n    at applyOp (http://localhost:4391/sync.js:504:7)\n    at _ws.onmessage (http://localhost:4391/sync.js:275:7)","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/workflows.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+  ✓   13 [chromium] › tests/persistence.spec.js:507:3 › Persistence › checkboxes entered OFFLINE survive back-to-list and reopen [OFF-01] (3.6s)
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:39.117258595-04:00","level":"ERROR","msg":"myChecklists error","error":"iterate templates: context canceled"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:39.123944018-04:00","level":"INFO","msg":"client log","level":"ERROR","message":"loadMyChecklists error: Failed to fetch\nTypeError: Failed to fetch\n    at api (http://localhost:4391/sync.js:24:21)\n    at loadMyChecklists (http://localhost:4391/workflows.html:628:24)\n    at applyOp (http://localhost:4391/sync.js:504:7)\n    at _ws.onmessage (http://localhost:4391/sync.js:275:7)","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/workflows.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+  ✓   14 [chromium] › tests/persistence.spec.js:591:3 › Persistence › progress counts pending answers and says they are pending [OFF-02] (3.6s)
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:42.651791373-04:00","level":"ERROR","msg":"pendingApprovals error","error":"iterate pending approvals: context canceled"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:42.656436364-04:00","level":"INFO","msg":"client log","level":"ERROR","message":"loadMyChecklists error: Failed to fetch\nTypeError: Failed to fetch\n    at api (http://localhost:4391/sync.js:24:21)\n    at loadMyChecklists (http://localhost:4391/workflows.html:628:24)\n    at applyOp (http://localhost:4391/sync.js:504:7)\n    at _ws.onmessage (http://localhost:4391/sync.js:275:7)","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/workflows.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+  ✓   15 [chromium] › tests/persistence.spec.js:616:3 › Persistence › a field whose save failed is marked Unsaved [OFF-03] (3.5s)
+  ✓   16 [chromium] › tests/persistence.spec.js:645:3 › Persistence › a failed save says why, once per burst [OFF-04] (5.3s)
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:51.332461562-04:00","level":"ERROR","msg":"listTemplates error","error":"iterate fields: context canceled"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:51.333146921-04:00","level":"ERROR","msg":"myChecklists error","error":"iterate templates: context canceled"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:51.341181148-04:00","level":"INFO","msg":"client log","level":"ERROR","message":"loadMyChecklists error: Failed to fetch\nTypeError: Failed to fetch\n    at api (http://localhost:4391/sync.js:24:21)\n    at loadMyChecklists (http://localhost:4391/workflows.html:628:24)\n    at applyOp (http://localhost:4391/sync.js:504:7)\n    at _ws.onmessage (http://localhost:4391/sync.js:275:7)","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/workflows.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:53.544840422-04:00","level":"INFO","msg":"op handler received op","op_type":"SET_FIELD","entity_id":"ba3dab16-e52d-4305-ad05-1abf79587973","device_id":"d52ab223-d9b3-4ec3-bafb-c0cc12cc5eba","lamport_ts":50}
+  ✓   17 [chromium] › tests/persistence.spec.js:681:3 › Persistence › pending answers sync by themselves when the connection returns [OFF-05] (3.5s)
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:55.068370372-04:00","level":"ERROR","msg":"listTemplates error","error":"iterate sections: context canceled"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:55.07011261-04:00","level":"ERROR","msg":"myChecklists error","error":"iterate templates: context canceled"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:55.089102109-04:00","level":"INFO","msg":"client log","level":"ERROR","message":"loadMyChecklists error: Failed to fetch\nTypeError: Failed to fetch\n    at api (http://localhost:4391/sync.js:24:21)\n    at loadMyChecklists (http://localhost:4391/workflows.html:628:24)\n    at applyOp (http://localhost:4391/sync.js:504:7)\n    at _ws.onmessage (http://localhost:4391/sync.js:275:7)","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/workflows.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:57.372909831-04:00","level":"INFO","msg":"op handler received op","op_type":"SET_FIELD","entity_id":"41cc0990-2630-4fbb-9daa-6ff21978e233","device_id":"a9b8c70e-ed66-418a-ab2d-51d2c0259f25","lamport_ts":54}
+  ✓   18 [chromium] › tests/persistence.spec.js:715:3 › Persistence › a failure while ONLINE retries itself on the timer tick [OFF-06] (3.7s)
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:58.918362105-04:00","level":"INFO","msg":"op handler received op","op_type":"SET_FIELD","entity_id":"14a80a34-2f8a-448c-984f-a9be21fe0475","device_id":"c7c2ea7b-381c-453a-82aa-f78818553067","lamport_ts":56}
+  ✓   19 [chromium] › tests/persistence.spec.js:741:3 › Persistence › checked field survives back-to-list and reopen without losing state [FLD-02 RUN-18] (1.7s)
+[2m[WebServer] [22m{"time":"2026-08-07T20:31:59.96543099-04:00","level":"ERROR","msg":"pendingApprovals error","error":"list pending approvals: context canceled"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:32:00.585793861-04:00","level":"INFO","msg":"op handler received op","op_type":"SET_FIELD","entity_id":"92172aab-75f1-4bb6-a90f-a436440937f4","device_id":"006c26df-ada2-45fa-8bde-8467b0ab05c1","lamport_ts":58}
+  ✓   20 [chromium] › tests/persistence.spec.js:807:3 › Persistence › yes/no button is highlighted after save and reopen [FLD-06 FLD-07] (1.6s)
+[2m[WebServer] [22m{"time":"2026-08-07T20:32:01.648973921-04:00","level":"ERROR","msg":"myChecklists error","error":"iterate fail notes: context canceled"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:32:01.65383522-04:00","level":"ERROR","msg":"listTemplates error","error":"iterate templates: context canceled"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:32:01.661119839-04:00","level":"INFO","msg":"client log","level":"ERROR","message":"loadMyChecklists error: Failed to fetch\nTypeError: Failed to fetch\n    at api (http://localhost:4391/sync.js:24:21)\n    at loadMyChecklists (http://localhost:4391/workflows.html:628:24)\n    at applyOp (http://localhost:4391/sync.js:504:7)\n    at _ws.onmessage (http://localhost:4391/sync.js:275:7)","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/workflows.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:32:01.665065707-04:00","level":"INFO","msg":"client log","level":"ERROR","message":"loadMyChecklists error: Failed to fetch\nTypeError: Failed to fetch\n    at api (http://localhost:4391/sync.js:24:21)\n    at loadMyChecklists (http://localhost:4391/workflows.html:628:24)\n    at applyOp (http://localhost:4391/sync.js:504:7)\n    at _ws.onmessage (http://localhost:4391/sync.js:275:7)","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/workflows.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:32:02.364155204-04:00","level":"INFO","msg":"op handler received op","op_type":"SET_FIELD","entity_id":"6fb21aca-0a16-4f27-ae0f-473cd20149a5","device_id":"9a6403e5-c209-40fb-9153-757fca257d31","lamport_ts":61}
+  ✓   21 [chromium] › tests/persistence.spec.js:857:3 › Persistence › text field without quotes renders without quotes after reload [FLD-09] (1.8s)
+[2m[WebServer] [22m{"time":"2026-08-07T20:32:04.040533495-04:00","level":"INFO","msg":"op handler received op","op_type":"SET_FIELD","entity_id":"ef1839c4-1315-4954-8d2b-83f04c9b6fca","device_id":"4d6f7ca5-b5ab-4fd8-8ad2-29a4b10dc6f5","lamport_ts":64}
+  ✓   22 [chromium] › tests/persistence.spec.js:900:3 › Persistence › text field with quotes renders with quotes after reload [FLD-09] (1.6s)
+[2m[WebServer] [22m{"time":"2026-08-07T20:32:05.074521076-04:00","level":"ERROR","msg":"myDrafts error","error":"timeout: context already done: context canceled"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:32:05.081050532-04:00","level":"INFO","msg":"client log","level":"ERROR","message":"loadMyChecklists error: Failed to fetch\nTypeError: Failed to fetch\n    at api (http://localhost:4391/sync.js:24:21)\n    at loadMyChecklists (http://localhost:4391/workflows.html:628:24)\n    at applyOp (http://localhost:4391/sync.js:504:7)\n    at _ws.onmessage (http://localhost:4391/sync.js:275:7)","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/workflows.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:32:05.716225524-04:00","level":"INFO","msg":"op handler received op","op_type":"SET_FIELD","entity_id":"82ff8458-b74f-4766-855e-4c20e8f249ff","device_id":"f10a97a4-bd1b-47de-aab8-f151c19e276c","lamport_ts":66}
+  ✓   23 [chromium] › tests/persistence.spec.js:945:3 › Persistence › temperature value survives back-to-list and reopen [FLD-11] (1.8s)
+[2m[WebServer] [22m{"time":"2026-08-07T20:32:07.700397683-04:00","level":"INFO","msg":"op handler received op","op_type":"SET_FIELD","entity_id":"605aa211-8134-4cce-8c20-ac0e37ec2970","device_id":"9a46a3a6-eddf-4c2d-98b1-8a7e190d0ac3","lamport_ts":68}
+  ✓   24 [chromium] › tests/persistence.spec.js:996:3 › Persistence › sub-step checks survive back-to-list and reopen [FLD-03] (1.9s)
+[2m[WebServer] [22m{"time":"2026-08-07T20:32:09.101955435-04:00","level":"ERROR","msg":"myChecklists error","error":"iterate responses: context canceled"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:32:09.107102277-04:00","level":"INFO","msg":"client log","level":"ERROR","message":"loadMyChecklists error: Failed to fetch\nTypeError: Failed to fetch\n    at api (http://localhost:4391/sync.js:24:21)\n    at loadMyChecklists (http://localhost:4391/workflows.html:628:24)\n    at applyOp (http://localhost:4391/sync.js:504:7)\n    at _ws.onmessage (http://localhost:4391/sync.js:275:7)","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/workflows.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:32:09.782116424-04:00","level":"INFO","msg":"op handler received op","op_type":"SET_FIELD","entity_id":"7b763514-db88-4da6-91bb-53728b4f0635","device_id":"758e5281-f4e9-4b49-a049-4c89466d7b50","lamport_ts":70}
+[2m[WebServer] [22m{"time":"2026-08-07T20:32:11.683658376-04:00","level":"INFO","msg":"op handler received op","op_type":"SET_FIELD","entity_id":"7b763514-db88-4da6-91bb-53728b4f0635","device_id":"758e5281-f4e9-4b49-a049-4c89466d7b50","lamport_ts":72}
+  ✓   25 [chromium] › tests/persistence.spec.js:1054:3 › Persistence › corrective action note and severity survive back-and-reopen [FLD-15] (3.9s)
+[2m[WebServer] [22m{"time":"2026-08-07T20:32:13.225999421-04:00","level":"ERROR","msg":"listTemplates error","error":"iterate schedules: context canceled"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:32:13.88559162-04:00","level":"INFO","msg":"op handler received op","op_type":"SET_FIELD","entity_id":"e9a9818f-197b-4b16-83da-330a44f2d879","device_id":"dacca622-69ee-4dfc-b8a4-c17a9db7168f","lamport_ts":77}
+  ✓   26 [chromium] › tests/persistence.spec.js:1127:3 › Persistence › fail photo survives back-to-list and reopen as https:// URL [FLD-16] (3.0s)
+[2m[WebServer] [22m{"time":"2026-08-07T20:32:17.038485548-04:00","level":"INFO","msg":"op handler received op","op_type":"SET_FIELD","entity_id":"f1e09334-5d32-4469-b50b-15720baca02b","device_id":"b3600713-6403-4dc7-ad34-38ca0f8a0f78","lamport_ts":81}
+[2m[WebServer] [22m{"time":"2026-08-07T20:32:17.889275384-04:00","level":"INFO","msg":"op handler received op","op_type":"SET_FIELD","entity_id":"f1e09334-5d32-4469-b50b-15720baca02b","device_id":"b3600713-6403-4dc7-ad34-38ca0f8a0f78","lamport_ts":83}
+  ✓   27 [chromium] › tests/persistence.spec.js:1222:3 › Persistence › fail photo captured through the camera path survives back-to-list and reopen [FLD-16B] (4.4s)
+  ✓   28 [chromium] › tests/persistence.spec.js:1332:3 › Persistence › correction photo survives back-to-list and reopen as https:// URL [FLD-CORRECTION-PHOTO] (1.8s)
+[2m[WebServer] [22m{"time":"2026-08-07T20:32:22.426681846-04:00","level":"ERROR","msg":"myChecklists error","error":"iterate responses: context canceled"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:32:22.44280568-04:00","level":"INFO","msg":"client log","level":"ERROR","message":"loadMyChecklists error: Failed to fetch\nTypeError: Failed to fetch\n    at api (http://localhost:4391/sync.js:24:21)\n    at loadMyChecklists (http://localhost:4391/workflows.html:628:24)\n    at applyOp (http://localhost:4391/sync.js:482:7)\n    at _ws.onmessage (http://localhost:4391/sync.js:275:7)","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/workflows.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:32:23.407365769-04:00","level":"INFO","msg":"op handler received op","op_type":"SET_FIELD","entity_id":"72e7b779-4880-4bd9-ad11-6fdfb1a52e1e","device_id":"6749bd79-5a64-45eb-91cb-67b0102b8488","lamport_ts":92}
+  ✓   29 [chromium] › tests/persistence.spec.js:1409:3 › Persistence › correction photo captured through the camera path survives back-to-list and reopen [FLD-16C] (3.7s)
+[2m[WebServer] [22m{"time":"2026-08-07T20:32:25.268029811-04:00","level":"ERROR","msg":"GetMyTrainings failed","error":"context canceled"}
+  ✓   30 [chromium] › tests/persistence.spec.js:1560:3 › Persistence › video max_watched_time survives back-to-list and reopen (1.3s)
+  ✓   31 [chromium] › tests/persistence.spec.js:1646:3 › Persistence › video_watch_position progress does not mark section complete (1.4s)
+  ✓   32 [chromium] › tests/persistence.spec.js:1743:3 › Persistence › max_watched_time persists after video marked as watched (1.1s)
+  -   33 [chromium] › tests/persistence.spec.js:1840:3 › Persistence › recipe usage_pct round-trips through PUT and GET
+  ✓   34 [chromium] › tests/repo-hygiene.spec.js:41:1 › no source file under sync-rxdb/ contains a NUL byte (23ms)
+  ✓   35 [chromium] › tests/repo-hygiene.spec.js:66:1 › scopeFingerprint still joins its operands with a real NUL at runtime (6ms)
+  ✓   36 [chromium] › tests/repo-hygiene.spec.js:89:1 › no sync-rxdb source gates activation on the merged row-visibility-rls card (5ms)
+  ✓   37 [chromium] › tests/repo-hygiene.spec.js:132:1 › night-crew.toml records the spec files its Operations tokens really select (12ms)
+  ✘   38 [chromium] › tests/sync-fill-view.spec.js:200:3 › [FILL-01] the fill view reads the open checklist from RxDB › a response that exists ONLY in RxDB answers the field in the runner (588ms)
+  ✓   39 [chromium] › tests/sync-fill-view.spec.js:264:3 › [FILL-01] the fill view reads the open checklist from RxDB › with the flag OFF the same fixture renders unanswered — no scope, no database, no IndexedDB (3.7s)
+[2m[WebServer] [22m{"time":"2026-08-07T20:32:35.462012564-04:00","level":"ERROR","msg":"GetMyTrainings failed","error":"context canceled"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:32:36.003387803-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/workflows.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:32:36.207034461-04:00","level":"ERROR","msg":"listTemplates error","error":"iterate sections: context canceled"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:32:36.207815186-04:00","level":"ERROR","msg":"listTemplates error","error":"iterate sections: context canceled"}
+  ✓   40 [chromium] › tests/sync-fill-view.spec.js:314:3 › [FILL-02] the fill view holds multiple concurrent per-checklist scopes › setup + food prep live at once, pairwise-distinct identifiers, and cancelling one leaves the other (1.2s)
+[2m[WebServer] [22m{"time":"2026-08-07T20:32:37.222596908-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/workflows.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:32:37.313365373-04:00","level":"ERROR","msg":"listTemplates error","error":"iterate schedules: context canceled"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:32:37.313463871-04:00","level":"ERROR","msg":"listTemplates error","error":"iterate assignments: context canceled"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:32:37.313836799-04:00","level":"ERROR","msg":"listTemplates error","error":"iterate assignments: context canceled"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:32:37.313842416-04:00","level":"ERROR","msg":"listTemplates error","error":"iterate schedules: context canceled"}
+  ✓   41 [chromium] › tests/sync-fill-view.spec.js:368:3 › [FILL-02] the fill view holds multiple concurrent per-checklist scopes › the fill scope carries the crew member — two users on one phone do not share a checkpoint [F-2] (1.0s)
+[2m[WebServer] [22m{"time":"2026-08-07T20:32:38.595897081-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/workflows.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+  ✓   42 [chromium] › tests/sync-fill-view.spec.js:451:3 › [FILL-04] the overlay renders only THIS submission and MY drafts (F-A) › a resident foreign-submission row and a foreign-user draft do NOT answer the fields (3.3s)
+[2m[WebServer] [22m{"time":"2026-08-07T20:32:42.525729858-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/workflows.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+  ✓   43 [chromium] › tests/sync-fill-view.spec.js:510:3 › [FILL-04] the overlay renders only THIS submission and MY drafts (F-A) › ...while THIS submission's rows and MY OWN draft do answer them (2.2s)
+[2m[WebServer] [22m{"time":"2026-08-07T20:32:44.913209044-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/workflows.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+  ✓   44 [chromium] › tests/sync-fill-view.spec.js:554:3 › [FILL-05] the fill scope closes on every exit, and survives a fast reopen › switching to the Approvals tab closes the open checklist's scope [F-B] (2.3s)
+[2m[WebServer] [22m{"time":"2026-08-07T20:32:46.175518786-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/workflows.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:32:46.790664451-04:00","level":"ERROR","msg":"listTemplates error","error":"iterate fields: context canceled"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:32:46.799926994-04:00","level":"ERROR","msg":"listTemplates error","error":"iterate fields: context canceled"}
+  ✓   45 [chromium] › tests/sync-fill-view.spec.js:590:3 › [FILL-05] the fill scope closes on every exit, and survives a fast reopen › a close immediately followed by a reopen leaves a LIVE replication, not a cancelled one [F-C] (1.5s)
+[2m[WebServer] [22m{"time":"2026-08-07T20:32:47.700392311-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/workflows.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:32:47.798554606-04:00","level":"ERROR","msg":"listTemplates error","error":"iterate fields: context canceled"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:32:47.807965151-04:00","level":"ERROR","msg":"listTemplates error","error":"list schedules: context canceled"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:32:47.808052099-04:00","level":"ERROR","msg":"listTemplates error","error":"list sections: context canceled"}
+  ✓   46 [chromium] › tests/sync-fill-view.spec.js:643:3 › [FILL-03] a transient storage failure does not brick sync until reload (C2 G6 F-1) › a rejected createDatabase is EVICTED — the next open succeeds, and no dead scope is reported live (969ms)
+[2m[WebServer] [22m{"time":"2026-08-07T20:32:48.894451589-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/workflows.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:32:49.473997344-04:00","level":"ERROR","msg":"listTemplates error","error":"iterate assignments: context canceled"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:32:49.474509951-04:00","level":"ERROR","msg":"listTemplates error","error":"iterate assignments: context canceled"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:32:49.476845568-04:00","level":"ERROR","msg":"listTemplates error","error":"iterate sections: context canceled"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:32:49.477064491-04:00","level":"ERROR","msg":"listTemplates error","error":"iterate fields: context canceled"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:32:49.478013629-04:00","level":"ERROR","msg":"listTemplates error","error":"list schedules: context canceled"}
+  ✓   47 [chromium] › tests/sync-one-row.spec.js:186:3 › skeleton — one row, real write path to an RxDB-served read › a value written by POST /saveResponse is served to the page out of RxDB, behind the flag (1.6s)
+  ✓   48 [chromium] › tests/sync-one-row.spec.js:261:3 › skeleton — one row, real write path to an RxDB-served read › the flag is OFF by default — no database, no IndexedDB, and the surface stays absent (2.9s)
+[2m[WebServer] [22m{"time":"2026-08-07T20:32:53.455920595-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/workflows.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:32:53.615068637-04:00","level":"ERROR","msg":"listTemplates error","error":"iterate assignments: context canceled"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:32:53.616217004-04:00","level":"ERROR","msg":"listTemplates error","error":"list assignments: context canceled"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:32:53.616592437-04:00","level":"ERROR","msg":"listTemplates error","error":"iterate assignments: context canceled"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:32:53.616951675-04:00","level":"ERROR","msg":"listTemplates error","error":"iterate assignments: context canceled"}
+  ✓   49 [chromium] › tests/sync-one-row.spec.js:293:3 › skeleton — one row, real write path to an RxDB-served read › the call site holds multiple concurrent per-checklist scopes, and is idempotent per scope (1.2s)
+  ✓   50 [chromium] › tests/sync-rxdb-client.spec.js:52:3 › vendor pin — fails LOUDLY on upgrade › vendor/package.json, the generated bundle and PINNED_VENDOR all agree (166ms)
+  ✓   51 [chromium] › tests/sync-rxdb-client.spec.js:69:3 › vendor pin — fails LOUDLY on upgrade › assertVendorPin throws with an actionable message when the bundle moves (22ms)
+  ✓   52 [chromium] › tests/sync-rxdb-client.spec.js:86:3 › supabase-js URL derivation (the coupling decision 51 accepted) › given <origin>/sync it derives <origin>/sync/rest/v1 and <origin>/sync/realtime/v1 (40ms)
+  ✓   53 [chromium] › tests/sync-rxdb-client.spec.js:117:3 › the door's addresses › the REST rewrite case table is non-empty (4ms)
+  ✓   54 [chromium] › tests/sync-rxdb-client.spec.js:123:5 › the door's addresses › rewriteRestPath: /sync/rest/v1/checklist_templates -> /sync/rest/checklist_templates (5ms)
+  ✓   55 [chromium] › tests/sync-rxdb-client.spec.js:123:5 › the door's addresses › rewriteRestPath: /sync/rest/v1/rpc/hq_can_see_template -> /sync/rest/rpc/hq_can_see_template (4ms)
+  ✓   56 [chromium] › tests/sync-rxdb-client.spec.js:123:5 › the door's addresses › rewriteRestPath: /sync/rest/v1 -> /sync/rest (3ms)
+  ✓   57 [chromium] › tests/sync-rxdb-client.spec.js:123:5 › the door's addresses › rewriteRestPath: /sync/rest/v1/v1 -> /sync/rest/v1 (4ms)
+  ✓   58 [chromium] › tests/sync-rxdb-client.spec.js:123:5 › the door's addresses › rewriteRestPath: /sync/realtime/v1/websocket -> /sync/realtime/v1/websocket (4ms)
+  ✓   59 [chromium] › tests/sync-rxdb-client.spec.js:123:5 › the door's addresses › rewriteRestPath: /api/v1/workflow/templates -> /api/v1/workflow/templates (4ms)
+  ✓   60 [chromium] › tests/sync-rxdb-client.spec.js:129:3 › the door's addresses › rewriteRealtimeUrl points at /sync/realtime/socket/websocket and DROPS apikey (7ms)
+  ✓   61 [chromium] › tests/sync-rxdb-client.spec.js:141:3 › the door's addresses › the constants match backend/internal/sync/proxy.go (6ms)
+  ✓   62 [chromium] › tests/sync-rxdb-client.spec.js:157:3 › createHQSupabaseClient — same-origin, gateway-less, credential-free › a REST query lands on /sync/rest/<table> with no /v1 and no credentials (19ms)
+  ✓   63 [chromium] › tests/sync-rxdb-client.spec.js:183:3 › createHQSupabaseClient — same-origin, gateway-less, credential-free › the realtime handshake goes to /sync/realtime/socket/websocket?vsn=1.0.0 (2.7s)
+  ✓   64 [chromium] › tests/sync-rxdb-client.spec.js:204:3 › createHQSupabaseClient — same-origin, gateway-less, credential-free › nothing anywhere in the client layer fetches /api/v1/sync/token (8ms)
+  ✓   65 [chromium] › tests/sync-rxdb-client.spec.js:215:3 › createHQSupabaseClient — same-origin, gateway-less, credential-free › construction makes no network request at all (205ms)
+  ✓   66 [chromium] › tests/sync-rxdb-client.spec.js:228:3 › createHQSupabaseClient — same-origin, gateway-less, credential-free › createHQSyncClient exposes the HQ conflict handler, not RxDB's default (6ms)
+  ✓   67 [chromium] › tests/sync-rxdb-client.spec.js:628:3 › [SCOPE-01] replication is scoped to the open checklist (C-2) › the fixture really does hold rows for a checklist this device never opened (26ms)
+  ✓   68 [chromium] › tests/sync-rxdb-client.spec.js:664:3 › [SCOPE-01] replication is scoped to the open checklist (C-2) › the vendored plugin still offers pull.queryBuilder as the scoping seam (7ms)
+  ✓   69 [chromium] › tests/sync-rxdb-client.spec.js:672:3 › [SCOPE-01] replication is scoped to the open checklist (C-2) › a device does NOT hold rows for a checklist it never opened (21ms)
+  ✓   70 [chromium] › tests/sync-rxdb-client.spec.js:692:3 › [SCOPE-01] replication is scoped to the open checklist (C-2) › an offline DRAFT on the open checklist still replicates (7ms)
+  ✓   71 [chromium] › tests/sync-rxdb-client.spec.js:707:3 › [SCOPE-01] replication is scoped to the open checklist (C-2) › replication REFUSES to start unscoped — C-2 is not a default, it is a gate (10ms)
+  ✓   72 [chromium] › tests/sync-rxdb-client.spec.js:717:3 › [SCOPE-01] replication is scoped to the open checklist (C-2) › scoped AND batched — the pull keeps its batch size (15ms)
+  ✓   73 [chromium] › tests/sync-rxdb-client.spec.js:731:3 › [SCOPE-01] replication is scoped to the open checklist (C-2) › scope values are QUOTED, so an id cannot rewrite the predicate [F-4] (7ms)
+  ✓   74 [chromium] › tests/sync-rxdb-client.spec.js:753:3 › [SCOPE-01] replication is scoped to the open checklist (C-2) › an omitted templateId is REFUSED, not widened to every template [F-5] (6ms)
+  ✓   75 [chromium] › tests/sync-rxdb-client.spec.js:772:3 › [SCOPE-01] replication is scoped to the open checklist (C-2) › a collection with no scope case refuses EAGERLY, not inside pull.handler [F-3] (9ms)
+  ✓   76 [chromium] › tests/sync-rxdb-client.spec.js:840:3 › [SCOPE-03] the LIST scope — per-user, with a mandatory date floor › the list fixture is DISCRIMINATING, not merely populated (25ms)
+  ✓   77 [chromium] › tests/sync-rxdb-client.spec.js:871:3 › [SCOPE-03] the LIST scope — per-user, with a mandatory date floor › a list scope with NO DATE FLOOR is REFUSED — the floor is the bound, not a default (9ms)
+  ✓   78 [chromium] › tests/sync-rxdb-client.spec.js:904:3 › [SCOPE-03] the LIST scope — per-user, with a mandatory date floor › a list scope with no userId and no templates is REFUSED too (6ms)
+  ✓   79 [chromium] › tests/sync-rxdb-client.spec.js:917:3 › [SCOPE-03] the LIST scope — per-user, with a mandatory date floor › a date floor cannot carry PostgREST logic-tree punctuation [F-4, on the new key] (3ms)
+  ✓   80 [chromium] › tests/sync-rxdb-client.spec.js:927:3 › [SCOPE-03] the LIST scope — per-user, with a mandatory date floor › the list scope holds THIS user's rows since the floor, and nothing else (29ms)
+  ✓   81 [chromium] › tests/sync-rxdb-client.spec.js:943:3 › [SCOPE-03] the LIST scope — per-user, with a mandatory date floor › the floor really is applied per collection, on each one's OWN time column (14ms)
+  ✓   82 [chromium] › tests/sync-rxdb-client.spec.js:960:3 › [SCOPE-03] the LIST scope — per-user, with a mandatory date floor › the list scope is still BATCHED — C-2 is both halves (13ms)
+  ✓   83 [chromium] › tests/sync-rxdb-client.spec.js:970:3 › [SCOPE-03] the LIST scope — per-user, with a mandatory date floor › the FILL scope is untouched — a second mode is not a rewrite of the first (12ms)
+  ✓   84 [chromium] › tests/sync-rxdb-client.spec.js:983:3 › [SCOPE-03] the LIST scope — per-user, with a mandatory date floor › two crew members on ONE phone do not inherit each other's checkpoint (9ms)
+  ✓   85 [chromium] › tests/sync-rxdb-client.spec.js:1032:3 › [SCOPE-04] the Realtime filter — three collections, and the one it cannot express › the vendored plugin still subscribes with no filter of its own (6ms)
+  ✓   86 [chromium] › tests/sync-rxdb-client.spec.js:1040:5 › [SCOPE-04] the Realtime filter — three collections, and the one it cannot express › [fill] the filter is present on EXACTLY THREE collections and ABSENT on responses (5ms)
+  ✓   87 [chromium] › tests/sync-rxdb-client.spec.js:1040:5 › [SCOPE-04] the Realtime filter — three collections, and the one it cannot express › [list] the filter is present on EXACTLY THREE collections and ABSENT on responses (7ms)
+  ✓   88 [chromium] › tests/sync-rxdb-client.spec.js:1059:3 › [SCOPE-04] the Realtime filter — three collections, and the one it cannot express › every emitted filter is ONE `column=op.value` clause — the only shape Realtime takes (32ms)
+  ✓   89 [chromium] › tests/sync-rxdb-client.spec.js:1086:3 › [SCOPE-04] the Realtime filter — three collections, and the one it cannot express › the filter reaches the plugin's channel — registered under the replication identifier (15ms)
+  ✓   90 [chromium] › tests/sync-rxdb-client.spec.js:1123:3 › [SCOPE-04] the Realtime filter — three collections, and the one it cannot express › the channel shim injects the registered filter into the postgres_changes binding (7ms)
+  ✓   91 [chromium] › tests/sync-rxdb-client.spec.js:1156:3 › [SCOPE-04] the Realtime filter — three collections, and the one it cannot express › the shim is installed by createHQSupabaseClient, not left to the caller (5ms)
+  ✓   92 [chromium] › tests/sync-rxdb-client.spec.js:1291:3 › [SCOPE-02] the checkpoint is per-scope, not per-table (F-1) › RxDB really keys the checkpoint meta store by [collection.name, replicationIdentifier] (8ms)
+  ✓   93 [chromium] › tests/sync-rxdb-client.spec.js:1302:3 › [SCOPE-02] the checkpoint is per-scope, not per-table (F-1) › opening an OLDER checklist after a newer one still replicates its rows (10ms)
+  ✓   94 [chromium] › tests/sync-rxdb-client.spec.js:1320:3 › [SCOPE-02] the checkpoint is per-scope, not per-table (F-1) › ...and that is the SAME set a device with a fresh checkpoint would get (6ms)
+  ✓   95 [chromium] › tests/sync-rxdb-client.spec.js:1330:3 › [SCOPE-02] the checkpoint is per-scope, not per-table (F-1) › a different scope mints a different replicationIdentifier — per collection (10ms)
+  ✓   96 [chromium] › tests/sync-rxdb-client.spec.js:1340:3 › [SCOPE-02] the checkpoint is per-scope, not per-table (F-1) › the SAME scope still RESUMES — the fix did not just disable checkpoints (10ms)
+  ✓   97 [chromium] › tests/sync-rxdb-client.spec.js:1353:3 › [SCOPE-02] the checkpoint is per-scope, not per-table (F-1) › the fingerprint is deterministic and scope-sensitive (6ms)
+  ✓   98 [chromium] › tests/sync-rxdb-client.spec.js:1430:3 › [SCOPE-05] concurrent fill scopes, and the fill scope's user identity (F-2) › TWO concurrent fill scopes — setup + food prep — are two replications with pairwise-distinct identifiers (14ms)
+  ✓   99 [chromium] › tests/sync-rxdb-client.spec.js:1442:3 › [SCOPE-05] concurrent fill scopes, and the fill scope's user identity (F-2) › ...and neither concurrent scope starves the other — a shared meta store, both sets of rows (8ms)
+  ✓  100 [chromium] › tests/sync-rxdb-client.spec.js:1459:3 › [SCOPE-05] concurrent fill scopes, and the fill scope's user identity (F-2) › a SECOND crew member on the same phone gets their own identifiers, not a resumed cursor [F-2] (6ms)
+  ✓  101 [chromium] › tests/sync-rxdb-client.spec.js:1474:3 › [SCOPE-05] concurrent fill scopes, and the fill scope's user identity (F-2) › the FILL scope REFUSES a missing userId — it is not an optional argument [F-2] (10ms)
+  ✓  102 [chromium] › tests/sync-rxdb-client.spec.js:1504:3 › [SCOPE-05] concurrent fill scopes, and the fill scope's user identity (F-2) › the fill scope's userId is IDENTITY, not a filter clause — no collection filters on it (15ms)
+  ✓  103 [chromium] › tests/sync-rxdb-client.spec.js:1522:3 › [SCOPE-05] concurrent fill scopes, and the fill scope's user identity (F-2) › the same crew member re-opening the same checklist still RESUMES (14ms)
+  ✓  104 [chromium] › tests/sync-rxdb-client.spec.js:1538:3 › expandGrantSlugs — obligation 4 › inventory expands to the two per-tab surfaces the user can actually reach (3ms)
+  ✓  105 [chromium] › tests/sync-rxdb-client.spec.js:1544:3 › expandGrantSlugs — obligation 4 › the umbrella table matches what main.go actually mounts (3ms)
+  ✓  106 [chromium] › tests/sync-rxdb-client.spec.js:1553:3 › expandGrantSlugs — obligation 4 › a narrow per-tab grant is NOT widened — expansion is one-way (3ms)
+  ✓  107 [chromium] › tests/sync-rxdb-client.spec.js:1558:3 › expandGrantSlugs — obligation 4 › idempotent, de-duplicating, order-independent, and empty-safe (15ms)
+[2m[WebServer] [22m{"time":"2026-08-07T20:32:59.265153864-04:00","level":"ERROR","msg":"listTemplates error","error":"iterate fields: context canceled"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:32:59.266030789-04:00","level":"ERROR","msg":"listTemplates error","error":"iterate templates: context canceled"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:32:59.26685959-04:00","level":"ERROR","msg":"listTemplates error","error":"iterate schedules: context canceled"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:32:59.266882375-04:00","level":"ERROR","msg":"listTemplates error","error":"iterate sections: timeout: context already done: context canceled"}
+  ✓  108 [chromium] › tests/sync-rxdb-client.spec.js:1604:3 › workflows.html actually imports and constructs the client › window.HQSync is constructed, pinned and umbrella-expanded (923ms)
+[2m[WebServer] [22m{"time":"2026-08-07T20:32:59.653451103-04:00","level":"ERROR","msg":"GetMyTrainings failed","error":"timeout: context already done: context canceled"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:33:00.037264777-04:00","level":"INFO","msg":"client log","level":"WARN","message":"-------------- RxDB Open Core RxStorage -------------------------------\nYou are using the free Dexie.js based RxStorage implementation from RxDB https://rxdb.info/rx-storage-dexie.html?console=dexie \nWhile this is a great option, we want to let you know that there are faster storage solutions available in our premium plugins.\nFor professional users and production environments, we highly recommend considering these premium options to enhance performance and reliability.\n https://rxdb.info/premium/?console=dexie \nIf you already purchased premium access you can disable this log by calling the setPremiumFlag() function from rxdb-premium/plugins/shared.\n---------------------------------------------------------------------","user":"Jamal C. (jamal@yumyums.kitchen)","page":"/workflows.html","ua":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.7727.15 Safari/537.36"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:33:00.198904596-04:00","level":"ERROR","msg":"listTemplates error","error":"list fields: context canceled"}
+[2m[WebServer] [22m{"time":"2026-08-07T20:33:00.199694717-04:00","level":"ERROR","msg":"pendingApprovals error","error":"get user role: context canceled"}
+  ✓  109 [chromium] › tests/sync-rxdb-client.spec.js:1645:3 › workflows.html actually imports and constructs the client › the RxDB collections carry HQ's conflict handler, not RxDB's default (903ms)
+  ✓  110 [chromium] › tests/sync-rxdb-client.spec.js:1687:3 › workflows.html actually imports and constructs the client › no user write path was rerouted — workflows.html still autosaves through the API (4ms)
+[2m[WebServer] [22m{"time":"2026-08-07T20:33:00.966603819-04:00","level":"ERROR","msg":"listTemplates error","error":"list assignments: context canceled"}
+  ✓  111 [chromium] › tests/sync-rxdb-client.spec.js:1731:3 › workflows.html actually imports and constructs the client › nothing reads from RxDB on a code path that can execute offline — window.HQSync.db is undefined at end of load (B-88) (728ms)
+
+
+  1) [chromium] › tests/sync-fill-view.spec.js:200:3 › [FILL-01] the fill view reads the open checklist from RxDB › a response that exists ONLY in RxDB answers the field in the runner 
+
+    Error: the fixture must carry NO REST responses, or an answered field proves nothing
+
+    [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+
+    Expected: [32m0[39m
+    Received: [31m1[39m
+
+      188 |     (submission.responses || []).length,
+      189 |     'the fixture must carry NO REST responses, or an answered field proves nothing',
+    > 190 |   ).toBe(0);
+          |     ^
+      191 |   return {
+      192 |     templateId, fieldIds, fieldId: fieldIds[0], checklistId: submission.id, templateName: name,
+      193 |   };
+        at checklistWithNoRestResponses (/home/jcole/projects/hq-worktrees/run-20260808-2/tests/sync-fill-view.spec.js:190:5)
+        at /home/jcole/projects/hq-worktrees/run-20260808-2/tests/sync-fill-view.spec.js:204:16
+
+    Error Context: test-results/sync-fill-view--FILL-01-th-552d8-ers-the-field-in-the-runner-chromium/error-context.md
+
+  1 failed
+    [chromium] › tests/sync-fill-view.spec.js:200:3 › [FILL-01] the fill view reads the open checklist from RxDB › a response that exists ONLY in RxDB answers the field in the runner 
+  1 skipped
+  109 passed (2.0m)
