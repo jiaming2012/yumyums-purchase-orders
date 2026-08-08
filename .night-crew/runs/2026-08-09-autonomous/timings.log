@@ -10,3 +10,5 @@
 [2026-08-08 14:21:58 AST] Card 2 (B-163) — implementer RETURNED complete (7 srcpsql guards, b+c fixes, Taskfile note; RF 1→2 all paths; nothing parked). G6 dispatched.
 [2026-08-08 14:28:55 AST] Card 2 (B-163) — G6 PASS (no over-correction, no fix round). Merging.
 [2026-08-08 14:30:03 AST] Card 2 (B-163) — MERGED to overnight-20260809 (clean, --no-ff). Conflict log + G6 report bundled.
+[2026-08-08 14:30:20 AST] Card 2 — post-merge G4 precache 31 (benign noise reverted); tree clean; worktree archived.
+[2026-08-08 14:32:58 AST] CLOSEOUT — HANDOFF + DECISIONS-NEEDED + closeout-20260809.md written. Both cards landed (G6 pass), 2/2 clean merges, final G4=31.
