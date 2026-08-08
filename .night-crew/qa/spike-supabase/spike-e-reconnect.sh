@@ -408,7 +408,11 @@ done
 echo "  health: $(curl -fsS "$API/api/v1/health")"
 
 APPLIED="$(srcpsql "select count(*) from goose_db_version" 2>/dev/null || echo 0)"
-TABLES="$(srcpsql "select count(*) from information_schema.tables where table_schema='public'")"
+# 🛑 GUARD, NOT DECORATION. A bare VAR="$(srcpsql …)" dies under `set -euo
+# pipefail` with psql/docker's OWN exit code (1 for a missing container) — an
+# INFRA failure that would read as RED (exit 1). `|| cannot_run` forces exit 2.
+TABLES="$(srcpsql "select count(*) from information_schema.tables where table_schema='public'")" \
+  || cannot_run "could not count public tables in HQ's scratch Postgres — psql/docker failed, not a catch-up finding"
 printf '  goose versions applied: %s  ·  public tables: %s\n' "$APPLIED" "$TABLES"
 [ "$TABLES" -gt 30 ] || cannot_run "only $TABLES public tables exist — HQ's migrator did not run. See $WORK/hq-server.log"
 srcpsql "select 1 from information_schema.tables where table_schema='public' and table_name='submission_responses'" | grep -q 1 \
@@ -417,7 +421,11 @@ srcpsql "select 1 from information_schema.tables where table_schema='public' and
 # --------------------------------------------------------------------------
 step "the write path's real prerequisites — a real session and FOUR real fields"
 # --------------------------------------------------------------------------
-HQ_USER_ID="$(srcpsql "select id from users where email='$SUPERADMIN_EMAIL'")"
+# Guarded: a bare assignment dies under `set -e` with psql's exit code BEFORE the
+# `[ -n ]` check below can run, so an infra failure would read as RED. `|| cannot_run`
+# makes the psql failure exit 2; the emptiness check still handles a live-but-empty result.
+HQ_USER_ID="$(srcpsql "select id from users where email='$SUPERADMIN_EMAIL'")" \
+  || cannot_run "querying the superadmin user id failed — psql/docker error, not a catch-up finding"
 [ -n "$HQ_USER_ID" ] || cannot_run "the superadmin from config/superadmins.yaml was not upserted into users"
 echo "  hq user: $HQ_USER_ID ($SUPERADMIN_EMAIL)"
 
@@ -460,8 +468,12 @@ printf '  checklist_submissions.submitted_at : %s\n' \
   "$(srcpsql "select coalesce(column_default,'(none)') from information_schema.columns where table_name='checklist_submissions' and column_name='submitted_at'")"
 printf '  submission_responses.answered_at   : %s\n' \
   "$(srcpsql "select coalesce(column_default,'(none)') from information_schema.columns where table_name='submission_responses' and column_name='answered_at'")"
-SUBMIT_TRG="$(srcpsql "select count(*) from pg_trigger t join pg_class c on c.oid=t.tgrelid where c.relname='checklist_submissions' and not t.tgisinternal")"
-RESP_TRG="$(srcpsql "select count(*) from pg_trigger t join pg_class c on c.oid=t.tgrelid where c.relname='submission_responses' and not t.tgisinternal")"
+# Guarded: bare assignments die under `set -e` with psql's exit code on infra
+# failure (would read as RED). `|| cannot_run` forces the honest exit 2.
+SUBMIT_TRG="$(srcpsql "select count(*) from pg_trigger t join pg_class c on c.oid=t.tgrelid where c.relname='checklist_submissions' and not t.tgisinternal")" \
+  || cannot_run "querying triggers on checklist_submissions failed — psql/docker error, not a catch-up finding"
+RESP_TRG="$(srcpsql "select count(*) from pg_trigger t join pg_class c on c.oid=t.tgrelid where c.relname='submission_responses' and not t.tgisinternal")" \
+  || cannot_run "querying triggers on submission_responses failed — psql/docker error, not a catch-up finding"
 printf '  user triggers on checklist_submissions: %s   ·  on submission_responses: %s\n' "$SUBMIT_TRG" "$RESP_TRG"
 printf '  => nothing re-stamps submitted_at on UPDATE. Its only writer is the INSERT default;\n'
 printf '     repository.go:1186 (approve) and :1232 (reject) set status/reviewed_by/reviewed_at\n'
@@ -549,9 +561,16 @@ step "corroboration in HQ's OWN Postgres — the writes really were an INSERT an
 # substrate id staying the same. This proves it at the SOURCE: HQ's upsert
 # (repository.go:826, ON CONFLICT (field_id, answered_by) WHERE submission_id IS
 # NULL) must have left field B with exactly ONE row, whose answered_at moved.
-B_ROWS="$(srcpsql "select count(*) from submission_responses where field_id='$FIELD_B' and submission_id is null")"
-A_ROWS="$(srcpsql "select count(*) from submission_responses where field_id='$FIELD_A' and submission_id is null")"
-C_ROWS="$(srcpsql "select count(*) from submission_responses where field_id='$FIELD_C' and submission_id is null")"
+# 🛑 Guarded, and the guard matters MOST here: these feed the verdict branch below.
+# A bare assignment dies under `set -e` with psql's exit code (an infra failure
+# reading as RED); worse, the teardown then reports rc=1 as if a verdict was reached.
+# `|| cannot_run` makes a psql/docker failure the honest exit 2, never a false RED.
+B_ROWS="$(srcpsql "select count(*) from submission_responses where field_id='$FIELD_B' and submission_id is null")" \
+  || cannot_run "counting field B draft rows failed — psql/docker error, not a catch-up finding"
+A_ROWS="$(srcpsql "select count(*) from submission_responses where field_id='$FIELD_A' and submission_id is null")" \
+  || cannot_run "counting field A draft rows failed — psql/docker error, not a catch-up finding"
+C_ROWS="$(srcpsql "select count(*) from submission_responses where field_id='$FIELD_C' and submission_id is null")" \
+  || cannot_run "counting field C draft rows failed — psql/docker error, not a catch-up finding"
 printf '  submission_responses draft rows — field A: %s · field B: %s · field C: %s\n' "$A_ROWS" "$B_ROWS" "$C_ROWS"
 printf '  field B row: %s\n' "$(srcpsql "select id||'  answered_at='||answered_at||'  value='||value::text from submission_responses where field_id='$FIELD_B' and submission_id is null")"
 if [ -f "$WORK/relay.log" ]; then
@@ -561,7 +580,13 @@ fi
 
 case "$CLIENT_RC" in
   0)
-    [ "$B_ROWS" = "1" ] || red "the client leg reported full recovery but field B has $B_ROWS draft rows in HQ's Postgres — the second write was not an UPDATE in place, so the mandatory UPDATE case was NOT exercised and this green would be vacuous"
+    # 🛑 VACUOUS-GREEN IS NOT A VERDICT. The client leg said GREEN, but if field B
+    # does not hold exactly ONE draft row the second write was not an UPDATE IN
+    # PLACE — the mandatory UPDATE case was never exercised, so this green proves
+    # nothing about catch-up. The honest code is 2 ("could not run / no verdict"),
+    # NOT 1 (red). A red here would falsely instruct Activity 3 to add a resync
+    # step off a run that never tested the thing. (B-163 (b).)
+    [ "$B_ROWS" = "1" ] || cannot_run "the client leg reported full recovery but field B has $B_ROWS draft rows in HQ's Postgres — the second write was not an UPDATE in place, so the mandatory UPDATE case was NOT exercised. A GREEN that never exercised the UPDATE is VACUOUS: no verdict, could-not-run, never RED"
     ;;
   1)
     red "a replicating RxDB client that was severed while rows changed did NOT recover everything on reconnect. $([ "$NO_PULL" = 1 ] && echo 'This is the expected RED-FIRST capture: the checkpoint pull leg was disabled and recovery was realtime-only.' || echo 'Checkpoint pull was ARMED and still missed dark-window changes — the build cards need an explicit resync step.')"
