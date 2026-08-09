@@ -41,6 +41,29 @@ subset = 'npx playwright test "{tags}"'
 # folds into the Inventory app, persistence into Operations. Cross-app specs
 # (multi-role, index) and shared/undeclared packages (auth, db, sync, receipt, …)
 # are intentionally unmapped: touching them de-confines the card → full suite.
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# APP-SURFACE PROOF — footprint mapping (card `sync-live-in-dev-app-proof`,
+# Activity 5 leg 3, run 20260810). NOT a seam key/token — a footprint NOTE.
+#
+# The app-surface red-first proof drives the REAL workflows.html in a real
+# Chromium against a LIVE external substrate (Docker substrate + FDW repoint +
+# ephemeral scratch HQ). It therefore CANNOT run inside this [e2e.seams] `:5434`
+# `task test` harness at all — it is a STANDALONE harness gated on its OWN exit
+# code (the browser-live/ precedent, B-345-aligned; see the merge-intent's
+# gate-harness decision). Its files live OUTSIDE tests/, so they match no seam
+# glob and add no roll-call name (the [e2e.seams] tables + tests/repo-hygiene.spec.js
+# enumerate tests/*.spec.js only). This note is where "the app-surface test is in a
+# card's footprint" is honored, without a new KEY or TOKEN (which would PARK):
+#
+#   footprint (card sync-live-in-dev-app-proof):
+#     .night-crew/qa/spike-supabase/sync-app-proof.sh                     (the harness — gate on its exit code)
+#     .night-crew/qa/spike-supabase/app-proof/workflows-live.spec.js      (promoted from browser-live/)
+#     .night-crew/qa/spike-supabase/app-proof/playwright.app-proof.config.js
+#     Taskfile.yml  sync:app-proof                                        (thin wrapper — GATE ON THE SCRIPT, B-163)
+#
+#   run it:  task sync:app-proof   (but grade `.night-crew/qa/spike-supabase/sync-app-proof.sh; echo EXIT=$?`)
+# ─────────────────────────────────────────────────────────────────────────────
 [e2e.seams]
 "backend/internal/inventory"  = ["inventory", "recipes"]
 "backend/internal/recipes"    = ["inventory", "recipes"]

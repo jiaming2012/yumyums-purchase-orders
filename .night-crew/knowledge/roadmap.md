@@ -552,32 +552,47 @@ count or closeout substitutes for that run.
   PASS with `HQ_SYNC_SUBSTRATE_OPTIONAL`/`HQ_SYNC_GATE_CHILD` unset; G2(Playwright) N/A-by-footprint
   (no seam key matched); G4 N/A-by-footprint (no HTML/JS; precache 31 unchanged).
 
-- **`sync-live-in-dev-app-proof`** · **PLANNED** (slate-20260810, Card 2; leg 3) · **Depends on
-  `sync-live-in-dev-substrate`.** Prove the sync capability is **usable in the app**: promote
-  spike-f's `browser-live/workflows-live.spec.js` into a repo **red-first** Playwright spec that
-  drives the real `workflows.html` (flag `hq_sync_read` ON, **no `page.route` stub**) against the
-  live persistent substrate, enters one field through the real `/saveResponse` path, and asserts it
-  surfaces via RxDB replication **in the app** (`#sync-one-row` → `data-state="served"`) — replacing
-  the demo's Node RxDB read client with the actual app surface (closes the read-surface gap T-44
-  recorded).
+- **`sync-live-in-dev-app-proof`** · **DEV-COMPLETE** (run `20260810`, branch
+  `wo-sync-live-in-dev-app-proof`; done_when proven GREEN by `sync-app-proof.sh` exit 0 — run
+  `ap20260809153943`, the spike-f model, NO `:5433`) · **Depends on `sync-live-in-dev-substrate`**
+  (consumes its `sync:dev:*` task family + 4× `HQ_SYNC_*` dev wiring). Proved the sync capability
+  is **usable in the app**: promoted spike-f's `browser-live/workflows-live.spec.js` into a
+  repo **red-first** harness that drives the real `workflows.html` (flag `hq_sync_read` ON, **no
+  `page.route` stub**) in a real Chromium against the persistent substrate through the `/sync/*`
+  proxy, enters one field via the real `/saveResponse` path, and asserts it surfaces via RxDB
+  replication **in the app** (`#sync-one-row` → `data-state="served"`) — replacing the demo's Node
+  RxDB read client with the actual app surface (closes the read-surface gap T-44 recorded). No
+  `workflows.html` / `sync-rxdb/*` source edit was needed (the spike's prediction held): the shipped
+  `#sync-one-row` surface reached `served` unmodified, in **508 ms**.
 
   done_when:
-  - The **app** shows the round trip: the spec drives `workflows.html` against the live substrate
-    (no `page.route` stub), enters one field, and asserts it surfaces via RxDB replication in the
-    app — **red-first**: the same spec fails when the relay is stopped — check: run the spec with
-    the relay up (pass) and down (fail). Gate the red-first on the spec/script exit, never on
-    `task` (B-163).
+  - ✅ The **app** shows the round trip: the served-asserting spec drives `workflows.html` against
+    the persistent substrate (no `page.route` stub), one field is written through the real
+    `/saveResponse`, and it surfaces via RxDB in the app — **red-first**: the SAME spec FAILS when
+    the relay/carrier is stopped. PROVEN — `sync-app-proof.sh` runs the ONE served-asserting spec
+    twice in one invocation: carrier **DOWN** → spec exit **1** (the app opened replication — all
+    four collections `[sync 200]` through the proxy — and sat at `data-state="waiting"` for 20 s,
+    never `served`; non-vacuous), carrier **UP** → spec exit **0** (`#sync-one-row` → `served`
+    carrying the `/saveResponse` sentinel in 508 ms). Gated on the SCRIPT's exit code, never on
+    `task` (B-163). Setup: FDW resolved 7 rows through the bridge, door 200, `/saveResponse` 204,
+    substrate restored byte-identical + FDW `hq_pg` restored to `:5434/hq_test_b2_fdw`, scratch HQ
+    torn down.
 
-  Footprint: a new red-first Playwright spec + its config (promoting `browser-live/`), its
-  `night-crew.toml` footprint/seam integration (+ `tests/repo-hygiene.spec.js` count bump if a
-  roll-call name is added); `workflows.html` / `sync-rxdb/*` read path only if a source edit proves
-  necessary (spike evidence says not). Gate-harness integration (standalone spike-style spec vs a
-  self-skipping `tests/` seam — the live-substrate spec cannot run in the standard `:5434` harness)
-  is an engineer-level decision the card records in its merge-intent; a new `night-crew.toml`
-  KEY/TOKEN would PARK. KR trace: Delivery objective — Activity 5, corrected close bar.
+  Footprint: a new standalone red-first harness — `.night-crew/qa/spike-supabase/sync-app-proof.sh`
+  + the promoted `app-proof/workflows-live.spec.js` + `app-proof/playwright.app-proof.config.js`
+  (promoted from `browser-live/`) + the `sync:app-proof` root-Taskfile wrapper; a `night-crew.toml`
+  footprint NOTE (no new key/token — the standalone spec lives outside `tests/`, matches no seam
+  glob, adds no roll-call name, so `tests/repo-hygiene.spec.js` is unchanged at count 11). No
+  `workflows.html` / `sync-rxdb/*` edit. Gate-harness decision (engineer-level, in the merge-intent):
+  **standalone spike-style harness gated on its own exit code** (form a — the `browser-live/`
+  precedent, B-345-aligned; the live-substrate spec cannot run in the standard `:5434` harness).
+  KR trace: Delivery objective — Activity 5, corrected close bar. Gates: G1/G2(Go) N/A-by-footprint
+  (no Go change); G2(Playwright) N/A-by-footprint (no `tests/` seam key matched — standalone harness
+  is the verdict, exit 0); G4 N/A-by-footprint (no HTML/JS; precache 31 unchanged); RF = the
+  headline gate above, GREEN.
   🛑 **Spike gate: GREEN, no longer blocking** — leg 3 (real browser against the real substrate)
   was spiked GREEN (`spike-f-browser-live.sh` exit 0). This is the integration the milestone had
-  never spiked; it now has.
+  never spiked; it now has — and this card promotes that proof into a repo-owned red-first harness.
 
 - **`dev-complete-attestation`** · **PLANNED** · 🛑 **Attended, and the operator's own act.** Per
   the corrected bar (decision 161), this is no longer "run `task demo:sync`" alone: the operator

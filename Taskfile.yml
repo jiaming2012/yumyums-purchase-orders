@@ -587,6 +587,55 @@ tasks:
     cmd: ./.night-crew/qa/spike-supabase/spike-f-browser-live.sh
 
   # ─────────────────────────────────────────────────────────────────────────────
+  # THE APP-SURFACE PROOF — `task sync:app-proof` (card `sync-live-in-dev-app-proof`,
+  # Activity 5, roadmap LEG 3, run 20260810). Card 2, depends on Card 1's persistent
+  # substrate (task sync:dev:up) + the 4× HQ_SYNC_* dev wiring. Disjoint from
+  # everything above it.
+  #
+  # Thin wrapper, same rule as every spike / sync:dev family above: all logic lives
+  # in .night-crew/qa/spike-supabase/sync-app-proof.sh so the verdict reproduces
+  # without `task` installed and comes from exactly ONE place.
+  #
+  # THE QUESTION. Spike F stubbed nothing and proved leg 3 GREEN, but as a spike
+  # artifact. This card PROMOTES it into a repo-owned RED-FIRST harness: the REAL
+  # workflows.html (flag hq_sync_read=on, NO page.route stub) driven in a real
+  # Chromium against the PERSISTENT substrate through the /sync proxy, one field
+  # written via the REAL /saveResponse surfacing in the app's own RxDB dev surface
+  # (#sync-one-row -> served). The SAME served-asserting spec runs TWICE: carrier
+  # DOWN (must FAIL) then carrier UP (must PASS) — "run the spec with the relay UP
+  # (pass) and DOWN (fail)". This replaces demo:sync's Node RxDB read client with
+  # the actual app surface (closes the read-surface gap T-44 recorded).
+  #
+  # 🛑 GATE ON THE SCRIPT, NEVER ON `task sync:app-proof`. go-task returns its OWN
+  #   status (201) when a wrapped command fails, so a red (exit 1) and a
+  #   could-not-run (exit 2) are INDISTINGUISHABLE at the `task` boundary — B-163.
+  #   To read the honest tri-state code, invoke the script directly:
+  #     .night-crew/qa/spike-supabase/sync-app-proof.sh; echo "EXIT=$?"
+  #
+  # 🛑 THE TRI-STATE EXIT CONTRACT IS THE DELIVERABLE:
+  #     0   GREEN — the app rendered the RxDB-served field (carrier UP), and the
+  #         SAME spec did NOT reach served with the carrier DOWN (non-vacuous).
+  #     1   RED — ran, integration disproven (browser never reached `served` with
+  #         the row in the substrate and the proxy open).
+  #     2   COULD NOT RUN — infra/setup (Docker, substrate, scratch HQ, proxy 503,
+  #         FDW would not connect, or the red-first control PASSED). NO verdict.
+  #     3   verdict reached, but the substrate (submission_responses rows OR the
+  #         FDW server options) could not be restored.
+  #
+  #   Like sync-dev-proof.sh / spike F it uses the SPIKE-F MODEL — a FRESH scratch
+  #   HQ Postgres under project `sync-app-proof-hq` on a Docker-assigned EPHEMERAL
+  #   host port, never :5432/:5433/:5434 (:5433 is PRODUCTION AND DEV — a probe
+  #   there destroyed the prod database on 2026-08-06). It consumes the persistent
+  #   substrate in RECONCILE mode. Its ONE substrate mutation — repointing hq_pg at
+  #   the scratch HQ via Card 1's SHIPPED sql/persistent-dev-fdw-pointing.sql — is
+  #   snapshotted, restored and VERIFIED on every path.
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  sync:app-proof:
+    desc: The app-surface proof — drive the REAL workflows.html against the persistent substrate through /sync; the SAME served-asserting spec must PASS carrier-up and FAIL carrier-down (exit status IS the verdict; 0 green / 1 red / 2 could-not-run — GRADE ON THE SCRIPT, not on `task`)
+    cmd: ./.night-crew/qa/spike-supabase/sync-app-proof.sh
+
+  # ─────────────────────────────────────────────────────────────────────────────
   # THE MILESTONE CLOSE-BAR DEMO — `task demo:sync` (card `demo-sync-target`,
   # Activity 5, run 20260809). Disjoint from everything above it.
   #
