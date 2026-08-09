@@ -146,7 +146,7 @@ trap teardown EXIT
 # --------------------------------------------------------------------------
 step "preflight"
 # --------------------------------------------------------------------------
-for bin in docker curl node go npx; do
+for bin in docker curl node go npx python3; do
   command -v "$bin" >/dev/null 2>&1 || cannot_run "required tool not on PATH: $bin"
 done
 docker info >/dev/null 2>&1 || cannot_run "the Docker daemon is not reachable"
@@ -239,7 +239,13 @@ boot_server() {  # $@ = extra env assignments (the HQ_SYNC_* vars, or none)
     sleep 1
   done
 }
-stop_server() { [ -n "$SERVER_PID" ] && { kill "$SERVER_PID" 2>/dev/null; wait "$SERVER_PID" 2>/dev/null; SERVER_PID=""; }; }
+# 🛑 `wait` returns the WAITED-FOR process's exit status, and a process killed by
+# SIGTERM exits 143 — under `set -e` that aborts the whole script (measured: the
+# proof stopped dead right after the red-first capture with rc=143). The teardown
+# trap survives it because it runs under `set +e`; stop_server runs under `set -e`,
+# so it must swallow the signal-exit itself. `|| true`, not removing the wait — we
+# still want to reap the child before booting the second server on the same port.
+stop_server() { [ -n "$SERVER_PID" ] && { kill "$SERVER_PID" 2>/dev/null || true; wait "$SERVER_PID" 2>/dev/null || true; SERVER_PID=""; }; }
 
 boot_server   # NO HQ_SYNC_* vars
 TABLES="$(srcpsql "select count(*) from information_schema.tables where table_schema='public'")"
@@ -345,7 +351,11 @@ RESP_ID="$(srcpsql "select id from submission_responses where field_id='$FIELD_I
 printf '  wrote submission_responses %s (sentinel=%s); polling the substrate for spikec-%s ...\n' "$RESP_ID" "$SENTINEL" "$RESP_ID"
 
 # Poll the substrate — the relay projects the row keyed by id `spikec-<respid>`.
-started="$(date +%s%N)"
+# 🛑 macOS `date` has no %N (nanoseconds) — `date +%s%N` yields e.g. "1786287909N",
+# which broke the elapsed-ms arithmetic. python3 (asserted in preflight) gives a
+# portable millisecond epoch on both macOS and Linux.
+now_ms() { python3 -c 'import time;print(int(time.time()*1000))'; }
+started="$(now_ms)"
 deadline=$(( $(date +%s) + (CONVERGE_MS / 1000) + 2 ))
 FOUND=""
 while :; do
@@ -355,7 +365,7 @@ while :; do
   [ "$(date +%s)" -lt "$deadline" ] || { echo "--- relay.log ---"; cat "$WORK/relay.log"; red "DONE_WHEN 2 DISPROVEN — the written field never arrived in the substrate within ${CONVERGE_MS}ms"; }
   sleep 0.25
 done
-elapsed_ms=$(( ($(date +%s%N) - started) / 1000000 ))
+elapsed_ms=$(( $(now_ms) - started ))
 case "$FOUND" in
   *"$SENTINEL"*) printf '  ✅ done_when 2: the field ARRIVED in the substrate in %sms — spikec-%s carries the sentinel\n' "$elapsed_ms" "$RESP_ID" ;;
   *) red "a row arrived but does not carry the sentinel (got: $(printf '%s' "$FOUND" | head -c 200))" ;;

@@ -64,6 +64,29 @@
 \set ON_ERROR_STOP on
 
 -- ---------------------------------------------------------------------------
+-- 🛑 psql variable substitution (:'var') does NOT reach inside a dollar-quoted
+-- DO $$ ... $$ body — psql treats the whole block as one literal and leaves the
+-- `:` tokens untouched, so an EXECUTE format(..., :'var') INSIDE a DO block is a
+-- syntax error at request time (measured: `ERROR: syntax error at or near ":"`).
+-- The fix is to bind the four inputs into SESSION GUCs at the TOP LEVEL, where
+-- :'var' interpolation genuinely happens, and read them back inside the DO blocks
+-- with current_setting().
+--
+-- 🛑 `is_local => false`, NOT true. psql runs each statement in its OWN implicit
+-- transaction (autocommit), so a transaction-LOCAL GUC (is_local=true) set by the
+-- `SELECT set_config` statement is GONE by the time the separate `DO` statement
+-- runs — measured: HALF A read an empty password and cleared the role's password,
+-- HALF B repointed hq_pg at `:/`. A SESSION GUC (is_local=false) persists for the
+-- life of THIS psql connection (which spans the whole -f file), so every DO block
+-- below sees the value. The GUC dies with the connection, so nothing leaks past
+-- the run either way; false is simply the scope that survives autocommit.
+-- ---------------------------------------------------------------------------
+SELECT set_config('sync_dev.fdw_password', :'fdw_password', false);
+SELECT set_config('sync_dev.hq_host',      :'hq_host',      false);
+SELECT set_config('sync_dev.hq_port',      :'hq_port',      false);
+SELECT set_config('sync_dev.hq_dbname',    :'hq_dbname',    false);
+
+-- ---------------------------------------------------------------------------
 -- Dispatch: this ONE file is applied to BOTH databases, and each half guards
 -- itself so applying the wrong half to the wrong database is a no-op, not a
 -- corruption. `task sync:dev:fdw` applies it to the HQ Postgres (HALF A fires)
@@ -78,8 +101,9 @@ DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'hq_sync_fdw') THEN
     -- LOGIN + password. Idempotent: ALTER ROLE ... LOGIN PASSWORD re-sets both.
-    -- The password comes from the psql variable so it is never committed here.
-    EXECUTE format('ALTER ROLE hq_sync_fdw LOGIN PASSWORD %L', :'fdw_password');
+    -- The password comes from the session GUC so it is never committed here.
+    EXECUTE format('ALTER ROLE hq_sync_fdw LOGIN PASSWORD %L',
+                   current_setting('sync_dev.fdw_password'));
     -- CONNECT on the current database so the FDW can actually open a session.
     EXECUTE format('GRANT CONNECT ON DATABASE %I TO hq_sync_fdw', current_database());
     RAISE NOTICE 'HALF A applied: hq_sync_fdw is now LOGIN on database %', current_database();
@@ -113,16 +137,16 @@ BEGIN
      WHERE srvname = 'hq_pg';
 
     EXECUTE format('ALTER SERVER hq_pg OPTIONS (%s host %L)',
-                   CASE WHEN v_have_host THEN 'SET' ELSE 'ADD' END, :'hq_host');
+                   CASE WHEN v_have_host THEN 'SET' ELSE 'ADD' END, current_setting('sync_dev.hq_host'));
     EXECUTE format('ALTER SERVER hq_pg OPTIONS (%s port %L)',
-                   CASE WHEN v_have_port THEN 'SET' ELSE 'ADD' END, :'hq_port');
+                   CASE WHEN v_have_port THEN 'SET' ELSE 'ADD' END, current_setting('sync_dev.hq_port'));
     EXECUTE format('ALTER SERVER hq_pg OPTIONS (%s dbname %L)',
-                   CASE WHEN v_have_db THEN 'SET' ELSE 'ADD' END, :'hq_dbname');
+                   CASE WHEN v_have_db THEN 'SET' ELSE 'ADD' END, current_setting('sync_dev.hq_dbname'));
 
     -- Drop cached connections so the next read reconnects to the new target.
     PERFORM postgres_fdw_disconnect_all();
     RAISE NOTICE 'HALF B applied: foreign server hq_pg -> %:%/%',
-      :'hq_host', :'hq_port', :'hq_dbname';
+      current_setting('sync_dev.hq_host'), current_setting('sync_dev.hq_port'), current_setting('sync_dev.hq_dbname');
   ELSE
     RAISE NOTICE 'HALF B skipped: foreign server hq_pg does not exist here (not the substrate) — this is the HQ half''s target';
   END IF;
