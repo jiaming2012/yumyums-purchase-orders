@@ -325,6 +325,55 @@ tasks:
     cmd: docker compose -p spike-supabase -f docker-compose.supabase.yml down --volumes --remove-orphans
 
   # ─────────────────────────────────────────────────────────────────────────────
+  # PERSISTENT SYNC DATA PLANE — card `sync-live-in-dev-substrate` (Activity 5,
+  # run 20260810), legs 1+2 + FDW persistence.
+  #
+  # Where the spikes and `task demo:sync` stand the data plane up inside one script
+  # run and tear it down, this family keeps it UP in the operator's dev
+  # environment, BETWEEN runs, so the workflows.html /sync/* read path is live
+  # whenever `task backend:dev:tailscale` is. It productionizes the PROVEN
+  # mechanics (Spike A substrate GREEN, the LISTEN/NOTIFY relay GREEN in spikes
+  # C/D/E) into a persistent dev SERVICE:
+  #   * substrate — reconcile bring-up (never-destroy-on-restart; spike:down stays
+  #     the ONLY data-destroying target)
+  #   * relay — backend/cmd/spikec-relay run as a persistent background process
+  #     (nohup, pidfile), LISTENing on the dev HQ and projecting into the substrate
+  #   * FDW pointing — hq_pg repointed at the operator's live dev HQ, persistently
+  #     (the spike's repoint+restore made permanent)
+  #
+  # 🛑 These are THIN WRAPPERS. All logic lives in
+  #   .night-crew/qa/spike-supabase/sync-dev-up.sh — same rule as the spike family.
+  #
+  # 🛑 B-164 — sync:dev:up needs the operator's LIVE dev HQ, which on this box is
+  #   :5433 (yumyums-dev-pg = dev AND prod). The script REFUSES a bare :5433 target
+  #   unless HQ_SYNC_DEV_ALLOW_5433=1 is set knowingly. Never run it from an
+  #   unattended run. The MECHANISM is proven WITHOUT :5433 by `task sync:dev:proof`
+  #   (a fresh scratch HQ on an ephemeral port — the spike-f model). Required env:
+  #     HQ_SYNC_DEV_HQ_DSN   the dev HQ Postgres DSN (relay LISTEN + FDW resolve)
+  #     HQ_SYNC_DEV_FDW_HOST the host the substrate reaches that dev HQ at (Docker net)
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  sync:dev:up:
+    desc: Bring the PERSISTENT sync data plane up in dev (substrate reconcile + relay-as-service + FDW pointing). Requires HQ_SYNC_DEV_HQ_DSN + HQ_SYNC_DEV_FDW_HOST; refuses :5433 unless HQ_SYNC_DEV_ALLOW_5433=1 (B-164)
+    cmd: ./.night-crew/qa/spike-supabase/sync-dev-up.sh
+
+  sync:dev:status:
+    desc: Report the persistent sync data plane — substrate, relay pid, and the hq_pg FDW pointing — touching nothing
+    cmd: ./.night-crew/qa/spike-supabase/sync-dev-up.sh --status
+
+  sync:dev:down:
+    desc: Stop the persistent relay (the substrate stays UP; use task spike:down to destroy the substrate deliberately)
+    cmd: ./.night-crew/qa/spike-supabase/sync-dev-up.sh --down
+
+  sync:dev:env:
+    desc: Print the four HQ_SYNC_* vars (resolving the live substrate ports) for sourcing when running the dev server by hand
+    cmd: ./.night-crew/qa/spike-supabase/sync-dev-up.sh --env
+
+  sync:dev:proof:
+    desc: Prove Card 1's two done_when items WITHOUT touching :5433 (spike-f model — fresh scratch HQ, door 503→200 red-first, relay carries a real write). Exit status IS the verdict; 0 green / 1 red / 2 could-not-run — GRADE ON THE SCRIPT, not on `task` (B-163)
+    cmd: ./.night-crew/qa/spike-supabase/sync-dev-proof.sh
+
+  # ─────────────────────────────────────────────────────────────────────────────
   # Sync spike B — migration rehearsal (night-crew card S
   # `spike-b-migration-rehearsal`). Disjoint from everything above and below it.
   #
@@ -536,6 +585,55 @@ tasks:
   spike:browser-live:
     desc: Spike F — drive the REAL workflows.html against the REAL substrate through the /sync proxy; one /saveResponse field must surface in the app's RxDB dev surface (exit status IS the verdict; 0 green / 1 red / 2 could-not-run — GRADE ON THE SCRIPT, not on `task`)
     cmd: ./.night-crew/qa/spike-supabase/spike-f-browser-live.sh
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # THE APP-SURFACE PROOF — `task sync:app-proof` (card `sync-live-in-dev-app-proof`,
+  # Activity 5, roadmap LEG 3, run 20260810). Card 2, depends on Card 1's persistent
+  # substrate (task sync:dev:up) + the 4× HQ_SYNC_* dev wiring. Disjoint from
+  # everything above it.
+  #
+  # Thin wrapper, same rule as every spike / sync:dev family above: all logic lives
+  # in .night-crew/qa/spike-supabase/sync-app-proof.sh so the verdict reproduces
+  # without `task` installed and comes from exactly ONE place.
+  #
+  # THE QUESTION. Spike F stubbed nothing and proved leg 3 GREEN, but as a spike
+  # artifact. This card PROMOTES it into a repo-owned RED-FIRST harness: the REAL
+  # workflows.html (flag hq_sync_read=on, NO page.route stub) driven in a real
+  # Chromium against the PERSISTENT substrate through the /sync proxy, one field
+  # written via the REAL /saveResponse surfacing in the app's own RxDB dev surface
+  # (#sync-one-row -> served). The SAME served-asserting spec runs TWICE: carrier
+  # DOWN (must FAIL) then carrier UP (must PASS) — "run the spec with the relay UP
+  # (pass) and DOWN (fail)". This replaces demo:sync's Node RxDB read client with
+  # the actual app surface (closes the read-surface gap T-44 recorded).
+  #
+  # 🛑 GATE ON THE SCRIPT, NEVER ON `task sync:app-proof`. go-task returns its OWN
+  #   status (201) when a wrapped command fails, so a red (exit 1) and a
+  #   could-not-run (exit 2) are INDISTINGUISHABLE at the `task` boundary — B-163.
+  #   To read the honest tri-state code, invoke the script directly:
+  #     .night-crew/qa/spike-supabase/sync-app-proof.sh; echo "EXIT=$?"
+  #
+  # 🛑 THE TRI-STATE EXIT CONTRACT IS THE DELIVERABLE:
+  #     0   GREEN — the app rendered the RxDB-served field (carrier UP), and the
+  #         SAME spec did NOT reach served with the carrier DOWN (non-vacuous).
+  #     1   RED — ran, integration disproven (browser never reached `served` with
+  #         the row in the substrate and the proxy open).
+  #     2   COULD NOT RUN — infra/setup (Docker, substrate, scratch HQ, proxy 503,
+  #         FDW would not connect, or the red-first control PASSED). NO verdict.
+  #     3   verdict reached, but the substrate (submission_responses rows OR the
+  #         FDW server options) could not be restored.
+  #
+  #   Like sync-dev-proof.sh / spike F it uses the SPIKE-F MODEL — a FRESH scratch
+  #   HQ Postgres under project `sync-app-proof-hq` on a Docker-assigned EPHEMERAL
+  #   host port, never :5432/:5433/:5434 (:5433 is PRODUCTION AND DEV — a probe
+  #   there destroyed the prod database on 2026-08-06). It consumes the persistent
+  #   substrate in RECONCILE mode. Its ONE substrate mutation — repointing hq_pg at
+  #   the scratch HQ via Card 1's SHIPPED sql/persistent-dev-fdw-pointing.sql — is
+  #   snapshotted, restored and VERIFIED on every path.
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  sync:app-proof:
+    desc: The app-surface proof — drive the REAL workflows.html against the persistent substrate through /sync; the SAME served-asserting spec must PASS carrier-up and FAIL carrier-down (exit status IS the verdict; 0 green / 1 red / 2 could-not-run — GRADE ON THE SCRIPT, not on `task`)
+    cmd: ./.night-crew/qa/spike-supabase/sync-app-proof.sh
 
   # ─────────────────────────────────────────────────────────────────────────────
   # THE MILESTONE CLOSE-BAR DEMO — `task demo:sync` (card `demo-sync-target`,

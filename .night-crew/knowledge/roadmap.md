@@ -513,61 +513,86 @@ count or closeout substitutes for that run.
 > server `hq_pg`, so the persistent env must arrange a persistent FDW→HQ pointing (with the
 > `hq_sync_fdw` role given LOGIN), not only a scratch container.
 
-- **`sync-live-in-dev-substrate`** · **PLANNED** (slate-20260810, Card 1; legs 1+2 + FDW
-  persistence) · Make the RxDB data plane **run persistently in the operator's dev environment**
-  and open the `/sync/*` proxy door. (1) **Persistent substrate + relay.** Bring up the Spike A
-  substrate (PostgREST + Realtime) and the LISTEN/NOTIFY relay
-  (`backend/internal/sync/spikec_relay.go` — NOT `cmd/spikec-relay`, which does not exist) as a
-  **persistent dev service** (compose service + a `task` target), so the data plane stays up
-  between runs instead of being spun up and torn down per `demo:sync`. (2) **Config wiring.** Set
-  the **four** required vars — `HQ_SYNC_REST_URL` / `HQ_SYNC_REALTIME_URL` / `HQ_SYNC_JWT_SECRET` /
-  `HQ_SYNC_REALTIME_HOST` — in the `backend:dev` / `dev:tailscale` / `dev:lan` env so the in-server
-  `/sync/*` proxy door **opens** (today it answers 503 everywhere). 🛑 Honor `proxy.go:78`'s
-  ACTIVATION-ORDER guard — dev targets only, never `docker-compose.prod.yml`. (3) **FDW
-  persistence.** Arrange a persistent FDW→HQ pointing: `hq_pg` resolves real per-user RLS against
-  the operator's live `dev:tailscale` HQ (carrying the `hq_sync_*` source views + the `hq_sync_fdw`
-  role given LOGIN), not only a scratch container as the spike did by repoint+restore.
+- **`sync-live-in-dev-substrate`** · **DEV-COMPLETE** (run `20260810`, branch
+  `wo-sync-live-in-dev-substrate`; both done_when items proven GREEN by
+  `sync-dev-proof.sh` exit 0 — the spike-f model, NO `:5433`: door **503** vars-unset (red-first)
+  → **200** vars-set; a real `/saveResponse` field arrived in the substrate in **267 ms** carrying
+  the sentinel; FDW resolved 7 rows through the bridge; substrate restored byte-identical, scratch
+  HQ torn down) · Made the RxDB data plane **run persistently in the operator's dev environment**
+  and open the `/sync/*` proxy door. (1) **Persistent substrate + relay.** The Spike A substrate
+  (PostgREST + Realtime) + the LISTEN/NOTIFY relay
+  (`backend/internal/sync/spikec_relay.go` via `backend/cmd/spikec-relay` — which **does** exist;
+  the earlier "does not exist" parenthetical was stale) run as a **persistent dev service**
+  (`.night-crew/qa/spike-supabase/sync-dev-up.sh` + `task sync:dev:up`/`:status`/`:down`/`:env`),
+  substrate in reconcile (never-destroy), relay as a nohup/pidfile background process. (2) **Config
+  wiring.** The **four** vars — `HQ_SYNC_REST_URL` / `HQ_SYNC_REALTIME_URL` / `HQ_SYNC_JWT_SECRET` /
+  `HQ_SYNC_REALTIME_HOST` — are set in `backend:dev` / `dev:log` / `dev:lan` / `dev:tailscale` /
+  `dev:tailscale:log` (dev targets ONLY; proxy.go:78 ACTIVATION-ORDER guard honored — absent from
+  prod/build and `docker-compose.prod.yml`; door fails closed 503 when unset). (3) **FDW
+  persistence.** `sql/persistent-dev-fdw-pointing.sql` + `sync:dev:up` give `hq_sync_fdw` LOGIN on
+  the dev HQ (HALF A — the per-env step 0073 defers) and repoint `hq_pg` at the dev HQ (HALF B),
+  persistently. 🛑 The `:5433` half (the operator's dev HQ genuinely lives there) is REFUSED by
+  default and never touched by the run (`HQ_SYNC_DEV_ALLOW_5433=1` is the knowing override); the
+  MECHANISM is proven without `:5433` by the spike-f scratch-HQ proof (B-164).
 
   done_when:
-  - Starting the dev stack opens the substrate door: with the persistent substrate + relay up and
+  - ✅ Starting the dev stack opens the substrate door: with the persistent substrate + relay up and
     `HQ_SYNC_*` set, a request to `/sync/rest/…` through the running dev server returns **200, not
-    503** — check: bring up the dev stack, `curl` the proxy path (explicit non-`:5433` coordinate),
-    assert non-503.
-  - The relay carries a real write to the substrate: a field written via `/saveResponse` appears
-    in the substrate within the Spike-A convergence bound — check: write through the running dev
-    server, poll the substrate, assert the row arrives.
+    503**. PROVEN — `sync-dev-proof.sh` (spike-f model, ephemeral scratch HQ, non-`:5433`): 503
+    with the 4 vars unset (red-first), **200** with them set (PostgREST swagger body).
+  - ✅ The relay carries a real write to the substrate: a field written via `/saveResponse` appears
+    in the substrate within the Spike-A convergence bound. PROVEN — `POST /saveResponse` → 204, the
+    row arrived in `hq_sync_checklists` as `spikec-<respid>` carrying the sentinel in **267 ms**.
 
-  Footprint: persistent-substrate compose (`docker-compose.supabase.yml` or a new persistent-dev
-  compose), root/`backend` Taskfile (`task` target + 4× `HQ_SYNC_*` dev env),
-  `backend/internal/sync/spikec_relay.go` (persistent-service wiring), FDW/role SQL for the
-  pointing. KR trace: Delivery objective — Activity 5, corrected close bar.
+  Footprint: persistent-dev bring-up (`sync-dev-up.sh`) + proof (`sync-dev-proof.sh`), root/`backend`
+  Taskfile (`sync:dev:*` targets + 4× `HQ_SYNC_*` dev env),
+  `backend/internal/sync/spikec_relay.go` (persistent-service doc note; behavior unchanged), FDW/role
+  SQL (`sql/persistent-dev-fdw-pointing.sql`). KR trace: Delivery objective — Activity 5, corrected
+  close bar. Gates: G1 (build+vet) 0; G2(Go) all 9 pkgs ok, `internal/sync` subtest-count assertions
+  PASS with `HQ_SYNC_SUBSTRATE_OPTIONAL`/`HQ_SYNC_GATE_CHILD` unset; G2(Playwright) N/A-by-footprint
+  (no seam key matched); G4 N/A-by-footprint (no HTML/JS; precache 31 unchanged).
 
-- **`sync-live-in-dev-app-proof`** · **PLANNED** (slate-20260810, Card 2; leg 3) · **Depends on
-  `sync-live-in-dev-substrate`.** Prove the sync capability is **usable in the app**: promote
-  spike-f's `browser-live/workflows-live.spec.js` into a repo **red-first** Playwright spec that
-  drives the real `workflows.html` (flag `hq_sync_read` ON, **no `page.route` stub**) against the
-  live persistent substrate, enters one field through the real `/saveResponse` path, and asserts it
-  surfaces via RxDB replication **in the app** (`#sync-one-row` → `data-state="served"`) — replacing
-  the demo's Node RxDB read client with the actual app surface (closes the read-surface gap T-44
-  recorded).
+- **`sync-live-in-dev-app-proof`** · **DEV-COMPLETE** (run `20260810`, branch
+  `wo-sync-live-in-dev-app-proof`; done_when proven GREEN by `sync-app-proof.sh` exit 0 — run
+  `ap20260809153943`, the spike-f model, NO `:5433`) · **Depends on `sync-live-in-dev-substrate`**
+  (consumes its `sync:dev:*` task family + 4× `HQ_SYNC_*` dev wiring). Proved the sync capability
+  is **usable in the app**: promoted spike-f's `browser-live/workflows-live.spec.js` into a
+  repo **red-first** harness that drives the real `workflows.html` (flag `hq_sync_read` ON, **no
+  `page.route` stub**) in a real Chromium against the persistent substrate through the `/sync/*`
+  proxy, enters one field via the real `/saveResponse` path, and asserts it surfaces via RxDB
+  replication **in the app** (`#sync-one-row` → `data-state="served"`) — replacing the demo's Node
+  RxDB read client with the actual app surface (closes the read-surface gap T-44 recorded). No
+  `workflows.html` / `sync-rxdb/*` source edit was needed (the spike's prediction held): the shipped
+  `#sync-one-row` surface reached `served` unmodified, in **508 ms**.
 
   done_when:
-  - The **app** shows the round trip: the spec drives `workflows.html` against the live substrate
-    (no `page.route` stub), enters one field, and asserts it surfaces via RxDB replication in the
-    app — **red-first**: the same spec fails when the relay is stopped — check: run the spec with
-    the relay up (pass) and down (fail). Gate the red-first on the spec/script exit, never on
-    `task` (B-163).
+  - ✅ The **app** shows the round trip: the served-asserting spec drives `workflows.html` against
+    the persistent substrate (no `page.route` stub), one field is written through the real
+    `/saveResponse`, and it surfaces via RxDB in the app — **red-first**: the SAME spec FAILS when
+    the relay/carrier is stopped. PROVEN — `sync-app-proof.sh` runs the ONE served-asserting spec
+    twice in one invocation: carrier **DOWN** → spec exit **1** (the app opened replication — all
+    four collections `[sync 200]` through the proxy — and sat at `data-state="waiting"` for 20 s,
+    never `served`; non-vacuous), carrier **UP** → spec exit **0** (`#sync-one-row` → `served`
+    carrying the `/saveResponse` sentinel in 508 ms). Gated on the SCRIPT's exit code, never on
+    `task` (B-163). Setup: FDW resolved 7 rows through the bridge, door 200, `/saveResponse` 204,
+    substrate restored byte-identical + FDW `hq_pg` restored to `:5434/hq_test_b2_fdw`, scratch HQ
+    torn down.
 
-  Footprint: a new red-first Playwright spec + its config (promoting `browser-live/`), its
-  `night-crew.toml` footprint/seam integration (+ `tests/repo-hygiene.spec.js` count bump if a
-  roll-call name is added); `workflows.html` / `sync-rxdb/*` read path only if a source edit proves
-  necessary (spike evidence says not). Gate-harness integration (standalone spike-style spec vs a
-  self-skipping `tests/` seam — the live-substrate spec cannot run in the standard `:5434` harness)
-  is an engineer-level decision the card records in its merge-intent; a new `night-crew.toml`
-  KEY/TOKEN would PARK. KR trace: Delivery objective — Activity 5, corrected close bar.
+  Footprint: a new standalone red-first harness — `.night-crew/qa/spike-supabase/sync-app-proof.sh`
+  + the promoted `app-proof/workflows-live.spec.js` + `app-proof/playwright.app-proof.config.js`
+  (promoted from `browser-live/`) + the `sync:app-proof` root-Taskfile wrapper; a `night-crew.toml`
+  footprint NOTE (no new key/token — the standalone spec lives outside `tests/`, matches no seam
+  glob, adds no roll-call name, so `tests/repo-hygiene.spec.js` is unchanged at count 11). No
+  `workflows.html` / `sync-rxdb/*` edit. Gate-harness decision (engineer-level, in the merge-intent):
+  **standalone spike-style harness gated on its own exit code** (form a — the `browser-live/`
+  precedent, B-345-aligned; the live-substrate spec cannot run in the standard `:5434` harness).
+  KR trace: Delivery objective — Activity 5, corrected close bar. Gates: G1/G2(Go) N/A-by-footprint
+  (no Go change); G2(Playwright) N/A-by-footprint (no `tests/` seam key matched — standalone harness
+  is the verdict, exit 0); G4 N/A-by-footprint (no HTML/JS; precache 31 unchanged); RF = the
+  headline gate above, GREEN.
   🛑 **Spike gate: GREEN, no longer blocking** — leg 3 (real browser against the real substrate)
   was spiked GREEN (`spike-f-browser-live.sh` exit 0). This is the integration the milestone had
-  never spiked; it now has.
+  never spiked; it now has — and this card promotes that proof into a repo-owned red-first harness.
 
 - **`dev-complete-attestation`** · **PLANNED** · 🛑 **Attended, and the operator's own act.** Per
   the corrected bar (decision 161), this is no longer "run `task demo:sync`" alone: the operator

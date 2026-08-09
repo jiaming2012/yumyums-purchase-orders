@@ -14,9 +14,19 @@
 //	grep -rn RunSpikeCRelay backend/cmd/server   ->   no matches
 //
 // It is exercised only by `backend/cmd/spikec-relay` (a ~40-line runner that is
-// itself marked spike code) which is launched only by
-// `.night-crew/qa/spike-supabase/spike-c-roundtrip.sh`. It registers no route,
-// starts no goroutine at boot, and is not wired into main.go's Hub/Listener.
+// itself marked spike code) which is launched by
+// `.night-crew/qa/spike-supabase/spike-c-roundtrip.sh` and, since card
+// `sync-live-in-dev-substrate` (Activity 5, run 20260810), also by
+// `.night-crew/qa/spike-supabase/sync-dev-up.sh` — the PERSISTENT DEV bring-up.
+// That card runs this exact mechanism as a persistent background dev SERVICE
+// (nohup, pidfile) rather than for the lifetime of one script: it LISTENs on the
+// operator's live dev HQ Postgres and projects submission_responses writes into
+// the substrate so the `/sync/*` read path is live between runs. It STILL
+// registers no route, starts no goroutine at boot, and is not wired into
+// main.go's Hub/Listener — the persistence lives entirely in the shell service,
+// not in this file. See §END OF LIFE below: this remains spike-derived code the
+// Activity-3 cutover card replaces with a tested production relay; running it as
+// a dev service is a deliberate interim per decision 161, not its adoption.
 //
 // 🛑 END OF LIFE. The Activity 3 card `skeleton-one-row-end-to-end` either
 // adopts this mechanism properly — in which case it REPLACES this file with
