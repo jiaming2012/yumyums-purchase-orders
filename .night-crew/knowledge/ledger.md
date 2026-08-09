@@ -3374,3 +3374,46 @@ dark. The demo proves the capability *works*; it does not make it *usable*.
 - **The T-44 read-surface disposition is superseded by this addendum** — the "carry it to the
   attestation, operator decides then" framing is replaced by a concrete card, because the operator
   has now decided: the app-surface read is required for close, not optional.
+
+---
+
+### Morning triage — run `20260810` (attended 2026-08-09)
+
+Not a decision (no fork was raised). A durable record of what triage did.
+
+- **Merged `overnight-20260810` → `dev` `--no-ff`** (`5e3a025`), operator-approved. Both Activity-5
+  cards landed: `sync-live-in-dev-substrate` (`bd03059`) and `sync-live-in-dev-app-proof`
+  (`489145e`). **No parks, no operator forks**; the one engineer-level call (Card 2's gate-harness
+  form = standalone spike-style, gated on its own exit) was decided in-run and recorded in the
+  merge-intent. Ratify and ratchet queues both empty. `decisions log` routed nothing (zero gray
+  areas — not manufactured).
+- **Gate evidence is from a fresh adversarial reproduction, not the closeout's own lines.** A
+  fresh-context subagent rebuilt in its own scratch and re-ran everything on the merged tree:
+  `go build`/`go vet` 0; `go test -p 1` on **:5434** all `ok`/0 FAIL with DB-coupled tests genuinely
+  executing (`internal/sync` 45 pass +2 benign live-substrate skips, `internal/workflow` 35 pass —
+  silent-skip trap defeated). Footprint honest: the only production-code touch is a **comment-only**
+  doc block in `spikec_relay.go`; no `workflows.html`/`sync-rxdb/*`/`sw.js`/`tests/*.spec.js` changed;
+  precache **31**, repo-hygiene seam count **11**, `night-crew.toml` comment-only; `HQ_SYNC_*`
+  dev-targets-only and absent from prod; B-164 must-fix (`HQ_SYNC_DEV_ALLOW_5433`) present, no bare
+  live `:5433`. **No `:5433` command ran the night** (B-164). Re-ran `go test` on the merged tree
+  post-merge: exit 0, 9 packages ok.
+- **Milestone left ONE attended act from close.** `sync-live-in-dev` (Activity 5) is delivered — the
+  RxDB sync capability now runs persistently in the dev environment and is proven usable in the app,
+  red-first and automated (Card 2). Per decision 161 the close bar is the operator's own
+  `dev-complete-attestation`: `task sync:dev:up`, open `workflows.html` in `dev:tailscale`, see a
+  field sync in the app, record the ledger line. That attestation run is the ONLY sanctioned place the
+  real dev `:5433` coordinate is touched (`HQ_SYNC_DEV_ALLOW_5433=1`, knowingly). Separately, the A3
+  attended re-gate (`gate-rls-fixture-ownership`, decision 155) is still owed.
+- **Graduated to backlog:** **B-170** — bare `npx playwright test` in the remaining spike scripts
+  falls through to a foreign PATH `playwright` (bit Card 2's setup twice; its own harness is hardened,
+  the others are not).
+- **Two standing findings outside this run** (worktree sweep; NOT merged — remedy is the operator's):
+  (1) `workspace/hq-scheduling-app` holds 31 unmerged commits — the GSD scheduling workspace, already
+  tracked by the "resume GSD Phase 23" backlog-PRIORITY item on `dev`; (2) `main` carries 3 old
+  deploy commits (`b89c202`, `572f370`, `4cd81c3`, May/Jul) whose patch never came back to `dev` —
+  pre-existing main↔dev divergence.
+- **Tooling note (night-crew clone):** `run-evidence check --run 20260810` false-negatives
+  (`no-run-evidence`) because it resolves `.night-crew/runs/20260810/…` + a bare `reference/`, but this
+  repo's run dir is `2026-08-10-autonomous/` and reference lives under `.night-crew/knowledge/`. The
+  closeout artifact (`closeout-20260810.md`, committed `b97c48a`) was verified directly; the run's
+  completion is not in doubt.

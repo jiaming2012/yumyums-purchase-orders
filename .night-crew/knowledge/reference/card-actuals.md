@@ -1234,3 +1234,23 @@ building the round trip from scratch. The 140m estimate implicitly assumed a fro
 when the deliverable is "package + name an existing proven harness," the packaging cost is a
 fraction of the build cost. A re-export card is its own size class — price it against the harness
 it wraps, not against building that harness.
+
+## Run: overnight-20260810 (Activity 5 — sync-live-in-dev: substrate + app-proof)
+
+> Serial, subagent-per-card (Card 2 depends on Card 1). Both **clean-path** — no REVISE
+> loop; Card 1's G6 must-fix was a comment-only one-liner applied pre-merge, not a repair
+> cycle. Times derived from card-branch commit timestamps + merge commits (AST).
+
+| Card | Implement | G6 | Land | End-to-end |
+|---|---|---|---|---|
+| C1 `sync-live-in-dev-substrate` (Activity 5 legs 1+2 + FDW persistence) | ~23m (10:45:55 merge-intent → 11:09:15 flip) | ~12m (PASS-WITH-ISSUES; comment-only must-fix `167bc7e`) | ~0m (merge `bd03059` @ 11:21:48) | **~36m** |
+| C2 `sync-live-in-dev-app-proof` (Activity 5 leg 3, app-surface red-first) | ~13m (11:29:37 merge-intent → 11:42:46 flip) | ~7m (PASS, no fix round) | ~2m (merge `489145e` @ 11:49:43) | **~20m** |
+
+**Note — two could-not-run infra rounds inside C2's implement window** (NOT card reds, NOT
+counted as REVISE, a different population per the caveat above): round 1 — a fresh worktree's
+missing `node_modules/.bin/playwright` symlink (npm "Exit handler never called" skipped
+bin-linking) let bare `npx playwright test` fall through to a foreign PATH `playwright`, failing
+BOTH legs identically (a fake asymmetry); round 2 — a missing Chromium headless-shell build.
+Both were environment, not code; C2 hardened its own harness against the first. So the ~13m
+implement figure is clean-harness-authoring time — the infra rounds added wall-clock not
+reflected in it. The cross-script hardening is graduated as BACKLOG **B-170**.
