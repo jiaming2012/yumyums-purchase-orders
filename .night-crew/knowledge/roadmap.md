@@ -513,34 +513,44 @@ count or closeout substitutes for that run.
 > server `hq_pg`, so the persistent env must arrange a persistent FDW→HQ pointing (with the
 > `hq_sync_fdw` role given LOGIN), not only a scratch container.
 
-- **`sync-live-in-dev-substrate`** · **PLANNED** (slate-20260810, Card 1; legs 1+2 + FDW
-  persistence) · Make the RxDB data plane **run persistently in the operator's dev environment**
-  and open the `/sync/*` proxy door. (1) **Persistent substrate + relay.** Bring up the Spike A
-  substrate (PostgREST + Realtime) and the LISTEN/NOTIFY relay
-  (`backend/internal/sync/spikec_relay.go` — NOT `cmd/spikec-relay`, which does not exist) as a
-  **persistent dev service** (compose service + a `task` target), so the data plane stays up
-  between runs instead of being spun up and torn down per `demo:sync`. (2) **Config wiring.** Set
-  the **four** required vars — `HQ_SYNC_REST_URL` / `HQ_SYNC_REALTIME_URL` / `HQ_SYNC_JWT_SECRET` /
-  `HQ_SYNC_REALTIME_HOST` — in the `backend:dev` / `dev:tailscale` / `dev:lan` env so the in-server
-  `/sync/*` proxy door **opens** (today it answers 503 everywhere). 🛑 Honor `proxy.go:78`'s
-  ACTIVATION-ORDER guard — dev targets only, never `docker-compose.prod.yml`. (3) **FDW
-  persistence.** Arrange a persistent FDW→HQ pointing: `hq_pg` resolves real per-user RLS against
-  the operator's live `dev:tailscale` HQ (carrying the `hq_sync_*` source views + the `hq_sync_fdw`
-  role given LOGIN), not only a scratch container as the spike did by repoint+restore.
+- **`sync-live-in-dev-substrate`** · **DEV-COMPLETE** (run `20260810`, branch
+  `wo-sync-live-in-dev-substrate`; both done_when items proven GREEN by
+  `sync-dev-proof.sh` exit 0 — the spike-f model, NO `:5433`: door **503** vars-unset (red-first)
+  → **200** vars-set; a real `/saveResponse` field arrived in the substrate in **267 ms** carrying
+  the sentinel; FDW resolved 7 rows through the bridge; substrate restored byte-identical, scratch
+  HQ torn down) · Made the RxDB data plane **run persistently in the operator's dev environment**
+  and open the `/sync/*` proxy door. (1) **Persistent substrate + relay.** The Spike A substrate
+  (PostgREST + Realtime) + the LISTEN/NOTIFY relay
+  (`backend/internal/sync/spikec_relay.go` via `backend/cmd/spikec-relay` — which **does** exist;
+  the earlier "does not exist" parenthetical was stale) run as a **persistent dev service**
+  (`.night-crew/qa/spike-supabase/sync-dev-up.sh` + `task sync:dev:up`/`:status`/`:down`/`:env`),
+  substrate in reconcile (never-destroy), relay as a nohup/pidfile background process. (2) **Config
+  wiring.** The **four** vars — `HQ_SYNC_REST_URL` / `HQ_SYNC_REALTIME_URL` / `HQ_SYNC_JWT_SECRET` /
+  `HQ_SYNC_REALTIME_HOST` — are set in `backend:dev` / `dev:log` / `dev:lan` / `dev:tailscale` /
+  `dev:tailscale:log` (dev targets ONLY; proxy.go:78 ACTIVATION-ORDER guard honored — absent from
+  prod/build and `docker-compose.prod.yml`; door fails closed 503 when unset). (3) **FDW
+  persistence.** `sql/persistent-dev-fdw-pointing.sql` + `sync:dev:up` give `hq_sync_fdw` LOGIN on
+  the dev HQ (HALF A — the per-env step 0073 defers) and repoint `hq_pg` at the dev HQ (HALF B),
+  persistently. 🛑 The `:5433` half (the operator's dev HQ genuinely lives there) is REFUSED by
+  default and never touched by the run (`HQ_SYNC_DEV_ALLOW_5433=1` is the knowing override); the
+  MECHANISM is proven without `:5433` by the spike-f scratch-HQ proof (B-164).
 
   done_when:
-  - Starting the dev stack opens the substrate door: with the persistent substrate + relay up and
+  - ✅ Starting the dev stack opens the substrate door: with the persistent substrate + relay up and
     `HQ_SYNC_*` set, a request to `/sync/rest/…` through the running dev server returns **200, not
-    503** — check: bring up the dev stack, `curl` the proxy path (explicit non-`:5433` coordinate),
-    assert non-503.
-  - The relay carries a real write to the substrate: a field written via `/saveResponse` appears
-    in the substrate within the Spike-A convergence bound — check: write through the running dev
-    server, poll the substrate, assert the row arrives.
+    503**. PROVEN — `sync-dev-proof.sh` (spike-f model, ephemeral scratch HQ, non-`:5433`): 503
+    with the 4 vars unset (red-first), **200** with them set (PostgREST swagger body).
+  - ✅ The relay carries a real write to the substrate: a field written via `/saveResponse` appears
+    in the substrate within the Spike-A convergence bound. PROVEN — `POST /saveResponse` → 204, the
+    row arrived in `hq_sync_checklists` as `spikec-<respid>` carrying the sentinel in **267 ms**.
 
-  Footprint: persistent-substrate compose (`docker-compose.supabase.yml` or a new persistent-dev
-  compose), root/`backend` Taskfile (`task` target + 4× `HQ_SYNC_*` dev env),
-  `backend/internal/sync/spikec_relay.go` (persistent-service wiring), FDW/role SQL for the
-  pointing. KR trace: Delivery objective — Activity 5, corrected close bar.
+  Footprint: persistent-dev bring-up (`sync-dev-up.sh`) + proof (`sync-dev-proof.sh`), root/`backend`
+  Taskfile (`sync:dev:*` targets + 4× `HQ_SYNC_*` dev env),
+  `backend/internal/sync/spikec_relay.go` (persistent-service doc note; behavior unchanged), FDW/role
+  SQL (`sql/persistent-dev-fdw-pointing.sql`). KR trace: Delivery objective — Activity 5, corrected
+  close bar. Gates: G1 (build+vet) 0; G2(Go) all 9 pkgs ok, `internal/sync` subtest-count assertions
+  PASS with `HQ_SYNC_SUBSTRATE_OPTIONAL`/`HQ_SYNC_GATE_CHILD` unset; G2(Playwright) N/A-by-footprint
+  (no seam key matched); G4 N/A-by-footprint (no HTML/JS; precache 31 unchanged).
 
 - **`sync-live-in-dev-app-proof`** · **PLANNED** (slate-20260810, Card 2; leg 3) · **Depends on
   `sync-live-in-dev-substrate`.** Prove the sync capability is **usable in the app**: promote

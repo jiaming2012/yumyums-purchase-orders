@@ -19,6 +19,43 @@ vars:
   PORT: '{{.PORT | default "8484"}}'
   STATIC_DIR: '{{.STATIC_DIR | default ".."}}'
 
+  # ─────────────────────────────────────────────────────────────────────────────
+  # THE FOUR HQ_SYNC_* VARS — card `sync-live-in-dev-substrate` (Activity 5,
+  # run 20260810), leg 2. Setting these OPENS the in-server /sync/* proxy door
+  # (proxy.go + jwtbridge_handler.go); with them unset the door fails CLOSED
+  # (503 sync_proxy_not_configured), which is the normal state of a deploy that
+  # has not adopted the sync substrate.
+  #
+  # 🛑 proxy.go:78 ACTIVATION-ORDER GUARD — these are wired into the DEV targets
+  #    below ONLY (dev / dev:log / dev:lan / dev:tailscale / dev:tailscale:log),
+  #    and they are DELIBERATELY ABSENT from `prod`, `build`, and
+  #    docker-compose.prod.yml. The guard exists because the door forwards every
+  #    method to PostgREST with an `authenticated` token and does NO row filtering
+  #    of its own — the gate is RLS, and setting HQ_SYNC_REST_URL on a deploy
+  #    whose substrate has no RLS policies gives every logged-in crew member full
+  #    read+write on the exposed schema. Dev is safe because the substrate DOES
+  #    carry the row-visibility RLS (migrations 0073/0074 + the substrate policies)
+  #    resolved through the FDW the persistent-dev service points at the dev HQ.
+  #    A leak of HQ_SYNC_REST_URL into a prod/not-ready deploy is the exact defect
+  #    this guard exists to prevent — do not copy these into a prod target.
+  #
+  # The two URL vars resolve the LIVE substrate's Docker-assigned host ports at
+  # task-run time (they are ephemeral — see docker-compose.supabase.yml). Bring
+  # the substrate up first with `task sync:dev:up`. If the substrate is down the
+  # ports resolve empty and the door simply stays 503 (fail-closed), which is
+  # correct — the dev server still boots.
+  #
+  # HQ_SYNC_JWT_SECRET must equal the substrate's JWT_SECRET (the single shared
+  # secret the Go minter signs with and PostgREST/Realtime verify). It is read
+  # from the committed throwaway value in docker-compose.supabase.yml — a local
+  # spike credential, safe by construction (that file's banner).
+  #
+  # HQ_SYNC_REALTIME_HOST's first dot-separated label must equal the substrate
+  # tenant's external_id (`realtime-dev`) — proxy.go point 2.
+  # ─────────────────────────────────────────────────────────────────────────────
+  SYNC_COMPOSE: '{{.SYNC_COMPOSE | default "../docker-compose.supabase.yml"}}'
+  HQ_SYNC_REALTIME_HOST: '{{.HQ_SYNC_REALTIME_HOST | default "realtime-dev.localhost"}}'
+
   # Network addresses
   DEV_TS: '{{.DEV_TS | default "100.90.128.69"}}'
   WIN_LAN: '192.168.8.164'
@@ -37,6 +74,15 @@ tasks:
       DB_URL: '{{.DB_URL}}'
       BASE_URL: 'http://{{.DEV_TS}}:{{.PORT}}'
       SUPERADMIN_CONFIG: config/superadmins.yaml
+      # The four HQ_SYNC_* vars open the /sync/* proxy door (card
+      # sync-live-in-dev-substrate). DEV ONLY — see the vars: banner + proxy.go:78.
+      HQ_SYNC_REST_URL:
+        sh: 'docker compose -p spike-supabase -f {{.SYNC_COMPOSE}} port rest 3000 2>/dev/null | sed "s#.*:#http://127.0.0.1:#"'
+      HQ_SYNC_REALTIME_URL:
+        sh: 'docker compose -p spike-supabase -f {{.SYNC_COMPOSE}} port realtime 4000 2>/dev/null | sed "s#.*:#http://127.0.0.1:#"'
+      HQ_SYNC_JWT_SECRET:
+        sh: 'grep -m1 -oE "JWT_SECRET: *[0-9a-f]{32,}" {{.SYNC_COMPOSE}} | awk "{print \$2}"'
+      HQ_SYNC_REALTIME_HOST: '{{.HQ_SYNC_REALTIME_HOST}}'
 
   dev:log:
     desc: Run the server with all log output written to a file
@@ -48,6 +94,13 @@ tasks:
       BASE_URL: 'http://{{.DEV_TS}}:{{.PORT}}'
       SUPERADMIN_CONFIG: config/superadmins.yaml
       LOG_TO_FILE: '1'
+      HQ_SYNC_REST_URL:
+        sh: 'docker compose -p spike-supabase -f {{.SYNC_COMPOSE}} port rest 3000 2>/dev/null | sed "s#.*:#http://127.0.0.1:#"'
+      HQ_SYNC_REALTIME_URL:
+        sh: 'docker compose -p spike-supabase -f {{.SYNC_COMPOSE}} port realtime 4000 2>/dev/null | sed "s#.*:#http://127.0.0.1:#"'
+      HQ_SYNC_JWT_SECRET:
+        sh: 'grep -m1 -oE "JWT_SECRET: *[0-9a-f]{32,}" {{.SYNC_COMPOSE}} | awk "{print \$2}"'
+      HQ_SYNC_REALTIME_HOST: '{{.HQ_SYNC_REALTIME_HOST}}'
 
   dev:lan:
     desc: Run server against Windows box (LAN)
@@ -60,6 +113,13 @@ tasks:
       DB_URL: 'postgres://{{.DB_USER}}:{{.DB_PASS}}@{{.WIN_LAN}}:{{.WIN_PORT}}/{{.DB_NAME}}?sslmode=disable'
       BASE_URL: 'http://{{.DEV_TS}}:{{.PORT}}'
       SUPERADMIN_CONFIG: config/superadmins.yaml
+      HQ_SYNC_REST_URL:
+        sh: 'docker compose -p spike-supabase -f {{.SYNC_COMPOSE}} port rest 3000 2>/dev/null | sed "s#.*:#http://127.0.0.1:#"'
+      HQ_SYNC_REALTIME_URL:
+        sh: 'docker compose -p spike-supabase -f {{.SYNC_COMPOSE}} port realtime 4000 2>/dev/null | sed "s#.*:#http://127.0.0.1:#"'
+      HQ_SYNC_JWT_SECRET:
+        sh: 'grep -m1 -oE "JWT_SECRET: *[0-9a-f]{32,}" {{.SYNC_COMPOSE}} | awk "{print \$2}"'
+      HQ_SYNC_REALTIME_HOST: '{{.HQ_SYNC_REALTIME_HOST}}'
 
   dev:tailscale:
     desc: Run server against Windows box (Tailscale)
@@ -72,6 +132,13 @@ tasks:
       DB_URL: 'postgres://{{.DB_USER}}:{{.DB_PASS}}@{{.WIN_TS}}:{{.WIN_PORT}}/{{.DB_NAME}}?sslmode=disable'
       BASE_URL: 'http://{{.DEV_TS}}:{{.PORT}}'
       SUPERADMIN_CONFIG: config/superadmins.yaml
+      HQ_SYNC_REST_URL:
+        sh: 'docker compose -p spike-supabase -f {{.SYNC_COMPOSE}} port rest 3000 2>/dev/null | sed "s#.*:#http://127.0.0.1:#"'
+      HQ_SYNC_REALTIME_URL:
+        sh: 'docker compose -p spike-supabase -f {{.SYNC_COMPOSE}} port realtime 4000 2>/dev/null | sed "s#.*:#http://127.0.0.1:#"'
+      HQ_SYNC_JWT_SECRET:
+        sh: 'grep -m1 -oE "JWT_SECRET: *[0-9a-f]{32,}" {{.SYNC_COMPOSE}} | awk "{print \$2}"'
+      HQ_SYNC_REALTIME_HOST: '{{.HQ_SYNC_REALTIME_HOST}}'
 
   dev:tailscale:log:
     desc: Run server against Windows box (Tailscale) with all log output written via LOG_TO_FILE (slog NDJSON to timestamped file)
@@ -83,6 +150,13 @@ tasks:
       BASE_URL: 'http://{{.DEV_TS}}:{{.PORT}}'
       SUPERADMIN_CONFIG: config/superadmins.yaml
       LOG_TO_FILE: '1'
+      HQ_SYNC_REST_URL:
+        sh: 'docker compose -p spike-supabase -f {{.SYNC_COMPOSE}} port rest 3000 2>/dev/null | sed "s#.*:#http://127.0.0.1:#"'
+      HQ_SYNC_REALTIME_URL:
+        sh: 'docker compose -p spike-supabase -f {{.SYNC_COMPOSE}} port realtime 4000 2>/dev/null | sed "s#.*:#http://127.0.0.1:#"'
+      HQ_SYNC_JWT_SECRET:
+        sh: 'grep -m1 -oE "JWT_SECRET: *[0-9a-f]{32,}" {{.SYNC_COMPOSE}} | awk "{print \$2}"'
+      HQ_SYNC_REALTIME_HOST: '{{.HQ_SYNC_REALTIME_HOST}}'
 
   # ---------------------------------------------------------------------------
   # Migrations (goose). `go run` caches the binary per-version so the first run
