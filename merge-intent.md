@@ -60,8 +60,18 @@ supplied by the dev Taskfile targets; the guard is honored by keeping them out o
 
 done_when item 1 is the green (door → 200). The SAME proxy path with the 4 vars
 UNSET returns 503 — that asymmetry is the red-first. Captured by
-`sync-dev-proof.sh`, which runs the door check BOTH ways (vars unset → 503, then vars
-set → 200) in one invocation, printing both HTTP codes and bodies. See §RF in the
-final report for the captured codes + bodies.
+`sync-dev-proof.sh` (spike-f model, ephemeral scratch HQ, NO `:5433`), which runs
+the door check BOTH ways in one invocation. Captured on run p20260809150620 (exit 0):
+
+- **RED (vars unset):** `GET /sync/rest/` → **HTTP 503**
+  body `{"error":"sync_proxy_not_configured"}`
+- **GREEN (4 vars set):** `GET /sync/rest/` → **HTTP 200**
+  body `{"swagger":"2.0","info":{...,"title":"standard public schema","version":"12.2.12"},...}`
+
+The asymmetry is not vacuous: the script asserts the 503 first (RED) and refuses
+to continue if the door is already open, then wires the 4 vars and asserts the 200.
+done_when 2 (relay carries a real write): `POST /saveResponse` → 204, the field
+arrived in the substrate (`spikec-<respid>` in `hq_sync_checklists`, carrying the
+sentinel) in **267 ms**.
 
 Nothing here else — no other shared file, no proxy.go edit, no prod-compose touch.
