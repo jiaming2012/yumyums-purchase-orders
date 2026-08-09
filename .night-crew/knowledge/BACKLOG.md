@@ -13,6 +13,21 @@
 > below; the 3 harness WOs, F-1, F-2, and the video-pipeline fixture are itemized as their own entries.
 > Per T-10/T-12, promotion/scheduling of any item is a planner call, not an operator hand-pick.
 
+- 🔺 **[PRIORITY] Resume GSD Phase 23 — wage-history / employee-fields / scheduling foundation (preserved worktree)** ·
+  A 31-commit GSD workspace at branch `workspace/hq-scheduling-app` (worktree
+  `/Users/jamal/gsd-workspaces/hq-scheduling-app/hq`), **~complete-but-unverified** (STATE.md:
+  *"Phase 23 — ALL PLANS COMPLETE — READY FOR VERIFICATION"*, last commit 2026-06-09). Delivers
+  wage-history + employee fields + scheduling foundation: migration `0066_scheduling_foundation.sql`,
+  `backend/internal/users/{db,handler}.go` +720 lines, `users.html` +657 lines, `tests/wages.spec.js`
+  764 lines (+4,681 total). **Never shipped** — Payroll & Scheduling tiles are still `tile soon` on
+  dev; no `wage_history` / `wages.spec.js` on dev. **Not a clean merge:** 977 commits behind dev, and
+  the `0066` migration slot is now `0066_mercury_category_on_pending_purchases` (dev at 0074) → resume
+  = renumber to 0075+, reconcile with dev's independently-shipped `0047_employee_fields`/`starting_salary`
+  work, and redo `users.html` against current. **Worktree + branch PRESERVED at operator direction
+  (2026-08-09) — do NOT discard.** Next step: operator + planner scope the pickup (rebase-vs-reimplement).
+  · origin: nc-run launch triage 2026-08-09 (worktrees-check finding; operator chose keep + priority
+  backlog over discard/merge-now) · status: new — **PRIORITY (operator-flagged 2026-08-09)**, planning owed
+
 - **Onboarding video-pipeline E2E fixture (prove FR-16 + NFR-4)** · Stand up a DO Spaces bucket +
   an `ffmpeg` binary on the E2E host so the video presign→PUT→FFmpeg transcode/thumbnail path
   (FR-16, `handler.go:540-640`, `video.go:22-206`) and the `503 video_storage_not_configured`
