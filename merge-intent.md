@@ -108,4 +108,59 @@ The headline gate. Filled after the harness ran — see the run evidence below.
 The asymmetry (UP pass / DOWN fail) proves the assertion is non-vacuous. Gated on
 the spec/script exit code, never on `task` (B-163).
 
-[EVIDENCE — filled in below after the harness run]
+### EVIDENCE — `sync-app-proof.sh` run `ap20260809153943`, exit **0** (GREEN)
+
+Command (gated on the SCRIPT, never on `task`):
+
+    ./.night-crew/qa/spike-supabase/sync-app-proof.sh > app-proof-run3.log 2>&1
+    echo "SCRIPT_EXIT=$?"   # => SCRIPT_EXIT=0
+
+Setup all green: substrate reconciled (rest :63264, realtime :63263, db :63239);
+scratch HQ (project `sync-app-proof-hq`) on a Docker-assigned ephemeral port
+(never 5432/5433/5434); FDW repointed at the scratch HQ via Card 1's SHIPPED
+`sql/persistent-dev-fdw-pointing.sql`, resolving **7** rows through the bridge;
+`GET /sync/rest/` → **200** (Card 1's 4 HQ_SYNC_* vars set, door open);
+`POST /api/v1/workflow/saveResponse` → **204**; HQ draft row carried the sentinel.
+
+- **RED-FIRST — relay/carrier DOWN → spec exit 1 (must FAIL):**
+  The SAME served-asserting spec ran, the real `workflows.html?hq_sync_read=on`
+  (NO `page.route` stub) opened replication — all FOUR collections fetched through
+  the proxy at `[sync 200]` (checklist_templates, submission_responses with the
+  exact `or=(submission_id.eq.<cid>, and(submission_id.is.null, field_id.in.(<F>)))`
+  draft filter, checklist_submissions, submission_rejections) — and the app sat at
+  `data-state="waiting"` (`note="replication live; waiting for the row…"`) for the
+  full 20 000 ms (`2× opening, 22× waiting`), never reaching `served`.
+  `toHaveAttribute('data-state','served')` → Received `"waiting"`. **Spec exit 1.**
+  Non-vacuous: the app was demonstrably LIVE and querying, and still could not
+  serve with no row carried.
+
+- **ARMED — relay/carrier UP → spec exit 0 (THE VERDICT):**
+  Carrier landed `appproof-ap20260809153943` into `submission_responses`. The SAME
+  spec then reached `#sync-one-row` →
+  `served: id=appproof-ap20260809153943 value="appproof-ap20260809153943-1786289983N"`
+  — the sentinel written through `/saveResponse`, served out of `db.responses` in
+  the real app — in **508 ms**. **1 passed. Spec exit 0.**
+
+Restore VERIFIED: `submission_responses` id-set byte-identical to the pre-run
+baseline; FDW `hq_pg` restored to `host.docker.internal:5434/hq_test_b2_fdw`;
+scratch HQ torn down.
+
+### Could-not-run triage (two rounds before GREEN — B-164 discipline)
+
+The first two harness runs exited 1 but were **could-not-run masquerading as red**,
+triaged as infra (never counted as a card RED):
+1. Run 1: `npx playwright test` fell through to a FOREIGN `playwright`
+   (`/Users/jamal/miniconda3/bin/playwright`, no `test` subcommand →
+   `error: unknown command 'test'`) because this fresh worktree's
+   `node_modules/.bin/playwright` symlink was missing (`npm ci` hit its internal
+   "Exit handler never called" error and skipped bin-linking). BOTH the red-first
+   and armed runs failed identically — a fake asymmetry. **Fix (in-footprint,
+   one round):** the harness now resolves the Playwright CLI deterministically
+   (`node node_modules/@playwright/test/cli.js`), asserts its `test` subcommand in
+   preflight, and reports a clear could-not-run if a foreign playwright shadows it.
+2. Run 2 (CLI fixed): both runs failed at `browserType.launch` — Playwright 1.59.1
+   wanted Chromium headless-shell build **1217**, absent from the cache. Installed
+   via `node node_modules/@playwright/test/cli.js install chromium
+   chromium-headless-shell`. **Environment, not code.**
+
+Run 3 (CLI + browser sound) reached the real verdict above: GREEN.
