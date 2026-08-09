@@ -301,3 +301,85 @@
   `operator` — a repo-imposed test-isolation rule may deserve `project` primacy.
 - **Scope note:** night-crew **main**. Depends on NF-5 fixes 1 and 4 landing first — a scope axis over
   a store nothing adopts from and nothing reads is inert in three places instead of two.
+
+### NF-7 · "Done"/"deploy" verbs are environment-relative, but the framework has no environments contract — "dev complete" silently conflated *deployed* with *usable*
+- **Surfaced:** 2026-08-09 (operator), working the `sync-live-in-dev` leg-3 spike. Operator's
+  framing: *"I specified a milestone goal as dev complete, but that is infrastructure-dependent —
+  for some projects a dev environment is a local script, for others it is cloud-deployed. Deploying
+  and development should be grilled so that, per project, we know exactly what deploy-to-dev means —
+  and the same for QA, prod, etc."*
+- **Symptom (two payments already made on HQ this cycle):**
+  1. **Mid-milestone redefinition.** The "dev complete" close bar had to be *corrected in the
+     roadmap itself* (decision 161, morning triage 2026-08-08): from "`task demo:sync` passes"
+     to "the sync capability **runs in the operator's persistent dev environment and is usable in
+     the app**." The demo cleared the letter of the bar while the capability ran in *no persistent
+     environment* — `HQ_SYNC_*` set nowhere, the substrate/relay alive only inside a throwaway
+     stack. The bar was ambiguous because "the dev environment" was never pinned.
+  2. **A topology fact discovered by driving, not by design.** The leg-3 spike (GREEN, run
+     `f20260808232119`) established that "usable in the app" for HQ's dev environment requires the
+     substrate's FDW server to point at a *persistent* dev HQ — a reachability/topology fact that
+     only surfaced because the spike drove the real integration. An environments contract would
+     have *forced* that question up front.
+- **Root cause (the missing noun):** night-crew made **`done_when`** first-class — every criterion
+  names an observable and the check that proves it. But every observable is evaluated *somewhere*,
+  and that "somewhere" is **ambient**. `dev complete`, `ship`, `deploy to prod` are all
+  **`when`-clauses with an unstated `where`** — and the `where` is exactly the infrastructure-
+  dependent part that varies per project (static PWA → a local `task` against a shared box;
+  cloud service → a deployed slot; a library → *no* dev environment at all, "done" = a consumer
+  exercises the API). Same words, structurally different meanings, rediscovered per milestone the
+  hard way.
+- **The distinction that is the whole finding — deploy ≠ usable.** Code can be *deployed* to an
+  environment without the *capability* being *usable* there; that gap is precisely where decision
+  161 lived. A contract that records only "how to deploy" reproduces the bug. It must separately
+  record **(a) the deploy mechanism** (how code gets there) and **(b) the usable-here definition**
+  (the falsifiable observable that the capability actually functions there) — and, first-class,
+  **(c) persistence** (persistent vs ephemeral), because conflating a throwaway stand-in with the
+  operator's persistent environment *is* the decision-161 bug.
+- **Proposed artifact — a per-project Environments contract** (durable, e.g.
+  `reference/environments.md`), one row per *named place you can be "done" in*, each pinning what
+  "deploy" and "complete" are silently relative to:
+  1. **Name & purpose** — dev / qa / staging / prod / … (and the deliberately-absent ones recorded
+     as considered-nothings, so a future milestone can't assume a QA that doesn't exist).
+  2. **Persistence** — persistent | ephemeral. A persistent-env `usable-here` clause may **not** be
+     satisfied by an ephemeral stand-in (the decision-161 rule, generalized).
+  3. **Topology & substrate** — where it runs; DB/queues/external deps; the concrete hosts/ports.
+  4. **Deploy mechanism** — the *exact* command/flow to get code there, and what triggers it.
+  5. **Usable-here definition** — the falsifiable observable that the capability functions in this
+     environment. *This is the clause a close bar cites.* Distinct from #4.
+  6. **Verification** — who/what checks #5 and with what evidence (operator-manual, a script, a
+     health endpoint). An operator-manual attestation (like `dev-complete-attestation`) *is* this
+     field for that environment.
+  7. **Data posture & blast radius** — throwaway / shared-dev / real-prod, and what a mistake here
+     can destroy (the `:5433` prod-destruction lesson made structural).
+  8. **Reachability** — who/what must reach this environment and by what path (the FDW-pointing
+     fact is exactly this — the place `usable-here` quietly fails).
+- **Proposed mechanism — an environments grill,** authored in a **dedicated attended pass** (like
+  the OKR session is dedicated), **revised on infra change** (a project constant, not per-milestone),
+  and **read by every roadmap round** (like OKRs are read). The grill is the question set above,
+  asked once per environment; the deploy/topology answers are Eng/infra facts, the usable-here/done
+  answers are operator/PM judgments, so the pass is genuinely cross-cutting.
+- **How it threads into the ceremonies you already have:**
+  - **`done_when` / close-bar authoring cites `⟨env⟩.usable-here` + `⟨env⟩.verification`** instead
+    of re-inventing them each milestone. "Dev complete" becomes "meets `dev.usable-here`, verified
+    per `dev.verification`" — a fixed, reviewed definition, not a phrase re-litigated at triage.
+  - **The spike gate generalizes Spike A.** Spike A already proved "a clean machine reaches the
+    substrate unattended." Generalized: each *targeted* environment earns a **"reach `usable-here`
+    from nothing"** spike before a milestone leans on it — same B-345 economics, applied to the
+    *where* instead of the *what*.
+  - **The milestone close reads the contract** so "dev complete / ship / prod" grade against a
+    named clause, closing the decision-161 class (a close bar that can be cleared while the
+    capability runs nowhere).
+- **Open questions, flagged rather than assumed:** (a) **granularity** — is one environment a
+  single `(topology, data-posture, deploy)` tuple, so "dev-with-fixtures" and "dev-with-shared-data"
+  are *two* rows, or one row with variants? (leaning: two rows when the data posture changes the
+  `usable-here` check); (b) **ownership split** — does the dedicated pass sit with the OKR/roadmap
+  round, or is it its own `/nc-*` step, given it mixes Eng-facts and PM-judgments? (c) whether the
+  "reach `usable-here` from nothing" spike should be *mandatory* for every targeted environment or
+  only for ones whose deploy mechanism is novel/unproven (leaning: mandatory the first time an
+  environment is targeted, then it's proven mechanics like Spike A now is).
+- **Scope note:** night-crew **main** — HQ is only where the symptom is persistent (twice this
+  cycle). Graduates via the NF-2 loop (design-findings → main → tool-pin advance). *Not* applied to
+  HQ unilaterally; when it graduates, HQ's own `reference/environments.md` (dev = `task backend:dev`
+  against the Windows-box Postgres over Tailscale, persistent; prod = `task prod:deploy` to Docker
+  on the box behind Cloudflare Tunnel; QA/staging = deliberately none) is the first grill's output
+  and the natural proof-of-concept.
