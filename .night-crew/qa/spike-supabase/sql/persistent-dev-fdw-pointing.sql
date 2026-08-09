@@ -38,7 +38,7 @@
 -- 2026-08-06 (B-141/B-143, decision 155). This file is APPLIED by
 -- `task sync:dev:fdw`, which substitutes the coordinate from environment
 -- variables and REFUSES a bare :5433 target unless the operator sets the explicit
--- override HQ_FDW_ALLOW_5433=1 (the dev HQ genuinely lives on :5433 on the Windows
+-- override HQ_SYNC_DEV_ALLOW_5433=1 (the dev HQ genuinely lives on :5433 on the Windows
 -- box, reached over Tailscale/LAN, so the operator CAN knowingly point at it — but
 -- never by default, and never from an unattended run). The proof
 -- (`sync-dev-proof.sh`) uses a fresh scratch HQ on an ephemeral port instead, so
