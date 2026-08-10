@@ -1124,6 +1124,82 @@ test.describe('Persistence', () => {
     await expect(minorBtn).toHaveClass(/on/, { timeout: 5000 });
   });
 
+  // FLD-15b — the operator's report (2026-08-10): a corrective action entered on a
+  // failing temperature field vanished after the checklist was SUBMITTED and the
+  // approver re-checked it (without rejecting), on reopen. FLD-15 only covers the
+  // DRAFT round trip (fail note bundled in the response value). On submit the fail
+  // note is stored in the SEPARATE submission_fail_notes table (sub.fail_notes[]),
+  // and hydrateFieldState rebuilt FAIL_NOTES only from response-value bundles — so a
+  // submitted fail note was never restored on reopen. This asserts it survives the
+  // submit → reload → reopen path, which FLD-15 does not exercise.
+  test('corrective action note survives SUBMIT, reload and reopen [FLD-15b]', async ({ page }) => {
+    const todayDOW = await getTodayDOW(page);
+    // Temperature field with a fail trigger; requires_approval so it goes through the
+    // submit → approvals → reopen path the operator hit. admin is both assignee and
+    // approver (mirrors createTestTemplate).
+    const tpl = await apiCall(page, 'POST', 'createTemplate', {
+      name: 'Fail Note Submit Test',
+      requires_approval: true,
+      sections: [{
+        title: 'Checks', order: 0, condition: null,
+        fields: [{
+          type: 'temperature', label: 'Grill surface temp', required: true, order: 0,
+          config: { unit: 'F', min: 300, max: 500 },
+          fail_trigger: { type: 'out_of_range', min: 300, max: 500 },
+          condition: null,
+        }],
+      }],
+      assignments: [
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' },
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'approver' },
+      ],
+      schedules: [{ active_days: [todayDOW] }],
+    });
+
+    // Open, trigger the fail card, enter the corrective action + severity.
+    await page.goto(BASE + '/workflows.html');
+    const row = page.locator('[data-fill-template-id="' + tpl.id + '"]');
+    await expect(row).toBeVisible({ timeout: 10000 });
+    await row.click();
+
+    const tempInput = page.locator('input[type="number"]').first();
+    await tempInput.fill('2');
+    await tempInput.dispatchEvent('change');
+    await page.waitForTimeout(500);
+
+    const failCard = page.locator('.fail-card');
+    await expect(failCard).toBeVisible({ timeout: 5000 });
+    await failCard.locator('textarea').fill('Grill needs repair');
+    await failCard.locator('textarea').blur();
+    await page.waitForTimeout(500);
+    await page.click('[data-action="set-severity"][data-severity="minor"]');
+    await page.waitForResponse(
+      res => res.url().includes('/api/v1/workflow/ops') && res.request().method() === 'POST',
+      { timeout: 5000 }
+    );
+
+    // Submit for approval (corrective action is filled, so the gate lets it through).
+    const submitResp = page.waitForResponse(
+      res => res.url().includes('/api/v1/workflow/submitChecklist') && res.request().method() === 'POST',
+      { timeout: 8000 }
+    );
+    await page.click('[data-action="submit"]');
+    await submitResp;
+    await expect(page.locator('#toast')).toBeVisible({ timeout: 5000 });
+
+    // Reload → fresh hydrate from the SERVER submission (not lingering in-memory
+    // state), then reopen the submitted checklist in the readonly view.
+    await page.goto(BASE + '/workflows.html');
+    const row2 = page.locator('[data-fill-template-id="' + tpl.id + '"]');
+    await expect(row2).toBeVisible({ timeout: 10000 });
+    await row2.click();
+    await expect(page.locator('.submit-confirm')).toBeVisible({ timeout: 5000 });
+
+    // The approver never rejected it, so the corrective action must still be shown.
+    // Its loss here is exactly the reported data-loss bug.
+    await expect(page.locator('#fill-body')).toContainText('Grill needs repair', { timeout: 5000 });
+  });
+
   test('fail photo survives back-to-list and reopen as https:// URL [FLD-16]', async ({ page }) => {
     const todayDOW = await getTodayDOW(page);
 

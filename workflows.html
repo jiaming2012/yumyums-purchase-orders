@@ -1801,6 +1801,20 @@ function hydrateFieldState(filterFieldIds) {
         FIELD_RESPONSES[r.field_id] = entry;
       }
     });
+    // Restore fail notes from the submission's canonical fail-note array. On submit
+    // the corrective action is written to submission_fail_notes (returned here as
+    // sub.fail_notes) — NOT bundled into the response value the way a draft's is
+    // (submitChecklistToAPI sends it as separate columns + the fail_notes array, and
+    // bundles only _correction_photo into the value). The response-value unwrap above
+    // therefore never sees a submitted fail note, so without this it is silently
+    // dropped on reopen even though the approver never rejected it — the "honoured on
+    // one read path, dropped on the other" the applyResponseRow comment warns about,
+    // here on the submission read path. Guarded by FLD-15b.
+    (sub.fail_notes || []).forEach(function(fn) {
+      if (!filterFieldIds || filterFieldIds.has(fn.field_id)) {
+        FAIL_NOTES[fn.field_id] = { note: fn.note || '', severity: fn.severity || '', photo: fn.photo_url || null };
+      }
+    });
     // 3. Load rejection flags — only from the LATEST submission per template
     //    (a resubmission creates a new pending submission; the old rejected one should not clear new responses)
     // Load feedback notes from approved submissions
