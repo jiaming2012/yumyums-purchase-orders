@@ -259,7 +259,7 @@ tasks:
         trap '
           status=$?
           echo ""
-          # 🛑 $DB_HOST/$DB_PORT/$DB_USER/$DB_PASS come from this task's env block
+          # 🛑 $DB_HOST/$DB_PORT/$DB_USER/$DB_PASS come from the env: block above
           # and name the TEST cluster. This psql issues DROP DATABASE; before
           # decision 155 the literal here was yumyums:yumyums@…:5433, i.e. admin
           # credentials to the cluster serving hq.yumyums.kitchen.
