@@ -133,7 +133,13 @@ module.exports = defineConfig({
     // unconditionally and purchasing/service.go NotifyVendorComplete enqueues
     // from a request path the suite exercises. Without these, an E2E run can
     // deliver a real Cliq message and a real SMTP email to live crew.
-    command: `node scripts/reset-e2e-db.js && node scripts/write-version-json.js && cd backend && PORT=${testPort} DB_URL="${testDbUrl}" STATIC_DIR=../ SUPERADMIN_CONFIG=config/superadmins.yaml TOAST_SYNC_INTERVAL=0 E2E_DISABLE_SCHEDULERS=1 MERCURY_API_KEY= ANTHROPIC_API_KEY= ZOHO_CLIQ_CLIENT_ID= ZOHO_CLIQ_CLIENT_SECRET= ZOHO_CLIQ_REFRESH_TOKEN= SMTP_ADDR= SMTP_USERNAME= SMTP_PASSWORD= go run ./cmd/server/`,
+    //
+    // STORAGE_* blanked for the same reason (B-172 / B2 migration): with live
+    // object-storage creds injected, the photo/video paths this suite drives
+    // would presign and upload REAL objects into the production bucket. Blank
+    // creds also pin /api/v1/health's storage field to 'unconfigured' here,
+    // which tests/storage-banner.spec.js relies on being a non-alarming state.
+    command: `node scripts/reset-e2e-db.js && node scripts/write-version-json.js && cd backend && PORT=${testPort} DB_URL="${testDbUrl}" STATIC_DIR=../ SUPERADMIN_CONFIG=config/superadmins.yaml TOAST_SYNC_INTERVAL=0 E2E_DISABLE_SCHEDULERS=1 MERCURY_API_KEY= ANTHROPIC_API_KEY= ZOHO_CLIQ_CLIENT_ID= ZOHO_CLIQ_CLIENT_SECRET= ZOHO_CLIQ_REFRESH_TOKEN= SMTP_ADDR= SMTP_USERNAME= SMTP_PASSWORD= STORAGE_KEY= STORAGE_SECRET= STORAGE_BUCKET= STORAGE_REGION= STORAGE_ENDPOINT= go run ./cmd/server/`,
     url: `http://localhost:${testPort}/api/v1/health`,
     // Unconditionally false (audit surface #2): reuse has cost four runs. The
     // 8199 default protects against reusing the DEV server, but the same

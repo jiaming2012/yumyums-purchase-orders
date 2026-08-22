@@ -1151,7 +1151,9 @@ async function uploadVideoFile(file, secId, itemIdx, partIdx) {
     var xhr = new XMLHttpRequest();
     xhr.open('PUT', presignData.url);
     xhr.setRequestHeader('Content-Type', file.type);
-    xhr.setRequestHeader('x-amz-acl', 'public-read');
+    // No x-amz-acl header: the presign no longer signs one (Backblaze B2
+    // rejects per-object ACLs — the bucket itself is public), and an unsigned
+    // x-amz-* header fails SigV4 validation.
     xhr.upload.addEventListener('progress', function(ev) {
       if (ev.lengthComputable) {
         var pct = Math.round(ev.loaded / ev.total * 100);
@@ -1162,7 +1164,7 @@ async function uploadVideoFile(file, secId, itemIdx, partIdx) {
     });
     await new Promise(function(resolve, reject) {
       xhr.onload = function() { xhr.status < 300 ? resolve() : reject(new Error('Upload failed ('+xhr.status+'): '+xhr.responseText)); };
-      xhr.onerror = function() { reject(new Error('Network error — check CORS configuration on DO Spaces bucket')); };
+      xhr.onerror = function() { reject(new Error('Network error — check CORS configuration on the storage bucket')); };
       xhr.send(file);
     });
     if (statEl) statEl.textContent = 'Processing video…';

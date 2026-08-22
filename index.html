@@ -39,6 +39,7 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .logo{display:block;margin:0 0 8px auto;max-width:120px;width:35%;height:auto}
 .verline{max-width:480px;margin:22px auto 0;padding:0 0 8px;font-size:11px;color:var(--mut);text-align:center;letter-spacing:0.2px}
 .verline .stale{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:8px;background:var(--warn-bg);color:var(--warn-tx);font-weight:500}
+.warnbanner{max-width:480px;margin:12px auto 0;padding:9px 14px;border-radius:10px;background:var(--warn-bg);color:var(--warn-tx);font-size:13px;font-weight:500;text-align:center;line-height:1.4}
 </style>
 </head>
 <body>
@@ -46,6 +47,10 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
   <img class="logo" src="icons/logo-square.png" alt="Yumyums Smokin' Grille">
   <div class="wordmark">Yumyums HQ</div>
   <div class="tagline">&#x1f354; Great <i>Food</i> begins with <i>Great Operations.</i></div>
+
+  <!-- B-172: shown only when /api/v1/health reports storage 'unreachable' —
+       see the IIFE at the bottom of this file. -->
+  <div class="warnbanner" id="storage-banner" hidden>⚠️ Photo storage unreachable — photo &amp; video uploads will fail and saved photos won't display</div>
 
   <div class="grid" style="visibility:hidden">
     <a class="tile active" href="purchasing.html">
@@ -436,6 +441,24 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');
   line.dataset.state='stale';
   serverEl.className='stale';
   serverEl.textContent='server v'+server+' — close and reopen to update';
+})();
+// ═══ STORAGE BANNER — B-172 ═══════════════════════════════════════════════
+// A dead object-storage account must be explicit at app start, not discovered
+// one failed upload at a time. 'unreachable' is the only state worth
+// interrupting the crew for: 'unconfigured' is a deliberate dev/test state
+// (upload endpoints already 503 with a named error) and 'ok' is silence.
+// Deliberately its own fetch, not a rider on the version-line IIFE above —
+// that one early-returns when version.json is unreadable, and this banner
+// must not disappear with it.
+(async function(){
+  var el=document.getElementById('storage-banner');
+  if(!el)return;
+  try{
+    var r=await fetch('/api/v1/health');
+    if(!r.ok)return;
+    var h=await r.json();
+    if(h&&h.storage==='unreachable')el.hidden=false;
+  }catch(e){}
 })();
 </script>
 <script src="log.js"></script><script src="ptr.js"></script>
