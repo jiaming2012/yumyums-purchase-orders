@@ -17,9 +17,8 @@
 //	DB_URL              (required — include search_path for the target schema)
 //	MERCURY_API_KEY     (required)
 //	ANTHROPIC_API_KEY   (required — receipt parsing)
-//	DO_SPACES_KEY, DO_SPACES_SECRET, DO_SPACES_BUCKET, DO_SPACES_REGION
-//	                    (required — receipt files are uploaded to Spaces)
-//	DO_SPACES_ENDPOINT  (optional — derived from region when unset)
+//	STORAGE_KEY, STORAGE_SECRET, STORAGE_BUCKET, STORAGE_REGION, STORAGE_ENDPOINT
+//	                    (required — receipt files are uploaded to object storage)
 //
 // Exit codes: 0 cycle completed; 1 bad flags/env or cycle error.
 package main
@@ -54,16 +53,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	spacesRegion := os.Getenv("DO_SPACES_REGION")
-	spacesEndpoint := os.Getenv("DO_SPACES_ENDPOINT")
-	if spacesEndpoint == "" && spacesRegion != "" {
-		spacesEndpoint = "https://" + spacesRegion + ".digitaloceanspaces.com"
-	}
-	spacesBucket := os.Getenv("DO_SPACES_BUCKET")
-	spacesKey := os.Getenv("DO_SPACES_KEY")
-	spacesSecret := os.Getenv("DO_SPACES_SECRET")
+	spacesRegion := os.Getenv("STORAGE_REGION")
+	spacesEndpoint := os.Getenv("STORAGE_ENDPOINT")
+	spacesBucket := os.Getenv("STORAGE_BUCKET")
+	spacesKey := os.Getenv("STORAGE_KEY")
+	spacesSecret := os.Getenv("STORAGE_SECRET")
 	if spacesKey == "" || spacesSecret == "" || spacesBucket == "" || spacesEndpoint == "" {
-		slog.Error("DO_SPACES_KEY, DO_SPACES_SECRET, DO_SPACES_BUCKET and DO_SPACES_REGION (or DO_SPACES_ENDPOINT) are required")
+		slog.Error("STORAGE_KEY, STORAGE_SECRET, STORAGE_BUCKET and STORAGE_ENDPOINT are required")
 		os.Exit(1)
 	}
 	presigner, err := photos.NewSpacesPresigner(photos.SpacesConfig{

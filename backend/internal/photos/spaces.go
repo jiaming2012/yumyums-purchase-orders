@@ -10,17 +10,19 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
-// SpacesConfig holds DO Spaces credentials and bucket info.
+// SpacesConfig holds S3-compatible object storage credentials and bucket info.
+// The store is Backblaze B2 since 2026-08 (previously DO Spaces — the type
+// names keep the historical "Spaces" spelling; the wire protocol is plain S3).
 type SpacesConfig struct {
 	AccessKey string
 	SecretKey string
-	Endpoint  string // e.g. "https://nyc3.digitaloceanspaces.com"
-	Region    string // e.g. "nyc3"
+	Endpoint  string // e.g. "https://s3.us-west-004.backblazeb2.com"
+	Region    string // e.g. "us-west-004"
 	Bucket    string
 }
 
-// NewSpacesClient creates an S3 client configured for DO Spaces.
-// DO Spaces requires path-style addressing (UsePathStyle: true).
+// NewSpacesClient creates an S3 client for the configured object store.
+// Path-style addressing works on every S3-compatible provider we target.
 func NewSpacesClient(cfg SpacesConfig) *s3.Client {
 	return s3.New(s3.Options{
 		Region:       cfg.Region,
@@ -30,20 +32,20 @@ func NewSpacesClient(cfg SpacesConfig) *s3.Client {
 	})
 }
 
-// NewSpacesPresigner creates a presign client configured for DO Spaces.
+// NewSpacesPresigner creates a presign client for the configured object store.
 func NewSpacesPresigner(cfg SpacesConfig) (*s3.PresignClient, error) {
 	client := NewSpacesClient(cfg)
 	return s3.NewPresignClient(client), nil
 }
 
 // GeneratePresignedPutURL generates a time-limited presigned PUT URL for uploading
-// an object to DO Spaces.
+// an object. No per-object ACL: Backblaze B2 rejects object ACLs that differ from
+// the bucket's — public reads come from the bucket being public, not the object.
 func GeneratePresignedPutURL(ctx context.Context, presigner *s3.PresignClient, bucket, key, contentType string, ttl time.Duration) (string, error) {
 	req, err := presigner.PresignPutObject(ctx, &s3.PutObjectInput{
 		Bucket:      aws.String(bucket),
 		Key:         aws.String(key),
 		ContentType: aws.String(contentType),
-		ACL:         "public-read",
 	}, s3.WithPresignExpires(ttl))
 	if err != nil {
 		return "", fmt.Errorf("presign PUT %s: %w", key, err)
@@ -52,7 +54,7 @@ func GeneratePresignedPutURL(ctx context.Context, presigner *s3.PresignClient, b
 }
 
 // GeneratePresignedGetURL generates a time-limited presigned GET URL for reading
-// an object from DO Spaces.
+// an object.
 func GeneratePresignedGetURL(ctx context.Context, presigner *s3.PresignClient, bucket, key string, ttl time.Duration) (string, error) {
 	req, err := presigner.PresignGetObject(ctx, &s3.GetObjectInput{
 		Bucket: aws.String(bucket),
@@ -64,11 +66,10 @@ func GeneratePresignedGetURL(ctx context.Context, presigner *s3.PresignClient, b
 	return req.URL, nil
 }
 
-// PublicURL returns the permanent public URL for an object in DO Spaces.
-// Uses path-style URLs to support bucket names with dots (e.g. "hq.yumyums")
-// which break subdomain-style due to wildcard SSL cert limitations.
-// Format: https://{region}.digitaloceanspaces.com/{bucket}/{key}
+// PublicURL returns the permanent public URL for an object. Path-style, which
+// every S3-compatible provider serves for public buckets.
+// Format: https://{endpoint-host}/{bucket}/{key}
 func PublicURL(endpoint, bucket, key string) string {
-	// endpoint is like "https://nyc3.digitaloceanspaces.com"
+	// endpoint is like "https://s3.us-west-004.backblazeb2.com"
 	return fmt.Sprintf("%s/%s/%s", endpoint, bucket, key)
 }

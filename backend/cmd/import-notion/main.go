@@ -7,9 +7,9 @@
 //	  --images "/path/to/All Items/" \
 //	  --output "internal/inventory/fixtures/purchase_items.yaml"
 //
-// Environment variables for DO Spaces upload:
+// Environment variables for object storage upload:
 //
-//	DO_SPACES_KEY, DO_SPACES_SECRET, DO_SPACES_ENDPOINT, DO_SPACES_REGION, DO_SPACES_BUCKET
+//	STORAGE_KEY, STORAGE_SECRET, STORAGE_ENDPOINT, STORAGE_REGION, STORAGE_BUCKET
 package main
 
 import (
@@ -94,7 +94,7 @@ func main() {
 	csvPath := flag.String("csv", "", "Path to Notion CSV export file (required)")
 	imagesDir := flag.String("images", "", "Path to 'All Items/' image directory (required)")
 	outputPath := flag.String("output", "internal/inventory/fixtures/purchase_items.yaml", "Output YAML path")
-	dryRun := flag.Bool("dry-run", false, "Skip DO Spaces upload, use placeholder URLs")
+	dryRun := flag.Bool("dry-run", false, "Skip object storage upload, use placeholder URLs")
 	flag.Parse()
 
 	if *csvPath == "" || *imagesDir == "" {
@@ -105,19 +105,19 @@ func main() {
 
 	ctx := context.Background()
 
-	// Set up S3 client for DO Spaces (only needed if not dry-run)
+	// Set up S3 client for object storage (only needed if not dry-run)
 	var s3Client *s3.Client
 	var spacesEndpoint, spacesBucket string
 
 	if !*dryRun {
-		key := os.Getenv("DO_SPACES_KEY")
-		secret := os.Getenv("DO_SPACES_SECRET")
-		endpoint := os.Getenv("DO_SPACES_ENDPOINT")
-		region := os.Getenv("DO_SPACES_REGION")
-		bucket := os.Getenv("DO_SPACES_BUCKET")
+		key := os.Getenv("STORAGE_KEY")
+		secret := os.Getenv("STORAGE_SECRET")
+		endpoint := os.Getenv("STORAGE_ENDPOINT")
+		region := os.Getenv("STORAGE_REGION")
+		bucket := os.Getenv("STORAGE_BUCKET")
 
 		if key == "" || secret == "" || endpoint == "" || region == "" || bucket == "" {
-			slog.Error("DO_SPACES_KEY, DO_SPACES_SECRET, DO_SPACES_ENDPOINT, DO_SPACES_REGION, DO_SPACES_BUCKET must be set (or use --dry-run)")
+			slog.Error("STORAGE_KEY, STORAGE_SECRET, STORAGE_ENDPOINT, STORAGE_REGION, STORAGE_BUCKET must be set (or use --dry-run)")
 			os.Exit(1)
 		}
 
@@ -242,7 +242,7 @@ func main() {
 				s3Key := fmt.Sprintf("items/%s.png", slug)
 
 				if *dryRun {
-					photoURL = fmt.Sprintf("https://placeholder.digitaloceanspaces.com/%s", s3Key)
+					photoURL = fmt.Sprintf("https://storage-placeholder.invalid/%s", s3Key)
 					itemsWithPhotos++
 				} else {
 					uploadedURL, err := uploadToSpaces(ctx, s3Client, spacesEndpoint, spacesBucket, s3Key, absImagePath)

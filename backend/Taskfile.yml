@@ -320,14 +320,14 @@ tasks:
   # Utility
   # ---------------------------------------------------------------------------
   sync-toast:
-    desc: Replay Toast ingest for a date range, reading from DO Spaces (requires DB_URL + DO_SPACES_*; usage — task backend:sync-toast FROM=2026-05-01 TO=2026-05-31)
+    desc: Replay Toast ingest for a date range, reading from the object-storage archive (requires DB_URL + STORAGE_*; usage — task backend:sync-toast FROM=2026-05-01 TO=2026-05-31)
     cmd: >-
       go run ./cmd/sync-toast
       --from {{.FROM}}
       --to {{.TO}}
     env:
       DB_URL: '{{.DB_URL}}'
-      DO_SPACES_ENDPOINT: '{{.DO_SPACES_ENDPOINT | default (printf "https://%s.digitaloceanspaces.com" .DO_SPACES_REGION)}}'
+      STORAGE_ENDPOINT: '{{.STORAGE_ENDPOINT}}'
 
   login:
     desc: Login as admin and save session cookie to /tmp/yumcookie

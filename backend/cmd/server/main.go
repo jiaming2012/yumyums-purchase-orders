@@ -324,19 +324,17 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Initialize DO Spaces presigner + client (optional — graceful degradation if env vars missing)
+	// Initialize object storage (Backblaze B2, S3-compatible) presigner + client
+	// (optional — graceful degradation if env vars missing).
 	var spacesPresigner *s3.PresignClient
 	var spacesClient *s3.Client
-	spacesEndpoint := os.Getenv("DO_SPACES_ENDPOINT")
-	spacesBucket := os.Getenv("DO_SPACES_BUCKET")
-	spacesRegion := os.Getenv("DO_SPACES_REGION")
-	if spacesEndpoint == "" && spacesRegion != "" {
-		spacesEndpoint = "https://" + spacesRegion + ".digitaloceanspaces.com"
-	}
-	if os.Getenv("DO_SPACES_KEY") != "" && os.Getenv("DO_SPACES_SECRET") != "" && spacesBucket != "" && spacesEndpoint != "" {
+	spacesEndpoint := os.Getenv("STORAGE_ENDPOINT")
+	spacesBucket := os.Getenv("STORAGE_BUCKET")
+	spacesRegion := os.Getenv("STORAGE_REGION")
+	if os.Getenv("STORAGE_KEY") != "" && os.Getenv("STORAGE_SECRET") != "" && spacesBucket != "" && spacesEndpoint != "" {
 		spacesCfg := photos.SpacesConfig{
-			AccessKey: os.Getenv("DO_SPACES_KEY"),
-			SecretKey: os.Getenv("DO_SPACES_SECRET"),
+			AccessKey: os.Getenv("STORAGE_KEY"),
+			SecretKey: os.Getenv("STORAGE_SECRET"),
 			Endpoint:  spacesEndpoint,
 			Region:    spacesRegion,
 			Bucket:    spacesBucket,
@@ -344,14 +342,26 @@ func main() {
 		spacesClient = photos.NewSpacesClient(spacesCfg)
 		p, err := photos.NewSpacesPresigner(spacesCfg)
 		if err != nil {
-			slog.Warn("failed to initialize DO Spaces presigner, photo and video upload endpoints will return 503", "error", err)
+			slog.Warn("failed to initialize storage presigner, photo and video upload endpoints will return 503", "error", err)
 		} else {
 			spacesPresigner = p
-			slog.Info("DO Spaces presigner initialized", "bucket", spacesBucket, "endpoint", spacesEndpoint)
+			slog.Info("object storage client initialized (reachability probed separately)", "bucket", spacesBucket, "endpoint", spacesEndpoint)
 		}
 	} else {
-		slog.Warn("DO Spaces env vars not set, photo and video upload endpoints will return 503", "required", "DO_SPACES_KEY, DO_SPACES_SECRET, DO_SPACES_BUCKET, DO_SPACES_REGION")
+		slog.Warn("object storage env vars not set, photo and video upload endpoints will return 503", "required", "STORAGE_KEY, STORAGE_SECRET, STORAGE_BUCKET, STORAGE_ENDPOINT, STORAGE_REGION")
 	}
+
+	// B-172: constructing the S3 client is offline — a canceled/dead account is
+	// indistinguishable from a live one until a real request. Probe at boot so a
+	// dead store is an explicit startup error, and keep probing (30s cache) so
+	// /api/v1/health reports "storage": ok|unreachable|unconfigured live.
+	storageHealth := photos.NewStorageHealth(spacesClient, spacesBucket, 30*time.Second)
+	go func() {
+		if status := storageHealth.Status(ctx); status == photos.StorageOK {
+			slog.Info("object storage reachable", "bucket", spacesBucket)
+		}
+		// The unreachable case logs its own slog.Error inside Status.
+	}()
 
 	// Service-to-service token for sales-processor → /api/v1/inventory/period-summary
 	// and /api/v1/inventory/menu-cogs (Phase 999.2).
@@ -452,6 +462,7 @@ func main() {
 				"frontend_version": version.Frontend,
 				"git_sha":          version.GitSHA,
 				"built_at":         version.BuiltAt,
+				"storage":          storageHealth.Status(r.Context()),
 			})
 		})
 		r.Post("/logs", func(w http.ResponseWriter, r *http.Request) {
@@ -580,7 +591,7 @@ func main() {
 			// mint-for-someone-else path to leave unguarded.
 			r.Post("/sync/token", opsync.TokenHandler(pool))
 
-			// Photos endpoints — presigned URL generation for DO Spaces
+			// Photos endpoints — presigned URL generation for object storage
 			r.Route("/photos", func(r chi.Router) {
 				r.Post("/presign", photos.PresignUploadHandler(spacesPresigner, spacesBucket, spacesEndpoint))
 				r.Get("/presign", photos.PresignGetHandler(spacesPresigner, spacesBucket))

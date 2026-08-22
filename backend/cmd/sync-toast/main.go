@@ -1,9 +1,9 @@
 // sync-toast pulls Toast ItemSelectionDetails.csv for [--from, --to] from
-// DO Spaces and upserts into menu_items + daily_menu_sales. Reuses
+// the object-storage archive (Backblaze B2) and upserts into menu_items + daily_menu_sales. Reuses
 // internal/toast.RunIngest.
 //
 // Phase 22.1 change: this CLI used to dial SFTP directly. It now reads from
-// DO Spaces (the durable archive). Live SFTP→Spaces sync is the in-process
+// object storage (the durable archive). Live SFTP→Spaces sync is the in-process
 // worker's job; historical archive seeding is cmd/migrate-toast-archive's job.
 // This CLI's role is "replay ingest for a date range" — useful after a parser
 // bug fix when you want to re-upsert without waiting for the next worker tick.
@@ -19,11 +19,11 @@
 //	TOAST_SFTP_USER         (default YumYumsExportUser)
 //	TOAST_SFTP_HOST         (default s-9b0f88558b264dfda...:22)
 //	TOAST_EXPORT_ID         (default 113866)
-//	DO_SPACES_KEY           (required — Phase 22.1, RunIngest reads from Spaces)
-//	DO_SPACES_SECRET        (required)
-//	DO_SPACES_ENDPOINT      (required)
-//	DO_SPACES_REGION        (required)
-//	DO_SPACES_BUCKET        (required)
+//	STORAGE_KEY           (required — Phase 22.1, RunIngest reads from Spaces)
+//	STORAGE_SECRET        (required)
+//	STORAGE_ENDPOINT      (required)
+//	STORAGE_REGION        (required)
+//	STORAGE_BUCKET        (required)
 //
 // Exit codes:
 //
@@ -85,13 +85,13 @@ func main() {
 
 	// Phase 22.1: RunIngest reads from Spaces. Build the Spaces client here
 	// so the CLI doesn't depend on cmd/server wiring.
-	spacesKey := os.Getenv("DO_SPACES_KEY")
-	spacesSecret := os.Getenv("DO_SPACES_SECRET")
-	spacesEndpoint := os.Getenv("DO_SPACES_ENDPOINT")
-	spacesRegion := os.Getenv("DO_SPACES_REGION")
-	spacesBucket := os.Getenv("DO_SPACES_BUCKET")
+	spacesKey := os.Getenv("STORAGE_KEY")
+	spacesSecret := os.Getenv("STORAGE_SECRET")
+	spacesEndpoint := os.Getenv("STORAGE_ENDPOINT")
+	spacesRegion := os.Getenv("STORAGE_REGION")
+	spacesBucket := os.Getenv("STORAGE_BUCKET")
 	if spacesKey == "" || spacesSecret == "" || spacesEndpoint == "" || spacesRegion == "" || spacesBucket == "" {
-		slog.Error("DO_SPACES_KEY, DO_SPACES_SECRET, DO_SPACES_ENDPOINT, DO_SPACES_REGION, DO_SPACES_BUCKET must all be set")
+		slog.Error("STORAGE_KEY, STORAGE_SECRET, STORAGE_ENDPOINT, STORAGE_REGION, STORAGE_BUCKET must all be set")
 		os.Exit(1)
 	}
 	cfg.SpacesClient = photos.NewSpacesClient(photos.SpacesConfig{
