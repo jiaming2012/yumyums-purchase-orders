@@ -369,6 +369,22 @@
   - **The milestone close reads the contract** so "dev complete / ship / prod" grade against a
     named clause, closing the decision-161 class (a close bar that can be cleared while the
     capability runs nowhere).
+- **Enforcement is capability, not detection (added 2026-08-09, operator).** Field #7 (data
+  posture & blast radius) must be **enforced**, not merely recorded: scope credentials so the
+  agent's environment *cannot reach* a higher-blast-radius environment at all — prod credentials
+  hidden from the agent so a test or probe cannot run against prod *regardless of whether it
+  carries a destructive statement*. Operator, verbatim: *"the right system is one in which the
+  production credentials are hidden from claude so that tests cannot be ran against prod at all
+  (regardless if it contains a delete or not)."* A coordinate guard — e.g. the `:5433` port
+  refusal in `sync-dev-up.sh` — is a **denylist**, and fails the moment the same cluster is
+  reachable by an unlisted coordinate; proven 2026-08-09 by driving the guard, which matches the
+  port *string* `5433`, so an aliased/forwarded port sails past. The contract therefore owes an
+  **enforcement field** — *what credential does an agent operating here hold, and what is that
+  credential scoped to* — not just a prose blast-radius description. **HQ prerequisite (blocks
+  this today):** dev and prod are ONE cluster / role / password (BACKLOG T-20 HIGH — shared-cluster
+  + `dotenv` 21-live-creds), so there is no separate prod credential to hide yet; the coordinate
+  guard is a stopgap for that missing boundary, not the fix. Genuine prod/dev separation (a
+  separate cluster, or roles with `REVOKE`) is the precondition for capability-based enforcement.
 - **Open questions, flagged rather than assumed:** (a) **granularity** — is one environment a
   single `(topology, data-posture, deploy)` tuple, so "dev-with-fixtures" and "dev-with-shared-data"
   are *two* rows, or one row with variants? (leaning: two rows when the data posture changes the
