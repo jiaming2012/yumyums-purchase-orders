@@ -1295,6 +1295,58 @@ test.describe('Persistence', () => {
   // Playwright's filechooser, and the assertion is CLAUDE.md's back-and-reopen
   // contract. Any future edit that breaks the write call — not just deletes it —
   // reds here, because the assertion is on what came back from the server.
+  // FLD-16D — operator addition (2026-08-10): an upload failure must NOTIFY the
+  // user, not fail silently. The fail-photo .catch used to re-render the card back
+  // to "Add photo" with no signal (B-65 class); now every photo path toasts on
+  // failure. Force the PUT to Spaces to fail (the real-world "Load failed" / CORS
+  // case the operator hit from the dev origin) and assert the toast fires.
+  test('photo upload failure notifies the user, not silently [FLD-16D]', async ({ page }) => {
+    const todayDOW = await getTodayDOW(page);
+    const tpl = await apiCall(page, 'POST', 'createTemplate', {
+      name: 'Photo Upload Failure Test',
+      requires_approval: false,
+      sections: [{
+        title: 'Safety Check', order: 0, condition: null,
+        fields: [{ type: 'yes_no', label: 'Equipment OK?', required: true, order: 0, config: {}, fail_trigger: null, condition: null }],
+      }],
+      assignments: [{ assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' }],
+      schedules: [{ active_days: [todayDOW] }],
+    });
+    const templates = await apiCall(page, 'GET', 'templates');
+    const fieldId = templates.find(t => t.id === tpl.id).sections[0].fields[0].id;
+
+    // presign succeeds (200) but the PUT to Spaces FAILS — mirrors the real
+    // "Load failed" (CORS/network) the operator hit uploading from the dev origin.
+    await page.route('**/api/v1/photos/presign', route => route.fulfill({
+      status: 200, contentType: 'application/json',
+      body: JSON.stringify({ url: 'https://spaces.example.test/upload/x.jpg?sig=stub', public_url: 'https://spaces.example.test/x.jpg' }),
+    }));
+    await page.route(/^https:\/\/spaces\.example\.test\/upload\//, route => route.abort());
+
+    await page.goto(BASE + '/workflows.html');
+    const row = page.locator('[data-fill-template-id="' + tpl.id + '"]');
+    await expect(row).toBeVisible({ timeout: 10000 });
+    await row.click();
+
+    const noBtn = page.locator('[data-action="set-no"][data-fld-id="' + fieldId + '"]');
+    await expect(noBtn).toBeVisible({ timeout: 5000 });
+    await noBtn.click();
+    await expect(page.locator('.fail-card')).toBeVisible({ timeout: 5000 });
+    await page.waitForTimeout(700);
+
+    const chooserPromise = page.waitForEvent('filechooser');
+    await page.locator('[data-action="fail-photo-capture"][data-fld-id="' + fieldId + '"]').click();
+    const chooser = await chooserPromise;
+    await chooser.setFiles({ name: 'fail.jpg', mimeType: 'image/jpeg', buffer: Buffer.from([0xff, 0xd8, 0xff, 0xdb, 0xff, 0xd9]) });
+
+    // The failure must be surfaced as a notification — not a silent revert.
+    const toast = page.locator('#toast');
+    await expect(toast).toBeVisible({ timeout: 8000 });
+    await expect(toast).toContainText(/upload failed/i);
+    // And no thumbnail attached, because the upload genuinely failed.
+    await expect(page.locator('.fail-card img.photo-thumb')).toHaveCount(0);
+  });
+
   test('fail photo captured through the camera path survives back-to-list and reopen [FLD-16B]', async ({ page }) => {
     const todayDOW = await getTodayDOW(page);
 
@@ -1361,8 +1413,11 @@ test.describe('Persistence', () => {
       buffer: Buffer.from([0xff, 0xd8, 0xff, 0xdb, 0xff, 0xd9]),
     });
 
-    // Confirm in the preview modal → presign → PUT → persist.
-    await page.locator('.photo-modal .photo-confirm-btn').click();
+    // No second confirm modal now — the OS camera's "Use Photo" is the only
+    // confirmation, so the capture (setFiles) goes straight to presign → PUT →
+    // persist (single-confirm fix; restores 0f713a0). Guard the regression:
+    // the in-app preview modal must NOT appear.
+    await expect(page.locator('.photo-modal')).toHaveCount(0);
 
     // The thumbnail appears in BOTH the broken and fixed trees — FAIL_NOTES is
     // mutated before the write call — so this is a sync point, not the assertion.
@@ -1569,8 +1624,11 @@ test.describe('Persistence', () => {
       buffer: Buffer.from([0xff, 0xd8, 0xff, 0xdb, 0xff, 0xd9]),
     });
 
-    // Confirm in the preview modal → presign → PUT → persist.
-    await page.locator('.photo-modal .photo-confirm-btn').click();
+    // No second confirm modal now — the OS camera's "Use Photo" is the only
+    // confirmation, so the capture (setFiles) goes straight to presign → PUT →
+    // persist (single-confirm fix; restores 0f713a0). Guard the regression:
+    // the in-app preview modal must NOT appear.
+    await expect(page.locator('.photo-modal')).toHaveCount(0);
 
     // CORRECTION_PHOTOS[fldId] is assigned one line BEFORE the write call, so the
     // thumbnail appears in the broken tree too. Sync point, not the assertion.

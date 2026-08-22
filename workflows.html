@@ -2125,8 +2125,9 @@ async function submitChecklistToAPI(tplId, allFlds, isReapproval) {
 function handlePhotoCaptureClick(fldId) {
   openCamera(function(file) {
     var objectURL = URL.createObjectURL(file);
-    showPhotoPreview(objectURL, function() {
-      // User confirmed — upload via presigned PUT URL
+    // The OS camera's "Use Photo" IS the confirmation — go straight to upload, no
+    // second in-app confirm modal (restores 0f713a0; regressed when the presign
+    // pipeline was wired in). Retake = the OS camera + the post-upload Retake link.
       var fieldRow = document.querySelector('.fill-field[data-field-id="' + fldId + '"]');
       var captureArea = fieldRow ? fieldRow.querySelector('.photo-capture-area') : null;
       if (captureArea) {
@@ -2178,12 +2179,8 @@ function handlePhotoCaptureClick(fldId) {
               '<button class="photo-capture-btn" data-action="photo-capture" data-fld-id="' + fldId + '">📷 Take Photo</button>' +
               '<div class="photo-field-error" data-action="photo-capture" data-fld-id="' + fldId + '">Upload failed. Tap to retry.</div>';
           }
+          showToast('Photo upload failed — check your connection and retake.');
         });
-    }, function() {
-      // User retook — revoke old blob and re-open camera
-      URL.revokeObjectURL(objectURL);
-      handlePhotoCaptureClick(fldId);
-    });
   });
 }
 
@@ -2195,7 +2192,8 @@ function handlePhotoCaptureClick(fldId) {
 function handleCorrectionPhotoCaptureClick(fldId) {
   openCamera(function(file) {
     var objectURL = URL.createObjectURL(file);
-    showPhotoPreview(objectURL, function() {
+    // The OS camera's "Use Photo" IS the confirmation — go straight to upload (no
+    // second in-app confirm modal; restores 0f713a0).
       var area = document.querySelector('.correction-photo-area[data-correction-photo-fld="' + fldId + '"]');
       if (area) area.innerHTML = '<div class="photo-uploading"><div class="photo-spinner"></div>Uploading...</div>';
       var tpl = fillState.activeTemplate;
@@ -2226,19 +2224,17 @@ function handleCorrectionPhotoCaptureClick(fldId) {
         console.error('Correction photo upload failed:', err);
         URL.revokeObjectURL(objectURL);
         if (area) area.innerHTML = '<button class="photo-capture-btn" data-action="correction-photo-capture" data-fld-id="' + fldId + '">📷 Add photo</button><div class="photo-field-error" data-action="correction-photo-capture" data-fld-id="' + fldId + '">Upload failed. Tap to retry.</div>';
+        showToast('Photo upload failed — check your connection and retake.');
       });
-    }, function() {
-      URL.revokeObjectURL(objectURL);
-      handleCorrectionPhotoCaptureClick(fldId);
-    });
   });
 }
 
 function handleFailPhotoCaptureClick(fldId) {
   openCamera(function(file) {
     var objectURL = URL.createObjectURL(file);
-    showPhotoPreview(objectURL, function() {
-      // User confirmed — upload via presigned PUT URL
+    // The OS camera's "Use Photo" IS the confirmation — go straight to upload, no
+    // second in-app confirm modal (restores 0f713a0; regressed when the presign
+    // pipeline was wired in). Retake = the OS camera + the post-upload Retake link.
       var failCard = document.querySelector('.fail-card[data-fld-id="' + fldId + '"]');
       var photoArea = failCard ? failCard.querySelector('[data-action="fail-photo-capture"], .photo-thumb-wrap, .photo-uploading-wrap') : null;
       if (photoArea) {
@@ -2313,12 +2309,12 @@ function handleFailPhotoCaptureClick(fldId) {
           tmp.innerHTML = renderFailCard(tplField, FAIL_NOTES[fldId]);
           currentCard.replaceWith(tmp.firstChild);
         }
+        // Surface the failure loudly. This path used to revert to "Add photo"
+        // SILENTLY, so an upload failure (e.g. the browser's PUT to Spaces blocked
+        // by CORS from a dev origin) looked identical to "not saved yet" — the crew
+        // could believe an evidence photo attached when it did not (B-65 class).
+        showToast('Photo upload failed — check your connection and retake.');
       });
-    }, function() {
-      // User retook — revoke old blob and re-open camera
-      URL.revokeObjectURL(objectURL);
-      handleFailPhotoCaptureClick(fldId);
-    });
   });
 }
 
