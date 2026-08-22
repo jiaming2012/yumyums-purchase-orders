@@ -20,7 +20,7 @@ Mercury API → FetchTransactions (14-day lookback, paginated)
             ↓
             for each tx with attachments:
               → Download all attachments to memory
-              → Upload each to DO Spaces (receipts/{tx_id}/{idx}{ext})
+              → Upload each to object storage — Backblaze B2 (receipts/{tx_id}/{idx}{ext})
               → Build []FileBlob from raw bytes (one entry per attachment)
               → ParseReceipt (Claude Haiku, 4096 maxTokens)
                   ↳ on JSON-unmarshal failure: ParseReceiptWithSonnet (fallback)
@@ -43,7 +43,7 @@ Admin reprocess (new, 2026-06-25):
     → SELECT pending rows + their stored receipt URLs
     → For each row: synthesize a fake MercuryTransaction from stored data
     → Run through processSingleTx(reprocess=true) — same pipeline as above
-    → Mercury is NOT contacted; attachments come from DO Spaces
+    → Mercury is NOT contacted; attachments come from object storage (Backblaze B2)
 ```
 
 ## Component responsibilities
@@ -89,7 +89,7 @@ New endpoint `POST /api/v1/inventory/purchases/reprocess-all`:
 - Selects all still-pending rows that have a stored attachment URL (legacy `receipt_url` OR new `receipt_urls`).
 - For each row, builds a `PendingRowForReprocess` struct from stored fields (`bank_tx_id`, `bank_total`, `vendor`, `event_date`, URL list).
 - `receipt.BatchReprocessFromSpaces` synthesizes a fake `MercuryTransaction` from that struct and calls `processSingleTx(reprocess=true)`.
-- Mercury is **not contacted at all**. Attachments come from DO Spaces.
+- Mercury is **not contacted at all**. Attachments come from object storage (Backblaze B2).
 - Single-flight against the `receipt_sync_runs` table — concurrent reprocess returns 409 conflict.
 - Why Spaces, not Mercury: Mercury's individual-tx endpoint (`/api/v1/transactions/{id}`) doesn't exist; the list endpoint's `offset` pagination doesn't behave the way an offset+limit API normally does (paginated past 50000 offset without ever returning a short page). The Spaces approach sidesteps that uncertainty and is cheaper anyway.
 

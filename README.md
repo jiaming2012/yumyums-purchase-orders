@@ -57,7 +57,7 @@ The feature is not complete without that test. See `docs/data-flow-audit.md`.
 
 7-tab layout: Purchases / Stock / Menu / Recipes / **Trends** / **Cost** / Setup.
 
-- **Receipt pipeline:** Mercury banking → receipt download → DO Spaces upload → Claude Haiku
+- **Receipt pipeline:** Mercury banking → receipt download → Backblaze B2 upload → Claude Haiku
   parse → validate → pending review queue → manual confirm. Items are cataloged from real
   receipts, not pre-seeded.
 - **Recipes/BOM:** per-ingredient `usage_pct` sliders allocate purchase spend to menu items
