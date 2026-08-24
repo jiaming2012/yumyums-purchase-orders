@@ -19,39 +19,155 @@ vars:
   PROD_PORT: '{{.PROD_PORT | default "8080"}}'
   PROD_URL: '{{.PROD_URL | default "https://hq.yumyums.kitchen"}}'
 
+  # ─────────────────────────────────────────────────────────────────────────────
+  # THE TEST CLUSTER — ledger decision 155, closing B-141's structural half.
+  #
+  # 🛑 These are the ONLY Postgres coordinates any `test:*` task may resolve to.
+  # They name `yumyums-test-pg` (docker-compose.test.yml), a container that
+  # exists for no purpose but running this repo's suites.
+  #
+  # They are NOT :5433. :5433 is `yumyums-dev-pg` — the cluster that serves
+  # https://hq.yumyums.kitchen, dev and prod alike (prod is the `production`
+  # search_path on the same instance). Until 2026-08-07 every test default in
+  # this repo pointed there, which is how an adversarial probe of a name guard
+  # dropped the production database on 2026-08-06 with no backup (B-141, B-143).
+  #
+  # They are NOT :5432 either — that is infra-postgres-1 (slack-trading).
+  #
+  # 🛑 The role is `hqtest`, not `yumyums`, ON PURPOSE. Port-only separation
+  # leaves a stale default one typo from production; a distinct role name makes
+  # a missed site fail closed (`role "hqtest" does not exist`) instead of
+  # authenticating against prod. Do not "simplify" these back to yumyums.
+  #
+  # Override for a throwaway cluster elsewhere via TEST_DB_HOST / TEST_DB_PORT /
+  # TEST_DB_USER / TEST_DB_PASS. `task test:targets` prints what they resolve to.
+  # ─────────────────────────────────────────────────────────────────────────────
+  TEST_DB_HOST: '{{.TEST_DB_HOST | default "localhost"}}'
+  TEST_DB_PORT: '{{.TEST_DB_PORT | default "5434"}}'
+  TEST_DB_USER: '{{.TEST_DB_USER | default "hqtest"}}'
+  TEST_DB_PASS: '{{.TEST_DB_PASS | default "hqtest"}}'
+  TEST_COMPOSE: '{{.TEST_COMPOSE | default "docker-compose.test.yml"}}'
+  TEST_PROJECT: '{{.TEST_PROJECT | default "yumyums-test"}}'
+  TEST_CONTAINER: '{{.TEST_CONTAINER | default "yumyums-test-pg"}}'
+
 tasks:
   sw:
     desc: Rebuild service worker with Workbox (content-hashed precache)
     cmds:
       - node build-sw.js
 
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Test cluster lifecycle (decision 155). `test:db:up` is a dependency of every
+  # test target, so `task test` / `task test:go` / `task test:all` bring the test
+  # Postgres up themselves and no one has to remember to.
+  # ─────────────────────────────────────────────────────────────────────────────
+  test:db:up:
+    desc: Start the test-only Postgres (yumyums-test-pg on :{{.TEST_DB_PORT}}) — idempotent, waits for healthy
+    cmds:
+      - docker compose -p {{.TEST_PROJECT}} -f {{.TEST_COMPOSE}} up -d
+      - |
+        # Wait on the container's OWN healthcheck (pg_isready) rather than
+        # opening a psql connection from here: the wait must not depend on a
+        # host psql being installed, and `docker inspect` cannot accidentally
+        # resolve against some other cluster the way a bare `psql` can.
+        for i in $(seq 1 60); do
+          s=$(docker inspect -f '{{`{{.State.Health.Status}}`}}' {{.TEST_CONTAINER}} 2>/dev/null || echo missing)
+          if [ "$s" = "healthy" ]; then
+            echo "{{.TEST_CONTAINER}} healthy — {{.TEST_DB_HOST}}:{{.TEST_DB_PORT}} (role {{.TEST_DB_USER}})"
+            exit 0
+          fi
+          sleep 1
+        done
+        echo "{{.TEST_CONTAINER}} did not become healthy within 60s (last status: ${s:-unknown})" >&2
+        exit 1
+
+  test:db:down:
+    desc: Destroy the test Postgres AND its volume (deliberate — the only target here that destroys data)
+    cmd: docker compose -p {{.TEST_PROJECT}} -f {{.TEST_COMPOSE}} down --volumes --remove-orphans
+
+  test:targets:
+    desc: Print every resolved test-database coordinate (READ-ONLY — opens no connection)
+    cmds:
+      - |
+        echo "── Taskfile test cluster ────────────────────────────────"
+        echo "  host:port   {{.TEST_DB_HOST}}:{{.TEST_DB_PORT}}"
+        echo "  role        {{.TEST_DB_USER}}"
+        echo "  container   {{.TEST_CONTAINER}}  ({{.TEST_COMPOSE}}, project {{.TEST_PROJECT}})"
+        echo "  DB_TEST_URL postgres://{{.TEST_DB_USER}}:{{.TEST_DB_PASS}}@{{.TEST_DB_HOST}}:{{.TEST_DB_PORT}}/hq_test_go?sslmode=disable"
+        echo ""
+        echo "── Playwright e2e (scripts/reset-e2e-db.js, resolved) ───"
+        node -e 'const{resolveE2eDb}=require("./scripts/reset-e2e-db");const d=resolveE2eDb({});console.log("  adminUrl    "+d.adminUrl);console.log("  testUrl     "+d.testUrl)'
+        echo ""
+        echo "── internal/sync RLS suite defaults ─────────────────────"
+        grep -n 'defaultHQAdminURL = \|defaultFDWPort = ' backend/internal/sync/rowvisibility_rls_test.go
+        echo ""
+        echo "── scripts/verify-test-harness.sh probe URL ─────────────"
+        grep -n "DEAD_URL='postgres" scripts/verify-test-harness.sh
+
   test:
     desc: Run Playwright E2E tests (set HEADED=1 for visible browser)
-    deps: [backend:db-test, sw]
+    # bdd:gen is NOT optional. playwright.config.js defines TWO projects —
+    # `chromium` (./tests) and `bdd` (the .features-gen/ dir playwright-bdd
+    # writes). Without the generation step, .features-gen/ does not exist on a
+    # fresh worktree, and Playwright resolves the `bdd` project to ZERO spec
+    # files: 19 of 20 run, with no error and no skip line, and the suite reports
+    # success. `bdd:` (:78) and the CI task already carried this dep; `test:`
+    # was the sole omission, and every card leg reported a full suite in good
+    # faith while a whole project contributed nothing. BACKLOG B-09, ledger
+    # T-25 decision 73; fixed by card `test-harness-fail-loud`.
+    # Guarded by scripts/verify-test-harness.sh — do not remove it.
+    #
+    # test:db:up brings the TEST cluster (:{{.TEST_DB_PORT}}) up first, and
+    # backend:db-test is handed that cluster's coordinates explicitly — without
+    # the vars it would fall back to its own :5433 defaults and create the test
+    # databases on the cluster serving hq.yumyums.kitchen (decision 155).
+    deps:
+      - test:db:up
+      - task: backend:db-test
+        vars:
+          DB_HOST: '{{.TEST_DB_HOST}}'
+          DB_PORT: '{{.TEST_DB_PORT}}'
+          DB_USER: '{{.TEST_DB_USER}}'
+          DB_PASS: '{{.TEST_DB_PASS}}'
+      - sw
+      - bdd:gen
+    # These reach scripts/reset-e2e-db.js — which playwright.config.js's
+    # webServer.command runs, and which DROPs the database it resolves. They
+    # also override anything `dotenv: ['backend/.env']` injects.
+    env:
+      DB_HOST: '{{.TEST_DB_HOST}}'
+      DB_PORT: '{{.TEST_DB_PORT}}'
+      DB_USER: '{{.TEST_DB_USER}}'
+      DB_PASS: '{{.TEST_DB_PASS}}'
     cmds:
-      # Start from a clean hq_test_e2e. This suite shares ONE server + ONE
-      # database across all spec files; leftover users/templates/pending-purchases
-      # from a prior run make order-sensitive tests flake. The server re-runs goose
-      # migrations on startup, so a bare CREATE is enough. (Playwright itself
-      # runs serially — workers:1 in playwright.config.js — for the same reason.)
-      #
-      # hq_test_e2e, NOT hq_test: the Go suite owns hq_test_go. They used to share
-      # one hq_test, and every Go TestMain truncates tables (including `users`) —
-      # so a `task test:go` running alongside `task test` would log every browser
-      # context out mid-suite. Separate databases make that impossible rather than
-      # merely unlikely. Cross-contamination audit 2026-07-21, surface #3.
-      - |
-        DB_HOST="{{.DB_HOST | default "localhost"}}"; DB_PORT="{{.DB_PORT | default "5433"}}"
-        echo "── resetting hq_test_e2e on $DB_HOST:$DB_PORT ──"
-        psql "postgres://yumyums:yumyums@$DB_HOST:$DB_PORT/postgres?sslmode=disable" \
-          -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='hq_test_e2e' AND pid<>pg_backend_pid();" \
-          -c "DROP DATABASE IF EXISTS hq_test_e2e;" \
-          -c "CREATE DATABASE hq_test_e2e;" >/dev/null
+      # The hq_test_e2e reset is NOT here any more, and its absence is the fix,
+      # not an omission. It lives in playwright.config.js's `webServer.command`
+      # (`node scripts/reset-e2e-db.js && …`), so EVERY `npx playwright test`
+      # invocation resets — including the bare `npx playwright test` and the
+      # `npx playwright test "<regex>"` subset that night-crew.toml's [e2e] stanza
+      # runs directly, neither of which ever came through this task. That was
+      # B-76: no night-crew gate leg, full or subset, had ever reset the database,
+      # so a red could be an artifact of a previous run and so could a GREEN.
+      # Keeping a second copy here would be a second source of truth for a
+      # destructive operation. Guarded by tests/db-isolation.spec.js.
       - npx playwright test {{if eq (.HEADED | default "0") "1"}}--headed{{end}}
 
   test:ui:
     desc: Open Playwright UI mode for interactive debugging (isolated clean stack on :8091 / hq_test_ui)
-    deps: [backend:db-test, sw]
+    deps:
+      - test:db:up
+      - task: backend:db-test
+        vars:
+          DB_HOST: '{{.TEST_DB_HOST}}'
+          DB_PORT: '{{.TEST_DB_PORT}}'
+          DB_USER: '{{.TEST_DB_USER}}'
+          DB_PASS: '{{.TEST_DB_PASS}}'
+      - sw
+    env:
+      DB_HOST: '{{.TEST_DB_HOST}}'
+      DB_PORT: '{{.TEST_DB_PORT}}'
+      DB_USER: '{{.TEST_DB_USER}}'
+      DB_PASS: '{{.TEST_DB_PASS}}'
     cmds:
       # Run UI mode on its OWN port + OWN freshly-reset database (hq_test_ui) so
       # it NEVER (a) reuses a dev server you have running on :8089 —
@@ -59,13 +175,16 @@ tasks:
       # mutate, your live dev data — or (b) collides with a `task test` run using
       # hq_test on :8199. TEST_PORT + TEST_DB_NAME make playwright.config.js spawn
       # a dedicated server on :8091 backed by hq_test_ui.
-      - |
-        DB_HOST="{{.DB_HOST | default "localhost"}}"; DB_PORT="{{.DB_PORT | default "5432"}}"
-        echo "── resetting hq_test_ui on $DB_HOST:$DB_PORT ──"
-        psql "postgres://yumyums:yumyums@$DB_HOST:$DB_PORT/postgres?sslmode=disable" \
-          -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='hq_test_ui' AND pid<>pg_backend_pid();" \
-          -c "DROP DATABASE IF EXISTS hq_test_ui;" \
-          -c "CREATE DATABASE hq_test_ui;" >/dev/null
+      #
+      # The inline psql reset that used to sit here is gone for the same reason as
+      # `test:`'s — playwright.config.js's webServer.command resets whatever
+      # TEST_DB_NAME names, so hq_test_ui is reset by the same single code path.
+      # Its DB_PORT default was ALSO 5432 here while every other site in the repo
+      # pointed at 5433; host :5432 is infra-postgres-1, which has no `yumyums`
+      # role, so that block could only ever have failed. Deleting it removes the
+      # inconsistency rather than perpetuating it. (Both of those ports are now
+      # wrong for a test run either way — the test cluster is :{{.TEST_DB_PORT}},
+      # decision 155.)
       - TEST_DB_NAME=hq_test_ui TEST_PORT=8091 TEST_OUTPUT_DIR=test-results-ui npx playwright test --ui
 
   bdd:gen:
@@ -74,19 +193,38 @@ tasks:
       - npx bddgen
 
   bdd:
-    desc: Run BDD/Gherkin tests (uses local Docker DB; set HEADED=1 for visible browser)
-    deps: [sw, bdd:gen]
+    desc: Run BDD/Gherkin tests (uses the test-only Postgres; set HEADED=1 for visible browser)
+    deps: [test:db:up, sw, bdd:gen]
+    # Was `DB_PORT: '5432'` — infra-postgres-1, which has no `yumyums` role, so
+    # this target could only ever black-hole on the reset (BACKLOG B-85). It now
+    # points at the test cluster like every other test target (decision 155).
     env:
-      DB_HOST: localhost
-      DB_PORT: '5432'
+      DB_HOST: '{{.TEST_DB_HOST}}'
+      DB_PORT: '{{.TEST_DB_PORT}}'
+      DB_USER: '{{.TEST_DB_USER}}'
+      DB_PASS: '{{.TEST_DB_PASS}}'
     cmds:
       - npx playwright test --project=bdd {{if eq (.HEADED | default "0") "1"}}--headed{{end}}
 
   test:go:
-    desc: Run Go backend unit tests (against hq_test DB)
-    deps: [backend:db-test]
+    desc: Run Go backend unit tests (against hq_test_go on the test cluster)
+    deps:
+      - test:db:up
+      - task: backend:db-test
+        vars:
+          DB_HOST: '{{.TEST_DB_HOST}}'
+          DB_PORT: '{{.TEST_DB_PORT}}'
+          DB_USER: '{{.TEST_DB_USER}}'
+          DB_PASS: '{{.TEST_DB_PASS}}'
     env:
-      DB_TEST_URL: 'postgres://yumyums:yumyums@{{.DB_HOST | default "localhost"}}:{{.DB_PORT | default "5433"}}/hq_test_go?sslmode=disable'
+      # Was postgres://yumyums:yumyums@…:5433 — the cluster serving
+      # hq.yumyums.kitchen. Decision 155 moved it to the test-only container;
+      # the coordinates live in ONE place (the TEST_DB_* vars at the top).
+      DB_TEST_URL: 'postgres://{{.TEST_DB_USER}}:{{.TEST_DB_PASS}}@{{.TEST_DB_HOST}}:{{.TEST_DB_PORT}}/hq_test_go?sslmode=disable'
+      DB_HOST: '{{.TEST_DB_HOST}}'
+      DB_PORT: '{{.TEST_DB_PORT}}'
+      DB_USER: '{{.TEST_DB_USER}}'
+      DB_PASS: '{{.TEST_DB_PASS}}'
       # Explicitly unset any external DATABASE_URL that leaks in from the user's shell.
       DATABASE_URL: ''
       TEST_DATABASE_URL: ''
@@ -98,13 +236,16 @@ tasks:
       - cd backend && go test -p 1 ./...
 
   test:all:
-    desc: Run all tests (Go unit, Playwright E2E, BDD/Gherkin) against the local Docker DB. Resets both test DBs after the run completes.
-    deps: [sw, bdd:gen]
+    desc: Run all tests (Go unit, Playwright E2E, BDD/Gherkin) against the test-only Postgres. Resets both test DBs after the run completes.
+    deps: [test:db:up, sw, bdd:gen]
     env:
-      DB_HOST: localhost
-      DB_PORT: '5433'
+      # Was localhost:5433 (yumyums-dev-pg — dev AND prod). Decision 155.
+      DB_HOST: '{{.TEST_DB_HOST}}'
+      DB_PORT: '{{.TEST_DB_PORT}}'
+      DB_USER: '{{.TEST_DB_USER}}'
+      DB_PASS: '{{.TEST_DB_PASS}}'
       # Same env scoping as test:go — see comments there.
-      DB_TEST_URL: 'postgres://yumyums:yumyums@localhost:5433/hq_test_go?sslmode=disable'
+      DB_TEST_URL: 'postgres://{{.TEST_DB_USER}}:{{.TEST_DB_PASS}}@{{.TEST_DB_HOST}}:{{.TEST_DB_PORT}}/hq_test_go?sslmode=disable'
       DATABASE_URL: ''
       TEST_DATABASE_URL: ''
     cmds:
@@ -118,8 +259,12 @@ tasks:
         trap '
           status=$?
           echo ""
+          # 🛑 $DB_HOST/$DB_PORT/$DB_USER/$DB_PASS come from the env: block above
+          # and name the TEST cluster. This psql issues DROP DATABASE; before
+          # decision 155 the literal here was yumyums:yumyums@…:5433, i.e. admin
+          # credentials to the cluster serving hq.yumyums.kitchen.
           echo "── resetting hq_test_go + hq_test_e2e on $DB_HOST:$DB_PORT ──"
-          psql "postgres://yumyums:yumyums@$DB_HOST:$DB_PORT/postgres?sslmode=disable" \
+          psql "postgres://$DB_USER:$DB_PASS@$DB_HOST:$DB_PORT/postgres?sslmode=disable" \
             -c "DROP DATABASE IF EXISTS hq_test_go;" \
             -c "CREATE DATABASE hq_test_go;" \
             -c "DROP DATABASE IF EXISTS hq_test_e2e;" \
@@ -141,6 +286,397 @@ tasks:
   # Release flow: commit a fresh sw.js on dev → merge dev→main → push →
   # `task prod:deploy` (pulls main in the prod clone, rebuilds, restarts).
   # ─────────────────────────────────────────────────────────────────────────────
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Sync spike environment (night-crew card C1 `spike-a-environment-up`).
+  #
+  # These are THIN WRAPPERS on purpose. All logic lives in
+  # .night-crew/qa/spike-supabase/env-up.sh so the verdict reproduces without
+  # `task` installed, and so the exit status the card is graded on comes from
+  # one place. Do not move logic up here.
+  #
+  # ⚠ LOCAL THROWAWAY STACK ONLY. Compose project `spike-supabase`; never HQ
+  #   prod, never docker-compose.nc.yml, never the dev Postgres on :5433.
+  #
+  # 🛑 `spike:down` is the ONLY target that destroys data, and that is true only
+  #   because two defects were fixed on run 20260806: PGDATA now lives on the
+  #   `spike-db-data` named volume (it used to live in the container's writable
+  #   layer, so ANY recreate wiped it), and env-up.sh pins a stable compose
+  #   `--project-directory` (the relative initdb bind mounts otherwise put the
+  #   caller's absolute path into the container config hash, so `up -d` from a
+  #   worktree recreated the db container). Undo either and `spike:up` becomes
+  #   destructive again — silently, with `docker ps` still reading green.
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  spike:up:
+    desc: Bring the Supabase+RxDB spike environment up and verify it (idempotent; exit status IS the verdict)
+    cmd: ./.night-crew/qa/spike-supabase/env-up.sh
+
+  spike:up:fresh:
+    desc: Destroy the spike stack's volumes, then bring it up from nothing and verify (the clean-machine test)
+    cmd: ./.night-crew/qa/spike-supabase/env-up.sh --fresh
+
+  spike:health:
+    desc: Verify the spike environment WITHOUT touching it — schema, RLS, Realtime, RxDB
+    cmd: ./.night-crew/qa/spike-supabase/env-up.sh --health
+
+  spike:down:
+    desc: Destroy the spike stack and the spike-db-data volume (deliberate, separate act — the only target that destroys data)
+    cmd: docker compose -p spike-supabase -f docker-compose.supabase.yml down --volumes --remove-orphans
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # PERSISTENT SYNC DATA PLANE — card `sync-live-in-dev-substrate` (Activity 5,
+  # run 20260810), legs 1+2 + FDW persistence.
+  #
+  # Where the spikes and `task demo:sync` stand the data plane up inside one script
+  # run and tear it down, this family keeps it UP in the operator's dev
+  # environment, BETWEEN runs, so the workflows.html /sync/* read path is live
+  # whenever `task backend:dev:tailscale` is. It productionizes the PROVEN
+  # mechanics (Spike A substrate GREEN, the LISTEN/NOTIFY relay GREEN in spikes
+  # C/D/E) into a persistent dev SERVICE:
+  #   * substrate — reconcile bring-up (never-destroy-on-restart; spike:down stays
+  #     the ONLY data-destroying target)
+  #   * relay — backend/cmd/spikec-relay run as a persistent background process
+  #     (nohup, pidfile), LISTENing on the dev HQ and projecting into the substrate
+  #   * FDW pointing — hq_pg repointed at the operator's live dev HQ, persistently
+  #     (the spike's repoint+restore made permanent)
+  #
+  # 🛑 These are THIN WRAPPERS. All logic lives in
+  #   .night-crew/qa/spike-supabase/sync-dev-up.sh — same rule as the spike family.
+  #
+  # 🛑 B-164 — sync:dev:up needs the operator's LIVE dev HQ, which on this box is
+  #   :5433 (yumyums-dev-pg = dev AND prod). The script REFUSES a bare :5433 target
+  #   unless HQ_SYNC_DEV_ALLOW_5433=1 is set knowingly. Never run it from an
+  #   unattended run. The MECHANISM is proven WITHOUT :5433 by `task sync:dev:proof`
+  #   (a fresh scratch HQ on an ephemeral port — the spike-f model). Required env:
+  #     HQ_SYNC_DEV_HQ_DSN   the dev HQ Postgres DSN (relay LISTEN + FDW resolve)
+  #     HQ_SYNC_DEV_FDW_HOST the host the substrate reaches that dev HQ at (Docker net)
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  sync:dev:up:
+    desc: Bring the PERSISTENT sync data plane up in dev (substrate reconcile + relay-as-service + FDW pointing). Requires HQ_SYNC_DEV_HQ_DSN + HQ_SYNC_DEV_FDW_HOST; refuses :5433 unless HQ_SYNC_DEV_ALLOW_5433=1 (B-164)
+    cmd: ./.night-crew/qa/spike-supabase/sync-dev-up.sh
+
+  sync:dev:status:
+    desc: Report the persistent sync data plane — substrate, relay pid, and the hq_pg FDW pointing — touching nothing
+    cmd: ./.night-crew/qa/spike-supabase/sync-dev-up.sh --status
+
+  sync:dev:down:
+    desc: Stop the persistent relay (the substrate stays UP; use task spike:down to destroy the substrate deliberately)
+    cmd: ./.night-crew/qa/spike-supabase/sync-dev-up.sh --down
+
+  sync:dev:env:
+    desc: Print the four HQ_SYNC_* vars (resolving the live substrate ports) for sourcing when running the dev server by hand
+    cmd: ./.night-crew/qa/spike-supabase/sync-dev-up.sh --env
+
+  sync:dev:proof:
+    desc: Prove Card 1's two done_when items WITHOUT touching :5433 (spike-f model — fresh scratch HQ, door 503→200 red-first, relay carries a real write). Exit status IS the verdict; 0 green / 1 red / 2 could-not-run — GRADE ON THE SCRIPT, not on `task` (B-163)
+    cmd: ./.night-crew/qa/spike-supabase/sync-dev-proof.sh
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Sync spike B — migration rehearsal (night-crew card S
+  # `spike-b-migration-rehearsal`). Disjoint from everything above and below it.
+  #
+  # Thin wrapper, same rule as the spike:up family: all logic lives in
+  # .night-crew/qa/spike-supabase/spike-b-migration.sh so the verdict reproduces
+  # without `task` installed and comes from exactly one place.
+  #
+  # 🛑 The HQ-shaped Postgres this stands up is a FRESH SCRATCH CONTAINER under
+  #   its own compose project `spike-b-hq`, on a DOCKER-ASSIGNED EPHEMERAL host
+  #   port — never :5433 (that cluster is PRODUCTION; a probe there destroyed the
+  #   prod database on 2026-08-06), never :5434 (`yumyums-test-pg`), never 5432.
+  #   The script asserts that before it starts anything. It creates the container
+  #   and destroys it again, so this target is re-runnable from nothing.
+  #
+  #   It calls env-up.sh in RECONCILE mode — it does not destroy spike A's stack.
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  spike:migration:
+    desc: Spike B — migrate HQ-shaped fixture data into the Supabase substrate and prove it surfaces in RxDB (exit status IS the verdict)
+    cmd: ./.night-crew/qa/spike-supabase/spike-b-migration.sh
+
+  spike:migration:keep:
+    desc: Spike B, leaving the scratch HQ-shaped Postgres running afterwards for hand-debugging
+    cmd: ./.night-crew/qa/spike-supabase/spike-b-migration.sh --keep
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Sync spike C — the round trip (night-crew card C `spike-c-round-trip`).
+  # Disjoint from everything above and below it.
+  #
+  # Thin wrapper, same rule as the spike:up and spike:migration families: all
+  # logic lives in .night-crew/qa/spike-supabase/spike-c-roundtrip.sh so the
+  # verdict reproduces without `task` installed and comes from exactly one place.
+  #
+  # 🛑 THE EXIT-CODE CONTRACT IS THE DELIVERABLE, and "could not run" is NOT a
+  #   verdict:
+  #     0   GREEN — a row written through the REAL /saveResponse reached a
+  #         RUNNING RxDB client within the bound.
+  #     1   RED — ran, mechanism disproven. A RED IS A SUCCESSFUL SPIKE.
+  #     2   COULD NOT RUN — infra/setup failure. Says nothing about the mechanism.
+  #     3   verdict reached, but spike A's shared substrate could not be restored.
+  #
+  # 🛑 The HQ Postgres this stands up is a FRESH SCRATCH CONTAINER under its own
+  #   compose project `spike-c-hq`, on a DOCKER-ASSIGNED EPHEMERAL host port —
+  #   never :5433 (that cluster is PRODUCTION AND DEV; a probe there destroyed the
+  #   prod database on 2026-08-06), never :5434 (`yumyums-test-pg`), never 5432.
+  #   The script asserts that before it starts anything, and again on the port
+  #   Docker actually assigned. It creates the container and destroys it again,
+  #   so this target is re-runnable from nothing.
+  #
+  #   It calls env-up.sh in RECONCILE mode — it does not destroy spike A's stack —
+  #   and it restores spike A's SHARED substrate tables afterwards, VERIFYING the
+  #   restore against a pre-run baseline (rows left in hq_sync_checklists red
+  #   backend/internal/sync's TestJWTBridgeRLS).
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  spike:roundtrip:
+    desc: Spike C — one row through the REAL /saveResponse, out to an RxDB-served read (exit status IS the verdict; 0 green / 1 red / 2 could-not-run)
+    cmd: ./.night-crew/qa/spike-supabase/spike-c-roundtrip.sh
+
+  spike:roundtrip:red:
+    desc: Spike C's RED-FIRST capture — the same run with the relay deliberately absent; must exit 1, never 0 and never 2
+    cmd: ./.night-crew/qa/spike-supabase/spike-c-roundtrip.sh --no-relay
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Sync spike D — the LIVE Realtime filter (night-crew card D
+  # `spike-d-realtime-live`, closing B-62). Disjoint from everything above.
+  #
+  # Thin wrapper, same rule as the spike:up / spike:migration / spike:roundtrip
+  # families: all logic lives in .night-crew/qa/spike-supabase/spike-d-realtime.sh
+  # so the verdict reproduces without `task` installed and comes from exactly one
+  # place.
+  #
+  # THE QUESTION. `tests/sync-rxdb-client.spec.js` [SCOPE-04] proves the
+  # `postgres_changes` filter clause reaches the binding config. Every one of its
+  # assertions is about the OBJECT HANDED TO THE LIBRARY — nothing shows the
+  # substrate honours it, and because the filter is a NARROWING, an ignored
+  # filter leaves the system behaving exactly as it did before B-42 option (i)
+  # landed. This target drives the clause against a live Realtime server.
+  #
+  # 🛑 THE EXIT-CODE CONTRACT IS THE DELIVERABLE, and "could not run" is NOT a
+  #   verdict:
+  #     0   GREEN — the live server honoured the filter: in-scope row arrived,
+  #         out-of-scope row suppressed, unfiltered controls received both.
+  #     1   RED — ran, mechanism disproven (filter ignored, rejected, or wrong).
+  #         A RED IS THE CARD'S PAYOFF, not a failure.
+  #     2   COULD NOT RUN — infra/setup failure. Says nothing about the mechanism.
+  #     3   verdict reached, but the substrate could not be restored.
+  #
+  # 🛑 It creates NO container. It consumes spike A's stack in RECONCILE mode and
+  #   refuses to run if that stack's Postgres resolved to :5432/:5433/:5434
+  #   (:5433 is PRODUCTION AND DEV — a probe there destroyed the prod database on
+  #   2026-08-06). It writes to NO shared table: it creates three clones of HQ's
+  #   real sync tables, writes only to those, drops them at teardown, and VERIFIES
+  #   the restore against a pre-run baseline of the publication membership and
+  #   spike A's own fixture rows.
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  spike:realtime:
+    desc: Spike D — drive sync-rxdb/client.js's postgres_changes filter against a LIVE Realtime server (exit status IS the verdict; 0 green / 1 red / 2 could-not-run)
+    cmd: ./.night-crew/qa/spike-supabase/spike-d-realtime.sh
+
+  spike:realtime:red:
+    desc: Spike D's RED-FIRST capture — the same assertion set with the clause deliberately NOT attached to the binding; must exit 1, never 0 and never 2
+    cmd: ./.night-crew/qa/spike-supabase/spike-d-realtime.sh --no-filter
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Sync spike E — DISCONNECT / RECONNECT / CATCH-UP (night-crew card E
+  # `spike-e-reconnect-catchup`, B-161). Disjoint from everything above.
+  #
+  # Thin wrapper, same rule as every spike family above it: all logic lives in
+  # .night-crew/qa/spike-supabase/spike-e-reconnect.sh so the verdict reproduces
+  # without `task` installed and comes from exactly one place.
+  #
+  # THE QUESTION. Spike C proved the round trip and spike D proved the live
+  # filter. NEITHER EVER SEVERED A CLIENT. Every Activity 3 card assumes a phone
+  # that was asleep or out of signal while rows changed comes back and catches up.
+  # This target severs a replicating RxDB client, writes through HQ's REAL write
+  # path while it is dark — 2 INSERTs and, mandatorily, 1 UPDATE to a row the
+  # client ALREADY HOLDS — reconnects it, and measures what comes back.
+  #
+  # 🛑 THE UPDATE CASE IS THE POINT. `sync-rxdb/client.js:874` keys the checklists
+  #   collection on `submitted_at=gte.<iso>`, and HQ never re-stamps submitted_at
+  #   (migration 0011 gives it an INSERT default; repository.go:1186/:1232 update
+  #   status/reviewed_by/reviewed_at and leave it alone). A row updated without
+  #   its watermark advancing is invisible to a watermark-keyed catch-up, and it
+  #   is invisible SILENTLY. A green that never exercised the UPDATE is vacuous.
+  #
+  # 🛑 THE EXIT-CODE CONTRACT IS THE DELIVERABLE, and "could not run" is NOT a
+  #   verdict:
+  #     0   GREEN — full recovery: every dark-window change reached the
+  #         reconnected client via checkpoint pull, INCLUDING the in-place UPDATE.
+  #     1   RED — ran, and catch-up demonstrably MISSES dark-window changes.
+  #         A RED IS THE CARD'S PAYOFF: it means the build cards need an explicit
+  #         resync step. It is not a failure and it is not a park.
+  #     2   COULD NOT RUN — infra/setup failure. Says nothing about catch-up.
+  #     3   verdict reached, but spike A's shared substrate could not be restored.
+  #
+  # 🛑 GATE ON THE SCRIPT, NEVER ON `task spike:reconnect:red` (OR `task
+  #   spike:reconnect`). go-task returns its OWN status (201) when a wrapped
+  #   command fails, so a red (exit 1) and a could-not-run (exit 2) are
+  #   INDISTINGUISHABLE at the `task` boundary — they BOTH read as "201". Anyone
+  #   gating on the wrapper misreads the RED-FIRST capture: `spike:reconnect:red`
+  #   is SUPPOSED to exit 1 (a real RED verdict), but through `task` it shows 201
+  #   exactly like a broken-infra could-not-run would. That is B-163's lesson. To
+  #   read the honest tri-state code, invoke the script directly:
+  #     ./.night-crew/qa/spike-supabase/spike-e-reconnect.sh --no-pull; echo "EXIT=$?"
+  #
+  # 🛑 It creates its own scratch HQ Postgres under the compose project
+  #   `spike-e-hq`, on a DOCKER-ASSIGNED EPHEMERAL host port, and REFUSES AT
+  #   RUNTIME if Docker hands it 5432/5433/5434 (:5433 is PRODUCTION AND DEV — a
+  #   probe there destroyed the prod database on 2026-08-06). It consumes spike
+  #   A's stack in RECONCILE mode and has NO --fresh flag at all, deliberately, so
+  #   the flag cannot be typed by accident (B-159). It restores spike A's shared
+  #   tables afterwards and VERIFIES the restore byte-for-byte, on every path.
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  spike:reconnect:
+    desc: Spike E — sever a replicating RxDB client, write while it is dark (INSERT + in-place UPDATE), reconnect, measure catch-up (exit status IS the verdict; 0 green / 1 red / 2 could-not-run)
+    cmd: ./.night-crew/qa/spike-supabase/spike-e-reconnect.sh
+
+  spike:reconnect:red:
+    desc: Spike E's RED-FIRST capture — the same cycle with the checkpoint pull leg disabled on reconnect (realtime-only recovery); must exit 1, never 0 and never 2
+    cmd: ./.night-crew/qa/spike-supabase/spike-e-reconnect.sh --no-pull
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Sync spike F — BROWSER AGAINST THE REAL SUBSTRATE (goal `sync-live-in-dev`,
+  # Activity 5, LEG 3). Disjoint from everything above it.
+  #
+  # Thin wrapper, same rule as every spike family above: all logic lives in
+  # .night-crew/qa/spike-supabase/spike-f-browser-live.sh so the verdict
+  # reproduces without `task` installed and comes from exactly one place.
+  #
+  # THE QUESTION. C3's fill view stubs the substrate (`page.route`) and
+  # demo-sync.sh reads with a NODE client — so the REAL production workflows.html
+  # has never once been driven against a REAL substrate. This target loads it in
+  # a real Chromium (flag hq_sync_read=on, NO stub) so its same-origin RxDB
+  # replication makes real requests to the HQ /sync/* proxy, which forwards to the
+  # live substrate under the real per-user RLS (hq_can_see_field via FDW), and
+  # asserts one field written through the REAL /saveResponse surfaces in the app's
+  # own dev surface. Both a red-first pass (no carrier) and the armed pass run in
+  # one invocation, so a vacuous assertion is caught.
+  #
+  # 🛑 GATE ON THE SCRIPT, NEVER ON `task spike:browser-live`. go-task returns its
+  #   OWN status (201) when a wrapped command fails, so a red (exit 1) and a
+  #   could-not-run (exit 2) are INDISTINGUISHABLE at the `task` boundary — B-163's
+  #   lesson. To read the honest tri-state code, invoke the script directly:
+  #     .night-crew/qa/spike-supabase/spike-f-browser-live.sh; echo "EXIT=$?"
+  #
+  # 🛑 THE TRI-STATE EXIT CONTRACT IS THE DELIVERABLE:
+  #     0   GREEN — the real app surface rendered the RxDB-served field, and the
+  #         red-first control did not (the assertion is not vacuous).
+  #     1   RED — ran, integration disproven (browser never reached `served` with
+  #         the row in the substrate and the proxy open). A RED IS THE SPIKE'S
+  #         PAYOFF: it means leg 3 needs rework before a card is cut.
+  #     2   COULD NOT RUN — infra/setup (Docker, substrate, scratch HQ, proxy 503,
+  #         FDW would not connect, or the red-first control passed). NO verdict.
+  #     3   verdict reached, but the substrate (submission_responses rows OR the
+  #         FDW server options) could not be restored.
+  #
+  #   It stands up a FRESH scratch HQ Postgres under project `spike-f-hq` on a
+  #   Docker-assigned EPHEMERAL host port — never :5432/:5433/:5434 (:5433 is
+  #   PRODUCTION AND DEV — a probe there destroyed the prod database on
+  #   2026-08-06). It consumes spike A's stack in RECONCILE mode. Its ONE substrate
+  #   mutation — repointing the FDW server `hq_pg` at its own scratch HQ so the
+  #   production RLS resolves — is snapshotted and restored (and verified) on every
+  #   path, and the scratch HQ's own hq_sync_fdw role dies with the container.
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  spike:browser-live:
+    desc: Spike F — drive the REAL workflows.html against the REAL substrate through the /sync proxy; one /saveResponse field must surface in the app's RxDB dev surface (exit status IS the verdict; 0 green / 1 red / 2 could-not-run — GRADE ON THE SCRIPT, not on `task`)
+    cmd: ./.night-crew/qa/spike-supabase/spike-f-browser-live.sh
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # THE APP-SURFACE PROOF — `task sync:app-proof` (card `sync-live-in-dev-app-proof`,
+  # Activity 5, roadmap LEG 3, run 20260810). Card 2, depends on Card 1's persistent
+  # substrate (task sync:dev:up) + the 4× HQ_SYNC_* dev wiring. Disjoint from
+  # everything above it.
+  #
+  # Thin wrapper, same rule as every spike / sync:dev family above: all logic lives
+  # in .night-crew/qa/spike-supabase/sync-app-proof.sh so the verdict reproduces
+  # without `task` installed and comes from exactly ONE place.
+  #
+  # THE QUESTION. Spike F stubbed nothing and proved leg 3 GREEN, but as a spike
+  # artifact. This card PROMOTES it into a repo-owned RED-FIRST harness: the REAL
+  # workflows.html (flag hq_sync_read=on, NO page.route stub) driven in a real
+  # Chromium against the PERSISTENT substrate through the /sync proxy, one field
+  # written via the REAL /saveResponse surfacing in the app's own RxDB dev surface
+  # (#sync-one-row -> served). The SAME served-asserting spec runs TWICE: carrier
+  # DOWN (must FAIL) then carrier UP (must PASS) — "run the spec with the relay UP
+  # (pass) and DOWN (fail)". This replaces demo:sync's Node RxDB read client with
+  # the actual app surface (closes the read-surface gap T-44 recorded).
+  #
+  # 🛑 GATE ON THE SCRIPT, NEVER ON `task sync:app-proof`. go-task returns its OWN
+  #   status (201) when a wrapped command fails, so a red (exit 1) and a
+  #   could-not-run (exit 2) are INDISTINGUISHABLE at the `task` boundary — B-163.
+  #   To read the honest tri-state code, invoke the script directly:
+  #     .night-crew/qa/spike-supabase/sync-app-proof.sh; echo "EXIT=$?"
+  #
+  # 🛑 THE TRI-STATE EXIT CONTRACT IS THE DELIVERABLE:
+  #     0   GREEN — the app rendered the RxDB-served field (carrier UP), and the
+  #         SAME spec did NOT reach served with the carrier DOWN (non-vacuous).
+  #     1   RED — ran, integration disproven (browser never reached `served` with
+  #         the row in the substrate and the proxy open).
+  #     2   COULD NOT RUN — infra/setup (Docker, substrate, scratch HQ, proxy 503,
+  #         FDW would not connect, or the red-first control PASSED). NO verdict.
+  #     3   verdict reached, but the substrate (submission_responses rows OR the
+  #         FDW server options) could not be restored.
+  #
+  #   Like sync-dev-proof.sh / spike F it uses the SPIKE-F MODEL — a FRESH scratch
+  #   HQ Postgres under project `sync-app-proof-hq` on a Docker-assigned EPHEMERAL
+  #   host port, never :5432/:5433/:5434 (:5433 is PRODUCTION AND DEV — a probe
+  #   there destroyed the prod database on 2026-08-06). It consumes the persistent
+  #   substrate in RECONCILE mode. Its ONE substrate mutation — repointing hq_pg at
+  #   the scratch HQ via Card 1's SHIPPED sql/persistent-dev-fdw-pointing.sql — is
+  #   snapshotted, restored and VERIFIED on every path.
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  sync:app-proof:
+    desc: The app-surface proof — drive the REAL workflows.html against the persistent substrate through /sync; the SAME served-asserting spec must PASS carrier-up and FAIL carrier-down (exit status IS the verdict; 0 green / 1 red / 2 could-not-run — GRADE ON THE SCRIPT, not on `task`)
+    cmd: ./.night-crew/qa/spike-supabase/sync-app-proof.sh
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # THE MILESTONE CLOSE-BAR DEMO — `task demo:sync` (card `demo-sync-target`,
+  # Activity 5, run 20260809). Disjoint from everything above it.
+  #
+  # Thin wrapper, same rule as every spike family above: ALL logic lives in
+  # .night-crew/qa/spike-supabase/demo-sync.sh so the verdict reproduces without
+  # `task` installed and comes from exactly ONE place. demo-sync.sh itself
+  # delegates the round trip to spike-c-roundtrip.sh (the proven harness), so the
+  # verdict ultimately comes from the one script that has always owned it — this
+  # target does not re-derive it.
+  #
+  # 🛑 GRADE ON THE SCRIPT'S EXIT CODE, NEVER ON `task demo:sync`. go-task returns
+  #   its OWN status (201) when a wrapped command fails, so a red (exit 1) or a
+  #   could-not-run (exit 2) is INDISTINGUISHABLE at the `task` boundary — they all
+  #   read as "201". That is B-163's lesson. To gate, invoke the script directly:
+  #     .night-crew/qa/spike-supabase/demo-sync.sh; echo "EXIT=$?"
+  #
+  # 🛑 THE TRI-STATE EXIT CONTRACT IS THE DELIVERABLE, and "could not run" is NOT
+  #   a verdict — that distinction is the whole reason this milestone exists:
+  #     0   GREEN — a field written through the REAL /saveResponse surfaced in an
+  #         RxDB-served read on one real checklist, round-trip.
+  #     1   RAN AND THE ROUND TRIP FAILED — a first-class recorded FINDING, not a
+  #         park and not a could-not-run.
+  #     2   COULD NOT RUN — infra/precondition failure. NO verdict. A silent no-op
+  #         is the exact class this milestone retires; an honest exit-2 is its
+  #         opposite.
+  #     3   verdict reached, but Spike A's shared substrate could not be restored.
+  #
+  #   It consumes Spike A's stack in RECONCILE mode (env-up.sh, idempotent,
+  #   destroys nothing) and stands up a FRESH scratch HQ Postgres on a
+  #   Docker-assigned EPHEMERAL host port — never :5432/:5433/:5434 (:5433 is the
+  #   PRODUCTION cluster; a probe there destroyed the prod database on 2026-08-06).
+  #   NEVER `task spike:down` — that is the only data-destroying spike target.
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  demo:sync:
+    desc: The milestone close-bar demo — one field through the REAL /saveResponse, out to an RxDB-served read on one real checklist (exit status IS the verdict; 0 green / 1 ran-and-failed / 2 could-not-run — GRADE ON THE SCRIPT, not on `task`)
+    cmd: ./.night-crew/qa/spike-supabase/demo-sync.sh
+
+  demo:sync:red:
+    desc: The demo's RED-FIRST capture — the same round trip with the relay deliberately absent; must exit 1 (ran and failed), never 0 and never 2
+    cmd: ./.night-crew/qa/spike-supabase/demo-sync.sh --break-roundtrip
 
   version:
     desc: Compare backend + frontend versions across local source, dev server, and prod
@@ -225,3 +761,54 @@ tasks:
   prod:logs:
     desc: Tail logs from the production container
     cmd: docker logs --tail 100 -f {{.PROD_CONTAINER}}
+
+  prod:backup:
+    desc: pg_dump the prod database + cluster globals to the Windows-side disk (outside every Docker volume); keeps last 14
+    # B-143/B-145: prod had NO backup of any kind when the database was dropped
+    # on 2026-08-06. This target is the floor. The dump goes to the Windows
+    # filesystem so it survives WSL resets, container rebuilds and volume
+    # removal. Scheduled by the Windows task "YumyumsProdBackup" (schtasks),
+    # NOT by in-WSL cron — WSL idles out (see the KeepWSLAlive task).
+    # The globals dump exists because roles (hq_sync_fdw) are cluster-level:
+    # restoring the database dump alone onto a fresh cluster loses grants
+    # (measured: 5 restore errors without it).
+    vars:
+      BACKUP_DIR: '{{.BACKUP_DIR | default "/mnt/c/Users/jcole/yumyums-backups"}}'
+      PROD_PG_CONTAINER: '{{.PROD_PG_CONTAINER | default "yumyums-dev-pg"}}'
+    cmds:
+      - |
+        set -euo pipefail
+        mkdir -p "{{.BACKUP_DIR}}"
+        ts=$(date +%Y%m%d-%H%M%S)
+        dump="{{.BACKUP_DIR}}/yumyums-$ts.dump"
+        globals="{{.BACKUP_DIR}}/globals-$ts.sql"
+        log() { echo "$(date -Is) $1" >> "{{.BACKUP_DIR}}/backup.log"; echo "$1"; }
+        if ! docker exec {{.PROD_PG_CONTAINER}} pg_dump -U yumyums -Fc yumyums > "$dump"; then
+          log "FAIL pg_dump exited non-zero (container {{.PROD_PG_CONTAINER}})"
+          exit 1
+        fi
+        docker exec {{.PROD_PG_CONTAINER}} pg_dumpall -U yumyums --globals-only > "$globals"
+        size=$(stat -c%s "$dump")
+        # An empty/truncated dump must not silently rotate out good ones.
+        if [ "$size" -lt 10000 ]; then
+          log "FAIL dump suspiciously small ($size bytes): $dump — keeping, not pruning"
+          exit 1
+        fi
+        ls -1t "{{.BACKUP_DIR}}"/yumyums-*.dump | tail -n +15 | xargs -r rm --
+        ls -1t "{{.BACKUP_DIR}}"/globals-*.sql | tail -n +15 | xargs -r rm --
+        # PITR base (decision 159): pg_basebackup + the WAL archive in
+        # {{.BACKUP_DIR}}/wal (archive_mode=on, see infra/docker/yumyums
+        # compose) recover the CLUSTER to any point ≤5min before a disaster —
+        # including a dropped database, which pg_dump alone cannot do without
+        # losing everything since the last nightly. -X none is deliberate:
+        # WAL comes from the archive, not the backup.
+        base="{{.BACKUP_DIR}}/basebackup-$ts.tar.gz"
+        if docker exec {{.PROD_PG_CONTAINER}} pg_basebackup -U yumyums -c fast -Ft -z -X none -D - > "$base" 2>/dev/null; then
+          ls -1t "{{.BACKUP_DIR}}"/basebackup-*.tar.gz | tail -n +15 | xargs -r rm --
+          # WAL older than the oldest kept base backup is unusable; prune it.
+          find "{{.BACKUP_DIR}}/wal" -type f -mtime +15 -delete 2>/dev/null || true
+        else
+          rm -f "$base"
+          log "WARN pg_basebackup failed — nightly dump succeeded, PITR base is stale"
+        fi
+        log "OK $dump ($size bytes)"

@@ -15,9 +15,32 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/yumyums/hq/internal/auth"
+	"github.com/yumyums/hq/internal/users"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 )
+
+// pendingPeriodDateExpr is the SQL expression that decides which period a
+// pending purchase belongs to: its extracted event_date when the receipt parser
+// found one, otherwise created_at read in the APP timezone.
+//
+// The zone is users.DefaultTimezone — America/New_York, ledger T-26 decision
+// 83 — concatenated from that ONE constant rather than written out, so the six
+// call sites in this file and the one in trends.go cannot drift apart from each
+// other or from the rest of the app. trends.go's pending CTE promises to be
+// "clause-for-clause identical" to PeriodSummaryHandler's; sharing this const is
+// how that promise is kept by construction.
+//
+// 🛑 CHANGEOVER: ON THE DEPLOY THAT FOLLOWS THIS MERGE — DATE TBD. This cast is
+// America/Chicago in production until then; merging does not move it, and no
+// deploy is scheduled as of this writing. Only rows with NO extracted event_date
+// are exposed to it, so the blast radius is bounded — but a receipt created
+// between 23:00 and 00:00 Chicago on a period boundary could land in the
+// adjacent period under the old zone. Past weekly COGS/payroll figures are
+// fix-forward and are NOT restated. To date this changeover: find the first
+// deploy after this comment's commit. See migration
+// 0072_app_timezone_new_york.sql, whose header carries the same instruction.
+const pendingPeriodDateExpr = `COALESCE(event_date, (created_at AT TIME ZONE '` + users.DefaultTimezone + `')::date)`
 
 // normalizeItemName title-cases receipt text: "DEER PARK 40PK" → "Deer Park 40Pk".
 func normalizeItemName(s string) string {
@@ -1291,8 +1314,9 @@ func ListTagsHandler(pool *pgxpool.Pool) http.HandlerFunc {
 // behind auth.ServiceTokenMiddleware in main.go, NOT the cookie-auth group.
 //
 // Query params (both required, inclusive, format YYYY-MM-DD):
-//   from — start date (interpreted in America/Chicago for the completeness gate;
-//          plain DATE comparison for COGS since purchase_events.event_date is DATE).
+//   from — start date (interpreted in the app timezone, users.DefaultTimezone,
+//          for the completeness gate — see pendingPeriodDateExpr; plain DATE
+//          comparison for COGS since purchase_events.event_date is DATE).
 //   to   — end date.
 //
 // Response (200): inventory.PeriodSummary JSON.
@@ -1343,7 +1367,7 @@ func PeriodSummaryHandler(pool *pgxpool.Pool, cogsAllowlist []string) http.Handl
 				SELECT ROUND(COALESCE(SUM(ABS(bank_total)), 0)::numeric, 2) AS total,
 				       COUNT(*)                                              AS event_count
 				FROM pending_purchases
-				WHERE COALESCE(event_date, (created_at AT TIME ZONE 'America/Chicago')::date)
+				WHERE `+pendingPeriodDateExpr+`
 				        BETWEEN $1 AND $2
 				  AND confirmed_at IS NULL
 				  AND discarded_at IS NULL
@@ -1409,7 +1433,7 @@ func PeriodSummaryHandler(pool *pgxpool.Pool, cogsAllowlist []string) http.Handl
 			pending_eligible AS (
 				SELECT id, bank_total, vendor
 				FROM pending_purchases
-				WHERE COALESCE(event_date, (created_at AT TIME ZONE 'America/Chicago')::date)
+				WHERE `+pendingPeriodDateExpr+`
 				        BETWEEN $1 AND $2
 				  AND confirmed_at IS NULL
 				  AND discarded_at IS NULL
@@ -1482,27 +1506,27 @@ func PeriodSummaryHandler(pool *pgxpool.Pool, cogsAllowlist []string) http.Handl
 		//    Non-blocking pending (food + parse-failed, non-food, NULL category)
 		//    are intentionally excluded — they don't block payroll. They still
 		//    surface in the operator's Inventory UI via ListPendingPurchasesHandler.
-		//    Date filter on COALESCE(event_date, created_at::Chicago::date):
-		//    event_date wins because it reflects when the purchase actually
-		//    happened (the receipt worker's 14-day lookback can ingest May
-		//    receipts in June); created_at is the fallback for rows where
-		//    event_date was not extracted. Chicago cast matches repurchase.go:71.
+		//    Date filter is pendingPeriodDateExpr: event_date wins because it
+		//    reflects when the purchase actually happened (the receipt worker's
+		//    14-day lookback can ingest May receipts in June); created_at read
+		//    in the app timezone is the fallback for rows where event_date was
+		//    not extracted.
 		pendingIDs := []string{}
 		pendingDetails := []PendingReviewDetail{}
 		rows, err := pool.Query(r.Context(), `
 			SELECT id::text,
 			       bank_tx_id,
 			       COALESCE(vendor, '') AS vendor,
-			       COALESCE(event_date, (created_at AT TIME ZONE 'America/Chicago')::date)::text AS event_date,
+			       `+pendingPeriodDateExpr+`::text AS event_date,
 			       bank_total,
 			       reason
 			FROM pending_purchases
-			WHERE COALESCE(event_date, (created_at AT TIME ZONE 'America/Chicago')::date) BETWEEN $1 AND $2
+			WHERE `+pendingPeriodDateExpr+` BETWEEN $1 AND $2
 			  AND confirmed_at IS NULL
 			  AND discarded_at IS NULL
 			  AND mercury_category = ANY($3)
 			  AND reason = 'no_attachment_on_bank_tx'
-			ORDER BY COALESCE(event_date, (created_at AT TIME ZONE 'America/Chicago')::date), created_at`, fromStr, toStr, cogsAllowlist)
+			ORDER BY `+pendingPeriodDateExpr+`, created_at`, fromStr, toStr, cogsAllowlist)
 		if err != nil {
 			slog.Error("PeriodSummary pending query failed", "error", err)
 			writeError(w, http.StatusInternalServerError, "internal_error")
@@ -1547,7 +1571,7 @@ func PeriodSummaryHandler(pool *pgxpool.Pool, cogsAllowlist []string) http.Handl
 
 				SELECT bank_tx_id
 				FROM pending_purchases
-				WHERE COALESCE(event_date, (created_at AT TIME ZONE 'America/Chicago')::date) BETWEEN $1 AND $2
+				WHERE `+pendingPeriodDateExpr+` BETWEEN $1 AND $2
 			) AS tracked
 			ORDER BY bank_tx_id ASC`, fromStr, toStr)
 		if err != nil {

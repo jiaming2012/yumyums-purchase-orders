@@ -1,0 +1,179 @@
+=== RF RED — pre-change tree ===
+fdfd8674e774a29855b610abe773925bfde1f2f7
+?? .night-crew/runs/2026-08-08-2-autonomous/c2-gates/
+?? tests/sync-one-row.spec.js
+--- cmd: npx playwright test tests/sync-one-row.spec.js --project=chromium --retries=0
+[2m[WebServer] [22mNOTICE:  database "hq_test_c2impl" does not exist, skipping
+[2m[WebServer] [22m── reset hq_test_c2impl on localhost:5434 ──
+[2m[WebServer] [22m── wrote version.json frontend=1.4.0 ──
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:48.406443222-04:00","level":"INFO","msg":"serving static files from disk","dir":"../"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:48.40675702-04:00","level":"INFO","msg":"loaded superadmins","count":1}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:48.427969694-04:00","level":"INFO","msg":"connected to database"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:48.494577973-04:00","level":"INFO","msg":"OK   0001_users.sql (39.57ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:48.552215044-04:00","level":"INFO","msg":"OK   0002_sessions.sql (56.19ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:48.590583854-04:00","level":"INFO","msg":"OK   0003_invite_tokens.sql (38.09ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:48.629202351-04:00","level":"INFO","msg":"OK   0004_hq_apps.sql (38.51ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:48.679855598-04:00","level":"INFO","msg":"OK   0005_app_permissions.sql (50.52ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:48.717933435-04:00","level":"INFO","msg":"OK   0006_checklist_templates.sql (37.71ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:48.749757954-04:00","level":"INFO","msg":"OK   0007_checklist_schedules.sql (31.7ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:48.790693411-04:00","level":"INFO","msg":"OK   0008_template_assignments.sql (40.82ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:48.822967983-04:00","level":"INFO","msg":"OK   0009_checklist_sections.sql (32.16ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:48.854808976-04:00","level":"INFO","msg":"OK   0010_checklist_fields.sql (31.73ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:48.897818551-04:00","level":"INFO","msg":"OK   0011_checklist_submissions.sql (42.88ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:48.946911049-04:00","level":"INFO","msg":"OK   0012_submission_responses.sql (48.97ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:48.978977118-04:00","level":"INFO","msg":"OK   0013_submission_fail_notes.sql (31.95ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:49.009905879-04:00","level":"INFO","msg":"OK   0014_submission_rejections.sql (30.83ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:49.062440989-04:00","level":"INFO","msg":"OK   0015_ops.sql (52.4ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:49.077290769-04:00","level":"INFO","msg":"OK   0016_lamport_ts.sql (14.75ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:49.094411318-04:00","level":"INFO","msg":"OK   0017_users_naming.sql (17.01ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:49.151919454-04:00","level":"INFO","msg":"OK   0018_ob_templates.sql (57.35ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:49.228377679-04:00","level":"INFO","msg":"OK   0019_ob_items.sql (76.32ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:49.278712907-04:00","level":"INFO","msg":"OK   0020_ob_progress.sql (50.22ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:49.321676286-04:00","level":"INFO","msg":"OK   0021_ob_signoffs.sql (42.85ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:49.368275183-04:00","level":"INFO","msg":"OK   0022_ob_template_assignments.sql (46.44ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:49.432247158-04:00","level":"INFO","msg":"OK   0023_multi_role.sql (63.85ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:49.623253283-04:00","level":"INFO","msg":"OK   0024_inventory.sql (190.76ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:49.673658205-04:00","level":"INFO","msg":"OK   0025_pending_purchases.sql (50.2ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:49.684919194-04:00","level":"INFO","msg":"OK   0026_ob_progress_faq.sql (11.12ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:49.698937816-04:00","level":"INFO","msg":"OK   0027_ob_section_signoff_roles.sql (13.9ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:49.778302607-04:00","level":"INFO","msg":"OK   0028_ob_video_upgrade.sql (78.38ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:49.801871485-04:00","level":"INFO","msg":"OK   0029_ob_templates_archived_at.sql (22.83ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:49.845455349-04:00","level":"INFO","msg":"OK   0030_item_groups_unique_name.sql (43.38ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:49.860873318-04:00","level":"INFO","msg":"OK   0031_remove_placeholder_items.sql (15.29ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:49.880174462-04:00","level":"INFO","msg":"OK   0032_item_group_thresholds.sql (19.2ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:49.919932417-04:00","level":"INFO","msg":"OK   0033_stock_count_overrides.sql (39.62ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:50.014908451-04:00","level":"INFO","msg":"OK   0034_purchase_orders.sql (94.81ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:50.027325028-04:00","level":"INFO","msg":"OK   0035_purchase_items_photo_store.sql (12.29ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:50.039746386-04:00","level":"INFO","msg":"OK   0036_purchase_items_full_name.sql (12.26ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:50.077448605-04:00","level":"INFO","msg":"OK   0037_cutoff_config.sql (37.55ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:50.097420523-04:00","level":"INFO","msg":"OK   0038_po_status_extend.sql (19.86ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:50.123018643-04:00","level":"INFO","msg":"OK   0039_purchase_items_vendor.sql (25.5ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:50.256168516-04:00","level":"INFO","msg":"OK   0040_shopping_lists.sql (132.99ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:50.279612846-04:00","level":"INFO","msg":"OK   0041_notification_channel.sql (23.34ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:50.342976616-04:00","level":"INFO","msg":"OK   0042_repurchase_tracking.sql (62.74ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:50.392175006-04:00","level":"INFO","msg":"OK   0043_alert_log.sql (49.04ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:50.439205466-04:00","level":"INFO","msg":"OK   0044_low_stock_alert_log.sql (46.93ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:50.484708189-04:00","level":"INFO","msg":"OK   0045_notification_channel_array.sql (45.35ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:50.492423453-04:00","level":"INFO","msg":"OK   0046_user_timezone.sql (7.61ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:50.544080543-04:00","level":"INFO","msg":"OK   0047_employee_fields.sql (51.55ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:50.552505206-04:00","level":"INFO","msg":"OK   0048_notification_default_both.sql (8.33ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:50.591777185-04:00","level":"INFO","msg":"OK   0049_ob_sub_items.sql (39.14ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:50.600032664-04:00","level":"INFO","msg":"OK   0050_ob_progress_sub_item.sql (8.13ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:50.607661693-04:00","level":"INFO","msg":"OK   0051_rejection_field_fk.sql (7.52ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:50.625881922-04:00","level":"INFO","msg":"OK   0052_template_name_unique.sql (18.1ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:50.633201858-04:00","level":"INFO","msg":"OK   0053_response_field_fk.sql (7.21ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:50.641410734-04:00","level":"INFO","msg":"OK   0054_failnote_field_fk.sql (8.11ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:50.648492976-04:00","level":"INFO","msg":"OK   0055_item_location_in_store.sql (6.98ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:50.66261026-04:00","level":"INFO","msg":"OK   0056_ob_progress_photo.sql (14.02ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:50.67698137-04:00","level":"INFO","msg":"OK   0057_ob_items_photo_type.sql (14.21ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:50.690200652-04:00","level":"INFO","msg":"OK   0058_ob_sub_items_photos.sql (13.12ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:50.697832768-04:00","level":"INFO","msg":"OK   0059_cleanup_photo_items.sql (7.53ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:50.762629576-04:00","level":"INFO","msg":"OK   0060_menu_items.sql (64.68ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:50.7958153-04:00","level":"INFO","msg":"OK   0061_daily_menu_sales.sql (33.07ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:50.841868196-04:00","level":"INFO","msg":"OK   0062_recipes.sql (45.95ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:50.871096957-04:00","level":"INFO","msg":"OK   0063_drift_check_results.sql (29.13ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:50.887959329-04:00","level":"INFO","msg":"OK   0064_no_itemized_receipt_seed.sql (16.7ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:50.899627174-04:00","level":"INFO","msg":"OK   0065_mercury_category_on_purchase_events.sql (11.56ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:50.911875464-04:00","level":"INFO","msg":"OK   0066_mercury_category_on_pending_purchases.sql (12.12ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:50.964595158-04:00","level":"INFO","msg":"OK   0067_receipt_sync_runs.sql (52.58ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:50.988522445-04:00","level":"INFO","msg":"OK   0068_pending_purchases_bank_tx_uniq.sql (23.79ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:51.001815715-04:00","level":"INFO","msg":"OK   0069_pending_purchases_parse_error.sql (13.17ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:51.014543989-04:00","level":"INFO","msg":"OK   0070_receipt_urls.sql (12.63ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:51.034497972-04:00","level":"INFO","msg":"OK   0071_submission_fail_notes_unique.sql (19.86ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:51.052251699-04:00","level":"INFO","msg":"OK   0072_app_timezone_new_york.sql (17.6ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:51.077980497-04:00","level":"INFO","msg":"OK   0073_sync_fdw_views.sql (25.3ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:51.08854203-04:00","level":"INFO","msg":"OK   0074_sync_fdw_approver_view.sql (10.35ms)","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:51.088592088-04:00","level":"INFO","msg":"goose: successfully migrated database to version: 74","source":"stdlog"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:51.088604553-04:00","level":"INFO","msg":"database migrations applied successfully"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:51.169088292-04:00","level":"INFO","msg":"upserted superadmin","email":"jamal@yumyums.kitchen"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:51.208046055-04:00","level":"INFO","msg":"seeded template","name":"Setup Checklist","id":"1978be82-1e96-4d3b-822e-95bb7b4bdea9"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:51.20810788-04:00","level":"INFO","msg":"seeded templates","count":1}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:51.242757367-04:00","level":"INFO","msg":"seeded onboarding template","name":"Kitchen Basics Training","id":"045161a8-859c-495e-a51b-f667c0f280f7"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:51.266995594-04:00","level":"INFO","msg":"inventory: seeded vendors","count":5}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:51.354588463-04:00","level":"INFO","msg":"inventory: seeded unique tags","count":19}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:51.490835382-04:00","level":"INFO","msg":"inventory: seeded item groups","count":10}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:52.013369584-04:00","level":"INFO","msg":"inventory: seeded purchase items from YAML","count":106}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:52.013507267-04:00","level":"WARN","msg":"DO Spaces env vars not set, photo and video upload endpoints will return 503","required":"DO_SPACES_KEY, DO_SPACES_SECRET, DO_SPACES_BUCKET, DO_SPACES_REGION"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:52.013531629-04:00","level":"WARN","msg":"HQ_INVENTORY_SERVICE_TOKEN not set, /api/v1/inventory/period-summary AND /api/v1/inventory/menu-cogs will return 503"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:52.01373471-04:00","level":"INFO","msg":"inventory COGS category allowlist","allowlist":["COGS"]}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:52.014247605-04:00","level":"INFO","msg":"receipt worker disabled","reason":"E2E_DISABLE_SCHEDULERS=1"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:52.014315698-04:00","level":"INFO","msg":"alert queue started","delivery_enabled":false}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:52.014334468-04:00","level":"INFO","msg":"cutoff scheduler disabled","reason":"E2E_DISABLE_SCHEDULERS=1"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:52.01435264-04:00","level":"INFO","msg":"toast worker disabled, cmd/sync-toast remains available","reason":"TOAST_SYNC_INTERVAL=0"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:52.014748418-04:00","level":"INFO","msg":"alerts queue started"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:52.039583608-04:00","level":"INFO","msg":"server listening","port":"4331"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:52.049999248-04:00","level":"INFO","msg":"reachable at","url":"http://10.255.255.254:4331"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:52.05005556-04:00","level":"INFO","msg":"reachable at","url":"http://192.168.8.164:4331"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:52.050066542-04:00","level":"INFO","msg":"reachable at","url":"http://100.70.200.55:4331"}
+[2m[WebServer] [22m{"time":"2026-08-07T15:57:52.050076427-04:00","level":"INFO","msg":"Yumyums HQ ready, accepting connections"}
+
+Running 3 tests using 1 worker
+
+  ✘  1 [chromium] › tests/sync-one-row.spec.js:179:3 › skeleton — one row, real write path to an RxDB-served read › a value written by POST /saveResponse is served to the page out of RxDB, behind the flag (31.4s)
+  ✘  2 [chromium] › tests/sync-one-row.spec.js:248:3 › skeleton — one row, real write path to an RxDB-served read › the flag is OFF by default — no database, no IndexedDB, and the surface stays absent (3.0s)
+  ✘  3 [chromium] › tests/sync-one-row.spec.js:280:3 › skeleton — one row, real write path to an RxDB-served read › the call site holds multiple concurrent per-checklist scopes, and is idempotent per scope (16.2s)
+
+
+  1) [chromium] › tests/sync-one-row.spec.js:179:3 › skeleton — one row, real write path to an RxDB-served read › a value written by POST /saveResponse is served to the page out of RxDB, behind the flag 
+
+    Error: [2mexpect([22m[31mlocator[39m[2m).[22mtoBeVisible[2m([22m[2m)[22m failed
+
+    Locator: locator('#sync-one-row')
+    Expected: visible
+    Timeout: 30000ms
+    Error: element(s) not found
+
+    Call log:
+    [2m  - Expect "toBeVisible" with timeout 30000ms[22m
+    [2m  - waiting for locator('#sync-one-row')[22m
+
+
+      218 |
+      219 |     const surface = page.locator('#sync-one-row');
+    > 220 |     await expect(surface).toBeVisible({ timeout: 30000 });
+          |                           ^
+      221 |     await expect(surface).toHaveAttribute('data-state', 'served', { timeout: 60000 });
+      222 |
+      223 |     // ── 6. The row on screen is the row HQ wrote. ─────────────────────────
+        at /home/jcole/projects/hq-worktrees/c2-one-row/tests/sync-one-row.spec.js:220:27
+
+    Error Context: test-results/sync-one-row-skeleton-—-on-d9387-out-of-RxDB-behind-the-flag-chromium/error-context.md
+
+  2) [chromium] › tests/sync-one-row.spec.js:248:3 › skeleton — one row, real write path to an RxDB-served read › the flag is OFF by default — no database, no IndexedDB, and the surface stays absent 
+
+    Error: [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+
+    Expected: [32mfalse[39m
+    Received: [31mundefined[39m
+
+      266 |       };
+      267 |     });
+    > 268 |     expect(state.readEnabled).toBe(false);
+          |                               ^
+      269 |     expect(state.dbUndefined).toBe(true);
+      270 |     expect(state.names).toEqual([]);
+      271 |     await expect(page.locator('#sync-one-row')).toBeHidden();
+        at /home/jcole/projects/hq-worktrees/c2-one-row/tests/sync-one-row.spec.js:268:31
+
+    Error Context: test-results/sync-one-row-skeleton-—-on-a8b47-nd-the-surface-stays-absent-chromium/error-context.md
+
+  3) [chromium] › tests/sync-one-row.spec.js:280:3 › skeleton — one row, real write path to an RxDB-served read › the call site holds multiple concurrent per-checklist scopes, and is idempotent per scope 
+
+    TimeoutError: page.waitForFunction: Timeout 15000ms exceeded.
+
+      283 |     await stubSubstrate(page, {});
+      284 |     await page.goto(`/workflows.html?${FLAG}=on`);
+    > 285 |     await page.waitForFunction(() => window.HQSync && window.HQSync.readEnabled === true, null, { timeout: 15000 });
+          |                ^
+      286 |
+      287 |     const out = await page.evaluate(async () => {
+      288 |       const a = { checklistId: 'chk-aaa', templateId: 'tpl-aaa', fieldIds: ['fld-a1'] };
+        at /home/jcole/projects/hq-worktrees/c2-one-row/tests/sync-one-row.spec.js:285:16
+
+    Error Context: test-results/sync-one-row-skeleton-—-on-ebacb-and-is-idempotent-per-scope-chromium/error-context.md
+
+  3 failed
+    [chromium] › tests/sync-one-row.spec.js:179:3 › skeleton — one row, real write path to an RxDB-served read › a value written by POST /saveResponse is served to the page out of RxDB, behind the flag 
+    [chromium] › tests/sync-one-row.spec.js:248:3 › skeleton — one row, real write path to an RxDB-served read › the flag is OFF by default — no database, no IndexedDB, and the surface stays absent 
+    [chromium] › tests/sync-one-row.spec.js:280:3 › skeleton — one row, real write path to an RxDB-served read › the call site holds multiple concurrent per-checklist scopes, and is idempotent per scope 
+EXIT=1

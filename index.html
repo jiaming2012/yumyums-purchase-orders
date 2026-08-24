@@ -37,6 +37,9 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
 .user-bar .logout-btn{background:none;border:none;color:var(--mut);font-size:13px;font-weight:500;cursor:pointer;padding:6px 0;font-family:inherit}
 .user-bar .logout-btn:active{opacity:0.6}
 .logo{display:block;margin:0 0 8px auto;max-width:120px;width:35%;height:auto}
+.verline{max-width:480px;margin:22px auto 0;padding:0 0 8px;font-size:11px;color:var(--mut);text-align:center;letter-spacing:0.2px}
+.verline .stale{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:8px;background:var(--warn-bg);color:var(--warn-tx);font-weight:500}
+.warnbanner{max-width:480px;margin:12px auto 0;padding:9px 14px;border-radius:10px;background:var(--warn-bg);color:var(--warn-tx);font-size:13px;font-weight:500;text-align:center;line-height:1.4}
 </style>
 </head>
 <body>
@@ -44,6 +47,10 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
   <img class="logo" src="icons/logo-square.png" alt="Yumyums Smokin' Grille">
   <div class="wordmark">Yumyums HQ</div>
   <div class="tagline">&#x1f354; Great <i>Food</i> begins with <i>Great Operations.</i></div>
+
+  <!-- B-172: shown only when /api/v1/health reports storage 'unreachable' —
+       see the IIFE at the bottom of this file. -->
+  <div class="warnbanner" id="storage-banner" hidden>⚠️ Photo storage unreachable — photo &amp; video uploads will fail and saved photos won't display</div>
 
   <div class="grid" style="visibility:hidden">
     <a class="tile active" href="purchasing.html">
@@ -99,6 +106,11 @@ body{margin:0;font-family:-apple-system,system-ui,sans-serif;background:var(--bg
   </div>
 </div>
 
+<!-- App version line. Value comes from the PRECACHED version.json — see the
+     comment above the IIFE at the bottom of this file before changing anything
+     here. `hidden` until it has something true to say. -->
+<div class="verline" id="version-line" hidden><span id="version-cached"></span><span id="version-server"></span></div>
+
 <script>
 const TILE_SLUGS={'purchasing.html':'purchasing','workflows.html':'operations','users.html':'users','inventory.html':'inventory','onboarding.html':'onboarding'};
 const APPS_CACHE_KEY='hq_apps';
@@ -138,31 +150,193 @@ function filterTilesByPermissions(apps){
   remaining.forEach(function(tile){grid.appendChild(tile);});
   grid.style.visibility='';
 }
+const API_CACHE_NAME='api-cache';
+const IDENTITY_CACHE_NAME='hq-identity';
+const IDENTITY_TOKEN_URL='/__hq_identity';
+// build-sw.js registers ONE NetworkFirst route on /\/api\// covering every
+// endpoint in all five tools. It USED to have no Vary, no cacheKeyWillBeUsed and
+// no matchOptions: the cache key was the bare URL and the session cookie was not
+// part of it, so on a shared truck phone `api-cache` was a cross-tenant read of
+// whatever the previous user loaded. The route is served on network failure or a
+// >10s timeout -- routine on a food truck, not exotic. Ledger T-23 decision 57.
+//
+// STRUCTURAL FIX, ledger T-30 decision 112: the route is NOT retired (it covers
+// four tools RxDB has never replicated). It is PARTITIONED BY IDENTITY. Every
+// api-cache key now carries `__hq_id=<user uuid>`, and the worker refuses to
+// write at all when no identity is established.
+//
+// 🛑 THIS PAGE IS THE WRITER OF THE TOKEN THE SERVICE WORKER READS. A service
+// worker cannot see localStorage, and the session cookie is HttpOnly and is
+// attached after the fetch event -- so the token lives in a CacheStorage bucket,
+// the one store both contexts can reach. If it ever moves, BOTH ends move in the
+// same commit: build-sw.js reads exactly IDENTITY_CACHE_NAME/IDENTITY_TOKEN_URL.
+// A mismatch fails SILENT -- every request degrades to the un-cacheable 'anon'
+// partition and the PWA quietly stops working offline.
+async function readIdentityToken(){
+  if(!('caches' in window))return null;
+  try{
+    var c=await caches.open(IDENTITY_CACHE_NAME);
+    var r=await c.match(IDENTITY_TOKEN_URL);
+    if(!r)return null;
+    var t=(await r.text()).trim();
+    return t||null;
+  }catch(e){return null}
+}
+// Called on a VERIFIED /api/v1/me only. Three things, in this order:
+//  1. if the device was last held by someone else, drop their cached tile list;
+//  2. publish the token so every subsequent api-cache write is keyed to us;
+//  3. prune any entry that is not ours -- the belt to the partition's braces.
+// (3) also sweeps whatever a bypassed login left behind, so the disclosure is
+// not merely unreadable but absent.
+async function establishIdentity(id){
+  if(!id)return;
+  id=String(id);
+  var prev=await readIdentityToken();
+  if(prev!==id){try{localStorage.removeItem(APPS_CACHE_KEY)}catch(e){}}
+  if(!('caches' in window))return;
+  try{
+    var c=await caches.open(IDENTITY_CACHE_NAME);
+    await c.put(IDENTITY_TOKEN_URL,new Response(id,{headers:{'Content-Type':'text/plain'}}));
+  }catch(e){}
+  try{
+    var api=await caches.open(API_CACHE_NAME);
+    var keys=await api.keys();
+    await Promise.all(keys.filter(function(r){
+      return new URL(r.url).searchParams.get('__hq_id')!==id;
+    }).map(function(r){return api.delete(r)}));
+  }catch(e){}
+}
+// The full device purge. Every identity-scoped thing this app stores, in one
+// place, so a later card cannot half-clear it.
+//
+// NAMED for what it does. It was `clearApiCache()` until the B1 fix round; that
+// name described one of its THREE subjects and a later reader could reasonably
+// have added a fourth `localStorage` key without touching it. It deletes
+// `api-cache`, `hq-identity` AND `localStorage['hq_apps']`.
+//
+// UNCONDITIONAL, unlike `login.html`'s same-named helper. Logout hands the
+// device back with NO owner, so there is no incoming identity to compare
+// against and nothing to keep. `login.html`'s copy takes the incoming `user.id`
+// and skips the purge on an exact match (same crew member re-authenticating).
+// Same name in both files on purpose: `grep -rn purgeDeviceIdentity` finds every
+// site that clears device state.
+async function purgeDeviceIdentity(){
+  try{localStorage.removeItem(APPS_CACHE_KEY)}catch(e){}
+  if(!('caches' in window))return;
+  try{await caches.delete(API_CACHE_NAME)}catch(e){}
+  try{await caches.delete(IDENTITY_CACHE_NAME)}catch(e){}
+}
+// The cached tile list is an identity-stamped envelope {uid, apps}. A bare array
+// -- anything written by a build before this card -- is DISCARDED, not migrated:
+// its owner is unknown and obligation 7(a) is precisely "the previous user's
+// cached slug list". Fail closed.
+function readCachedApps(deviceId){
+  if(!deviceId)return null;
+  var raw;
+  try{raw=localStorage.getItem(APPS_CACHE_KEY)}catch(e){return null}
+  if(!raw)return null;
+  try{
+    var env=JSON.parse(raw);
+    if(!env||Array.isArray(env)||env.uid!==deviceId||!Array.isArray(env.apps))return null;
+    return env.apps;
+  }catch(e){return null}
+}
+function writeCachedApps(deviceId,apps){
+  if(!deviceId)return;
+  try{localStorage.setItem(APPS_CACHE_KEY,JSON.stringify({uid:deviceId,apps:apps}))}catch(e){}
+}
+// Drop every cached answer to the identity endpoint, busted variants included.
+// Called BEFORE the identity probe so no code path can read a stale one.
+async function evictCachedIdentity(){
+  if(!('caches' in window))return;
+  try{
+    var c=await caches.open(API_CACHE_NAME);
+    var keys=await c.keys();
+    await Promise.all(keys.filter(function(r){
+      return new URL(r.url).pathname==='/api/v1/me';
+    }).map(function(r){return c.delete(r)}));
+  }catch(e){}
+}
+function removeUserHeader(){
+  var bar=document.querySelector('.user-bar');
+  if(bar&&bar.parentNode)bar.parentNode.removeChild(bar);
+}
 async function logout(){
   if(!confirm('Are you sure you want to log out?'))return;
   try{await fetch('/api/v1/auth/logout',{method:'POST'})}catch(e){}
+  // AWAITED, not fire-and-forget: window.location.href tears this page down, and
+  // a lost race here leaves the previous user's rows on the phone for the next
+  // one. That is the whole disclosure. Now clears the tile list and the identity
+  // token too, not just api-cache.
+  await purgeDeviceIdentity();
   window.location.href='/login.html';
 }
 async function checkAuth(){
+  var identityVerified=false;
+  // The identity this device last VERIFIED. Offline it is all we have, and it is
+  // the only thing the cached tile list is allowed to be measured against.
+  var deviceId=await readIdentityToken();
+  await evictCachedIdentity();
   try{
-    const res=await fetch('/api/v1/me');
+    // Cache-busted on purpose. A bare '/api/v1/me' is answerable from the
+    // URL-keyed api-cache; a per-load buster can never hit it, so this probe is
+    // either a live answer or an error -- never somebody else's identity.
+    const res=await fetch('/api/v1/me?_='+Date.now(),{cache:'no-store'});
     if(res.status===401){window.location.href='/login.html';return}
     if(res.ok){
       const data=await res.json();
+      identityVerified=true;
+      // BEFORE any other API fetch on this page, so /api/v1/me/apps below is
+      // keyed to us and not to whoever held the phone last.
+      await establishIdentity(data.id);
+      deviceId=data.id?String(data.id):deviceId;
       if(data.display_name)renderUserHeader(data.display_name);
     }
   }catch(e){
-    // Network error -- allow offline access with cached page
+    // Network error -- fall through to the fail-closed branch below.
   }
-  var cached=localStorage.getItem(APPS_CACHE_KEY);
-  if(cached){try{filterTilesByPermissions(JSON.parse(cached));}catch(e){}}
+  if(!identityVerified){
+    // Fail closed on identity: we could not verify who is holding this phone --
+    // the request threw, timed out, or came back as the service worker's 503
+    // offline fallback -- so paint no name. Deliberately NOT a redirect: the
+    // launcher must stay reachable offline, since a food truck loses LTE as a
+    // matter of course.
+    //
+    // SCOPE, MEASURED -- do not overclaim this branch:
+    //  * removeUserHeader() is DEFENCE IN DEPTH, not a live fix. Today
+    //    renderUserHeader is reached from exactly one place (the res.ok arm
+    //    above), checkAuth() runs once at parse time, and there is no
+    //    pageshow/visibilitychange re-entry -- so when this line runs a
+    //    .user-bar cannot exist yet. Deleting it changes no observable
+    //    behaviour on any current path. It is kept so that a SECOND render
+    //    path (a re-check on resume, a cached-shell prepaint) cannot leave a
+    //    name on screen. Whoever adds that path needs a test; this line alone
+    //    is not one.
+    //  * "Fail closed" here means CLOSED ON FAILURE, never closed on a WRONG
+    //    identity: identityVerified is set by any 200, and this code cannot
+    //    tell whose 200 it is. A stale 200 still renders its name. What keeps
+    //    a stale 200 from reaching us is evictCachedIdentity() plus the
+    //    cache-buster above -- those are the load-bearing halves, and those
+    //    are the ones with tests.
+    removeUserHeader();
+  }
+  // Obligation 7(a), ledger T-23 decision 70: this read used to be
+  // unconditional, so the fail-closed branch above painted the PREVIOUS user's
+  // tiles -- offline on a shared truck phone, user B saw user A's launcher.
+  // Now the list is only applied when the identity that owns it is the identity
+  // established on this device; with no established identity (offline, first
+  // load, or straight after a purge) NO cached tiles are painted at all.
+  // Server-side grants remain the real gate -- this is the UI half.
+  var cached=readCachedApps(deviceId);
+  if(cached)filterTilesByPermissions(cached);
   try{
     const appsRes=await fetch('/api/v1/me/apps');
     if(appsRes.ok){
-      var fresh=JSON.stringify(await appsRes.json());
-      if(fresh!==cached){
-        localStorage.setItem(APPS_CACHE_KEY,fresh);
-        filterTilesByPermissions(JSON.parse(fresh));
+      var apps=await appsRes.json();
+      var fresh=JSON.stringify(apps);
+      if(fresh!==JSON.stringify(cached)){
+        writeCachedApps(deviceId,apps);
+        filterTilesByPermissions(apps);
       }
     }
   }catch(e){
@@ -213,6 +387,77 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');
       badge.textContent='Needs Attention';
       tile.appendChild(badge);
     }
+  }catch(e){}
+})();
+// ═══ APP VERSION LINE — ledger T-33 decision 133, OKR D-KR2b ══════════════
+//
+// 🛑 THE SOURCE IS version.json. NEVER /api/v1/health.
+//
+// version.json is written by build-sw.js and is in the Workbox precache, so it
+// is served CACHE-FIRST: it ships inside the bundle and reports what THIS
+// DEVICE actually has. That is the only value here capable of being stale —
+// which is exactly why it is the right one. This line exists to catch a phone
+// frozen on an old bundle while the server is fine (the T-21d class).
+//
+// The server's frontend_version is ALWAYS current. A badge fed from it would
+// print the correct version on that frozen phone and HIDE the defect this line
+// exists to reveal. So health is read only AFTER the cached value is already on
+// screen, only into #version-server, and only ever as a COMPARISON.
+//
+// And there is deliberately NO API FALLBACK: if version.json cannot be read we
+// say "v—" / data-state="unknown". An unknown bundle reported as unknown is
+// honest; the server's number printed in its place is a lie about this device.
+//
+// tests/version-badge.spec.js pins all of the above by stubbing the two sources
+// with DIFFERENT values. Do not "simplify" it into one fetch.
+(async function(){
+  var line=document.getElementById('version-line');
+  if(!line)return;
+  var cachedEl=document.getElementById('version-cached');
+  var serverEl=document.getElementById('version-server');
+  var cached=null;
+  try{
+    var vr=await fetch('version.json');
+    if(vr.ok){var vj=await vr.json();if(vj&&vj.frontend)cached=String(vj.frontend);}
+  }catch(e){}
+  line.hidden=false;
+  if(!cached){
+    line.dataset.state='unknown';
+    cachedEl.textContent='v—';
+    return;
+  }
+  line.dataset.state='ok';
+  line.dataset.version=cached;
+  cachedEl.textContent='v'+cached;
+  // Comparison only, from here down.
+  var server=null;
+  try{
+    var hr=await fetch('/api/v1/health');
+    if(hr.ok){var hj=await hr.json();if(hj&&hj.frontend_version)server=String(hj.frontend_version);}
+  }catch(e){}
+  if(!server)return;
+  line.dataset.server=server;
+  if(server===cached){line.dataset.state='current';return;}
+  line.dataset.state='stale';
+  serverEl.className='stale';
+  serverEl.textContent='server v'+server+' — close and reopen to update';
+})();
+// ═══ STORAGE BANNER — B-172 ═══════════════════════════════════════════════
+// A dead object-storage account must be explicit at app start, not discovered
+// one failed upload at a time. 'unreachable' is the only state worth
+// interrupting the crew for: 'unconfigured' is a deliberate dev/test state
+// (upload endpoints already 503 with a named error) and 'ok' is silence.
+// Deliberately its own fetch, not a rider on the version-line IIFE above —
+// that one early-returns when version.json is unreadable, and this banner
+// must not disappear with it.
+(async function(){
+  var el=document.getElementById('storage-banner');
+  if(!el)return;
+  try{
+    var r=await fetch('/api/v1/health');
+    if(!r.ok)return;
+    var h=await r.json();
+    if(h&&h.storage==='unreachable')el.hidden=false;
   }catch(e){}
 })();
 </script>

@@ -1,4 +1,4 @@
-// migrate-toast-archive uploads the sales-processor local Toast archive to DO Spaces.
+// migrate-toast-archive uploads the sales-processor local Toast archive to object storage (Backblaze B2).
 //
 // This is a ONE-SHOT tool. The historical layer (typically the last 90+ days) lives
 // in sales-processor's filesystem at /Users/jamal/projects/yumyums/sales-processor/output/toast_reports/.
@@ -10,13 +10,13 @@
 //	go run ./cmd/migrate-toast-archive/ --source /Users/jamal/projects/yumyums/sales-processor/output/toast_reports
 //	go run ./cmd/migrate-toast-archive/ --source /path/to/archive --overwrite
 //
-// Env (no defaults; all DO_SPACES_* required):
+// Env (no defaults; all STORAGE_* required):
 //
-//	DO_SPACES_KEY       (required)
-//	DO_SPACES_SECRET    (required)
-//	DO_SPACES_ENDPOINT  (required, e.g. https://nyc3.digitaloceanspaces.com)
-//	DO_SPACES_REGION    (required, e.g. nyc3)
-//	DO_SPACES_BUCKET    (required, e.g. hq.yumyums)
+//	STORAGE_KEY       (required)
+//	STORAGE_SECRET    (required)
+//	STORAGE_ENDPOINT  (required, e.g. https://s3.us-west-004.backblazeb2.com)
+//	STORAGE_REGION    (required, e.g. nyc3)
+//	STORAGE_BUCKET    (required, e.g. hq.yumyums)
 //
 // Per Phase 22.1 D-10: NO DB writes. The next worker tick parses the seeded
 // CSVs into menu_items + daily_menu_sales via the same RunIngest path used
@@ -76,13 +76,13 @@ func main() {
 	}
 
 	// Spaces config — all five env vars required, no defaults.
-	key := os.Getenv("DO_SPACES_KEY")
-	secret := os.Getenv("DO_SPACES_SECRET")
-	endpoint := os.Getenv("DO_SPACES_ENDPOINT")
-	region := os.Getenv("DO_SPACES_REGION")
-	bucket := os.Getenv("DO_SPACES_BUCKET")
+	key := os.Getenv("STORAGE_KEY")
+	secret := os.Getenv("STORAGE_SECRET")
+	endpoint := os.Getenv("STORAGE_ENDPOINT")
+	region := os.Getenv("STORAGE_REGION")
+	bucket := os.Getenv("STORAGE_BUCKET")
 	if key == "" || secret == "" || endpoint == "" || region == "" || bucket == "" {
-		slog.Error("DO_SPACES_KEY, DO_SPACES_SECRET, DO_SPACES_ENDPOINT, DO_SPACES_REGION, DO_SPACES_BUCKET must all be set")
+		slog.Error("STORAGE_KEY, STORAGE_SECRET, STORAGE_ENDPOINT, STORAGE_REGION, STORAGE_BUCKET must all be set")
 		os.Exit(1)
 	}
 

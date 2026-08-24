@@ -1,0 +1,77 @@
+2026/08/07 15:04:20 goose: no migrations to run. current version: 74
+2026/08/07 15:04:20 INFO database migrations applied successfully
+=== RUN   TestApproveSubmissionHandler_FeedbackPersistFailureIsLoud
+2026/08/07 15:04:20 ERROR save approval feedback error="ERROR: invalid input syntax for type uuid: \"not-a-valid-uuid\" (SQLSTATE 22P02)" submission_id=5ee99040-09b6-4adc-81a6-3ae01e4684b7 field_id=not-a-valid-uuid
+--- PASS: TestApproveSubmissionHandler_FeedbackPersistFailureIsLoud (0.06s)
+=== RUN   TestApproveSubmissionHandler_FeedbackPersistedReturnsOK
+--- PASS: TestApproveSubmissionHandler_FeedbackPersistedReturnsOK (0.06s)
+=== RUN   TestApproveSubmission_NonApproverNonAdmin_403
+--- PASS: TestApproveSubmission_NonApproverNonAdmin_403 (0.04s)
+=== RUN   TestRejectItem_NonApproverNonAdmin_403
+--- PASS: TestRejectItem_NonApproverNonAdmin_403 (0.04s)
+=== RUN   TestApproveSubmission_UserApproverAssignment_200
+--- PASS: TestApproveSubmission_UserApproverAssignment_200 (0.05s)
+=== RUN   TestApproveSubmission_RoleApproverAssignment_200
+--- PASS: TestApproveSubmission_RoleApproverAssignment_200 (0.06s)
+=== RUN   TestRejectItem_AdminWithoutAssignment_200
+--- PASS: TestRejectItem_AdminWithoutAssignment_200 (0.08s)
+=== RUN   TestApproveSubmission_SuperadminWithoutAssignment_200
+--- PASS: TestApproveSubmission_SuperadminWithoutAssignment_200 (0.06s)
+=== RUN   TestApproveSubmission_ApproverOnOtherTemplate_403
+--- PASS: TestApproveSubmission_ApproverOnOtherTemplate_403 (0.08s)
+=== RUN   TestApproveSubmission_AssigneeRoleIsNotApprover_403
+--- PASS: TestApproveSubmission_AssigneeRoleIsNotApprover_403 (0.05s)
+=== RUN   TestApproveSubmissionFunc_OpsPath_NonApprover_Refused
+--- PASS: TestApproveSubmissionFunc_OpsPath_NonApprover_Refused (0.07s)
+=== RUN   TestRejectItemFunc_OpsPath_NonApprover_Refused
+--- PASS: TestRejectItemFunc_OpsPath_NonApprover_Refused (0.08s)
+=== RUN   TestApproveSubmissionFunc_OpsPath_Approver_Allowed
+--- PASS: TestApproveSubmissionFunc_OpsPath_Approver_Allowed (0.06s)
+=== RUN   TestApproveSubmissionFunc_NoUserInContext_Refused
+--- PASS: TestApproveSubmissionFunc_NoUserInContext_Refused (0.04s)
+=== RUN   TestUpdateTemplateHandler_OpEmittedTransactionally
+--- PASS: TestUpdateTemplateHandler_OpEmittedTransactionally (0.05s)
+=== RUN   TestSubmitChecklist_RepeatedKey_FailNoteNotDuplicated
+--- PASS: TestSubmitChecklist_RepeatedKey_FailNoteNotDuplicated (0.06s)
+=== RUN   TestSubmitChecklist_RepeatedKey_FailNoteEditWins
+--- PASS: TestSubmitChecklist_RepeatedKey_FailNoteEditWins (0.06s)
+=== RUN   TestSubmitChecklist_RepeatedKey_FailNotePhotoSurvives
+--- PASS: TestSubmitChecklist_RepeatedKey_FailNotePhotoSurvives (0.06s)
+=== RUN   TestCreateTemplateFuncRejectsApproverlessApproval
+--- PASS: TestCreateTemplateFuncRejectsApproverlessApproval (0.01s)
+=== RUN   TestUpdateTemplateFuncRejectsApproverlessApproval
+--- PASS: TestUpdateTemplateFuncRejectsApproverlessApproval (0.02s)
+=== RUN   TestTemplateWritesStillAcceptedWhenValid
+--- PASS: TestTemplateWritesStillAcceptedWhenValid (0.06s)
+=== RUN   TestResubmit_RejectedRequirePhoto_BlockedWithoutPhoto
+--- PASS: TestResubmit_RejectedRequirePhoto_BlockedWithoutPhoto (0.05s)
+=== RUN   TestResubmit_RejectedRequirePhoto_SucceedsWithPhoto
+--- PASS: TestResubmit_RejectedRequirePhoto_SucceedsWithPhoto (0.06s)
+=== RUN   TestResubmit_RejectedRequirePhoto_SucceedsWithCorrectionPhoto
+--- PASS: TestResubmit_RejectedRequirePhoto_SucceedsWithCorrectionPhoto (0.06s)
+=== RUN   TestResubmit_SubStepRequirePhoto_NotBlocked
+--- PASS: TestResubmit_SubStepRequirePhoto_NotBlocked (0.07s)
+=== RUN   TestResubmit_NeverRejectedField_Unaffected
+--- PASS: TestResubmit_NeverRejectedField_Unaffected (0.05s)
+=== RUN   TestResubmit_RejectedWithoutRequirePhoto_NotGated
+--- PASS: TestResubmit_RejectedWithoutRequirePhoto_NotGated (0.07s)
+=== RUN   TestUpdateTemplate_StableFieldIdentity
+--- PASS: TestUpdateTemplate_StableFieldIdentity (0.08s)
+=== RUN   TestSaveResponse_UnknownFieldRejected
+--- PASS: TestSaveResponse_UnknownFieldRejected (0.04s)
+=== RUN   TestSaveResponseHandler_UnknownField422
+--- PASS: TestSaveResponseHandler_UnknownField422 (0.01s)
+=== RUN   TestSubmitNoApprovalTemplate_StatusNotLeftPending
+--- PASS: TestSubmitNoApprovalTemplate_StatusNotLeftPending (0.05s)
+=== RUN   TestSubmitApprovalTemplate_StillPending
+--- PASS: TestSubmitApprovalTemplate_StillPending (0.04s)
+=== RUN   TestPendingApprovals_NoApprovalSubmissionDoesNotLeak
+--- PASS: TestPendingApprovals_NoApprovalSubmissionDoesNotLeak (0.05s)
+=== RUN   TestPendingApprovals_RealPendingStillVisible
+--- PASS: TestPendingApprovals_RealPendingStillVisible (0.06s)
+=== RUN   TestTemplateSnapshotCarriesRequiresApproval
+    submission_status_test.go:265: real row 3e723a50-ff3b-40d5-b99d-9e8f328d6f7a: template_snapshot->>'requires_approval' = false; snapshot keys = [assignments created_at created_by id name requires_approval schedules sections updated_at]
+--- PASS: TestTemplateSnapshotCarriesRequiresApproval (0.03s)
+PASS
+ok  	github.com/yumyums/hq/internal/workflow	1.914s
+EXIT=0

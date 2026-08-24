@@ -292,7 +292,12 @@ async function saveCutoff() {
     var result = await api('/api/v1/purchasing/cutoff', {
       method: 'PUT',
       headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ day_of_week: day, cutoff_time: time, timezone: 'America/Chicago' })
+      // 🛑 The app's ONE timezone (ledger T-26 decision 83). This field was
+      // 'America/Chicago' until card A1, and because this form POSTs it on every
+      // save it ACTIVELY OVERWROTE the backend's New York default — the client
+      // was the reason the cutoff boundary stayed on Chicago. Keep in step with
+      // users.DefaultTimezone (Go) / APP_TIMEZONE (sync.js) / migration 0072.
+      body: JSON.stringify({ day_of_week: day, cutoff_time: time, timezone: 'America/New_York' })
     });
     CUTOFF_CONFIG = result;
     CUTOFF_FORM_OPEN = false;

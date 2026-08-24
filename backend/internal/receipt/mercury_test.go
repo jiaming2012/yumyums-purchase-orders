@@ -25,54 +25,73 @@ func makeTxPage(startIdx, n int) []MercuryTransaction {
 	return txs
 }
 
-// mercuryPageServer returns an httptest.Server that simulates the Mercury
-// list endpoint's offset-based pagination. pages maps offset → []tx to
-// return for that page. Calls to unmapped offsets return an empty list.
-// The server increments *callCount on every request.
-func mercuryPageServer(t *testing.T, pages map[int][]MercuryTransaction, callCount *int) *httptest.Server {
+// mercuryCursorServer returns an httptest.Server that simulates the Mercury
+// list endpoint's REAL pagination contract: cursor-based via `start_after`
+// (the exclusive ID of the last transaction of the previous page). The
+// server holds the full ordered transaction list and serves the next
+// `limit`-sized slice after the cursor. It records each request's
+// start_after value into *cursorsSeen and increments *callCount. A request
+// carrying an `offset` parameter fails the test — the live endpoint ignores
+// that parameter, so sending it means the pagination regression is back.
+func mercuryCursorServer(t *testing.T, all []MercuryTransaction, callCount *int, cursorsSeen *[]string) *httptest.Server {
 	t.Helper()
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		*callCount++
 
-		offsetStr := r.URL.Query().Get("offset")
-		offset := 0
-		if offsetStr != "" {
-			if _, err := fmt.Sscanf(offsetStr, "%d", &offset); err != nil {
-				http.Error(w, "bad offset", http.StatusBadRequest)
+		if r.URL.Query().Has("offset") {
+			t.Errorf("request sent `offset` — Mercury ignores it; pagination must use start_after")
+		}
+
+		limit := mercuryPageLimit
+		if ls := r.URL.Query().Get("limit"); ls != "" {
+			if _, err := fmt.Sscanf(ls, "%d", &limit); err != nil {
+				http.Error(w, "bad limit", http.StatusBadRequest)
 				return
 			}
 		}
 
-		txs := pages[offset] // nil/empty if offset not in map → last-page signal
+		startAfter := r.URL.Query().Get("start_after")
+		if cursorsSeen != nil {
+			*cursorsSeen = append(*cursorsSeen, startAfter)
+		}
+		from := 0
+		if startAfter != "" {
+			from = len(all) // unknown cursor → empty page
+			for i, tx := range all {
+				if tx.ID == startAfter {
+					from = i + 1
+					break
+				}
+			}
+		}
+		to := min(from+limit, len(all))
+
 		resp := mercuryListTransactionsResponse{
-			Transactions: txs,
-			Total:        len(txs),
+			Transactions: all[from:to],
+			Total:        to - from,
 		}
 		w.Header().Set("Content-Type", "application/json")
 		if err := json.NewEncoder(w).Encode(resp); err != nil {
-			t.Errorf("mercuryPageServer: encode: %v", err)
+			t.Errorf("mercuryCursorServer: encode: %v", err)
 		}
 	}))
 }
 
 // TestFetchTransactions_Paginates verifies that FetchTransactions issues
-// multiple HTTP requests — one per page — and accumulates results across
-// pages. The server returns:
+// multiple HTTP requests — one per page — cursoring with start_after and
+// accumulating results. The server holds 1200 txs:
 //
-//	offset=0   → 500 txs (full page → continue)
-//	offset=500 → 500 txs (full page → continue)
-//	offset=1000 → 200 txs (short page → stop)
+//	page 1 (start_after absent)  → tx-0..tx-499  (full page → continue)
+//	page 2 (start_after=tx-499)  → tx-500..tx-999 (full page → continue)
+//	page 3 (start_after=tx-999)  → tx-1000..tx-1199 (short page → stop)
 //
-// Expected: 1200 txs total, 3 HTTP calls.
+// Expected: 1200 txs total, 3 HTTP calls, cursors ["", "tx-499", "tx-999"].
 func TestFetchTransactions_Paginates(t *testing.T) {
 	callCount := 0
-	pages := map[int][]MercuryTransaction{
-		0:    makeTxPage(0, 500),
-		500:  makeTxPage(500, 500),
-		1000: makeTxPage(1000, 200),
-	}
+	var cursors []string
+	all := makeTxPage(0, 1200)
 
-	srv := mercuryPageServer(t, pages, &callCount)
+	srv := mercuryCursorServer(t, all, &callCount, &cursors)
 	defer srv.Close()
 
 	// Patch the constant URL used by fetchTransactionsPage by overriding the
@@ -104,6 +123,10 @@ func TestFetchTransactions_Paginates(t *testing.T) {
 	if callCount != 3 {
 		t.Errorf("HTTP calls = %d, want 3 (one per page)", callCount)
 	}
+	wantCursors := []string{"", "tx-499", "tx-999"}
+	if fmt.Sprint(cursors) != fmt.Sprint(wantCursors) {
+		t.Errorf("start_after cursors = %v, want %v", cursors, wantCursors)
+	}
 }
 
 // TestFetchTransactions_StopsOnShortFirstPage verifies that when the first
@@ -111,13 +134,7 @@ func TestFetchTransactions_Paginates(t *testing.T) {
 // exactly 1 HTTP call.
 func TestFetchTransactions_StopsOnShortFirstPage(t *testing.T) {
 	callCount := 0
-	pages := map[int][]MercuryTransaction{
-		0: makeTxPage(0, 200),
-		// offset=200 would only be reached if the loop continued — it must not.
-		200: makeTxPage(200, 999), // sentinel: if reached, test must fail
-	}
-
-	srv := mercuryPageServer(t, pages, &callCount)
+	srv := mercuryCursorServer(t, makeTxPage(0, 200), &callCount, nil)
 	defer srv.Close()
 
 	origTransport := http.DefaultTransport
@@ -145,11 +162,7 @@ func TestFetchTransactions_StopsOnShortFirstPage(t *testing.T) {
 // with no error and exactly 1 HTTP call.
 func TestFetchTransactions_EmptyFirstPage(t *testing.T) {
 	callCount := 0
-	pages := map[int][]MercuryTransaction{
-		0: {}, // explicit empty page
-	}
-
-	srv := mercuryPageServer(t, pages, &callCount)
+	srv := mercuryCursorServer(t, nil, &callCount, nil)
 	defer srv.Close()
 
 	origTransport := http.DefaultTransport
@@ -177,18 +190,16 @@ func TestFetchTransactions_EmptyFirstPage(t *testing.T) {
 // FetchTransactions must return only the supported ones.
 func TestFetchTransactions_FiltersUnsupportedKinds(t *testing.T) {
 	callCount := 0
-	pages := map[int][]MercuryTransaction{
-		0: {
-			{ID: "good-1", Status: mercuryStatusSent, Kind: mercuryKindDebitCard},
-			{ID: "bad-pending", Status: "pending", Kind: mercuryKindDebitCard},
-			{ID: "bad-kind", Status: mercuryStatusSent, Kind: "wireTransaction"},
-			{ID: "good-2", Status: mercuryStatusSent, Kind: mercuryKindCreditCard},
-			{ID: "good-3", Status: mercuryStatusSent, Kind: mercuryKindCreditCardCredit},
-			{ID: "good-4", Status: mercuryStatusSent, Kind: mercuryKindDebitCardCredit},
-		},
+	all := []MercuryTransaction{
+		{ID: "good-1", Status: mercuryStatusSent, Kind: mercuryKindDebitCard},
+		{ID: "bad-pending", Status: "pending", Kind: mercuryKindDebitCard},
+		{ID: "bad-kind", Status: mercuryStatusSent, Kind: "wireTransaction"},
+		{ID: "good-2", Status: mercuryStatusSent, Kind: mercuryKindCreditCard},
+		{ID: "good-3", Status: mercuryStatusSent, Kind: mercuryKindCreditCardCredit},
+		{ID: "good-4", Status: mercuryStatusSent, Kind: mercuryKindDebitCardCredit},
 	}
 
-	srv := mercuryPageServer(t, pages, &callCount)
+	srv := mercuryCursorServer(t, all, &callCount, nil)
 	defer srv.Close()
 
 	origTransport := http.DefaultTransport
@@ -246,21 +257,20 @@ func makeMixedTxPage(startIdx, supported, unsupported int) []MercuryTransaction 
 //
 // Server behaviour:
 //
-//	offset=0    → 500 raw (50 supported, 450 unsupported) — full page, must continue
-//	offset=500  → 500 raw (50 supported, 450 unsupported) — full page, must continue
-//	offset=1000 → 100 raw (10 supported, 90 unsupported)  — short page, must stop
+//	page 1 → 500 raw (50 supported, 450 unsupported) — full page, must continue
+//	page 2 → 500 raw (50 supported, 450 unsupported) — full page, must continue
+//	page 3 → 100 raw (10 supported, 90 unsupported)  — short page, must stop
 //
 // Expected: 110 supported txs total, 3 HTTP calls.
 // Failure mode without the fix: 50 txs, 1 HTTP call.
 func TestFetchTransactions_PaginatesWhenFilterShrinksPage(t *testing.T) {
 	callCount := 0
-	pages := map[int][]MercuryTransaction{
-		0:    makeMixedTxPage(0, 50, 450),
-		500:  makeMixedTxPage(500, 50, 450),
-		1000: makeMixedTxPage(1000, 10, 90),
-	}
+	var all []MercuryTransaction
+	all = append(all, makeMixedTxPage(0, 50, 450)...)
+	all = append(all, makeMixedTxPage(500, 50, 450)...)
+	all = append(all, makeMixedTxPage(1000, 10, 90)...)
 
-	srv := mercuryPageServer(t, pages, &callCount)
+	srv := mercuryCursorServer(t, all, &callCount, nil)
 	defer srv.Close()
 
 	origTransport := http.DefaultTransport
@@ -290,6 +300,38 @@ func TestFetchTransactions_PaginatesWhenFilterShrinksPage(t *testing.T) {
 		if !isSupportedKind(tx.Kind) {
 			t.Errorf("tx %q: Kind = %q is not a supported kind", tx.ID, tx.Kind)
 		}
+	}
+}
+
+// TestFetchTransactions_BailsWhenCursorIgnored reproduces the 2026-08-06
+// B-145 backfill failure shape: a server that returns the SAME full page for
+// every request regardless of pagination parameters (exactly what the live
+// endpoint does when paginated by `offset`, which it silently ignores).
+// FetchTransactions must fail fast with a cursor-did-not-advance error —
+// not loop to a ceiling, and not return duplicated transactions.
+func TestFetchTransactions_BailsWhenCursorIgnored(t *testing.T) {
+	callCount := 0
+	page := makeTxPage(0, 500)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		callCount++
+		resp := mercuryListTransactionsResponse{Transactions: page, Total: len(page)}
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(resp); err != nil {
+			t.Errorf("encode: %v", err)
+		}
+	}))
+	defer srv.Close()
+
+	origTransport := http.DefaultTransport
+	http.DefaultTransport = rewriteHostTransport(srv.URL)
+	defer func() { http.DefaultTransport = origTransport }()
+
+	_, err := FetchTransactions(t.Context(), "test-key", time.Now().AddDate(0, -1, 0), time.Now())
+	if err == nil {
+		t.Fatal("FetchTransactions: want cursor-did-not-advance error, got nil")
+	}
+	if callCount > 2 {
+		t.Errorf("HTTP calls = %d, want ≤2 (must bail on the first repeated page)", callCount)
 	}
 }
 

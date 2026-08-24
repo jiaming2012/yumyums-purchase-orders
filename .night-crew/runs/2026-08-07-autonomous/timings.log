@@ -1,0 +1,12 @@
+# timings — run overnight-20260807 (all EDT, 2026-08-07; sub-agent durations measured, boundaries from dispatch/notification order and dated shell output)
+09:15-09:25  launch: skills preflight OK; launch-prompt resolved; run-evidence check no-run-evidence; workflow preflight openspec-absent; §2/§2a guards all stated (clean tree, no unmerged run branches, worktrees check, card-branch check incl. d1 net-zero verification, workers check clear); branch cut overnight-20260807 @ 379d859
+09:27-10:22  W0 implementer (Opus, 54.4m measured) — incl. waiting out a foreign attended :5433 suite
+10:23-10:31  W0 G6 (Fable, 7.4m measured) — MERGE-WITH-NOTES
+10:31-10:36  W0 merge incident (first merge landed on dev via externally-switched main checkout), recovery, re-merge a03c6bc on run branch in dedicated run worktree; conflict log §1 (35ad2ec); W0 worktree archived
+10:36-11:23  A2 implementer (Sonnet, 47.2m total measured) — self-paused at 11:13 awaiting its backgrounded suite, resumed by orchestrator message, report final ~11:23
+11:24-11:30  A2 G6 (Fable, 6.4m measured) — MERGE-WITH-NOTES; merge 405a52f @ 11:30
+11:31        conflict log §2 (845dfce); A2 worktree archived; stretch gate computed: 2.1h elapsed, S high-end 150m + 30m closeout inside sign-off envelope → DISPATCH
+11:33-12:31  S implementer (Opus, 58.3m measured) — spike verdict GREEN exit 0
+12:31-12:37  S G6 (Fable, 6.3m measured) — MERGE-WITH-NOTES, reproduced GREEN independently
+12:38        merge 61eb4af; conflict log §3 + 49→48 correction (ee109b1); S worktree archived
+12:39-12:5x  closeout: HANDOFF, DECISIONS-NEEDED, timings, closeout record (same commit as HANDOFF), workers re-check

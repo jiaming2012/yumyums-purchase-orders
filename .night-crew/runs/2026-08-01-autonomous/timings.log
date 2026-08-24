@@ -1,0 +1,40 @@
+# Timings — run 20260801
+
+Dispatch mode: CONCURRENT (3 tracks), per slate sign-off. Orchestrator wall-clock,
+measured — not extrapolated.
+
+| Card | Track | Dispatched | Implementer returned | Implementer wall-clock |
+|---|---|---|---|---|
+| a1-app-timezone-unify-new-york | A | 2026-07-31 09:47:41 EDT | 2026-07-31 11:04:00 EDT | 76m19s |
+| b2-sync-rxdb-row-visibility-rls | B | 2026-07-31 09:47:41 EDT | 2026-07-31 10:54:51 EDT | 66m58s |
+| c1-sync-rxdb-replication-and-conflict-handler | C | 2026-07-31 09:47:41 EDT | 2026-07-31 11:40:01 EDT | 112m20s |
+| c2-sync-rxdb-conflict-notice-ui | C | 2026-07-31 13:47 EDT | 2026-07-31 15:53 EDT | 126m11s |
+
+Each card then ran a fresh-subagent G6 adversarial review, and each G6 returned
+APPROVE WITH FINDINGS, so each card also ran a fix round. Three phases per card,
+not one.
+
+| Card | G6 verdict | Fix round | Merged |
+|---|---|---|---|
+| a1 | APPROVE WITH FINDINGS (F1 provenance, F2 changeover dates blocking) | FIXED | yes |
+| b2 | APPROVE WITH FINDINGS (F2 destructive down, F1 silent skip blocking) | FIXED | yes |
+| c1 | APPROVE WITH FINDINGS (`_deleted` justification false, blocking) | FIXED | yes |
+| c2 | verifier gate **PASS 30/30** + G6 APPROVE WITH FINDINGS | FIXED | yes |
+
+Closeout written: 2026-07-31 12:58:51 EDT
+
+## What the concurrency cost
+
+Three concurrent Playwright suites drove load to 17 on 8 cores. Measured consequences:
+- C1's first full run was invalidated (a killed Playwright survived `pkill` and raced its
+  replacement on the same port and database — two summary blocks under one header). Discarded
+  and re-run, not quoted.
+- Both resume cards found the shared `hq_test_go` / `hq_test_e2e` databases at a goose version
+  the other card had set, and `hq_test_e2e` refused to boot. Each worked around it with its own
+  databases rather than dropping databases it did not create (B-16).
+- Every G6 reviewer and fix round was given a distinct database prefix and TEST_PORT by the
+  orchestrator for this reason.
+
+## Card-level record, carried from the card branch
+
+2026-07-31 10:23:13 EDT  C1 sync-rxdb-replication-and-conflict-handler: merge-intent committed, red-first spec landed (33 tests, 29 failing at ab53478 — logged as 35 at the time, which is the HEAD count, not the red-first one; corrected at G6), handler GREEN, client helper + bootstrap landed, obligation 5 change set (glob + Dockerfile + guard) landed, version 1.3.0 + roadmap flip; G1 exit 0/0, G2 Go exit 0 (9 pkgs ok, hq_test_go_c1 48 tables / goose 71)

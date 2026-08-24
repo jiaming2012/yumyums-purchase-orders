@@ -483,3 +483,774 @@ midpoint.
 **Triage-day actual (2026-07-23, attended): ~50m** — re-verify (build/vet/go test + one full E2E
 leg ~20m, zero harness faults), three fork resolutions, records. T-20's 2–4h harness-repair
 triage is the exception, not the rule, when the run lands clean.
+
+## Run 20260725 (`overnight-20260725`) — resumed by hand; F1 folded attended, W1+W2 dispatched serial
+
+| Card | Class | Impl | G6 | Land | Cycle | Outcome |
+|---|---|---|---|---|---|---|
+| F1 `workflow-submission-status-default` | Go fix + red-first, S–M | *(attended fold, unmeasured)* | n/a | — | — | MERGED server half; **regressed 2 E2E, client half split out** |
+| F1 subset Playwright leg | seam-confined subset | **6m18s** | — | — | — | GREEN — est. 8–12m, **~half the low end** |
+| W1 `sync-spike-stack-and-jwt-bridge` | **first-of-kind** infra+proof spike | **53m05s** | **5m14s** | ~11m | **~69m** | MERGED, GO (est. 165–345m — **~1/3 of the low end**) |
+| W2 `sync-spike-rxdb-replication` | **first-of-kind** client-library spike | **49m31s** | **7m02s** | ~6m | **~72m** | MERGED, GO (est. 120–255m — **under half the low end**); +9m25s revision round |
+| Orchestrator · F1 attribution investigation | unbudgeted root-cause | **21m43s** | — | — | — | Turned a refused attribution into a proven cause |
+| Full Playwright legs (×3) | — | 22.0m / 8.3m / 30.5m | — | — | — | est. ~20m — at/over |
+
+**Serial critical path predicted 6–12 h; actual resume→closeout ~3 h.**
+
+**The night's biggest ledger signal: both first-of-kind cards came in at roughly a third of their
+low estimate, and the leg the slate called "the sharpest edge" — self-hosted Realtime tenant
+bring-up, priced 30–90 m — took 3 m 22 s.** The slate priced them wide *because* the ledger had no
+signal, which was correct discipline; the ledger now has one. **Do not read this as "spikes are
+cheap."** The dominant cost of both cards was not the spike — it was the ~20–30 m full Playwright
+suite each had to pay, plus the orchestrator's 21 m attribution investigation. **Price future spike
+cards on suite time and investigation risk, not on infra time.**
+
+**Counter-signal, and it is the one that should change a decision: a green subset bought false
+confidence.** F1 was seam-confined, paid the `workflows|persistence` subset, went green at 102
+passed / 6 m 18 s — and shipped a regression anyway, because neither failing spec was in the
+subset. The subset actual (6 m 18 s vs. the 8–12 m estimate) is *real* and worth carrying, but the
+cheapness is not a reason to prefer subsets: **the seam map, not the estimate, is what decides
+whether a subset is honest.** T-22 decision 54 widens the workflow seam; expect seam-confined
+workflow cards to cost `sync.spec.js` from now on, which will move this class's actual upward and
+should.
+
+**Triage-day actual (2026-07-25, attended): ~85m** — longer than the 2026-07-23 ~50 m baseline, and
+the difference is entirely the adversarial reproduction pass (~18 m wall clock unattended, but it
+produced five findings the closeout missed, two of which changed a fork's answer). **That is the
+trade to remember: an unattended reproduction pass costs the operator nothing and repriced FORK 1
+from four call sites to seven.**
+
+---
+
+## overnight-20260726 (autonomous, Wave 0 then CONCURRENT 2-track dispatch)
+
+> **Backfilled 2026-07-26 evening**, from `runs/2026-07-26-autonomous/timings.log`. This row was
+> missing when `slate-20260727` was sized, which forced that slate's estimates back onto the
+> 20260725 anchors instead of the three most similar cards. Recording actuals is not bookkeeping —
+> the gap directly widened the next night's error bars.
+
+**Run window:** 00:27:44Z → 04:03:04Z = **3 h 35 m**. 3/3 landed, **0 parked**.
+Wave 0 (Card A) alone, then Cards B and C concurrent on two tracks.
+
+| Card | Class | Impl | G6 | G6 repair | Verdict |
+|---|---|---|---|---|---|
+| A `workflow-submission-status-client-half` (Wave 0) | front-end fix, red-first | **27m24s** | **17m11s** | — | APPROVE-WITH-NOTES |
+| B `sync-jwt-bridge-endpoint` | Go endpoint + SQL, S–M | **82m17s** | **9m48s** | **10m56s** | APPROVE-WITH-NOTES, 3 findings |
+| C `sync-rxdb-browser-delivery-spike` | first-of-kind browser spike | **117m50s** | **16m10s** | **11m01s** | APPROVE-WITH-NOTES, **GO earned and reproduced**, 6 findings |
+| ORCH · RUN-10 paired attribution measurement | unbudgeted investigation | **30m15s** | — | — | BOUND-NOT-EXONERATION — still UNATTRIBUTED |
+| ORCH · final-tree go-gate | — | **1m13s** | — | — | ALL-PACKAGES-PASS |
+
+**B's own cycle note in the log reads ~185 m total, including a 53 m full-suite leg under sustained
+load >40** — B's impl figure above is the stamp-to-stamp span; the suite leg is where the time
+actually went.
+
+### What this run says that should change a future estimate
+
+**Concurrency did not halve the night; load did the damage.** Cards B and C started at the same
+instant (01:14:53Z) on two tracks. `load1` climbed past **40** during the overlap and B's full-suite
+leg stretched to 53 m — against a ~20–30 m baseline for the same suite on a quiet box. The two
+tracks finished 35 m apart. **Price a concurrent track's suite leg at roughly double its quiet-box
+figure**, and note that the second track inherits the contention it did not create.
+
+**G6 fired on every card and repair was never free.** Three cards, three APPROVE-WITH-NOTES, nine
+findings between B and C, and **two of the three needed a repair round** (10m56s and 11m01s). The
+repair rounds are ~10–11 m each and are *not* optional overhead to be trimmed — B's F1 finding was
+a **vacuous parity gate** (2/11 assertions TRUE; stubbing the implementation produced only 4
+failures), i.e. a test that would have shipped green while proving nothing. **Budget a G6 repair
+round per card by default; treat its absence as the exception.**
+
+**The orchestrator's unbudgeted investigation cost 30 m and did not resolve.** The RUN-10 paired
+measurement ran two concurrent full suites (post-A vs pre-A) to attribute a failure to Card A. Its
+verdict was **BOUND-NOT-EXONERATION** — Card A not deterministically responsible, cause still
+UNATTRIBUTED. This is the second run in a row where orchestrator-side investigation consumed
+20–30 m outside any card's budget (20260725: 21m43s). **Two data points now. Reserve ~25 m of
+orchestrator investigation time per night, or accept that it comes out of the last card.**
+
+**A gate stamp in this run was provably wrong, and was left in place rather than rewritten.** Card
+A's `gate green` line carries epoch 1785029700 but was committed in `c70581c`, whose committer time
+is 2429 s *earlier*. The log annotates it inline and instructs Delivery KR3 to read the **wall
+figure** (732 s = 12.2 m), not the epoch. **Read wall figures from this log, not epochs**, and note
+the discipline: silently fixing a bad stamp is how a ledger stops being evidence.
+
+**One gate was deliberately skipped and said so.** `B_regate_pw` SKIPPED — Go + SQL-comment diff
+only, with Card C mid-suite on the shared port. A named, reasoned skip is not a gap; an unnamed one
+would be.
+
+---
+
+## overnight-20260727 (autonomous, Wave 0 then SERIAL — 2 of 3 cards)
+
+**Run window:** 02:30:17Z → closeout. **2/3 landed, 0 parked, 1 card deliberately NOT STARTED.**
+Wave 0 (Card A) alone, then Card B. Card C never dispatched — see HANDOFF and D-6.
+
+| Card | Class | Impl | G6 | G6 repair | Verdict |
+|---|---|---|---|---|---|
+| A `pwa-cache-and-build-hygiene` (Wave 0) | small app fix + build script | **50m11s** | **41m02s** | **9m37s** | APPROVE-WITH-NOTES, 8 findings |
+| B `workflow-offline-double-submit` | app fix, front-end, red-first | **58m49s** | **32m31s** | **58m32s** (incl. re-review) | **REJECT** → repaired → APPROVE-WITH-NOTES |
+| ORCH · card A merge + conflict log | — | ~6m | — | — | clean merge |
+| ORCH · card B merge + conflict log + F-N6 anchor fix | — | ~14m | — | — | 1 conflict, union resolution |
+
+**Estimate vs actual — the headline number for the next slate.**
+
+| Card | Slate estimate | Actual, end-to-end | Ratio |
+|---|---|---|---|
+| A | 30–50 m | **~1 h 45 m** | **2.1–3.5×** |
+| B | 45–90 m | **~2 h 50 m** | **1.9–3.8×** |
+
+**Both cards ran ~2–2.5× estimate once G6 and repair were counted.** The slate priced *implementation*;
+the night costs implementation + review + repair + merge. This is the second consecutive run where
+that gap decided the outcome — on 20260726 it compressed the schedule; here it cost Card C entirely.
+**Price a card at implement + ~35 m review + ~30 m repair + ~10 m merge, or stop pretending the
+estimate is a night plan.**
+
+### What this run says that should change a future estimate
+
+**Serial dispatch bought back the load penalty, exactly as 20260726 predicted.** That run warned to
+"price a concurrent track's suite leg at roughly double its quiet-box figure" after `load1` passed 40
+and B's leg stretched to 53 m. Tonight, serial, the same full suite ran **22.8 m** (card A) and
+**22.2 m** (card B post-repair) — quiet-box figures, no contention. **The 30–47 m band the slate used
+was inherited from contended runs and is too wide for serial dispatch. Use ~23 m.**
+
+**The G6 repair round is not optional overhead, and this run is the proof.** 20260726 said "budget a
+G6 repair round per card by default; treat its absence as the exception." Tonight: **2 cards, 2
+repair rounds, and one of them was a REJECT that prevented shipping a silent data-loss bug.** Card
+B's first pass would have submitted food-safety checklists with zero recorded answers. Budgeting the
+repair round is not conservatism — the night's entire value was in it.
+
+**A REJECT costs roughly a second review.** Card B's repair leg was 58 m against Card A's 10 m,
+because a reject means repair + a fresh re-review, not just repair. **Price a reject at ~1 h**, and
+note that the re-review can be *bounded* to the repair surface (it was here) rather than a full
+second pass.
+
+**Two implementers, two failures of the same kind.** Card A claimed a branch "strips any name
+already on screen" (it can never fire); Card B claimed key-only reuse would 409 (it returns 201
+twice). **Both were reasoned from code where execution was available, and both were caught by
+reviewers who ran the thing.** The cheap countermeasure — telling the implementer to stub its own fix
+and confirm the test reds *before* committing — was added to Card B's prompt after Card A's finding,
+and Card B did it and self-declared a real per-half weakness. It did not catch the blocker, because
+the blocker was in a scenario its tests structurally could not reach. **Stub-your-own-fix is
+necessary and not sufficient; it does not replace an adversarial reviewer that constructs new
+scenarios.**
+
+**A comment-only edit invalidates the tested artifact.** The post-merge anchor fix touched only
+comments, but Workbox's precache manifest carries a per-entry content revision hash, so `sw.js` moved
+and the final-tree gate had to actually re-run rather than inherit. **Budget a full suite for any
+post-merge edit to an HTML/JS file, however cosmetic.**
+
+**One self-inflicted gate failure, recorded rather than hidden.** The orchestrator's first final-tree
+attempt died in 2 m 18 s: it created the test database as role `postgres` on port 5432, but the stack
+uses role `yumyums` on **5433** (`Taskfile.yml` `test:`). Cost ~5 m. The Taskfile is the source of
+truth for test-stack provisioning; read it rather than assuming defaults.
+
+**Attended-triage verification cost, added at morning triage 2026-07-27.** The adversarial
+reproduction subagent — its own worktree, its own DB, its own port, gates re-executed rather than
+inherited, then mutation probes against the closeout's claims — ran **~70 m wall clock** (of which
+the full Playwright leg was 22.7 m) for **~231 k tokens and 129 tool calls**, entirely unattended.
+It returned **8 findings the run did not report and 6 refuted claims**, including a HIGH the run had
+correctly escalated but under-argued. **Price morning triage at ~70 m of unattended verification
+plus ~20–25 m of operator attention**, and note the shape of the yield: *zero* defects in the tree,
+*six* in the durable record. The gates were honest; the prose about them was not. A triage that only
+re-runs gates would have found none of it.
+
+---
+
+## `overnight-20260729` — 4 cards, all landed, 0 parked (recorded at morning triage 2026-07-28)
+
+| Card | Class | Slate estimate | Implement | Review | Repair | End-to-end | Ratio |
+|---|---|---|---|---|---|---|---|
+| A `precache-manifest-from-head` | build/globber + test co-move | 1 h 30 m – 2 h | ~75 m | 1 × G6 (~13 m) | none | **~1 h 30 m** | **~0.9×** |
+| B `workflow-queue-period-and-failnote-upsert` | Go endpoint + migration + front-end leg | 2 h 30 m – 3 h 30 m | ~105 m | 1 × G6 (~26 m) | none | **~2 h 15 m** | **~0.7×** |
+| C `sync-proxy-endpoint` | Go handler + reverse proxy + WS upgrade | 1 h 30 m – 2 h 30 m | ~25 m | **3 × G6** (~48 m) | 2 rounds (~40 m) | **~1 h 55 m** | **~0.9×** |
+| D `sync-rxdb-conflict-notice-mockup` | first-of-kind planning artifact (HTML mockup + UI-SPEC) | 45 m – 1 h 15 m | ~12 m | **2 × restricted-input verifier** (~16 m) | 1 round (~25 m) | **~55 m** | **~0.9×** |
+
+**The estimates were good this time, and that is the finding.** Every card landed inside or just
+under its range — ratios 0.7–0.9× against 07-27's 1.9–3.8× overruns. Two causes worth carrying:
+the slate was built from this ledger rather than from intuition, and the night's fan-out
+(`sync-proxy-endpoint` and the mockup split out of an 8–12 h parent at planning) meant no card
+discovered mid-night that it was three cards.
+
+**Implementation time is no longer the dominant term — review is.** Card C implemented in 25 m and
+then spent **~88 m** in review and repair, i.e. **3.5× its own build time**. Card D implemented in
+12 m and spent ~41 m the same way. Neither is waste: C's reviews closed a path-traversal hole *and*
+a bypass of its own fix, and D's restricted-input verifier caught a `done_when:` row that failed
+plus two criteria written so they could not fail. **Price a card at implement + 1–3× implement for
+review**, and price a *security-relevant* or *first-of-kind* card at the top of that range.
+
+**Repair rounds are cheap when the finding is precise.** C's two rounds ran 18 m and 22 m; D's ran
+25 m. All three were driven by a review that named the file, the line, the failure scenario and
+often the one-line fix — so the implementer spent its time fixing rather than re-deriving. A vague
+finding would have cost multiples of that.
+
+**Attended-triage verification cost, 2026-07-28.** The adversarial reproduction subagent — own
+clone, own databases, own port, every gate re-executed rather than inherited, then mutation probes
+against the closeout's claims — ran **~27 m wall clock** for **~183 k tokens and 103 tool calls**,
+unattended. It returned **3 findings the run did not report** (14 unparseable commit trailers; a
+traversal summary over-claiming its own documented scope; D-1 independently reproduced under a
+frozen clock) and **0 refuted gate claims** — the run's numbers all held. Contrast with 07-27, where
+the same exercise refuted six durable claims in ~70 m. **The gates were honest both nights; what
+varies is the prose about them.** Operator attention this triage ran ~35–40 m, longer than the
+20–25 m budgeted, because the mockup walkthrough surfaced two amendments and a conflicting
+sign-off recorded by a concurrent session.
+
+---
+
+## `overnight-20260729-2` — 5 cards, CONCURRENT across three tracks (2026-07-28 → 29)
+
+Slate budget 11 h; run finished in **3 h 25 m** (20:00 → 23:25 EDT). Every card came in at or under
+estimate. **Two parks, neither a failure to build** — both were refusals to decide something the
+operator owns, and both cost ≈15 m and ≈1 h 18 m respectively rather than the card's full estimate.
+
+| Card | Class | Slate est. | Implement | G6 + repair | Land | Verdict | Notes |
+|---|---|---|---|---|---|---|---|
+| H1 `test-harness-fail-loud` | harness / test-infra | 1h15m–2h | **~1h05m** | + 1 repair round | merged `526efd1` | APPROVE-WITH-NITS | 7 commits. Two mechanisms (Taskfile dep + fail-loud). Settled its riskiest claim by execution rather than reading. |
+| C1 `conflict-notice-mockup-amendments` | mockup / `.planning` only | 45m–1h15m | **~26m** | + **2 repair rounds** | merged `e0f3247` | Verifier PASS (3rd pass) + APPROVE-WITH-NITS | 7 commits. 16 plates / 32 renders / 35 `done_when:`. Failed its own verifier twice on criteria that could not fail. |
+| B1 `sync-rxdb-collections-and-table-contract` | schema / net-new files | 2h15m–3h15m | **~53m** | + 1 repair round | merged `95a2657` | APPROVE-WITH-NITS | 8 commits. Came in at **~40% of the low estimate** — schema-only cards with no integration surface are systematically over-priced. |
+| B2 `sync-rxdb-row-visibility-rls` | security / RLS | 2h45m–4h15m | **~15m to park** | G6 re-executed every probe | park note merged `4de3ca0` | **park CORRECT** | Parked during *orientation*, before writing any SQL. Deliberately committed **no red** — and that judgment was the finding. |
+| A1 `app-timezone-unify-new-york` | cross-cutting refactor | 2h15m–3h15m | **~1h18m built** | G6 **REJECT** | **NOT merged** | park, branch preserved | Reported DONE. Well-built work that landed a decision it lacked authority to land. |
+
+**What this run teaches about estimating.**
+
+**A park is cheap when the trigger is checked at orientation, and expensive when it is checked at
+review.** B2 spent **15 m** to reach a correct park because it probed the topology before writing
+SQL. A1 spent **1 h 18 m building** and was then rejected on evidence that was sitting in a
+committed contract document the whole time. Same outcome class, **5× the cost.** Price a card whose
+PARK trigger names an *external contract* with an explicit orientation leg, and make that leg's
+first job to read the contract.
+
+**Schema-only cards are over-priced by roughly 2.5×.** B1 estimated 2h15m–3h15m and implemented in
+**53 m** — net-new files, no integration surface, no existing behaviour to preserve. Contrast the
+same run's harness card, which touched nine existing packages and came in *at* estimate. **The
+predictor is edited-surface, not lines written.**
+
+**Mockup cards are cheap to draw and expensive to gate.** C1 drew in **26 m** and then spent **two
+repair rounds** — because both gates found criteria that *could not fail*, not because the plates
+were wrong. The plates survived every round; the criteria did not. **Price a mockup card at draw +
+2–3× draw for gating**, and expect the findings to be about the checks rather than the artifact.
+
+**Attended-triage verification cost, 2026-07-29.** The adversarial reproduction subagent — own
+detached worktree, own `npm ci`, own Go builds, own `hq_adv_*` databases, every gate re-executed
+including the full 24.8 m Playwright suite, then mutation probes against each card's claims — ran
+**~35 m wall clock** for **~203 k tokens and 118 tool calls**, unattended. It **refuted 0 gate
+claims** — every closeout number reproduced to the digit, including 591/6/597 and 21 spec files —
+and returned **3 findings the run did not report**, all in guards rather than shipped behaviour
+(B-22/B-23/B-24). **Three nights running, the gates have been honest and the prose about them has
+not:** 07-27 refuted six durable claims, 07-28 refuted zero and found three, 07-29 refuted zero and
+found three. The mutation probes, not the gate re-runs, are where every finding came from — the
+gate re-execution has now confirmed honesty three times in a row and is approaching the point where
+its cost needs justifying separately from the probes.
+
+**Operator attention this triage ran ~45–55 m** — longer than the 20–25 m a fork-resolution triage
+budgets, because the mockup walkthrough was folded in (16 plates read back as PNGs) and produced a
+**third amendment plus two settled open decisions**. The walkthrough is what it cost, and it
+unblocked the milestone's only attended-blocked card.
+
+## `overnight-20260801` — 4 cards, CONCURRENT across three tracks, 4 of 4 landed, 0 parked (recorded at morning triage 2026-07-31)
+
+Dispatch 09:47:41 EDT, closeout 17:34 EDT → **run wall-clock ≈ 7h47m** for 4 cards.
+**Every card ran three phases, not one:** implement → fresh-subagent G6 adversarial review → fix
+round. C2 ran four (adding the CLAUDE.md verifier gate). **All four G6 reviews returned APPROVE
+WITH FINDINGS and every one found at least one blocking defect — no card merged on its first
+submission.** Price a card at its implementer time **plus a review-and-repair round**, not at the
+implementer time alone; on this evidence the implementer leg is roughly half the card.
+
+| Card | Track | Class | Implementer wall-clock | G6 verdict | Fix round | Merge |
+|---|---|---|---|---|---|---|
+| `app-timezone-unify-new-york` | A | resume of a 07-29 park | **76m 19s** | APPROVE WITH FINDINGS (F1 provenance, F2 changeover dates — blocking) | FIXED | clean |
+| `sync-rxdb-row-visibility-rls` | B | resume of a 07-29 park | **66m 58s** | APPROVE WITH FINDINGS (F2 destructive down, F1 silent skip — blocking) | FIXED | clean |
+| `sync-rxdb-replication-and-conflict-handler` | C1 | build, new module | **112m 20s** | APPROVE WITH FINDINGS (`_deleted` justification false — blocking) | FIXED | **3 conflicts, all pre-resolved** |
+| `sync-rxdb-conflict-notice-ui` | C2 | build, UI + verifier gate | **126m 11s** | verifier **PASS 30/30** + APPROVE WITH FINDINGS | FIXED | clean |
+
+**Per-phase G6/fix/land splits are NOT recorded for this run** — `timings.log` captures dispatch
+and implementer-return only, so the review and repair legs are known to have happened but not how
+long they took. That is the gap to close next run: the three-phase shape is now the norm and
+sizing against implementer time alone under-prices every card by roughly half. **Ask the
+orchestrator to stamp G6-start / G6-return / fix-return per card.**
+
+**Resume cards are NOT cheap.** Both resumes (A1 67m, B2 76m) landed in the same band as a fresh
+build card, not below it. A park preserves the *work*, not the *cost* — the card re-reads its own
+branch, re-establishes gate evidence on a moved base, and re-runs the full three phases. Do not
+price a resume at a discount.
+
+**Track serialization paid for itself, measurably.** C2 was cut *after* C1 merged, so it developed
+against the merged state — and the two cards sharing the RxDB client layer and `workflows.html`
+most heavily produced **zero conflicts**. The three-conflict merge was C1's, against cards it ran
+*concurrently* with. Serialization cost C2 a ~4h later start (13:47 vs 09:47) and bought the
+cleanest merge of the night.
+
+**What concurrency cost, priced.** Three concurrent Playwright suites drove load to **17 on 8
+cores**. Measured: one **invalidated** full gate run (C1's — a killed Playwright survived `pkill`
+and raced its replacement on the same port and DB, producing two summary blocks under one header),
+**two** shared-database collisions forcing both resume cards onto their own databases, and **one
+duplicate backlog number** (A1 and C1 both filed `B-28` without seeing each other; C1's was
+renumbered to B-31). Every G6 review and fix round then needed a distinct DB prefix and
+`TEST_PORT` from the orchestrator. Concurrency bought wall-clock and cost gate-evidence integrity
+— weigh that explicitly at the next slate rather than treating three tracks as free.
+
+**Attended-triage verification cost, 2026-07-31.** The adversarial reproduction subagent — own
+scratch, two throwaway worktrees, own `hq_adv_*` databases, every gate re-executed including the
+full **23.3 m** Playwright suite, then mutation probes against each card's claims — ran **~43 m
+wall clock** for **~140 k tokens and 72 tool calls**, unattended. **It refuted the closeout's
+headline gate claim** (Playwright exit 1 on B-27, against a recorded exit 0) and returned **2
+reproduced findings plus 1 self-disclosed** that the run did not report (B-35/B-36/B-37) — all in
+gates and guards rather than shipped behaviour. 🛑 **This breaks a four-night streak.** The prior
+three triages found the gates honest (07-27 refuted six *durable* claims but no gate numbers;
+07-28 and 07-29 refuted zero). The note in the 07-29 entry — that gate re-execution "is
+approaching the point where its cost needs justifying separately from the probes" — **is now
+answered: keep it.** The one night it was arguably redundant is the night it caught a false green.
+
+**Operator attention this triage ran ~25–35 m** across four question rounds, three of which were
+withdrawn and reformulated. Two reformulations were the operator's corrections and both are now
+durable rules: questions are to be framed as **user stories** rather than technical prose, and a
+decision whose own rule already names an evidence bar (the `HQ_SYNC_REST_URL` disarm) **is
+triage's to make, not the operator's** — escalating it spent attention on a call triage was
+already equipped to decide. Budget fewer, better-framed questions rather than more options.
+
+---
+
+# Cycle median — "Sync foundation" (Delivery KR3), computed 2026-08-02
+
+> **Why this section exists.** Delivery KR3 reads: *"Per-card wall-clock timing is recorded for
+> all 5 cards in this activity (4 sync + 1 independent fix), and a median is computed against the
+> prior cycle's baseline (N=12 / 94m)."* The timings were recorded run by run; **the median was
+> never computed**, so the KR was unmet on arithmetic that had never been done rather than on
+> anything about the work. This section is the computation, with its inputs, so the number is
+> auditable rather than asserted.
+>
+> **Cycle window.** "Sync foundation" opened at the attended `/nc-roadmap-round` 2026-07-24/25
+> (OKRs signed 2026-07-25) after "Prove & surface" closed 2026-07-24. Runs in window:
+> `overnight-20260725` · `-20260726` · `-20260727` · `-20260729` · `-20260729-2` · `-20260801`.
+> `overnight-20260724` belongs to the **prior** cycle (`reference/cycle-closeout-20260724.md`
+> lists it in that cycle's window) and is not counted here.
+
+## The basis, and why it is arguable
+
+The 94m baseline is **not** an implement-leg figure. `runs/2026-07-24-autonomous/scorecard-20260724.md`
+§4 defines its "Card cycle" column as **impl + G6 + merge** and computes
+`(93 + 95)/2 ≈ 94m, N = 12` from that. Comparing an implement-only number against it would be a
+category error, so **the headline below uses the same end-to-end basis**.
+
+🛑 **That basis is not recordable for every card this cycle, and the gap is the finding.** Two of
+the six runs stamped only the implementer leg:
+
+- `overnight-20260729-2` — the card table records `+ 1 repair round` / `+ 2 repair rounds` with
+  **no minutes**, and `runs/2026-07-29-2-autonomous/timings.log` holds a single dispatch line.
+- `overnight-20260801` — stated in terms in this file: *"Per-phase G6/fix/land splits are NOT
+  recorded for this run — `timings.log` captures dispatch and implementer-return only… sizing
+  against implementer time alone under-prices every card by roughly half."*
+
+So **7 of the 18 merged cards this cycle cannot enter an end-to-end population.** Both bases are
+given below because the choice is genuinely arguable; they are not interchangeable and the
+comparison to 94m is only valid for Basis A.
+
+## Basis A (headline) — card cycle = implement + review + repair + land
+
+Same definition as the baseline. Figures taken **as recorded** in this file, per the baseline's own
+precedent (*"the ledger column is used as recorded"*).
+
+| # | Card | Run | Legs as recorded | Card cycle |
+|---|---|---|---|---|
+| 1 | A `workflow-submission-status-client-half` | 20260726 | 27m24s impl + 17m11s G6, no repair | **44m35s** |
+| 2 | D `sync-rxdb-conflict-notice-mockup` | 20260729 | ~12m + ~16m verifier ×2 + ~25m repair | **~55m** |
+| 3 | W1 `sync-spike-stack-and-jwt-bridge` | 20260725 | 53m05s + 5m14s + ~11m land | **~69m** |
+| 4 | W2 `sync-spike-rxdb-replication` | 20260725 | 49m31s + 7m02s + ~6m land + 9m25s revision | **~72m** |
+| 5 | A `precache-manifest-from-head` | 20260729 | ~75m + 1×G6 ~13m, no repair | **~90m** |
+| 6 | B `sync-jwt-bridge-endpoint` | 20260726 | 82m17s + 9m48s + 10m56s repair | **103m01s** |
+| 7 | A `pwa-cache-and-build-hygiene` | 20260727 | 50m11s + 41m02s + 9m37s + ~6m merge | **~105m** |
+| 8 | C `sync-proxy-endpoint` | 20260729 | ~25m + 3×G6 ~48m + 2 repairs ~40m | **~115m** |
+| 9 | B `workflow-queue-period-and-failnote-upsert` | 20260729 | ~105m + 1×G6 ~26m, no repair | **~135m** |
+| 10 | C `sync-rxdb-browser-delivery-spike` | 20260726 | 117m50s + 16m10s + 11m01s repair | **145m01s** |
+| 11 | B `workflow-offline-double-submit` | 20260727 | 58m49s + 32m31s + 58m32s (REJECT→repair→re-review) + ~14m merge | **~170m** |
+
+**N = 11 (odd), median = the 6th value = `sync-jwt-bridge-endpoint` at 103m01s ⇒ 103m.**
+
+### vs the baseline
+
+| | N | Median |
+|---|---|---|
+| Prior cycle "Prove & surface" (2026-07-24 close) | 12 | **94m** |
+| This cycle "Sync foundation" (2026-08-02) | 11 | **103m** |
+
+**+9m, ×1.10 — flat within one card's noise, and that is the honest reading.** The prior cycle's
+94m was itself flagged as a ~4.2× jump over the T-14 baseline (N=23 / 22m28s) *"dominated by a
+population shift."* This cycle shifted population again — toward infra spikes, a self-hosted
+Supabase stack, RLS, and a client-library migration — and the median did **not** move with it. On
+this evidence the ~95–105m band is the current class's real cost, not an artifact of one cycle.
+
+### Sensitivity (the median is robust, and here is why)
+
+- The three `20260726` cards carry no separately-recorded merge leg. Adding the baseline's own
+  merge range (~1–6m) to each moves the median to **~105m**. Range **103–105m**; conclusion
+  unchanged.
+- Substituting W2's leg sum (~62.5m) for its recorded ~72m leaves the median at **103m** — it
+  sits below the middle either way.
+- Dropping the two mockup/planning cards (#2, and #8's sibling class) as "not build cards" would
+  leave N=10 and a midpoint of (103+105)/2 = **104m**. Precedent says keep them: the baseline's own
+  N=12 included `C1 prove-surface-design-draft` (~13m), a design draft.
+
+### Excluded, with reasons
+
+- **F1 `workflow-submission-status-default` (20260725)** — attended fold, *"unmeasured"* in its own
+  row. The baseline's precedent is to exclude unmeasured cards, not to estimate them.
+- **H1 `test-harness-fail-loud`, C1 `conflict-notice-mockup-amendments`,
+  B1 `sync-rxdb-collections-and-table-contract` (20260729-2)** and **all four `20260801` cards**
+  (`app-timezone-unify-new-york`, `sync-rxdb-row-visibility-rls`,
+  `sync-rxdb-replication-and-conflict-handler`, `sync-rxdb-conflict-notice-ui`) — merged and
+  G6-gated, but **review/repair/land legs untimed**. Their implementer figures are in Basis B.
+- **B2 `sync-rxdb-row-visibility-rls` (~15m to park) and A1 `app-timezone-unify-new-york`
+  (~78m built, not merged), both 20260729-2** — parked. The baseline excluded parked cards
+  explicitly (*"parked work is not a completed WO cycle"*). Both were resumed on `20260801` and
+  those resumes appear in Basis B.
+- **Card C, 20260727** — never dispatched.
+- **Orchestrator legs** — 20260725 F1 attribution investigation 21m43s; 20260726 RUN-10 paired
+  measurement 30m15s and final-tree go-gate 1m13s; 20260727 merge legs. Not WO cycles; the
+  baseline excluded the analogous 20260720c follow-up sweep for the same reason.
+- **Attended-triage verification passes** (~18m / ~70m / ~27m / ~35m / ~43m across the cycle) —
+  next-morning work, not a card.
+
+## Basis B — implementer wall-clock only (NOT comparable to 94m)
+
+Recorded for every merged card, so it covers the whole cycle. Given because Basis A silently drops
+7 cards, and a reader is entitled to see the population Basis A could not use.
+
+Sorted (minutes): 12 · 25 · 26 · 27.4 · 49.5 · 50.2 · 53 · 53.1 · 58.8 · **65** · **67** · 75 ·
+76.3 · 82.3 · 105 · 112.3 · 117.8 · 126.2
+
+**N = 18 (even), median = (58.8 + 65)/2 ⇒ ~62m.**
+
+🛑 **Do not compare 62m to 94m.** The baseline is end-to-end; 62m is one leg of three. This file's
+own `20260801` entry prices the missing legs at *"roughly half the card"*, which is consistent with
+Basis A's 103m — but that is an inference, not a measurement, and it is not offered as the KR's
+number.
+
+## Basis C — the KR's literal denominator, for completeness
+
+The KR names *"all 5 cards in this activity (4 sync + 1 independent fix)."* **That denominator went
+stale within a week** — Activity 1 fanned out repeatedly (the feasibility spike into W1+W2;
+schema-and-replication into collections, RLS, replication+conflict-handler, browser-delivery,
+proxy-endpoint, and the conflict-notice mockup/UI pair) and has produced **18 merged cards**, not 5.
+Restricting Basis A to Activity-1 cards only:
+
+44m35s (`workflow-submission-status-client-half`, the independent fix's client half) · ~55m
+(`sync-rxdb-conflict-notice-mockup`) · ~69m (W1) · **~72m (W2)** · 103m01s (`sync-jwt-bridge-endpoint`)
+· ~115m (`sync-proxy-endpoint`) · 145m01s (`sync-rxdb-browser-delivery-spike`)
+
+**N = 7, median = ~72m** — below the 94m baseline. Reported, not headlined: it excludes real cards
+of this cycle (the PWA/precache/offline-submit work) purely because the roadmap filed them under a
+different activity, and a median chosen from the narrowest admissible population is the one to
+distrust.
+
+## What to carry to the next slate
+
+1. **Stamp G6-start / G6-return / fix-return per card.** This file already asked for it in the
+   `20260801` entry; the cost of not doing it is now concrete — **7 of 18 cards could not be
+   counted**, and the KR's median rests on 11 cards when 18 were available. Filed as **B-39**.
+2. **~100m end-to-end is the current class's price, and it did not move under a population shift.**
+   Two cycles now: 94m then 103m. Size a card of this class at ~1h45m end-to-end and treat
+   implement-only estimates as roughly half the answer.
+3. **The KR's denominator should be a query, not a literal.** "All 5 cards in this activity" was
+   wrong within a week of being written. Filed as **B-40**.
+
+---
+
+# Run `20260802` — Night A of a two-night milestone close
+
+Recorded at morning triage 2026-08-02. **Dispatch: CONCURRENT, 2 tracks, one in-flight card per
+track.** 4 of 6 cards landed, nothing parked, no operator-only fork.
+
+🛑 **Per-card implement / G6 / fix / land times CANNOT be reported for this run, and that is B-39
+recurring for the second cycle running.** No leg stamped G6-start, G6-return or fix-return. The
+`20260801` entry asked for these stamps; the cost is now concrete twice over. Commit-timestamp
+spans are **not** a substitute here — each card branch carries the prior cards' merges (P1's span
+reads 462m across 57 commits, of which most are A1/B1/A2's), so a derived per-card duration would
+conflate tracks and be worse than an honest blank. **Merge timestamps are clean and are what is
+recorded below.**
+
+| Card | Class | Merged at | Merge SHA | G6 verdict | Outcome |
+|---|---|---|---|---|---|
+| pre-step (not a card) | docs-only | 09:46 | `9f444ff` | n/a | LANDED — P-KR2, D-KR3, E-KR1 closed |
+| **A1** `sync-replication-scope-per-checklist` | white / milestone | 12:06 | `2dc4eef` | APPROVE WITH FINDINGS — 9 findings, **2 BLOCKING** | LANDED, 1 conflict |
+| **B1** `sync-cache-and-identity-hygiene` | white / milestone | 14:23 | `8b6b3bd` | APPROVE WITH FINDINGS — **2 BLOCKING** | LANDED, 2 conflicts |
+| **A2** `sync-rxdb-write-policies` | white / milestone | 14:46 | `de7d78c` | APPROVE WITH FINDINGS — **3 BLOCKING** | LANDED, 1 conflict |
+| **P1** `build-deploy-manifest-integrity` | hygiene / guard | 17:28 | `a9e2018` | APPROVE WITH FINDINGS — **no blocking**, tightened anyway | LANDED, 1 conflict |
+| **P2** `workflow-unsubmit-failnote-reattach` | — | — | — | — | NOT STARTED (budget) → Night B |
+| **P3** `sync-banner-builder-tab-scope` | — | — | — | — | NOT STARTED (budget) → Night B |
+
+**Night envelope:** first card commit 09:31 → closeout written 21:15. **~11h40m wall clock for 4
+cards plus a pre-step**, against a slate of 6. Two tracks, so this is not 4 × sequential.
+
+## What to carry to the next slate
+
+1. **🛑 B-39 is now the highest-value process fix in the backlog, on evidence from two consecutive
+   cycles.** Two runs in a row have produced un-countable cards. D-KR3's median rests on 11 of 18
+   cards last cycle and on **0 of 4** this one. A KR measured from a ledger nobody stamps is a KR
+   measured from nothing. The stamp is three timestamps per card and costs seconds.
+2. **The gate is working and the cards are not failing — that distinction held again.** Four G6
+   reviews, **three found blocking defects**, and **no card merged on its first submission** —
+   matching `20260801` exactly. Budget a fix round into every card of this class; it is the norm,
+   not the exception. A slate that sizes cards at implement-only will miss by roughly half.
+3. **🛑 Concurrency cost this run more than it bought, and the evidence is unusually clean.** The
+   same tree at the same commit: **24.5m / 1 failure on a quiet box** versus **51.7m / 7 failures
+   contended** (six of seven being 28–34s timeouts), with the contention self-inflicted by the
+   orchestrator running the Go and RLS suites alongside the Playwright gate. Separately, a wait
+   loop's `pgrep -f 'go test|playwright test'` matched **its own command line** and idled ~2h20m
+   while reporting queued. **Two tracks also produced two backlog-number collisions** (three legs
+   claimed `B-39`; A2 and B1 both filed `B-46`) and one shared-scratchpad log clobber. Before
+   sizing Night B for two tracks, weigh ~2h20m of dead loop plus a discarded 51.7m gate against
+   what the second track actually delivered.
+4. **B-50 gates concurrent substrate work.** `HQ_RLS_TEST_DB` isolates only the HQ-side FDW
+   database; the Supabase `public` schema and the single PostgREST have no isolation variable, so
+   A2's policies reddened B1's suite in a worktree touching zero Go files. Until B-50 lands, two
+   substrate-touching cards on concurrent tracks buy a class of unattributable red — size Night B
+   accordingly, or serialise S1.
+
+---
+
+## Run `20260803` — Night B of the two-night milestone close
+
+**Dispatch: SERIAL** (operator's choice at sign-off). Wall clock **10:00 → 14:0x EDT**, ~4h for
+3 cards, against a slate that projected **7h15m–11h** for the same set. The projection was not
+wrong about the cards it priced — **S1b parked at 20 minutes instead of running its 4h30m–7h**,
+and that single park is the whole difference.
+
+🛑 **B-39 stamps — the thing two consecutive cycles failed to record.** D-KR3's median rested on
+11 of 18 cards last cycle and **0 of 4** the night before this one. All four are here.
+
+| Card | Impl start → end | Impl | G6 start → return | G6 | Fix round(s) | Verdict |
+|---|---|---|---|---|---|---|
+| **S1a** `sync-cutover-list-scope` | 10:02:30 → 11:00:46 | **58m16s** | 11:01:51 → 11:30:45 | **28m54s** | none | **MERGED** (G6 PASS first submission) |
+| **S1b** `sync-hard-cutover` | 11:35:24 → 11:55:50 | **20m26s** | — | — | — | **PARKED** (decision 49 reopened) |
+| **P6** `period-summary-contract-notice` | 11:58:54 → 12:26:31 | **27m37s** | R1 12:27:26 → 12:46:42 (**19m16s**) · R2 13:20:33 → 13:38:58 (**18m25s**) | **37m41s** total | R1 12:49:25 → 13:18:23 (**28m58s**) · R2 13:42:26 → 13:54:13 (**11m47s**) | **MERGED** after 2 G6 rounds + 2 fix rounds |
+
+**End-to-end (implement + review + repair + land):** S1a **~90m** · S1b **~20m** (park) ·
+P6 **~116m**. P6's *slate estimate was 1h15m–2h* and it landed at **1h56m** — inside the band, but
+only because the band was priced end-to-end. Its **implement leg was 28 minutes**; everything else
+was review and repair. That is the standing lesson holding again: *implement-only estimates are
+roughly half the answer*, and on this card they were roughly a quarter.
+
+### What this run adds to the ledger
+
+1. **The gate is working and the cards are not failing — the distinction held a third cycle.**
+   Three G6 reviews across two cards; **two returned FAIL**. S1a is the first card in three runs
+   to pass G6 on first submission — and it did so with the reviewer running seven independent
+   feature-removal mutations against it, so it is a strong pass, not an unexamined one.
+2. **🛑 P6 is the cautionary entry: each pass found errors in the previous pass's own corrections.**
+   The original audit was wrong in ten ways. The fix round that swept those *introduced* a new
+   factual error in the exact row the card existed to fix, and G6 round 2 then found a **fourth**
+   instance of that same defect class in a row nobody had reopened. **On a card whose deliverable
+   is an audit, budget review rounds until a round comes back clean — not a fixed number.** Two
+   G6 rounds was the minimum that worked here, and the second one was not optional.
+3. **Serial dispatch produced 3 clean merges and zero backlog-number collisions**, against
+   20260802's two collisions and one log clobber under two tracks. Numbers were allocated up front
+   by the orchestrator (S1a B-61..64, S1b B-65..70, P6 B-71..76) and no card had to guess.
+   **Caveat before reading this as a win for serial:** merge 2 was clean because S1b *parked*, so
+   the arrangement was never actually tested by two overlapping production diffs.
+4. **A park is cheap and a park is fast.** S1b consumed 20 minutes to establish that the milestone's
+   last card is not buildable as specified — against a 4h30m–7h estimate. The slate's instruction
+   ("prefer a clean early exit over starting a card you cannot finish cleanly") paid for itself
+   roughly fifteen-fold, and the finding it produced is the most valuable output of the night.
+5. **Orchestrator errors worth not repeating**, both mine, both caught: `go build ./...` run from
+   the repo root (where `./...` matches no module) with the error **masked by a pipe into `tail`** —
+   it printed a false green; and the final Go gate first run with `postgres:postgres` credentials
+   when this box uses **`yumyums:yumyums`**. The second failed *loud* and correctly refused to skip,
+   which is the fail-loud harness working as designed — but it cost a 15-minute run.
+
+## Run 20260804
+
+| Card | Implement | G6 | Fix rounds | End-to-end |
+|---|---|---|---|---|
+| A1 `e2e-gate-database-isolation` | 46m50s (10:23:02→11:09:52) | 17m38s (11:09:52→11:27:30) | 11m52s (11:27:30→11:39:22) | **76m20s** — MERGED, G6 APPROVE-WITH-NOTES. Estimate 75–120m; landed at the low end. |
+| A2 `workflows-autosavefield-phantom` | 57m54s (11:40:42→12:38:36) | 12m33s (12:38:36→12:51:09) | 6m18s (12:51:09→12:57:27) | **76m45s** — MERGED, G6 APPROVE-WITH-NOTES. Estimate 45–75m; 1m45s over the high end. |
+| A4 `offline-ownership-design-note` | 9m54s (12:58:26→13:08:20) | 8m51s (13:08:20→13:17:11) | 12m22s (13:17:11→13:29:33) | **31m07s** — MERGED, G6 APPROVE-WITH-NOTES. Estimate 45–75m; well under, because the analysis was pre-done and the card's job was verification, not discovery. |
+| A6 `app-version-badge` 🅢 | 39m51s (13:30:35→14:10:26) | 12m18s (14:10:26→14:22:44) | 15m24s (14:22:44→14:38:08) | **67m33s** — MERGED, G6 APPROVE-WITH-NOTES. Estimate 45–75m; inside it, and the implement leg absorbed a mandatory ~21m full suite (`index.html` is undeclared in `[e2e.seams]`). |
+
+**Run 20260804 median end-to-end: 71m56s** (N=4: 31m07s, 67m33s, 76m20s, 76m45s). No exclusions —
+all four cards ran the same shape (implement → G6 → one fix round → merge) and none was aborted,
+parked, or restarted. The one outlier low (A4, 31m07s) is a documentation card whose analysis was
+done at planning time; it is included rather than excluded, and named here so the median is
+readable rather than merely defensible.
+## Run 20260806
+
+**Dispatch: CONCURRENT, three tracks** (operator's choice at sign-off) under a global Playwright
+suite mutex. Wave 0 ran alone and first; A1/A2/C1 then ran concurrently; A3 followed A1 in Track A;
+A4 followed A2 in Track B. **A5 `shipped-bug-sweep` was CUT on budget and never dispatched.**
+
+🛑 **Provenance of these figures.** Legs marked **(stamped)** were timed by the orchestrator at
+dispatch and return. Legs marked **(derived)** are computed from the sub-agent's own reported
+wall-clock, because I failed to stamp that boundary directly — A2's G6 return and A2's fix-round
+start are the two gaps. They are recorded as derived rather than presented as measured, because
+B-39 exists to make these countable, and a figure whose provenance is silently mixed is exactly
+the shape this repo keeps getting bitten by.
+
+| Card | Implement | G6 | Fix round | End-to-end |
+|---|---|---|---|---|
+| W0 `repo-hygiene-preconditions` | 52m27s (18:31:12→19:23:39) | 8m03s (→19:31:42) | 5m39s (19:31:55→19:37:34) | **67m05s** — MERGED `6f91863`, G6 MERGE WITH NOTE. Estimate 40–65m on the implement leg; landed inside it. |
+| C1 `spike-a-environment-up` 🅕 | 69m40s (19:39:00→20:48:40) | 10m53s (→20:59:33) | 25m09s (→21:24:42) | **106m28s** — MERGED `76dc12b`, G6 MERGE WITH NOTE. Estimate 60–150m; mid-range despite a full fix round. |
+| A1 `gate-rls-count-assertion` | **115m45s** (19:39:00→21:34:45) | 13m40s (→21:48:25) | 55m21s (→22:43:46) | **185m06s** — MERGED `9b63958`, G6 MERGE WITH NOTE. Estimate 55–85m; **OVER the high end by 30m45s (+36%)**. See note 1. |
+| A2 `gate-harness-check-b` | 76m57s (19:39:00→20:55:57) | 49m05s (→~21:45:02, **derived**) | 67m05s (~21:47:14→22:54:19, **derived**) | **196m13s** — MERGED `b75ac53`, G6 MERGE WITH NOTE. Estimate 70–110m; implement leg inside it. |
+| A4 `gate-ladder-completeness` | **8m05s** (21:48:25→21:56:30) | 5m29s (→22:01:59) | 5m34s (~22:56:45→23:02:19) | **74m27s** — MERGED `c2a7e5c`, G6 MERGE WITH NOTE. Estimate 30–50m; far under, because it is a documentation card whose analysis was done at slate time. The end-to-end figure is dominated by waiting on the mandated merge order, not by work. |
+| A3 `gate-rls-fixture-ownership` | 41m49s (22:44:57→23:26:46) | 10m09s (→23:36:55) | none attempted | **NOT MERGED** — G6 **DO NOT MERGE**. Estimate 55–85m; implement leg **under** it. Branch and worktree preserved. See note 6. |
+| A5 `shipped-bug-sweep` 🅢 | — | — | — | **NOT DISPATCHED.** Cut on budget at 21:40Z, ~3h09m in. See note 2. |
+
+🅕 first-of-kind, no prior `card-actuals` basis. 🅢 budget-gated stretch.
+
+### Notes
+
+1. **A1's overrun is mostly environmental, not estimation.** It lost an in-flight nested RLS run
+   when C1's `docker compose up -d` recreated the spike containers and moved their ephemeral ports
+   underneath it, and lost a Playwright leg to harness reaping (the parent shell was killed, the
+   suite kept running orphaned, so `echo "EXIT=$?"` never executed and the code was unrecoverable).
+   Its fix round then absorbed a **mandatory 23.5m Playwright re-run** because its original gate had
+   been invalidated by concurrency — see note 3. Roughly 30m of the 115m is attributable to the two
+   environmental losses, which would put it just inside the high end.
+
+2. **A5 was cut early, deliberately.** At the decision point the remaining critical path was A3
+   (90–130m) plus A4 plus a ~30m closeout; A5's own 70–105m estimate plus a full ~24m suite it would
+   have had to queue for projected past 03:00Z. The slate's rule is *"start only if A5's estimate
+   plus the ~30m closeout is still in hand"*, and it was not. Deciding this **early** is the point:
+   deciding it late is how a stretch card eats the closeout.
+
+3. **One gate was discarded and re-run rather than reasoned about.** A2's G6 ran an unlocked
+   ~11-minute `verify-test-harness.sh` — a `go test` over 7 packages, i.e. a Go suite — which
+   overlapped A1's full Playwright suite. A1's original result showed **zero failures**, so a
+   conditional reading would have let it stand; the slate says *"discarded and re-run, not reasoned
+   about"* precisely to forbid that reasoning. Cost ~24m. **Root cause was the orchestrator's**: the
+   unlocked-probe carve-out was written for A2's *cheap per-package probes* (seconds each,
+   nonexistent DB, no ports) and was drawn broadly enough that a G6 reasonably extended it to the
+   eleven-minute end-to-end harness. Narrow the exemption next time to *single-package* probes.
+
+4. **The mutex itself worked, under real contention.** The queue was observed four deep (A1's Go
+   legs holding, C1's Playwright, A1's Playwright, A2) with no two suites overlapping. `flock` on a
+   shared lock file made overlap structurally impossible rather than a rule each subagent had to
+   remember — which is what made the single violation above traceable to a carve-out I authored,
+   rather than to a card forgetting.
+
+5. **Three of the four code-changing cards shipped without their `## Red-first` section** (W0, C1,
+   A1) and all three were sent back for it. A4 — told about the others' failures — is the only card
+   that got it right first time, and it is the one card that legitimately records `n/a`. The
+   requirement lives in the launch prompt but in **no card template**, so every card had to remember
+   it unaided. This is Q-KR3's first gradeable cycle. **Put it in the merge-intent template.**
+
+6. **A3 was not merged, and no fix round was attempted.** Its G6 returned DO NOT MERGE on two
+   findings — and **realised the first one during the review**, destroying the production database
+   (B-141, B-143; incident recorded in `conflicts-20260806.md` §6 and HANDOFF.md). The card's
+   mechanism and evidence are the strongest of the run and both fixes are a few lines, but they
+   were deliberately left for attended work: the defect had just taken prod down, the budget was
+   spent at 7h20m, and a guard on `DROP DATABASE` against the production cluster is not something
+   to re-gate autonomously at 2am. This is the same instinct the slate's budget rule encodes —
+   prefer a clean stop over a rushed landing — applied to a card that was *technically* nearly
+   done.
+
+**Run 20260806 median end-to-end: 106m28s** (N=5 merged: 67m05s, 74m27s, 106m28s, 185m06s,
+196m13s). **A3 is excluded** because it did not complete a merge, and A5 is excluded because it was
+never dispatched — both exclusions are named rather than silently dropped, per the run 20260804
+precedent. Median is up sharply on 20260804's 71m56s, and the reason is legible rather than
+mysterious: **every card this run took a fix round** (5 of 5 merged), where 20260804's cards each
+took one short one, and three cards absorbed a full ~23m Playwright suite serialized behind a
+global mutex that did not exist on previous nights. The mutex is not the regression — it is what
+made the one gate violation traceable — but it does convert concurrency into queueing whenever
+more than one card wants the suite, and six of seven cards wanted it.
+
+## Run `20260807` (executed 2026-08-06 daytime, 09:25–12:55 EDT — serial dispatch, 3/3 merged, zero fix rounds)
+
+Figures from the run's `timings.log` (sub-agent durations measured; boundaries from
+dispatch/notification order). No card took a fix round — first night with zero since the
+fix-round-heavy 20260806. All three G6 legs were Fable; implementers Opus (W0, S) and
+Sonnet (A2), per the launch prompt's routing note.
+
+| Card | Implement | G6 | Land | End-to-end |
+|---|---|---|---|---|
+| W0 `test-cluster-separation` | 54.4m measured (09:27→10:22, incl. waiting out a foreign attended :5433 suite) | 7.4m (10:23→10:31) | ~5m (incl. the dev mis-merge recovery + re-merge `a03c6bc`) | **~68m** — MERGED, G6 MERGE-WITH-NOTES. Estimate 90–150m; well under even with the incident. |
+| A2 `shipped-bug-sweep` | 47.2m measured (10:36→11:23, incl. a self-pause awaiting its backgrounded suite, orchestrator-resumed) | 6.4m (11:24→11:30) | ~1m (merge `405a52f` + log §2) | **~91m wall / ~55m work** — MERGED, G6 MERGE-WITH-NOTES. Estimate 70–105m; work time inside it, wall inflated by the stall. |
+| S `spike-b-migration-rehearsal` 🅢 | 58.3m measured (11:33→12:31) | 6.3m (12:31→12:37) | ~1m (merge `61eb4af` + log §3) | **~65m** — MERGED, verdict GREEN exit 0, G6 MERGE-WITH-NOTES + independent re-execution. Estimate 60–150m; at the low end. |
+
+**Run 20260807 median end-to-end: ~68m** (N=3: 65, 68, 91). Down from 20260806's 106m28s and
+back in line with 20260804's 71m56s — the legible driver is zero fix rounds (20260806 had one
+per card) and serial dispatch removing all suite queueing. The stretch gate was computed at
+11:31 (2.1h elapsed, S high-end + closeout inside the envelope) — the arithmetic-gate
+discipline holding. Clean-path population, no parks.
+
+## Run `20260807-2` (executed 2026-08-07, 00:06–02:04 EDT — serial dispatch, 2/2 merged, zero fix rounds)
+
+Figures from the run's `timings.log` (dispatch/notification boundaries). 🛑 HANDOFF's own
+per-card actuals column is NOT the source here — its C row ("~2h05m wall") exceeds the 1h58m
+run window and is recorded in T-41 as an evidence correction; `timings.log` is the measured
+record. Second consecutive zero-fix-round night. Both cards spike-class (🅢): the verdict
+script is the deliverable, and each card's implement window contains a full ~25.5m Playwright
+suite plus its live spike runs.
+
+| Card | Implement | G6 | Land | End-to-end |
+|---|---|---|---|---|
+| C `spike-c-round-trip` 🅢 | 50.0m (00:06→00:56, incl. 25.7m suite + green/red spike runs) | 7.9m (00:56→01:04) | ~1.2m (merge `76801aa` + post-merge G4) | **~59m** — MERGED, GREEN exit 0, G6 MERGE-WITH-NOTES. Estimate 90–150m; well under. |
+| D `spike-d-realtime-live` 🅢 | 48.6m (01:05→01:54, incl. 25.5m suite + green/red spike runs) | 7.3m (01:54→02:01) | ~3m (merge `7101b1c` + closeout) | **~59m** — MERGED, GREEN exit 0, G6 MERGE-WITH-NOTES. Estimate 60–120m; at the low end. |
+
+**Run 20260807-2 median end-to-end: ~59m** (N=2: 59, 59). In line with 20260807's ~68m and
+20260804's ~72m — the clean-path population holds when dispatch is serial and no fix rounds
+fire. Spike-class estimate ranges continue to over-provision on the clean path (both nights'
+🅢 cards landed at or under the low end of their range); no range adjustment yet on N=3 —
+revisit if the Activity 3–5 build cards repeat the pattern.
+| E `spike-e-reconnect-catchup` 🅢 | 51.0m (08:54→09:45, incl. 26.1m suite + green/red spike runs) | ~7m (09:47→09:54) | ~2.5m (merge `0ac5a20` + post-merge G4 + closeout) | **~64m** — MERGED, GREEN exit 0, G6 PASS. Estimate 60–120m; at the low end. |
+
+**Run 20260808: single card, ~64m end-to-end** (attended-daytime launch, serial). Fourth
+consecutive 🅢 spike card landing at or under the low end of its estimate range (N=4: C 59,
+D 59, E 64 vs low ends 90/60/60) — the clean-path over-provisioning pattern holds; revisit
+the 🅢 range when the Activity 3–5 build cards (a different class) record their actuals.
+
+## Run 20260808-2 (night of 2026-08-07, serial dispatch, 4 of 5 cards)
+
+First build-class actuals of the milestone (the "different class" population the 🅢 note
+above said to wait for). One fix round fired (C3 — the slate priced one per app-code card).
+Times from `timings.log` B-39 stamps.
+
+| Card | Implement | G6 | Land | End-to-end |
+|---|---|---|---|---|
+| C1 `skeleton-offline-ownership-honesty` | 54.8m (14:38→15:33) | ~9m (no fix round) | ~2m (merge `fdfd867`) | **~66m** — est. 60–90; in band |
+| C2 `skeleton-one-row-end-to-end` | 86.0m (15:45→17:11) | 11.5m (no fix round) | <1m (merge `04c6703`) | **~98m** — est. 100–150; just under the low end |
+| C3 `activate-fill-view-reads` | 60.5m (17:23→18:24) | 12.5m r1 + **35m fix round** + 4.9m re-verify | <1m (merge `09aaa0e`) | **~113m** — est. 90–140; in band WITH a fix round |
+| S1 `list-views-decision-recording` 🅂 | 57.6m (19:16→20:14, incl. ~15m lost to a killed background Go leg) | 8m | <1m (merge `336e3a0`) | **~66m** — est. 45–80; in band |
+| S2 `demo-sync-target` | — | — | — | SKIPPED by stretch-gate arithmetic (140m needed > 134m remaining, 20:22:59) |
+
+**Median end-to-end ~82m (N=4: 66, 66, 98, 113).** Build-class bands look calibrated on
+N=4 — nothing landed above its high end even with the night's one fix round; C2 came in
+just under its low end. The 🅢 spike-class over-provisioning pattern does NOT extend to
+build cards on this evidence; no range adjustment. Repair note: C3's fix round cost ~40m
+of its ~113m (red-first + fix + re-verify) — a clean-path C3 would have been ~73m.
+
+## Run 20260809 (attended-afternoon 2026-08-08, serial dispatch, 2 of 2 cards)
+
+QA/harness-class cards — both touch only `.night-crew/qa/spike-supabase/*` scripts + Taskfile
+(no app code, no Go, no specs), so these are a DIFFERENT population from the build-class rows
+above and must NOT recalibrate the build-class bands. Both landed clean, no fix round. Times
+from `timings.log` stamps.
+
+| Card | Implement | G6 | Land | End-to-end |
+|---|---|---|---|---|
+| C1 `demo-sync-target` (close-bar) | ~14m (13:42:10→13:56:06) | ~9m (no fix round) | ~2m (merge `0fade6b`) | **~25m** |
+| C2 `spike-exit-code-honesty` (B-163) | ~13m (14:08:38→14:21:58) | ~7m (no fix round) | ~1m (merge `3e6cd5c`) | **~21m** |
+
+**Notable estimate correction:** `demo-sync-target` was priced ~140m as S2 of slate `20260808-2`
+(and SKIPPED there by stretch-gate arithmetic) — it came in at **~25m** here because the card
+re-exported the already-proven Spike C round-trip harness (`spike-c-roundtrip.sh`) rather than
+building the round trip from scratch. The 140m estimate implicitly assumed a from-scratch demo;
+when the deliverable is "package + name an existing proven harness," the packaging cost is a
+fraction of the build cost. A re-export card is its own size class — price it against the harness
+it wraps, not against building that harness.
+
+## Run: overnight-20260810 (Activity 5 — sync-live-in-dev: substrate + app-proof)
+
+> Serial, subagent-per-card (Card 2 depends on Card 1). Both **clean-path** — no REVISE
+> loop; Card 1's G6 must-fix was a comment-only one-liner applied pre-merge, not a repair
+> cycle. Times derived from card-branch commit timestamps + merge commits (AST).
+
+| Card | Implement | G6 | Land | End-to-end |
+|---|---|---|---|---|
+| C1 `sync-live-in-dev-substrate` (Activity 5 legs 1+2 + FDW persistence) | ~23m (10:45:55 merge-intent → 11:09:15 flip) | ~12m (PASS-WITH-ISSUES; comment-only must-fix `167bc7e`) | ~0m (merge `bd03059` @ 11:21:48) | **~36m** |
+| C2 `sync-live-in-dev-app-proof` (Activity 5 leg 3, app-surface red-first) | ~13m (11:29:37 merge-intent → 11:42:46 flip) | ~7m (PASS, no fix round) | ~2m (merge `489145e` @ 11:49:43) | **~20m** |
+
+**Note — two could-not-run infra rounds inside C2's implement window** (NOT card reds, NOT
+counted as REVISE, a different population per the caveat above): round 1 — a fresh worktree's
+missing `node_modules/.bin/playwright` symlink (npm "Exit handler never called" skipped
+bin-linking) let bare `npx playwright test` fall through to a foreign PATH `playwright`, failing
+BOTH legs identically (a fake asymmetry); round 2 — a missing Chromium headless-shell build.
+Both were environment, not code; C2 hardened its own harness against the first. So the ~13m
+implement figure is clean-harness-authoring time — the infra rounds added wall-clock not
+reflected in it. The cross-script hardening is graduated as BACKLOG **B-170**.

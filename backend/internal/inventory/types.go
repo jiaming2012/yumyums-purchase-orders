@@ -155,7 +155,8 @@ type DiscardPendingInput struct {
 
 // PeriodSummary is the response body for GET /api/v1/inventory/period-summary.
 // COGS aggregates use purchase_events.event_date (DATE — no TZ).
-// Completeness gate uses pending_purchases.created_at cast to America/Chicago calendar date.
+// Completeness gate uses pending_purchases.created_at cast to the APP timezone's
+// calendar date (users.DefaultTimezone — see pendingPeriodDateExpr in handler.go).
 type PeriodSummary struct {
 	From               string            `json:"from"`                 // YYYY-MM-DD
 	To                 string            `json:"to"`                   // YYYY-MM-DD

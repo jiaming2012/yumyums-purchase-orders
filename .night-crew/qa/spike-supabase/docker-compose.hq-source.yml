@@ -1,0 +1,78 @@
+# docker-compose.hq-source.yml — LOCAL SPIKE ONLY. Not production. Not HQ.
+#
+# The "HQ-shaped Postgres" half of night-crew card S `spike-b-migration-rehearsal`
+# (Spike B). A single throwaway Postgres carrying a SMALL SUBSET of HQ's real
+# schema (see sql/hq-source-schema.sql, transcribed from
+# backend/internal/db/migrations/0001,0004,0005,0006,0009,0010,0011,0012) plus a
+# deterministic fixture, so the migration rehearsal has HQ-SHAPED rows to move
+# rather than toy rows.
+#
+# ═══════════════════════════════════════════════════════════════════════════
+# 🛑 THIS IS A FRESH SCRATCH CONTAINER AND IT MUST STAY ONE.
+#
+#   * NOT the shared cluster on :5433. That cluster is PRODUCTION — a probe
+#     against it destroyed the prod database on 2026-08-06. No command in this
+#     spike resolves any database name against :5433.
+#   * NOT :5434 (`yumyums-test-pg`). That is the Playwright/Go proof substrate
+#     and it stays quiet while this runs.
+#   * NOT 5432 either.
+#
+#   The host port is left ENTIRELY to Docker (bare `- "5432"`, no
+#   `host:container` mapping) — the same convention docker-compose.supabase.yml
+#   and docker-compose.nc.yml use. A Docker-assigned ephemeral port cannot
+#   collide with anything by construction, so there is no fixed port to claim,
+#   to document as taken, or to leak into a later run. spike-b-migration.sh
+#   resolves and PRINTS whatever Docker assigned.
+#
+#   Project name `spike-b-hq` is disjoint from `spike-supabase` (spike A),
+#   `yumyums-test`, and the prod compose project. Nothing here can collide with
+#   any of them.
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# 🛑 NO BIND MOUNTS, DELIBERATELY. docker-compose.supabase.yml's relative
+#    initdb bind mounts made its container config hash depend on the ABSOLUTE
+#    host path compose was resolved from, so `up -d` from a git worktree
+#    RECREATED the db container (reproduced three times, run 20260806). This
+#    file mounts nothing: the schema and fixture are piped in with
+#    `docker exec -i psql -f -` by spike-b-migration.sh, so there is no path for
+#    the checkout location to influence anything.
+#
+# 🛑 NO NAMED VOLUME, DELIBERATELY — the opposite call to spike A's, for the
+#    opposite reason. Spike A's stack must SURVIVE between invocations, so its
+#    PGDATA is on `spike-db-data`. This container must NOT survive: the whole
+#    claim of a migration rehearsal is that it starts from nothing every time.
+#    It is created at the top of the script and destroyed at the bottom
+#    (`down --volumes --remove-orphans`), and PGDATA living in the container's
+#    writable layer is exactly right for something whose lifetime is one run.
+#
+# ⚠  THROWAWAY CREDENTIAL, committed on purpose, same rationale as
+#    docker-compose.supabase.yml's banner: this stack holds nothing real, lives
+#    for the duration of one script, and is published on an ephemeral port on
+#    loopback. Never reuse this value anywhere.
+#
+#   POSTGRES_PASSWORD  4f2b1c9d7e0a63b58c41d2f6a9e70b3c   (openssl rand -hex 16)
+
+services:
+  hqsrc:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: hq
+      POSTGRES_PASSWORD: 4f2b1c9d7e0a63b58c41d2f6a9e70b3c
+      POSTGRES_DB: hq_source
+    ports:
+      # Bare container port — Docker assigns the host side. See the banner.
+      - "5432"
+    healthcheck:
+      # An AUTHENTICATED query, not `pg_isready`. pg_isready answers on the
+      # temporary bootstrap server that runs during initdb, so a dependent (or
+      # a wait loop) can start while the real server is not yet accepting
+      # connections. This is the same lesson docker-compose.supabase.yml's db
+      # healthcheck carries; it is repeated here rather than assumed.
+      #
+      # `-U hq` over the local socket authenticates via the image's default
+      # `local all all trust` pg_hba line — no password round-trip needed.
+      test: ["CMD-SHELL", "psql -U hq -d hq_source -c 'select 1' >/dev/null 2>&1"]
+      interval: 2s
+      timeout: 5s
+      retries: 45
+      start_period: 5s

@@ -8,29 +8,34 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/yumyums/hq/internal/testdb"
 )
 
 // setupAccessTestDB connects to the test DB and truncates the tables this file
-// seeds so each test starts clean. Mirrors the connect-or-skip idiom used across
-// the backend test suite (a missing/unreachable DB skips rather than fails).
+// seeds so each test starts clean. It applies the asymmetric gate in
+// internal/testdb — the same shape as requireSpikeService in proxy_live_test.go
+// one directory over: UNSET skips, SET-but-unreachable FAILS. This file is one
+// of the two sites named in the B-16 incident report.
 // Required env: DB_TEST_URL (set by the Taskfile) or TEST_DATABASE_URL.
 func setupAccessTestDB(t *testing.T) *pgxpool.Pool {
 	t.Helper()
-	dbURL := os.Getenv("DB_TEST_URL")
+	dbURL := os.Getenv(testdb.EnvVar)
 	if dbURL == "" {
 		dbURL = os.Getenv("TEST_DATABASE_URL")
 	}
 	if dbURL == "" {
 		t.Skip("DB_TEST_URL / TEST_DATABASE_URL not set — skipping integration test")
 	}
+	// Past this point the URL was set explicitly, so a run WAS intended and
+	// every failure below is a failure, never a skip.
 	ctx := context.Background()
 	pool, err := pgxpool.New(ctx, dbURL)
 	if err != nil {
-		t.Skipf("DB_TEST_URL not reachable (connect failed): %v", err)
+		t.Fatal(testdb.Reason(dbURL, "connect", err))
 	}
 	if err := pool.Ping(ctx); err != nil {
 		pool.Close()
-		t.Skipf("DB_TEST_URL not reachable (ping failed): %v", err)
+		t.Fatal(testdb.Reason(dbURL, "ping", err))
 	}
 	_, err = pool.Exec(ctx,
 		`TRUNCATE ops, submission_responses, template_assignments,

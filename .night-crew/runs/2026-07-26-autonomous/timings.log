@@ -1,0 +1,85 @@
+# Per-card timings — run overnight-20260726 (Delivery KR3)
+#
+# Epoch-stamped wall-clock per card: impl / G6 / land.
+# Card C is first-of-kind with no ledger entry — its 100–240 m band is a range, not a
+# forecast. Recording what it ACTUALLY cost is the point of the ledger.
+#
+# format: <epoch> <ISO8601-UTC> <card> <leg> <event> [detail]
+
+1785025664 2026-07-26T00:27:44Z run start branch=overnight-20260726 load1=2.78 cores=8
+
+# --- card A: orchestrator stamps and card-leg stamps, unioned at merge (append-only, no side dropped)
+1785025698 2026-07-26T00:28:18Z card-A impl start load1=1.94
+1785026090 2026-07-26T00:34:50Z A red-first red-captured 3/3 red on unfixed tree @82d0053 (workflows RUN-09b, repro-cut-task:153, sync:1581) leg=hq_test_a1 port=8199 wall=182s load1_start=2.55 load1_end=2.82
+1785026450 2026-07-26T00:40:50Z A verify green 4/4 (RUN-09b, RUN-09c, repro-cut-task:153, sync:1581) leg=hq_test_a2 port=8199 wall=158s load1_start=2.55 load1_end=2.32 retries=0
+# !! EPOCH UNRELIABLE — G6 finding F1, demonstrated. The line below was committed in c70581c,
+# !! whose committer time is 1785027271 (2026-07-26T00:54:31Z) — 2429s EARLIER than the epoch it
+# !! carries. The epoch 1785029700 is therefore not a measurement and must NOT be read as one.
+# !! What IS bounded: the gate leg completed at or before 1785027271. The wall figure is the real
+# !! measurement; its derived minutes were also wrong (732s = 12.2m, not 13.0m). Corrected inline.
+# !! Left in place rather than rewritten: silently fixing a bad stamp is how a ledger stops being
+# !! evidence. Delivery KR3 should read the wall figure, not the epoch.
+1785029700 2026-07-26T01:35:00Z A gate green 164 passed / 1 skipped / 0 failed / 0 flaky of 165 — post-fix 4-spec seam subset (workflows 80 + sync 58 + persistence 25 + repro-cut-task 2) leg=hq_test_a3 port=8199 wall=732s (12.2m playwright) load1_start=2.43 load1_end=5.36 retries=1-unused [EPOCH UNRELIABLE — see above]
+1785027342 2026-07-26T00:55:42Z card-A impl end verdict=LANDED load1=1.64
+1785027342 2026-07-26T00:55:42Z card-A g6 start load1=1.64
+1785028373 2026-07-26T01:12:53Z card-A g6 end verdict=APPROVE-WITH-NOTES load1=40.00
+1785028373 2026-07-26T01:12:53Z card-A land start load1=40.00
+# --- unioned at card B merge: orchestrator stamps + card B's own leg ledger. Neither side dropped.
+# --- unioned at card C merge: orchestrator stamps + card C's own leg ledger. Neither side dropped.
+1785028493 2026-07-26T01:14:53Z card-C impl start load1=11.85
+1785028493 2026-07-26T01:14:53Z card-B impl start load1=11.85 concurrent-with=card-C
+1785033430 2026-07-26T02:37:10Z card-B impl end verdict=LANDED load1=15.00
+1785033430 2026-07-26T02:37:10Z card-B g6 start load1=15.00 note=card-C-still-in-flight-merge-order-C-then-B
+1785034018 2026-07-26T02:46:58Z card-B g6 end verdict=APPROVE-WITH-NOTES load1=16.75 findings=F1-vacuous-parity-gate,F2-umbrella-divergence,F3-denylist-not-allowlist
+1785034674 2026-07-26T02:57:54Z card-B g6-repair end F1+F3+F2+F5 regate=go-full-pass,attack-16-green-9-red load1=26.93
+1785035563 2026-07-26T03:12:43Z card-C impl end verdict=LANDED finding=GO load1=15.68
+1785035563 2026-07-26T03:12:43Z card-C g6 start load1=15.68
+1785036533 2026-07-26T03:28:53Z card-C g6 end verdict=APPROVE-WITH-NOTES go=EARNED-AND-REPRODUCED load1=22.71 findings=F1-trap-unasserted,F2-half3-overclaim,F5-cross-tenant-cache,F6-precache-cost,F7-bad-verify-cmd,F8-glob-depth-gap
+1785037194 2026-07-26T03:39:54Z card-C g6-repair end F1+F2+F7+F8 harness=11/11 load1=7.10
+1785037194 2026-07-26T03:39:54Z card-C land start load1=7.10
+
+# ---- card C: sync-rxdb-browser-delivery-spike (concurrent with card B) ----
+C_vendor_bundle_first_generate      1m 17s  (npm install 34s + npx esbuild fetch + bundle 3.2s)
+C_vendor_bundle_regenerate            <1s   (warm npm cache + warm npx cache; esbuild 175-421ms)
+C_leg1_delivery                      RED first (host rxdb.info) -> dev-mode dropped -> GREEN
+C_leg2_dexie_reload                  RED first (DB9 ignoreDuplicate) -> GREEN
+C_leg3_service_worker                GREEN 5/5 — 3c confirmed the STALE-CACHE trap, not the 503
+C_leg4_leader_election               GREEN — handover 47ms / 65ms / 87ms across three runs
+C_leg5_token_expiry                  RED first (inside PostgREST's ~30s exp leeway) -> GREEN at 65s
+C_postgrest_exp_leeway_probe         ~2m     9 fresh tokens, boundary between -25s (200) and -29s (401)
+C_spike_suite_full                   1m 48s  11/11 passed; load 8.58 -> 30.39 (card B concurrent)
+C_gate_full_suite                    47m 00s  540 passed / 1 failed / 2 flaky / 6 skipped of 549
+                                              port=8299 db=hq_test_c1 load1 35.48 -> peak 61+ -> 17.30
+                                              (card B ran its OWN full suite concurrently for the first half)
+C_attribution_RUN10_isolated          3m 00s  3/3 passed (--repeat-each=3 --retries=0) db=hq_test_c2
+C_attribution_RUN10_whole_file       11m 24s  80/80 passed incl. RUN-10 (--retries=0) db=hq_test_c3
+C_attribution_verdict                         UNATTRIBUTED BY DESIGN — see DECISIONS-NEEDED.md "Card C"
+# ---- card C: post-G6 repair round (F1/F2/F7/F8) ----
+C_repair_harness_regate               3m 39s  11/11 passed, SPIKE_HTTP_PORT=8899
+                                              load1 23.65 -> 14.24; 3c GREEN with the strengthened assertion
+C_repair_mutation_test_3c             ~1m     silentlyStale forced false -> 3c RED (assertion proven non-vacuous)
+C_repair_build_sw                       <1s   23 files / 1947.1 KB — UNCHANGED; sw.js byte-identical
+C_repair_full_suite                     N/A   DELIBERATELY NOT RUN — orchestrator attribution measurement
+                                              live on :8599 and :8699; a third concurrent suite would corrupt it
+1785037329 2026-07-26T03:42:09Z card-C land end merged=a848189 load1=29.03
+1785037329 2026-07-26T03:42:09Z card-B land start load1=29.03
+
+B_impl_start 2026-07-26T01:05 (approx, worktree entry)
+B_red_capture de00401  9 RLS variants failing, 6 pass at JWT/grant layer, load 43.39
+B_green      09ffa65  16/16 variants pass, load 28.13
+B_endpoint   aca6d9a  POST /api/v1/sync/token + 8 Go unit tests
+B_gate_go     217s   ALL PASS (-p 1), DB hq_test_b1, load 5.68->39.59
+B_gate_pw     3175s  541 passed / 2 failed / 6 skipped, 549 tests, TEST_PORT=8399 DB hq_test_b2, load 5.7..57.6
+B_attrib      152s   isolation re-run of the 2 reds on HEAD: 2 passed, load ~13 -> card B EXCLUDED
+B_total_cycle ~185m  (incl. a 53m full-suite leg under sustained load >40)
+B_g6_repair   F1 de-vacuum parity test (2/11 TRUE; stub->4 failures), F3 allowlist, F2/F5 claims
+B_regate_go   128s ALL PASS (-p 1), load 23.5->11.1
+B_regate_rls  6s   red 9 FAIL / green 16 PASS, RLS restored, load ~25
+B_regate_pw   SKIPPED deliberately — Go+SQL-comment diff; card C mid-suite on 8299
+# ---- orchestrator RUN-10 attribution measurement ----
+1785036597 2026-07-26T03:29:57Z ORCH run10-paired start load1=26.91 design=two-concurrent-full-suites-postA-vs-preA
+1785038412 2026-07-26T04:00:12Z ORCH run10-paired end postA=544p/0f/6s-32.2m-RUN10-GREEN preA=539p/2f/6s-32.4m-RUN10-GREEN load1=9.57
+1785038412 2026-07-26T04:00:12Z ORCH run10-verdict BOUND-NOT-EXONERATION card-A-not-deterministically-responsible still-UNATTRIBUTED
+1785038511 2026-07-26T04:01:51Z ORCH final-tree go-gate start load1=4.38
+1785038584 2026-07-26T04:03:04Z ORCH final-tree go-gate end ALL-PACKAGES-PASS load1_start=7.12 load1_end=4.23
+1785038584 2026-07-26T04:03:04Z run end cards=3/3-landed parked=0 branch=overnight-20260726 load1=2.43

@@ -70,7 +70,7 @@ func PresignUploadHandler(presigner *s3.PresignClient, bucket, endpoint string) 
 }
 
 // PresignGetHandler handles GET /api/v1/photos/presign?key=...
-// It returns a short-lived GET URL for a private object in DO Spaces.
+// It returns a short-lived GET URL for a private object.
 // If presigner is nil (env vars not configured), returns 503.
 func PresignGetHandler(presigner *s3.PresignClient, bucket string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -98,7 +98,7 @@ func PresignGetHandler(presigner *s3.PresignClient, bucket string) http.HandlerF
 
 // UploadHandler handles POST /api/v1/photos/upload.
 // Accepts multipart form with fields: path_prefix, id, filename, and file.
-// Uploads the file to DO Spaces server-side (no CORS issues from the browser).
+// Uploads the file to object storage server-side (no CORS issues from the browser).
 func UploadHandler(client *s3.Client, bucket, endpoint string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if client == nil {
@@ -130,15 +130,16 @@ func UploadHandler(client *s3.Client, bucket, endpoint string) http.HandlerFunc 
 
 		key := pathPrefix + "/" + id + "/" + filename
 
+		// No per-object ACL — B2 rejects ACLs differing from the bucket's;
+		// the bucket itself is public.
 		_, err = client.PutObject(r.Context(), &s3.PutObjectInput{
 			Bucket:      aws.String(bucket),
 			Key:         aws.String(key),
 			Body:        file,
 			ContentType: aws.String("image/jpeg"),
-			ACL:         "public-read",
 		})
 		if err != nil {
-			slog.Error("upload to spaces failed", "key", key, "error", err)
+			slog.Error("upload to object storage failed", "key", key, "error", err)
 			http.Error(w, `{"error":"upload failed"}`, http.StatusInternalServerError)
 			return
 		}

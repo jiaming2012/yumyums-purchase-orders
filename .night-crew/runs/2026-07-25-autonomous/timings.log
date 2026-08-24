@@ -1,0 +1,101 @@
+# Harness-measured per-card wall-clock (Delivery KR3). epoch + ISO.
+# Legs: IMPL, G6, MERGE, plus named suite legs. Aborted attempts kept, labelled.
+
+F1_IMPL_START 1784985440 2026-07-25T09:17:20-04:00
+# (F1 impl leg ran in the run's first session; no END was stamped before that
+#  session ended. Impl end is bounded by d419888's commit time — see HANDOFF.)
+
+# Aborted: PATH in the non-interactive shell lacked /usr/local/go/bin, so
+# Playwright's webServer died with `go: not found` (exit 127). No tests ran.
+F1_PW_SUBSET_ABORT1_START 1784990121 2026-07-25T10:35:21-04:00
+F1_PW_SUBSET_ABORT1_END   1784990250 2026-07-25T10:37:30-04:00
+# Aborted: `env PATH=$PATH ...` unquoted, PATH contains spaces (/mnt/c/Program Files/...).
+F1_PW_SUBSET_ABORT2_START 1784990271 2026-07-25T10:37:51-04:00
+F1_PW_SUBSET_ABORT2_END   1784990329 2026-07-25T10:38:49-04:00
+
+# MEASURED SUBSET LEG (the number the slate asked for):
+# `DB_HOST=localhost DB_PORT=46413 CI=1 npx playwright test "workflows|persistence"`
+# 102 passed, 1 skipped. Wall clock 378 s = 6 m 18 s; Playwright self-reported 6.6 m.
+# Load average (1-min): 1.83 at start, 3.60 at end.
+F1_PW_SUBSET_START 1784990298 2026-07-25T10:38:18-04:00
+F1_PW_SUBSET_END   1784990676 2026-07-25T10:44:36-04:00
+
+# ---- W1 sync-spike-stack-and-jwt-bridge ----
+W1_IMPL_START 1784990753 2026-07-25T10:45:53-04:00
+W1_PULL_START 1784990844 2026-07-25T10:47:24-04:00
+W1_PULL_END   1784991240 2026-07-25T10:54:00-04:00
+# 3 images pulled clean: supabase/postgres:15.8.1.060 (3GB), postgrest/postgrest:v12.2.12 (22.8MB), supabase/realtime:v2.34.47 (250MB)
+W1_BRINGUP_START 1784991436 2026-07-25T10:57:16-04:00
+W1_BRINGUP_END   1784991638 2026-07-25T11:00:38-04:00
+# 3 attempts. A1 fail: POSTGRES_USER=postgres broke image bootstrap (supabase_admin role never created).
+# A2 fail: image creates `authenticator` password-less; PostgREST exit(1). A3 green: db+rest+realtime up.
+W1_JWT_START 1784991799 2026-07-25T11:03:19-04:00
+W1_JWT_END   1784991847 2026-07-25T11:04:07-04:00
+# PostgREST half fully discriminating: P1-P11 all as predicted.
+W1_REALTIME_START 1784991847 2026-07-25T11:04:07-04:00
+W1_REALTIME_END   1784992005 2026-07-25T11:06:45-04:00
+# Realtime GREEN: tenant seeded by SEED_SELF_HOST, Host-header routing, change event delivered,
+# and Realtime RLS discriminates (bob socket saw only bob row).
+W1_G1G2_START 1784992051 2026-07-25T11:07:31-04:00
+W1_G1G2_END   1784992066 2026-07-25T11:07:46-04:00  # build 0, vet 0
+W1_G4_GO_START 1784992066 2026-07-25T11:07:46-04:00
+W1_G4_GO_END   1784992093 2026-07-25T11:08:13-04:00  # 9 packages ok, exit 0. load 1-min 3.24 at start.
+W1_G4_PW_START 1784992093 2026-07-25T11:08:13-04:00  # load: 2.40, 2.12, 2.29
+W1_G4_PW_END   1784993413 2026-07-25T11:30:13-04:00  # load: 3.26, 3.56, 3.11
+W1_G4_PW_ISOLATED_START 1784993438 2026-07-25T11:30:38-04:00  # load: 2.80, 3.42, 3.08
+W1_G4_PW_ISOLATED_END 1784993938 2026-07-25T11:38:58-04:00  # load: 3.12, 3.10, 2.96
+# Full suite: 539 passed / 2 failed / 6 skipped, 22.0m. Isolated re-run of the 2 reds at
+# lower load: BOTH FAIL AGAIN (58 passed / 2 failed, 7.4m) — so they are NOT load flakes,
+# and NOT tests/sync.spec.js:1198. W1 diff touches zero product/test bytes (verified:
+# `git diff --name-only overnight-20260725..HEAD -- tests/ backend/ *.html sync.js *.js` is EMPTY),
+# so they are pre-existing on overnight-20260725. Both share one symptom: after clicking
+# [data-action="submit"], .submit-confirm never renders. The ONLY product-code commit on
+# this branch is d1674d3 (backend/internal/workflow/repository.go, the submitChecklist
+# insert), which was gated on a workflows|persistence SUBSET only. Correlation flagged for
+# the orchestrator; NOT attributed by this card.
+#
+# >>> ORCHESTRATOR CORRECTION at merge (2026-07-25 ~12:05). W1's leg data above is kept
+# >>> verbatim and is all sound. But ONE INFERENCE IN IT IS NOW DISPROVEN: the reds are
+# >>> NOT "pre-existing on overnight-20260725". W1 could not test that claim (it cannot
+# >>> check out branches); the orchestrator can, and did. Both specs were run on a `dev`
+# >>> worktree (d37fb10, F1 NOT merged) and on the run branch (c14cbce, F1 merged),
+# >>> same box, same Postgres, different DB+port:
+# >>>     dev  (no F1)  -> 2 PASSED (2.6m)      load 2.84 -> 3.28
+# >>>     c14cbce (F1)  -> 2 FAILED             load 3.01 -> 2.48
+# >>> W1's own correlation was right: d1674d3 is the cause. This is an F1 REGRESSION,
+# >>> not a flake and not pre-existing. Parked for the operator — see DECISIONS-NEEDED.md.
+# >>> W1 behaved correctly: it flagged and refused to attribute. Attribution was the
+# >>> orchestrator's job and the orchestrator did it.
+ORCH_BASE_CHECK_DEV_START 1784994108 2026-07-25T11:41:48-04:00
+ORCH_BASE_CHECK_DEV_END   1784994258 2026-07-25T11:44:18-04:00  # 2 passed, 2.6m
+ORCH_BASE_CHECK_RUNBRANCH_START 1784994273 2026-07-25T11:44:33-04:00
+ORCH_BASE_CHECK_RUNBRANCH_END   1784995426 2026-07-25T12:03:46-04:00  # 2 failed
+W1_G6_START 1784994015 2026-07-25T11:40:15-04:00
+W1_G6_END   1784994329 2026-07-25T11:45:29-04:00  # PASS-WITH-FINDINGS, 8 non-blocking
+W2_IMPL_START 1784996177 2026-07-25T12:16:17-04:00
+W2_NPMI_START 1784996329 2026-07-25T12:18:49-04:00  # load: 1.88, 2.07, 2.18
+W2_NPMI_END 1784996374 2026-07-25T12:19:34-04:00  # load: 2.53, 2.20, 2.22 — OK: rxdb 17.4.0, @supabase/supabase-js 2.109.0, ws 8.21.1
+W2_PUSH_START 1784996663 2026-07-25T12:24:23-04:00
+W2_PUSH_END 1784996726 2026-07-25T12:25:26-04:00  # PROVEN
+W2_PULL_START 1784996726 2026-07-25T12:25:26-04:00
+W2_PULL_END 1784996802 2026-07-25T12:26:42-04:00  # PROVEN (insert 59ms / update 45ms / soft-delete 121ms, no restart)
+W2_LWW_START 1784996802 2026-07-25T12:26:42-04:00
+W2_LWW_END 1784996925 2026-07-25T12:28:45-04:00  # OBSERVED: NOT LWW — master-wins, later local write silently discarded
+W2_LICENSE_START 1784996925 2026-07-25T12:28:45-04:00
+W2_LICENSE_END 1784996925 2026-07-25T12:28:45-04:00  # Dexie=free, IndexedDB=premium (confirmed); plugin is REAL (shipped in rxdb@17.4.0)
+W2_G1G2 1784996925 2026-07-25T12:28:45-04:00  # go build + go vet exit 0; load 1.06 -> 1.46
+W2_G4_GO_START 1784997309 2026-07-25T12:35:09-04:00  # load: 1.39, 1.39, 1.62
+W2_G4_GO_END 1784997337 2026-07-25T12:35:37-04:00  # load: 1.58, 1.43, 1.63 — 9 green packages, exit 0
+W2_G4_PW_START 1784997337 2026-07-25T12:35:37-04:00  # load: 1.58, 1.43, 1.63
+W2_G4_PW_END 1784999148 2026-07-25T13:05:48-04:00  # load: 2.87, 3.65, 3.16 — 538 passed / 2 failed / 1 flaky / 6 skipped, 30.5m
+# The 2 failed are EXACTLY the two known F1 reds (repro-cut-task.spec.js:153,
+# sync.spec.js:1581) — orchestrator-attributed to d1674d3, NOT investigated by W2.
+# NO THIRD RED. The 1 flaky is purchasing.spec.js:1407 (FR-13 locked PO): first
+# attempt died on page.waitForLoadState("networkidle") at the 30s timeout, PASSED on
+# retry. Measured 1-min load rose 1.58 -> 4.20 across the leg (this box runs ~13
+# unrelated containers plus 3 docker stacks). NOT sync.spec.js:1198. Reported with
+# the load, deliberately NOT attributed — one observation is not an attribution.
+
+W2_REV_START 1784999700 2026-07-25T13:15:00-04:00  # G6 PASS-WITH-FINDINGS: 1 blocking (docs-only) + 3 non-blocking. No proof re-run, no harness change, no suite re-run.
+W2_REV_PROBE 1784999944 2026-07-25T13:19:04-04:00  # throwaway conflict$ probe of the proof-lww scenario (deleted, not committed): error$ 0 events, conflict$ 1 event carrying input.newDocumentState.body='LOCAL-EDIT (written second, T2)'. G6 CONFIRMED — my original 'no signal to subscribe to' claim was WRONG.
+W2_REV_END   1785000265 2026-07-25T13:24:25-04:00  # load: 1.81,2.44,2.72 — 3 docs corrected, option 4 re-priced; five constraints still clean, appends still 0-deletion (README 681/0, design 242/0), stack left UP.

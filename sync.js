@@ -546,11 +546,83 @@ window.applyOp = applyOp;
 
 // ─── Offline Queue ────────────────────────────────────────────────────────────
 
+// APP_TIMEZONE — the app's ONE timezone. The operator ruled it is New York
+// (ledger T-26 decision 83); the backend states the same thing as
+// users.DefaultTimezone (backend/internal/users/db.go).
+//
+// 🛑 If this ever needs to change, it changes HERE and in users.DefaultTimezone
+// together. A second zone anywhere in the app is the bug card A1 removed.
+const APP_TIMEZONE = 'America/New_York';
+window.APP_TIMEZONE = APP_TIMEZONE;
+
+// appDateString — the calendar date (YYYY-MM-DD) of an instant IN THE APP
+// TIMEZONE. Pass nothing for "right now"; pass a Date or an ISO string to ask
+// which app-day a timestamp fell on.
+//
+// 🛑 NOT `toISOString().slice(0, 10)`. That is UTC, and in EDT the app's "today"
+// rolled over at 20:00 New York — MID-DINNER-SERVICE. A crew member pressing
+// Submit at 19:58 and again at 20:02 was, to the app, two different days: the
+// second press could not reuse the first's queued idempotency_key, so the drain
+// wrote TWO submission rows for one operational evening. Card A1.
+//
+// formatToParts (not en-CA) so the output cannot depend on locale separators.
+//
+// Falls back to the old UTC slice if Intl or the zone is unavailable — degrades
+// to the previous behaviour rather than throwing inside a submit path. That is
+// still the right trade (a submit that works on the wrong day beats a submit
+// that throws), but the fallback is NOT silent: it restores the exact UTC
+// boundary this card removed, so it warns. Realistically it fires only on a
+// small-ICU runtime or an embedded WebView shipped without full tzdata.
+function appDateString(when) {
+  const d = when === undefined || when === null ? new Date() : new Date(when);
+  if (isNaN(d.getTime())) return '';
+  try {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: APP_TIMEZONE, year: 'numeric', month: '2-digit', day: '2-digit'
+    }).formatToParts(d);
+    const get = t => (parts.find(p => p.type === t) || {}).value;
+    const y = get('year'), m = get('month'), day = get('day');
+    if (y && m && day) return y + '-' + m + '-' + day;
+  } catch (e) { /* fall through to the warned UTC fallback */ }
+  if (!appDateString._warned) {
+    appDateString._warned = true; // once per page — this sits in a submit path
+    console.warn(
+      '[appDateString] falling back to the UTC date: this runtime cannot resolve ' +
+      APP_TIMEZONE + ' via Intl.DateTimeFormat. The app day will roll over at ' +
+      '20:00 New York instead of midnight, which can split one dinner service ' +
+      'across two days. See card A1 / ledger T-26 decision 83.');
+  }
+  return d.toISOString().slice(0, 10);
+}
+window.appDateString = appDateString;
+
+// currentSubmitPeriod — the period a queued submission belongs to.
+//
+// The app's period is the calendar DAY and always has been: myChecklists is
+// fetched per day-of-week, and workflows.html decides "already submitted today"
+// by comparing today's date against submitted_at (three places: the list row,
+// the runner, and the post-submit refresh). This is that same expression, named
+// once, so the queue and the list cannot drift apart on what "today" means.
+//
+// The DAY is the app-timezone day, not the UTC day — see appDateString.
+//
+// It is stamped onto every queue entry because an entry may only lend its
+// idempotency_key to a submit in the SAME period (workflows.html
+// `findQueuedSubmission`). Without it, a persistently-failing server let
+// Monday's queued key be adopted by Thursday's submit — upserting Thursday's
+// answers onto Monday's submission row and collapsing every day in between.
+// Ledger T-25 decision 71.
+function currentSubmitPeriod() {
+  return appDateString();
+}
+window.currentSubmitPeriod = currentSubmitPeriod;
+
 async function enqueueSubmission(payload) {
   const db = await getDB();
   await idbPut(db, 'submitQueue', {
     ...payload,
-    queuedAt: new Date().toISOString()
+    queuedAt: new Date().toISOString(),
+    period: currentSubmitPeriod()
   });
   renderSyncBanner();
 }
@@ -562,13 +634,32 @@ async function drainQueue() {
   _draining = true;
   try {
     const db = await getDB();
-    const entries = await idbGetAll(db, 'submitQueue');
+    // Replay in the order the presses actually happened.
+    //
+    // idbGetAll returns entries in the store's key order, and the key is `id` — a
+    // random UUID, so the order is effectively arbitrary. That was harmless while
+    // one template could only ever have one queued entry. It stopped being
+    // harmless when submitChecklistToAPI began reusing the queued idempotency_key
+    // (workflows.html): two presses of one checklist now produce TWO entries that
+    // upsert onto the SAME submission row, so whichever replays last wins any
+    // field they both set. Sorting by queuedAt makes the later press win, which is
+    // what the crew member saw last.
+    //
+    // Entries queued before this sort existed have no queuedAt; they sort first,
+    // which is the conservative choice — an older entry should not beat a newer one.
+    const entries = (await idbGetAll(db, 'submitQueue'))
+      .slice()
+      .sort((a, b) => String(a && a.queuedAt || '').localeCompare(String(b && b.queuedAt || '')));
     for (const entry of entries) {
       try {
         await api('POST', 'submitChecklist', entry);
         await idbDelete(db, 'submitQueue', entry.id);
         renderSyncBanner();
       } catch (err) {
+        // DEAD BRANCH, kept for safety: the string `duplicate_submission` appears
+        // nowhere in backend/. A repeat of an already-accepted idempotency_key
+        // returns 201 with the same submission id and is evicted by the success
+        // path above, not here (measured at G6 review, 2026-07-27).
         if (err && err.error === 'duplicate_submission') {
           await idbDelete(db, 'submitQueue', entry.id);
           renderSyncBanner();
@@ -600,6 +691,20 @@ function showConflictError(entry) {
   container.prepend(card);
 }
 
+// renderSyncBanner paints the offline queue: a banner counting queued
+// submissions, and a per-row badge on each checklist that has one.
+//
+// 🛑 VOCABULARY — this badge and workflows.html's per-field chip are two
+// different states and must never read the same (ledger T-25 decision 71,
+// item 4; both read "Pending sync" between 2026-07-28 and this card, and both
+// are reachable on the My Checklists screen at once):
+//
+//   "Queued"   — a WHOLE submitted checklist is sitting in submitQueue waiting
+//                to be sent. Scope: a checklist. `.sync-badge`, this file.
+//   "Unsaved"  — ONE field answer has not reached the server.
+//                Scope: a field. `.unsaved-mark`, workflows.html.
+//
+// If either string changes, change the other so they still cannot collide.
 async function renderSyncBanner() {
   try {
     const db = await getDB();
@@ -612,7 +717,7 @@ async function renderSyncBanner() {
       return;
     }
     banner.style.display = 'block';
-    banner.textContent = entries.length + ' submission' + (entries.length > 1 ? 's' : '') + ' pending sync';
+    banner.textContent = entries.length + ' submission' + (entries.length > 1 ? 's' : '') + ' queued to send';
     const queuedIds = new Set(entries.map(e => e.template_id));
     document.querySelectorAll('[data-template-id]').forEach(row => {
       const existing = row.querySelector('.sync-badge');
@@ -620,7 +725,7 @@ async function renderSyncBanner() {
         if (!existing) {
           const badge = document.createElement('span');
           badge.className = 'sync-badge';
-          badge.textContent = 'Pending sync';
+          badge.textContent = 'Queued';
           row.appendChild(badge);
         }
       } else if (existing) {

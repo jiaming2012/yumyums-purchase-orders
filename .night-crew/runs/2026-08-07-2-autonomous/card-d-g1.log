@@ -1,0 +1,10 @@
+== go build ./... ==
+BUILD_EXIT=0
+== go vet ./... ==
+VET_EXIT=0
+
+== spike module (rtprobe is new Go code; not in backend/, checked anyway) ==
+-- go build ./... --
+SPIKE_BUILD_EXIT=0
+-- go vet ./... --
+SPIKE_VET_EXIT=0

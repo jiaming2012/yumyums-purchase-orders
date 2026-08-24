@@ -1,0 +1,36 @@
+# G2 (Go) — THE PRE-FIX RED RUN. Card S `spike-b-migration-rehearsal`, run 20260807.
+#
+# ⚠ EXCERPT, NOT A FULL CAPTURE. This leg was re-run in place after the fix and
+#   the full log was overwritten at g2-go.log. The excerpt below is transcribed
+#   verbatim from that first run's output; the surrounding migration chatter and
+#   the passing packages are not reproduced here. It is kept because it is the
+#   evidence for the finding, and the finding is the reason hq-reset.js exists.
+#
+# CAUSE: the rehearsal left its six migrated rows in hq_sync_checklists, which
+# is SPIKE A'S SHARED TABLE. jwtbridge_rls_test.go's service_role CONTROL
+# asserts an EXACT full-table row set — it is what proves the RLS variants are
+# refusing rows that are genuinely present, so it cannot be a subset check.
+#
+# FIX: commit 9b3f7a9 — teardown now restores the shared substrate (rxdb/
+# hq-reset.js, scoped to a key manifest hq-migrate.js writes before the load),
+# and a failed reset turns a green run red.
+#
+# POST-FIX: g2-go.log, EXIT=0, all 9 packages with tests ok, internal/sync
+# 45 tests / 111 subtests, TestJWTBridgeRLS PASS.
+
+--- FAIL: TestJWTBridgeRLS (0.87s)
+    --- FAIL: TestJWTBridgeRLS/CONTROL/service_role_BYPASSRLS_proves_the_rows_are_there (0.03s)
+        jwtbridge_rls_test.go:414: service_role sees ALL rows: expected rows [chk-alice-inv-1 chk-alice-ops-1 chk-alice-ops-2 chk-bob-ops-1], got [0e000000-0000-4000-8000-000000000001 0e000000-0000-4000-8000-000000000002 0e000000-0000-4000-8000-000000000003 0e000000-0000-4000-8000-000000000004 0e000000-0000-4000-8000-000000000005 0e000000-0000-4000-8000-000000000006 chk-alice-inv-1 chk-alice-ops-1 chk-alice-ops-2 chk-bob-ops-1]
+    --- FAIL: TestJWTBridgeRLS/V9/token_replay_after_grant_revocation (0.03s)
+        jwtbridge_rls_test.go:545: ADMITTED V9 before revocation, the token works          [chk-alice-ops-1 chk-alice-ops-2]
+        jwtbridge_rls_test.go:559: REFUSED  V9 replay after grant revocation               HTTP 200 []
+        jwtbridge_rls_test.go:562: V9 control: rows still present during the refusal: expected rows [chk-alice-inv-1 chk-alice-ops-1 chk-alice-ops-2 chk-bob-ops-1], got [0e000000-... (the six migrated ids) ... chk-alice-inv-1 chk-alice-ops-1 chk-alice-ops-2 chk-bob-ops-1]
+    --- FAIL: TestJWTBridgeRLS/V12/deactivated_user_—_every_projection_row_removed (0.02s)
+        jwtbridge_rls_test.go:636: REFUSED  V12 deactivated user lockout                   HTTP 200 []
+        jwtbridge_rls_test.go:637: V12 control: rows still present during the lockout: expected rows [chk-alice-inv-1 chk-alice-ops-1 chk-alice-ops-2 chk-bob-ops-1], got [0e000000-... (the six migrated ids) ... chk-alice-inv-1 chk-alice-ops-1 chk-alice-ops-2 chk-bob-ops-1]
+    --- FAIL: TestJWTBridgeRLS/CONTROL/service_role_control_re-taken_after_all_variants (0.00s)
+        jwtbridge_rls_test.go:682: service_role still sees ALL rows: expected rows [chk-alice-inv-1 chk-alice-ops-1 chk-alice-ops-2 chk-bob-ops-1], got [0e000000-... (the six migrated ids) ... chk-alice-inv-1 chk-alice-ops-1 chk-alice-ops-2 chk-bob-ops-1]
+FAIL
+FAIL	github.com/yumyums/hq/internal/sync	43.115s
+FAIL
+EXIT=1

@@ -1,0 +1,62 @@
+# END-TO-END capture — card B sync-jwt-bridge-endpoint, run overnight-20260726
+#
+# The attack-variant suite mints its tokens through Sign() directly. This capture
+# closes the last gap: a token minted by the REAL HTTP endpoint, from a REAL HQ
+# session cookie, against a REAL HQ database — carried to PostgREST and shown
+# discriminating there.
+#
+# Setup:
+#   HQ server      :8398, DB hq_test_b1, HQ_SYNC_JWT_SECRET = the stack's JWT_SECRET
+#   Spike stack    rest :46233, db :46011  (W1's, up 11h, NOT restarted)
+#   HQ user        admin@dedup.test / 2e58597b-5195-406c-9ce4-f655f6598fde
+#   Session        row inserted into `sessions` with sha256(raw) as token_hash,
+#                  exactly as auth.CreateSession would
+
+$ curl -X POST http://localhost:8398/api/v1/sync/token          # no cookie
+HTTP 401
+
+$ curl -X POST http://localhost:8398/api/v1/sync/token -H "Cookie: hq_session=$RAW" -D-
+HTTP/1.1 200 OK
+Cache-Control: no-store
+{"token":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIyZTU4NTk3Yi01MTk1LTQwNmMtOWNlNC1mNjU1ZjY1OThmZGUiLCJyb2xlIjoiYXV0aGVudGljYXRlZCIsImV4cCI6MTc4NTAzMTE0MywiaWF0IjoxNzg1MDMwMjQzLCJlbWFpbCI6ImFkbWluQGRlZHVwLnRlc3QiLCJocV9yb2xlcyI6WyJhZG1pbiJdLCJocV9ncmFudHMiOltdLCJocV9zaWQiOiIyNDdkMDhmM2UxMzkzOGIyNDRmNWVjZDg5NjZmMTc3OGU1ZTcyYjE3NTgyMGY0NmJhODZjOWMwMzkyNzJhZmZhIn0.THyRLrXsVx64RoFuGuItyVOPhcPLucRnoMgwIItVobQ",
+ "expires_at":1785031143,
+ "sub":"2e58597b-5195-406c-9ce4-f655f6598fde",
+ "role":"authenticated",
+ "grants":[]}
+
+# Decoded payload:
+#   sub       2e58597b-...   <- users.id, the CONTEXT user (not a request parameter)
+#   role      authenticated  <- constant; never service_role
+#   hq_roles  ["admin"]      <- users.roles
+#   hq_grants []             <- this user holds no app_permissions rows. Correct and
+#                               fail-closed: an empty grant list is a token that
+#                               reaches nothing, not a token that reaches everything.
+#   hq_sid    247d08f3...    <- sessions.token_hash
+#   exp-iat   900s           <- 15 min
+
+# ── The revocation semantics, with the SAME unexpired token throughout ───────
+# One row seeded in the spike DB owned by this real HQ user id.
+
+A) grant NOT in public.hq_grant_projection
+   GET /hq_sync_checklists?id=eq.e2e-real-1
+   []                                                     <- REFUSED
+
+B) grant inserted into public.hq_grant_projection — token UNCHANGED, NOT re-minted
+   GET /hq_sync_checklists?id=eq.e2e-real-1
+   [{"id":"e2e-real-1","owner_id":"2e58597b-5195-406c-9ce4-f655f6598fde"}]   <- ADMITTED
+
+C) grant deleted again — token STILL UNCHANGED
+   GET /hq_sync_checklists?id=eq.e2e-real-1
+   []                                                     <- REFUSED
+
+# The same bytes flip refused -> admitted -> refused with no re-mint and no
+# expiry. That is the whole argument for reading the projection live instead of
+# trusting the token's hq_grants claim: a claim-trusting policy would have
+# answered ADMITTED at step C for the remainder of the TTL.
+#
+# Note also that this HQ id IS uuid-shaped and still goes through the plural GUC
+# without a cast. The plural-GUC form is not a workaround for non-uuid ids; it is
+# correct for both, whereas auth.uid() is wrong for both on this stack.
+#
+# Seeded rows removed afterwards; W1's spike_notes re-verified untouched
+# (alice sees only alice's rows; service_role sees both owners').

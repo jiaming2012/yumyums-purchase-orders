@@ -1,0 +1,84 @@
+# docker-compose.hq-real.yml — LOCAL SPIKE ONLY. Not production. Not HQ's DB.
+#
+# The HQ-Postgres half of night-crew card C `spike-c-round-trip` (Spike C).
+#
+# 🛑 THE DIFFERENCE FROM SPIKE B's docker-compose.hq-source.yml, AND IT IS THE
+#    WHOLE POINT OF THIS CARD.
+#
+#    Spike B's scratch Postgres carries a HAND-TRANSCRIBED SUBSET of HQ's schema
+#    (sql/hq-source-schema.sql, 8 tables) and is fixtured with INSERT statements.
+#    That was right for a migration rehearsal: the claim was about moving rows.
+#
+#    Spike C's claim is about the REAL WRITE PATH. So this container carries
+#    NO transcribed schema at all — it starts EMPTY and HQ's own binary
+#    (`backend/cmd/server`, via `db.Migrate`) applies ALL of HQ's real
+#    migrations into it at boot, exactly as it does in dev and in prod. There
+#    is no second copy of HQ's schema to drift.
+#
+#    A transcribed schema cannot answer this card's question. `POST
+#    /api/v1/workflow/saveResponse` runs through HQ's real handler, its real
+#    auth middleware, its real grant gate and its real repository SQL; it must
+#    execute against the schema that code was written for, or the "real write
+#    path" claim is a costume.
+#
+# ═══════════════════════════════════════════════════════════════════════════
+# 🛑 THIS IS A FRESH SCRATCH CONTAINER AND IT MUST STAY ONE.
+#
+#   * NOT the shared cluster on :5433. That cluster is PRODUCTION AND DEV both
+#     — it serves https://hq.yumyums.kitchen — and a probe against it destroyed
+#     the prod database on 2026-08-06 (BACKLOG B-141/B-143, ledger decision 155).
+#     No command in this spike resolves any database name against :5433.
+#   * NOT :5434 (`yumyums-test-pg`). That is the Playwright/Go proof substrate
+#     and it stays quiet while this runs. The card's rule is explicit: not the
+#     shared cluster, and not the :5434 test container's databases either.
+#   * NOT 5432 (`infra-postgres-1`, slack-trading — nobody's here).
+#
+#   The host port is left ENTIRELY to Docker (bare `- "5432"`), the same
+#   convention docker-compose.hq-source.yml, docker-compose.supabase.yml and
+#   docker-compose.nc.yml use. A Docker-assigned ephemeral port cannot collide
+#   with a protected port by construction; spike-c-roundtrip.sh resolves it,
+#   PRINTS it, and re-asserts it is none of 5432/5433/5434 anyway.
+#
+#   Project name `spike-c-hq` is disjoint from `spike-b-hq` (spike B),
+#   `spike-supabase` (spike A), `yumyums-test` and the prod compose project.
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# 🛑 NO BIND MOUNTS, DELIBERATELY. docker-compose.supabase.yml's relative initdb
+#    bind mounts made its container config hash depend on the ABSOLUTE host path
+#    compose was resolved from, so `up -d` from a git worktree RECREATED the db
+#    container (reproduced three times, run 20260806). This file mounts nothing:
+#    the migrations arrive over the network from HQ's own binary and the relay
+#    trigger is piped in with `docker exec -i psql -f -`.
+#
+# 🛑 NO NAMED VOLUME, DELIBERATELY. This container must NOT survive between
+#    runs: the claim is that the round trip closes from nothing every time. It
+#    is created at the top of the script and destroyed at the bottom
+#    (`down --volumes --remove-orphans`).
+#
+# ⚠  THROWAWAY CREDENTIAL, committed on purpose — same rationale as
+#    docker-compose.hq-source.yml's banner. This stack holds nothing real, lives
+#    for the duration of one script, and is published on an ephemeral port on
+#    loopback. Never reuse this value anywhere.
+#
+#   POSTGRES_PASSWORD  9a1e5c7b3d206f84e5b90c1a7d43f68e   (openssl rand -hex 16)
+
+services:
+  hqreal:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: hq
+      POSTGRES_PASSWORD: 9a1e5c7b3d206f84e5b90c1a7d43f68e
+      POSTGRES_DB: hq_real
+    ports:
+      # Bare container port — Docker assigns the host side. See the banner.
+      - "5432"
+    healthcheck:
+      # An AUTHENTICATED query, not `pg_isready`. pg_isready answers on the
+      # temporary bootstrap server that runs during initdb, so a wait loop can
+      # proceed while the real server is not yet accepting connections — and
+      # HQ's migrator would then fail for a reason that looks like a schema bug.
+      test: ["CMD-SHELL", "psql -U hq -d hq_real -c 'select 1' >/dev/null 2>&1"]
+      interval: 2s
+      timeout: 5s
+      retries: 45
+      start_period: 5s

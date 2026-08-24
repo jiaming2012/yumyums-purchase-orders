@@ -1,0 +1,238 @@
+# docker-compose.supabase.yml — LOCAL SPIKE ONLY. Not production. Not HQ.
+#
+# A throwaway, self-hosted Supabase substrate for the RxDB sync feasibility
+# spike (night-crew card W1 `sync-spike-stack-and-jwt-bridge`). Three services
+# only: Postgres, PostgREST, Realtime.
+#
+#   * NOT Kong    — nothing here needs an API gateway; PostgREST and Realtime
+#                   are talked to directly on their own published ports.
+#   * NOT Studio  — no dashboard is required to prove the substrate works.
+#   * NOT GoTrue  — DECIDED (operator explore session, 2026-07-24): HQ's Go
+#                   backend mints its own HS256 JWTs. Supabase is a dumb sync
+#                   substrate, not an identity provider. GoTrue would only add
+#                   an auth system we have already decided not to use.
+#
+# This stack NEVER touches HQ's real database, HQ's `docker-compose.nc.yml`
+# night-crew environment, or any hosted Supabase project. Bring it up under its
+# own project name so it can never collide with the night-crew env:
+#
+#     docker compose -p spike-supabase -f docker-compose.supabase.yml up -d
+#
+# Host ports are left to Docker (bare `- "5432"`, no `host:container` mapping),
+# the same convention `docker-compose.nc.yml` uses, so concurrent stacks stay
+# isolated. Resolve the assigned ports with:
+#
+#     docker compose -p spike-supabase -f docker-compose.supabase.yml port db 5432
+#     docker compose -p spike-supabase -f docker-compose.supabase.yml port rest 3000
+#     docker compose -p spike-supabase -f docker-compose.supabase.yml port realtime 4000
+#
+# Teardown is a deliberate, separate act — see .night-crew/qa/spike-supabase/README.md:
+#
+#     docker compose -p spike-supabase -f docker-compose.supabase.yml down --volumes
+#
+# 🛑 THE BIND MOUNTS BELOW ARE RELATIVE, AND THAT MAKES THIS FILE PATH-SENSITIVE.
+#    Compose resolves `./.night-crew/...` against the PROJECT DIRECTORY (by
+#    default the directory holding this file) and bakes the resulting ABSOLUTE
+#    host path into the container's config hash. So `up -d` run against a copy
+#    of this file at a different absolute path — a git worktree, a second clone,
+#    the prod clone — sees a different hash and RECREATES the db container.
+#    Reproduced three times, run 20260806.
+#
+#    env-up.sh therefore always passes `--project-directory <main worktree root>`
+#    (resolved from `git rev-parse --git-common-dir`, which every linked worktree
+#    shares), so the resolved mount source is identical no matter where the
+#    caller stood. If you invoke compose by hand from a worktree, do the same:
+#
+#      docker compose -p spike-supabase \
+#        --project-directory /path/to/main/checkout \
+#        -f docker-compose.supabase.yml up -d
+#
+#    A recreate is no longer destructive — PGDATA is on the `spike-db-data`
+#    named volume — but it is still a needless restart of a 3-service stack.
+#
+# ==========================================================================
+# ==                                                                      ==
+# ==   ⚠  THROWAWAY SECRETS — GENERATED FOR THIS SPIKE, INLINE ON         ==
+# ==      PURPOSE, PUBLIC IN GIT, AND SAFE ONLY BECAUSE NOTHING REAL      ==
+# ==      IS BEHIND THEM.                                                 ==
+# ==                                                                      ==
+# ==   Every credential below was generated with `openssl rand` on        ==
+# ==   2026-07-25 for this local spike and for nothing else. They are     ==
+# ==   committed literally, not sourced from a `.env`, so that the        ==
+# ==   operator can `git clone` + `docker compose up` and reproduce the   ==
+# ==   proof byte-for-byte with no setup. Supabase's own self-hosted      ==
+# ==   documentation ships demo keys the same way and for the same        ==
+# ==   reason. This is a signed decision, not an oversight.               ==
+# ==                                                                      ==
+# ==   NEVER reuse any value below anywhere real. Not staging, not a      ==
+# ==   hosted Supabase project, not HQ prod, not a laptop you care        ==
+# ==   about. They are burned the moment this file is pushed.             ==
+# ==                                                                      ==
+# ==   No operator secret and no HQ credential appears in this file.      ==
+# ==                                                                      ==
+# ==========================================================================
+#
+#   POSTGRES_PASSWORD   d8d866978aef6ac99c610bcb75b72431   (openssl rand -hex 16)
+#   JWT_SECRET          2508c659...cb8251c                 (openssl rand -hex 32)
+#   SECRET_KEY_BASE     9de1c968...d2c84359                (openssl rand -hex 32; Phoenix needs >= 64 chars)
+#   DB_ENC_KEY          389dc6374cabb10e                   (openssl rand -hex 8; Realtime needs EXACTLY 16 chars — AES-128)
+#
+# The JWT_SECRET is the load-bearing one: it is the single shared secret
+# between (a) the Go program that mints the token, (b) PostgREST's
+# PGRST_JWT_SECRET, and (c) Realtime's API_JWT_SECRET. In the real migration
+# this becomes an HQ backend secret; here it is throwaway.
+
+services:
+  db:
+    image: supabase/postgres:15.8.1.060
+    environment:
+      # SHARP EDGE (cost us bring-up attempt 1): do NOT set POSTGRES_USER here.
+      # The supabase/postgres image defaults it to `supabase_admin` and its
+      # post-initdb `migrate.sh` reconnects as that role to install the
+      # anon/authenticated/service_role/authenticator role set. Setting
+      # POSTGRES_USER=postgres makes initdb create `postgres` as the superuser
+      # instead, migrate.sh then fails with
+      #   FATAL: password authentication failed for user "supabase_admin"
+      #   DETAIL: Role "supabase_admin" does not exist.
+      # and the container exits(2) before PostgREST or Realtime ever start.
+      # Supabase's own self-hosted compose likewise omits POSTGRES_USER.
+      POSTGRES_PASSWORD: d8d866978aef6ac99c610bcb75b72431
+      POSTGRES_DB: postgres
+      POSTGRES_HOST: /var/run/postgresql
+      # migrate.sh shells out to psql without flags; it reads these.
+      PGPASSWORD: d8d866978aef6ac99c610bcb75b72431
+      PGDATABASE: postgres
+      PGPORT: "5432"
+      POSTGRES_PORT: "5432"
+      # PostgREST reads the JWT secret from its own env, but the supabase image's
+      # helper functions (auth.jwt() etc.) read this GUC. Set for parity.
+      JWT_SECRET: 2508c659af3c4316b0a163a00725d33a9bc4eae75aa35ac9be6a007cacb8251c
+      JWT_EXP: "3600"
+    command:
+      - postgres
+      - -c
+      - config_file=/etc/postgresql/postgresql.conf
+      # wal_level=logical is REQUIRED for Realtime's logical-replication CDC.
+      # supabase/postgres already ships it on; stated explicitly so a future
+      # reader knows it is a hard requirement, not a nicety.
+      - -c
+      - wal_level=logical
+    volumes:
+      # migrate.sh (baked into the image) runs everything under
+      # /docker-entrypoint-initdb.d/init-scripts/ in LEXICAL order, interleaved
+      # with the image's own scripts. The numeric prefixes below are load-bearing.
+      # NOTE: the stock postgres entrypoint prints
+      #   "ignoring /docker-entrypoint-initdb.d/init-scripts"
+      # before migrate.sh runs. That line is a red herring — the directory IS
+      # processed, just by migrate.sh rather than by the stock entrypoint.
+      #
+      # 00-: creates the `_realtime` schema Realtime's migrator writes into.
+      #      Without it the realtime container's `/app/bin/migrate` dies on boot.
+      - ./.night-crew/qa/spike-supabase/initdb/00-realtime-schema.sql:/docker-entrypoint-initdb.d/init-scripts/00-realtime-schema.sql:ro
+      # 99-: sets a password on `authenticator` (and friends), which the image
+      #      creates password-less. PostgREST cannot connect without it.
+      - ./.night-crew/qa/spike-supabase/initdb/99-roles.sql:/docker-entrypoint-initdb.d/init-scripts/99-roles.sql:ro
+      # 🛑 PGDATA ON A NAMED VOLUME — LOAD-BEARING, ADDED BY CARD C1 (run 20260806).
+      #
+      # Until this line existed there was NO volume for the data directory, so
+      # PGDATA lived in the CONTAINER'S WRITABLE LAYER. That made every container
+      # recreate — image bump, `docker compose down`, or merely running `up -d`
+      # against a compose file resolved from a different absolute host path —
+      # TOTAL, SILENT DATA LOSS. The stack came back `Up (healthy)` with an empty
+      # database, which is exactly the "three containers, five days old, no
+      # schema" state card C1 was written to detect. C1 built the detector; this
+      # line removes the cause.
+      #
+      # `docker compose … down --volumes` (i.e. `task spike:down`, `--fresh`)
+      # still destroys it, deliberately. Nothing else does.
+      - spike-db-data:/var/lib/postgresql/data
+    ports:
+      - "5432"
+    healthcheck:
+      # `pg_isready` alone is NOT enough: it answers on the temporary bootstrap
+      # server that runs during initdb, so dependents start while migrate.sh is
+      # still installing roles. An authenticated query is the real readiness
+      # signal (PGPASSWORD comes from the env block above).
+      test: ["CMD-SHELL", "psql -U supabase_admin -d postgres -h 127.0.0.1 -c 'select 1' >/dev/null 2>&1"]
+      interval: 3s
+      timeout: 5s
+      retries: 60
+      start_period: 20s
+
+  rest:
+    image: postgrest/postgrest:v12.2.12
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # `authenticator` is the login role PostgREST connects as; it has no
+      # privileges of its own and SET ROLEs into anon/authenticated per request
+      # based on the `role` claim in the JWT. This is the whole mechanism the
+      # spike is testing.
+      PGRST_DB_URI: postgres://authenticator:d8d866978aef6ac99c610bcb75b72431@db:5432/postgres
+      PGRST_DB_SCHEMAS: public
+      PGRST_DB_ANON_ROLE: anon
+      # Same secret the Go minter signs with. HS256.
+      PGRST_JWT_SECRET: 2508c659af3c4316b0a163a00725d33a9bc4eae75aa35ac9be6a007cacb8251c
+      # false => claims land in `request.jwt.claims` as a single JSON GUC,
+      # which is what the RLS policies in the spike fixture read.
+      PGRST_DB_USE_LEGACY_GUCS: "false"
+      PGRST_APP_SETTINGS_JWT_SECRET: 2508c659af3c4316b0a163a00725d33a9bc4eae75aa35ac9be6a007cacb8251c
+      PGRST_APP_SETTINGS_JWT_EXP: "3600"
+      PGRST_LOG_LEVEL: info
+    ports:
+      - "3000"
+
+  realtime:
+    image: supabase/realtime:v2.34.47
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PORT: "4000"
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_USER: supabase_admin
+      DB_PASSWORD: d8d866978aef6ac99c610bcb75b72431
+      DB_NAME: postgres
+      DB_AFTER_CONNECT_QUERY: "SET search_path TO _realtime"
+      # EXACTLY 16 chars — Realtime encrypts each tenant's jwt_secret at rest
+      # with AES-128 using this key. Changing it orphans existing tenant rows.
+      DB_ENC_KEY: "389dc6374cabb10e"
+      API_JWT_SECRET: 2508c659af3c4316b0a163a00725d33a9bc4eae75aa35ac9be6a007cacb8251c
+      SECRET_KEY_BASE: 9de1c968bf967abd210b5daa1ffeae057742dd68824dd9d0df935e44d2c84359
+      ERL_AFLAGS: -proto_dist inet_tcp
+      DNS_NODES: "''"
+      RLIMIT_NOFILE: "10000"
+      APP_NAME: realtime
+      # Self-hosted Realtime is MULTI-TENANT even when you only have one tenant.
+      # It resolves the tenant from the request's Host header. SEED_SELF_HOST
+      # makes the container seed one tenant row + its postgres_cdc_rls extension
+      # row on boot, with the jwt_secret already encrypted under DB_ENC_KEY —
+      # which is why we let it seed rather than INSERTing the row by hand.
+      SEED_SELF_HOST: "true"
+      SELF_HOST_TENANT_NAME: realtime-dev
+      RUN_JANITOR: "true"
+    # A db recreate invalidates Realtime's logical-replication slot and its
+    # WebSocket transport never recovers on its own — it answers CHANNEL_ERROR
+    # forever while `docker compose up -d` reports it merely `Running` and does
+    # nothing. env-up.sh has an explicit reconcile leg that restarts this
+    # service when the health assertion sees CHANNEL_ERROR against a healthy db.
+    command: >
+      sh -c "/app/bin/migrate &&
+             /app/bin/realtime eval 'Realtime.Release.seeds(Realtime.Repo)' &&
+             /app/bin/server"
+    ports:
+      - "4000"
+
+# ==========================================================================
+# Named volumes.
+#
+# `spike-db-data` holds PGDATA. Before it existed the data directory lived in
+# the db container's writable layer and ANY recreate was total data loss; see
+# the long note on the db service's volume list. Destroying it stays a
+# deliberate act — only `down --volumes` (task spike:down, env-up.sh --fresh)
+# removes it, and that is the ONLY supported way to get a fresh initdb.
+# ==========================================================================
+volumes:
+  spike-db-data:

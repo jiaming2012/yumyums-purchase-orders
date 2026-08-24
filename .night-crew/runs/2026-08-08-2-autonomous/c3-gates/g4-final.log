@@ -1,0 +1,13 @@
+=== HEAD ===
+ee31b3fac2b2f357120e8518c753abd9ba4ea7d4
+=== md5 before ===
+9954d1a04ec4b8fa942b3fd84e96f4e9  sw.js
+=== node build-sw.js (post-commit) ===
+import reachability: 18 precached files parsed, 31 local references resolved, 0 outside the precache
+SW built: 31 files precached (2209.4 KB)
+Frontend version: 1.4.0
+EXIT=0
+=== md5 after ===
+9954d1a04ec4b8fa942b3fd84e96f4e9  sw.js
+=== git status (must be clean) ===
+STATUS_LINES=0

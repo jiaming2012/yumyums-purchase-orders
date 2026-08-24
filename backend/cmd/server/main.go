@@ -324,19 +324,37 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Initialize DO Spaces presigner + client (optional — graceful degradation if env vars missing)
+	// Initialize object storage (Backblaze B2, S3-compatible) presigner + client.
+	// B-172: the canceled-DO-Spaces incident was silent because a missing store
+	// only 503s at upload time. photos.DecideStorageStartup centralizes the boot
+	// policy:
+	//   - all five vars set → build the client/presigner (happy path)
+	//   - all five empty    → soft "unconfigured" (a deliberate dev/test state:
+	//                          uploads 503, /health reports "unconfigured");
+	//                          FATAL only when STORAGE_REQUIRED=1 — prod sets it,
+	//                          so a forgotten .env.prod crashes loudly here
+	//   - partially set     → FATAL always (a partial config is never intentional
+	//                          and cannot presign)
 	var spacesPresigner *s3.PresignClient
 	var spacesClient *s3.Client
-	spacesEndpoint := os.Getenv("DO_SPACES_ENDPOINT")
-	spacesBucket := os.Getenv("DO_SPACES_BUCKET")
-	spacesRegion := os.Getenv("DO_SPACES_REGION")
-	if spacesEndpoint == "" && spacesRegion != "" {
-		spacesEndpoint = "https://" + spacesRegion + ".digitaloceanspaces.com"
+	spacesEndpoint := os.Getenv("STORAGE_ENDPOINT")
+	spacesBucket := os.Getenv("STORAGE_BUCKET")
+	spacesRegion := os.Getenv("STORAGE_REGION")
+	storageEnv := photos.StorageEnv{
+		Key:      os.Getenv("STORAGE_KEY"),
+		Secret:   os.Getenv("STORAGE_SECRET"),
+		Bucket:   spacesBucket,
+		Endpoint: spacesEndpoint,
+		Region:   spacesRegion,
 	}
-	if os.Getenv("DO_SPACES_KEY") != "" && os.Getenv("DO_SPACES_SECRET") != "" && spacesBucket != "" && spacesEndpoint != "" {
+	switch d := photos.DecideStorageStartup(storageEnv, os.Getenv("STORAGE_REQUIRED") == "1"); {
+	case d.Fatal:
+		slog.Error("object storage misconfigured, refusing to start", "reason", d.Reason, "required", "STORAGE_KEY, STORAGE_SECRET, STORAGE_BUCKET, STORAGE_ENDPOINT, STORAGE_REGION")
+		os.Exit(1)
+	case d.Configured:
 		spacesCfg := photos.SpacesConfig{
-			AccessKey: os.Getenv("DO_SPACES_KEY"),
-			SecretKey: os.Getenv("DO_SPACES_SECRET"),
+			AccessKey: storageEnv.Key,
+			SecretKey: storageEnv.Secret,
 			Endpoint:  spacesEndpoint,
 			Region:    spacesRegion,
 			Bucket:    spacesBucket,
@@ -344,14 +362,26 @@ func main() {
 		spacesClient = photos.NewSpacesClient(spacesCfg)
 		p, err := photos.NewSpacesPresigner(spacesCfg)
 		if err != nil {
-			slog.Warn("failed to initialize DO Spaces presigner, photo and video upload endpoints will return 503", "error", err)
+			slog.Warn("failed to initialize storage presigner, photo and video upload endpoints will return 503", "error", err)
 		} else {
 			spacesPresigner = p
-			slog.Info("DO Spaces presigner initialized", "bucket", spacesBucket, "endpoint", spacesEndpoint)
+			slog.Info("object storage client initialized (reachability probed separately)", "bucket", spacesBucket, "endpoint", spacesEndpoint)
 		}
-	} else {
-		slog.Warn("DO Spaces env vars not set, photo and video upload endpoints will return 503", "required", "DO_SPACES_KEY, DO_SPACES_SECRET, DO_SPACES_BUCKET, DO_SPACES_REGION")
+	default:
+		slog.Warn("object storage env vars not set, photo and video upload endpoints will return 503", "required", "STORAGE_KEY, STORAGE_SECRET, STORAGE_BUCKET, STORAGE_ENDPOINT, STORAGE_REGION")
 	}
+
+	// B-172: constructing the S3 client is offline — a canceled/dead account is
+	// indistinguishable from a live one until a real request. Probe at boot so a
+	// dead store is an explicit startup error, and keep probing (30s cache) so
+	// /api/v1/health reports "storage": ok|unreachable|unconfigured live.
+	storageHealth := photos.NewStorageHealth(spacesClient, spacesBucket, 30*time.Second)
+	go func() {
+		if status := storageHealth.Status(ctx); status == photos.StorageOK {
+			slog.Info("object storage reachable", "bucket", spacesBucket)
+		}
+		// The unreachable case logs its own slog.Error inside Status.
+	}()
 
 	// Service-to-service token for sales-processor → /api/v1/inventory/period-summary
 	// and /api/v1/inventory/menu-cogs (Phase 999.2).
@@ -415,6 +445,32 @@ func main() {
 		r.Get("/ws", opsync.WsHandler(hub, pool))
 	})
 
+	// Sync substrate proxy at /sync/* — the SAME-ORIGIN DOOR (decision 69,
+	// morning triage 2026-07-27, card `sync-proxy-endpoint`). Fronts PostgREST
+	// at /sync/rest/* and Realtime at /sync/realtime/*, WebSocket upgrade
+	// included. Cloudflare Tunnel config is unchanged, there is no second
+	// hostname, no CORS, and no second origin for the service worker.
+	//
+	// AT THE ROOT, NOT UNDER /api/v1 — deliberately. /api/v1/sync/token (the
+	// JWT bridge, below) already occupies that prefix, and a catch-all wildcard
+	// in front of it would shadow it.
+	//
+	// Behind auth.Middleware and NOTHING ELSE: it reuses HQ's existing session
+	// middleware rather than inventing a second auth path, and it is
+	// deliberately outside RequirePermission for the same reason
+	// /api/v1/sync/token is — it is access-resolution plumbing, and the real
+	// per-row authorization is RLS inside the proxied services reading the live
+	// grant projection. Choosing an app grant to gate the substrate door behind
+	// would be inventing a permission concept.
+	//
+	// Fails closed: with HQ_SYNC_REST_URL / HQ_SYNC_REALTIME_URL unset (the
+	// normal state today) every request answers 503, so registering it here is
+	// inert until a deploy configures it.
+	r.Group(func(r chi.Router) {
+		r.Use(auth.Middleware(pool, superadmins))
+		r.Handle("/sync/*", opsync.ProxyHandler(pool, opsync.LoadProxyConfig()))
+	})
+
 	r.Route("/api/v1", func(r chi.Router) {
 		// Unauthenticated
 		r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
@@ -426,6 +482,7 @@ func main() {
 				"frontend_version": version.Frontend,
 				"git_sha":          version.GitSHA,
 				"built_at":         version.BuiltAt,
+				"storage":          storageHealth.Status(r.Context()),
 			})
 		})
 		r.Post("/logs", func(w http.ResponseWriter, r *http.Request) {
@@ -539,7 +596,22 @@ func main() {
 				r.Post("/ops", opsync.OpHandler(pool, workflowOpRouter(pool)))
 			})
 
-			// Photos endpoints — presigned URL generation for DO Spaces
+			// Sync bridge — mints the Supabase-compatible HS256 token for the
+			// CALLER'S OWN session (card `sync-jwt-bridge-endpoint`).
+			//
+			// Deliberately OUTSIDE every RequirePermission gate, in the same
+			// category as /me and /me/apps: it is access-resolution plumbing
+			// and must serve an ungranted user, so it can hand them a token
+			// whose live grant projection lets them reach nothing. Choosing a
+			// grant to gate it behind would be inventing a permission concept.
+			// Recorded as an exception in tests/grant-enforcement-parity.spec.js.
+			//
+			// Still inside the cookie group: identity comes only from the
+			// session, and the handler takes no user-id parameter — there is no
+			// mint-for-someone-else path to leave unguarded.
+			r.Post("/sync/token", opsync.TokenHandler(pool))
+
+			// Photos endpoints — presigned URL generation for object storage
 			r.Route("/photos", func(r chi.Router) {
 				r.Post("/presign", photos.PresignUploadHandler(spacesPresigner, spacesBucket, spacesEndpoint))
 				r.Get("/presign", photos.PresignGetHandler(spacesPresigner, spacesBucket))
@@ -581,6 +653,12 @@ func main() {
 					r.Get("/sync-receipts/status", inventory.SyncReceiptsStatusHandler(pool, receiptCfg.LookbackDays))
 					r.Post("/purchases/reprocess-all", inventory.ReprocessAllPendingHandler(pool, func(ctx context.Context, rows []receipt.PendingRowForReprocess) (map[string]string, error) {
 						return receipt.BatchReprocessFromSpaces(ctx, receiptCfg, rows)
+					}))
+					// B-172 recovery: re-fetch receipts stranded on a dead storage
+					// host from Mercury and rewrite the stored URLs onto the
+					// current bucket. Dry-run via {"dry_run":true}.
+					r.Post("/purchases/recover-receipts", inventory.RecoverReceiptsHandler(pool, receipt.StoragePublicPrefix(receiptCfg), func(ctx context.Context, dead receipt.DeadRows) (receipt.RecoverResult, error) {
+						return receipt.RecoverDeadReceiptURLs(ctx, receiptCfg, dead)
 					}))
 					r.Post("/purchases/confirm", inventory.ConfirmPendingPurchaseHandler(pool))
 					r.Post("/purchases/discard", inventory.DiscardPendingPurchaseHandler(pool))

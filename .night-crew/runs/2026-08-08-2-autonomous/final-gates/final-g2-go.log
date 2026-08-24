@@ -1,0 +1,24 @@
+?   	github.com/yumyums/hq/cmd/backfill-receipts	[no test files]
+?   	github.com/yumyums/hq/cmd/import-notion	[no test files]
+?   	github.com/yumyums/hq/cmd/migrate-toast-archive	[no test files]
+?   	github.com/yumyums/hq/cmd/seed	[no test files]
+?   	github.com/yumyums/hq/cmd/server	[no test files]
+?   	github.com/yumyums/hq/cmd/spikec-relay	[no test files]
+?   	github.com/yumyums/hq/cmd/sync-toast	[no test files]
+ok  	github.com/yumyums/hq/internal/alerts	0.004s
+ok  	github.com/yumyums/hq/internal/auth	2.999s
+?   	github.com/yumyums/hq/internal/config	[no test files]
+?   	github.com/yumyums/hq/internal/db	[no test files]
+ok  	github.com/yumyums/hq/internal/inventory	21.011s
+?   	github.com/yumyums/hq/internal/me	[no test files]
+?   	github.com/yumyums/hq/internal/onboarding	[no test files]
+?   	github.com/yumyums/hq/internal/photos	[no test files]
+ok  	github.com/yumyums/hq/internal/purchasing	6.795s
+ok  	github.com/yumyums/hq/internal/receipt	19.755s
+ok  	github.com/yumyums/hq/internal/recipes	20.448s
+ok  	github.com/yumyums/hq/internal/sync	42.701s
+?   	github.com/yumyums/hq/internal/testdb	[no test files]
+ok  	github.com/yumyums/hq/internal/toast	0.010s
+?   	github.com/yumyums/hq/internal/users	[no test files]
+?   	github.com/yumyums/hq/internal/version	[no test files]
+ok  	github.com/yumyums/hq/internal/workflow	1.709s

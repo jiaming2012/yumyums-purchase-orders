@@ -16,23 +16,30 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/yumyums/hq/internal/auth"
 	"github.com/yumyums/hq/internal/db"
+	"github.com/yumyums/hq/internal/testdb"
 )
 
 var testPool *pgxpool.Pool
 
 func TestMain(m *testing.M) {
-	dbURL := os.Getenv("DB_TEST_URL")
+	dbURL := os.Getenv(testdb.EnvVar)
+	// Computed BEFORE the fallback: the fallback is the *unset* case, and the
+	// unset case still skips. See internal/testdb for the asymmetry.
+	requested := dbURL != ""
 	if dbURL == "" {
 		dbURL = "postgres://yumyums:yumyums@localhost:5432/hq_test?sslmode=disable"
 	}
 	ctx := context.Background()
 	pool, err := pgxpool.New(ctx, dbURL)
 	if err != nil {
-		// Cannot reach DB — leave testPool nil so TestPeriodSummary skips.
+		testdb.ExitIfRequested(requested, dbURL, "connect", err)
+		// DB_TEST_URL unset and the local fallback is not there — leave
+		// testPool nil so TestPeriodSummary skips.
 		os.Exit(m.Run())
 	}
 	if err := pool.Ping(ctx); err != nil {
 		pool.Close()
+		testdb.ExitIfRequested(requested, dbURL, "ping", err)
 		os.Exit(m.Run())
 	}
 	if err := db.Migrate(pool); err != nil {
@@ -286,8 +293,8 @@ func insertPendingPurchaseWithEventDate(t *testing.T, bankTxID, eventDate, creat
 // about: reason, mercuryCategory, vendor, bankTotal.
 //
 // Pass mercuryCategory == "" for SQL NULL (uncategorised — excluded by the
-// allowlist filter). Pass eventDate == "" for SQL NULL (created_at::Chicago
-// becomes the period-filter input). Pass reason == "" for SQL NULL (treated
+// allowlist filter). Pass eventDate == "" for SQL NULL (the app-timezone cast
+// of created_at becomes the period-filter input — see pendingPeriodDateExpr). Pass reason == "" for SQL NULL (treated
 // as non-blocking by the narrowed gate since reason != 'no_attachment_on_bank_tx').
 func insertPendingPurchaseFull(t *testing.T, bankTxID, eventDate, createdAt, reason, mercuryCategory, vendor string, bankTotal float64) string {
 	t.Helper()
@@ -365,8 +372,9 @@ func TestPeriodSummary(t *testing.T) {
 		piID := insertPurchaseItem(t, "Salmon")
 		insertEventAndLine(t, vendorID, "2026-05-26", 2.50, 25.00, 4.5, 5, piID)
 
-		// Pending purchase created on 2026-05-27 (in range, in America/Chicago).
-		// Use timestamptz in Chicago to mirror the ingestion semantics.
+		// Pending purchase created on 2026-05-27, comfortably mid-day so it is in
+		// range in ANY North American zone. The -05:00 offset in the literal is
+		// just how the fixture was written; nothing here turns on it.
 		ppID := insertPendingPurchase(t, "2026-05-27 10:00:00-05:00", false, false)
 
 		code, got := callHandler(t, from, to)
@@ -838,7 +846,7 @@ func TestPeriodSummary(t *testing.T) {
 	})
 
 	// Phase 260606-0gh: event_date × created_at axis tests. The pending-review
-	// filter must use COALESCE(event_date, created_at::Chicago::date) so a
+	// filter must use COALESCE(event_date, created_at::app-tz::date) so a
 	// late-discovered May receipt ingested in June is still caught in the May
 	// period gate, and an old row ingested during the period but whose
 	// event_date is outside the window is correctly excluded.
@@ -907,7 +915,7 @@ func TestPeriodSummary(t *testing.T) {
 		vendorID := insertVendor(t, "Acme")
 		piID := insertPurchaseItem(t, "Salmon")
 		insertEventAndLine(t, vendorID, "2026-05-26", 2.50, 25.00, 4.5, 5, piID)
-		// NULL event_date → COALESCE falls back to created_at::Chicago.
+		// NULL event_date → COALESCE falls back to the app-timezone cast of created_at.
 		// created_at='2026-05-27' (in range) → row is in the period → must block.
 		ppID := insertPendingPurchaseWithEventDate(t,
 			"pp-evt-null-cr-in", "", "2026-05-27 10:00:00-05:00", "")
@@ -939,7 +947,7 @@ func TestPeriodSummary(t *testing.T) {
 		vendorID := insertVendor(t, "Acme")
 		piID := insertPurchaseItem(t, "Salmon")
 		insertEventAndLine(t, vendorID, "2026-05-26", 2.50, 25.00, 4.5, 5, piID)
-		// NULL event_date → COALESCE falls back to created_at::Chicago.
+		// NULL event_date → COALESCE falls back to the app-timezone cast of created_at.
 		// created_at='2026-06-05' (after period) → row is outside the period → must NOT block.
 		_ = insertPendingPurchaseWithEventDate(t,
 			"pp-evt-null-cr-out", "", "2026-06-05 10:00:00-05:00", "")
@@ -1057,7 +1065,7 @@ func TestPeriodSummary(t *testing.T) {
 		}
 	})
 
-	t.Run("tracked_bank_tx_ids: period boundary uses COALESCE(event_date, created_at::Chicago)", func(t *testing.T) {
+	t.Run("tracked_bank_tx_ids: period boundary uses COALESCE(event_date, created_at::app-tz)", func(t *testing.T) {
 		// Mirrors the existing pending-gate event_date × created_at axis
 		// tests above — the UNION's pending half must agree with the
 		// pending-review filter on which rows belong to the period.
@@ -1185,10 +1193,16 @@ func TestPeriodSummary(t *testing.T) {
 		}
 	})
 
-	t.Run("pending_review_details event_date falls back to Chicago cast of created_at", func(t *testing.T) {
+	t.Run("pending_review_details event_date falls back to the app-tz cast of created_at", func(t *testing.T) {
 		resetFixtures(t)
 		// NULL event_date, created_at 2026-05-29 22:02:00 UTC.
-		// Chicago = UTC-5 (CDT in late May) → local time 2026-05-29 17:02 → date 2026-05-29.
+		// New York = UTC-4 (EDT in late May) → local 2026-05-29 18:02 → date 2026-05-29.
+		//
+		// 🛑 This instant resolves to the SAME date in Chicago (17:02) and New
+		// York, so this case deliberately does NOT distinguish the two zones —
+		// it pins the COALESCE fallback, not the zone. The zone is pinned by
+		// TestPeriodSummary_PendingPeriodBoundaryIsTheAppTimezone at the end of
+		// this file, which places rows in the one hour where they disagree.
 		_ = insertPendingPurchaseWithEventDate(t,
 			"mx-200", "", "2026-05-29 22:02:00+00", "")
 
@@ -1201,7 +1215,7 @@ func TestPeriodSummary(t *testing.T) {
 			t.Fatalf("len(details) = %d, want 1 (full=%v)", len(details), details)
 		}
 		if details[0].EventDate != "2026-05-29" {
-			t.Errorf("details[0].EventDate = %q, want %q (Chicago cast of created_at)",
+			t.Errorf("details[0].EventDate = %q, want %q (app-timezone cast of created_at)",
 				details[0].EventDate, "2026-05-29")
 		}
 	})
@@ -1396,7 +1410,7 @@ func TestPeriodSummary(t *testing.T) {
 
 	t.Run("date_filter_still_applies_to_blocking_row_out_of_period", func(t *testing.T) {
 		// Case-A blocking row whose period anchor (event_date or fallback
-		// created_at::Chicago) is outside the window must NOT block, must NOT
+		// created_at::app-tz) is outside the window must NOT block, must NOT
 		// surface in pending_review_ids, and must NOT roll into COGS.
 		resetFixtures(t)
 		_ = insertPendingPurchaseFull(t,
@@ -2076,5 +2090,88 @@ func TestListPendingPurchases_ReceiptURLsField(t *testing.T) {
 	// Legacy row with receipt_urls=NULL must not return the field at all.
 	if len(rowB.ReceiptURLs) != 0 {
 		t.Errorf("row B ReceiptURLs = %v, want nil/empty (legacy row must not expose receipt_urls)", rowB.ReceiptURLs)
+	}
+}
+
+// ── The money path's boundary test ───────────────────────────────────────────
+//
+// RED BEFORE pendingPeriodDateExpr MOVED TO NEW YORK.
+//
+// pendingPeriodDateExpr is this card's headline site: the COGS window AND the
+// completeness gate that feeds sales-processor's weekly payroll. Until this
+// test it was covered by no red at all. The nearest existing case,
+// "pending_review_details event_date falls back to ... cast of created_at",
+// uses 2026-05-29 22:02:00+00 — which is 17:02 in Chicago and 18:02 in New
+// York, i.e. the SAME calendar date in both. It cannot tell the two zones
+// apart, so it could not have caught a wrong zone here.
+//
+// This one can. Both rows are placed in the one-hour gap where Chicago and New
+// York disagree about the calendar date, and they are placed at OPPOSITE edges
+// of the period so they move in OPPOSITE directions:
+//
+//	instant 2026-06-01T04:30Z  NY 2026-06-01 00:30 (OUT)  CHI 2026-05-31 23:30 (IN)
+//	instant 2026-05-25T04:30Z  NY 2026-05-25 00:30 (IN)   CHI 2026-05-24 23:30 (OUT)
+//
+// A single-zone answer therefore cannot satisfy both assertions. Under the old
+// Chicago cast the expected set was exactly inverted, which is what "the
+// boundary moved across a repo line" means in rows.
+//
+// Both rows carry NULL event_date deliberately — an extracted event_date wins
+// the COALESCE, so a row that has one is not exposed to the zone at all. This
+// is the entire blast radius of the change, stated as a test.
+func TestPeriodSummary_PendingPeriodBoundaryIsTheAppTimezone(t *testing.T) {
+	if testPool == nil {
+		t.Skip("DB_TEST_URL not reachable; skipping integration test")
+	}
+
+	const from = "2026-05-25"
+	const to = "2026-05-31"
+
+	resetFixtures(t)
+
+	// Just past the END of the period in New York, still inside it in Chicago.
+	// MUST NOT appear.
+	_ = insertPendingPurchaseWithEventDate(t,
+		"tx-after-period-ends-in-ny", "", "2026-06-01 04:30:00+00", "")
+
+	// Just past the START of the period in New York, still before it in
+	// Chicago. MUST appear.
+	_ = insertPendingPurchaseWithEventDate(t,
+		"tx-after-period-starts-in-ny", "", "2026-05-25 04:30:00+00", "")
+
+	// A control in the uncontested middle of the period, to prove the window
+	// itself works and the two edge rows are not both being dropped by some
+	// unrelated filter.
+	_ = insertPendingPurchaseWithEventDate(t,
+		"tx-mid-period", "", "2026-05-28 16:00:00+00", "")
+
+	code, got := callHandler(t, from, to)
+	if code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", code)
+	}
+
+	want := []string{"tx-after-period-starts-in-ny", "tx-mid-period"}
+	if len(got.TrackedBankTxIDs) != len(want) {
+		t.Fatalf("TrackedBankTxIDs = %v, want %v\n"+
+			"  if this reads [tx-after-period-ends-in-ny tx-mid-period], the pending "+
+			"period cast is still on America/Chicago", got.TrackedBankTxIDs, want)
+	}
+	for i, id := range want {
+		if got.TrackedBankTxIDs[i] != id {
+			t.Errorf("TrackedBankTxIDs[%d] = %q, want %q (full=%v)",
+				i, got.TrackedBankTxIDs[i], id, got.TrackedBankTxIDs)
+		}
+	}
+
+	// The completeness gate is the half that reaches payroll. Assert it
+	// separately rather than trusting that it shares the tracked-ids filter —
+	// "they share a const" is the claim under test, not a premise.
+	if len(got.Completeness.PendingReviewIDs) != len(want) {
+		t.Errorf("len(PendingReviewIDs) = %d, want %d — the completeness gate and "+
+			"the tracked-ids UNION disagree about which day a receipt belongs to",
+			len(got.Completeness.PendingReviewIDs), len(want))
+	}
+	if got.Completeness.Ready {
+		t.Errorf("Completeness.Ready = true, want false (there are blocking pendings)")
 	}
 }

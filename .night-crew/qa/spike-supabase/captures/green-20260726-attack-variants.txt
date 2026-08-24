@@ -1,0 +1,67 @@
+# GREEN capture — card B sync-jwt-bridge-endpoint, run overnight-20260726
+#
+# Same suite, same stack, after sql/hq-bridge-policies.sql was written.
+# Compare against red-20260726-attack-variants.txt: the 9 RLS-gated variants
+# that failed there pass here, and the two service_role BYPASSRLS controls
+# still read all 4 rows — so nothing went green by the table emptying.
+#
+# host 1-min load at capture: 20.48   (card C running concurrently)
+# date: 2026-07-25T21:30:57-04:00
+
+=== RUN   TestJWTBridgeRLS
+=== RUN   TestJWTBridgeRLS/CONTROL/service_role_BYPASSRLS_proves_the_rows_are_there
+    jwtbridge_rls_test.go:377: ADMITTED service_role sees ALL rows                     [chk-alice-inv-1 chk-alice-ops-1 chk-alice-ops-2 chk-bob-ops-1]
+=== RUN   TestJWTBridgeRLS/POSITIVE/alice_reads_exactly_her_own_rows_in_an_app_she_holds
+    jwtbridge_rls_test.go:385: ADMITTED alice reads her operations rows                [chk-alice-ops-1 chk-alice-ops-2]
+=== RUN   TestJWTBridgeRLS/V1/anon_(no_token_at_all)
+    jwtbridge_rls_test.go:391: REFUSED  V1 anon                                        HTTP 401 {"code":"42501","details":null,"hint":null,"message":"permission denied for table hq_sync_checklists"}
+=== RUN   TestJWTBridgeRLS/V2/wrong_signature
+    jwtbridge_rls_test.go:404: REFUSED  V2 wrong signature                             HTTP 401 {"code":"PGRST301","details":null,"hint":null,"message":"JWSError JWSInvalidSignature"}
+=== RUN   TestJWTBridgeRLS/V3/expired_token
+    jwtbridge_rls_test.go:415: REFUSED  V3 expired token                               HTTP 401 {"code":"PGRST301","details":null,"hint":null,"message":"JWT expired"}
+=== RUN   TestJWTBridgeRLS/V4/tampered_payload_keeping_the_original_signature
+    jwtbridge_rls_test.go:437: REFUSED  V4 tampered payload                            HTTP 401 {"code":"PGRST301","details":null,"hint":null,"message":"JWSError JWSInvalidSignature"}
+=== RUN   TestJWTBridgeRLS/V5/missing_sub_claim
+    jwtbridge_rls_test.go:456: REFUSED  V5 missing sub                                 HTTP 200 []
+=== RUN   TestJWTBridgeRLS/V6/invalid_role_claim_(nonexistent_postgres_role)
+    jwtbridge_rls_test.go:471: REFUSED  V6 invalid role claim                          HTTP 400 {"code":"22023","details":null,"hint":null,"message":"role \"hq_superuser\" does not exist"}
+=== RUN   TestJWTBridgeRLS/V7/cross-owner_read_(alice_asks_for_bob's_row_by_id)
+    jwtbridge_rls_test.go:478: REFUSED  V7 cross-owner read                            HTTP 200 []
+=== RUN   TestJWTBridgeRLS/V8/stale_grant_claim_in_the_token_opens_nothing
+    jwtbridge_rls_test.go:495: REFUSED  V8 stale grant claim                           HTTP 200 []
+=== RUN   TestJWTBridgeRLS/V9/token_replay_after_grant_revocation
+    jwtbridge_rls_test.go:508: ADMITTED V9 before revocation, the token works          [chk-alice-ops-1 chk-alice-ops-2]
+    jwtbridge_rls_test.go:522: REFUSED  V9 replay after grant revocation               HTTP 200 []
+    jwtbridge_rls_test.go:525: ADMITTED V9 control: rows still present during the refusal [chk-alice-inv-1 chk-alice-ops-1 chk-alice-ops-2 chk-bob-ops-1]
+=== RUN   TestJWTBridgeRLS/V10/forged_owner_write_(alice_inserts_a_row_owned_by_bob)
+    jwtbridge_rls_test.go:542: REFUSED  V10 forged owner write                         HTTP 403 {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"hq_sync_checklists\""}
+=== RUN   TestJWTBridgeRLS/V11/forged_grant_write_(own_identity,_ungranted_app)
+    jwtbridge_rls_test.go:568: REFUSED  V11 forged grant write                         HTTP 403 {"code":"42501","details":null,"hint":null,"message":"new row violates row-level security policy for table \"hq_sync_checklists\""}
+=== RUN   TestJWTBridgeRLS/V12/deactivated_user_—_every_projection_row_removed
+    jwtbridge_rls_test.go:599: REFUSED  V12 deactivated user lockout                   HTTP 200 []
+    jwtbridge_rls_test.go:600: ADMITTED V12 control: rows still present during the lockout [chk-alice-inv-1 chk-alice-ops-1 chk-alice-ops-2 chk-bob-ops-1]
+=== RUN   TestJWTBridgeRLS/V13/auth.uid()_policy_fails_on_this_stack_(negative_control)
+    jwtbridge_rls_test.go:624: auth.uid() policy yields NOTHING for a valid token: HTTP 200 []
+    jwtbridge_rls_test.go:628: ADMITTED V13 side-by-side: the plural-GUC policy DOES discriminate [chk-alice-ops-1 chk-alice-ops-2]
+    jwtbridge_rls_test.go:636: V13 control: service_role sees [trap-alice-1 trap-bob-1] — the trap table was NOT empty
+=== RUN   TestJWTBridgeRLS/CONTROL/service_role_control_re-taken_after_all_variants
+    jwtbridge_rls_test.go:645: ADMITTED service_role still sees ALL rows               [chk-alice-inv-1 chk-alice-ops-1 chk-alice-ops-2 chk-bob-ops-1]
+--- PASS: TestJWTBridgeRLS (0.71s)
+    --- PASS: TestJWTBridgeRLS/CONTROL/service_role_BYPASSRLS_proves_the_rows_are_there (0.01s)
+    --- PASS: TestJWTBridgeRLS/POSITIVE/alice_reads_exactly_her_own_rows_in_an_app_she_holds (0.01s)
+    --- PASS: TestJWTBridgeRLS/V1/anon_(no_token_at_all) (0.04s)
+    --- PASS: TestJWTBridgeRLS/V2/wrong_signature (0.01s)
+    --- PASS: TestJWTBridgeRLS/V3/expired_token (0.00s)
+    --- PASS: TestJWTBridgeRLS/V4/tampered_payload_keeping_the_original_signature (0.00s)
+    --- PASS: TestJWTBridgeRLS/V5/missing_sub_claim (0.01s)
+    --- PASS: TestJWTBridgeRLS/V6/invalid_role_claim_(nonexistent_postgres_role) (0.00s)
+    --- PASS: TestJWTBridgeRLS/V7/cross-owner_read_(alice_asks_for_bob's_row_by_id) (0.01s)
+    --- PASS: TestJWTBridgeRLS/V8/stale_grant_claim_in_the_token_opens_nothing (0.01s)
+    --- PASS: TestJWTBridgeRLS/V9/token_replay_after_grant_revocation (0.04s)
+    --- PASS: TestJWTBridgeRLS/V10/forged_owner_write_(alice_inserts_a_row_owned_by_bob) (0.02s)
+    --- PASS: TestJWTBridgeRLS/V11/forged_grant_write_(own_identity,_ungranted_app) (0.01s)
+    --- PASS: TestJWTBridgeRLS/V12/deactivated_user_—_every_projection_row_removed (0.03s)
+    --- PASS: TestJWTBridgeRLS/V13/auth.uid()_policy_fails_on_this_stack_(negative_control) (0.02s)
+    --- PASS: TestJWTBridgeRLS/CONTROL/service_role_control_re-taken_after_all_variants (0.01s)
+PASS
+ok  	github.com/yumyums/hq/internal/sync	0.719s

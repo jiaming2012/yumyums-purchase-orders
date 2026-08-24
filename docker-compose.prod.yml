@@ -43,6 +43,12 @@ services:
       # Prod is the ONLY live alert sender (T-21b decision 46). Outbound alert
       # delivery is opt-in; dev servers holding the same creds stay silent.
       ALERTS_ENABLED: "1"
+      # B-172: object storage is mandatory in prod. With this set, a missing or
+      # partial STORAGE_* config (e.g. a forgotten .env.prod) is a hard startup
+      # failure instead of silently degrading photo/video uploads to 503s. Dev
+      # and the E2E suite leave this unset, so their deliberate "unconfigured"
+      # state stays a non-fatal warning.
+      STORAGE_REQUIRED: "1"
       SUPERADMIN_CONFIG: /app/config/superadmins.yaml
       TEMPLATE_CONFIG: /app/config/templates.yaml
     env_file:

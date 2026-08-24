@@ -1,0 +1,590 @@
+# UI-SPEC — `sync-rxdb-conflict-notice`
+
+**Status: REVISION 2 — ✅ SIGNED. `sync-rxdb-conflict-notice-ui` is BUILT (run
+`overnight-20260801`, card C2).**
+
+> 🛑 **The line that stood here — *"DRAFT AWAITING OPERATOR SIGN-OFF. Nothing here is approved."* —
+> is FALSE as of morning triage 2026-07-29 (ledger T-28 decision 98).** The operator walked all 16
+> plates and signed revision 2. It is corrected rather than left standing, because an unattended
+> reader going top-down was previously able to take it as the card's live status — the same failure
+> the roadmap card's own struck block records. `done_when:` row 34 below ("the sign-off is NOT
+> discharged") was the MOCKUP card's criterion and was correct on the day; it is discharged now, by
+> the operator, and is marked as such in place.
+>
+> **Three plates deviate from what was signed** — `edge-removed`, `openq-count-a`, `openq-count-b`,
+> redrawn under amendment **A-3** (decision 95), which the same sitting made a build obligation. The
+> deviation is noted here, in `mockup.html`'s own captions, and in the build's SUMMARY.md, per
+> CLAUDE.md's mockup rule. The other 13 plates are unchanged.
+
+CLAUDE.md gates UI code on phases introducing new components behind a committed mockup plus an
+explicit human *"ok, build this"*. This file and `mockup.html` beside it are that artifact. The
+sibling card `sync-rxdb-conflict-notice-ui` stays **ATTENDED-BLOCKED** until the operator answers.
+A *no* is a successful outcome for the card that produced this — it is cheaper to redraw a mockup
+than to redraw `workflows.html`.
+
+**Revision history, because the sign-off state is not a simple yes or no:**
+
+| Rev | Card | What changed |
+|---|---|---|
+| r1 | `sync-rxdb-conflict-notice-mockup` (run 2026-07-29) | First draft. 11 plates, 20 `done_when:` rows. Signed *"Ok, build this"* at 18:12 — **ledger decision 80**. |
+| r2 | `sync-rxdb-conflict-notice-mockup-amendments` (run 2026-07-29-2) | **Decision 80 superseded in part at morning triage 2026-07-28 — ledger T-26 decision 82.** Amendments **A-1** and **A-2** below are drawn. 16 plates. The card returned to ATTENDED-BLOCKED and **this revision does not discharge it** — it produces the artifact the operator signs. |
+| **r2 — A-3 REDRAW** | `sync-rxdb-conflict-notice-ui` (run `overnight-20260801`, C2) | **Build.** `edge-removed`, `openq-count-a` and `openq-count-b` redrawn per **A-3**: the removed question now renders its own frozen label, struck through and read-only, in the same type as any question title. The raw field id survives ONLY as A-3's fallback, and `edge-removed` now draws BOTH renderings so the degradation is checkable from one screenshot — which matters because B1's item **R-C** means every malformed `template_snapshot` lands in that fallback. The two `openq-count-*` captions are re-headed as the RECORD of a decision that has been made (Reading A, decision 95) rather than a live question. 32 PNGs re-shot; `shoot.mjs` measurement 6's classifier learns the new class, and its seven population floors are NOT lowered (tap targets 62→64, unrec rows 6→7). **Deviation from the signed plates, per CLAUDE.md's mockup rule.** |
+| **r2 — SIGNED** | morning triage **2026-07-29** (attended walkthrough of all 16 plates, PNGs read back) | ✅ **"Sign it" GIVEN — ledger T-28 decision 98.** `sync-rxdb-conflict-notice-ui` is **no longer ATTENDED-BLOCKED**. A-1 and A-2 confirmed as drawn at the worst case. Three further operator decisions came out of the walk: **A-3** (decision 95 — a removed question keeps its label, struck through and read-only; **supersedes both readings of open decision (i)**), **retention stays 30 days** (decision 96), and **the sheet caps at 10 groups** (decision 97). 🛑 **A-3 requires `edge-removed`, `openq-count-a` and `openq-count-b` to be redrawn, with the deviation noted in SUMMARY.md.** The other 13 plates are signed as drawn. |
+
+- **Mockup:** [`mockup.html`](mockup.html) — open it in a browser; every state below is rendered.
+- **Self-verification renders:** [`screenshots/`](screenshots/) — 480 px, light and dark, one pair
+  per plate (16 pairs, 32 PNGs), produced by `screenshots/shoot.mjs`. That script also
+  **measures** the seven contracts that cannot be judged by eye — horizontal overflow, touch-target
+  size, **that every banner carries both A-1 figures** (and that there are still **8** of them),
+  **that no banner line truncates at 480 px** (the card's PARK trigger), **that every destructive
+  control names what it replaces**, **that every printed figure reconciles with the rows drawn
+  beneath it**, and **that collapse never removes a row's only exit** — and exits non-zero if any
+  fails, so those `done_when:` rows are checked rather than asserted. The measurements were **run
+  red against the un-amended r1 mockup first** (5 banners carrying one figure, 7 Restore controls
+  silent about the loss) and each was **mutation-tested** to prove it can fail rather than passing
+  vacuously.
+
+  **Repair round (same run).** Two gates found that three of those checks selected their population
+  in a way that could not catch the defect they exist for, and that one criterion carried a false
+  literal. All four are fixed and each fix was falsified by re-running the mutation, not merely
+  asserted — see *"What the repair round changed, and why"* at the foot of the `done_when:` block.
+  **The failure mode is generic and named there so it is not re-introduced: a check scoped to the
+  place a fix was made is the same escape as a criterion scoped to the members that already pass.**
+
+---
+
+## The problem, in one paragraph
+
+A crew member fills a checklist on a phone with no signal in the truck. A manager edits the same
+submission from the office. The phone reconnects. **The crew member's work is dropped, and as
+configured nothing tells them.** RxDB's default conflict handler is unconditional *master-wins* —
+not the last-write-wins the explore session assumed — and it resolves silently: nothing thrown,
+`error$` emits zero events, and from inside the app the offline edit simply never happened. For a
+product whose stated core value is *accountability — who checked what*, that is a product-level
+problem. This spec is the user-visible half of decision 50.
+
+---
+
+## What `conflict$` gives you — and what it does not
+
+**Verified at W2**, not assumed. Sources:
+`.night-crew/qa/spike-supabase/rxdb/proof-lww.js`,
+`.night-crew/qa/spike-supabase/README.md` half 2 step 5,
+`.night-crew/knowledge/designs/sync-rxdb-feasibility-spike.md` §"THE FINDING",
+`.night-crew/runs/2026-07-25-autonomous/DECISIONS-NEEDED.md` FORK 3.
+
+The observed run, verbatim, twice with identical results:
+
+```
+local  body after reconnect : REMOTE-EDIT (written first, T1)
+remote body after reconnect : REMOTE-EDIT (written first, T1)
+replication errors surfaced : 0 []
+conflict handler invocations: 1
+    newDocumentState.body  : LOCAL-EDIT (written second, T2)    <- the local (later) write
+    realMasterState.body   : REMOTE-EDIT (written first, T1)    <- what the server actually held
+    handler CHOSE          : REMOTE-EDIT (written first, T1)
+```
+
+### It DOES give you
+
+| | |
+|---|---|
+| **One event per conflicting document** | `RxReplicationState.conflict$` (`rxdb/dist/esm/plugins/replication/index.js:44,51,287-289`). In the scenario above: `error$` **0** events, `conflict$` **1** event. |
+| **The discarded local document, whole** | `e.input.newDocumentState` — every field as the crew member left it, **including the document id (the PK)**. This is the value the sheet recovers. |
+| **The server document that won** | `e.input.realMasterState`, and `e.output` — the resolution the handler returned. Under the default handler these are the same thing. |
+| **The state the push assumed** | `e.input.assumedMasterState` — what the client believed the server held when it pushed. |
+
+### It does NOT give you — and each gap shapes a state below
+
+| Gap | Consequence for this UI |
+|---|---|
+| **Which field clashed.** Whole documents only; no field name, no path. | The app must diff `newDocumentState` against `output` itself. A diff can come back with nothing a crew member would recognise → the **no discarded value available** row. |
+| **Any replay.** `conflict$` is a plain RxJS `Subject` — not `ReplaySubject`, not `BehaviorSubject`. Subscribe where the replication is constructed or the event is gone. RxDB persists nothing about a resolved conflict. | **The app must write the discarded value to durable local storage the instant the event arrives**, or a reload loses the thing this screen exists to recover. Every state below assumes that record exists. It is also why **error** and **local conflict log unreadable** are distinct states: one is a failed write, the other is a lost record. |
+| **Any event outside the leader tab.** `waitForLeadership` defaults to `true` in a browser (W3 confirmed election works in tabs, ~50 ms handover); only the leader replicates, so only its `conflict$` fires. | The banner must read from the shared local record, never from a live subscription. If nothing was subscribed at all, **the app never learns and no notice appears** — unfixable at the UI layer; stated in the mockup's limits panel so the sign-off is given with it in view. |
+| **Any author or timestamp of its own.** No `who`, no `when`, no user-facing text, no severity. | "Dana M., 6:12 PM" is only as real as the replicated row. **r1 said those lines "degrade to someone else"; A-2 removes that escape** — the batch confirm exists to say *exactly* what is being overridden, so who-and-when is a **required output** of `sync-rxdb-schema-and-replication`, not an option it may decline. If it is declined, the confirm plate cannot be built as drawn. **That schema still belongs to the parent card; this spec states the requirement and does not decide it.** |
+| **Per-collection scoping.** It fires per `replicateSupabase()` call, once per document. | One subscription per replication; the sheet is fed by their union. |
+
+### One thing the operator should know is not free
+
+Declaring `_modified` in the collection schema is a **semantics switch, not a formality** (W2 sharp
+edge 11): it makes `addDocEqualityToQuery` include `_modified` in the compare-and-swap, so **any**
+server-side touch becomes a conflict — including ones where no answer changed. That is a real
+generator of the **no discarded value available** state. Whether to declare it is the parent card's
+call; if it is declared, that row stops being rare.
+
+---
+
+## Component inventory
+
+| Component | Where | Purpose |
+|---|---|---|
+| **Conflict banner** | top of My Checklists, `workflows.html` | The only thing that appears unprompted. Amber, exact count, one tap to the sheet. |
+| **Overwritten-answers sheet** | full-height, over My Checklists | The whole feature. Reads the durable local conflict record. |
+| **Conflict group** | one per document = one `conflict$` event | Checklist name, date, document id chip, count chip. Grouping is not cosmetic — it is the shape the event arrives in. |
+| **Conflict field row** | one per differing field | *Yours* / *Now shows* value pair + actions. Eight row renderings: default, in-flight, restored, **kept-theirs**, **undone**, failed, unrecoverable, removed-field. |
+| **Restore mine** | primary action on a row | Writes the crew member's value again **now**, from the current master state. An ordinary local edit that pushes cleanly — it resurrects nothing and needs no new sync plumbing. |
+| **Undo** | on a restored or kept-theirs row | The only escape from a mis-tap, used on a truck in daylight with wet hands. A bordered **≥44 px** control, never an inline text link. Its existence is why handled rows are kept rather than removed. |
+| **Restore all N of mine** | foot of a group | Same, batched, for a group whose per-row buttons have collapsed. **Styled primary** — on a collapsed group it is the only action on the card. **A-2:** it names what it replaces, carries the same attribution + timestamp the rows do, acts only on rows **still to review** (counting rule 7), and **opens a confirm rather than writing through**. |
+| **Batch override confirm** | over the sheet, on `Restore all N of mine` | A-2's protection. Names the loss in its title, **lists the N server values about to be overwritten** with author and time, and offers Cancel at equal weight. Not used for the single-row restore — Undo is the net there. |
+| **Copy value** | removed-field rows only | The only recovery available when there is nowhere to write the value back. |
+
+---
+
+## The counting rule
+
+Stated once, here, because three surfaces show a number and they must agree. **Every plate in
+`mockup.html` obeys this and the plates are drawn so it can be checked from a screenshot.**
+
+1. **The banner headline** counts **recoverable answers** across the whole sheet.
+2. **A group's count chip** counts the recoverable answers **in that group**, and equals the number
+   of field rows drawn in that group.
+3. **What has been done to a row never changes any count.** A restored row, a kept-theirs row, a
+   failed restore and an in-flight restore are all still counted, because the record still exists
+   and the crew member can still act on it (Undo, Retry). A count drops only when a record **leaves**
+   the sheet — an explicit **Dismiss**, or ageing out of the retention window.
+4. **Unidentifiable changes are counted separately**, never folded into the headline: a second
+   banner line (`+ 1 change we couldn't identify`) and a `+N` appended to that group's chip
+   (`1 answer +1`). The headline number therefore stays literally true as a number of *answers*.
+   Chip base + chip `+N` = rows drawn.
+5. **A repeat conflict on the same question does not add a row.** The durable conflict record is
+   keyed by **document id + field id**, so a restore that conflicts in turn *replaces* the record it
+   already has and updates the existing row in place. This is what closes the loop described under
+   *The recovery path* below without the sheet growing a duplicate row each time, and it is why the
+   count is stable under Retry.
+
+6. **The banner carries a second figure: rows still to review.** (Added by A-1.) A row is
+   **reviewed** once it has been **restored, kept, or dismissed**. An **untouched** row is still to
+   review. **A failed restore is still to review** — the crew member has unfinished business there.
+   An **in-flight** restore has not landed, so it is too. **Unidentifiable changes are in neither
+   this figure nor the headline** — they stay in the separately-counted `+N` (rule 4), because
+   folding them in here would re-mix exactly what rule 4 keeps apart. Wording by case: nothing
+   handled → *"N still to review"*; some handled → *"N still to review · M handled"*; all handled
+   → *"All N reviewed"*.
+7. **`Restore all N of mine` acts only on rows still to review.** (Added by A-2.) Its N is rule 6's
+   figure for that group, **not** the chip base. A batch tap must never re-write a row the crew
+   member deliberately kept — that would silently reverse their own decision, which is the opposite
+   of what an override that "states what it destroys" is for.
+8. **Collapse hides the Restore/Keep pair; it does not hide a row's outcome strip, its Undo, or the
+   actions of a row that has no Restore/Keep pair to hide.** (Added by A-2; third clause added by
+   the repair round.) Collapsing exists to cut thumb-scrolling and an outcome strip is one line that
+   *reduces* what a row costs. More to the point: after `Restore all N`, all N rows are green on a
+   collapsed sheet, and if collapse ate Undo a batched mis-tap would be irreversible.
+   **The same argument covers a row with nothing to restore.** A *no discarded value* row and a
+   *removed-field* row offer **Open checklist / Dismiss** and **Copy value / Dismiss** — never a
+   Restore/Keep pair — so collapse has nothing to take from them and must take nothing. Under rule 3
+   **`Dismiss` is the only way such a row ever leaves the sheet**; a collapse that hid it would
+   leave the row with no exit at all, on the sheet that has the most rows to get through. The rule
+   as first written was silent here, and the `a1-banner` plate drew two such rows with no actions
+   whatsoever. Machine-checked: every `.cf.unrec` row in the file carries a `Dismiss`
+   (`shoot.mjs` measurement 7).
+
+Consequence, stated plainly so the operator can reject it if they disagree: **the headline is not a
+to-do list, and it is no longer alone.** Rule 1 reports how many answers were overwritten in the
+window; rule 6 reports how many are still unhandled. Decrementing rule 1 on Restore/Keep — the
+alternative — makes the sheet a queue that a mis-tap empties, and it destroys Undo, because a row
+that has been removed cannot be undone. **A-1's whole content is that those were two questions, not
+one**, and r1 answered both with a single number.
+
+> ## 🛑 AMENDMENT A-1 — REQUIRED BEFORE `sync-rxdb-conflict-notice-ui` IS SLATED
+>
+> **Filed at morning triage 2026-07-28 (ledger T-26, decision 82). Operator-directed.**
+> (Decision **80** is the r1 *"Ok, build this"* of 18:12 — the record of what was decided then, and
+> **superseded in part** by decision 82, which filed both A-1 and A-2. Citing 80 here would attribute
+> the amendment to the sign-off it amends.)
+> The rule above is **accepted in substance and rejected in presentation.** Rows still never
+> leave the sheet except on Dismiss or retention expiry — that part stands, and Undo depends
+> on it. What changes is what the banner prints.
+>
+> **The defect this closes.** The operator walked the success plate and asked the question the
+> design could not answer: *"when she finishes the second, why does it still say three?"* Under
+> rule 3 the answer is "because three answers were overwritten and that stays true" — literally
+> correct, and wrong on a phone. A number in a coloured banner at the top of the screen reads as
+> a **badge**, and badges count outstanding work. A crew member who handles two of three and still
+> sees **3** concludes the restores did not take. The past-tense wording ("*were* overwritten")
+> does not survive a two-second glance in daylight.
+>
+> The sheet already shows progress — a restored row turns green and carries Undo. **Only the
+> banner is frozen.** So the reason to keep rows (preserving Undo) was never connected to the
+> number the banner prints; treating those as one decision was the design's mistake, not the
+> operator's.
+>
+> **What the amendment requires.**
+>
+> 1. The banner MUST show **both** figures: what happened in the window, and how many rows are
+>    still unhandled — e.g. *"3 answers were overwritten · 1 still to review"*, or the headline
+>    holding at 3 with a quieter handled/total beneath it. Exact wording is the UI card's to
+>    choose; carrying both numbers is not optional.
+> 2. Rule 3 is **unchanged for the sheet**: a restored, kept, failed or in-flight row is still
+>    drawn and still counted in the "what happened" figure. Counts drop out of that figure only
+>    on Dismiss or expiry.
+> 3. **"Still to review" needs a definition, and it is not the same as "not green".** A row is
+>    reviewed once it has been restored, kept, or dismissed. An **untouched** row counts as still
+>    to review. A **failed restore counts as still to review**, not as handled — the crew member
+>    has unfinished business there, and the error plate must agree with this.
+> 4. **The two banner lines must coexist at 480px.** The second line is already spoken for by
+>    `+ N change(s) we couldn't identify` (rule 4). A plate MUST exist showing the unidentifiable
+>    case *and* a partially-handled sheet together, or the layout is unproven for the one
+>    combination most likely to occur on a bad night.
+> 5. Every affected plate MUST be re-shot and read back per the self-verification ritual, and
+>    the State Enumeration Table's counting column updated to match.
+>
+> **Status of the rest of the sign-off.** The mockup is approved **in direction** — the recovery
+> path, the degradation ladder, the honesty of the no-value and removed-field rows, and the limits
+> panel all stand as drawn. Two decisions are **deliberately deferred until the revised plates
+> exist**, because both are easier to judge against a banner that is no longer misleading:
+>
+> - whether a removed-field row counts in the chip base or moves to `+N` (the "recoverable"
+>   ambiguity — today the app counts its two no-Restore cases differently from each other);
+> - the retention window, still a **30-day placeholder**.
+>
+> `sync-rxdb-conflict-notice-ui` therefore **stays ATTENDED-BLOCKED**. A mockup existing is not a
+> sign-off, and neither is a partial one.
+
+> ## 🛑 AMENDMENT A-2 — THE OVERRIDE MUST STATE WHAT IT DESTROYS
+>
+> **Filed at morning triage 2026-07-28 (ledger T-26, decision 82). Operator-directed.**
+> (Same decision as A-1 — 82 filed both amendments against the r1 sign-off, decision 80.)
+>
+> **The operator's test, in their words:** *"my question is to make sure that it is clear to the
+> user on the mobile device that was offline exactly what they were overriding."*
+>
+> What already passes that test, and must not regress: **both values are always on screen above
+> the action that overwrites one of them** — including in the collapsed several-at-once view, where
+> the collapse hides *buttons*, never *values*. `Restore all 3 of mine` sits directly beneath the
+> three `YOURS` / `NOW SHOWS` pairs it will replace. That is the right instinct and it stays.
+>
+> Three gaps close:
+>
+> 1. **The action must name what it replaces, not only what it restores.** "Restore mine" and
+>    "Restore all 3 of mine" describe the gain and are silent on the loss. The layout implies the
+>    destruction; the words never state it. This matters most on the batch button, where **one tap
+>    overwrites three of someone else's values**.
+> 2. **The batch override MUST confirm before writing.** A single-row restore may write straight
+>    through — both values are right there and Undo covers a mis-tap. `Restore all N of mine` may
+>    not: the confirm must show the **N server values about to be overwritten**, so the crew member
+>    sees what disappears before it does.
+> 3. **The collapsed view must carry the same attribution the expanded view does.** Today the
+>    single-conflict plate shows *"Dana M., 6:12 PM"* while the collapsed batch plate shows only
+>    *"Dana M."* — no timestamp. **The riskiest action currently carries the least information.**
+>    Restore parity.
+>
+> **Not in scope for A-2, and deliberately so:** adding a confirm to the single-row restore. Undo is
+> the safety net there, and a confirmation on every tap is friction on a phone in a hurry.
+>
+> ### A-2's dependency on the parent card (decision 82)
+>
+> The `· Dana M., 6:12 PM` attribution is drawn on every `NOW SHOWS` row, but `conflict$` carries
+> **no author and no timestamp of its own** — those exist only if the replicated row carries them,
+> which is a schema decision owned by `sync-rxdb-schema-and-replication`. The mockup previously
+> treated this as *conditional*, degrading to "someone else".
+>
+> **That conditional is now a hard requirement.** *"You are overwriting someone"* is not adequate on
+> a food-safety record; a crew member deciding whether to replace a walk-in cooler reading needs to
+> know **whose** reading and **when**. Who-and-when is therefore a **REQUIRED output of
+> `sync-rxdb-schema-and-replication`**, not an option it may decline, and this UI card's spec
+> depends on it.
+
+---
+
+> ## 🛑 AMENDMENT A-3 — A REMOVED QUESTION KEEPS ITS LABEL, STRUCK THROUGH AND READ-ONLY
+>
+> **Filed at morning triage 2026-07-29 as ledger T-28 decision 95, at the same sitting that SIGNED
+> revision 2 (decision 98).** The signature is given; A-3 is a build obligation on
+> `sync-rxdb-conflict-notice-ui`, not a re-block. Offered back with consent as preference candidate
+> `ux/C-1`.
+>
+> **Operator's words, verbatim:** *"show the deleted question crossed out and read only so that the
+> user isnt confused."*
+>
+> ### What this supersedes
+>
+> Open decision (i) was drawn as a choice between **Reading A** (a removed-field row counts in the
+> chip base: `2 answers = 2 rows`) and **Reading B** (it moves to `+N`: `1 answer +1`), over identical
+> data, with neither recommended. **The operator chose neither.** A-3 changes what the row *renders*,
+> which was not on offer in either reading.
+>
+> ### The defect A-3 fixes
+>
+> `edge-removed`, `openq-count-a` and `openq-count-b` as committed draw the **raw field id**
+> (`fld_prep_sink_temp`) in muted monospace. The stated rationale was *"the template no longer holds a
+> label for it"* — **true of the template and false of the submission.** Verified at triage:
+> `template_snapshot` is `json.Marshal(tmpl)` of the whole template
+> (`backend/internal/workflow/repository.go:695`) and `Field.Label` is on the marshalled struct
+> (`model.go:44-57`), so **the discarded document carries its own frozen label** for a field the live
+> template has dropped. The alternatives the plate rejected — an invented label, or hiding the row —
+> were both correctly rejected; the third option was there all along.
+>
+> ### The contract
+>
+> - The row renders the **question's original label from the document's own `template_snapshot`**,
+>   **struck through**, in the same type as any other question title — not monospace, not a raw id.
+> - The row is **visibly read-only**: no Restore, and the struck-through title is what says so, rather
+>   than the absence of a button.
+> - **`Copy value` remains the recovery** and the value is still shown in full — it is the thing being
+>   recovered.
+> - Fall back to the raw field id **only** when the snapshot genuinely carries no label for that id,
+>   and render that fallback exactly as r2 drew it.
+>
+> ### Consequence for the counting rule (triage's inference, not operator words)
+>
+> With the row visibly struck through and read-only, Reading A's `2 answers` / `Restore all 1 of mine`
+> mismatch is **legible on screen rather than arithmetic**. So: **counting follows Reading A** — the
+> headline counts what was taken from the crew member, and the `+N` line keeps meaning only *"we
+> couldn't identify"*. Pooling a perfectly-identified removed question with a genuine unknown was the
+> worse outcome. 🛑 **This clause is recorded as an inference from the rider.** If the intent was
+> Reading B's counting with a struck-through label, it changes.
+>
+> ### A-3's dependency on the parent card
+>
+> A-3 makes `template_snapshot`'s **shape** load-bearing for this UI. B1's recorded-not-fixed item
+> **R-C** — `template_snapshot` is declared `{type:'object'}` with no nested `properties`, and the
+> committed vendor bundle ships no dev-mode or validation plugin, so **nothing rejects a malformed
+> value today** — therefore stops being an open question and becomes a **dependency**. The UI must not
+> assume the snapshot is well-formed; a snapshot that cannot be read for labels falls back to the raw
+> field id rather than rendering nothing.
+>
+> ### Plates that must be redrawn
+>
+> `edge-removed`, `openq-count-a`, `openq-count-b`. **The deviation from the signed plates must be
+> noted in SUMMARY.md** per CLAUDE.md's mockup rule. The remaining 13 plates are signed as drawn.
+
+---
+
+> ## 🛑 THE TWO OPEN DECISIONS ARE CLOSED (morning triage 2026-07-29)
+>
+> - **Open decision (i)** — superseded by **A-3** above (decision 95). Counting follows Reading A.
+> - **Open decision (ii) — the retention window** — **30 days. Decision 80 stands as written**
+>   (decision 96). Every surface reads it from **one named constant**; no surface restates the literal.
+>   The accepted costs are the ones the `open decision (ii)` plate names: a longer list to scroll, and
+>   a promise the device may not keep — the record is local-only, per-device and evictable, which is
+>   what the storage-error plate exists for. **The `⟨30⟩` placeholder token may now be replaced by the
+>   constant** in any plate that is redrawn.
+> - **Additionally decided, from the `edge-many` plate's own open question** — beyond ~10 groups the
+>   sheet **caps at 10 groups with an "and N more" line; no date filter** (decision 97). Rows below the
+>   line are **not dropped** and the banner still reports the **true total**. A date filter was
+>   rejected as more design and more code for a case a 1–5 person truck reaches only after an
+>   implausible offline stretch inside a 30-day window.
+
+---
+
+## State Enumeration Table
+
+Four base states plus **eight** edge rows — six from r1, two added by r2 (marked ✚). The three edge
+rows the card names by hand are marked ★. Each row maps 1:1 to a plate in `mockup.html` and to a
+screenshot pair in `screenshots/`.
+
+**Four plates in `mockup.html` are deliberately NOT states** and are not in this table: the
+`limits` panel (the design's own boundary, carried from r1) and the three r2 plates that exist to
+put an **open operator decision** on screen — `openq-count-a`, `openq-count-b`, `openq-retention`.
+12 state rows + 4 non-state plates = **16 plates, 32 PNGs**.
+
+| State | Trigger | Visual contract |
+|-------|---------|-----------------|
+| **empty** | Sheet opened from the sync menu; zero conflict records held locally. | No banner anywhere in the app. Sheet says what would put something here and how long records are kept. Because a non-leader tab, a replication with nothing subscribed to `conflict$`, and an evicted local store **all produce this identical screen**, the copy must be **scoped to the record, not phrased as a guarantee** — headline scoped to the retention window, **with the retention figure drawn as the placeholder token `⟨30⟩` in its dashed box and never as prose**: "Nothing recorded in the last `⟨30⟩` days". **The number is open decision (ii) and this row must not print it as settled** — writing it out here is exactly the escape `done_when:` row 32 exists to catch, and until the repair round this row was the place it survived. Body scoped to what the app caught ("This is what HQ caught and kept — if it wasn't running when a change came in, that change won't be listed"). A flat "Nothing was overwritten" is **banned**: it is a claim the app is not in a position to make, on the screen it shows most often. |
+| **loading** | Sheet opened; the local conflict log has not resolved within 500 ms (cold IndexedDB read). | Two skeleton group cards. No spinner. **No count in the header** — the header must not claim a number it does not have. Nothing renders at all under 500 ms. |
+| **error** | **Restore mine** tapped and the write does not land: offline, or the server value moved again and the restore conflicted in turn. | The row **stays** and keeps showing both values. Red inline block names which of the two happened in the crew member's words ("Couldn't put 38 °F back — you're offline"), says **where the discarded value still is** — *on this list*, not in the checklist, which still reads the server's value — and offers **Retry**. It must **not** promise an automatic retry: nothing in this design commits to one, and the only retry drawn is the crew member's. **The count does not decrement**, and the plate must make that checkable rather than assert it: the banner is rendered, and **banner headline = group chip = rows drawn**, with a failed row and an in-flight row among them. **A-1: the second figure reads `2 still to review` — both rows, because a failed restore and an in-flight restore are each unfinished business, not handled.** A plate on which the second figure had dropped to 1 or 0 would falsify A-1 rule 3, so this row is where that definition is checkable. A failed restore must never look like a completed one. In-flight: both buttons disabled, label reads "Restoring…". |
+| **success** | Replication reconnects; `conflict$` emits for a document; the diff names ≥1 template-backed field carrying a value in `input.newDocumentState`. | Amber banner above the checklist list carrying **both** A-1 figures — headline `2 answers were overwritten`, second line `1 still to review · 1 handled` — plus a plain-language cause. Sheet lists the group; each row shows the pair labelled *Yours* (amber, the crew member's) / *Now shows* (with attribution when the row carries it). Every recoverable row offers **Restore mine** + **Keep theirs**, and **each names the value it replaces on a second label line** (A-2: the button used to describe only the gain). A restored row collapses to a green confirmation that **names the value that came back** and offers **Undo** — a bordered ≥44 px control, never an inline text link, because it is the only escape from a mis-tapped Restore. |
+| **edge: row already handled** | **Keep theirs** tapped on a row, or **Undo** tapped on a row that had been restored — the two outcomes one tap off the primary path. | Neither outcome removes the row and **neither changes the "what happened" figure** (counting rule 3): banner headline = chip = rows drawn, unchanged. **The A-1 second figure IS what moves** — the kept row is reviewed, the undone row is back to untouched, so `1 still to review · 1 handled`. One plate, two numbers, only one of them moving: that is the amendment in a single render. A kept-theirs row collapses to a **muted, non-alarming** confirmation naming **the value that is now standing** ("Kept theirs — the checklist reads 41 °F") and keeps an **Undo**. An undone row returns to the full two-value, two-button row with one muted line saying what happened, so the tap is not silent. **Dismiss** is deliberately not drawn: it removes record, row and count together and yields either a smaller sheet or the **empty** state — there is no third rendering. |
+| ★ **edge: no discarded value available** | `conflict$` fired, but the diff between `input.newDocumentState` and `output` yields nothing showable — the only difference is bookkeeping (see `_modified` above), or the field is absent/null in the discarded document because the local write cleared it. | The row must **not** claim an answer was lost and must **not** render an empty slot where a value goes. Title reads "A change we couldn't identify"; the value slot reads *Not recoverable* in muted italic; one line explains in plain words. **No Restore button** — there is nothing to put back. Actions are **Open checklist** and **Dismiss** — two, not one. The contract is **per row**: a plate may (and the mockup's does) carry an ordinary recoverable row alongside, which *does* have Restore. **And it holds under collapse** (counting rule 8, third clause): collapse hides the Restore/Keep pair, this row has none, and `Dismiss` is the only way it ever leaves the sheet — so a collapsed sheet that dropped these two actions would strand the row permanently. `a1-banner` is the plate that proves it. Counting per rules 4 and 6: the banner headline carries the recoverable answers (`1 answer was overwritten`), the A-1 line carries `1 still to review`, a third quieter line carries these (`+ 1 change we couldn't identify`), and the group chip appends `+N` (`1 answer +1`) so chip base + `+N` = rows drawn. **The unidentifiable row is in neither of the first two figures.** |
+| ★ **edge: several conflicts at once** | A long offline stretch ends; `conflict$` emits once per document, several times in a burst. | **One** banner, never one per conflict, carrying the total and the number of checklists. Sheet groups rows under their document. Every group header carries a count chip so the size of the problem is legible without opening anything. **Collapse rule:** per-row buttons collapse to values-only, with a single **Restore all N of mine** at the foot of each group, when the sheet holds **more than one group** *or* any one group holds **more than two rows** — and when it applies it applies **to the whole sheet**, so a 2-row group beside a 3-row one does not render in a different style (a mixed sheet reads as a bug, not as a rule). A caption says the buttons come back on tap. **Restore all N of mine is styled primary**, not secondary: on a collapsed group it is the only action on the card and must not be its least prominent element. **A-2 adds two contracts to this row.** (a) **Attribution parity:** every `NOW SHOWS` row in the collapsed view carries **name AND time** — r1 showed a bare `Dana M.`, so the riskiest action on the sheet carried the least information. (b) The batch control names **what it replaces** (`replaces 3 of Dana M.'s answers · 6:12–6:14 PM`) and states that it **asks first**; it opens the confirm below rather than writing through. |
+| **edge: long value / long question text** | The discarded answer is a **free-text checklist note** — the field type most likely to survive a conflict and the only one with no length bound — or it contains an unbroken token with no spaces to wrap at (a pasted reference, an id, a URL), under a question title long enough to wrap. | The value **wraps inside the card** and is **never truncated**: it is the thing being recovered, so an ellipsis would hide the payload the crew member came for. The 88 px label column keeps its width; attribution may drop to its own line. **The page does not scroll sideways at 480 px** — `document.scrollWidth === document.clientWidth`, measured in the browser by `shoot.mjs`. Note for the implementer: the fixed label column inside a `display:flex` row makes this a real failure mode, not a hypothetical — a flex item's default `min-width:auto` will not shrink below its longest unbreakable word, so `min-width:0` on the row **and** the value plus `overflow-wrap:anywhere` on the value are all three required. |
+| ★ **edge: conflict on a field since removed from the template** | The discarded document carries a value for a field id the current template no longer contains — the owner edited the template while the phone was offline. | **No invented label.** The raw field id renders in monospace and muted, so it is visibly not a question title. One line states the question was removed. The value is still shown — it is the thing being recovered. **Restore mine is absent** (nowhere to write it); the recovery is **Copy value**, which is a real recovery on a phone: it goes into a message to the manager in two taps. |
+| **edge: local conflict log unreadable** | Sheet opens and the local store holding the conflict records cannot be read — iOS/Safari eviction under storage pressure, or private browsing. W3 named this the largest untested unknown for a phone-first PWA, so it gets a designed state rather than a stack trace. | Red-bordered card. **No fabricated count.** Single **Try again** action, offered without being oversold. The copy must carry **both halves, bad one first**: (a) that if Try again does not bring the list back the record is **permanently gone** and the overwritten answers **cannot be put back** — this is the one screen in the set where something really is unrecoverable, and an evicted IndexedDB is not recovered by tapping a button; (b) that the **checklists themselves are unaffected** and on the server. Half (a) is set at full text contrast, not muted. A crew member must not read a storage failure as "my work was deleted" — and must not read it as "nothing was lost" either. |
+| ✚ **edge: partly handled AND unidentifiable, together** | A bad night: a burst of conflicts on one checklist, some rows already dealt with, some the diff could not name. **A-1 requires a plate for exactly this combination** — it is where the banner has the most to say and the least room to say it, and it is the combination most likely on the night the feature matters. | **All three counting lines coexist at 480 px with no truncation and no ellipsis**, plus the plain-language cause line — four lines, which is the worst case, drawn rather than the easiest case: `4 answers were overwritten` / `2 still to review · 2 handled` / `+ 2 changes we couldn't identify` / cause. Chip `4 +2` = **6** rows drawn. Headline 4 = the four answer rows. Still-to-review 2 = the two untouched rows; the restored and kept rows are handled, are **not** in that figure, and **are still drawn and still in the headline**. The two unidentifiable rows are in **neither** of the first two figures. Collapse applies (one group, >2 rows), and the plate proves counting rule 8 in **both** its halves: **handled rows keep their outcome strip and their Undo under collapse**, and **the two unidentifiable rows keep their Open checklist and Dismiss** — collapse hides the Restore/Keep pair and those rows have none, so there is nothing for it to take; `Dismiss` is their only exit and collapse must not be what removes it. The batch control reads `Restore all 2 of mine`, not `all 4` — counting rule 7. Nothing may be `nowrap` or ellipsised: a line that did not fit must **wrap and grow the banner**, and `shoot.mjs` measures every line's `scrollWidth` in both schemes. |
+| ✚ **edge: batch override confirm** | `Restore all N of mine` tapped. **The write does not go through on that tap** (A-2). | A confirm card that **names the loss in its title** — `Replace 3 of Dana M.'s answers?`, not "Restore mine?" — and **lists the N server values about to be overwritten**, one per row, each **struck through in the destructive colour** with **who saved it and when**, and each with the crew member's own value on the line beneath, so both are on screen at the moment of decision. A lead paragraph states that their values are what the checklist reads **right now**. A footer states what remains reversible (`each row keeps an Undo — but that is three taps to reverse one`) without overselling it. **Cancel is an equal-weight 44 px control**, not a text link, and sits before the destructive one. **The three values are listed, never summarised as "3 answers"** — a number is the thing a crew member can agree to without reading. **Explicitly out of scope:** a confirm on the single-row restore. Undo is the safety net there and a confirm on every tap is friction on a phone in a hurry. |
+
+---
+
+## The recovery path
+
+**Restore mine** is the answer to "how do they get the value back", and it is deliberately boring.
+
+Master-wins discarded the fork because `replicateSupabase`'s push issues a compare-and-swap
+(`UPDATE … WHERE id = … AND <field> = <assumed master value>`) and the server value had already
+moved, so zero rows matched. Nothing about that state is unrecoverable — it is simply *stale*.
+Tapping Restore writes the crew member's value **again, now, from the current master state**. That
+is an ordinary local edit. It matches the current CAS, it pushes cleanly, and it needs no new sync
+plumbing, no handler special case, and no server endpoint. If the server moves again in between,
+that write conflicts in turn and lands back in this same sheet — the loop is closed, not open.
+**And it lands on the same row, not a new one:** the durable conflict record is keyed by
+**document id + field id**, so a repeat clash on the same question replaces the record already
+held. Without that key the closed loop would grow a duplicate row per retry and the counting rule
+above would not hold. This is a requirement on the UI card's storage choice, not a free property.
+
+Three degradations, in order of how much is left:
+
+1. **Value present, field still on the template** → *Restore mine*, one tap. (success)
+2. **Value present, field gone from the template** → nowhere to write it, so *Copy value* to the
+   clipboard. (removed-field edge)
+3. **No value to show** → nothing to recover; say so and offer *Open checklist* so the crew member
+   can verify what it reads now. (no-discarded-value edge)
+
+**The precondition, stated once and loudly:** because `conflict$` has no replay and RxDB persists
+nothing about a resolved conflict, all three depend on the app writing the discarded value to
+durable local storage **the instant the event arrives**. Without that, a reload destroys the value
+before anyone can act on it. *Where* that record lives — a local-only RxDB collection, or something
+simpler — is the UI card's implementation call; that it must exist is a contract of this design.
+
+---
+
+## How A-1 and A-2 are drawn — requirement by requirement
+
+Each numbered requirement in the two amendment blocks above, and the plate that answers it. **The
+sign-off is not discharged by this table** — it is what the operator checks the plates against.
+
+| Req | Where it is drawn | How it can be checked from a screenshot |
+|---|---|---|
+| **A-1.1** banner shows both figures | Every banner-bearing plate: `success`, `a1-banner`, `outcomes`, `error`, `edge-novalue`, `edge-many`, `openq-count-a`, `openq-count-b` | Two lines under the icon, e.g. `2 answers were overwritten` + `1 still to review · 1 handled`. Machine-checked over all 8 banners by `shoot.mjs` measurement 3. |
+| **A-1.2** rule 3 unchanged for the sheet | `outcomes`, `error`, `a1-banner` | The restored / kept / failed / in-flight rows are all **still drawn** and the headline still counts them. `outcomes`: headline 2 = chip 2 = 2 rows across a kept row and an undone row. |
+| **A-1.3** still-to-review definition; **a failed restore counts** | `error` (definition's hard case), `outcomes` (kept vs undone), `a1-banner` (restored + kept vs untouched) | `error` reads `2 still to review` over one failed row and one in-flight row. If a plate showed a failed restore as handled, this row fails. |
+| **A-1.4** two lines coexist with `+ N change(s) we couldn't identify` at 480 px | `a1-banner` (drawn at **four** lines — the worst case, one more than required), `edge-novalue` (three lines) | Read the PNGs; and `shoot.mjs` measurement 4 asserts `scrollWidth ≤ clientWidth` on **every** banner line in both schemes, exiting non-zero otherwise. |
+| **A-1.5** affected plates re-shot; table's counting column updated | all 32 PNGs regenerated; State Enumeration Table rows for success / error / outcomes / novalue / many amended | `git diff` on `screenshots/` and on this file's table. |
+| **A-2.1** the action names what it replaces | every Restore control on every plate, plus both batch controls | `Restore mine` carries a second label line `replaces 41 °F`; `Keep theirs` carries `41 °F stays`. Machine-checked by `shoot.mjs` measurement 5 over all **13 destructive controls** — scoped by what the control *does*, so `Retry` and `Restoring…` on the error plate are in scope too, which the r2 label-scoped version missed. |
+| **A-2.2** batch confirms before writing, showing the N server values | `a2-confirm` | Three named rows, each with the server value struck through in red, its author and its timestamp, and the crew member's value beneath. `Cancel` + `Replace 3 answers`. |
+| **A-2.3** collapsed view carries the same attribution | `edge-many` | All five `NOW SHOWS` rows read `· Dana M., H:MM PM`. r1 read `· Dana M.` with no time. |
+| **A-2** out of scope | — | No confirm was added to the single-row restore, deliberately. |
+
+### The two decisions this revision deliberately does NOT settle
+
+Both were reopened at morning triage and are the operator's. **Each is drawn so it is decidable from
+the plates**, which is stronger than being listed in prose.
+
+- **(i) Does a removed-field row count in the chip base, or move to `+N`?** **Both readings are
+  drawn over identical data** — `openq-count-a` (Reading A: it is an answer; chip `2 answers`, no
+  `+N`) and `openq-count-b` (Reading B: it is a `+N`; chip `1 answer +1`). Each plate's caption
+  states its own consequence, and neither is recommended: Reading A makes the headline count
+  something that cannot be put back, so a `Restore all 1 of mine` would sit under a `2 answers`
+  chip; Reading B forces the second banner line to stop saying *"we couldn't identify"* — a removed
+  field is identified perfectly well — and become a mixed bucket reading *"can't be put back"*. The
+  `edge-removed` plate keeps r1's counting (Reading A) **and says so in its caption**, so it is a
+  familiar baseline rather than a silent choice.
+- **(ii) The retention window.** Rendered as the token `⟨30⟩`, in a dashed placeholder box, **never
+  as prose** — on the `empty` plate and on `openq-retention`, which draws the one screen that prints
+  it at two candidate values (`⟨30⟩`, `⟨7⟩`) to show the copy is indifferent to the number. Both are
+  captioned as placeholders and neither is a recommendation. Implementations read it from one named
+  constant (ledger T-27, decision 89).
+
+---
+
+## `done_when:`
+
+```yaml
+done_when:
+  # ── the artifact this card owes ────────────────────────────────────────────
+  - "1. mockup.html exists at .planning/phases/sync-rxdb-conflict-notice/mockup.html — the exact path CLAUDE.md's sign-off gate reads; ls the path"
+  - "2. Every State Enumeration row has a plate in mockup.html carrying its trigger and visual contract as a visible caption — count plates against table rows, 1:1 (12 state rows + the limits panel + 3 open-decision plates = 16 plates, 32 PNGs). A row with no plate, or a plate with no row and no place in the 4-plate non-state list, fails this"
+  - "3. All three card-named edge rows are present and marked: no discarded value available, several conflicts at once, conflict on a field since removed from the template — grep the table for the three ★ rows"
+
+  # ── the design contract, checkable against the renders ─────────────────────
+  - "4. The recovery action is visible on every ROW that has a value to recover, and absent from every row that has none — assert PER ROW, not per plate: in edge-novalue-light.png the .cf.unrec row has only Open checklist + Dismiss while the ordinary row above it does have Restore mine; success-light.png and edge-removed-light.png each show a primary recovery on their valued rows"
+  - "5. A restored row names the value that came back, not just 'restored' — read success-light.png, assert the literal value string appears in the green confirmation"
+  - "6. A failed restore keeps both values on screen AND is still counted — read error-light.png and assert all four: Yours and Now shows are both still rendered above the red block; a banner IS drawn; the banner headline, the group count chip and the number of field rows are the same number; the failed row is one of the rows counted. (The old wording asked for 'does not decrement', which a single static plate cannot show. Equality of the three numbers on a plate whose rows have already failed/started is what proves the rule.)"
+  - "7. The removed-field row renders the raw field id in monospace and offers Copy value with no Restore — read edge-removed-light.png"
+  - "8. The no-value row shows 'Not recoverable' and no Restore button — read edge-novalue-light.png"
+  - "9. Several-at-once renders ONE banner carrying the total across all groups, not one banner per conflict — read edge-many-light.png, count banners"
+  - "10. The loading state shows no count in the sheet header — read loading-light.png, assert the header is the bare title"
+  - "11. The storage-error copy carries BOTH halves — read edge-storage-light.png and assert it states (a) that the record may be permanently gone and the overwritten answers cannot be put back, and (b) that the checklists themselves are fine. Neither half alone passes; half (a) must not be muted-only text"
+
+  # ── rules the verifier found undefined or contradicted ─────────────────────
+  - "12. The counting rule is stated in this file AND obeyed by every plate — read all 16 light PNGs; on each plate that draws a group, chip base + any '+N' == field rows drawn in that group; on each plate that draws a banner, the headline == the answer rows drawn, the still-to-review line == the untouched/failed/in-flight rows, and the '+N' line (when present) == the unidentifiable rows. REWRITTEN at r2: the old wording called the unidentifiable count 'the second line', which A-1 made false — the second line is now the still-to-review figure and the unidentifiable count moved to a third. A criterion that names the wrong line cannot catch a plate that gets it wrong. Any plate that disagrees fails this row"
+  - "13. Every plate caption agrees with what that plate draws — read each PNG's caption against its own render; specifically edge-novalue names BOTH Open checklist and Dismiss, and edge-many's collapse rule accounts for its own 2-row collapsed group"
+  - "14. The two outcomes one tap off the primary path are drawn, not just described — read outcomes-light.png: a kept-theirs row naming the standing value with an Undo, and an undone row back to two values + two buttons, with the count unchanged across both"
+  - "15. Long content does not break the layout — read edge-longvalue-light.png: a multi-line free-text note and an unbroken token both wrap inside the card with no truncation and no ellipsis. Machine-checked: shoot.mjs asserts document.scrollWidth === document.clientWidth at viewport 480 in both schemes and exits non-zero otherwise"
+
+  # ── house constraints ──────────────────────────────────────────────────────
+  - "16. Renders at 480px with no horizontal overflow in either scheme — measured by shoot.mjs (scrollWidth vs clientWidth, both schemes), not judged by eye; the script exits non-zero on failure"
+  - "17. Both colour schemes render legibly from the shared CSS variable block — screenshots/*-light.png and *-dark.png pairs exist for all 16 plates (32 PNGs) and were read back. A glyph that renders as a tofu box in the headless font stack fails this row: it did, on the first r2 render, for the U+1F6D1 marker used on the three open-decision captions"
+  - "18. EVERY interactive element in the design is a >=44px touch target in both dimensions, AND there are still at least EXPECTED_TAP_TARGETS (62) of them — not just the two classes already known to pass. shoot.mjs measurement 2 measures getBoundingClientRect over '.cf-btn, .cg-all, .cf-done-undo, .sc-close, .cn-banner-go, .sc-err button, .sc-empty button, .cfm-go, .cfm-cancel' in both schemes, asserts the population is >= the pinned floor of 62, prints both numbers and every element under 44px, and exits non-zero on either. Undo, Done and the banner's Review are inside that selector. Grepping the stylesheet does NOT satisfy this row — it was what let three sub-44px controls through. THE FLOOR IS THE HARDENING ROUND'S, and this row's own earlier wording is the escape it closes: it blessed whatever count the run happened to print (62 after the repair round, 58 at r2, up from 38), so a DELETION was invisible to both the check and the criterion. Mutation-tested by deleting all four '<span class=\"cf-done-undo\">Undo</span>' controls — the only escape from a mis-tapped Restore, the control this row exists for — which reported '58 measured, 0 under 44px -> PASS' in both schemes and exited 0; it now reds at '58 measured (expected >=62)'. A criterion that recites the count it observed cannot indict the count that shrank"
+  - "19. Zero production files changed — git diff --name-only 9bd9a72..HEAD lists nothing outside .planning/phases/sync-rxdb-conflict-notice/ and .night-crew/runs/2026-07-29-2-autonomous/ and .night-crew/knowledge/roadmap.md"
+  - "20. No version constant moved — version.go Backend 0.3.0 and package.json Frontend 1.2.2 (version.go's Frontend constant mirrors it) both byte-identical to the branch point; git diff on both paths is empty. CORRECTED in the repair round: this row asserted 1.2.1, which is not what the tree holds at HEAD or at the branch point — the half that was actually checked was the git-diff-is-empty half, so a false literal sat in the criterion and passed. Read the constants, do not recite them"
+
+  # ── r2: amendment A-1 (ledger T-26 decision 82) ────────────────────────────
+  - "21. EVERY banner in the file carries BOTH figures — the what-happened headline AND a still-to-review figure — AND there are still EXACTLY 8 of them. Machine-checked: shoot.mjs measurement 3 walks every .cn-banner in both schemes, requires a .cn-banner-hd AND a .cn-banner-open whose text matches /(\\d+ still to review|All \\d+ reviewed)/, asserts the banner COUNT equals EXPECTED_BANNERS (8), prints both numbers, and exits non-zero on either. HOW IT FAILS: it did, red, on the un-amended r1 mockup — 5 banners, 5 carrying one figure. Mutation-tested green-side by deleting every .cn-banner-open at runtime: 8 banners flagged. THE COUNT ASSERTION IS THE REPAIR ROUND'S: the check iterated the banners that EXIST, so DELETING one was invisible to it — mutation-tested by deleting plate-success's banner, which reported '7 banners, 0 carrying only one' and now reds on the count."
+  - "22. The still-to-review figure is ARITHMETICALLY RIGHT on every counting plate, not merely present. MACHINE-CHECKED as of the repair round — shoot.mjs measurement 6 reconciles, per plate, in both schemes: headline == answer rows drawn; '+N' line == unidentifiable rows drawn; still-to-review == answer rows that are untouched, failed or in-flight; handled == answer rows that are green-restored or muted-kept; still + handled == headline; per group, chip base == that group's answer rows, chip '+N' == that group's unidentifiable rows, and base + N == rows drawn. Open decision (i) is NOT settled by the check: a removed-field row is assignable to either bucket and a plate must balance under EXACTLY ONE reading, which the script names per plate (edge-removed and openq-count-a resolve to Reading A, openq-count-b to Reading B — derived, not asserted). Also read the 8 light PNGs. HOW IT FAILS: before the repair round this row was eye-only and measurement 3 tested PRESENCE, so `sed s/1 still to review/99 still to review/` reported '0 carrying only one -> PASS' and exited 0; that same mutation now reds 4 plates, and bumping a chip base 4 -> 5 on a1-banner reds it too."
+  - "23. A FAILED restore counts as still to review, not as handled — read error-light.png: the second banner line reads 2 still to review over exactly two rows, one of which shows the red Couldn't-put-back block and one of which is mid-flight. HOW IT FAILS: if that line read 1 or 0, or if the failed row were rendered as an outcome strip, A-1 rule 3's definition would be contradicted by its own plate."
+  - "24. A-1's PARK trigger is measured, not judged — NO banner line truncates or ellipsises at a 480px viewport in EITHER scheme. shoot.mjs measurement 4 checks scrollWidth <= clientWidth + 1 and text-overflow != ellipsis on every .cn-banner-hd/-open/-unid/-sub, asserts the population is >= EXPECTED_BANNER_LINES (24), prints both numbers and every offender, and exits non-zero on either. HOW IT FAILS: mutation-tested by injecting white-space:nowrap;overflow:hidden;text-overflow:ellipsis on those selectors — 24 lines flagged. If it could not fail, the PARK trigger would be unenforceable. THE FLOOR IS THE HARDENING ROUND'S: like row 18, this walked the lines that EXIST, so deleting one of the six .cn-banner-sub cause lines slid the count 24 -> 23 and still passed — mutation-tested, and it now reds at '23 measured (expected >=24)' in both schemes."
+  - "25. The worst-case banner is DRAWN, not described — a1-banner-light.png and a1-banner-dark.png each show FOUR banner lines together: the headline, '2 still to review · 2 handled', '+ 2 changes we couldn't identify', and the plain-language cause. Read both PNGs; assert all four are fully legible and none is clipped. HOW IT FAILS: A-1.4 asks only that two lines coexist with the +N line; a plate drawn at the minimum would pass A-1.4 and fail this row, which is deliberate — the combination most likely on a bad night is the one that must be proved."
+
+  # ── r2: amendment A-2 (ledger T-26 decision 82) ────────────────────────────
+  - "26. EVERY DESTRUCTIVE control names what it replaces — population scoped by what the control DOES, not by what it is called. Machine-checked: shoot.mjs measurement 5 walks .cf-btn, .cg-all and .cfm-go in both schemes; every one whose primary label is not one of the five non-destructive labels (Keep theirs, Dismiss, Open checklist, Copy value, Cancel) is in scope and must carry /replac/i IN ITS SUB-LABEL where it has one, or in its whole label where it has none. It ALSO asserts a floor on the population: >=12 row/batch controls (.cf-btn + .cg-all) and >=13 in total (plus the confirm's own .cfm-go), so a rename or a deletion REDS instead of passing on an empty set. HOW IT FAILS: red on r1 — 7 of 7 silent. REWRITTEN IN THE REPAIR ROUND, because the r2 wording selected by LABEL (/^Restore/) and both halves of that were broken. (a) It never measured plate-error's 'Retry replaces 41 °F' or 'Restoring… replacing \"No\"' — Retry is the same destructive write as Restore mine, on the one plate where the crew member has already failed once, and a Retry drawn with no sub-label would have been exactly the A-2 defect and would have passed green; mutation-tested by stripping only those two sub-labels, which the old check reported as '10 Restore controls, 0 silent -> PASS' and the new one reds at 2. (b) Renaming the controls made the guard EVAPORATE while reporting success — 'Restore mine' -> 'Put mine back' with sub-labels stripped printed '0 Restore controls, 0 silent -> PASS', exit 0; the same file now reds at 12 silent, and renaming every destructive control into the allowlist reds on the population floor at 0/12. The behaviour-scoped population is 13: 12 row/batch controls + 1 confirm commit button, not the 10 the label-scoped version saw."
+  - "27. The batch override CONFIRMS before writing and the confirm shows the N server values — read a2-confirm-light.png and assert ALL of: the title names the loss and counts it ('Replace 3 of Dana M.'s answers?'); exactly three server values are listed by question name; each is struck through AND carries both an author and a clock time; each has the crew member's own value on the line beneath; a Cancel control is present at equal weight. HOW IT FAILS: a confirm that said '3 answers will be replaced' without listing them would satisfy 'confirms before writing' and fail this row — which is the point, since a number is what a crew member can agree to without reading."
+  - "28. The collapsed view carries the SAME attribution the expanded view does — read edge-many-light.png and assert every one of the five 'Now shows' rows carries a name AND a clock time. HOW IT FAILS: r1's render is the counter-example — all five read '· Dana M.' with no time. One bare name on any row fails this."
+  - "29. The batch control's N is the still-to-review count, not the chip base — read a1-banner-light.png: chip reads '4 answers +2' while the batch control reads 'Restore all 2 of mine'. HOW IT FAILS: if it read 'all 4', one tap would re-write the row the crew member deliberately kept, silently reversing their own decision; a plate showing 'all 4' under a partially-handled group fails."
+
+  # ── r2: the two decisions that must stay OPEN ──────────────────────────────
+  - "30. [SUPERSEDED 2026-07-29 by decision 95 — open decision (i) is CLOSED as Reading A, and A-3 changed what the row RENDERS, which was on neither plate. The pair is kept as the record of the decision; both are redrawn with the struck-through label and re-captioned as CHOSEN / NOT CHOSEN. The criterion below was correct on the day and is NOT re-runnable now.] Open decision (i) is drawn BOTH ways over IDENTICAL data and neither is chosen — read openq-count-a-light.png and openq-count-b-light.png: same two rows, same values, same group; chip '2 answers' vs '1 answer +1'; banner headline 2 vs 1; Reading B carries a third banner line whose wording differs from Reading A's absence of one. Each caption must contain the words NOT SETTLED and state its own consequence. HOW IT FAILS: drawing only one reading, drawing them over different data (which would make them incomparable), or any caption recommending one."
+  - "31. [SUPERSEDED by decision 95 — see row 30. `edge-removed` now states in its caption that counting follows Reading A BECAUSE it was decided, not by omission.] No plate silently settles open decision (i) — grep mockup.html for every group chip and read edge-removed-light.png: the one plate that counts a removed-field row outside the openq pair MUST say in its own caption that its chip is Reading A and that the decision is not settled. HOW IT FAILS: r1's edge-removed plate is the counter-example — it printed '1 answer' with no note, which is a choice made by omission."
+  - "32. The retention number is a VISIBLE placeholder wherever it renders — in the MOCKUP **and in this file** — never prose. (a) grep mockup.html: every occurrence of the retention figure sits inside a <span class=\"ph\"> token; assert zero bare occurrences of the retention figure inside `.sc-empty`, the app's own copy, where r1 printed it as plain prose. (b) grep THIS FILE: the State Enumeration Table's `empty` row — the normative visual contract an implementer copies copy from — must carry the `⟨30⟩` token, and the r1 sentence `Nothing recorded in the last <bare number> days` must appear NOWHERE as a statement of the app's copy; the only permitted mentions of the bare figure are ones whose subject is the openness of the decision (the A-1 amendment block, `Explicitly NOT decided here`, this criterion). The `.ph-key` annotation beneath the sheet is EXEMPT and is expected to name the number in words: its entire job is to say the number is not decided, and a criterion that banned it would ban the fix. Read empty-light.png and openq-retention-light.png: the number renders in a dashed box as ⟨30⟩ and a placeholder key states it was accepted at the 18:12 sign-off and REOPENED at triage. HOW IT FAILS: r1's empty plate is the counter-example. HALF (b) IS THE REPAIR ROUND'S, and it is the escape this row itself demonstrated: the r2 check was scoped to mockup.html/`.sc-empty` — the only file where the fix had been made — so the State Enumeration Table's `empty` row went on printing the retention window as settled prose, BYTE-IDENTICAL TO THE BASE, while naming that exact string as its own counter-example, and passed green. A check scoped to the place you fixed cannot catch the place you did not."
+  - "33. openq-retention shows the SAME screen at two candidate values with the body copy unchanged, and captions BOTH as placeholders — read openq-retention-light.png: ⟨30⟩ and ⟨7⟩, identical body text, plus a key stating ⟨7⟩ is not a counter-proposal. HOW IT FAILS: presenting the second value as a recommendation, or changing the copy between them, would turn an illustration of indifference into an argument for one."
+
+  # ── r2: the card's own boundary ────────────────────────────────────────────
+  - "34. [DISCHARGED 2026-07-29 by the operator — ledger T-28 decision 98. This row was the MOCKUP card refusing to grade its own work, and it was right to. The block is lifted BY THE OPERATOR, not by a card, and the status line at the head of this file now says so.] The sign-off is NOT discharged and the block is NOT lifted — grep this file for the status line and roadmap.md for the sibling card: sync-rxdb-conflict-notice-ui must still read ATTENDED-BLOCKED, and this file must still say nothing is approved. HOW IT FAILS: flipping either would be this card grading its own work; the correct outcome of this card is a blocked sibling and a revised artifact."
+
+  # ── repair round: collapse must not remove a row's only exit ────────────────
+  - "35. COLLAPSE NEVER REMOVES A ROW'S ONLY EXIT — a row with no discarded value and a removed-field row both keep their actions on a collapsed sheet, because collapse hides the Restore/Keep pair (counting rule 8) and those rows have none for it to hide. Under rule 3, Dismiss is the only way such a row ever leaves the sheet. Machine-checked: shoot.mjs measurement 7 walks every .cf.unrec row in both schemes, requires a `Dismiss` control inside its .cf-acts, asserts a floor of >=6 such rows so deleting one reds rather than shrinking the population, and exits non-zero otherwise. Also read a1-banner-light.png and a1-banner-dark.png: both 'A change we couldn't identify' rows show Open checklist + Dismiss under collapse, and the plate's own caption states the rule. HOW IT FAILS: r2-as-shipped is the counter-example — those two rows rendered NO actions at all, which no criterion covered, because rule 8 protected the outcome strip and Undo and was silent about the row that has neither. Mutation-tested by deleting those two .cf-acts blocks, reproducing r2 exactly: 2 rows flagged, exit 1."
+```
+
+### Why two criteria were rewritten rather than re-run
+
+Criteria **6** and **18** are the repair round's own findings about this block. Both were written so
+they could not fail:
+
+- **6** asked a *plate* to demonstrate a *transition* ("does not decrement"). A static render has no
+  before-and-after, so the second half was unfalsifiable — and the plate as first drawn showed a
+  "1 answer" chip above two rows, which is what a decrement looks like. It now asks for an equality
+  between three numbers on one plate, which a single screenshot can settle.
+- **18** named the two classes it already knew declared `min-height:44px` and checked them by
+  grepping CSS. That excluded Undo (35×16), Done (37×16) and Review (53×15) — including the only
+  escape from a mis-tapped Restore. It now enumerates every interactive selector and measures the
+  rendered box, in the browser, in both schemes.
+
+Criterion **4** was scoped to the wrong unit: it checked a *plate* for the absence of a button that
+the plate deliberately contains on a different, recoverable row. The unit is the row.
+
+### What the repair round changed, and why
+
+Two gates reviewed r2. **The artifact survived** — the red commit is honest, every claimed mutation
+reproduces, all 32 PNGs re-render, and nothing truncates, clips, overlaps or tofus in either scheme.
+What did not survive was the **criteria**. Five rows are amended above and one is new. They share a
+single failure mode, and it is worth naming once because it will recur:
+
+> **A check scoped to the place you fixed is the same escape as a criterion scoped to the members
+> that already pass.** Every defect below is an instance of it.
+
+| Row | What it could not catch | Falsified by |
+|---|---|---|
+| **32** | Scoped to `mockup.html` / `.sc-empty` — the one file the fix was made in. The State Enumeration Table's `empty` row kept printing the retention window as settled prose, **byte-identical to the base**, while row 32 named that exact string as its own counter-example. | The row now also greps this file; the table row now carries `⟨30⟩`. |
+| **26** | Selected the population by **label** (`/^Restore/`), so it never measured `Retry` or `Restoring…` — the same destructive write, on the plate where the crew member has already failed once — and **evaporated under a rename while reporting success** (`0 Restore controls, 0 silent -> PASS`, exit 0). | Re-scoped by behaviour + a population floor. Both mutations now red; the old check still passes the same mutated file, side by side. |
+| **21** | Iterated the banners that exist, so **deleting** one was invisible. | Banner count pinned at 8; deleting `plate-success`'s banner now reds. |
+| **22** | Eye-only, and measurement 3 tested only that a figure was *present*. `sed s/1 still to review/99 still to review/` passed green. | New measurement 6 does the arithmetic; that mutation now reds 4 plates. |
+| **20** | Asserted `package.json 1.2.1`. The tree reads **1.2.2**, at HEAD and at the branch point. The two halves of the criterion disagreed and the half that got checked was the `git diff`-empty half. | Corrected. Read the constants; do not recite them. |
+| **35** (new) | Nothing covered it. Counting rule 8 protected the outcome strip and Undo under collapse and was **silent about the row that has neither** — so `a1-banner` drew two unidentifiable rows with no actions at all, removing the only exit (`Dismiss`) from a row that can never be restored. | Rule 8 extended, the plate redrawn, measurement 7 added; deleting the actions again reds. |
+
+One fixture defect was also repaired: *Sanitizer concentration* on `Opening — Truck A / sub_9f31c4`
+was stamped `6:12 PM` on `outcomes` and `6:13 PM` on `a2-confirm` and `edge-many` — the same
+document, question and author at two times, on the one surface whose whole thesis is that the
+numbers agree. `6:13 PM` is correct (the batch control's `6:12–6:14 PM` range spans cooler /
+sanitizer / hand sink in order) and `outcomes` was the outlier.
+
+---
+
+## Explicitly NOT decided here
+
+These belong to `sync-rxdb-schema-and-replication` and are named so the sign-off does not
+accidentally cover them:
+
+- **The `conflictHandler`'s actual merge rule.** This spec assumes a same-field clash falls back to
+  master-wins, which is what the card says. A field-level three-way merge changes *how often* these
+  states fire, not *what they look like*.
+- **The replicated schema**, including whether rows carry who-and-when (which is what makes the
+  attribution line real or fictional) and whether `_modified` is declared.
+- **Where the durable conflict record lives.** Answered in part after r1: ledger T-27 decision 89 makes it a **personal, per-device undo in a local-only RxDB collection** — no server table, no endpoint, no replication of the record itself.
+- **How long it is kept.** 30 days was accepted at the 18:12 sign-off and **reopened at morning triage 2026-07-28**. r2 renders it as the placeholder token `⟨30⟩` on the `empty` plate and draws `openq-retention` to make the choice decidable. **This card does not recommend a value.**
+- **Whether a removed-field row counts in the chip base or moves to `+N`** — open decision (i), reopened at the same triage. r2 draws **both** readings over identical data (`openq-count-a`, `openq-count-b`) and picks neither.
+- **Any RLS predicate.** Row visibility is obligation 1 of the parent card.
+
+## Open question for the operator
+
+Beyond roughly ten conflict groups the sheet needs a cap or a date filter; it is not designed here.
+Say so if you think a truck can realistically get there — one long dead-zone shift with an active
+manager is the scenario to judge it against.

@@ -31,9 +31,9 @@ A mobile-first PWA operations console for a food truck business. One app shell w
 - **Manifest:** `manifest.json` — "Yumyums HQ", standalone display, portrait orientation
 - **Styling:** Shared CSS variables with automatic dark mode, mobile-first (max-width 480px)
 - **Inventory:** `inventory.html` — 7-tab layout (Purchases / Stock / Menu / Recipes / Trends / Cost / Setup), receipt review pipeline, item catalog with groups/tags, stock level thresholds, recipe/BOM editing for per-menu-item COGS
-- **Receipt pipeline:** Mercury banking → receipt download → DO Spaces upload → Claude Haiku parse → validate → pending review queue → manual confirm
-- **Period summary endpoint (Phase 21):** GET /api/v1/inventory/period-summary returns COGS + completeness gate for sales-processor's weekly payroll. Auth via HQ_INVENTORY_SERVICE_TOKEN (Bearer); unset → 503. See .planning/phases/21-cogs-in-sales-processor-report-receipt-completeness-gate-bef/21-SALES-PROCESSOR-CONTRACT.md.
-- **Menu-COGS endpoint (Phase 999.2):** GET /api/v1/inventory/menu-cogs?from=YYYY-MM-DD&to=YYYY-MM-DD returns per-menu-item COGS attribution (units_sold + ingredient_cost_per_unit + ingredient_cost_total) for sales-processor's weekly report. Optional `?breakdown=true` adds per-ingredient detail per menu item. Auth via the SAME HQ_INVENTORY_SERVICE_TOKEN (Bearer) Phase 21 uses; unset → 503. HQ is truth source for units_sold (joins recipes → menu_items → daily_menu_sales internally). No completeness gate — drift surfaces in-app via the Recipes-tab banner + weekly Cliq alert. See .planning/phases/999.2-per-menu-item-cogs-attribution-via-recipe-bom-mapping/999.2-SALES-PROCESSOR-CONTRACT.md.
+- **Receipt pipeline:** Mercury banking → receipt download → Backblaze B2 upload → Claude Haiku parse → validate → pending review queue → manual confirm
+- **Period summary endpoint (Phase 21):** GET /api/v1/inventory/period-summary returns COGS + completeness gate for sales-processor's weekly payroll. Auth via HQ_INVENTORY_SERVICE_TOKEN (Bearer); unset → 503. See docs/contracts/inventory-period-summary.md.
+- **Menu-COGS endpoint (Phase 999.2):** GET /api/v1/inventory/menu-cogs?from=YYYY-MM-DD&to=YYYY-MM-DD returns per-menu-item COGS attribution (units_sold + ingredient_cost_per_unit + ingredient_cost_total) for sales-processor's weekly report. Optional `?breakdown=true` adds per-ingredient detail per menu item. Auth via the SAME HQ_INVENTORY_SERVICE_TOKEN (Bearer) Phase 21 uses; unset → 503. HQ is truth source for units_sold (joins recipes → menu_items → daily_menu_sales internally). No completeness gate — drift surfaces in-app via the Recipes-tab banner + weekly Cliq alert. See docs/contracts/inventory-menu-cogs.md.
 - **Testing:** 170+ Playwright E2E tests across `tests/workflows.spec.js`, `tests/persistence.spec.js`, `tests/inventory.spec.js`, `tests/onboarding.spec.js`, `tests/recipes.spec.js`
 - **Backend:** Go + Postgres, REST API at `/api/v1/workflow/*`, `/api/v1/inventory/*`, `/api/v1/auth/*`, `/api/v1/onboarding/*`, `/api/v1/users/*`
 - **Data flow:** See `docs/data-flow-audit.md` for the full state persistence inventory
@@ -65,22 +65,37 @@ A mobile-first PWA operations console for a food truck business. One app shell w
 ```
 User action
   → Update FIELD_RESPONSES[fieldId] (optimistic UI)
-  → autoSaveField(fieldId, value)
-      → POST /saveResponse (persists to Postgres)
-      → Update DRAFT_RESPONSES[] (in-memory cache)
+  → debouncedSaveField(fieldId, value)          // workflows.html:389 — 400ms debounce
+      → submitOp('SET_FIELD', fieldId, 'field_response', {value, field_id})
+          → POST /api/v1/workflow/ops           // sync.js:781, Lamport-stamped
+          → workflowOpRouter → workflow.SaveResponseFunc (persists to Postgres)
+      → Update the draftResponses store (DRAFT_RESPONSES is its live alias)
   → On checklist open: hydrateFieldState(filterFieldIds)
       → Reads DRAFT_RESPONSES + MY_SUBMISSIONS.responses
       → Populates FIELD_RESPONSES + FAIL_NOTES
 ```
 
+🛑 **The function is `debouncedSaveField`. There is no `autoSaveField`** — that name was
+carried by this file, the README, `docs/data-flow-audit.md`, two `sync-rxdb/` header
+comments and one test assertion for months while being defined **nowhere in the tree**, and
+the one place production code actually *called* it (the fail-photo path) threw a silent
+`ReferenceError` and dropped the crew's evidence photo on every capture. B-65 / card A2,
+run `20260804`. If you are about to write `autoSaveField`, you are about to ship a
+`ReferenceError`.
+
+Note also that the transport is **`POST /ops`, not `POST /saveResponse`**. The
+`/saveResponse` endpoint still exists on the backend and the Go + Playwright suites still
+drive it directly, but no frontend code posts to it — the op journal is the single write
+channel (D-08).
+
 **When adding a new field type or user-entered state:**
-1. The click/input handler MUST call `autoSaveField(fieldId, value)`
-2. If the state has metadata (like fail notes), bundle it: `autoSaveField(fieldId, value)` checks `FAIL_NOTES[fieldId]` and sends `{_v: value, _fail_note: {...}}`
+1. The click/input handler MUST call `debouncedSaveField(fieldId, value)` — pass the **answer**, nothing else
+2. If the state has metadata (like fail notes or a correction photo), do NOT pass it as the value — put it in its store and let the bundler pick it up: `debouncedSaveField` reads `store.get('failNotes', fieldId)` and `CORRECTION_PHOTOS[fieldId]` itself and sends `{_v: value, _fail_note: {...}, _correction_photo: url}`
 3. `hydrateFieldState` MUST unpack and restore it
 4. Write a regression test: enter data → back to list → reopen → assert data is still there
 5. See `docs/data-flow-audit.md` for the full state inventory
 
-**7 persisted states:** checkbox, yes/no, text, temperature, sub-steps, fail note text, fail severity
+**9 persisted states:** checkbox, yes/no, text, temperature, sub-steps, fail note text, fail severity, fail photo, correction photo
 
 **Required test for every new field type or data entry feature:**
 ```
@@ -103,8 +118,10 @@ Add this test to `tests/persistence.spec.js` under the "Draft response persisten
 - Static assets: precached with content hashes — **no manual version bumps**
 - API calls: network-first with offline JSON fallback
 - Run `task sw` to rebuild after changing any HTML/JS files
-- `task test` and `task prod:deploy` auto-run `task sw` as a dependency
+- `task test` auto-runs `task sw` as a dependency. **`task prod:deploy` does NOT** — see "Deploying to prod" below
 - `build-sw.js` also writes `version.json` (frontend semver from `package.json`) which the SW precaches
+- **`sw.js` is a committed artifact.** `build-sw.js` reads **git HEAD**, not the working tree and not the index, so the manifest names only what a fresh clone can serve. Commit `sw.js` in the same change set as whatever you changed under it, or the change does not ship
+- **`build-sw.js` exits non-zero when a precached file references something not precached** — `<script src>`, `import`, `import()`. The invariant is *reachability*, not completeness: a skipped file nobody references still exits 0. The failure message names both the referrer and the fix. Precache count is currently **31**; if it moves without an asset being deliberately added or removed, that is the silent drop (B-37) coming back
 
 ### Versioning & Deployment
 
@@ -120,12 +137,14 @@ Add this test to `tests/persistence.spec.js` under the "Draft response persisten
 **Deploying to prod** — single command:
 
 ```
-task prod:deploy   # SSH to Windows box (Tailscale) → git pull → task sw → docker build → restart container
-task prod:logs     # tail container logs
-task prod:ssh      # interactive shell on the box
+task prod:deploy    # prod clone → git fetch + reset --hard origin/main → docker compose build → up -d → health check
+task prod:logs      # tail container logs
+task prod:rollback  # restore the previous image (the :-rollback tag from the last deploy)
 ```
 
-The Windows box runs the backend in Docker (container name `yumyums-hq`); the backend embeds the frontend; Cloudflare Tunnel routes `https://hq.yumyums.kitchen` to it. There is no separate frontend host — both ship as one image.
+Prod runs in Docker on **this** box (Docker Desktop), building from a **separate clone pinned to `origin/main`** (`PROD_REPO`, default `/mnt/c/Users/jcole/projects/yumyums-purchase-orders`) — so prod only ever runs pushed code. The backend embeds the frontend; Cloudflare Tunnel routes `https://hq.yumyums.kitchen` to it. There is no separate frontend host — both ship as one image.
+
+🛑 **`task prod:deploy` does NOT run `task sw`, and must not be "fixed" to.** `Taskfile.yml:178-221` does `git fetch origin main` → `git reset --hard origin/main` → `docker compose build`, so **the committed `sw.js` is what ships**. That is correct by construction, not an omission: `build-sw.js` reads **git HEAD**, and after the hard reset the prod clone's HEAD *is* the tree being built, so regenerating on the box could only reproduce the committed file. What this does mean is that **an `sw.js` you did not commit does not deploy** — the release flow is *commit a fresh `sw.js` on dev → merge dev→main → push → `task prod:deploy`*. (B-13; the doc claimed the dependency for months and the Taskfile never had it.)
 
 **Verifying after deploy**:
 
@@ -136,7 +155,7 @@ task health:prod   # raw /api/v1/health JSON from prod
 
 If `task version` shows the local `Backend` / `Frontend` constants ahead of the prod values, the running container is stale — re-run `task prod:deploy`.
 
-**Override deploy targets** via env vars: `PROD_SSH`, `PROD_REPO`, `PROD_CONTAINER`, `PROD_IMAGE`, `PROD_PORT`, `PROD_URL`. Defaults are in the root `Taskfile.yml` `vars:` block.
+**Override deploy targets** via env vars: `PROD_REPO`, `PROD_COMPOSE`, `PROD_CONTAINER`, `PROD_IMAGE`, `PROD_PORT`, `PROD_URL`. Defaults are in the root `Taskfile.yml` `vars:` block.
 
 ### Adding a New Tool
 
@@ -157,13 +176,13 @@ If `task version` shows the local `Backend` / `Frontend` constants ahead of the 
 - `SCREAMING_SNAKE_CASE` for constants, `camelCase` for functions
 - Playwright E2E tests: `task test` (headless, auto-rebuilds SW + creates test DB)
 - Tests block service workers (`serviceWorkers: 'block'` in Playwright config)
-- **Persistence rule:** Every user-entered value → `autoSaveField` → `DRAFT_RESPONSES` → `hydrateFieldState` (see docs/data-flow-audit.md)
+- **Persistence rule:** Every user-entered value → `debouncedSaveField` → `submitOp('SET_FIELD')` → `POST /ops` → `DRAFT_RESPONSES` → `hydrateFieldState` (see docs/data-flow-audit.md). There is no `autoSaveField` — B-65
 - **Required test:** Every new field type or data entry feature MUST have a back-and-reopen test in `tests/persistence.spec.js` — enter data → back → reopen → data still there. Feature is not complete without this test.
 - **Bug fix protocol (approval phase):** When a bug is found during human verification, write the regression test FIRST — before applying the fix. The test must fail (proving it captures the bug), then apply the fix, then verify the test passes. Only run the new test(s) during iteration, not the full suite: `npx playwright test tests/<file>.spec.js -g "<test name>"`. This ensures the test actually guards against the regression, not just passing by coincidence.
 
 ### Definition of Done
 
-Templates for all blocks below live in `.planning/PLANNING-TEMPLATES.md`.
+Templates for all blocks below live in `docs/planning-templates.md`.
 
 - **`done_when:` block required in every PLAN.md and UI-SPEC.md.** Every criterion names the observable behavior AND the check that proves it ("Empty state renders 'No X yet' when DB returns [] — load page with empty fixture, screenshot"). Banned words: "looks good," "feels right," "polished," "clean," "nice."
 - **State Enumeration Table required in every UI-SPEC.md.** One table covering empty, loading, error, success, plus **at least 2 phase-specific edge rows** (long content, offline, 409 conflict, race — whichever apply). Each row names the trigger and the visual contract. The table is incomplete without the edge rows.
@@ -173,10 +192,9 @@ Templates for all blocks below live in `.planning/PLANNING-TEMPLATES.md`.
   3. Read the PNGs back with the Read tool (multimodal) and compare row-by-row against the visual contract.
   4. Report what was *observed* — not what was intended — in the phase SUMMARY.md, with screenshots referenced.
   5. If the dev server / DB / creds aren't available, say so explicitly and stop. Never declare done from code reading alone.
-- **Mockup sign-off before UI code on phases introducing new components.** Commit the mockup (HTML or annotated screenshot) at `.planning/.../<phase>/mockup.html` and wait for an explicit human "ok, build this" before touching production code. Note any deviation from the approved mockup in SUMMARY.md.
+- **Mockup sign-off before UI code on phases introducing new components.** Commit the mockup (HTML or annotated screenshot) at `docs/mockups/<phase>.html` and wait for an explicit human "ok, build this" before touching production code. Note any deviation from the approved mockup in SUMMARY.md.
 - **Verifier subagent gate between build and SUMMARY.md on UI phases.** Spawn one verifier subagent whose inputs are ONLY: the UI-SPEC.md, the `done_when:` block, the diff, and the self-verify screenshots — not the planning conversation or the implementer's reasoning. It outputs pass/fail per `done_when:` row plus issues beyond the contract. SUMMARY.md may not be written until every row passes or is explicitly waived (waiver + reason noted in SUMMARY.md, e.g. "requires live Mercury creds").
 
-<!-- GSD:project-start source:PROJECT.md -->
 ## Project
 
 **Yumyums HQ — Operations Console**
@@ -192,9 +210,7 @@ A mobile-first PWA operations console for a food truck business. One app shell w
 - **Mobile-first:** All UI designed for 480px max-width, touch-optimized
 - **Design consistency:** Must use existing CSS variables and dark mode support from other HQ pages
 - **API-backed:** All data persisted in Postgres via Go backend — no mock data, no localStorage
-<!-- GSD:project-end -->
 
-<!-- GSD:stack-start source:codebase/STACK.md -->
 ## Technology Stack
 
 ## Languages
@@ -230,7 +246,7 @@ A mobile-first PWA operations console for a food truck business. One app shell w
 - No local tooling required — files can be opened directly or served with `python3 -m http.server`
 - Production: Go backend in Docker on Windows box, frontend embedded into the binary, served via Cloudflare Tunnel
 - Live URL: `https://hq.yumyums.kitchen`
-- Deploy: `task prod:deploy` (SSH over Tailscale → git pull → docker build → restart container)
+- Deploy: `task prod:deploy` (prod clone → `git reset --hard origin/main` → `docker compose build` → `up -d`; the **committed** `sw.js` ships — nothing regenerates it on the box)
 ## Planned Backend Stack (not yet built)
 - **Language:** Go
 - **Database:** PostgreSQL (separate schema on existing Hetzner box)
@@ -239,9 +255,7 @@ A mobile-first PWA operations console for a food truck business. One app shell w
 - **Auth:** Bearer token sessions, password hash in DB, invite token flow
 - **API base:** `/api/v1` (REST, JSON)
 - **Frontend upgrade:** Plain HTML + HTMX (no build step retained)
-<!-- GSD:stack-end -->
 
-<!-- GSD:conventions-start source:CONVENTIONS.md -->
 ## Conventions
 
 ## Overview
@@ -294,9 +308,7 @@ A mobile-first PWA operations console for a food truck business. One app shell w
 - `buildAccess()` is the most complex function — rebuilds the entire access tab DOM from scratch on each state change (no diffing)
 - Parameters are positional, minimal: `show(n)`, `togglePerm(slug, role, val)`, `addGrant(slug)`, `removeGrant(slug, uid)`
 ## PWA Boilerplate (repeated on every page)
-<!-- GSD:conventions-end -->
 
-<!-- GSD:architecture-start source:ARCHITECTURE.md -->
 ## Architecture
 
 ## Pattern Overview
@@ -365,24 +377,71 @@ A mobile-first PWA operations console for a food truck business. One app shell w
 - Access grants: guards against duplicate adds with `if(!USER_GRANTS[slug].includes(uid))`
 - No network error handling (planned for production handlers)
 ## Cross-Cutting Concerns
-<!-- GSD:architecture-end -->
 
-<!-- GSD:workflow-start source:GSD defaults -->
-## GSD Workflow Enforcement
+## Night-Crew Workflow
 
-Before using Edit, Write, or other file-changing tools, start work through a GSD command so planning artifacts and execution context stay in sync.
+**This repo is a night-crew _target_ repo.** Planning and execution run through the
+night-crew cycle.
 
-Use these entry points:
-- `/gsd:quick` for small fixes, doc updates, and ad-hoc tasks
-- `/gsd:debug` for investigation and bug fixing
-- `/gsd:execute-phase` for planned phase work
+Real project state lives in **`.night-crew/knowledge/`** — `roadmap.md`, `okrs.md`,
+`BACKLOG.md`, `ledger.md`, `bugs.md`, `prds/`, `reference/`. That is the only planning
+state; there is no second planning directory to reconcile against.
 
-Do not make direct repo edits outside a GSD workflow unless the user explicitly asks to bypass it.
-<!-- GSD:workflow-end -->
+Durable reference docs that outlive any single cycle live in `docs/`:
+`docs/contracts/` holds the sales-processor API contracts (`inventory-period-summary.md`,
+`inventory-menu-cogs.md`) — those are consumed by an external system, so treat them as
+the contract of record. `docs/codebase/` holds the stack/architecture/conventions notes
+the sections above summarise.
 
-<!-- GSD:profile-start -->
-## Developer Profile
+### Entry points
 
-> Profile not yet configured. Run `/gsd:profile-user` to generate your developer profile.
-> This section is managed by `generate-claude-profile` -- do not edit manually.
-<!-- GSD:profile-end -->
+Full cheatsheet: `.night-crew/knowledge/COMMANDS.md`, or the global `/nc-help`.
+`/nc-status` answers "where are we, what next?" and is the right first move in a
+fresh session.
+
+| Stage | Command |
+|---|---|
+| Attended, evening | `/nc-okr-session` → `/nc-pm-session` → `/nc-pm-grill-back` → `/nc-slate-plan` |
+| Unattended, overnight | the slate's launch prompt, pasted into a **fresh** session |
+| Attended, morning | `/nc-morning-triage` |
+| Milestone / ship | `/nc-milestone-close`, `/nc-release`, `/nc-scorecard` |
+
+### Rules that bind any agent working here
+
+- **There is no per-edit gate.** Ad-hoc fixes, doc updates and investigations do not
+  need a ceremony command — branch off `dev`, commit normally. Slates govern *planned*
+  overnight work, not every keystroke.
+- **Overnight runs** branch from `dev` as `overnight-YYYYMMDD`. Inside a run: never
+  push, never tag, never touch `main`.
+- **Do not edit a run branch once its `HANDOFF.md` is written.** It is the artifact
+  under triage and its SHAs get cited as evidence. Follow-up fixes go on a fresh
+  branch off `dev`, or off the merge commit after triage.
+- **Check `night-crew.toml` when you change a file.** It maps changed paths → the
+  Playwright spec subset a card must run. A narrow or missing footprint entry is
+  exactly how a regression escapes a green gate — this has happened.
+- **Run artifacts** live in `.night-crew/runs/<date>-autonomous/`: `HANDOFF.md`,
+  `DECISIONS-NEEDED.md`, `merge-intents/`, `timings.log`. Conflict logs live at
+  `.night-crew/knowledge/reference/conflicts-<runid>.md`.
+- **Decide role-level calls yourself.** PM / PjM / Engineer-level questions get
+  decided and stated, not handed to the operator to bless. Escalate only genuine
+  product forks.
+
+### Run mechanics (non-obvious, costs time to rediscover)
+
+- `export PATH="/usr/local/go/bin:$PATH"` before **any** Go or Playwright leg. The
+  non-interactive shell does not carry Go; Playwright's `webServer` dies with
+  `go: not found` / exit 127, which **looks like a test failure and is not**.
+- 🛑 **Tests run on :5434, not :5433.** `:5433` (`yumyums-dev-pg`) is the **dev *and* production**
+  cluster — it serves `hq.yumyums.kitchen` via the `production` search_path. Test suites have
+  their own container since run `20260807`: **`yumyums-test-pg`**, host port **`5434`**, role
+  **`hqtest`** (not `yumyums`), volume `yumyums-test-pgdata`, defined in `docker-compose.test.yml`.
+  Bring it up with `task test:db:up` (every `test:*` target already depends on it); print every
+  resolved coordinate, read-only, with `task test:targets`. `:5432` is `infra-postgres-1`
+  (slack-trading) and is nobody's here. Pointing a suite, a probe or a `psql` at `:5433` is how the
+  production database was destroyed on 2026-08-06 — BACKLOG B-141/B-143, ledger decision 155.
+- `go test ./... -p 1` — **`-p 1` is load-bearing.** Packages share one test DB and
+  each `TestMain` truncates; without it six packages red on cross-package
+  interference. Not a production defect.
+- Set `DB_TEST_URL` or the Go suite **exits 0 while skipping every DB-coupled test** —
+  `internal/workflow` runs zero tests and still prints `ok`. Always check counts, not
+  just `ok`/`FAIL`.

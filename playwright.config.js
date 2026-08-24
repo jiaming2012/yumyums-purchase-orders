@@ -1,14 +1,24 @@
 const { defineConfig } = require('@playwright/test');
 const { defineBddConfig } = require('playwright-bdd');
+// scripts/reset-e2e-db.js is the ONE place the e2e Postgres coordinates are
+// computed and the ONE place the database is reset. It carries what used to be
+// duplicated here:
+//   * DB_PORT 5434 + role `hqtest` = yumyums-test-pg, the TEST-ONLY container
+//     (docker-compose.test.yml, `task test:db:up`). 🛑 NOT :5433 — that is
+//     yumyums-dev-pg, which serves https://hq.yumyums.kitchen, and pointing a
+//     harness that issues DROP DATABASE at it is BACKLOG B-141 (ledger decision
+//     155, card `test-cluster-separation`). Host :5432 is infra-postgres-1
+//     (slack-trading). This file used to carry its OWN copy of that default;
+//     now there is one copy, in the helper.
+//   * TEST_DB_NAME defaults to hq_test_e2e — Playwright's OWN database. The Go
+//     suite owns hq_test_go. They shared one hq_test until 2026-07-21 (audit
+//     surface #3): Go TestMains TRUNCATE `users`, so a concurrent `task test:go`
+//     would log every browser context out mid-suite. Separate databases make the
+//     collision impossible.
+//   * the guard that refuses to DROP anything not named like a test database.
+const { resolveE2eDb } = require('./scripts/reset-e2e-db');
 
-const dbHost = process.env.DB_HOST || 'localhost';
-// 5433 = yumyums-dev-pg, the container that actually serves HQ. Host :5432 is
-// bound by infra-postgres-1 (slack-trading), which has no `yumyums` role.
-// MUST stay in sync with backend/Taskfile.yml's DB_PORT default — this file
-// carries its OWN default and does not read the Taskfile's.
-const dbPort = process.env.DB_PORT || '5433';
-const dbUser = process.env.DB_USER || 'yumyums';
-const dbPass = process.env.DB_PASS || 'yumyums';
+const db = resolveE2eDb();
 // TEST_DB_NAME / TEST_PORT allow running multiple isolated stacks in parallel
 // (each against its own database + server port).
 //
@@ -18,13 +28,8 @@ const dbPass = process.env.DB_PASS || 'yumyums';
 // run the whole suite against the live dev database — corrupting dev data and
 // failing every state-dependent test. Defaulting to 8199 makes a local test run
 // always spawn its own clean server, even with a dev server up on 8089.
-// hq_test_e2e — Playwright's OWN database. The Go suite owns hq_test_go.
-// They shared one hq_test until 2026-07-21 (audit surface #3): Go TestMains
-// TRUNCATE `users`, so a concurrent `task test:go` would log every browser
-// context out mid-suite. Separate databases make the collision impossible.
-const testDbName = process.env.TEST_DB_NAME || 'hq_test_e2e';
 const testPort = process.env.TEST_PORT || '8199';
-const testDbUrl = `postgres://${dbUser}:${dbPass}@${dbHost}:${dbPort}/${testDbName}?sslmode=disable&TimeZone=America/New_York`;
+const testDbUrl = db.testUrl;
 
 // When night-crew provisions an ephemeral environment it exports that stack's
 // base URL as NIGHTCREW_ENV_URL. In that mode we target the provisioned stack
@@ -61,6 +66,34 @@ module.exports = defineConfig({
   },
   // Skip the self-spawned server when night-crew hands us a provisioned env.
   webServer: nightcrewEnvUrl ? undefined : {
+    // 🛑 `node scripts/reset-e2e-db.js &&` IS THE B-76 FIX. Do not move it, and
+    // in particular do not "tidy" it into a `globalSetup`.
+    //
+    // Before it, the only DROP/CREATE of hq_test_e2e in the repo lived inside
+    // `task test`. night-crew.toml runs `npx playwright test` DIRECTLY for both
+    // [e2e] suite and [e2e] subset, so no gate leg — full or subset — had ever
+    // reset the database. Every suite figure this milestone quoted was taken
+    // against an accumulating dataset: a red could be an artifact of a previous
+    // run, and so could a GREEN.
+    //
+    // Why here and nowhere else:
+    //   * a `globalSetup` runs AFTER this server. See
+    //     node_modules/playwright/lib/runner/tasks.js:100-110 —
+    //     createGlobalSetupTasks appends createPluginSetupTasks(config), which is
+    //     where the webServer plugin starts the server, BEFORE config.globalSetups.
+    //     Dropping the database there would drop it out from under a server that
+    //     had already connected, migrated and seeded it.
+    //   * top-level code in THIS file is re-executed in every worker process
+    //     (the worker load carries TEST_WORKER_INDEX=0) and also runs under
+    //     `npx bddgen` and `npx playwright test --list`.
+    //   * webServer.command runs exactly once, in the parent, strictly before any
+    //     test and strictly before the server exists — and cannot be skipped by a
+    //     CLI argument, so it fires on the SUBSET path too.
+    //   * with NIGHTCREW_ENV_URL set this whole object is undefined and no reset
+    //     runs, which is correct: the provisioned stack owns its own database.
+    //
+    // The server re-runs goose migrations on startup, so a bare CREATE is enough.
+    //
     // TOAST_SYNC_INTERVAL=0 disables the Toast in-process worker so the
     // server starts without TOAST_SFTP_KEY_PATH credentials. The Toast
     // worker is not exercised by E2E tests; cmd/sync-toast covers ingest.
@@ -69,6 +102,30 @@ module.exports = defineConfig({
     // worker and the on-demand POST /sync-receipts would ingest LIVE Mercury
     // transactions into the test DB mid-suite (all sync tests mock these
     // routes at the network layer, so nothing needs the real path).
+    // 🛑 `node scripts/write-version-json.js &&` IS THE B-92 FIX, and it sits
+    // in this chain for exactly B-76's reason: this command runs once, in the
+    // parent, before any test and before the server exists, and no CLI argument
+    // can skip it — so it fires on night-crew.toml's `subset` leg too.
+    //
+    // `version.json` is a git-ignored build artifact that nonetheless SHIPS
+    // (sw.js precaches it; index.html's version line reads it). `task test`
+    // generates it via its `sw` dep, but night-crew.toml:33-34 runs
+    // `npx playwright test` DIRECTLY and this server serves `STATIC_DIR=../` —
+    // the bare worktree. Without this link, `GET /version.json` 404s in any
+    // worktree where `node build-sw.js` has never run, and
+    // tests/version-badge.spec.js reds for a reason that has nothing to do with
+    // the change under test. A gate that hands every future card a red it did
+    // not cause is the thing A1 landed to prevent.
+    //
+    // 🛑 It is NOT `node build-sw.js`. That reads git HEAD and rewrites sw.js,
+    // so a gate leg would dirty the tree mid-run and race the B-37 committed-
+    // artifact invariant. scripts/write-version-json.js writes the one file and
+    // nothing else, from the same payload definition build-sw.js uses.
+    //
+    // 🛑 It runs AFTER the reset, not before it. The reset is B-76's fix and
+    // must stay the first link; version.json is a static file on disk and has
+    // no interaction with the database either way.
+    //
     // ZOHO_CLIQ_* / SMTP_* blanked too (cross-contamination audit 2026-07-21,
     // surface #5): the root Taskfile's `dotenv: ['backend/.env']` injects LIVE
     // credentials into every task launched from the main checkout, and the alert
@@ -76,7 +133,13 @@ module.exports = defineConfig({
     // unconditionally and purchasing/service.go NotifyVendorComplete enqueues
     // from a request path the suite exercises. Without these, an E2E run can
     // deliver a real Cliq message and a real SMTP email to live crew.
-    command: `cd backend && PORT=${testPort} DB_URL="${testDbUrl}" STATIC_DIR=../ SUPERADMIN_CONFIG=config/superadmins.yaml TOAST_SYNC_INTERVAL=0 E2E_DISABLE_SCHEDULERS=1 MERCURY_API_KEY= ANTHROPIC_API_KEY= ZOHO_CLIQ_CLIENT_ID= ZOHO_CLIQ_CLIENT_SECRET= ZOHO_CLIQ_REFRESH_TOKEN= SMTP_ADDR= SMTP_USERNAME= SMTP_PASSWORD= go run ./cmd/server/`,
+    //
+    // STORAGE_* blanked for the same reason (B-172 / B2 migration): with live
+    // object-storage creds injected, the photo/video paths this suite drives
+    // would presign and upload REAL objects into the production bucket. Blank
+    // creds also pin /api/v1/health's storage field to 'unconfigured' here,
+    // which tests/storage-banner.spec.js relies on being a non-alarming state.
+    command: `node scripts/reset-e2e-db.js && node scripts/write-version-json.js && cd backend && PORT=${testPort} DB_URL="${testDbUrl}" STATIC_DIR=../ SUPERADMIN_CONFIG=config/superadmins.yaml TOAST_SYNC_INTERVAL=0 E2E_DISABLE_SCHEDULERS=1 MERCURY_API_KEY= ANTHROPIC_API_KEY= ZOHO_CLIQ_CLIENT_ID= ZOHO_CLIQ_CLIENT_SECRET= ZOHO_CLIQ_REFRESH_TOKEN= SMTP_ADDR= SMTP_USERNAME= SMTP_PASSWORD= STORAGE_KEY= STORAGE_SECRET= STORAGE_BUCKET= STORAGE_REGION= STORAGE_ENDPOINT= go run ./cmd/server/`,
     url: `http://localhost:${testPort}/api/v1/health`,
     // Unconditionally false (audit surface #2): reuse has cost four runs. The
     // 8199 default protects against reusing the DEV server, but the same

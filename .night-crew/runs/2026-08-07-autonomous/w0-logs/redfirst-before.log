@@ -1,0 +1,18 @@
+== 1. Playwright e2e coordinates, RESOLVED by scripts/reset-e2e-db.js (no connection) ==
+  adminUrl (DROP/CREATE target): postgres://yumyums:yumyums@localhost:5433/postgres?sslmode=disable
+  testUrl                      : postgres://yumyums:yumyums@localhost:5433/hq_test_e2e?sslmode=disable&TimeZone=America/New_York
+== 2. task test:* DB coordinates (Taskfile.yml) ==
+83:      DB_HOST: localhost
+84:      DB_PORT: '5432'
+92:      DB_TEST_URL: 'postgres://yumyums:yumyums@{{.DB_HOST | default "localhost"}}:{{.DB_PORT | default "5433"}}/hq_test_go?sslmode=disable'
+107:      DB_HOST: localhost
+108:      DB_PORT: '5433'
+110:      DB_TEST_URL: 'postgres://yumyums:yumyums@localhost:5433/hq_test_go?sslmode=disable'
+124:          echo "── resetting hq_test_go + hq_test_e2e on $DB_HOST:$DB_PORT ──"
+125:          psql "postgres://yumyums:yumyums@$DB_HOST:$DB_PORT/postgres?sslmode=disable" \
+== 3. RLS suite defaults (backend/internal/sync/rowvisibility_rls_test.go) ==
+221:	defaultHQAdminURL = "postgres://yumyums:yumyums@localhost:5433/postgres"
+226:	defaultFDWPort = "5433"
+== 4. harness probe URL (scripts/verify-test-harness.sh) ==
+204:	DEAD_URL='postgres://yumyums:yumyums@127.0.0.1:5599/hq_test_go_does_not_exist?sslmode=disable'
+207:	DEAD_URL='postgres://yumyums:yumyums@127.0.0.1:5433/hq_test_go_dropped_by_a_reviewer?sslmode=disable'

@@ -41,14 +41,78 @@ subset = 'npx playwright test "{tags}"'
 # folds into the Inventory app, persistence into Operations. Cross-app specs
 # (multi-role, index) and shared/undeclared packages (auth, db, sync, receipt, …)
 # are intentionally unmapped: touching them de-confines the card → full suite.
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# APP-SURFACE PROOF — footprint mapping (card `sync-live-in-dev-app-proof`,
+# Activity 5 leg 3, run 20260810). NOT a seam key/token — a footprint NOTE.
+#
+# The app-surface red-first proof drives the REAL workflows.html in a real
+# Chromium against a LIVE external substrate (Docker substrate + FDW repoint +
+# ephemeral scratch HQ). It therefore CANNOT run inside this [e2e.seams] `:5434`
+# `task test` harness at all — it is a STANDALONE harness gated on its OWN exit
+# code (the browser-live/ precedent, B-345-aligned; see the merge-intent's
+# gate-harness decision). Its files live OUTSIDE tests/, so they match no seam
+# glob and add no roll-call name (the [e2e.seams] tables + tests/repo-hygiene.spec.js
+# enumerate tests/*.spec.js only). This note is where "the app-surface test is in a
+# card's footprint" is honored, without a new KEY or TOKEN (which would PARK):
+#
+#   footprint (card sync-live-in-dev-app-proof):
+#     .night-crew/qa/spike-supabase/sync-app-proof.sh                     (the harness — gate on its exit code)
+#     .night-crew/qa/spike-supabase/app-proof/workflows-live.spec.js      (promoted from browser-live/)
+#     .night-crew/qa/spike-supabase/app-proof/playwright.app-proof.config.js
+#     Taskfile.yml  sync:app-proof                                        (thin wrapper — GATE ON THE SCRIPT, B-163)
+#
+#   run it:  task sync:app-proof   (but grade `.night-crew/qa/spike-supabase/sync-app-proof.sh; echo EXIT=$?`)
+# ─────────────────────────────────────────────────────────────────────────────
 [e2e.seams]
 "backend/internal/inventory"  = ["inventory", "recipes"]
 "backend/internal/recipes"    = ["inventory", "recipes"]
 "inventory.html"              = ["inventory", "recipes"]
 "tests/inventory.spec.js"     = ["inventory", "recipes"]
 "tests/recipes.spec.js"       = ["inventory", "recipes"]
-"backend/internal/workflow"   = ["workflows", "persistence"]
-"workflows.html"              = ["workflows", "persistence"]
+# Operations carries two MORE specs than its name suggests. sync.spec.js and
+# repro-cut-task.spec.js both drive the workflows runner end-to-end, so a change to
+# the workflow package or to workflows.html can break them — and under the old
+# two-tag list neither ever ran. That is not hypothetical: card F1 (run 20260725)
+# was confined by this seam, went green on workflows+persistence, and merged a
+# change that left exactly those two specs RED on dev. Card A, run 20260726, is
+# the repair.
+#
+# 🛑 THESE FOUR TOKENS SELECT NINE SPEC FILES, NOT FOUR. This comment claimed
+# they selected "exactly workflows / persistence / sync / repro-cut-task .spec.js
+# and nothing else — no other spec filename in tests/ contains any of them
+# (re-verified at landing)". That was false when written and is false now: the
+# `sync` token alone matches SIX files, because Playwright reads the positional
+# argument as a path REGEX, not as a filename. The real roll-call, machine-
+# checked by tests/repo-hygiene.spec.js so it cannot drift again silently:
+#
+#   selects: persistence.spec.js, repro-cut-task.spec.js, states-sync-rxdb-conflict-notice.spec.js, sync-fill-view.spec.js, sync-one-row.spec.js, sync-rxdb-client.spec.js, sync-rxdb-conflict-notice.spec.js, sync-rxdb-conflict.spec.js, sync-schema.spec.js, sync.spec.js, workflows.spec.js
+#
+# 🛑 ELEVEN FILES SINCE run 20260808-2, NOT NINE — and the count moved TWICE in
+# that one run. `tests/sync-one-row.spec.js` (card `skeleton-one-row-end-to-end`,
+# C2) is the walking skeleton's end-to-end test and took it 9 -> 10;
+# `tests/sync-fill-view.spec.js` (card `activate-fill-view-reads`, C3) is the fill
+# view's RxDB read + open/cancel lifecycle test and takes it 10 -> 11. Both drive
+# `workflows.html` + `sync-rxdb/*`, so both BELONG to this seam, and both names
+# contain the `sync` token, which is why they appear above. The guard in
+# tests/repo-hygiene.spec.js fired exactly as designed ("adding a spec whose name
+# contains a seam token reds this test rather than quietly inflating a 'confined'
+# gate") and this line plus that test's count are the response it asks for. NO KEY
+# AND NO TOKEN CHANGED — only this roll-call. 🛑 Naming either spec to dodge the
+# `sync` token would have hidden a spec this seam exists to select; the count is
+# the honest price. Cost, since slates price legs off this list: an
+# Operations-confined card now pays for ELEVEN spec files.
+#
+# 🛑 WHAT IS WRONG HERE IS THE COST, NOT THE COVERAGE. Per B-87 the Playwright
+# CLI filters are OR'd, so a card confined by this seam OVER-runs — it can never
+# run the wrong specs, and no regression escapes through this. What it does is
+# mis-price the night: a card that budgets for four specs pays for eleven, and
+# `sync.spec.js` is the load-sensitive one that must not share a box. Anyone
+# estimating a confined Operations leg should cost it off the list above, and
+# the token VALUES below are correct as they stand — do not "fix" them.
+# Corrected on card `repo-hygiene-preconditions`, run 20260806.
+"backend/internal/workflow"   = ["workflows", "persistence", "sync", "repro-cut-task"]
+"workflows.html"              = ["workflows", "persistence", "sync", "repro-cut-task"]
 "tests/workflows.spec.js"     = ["workflows", "persistence"]
 "tests/persistence.spec.js"   = ["workflows", "persistence"]
 "backend/internal/onboarding" = ["onboarding"]

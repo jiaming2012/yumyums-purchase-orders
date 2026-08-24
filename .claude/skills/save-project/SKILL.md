@@ -50,7 +50,9 @@ Filter out `dist/`, `node_modules/`, `.planning/`, `playwright-report/`, `test-r
 
 For each functional change, decide whether existing tests cover it. Pay special attention to **the persistence rule** documented in `CLAUDE.md`:
 
-> Every user-entered value must follow `autoSaveField` → `DRAFT_RESPONSES` → `hydrateFieldState`. Every new field type or data entry feature MUST have a back-and-reopen test in `tests/persistence.spec.js`.
+> Every user-entered value must follow `debouncedSaveField` → `submitOp('SET_FIELD')` → `POST /ops` → `DRAFT_RESPONSES` → `hydrateFieldState`. Every new field type or data entry feature MUST have a back-and-reopen test in `tests/persistence.spec.js`.
+
+(This quote named `autoSaveField` until 2026-08-04 — a function defined nowhere in the tree. B-65.)
 
 If a new user-entered value type or field was added without a corresponding back-and-reopen test, **flag it as a blocking gap** and offer to write the test before Phase 2.
 

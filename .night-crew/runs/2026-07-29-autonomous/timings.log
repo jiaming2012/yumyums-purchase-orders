@@ -1,0 +1,36 @@
+# Timings — overnight-20260729
+
+run_start	2026-07-28T13:08:37-04:00
+baseline	G1 green (go build + go vet), 19 static spec files + bddgen = 20 expected, docker reachable
+cardA_dispatch	2026-07-28T13:08:37-04:00
+cardA_impl_done	2026-07-28T13:51:05-04:00	DONE, ~75min, 4 commits, suite 561/567 pass 20 spec files
+cardA_g6_dispatch	2026-07-28T13:51:05-04:00
+cardA_g6_done	2026-07-28T14:04:14-04:00	APPROVE-WITH-NITS, 25 claims / 24 held / 1 partial, no blockers
+cardA_merged	2026-07-28T14:04:14-04:00	25fbc16 clean merge, post-merge G1 green + sw.js idempotent
+cardB_dispatch	2026-07-28T14:04:14-04:00	Track A
+cardC_dispatch	2026-07-28T14:04:14-04:00	Track B
+cardC_impl_done	2026-07-28T14:25:31-04:00	DONE ~25min, 4 commits, upgrade half PROVEN (hermetic + live), premise corrected
+cardC_g6_dispatch	2026-07-28T14:25:31-04:00
+cardC_g6_done	2026-07-28T14:44:58-04:00	APPROVE-WITH-NITS, 6/6 mutants killed, premise correction confirmed
+cardC_repair1_dispatch	2026-07-28T14:44:58-04:00	R1 path traversal, R2 activation gate, R3-R5 docs/test honesty
+cardC_repair1_done	2026-07-28T14:59:20-04:00	~18min, 3 commits, R1 rejects (not cleans), 15 tests, 4 merge-intent lines struck
+cardC_g6_repair_dispatch	2026-07-28T14:59:20-04:00	focused review of repair delta only
+INCIDENT	2026-07-28T14:59:20-04:00	G6 reviewer for card C dropped hq_test_go_c mid-round; suite goes GREEN-AND-EMPTY on missing DB (silent skip). All 6 DBs verified present at 15:00. Backlog candidate.
+cardC_repair2_done	2026-07-28T15:29:18-04:00	~22min, 2 commits, %2f bypass closed (7/9 red first), =0 inversion fixed, 17 tests
+cardC_verify_dispatch	2026-07-28T15:29:18-04:00	focused: over-broad check vs live vocabulary + bypass closure
+cardC_verify_done	2026-07-28T15:39:30-04:00	APPROVE-WITH-NITS, not over-broad (31 live vectors), bypass closed (31 attack vectors)
+cardC_merged	2026-07-28T15:39:30-04:00	d73580d clean merge, post-merge G1 + internal/sync green
+cardD_dispatch	2026-07-28T15:39:30-04:00	Track B, final card
+cardD_impl_done	2026-07-28T15:55:51-04:00	DONE ~12min, 4 commits, 8 SET rows, 18 screenshots, zero prod code
+cardD_verify_dispatch	2026-07-28T15:55:51-04:00	CLAUDE.md verifier gate, inputs restricted to spec+diff+screenshots
+cardB_impl_done	2026-07-28T15:55:51-04:00	DONE ~105min, 9 commits, park trigger did NOT fire (0 dup rows prod+dev), suite 563/569 20 files
+cardB_g6_dispatch	2026-07-28T15:55:51-04:00	riskiest card
+cardD_verify1_done	2026-07-28T16:18:39-04:00	PASS-WITH-ISSUES, 1 done_when row failed, 5 caption/render disagreements
+cardD_repair1_done	2026-07-28T16:18:39-04:00	~25min, 2 commits, all 20 done_when rows pass, no waivers, 11 plates / 22 PNGs
+cardD_verify2_dispatch	2026-07-28T16:18:39-04:00	focused re-verify of repair delta
+cardB_g6_done	2026-07-28T16:52:22-04:00	APPROVE-WITH-NITS, park trigger verified across 29 DBs, 0 duplicates
+cardB_merged	2026-07-28T16:52:22-04:00	79fa7cd, 1 conflict (version.go) resolved per-constant
+cardD_verify2_done	2026-07-28T16:52:22-04:00	PASS-WITH-MINOR-ISSUES, sign-off can proceed, all 20 done_when pass
+cardD_merged	2026-07-28T16:52:22-04:00	4f75de2 clean
+final_suite	2026-07-28T16:52:22-04:00	563 passed / 0 failed / 6 skipped of 569, 23.3m, 20 spec files (first attempt was a FALSE GREEN: exit 0, zero tests run)
+run_end	2026-07-28T16:52:22-04:00

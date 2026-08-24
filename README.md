@@ -46,8 +46,10 @@ sections, 7 field types, day-of-week schedules, role assignments, and approval f
 ({viewer}×{editor}×{op-type}×{derived-view}) is E2E-tested.
 
 **Persistence rule (non-negotiable):** every user-entered value follows
-`autoSaveField(fieldId, value)` → `POST /saveResponse` → `DRAFT_RESPONSES` →
-`hydrateFieldState` on reopen. Every new field type ships with a back-and-reopen regression
+`debouncedSaveField(fieldId, value)` → `submitOp('SET_FIELD')` → `POST /ops` →
+`DRAFT_RESPONSES` → `hydrateFieldState` on reopen. (Until 2026-08-04 this line named
+`autoSaveField` → `POST /saveResponse`; no such function exists and no frontend code posts
+to `/saveResponse` — B-65.) Every new field type ships with a back-and-reopen regression
 test in `tests/persistence.spec.js` — enter data → back to list → reopen → data still there.
 The feature is not complete without that test. See `docs/data-flow-audit.md`.
 
@@ -55,7 +57,7 @@ The feature is not complete without that test. See `docs/data-flow-audit.md`.
 
 7-tab layout: Purchases / Stock / Menu / Recipes / **Trends** / **Cost** / Setup.
 
-- **Receipt pipeline:** Mercury banking → receipt download → DO Spaces upload → Claude Haiku
+- **Receipt pipeline:** Mercury banking → receipt download → Backblaze B2 upload → Claude Haiku
   parse → validate → pending review queue → manual confirm. Items are cataloged from real
   receipts, not pre-seeded.
 - **Recipes/BOM:** per-ingredient `usage_pct` sliders allocate purchase spend to menu items
@@ -103,8 +105,8 @@ fails closed. Transactional email (invite/password reset) is deliberately outsid
 ### Overnight runs (night-crew)
 
 Most build work ships through planned overnight autonomous runs, with attended human
-checkpoints at both ends. State lives in `.night-crew/` (knowledge base, per-run records);
-`.planning/STATE.md`'s null milestone fields are deliberate.
+checkpoints at both ends. State lives in `.night-crew/` (knowledge base, per-run records) —
+that is the only planning state; durable reference docs live in `docs/`.
 
 - **Cycle cadence:** attended OKR session → PM session drafts a PRD (traced to key results,
   grill-back resolves gray areas) → design gate (OpenSpec-style doc, operator sign-off

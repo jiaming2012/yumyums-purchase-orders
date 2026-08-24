@@ -1,0 +1,188 @@
+# spike-c-roundtrip.sh — /saveResponse -> HQ Postgres -> relay -> substrate -> RxDB
+# repo    /home/jcole/projects/hq-worktrees/c-spike-c-round-trip
+# anchor  /home/jcole/projects/hq
+# run     c20260807041959
+# mode    NO-RELAY (red-first capture: the mechanism is deliberately absent)
+# started 2026-08-07T04:19:59Z
+
+══ 1. preflight — required tooling ═══════════════════════════════
+  docker /usr/bin/docker
+  curl   /usr/bin/curl
+  node   /usr/bin/node
+  go     /usr/local/go/bin/go
+  isolation: hq-real compose publishes no fixed host port (Docker-assigned only)
+
+══ 2. substrate — spike A's Supabase + RxDB environment (RECONCILE, never destroy) ═══════════════════════════════
+  delegating to env-up.sh (reconcile); its exit status gates this leg
+# env-up.sh — mode=reconcile repo=/home/jcole/projects/hq-worktrees/c-spike-c-round-trip
+# compose anchor (--project-directory, path-stability fix) = /home/jcole/projects/hq
+# started 2026-08-07T04:20:00Z
+
+── 1. preflight — required tooling ───────────────────────────────
+  docker /usr/bin/docker
+  curl   /usr/bin/curl
+  node   /usr/bin/node
+  npm    /usr/bin/npm
+  go     /usr/local/go/bin/go
+  compose 5.1.0
+  go      go version go1.25.8 linux/amd64
+  node    v20.20.0
+  docker daemon: reachable
+
+── 2. bringing the stack up (idempotent) ───────────────────────────────
+ Container spike-supabase-db-1 Running 
+ Container spike-supabase-realtime-1 Running 
+ Container spike-supabase-rest-1 Running 
+ Container spike-supabase-db-1 Waiting 
+ Container spike-supabase-db-1 Waiting 
+ Container spike-supabase-db-1 Healthy 
+ Container spike-supabase-db-1 Healthy 
+NAME                        IMAGE                          COMMAND                  SERVICE    CREATED        STATUS                  PORTS
+spike-supabase-db-1         supabase/postgres:15.8.1.060   "docker-entrypoint.s…"   db         31 hours ago   Up 31 hours (healthy)   0.0.0.0:50871->5432/tcp, [::]:50871->5432/tcp
+spike-supabase-realtime-1   supabase/realtime:v2.34.47     "/usr/bin/tini -s -g…"   realtime   31 hours ago   Up 31 hours             0.0.0.0:50807->4000/tcp, [::]:50807->4000/tcp
+spike-supabase-rest-1       postgrest/postgrest:v12.2.12   "/bin/postgrest"         rest       31 hours ago   Up 31 hours             0.0.0.0:50473->3000/tcp, [::]:50473->3000/tcp
+
+── 3. waiting for db to report healthy (timeout 300s) ───────────────────────────────
+  db: running/healthy
+
+── 4. applying fixture schemas ───────────────────────────────
+  → spike-fixture.sql
+psql:<stdin>:30: NOTICE:  relation "spike_notes" already exists, skipping
+  → hq-bridge-fixture.sql
+psql:<stdin>:53: NOTICE:  relation "hq_grant_projection" already exists, skipping
+psql:<stdin>:77: NOTICE:  relation "hq_sync_checklists" already exists, skipping
+psql:<stdin>:114: NOTICE:  relation "hq_uid_trap" already exists, skipping
+  → hq-bridge-policies.sql
+
+── 5. resolving host ports ───────────────────────────────
+  db=50871 rest=50473 realtime=50807
+
+── 6. waiting for PostgREST and Realtime to answer (timeout 180s each) ───────────────────────────────
+  PostgREST: HTTP 200
+  Realtime: HTTP 200
+
+── 7. installing the RxDB harness (npm ci, isolated project) ───────────────────────────────
+npm warn EBADENGINE Unsupported engine {
+npm warn EBADENGINE   package: 'z-schema@12.3.1',
+npm warn EBADENGINE   required: { node: '>=22.0.0' },
+npm warn EBADENGINE   current: { node: 'v20.20.0', npm: '10.8.2' }
+npm warn EBADENGINE }
+npm warn deprecated defekt@9.3.0: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
+npm warn deprecated get-graphql-from-jsonschema@8.1.0: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
+
+added 78 packages in 6s
+
+── 8. health assertion — rest, realtime, schema, rxdb ───────────────────────────────
+# stack: rest=50473 realtime=50807 db=50871  run=r1786076412463
+PASS  ports — db=50871 rest=50473 realtime=50807
+PASS  token — go-minted, 184 chars, 3 segments
+PASS  schema — 4 fixture table(s) and 5 hq_* policy(ies) present by name
+PASS  rest — spike_notes readable; alice sees 1 row(s), owners=["user-alice"], bob's row correctly hidden
+PASS  realtime — channel SUBSCRIBED
+-------------- RxDB dev-mode warning -------------------------------
+you are seeing this because you use the RxDB dev-mode plugin https://rxdb.info/dev-mode.html?console=dev-mode 
+This is great in development mode, because it will run many checks to ensure
+that you use RxDB correct. If you see this in production mode,
+you did something wrong because the dev-mode plugin will decrease the performance.
+
+🤗 Hint: To get the most out of RxDB, check out the Premium Plugins
+to get access to faster storages and more professional features: https://rxdb.info/premium/?console=dev-mode 
+
+You can disable this warning by calling disableWarnings() from the dev-mode plugin.
+---------------------------------------------------------------------
+PASS  rxdb — local RxDB database created, doc hc-1786076414067 inserted and read back
+
+HEALTHCHECK: GREEN — ports, token, schema, rest, realtime, rxdb all asserted
+
+══════════════════════════════════════════════════════════
+✅ VERDICT: GREEN — Supabase + RxDB up, schema applied, healthy
+   db=50871  rest=50473  realtime=50807   (project: spike-supabase)
+   teardown is a separate, deliberate act:  task spike:down
+   finished 2026-08-07T04:20:14Z
+══════════════════════════════════════════════════════════
+  PostgREST: http://127.0.0.1:50473
+  service_role token minted (role=service_role, ttl=60m)
+
+══ 3. baseline snapshot of spike A's SHARED tables (so the restore can be VERIFIED) ═══════════════════════════════
+  hq_sync_checklists baseline: [{"id":"chk-alice-inv-1"}, 
+ {"id":"chk-alice-ops-1"}, 
+ {"id":"chk-alice-ops-2"}, 
+ {"id":"chk-bob-ops-1"}]
+  hq_grant_projection baseline: [{"user_id":"hq-user-alice","app_slug":"operations"}, 
+ {"user_id":"hq-user-bob","app_slug":"operations"}]
+
+══ 4. HQ Postgres — fresh scratch container (project spike-c-hq), EMPTY ═══════════════════════════════
+ Network spike-c-hq_default Creating 
+ Network spike-c-hq_default Created 
+ Container spike-c-hq-hqreal-1 Creating 
+ Container spike-c-hq-hqreal-1 Created 
+ Container spike-c-hq-hqreal-1 Starting 
+ Container spike-c-hq-hqreal-1 Started 
+NAME                  IMAGE                COMMAND                  SERVICE   CREATED         STATUS                           PORTS
+spike-c-hq-hqreal-1   postgres:16-alpine   "docker-entrypoint.s…"   hqreal    2 seconds ago   Up 1 second (health: starting)   0.0.0.0:51693->5432/tcp, [::]:51693->5432/tcp
+  hqreal: running/healthy
+  container 9ef9ea712308  ·  host port 51693 (Docker-assigned, ephemeral)
+
+══ 5. HQ's REAL schema — applied by HQ's OWN binary, not by a transcription ═══════════════════════════════
+  building HQ's server binary
+  booting it against the scratch Postgres (it will apply 74 migrations)
+  health: {"backend_version":"0.3.0","built_at":"unknown","frontend_version":"1.4.0","git_sha":"dev","status":"ok"}
+  goose versions applied: 75  ·  public tables: 52
+
+══ 6. the write path's real prerequisites — a real session and a real field ═══════════════════════════════
+  hq user: 25fc92b1-9792-4191-a3d1-ff77245a1944 (jamal@yumyums.kitchen)
+  session: real hq_session cookie from POST /api/v1/auth/login (HTTP 200)
+  field:   4f7c9bc5-a4e0-4e12-812e-8cc60949a737 — Notes [text]
+
+══ 7. substrate prerequisite — the live grant projection for this user ═══════════════════════════════
+  hq_grant_projection += (25fc92b1-9792-4191-a3d1-ff77245a1944, operations) -> HTTP 201
+
+══ 8. THE MECHANISM — LISTEN/NOTIFY relay ═══════════════════════════════
+  🛑 --no-relay: the trigger is NOT applied and the relay is NOT started.
+     This is the RED-FIRST capture. Everything on both sides of the gap is
+     real and live — HQ writes really land in HQ Postgres, and the RxDB client
+     really replicates from the substrate — and NOTHING bridges them.
+     The round trip below must FAIL, and must fail with exit 1, not exit 2.
+
+══ 9. ROUND TRIP — /saveResponse -> ... -> a RUNNING RxDB client ═══════════════════════════════
+# spike-c-read.js
+# substrate: rest=50473 realtime=50807 db=50871
+# hq api:    http://127.0.0.1:8471
+# hq user:   25fc92b1-9792-4191-a3d1-ff77245a1944
+# field:     4f7c9bc5-a4e0-4e12-812e-8cc60949a737
+# sentinel:  spikec-c20260807041959-1786076429356242137
+# bound:     20000 ms
+# run:       c20260807041959
+-------------- RxDB dev-mode warning -------------------------------
+you are seeing this because you use the RxDB dev-mode plugin https://rxdb.info/dev-mode.html?console=dev-mode 
+This is great in development mode, because it will run many checks to ensure
+that you use RxDB correct. If you see this in production mode,
+you did something wrong because the dev-mode plugin will decrease the performance.
+
+🤗 Hint: To get the most out of RxDB, check out the Premium Plugins
+to get access to faster storages and more professional features: https://rxdb.info/premium/?console=dev-mode 
+
+You can disable this warning by calling disableWarnings() from the dev-mode plugin.
+---------------------------------------------------------------------
+
+── the client is LIVE before the write: RxDB holds 0 doc(s) ──
+   (none)
+
+── the write: POST /api/v1/workflow/saveResponse ──
+   HTTP 204 (no content)
+
+── the read: waiting up to 20000 ms for the row in RxDB ──
+
+   after 20015 ms the RxDB collection holds: (none)
+
+🛑 ROUND TRIP RED: the row written through /saveResponse did NOT reach the RxDB-served read within 20000 ms. There is no mechanism carrying HQ-Postgres writes into the substrate.
+
+  HQ Postgres holds 1 row(s) carrying the sentinel (the write path itself)
+
+🛑 VERDICT: RED — the row written through POST /api/v1/workflow/saveResponse landed in HQ's Postgres and did NOT reach the RxDB-served read within 20000 ms. This is the expected RED-FIRST capture: no relay was running.
+
+── teardown (1/2): restoring spike A's shared substrate ──
+  VERIFIED: hq_sync_checklists and hq_grant_projection are byte-identical to the pre-run baseline.
+
+── teardown (2/2): destroying the scratch HQ Postgres (project spike-c-hq) ──
+  torn down.

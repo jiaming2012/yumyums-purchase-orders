@@ -8,6 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/yumyums/hq/internal/users"
 )
 
 // RecordRepurchase writes checked shopping list items to repurchase_log for badge display (REP-01).
@@ -66,9 +67,12 @@ func TriggerRepurchaseReset(ctx context.Context, pool *pgxpool.Pool) error {
 	}
 	if tag.RowsAffected() == 0 {
 		// No row exists yet — insert a default one with last_reset_at = now
+		// Timezone comes from users.DefaultTimezone — the app's ONE zone
+		// (ledger T-26 decision 83). Kept in step with migration 0072, which
+		// re-points this column's DEFAULT and any pre-existing rows.
 		if _, err := pool.Exec(ctx, `
 			INSERT INTO repurchase_reset_config (day_of_week, reset_time, timezone, last_reset_at)
-			VALUES (1, '06:00', 'America/Chicago', now())
+			VALUES (1, '06:00', '`+users.DefaultTimezone+`', now())
 		`); err != nil {
 			return fmt.Errorf("TriggerRepurchaseReset: insert default: %w", err)
 		}

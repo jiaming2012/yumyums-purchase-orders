@@ -34,6 +34,7 @@ var (
 	parseReceiptWithSonnet   = ParseReceiptWithSonnet
 	parseReceiptWithFeedback = ParseReceiptWithFeedback
 	downloadReceiptFileFn    = downloadReceiptFile
+	uploadReceiptSlotFn      = uploadReceiptSlot
 )
 
 // PendingRowForReprocess is the minimal data needed from a pending_purchases
@@ -347,7 +348,7 @@ func processSingleTx(ctx context.Context, cfg WorkerConfig, tx MercuryTransactio
 		return "errored", nil
 	}
 
-	// Upload all attachments to DO Spaces in order. Each gets a
+	// Upload all attachments to object storage in order. Each gets a
 	// per-index key receipts/{tx.ID}/{i}{ext} so they can coexist.
 	// receiptURLs collects the final public (or fallback Mercury) URL
 	// for each slot. receiptURL (singular) is set to receiptURLs[0]
@@ -357,34 +358,11 @@ func processSingleTx(ctx context.Context, cfg WorkerConfig, tx MercuryTransactio
 		att := tx.Attachments[i]
 		slotURL := att.URL // fallback: original Mercury URL
 		if cfg.SpacesPresigner != nil && cfg.SpacesBucket != "" {
-			ext := strings.ToLower(filepath.Ext(att.FileName))
-			if ext == "" {
-				ext = ".jpg"
-			}
-			key := fmt.Sprintf("receipts/%s/%d%s", tx.ID, i, ext)
-			presignedURL, uploadErr := photos.GeneratePresignedPutURL(ctx, cfg.SpacesPresigner, cfg.SpacesBucket, key, blob.ContentType, 15*time.Minute)
-			if uploadErr != nil {
-				slog.Info(fmt.Sprintf("receipt worker: presign slot %d for tx %s: %v (falling back to Mercury URL)", i, tx.ID, uploadErr))
+			publicURL, upErr := uploadReceiptSlotFn(ctx, cfg, tx.ID, i, blob, att.FileName)
+			if upErr != nil {
+				slog.Info(fmt.Sprintf("receipt worker: upload slot %d for tx %s: %v (falling back to Mercury URL)", i, tx.ID, upErr))
 			} else {
-				putReq, reqErr := http.NewRequestWithContext(ctx, http.MethodPut, presignedURL, bytes.NewReader(blob.Bytes))
-				if reqErr != nil {
-					slog.Info(fmt.Sprintf("receipt worker: create PUT request slot %d for tx %s: %v (falling back to Mercury URL)", i, tx.ID, reqErr))
-				} else {
-					putReq.Header.Set("Content-Type", blob.ContentType)
-					putReq.Header.Set("x-amz-acl", "public-read")
-					putReq.ContentLength = int64(len(blob.Bytes))
-					putResp, putErr := (&http.Client{Timeout: 60 * time.Second}).Do(putReq)
-					if putErr != nil {
-						slog.Info(fmt.Sprintf("receipt worker: upload slot %d to Spaces for tx %s: %v (falling back to Mercury URL)", i, tx.ID, putErr))
-					} else {
-						putResp.Body.Close()
-						if putResp.StatusCode >= 200 && putResp.StatusCode < 300 {
-							slotURL = photos.PublicURL(cfg.SpacesEndpoint, cfg.SpacesBucket, key)
-						} else {
-							slog.Info(fmt.Sprintf("receipt worker: Spaces PUT slot %d for tx %s returned %d (falling back to Mercury URL)", i, tx.ID, putResp.StatusCode))
-						}
-					}
-				}
+				slotURL = publicURL
 			}
 		}
 		receiptURLs = append(receiptURLs, slotURL)
@@ -1080,6 +1058,40 @@ func nullableFloat64(f float64) interface{} {
 // receiptURLsJSON marshals a URL slice to JSON bytes for JSONB storage.
 // Returns nil when the slice is empty so the column stays NULL rather than
 // storing an empty array. pgx accepts []byte for JSONB parameters directly.
+// uploadReceiptSlot uploads one receipt attachment blob to object storage at
+// the per-index key receipts/{txID}/{i}{ext} and returns the permanent public
+// URL. The extension comes from the attachment's original file name (default
+// .jpg). No x-amz-acl header is sent: the presigned URL doesn't sign one and
+// B2 rejects per-object ACLs — the bucket itself is public (B-172).
+// Callers decide the failure policy: the ingest worker falls back to the
+// expiring Mercury URL, the recovery path counts the tx as failed.
+func uploadReceiptSlot(ctx context.Context, cfg WorkerConfig, txID string, i int, blob FileBlob, fileName string) (string, error) {
+	ext := strings.ToLower(filepath.Ext(fileName))
+	if ext == "" {
+		ext = ".jpg"
+	}
+	key := fmt.Sprintf("receipts/%s/%d%s", txID, i, ext)
+	presignedURL, err := photos.GeneratePresignedPutURL(ctx, cfg.SpacesPresigner, cfg.SpacesBucket, key, blob.ContentType, 15*time.Minute)
+	if err != nil {
+		return "", fmt.Errorf("presign slot %d: %w", i, err)
+	}
+	putReq, err := http.NewRequestWithContext(ctx, http.MethodPut, presignedURL, bytes.NewReader(blob.Bytes))
+	if err != nil {
+		return "", fmt.Errorf("create PUT request slot %d: %w", i, err)
+	}
+	putReq.Header.Set("Content-Type", blob.ContentType)
+	putReq.ContentLength = int64(len(blob.Bytes))
+	putResp, err := (&http.Client{Timeout: 60 * time.Second}).Do(putReq)
+	if err != nil {
+		return "", fmt.Errorf("PUT slot %d: %w", i, err)
+	}
+	putResp.Body.Close()
+	if putResp.StatusCode < 200 || putResp.StatusCode >= 300 {
+		return "", fmt.Errorf("PUT slot %d returned status %d", i, putResp.StatusCode)
+	}
+	return photos.PublicURL(cfg.SpacesEndpoint, cfg.SpacesBucket, key), nil
+}
+
 func receiptURLsJSON(urls []string) interface{} {
 	if len(urls) == 0 {
 		return nil

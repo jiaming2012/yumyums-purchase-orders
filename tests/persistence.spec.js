@@ -484,6 +484,260 @@ test.describe('Persistence', () => {
 
   // ─── Draft survives back-and-reopen ───────────────────────────────
 
+  // OFF-01 — operator-reported 2026-07-27: with the internet off, checking two
+  // checkboxes turns both green and the list overview reads 2/2, but reopening
+  // the checklist shows both cleared.
+  //
+  // Was: the optimistic value lived only in `fieldResponses`, while
+  // `hydrateFieldState` (workflows.html:1470) rebuilds FIELD_RESPONSES purely
+  // from DRAFT_RESPONSES + MY_SUBMISSIONS on every open — and the failing save
+  // never wrote a draft, so reopening threw the answer away.
+  //
+  // Fixed by markFieldPending (workflows.html): a save that does not reach the
+  // server writes the same draft shape the success path writes, so reopening
+  // restores it and the field says "Unsaved" until it lands.
+  // Design: .night-crew/knowledge/designs/offline-save-honesty.md
+  //
+  // STILL LOST, deliberately: a reload or app kill while offline. The draft
+  // store is in memory (sync.js `new Store()`), so durable survival needs
+  // SET_FIELD ops in the IndexedDB queue that holds submissions only today.
+  //
+  // Stays offline throughout, mirroring the report: the crew member does not
+  // regain signal between the back-tap and the re-entry.
+  test('checkboxes entered OFFLINE survive back-to-list and reopen [OFF-01]', async ({ page, context }) => {
+    const todayDOW = await getTodayDOW(page);
+    const tpl = await apiCall(page, 'POST', 'createTemplate', {
+      name: 'Offline Draft Test',
+      requires_approval: false,
+      sections: [{
+        title: 'Section 1',
+        order: 0,
+        condition: null,
+        fields: [
+          { type: 'checkbox', label: 'Field A', required: false, order: 0, config: {}, fail_trigger: null, condition: null },
+          { type: 'checkbox', label: 'Field B', required: false, order: 1, config: {}, fail_trigger: null, condition: null },
+        ],
+      }],
+      assignments: [{ assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' }],
+      schedules: [{ active_days: [todayDOW] }],
+    });
+
+    await page.goto(BASE + '/workflows.html');
+    const row = page.locator('[data-fill-template-id="' + tpl.id + '"]');
+    await expect(row).toBeVisible({ timeout: 10000 });
+    await row.click();
+    await page.waitForSelector('.check-btn', { timeout: 10000 });
+
+    // Internet off — everything below is what the crew member does on a phone
+    // with no signal.
+    await context.setOffline(true);
+
+    const checkA = page.locator('.check-btn').first();
+    const checkB = page.locator('.check-btn').nth(1);
+    await checkA.click();
+    await checkB.click();
+
+    // Both turn green (optimistic UI) — this is what the operator sees.
+    await expect(checkA).toHaveClass(/checked/, { timeout: 5000 });
+    await expect(checkB).toHaveClass(/checked/, { timeout: 5000 });
+
+    // Let the 400ms save debounce fire and fail against the dead network.
+    await page.waitForTimeout(1500);
+
+    // Back to the list — overview reads 2/2, as reported.
+    await page.click('#fill-back');
+    await expect(page.locator('#checklist-list')).toBeVisible({ timeout: 5000 });
+    const rowAfterBack = page.locator('[data-fill-template-id="' + tpl.id + '"]');
+    await expect(rowAfterBack).toBeVisible({ timeout: 5000 });
+    await expect(rowAfterBack.locator('text=2/2')).toBeVisible({ timeout: 5000 });
+
+    // Re-enter the checklist. Both answers must still be there — the crew
+    // member entered them, the list just told them 2/2, and nothing has been
+    // reported as lost.
+    await rowAfterBack.click();
+    await page.waitForSelector('.check-btn', { timeout: 10000 });
+    await expect(page.locator('.check-btn').first(),
+      'Field A entered offline must survive reopening — it was shown as saved')
+      .toHaveClass(/checked/, { timeout: 5000 });
+    await expect(page.locator('.check-btn').nth(1),
+      'Field B entered offline must survive reopening — it was shown as saved')
+      .toHaveClass(/checked/, { timeout: 5000 });
+  });
+
+  // ─── Offline save honesty (OFF-02..OFF-05) ────────────────────────
+  // Design + user stories: .night-crew/knowledge/designs/offline-save-honesty.md
+  // The small fix for OFF-01: an answer that never reached the server must not
+  // be counted as complete and must say so. It does NOT make the answer survive
+  // — that is the queued-SET_FIELD card OFF-01 is parked against.
+
+  async function offlineTemplate(page, name, labels) {
+    const todayDOW = await getTodayDOW(page);
+    return apiCall(page, 'POST', 'createTemplate', {
+      name: name,
+      requires_approval: false,
+      sections: [{
+        title: 'Section 1',
+        order: 0,
+        condition: null,
+        fields: labels.map(function(label, i) {
+          return { type: 'checkbox', label: label, required: false, order: i, config: {}, fail_trigger: null, condition: null };
+        }),
+      }],
+      assignments: [{ assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' }],
+      schedules: [{ active_days: [todayDOW] }],
+    });
+  }
+
+  test('progress counts pending answers and says they are pending [OFF-02]', async ({ page, context }) => {
+    const tpl = await offlineTemplate(page, 'Offline Progress Test', ['Field A', 'Field B']);
+    await page.goto(BASE + '/workflows.html');
+    const row = page.locator('[data-fill-template-id="' + tpl.id + '"]');
+    await expect(row).toBeVisible({ timeout: 10000 });
+    await row.click();
+    await page.waitForSelector('.check-btn', { timeout: 10000 });
+
+    await context.setOffline(true);
+    await page.locator('.check-btn').first().click();
+    await page.locator('.check-btn').nth(1).click();
+    await page.waitForTimeout(1500); // 400ms debounce + failure
+
+    // The work was done, so it counts — but each field says it is waiting.
+    await expect(page.locator('#fill-body .progress-line'))
+      .toContainText('2 of 2 items complete', { timeout: 5000 });
+    await expect(page.locator('.unsaved-mark')).toHaveCount(2, { timeout: 5000 });
+
+    // The list overview reads 2/2 — matching the runner, not contradicting it.
+    await page.click('#fill-back');
+    await expect(page.locator('#checklist-list')).toBeVisible({ timeout: 5000 });
+    const rowAfterBack = page.locator('[data-fill-template-id="' + tpl.id + '"]');
+    await expect(rowAfterBack.locator('text=2/2')).toBeVisible({ timeout: 5000 });
+  });
+
+  test('a field whose save failed is marked Unsaved [OFF-03]', async ({ page, context }) => {
+    const tpl = await offlineTemplate(page, 'Offline Mark Test', ['Field A', 'Field B', 'Field C']);
+    await page.goto(BASE + '/workflows.html');
+    const row = page.locator('[data-fill-template-id="' + tpl.id + '"]');
+    await expect(row).toBeVisible({ timeout: 10000 });
+    await row.click();
+    await page.waitForSelector('.check-btn', { timeout: 10000 });
+
+    await context.setOffline(true);
+    await page.locator('.check-btn').first().click();
+    await page.locator('.check-btn').nth(1).click();
+    await page.waitForTimeout(1500);
+
+    const marks = page.locator('.unsaved-mark');
+    await expect(marks).toHaveCount(2, { timeout: 5000 });
+    await expect(marks.first()).toHaveText('Unsaved');
+
+    // The untouched third field carries no marker.
+    const fieldC = page.locator('.fill-field', { hasText: 'Field C' });
+    await expect(fieldC.locator('.unsaved-mark')).toHaveCount(0);
+
+    // The mark survives a re-render — reopening must not silently upgrade
+    // "waiting to sync" into "saved".
+    await page.click('#fill-back');
+    await page.locator('[data-fill-template-id="' + tpl.id + '"]').click();
+    await page.waitForSelector('.check-btn', { timeout: 10000 });
+    await expect(page.locator('.unsaved-mark')).toHaveCount(2, { timeout: 5000 });
+  });
+
+  test('a failed save says why, once per burst [OFF-04]', async ({ page, context }) => {
+    const tpl = await offlineTemplate(page, 'Offline Toast Test', ['Field A', 'Field B']);
+    await page.goto(BASE + '/workflows.html');
+    const row = page.locator('[data-fill-template-id="' + tpl.id + '"]');
+    await expect(row).toBeVisible({ timeout: 10000 });
+    await row.click();
+    await page.waitForSelector('.check-btn', { timeout: 10000 });
+
+    // #toast is a singleton node, so the DOM cannot distinguish one call from
+    // two — count the calls at the source instead.
+    await page.evaluate(() => {
+      window.__toasts = [];
+      const orig = window.showToast;
+      window.showToast = function (msg) { window.__toasts.push(msg); return orig.apply(this, arguments); };
+    });
+
+    await context.setOffline(true);
+    await page.locator('.check-btn').first().click();
+    await page.locator('.check-btn').nth(1).click();
+    await page.waitForTimeout(1500);
+
+    const offlineToasts = await page.evaluate(() => window.__toasts);
+    expect(offlineToasts, 'two fields failing in one burst must coalesce into one message')
+      .toEqual(['Saved on this device — will sync when you’re back online.']);
+
+    // Same failure with the network up names the retry, not the connection.
+    await context.setOffline(false);
+    await page.route('**/api/v1/workflow/ops', route => route.fulfill({ status: 500, body: '{}' }));
+    await page.evaluate(() => { window.__toasts = []; });
+    await page.locator('.check-btn').nth(1).click();
+    await page.waitForTimeout(1500);
+    const onlineToasts = await page.evaluate(() => window.__toasts);
+    expect(onlineToasts).toEqual(['Save didn’t go through — retrying.']);
+    await page.unroute('**/api/v1/workflow/ops');
+  });
+
+  test('pending answers sync by themselves when the connection returns [OFF-05]', async ({ page, context }) => {
+    const tpl = await offlineTemplate(page, 'Offline Retry Test', ['Field A', 'Field B']);
+    await page.goto(BASE + '/workflows.html');
+    const row = page.locator('[data-fill-template-id="' + tpl.id + '"]');
+    await expect(row).toBeVisible({ timeout: 10000 });
+    await row.click();
+    await page.waitForSelector('.check-btn', { timeout: 10000 });
+
+    await context.setOffline(true);
+    await page.locator('.check-btn').first().click();
+    await page.waitForTimeout(1500);
+    await expect(page.locator('.unsaved-mark')).toHaveCount(1, { timeout: 5000 });
+
+    // Signal returns — and nothing else happens. No tap, no reload.
+    await context.setOffline(false);
+    await page.evaluate(() => window.dispatchEvent(new Event('online')));
+    await page.waitForResponse(
+      res => res.url().includes('/api/v1/workflow/ops') && res.request().method() === 'POST' && res.status() < 400,
+      { timeout: 10000 });
+
+    await expect(page.locator('.unsaved-mark')).toHaveCount(0, { timeout: 5000 });
+    await expect(page.locator('#fill-body .progress-line')).toContainText('1 of 2 items complete', { timeout: 5000 });
+
+    // And it is real on the server, not just on this device: a reopen rebuilds
+    // field state from the server's drafts, and the answer is still there.
+    await page.click('#fill-back');
+    const rowAfterBack = page.locator('[data-fill-template-id="' + tpl.id + '"]');
+    await expect(rowAfterBack.locator('text=1/2')).toBeVisible({ timeout: 5000 });
+    await rowAfterBack.click();
+    await page.waitForSelector('.check-btn', { timeout: 10000 });
+    await expect(page.locator('.check-btn').first()).toHaveClass(/checked/, { timeout: 5000 });
+    await expect(page.locator('.unsaved-mark')).toHaveCount(0);
+  });
+
+  test('a failure while ONLINE retries itself on the timer tick [OFF-06]', async ({ page }) => {
+    const tpl = await offlineTemplate(page, 'Offline Timer Retry Test', ['Field A', 'Field B']);
+    await page.goto(BASE + '/workflows.html');
+    const row = page.locator('[data-fill-template-id="' + tpl.id + '"]');
+    await expect(row).toBeVisible({ timeout: 10000 });
+    await row.click();
+    await page.waitForSelector('.check-btn', { timeout: 10000 });
+
+    // Server-side failure with the network up: no 'online' event will ever
+    // fire, so only the retry tick can recover this.
+    await page.route('**/api/v1/workflow/ops', route => route.fulfill({ status: 500, body: '{}' }));
+    await page.locator('.check-btn').first().click();
+    await page.waitForTimeout(1500);
+    await expect(page.locator('.unsaved-mark')).toHaveCount(1, { timeout: 5000 });
+
+    // Server recovers. Drive the 15s tick rather than sleeping for it.
+    await page.unroute('**/api/v1/workflow/ops');
+    await page.evaluate(() => window.retryPendingFields());
+    await page.waitForResponse(
+      res => res.url().includes('/api/v1/workflow/ops') && res.request().method() === 'POST' && res.status() < 400,
+      { timeout: 10000 });
+
+    await expect(page.locator('.unsaved-mark')).toHaveCount(0, { timeout: 5000 });
+    await expect(page.locator('#fill-body .progress-line')).toContainText('1 of 2 items complete', { timeout: 5000 });
+  });
+
   test('checked field survives back-to-list and reopen without losing state [FLD-02 RUN-18]', async ({ page }) => {
     const todayDOW = await getTodayDOW(page);
     // Create template with 2 fields
@@ -870,6 +1124,82 @@ test.describe('Persistence', () => {
     await expect(minorBtn).toHaveClass(/on/, { timeout: 5000 });
   });
 
+  // FLD-15b — the operator's report (2026-08-10): a corrective action entered on a
+  // failing temperature field vanished after the checklist was SUBMITTED and the
+  // approver re-checked it (without rejecting), on reopen. FLD-15 only covers the
+  // DRAFT round trip (fail note bundled in the response value). On submit the fail
+  // note is stored in the SEPARATE submission_fail_notes table (sub.fail_notes[]),
+  // and hydrateFieldState rebuilt FAIL_NOTES only from response-value bundles — so a
+  // submitted fail note was never restored on reopen. This asserts it survives the
+  // submit → reload → reopen path, which FLD-15 does not exercise.
+  test('corrective action note survives SUBMIT, reload and reopen [FLD-15b]', async ({ page }) => {
+    const todayDOW = await getTodayDOW(page);
+    // Temperature field with a fail trigger; requires_approval so it goes through the
+    // submit → approvals → reopen path the operator hit. admin is both assignee and
+    // approver (mirrors createTestTemplate).
+    const tpl = await apiCall(page, 'POST', 'createTemplate', {
+      name: 'Fail Note Submit Test',
+      requires_approval: true,
+      sections: [{
+        title: 'Checks', order: 0, condition: null,
+        fields: [{
+          type: 'temperature', label: 'Grill surface temp', required: true, order: 0,
+          config: { unit: 'F', min: 300, max: 500 },
+          fail_trigger: { type: 'out_of_range', min: 300, max: 500 },
+          condition: null,
+        }],
+      }],
+      assignments: [
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' },
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'approver' },
+      ],
+      schedules: [{ active_days: [todayDOW] }],
+    });
+
+    // Open, trigger the fail card, enter the corrective action + severity.
+    await page.goto(BASE + '/workflows.html');
+    const row = page.locator('[data-fill-template-id="' + tpl.id + '"]');
+    await expect(row).toBeVisible({ timeout: 10000 });
+    await row.click();
+
+    const tempInput = page.locator('input[type="number"]').first();
+    await tempInput.fill('2');
+    await tempInput.dispatchEvent('change');
+    await page.waitForTimeout(500);
+
+    const failCard = page.locator('.fail-card');
+    await expect(failCard).toBeVisible({ timeout: 5000 });
+    await failCard.locator('textarea').fill('Grill needs repair');
+    await failCard.locator('textarea').blur();
+    await page.waitForTimeout(500);
+    await page.click('[data-action="set-severity"][data-severity="minor"]');
+    await page.waitForResponse(
+      res => res.url().includes('/api/v1/workflow/ops') && res.request().method() === 'POST',
+      { timeout: 5000 }
+    );
+
+    // Submit for approval (corrective action is filled, so the gate lets it through).
+    const submitResp = page.waitForResponse(
+      res => res.url().includes('/api/v1/workflow/submitChecklist') && res.request().method() === 'POST',
+      { timeout: 8000 }
+    );
+    await page.click('[data-action="submit"]');
+    await submitResp;
+    await expect(page.locator('#toast')).toBeVisible({ timeout: 5000 });
+
+    // Reload → fresh hydrate from the SERVER submission (not lingering in-memory
+    // state), then reopen the submitted checklist in the readonly view.
+    await page.goto(BASE + '/workflows.html');
+    const row2 = page.locator('[data-fill-template-id="' + tpl.id + '"]');
+    await expect(row2).toBeVisible({ timeout: 10000 });
+    await row2.click();
+    await expect(page.locator('.submit-confirm')).toBeVisible({ timeout: 5000 });
+
+    // The approver never rejected it, so the corrective action must still be shown.
+    // Its loss here is exactly the reported data-loss bug.
+    await expect(page.locator('#fill-body')).toContainText('Grill needs repair', { timeout: 5000 });
+  });
+
   test('fail photo survives back-to-list and reopen as https:// URL [FLD-16]', async ({ page }) => {
     const todayDOW = await getTodayDOW(page);
 
@@ -949,6 +1279,183 @@ test.describe('Persistence', () => {
     expect(imgSrc).toBe(fakePublicUrl);
   });
 
+  // ─── Fail photo through the REAL capture path (B-65) ──────────────────
+  //
+  // FLD-16 above injects the photo with POST /saveResponse, which skips every
+  // line of client code between the presign response and the write. That is the
+  // blind spot B-65 lived in for months: the last statement of the fail-photo
+  // upload chain in `workflows.html` called `autoSaveField(...)`, a function
+  // defined NOWHERE in the tree, and the chain's own `.catch()` swallowed the
+  // ReferenceError. The thumbnail still rendered (FAIL_NOTES was mutated one
+  // line earlier), so the crew member saw "photo attached" and nothing was ever
+  // persisted — the photo was gone on the next open.
+  //
+  // This test drives the real path end to end: presign and the S3 PUT are
+  // intercepted at the network layer, the hidden file input is fed through
+  // Playwright's filechooser, and the assertion is CLAUDE.md's back-and-reopen
+  // contract. Any future edit that breaks the write call — not just deletes it —
+  // reds here, because the assertion is on what came back from the server.
+  // FLD-16D — operator addition (2026-08-10): an upload failure must NOTIFY the
+  // user, not fail silently. The fail-photo .catch used to re-render the card back
+  // to "Add photo" with no signal (B-65 class); now every photo path toasts on
+  // failure. Force the PUT to Spaces to fail (the real-world "Load failed" / CORS
+  // case the operator hit from the dev origin) and assert the toast fires.
+  test('photo upload failure notifies the user, not silently [FLD-16D]', async ({ page }) => {
+    const todayDOW = await getTodayDOW(page);
+    const tpl = await apiCall(page, 'POST', 'createTemplate', {
+      name: 'Photo Upload Failure Test',
+      requires_approval: false,
+      sections: [{
+        title: 'Safety Check', order: 0, condition: null,
+        fields: [{ type: 'yes_no', label: 'Equipment OK?', required: true, order: 0, config: {}, fail_trigger: null, condition: null }],
+      }],
+      assignments: [{ assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' }],
+      schedules: [{ active_days: [todayDOW] }],
+    });
+    const templates = await apiCall(page, 'GET', 'templates');
+    const fieldId = templates.find(t => t.id === tpl.id).sections[0].fields[0].id;
+
+    // presign succeeds (200) but the PUT to Spaces FAILS — mirrors the real
+    // "Load failed" (CORS/network) the operator hit uploading from the dev origin.
+    await page.route('**/api/v1/photos/presign', route => route.fulfill({
+      status: 200, contentType: 'application/json',
+      body: JSON.stringify({ url: 'https://spaces.example.test/upload/x.jpg?sig=stub', public_url: 'https://spaces.example.test/x.jpg' }),
+    }));
+    await page.route(/^https:\/\/spaces\.example\.test\/upload\//, route => route.abort());
+
+    await page.goto(BASE + '/workflows.html');
+    const row = page.locator('[data-fill-template-id="' + tpl.id + '"]');
+    await expect(row).toBeVisible({ timeout: 10000 });
+    await row.click();
+
+    const noBtn = page.locator('[data-action="set-no"][data-fld-id="' + fieldId + '"]');
+    await expect(noBtn).toBeVisible({ timeout: 5000 });
+    await noBtn.click();
+    await expect(page.locator('.fail-card')).toBeVisible({ timeout: 5000 });
+    await page.waitForTimeout(700);
+
+    const chooserPromise = page.waitForEvent('filechooser');
+    await page.locator('[data-action="fail-photo-capture"][data-fld-id="' + fieldId + '"]').click();
+    const chooser = await chooserPromise;
+    await chooser.setFiles({ name: 'fail.jpg', mimeType: 'image/jpeg', buffer: Buffer.from([0xff, 0xd8, 0xff, 0xdb, 0xff, 0xd9]) });
+
+    // The failure must be surfaced as a notification — not a silent revert.
+    const toast = page.locator('#toast');
+    await expect(toast).toBeVisible({ timeout: 8000 });
+    await expect(toast).toContainText(/upload failed/i);
+    // And no thumbnail attached, because the upload genuinely failed.
+    await expect(page.locator('.fail-card img.photo-thumb')).toHaveCount(0);
+  });
+
+  test('fail photo captured through the camera path survives back-to-list and reopen [FLD-16B]', async ({ page }) => {
+    const todayDOW = await getTodayDOW(page);
+
+    const tpl = await apiCall(page, 'POST', 'createTemplate', {
+      name: 'Fail Photo Capture Path Test',
+      requires_approval: false,
+      sections: [{
+        title: 'Safety Check', order: 0, condition: null,
+        fields: [{
+          type: 'yes_no', label: 'Equipment OK?', required: true, order: 0,
+          config: {}, fail_trigger: null, condition: null,
+        }],
+      }],
+      assignments: [{ assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' }],
+      schedules: [{ active_days: [todayDOW] }],
+    });
+
+    const templates = await apiCall(page, 'GET', 'templates');
+    const fieldId = templates.find(t => t.id === tpl.id).sections[0].fields[0].id;
+
+    const UPLOAD_URL = 'https://spaces.example.test/upload/fail-' + fieldId + '.jpg?sig=stub';
+    const PUBLIC_URL = 'https://spaces.example.test/checklists/' + tpl.id + '/fail-' + fieldId + '.jpg';
+
+    // The ephemeral test stack has no SPACES_* env, so the real presigner is nil
+    // and /photos/presign answers 503 (see workflows.spec.js FLD-20). Stub both
+    // legs so the client reaches the code AFTER a successful upload — which is
+    // the only place the bug ever lived.
+    await page.route('**/api/v1/photos/presign', route => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ url: UPLOAD_URL, public_url: PUBLIC_URL }),
+    }));
+    await page.route(/^https:\/\/spaces\.example\.test\/upload\//, route => route.fulfill({
+      status: 200, contentType: 'text/plain', body: '',
+    }));
+
+    // The ReferenceError is swallowed by the upload chain's own .catch(), so it
+    // never reaches page.on('pageerror') — it only ever surfaced as a
+    // console.error. Capture those too: they are the mechanism, the reopen
+    // assertion below is the user-visible consequence.
+    const consoleErrors = [];
+    page.on('console', m => { if (m.type() === 'error') consoleErrors.push(m.text()); });
+
+    await page.goto(BASE + '/workflows.html');
+    const row = page.locator('[data-fill-template-id="' + tpl.id + '"]');
+    await expect(row).toBeVisible({ timeout: 10000 });
+    await row.click();
+
+    // Answer No — the fail card (and its "Add photo" button) appears.
+    const noBtn = page.locator('[data-action="set-no"][data-fld-id="' + fieldId + '"]');
+    await expect(noBtn).toBeVisible({ timeout: 5000 });
+    await noBtn.click();
+    await expect(page.locator('.fail-card')).toBeVisible({ timeout: 5000 });
+    // Let the No answer's own 400ms save debounce land first.
+    await page.waitForTimeout(700);
+
+    // Capture: openCamera() appends a hidden <input type=file> and clicks it.
+    const chooserPromise = page.waitForEvent('filechooser');
+    await page.locator('[data-action="fail-photo-capture"][data-fld-id="' + fieldId + '"]').click();
+    const chooser = await chooserPromise;
+    await chooser.setFiles({
+      name: 'fail.jpg',
+      mimeType: 'image/jpeg',
+      buffer: Buffer.from([0xff, 0xd8, 0xff, 0xdb, 0xff, 0xd9]),
+    });
+
+    // No second confirm modal now — the OS camera's "Use Photo" is the only
+    // confirmation, so the capture (setFiles) goes straight to presign → PUT →
+    // persist (single-confirm fix; restores 0f713a0). Guard the regression:
+    // the in-app preview modal must NOT appear.
+    await expect(page.locator('.photo-modal')).toHaveCount(0);
+
+    // The thumbnail appears in BOTH the broken and fixed trees — FAIL_NOTES is
+    // mutated before the write call — so this is a sync point, not the assertion.
+    const thumb = page.locator('.fail-card img.photo-thumb');
+    await expect(thumb).toBeVisible({ timeout: 10000 });
+    expect(await thumb.getAttribute('src')).toBe(PUBLIC_URL);
+
+    // Let the 400ms save debounce fire and the op round-trip.
+    await page.waitForTimeout(1500);
+
+    // The write call must have executed. A ReferenceError here means the chain
+    // died before persisting.
+    expect(consoleErrors.join('\n')).not.toMatch(/Fail photo upload failed/);
+    expect(consoleErrors.join('\n')).not.toMatch(/ReferenceError/);
+
+    // Back to list, then reopen: the server is the only source of truth now.
+    await page.locator('#fill-back').scrollIntoViewIfNeeded();
+    await page.click('#fill-back');
+    await expect(page.locator('#checklist-list')).toBeVisible({ timeout: 5000 });
+
+    const row2 = page.locator('[data-fill-template-id="' + tpl.id + '"]');
+    await expect(row2).toBeVisible({ timeout: 5000 });
+    await row2.click();
+
+    await expect(page.locator('.fail-card')).toBeVisible({ timeout: 5000 });
+    const thumbAfter = page.locator('.fail-card img.photo-thumb');
+    await expect(thumbAfter).toBeVisible({ timeout: 5000 });
+    const srcAfter = await thumbAfter.getAttribute('src');
+    expect(srcAfter).toBe(PUBLIC_URL);
+    expect(srcAfter).not.toMatch(/^blob:/);
+
+    // The answer itself must survive intact alongside the photo — the broken
+    // call passed `resp.value || resp`, which for a No answer (value === false)
+    // would have written the whole response OBJECT as the field's value.
+    const noBtnAfter = page.locator('[data-action="set-no"][data-fld-id="' + fieldId + '"]');
+    await expect(noBtnAfter).toHaveClass(/on/, { timeout: 5000 });
+  });
+
   // Correction-photo slot (built 2026-07-18): the evidence photo a crew attaches
   // to satisfy a require_photo rejection lives in a slot SEPARATE from the field's
   // answer, persisted by bundling `_correction_photo` into the saved value. This
@@ -1007,6 +1514,179 @@ test.describe('Persistence', () => {
     expect(src).toBe(fakeUrl);
     expect(src).not.toMatch(/^blob:/);
     await expect(field.locator('.correction-banner')).toContainText('Photo uploaded');
+  });
+
+  // 🛑 FLD-16C is FLD-16B's missing twin, and its absence was the second half of
+  // B-65 that card A2 did not close.
+  //
+  // `handleCorrectionPhotoCaptureClick` (workflows.html:2129-2168) is the
+  // byte-for-byte structural twin of the fail-photo chain B-65 broke: same
+  // openCamera → showPhotoPreview → presign → PUT → `debouncedSaveField(fldId,
+  // resp ? resp.value : null)` shape. Until this test, NOTHING executed it.
+  // `[FLD-CORRECTION-PHOTO]` above covers the same slot but injects the photo via
+  // `POST /saveResponse` — the exact transport bypass FLD-16B's own header names as
+  // "the blind spot B-65 lived in for months" — and workflows.spec.js:684-689
+  // *reimplements* the production write inside page.evaluate, so it asserts against
+  // its own copy of the code rather than the shipped one.
+  //
+  // Proved by mutation at triage 2026-08-03: planting the literal B-65 defect
+  // (`autoSaveField` at workflows.html:2154) and running every photo/correction test
+  // in the suite returned **9 passed, rc=0**. This test reds on that mutation.
+  //
+  // Two assertions carry the guard, and both are on what came back from the server:
+  // the https:// thumbnail after a reopen (the write executed at all), and the
+  // checkbox still reading checked (the ARGUMENT was `resp ? resp.value : null` and
+  // not the `resp.value || resp` form that ships the whole response object).
+  test('correction photo captured through the camera path survives back-to-list and reopen [FLD-16C]', async ({ page }) => {
+    const todayDOW = await getTodayDOW(page);
+
+    const tpl = await apiCall(page, 'POST', 'createTemplate', {
+      name: 'Correction Photo Capture Path Test',
+      requires_approval: true,
+      sections: [{
+        title: 'Close', order: 0, condition: null,
+        fields: [{
+          type: 'checkbox', label: 'Lock the truck', required: false, order: 0,
+          config: {}, fail_trigger: null, condition: null,
+        }],
+      }],
+      assignments: [
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' },
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'approver' },
+      ],
+      schedules: [{ active_days: [todayDOW] }],
+    });
+
+    const templates = await apiCall(page, 'GET', 'templates');
+    const fieldId = templates.find(t => t.id === tpl.id).sections[0].fields[0].id;
+
+    const UPLOAD_URL = 'https://spaces.example.test/upload/correction-' + fieldId + '.jpg?sig=stub';
+    const PUBLIC_URL = 'https://spaces.example.test/checklists/' + tpl.id + '/correction-' + fieldId + '.jpg';
+
+    // Submit with the box checked, then have the approver bounce that field back
+    // demanding photo evidence — the only way the correction-photo capture button
+    // is rendered at all.
+    await apiCall(page, 'POST', 'submitChecklist', {
+      template_id: tpl.id, idempotency_key: generateUUID(),
+      responses: [{ field_id: fieldId, value: JSON.stringify(true) }],
+    });
+    const pending = await apiCall(page, 'GET', 'pendingApprovals');
+    const sub = pending.find(s => s.template_id === tpl.id) || pending[0];
+    await apiCall(page, 'POST', 'rejectItem', {
+      submission_id: sub.id, field_id: fieldId, comment: 'Photo please', require_photo: true,
+    });
+
+    // The ephemeral test stack has no SPACES_* env, so the real presigner is nil and
+    // /photos/presign answers 503 (workflows.spec.js FLD-20). Stub both legs so the
+    // client reaches the code AFTER a successful upload — the only place the bug lives.
+    await page.route('**/api/v1/photos/presign', route => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ url: UPLOAD_URL, public_url: PUBLIC_URL }),
+    }));
+    await page.route(/^https:\/\/spaces\.example\.test\/upload\//, route => route.fulfill({
+      status: 200, contentType: 'text/plain', body: '',
+    }));
+
+    // A ReferenceError here is swallowed by the chain's own .catch() and never
+    // reaches page.on('pageerror') — it only ever surfaces as a console.error.
+    // The mechanism; the reopen assertions below are the consequence.
+    const consoleErrors = [];
+    page.on('console', m => { if (m.type() === 'error') consoleErrors.push(m.text()); });
+
+    await page.goto(BASE + '/workflows.html');
+    const row = page.locator('[data-fill-template-id="' + tpl.id + '"]');
+    await expect(row).toBeVisible({ timeout: 10000 });
+    await row.click();
+    await page.waitForSelector('#fill-body');
+
+    // The rejection banner and its capture button must be present before we start.
+    const captureBtn = page.locator('[data-action="correction-photo-capture"][data-fld-id="' + fieldId + '"]');
+    await expect(captureBtn).toBeVisible({ timeout: 5000 });
+
+    // Measured, not assumed: at this point the field is UNANSWERED even though it
+    // was submitted `true`. hydrateFieldState:1809 does
+    // `delete FIELD_RESPONSES[rej.field_id]` on every hydrate of a rejected
+    // submission — "uncheck a top-level field so crew must redo". So `resp` is
+    // undefined inside the capture handler, and `resp ? resp.value : null` is
+    // required to pass `null`; the B-65-shaped `resp.value || resp` would throw a
+    // TypeError on undefined here and the chain's .catch() would swallow it.
+    await expect(page.locator('.check-btn[data-field-id="' + fieldId + '"]'))
+      .not.toHaveClass(/checked/);
+
+    // Capture: openCamera() appends a hidden <input type=file> and clicks it.
+    const chooserPromise = page.waitForEvent('filechooser');
+    await captureBtn.click();
+    const chooser = await chooserPromise;
+    await chooser.setFiles({
+      name: 'correction.jpg',
+      mimeType: 'image/jpeg',
+      buffer: Buffer.from([0xff, 0xd8, 0xff, 0xdb, 0xff, 0xd9]),
+    });
+
+    // No second confirm modal now — the OS camera's "Use Photo" is the only
+    // confirmation, so the capture (setFiles) goes straight to presign → PUT →
+    // persist (single-confirm fix; restores 0f713a0). Guard the regression:
+    // the in-app preview modal must NOT appear.
+    await expect(page.locator('.photo-modal')).toHaveCount(0);
+
+    // CORRECTION_PHOTOS[fldId] is assigned one line BEFORE the write call, so the
+    // thumbnail appears in the broken tree too. Sync point, not the assertion.
+    const thumb = page.locator('.correction-photo-area img.photo-thumb');
+    await expect(thumb).toBeVisible({ timeout: 10000 });
+    expect(await thumb.getAttribute('src')).toBe(PUBLIC_URL);
+
+    // Let the 400ms save debounce fire and the op round-trip.
+    await page.waitForTimeout(1500);
+
+    expect(consoleErrors.join('\n')).not.toMatch(/Correction photo upload failed/);
+    expect(consoleErrors.join('\n')).not.toMatch(/ReferenceError/);
+
+    // Back to list, then reopen: the server is the only source of truth now.
+    await page.locator('#fill-back').scrollIntoViewIfNeeded();
+    await page.click('#fill-back');
+    await expect(page.locator('#checklist-list')).toBeVisible({ timeout: 5000 });
+
+    const row2 = page.locator('[data-fill-template-id="' + tpl.id + '"]');
+    await expect(row2).toBeVisible({ timeout: 5000 });
+    await row2.click();
+    await page.waitForSelector('#fill-body');
+
+    // Guard 1 — the write executed: the photo came back as an https:// URL.
+    const thumbAfter = page.locator('.correction-photo-area img.photo-thumb');
+    await expect(thumbAfter).toBeVisible({ timeout: 5000 });
+    const srcAfter = await thumbAfter.getAttribute('src');
+    expect(srcAfter).toBe(PUBLIC_URL);
+    expect(srcAfter).not.toMatch(/^blob:/);
+    await expect(page.locator('.correction-banner').first()).toContainText('Photo uploaded');
+
+    // Guard 2 — the ARGUMENT was right. Read the bundle the server actually stored
+    // (DRAFT_RESPONSES is the live alias of the draftResponses store, rehydrated
+    // from the API on this reopen). It must be exactly `{_v: null,
+    // _correction_photo: <url>}`: the photo in its own slot, and the answer left
+    // null rather than the whole FIELD_RESPONSES object.
+    //
+    // 🛑 This assertion, not a checkbox state, is what carries the argument guard —
+    // because :1809 clears a rejected field's answer on EVERY hydrate, so no
+    // back-and-reopen assertion on the answer itself can survive by design.
+    const storedBundle = await page.evaluate(function(fid) {
+      var drafts = (typeof DRAFT_RESPONSES !== 'undefined' && DRAFT_RESPONSES) || [];
+      var d = drafts.find(function(x) { return x.field_id === fid; });
+      if (!d) return null;
+      var v = d.value;
+      if (typeof v === 'string') { try { v = JSON.parse(v); } catch (e) { /* leave as string */ } }
+      return v;
+    }, fieldId);
+
+    expect(storedBundle, 'no draft was persisted for the correction photo at all').not.toBeNull();
+    expect(storedBundle._correction_photo).toBe(PUBLIC_URL);
+    expect(storedBundle._v).toBeNull();
+
+    // And the field stays unanswered, per :1762 — a photo-only correction draft
+    // records the photo without marking the field answered, because the crew still
+    // owes the actual answer. Asserted so a future reader does not "fix" it.
+    await expect(page.locator('.check-btn[data-field-id="' + fieldId + '"]'))
+      .not.toHaveClass(/checked/);
   });
 
   // --- Video watch progress persistence ---

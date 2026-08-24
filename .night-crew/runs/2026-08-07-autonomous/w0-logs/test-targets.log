@@ -1,0 +1,32 @@
+task: [test:targets] echo "── Taskfile test cluster ────────────────────────────────"
+echo "  host:port   localhost:5434"
+echo "  role        hqtest"
+echo "  container   yumyums-test-pg  (docker-compose.test.yml, project yumyums-test)"
+echo "  DB_TEST_URL postgres://hqtest:hqtest@localhost:5434/hq_test_go?sslmode=disable"
+echo ""
+echo "── Playwright e2e (scripts/reset-e2e-db.js, resolved) ───"
+node -e 'const{resolveE2eDb}=require("./scripts/reset-e2e-db");const d=resolveE2eDb({});console.log("  adminUrl    "+d.adminUrl);console.log("  testUrl     "+d.testUrl)'
+echo ""
+echo "── internal/sync RLS suite defaults ─────────────────────"
+grep -n 'defaultHQAdminURL = \|defaultFDWPort = ' backend/internal/sync/rowvisibility_rls_test.go
+echo ""
+echo "── scripts/verify-test-harness.sh probe URL ─────────────"
+grep -n "DEAD_URL='postgres" scripts/verify-test-harness.sh
+
+── Taskfile test cluster ────────────────────────────────
+  host:port   localhost:5434
+  role        hqtest
+  container   yumyums-test-pg  (docker-compose.test.yml, project yumyums-test)
+  DB_TEST_URL postgres://hqtest:hqtest@localhost:5434/hq_test_go?sslmode=disable
+
+── Playwright e2e (scripts/reset-e2e-db.js, resolved) ───
+  adminUrl    postgres://hqtest:hqtest@localhost:5434/postgres?sslmode=disable
+  testUrl     postgres://hqtest:hqtest@localhost:5434/hq_test_e2e?sslmode=disable&TimeZone=America/New_York
+
+── internal/sync RLS suite defaults ─────────────────────
+243:	defaultHQAdminURL = "postgres://hqtest:hqtest@localhost:5434/postgres"
+251:	defaultFDWPort = "5434"
+
+── scripts/verify-test-harness.sh probe URL ─────────────
+215:	DEAD_URL='postgres://hqtest:hqtest@127.0.0.1:5599/hq_test_go_does_not_exist?sslmode=disable'
+218:	DEAD_URL='postgres://hqtest:hqtest@127.0.0.1:5434/hq_test_go_dropped_by_a_reviewer?sslmode=disable'

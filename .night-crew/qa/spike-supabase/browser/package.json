@@ -1,0 +1,10 @@
+{
+  "name": "spike-rxdb-browser-harness",
+  "version": "0.0.0",
+  "private": true,
+  "description": "ISOLATED night-crew spike harness (card C, sync-rxdb-browser-delivery-spike). Has NO dependencies of its own on purpose: @playwright/test resolves up the tree to the repo-root node_modules, and the repo-root package.json/package-lock.json must stay BYTE-UNTOUCHED — they are the Playwright environment for every card in every worktree. serve.mjs is deliberately zero-dependency for the same reason. Nothing here ships.",
+  "scripts": {
+    "spike": "npx playwright test -c playwright.spike.config.js",
+    "spike:headed": "npx playwright test -c playwright.spike.config.js --headed"
+  }
+}

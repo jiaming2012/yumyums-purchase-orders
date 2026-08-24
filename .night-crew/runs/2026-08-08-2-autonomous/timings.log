@@ -1,0 +1,29 @@
+# timings — run 20260808-2 (B-39 stamps)
+run-start 2026-08-07T14:37:47-04:00 (T0; 8h line 22:37 EDT, usable line 22:07 EDT)
+implement-start C1 14:38:47
+implement-end C1 15:33:33
+G6-start C1 15:33:33
+G6-return C1 15:42:xx (PASS-with-findings; no fix round — ruling in conflict log)
+merge C1 15:44:37
+implement-start C2 15:45:26
+implement-end C2 17:11:25
+G6-start C2 17:11:25
+G6-return C2 17:22:56 (PASS-with-findings; no fix round — F-1/F-2 carried to C3)
+merge C2 17:22:56
+implement-start C3 17:23:19
+implement-end C3 18:23:46
+G6-start C3 18:23:46
+fix-start C3 18:36:15 (G6 F-A CONFIRMED TOP — cross-submission overlay rows; fix round dispatched)
+fix-return C3 19:11:12 (F-A/F-B/F-C/F-D fixed; full suite 811/0/6 EXIT=0)
+G6-reverify-start C3 19:11:12
+G6-reverify-return C3 19:16:04 (PASS — probe re-run holds)
+merge C3 19:16:04
+stretch-gate S1 19:16:28 — remaining to 22:37 line: 200m; S1 high 80m + 30m closeout = 110m; 110 <= 200 → START
+implement-start S1 19:16:35
+implement-end S1 20:14:08 (incl. ~15m lost to killed background Go leg)
+G6-start S1 20:14:08
+G6-return S1 20:22:06 (PASS-with-findings, all minor; F-1/F-3 merger-applied)
+merge S1 20:22:06
+stretch-gate S2 20:22:59 — remaining to 22:37 line: 134m; S2 high 110m + 30m closeout = 140m; 140 <= 134 → SKIP
+closeout-start 20:23:26 (S2 skipped by arithmetic; final-tree gate evidence next)
+closeout-commit 20:35:18

@@ -1,0 +1,7 @@
+=== env attestation ===
+HQ_SYNC_SUBSTRATE_OPTIONAL=[<UNSET>]
+HQ_SYNC_GATE_CHILD=[<UNSET>]
+=== go build ./... ===
+BUILD_EXIT=0
+=== go vet ./... ===
+VET_EXIT=0
