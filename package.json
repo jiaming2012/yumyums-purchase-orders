@@ -1,6 +1,6 @@
 {
   "name": "hq",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "Weekly collaborative purchasing workflow for Yumyums. Team members add items to a shared weekly requisition throughout the week; a Sunday cutoff locks the list and generates per-vendor purchase orders.",
   "main": "ptr.js",
   "directories": {
