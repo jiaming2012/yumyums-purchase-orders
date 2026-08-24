@@ -93,7 +93,7 @@ func downloadFromSpaces(ctx context.Context, presigner *s3.PresignClient, bucket
 	return nil
 }
 
-// uploadToSpaces uploads a local file to DO Spaces using a presigned PUT URL.
+// uploadToSpaces uploads a local file to object storage using a presigned PUT URL.
 func uploadToSpaces(ctx context.Context, presigner *s3.PresignClient, bucket, key, srcPath, contentType string) error {
 	putURL, err := photos.GeneratePresignedPutURL(ctx, presigner, bucket, key, contentType, 15*time.Minute)
 	if err != nil {
@@ -117,7 +117,6 @@ func uploadToSpaces(ctx context.Context, presigner *s3.PresignClient, bucket, ke
 	}
 	req.ContentLength = stat.Size()
 	req.Header.Set("Content-Type", contentType)
-	req.Header.Set("x-amz-acl", "public-read")
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -133,7 +132,7 @@ func uploadToSpaces(ctx context.Context, presigner *s3.PresignClient, bucket, ke
 
 // processVideo handles FFmpeg conversion and thumbnail extraction for a video part.
 // Downloads raw file, converts if needed (.mov/.webm -> .mp4), extracts thumbnail,
-// uploads both back to Spaces, and updates ob_video_parts in the DB.
+// uploads both back to object storage, and updates ob_video_parts in the DB.
 // ProcessResult contains the final URLs after processing.
 type ProcessResult struct {
 	VideoURL     string `json:"video_url"`

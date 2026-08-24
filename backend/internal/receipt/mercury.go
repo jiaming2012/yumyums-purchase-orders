@@ -142,25 +142,23 @@ func fetchTransactionsPage(ctx context.Context, apiKey string, startDate, endDat
 	return out, rawCount, lastID, nil
 }
 
-// FetchTransactionsByIDs fetches Mercury transactions in a wide date range
-// (1 year back from now by default) and returns a map keyed by tx ID for
-// the requested IDs only. Used by the reprocess pipeline to bypass the
-// list endpoint's narrow lookback in the standard ingest path.
+// FetchTransactionsByIDs fetches Mercury transactions in the caller-supplied
+// [since, until] window and returns a map keyed by tx ID for the requested IDs
+// only. The window is explicit (rather than a hard-coded lookback) so callers
+// like the receipt recovery path can derive it from the affected rows' event
+// dates and never silently miss older transactions.
 //
 // Returns ONLY the txs whose ID is in the requested set (filters out others).
 // IDs in the request set that Mercury doesn't return are simply absent from
 // the result map — callers should treat that as "not found in Mercury".
 //
-// FetchTransactions now paginates automatically, so large 1-year windows
-// with many transactions are handled correctly.
-func FetchTransactionsByIDs(ctx context.Context, apiKey string, requestedIDs []string) (map[string]MercuryTransaction, error) {
+// FetchTransactions paginates automatically, so wide windows with many
+// transactions are handled correctly.
+func FetchTransactionsByIDs(ctx context.Context, apiKey string, requestedIDs []string, since, until time.Time) (map[string]MercuryTransaction, error) {
 	if len(requestedIDs) == 0 {
 		return nil, nil
 	}
-	endDate := time.Now()
-	startDate := endDate.AddDate(-1, 0, 0) // 1 year back
-
-	txs, err := fetchTransactions(ctx, apiKey, startDate, endDate)
+	txs, err := fetchTransactions(ctx, apiKey, since, until)
 	if err != nil {
 		return nil, fmt.Errorf("FetchTransactionsByIDs: %w", err)
 	}

@@ -324,17 +324,37 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Initialize object storage (Backblaze B2, S3-compatible) presigner + client
-	// (optional — graceful degradation if env vars missing).
+	// Initialize object storage (Backblaze B2, S3-compatible) presigner + client.
+	// B-172: the canceled-DO-Spaces incident was silent because a missing store
+	// only 503s at upload time. photos.DecideStorageStartup centralizes the boot
+	// policy:
+	//   - all five vars set → build the client/presigner (happy path)
+	//   - all five empty    → soft "unconfigured" (a deliberate dev/test state:
+	//                          uploads 503, /health reports "unconfigured");
+	//                          FATAL only when STORAGE_REQUIRED=1 — prod sets it,
+	//                          so a forgotten .env.prod crashes loudly here
+	//   - partially set     → FATAL always (a partial config is never intentional
+	//                          and cannot presign)
 	var spacesPresigner *s3.PresignClient
 	var spacesClient *s3.Client
 	spacesEndpoint := os.Getenv("STORAGE_ENDPOINT")
 	spacesBucket := os.Getenv("STORAGE_BUCKET")
 	spacesRegion := os.Getenv("STORAGE_REGION")
-	if os.Getenv("STORAGE_KEY") != "" && os.Getenv("STORAGE_SECRET") != "" && spacesBucket != "" && spacesEndpoint != "" {
+	storageEnv := photos.StorageEnv{
+		Key:      os.Getenv("STORAGE_KEY"),
+		Secret:   os.Getenv("STORAGE_SECRET"),
+		Bucket:   spacesBucket,
+		Endpoint: spacesEndpoint,
+		Region:   spacesRegion,
+	}
+	switch d := photos.DecideStorageStartup(storageEnv, os.Getenv("STORAGE_REQUIRED") == "1"); {
+	case d.Fatal:
+		slog.Error("object storage misconfigured, refusing to start", "reason", d.Reason, "required", "STORAGE_KEY, STORAGE_SECRET, STORAGE_BUCKET, STORAGE_ENDPOINT, STORAGE_REGION")
+		os.Exit(1)
+	case d.Configured:
 		spacesCfg := photos.SpacesConfig{
-			AccessKey: os.Getenv("STORAGE_KEY"),
-			SecretKey: os.Getenv("STORAGE_SECRET"),
+			AccessKey: storageEnv.Key,
+			SecretKey: storageEnv.Secret,
 			Endpoint:  spacesEndpoint,
 			Region:    spacesRegion,
 			Bucket:    spacesBucket,
@@ -347,7 +367,7 @@ func main() {
 			spacesPresigner = p
 			slog.Info("object storage client initialized (reachability probed separately)", "bucket", spacesBucket, "endpoint", spacesEndpoint)
 		}
-	} else {
+	default:
 		slog.Warn("object storage env vars not set, photo and video upload endpoints will return 503", "required", "STORAGE_KEY, STORAGE_SECRET, STORAGE_BUCKET, STORAGE_ENDPOINT, STORAGE_REGION")
 	}
 
@@ -633,6 +653,12 @@ func main() {
 					r.Get("/sync-receipts/status", inventory.SyncReceiptsStatusHandler(pool, receiptCfg.LookbackDays))
 					r.Post("/purchases/reprocess-all", inventory.ReprocessAllPendingHandler(pool, func(ctx context.Context, rows []receipt.PendingRowForReprocess) (map[string]string, error) {
 						return receipt.BatchReprocessFromSpaces(ctx, receiptCfg, rows)
+					}))
+					// B-172 recovery: re-fetch receipts stranded on a dead storage
+					// host from Mercury and rewrite the stored URLs onto the
+					// current bucket. Dry-run via {"dry_run":true}.
+					r.Post("/purchases/recover-receipts", inventory.RecoverReceiptsHandler(pool, receipt.StoragePublicPrefix(receiptCfg), func(ctx context.Context, dead receipt.DeadRows) (receipt.RecoverResult, error) {
+						return receipt.RecoverDeadReceiptURLs(ctx, receiptCfg, dead)
 					}))
 					r.Post("/purchases/confirm", inventory.ConfirmPendingPurchaseHandler(pool))
 					r.Post("/purchases/discard", inventory.DiscardPendingPurchaseHandler(pool))

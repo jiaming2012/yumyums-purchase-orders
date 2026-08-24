@@ -44,6 +44,19 @@ Admin reprocess (new, 2026-06-25):
     → For each row: synthesize a fake MercuryTransaction from stored data
     → Run through processSingleTx(reprocess=true) — same pipeline as above
     → Mercury is NOT contacted; attachments come from object storage (Backblaze B2)
+
+Admin URL recovery (B-172, 2026-08-24):
+  POST /api/v1/inventory/purchases/recover-receipts   {"dry_run":bool, "limit":int}
+    → Find purchase_events + undiscarded pending_purchases rows whose
+      receipt_url / receipt_urls are OFF the current {STORAGE_ENDPOINT}/{bucket}/
+      prefix (dead DO Spaces URLs, expiring Mercury-fallback URLs, any past host)
+    → dry_run: report counts + tx ids, touch nothing
+    → real run: re-fetch attachments from Mercury by bank_tx_id (windowed by the
+      rows' earliest event_date), re-upload to receipts/{tx_id}/{i}{ext},
+      rewrite both tables' URL columns; per-tx atomic, re-run-safe
+    → single-flight via receipt_sync_runs (409); terminal counts reuse its
+      columns: processed=examined, auto_created=recovered,
+      pending_review=missing-at-Mercury, cached=failed
 ```
 
 ## Component responsibilities
