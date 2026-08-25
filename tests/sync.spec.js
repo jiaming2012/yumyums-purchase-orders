@@ -3123,4 +3123,98 @@ test.describe('Cross-device: rejection-flag reconciliation', () => {
 
     await ctxB.close();
   });
+
+  // ── [SYNC-RF-02] The operator's contract, stated 2026-08-25: every rejected
+  // object resets to its NULL state — a rejected yes/no is deselected, a
+  // rejected sub-step is unchecked (and its parent drops out of all-done) —
+  // and every rejected item deducts from the progress count. Observed: two
+  // rejections showed "4 of 5" instead of "3 of 5" because the sub-step's flag
+  // lives on the SUB id, which the counter never consults, the parent's stored
+  // value:true kept it counted, and the parent's replayed op resurrected the
+  // rejected sub-step's done-state wholesale. Redoing the sub-step also never
+  // cleared the sub's flag locally, so its banner stuck until resubmit.
+  test('rejected sub-steps reset to NULL, deduct from the count, and redo clears them [SYNC-RF-02]', async ({ browser, page }) => {
+    page.on('dialog', d => d.accept());
+    const dow = await getTodayDOW(page);
+    const sub = (label, order) => ({ type: 'checkbox', label, order, config: {}, fail_trigger: null, condition: null });
+    await apiCall(page, 'POST', 'createTemplate', {
+      name: 'Rejection Null Reset', requires_approval: true,
+      sections: [{ title: 'Section 1', order: 0, condition: null, fields: [
+        { type: 'checkbox', label: 'Generator ok', required: false, order: 0, config: {}, fail_trigger: null, condition: null },
+        { type: 'yes_no', label: 'Extinguisher accessible', required: false, order: 1, config: {}, fail_trigger: null, condition: null },
+        { type: 'checkbox', label: 'Protein stock', required: false, order: 2, config: {}, fail_trigger: null, condition: null,
+          sub_steps: [sub('Salmon counted', 0), sub('Chicken counted', 1)] },
+      ] }],
+      schedules: [{ active_days: [dow] }],
+      assignments: [
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' },
+        { assignee_type: 'role', assignee_id: 'admin', assignment_role: 'approver' },
+      ],
+    });
+    await page.reload();
+
+    // Fill everything: 3 of 3, then submit.
+    await page.click('[data-fill-template-id]');
+    await page.waitForSelector('.yn-pill', { timeout: 10000 });
+    await page.locator('.fill-field', { hasText: 'Generator ok' }).locator('.check-btn').click();
+    await page.locator('.yn-pill[data-action="set-yes"]').click();
+    await page.locator('.sub-step-check').nth(0).click();
+    await page.locator('.sub-step-check').nth(1).click();
+    await expect(page.locator('#fill-body .progress-line')).toContainText('3 of 3');
+    await page.waitForTimeout(1500);
+    const submitted = page.waitForResponse(
+      res => res.url().includes('/submitChecklist') && res.request().method() === 'POST',
+      { timeout: 12000 });
+    await page.click('#submit-btn');
+    expect((await submitted).ok()).toBeTruthy();
+
+    // Reject TWO items: the yes/no field and the Chicken sub-step.
+    await page.click('#t2');
+    await page.locator('#s2 .review-item', { hasText: 'Extinguisher accessible' })
+      .locator('[data-action="toggle-reject-item"]').click();
+    await page.locator('#s2 .review-item', { hasText: 'Chicken counted' })
+      .locator('[data-action="toggle-reject-item"]').click();
+    const inputs = page.locator('#s2 .reject-item-input');
+    await expect(inputs).toHaveCount(2);
+    await inputs.nth(0).fill('Where is it');
+    await inputs.nth(1).fill('Count again');
+    await page.click('#s2 [data-action="reject-submit"]');
+    await expect(page.locator('#toast')).toContainText('Rejected', { timeout: 5000 });
+
+    // Cold reopen (device A): every rejected object is back to NULL.
+    await page.click('#t1');
+    await page.reload();
+    await page.waitForSelector('#checklist-list .row', { timeout: 10000 });
+    await page.locator('#checklist-list .row', { hasText: 'Rejection Null Reset' }).first().click();
+    await page.waitForSelector('#fill-body .progress-line', { timeout: 10000 });
+    await expect(page.locator('.correction-banner')).toHaveCount(2);
+    await expect(page.locator('.yn-pill.on')).toHaveCount(0);          // yes/no deselected
+    await expect(page.locator('.sub-step-check.done')).toHaveCount(1); // Salmon only
+    await expect(page.locator('.check-btn[data-has-subs]')).not.toHaveClass(/checked/);
+    await expect(page.locator('#fill-body .progress-line')).toContainText('1 of 3');
+
+    // Device B opens the rejected checklist and stays on it.
+    const ctxB = await browser.newContext();
+    const pageB = await ctxB.newPage();
+    await login(pageB);
+    await pageB.goto(BASE + '/workflows.html');
+    await pageB.waitForSelector('#checklist-list .row', { timeout: 10000 });
+    await pageB.locator('#checklist-list .row', { hasText: 'Rejection Null Reset' }).first().click();
+    await pageB.waitForSelector('#fill-body .progress-line', { timeout: 10000 });
+    await expect(pageB.locator('#fill-body .progress-line')).toContainText('1 of 3');
+
+    // Device A redoes both items: count recovers, banners leave.
+    await page.locator('.yn-pill[data-action="set-yes"]').click();
+    await page.locator('.sub-step-check').nth(1).click();
+    await expect(page.locator('#fill-body .progress-line')).toContainText('3 of 3');
+    await expect(page.locator('.correction-banner')).toHaveCount(0);
+    await page.waitForTimeout(2000);
+
+    // Device B converges: answers, count, and banners.
+    await expect(pageB.locator('#fill-body .progress-line')).toContainText('3 of 3', { timeout: 10000 });
+    await expect(pageB.locator('.sub-step-check.done')).toHaveCount(2);
+    await expect(pageB.locator('.correction-banner')).toHaveCount(0);
+
+    await ctxB.close();
+  });
 });

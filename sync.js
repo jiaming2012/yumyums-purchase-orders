@@ -460,9 +460,27 @@ function applyOp(op, silent) {
       const entry = { answeredBy: displayName, answeredAt: new Date(op.server_ts) };
       if (typeof answer === 'object' && answer !== null && answer.value !== undefined) {
         entry.value = answer.value;
-        if (answer.sub_steps) entry.sub_steps = answer.sub_steps;
+        if (answer.sub_steps) entry.sub_steps = Object.assign({}, answer.sub_steps);
       } else {
         entry.value = answer;
+      }
+      // The same directional rule as the top-level gate above, per sub-step:
+      // rejection flags live on SUB ids, and a rejected sub-step's done-state
+      // rides its PARENT's op — which the top-level gate never inspects. A
+      // pre-rejection op carries the bounced done-state: strip it (and drop
+      // the parent out of all-done). A post-rejection op is the redo: let it
+      // land and clear the sub's flag.
+      if (entry.sub_steps && typeof REJECTION_FLAGS !== 'undefined') {
+        Object.keys(entry.sub_steps).forEach(function(sid) {
+          const sf = REJECTION_FLAGS[sid];
+          if (!sf) return;
+          if (sf.rejectedAt && new Date(op.server_ts) <= new Date(sf.rejectedAt)) {
+            delete entry.sub_steps[sid];
+            entry.value = false;
+          } else if (typeof clearRejectionFlag === 'function') {
+            clearRejectionFlag(sid);
+          }
+        });
       }
       store.set('fieldResponses', field_id, entry);
       if (rejFlag && typeof clearRejectionFlag === 'function') clearRejectionFlag(field_id);
