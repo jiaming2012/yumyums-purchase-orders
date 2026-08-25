@@ -476,7 +476,7 @@ func archiveTemplate(ctx context.Context, pool *pgxpool.Pool, templateID string)
 // fields, schedules, and assignments, ordered by created_at DESC.
 func listTemplates(ctx context.Context, pool *pgxpool.Pool) ([]Template, error) {
 	rows, err := pool.Query(ctx,
-		`SELECT id, name, requires_approval, created_by, created_at, updated_at
+		`SELECT id, name, requires_approval, COALESCE(created_by::text, '') AS created_by, created_at, updated_at
 		 FROM checklist_templates
 		 WHERE archived_at IS NULL
 		 ORDER BY created_at DESC`,
@@ -512,7 +512,7 @@ func listTemplates(ctx context.Context, pool *pgxpool.Pool) ([]Template, error) 
 func getTemplateByID(ctx context.Context, pool *pgxpool.Pool, templateID string) (*Template, error) {
 	var t Template
 	err := pool.QueryRow(ctx,
-		`SELECT id, name, requires_approval, created_by, created_at, updated_at
+		`SELECT id, name, requires_approval, COALESCE(created_by::text, '') AS created_by, created_at, updated_at
 		 FROM checklist_templates
 		 WHERE id = $1 AND archived_at IS NULL`,
 		templateID,
@@ -890,7 +890,7 @@ func myChecklists(ctx context.Context, pool *pgxpool.Pool, userID string, client
 
 	// Templates assigned to this user or their role, scheduled for today, not archived
 	tmplRows, err := pool.Query(ctx,
-		`SELECT DISTINCT t.id, t.name, t.requires_approval, t.created_by, t.created_at, t.updated_at
+		`SELECT DISTINCT t.id, t.name, t.requires_approval, COALESCE(t.created_by::text, '') AS created_by, t.created_at, t.updated_at
 		 FROM checklist_templates t
 		 JOIN template_assignments ta ON ta.template_id = t.id
 		 JOIN checklist_schedules cs ON cs.template_id = t.id
