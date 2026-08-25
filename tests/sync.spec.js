@@ -3036,3 +3036,91 @@ test.describe('Cross-device: fail-card reconciliation', () => {
     await ctxB.close();
   });
 });
+
+// ─── Cross-device: rejection-flag reconciliation ─────────────────────────────
+//
+// A rejection-flagged field counts incomplete (isFieldAnswered) and renders the
+// ⚠ correction banner until clearRejectionFlag runs. The LOCAL handlers clear
+// the flag on redo; applyOp did not — it wrote the incoming answer and left the
+// flag standing, so the receiving device showed a checked field, a live banner,
+// and a progress line stuck one short (operator repro 2026-08-25, "4 of 5").
+// The same hole fired solo: after a reload the regenerated device_id stops
+// self-echo suppression, so the catch-up replay re-applied the user's own redo
+// op on top of hydrate's re-flagged state. Hydrate's own rule (step 3/4:
+// rejected answers are cleared and the RxDB overlay skips flagged fields) is
+// directional — pre-rejection ops are the bounced answer and must be skipped,
+// post-rejection ops are the redo and must clear the flag.
+
+test.describe('Cross-device: rejection-flag reconciliation', () => {
+  test.beforeEach(async ({ page }) => {
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await cleanupPendingApprovals(page);
+    await cleanupTemplates(page);
+  });
+
+  test('a live redo op clears the rejection flag on other devices [SYNC-RF-01]', async ({ browser, page }) => {
+    page.on('dialog', d => d.accept());
+    const dow = await getTodayDOW(page);
+    await createTestTemplate(page, 'Rejection Redo Sync', dow);
+    await page.reload();
+
+    // Fill and submit.
+    await page.click('[data-fill-template-id]');
+    const checkA = page.locator('.check-btn').first();
+    await checkA.click();
+    await expect(checkA).toHaveClass(/checked/);
+    await page.waitForTimeout(1500);
+    const submitted = page.waitForResponse(
+      res => res.url().includes('/submitChecklist') && res.request().method() === 'POST',
+      { timeout: 12000 });
+    await page.click('#submit-btn');
+    expect((await submitted).ok(), 'submitChecklist must succeed').toBeTruthy();
+
+    // Reject the field with a comment (no photo requirement).
+    await page.click('#t2');
+    const flagBtn = page.locator('#s2 [data-action="toggle-reject-item"]').first();
+    await expect(flagBtn).toBeVisible({ timeout: 5000 });
+    await flagBtn.click();
+    await page.locator('#s2 .reject-item-input').first().fill('Check once more');
+    await page.click('#s2 [data-action="reject-submit"]');
+    await expect(page.locator('#toast')).toContainText('Rejected', { timeout: 5000 });
+
+    // Device A: reopen the rejected checklist — hydrate re-flags the field and
+    // clears its answer, so the crew must redo it. Back to the My Checklists
+    // tab first: the active tab survives a reload.
+    await page.click('#t1');
+    await page.reload();
+    await page.waitForSelector('#checklist-list .row', { timeout: 10000 });
+    await page.locator('#checklist-list .row', { hasText: 'Rejection Redo Sync' }).first().click();
+    await page.waitForSelector('#fill-body .progress-line', { timeout: 10000 });
+    await expect(page.locator('.correction-banner')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('#fill-body .progress-line')).toContainText('0 of 1');
+
+    // Device B: open the same rejected checklist and stay on it.
+    const ctxB = await browser.newContext();
+    const pageB = await ctxB.newPage();
+    await login(pageB);
+    await pageB.goto(BASE + '/workflows.html');
+    await pageB.waitForSelector('#checklist-list .row', { timeout: 10000 });
+    await pageB.locator('#checklist-list .row', { hasText: 'Rejection Redo Sync' }).first().click();
+    await pageB.waitForSelector('#fill-body .progress-line', { timeout: 10000 });
+    await expect(pageB.locator('.correction-banner')).toBeVisible({ timeout: 5000 });
+    await expect(pageB.locator('#fill-body .progress-line')).toContainText('0 of 1');
+
+    // Device A: redo the field. Locally the flag clears and the banner leaves.
+    await page.locator('.check-btn').first().click();
+    await expect(page.locator('.correction-banner')).toHaveCount(0);
+    await expect(page.locator('#fill-body .progress-line')).toContainText('1 of 1');
+    await page.waitForTimeout(2000);
+
+    // Device B: the redo op arrives live. The answer, the count, AND the banner
+    // must all converge — a checked field with a live banner and "0 of 1" is
+    // the stuck state this test exists to prevent.
+    await expect(pageB.locator('.check-btn.checked').first()).toBeVisible({ timeout: 10000 });
+    await expect(pageB.locator('#fill-body .progress-line')).toContainText('1 of 1', { timeout: 5000 });
+    await expect(pageB.locator('.correction-banner')).toHaveCount(0);
+
+    await ctxB.close();
+  });
+});

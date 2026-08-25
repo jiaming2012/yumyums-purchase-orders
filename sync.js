@@ -412,6 +412,17 @@ function applyOp(op, silent) {
   if (op.op_type === 'SET_FIELD') {
     const { field_id, value, user_name } = op.payload;
     const displayName = user_name || 'Someone';
+    // A rejection-flagged field only leaves its bounced state through a redo.
+    // hydrateFieldState clears the flagged field's answer and the RxDB overlay
+    // skips it (workflows.html steps 3/4); this live path holds the same line,
+    // directionally: an op from BEFORE the rejection is the very answer that
+    // was bounced — skip it entirely. An op from AFTER it is the crew's redo —
+    // apply it, then clear the flag (clearRejectionFlag keeps the flag while a
+    // required photo is still missing). Without this, a replayed or remote
+    // redo op rendered a checked field under a live ⚠ banner with the progress
+    // count stuck one short (operator repro, 2026-08-25).
+    const rejFlag = (typeof REJECTION_FLAGS !== 'undefined') ? REJECTION_FLAGS[field_id] : null;
+    if (rejFlag && rejFlag.rejectedAt && new Date(op.server_ts) <= new Date(rejFlag.rejectedAt)) return;
     if (value === null || value === undefined) {
       // Uncheck — remove from state via store
       store.delete('fieldResponses', field_id);
@@ -454,6 +465,7 @@ function applyOp(op, silent) {
         entry.value = answer;
       }
       store.set('fieldResponses', field_id, entry);
+      if (rejFlag && typeof clearRejectionFlag === 'function') clearRejectionFlag(field_id);
       var drafts2 = store.get('draftResponses');
       if (Array.isArray(drafts2)) {
         const existing = drafts2.find(d => d.field_id === field_id);
