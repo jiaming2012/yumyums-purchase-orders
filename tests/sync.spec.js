@@ -2952,3 +2952,87 @@ test.describe('App timezone parity: Go constant vs frontend literals [A1-TZ-PARI
       'must equal users.DefaultTimezone').toBe(want);
   });
 });
+
+// ─── Cross-device: fail-card reconciliation ──────────────────────────────────
+//
+// renderRunnerField returns TWO sibling roots for a failing answer — the field
+// row plus the `.fail-card` corrective-action card (yes_no "No", out-of-range
+// temperature). renderFieldResponse (sync.js) replaced only firstElementChild,
+// so a live remote op left the card stale in both directions: a pass-flip
+// stranded the old card next to the fresh "Yes" row (operator repro,
+// IMG_4808 2026-08-25), and a fail-flip dropped the new card entirely.
+// Compounding it, applyOp stored a {_v, _fail_note} metadata bundle as the
+// field VALUE — the remote device rendered the field unanswered and lost the
+// note that hydrateFieldState restores on reload.
+
+test.describe('Cross-device: fail-card reconciliation', () => {
+  test.beforeEach(async ({ page }) => {
+    await login(page);
+    await page.goto(BASE + '/workflows.html');
+    await cleanupPendingApprovals(page);
+    await cleanupTemplates(page);
+  });
+
+  test('a remote yes/no flip adds and removes the corrective-action card live [SYNC-FC-01]', async ({ browser, page }) => {
+    const dow = await getTodayDOW(page);
+    await apiCall(page, 'POST', 'createTemplate', {
+      name: 'FailCard Sync Test',
+      requires_approval: false,
+      sections: [{
+        title: 'Section 1', order: 0, condition: null,
+        fields: [{
+          type: 'yes_no', label: 'Extinguisher accessible', required: false,
+          order: 0, config: {}, fail_trigger: null, condition: null,
+        }],
+      }],
+      schedules: [{ active_days: [dow] }],
+      assignments: [{ assignee_type: 'role', assignee_id: 'admin', assignment_role: 'assignee' }],
+    });
+    await page.reload();
+
+    // Device A: open the checklist and stay on it.
+    await page.click('[data-fill-template-id]');
+    await page.waitForSelector('.yn-pill', { timeout: 10000 });
+
+    // Device B: open the same checklist and stay on it.
+    const ctxB = await browser.newContext();
+    const pageB = await ctxB.newPage();
+    await login(pageB);
+    await pageB.goto(BASE + '/workflows.html');
+    await expect(pageB.locator('#s1').getByText('FailCard Sync Test')).toBeVisible({ timeout: 10000 });
+    await pageB.click('[data-fill-template-id]');
+    await pageB.waitForSelector('.yn-pill', { timeout: 10000 });
+
+    // Device A: fail the item and type the corrective note. The note rides the
+    // wire as a {_v:false, _fail_note} bundle (autoSaveFailNote 800ms +
+    // debouncedSaveField 400ms).
+    await page.locator('.yn-pill[data-action="set-no"]').click();
+    await expect(page.locator('.fail-card')).toBeVisible();
+    await page.locator('.fail-note-input').fill('Extinguisher blocked by cart');
+    await page.waitForTimeout(2500);
+
+    // Device B: the live op must render the "No" answer, the corrective card,
+    // AND the note — not a bare row (dropped second root) or an unanswered
+    // field (bundle stored as the value).
+    await expect(pageB.locator('.yn-pill[data-action="set-no"]')).toHaveClass(/on/, { timeout: 10000 });
+    await expect(pageB.locator('.fail-card')).toBeVisible({ timeout: 5000 });
+    await expect(pageB.locator('.fail-note-input')).toHaveValue('Extinguisher blocked by cart');
+
+    // Device B: resolve it — flip to Yes. Locally the card leaves at once.
+    await pageB.locator('.yn-pill[data-action="set-yes"]').click();
+    await expect(pageB.locator('.fail-card')).toHaveCount(0);
+    await pageB.waitForTimeout(2000);
+
+    // Device A: the pass-flip arrives live — the Yes pill lights AND the
+    // corrective card leaves with it (the IMG_4808 stale-card repro).
+    await expect(page.locator('.yn-pill[data-action="set-yes"]')).toHaveClass(/on/, { timeout: 10000 });
+    await expect(page.locator('.fail-card')).toHaveCount(0);
+
+    // And the receiving device's fail-note store is cleared, not just the DOM —
+    // a later local "No" must open a FRESH card, not resurrect the old note.
+    await page.locator('.yn-pill[data-action="set-no"]').click();
+    await expect(page.locator('.fail-note-input')).toHaveValue('');
+
+    await ctxB.close();
+  });
+});

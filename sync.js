@@ -380,11 +380,18 @@ function renderFieldResponse(fieldId) {
     }
   }
   if (!fld) return;
-  // Re-render the field row using the existing renderRunnerField function
+  // Re-render the field row using the existing renderRunnerField function.
+  // renderRunnerField returns the field row PLUS, for a failing answer
+  // (yes_no "No", out-of-range temperature), a `.fail-card` sibling root.
+  // Insert every rendered root and clear any stale card sibling — replacing
+  // only firstElementChild left the old card orphaned on a remote pass-flip
+  // and dropped the fresh card on a remote fail-flip.
   const tmp = document.createElement('div');
   tmp.innerHTML = (typeof renderRunnerField === 'function') ? renderRunnerField(fld) : '';
-  const newEl = tmp.firstElementChild;
-  if (newEl) el.replaceWith(newEl);
+  if (!tmp.firstElementChild) return;
+  const sib = el.nextElementSibling;
+  if (sib && sib.classList && sib.classList.contains('fail-card')) sib.remove();
+  el.replaceWith(...tmp.children);
 }
 
 window.renderFieldResponse = renderFieldResponse;
@@ -414,12 +421,37 @@ function applyOp(op, silent) {
         if (draftIdx !== -1) { drafts.splice(draftIdx, 1); store._notify('draftResponses'); }
       }
     } else {
-      const entry = { answeredBy: displayName, answeredAt: new Date(op.server_ts) };
-      if (typeof value === 'object' && value !== null && value.value !== undefined) {
-        entry.value = value.value;
-        if (value.sub_steps) entry.sub_steps = value.sub_steps;
+      // Unwrap the metadata bundle. debouncedSaveField ships the answer as
+      // {_v, _fail_note?, _correction_photo?} whenever fail-note/photo metadata
+      // rides along (workflows.html:401-406). hydrateFieldState unwraps it on
+      // reload; this live path used to store the bundle as the VALUE — the
+      // remote device rendered the field unanswered and lost the note.
+      let answer = value;
+      if (typeof value === 'object' && value !== null && '_v' in value) {
+        answer = value._v;
+        if (value._correction_photo && typeof CORRECTION_PHOTOS !== 'undefined') {
+          CORRECTION_PHOTOS[field_id] = value._correction_photo;
+        }
+      }
+      if (typeof value === 'object' && value !== null && value._fail_note) {
+        store.set('failNotes', field_id, {
+          note: value._fail_note.note || '',
+          severity: value._fail_note.severity || '',
+          photo: value._fail_note.photo || null,
+        });
       } else {
-        entry.value = value;
+        // No fail-note metadata on the wire = the sender holds none (set-yes
+        // deletes it; an empty note never bundles). Drop ours too, so the
+        // stale corrective card can neither re-render nor resurrect its note
+        // on the next local "No".
+        store.delete('failNotes', field_id);
+      }
+      const entry = { answeredBy: displayName, answeredAt: new Date(op.server_ts) };
+      if (typeof answer === 'object' && answer !== null && answer.value !== undefined) {
+        entry.value = answer.value;
+        if (answer.sub_steps) entry.sub_steps = answer.sub_steps;
+      } else {
+        entry.value = answer;
       }
       store.set('fieldResponses', field_id, entry);
       var drafts2 = store.get('draftResponses');
