@@ -2867,9 +2867,18 @@ test.describe('Video resilience', () => {
     await waitForManagerTab(page);
     await page.click('#t2');
     await waitForManagerList(page);
-    await page.locator(`[data-action="open-hire"][data-hire-id="${hireId}"]`).first().click();
-    // The hire detail lists their templates — open OURS, then expand the section.
-    await page.locator('#mgr-body .card', { hasText: tplName }).getByText('View Training').click();
+    // Pre-existing UI race, magnified by suite-length hire lists: the Manager
+    // tab re-renders the list when its managerHires fetch lands, which can
+    // wipe an already-open detail view mid-interaction. Re-open until the
+    // training runner actually sticks.
+    await expect(async () => {
+      const hireCard = page.locator(`[data-action="open-hire"][data-hire-id="${hireId}"]`);
+      if (await hireCard.count()) await hireCard.first().click();
+      await page.locator('#mgr-body .card', { hasText: tplName })
+        .getByText('View Training').click({ timeout: 2500 });
+      await expect(page.locator('#mgr-body [data-action="toggle-section"]').first())
+        .toBeVisible({ timeout: 2500 });
+    }).toPass({ timeout: 25000 });
     await page.locator('#mgr-body [data-action="toggle-section"]').first().click();
 
     // The override affordance renders on the unwatched part; the reason is
