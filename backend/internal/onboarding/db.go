@@ -110,6 +110,10 @@ type VideoPart struct {
 	Checked        bool    `json:"checked"`
 	CheckedAt      string  `json:"checked_at,omitempty"`
 	MaxWatchedTime float64 `json:"max_watched_time"` // populated from ob_progress max_watched_time
+	// Override carries the manager-override attribution JSON from
+	// ob_progress.value when the part was marked watched by override
+	// ({"override":true,"by_name":...,"reason":...}); empty otherwise.
+	Override string `json:"override,omitempty"`
 }
 
 // SectionState is the computed state for a section during hire training.
@@ -547,6 +551,13 @@ func GetHireTraining(ctx context.Context, pool *pgxpool.Pool, hireID, templateID
 					vpKey := item.VideoParts[k].ID + ":video_part"
 					item.VideoParts[k].Checked = progressMap[vpKey]
 					item.VideoParts[k].MaxWatchedTime = watchTimeMap[item.VideoParts[k].ID]
+					// A manager override stores its attribution JSON in the
+					// progress row's value; surface it so the UI can say
+					// "marked watched by <name>" instead of implying the
+					// hire watched it.
+					if v, ok := valueMap[item.VideoParts[k].ID]; ok {
+						item.VideoParts[k].Override = v
+					}
 					for _, pe := range progressEntries {
 						if pe.ItemID == item.VideoParts[k].ID && pe.ProgressType == "video_part" {
 							item.VideoParts[k].CheckedAt = pe.CheckedAt

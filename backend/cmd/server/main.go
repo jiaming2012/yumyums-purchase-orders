@@ -370,6 +370,12 @@ func main() {
 	default:
 		slog.Warn("object storage env vars not set, photo and video upload endpoints will return 503", "required", "STORAGE_KEY, STORAGE_SECRET, STORAGE_BUCKET, STORAGE_ENDPOINT, STORAGE_REGION")
 	}
+	// The current bucket's public-URL prefix — the recover-videos finder
+	// classifies any stored URL off this prefix as stranded (B-172 class).
+	videoStoragePrefix := ""
+	if spacesClient != nil {
+		videoStoragePrefix = photos.PublicURL(spacesEndpoint, spacesBucket, "")
+	}
 
 	// B-172: constructing the S3 client is offline — a canceled/dead account is
 	// indistinguishable from a live one until a real request. Probe at boot so a
@@ -780,6 +786,9 @@ func main() {
 				r.Get("/hireTraining/{hireId}", onboarding.HireTrainingHandler(pool))
 				r.Get("/managerHires", onboarding.ManagerHiresHandler(pool))
 				r.Post("/saveProgress", onboarding.SaveProgressHandler(pool))
+				r.Post("/overrideVideoWatched", onboarding.OverrideVideoWatchedHandler(pool))
+				r.Post("/recoverVideos", onboarding.RecoverVideosHandler(pool, videoStoragePrefix,
+					onboarding.NewSpacesVideoUploader(spacesClient, spacesBucket, spacesEndpoint)))
 				r.Post("/signOff", onboarding.SignOffHandler(pool))
 				r.Post("/rejectSection", onboarding.RejectSectionHandler(pool))
 				r.Post("/reopenSection", onboarding.ReopenSectionHandler(pool))

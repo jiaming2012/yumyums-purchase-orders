@@ -2777,3 +2777,112 @@ test.describe('prove-progress sweep', () => {
     // Intentionally skipped: PARK trigger (photo/thumbnail plumbing beyond a fixture).
   });
 });
+
+// ─── Video resilience (2026-08-26): dead media must fail loudly and must not
+// hard-block the hire ─────────────────────────────────────────────────────────
+//
+// ob_video_parts.url is an absolute URL minted at upload time, so a storage
+// move or failed upload leaves a part whose tap produced a SILENT BLACK MODAL,
+// and the completeness gate (95% watched, no override) blocked the checklist
+// forever. Two escape hatches, both operator-ruled: the player states the
+// failure visibly, and a manager can mark the part watched with attribution.
+
+test.describe('Video resilience', () => {
+  test('a dead video source shows the error overlay instead of a silent black modal [OB-VID-ERR]', async ({ page }) => {
+    await login(page);
+    const me = await page.evaluate(async () => (await fetch('/api/v1/me')).json());
+
+    const tpl = await obApiCall(page, 'POST', 'createTemplate', {
+      name: 'Dead Video ' + Date.now(),
+      roles: [],
+      sections: [{
+        title: 'Equipment Training', sort_order: 0,
+        requires_sign_off: false, sign_off_roles: [], is_faq: false,
+        items: [{
+          type: 'video_series', label: 'Grill Operation', sort_order: 0, sub_items: [],
+          video_parts: [{ title: 'Pre-heat Procedure', description: '', url: '/videos/definitely-missing.mp4', sort_order: 0 }],
+        }],
+      }],
+    });
+    expect(tpl && tpl.id, 'createTemplate must return an id').toBeTruthy();
+    await obApiCall(page, 'POST', 'assignTemplate', { hire_id: me.id, template_id: tpl.id });
+
+    await page.goto('/onboarding.html');
+    await waitForMyList(page);
+    await page.locator(`[data-action="open-my-training"][data-template-id="${tpl.id}"]`).click();
+    await waitForTrainingRunner(page);
+    // Sections render collapsed — expand before reaching for the thumb.
+    await page.locator('[data-action="toggle-section"]').first().click();
+
+    // Tap the video: the source 404s, and the failure must be VISIBLE.
+    await page.locator('.video-thumb-wrap').first().click();
+    await expect(page.locator('#video-error')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('#video-error')).toContainText('Video unavailable');
+
+    // Closing the modal still works from the error state.
+    await page.click('#video-close-btn');
+    await expect(page.locator('#video-modal')).toBeHidden();
+  });
+
+  test('a manager can mark a broken video watched for a hire, with attribution [OB-VID-OVR]', async ({ page }) => {
+    await login(page);
+
+    // A separate hire (the override button never renders on your own training).
+    const inviteResult = await usersApiCall(page, 'POST', 'invite', {
+      first_name: 'VideoHire',
+      last_name: 'Ovr',
+      email: 'video.hire.ovr.' + Date.now() + '@yumyums.kitchen',
+      roles: ['team_member'],
+    });
+    expect(inviteResult.user).toBeTruthy();
+    const hireId = inviteResult.user.id;
+    // Accept the invite so the hire becomes active — managerHires only surfaces
+    // active users. accept-invite hijacks the session, so re-login as admin.
+    const token = inviteResult.invite_path.split('token=')[1];
+    await page.evaluate(async (t) => {
+      await fetch('/api/v1/auth/accept-invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: t, password: 'test456' }),
+      });
+    }, token);
+    await login(page);
+
+    const tplName = 'Ovr Video ' + Date.now();
+    const tpl = await obApiCall(page, 'POST', 'createTemplate', {
+      name: tplName,
+      roles: [],
+      sections: [{
+        title: 'Equipment Training', sort_order: 0,
+        requires_sign_off: false, sign_off_roles: [], is_faq: false,
+        items: [{
+          type: 'video_series', label: 'Grill Operation', sort_order: 0, sub_items: [],
+          video_parts: [{ title: 'Pre-heat Procedure', description: '', url: 'https://dead-host.invalid/old/preheat.mov', sort_order: 0 }],
+        }],
+      }],
+    });
+    await obApiCall(page, 'POST', 'assignTemplate', { hire_id: hireId, template_id: tpl.id });
+
+    await page.goto('/onboarding.html');
+    await waitForManagerTab(page);
+    await page.click('#t2');
+    await waitForManagerList(page);
+    await page.locator(`[data-action="open-hire"][data-hire-id="${hireId}"]`).first().click();
+    // The hire detail lists their templates — open OURS, then expand the section.
+    await page.locator('#mgr-body .card', { hasText: tplName }).getByText('View Training').click();
+    await page.locator('#mgr-body [data-action="toggle-section"]').first().click();
+
+    // The override affordance renders on the unwatched part; the reason is
+    // required and collected via prompt().
+    const overrideBtn = page.locator('.override-watched-btn').first();
+    await expect(overrideBtn).toBeVisible({ timeout: 10000 });
+    page.once('dialog', (d) => d.accept('Video file broken — storage move'));
+    await overrideBtn.click();
+
+    // The part renders as watched WITH attribution — who overrode, and why —
+    // never as if the hire watched it.
+    await expect(page.locator('#mgr-body')).toContainText('Marked watched by', { timeout: 10000 });
+    await expect(page.locator('#mgr-body')).toContainText('Video file broken — storage move');
+    await expect(page.locator('.override-watched-btn')).toHaveCount(0);
+  });
+});
