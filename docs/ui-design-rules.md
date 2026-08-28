@@ -13,8 +13,10 @@
 >   `process.md` C-2), each citing its rule here.
 > - **/ui-jury** — no repo-level conventions input exists today (the skill's calibration
 >   fixture anchors verifier *scoring*, not design rules). These rules are written in
->   critic-consumable shape; when ui-jury grows a project-conventions input, point it at
->   this file. Until then, cite rule ids by hand in review prompts.
+>   critic-consumable shape; the input is filed as **ui-jury backlog Phase 999.2**
+>   (`~/projects/ui-jury/.planning/ROADMAP.md`, "Project-conventions input for critics",
+>   2026-08-28). When it lands, point it at this file. Until then, cite rule ids by hand
+>   in review prompts.
 >
 > **Predecessor:** `docs/ui-bug-post-mortem.md` (2026-04-26). Its patterns #2 and #3
 > recurred verbatim in the FAQ bug below — a narrative post-mortem nobody re-reads does
