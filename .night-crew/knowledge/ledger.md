@@ -3459,3 +3459,12 @@ Not a decision (no fork was raised). A durable record of what triage did.
 - **Closes:** B-35, B-141 (guard half — entry fully closed), B-142. With this and the
   dev-complete attestation above, the milestone's attended debts are settled; next is
   `/nc-milestone-close`.
+
+### T-45 close line — milestone "Sync, dev complete" CLOSED at /nc-milestone-close, 2026-08-28
+
+Graded by reading (hand-run nights; no computed metrics): **13 MET · 1 PARTIAL (D-KR3) ·
+1 NOT MET (Q-KR4)** across 15 KRs. Aggregate export hand-authored and transferred to the
+night-crew clone at `reference/milestones/hq-20260828.md`; two tool-implicating findings
+captured there as B-376/B-377 on per-item consent, verified by handle (2/2 backed). Marker
+`hq-20260828` written — carrying no boundary, as every marker here does while nothing
+writes run records. This target has no reflections store; recorded as an absence.
