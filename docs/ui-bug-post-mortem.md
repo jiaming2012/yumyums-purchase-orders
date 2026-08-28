@@ -1,5 +1,10 @@
 # UI Bug Post-Mortem — 2026-04-26 Session
 
+> **Successor:** the reusable rules distilled from this and later sessions live in
+> `docs/ui-design-rules.md` (UI-R1…UI-R7), wired into CLAUDE.md §Conventions and the
+> night-crew preferences store. Patterns #2 and #3 below **recurred on 2026-08-28**
+> (FAQ label-contract bug) — see UI-R3/UI-R4 there.
+
 Patterns and root causes from bugs found during this session. Use these to prevent similar issues in future development.
 
 ---

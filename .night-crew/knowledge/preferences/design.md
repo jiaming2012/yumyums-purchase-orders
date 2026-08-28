@@ -15,3 +15,20 @@
 - **Evidence:** optional link to a research note or a past decision.
 - **Recorded:** 2026-01-01
 -->
+
+## Pending — proposed, not adopted
+
+> Candidates offered back from your own answers, recorded with your consent.
+> They are **not preferences yet**: nothing cites them, nothing validates them, and no
+> command promotes them. To adopt one, renumber it to the next free `P-n`, move it up
+> above this section, and delete what you don't want. To drop one, delete it.
+
+## C-1 · Overlay controls stay out of native-chrome territory
+
+- **Preference:** Custom controls overlaid on media or fullscreen surfaces avoid the regions native chrome owns — the corners over a `<video controls>` element (iOS draws fullscreen/PiP top-left, mute top-right), the status-bar strip, the notch. The exit affordance from a fullscreen surface is a labeled ≥44px pill ("✕ Close"), top-center for fullscreen media (the one region iOS video chrome never occupies), offset by `env(safe-area-inset-*)` in standalone PWA mode.
+- **Why (operator):** requested after the 2026-08-28 walkthrough — the video player's 36px close circle sat directly under the native mute icon and was easy to miss; operator asked for "more prominent, or an entirely different UI element … top center … or between the center and right margin" and picked the top-center labeled pill from mockups.
+- **Weight:** strong
+- **Evidence:** close-pill fix, commit 353b423 (2026-08-28); docs/ui-design-rules.md UI-R1/UI-R2.
+- **Recorded:** 2026-08-28
+- **Offered at:** an attended session, 2026-08-28
+- **Consent:** recorded on the operator's explicit yes to this item.

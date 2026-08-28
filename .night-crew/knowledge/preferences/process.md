@@ -83,3 +83,13 @@
 - **Recorded:** 2026-08-02
 - **Offered at:** an attended session
 - **Consent:** recorded on the operator's explicit yes to this item.
+
+## C-2 · E2E assertions on user-visible text assert the text, not the container
+
+- **Preference:** A spec guarding user-visible text asserts the expected content (`toContainText` / `toHaveValue`, with the expectation sourced from the API or seed data), never just element visibility. A container with decoration — icons, disclosure triangles, borders — passes `toBeVisible()` while its content is blank, so a visibility assertion on a text element guards nothing.
+- **Why (operator):** requested after the 2026-08-28 walkthrough — the FAQ blank-question bug lived undetected behind a green `expect(.faq-q).toBeVisible()` that the disclosure triangle satisfied; wants documentation of the walkthrough's UI fixes to feed future review tooling so this class doesn't recur.
+- **Weight:** strong
+- **Evidence:** FAQ label-contract fix, commit 2e078d3 (2026-08-28) — the strengthened text assertion went red instantly on the unfixed code; docs/ui-design-rules.md UI-R5.
+- **Recorded:** 2026-08-28
+- **Offered at:** an attended session, 2026-08-28
+- **Consent:** recorded on the operator's explicit yes to this item.
