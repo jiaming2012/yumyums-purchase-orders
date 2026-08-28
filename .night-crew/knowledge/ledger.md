@@ -3433,3 +3433,29 @@ Not a decision (no fork was raised). A durable record of what triage did.
 - **Still owed before close:** the A3 attended re-gate (`gate-rls-fixture-ownership`,
   decision 155). With the attestation recorded, the milestone's remaining path is that re-gate
   plus `/nc-milestone-close`.
+
+### T-45 addendum (same attended session) — A3 re-gate executed: `gate-rls-fixture-ownership` DONE
+
+- **The preserved branch was gone** — `card/a3-rls-fixture-own` did not survive the worktree
+  sweep; re-implemented from the recorded leads (B-141/B-142's own text) on
+  `card/a3-rls-fixture-own-regate`, commit `a470ff4`.
+- **Red-first:** a subprocess test re-ran `TestRowVisibilityRLS` under the incident
+  configuration (`HQ_RLS_TEST_DB=yumyums`, substrate optional, unreachable admin URL) and was
+  run RED against the pre-fix tree — the child dialed a socket with the killer name unexamined.
+  On the fixed tree the refusal fires in 0.01s, before any socket.
+- **Mechanism:** required prefix `^hq_rls_[a-z0-9_]+$` (`rvFixtureDBNameCheck` — a boundary,
+  not a blocklist, per decision 155's finding), checked at the top of `rvConnect` before
+  substrate resolution; per-process default `hq_rls_b2_fdw_p<pid>` (closes B-35's shared
+  constant; `task test:go` needs no env line, B-142(b) moot); claim-don't-drop
+  (`rvClaimFixtureDatabase` — an existing name is refused with EXIT≠0 and provably not
+  destroyed; the run drops only the database it created — B-142(a)).
+- **Gate line:** guard tests 4/4; full Go suite green — 11 packages with tests,
+  `internal/sync` 23.2s of real work — against an ISOLATED substrate (`-p spike-regate`,
+  `SPIKE_DB_URL`/`SPIKE_REST_URL`, torn down after). Against the persistent dev substrate,
+  `TestJWTBridgeRLS` reds on `spikec-*` residue on ANY tree — B-50's class made permanent by
+  Activity 5's by-design persistence; recorded as a B-50 aggravation, not this card's
+  regression. The dev stack's data was left untouched throughout. G2(Playwright) and G4
+  waived N/A: the diff is Go test files only — no app code, no frontend asset.
+- **Closes:** B-35, B-141 (guard half — entry fully closed), B-142. With this and the
+  dev-complete attestation above, the milestone's attended debts are settled; next is
+  `/nc-milestone-close`.
