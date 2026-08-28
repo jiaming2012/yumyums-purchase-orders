@@ -3417,3 +3417,19 @@ Not a decision (no fork was raised). A durable record of what triage did.
   repo's run dir is `2026-08-10-autonomous/` and reference lives under `.night-crew/knowledge/`. The
   closeout artifact (`closeout-20260810.md`, committed `b97c48a`) was verified directly; the run's
   completion is not in doubt.
+
+### T-45 attended (2026-08-28) — dev-complete-attestation recorded; walkthrough branch merged
+
+- **Attestation (operator, 2026-08-28) — decision 161's close bar is met.** The operator ran the
+  sync stack and watched it work, in their own words: "I've already ran sync and watched the sync
+  work as expected." Per decision 161 this is the operator's own attended act — the RxDB sync
+  capability serving a live sync the operator saw personally — and the `:5433` touch it entails is
+  the one sanctioned, knowing exception. Recorded here as the ledger line the decision called for.
+- **Same sitting:** `fix/remote-failcard-reconcile` merged to `dev` (`bfa4ad2`) — the 2026-08-26→28
+  phone-walkthrough fixes: fail-card + rejection-flag reconciliation, rejected sub-step count
+  reset, video recovery + loud player errors + manager override, top-center close pill, FAQ
+  label-contract fix (regression-test-first), plus `docs/ui-design-rules.md` (UI-R1…R7) and four
+  operator-consented preference candidates (ux C-2/C-3, design C-1, process C-2).
+- **Still owed before close:** the A3 attended re-gate (`gate-rls-fixture-ownership`,
+  decision 155). With the attestation recorded, the milestone's remaining path is that re-gate
+  plus `/nc-milestone-close`.
