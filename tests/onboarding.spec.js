@@ -630,11 +630,18 @@ test.describe('My Trainings tab', () => {
     // Expand FAQ section
     await faqHeader.click();
 
-    // Verify Q&A items are visible
-    await expect(page.locator('#my-body .faq-q').first()).toBeVisible();
-    // Click a question to see the answer
+    // Verify Q&A rows render their question TEXT. The API serves the question in
+    // `label`; asserting only .faq-q visibility let blank rows pass — the row div
+    // was "visible" on the strength of its disclosure triangle alone.
+    const firstFaq = faqSection.items[0];
+    expect(firstFaq.label, 'seeded FAQ item must carry its question in label').toBeTruthy();
+    await expect(page.locator('#my-body .faq-q').first()).toContainText(firstFaq.label);
+    for (const item of faqSection.items) {
+      await expect(page.locator('#my-body .faq-q', { hasText: item.label })).toBeVisible();
+    }
+    // Click a question to see the answer — with its text, not just a visible box
     await page.locator('#my-body .faq-q').first().click();
-    await expect(page.locator('#my-body .faq-a').first()).toBeVisible();
+    await expect(page.locator('#my-body .faq-a').first()).toContainText(firstFaq.answer);
   });
 });
 
@@ -1730,6 +1737,54 @@ test.describe('Builder tab', () => {
       sec.items.some(i => i.type === 'checkbox' && i.label === 'First checkbox item'),
       'builder-added checkbox item must persist'
     ).toBe(true);
+
+    await obApiCall(page, 'DELETE', 'deleteTemplate/' + created.id);
+  });
+
+  test('FAQ question typed in the Builder persists through save (label contract)', async ({ page }) => {
+    await login(page);
+    await page.goto('/onboarding.html');
+    await waitForBuilderTab(page);
+    await page.click('#t3');
+    await waitForBuilderList(page);
+
+    page.once('dialog', async dialog => {
+      await dialog.accept('FAQ Persist Test');
+    });
+    await page.locator('[data-action="new-template"]').click();
+    await expect(page.locator('[data-action="back-to-templates"]')).toBeVisible();
+
+    page.once('dialog', async dialog => {
+      await dialog.accept('FAQ Sec');
+    });
+    await page.locator('[data-action="add-ob-section"]').click();
+
+    // Flip the section into FAQ mode and add a Q&A pair through the Builder UI
+    await page.locator('[data-action="toggle-faq-mode"]').first().click();
+    await page.locator('[data-action="add-faq-item"]').first().click();
+    await page.locator('[data-action="faq-q-input"]').last().fill('Where is the fire extinguisher?');
+    await page.locator('[data-action="faq-a-input"]').last().fill('Mounted by the back door.');
+
+    await page.locator('[data-action="save-template"]').click();
+    await waitForBuilderList(page);
+
+    // The backend's contract stores the question in `label` with type 'faq' —
+    // a Builder that sends `question` (or omits type) loses the item silently.
+    const templates = await obApiCall(page, 'GET', 'templates');
+    const created = templates.find(t => t.name === 'FAQ Persist Test');
+    expect(created, 'created template must be listed via API').toBeTruthy();
+    const full = await obApiCall(page, 'GET', 'templates/' + created.id);
+    const sec = full.sections.find(s => s.is_faq);
+    expect(sec, 'FAQ section must persist with is_faq=true').toBeTruthy();
+    const item = (sec.items || [])[0];
+    expect(item, 'FAQ item must persist').toBeTruthy();
+    expect(item.type, 'FAQ item must save with type faq').toBe('faq');
+    expect(item.label, 'FAQ question must persist in label').toBe('Where is the fire extinguisher?');
+    expect(item.answer, 'FAQ answer must persist').toBe('Mounted by the back door.');
+
+    // And the Builder must show the question after reopen (reads label back)
+    await page.locator('#builder-body .card', { hasText: 'FAQ Persist Test' }).first().click();
+    await expect(page.locator('[data-action="faq-q-input"]').first()).toHaveValue('Where is the fire extinguisher?');
 
     await obApiCall(page, 'DELETE', 'deleteTemplate/' + created.id);
   });
