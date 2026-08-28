@@ -380,11 +380,18 @@ function renderFieldResponse(fieldId) {
     }
   }
   if (!fld) return;
-  // Re-render the field row using the existing renderRunnerField function
+  // Re-render the field row using the existing renderRunnerField function.
+  // renderRunnerField returns the field row PLUS, for a failing answer
+  // (yes_no "No", out-of-range temperature), a `.fail-card` sibling root.
+  // Insert every rendered root and clear any stale card sibling — replacing
+  // only firstElementChild left the old card orphaned on a remote pass-flip
+  // and dropped the fresh card on a remote fail-flip.
   const tmp = document.createElement('div');
   tmp.innerHTML = (typeof renderRunnerField === 'function') ? renderRunnerField(fld) : '';
-  const newEl = tmp.firstElementChild;
-  if (newEl) el.replaceWith(newEl);
+  if (!tmp.firstElementChild) return;
+  const sib = el.nextElementSibling;
+  if (sib && sib.classList && sib.classList.contains('fail-card')) sib.remove();
+  el.replaceWith(...tmp.children);
 }
 
 window.renderFieldResponse = renderFieldResponse;
@@ -405,6 +412,17 @@ function applyOp(op, silent) {
   if (op.op_type === 'SET_FIELD') {
     const { field_id, value, user_name } = op.payload;
     const displayName = user_name || 'Someone';
+    // A rejection-flagged field only leaves its bounced state through a redo.
+    // hydrateFieldState clears the flagged field's answer and the RxDB overlay
+    // skips it (workflows.html steps 3/4); this live path holds the same line,
+    // directionally: an op from BEFORE the rejection is the very answer that
+    // was bounced — skip it entirely. An op from AFTER it is the crew's redo —
+    // apply it, then clear the flag (clearRejectionFlag keeps the flag while a
+    // required photo is still missing). Without this, a replayed or remote
+    // redo op rendered a checked field under a live ⚠ banner with the progress
+    // count stuck one short (operator repro, 2026-08-25).
+    const rejFlag = (typeof REJECTION_FLAGS !== 'undefined') ? REJECTION_FLAGS[field_id] : null;
+    if (rejFlag && rejFlag.rejectedAt && new Date(op.server_ts) <= new Date(rejFlag.rejectedAt)) return;
     if (value === null || value === undefined) {
       // Uncheck — remove from state via store
       store.delete('fieldResponses', field_id);
@@ -414,14 +432,58 @@ function applyOp(op, silent) {
         if (draftIdx !== -1) { drafts.splice(draftIdx, 1); store._notify('draftResponses'); }
       }
     } else {
-      const entry = { answeredBy: displayName, answeredAt: new Date(op.server_ts) };
-      if (typeof value === 'object' && value !== null && value.value !== undefined) {
-        entry.value = value.value;
-        if (value.sub_steps) entry.sub_steps = value.sub_steps;
+      // Unwrap the metadata bundle. debouncedSaveField ships the answer as
+      // {_v, _fail_note?, _correction_photo?} whenever fail-note/photo metadata
+      // rides along (workflows.html:401-406). hydrateFieldState unwraps it on
+      // reload; this live path used to store the bundle as the VALUE — the
+      // remote device rendered the field unanswered and lost the note.
+      let answer = value;
+      if (typeof value === 'object' && value !== null && '_v' in value) {
+        answer = value._v;
+        if (value._correction_photo && typeof CORRECTION_PHOTOS !== 'undefined') {
+          CORRECTION_PHOTOS[field_id] = value._correction_photo;
+        }
+      }
+      if (typeof value === 'object' && value !== null && value._fail_note) {
+        store.set('failNotes', field_id, {
+          note: value._fail_note.note || '',
+          severity: value._fail_note.severity || '',
+          photo: value._fail_note.photo || null,
+        });
       } else {
-        entry.value = value;
+        // No fail-note metadata on the wire = the sender holds none (set-yes
+        // deletes it; an empty note never bundles). Drop ours too, so the
+        // stale corrective card can neither re-render nor resurrect its note
+        // on the next local "No".
+        store.delete('failNotes', field_id);
+      }
+      const entry = { answeredBy: displayName, answeredAt: new Date(op.server_ts) };
+      if (typeof answer === 'object' && answer !== null && answer.value !== undefined) {
+        entry.value = answer.value;
+        if (answer.sub_steps) entry.sub_steps = Object.assign({}, answer.sub_steps);
+      } else {
+        entry.value = answer;
+      }
+      // The same directional rule as the top-level gate above, per sub-step:
+      // rejection flags live on SUB ids, and a rejected sub-step's done-state
+      // rides its PARENT's op — which the top-level gate never inspects. A
+      // pre-rejection op carries the bounced done-state: strip it (and drop
+      // the parent out of all-done). A post-rejection op is the redo: let it
+      // land and clear the sub's flag.
+      if (entry.sub_steps && typeof REJECTION_FLAGS !== 'undefined') {
+        Object.keys(entry.sub_steps).forEach(function(sid) {
+          const sf = REJECTION_FLAGS[sid];
+          if (!sf) return;
+          if (sf.rejectedAt && new Date(op.server_ts) <= new Date(sf.rejectedAt)) {
+            delete entry.sub_steps[sid];
+            entry.value = false;
+          } else if (typeof clearRejectionFlag === 'function') {
+            clearRejectionFlag(sid);
+          }
+        });
       }
       store.set('fieldResponses', field_id, entry);
+      if (rejFlag && typeof clearRejectionFlag === 'function') clearRejectionFlag(field_id);
       var drafts2 = store.get('draftResponses');
       if (Array.isArray(drafts2)) {
         const existing = drafts2.find(d => d.field_id === field_id);
