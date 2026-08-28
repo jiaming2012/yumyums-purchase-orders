@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/yumyums/hq/internal/db"
@@ -198,22 +200,6 @@ import (
 // the jwtbridge suite rather than renamed, so one export drives both.
 
 const (
-	// rvHQDatabase is this suite's OWN database on HQ's Postgres, dropped and
-	// recreated every run.
-	//
-	// 🛑 Deliberately NOT hq_test_go. Other packages' TestMains truncate
-	// `users`, and this suite seeds users with fixed ids that must survive for
-	// the whole run — a shared database makes the subject set someone else's
-	// business, and an emptied subject set is exactly what this file exists to
-	// make impossible. Dropping it up front is also what guarantees the
-	// populations asserted below are THIS RUN'S, not an earlier run's residue.
-	//
-	// Overridable with HQ_RLS_TEST_DB (see rvHQDatabase()) so two agents running
-	// this suite at once on the shared cluster do not DROP each other's database
-	// mid-run — the incident behind BACKLOG B-16, where a dropped test database
-	// read as a passing suite.
-	defaultRVHQDatabase = "hq_test_b2_fdw"
-
 	// rvFDWPassword is a throwaway for a local test database that is dropped at
 	// the end of the run. It is NOT a default for anything: migration 0073
 	// creates hq_sync_fdw NOLOGIN with no password precisely so no environment
@@ -251,11 +237,75 @@ const (
 	defaultFDWPort = "5434"
 )
 
-// rvHQDatabase names this suite's throwaway database on HQ's Postgres. It is a
-// function and not a constant only so HQ_RLS_TEST_DB can move it: the suite
-// DROPs it WITH (FORCE) on the way in, and doing that to a name another
-// concurrent run is using is the B-16 incident, not a flake.
-func rvHQDatabase() string { return env("HQ_RLS_TEST_DB", defaultRVHQDatabase) }
+// rvHQDatabase names this suite's OWN throwaway database on HQ's Postgres.
+//
+// 🛑 Deliberately NOT hq_test_go. Other packages' TestMains truncate `users`,
+// and this suite seeds users with fixed ids that must survive for the whole
+// run — a shared database makes the subject set someone else's business.
+//
+// The default is PER-PROCESS, not a shared constant. The old constant
+// (`hq_test_b2_fdw`) meant any plain `go test ./...` destroyed a name another
+// leg might be using — B-35, the B-16 failure mode baked into the primary
+// gate command. A PID-derived name cannot collide with a concurrent leg, and
+// `task test:go` needs no environment line for it (B-142b). HQ_RLS_TEST_DB
+// still moves it, but the value must sit inside the rvFixtureDBNameCheck
+// boundary like the default does.
+func rvHQDatabase() string {
+	if v := os.Getenv("HQ_RLS_TEST_DB"); v != "" {
+		return v
+	}
+	return fmt.Sprintf("hq_rls_b2_fdw_p%d", os.Getpid())
+}
+
+// rvFixtureDBNamePattern is a REQUIRED PREFIX, not a blocklist. The A3 card's
+// first fix guarded this value with four literals (`hq_test_b2_fdw`,
+// `hq_test_go`, `hq_test_e2e`, `postgres`) and the G6 probe that set
+// HQ_RLS_TEST_DB=yumyums sailed past it and destroyed production (B-141,
+// 2026-08-06, ledger decision 155). A blocklist enumerates what must not be
+// destroyed and can never be complete, because the dangerous names are
+// per-leg and per-environment; a prefix enumerates what MAY be destroyed.
+// Only the latter is a boundary.
+var rvFixtureDBNamePattern = regexp.MustCompile(`^hq_rls_[a-z0-9_]+$`)
+
+// rvFixtureDBNameCheck is the B-141 boundary. It is pure string validation —
+// callable, and called, before any socket is opened.
+func rvFixtureDBNameCheck(name string) error {
+	if !rvFixtureDBNamePattern.MatchString(name) {
+		return fmt.Errorf("refusing HQ_RLS_TEST_DB=%q: fixture databases must match "+
+			"^hq_rls_[a-z0-9_]+$ (B-141, ledger decision 155 — a prefix enumerates what may "+
+			"be destroyed; the blocklist this replaces accepted the name that destroyed "+
+			"production). Unset HQ_RLS_TEST_DB for the per-process default, or set a fresh "+
+			"hq_rls_* name", name)
+	}
+	return nil
+}
+
+// rvClaimFixtureDatabase is the B-142(a) rule: REFUSE, DON'T DROP. The suite
+// may only ever drop a database this run itself created, so claiming the
+// fixture name means refusing loudly when it already exists — a database we
+// find is a database some other leg (or a killed run's residue) is holding,
+// and destroying it with EXIT=0 is exactly what the refused A3 card's own
+// test was measured doing.
+func rvClaimFixtureDatabase(ctx context.Context, admin *pgxpool.Pool, name string) error {
+	if err := rvFixtureDBNameCheck(name); err != nil {
+		return err
+	}
+	var exists bool
+	if err := admin.QueryRow(ctx,
+		`SELECT EXISTS(SELECT 1 FROM pg_database WHERE datname=$1)`, name).Scan(&exists); err != nil {
+		return fmt.Errorf("claim %s: existence check: %w", name, err)
+	}
+	if exists {
+		return fmt.Errorf("refusing to claim %s: it already exists and this run did not "+
+			"create it — another leg may be holding it (B-142a). Set HQ_RLS_TEST_DB to a "+
+			"fresh hq_rls_* name; if you KNOW it is a killed run's residue, drop it yourself",
+			name)
+	}
+	if _, err := admin.Exec(ctx, `CREATE DATABASE `+pgx.Identifier{name}.Sanitize()); err != nil {
+		return fmt.Errorf("create %s: %w", name, err)
+	}
+	return nil
+}
 
 // ── The fixture's identities ──────────────────────────────────────────────
 //
@@ -387,6 +437,14 @@ func rvConnect(t *testing.T) *rvStack {
 	t.Helper()
 	ctx := context.Background()
 
+	// ── B-141 boundary: the fixture NAME is examined before ANYTHING else,
+	// substrate resolution included. Pure string validation — by the time any
+	// socket is opened the name is already inside ^hq_rls_[a-z0-9_]+$, so no
+	// downstream mistake in this file can reach a database outside it.
+	if err := rvFixtureDBNameCheck(rvHQDatabase()); err != nil {
+		t.Fatal(err)
+	}
+
 	// ── Is a substrate configured at all? (no I/O — see above) ───────────
 	cfg, ok := resolveSpikeConfig(t)
 	if !ok {
@@ -419,15 +477,32 @@ func rvConnect(t *testing.T) *rvStack {
 	}
 	defer admin.Close()
 
-	// FORCE because a previous run's pooled connection outliving the test is a
-	// flake, not a finding. Dropping rather than truncating is what makes the
-	// population floors below a statement about THIS run.
-	if _, err := admin.Exec(ctx, `DROP DATABASE IF EXISTS `+rvHQDatabase()+` WITH (FORCE)`); err != nil {
-		t.Fatalf("drop %s: %v", rvHQDatabase(), err)
+	// B-142(a): claim, never drop. The old shape dropped WITH (FORCE) on the
+	// way in, which guaranteed freshness by destroying whatever was there —
+	// including a database another leg created (measured, EXIT=0). Refusing
+	// an existing name gives the same THIS-RUN'S-DATA guarantee (a created
+	// database is empty by construction) without the ability to eat anyone's
+	// fixture; the run then owns the name and drops it in cleanup below.
+	if err := rvClaimFixtureDatabase(ctx, admin, rvHQDatabase()); err != nil {
+		t.Fatal(err)
 	}
-	if _, err := admin.Exec(ctx, `CREATE DATABASE `+rvHQDatabase()); err != nil {
-		t.Fatalf("create %s: %v", rvHQDatabase(), err)
-	}
+	adminURLForCleanup := adminURL
+	fixtureName := rvHQDatabase()
+	t.Cleanup(func() {
+		cctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		c, err := pgxpool.New(cctx, adminURLForCleanup)
+		if err != nil {
+			t.Errorf("cleanup: reconnect to drop %s: %v (next run will refuse the name — drop it by hand)", fixtureName, err)
+			return
+		}
+		defer c.Close()
+		// FORCE because a pooled connection outliving the test is a flake,
+		// not a finding. Dropping our OWN database is the claim's other half.
+		if _, err := c.Exec(cctx, `DROP DATABASE IF EXISTS `+pgx.Identifier{fixtureName}.Sanitize()+` WITH (FORCE)`); err != nil {
+			t.Errorf("cleanup: drop %s: %v (next run will refuse the name — drop it by hand)", fixtureName, err)
+		}
+	})
 
 	hqURL := strings.Replace(adminURL, "/postgres", "/"+rvHQDatabase(), 1)
 	hq, err := pgxpool.New(ctx, hqURL)
