@@ -179,6 +179,7 @@ If `task version` shows the local `Backend` / `Frontend` constants ahead of the 
 - **Persistence rule:** Every user-entered value → `debouncedSaveField` → `submitOp('SET_FIELD')` → `POST /ops` → `DRAFT_RESPONSES` → `hydrateFieldState` (see docs/data-flow-audit.md). There is no `autoSaveField` — B-65
 - **Required test:** Every new field type or data entry feature MUST have a back-and-reopen test in `tests/persistence.spec.js` — enter data → back → reopen → data still there. Feature is not complete without this test.
 - **Bug fix protocol (approval phase):** When a bug is found during human verification, write the regression test FIRST — before applying the fix. The test must fail (proving it captures the bug), then apply the fix, then verify the test passes. Only run the new test(s) during iteration, not the full suite: `npx playwright test tests/<file>.spec.js -g "<test name>"`. This ensures the test actually guards against the regression, not just passing by coincidence.
+- **UI rules:** `docs/ui-design-rules.md` (UI-R1…UI-R7) — distilled from operator walkthrough fixes; consult before UI placement, rendering, error-state, and E2E-assertion decisions. Highlights: overlay controls stay clear of native chrome; blank render = defect; frontend uses the Go struct's json tags verbatim; assert content, not containers; failures are loud + retryable + overridable.
 
 ### Definition of Done
 
