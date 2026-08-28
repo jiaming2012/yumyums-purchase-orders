@@ -55,3 +55,13 @@
 - **Recorded:** 2026-07-28
 - **Offered at:** an attended session
 - **Consent:** recorded on the operator's explicit yes to this item.
+
+## C-2 · Make the mistake impossible — structure over guards at catastrophic boundaries
+
+- **Preference:** Where a mistake would be catastrophic (production data, credentials, destructive DDL), prefer the design that makes the mistake structurally impossible — separate cluster, separate role, credential the agent never holds — over any guard that merely detects it (blocklists, name checks, port checks). Guards may layer inside the structure; they are never the boundary.
+- **Why (operator):** Chose a separate test-only container at decision 155 — "a guard is a correctness argument; separation is a structural impossibility argument, and this week demonstrated which one holds under adversarial review." Confirmed as a standing rule at the 2026-08-28 retro.
+- **Weight:** strong — B-141/B-143 realized the guard failure; the A3 re-gate's surviving prefix guard now lives inside a throwaway cluster
+- **Operator:** jamal@Jamals-MacBook-Pro.local
+- **Recorded:** 2026-08-28
+- **Offered at:** an attended session
+- **Consent:** recorded on the operator's explicit yes to this item.

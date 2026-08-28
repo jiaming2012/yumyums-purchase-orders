@@ -46,3 +46,14 @@
 > not a defence against something setting out to defeat it. Or do it by hand as before:
 > renumber the candidate to the next free `P-n` and move it above this section.
 > To drop one, delete it.
+
+## C-1 · Preference-covered questions proceed under citation; park only what no preference answers
+
+- **Preference:** When a card or session hits a question the operator has an adopted preference for, it decides under that preference, cites it, and surfaces the decision for end-of-run review — reviewable and revertible beats parked. Parking is reserved for questions no adopted preference answers, and nothing on the always-escalate ceiling (safety/escalation/constitutional) is ever decided this way.
+- **Why (operator):** Stated at the 2026-08-28 retro, refining T-43(b): "if Claude can reference a preference of mine to answer it itself, then I can just review it at the end / revert the change if necessary instead of parking."
+- **Weight:** strong
+- **Bound:** only decisions that are cheaply revertible at review — each cited and surfaced in the run's end-of-run review artifact; anything irreversible or outward-facing (sends, deploys, deletions), and anything on the always-escalate ceiling, stays the operator's regardless of what a preference says
+- **Operator:** jamal@Jamals-MacBook-Pro.local
+- **Recorded:** 2026-08-28
+- **Offered at:** an attended session
+- **Consent:** recorded on the operator's explicit yes to this item.
