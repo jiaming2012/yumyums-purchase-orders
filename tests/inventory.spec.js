@@ -1399,6 +1399,121 @@ test.describe('Inventory', () => {
     expect(res).toBe(400);
   });
 
+  // ── Item aliases (nicknames) ──────────────────────────────────────────
+
+  test('alias auto-matches receipt line in review form', async ({ page }) => {
+    const ts = Date.now();
+    const groups = await invApiCall(page, 'GET', 'groups');
+    const gid = groups && groups.length ? groups[0].id : null;
+    const itemName = 'Honey ' + ts;
+    const created = await invApiCall(page, 'POST', 'items', { description: itemName, group_id: gid });
+    expect(created && created.id, 'item create must return an id').toBeTruthy();
+    const aliasName = '100% Cl Hny ' + ts;
+    const addStatus = await page.evaluate(async ([id, alias]) => {
+      const r = await fetch('/api/v1/inventory/items/aliases', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ purchase_item_id: id, alias: alias }),
+      });
+      return r.status;
+    }, [created.id, aliasName]);
+    expect(addStatus).toBe(201);
+    // Seed a pending purchase whose line carries the ALIAS text, not the name
+    await seedPendingPurchase(page, {
+      bankTxId: 'test-alias-match-' + ts, vendor: 'Alias Vendor ' + ts, bankTotal: -7.99,
+      eventDate: '2026-04-15', reason: 'test', items: [{ name: aliasName, quantity: 1, price: 7.99 }],
+    });
+    await page.reload();
+    await waitForHistoryContent(page);
+    const pending = page.locator('[data-action="review-pending"]').first();
+    expect(await pending.count(), 'seeded pending purchase must render').toBeGreaterThan(0);
+    await pending.click();
+    const wrap = page.locator('.review-li-name-wrap').first();
+    await expect(wrap).toHaveClass(/linked/);
+    // The line resolves to the item's canonical name, not the alias text
+    await expect(page.locator('.review-li-name').first()).toHaveValue(itemName);
+  });
+
+  test('linking a receipt line learns the raw name as an alias and future receipts auto-match', async ({ page }) => {
+    const ts = Date.now();
+    const groups = await invApiCall(page, 'GET', 'groups');
+    const gid = groups && groups.length ? groups[0].id : null;
+    const itemName = 'Learned Honey ' + ts;
+    const created = await invApiCall(page, 'POST', 'items', { description: itemName, group_id: gid });
+    expect(created && created.id, 'item create must return an id').toBeTruthy();
+    const rawName = 'Store Brand Hny ' + ts;
+    await seedPendingPurchase(page, {
+      bankTxId: 'test-alias-learn-' + ts, vendor: 'Learn Vendor ' + ts, bankTotal: -5.99,
+      eventDate: '2026-04-15', reason: 'test', items: [{ name: rawName, quantity: 1, price: 5.99 }],
+    });
+    await page.reload();
+    await waitForHistoryContent(page);
+    await page.locator('[data-action="review-pending"]').first().click();
+    // Line is unlinked — open the picker and link it to the catalog item
+    await expect(page.locator('.review-li-name-wrap').first()).toHaveClass(/unlinked/);
+    await page.locator('.review-li-name').first().click();
+    await expect(page.locator('.item-modal')).toBeVisible();
+    await page.fill('#item-modal-search', itemName);
+    await page.waitForTimeout(300);
+    await page.locator('.item-modal-item').first().click();
+    await expect(page.locator('.item-modal')).toHaveCount(0);
+    // The raw receipt text was learned as an alias of the item
+    await expect.poll(async () => {
+      const items = await invApiCall(page, 'GET', 'items');
+      const it = (items || []).find(i => i.id === created.id);
+      return (it && it.aliases) || [];
+    }, { timeout: 5000 }).toContain(rawName);
+    // A future receipt carrying the same raw name now auto-matches
+    await seedPendingPurchase(page, {
+      bankTxId: 'test-alias-learn2-' + ts, vendor: 'Learn Vendor2 ' + ts, bankTotal: -6.49,
+      eventDate: '2026-04-16', reason: 'test', items: [{ name: rawName, quantity: 1, price: 6.49 }],
+    });
+    await page.reload();
+    await waitForHistoryContent(page);
+    await page.locator('[data-action="review-pending"]').first().click();
+    await expect(page.locator('.review-li-name-wrap').first()).toHaveClass(/linked/);
+    await expect(page.locator('.review-li-name').first()).toHaveValue(itemName);
+  });
+
+  test('Setup item editor shows alias chips, adds and removes nicknames', async ({ page }) => {
+    const ts = Date.now();
+    const groups = await invApiCall(page, 'GET', 'groups');
+    const gid = groups && groups.length ? groups[0].id : null;
+    const itemName = 'Chip Item ' + ts;
+    const created = await invApiCall(page, 'POST', 'items', { description: itemName, group_id: gid });
+    expect(created && created.id, 'item create must return an id').toBeTruthy();
+    const seededAlias = 'Seeded Nick ' + ts;
+    await page.evaluate(async ([id, alias]) => {
+      await fetch('/api/v1/inventory/items/aliases', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ purchase_item_id: id, alias: alias }),
+      });
+    }, [created.id, seededAlias]);
+    await page.reload();
+    await page.waitForLoadState('networkidle');
+    // Open Setup → Items and expand the item's edit form
+    await page.click('#t7');
+    const row = page.locator('.item-row[data-id="' + created.id + '"]');
+    await row.click();
+    const form = page.locator('.item-edit-form[data-item-id="' + created.id + '"]');
+    await expect(form).toBeVisible();
+    // Seeded alias renders as a chip
+    await expect(form.locator('.alias-chip')).toContainText(seededAlias);
+    // Add a second nickname through the UI
+    const typedAlias = 'Typed Nick ' + ts;
+    await form.locator('.item-alias-input').fill(typedAlias);
+    await form.locator('button[data-action="add-item-alias"]').click();
+    await expect(form.locator('.alias-chip')).toHaveCount(2);
+    await expect(form.locator('.alias-chips')).toContainText(typedAlias);
+    // Remove the seeded one
+    await form.locator('.alias-chip-x[data-alias="' + seededAlias + '"]').click();
+    await expect(form.locator('.alias-chip')).toHaveCount(1);
+    await expect(form.locator('.alias-chips')).not.toContainText(seededAlias);
+    // Server agrees
+    const items = await invApiCall(page, 'GET', 'items');
+    const it = (items || []).find(i => i.id === created.id);
+    expect(it.aliases).toEqual([typedAlias]);
+  });
+
   // ── Item selection updates visual indicator ───────────────────────────
 
   test('selecting item in modal changes border from orange to no highlight', async ({ page }) => {

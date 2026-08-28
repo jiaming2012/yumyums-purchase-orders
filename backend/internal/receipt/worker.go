@@ -926,7 +926,12 @@ func backfillPendingVendor(ctx context.Context, pool *pgxpool.Pool, tx MercuryTr
 	return err
 }
 
-// loadPurchaseItemsMap returns a map of description -> id for all purchase_items.
+// loadPurchaseItemsMap returns a map of name -> id for all purchase_items,
+// including learned aliases (item_aliases) as additional keys. Descriptions
+// take precedence: an alias that case-insensitively collides with any
+// description is skipped, so an alias can never shadow a catalog name.
+// Alias keys make previously human-linked receipt text an exact match in
+// DerivePurchaseItemID, ahead of the fuzzy/AI stages.
 func loadPurchaseItemsMap(ctx context.Context, pool *pgxpool.Pool) (map[string]string, error) {
 	rows, err := pool.Query(ctx, `SELECT id, description FROM purchase_items`)
 	if err != nil {
@@ -935,14 +940,36 @@ func loadPurchaseItemsMap(ctx context.Context, pool *pgxpool.Pool) (map[string]s
 	defer rows.Close()
 
 	m := make(map[string]string)
+	seen := make(map[string]bool)
 	for rows.Next() {
 		var id, desc string
 		if err := rows.Scan(&id, &desc); err != nil {
 			return nil, fmt.Errorf("loadPurchaseItemsMap scan: %w", err)
 		}
 		m[desc] = id
+		seen[strings.ToLower(desc)] = true
 	}
-	return m, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	aliasRows, err := pool.Query(ctx, `SELECT purchase_item_id, alias FROM item_aliases`)
+	if err != nil {
+		return nil, fmt.Errorf("loadPurchaseItemsMap aliases: %w", err)
+	}
+	defer aliasRows.Close()
+	for aliasRows.Next() {
+		var id, alias string
+		if err := aliasRows.Scan(&id, &alias); err != nil {
+			return nil, fmt.Errorf("loadPurchaseItemsMap alias scan: %w", err)
+		}
+		if seen[strings.ToLower(alias)] {
+			continue
+		}
+		m[alias] = id
+		seen[strings.ToLower(alias)] = true
+	}
+	return m, aliasRows.Err()
 }
 
 // enrichItemsWithMatches populates each item's PurchaseItemID using a
