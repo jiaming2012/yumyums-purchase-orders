@@ -198,7 +198,7 @@ function createNewOBVideoPart() {
   return { id: generateOBId('vp'), title: '', description: '', url: '', source: 'upload', thumbnail_url: null };
 }
 function createNewOBFaqItem() {
-  return { id: generateOBId('faq'), question: '', answer: '' };
+  return { id: generateOBId('faq'), type: 'faq', label: '', answer: '' };
 }
 function formatDate(dateStr) {
   if (!dateStr) return '';
@@ -422,7 +422,7 @@ function renderSections(sections, hireId, readOnly) {
         html += '<div class="sec-items">';
         (sec.items || []).forEach(function(faqItem) {
           var isOpen = EXPANDED_FAQS[faqItem.id];
-          html += '<div class="faq-q" data-action="toggle-faq" data-faq-id="'+faqItem.id+'">'+escapeOBAttr(faqItem.question)+'<span>'+(isOpen?'&#9650;':'&#9660;')+'</span></div>';
+          html += '<div class="faq-q" data-action="toggle-faq" data-faq-id="'+faqItem.id+'">'+escapeOBAttr(faqItem.label)+'<span>'+(isOpen?'&#9650;':'&#9660;')+'</span></div>';
           if (isOpen) html += '<div class="faq-a">'+escapeOBAttr(faqItem.answer)+'</div>';
         });
         html += '</div>';
@@ -1012,7 +1012,7 @@ function renderOBSection(sec) {
       faqHtml += '<div class="ob-qna-row" data-item-id="'+faqItem.id+'">'+
         '<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">'+
         '<span class="drag-handle">&#9776;</span>'+
-        '<input type="text" value="'+escapeOBAttr(faqItem.question)+'" data-action="faq-q-input" data-sec-id="'+sec.id+'" data-faq-idx="'+idx+'" placeholder="Question" style="flex:1;padding:6px 8px;background:var(--card);border:0.5px solid var(--brd);border-radius:6px;font-size:13px;color:var(--txt);font-family:inherit;outline:none">'+
+        '<input type="text" value="'+escapeOBAttr(faqItem.label)+'" data-action="faq-q-input" data-sec-id="'+sec.id+'" data-faq-idx="'+idx+'" placeholder="Question" style="flex:1;padding:6px 8px;background:var(--card);border:0.5px solid var(--brd);border-radius:6px;font-size:13px;color:var(--txt);font-family:inherit;outline:none">'+
         '<span data-action="delete-faq-item" data-sec-id="'+sec.id+'" data-faq-idx="'+idx+'" style="color:#c0392b;cursor:pointer;font-size:14px">&#10005;</span>'+
         '</div>'+
         '<textarea data-action="faq-a-input" data-sec-id="'+sec.id+'" data-faq-idx="'+idx+'" placeholder="Answer" rows="2" style="width:calc(100% - 28px);padding:6px 8px;background:var(--card);border:0.5px solid var(--brd);border-radius:6px;font-size:13px;color:var(--txt);font-family:inherit;outline:none;resize:vertical;margin-left:28px;box-sizing:border-box">'+escapeOBAttr(faqItem.answer)+'</textarea>'+
@@ -2092,7 +2092,7 @@ document.getElementById('builder-body').addEventListener('input', function(e) {
     if (sec) { var item = sec.items[+e.target.dataset.itemIdx]; if (item && item.video_parts) item.video_parts[+e.target.dataset.partIdx].url = e.target.value; }
   } else if (e.target.dataset.action === 'faq-q-input') {
     var sec = (obBuilderState.localCopy.sections||[]).find(function(s) { return s.id === e.target.dataset.secId; });
-    if (sec && sec.items[+e.target.dataset.faqIdx]) sec.items[+e.target.dataset.faqIdx].question = e.target.value;
+    if (sec && sec.items[+e.target.dataset.faqIdx]) sec.items[+e.target.dataset.faqIdx].label = e.target.value;
   } else if (e.target.dataset.action === 'faq-a-input') {
     var sec = (obBuilderState.localCopy.sections||[]).find(function(s) { return s.id === e.target.dataset.secId; });
     if (sec && sec.items[+e.target.dataset.faqIdx]) sec.items[+e.target.dataset.faqIdx].answer = e.target.value;
