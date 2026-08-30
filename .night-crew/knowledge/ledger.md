@@ -3468,3 +3468,28 @@ night-crew clone at `reference/milestones/hq-20260828.md`; two tool-implicating 
 captured there as B-376/B-377 on per-item consent, verified by handle (2/2 backed). Marker
 `hq-20260828` written — carrying no boundary, as every marker here does while nothing
 writes run records. This target has no reflections store; recorded as an absence.
+
+### T-46 — Roadmap round: "Prod current and honest" authored (2026-08-28, attended)
+
+- New cycle authored at the attended `/nc-roadmap-round` — roadmap + OKRs in one sitting
+  (§15j.42). Milestone **"Prod current and honest"**: notice → ship → fix build order (the
+  counterparty notice gates the 0072-carrying deploy; the deploy gates prod fixes landing).
+  Close bar, three legs, all operator-observed: parity at 0 drift · Toast ingest current
+  within 48h · the kill-drill alert arriving on a deliberately-broken pipeline.
+- **Decision 162 — the PM rating is a weighted composite: 0.7 × forks-prevented +
+  0.3 × PRD-to-KR traceability.** A not-computable component renders as N/A and the rating
+  is computed from the remainder, labelled — never silently zero, never silently full marks.
+  Chosen by the operator at this round on the retro's real numbers, closing the question
+  §15bk.188 deliberately carried for a cycle.
+- Backlog walk: all **63** CLI-visible open items dispositioned (22 promoted, 1 dropped —
+  B-33, tracked clone-side as B-346/B-347 — the rest left `new` knowingly, named in
+  roadmap.md's dispositions table). The ~62 document-only legacy entries were not walkable
+  (`backlog list` cannot emit them — B-12/B-168's gap, promoted this round as
+  `backlog-machine-migration`); they become walkable next round.
+- Scorecard role-visibility (retro §3): ruled worth a small card — `team-records-from-hand-runs`.
+  Spike-class sizing note (retro §2) carried into the roadmap header for slate planning.
+- Previous cycle's pages archived at `reference/roadmap-2026-08-28-sync-dev-complete.md` +
+  `reference/okrs-2026-08-28-sync-dev-complete.md`; the `dev-complete-attestation` card was
+  found still reading PLANNED after the close and flipped to DONE citing T-45.
+- OKR page rehearsed at authoring: `night-crew okr validate` exit 0; `night-crew okr dry-run`
+  14/14 gradable, 0 refused (12 attested · 2 derived · 0 disclosed-deferred).
