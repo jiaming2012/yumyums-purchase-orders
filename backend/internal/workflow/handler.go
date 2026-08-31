@@ -629,7 +629,21 @@ func SaveResponseHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			return
 		}
 
-		if err := saveResponse(r.Context(), pool, input.FieldID, input.Value, user.ID); err != nil {
+		// B-157: compute the winning lamport_ts (current + 1) BEFORE the save so
+		// the save can stamp it inline — ONE row write instead of the historic
+		// INSERT-then-EmitOp-UPDATE pair a row-level CDC trigger saw as two events.
+		// This is the exact value EmitOp would have assigned; on a delete (null
+		// value) the stamp is unused. A read error here is non-fatal — fall back to
+		// a stamp of 0 (bare save + normal EmitOp), preserving old behavior rather
+		// than failing the save.
+		stampTS, tsErr := opsync.NextLamportTS(r.Context(), pool, input.FieldID, "field_response")
+		if tsErr != nil {
+			slog.Warn("SaveResponseHandler NextLamportTS failed; falling back to EmitOp", "field_id", input.FieldID, "error", tsErr)
+			stampTS = 0
+		}
+
+		stampedTS, err := saveResponse(r.Context(), pool, input.FieldID, input.Value, user.ID, stampTS)
+		if err != nil {
 			if errors.Is(err, ErrUnknownField) {
 				writeError(w, http.StatusUnprocessableEntity, "unknown_field")
 				return
@@ -638,16 +652,26 @@ func SaveResponseHandler(pool *pgxpool.Pool) http.HandlerFunc {
 			writeError(w, http.StatusInternalServerError, "internal_error")
 			return
 		}
+		// Emit the op journal row. When the save stamped a lamport_ts inline
+		// (stampedTS > 0), use EmitOpForStampedEntity so the op carries the SAME
+		// lamport_ts WITHOUT a second `UPDATE submission_responses SET lamport_ts`.
+		// Otherwise (delete path, or the NextLamportTS fallback above) fall back to
+		// the normal EmitOp, which reads next lamport_ts and stamps as before.
 		if payload, merr := json.Marshal(map[string]any{"field_id": input.FieldID, "value": input.Value, "user_name": user.DisplayName}); merr == nil {
-			opsync.EmitOp(pool, opsync.OpInput{
+			op := opsync.OpInput{
 				DeviceID:   "server",
 				UserID:     user.ID,
 				EntityID:   input.FieldID,
 				EntityType: "field_response",
 				OpType:     opsync.OpSetField,
 				Payload:    json.RawMessage(payload),
-				LamportTS:  0,
-			})
+			}
+			if stampedTS > 0 {
+				opsync.EmitOpForStampedEntity(pool, op, stampedTS)
+			} else {
+				op.LamportTS = 0
+				opsync.EmitOp(pool, op)
+			}
 		} else {
 			slog.Error("SaveResponseHandler failed to marshal op payload", "error", merr)
 		}
