@@ -1264,7 +1264,7 @@ visibility/notice/tooling).
 
 | # | Card | Track | Class | Est | Implementer-return | G6-return | Fix-return | Land | End-to-end |
 |---|---|---|---|---|---|---|---|---|---|
-| 1 | `receipt-worker-correctness` | A | small-additive | 70–110m | 16:21 EDT (~10m impl) | — | — | — | — |
+| 1 | `receipt-worker-correctness` | A | small-additive | 70–110m | 16:21 EDT (~10m impl) | ~16:28 (PASS-W-ISSUES; parseable-path finding WAIVED→B-177) | none | 16:34 `0e988ce` | **~26m** (est 70–110m; far under — Opus, well-scoped 2-defect card) |
 | 2 | `toast-sync-fail-loud` | A | new-mechanism | 60–100m | — | — | — | — | — |
 | 3 | `toast-ingest-resurrection` | A | new-mechanism | 90–140m | — | — | — | — | — |
 | 4 | `client-guard-coverage` | B | small-additive | 60–90m | — | — | — | — | — |
@@ -1272,6 +1272,6 @@ visibility/notice/tooling).
 | 6 | `sync-dev-one-command` | B | small-additive | 25–45m | — | — | — | — | — |
 | 7 | `sync-doc-honesty` | B | followup-batch | 45–75m | — | — | — | — | — |
 | 8 | `app-slug-association` | B | new-mechanism | 80–120m | — | — | — | — | — |
-| 9 | `period-summary-visibility` | C | small-additive | 45–75m | 16:21 EDT (~13m impl) | — | — | — | — |
+| 9 | `period-summary-visibility` | C | small-additive | 45–75m | 16:21 EDT (~13m impl) | ~16:26 (PASS) | none | 16:32 `4c387cb` | **~24m** (est 45–75m; far under) |
 | 10 | `counterparty-notice-prep` | C | small-additive | 40–70m | — | — | — | — | — |
 | 11 | `deploy-hygiene-honesty` | C | small-additive | 50–85m | — | — | — | — | — |
