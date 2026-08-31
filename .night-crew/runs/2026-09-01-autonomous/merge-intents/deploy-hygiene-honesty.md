@@ -79,6 +79,28 @@ as-is. So B-17's live-source correction is `build-sw.js:46`; the live roadmap ca
 claim-correction (it is already honest). This is stated so a reviewer does not read the absent
 `:383` edit as a missed location.
 
+## 🛑 Env finding for the orchestrator — workbox version drift (READ before re-running `task sw`)
+
+This worktree's **symlinked `node_modules` carries `workbox-build@7.3.0`**, but
+`package-lock.json` pins **`7.4.1`**. Regenerating sw.js here (`node build-sw.js`) therefore
+produces a **spurious workbox-runtime-chunk-hash-only** delta:
+`define(["./workbox-0225851e"…])` → `define(["./workbox-d4a0f5c1"…])`, plus a new
+`workbox-d4a0f5c1.js` chunk file. **Every precache `revision` hash — including
+`version.json` (`226015341780c9f481a7d23133f4c77e`, 21 bytes, unchanged) — is byte-identical;
+the count stays 31.** This drift is environmental, NOT a product of this card.
+
+I did NOT commit that drift. I restored the committed sw.js. My source change (comment-only
+in `build-sw.js`/`write-version-json.js`; one `\n` in `backend/Dockerfile`) touches **no
+precached file** and does not change the version.json bytes, so sw.js needs **no regeneration**
+for B-135/B-17 — the committed sw.js already correctly describes the 21-byte version.json the
+authoritative generator writes, and post-fix the Docker generator writes those same bytes.
+
+When the orchestrator re-runs `task sw` on the merged tree after Cards 7 and 11 land: if the
+merge node_modules is still 7.3.0, sw.js will regenerate with the `d4a0f5c1` chunk — that is
+the workbox drift, not a Card-11 or Card-7 change. If a version-parity or workbox-pin card is
+wanted, that is a SEPARATE backlog item (worktree node_modules ≠ locked workbox); flag it, do
+not fold it into this card's sw.js.
+
 ## PARK section
 
 Not parked. The unification is byte-identical — same artifacts, same paths, same release-flow
