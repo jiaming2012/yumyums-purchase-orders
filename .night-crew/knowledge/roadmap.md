@@ -189,11 +189,15 @@ ran it" rule — decision 161's class, `process/C-3` pending.)
   `clearApiCache()` has zero coverage — dropping the `await` leaves the suite green. Red-first
   both. Footprint: sync client.
 
-- **`cdc-single-fire`** · **PLANNED** · Closes **B-157**. One `/saveResponse` call fires any
-  CDC trigger on `submission_responses` twice (`workflow/repository.go`) — today's relay
-  tolerates it; any future carrier that counts or bills per event will not, and double-NOTIFY
-  is double load on the relay for nothing. Red-first: a trigger-count assertion. Footprint:
-  backend workflow.
+- **`cdc-single-fire`** · **DONE** (run 20260901, Card 5) · Closes **B-157**. One
+  `/saveResponse` call fired any CDC trigger on `submission_responses` twice — the save
+  INSERT plus `EmitOp`'s separate `UPDATE ... SET lamport_ts`. Fixed by folding the
+  lamport_ts stamp into the save's own upsert (`saveResponse` gained a `stampLamportTS`
+  param; handler emits the op row via the new `opsync.EmitOpForStampedEntity`, no second
+  row write). Red-first trigger-count test: 2 fires pre-change → 1 after
+  (`internal/workflow/cdc_single_fire_test.go`). The `/ops` path is deliberately left
+  unchanged (stamp=0) — its stamp happens after CheckLWW and is out of B-157's scope.
+  Footprint: backend workflow (+ isolated additions to backend sync).
 
 - **`app-slug-association`** · **PLANNED** · Closes **B-160** — the open question spike B
   handed the cutover: HQ stores **no template→app association**, so `app_slug` is a constant

@@ -130,7 +130,7 @@ func TestUpdateTemplate_StableFieldIdentity(t *testing.T) {
 	fridge := fieldByLabel(t, before, "Check fridge temps")
 
 	// A crew member checks the surviving field — a draft response under wipe.ID.
-	if err := saveResponse(ctx, testPool, wipe.ID, json.RawMessage(`true`), userID); err != nil {
+	if _, err := saveResponse(ctx, testPool, wipe.ID, json.RawMessage(`true`), userID, 0); err != nil {
 		t.Fatalf("saveResponse (draft): %v", err)
 	}
 
@@ -212,7 +212,7 @@ func TestSaveResponse_UnknownFieldRejected(t *testing.T) {
 
 	// A field id that does not exist in any template.
 	deadFieldID := "00000000-0000-4000-8000-00000000dead"
-	err := saveResponse(ctx, testPool, deadFieldID, json.RawMessage(`true`), userID)
+	_, err := saveResponse(ctx, testPool, deadFieldID, json.RawMessage(`true`), userID, 0)
 	if !errors.Is(err, ErrUnknownField) {
 		t.Fatalf("saveResponse to absent field: want ErrUnknownField, got %v", err)
 	}
@@ -234,7 +234,7 @@ func TestSaveResponse_UnknownFieldRejected(t *testing.T) {
 		t.Fatalf("getTemplateByID: %v", err)
 	}
 	real := fieldByLabel(t, tmpl, "Real task")
-	if err := saveResponse(ctx, testPool, real.ID, json.RawMessage(`true`), userID); err != nil {
+	if _, err := saveResponse(ctx, testPool, real.ID, json.RawMessage(`true`), userID, 0); err != nil {
 		t.Fatalf("saveResponse to live field should succeed, got %v", err)
 	}
 }

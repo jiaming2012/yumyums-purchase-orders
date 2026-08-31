@@ -59,7 +59,10 @@ func workflowOpRouter(pool *pgxpool.Pool) opsync.OpRouter {
 			if err := json.Unmarshal(req.Payload, &p); err != nil {
 				return nil, routerErr(http.StatusBadRequest, "invalid_payload")
 			}
-			if err := workflow.SaveResponseFunc(ctx, pool, p.FieldID, p.Value, userID); err != nil {
+			// stamp=0: the /ops path lets the sync handler stamp lamport_ts AFTER its
+			// LWW conflict check (EmitOpWithConflictCheck), so this business write
+			// must NOT touch lamport_ts here (B-157 fix is scoped to /saveResponse).
+			if _, err := workflow.SaveResponseFunc(ctx, pool, p.FieldID, p.Value, userID, 0); err != nil {
 				if errors.Is(err, workflow.ErrUnknownField) {
 					// Field was cut from the template (FR-3, INV-4). Reject loudly so
 					// the runner rolls back the optimistic checkmark instead of writing

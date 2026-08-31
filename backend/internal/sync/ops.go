@@ -238,6 +238,15 @@ func nextLamportTS(ctx context.Context, pool *pgxpool.Pool, entityID, entityType
 	return current + 1, nil
 }
 
+// NextLamportTS returns the winning lamport_ts (current + 1) for an entity,
+// exported so a business-write path can stamp the entity row itself in a single
+// write (B-157) instead of relying on EmitOp's separate follow-up UPDATE. It is
+// the same value EmitOp would have assigned. Returns 1 when the entity has no
+// row yet.
+func NextLamportTS(ctx context.Context, pool *pgxpool.Pool, entityID, entityType string) (int64, error) {
+	return nextLamportTS(ctx, pool, entityID, entityType)
+}
+
 // EmitOp fires InsertOpAndNotify in a goroutine with a 5-second timeout.
 // Errors are logged but not propagated. Use this for server-side emission
 // after a handler has already written successfully. Automatically assigns
@@ -267,6 +276,63 @@ func EmitOp(pool *pgxpool.Pool, op OpInput) {
 // handlers that need to return 409 to the client when an op is stale.
 func EmitOpWithConflictCheck(ctx context.Context, pool *pgxpool.Pool, op OpInput) (string, *ConflictResult, error) {
 	return InsertOpAndNotify(ctx, pool, op)
+}
+
+// EmitOpForStampedEntity records the op row and fires pg_notify WITHOUT updating
+// the entity table's lamport_ts (B-157). Use this when the caller has ALREADY
+// stamped the entity row's lamport_ts as part of the same logical write — the
+// canonical case is saveResponse, which now folds `lamport_ts = current + 1`
+// into its INSERT/upsert so one user save is one row write to
+// submission_responses. The separate `UPDATE ... SET lamport_ts` that EmitOp
+// would do is exactly the second write a row-level CDC trigger could not
+// distinguish from the save, doubling every change-capture event.
+//
+// The op row still carries the passed lamportTS (which MUST equal the value the
+// caller stamped on the entity row), so LWW ordering and the op journal are
+// unchanged; only the redundant entity-table write is dropped. Fire-and-forget
+// with a 5s timeout, like EmitOp; errors are logged, not propagated.
+func EmitOpForStampedEntity(pool *pgxpool.Pool, op OpInput, lamportTS int64) {
+	op.LamportTS = lamportTS
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := insertOpRowAndNotify(ctx, pool, op); err != nil {
+			slog.Error("EmitOpForStampedEntity error inserting op", "entity_id", op.EntityID, "error", err)
+		}
+	}()
+}
+
+// insertOpRowAndNotify inserts a single op row and fires pg_notify in its own
+// transaction, WITHOUT any entity-table lamport_ts update. It is the op-journal
+// half of InsertOpAndNotify, split out for callers that have already stamped the
+// entity row (EmitOpForStampedEntity). op.LamportTS must be set by the caller.
+func insertOpRowAndNotify(ctx context.Context, pool *pgxpool.Pool, op OpInput) error {
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+
+	var opID string
+	if err := tx.QueryRow(ctx,
+		`INSERT INTO ops (device_id, user_id, entity_id, entity_type, op_type, payload, lamport_ts)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7)
+		 RETURNING id`,
+		op.DeviceID, op.UserID, op.EntityID, op.EntityType, op.OpType, op.Payload, op.LamportTS,
+	).Scan(&opID); err != nil {
+		return err
+	}
+
+	notifyPayload, _ := json.Marshal(map[string]string{
+		"op_id":       opID,
+		"entity_id":   op.EntityID,
+		"entity_type": op.EntityType,
+		"user_id":     op.UserID,
+	})
+	if _, err := tx.Exec(ctx, `SELECT pg_notify('ops_channel', $1)`, string(notifyPayload)); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 // EmitOpTx records an op transactionally inside the caller's transaction: it
