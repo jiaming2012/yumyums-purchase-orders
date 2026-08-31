@@ -113,3 +113,14 @@ merge (precache count 31 — an unexplained move is B-37).
 - **G6 verdict:** **PASS** (a64ca53c) — red-first trigger-count reproduced (revert→2 fires, restore→1); `internal/workflow` 39/39; LWW ordering + draft distinction intact; **workflow-footprint Playwright subset (workflows+persistence+sync+repro-cut-task) = 187 passed / 2 failed**, both accounted: `[DBL-05]`=B-176 (documented baseline red), `[SYNC-RF-02]`=flake (passed in isolation); all 34 persistence save/draft tests GREEN (/saveResponse contract preserved). G6 ruled the **/ops-left-unchanged scoping SOUND** (folding lamport inline on /ops would advance lamport_ts before CheckLWW → false conflicts; B-157 scopes to /saveResponse). Two pre-existing nice-to-haves noted (non-atomic NextLamportTS read, field_response CheckLWW keying) — neither a regression.
 - **Gate after merge (control-loop re-gate on `3359dee`):** G1 `go build ./...` 0, `go vet ./...` 0. `internal/workflow` **ok** 4.24s (isolated `hq_test_go_regate5`, `HQ_SYNC_*` unset). Playwright footprint gate = G6's subset run (authoritative; merged tree adds only Card 3 toast-infra + Card 11 build-tooling atop G6's base, neither touches the workflow frontend flows). `internal/sync` red unchanged = B-178.
 - **Roadmap:** `cdc-single-fire` DONE.
+
+## Merge 9 — Card 6 `sync-dev-one-command` → `overnight-20260901`
+
+- **Merge commit:** `3b90709` (`--no-ff`). **Card branch:** `wo-sync-dev-one-command` (tip `d4b93cd`).
+- **Cards involved:** Card 6 (Track B, 3rd). Run branch had advanced (Cards 1–5,9,10,11).
+- **Files / hunks:** 4 files, +127/−6: root `Taskfile.yml` (+39 — new "ONE-COMMAND DEV — `task sync:dev`" section inside the sync family), `.night-crew/qa/spike-supabase/spike-f-browser-live.sh` (+14/−6 — B-170 deterministic resolver), `roadmap.md` (DONE), merge-intent.
+- **Shared surface:** root `Taskfile.yml` — Card 3 touched `docker-compose.prod.yml` NOT the Taskfile; no other Track-B card edits the sync family. **No conflict.**
+- **Conflict?** **NONE — clean** (ort).
+- **G6 verdict:** **PASS** (a25d2a0f) — `task --dry sync:dev` resolves to sync:dev:up → backend:dev:tailscale (data plane first, server last, HQ_SYNC_* reused not re-derived); B-164 :5433 refusal preserved (`sync-dev-up.sh` UNCHANGED, `ALLOW_5433` is the pre-existing escape hatch, no new bypass); B-170 resolver deterministic (`node $PW_CLI`) + tri-state exit hardened (missing CLI → cannot-run exit 2). **NOTHING run against :5433** (sole invocation `task --dry` with a scratch DSN). No must-fix.
+- **Gate after merge (control-loop re-gate on `3b90709`):** G1 `go build ./...` 0, `go vet ./...` 0. G2-Go/G2-Playwright/G4 **N/A-by-footprint** (root Taskfile + spike script; no seam key matches — G6 confirmed).
+- **Roadmap:** `sync-dev-one-command` DONE.
