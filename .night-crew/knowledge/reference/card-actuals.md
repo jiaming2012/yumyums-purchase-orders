@@ -1266,7 +1266,7 @@ visibility/notice/tooling).
 |---|---|---|---|---|---|---|---|---|---|
 | 1 | `receipt-worker-correctness` | A | small-additive | 70–110m | 16:21 EDT (~10m impl) | ~16:28 (PASS-W-ISSUES; parseable-path finding WAIVED→B-177) | none | 16:34 `0e988ce` | **~26m** (est 70–110m; far under — Opus, well-scoped 2-defect card) |
 | 2 | `toast-sync-fail-loud` | A | new-mechanism | 60–100m | ~16:45 (~7m impl) | ~16:50 (PASS) | none | 16:51 `d2120c8` | **~13m** (est 60–100m; far under) |
-| 3 | `toast-ingest-resurrection` | A | new-mechanism | 90–140m | ~17:10 (~7m impl) | — | — | — | — |
+| 3 | `toast-ingest-resurrection` | A | new-mechanism | 90–140m | ~17:10 (~7m impl) | ~17:16 (PASS; NO-KEY check clean) | none | ~17:18 `4bbb7dc` | **~15m** (est 90–140m risk-flagged; far under — no prod cred to place, mechanism+docs only) |
 | 4 | `client-guard-coverage` | B | small-additive | 60–90m | ~16:51 (~46m impl — full ~24m Playwright suite + reruns to separate flakes from baseline) | ~17:05 (PASS) | none | ~17:00 `5d96274` | **~55m** (est 60–90m; in band; dominated by the full suite it pays as the last sync-de-confined leg) |
 | 5 | `cdc-single-fire` | B | small-additive | 45–80m | — | — | — | — | — |
 | 6 | `sync-dev-one-command` | B | small-additive | 25–45m | — | — | — | — | — |
