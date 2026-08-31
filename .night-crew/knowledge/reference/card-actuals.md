@@ -1264,7 +1264,7 @@ visibility/notice/tooling).
 
 | # | Card | Track | Class | Est | Implementer-return | G6-return | Fix-return | Land | End-to-end |
 |---|---|---|---|---|---|---|---|---|---|
-| 1 | `receipt-worker-correctness` | A | small-additive | 70–110m | — | — | — | — | — |
+| 1 | `receipt-worker-correctness` | A | small-additive | 70–110m | 16:21 EDT (~10m impl) | — | — | — | — |
 | 2 | `toast-sync-fail-loud` | A | new-mechanism | 60–100m | — | — | — | — | — |
 | 3 | `toast-ingest-resurrection` | A | new-mechanism | 90–140m | — | — | — | — | — |
 | 4 | `client-guard-coverage` | B | small-additive | 60–90m | — | — | — | — | — |
@@ -1272,6 +1272,6 @@ visibility/notice/tooling).
 | 6 | `sync-dev-one-command` | B | small-additive | 25–45m | — | — | — | — | — |
 | 7 | `sync-doc-honesty` | B | followup-batch | 45–75m | — | — | — | — | — |
 | 8 | `app-slug-association` | B | new-mechanism | 80–120m | — | — | — | — | — |
-| 9 | `period-summary-visibility` | C | small-additive | 45–75m | — | — | — | — | — |
+| 9 | `period-summary-visibility` | C | small-additive | 45–75m | 16:21 EDT (~13m impl) | — | — | — | — |
 | 10 | `counterparty-notice-prep` | C | small-additive | 40–70m | — | — | — | — | — |
 | 11 | `deploy-hygiene-honesty` | C | small-additive | 50–85m | — | — | — | — | — |
