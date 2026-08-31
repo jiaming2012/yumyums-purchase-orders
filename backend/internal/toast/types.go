@@ -28,6 +28,12 @@ type Config struct {
 	SpacesBucket   string // e.g. "hq.yumyums"
 	SpacesEndpoint string // e.g. "https://nyc3.digitaloceanspaces.com"
 	CacheDir       string // e.g. "backend/cache/toast" (D-12)
+
+	// Dialer opens an authenticated SFTP client. Nil means "use the real
+	// dialWithRetry" (the production path). Tests inject a failing/fake dialer
+	// so SyncDate's dial/auth-failure classification (B-146 fail-loud) can be
+	// exercised without a live SFTP endpoint.
+	Dialer func(cfg Config, pemKey string) (*Client, error)
 }
 
 // AggregatedRow is the parser's output: one row per (master_id, business_date)

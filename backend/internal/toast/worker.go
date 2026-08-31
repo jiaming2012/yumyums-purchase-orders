@@ -22,6 +22,64 @@ func SetAlertQueue(q *alerts.Queue) {
 	alertQueue = q
 }
 
+// syncStatus is the package-level last-sync tracker surfaced at /api/v1/health
+// (B-146 fail-loud). Set via SetSyncStatus at server boot. Nil-safe — Snapshot
+// reports "unknown" and the recorders no-op when unset.
+var syncStatus *SyncStatus
+
+// SetSyncStatus wires the health-facing sync tracker into the toast worker.
+// Call once at startup BEFORE StartWorker, from cmd/server/main.go. The health
+// handler holds the same *SyncStatus and reads it via Snapshot.
+func SetSyncStatus(s *SyncStatus) {
+	syncStatus = s
+}
+
+// alertEnqueuer is the minimal enqueue seam handleSyncOutcome routes through.
+// Production passes alertQueue.Enqueue; tests pass a fake sink's enqueue so the
+// fail-loud alert is asserted without a live webhook.
+type alertEnqueuer func(alerts.Alert)
+
+// syncOutcome is the per-cycle verdict handleSyncOutcome routes on. Exactly one
+// of the failure flags drives the loud path; reachedSFTP marks a clean cycle.
+type syncOutcome struct {
+	// reachedSFTP is true if at least one date opened SFTP successfully (dial +
+	// auth OK), i.e. the transport is alive.
+	reachedSFTP bool
+	// sftpUnavailable is true if any date hit ErrSFTPUnavailable — dial/auth
+	// failed. This is the B-146 loud case: health failing + immediate alert.
+	sftpUnavailable bool
+	// lastErr is the most recent error for the alert/health summary.
+	lastErr error
+}
+
+// handleSyncOutcome is the fail-loud routing decision, extracted so it is unit
+// testable without a DB or live SFTP. It updates the health-facing SyncStatus
+// and, on an SFTP-unavailable cycle, enqueues a Cliq alert via enqueue.
+//
+// Precedence: an SFTP-unavailable cycle fails loud even if some other date
+// happened to read from Spaces — a dead transport means no fresh data lands.
+func handleSyncOutcome(o syncOutcome, status *SyncStatus, enqueue alertEnqueuer) {
+	if o.sftpUnavailable {
+		summary := "sftp dial/auth failed"
+		if o.lastErr != nil {
+			summary = o.lastErr.Error()
+		}
+		status.RecordFailure(summary)
+		msg := fmt.Sprintf("Toast sync FAILING: cannot open/authenticate SFTP — no sales data is landing. Last error: %s", summary)
+		if enqueue != nil {
+			enqueue(alerts.Alert{
+				Channel: alerts.ChannelZohoCliq,
+				Message: msg,
+			})
+		}
+		slog.Error("toast worker: ALERT dispatched (SFTP unavailable)", "message", msg)
+		return
+	}
+	if o.reachedSFTP {
+		status.RecordSuccess()
+	}
+}
+
 // consecSpacesFails tracks consecutive ticks where the worker hit a non-miss
 // Spaces error. Resets to 0 on the next clean tick. When it crosses 3 the
 // worker fires one Cliq alert (D-06). Single-worker assumption — no mutex
@@ -110,11 +168,22 @@ func runCycle(ctx context.Context, cfg Config) {
 	var lastSyncErr error
 	syncSystemicErr := false
 	syncedCount := 0
+	// B-146 fail-loud tracking.
+	sftpUnavailable := false // any date hit ErrSFTPUnavailable (dead transport)
+	reachedSFTP := false     // any date opened SFTP successfully
 
 	for d := fromDate; !d.After(toDate); d = d.AddDate(0, 0, 1) {
 		wrote, sErr := SyncDate(ctx, cfg, d)
 		dateDir := d.Format("20060102")
 		switch {
+		case errors.Is(sErr, ErrSFTPUnavailable):
+			// B-146: dial/auth failed — the transport is dead. Fail loud.
+			// Every date in this cycle will hit the same wall, so log once per
+			// date at WARN (SyncDate already logged the ERROR) and mark the
+			// cycle unavailable; the alert fires once, after the loop.
+			slog.Warn("toast sync: SFTP unavailable", "date", dateDir, "error", sErr)
+			sftpUnavailable = true
+			lastSyncErr = sErr
 		case errors.Is(sErr, ErrSFTPMiss):
 			// D-05: expected past Toast retention horizon — INFO log, no counter bump.
 			// Distinguish "already archived in Spaces" (fine — ingest will pick it up)
@@ -134,9 +203,28 @@ func runCycle(ctx context.Context, cfg Config) {
 			slog.Error("toast sync: systemic error", "date", dateDir, "error", sErr)
 			syncSystemicErr = true
 			lastSyncErr = sErr
+			// Reaching a Spaces PutObject failure means SFTP opened and the CSV
+			// downloaded — the transport is alive even though the write failed.
+			reachedSFTP = true
 		case wrote:
 			syncedCount++
+			reachedSFTP = true
 		}
+	}
+
+	// --- Fail-loud routing (B-146): health status + immediate alert ---
+	// Runs BEFORE the Spaces-degraded bookkeeping so a dead transport is the
+	// dominant signal. A genuine ErrSFTPMiss (date-not-found) is NOT loud.
+	if syncStatus != nil {
+		var enqueue alertEnqueuer
+		if alertQueue != nil {
+			enqueue = alertQueue.Enqueue
+		}
+		handleSyncOutcome(syncOutcome{
+			reachedSFTP:     reachedSFTP,
+			sftpUnavailable: sftpUnavailable,
+			lastErr:         lastSyncErr,
+		}, syncStatus, enqueue)
 	}
 
 	// --- Ingest phase ---

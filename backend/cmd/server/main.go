@@ -389,6 +389,13 @@ func main() {
 		// The unreachable case logs its own slog.Error inside Status.
 	}()
 
+	// B-146 fail-loud: the Toast sync tracker the /api/v1/health handler reads.
+	// Declared here (before the health closure captures it) and constructed +
+	// wired into the worker in the Toast block below. Nil until then — a nil
+	// *toast.SyncStatus Snapshots as {"status":"unknown"}, so health is honest
+	// even if the worker block hasn't run yet or is disabled.
+	var toastSync *toast.SyncStatus
+
 	// Service-to-service token for sales-processor → /api/v1/inventory/period-summary
 	// and /api/v1/inventory/menu-cogs (Phase 999.2).
 	// Empty value = endpoint returns 503 (fail-closed); see auth.ServiceTokenMiddleware.
@@ -482,13 +489,17 @@ func main() {
 		r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
-			_ = json.NewEncoder(w).Encode(map[string]string{
+			_ = json.NewEncoder(w).Encode(map[string]any{
 				"status":           "ok",
 				"backend_version":  version.Backend,
 				"frontend_version": version.Frontend,
 				"git_sha":          version.GitSHA,
 				"built_at":         version.BuiltAt,
 				"storage":          storageHealth.Status(r.Context()),
+				// B-146 fail-loud: Toast sync last-run status. A dead SFTP
+				// transport surfaces here as {"status":"failing", ...} instead
+				// of silently landing no data.
+				"toast_sync": toastSync.Snapshot(),
 			})
 		})
 		r.Post("/logs", func(w http.ResponseWriter, r *http.Request) {
@@ -868,6 +879,18 @@ func main() {
 
 		// Wire the alert queue so Plan 04's degraded-Spaces alert can dispatch.
 		toast.SetAlertQueue(alertQ)
+
+		// B-146 fail-loud: the health-facing sync tracker. The worker records
+		// success/failure per cycle; /api/v1/health reads the SAME instance via
+		// toastSync.Snapshot(). Staleness window = 2 sync intervals (default
+		// interval 12h → 24h) so a loop that is up but no longer landing fresh
+		// data reports "stale". Interval 0 (worker disabled) → no stale check.
+		staleAfter := time.Duration(0)
+		if toastCfg.Interval > 0 {
+			staleAfter = 2 * toastCfg.Interval
+		}
+		toastSync = toast.NewSyncStatus(staleAfter)
+		toast.SetSyncStatus(toastSync)
 
 		if toastCfg.Interval == 0 {
 			slog.Info("toast worker disabled, cmd/sync-toast remains available", "reason", "TOAST_SYNC_INTERVAL=0")
