@@ -15,11 +15,21 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
-// ErrSFTPMiss signals that the date is not present on the Toast SFTP server
-// (or 3 dial attempts failed). This is GRACEFUL — D-05 says SFTP misses are
-// expected past Toast's ~14-day retention horizon. Callers should log INFO,
-// not increment failure counters.
+// ErrSFTPMiss signals that the date is not present on the Toast SFTP server.
+// This is GRACEFUL — D-05 says SFTP misses are expected past Toast's ~14-day
+// retention horizon. Callers should log INFO, not increment failure counters.
+//
+// B-146: this used to ALSO cover "3 dial attempts failed", which made a dead
+// transport indistinguishable from an absent date. Dial/auth failure now
+// returns ErrSFTPUnavailable so the worker can fail loud.
 var ErrSFTPMiss = errors.New("toast sync: date not in SFTP")
+
+// ErrSFTPUnavailable signals that the SFTP endpoint could not be opened or
+// authenticated (dial failed after retries, or auth was rejected). This is the
+// B-146 silent-death class: unlike ErrSFTPMiss it is NOT graceful — the whole
+// pipeline is dead, so the worker must surface it in /api/v1/health and fire a
+// Cliq alert immediately, never log-and-continue.
+var ErrSFTPUnavailable = errors.New("toast sync: sftp dial/auth failed")
 
 // SyncDate fetches one business date's ItemSelectionDetails.csv from SFTP and
 // writes it atomically to both the local forensic cache (D-12/D-13) and DO
@@ -27,9 +37,10 @@ var ErrSFTPMiss = errors.New("toast sync: date not in SFTP")
 // fall-through — ingest.RunIngest never reads from cache (D-13).
 //
 // Returns:
-//   - (true, nil)            — CSV written to cache + Spaces successfully (sidecar best-effort)
-//   - (false, ErrSFTPMiss)   — date not present on SFTP, or 3 dial retries failed (D-05/D-06 graceful)
-//   - (false, err)           — Spaces upload failed, or non-SFTP-miss error; caller treats as systemic
+//   - (true, nil)                  — CSV written to cache + Spaces successfully (sidecar best-effort)
+//   - (false, ErrSFTPMiss)         — date not present on SFTP (D-05 graceful skip)
+//   - (false, ErrSFTPUnavailable)  — SFTP dial/auth failed (B-146 loud path — health + alert)
+//   - (false, err)                 — Spaces upload failed, or other error; caller treats as systemic
 //
 // Atomicity (D-14): cache file is written FIRST. If the Spaces PutObject then
 // fails, the cache file is removed so `cache ⊆ Spaces` invariant holds.
@@ -48,11 +59,18 @@ func SyncDate(ctx context.Context, cfg Config, date time.Time) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("read key %q: %w", cfg.SFTPKeyPath, err)
 	}
-	client, err := dialWithRetry(cfg, string(pkBytes))
+	dial := cfg.Dialer
+	if dial == nil {
+		dial = dialWithRetry
+	}
+	client, err := dial(cfg, string(pkBytes))
 	if err != nil {
-		// Treat dial failure same as a SFTP miss (D-06 final bullet — graceful skip after retries).
-		slog.Warn("toast sync: skip (sftp dial failed)", "date", dateDir, "error", err)
-		return false, ErrSFTPMiss
+		// B-146: dial/auth failure is NOT a graceful miss — the transport is
+		// dead. Return ErrSFTPUnavailable so the worker fails loud (health +
+		// Cliq alert). Previously this was downgraded to ErrSFTPMiss and went
+		// silent, which is exactly how prod's sync died invisibly for weeks.
+		slog.Error("toast sync: SFTP unavailable (dial/auth failed)", "date", dateDir, "error", err)
+		return false, fmt.Errorf("%w: %v", ErrSFTPUnavailable, err)
 	}
 	defer client.Close()
 
