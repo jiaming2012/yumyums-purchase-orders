@@ -51,9 +51,32 @@ services:
       STORAGE_REQUIRED: "1"
       SUPERADMIN_CONFIG: /app/config/superadmins.yaml
       TEMPLATE_CONFIG: /app/config/templates.yaml
+      # B-146 (toast-ingest-resurrection): the Toast SFTP key ships as an
+      # operator-placed, git-ignored file (`id_rsa`) sitting BESIDE this compose
+      # file in the prod clone — the SAME pattern .env.prod uses to survive
+      # `git reset --hard origin/main`. It is bind-mounted read-only to the path
+      # below (see `volumes:`). Pinning the absolute in-container path here (not
+      # relying on a .env.prod line) means a forgotten/renamed key is a LOUD
+      # startup failure via config.go's os.Stat guard + the fail-loud health
+      # field, not a silent dead sync. The image does NOT COPY the key; the
+      # mount is the only delivery.
+      TOAST_SFTP_KEY_PATH: /app/id_rsa
+      # Enable the in-process daily sync worker (resurrection). "0" disables it;
+      # "12h" is the documented default (LoadConfigFromEnv). Pinned here so the
+      # worker's enabled/disabled state is explicit in the deploy artifact rather
+      # than implied by an absent env line.
+      TOAST_SYNC_INTERVAL: "12h"
     env_file:
       - path: .env.prod
         required: false
+    volumes:
+      # Toast SFTP private key — operator places `id_rsa` next to this compose
+      # file (git-ignored via .gitignore:id_rsa), chmod 600, owned by the
+      # deploying user. Read-only in the container. If this file is absent the
+      # container fails fast on boot (TOAST_SFTP_KEY_PATH set → os.Stat fails),
+      # which is now the intended loud behavior. See the attended-steps note in
+      # .night-crew/knowledge/reference/toast-archive-gap-20260901.md.
+      - ./id_rsa:/app/id_rsa:ro
     networks:
       - yumyums
 
