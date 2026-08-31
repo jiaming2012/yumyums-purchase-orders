@@ -90,6 +90,21 @@ ran it" rule — decision 161's class, `process/C-3` pending.)
   counterparty-process lesson (B-137) in the ledger: sales-processor is a peer with a contract
   of record, not an external afterthought. Closes **B-29**, **B-137**.
   Footprint: inventory endpoints (docs only) + the outbound notice. **Gates Activity 2.**
+  - **Prep half `counterparty-notice-prep` — DONE, run `20260901` (Card 10, Track C).**
+    The **preparable** half is complete: both contract docs re-verified against the
+    pre-deploy tree (Cards 1+9) — the 2026-08-03 corrections still hold byte-for-byte,
+    no response-shape changed; added the B-137 owner line to both doc headers and a
+    2026-09-01 re-verification addendum to each §0 (noting Card 9's additive
+    `slog.Info` success-log line, which is server-side only, not a wire change). The
+    combined first-person notice draft (changelog + pre-deploy checklist, per B-137's
+    fix shape) lands at `.night-crew/knowledge/reference/counterparty-notice-20260901-draft.md`,
+    covering B-29 (the 2026-06-06 gate change), migration `0072`'s changeover, every
+    corrected contract statement, and Card 9's new visibility.
+  - **Send half — awaiting the operator (attended).** The card flips to DONE and
+    **B-29 / B-137 close only when the operator SENDS the notice** (P-KR3), which must
+    precede the `0072`-carrying deploy. The B-137 counterparty-process lesson line is
+    captured in the draft's footer for the ledger, to be recorded on send. Card stays
+    **PLANNED** until then.
 
 ## Activity 2 — Ship (dev→main, deploy, parity)
 
