@@ -126,7 +126,7 @@ ran it" rule — decision 161's class, `process/C-3` pending.)
   HQ's side. This card builds what the close bar's **kill-drill** proves. Footprint:
   receipt/toast worker + inventory endpoints.
 
-- **`receipt-worker-correctness`** · **PLANNED** · Closes **B-28**, **B-175**. Two measured
+- **`receipt-worker-correctness`** · **DONE** · Closes **B-28**, **B-175**. Two measured
   defects, one file family: `parseEventDate` stamps COGS periods from server-local time
   instead of the business timezone (B-28 — a period-boundary purchase lands in the wrong
   week); a failed download leaves the next attachment misindexed — ext/filename taken from
