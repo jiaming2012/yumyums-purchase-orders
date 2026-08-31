@@ -1733,6 +1733,7 @@ func PeriodSummaryHandler(pool *pgxpool.Pool, cogsAllowlist []string) http.Handl
 			return
 		}
 
+		ready := len(pendingIDs) == 0 && len(unlinkedIDs) == 0
 		resp := PeriodSummary{
 			From:               fromStr,
 			To:                 toStr,
@@ -1742,12 +1743,26 @@ func PeriodSummaryHandler(pool *pgxpool.Pool, cogsAllowlist []string) http.Handl
 			ByVendor:           byVendor,
 			TrackedBankTxIDs:   trackedTxIDs,
 			Completeness: CompletenessBlock{
-				Ready:                len(pendingIDs) == 0 && len(unlinkedIDs) == 0,
+				Ready:                ready,
 				PendingReviewIDs:     pendingIDs,
 				PendingReviewDetails: pendingDetails,
 				UnlinkedLineItemIDs:  unlinkedIDs,
 			},
 		}
+		// Success visibility (B-139). Ten slog.Error lines above record every
+		// failure path; this is the one line that records a *served* response —
+		// which period, the completeness verdict, and the two blocking-set
+		// counts. A blocked payroll week (ready=false) is now greppable in prod
+		// logs regardless of what the sales-processor consumer writes to disk,
+		// where previously the only trace was the ABSENCE of a downstream report
+		// (indistinguishable from a skipped/closed week).
+		slog.Info("period-summary served",
+			"from", fromStr,
+			"to", toStr,
+			"ready", ready,
+			"pending_review_count", len(pendingIDs),
+			"unlinked_line_item_count", len(unlinkedIDs),
+		)
 		writeJSON(w, http.StatusOK, resp)
 	}
 }

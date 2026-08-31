@@ -118,13 +118,21 @@ ran it" rule — decision 161's class, `process/C-3` pending.)
   backfill-horizon discipline of decision 156). Prove: prod's next scheduled sync writes a
   current date-directory. Footprint: prod infra + receipt/toast worker.
 
-- **`pipeline-fail-loud`** · **PLANNED** · Closes **B-139** and B-146's silent-death class.
-  Two mechanisms, one class: (a) the Toast sync loop gets a fail-loud path — a sync that
-  cannot open SFTP or auth surfaces in `/api/v1/health` and the Cliq alert (the drift-check
-  alert pattern already exists — Phase 999.2), never log-and-continue; (b) `/period-summary`
-  logs successful requests and a `ready` verdict, so a blocked payroll pull is visible from
-  HQ's side. This card builds what the close bar's **kill-drill** proves. Footprint:
-  receipt/toast worker + inventory endpoints.
+- **`pipeline-fail-loud`** · **PLANNED (split — half (b) landed)** · Closes **B-139** and
+  B-146's silent-death class. Two mechanisms, one class: (a) the Toast sync loop gets a
+  fail-loud path — a sync that cannot open SFTP or auth surfaces in `/api/v1/health` and the
+  Cliq alert (the drift-check alert pattern already exists — Phase 999.2), never
+  log-and-continue; (b) `/period-summary` logs successful requests and a `ready` verdict, so a
+  blocked payroll pull is visible from HQ's side. This card builds what the close bar's
+  **kill-drill** proves. Footprint: receipt/toast worker + inventory endpoints.
+  - **Half (b) `period-summary-visibility` — DONE, run `20260901` (Card 9, Track C).** Closed
+    the B-139 half: `PeriodSummaryHandler` now emits one `slog.Info "period-summary served"`
+    at the end of the success path (keys `from`, `to`, `ready`, `pending_review_count`,
+    `unlinked_line_item_count`); the `/menu-cogs` sibling gained an analogous
+    `slog.Info "menu-cogs served"` (keys `from`, `to`, `menu_item_count`, `breakdown`).
+    Red-first tests in `internal/inventory` + `internal/recipes`.
+  - **Half (a) `toast-sync-fail-loud` — awaiting (Track A).** The card flips to DONE only when
+    both halves land; the orchestrator does the flip after (a) merges.
 
 - **`receipt-worker-correctness`** · **PLANNED** · Closes **B-28**, **B-175**. Two measured
   defects, one file family: `parseEventDate` stamps COGS periods from server-local time
