@@ -77,26 +77,138 @@ test('scopeFingerprint still joins its operands with a real NUL at runtime', () 
 });
 
 // ---------------------------------------------------------------------------
-// (c) The stale activation gate.
+// (c) The stale activation gate — now FACT-shaped, not spelling-shaped.
 // ---------------------------------------------------------------------------
 //
 // `sync-rxdb-row-visibility-rls` merged in run `overnight-20260801` (`bbbfc64`,
 // merged to the run branch at `bec06f6`; the roadmap flipped it DONE at
-// `914536c`). Two comment blocks still gated activation on it landing —
-// `bootstrap.js:22` and `client.js:1108-1109` — which reads to the next author as
-// an open precondition when it is a closed one, and hides the preconditions that
-// ARE still open.
-test('no sync-rxdb source gates activation on the merged row-visibility-rls card', () => {
+// `914536c`). Comment blocks across the tree gated activation on it "landing",
+// which reads to the next author as an open precondition when it is a closed
+// one, and hides the preconditions that ARE still open (the cutover).
+//
+// The ORIGINAL version of this test (card `repo-hygiene-preconditions`, run
+// 20260806) scanned ONLY `sync-rxdb/*.js` for the literal string
+// `sync-rxdb-row-visibility-rls`. That is spelling-shaped: blind to every
+// paraphrase and to the whole tree outside that one directory. B-140 proved the
+// hole — four live gates stood, three of them in files this test never opened,
+// and it passed; those gates are now corrected. (This block deliberately avoids
+// writing an example paraphrase gate: doing so would trip the very scan below.)
+//
+// Broadened (card `sync-doc-honesty`, run 20260901) to assert on the CLAIM, not
+// the spelling: a live comment that names ANY DONE roadmap card — or the
+// "row-visibility RLS" milestone — as a FUTURE/unlanded precondition. The
+// roadmap files already carry the card statuses; this test reads them.
+
+// The narrow guarantee the original test made is KEPT as a subset assertion, so
+// broadening never loses the specific property `w0-repo-hygiene` established.
+test('no sync-rxdb source spells the merged row-visibility-rls slug (narrow, subset)', () => {
   const dir = path.join(REPO, 'sync-rxdb');
   const hits = [];
   for (const f of fs.readdirSync(dir).filter((x) => x.endsWith('.js')).sort()) {
     read(`sync-rxdb/${f}`)
       .split('\n')
       .forEach((line, i) => {
-        if (line.includes('sync-rxdb-row-visibility-rls')) hits.push(`sync-rxdb/${f}:${i + 1}: ${line.trim()}`);
+        // A LIVE gate spells the slug in future-precondition phrasing. A
+        // retrospective quote ("this used to read ... that card MERGED") is
+        // honest and must not red — the same resolved-marker rule the
+        // whole-tree scan below uses.
+        if (line.includes('sync-rxdb-row-visibility-rls') && GATE_PHRASE.test(line)) {
+          hits.push(`sync-rxdb/${f}:${i + 1}: ${line.trim()}`);
+        }
       });
   }
   expect(hits, 'that card merged 2026-08-01 — a gate on it is stale').toEqual([]);
+});
+
+// Future-precondition phrasing: "until|before|once|when ... lands|ships|merges"
+// (and inflections). This is the shape of a claim that something has not
+// happened yet.
+const GATE_PHRASE =
+  /\b(?:until|before|once|when)\b[^.\n]{0,140}\b(?:land(?:s|ed|ing)?|ship(?:s|ped|ping)?|merg(?:e|es|ed|ing))\b/i;
+// The "row-visibility RLS" milestone by name, in any spelling seen in the tree.
+const ROW_VIS_MILESTONE = /row[- ]visibility[- ]rls|row[- ]visibility\s+rls/i;
+// A block that ACKNOWLEDGES the card is done (merged/landed/used-to/corrected)
+// is an honest retrospective, not a live gate — it must not red.
+const RESOLVED_MARKER =
+  /\bmerged\b|\blanded\b|\bshipped\b|used to|earlier version|corrected|\balready\b|\bDONE\b|no longer/i;
+
+// Every DONE card slug the roadmaps carry — the CURRENT roadmap plus the
+// archived ones (the 08-05 sync-foundation roadmap is where the RLS card holds
+// its DONE status; the current roadmap does not list it as a card at all).
+function doneCardSlugs() {
+  const roadmapFiles = [path.join(REPO, '.night-crew/knowledge/roadmap.md')];
+  const refDir = path.join(REPO, '.night-crew/knowledge/reference');
+  for (const f of fs.readdirSync(refDir)) {
+    if (/^roadmap-.*\.md$/.test(f)) roadmapFiles.push(path.join(refDir, f));
+  }
+  const slugs = new Set();
+  // `- **`slug`** · **DONE...`  — the roadmap card status line format.
+  const re = /^\s*-\s*\*\*`([a-z0-9][a-z0-9-]*)`\*\*\s*·\s*\*\*DONE/gm;
+  for (const file of roadmapFiles) {
+    const txt = fs.readFileSync(file, 'utf8');
+    let m;
+    while ((m = re.exec(txt)) !== null) slugs.add(m[1]);
+  }
+  return slugs;
+}
+
+// The LIVE source tree — code, assets, tests. Deliberately EXCLUDES `.night-crew/`
+// (frozen run artifacts, QA captures, and the knowledge ledger/backlog/roadmap
+// records all correctly QUOTE the defect — retiring those would erase the
+// history), `node_modules`, and vendored code (`vendor/`, `workbox-*.js`,
+// generated `sw.js`).
+function liveSourceFiles() {
+  const out = [];
+  for (const f of fs.readdirSync(REPO)) {
+    if (!/\.(?:js|html)$/.test(f)) continue;
+    if (f.startsWith('workbox-') || f === 'sw.js') continue;
+    out.push(f);
+  }
+  const dirs = ['backend', 'sync-rxdb', 'sync-schema', 'tests', 'scripts', 'lib'];
+  const walk = (rel) => {
+    const abs = path.join(REPO, rel);
+    if (!fs.existsSync(abs)) return;
+    for (const e of fs.readdirSync(abs, { withFileTypes: true })) {
+      if (e.isDirectory()) {
+        if (e.name === 'node_modules' || e.name === 'vendor') continue;
+        walk(path.join(rel, e.name));
+      } else if (/\.(?:js|go|html|sql)$/.test(e.name)) {
+        out.push(path.join(rel, e.name));
+      }
+    }
+  };
+  for (const d of dirs) walk(d);
+  return out;
+}
+
+test('no live comment gates activation on a DONE roadmap card (fact-shaped, whole tree)', () => {
+  const done = doneCardSlugs();
+  // Sanity: the roadmaps must actually yield slugs, or this guard is vacuous —
+  // the repo's characteristic bug class is a check whose subject set went empty.
+  expect(done.size, 'no DONE card slugs parsed from the roadmaps — guard would be vacuous').toBeGreaterThan(5);
+  expect(done.has('sync-rxdb-row-visibility-rls'), 'the RLS card must be a known DONE slug').toBe(true);
+
+  const slugs = [...done].sort((a, b) => b.length - a.length);
+  const WIN = 4; // lines of context on each side of the gate line
+  const hits = [];
+
+  for (const rel of liveSourceFiles()) {
+    const lines = read(rel).split('\n');
+    for (let i = 0; i < lines.length; i++) {
+      if (!GATE_PHRASE.test(lines[i])) continue;
+      const block = lines.slice(Math.max(0, i - WIN), i + WIN + 1).join(' ');
+      const named = slugs.filter((s) => block.includes(s));
+      const milestone = ROW_VIS_MILESTONE.test(block);
+      if (!named.length && !milestone) continue; // gate phrasing about something else
+      if (RESOLVED_MARKER.test(block)) continue; // honest retrospective, not a live gate
+      hits.push(`${rel}:${i + 1}: ${lines[i].trim()} [names: ${named.join(', ') || (milestone ? 'row-visibility-rls milestone' : '')}]`);
+    }
+  }
+
+  expect(
+    hits,
+    'a live comment names a DONE roadmap card as a future/unlanded precondition — that gate is stale (B-140)'
+  ).toEqual([]);
 });
 
 // ---------------------------------------------------------------------------

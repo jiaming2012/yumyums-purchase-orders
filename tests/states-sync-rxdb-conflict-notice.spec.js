@@ -27,8 +27,10 @@
 // The sheet renders from the durable local conflict record; the record is
 // written when `conflict$` fires; `conflict$` fires when replication runs; and
 // replication is deliberately NOT started in this tree (`HQ_SYNC_REST_URL` is
-// unset everywhere and the /sync door answers 503 until row-visibility RLS
-// lands). `sync-hard-cutover` switches the producer on. Seeding the store is
+// unset everywhere and the /sync door answers 503, and no page calls
+// startHQReplication). `sync-hard-cutover` switches the producer on — that is
+// the open precondition, not row-visibility RLS, whose card merged 2026-08-01.
+// Seeding the store is
 // therefore the only honest way to verify these screens today, and the seam it
 // uses (`window.HQConflictNotice.mount({store})`) is the same one the cutover
 // card will hand a real RxDB collection to.
