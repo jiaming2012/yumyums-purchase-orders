@@ -241,11 +241,15 @@ ran it" rule — decision 161's class, `process/C-3` pending.)
   entries. Docs/comments diff — RF `n/a — no code change` recorded explicitly. Footprint:
   backend sync + sync client (comments only).
 
-- **`sync-dev-one-command`** · **PLANNED** · Closes **B-171** (parked pending a credential
-  boundary — the boundary now exists in shape: dev targets carry the 4 `HQ_SYNC_*` vars, prod
-  compose does not, and the standing credential-isolation preference says capability, not
-  guards). One command (`task sync:dev`) brings up data plane + dev server together for the
-  operator's daily use. Footprint: prod infra (Taskfile) + spike scripts.
+- **`sync-dev-one-command`** · **DONE** (run 20260901) · Closes **B-171** (parked pending a
+  credential boundary — the boundary now exists in shape: dev targets carry the 4 `HQ_SYNC_*`
+  vars, prod compose does not, and the standing credential-isolation preference says capability,
+  not guards). One command (`task sync:dev`) brings up data plane + dev server together for the
+  operator's daily use — it composes `sync:dev:up` (carries the untouched B-164 :5433 refusal)
+  → `backend:dev:tailscale` (carries the 4 `HQ_SYNC_*` vars), adding no new logic and no
+  coordinate-guard machinery. Also discharged the B-170 bare-`npx playwright` hardening in
+  `spike-f-browser-live.sh` (the one Playwright-running script in footprint). Footprint: prod
+  infra (Taskfile) + spike scripts.
 
 ## Activity 5 — The planning surface is honest
 
