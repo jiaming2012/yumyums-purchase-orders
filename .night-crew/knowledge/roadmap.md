@@ -181,7 +181,7 @@ ran it" rule — decision 161's class, `process/C-3` pending.)
 > **Trace:** Engineering objective. Overnight-parallel with Activity 3 — disjoint footprints.
 > T-43(b) (the My Checklists read path) remains **OPEN by ruling**; nothing here decides it.
 
-- **`client-guard-coverage`** · **PLANNED** · Closes **B-149**, **B-10**; carries the
+- **`client-guard-coverage`** · **DONE** · Closes **B-149**, **B-10**; carries the
   **B-154 rider** (first sync-touching card: add the `night-crew.toml [e2e.seams]` row for
   `sync-rxdb/` paths, authored deliberately against the sync footprint — until it exists every
   sync card de-confines to the full suite at ~22 min/leg). The uid-mismatch half of the B-89
